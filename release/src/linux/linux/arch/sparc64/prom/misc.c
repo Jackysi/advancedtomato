@@ -1,4 +1,4 @@
-/* $Id: misc.c,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: misc.c,v 1.20 2001/09/21 03:17:07 kanoj Exp $
  * misc.c:  Miscellaneous prom functions that don't belong
  *          anywhere else.
  *
@@ -277,6 +277,10 @@ unsigned long prom_retain(char *name,
 			  unsigned long pa_low, unsigned long pa_high,
 			  long size, long align)
 {
+	/* XXX I don't think we return multiple values correctly.
+	 * XXX OBP supposedly returns pa_low/pa_high here, how does
+	 * XXX it work?
+	 */
 
 	/* If align is zero, the pa_low/pa_high args are passed,
 	 * else they are not.

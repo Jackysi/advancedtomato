@@ -1,5 +1,3 @@
-# BK Id: SCCS/s.Makefile 1.3 05/17/01 18:14:22 cort
-#
 #
 #
 #

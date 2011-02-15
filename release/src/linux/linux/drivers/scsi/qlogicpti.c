@@ -53,7 +53,7 @@ static int qptis_running = 0;
 
 #define PACKB(a, b)			(((a)<<4)|(b))
 
-const u_char mbox_param[] = {
+static const u_char mbox_param[] = {
 	PACKB(1, 1),	/* MBOX_NO_OP */
 	PACKB(5, 5),	/* MBOX_LOAD_RAM */
 	PACKB(2, 0),	/* MBOX_EXEC_FIRMWARE */
@@ -228,6 +228,7 @@ static int qlogicpti_mbox_command(struct qlogicpti *qpti, u_short param[], int f
 	       !(sbus_readw(qpti->qregs + SBUS_SEMAPHORE) & SBUS_SEMAPHORE_LCK)) {
 		udelay(20);
 
+		/* Workaround for some buggy chips. */
 		if (sbus_readw(qpti->qregs + MBOX0) & 0x4000)
 			break;
 	}
@@ -1104,6 +1105,8 @@ static inline int load_cmd(Scsi_Cmnd *Cmnd, struct Command_Entry *cmd,
 
 static inline void update_can_queue(struct Scsi_Host *host, u_int in_ptr, u_int out_ptr)
 {
+	/* Temporary workaround until bug is found and fixed (one bug has been found
+	   already, but fixing it makes things even worse) -jj */
 	int num_free = QLOGICPTI_REQ_QUEUE_LEN - REQ_QUEUE_DEPTH(in_ptr, out_ptr) - 64;
 	host->can_queue = host->host_busy + num_free;
 	host->sg_tablesize = QLOGICPTI_MAX_SG(num_free);
@@ -1530,4 +1533,4 @@ static Scsi_Host_Template driver_template = QLOGICPTI;
 
 #include "scsi_module.c"
 
-EXPORT_NO_SYMBOLS;
+MODULE_LICENSE("GPL");

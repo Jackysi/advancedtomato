@@ -36,18 +36,32 @@
 export FAILCOUNT=0
 export SKIP=
 
+# Helper for helpers. Oh my...
+
+test x"$ECHO" != x"" || {
+	ECHO="echo"
+	test x"`echo -ne`" = x"" || {
+		# Compile and use a replacement 'echo' which understands -e -n
+		ECHO="$PWD/echo-ne"
+		test -x "$ECHO" || {
+			gcc -Os -o "$ECHO" ../scripts/echo.c || exit 1
+		}
+	}
+	export ECHO
+}
+
 # Helper functions
 
 optional()
 {
-  option=`echo ":$OPTIONFLAGS:" | grep ":$1:"`
-  # Not set?
-  if [ -z "$1" ] || [ -z "$OPTIONFLAGS" ] || [ ${#option} -ne 0 ]
-  then
-    SKIP=
-    return
-  fi
-  SKIP=1
+	SKIP=
+	while test "$1"; do
+		if test x"${OPTIONFLAGS/*:$1:*/y}" != x"y"; then
+			SKIP=1
+			return
+		fi
+		shift
+	done
 }
 
 # The testing function
@@ -59,7 +73,7 @@ testing()
 
   if [ $# -ne 5 ]
   then
-    echo "Test $NAME has wrong number of arguments (must be 5) ($# $*)" >&2
+    echo "Test $NAME has wrong number of arguments: $# (must be 5)" >&2
     exit 1
   fi
 
@@ -73,7 +87,7 @@ testing()
 
   $ECHO -ne "$3" > expected
   $ECHO -ne "$4" > input
-  [ -z "$VERBOSE" ] || echo "echo '$5' | $2"
+  [ -z "$VERBOSE" ] || echo "echo -ne '$5' | $2"
   $ECHO -ne "$5" | eval "$2" > actual
   RETVAL=$?
 

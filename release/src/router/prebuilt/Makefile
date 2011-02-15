@@ -1,27 +1,37 @@
-all:
+include ../common.mak
+
+UTILS := wl nas
+
+all: $(UTILS)
 
 clean:
+	rm -f *~ $(UTILS)
 
-install:
+ifneq ($(wildcard $(SRCBASE)/wl/$(PLATFORM)/wl),)
+wl:
+	@cp -f $(SRCBASE)/wl/$(PLATFORM)/wl wl
+else
+wl: wl_exe.o
+	$(CC) $(CCFLAGS) -DBCMWPA2 -o $@ $<
+endif
+
+ifneq ($(wildcard $(SRCBASE)/wl/$(PLATFORM)/nas),)
+nas:
+	@cp -f $(SRCBASE)/wl/$(PLATFORM)/nas nas
+else
+nas: nas_exe.o
+	$(CC) $(CCFLAGS) -DBCMWPA2 -o $@ $< -L../shared  -L../nvram -lnvram -lshared
+endif
+
+install: all
 	install -d $(INSTALLDIR)/usr/sbin
 
 	install -m 0755 nas $(INSTALLDIR)/usr/sbin/nas
-	install -m 0755 nas4not $(INSTALLDIR)/usr/sbin/nas4not
+	$(STRIP) $(INSTALLDIR)/usr/sbin/nas
+	# nas4not is now a symbolic link to nas
+	ln -sf nas $(INSTALLDIR)/usr/sbin/nas4not
 	
-	install -m 0755 igmprt $(INSTALLDIR)/usr/sbin/igmprt
-	$(STRIP) $(INSTALLDIR)/usr/sbin/igmprt
-
 	install -m 0755 wl $(INSTALLDIR)/usr/sbin/wl
 	$(STRIP) $(INSTALLDIR)/usr/sbin/wl
 	
-	install -m 0755 et $(INSTALLDIR)/usr/sbin/et
-	$(STRIP) $(INSTALLDIR)/usr/sbin/et
-
-	install -m 0755 wlconf $(INSTALLDIR)/usr/sbin/wlconf
-	$(STRIP) $(INSTALLDIR)/usr/sbin/wlconf
-
-	
-	install -d $(INSTALLDIR)/usr/lib
-
-	install libbcmcrypto.so $(INSTALLDIR)/usr/lib
 

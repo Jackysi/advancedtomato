@@ -1,0 +1,11 @@
+########################################################
+# LG LDU-1900D EV-DO (Rev. A)
+
+DefaultVendor= 0x1004
+DefaultProduct=0x1000
+
+TargetClass=0xff
+
+CheckSuccess=20
+
+MessageContent="55534243123456780000000000000aff554d53434847000000000000000000"

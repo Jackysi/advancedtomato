@@ -1,23 +1,22 @@
 /* BGP-4 dump routine
- * Copyright (C) 1999 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
- */
+   Copyright (C) 1999 Kunihiro Ishiguro
+
+This file is part of GNU Zebra.
+
+GNU Zebra is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
+
+GNU Zebra is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Zebra; see the file COPYING.  If not, write to the Free
+Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include <zebra.h>
 
@@ -27,7 +26,7 @@
 #include "command.h"
 #include "prefix.h"
 #include "thread.h"
-#include "table.h"
+#include "bgpd/bgp_table.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_route.h"
@@ -270,10 +269,10 @@ void
 bgp_dump_routes_func (int afi)
 {
   struct stream *obuf;
-  struct route_node *rn;
+  struct bgp_node *rn;
   struct bgp_info *info;
   struct bgp *bgp;
-  struct route_table *table;
+  struct bgp_table *table;
   unsigned int seq = 0;
 
   obuf = bgp_dump_obuf;
@@ -288,7 +287,7 @@ bgp_dump_routes_func (int afi)
   /* Walk down each BGP route. */
   table = bgp->rib[afi][SAFI_UNICAST];
 
-  for (rn = route_top (table); rn; rn = route_next (rn))
+  for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
     for (info = rn->info; info; info = info->next)
       bgp_dump_routes_entry (&rn->p, info, afi, MSG_TABLE_DUMP, seq++);
 }

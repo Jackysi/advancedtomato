@@ -1,4 +1,4 @@
-/* $Id: openprom.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $ */
+/* $Id: openprom.h,v 1.9 2001/03/16 10:22:02 davem Exp $ */
 #ifndef __SPARC64_OPENPROM_H
 #define __SPARC64_OPENPROM_H
 
@@ -64,7 +64,7 @@ struct linux_arguments_v0 {
 	int boot_dev_unit;
 	int dev_partition;
 	char *kernel_file_name;
-	void *aieee1;           
+	void *aieee1;           /* XXX */
 };
 
 /* V2 and up boot things. */

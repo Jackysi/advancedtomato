@@ -9,23 +9,32 @@
 
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/statfs.h>
 #include <errno.h>
+#ifndef MNT_DETACH
+#define MNT_DETACH	0x00000002
+#endif
 
 //	#define TEST_INTEGRITY
 
+#ifdef TCONFIG_JFFSV1
+#define JFFS_NAME	"jffs"
+#else
+#define JFFS_NAME	"jffs2"
+#endif
 
 static void error(const char *message)
 {
 	char s[512];
 
-	snprintf(s, sizeof(s), "Error %s JFFS2. Check the logs to see if they contain more details about this error.", message);
-	notice_set("jffs2", s);
+	snprintf(s, sizeof(s), "Error %s JFFS. Check the logs to see if they contain more details about this error.", message);
+	notice_set("jffs", s);
 }
 
 void start_jffs2(void)
 {
 	if (!nvram_match("jffs2_on", "1")) {
-		notice_set("jffs2", "");
+		notice_set("jffs", "");
 		return;
 	}
 
@@ -34,6 +43,7 @@ void start_jffs2(void)
 	int size;
 	int part;
 	const char *p;
+	struct statfs sf;
 
 	if (!wait_action_idle(10)) return;
 
@@ -55,7 +65,7 @@ void start_jffs2(void)
 	if ((p == NULL) || (strcmp(p, s) != 0)) {
 		if (format) {
 			nvram_set("jffs2_size", s);
-			 nvram_commit_x();
+			nvram_commit_x();
 		}
 		else if ((p != NULL) && (*p != 0)) {
 			error("verifying known size of");
@@ -63,16 +73,22 @@ void start_jffs2(void)
 		}
 	}
 
+	if ((statfs("/jffs", &sf) == 0) && (sf.f_type != 0x73717368 /* squashfs */)) {
+		// already mounted
+		notice_set("jffs", format ? "Formatted" : "Loaded");
+		return;
+	}
+
 	if (!mtd_unlock("jffs2")) {
 		error("unlocking");
 		return;
 	}
 
-	modprobe("jffs2");
+	modprobe(JFFS_NAME);
 
-	sprintf(s, "/dev/mtdblock/%d", part);
-	if (mount(s, "/jffs", "jffs2", MS_NOATIME|MS_NODIRATIME, "") != 0) {
-		modprobe_r("jffs2");
+	sprintf(s, MTD_BLKDEV(%d), part);
+	if (mount(s, "/jffs", JFFS_NAME, MS_NOATIME, "") != 0) {
+		modprobe_r(JFFS_NAME);
 		error("mounting");
 		return;
 	}
@@ -95,20 +111,29 @@ void start_jffs2(void)
 	}
 #endif
 
-	notice_set("jffs2", format ? "Formatted." : "");
+	notice_set("jffs", format ? "Formatted" : "Loaded");
 
 	if (((p = nvram_get("jffs2_exec")) != NULL) && (*p != 0)) {
 		chdir("/jffs");
-		xstart(p);
+		system(p);
 		chdir("/");
 	}
+	run_userfile("/jffs", ".autorun", "/jffs", 3);
 }
 
 void stop_jffs2(void)
 {
+	struct statfs sf;
+
 	if (!wait_action_idle(10)) return;
 
-	notice_set("jffs2", "");
-	umount("/jffs");
-	modprobe_r("jffs2");
+	if ((statfs("/jffs", &sf) == 0) && (sf.f_type != 0x73717368)) {
+		// is mounted
+		run_userfile("/jffs", ".autostop", "/jffs", 5);
+		run_nvscript("script_autostop", "/jffs", 5);
+	}
+
+	notice_set("jffs", "Stopped");
+	umount2("/jffs", MNT_DETACH);
+	modprobe_r(JFFS_NAME);
 }

@@ -1211,6 +1211,12 @@ do_sync_known:
 	if(esp->do_pio_cmds){
 		int j = 0;
 
+		/* 
+		 * XXX MSch:
+		 *
+		 * It seems this is required, at least to clean up
+		 * after failed commands when using PIO mode ...
+		 */
 		esp_cmd(esp, eregs, ESP_CMD_FLUSH);
 
 		for(;j<i;j++)
@@ -1249,7 +1255,7 @@ int esp_queue(Scsi_Cmnd *SCpnt, void (*done)(Scsi_Cmnd *))
 	ESPDISC(("N<%02x,%02x>", SCpnt->target, SCpnt->lun));
 
 	esp_get_dmabufs(esp, SCpnt);
-	esp_save_pointers(esp, SCpnt); 
+	esp_save_pointers(esp, SCpnt); /* FIXME for tag queueing */
 
 	SCpnt->SCp.Status           = CHECK_CONDITION;
 	SCpnt->SCp.Message          = 0xff;
@@ -1579,6 +1585,10 @@ static inline int skipahead2(struct NCR_ESP *esp,
 #define fnzero(__esp, __eregs) \
 	(esp_read((__eregs)->esp_fflags) & ESP_FF_ONOTZERO)
 
+/* XXX speculative nops unnecessary when continuing amidst a data phase
+ * XXX even on esp100!!!  another case of flooding the bus with I/O reg
+ * XXX writes...
+ */
 #define esp_maybe_nop(__esp, __eregs) \
 	if((__esp)->erev == esp100) \
 		esp_cmd((__esp), (__eregs), ESP_CMD_NULL)
@@ -1771,6 +1781,9 @@ static int esp_do_data(struct NCR_ESP *esp, struct ESP_regs *eregs)
 	ESPDATA(("newphase<%s> ", (thisphase == in_datain) ? "DATAIN" : "DATAOUT"));
 	hmuch = esp->dma_can_transfer(esp, SCptr);
 
+	/*
+	 * XXX MSch: cater for PIO transfer here; PIO used if hmuch == 0
+	 */
 	if (hmuch) {	/* DMA */
 		/*
 		 * DMA
@@ -1817,7 +1830,16 @@ static int esp_do_data(struct NCR_ESP *esp, struct ESP_regs *eregs)
 		while (hmuch) {
 			int j, fifo_stuck = 0, newphase;
 			unsigned long flags, timeout;
+#if 0
+			if ( i % 10 )
+				ESPDATA(("\r"));
+			else
+				ESPDATA(( /*"\n"*/ "\r"));
+#endif
 			save_flags(flags);
+#if 0
+			cli();
+#endif
 			if(thisphase == in_datain) {
 				/* 'go' ... */ 
 				esp_cmd(esp, eregs, ESP_CMD_TI);
@@ -1926,6 +1948,7 @@ static int esp_do_data(struct NCR_ESP *esp, struct ESP_regs *eregs)
 				break;
 			}
 
+			/* XXX fixme: bail out on stall */
 			if (fifo_stuck > 10) {
 				/* we're stuck */
 				ESPDATA(("fifo stall; %d transferred ... ", i));
@@ -2017,15 +2040,47 @@ static int esp_do_data_finale(struct NCR_ESP *esp,
 	 */
 	esp_advance_phase(SCptr, in_the_dark);
 
+	/* Check for premature interrupt condition. Can happen on FAS2x6
+	 * chips. QLogic recommends a workaround by overprogramming the
+	 * transfer counters, but this makes doing scatter-gather impossible.
+	 * Until there is a way to disable scatter-gather for a single target,
+	 * and not only for the entire host adapter as it is now, the workaround
+	 * is way to expensive performance wise.
+	 * Instead, it turns out that when this happens the target has disconnected
+	 * allready but it doesn't show in the interrupt register. Compensate for
+	 * that here to try and avoid a SCSI bus reset.
+	 */
 	if(!esp->fas_premature_intr_workaround && (fifocnt == 1) &&
 	   sreg_dataoutp(esp->sreg)) {
 		ESPLOG(("esp%d: Premature interrupt, enabling workaround\n",
 			esp->esp_id));
+#if 0
+		/* Disable scatter-gather operations, they are not possible
+		 * when using this workaround.
+		 */
+		esp->ehost->sg_tablesize = 0;
+		esp->ehost->use_clustering = ENABLE_CLUSTERING;
+		esp->fas_premature_intr_workaround = 1;
+		bytes_sent = 0;
+		if(SCptr->use_sg) {
+			ESPLOG(("esp%d: Aborting scatter-gather operation\n",
+				esp->esp_id));
+			esp->cur_msgout[0] = ABORT;
+			esp->msgout_len = 1;
+			esp->msgout_ctr = 0;
+			esp_cmd(esp, eregs, ESP_CMD_SATN);
+			esp_setcount(eregs, 0xffff);
+			esp_cmd(esp, eregs, ESP_CMD_NULL);
+			esp_cmd(esp, eregs, ESP_CMD_TPAD | ESP_CMD_DMA);
+			return do_intr_end;
+		}
+#else
 		/* Just set the disconnected bit. That's what appears to
 		 * happen anyway. The state machine will pick it up when
 		 * we return.
 		 */
 		esp->ireg |= ESP_INTR_DC;
+#endif
         }
 
 	if(bytes_sent < 0) {
@@ -2557,10 +2612,38 @@ static int esp_select_complete(struct NCR_ESP *esp, struct ESP_regs *eregs)
 		default:
 
 		case ESP_STEP_ASEL:
+			/* Arbitration won, target selected, but
+			 * we are in some phase which is not command
+			 * phase nor is it message out phase.
+			 *
+			 * XXX We've confused the target, obviously.
+			 * XXX So clear it's state, but we also end
+			 * XXX up clearing everyone elses.  That isn't
+			 * XXX so nice.  I'd like to just reset this
+			 * XXX target, but if I cannot even get it's
+			 * XXX attention and finish selection to talk
+			 * XXX to it, there is not much more I can do.
+			 * XXX If we have a loaded bus we're going to
+			 * XXX spend the next second or so renegotiating
+			 * XXX for synchronous transfers.
+			 */
 			ESPLOG(("esp%d: STEP_ASEL for tgt %d\n",
 				esp->esp_id, SCptr->target));
 
 		case ESP_STEP_SID:
+			/* Arbitration won, target selected, went
+			 * to message out phase, sent one message
+			 * byte, then we stopped.  ATN is asserted
+			 * on the SCSI bus and the target is still
+			 * there hanging on.  This is a legal
+			 * sequence step if we gave the ESP a select
+			 * and stop command.
+			 *
+			 * XXX See above, I could set the borken flag
+			 * XXX in the device struct and retry the
+			 * XXX command.  But would that help for
+			 * XXX tagged capable targets?
+			 */
 
 		case ESP_STEP_NCMD:
 			/* Arbitration won, target selected, maybe
@@ -2575,6 +2658,24 @@ static int esp_select_complete(struct NCR_ESP *esp, struct ESP_regs *eregs)
 			break;
 
 		case ESP_STEP_PPC:
+			/* No, not the powerPC pinhead.  Arbitration
+			 * won, all message bytes sent if we went to
+			 * message out phase, went to command phase
+			 * but only part of the command was sent.
+			 *
+			 * XXX I've seen this, but usually in conjunction
+			 * XXX with a gross error which appears to have
+			 * XXX occurred between the time I told the
+			 * XXX ESP to arbitrate and when I got the
+			 * XXX interrupt.  Could I have misloaded the
+			 * XXX command bytes into the fifo?  Actually,
+			 * XXX I most likely missed a phase, and therefore
+			 * XXX went into never never land and didn't even
+			 * XXX know it.  That was the old driver though.
+			 * XXX What is even more peculiar is that the ESP
+			 * XXX showed the proper function complete and
+			 * XXX bus service bits in the interrupt register.
+			 */
 
 		case ESP_STEP_FINI4:
 		case ESP_STEP_FINI5:
@@ -2601,6 +2702,25 @@ static int esp_select_complete(struct NCR_ESP *esp, struct ESP_regs *eregs)
 			if(cmd_bytes_sent < 0)
 				cmd_bytes_sent = 0;
 			if(cmd_bytes_sent != SCptr->cmd_len) {
+				/* Crapola, mark it as a slowcmd
+				 * so that we have some chance of
+				 * keeping the command alive with
+				 * good luck.
+				 *
+				 * XXX Actually, if we didn't send it all
+				 * XXX this means either we didn't set things
+				 * XXX up properly (driver bug) or the target
+				 * XXX or the ESP detected parity on one of
+				 * XXX the command bytes.  This makes much
+				 * XXX more sense, and therefore this code
+				 * XXX should be changed to send out a
+				 * XXX parity error message or if the status
+				 * XXX register shows no parity error then
+				 * XXX just expect the target to bring the
+				 * XXX bus into message in phase so that it
+				 * XXX can send us the parity error message.
+				 * XXX SCSI sucks...
+				 */
 				esp->esp_slowcmd = 1;
 				esp->esp_scmdp = &(SCptr->cmnd[cmd_bytes_sent]);
 				esp->esp_scmdleft = (SCptr->cmd_len - cmd_bytes_sent);
@@ -2637,6 +2757,16 @@ static int esp_select_complete(struct NCR_ESP *esp, struct ESP_regs *eregs)
 			SDptr->sync_min_period = 0;
 			SDptr->sync = 1; /* so we don't negotiate again */
 
+			/* Run the command again, this time though we
+			 * won't try to negotiate for synchronous transfers.
+			 *
+			 * XXX I'd like to do something like send an
+			 * XXX INITIATOR_ERROR or ABORT message to the
+			 * XXX target to tell it, "Sorry I confused you,
+			 * XXX please come back and I will be nicer next
+			 * XXX time".  But that requires having the target
+			 * XXX on the bus, and it has dropped BSY on us.
+			 */
 			esp->current_SC = NULL;
 			esp_advance_phase(SCptr, not_issued);
 			prepend_SC(&esp->issue_SC, SCptr);

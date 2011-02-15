@@ -1,4 +1,4 @@
-/* $Id: natpmp.h,v 1.3 2007/12/13 16:36:52 nanard Exp $ */
+/* $Id: natpmp.h,v 1.6 2010/01/14 18:44:31 nanard Exp $ */
 /* MiniUPnP project
  * author : Thomas Bernard
  * website : http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -7,14 +7,17 @@
 #define __NATPMP_H__
 
 #define NATPMP_PORT (5351)
+#define NATPMP_NOTIF_ADDR	("224.0.0.1")
 
-int OpenAndConfNATPMPSocket();
+int OpenAndConfNATPMPSockets(int * sockets);
 
 void ProcessIncomingNATPMPPacket(int s);
 
 int ScanNATPMPforExpiration();
 
 int CleanExpiredNATPMP();
+
+void SendNATPMPPublicAddressChangeNotification(int * sockets, int n_sockets);
 
 #endif
 

@@ -5,7 +5,7 @@
  *	Authors:
  *	Lennert Buytenhek		<buytenh@gnu.org>
  *
- *	$Id: br_stp_if.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ *	$Id: br_stp_if.c,v 1.4 2001/04/14 21:14:39 davem Exp $
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -121,7 +121,7 @@ void br_stp_disable_port(struct net_bridge_port *p)
 }
 
 /* called under bridge lock */
-static void br_stp_change_bridge_id(struct net_bridge *br, unsigned char *addr)
+void br_stp_change_bridge_id(struct net_bridge *br, unsigned char *addr)
 {
 	unsigned char oldaddr[6];
 	struct net_bridge_port *p;
@@ -155,19 +155,15 @@ static unsigned char br_mac_zero[6] = {0,0,0,0,0,0};
 /* called under bridge lock */
 void br_stp_recalculate_bridge_id(struct net_bridge *br)
 {
-	unsigned char *addr;
+	unsigned char *addr = br_mac_zero;
 	struct net_bridge_port *p;
 
-	addr = br_mac_zero;
+	/* user has chosen a value so keep it */
+	if (br->flags & BR_SET_MAC_ADDR)
+		return;
 
 	p = br->port_list;
 	while (p != NULL) {
-		/* match against preferred address first */
-		if (memcmp(p->dev->dev_addr, br->preferred_id.addr, ETH_ALEN) == 0) {
-			addr = p->dev->dev_addr;
-			break;
-		}
-
 		if (addr == br_mac_zero ||
 		    memcmp(p->dev->dev_addr, addr, ETH_ALEN) < 0)
 			addr = p->dev->dev_addr;

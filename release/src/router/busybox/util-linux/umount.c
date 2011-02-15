@@ -7,9 +7,42 @@
  *
  * Licensed under GPL version 2, see file LICENSE in this tarball for details.
  */
-
 #include <mntent.h>
+#include <sys/mount.h>
+/* Make sure we have all the new mount flags we actually try to use. */
+#ifndef MS_BIND
+# define MS_BIND        (1 << 12)
+#endif
+#ifndef MS_MOVE
+# define MS_MOVE        (1 << 13)
+#endif
+#ifndef MS_RECURSIVE
+# define MS_RECURSIVE   (1 << 14)
+#endif
+#ifndef MS_SILENT
+# define MS_SILENT      (1 << 15)
+#endif
+/* The shared subtree stuff, which went in around 2.6.15. */
+#ifndef MS_UNBINDABLE
+# define MS_UNBINDABLE  (1 << 17)
+#endif
+#ifndef MS_PRIVATE
+# define MS_PRIVATE     (1 << 18)
+#endif
+#ifndef MS_SLAVE
+# define MS_SLAVE       (1 << 19)
+#endif
+#ifndef MS_SHARED
+# define MS_SHARED      (1 << 20)
+#endif
+#ifndef MS_RELATIME
+# define MS_RELATIME    (1 << 21)
+#endif
 #include "libbb.h"
+#ifndef PATH_MAX
+# define PATH_MAX (4*1024)
+#endif
+
 
 #if defined(__dietlibc__)
 /* 16.12.2006, Sampo Kellomaki (sampo@iki.fi)
@@ -40,7 +73,7 @@ int umount_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int umount_main(int argc UNUSED_PARAM, char **argv)
 {
 	int doForce;
-	char *const path = xmalloc(PATH_MAX + 2); /* to save stack */
+	char *const buf = xmalloc(PATH_MAX * 2 + 128); /* to save stack */
 	struct mntent me;
 	FILE *fp;
 	char *fstype = NULL;
@@ -71,7 +104,7 @@ int umount_main(int argc UNUSED_PARAM, char **argv)
 		if (opt & OPT_ALL)
 			bb_error_msg_and_die("can't open '%s'", bb_path_mtab_file);
 	} else {
-		while (getmntent_r(fp, &me, path, PATH_MAX)) {
+		while (getmntent_r(fp, &me, buf, PATH_MAX * 2 + 128)) {
 			/* Match fstype if passed */
 			if (!match_fstype(&me, fstype))
 				continue;
@@ -95,10 +128,11 @@ int umount_main(int argc UNUSED_PARAM, char **argv)
 	for (;;) {
 		int curstat;
 		char *zapit = *argv;
+		char *path;
 
 		// Do we already know what to umount this time through the loop?
 		if (m)
-			safe_strncpy(path, m->dir, PATH_MAX);
+			path = xstrdup(m->dir);
 		// For umount -a, end of mtab means time to exit.
 		else if (opt & OPT_ALL)
 			break;
@@ -107,10 +141,12 @@ int umount_main(int argc UNUSED_PARAM, char **argv)
 			if (!zapit)
 				break;
 			argv++;
-			realpath(zapit, path);
-			for (m = mtl; m; m = m->next)
-				if (!strcmp(path, m->dir) || !strcmp(path, m->device))
-					break;
+			path = xmalloc_realpath(zapit);
+			if (path) {
+				for (m = mtl; m; m = m->next)
+					if (strcmp(path, m->dir) == 0 || strcmp(path, m->device) == 0)
+						break;
+			}
 		}
 		// If we couldn't find this sucker in /etc/mtab, punt by passing our
 		// command line argument straight to the umount syscall.  Otherwise,
@@ -152,9 +188,13 @@ int umount_main(int argc UNUSED_PARAM, char **argv)
 		// Find next matching mtab entry for -a or umount /dev
 		// Note this means that "umount /dev/blah" will unmount all instances
 		// of /dev/blah, not just the most recent.
-		if (m) while ((m = m->next) != NULL)
-			if ((opt & OPT_ALL) || !strcmp(path, m->device))
-				break;
+		if (m) {
+			while ((m = m->next) != NULL)
+				// NB: if m is non-NULL, path is non-NULL as well
+				if ((opt & OPT_ALL) || strcmp(path, m->device) == 0)
+					break;
+		}
+		free(path);
 	}
 
 	// Free mtab list if necessary
@@ -166,7 +206,7 @@ int umount_main(int argc UNUSED_PARAM, char **argv)
 			free(mtl);
 			mtl = m;
 		}
-		free(path);
+		free(buf);
 	}
 
 	return status;

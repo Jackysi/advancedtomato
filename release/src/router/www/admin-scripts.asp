@@ -20,7 +20,7 @@
 <style type='text/css'>
 .as-script {
 	font: 12px monospace;
-	width: 100%;
+	width: 99%;
 	height: 400px;
 	overflow: scroll;
 	border: 1px solid #eee;

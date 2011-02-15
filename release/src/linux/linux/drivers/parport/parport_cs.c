@@ -5,7 +5,7 @@
     (specifically, for the Quatech SPP-100 EPP card: other cards will
     probably require driver tweaks)
     
-    parport_cs.c 1.24 2001/10/13 14:04:05
+    parport_cs.c 1.29 2002/10/11 06:57:41
 
     The contents of this file are subject to the Mozilla Public
     License Version 1.1 (the "License"); you may not use this file
@@ -34,9 +34,7 @@
     
 ======================================================================*/
 
-
 #include <linux/kernel.h>
-#include <linux/version.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/sched.h>
@@ -78,7 +76,7 @@ INT_MODULE_PARM(epp_mode, 1);
 INT_MODULE_PARM(pc_debug, PCMCIA_DEBUG);
 #define DEBUG(n, args...) if (pc_debug>(n)) printk(KERN_DEBUG args)
 static char *version =
-"parport_cs.c 1.24 2001/10/13 14:04:05 (David Hinds)";
+"parport_cs.c 1.29 2002/10/11 06:57:41 (David Hinds)";
 #else
 #define DEBUG(n, args...)
 #endif
@@ -224,12 +222,6 @@ while ((last_ret=CardServices(last_fn=(fn), args))!=0) goto cs_failed
 #define CFG_CHECK(fn, args...) \
 if (CardServices(fn, args) != 0) goto next_entry
 
-static struct { u_int flag; char *name; } mode[] = {
-    { PARPORT_MODE_TRISTATE, "PS2" },
-    { PARPORT_MODE_EPP, "EPP" },
-    { PARPORT_MODE_ECP, "ECP" },
-};
-
 void parport_config(dev_link_t *link)
 {
     client_handle_t handle = link->handle;
@@ -241,7 +233,7 @@ void parport_config(dev_link_t *link)
     cistpl_cftable_entry_t *cfg = &parse.cftable_entry;
     cistpl_cftable_entry_t dflt = { 0 };
     struct parport *p;
-    int i, last_ret, last_fn;
+    int last_ret, last_fn;
     
     DEBUG(0, "parport_config(0x%p)\n", link);
     
@@ -293,6 +285,9 @@ void parport_config(dev_link_t *link)
     CS_CHECK(RequestIRQ, handle, &link->irq);
     CS_CHECK(RequestConfiguration, handle, &link->conf);
 
+    release_region(link->io.BasePort1, link->io.NumPorts1);
+    if (link->io.NumPorts2)
+	release_region(link->io.BasePort2, link->io.NumPorts2);
     p = parport_pc_probe_port(link->io.BasePort1, link->io.BasePort2,
 			      link->irq.AssignedIRQ, PARPORT_DMA_NONE,
 			      NULL);
@@ -312,15 +307,7 @@ void parport_config(dev_link_t *link)
     info->port = p;
     strcpy(info->node.dev_name, p->name);
     link->dev = &info->node;
-    printk(KERN_INFO "%s: PC-style PCMCIA at %#x", p->name,
-	   link->io.BasePort1);
-    if (link->io.NumPorts2)
-	printk(" & %#x", link->io.BasePort2);
-    printk(", irq %u [SPP", link->irq.AssignedIRQ);
-    for (i = 0; i < 5; i++)
-	if (p->modes & mode[i].flag) printk(",%s", mode[i].name);
-    printk("]\n");
-    
+
     link->state &= ~DEV_CONFIG_PENDING;
     return;
     
@@ -328,6 +315,7 @@ cs_failed:
     cs_error(link->handle, last_fn, last_ret);
 failed:
     parport_cs_release((u_long)link);
+    link->state &= ~DEV_CONFIG_PENDING;
 
 } /* parport_config */
 
@@ -348,9 +336,12 @@ void parport_cs_release(u_long arg)
 
     if (info->ndev) {
 	struct parport *p = info->port;
-	parport_proc_unregister(p);
-	kfree(p->private_data);
-	parport_unregister_port(p);
+	parport_pc_unregister_port(p);
+	request_region(link->io.BasePort1, link->io.NumPorts1,
+		       info->node.dev_name);
+	if (link->io.NumPorts2)
+	    request_region(link->io.BasePort2, link->io.NumPorts2,
+			   info->node.dev_name);
     }
     info->ndev = 0;
     link->dev = NULL;
@@ -415,9 +406,8 @@ static int __init init_parport_cs(void)
     if (serv.Revision != CS_RELEASE_CODE) {
 	printk(KERN_NOTICE "parport_cs: Card Services release "
 	       "does not match!\n");
-	return -1;
+	return -EINVAL;
     }
-
     register_pccard_driver(&dev_info, &parport_attach, &parport_detach);
     return 0;
 }

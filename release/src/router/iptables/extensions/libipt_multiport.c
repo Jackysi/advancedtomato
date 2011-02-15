@@ -9,6 +9,7 @@
 #include "../include/linux/netfilter_ipv4/ipt_multiport.h"
 
 /* Function which prints out usage message. */
+#if 0
 static void
 help(void)
 {
@@ -25,6 +26,7 @@ help(void)
 " NOTE: this kernel does not support port ranges in multiport.\n",
 IPTABLES_VERSION);
 }
+#endif
 
 static void
 help_v1(void)
@@ -59,6 +61,8 @@ proto_to_name(u_int8_t proto)
 		return "tcp";
 	case IPPROTO_UDP:
 		return "udp";
+	case IPPROTO_UDPLITE:
+		return "udplite";
 	case IPPROTO_SCTP:
 		return "sctp";
 	case IPPROTO_DCCP:
@@ -68,6 +72,7 @@ proto_to_name(u_int8_t proto)
 	}
 }
 
+#if 0
 static unsigned int
 parse_multi_ports(const char *portstring, u_int16_t *ports, const char *proto)
 {
@@ -87,6 +92,7 @@ parse_multi_ports(const char *portstring, u_int16_t *ports, const char *proto)
 	free(buffer);
 	return i;
 }
+#endif
 
 static void
 parse_multi_ports_v1(const char *portstring, 
@@ -141,20 +147,22 @@ check_proto(const struct ipt_entry *entry)
 
 	if (entry->ip.invflags & IPT_INV_PROTO)
 		exit_error(PARAMETER_PROBLEM,
-			   "multiport only works with TCP or UDP");
+			   "multiport only works with TCP, UDP, UDPLITE, SCTP and DCCP");
 
 	if ((proto = proto_to_name(entry->ip.proto)) != NULL)
 		return proto;
 	else if (!entry->ip.proto)
 		exit_error(PARAMETER_PROBLEM,
-			   "multiport needs `-p tcp', `-p udp', `-p sctp' or `-p dccp'");
+			   "multiport needs `-p tcp', `-p udp', `-p udplite', "
+			   "`-p sctp' or `-p dccp'");
 	else
 		exit_error(PARAMETER_PROBLEM,
-			   "multiport only works with TCP, UDP, SCTP and DCCP");
+			   "multiport only works with TCP, UDP, UDPLITE, SCTP and DCCP");
 }
 
 /* Function which parses command options; returns true if it
    ate an option */
+#if 0
 static int
 parse(int c, char **argv, int invert, unsigned int *flags,
       const struct ipt_entry *entry,
@@ -204,6 +212,7 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 	*flags = 1;
 	return 1;
 }
+#endif
 
 static int
 parse_v1(int c, char **argv, int invert, unsigned int *flags,
@@ -282,6 +291,7 @@ print_port(u_int16_t port, u_int8_t protocol, int numeric)
 }
 
 /* Prints out the matchinfo. */
+#if 0
 static void
 print(const struct ipt_ip *ip,
       const struct ipt_entry_match *match,
@@ -317,6 +327,7 @@ print(const struct ipt_ip *ip,
 	}
 	printf(" ");
 }
+#endif
 
 static void
 print_v1(const struct ipt_ip *ip,
@@ -362,6 +373,7 @@ print_v1(const struct ipt_ip *ip,
 }
 
 /* Saves the union ipt_matchinfo in parsable form to stdout. */
+#if 0
 static void save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 {
 	const struct ipt_multiport *multiinfo
@@ -388,6 +400,7 @@ static void save(const struct ipt_ip *ip, const struct ipt_entry_match *match)
 	}
 	printf(" ");
 }
+#endif
 
 static void save_v1(const struct ipt_ip *ip, 
 		    const struct ipt_entry_match *match)
@@ -424,6 +437,7 @@ static void save_v1(const struct ipt_ip *ip,
 	printf(" ");
 }
 
+#if 0
 static struct iptables_match multiport = { 
 	.next		= NULL,
 	.name		= "multiport",
@@ -439,6 +453,7 @@ static struct iptables_match multiport = {
 	.save		= &save,
 	.extra_opts	= opts
 };
+#endif
 
 static struct iptables_match multiport_v1 = { 
 	.next		= NULL,
@@ -459,6 +474,8 @@ static struct iptables_match multiport_v1 = {
 void
 _init(void)
 {
+#if 0
 	register_match(&multiport);
+#endif
 	register_match(&multiport_v1);
 }

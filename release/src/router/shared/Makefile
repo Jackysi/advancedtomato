@@ -1,6 +1,6 @@
 include ../common.mak
 
-CFLAGS = -Os -Wall #-mips32
+CFLAGS = -Os -Wall $(EXTRACFLAGS) -fPIC
 CFLAGS += -I. -I$(SRCBASE)/include -I$(SRCBASE)/
 
 LDFLAGS =
@@ -8,7 +8,20 @@ LDFLAGS =
 OBJS = shutils.o wl.o wl_linux.o linux_timer.o defaults.o id.o
 OBJS += misc.o led.o version.o base64.o files.o strings.o process.o
 
+ifeq ($(TCONFIG_USB),y)
+OBJS += usb.o
+OBJS += $(TOP)/busybox/util-linux/volume_id/ext.o
+OBJS += $(TOP)/busybox/util-linux/volume_id/util2.o
+OBJS += $(TOP)/busybox/util-linux/volume_id/fat.o
+OBJS += $(TOP)/busybox/util-linux/volume_id/ntfs.o
+OBJS += $(TOP)/busybox/util-linux/volume_id/linux_swap.o
+endif
+
 all: libshared.so libshared.a
+
+ifeq ($(CONFIG_BCMWL5),y)
+OBJS += wlif_utils.o UdpLib.o
+endif
 
 libshared.so: $(OBJS)
 	@echo " [shared] LD $@"

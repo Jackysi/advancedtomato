@@ -1,1 +1,0 @@
-#undef  CONFIG_TXX927_SERIAL

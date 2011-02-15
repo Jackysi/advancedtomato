@@ -3,11 +3,11 @@
  *	Linux INET6 implementation 
  *
  *	Authors:
- *	Pedro Roque		<roque@di.fc.ul.pt>	
+ *	Pedro Roque		<pedro_m@yahoo.com>	
  *
  *	Adapted from linux/net/ipv4/raw.c
  *
- *	$Id: raw.c,v 1.1.1.4 2003/10/14 08:09:34 sparq Exp $
+ *	$Id: raw.c,v 1.50.2.1 2002/03/05 12:47:34 davem Exp $
  *
  *	Fixes:
  *	Hideaki YOSHIFUJI	:	sin6_scope_id support
@@ -97,7 +97,7 @@ struct sock *__raw_v6_lookup(struct sock *sk, unsigned short num,
 				if (ipv6_addr_cmp(&np->rcv_saddr, loc_addr) == 0)
 					break;
 				if ((addr_type & IPV6_ADDR_MULTICAST) &&
-				    inet6_mc_check(s, loc_addr))
+				    inet6_mc_check(s, loc_addr, rmt_addr))
 					break;
 				continue;
 			}
@@ -163,15 +163,17 @@ struct sock * ipv6_raw_deliver(struct sk_buff *skb, int nexthdr)
 		sk2 = sk;
 
 		while ((sk2 = __raw_v6_lookup(sk2->next, nexthdr, daddr, saddr))) {
-			struct sk_buff *buff;
+			struct sk_buff *clone;
 
 			if (nexthdr == IPPROTO_ICMPV6 &&
 			    icmpv6_filter(sk2, skb))
 				continue;
 
-			buff = skb_clone(skb, GFP_ATOMIC);
-			if (buff)
-				rawv6_rcv(sk2, buff);
+			clone = skb_clone(skb, GFP_ATOMIC);
+			if (clone) {
+				nf_reset(clone);
+				rawv6_rcv(sk2, clone);
+			}
 		}
 	}
 
@@ -279,8 +281,11 @@ void rawv6_err(struct sock *sk, struct sk_buff *skb,
 
 static inline int rawv6_rcv_skb(struct sock * sk, struct sk_buff * skb)
 {
+	if ((sk->tp_pinfo.tp_raw.checksum
 #if defined(CONFIG_FILTER)
-	if (sk->filter && skb->ip_summed != CHECKSUM_UNNECESSARY) {
+	    || sk->filter 
+#endif
+	    ) && skb->ip_summed != CHECKSUM_UNNECESSARY) {
 		if ((unsigned short)csum_fold(skb_checksum(skb, 0, skb->len, skb->csum))) {
 			IP6_INC_STATS_BH(Ip6InDiscards);
 			kfree_skb(skb);
@@ -288,7 +293,6 @@ static inline int rawv6_rcv_skb(struct sock * sk, struct sk_buff * skb)
 		}
 		skb->ip_summed = CHECKSUM_UNNECESSARY;
 	}
-#endif
 	/* Charge it to the socket. */
 	if (sock_queue_rcv_skb(sk,skb)<0) {
 		IP6_INC_STATS_BH(Ip6InDiscards);
@@ -405,7 +409,10 @@ int rawv6_recvmsg(struct sock *sk, struct msghdr *msg, int len,
 
 	if (sk->net_pinfo.af_inet6.rxopt.all)
 		datagram_recv_ctl(sk, msg, skb);
+
 	err = copied;
+	if (flags & MSG_TRUNC)
+		err = skb->len;
 
 out_free:
 	skb_free_datagram(sk, skb);
@@ -573,7 +580,7 @@ static int rawv6_sendmsg(struct sock *sk, struct msghdr *msg, int len)
 			fl.oif = sin6->sin6_scope_id;
 	} else {
 		if (sk->state != TCP_ESTABLISHED) 
-			return(-EINVAL);
+			return -EDESTADDRREQ;
 		
 		proto = sk->num;
 		daddr = &(sk->net_pinfo.af_inet6.daddr);
@@ -771,6 +778,7 @@ static int rawv6_getsockopt(struct sock *sk, int level, int optname,
 			val = -1;
 		else
 			val = opt->offset;
+		break;
 
 	default:
 		return -ENOPROTOOPT;

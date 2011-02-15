@@ -1,18 +1,13 @@
 /*
- * bonito.h
- *
- * Carsten Langgaard, carstenl@mips.com
- * Copyright (C) 2001 MIPS Technologies, Inc.  All rights reserved.
- *
- * ########################################################################
+ * Bonito Register Map
  *
  * This file is the original bonito.h from Algorithmics with minor changes
  * to fit into linux.
- */
-
-/*
- * Bonito Register Map
+ *
  * Copyright (c) 1999 Algorithmics Ltd
+ *
+ * Carsten Langgaard, carstenl@mips.com
+ * Copyright (C) 2001 MIPS Technologies, Inc.  All rights reserved.
  *
  * Algorithmics gives permission for anyone to use and modify this file
  * without any obligation or license condition except that you retain
@@ -40,6 +35,12 @@
 
 /* offsets from base pointer, this construct allows optimisation */
 /* static char * const _bonito = PA_TO_KVA1(BONITO_BASE); */
+
+/*
+ * Algorithmics Bonito64 system controller register base.
+ */
+extern char * const _bonito;
+
 #define BONITO(x)		*(volatile u32 *)(_bonito + (x))
 
 #endif /* __ASSEMBLY__ */

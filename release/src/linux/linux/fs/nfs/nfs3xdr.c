@@ -181,6 +181,7 @@ xdr_decode_fattr(u32 *p, struct nfs_fattr *fattr)
 
 	/* Update the mode bits */
 	fattr->valid |= (NFS_ATTR_FATTR | NFS_ATTR_FATTR_V3);
+	fattr->timestamp = jiffies;
 	return p;
 }
 
@@ -465,6 +466,13 @@ nfs3_xdr_linkargs(struct rpc_rqst *req, u32 *p, struct nfs3_linkargs *args)
 	return 0;
 }
 
+/* Hack to sign-extending 32-bit cookies */
+static inline
+u64 nfs_transform_cookie64(u64 cookie)
+{
+	return (cookie & 0x80000000) ? (cookie ^ 0xFFFFFFFF00000000LL) : cookie;
+}
+
 /*
  * Encode arguments to readdir call
  */
@@ -476,7 +484,7 @@ nfs3_xdr_readdirargs(struct rpc_rqst *req, u32 *p, struct nfs3_readdirargs *args
 	u32 count = args->count;
 
 	p = xdr_encode_fhandle(p, args->fh);
-	p = xdr_encode_hyper(p, args->cookie);
+	p = xdr_encode_hyper(p, nfs_transform_cookie64(args->cookie));
 	*p++ = args->verf[0];
 	*p++ = args->verf[1];
 	if (args->plus) {
@@ -600,6 +608,7 @@ u32 *
 nfs3_decode_dirent(u32 *p, struct nfs_entry *entry, int plus)
 {
 	struct nfs_entry old = *entry;
+	u64 cookie;
 
 	if (!*p++) {
 		if (!*p)
@@ -613,24 +622,23 @@ nfs3_decode_dirent(u32 *p, struct nfs_entry *entry, int plus)
 	entry->name = (const char *) p;
 	p += XDR_QUADLEN(entry->len);
 	entry->prev_cookie = entry->cookie;
-	p = xdr_decode_hyper(p, &entry->cookie);
+	p = xdr_decode_hyper(p, &cookie);
+	entry->cookie = nfs_transform_cookie64(cookie);
 
 	if (plus) {
-		p = xdr_decode_post_op_attr(p, &entry->fattr);
+		entry->fattr->valid = 0;
+		p = xdr_decode_post_op_attr(p, entry->fattr);
 		/* In fact, a post_op_fh3: */
 		if (*p++) {
-			p = xdr_decode_fhandle(p, &entry->fh);
+			p = xdr_decode_fhandle(p, entry->fh);
 			/* Ugh -- server reply was truncated */
 			if (p == NULL) {
 				dprintk("NFS: FH truncated\n");
 				*entry = old;
 				return ERR_PTR(-EAGAIN);
 			}
-		} else {
-			/* If we don't get a file handle, the attrs
-			 * aren't worth a lot. */
-			entry->fattr.valid = 0;
-		}
+		} else
+			memset((u8*)(entry->fh), 0, sizeof(*entry->fh));
 	}
 
 	entry->eof = !p[0] && p[1];
@@ -769,8 +777,11 @@ nfs3_xdr_readlinkres(struct rpc_rqst *req, u32 *p, struct nfs_fattr *fattr)
 	strlen = (u32*)kmap(rcvbuf->pages[0]);
 	/* Convert length of symlink */
 	len = ntohl(*strlen);
-	if (len > rcvbuf->page_len)
-		len = rcvbuf->page_len;
+	if (len >= rcvbuf->page_len - sizeof(u32)) {
+		dprintk("NFS: server returned giant symlink!\n");
+		kunmap_atomic(strlen, KM_USER0);
+		return -ENAMETOOLONG;
+        }
 	*strlen = len;
 	/* NULL terminate the string we got */
 	string = (char *)(strlen + 1);
@@ -913,14 +924,13 @@ nfs3_xdr_linkres(struct rpc_rqst *req, u32 *p, struct nfs3_linkres *res)
  * Decode FSSTAT reply
  */
 static int
-nfs3_xdr_fsstatres(struct rpc_rqst *req, u32 *p, struct nfs_fsinfo *res)
+nfs3_xdr_fsstatres(struct rpc_rqst *req, u32 *p, struct nfs_fsstat *res)
 {
-	struct nfs_fattr dummy;
 	int		status;
 
 	status = ntohl(*p++);
 
-	p = xdr_decode_post_op_attr(p, &dummy);
+	p = xdr_decode_post_op_attr(p, res->fattr);
 	if (status != 0)
 		return -nfs_stat_to_errno(status);
 
@@ -930,8 +940,7 @@ nfs3_xdr_fsstatres(struct rpc_rqst *req, u32 *p, struct nfs_fsinfo *res)
 	p = xdr_decode_hyper(p, &res->tfiles);
 	p = xdr_decode_hyper(p, &res->ffiles);
 	p = xdr_decode_hyper(p, &res->afiles);
-
-	/* ignore invarsec */
+	res->invarsec = ntohl(*p++);
 	return 0;
 }
 
@@ -941,12 +950,11 @@ nfs3_xdr_fsstatres(struct rpc_rqst *req, u32 *p, struct nfs_fsinfo *res)
 static int
 nfs3_xdr_fsinfores(struct rpc_rqst *req, u32 *p, struct nfs_fsinfo *res)
 {
-	struct nfs_fattr dummy;
 	int		status;
 
 	status = ntohl(*p++);
 
-	p = xdr_decode_post_op_attr(p, &dummy);
+	p = xdr_decode_post_op_attr(p, res->fattr);
 	if (status != 0)
 		return -nfs_stat_to_errno(status);
 
@@ -958,8 +966,8 @@ nfs3_xdr_fsinfores(struct rpc_rqst *req, u32 *p, struct nfs_fsinfo *res)
 	res->wtmult = ntohl(*p++);
 	res->dtpref = ntohl(*p++);
 	p = xdr_decode_hyper(p, &res->maxfilesize);
-
-	/* ignore time_delta and properties */
+	p = xdr_decode_time3(p, &res->time_delta);
+	res->properties = ntohl(*p++);
 	return 0;
 }
 
@@ -967,20 +975,21 @@ nfs3_xdr_fsinfores(struct rpc_rqst *req, u32 *p, struct nfs_fsinfo *res)
  * Decode PATHCONF reply
  */
 static int
-nfs3_xdr_pathconfres(struct rpc_rqst *req, u32 *p, struct nfs_fsinfo *res)
+nfs3_xdr_pathconfres(struct rpc_rqst *req, u32 *p, struct nfs_pathconf *res)
 {
-	struct nfs_fattr dummy;
 	int		status;
 
 	status = ntohl(*p++);
 
-	p = xdr_decode_post_op_attr(p, &dummy);
+	p = xdr_decode_post_op_attr(p, res->fattr);
 	if (status != 0)
 		return -nfs_stat_to_errno(status);
 	res->linkmax = ntohl(*p++);
-	res->namelen = ntohl(*p++);
-
-	/* ignore remaining fields */
+	res->name_max = ntohl(*p++);
+	res->no_trunc = ntohl(*p++) != 0;
+	res->chown_restricted = ntohl(*p++) != 0;
+	res->case_insensitive = ntohl(*p++) != 0;
+	res->case_preserving = ntohl(*p++) != 0;
 	return 0;
 }
 

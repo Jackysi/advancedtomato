@@ -29,6 +29,7 @@
 #include <shutils.h>
 #include <tomato_version.h>
 
+#include "md5.h"
 #include "mssl.h"
 
 
@@ -41,13 +42,6 @@
 
 #define MAX_OPTION_LENGTH	256
 #define BLOB_SIZE	(4 * 1024)
-
-
-#ifdef DEBUG
-#define _dprintf	cprintf
-#else
-#define _dprintf(args...)	do { } while(0)
-#endif
 
 
 #define M_UNKNOWN_ERROR__D		"Unknown error (%d)."
@@ -159,7 +153,7 @@ static const char *get_option_or(const char *name, const char *alt)
 	return get_option(name) ? : alt;
 }
 
-static const int get_option_onoff(const char *name, int def)
+static int get_option_onoff(const char *name, int def)
 {
 	const char *p;
 
@@ -171,6 +165,17 @@ static const int get_option_onoff(const char *name, int def)
 	exit(2);
 }
 
+static const char *md5_string(const char *value)
+{
+	static char buf[(MD5_DIGEST_BYTES + 1) * 2];
+	unsigned char digestbuf[MD5_DIGEST_BYTES];
+	int i;
+
+	md5_buffer(value, strlen(value), digestbuf);
+	for (i = 0; i < MD5_DIGEST_BYTES; i++)
+		sprintf(&buf[i * 2], "%02x", digestbuf[i]);
+	return buf;
+}
 
 
 static void save_msg(const char *s)
@@ -199,15 +204,20 @@ static void error(const char *fmt, ...)
 	exit(error_exitcode);
 }
 
-static void success(void)
+static void success_msg(const char *msg)
 {
 	save_cookie();
 
 	_dprintf("%s\n", __FUNCTION__);
 
-	printf("%s\n", "Update successful");
-	save_msg("Update successful");
+	printf("%s\n", msg);
+	save_msg(msg);
 	exit(0);
+}
+
+static void success(void)
+{
+	success_msg("Update successful.");
 }
 
 
@@ -277,7 +287,7 @@ static int _wget(int ssl, const char *host, int port, const char *request, char 
 		setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
 		if (ssl) {
-			ssl_init(NULL, NULL);
+			mssl_init(NULL, NULL);
 			f = ssl_client_fopen(sd);
 		}
 		else {
@@ -307,7 +317,7 @@ static int _wget(int ssl, const char *host, int port, const char *request, char 
 		}
 		buffer[i] = 0;
 
-		_dprintf("recvd=[%s]\n", buffer);
+		_dprintf("recvd=[%s], i=%d\n", buffer, i);
 
 		fclose(f);
 		close(sd);
@@ -1397,6 +1407,65 @@ static void update_editdns(void)
 	error(M_UNKNOWN_ERROR__D, r);
 }
 
+
+
+/*
+
+	HE.net IPv6 TunnelBroker
+	https://ipv4.tunnelbroker.net/ipv4_end.php?ipv4b=$IPV4ADDR&pass=$MD5PASS&user_id=$USERID&tunnel_id=$GTUNID
+
+	---
+
+"HTTP/1.1 200 OK
+...
+
+Good responses:
+	Your tunnel endpoint has been updated to: X.X.X.X
+	That IPv4 endpoint is already in use.
+Bad responses:
+	Please enter a valid IPv4 endpoint!
+	That user_id or password is not valid
+	Unable to find your tunnel
+
+*/
+static void update_heipv6tb(void)
+{
+	int r;
+	char *body;
+	char query[2048];
+
+	// +opt +opt +opt
+	sprintf(query, "/ipv4_end.php?pass=%s&user_id=%s&tunnel_id=%s",
+		md5_string(get_option_required("pass")),
+		get_option_required("user"),
+		get_option_required("host"));
+
+	// +opt
+	append_addr_option(query, "&ipv4b=%s");
+
+	r = wget(1, 0, "ipv4.tunnelbroker.net", query, NULL, 0, &body);
+	if (r == 200) {
+		if ((strstr(body, "has been updated") != NULL) || (strstr(body, "already in use") != NULL)) {
+			success();
+		}
+		if (strstr(body, "is not valid") != NULL) {
+			error(M_INVALID_AUTH);
+		}
+		if (strstr(body, "find your tunnel") != NULL) {
+			error(M_INVALID_PARAM__S, "Tunnel ID");
+		}
+		if (strstr(body, "valid IPv4 endpoint") != NULL) {
+			error(M_INVALID_PARAM__S, "IPv4 endpoint");
+		}
+
+		error(M_UNKNOWN_RESPONSE__D, -1);
+	}
+
+	error(M_UNKNOWN_ERROR__D, r);
+}
+
+
+
 /*
 
 	wget/custom
@@ -1414,6 +1483,7 @@ static void update_wget(void)
 	char *host;
 	char path[256];
 	char *p;
+	char *body;
 
 	// http://user:pass@domain:port/path?query
 	// https://user:pass@domain:port/path?query
@@ -1452,11 +1522,12 @@ static void update_wget(void)
 		header = NULL;
 	}
 
-	r = wget(https, 1, host, path, header, 0, NULL);
+	r = wget(https, 1, host, path, header, 0, &body);
 	switch (r) {
 	case 200:
 	case 302:	// redirect -- assume ok
-		success();
+		if (body && *body) success_msg((char *)body);
+		else success();
 		break;
 	case 401:
 		error(M_INVALID_AUTH);
@@ -1679,6 +1750,9 @@ int main(int argc, char *argv[])
 	}
 	else if (strcmp(p, "editdns") == 0) {
 		update_editdns();
+	}
+	else if (strcmp(p, "heipv6tb") == 0) {
+		update_heipv6tb();
 	}
 	else if ((strcmp(p, "wget") == 0) || (strcmp(p, "custom") == 0)) {
 		// test ok 9/15 -- zzz

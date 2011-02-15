@@ -386,6 +386,7 @@ static int set_card_type(dev_link_t *link, const void *s);
 static int do_config(struct net_device *dev, struct ifmap *map);
 static int do_open(struct net_device *dev);
 static int do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+static struct ethtool_ops netdev_ethtool_ops;
 static void hardreset(struct net_device *dev);
 static void do_reset(struct net_device *dev, int full);
 static int init_mii(struct net_device *dev);
@@ -458,6 +459,39 @@ busy_loop(u_long len)
 }
 
 /*====== Functions used for debugging =================================*/
+#if defined(PCMCIA_DEBUG) && 0 /* reading regs may change system status */
+static void
+PrintRegisters(struct net_device *dev)
+{
+    ioaddr_t ioaddr = dev->base_addr;
+
+    if (pc_debug > 1) {
+	int i, page;
+
+	printk(KDBG_XIRC "Register  common: ");
+	for (i = 0; i < 8; i++)
+	    printk(" %2.2x", GetByte(i));
+	printk("\n");
+	for (page = 0; page <= 8; page++) {
+	    printk(KDBG_XIRC "Register page %2x: ", page);
+	    SelectPage(page);
+	    for (i = 8; i < 16; i++)
+		printk(" %2.2x", GetByte(i));
+	    printk("\n");
+	}
+	for (page=0x40 ; page <= 0x5f; page++) {
+	    if (page == 0x43 || (page >= 0x46 && page <= 0x4f)
+		|| (page >= 0x51 && page <=0x5e))
+		continue;
+	    printk(KDBG_XIRC "Register page %2x: ", page);
+	    SelectPage(page);
+	    for (i = 8; i < 16; i++)
+		printk(" %2.2x", GetByte(i));
+	    printk("\n");
+	}
+    }
+}
+#endif /* PCMCIA_DEBUG */
 
 /*============== MII Management functions ===============*/
 
@@ -617,6 +651,7 @@ xirc2ps_attach(void)
     dev->set_config = &do_config;
     dev->get_stats = &do_get_stats;
     dev->do_ioctl = &do_ioctl;
+    SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
     dev->set_multicast_list = &set_multicast_list;
     ether_setup(dev);
     dev->open = &do_open;
@@ -1279,7 +1314,10 @@ xirc2ps_interrupt(int irq, void *dev_id, struct pt_regs *regs)
     unsigned bytes_rcvd;
     unsigned int_status, eth_status, rx_status, tx_status;
     unsigned rsr, pktlen;
-    ulong start_ticks = jiffies; 
+    ulong start_ticks = jiffies; /* fixme: jiffies rollover every 497 days
+				  * is this something to worry about?
+				  * -- on a laptop?
+				  */
 
     if (!netif_device_present(dev))
 	return;
@@ -1512,11 +1550,23 @@ do_start_xmit(struct sk_buff *skb, struct net_device *dev)
     DEBUG(1, "do_start_xmit(skb=%p, dev=%p) len=%u\n",
 	  skb, dev, pktlen);
 
-    netif_stop_queue(dev);
 
+    /* adjust the packet length to min. required
+     * and hope that the buffer is large enough
+     * to provide some random data.
+     * fixme: For Mohawk we can change this by sending
+     * a larger packetlen than we actually have; the chip will
+     * pad this in his buffer with random bytes
+     */
     if (pktlen < ETH_ZLEN)
+    {
+        skb = skb_padto(skb, ETH_ZLEN);
+        if(skb == NULL)
+        	return 0;
 	pktlen = ETH_ZLEN;
+    }
 
+    netif_stop_queue(dev);
     SelectPage(0);
     PutWord(XIRCREG0_TRS, (u_short)pktlen+2);
     freespace = GetWord(XIRCREG0_TSO);
@@ -1674,25 +1724,15 @@ do_open(struct net_device *dev)
     return 0;
 }
 
-static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
+static void netdev_get_drvinfo(struct net_device *dev,
+			       struct ethtool_drvinfo *info)
 {
-	u32 ethcmd;
-		
-	if (copy_from_user(&ethcmd, useraddr, sizeof(ethcmd)))
-		return -EFAULT;
-	
-	switch (ethcmd) {
-	case ETHTOOL_GDRVINFO: {
-		struct ethtool_drvinfo info = {ETHTOOL_GDRVINFO};
-		strncpy(info.driver, "xirc2ps_cs", sizeof(info.driver)-1);
-		if (copy_to_user(useraddr, &info, sizeof(info)))
-			return -EFAULT;
-		return 0;
-	}
-	}
-	
-	return -EOPNOTSUPP;
+	strcpy(info->driver, "xirc2ps_cs");
 }
+
+static struct ethtool_ops netdev_ethtool_ops = {
+	.get_drvinfo		= netdev_get_drvinfo,
+};
 
 static int
 do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
@@ -1709,15 +1749,16 @@ do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	return -EOPNOTSUPP;
 
     switch(cmd) {
-      case SIOCETHTOOL:
-        return netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
-      case SIOCDEVPRIVATE:	/* Get the address of the PHY in use. */
+      case SIOCGMIIPHY:		/* Get the address of the PHY in use. */
+      case SIOCDEVPRIVATE:
 	data[0] = 0;		/* we have only this address */
 	/* fall trough */
-      case SIOCDEVPRIVATE+1:	/* Read the specified MII register. */
+      case SIOCGMIIREG:		/* Read the specified MII register. */
+      case SIOCDEVPRIVATE+1:
 	data[3] = mii_rd(ioaddr, data[0] & 0x1f, data[1] & 0x1f);
 	break;
-      case SIOCDEVPRIVATE+2:	/* Write the specified MII register */
+      case SIOCSMIIREG:		/* Write the specified MII register */
+      case SIOCDEVPRIVATE+2:
 	if (!capable(CAP_NET_ADMIN))
 	    return -EPERM;
 	mii_wr(ioaddr, data[0] & 0x1f, data[1] & 0x1f, data[2], 16);
@@ -1826,6 +1867,10 @@ do_reset(struct net_device *dev, int full)
     if (full)
 	set_addresses(dev);
 
+    /* Hardware workaround:
+     * The receive byte pointer after reset is off by 1 so we need
+     * to move the offset pointer back to 0.
+     */
     SelectPage(0);
     PutWord(XIRCREG0_DO, 0x2000); /* change offset command, off=0 */
 
@@ -1940,6 +1985,10 @@ init_mii(struct net_device *dev)
     }
 
     if (local->probe_port) {
+	/* according to the DP83840A specs the auto negotiation process
+	 * may take up to 3.5 sec, so we use this also for our ML6692
+	 * Fixme: Better to use a timer here!
+	 */
 	for (i=0; i < 35; i++) {
 	    busy_loop(HZ/10);	 /* wait 100 msec */
 	    status = mii_rd(ioaddr,  0, 1);

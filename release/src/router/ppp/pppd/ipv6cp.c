@@ -107,7 +107,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <unistd.h>
+#include <stdlib.h>
 #include <netdb.h>
 #include <sys/param.h>
 #include <sys/types.h>
@@ -115,7 +115,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "pppd.h"
+#include "../pppoecd/pppd.h"
 #include "fsm.h"
 #include "ipcp.h"
 #include "ipv6cp.h"
@@ -337,6 +337,7 @@ printifaceid(opt, printer, arg)
     void *arg;
 {
 	ipv6cp_options *wo = &ipv6cp_wantoptions[0];
+	char *llv6_ntoa(ifaceid);
 
 	if (wo->opt_local)
 		printer(arg, "%s", llv6_ntoa(wo->ourid));
@@ -1475,7 +1476,6 @@ ipv6cp_printpkt(p, plen, printer, arg)
  */
 #define IP6_HDRLEN	40	/* bytes */
 #define IP6_NHDR_FRAG	44	/* fragment IPv6 header */
-#define IPPROTO_TCP	6
 #define TCP_HDRLEN	20
 #define TH_FIN		0x01
 

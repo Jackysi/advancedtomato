@@ -369,9 +369,35 @@ ccio_free_range(struct ioc *ioc, dma_addr_t iova, unsigned long pages_mapped)
 typedef unsigned long space_t;
 #define KERNEL_SPACE 0
 
+/*
+** DMA "Page Type" and Hints 
+** o if SAFE_DMA isn't set, mapping is for FAST_DMA. SAFE_DMA should be
+**   set for subcacheline DMA transfers since we don't want to damage the
+**   other part of a cacheline.
+** o SAFE_DMA must be set for "memory" allocated via pci_alloc_consistent().
+**   This bit tells U2 to do R/M/W for partial cachelines. "Streaming"
+**   data can avoid this if the mapping covers full cache lines.
+** o STOP_MOST is needed for atomicity across cachelines.
+**   Apperently only "some EISA devices" need this.
+**   Using CONFIG_ISA is hack. Only the IOA with EISA under it needs
+**   to use this hint iff the EISA devices needs this feature.
+**   According to the U2 ERS, STOP_MOST enabled pages hurt performance.
+** o PREFETCH should *not* be set for cases like Multiple PCI devices
+**   behind GSCtoPCI (dino) bus converter. Only one cacheline per GSC
+**   device can be fetched and multiply DMA streams will thrash the
+**   prefetch buffer and burn memory bandwidth. See 6.7.3 "Prefetch Rules
+**   and Invalidation of Prefetch Entries".
+**
+** FIXME: the default hints need to be per GSC device - not global.
+** 
+** HP-UX dorks: linux device driver programming model is totally different
+**    than HP-UX's. HP-UX always sets HINT_PREFETCH since it's drivers
+**    do special things to work on non-coherent platforms...linux has to
+**    be much more careful with this.
+*/
 #define IOPDIR_VALID    0x01UL
 #define HINT_SAFE_DMA   0x02UL	/* used for pci_alloc_consistent() pages */
-#ifdef CONFIG_ISA	    /* EISA support really */
+#ifdef CONFIG_ISA	/* EISA support really */
 #define HINT_STOP_MOST  0x04UL	/* LSL support */
 #else
 #define HINT_STOP_MOST  0x00UL	/* only needed for "some EISA devices" */
@@ -469,10 +495,31 @@ ccio_io_pdir_entry(u64 *pdir_ptr, space_t sid, void * vba, unsigned long hints)
 	((u32 *)pdir_ptr)[0] = (u32) pa;
 
 
+	/* FIXME: PCX_W platforms don't need FDC/SYNC. (eg C360)
+	**        PCX-U/U+ do. (eg C200/C240)
+	**        PCX-T'? Don't know. (eg C110 or similar K-class)
+	**
+	** See PDC_MODEL/option 0/SW_CAP word for "Non-coherent IO-PDIR bit".
+	** Hopefully we can patch (NOP) these out at boot time somehow.
+	**
+	** "Since PCX-U employs an offset hash that is incompatible with
+	** the real mode coherence index generation of U2, the PDIR entry
+	** must be flushed to memory to retain coherence."
+	*/
 	asm volatile("fdc 0(%0)" : : "r" (pdir_ptr));
 	asm volatile("sync");
 }
 
+/**
+ * ccio_clear_io_tlb - Remove stale entries from the I/O TLB.
+ * @ioc: The I/O Controller.
+ * @iovp: The I/O Virtual Page.
+ * @byte_cnt: The requested number of bytes to be freed from the I/O Pdir.
+ *
+ * Purge invalid I/O PDIR entries from the I/O TLB.
+ *
+ * FIXME: Can we change the byte_cnt to pages_mapped?
+ */
 static CCIO_INLINE void
 ccio_clear_io_tlb(struct ioc *ioc, dma_addr_t iovp, size_t byte_cnt)
 {
@@ -488,6 +535,24 @@ ccio_clear_io_tlb(struct ioc *ioc, dma_addr_t iovp, size_t byte_cnt)
       }
 }
 
+/**
+ * ccio_mark_invalid - Mark the I/O Pdir entries invalid.
+ * @ioc: The I/O Controller.
+ * @iova: The I/O Virtual Address.
+ * @byte_cnt: The requested number of bytes to be freed from the I/O Pdir.
+ *
+ * Mark the I/O Pdir entries invalid and blow away the corresponding I/O
+ * TLB entries.
+ *
+ * FIXME: at some threshhold it might be "cheaper" to just blow
+ *        away the entire I/O TLB instead of individual entries.
+ *
+ * FIXME: Uturn has 256 TLB entries. We don't need to purge every
+ *        PDIR entry - just once for each possible TLB entry.
+ *        (We do need to maker I/O PDIR entries invalid regardless).
+ *
+ * FIXME: Can we change byte_cnt to pages_mapped?
+ */ 
 static CCIO_INLINE void
 ccio_mark_invalid(struct ioc *ioc, dma_addr_t iova, size_t byte_cnt)
 {
@@ -504,6 +569,14 @@ ccio_mark_invalid(struct ioc *ioc, dma_addr_t iova, size_t byte_cnt)
 
 		ASSERT(idx < (ioc->pdir_size / sizeof(u64)));
 		pdir_ptr[7] = 0;	/* clear only VALID bit */ 
+		/*
+		** FIXME: PCX_W platforms don't need FDC/SYNC. (eg C360)
+		**   PCX-U/U+ do. (eg C200/C240)
+		** See PDC_MODEL/option 0/SW_CAP for "Non-coherent IO-PDIR bit".
+		**
+		** Hopefully someone figures out how to patch (NOP) the
+		** FDC/SYNC out at boot time.
+		*/
 		asm volatile("fdc 0(%0)" : : "r" (pdir_ptr[7]));
 
 		iovp     += IOVP_SIZE;
@@ -535,8 +608,6 @@ ccio_dma_supported(struct pci_dev *dev, u64 mask)
 		BUG();
 		return 0;
 	}
-
-	dev->dma_mask = mask;   /* save it */
 
 	/* only support 32-bit devices (ie PCI/GSC) */
 	return (int)(mask == 0xffffffffUL);
@@ -664,6 +735,16 @@ static void *
 ccio_alloc_consistent(struct pci_dev *dev, size_t size, dma_addr_t *dma_handle)
 {
       void *ret;
+#if 0
+/* GRANT Need to establish hierarchy for non-PCI devs as well
+** and then provide matching gsc_map_xxx() functions for them as well.
+*/
+	if(!hwdev) {
+		/* only support PCI */
+		*dma_handle = 0;
+		return 0;
+	}
+#endif
         ret = (void *) __get_free_pages(GFP_ATOMIC, get_order(size));
 
 	if (ret) {
@@ -724,7 +805,7 @@ ccio_fill_pdir(struct ioc *ioc, struct scatterlist *startsg, int nents,
 
 		DBG_RUN_SG(" %d : %08lx/%05x %p/%05x\n", nents,
 			   (unsigned long)sg_dma_address(startsg), cnt,
-			   startsg->address, startsg->length
+			   sg_virt_addr(startsg), startsg->length
 		);
 
 		/*
@@ -744,7 +825,7 @@ ccio_fill_pdir(struct ioc *ioc, struct scatterlist *startsg, int nents,
 		** Look for a VCONTIG chunk
 		*/
 		if (cnt) {
-			unsigned long vaddr = (unsigned long)startsg->address;
+			unsigned long vaddr = (unsigned long) sg_virt_addr(startsg);
 			ASSERT(pdirp);
 
 			/* Since multiple Vcontig blocks could make up
@@ -797,8 +878,8 @@ ccio_coalesce_chunks(struct ioc *ioc, struct scatterlist *startsg, int nents)
 		*/
 		dma_sg = vcontig_sg = startsg;
 		dma_len = vcontig_len = vcontig_end = startsg->length;
-		vcontig_end += (unsigned long) startsg->address;
-		dma_offset = (unsigned long) startsg->address & ~IOVP_MASK;
+		vcontig_end += (unsigned long) sg_virt_addr(startsg);
+		dma_offset = (unsigned long) sg_virt_addr(startsg) & ~IOVP_MASK;
 
 		/* PARANOID: clear entries */
 		sg_dma_address(startsg) = 0;
@@ -812,7 +893,7 @@ ccio_coalesce_chunks(struct ioc *ioc, struct scatterlist *startsg, int nents)
 			unsigned long startsg_end;
 
 			startsg++;
-			startsg_end = (unsigned long)startsg->address + 
+			startsg_end = (unsigned long) sg_virt_addr(startsg) + 
 				startsg->length;
 
 			/* PARANOID: clear entries */
@@ -831,7 +912,7 @@ ccio_coalesce_chunks(struct ioc *ioc, struct scatterlist *startsg, int nents)
 			/*
 			** Append the next transaction?
 			*/
-			if(vcontig_end == (unsigned long) startsg->address) {
+			if(vcontig_end == (unsigned long) sg_virt_addr(startsg)) {
 				vcontig_len += startsg->length;
 				vcontig_end += startsg->length;
 				dma_len     += startsg->length;
@@ -900,7 +981,8 @@ ccio_map_sg(struct pci_dev *dev, struct scatterlist *sglist, int nents,
 
 	/* Fast path single entry scatterlists. */
 	if(nents == 1) {
-		sg_dma_address(sglist)= ccio_map_single(dev, sglist->address,
+		sg_dma_address(sglist)= ccio_map_single(dev,
+							sg_virt_addr(sglist),
 							sglist->length, 
 							direction);
 		sg_dma_len(sglist)= sglist->length;
@@ -962,7 +1044,7 @@ ccio_unmap_sg(struct pci_dev *dev, struct scatterlist *sglist, int nents,
 	ioc = GET_IOC(dev);
 
 	DBG_RUN_SG("%s() START %d entries,  %p,%x\n",
-		__FUNCTION__, nents, sglist->address, sglist->length);
+		__FUNCTION__, nents, sg_virt_address(sglist), sglist->length);
 
 #ifdef CONFIG_PROC_FS
 	ioc->usg_calls++;
@@ -1118,7 +1200,7 @@ static int ccio_resource_map(char *buf, char **start, off_t offset, int len,
 		}
 		strcat(buf, "\n\n");
 		ioc = ioc->next;
-		break; 
+		break; /* XXX - remove me */
 	}
 
 	return strlen(buf);
@@ -1188,10 +1270,33 @@ void ccio_cujo20_fixup(struct parisc_device *dev, u32 iovp)
 	}
 }
 
+#if 0
+/* GRANT -  is this needed for U2 or not? */
+
+/*
+** Get the size of the I/O TLB for this I/O MMU.
+**
+** If spa_shift is non-zero (ie probably U2),
+** then calculate the I/O TLB size using spa_shift.
+**
+** Otherwise we are supposed to get the IODC entry point ENTRY TLB
+** and execute it. However, both U2 and Uturn firmware supplies spa_shift.
+** I think only Java (K/D/R-class too?) systems don't do this.
+*/
+static int
+ccio_get_iotlb_size(struct parisc_device *dev)
+{
+	if (dev->spa_shift == 0) {
+		panic("%s() : Can't determine I/O TLB size.\n", __FUNCTION__);
+	}
+	return (1 << dev->spa_shift);
+}
+#else
 
 /* Uturn supports 256 TLB entries */
 #define CCIO_CHAINID_SHIFT	8
 #define CCIO_CHAINID_MASK	0xff
+#endif /* 0 */
 
 /**
  * ccio_ioc_init - Initalize the I/O Controller
@@ -1335,7 +1440,7 @@ ccio_init_resource(struct resource *res, char *name, unsigned long ioaddr)
 	result = request_resource(&iomem_resource, res);
 	if (result < 0) {
 		printk(KERN_ERR 
-		       "%s: failed to claim CCIO bus address space (%p,%p)\n", 
+		       "%s: failed to claim CCIO bus address space (%lx,%lx)\n", 
 		       __FILE__, res->start, res->end);
 	}
 }
@@ -1380,7 +1485,7 @@ static struct resource *ccio_get_resource(struct ioc* ioc,
 int ccio_allocate_resource(const struct parisc_device *dev,
 		struct resource *res, unsigned long size,
 		unsigned long min, unsigned long max, unsigned long align,
-		void (*alignf)(void *, struct resource *, unsigned long),
+		void (*alignf)(void *, struct resource *, unsigned long, unsigned long),
 		void *alignf_data)
 {
 	struct ioc *ioc = ccio_get_iommu(dev);
@@ -1441,6 +1546,7 @@ static int ccio_probe(struct parisc_device *dev)
 	hppa_dma_ops = &ccio_ops;
 
 	if (ioc_count == 0) {
+		/* XXX: Create separate entries for each ioc */
 		create_proc_read_entry(MODULE_NAME, S_IRWXU, proc_runway_root,
 				       ccio_proc_info, NULL);
 		create_proc_read_entry(MODULE_NAME"-bitmap", S_IRWXU,

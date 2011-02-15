@@ -33,9 +33,9 @@ struct xfs_super_block {
 	uint64_t	icount;
 	uint64_t	ifree;
 	uint64_t	fdblocks;
-} __attribute__((__packed__));
+} PACKED;
 
-int volume_id_probe_xfs(struct volume_id *id /*,uint64_t off*/)
+int FAST_FUNC volume_id_probe_xfs(struct volume_id *id /*,uint64_t off*/)
 {
 #define off ((uint64_t)0)
 	struct xfs_super_block *xs;

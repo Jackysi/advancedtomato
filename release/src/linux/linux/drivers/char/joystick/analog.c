@@ -1,5 +1,5 @@
 /*
- * $Id: analog.c,v 1.1.1.4 2003/10/14 08:08:07 sparq Exp $
+ * $Id: analog.c,v 1.52 2000/06/07 13:07:06 vojtech Exp $
  *
  *  Copyright (c) 1996-2000 Vojtech Pavlik
  *

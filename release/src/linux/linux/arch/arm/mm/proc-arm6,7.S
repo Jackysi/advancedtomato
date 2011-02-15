@@ -68,12 +68,26 @@ ENTRY(cpu_arm7_tlb_invalidate_all)
  * Purpose : flush a TLB entry
  */
 ENTRY(cpu_arm6_tlb_invalidate_range)
-ENTRY(cpu_arm7_tlb_invalidate_range)
-1:		mcr	p15, 0, r0, c6, c0, 0		@ flush TLB
+                @ arm 6 tbl purge reg is bits 12 - 31
+1:		mcr	p15, 0, r0, c6, c0, 0		@ purge TLB
 		add	r0, r0, #4096
 		cmp	r0, r1
 		blt	1b
 		mov	pc, lr
+
+ENTRY(cpu_arm7_tlb_invalidate_range)
+#if defined(CONFIG_ARCH_RISCSTATION)
+		mov	r0, #0
+		mcr	p15, 0, r0, c5, c0, 0		@ flush TLB
+		mov	pc, lr
+#else
+                @ arm 7 tbl purge reg is bits 14 - 31
+1:		mcr	p15, 0, r0, c6, c0, 0		@ purge TLB
+		add	r0, r0, #0x4000
+		cmp	r0, r1
+		blt	1b
+		mov	pc, lr
+#endif
 
 /*
  * Function: arm6_7_tlb_invalidate_page (unsigned long address, int flags)
@@ -143,7 +157,7 @@ ENTRY(cpu_arm7_data_abort)
 		movs	pc, lr
 
 		b	Ldata_unknown
-		b	Ldata_unknown
+		b	Ldata_simple			@ swp
 		b	Ldata_unknown
 		b	Ldata_unknown
 		b	Ldata_lateldrpostconst		@ ldr	rd, [rn], #m
@@ -160,7 +174,7 @@ ENTRY(cpu_arm7_data_abort)
 Ldata_unknown:	@ Part of jumptable
 		mov	r0, r2
 		mov	r1, r4
-		mov	r2, r3
+		mov	r2, r5
 		bl	baddataabort
 		b	ret_from_exception
 
@@ -258,7 +272,6 @@ ENTRY(cpu_arm7_proc_fin)
 
 ENTRY(cpu_arm6_do_idle)
 ENTRY(cpu_arm7_do_idle)
-		mov	r0, #-EINVAL
 		mov	pc, lr
 
 /*
@@ -349,8 +362,6 @@ ENTRY(cpu_arm7_reset)
 		mcr	p15, 0, r1, c1, c0, 0		@ turn off MMU etc
 		mov	pc, r0
 
-cpu_armvlsi_name:
-		.asciz	"ARM/VLSI"
 cpu_arm6_name:	.asciz	"ARM 6"
 cpu_arm610_name:
 		.asciz	"ARM 610"
@@ -461,25 +472,25 @@ ENTRY(arm7_processor_functions)
 
 		.type	cpu_arm6_info, #object
 cpu_arm6_info:
-		.long	cpu_armvlsi_name
+		.long	0
 		.long	cpu_arm6_name
 		.size	cpu_arm6_info, . - cpu_arm6_info
 
 		.type	cpu_arm610_info, #object
 cpu_arm610_info:
-		.long	cpu_armvlsi_name
+		.long	0
 		.long	cpu_arm610_name
 		.size	cpu_arm610_info, . - cpu_Arm610_info
 
 		.type	cpu_arm7_info, #object
 cpu_arm7_info:
-		.long	cpu_armvlsi_name
+		.long	0
 		.long	cpu_arm7_name
 		.size	cpu_arm7_info, . - cpu_arm7_info
 
 		.type	cpu_arm710_info, #object
 cpu_arm710_info:
-		.long	cpu_armvlsi_name
+		.long	0
 		.long	cpu_arm710_name
 		.size	cpu_arm710_info, . - cpu_arm710_info
 

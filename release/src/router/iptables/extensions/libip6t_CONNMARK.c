@@ -26,7 +26,7 @@
 
 #include <ip6tables.h>
 #include <linux/netfilter_ipv6/ip6_tables.h>
-#include "../include/linux/netfilter_ipv4/ipt_CONNMARK.h"
+#include <linux/netfilter_ipv4/ipt_CONNMARK.h>
 
 #if 0
 struct markinfo {
@@ -42,6 +42,7 @@ help(void)
 	printf(
 "CONNMARK target v%s options:\n"
 "  --set-mark value[/mask]       Set conntrack mark value\n"
+"  --set-return [--mask mask]    Set conntrack mark & nfmark, RETURN\n"
 "  --save-mark [--mask mask]     Save the packet nfmark in the connection\n"
 "  --restore-mark [--mask mask]  Restore saved nfmark value\n"
 "\n",
@@ -53,6 +54,7 @@ static struct option opts[] = {
 	{ "save-mark", 0, 0, '2' },
 	{ "restore-mark", 0, 0, '3' },
 	{ "mask", 1, 0, '4' },
+	{ "set-return", 1, 0, '9' },
 	{ 0 }
 };
 
@@ -60,6 +62,11 @@ static struct option opts[] = {
 static void
 init(struct ip6t_entry_target *t, unsigned int *nfcache)
 {
+	struct ipt_connmark_target_info *markinfo
+		= (struct ipt_connmark_target_info *)t->data;
+
+	markinfo->mask = 0xffffffffUL;
+
 }
 
 /* Function which parses command options; returns true if it
@@ -72,12 +79,11 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 	struct ipt_connmark_target_info *markinfo
 		= (struct ipt_connmark_target_info *)(*target)->data;
 
-	markinfo->mask = 0xffffffffUL;
-
 	switch (c) {
 		char *end;
 	case '1':
-		markinfo->mode = IPT_CONNMARK_SET;
+	case '9':
+		markinfo->mode = (c == '1') ? IPT_CONNMARK_SET : IPT_CONNMARK_SET_RETURN;
 
 		markinfo->mark = strtoul(optarg, &end, 0);
 		if (*end == '/' && end[1] != '\0')
@@ -152,7 +158,9 @@ print(const struct ip6t_ip6 *ip,
 		(const struct ipt_connmark_target_info *)target->data;
 	switch (markinfo->mode) {
 	case IPT_CONNMARK_SET:
-	    printf("CONNMARK set ");
+	case IPT_CONNMARK_SET_RETURN:
+	    printf("CONNMARK set%s ", (markinfo->mode == IPT_CONNMARK_SET_RETURN) ? "-return" : "");
+
 	    print_mark(markinfo->mark);
 	    print_mask("/", markinfo->mask);
 	    printf(" ");
@@ -181,7 +189,9 @@ save(const struct ip6t_ip6 *ip, const struct ip6t_entry_target *target)
 
 	switch (markinfo->mode) {
 	case IPT_CONNMARK_SET:
-	    printf("--set-mark ");
+	case IPT_CONNMARK_SET_RETURN:
+	    printf("--set-%s ", (markinfo->mode == IPT_CONNMARK_SET_RETURN) ? "return" : "mark");
+
 	    print_mark(markinfo->mark);
 	    print_mask("/", markinfo->mask);
 	    printf(" ");

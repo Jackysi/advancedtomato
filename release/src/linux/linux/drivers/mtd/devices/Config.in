@@ -1,6 +1,6 @@
 # drivers/mtd/maps/Config.in
 
-# $Id: Config.in,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+# $Id: Config.in,v 1.8 2003/01/24 23:25:14 dwmw2 Exp $
 
 mainmenu_option next_comment
 
@@ -16,7 +16,7 @@ if [ "$CONFIG_DECSTATION" = "y" ]; then
 fi
 dep_tristate '  Uncached system RAM' CONFIG_MTD_SLRAM $CONFIG_MTD
 if [ "$CONFIG_SA1100_LART" = "y" ]; then
-  dep_tristate '  28F160xx flash driver for LART' CONFIG_MTD_LART $CONFIG_MTD
+   dep_tristate '  28F160xx flash driver for LART' CONFIG_MTD_LART $CONFIG_MTD
 fi
 dep_tristate '  Test driver using RAM' CONFIG_MTD_MTDRAM $CONFIG_MTD
 if [ "$CONFIG_MTD_MTDRAM" = "y" -o "$CONFIG_MTD_MTDRAM" = "m" ]; then

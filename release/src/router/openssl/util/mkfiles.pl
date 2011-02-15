@@ -23,11 +23,18 @@ my @dirs = (
 "crypto/idea",
 "crypto/bf",
 "crypto/cast",
+"crypto/aes",
+"crypto/camellia",
+"crypto/seed",
+"crypto/modes",
 "crypto/bn",
 "crypto/rsa",
 "crypto/dsa",
 "crypto/dso",
 "crypto/dh",
+"crypto/ec",
+"crypto/ecdh",
+"crypto/ecdsa",
 "crypto/buffer",
 "crypto/bio",
 "crypto/stack",
@@ -40,20 +47,33 @@ my @dirs = (
 "crypto/pem",
 "crypto/x509",
 "crypto/x509v3",
+"crypto/cms",
 "crypto/conf",
+"crypto/jpake",
 "crypto/txt_db",
 "crypto/pkcs7",
 "crypto/pkcs12",
 "crypto/comp",
+"crypto/engine",
+"crypto/ocsp",
+"crypto/ui",
+"crypto/krb5",
+#"crypto/store",
+"crypto/pqueue",
+"crypto/whrlpool",
+"crypto/ts",
 "ssl",
-"rsaref",
 "apps",
+"engines",
+"engines/ccgost",
 "test",
 "tools"
 );
 
+%top;
+
 foreach (@dirs) {
-	&files_dir ($_, "Makefile.ssl");
+	&files_dir ($_, "Makefile");
 }
 
 exit(0);
@@ -95,8 +115,8 @@ while (<IN>)
 		$o =~ s/\s+$//;
 		$o =~ s/\s+/ /g;
 
-		$o =~ s/\$[({]([^)}]+)[)}]/$sym{$1}/g;
-		$sym{$s}=$o;
+		$o =~ s/\$[({]([^)}]+)[)}]/$top{$1} or $sym{$1}/ge;
+		$sym{$s}=($top{$s} or $o);
 		}
 	}
 
@@ -106,6 +126,15 @@ foreach (sort keys %sym)
 	{
 	print "$_=$sym{$_}\n";
 	}
+if ($dir eq "." && defined($sym{"BUILDENV"}))
+	{
+	foreach (split(' ',$sym{"BUILDENV"}))
+		{
+		/^(.+)=/;
+		$top{$1}=$sym{$1};
+		}
+	}
+
 print "RELATIVE_DIRECTORY=\n";
 
 close (IN);

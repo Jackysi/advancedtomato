@@ -37,9 +37,9 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGES.
  *
- * $Id: aic7xxx_inline.h,v 1.1.1.4 2003/10/14 08:08:43 sparq Exp $
+ * $Id: //depot/aic7xxx/aic7xxx/aic7xxx_inline.h#43 $
  *
- * $FreeBSD: src/sys/dev/aic7xxx/aic7xxx_inline.h,v 1.2.2.11 2002/04/29 19:36:31 gibbs Exp $
+ * $FreeBSD$
  */
 
 #ifndef _AIC7XXX_INLINE_H_
@@ -51,6 +51,14 @@ static __inline int  ahc_is_paused(struct ahc_softc *ahc);
 static __inline void ahc_pause(struct ahc_softc *ahc);
 static __inline void ahc_unpause(struct ahc_softc *ahc);
 
+/*
+ * Work around any chip bugs related to halting sequencer execution.
+ * On Ultra2 controllers, we must clear the CIOBUS stretch signal by
+ * reading a register that will set this signal and deassert it.
+ * Without this workaround, if the chip is paused, by an interrupt or
+ * manual pause while accessing scb ram, accesses to certain registers
+ * will hang the system (infinite pci retries).
+ */
 static __inline void
 ahc_pause_bug_fix(struct ahc_softc *ahc)
 {
@@ -230,6 +238,18 @@ static __inline struct ahc_initiator_tinfo *
 					    char channel, u_int our_id,
 					    u_int remote_id,
 					    struct ahc_tmode_tstate **tstate);
+static __inline uint16_t
+			ahc_inw(struct ahc_softc *ahc, u_int port);
+static __inline void	ahc_outw(struct ahc_softc *ahc, u_int port,
+				 u_int value);
+static __inline uint32_t
+			ahc_inl(struct ahc_softc *ahc, u_int port);
+static __inline void	ahc_outl(struct ahc_softc *ahc, u_int port,
+				 uint32_t value);
+static __inline uint64_t
+			ahc_inq(struct ahc_softc *ahc, u_int port);
+static __inline void	ahc_outq(struct ahc_softc *ahc, u_int port,
+				 uint64_t value);
 static __inline struct scb*
 			ahc_get_scb(struct ahc_softc *ahc);
 static __inline void	ahc_free_scb(struct ahc_softc *ahc, struct scb *scb);
@@ -275,6 +295,63 @@ ahc_fetch_transinfo(struct ahc_softc *ahc, char channel, u_int our_id,
 		our_id += 8;
 	*tstate = ahc->enabled_targets[our_id];
 	return (&(*tstate)->transinfo[remote_id]);
+}
+
+static __inline uint16_t
+ahc_inw(struct ahc_softc *ahc, u_int port)
+{
+	return ((ahc_inb(ahc, port+1) << 8) | ahc_inb(ahc, port));
+}
+
+static __inline void
+ahc_outw(struct ahc_softc *ahc, u_int port, u_int value)
+{
+	ahc_outb(ahc, port, value & 0xFF);
+	ahc_outb(ahc, port+1, (value >> 8) & 0xFF);
+}
+
+static __inline uint32_t
+ahc_inl(struct ahc_softc *ahc, u_int port)
+{
+	return ((ahc_inb(ahc, port))
+	      | (ahc_inb(ahc, port+1) << 8)
+	      | (ahc_inb(ahc, port+2) << 16)
+	      | (ahc_inb(ahc, port+3) << 24));
+}
+
+static __inline void
+ahc_outl(struct ahc_softc *ahc, u_int port, uint32_t value)
+{
+	ahc_outb(ahc, port, (value) & 0xFF);
+	ahc_outb(ahc, port+1, ((value) >> 8) & 0xFF);
+	ahc_outb(ahc, port+2, ((value) >> 16) & 0xFF);
+	ahc_outb(ahc, port+3, ((value) >> 24) & 0xFF);
+}
+
+static __inline uint64_t
+ahc_inq(struct ahc_softc *ahc, u_int port)
+{
+	return ((ahc_inb(ahc, port))
+	      | (ahc_inb(ahc, port+1) << 8)
+	      | (ahc_inb(ahc, port+2) << 16)
+	      | (ahc_inb(ahc, port+3) << 24)
+	      | (((uint64_t)ahc_inb(ahc, port+4)) << 32)
+	      | (((uint64_t)ahc_inb(ahc, port+5)) << 40)
+	      | (((uint64_t)ahc_inb(ahc, port+6)) << 48)
+	      | (((uint64_t)ahc_inb(ahc, port+7)) << 56));
+}
+
+static __inline void
+ahc_outq(struct ahc_softc *ahc, u_int port, uint64_t value)
+{
+	ahc_outb(ahc, port, value & 0xFF);
+	ahc_outb(ahc, port+1, (value >> 8) & 0xFF);
+	ahc_outb(ahc, port+2, (value >> 16) & 0xFF);
+	ahc_outb(ahc, port+3, (value >> 24) & 0xFF);
+	ahc_outb(ahc, port+4, (value >> 32) & 0xFF);
+	ahc_outb(ahc, port+5, (value >> 40) & 0xFF);
+	ahc_outb(ahc, port+6, (value >> 48) & 0xFF);
+	ahc_outb(ahc, port+7, (value >> 56) & 0xFF);
 }
 
 /*
@@ -378,12 +455,19 @@ ahc_queue_scb(struct ahc_softc *ahc, struct scb *scb)
 		      scb->hscb->tag, scb->hscb->next);
 
 	/*
+	 * Setup data "oddness".
+	 */
+	scb->hscb->lun &= LID;
+	if (ahc_get_transfer_length(scb) & 0x1)
+		scb->hscb->lun |= SCB_XFERLEN_ODD;
+
+	/*
 	 * Keep a history of SCBs we've downloaded in the qinfifo.
 	 */
 	ahc->qinfifo[ahc->qinfifonext++] = scb->hscb->tag;
 
 	/*
-	 * Make sure our data is consistant from the
+	 * Make sure our data is consistent from the
 	 * perspective of the adapter.
 	 */
 	ahc_sync_scb(ahc, scb, BUS_DMASYNC_PREREAD|BUS_DMASYNC_PREWRITE);
@@ -423,7 +507,7 @@ ahc_get_sense_bufaddr(struct ahc_softc *ahc, struct scb *scb)
 static __inline void	ahc_sync_qoutfifo(struct ahc_softc *ahc, int op);
 static __inline void	ahc_sync_tqinfifo(struct ahc_softc *ahc, int op);
 static __inline u_int	ahc_check_cmdcmpltqueues(struct ahc_softc *ahc);
-static __inline void	ahc_intr(struct ahc_softc *ahc);
+static __inline int	ahc_intr(struct ahc_softc *ahc);
 
 static __inline void
 ahc_sync_qoutfifo(struct ahc_softc *ahc, int op)
@@ -481,11 +565,20 @@ ahc_check_cmdcmpltqueues(struct ahc_softc *ahc)
 /*
  * Catch an interrupt from the adapter
  */
-static __inline void
+static __inline int
 ahc_intr(struct ahc_softc *ahc)
 {
 	u_int	intstat;
 
+	if ((ahc->pause & INTEN) == 0) {
+		/*
+		 * Our interrupt is not enabled on the chip
+		 * and may be disabled for re-entrancy reasons,
+		 * so just return.  This is likely just a shared
+		 * interrupt.
+		 */
+		return (0);
+	}
 	/*
 	 * Instead of directly reading the interrupt status register,
 	 * infer the cause of the interrupt by checking our in-core
@@ -498,6 +591,20 @@ ahc_intr(struct ahc_softc *ahc)
 	else {
 		intstat = ahc_inb(ahc, INTSTAT);
 	}
+
+	if ((intstat & INT_PEND) == 0) {
+#if AHC_PCI_CONFIG > 0
+		if (ahc->unsolicited_ints > 500) {
+			ahc->unsolicited_ints = 0;
+			if ((ahc->chip & AHC_PCI) != 0
+			 && (ahc_inb(ahc, ERROR) & PCIERRSTAT) != 0)
+				ahc->bus_intr(ahc);
+		}
+#endif
+		ahc->unsolicited_ints++;
+		return (0);
+	}
+	ahc->unsolicited_ints = 0;
 
 	if (intstat & CMDCMPLT) {
 		ahc_outb(ahc, CLRINT, CLRCMDINT);
@@ -518,38 +625,25 @@ ahc_intr(struct ahc_softc *ahc)
 #endif
 	}
 
-	if (intstat == 0xFF && (ahc->features & AHC_REMOVABLE) != 0)
-		/* Hot eject */
-		return;
-
-	if ((intstat & INT_PEND) == 0) {
-#if AHC_PCI_CONFIG > 0
-		if (ahc->unsolicited_ints > 500) {
-			ahc->unsolicited_ints = 0;
-			if ((ahc->chip & AHC_PCI) != 0
-			 && (ahc_inb(ahc, ERROR) & PCIERRSTAT) != 0)
-				ahc->bus_intr(ahc);
-		}
-#endif
-		ahc->unsolicited_ints++;
-		return;
-	}
-	ahc->unsolicited_ints = 0;
-
-	if (intstat & BRKADRINT) {
+	/*
+	 * Handle statuses that may invalidate our cached
+	 * copy of INTSTAT separately.
+	 */
+	if (intstat == 0xFF && (ahc->features & AHC_REMOVABLE) != 0) {
+		/* Hot eject.  Do nothing */
+	} else if (intstat & BRKADRINT) {
 		ahc_handle_brkadrint(ahc);
-		/* Fatal error, no more interrupts to handle. */
-		return;
-	}
+	} else if ((intstat & (SEQINT|SCSIINT)) != 0) {
 
-	if ((intstat & (SEQINT|SCSIINT)) != 0)
 		ahc_pause_bug_fix(ahc);
 
-	if ((intstat & SEQINT) != 0)
-		ahc_handle_seqint(ahc, intstat);
+		if ((intstat & SEQINT) != 0)
+			ahc_handle_seqint(ahc, intstat);
 
-	if ((intstat & SCSIINT) != 0)
-		ahc_handle_scsiint(ahc, intstat);
+		if ((intstat & SCSIINT) != 0)
+			ahc_handle_scsiint(ahc, intstat);
+	}
+	return (1);
 }
 
 #endif  /* _AIC7XXX_INLINE_H_ */

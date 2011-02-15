@@ -1,14 +1,10 @@
-/*
- * BK Id: SCCS/s.est8260.h 1.5 05/17/01 18:14:24 cort
- */
-
 /* Board information for the EST8260, which should be generic for
  * all 8260 boards.  The IMMR is now given to us so the hard define
  * will soon be removed.  All of the clock values are computed from
  * the configuration SCMR and the Power-On-Reset word.
  */
 
-#define IMAP_ADDR	((uint)0xf0000000)
+#define CPM_MAP_ADDR	((uint)0xf0000000)
 
 
 /* A Board Information structure that is given to a program when

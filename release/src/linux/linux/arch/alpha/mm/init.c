@@ -234,7 +234,8 @@ callback_init(void * kernel_end)
 	/* Allocate one PGD and one PMD.  In the case of SRM, we'll need
 	   these to actually remap the console.  There is an assumption
 	   here that only one of each is needed, and this allows for 8MB.
-	   Currently (late 1999), big consoles are still under 4MB.
+	   On systems with larger consoles, additional pages will be
+	   allocated as needed during the mapping process.
 
 	   In the case of not SRM, but not CONFIG_ALPHA_LARGE_VMALLOC,
 	   we need to allocate the PGD we use for vmalloc before we start
@@ -261,6 +262,15 @@ callback_init(void * kernel_end)
 			unsigned long paddr = crb->map[i].pa;
 			crb->map[i].va = vaddr;
 			for (j = 0; j < crb->map[i].count; ++j) {
+				/* Newer console's (especially on larger
+				   systems) may require more pages of
+				   PTEs. Grab additional pages as needed. */
+				if (pmd != pmd_offset(pgd, vaddr)) {
+					memset(kernel_end, 0, PAGE_SIZE);
+					pmd = pmd_offset(pgd, vaddr);
+					pmd_set(pmd, (pte_t *)kernel_end);
+					kernel_end += PAGE_SIZE;
+				}
 				set_pte(pte_offset(pmd, vaddr),
 					mk_pte_phys(paddr, PAGE_KERNEL));
 				paddr += PAGE_SIZE;
@@ -368,18 +378,23 @@ mem_init(void)
 #endif /* CONFIG_DISCONTIGMEM */
 
 void
-free_initmem (void)
+free_reserved_mem(void *start, void *end)
 {
-	extern char __init_begin, __init_end;
-	unsigned long addr;
-
-	addr = (unsigned long)(&__init_begin);
-	for (; addr < (unsigned long)(&__init_end); addr += PAGE_SIZE) {
-		ClearPageReserved(virt_to_page(addr));
-		set_page_count(virt_to_page(addr), 1);
-		free_page(addr);
+	void *__start = start;
+	for (; __start < end; __start += PAGE_SIZE) {
+		ClearPageReserved(virt_to_page(__start));
+		set_page_count(virt_to_page(__start), 1);
+		free_page((long)__start);
 		totalram_pages++;
 	}
+}
+
+void
+free_initmem(void)
+{
+	extern char __init_begin, __init_end;
+
+	free_reserved_mem(&__init_begin, &__init_end);
 	printk (KERN_INFO "Freeing unused kernel memory: %ldk freed\n",
 		(&__init_end - &__init_begin) >> 10);
 }
@@ -388,14 +403,9 @@ free_initmem (void)
 void
 free_initrd_mem(unsigned long start, unsigned long end)
 {
-	unsigned long __start = start;
-	for (; start < end; start += PAGE_SIZE) {
-		ClearPageReserved(virt_to_page(start));
-		set_page_count(virt_to_page(start), 1);
-		free_page(start);
-		totalram_pages++;
-	}
-	printk (KERN_INFO "Freeing initrd memory: %ldk freed\n", (end - __start) >> 10);
+	free_reserved_mem((void *)start, (void *)end);
+	printk(KERN_INFO "Freeing initrd memory: %ldk freed\n",
+	       (end - start) >> 10);
 }
 #endif
 

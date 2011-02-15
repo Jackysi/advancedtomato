@@ -1,5 +1,5 @@
 /* -*- linux-c -*- */
-/* $Id: 8253xsyn.c,v 1.1.1.4 2003/10/14 08:08:30 sparq Exp $
+/* $Id: 8253xsyn.c,v 1.17 2002/02/10 22:17:25 martillo Exp $
  * 8253xsyn.c: SYNC TTY Driver for the SIEMENS SAB8253X DUSCC.
  *
  * Implementation, modifications and extensions
@@ -55,11 +55,6 @@ static void sab8253x_flush_to_ldiscS(void *private_) /* need a separate version 
 		return;
 	}
 	
-	if (test_bit(TTY_DONT_FLIP, &tty->flags)) 
-	{
-		queue_task(&tty->flip.tqueue, &tq_timer);
-		return;
-	}
 	/* note that a hangup may have occurred -- perhaps should check for that */
 	port->DoingInterrupt = 1;
 	while(port->sab8253xc_rcvbuflist && (skb_queue_len(port->sab8253xc_rcvbuflist) > 0))
@@ -309,6 +304,13 @@ static void sab8253x_check_statusS(struct sab_port *port,
 		else if (!((port->flags & FLAG8253X_CALLOUT_ACTIVE) &&
 			   (port->flags & FLAG8253X_CALLOUT_NOHUP))) 
 		{
+#if 0				/* requires more investigation */
+			MOD_INC_USE_COUNT;
+			if (schedule_task(&port->tqueue_hangup) == 0)
+			{
+				MOD_DEC_USE_COUNT;
+			}
+#endif
 		}
 	}
 	
@@ -501,9 +503,21 @@ static void sab8253x_change_speedS(struct sab_port *port)
 	if (port->tty)
 		port->tty->hw_stopped = 0;
 	
+	/*
+	 * Set up parity check flag
+	 * XXX: not implemented, yet.
+	 */
 #define RELEVANT_IFLAG(iflag) (iflag & (IGNBRK|BRKINT|IGNPAR|PARMRK|INPCK))
 	
+	/*
+	 * Characters to ignore
+	 * XXX: not implemented, yet.
+	 */
 	
+	/*
+	 * !!! ignore all characters if CREAD is not set
+	 * XXX: not implemented, yet.
+	 */
 	if ((cflag & CREAD) == 0)
 		port->ignore_status_mask |= SAB82532_ISR0_RPF;
 	
@@ -607,10 +621,17 @@ static int sab8253x_startupS(struct sab_port *port)
 	 */
 	sab8253x_init_lineS(port);
 	
+#if 0				/* maybe should be conditional */
+	if (port->tty->termios->c_cflag & CBAUD) 
+	{
+#endif
 		/* Activate RTS */
 		RAISE(port,rts);
 		/* Activate DTR */
 		RAISE(port,dtr);
+#if 0
+	}
+#endif
 	
 	/*
 	 * Initialize the modem signals values
@@ -1003,6 +1024,21 @@ void sab8253x_closeS(struct tty_struct *tty, struct file * filp)
 		return;
 	}
 	
+#if 0
+	if ((tty->count == 1) && (port->count != 0)) 
+	{
+		/*
+		 * Uh, oh.  tty->count is 1, which means that the tty
+		 * structure will be freed.  port->count should always
+		 * be one in these conditions.  If it's greater than
+		 * one, we've got real problems, since it means the
+		 * serial port won't be shutdown.
+		 */
+		printk("sab8253x_close: bad serial port count; tty->count is 1,"
+		       " port->count is %d\n", port->count);
+		port->count = 0;
+	}
+#endif
 	
 	if (port->count < 0) 
 	{
@@ -1045,6 +1081,9 @@ void sab8253x_closeS(struct tty_struct *tty, struct file * filp)
 	 * the receiver.
 	 */
 	
+#if 0
+	port->interrupt_mask0 |= SAB82532_IMR0_TCD; /* not needed for sync */
+#endif
 	WRITEB(port,imr0,port->interrupt_mask0);
 	
 	CLEAR_REG_BIT(port, mode, SAB82532_MODE_RAC); /* turn off receiver */
@@ -1064,10 +1103,7 @@ void sab8253x_closeS(struct tty_struct *tty, struct file * filp)
 	{
 		tty->driver.flush_buffer(tty);
 	}
-	if (tty->ldisc.flush_buffer)
-	{
-		tty->ldisc.flush_buffer(tty);
-	}
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	port->event = 0;
 	port->tty = 0;

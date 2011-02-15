@@ -8,7 +8,7 @@
 
 #define RPC_RTO_MAX (60*HZ)
 #define RPC_RTO_INIT (HZ/5)
-#define RPC_RTO_MIN (2)
+#define RPC_RTO_MIN (HZ/10)
 
 void
 rpc_init_rtt(struct rpc_rtt *rt, long timeo)
@@ -22,7 +22,7 @@ rpc_init_rtt(struct rpc_rtt *rt, long timeo)
 		rt->srtt[i] = t;
 		rt->sdrtt[i] = RPC_RTO_INIT;
 	}
-	atomic_set(&rt->ntimeouts, 0);
+	memset(rt->ntimeouts, 0, sizeof(rt->ntimeouts));
 }
 
 void

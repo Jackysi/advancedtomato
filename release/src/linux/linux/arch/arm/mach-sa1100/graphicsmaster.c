@@ -12,8 +12,13 @@
 #include <linux/sched.h>
 #include <linux/interrupt.h>
 #include <linux/ptrace.h>
+#include <linux/serial_core.h>
+#include <linux/delay.h>
+#include <linux/list.h>
+#include <linux/timer.h>
 
 #include <asm/hardware.h>
+#include <asm/hardware/sa1111.h>
 #include <asm/setup.h>
 #include <asm/irq.h>
 
@@ -39,6 +44,15 @@ static int __init graphicsmaster_init(void)
 	 * and the grant is held in its inactive state
 	 */
 	sa1110_mb_disable();
+
+	/* GraphicsMaster uses GPIO pins for SPI interface to AVR
+	 */
+
+	/* use the alternate SSP pins */
+	PPAR |= PPAR_SSPGPIO;
+
+	// Set RTS low during sleep
+	PGSR |= GPIO_GPIO15 | GPIO_GPIO17 | GPIO_GPIO19;
 
 	/*
 	 * Probe for SA1111.
@@ -67,9 +81,11 @@ static int __init graphicsmaster_init(void)
 	 * Enable PWM control for LCD
 	 */
 	SKPCR |= SKPCR_PWMCLKEN;
-	SKPWM0 = 0x7F;				// VEE
+	SACR1 &= ~SACR1_L3EN;
+	ADS_DCR |= DCR_BACKLITE_ON;
+	SKPWM0 = 0x01;				// Backlight
 	SKPEN0 = 1;
-	SKPWM1 = 0x01;				// Backlight
+	SKPWM1 = 0x7F;				// VEE
 	SKPEN1 = 1;
 
 	/*
@@ -83,7 +99,7 @@ static int __init graphicsmaster_init(void)
 	 */
 	sa1110_mb_enable();
 
-	sa1111_init_irq(ADS_EXT_IRQ(0));
+	sa1111_init_irq(IRQ_GRAPHICSMASTER_SA1111);
 
 	return 0;
 }
@@ -94,56 +110,58 @@ __initcall(graphicsmaster_init);
  * Handlers for GraphicsMaster's external IRQ logic
  */
 
+#define GRAPHICSMASTER_N_IRQ (IRQ_GRAPHICSMASTER_END - IRQ_GRAPHICSMASTER_START)
+
 static void ADS_IRQ_demux( int irq, void *dev_id, struct pt_regs *regs )
 {
 	int i;
 
 	while( (irq = ADS_INT_ST1 | (ADS_INT_ST2 << 8)) ){
-		for( i = 0; i < 16; i++ )
+		for( i = 0; i < GRAPHICSMASTER_N_IRQ; i++ )
 			if( irq & (1<<i) ) {
-				do_IRQ( ADS_EXT_IRQ(i), regs );
+				do_IRQ( IRQ_GRAPHICSMASTER_START + i, regs );
 			}
 	}
 }
 
 static struct irqaction ADS_ext_irq = {
-	name:		"ADS_ext_IRQ",
-	handler:	ADS_IRQ_demux,
-	flags:		SA_INTERRUPT
+	.name		= "ADS_ext_IRQ",
+	.handler	= ADS_IRQ_demux,
+	.flags		= SA_INTERRUPT
 };
 
 static void ADS_mask_and_ack_irq0(unsigned int irq)
 {
-	int mask = (1 << (irq - ADS_EXT_IRQ(0)));
+	int mask = (1 << (irq - IRQ_GRAPHICSMASTER_START));
 	ADS_INT_EN1 &= ~mask;
 	ADS_INT_ST1 = mask;
 }
 
 static void ADS_mask_irq0(unsigned int irq)
 {
-	ADS_INT_ST1 = (1 << (irq - ADS_EXT_IRQ(0)));
+	ADS_INT_ST1 = (1 << (irq - IRQ_GRAPHICSMASTER_START));
 }
 
 static void ADS_unmask_irq0(unsigned int irq)
 {
-	ADS_INT_EN1 |= (1 << (irq - ADS_EXT_IRQ(0)));
+	ADS_INT_EN1 |= (1 << (irq - IRQ_GRAPHICSMASTER_START));
 }
 
 static void ADS_mask_and_ack_irq1(unsigned int irq)
 {
-	int mask = (1 << (irq - ADS_EXT_IRQ(8)));
+	int mask = (1 << (irq - (IRQ_GRAPHICSMASTER_UCB1200)));
 	ADS_INT_EN2 &= ~mask;
 	ADS_INT_ST2 = mask;
 }
 
 static void ADS_mask_irq1(unsigned int irq)
 {
-	ADS_INT_ST2 = (1 << (irq - ADS_EXT_IRQ(8)));
+	ADS_INT_ST2 = (1 << (irq - (IRQ_GRAPHICSMASTER_UCB1200)));
 }
 
 static void ADS_unmask_irq1(unsigned int irq)
 {
-	ADS_INT_EN2 |= (1 << (irq - ADS_EXT_IRQ(8)));
+	ADS_INT_EN2 |= (1 << (irq - (IRQ_GRAPHICSMASTER_UCB1200)));
 }
 
 static void __init graphicsmaster_init_irq(void)
@@ -160,42 +178,26 @@ static void __init graphicsmaster_init_irq(void)
 	ADS_INT_ST1 = 0xff;
 	ADS_INT_ST2 = 0xff;
 
-	for (irq = ADS_EXT_IRQ(0); irq <= ADS_EXT_IRQ(7); irq++) {
+	for (irq = IRQ_GRAPHICSMASTER_START; irq < IRQ_GRAPHICSMASTER_UCB1200; irq++) {
 		irq_desc[irq].valid	= 1;
 		irq_desc[irq].probe_ok	= 1;
 		irq_desc[irq].mask_ack	= ADS_mask_and_ack_irq0;
 		irq_desc[irq].mask	= ADS_mask_irq0;
 		irq_desc[irq].unmask	= ADS_unmask_irq0;
 	}
-	for (irq = ADS_EXT_IRQ(8); irq <= ADS_EXT_IRQ(15); irq++) {
+	for (irq = IRQ_GRAPHICSMASTER_UCB1200; irq < IRQ_GRAPHICSMASTER_END; irq++) {
 		irq_desc[irq].valid	= 1;
 		irq_desc[irq].probe_ok	= 1;
 		irq_desc[irq].mask_ack	= ADS_mask_and_ack_irq1;
 		irq_desc[irq].mask	= ADS_mask_irq1;
 		irq_desc[irq].unmask	= ADS_unmask_irq1;
 	}
+
+	GPDR &= ~GPIO_GPIO0;
 	set_GPIO_IRQ_edge(GPIO_GPIO0, GPIO_FALLING_EDGE);
 	setup_arm_irq( IRQ_GPIO0, &ADS_ext_irq );
 }
 
-
-/*
- * Initialization fixup
- */
-
-static void __init
-fixup_graphicsmaster(struct machine_desc *desc, struct param_struct *params,
-		     char **cmdline, struct meminfo *mi)
-{
-	SET_BANK( 0, 0xc0000000, 16*1024*1024 );
-	mi->nr_banks = 1;
-	SET_BANK( 1, 0xc8000000, 16*1024*1024 );
-	mi->nr_banks = 2;
-
-	ROOT_DEV = MKDEV(RAMDISK_MAJOR,0);
-	setup_ramdisk( 1, 0, 0, 8192 );
-	setup_initrd( __phys_to_virt(0xc0800000), 4*1024*1024 );
-}
 
 static struct map_desc graphicsmaster_io_desc[] __initdata = {
  /* virtual     physical    length      domain     r  w  c  b */
@@ -212,17 +214,9 @@ static int graphicsmaster_uart_open(struct uart_port *port, struct uart_info *in
 
 	if (port->mapbase == _Ser1UTCR0) {
 		Ser1SDCR0 |= SDCR0_UART;
-		/* Set RTS Output */
-		GPSR = GPIO_GPIO15;
 	}
 	else if (port->mapbase == _Ser2UTCR0) {
 		Ser2UTCR4 = Ser2HSCR0 = 0;
-		/* Set RTS Output */
-		GPSR = GPIO_GPIO17;
-	}
-	else if (port->mapbase == _Ser3UTCR0) {
-	        /* Set RTS Output */
-		GPSR = GPIO_GPIO19;
 	}
 	return ret;
 }
@@ -238,7 +232,7 @@ static u_int graphicsmaster_get_mctrl(struct uart_port *port)
 		if (!(GPLR & GPIO_GPIO16))
 			result |= TIOCM_CTS;
 	} else if (port->mapbase == _Ser3UTCR0) {
-		if (!(GPLR & GPIO_GPIO17))
+		if (!(GPLR & GPIO_GPIO18))
 			result |= TIOCM_CTS;
 	} else {
 		result = TIOCM_CTS;
@@ -270,19 +264,35 @@ static void graphicsmaster_set_mctrl(struct uart_port *port, u_int mctrl)
 static void
 graphicsmaster_uart_pm(struct uart_port *port, u_int state, u_int oldstate)
 {
-	if (!state) {
-		/* make serial ports work ... */
-		Ser2UTCR4 = 0;
-		Ser2HSCR0 = 0; 
-		Ser1SDCR0 |= SDCR0_UART;
+	// state has ACPI D0-D3
+	// ACPI D0 	  : resume from suspend
+	// ACPI D1-D3 : enter to a suspend state
+	if (port->mapbase == _Ser1UTCR0) {
+		if (state) {
+			// disable uart
+			Ser1UTCR3 = 0;
+		}
+	}
+	else if (port->mapbase == _Ser2UTCR0) {
+		if (state) {
+			// disable uart
+			Ser2UTCR3 = 0;
+			Ser2HSCR0 = 0;
+		}
+	}
+	else if (port->mapbase == _Ser3UTCR0) {
+		if (state) {
+			// disable uart
+			Ser3UTCR3 = 0;
+		}
 	}
 }
 
 static struct sa1100_port_fns graphicsmaster_port_fns __initdata = {
-	open:		graphicsmaster_uart_open,
-	get_mctrl:	graphicsmaster_get_mctrl,
-	set_mctrl:	graphicsmaster_set_mctrl,
-	pm:		graphicsmaster_uart_pm,
+	.open		= graphicsmaster_uart_open,
+	.get_mctrl	= graphicsmaster_get_mctrl,
+	.set_mctrl	= graphicsmaster_set_mctrl,
+	.pm		= graphicsmaster_uart_pm,
 };
 
 static void __init graphicsmaster_map_io(void)
@@ -293,7 +303,10 @@ static void __init graphicsmaster_map_io(void)
 	sa1100_register_uart_fns(&graphicsmaster_port_fns);
 	sa1100_register_uart(0, 3);
 	sa1100_register_uart(1, 1);
+	// don't register if you want to use IRDA
+#ifndef CONFIG_SA1100_FIR
 	sa1100_register_uart(2, 2);
+#endif
 
 	/* set GPDR now */
 	GPDR |= GPIO_GPIO15 | GPIO_GPIO17 | GPIO_GPIO19;
@@ -301,8 +314,8 @@ static void __init graphicsmaster_map_io(void)
 }
 
 MACHINE_START(GRAPHICSMASTER, "ADS GraphicsMaster")
+	BOOT_PARAMS(0xc000003c)
 	BOOT_MEM(0xc0000000, 0x80000000, 0xf8000000)
-	FIXUP(fixup_graphicsmaster)
 	MAPIO(graphicsmaster_map_io)
 	INITIRQ(graphicsmaster_init_irq)
 MACHINE_END

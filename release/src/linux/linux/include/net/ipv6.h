@@ -2,9 +2,9 @@
  *	Linux INET6 implementation
  *
  *	Authors:
- *	Pedro Roque		<roque@di.fc.ul.pt>
+ *	Pedro Roque		<pedro_m@yahoo.com>
  *
- *	$Id: ipv6.h,v 1.1.1.4 2003/10/14 08:09:28 sparq Exp $
+ *	$Id: ipv6.h,v 1.23 2000/12/13 18:31:48 davem Exp $
  *
  *	This program is free software; you can redistribute it and/or
  *      modify it under the terms of the GNU General Public License
@@ -74,6 +74,20 @@
 #define IPV6_ADDR_RESERVED	0x2000U	/* reserved address space */
 
 /*
+ *	Addr scopes
+ */
+#ifdef __KERNEL__
+#define IPV6_ADDR_MC_SCOPE(a)	\
+	((a)->s6_addr[1] & 0x0f)	/* nonstandard */
+#define __IPV6_ADDR_SCOPE_INVALID	-1
+#endif
+#define IPV6_ADDR_SCOPE_NODELOCAL	0x01
+#define IPV6_ADDR_SCOPE_LINKLOCAL	0x02
+#define IPV6_ADDR_SCOPE_SITELOCAL	0x05
+#define IPV6_ADDR_SCOPE_ORGLOCAL	0x08
+#define IPV6_ADDR_SCOPE_GLOBAL		0x0e
+
+/*
  *	fragmentation header
  */
 
@@ -87,6 +101,11 @@ struct frag_hdr {
 #ifdef __KERNEL__
 
 #include <net/sock.h>
+#include <net/snmp.h>
+
+/* sysctls */
+extern int sysctl_ipv6_bindv6only;
+extern int sysctl_mld_max_msf;
 
 extern struct ipv6_mib		ipv6_statistics[NR_CPUS*2];
 #define IP6_INC_STATS(field)		SNMP_INC_STATS(ipv6_statistics, field)
@@ -204,21 +223,21 @@ typedef int		(*inet_getfrag_t) (const void *data,
 					   unsigned int, unsigned int);
 
 
-extern int		ipv6_addr_type(struct in6_addr *addr);
+extern int		ipv6_addr_type(const struct in6_addr *addr);
 
-static inline int ipv6_addr_scope(struct in6_addr *addr)
+static inline int ipv6_addr_scope(const struct in6_addr *addr)
 {
 	return ipv6_addr_type(addr) & IPV6_ADDR_SCOPE_MASK;
 }
 
-static inline int ipv6_addr_cmp(struct in6_addr *a1, struct in6_addr *a2)
+static inline int ipv6_addr_cmp(const struct in6_addr *a1, const struct in6_addr *a2)
 {
-	return memcmp((void *) a1, (void *) a2, sizeof(struct in6_addr));
+	return memcmp((const void *) a1, (const void *) a2, sizeof(struct in6_addr));
 }
 
-static inline void ipv6_addr_copy(struct in6_addr *a1, struct in6_addr *a2)
+static inline void ipv6_addr_copy(struct in6_addr *a1, const struct in6_addr *a2)
 {
-	memcpy((void *) a1, (void *) a2, sizeof(struct in6_addr));
+	memcpy((void *) a1, (const void *) a2, sizeof(struct in6_addr));
 }
 
 #ifndef __HAVE_ARCH_ADDR_SET
@@ -233,7 +252,7 @@ static inline void ipv6_addr_set(struct in6_addr *addr,
 }
 #endif
 
-static inline int ipv6_addr_any(struct in6_addr *a)
+static inline int ipv6_addr_any(const struct in6_addr *a)
 {
 	return ((a->s6_addr32[0] | a->s6_addr32[1] | 
 		 a->s6_addr32[2] | a->s6_addr32[3] ) == 0); 
@@ -303,7 +322,7 @@ extern void			ipv6_push_frag_opts(struct sk_buff *skb,
 						    struct ipv6_txoptions *opt,
 						    u8 *proto);
 
-extern int			ipv6_skip_exthdr(struct sk_buff *, int start,
+extern int			ipv6_skip_exthdr(const struct sk_buff *, int start,
 					         u8 *nexthdrp, int len);
 
 extern int 			ipv6_ext_hdr(u8 nexthdr);
@@ -335,6 +354,14 @@ extern int 			ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len);
 extern void			ipv6_icmp_error(struct sock *sk, struct sk_buff *skb, int err, u16 port,
 						u32 info, u8 *payload);
 extern void			ipv6_local_error(struct sock *sk, int err, struct flowi *fl, u32 info);
+
+extern int inet6_release(struct socket *sock);
+extern int inet6_bind(struct socket *sock, struct sockaddr *uaddr, 
+		      int addr_len);
+extern int inet6_getname(struct socket *sock, struct sockaddr *uaddr,
+			 int *uaddr_len, int peer);
+extern int inet6_ioctl(struct socket *sock, unsigned int cmd, 
+		       unsigned long arg);
 
 #endif /* __KERNEL__ */
 #endif /* _NET_IPV6_H */

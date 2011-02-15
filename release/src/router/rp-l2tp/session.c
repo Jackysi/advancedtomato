@@ -473,7 +473,7 @@ l2tp_session_handle_CDN(l2tp_session *ses,
     val = l2tp_dgram_search_avp(dgram, ses->tunnel, NULL, NULL, &len,
 				VENDOR_IETF, AVP_RESULT_CODE);
     if (!val || len < 4) {
-	l2tp_tunnel_delete_session(ses, "Received CDN", 0);
+	l2tp_tunnel_delete_session(ses, "Received CDN", 1);
     } else {
 	uint16_t result_code, error_code;
 	char *msg;
@@ -486,7 +486,7 @@ l2tp_session_handle_CDN(l2tp_session *ses,
 	}
 	snprintf(buf, sizeof(buf), "Received CDN: result-code = %d, error-code = %d, message = '%.*s'", result_code, error_code, (int) len-4, msg);
 	buf[1023] = 0;
-	l2tp_tunnel_delete_session(ses, buf, 0);
+	l2tp_tunnel_delete_session(ses, buf, 1);
     }
 }
 

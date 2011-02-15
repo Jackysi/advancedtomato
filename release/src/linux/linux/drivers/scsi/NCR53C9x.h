@@ -338,7 +338,7 @@ struct NCR_ESP {
 	  struct scatterlist *saved_buffer;
 	  int saved_this_residual;
 	  int saved_buffers_residual;
-  } data_pointers[16] ;
+  } data_pointers[16] /*XXX [MAX_TAGS_PER_TARGET]*/;
 
   /* Clock periods, frequencies, synchronization, etc. */
   unsigned int cfreq;                    /* Clock frequency in HZ */
@@ -634,8 +634,7 @@ extern int nesps, esps_in_use, esps_running;
 
 
 /* External functions */
-extern inline void esp_cmd(struct NCR_ESP *esp, struct ESP_regs *eregs,
-			   unchar cmd);
+extern void esp_cmd(struct NCR_ESP *esp, struct ESP_regs *eregs, unchar cmd);
 extern struct NCR_ESP *esp_allocate(Scsi_Host_Template *, void *);
 extern void esp_deallocate(struct NCR_ESP *);
 extern void esp_release(void);

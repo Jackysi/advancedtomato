@@ -1,24 +1,39 @@
 /*
  * cbcp - Call Back Configuration Protocol.
  *
- * Copyright (c) 1995 Pedro Roque Marques
- * All rights reserved.
+ * Copyright (c) 1995 Pedro Roque Marques.  All rights reserved.
  *
- * Redistribution and use in source and binary forms are permitted
- * provided that the above copyright notice and this paragraph are
- * duplicated in all such forms and that any documentation,
- * advertising materials, and other materials related to such
- * distribution and use acknowledge that the software was developed
- * by Pedro Roque Marques.  The name of the author may not be used to
- * endorse or promote products derived from this software without
- * specific prior written permission.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
  *
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The names of the authors of this software must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission.
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Pedro Roque Marques
+ *     <pedro_m@yahoo.com>"
+ *
+ * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#define RCSID	"$Id: cbcp.c,v 1.1 2003/07/10 07:43:04 honor Exp $"
+#define RCSID	"$Id: cbcp.c,v 1.17 2006/05/22 00:04:07 paulus Exp $"
 
 #include <stdio.h>
 #include <string.h>
@@ -38,7 +53,7 @@ static const char rcsid[] = RCSID;
 static int setcbcp __P((char **));
 
 static option_t cbcp_option_list[] = {
-    { "callback", o_special, setcbcp,
+    { "callback", o_special, (void *)setcbcp,
       "Ask for callback", OPT_PRIO | OPT_A2STRVAL, &cbcp[0].us_number },
     { NULL }
 };
@@ -79,11 +94,11 @@ cbcp_state cbcp[NUM_PPP];
 
 /* internal prototypes */
 
-static void cbcp_recvreq __P((cbcp_state *us, char *pckt, int len));
+static void cbcp_recvreq __P((cbcp_state *us, u_char *pckt, int len));
 static void cbcp_resp __P((cbcp_state *us));
 static void cbcp_up __P((cbcp_state *us));
-static void cbcp_recvack __P((cbcp_state *us, char *pckt, int len));
-static void cbcp_send __P((cbcp_state *us, u_char code, u_char *buf, int len));
+static void cbcp_recvack __P((cbcp_state *us, u_char *pckt, int len));
+static void cbcp_send __P((cbcp_state *us, int code, u_char *buf, int len));
 
 /* option processing */
 static int
@@ -150,7 +165,8 @@ cbcp_input(unit, inpacket, pktlen)
     inp = inpacket;
 
     if (pktlen < CBCP_MINLEN) {
-        error("CBCP packet is too small");
+	if (debug)
+	    dbglog("CBCP packet is too small");
 	return;
     }
 
@@ -158,12 +174,11 @@ cbcp_input(unit, inpacket, pktlen)
     GETCHAR(id, inp);
     GETSHORT(len, inp);
 
-#if 0
-    if (len > pktlen) {
-        error("CBCP packet: invalid length");
+    if (len > pktlen || len < CBCP_MINLEN) {
+	if (debug)
+	    dbglog("CBCP packet: invalid length %d", len);
         return;
     }
-#endif
 
     len -= CBCP_MINLEN;
  
@@ -174,11 +189,12 @@ cbcp_input(unit, inpacket, pktlen)
 	break;
 
     case CBCP_RESP:
-	dbglog("CBCP_RESP received");
+	if (debug)
+	    dbglog("CBCP_RESP received");
 	break;
 
     case CBCP_ACK:
-	if (id != us->us_id)
+	if (debug && id != us->us_id)
 	    dbglog("id doesn't match: expected %d recv %d",
 		   us->us_id, id);
 
@@ -269,8 +285,8 @@ cbcp_printpkt(p, plen, printer, arg)
 		printer(arg, " number = %s", str);
 	    }
 	    printer(arg, ">");
-	    break;
 	}
+	break;
 
     default:
 	break;
@@ -288,7 +304,7 @@ cbcp_printpkt(p, plen, printer, arg)
 static void
 cbcp_recvreq(us, pckt, pcktlen)
     cbcp_state *us;
-    char *pckt;
+    u_char *pckt;
     int pcktlen;
 {
     u_char type, opt_len, delay, addr_type;
@@ -297,11 +313,13 @@ cbcp_recvreq(us, pckt, pcktlen)
 
     address[0] = 0;
 
-    while (len) {
+    while (len >= 2) {
         dbglog("length: %d", len);
 
 	GETCHAR(type, pckt);
 	GETCHAR(opt_len, pckt);
+	if (opt_len < 2 || opt_len > len)
+	    break;
 
 	if (opt_len > 2)
 	    GETCHAR(delay, pckt);
@@ -333,6 +351,11 @@ cbcp_recvreq(us, pckt, pcktlen)
 	}
 	len -= opt_len;
     }
+    if (len != 0) {
+	if (debug)
+	    dbglog("cbcp_recvreq: malformed packet (%d bytes left)", len);
+	return;
+    }
 
     cbcp_resp(us);
 }
@@ -345,6 +368,7 @@ cbcp_resp(us)
     u_char buf[256];
     u_char *bufp = buf;
     int len = 0;
+    int slen;
 
     cb_type = us->us_allowed & us->us_type;
     dbglog("cbcp_resp cb_type=%d", cb_type);
@@ -356,12 +380,17 @@ cbcp_resp(us)
 
     if (cb_type & ( 1 << CB_CONF_USER ) ) {
 	dbglog("cbcp_resp CONF_USER");
+	slen = strlen(us->us_number);
+	if (slen > 250) {
+	    warn("callback number truncated to 250 characters");
+	    slen = 250;
+	}
 	PUTCHAR(CB_CONF_USER, bufp);
-	len = 3 + 1 + strlen(us->us_number) + 1;
+	len = 3 + 1 + slen + 1;
 	PUTCHAR(len , bufp);
 	PUTCHAR(5, bufp); /* delay */
 	PUTCHAR(1, bufp);
-	BCOPY(us->us_number, bufp, strlen(us->us_number) + 1);
+	BCOPY(us->us_number, bufp, slen + 1);
 	cbcp_send(us, CBCP_RESP, buf, len);
 	return;
     }
@@ -379,11 +408,10 @@ cbcp_resp(us)
     if (cb_type & ( 1 << CB_CONF_NO ) ) {
         dbglog("cbcp_resp CONF_NO");
 	PUTCHAR(CB_CONF_NO, bufp);
-	len = 3;
+	len = 2;
 	PUTCHAR(len , bufp);
-	PUTCHAR(0, bufp);
 	cbcp_send(us, CBCP_RESP, buf, len);
-	start_networks();
+	start_networks(us->us_unit);
 	return;
     }
 }
@@ -391,7 +419,7 @@ cbcp_resp(us)
 static void
 cbcp_send(us, code, buf, len)
     cbcp_state *us;
-    u_char code;
+    int code;
     u_char *buf;
     int len;
 {
@@ -417,32 +445,36 @@ cbcp_send(us, code, buf, len)
 static void
 cbcp_recvack(us, pckt, len)
     cbcp_state *us;
-    char *pckt;
+    u_char *pckt;
     int len;
 {
     u_char type, delay, addr_type;
     int opt_len;
     char address[256];
 
-    if (len) {
+    if (len >= 2) {
         GETCHAR(type, pckt);
 	GETCHAR(opt_len, pckt);
+	if (opt_len >= 2 && opt_len <= len) {
      
-	if (opt_len > 2)
-	    GETCHAR(delay, pckt);
+	    if (opt_len > 2)
+		GETCHAR(delay, pckt);
 
-	if (opt_len > 4) {
-	    GETCHAR(addr_type, pckt);
-	    memcpy(address, pckt, opt_len - 4);
-	    address[opt_len - 4] = 0;
-	    if (address[0])
-	        dbglog("peer will call: %s", address);
-	}
-	if (type == CB_CONF_NO)
-	    return;
+	    if (opt_len > 4) {
+		GETCHAR(addr_type, pckt);
+		memcpy(address, pckt, opt_len - 4);
+		address[opt_len - 4] = 0;
+		if (address[0])
+		    dbglog("peer will call: %s", address);
+	    }
+	    if (type == CB_CONF_NO)
+		return;
+
+	    cbcp_up(us);
+
+	} else if (debug)
+	    dbglog("cbcp_recvack: malformed packet");
     }
-
-    cbcp_up(us);
 }
 
 /* ok peer will do callback */
@@ -451,6 +483,6 @@ cbcp_up(us)
     cbcp_state *us;
 {
     persist = 0;
-    lcp_close(0, "Call me back, please");
     status = EXIT_CALLBACK;
+    lcp_close(0, "Call me back, please");
 }

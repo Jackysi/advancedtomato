@@ -1,1 +1,0 @@
-#define CONFIG_MTD_CFI_B2 1

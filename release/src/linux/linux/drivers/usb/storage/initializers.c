@@ -1,6 +1,6 @@
 /* Special Initializers for certain USB Mass Storage devices
  *
- * $Id: initializers.c,v 1.1.1.4 2003/10/14 08:08:52 sparq Exp $
+ * $Id: initializers.c,v 1.2 2000/09/06 22:35:57 mdharm Exp $
  *
  * Current development and maintenance by:
  *   (c) 1999, 2000 Matthew Dharm (mdharm-usb@one-eyed-alien.net)
@@ -39,6 +39,7 @@
 
 #include "initializers.h"
 #include "debug.h"
+#include "transport.h"
 
 /* This places the Shuttle/SCM USB<->SCSI bridge devices in multi-target
  * mode */
@@ -57,4 +58,51 @@ int usb_stor_euscsi_init(struct us_data *us)
 	return 0;
 }
 
+/* This function is required to activate all four slots on the UCR-61S2B
+ * flash reader */
 
+int usb_stor_ucr61s2b_init(struct us_data *us)
+{
+	int pipe;
+	struct bulk_cb_wrap *bcb;
+	struct bulk_cs_wrap *bcs;
+	int res, partial;
+
+	bcb = kmalloc(sizeof *bcb, in_interrupt() ? GFP_ATOMIC : GFP_NOIO);
+	if (!bcb) {
+		return(-1);
+	}
+	bcs = kmalloc(sizeof *bcs, in_interrupt() ? GFP_ATOMIC : GFP_NOIO);
+	if (!bcs) {
+		kfree(bcb);
+		return(-1);
+	}
+
+	US_DEBUGP("Sending UCR-61S2B initialization packet...\n");
+
+	bcb->Signature = cpu_to_le32(US_BULK_CB_SIGN);
+	bcb->Tag = ++(us->tag);
+	bcb->DataTransferLength = cpu_to_le32(0);
+	bcb->Flags = bcb->Lun = 0;
+	bcb->Length = sizeof(UCR61S2B_INIT);
+	memset(bcb->CDB, 0, sizeof(bcb->CDB));
+	memcpy(bcb->CDB, UCR61S2B_INIT, sizeof(UCR61S2B_INIT));
+
+	pipe = usb_sndbulkpipe(us->pusb_dev, us->ep_out);
+	res = usb_stor_bulk_msg(us, bcb, pipe, US_BULK_CB_WRAP_LEN, &partial);
+	US_DEBUGP("-- result is %d\n", res);
+	kfree(bcb);
+
+	if(res) {
+		kfree(bcs);
+		return(res);
+	}
+
+	pipe = usb_rcvbulkpipe(us->pusb_dev, us->ep_in);
+	res = usb_stor_bulk_msg(us, bcs, pipe, US_BULK_CS_WRAP_LEN, &partial);
+	US_DEBUGP("-- result of status read is %d\n", res);
+
+	kfree(bcs);
+
+	return(res ? -1 : 0);
+}

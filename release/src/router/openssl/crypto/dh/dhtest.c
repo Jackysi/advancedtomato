@@ -56,19 +56,25 @@
  * [including the GNU Public Licence.]
  */
 
+/* Until the key-gen callbacks are modified to use newer prototypes, we allow
+ * deprecated functions for openssl-internal code */
+#ifdef OPENSSL_NO_DEPRECATED
+#undef OPENSSL_NO_DEPRECATED
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifdef WINDOWS
-#include "../bio/bss_file.c" 
-#endif
+
+#include "../e_os.h"
+
 #include <openssl/crypto.h>
 #include <openssl/bio.h>
 #include <openssl/bn.h>
 #include <openssl/rand.h>
 #include <openssl/err.h>
 
-#ifdef NO_DH
+#ifdef OPENSSL_NO_DH
 int main(int argc, char *argv[])
 {
     printf("No DH support\n");
@@ -77,22 +83,19 @@ int main(int argc, char *argv[])
 #else
 #include <openssl/dh.h>
 
-#ifdef WIN16
+#ifdef OPENSSL_SYS_WIN16
 #define MS_CALLBACK	_far _loadds
 #else
 #define MS_CALLBACK
 #endif
 
-static void MS_CALLBACK cb(int p, int n, void *arg);
-#ifdef NO_STDIO
-#define APPS_WIN16
-#include "bss_file.c"
-#endif
+static int MS_CALLBACK cb(int p, int n, BN_GENCB *arg);
 
 static const char rnd_seed[] = "string to make the random number generator think it has entropy";
 
 int main(int argc, char *argv[])
 	{
+	BN_GENCB _cb;
 	DH *a;
 	DH *b=NULL;
 	char buf[12];
@@ -100,18 +103,24 @@ int main(int argc, char *argv[])
 	int i,alen,blen,aout,bout,ret=1;
 	BIO *out;
 
-#ifdef WIN32
+	CRYPTO_malloc_debug_init();
+	CRYPTO_dbg_set_options(V_CRYPTO_MDEBUG_ALL);
+	CRYPTO_mem_ctrl(CRYPTO_MEM_CHECK_ON);
+
+#ifdef OPENSSL_SYS_WIN32
 	CRYPTO_malloc_init();
 #endif
 
 	RAND_seed(rnd_seed, sizeof rnd_seed);
 
 	out=BIO_new(BIO_s_file());
-	if (out == NULL) exit(1);
+	if (out == NULL) EXIT(1);
 	BIO_set_fp(out,stdout,BIO_NOCLOSE);
 
-	a=DH_generate_parameters(64,DH_GENERATOR_5,cb,out);
-	if (a == NULL) goto err;
+	BN_GENCB_set(&_cb, &cb, out);
+	if(((a = DH_new()) == NULL) || !DH_generate_parameters_ex(a, 64,
+				DH_GENERATOR_5, &_cb))
+		goto err;
 
 	if (!DH_check(a, &i)) goto err;
 	if (i & DH_CHECK_P_NOT_PRIME)
@@ -135,6 +144,10 @@ int main(int argc, char *argv[])
 	b->p=BN_dup(a->p);
 	b->g=BN_dup(a->g);
 	if ((b->p == NULL) || (b->g == NULL)) goto err;
+
+	/* Set a to run with normal modexp and b to use constant time */
+	a->flags &= ~DH_FLAG_NO_EXP_CONSTTIME;
+	b->flags |= DH_FLAG_NO_EXP_CONSTTIME;
 
 	if (!DH_generate_key(a)) goto err;
 	BIO_puts(out,"pri 1=");
@@ -188,11 +201,14 @@ err:
 	if(b != NULL) DH_free(b);
 	if(a != NULL) DH_free(a);
 	BIO_free(out);
-	exit(ret);
+#ifdef OPENSSL_SYS_NETWARE
+    if (ret) printf("ERROR: %d\n", ret);
+#endif
+	EXIT(ret);
 	return(ret);
 	}
 
-static void MS_CALLBACK cb(int p, int n, void *arg)
+static int MS_CALLBACK cb(int p, int n, BN_GENCB *arg)
 	{
 	char c='*';
 
@@ -200,10 +216,11 @@ static void MS_CALLBACK cb(int p, int n, void *arg)
 	if (p == 1) c='+';
 	if (p == 2) c='*';
 	if (p == 3) c='\n';
-	BIO_write((BIO *)arg,&c,1);
-	(void)BIO_flush((BIO *)arg);
+	BIO_write(arg->arg,&c,1);
+	(void)BIO_flush(arg->arg);
 #ifdef LINT
 	p=n;
 #endif
+	return 1;
 	}
 #endif

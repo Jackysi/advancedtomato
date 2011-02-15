@@ -106,6 +106,7 @@ void presto_read_inode(struct inode *inode)
                inode->i_ino, inode->i_gid);
 
         presto_set_ops(inode, cache->cache_filter); 
+        /* XXX handle special inodes here or not - probably not? */
 }
 
 static void presto_put_super(struct super_block *sb)

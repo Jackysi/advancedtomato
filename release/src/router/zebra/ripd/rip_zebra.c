@@ -58,17 +58,16 @@ rip_zebra_ipv4_add (struct prefix_ipv4 *p, struct in_addr *nexthop,
       api.nexthop = &nexthop;
       api.ifindex_num = 0;
       SET_FLAG (api.message, ZAPI_MESSAGE_METRIC);
-	/*
-		This modify is for the routing table hop count show on web,
-		actually we should use "api.metric = metric - ifp->metric",
-		but it is too complicated(^..^) and "- 1" is enough to use for now!
-		Lili.	2007-07-06
-	*/
-	#if 0
-	api.metric = metric;
-	#else
-	api.metric = metric - 1;
-	#endif
+
+      /* This modify is for the routing table hop count show on web,
+         actually we should use "api.metric = metric - ifp->metric",
+         but it is too complicated(^..^) and "- 1" is enough to use for now!
+         Lili. 2007-07-06 */
+#if 0
+      api.metric = metric;
+#else
+      api.metric = metric - 1;
+#endif
 
       if (distance && distance != ZEBRA_RIP_DISTANCE_DEFAULT)
 	{
@@ -149,9 +148,9 @@ rip_zebra_read_ipv4 (int command, struct zclient *zclient, zebra_size_t length)
 
   /* Then fetch IPv4 prefixes. */
   if (command == ZEBRA_IPV4_ROUTE_ADD)
-    rip_redistribute_add (api.type, 0, &p, ifindex, &nexthop);
+    rip_redistribute_add (api.type, RIP_ROUTE_REDISTRIBUTE, &p, ifindex, &nexthop);
   else 
-    rip_redistribute_delete (api.type, 0, &p, ifindex);
+    rip_redistribute_delete (api.type, RIP_ROUTE_REDISTRIBUTE, &p, ifindex);
 
   return 0;
 }
@@ -274,6 +273,12 @@ rip_redistribute_unset (int type)
   rip_redistribute_withdraw (type);
 
   return CMD_SUCCESS;
+}
+
+int
+rip_redistribute_check (int type)
+{
+  return (zclient->redist[type]);
 }
 
 void

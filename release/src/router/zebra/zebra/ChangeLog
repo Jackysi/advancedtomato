@@ -1,3 +1,61 @@
+2003-11-11  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* rt_netlink.c (netlink_parse_info): Ignore non kernel message.
+
+2003-02-06  Francois Deppierraz <francois@ctrlaltdel.ch>
+
+	* rt_netlink.c (netlink_route_multipath): Set RTM_F_EQUALIZE when
+	it exists.
+
+2002-09-28  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* zebra_rib.c (static_add_ipv4): Null0 static route is added.
+
+2002-09-10  Jochen Friedrich <chris+zebra@scram.de>
+
+	* rt_netlink.c: Add check for EAGAIN.
+	* kernel_socket.c: Likewise
+
+2002-06-12  Israel Keys <ikeys@oz.agile.tv>
+
+	* rt_netlink.c: Setting the NLM_F_ACK flag on the netlink command
+	  message so that we get an ACK for successful netlink commands.
+	  Change the netlink socket to BLOCKING while we wait for a
+	  response; be it an ACK or an NLMSG_ERROR.  Change
+	  netlink_parse_info to deal with ACK messages.
+
+2001-11-01  Jun-ichiro itojun Hagino <itojun@iijlab.net>
+
+	* rtadv.c (rtadv_make_socket): setsockopt(IPV6_CHECKSUM) does not
+	work for ICMPv6 socket.
+
+2001-10-24  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* rib.c (rib_process): Select connected route any case.
+
+2001-10-23  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* interface.c (no_ip_address_secondary): Add "no" to command.
+
+2001-10-18  NOGUCHI Kay  <kay@v6.access.co.jp>
+
+	* ioctl.c (if_prefix_add_ipv6): Set the prefered and valid lifetime
+	to infinity as the freebsd4.4 workaroud.
+
+2001-08-26  mihail.balikov@interbgc.com
+
+	* zebra_snmp.c: Fix snmpwalk problem such as IPv4 address
+	A.B.C.255.
+
+2001-08-22  NOGUCHI Kay <kay@v6.access.co.jp>
+
+	* rtadv.c: Do not send RA to loopback interface.
+
+2001-08-20  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* ioctl.c (if_set_prefix): Remove Linux 2.0 specific connected
+	route treatment.
+
 2001-08-19  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
 	* zebra-0.92a released.

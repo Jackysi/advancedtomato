@@ -41,8 +41,7 @@
 #include "ospfd/ospf_packet.h"
 #include "ospfd/ospf_network.h"
 
-/* messages for OSPFv2 status */
-struct message ospf_ism_status_msg[] =
+struct message ospf_ism_state_msg[] =
 {
   { ISM_DependUpon,   "DependUpon" },
   { ISM_Down,         "Down" },
@@ -53,9 +52,9 @@ struct message ospf_ism_status_msg[] =
   { ISM_Backup,       "Backup" },
   { ISM_DR,           "DR" },
 };
-int ospf_ism_status_msg_max = OSPF_ISM_STATUS_MAX;
+int ospf_ism_state_msg_max = OSPF_ISM_STATE_MAX;
 
-struct message ospf_nsm_status_msg[] =
+struct message ospf_nsm_state_msg[] =
 {
   { NSM_DependUpon, "DependUpon" },
   { NSM_Down,       "Down" },
@@ -67,7 +66,7 @@ struct message ospf_nsm_status_msg[] =
   { NSM_Loading,    "Loading" },
   { NSM_Full,       "Full" },
 };
-int ospf_nsm_status_msg_max = OSPF_NSM_STATUS_MAX;
+int ospf_nsm_state_msg_max = OSPF_NSM_STATE_MAX;
 
 struct message ospf_lsa_type_msg[] =
 {
@@ -75,12 +74,14 @@ struct message ospf_lsa_type_msg[] =
   { OSPF_ROUTER_LSA,       "router-LSA" },
   { OSPF_NETWORK_LSA,      "network-LSA" },
   { OSPF_SUMMARY_LSA,      "summary-LSA" },
-  { OSPF_SUMMARY_LSA_ASBR, "summary-LSA" },
+  { OSPF_ASBR_SUMMARY_LSA, "summary-LSA" },
   { OSPF_AS_EXTERNAL_LSA,  "AS-external-LSA" },
-#ifdef HAVE_NSSA
-  { OSPF_GROUP_MEMBER_LSA,  "GROUP_MEMBER_LSA" },
-  { OSPF_AS_NSSA_LSA,       "AS-NSSA-LSA" },
-#endif /* HAVE_NSSA */
+  { OSPF_GROUP_MEMBER_LSA, "GROUP MEMBER LSA" },
+  { OSPF_AS_NSSA_LSA,      "NSSA-LSA" },
+  { 8,                     "Type-8 LSA" },
+  { OSPF_OPAQUE_LINK_LSA,  "Link-Local Opaque-LSA" },
+  { OSPF_OPAQUE_AREA_LSA,  "Area-Local Opaque-LSA" },
+  { OSPF_OPAQUE_AS_LSA,    "AS-external Opaque-LSA" },
 };
 int ospf_lsa_type_msg_max = OSPF_MAX_LSA;
 
@@ -90,8 +91,14 @@ struct message ospf_link_state_id_type_msg[] =
   { OSPF_ROUTER_LSA,       "" },
   { OSPF_NETWORK_LSA,      "(address of Designated Router)" },
   { OSPF_SUMMARY_LSA,      "(summary Network Number)" },
-  { OSPF_SUMMARY_LSA_ASBR, "(AS Boundary Router address)" },
+  { OSPF_ASBR_SUMMARY_LSA, "(AS Boundary Router address)" },
   { OSPF_AS_EXTERNAL_LSA,  "(External Network Number)" },
+  { OSPF_GROUP_MEMBER_LSA, "(Group membership information)" },
+  { OSPF_AS_NSSA_LSA,      "(External Network Number for NSSA)" },
+  { 8,                     "(Type-8 LSID)" },
+  { OSPF_OPAQUE_LINK_LSA,  "(Link-Local Opaque-Type/ID)" },
+  { OSPF_OPAQUE_AREA_LSA,  "(Area-Local Opaque-Type/ID)" },
+  { OSPF_OPAQUE_AS_LSA,    "(AS-external Opaque-Type/ID)" },
 };
 int ospf_link_state_id_type_msg_max = OSPF_MAX_LSA;
 
@@ -138,25 +145,94 @@ unsigned long term_debug_ospf_nsm = 0;
 unsigned long term_debug_ospf_lsa = 0;
 unsigned long term_debug_ospf_zebra = 0;
 unsigned long term_debug_ospf_nssa = 0;
+
+
+#define OSPF_AREA_STRING_MAXLEN  16
+char *
+ospf_area_name_string (struct ospf_area *area)
+{
+  static char buf[OSPF_AREA_STRING_MAXLEN] = "";
+  u_int32_t area_id;
+
+  if (!area)
+    return "-";
+
+  area_id = ntohl (area->area_id.s_addr);
+  snprintf (buf, OSPF_AREA_STRING_MAXLEN, "%d.%d.%d.%d",
+            (area_id >> 24) & 0xff, (area_id >> 16) & 0xff,
+            (area_id >> 8) & 0xff, area_id & 0xff);
+  return buf;
+}
+
+#define OSPF_AREA_DESC_STRING_MAXLEN  23
+char *
+ospf_area_desc_string (struct ospf_area *area)
+{
+  static char buf[OSPF_AREA_DESC_STRING_MAXLEN] = "";
+  u_char type;
+
+  if (!area)
+    return "(incomplete)";
+
+  type = area->external_routing;
+  switch (type)
+    {
+    case OSPF_AREA_NSSA:
+      snprintf (buf, OSPF_AREA_DESC_STRING_MAXLEN, "%s [NSSA]",
+                ospf_area_name_string (area));
+      break;
+    case OSPF_AREA_STUB:
+      snprintf (buf, OSPF_AREA_DESC_STRING_MAXLEN, "%s [Stub]",
+                ospf_area_name_string (area));
+      break;
+    default:
+      return ospf_area_name_string (area);
+      break;
+    }
+
+  return buf;
+}
+
+#define OSPF_IF_STRING_MAXLEN  40
+char *
+ospf_if_name_string (struct ospf_interface *oi)
+{
+  static char buf[OSPF_IF_STRING_MAXLEN] = "";
+  u_int32_t ifaddr;
+
+  if (!oi)
+    return "inactive";
+
+  if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+    return oi->ifp->name;
+
+  ifaddr = ntohl (oi->address->u.prefix4.s_addr);
+  snprintf (buf, OSPF_IF_STRING_MAXLEN,
+            "%s:%d.%d.%d.%d", oi->ifp->name,
+            (ifaddr >> 24) & 0xff, (ifaddr >> 16) & 0xff,
+            (ifaddr >> 8) & 0xff, ifaddr & 0xff);
+  return buf;
+}
+
 
 void
 ospf_nbr_state_message (struct ospf_neighbor *nbr, char *buf, size_t size)
 {
-  int status;
+  int state;
   struct ospf_interface *oi = nbr->oi;
 
   if (IPV4_ADDR_SAME (&DR (oi), &nbr->address.u.prefix4))
-    status = ISM_DR;
+    state = ISM_DR;
   else if (IPV4_ADDR_SAME (&BDR (oi), &nbr->address.u.prefix4))
-    status = ISM_Backup;
+    state = ISM_Backup;
   else
-    status = ISM_DROther;
+    state = ISM_DROther;
 
-  bzero (buf, size);
+  memset (buf, 0, size);
 
   snprintf (buf, size, "%s/%s",
-	    LOOKUP (ospf_nsm_status_msg, nbr->status),
-	    LOOKUP (ospf_ism_status_msg, status));
+	    LOOKUP (ospf_nsm_state_msg, nbr->state),
+	    LOOKUP (ospf_ism_state_msg, state));
 }
 
 char *
@@ -169,7 +245,7 @@ ospf_timer_dump (struct thread *t, char *buf, size_t size)
     return "inactive";
 
   h = m = s = 0;
-  bzero (buf, size);
+  memset (buf, 0, size);
 
   gettimeofday (&now, NULL);
 
@@ -191,12 +267,15 @@ ospf_timer_dump (struct thread *t, char *buf, size_t size)
   return buf;
 }
 
-char *
-ospf_option_dump (u_char options, char *buf, size_t size)
-{
-  bzero (buf, size);
+#define OSPF_OPTION_STR_MAXLEN		24
 
-  snprintf (buf, size, "*|*|%s|%s|%s|%s|%s|*",
+char *
+ospf_options_dump (u_char options)
+{
+  static char buf[OSPF_OPTION_STR_MAXLEN];
+
+  snprintf (buf, OSPF_OPTION_STR_MAXLEN, "*|%s|%s|%s|%s|%s|%s|*",
+	    (options & OSPF_OPTION_O) ? "O" : "-",
 	    (options & OSPF_OPTION_DC) ? "DC" : "-",
 	    (options & OSPF_OPTION_EA) ? "EA" : "-",
 	    (options & OSPF_OPTION_NP) ? "N/P" : "-",
@@ -210,7 +289,6 @@ void
 ospf_packet_hello_dump (struct stream *s, u_int16_t length)
 {
   struct ospf_hello *hello;
-  char options[24];
   int i;
 
   hello = (struct ospf_hello *) STREAM_PNT (s);
@@ -219,9 +297,9 @@ ospf_packet_hello_dump (struct stream *s, u_int16_t length)
   zlog_info ("  NetworkMask %s", inet_ntoa (hello->network_mask));
   zlog_info ("  HelloInterval %d", ntohs (hello->hello_interval));
   zlog_info ("  Options %d (%s)", hello->options,
-	     ospf_option_dump (hello->options, options, 24));
+	     ospf_options_dump (hello->options));
   zlog_info ("  RtrPriority %d", hello->priority);
-  zlog_info ("  RtrDeadInterval %d", ntohl (hello->dead_interval));
+  zlog_info ("  RtrDeadInterval %ld", (u_long)ntohl (hello->dead_interval));
   zlog_info ("  DRouter %s", inet_ntoa (hello->d_router));
   zlog_info ("  BDRouter %s", inet_ntoa (hello->bd_router));
 
@@ -234,7 +312,7 @@ ospf_packet_hello_dump (struct stream *s, u_int16_t length)
 char *
 ospf_dd_flags_dump (u_char flags, char *buf, size_t size)
 {
-  bzero (buf, size);
+  memset (buf, 0, size);
 
   snprintf (buf, size, "%s|%s|%s",
 	    (flags & OSPF_DD_FLAG_I) ? "I" : "-",
@@ -248,14 +326,14 @@ void
 ospf_lsa_header_dump (struct lsa_header *lsah)
 {
   zlog_info ("  LSA Header");
-
   zlog_info ("    LS age %d", ntohs (lsah->ls_age));
-  zlog_info ("    Options %d", lsah->options);
+  zlog_info ("    Options %d (%s)", lsah->options,
+	     ospf_options_dump (lsah->options));
   zlog_info ("    LS type %d (%s)", lsah->type,
 	     LOOKUP (ospf_lsa_type_msg, lsah->type));
   zlog_info ("    Link State ID %s", inet_ntoa (lsah->id));
   zlog_info ("    Advertising Router %s", inet_ntoa (lsah->adv_router));
-  zlog_info ("    LS sequence number 0x%x", ntohl (lsah->ls_seqnum));
+  zlog_info ("    LS sequence number 0x%lx", (u_long)ntohl (lsah->ls_seqnum));
   zlog_info ("    LS checksum 0x%x", ntohs (lsah->checksum));
   zlog_info ("    length %d", ntohs (lsah->length));
 }
@@ -263,7 +341,7 @@ ospf_lsa_header_dump (struct lsa_header *lsah)
 char *
 ospf_router_lsa_flags_dump (u_char flags, char *buf, size_t size)
 {
-  bzero (buf, size);
+  memset (buf, 0, size);
 
   snprintf (buf, size, "%s|%s|%s",
 	    (flags & ROUTER_LSA_VIRTUAL) ? "V" : "-",
@@ -385,7 +463,6 @@ ospf_packet_db_desc_dump (struct stream *s, u_int16_t length)
 {
   struct ospf_db_desc *dd;
   char dd_flags[8];
-  char options[24];
 
   u_int32_t gp;
 
@@ -395,10 +472,10 @@ ospf_packet_db_desc_dump (struct stream *s, u_int16_t length)
   zlog_info ("Database Description");
   zlog_info ("  Interface MTU %d", ntohs (dd->mtu));
   zlog_info ("  Options %d (%s)", dd->options,
-	     ospf_option_dump (dd->options, options, 24));
+	     ospf_options_dump (dd->options));
   zlog_info ("  Flags %d (%s)", dd->flags,
-	     ospf_dd_flags_dump (dd->flags, dd_flags, 8));
-  zlog_info ("  Sequence Number 0x%08x", ntohl (dd->dd_seqnum));
+	     ospf_dd_flags_dump (dd->flags, dd_flags, sizeof dd_flags));
+  zlog_info ("  Sequence Number 0x%08lx", (u_long)ntohl (dd->dd_seqnum));
 
   length -= OSPF_HEADER_SIZE + OSPF_DB_DESC_MIN_SIZE;
 
@@ -459,6 +536,12 @@ ospf_packet_ls_upd_dump (struct stream *s, u_int16_t length)
 
   while (length > 0 && count > 0)
     {
+      if (length < OSPF_HEADER_SIZE || length % 4 != 0)
+	{
+          zlog_info ("  Remaining %d bytes; Incorrect length.", length);
+	  break;
+	}
+
       lsa = (struct lsa_header *) STREAM_PNT (s);
       lsa_len = ntohs (lsa->length);
       ospf_lsa_header_dump (lsa);
@@ -472,12 +555,24 @@ ospf_packet_ls_upd_dump (struct stream *s, u_int16_t length)
 	  ospf_network_lsa_dump (s, length);
 	  break;
 	case OSPF_SUMMARY_LSA:
-	case OSPF_SUMMARY_LSA_ASBR:
+	case OSPF_ASBR_SUMMARY_LSA:
 	  ospf_summary_lsa_dump (s, length);
 	  break;
 	case OSPF_AS_EXTERNAL_LSA:
 	  ospf_as_external_lsa_dump (s, length);
 	  break;
+#ifdef HAVE_NSSA
+	case OSPF_AS_NSSA_LSA:
+	  /* XXX */
+	  break;
+#endif /* HAVE_NSSA */
+#ifdef HAVE_OPAQUE_LSA
+	case OSPF_OPAQUE_LINK_LSA:
+	case OSPF_OPAQUE_AREA_LSA:
+	case OSPF_OPAQUE_AS_LSA:
+	  ospf_opaque_lsa_dump (s, length);
+	  break;
+#endif /* HAVE_OPAQUE_LSA */
 	default:
 	  break;
 	}
@@ -554,7 +649,7 @@ ospf_header_dump (struct ospf_header *ospfh)
     case OSPF_AUTH_NULL:
       break;
     case OSPF_AUTH_SIMPLE:
-      bzero (buf, 9);
+      memset (buf, 0, 9);
       strncpy (buf, ospfh->u.auth_data, 8);
       zlog_info ("  Simple Password %s", buf);
       break;
@@ -562,8 +657,8 @@ ospf_header_dump (struct ospf_header *ospfh)
       zlog_info ("  Cryptographic Authentication");
       zlog_info ("  Key ID %d", ospfh->u.crypt.key_id);
       zlog_info ("  Auth Data Len %d", ospfh->u.crypt.auth_data_len);
-      zlog_info ("  Sequence number %d",
-		 ntohl (ospfh->u.crypt.crypt_seqnum));
+      zlog_info ("  Sequence number %ld",
+		 (u_long)ntohl (ospfh->u.crypt.crypt_seqnum));
       break;
     default:
       zlog_info ("* This is not supported authentication type");
@@ -683,14 +778,6 @@ DEFUN (debug_ospf_packet,
 	  TERM_DEBUG_PACKET_ON (i, flag);
       }
 
-#ifdef DEBUG
-  for (i = 0; i < 5; i++)
-    {
-      zlog_info ("conf flag[%d] = %d", i, conf_debug_ospf_packet[i]);
-      zlog_info ("term flag[%d] = %d", i, term_debug_ospf_packet[i]);
-    }
-#endif /* DEBUG */
-
   return CMD_SUCCESS;
 }
 
@@ -708,7 +795,7 @@ ALIAS (debug_ospf_packet,
        "OSPF all packets\n"
        "Packet sent\n"
        "Packet received\n"
-       "Detail information\n")
+       "Detail information\n");
 
 ALIAS (debug_ospf_packet,
        debug_ospf_packet_send_recv_detail_cmd,
@@ -724,7 +811,7 @@ ALIAS (debug_ospf_packet,
        "OSPF all packets\n"
        "Packet sent\n"
        "Packet received\n"
-       "Detail Information\n")
+       "Detail Information\n");
        
 
 DEFUN (no_debug_ospf_packet,
@@ -746,10 +833,6 @@ DEFUN (no_debug_ospf_packet,
   int i;
 
   assert (argc > 0);
-
-#ifdef DEBUG
-  zlog_info ("argc=%d", argc);
-#endif /* DEBUG */
 
   /* Check packet type. */
   if (strncmp (argv[0], "h", 1) == 0)
@@ -817,7 +900,7 @@ ALIAS (no_debug_ospf_packet,
        "OSPF all packets\n"
        "Packet sent\n"
        "Packet received\n"
-       "Detail Information\n")
+       "Detail Information\n");
 
 ALIAS (no_debug_ospf_packet,
        no_debug_ospf_packet_send_recv_detail_cmd,
@@ -834,7 +917,7 @@ ALIAS (no_debug_ospf_packet,
        "OSPF all packets\n"
        "Packet sent\n"
        "Packet received\n"
-       "Detail Information\n")
+       "Detail Information\n");
 
 
 DEFUN (debug_ospf_ism,
@@ -885,7 +968,7 @@ ALIAS (debug_ospf_ism,
        "OSPF Interface State Machine\n"
        "ISM Status Information\n"
        "ISM Event Information\n"
-       "ISM TImer Information\n")
+       "ISM TImer Information\n");
 
 DEFUN (no_debug_ospf_ism,
        no_debug_ospf_ism_cmd,
@@ -936,7 +1019,7 @@ ALIAS (no_debug_ospf_ism,
        "OSPF Interface State Machine\n"
        "ISM Status Information\n"
        "ISM Event Information\n"
-       "ISM Timer Information\n")
+       "ISM Timer Information\n");
 
 
 DEFUN (debug_ospf_nsm,
@@ -987,7 +1070,7 @@ ALIAS (debug_ospf_nsm,
        "OSPF Neighbor State Machine\n"
        "NSM Status Information\n"
        "NSM Event Information\n"
-       "NSM Timer Information\n")
+       "NSM Timer Information\n");
 
 DEFUN (no_debug_ospf_nsm,
        no_debug_ospf_nsm_cmd,
@@ -1039,7 +1122,7 @@ ALIAS (no_debug_ospf_nsm,
        "OSPF Interface State Machine\n"
        "NSM Status Information\n"
        "NSM Event Information\n"
-       "NSM Timer Information\n")
+       "NSM Timer Information\n");
 
 
 DEFUN (debug_ospf_lsa,
@@ -1059,6 +1142,10 @@ DEFUN (debug_ospf_lsa,
 	    DEBUG_ON (lsa, LSA_GENERATE);
 	  else if (strncmp (argv[0], "f", 1) == 0)
 	    DEBUG_ON (lsa, LSA_FLOODING);
+	  else if (strncmp (argv[0], "i", 1) == 0)
+	    DEBUG_ON (lsa, LSA_INSTALL);
+	  else if (strncmp (argv[0], "r", 1) == 0)
+	    DEBUG_ON (lsa, LSA_REFRESH);
 	}
 
       return CMD_SUCCESS;
@@ -1073,6 +1160,8 @@ DEFUN (debug_ospf_lsa,
 	TERM_DEBUG_ON (lsa, LSA_GENERATE);
       else if (strncmp (argv[0], "f", 1) == 0)
 	TERM_DEBUG_ON (lsa, LSA_FLOODING);
+      else if (strncmp (argv[0], "i", 1) == 0)
+	TERM_DEBUG_ON (lsa, LSA_INSTALL);
       else if (strncmp (argv[0], "r", 1) == 0)
 	TERM_DEBUG_ON (lsa, LSA_REFRESH);
     }
@@ -1082,13 +1171,14 @@ DEFUN (debug_ospf_lsa,
 
 ALIAS (debug_ospf_lsa,
        debug_ospf_lsa_sub_cmd,
-       "debug ospf lsa (generate|flooding|refresh)",
+       "debug ospf lsa (generate|flooding|install|refresh)",
        DEBUG_STR
        OSPF_STR
        "OSPF Link State Advertisement\n"
        "LSA Generation\n"
        "LSA Flooding\n"
-       "LSA Refresh\n")
+       "LSA Install/Delete\n"
+       "LSA Refresh\n");
 
 DEFUN (no_debug_ospf_lsa,
        no_debug_ospf_lsa_cmd,
@@ -1108,6 +1198,10 @@ DEFUN (no_debug_ospf_lsa,
 	    DEBUG_OFF (lsa, LSA_GENERATE);
 	  else if (strncmp (argv[0], "f", 1) == 0)
 	    DEBUG_OFF (lsa, LSA_FLOODING);
+	  else if (strncmp (argv[0], "i", 1) == 0)
+	    DEBUG_OFF (lsa, LSA_INSTALL);
+	  else if (strncmp (argv[0], "r", 1) == 0)
+	    DEBUG_OFF (lsa, LSA_REFRESH);
 	}
 
       return CMD_SUCCESS;
@@ -1122,6 +1216,8 @@ DEFUN (no_debug_ospf_lsa,
 	TERM_DEBUG_OFF (lsa, LSA_GENERATE);
       else if (strncmp (argv[0], "f", 1) == 0)
 	TERM_DEBUG_OFF (lsa, LSA_FLOODING);
+      else if (strncmp (argv[0], "i", 1) == 0)
+	TERM_DEBUG_OFF (lsa, LSA_INSTALL);
       else if (strncmp (argv[0], "r", 1) == 0)
 	TERM_DEBUG_OFF (lsa, LSA_REFRESH);
     }
@@ -1131,14 +1227,15 @@ DEFUN (no_debug_ospf_lsa,
 
 ALIAS (no_debug_ospf_lsa,
        no_debug_ospf_lsa_sub_cmd,
-       "no debug ospf lsa (generate|flooding|refresh)",
+       "no debug ospf lsa (generate|flooding|install|refresh)",
        NO_STR
        DEBUG_STR
        OSPF_STR
        "OSPF Link State Advertisement\n"
        "LSA Generation\n"
        "LSA Flooding\n"
-       "LSA Refres\n")
+       "LSA Install/Delete\n"
+       "LSA Refres\n");
 
 
 DEFUN (debug_ospf_zebra,
@@ -1184,7 +1281,7 @@ ALIAS (debug_ospf_zebra,
        OSPF_STR
        "OSPF Zebra information\n"
        "Zebra interface\n"
-       "Zebra redistribute\n")
+       "Zebra redistribute\n");
 
 DEFUN (no_debug_ospf_zebra,
        no_debug_ospf_zebra_cmd,
@@ -1231,7 +1328,7 @@ ALIAS (no_debug_ospf_zebra,
        OSPF_STR
        "OSPF Zebra information\n"
        "Zebra interface\n"
-       "Zebra redistribute\n")
+       "Zebra redistribute\n");
 
 DEFUN (debug_ospf_event,
        debug_ospf_event_cmd,
@@ -1286,6 +1383,7 @@ DEFUN (no_debug_ospf_nssa,
   TERM_DEBUG_OFF (nssa, NSSA);
   return CMD_SUCCESS;
 }
+
 
 DEFUN (show_debugging_ospf,
        show_debugging_ospf_cmd,
@@ -1305,9 +1403,9 @@ DEFUN (show_debugging_ospf,
     {
       if (IS_DEBUG_OSPF (ism, ISM_STATUS))
 	vty_out (vty, "  OSPF ISM status debugging is on%s", VTY_NEWLINE);
-      else if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
+      if (IS_DEBUG_OSPF (ism, ISM_EVENTS))
 	vty_out (vty, "  OSPF ISM event debugging is on%s", VTY_NEWLINE);
-      else if (IS_DEBUG_OSPF (ism, ISM_TIMERS))
+      if (IS_DEBUG_OSPF (ism, ISM_TIMERS))
 	vty_out (vty, "  OSPF ISM timer debugging is on%s", VTY_NEWLINE);
     }
 
@@ -1318,9 +1416,9 @@ DEFUN (show_debugging_ospf,
     {
       if (IS_DEBUG_OSPF (nsm, NSM_STATUS))
 	vty_out (vty, "  OSPF NSM status debugging is on%s", VTY_NEWLINE);
-      else if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
+      if (IS_DEBUG_OSPF (nsm, NSM_EVENTS))
 	vty_out (vty, "  OSPF NSM event debugging is on%s", VTY_NEWLINE);
-      else if (IS_DEBUG_OSPF (nsm, NSM_TIMERS))
+      if (IS_DEBUG_OSPF (nsm, NSM_TIMERS))
 	vty_out (vty, "  OSPF NSM timer debugging is on%s", VTY_NEWLINE);
     }
 
@@ -1340,7 +1438,7 @@ DEFUN (show_debugging_ospf,
 		   ospf_packet_type_str[i + 1],
 		   IS_DEBUG_OSPF_PACKET (i, DETAIL) ? " detail" : "",
 		   VTY_NEWLINE);
-	else if (IS_DEBUG_OSPF_PACKET (i, RECV))
+	if (IS_DEBUG_OSPF_PACKET (i, RECV))
 	  vty_out (vty, "  OSPF packet %s receive%s debugging is on%s",
 		   ospf_packet_type_str[i + 1],
 		   IS_DEBUG_OSPF_PACKET (i, DETAIL) ? " detail" : "",
@@ -1354,8 +1452,12 @@ DEFUN (show_debugging_ospf,
     {
       if (IS_DEBUG_OSPF (lsa, LSA_GENERATE))
 	vty_out (vty, "  OSPF LSA generation debugging is on%s", VTY_NEWLINE);
-      else if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
+      if (IS_DEBUG_OSPF (lsa, LSA_FLOODING))
 	vty_out (vty, "  OSPF LSA flooding debugging is on%s", VTY_NEWLINE);
+      if (IS_DEBUG_OSPF (lsa, LSA_INSTALL))
+	vty_out (vty, "  OSPF LSA install debugging is on%s", VTY_NEWLINE);
+      if (IS_DEBUG_OSPF (lsa, LSA_REFRESH))
+	vty_out (vty, "  OSPF LSA refresh debugging is on%s", VTY_NEWLINE);
     }
 
   /* Show debug status for Zebra. */
@@ -1365,7 +1467,7 @@ DEFUN (show_debugging_ospf,
     {
       if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
 	vty_out (vty, "  OSPF Zebra interface debugging is on%s", VTY_NEWLINE);
-      else if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
+      if (IS_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
 	vty_out (vty, "  OSPF Zebra redistribute debugging is on%s", VTY_NEWLINE);
     }
 
@@ -1396,9 +1498,9 @@ config_write_debug (struct vty *vty)
     {
       if (IS_CONF_DEBUG_OSPF (ism, ISM_STATUS))
 	vty_out (vty, "debug ospf ism status%s", VTY_NEWLINE);
-      else if (IS_CONF_DEBUG_OSPF (ism, ISM_EVENTS))
+      if (IS_CONF_DEBUG_OSPF (ism, ISM_EVENTS))
 	vty_out (vty, "debug ospf ism event%s", VTY_NEWLINE);
-      else if (IS_CONF_DEBUG_OSPF (ism, ISM_TIMERS))
+      if (IS_CONF_DEBUG_OSPF (ism, ISM_TIMERS))
 	vty_out (vty, "debug ospf ism timer%s", VTY_NEWLINE);
     }
 
@@ -1409,22 +1511,24 @@ config_write_debug (struct vty *vty)
     {
       if (IS_CONF_DEBUG_OSPF (nsm, NSM_STATUS))
 	vty_out (vty, "debug ospf ism status%s", VTY_NEWLINE);
-      else if (IS_CONF_DEBUG_OSPF (nsm, NSM_EVENTS))
+      if (IS_CONF_DEBUG_OSPF (nsm, NSM_EVENTS))
 	vty_out (vty, "debug ospf nsm event%s", VTY_NEWLINE);
-      else if (IS_CONF_DEBUG_OSPF (nsm, NSM_TIMERS))
+      if (IS_CONF_DEBUG_OSPF (nsm, NSM_TIMERS))
 	vty_out (vty, "debug ospf nsm timer%s", VTY_NEWLINE);
     }
 
-  /* debug ospf lsa (generate|flooding). */
+  /* debug ospf lsa (generate|flooding|install|refresh). */
   if (IS_CONF_DEBUG_OSPF (lsa, LSA) == OSPF_DEBUG_LSA)
     vty_out (vty, "debug ospf lsa%s", VTY_NEWLINE);
   else
     {
       if (IS_CONF_DEBUG_OSPF (lsa, LSA_GENERATE))
 	vty_out (vty, "debug ospf lsa generate%s", VTY_NEWLINE);
-      else if (IS_CONF_DEBUG_OSPF (lsa, LSA_FLOODING))
+      if (IS_CONF_DEBUG_OSPF (lsa, LSA_FLOODING))
 	vty_out (vty, "debug ospf lsa flooding%s", VTY_NEWLINE);
-      else if (IS_CONF_DEBUG_OSPF (lsa, LSA_REFRESH))
+      if (IS_CONF_DEBUG_OSPF (lsa, LSA_INSTALL))
+	vty_out (vty, "debug ospf lsa install%s", VTY_NEWLINE);
+      if (IS_CONF_DEBUG_OSPF (lsa, LSA_REFRESH))
 	vty_out (vty, "debug ospf lsa refresh%s", VTY_NEWLINE);
 
       write = 1;
@@ -1437,7 +1541,7 @@ config_write_debug (struct vty *vty)
     {
       if (IS_CONF_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
 	vty_out (vty, "debug ospf zebra interface%s", VTY_NEWLINE);
-      else if (IS_CONF_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
+      if (IS_CONF_DEBUG_OSPF (zebra, ZEBRA_REDISTRIBUTE))
 	vty_out (vty, "debug ospf zebra redistribute%s", VTY_NEWLINE);
 
       write = 1;

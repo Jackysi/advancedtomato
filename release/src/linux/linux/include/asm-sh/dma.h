@@ -11,6 +11,7 @@
 /* Don't define MAX_DMA_ADDRESS; it's useless on the SuperH and any
    occurrence should be flagged as an error.  */
 /* But... */
+/* XXX: This is not applicable to SuperH, just needed for alloc_bootmem */
 #define MAX_DMA_ADDRESS      (PAGE_OFFSET+0x10000000)
 
 #if defined(__sh3__)

@@ -11,7 +11,7 @@
 
     Copyright (C) 1999 David A. Hinds -- dahinds@users.sourceforge.net
 
-    pcnet_cs.c 1.149 2002/06/29 06:27:37
+    pcnet_cs.c 1.153 2003/11/09 18:53:09
     
     The network driver code is based on Donald Becker's NE2000 code:
 
@@ -75,7 +75,7 @@ static int pc_debug = PCMCIA_DEBUG;
 MODULE_PARM(pc_debug, "i");
 #define DEBUG(n, args...) if (pc_debug>(n)) printk(KERN_DEBUG args)
 static char *version =
-"pcnet_cs.c 1.149 2002/06/29 06:27:37 (David Hinds)";
+"pcnet_cs.c 1.153 2003/11/09 18:53:09 (David Hinds)";
 #else
 #define DEBUG(n, args...)
 #endif
@@ -117,7 +117,9 @@ static int pcnet_event(event_t event, int priority,
 static int pcnet_open(struct net_device *dev);
 static int pcnet_close(struct net_device *dev);
 static int ei_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
-static int do_ioctl_light(struct net_device *dev, struct ifreq *rq, int cmd);
+
+static struct ethtool_ops netdev_ethtool_ops;
+
 static void ei_irq_wrapper(int irq, void *dev_id, struct pt_regs *regs);
 static void ei_watchdog(u_long arg);
 static void pcnet_reset_8390(struct net_device *dev);
@@ -301,7 +303,8 @@ static dev_link_t *pcnet_attach(void)
     memset(info, 0, sizeof(*info));
     link = &info->link; dev = &info->dev;
     link->priv = info;
-    
+
+    init_timer(&link->release);
     link->release.function = &pcnet_release;
     link->release.data = (u_long)link;
     link->irq.Attributes = IRQ_TYPE_EXCLUSIVE;
@@ -765,6 +768,7 @@ static void pcnet_config(dev_link_t *link)
 
     strcpy(info->node.dev_name, dev->name);
     link->dev = &info->node;
+    SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
 
     if (info->flags & (IS_DL10019|IS_DL10022)) {
 	u_char id = inb(dev->base_addr + 0x1a);
@@ -778,7 +782,6 @@ static void pcnet_config(dev_link_t *link)
 	    printk("PNA, ");
     } else {
 	printk(KERN_INFO "%s: NE2000 Compatible: ", dev->name);
- 	dev->do_ioctl = &do_ioctl_light;	
     }
     printk("io %#3lx, irq %d,", dev->base_addr, dev->irq);
     if (info->flags & USE_SHMEM)
@@ -893,13 +896,15 @@ static int pcnet_event(event_t event, int priority,
 
     MII interface support for DL10019 and DL10022 based cards
 
-    On the DL10019, the MII IO direction bit is 0x10; on  the DL10022
+    On the DL10019, the MII IO direction bit is 0x10; on the DL10022
     it is 0x20.  Setting both bits seems to work on both card types.
 
 ======================================================================*/
 
 #define DLINK_GPIO		0x1c
 #define DLINK_DIAG		0x1d
+#define DLINK_EEPROM		0x1e
+
 #define MDIO_SHIFT_CLK		0x80
 #define MDIO_DATA_OUT		0x40
 #define MDIO_DIR_WRITE		0x30
@@ -960,6 +965,98 @@ static void mdio_reset(ioaddr_t addr, int phy_id)
     outb_p(0x08, addr);
     outb_p(0x0c, addr);
     outb_p(0x00, addr);
+}
+
+/*======================================================================
+
+    EEPROM access routines for DL10019 and DL10022 based cards
+
+======================================================================*/
+
+#define EE_EEP		0x40
+#define EE_ASIC		0x10
+#define EE_CS		0x08
+#define EE_CK		0x04
+#define EE_DO		0x02
+#define EE_DI		0x01
+#define EE_ADOT		0x01	/* DataOut for ASIC */
+#define EE_READ_CMD	0x06	
+
+#define DL19FDUPLX	0x0400	/* DL10019 Full duplex mode */
+
+static int read_eeprom(ioaddr_t ioaddr, int location)
+{
+    int i, retval = 0;
+    ioaddr_t ee_addr = ioaddr + DLINK_EEPROM;
+    int read_cmd = location | (EE_READ_CMD << 8);
+
+    outb(0, ee_addr);
+    outb(EE_EEP|EE_CS, ee_addr);
+
+    /* Shift the read command bits out. */
+    for (i = 10; i >= 0; i--) {
+	short dataval = (read_cmd & (1 << i)) ? EE_DO : 0;
+	outb_p(EE_EEP|EE_CS|dataval, ee_addr);
+	outb_p(EE_EEP|EE_CS|dataval|EE_CK, ee_addr);
+    }
+    outb(EE_EEP|EE_CS, ee_addr);
+
+    for (i = 16; i > 0; i--) {
+	outb_p(EE_EEP|EE_CS | EE_CK, ee_addr);
+	retval = (retval << 1) | ((inb(ee_addr) & EE_DI) ? 1 : 0);
+	outb_p(EE_EEP|EE_CS, ee_addr);
+    }
+
+    /* Terminate the EEPROM access. */
+    outb(0, ee_addr);
+    return retval;
+}
+
+/*
+    The internal ASIC registers can be changed by EEPROM READ access
+    with EE_ASIC bit set.
+    In ASIC mode, EE_ADOT is used to output the data to the ASIC.
+*/ 
+
+static void write_asic(ioaddr_t ioaddr, int location, short asic_data)
+{
+	int i;
+	ioaddr_t ee_addr = ioaddr + DLINK_EEPROM;
+	short dataval;
+	int read_cmd = location | (EE_READ_CMD << 8);
+
+	asic_data |= read_eeprom(ioaddr, location);
+
+	outb(0, ee_addr);
+	outb(EE_ASIC|EE_CS|EE_DI, ee_addr);
+	
+	read_cmd = read_cmd >> 1;
+
+	/* Shift the read command bits out. */
+	for (i = 9; i >= 0; i--) {
+		dataval = (read_cmd & (1 << i)) ? EE_DO : 0;
+		outb_p(EE_ASIC|EE_CS|EE_DI|dataval, ee_addr);
+		outb_p(EE_ASIC|EE_CS|EE_DI|dataval|EE_CK, ee_addr);
+		outb_p(EE_ASIC|EE_CS|EE_DI|dataval, ee_addr);
+	}
+	// sync
+	outb(EE_ASIC|EE_CS, ee_addr);
+	outb(EE_ASIC|EE_CS|EE_CK, ee_addr);
+	outb(EE_ASIC|EE_CS, ee_addr);
+
+	for (i = 15; i >= 0; i--) {
+		dataval = (asic_data & (1 << i)) ? EE_ADOT : 0;
+		outb_p(EE_ASIC|EE_CS|dataval, ee_addr);
+		outb_p(EE_ASIC|EE_CS|dataval|EE_CK, ee_addr);
+		outb_p(EE_ASIC|EE_CS|dataval, ee_addr);
+	}
+
+	/* Terminate the ASIC access. */
+	outb(EE_ASIC|EE_DI, ee_addr);
+	outb(EE_ASIC|EE_DI| EE_CK, ee_addr);
+	outb(EE_ASIC|EE_DI, ee_addr);
+
+	outb(0, ee_addr);
 }
 
 /*====================================================================*/
@@ -1176,6 +1273,9 @@ static void ei_watchdog(u_long arg)
 	if (link && (info->flags & IS_DL10022)) {
 	    /* Disable collision detection on full duplex links */
 	    outb((p & 0x0140) ? 4 : 0, nic_base + DLINK_DIAG);
+	} else if (link && (info->flags & IS_DL10019)) {
+	    /* Disable collision detection on full duplex links */
+	    write_asic(dev->base_addr, 4, (p & 0x140) ? DL19FDUPLX : 0);
 	}
 	if (link) {
 	    if (info->phy_id == info->eth_phy) {
@@ -1215,25 +1315,15 @@ reschedule:
 
 /*====================================================================*/
 
-static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
+static void netdev_get_drvinfo(struct net_device *dev,
+			       struct ethtool_drvinfo *info)
 {
-	u32 ethcmd;
-	
-	if (copy_from_user(&ethcmd, useraddr, sizeof(ethcmd)))
-		return -EFAULT;
-	
-	switch (ethcmd) {
-	case ETHTOOL_GDRVINFO: {
-		struct ethtool_drvinfo info = {ETHTOOL_GDRVINFO};
-		strncpy(info.driver, "pcnet_cs", sizeof(info.driver)-1);
-		if (copy_to_user(useraddr, &info, sizeof(info)))
-			return -EFAULT;
-		return 0;
-	}
-	}
-	
-	return -EOPNOTSUPP;
+	strcpy(info->driver, "pcnet_cs");
 }
+
+static struct ethtool_ops netdev_ethtool_ops = {
+	.get_drvinfo		= netdev_get_drvinfo,
+};
 
 /*====================================================================*/
 
@@ -1244,13 +1334,14 @@ static int ei_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
     u16 *data = (u16 *)&rq->ifr_data;
     ioaddr_t mii_addr = dev->base_addr + DLINK_GPIO;
     switch (cmd) {
-    case SIOCETHTOOL:
-        return netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
+    case SIOCGMIIPHY:
     case SIOCDEVPRIVATE:
 	data[0] = info->phy_id;
+    case SIOCGMIIREG:		/* Read MII PHY register. */
     case SIOCDEVPRIVATE+1:
 	data[3] = mdio_read(mii_addr, data[0], data[1] & 0x1f);
 	return 0;
+    case SIOCSMIIREG:		/* Write MII PHY register. */
     case SIOCDEVPRIVATE+2:
 	if (!capable(CAP_NET_ADMIN))
 	    return -EPERM;
@@ -1258,17 +1349,6 @@ static int ei_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 	return 0;
     }
     return -EOPNOTSUPP;
-}
-
-/*====================================================================*/
-
-static int do_ioctl_light(struct net_device *dev, struct ifreq *rq, int cmd)
-{
-    switch (cmd) {
-        case SIOCETHTOOL:
-            return netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
-    }	    
-    return -EOPNOTSUPP;    
 }
 
 /*====================================================================*/

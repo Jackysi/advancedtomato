@@ -1,3 +1,482 @@
+2005-06-25 Harald Welte <laforge@gnumonks.org>
+
+	* ospf6_abr.c, ospf6_area.[ch]: Add area filter-list (in|out)
+	support and area import and export lists support
+
+2005-06-24  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_message.c: Changed to be insensitive to changes of
+	neighbors' IP source address in the OSPF packets. It was
+	sometimes problematic in actual operation (needed some operational
+	cost: restarting all-neighbor routers when I/F NIC was changed).
+	Due to this change, a previously safe case, attaching multiple
+	interface to the same link will now be dengerous and will not work.
+	Remedy to that should be applied later.
+
+2005-06-07  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_interface.c, ospf6_neighbor.c: fix the way
+	inactivity_timer is called. Because inactivity_timer() deletes
+	the neighbor from the neighbor_list, it cannot be called
+	by thread_execute() from inner side of the neighbor_list for-loop.
+
+2004-12-08  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_test.c: code for simulation test.
+
+2004-10-06  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_snmp.c: add partial support for SNMP
+	(i.e. ospfv3AreaLsdbTable).
+	* OSPFv3-MIB.txt: Net-SNMP translate Unsigned32 range
+	(0..'FFFFFFFF'h) incorrectly to (0..-1). Those parts for
+	Unsigned32 range are changed to (0..4294967295).
+	Also, doubtful 'not-accessible's are changed to read-only.
+
+2004-10-06  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_snmp.[ch], OSPFV3-MIB.txt: start supporting SNMP.
+	it follows draft-ietf-ospf-ospfv3-mib-08.txt, but change
+	OSPFv3 tree to {experimental 102} based on
+	http://www.iana.org/assignments/smi-numbers:
+	Prefix: iso.org.dod.internet.experimental (1.3.6.1.3.)
+	   102   OSPFv3    OSPF for IPv6   [Joyal]
+
+2004-09-25  Hasso Tepper  <hasso at estpak.ee>
+
+	* ospf6_asbr.c, ospf6_lsa.c, ospf6_proto.c, ospf6_proto.h: Fix
+	compiler warnings.
+
+2004-09-13  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_intra.c, ospf6_route.[ch]: try to fix assertion failure
+	in brouter's route_remove
+	* ospf6d.h: version 0.9.7o
+
+2004-09-12  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_route.c: route_count_assert bug fix
+	* ospf6d.h: version 0.9.7n
+
+2004-09-03  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_area.c, ospf6_route.c, ospf6_top.c, ospf6d.c:
+	"show intra-route" function and "show SPF result" function is
+	changed.
+	* ospf6_neighbor.c: Changed to update stub intra-prefix origination
+	when it is not DR.
+	* ospf6_route.h: resolv conflict between best flag and
+	active-summary flag.
+	* ospf6d.h: version 0.9.7m
+
+2004-09-02  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_asbr.c: E-bit check in examining AS-External-LSA
+	* ospf6_abr.c: E-bit set in receiving Inter-Area-Router-LSA
+
+2004-09-02  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* *.[ch]: Logging LSAs of particular type is added.
+	lsa_handler is now using vector in order to adjust
+	existing LSA modules.
+	* ospf6d.h: version 0.9.7l
+
+2004-08-26  Hasso Tepper  <hasso@estpak.ee>
+
+	* ospf6_interface.c, ospf6_top.c, ospf6d.c: for vtysh.
+
+2004-08-19  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_asbr.c: Bug in ASBR check fixed.
+	* ospf6d.h: version 0.9.7k
+
+2004-08-19  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_asbr.c: Bug in AS-External Origination fixed.
+	* ospf6d.h: version 0.9.7j
+
+2004-08-15  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* *.c: Area support almost done. (almost ! ;p)
+	* ospf6d.h: version 0.9.7i
+
+2004-08-15  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_message.c: Bug cause BadLSReq is fixed.
+	* ospf6_abr.c: Border Router check.
+	* ospf6d.h: version 0.9.7h
+
+2004-08-14  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_area.[ch], ospf6_abr.[ch]: area range,
+	border-routers, Inter-Area-Router-LSA origination
+	* ospf6d.h: version 0.9.7g
+
+2004-08-12  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* *.[c,h]: LSA refreshing is changed and cleaned up.
+	* ospf6d.h: version 0.9.7f
+
+2004-08-01  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_abr.[ch]: add files for abr function.
+	* *.c: VTY_NEWLINE -> VNL
+	* ospf6d.h: version 0.9.7e
+	show database functions are rewritten.
+
+2004-07-06  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_message.c, ospf6_interface.c: add a command to configure
+	ospf6 ifmtu on a interface.
+	* ospf6d.h: version 0.9.7d
+
+2004-05-17  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_flood.[ch], ospf6_lsa.[ch], ospf6_lsdb.h, ospf6_message.c
+	ospf6_neighbor.c: Fix crash bug and change the way to count
+	how many neighbors include paticular LSA on its retrans-list.
+	* ospf6d.h: version 0.9.7c
+
+2004-05-03  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_message.[ch], ospf6_interface.c: adjust send/recv buffer
+	size to interface MTUs.
+	* ospf6d.h: version 0.9.7b
+
+2003-08-18  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* *.[ch]: rewrite all source code from scratch
+	* ospf6d.h: version 0.9.7
+
+2003-08-11  Taisuke Sasaki <sasaki@soft.net.fujitsu.co.jp>
+
+        * ospf6_ism.c: DR Election bug fix.
+
+2003-04-25  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_asbr.c: AS-External LSA refresh was based on the
+	prefix of the obsolete LSA. It was wrong so fixed.
+	* version: 0.9.6p
+
+2002-11-09  Vincent Jardin  <jardin@6wind.com>
+
+	* ospf6_interface.c: update link-local address on interface creation.
+
+2002-11-09  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_asbr.c: apply MinLSInterval to AS-External-LSA origination.
+	* ospf6_lsa.c: change not to issue flooding caused by expire event
+	when the received LSA is (already) MaxAge.
+	* ospf6_spf.c: fix a bug which is that ospf6d calculates
+	wrong nexthop when failed to find Link-LSA for the neighbor.
+	* ospf6_damp.c ospf6_dbex.c ospf6_neighbor.c ospf6_spf.c:
+	some clean up
+	* version: 0.9.6o
+
+2002-10-04  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_asbr.c: bug of failing ASE lsa refresh fixed.
+	* version: 0.9.6n
+
+2002-10-01  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_asbr.c: AS-External-LSA origination function
+	is re-written.
+	* ospf6_damp.[ch]: New feature that damps flaps is added.
+	* version: 0.9.6m
+
+2002-07-14  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_spf.c: unwanted assert() in ospf6_spf_nexthop_calculation()
+	is deleted.
+	* version: 0.9.6l
+
+2002-07-14  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_dbex.c: bug that ospf6d fails to refresh self-originated
+	LSA if he have not the LSA before has been fixed.
+	* ospf6_asbr.c: bug of failing removing ASE LSA when remove
+	message arrived from zebra has been fixed.
+	* version: 0.9.6k
+
+2002-07-13  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_zebra.c: bug reported [zebra 14642] fixed.
+	The bug was related to the synchronization between zebra
+	and ospf6d. Now synchronization will be correctly done.
+	* version: 0.9.6j
+
+2002-07-07  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_lsdb.c: bug fixed in ospf6_lsdb_type_router ().
+	* ospf6_dbex.c: because of retrans list structure changed
+	due to LSDB change, removal of old instance from retrans-list
+	is not necessary anymore. this caused crash but now fixed.
+	* version: 0.9.6i
+
+2002-07-07  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* zebra-0.93 released.
+
+2002-07-07  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_lsdb.c: entirely rewritten. now ospf6d uses
+	radix tree by using lib/table.[ch] for LSDB lookup.
+	* ospf6_abr.c, ospf6_asbr.c, ospf6_intra.c: hook changed
+	due to rewriting of lsdb module.
+	* ospf6_neighbor.c: lack of check existence and find correct
+	instance of the LSA which is going to be removed from neighbor's
+	retransmission was filled.
+	* version: 0.9.6h
+
+2002-07-07  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_intra.c: bug fix for Intra-route deletion.
+	* ospf6_route.c: bug fix for path comparison.
+	* version: 0.9.6g
+
+2002-06-28  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_route.c: some logs trying to find the situation
+	when assert occur are added. route duration statistics
+	added.
+	* ospf6_zebra.c: trying to fix the problem reported by
+	[zebra 14318] but not yet sure.
+	* version: 0.9.6f
+
+2002-06-25  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_intra.c: new file for management of intra-prefix LSA.
+	* ospf6_abr.c: inter area route calculation code added.
+	* version: 0.9.6e
+
+2002-06-22  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_asbr.c: All AS-External route was removed when
+	one of the ASBR path was gone, but the route from other ASBR
+	path should stay remained. this bug is fixed.
+	* version: 0.9.6d
+
+2002-06-22  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_route.c: route table calculation bug fixed. [zebra 14105]
+	* ospf6_spf.c, ospf6_route.c, etc.: log message cleaned up.
+	* version: 0.9.6c
+
+2002-04-27  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_route.c: [zebra 13514] bug fix.
+	thanks to Harald Koch.
+	* version: 0.9.6b
+
+2002-04-22  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_dump.c: fix bug of log function
+	* ospf6_area.c: fix bug of intra route deletion
+	* version: 0.9.6a
+
+2002-04-20  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* merged with "current" version.
+	* version: 0.9.6
+
+2001-03-11  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_lsdb.c ospf6_spf.c: log message changed for debug.
+
+2001-02-20  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* version: 0.9.5i
+
+	* ospf6_asbr.c: Added code that finds alternative
+	AS-External route when remove AS-External route.
+	This is temporary fix ...
+
+	* ospf6_redistribute.c: remove redistributed routes
+	immediately when 'no redistribute ...'
+
+2001-02-20  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* version: 0.9.5h
+
+	* ospf6_spf.c, ospf6_lsa.c: Change to originate Link-LSA on
+	point-to-point links.
+
+	* ospf6_message.c: Bug of log messages of self-originated
+	Hello packet fixed.
+
+2001-02-09  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* version: 0.9.5g
+	* ospf6_asbr.c: fix for the bug that AS-External route
+	is not get removed.
+
+2001-02-09  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_lsdb.c: crash bug while receiving wrong LSA scope bit
+	has been temporarily fixed
+
+2001-12-20  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_asbr.[ch]: The byte order bug in encoding/decoding
+	the bits/metric field in AS-External-LSA fixed.
+	Fixed to update E-bit in Router-LSA of itself.
+	Reported by Taisuke Sasaki ([zebra 11548]).
+
+	* README: updated.
+
+	* version: 0.9.5f
+
+2001-11-21  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_prefix.c: Intra-prefix-LSA bug fixed.
+	* ospf6_abr.[ch]: added (only just placeholder yet)
+
+2001-11-20  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_route.c: fix to overwrite a prefix when another
+	addition to the prefix is given. freeze function changed
+	not to remove routes by default.
+
+	* version: 0.9.5e
+
+2001-11-19  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* version: 0.9.5d
+
+	* ospf6_lsa.c ospf6_spf.c: SPF Calculations are now
+	scheduled by hook.
+
+	* ospf6_route.c: ospf6_route_add bug fix,
+	ospf6_route_remove_all corrected.
+
+2001-11-15  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_hook.[ch]: added.
+	* Almost half of the code has been rewritten.
+	especially, ospf6_route.[ch]. Hook call has been injected
+	much.
+	* ospf6_asbr.[ch]: added.
+
+2001-10-17  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_dbex.c: ospf6d was wrong to omit reoriginating
+	of LSA when the self-originated LSA was received from others.
+	fixed.
+	* ospf6d.h: version: 0.9.5c
+
+2001-10-16  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_lsa.c: 'force-prefix' was not executed. fixed.
+	* ospf6d.h: version: 0.9.5b
+
+2001-10-13  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_interface.c: 'passive-interface' is now moved to
+	'ipv6 ospf6 passive' in INTERFACE NODE. 'prefix-list' which
+	specifies the filter prefix for connected address prefix also
+	moved to INTERFACE NODE as 'ipv6 ospf6 advertise prefix-list WORD'.
+	The old obsoleted commands are still acceptable though. New command
+	'ipv6 ospf6 advertise force-prefix' added, which which tells ospf6d
+	to advertise rather prefix than stub local-address even on loopback
+	or pointopoint interfaces.
+
+	* ospf6_dump.c: 'ospf6 debug hello' -> 'ospf6 debug message hello'.
+	same for other message type. The older is still acceptable.
+
+	* ospf6_lsa.c: Changed AS-External generation to new one which uses
+	LSA hooks. Delete old garbage.
+
+2001-10-02  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6d.c: turn off and turn on sequence with
+	'no interface' 'interface' cmds was not work. fixed.
+
+	* ospf6_lsa.c: generating Intra-Area-Prefix-LSA for stub
+	did not care duplicate prefixes. fixed.
+
+2001-09-07  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_message.c: There was a bug that prevent LSDB
+	to syncronize. It was a DbDesc packet bug that Slave
+	sends two different DbDesc packet on the same sequence
+	number. This cause many LSAs are dropped when Exchanging
+	LSDB, because the latter DbDesc packet that have the same
+	sequence number will be ignored as duplicate packet.
+	This seems to be exist at least before 0.9.4 version.
+	Now this is the most stable candidate.
+
+	* ospf6d.h: version 0.9.5a
+
+2001-09-06  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_zebra.c ospf6_spf.c ospf6_lsa.c :
+	delete nexthop check to certify the nexthop is Link-local address.
+	Suppress Link-LSA origination on links other than Broadcast.
+	SPF's nexthop calculation first checks linklocal address
+	in Link-LSA, then checks source address of neighbor's packets.
+
+	* ospf6_interface.c ospf6_ism.c ospf6_lsa.c ospf6_nsm.c:
+	intra-area-prefix-lsa origination func moved to new one.
+
+	* ospf6_interface.h ospf6d.[ch] ospf6_lsa.c: 
+	interface_area_cmd now changed to have 'passive'
+	and 'prefix-list' option.
+
+	* ospf6_prefix.c:
+	clean up.
+
+2001-09-04  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_dbex.c ospf6_interface.c ospf6_ism.c ospf6_lsa.[ch]:
+	clean up and new LSA origination functions added.
+
+	* ospf6_route.c ospf6_lsdb.c: make vty function more
+	clean/understandable.
+
+	* ospf6d.h: version 0.9.5
+
+2001-08-24  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* ospf6_lsdb.c: Use IS_LSA_MAXAGE macro instead of
+	ospf6_lsa_is_maxage.
+
+	* ospf6_lsa.h (IS_LSA_MAXAGE): Add new macro to check MaxAge.
+
+2001-08-21  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_lsdb.c: if There's no previous prefix
+	ospf6d was wrongly not calculate the prefix.
+	this reported by (v6 16029) is fixed.
+
+	* ospf6_neighbor.c: Instance of LSA Summary included
+	in DbDesc packet was wrongly freed. The bug cause
+	malformed DbDesc, ExChange <-> ExStart flapping,
+	and then crash.
+
+	* ospf6d.h: version 0.9.4
+
+2001-08-21  Yasuhiro Ohara  <yasu@sfc.wide.ad.jp>
+
+	* ospf6_route.[ch]: Showing format is changed.
+	'show ipv6 route ospf6' -> 'show ipv6 ospf6 route'
+	'show ipv6 route ospf6 external' ->
+	'show ipv6 ospf6 route redistribute'
+
+	* ospf6_lsdb.c ospf6_lsa.c ospf6_neighbor.c ospf6_interface.c:
+	memory leak in LS list fixed.
+
+	* all: clean up
+
+	* ospf6d.h: version 0.9.3
+
+2001-08-20  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* ospf6d.c (ospf6_timeval_sub_equal): Remove function.
+
+	* ospf6_spf.c (ospf6_timeval_cmp): Rewrite ospf6_timeval_cmp().
+	(ospf6_timeval_add_equal): Function moved from ospf6d.c
+	
 2001-08-19  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
 	* zebra-0.92a released.

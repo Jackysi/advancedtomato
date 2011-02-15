@@ -164,7 +164,7 @@ GLOBAL_ENTRY(ia64_pal_call_phys_static)
 	;;
 	mov loc4=ar.rsc			// save RSE configuration
 	dep.z loc2=loc2,0,61		// convert pal entry point to physical
-	dep.z r8=r8,0,61		// convert rp to physical
+	tpa r8=r8			// convert rp to physical
 	;;
 	mov b7 = loc2			// install target to branch reg
 	mov ar.rsc=0			// put RSE in enforced lazy, LE mode
@@ -174,13 +174,13 @@ GLOBAL_ENTRY(ia64_pal_call_phys_static)
 	or loc3=loc3,r17		// add in psr the bits to set
 	;;
 	andcm r16=loc3,r16		// removes bits to clear from psr
-	br.call.sptk.many rp=ia64_switch_mode
+	br.call.sptk.many rp=ia64_switch_mode_phys
 .ret1:	mov rp = r8			// install return address (physical)
 	br.cond.sptk.many b7
 1:
 	mov ar.rsc=0			// put RSE in enforced lazy, LE mode
 	mov r16=loc3			// r16= original psr
-	br.call.sptk.many rp=ia64_switch_mode // return to virtual mode
+	br.call.sptk.many rp=ia64_switch_mode_virt // return to virtual mode
 .ret2:
 	mov psr.l = loc3		// restore init PSR
 
@@ -228,13 +228,13 @@ GLOBAL_ENTRY(ia64_pal_call_phys_stacked)
 	mov b7 = loc2			// install target to branch reg
 	;;
 	andcm r16=loc3,r16		// removes bits to clear from psr
-	br.call.sptk.many rp=ia64_switch_mode
+	br.call.sptk.many rp=ia64_switch_mode_phys
 .ret6:
 	br.call.sptk.many rp=b7		// now make the call
 .ret7:
 	mov ar.rsc=0			// put RSE in enforced lazy, LE mode
 	mov r16=loc3			// r16= original psr
-	br.call.sptk.many rp=ia64_switch_mode	// return to virtual mode
+	br.call.sptk.many rp=ia64_switch_mode_virt	// return to virtual mode
 
 .ret8:	mov psr.l  = loc3		// restore init PSR
 	mov ar.pfs = loc1
@@ -245,3 +245,49 @@ GLOBAL_ENTRY(ia64_pal_call_phys_stacked)
 	br.ret.sptk.many b0
 END(ia64_pal_call_phys_stacked)
 
+/*
+ * Save scratch fp scratch regs (fp10-fp15)
+ *
+ * NOTE: We need to do this since firmware (SAL or PAL) uses more
+ * scratch fp regs than the Linux kernel does.
+ *
+ * Inputs:
+ *      in0         Address of stack storage for fp regs
+ */
+
+GLOBAL_ENTRY(ia64_save_scratch_fpregs)
+	alloc r3=ar.pfs,1,0,0,0
+	add r2=16,in0
+	;;
+	stf.spill [in0] = f10,32
+	stf.spill [r2]  = f11,32
+	;;
+	stf.spill [in0] = f12,32
+	stf.spill [r2]  = f13,32
+	;;
+	stf.spill [in0] = f14,32
+	stf.spill [r2]  = f15,32
+	br.ret.sptk.many rp
+END(ia64_save_scratch_fpregs)
+
+/*
+ * Load scratch fp scratch regs (fp10-fp15)
+ *
+ * Inputs:
+ *      in0         Address of stack storage for fp regs
+ */
+
+GLOBAL_ENTRY(ia64_load_scratch_fpregs)
+	alloc r3=ar.pfs,1,0,0,0
+	add r2=16,in0
+	;;
+	ldf.fill  f10 = [in0],32
+	ldf.fill  f11 = [r2],32
+	;;
+	ldf.fill  f12 = [in0],32
+	ldf.fill  f13 = [r2],32
+	;;
+	ldf.fill  f14 = [in0],32
+	ldf.fill  f15 = [r2],32
+	br.ret.sptk.many rp
+END(ia64_load_scratch_fpregs)

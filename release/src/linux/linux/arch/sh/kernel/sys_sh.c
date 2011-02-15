@@ -23,6 +23,7 @@
 
 #include <asm/uaccess.h>
 #include <asm/ipc.h>
+#include <asm/cachectl.h>
 
 /*
  * sys_pipe() is the normal C calling standard for creating
@@ -221,15 +222,41 @@ asmlinkage int sys_ipc(uint call, int first, int second,
 	return -EINVAL;
 }
 
-asmlinkage int sys_uname(struct old_utsname * name)
+/* sys_cacheflush -- flush (part of) the processor cache.  */
+asmlinkage int
+sys_cacheflush (unsigned long addr, unsigned long len, int op)
 {
-	int err;
-	if (!name)
+	struct vm_area_struct *vma;
+
+	if ((op < 0) || (op > (CACHEFLUSH_D_PURGE|CACHEFLUSH_I)))
+		return -EINVAL;
+
+	/*
+	 * Verify that the specified address region actually belongs
+	 * to this process.
+	 */
+	if (addr + len < addr)
 		return -EFAULT;
-	down_read(&uts_sem);
-	err=copy_to_user(name, &system_utsname, sizeof (*name));
-	up_read(&uts_sem);
-	return err?-EFAULT:0;
+	vma = find_vma (current->mm, addr);
+	if (vma == NULL || addr < vma->vm_start || addr + len > vma->vm_end)
+		return -EFAULT;
+
+	switch (op & CACHEFLUSH_D_PURGE) {
+		case CACHEFLUSH_D_INVAL:
+			__flush_invalidate_region(addr, len);
+			break;
+		case CACHEFLUSH_D_WB:
+			__flush_wback_region(addr, len);
+			break;
+		case CACHEFLUSH_D_PURGE:
+			__flush_purge_region(addr, len);
+			break;
+	}
+	if (op & CACHEFLUSH_I) {
+		__flush_icache_all();
+	}
+
+	return 0;
 }
 
 asmlinkage int sys_pause(void)
@@ -237,4 +264,20 @@ asmlinkage int sys_pause(void)
 	current->state = TASK_INTERRUPTIBLE;
 	schedule();
 	return -ERESTARTNOHAND;
+}
+
+asmlinkage ssize_t sys_pread_wrapper(unsigned int fd, char * buf,
+			     size_t count, long dummy, loff_t pos)
+{
+	extern asmlinkage ssize_t sys_pread(unsigned int fd, char * buf,
+					size_t count, loff_t pos);
+	return sys_pread(fd, buf, count, pos);
+}
+
+asmlinkage ssize_t sys_pwrite_wrapper(unsigned int fd, const char * buf,
+			      size_t count, long dummy, loff_t pos)
+{
+	extern asmlinkage ssize_t sys_pwrite(unsigned int fd, const char * buf,
+					size_t count, loff_t pos);
+	return sys_pwrite(fd, buf, count, pos);
 }

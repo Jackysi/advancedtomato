@@ -23,6 +23,7 @@
 <script type='text/javascript'>
 
 //	<% nvram("et0macaddr,t_features,t_model_name"); %>
+//	<% nvstat(); %>
 
 function fix(name)
 {
@@ -133,6 +134,26 @@ function resetButton()
 	</select>
 	<input type='button' value='OK' onclick='resetButton()' id='reset-button'>
 	</form>
+</div>
+
+<br>
+
+<div class='section-title'></div>
+<div class='section'>
+<script type='text/javascript'>
+var a = nvstat.free / nvstat.size * 100.0;
+createFieldTable('', [
+	{ title: 'Total / Free NVRAM:', text: scaleSize(nvstat.size) + ' / ' + scaleSize(nvstat.free) + ' <small>(' + (a).toFixed(2) + '%)</small>' }
+]);
+
+if (a <= 5) {
+	document.write('<br><div id="notice1">' +
+		'The NVRAM free space is very low. It is strongly recommended to ' +
+		'erase all data in NVRAM memory, and reconfigure the router manually ' +
+		'in order to clean up all unused and obsolete entries.' +
+		'</div><br style="clear:both">');
+}
+</script>
 </div>
 
 <!-- / / / -->

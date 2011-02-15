@@ -66,7 +66,7 @@
 #endif
 
 
-#if LINUX_VERSION_CODE < 0x20155     /* basically 2.2 plus */
+#if LINUX_VERSION_CODE < 0x20155 /* basically 2.2 plus */
 
 #define LMC_DEV_KFREE_SKB(skb) dev_kfree_skb((skb), FREE_WRITE)
 #define LMC_PCI_PRESENT() pcibios_present()

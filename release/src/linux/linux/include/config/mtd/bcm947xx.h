@@ -1,1 +1,0 @@
-#define CONFIG_MTD_BCM947XX 1

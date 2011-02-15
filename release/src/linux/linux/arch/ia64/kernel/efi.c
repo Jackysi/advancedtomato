@@ -5,7 +5,7 @@
  *
  * Copyright (C) 1999 VA Linux Systems
  * Copyright (C) 1999 Walt Drummond <drummond@valinux.com>
- * Copyright (C) 1999-2002 Hewlett-Packard Co.
+ * Copyright (C) 1999-2003 Hewlett-Packard Co.
  *	David Mosberger-Tang <davidm@hpl.hp.com>
  *	Stephane Eranian <eranian@hpl.hp.com>
  *
@@ -30,6 +30,7 @@
 #include <asm/kregs.h>
 #include <asm/pgtable.h>
 #include <asm/processor.h>
+#include <asm/mca.h>
 
 #define EFI_DEBUG	0
 
@@ -46,71 +47,161 @@ static efi_runtime_services_t *runtime;
  * prior to creating their own entries under /proc/efi.
  */
 #ifdef CONFIG_PROC_FS
-struct proc_dir_entry *efi_dir = NULL;
+struct proc_dir_entry *efi_dir;
 #endif
 
 static unsigned long mem_limit = ~0UL;
 
-static efi_status_t
-phys_get_time (efi_time_t *tm, efi_time_cap_t *tc)
-{
-	return efi_call_phys(__va(runtime->get_time), __pa(tm), __pa(tc));
+#define efi_call_virt(f, args...)	(*(f))(args)
+
+#define STUB_GET_TIME(prefix, adjust_arg)							\
+static efi_status_t										\
+prefix##_get_time (efi_time_t *tm, efi_time_cap_t *tc)						\
+{												\
+	struct ia64_fpreg fr[6];								\
+	efi_status_t ret;									\
+												\
+	ia64_save_scratch_fpregs(fr);								\
+	ret = efi_call_##prefix((efi_get_time_t *) __va(runtime->get_time), adjust_arg(tm),	\
+				adjust_arg(tc));						\
+	ia64_load_scratch_fpregs(fr);								\
+	return ret;										\
 }
 
-static efi_status_t
-phys_set_time (efi_time_t *tm)
-{
-	return efi_call_phys(__va(runtime->set_time), __pa(tm));
+#define STUB_SET_TIME(prefix, adjust_arg)							\
+static efi_status_t										\
+prefix##_set_time (efi_time_t *tm)								\
+{												\
+	struct ia64_fpreg fr[6];								\
+	efi_status_t ret;									\
+												\
+	ia64_save_scratch_fpregs(fr);								\
+	ret = efi_call_##prefix((efi_set_time_t *) __va(runtime->set_time), adjust_arg(tm));	\
+	ia64_load_scratch_fpregs(fr);								\
+	return ret;										\
 }
 
-static efi_status_t
-phys_get_wakeup_time (efi_bool_t *enabled, efi_bool_t *pending, efi_time_t *tm)
-{
-	return efi_call_phys(__va(runtime->get_wakeup_time), __pa(enabled), __pa(pending),
-			     __pa(tm));
+#define STUB_GET_WAKEUP_TIME(prefix, adjust_arg)						\
+static efi_status_t										\
+prefix##_get_wakeup_time (efi_bool_t *enabled, efi_bool_t *pending, efi_time_t *tm)		\
+{												\
+	struct ia64_fpreg fr[6];								\
+	efi_status_t ret;									\
+												\
+	ia64_save_scratch_fpregs(fr);								\
+	ret = efi_call_##prefix((efi_get_wakeup_time_t *) __va(runtime->get_wakeup_time),	\
+				adjust_arg(enabled), adjust_arg(pending), adjust_arg(tm));	\
+	ia64_load_scratch_fpregs(fr);								\
+	return ret;										\
 }
 
-static efi_status_t
-phys_set_wakeup_time (efi_bool_t enabled, efi_time_t *tm)
-{
-	return efi_call_phys(__va(runtime->set_wakeup_time), enabled, __pa(tm));
+#define STUB_SET_WAKEUP_TIME(prefix, adjust_arg)						\
+static efi_status_t										\
+prefix##_set_wakeup_time (efi_bool_t enabled, efi_time_t *tm)					\
+{												\
+	struct ia64_fpreg fr[6];								\
+	efi_status_t ret;									\
+												\
+	ia64_save_scratch_fpregs(fr);								\
+	ret = efi_call_##prefix((efi_set_wakeup_time_t *) __va(runtime->set_wakeup_time),	\
+				enabled, adjust_arg(tm));					\
+	ia64_load_scratch_fpregs(fr);								\
+	return ret;										\
 }
 
-static efi_status_t
-phys_get_variable (efi_char16_t *name, efi_guid_t *vendor, u32 *attr,
-		   unsigned long *data_size, void *data)
-{
-	return efi_call_phys(__va(runtime->get_variable), __pa(name), __pa(vendor), __pa(attr),
-			     __pa(data_size), __pa(data));
+#define STUB_GET_VARIABLE(prefix, adjust_arg)						\
+static efi_status_t									\
+prefix##_get_variable (efi_char16_t *name, efi_guid_t *vendor, u32 *attr,		\
+		       unsigned long *data_size, void *data)				\
+{											\
+	struct ia64_fpreg fr[6];							\
+	efi_status_t ret;								\
+											\
+	ia64_save_scratch_fpregs(fr);							\
+	ret = efi_call_##prefix((efi_get_variable_t *) __va(runtime->get_variable),	\
+				adjust_arg(name), adjust_arg(vendor), adjust_arg(attr),	\
+				adjust_arg(data_size), adjust_arg(data));		\
+	ia64_load_scratch_fpregs(fr);							\
+	return ret;									\
 }
 
-static efi_status_t
-phys_get_next_variable (unsigned long *name_size, efi_char16_t *name, efi_guid_t *vendor)
-{
-	return efi_call_phys(__va(runtime->get_next_variable), __pa(name_size), __pa(name),
-			     __pa(vendor));
+#define STUB_GET_NEXT_VARIABLE(prefix, adjust_arg)						\
+static efi_status_t										\
+prefix##_get_next_variable (unsigned long *name_size, efi_char16_t *name, efi_guid_t *vendor)	\
+{												\
+	struct ia64_fpreg fr[6];								\
+	efi_status_t ret;									\
+												\
+	ia64_save_scratch_fpregs(fr);								\
+	ret = efi_call_##prefix((efi_get_next_variable_t *) __va(runtime->get_next_variable),	\
+				adjust_arg(name_size), adjust_arg(name), adjust_arg(vendor));	\
+	ia64_load_scratch_fpregs(fr);								\
+	return ret;										\
 }
 
-static efi_status_t
-phys_set_variable (efi_char16_t *name, efi_guid_t *vendor, u32 attr,
-		   unsigned long data_size, void *data)
-{
-	return efi_call_phys(__va(runtime->set_variable), __pa(name), __pa(vendor), attr,
-			     data_size, __pa(data));
+#define STUB_SET_VARIABLE(prefix, adjust_arg)						\
+static efi_status_t									\
+prefix##_set_variable (efi_char16_t *name, efi_guid_t *vendor, u32 attr,		\
+		       unsigned long data_size, void *data)				\
+{											\
+	struct ia64_fpreg fr[6];							\
+	efi_status_t ret;								\
+											\
+	ia64_save_scratch_fpregs(fr);							\
+	ret = efi_call_##prefix((efi_set_variable_t *) __va(runtime->set_variable),	\
+				adjust_arg(name), adjust_arg(vendor), attr, data_size,	\
+				adjust_arg(data));					\
+	ia64_load_scratch_fpregs(fr);							\
+	return ret;									\
 }
 
-static efi_status_t
-phys_get_next_high_mono_count (u64 *count)
-{
-	return efi_call_phys(__va(runtime->get_next_high_mono_count), __pa(count));
+#define STUB_GET_NEXT_HIGH_MONO_COUNT(prefix, adjust_arg)					\
+static efi_status_t										\
+prefix##_get_next_high_mono_count (u64 *count)							\
+{												\
+	struct ia64_fpreg fr[6];								\
+	efi_status_t ret;									\
+												\
+	ia64_save_scratch_fpregs(fr);								\
+	ret = efi_call_##prefix((efi_get_next_high_mono_count_t *)				\
+				__va(runtime->get_next_high_mono_count), adjust_arg(count));	\
+	ia64_load_scratch_fpregs(fr);								\
+	return ret;										\
 }
 
-static void
-phys_reset_system (int reset_type, efi_status_t status,
-		   unsigned long data_size, efi_char16_t *data)
-{
-	efi_call_phys(__va(runtime->reset_system), status, data_size, __pa(data));
+#define STUB_RESET_SYSTEM(prefix, adjust_arg)					\
+static void									\
+prefix##_reset_system (int reset_type, efi_status_t status,			\
+		       unsigned long data_size, efi_char16_t *data)		\
+{										\
+	struct ia64_fpreg fr[6];						\
+										\
+	ia64_save_scratch_fpregs(fr);						\
+	efi_call_##prefix((efi_reset_system_t *) __va(runtime->reset_system),	\
+			  reset_type, status, data_size, adjust_arg(data));	\
+	/* should not return, but just in case... */				\
+	ia64_load_scratch_fpregs(fr);						\
 }
+
+STUB_GET_TIME(phys, __pa)
+STUB_SET_TIME(phys, __pa)
+STUB_GET_WAKEUP_TIME(phys, __pa)
+STUB_SET_WAKEUP_TIME(phys, __pa)
+STUB_GET_VARIABLE(phys, __pa)
+STUB_GET_NEXT_VARIABLE(phys, __pa)
+STUB_SET_VARIABLE(phys, __pa)
+STUB_GET_NEXT_HIGH_MONO_COUNT(phys, __pa)
+STUB_RESET_SYSTEM(phys, __pa)
+
+STUB_GET_TIME(virt, )
+STUB_SET_TIME(virt, )
+STUB_GET_WAKEUP_TIME(virt, )
+STUB_SET_WAKEUP_TIME(virt, )
+STUB_GET_VARIABLE(virt, )
+STUB_GET_NEXT_VARIABLE(virt, )
+STUB_SET_VARIABLE(virt, )
+STUB_GET_NEXT_HIGH_MONO_COUNT(virt, )
+STUB_RESET_SYSTEM(virt, )
 
 void
 efi_gettimeofday (struct timeval *tv)
@@ -209,7 +300,7 @@ efi_memmap_walk (efi_freemem_callback_t callback, void *arg)
 	} prev, curr;
 	void *efi_map_start, *efi_map_end, *p, *q;
 	efi_memory_desc_t *md, *check_md;
-	u64 efi_desc_size, start, end, granule_addr, first_non_wb_addr = 0;
+	u64 efi_desc_size, start, end, granule_addr, last_granule_addr, first_non_wb_addr = 0;
 
 	efi_map_start = __va(ia64_boot_param->efi_memmap);
 	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
@@ -222,41 +313,33 @@ efi_memmap_walk (efi_freemem_callback_t callback, void *arg)
 		if (!(md->attribute & EFI_MEMORY_WB))
 			continue;
 
-		if (md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) > first_non_wb_addr) {
-			/*
-			 * Search for the next run of contiguous WB memory.  Start search
-			 * at first granule boundary covered by md.
-			 */
-			granule_addr = ((md->phys_addr + IA64_GRANULE_SIZE - 1)
-					& -IA64_GRANULE_SIZE);
-			first_non_wb_addr = granule_addr;
-			for (q = p; q < efi_map_end; q += efi_desc_size) {
-				check_md = q;
+		/*
+		 * granule_addr is the base of md's first granule.
+		 * [granule_addr - first_non_wb_addr) is guaranteed to
+		 * be contiguous WB memory.
+		 */
+		granule_addr = md->phys_addr & ~(IA64_GRANULE_SIZE - 1);
+		first_non_wb_addr = max(first_non_wb_addr, granule_addr);
 
-				if (check_md->attribute & EFI_MEMORY_WB)
-					trim_bottom(md, granule_addr);
-
-				if (check_md->phys_addr < granule_addr)
-					continue;
-
-				if (!(check_md->attribute & EFI_MEMORY_WB))
-					break;	/* hit a non-WB region; stop search */
-
-				if (check_md->phys_addr != first_non_wb_addr)
-					break;	/* hit a memory hole; stop search */
-
-				first_non_wb_addr += check_md->num_pages << EFI_PAGE_SHIFT;
-			}
-			/* round it down to the previous granule-boundary: */
-			first_non_wb_addr &= -IA64_GRANULE_SIZE;
-
-			if (!(first_non_wb_addr > granule_addr))
-				continue;	/* couldn't find enough contiguous memory */
+		if (first_non_wb_addr < md->phys_addr) {
+			trim_bottom(md, granule_addr + IA64_GRANULE_SIZE);
+			granule_addr = md->phys_addr & ~(IA64_GRANULE_SIZE - 1);
+			first_non_wb_addr = max(first_non_wb_addr, granule_addr);
 		}
 
-		/* BUG_ON((md->phys_addr >> IA64_GRANULE_SHIFT) < first_non_wb_addr); */
+		for (q = p; q < efi_map_end; q += efi_desc_size) {
+			check_md = q;
 
-		trim_top(md, first_non_wb_addr);
+			if ((check_md->attribute & EFI_MEMORY_WB) &&
+			    (check_md->phys_addr == first_non_wb_addr))
+				first_non_wb_addr += check_md->num_pages << EFI_PAGE_SHIFT;
+			else
+				break;		/* non-WB or hole */
+		}
+
+		last_granule_addr = first_non_wb_addr & ~(IA64_GRANULE_SIZE - 1);
+		if (last_granule_addr < md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT))
+			trim_top(md, last_granule_addr);
 
 		if (is_available_memory(md)) {
 			if (md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) > mem_limit) {
@@ -276,7 +359,7 @@ efi_memmap_walk (efi_freemem_callback_t callback, void *arg)
 				prev_valid = 1;
 			} else {
 				if (curr.start < prev.start)
-					printk("Oops: EFI memory table not ordered!\n");
+					printk(KERN_ERR "Oops: EFI memory table not ordered!\n");
 
 				if (prev.end == curr.start) {
 					/* merge two consecutive memory ranges */
@@ -313,6 +396,9 @@ efi_map_pal_code (void)
 	int pal_code_count = 0;
 	u64 mask, psr;
 	u64 vaddr;
+#ifdef CONFIG_IA64_MCA
+	int cpu;
+#endif
 
 	efi_map_start = __va(ia64_boot_param->efi_memmap);
 	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
@@ -348,7 +434,8 @@ efi_map_pal_code (void)
 		 * dedicated ITR for the PAL code.
 		 */
 		if ((vaddr & mask) == (KERNEL_START & mask)) {
-			printk("%s: no need to install ITR for PAL code\n", __FUNCTION__);
+			printk(KERN_INFO "%s: no need to install ITR for PAL code\n",
+			       __FUNCTION__);
 			continue;
 		}
 
@@ -356,10 +443,12 @@ efi_map_pal_code (void)
 			panic("Woah!  PAL code size bigger than a granule!");
 
 		mask  = ~((1 << IA64_GRANULE_SHIFT) - 1);
-		printk("CPU %d: mapping PAL code [0x%lx-0x%lx) into [0x%lx-0x%lx)\n",
+#if EFI_DEBUG
+		printk(KERN_INFO "CPU %d: mapping PAL code [0x%lx-0x%lx) into [0x%lx-0x%lx)\n",
 		       smp_processor_id(), md->phys_addr,
 		       md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT),
 		       vaddr & mask, (vaddr & mask) + IA64_GRANULE_SIZE);
+#endif
 
 		/*
 		 * Cannot write to CRx with PSR.ic=1
@@ -369,6 +458,14 @@ efi_map_pal_code (void)
 			 pte_val(mk_pte_phys(md->phys_addr, PAGE_KERNEL)), IA64_GRANULE_SHIFT);
 		ia64_set_psr(psr);		/* restore psr */
 		ia64_srlz_i();
+
+#ifdef CONFIG_IA64_MCA
+		cpu = smp_processor_id();
+
+		/* insert this TR into our list for MCA recovery purposes */
+		ia64_mca_tlb_list[cpu].pal_base=vaddr & mask;
+		ia64_mca_tlb_list[cpu].pal_paddr= pte_val(mk_pte_phys(md->phys_addr, PAGE_KERNEL));
+#endif
 	}
 }
 
@@ -399,7 +496,7 @@ efi_init (void)
 		}
 	}
 	if (mem_limit != ~0UL)
-		printk("Ignoring memory above %luMB\n", mem_limit >> 20);
+		printk(KERN_INFO "Ignoring memory above %luMB\n", mem_limit >> 20);
 
 	efi.systab = __va(ia64_boot_param->efi_systab);
 
@@ -411,7 +508,7 @@ efi_init (void)
 	if (efi.systab->hdr.signature != EFI_SYSTEM_TABLE_SIGNATURE)
 		panic("Woah! EFI system table signature incorrect\n");
 	if ((efi.systab->hdr.revision ^ EFI_SYSTEM_TABLE_REVISION) >> 16 != 0)
-		printk("Warning: EFI system table major version mismatch: "
+		printk(KERN_WARNING "Warning: EFI system table major version mismatch: "
 		       "got %d.%02d, expected %d.%02d\n",
 		       efi.systab->hdr.revision >> 16, efi.systab->hdr.revision & 0xffff,
 		       EFI_SYSTEM_TABLE_REVISION >> 16, EFI_SYSTEM_TABLE_REVISION & 0xffff);
@@ -426,7 +523,7 @@ efi_init (void)
 		vendor[i] = '\0';
 	}
 
-	printk("EFI v%u.%.02u by %s:",
+	printk(KERN_INFO "EFI v%u.%.02u by %s:",
 	       efi.systab->hdr.revision >> 16, efi.systab->hdr.revision & 0xffff, vendor);
 
 	for (i = 0; i < efi.systab->nr_tables; i++) {
@@ -511,11 +608,26 @@ efi_enter_virtual_mode (void)
 			} else if (md->attribute & EFI_MEMORY_UC) {
 				md->virt_addr = (u64) ioremap(md->phys_addr, 0);
 			} else if (md->attribute & EFI_MEMORY_WC) {
-				printk("EFI_MEMORY_WC mapping\n");
+#if 0
+				md->virt_addr = ia64_remap(md->phys_addr, (_PAGE_A | _PAGE_P
+									   | _PAGE_D
+									   | _PAGE_MA_WC
+									   | _PAGE_PL_0
+									   | _PAGE_AR_RW));
+#else
+				printk(KERN_INFO "EFI_MEMORY_WC mapping\n");
 				md->virt_addr = (u64) ioremap(md->phys_addr, 0);
+#endif
 			} else if (md->attribute & EFI_MEMORY_WT) {
-				printk("EFI_MEMORY_WT mapping\n");
+#if 0
+				md->virt_addr = ia64_remap(md->phys_addr, (_PAGE_A | _PAGE_P
+									   | _PAGE_D | _PAGE_MA_WT
+									   | _PAGE_PL_0
+									   | _PAGE_AR_RW));
+#else
+				printk(KERN_INFO "EFI_MEMORY_WT mapping\n");
 				md->virt_addr = (u64) ioremap(md->phys_addr, 0);
+#endif
 			}
 		}
 	}
@@ -525,23 +637,22 @@ efi_enter_virtual_mode (void)
 			       efi_desc_size, ia64_boot_param->efi_memdesc_version,
 			       ia64_boot_param->efi_memmap);
 	if (status != EFI_SUCCESS) {
-		printk("Warning: unable to switch EFI into virtual mode (status=%lu)\n", status);
+		printk(KERN_WARNING "warning: unable to switch EFI into virtual mode (status=0x%lx)\n", status);
 		return;
 	}
 
 	/*
-	 * Now that EFI is in virtual mode, we arrange for EFI functions to be
-	 * called directly:
+	 * Now that EFI is in virtual mode, we call the EFI functions more efficiently:
 	 */
-	efi.get_time = __va(runtime->get_time);
-	efi.set_time = __va(runtime->set_time);
-	efi.get_wakeup_time = __va(runtime->get_wakeup_time);
-	efi.set_wakeup_time = __va(runtime->set_wakeup_time);
-	efi.get_variable = __va(runtime->get_variable);
-	efi.get_next_variable = __va(runtime->get_next_variable);
-	efi.set_variable = __va(runtime->set_variable);
-	efi.get_next_high_mono_count = __va(runtime->get_next_high_mono_count);
-	efi.reset_system = __va(runtime->reset_system);
+	efi.get_time = virt_get_time;
+	efi.set_time = virt_set_time;
+	efi.get_wakeup_time = virt_get_wakeup_time;
+	efi.set_wakeup_time = virt_set_wakeup_time;
+	efi.get_variable = virt_get_variable;
+	efi.get_next_variable = virt_get_next_variable;
+	efi.set_variable = virt_set_variable;
+	efi.get_next_high_mono_count = virt_get_next_high_mono_count;
+	efi.reset_system = virt_reset_system;
 }
 
 /*
@@ -562,8 +673,7 @@ efi_get_iobase (void)
 	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
 		md = p;
 		if (md->type == EFI_MEMORY_MAPPED_IO_PORT_SPACE) {
-			/* paranoia attribute checking */
-			if (md->attribute == (EFI_MEMORY_UC | EFI_MEMORY_RUNTIME))
+			if (md->attribute & EFI_MEMORY_UC)
 				return md->phys_addr;
 		}
 	}
@@ -584,8 +694,7 @@ efi_mem_type (unsigned long phys_addr)
 	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
 		md = p;
 
-		if ((md->phys_addr <= phys_addr) && (phys_addr <=
-		    (md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - 1)))
+		if (phys_addr - md->phys_addr < (md->num_pages << EFI_PAGE_SHIFT))
 			 return md->type;
 	}
 	return 0;
@@ -605,8 +714,7 @@ efi_mem_attributes (unsigned long phys_addr)
 	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
 		md = p;
 
-		if ((md->phys_addr <= phys_addr) && (phys_addr <=
-		    (md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) - 1)))
+		if (phys_addr - md->phys_addr < (md->num_pages << EFI_PAGE_SHIFT))
 			return md->attribute;
 	}
 	return 0;

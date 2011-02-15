@@ -2,7 +2,7 @@
 ** *************************************************************************
 **
 **
-**     R C L A N M T L . H             $Revision: 1.1.1.2 $
+**     R C L A N M T L . H             $Revision: 6 $
 **
 **
 **  RedCreek I2O LAN Message Transport Layer header file.
@@ -39,7 +39,7 @@
 
 /* Linux specific includes */
 #include <asm/types.h>
-#ifdef RC_LINUX_MODULE		    /* linux modules need non-library version of string functions */
+#ifdef RC_LINUX_MODULE		/* linux modules need non-library version of string functions */
 #include <linux/string.h>
 #else
 #include <string.h>

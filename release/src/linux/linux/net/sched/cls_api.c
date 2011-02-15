@@ -246,9 +246,7 @@ static int tc_ctl_tfilter(struct sk_buff *skb, struct nlmsghdr *n, void *arg)
 			*back = tp->next;
 			spin_unlock_bh(&dev->queue_lock);
 			write_unlock(&qdisc_tree_lock);
-
-			tp->ops->destroy(tp);
-			kfree(tp);
+			tcf_destroy(tp);
 			err = 0;
 			goto errout;
 		}
@@ -297,6 +295,8 @@ tcf_fill_node(struct sk_buff *skb, struct tcf_proto *tp, unsigned long fh,
 	nlh->nlmsg_flags = flags;
 	tcm = NLMSG_DATA(nlh);
 	tcm->tcm_family = AF_UNSPEC;
+	tcm->tcm__pad1 = 0;
+	tcm->tcm__pad2 = 0;
 	tcm->tcm_ifindex = tp->q->dev->ifindex;
 	tcm->tcm_parent = tp->classid;
 	tcm->tcm_handle = 0;

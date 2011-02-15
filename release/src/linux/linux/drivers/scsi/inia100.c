@@ -335,6 +335,10 @@ int inia100_detect(Scsi_Host_Template * tpnt)
 	i = orc_num_ch * sizeof(ORC_HCS);
 	memset((unsigned char *) &orc_hcs[0], 0, i);	/* Initialize orc_hcs 0   */
 
+#if 0
+	printk("orc_num_scb= %x orc_num_ch= %x hcsize= %x scbsize= %x escbsize= %x\n",
+	       orc_num_scb, orc_num_ch, sizeof(ORC_HCS), sizeof(ORC_SCB), sizeof(ESCB));
+#endif
 
 	for (i = 0, pHCB = &orc_hcs[0];		/* Get pointer for control block */
 	     i < orc_num_ch;
@@ -397,7 +401,11 @@ int inia100_detect(Scsi_Host_Template * tpnt)
 		hreg->this_id = pHCB->HCS_SCSI_ID;	/* Assign HCS index           */
 		hreg->base = (unsigned long)pHCB;
 
+#if 1
 		hreg->sg_tablesize = TOTAL_SG_ENTRY;	/* Maximun support is 32 */
+#else
+		hreg->sg_tablesize = SG_NONE;	/* No SG                        */
+#endif
 
 		/* Initial orc chip           */
 		switch (i) {

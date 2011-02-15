@@ -11,7 +11,7 @@
 #include <linux/netfilter_ipv4/ip_conntrack_helper.h>
 #include <linux/netfilter_ipv4/ip_conntrack_ftp.h>
 
-DECLARE_LOCK(ip_ftp_lock);
+static DECLARE_LOCK(ip_ftp_lock);
 struct module *ip_conntrack_ftp = THIS_MODULE;
 
 #define MAX_PORTS 8
@@ -24,11 +24,15 @@ MODULE_PARM(ports, "1-" __MODULE_STRING(MAX_PORTS) "i");
 static int loose = 0;
 MODULE_PARM(loose, "i");
 
+#if 0
+#define DEBUGP printk
+#else
 #define DEBUGP(format, args...)
+#endif
 
 static int try_rfc959(const char *, size_t, u_int32_t [], char);
 static int try_eprt(const char *, size_t, u_int32_t [], char);
-static int try_espv_response(const char *, size_t, u_int32_t [], char);
+static int try_epsv_response(const char *, size_t, u_int32_t [], char);
 
 static struct ftp_search {
 	enum ip_conntrack_dir dir;
@@ -61,7 +65,7 @@ static struct ftp_search {
 		IP_CT_DIR_REPLY,
 		"229 ", sizeof("229 ") - 1, '(', ')',
 		IP_CT_FTP_EPSV,
-		try_espv_response,
+		try_epsv_response,
 	},
 };
 
@@ -153,7 +157,7 @@ static int try_eprt(const char *data, size_t dlen, u_int32_t array[6],
 }
 
 /* Returns 0, or length of numbers: |||6446| */
-static int try_espv_response(const char *data, size_t dlen, u_int32_t array[6],
+static int try_epsv_response(const char *data, size_t dlen, u_int32_t array[6],
 			     char term)
 {
 	char delim;
@@ -191,6 +195,16 @@ static int find_pattern(const char *data, size_t dlen,
 	}
 
 	if (strnicmp(data, pattern, plen) != 0) {
+#if 0
+		size_t i;
+
+		DEBUGP("ftp: string mismatch\n");
+		for (i = 0; i < plen; i++) {
+			DEBUGP("ftp:char %u `%c'(%u) vs `%c'(%u)\n",
+				i, data[i], data[i],
+				pattern[i], pattern[i]);
+		}
+#endif
 		return 0;
 	}
 
@@ -214,6 +228,7 @@ static int find_pattern(const char *data, size_t dlen,
 	return 1;
 }
 
+/* FIXME: This should be in userspace.  Later. */
 static int help(const struct iphdr *iph, size_t len,
 		struct ip_conntrack *ct,
 		enum ip_conntrack_info ctinfo)
@@ -249,6 +264,7 @@ static int help(const struct iphdr *iph, size_t len,
 	}
 
 	/* Checksum invalid?  Ignore. */
+	/* FIXME: Source route IP option packets --RR */
 	if (tcp_v4_check(tcph, tcplen, iph->saddr, iph->daddr,
 			 csum_partial((char *)tcph, tcplen, 0))) {
 		DEBUGP("ftp_help: bad csum: %p %u %u.%u.%u.%u %u.%u.%u.%u\n",
@@ -307,10 +323,8 @@ static int help(const struct iphdr *iph, size_t len,
 		   connection tracking, not packet filtering.
 		   However, it is neccessary for accurate tracking in
 		   this case. */
-		if (net_ratelimit())
-			printk("conntrack_ftp: partial %s %u+%u\n",
-			       search[i].pattern,
-			       ntohl(tcph->seq), datalen);
+		pr_debug("conntrack_ftp: partial %s %u+%u\n",
+			 search[i].pattern, ntohl(tcph->seq), datalen);
 		return NF_DROP;
 	} else if (found == 0) /* No match */
 		return NF_ACCEPT;
@@ -322,7 +336,6 @@ static int help(const struct iphdr *iph, size_t len,
 	memset(&expect, 0, sizeof(expect));
 
 	/* Update the ftp info */
-	LOCK_BH(&ip_ftp_lock);
 	if (htonl((array[0] << 24) | (array[1] << 16) | (array[2] << 8) | array[3])
 	    == ct->tuplehash[dir].tuple.src.ip) {
 		exp->seq = ntohl(tcph->seq) + matchoff;
@@ -342,7 +355,8 @@ static int help(const struct iphdr *iph, size_t len,
 		   <lincoln@cesar.org.br> for reporting this potential
 		   problem (DMZ machines opening holes to internal
 		   networks, or the packet filter itself). */
-		if (!loose) goto out;
+		if (!loose)
+			return NF_ACCEPT;
 	}
 
 	exp->tuple = ((struct ip_conntrack_tuple)
@@ -350,19 +364,16 @@ static int help(const struct iphdr *iph, size_t len,
 		    { 0 } },
 		  { htonl((array[0] << 24) | (array[1] << 16)
 			  | (array[2] << 8) | array[3]),
-		    { htons(array[4] << 8 | array[5]) },
+		    { .tcp = { htons(array[4] << 8 | array[5]) } },
 		    IPPROTO_TCP }});
 	exp->mask = ((struct ip_conntrack_tuple)
 		{ { 0xFFFFFFFF, { 0 } },
-		  { 0xFFFFFFFF, { 0xFFFF }, 0xFFFF }});
+		  { 0xFFFFFFFF, { .tcp = { 0xFFFF } }, 0xFFFF }});
 
 	exp->expectfn = NULL;
 
 	/* Ignore failure; should only happen with NAT */
 	ip_conntrack_expect_related(ct, &expect);
- out:
-	UNLOCK_BH(&ip_ftp_lock);
-
 	return NF_ACCEPT;
 }
 
@@ -389,7 +400,6 @@ static int __init init(void)
 		ports[0] = FTP_PORT;
 
 	for (i = 0; (i < MAX_PORTS) && ports[i]; i++) {
-		memset(&ftp[i], 0, sizeof(struct ip_conntrack_helper));
 		ftp[i].tuple.src.u.tcp.port = htons(ports[i]);
 		ftp[i].tuple.dst.protonum = IPPROTO_TCP;
 		ftp[i].mask.src.u.tcp.port = 0xFFFF;
@@ -420,9 +430,7 @@ static int __init init(void)
 	return 0;
 }
 
-#ifdef CONFIG_IP_NF_NAT_NEEDED
 EXPORT_SYMBOL(ip_ftp_lock);
-#endif
 
 MODULE_LICENSE("GPL");
 module_init(init);

@@ -314,7 +314,11 @@ static int do_output(const char *tablename)
  * :Chain name POLICY packets bytes
  * rule
  */
+#ifdef IPTABLES_MULTI
+int ip6tables_save_main(int argc, char *argv[])
+#else
 int main(int argc, char *argv[])
+#endif
 {
 	const char *tablename = NULL;
 	int c;
@@ -351,7 +355,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (optind < argc) {
-		fprintf(stderr, "Unknown arguments found on commandline");
+		fprintf(stderr, "Unknown arguments found on commandline\n");
 		exit(1);
 	}
 

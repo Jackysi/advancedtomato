@@ -22,11 +22,11 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("log_remote,log_remoteip,log_remoteport,log_file,log_limit,log_in,log_out,log_mark,log_events"); %>
+//	<% nvram("log_remote,log_remoteip,log_remoteport,log_file,log_limit,log_in,log_out,log_mark,log_events,log_wm,log_wmtype,log_wmip,log_wmdmax,log_wmsmax"); %>
 
 function verifyFields(focused, quiet)
 {
-	var a, b;
+	var a, b, c;
 
 	a = E('_f_log_file').checked;
 	b = E('_f_log_remote').checked;
@@ -47,13 +47,35 @@ function verifyFields(focused, quiet)
 	E('_log_remoteip').disabled = !b;
 	E('_log_remoteport').disabled = !b;
 
-	if (a) return 1;
-
-	if (!v_range('_log_limit', quiet, 0, 2400)) return 0;
-	if (!v_range('_log_mark', quiet, 0, 1440)) return 0;
-	if (b) {
-		if ((!v_ip('_log_remoteip', quiet)) || (!v_port('_log_remoteport', quiet))) return 0;
+	if (!a) {
+		if (!v_range('_log_limit', quiet, 0, 2400)) return 0;
+		if (!v_range('_log_mark', quiet, 0, 99999)) return 0;
+		if (b) {
+			c = E('_log_remoteip');
+			if (!v_ip(c, 1) && !v_domain(c, 1)) {
+				if (!quiet) ferror.show(c);
+				return 0;
+			}
+			if (!v_port('_log_remoteport', quiet)) return 0;
+		}
 	}
+
+	a = E('_f_log_wm').checked;
+	b = E('_log_wmtype').value != 0;
+	E('_log_wmtype').disabled = !a;
+	E('_f_log_wmip').disabled = !a;
+	E('_log_wmdmax').disabled = !a;
+	E('_log_wmsmax').disabled = !a;
+	elem.display(PR('_f_log_wmip'), b);
+
+	if (a) {
+		if (b) {
+			if (!v_iptip('_f_log_wmip', quiet, 15)) return 0;
+		}
+		if (!v_range('_log_wmdmax', quiet, 0, 9999)) return 0;
+		if (!v_range('_log_wmsmax', quiet, 0, 9999)) return 0;
+	}
+
 	return 1;
 }
 
@@ -75,6 +97,9 @@ function save()
 	if (E('_f_log_pppoe').checked) a.push('pppoe');
 	if (E('_f_log_sched').checked) a.push('sched');
 	fom.log_events.value = a.join(',');
+
+	fom.log_wm.value = E('_f_log_wm').checked ? 1 : 0;
+	fom.log_wmip.value = fom.f_log_wmip.value.split(/\s*,\s*/).join(',');
 
 	form.submit(fom, 1);
 }
@@ -101,6 +126,9 @@ function save()
 <input type='hidden' name='log_file'>
 <input type='hidden' name='log_events'>
 
+<input type='hidden' name='log_wm'>
+<input type='hidden' name='log_wmip'>
+
 <script type='text/javascript'>
 </script>
 
@@ -108,20 +136,22 @@ function save()
 <div class='section'>
 <script type='text/javascript'>
 
+/* REMOVE-BEGIN
 // adjust (>=1.22)
 nvram.log_mark *= 1;
 if (nvram.log_mark >= 120) nvram.log_mark = 120;
 	else if (nvram.log_mark >= 60) nvram.log_mark = 60;
 	else if (nvram.log_mark > 0) nvram.log_mark = 30;
 	else nvram.log_mark = 0;
+REMOVE-END */
 
 createFieldTable('', [
 	{ title: 'Log Internally', name: 'f_log_file', type: 'checkbox', value: nvram.log_file == 1 },
 	{ title: 'Log To Remote System', name: 'f_log_remote', type: 'checkbox', value: nvram.log_remote == 1 },
-	{ title: 'IP Address / Port', indent: 2, multi: [
+	{ title: 'Host or IP Address / Port', indent: 2, multi: [
 		{ name: 'log_remoteip', type: 'text', maxlen: 15, size: 17, value: nvram.log_remoteip, suffix: ':' },
 		{ name: 'log_remoteport', type: 'text', maxlen: 5, size: 7, value: nvram.log_remoteport } ]},
-	{ title: 'Generate Marker', name: 'log_mark', type: 'select', options: [[0,'Disabled'],[30,'Every 30 Minutes'],[60,'Every 1 Hour'],[120,'Every 2 Hours']], value: nvram.log_mark },
+	{ title: 'Generate Marker', name: 'log_mark', type: 'select', options: [[0,'Disabled'],[30,'Every 30 Minutes'],[60,'Every 1 Hour'],[120,'Every 2 Hours'],[360,'Every 6 Hours'],[720,'Every 12 Hours'],[1440,'Every 1 Day'],[10080,'Every 7 Days']], value: nvram.log_mark },
 	{ title: 'Events Logged', text: '<small>(some of the changes will take effect after a restart)</small>' },
 		{ title: 'Access Restriction', indent: 2, name: 'f_log_acre', type: 'checkbox', value: (nvram.log_events.indexOf('acre') != -1) },
 		{ title: 'Cron', indent: 2, name: 'f_log_crond', type: 'checkbox', value: (nvram.log_events.indexOf('crond') != -1) },
@@ -133,6 +163,21 @@ createFieldTable('', [
 		{ title: 'Inbound', indent: 2, name: 'log_in', type: 'select', options: [[0,'Disabled (recommended)'],[1,'If Blocked By Firewall'],[2,'If Allowed By Firewall'],[3,'Both']], value: nvram.log_in },
 		{ title: 'Outbound', indent: 2, name: 'log_out', type: 'select', options: [[0,'Disabled (recommended)'],[1,'If Blocked By Firewall'],[2,'If Allowed By Firewall'],[3,'Both']], value: nvram.log_out },
 		{ title: 'Limit', indent: 2, name: 'log_limit', type: 'text', maxlen: 4, size: 5, value: nvram.log_limit, suffix: ' <small>(messages per minute / 0 for unlimited)</small>' }
+]);
+</script>
+</div>
+
+<div class='section-title'>Web Monitor</div>
+<div class='section'>
+<script type='text/javascript'>
+createFieldTable('', [
+	{ title: 'Monitor Web Usage', name: 'f_log_wm', type: 'checkbox', value: nvram.log_wm == 1 },
+	{ title: 'Monitor', name: 'log_wmtype', type: 'select', options: [[0,'All Computers / Devices'],[1,'The Following...'],[2,'All Except...']], value: nvram.log_wmtype },
+		{ title: 'IP Address(es)', indent: 2,  name: 'f_log_wmip', type: 'text', maxlen: 512, size: 64, value: nvram.log_wmip,
+		  suffix: '<br><small>(ex: "1.1.1.1", "1.1.1.0/24" or "1.1.1.1 - 2.2.2.2")</small>' },
+	{ title: 'Number of Entries to remember' },
+		{ title: 'Domains', indent: 2,  name: 'log_wmdmax', type: 'text', maxlen: 4, size: 6, value: nvram.log_wmdmax, suffix: ' <small>(0 to disable)</small>' },
+		{ title: 'Searches', indent: 2, name: 'log_wmsmax', type: 'text', maxlen: 4, size: 6, value: nvram.log_wmsmax, suffix: ' <small>(0 to disable)</small>' }
 ]);
 </script>
 </div>

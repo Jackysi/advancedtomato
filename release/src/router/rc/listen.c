@@ -32,15 +32,7 @@
 #include <linux/if_ether.h>
 #endif
 
-
-//	#define DEBUG
-
-#ifdef DEBUG
-#	define LOG(fmt, args...) cprintf(fmt, ##args);
-#else
-#	define LOG(fmt, args...) do { } while (0);
-#endif
-
+#define LOG _dprintf
 
 enum {L_FAIL, L_ERROR, L_UPGRADE, L_ESTABLISHED, L_SUCCESS};
 
@@ -55,7 +47,7 @@ struct iphdr {
 	u_int16_t check;
 	u_int8_t saddr[4];
 	u_int8_t daddr[4];
-};
+} __attribute__((packed));
 
 struct EthPacket {
 	u_int8_t dst_mac[6];
@@ -73,7 +65,7 @@ struct EthPacket {
 	u_int8_t saddr[4];
 	u_int8_t daddr[4];
 	u_int8_t data[1500 - 20];
-};
+} __attribute__((packed));
 
 
 static int read_interface(const char *interface, int *ifindex, unsigned char *mac)
@@ -161,9 +153,9 @@ static u_int16_t checksum(void *addr, int count)
 	return ~sum;
 }
 
-static int listen_interface(char *interface)
+static int listen_interface(char *interface, int wan_proto)
 {
-	int ifindex;
+	int ifindex = 0;
 	fd_set rfds;
 	struct EthPacket packet;
 	struct timeval tv;
@@ -284,23 +276,25 @@ static int listen_interface(char *interface)
 
 		LOG("oooooh!!! got some!\n");
 
-		if (nvram_match("wan_proto", "pptp")) {
+		switch (wan_proto) {
+		case WP_PPTP:
 			inet_aton(nvram_safe_get("pptp_server_ip"), &ipaddr);
-		}
-		else if (nvram_match("wan_proto", "l2tp")) {
+			break;
+		case WP_L2TP:
 #ifdef TCONFIG_L2TP
 			inet_aton(nvram_safe_get("lan_ipaddr"), &ipaddr);	// checkme: why?	zzz
 #endif
-		}
-		else {
+			break;
+		default:
 			inet_aton(nvram_safe_get("wan_ipaddr"), &ipaddr);
+			break;
 		}
 		inet_aton(nvram_safe_get("wan_netmask"), &netmask);
 		LOG("gateway=%08x", ipaddr.s_addr);
 		LOG("netmask=%08x", netmask.s_addr);
 
 		if ((ipaddr.s_addr & netmask.s_addr) != (*(u_int32_t *)&(packet.daddr) & netmask.s_addr)) {
-			if (nvram_match("wan_proto", "l2tp")) {
+			if (wan_proto == WP_L2TP) {
 				ret = L_SUCCESS;
 				goto EXIT;
 			}
@@ -330,7 +324,7 @@ int listen_main(int argc, char *argv[])
 	if (fork() != 0) return 0;
 
 	while (1) {
-		switch (listen_interface(interface)) {
+		switch (listen_interface(interface, get_wan_proto())) {
 		case L_SUCCESS:
 			LOG("\n*** LAN to WAN packet received\n\n");
 			force_to_dial();

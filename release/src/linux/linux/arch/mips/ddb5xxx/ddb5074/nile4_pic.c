@@ -260,7 +260,7 @@ void nile4_irq_setup(u32 base) {
 
 }
 
-#if defined(CONFIG_LL_DEBUG)
+#if defined(CONFIG_RUNTIME_DEBUG)
 void nile4_dump_irq_status(void)
 {
 	printk(KERN_DEBUG "

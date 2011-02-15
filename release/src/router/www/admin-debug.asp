@@ -48,6 +48,9 @@ function save()
 	var a = [];
 	if (fom.f_nr_crond.checked) a.push('crond');
 	if (fom.f_nr_dnsmasq.checked) a.push('dnsmasq');
+/* LINUX26-BEGIN */
+	if (fom.f_nr_hotplug2.checked) a.push('hotplug2');
+/* LINUX26-END */
 	if (fom.f_nr_igmprt.checked) a.push('igmprt');
 	fom.debug_norestart.value = a.join(',');
 
@@ -89,12 +92,15 @@ createFieldTable('', [
 	{ title: 'Enable cprintf output to console', name: 'f_debug_cprintf', type: 'checkbox', value: nvram.debug_cprintf != '0' },
 	{ title: 'Enable cprintf output to /tmp/cprintf', name: 'f_debug_cprintf_file', type: 'checkbox', value: nvram.debug_cprintf_file != '0' },
 	{ title: 'Enable DDNS output to /tmp/mdu-*', name: 'f_debug_ddns', type: 'checkbox', value: nvram.debug_ddns != '0' },
-	{ title: 'Count cache memory as free memory', name: 'f_cafree', type: 'checkbox', value: nvram.t_cafree == '1' },
+	{ title: 'Count cache memory and buffers as free memory', name: 'f_cafree', type: 'checkbox', value: nvram.t_cafree == '1' },
 	{ title: 'Avoid displaying LAN to router connections', name: 'f_hidelr', type: 'checkbox', value: nvram.t_hidelr == '1' },
 	{ title: 'Console log level', name: 'console_loglevel', type: 'select', options: a, value: fixInt(nvram.console_loglevel, 1, 8, 1) },
 	{ title: 'Do not restart the following process if they die', multi: [
 		{ name: 'f_nr_crond', type: 'checkbox', suffix: ' crond<br>', value: (nvram.debug_norestart.indexOf('crond') != -1) },
 		{ name: 'f_nr_dnsmasq', type: 'checkbox', suffix: ' dnsmasq<br>', value: (nvram.debug_norestart.indexOf('dnsmasq') != -1) },
+/* LINUX26-BEGIN */
+		{ name: 'f_nr_hotplug2', type: 'checkbox', suffix: ' hotplug2<br>', value: (nvram.debug_norestart.indexOf('hotplug2') != -1) },
+/* LINUX26-END */
 		{ name: 'f_nr_igmprt', type: 'checkbox', suffix: ' igmprt<br>', value: (nvram.debug_norestart.indexOf('igmprt') != -1) }
 	] }
 ]);

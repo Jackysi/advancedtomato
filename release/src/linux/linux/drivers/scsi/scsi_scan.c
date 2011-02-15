@@ -37,6 +37,8 @@
 #define BLIST_ISDISK    	0x100	/* Treat as (removable) disk */
 #define BLIST_ISROM     	0x200	/* Treat as (removable) CD-ROM */
 #define BLIST_LARGELUN		0x400	/* LUNs larger than 7 despite reporting as SCSI 2 */
+#define BLIST_NOSTARTONADD	0x1000	/* do not do automatic start on add */
+#define BLIST_RETRY_HWERROR	0x400000/* retry HARDWARE ERROR */
 
 static void print_inquiry(unsigned char *data);
 static int scan_scsis_single(unsigned int channel, unsigned int dev,
@@ -110,9 +112,10 @@ static struct dev_info device_list[] =
 	{"HP", "C1750A", "3226", BLIST_NOLUN},			/* scanjet iic */
 	{"HP", "C1790A", "", BLIST_NOLUN},			/* scanjet iip */
 	{"HP", "C2500A", "", BLIST_NOLUN},			/* scanjet iicx */
-	{"HP", "A6188A", "*", BLIST_SPARSELUN},			/* HP Va7100 Array */
-	{"HP", "A6189A", "*", BLIST_SPARSELUN},			/* HP Va7400 Array */
-	{"HP", "A6189B", "*", BLIST_SPARSELUN},			/* HP Va7410 Array */
+	{"HP", "A6188A", "*", BLIST_SPARSELUN | BLIST_LARGELUN},/* HP Va7100 Array */
+	{"HP", "A6189A", "*", BLIST_SPARSELUN | BLIST_LARGELUN},/* HP Va7400 Array */
+	{"HP", "A6189B", "*", BLIST_SPARSELUN | BLIST_LARGELUN},/* HP Va7110 Array */
+	{"HP", "A6218A", "*", BLIST_SPARSELUN | BLIST_LARGELUN},/* HP Va7410 Array */
 	{"YAMAHA", "CDR100", "1.00", BLIST_NOLUN},		/* Locks up if polled for lun != 0 */
 	{"YAMAHA", "CDR102", "1.00", BLIST_NOLUN},		/* Locks up if polled for lun != 0  
 								 * extra reset */
@@ -142,10 +145,11 @@ static struct dev_info device_list[] =
 	{"PIONEER", "CD-ROM DRM-600", "*", BLIST_FORCELUN | BLIST_SINGLELUN},
 	{"PIONEER", "CD-ROM DRM-602X", "*", BLIST_FORCELUN | BLIST_SINGLELUN},
 	{"PIONEER", "CD-ROM DRM-604X", "*", BLIST_FORCELUN | BLIST_SINGLELUN},
+	{"PIONEER", "CD-ROM DRM-624X", "*", BLIST_FORCELUN | BLIST_SINGLELUN},
 	{"EMULEX", "MD21/S2     ESDI", "*", BLIST_SINGLELUN},
 	{"CANON", "IPUBJD", "*", BLIST_SPARSELUN},
 	{"nCipher", "Fastness Crypto", "*", BLIST_FORCELUN},
-	{"DEC","HSG80","*", BLIST_FORCELUN},
+	{"DEC","HSG80","*", BLIST_SPARSELUN | BLIST_LARGELUN | BLIST_NOSTARTONADD},
 	{"COMPAQ","LOGICAL VOLUME","*", BLIST_FORCELUN},
 	{"COMPAQ","CR3500","*", BLIST_FORCELUN},
 	{"NEC", "PD-1 ODX654P", "*", BLIST_FORCELUN | BLIST_SINGLELUN},
@@ -154,6 +158,7 @@ static struct dev_info device_list[] =
  	{"TOSHIBA","CDROM","*", BLIST_ISROM},
  	{"TOSHIBA","CD-ROM","*", BLIST_ISROM},
 	{"MegaRAID", "LD", "*", BLIST_FORCELUN},
+	{"3PARdata", "VV", "*", BLIST_SPARSELUN | BLIST_LARGELUN},    // 3PARdata InServ Virtual Volume
 	{"DGC",  "RAID",      "*", BLIST_SPARSELUN | BLIST_LARGELUN}, // Dell PV 650F (tgt @ LUN 0)
 	{"DGC",  "DISK",      "*", BLIST_SPARSELUN | BLIST_LARGELUN}, // Dell PV 650F (no tgt @ LUN 0) 
 	{"DELL", "PV660F",   "*", BLIST_SPARSELUN | BLIST_LARGELUN},
@@ -162,10 +167,10 @@ static struct dev_info device_list[] =
 	{"DELL", "PV530F",    "*", BLIST_SPARSELUN | BLIST_LARGELUN}, // Dell PV 530F
 	{"EMC", "SYMMETRIX", "*", BLIST_SPARSELUN | BLIST_LARGELUN | BLIST_FORCELUN},
 	{"HP", "A6189A", "*", BLIST_SPARSELUN |  BLIST_LARGELUN}, // HP VA7400, by Alar Aun
-	{"HP", "OPEN-", "*", BLIST_SPARSELUN | BLIST_LARGELUN},			/* HP XP Arrays */
+	{"HP", "OPEN-", "*", BLIST_SPARSELUN | BLIST_LARGELUN},	/* HP XP Arrays */
 	{"CMD", "CRA-7280", "*", BLIST_SPARSELUN | BLIST_LARGELUN},   // CMD RAID Controller
 	{"CNSI", "G7324", "*", BLIST_SPARSELUN | BLIST_LARGELUN},     // Chaparral G7324 RAID
-	{"CNSi", "G8324", "*", BLIST_SPARSELUN},     // Chaparral G8324 RAID
+	{"CNSi", "G8324", "*", BLIST_SPARSELUN | BLIST_LARGELUN},     // Chaparral G8324 RAID
 	{"Zzyzx", "RocketStor 500S", "*", BLIST_SPARSELUN},
 	{"Zzyzx", "RocketStor 2000", "*", BLIST_SPARSELUN},
 	{"SONY", "TSL",       "*", BLIST_FORCELUN},  // DDS3 & DDS4 autoloaders
@@ -173,7 +178,11 @@ static struct dev_info device_list[] =
 	{"HP", "NetRAID-4M", "*", BLIST_FORCELUN},
 	{"ADAPTEC", "AACRAID", "*", BLIST_FORCELUN},
 	{"ADAPTEC", "Adaptec 5400S", "*", BLIST_FORCELUN},
-	{"COMPAQ", "MSA1000", "*", BLIST_FORCELUN},
+	{"APPLE", "Xserve", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"COMPAQ", "MSA1000", "*", BLIST_SPARSELUN | BLIST_LARGELUN | BLIST_NOSTARTONADD},
+	{"COMPAQ", "MSA1000 VOLUME", "*", BLIST_SPARSELUN | BLIST_LARGELUN | BLIST_NOSTARTONADD},
+	{"COMPAQ", "HSV110", "*", BLIST_SPARSELUN | BLIST_LARGELUN | BLIST_NOSTARTONADD},
+	{"HP", "HSV100", "*", BLIST_SPARSELUN | BLIST_LARGELUN | BLIST_NOSTARTONADD},
 	{"HP", "C1557A", "*", BLIST_FORCELUN},
 	{"IBM", "AuSaV1S2", "*", BLIST_FORCELUN},
 	{"FSC", "CentricStor", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
@@ -182,6 +191,27 @@ static struct dev_info device_list[] =
 	{"HITACHI", "DF500", "*", BLIST_SPARSELUN},
 	{"HITACHI", "DF600", "*", BLIST_SPARSELUN},
 	{"IBM", "ProFibre 4000R", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"IOI", "Media Bay", "*", BLIST_FORCELUN},
+	{"HITACHI", "OPEN-", "*", BLIST_SPARSELUN | BLIST_LARGELUN},  /* HITACHI XP Arrays */
+	{"HITACHI", "DISK-SUBSYSTEM", "*", BLIST_SPARSELUN | BLIST_LARGELUN},  /* HITACHI 9960 */
+	{"WINSYS","FLASHDISK G6", "*", BLIST_SPARSELUN},
+	{"DotHill","SANnet RAID X300", "*", BLIST_SPARSELUN},	
+	{"SUN", "T300", "*", BLIST_SPARSELUN},
+	{"SUN", "T4", "*", BLIST_SPARSELUN},
+	{"SGI", "RAID3", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"SGI", "RAID5", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"SGI", "TP9100", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"SGI", "TP9300", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"SGI", "TP9400", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"SGI", "TP9500", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"MYLEX", "DACARMRB", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"PLATYPUS", "CX5", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"Raidtec", "FCR", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"HP", "C7200", "*", BLIST_SPARSELUN},			/* Medium Changer */
+	{"SMSC", "USB 2 HS", "*", BLIST_SPARSELUN | BLIST_LARGELUN}, 
+	{"XYRATEX", "RS", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
+	{"NEC", "iStorage", "*", BLIST_SPARSELUN | BLIST_LARGELUN | BLIST_FORCELUN},
+	{"Xyratex", "4200", "*", BLIST_SPARSELUN | BLIST_LARGELUN},
 
 	/*
 	 * Must be at end of list...
@@ -197,10 +227,14 @@ static unsigned int max_scsi_luns = MAX_SCSI_LUNS;
 static unsigned int max_scsi_luns = 1;
 #endif
 
+static unsigned int scsi_allow_ghost_devices = 0;
+
 #ifdef MODULE
 
 MODULE_PARM(max_scsi_luns, "i");
 MODULE_PARM_DESC(max_scsi_luns, "last scsi LUN (should be between 1 and 2^32-1)");
+MODULE_PARM(scsi_allow_ghost_devices, "i");
+MODULE_PARM_DESC(scsi_allow_ghost_devices, "allow devices marked as being offline to be accessed anyway (0 = off, else allow ghosts on lun 0 through scsi_allow_ghost_devices - 1");
 
 #else
 
@@ -219,6 +253,21 @@ static int __init scsi_luns_setup(char *str)
 }
 
 __setup("max_scsi_luns=", scsi_luns_setup);
+
+static int __init scsi_allow_ghost_devices_setup(char *str)
+{
+	unsigned int tmp;
+
+	if (get_option(&str, &tmp) == 1) {
+		scsi_allow_ghost_devices = tmp;
+		return 1;
+	} else {
+		printk("scsi_allow_ghost_devices_setup: usage scsi_allow_ghost_devices=n (0: off else\nallow ghost devices (ghost devices are devices that report themselves as\nbeing offline but which we allow access to anyway) on lun 0 through n - 1.\n");
+		return 0;
+	}
+}
+
+__setup("scsi_allow_ghost_devices=", scsi_allow_ghost_devices_setup);
 
 #endif
 
@@ -596,6 +645,7 @@ static int scan_scsis_single(unsigned int channel, unsigned int dev,
 		} else {
 			/* assume no peripheral if any other sort of error */
 			scsi_release_request(SRpnt);
+			scsi_release_commandblocks(SDpnt);
 			return 0;
 		}
 	}
@@ -604,6 +654,24 @@ static int scan_scsis_single(unsigned int channel, unsigned int dev,
 	 * Check for SPARSELUN before checking the peripheral qualifier,
 	 * so sparse lun devices are completely scanned.
 	 */
+
+	/*
+	 * If we are offline and we are on a LUN != 0, then skip this entry.
+	 * If we are on a BLIST_FORCELUN device this will stop the scan at
+	 * the first offline LUN (typically the correct thing to do).  If
+	 * we are on a BLIST_SPARSELUN device then this won't stop the scan,
+	 * but it will keep us from having false entries in our device
+	 * array. DL
+	 *
+	 * NOTE: Need to test this to make sure it doesn't cause problems
+	 * with tape autoloaders, multidisc CD changers, and external
+	 * RAID chassis that might use sparse luns or multiluns... DL
+	 */
+	if (lun != 0 && (scsi_result[0] >> 5) == 1) {
+		scsi_release_request(SRpnt);
+		scsi_release_commandblocks(SDpnt);
+		return 0;
+	}
 
 	/*
 	 * Get any flags for this device.  
@@ -643,8 +711,11 @@ static int scan_scsis_single(unsigned int channel, unsigned int dev,
 
 	SDpnt->removable = (0x80 & scsi_result[1]) >> 7;
 	/* Use the peripheral qualifier field to determine online/offline */
-	if (((scsi_result[0] >> 5) & 7) == 1) 	SDpnt->online = FALSE;
-	else SDpnt->online = TRUE;
+	if ((((scsi_result[0] >> 5) & 7) == 1) &&
+	    (lun >= scsi_allow_ghost_devices))
+		SDpnt->online = FALSE;
+	else 
+		SDpnt->online = TRUE;
 	SDpnt->lockable = SDpnt->removable;
 	SDpnt->changed = 0;
 	SDpnt->access_count = 0;
@@ -730,12 +801,27 @@ static int scan_scsis_single(unsigned int channel, unsigned int dev,
 	if ((bflags & BLIST_BORKEN) == 0)
 		SDpnt->borken = 0;
 
+ 	/*
+	 * Some devices may not want to have a start command automatically
+	 * issued when a device is added.
+	 */
+	if (bflags & BLIST_NOSTARTONADD)
+		SDpnt->no_start_on_add = 1;
+
 	/*
 	 * If we want to only allow I/O to one of the luns attached to this device
 	 * at a time, then we set this flag.
 	 */
 	if (bflags & BLIST_SINGLELUN)
 		SDpnt->single_lun = 1;
+
+	/* configure device if needed */
+	if (SDpnt->host->hostt->slave_configure) {
+		if (!SDpnt->host->hostt->slave_configure(SDpnt)) {
+			printk("scsi: scan_scsis_single: Cannot configure device\n");
+			return 0;
+		}
+	}
 
 	/*
 	 * These devices need this "key" to unlock the devices so we can use it
@@ -845,11 +931,26 @@ static int scan_scsis_single(unsigned int channel, unsigned int dev,
 		 * I think we need REPORT LUNS in future to avoid scanning
 		 * of unused LUNs. But, that is another item.
 		 */
+		/*
 		if (*max_dev_lun < shpnt->max_lun)
 			*max_dev_lun = shpnt->max_lun;
 		else 	if ((max_scsi_luns >> 1) >= *max_dev_lun)
 				*max_dev_lun += shpnt->max_lun;
 			else	*max_dev_lun = max_scsi_luns;
+		*/
+		/*
+		 * Blech...the above code is broken.  When you have a device
+		 * that is present, and it is a FORCELUN device, then we
+		 * need to scan *all* the luns on that device.  Besides,
+		 * skipping the scanning of LUNs is a false optimization.
+		 * Scanning for a LUN on a present device is a very fast
+		 * operation, it's scanning for devices that don't exist that
+		 * is expensive and slow (although if you are truly scanning
+		 * through MAX_SCSI_LUNS devices that would be bad, I hope
+		 * all of the controllers out there set a reasonable value
+		 * in shpnt->max_lun).  DL
+		 */
+		*max_dev_lun = shpnt->max_lun;
 		return 1;
 	}
 	/*

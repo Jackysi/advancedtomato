@@ -1,4 +1,4 @@
-/* $Id: sunhme.h,v 1.1.1.4 2003/10/14 08:08:23 sparq Exp $
+/* $Id: sunhme.h,v 1.33 2001/08/03 06:23:04 davem Exp $
  * sunhme.h: Definitions for Sparc HME/BigMac 10/100baseT ethernet driver.
  *           Also known as the "Happy Meal".
  *
@@ -337,16 +337,16 @@ struct happy_meal_txd {
 #define RX_RING_MAXSIZE    256
 
 /* We use a 14 byte offset for checksum computation. */
-#if RX_RING_SIZE == 32
+#if (RX_RING_SIZE == 32)
 #define ERX_CFG_DEFAULT(off) (ERX_CFG_DMAENABLE|((off)<<3)|ERX_CFG_SIZE32|((14/2)<<16))
 #else
-#if RX_RING_SIZE == 64
+#if (RX_RING_SIZE == 64)
 #define ERX_CFG_DEFAULT(off) (ERX_CFG_DMAENABLE|((off)<<3)|ERX_CFG_SIZE64|((14/2)<<16))
 #else
-#if RX_RING_SIZE == 128
+#if (RX_RING_SIZE == 128)
 #define ERX_CFG_DEFAULT(off) (ERX_CFG_DMAENABLE|((off)<<3)|ERX_CFG_SIZE128|((14/2)<<16))
 #else
-#if RX_RING_SIZE == 256
+#if (RX_RING_SIZE == 256)
 #define ERX_CFG_DEFAULT(off) (ERX_CFG_DMAENABLE|((off)<<3)|ERX_CFG_SIZE256|((14/2)<<16))
 #else
 #error RX_RING_SIZE holds illegal value
@@ -472,7 +472,7 @@ struct happy_meal {
 #define HFLAG_FULL                0x00000020      /* Full duplex enable                */
 #define HFLAG_MACFULL             0x00000040      /* Using full duplex in the MAC      */
 #define HFLAG_POLLENABLE          0x00000080      /* Actually try MIF polling          */
-#define HFLAG_RXCV                0x00000100      
+#define HFLAG_RXCV                0x00000100      /* XXX RXCV ENABLE                   */
 #define HFLAG_INIT                0x00000200      /* Init called at least once         */
 #define HFLAG_LINKUP              0x00000400      /* 1 = Link is up                    */
 #define HFLAG_PCI                 0x00000800      /* PCI based Happy Meal              */

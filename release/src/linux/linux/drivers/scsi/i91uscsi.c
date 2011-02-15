@@ -235,7 +235,36 @@ static void tul_do_pause(unsigned amount)
 ********************************************************************/
 void tul_se2_wait()
 {
+#if 1
 	udelay(30);
+#else
+	UCHAR readByte;
+
+	readByte = TUL_RD(0, 0x61);
+	if ((readByte & 0x10) == 0x10) {
+		for (;;) {
+			readByte = TUL_RD(0, 0x61);
+			if ((readByte & 0x10) == 0x10)
+				break;
+		}
+		for (;;) {
+			readByte = TUL_RD(0, 0x61);
+			if ((readByte & 0x10) != 0x10)
+				break;
+		}
+	} else {
+		for (;;) {
+			readByte = TUL_RD(0, 0x61);
+			if ((readByte & 0x10) == 0x10)
+				break;
+		}
+		for (;;) {
+			readByte = TUL_RD(0, 0x61);
+			if ((readByte & 0x10) != 0x10)
+				break;
+		}
+	}
+#endif
 }
 
 

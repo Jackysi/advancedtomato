@@ -181,7 +181,7 @@ SYS(sys_sched_get_priority_max,1)
 SYS(sys_sched_get_priority_min,1)
 SYS(sys_sched_rr_get_interval,2)		/* 4165 */
 SYS(sys_nanosleep,2)
-SYS(sys_mremap,4)
+SYS(sys_mremap,5)
 SYS(sys_accept, 3)
 SYS(sys_bind, 3)
 SYS(sys_connect, 3)				/* 4170 */
@@ -251,7 +251,7 @@ SYS(sys_removexattr, 2)
 SYS(sys_lremovexattr, 2)
 SYS(sys_fremovexattr, 2)			/* 4235 */
 SYS(sys_tkill, 2)
-SYS(sys_ni_syscall, 0)				/* res. for sendfile64 */
+SYS(sys_sendfile64, 5)
 SYS(sys_ni_syscall, 0)				/* res. for futex */
 SYS(sys_ni_syscall, 0)				/* res. for sched_setaffinity */
 SYS(sys_ni_syscall, 0)				/* 4240 res. for sched_getaffinity */

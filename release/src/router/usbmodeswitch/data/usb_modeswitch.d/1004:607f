@@ -1,0 +1,12 @@
+########################################################
+# LG HDM-2100 (EVDO Rev.A USB modem)
+
+DefaultVendor= 0x1004
+DefaultProduct=0x607f
+
+TargetVendor=  0x1004
+TargetProduct= 0x6114
+
+CheckSuccess=20
+
+MessageContent="1201100102000040041014610000010200018006000100001200"

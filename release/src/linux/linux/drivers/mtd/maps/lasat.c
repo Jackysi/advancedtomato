@@ -12,7 +12,6 @@
 #include <linux/mtd/partitions.h>
 #include <linux/config.h>
 #include <asm/lasat/lasat.h>
-#include <asm/lasat/lasat_mtd.h>
 
 static struct mtd_info *mymtd;
 
@@ -73,17 +72,20 @@ static struct map_info sp_map = {
 };
 
 static struct mtd_partition partition_info[LASAT_MTD_LAST];
-static char *lasat_mtd_partnames[] = {"Bootloader", "Service", "Normal", "Filesystem", "Config"};
+static char *lasat_mtd_partnames[] = {"Bootloader", "Service", "Normal", "Config", "Filesystem"};
 
 static int __init init_sp(void)
 {
 	int i;
+	int nparts = 0;
 	/* this does not play well with the old flash code which 
 	 * protects and uprotects the flash when necessary */
        	printk(KERN_NOTICE "Unprotecting flash\n");
 	*lasat_misc->flash_wp_reg |= 1 << lasat_misc->flash_wp_bit;
 
-	sp_map.map_priv_1 = lasat_flash_partition_start(LASAT_MTD_BOOTLOADER);
+	sp_map.map_priv_1 = ioremap_nocache(
+		lasat_flash_partition_start(LASAT_MTD_BOOTLOADER),
+		lasat_board_info.li_flash_size);
 	sp_map.size = lasat_board_info.li_flash_size;
 
        	printk(KERN_NOTICE "sp flash device: %lx at %lx\n", 
@@ -100,12 +102,15 @@ static int __init init_sp(void)
 
 		for (i=0; i < LASAT_MTD_LAST; i++) {
 			size = lasat_flash_partition_size(i);
-			partition_info[i].size = size;
-			partition_info[i].offset = offset;
-			offset += size;
+			if (size != 0) {
+				nparts++;
+				partition_info[i].size = size;
+				partition_info[i].offset = offset;
+				offset += size;
+			}
 		}
 
-		add_mtd_partitions( mymtd, partition_info, LASAT_MTD_LAST );
+		add_mtd_partitions( mymtd, partition_info, nparts );
 		return 0;
 	}
 

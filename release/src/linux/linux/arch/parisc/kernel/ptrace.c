@@ -220,6 +220,12 @@ long sys_ptrace(long request, pid_t pid, long addr, long data)
 		goto out_tsk;
 	}
 
+	/* Write the word at location addr in the USER area.  This will need
+	   to change when the kernel no longer saves all regs on a syscall.
+	   FIXME.  There is a problem at the moment in that r3-r18 are only
+	   saved if the process is ptraced on syscall entry, and even then
+	   those values are overwritten by actual register values on syscall
+	   exit. */
 	case PTRACE_POKEUSR:
 		ret = -EIO;
 		/* Some register values written here may be ignored in

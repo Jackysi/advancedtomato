@@ -14,10 +14,6 @@
 #include <errno.h>
 #include <sys/sysinfo.h>
 
-#undef _dprintf
-#define _dprintf(args...)	cprintf(args)
-//	#define _dprintf(args...)	do { } while(0)
-
 
 int start_heartbeat(int mode)
 {

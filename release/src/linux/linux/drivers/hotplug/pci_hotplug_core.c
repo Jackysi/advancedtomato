@@ -1,8 +1,8 @@
 /*
  * PCI HotPlug Controller Core
  *
- * Copyright (c) 2001-2002 Greg Kroah-Hartman (greg@kroah.com)
- * Copyright (c) 2001-2002 IBM Corp.
+ * Copyright (C) 2001-2002 Greg Kroah-Hartman (greg@kroah.com)
+ * Copyright (C) 2001-2002 IBM Corp.
  *
  * All rights reserved.
  *
@@ -49,7 +49,7 @@
 	#define MY_NAME	THIS_MODULE->name
 #endif
 
-#define dbg(fmt, arg...) do { if (debug) printk(KERN_DEBUG "%s: "__FUNCTION__": " fmt , MY_NAME , ## arg); } while (0)
+#define dbg(fmt, arg...) do { if (debug) printk(KERN_DEBUG "%s: %s: " fmt , MY_NAME , __FUNCTION__ , ## arg); } while (0)
 #define err(format, arg...) printk(KERN_ERR "%s: " format , MY_NAME , ## arg)
 #define info(format, arg...) printk(KERN_INFO "%s: " format , MY_NAME , ## arg)
 #define warn(format, arg...) printk(KERN_WARNING "%s: " format , MY_NAME , ## arg)
@@ -74,6 +74,7 @@ struct hotplug_slot_core {
 	struct dentry	*attention_dentry;
 	struct dentry	*latch_dentry;
 	struct dentry	*adapter_dentry;
+	struct dentry	*address_dentry;
 	struct dentry	*test_dentry;
 	struct dentry	*max_bus_speed_dentry;
 	struct dentry	*cur_bus_speed_dentry;
@@ -111,6 +112,7 @@ static char *pci_bus_speed_strings[] = {
 	"66 MHz PCIX 533",	/* 0x11 */
 	"100 MHz PCIX 533",	/* 0x12 */
 	"133 MHz PCIX 533",	/* 0x13 */
+ 	"25 GBps PCI-E",	/* 0x14 */
 };
 
 static int pcihpfs_statfs (struct super_block *sb, struct statfs *buf)
@@ -307,6 +309,15 @@ static struct file_operations latch_file_operations = {
 static ssize_t presence_read_file (struct file *file, char *buf, size_t count, loff_t *offset);
 static struct file_operations presence_file_operations = {
 	read:		presence_read_file,
+	write:		default_write_file,
+	open:		default_open,
+	llseek:		default_file_lseek,
+};
+
+/* file ops for the "address" files */
+static ssize_t address_read_file (struct file *file, char *buf, size_t count, loff_t *offset);
+static struct file_operations address_file_operations = {
+	read:		address_read_file,
 	write:		default_write_file,
 	open:		default_open,
 	llseek:		default_file_lseek,
@@ -566,6 +577,7 @@ GET_STATUS(power_status, u8)
 GET_STATUS(attention_status, u8)
 GET_STATUS(latch_status, u8)
 GET_STATUS(adapter_status, u8)
+GET_STATUS(address, u32)
 GET_STATUS(max_bus_speed, enum pci_bus_speed)
 GET_STATUS(cur_bus_speed, enum pci_bus_speed)
 
@@ -604,7 +616,7 @@ static ssize_t power_read_file (struct file *file, char *buf, size_t count, loff
 		retval = -EFAULT;
 		goto exit;
 	}
-	*offset += len;
+	*offset = len;
 	retval = len;
 
 exit:
@@ -715,7 +727,7 @@ static ssize_t attention_read_file (struct file *file, char *buf, size_t count, 
 		retval = -EFAULT;
 		goto exit;
 	}
-	*offset += len;
+	*offset = len;
 	retval = len;
 
 exit:
@@ -780,14 +792,15 @@ static ssize_t latch_read_file (struct file *file, char *buf, size_t count, loff
 	int retval;
 	int len;
 	u8 value;
+	loff_t off = *offset;
 
-	dbg("count = %d, offset = %lld\n", count, *offset);
+	dbg("count = %d, offset = %lld\n", count, off);
 
-	if (*offset < 0)
+	if (off < 0)
 		return -EINVAL;
 	if (count <= 0)
 		return 0;
-	if (*offset != 0)
+	if (off != 0)
 		return 0;
 
 	if (slot == NULL) {
@@ -808,7 +821,7 @@ static ssize_t latch_read_file (struct file *file, char *buf, size_t count, loff
 		retval = -EFAULT;
 		goto exit;
 	}
-	*offset += len;
+	*offset = off + len;
 	retval = len;
 
 exit:
@@ -823,14 +836,15 @@ static ssize_t presence_read_file (struct file *file, char *buf, size_t count, l
 	int retval;
 	int len;
 	u8 value;
+	loff_t off = *offset;
 
 	dbg("count = %d, offset = %lld\n", count, *offset);
 
-	if (*offset < 0)
+	if (off < 0)
 		return -EINVAL;
 	if (count <= 0)
 		return 0;
-	if (*offset != 0)
+	if (off != 0)
 		return 0;
 
 	if (slot == NULL) {
@@ -851,7 +865,54 @@ static ssize_t presence_read_file (struct file *file, char *buf, size_t count, l
 		retval = -EFAULT;
 		goto exit;
 	}
-	*offset += len;
+	*offset = off + len;
+	retval = len;
+
+exit:
+	free_page((unsigned long)page);
+	return retval;
+}
+
+static ssize_t address_read_file (struct file *file, char *buf, size_t count, loff_t *offset)
+{
+	struct hotplug_slot *slot = file->private_data;
+	unsigned char *page;
+	int retval;
+	int len;
+	u32 address;
+	loff_t off = *offset;
+
+	dbg("count = %d, offset = %lld\n", count, off);
+
+	if (off < 0)
+		return -EINVAL;
+	if (count <= 0)
+		return 0;
+	if (off != 0)
+		return 0;
+
+	if (slot == NULL) {
+		dbg("slot == NULL???\n");
+		return -ENODEV;
+	}
+
+	page = (unsigned char *)__get_free_page(GFP_KERNEL);
+	if (!page)
+		return -ENOMEM;
+
+	retval = get_address (slot, &address);
+	if (retval)
+		goto exit;
+	len = sprintf (page, "%04x:%02x:%02x\n",
+		       (address >> 16) & 0xffff,
+		       (address >> 8) & 0xff,
+		       address & 0xff);
+
+	if (copy_to_user (buf, page, len)) {
+		retval = -EFAULT;
+		goto exit;
+	}
+	*offset  = off + len;
 	retval = len;
 
 exit:
@@ -869,14 +930,15 @@ static ssize_t max_bus_speed_read_file (struct file *file, char *buf, size_t cou
 	int retval;
 	int len = 0;
 	enum pci_bus_speed value;
+	loff_t off = *offset;
 	
-	dbg ("count = %d, offset = %lld\n", count, *offset);
+	dbg ("count = %d, offset = %lld\n", count, off);
 
-	if (*offset < 0)
+	if (off < 0)
 		return -EINVAL;
 	if (count <= 0)
 		return 0;
-	if (*offset != 0)
+	if (off != 0)
 		return 0;
 
 	if (slot == NULL) {
@@ -903,7 +965,7 @@ static ssize_t max_bus_speed_read_file (struct file *file, char *buf, size_t cou
 		retval = -EFAULT;
 		goto exit;
 	}
-	*offset += len;
+	*offset = off + len;
 	retval = len;
 
 exit:
@@ -919,14 +981,15 @@ static ssize_t cur_bus_speed_read_file (struct file *file, char *buf, size_t cou
 	int retval;
 	int len = 0;
 	enum pci_bus_speed value;
+	loff_t off = *offset;
 
-	dbg ("count = %d, offset = %lld\n", count, *offset);
+	dbg ("count = %d, offset = %lld\n", count, off);
 
-	if (*offset < 0)
+	if (off < 0)
 		return -EINVAL;
 	if (count <= 0)
 		return 0;
-	if (*offset != 0)
+	if (off != 0)
 		return 0;
 
 	if (slot == NULL) {
@@ -953,7 +1016,7 @@ static ssize_t cur_bus_speed_read_file (struct file *file, char *buf, size_t cou
 		retval = -EFAULT;
 		goto exit;
 	}
-	*offset += len;
+	*offset = off + len;
 	retval = len;
 
 exit:
@@ -1055,6 +1118,13 @@ static int fs_add_slot (struct hotplug_slot *slot)
 						core->dir_dentry, slot,
 						&presence_file_operations);
 
+		if (slot->ops->get_address)
+			core->address_dentry = 
+				fs_create_file ("address",
+						S_IFREG | S_IRUGO,
+						core->dir_dentry, slot,
+						&address_file_operations);
+
 		if (slot->ops->get_max_bus_speed)
 			core->max_bus_speed_dentry = 
 				fs_create_file ("max_bus_speed",
@@ -1092,6 +1162,8 @@ static void fs_remove_slot (struct hotplug_slot *slot)
 			fs_remove_file (core->latch_dentry);
 		if (core->adapter_dentry)
 			fs_remove_file (core->adapter_dentry);
+		if (core->address_dentry)
+			fs_remove_file (core->address_dentry);
 		if (core->max_bus_speed_dentry)
 			fs_remove_file (core->max_bus_speed_dentry);
 		if (core->cur_bus_speed_dentry)
@@ -1243,6 +1315,9 @@ int pci_hp_change_slot_info (const char *name, struct hotplug_slot_info *info)
 	if ((core->adapter_dentry) &&
 	    (temp->info->adapter_status != info->adapter_status))
 		update_dentry_inode_time (core->adapter_dentry);
+	if ((core->address_dentry) &&
+	    (temp->info->address != info->address))
+		update_dentry_inode_time (core->address_dentry);
 	if ((core->cur_bus_speed_dentry) &&
 	    (temp->info->cur_bus_speed != info->cur_bus_speed))
 		update_dentry_inode_time (core->cur_bus_speed_dentry);

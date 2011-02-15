@@ -1,6 +1,4 @@
-$Id: THANKS,v 1.1.1.4 2003/10/14 08:09:37 sparq Exp $
-
-Thanks go to:
+Thanks go to (this list is REALLY out-of-date):
 
 F. Nicolaas Benders <benders@pinpoint.com>
 Lars Bohn <lars-erik-christian.bohn@student.uni-ulm.de>
@@ -11,6 +9,7 @@ Arne Fitzenreiter <arne.fitzenreiter@gmx.de>
 Alejando Garcia <alexgc@edu.aytolacoruna.es>
 Matthew Grant <grantma@anathoth.gen.nz>
 Mark Hahn <hahn@coffee.psychology.mcmaster.ca>
+Andreas Hofmeister <Andreas.Hofmeister@pyramid.de>
 Oskari Jaaskelainen <osi@fyslab.hut.fi>
 Joshua Jensen <joshua@redhat.com>
 Jason Lambert <jlambert@lambert-comm.net>
@@ -28,16 +27,14 @@ Monte Ohrt <monte@ispi.net>
 Joachim Ott <ott@ardala.han.de>
 Kristian Rietveld <kristian@planet.nl>
 Jacob Schroeder <jacob@quantec.de>
+Bart de Schuymer <bart.de.schuymer@pandora.be>
 Heikki Vatiainen <hessu@cs.tut.fi>
 Ernest Yik <ernestyik@cuhk.edu.hk>
 
+and everyone else I forgot. Thanks also go to Leiden University
+for letting me use their equipment and allowing me to work on this
+during work hours.
 
 
-
-I would also like to thank:
-
-Jacobine Bakker <jbakker@math.leidenuniv.nl>
-Annelies Hafkenscheid <haf@math.leidenuniv.nl>
-Jasper de Koning <jdekonin@math.leidenuniv.nl>
-Margaret Suda <ps@is.usmo.com>
-Marloes van der Valk <keesvalk@kabelfoon.nl>
+I would also like to express my thanks and eternal gratitude to
+Margaret Suda. I hope you'll read this some day.

@@ -1,4 +1,4 @@
-@node Basic commands, zebra, Installation, Top
+@node Basic commands
 @comment  node-name,  next,  previous,  up
 @chapter Basic commands
 
@@ -229,6 +229,21 @@ Set configuration file name.
 @item -h
 @itemx --help
 Display this help and exit.
+
+@item -i @var{file}
+@itemx --pid_file=@var{file}
+
+Upon startup the process identifier of the daemon is written to a file,
+typically in @file{/var/run}.  This file can be used by the init system
+to implement commands such as @command{@dots{}/init.d/zebra status},
+@command{@dots{}/init.d/zebra restart} or @command{@dots{}/init.d/zebra
+stop}.
+
+The file name is an run-time option rather than a configure-time option
+so that multiple routing daemons can be run simultaneously.  This is
+useful when using Zebra to implement a routing looking glass.  One
+machine can be used to collect differing routing views from differing
+points in the network.
 
 @item -P @var{port}
 @itemx --vty_port=@var{port}

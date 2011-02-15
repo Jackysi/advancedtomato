@@ -29,7 +29,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save,lan_ipaddr,ne_shlimit"); %>
+//	<% nvram("http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,sshd_forwarding,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save,lan_ipaddr,ne_shlimit"); %>
 
 changed = 0;
 tdup = parseInt('<% psup("telnetd"); %>');
@@ -39,7 +39,14 @@ shlimit = nvram.ne_shlimit.split(',');
 if (shlimit.length != 3) shlimit = [0,3,60];
 
 var xmenus = [['Status', 'status'], ['Bandwidth', 'bwm'], ['Tools', 'tools'], ['Basic', 'basic'],
-	['Advanced', 'advanced'], ['Port Forwarding', 'forward'], ['QoS', 'qos'], ['Administration', 'admin']];
+	['Advanced', 'advanced'], ['Port Forwarding', 'forward'], ['QoS', 'qos'],
+/* USB-BEGIN */
+	['USB and NAS', 'nas'],
+/* USB-END */
+/* VPN-BEGIN */
+	['VPN Tunneling', 'vpn'],
+/* VPN-END */
+	['Administration', 'admin']];
 
 function toggle(service, isup)
 {
@@ -117,10 +124,8 @@ function verifyFields(focused, quiet)
 	}
 
 	a = E('_f_rmgt_sip');
-	if ((a.value.length) && (!v_iptip(a,true,15)) && (!v_domain(a,true))) {
-		ferror.set(a, 'Invalid restriction.', quiet);
-		ok = 0;
-	}
+	if ((a.value.length) && (!v_iptaddr(a, quiet, 15))) return 0;
+	ferror.clear(a);
 
 	if (!v_range('_f_limit_hit', quiet, 1, 100)) return 0;
 	if (!v_range('_f_limit_sec', quiet, 3, 3600)) return 0;
@@ -205,6 +210,7 @@ function save()
 	fom.sshd_eas.value = E('_f_sshd_eas').checked ? 1 : 0;
 	fom.sshd_pass.value = E('_f_sshd_pass').checked ? 1 : 0;
 	fom.sshd_remote.value = E('_f_sshd_remote').checked ? 1 : 0;
+	fom.sshd_forwarding.value = E('_f_sshd_forwarding').checked ? 1 : 0;
 
 	fom.rmgt_sip.value = fom.f_rmgt_sip.value.split(/\s*,\s*/).join(',');
 	
@@ -257,6 +263,7 @@ function init()
 <input type='hidden' name='sshd_remote'>
 <input type='hidden' name='ne_shlimit'>
 <input type='hidden' name='rmgt_sip'>
+<input type='hidden' name='sshd_forwarding'>
 <input type='hidden' name='web_mx'>
 
 <div class='section-title'>Web Admin</div>
@@ -278,7 +285,11 @@ var m = [
 	{ title: 'Allow Wireless Access', name: 'f_http_wireless', type: 'checkbox', value:  nvram.web_wl_filter == 0 },
 	null,
 	{ title: 'Color Scheme', name: 'web_css', type: 'select',
-		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css },
+		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],
+/* THEMES-BEGIN */
+		['usbred','USB Red'],['usbblue','USB Blue'],
+/* THEMES-END */
+		['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css },
 	{ title: 'Open Menus' }
 ];
 
@@ -299,6 +310,7 @@ createFieldTable('', [
 	{ title: 'Enable at Startup', name: 'f_sshd_eas', type: 'checkbox', value: nvram.sshd_eas == 1 },
 	{ title: 'Remote Access', name: 'f_sshd_remote', type: 'checkbox', value: nvram.sshd_remote == 1 },
 	{ title: 'Remote Port', indent: 2, name: 'sshd_rport', type: 'text', maxlen: 5, size: 7, value: nvram.sshd_rport },
+	{ title: 'Remote Forwarding', name: 'f_sshd_forwarding', type: 'checkbox', value: nvram.sshd_forwarding == 1 },
 	{ title: 'Port', name: 'sshd_port', type: 'text', maxlen: 5, size: 7, value: nvram.sshd_port },
 	{ title: 'Allow Password Login', name: 'f_sshd_pass', type: 'checkbox', value: nvram.sshd_pass == 1 },
 	{ title: 'Authorized Keys', name: 'sshd_authkeys', type: 'textarea', value: nvram.sshd_authkeys }
@@ -322,8 +334,8 @@ W('<input type="button" value="' + (tdup ? 'Stop' : 'Start') + ' Now" onclick="t
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Access restricted to:', name: 'f_rmgt_sip', type: 'text', maxlen: 512, size: 64, value: nvram.rmgt_sip,
-		suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24", "1.1.1.1 - 2.2.2.2", or "me.example.com")</small>' },
+	{ title: 'Allowed Remote<br>IP Address', name: 'f_rmgt_sip', type: 'text', maxlen: 512, size: 64, value: nvram.rmgt_sip,
+		suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24", "1.1.1.1 - 2.2.2.2" or "me.example.com")</small>' },
 	{ title: 'Limit Connection Attempts', multi: [
 		{ suffix: '&nbsp; SSH &nbsp; / &nbsp;', name: 'f_limit_ssh', type: 'checkbox', value: (shlimit[0] & 1) != 0 },
 		{ suffix: '&nbsp; Telnet &nbsp;', name: 'f_limit_telnet', type: 'checkbox', value: (shlimit[0] & 2) != 0 }

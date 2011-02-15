@@ -1,7 +1,7 @@
 /*
  * HND Run Time Environment for standalone MIPS programs.
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -13,7 +13,7 @@
  */
 
 #ifndef	_MISPINC_H
-#define _MISPINC_H
+#define	_MISPINC_H
 
 
 /* MIPS defines */
@@ -69,6 +69,7 @@
 #define C0_CTEXT	$4
 #define C0_PGMASK	$5
 #define C0_WIRED	$6
+#define C0_INFO		$7
 #define C0_BADVADDR	$8
 #define C0_COUNT 	$9
 #define C0_TLBHI	$10
@@ -96,7 +97,7 @@
 /*
  * LEAF - declare leaf routine
  */
-#define LEAF(symbol)				\
+#define	LEAF(symbol)				\
 		.globl	symbol;			\
 		.align	2;			\
 		.type	symbol, @function;	\
@@ -106,11 +107,11 @@ symbol:		.frame	sp, 0, ra
 /*
  * END - mark end of function
  */
-#define END(function)				\
+#define	END(function)				\
 		.end	function;		\
 		.size	function, . - function
 
-#define _ULCAST_
+#define	_ULCAST_
 
 #define MFC0_SEL(dst, src, sel) \
 		.word\t(0x40000000 | ((dst) << 16) | ((src) << 11) | (sel))
@@ -132,7 +133,7 @@ symbol:		.frame	sp, 0, ra
 #define STR(x) __STR(x)
 #endif
 
-#define _ULCAST_ (unsigned long)
+#define	_ULCAST_ (unsigned long)
 
 
 /* CP0 Registers */
@@ -145,6 +146,7 @@ symbol:		.frame	sp, 0, ra
 #define C0_CTEXT	4		/* CP0: Context */
 #define C0_PGMASK	5		/* CP0: TLB PageMask */
 #define C0_WIRED	6		/* CP0: TLB Wired */
+#define C0_INFO		7		/* CP0: Info */
 #define C0_BADVADDR	8		/* CP0: Bad Virtual Address */
 #define C0_COUNT 	9		/* CP0: Count */
 #define C0_TLBHI	10		/* CP0: TLB EntryHi */
@@ -206,10 +208,10 @@ symbol:		.frame	sp, 0, ra
 /*
  * Cache Operations
  */
-#define Index_Invalidate_I	0x00
-#define Index_Writeback_Inv_D	0x01
-#define Index_Invalidate_SI	0x02
-#define Index_Writeback_Inv_SD	0x03
+#define Index_Invalidate_I      0x00
+#define Index_Writeback_Inv_D   0x01
+#define Index_Invalidate_SI     0x02
+#define Index_Writeback_Inv_SD  0x03
 #define Index_Load_Tag_I	0x04
 #define Index_Load_Tag_D	0x05
 #define Index_Load_Tag_SI	0x06
@@ -353,31 +355,31 @@ symbol:		.frame	sp, 0, ra
 /*
  * Bits in the cp0 config register select 1.
  */
-#define CONF1_FP		0x00000001	/* FPU present */
-#define CONF1_EP		0x00000002	/* EJTAG present */
-#define CONF1_CA		0x00000004	/* mips16 implemented */
-#define CONF1_WR		0x00000008	/* Watch registers present */
-#define CONF1_PC		0x00000010	/* Performance counters present */
-#define CONF1_DA_SHIFT		7		/* D$ associativity */
-#define CONF1_DA_MASK		0x00000380
-#define CONF1_DA_BASE		1
-#define CONF1_DL_SHIFT		10		/* D$ line size */
-#define CONF1_DL_MASK		0x00001c00
-#define CONF1_DL_BASE		2
-#define CONF1_DS_SHIFT		13		/* D$ sets/way */
-#define CONF1_DS_MASK		0x0000e000
-#define CONF1_DS_BASE		64
-#define CONF1_IA_SHIFT		16		/* I$ associativity */
-#define CONF1_IA_MASK		0x00070000
-#define CONF1_IA_BASE		1
-#define CONF1_IL_SHIFT		19		/* I$ line size */
-#define CONF1_IL_MASK		0x00380000
-#define CONF1_IL_BASE		2
-#define CONF1_IS_SHIFT		22		/* Instruction cache sets/way */
-#define CONF1_IS_MASK		0x01c00000
-#define CONF1_IS_BASE		64
-#define CONF1_MS_MASK		0x7e000000	/* Number of tlb entries */
-#define CONF1_MS_SHIFT		25
+#define CONF1_FP			0x00000001		/* FPU present */
+#define CONF1_EP			0x00000002		/* EJTAG present */
+#define CONF1_CA			0x00000004		/* mips16 implemented */
+#define CONF1_WR			0x00000008		/* Watch registers present */
+#define CONF1_PC			0x00000010		/* Performance counters present */
+#define	CONF1_DA_SHIFT			7			/* D$ associativity */
+#define CONF1_DA_MASK			0x00000380
+#define CONF1_DA_BASE			1
+#define CONF1_DL_SHIFT			10			/* D$ line size */
+#define CONF1_DL_MASK			0x00001c00
+#define CONF1_DL_BASE			2
+#define CONF1_DS_SHIFT			13			/* D$ sets/way */
+#define CONF1_DS_MASK			0x0000e000
+#define CONF1_DS_BASE			64
+#define CONF1_IA_SHIFT			16			/* I$ associativity */
+#define CONF1_IA_MASK			0x00070000
+#define CONF1_IA_BASE			1
+#define CONF1_IL_SHIFT			19			/* I$ line size */
+#define CONF1_IL_MASK			0x00380000
+#define CONF1_IL_BASE			2
+#define CONF1_IS_SHIFT			22			/* Instruction cache sets/way */
+#define CONF1_IS_MASK			0x01c00000
+#define CONF1_IS_BASE			64
+#define CONF1_MS_MASK			0x7e000000		/* Number of tlb entries */
+#define CONF1_MS_SHIFT			25
 
 /* PRID register */
 #define PRID_COPT_MASK		0xff000000
@@ -396,23 +398,23 @@ symbol:		.frame	sp, 0, ra
 
 #define PRID_IMP_UNKNOWN	0xff00
 
-#define BCM330X(id) \
+#define       BCM330X(id) \
 		(((id & (PRID_COMP_MASK | PRID_IMP_MASK)) == \
 		 (PRID_COMP_BROADCOM | PRID_IMP_BCM3302)) || \
 		((id & (PRID_COMP_MASK | PRID_IMP_MASK)) == \
 		 (PRID_COMP_BROADCOM | PRID_IMP_BCM3303)))
 
 /* Bits in C0_BROADCOM */
-#define BRCM_PFC_AVAIL		0x20000000	/* PFC is available */
-#define BRCM_DC_ENABLE		0x40000000	/* Enable Data $ */
-#define BRCM_IC_ENABLE		0x80000000	/* Enable Instruction $ */
-#define BRCM_PFC_ENABLE		0x00400000	/* Obsolete? Enable PFC (at least on 4310) */
+#define	BRCM_PFC_AVAIL		0x20000000	/* PFC is available */
+#define	BRCM_DC_ENABLE		0x40000000	/* Enable Data $ */
+#define	BRCM_IC_ENABLE		0x80000000	/* Enable Instruction $ */
+#define	BRCM_PFC_ENABLE		0x00400000	/* Obsolete? Enable PFC (at least on 4310) */
 #define BRCM_CLF_ENABLE		0x00100000	/* Enable cache line first feature */
 
 /* PreFetch Cache aka Read Ahead Cache */
 
-#define PFC_CR0			0xff400000	/* control reg 0 */
-#define PFC_CR1			0xff400004	/* control reg 1 */
+#define	PFC_CR0		0xff400000	/* control reg 0 */
+#define	PFC_CR1		0xff400004	/* control reg 1 */
 
 /* PFC operations */
 #define PFC_I			0x00000001	/* Enable PFC use for instructions */
@@ -438,7 +440,7 @@ symbol:		.frame	sp, 0, ra
 
 #ifndef	_LANGUAGE_ASSEMBLY
 
-/*
+/* 
  * Macros to access the system control coprocessor
  */
 

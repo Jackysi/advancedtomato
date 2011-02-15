@@ -78,6 +78,31 @@ extern "C" {
 #define PCI9050_INT_LINE             CFG_INT_LINE
 
 
+#if 0				/* from PLX header file */
+/* Local Configuration Registers */
+#define PCI9050_RANGE_SPACE0         0x000
+#define PCI9050_RANGE_SPACE1         0x004
+#define PCI9050_RANGE_SPACE2         0x008
+#define PCI9050_RANGE_SPACE3         0x00C
+#define PCI9050_RANGE_EXP_ROM        0x010
+#define PCI9050_REMAP_SPACE0         0x014
+#define PCI9050_REMAP_SPACE1         0x018
+#define PCI9050_REMAP_SPACE2         0x01C
+#define PCI9050_REMAP_SPACE3         0x020
+#define PCI9050_REMAP_EXP_ROM        0x024
+#define PCI9050_DESC_SPACE0          0x028
+#define PCI9050_DESC_SPACE1          0x02C
+#define PCI9050_DESC_SPACE2          0x030
+#define PCI9050_DESC_SPACE3          0x034
+#define PCI9050_DESC_EXP_ROM         0x038
+#define PCI9050_BASE_CS0             0x03C
+#define PCI9050_BASE_CS1             0x040
+#define PCI9050_BASE_CS2             0x044
+#define PCI9050_BASE_CS3             0x048
+#define PCI9050_INT_CTRL_STAT        0x04C
+#define PCI9050_EEPROM_CTRL          0x050
+
+#endif
 
 
 /* Additional register defintions */
@@ -158,8 +183,16 @@ typedef struct plx9050_s
 #define PLX_INT_INTR2STS	0x00000020   /* Local interrupt 2 status */
 #define PLX_INT_PCIINTRENA	0x00000040   /* PCI interrupt enable */
 #define PLX_INT_SOFTINTR	0x00000080   /* Software interrupt */
+#if 0
+#define PLX_INT_ON	        (PLX_INT_INTR1ENA | PLX_INT_PCIINTRENA | PLX_INT_INTR2POL)
+#define PLX_INT_OFF	        PLX_INT_INTR2POL
+#elif 0
+#define PLX_INT_ON	        PLX_INT_PCIINTRENA
+#define PLX_INT_OFF	        0
+#else
 #define PLX_INT_ON	(PLX_INT_INTR1ENA | PLX_INT_PCIINTRENA)
 #define PLX_INT_OFF	0x0000
+#endif
 
 /* BRD */
 #define PLX_BRD_BIGEND          0x01000000

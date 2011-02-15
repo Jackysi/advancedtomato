@@ -50,7 +50,7 @@ extern vg_t *vg[];
 extern struct file_operations lvm_chr_fops;
 
 #ifndef	uchar
-typedef	unsigned char	uchar;
+typedef unsigned char uchar;
 #endif
 
 extern struct block_device_operations lvm_blk_dops;
@@ -89,24 +89,24 @@ extern struct block_device_operations lvm_blk_dops;
 int lvm_get_blksize(kdev_t);
 int lvm_snapshot_alloc(lv_t *);
 int lvm_snapshot_fill_COW_page(vg_t *, lv_t *);
-int lvm_snapshot_COW(kdev_t, ulong, ulong, ulong, vg_t *vg, lv_t *);
+int lvm_snapshot_COW(kdev_t, ulong, ulong, ulong, vg_t * vg, lv_t *);
 int lvm_snapshot_remap_block(kdev_t *, ulong *, ulong, lv_t *);
 void lvm_snapshot_release(lv_t *);
 int lvm_write_COW_table_block(vg_t *, lv_t *);
 void lvm_hash_link(lv_block_exception_t *, kdev_t, ulong, lv_t *);
 int lvm_snapshot_alloc_hash_table(lv_t *);
-void lvm_drop_snapshot(vg_t *vg, lv_t *, const char *);
+void lvm_drop_snapshot(vg_t * vg, lv_t *, const char *);
 
 
 /* lvm_fs.c */
 void lvm_init_fs(void);
 void lvm_fin_fs(void);
 
-void lvm_fs_create_vg(vg_t *vg_ptr);
-void lvm_fs_remove_vg(vg_t *vg_ptr);
-devfs_handle_t lvm_fs_create_lv(vg_t *vg_ptr, lv_t *lv);
-void lvm_fs_remove_lv(vg_t *vg_ptr, lv_t *lv);
-void lvm_fs_create_pv(vg_t *vg_ptr, pv_t *pv);
-void lvm_fs_remove_pv(vg_t *vg_ptr, pv_t *pv);
+void lvm_fs_create_vg(vg_t * vg_ptr);
+void lvm_fs_remove_vg(vg_t * vg_ptr);
+devfs_handle_t lvm_fs_create_lv(vg_t * vg_ptr, lv_t * lv);
+void lvm_fs_remove_lv(vg_t * vg_ptr, lv_t * lv);
+void lvm_fs_create_pv(vg_t * vg_ptr, pv_t * pv);
+void lvm_fs_remove_pv(vg_t * vg_ptr, pv_t * pv);
 
 #endif

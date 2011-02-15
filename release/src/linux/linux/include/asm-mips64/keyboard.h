@@ -62,6 +62,7 @@ struct kbd_ops {
 };
 
 extern struct kbd_ops *kbd_ops;
+#define kbd_controller_present() (kbd_ops != 0)
 
 /* Do the actual calls via kbd_ops vector  */
 #define kbd_request_region() kbd_ops->kbd_request_region()
@@ -84,7 +85,7 @@ extern int kbd_translate(unsigned char scancode, unsigned char *keycode,
 extern char kbd_unexpected_up(unsigned char keycode);
 extern void kbd_leds(unsigned char leds);
 extern void kbd_init_hw(void);
-extern unsigned char *kbd_sysrq_xlate;
+extern unsigned char kbd_sysrq_xlate[];
 
 extern unsigned char kbd_sysrq_key;
 #define SYSRQ_KEY kbd_sysrq_key

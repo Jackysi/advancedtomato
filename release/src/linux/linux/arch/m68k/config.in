@@ -46,9 +46,10 @@ fi
 bool 'Apollo support' CONFIG_APOLLO
 bool 'VME (Motorola and BVM) support' CONFIG_VME
 if [ "$CONFIG_VME" = "y" ]; then
-   bool '  MVME147 support' CONFIG_MVME147
-   bool '  MVME162, 166 and 167 support' CONFIG_MVME16x
-   bool '  BVME4000 and BVME6000 support' CONFIG_BVME6000
+   bool '  Enable broken VME drivers (may randomly crash)' CONFIG_VME_BROKEN
+   dep_bool '  MVME147 support (broken)' CONFIG_MVME147 $CONFIG_VME_BROKEN
+   dep_bool '  MVME162, 166 and 167 support (broken)' CONFIG_MVME16x $CONFIG_VME_BROKEN
+   dep_bool '  BVME4000 and BVME6000 support (broken)' CONFIG_BVME6000 $CONFIG_VME_BROKEN
 fi
 bool 'HP9000/300 support' CONFIG_HP300
 if [ "$CONFIG_HP300" = "y" ]; then
@@ -98,7 +99,7 @@ if [ "$CONFIG_PROC_FS" = "y" ]; then
 	 A.OUT		CONFIG_KCORE_AOUT" ELF
 fi
 tristate 'Kernel support for a.out binaries' CONFIG_BINFMT_AOUT
-tristate 'Kernel support for ELF binaries' CONFIG_BINFMT_ELF
+bool 'Kernel support for ELF binaries' CONFIG_BINFMT_ELF
 tristate 'Kernel support for MISC binaries' CONFIG_BINFMT_MISC
 
 if [ "$CONFIG_AMIGA" = "y" ]; then
@@ -111,7 +112,9 @@ if [ "$CONFIG_ATARI" = "y" ]; then
    bool 'Support for ST-RAM as swap space' CONFIG_STRAM_SWAP
    bool 'ST-RAM statistics in /proc' CONFIG_STRAM_PROC
 fi
-if [ "$CONFIG_AMIGA" = "y" -o "$CONFIG_ATARI" = "y" -o "$CONFIG_Q40" = "y" ]; then
+if [ "$CONFIG_AMIGA" = "y" -o "$CONFIG_APOLLO" = "y" -o \
+     "$CONFIG_ATARI" = "y" -o "$CONFIG_MAC" = "y" -o \
+     "$CONFIG_Q40" = "y" ]; then
    bool 'Use power LED as a heartbeat' CONFIG_HEARTBEAT
 else
   if [ "$CONFIG_HP300" = "y" ]; then
@@ -183,7 +186,6 @@ tristate 'ATA/IDE/MFM/RLL support' CONFIG_IDE
 if [ "$CONFIG_IDE" != "n" ]; then
   source drivers/ide/Config.in
 else
-  define_bool CONFIG_BLK_DEV_IDE_MODES n
   define_bool CONFIG_BLK_DEV_HD n
 fi
 endmenu
@@ -225,7 +227,7 @@ if [ "$CONFIG_SCSI" != "n" ]; then
    if [ "$CONFIG_AMIGA" = "y" ]; then
       dep_tristate 'A3000 WD33C93A support' CONFIG_A3000_SCSI $CONFIG_SCSI
       if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
-	 bool 'A4000T SCSI support (EXPERIMENTAL)' CONFIG_A4000T_SCSI
+	 bool 'Amiga NCR53c710 SCSI support (EXPERIMENTAL)' CONFIG_SCSI_AMIGA7XX
       fi
    fi
    if [ "$CONFIG_ZORRO" = "y" ]; then
@@ -237,12 +239,8 @@ if [ "$CONFIG_SCSI" != "n" ]; then
       dep_tristate 'Blizzard 1230IV/1260 SCSI support' CONFIG_BLZ1230_SCSI $CONFIG_SCSI
       dep_tristate 'Fastlane SCSI support' CONFIG_FASTLANE_SCSI $CONFIG_SCSI
       if [ "$CONFIG_EXPERIMENTAL" = "y" ]; then
-	 bool 'A4091 SCSI support (EXPERIMENTAL)' CONFIG_A4091_SCSI
-	 bool 'WarpEngine SCSI support (EXPERIMENTAL)' CONFIG_WARPENGINE_SCSI
-	 bool 'Blizzard PowerUP 603e+ SCSI (EXPERIMENTAL)' CONFIG_BLZ603EPLUS_SCSI
 	 dep_tristate 'BSC Oktagon SCSI support (EXPERIMENTAL)' CONFIG_OKTAGON_SCSI $CONFIG_SCSI
 #	 bool 'Cyberstorm Mk III SCSI support (EXPERIMENTAL)' CONFIG_CYBERSTORMIII_SCSI
-#	 bool 'GVP Turbo 040/060 SCSI support (EXPERIMENTAL)' CONFIG_GVP_TURBO_SCSI
       fi
    fi
    if [ "$CONFIG_ATARI" = "y" ]; then
@@ -318,9 +316,9 @@ if [ "$CONFIG_NET" = "y" ]; then
       tristate '  EQL (serial line load balancing) support' CONFIG_EQUALIZER
       if [ "$CONFIG_ZORRO" = "y" ]; then
 	 tristate '  Ariadne support' CONFIG_ARIADNE
-	 tristate '  Ariadne II support' CONFIG_ARIADNE2
 	 tristate '  A2065 support' CONFIG_A2065
 	 tristate '  Hydra support' CONFIG_HYDRA
+	 tristate '  Zorro NS8390-based Ethernet support' CONFIG_ZORRO8390
       fi
       if [ "$CONFIG_AMIGA_PCMCIA" = "y" ]; then
 	 tristate '  PCMCIA NE2000 support' CONFIG_APNE
@@ -502,7 +500,7 @@ if [ "$CONFIG_ATARI_MFPSER" = "y" -o "$CONFIG_ATARI_SCC" = "y" -o \
      "$CONFIG_SUN3X_ZS" = "y" -o "$CONFIG_SERIAL" = "y" -o \
      "$CONFIG_MVME147_SCC" -o "$CONFIG_SERIAL167" = "y" -o \
      "$CONFIG_MVME162_SCC" -o "$CONFIG_BVME6000_SCC" = "y" -o \
-     "$CONFIG_DN_SERIAL" -o ]; then
+     "$CONFIG_DN_SERIAL" ]; then
    bool 'Support for serial port console' CONFIG_SERIAL_CONSOLE
 fi
 bool 'Support for user serial device modules' CONFIG_USERIAL
@@ -511,14 +509,13 @@ if [ "$CONFIG_WATCHDOG" != "n" ]; then
    bool '  Disable watchdog shutdown on close' CONFIG_WATCHDOG_NOWAYOUT
    bool '  Software Watchdog' CONFIG_SOFT_WATCHDOG
 fi
-if [ "$CONFIG_ATARI" = "y" ]; then
-   bool 'Enhanced Real Time Clock Support' CONFIG_RTC
+if [ "$CONFIG_SUN3" = "y" ]; then
+   define_bool CONFIG_GEN_RTC y
 else
-   if [ "$CONFIG_SUN3" = "y" ]; then
-      define_bool CONFIG_GEN_RTC y
-   else
-      bool 'Generic /dev/rtc emulation' CONFIG_GEN_RTC
-   fi
+   tristate 'Generic /dev/rtc emulation' CONFIG_GEN_RTC      
+fi
+if [ "$CONFIG_GEN_RTC" != "n" ]; then
+   bool '   Extended RTC operation' CONFIG_GEN_RTC_X
 fi
 bool 'Unix98 PTY support' CONFIG_UNIX98_PTYS
 if [ "$CONFIG_UNIX98_PTYS" = "y" ]; then
@@ -555,6 +552,9 @@ if [ "$CONFIG_DEBUG_KERNEL" != "n" ]; then
    bool '  Verbose BUG() reporting' CONFIG_DEBUG_BUGVERBOSE
 fi
 
+int 'Kernel messages buffer length shift (0 = default)' CONFIG_LOG_BUF_SHIFT 0
+
 endmenu
 
+source crypto/Config.in
 source lib/Config.in

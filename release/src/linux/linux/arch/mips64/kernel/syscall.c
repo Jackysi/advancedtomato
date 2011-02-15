@@ -6,7 +6,9 @@
  * Copyright (C) 1995 - 2000, 2001 by Ralf Baechle
  * Copyright (C) 1999, 2000 Silicon Graphics, Inc.
  * Copyright (C) 2001 MIPS Technologies, Inc.
+ * Copyright (C) 2004  Maciej W. Rozycki
  */
+#include <linux/compiler.h>
 #include <linux/errno.h>
 #include <linux/linkage.h>
 #include <linux/mm.h>
@@ -34,7 +36,7 @@
 
 extern asmlinkage void syscall_trace(void);
 
-asmlinkage int sys_pipe(abi64_no_regargs, struct pt_regs regs)
+asmlinkage int sys_pipe(abi64_no_regargs, volatile struct pt_regs regs)
 {
 	int fd[2];
 	int error, res;
@@ -50,27 +52,32 @@ out:
 	return res;
 }
 
-#define COLOUR_ALIGN(addr,pgoff)		\
-	((((addr)+SHMLBA-1)&~(SHMLBA-1)) +	\
-	 (((pgoff)<<PAGE_SHIFT) & (SHMLBA-1)))
+unsigned long shm_align_mask = PAGE_SIZE - 1;	/* Sane caches */
+
+#define COLOUR_ALIGN(addr,pgoff)				\
+	((((addr) + shm_align_mask) & ~shm_align_mask) +	\
+	 (((pgoff) << PAGE_SHIFT) & shm_align_mask))
 
 unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	unsigned long len, unsigned long pgoff, unsigned long flags)
 {
 	struct vm_area_struct * vmm;
 	int do_color_align;
+	unsigned long task_size;
+	
+	task_size = (current->thread.mflags & MF_32BIT_ADDR) ? TASK_SIZE32 : TASK_SIZE;
 
 	if (flags & MAP_FIXED) {
 		/*
 		 * We do not accept a shared mapping if it would violate
 		 * cache aliasing constraints.
 		 */
-		if ((flags & MAP_SHARED) && (addr & (SHMLBA - 1)))
+		if ((flags & MAP_SHARED) && (addr & shm_align_mask))
 			return -EINVAL;
 		return addr;
 	}
 
-	if (len > TASK_SIZE)
+	if (len > task_size)
 		return -ENOMEM;
 	do_color_align = 0;
 	if (filp || (flags & MAP_SHARED))
@@ -81,7 +88,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		else
 			addr = PAGE_ALIGN(addr);
 		vmm = find_vma(current->mm, addr);
-		if (TASK_SIZE - len >= addr &&
+		if (task_size - len >= addr &&
 		    (!vmm || addr + len <= vmm->vm_start))
 			return addr;
 	}
@@ -93,7 +100,7 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 
 	for (vmm = find_vma(current->mm, addr); ; vmm = vmm->vm_next) {
 		/* At this point:  (!vmm || addr < vmm->vm_end). */
-		if (TASK_SIZE - len < addr)
+		if (task_size - len < addr)
 			return -ENOMEM;
 		if (!vmm || addr + len <= vmm->vm_start)
 			return addr;
@@ -101,6 +108,19 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		if (do_color_align)
 			addr = COLOUR_ALIGN(addr, pgoff);
 	}
+}
+
+unsigned long check_unmapped_fixed_area(struct file *file, unsigned long addr,
+	unsigned long len, unsigned long pgoff, unsigned long flags)
+{
+	if (addr > TASK_SIZE - len)
+		return -ENOMEM;
+	if (addr & ~PAGE_MASK)
+		return -EINVAL;
+	if (flags & MAP_SHARED && pages_do_alias((pgoff << PAGE_SHIFT), addr))
+		return -EINVAL;
+
+	return addr;
 }
 
 asmlinkage unsigned long
@@ -132,22 +152,24 @@ out:
 	return error;
 }
 
-asmlinkage int sys_fork(abi64_no_regargs, struct pt_regs regs)
+save_static_function(sys_fork);
+__attribute__((__used__)) static int
+_sys_fork(abi64_no_regargs, struct pt_regs regs)
 {
 	int res;
 
-	save_static(&regs);
 	res = do_fork(SIGCHLD, regs.regs[29], &regs, 0);
 	return res;
 }
 
-asmlinkage int sys_clone(abi64_no_regargs, struct pt_regs regs)
+save_static_function(sys_clone);
+__attribute__((__used__)) static int
+_sys_clone(abi64_no_regargs, struct pt_regs regs)
 {
 	unsigned long clone_flags;
 	unsigned long newsp;
 	int res;
 
-	save_static(&regs);
 	clone_flags = regs.regs[4];
 	newsp = regs.regs[5];
 	if (!newsp)
@@ -176,6 +198,11 @@ out:
 	return error;
 }
 
+/*
+ * Do the indirect syscall syscall.
+ *
+ * XXX This is borken.
+ */
 asmlinkage int sys_syscall(abi64_no_regargs, struct pt_regs regs)
 {
 	return -ENOSYS;
@@ -200,7 +227,7 @@ asmlinkage int sys_sysmips(int cmd, long arg1, int arg2, int arg3)
 			return -EFAULT;
 
 		down_write(&uts_sem);
-		strncpy(system_utsname.nodename, name, len);
+		strncpy(system_utsname.nodename, nodename, len);
 		system_utsname.nodename[len] = '\0';
 		up_write(&uts_sem);
 		return 0;
@@ -216,7 +243,7 @@ asmlinkage int sys_sysmips(int cmd, long arg1, int arg2, int arg3)
 		return 0;
 
 	case FLUSH_CACHE:
-		_flush_cache_l2();
+		__flush_cache_all();
 		return 0;
 
 	case MIPS_RDNVRAM:
@@ -302,7 +329,7 @@ asmlinkage int sys_ipc (uint call, int first, int second,
 		return sys_shmctl (first, second,
 				   (struct shmid_ds *) ptr);
 	default:
-		return -EINVAL;
+		return -ENOSYS;
 	}
 }
 

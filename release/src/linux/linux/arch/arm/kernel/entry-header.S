@@ -41,14 +41,14 @@
 @
 @ Stack format (ensured by USER_* and SVC_*)
 @
-#define S_FRAME_SIZE	72
 #ifdef CONFIG_CPU_32
+#define S_FRAME_SIZE	72
 #define S_OLD_R0	68
 #define S_PSR		64
 #else
+#define S_FRAME_SIZE	68
 #define S_OLD_R0	64
 #define S_PSR		60
-#define S_PC		60
 #endif
 
 #define S_PC		60
@@ -70,6 +70,24 @@
 #define S_OFF		8
 
 #ifdef CONFIG_CPU_32
+	.macro	set_cpsr_c, reg, mode
+#if 1
+	/* broken binutils */
+	mov	\reg, \mode
+	msr	cpsr_c, \reg
+#else
+	msr	cpsr_c, \mode
+#endif
+	.endm
+
+	.macro	disable_irq, temp
+	set_cpsr_c \temp, #I_BIT | MODE_SVC
+	.endm
+
+	.macro	enable_irq, temp
+	set_cpsr_c \temp, #MODE_SVC
+	.endm
+
 		.macro	save_user_regs
 		sub	sp, sp, #S_FRAME_SIZE
 		stmia	sp, {r0 - r12}			@ Calling r0 - r12
@@ -81,21 +99,23 @@
 		str	r0, [sp, #S_OLD_R0]		@ Save OLD_R0
 		.endm
 
+/*
+ * Must be called with IRQs already disabled.
+ */
 		.macro	restore_user_regs
-		ldr	r0, [sp, #S_PSR]		@ Get calling cpsr
-		mov	ip, #I_BIT | MODE_SVC
-		msr	cpsr_c, ip			@ disable IRQs
-		msr	spsr, r0			@ save in spsr_svc
-		ldr	lr, [sp, #S_PC]			@ Get PC
-		ldmia	sp, {r0 - lr}^			@ Get calling r0 - lr
+		ldr	r1, [sp, #S_PSR]		@ Get calling cpsr
+		ldr	lr, [sp, #S_PC]!		@ Get PC
+		msr	spsr, r1			@ save in spsr_svc
+		ldmdb	sp, {r0 - lr}^			@ Get calling r0 - lr
 		mov	r0, r0
-		add	sp, sp, #S_FRAME_SIZE
+		add	sp, sp, #S_FRAME_SIZE - S_PC
 		movs	pc, lr				@ return & move spsr_svc into cpsr
 		.endm
 
+/*
+ * Must be called with IRQs already disabled.
+ */
 		.macro	fast_restore_user_regs
-		mov	ip, #I_BIT | MODE_SVC
-		msr	cpsr_c, ip			@ disable IRQs
 		ldr	r1, [sp, #S_OFF + S_PSR]	@ get calling cpsr
 		ldr	lr, [sp, #S_OFF + S_PC]!	@ get pc
  		msr	spsr, r1			@ save in spsr_svc
@@ -106,11 +126,6 @@
 		.endm
 
 		.macro	mask_pc, rd, rm
-		.endm
-
-		.macro	enable_irqs, temp
-		mov	\temp, #MODE_SVC
-		msr	cpsr_c, \temp
 		.endm
 
 		.macro	get_current_task, rd
@@ -136,9 +151,9 @@
 
 #else
 		.macro	save_user_regs
-		str	r0, [sp, #-4]!
-		str	lr, [sp, #-4]!
-		sub	sp, sp, #15*4
+		sub	sp, sp, #S_FRAME_SIZE
+		str	r0, [sp, #S_OLD_R0]
+		str	lr, [sp, #S_PC]
 		stmia	sp, {r0 - lr}^
 		mov	r0, r0
 		.endm
@@ -146,17 +161,16 @@
 		.macro	restore_user_regs
 		ldmia	sp, {r0 - lr}^
 		mov	r0, r0
-		ldr	lr, [sp, #15*4]
-		add	sp, sp, #15*4+8
+		ldr	lr, [sp, #S_PC]
+		add	sp, sp, #S_FRAME_SIZE
 		movs	pc, lr
 		.endm
 
 		.macro	fast_restore_user_regs
-		add	sp, sp, #S_OFF
-		ldmib	sp, {r1 - lr}^
+		add	sp, sp, #S_OFF + S_PC
+		ldmdb	sp, {r1 - lr}^
 		mov	r0, r0
-		ldr	lr, [sp, #15*4]
-		add	sp, sp, #15*4+8
+		ldr	lr, [sp], #S_FRAME_SIZE - S_PC
 		movs	pc, lr
 		.endm
 
@@ -164,7 +178,11 @@
 		bic	\rd, \rm, #PCMASK
 		.endm
 
-		.macro	enable_irqs, temp
+		.macro	disable_irq, temp
+		teqp	pc, #0x08000003
+		.endm
+
+		.macro	enable_irq, temp
 		teqp	pc, #0x00000003
 		.endm
 

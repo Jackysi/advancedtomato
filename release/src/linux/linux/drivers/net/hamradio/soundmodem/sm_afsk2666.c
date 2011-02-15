@@ -157,6 +157,51 @@ static inline int convolution12_s16(const short *st, const int *coeff, int csum)
 
 /* ---------------------------------------------------------------------- */
 
+#if 0
+static int binexp(unsigned int i)
+{
+	int ret = 31;
+	
+	if (!i)
+		return 0;
+	if (i < 0x10000LU) {
+		i <<= 16;
+		ret -= 16;
+	}
+	if (i < 0x1000000LU) {
+		i <<= 8;
+		ret -= 8;
+	}
+	if (i < 0x10000000LU) {
+		i <<= 4;
+		ret -= 4;
+	}
+	if (i < 0x40000000LU) {
+		i <<= 2;
+		ret -= 2;
+	}
+	if (i < 0x80000000LU)
+		ret -= 1;
+	return ret;
+}
+
+static const sqrt_tab[16] = {
+	00000, 16384, 23170, 28378, 32768, 36636, 40132, 43348,
+	46341, 49152, 51811, 54340, 56756, 59073, 61303, 63455
+};
+
+
+static unsigned int int_sqrt_approx(unsigned int i)
+{
+	unsigned int j;
+
+	if (i < 16)
+		return sqrt_tab[i] >> 14;
+	j = binexp(i) >> 1;
+	i >>= (j * 2 - 2);
+      	return (sqrt_tab[i & 0xf] << j) >> 15;
+}
+#endif
 
 /* --------------------------------------------------------------------- */
 

@@ -36,19 +36,57 @@
  * - source routing
  * - multiple DNS checks
  * Functionalty which is different from nc 1.10:
- * - Prog in '-e prog' can have prog's parameters and options.
+ * - PROG in '-e PROG' can have ARGS (and options).
  *   Because of this -e option must be last.
- * - nc doesn't redirect stderr to the network socket for the -e prog.
+//TODO: remove -e incompatibility?
+ * - we don't redirect stderr to the network socket for the -e PROG.
+ *   (PROG can do it itself if needed, but sometimes it is NOT wanted!)
  * - numeric addresses are printed in (), not [] (IPv6 looks better),
  *   port numbers are inside (): (1.2.3.4:5678)
  * - network read errors are reported on verbose levels > 1
  *   (nc 1.10 treats them as EOF)
  * - TCP connects from wrong ip/ports (if peer ip:port is specified
  *   on the command line, but accept() says that it came from different addr)
- *   are closed, but nc doesn't exit - continues to listen/accept.
+ *   are closed, but we don't exit - we continue to listen/accept.
  */
 
 /* done in nc.c: #include "libbb.h" */
+
+//usage:#if ENABLE_NC_110_COMPAT
+//usage:
+//usage:#define nc_trivial_usage
+//usage:       "[OPTIONS] HOST PORT  - connect"
+//usage:	IF_NC_SERVER("\n"
+//usage:       "nc [OPTIONS] -l -p PORT [HOST] [PORT]  - listen")
+//usage:#define nc_full_usage "\n\n"
+//usage:       "Options:"
+//usage:     "\n	-e PROG	Run PROG after connect (must be last)"
+//usage:	IF_NC_SERVER(
+//usage:     "\n	-l	Listen mode, for inbound connects"
+//usage:	)
+//usage:     "\n	-p PORT	Local port"
+//usage:     "\n	-s ADDR	Local address"
+//usage:     "\n	-w SEC	Timeout for connects and final net reads"
+//usage:	IF_NC_EXTRA(
+//usage:     "\n	-i SEC	Delay interval for lines sent" /* ", ports scanned" */
+//usage:	)
+//usage:     "\n	-n	Don't do DNS resolution"
+//usage:     "\n	-u	UDP mode"
+//usage:     "\n	-v	Verbose"
+//usage:	IF_NC_EXTRA(
+//usage:     "\n	-o FILE	Hex dump traffic"
+//usage:     "\n	-z	Zero-I/O mode (scanning)"
+//usage:	)
+//usage:#endif
+
+/*   "\n	-r		Randomize local and remote ports" */
+/*   "\n	-g gateway	Source-routing hop point[s], up to 8" */
+/*   "\n	-G num		Source-routing pointer: 4, 8, 12, ..." */
+/*   "\nport numbers can be individual or ranges: lo-hi [inclusive]" */
+
+/* -e PROG can take ARGS too: "nc ... -e ls -l", but we don't document it
+ * in help text: nc 1.10 does not allow that. We don't want to entice
+ * users to use this incompatibility */
 
 enum {
 	SLEAZE_PORT = 31337,               /* for UDP-scan RTT trick, change if ya want */
@@ -152,7 +190,7 @@ enum {
 /* Debug: squirt whatever message and sleep a bit so we can see it go by. */
 /* Beware: writes to stdOUT... */
 #if 0
-#define Debug(...) do { printf(__VA_ARGS__); printf("\n"); fflush(stdout); sleep(1); } while (0)
+#define Debug(...) do { printf(__VA_ARGS__); printf("\n"); fflush_all(); sleep(1); } while (0)
 #else
 #define Debug(...) do { } while (0)
 #endif
@@ -230,7 +268,7 @@ static int doexec(char **proggie)
 	/* dup2(0, 2); - do we *really* want this? NO!
 	 * exec'ed prog can do it yourself, if needed */
 	execvp(proggie[0], proggie);
-	bb_perror_msg_and_die("exec");
+	bb_perror_msg_and_die("can't execute '%s'", proggie[0]);
 }
 
 /* connect_w_timeout:
@@ -278,9 +316,9 @@ static void dolisten(void)
 	 random unknown port is probably not very useful without "netstat". */
 	if (o_verbose) {
 		char *addr;
-		rr = getsockname(netfd, &ouraddr->u.sa, &ouraddr->len);
-		if (rr < 0)
-			bb_perror_msg_and_die("getsockname after bind");
+		getsockname(netfd, &ouraddr->u.sa, &ouraddr->len);
+		//if (rr < 0)
+		//	bb_perror_msg_and_die("getsockname after bind");
 		addr = xmalloc_sockaddr2dotted(&ouraddr->u.sa);
 		fprintf(stderr, "listening on %s ...\n", addr);
 		free(addr);
@@ -340,16 +378,29 @@ create new one, and bind() it. TODO */
 			rr = accept(netfd, &remend.u.sa, &remend.len);
 			if (rr < 0)
 				bb_perror_msg_and_die("accept");
-			if (themaddr && memcmp(&remend.u.sa, &themaddr->u.sa, remend.len) != 0) {
-				/* nc 1.10 bails out instead, and its error message
-				 * is not suppressed by o_verbose */
-				if (o_verbose) {
-					char *remaddr = xmalloc_sockaddr2dotted(&remend.u.sa);
-					bb_error_msg("connect from wrong ip/port %s ignored", remaddr);
-					free(remaddr);
+			if (themaddr) {
+				int sv_port, port, r;
+
+				sv_port = get_nport(&remend.u.sa); /* save */
+				port = get_nport(&themaddr->u.sa);
+				if (port == 0) {
+					/* "nc -nl -p LPORT RHOST" (w/o RPORT!):
+					 * we should accept any remote port */
+					set_nport(&remend, 0); /* blot out remote port# */
 				}
-				close(rr);
-				goto again;
+				r = memcmp(&remend.u.sa, &themaddr->u.sa, remend.len);
+				set_nport(&remend, sv_port); /* restore */
+				if (r != 0) {
+					/* nc 1.10 bails out instead, and its error message
+					 * is not suppressed by o_verbose */
+					if (o_verbose) {
+						char *remaddr = xmalloc_sockaddr2dotted(&remend.u.sa);
+						bb_error_msg("connect from wrong ip/port %s ignored", remaddr);
+						free(remaddr);
+					}
+					close(rr);
+					goto again;
+				}
 			}
 			unarm();
 		} else
@@ -359,9 +410,9 @@ create new one, and bind() it. TODO */
 		 doing a listen-on-any on a multihomed machine.  This allows one to
 		 offer different services via different alias addresses, such as the
 		 "virtual web site" hack. */
-		rr = getsockname(netfd, &ouraddr->u.sa, &ouraddr->len);
-		if (rr < 0)
-			bb_perror_msg_and_die("getsockname after accept");
+		getsockname(netfd, &ouraddr->u.sa, &ouraddr->len);
+		//if (rr < 0)
+		//	bb_perror_msg_and_die("getsockname after accept");
 	}
 
 	if (o_verbose) {
@@ -377,9 +428,7 @@ create new one, and bind() it. TODO */
 		socklen_t x = sizeof(optbuf);
 
 		rr = getsockopt(netfd, IPPROTO_IP, IP_OPTIONS, optbuf, &x);
-		if (rr < 0)
-			bb_perror_msg("getsockopt failed");
-		else if (x) {    /* we've got options, lessee em... */
+		if (rr >= 0 && x) {    /* we've got options, lessee em... */
 			bin2hex(bigbuf_net, optbuf, x);
 			bigbuf_net[2*x] = '\0';
 			fprintf(stderr, "IP options: %s\n", bigbuf_net);
@@ -603,7 +652,10 @@ Debug("got %d from the net, errno %d", rr, errno);
 	 mobygrams are kinda fun and exercise the reassembler. */
 			if (rr <= 0) {                        /* at end, or fukt, or ... */
 				FD_CLR(STDIN_FILENO, &ding1);                /* disable and close stdin */
-				close(0);
+				close(STDIN_FILENO);
+// Does it make sense to shutdown(net_fd, SHUT_WR)
+// to let other side know that we won't write anything anymore?
+// (and what about keeping compat if we do that?)
 			} else {
 				rzleft = rr;
 				zp = bigbuf_in;
@@ -672,10 +724,10 @@ Debug("wrote %d to net, errno %d", rr, errno);
 
 /* main: now we pull it all together... */
 int nc_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int nc_main(int argc, char **argv)
+int nc_main(int argc UNUSED_PARAM, char **argv)
 {
 	char *str_p, *str_s;
-	USE_NC_EXTRA(char *str_i, *str_o;)
+	IF_NC_EXTRA(char *str_i, *str_o;)
 	char *themdotted = themdotted; /* gcc */
 	char **proggie;
 	int x;
@@ -701,7 +753,6 @@ int nc_main(int argc, char **argv)
 	while (*++proggie) {
 		if (strcmp(*proggie, "-e") == 0) {
 			*proggie = NULL;
-			argc = proggie - argv;
 			proggie++;
 			goto e_found;
 		}
@@ -711,10 +762,10 @@ int nc_main(int argc, char **argv)
 
 	// -g -G -t -r deleted, unimplemented -a deleted too
 	opt_complementary = "?2:vv:w+"; /* max 2 params; -v is a counter; -w N */
-	getopt32(argv, "hnp:s:uvw:" USE_NC_SERVER("l")
-			USE_NC_EXTRA("i:o:z"),
+	getopt32(argv, "hnp:s:uvw:" IF_NC_SERVER("l")
+			IF_NC_EXTRA("i:o:z"),
 			&str_p, &str_s, &o_wait
-			USE_NC_EXTRA(, &str_i, &str_o, &o_verbose));
+			IF_NC_EXTRA(, &str_i, &str_o, &o_verbose));
 	argv += optind;
 #if ENABLE_NC_EXTRA
 	if (option_mask32 & OPT_i) /* line-interval time */
@@ -768,7 +819,12 @@ int nc_main(int argc, char **argv)
 	setsockopt_reuseaddr(netfd);
 	if (o_udpmode)
 		socket_want_pktinfo(netfd);
-	xbind(netfd, &ouraddr->u.sa, ouraddr->len);
+	if (!ENABLE_FEATURE_UNIX_LOCAL
+	 || o_listen
+	 || ouraddr->u.sa.sa_family != AF_UNIX
+	) {
+		xbind(netfd, &ouraddr->u.sa, ouraddr->len);
+	}
 #if 0
 	setsockopt(netfd, SOL_SOCKET, SO_RCVBUF, &o_rcvbuf, sizeof o_rcvbuf);
 	setsockopt(netfd, SOL_SOCKET, SO_SNDBUF, &o_sndbuf, sizeof o_sndbuf);

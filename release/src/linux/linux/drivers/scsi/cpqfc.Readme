@@ -22,6 +22,9 @@ Ver 2.1.0  Aug 27, 2001
    * Makefile changes to bring cpqfc into line w/ rest of SCSI drivers
      (thanks to Keith Owens)
 
+Ver 2.1.2  Jul 22, 2002
+   * initialize DumCmnd.lun (used as LUN index in fcFindLoggedInPort())
+
 Ver 2.0.5  Aug 06, 2001
    * Reject non-existent luns in the driver rather than letting the 
      hardware do it.  (some HW behaves differently than others in this area.)

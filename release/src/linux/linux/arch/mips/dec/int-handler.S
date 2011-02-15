@@ -2,7 +2,7 @@
  * arch/mips/dec/int-handler.S
  *
  * Copyright (C) 1995, 1996, 1997 Paul M. Antoine and Harald Koerfgen
- * Copyright (C) 2000, 2001, 2002  Maciej W. Rozycki
+ * Copyright (C) 2000, 2001, 2002, 2003  Maciej W. Rozycki
  *
  * Written by Ralf Baechle and Andreas Busse, modified for DECStation
  * support by Paul Antoine and Harald Koerfgen.
@@ -173,7 +173,7 @@
  * Masked Interrupts are still visible and have to be masked "by hand".
  */
 		FEXPORT(kn02_io_int)		# 3max
-		lui	t0,(KN02_CSR_ADDR>>16)&0xffff
+		lui	t0,(KN02_CSR_BASE>>16)&0xffff
 						# get interrupt status and mask
 		lw	t0,(t0)
 		nop
@@ -186,8 +186,8 @@
 						# upper part of IOASIC Address
 
 		FEXPORT(kn03_io_int)		# 3max+ (t2 loaded earlier)
-		lw	t0,SIR(t2)		# get status: IOASIC isr
-		lw	t1,SIMR(t2)		# get mask:   IOASIC isrm
+		lw	t0,IO_REG_SIR(t2)	# get status: IOASIC sir
+		lw	t1,IO_REG_SIMR(t2)	# get mask:   IOASIC simr
 		nop
 
 1:		and	t0,t1			# mask out allowed ones

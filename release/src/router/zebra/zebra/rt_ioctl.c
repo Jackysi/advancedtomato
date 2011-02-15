@@ -83,7 +83,7 @@ kernel_add_route (struct prefix_ipv4 *dest, struct in_addr *gate,
   /* Make gateway. */
   if (gate)
     {
-      bzero (&sin_gate, sizeof (struct sockaddr_in));
+      memset (&sin_gate, 0, sizeof (struct sockaddr_in));
       sin_gate.sin_family = AF_INET;
 #ifdef HAVE_SIN_LEN
       sin_gate.sin_len = sizeof (struct sockaddr_in);
@@ -91,7 +91,7 @@ kernel_add_route (struct prefix_ipv4 *dest, struct in_addr *gate,
       sin_gate.sin_addr = *gate;
     }
 
-  bzero (&sin_mask, sizeof (struct sockaddr_in));
+  memset (&sin_mask, 0, sizeof (struct sockaddr_in));
   sin_mask.sin_family = AF_INET;
 #ifdef HAVE_SIN_LEN
       sin_gate.sin_len = sizeof (struct sockaddr_in);
@@ -181,6 +181,17 @@ kernel_ioctl_ipv4 (u_long cmd, struct prefix *p, struct rib *rib, int family)
 #endif /* HAVE_SIN_LEN */
   sin_dest.sin_addr = p->u.prefix4;
 
+  if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_BLACKHOLE))
+    {
+      SET_FLAG (rtentry.rt_flags, RTF_REJECT);
+
+      if (cmd == SIOCADDRT)
+	for (nexthop = rib->nexthop; nexthop; nexthop = nexthop->next)
+	  SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
+
+      goto skip;
+    }
+
   memset (&sin_gate, 0, sizeof (struct sockaddr_in));
 
   /* Make gateway. */
@@ -248,9 +259,11 @@ kernel_ioctl_ipv4 (u_long cmd, struct prefix *p, struct rib *rib, int family)
   if (nexthop_num == 0)
     {
       if (IS_ZEBRA_DEBUG_KERNEL)
-	zlog_info ("netlink_route_multipath(): No useful nexthop.");
+	zlog_info ("kernel_ioctl_ipv4(): No useful nexthop.");
       return 0;
     }
+
+ skip:
 
   memset (&sin_mask, 0, sizeof (struct sockaddr_in));
   sin_mask.sin_family = AF_INET;
@@ -355,7 +368,7 @@ kernel_ioctl_ipv6 (u_long type, struct prefix_ipv6 *dest, struct in6_addr *gate,
   int sock;
   struct in6_rtmsg rtm;
     
-  bzero (&rtm, sizeof (struct in6_rtmsg));
+  memset (&rtm, 0, sizeof (struct in6_rtmsg));
 
   rtm.rtmsg_flags |= RTF_UP;
   rtm.rtmsg_metric = 1;
@@ -435,6 +448,9 @@ kernel_ioctl_ipv6_multipath (u_long cmd, struct prefix *p, struct rib *rib,
     rtm.rtmsg_ifindex = 0;
   */
 
+  if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_BLACKHOLE))
+    SET_FLAG (rtm.rtmsg_flags, RTF_REJECT);
+
   rtm.rtmsg_flags |= RTF_GATEWAY;
 
   /* For tagging route. */
@@ -482,6 +498,14 @@ kernel_ioctl_ipv6_multipath (u_long cmd, struct prefix *p, struct rib *rib,
 		rtm.rtmsg_ifindex = nexthop->ifindex;
 	      else
 		rtm.rtmsg_ifindex = 0;
+              if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+                {
+#ifdef HAVE_IN6ADDR_GLOBAL
+		  rtm.rtmsg_gateway = in6addr_loopback;
+#else /*HAVE_IN6ADDR_GLOBAL*/
+		  inet_pton (AF_INET6, "::1", &rtm.rtmsg_gateway);
+#endif /*HAVE_IN6ADDR_GLOBAL*/
+                }
 	    }
 
 	  if (cmd == SIOCADDRT)
@@ -496,7 +520,7 @@ kernel_ioctl_ipv6_multipath (u_long cmd, struct prefix *p, struct rib *rib,
   if (nexthop_num == 0)
     {
       if (IS_ZEBRA_DEBUG_KERNEL)
-	zlog_info ("netlink_route_multipath(): No useful nexthop.");
+	zlog_info ("kernel_ioctl_ipv6_multipath(): No useful nexthop.");
       return 0;
     }
 

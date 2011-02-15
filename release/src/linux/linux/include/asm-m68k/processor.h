@@ -18,14 +18,16 @@
 #include <asm/fpu.h>
 #include <asm/ptrace.h>
 
-extern inline unsigned long rdusp(void) {
-  	unsigned long usp;
+static inline unsigned long rdusp(void)
+{
+	unsigned long usp;
 
 	__asm__ __volatile__("move %/usp,%0" : "=a" (usp));
 	return usp;
 }
 
-extern inline void wrusp(unsigned long usp) {
+static inline void wrusp(unsigned long usp)
+{
 	__asm__ __volatile__("move %0,%/usp" : : "a" (usp));
 }
 
@@ -105,7 +107,7 @@ static inline void release_thread(struct task_struct *dead_task)
 {
 }
 
-extern int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags);
+extern int arch_kernel_thread(int (*fn)(void *), void * arg, unsigned long flags);
 
 #define copy_segments(tsk, mm)		do { } while (0)
 #define release_segments(mm)		do { } while (0)
@@ -120,7 +122,7 @@ static inline void exit_thread(void)
 /*
  * Return saved PC of a blocked thread.
  */
-extern inline unsigned long thread_saved_pc(struct thread_struct *t)
+static inline unsigned long thread_saved_pc(struct thread_struct *t)
 {
 	extern void scheduling_functions_start_here(void);
 	extern void scheduling_functions_end_here(void);
@@ -155,6 +157,6 @@ unsigned long get_wchan(struct task_struct *p);
 #define init_task	(init_task_union.task)
 #define init_stack	(init_task_union.stack)
 
-#define cpu_relax()	do { } while (0)
+#define cpu_relax()	barrier()
 
 #endif

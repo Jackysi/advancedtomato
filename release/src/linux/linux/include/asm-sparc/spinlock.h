@@ -132,6 +132,18 @@ extern __inline__ void spin_unlock(spinlock_t *lock)
 	__asm__ __volatile__("stb %%g0, [%0]" : : "r" (lock) : "memory");
 }
 
+/* Read-write spinlocks, allowing multiple readers
+ * but only one writer.
+ *
+ * NOTE! it is quite common to have readers in interrupts
+ * but no interrupt writers. For those circumstances we
+ * can "mix" irq-safe locks - any writer needs to get a
+ * irq-safe write-lock, but readers can get non-irqsafe
+ * read-locks.
+ *
+ * XXX This might create some problems with my dual spinlock
+ * XXX scheme, deadlocks etc. -DaveM
+ */
 typedef struct { volatile unsigned int lock; } rwlock_t;
 
 #define RW_LOCK_UNLOCKED (rwlock_t) { 0 }

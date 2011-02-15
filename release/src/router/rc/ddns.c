@@ -101,7 +101,18 @@ static void update(int num, int *dirty, int force)
 		}
 	}
 	else if (inet_addr(ip) == -1) {
-		strcpy(ip, get_wanip());
+		switch (get_wan_proto()) {
+		case WP_PPTP:
+		case WP_L2TP:
+			if (!nvram_get_int("ppp_defgw")) {
+				strcpy(ip, nvram_safe_get("wan_ipaddr"));
+				break;
+			}
+			// else fall through
+		default:
+			strcpy(ip, get_wanip());
+			break;
+		}
 	}
 
 	sprintf(cache_fn, "%s.cache", ddnsx_path);
@@ -196,9 +207,8 @@ static void update(int num, int *dirty, int force)
 		t += (n * 86400);	// refresh every n days
 		
 		//!!TB - fix: if time is in the past, make it current
-		time_t now;
-		time(&now);
-		if (t < now + 60) t = now + 60;
+		time_t now = time(0) + (60 * 5);
+		if (t < now) t = now;
 
 		tm = localtime(&t);
 		sprintf(s, "cru a ddnsf%d \"%d %d %d %d * ddns-update %d force\"", num,

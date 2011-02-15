@@ -46,7 +46,7 @@ zebra_check_addr (struct prefix *p)
       addr = p->u.prefix4.s_addr;
       addr = ntohl (addr);
 
-      if (IPV4_NET127 (addr))
+      if (IPV4_NET127 (addr) || IN_CLASSD (addr))
 	return 0;
     }
 #ifdef HAVE_IPV6
@@ -82,23 +82,31 @@ void
 zebra_redistribute_default (struct zserv *client)
 {
   struct prefix_ipv4 p;
+  struct route_table *table;
   struct route_node *rn;
   struct rib *newrib;
 #ifdef HAVE_IPV6
   struct prefix_ipv6 p6;
 #endif /* HAVE_IPV6 */
 
+
   /* Lookup default route. */
   memset (&p, 0, sizeof (struct prefix_ipv4));
   p.family = AF_INET;
 
-  rn = route_node_lookup (rib_table_ipv4, (struct prefix *)&p);
-  if (rn)
+  /* Lookup table.  */
+  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  if (table)
     {
-      for (newrib = rn->info; newrib; newrib = newrib->next)
-	if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED))
-	  zsend_ipv4_add_multipath (client, &rn->p, newrib);
-      route_unlock_node (rn);
+      rn = route_node_lookup (table, (struct prefix *)&p);
+      if (rn)
+	{
+	  for (newrib = rn->info; newrib; newrib = newrib->next)
+	    if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
+		&& newrib->distance != DISTANCE_INFINITY)
+	      zsend_ipv4_add_multipath (client, &rn->p, newrib);
+	  route_unlock_node (rn);
+	}
     }
 
 #ifdef HAVE_IPV6
@@ -106,13 +114,19 @@ zebra_redistribute_default (struct zserv *client)
   memset (&p6, 0, sizeof (struct prefix_ipv6));
   p6.family = AF_INET6;
 
-  rn = route_node_lookup (rib_table_ipv6, (struct prefix *)&p6);
-  if (rn)
+  /* Lookup table.  */
+  table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
+  if (table)
     {
-      for (newrib = rn->info; newrib; newrib = newrib->next)
-	if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED))
-	  zsend_ipv6_add_multipath (client, &rn->p, newrib);
-      route_unlock_node (rn);
+      rn = route_node_lookup (table, (struct prefix *)&p6);
+      if (rn)
+	{
+	  for (newrib = rn->info; newrib; newrib = newrib->next)
+	    if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
+		&& newrib->distance != DISTANCE_INFINITY)
+	      zsend_ipv6_add_multipath (client, &rn->p, newrib);
+	  route_unlock_node (rn);
+	}
     }
 #endif /* HAVE_IPV6 */
 }
@@ -122,22 +136,29 @@ void
 zebra_redistribute (struct zserv *client, int type)
 {
   struct rib *newrib;
+  struct route_table *table;
   struct route_node *rn;
 
-  for (rn = route_top (rib_table_ipv4); rn; rn = route_next (rn))
-    for (newrib = rn->info; newrib; newrib = newrib->next)
-      if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED) 
-	  && newrib->type == type 
-	  && zebra_check_addr (&rn->p))
-	zsend_ipv4_add_multipath (client, &rn->p, newrib);
+  table = vrf_table (AFI_IP, SAFI_UNICAST, 0);
+  if (table)
+    for (rn = route_top (table); rn; rn = route_next (rn))
+      for (newrib = rn->info; newrib; newrib = newrib->next)
+	if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED) 
+	    && newrib->type == type 
+	    && newrib->distance != DISTANCE_INFINITY
+	    && zebra_check_addr (&rn->p))
+	  zsend_ipv4_add_multipath (client, &rn->p, newrib);
   
 #ifdef HAVE_IPV6
-  for (rn = route_top (rib_table_ipv6); rn; rn = route_next (rn))
-    for (newrib = rn->info; newrib; newrib = newrib->next)
-      if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
-	  && newrib->type == type 
-	  && zebra_check_addr (&rn->p))
-	zsend_ipv6_add_multipath (client, &rn->p, newrib);
+  table = vrf_table (AFI_IP6, SAFI_UNICAST, 0);
+  if (table)
+    for (rn = route_top (table); rn; rn = route_next (rn))
+      for (newrib = rn->info; newrib; newrib = newrib->next)
+	if (CHECK_FLAG (newrib->flags, ZEBRA_FLAG_SELECTED)
+	    && newrib->type == type 
+	    && newrib->distance != DISTANCE_INFINITY
+	    && zebra_check_addr (&rn->p))
+	  zsend_ipv6_add_multipath (client, &rn->p, newrib);
 #endif /* HAVE_IPV6 */
 }
 
@@ -181,6 +202,10 @@ redistribute_delete (struct prefix *p, struct rib *rib)
 {
   listnode node;
   struct zserv *client;
+
+  /* Add DISTANCE_INFINITY check. */
+  if (rib->distance == DISTANCE_INFINITY)
+    return;
 
   for (node = listhead (client_list); node; nextnode (node))
     if ((client = getdata (node)) != NULL)

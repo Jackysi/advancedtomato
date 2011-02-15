@@ -29,12 +29,8 @@
 #include "httpd.h"
 
 
-#define USE_MINIUPNPD
 //	#define BLACKHOLE		// for testing
 
-
-#define _dprintf(args...)	do { } while(0)
-//	#define _dprintf	cprintf
 
 extern int rboot;
 
@@ -52,6 +48,7 @@ extern int resmsg_fread(const char *fname);
 extern void asp_nvram(int argc, char **argv);
 extern void asp_nvramseq(int argc, char **argv);
 extern void asp_nv(int argc, char **argv);
+extern void asp_nvstat(int argc, char **argv);
 
 // misc.c
 extern char *js_string(const char *s);
@@ -72,7 +69,9 @@ extern void asp_compmac(int argc, char **argv);
 extern void asp_ident(int argc, char **argv);
 extern void asp_lanip(int argc, char **argv);
 extern void asp_psup(int argc, char **argv);
+#ifdef TCONFIG_OPENVPN
 extern void wo_vpn_status(char *url);
+#endif
 extern void asp_sysinfo(int argc, char **argv);
 extern void asp_statfs(int argc, char **argv);
 extern void asp_notice(int argc, char **argv);
@@ -82,6 +81,12 @@ extern void asp_mmcid(int argc, char **argv);
 extern void wo_wakeup(char *url);
 extern void asp_dns(int argc, char **argv);
 extern void wo_resolve(char *url);
+
+// usb.c
+#ifdef TCONFIG_USB
+extern void asp_usbdevices(int argc, char **argv);
+extern void wo_usbcommand(char *url);
+#endif
 
 // devlist.c
 extern void asp_arplist(int argc, char **argv);
@@ -96,13 +101,15 @@ extern void wo_expct(char *url);
 
 // wl.c
 extern void asp_wlscan(int argc, char **argv);
-extern void asp_wlradio(int argc, char **argv);
 extern void wo_wlradio(char *url);
 extern void asp_wlnoise(int argc, char **argv);
-extern void asp_wlcrssi(int argc, char **argv);
 extern void wo_wlmnoise(char *url);
+extern void asp_wlstats(int argc, char **argv);
 extern void asp_wlclient(int argc, char **argv);
-extern void asp_wlchannel(int argc, char **argv);
+extern void asp_wlchannels(int argc, char **argv);
+extern void asp_wlbands(int argc, char **argv);
+extern void asp_wlifaces(int argc, char **argv);
+extern void asp_wlcountries(int argc, char **argv);
 
 // dhcp.c
 extern void asp_dhcpc_time(int argc, char **argv);
@@ -120,6 +127,8 @@ extern void wo_ping(char *url);
 // log.c
 extern void wo_viewlog(char *url);
 extern void wo_syslog(char *url);
+extern void asp_webmon(int argc, char **argv);
+extern void wo_webmon(char *url);
 
 // ddns.c
 extern void asp_ddnsx(int argc, char **argv);
@@ -162,5 +171,8 @@ extern void wo_umount(char *url);
 extern void wo_usb(char *url);
 #endif
 
+// utf8.c
+extern char *utf8_to_js_string(const char *ins);
+extern char *utf8_to_html_string(const char *ins);
 
 #endif

@@ -55,6 +55,12 @@ do_DataAbort(unsigned long min_addr, unsigned long max_addr, int mode, struct pt
 asmlinkage int
 do_PrefetchAbort(unsigned long addr, struct pt_regs *regs)
 {
+#if 0
+	if (the memc mapping for this page exists) {
+		printk ("Page in, but got abort (undefined instruction?)\n");
+		return 0;
+	}
+#endif
 	do_page_fault(addr, FAULT_CODE_PREFETCH, regs);
 	return 1;
 }

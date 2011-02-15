@@ -167,8 +167,8 @@ NOTES:
 
 /* platform independent options- uncomment to enable */
 #define HAVE_DHCP
-/* #define HAVE_TFTP */
-/* #define HAVE_SCRIPT */
+#define HAVE_TFTP
+#define HAVE_SCRIPT
 #define HAVE_BROKEN_RTC
 /* #define HAVE_DBUS */
 

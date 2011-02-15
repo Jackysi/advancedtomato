@@ -249,5 +249,17 @@ DECLARE_IO(int,l,"")
 
 #define iomem_valid_addr(o,s)	(1)
 #define iomem_to_phys(a)	(a)
+/*
+ * 1:1 mapping for ioremapped regions.
+ */
+#define __mem_pci(x)	(x)
+
+#define __arch_getw(a)		((*(unsigned int *)(a)) & 0xffff)
+#define __arch_putw(v,a)				\
+	do {						\
+		unsigned int __v = v & 0xffff;		\
+		__v |= __v << 16;			\
+		*(unsigned int *)(a) = __v;		\
+	} while (0)
 
 #endif

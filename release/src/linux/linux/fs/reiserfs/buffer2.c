@@ -28,7 +28,7 @@ void wait_buffer_until_released (const struct buffer_head * bh)
   while (atomic_read (&(bh->b_count)) > 1) {
 
     if ( !(++repeat_counter % 30000000) ) {
-      reiserfs_warning ("vs-3050: wait_buffer_until_released: nobody releases buffer (%b). Still waiting (%d) %cJDIRTY %cJWAIT\n",
+      reiserfs_warning (NULL, "vs-3050: wait_buffer_until_released: nobody releases buffer (%b). Still waiting (%d) %cJDIRTY %cJWAIT\n",
 			bh, repeat_counter, buffer_journaled(bh) ? ' ' : '!',
 			buffer_journal_dirty(bh) ? ' ' : '!');
     }
@@ -36,7 +36,7 @@ void wait_buffer_until_released (const struct buffer_head * bh)
     yield();
   }
   if (repeat_counter > 30000000) {
-    reiserfs_warning("vs-3051: done waiting, ignore vs-3050 messages for (%b)\n", bh) ;
+    reiserfs_warning(NULL, "vs-3051: done waiting, ignore vs-3050 messages for (%b)\n", bh) ;
   }
 }
 
@@ -60,3 +60,17 @@ struct buffer_head  * reiserfs_bread (struct super_block *super, int n_block, in
     return result;
 }
 
+struct buffer_head  * journal_bread (struct super_block *s, int block)
+{
+	return bread (SB_JOURNAL_DEV(s), block, s->s_blocksize );
+}
+
+struct buffer_head  * journal_getblk (struct super_block *s, int block)
+{
+	return getblk (SB_JOURNAL_DEV(s), block, s->s_blocksize );
+}
+
+struct buffer_head  * journal_get_hash_table (struct super_block *s, int block)
+{
+  return get_hash_table (SB_JOURNAL_DEV(s), block, s->s_blocksize );
+}

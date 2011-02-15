@@ -12,6 +12,7 @@
 #include <linux/rwsem.h>
 #include <linux/sched.h>
 #include <linux/string.h>
+#include <linux/personality.h>
 #include <asm/segment.h> 
 #include <asm/ptrace.h>
 #include <asm/processor.h>
@@ -25,7 +26,8 @@ struct elf_phdr;
 
 #define IA32_EMULATOR 1
 
-#define IA32_PAGE_OFFSET 0xFFFFF000
+#define ELF_NAME "elf/i386"
+
 #define IA32_STACK_TOP IA32_PAGE_OFFSET
 #define ELF_ET_DYN_BASE		(IA32_PAGE_OFFSET/3 + 0x1000000)
 
@@ -160,14 +162,16 @@ do {							\
 # define CONFIG_BINFMT_ELF_MODULE	CONFIG_BINFMT_ELF32_MODULE
 #endif
 
-#define ELF_PLAT_INIT(r)		elf32_init(r)
+#define ELF_PLAT_INIT(r, load_addr)	elf32_init(r)
 #define setup_arg_pages(bprm)		ia32_setup_arg_pages(bprm)
+
+extern void load_gs_index(unsigned);
 
 #undef start_thread
 #define start_thread(regs,new_rip,new_rsp) do { \
-	__asm__("movl %0,%%fs": :"r" (0)); \
-	__asm__("movl %0,%%es; movl %0,%%ds": :"r" (__USER32_DS)); \
-	wrmsrl(MSR_KERNEL_GS_BASE, 0); \
+	asm volatile("movl %0,%%fs": :"r" (0)); \
+	load_gs_index(0);	\
+	asm volatile("movl %0,%%es; movl %0,%%ds": :"r" (__USER32_DS)); \
 	(regs)->rip = (new_rip); \
 	(regs)->rsp = (new_rsp); \
 	(regs)->eflags = 0x200; \
@@ -203,6 +207,8 @@ static void elf32_init(struct pt_regs *regs)
 	regs->rax = 0;
 	regs->rbx = 0; 
 	regs->rbp = 0; 
+	regs->r8 = regs->r9 = regs->r10 = regs->r11 = regs->r12 = regs->r13 =
+		regs->r14 = regs->r15 = 0;	
 	me->thread.fs = 0; 
 	me->thread.gs = 0;
 	me->thread.fsindex = 0; 
@@ -219,7 +225,7 @@ int ia32_setup_arg_pages(struct linux_binprm *bprm)
 {
 	unsigned long stack_base;
 	struct vm_area_struct *mpnt;
-	int i;
+	int i, ret;
 
 	stack_base = IA32_STACK_TOP - MAX_ARG_PAGES*PAGE_SIZE;
 
@@ -237,13 +243,18 @@ int ia32_setup_arg_pages(struct linux_binprm *bprm)
 		mpnt->vm_mm = current->mm;
 		mpnt->vm_start = PAGE_MASK & (unsigned long) bprm->p;
 		mpnt->vm_end = IA32_STACK_TOP;
-		mpnt->vm_page_prot = PAGE_COPY;
-		mpnt->vm_flags = VM_STACK_FLAGS;
+		mpnt->vm_flags = vm_stack_flags32; 
+		mpnt->vm_page_prot = (mpnt->vm_flags & VM_EXEC) ? 
+			PAGE_COPY_EXEC : PAGE_COPY;
 		mpnt->vm_ops = NULL;
 		mpnt->vm_pgoff = 0;
 		mpnt->vm_file = NULL;
 		mpnt->vm_private_data = (void *) 0;
-		insert_vm_struct(current->mm, mpnt);
+		if ((ret = insert_vm_struct(current->mm, mpnt))) {
+			up_write(&current->mm->mmap_sem);
+			kmem_cache_free(vm_area_cachep, mpnt);
+			return ret;
+		}
 		current->mm->total_vm = (mpnt->vm_end - mpnt->vm_start) >> PAGE_SHIFT;
 	} 
 

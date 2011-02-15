@@ -17,10 +17,16 @@ extern unsigned int pcibios_assign_all_busses(void);
 #else
 #define pcibios_assign_all_busses()	0
 #endif
+#define pcibios_scan_all_fns()		0
 
 extern unsigned long pci_mem_start;
 #define PCIBIOS_MIN_IO		0x1000
 #define PCIBIOS_MIN_MEM		(pci_mem_start)
+
+void pcibios_config_init(void);
+struct pci_bus * pcibios_scan_root(int bus);
+extern int (*pci_config_read)(int seg, int bus, int dev, int fn, int reg, int len, u32 *value);
+extern int (*pci_config_write)(int seg, int bus, int dev, int fn, int reg, int len, u32 value);
 
 void pcibios_set_master(struct pci_dev *dev);
 void pcibios_penalize_isa_irq(int irq);
@@ -36,6 +42,7 @@ int pcibios_set_irq_routing(struct pci_dev *dev, int pin, int irq);
 #include <asm/mmzone.h>
 
 struct pci_dev;
+extern int force_mmu;
 
 /* Allocate and map kernel buffer using consistent mode DMA for a device.
  * hwdev should be valid struct pci_dev pointer for PCI devices,
@@ -58,6 +65,19 @@ extern void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
 extern void pci_free_consistent(struct pci_dev *hwdev, size_t size,
 				void *vaddr, dma_addr_t dma_handle);
 
+extern int swiotlb; 
+
+#ifdef CONFIG_SWIOTLB
+extern dma_addr_t swiotlb_map_single (struct pci_dev *hwdev, void *ptr, size_t size, 
+                                     int dir);
+extern void swiotlb_unmap_single (struct pci_dev *hwdev, dma_addr_t dev_addr,
+                                 size_t size, int dir);
+extern void swiotlb_sync_single (struct pci_dev *hwdev, dma_addr_t dev_addr, 
+                                size_t size, int dir);
+extern void swiotlb_sync_sg (struct pci_dev *hwdev, struct scatterlist *sg, int nelems, 
+                            int dir);
+#endif
+
 #ifdef CONFIG_GART_IOMMU
 
 /* Map a single buffer of the indicated size for DMA in streaming mode.
@@ -67,9 +87,10 @@ extern void pci_free_consistent(struct pci_dev *hwdev, size_t size,
  * until either pci_unmap_single or pci_dma_sync_single is performed.
  */
 extern dma_addr_t pci_map_single(struct pci_dev *hwdev, void *ptr,
-			  size_t size, int direction);
+				 size_t size, int direction);
 
-extern void pci_unmap_single(struct pci_dev *hwdev, dma_addr_t addr,
+
+void pci_unmap_single(struct pci_dev *hwdev, dma_addr_t addr,
 				   size_t size, int direction);
 
 /*
@@ -97,6 +118,10 @@ static inline void pci_dma_sync_single(struct pci_dev *hwdev,
 				       dma_addr_t dma_handle,
 				       size_t size, int direction)
 {
+#ifdef CONFIG_SWIOTLB
+       if (swiotlb)
+               return swiotlb_sync_single(hwdev,dma_handle,size,direction);
+#endif
 	BUG_ON(direction == PCI_DMA_NONE); 
 } 
 
@@ -105,6 +130,10 @@ static inline void pci_dma_sync_sg(struct pci_dev *hwdev,
 				   int nelems, int direction)
 { 
 	BUG_ON(direction == PCI_DMA_NONE); 
+#ifdef CONFIG_SWIOTLB
+       if (swiotlb)
+               return swiotlb_sync_sg(hwdev,sg,nelems,direction);
+#endif
 } 
 
 /* The PCI address space does equal the physical memory
@@ -202,7 +231,6 @@ extern int pci_map_sg(struct pci_dev *hwdev, struct scatterlist *sg,
 		      int nents, int direction);
 extern void pci_unmap_sg(struct pci_dev *hwdev, struct scatterlist *sg,
 			 int nents, int direction);
-
 
 #define pci_unmap_page pci_unmap_single
 

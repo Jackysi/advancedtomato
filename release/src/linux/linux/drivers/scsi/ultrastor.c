@@ -701,8 +701,14 @@ int ultrastor_queuecommand(Scsi_Cmnd *SCpnt, void (*done)(Scsi_Cmnd *))
 
     my_mscp = &config.mscp[mscp_index];
 
+#if 1
     /* This way is faster.  */
     *(unsigned char *)my_mscp = OP_SCSI | (DTD_SCSI << 3);
+#else
+    my_mscp->opcode = OP_SCSI;
+    my_mscp->xdir = DTD_SCSI;
+    my_mscp->dcn = FALSE;
+#endif
     /* Tape drives don't work properly if the cache is used.  The SCSI
        READ command for a tape doesn't have a block offset, and the adapter
        incorrectly assumes that all reads from the tape read the same
@@ -884,7 +890,7 @@ int ultrastor_abort(Scsi_Cmnd *SCpnt)
 	cli();
 	ultrastor_interrupt(0, NULL, NULL);
 	restore_flags(flags);
-	return SCSI_ABORT_SUCCESS;  
+	return SCSI_ABORT_SUCCESS;  /* FIXME - is this correct? -ERY */
       }
 #endif
 
@@ -924,6 +930,10 @@ int ultrastor_abort(Scsi_Cmnd *SCpnt)
        still be using it.  Setting SCint = 0 causes the interrupt
        handler to ignore the command.  */
 
+    /* FIXME - devices that implement soft resets will still be running
+       the command after a bus reset.  We would probably rather leave
+       the command in the queue.  The upper level code will automatically
+       leave the command in the active state instead of requeueing it. ERY */
 
 #if ULTRASTOR_DEBUG & UD_ABORT
     if (config.mscp[mscp_index].SCint != SCpnt)
@@ -989,6 +999,8 @@ int ultrastor_reset(Scsi_Cmnd * SCpnt, unsigned int reset_flags)
       }
 #endif
 
+    /* FIXME - if the device implements soft resets, then the command
+       will still be running.  ERY */
 
     memset((unsigned char *)config.aborted, 0, sizeof config.aborted);
 #if ULTRASTOR_MAX_CMDS == 1
@@ -1010,6 +1022,10 @@ int ultrastor_biosparam(Disk * disk, kdev_t dev, int * dkinfo)
     dkinfo[0] = config.heads;
     dkinfo[1] = config.sectors;
     dkinfo[2] = size / s;	/* Ignore partial cylinders */
+#if 0
+    if (dkinfo[2] > 1024)
+	dkinfo[2] = 1024;
+#endif
     return 0;
 }
 

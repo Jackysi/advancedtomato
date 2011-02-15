@@ -48,6 +48,9 @@ int do_getitimer(int which, struct itimerval *value)
 	case ITIMER_REAL:
 		interval = current->it_real_incr;
 		val = 0;
+		/* 
+		 * FIXME! This needs to be atomic, in case the kernel timer happens!
+		 */
 		if (timer_pending(&current->real_timer)) {
 			val = current->real_timer.expires - jiffies;
 

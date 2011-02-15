@@ -77,7 +77,7 @@ enum {
 struct globals {
 	struct sockaddr saddr;
 	struct ether_addr eth_addr;
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define saddr    (G.saddr   )
 #define eth_addr (G.eth_addr)
@@ -160,13 +160,13 @@ static int run(char *argv[3], const char *param, struct in_addr *ip)
 	}
 	bb_info_msg(fmt, argv[2], argv[0], addr);
 
-	status = wait4pid(spawn(argv + 1));
+	status = spawn_and_wait(argv + 1);
 	if (status < 0) {
 		bb_perror_msg("%s %s %s" + 3, argv[2], argv[0]);
 		return -errno;
 	}
 	if (status != 0)
-		bb_error_msg("script %s %s failed, exitcode=%d", argv[1], argv[2], status);
+		bb_error_msg("script %s %s failed, exitcode=%d", argv[1], argv[2], status & 0xff);
 	return status;
 }
 
@@ -182,7 +182,7 @@ static ALWAYS_INLINE unsigned random_delay_ms(unsigned secs)
  * main program
  */
 int zcip_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int zcip_main(int argc, char **argv)
+int zcip_main(int argc UNUSED_PARAM, char **argv)
 {
 	int state;
 	char *r_opt;
@@ -241,7 +241,6 @@ int zcip_main(int argc, char **argv)
 			bb_error_msg_and_die("invalid link address");
 		}
 	}
-	argc -= optind;
 	argv += optind - 1;
 
 	/* Now: argv[0]:junk argv[1]:intf argv[2]:script argv[3]:NULL */

@@ -3,6 +3,13 @@
 
 #ifdef	__KERNEL__
 #include <linux/config.h>
+
+#define BITS_TO_LONGS(bits) \
+	(((bits)+BITS_PER_LONG-1)/BITS_PER_LONG)
+#define DECLARE_BITMAP(name,bits) \
+	unsigned long name[BITS_TO_LONGS(bits)]
+#define CLEAR_BITMAP(name,bits) \
+	memset(name, 0, BITS_TO_LONGS(bits)*sizeof(unsigned long))
 #endif
 
 #include <linux/posix_types.h>
@@ -113,12 +120,39 @@ typedef		__u64		u_int64_t;
 typedef		__s64		int64_t;
 #endif
 
+/* this is a special 64bit data type that is 8-byte aligned */
+#define aligned_u64 __u64 __attribute__((aligned(8)))
+#define aligned_be64 __be64 __attribute__((aligned(8)))
+#define aligned_le64 __le64 __attribute__((aligned(8)))
+
+
 #endif /* __KERNEL_STRICT_NAMES */
 
 /*
  * Below are truly Linux-specific types that should never collide with
  * any application/library that wants linux/types.h.
  */
+
+#ifdef __CHECKER__
+#define __bitwise__ __attribute__((bitwise))
+#else
+#define __bitwise__
+#endif
+#ifdef __CHECK_ENDIAN__
+#define __bitwise __bitwise__
+#else
+#define __bitwise
+#endif
+
+typedef __u16 __bitwise __le16;
+typedef __u16 __bitwise __be16;
+typedef __u32 __bitwise __le32;
+typedef __u32 __bitwise __be32;
+typedef __u64 __bitwise __le64;
+typedef __u64 __bitwise __be64;
+
+typedef __u16 __bitwise __sum16;
+typedef __u32 __bitwise __wsum;
 
 struct ustat {
 	__kernel_daddr_t	f_tfree;

@@ -64,6 +64,12 @@ extern struct fd_ops *fd_ops;
 #define MAX_BUFFER_SECTORS 24
 
 
+/*
+ * And on Mips's the CMOS info fails also ...
+ *
+ * FIXME: This information should come from the ARC configuration tree
+ *        or whereever a particular machine has stored this ...
+ */
 #define FLOPPY0_TYPE 			fd_drive_type(0)
 #define FLOPPY1_TYPE			fd_drive_type(1)
 

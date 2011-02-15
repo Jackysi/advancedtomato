@@ -36,10 +36,6 @@
 #include <sys/ioctl.h>
 
 
-#define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
-
-
-
 int ipup_main(int argc, char **argv)
 {
 	char *wan_ifname;
@@ -47,12 +43,11 @@ int ipup_main(int argc, char **argv)
 	char buf[256];
 	const char *p;
 
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	killall("listen", SIGKILL);
 	
 	if (!wait_action_idle(10)) return -1;
-	
 
 	wan_ifname = safe_getenv("IFNAME");
 	if ((!wan_ifname) || (!*wan_ifname)) return -1;
@@ -65,7 +60,7 @@ int ipup_main(int argc, char **argv)
 	f_write_string("/tmp/ppp/link", argv[1], 0, 0);
 	
 	if ((value = getenv("IPLOCAL"))) {
-		_dprintf("IPLOCAL=%s\n", getenv("IPLOCAL"));
+		_dprintf("IPLOCAL=%s\n", value);
 
 		ifconfig(wan_ifname, IFUP, value, "255.255.255.255");
 
@@ -76,19 +71,16 @@ int ipup_main(int argc, char **argv)
 			nvram_set("wan_netmask", "255.255.255.255");
 			break;
 		case WP_PPTP:
-			nvram_set("wan_ipaddr_buf", nvram_safe_get("pptp_get_ip"));
-			nvram_set("pptp_get_ip", value);
-			break;
 		case WP_L2TP:
-			nvram_set("wan_ipaddr_buf", nvram_safe_get("l2tp_get_ip"));
-			nvram_set("l2tp_get_ip", value);
+			nvram_set("wan_ipaddr_buf", nvram_safe_get("ppp_get_ip"));
+			nvram_set("ppp_get_ip", value);
 			break;
 		}
 	}
 
 	if ((value = getenv("IPREMOTE"))) {
-		nvram_set("wan_gateway", value);
-		_dprintf("IPREMOTE=%s\n", getenv("IPREMOTE"));
+		nvram_set("wan_gateway_get", value);
+		_dprintf("IPREMOTE=%s\n", value);
 	}
 
 	buf[0] = 0;
@@ -102,10 +94,10 @@ int ipup_main(int argc, char **argv)
 	if ((value = getenv("AC_NAME"))) nvram_set("ppp_get_ac", value);
 	if ((value = getenv("SRV_NAME"))) nvram_set("ppp_get_srv", value);
 	if ((value = getenv("MTU"))) nvram_set("wan_run_mtu", value);
-	
+
 	start_wan_done(wan_ifname);
 
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 	return 0;
 }
 
@@ -113,7 +105,7 @@ int ipdown_main(int argc, char **argv)
 {
 	int proto;
 	
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	if (!wait_action_idle(10)) return -1;
 
@@ -123,16 +115,18 @@ int ipdown_main(int argc, char **argv)
 	unlink("/tmp/ppp/link");
 
 	proto = get_wan_proto();
-	if (proto == WP_L2TP) {
+	if (proto == WP_L2TP || proto == WP_PPTP) {
 		/* clear dns from the resolv.conf */
 		nvram_set("wan_get_dns","");
 		dns_to_resolv();
 
-		route_del(nvram_safe_get("wan_ifname"), 0, nvram_safe_get("l2tp_server_ip"),
-			nvram_safe_get("wan_gateway_buf"), "255.255.255.255"); // fixed routing problem in Israel by kanki
+		if (proto == WP_L2TP) {
+			route_del(nvram_safe_get("wan_ifname"), 0, nvram_safe_get("l2tp_server_ip"),
+				nvram_safe_get("wan_gateway"), "255.255.255.255"); // fixed routing problem in Israel by kanki
+		}
 
 		// Restore the default gateway for WAN interface
-		nvram_set("wan_gateway", nvram_safe_get("wan_gateway_buf"));
+		nvram_set("wan_gateway_get", nvram_safe_get("wan_gateway"));
 
 		// Set default route to gateway if specified
 		route_add(nvram_safe_get("wan_ifname"), 0, "0.0.0.0", nvram_safe_get("wan_gateway"), "0.0.0.0");
@@ -143,7 +137,7 @@ int ipdown_main(int argc, char **argv)
 		eval("listen", nvram_safe_get("lan_ifname"));
 	}
 
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 	return 1;
 }
 
@@ -151,7 +145,7 @@ int pppevent_main(int argc, char **argv)
 {
 	int i;
 	
-	_dprintf("%s: begin\n", __FUNCTION__);
+	TRACE_PT("begin\n");
 
 	for (i = 1; i < argc; ++i) {
 		_dprintf("%s: arg%d=%s\n", __FUNCTION__, i, argv[i]);
@@ -165,7 +159,7 @@ int pppevent_main(int argc, char **argv)
 		}
 	}
 
-	_dprintf("%s: end\n", __FUNCTION__);
+	TRACE_PT("end\n");
 	return 1;
 }
 

@@ -10,9 +10,17 @@
  * handling functions
  */
 
+#if 0
+#define dprintk printk    /* debug */
+#else
 #define dprintk(format,args...)
+#endif
 
+#if 0
+#define ddprintk printk  /* more debug */
+#else
 #define ddprintk(format,args...)
+#endif
 
 static in_cache_entry *in_cache_get(uint32_t dst_ip,
 				    struct mpoa_client *client)
@@ -204,7 +212,7 @@ static void in_cache_remove_entry(in_cache_entry *entry,
 			client->eg_ops->put(eg_entry);
 			return;
 		}
-		atm_async_release_vcc(vcc, -EPIPE);
+		vcc_release_async(vcc, -EPIPE);
 	}
 
 	return;
@@ -439,7 +447,7 @@ static void eg_cache_remove_entry(eg_cache_entry *entry,
 			client->in_ops->put(in_entry);
 			return;
 		}
-		atm_async_release_vcc(vcc, -EPIPE);
+		vcc_release_async(vcc, -EPIPE);
 	}
 
 	return;

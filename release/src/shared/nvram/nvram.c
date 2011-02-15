@@ -1,7 +1,7 @@
 /*
  * NVRAM variable manipulation (common)
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -39,7 +39,7 @@ static struct nvram_tuple * BCMINITDATA(nvram_hash)[257];
 static struct nvram_tuple * nvram_dead;
 
 /* Free all tuples. Should be locked. */
-static void
+static void  
 BCMINITFN(nvram_free)(void)
 {
 	uint i;
@@ -78,7 +78,7 @@ hash(const char *s)
 }
 
 /* (Re)initialize the hash table. Should be locked. */
-static int
+static int 
 BCMINITFN(nvram_rehash)(struct nvram_header *header)
 {
 	char buf[] = "0xXXXXXXXX", *name, *value, *end, *eq;
@@ -121,8 +121,8 @@ BCMINITFN(nvram_rehash)(struct nvram_header *header)
 }
 
 /* Get the value of an NVRAM variable. Should be locked. */
-char *
-BCMINITFN(_nvram_get)(const char *name)
+char * 
+_nvram_get(const char *name)
 {
 	uint i;
 	struct nvram_tuple *t;
@@ -143,7 +143,7 @@ BCMINITFN(_nvram_get)(const char *name)
 }
 
 /* Set the value of an NVRAM variable. Should be locked. */
-int
+int 
 BCMINITFN(_nvram_set)(const char *name, const char *value)
 {
 	uint i;
@@ -179,7 +179,7 @@ BCMINITFN(_nvram_set)(const char *name, const char *value)
 }
 
 /* Unset the value of an NVRAM variable. Should be locked. */
-int
+int 
 BCMINITFN(_nvram_unset)(const char *name)
 {
 	uint i;
@@ -206,8 +206,8 @@ BCMINITFN(_nvram_unset)(const char *name)
 }
 
 /* Get all NVRAM variables. Should be locked. */
-int
-BCMINITFN(_nvram_getall)(char *buf, int count)
+int 
+_nvram_getall(char *buf, int count)
 {
 	uint i;
 	struct nvram_tuple *t;
@@ -285,7 +285,7 @@ BCMINITFN(_nvram_commit)(struct nvram_header *header)
 }
 
 /* Initialize hash table. Should be locked. */
-int
+int 
 BCMINITFN(_nvram_init)(void *sb)
 {
 	struct nvram_header *header;
@@ -302,12 +302,11 @@ BCMINITFN(_nvram_init)(void *sb)
 		nvram_rehash(header);
 
 	MFREE(sb_osh(sb), header, NVRAM_SPACE);
-	bcm_nvram_cache(sb);
 	return ret;
 }
 
 /* Free hash table. Should be locked. */
-void
+void 
 BCMINITFN(_nvram_exit)(void)
 {
 	nvram_free();

@@ -1,0 +1,15 @@
+########################################################
+# InfoCert Business Key (SmartCard/Reader emulation)
+
+DefaultVendor= 0x072f
+DefaultProduct=0x100d
+
+TargetVendor=  0x072f
+TargetProduct= 0x90cc
+
+CheckSuccess=20
+
+MessageContent="01b0000000000000000000000000000000000000000000000000000000000000"
+
+NoDriverLoading=1
+

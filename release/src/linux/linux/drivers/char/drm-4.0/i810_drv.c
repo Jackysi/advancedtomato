@@ -286,7 +286,7 @@ static int i810_takedown(drm_device_t *dev)
 					DRM_DEBUG("mtrr_del = %d\n", retcode);
 				}
 #endif
-				drm_ioremapfree(map->handle, map->size);
+				drm_ioremapfree(map->handle, map->size, dev);
 				break;
 			case _DRM_SHM:
 				drm_free_pages((unsigned long)map->handle,
@@ -499,6 +499,10 @@ int i810_release(struct inode *inode, struct file *filp)
 			      &dev->lock.hw_lock->lock,
 			      _DRM_LOCKING_CONTEXT(dev->lock.hw_lock->lock));
 
+				/* FIXME: may require heavy-handed reset of
+                                   hardware at this point, possibly
+                                   processed via a callback to the X
+                                   server. */
 	} else if (dev->lock.hw_lock) {
 	   	/* The lock is required to reclaim buffers */
 	   	DECLARE_WAITQUEUE(entry, current);

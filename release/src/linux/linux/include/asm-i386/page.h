@@ -41,11 +41,13 @@ typedef struct { unsigned long pte_low, pte_high; } pte_t;
 typedef struct { unsigned long long pmd; } pmd_t;
 typedef struct { unsigned long long pgd; } pgd_t;
 #define pte_val(x)	((x).pte_low | ((unsigned long long)(x).pte_high << 32))
+#define __pte(x) ({ pte_t __pte = {(x), (x) >> 32}; __pte; })
 #else
 typedef struct { unsigned long pte_low; } pte_t;
 typedef struct { unsigned long pmd; } pmd_t;
 typedef struct { unsigned long pgd; } pgd_t;
 #define pte_val(x)	((x).pte_low)
+#define __pte(x) ((pte_t) { (x) } )
 #endif
 #define PTE_MASK	PAGE_MASK
 
@@ -55,7 +57,6 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 #define pgd_val(x)	((x).pgd)
 #define pgprot_val(x)	((x).pgprot)
 
-#define __pte(x) ((pte_t) { (x) } )
 #define __pmd(x) ((pmd_t) { (x) } )
 #define __pgd(x) ((pgd_t) { (x) } )
 #define __pgprot(x)	((pgprot_t) { (x) } )
@@ -95,11 +96,15 @@ typedef struct { unsigned long pgprot; } pgprot_t;
  * undefined" opcode for parsing in the trap handler.
  */
 
+#if 1	/* Set to zero for a slightly smaller kernel */
 #define BUG()				\
  __asm__ __volatile__(	"ud2\n"		\
 			"\t.word %c0\n"	\
 			"\t.long %c1\n"	\
 			 : : "i" (__LINE__), "i" (__FILE__))
+#else
+#define BUG() __asm__ __volatile__("ud2\n")
+#endif
 
 #define PAGE_BUG(page) do { \
 	BUG(); \

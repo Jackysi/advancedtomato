@@ -71,7 +71,7 @@ extern  void iSeries_allocateDeviceBars(struct pci_dev* );
 /* iSeries_xlateIoMmAddress                                             */
 /************************************************************************/
 /* - Translates an I/O Memory address to Device Node that has been the  */
-/*   allocated the psuedo I/O Address.                                  */
+/*   allocated the pseudo I/O Address.                                  */
 /*                                                                      */
 /* Parameters:                                                          */
 /* IoAddress = I/O Memory Address.                                      */

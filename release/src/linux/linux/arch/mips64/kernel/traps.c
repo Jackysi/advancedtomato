@@ -3,11 +3,13 @@
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 1994 - 1999 by Ralf Baechle
+ * Copyright (C) 1994 - 1999, 2000, 01 Ralf Baechle
  * Copyright (C) 1995, 1996 Paul M. Antoine
  * Copyright (C) 1998 Ulf Carlsson
  * Copyright (C) 1999 Silicon Graphics, Inc.
- * Copyright (C) 2002  Maciej W. Rozycki
+ * Kevin D. Kissell, kevink@mips.com and Carsten Langgaard, carstenl@mips.com
+ * Copyright (C) 2000, 01 MIPS Technologies, Inc.
+ * Copyright (C) 2002, 2003, 2004  Maciej W. Rozycki
  */
 #include <linux/config.h>
 #include <linux/init.h>
@@ -20,6 +22,7 @@
 
 #include <asm/bootinfo.h>
 #include <asm/branch.h>
+#include <asm/break.h>
 #include <asm/cpu.h>
 #include <asm/fpu.h>
 #include <asm/module.h>
@@ -57,12 +60,8 @@ extern asmlinkage void handle_reserved(void);
 extern int fpu_emulator_cop1Handler(int xcptno, struct pt_regs *xcp,
 	struct mips_fpu_soft_struct *ctx);
 
-void fpu_emulator_init_fpu(void);
-
-char watch_available = 0;
-char dedicated_iv_available = 0;
-
-int (*be_board_handler)(struct pt_regs *regs, int is_fixup);
+void (*board_be_init)(void);
+int (*board_be_handler)(struct pt_regs *regs, int is_fixup);
 
 int kstack_depth_to_print = 24;
 
@@ -71,8 +70,6 @@ int kstack_depth_to_print = 24;
  * MODULE_RANGE is a guess of how much space is likely to be vmalloced.
  */
 #define MODULE_RANGE (8*1024*1024)
-
-#define OPCODE 0xfc000000
 
 /*
  * If the address is either in the .text section of the
@@ -216,15 +213,15 @@ void show_regs(struct pt_regs *regs)
 	printk("$0      : %016lx %016lx %016lx %016lx\n",
 	       0UL, regs->regs[1], regs->regs[2], regs->regs[3]);
 	printk("$4      : %016lx %016lx %016lx %016lx\n",
-               regs->regs[4], regs->regs[5], regs->regs[6], regs->regs[7]);
+	       regs->regs[4], regs->regs[5], regs->regs[6], regs->regs[7]);
 	printk("$8      : %016lx %016lx %016lx %016lx\n",
 	       regs->regs[8], regs->regs[9], regs->regs[10], regs->regs[11]);
 	printk("$12     : %016lx %016lx %016lx %016lx\n",
-               regs->regs[12], regs->regs[13], regs->regs[14], regs->regs[15]);
+	       regs->regs[12], regs->regs[13], regs->regs[14], regs->regs[15]);
 	printk("$16     : %016lx %016lx %016lx %016lx\n",
 	       regs->regs[16], regs->regs[17], regs->regs[18], regs->regs[19]);
 	printk("$20     : %016lx %016lx %016lx %016lx\n",
-               regs->regs[20], regs->regs[21], regs->regs[22], regs->regs[23]);
+	       regs->regs[20], regs->regs[21], regs->regs[22], regs->regs[23]);
 	printk("$24     : %016lx %016lx\n",
 	       regs->regs[24], regs->regs[25]);
 	printk("$28     : %016lx %016lx %016lx %016lx\n",
@@ -236,6 +233,7 @@ void show_regs(struct pt_regs *regs)
 	printk("epc     : %016lx    %s\nbadvaddr: %016lx\n",
 	       regs->cp0_epc, print_tainted(), regs->cp0_badvaddr);
 	printk("Status  : %08x  [ ", (unsigned int) regs->cp0_status);
+
 	if (regs->cp0_status & ST0_KX) printk("KX ");
 	if (regs->cp0_status & ST0_SX) printk("SX ");
 	if (regs->cp0_status & ST0_UX) printk("UX ");
@@ -251,6 +249,7 @@ void show_regs(struct pt_regs *regs)
 	printk("]\n");
 
 	printk("Cause   : %08x\n", (unsigned int) regs->cp0_cause);
+	printk("PrId  : %08x\n", read_c0_prid());
 }
 
 void show_registers(struct pt_regs *regs)
@@ -338,7 +337,7 @@ search_dbe_table(unsigned long addr)
 	spin_lock_irqsave(&modlist_lock, flags);
 	for (mp = module_list; mp != NULL; mp = mp->next) {
 		if (!mod_member_present(mp, archdata_end) ||
-        	    !mod_archdata_member_present(mp, struct archdata,
+		    !mod_archdata_member_present(mp, struct archdata,
 						 dbe_table_end))
 			continue;
 		ap = (struct archdata *)(mp->archdata_start);
@@ -364,13 +363,13 @@ asmlinkage void do_be(struct pt_regs *regs)
 	int action = MIPS_BE_FATAL;
 
 	if (data && !user_mode(regs))
-		fixup = search_dbe_table(regs->cp0_epc);
+		fixup = search_dbe_table(exception_epc(regs));
 
 	if (fixup)
 		action = MIPS_BE_FIXUP;
 
-	if (be_board_handler)
-		action = be_board_handler(regs, fixup != 0);
+	if (board_be_handler)
+		action = board_be_handler(regs, fixup != 0);
 
 	switch (action) {
 	case MIPS_BE_DISCARD:
@@ -397,6 +396,151 @@ asmlinkage void do_be(struct pt_regs *regs)
 	force_sig(SIGBUS, current);
 }
 
+static inline int get_insn_opcode(struct pt_regs *regs, unsigned int *opcode)
+{
+	unsigned int *epc;
+
+	epc = (unsigned int *) regs->cp0_epc +
+	      ((regs->cp0_cause & CAUSEF_BD) != 0);
+	if (!get_user(*opcode, epc))
+		return 0;
+
+	force_sig(SIGSEGV, current);
+	return 1;
+}
+
+/*
+ * ll/sc emulation
+ */
+
+#define OPCODE 0xfc000000
+#define BASE   0x03e00000
+#define RT     0x001f0000
+#define OFFSET 0x0000ffff
+#define LL     0xc0000000
+#define SC     0xe0000000
+
+/*
+ * The ll_bit is cleared by r*_switch.S
+ */
+
+unsigned long ll_bit;
+
+static struct task_struct *ll_task = NULL;
+
+static inline void simulate_ll(struct pt_regs *regs, unsigned int opcode)
+{
+	unsigned long value, *vaddr;
+	long offset;
+	int signal = 0;
+
+	/*
+	 * analyse the ll instruction that just caused a ri exception
+	 * and put the referenced address to addr.
+	 */
+
+	/* sign extend offset */
+	offset = opcode & OFFSET;
+	offset <<= 16;
+	offset >>= 16;
+
+	vaddr = (unsigned long *)((long)(regs->regs[(opcode & BASE) >> 21]) + offset);
+
+	if ((unsigned long)vaddr & 3) {
+		signal = SIGBUS;
+		goto sig;
+	}
+	if (get_user(value, vaddr)) {
+		signal = SIGSEGV;
+		goto sig;
+	}
+
+	if (ll_task == NULL || ll_task == current) {
+		ll_bit = 1;
+	} else {
+		ll_bit = 0;
+	}
+	ll_task = current;
+
+	compute_return_epc(regs);
+
+	regs->regs[(opcode & RT) >> 16] = value;
+
+	return;
+
+sig:
+	force_sig(signal, current);
+}
+
+static inline void simulate_sc(struct pt_regs *regs, unsigned int opcode)
+{
+	unsigned long *vaddr, reg;
+	long offset;
+	int signal = 0;
+
+	/*
+	 * analyse the sc instruction that just caused a ri exception
+	 * and put the referenced address to addr.
+	 */
+
+	/* sign extend offset */
+	offset = opcode & OFFSET;
+	offset <<= 16;
+	offset >>= 16;
+
+	vaddr = (unsigned long *)((long)(regs->regs[(opcode & BASE) >> 21]) + offset);
+	reg = (opcode & RT) >> 16;
+
+	if ((unsigned long)vaddr & 3) {
+		signal = SIGBUS;
+		goto sig;
+	}
+	if (ll_bit == 0 || ll_task != current) {
+		compute_return_epc(regs);
+		regs->regs[reg] = 0;
+		return;
+	}
+
+	if (put_user(regs->regs[reg], vaddr)) {
+		signal = SIGSEGV;
+		goto sig;
+	}
+
+	compute_return_epc(regs);
+	regs->regs[reg] = 1;
+
+	return;
+
+sig:
+	force_sig(signal, current);
+}
+
+/*
+ * ll uses the opcode of lwc0 and sc uses the opcode of swc0.  That is both
+ * opcodes are supposed to result in coprocessor unusable exceptions if
+ * executed on ll/sc-less processors.  That's the theory.  In practice a
+ * few processors such as NEC's VR4100 throw reserved instruction exceptions
+ * instead, so we're doing the emulation thing in both exception handlers.
+ */
+static inline int simulate_llsc(struct pt_regs *regs)
+{
+	unsigned int opcode;
+
+	if (unlikely(get_insn_opcode(regs, &opcode)))
+		return -EFAULT;
+
+	if ((opcode & OPCODE) == LL) {
+		simulate_ll(regs, opcode);
+		return 0;
+	}
+	if ((opcode & OPCODE) == SC) {
+		simulate_sc(regs, opcode);
+		return 0;
+	}
+
+	return -EFAULT;			/* Strange things going on ... */
+}
+
 asmlinkage void do_ov(struct pt_regs *regs)
 {
 	siginfo_t info;
@@ -408,6 +552,9 @@ asmlinkage void do_ov(struct pt_regs *regs)
 	force_sig_info(SIGFPE, &info, current);
 }
 
+/*
+ * XXX Delayed fp exceptions when doing a lazy ctx switch XXX
+ */
 asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 {
 	if (fcr31 & FPU_CSR_UNI_X) {
@@ -448,23 +595,12 @@ asmlinkage void do_fpe(struct pt_regs *regs, unsigned long fcr31)
 	force_sig(SIGFPE, current);
 }
 
-static inline int get_insn_opcode(struct pt_regs *regs, unsigned int *opcode)
-{
-	unsigned int *epc;
-
-	epc = (unsigned int *) regs->cp0_epc +
-	      ((regs->cp0_cause & CAUSEF_BD) != 0);
-	if (!get_user(*opcode, epc))
-		return 0;
-
-	force_sig(SIGSEGV, current);
-	return 1;
-}
-
 asmlinkage void do_bp(struct pt_regs *regs)
 {
 	unsigned int opcode, bcode;
 	siginfo_t info;
+
+	die_if_kernel("Break instruction in kernel code", regs);
 
 	if (get_insn_opcode(regs, &opcode))
 		return;
@@ -472,9 +608,12 @@ asmlinkage void do_bp(struct pt_regs *regs)
 	/*
 	 * There is the ancient bug in the MIPS assemblers that the break
 	 * code starts left to bit 16 instead to bit 6 in the opcode.
-	 * Gas is bug-compatible ...
+	 * Gas is bug-compatible, but not always, grrr...
+	 * We handle both cases with a simple heuristics.  --macro
 	 */
-	bcode = ((opcode >> 16) & ((1 << 20) - 1));
+	bcode = ((opcode >> 6) & ((1 << 20) - 1));
+	if (bcode < (1 << 10))
+		bcode <<= 10;
 
 	/*
 	 * (A short test says that IRIX 5.3 sends SIGTRAP for all break
@@ -483,9 +622,9 @@ asmlinkage void do_bp(struct pt_regs *regs)
 	 * But should we continue the brokenness???  --macro
 	 */
 	switch (bcode) {
-	case 6:
-	case 7:
-		if (bcode == 7)
+	case BRK_OVERFLOW << 10:
+	case BRK_DIVZERO << 10:
+		if (bcode == (BRK_DIVZERO << 10))
 			info.si_code = FPE_INTDIV;
 		else
 			info.si_code = FPE_INTOVF;
@@ -507,9 +646,9 @@ asmlinkage void do_tr(struct pt_regs *regs)
 	if (get_insn_opcode(regs, &opcode))
 		return;
 
-        /* Immediate versions don't provide a code.  */
+	/* Immediate versions don't provide a code.  */
 	if (!(opcode & OPCODE))
-		tcode = ((opcode >> 6) & ((1 << 20) - 1));
+		tcode = ((opcode >> 6) & ((1 << 10) - 1));
 
 	/*
 	 * (A short test says that IRIX 5.3 sends SIGTRAP for all trap
@@ -518,9 +657,9 @@ asmlinkage void do_tr(struct pt_regs *regs)
 	 * But should we continue the brokenness???  --macro
 	 */
 	switch (tcode) {
-	case 6:
-	case 7:
-		if (tcode == 7)
+	case BRK_OVERFLOW:
+	case BRK_DIVZERO:
+		if (tcode == BRK_DIVZERO)
 			info.si_code = FPE_INTDIV;
 		else
 			info.si_code = FPE_INTOVF;
@@ -538,6 +677,10 @@ asmlinkage void do_ri(struct pt_regs *regs)
 {
 	die_if_kernel("Reserved instruction in kernel code", regs);
 
+	if (!cpu_has_llsc)
+		if (!simulate_llsc(regs))
+			return;
+
 	force_sig(SIGILL, current);
 }
 
@@ -545,29 +688,42 @@ asmlinkage void do_cpu(struct pt_regs *regs)
 {
 	unsigned int cpid;
 
-	cpid = (regs->cp0_cause >> CAUSEB_CE) & 3;
-	if (cpid != 1)
-		goto bad_cid;
-
 	die_if_kernel("do_cpu invoked from kernel context!", regs);
 
-	own_fpu();
-	if (current->used_math) {               /* Using the FPU again.  */
-		restore_fp(current);
-	} else {
-		init_fpu();
-		current->used_math = 1;
+	cpid = (regs->cp0_cause >> CAUSEB_CE) & 3;
+
+	switch (cpid) {
+	case 0:
+		if (cpu_has_llsc)
+			break;
+
+		if (!simulate_llsc(regs))
+			return;
+		break;
+
+	case 1:
+		own_fpu();
+		if (current->used_math) {	/* Using the FPU again.  */
+			restore_fp(current);
+		} else {			/* First time FPU user.  */
+			init_fpu();
+			current->used_math = 1;
+		}
+
+		if (!cpu_has_fpu) {
+			int sig = fpu_emulator_cop1Handler(0, regs,
+						&current->thread.fpu.soft);
+			if (sig)
+				force_sig(sig, current);
+		}
+
+		return;
+
+	case 2:
+	case 3:
+		break;
 	}
 
-	if (!(mips_cpu.options & MIPS_CPU_FPU)) {
-		int sig = fpu_emulator_cop1Handler(0, regs, &current->thread.fpu.soft);
-		if (sig)
-			force_sig(sig, current);
-	}
-
-	return;
-
-bad_cid:
 	force_sig(SIGILL, current);
 }
 
@@ -582,8 +738,8 @@ asmlinkage void do_watch(struct pt_regs *regs)
 	 * We use the watch exception where available to detect stack
 	 * overflows.
 	 */
-	show_regs(regs);
 	dump_tlb_all();
+	show_regs(regs);
 	panic("Caught WATCH exception - probably caused by stack overflow.");
 }
 
@@ -607,16 +763,9 @@ asmlinkage void do_reserved(struct pt_regs *regs)
 	 * caused by a new unknown cpu type or after another deadly
 	 * hard/software error.
 	 */
+	show_regs(regs);
 	panic("Caught reserved exception %ld - should not happen.",
 	      (regs->cp0_cause & 0x7f) >> 2);
-}
-
-static inline void watch_init(void)
-{
-	if (mips_cpu.options & MIPS_CPU_WATCH) {
-		set_except_vector(23, handle_watch);
-		watch_available = 1;
-	}
 }
 
 unsigned long exception_handlers[32];
@@ -632,7 +781,7 @@ void *set_except_vector(int n, void *addr)
 	unsigned long old_handler = exception_handlers[n];
 
 	exception_handlers[n] = handler;
-	if (n == 0 && mips_cpu.options & MIPS_CPU_DIVEC) {
+	if (n == 0 && cpu_has_divec) {
 		*(volatile u32 *)(KSEG0+0x200) = 0x08000000 |
 		                                 (0x03ffffff & (handler >> 2));
 		flush_icache_range(KSEG0+0x200, KSEG0 + 0x204);
@@ -643,53 +792,62 @@ void *set_except_vector(int n, void *addr)
 asmlinkage int (*save_fp_context)(struct sigcontext *sc);
 asmlinkage int (*restore_fp_context)(struct sigcontext *sc);
 
+asmlinkage int (*save_fp_context32)(struct sigcontext32 *sc);
+asmlinkage int (*restore_fp_context32)(struct sigcontext32 *sc);
+
 extern asmlinkage int _save_fp_context(struct sigcontext *sc);
 extern asmlinkage int _restore_fp_context(struct sigcontext *sc);
+
+extern asmlinkage int _save_fp_context32(struct sigcontext32 *sc);
+extern asmlinkage int _restore_fp_context32(struct sigcontext32 *sc);
 
 extern asmlinkage int fpu_emulator_save_context(struct sigcontext *sc);
 extern asmlinkage int fpu_emulator_restore_context(struct sigcontext *sc);
 
+extern asmlinkage int fpu_emulator_save_context32(struct sigcontext32 *sc);
+extern asmlinkage int fpu_emulator_restore_context32(struct sigcontext32 *sc);
+
 void __init per_cpu_trap_init(void)
 {
 	unsigned int cpu = smp_processor_id();
+	unsigned int status_set = ST0_CU0|ST0_FR|ST0_KX|ST0_SX|ST0_UX;
 
-	/* Some firmware leaves the BEV flag set, clear it.  */
-	clear_c0_status(ST0_CU1|ST0_CU2|ST0_CU3|ST0_BEV);
-	set_c0_status(ST0_CU0|ST0_FR|ST0_KX|ST0_SX|ST0_UX);
-
-	if (mips_cpu.isa_level == MIPS_CPU_ISA_IV)
-		set_c0_status(ST0_XX);
+	/*
+	 * Disable coprocessors, enable 64-bit addressing and set FPU
+	 * for the 32/32 FPR register model.  Reset the BEV flag that
+	 * some firmware may have left set and the TS bit (for IP27).
+	 * Set XX for ISA IV code to work.
+	 */
+	if (current_cpu_data.isa_level == MIPS_CPU_ISA_IV)
+		status_set |= ST0_XX;
+	change_c0_status(ST0_CU|ST0_RE|ST0_FR|ST0_BEV|ST0_TS|ST0_KX|ST0_SX|ST0_UX,
+			 status_set);
 
 	/*
 	 * Some MIPS CPUs have a dedicated interrupt vector which reduces the
 	 * interrupt processing overhead.  Use it where available.
 	 */
-	if (mips_cpu.options & MIPS_CPU_DIVEC)
+	if (cpu_has_divec)
 		set_c0_cause(CAUSEF_IV);
 
 	cpu_data[cpu].asid_cache = ASID_FIRST_VERSION;
-	write_c0_context(((long)(&pgd_current[cpu])) << 23);
-	write_c0_wired(0);
+	TLBMISS_HANDLER_SETUP();
 
 	atomic_inc(&init_mm.mm_count);
 	current->active_mm = &init_mm;
-	if (current->mm)
-		BUG();
+	BUG_ON(current->mm);
 	enter_lazy_tlb(&init_mm, current, cpu);
 }
 
 void __init trap_init(void)
 {
-	extern char except_vec0_generic, except_vec2_generic;
+	extern char except_vec0_generic;
 	extern char except_vec3_generic, except_vec3_r4000;
 	extern char except_vec4;
 	unsigned long i;
 
-	per_cpu_trap_init();
-
 	/* Copy the generic exception handlers to their final destination. */
 	memcpy((void *) KSEG0         , &except_vec0_generic, 0x80);
-	memcpy((void *)(KSEG0 + 0x100), &except_vec2_generic, 0x80);
 	memcpy((void *)(KSEG0 + 0x180), &except_vec3_generic, 0x80);
 
 	/*
@@ -699,26 +857,25 @@ void __init trap_init(void)
 		set_except_vector(i, handle_reserved);
 
 	/*
-	 * Only some CPUs have the watch exceptions or a dedicated
-	 * interrupt vector.
+	 * Only some CPUs have the watch exceptions.
 	 */
-	watch_init();
+	if (cpu_has_watch)
+		set_except_vector(23, handle_watch);
 
 	/*
 	 * Some MIPS CPUs have a dedicated interrupt vector which reduces the
 	 * interrupt processing overhead.  Use it where available.
 	 */
-	if (mips_cpu.options & MIPS_CPU_DIVEC) {
-		memcpy((void *)(KSEG0 + 0x200), &except_vec4, 0x80);
-		set_c0_cause(CAUSEF_IV);
-	}
+	if (cpu_has_divec)
+		memcpy((void *)(KSEG0 + 0x200), &except_vec4, 0x8);
 
 	/*
 	 * The Data Bus Errors / Instruction Bus Errors are signaled
 	 * by external hardware.  Therefore these two exceptions
 	 * may have board specific handlers.
 	 */
-	bus_error_init();
+	if (board_be_init)
+		board_be_init();
 
 	set_except_vector(1, __xtlb_mod);
 	set_except_vector(2, __xtlb_tlbl);
@@ -737,24 +894,21 @@ void __init trap_init(void)
 	set_except_vector(13, handle_tr);
 	set_except_vector(22, handle_mdmx);
 
-	if ((mips_cpu.options & MIPS_CPU_FPU) &&
-	    !(mips_cpu.options & MIPS_CPU_NOFPUEX))
+	if (cpu_has_fpu && !cpu_has_nofpuex)
 		set_except_vector(15, handle_fpe);
 
-	if (mips_cpu.options & MIPS_CPU_MCHECK)
+	if (cpu_has_mcheck)
 		set_except_vector(24, handle_mcheck);
 
-	if (mips_cpu.options & MIPS_CPU_VCE) {
-		/* VCE and DIVEC are mutually exclusive. */
-		if (mips_cpu.options & MIPS_CPU_DIVEC)
-			BUG();
+	if (cpu_has_vce)
 		memcpy((void *)(KSEG0 + 0x180), &except_vec3_r4000, 0x100);
-	} else if (mips_cpu.options & MIPS_CPU_4KEX)
+	else if (cpu_has_4kex)
 		memcpy((void *)(KSEG0 + 0x180), &except_vec3_generic, 0x80);
 	else
 		memcpy((void *)(KSEG0 + 0x080), &except_vec3_generic, 0x80);
 
-	if (mips_cpu.cputype == CPU_R6000 || mips_cpu.cputype == CPU_R6000A) {
+	if (current_cpu_data.cputype == CPU_R6000 ||
+	    current_cpu_data.cputype == CPU_R6000A) {
 		/*
 		 * The R6000 is the only R-series CPU that features a machine
 		 * check exception (similar to the R4000 cache error) and
@@ -767,22 +921,19 @@ void __init trap_init(void)
 		//set_except_vector(15, handle_ndc);
 	}
 
-	if (mips_cpu.cputype == CPU_SB1) {
-		/* Enable timer interrupt and scd mapped interrupt */
-		clear_c0_status(0xf000);
-		set_c0_status(0xc00);
-	}
-
-	if (mips_cpu.options & MIPS_CPU_FPU) {
-	        save_fp_context = _save_fp_context;
+	if (cpu_has_fpu) {
+		save_fp_context = _save_fp_context;
 		restore_fp_context = _restore_fp_context;
+		save_fp_context32 = _save_fp_context32;
+		restore_fp_context32 = _restore_fp_context32;
 	} else {
 		save_fp_context = fpu_emulator_save_context;
 		restore_fp_context = fpu_emulator_restore_context;
+		save_fp_context32 = fpu_emulator_save_context32;
+		restore_fp_context32 = fpu_emulator_restore_context32;
 	}
 
 	flush_icache_range(KSEG0, KSEG0 + 0x400);
 
-	atomic_inc(&init_mm.mm_count);	
-	current->active_mm = &init_mm;
+	per_cpu_trap_init();
 }

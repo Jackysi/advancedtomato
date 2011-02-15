@@ -32,8 +32,8 @@
 #include <string.h>
 #include <bcmnvram.h>
 
+#include <tomato_config.h>	//!!TB
 #include "tomato_profile.h"
-#include "tomato_config.h"
 #include "defaults.h"
 
 //! = see restore_main()
@@ -49,7 +49,7 @@ const defaults_t defaults[] = {
 
 	// LAN TCP/IP parameters
 	{ "lan_dhcp",			"0"				},	// DHCP client [static|dhcp]
-    { "lan_proto",			"dhcp"			},	// DHCP server [static|dhcp]  //Barry add 2004 09 16
+	{ "lan_proto",			"dhcp"			},	// DHCP server [static|dhcp]  //Barry add 2004 09 16
 	{ "lan_ipaddr",			"192.168.1.1"	},	// LAN IP address
 	{ "lan_netmask",		"255.255.255.0"	},	// LAN netmask
 	{ "lan_wins",			""				},	// x.x.x.x x.x.x.x ...
@@ -58,8 +58,8 @@ const defaults_t defaults[] = {
 	{ "lan_stp",			"0"				},	// LAN spanning tree protocol
 	{ "lan_route",			""				},	// Static routes (ipaddr:netmask:gateway:metric:ifname ...)
 
-    { "lan_gateway",		"0.0.0.0"		},	// LAN Gateway
-	{ "wds_enable",			"0"				},	// WDS Enable (0|1)
+	{ "lan_gateway",		"0.0.0.0"		},	// LAN Gateway
+	{ "wl_wds_enable",		"0"				},	// WDS Enable (0|1)
 
 	// WAN H/W parameters
 //!	{ "wan_ifname",			""				},	// WAN interface name
@@ -73,6 +73,7 @@ const defaults_t defaults[] = {
 	{ "wan_ipaddr",			"0.0.0.0"		},	// WAN IP address
 	{ "wan_netmask",		"0.0.0.0"		},	// WAN netmask
 	{ "wan_gateway",		"0.0.0.0"		},	// WAN gateway
+	{ "wan_gateway_get",		"0.0.0.0"		},	// default gateway for PPP
 	{ "wan_dns",			""				},	// x.x.x.x x.x.x.x ...
 	{ "wan_wins",			""				},	// x.x.x.x x.x.x.x ...
 	{ "wan_lease",			"86400"			},	// WAN lease time in seconds
@@ -80,7 +81,7 @@ const defaults_t defaults[] = {
 
 	{ "wan_primary",		"1"				},	// Primary wan connection
 	{ "wan_unit",			"0"				},	// Last configured connection
-
+/* --- obsolete ---
 	// Filters
 	{ "filter_maclist",		""				},	// xx:xx:xx:xx:xx:xx ...
 	{ "filter_macmode",		"deny"			},	// "allow" only, "deny" only, or "disabled" (allow all)
@@ -90,7 +91,7 @@ const defaults_t defaults[] = {
 
 	// Port forwards
 	{ "autofw_port0",		""				},	// out_proto:out_port,in_proto:in_port0-in_port1>to_port0-to_port1,enable,desc
-
+*/
 	// DHCP server parameters
 	{ "dhcp_start",			"100"			},	//
 	{ "dhcp_num",			"50"			},	//
@@ -99,6 +100,8 @@ const defaults_t defaults[] = {
 	{ "dhcp_lease",			"0"				},	// LAN lease time in minutes
 	{ "dhcp_domain",		"wan"			},	// Use WAN domain name first if available (wan|lan)
 	{ "wan_get_dns",		""				},	// DNS IP address which get by dhcpc // Add
+	{ "wan_routes",			""				},
+	{ "wan_msroutes",		""				},
 
 
 	// PPPoE parameters
@@ -117,6 +120,7 @@ const defaults_t defaults[] = {
 	{ "ppp_static_ip",		""				},	// PPPoE Static IP
 	{ "ppp_get_ac",			""				},	// PPPoE Server ac name
 	{ "ppp_get_srv",		""				},	// PPPoE Server service name
+	{ "ppp_custom",			""				},	// PPPD additional options
 
 	{ "pppoe_lei",			""				},
 	{ "pppoe_lef",			""				},
@@ -124,15 +128,17 @@ const defaults_t defaults[] = {
 	// Wireless parameters
 	{ "wl_ifname",			""				},	// Interface name
 	{ "wl_hwaddr",			""				},	// MAC address
-	{ "wl_phytype",			"g"				},	// Current wireless band ("a" (5 GHz), "b" (2.4 GHz), or "g" (2.4 GHz))	// Modify
+	{ "wl_phytype",			"b"				},	// Current wireless band ("a" (5 GHz), "b" (2.4 GHz), or "g" (2.4 GHz))	// Modify
 	{ "wl_corerev",			""				},	// Current core revision
 	{ "wl_phytypes",		""				},	// List of supported wireless bands (e.g. "ga")
 	{ "wl_radioids",		""				},	// List of radio IDs
 	{ "wl_ssid",			"wireless"		},	// Service set ID (network name)
-	{ "wl_country",			"Worldwide"		},	// Country (default obtained from driver)
+	{ "wl1_ssid",			"wireless1"		},
+	{ "wl_country_code",		""		},		// Country (default obtained from driver)
 	{ "wl_radio",			"1"				},	// Enable (1) or disable (0) radio
+	{ "wl1_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl_closed",			"0"				},	// Closed (hidden) network
-    { "wl_ap_isolate",		"0"				},	// AP isolate mode
+	{ "wl_ap_isolate",		"0"				},	// AP isolate mode
 	{ "wl_mode",			"ap"			},	// AP mode (ap|sta|wds)
 	{ "wl_lazywds",			"1"				},	// Enable "lazy" WDS mode (0|1)
 	{ "wl_wds",				""				},	// xx:xx:xx:xx:xx:xx ...
@@ -144,8 +150,8 @@ const defaults_t defaults[] = {
 	{ "wl_key2",			""				},	// 5/13 char ASCII or 10/26 char hex
 	{ "wl_key3",			""				},	// 5/13 char ASCII or 10/26 char hex
 	{ "wl_key4",			""				},	// 5/13 char ASCII or 10/26 char hex
-	{ "wl_maclist",			""				},	// xx:xx:xx:xx:xx:xx ...
 	{ "wl_channel",			"6"				},	// Channel number
+	{ "wl1_channel",		"0"				},
 	{ "wl_rate",			"0"				},	// Rate (bps, 0 for auto)
 	{ "wl_mrate",			"0"				},	// Mcast Rate (bps, 0 for auto)
 	{ "wl_rateset",			"default"		},	// "default" or "all" or "12"
@@ -159,21 +165,22 @@ const defaults_t defaults[] = {
 	{ "wl_gmode_protection","off"			},	// 802.11g RTS/CTS protection (off|auto)
 	{ "wl_afterburner",		"off"			},	// AfterBurner
 	{ "wl_frameburst",		"off"			},	// BRCM Frambursting mode (off|on)
-	{ "wl_wme",				"off"			},	// WME mode (off|on)
+	{ "wl_wme",			"auto"			},	// WME mode (auto|off|on)
+	{ "wl1_wme",			"auto"			},	// WME mode (auto|off|on)
 	{ "wl_antdiv",			"-1"			},	// Antenna Diversity (-1|0|1|3)
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
+	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
+	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
+	{ "wl_interfmode",		"2"				},	// Interference Mitigation Mode (0|1|2|3)
 
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"			},	// WEP encryption [64 | 128] // Add
 	{ "wl_wep_buf",			""				},	// save all settings for web // Add
 	{ "wl_wep_gen",			""				},	// save all settings for generate button	// Add
 	{ "wl_wep_last",		""				},	// Save last wl_wep mode	// Add
-	{ "wl_active_mac",		""				},	// xx:xx:xx:xx:xx:xx ...	// Add
 
 	// WPA parameters
-	{ "security_mode2",		"disabled"		},	// WPA mode (disabled|radius|wpa_personal|wpa_enterprise|wep|wpa2_personal|wpa2_enterprise) for WEB	// Add
-	{ "security_mode",		"disabled"		},	// WPA mode (disabled|radius|wpa|psk|wep|psk psk2|wpa wpa2) for WEB	// Add
-	{ "security_mode_last",	""				},	// Save last WPA mode	// Add
+	{ "wl_security_mode",		"disabled"		},	// WPA mode (disabled|radius|wpa_personal|wpa_enterprise|wep|wpa2_personal|wpa2_enterprise) for WEB	// Add
 	{ "wl_auth_mode",		"none"			},	// Network authentication mode (radius|none)
 	{ "wl_wpa_psk",			""				},	// WPA pre-shared key
 	{ "wl_wpa_gtk_rekey",	"3600"			},	// WPA GTK rekey interval	// Modify
@@ -184,20 +191,28 @@ const defaults_t defaults[] = {
 	{ "wl_net_reauth",		"36000"			},	// Network Re-auth/PMK caching duration
 	{ "wl_akm",				""				},	// WPA akm list
 
-	// WME parameters
+	// WME parameters (cwmin cwmax aifsn txop_b txop_ag adm_control oldest_first)
 	// EDCA parameters for STA
-	{ "wl_wme_sta_bk",		"15 1023 7 0 0 off"		},	// WME STA AC_BK paramters
-	{ "wl_wme_sta_be",		"15 1023 3 0 0 off"		},	// WME STA AC_BE paramters
-	{ "wl_wme_sta_vi",		"7 15 2 6016 3008 off"	},	// WME STA AC_VI paramters
-	{ "wl_wme_sta_vo",		"3 7 2 3264 1504 off"	},	// WME STA AC_VO paramters
+	{ "wl_wme_sta_bk",		"15 1023 7 0 0 off off"		},	// WME STA AC_BK paramters
+	{ "wl_wme_sta_be",		"15 1023 3 0 0 off off"		},	// WME STA AC_BE paramters
+	{ "wl_wme_sta_vi",		"7 15 2 6016 3008 off off"	},	// WME STA AC_VI paramters
+	{ "wl_wme_sta_vo",		"3 7 2 3264 1504 off off"	},	// WME STA AC_VO paramters
 
 	// EDCA parameters for AP
-	{ "wl_wme_ap_bk",		"15 1023 7 0 0 off"		},	// WME AP AC_BK paramters
-	{ "wl_wme_ap_be",		"15 63 3 0 0 off"		},	// WME AP AC_BE paramters
-	{ "wl_wme_ap_vi",		"7 15 1 6016 3008 off"	},	// WME AP AC_VI paramters
-	{ "wl_wme_ap_vo",		"3 7 1 3264 1504 off"	},	// WME AP AC_VO paramters
+	{ "wl_wme_ap_bk",		"15 1023 7 0 0 off off"		},	// WME AP AC_BK paramters
+	{ "wl_wme_ap_be",		"15 63 3 0 0 off off"		},	// WME AP AC_BE paramters
+	{ "wl_wme_ap_vi",		"7 15 1 6016 3008 off off"	},	// WME AP AC_VI paramters
+	{ "wl_wme_ap_vo",		"3 7 1 3264 1504 off off"	},	// WME AP AC_VO paramters
 
 	{ "wl_wme_no_ack",		"off"			},	// WME No-Acknowledgmen mode
+	{ "wl_wme_apsd",		"on"			},	// WME APSD mode
+	{ "wl_wme_bss_disable",		"0"			},	// WME BSS disable advertising (off|on)
+
+	/* Per AC Tx parameters */
+	{ "wl_wme_txp_be",		"7 3 4 2 0"		},	/* WME AC_BE Tx parameters */
+	{ "wl_wme_txp_bk",		"7 3 4 2 0"		},	/* WME AC_BK Tx parameters */
+	{ "wl_wme_txp_vi",		"7 3 4 2 0"		},	/* WME AC_VI Tx parameters */
+	{ "wl_wme_txp_vo",		"7 3 4 2 0"		},	/* WME AC_VO Tx parameters */
 
 	{ "wl_unit",			"0"				},	// Last configured interface
 	{ "wl_mac_deny",		""				},	// filter MAC	// Add
@@ -206,27 +221,74 @@ const defaults_t defaults[] = {
 	{ "wl_bss_enabled",		"1"				},	// !!TB - If not present the new versions of wlconf may not bring up wlan
 	{ "wl_reg_mode",		"off"			},	// !!TB - Regulatory: 802.11H(h)/802.11D(d)/off(off)
 
+// !!TB: n-mode
+	{ "wl_nmode",			"-1"			},	// N-mode
+	{ "wl_nband",			"2"			},	// 2 - 2.4GHz, 1 - 5GHz, 0 - Auto
+	{ "wl1_nband",			"1"			},
+	{ "wl_nmcsidx",			"-1"			},	// MCS Index for N - rate
+	{ "wl_nreqd",			"0"			},	// Require 802.11n support
+	{ "wl_nbw",			"40"			},	// BW: 20 / 40 MHz
+	{ "wl_nbw_cap",			"1"			},	// BW: def 20inB and 40inA
+	{ "wl_mimo_preamble",		"mm"			},	// 802.11n Preamble: mm/gf/auto/gfbcm
+	{ "wl_nctrlsb",			"upper"			},	// N-CTRL SB (none/lower/upper)
+	{ "wl_nmode_protection",	"off"			},	// 802.11n RTS/CTS protection (off|auto)
+	{ "wl_rxstreams",		"0"			},	// 802.11n Rx Streams, 0 is invalid, WLCONF will change it to a radio appropriate default
+	{ "wl_txstreams",		"0"			},	// 802.11n Tx Streams 0, 0 is invalid, WLCONF will change it to a radio appropriate default
+	{ "wl_dfs_preism",		"60"			},	// 802.11H pre network CAC time
+	{ "wl_dfs_postism",		"60"			},	// 802.11H In Service Monitoring CAC time
+	{ "wl_radarthrs",		"1 0x6c0 0x6e0 0x6bc 0x6e0 0x6ac 0x6cc 0x6bc 0x6e0" },	// Radar thrs params format: version thresh0_20 thresh1_20 thresh0_40 thresh1_40
+	{ "wl_bcn_rotate",		"1"			},	// Beacon rotation
+	{ "wl_vlan_prio_mode",		"off"			},	// VLAN Priority support
+	{ "wl_obss_coex",		"0"			},	// OBSS Coexistence (0|1): when enabled, channel width is forced to 20MHz
+
+#ifdef TCONFIG_EMF
+	{ "emf_entry",			""			},	// Static MFDB entry (mgrp:if)
+	{ "emf_uffp_entry",		""			},	// Unreg frames forwarding ports
+	{ "emf_rtport_entry",		""			},	// IGMP frames forwarding ports
+	{ "emf_enable",			"0"			},	// Disable EMF by default
+#endif
+#ifdef CONFIG_BCMWL5
+	// AMPDU
+	{ "wl_ampdu",			"auto"			},	// Default AMPDU setting
+	{ "wl_ampdu_rtylimit_tid",	"5 5 5 5 5 5 5 5"	},	// Default AMPDU retry limit per-tid setting
+	{ "wl_ampdu_rr_rtylimit_tid",	"2 2 2 2 2 2 2 2"	},	// Default AMPDU regular rate retry limit per-tid setting
+	{ "wl_amsdu",			"auto"			},	// Default AMSDU setting
+	// power save
+	{ "wl_rxchain_pwrsave_enable",	"1"			},	// Rxchain powersave enable
+	{ "wl_rxchain_pwrsave_quiet_time","1800"		},	// Quiet time for power save
+	{ "wl_rxchain_pwrsave_pps",	"10"			},	// Packets per second threshold for power save
+	{ "wl_radio_pwrsave_enable",	"0"			},	// Radio powersave enable
+	{ "wl_radio_pwrsave_quiet_time","1800"			},	// Quiet time for power save
+	{ "wl_radio_pwrsave_pps",	"10"			},	// Packets per second threshold for power save
+	{ "wl_radio_pwrsave_on_time",	"50"			},	// Radio on time for power save
+	// misc
+	{ "wl_wmf_bss_enable",		"0"			},	// WMF Enable/Disable
+	{ "wl_rifs_advert",		"auto"			},	// RIFS mode advertisement
+	{ "wl_stbc_tx",			"auto"			},	// Default STBC TX setting
+	{ "wl_mcast_regen_bss_enable",	"1"			},	// MCAST REGEN Enable/Disable
+#endif
+
 	{ "pptp_server_ip",		""				},	// as same as WAN gateway
-	{ "pptp_get_ip",		""				},	// IP Address assigned by PPTP server
+	{ "ppp_get_ip",			""				},	// IP Address assigned by PPTP/L2TP server
+	{ "pptp_dhcp",			"1"				},
+	{ "ppp_defgw",			"1"				},	// use default gateway on remote network
 
 	// for firewall
 	{ "mtu_enable",			"0"				},	// WAN MTU [1|0]
 	{ "wan_mtu",			"1500"			},	// Negotiate MTU to the smaller of this value or the peer MRU
 
 	{ "l2tp_server_ip",		""				},	// L2TP auth server (IP Address)
-	{ "l2tp_get_ip",		""				},	// IP Address assigned by L2TP server
-	{ "wan_gateway_buf",	"0.0.0.0"		},	// save the default gateway for DHCP
 //	hbobs	{ "hb_server_ip",		""				},	// heartbeat auth server (IP Address)
 //	hbobs	{ "hb_server_domain",	""				},	// heartbeat auth server (domain name)
 
 // misc
-	{ "t_noise",			"-99"			},
+	{ "wl_tnoise",			"-99"			},
 	{ "led_override",		""				},
 	{ "btn_override",		""				},
 	{ "btn_reset",			""				},
 	{ "env_path",			""				},
 	{ "manual_boot_nv",		"0"				},
-	{ "wlx_hpamp",			""				},
+//	{ "wlx_hpamp",			""				},
 //	{ "wlx_hperx",			""				},	//	see init.c
 	{ "t_fix1",				""				},
 
@@ -237,9 +299,6 @@ const defaults_t defaults[] = {
 	{ "ddnsx1_cache",		""				},
 	{ "ddnsx_save",			"1"				},
 	{ "ddnsx_refresh",		"28"			},
-
-// basic-network
-	{ "wds_save",			""				},
 
 // basic-ident
 	{ "router_name",		"tomato"		},
@@ -260,29 +319,40 @@ const defaults_t defaults[] = {
 	{ "dhcpd_static",		""				},
 
 // basic-wfilter
-	{ "wl_mac_list",		""				},
+	{ "wl_maclist",			""			},	// xx:xx:xx:xx:xx:xx ...
 	{ "wl_macmode",			"disabled"		},
-	{ "macnames",			""				},
+	{ "macnames",			""			},
 
 // advanced-ctnf
 	{ "ct_tcp_timeout",		""				},
 	{ "ct_udp_timeout",		""				},
+	{ "ct_timeout",			""				},
 	{ "ct_max",				""				},
 	{ "nf_ttl",				"0"				},
 	{ "nf_l7in",			"1"				},
+#ifdef LINUX26
+	{ "nf_sip",			"1"				},
+	{ "ct_hashsize",		""				},
+#endif
+#ifdef LINUX26
+	{ "nf_rtsp",			"0"				},
+#else
 	{ "nf_rtsp",			"1"				},
+#endif
 	{ "nf_pptp",			"1"				},
 	{ "nf_h323",			"1"				},
-	{ "nf_ftp",				"1"				},
+	{ "nf_ftp",			"1"				},
 
 // advanced-mac
 	{ "mac_wan",			""				},
-	{ "mac_wl",				""				},
+	{ "wl_macaddr",			""				},
 
 // advanced-misc
 	{ "boot_wait",			"on"			},
 	{ "wait_time",			"5"				},
 	{ "wan_speed",			"4"				},	// 0=10 Mb Full, 1=10 Mb Half, 2=100 Mb Full, 3=100 Mb Half, 4=Auto
+	{ "jumbo_frame_enable",		"0"				},	// Jumbo Frames support (for RT-N16/WNR3500L)
+	{ "jumbo_frame_size",		"2000"				},
 
 // advanced-dhcpdns
 	{ "dhcpd_dmdns",		"1"				},
@@ -291,7 +361,9 @@ const defaults_t defaults[] = {
 	{ "dhcpd_lmax",			""				},
 	{ "dns_addget",			"0"				},
 	{ "dns_intcpt",			"0"				},
-	{ "dhcpc_minpkt",		"0"				},
+	{ "dhcpc_minpkt",		"1"				},
+	{ "dhcpc_custom",		""				},
+	{ "dns_norebind",		"1"				},
 	{ "dnsmasq_custom",		""				},
 //	{ "dnsmasq_norw",		"0"				},
 
@@ -301,21 +373,26 @@ const defaults_t defaults[] = {
 	{ "block_wan",			"1"				},	// block inbound icmp
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
+	{ "dhcp_pass",			"1"				},	// allow DHCP responses
 	{ "ne_shlimit",			"0,3,60"		},
 
 // advanced-routing
 	{ "routes_static",		""				},
+	{ "dhcp_routes",		"1"				},
 	{ "wk_mode",			"gateway"		},	// Network mode [gateway|router]
+#ifdef TCONFIG_ZEBRA
 	{ "dr_setting",			"0"				},	// [ Disable | WAN | LAN | Both ]
 	{ "dr_lan_tx",			"0"				},	// Dynamic-Routing LAN out
 	{ "dr_lan_rx",			"0"				},	// Dynamic-Routing LAN in
 	{ "dr_wan_tx",			"0"				},	// Dynamic-Routing WAN out
 	{ "dr_wan_rx",			"0"				},	// Dynamic-Routing WAN in
+#endif
 
 // advanced-wireless
 	{ "wl_txant",			"3"				},
 	{ "wl_txpwr",			"42"			},
 	{ "wl_maxassoc",		"128"			},	// Max associations driver could support
+	{ "wl_bss_maxassoc",		"128"			},
 	{ "wl_distance",		""				},
 
 // forward-*
@@ -326,31 +403,35 @@ const defaults_t defaults[] = {
 	{ "dmz_sip",			""				},
 
 // forward-upnp
-	{ "upnp_enable",		"1"				},
+	{ "upnp_enable",		"0"				},
 	{ "upnp_secure",		"1"				},
-	{ "upnp_port",			"5000"			},
-#if 0	// disabled for miniupnpd
-	{ "upnp_ssdp_interval",	"60"			},	// SSDP interval
-	{ "upnp_max_age",		"180"			},	// Max age
+	{ "upnp_port",			"0"				},
+	{ "upnp_ssdp_interval",		"60"				},	// SSDP interval
 	{ "upnp_mnp",			"0"				},
+
+	{ "upnp_clean",			"1"				},	/* 0:Disable 1:Enable */
+	{ "upnp_clean_interval",	"600"				},	/* Cleaning interval in seconds */
+	{ "upnp_clean_threshold",	"20"				},	/* Threshold for cleaning unused rules */
+#if 0	// disabled for miniupnpd
+	{ "upnp_max_age",		"180"			},	// Max age
 	{ "upnp_config",		"0"				},
 #endif
 
 // qos
 	{ "qos_enable",			"0"				},
-	{ "qos_ack",			"1"				},
-	{ "qos_syn",			"0"				},
-	{ "qos_fin",			"0"				},
-	{ "qos_rst",			"0"				},
+	{ "qos_ack",			"0"				},
+	{ "qos_syn",			"1"				},
+	{ "qos_fin",			"1"				},
+	{ "qos_rst",			"1"				},
 	{ "qos_icmp",			"0"				},
 	{ "qos_reset",			"0"				},
 	{ "qos_obw",			"230"			},
 	{ "qos_ibw",			"1000"			},
-	{ "qos_orules",			"0<<6<d<80,443<0<<0:512<1<WWW>0<<6<d<80,443<0<<512:<3<WWW (512K+)>0<<-1<d<53<0<<0:2<0<DNS>0<<-1<d<53<0<<2:<4<DNS (2K+)>0<<-1<d<1024:65535<0<<<4<Bulk Traffic" },
+	{ "qos_orules",			"0<<6<d<80,443<0<<0:512<1<WWW>0<<6<d<80,443<0<<512:<3<WWW (512K+)>0<<-1<d<53<0<<0:2<0<DNS>0<<-1<d<53<0<<2:<4<DNS (2K+)" },
 	{ "qos_burst0",			""				},
 	{ "qos_burst1",			""				},
 
-	{ "qos_default",		"3"				},
+	{ "qos_default",		"4"				},
 	{ "qos_orates",			"80-100,10-100,5-100,3-100,2-95,1-50,1-40,1-30,1-20,1-10"	},
 
 	{ "ne_vegas",			"0"				},	// TCP Vegas
@@ -374,7 +455,7 @@ const defaults_t defaults[] = {
 #endif
 
 // admin-access
-	{ "http_username",		""				},	// Username
+	{ "http_username",		""			},	// Username
 	{ "http_passwd",		"admin"			},	// Password
 	{ "remote_management",	"0"				},	// Remote Management [1|0]
 	{ "remote_mgt_https",	"0"				},	// Remote Management use https [1|0]
@@ -399,6 +480,8 @@ const defaults_t defaults[] = {
 	{ "sshd_rport",			"2222"			},
 	{ "sshd_authkeys",		""				},
 	{ "sshd_hostkey",		""				},
+	{ "sshd_dsskey",		""				},
+	{ "sshd_forwarding",		"1"				},
 	{ "rmgt_sip",			""				},	// remote management: source ip address
 
 	{ "http_id",			""				},
@@ -451,13 +534,20 @@ const defaults_t defaults[] = {
 	{ "log_mark",			"60"			},
 	{ "log_events",			""				},
 
+// admin-log-webmonitor
+	{ "log_wm",			"0"				},
+	{ "log_wmtype",			"0"				},
+	{ "log_wmip",			""				},
+	{ "log_wmdmax",			"300"				},
+	{ "log_wmsmax",			"300"				},
+
 // admin-debugging
 	{ "debug_nocommit",		"0"				},
 	{ "debug_cprintf",		"0"				},
 	{ "debug_cprintf_file",	"0"				},
 //	{ "debug_keepfiles",	"0"				},
 	{ "console_loglevel",	"1"				},
-	{ "t_cafree",			"0"				},
+	{ "t_cafree",			"1"				},
 	{ "t_hidelr",			"0"				},
 	{ "debug_clkfix",		"1"				},
 	{ "debug_ddns",			"0"				},
@@ -483,6 +573,83 @@ const defaults_t defaults[] = {
 	{ "mmc_exec_umount",		""				},
 #endif
 
+#ifdef TCONFIG_USB
+// nas-usb - !!TB
+	{ "usb_enable",			"0"				},
+	{ "usb_uhci",			"0"				},
+	{ "usb_ohci",			"0"				},
+	{ "usb_usb2",			"1"				},
+	{ "usb_irq_thresh",		"0"				},
+	{ "usb_storage",		"1"				},
+	{ "usb_printer",		"1"				},
+	{ "usb_printer_bidirect",	"1"				},
+	{ "usb_ext_opt",		""				},
+	{ "usb_fat_opt",		""				},
+	{ "usb_ntfs_opt",		""				},
+	{ "usb_fs_ext3",		"1"				},
+	{ "usb_fs_fat",			"1"				},
+#ifdef TCONFIG_NTFS
+	{ "usb_fs_ntfs",		"1"				},
+#endif
+	{ "usb_automount",		"1"				},
+#if 0
+	{ "usb_bdflush",		"30 500 0 0 100 100 60 0 0"	},
+#endif
+	{ "script_usbhotplug",		""				},
+	{ "script_usbmount",		""				},
+	{ "script_usbumount",		""				},
+#endif
+
+#ifdef TCONFIG_FTP
+// nas-ftp - !!TB
+	{ "ftp_enable",			"0"				},
+	{ "ftp_super",			"0"				},
+	{ "ftp_anonymous",		"0"				},
+	{ "ftp_dirlist",		"0"				},
+	{ "ftp_port",			"21"				},
+	{ "ftp_max",			"0"				},
+	{ "ftp_ipmax",			"0"				},
+	{ "ftp_staytimeout",		"300"				},
+	{ "ftp_rate",			"0"				},
+	{ "ftp_anonrate",		"0"				},
+	{ "ftp_anonroot",		""				},
+	{ "ftp_pubroot",		""				},
+	{ "ftp_pvtroot",		""				},
+	{ "ftp_users",			""				},
+	{ "ftp_custom",			""				},
+	{ "ftp_sip",			""				},	// wan ftp access: source ip address(es)
+	{ "ftp_limit",			"0,3,60"			},
+	{ "log_ftp",			"0"				},
+#endif
+
+#ifdef TCONFIG_SAMBASRV
+// nas-samba - !!TB
+	{ "smbd_enable",		"0"				},
+	{ "smbd_wgroup",		"WORKGROUP"			},
+	{ "smbd_master",		"1"				},
+	{ "smbd_wins",			"1"				},
+	{ "smbd_cpage",			""				},
+	{ "smbd_cset",			"utf8"				},
+	{ "smbd_custom",		""				},
+	{ "smbd_autoshare",		"1"				},
+	{ "smbd_shares",
+		"share</mnt<Default Share<0<0>root$</<Hidden Root<0<1"
+	},
+	{ "smbd_user",			"nas"				},
+	{ "smbd_passwd",		""				},
+#endif
+
+#ifdef TCONFIG_MEDIA_SERVER
+// nas-media
+	{ "ms_enable",			"0"				},	/* 0:Disable 1:Enable 2:Enable&Rescan */
+	{ "ms_dirs",			"/mnt<"				},
+	{ "ms_port",			"0"				},
+	{ "ms_dbdir",			""				},
+	{ "ms_tivo",			"0"				},
+	{ "ms_stdlna",			"0"				},
+	{ "ms_sas",			"0"				},
+#endif
+
 // admin-sch
 	{ "sch_rboot",			""				},
 	{ "sch_rcon",			""				},
@@ -499,6 +666,7 @@ const defaults_t defaults[] = {
 	{ "script_fire",		""				},
 	{ "script_wanup",		""				},
 
+#ifdef TCONFIG_OPENVPN
 // vpn
 	{ "vpn_debug",            "0"             },
 	{ "vpn_server_eas",       ""              },
@@ -616,6 +784,7 @@ const defaults_t defaults[] = {
 	{ "vpn_client2_ca",       ""              },
 	{ "vpn_client2_crt",      ""              },
 	{ "vpn_client2_key",      ""              },
+#endif	// vpn
 
 #if 0
 // safe to remove?

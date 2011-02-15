@@ -267,7 +267,7 @@ struct globals {
 #define DECLARE(type, array, size) \
 	type * array
 #define ALLOC(type, array, size) \
-	array = xzalloc((size_t)(((size)+1L)/2) * 2*sizeof(type));
+	array = xzalloc((size_t)(((size)+1L)/2) * 2*sizeof(type))
 #define FREE(array) \
 	do { free(array); array = NULL; } while (0)
 
@@ -620,10 +620,12 @@ static int longest_match(IPos cur_match)
 		/* Skip to next match if the match length cannot increase
 		 * or if the match length is less than 2:
 		 */
-		if (match[best_len] != scan_end ||
-			match[best_len - 1] != scan_end1 ||
-			*match != *scan || *++match != scan[1])
+		if (match[best_len] != scan_end
+		 || match[best_len - 1] != scan_end1
+		 || *match != *scan || *++match != scan[1]
+		) {
 			continue;
+		}
 
 		/* The check at best_len-1 can be removed because it will be made
 		 * again later. (This heuristic is not always a win.)
@@ -674,7 +676,7 @@ static void check_match(IPos start, IPos match, int length)
 	if (verbose > 1) {
 		bb_error_msg("\\[%d,%d]", start - match, length);
 		do {
-			fputc(G1.window[start++], stderr);
+			bb_putchar_stderr(G1.window[start++]);
 		} while (--length != 0);
 	}
 }
@@ -962,7 +964,7 @@ static void compress_block(ct_data * ltree, ct_data * dtree);
 #else
 #  define SEND_CODE(c, tree) \
 { \
-	if (verbose > 1) bb_error_msg("\ncd %3d ",(c)); \
+	if (verbose > 1) bb_error_msg("\ncd %3d ", (c)); \
 	send_bits(tree[c].Code, tree[c].Len); \
 }
 #endif
@@ -1173,7 +1175,7 @@ static void gen_codes(ct_data * tree, int max_code)
 
 		Tracec(tree != G2.static_ltree,
 			   (stderr, "\nn %3d %c l %2d c %4x (%x) ", n,
-				(isgraph(n) ? n : ' '), len, tree[n].Code,
+				(n > ' ' ? n : ' '), len, tree[n].Code,
 				next_code[len] - 1));
 	}
 }
@@ -1541,7 +1543,7 @@ static void compress_block(ct_data * ltree, ct_data * dtree)
 		lc = G1.l_buf[lx++];
 		if ((flag & 1) == 0) {
 			SEND_CODE(lc, ltree);	/* send a literal byte */
-			Tracecv(isgraph(lc), (stderr, " '%c' ", lc));
+			Tracecv(lc > ' ', (stderr, " '%c' ", lc));
 		} else {
 			/* Here, lc is the match length - MIN_MATCH */
 			code = G2.length_code[lc];
@@ -1996,13 +1998,7 @@ static void zip(ulg time_stamp)
 
 /* ======================================================================== */
 static
-char* make_new_name_gzip(char *filename)
-{
-	return xasprintf("%s.gz", filename);
-}
-
-static
-USE_DESKTOP(long long) int pack_gzip(unpack_info_t *info UNUSED_PARAM)
+IF_DESKTOP(long long) int FAST_FUNC pack_gzip(unpack_info_t *info UNUSED_PARAM)
 {
 	struct stat s;
 
@@ -2043,8 +2039,25 @@ USE_DESKTOP(long long) int pack_gzip(unpack_info_t *info UNUSED_PARAM)
 	return 0;
 }
 
+#if ENABLE_FEATURE_GZIP_LONG_OPTIONS
+static const char gzip_longopts[] ALIGN1 =
+	"stdout\0"              No_argument       "c"
+	"to-stdout\0"           No_argument       "c"
+	"force\0"               No_argument       "f"
+	"verbose\0"             No_argument       "v"
+#if ENABLE_GUNZIP
+	"decompress\0"          No_argument       "d"
+	"uncompress\0"          No_argument       "d"
+	"test\0"                No_argument       "t"
+#endif
+	"quiet\0"               No_argument       "q"
+	"fast\0"                No_argument       "1"
+	"best\0"                No_argument       "9"
+	;
+#endif
+
 /*
- * Linux kernel build uses gzip -d -n. We accept and ignore it.
+ * Linux kernel build uses gzip -d -n. We accept and ignore -n.
  * Man page says:
  * -n --no-name
  * gzip: do not save the original file name and time stamp.
@@ -2066,8 +2079,11 @@ int gzip_main(int argc UNUSED_PARAM, char **argv)
 {
 	unsigned opt;
 
+#if ENABLE_FEATURE_GZIP_LONG_OPTIONS
+	applet_long_options = gzip_longopts;
+#endif
 	/* Must match bbunzip's constants OPT_STDOUT, OPT_FORCE! */
-	opt = getopt32(argv, "cfv" USE_GUNZIP("dt") "q123456789n");
+	opt = getopt32(argv, "cfv" IF_GUNZIP("dt") "q123456789n");
 #if ENABLE_GUNZIP /* gunzip_main may not be visible... */
 	if (opt & 0x18) // -d and/or -t
 		return gunzip_main(argc, argv);
@@ -2078,9 +2094,8 @@ int gzip_main(int argc UNUSED_PARAM, char **argv)
 	//if (opt & 0x4) // -v
 	argv += optind;
 
-	SET_PTR_TO_GLOBALS(xzalloc(sizeof(struct globals) + sizeof(struct globals2))
+	SET_PTR_TO_GLOBALS((char *)xzalloc(sizeof(struct globals)+sizeof(struct globals2))
 			+ sizeof(struct globals));
-	barrier();
 
 	/* Allocate all global buffers (for DYN_ALLOC option) */
 	ALLOC(uch, G1.l_buf, INBUFSIZ);
@@ -2092,5 +2107,5 @@ int gzip_main(int argc UNUSED_PARAM, char **argv)
 	/* Initialise the CRC32 table */
 	G1.crc_32_tab = crc32_filltable(NULL, 0);
 
-	return bbunpack(argv, make_new_name_gzip, pack_gzip);
+	return bbunpack(argv, pack_gzip, append_ext, "gz");
 }

@@ -26,22 +26,23 @@ int FAST_FUNC xrtnl_open(struct rtnl_handle *rth/*, unsigned subscriptions*/)
 {
 	socklen_t addr_len;
 
-	memset(rth, 0, sizeof(rth));
-
+	memset(rth, 0, sizeof(*rth));
 	rth->fd = xsocket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-
-	memset(&rth->local, 0, sizeof(rth->local));
 	rth->local.nl_family = AF_NETLINK;
 	/*rth->local.nl_groups = subscriptions;*/
 
 	xbind(rth->fd, (struct sockaddr*)&rth->local, sizeof(rth->local));
 	addr_len = sizeof(rth->local);
+	getsockname(rth->fd, (struct sockaddr*)&rth->local, &addr_len);
+
+/* too much paranoia
 	if (getsockname(rth->fd, (struct sockaddr*)&rth->local, &addr_len) < 0)
 		bb_perror_msg_and_die("getsockname");
 	if (addr_len != sizeof(rth->local))
 		bb_error_msg_and_die("wrong address length %d", addr_len);
 	if (rth->local.nl_family != AF_NETLINK)
 		bb_error_msg_and_die("wrong address family %d", rth->local.nl_family);
+*/
 	rth->seq = time(NULL);
 	return 0;
 }
@@ -103,7 +104,7 @@ int FAST_FUNC rtnl_dump_request(struct rtnl_handle *rth, int type, void *req, in
 }
 
 static int rtnl_dump_filter(struct rtnl_handle *rth,
-		int (*filter)(const struct sockaddr_nl *, struct nlmsghdr *n, void *),
+		int (*filter)(const struct sockaddr_nl *, struct nlmsghdr *n, void *) FAST_FUNC,
 		void *arg1/*,
 		int (*junk)(struct sockaddr_nl *, struct nlmsghdr *n, void *),
 		void *arg2*/)
@@ -146,7 +147,8 @@ static int rtnl_dump_filter(struct rtnl_handle *rth,
 
 			if (nladdr.nl_pid != 0 ||
 			    h->nlmsg_pid != rth->local.nl_pid ||
-			    h->nlmsg_seq != rth->dump) {
+			    h->nlmsg_seq != rth->dump
+			) {
 //				if (junk) {
 //					err = junk(&nladdr, h, arg2);
 //					if (err < 0) {
@@ -195,7 +197,7 @@ static int rtnl_dump_filter(struct rtnl_handle *rth,
 }
 
 int FAST_FUNC xrtnl_dump_filter(struct rtnl_handle *rth,
-		int (*filter)(const struct sockaddr_nl *, struct nlmsghdr *, void *),
+		int (*filter)(const struct sockaddr_nl *, struct nlmsghdr *, void *) FAST_FUNC,
 		void *arg1)
 {
 	int ret = rtnl_dump_filter(rth, filter, arg1/*, NULL, NULL*/);
@@ -205,10 +207,10 @@ int FAST_FUNC xrtnl_dump_filter(struct rtnl_handle *rth,
 }
 
 int FAST_FUNC rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
-	      pid_t peer, unsigned groups,
-	      struct nlmsghdr *answer,
-	      int (*junk)(struct sockaddr_nl *, struct nlmsghdr *, void *),
-	      void *jarg)
+		pid_t peer, unsigned groups,
+		struct nlmsghdr *answer,
+		int (*junk)(struct sockaddr_nl *, struct nlmsghdr *, void *),
+		void *jarg)
 {
 /* bbox doesn't use parameters no. 3, 4, 6, 7, they are stubbed out */
 #define peer   0
@@ -241,7 +243,7 @@ int FAST_FUNC rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 	status = sendmsg(rtnl->fd, &msg, 0);
 
 	if (status < 0) {
-		bb_perror_msg("cannot talk to rtnetlink");
+		bb_perror_msg("can't talk to rtnetlink");
 		goto ret;
 	}
 
@@ -280,7 +282,8 @@ int FAST_FUNC rtnl_talk(struct rtnl_handle *rtnl, struct nlmsghdr *n,
 
 			if (nladdr.nl_pid != peer ||
 			    h->nlmsg_pid != rtnl->local.nl_pid ||
-			    h->nlmsg_seq != seq) {
+			    h->nlmsg_seq != seq
+			) {
 //				if (junk) {
 //					l_err = junk(&nladdr, h, jarg);
 //					if (l_err < 0) {

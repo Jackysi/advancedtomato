@@ -48,6 +48,10 @@
 #include <asm/pgtable.h>
 
 /* Such day has just come... */
+#if 0
+/* Let this defined unless you really need to enable DMA IRQ one day */
+#define NODMAIRQ
+#endif
 
 static int  dma_bytes_sent(struct NCR_ESP *esp, int fifo_count);
 static int  dma_can_transfer(struct NCR_ESP *esp, Scsi_Cmnd *sp);
@@ -136,7 +140,7 @@ int __init fastlane_esp_detect(Scsi_Host_Template *tpnt)
 
 		/* Map the physical address space into virtual kernel space */
 		address = (unsigned long)
-			ioremap_nocache(board, z->resource.end-board+1);
+			z_ioremap(board, z->resource.end-board+1);
 
 		if(!address){
 			printk("Could not remap Fastlane controller memory!");
@@ -157,8 +161,8 @@ int __init fastlane_esp_detect(Scsi_Host_Template *tpnt)
 		esp->edev = (void *) address;
 		
 		/* Set the command buffer */
-		esp->esp_command = (volatile unsigned char*) cmd_buffer;
-		esp->esp_command_dvma = virt_to_bus(cmd_buffer);
+		esp->esp_command = cmd_buffer;
+		esp->esp_command_dvma = virt_to_bus((void *)cmd_buffer);
 
 		esp->irq = IRQ_AMIGA_PORTS;
 		esp->slot = board+FASTLANE_ESP_ADDR;
@@ -185,7 +189,7 @@ int __init fastlane_esp_detect(Scsi_Host_Template *tpnt)
 	return 0;
 
  err_unmap:
-	iounmap((void *)address);
+	z_iounmap((void *)address);
  err_unregister:
 	scsi_unregister (esp->ehost);
  err_release:

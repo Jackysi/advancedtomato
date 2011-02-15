@@ -64,7 +64,7 @@
 
 static int b64_write(BIO *h, const char *buf, int num);
 static int b64_read(BIO *h, char *buf, int size);
-/*static int b64_puts(BIO *h, const char *str); */
+static int b64_puts(BIO *h, const char *str);
 /*static int b64_gets(BIO *h, char *str, int size); */
 static long b64_ctrl(BIO *h, int cmd, long arg1, void *arg2);
 static int b64_new(BIO *h);
@@ -96,7 +96,7 @@ static BIO_METHOD methods_b64=
 	BIO_TYPE_BASE64,"base64 encoding",
 	b64_write,
 	b64_read,
-	NULL, /* b64_puts, */
+	b64_puts,
 	NULL, /* b64_gets, */
 	b64_ctrl,
 	b64_new,
@@ -127,6 +127,7 @@ static int b64_new(BIO *bi)
 	bi->init=1;
 	bi->ptr=(char *)ctx;
 	bi->flags=0;
+	bi->num = 0;
 	return(1);
 	}
 
@@ -151,6 +152,8 @@ static int b64_read(BIO *b, char *out, int outl)
 
 	if ((ctx == NULL) || (b->next_bio == NULL)) return(0);
 
+	BIO_clear_retry_flags(b);
+
 	if (ctx->encode != B64_DECODE)
 		{
 		ctx->encode=B64_DECODE;
@@ -163,8 +166,10 @@ static int b64_read(BIO *b, char *out, int outl)
 	/* First check if there are bytes decoded/encoded */
 	if (ctx->buf_len > 0)
 		{
+		OPENSSL_assert(ctx->buf_len >= ctx->buf_off);
 		i=ctx->buf_len-ctx->buf_off;
 		if (i > outl) i=outl;
+		OPENSSL_assert(ctx->buf_off+i < (int)sizeof(ctx->buf));
 		memcpy(out,&(ctx->buf[ctx->buf_off]),i);
 		ret=i;
 		out+=i;
@@ -183,7 +188,8 @@ static int b64_read(BIO *b, char *out, int outl)
 	ret_code=0;
 	while (outl > 0)
 		{
-		if (ctx->cont <= 0) break;
+		if (ctx->cont <= 0)
+			break;
 
 		i=BIO_read(b->next_bio,&(ctx->tmp[ctx->tmp_len]),
 			B64_BLOCK_SIZE-ctx->tmp_len);
@@ -192,13 +198,23 @@ static int b64_read(BIO *b, char *out, int outl)
 			{
 			ret_code=i;
 
-			/* Should be continue next time we are called? */
+			/* Should we continue next time we are called? */
 			if (!BIO_should_retry(b->next_bio))
+				{
 				ctx->cont=i;
-			/* else we should continue when called again */
-			break;
+				/* If buffer empty break */
+				if(ctx->tmp_len == 0)
+					break;
+				/* Fall through and process what we have */
+				else
+					i = 0;
+				}
+			/* else we retry and add more data to buffer */
+			else
+				break;
 			}
 		i+=ctx->tmp_len;
+		ctx->tmp_len = i;
 
 		/* We need to scan, a line at a time until we
 		 * have a valid line if we are starting. */
@@ -254,8 +270,12 @@ static int b64_read(BIO *b, char *out, int outl)
 				 * reading until a new line. */
 				if (p == (unsigned char *)&(ctx->tmp[0]))
 					{
-					ctx->tmp_nl=1;
-					ctx->tmp_len=0;
+					/* Check buffer full */
+					if (i == B64_BLOCK_SIZE)
+						{
+						ctx->tmp_nl=1;
+						ctx->tmp_len=0;
+						}
 					}
 				else if (p != q) /* finished on a '\n' */
 					{
@@ -268,14 +288,27 @@ static int b64_read(BIO *b, char *out, int outl)
 				continue;
 				}
 			else
+			{
 				ctx->tmp_len=0;
 			}
+		}
+		else if ((i < B64_BLOCK_SIZE) && (ctx->cont > 0))
+		{
+			/* If buffer isn't full and we can retry then
+			 * restart to read in more data.
+			 */
+			continue;
+		}
 
 		if (BIO_get_flags(b) & BIO_FLAGS_BASE64_NO_NL)
 			{
 			int z,jj;
 
+#if 0
 			jj=(i>>2)<<2;
+#else
+			jj = i & ~3; /* process per 4 */
+#endif
 			z=EVP_DecodeBlock((unsigned char *)ctx->buf,
 				(unsigned char *)ctx->tmp,jj);
 			if (jj > 2)
@@ -291,26 +324,23 @@ static int b64_read(BIO *b, char *out, int outl)
 			 * number consumed */
 			if (jj != i)
 				{
-				memcpy((unsigned char *)ctx->tmp,
-					(unsigned char *)&(ctx->tmp[jj]),i-jj);
+				memmove(ctx->tmp, &ctx->tmp[jj], i-jj);
 				ctx->tmp_len=i-jj;
 				}
 			ctx->buf_len=0;
 			if (z > 0)
 				{
 				ctx->buf_len=z;
-				i=1;
 				}
-			else
-				i=z;
+			i=z;
 			}
 		else
 			{
 			i=EVP_DecodeUpdate(&(ctx->base64),
 				(unsigned char *)ctx->buf,&ctx->buf_len,
 				(unsigned char *)ctx->tmp,i);
+			ctx->tmp_len = 0;
 			}
-		ctx->cont=i;
 		ctx->buf_off=0;
 		if (i < 0)
 			{
@@ -335,14 +365,16 @@ static int b64_read(BIO *b, char *out, int outl)
 		outl-=i;
 		out+=i;
 		}
-	BIO_clear_retry_flags(b);
+	/* BIO_clear_retry_flags(b); */
 	BIO_copy_next_retry(b);
 	return((ret == 0)?ret_code:ret);
 	}
 
 static int b64_write(BIO *b, const char *in, int inl)
 	{
-	int ret=inl,n,i;
+	int ret=0;
+	int n;
+	int i;
 	BIO_B64_CTX *ctx;
 
 	ctx=(BIO_B64_CTX *)b->ptr;
@@ -357,6 +389,9 @@ static int b64_write(BIO *b, const char *in, int inl)
 		EVP_EncodeInit(&(ctx->base64));
 		}
 
+	OPENSSL_assert(ctx->buf_off < (int)sizeof(ctx->buf));
+	OPENSSL_assert(ctx->buf_len <= (int)sizeof(ctx->buf));
+	OPENSSL_assert(ctx->buf_len >= ctx->buf_off);
 	n=ctx->buf_len-ctx->buf_off;
 	while (n > 0)
 		{
@@ -366,7 +401,10 @@ static int b64_write(BIO *b, const char *in, int inl)
 			BIO_copy_next_retry(b);
 			return(i);
 			}
+		OPENSSL_assert(i <= n);
 		ctx->buf_off+=i;
+		OPENSSL_assert(ctx->buf_off <= (int)sizeof(ctx->buf));
+		OPENSSL_assert(ctx->buf_len >= ctx->buf_off);
 		n-=i;
 		}
 	/* at this point all pending data has been written */
@@ -383,18 +421,19 @@ static int b64_write(BIO *b, const char *in, int inl)
 			{
 			if (ctx->tmp_len > 0)
 				{
+				OPENSSL_assert(ctx->tmp_len <= 3);
 				n=3-ctx->tmp_len;
-				/* There's a teoretical possibility for this */
+				/* There's a theoretical possibility for this */
 				if (n > inl) 
 					n=inl;
 				memcpy(&(ctx->tmp[ctx->tmp_len]),in,n);
 				ctx->tmp_len+=n;
+				ret += n;
 				if (ctx->tmp_len < 3)
 					break;
-				ctx->buf_len=EVP_EncodeBlock(
-					(unsigned char *)ctx->buf,
-					(unsigned char *)ctx->tmp,
-					ctx->tmp_len);
+				ctx->buf_len=EVP_EncodeBlock((unsigned char *)ctx->buf,(unsigned char *)ctx->tmp,ctx->tmp_len);
+				OPENSSL_assert(ctx->buf_len <= (int)sizeof(ctx->buf));
+				OPENSSL_assert(ctx->buf_len >= ctx->buf_off);
 				/* Since we're now done using the temporary
 				   buffer, the length should be 0'd */
 				ctx->tmp_len=0;
@@ -403,14 +442,16 @@ static int b64_write(BIO *b, const char *in, int inl)
 				{
 				if (n < 3)
 					{
-					memcpy(&(ctx->tmp[0]),in,n);
+					memcpy(ctx->tmp,in,n);
 					ctx->tmp_len=n;
+					ret += n;
 					break;
 					}
 				n-=n%3;
-				ctx->buf_len=EVP_EncodeBlock(
-					(unsigned char *)ctx->buf,
-					(unsigned char *)in,n);
+				ctx->buf_len=EVP_EncodeBlock((unsigned char *)ctx->buf,(const unsigned char *)in,n);
+				OPENSSL_assert(ctx->buf_len <= (int)sizeof(ctx->buf));
+				OPENSSL_assert(ctx->buf_len >= ctx->buf_off);
+				ret += n;
 				}
 			}
 		else
@@ -418,6 +459,9 @@ static int b64_write(BIO *b, const char *in, int inl)
 			EVP_EncodeUpdate(&(ctx->base64),
 				(unsigned char *)ctx->buf,&ctx->buf_len,
 				(unsigned char *)in,n);
+			OPENSSL_assert(ctx->buf_len <= (int)sizeof(ctx->buf));
+			OPENSSL_assert(ctx->buf_len >= ctx->buf_off);
+			ret += n;
 			}
 		inl-=n;
 		in+=n;
@@ -432,8 +476,11 @@ static int b64_write(BIO *b, const char *in, int inl)
 				BIO_copy_next_retry(b);
 				return((ret == 0)?i:ret);
 				}
+			OPENSSL_assert(i <= n);
 			n-=i;
 			ctx->buf_off+=i;
+			OPENSSL_assert(ctx->buf_off <= (int)sizeof(ctx->buf));
+			OPENSSL_assert(ctx->buf_len >= ctx->buf_off);
 			}
 		ctx->buf_len=0;
 		ctx->buf_off=0;
@@ -464,6 +511,7 @@ static long b64_ctrl(BIO *b, int cmd, long num, void *ptr)
 			ret=BIO_ctrl(b->next_bio,cmd,num,ptr);
 		break;
 	case BIO_CTRL_WPENDING: /* More to write in buffer */
+		OPENSSL_assert(ctx->buf_len >= ctx->buf_off);
 		ret=ctx->buf_len-ctx->buf_off;
 		if ((ret == 0) && (ctx->encode != B64_NONE)
 			&& (ctx->base64.num != 0))
@@ -472,6 +520,7 @@ static long b64_ctrl(BIO *b, int cmd, long num, void *ptr)
 			ret=BIO_ctrl(b->next_bio,cmd,num,ptr);
 		break;
 	case BIO_CTRL_PENDING: /* More to read in buffer */
+		OPENSSL_assert(ctx->buf_len >= ctx->buf_off);
 		ret=ctx->buf_len-ctx->buf_off;
 		if (ret <= 0)
 			ret=BIO_ctrl(b->next_bio,cmd,num,ptr);
@@ -483,10 +532,7 @@ again:
 			{
 			i=b64_write(b,NULL,0);
 			if (i < 0)
-				{
-				ret=i;
-				break;
-				}
+				return i;
 			}
 		if (BIO_get_flags(b) & BIO_FLAGS_BASE64_NO_NL)
 			{
@@ -546,3 +592,7 @@ static long b64_callback_ctrl(BIO *b, int cmd, bio_info_cb *fp)
 	return(ret);
 	}
 
+static int b64_puts(BIO *b, const char *str)
+	{
+	return b64_write(b,str,strlen(str));
+	}

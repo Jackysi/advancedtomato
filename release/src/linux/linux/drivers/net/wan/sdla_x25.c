@@ -299,30 +299,31 @@ typedef struct x25_channel
 	
 } x25_channel_t;
 
+/* FIXME Take this out */
 
 #ifdef NEX_OLD_CALL_INFO
 typedef struct x25_call_info
 {
-	char dest[17];			PACKED;/* ASCIIZ destination address */
-	char src[17];			PACKED;/* ASCIIZ source address */
-	char nuser;			PACKED;/* number of user data bytes */
-	unsigned char user[127];	PACKED;/* user data */
-	char nfacil;			PACKED;/* number of facilities */
+	char dest[17];			/* ASCIIZ destination address */
+	char src[17];			/* ASCIIZ source address */
+	char nuser;			/* number of user data bytes */
+	unsigned char user[127];	/* user data */
+	char nfacil;			/* number of facilities */
 	struct
 	{
-		unsigned char code;     PACKED;
-		unsigned char parm;     PACKED;
+		unsigned char code;
+		unsigned char parm;
 	} facil[64];			        /* facilities */
 } x25_call_info_t;
 #else
 typedef struct x25_call_info
 {
-	char dest[MAX_X25_ADDR_SIZE]		PACKED;/* ASCIIZ destination address */
-	char src[MAX_X25_ADDR_SIZE]		PACKED;/* ASCIIZ source address */
-	unsigned char nuser			PACKED;
-	unsigned char user[MAX_X25_DATA_SIZE]	PACKED;/* user data */
-	unsigned char nfacil			PACKED;
-	unsigned char facil[MAX_X25_FACL_SIZE]	PACKED;
+	char dest[MAX_X25_ADDR_SIZE];	/* ASCIIZ destination address */
+	char src[MAX_X25_ADDR_SIZE];	/* ASCIIZ source address */
+	unsigned char nuser;
+	unsigned char user[MAX_X25_DATA_SIZE];/* user data */
+	unsigned char nfacil;
+	unsigned char facil[MAX_X25_FACL_SIZE];
 	unsigned short lcn             		PACKED;
 } x25_call_info_t;
 #endif
@@ -1178,6 +1179,7 @@ static int if_init (netdevice_t* dev)
         for (i = 0; i < DEV_NUMBUFFS; ++i)
                 skb_queue_head_init(&dev->buffs[i]);
 #endif
+	/* FIXME Why are we doing this */
 	set_chan_state(dev, WAN_DISCONNECTED);
 	return 0;
 }
@@ -1265,9 +1267,7 @@ static int if_open (netdevice_t* dev)
 			connect(card);
 			S508_S514_unlock(card, &smp_flags);
 
-			del_timer(&card->u.x.x25_timer);
-			card->u.x.x25_timer.expires=jiffies+HZ;
-			add_timer(&card->u.x.x25_timer);
+			mod_timer(&card->u.x.x25_timer, jiffies + HZ);
 		}
 	}
 	/* Device is not up until the we are in connected state */
@@ -4719,7 +4719,7 @@ static int execute_delayed_cmd (sdla_t* card, netdevice_t *dev, mbox_cmd_t *usr_
 /*===============================================================
  * api_incoming_call 
  *
- *	Pass an incoming call request up the the listening
+ *	Pass an incoming call request up the listening
  *      sock.  If the API sock is not listening reject the
  *      call.
  *
@@ -5488,6 +5488,15 @@ static void S508_S514_unlock(sdla_t *card, unsigned long *smp_flags)
 	spin_unlock_irqrestore(&card->wandev.lock, *smp_flags);
 }
 
+/*===============================================================
+ * x25_timer_routine
+ *
+ * 	A more efficient polling routine.  Each half a second
+ * 	queue a polling task. We want to do the polling in a 
+ * 	task not timer, because timer runs in interrupt time.
+ *
+ * 	FIXME Polling should be rethinked.
+ *==============================================================*/
 
 static void x25_timer_routine(unsigned long data)
 {

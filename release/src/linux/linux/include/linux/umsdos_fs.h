@@ -129,6 +129,15 @@ struct umsdos_info {
 struct umsdos_ioctl {
 	struct dirent dos_dirent;
 	struct umsdos_dirent umsdos_dirent;
+	/* The following structure is used to exchange some data
+	 * with utilities (umsdos_progs/util/umsdosio.c). The first
+	 * releases were using struct stat from "sys/stat.h". This was
+	 * causing some problem for cross compilation of the kernel
+	 * Since I am not really using the structure stat, but only some field
+	 * of it, I have decided to replicate the structure here
+	 * for compatibility with the binaries out there
+	 * FIXME PTW 1998, this has probably changed
+	 */
 	
 	struct {
 		dev_t st_dev;

@@ -151,7 +151,7 @@ static int kw_lookup(const char *kwtbl, char ***pargs)
 
 /* Add or delete a route, depending on action. */
 
-static void INET_setroute(int action, char **args)
+static NOINLINE void INET_setroute(int action, char **args)
 {
 	struct rtentry rt;
 	const char *netmask = NULL;
@@ -178,7 +178,7 @@ static void INET_setroute(int action, char **args)
 			int prefix_len;
 
 			prefix_len = xatoul_range(prefix+1, 0, 32);
-			mask_in_addr(rt) = htonl( ~ (0xffffffffUL >> prefix_len));
+			mask_in_addr(rt) = htonl( ~(0xffffffffUL >> prefix_len));
 			*prefix = '\0';
 #if HAVE_NEW_ADDRT
 			rt.rt_genmask.sa_family = AF_INET;
@@ -336,7 +336,7 @@ static void INET_setroute(int action, char **args)
 
 #if ENABLE_FEATURE_IPV6
 
-static void INET6_setroute(int action, char **args)
+static NOINLINE void INET6_setroute(int action, char **args)
 {
 	struct sockaddr_in6 sa6;
 	struct in6_rtmsg rt;

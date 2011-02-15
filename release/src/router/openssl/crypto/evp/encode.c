@@ -85,7 +85,7 @@
 #define CHUNKS_PER_LINE (64/4)
 #define CHAR_PER_LINE   (64+1)
 
-static unsigned char data_bin2ascii[65]="ABCDEFGHIJKLMNOPQRSTUVWXYZ\
+static const unsigned char data_bin2ascii[65]="ABCDEFGHIJKLMNOPQRSTUVWXYZ\
 abcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /* 0xF0 is a EOLN
@@ -102,7 +102,7 @@ abcdefghijklmnopqrstuvwxyz0123456789+/";
 #define B64_ERROR       	0xFF
 #define B64_NOT_BASE64(a)	(((a)|0x13) == 0xF3)
 
-static unsigned char data_ascii2bin[128]={
+static const unsigned char data_ascii2bin[128]={
 	0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
 	0xFF,0xE0,0xF0,0xFF,0xFF,0xF1,0xFF,0xFF,
 	0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,0xFF,
@@ -129,13 +129,14 @@ void EVP_EncodeInit(EVP_ENCODE_CTX *ctx)
 	}
 
 void EVP_EncodeUpdate(EVP_ENCODE_CTX *ctx, unsigned char *out, int *outl,
-	     unsigned char *in, int inl)
+	     const unsigned char *in, int inl)
 	{
 	int i,j;
 	unsigned int total=0;
 
 	*outl=0;
 	if (inl == 0) return;
+	OPENSSL_assert(ctx->length <= (int)sizeof(ctx->enc_data));
 	if ((ctx->num+inl) < ctx->length)
 		{
 		memcpy(&(ctx->enc_data[ctx->num]),in,inl);
@@ -232,9 +233,9 @@ void EVP_DecodeInit(EVP_ENCODE_CTX *ctx)
  *  1 for full line
  */
 int EVP_DecodeUpdate(EVP_ENCODE_CTX *ctx, unsigned char *out, int *outl,
-	     unsigned char *in, int inl)
+	     const unsigned char *in, int inl)
 	{
-	int seof= -1,eof=0,rv= -1,ret=0,i,v,tmp,n,ln,tmp2,exp_nl;
+	int seof= -1,eof=0,rv= -1,ret=0,i,v,tmp,n,ln,exp_nl;
 	unsigned char *d;
 
 	n=ctx->num;
@@ -258,6 +259,7 @@ int EVP_DecodeUpdate(EVP_ENCODE_CTX *ctx, unsigned char *out, int *outl,
 		/* only save the good data :-) */
 		if (!B64_NOT_BASE64(v))
 			{
+			OPENSSL_assert(n < (int)sizeof(ctx->enc_data));
 			d[n++]=tmp;
 			ln++;
 			}
@@ -311,18 +313,17 @@ int EVP_DecodeUpdate(EVP_ENCODE_CTX *ctx, unsigned char *out, int *outl,
 			/* There will never be more than two '=' */
 			}
 
-		if ((v == B64_EOF) || (n >= 64))
+		if ((v == B64_EOF && (n&3) == 0) || (n >= 64))
 			{
 			/* This is needed to work correctly on 64 byte input
 			 * lines.  We process the line and then need to
 			 * accept the '\n' */
 			if ((v != B64_EOF) && (n >= 64)) exp_nl=1;
-			tmp2=v;
 			if (n > 0)
 				{
 				v=EVP_DecodeBlock(out,d,n);
-				if (v < 0) { rv=0; goto end; }
 				n=0;
+				if (v < 0) { rv=0; goto end; }
 				ret+=(v-eof);
 				}
 			else

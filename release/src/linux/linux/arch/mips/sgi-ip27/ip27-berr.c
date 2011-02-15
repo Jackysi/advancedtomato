@@ -52,7 +52,7 @@ static void dump_hub_information(unsigned long errst0, unsigned long errst1)
 		? : "invalid");
 }
 
-int be_ip27_handler(struct pt_regs *regs, int is_fixup)
+int ip27_be_handler(struct pt_regs *regs, int is_fixup)
 {
 	unsigned long errst0, errst1;
 	int data = regs->cp0_cause & 4;
@@ -74,12 +74,13 @@ int be_ip27_handler(struct pt_regs *regs, int is_fixup)
 	force_sig(SIGBUS, current);
 }
 
-void __init bus_error_init(void)
+void __init ip27_be_init(void)
 {
+	/* XXX Initialize all the Hub & Bridge error handling here.  */
 	int cpu = LOCAL_HUB_L(PI_CPU_NUM);
 	int cpuoff = cpu << 8;
 
-	be_board_handler = be_ip27_handler;
+	board_be_handler = ip27_be_handler;
 
 	LOCAL_HUB_S(PI_ERR_INT_PEND,
 	            cpu ? PI_ERR_CLEAR_ALL_B : PI_ERR_CLEAR_ALL_A);

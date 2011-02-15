@@ -18,7 +18,11 @@
 
 // zzz
 #include <asm/unistd.h>
+#ifdef _syscall5
 _syscall5(int, prctl, int, a, int, b, int, c, int, d, int, e);
+#else
+#include <sys/prctl.h>
+#endif
 
 struct daemon *daemon;
 

@@ -1,10 +1,11 @@
 /*
- * acm.c  Version 0.21
+ * acm.c  Version 0.23
  *
  * Copyright (c) 1999 Armin Fuerst	<fuerst@in.tum.de>
  * Copyright (c) 1999 Pavel Machek	<pavel@suse.cz>
  * Copyright (c) 1999 Johannes Erdfelt	<johannes@erdfelt.com>
  * Copyright (c) 2000 Vojtech Pavlik	<vojtech@suse.cz>
+ * Copyright (c) 2004 Jiri Engelthaler	<engy@centrum.cz>
  *
  * USB Abstract Control Model driver for USB modems and ISDN adapters
  *
@@ -24,6 +25,10 @@
  *	v0.19 - fixed CLOCAL handling (thanks to Richard Shih-Ping Chan)
  *	v0.20 - switched to probing on interface (rather than device) class
  *	v0.21 - revert to probing on device for devices with multiple configs
+ *	v0.22 - added max_packet_size variable for wMaxPacketSize
+ *	        workaround needed by Qualcomm CDMA modem. Default value is 1024.
+ *              Thanks to David Peroutka for discovering this solution.
+ *	v0.23 - Siemens MC75 modem workaround
  */
 
 /*
@@ -61,9 +66,16 @@
 /*
  * Version Information
  */
-#define DRIVER_VERSION "v0.21"
-#define DRIVER_AUTHOR "Armin Fuerst, Pavel Machek, Johannes Erdfelt, Vojtech Pavlik"
-#define DRIVER_DESC "USB Abstract Control Model driver for USB modems and ISDN adapters"
+#define DRIVER_VERSION "v0.23"
+#define DRIVER_AUTHOR "Armin Fuerst, Pavel Machek, Johannes Erdfelt, Vojtech Pavlik, Jiri Engelthaler"
+#define DRIVER_DESC "USB Abstract Control Model driver for USB modems and ISDN adapters (patched)"
+
+/* 
+ * QualComm workaround
+ */
+ 
+static int known_max_packet_size = 1024;
+static int maxpacketsize = -1;
 
 /*
  * CMSPAR, some architectures can't have space and mark parity.
@@ -124,6 +136,17 @@
 #define ACM_CTRL_PARITY		0x20
 #define ACM_CTRL_OVERRUN	0x40
 
+/* 
+ * Qualcomm ids 
+ */
+ 
+#define QUALCOMM_VENDOR_ID   0x05c6
+#define QUALCOMM_PRODUCT_ID  0x3196	// GTRAN GPC-6420
+#define CMOTECH_VENDOR_ID    0x16D8
+#define CMOTECH_PRODUCT_ID   0x5533
+#define SIEMENS_VENDOR_ID    0x0681
+#define SIEMENS_PRODUCT_ID   0x0034	// MC75
+
 /*
  * Line speed and caracter encoding.
  */
@@ -158,6 +181,8 @@ struct acm {
 static struct usb_driver acm_driver;
 static struct tty_driver acm_tty_driver;
 static struct acm *acm_table[ACM_TTY_MINORS];
+
+static DECLARE_MUTEX(open_sem);
 
 #define ACM_READY(acm)	(acm && acm->dev && acm->used)
 
@@ -240,7 +265,7 @@ static void acm_read_bulk(struct urb *urb)
 	if (urb->status)
 		dbg("nonzero read bulk status received: %d", urb->status);
 
-	if (!urb->status & !acm->throttle)  {
+	if (!urb->status && !acm->throttle)  {
 		for (i = 0; i < urb->actual_length && !acm->throttle; i++) {
 			/* if we insert more than TTY_FLIPBUF_SIZE characters,
 			 * we drop them. */
@@ -285,10 +310,7 @@ static void acm_softint(void *private)
 
 	if (!ACM_READY(acm)) return;
 
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) && tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
-
-	wake_up_interruptible(&tty->write_wait);
+	tty_wakeup(tty);
 }
 
 /*
@@ -297,23 +319,23 @@ static void acm_softint(void *private)
 
 static int acm_tty_open(struct tty_struct *tty, struct file *filp)
 {
-	struct acm *acm = acm_table[MINOR(tty->device)];
+	struct acm *acm;
+	int rv = -EINVAL;
 
-	if (!acm || !acm->dev) return -EINVAL;
+	down(&open_sem);
+
+	acm = acm_table[MINOR(tty->device)];
+	if (!acm || !acm->dev)
+		goto err_out;
+	rv = 0;
 
 	tty->driver_data = acm;
 	acm->tty = tty;
 
 	MOD_INC_USE_COUNT;
 
-        lock_kernel();
-
-	if (acm->used++) {
-                unlock_kernel();
-                return 0;
-        }
-
-        unlock_kernel();
+	if (acm->used++)
+		goto done;
 
 	acm->ctrlurb.dev = acm->dev;
 	if (usb_submit_urb(&acm->ctrlurb))
@@ -329,14 +351,22 @@ static int acm_tty_open(struct tty_struct *tty, struct file *filp)
 	   otherwise it is scheduled, and with high data rates data can get lost. */
 	tty->low_latency = 1;
 
-	return 0;
+done:
+err_out:
+	up(&open_sem);
+	return rv;
 }
 
 static void acm_tty_close(struct tty_struct *tty, struct file *filp)
 {
 	struct acm *acm = tty->driver_data;
 
-	if (!acm || !acm->used) return;
+	down(&open_sem);
+
+	if (!acm || !acm->used) {
+		up(&open_sem);
+		return;
+	}
 
 	if (!--acm->used) {
 		if (acm->dev) {
@@ -350,6 +380,7 @@ static void acm_tty_close(struct tty_struct *tty, struct file *filp)
 			kfree(acm);
 		}
 	}
+	up(&open_sem);
 	MOD_DEC_USE_COUNT;
 }
 
@@ -363,9 +394,10 @@ static int acm_tty_write(struct tty_struct *tty, int from_user, const unsigned c
 
 	count = (count > acm->writesize) ? acm->writesize : count;
 
-	if (from_user)
-		copy_from_user(acm->writeurb.transfer_buffer, buf, count);
-	else
+	if (from_user) {
+		if (copy_from_user(acm->writeurb.transfer_buffer, buf, count))
+			return -EFAULT;
+	} else
 		memcpy(acm->writeurb.transfer_buffer, buf, count);
 
 	acm->writeurb.transfer_buffer_length = count;
@@ -512,8 +544,11 @@ static void *acm_probe(struct usb_device *dev, unsigned int ifnum,
 	struct usb_config_descriptor *cfacm;
 	struct usb_interface_descriptor *ifcom, *ifdata;
 	struct usb_endpoint_descriptor *epctrl, *epread, *epwrite;
-	int readsize, ctrlsize, minor, i;
+	int readsize, ctrlsize, minor, i, j;
 	unsigned char *buf;
+#ifdef CONFIG_USB_DEVPATH
+	char devfsname[16];
+#endif
 
 	for (i = 0; i < dev->descriptor.bNumConfigurations; i++) {
 
@@ -521,93 +556,140 @@ static void *acm_probe(struct usb_device *dev, unsigned int ifnum,
 
 		dbg("probing config %d", cfacm->bConfigurationValue);
 
-		if (cfacm->bNumInterfaces != 2 ||
-		    usb_interface_claimed(cfacm->interface + 0) ||
-		    usb_interface_claimed(cfacm->interface + 1))
-			continue;
+		for (j = 0; j < cfacm->bNumInterfaces - 1; j++) {
 
-		ifcom = cfacm->interface[0].altsetting + 0;
-		ifdata = cfacm->interface[1].altsetting + 0;
-
-		if (ifdata->bInterfaceClass != 10 || ifdata->bNumEndpoints < 2) {
-			ifcom = cfacm->interface[1].altsetting + 0;
-			ifdata = cfacm->interface[0].altsetting + 0;
-			if (ifdata->bInterfaceClass != 10 || ifdata->bNumEndpoints < 2)
+			if (usb_interface_claimed(cfacm->interface + j) ||
+			    usb_interface_claimed(cfacm->interface + j + 1))
 				continue;
+
+			ifcom = cfacm->interface[j].altsetting + 0;
+			ifdata = cfacm->interface[j + 1].altsetting + 0;
+
+			if (ifdata->bInterfaceClass != 10 || ifdata->bNumEndpoints < 2) {
+				ifcom = cfacm->interface[j + 1].altsetting + 0;
+				ifdata = cfacm->interface[j].altsetting + 0;
+				if (ifdata->bInterfaceClass != 10 || ifdata->bNumEndpoints < 2)
+					continue;
+			}
+
+			if (ifcom->bInterfaceClass != 2 || ifcom->bInterfaceSubClass != 2 ||
+			    ifcom->bInterfaceProtocol < 1 || ifcom->bInterfaceProtocol > 6 ||
+			    ifcom->bNumEndpoints < 1)
+				continue;
+
+			epctrl = ifcom->endpoint + 0;
+			epread = ifdata->endpoint + 0;
+			epwrite = ifdata->endpoint + 1;
+
+			if ((epctrl->bEndpointAddress & 0x80) != 0x80 || (epctrl->bmAttributes & 3) != 3 ||
+			    (epread->bmAttributes & 3) != 2 || (epwrite->bmAttributes & 3) != 2 ||
+			    ((epread->bEndpointAddress & 0x80) ^ (epwrite->bEndpointAddress & 0x80)) != 0x80)
+				continue;
+
+			dbg("using interface %d\n", j);
+
+			if ((epread->bEndpointAddress & 0x80) != 0x80) {
+				epread = ifdata->endpoint + 1;
+				epwrite = ifdata->endpoint + 0;
+			}
+
+			if(dev->descriptor.idVendor  != SIEMENS_VENDOR_ID ||
+			   dev->descriptor.idProduct != SIEMENS_PRODUCT_ID) {
+				usb_set_configuration(dev, cfacm->bConfigurationValue);
+			}
+			
+			for (minor = 0; minor < ACM_TTY_MINORS && acm_table[minor]; minor++);
+			if (acm_table[minor]) {
+				err("no more free acm devices");
+				return NULL;
+			}
+
+			if (!(acm = kmalloc(sizeof(struct acm), GFP_KERNEL))) {
+				err("out of memory");
+				return NULL;
+			}
+			memset(acm, 0, sizeof(struct acm));
+
+			/* Qualcomm workaround. Some Quallcom devices (surely Gtran GPC-6420 CDMA
+			 * modem) reports bad wMaxPacketSize (64). That causes max transfer rate
+			 * about 256 kbps.  This code forces better wMaxPacketSize value
+			 */
+			
+			if ((dev->descriptor.idVendor  == QUALCOMM_VENDOR_ID &&
+			     dev->descriptor.idProduct == QUALCOMM_PRODUCT_ID) ||
+			    (dev->descriptor.idVendor  == CMOTECH_VENDOR_ID &&
+			     dev->descriptor.idProduct == CMOTECH_PRODUCT_ID) ||
+			    (dev->descriptor.idVendor  == SIEMENS_VENDOR_ID &&
+			     dev->descriptor.idProduct == SIEMENS_PRODUCT_ID)
+			   ) {
+				ctrlsize = readsize = acm->writesize = known_max_packet_size;
+				printk("forcing new wMaxPacketSize for modem device: %d\n", ctrlsize);
+			} 
+			else {
+				if (maxpacketsize > 0)
+				{
+					ctrlsize = readsize = acm->writesize = maxpacketsize;
+					printk("forcing new wMaxPacketSize for modem device: %d\n", ctrlsize);
+				}
+				else {
+					ctrlsize = epctrl->wMaxPacketSize;
+					readsize = epread->wMaxPacketSize;
+					acm->writesize = epwrite->wMaxPacketSize;
+				}
+			}
+			
+			acm->iface = cfacm->interface + j;
+			acm->minor = minor;
+			acm->dev = dev;
+
+			acm->tqueue.routine = acm_softint;
+			acm->tqueue.data = acm;
+
+			if (!(buf = kmalloc(ctrlsize + readsize + acm->writesize, GFP_KERNEL))) {
+				err("out of memory");
+				kfree(acm);
+				return NULL;
+			}
+
+			FILL_INT_URB(&acm->ctrlurb, dev, usb_rcvintpipe(dev, epctrl->bEndpointAddress),
+				     buf, ctrlsize, acm_ctrl_irq, acm, epctrl->bInterval);
+
+			FILL_BULK_URB(&acm->readurb, dev, usb_rcvbulkpipe(dev, epread->bEndpointAddress),
+				      buf += ctrlsize, readsize, acm_read_bulk, acm);
+/*			if (!(dev->descriptor.idVendor  == QUALCOMM_VENDOR_ID &&
+			      dev->descriptor.idProduct == QUALCOMM_PRODUCT_ID) &&
+			    !(dev->descriptor.idVendor  == CMOTECH_VENDOR_ID &&
+			      dev->descriptor.idProduct == CMOTECH_PRODUCT_ID)
+			   )*/
+				acm->readurb.transfer_flags |= USB_NO_FSBR;
+
+			FILL_BULK_URB(&acm->writeurb, dev, usb_sndbulkpipe(dev, epwrite->bEndpointAddress),
+				      buf += readsize, acm->writesize, acm_write_bulk, acm);
+/*			if (!(dev->descriptor.idVendor  == QUALCOMM_VENDOR_ID &&
+			      dev->descriptor.idProduct == QUALCOMM_PRODUCT_ID) &&
+			    !(dev->descriptor.idVendor  == CMOTECH_VENDOR_ID &&
+			      dev->descriptor.idProduct == CMOTECH_PRODUCT_ID)
+			   )*/
+				acm->writeurb.transfer_flags |= USB_NO_FSBR;
+
+			printk(KERN_INFO "ttyACM%d: USB ACM device\n", minor);
+
+			acm_set_control(acm, acm->ctrlout);
+
+			acm->line.speed = cpu_to_le32(9600);
+			acm->line.databits = 8;
+			acm_set_line(acm, &acm->line);
+
+			usb_driver_claim_interface(&acm_driver, acm->iface + 0, acm);
+			usb_driver_claim_interface(&acm_driver, acm->iface + 1, acm);
+
+			tty_register_devfs(&acm_tty_driver, 0, minor);
+#ifdef CONFIG_USB_DEVPATH
+			sprintf(devfsname, acm_tty_driver.name, minor);
+			usb_register_devpath(dev, 0, devfsname);
+#endif
+			return acm_table[minor] = acm;
 		}
-
-		if (ifcom->bInterfaceClass != 2 || ifcom->bInterfaceSubClass != 2 ||
-		    ifcom->bInterfaceProtocol != 1 || ifcom->bNumEndpoints < 1)
-			continue;
-
-		epctrl = ifcom->endpoint + 0;
-		epread = ifdata->endpoint + 0;
-		epwrite = ifdata->endpoint + 1;
-
-		if ((epctrl->bEndpointAddress & 0x80) != 0x80 || (epctrl->bmAttributes & 3) != 3 ||
-		   (epread->bmAttributes & 3) != 2 || (epwrite->bmAttributes & 3) != 2 ||
-		   ((epread->bEndpointAddress & 0x80) ^ (epwrite->bEndpointAddress & 0x80)) != 0x80)
-			continue;
-
-		if ((epread->bEndpointAddress & 0x80) != 0x80) {
-			epread = ifdata->endpoint + 1;
-			epwrite = ifdata->endpoint + 0;
-		}
-
-		usb_set_configuration(dev, cfacm->bConfigurationValue);
-
-		for (minor = 0; minor < ACM_TTY_MINORS && acm_table[minor]; minor++);
-		if (acm_table[minor]) {
-			err("no more free acm devices");
-			return NULL;
-		}
-
-		if (!(acm = kmalloc(sizeof(struct acm), GFP_KERNEL))) {
-			err("out of memory");
-			return NULL;
-		}
-		memset(acm, 0, sizeof(struct acm));
-
-		ctrlsize = epctrl->wMaxPacketSize;
-		readsize = epread->wMaxPacketSize;
-		acm->writesize = epwrite->wMaxPacketSize;
-		acm->iface = cfacm->interface;
-		acm->minor = minor;
-		acm->dev = dev;
-
-		acm->tqueue.routine = acm_softint;
-		acm->tqueue.data = acm;
-
-		if (!(buf = kmalloc(ctrlsize + readsize + acm->writesize, GFP_KERNEL))) {
-			err("out of memory");
-			kfree(acm);
-			return NULL;
-		}
-
-		FILL_INT_URB(&acm->ctrlurb, dev, usb_rcvintpipe(dev, epctrl->bEndpointAddress),
-			buf, ctrlsize, acm_ctrl_irq, acm, epctrl->bInterval);
-
-		FILL_BULK_URB(&acm->readurb, dev, usb_rcvbulkpipe(dev, epread->bEndpointAddress),
-			buf += ctrlsize, readsize, acm_read_bulk, acm);
-		acm->readurb.transfer_flags |= USB_NO_FSBR;
-
-		FILL_BULK_URB(&acm->writeurb, dev, usb_sndbulkpipe(dev, epwrite->bEndpointAddress),
-			buf += readsize, acm->writesize, acm_write_bulk, acm);
-		acm->writeurb.transfer_flags |= USB_NO_FSBR;
-
-		printk(KERN_INFO "ttyACM%d: USB ACM device\n", minor);
-
-		acm_set_control(acm, acm->ctrlout);
-
-		acm->line.speed = cpu_to_le32(9600);
-		acm->line.databits = 8;
-		acm_set_line(acm, &acm->line);
-
-		usb_driver_claim_interface(&acm_driver, acm->iface + 0, acm);
-		usb_driver_claim_interface(&acm_driver, acm->iface + 1, acm);
-
-		tty_register_devfs(&acm_tty_driver, 0, minor);
-		return acm_table[minor] = acm;
 	}
 
 	return NULL;
@@ -617,7 +699,10 @@ static void acm_disconnect(struct usb_device *dev, void *ptr)
 {
 	struct acm *acm = ptr;
 
+	down(&open_sem);
+
 	if (!acm || !acm->dev) {
+		up(&open_sem);
 		dbg("disconnect on nonexisting interface");
 		return;
 	}
@@ -633,12 +718,19 @@ static void acm_disconnect(struct usb_device *dev, void *ptr)
 	usb_driver_release_interface(&acm_driver, acm->iface + 0);
 	usb_driver_release_interface(&acm_driver, acm->iface + 1);
 
+#ifdef CONFIG_USB_DEVPATH
+	usb_deregister_devpath(dev);
+#endif
+
 	if (!acm->used) {
 		tty_unregister_devfs(&acm_tty_driver, acm->minor);
 		acm_table[acm->minor] = NULL;
 		kfree(acm);
+		up(&open_sem);
 		return;
 	}
+	
+	up(&open_sem);
 
 	if (acm->tty)
 		tty_hangup(acm->tty);
@@ -649,7 +741,9 @@ static void acm_disconnect(struct usb_device *dev, void *ptr)
  */
 
 static struct usb_device_id acm_ids[] = {
+	{ USB_DEVICE(0x22B8, 0x1005) },		/* Motorola TimePort 280 */
 	{ USB_DEVICE_INFO(USB_CLASS_COMM, 0, 0) },
+	{ USB_DEVICE_INFO(USB_CLASS_COMM, 2, 0) },
 	{ }
 };
 
@@ -736,3 +830,5 @@ MODULE_AUTHOR( DRIVER_AUTHOR );
 MODULE_DESCRIPTION( DRIVER_DESC );
 MODULE_LICENSE("GPL");
 
+MODULE_PARM(maxpacketsize, "i");
+MODULE_PARM_DESC(maxpacketsize, "Force MaxPacketSize");

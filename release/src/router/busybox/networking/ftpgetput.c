@@ -23,7 +23,7 @@ struct globals {
 	int verbose_flag;
 	int do_continue;
 	char buf[1]; /* actually [BUFSZ] */
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 enum { BUFSZ = COMMON_BUFSIZE - offsetof(struct globals, buf) };
 struct BUG_G_too_big {
@@ -212,7 +212,7 @@ int ftp_receive(const char *local_path, char *server_path)
 	}
 
 	if (do_continue) {
-		sprintf(buf, "REST %"OFF_FMT"d", beg_range);
+		sprintf(buf, "REST %"OFF_FMT"u", beg_range);
 		if (ftpcmd(buf, NULL) != 350) {
 			do_continue = 0;
 		}
@@ -306,7 +306,7 @@ int ftpgetput_main(int argc UNUSED_PARAM, char **argv)
 #if ENABLE_FEATURE_FTPGETPUT_LONG_OPTIONS
 	applet_long_options = ftpgetput_longopts;
 #endif
-	opt_complementary = "=3:vv:cc"; /* must have 3 params; -v and -c count */
+	opt_complementary = "-2:vv:cc"; /* must have 2 to 3 params; -v and -c count */
 	opt = getopt32(argv, "cvu:p:P:", &user, &password, &port,
 					&verbose_flag, &do_continue);
 	argv += optind;
@@ -321,5 +321,5 @@ int ftpgetput_main(int argc UNUSED_PARAM, char **argv)
 	}
 
 	ftp_login();
-	return ftp_action(argv[1], argv[2]);
+	return ftp_action(argv[1], argv[2] ? argv[2] : argv[1]);
 }

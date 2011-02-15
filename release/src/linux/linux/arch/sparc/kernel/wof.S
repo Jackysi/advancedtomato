@@ -1,4 +1,4 @@
-/* $Id: wof.S,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: wof.S,v 1.40 2000/01/08 16:38:18 anton Exp $
  * wof.S: Sparc window overflow handler.
  *
  * Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -234,7 +234,7 @@ spwin_user_stack_is_bolixed:
 spnwin_patch3:	and	%twin_tmp, 0xff, %twin_tmp	! patched on 7win Sparcs
 		st	%twin_tmp, [%curptr + AOFF_task_thread + AOFF_thread_uwinmask]
 
-#define STACK_OFFSET	(TASK_UNION_SIZE - TRACEREG_SZ - REGWIN_SZ)
+#define STACK_OFFSET (TASK_UNION_SIZE - TRACEREG_SZ - STACKFRAME_SZ)
 
 	sethi	%hi(STACK_OFFSET), %sp
 	or	%sp, %lo(STACK_OFFSET), %sp

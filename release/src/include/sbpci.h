@@ -1,13 +1,14 @@
 /*
- * HND SiliconBackplane PCI core hardware definitions.
+ * BCM47XX Sonics SiliconBackplane PCI core hardware definitions.
  *
- * Copyright 2006, Broadcom Corporation
- * All Rights Reserved.
- * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * $Id$
+ * Copyright 2004, Broadcom Corporation      
+ * All Rights Reserved.      
+ *       
+ * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY      
+ * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM      
+ * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS      
+ * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.      
  *
  * $Id$
  */
@@ -57,7 +58,7 @@ typedef struct sbpciregs {
 #define PCI_RST_OE	0x01	/* When set, drives PCI_RESET out to pin */
 #define PCI_RST		0x02	/* Value driven out to pin */
 #define PCI_CLK_OE	0x04	/* When set, drives clock as gated by PCI_CLK out to pin */
-#define PCI_CLK		0x08	/* Gate for clock driven out to pin */
+#define PCI_CLK		0x08	/* Gate for clock driven out to pin */	
 
 /* PCI arbiter control */
 #define PCI_INT_ARB	0x01	/* When set, use an internal arbiter */
@@ -68,8 +69,11 @@ typedef struct sbpciregs {
 #define PCI_PARKID_EXT0		0	/* External master 0 */
 #define PCI_PARKID_EXT1		1	/* External master 1 */
 #define PCI_PARKID_EXT2		2	/* External master 2 */
-#define PCI_PARKID_INT		3	/* Internal master */
-#define PCI_PARKID_LAST		4	/* Last active master */
+#define PCI_PARKID_EXT3		3	/* External master 3 (rev >= 11) */
+#define PCI_PARKID_INT		3	/* Internal master (rev < 11) */
+#define PCI11_PARKID_INT	4	/* Internal master (rev >= 11) */
+#define PCI_PARKID_LAST		4	/* Last active master (rev < 11) */
+#define PCI11_PARKID_LAST	5	/* Last active master (rev >= 11) */
 
 /* Interrupt status/mask */
 #define PCI_INTA	0x01	/* PCI INTA# is asserted */

@@ -6,7 +6,7 @@
  *		Various kernel-resident INET utility functions; mainly
  *		for format conversion and debugging output.
  *
- * Version:	$Id: utils.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ * Version:	$Id: utils.c,v 1.8 2000/10/03 07:29:01 anton Exp $
  *
  * Author:	Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
  *
@@ -21,26 +21,8 @@
  *		2 of the License, or (at your option) any later version.
  */
 
-#include <asm/uaccess.h>
-#include <asm/system.h>
 #include <linux/types.h>
-#include <linux/kernel.h>
-#include <linux/sched.h>
-#include <linux/string.h>
-#include <linux/mm.h>
-#include <linux/socket.h>
-#include <linux/in.h>
-#include <linux/errno.h>
-#include <linux/stat.h>
-#include <stdarg.h>
-#include <linux/inet.h>
-#include <linux/netdevice.h>
-#include <linux/etherdevice.h>
-#include <net/ip.h>
-#include <net/protocol.h>
-#include <net/tcp.h>
-#include <linux/skbuff.h>
-
+#include <asm/byteorder.h>
 
 /*
  *	Convert an ASCII string to binary IP. 

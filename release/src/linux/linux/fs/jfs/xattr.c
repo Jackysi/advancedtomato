@@ -1,6 +1,6 @@
 /*
- *   Copyright (c) International Business Machines  Corp., 2000-2002
- *   Copyright (c) Christoph Hellwig, 2002
+ *   Copyright (C) International Business Machines  Corp., 2000-2003
+ *   Copyright (C) Christoph Hellwig, 2002
  *
  *   This program is free software;  you can redistribute it and/or modify
  *   it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 #include <linux/fs.h>
 #include <linux/xattr.h>
 #include "jfs_incore.h"
+#include "jfs_superblock.h"
 #include "jfs_dmap.h"
 #include "jfs_debug.h"
 #include "jfs_dinode.h"
@@ -88,33 +89,23 @@ struct ea_buffer {
 #define XATTR_OS2_PREFIX "os2."
 #define XATTR_OS2_PREFIX_LEN (sizeof (XATTR_OS2_PREFIX) - 1)
 
+static int is_known_namespace(const char *name)
+{
+	if (strncmp(name, XATTR_SYSTEM_PREFIX, XATTR_SYSTEM_PREFIX_LEN) &&
+	    strncmp(name, XATTR_USER_PREFIX, XATTR_USER_PREFIX_LEN))
+		return 0;
+
+	return 1;
+}
+
 /*
  * These three routines are used to recognize on-disk extended attributes
  * that are in a recognized namespace.  If the attribute is not recognized,
  * "os2." is prepended to the name
  */
-static inline int is_os2_xattr(struct jfs_ea *ea)
+static int is_os2_xattr(struct jfs_ea *ea)
 {
-	/*
-	 * Check for "system."
-	 */
-	if ((ea->namelen >= XATTR_SYSTEM_PREFIX_LEN) &&
-	    !strncmp(ea->name, XATTR_SYSTEM_PREFIX, XATTR_SYSTEM_PREFIX_LEN))
-		return FALSE;
-	/*
-	 * Check for "user."
-	 */
-	if ((ea->namelen >= XATTR_USER_PREFIX_LEN) &&
-	    !strncmp(ea->name, XATTR_USER_PREFIX, XATTR_USER_PREFIX_LEN))
-		return FALSE;
-	/*
-	 * Add any other valid namespace prefixes here
-	 */
-
-	/*
-	 * We assume it's OS/2's flat namespace
-	 */
-	return TRUE;
+	return !is_known_namespace(ea->name);
 }
 
 static inline int name_size(struct jfs_ea *ea)
@@ -182,7 +173,7 @@ static int ea_write_inline(struct inode *ip, struct jfs_ea_list *ealist,
 		 * used for an inline EA.
 		 */
 		if (!(ji->mode2 & INLINEEA) && !(ji->ea.flag & DXD_INLINE))
-			return -1;
+			return -EPERM;
 
 		DXDsize(ea, size);
 		DXDlength(ea, 0);
@@ -252,7 +243,7 @@ static int ea_write(struct inode *ip, struct jfs_ea_list *ealist, int size,
 
 	rc = dbAlloc(ip, INOHINT(ip), nblocks, &blkno);
 	if (rc)
-		return -rc;
+		return rc;
 
 	/*
 	 * Now have nblocks worth of storage to stuff into the FEALIST.
@@ -381,7 +372,10 @@ static int ea_read(struct inode *ip, struct jfs_ea_list *ealist)
 		return ea_read_inline(ip, ealist);
 
 	nbytes = sizeDXD(&ji->ea);
-	assert(nbytes);
+	if (!nbytes) {
+		jfs_error(sb, "ea_read: nbytes is 0");
+		return -EIO;
+	}
 
 	/* 
 	 * Figure out how many blocks were allocated when this EA list was
@@ -477,7 +471,10 @@ static int ea_get(struct inode *inode, struct ea_buffer *ea_buf, int min_size)
 		}
 		current_blocks = 0;
 	} else {
-		assert(ji->ea.flag & DXD_EXTENT);
+		if (!(ji->ea.flag & DXD_EXTENT)) {
+			jfs_error(sb, "ea_get: invalid ea.flag)");
+			return -EIO;
+		}
 		current_blocks = (ea_size + sb->s_blocksize - 1) >>
 		    sb->s_blocksize_bits;
 	}
@@ -492,7 +489,7 @@ static int ea_get(struct inode *inode, struct ea_buffer *ea_buf, int min_size)
 		if (ea_buf->xattr == NULL)
 			return -ENOMEM;
 
-		ea_buf->flag |= EA_MALLOC;
+		ea_buf->flag = EA_MALLOC;
 		ea_buf->max_size = (size + sb->s_blocksize - 1) &
 		    ~(sb->s_blocksize - 1);
 
@@ -513,7 +510,7 @@ static int ea_get(struct inode *inode, struct ea_buffer *ea_buf, int min_size)
 		rc = dbAlloc(inode, INOHINT(inode), (s64) blocks_needed,
 			     &blkno);
 		if (rc)
-			return -rc;
+			return rc;
 
 		DXDlength(&ea_buf->new_ea, blocks_needed);
 		DXDaddress(&ea_buf->new_ea, blkno);
@@ -543,7 +540,8 @@ static int ea_get(struct inode *inode, struct ea_buffer *ea_buf, int min_size)
 	}
 	ea_buf->flag = EA_EXTENT;
 	ea_buf->mp = read_metapage(inode, addressDXD(&ji->ea),
-				   lengthDXD(&ji->ea), 1);
+				   lengthDXD(&ji->ea) << sb->s_blocksize_bits,
+				   1);
 	if (ea_buf->mp == NULL)
 		return -EIO;
 	ea_buf->xattr = ea_buf->mp->data;
@@ -649,8 +647,16 @@ static int can_set_xattr(struct inode *inode, const char *name,
 	if (IS_IMMUTABLE(inode) || IS_APPEND(inode) || S_ISLNK(inode->i_mode))
 		return -EPERM;
 
-	if((strncmp(name, XATTR_USER_PREFIX, XATTR_USER_PREFIX_LEN) != 0) &&
-	   (strncmp(name, XATTR_OS2_PREFIX, XATTR_OS2_PREFIX_LEN) != 0))
+	if (strncmp(name, XATTR_OS2_PREFIX, XATTR_OS2_PREFIX_LEN) == 0) {
+		/*
+		 * This makes sure that we aren't trying to set an
+		 * attribute in a different namespace by prefixing it
+		 * with "os2."
+		 */
+		if (is_known_namespace(name + XATTR_OS2_PREFIX_LEN))
+			return -EOPNOTSUPP;
+	}
+	else if (strncmp(name, XATTR_USER_PREFIX, XATTR_USER_PREFIX_LEN) != 0)
 		return -EOPNOTSUPP;
 
 	if (!S_ISREG(inode->i_mode) &&
@@ -812,6 +818,8 @@ int jfs_setxattr(struct dentry *dentry, const char *name, void *value,
 
 static inline int can_get_xattr(struct inode *inode, const char *name)
 {
+	if(strncmp(name, XATTR_SYSTEM_PREFIX, XATTR_SYSTEM_PREFIX_LEN) == 0)
+		return 0;
 	return permission(inode, MAY_READ);
 }
 
@@ -824,22 +832,11 @@ ssize_t __jfs_getxattr(struct inode *inode, const char *name, void *data,
 	int xattr_size;
 	ssize_t size;
 	int namelen = strlen(name);
-	char *os2name = NULL;
 	int rc;
 	char *value;
 
 	if ((rc = can_get_xattr(inode, name)))
 		return rc;
-
-	if (strncmp(name, XATTR_OS2_PREFIX, XATTR_OS2_PREFIX_LEN) == 0) {
-		os2name = kmalloc(namelen - XATTR_OS2_PREFIX_LEN + 1,
-				  GFP_KERNEL);
-		if (!os2name)
-			return -ENOMEM;
-		strcpy(os2name, name + XATTR_OS2_PREFIX_LEN);
-		name = os2name;
-		namelen -= XATTR_OS2_PREFIX_LEN;
-	}
 
 	xattr_size = ea_get(inode, &ea_buf, 0);
 	if (xattr_size < 0) {
@@ -873,8 +870,6 @@ ssize_t __jfs_getxattr(struct inode *inode, const char *name, void *data,
       release:
 	ea_release(inode, &ea_buf);
       out:
-	if (os2name)
-		kfree(os2name);
 
 	return size;
 }
@@ -882,6 +877,19 @@ ssize_t __jfs_getxattr(struct inode *inode, const char *name, void *data,
 ssize_t jfs_getxattr(struct dentry *dentry, const char *name, void *data,
 		     size_t buf_size)
 {
+	if (strncmp(name, XATTR_OS2_PREFIX, XATTR_OS2_PREFIX_LEN) == 0) {
+		/*
+		 * skip past "os2." prefix
+		 */
+		name += XATTR_OS2_PREFIX_LEN;
+		/*
+		 * Don't allow retrieving properly prefixed attributes
+		 * by prepending them with "os2."
+		 */
+		if (is_known_namespace(name))
+			return -EOPNOTSUPP;
+	}
+
 	return __jfs_getxattr(dentry->d_inode, name, data, buf_size);
 }
 

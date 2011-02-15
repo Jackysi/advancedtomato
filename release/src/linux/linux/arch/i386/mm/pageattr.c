@@ -52,11 +52,9 @@ static struct page *split_large_page(unsigned long address, pgprot_t prot)
 
 static void flush_kernel_map(void * address) 
 { 
-	if (!test_bit(X86_FEATURE_SELFSNOOP, boot_cpu_data.x86_capability)) {
-		/* Could use CLFLUSH here if the CPU supports it (Hammer,P4) */
-		if (boot_cpu_data.x86_model >= 4) 
-			asm volatile("wbinvd":::"memory"); 	
-	} 
+	/* Could use CLFLUSH here if the CPU supports it (Hammer,P4) */
+	if (boot_cpu_data.x86_model >= 4) 
+		asm volatile("wbinvd":::"memory"); 	
 
 	/* Do global flush here to work around large page flushing errata 
 	   in some early Athlons */
@@ -121,19 +119,15 @@ __change_page_attr(struct page *page, pgprot_t prot, struct page **oldpage)
 	kpte_page = virt_to_page(((unsigned long)kpte) & PAGE_MASK);
 	if (pgprot_val(prot) != pgprot_val(PAGE_KERNEL)) { 
 		if ((pte_val(*kpte) & _PAGE_PSE) == 0) {
-			pte_t old = *kpte;
-			pte_t standard = mk_pte(page, PAGE_KERNEL); 
-
 			set_pte_atomic(kpte, mk_pte(page, prot)); 
-			if (pte_same(old,standard))
-				atomic_inc(&kpte_page->count);
 		} else {
 			struct page *split = split_large_page(address, prot); 
 			if (!split)
 				return -ENOMEM;
-			atomic_inc(&kpte_page->count); 	
 			set_pmd_pte(kpte,address,mk_pte(split, PAGE_KERNEL));
+			kpte_page = split;
 		}	
+		atomic_inc(&kpte_page->count);
 	} else if ((pte_val(*kpte) & _PAGE_PSE) == 0) { 
 		set_pte_atomic(kpte, mk_pte(page, PAGE_KERNEL));
 		atomic_dec(&kpte_page->count); 

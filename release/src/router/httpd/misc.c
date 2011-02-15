@@ -244,12 +244,32 @@ static int get_memory(meminfo_t *m)
 	char s[128];
 	int ok = 0;
 
+	memset(m, 0, sizeof(*m));
 	if ((f = fopen("/proc/meminfo", "r")) != NULL) {
 		while (fgets(s, sizeof(s), f)) {
+#ifdef LINUX26
+			if (strncmp(s, "MemTotal:", 9) == 0) {
+				m->total = strtoul(s + 12, NULL, 10) * 1024;
+				++ok;
+			}
+			else if (strncmp(s, "MemFree:", 8) == 0) {
+				m->free = strtoul(s + 12, NULL, 10) * 1024;
+				++ok;
+			}
+			else if (strncmp(s, "Buffers:", 8) == 0) {
+				m->buffers = strtoul(s + 12, NULL, 10) * 1024;
+				++ok;
+			}
+			else if (strncmp(s, "Cached:", 7) == 0) {
+				m->cached = strtoul(s + 12, NULL, 10) * 1024;
+				++ok;
+			}
+#else
 			if (strncmp(s, "Mem:", 4) == 0) {
 				if (sscanf(s + 6, "%ld %*d %ld %ld %ld %ld", &m->total, &m->free, &m->shared, &m->buffers, &m->cached) == 5)
 					++ok;
 			}
+#endif
 			else if (strncmp(s, "SwapTotal:", 10) == 0) {
 				m->swaptotal = strtoul(s + 12, NULL, 10) * 1024;
 				++ok;
@@ -257,17 +277,18 @@ static int get_memory(meminfo_t *m)
 			else if (strncmp(s, "SwapFree:", 9) == 0) {
 				m->swapfree = strtoul(s + 11, NULL, 10) * 1024;
 				++ok;
+#ifndef LINUX26
 				break;
+#endif
 			}
 		}
 		fclose(f);
 	}
-	if (ok != 3) {
-		memset(m, 0, sizeof(*m));
+	if (ok == 0) {
 		return 0;
 	}
 	m->maxfreeram = m->free;
-	if (nvram_match("t_cafree", "1")) m->maxfreeram += m->cached;
+	if (nvram_match("t_cafree", "1")) m->maxfreeram += (m->cached + m->buffers);
 	return 1;
 }
 
@@ -447,19 +468,36 @@ void asp_ident(int argc, char **argv)
 void asp_statfs(int argc, char **argv)
 {
 	struct statfs sf;
+	int mnt;
 
 	if (argc != 2) return;
 
 	// used for /cifs/, /jffs/... if it returns squashfs type, assume it's not mounted
-	if ((statfs(argv[0], &sf) != 0) || (sf.f_type == 0x73717368))
+	if ((statfs(argv[0], &sf) != 0) || (sf.f_type == 0x73717368)) {
+		mnt = 0;
 		memset(&sf, 0, sizeof(sf));
+#ifdef TCONFIG_JFFS2
+		// for jffs, try to get total size from mtd partition
+		if (strncmp(argv[1], "jffs", 4) == 0) {
+			int part;
+
+			if (mtd_getinfo(argv[1], &part, (int *)&sf.f_blocks)) {
+				sf.f_bsize = 1;
+			}
+		}
+#endif
+	}
+	else {
+		mnt = 1;
+	}
 
 	web_printf(
 			"\n%s = {\n"
+			"\tmnt: %d,\n"
 			"\tsize: %llu,\n"
 			"\tfree: %llu\n"
 			"};\n",
-			argv[1],
+			argv[1], mnt,
 			((uint64_t)sf.f_bsize * sf.f_blocks),
 			((uint64_t)sf.f_bsize * sf.f_bfree));
 }
@@ -522,7 +560,7 @@ void wo_wakeup(char *url)
 			while ((*p != 0) && (*p != ' ') && (*p != '\r') && (*p != '\n')) ++p;
 			*p = 0;
 
-			eval("ether-wake", "-i", nvram_safe_get("lan_ifname"), mac);
+			eval("ether-wake", "-b", "-i", nvram_safe_get("lan_ifname"), mac);
 			mac = p + 1;
 		}
 	}
@@ -567,5 +605,3 @@ void wo_resolve(char *url)
 	}
 	web_puts("];\n");
 }
-
-

@@ -55,13 +55,10 @@ MODULE_DESCRIPTION("netfilter connection tracking protocol helper for GRE");
 #define GRE_STREAM_TIMEOUT	(180*HZ)
 
 #if 0
-#define DEBUGP(format, args...) printk(KERN_DEBUG __FILE__ ":" __FUNCTION__ \
-		                       ": " format, ## args)
+#define DEBUGP(format, args...) printk(KERN_DEBUG "%s:%s: " format , __FILE__, __FUNCTION__, ## args)
 #define DUMP_TUPLE_GRE(x) printk("%u.%u.%u.%u:0x%x -> %u.%u.%u.%u:0x%x:%u:0x%x\n", \
-			NIPQUAD((x)->src.ip), ntohl((x)->src.u.gre.key), \
-			NIPQUAD((x)->dst.ip), ntohl((x)->dst.u.gre.key), \
-			(x)->dst.u.gre.version, \
-			ntohs((x)->dst.u.gre.protocol))
+			NIPQUAD((x)->src.ip), ntohs((x)->src.u.gre.key), \
+			NIPQUAD((x)->dst.ip), ntohs((x)->dst.u.gre.key))
 #else
 #define DEBUGP(x, args...)
 #define DUMP_TUPLE_GRE(x)
@@ -80,10 +77,10 @@ static inline int gre_key_cmpfn(const struct ip_ct_gre_keymap *km,
 }
 
 /* look up the source key for a given tuple */
-static u_int32_t gre_keymap_lookup(struct ip_conntrack_tuple *t)
+static u_int16_t gre_keymap_lookup(struct ip_conntrack_tuple *t)
 {
 	struct ip_ct_gre_keymap *km;
-	u_int32_t key;
+	u_int16_t key;
 
 	READ_LOCK(&ip_ct_gre_lock);
 	km = LIST_FIND(&gre_keymap_list, gre_key_cmpfn,
@@ -133,6 +130,12 @@ int ip_ct_gre_keymap_add(struct ip_conntrack_expect *exp,
 void ip_ct_gre_keymap_change(struct ip_ct_gre_keymap *km,
 			     struct ip_conntrack_tuple *t)
 {
+	if (!km)
+	{
+		printk(KERN_WARNING "NULL GRE conntrack keymap change requested\n");
+		return;
+	}
+
 	DEBUGP("changing entry %p to: ", km);
 	DUMP_TUPLE_GRE(t);
 
@@ -168,9 +171,6 @@ void ip_ct_gre_keymap_destroy(struct ip_conntrack_expect *exp)
 static int gre_invert_tuple(struct ip_conntrack_tuple *tuple,
 			    const struct ip_conntrack_tuple *orig)
 {
-	tuple->dst.u.gre.protocol = orig->dst.u.gre.protocol;
-	tuple->dst.u.gre.version = orig->dst.u.gre.version;
-
 	tuple->dst.u.gre.key = orig->src.u.gre.key;
 	tuple->src.u.gre.key = orig->dst.u.gre.key;
 
@@ -183,40 +183,28 @@ static int gre_pkt_to_tuple(const void *datah, size_t datalen,
 {
 	struct gre_hdr *grehdr = (struct gre_hdr *) datah;
 	struct gre_hdr_pptp *pgrehdr = (struct gre_hdr_pptp *) datah;
-	u_int32_t srckey;
+	u_int16_t srckey;
 
 	/* core guarantees 8 protocol bytes, no need for size check */
 
-	tuple->dst.u.gre.version = grehdr->version; 
-	tuple->dst.u.gre.protocol = grehdr->protocol;
-
-	switch (grehdr->version) {
-		case GRE_VERSION_1701:
-			if (!grehdr->key) {
-				DEBUGP("Can't track GRE without key\n");
-				return 0;
-			}
-			tuple->dst.u.gre.key = *(gre_key(grehdr));
-			break;
-
-		case GRE_VERSION_PPTP:
-			if (ntohs(grehdr->protocol) != GRE_PROTOCOL_PPTP) {
-				DEBUGP("GRE_VERSION_PPTP but unknown proto\n");
-				return 0;
-			}
-			tuple->dst.u.gre.key = htonl(ntohs(pgrehdr->call_id));
-			break;
-
-		default:
-			printk(KERN_WARNING "unknown GRE version %hu\n",
-				tuple->dst.u.gre.version);
-			return 0;
+	/* first only delinearize old RFC1701 GRE header */
+	if (grehdr->version != GRE_VERSION_PPTP) {
+		/* try to behave like "ip_conntrack_proto_generic" */
+		tuple->src.u.all = 0;
+		tuple->dst.u.all = 0;
+		return 1;
 	}
 
+	if (ntohs(grehdr->protocol) != GRE_PROTOCOL_PPTP) {
+		DEBUGP("GRE_VERSION_PPTP but unknown proto\n");
+		return 0;
+	}
+
+	tuple->dst.u.gre.key = pgrehdr->call_id;
 	srckey = gre_keymap_lookup(tuple);
 
 #if 0
-	DEBUGP("found src key %x for tuple ", ntohl(srckey));
+	DEBUGP("found src key %x for tuple ", ntohs(srckey));
 	DUMP_TUPLE_GRE(tuple);
 #endif
 	tuple->src.u.gre.key = srckey;
@@ -228,11 +216,9 @@ static int gre_pkt_to_tuple(const void *datah, size_t datalen,
 static unsigned int gre_print_tuple(char *buffer,
 				    const struct ip_conntrack_tuple *tuple)
 {
-	return sprintf(buffer, "version=%d protocol=0x%04x srckey=0x%x dstkey=0x%x ", 
-			tuple->dst.u.gre.version,
-			ntohs(tuple->dst.u.gre.protocol),
-			ntohl(tuple->src.u.gre.key),
-			ntohl(tuple->dst.u.gre.key));
+	return sprintf(buffer, "srckey=0x%x dstkey=0x%x ", 
+			ntohs(tuple->src.u.gre.key),
+			ntohs(tuple->dst.u.gre.key));
 }
 
 /* print private data for conntrack */
@@ -247,16 +233,16 @@ static unsigned int gre_print_conntrack(char *buffer,
 /* Returns verdict for packet, and may modify conntrack */
 static int gre_packet(struct ip_conntrack *ct,
 		      struct iphdr *iph, size_t len,
-		      enum ip_conntrack_info conntrackinfo)
+		      enum ip_conntrack_info ctinfo)
 {
 	/* If we've seen traffic both ways, this is a GRE connection.
 	 * Extend timeout. */
 	if (ct->status & IPS_SEEN_REPLY) {
-		ip_ct_refresh(ct, ct->proto.gre.stream_timeout);
+		ip_ct_refresh_acct(ct, ctinfo, iph, ct->proto.gre.stream_timeout);
 		/* Also, more likely to be important, and not a probe. */
 		set_bit(IPS_ASSURED_BIT, &ct->status);
 	} else
-		ip_ct_refresh(ct, ct->proto.gre.timeout);
+		ip_ct_refresh_acct(ct, ctinfo, iph, ct->proto.gre.timeout);
 	
 	return NF_ACCEPT;
 }

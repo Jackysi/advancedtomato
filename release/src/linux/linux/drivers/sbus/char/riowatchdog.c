@@ -1,4 +1,4 @@
-/* $Id: riowatchdog.c,v 1.1.1.4 2003/10/14 08:08:35 sparq Exp $
+/* $Id: riowatchdog.c,v 1.3.2.2 2002/01/23 18:48:02 davem Exp $
  * riowatchdog.c - driver for hw watchdog inside Super I/O of RIO
  *
  * Copyright (C) 2001 David S. Miller (davem@redhat.com)
@@ -62,6 +62,20 @@ static int riowd_timeout = 1;		/* in minutes */
 MODULE_PARM(riowd_timeout,"i");
 MODULE_PARM_DESC(riowd_timeout, "Watchdog timeout in minutes");
 
+#if 0 /* Currently unused. */
+static u8 riowd_readreg(int index)
+{
+	unsigned long flags;
+	u8 ret;
+
+	spin_lock_irqsave(&riowd_lock, flags);
+	writeb(index, riowd_regs + 0);
+	ret = readb(riowd_regs + 1);
+	spin_unlock_irqrestore(&riowd_lock, flags);
+
+	return ret;
+}
+#endif
 
 static void riowd_writereg(u8 val, int index)
 {

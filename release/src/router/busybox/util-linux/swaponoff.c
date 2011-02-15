@@ -11,10 +11,16 @@
 #include <mntent.h>
 #include <sys/swap.h>
 
+#if ENABLE_FEATURE_MOUNT_LABEL
+# include "volume_id.h"
+#else
+# define resolve_mount_spec(fsname) ((void)0)
+#endif
+
 #if ENABLE_FEATURE_SWAPON_PRI
 struct globals {
 	int flags;
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define g_flags (G.flags)
 #else
@@ -26,7 +32,11 @@ static int swap_enable_disable(char *device)
 	int status;
 	struct stat st;
 
-	xstat(device, &st);
+	resolve_mount_spec(&device);
+	if (stat(device, &st)) {
+		bb_perror_msg("warning: can't stat '%s'", device);
+		return 1;
+	}
 
 #if ENABLE_DESKTOP
 	/* test for holes */
@@ -59,11 +69,20 @@ static int do_em_all(void)
 		bb_perror_msg_and_die("/etc/fstab");
 
 	err = 0;
-	while ((m = getmntent(f)) != NULL)
-		if (strcmp(m->mnt_type, MNTTYPE_SWAP) == 0)
-			err += swap_enable_disable(m->mnt_fsname);
+	while ((m = getmntent(f)) != NULL) {
+		if (strcmp(m->mnt_type, MNTTYPE_SWAP) == 0) {
+			/* swapon -a should ignore entries with noauto,
+			 * but swapoff -a should process them */
+			if (applet_name[5] != 'n'
+			 || hasmntopt(m, MNTOPT_NOAUTO) == NULL
+			) {
+				err += swap_enable_disable(m->mnt_fsname);
+			}
+		}
+	}
 
-	endmntent(f);
+	if (ENABLE_FEATURE_CLEAN_UP)
+		endmntent(f);
 
 	return err;
 }

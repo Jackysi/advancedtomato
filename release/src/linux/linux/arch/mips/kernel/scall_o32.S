@@ -18,7 +18,7 @@
 #include <asm/unistd.h>
 
 /* Highest syscall used of any syscall flavour */
-#define MAX_SYSCALL_NO	__NR_Linux + __NR_Linux_syscalls
+#define MAX_SYSCALL_NO	__NR_O32_Linux + __NR_O32_Linux_syscalls
 
 	.align  5
 NESTED(handle_sys, PT_SIZE, sp)
@@ -31,9 +31,10 @@ NESTED(handle_sys, PT_SIZE, sp)
 
 	sltiu	t0, v0, MAX_SYSCALL_NO + 1 # check syscall number
 	addiu	t1, 4			# skip to next instruction
-	beqz	t0, illegal_syscall
 	sw	t1, PT_EPC(sp)
+	beqz	t0, illegal_syscall
 
+	/* XXX Put both in one cacheline, should save a bit. */
 	sll	t0, v0, 2
 	lw	t2, sys_call_table(t0)	# syscall routine
 	lbu	t3, sys_narg_table(v0)	# number of arguments
@@ -45,23 +46,6 @@ NESTED(handle_sys, PT_SIZE, sp)
 
 stack_done:
         sw      a3, PT_R26(sp)          # save for syscall restart
-#ifdef CONFIG_PRINT_SYSCALLS
-
-	SAVE_STATIC
-	sw	t2, PT_R1(sp)
-	move	a0,sp			# pass pointer to saved regs
-	
-	jal	strace
-
-	RESTORE_STATIC
-	lw	t2, PT_R1(sp)
-
-	lw	a0, PT_R4(sp)		# Restore argument registers
-	lw	a1, PT_R5(sp)
-	lw	a2, PT_R6(sp)
-	lw	a3, PT_R7(sp)
-#endif
-
 	lw	t0, TASK_PTRACE($28)	# syscall tracing enabled?
 	andi	t0, _PT_TRACESYS
 	bnez	t0, trace_a_syscall
@@ -137,15 +121,16 @@ reschedule:
 
 trace_a_syscall:
 	SAVE_STATIC
-	sw	t2, PT_R1(sp)
+	move	s0, t2
 	jal	syscall_trace
-	lw	t2, PT_R1(sp)
 
+	move	t0, s0
+	RESTORE_STATIC
 	lw	a0, PT_R4(sp)		# Restore argument registers
 	lw	a1, PT_R5(sp)
 	lw	a2, PT_R6(sp)
 	lw	a3, PT_R7(sp)
-	jalr	t2
+	jalr	t0
 
 	li	t0, -EMAXERRNO - 1	# error?
 	sltu	t0, t0, v0
@@ -325,7 +310,7 @@ END(sys_sysmips)
 LEAF(sys_syscall)
 	lw	t0, PT_R29(sp)		# user sp
 
-	sltu	v0, a0, __NR_Linux + __NR_Linux_syscalls + 1
+	sltu	v0, a0, __NR_O32_Linux + __NR_O32_Linux_syscalls + 1
 	beqz	v0, enosys
 
 	sll	v0, a0, 2

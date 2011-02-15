@@ -85,16 +85,16 @@ char *argv[];
 
 	bio_err=BIO_new_fp(stderr,BIO_NOCLOSE);
 	bio_out=BIO_new_fp(stdout,BIO_NOCLOSE);
-#ifndef NO_MD2
+#ifndef OPENSSL_NO_MD2
 	EVP_add_digest(EVP_md2());
 #endif
-#ifndef NO_MD5
+#ifndef OPENSSL_NO_MD5
 	EVP_add_digest(EVP_md5());
 #endif
-#ifndef NO_SHA1
+#ifndef OPENSSL_NO_SHA1
 	EVP_add_digest(EVP_sha1());
 #endif
-#ifndef NO_MDC2
+#ifndef OPENSSL_NO_MDC2
 	EVP_add_digest(EVP_mdc2());
 #endif
 
@@ -179,10 +179,11 @@ char *argv[];
 		{
 		ASN1_UTCTIME *tm;
 		char *str1,*str2;
+		int rc;
 
 		si=sk_PKCS7_SIGNER_INFO_value(sk,i);
-		i=PKCS7_dataVerify(cert_store,&cert_ctx,p7bio,p7,si);
-		if (i <= 0)
+		rc=PKCS7_dataVerify(cert_store,&cert_ctx,p7bio,p7,si);
+		if (rc <= 0)
 			goto err;
 		printf("signer info\n");
 		if ((tm=get_signed_time(si)) != NULL)

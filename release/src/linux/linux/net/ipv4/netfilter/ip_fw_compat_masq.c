@@ -15,6 +15,7 @@
 #include <linux/proc_fs.h>
 #include <linux/version.h>
 #include <linux/module.h>
+#include <net/ip.h>
 #include <net/route.h>
 
 #define ASSERT_READ_LOCK(x) MUST_BE_READ_LOCKED(&ip_conntrack_lock)
@@ -26,7 +27,11 @@
 #include <linux/netfilter_ipv4/ip_nat_core.h>
 #include <linux/netfilter_ipv4/listhelp.h>
 
+#if 0
+#define DEBUGP printk
+#else
 #define DEBUGP(format, args...)
+#endif
 
 unsigned int
 do_masquerade(struct sk_buff **pskb, const struct net_device *dev)
@@ -36,6 +41,10 @@ do_masquerade(struct sk_buff **pskb, const struct net_device *dev)
 	enum ip_conntrack_info ctinfo;
 	struct ip_conntrack *ct;
 	unsigned int ret;
+	struct rtable *rt, *skb_rt;
+	struct net_device *skb_dev;
+	__u32 saddr;
+	int new;
 
 	/* Sorry, only ICMP, TCP and UDP. */
 	if (iph->protocol != IPPROTO_ICMP
@@ -59,22 +68,28 @@ do_masquerade(struct sk_buff **pskb, const struct net_device *dev)
 	}
 
 	info = &ct->nat.info;
+	iph = (*pskb)->nh.iph;
+	saddr = iph->saddr;
+	new = 0;
 
 	WRITE_LOCK(&ip_nat_lock);
 	/* Setup the masquerade, if not already */
 	if (!info->initialized) {
 		u_int32_t newsrc;
-		struct rtable *rt;
 		struct ip_nat_multi_range range;
 
+		skb_rt = (struct rtable *) (*pskb)->dst;
+		skb_dev = skb_rt->u.dst.dev;
 		/* Pass 0 instead of saddr, since it's going to be changed
 		   anyway. */
-		if (ip_route_output(&rt, iph->daddr, 0, 0, 0) != 0) {
+		if (ip_route_output_lookup(&rt, iph->daddr, 0, RT_TOS(iph->tos),
+		    skb_dev? skb_dev->ifindex : 0,
+		    skb_dev? skb_rt->rt_gateway : 0) != 0) {
+			WRITE_UNLOCK(&ip_nat_lock);
 			DEBUGP("ipnat_rule_masquerade: Can't reroute.\n");
 			return NF_DROP;
 		}
-		newsrc = inet_select_addr(rt->u.dst.dev, rt->rt_gateway,
-					  RT_SCOPE_UNIVERSE);
+		newsrc = rt->rt_src;
 		ip_rt_put(rt);
 		range = ((struct ip_nat_multi_range)
 			 { 1,
@@ -87,14 +102,31 @@ do_masquerade(struct sk_buff **pskb, const struct net_device *dev)
 			WRITE_UNLOCK(&ip_nat_lock);
 			return ret;
 		}
-
-		place_in_hashes(ct, info);
-		info->initialized = 1;
+		new = 1;
 	} else
 		DEBUGP("Masquerading already done on this conn.\n");
 	WRITE_UNLOCK(&ip_nat_lock);
 
-	return do_bindings(ct, ctinfo, info, NF_IP_POST_ROUTING, pskb);
+	ret = do_bindings(ct, ctinfo, info, NF_IP_POST_ROUTING, pskb);
+	if (ret != NF_ACCEPT || saddr == (*pskb)->nh.iph->saddr || new)
+		return ret;
+
+	iph = (*pskb)->nh.iph;
+	if (ip_route_output(&rt, iph->daddr, iph->saddr, RT_TOS(iph->tos), 0) != 0)
+		return NF_DROP;
+	
+	skb_rt = (struct rtable *) (*pskb)->dst;
+	skb_dev = skb_rt->u.dst.dev;
+	if (skb_dev != rt->u.dst.dev || rt->rt_gateway != skb_rt->rt_gateway) {
+		if (skb_dev != rt->u.dst.dev) {
+			/* TODO: check the new mtu and reply FRAG_NEEDED */
+		}
+		dst_release((*pskb)->dst);
+		(*pskb)->dst = &rt->u.dst;
+	} else {
+		ip_rt_put(rt);
+	}
+	return NF_ACCEPT;
 }
 
 void
@@ -155,7 +187,7 @@ check_for_demasq(struct sk_buff **pskb)
 	case IPPROTO_UDP:
 		IP_NF_ASSERT(((*pskb)->nh.iph->frag_off & htons(IP_OFFSET)) == 0);
 
-		if (!get_tuple(iph, (*pskb)->len, &tuple, protocol)) {
+		if (!ip_ct_get_tuple(iph, (*pskb)->len, &tuple, protocol)) {
 			if (net_ratelimit())
 				printk("ip_fw_compat_masq: Can't get tuple\n");
 			return NF_ACCEPT;

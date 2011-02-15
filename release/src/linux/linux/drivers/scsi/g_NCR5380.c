@@ -79,13 +79,7 @@
  */
 
 /*
- * $Log: g_NCR5380.c,v $
- * Revision 1.1.1.2  2003/10/14 08:08:39  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:53  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
+ * $Log: generic_NCR5380.c,v $
  */
 
 /* settings for DTC3181E card with only Mustek scanner attached */
@@ -339,7 +333,7 @@ int __init generic_NCR5380_detect(Scsi_Host_Template * tpnt)
 			if (dev->irq_resource[0].flags & IORESOURCE_IRQ)
 				overrides[count].irq = dev->irq_resource[0].start;
 			else
-				overrides[count].irq = IRQ_NONE;
+				overrides[count].irq = SCSI_IRQ_NONE;
 			if (dev->dma_resource[0].flags & IORESOURCE_DMA)
 				overrides[count].dma = dev->dma_resource[0].start;
 			else
@@ -436,19 +430,19 @@ int __init generic_NCR5380_detect(Scsi_Host_Template * tpnt)
 		else
 			instance->irq = NCR5380_probe_irq(instance, 0xffff);
 
-		if (instance->irq != IRQ_NONE)
+		if (instance->irq != SCSI_IRQ_NONE)
 			if (request_irq(instance->irq, do_generic_NCR5380_intr, SA_INTERRUPT, "NCR5380", NULL)) {
 				printk(KERN_WARNING "scsi%d : IRQ%d not free, interrupts disabled\n", instance->host_no, instance->irq);
-				instance->irq = IRQ_NONE;
+				instance->irq = SCSI_IRQ_NONE;
 			}
 
-		if (instance->irq == IRQ_NONE) {
+		if (instance->irq == SCSI_IRQ_NONE) {
 			printk(KERN_INFO "scsi%d : interrupts not enabled. for better interactive performance,\n", instance->host_no);
 			printk(KERN_INFO "scsi%d : please jumper the board for a free IRQ.\n", instance->host_no);
 		}
 
 		printk(KERN_INFO "scsi%d : at " STRVAL(NCR5380_map_name) " 0x%x", instance->host_no, (unsigned int) instance->NCR5380_instance_name);
-		if (instance->irq == IRQ_NONE)
+		if (instance->irq == SCSI_IRQ_NONE)
 			printk(" interrupts disabled");
 		else
 			printk(" irq %d", instance->irq);
@@ -495,13 +489,29 @@ int generic_NCR5380_release_resources(struct Scsi_Host *instance)
 	release_mem_region(instance->NCR5380_instance_name, NCR5380_region_size);
 #endif
 
-	if (instance->irq != IRQ_NONE)
+	if (instance->irq != SCSI_IRQ_NONE)
 		free_irq(instance->irq, NULL);
 
 	return 0;
 }
 
 #ifdef BIOSPARAM
+/**
+ *	generic_NCR5380_biosparam
+ *	@disk: disk to compute geometry for
+ *	@dev: device identifier for this disk
+ *	@ip: sizes to fill in
+ *
+ *	Generates a BIOS / DOS compatible H-C-S mapping for the specified 
+ *	device / size.
+ * 
+ * 	XXX Most SCSI boards use this mapping, I could be incorrect.  Someone
+ *	using hard disks on a trantor should verify that this mapping
+ *	corresponds to that used by the BIOS / ASPI driver by running the linux
+ *	fdisk program and matching the H_C_S coordinates to what DOS uses.
+ *
+ *	Locks: none
+ */
 
 int generic_NCR5380_biosparam(Disk * disk, kdev_t dev, int *ip)
 {
@@ -583,6 +593,14 @@ static inline int NCR5380_pread(struct Scsi_Host *instance, unsigned char *dst, 
 	if (!(NCR5380_read(C400_CONTROL_STATUS_REG) & CSR_GATED_53C80_IRQ))
 		printk("53C400r: no 53C80 gated irq after transfer");
 
+#if 0
+	/*
+	 *	DON'T DO THIS - THEY NEVER ARRIVE!
+	 */
+	printk("53C400r: Waiting for 53C80 registers\n");
+	while (NCR5380_read(C400_CONTROL_STATUS_REG) & CSR_53C80_REG)
+		;
+#endif
 	if (!(NCR5380_read(BUS_AND_STATUS_REG) & BASR_END_DMA_TRANSFER))
 		printk(KERN_ERR "53C400r: no end dma signal\n");
 		
@@ -653,6 +671,11 @@ static inline int NCR5380_pwrite(struct Scsi_Host *instance, unsigned char *src,
 		blocks--;
 	}
 
+#if 0
+	printk("53C400w: waiting for registers to be available\n");
+	THEY NEVER DO ! while (NCR5380_read(C400_CONTROL_STATUS_REG) & CSR_53C80_REG);
+	printk("53C400w: Got em\n");
+#endif
 
 	/* Let's wait for this instead - could be ugly */
 	/* All documentation says to check for this. Maybe my hardware is too
@@ -671,6 +694,11 @@ static inline int NCR5380_pwrite(struct Scsi_Host *instance, unsigned char *src,
 	} else
 		printk(KERN_ERR "53C400w: no 53C80 gated irq after transfer (last block)\n");
 
+#if 0
+	if (!(NCR5380_read(BUS_AND_STATUS_REG) & BASR_END_DMA_TRANSFER)) {
+		printk(KERN_ERR "53C400w: no end dma signal\n");
+	}
+#endif
 	while (!(NCR5380_read(TARGET_COMMAND_REG) & TCR_LAST_BYTE_SENT))
 		; 	// TIMEOUT
 	return 0;
@@ -774,7 +802,7 @@ int generic_NCR5380_proc_info(char *buffer, char **start, off_t offset, int leng
 	PRINTP("NO NCR53C400 driver extensions\n");
 #endif
 	PRINTP("Using %s mapping at %s 0x%lx, " ANDP STRVAL(NCR5380_map_config) ANDP STRVAL(NCR5380_map_name) ANDP scsi_ptr->NCR5380_instance_name);
-	if (scsi_ptr->irq == IRQ_NONE)
+	if (scsi_ptr->irq == SCSI_IRQ_NONE)
 		PRINTP("no interrupt\n");
 	else
 		PRINTP("on interrupt %d\n" ANDP scsi_ptr->irq);

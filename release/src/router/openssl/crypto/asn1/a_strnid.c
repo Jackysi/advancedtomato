@@ -1,5 +1,5 @@
 /* a_strnid.c */
-/* Written by Dr Stephen N Henson (shenson@bigfoot.com) for the OpenSSL
+/* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 1999.
  */
 /* ====================================================================
@@ -67,7 +67,6 @@ static STACK_OF(ASN1_STRING_TABLE) *stable = NULL;
 static void st_free(ASN1_STRING_TABLE *tbl);
 static int sk_table_cmp(const ASN1_STRING_TABLE * const *a,
 			const ASN1_STRING_TABLE * const *b);
-static int table_cmp(const void *a, const void *b);
 
 
 /* This is the global mask for the mbstring functions: this is use to
@@ -105,7 +104,7 @@ int ASN1_STRING_set_default_mask_asc(char *p)
 		mask = strtoul(p + 5, &end, 0);
 		if(*end) return 0;
 	} else if(!strcmp(p, "nombstr"))
-		mask = ~((unsigned long)(B_ASN1_BMPSTRING|B_ASN1_UTF8STRING));
+			 mask = ~((unsigned long)(B_ASN1_BMPSTRING|B_ASN1_UTF8STRING));
 	else if(!strcmp(p, "pkix"))
 			mask = ~((unsigned long)B_ASN1_T61STRING);
 	else if(!strcmp(p, "utf8only")) mask = B_ASN1_UTF8STRING;
@@ -143,7 +142,7 @@ ASN1_STRING *ASN1_STRING_set_by_NID(ASN1_STRING **out, const unsigned char *in,
 /* Now the tables and helper functions for the string table:
  */
 
-/* size limits: this stuff is taken straight from RFC2459 */
+/* size limits: this stuff is taken straight from RFC3280 */
 
 #define ub_name				32768
 #define ub_common_name			64
@@ -153,10 +152,12 @@ ASN1_STRING *ASN1_STRING_set_by_NID(ASN1_STRING **out, const unsigned char *in,
 #define ub_organization_unit_name	64
 #define ub_title			64
 #define ub_email_address		128
+#define ub_serial_number		64
+
 
 /* This table must be kept in NID order */
 
-static ASN1_STRING_TABLE tbl_standard[] = {
+static const ASN1_STRING_TABLE tbl_standard[] = {
 {NID_commonName,		1, ub_common_name, DIRSTRING_TYPE, 0},
 {NID_countryName,		2, 2, B_ASN1_PRINTABLESTRING, STABLE_NO_MASK},
 {NID_localityName,		1, ub_locality_name, DIRSTRING_TYPE, 0},
@@ -170,8 +171,12 @@ static ASN1_STRING_TABLE tbl_standard[] = {
 {NID_givenName,			1, ub_name, DIRSTRING_TYPE, 0},
 {NID_surname,			1, ub_name, DIRSTRING_TYPE, 0},
 {NID_initials,			1, ub_name, DIRSTRING_TYPE, 0},
+{NID_serialNumber,		1, ub_serial_number, B_ASN1_PRINTABLESTRING, STABLE_NO_MASK},
+{NID_friendlyName,		-1, -1, B_ASN1_BMPSTRING, STABLE_NO_MASK},
 {NID_name,			1, ub_name, DIRSTRING_TYPE, 0},
-{NID_dnQualifier,		-1, -1, B_ASN1_PRINTABLESTRING, STABLE_NO_MASK}
+{NID_dnQualifier,		-1, -1, B_ASN1_PRINTABLESTRING, STABLE_NO_MASK},
+{NID_domainComponent,		1, -1, B_ASN1_IA5STRING, STABLE_NO_MASK},
+{NID_ms_csp_name,		-1, -1, B_ASN1_BMPSTRING, STABLE_NO_MASK}
 };
 
 static int sk_table_cmp(const ASN1_STRING_TABLE * const *a,
@@ -180,11 +185,14 @@ static int sk_table_cmp(const ASN1_STRING_TABLE * const *a,
 	return (*a)->nid - (*b)->nid;
 }
 
-static int table_cmp(const void *a, const void *b)
+DECLARE_OBJ_BSEARCH_CMP_FN(ASN1_STRING_TABLE, ASN1_STRING_TABLE, table);
+
+static int table_cmp(const ASN1_STRING_TABLE *a, const ASN1_STRING_TABLE *b)
 {
-	const ASN1_STRING_TABLE *sa = a, *sb = b;
-	return sa->nid - sb->nid;
+	return a->nid - b->nid;
 }
+
+IMPLEMENT_OBJ_BSEARCH_CMP_FN(ASN1_STRING_TABLE, ASN1_STRING_TABLE, table);
 
 ASN1_STRING_TABLE *ASN1_STRING_TABLE_get(int nid)
 {
@@ -192,10 +200,8 @@ ASN1_STRING_TABLE *ASN1_STRING_TABLE_get(int nid)
 	ASN1_STRING_TABLE *ttmp;
 	ASN1_STRING_TABLE fnd;
 	fnd.nid = nid;
-	ttmp = (ASN1_STRING_TABLE *) OBJ_bsearch((char *)&fnd,
-					(char *)tbl_standard, 
-			sizeof(tbl_standard)/sizeof(ASN1_STRING_TABLE),
-			sizeof(ASN1_STRING_TABLE), table_cmp);
+	ttmp = OBJ_bsearch_table(&fnd, tbl_standard, 
+			   sizeof(tbl_standard)/sizeof(ASN1_STRING_TABLE));
 	if(ttmp) return ttmp;
 	if(!stable) return NULL;
 	idx = sk_ASN1_STRING_TABLE_find(stable, &fnd);
@@ -247,4 +253,38 @@ static void st_free(ASN1_STRING_TABLE *tbl)
 	if(tbl->flags & STABLE_FLAGS_MALLOC) OPENSSL_free(tbl);
 }
 
+
 IMPLEMENT_STACK_OF(ASN1_STRING_TABLE)
+
+#ifdef STRING_TABLE_TEST
+
+main()
+{
+	ASN1_STRING_TABLE *tmp;
+	int i, last_nid = -1;
+
+	for (tmp = tbl_standard, i = 0;
+		i < sizeof(tbl_standard)/sizeof(ASN1_STRING_TABLE); i++, tmp++)
+		{
+			if (tmp->nid < last_nid)
+				{
+				last_nid = 0;
+				break;
+				}
+			last_nid = tmp->nid;
+		}
+
+	if (last_nid != 0)
+		{
+		printf("Table order OK\n");
+		exit(0);
+		}
+
+	for (tmp = tbl_standard, i = 0;
+		i < sizeof(tbl_standard)/sizeof(ASN1_STRING_TABLE); i++, tmp++)
+			printf("Index %d, NID %d, Name=%s\n", i, tmp->nid,
+							OBJ_nid2ln(tmp->nid));
+
+}
+
+#endif

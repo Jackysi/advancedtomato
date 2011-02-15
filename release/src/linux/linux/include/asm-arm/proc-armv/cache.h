@@ -128,6 +128,9 @@ static inline void flush_dcache_page(struct page *page)
 	}
 }
 
+#define flush_icache_user_range(vma,page,addr,len) \
+	flush_dcache_page(page)
+
 #define clean_dcache_entry(_s)		cpu_dcache_clean_entry((unsigned long)(_s))
 
 /*

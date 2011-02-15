@@ -1,28 +1,22 @@
 /* BGP message debug header.
- * Copyright (C) 1996, 97, 98 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
- */
+   Copyright (C) 1996, 97, 98 Kunihiro Ishiguro
 
-#ifndef _ZEBRA_BGP_DEBUG_H
-#define _ZEBRA_BGP_DEBUG_H
+This file is part of GNU Zebra.
 
-#define IS_SET(x, y)  ((x) & (y))
+GNU Zebra is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
+
+GNU Zebra is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Zebra; see the file COPYING.  If not, write to the Free
+Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 /* sort of packet direction */
 #define DUMP_ON        1
@@ -112,6 +106,8 @@ extern unsigned long term_bgp_debug_normal;
 
 extern char *bgp_type_str[];
 
-void bgp_dump_attr (struct peer *, struct attr *, char *, size_t);
+int bgp_dump_attr (struct peer *, struct attr *, char *, size_t);
+void bgp_notify_print (struct peer *, struct bgp_notify *, char *);
 
-#endif /* _ZEBRA_BGP_DEBUG_H */
+extern struct message bgp_status_msg[];
+extern int bgp_status_msg_max;

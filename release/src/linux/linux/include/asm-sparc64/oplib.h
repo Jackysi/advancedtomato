@@ -1,4 +1,4 @@
-/* $Id: oplib.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $
+/* $Id: oplib.h,v 1.13.2.1 2001/12/19 00:16:21 davem Exp $
  * oplib.h:  Describes the interface and available routines in the
  *           Linux Prom library.
  *
@@ -332,7 +332,11 @@ extern void prom_set_trap_table(unsigned long tba);
 extern long p1275_cmd (char *, long, ...);
 				   
 
+#if 0
+#define P1275_SIZE(x) ((((long)((x) / 32)) << 32) | (x))
+#else
 #define P1275_SIZE(x) x
+#endif
 
 /* We support at most 16 input and 1 output argument */
 #define P1275_ARG_NUMBER		0

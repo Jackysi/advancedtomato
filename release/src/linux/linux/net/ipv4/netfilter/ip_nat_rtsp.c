@@ -301,7 +301,7 @@ rtsp_mangle_tran(struct ip_conntrack* ct, enum ip_conntrack_info ctinfo,
             uint        nextfieldoff;
             //wuzh add 2006.6.26 the length of client IP string that will be replaced by WAN IP
             uint        replen;
-      
+
             pfieldend = memchr(ptran+off, ';', nextparamoff-off);
             nextfieldoff = (pfieldend == NULL) ? nextparamoff : pfieldend-ptran+1;
 
@@ -385,7 +385,6 @@ rtsp_mangle_tran(struct ip_conntrack* ct, enum ip_conntrack_info ctinfo,
                         rbuflen = rbufalen;
                     }
 
-                   
                     /*
                      * note we cannot just memcpy() if the sizes are the same.
                      * the mangle function does skb resizing, checks for a
@@ -427,14 +426,13 @@ expected(struct sk_buff **pskb, uint hooknum, struct ip_conntrack* ct, struct ip
     //wuzh add 2006.6.26
     struct ip_ct_rtsp_expect* prtspexp;
     u_int16_t clientport;
-    
 
     IP_NF_ASSERT(info);
     IP_NF_ASSERT(master);
 
     //wuzh add 2006.6.26
     prtspexp = &ct->master->help.exp_rtsp_info;
-    
+
     IP_NF_ASSERT(!(info->initialized & (1 << HOOK2MANIP(hooknum))));
 
     newdstip = master->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.ip;
@@ -451,7 +449,6 @@ expected(struct sk_buff **pskb, uint hooknum, struct ip_conntrack* ct, struct ip
     mr.range[0].flags = IP_NAT_RANGE_MAP_IPS;
     mr.range[0].min_ip = mr.range[0].max_ip = newip;
 
-    
     /**************************** wuzh add 2006.6.26 *********************************/
     //If two or more clients using same ports connect to RTSP server, these client_port maybe modified
     //so the ports of RTP and RTCP destination need change to original ports
@@ -510,9 +507,7 @@ help_out(struct ip_conntrack* ct, enum ip_conntrack_info ctinfo,
             INFOP("!! overrun !!");
             break;
         }
-
         DEBUGP("hdr: len=%u, %.*s", linelen, (int)linelen, ptcp+lineoff);
-       
 
         if (nf_strncasecmp(ptcp+lineoff, "Transport:", 10) == 0)
         {
@@ -536,7 +531,7 @@ help_out(struct ip_conntrack* ct, enum ip_conntrack_info ctinfo,
 static uint
 help_in(struct ip_conntrack* ct, enum ip_conntrack_info ctinfo,
          struct ip_conntrack_expect* exp, struct sk_buff** pskb)
-{    
+{
     /* XXX: unmangle */
     return NF_ACCEPT;
 }

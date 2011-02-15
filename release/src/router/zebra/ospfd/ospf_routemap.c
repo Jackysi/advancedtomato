@@ -26,9 +26,11 @@
 
 #include "memory.h"
 #include "prefix.h"
+#include "table.h"
 #include "routemap.h"
 #include "command.h"
 #include "log.h"
+#include "plist.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_asbr.h"
@@ -41,28 +43,32 @@
 void
 ospf_route_map_update (char *name)
 {
+  struct ospf *ospf;
   int type;
 
   /* If OSPF instatnce does not exist, return right now. */
-  if (!ospf_top)
+  ospf = ospf_lookup ();
+  if (ospf == NULL)
     return;
 
   /* Update route-map */
   for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
     {
-      if (ROUTEMAP_NAME (type) && strcmp (ROUTEMAP_NAME (type), name) == 0)
+      if (ROUTEMAP_NAME (ospf, type)
+	  && strcmp (ROUTEMAP_NAME (ospf, type), name) == 0)
 	{
 	  /* Keep old route-map. */
-	  struct route_map *old = ROUTEMAP (type);
+	  struct route_map *old = ROUTEMAP (ospf, type);
 
 	  /* Update route-map. */
-	  ROUTEMAP (type) = route_map_lookup_by_name (ROUTEMAP_NAME (type));
+	  ROUTEMAP (ospf, type) =
+	    route_map_lookup_by_name (ROUTEMAP_NAME (ospf, type));
 
 	  /* No update for this distribute type. */
-	  if (old == NULL && ROUTEMAP (type) == NULL)
+	  if (old == NULL && ROUTEMAP (ospf, type) == NULL)
 	    continue;
 
-	  ospf_distribute_list_update (type);
+	  ospf_distribute_list_update (ospf, type);
 	}
     }
 }
@@ -70,19 +76,21 @@ ospf_route_map_update (char *name)
 void
 ospf_route_map_event (route_map_event_t event, char *name)
 {
+  struct ospf *ospf;
   int type;
 
   /* If OSPF instatnce does not exist, return right now. */
-  if (!ospf_top)
+  ospf = ospf_lookup ();
+  if (ospf == NULL)
     return;
 
   /* Update route-map. */
   for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
     {
-      if (ROUTEMAP_NAME (type) &&  ROUTEMAP (type) &&
-          !strcmp (ROUTEMAP_NAME (type), name))
+      if (ROUTEMAP_NAME (ospf, type) &&  ROUTEMAP (ospf, type)
+	  && !strcmp (ROUTEMAP_NAME (ospf, type), name))
         {
-          ospf_distribute_list_update (type);
+          ospf_distribute_list_update (ospf, type);
         }
     }
 }
@@ -239,6 +247,52 @@ struct route_map_rule_cmd route_match_ip_nexthop_cmd =
   route_match_ip_nexthop_free
 };
 
+/* `match ip next-hop prefix-list PREFIX_LIST' */
+
+route_map_result_t
+route_match_ip_next_hop_prefix_list (void *rule, struct prefix *prefix,
+                                    route_map_object_t type, void *object)
+{
+  struct prefix_list *plist;
+  struct external_info *ei = object;
+  struct prefix_ipv4 p;
+
+  if (type == RMAP_OSPF)
+    {
+      p.family = AF_INET;
+      p.prefix = ei->nexthop;
+      p.prefixlen = IPV4_MAX_BITLEN;
+
+      plist = prefix_list_lookup (AFI_IP, (char *) rule);
+      if (plist == NULL)
+        return RMAP_NOMATCH;
+
+      return (prefix_list_apply (plist, &p) == PREFIX_DENY ?
+              RMAP_NOMATCH : RMAP_MATCH);
+    }
+  return RMAP_NOMATCH;
+}
+
+void *
+route_match_ip_next_hop_prefix_list_compile (char *arg)
+{
+  return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+void
+route_match_ip_next_hop_prefix_list_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+struct route_map_rule_cmd route_match_ip_next_hop_prefix_list_cmd =
+{
+  "ip next-hop prefix-list",
+  route_match_ip_next_hop_prefix_list,
+  route_match_ip_next_hop_prefix_list_compile,
+  route_match_ip_next_hop_prefix_list_free
+};
+
 /* `match ip address IP_ACCESS_LIST' */
 /* Match function should return 1 if match is success else return
    zero. */
@@ -283,6 +337,45 @@ struct route_map_rule_cmd route_match_ip_address_cmd =
   route_match_ip_address,
   route_match_ip_address_compile,
   route_match_ip_address_free
+};
+
+/* `match ip address prefix-list PREFIX_LIST' */
+route_map_result_t
+route_match_ip_address_prefix_list (void *rule, struct prefix *prefix,
+                                    route_map_object_t type, void *object)
+{
+  struct prefix_list *plist;
+
+  if (type == RMAP_OSPF)
+    {
+      plist = prefix_list_lookup (AFI_IP, (char *) rule);
+      if (plist == NULL)
+        return RMAP_NOMATCH;
+
+      return (prefix_list_apply (plist, prefix) == PREFIX_DENY ?
+              RMAP_NOMATCH : RMAP_MATCH);
+    }
+  return RMAP_NOMATCH;
+}
+
+void *
+route_match_ip_address_prefix_list_compile (char *arg)
+{
+  return XSTRDUP (MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+void
+route_match_ip_address_prefix_list_free (void *rule)
+{
+  XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+struct route_map_rule_cmd route_match_ip_address_prefix_list_cmd =
+{
+  "ip address prefix-list",
+  route_match_ip_address_prefix_list,
+  route_match_ip_address_prefix_list_compile,
+  route_match_ip_address_prefix_list_free
 };
 
 /* `match interface IFNAME' */
@@ -359,7 +452,7 @@ route_set_metric_compile (char *arg)
 {
   u_int32_t *metric;
 
-  metric = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
+  metric = XCALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
   *metric = atoi (arg);
 
   if (*metric >= 0)
@@ -412,7 +505,7 @@ route_set_metric_type_compile (char *arg)
 {
   u_int32_t *metric_type;
 
-  metric_type = XMALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
+  metric_type = XCALLOC (MTYPE_ROUTE_MAP_COMPILED, sizeof (u_int32_t));
   if (strcmp (arg, "type-1") == 0)
     *metric_type = EXTERNAL_METRIC_TYPE_1;
   else if (strcmp (arg, "type-2") == 0)
@@ -444,10 +537,12 @@ struct route_map_rule_cmd route_set_metric_type_cmd =
 
 DEFUN (match_ip_nexthop,
        match_ip_nexthop_cmd,
-       "match ip next-hop WORD",
+       "match ip next-hop (<1-199>|<1300-2699>|WORD)",
        MATCH_STR
        IP_STR
        "Match next-hop address of route\n"
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
        "IP access-list name\n")
 {
   return ospf_route_match_add (vty, vty->index, "ip next-hop", argv[0]);
@@ -469,19 +564,62 @@ DEFUN (no_match_ip_nexthop,
 
 ALIAS (no_match_ip_nexthop,
        no_match_ip_nexthop_val_cmd,
-       "no match ip next-hop WORD",
+       "no match ip next-hop (<1-199>|<1300-2699>|WORD)",
        NO_STR
        MATCH_STR
        IP_STR
        "Match next-hop address of route\n"
-       "IP access-list name\n")
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP access-list name\n");
+
+DEFUN (match_ip_next_hop_prefix_list,
+       match_ip_next_hop_prefix_list_cmd,
+       "match ip next-hop prefix-list WORD",
+       MATCH_STR
+       IP_STR
+       "Match next-hop address of route\n"
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
+{
+  return ospf_route_match_add (vty, vty->index, "ip next-hop prefix-list",
+			       argv[0]);
+}
+
+DEFUN (no_match_ip_next_hop_prefix_list,
+       no_match_ip_next_hop_prefix_list_cmd,
+       "no match ip next-hop prefix-list",
+       NO_STR
+       MATCH_STR
+       IP_STR
+       "Match next-hop address of route\n"
+       "Match entries of prefix-lists\n")
+{
+  if (argc == 0)
+    return ospf_route_match_delete (vty, vty->index, "ip next-hop prefix-list",
+				    NULL);
+  return ospf_route_match_delete (vty, vty->index, "ip next-hop prefix-list",
+				  argv[0]);
+}
+
+ALIAS (no_match_ip_next_hop_prefix_list,
+       no_match_ip_next_hop_prefix_list_val_cmd,
+       "no match ip next-hop prefix-list WORD",
+       NO_STR
+       MATCH_STR
+       IP_STR
+       "Match next-hop address of route\n"
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n");
 
 DEFUN (match_ip_address,
        match_ip_address_cmd,
-       "match ip address WORD",
+       "match ip address (<1-199>|<1300-2699>|WORD)",
        MATCH_STR
        IP_STR
        "Match address of route\n"
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
        "IP access-list name\n")
 {
   return ospf_route_match_add (vty, vty->index, "ip address", argv[0]);
@@ -503,12 +641,53 @@ DEFUN (no_match_ip_address,
 
 ALIAS (no_match_ip_address,
        no_match_ip_address_val_cmd,
-       "no match ip address WORD",
+       "no match ip address (<1-199>|<1300-2699>|WORD)",
        NO_STR
        MATCH_STR
        IP_STR
        "Match address of route\n"
-       "IP access-list name\n")
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP access-list name\n");
+
+DEFUN (match_ip_address_prefix_list,
+       match_ip_address_prefix_list_cmd,
+       "match ip address prefix-list WORD",
+       MATCH_STR
+       IP_STR
+       "Match address of route\n"
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n")
+{
+  return ospf_route_match_add (vty, vty->index, "ip address prefix-list",
+			       argv[0]);
+}
+
+DEFUN (no_match_ip_address_prefix_list,
+       no_match_ip_address_prefix_list_cmd,
+       "no match ip address prefix-list",
+       NO_STR
+       MATCH_STR
+       IP_STR
+       "Match address of route\n"
+       "Match entries of prefix-lists\n")
+{
+  if (argc == 0)
+    return ospf_route_match_delete (vty, vty->index, "ip address prefix-list",
+				    NULL);
+  return ospf_route_match_delete (vty, vty->index, "ip address prefix-list",
+				  argv[0]);
+}
+
+ALIAS (no_match_ip_address_prefix_list,
+       no_match_ip_address_prefix_list_val_cmd,
+       "no match ip address prefix-list WORD",
+       NO_STR
+       MATCH_STR
+       IP_STR
+       "Match address of route\n"
+       "Match entries of prefix-lists\n"
+       "IP prefix-list name\n");
 
 DEFUN (match_interface,
        match_interface_cmd,
@@ -539,7 +718,7 @@ ALIAS (no_match_interface,
        NO_STR
        MATCH_STR
        "Match first hop interface of route\n"
-       "Interface name\n")
+       "Interface name\n");
 
 DEFUN (set_metric,
        set_metric_cmd,
@@ -570,7 +749,7 @@ ALIAS (no_set_metric,
        NO_STR
        SET_STR
        "Metric value for destination routing protocol\n"
-       "Metric value\n")
+       "Metric value\n");
 
 DEFUN (set_metric_type,
        set_metric_type_cmd,
@@ -587,14 +766,6 @@ DEFUN (set_metric_type,
 
   return ospf_route_set_add (vty, vty->index, "metric-type", argv[0]);
 }
-
-ALIAS (set_metric_type,
-       set_metric_type_old_cmd,
-       "set metric-type (1|2)",
-       SET_STR
-       "Type of metric for destination routing protocol\n"
-       "OSPF external type 1 metric\n"
-       "OSPF external type 2 metric\n")
 
 DEFUN (no_set_metric_type,
        no_set_metric_type_cmd,
@@ -616,7 +787,7 @@ ALIAS (no_set_metric_type,
        SET_STR
        "Type of metric for destination routing protocol\n"
        "OSPF external type 1 metric\n"
-       "OSPF external type 2 metric\n")
+       "OSPF external type 2 metric\n");
 
 /* Route-map init */
 void
@@ -630,7 +801,9 @@ ospf_route_map_init (void)
   route_map_event_hook (ospf_route_map_event);
   
   route_map_install_match (&route_match_ip_nexthop_cmd);
+  route_map_install_match (&route_match_ip_next_hop_prefix_list_cmd);
   route_map_install_match (&route_match_ip_address_cmd);
+  route_map_install_match (&route_match_ip_address_prefix_list_cmd);
   route_map_install_match (&route_match_interface_cmd);
 
   route_map_install_set (&route_set_metric_cmd);
@@ -639,9 +812,15 @@ ospf_route_map_init (void)
   install_element (RMAP_NODE, &match_ip_nexthop_cmd);
   install_element (RMAP_NODE, &no_match_ip_nexthop_cmd);
   install_element (RMAP_NODE, &no_match_ip_nexthop_val_cmd);
+  install_element (RMAP_NODE, &match_ip_next_hop_prefix_list_cmd);
+  install_element (RMAP_NODE, &no_match_ip_next_hop_prefix_list_cmd);
+  install_element (RMAP_NODE, &no_match_ip_next_hop_prefix_list_val_cmd);
   install_element (RMAP_NODE, &match_ip_address_cmd);
   install_element (RMAP_NODE, &no_match_ip_address_cmd);
   install_element (RMAP_NODE, &no_match_ip_address_val_cmd);
+  install_element (RMAP_NODE, &match_ip_address_prefix_list_cmd);
+  install_element (RMAP_NODE, &no_match_ip_address_prefix_list_cmd);
+  install_element (RMAP_NODE, &no_match_ip_address_prefix_list_val_cmd);
   install_element (RMAP_NODE, &match_interface_cmd);
   install_element (RMAP_NODE, &no_match_interface_cmd);
   install_element (RMAP_NODE, &no_match_interface_val_cmd);
@@ -650,7 +829,6 @@ ospf_route_map_init (void)
   install_element (RMAP_NODE, &no_set_metric_cmd);
   install_element (RMAP_NODE, &no_set_metric_val_cmd);
   install_element (RMAP_NODE, &set_metric_type_cmd);
-  install_element (RMAP_NODE, &set_metric_type_old_cmd);
   install_element (RMAP_NODE, &no_set_metric_type_cmd);
   install_element (RMAP_NODE, &no_set_metric_type_val_cmd);
 }

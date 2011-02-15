@@ -341,6 +341,17 @@ static int ext3_add_entry (handle_t *handle, struct dentry *dentry,
 				de->inode = 0;
 			de->name_len = namelen;
 			memcpy (de->name, name, namelen);
+			/*
+			 * XXX shouldn't update any times until successful
+			 * completion of syscall, but too many callers depend
+			 * on this.
+			 *
+			 * XXX similarly, too many callers depend on
+			 * ext3_new_inode() setting the times, but error
+			 * recovery deletes the inode, so the worst that can
+			 * happen is that the times are slightly out of date
+			 * and/or different from the directory change time.
+			 */
 			dir->i_mtime = dir->i_ctime = CURRENT_TIME;
 			dir->u.ext3_i.i_flags &= ~EXT3_INDEX_FL;
 			dir->i_version = ++event;
@@ -603,6 +614,11 @@ static int empty_dir (struct inode * inode)
 			bh = ext3_bread (NULL, inode,
 				offset >> EXT3_BLOCK_SIZE_BITS(sb), 0, &err);
 			if (!bh) {
+#if 0
+				ext3_error (sb, "empty_dir",
+				"directory #%lu contains a hole at offset %lu",
+					inode->i_ino, offset);
+#endif
 				offset += sb->s_blocksize;
 				continue;
 			}
@@ -646,6 +662,12 @@ int ext3_orphan_add(handle_t *handle, struct inode *inode)
 	/* Orphan handling is only valid for files with data blocks
 	 * being truncated, or files being unlinked. */
 
+	/* @@@ FIXME: Observation from aviro:
+	 * I think I can trigger J_ASSERT in ext3_orphan_add().  We block 
+	 * here (on lock_super()), so race with ext3_link() which might bump
+	 * ->i_nlink. For, say it, character device. Not a regular file,
+	 * not a directory, not a symlink and ->i_nlink > 0.
+	 */
 	J_ASSERT ((S_ISREG(inode->i_mode) || S_ISDIR(inode->i_mode) ||
 		S_ISLNK(inode->i_mode)) || inode->i_nlink == 0);
 
@@ -694,10 +716,10 @@ int ext3_orphan_del(handle_t *handle, struct inode *inode)
 {
 	struct list_head *prev;
 	struct ext3_sb_info *sbi;
-	ino_t ino_next; 
+	unsigned long ino_next;
 	struct ext3_iloc iloc;
 	int err = 0;
-	
+
 	lock_super(inode->i_sb);
 	if (list_empty(&inode->u.ext3_i.i_orphan)) {
 		unlock_super(inode->i_sb);
@@ -708,7 +730,7 @@ int ext3_orphan_del(handle_t *handle, struct inode *inode)
 	prev = inode->u.ext3_i.i_orphan.prev;
 	sbi = EXT3_SB(inode->i_sb);
 
-	jbd_debug(4, "remove inode %ld from orphan list\n", inode->i_ino);
+	jbd_debug(4, "remove inode %lu from orphan list\n", inode->i_ino);
 
 	list_del(&inode->u.ext3_i.i_orphan);
 	INIT_LIST_HEAD(&inode->u.ext3_i.i_orphan);
@@ -719,13 +741,13 @@ int ext3_orphan_del(handle_t *handle, struct inode *inode)
 	 * list in memory. */
 	if (!handle)
 		goto out;
-	
+
 	err = ext3_reserve_inode_write(handle, inode, &iloc);
 	if (err)
 		goto out_err;
 
 	if (prev == &sbi->s_orphan) {
-		jbd_debug(4, "superblock will point to %ld\n", ino_next);
+		jbd_debug(4, "superblock will point to %lu\n", ino_next);
 		BUFFER_TRACE(sbi->s_sbh, "get_write_access");
 		err = ext3_journal_get_write_access(handle, sbi->s_sbh);
 		if (err)
@@ -736,8 +758,8 @@ int ext3_orphan_del(handle_t *handle, struct inode *inode)
 		struct ext3_iloc iloc2;
 		struct inode *i_prev =
 			list_entry(prev, struct inode, u.ext3_i.i_orphan);
-		
-		jbd_debug(4, "orphan inode %ld will point to %ld\n",
+
+		jbd_debug(4, "orphan inode %lu will point to %lu\n",
 			  i_prev->i_ino, ino_next);
 		err = ext3_reserve_inode_write(handle, i_prev, &iloc2);
 		if (err)
@@ -752,7 +774,7 @@ int ext3_orphan_del(handle_t *handle, struct inode *inode)
 	if (err)
 		goto out_brelse;
 
-out_err: 	
+out_err:
 	ext3_std_error(inode->i_sb, err);
 out:
 	unlock_super(inode->i_sb);

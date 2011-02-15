@@ -91,7 +91,7 @@ og.onClick = function(cell) {
 	form.submit('_fom');
 }
 og.addEntry = function() {
-	for (var i = 0; i < 50; ++i) {
+	for (var i = 0; i < 140; ++i) {
 		if ((rrules[i] == null) || (rrules[i] == '')) {
 			E('_rruleN').value = i;
 			form.submit('_fom');
@@ -127,6 +127,9 @@ function init()
 <div class='section'>
 	<table class='tomato-grid' cellspacing=1 id='res-over-grid'></table>
 </div>
+
+<br>
+<script type='text/javascript'>show_notice1('<% notice("iptables"); %>');</script>
 
 <!-- / / / -->
 

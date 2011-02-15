@@ -226,11 +226,6 @@ rip_request_interface_send (struct interface *ifp, u_char version)
 	      to.sin_port = htons (RIP_PORT_DEFAULT);
 	      to.sin_addr = p->prefix;
 
-#if 0
-	      if (IS_RIP_DEBUG_EVENT)
-		zlog_info ("SEND request to %s", inet_ntoa (to.sin_addr));
-#endif /* 0 */
-	      
 	      rip_request_send (&to, ifp, version);
 	    }
 	}
@@ -309,7 +304,10 @@ rip_request_neighbor_all ()
 int
 rip_multicast_join (struct interface *ifp, int sock)
 {
+  struct rip_interface *ri;
   listnode cnode;
+
+  ri = ifp->info;
 
   if (if_is_up (ifp) && if_is_multicast (ifp))
     {
@@ -331,6 +329,11 @@ rip_multicast_join (struct interface *ifp, int sock)
 	  group.s_addr = htonl (INADDR_RIP_GROUP);
 	  if (ipv4_multicast_join (sock, group, p->prefix, ifp->ifindex) < 0)
 	    return -1;
+	  else
+	    {
+	      ri->joined_multicast = 1;
+	      return 0;
+	    }
 	}
     }
   return 0;
@@ -340,10 +343,14 @@ rip_multicast_join (struct interface *ifp, int sock)
 void
 rip_multicast_leave (struct interface *ifp, int sock)
 {
+  struct rip_interface *ri;
   listnode cnode;
 
-  if (if_is_up (ifp) && if_is_multicast (ifp))
+  ri = ifp->info;
+
+  if (ri->joined_multicast)
     {
+      ri->joined_multicast = 0;
       if (IS_RIP_DEBUG_EVENT)
 	zlog_info ("multicast leave from %s", ifp->name);
 
@@ -360,7 +367,8 @@ rip_multicast_leave (struct interface *ifp, int sock)
 	    continue;
       
 	  group.s_addr = htonl (INADDR_RIP_GROUP);
-          ipv4_multicast_leave (sock, group, p->prefix, ifp->ifindex);
+          if (ipv4_multicast_leave (sock, group, p->prefix, ifp->ifindex) == 0)
+	    return;
         }
     }
 }
@@ -694,13 +702,9 @@ rip_if_down(struct interface *ifp)
 				       &rinfo->nexthop,
 				       rinfo->ifindex);
 
-		RIP_TIMER_OFF (rinfo->t_timeout);
-		RIP_TIMER_OFF (rinfo->t_garbage_collect);
-	      
-		rp->info = NULL;
-		route_unlock_node (rp);
-	      
-		rip_info_free (rinfo);
+		rip_redistribute_delete (rinfo->type,rinfo->sub_type,
+					 (struct prefix_ipv4 *)&rp->p,
+					 rinfo->ifindex);
 	      }
 	    else
 	      {
@@ -961,6 +965,42 @@ rip_interface_wakeup (struct thread *t)
   return 0;
 }
 
+int rip_redistribute_check (int);
+
+void
+rip_connect_set (struct interface *ifp, int set)
+{
+  struct listnode *nn;
+  struct connected *connected;
+  struct prefix_ipv4 address;
+
+  for (nn = listhead (ifp->connected); nn; nextnode (nn))
+    if ((connected = getdata (nn)) != NULL)
+      {
+	struct prefix *p; 
+	p = connected->address;
+
+	if (p->family != AF_INET)
+	  continue;
+
+	address.family = AF_INET;
+	address.prefix = p->u.prefix4;
+	address.prefixlen = p->prefixlen;
+	apply_mask_ipv4 (&address);
+
+	if (set)
+	  rip_redistribute_add (ZEBRA_ROUTE_CONNECT, RIP_ROUTE_INTERFACE,
+				&address, connected->ifp->ifindex, NULL);
+	else
+	  {
+	    rip_redistribute_delete (ZEBRA_ROUTE_CONNECT, RIP_ROUTE_INTERFACE,
+				     &address, connected->ifp->ifindex);
+	    if (rip_redistribute_check (ZEBRA_ROUTE_CONNECT))
+	      rip_redistribute_add (ZEBRA_ROUTE_CONNECT, RIP_ROUTE_REDISTRIBUTE,
+				    &address, connected->ifp->ifindex, NULL);
+	  }
+      }
+}
 
 /* Update interface status. */
 void
@@ -1013,6 +1053,7 @@ rip_enable_apply (struct interface *ifp)
 	  if (! ri->t_wakeup)
 	    ri->t_wakeup = thread_add_timer (master, rip_interface_wakeup,
 					     ifp, 1);
+          rip_connect_set (ifp, 1);
 	}
     }
   else
@@ -1026,6 +1067,7 @@ rip_enable_apply (struct interface *ifp)
 	  rip_if_down(ifp);
 
 	  ri->running = 0;
+          rip_connect_set (ifp, 0);
 	}
     }
 }
@@ -1089,7 +1131,6 @@ rip_neighbor_delete (struct prefix_ipv4 *p)
 
   /* Lock for look up. */
   node = route_node_lookup (rip->neighbor, (struct prefix *) p);
-
   if (! node)
     return -1;
   
@@ -1428,7 +1469,7 @@ ALIAS (no_ip_rip_receive_version,
        "Advertisement reception\n"
        "Version control\n"
        "Version 1\n"
-       "Version 2\n")
+       "Version 2\n");
 
 DEFUN (ip_rip_send_version,
        ip_rip_send_version_cmd,
@@ -1530,7 +1571,7 @@ ALIAS (no_ip_rip_send_version,
        "Advertisement transmission\n"
        "Version control\n"
        "Version 1\n"
-       "Version 2\n")
+       "Version 2\n");
 
 DEFUN (ip_rip_authentication_mode,
        ip_rip_authentication_mode_cmd,
@@ -1591,7 +1632,7 @@ ALIAS (no_ip_rip_authentication_mode,
        "Authentication control\n"
        "Authentication mode\n"
        "Keyed message digest\n"
-       "Clear text authentication\n")
+       "Clear text authentication\n");
 
 DEFUN (ip_rip_authentication_string,
        ip_rip_authentication_string_cmd,
@@ -1660,7 +1701,7 @@ ALIAS (no_ip_rip_authentication_string,
        "Routing Information Protocol\n"
        "Authentication control\n"
        "Authentication string\n"
-       "Authentication string\n")
+       "Authentication string\n");
 
 DEFUN (ip_rip_authentication_key_chain,
        ip_rip_authentication_key_chain_cmd,
@@ -1723,7 +1764,7 @@ ALIAS (no_ip_rip_authentication_key_chain,
        "Routing Information Protocol\n"
        "Authentication control\n"
        "Authentication key-chain\n"
-       "name of key-chain\n")
+       "name of key-chain\n");
 
 DEFUN (rip_split_horizon,
        rip_split_horizon_cmd,
@@ -1770,6 +1811,7 @@ DEFUN (rip_passive_interface,
 DEFUN (no_rip_passive_interface,
        no_rip_passive_interface_cmd,
        "no passive-interface IFNAME",
+       NO_STR
        "Suppress routing updates on an interface\n"
        "Interface name\n")
 {
@@ -1818,11 +1860,6 @@ rip_interface_config_write (struct vty *vty)
 		 VTY_NEWLINE);
 
       /* RIP authentication. */
-#if 0 
-      /* RIP_AUTH_SIMPLE_PASSWORD becomes default mode. */
-      if (ri->auth_type == RIP_AUTH_SIMPLE_PASSWORD)
-	vty_out (vty, " ip rip authentication mode text%s", VTY_NEWLINE);
-#endif /* 0 */
       if (ri->auth_type == RIP_AUTH_MD5)
 	vty_out (vty, " ip rip authentication mode md5%s", VTY_NEWLINE);
 

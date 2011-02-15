@@ -1,5 +1,13 @@
 ChangeLog for smbfs.
 
+2004-01-24 Urban Widmark <urban@teststation.com>
+
+	* file.c, inode.c, proc.c: Large File Support
+
+2004-01-24 John Newbigin <jn@it.swin.edu.au>
+
+	* *.c: Implementation of CIFS Extensions for UNIX systems
+
 2001-12-31 René Scharfe <l.s.r@web.de>
 
 	* inode.c: added smb_show_options to show mount options in /proc/mounts

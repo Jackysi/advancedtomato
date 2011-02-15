@@ -7,7 +7,7 @@
  *		handler for protocols to use and generic option handler.
  *
  *
- * Version:	$Id: sock.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ * Version:	$Id: sock.c,v 1.116 2001/11/08 04:20:06 davem Exp $
  *
  * Authors:	Ross Biro, <bir7@leland.Stanford.Edu>
  *		Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
@@ -128,6 +128,16 @@
 #include <net/tcp.h>
 #endif
 
+/* Take into consideration the size of the struct sk_buff overhead in the
+ * determination of these values, since that is non-constant across
+ * platforms.  This makes socket queueing behavior and performance
+ * not depend upon such differences.
+ */
+#define _SK_MEM_PACKETS		256
+#define _SK_MEM_OVERHEAD	(sizeof(struct sk_buff) + 256)
+#define SK_WMEM_MAX		(_SK_MEM_OVERHEAD * _SK_MEM_PACKETS)
+#define SK_RMEM_MAX		(_SK_MEM_OVERHEAD * _SK_MEM_PACKETS)
+
 /* Run time adjustable parameters. */
 __u32 sysctl_wmem_max = SK_WMEM_MAX;
 __u32 sysctl_rmem_max = SK_RMEM_MAX;
@@ -145,7 +155,19 @@ static int sock_set_timeout(long *timeo_p, char *optval, int optlen)
 		return -EINVAL;
 	if (copy_from_user(&tv, optval, sizeof(tv)))
 		return -EFAULT;
+	if (tv.tv_usec < 0 || tv.tv_usec >= 1000000L)
+		return -EDOM;
 
+	if (tv.tv_sec < 0) {
+		static int warned = 0;
+		*timeo_p = 0;
+		if (warned < 10 && net_ratelimit())
+			warned++;
+			printk(KERN_DEBUG "sock_set_timeout: `%s' (pid %d) "
+			       "tries to set negative timeout\n",
+			        current->comm, current->pid);
+		return 0;
+	}
 	*timeo_p = MAX_SCHEDULE_TIMEOUT;
 	if (tv.tv_sec == 0 && tv.tv_usec == 0)
 		return 0;
@@ -175,7 +197,7 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
 	 *	Options without arguments
 	 */
 
-#ifdef SO_DONTLINGER		    /* Compatibility item... */
+#ifdef SO_DONTLINGER		/* Compatibility item... */
 	switch(optname)
 	{
 		case SO_DONTLINGER:
@@ -249,6 +271,7 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
 				val = sysctl_rmem_max;
 
 			sk->userlocks |= SOCK_RCVBUF_LOCK;
+			/* FIXME: is this lower bound the right one? */
 			if ((val * 2) < SOCK_MIN_RCVBUF)
 				sk->rcvbuf = SOCK_MIN_RCVBUF;
 			else
@@ -292,12 +315,12 @@ int sock_setsockopt(struct socket *sock, int level, int optname,
 			if(ling.l_onoff==0) {
 				sk->linger=0;
 			} else {
-#if BITS_PER_LONG == 32
-				if (ling.l_linger >= MAX_SCHEDULE_TIMEOUT/HZ)
+#if (BITS_PER_LONG == 32)
+				if ((unsigned int)ling.l_linger >= MAX_SCHEDULE_TIMEOUT/HZ)
 					sk->lingertime=MAX_SCHEDULE_TIMEOUT;
 				else
 #endif
-					sk->lingertime=ling.l_linger*HZ;
+					sk->lingertime=(unsigned int)ling.l_linger*HZ;
 				sk->linger=1;
 			}
 			break;
@@ -431,7 +454,9 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
   		return -EFAULT;
 	if(len < 0)
 		return -EINVAL;
-		
+
+	memset(&v, 0, sizeof(v));
+
   	switch(optname) 
   	{
 		case SO_DEBUG:		
@@ -505,7 +530,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
 				v.tm.tv_usec = 0;
 			} else {
 				v.tm.tv_sec = sk->rcvtimeo/HZ;
-				v.tm.tv_usec = ((sk->rcvtimeo%HZ)*1000)/HZ;
+				v.tm.tv_usec = ((sk->rcvtimeo%HZ)*1000000)/HZ;
 			}
 			break;
 
@@ -516,7 +541,7 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
 				v.tm.tv_usec = 0;
 			} else {
 				v.tm.tv_sec = sk->sndtimeo/HZ;
-				v.tm.tv_usec = ((sk->sndtimeo%HZ)*1000)/HZ;
+				v.tm.tv_usec = ((sk->sndtimeo%HZ)*1000000)/HZ;
 			}
 			break;
 
@@ -792,6 +817,7 @@ struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
 					page = alloc_pages(sk->allocation, 0);
 					if (!page) {
 						err = -ENOBUFS;
+						skb_shinfo(skb)->nr_frags = i;
 						kfree_skb(skb);
 						goto failure;
 					}

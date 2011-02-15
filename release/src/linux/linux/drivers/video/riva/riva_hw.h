@@ -41,7 +41,7 @@
  * GPL licensing note -- nVidia is allowing a liberal interpretation of
  * the documentation restriction above, to merely say that this nVidia's
  * copyright and disclaimer should be included with all code derived
- * from this source.  -- Jeff Garzik <jgarzik@mandrakesoft.com>, 01/Nov/99 
+ * from this source.  -- Jeff Garzik <jgarzik@pobox.com>, 01/Nov/99 
  */
 
 /* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nv/riva_hw.h,v 1.6 2000/02/08 17:19:12 dawes Exp $ */
@@ -59,8 +59,14 @@ typedef unsigned int   U032;
 /*
  * HW access macros.
  */
+#if defined(__powerpc__)
+#include <asm/io.h>
+#define NV_WR08(p,i,d)	out_8(p+i, d)
+#define NV_RD08(p,i)	in_8(p+i)
+#else
 #define NV_WR08(p,i,d)  (((U008 *)(p))[i]=(d))
 #define NV_RD08(p,i)    (((U008 *)(p))[i])
+#endif
 #define NV_WR16(p,i,d)  (((U016 *)(p))[(i)/2]=(d))
 #define NV_RD16(p,i)    (((U016 *)(p))[(i)/2])
 #define NV_WR32(p,i,d)  (((U032 *)(p))[(i)/4]=(d))
@@ -88,8 +94,12 @@ typedef unsigned int   U032;
 typedef volatile struct
 {
     U032 reserved00[4];
+#ifdef __BIG_ENDIAN
+    U032 FifoFree;
+#else
     U016 FifoFree;
     U016 Nop;
+#endif 
     U032 reserved01[0x0BB];
     U032 Rop3;
 } RivaRop;
@@ -99,8 +109,12 @@ typedef volatile struct
 typedef volatile struct
 {
     U032 reserved00[4];
+#ifdef __BIG_ENDIAN
+    U032 FifoFree;
+#else
     U016 FifoFree;
     U016 Nop;
+#endif
     U032 reserved01[0x0BD];
     U032 Shape;
     U032 reserved03[0x001];
@@ -114,8 +128,12 @@ typedef volatile struct
 typedef volatile struct
 {
     U032 reserved00[4];
+#ifdef __BIG_ENDIAN
+    U032 FifoFree;
+#else
     U016 FifoFree;
     U016 Nop;
+#endif
     U032 reserved01[0x0BB];
     U032 TopLeft;
     U032 WidthHeight;
@@ -126,8 +144,12 @@ typedef volatile struct
 typedef volatile struct
 {
     U032 reserved00[4];
+#ifdef __BIG_ENDIAN
+    U032 FifoFree;
+#else
     U016 FifoFree;
     U016 Nop[1];
+#endif
     U032 reserved01[0x0BC];
     U032 Color;
     U032 reserved03[0x03E];
@@ -140,8 +162,12 @@ typedef volatile struct
 typedef volatile struct
 {
     U032 reserved00[4];
+#ifdef __BIG_ENDIAN
+    U032 FifoFree;
+#else
     U016 FifoFree;
     U016 Nop;
+#endif
     U032 reserved01[0x0BB];
     U032 TopLeftSrc;
     U032 TopLeftDst;
@@ -153,8 +179,12 @@ typedef volatile struct
 typedef volatile struct
 {
     U032 reserved00[4];
+#ifdef __BIG_ENDIAN
+    U032 FifoFree;
+#else
     U016 FifoFree;
     U016 Nop[1];
+#endif
     U032 reserved01[0x0BC];
     U032 TopLeft;
     U032 WidthHeight;
@@ -168,8 +198,12 @@ typedef volatile struct
 typedef volatile struct
 {
     U032 reserved00[4];
+#ifdef __BIG_ENDIAN
+    U032 FifoFree;
+#else
     U016 FifoFree;
     U016 Nop;
+#endif
     U032 reserved01[0x0BB];
     U032 reserved03[(0x040)-1];
     U032 Color1A;
@@ -230,8 +264,12 @@ typedef volatile struct
 typedef volatile struct
 {
     U032 reserved00[4];
+#ifdef __BIG_ENDIAN
+    U032 FifoFree;
+#else
     U016 FifoFree;
     U016 Nop;
+#endif    
     U032 reserved01[0x0BC];
     U032 TextureOffset;
     U032 TextureFormat;
@@ -256,8 +294,12 @@ typedef volatile struct
 typedef volatile struct
 {
     U032 reserved00[4];
+#ifdef __BIG_ENDIAN
+    U032 FifoFree;
+#else
     U016 FifoFree;
     U016 Nop;
+#endif    
     U032 reserved01[0x0BB];
     U032 ColorKey;
     U032 TextureOffset;
@@ -290,8 +332,12 @@ typedef volatile struct
 typedef volatile struct
 {
     U032 reserved00[4];
+#ifdef __BIG_ENDIAN
+    U032 FifoFree;
+#else
     U016 FifoFree;
     U016 Nop[1];
+#endif    
     U032 reserved01[0x0BC];
     U032 Color;             /* source color               0304-0307*/
     U032 Reserved02[0x03e];
@@ -321,16 +367,24 @@ typedef volatile struct
 typedef volatile struct
 {
     U032 reserved00[4];
+#ifdef __BIG_ENDIAN
+    U032 FifoFree;
+#else
     U016 FifoFree;
     U016 Nop;
+#endif
     U032 reserved01[0x0BE];
     U032 Offset;
 } RivaSurface;
 typedef volatile struct
 {
     U032 reserved00[4];
+#ifdef __BIG_ENDIAN
+    U032 FifoFree;
+#else
     U016 FifoFree;
     U016 Nop;
+#endif
     U032 reserved01[0x0BD];
     U032 Pitch;
     U032 RenderBufferOffset;
@@ -364,6 +418,7 @@ typedef struct _riva_hw_inst
     U032 VBlankBit;
     U032 FifoFreeCount;
     U032 FifoEmptyCount;
+    U032 flatPanel;
     /*
      * Non-FIFO registers.
      */
@@ -424,11 +479,14 @@ typedef struct _riva_hw_state
     U032 repaint0;
     U032 repaint1;
     U032 screen;
+    U032 scale;
+    U032 extra;
     U032 pixel;
     U032 horiz;
     U032 arbitration0;
     U032 arbitration1;
     U032 vpll;
+    U032 vpll2;
     U032 pllsel;
     U032 general;
     U032 config;

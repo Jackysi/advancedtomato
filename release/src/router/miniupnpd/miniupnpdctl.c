@@ -1,4 +1,4 @@
-/* $Id: miniupnpdctl.c,v 1.6 2008/01/27 22:23:11 nanard Exp $ */
+/* $Id: miniupnpdctl.c,v 1.8 2010/02/15 10:19:46 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006 Thomas Bernard
@@ -49,7 +49,12 @@ main(int argc, char * * argv)
 	}
 
 	printf("Connected.\n");
-	write(s, command, sizeof(command));
+	if(write(s, command, sizeof(command)) < 0)
+	{
+		perror("write");
+		close(s);
+		return 1;
+	}
 	for(;;)
 	{
 		l = read(s, buf, sizeof(buf));
@@ -62,7 +67,9 @@ main(int argc, char * * argv)
 			break;
 		/*printf("%d bytes read\n", l);*/
 		fflush(stdout);
-		write(fileno(stdout), buf, l);
+		if(write(fileno(stdout), buf, l) < 0) {
+			perror("error writing to stdout");
+		}
 		/*printf("\n");*/
 	}
 

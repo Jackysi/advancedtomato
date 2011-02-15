@@ -6,17 +6,17 @@
  * for more details.
  *
  * Copyright (C) 1996, 1997 by Ralf Baechle
- * Copyright (C) 2001 by Liam Davies (ldavies@agile.tv)
+ * Copyright (C) 2001, 2002, 2003 by Liam Davies (ldavies@agile.tv)
  *
  */
 
+#include <linux/irq.h>
 #include <linux/kernel.h>
-#include <asm/cobalt/cobalt.h>
+
 #include <asm/ptrace.h>
 #include <asm/io.h>
-#include <asm/mipsregs.h>
-
-extern void do_IRQ(int irq, struct pt_regs * regs);
+#include <asm/gt64120/gt64120.h>
+#include <asm/cobalt/cobalt.h>
 
 asmlinkage void via_irq(struct pt_regs *regs)
 {
@@ -50,17 +50,16 @@ asmlinkage void via_irq(struct pt_regs *regs)
 		printk("Spurious master interrupt...");
 }
 
-#define GALILEO_INTCAUSE	0xb4000c18
-#define GALILEO_T0EXP		0x00000100
-
 asmlinkage void galileo_irq(struct pt_regs *regs)
 {
-	unsigned long irq_src = *((unsigned long *) GALILEO_INTCAUSE);
+	unsigned long irq_src;
+
+	irq_src = GALILEO_INL(GT_INTRCAUSE_OFS);
 
 	/* Check for timer irq ... */
 	if (irq_src & GALILEO_T0EXP) {
 		/* Clear the int line */
-		*((volatile unsigned long *) GALILEO_INTCAUSE) = 0;
+		GALILEO_OUTL(0, GT_INTRCAUSE_OFS);
 		do_IRQ(COBALT_TIMER_IRQ, regs);
 	} else
 		printk("Spurious Galileo interrupt...\n");

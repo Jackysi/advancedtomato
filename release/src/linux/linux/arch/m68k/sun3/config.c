@@ -77,6 +77,7 @@ void __init sun3_init(void)
 	memset(sun3_reserved_pmeg, 0, sizeof(sun3_reserved_pmeg));
 
 	/* Reserve important PMEGS */
+	/* FIXME: These should be probed instead of hardcoded */
 
 	for (i=0; i<8; i++)		/* Kernel PMEGs */
 		sun3_reserved_pmeg[i] = 1;

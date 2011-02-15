@@ -1,4 +1,4 @@
-# $Id: Makefile.linux,v 1.47 2009/09/14 14:59:58 nanard Exp $
+# $Id: Makefile.linux,v 1.52 2010/08/07 21:04:48 nanard Exp $
 # MiniUPnP project
 # http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
 # Author : Thomas Bernard
@@ -39,7 +39,11 @@ NETFILTEROBJS = netfilter/iptcrdr.o
 ALLOBJS = $(BASEOBJS) $(LNXOBJS) $(NETFILTEROBJS)
 
 LIBS = -liptc
+# the following is better, at least on gentoo with iptables 1.4.6
+# see http://miniupnp.tuxfamily.org/forum/viewtopic.php?p=1618
+#LIBS = -lip4tc
 
+ARCH := $(shell uname -m | grep -q "x86_64" && echo 64)
 ifdef IPTABLESPATH
 CFLAGS := $(CFLAGS) -I$(IPTABLESPATH)/include/
 LDFLAGS := $(LDFLAFGS) -L$(IPTABLESPATH)/libiptc/
@@ -48,7 +52,7 @@ IPTABLESVERSION := $(shell grep "\#define VERSION" $(IPTABLESPATH)/config.h | tr
 IPTABLESVERSION1 := $(shell echo $(IPTABLESVERSION) | cut -d. -f1 )
 IPTABLESVERSION2 := $(shell echo $(IPTABLESVERSION) | cut -d. -f2 )
 IPTABLESVERSION3 := $(shell echo $(IPTABLESVERSION) | cut -d. -f3 )
-# test if iptables >= 1.4.3
+# test if iptables version >= 1.4.3
 TEST := $(shell [ \( \( $(IPTABLESVERSION1) -ge 1 \) -a \( $(IPTABLESVERSION2) -ge 4 \) \) -a \( $(IPTABLESVERSION3) -ge 3 \) ] && echo 1 )
 ifeq ($(TEST), 1)
 CFLAGS := $(CFLAGS) -DIPTABLES_143
@@ -58,6 +62,17 @@ LIBS = $(IPTABLESPATH)/libiptc/.libs/libiptc.a
 else
 LIBS = $(IPTABLESPATH)/libiptc/libiptc.a
 endif
+else
+# check for system-wide iptables files. Test if iptables version >= 1.4.3
+TEST := $(shell test -f /usr/include/iptables/internal.h && grep -q "\#define IPTABLES_VERSION" /usr/include/iptables/internal.h && echo 1)
+ifeq ($(TEST), 1)
+CFLAGS := $(CFLAGS) -DIPTABLES_143
+LIBS = -liptc
+TEST_LIB := $(shell test -f /usr/lib$(ARCH)/libiptc.a && echo 1)
+ifeq ($(TEST_LIB), 1)
+LIBS = -liptc /usr/lib$(ARCH)/libiptc.a
+endif
+endif 
 endif
 
 TESTUPNPDESCGENOBJS = testupnpdescgen.o upnpdescgen.o

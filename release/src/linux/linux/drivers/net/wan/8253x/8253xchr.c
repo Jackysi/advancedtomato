@@ -405,6 +405,11 @@ static int sab8253x_startupC(struct sab_port *port)
 	
 	port->interrupt_mask0 = SAB82532_IMR0_RFS | SAB82532_IMR0_PCE |
 		SAB82532_IMR0_PLLA | SAB82532_IMR0_RSC | SAB82532_IMR0_CDSC;
+#if 0
+	((port->ccontrol.ccr2 & SAB82532_CCR2_TOE) ? SAB82532_IMR0_CDSC : 0); /* the weird way the cards work
+									       * when clocking CD seems to
+									       *  monitor txclk*/
+#endif
 	WRITEB(port,imr0,port->interrupt_mask0);
 	port->interrupt_mask1 = SAB82532_IMR1_EOP | SAB82532_IMR1_XMR |
 		SAB82532_IMR1_TIN | SAB82532_IMR1_XPR;

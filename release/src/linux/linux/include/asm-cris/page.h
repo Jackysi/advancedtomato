@@ -80,6 +80,20 @@ typedef unsigned long pgprot_t;
          BUG(); \
 } while (0)
 
+/* Pure 2^n version of get_order */
+static __inline__ int get_order(unsigned long size)
+{
+	int order;
+
+	size = (size-1) >> (PAGE_SHIFT-1);
+	order = -1;
+	do {
+		size >>= 1;
+		order++;
+	} while (size);
+	return order;
+}
+
 #endif /* __ASSEMBLY__ */
 
 /* macros to convert between really physical and virtual addresses

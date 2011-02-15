@@ -1,0 +1,13 @@
+########################################################
+# Franklin Wireless U210
+
+DefaultVendor= 0x1fac
+DefaultProduct=0x0130
+
+TargetVendor=  0x1fac
+TargetProduct= 0x0131
+
+MessageContent="555342431234567824000000800108df200000000000000000000000000000"
+
+CheckSuccess=20
+

@@ -35,6 +35,12 @@ static int sonic_open(struct net_device *dev)
 	 * We don't need to deal with auto-irq stuff since we
 	 * hardwire the sonic interrupt.
 	 */
+/*
+ * XXX Horrible work around:  We install sonic_interrupt as fast interrupt.
+ * This means that during execution of the handler interrupt are disabled
+ * covering another bug otherwise corrupting data.  This doesn't mean
+ * this glue works ok under all situations.
+ */
 //    if (sonic_request_irq(dev->irq, &sonic_interrupt, 0, "sonic", dev)) {
 	if (sonic_request_irq(dev->irq, &sonic_interrupt, SA_INTERRUPT,
 	                      "sonic", dev)) {
@@ -106,15 +112,6 @@ static int sonic_send_packet(struct sk_buff *skb, struct net_device *dev)
 
 	if (sonic_debug > 2)
 		printk("sonic_send_packet: skb=%p, dev=%p\n", skb, dev);
-
-	/* 
-	 * Block a timer-based transmit from overlapping.  This could better be
-	 * done with atomic_swap(1, dev->tbusy), but set_bit() works as well.
-	 */
-	if (test_and_set_bit(0, (void *) &dev->tbusy) != 0) {
-		printk("%s: Transmitter access conflict.\n", dev->name);
-		return 1;
-	}
 
 	/*
 	 * Map the packet data into the logical DMA address space
@@ -226,7 +223,7 @@ static void sonic_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 
 			/* We must free the original skb */
 			if (lp->tx_skb[entry]) {
-				dev_kfree_skb(lp->tx_skb[entry]);
+				dev_kfree_skb_irq(lp->tx_skb[entry]);
 				lp->tx_skb[entry] = 0;
 			}
 			/* and the VDMA address */

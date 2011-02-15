@@ -6,7 +6,7 @@
  *  Copyright (C) 2000 Karsten Keil <kkeil@suse.de>
  *  Copyright (C) 2001,2002 Andi Kleen <ak@suse.de>
  *
- *  $Id: head.S,v 1.1.1.4 2003/10/14 08:07:52 sparq Exp $
+ *  $Id: head.S,v 1.59 2004/02/10 05:53:06 ak Exp $
  */
 
 
@@ -38,6 +38,9 @@ startup_32:
 	 */
 
 	movl %ebx,%ebp	/* Save trampoline flag */
+	
+	movl $__KERNEL_DS,%eax
+	movl %eax,%ds
 	
 	/* First check if extended functions are implemented */
 	movl	$0x80000000, %eax
@@ -76,6 +79,11 @@ startup_32:
 	/* Enable System Call */
 	btsl	$_EFER_SCE, %eax
 
+	/* No Execute supported? */	
+	btl	$20,%edi
+	jnc     1f
+	btsl	$_EFER_NX, %eax
+1:
 	
 	/* Make changes effective */
 	wrmsr
@@ -111,25 +119,13 @@ reach_compatibility_mode:
 	jnz   second	
 	
 	/* Load new GDT with the 64bit segment using 32bit descriptor */
-	/* to avoid 32bit relocations we use fixed adresses here */
 	movl	$0x100F00, %eax
 	lgdt	(%eax)
 
+second:		
 	movl    $0x100F10, %eax
 	/* Finally jump in 64bit mode */
 	ljmp	*(%eax)
-
-second:
-	movl  $MSR_STAR,%ecx
-	xorl  %eax,%eax
-	movl  $(__USER32_CS<<16)|__KERNEL_CS,%edx
-	wrmsr
-
-	movl  $MSR_CSTAR,%ecx
-	movl  $0xffffffff,%edx
-	movl  $0x80100100,%eax	# reach_long64 absolute
-	wrmsr
-	syscall
 
 	.code64
 	.org 0x100	
@@ -191,6 +187,7 @@ ENTRY(no_long_mode)
 1:
 	jmp	1b	
 	
+	.globl pGDT32	
 .org 0xf00
 pGDT32:
 	.word	gdt32_end-gdt_table32
@@ -304,11 +301,22 @@ ENTRY(empty_bad_pmd_table)
 ENTRY(level3_physmem_pgt)
 	.quad	0x0000000000105007		/* -> level2_kernel_pgt (so that __va works even before pagetable_init) */
 
-.org 0xb000
+	.org 0xb000
+#ifdef CONFIG_ACPI_SLEEP
+ENTRY(wakeup_level4_pgt)
+        .quad   0x0000000000102007              /* -> level3_ident_pgt */
+        .fill   255,8,0
+        .quad   0x000000000010a007
+        .fill   254,8,0
+        /* (2^48-(2*1024*1024*1024))/(2^39) = 511 */
+        .quad   0x0000000000103007              /* -> level3_kernel_pgt */
+#endif
+
 .data
 
 .globl SYMBOL_NAME(gdt)
 
+	.globl pGDT64
 	.word 0
 	.align 16
 	.word 0
@@ -333,7 +341,7 @@ gdt32_end:
 .align 64 /* cacheline aligned, keep this synchronized with asm/desc.h */
 ENTRY(gdt_table)
 	.quad	0x0000000000000000	/* This one is magic */
-	.quad	0x0000000000000000	/* unused */
+	.quad	0x008f9a000000ffff	/* __KERNEL_COMPAT32_CS */	
 	.quad	0x00af9a000000ffff	/* __KERNEL_CS */
 	.quad	0x00cf92000000ffff	/* __KERNEL_DS */
 	.quad	0x00cffe000000ffff	/* __USER32_CS */

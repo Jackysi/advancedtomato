@@ -1,7 +1,7 @@
 /*
  * Broadcom Event  protocol definitions
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2007, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -96,7 +96,24 @@ typedef struct bcm_event {
 #define WLC_E_DELTS_IND		28	/* indicate to host delts fail/success */
 #define WLC_E_BCNSENT_IND	29	/* indicate to host of beacon transmit */
 #define WLC_E_BCNRX_MSG		30	/* Send the received beacon up to the host */
-#define WLC_E_LAST		31	/* highest val + 1 for range checking */
+#define WLC_E_BCNLOST_MSG	31	/* indicate to host loss of beacon */
+#define WLC_E_ROAM_PREP		32	/* before attempting to roam */
+#define WLC_E_PFN_NET_FOUND	33	/* PFN network found event */
+#define WLC_E_PFN_NET_LOST	34	/* PFN network lost event */
+
+#ifdef EXT_STA
+#define WLC_E_RESET_COMPLETE	35
+#define WLC_E_JOIN_START	36
+#define WLC_E_ROAM_START	37
+#define WLC_E_ASSOC_START	38
+#define WLC_E_IBSS_ASSOC	39
+#define WLC_E_RADIO		40
+#define WLC_E_PROBREQ_MSG      41
+#define WLC_E_LAST		42 /* highest val + 1 for range checking */
+#else /* EXT_STA */
+#define WLC_E_PROBREQ_MSG	35
+#define WLC_E_LAST		36	/* highest val + 1 for range checking */
+#endif /* EXT_STA */
 
 /* Event status codes */
 #define WLC_E_STATUS_SUCCESS		0	/* operation was successful */
@@ -107,6 +124,13 @@ typedef struct bcm_event {
 #define WLC_E_STATUS_NO_ACK		5	/* protocol failure: packet not ack'd */
 #define WLC_E_STATUS_UNSOLICITED	6	/* AUTH or ASSOC packet was unsolicited */
 #define WLC_E_STATUS_ATTEMPT		7	/* attempt to assoc to an auto auth configuration */
+#define WLC_E_STATUS_PARTIAL		8	/* scan results are incomplete */
+#define WLC_E_STATUS_NEWSCAN	9	/* scan aborted by another scan */
+#define WLC_E_STATUS_NEWASSOC	10	/* scan aborted due to assoc in progress */
+#define WLC_E_STATUS_11HQUIET	11	/* 802.11h quiet period started */
+#define WLC_E_STATUS_SUPPRESS	12	/* user disabled scanning (WLC_SET_SCANSUPPRESS) */
+#define WLC_E_STATUS_NOCHANS	13	/* no allowable channels to scan */
+#define WLC_E_STATUS_CCXFASTRM	14	/* scan aborted due to CCX fast roam */
 
 /* roam reason codes */
 #define WLC_E_REASON_INITIAL_ASSOC	0	/* initial assoc */
@@ -130,10 +154,8 @@ typedef struct bcm_event {
 #define WLC_E_RSN_MISMATCH		8	/* STA does not support AP's RSN */
 #define WLC_E_PRUNE_NO_COMMON_RATES	9	/* No rates in common with AP */
 #define WLC_E_PRUNE_BASIC_RATES		10	/* STA does not support all basic rates of BSS */
-#define WLC_E_PRUNE_CCXFAST_PREVAP	11	/* CCX FAST ROAM: prune previous AP */
 #define WLC_E_PRUNE_CIPHER_NA		12	/* BSS's cipher not supported */
 #define WLC_E_PRUNE_KNOWN_STA		13	/* AP is already known to us as a STA */
-#define WLC_E_PRUNE_CCXFAST_DROAM	14	/* CCX FAST ROAM: prune unqualified AP */
 #define WLC_E_PRUNE_WDS_PEER		15	/* AP is already known to us as a WDS peer */
 #define WLC_E_PRUNE_QBSS_LOAD		16	/* QBSS LOAD - AAC is too low */
 #define WLC_E_PRUNE_HOME_AP		17	/* prune home AP */

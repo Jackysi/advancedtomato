@@ -20,16 +20,16 @@
 
 <style type='text/css'>
 #dev-grid .co1 {
-	width: 10%;
+	width: 9%;
 }
 #dev-grid .co2 {
 	width: 18%;
 }
 #dev-grid .co3 {
-	width: 17%;
+	width: 14%;
 }
 #dev-grid .co4 {
-	width: 24%;
+	width: 21%;
 }
 #dev-grid .co5 {
 	width: 8%;
@@ -40,7 +40,11 @@
 	text-align: center;
 }
 #dev-grid .co7 {
-	width: 15%;
+	width: 9%;
+	text-align: right;
+}
+#dev-grid .co8 {
+	width: 13%;
 	text-align: right;
 }
 #dev-grid .header {
@@ -50,6 +54,7 @@
 
 <script type='text/javascript' src='debug.js'></script>
 
+<script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript'>
 
 ipp = '<% lipp(); %>.';
@@ -89,6 +94,7 @@ function get(mac, ip)
 		ifname: '',
 		name: '',
 		rssi: '',
+		txrx: '',
 		lease: ''
 	};
 	list.push(e);
@@ -149,7 +155,9 @@ ref.refresh = function(text)
 	dg.removeAllData();
 	dg.populate();
 	dg.resort();
-	E("noise").innerHTML = wlnoise;
+	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+		E("noise"+uidx).innerHTML = wlnoise[uidx];
+	}
 }
 
 
@@ -193,6 +201,7 @@ dg.populate = function()
 		list[i].ifname = '';
 		list[i].name = '';
 		list[i].rssi = '';
+		list[i].txrx = '';
 		list[i].lease = '';
 	}
 
@@ -208,13 +217,15 @@ dg.populate = function()
 		a = wldev[i];
 		if (a[0].indexOf('wds') == 0) {
 			e = get(a[1], '-');
-			e.ifname = a[0];
 		}
 		else {
 			e = get(a[1], null);
-			e.ifname = nvram.wl_ifname;
 		}
+		e.ifname = a[0];
 		e.rssi = a[2];
+
+		if ((a[3] > 1000) || (a[4] > 1000))
+			e.txrx = ((a[3] > 1000) ? Math.round(a[3] / 1000) : '-') + ' / ' + ((a[4] > 1000) ? Math.round(a[4] / 1000) : '-'); //+ '<br><small>Mbps</small>';
 	}
 
 	for (i = arplist.length - 1; i >= 0; --i) {
@@ -268,8 +279,9 @@ dg.populate = function()
 			b = '';
 		}
 
-		if ((e.rssi !== '') && (wlnoise < 0)) {
-			e.qual = MAX(e.rssi - wlnoise, 0);
+		var ifidx = wl_ifidx(e.ifname);
+		if ((e.rssi !== '') && (ifidx >= 0) && (wlnoise[ifidx] < 0)) {
+			e.qual = MAX(e.rssi - wlnoise[ifidx], 0);
 		}
 		else {
 			e.qual = -1;
@@ -279,14 +291,14 @@ dg.populate = function()
 			e.ifname, b, (e.ip == '-') ? '' : e.ip, e.name,
 			(e.rssi != 0) ? e.rssi + ' <small>dBm</small>' : '',
 			(e.qual < 0) ? '' : '<small>' + e.qual + '</small> <img src="bar' + MIN(MAX(Math.floor(e.qual / 10), 1), 6) + '.gif">',
-			e.lease], false);
+			e.txrx,	e.lease], false);
 	}
 }
 
 dg.setup = function()
 {
 	this.init('dev-grid', 'sort');
-	this.headerSet(['Interface', 'MAC Address', 'IP Address', 'Name', 'RSSI &nbsp; &nbsp; ', 'Quality', 'Lease &nbsp; &nbsp; ']);
+	this.headerSet(['Interface', 'MAC Address', 'IP Address', 'Name', 'RSSI &nbsp; &nbsp; ', 'Quality', 'TX/RX Rate&nbsp;', 'Lease &nbsp; &nbsp; ']);
 	this.populate();
 	this.sort(2);
 }
@@ -318,14 +330,22 @@ function init()
 <div class='section-title'>Device List</div>
 <div class='section'>
 	<table id='dev-grid' class='tomato-grid' cellspacing=0></table>
+
 <script type='text/javascript'>
-if (nvram.wl_radio == '1') {
-	W('<div style="float:left"><b>Noise Floor:</b> <span id="noise">' + wlnoise + '</span> <small>dBm</small>');
-	if ((nvram.wl_mode == 'ap') || (nvram.wl_mode == 'wds')) {
-		W(' &nbsp; <input type="button" value="Measure" onclick="javascript:window.location=\'wlmnoise.cgi?_http_id=' + nvram.http_id + '\'">');
+f = [];
+for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+	var u = wl_unit(uidx);
+	if (nvram['wl'+u+'_radio'] == '1') {
+		var a = '';
+		if ((nvram['wl'+u+'_mode'] == 'ap') || (nvram['wl'+u+'_mode'] == 'wds'))
+			a = '&nbsp;&nbsp;&nbsp; <input type="button" value="Measure" onclick="javascript:window.location=\'wlmnoise.cgi?_http_id=' + nvram.http_id + '&_wl_unit=' + u +'\'">';
+		f.push( { title: '<b>Noise Floor (' + wl_ifaces[uidx][0] + ')&nbsp;:</b>',
+			prefix: '<span id="noise'+uidx+'">',
+			custom: wlnoise[uidx],
+			suffix: '</span>&nbsp;<small>dBm</small>' + a } );
 	}
-	W('</div>');
 }
+createFieldTable('', f);
 </script>
 
 </div>

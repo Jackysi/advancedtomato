@@ -1,4 +1,4 @@
-/* $Id: math.c,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: math.c,v 1.11 1999/12/20 05:02:25 davem Exp $
  * arch/sparc64/math-emu/math.c
  *
  * Copyright (C) 1997,1999 Jakub Jelinek (jj@ultra.linux.cz)
@@ -59,6 +59,9 @@
 #define FDTOI	0x0d2
 #define FXTOS	0x084 /* Only Ultra-III generates this. */
 #define FXTOD	0x088 /* Only Ultra-III generates this. */
+#if 0	/* Optimized inline in sparc64/kernel/entry.S */
+#define FITOS	0x0c4 /* Only Ultra-III generates this. */
+#endif
 #define FITOD	0x0c8 /* Only Ultra-III generates this. */
 /* FPOP2 */
 #define FCMPQ	0x053
@@ -224,6 +227,9 @@ int do_mathemu(struct pt_regs *regs, struct fpustate *f)
 			/* Only Ultra-III generates these */
 			case FXTOS: TYPE(2,1,1,2,0,0,0); break;
 			case FXTOD: TYPE(2,2,1,2,0,0,0); break;
+#if 0			/* Optimized inline in sparc64/kernel/entry.S */
+			case FITOS: TYPE(2,1,1,1,0,0,0); break;
+#endif
 			case FITOD: TYPE(2,2,1,1,0,0,0); break;
 			}
 		}
@@ -431,6 +437,9 @@ int do_mathemu(struct pt_regs *regs, struct fpustate *f)
 		/* Only Ultra-III generates these */
 		case FXTOS: XR = rs2->d; FP_FROM_INT_S (SR, XR, 64, long); break;
 		case FXTOD: XR = rs2->d; FP_FROM_INT_D (DR, XR, 64, long); break;
+#if 0		/* Optimized inline in sparc64/kernel/entry.S */
+		case FITOS: IR = rs2->s; FP_FROM_INT_S (SR, IR, 32, int); break;
+#endif
 		case FITOD: IR = rs2->s; FP_FROM_INT_D (DR, IR, 32, int); break;
 		/* float to float */
 		case FSTOD: FP_CONV (D, S, 1, 1, DR, SB); break;

@@ -5,6 +5,11 @@
  * ...............: by Hartmunt Penner <hpenner@de.ibm.com>
  * Bugreports.to..: <Linux390@de.ibm.com>
  * (C) IBM Corporation, IBM Deutschland Entwicklung GmbH, 1999,2000
+ *
+ * $Revision: 1.7 $
+ *
+ * History of changes
+ *
  */
 
 #define MDSK_WRITE_REQ 0x01
@@ -17,21 +22,6 @@
 #define DEV_CLASS_FBA   0x01
 #define DEV_CLASS_ECKD  0x04
 #define DEV_CLASS_CKD   0x04
-
-typedef struct dasd_diag_characteristics_t {
-	u16 dev_nr;
-	u16 rdc_len;
-	u8 vdev_class;
-	u8 vdev_type;
-	u8 vdev_status;
-	u8 vdev_flags;
-	u8 rdev_class;
-	u8 rdev_type;
-	u8 rdev_model;
-	u8 rdev_features;
-} __attribute__ ((packed, aligned (4)))
-
-    dasd_diag_characteristics_t;
 
 typedef struct diag_bio_t {
 	u8 type;

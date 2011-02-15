@@ -61,6 +61,16 @@ extern __inline__ int test_bit(int nr, long * addr)
 
 #define ffs(x) generic_ffs(x)
 
+/**
+ * fls - find last (most-significant) bit set
+ * @x: the word to search
+ *
+ * This is defined the same way as ffs.
+ * Note fls(0) = 0, fls(1) = 1, fls(0x80000000) = 32.
+ */
+
+#define fls(x) generic_fls(x)
+
 /*
  * hweightN: returns the hamming weight (i.e. the number
  * of bits set) of a N-bit word

@@ -273,9 +273,68 @@ asmlinkage int irix_syssgi(struct pt_regs *regs)
 	case SGI_SYSID: {
 		char *buf = (char *) regs->regs[base + 5];
 
+		/* XXX Use ethernet addr.... */
 		retval = clear_user(buf, 64);
 		break;
 	}
+#if 0
+	case SGI_RDNAME: {
+		int pid = (int) regs->regs[base + 5];
+		char *buf = (char *) regs->regs[base + 6];
+		struct task_struct *p;
+		char comm[16];
+
+		retval = verify_area(VERIFY_WRITE, buf, 16);
+		if (retval)
+			break;
+		read_lock(&tasklist_lock);
+		p = find_task_by_pid(pid);
+		if (!p) {
+			read_unlock(&tasklist_lock);
+			retval = -ESRCH;
+			break;
+		}
+		memcpy(comm, p->comm, 16);
+		read_unlock(&tasklist_lock);
+
+		/* XXX Need to check sizes. */
+		copy_to_user(buf, p->comm, 16);
+		retval = 0;
+		break;
+	}
+
+	case SGI_GETNVRAM: {
+		char *name = (char *) regs->regs[base+5];
+		char *buf = (char *) regs->regs[base+6];
+		char *value;
+		return -EINVAL;	/* til I fix it */
+		retval = verify_area(VERIFY_WRITE, buf, 128);
+		if (retval)
+			break;
+		value = prom_getenv(name);	/* PROM lock?  */
+		if (!value) {
+			retval = -EINVAL;
+			break;
+		}
+		/* Do I strlen() for the length? */
+		copy_to_user(buf, value, 128);
+		retval = 0;
+		break;
+	}
+
+	case SGI_SETNVRAM: {
+		char *name = (char *) regs->regs[base+5];
+		char *value = (char *) regs->regs[base+6];
+		return -EINVAL;	/* til I fix it */
+		retval = prom_setenv(name, value);
+		/* XXX make sure retval conforms to syssgi(2) */
+		printk("[%s:%d] setnvram(\"%s\", \"%s\"): retval %d",
+		       current->comm, current->pid, name, value, retval);
+/*		if (retval == PROM_ENOENT)
+		  	retval = -ENOENT; */
+		break;
+	}
+#endif
 
 	case SGI_SETPGID: {
 #ifdef DEBUG_PROCGRPS
@@ -293,7 +352,7 @@ asmlinkage int irix_syssgi(struct pt_regs *regs)
 	case SGI_SYSCONF: {
 		switch(regs->regs[base + 5]) {
 		case 1:
-			retval = (MAX_ARG_PAGES >> 4); 
+			retval = (MAX_ARG_PAGES >> 4); /* XXX estimate... */
 			goto out;
 		case 2:
 			retval = max_threads;
@@ -392,6 +451,7 @@ asmlinkage int irix_syssgi(struct pt_regs *regs)
 		break;
 
 	case SGI_TOSSTSAVE:
+		/* XXX We don't need to do anything? */
 		retval = 0;
 		break;
 
@@ -637,6 +697,7 @@ asmlinkage int irix_pause(void)
 extern asmlinkage long sys_mount(char * dev_name, char * dir_name, char * type,
 				unsigned long new_flags, void * data);
 
+/* XXX need more than this... */
 asmlinkage int irix_mount(char *dev_name, char *dir_name, unsigned long flags,
 			  char *type, void *data, int datalen)
 {
@@ -867,8 +928,8 @@ asmlinkage int irix_getdomainname(char *name, int len)
 		return error;
 
 	down_read(&uts_sem);
-	if(len > (__NEW_UTS_LEN - 1))
-		len = __NEW_UTS_LEN - 1;
+	if (len > __NEW_UTS_LEN)
+		len = __NEW_UTS_LEN;
 	error = 0;
 	if (copy_to_user(name, system_utsname.domainname, len))
 		error = -EFAULT;
@@ -1182,6 +1243,7 @@ static inline void irix_xstat64_xlate(struct stat *sb)
 	ks.st_size = (long long) sb->st_size;
 	ks.st_pad3 = 0;
 
+	/* XXX hackety hack... */
 	ks.st_atime.tv_sec = (s32) sb->st_atime; ks.st_atime.tv_nsec = 0;
 	ks.st_mtime.tv_sec = (s32) sb->st_atime; ks.st_mtime.tv_nsec = 0;
 	ks.st_ctime.tv_sec = (s32) sb->st_atime; ks.st_ctime.tv_nsec = 0;
@@ -1403,10 +1465,10 @@ asmlinkage int irix_statvfs(char *fname, struct irix_statvfs *buf)
 	__put_user(kbuf.f_frsize, &buf->f_frsize);
 	__put_user(kbuf.f_blocks, &buf->f_blocks);
 	__put_user(kbuf.f_bfree, &buf->f_bfree);
-	__put_user(kbuf.f_bfree, &buf->f_bavail);  
+	__put_user(kbuf.f_bfree, &buf->f_bavail);  /* XXX hackety hack... */
 	__put_user(kbuf.f_files, &buf->f_files);
 	__put_user(kbuf.f_ffree, &buf->f_ffree);
-	__put_user(kbuf.f_ffree, &buf->f_favail);  
+	__put_user(kbuf.f_ffree, &buf->f_favail);  /* XXX hackety hack... */
 #ifdef __MIPSEB__
 	__put_user(kbuf.f_fsid.val[1], &buf->f_fsid);
 #else
@@ -1451,10 +1513,10 @@ asmlinkage int irix_fstatvfs(int fd, struct irix_statvfs *buf)
 	__put_user(kbuf.f_frsize, &buf->f_frsize);
 	__put_user(kbuf.f_blocks, &buf->f_blocks);
 	__put_user(kbuf.f_bfree, &buf->f_bfree);
-	__put_user(kbuf.f_bfree, &buf->f_bavail); 
+	__put_user(kbuf.f_bfree, &buf->f_bavail); /* XXX hackety hack... */
 	__put_user(kbuf.f_files, &buf->f_files);
 	__put_user(kbuf.f_ffree, &buf->f_ffree);
-	__put_user(kbuf.f_ffree, &buf->f_favail); 
+	__put_user(kbuf.f_ffree, &buf->f_favail); /* XXX hackety hack... */
 #ifdef __MIPSEB__
 	__put_user(kbuf.f_fsid.val[1], &buf->f_fsid);
 #else
@@ -1650,7 +1712,7 @@ asmlinkage int irix_statvfs64(char *fname, struct irix_statvfs64 *buf)
 
 	printk("[%s:%d] Wheee.. irix_statvfs(%s,%p)\n",
 	       current->comm, current->pid, fname, buf);
-	error = verify_area(VERIFY_WRITE, buf, sizeof(struct irix_statvfs));
+	error = verify_area(VERIFY_WRITE, buf, sizeof(struct irix_statvfs64));
 	if(error)
 		goto out;
 	error = user_path_walk(fname, &nd);
@@ -1664,10 +1726,10 @@ asmlinkage int irix_statvfs64(char *fname, struct irix_statvfs64 *buf)
 	__put_user(kbuf.f_frsize, &buf->f_frsize);
 	__put_user(kbuf.f_blocks, &buf->f_blocks);
 	__put_user(kbuf.f_bfree, &buf->f_bfree);
-	__put_user(kbuf.f_bfree, &buf->f_bavail);  
+	__put_user(kbuf.f_bfree, &buf->f_bavail);  /* XXX hackety hack... */
 	__put_user(kbuf.f_files, &buf->f_files);
 	__put_user(kbuf.f_ffree, &buf->f_ffree);
-	__put_user(kbuf.f_ffree, &buf->f_favail);  
+	__put_user(kbuf.f_ffree, &buf->f_favail);  /* XXX hackety hack... */
 #ifdef __MIPSEB__
 	__put_user(kbuf.f_fsid.val[1], &buf->f_fsid);
 #else
@@ -1712,10 +1774,10 @@ asmlinkage int irix_fstatvfs64(int fd, struct irix_statvfs *buf)
 	__put_user(kbuf.f_frsize, &buf->f_frsize);
 	__put_user(kbuf.f_blocks, &buf->f_blocks);
 	__put_user(kbuf.f_bfree, &buf->f_bfree);
-	__put_user(kbuf.f_bfree, &buf->f_bavail);  
+	__put_user(kbuf.f_bfree, &buf->f_bavail);  /* XXX hackety hack... */
 	__put_user(kbuf.f_files, &buf->f_files);
 	__put_user(kbuf.f_ffree, &buf->f_ffree);
-	__put_user(kbuf.f_ffree, &buf->f_favail);  
+	__put_user(kbuf.f_ffree, &buf->f_favail);  /* XXX hackety hack... */
 #ifdef __MIPSEB__
 	__put_user(kbuf.f_fsid.val[1], &buf->f_fsid);
 #else
@@ -1743,6 +1805,12 @@ asmlinkage int irix_getmountid(char *fname, unsigned long *midbuf)
 	if (err)
 		return err;
 
+	/*
+	 * The idea with this system call is that when trying to determine
+	 * 'pwd' and it's a toss-up for some reason, userland can use the
+	 * fsid of the filesystem to try and make the right decision, but
+	 * we don't have this so for now. XXX
+	 */
 	err |= __put_user(0, &midbuf[0]);
 	err |= __put_user(0, &midbuf[1]);
 	err |= __put_user(0, &midbuf[2]);
@@ -1803,7 +1871,7 @@ static int irix_filldir32(void *__buf, const char *name, int namlen,
 	__put_user(reclen, &dirent->d_reclen);
 	copy_to_user(dirent->d_name, name, namlen);
 	__put_user(0, &dirent->d_name[namlen]);
-	((char *) dirent) += reclen;
+	dirent = (struct irix_dirent32 __user *) ((char __user *) dirent + reclen);
 	buf->current_dir = dirent;
 	buf->count -= reclen;
 
@@ -1896,7 +1964,7 @@ static int irix_filldir64(void * __buf, const char * name, int namlen,
 	__put_user(reclen, &dirent->d_reclen);
 	__copy_to_user(dirent->d_name, name, namlen);
 	__put_user(0, &dirent->d_name[namlen]);
-	((char *) dirent) += reclen;
+	dirent = (struct irix_dirent64 __user *) ((char __user *) dirent + reclen);
 	buf->curr = dirent;
 	buf->count -= reclen;
 
@@ -2134,6 +2202,12 @@ asmlinkage int irix_ulimit(int cmd, int arg)
 		goto out;
 
 	case 4:
+#if 0
+		printk("[%s:%d] irix_ulimit: Wants to get fd limit.\n",
+		       current->comm, current->pid);
+		retval = -EINVAL;
+		goto out;
+#endif
 		retval = current->rlim[RLIMIT_NOFILE].rlim_cur;
 		goto out;
 

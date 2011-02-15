@@ -31,11 +31,11 @@ struct minix_super_block {
 	uint16_t	s_magic;
 	uint16_t	s_state;
 	uint32_t	s_zones;
-} __attribute__((__packed__));
+} PACKED;
 
 #define MINIX_SUPERBLOCK_OFFSET			0x400
 
-int volume_id_probe_minix(struct volume_id *id, uint64_t off)
+int FAST_FUNC volume_id_probe_minix(struct volume_id *id, uint64_t off)
 {
 	struct minix_super_block *ms;
 

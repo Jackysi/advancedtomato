@@ -311,7 +311,6 @@ match(const struct sk_buff *skb,
 		printk("%s: Sorry! Cannot find this match option.\n", __FILE__);
 		return 0;
 	}
-
 	/* Get the http header info */
 	if (get_http_info(skb, flags, &htinfo) < 1)
 	    return 0;

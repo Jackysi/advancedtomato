@@ -4,7 +4,7 @@
 
 O_TARGET := e100.o
 
-obj-y	 :=	e100_main.o e100_config.o e100_proc.o e100_phy.o \
+obj-y	 :=	e100_main.o e100_config.o e100_phy.o \
 		e100_eeprom.o e100_test.o
 obj-m	 := $(O_TARGET)
 

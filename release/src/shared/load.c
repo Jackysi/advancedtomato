@@ -2,7 +2,7 @@
  * Initialization and support routines for self-booting
  * compressed image.
  *
- * Copyright 2005, Broadcom Corporation
+ * Copyright 2004, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -10,25 +10,25 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
- * $Id: load.c,v 1.1.1.2 2005/03/07 07:31:12 kanki Exp $
+ * $Id$
  */
 
 #include <typedefs.h>
+#include <bcmdefs.h>
 #include <osl.h>
-#include <bcmdevs.h>
 #include <bcmutils.h>
+#include <sbutils.h>
+#include <bcmdevs.h>
 #include <sbconfig.h>
-#include <sbextif.h>
 #include <sbchipc.h>
 #include <hndmips.h>
 #include <sbmemc.h>
 #include <sflash.h>
-#include <sbutils.h>
 #include <bcmsrom.h>
 
 void c_main(unsigned long ra);
 
-static void *sbh;
+static sb_t *sbh;
 static chipcregs_t *cc;
 
 static struct sflash *sflash;
@@ -37,7 +37,7 @@ extern char text_start[], text_end[];
 extern char data_start[], data_end[];
 extern char bss_start[], bss_end[];
 
-#define INBUFSIZ 4096
+#define INBUFSIZ 4096	/* Buffer size */
 #define WSIZE 0x8000    	/* window size--must be a power of two, and */
 				/*  at least 32K for zip's deflate method */
 
@@ -57,10 +57,11 @@ fill_inbuf(void)
 
 	for (insize = 0; insize < INBUFSIZ; insize += bytes, inoff += bytes) {
 		if (sflash) {
-			if ((bytes = sflash_read(cc, inoff, INBUFSIZ - insize, &inbuf[insize])) < 0)
+			if ((bytes = sflash_read(cc, inoff, INBUFSIZ - insize,
+			                         &inbuf[insize])) < 0)
 				return bytes;
 		} else {
-			*((uint32 *) &inbuf[insize]) = *((uint32 *) KSEG1ADDR(0x1fc00000 + inoff));
+			*((uint32 *) &inbuf[insize]) = *((uint32 *) KSEG1ADDR(SB_FLASH1 + inoff));
 			bytes = sizeof(uint32);
 		}
 	}
@@ -101,12 +102,12 @@ typedef unsigned long  ulg;
 
 /* Diagnostic functions (stubbed out) */
 
-#define Assert(cond,msg)
+#define Assert(cond, msg)
 #define Trace(x)
 #define Tracev(x)
 #define Tracevv(x)
-#define Tracec(c,x)
-#define Tracecv(c,x)
+#define Tracec(c, x)
+#define Tracecv(c, x)
 
 static uchar *window;		/* Sliding window buffer */
 static unsigned outcnt;		/* bytes in window buffer */
@@ -157,7 +158,7 @@ flush_window(void)
  * bzip2 declarations
  */
 
-void bz_internal_error (int i)
+void bz_internal_error(int i)
 {
 	char msg[128];
 
@@ -204,7 +205,7 @@ bunzip2(void)
 	return ret;
 }
 
-#endif
+#endif /* defined(USE_GZIP) */
 
 extern char input_data[];
 extern int input_len;
@@ -219,7 +220,7 @@ load(void)
 	inoff = ((ulong)text_end - (ulong)text_start) + ((ulong)input_data - (ulong)data_start);
 #else
 	inoff = (ulong) input_data - (ulong) text_start;
-#endif
+#endif /* CONFIG_XIP */
 	outbuf = (uchar *) LOADADDR;
 	bytes_out = 0;
 	inbuf = malloc(INBUFSIZ);	/* input buffer */
@@ -240,7 +241,7 @@ load(void)
 		memcpy(&outbuf[bytes_out], inbuf, insize);
 		bytes_out += insize;
 	}
-#endif
+#endif /* defined(USE_GZIP) */
 	if (ret) {
 		printf("error %d\n", ret);
 	} else
@@ -286,12 +287,12 @@ void
 c_main(unsigned long ra)
 {
 	/* Basic initialization */
-	sbh = osl_init();
+	sbh = (sb_t *)osl_init();
 
 #ifndef CFG_UNCACHED
 	/* Initialize and turn caches on */
 	caches_on();
-#endif
+#endif /* CFG_UNCACHED */
 
 	cc = sb_setcore(sbh, SB_CC, 0);
 
@@ -299,7 +300,7 @@ c_main(unsigned long ra)
 	sflash = cc ? sflash_init(cc) : NULL;
 
 	/* Copy self to flash if we booted from SDRAM */
-	if (PHYSADDR(ra) < 0x1fc00000) {
+	if (PHYSADDR(ra) < SB_FLASH1) {
 		if (sflash)
 			sflash_self(cc);
 	}

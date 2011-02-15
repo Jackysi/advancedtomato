@@ -14,6 +14,43 @@
  * enforced (but it's not much fun on a character device :-).
  */
 
+//usage:#define mke2fs_trivial_usage
+//usage:       "[-c|-l filename] [-b block-size] [-f fragment-size] [-g blocks-per-group] "
+//usage:       "[-i bytes-per-inode] [-j] [-J journal-options] [-N number-of-inodes] [-n] "
+//usage:       "[-m reserved-blocks-percentage] [-o creator-os] [-O feature[,...]] [-q] "
+//usage:       "[r fs-revision-level] [-E extended-options] [-v] [-F] [-L volume-label] "
+//usage:       "[-M last-mounted-directory] [-S] [-T filesystem-type] "
+//usage:       "device [blocks-count]"
+//usage:
+//usage:#define mke2fs_full_usage "\n\n"
+//usage:       "	-b size		Block size in bytes"
+//usage:     "\n	-c		Check for bad blocks before creating"
+//usage:     "\n	-E opts		Set extended options"
+//usage:     "\n	-f size		Fragment size in bytes"
+//usage:     "\n	-F		Force (ignore sanity checks)"
+//usage:     "\n	-g num		Number of blocks in a block group"
+//usage:     "\n	-i ratio	The bytes/inode ratio"
+//usage:     "\n	-j		Create a journal (ext3)"
+//usage:     "\n	-J opts		Set journal options (size/device)"
+//usage:     "\n	-l file		Read bad blocks list from file"
+//usage:     "\n	-L lbl		Set the volume label"
+//usage:     "\n	-m percent	Percent of fs blocks to reserve for admin"
+//usage:     "\n	-M dir		Set last mounted directory"
+//usage:     "\n	-n		Do not actually create anything"
+//usage:     "\n	-N num		Number of inodes to create"
+//usage:     "\n	-o os		Set the 'creator os' field"
+//usage:     "\n	-O features	Dir_index/filetype/has_journal/journal_dev/sparse_super"
+//usage:     "\n	-q		Quiet"
+//usage:     "\n	-r rev		Set filesystem revision"
+//usage:     "\n	-S		Write superblock and group descriptors only"
+//usage:     "\n	-T fs-type	Set usage type (news/largefile/largefile4)"
+//usage:     "\n	-v		Verbose"
+//usage:
+//applet:IF_MKE2FS(APPLET(mke2fs, _BB_DIR_SBIN, _BB_SUID_DROP))
+//applet:IF_MKE2FS(APPLET_ODDNAME(mkfs.ext2, mke2fs, _BB_DIR_SBIN, _BB_SUID_DROP, mke2fs))
+//applet:IF_MKE2FS(APPLET_ODDNAME(mkfs.ext3, mke2fs, _BB_DIR_SBIN, _BB_SUID_DROP, mke2fs))
+//applet:IF_MKE2FS(APPLET(tune2fs, _BB_DIR_SBIN, _BB_SUID_DROP))
+
 #include <stdio.h>
 #include <string.h>
 #include <fcntl.h>
@@ -29,7 +66,7 @@
 
 #include "e2fsbb.h"
 #include "ext2fs/ext2_fs.h"
-#include "uuid/uuid.h"
+#include "../e2fs_lib.h"
 #include "e2p/e2p.h"
 #include "ext2fs/ext2fs.h"
 #include "util.h"
@@ -201,8 +238,8 @@ static void mke2fs_verbose_done(void)
 	mke2fs_verbose("done\n");
 }
 
-static void mke2fs_warning_msg(int retval, char *fmt, ... ) __attribute__ ((format (printf, 2, 3)));
-static void mke2fs_warning_msg(int retval, char *fmt, ... )
+static void mke2fs_warning_msg(int retval, const char *fmt, ... ) __attribute__ ((format (printf, 2, 3)));
+static void mke2fs_warning_msg(int retval, const char *fmt, ... )
 {
 	va_list ap;
 
@@ -245,7 +282,7 @@ static void test_disk(ext2_filsys fs, badblocks_list *bb_list)
 	mke2fs_verbose("Running command: %s\n", buf);
 	f = popen(buf, "r");
 	if (!f) {
-		bb_perror_msg_and_die("cannot run '%s'", buf);
+		bb_perror_msg_and_die("can't run '%s'", buf);
 	}
 	retval = ext2fs_read_bb_FILE(fs, f, bb_list, invalid_block);
 	pclose(f);
@@ -485,7 +522,7 @@ static void create_lost_and_found(ext2_filsys fs)
 	ext2_ino_t		ino;
 	const char		*name = "lost+found";
 	int			i = 1;
-	char			*msg = "create";
+	const char		*msg = "create";
 	int			lpf_size = 0;
 
 	fs->umask = 077;
@@ -542,7 +579,7 @@ static void reserve_inodes(ext2_filsys fs)
 static void zap_sector(ext2_filsys fs, int sect, int nsect)
 {
 	char *buf;
-	char *fmt = "could not %s %d";
+	const char *fmt = "could not %s %d";
 	int retval;
 	unsigned int *magic;
 
@@ -574,7 +611,7 @@ static void create_journal_dev(ext2_filsys fs)
 	struct progress_struct	progress;
 	errcode_t		retval;
 	char			*buf;
-	char			*fmt = "%s journal superblock";
+	const char		*fmt = "%s journal superblock";
 	blk_t			blk;
 	int			count;
 
@@ -799,8 +836,8 @@ static int PRS(int argc, char **argv)
 	int		show_version_only = 0;
 	ext2_ino_t	num_inodes = 0;
 	errcode_t	retval;
-	char *		extended_opts = 0;
-	const char *	fs_type = 0;
+	char *		extended_opts = NULL;
+	const char *	fs_type = NULL;
 	blk_t		dev_size;
 	long		sysval;
 
@@ -1174,7 +1211,7 @@ static void mke2fs_clean_up(void)
 	if (ENABLE_FEATURE_CLEAN_UP && journal_device) free(journal_device);
 }
 
-int mke2fs_main (int argc, char **argv);
+int mke2fs_main (int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int mke2fs_main (int argc, char **argv)
 {
 	errcode_t	retval;
@@ -1212,13 +1249,13 @@ int mke2fs_main (int argc, char **argv)
 	/*
 	 * Generate a UUID for it...
 	 */
-	uuid_generate(fs->super->s_uuid);
+	generate_uuid(fs->super->s_uuid);
 
 	/*
 	 * Initialize the directory index variables
 	 */
 	fs->super->s_def_hash_version = EXT2_HASH_TEA;
-	uuid_generate((unsigned char *) fs->super->s_hash_seed);
+	generate_uuid((uint8_t *) fs->super->s_hash_seed);
 
 	/*
 	 * Add "jitter" to the superblock's check interval so that we
@@ -1305,7 +1342,7 @@ int mke2fs_main (int argc, char **argv)
 			retval = zero_blocks(fs, start, blocks - start,
 					     NULL, &ret_blk, NULL);
 
-		mke2fs_warning_msg(retval, "cannot zero block %u at end of filesystem", ret_blk);
+		mke2fs_warning_msg(retval, "can't zero block %u at end of filesystem", ret_blk);
 		write_inode_tables(fs);
 		create_root_dir(fs);
 		create_lost_and_found(fs);

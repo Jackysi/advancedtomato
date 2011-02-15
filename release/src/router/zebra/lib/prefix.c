@@ -184,8 +184,7 @@ prefix_ipv4_new ()
 {
   struct prefix_ipv4 *p;
 
-  p = XMALLOC (MTYPE_PREFIX_IPV4, sizeof *p);
-  bzero (p, sizeof (struct prefix_ipv4));
+  p = XCALLOC (MTYPE_PREFIX_IPV4, sizeof *p);
   p->family = AF_INET;
   return p;
 }
@@ -251,7 +250,7 @@ masklen2ip (int masklen, struct in_addr *netmask)
   int bit;
   int offset;
 
-  bzero (netmask, sizeof (struct in_addr));
+  memset (netmask, 0, sizeof (struct in_addr));
   pnt = (unsigned char *) netmask;
 
   offset = masklen / 8;
@@ -334,8 +333,7 @@ prefix_ipv6_new ()
 {
   struct prefix_ipv6 *p;
 
-  p = XMALLOC (MTYPE_PREFIX_IPV6, sizeof (struct prefix_ipv6));
-  bzero (p, sizeof (struct prefix_ipv6));
+  p = XCALLOC (MTYPE_PREFIX_IPV6, sizeof (struct prefix_ipv6));
   p->family = AF_INET6;
   return p;
 }
@@ -421,7 +419,7 @@ masklen2ip6 (int masklen, struct in6_addr *netmask)
   int bit;
   int offset;
 
-  bzero (netmask, sizeof (struct in6_addr));
+  memset (netmask, 0, sizeof (struct in6_addr));
   pnt = (unsigned char *) netmask;
 
   offset = masklen / 8;
@@ -602,8 +600,7 @@ prefix_new ()
 {
   struct prefix *p;
 
-  p = XMALLOC (MTYPE_PREFIX, sizeof *p);
-  bzero (p, sizeof (struct prefix));
+  p = XCALLOC (MTYPE_PREFIX, sizeof *p);
   return p;
 }
 
@@ -660,7 +657,7 @@ netmask_str2prefix_str (char *net_str, char *mask_str, char *prefix_str)
 {
   struct in_addr network;
   struct in_addr mask;
-  char masklen_str[3];
+  u_char prefixlen;
   u_int32_t destination;
   int ret;
 
@@ -674,27 +671,25 @@ netmask_str2prefix_str (char *net_str, char *mask_str, char *prefix_str)
       if (! ret)
         return 0;
 
-      sprintf (masklen_str, "%d", ip_masklen (mask));
+      prefixlen = ip_masklen (mask);
     }
   else 
     {
       destination = ntohl (network.s_addr);
 
       if (network.s_addr == 0)
-	strcpy (masklen_str, "0");
+	prefixlen = 0;
       else if (IN_CLASSC (destination))
-	strcpy (masklen_str, "24");
+	prefixlen = 24;
       else if (IN_CLASSB (destination))
-	strcpy (masklen_str, "16");
+	prefixlen = 16;
       else if (IN_CLASSA (destination))
-	strcpy (masklen_str, "8");
+	prefixlen = 8;
       else
 	return 0;
     }
 
-  strcpy (prefix_str, net_str);
-  strcat (prefix_str, "/");
-  strcat (prefix_str, masklen_str);
+  sprintf (prefix_str, "%s/%d", net_str, prefixlen);
 
   return 1;
 }

@@ -529,6 +529,17 @@ extern void print_driverbyte(int scsiresult);
 extern void print_hostbyte(int scsiresult);
 extern void print_status (int status);
 
+/*
+ *  The scsi_device struct contains what we know about each given scsi
+ *  device.
+ *
+ * FIXME(eric) - one of the great regrets that I have is that I failed to define
+ * these structure elements as something like sdev_foo instead of foo.  This would
+ * make it so much easier to grep through sources and so forth.  I propose that
+ * all new elements that get added to these structures follow this convention.
+ * As time goes on and as people have the stomach for it, it should be possible to 
+ * go back and retrofit at least some of the elements here with with the prefix.
+ */
 
 struct scsi_device {
 /* private: */
@@ -597,6 +608,9 @@ struct scsi_device {
 	unsigned remap:1;	/* support remapping  */
 	unsigned starved:1;	/* unable to process commands because
 				   host busy */
+	unsigned no_start_on_add:1;	/* do not issue start on add */
+	unsigned allow_restart:1; /* issue START_UNIT in error handler */
+	unsigned retry_hwerror:1; /* retry HARDWARE_ERROR */
 
 	// Flag to allow revalidate to succeed in sd_open
 	int allow_revalidate;
@@ -656,6 +670,14 @@ struct scsi_request {
 				   this amount is transferred */
 };
 
+/*
+ * FIXME(eric) - one of the great regrets that I have is that I failed to define
+ * these structure elements as something like sc_foo instead of foo.  This would
+ * make it so much easier to grep through sources and so forth.  I propose that
+ * all new elements that get added to these structures follow this convention.
+ * As time goes on and as people have the stomach for it, it should be possible to 
+ * go back and retrofit at least some of the elements here with with the prefix.
+ */
 struct scsi_cmnd {
 	int     sc_magic;
 /* private: */

@@ -74,7 +74,7 @@
 
 #include "kawethfw.h"
 
-#define KAWETH_MTU			1514
+#define KAWETH_MTU			1500
 #define KAWETH_BUF_SIZE			1664
 #define KAWETH_TX_TIMEOUT		(5 * HZ)
 #define KAWETH_SCRATCH_SIZE		32
@@ -114,6 +114,8 @@ MODULE_AUTHOR("Michael Zappe <zapman@interlan.net>, Stephane Alnet <stephane@u-p
 MODULE_DESCRIPTION("KL5USB101 USB Ethernet driver");
 MODULE_LICENSE("GPL");
 
+static const char driver_name[] = "kaweth";
+
 static void *kaweth_probe(
             struct usb_device *dev,             /* the device */
             unsigned ifnum,                     /* what interface */
@@ -131,6 +133,7 @@ static struct usb_device_id usb_klsi_table[] = {
 	{ USB_DEVICE(0x03e8, 0x0008) }, /* AOX Endpoints USB Ethernet */
 	{ USB_DEVICE(0x04bb, 0x0901) }, /* I-O DATA USB-ET/T */
 	{ USB_DEVICE(0x0506, 0x03e8) }, /* 3Com 3C19250 */
+	{ USB_DEVICE(0x0506, 0x11f8) }, /* 3Com 3C460 */
 	{ USB_DEVICE(0x0557, 0x2002) }, /* ATEN USB Ethernet */
 	{ USB_DEVICE(0x0557, 0x4000) }, /* D-Link DSB-650C */
 	{ USB_DEVICE(0x0565, 0x0002) }, /* Peracom Enet */
@@ -142,6 +145,7 @@ static struct usb_device_id usb_klsi_table[] = {
 	{ USB_DEVICE(0x06e1, 0x0008) }, /* ADS USB-10BT */
 	{ USB_DEVICE(0x06e1, 0x0009) }, /* ADS USB-10BT */
 	{ USB_DEVICE(0x0707, 0x0100) }, /* SMC 2202USB */
+	{ USB_DEVICE(0x0785, 0x0002) }, /* NTT-TE MN128 USB-Ethernet Adapter */
 	{ USB_DEVICE(0x07aa, 0x0001) }, /* Correga K.K. */
 	{ USB_DEVICE(0x07b8, 0x4000) }, /* D-Link DU-E10 */
 	{ USB_DEVICE(0x0846, 0x1001) }, /* NetGear EA-101 */
@@ -168,7 +172,7 @@ MODULE_DEVICE_TABLE (usb, usb_klsi_table);
  *     kaweth_driver
  ****************************************************************/
 static struct usb_driver kaweth_driver = {
-	.name =		"kaweth",
+	.name =		driver_name,
 	.probe =	kaweth_probe,
 	.disconnect =	kaweth_disconnect,
 	.id_table =     usb_klsi_table,
@@ -657,7 +661,7 @@ static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
 	switch (ethcmd) {
 	case ETHTOOL_GDRVINFO: {
 		struct ethtool_drvinfo info = {ETHTOOL_GDRVINFO};
-		strncpy(info.driver, "kaweth", sizeof(info.driver)-1);
+		strncpy(info.driver, driver_name, sizeof(info.driver)-1);
 		if (copy_to_user(useraddr, &info, sizeof(info)))
 			return -EFAULT;
 		return 0;
@@ -691,7 +695,7 @@ static void kaweth_usb_transmit_complete(struct urb *urb)
 		kaweth_dbg("%s: TX status %d.", kaweth->net->name, urb->status);
 
 	netif_wake_queue(kaweth->net);
-	dev_kfree_skb(skb);
+	dev_kfree_skb_irq(skb);
 }
 
 /****************************************************************
@@ -700,7 +704,7 @@ static void kaweth_usb_transmit_complete(struct urb *urb)
 static int kaweth_start_xmit(struct sk_buff *skb, struct net_device *net)
 {
 	struct kaweth_device *kaweth = net->priv;
-	char *private_header;
+	u16 *private_header;
 
 	int res;
 
@@ -709,7 +713,7 @@ static int kaweth_start_xmit(struct sk_buff *skb, struct net_device *net)
 	if (kaweth->removed) {
 	/* our device is undergoing disconnection - we bail out */
 		spin_unlock(&kaweth->device_lock);
-		dev_kfree_skb(skb);
+		dev_kfree_skb_irq(skb);
 		return 0;
 	}
 
@@ -721,7 +725,7 @@ static int kaweth_start_xmit(struct sk_buff *skb, struct net_device *net)
 		/* no such luck - we make our own */
 		struct sk_buff *copied_skb;
 		copied_skb = skb_copy_expand(skb, 2, 0, GFP_ATOMIC);
-		dev_kfree_skb_any(skb);
+		dev_kfree_skb_irq(skb);
 		skb = copied_skb;
 		if (!copied_skb) {
 			kaweth->stats.tx_errors++;
@@ -731,8 +735,8 @@ static int kaweth_start_xmit(struct sk_buff *skb, struct net_device *net)
 		}
 	}
 
-	private_header = __skb_push(skb, 2);
-	*private_header = cpu_to_le16(skb->len);
+	private_header = (u16 *)__skb_push(skb, 2);
+	*private_header = cpu_to_le16(skb->len-2);
 	kaweth->tx_skb = skb;
 
 	FILL_BULK_URB(kaweth->tx_urb,
@@ -751,7 +755,7 @@ static int kaweth_start_xmit(struct sk_buff *skb, struct net_device *net)
 		kaweth->stats.tx_errors++;
 
 		netif_start_queue(net);
-		dev_kfree_skb(skb);
+		dev_kfree_skb_irq(skb);
 	}
 	else
 	{
@@ -1034,7 +1038,8 @@ static void *kaweth_probe(
 	kaweth->net->hard_start_xmit = kaweth_start_xmit;
 	kaweth->net->set_multicast_list = kaweth_set_rx_mode;
 	kaweth->net->get_stats = kaweth_netdev_stats;
-	kaweth->net->mtu = le16_to_cpu(kaweth->configuration.segment_size);
+	kaweth->net->mtu = le16_to_cpu(kaweth->configuration.segment_size < KAWETH_MTU ?
+				       kaweth->configuration.segment_size : KAWETH_MTU);
 
 	memset(&kaweth->stats, 0, sizeof(kaweth->stats));
 

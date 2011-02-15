@@ -29,7 +29,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dhcpc_minpkt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax"); %>
+//	<% nvram("dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dhcpc_minpkt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax,dhcpc_custom,dns_norebind"); %>
 
 if ((isNaN(nvram.dhcpd_lmax)) || ((nvram.dhcpd_lmax *= 1) < 1)) nvram.dhcpd_lmax = 255;
 
@@ -40,7 +40,13 @@ function verifyFields(focused, quiet)
 	if ((b) && (!v_range('_f_dhcpd_slt', quiet, 1, 43200))) return 0;
 	if (!v_length('_dnsmasq_custom', quiet, 0, 2048)) return 0;
 	if (!v_range('_dhcpd_lmax', quiet, 1, 0xFFFF)) return 0;
+	if (!v_length('_dhcpc_custom', quiet, 0, 80)) return 0;
 	return 1;
+}
+
+function nval(a, b)
+{
+	return (a == null || (a + '').trim() == '') ? b : a;
 }
 
 function save()
@@ -54,12 +60,15 @@ function save()
 	a = E('_f_dhcpd_sltsel').value;
 	fom.dhcpd_slt.value = (a != 1) ? a : E('_f_dhcpd_slt').value;
 	fom.dns_addget.value = E('_f_dns_addget').checked ? 1 : 0;
+	fom.dns_norebind.value = E('_f_dns_norebind').checked ? 1 : 0;
 	fom.dhcpd_gwmode.value = E('_f_dhcpd_gwmode').checked ? 1 : 0;
 	fom.dns_intcpt.value = E('_f_dns_intcpt').checked ? 1 : 0;
 	fom.dhcpc_minpkt.value = E('_f_dhcpc_minpkt').checked ? 1 : 0;
 
-	if (fom.dhcpc_minpkt.value != nvram.dhcpc_minpkt) {
+	if (fom.dhcpc_minpkt.value != nvram.dhcpc_minpkt ||
+	    fom.dhcpc_custom.value != nvram.dhcpc_custom) {
 		nvram.dhcpc_minpkt = fom.dhcpc_minpkt.value;
+		nvram.dhcpc_custom = fom.dhcpc_custom.value;
 		fom._service.value = '*';
 	}
 	else {
@@ -95,6 +104,7 @@ function save()
 <input type='hidden' name='dhcpd_dmdns'>
 <input type='hidden' name='dhcpd_slt'>
 <input type='hidden' name='dns_addget'>
+<input type='hidden' name='dns_norebind'>
 <input type='hidden' name='dhcpd_gwmode'>
 <input type='hidden' name='dns_intcpt'>
 <input type='hidden' name='dhcpc_minpkt'>
@@ -105,6 +115,7 @@ function save()
 createFieldTable('', [
 	{ title: 'Use internal DNS', name: 'f_dhcpd_dmdns', type: 'checkbox', value: nvram.dhcpd_dmdns == '1' },
 	{ title: 'Use received DNS with user-entered DNS', name: 'f_dns_addget', type: 'checkbox', value: nvram.dns_addget == '1' },
+	{ title: 'Prevent DNS-rebind attacks', name: 'f_dns_norebind', type: 'checkbox', value: nvram.dns_norebind == '1' },
 	{ title: 'Intercept DNS port<br>(UDP 53)', name: 'f_dns_intcpt', type: 'checkbox', value: nvram.dns_intcpt == '1' },
 	{ title: 'Use user-entered gateway if WAN is disabled', name: 'f_dhcpd_gwmode', type: 'checkbox', value: nvram.dhcpd_gwmode == '1' },
 	{ title: 'Maximum active DHCP leases', name: 'dhcpd_lmax', type: 'text', maxlen: 5, size: 8, value: nvram.dhcpd_lmax },
@@ -125,6 +136,7 @@ Note: The file /etc/dnsmasq.custom is also added to the end of Dnsmasq's configu
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
+	{ title: 'DHCPC Options', name: 'dhcpc_custom', type: 'text', maxlen: 80, size: 34, value: nvram.dhcpc_custom },
 	{ title: 'Reduce packet size', name: 'f_dhcpc_minpkt', type: 'checkbox', value: nvram.dhcpc_minpkt == '1' }
 ]);
 </script>

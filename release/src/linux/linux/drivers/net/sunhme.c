@@ -1,4 +1,4 @@
-/* $Id: sunhme.c,v 1.1.1.4 2003/10/14 08:08:23 sparq Exp $
+/* $Id: sunhme.c,v 1.123 2001/10/02 02:22:30 davem Exp $
  * sunhme.c: Sparc HME/BigMac 10/100baseT half/full duplex auto switching,
  *           auto carrier detecting ethernet driver.  Also known as the
  *           "Happy Meal Ethernet" found on SunSwift SBUS cards.
@@ -356,6 +356,22 @@ static void BB_PUT_BIT(struct happy_meal *hp, unsigned long tregs, int bit)
 	hme_write32(hp, tregs + TCVR_BBCLOCK, 1);
 }
 
+#if 0
+static u32 BB_GET_BIT(struct happy_meal *hp, unsigned long tregs, int internal)
+{
+	u32 ret;
+
+	hme_write32(hp, tregs + TCVR_BBCLOCK, 0);
+	hme_write32(hp, tregs + TCVR_BBCLOCK, 1);
+	ret = hme_read32(hp, tregs + TCVR_CFG);
+	if (internal)
+		ret &= TCV_CFG_MDIO0;
+	else
+		ret &= TCV_CFG_MDIO1;
+
+	return ret;
+}
+#endif
 
 static u32 BB_GET_BIT2(struct happy_meal *hp, unsigned long tregs, int internal)
 {
@@ -507,7 +523,7 @@ static void happy_meal_tcvr_write(struct happy_meal *hp,
 	ASD(("happy_meal_tcvr_write: reg=0x%02x value=%04x\n", reg, value));
 
 	/* Welcome to Sun Microsystems, can I take your order please? */
-	if (!hp->happy_flags & HFLAG_FENABLE)
+	if (!(hp->happy_flags & HFLAG_FENABLE))
 		return happy_meal_bb_write(hp, tregs, reg, value);
 
 	/* Would you like fries with that? */
@@ -742,6 +758,12 @@ static void happy_meal_timer(unsigned long data)
 				/* Just what we've been waiting for... */
 				ret = set_happy_link_modes(hp, tregs);
 				if (ret) {
+					/* Ooops, something bad happened, go to force
+					 * mode.
+					 *
+					 * XXX Broken hubs which don't support 802.3u
+					 * XXX auto-negotiation make this happen as well.
+					 */
 					goto do_force_mode;
 				}
 
@@ -812,7 +834,7 @@ static void happy_meal_timer(unsigned long data)
 		if (hp->sw_bmsr & BMSR_LSTATUS) {
 			/* Force mode selection success. */
 			display_forced_link_mode(hp, tregs);
-			set_happy_link_modes(hp, tregs); 
+			set_happy_link_modes(hp, tregs); /* XXX error? then what? */
 			hp->timer_state = asleep;
 			restart_timer = 0;
 		} else {
@@ -1300,6 +1322,7 @@ static void happy_meal_begin_auto_negotiation(struct happy_meal *hp,
 	hp->sw_physid1   = happy_meal_tcvr_read(hp, tregs, MII_PHYSID1);
 	hp->sw_physid2   = happy_meal_tcvr_read(hp, tregs, MII_PHYSID2);
 
+	/* XXX Check BMSR_ANEGCAPABLE, should not be necessary though. */
 
 	hp->sw_advertise = happy_meal_tcvr_read(hp, tregs, MII_ADVERTISE);
 	if (ep == NULL || ep->autoneg == AUTONEG_ENABLE) {
@@ -1323,6 +1346,11 @@ static void happy_meal_begin_auto_negotiation(struct happy_meal *hp,
 			hp->sw_advertise &= ~(ADVERTISE_100FULL);
 		happy_meal_tcvr_write(hp, tregs, MII_ADVERTISE, hp->sw_advertise);
 
+		/* XXX Currently no Happy Meal cards I know off support 100BaseT4,
+		 * XXX and this is because the DP83840 does not support it, changes
+		 * XXX would need to be made to the tx/rx logic in the driver as well
+		 * XXX so I completely skip checking for it in the BMSR for now.
+		 */
 
 #ifdef AUTO_SWITCH_DEBUG
 		ASD(("%s: Advertising [ ", hp->dev->name));
@@ -1639,6 +1667,7 @@ static int happy_meal_init(struct happy_meal *hp)
 		printk(KERN_ERR "happy meal: Eieee, rx config register gets greasy fries.\n");
 		printk(KERN_ERR "happy meal: Trying to set %08x, reread gives %08x\n",
 		       ERX_CFG_DEFAULT(RX_OFFSET), regtmp);
+		/* XXX Should return failure here... */
 	}
 
 	/* Enable Big Mac hash table filter. */
@@ -2414,9 +2443,10 @@ static int happy_meal_ioctl(struct net_device *dev,
 			 SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
 			 SUPPORTED_Autoneg | SUPPORTED_TP | SUPPORTED_MII);
 
-		ecmd.port = PORT_TP; 
-		ecmd.transceiver = XCVR_INTERNAL; 
-		ecmd.phy_address = 0; 
+		/* XXX hardcoded stuff for now */
+		ecmd.port = PORT_TP; /* XXX no MII support */
+		ecmd.transceiver = XCVR_INTERNAL; /* XXX no external xcvr support */
+		ecmd.phy_address = 0; /* XXX fixed PHYAD */
 
 		/* Record PHY settings. */
 		spin_lock_irq(&hp->happy_lock);
@@ -2450,9 +2480,6 @@ static int happy_meal_ioctl(struct net_device *dev,
 			return -EFAULT;
 		return 0;
 	} else if (ecmd.cmd == ETHTOOL_SSET) {
-		if (!capable(CAP_NET_ADMIN))
-			return -EPERM;
-
 		/* Verify the settings we care about. */
 		if (ecmd.autoneg != AUTONEG_ENABLE &&
 		    ecmd.autoneg != AUTONEG_DISABLE)
@@ -2671,7 +2698,6 @@ static int __init happy_meal_sbus_init(struct sbus_dev *sdev, int is_qfe)
 	}
 
 	hp = dev->priv;
-	memset(hp, 0, sizeof(*hp));
 
 	hp->happy_dev = sdev;
 
@@ -2772,8 +2798,8 @@ static int __init happy_meal_sbus_init(struct sbus_dev *sdev, int is_qfe)
 	dev->watchdog_timeo = 5*HZ;
 	dev->do_ioctl = &happy_meal_ioctl;
 
-	/* Happy Meal can do it all... */
-	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM;
+	/* Happy Meal can do it all... except VLAN. */
+	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_VLAN_CHALLENGED;
 
 	dev->irq = sdev->irqs[0];
 
@@ -2942,7 +2968,7 @@ use_random:
 	dev_addr[0] = 0x08;
 	dev_addr[1] = 0x00;
 	dev_addr[2] = 0x20;
-	get_random_bytes(dev_addr, 3);
+	get_random_bytes(&dev_addr[3], 3);
 	return;
 }
 #endif /* !(__sparc__) */
@@ -3062,8 +3088,12 @@ static int __init happy_meal_pci_init(struct pci_dev *pdev)
 
 #ifdef __sparc__
 	hp->hm_revision = prom_getintdefault(node, "hm-rev", 0xff);
-	if (hp->hm_revision == 0xff)
-		hp->hm_revision = 0xa0;
+	if (hp->hm_revision == 0xff) {
+		unsigned char prev;
+
+		pci_read_config_byte(pdev, PCI_REVISION_ID, &prev);
+		hp->hm_revision = 0xc0 | (prev & 0x0f);
+	}
 #else
 	/* works with this on non-sparc hosts */
 	hp->hm_revision = 0x20;
@@ -3072,7 +3102,7 @@ static int __init happy_meal_pci_init(struct pci_dev *pdev)
 	/* Now enable the feature flags we can. */
 	if (hp->hm_revision == 0x20 || hp->hm_revision == 0x21)
 		hp->happy_flags = HFLAG_20_21;
-	else if (hp->hm_revision != 0xa0)
+	else if (hp->hm_revision != 0xa0 && hp->hm_revision != 0xc0)
 		hp->happy_flags = HFLAG_NOT_A0;
 
 	if (qp != NULL)

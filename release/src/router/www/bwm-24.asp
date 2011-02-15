@@ -33,6 +33,8 @@
 </style>
 
 <script type='text/javascript' src='debug.js'></script>
+
+<script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript' src='bwm-common.js'></script>
 
 <script type='text/javascript'>
@@ -171,6 +173,8 @@ function init()
 		<small>(2 minute interval)</small><br>
 		<br>
 		Hours:&nbsp;
+			<a href='javascript:switchHours(1);' id='hr1'>1</a>,
+			<a href='javascript:switchHours(2);' id='hr2'>2</a>,
 			<a href='javascript:switchHours(4);' id='hr4'>4</a>,
 			<a href='javascript:switchHours(6);' id='hr6'>6</a>,
 			<a href='javascript:switchHours(12);' id='hr12'>12</a>,

@@ -9,7 +9,7 @@
 
 O_TARGET := ipv4.o
 
-export-objs = ipip.o ip_gre.o
+export-objs = ipip.o gre.o ip_gre.o
 
 obj-y     := utils.o route.o inetpeer.o proc.o protocol.o \
 	     ip_input.o ip_fragment.o ip_forward.o ip_options.o \
@@ -22,6 +22,7 @@ obj-$(CONFIG_IP_MULTIPLE_TABLES) += fib_rules.o
 obj-$(CONFIG_IP_ROUTE_NAT) += ip_nat_dumb.o
 obj-$(CONFIG_IP_MROUTE) += ipmr.o
 obj-$(CONFIG_NET_IPIP) += ipip.o
+obj-$(CONFIG_NET_IPGRE_DEMUX) += gre.o
 obj-$(CONFIG_NET_IPGRE) += ip_gre.o
 obj-$(CONFIG_SYN_COOKIES) += syncookies.o
 obj-$(CONFIG_IP_PNP) += ipconfig.o

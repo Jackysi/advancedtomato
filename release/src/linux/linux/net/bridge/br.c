@@ -5,7 +5,7 @@
  *	Authors:
  *	Lennert Buytenhek		<buytenh@gnu.org>
  *
- *	$Id: br.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ *	$Id: br.c,v 1.46.2.1 2001/12/24 00:56:13 davem Exp $
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -22,6 +22,7 @@
 #include <linux/init.h>
 #include <linux/if_bridge.h>
 #include <linux/brlock.h>
+#include <linux/rtnetlink.h>
 #include <asm/uaccess.h>
 #include "br_private.h"
 
@@ -43,6 +44,8 @@ static int __init br_init(void)
 {
 	printk(KERN_INFO "NET4: Ethernet Bridge 008 for NET4.0\n");
 
+	br_fdb_init();
+
 	br_handle_frame_hook = br_handle_frame;
 	br_ioctl_hook = br_ioctl_deviceless_stub;
 #if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
@@ -54,15 +57,13 @@ static int __init br_init(void)
 	return 0;
 }
 
-static void __br_clear_ioctl_hook(void)
-{
-	br_ioctl_hook = NULL;
-}
-
 static void __exit br_deinit(void)
 {
 	unregister_netdevice_notifier(&br_device_notifier);
-	br_call_ioctl_atomic(__br_clear_ioctl_hook);
+
+	rtnl_lock();
+	br_ioctl_hook = NULL;
+	rtnl_unlock();
 
 	br_write_lock_bh(BR_NETPROTO_LOCK);
 	br_handle_frame_hook = NULL;

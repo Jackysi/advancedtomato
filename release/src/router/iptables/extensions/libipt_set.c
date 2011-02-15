@@ -18,7 +18,6 @@
 #include <errno.h>
 
 #include <iptables.h>
-#include <linux/netfilter_ipv4/ip_conntrack.h>
 #include <linux/netfilter_ipv4/ipt_set.h>
 #include "libipt_set.h"
 

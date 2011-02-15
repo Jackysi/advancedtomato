@@ -3,7 +3,7 @@
  *
  * Watchdog driver for integrated watchdog in the SuperH processors.
  *
- * Copyright (C) 2001, 2002 Paul Mundt <lethal@0xd6.org>
+ * Copyright (C) 2001, 2002, 2003, 2004 Paul Mundt <lethal@linux-sh.org>
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -12,6 +12,7 @@
  *
  * 14-Dec-2001 Matt Domsch <Matt_Domsch@dell.com>
  *     Added nowayout module option to override CONFIG_WATCHDOG_NOWAYOUT
+ *
  * 19-Apr-2002 Rob Radez <rob@osinvestor.com>
  *     Added expect close support, made emulated timeout runtime changeable
  *     general cleanups, add some ioctls
@@ -31,8 +32,10 @@
 #include <asm/uaccess.h>
 
 #if defined(CONFIG_CPU_SH5)
-  #define WTCNT		CPRC_BASE + 0x10
-  #define WTCSR		CPRC_BASE + 0x18
+  extern unsigned long cprc_base;
+
+  #define WTCNT		(cprc_base+0x10)
+  #define WTCSR		(cprc_base+0x18)
 #elif defined(CONFIG_CPU_SH4)
   #define WTCNT		0xffc00008
   #define WTCSR		0xffc0000c
@@ -82,22 +85,43 @@
 #define WTCSR_CKS_4096	0x07
 
 /*
- * Default clock division ratio is 5.25 msecs. Overload this at module load
- * time. Any value not in the msec range will default to a timeout of one
- * jiffy, which exceeds the usec overflow periods.
+ * Default clock division ratio is 5.25 msecs. For an additional table of
+ * values, consult the asm-sh/watchdog.h. Overload this at module load
+ * time. 
+ *
+ * In order for this to work reliably we need to have HZ set to 1000 or
+ * something quite higher than 100 (or we need a proper high-res timer
+ * implementation that will deal with this properly), otherwise the 10ms
+ * resolution of a jiffy is enough to trigger the overflow. For things like
+ * the SH-4 and SH-5, this isn't necessarily that big of a problem, though
+ * for the SH-2 and SH-3, this isn't recommended unless the WDT is absolutely
+ * necssary.
+ *
+ * As a result of this timing problem, the only modes that are particularly
+ * feasible are the 4096 and the 2048 divisors, which yeild 5.25 and 2.62ms
+ * overflow periods respectively.
+ *
+ * Also, since we can't really expect userspace to be responsive enough
+ * before the overflow happens, we maintain two seperate timers .. One in
+ * the kernel for clearing out WOVF every 2ms or so (again, this depends on
+ * HZ == 1000), and another for monitoring userspace writes to the WDT device.
+ *
+ * As such, we currently use a configurable heartbeat interval which defaults
+ * to 30s. In this case, the userspace daemon is only responsible for periodic
+ * writes to the device before the next heartbeat is scheduled. If the daemon
+ * misses its deadline, the kernel timer will allow the WDT to overflow.
  */
 static int clock_division_ratio = WTCSR_CKS_4096;
 
-#define msecs_to_jiffies(msecs)	(jiffies + ((HZ * msecs + 999) / 1000))
+#define msecs_to_jiffies(msecs)	(jiffies + (HZ * msecs + 9999) / 10000)
 #define next_ping_period(cks)	msecs_to_jiffies(cks - 4)
 
-static unsigned long sh_is_open;
+static unsigned long shwdt_is_open;
 static struct watchdog_info sh_wdt_info;
 static char shwdt_expect_close;
-
 static struct timer_list timer;
 static unsigned long next_heartbeat;
-static int sh_heartbeat = 30;
+static int heartbeat = 30;
 
 #ifdef CONFIG_WATCHDOG_NOWAYOUT
 static int nowayout = 1;
@@ -116,6 +140,22 @@ static int nowayout = 0;
 static void sh_wdt_write_cnt(__u8 val)
 {
 	ctrl_outw(WTCNT_HIGH | (__u16)val, WTCNT);
+}
+
+/**
+ *	sh_wdt_read_csr - Read from Control/Status Register
+ *
+ *	Reads back the WTCSR value.
+ */
+static inline __u8 sh_wdt_read_csr(void)
+{
+	/* 
+	 * XXX: This is pretty straightforward on SH-3 and up, though on
+	 * anything lower we have seperate locations for reading and
+	 * writing the CSR value. We just keep this around for general
+	 * completeness.
+	 */
+        return ctrl_inb(WTCSR);
 }
 
 /**
@@ -138,13 +178,29 @@ static void sh_wdt_write_csr(__u8 val)
  */
 static void sh_wdt_start(void)
 {
-	timer.expires = next_ping_period(clock_division_ratio);
-	next_heartbeat = jiffies + (sh_heartbeat * HZ);
-	add_timer(&timer);
+	__u8 csr;
 
-	sh_wdt_write_csr(WTCSR_WT | WTCSR_CKS_4096);
+	mod_timer(&timer, next_ping_period(clock_division_ratio));
+	next_heartbeat = jiffies + (heartbeat * HZ);
+
+	csr = sh_wdt_read_csr();
+	csr |= WTCSR_WT | clock_division_ratio;
+	sh_wdt_write_csr(csr);
+
 	sh_wdt_write_cnt(0);
-	sh_wdt_write_csr((ctrl_inb(WTCSR) | WTCSR_TME));
+
+	/*
+	 * These processors have a bit of an inconsistent initialization
+	 * process.. starting with SH-3, RSTS was moved to WTCSR, and the
+	 * RSTCSR register was removed.
+	 *
+	 * On the SH-2 these semantics are even odder, as we have to deal
+	 * with RSTCSR outright. See the 2.6 code for this.
+	 */
+	csr = sh_wdt_read_csr();
+	csr |= WTCSR_TME;
+	csr &= ~WTCSR_RSTS;
+	sh_wdt_write_csr(csr);
 }
 
 /**
@@ -154,9 +210,13 @@ static void sh_wdt_start(void)
  */
 static void sh_wdt_stop(void)
 {
+	__u8 csr;
+
 	del_timer(&timer);
 
-	sh_wdt_write_csr((ctrl_inb(WTCSR) & ~WTCSR_TME));
+	csr = sh_wdt_read_csr();
+	csr &= ~WTCSR_TME;
+	sh_wdt_write_csr(csr);
 }
 
 /**
@@ -169,11 +229,15 @@ static void sh_wdt_stop(void)
 static void sh_wdt_ping(unsigned long data)
 {
 	if (time_before(jiffies, next_heartbeat)) {
-		sh_wdt_write_csr((ctrl_inb(WTCSR) & ~WTCSR_IOVF));
+		__u8 csr;
+
+		csr = sh_wdt_read_csr();
+		csr &= ~WTCSR_IOVF;
+		sh_wdt_write_csr(csr);
+
 		sh_wdt_write_cnt(0);
 
-		timer.expires = next_ping_period(clock_division_ratio);
-		add_timer(&timer);
+		mod_timer(&timer, next_ping_period(clock_division_ratio));
 	}
 }
 
@@ -187,7 +251,7 @@ static void sh_wdt_ping(unsigned long data)
  */
 static int sh_wdt_open(struct inode *inode, struct file *file)
 {
-	if (test_and_set_bit(0, &sh_is_open))
+	if (test_and_set_bit(0, &shwdt_is_open))
 		return -EBUSY;
 
 	sh_wdt_start();
@@ -209,9 +273,10 @@ static int sh_wdt_close(struct inode *inode, struct file *file)
 		sh_wdt_stop();
 	} else {
 		printk(KERN_CRIT "shwdt: Unexpected close, not stopping watchdog!\n");
-		next_heartbeat = jiffies + (sh_heartbeat * HZ);
+		next_heartbeat = jiffies + (heartbeat * HZ);
 	}
-	clear_bit(0, &sh_is_open);
+
+	clear_bit(0, &shwdt_is_open);
 	shwdt_expect_close = 0;
 	
 	return 0;
@@ -246,7 +311,7 @@ static ssize_t sh_wdt_write(struct file *file, const char *buf,
 			if (c == 'V')
 				shwdt_expect_close = 42;
 		}
-		next_heartbeat = jiffies + (sh_heartbeat * HZ);
+		next_heartbeat = jiffies + (heartbeat * HZ);
 	}
 
 	return count;
@@ -275,13 +340,13 @@ static int sh_wdt_ioctl(struct inode *inode, struct file *file,
 					  sizeof(sh_wdt_info))) {
 				return -EFAULT;
 			}
-
+			
 			break;
 		case WDIOC_GETSTATUS:
 		case WDIOC_GETBOOTSTATUS:
 			return put_user(0, (int *)arg);
 		case WDIOC_KEEPALIVE:
-			next_heartbeat = jiffies + (sh_heartbeat * HZ);
+			next_heartbeat = jiffies + (heartbeat * HZ);
 
 			break;
 		case WDIOC_SETTIMEOUT:
@@ -289,11 +354,11 @@ static int sh_wdt_ioctl(struct inode *inode, struct file *file,
 				return -EFAULT;
 			if (new_timeout < 1 || new_timeout > 3600) /* arbitrary upper limit */
 				return -EINVAL;
-			sh_heartbeat = new_timeout;
-			next_heartbeat = jiffies + (sh_heartbeat * HZ);
+			heartbeat = new_timeout;
+			next_heartbeat = jiffies + (heartbeat * HZ);
 			/* Fall */
 		case WDIOC_GETTIMEOUT:
-			return put_user(sh_heartbeat, (int *)arg);
+			return put_user(heartbeat, (int *)arg);
 		case WDIOC_SETOPTIONS:
 		{
 			int options, retval = -EINVAL;
@@ -310,7 +375,7 @@ static int sh_wdt_ioctl(struct inode *inode, struct file *file,
 				sh_wdt_start();
 				retval = 0;
 			}
-
+			
 			return retval;
 		}
 		default:

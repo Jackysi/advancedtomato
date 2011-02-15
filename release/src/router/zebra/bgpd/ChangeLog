@@ -1,3 +1,341 @@
+2005-08-05  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 26 ***
+    : bgpd.h, bgp_packet.c 
+	* Does not display keepalive message in "debug bgp" command.
+
+2005-01-17  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 25 ***
+    : bgpd.h, bgp_snmp.c 
+	* Fix bug of snmp(connect timer was removed).
+
+2005-01-07  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 24 ***
+    : bgpd.[ch], bgp_vty.c 
+	* cleanup peer-group.
+	* neighbor timers connect commands are removed.
+
+2004-12-29  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 23 ***
+    : bgpd.[ch], bgp_vty.c 
+	* Fix bug of network/redistribute config display. 
+
+2004-12-29  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 22 ***
+    : bgpd.[ch], bgp_vty.c, bgp_route.c, bgp_routemap.c
+	* Configuration display was divided for every address-family. 
+	* neighbor weight command was supported for every address-family. 
+	* set weight value was changed in route-map. 
+
+2004-12-28  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 21 ***
+    : bgpd.[ch]
+	* Fix bug of bgp_delete().
+
+2004-12-28  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 20 ***
+    : bgpd.[ch], bgp_vty.c, bgp_fsm.c
+	* peer_group_active() was changed to peer_group_member().
+	* Fix bug of exit-address-family command.
+	* The connection timer was set to 120 seconds when a neighbor restarted
+	  under the environment of graceful restart.
+
+2004-12-14  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 19 ***
+    : bgpd.h, bgp_ecommunity.[ch], bgp_routemap.c
+	* The extcommunity display of route-map was corrected.
+	* Fix memory leak of set extcommunity of route-map.
+	* route-map "set extcommunity cost igp" command was added.
+
+2004-12-11  Yasuhiro Ohara <yasu@sfc.wide.ad.jp>
+
+	* bgp_route.c: moreline support & line counting for more is fixed.
+
+2004-11-12  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 18 ***
+    : bgpd.[ch], bgp_clist.c, bgp_debug.c, bgp_ecommunity.[ch], bgp_route.c, bgp_vty.c
+	* bgp cost community was supported. but can not set it yet.
+
+2004-10-08  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 17 ***
+    : bgpd.[ch]
+	* Fix bug of "neighbor transport connection-mode" commands.
+
+2004-09-17  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 16 ***
+    : bgpd.h, bgp_fsm.c
+	* Fix bug of peer_down_str[].
+
+2004-09-10  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 15 ***
+    : bgpd.[ch], bgp_route.c, bgp_fsm.[ch], bgp_packet.c, bgp_attr.c
+	* routeadv timer was separated per afi/safi.
+
+2004-09-10  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 14 ***
+    : bgpd.h, bgp_route.c
+	* Fix bug of bgp_clear_route.
+
+2004-09-09  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 13 ***
+    : bgpd.[ch], bgp_vty.c, bgp_packet.c, bgp_fsm.c
+	* "neighbor transparent-as" command was deleted.
+	* "neighbor transparent-nexthop" command was deleted.
+	* "neighbor passive" command was changed.
+	  New command is "neighbor transport connection-mode (passive|active)".
+
+2004-08-02  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 12 ***
+    : bgpd.h, bgp_routemap.c
+	* route-map "match ip route-source" command was added.
+
+2004-07-29  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 11 ***
+    : bgpd.h, bgp_packet.c
+	* previous TCP session closed, and the new one retained.
+	  (when the Graceful Restart Capability has been received from the peer)
+
+2004-07-27  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 10 ***
+    : bgpd.h, bgp_route.c
+	* Fix typo in "show bgp community-list (<1-500>|WORD) exact-match" command.
+
+2004-07-23  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 9 ***
+    : bgpd.[ch], bgp_vty.c, bgp_open.c, bgp_fsm.c
+	* "bgp graceful-restart stalepath-time" command was added.
+	* deleted all the stale routes when following commands executed.
+		- "clear ip bgp neighbor"
+		- "neighbor shutdown"
+		- "no neighbor"
+
+2004-07-21  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 8 ***
+    : bgpd.h, bgp_clist.[ch], bgp_route.c, bgp_routemap.c, bgp_vty.c
+	* cleanup community-list.
+
+2004-07-20  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 7 ***
+    : bgpd.h, bgp_packet.c
+	* stale routes ignore end-of-rib check.
+
+2004-07-20  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 6 ***
+    : bgpd.h, bgp_packet.c, bgp_tcpsig.c
+	* The compile error was corrected.
+	* sending updates to other neighbor is deferred until end-of-rib is received from neighbor.
+
+2004-07-20  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 5 ***
+    : bgp_main.c, bgpd.[ch], bgp_vty.c, bgp_attr.c, bgp_route.c, bgp_zebra.c
+	* bgpd version was displayed in starting log.
+	* graceful restart timer was stopped in peer_delete().
+	* "bgp enforce-first-as" command was enabled by default.
+	* "enforce-multihop" command was deleted. New command is "disable-connected-check".
+
+2004-07-20  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 4 ***
+    : bgp_tcpsig.c
+	* The compile error was corrected.
+
+2004-07-18  Hiroki Nakano <cas@trans-nt.com>
+
+  *** BGPd version 0.95 build 3 ***
+    : bgpd.[ch], bgp_vty.c, bgp_network.[ch], bgp_tcpsig.[ch]
+	* TCP MD5 for OpenBSD was supported.
+
+2004-07-16  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 2 ***
+    : bgpd.h, bgp_route.[ch], bgp_vty.c, bgp_packet.c, bgp_fsm.c, bgp_open.c
+	* graceful restart of receiver was supported.
+
+2004-07-14  Akihiro Mizutani <mizutani@net-chef.net>
+
+  *** BGPd version 0.95 build 1 ***
+    : bgpd.[ch], bgp_vty.[ch], bgp_packet.c, bgp_route.c
+	* "show version bgpd" command was added.
+	* "bgp graceful-restart" command was added.
+	* The number of BGP message was displayed individually in "show ip bgp neighbor" command.
+	* Sending End-of-RIB to neighbor when graceful-restart capability was received.
+	* End-of-RIB received check was changed.
+
+2004-07-06  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgpd.[ch], bgp_fsm.c: Change FSM.
+	Old FSM: Idle(init start timer)->Connect
+	New FSM: Idle->Active(active delay timer)->Connect
+
+2004-06-14  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgp_route.[ch]: Add BGP_INFO_STALE flag.
+
+2004-06-14  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgpd.[ch], bgp_vty.c, bgp_open.c, bgp_packet.c, bgp_attr.c, bgp_snmp.c
+	: Remove "neighbor version 4-" comamnds.
+	  Remove "neighbor capability route-refresh" commands.
+
+2004-05-20  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgpd.[ch], bgp_vty.c, bgp_route.c
+	: BGP Restart Session After Maximum-Prefix Limit feature support.
+
+2004-05-17  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgpd.h, bgp_open.[ch], bgp_debug.c, bgp_vty.[ch], bgp_fsm.c
+	: Graceful restart capability display.
+
+2004-05-12  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgpd.[ch], bgp_network.[ch], bgp_fsm.c, bgp_vty.c
+	: Linux TCP MD5 (RFC2385) support.
+
+2004-05-09  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgp_debug.c: Add notification to bgp log-neighbor-changes.
+
+2004-02-15  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgp_ecommunity.c: Transit ecommunity support.
+
+2004-02-12  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgp_ecommunity.c: Fix for unknown community crush.
+
+2003-12-29  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgp_routemap.c (set_ip_nexthop_bgp): Make "set ip next-hop
+	peer-address" work.
+
+2003-01-09  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgp_routemap.c: Add match extcommunity command.
+
+2002-10-23  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* bgp_aspath.c (aspath_init): Extend hash size from default to
+	32767.
+	(aspath_key_make): Use unsigned shoft for making hash.  Suggested
+	by: Marc Evans <Marc@SoftwareHackery.Com>
+
+2002-08-19  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* bgp_clist.c (community_entry_free): Fix memory leak of standard
+	extcommunity-list config string.
+
+2002-08-19  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgp_route.c (route_vty_out_detail): Fix bug of router-id display
+	when multiple instance is used.
+
+2002-08-18  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgpd.c: Make "default-originate" and "maximum-prefix" commands
+	available in peer-group configuration.
+
+2002-08-13  Akihiro Mizutani <mizutani@net-chef.net>
+
+	* bgp_packet.c (bgp_open_send): Put Opt Parm Len 0 when last
+	capability packet cause error or dont-capability-negotiate option
+	is specified.
+
+2002-07-07  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* zebra-0.93 released.
+
+2001-10-28  Kunihiro Ishiguro  <kunihiro@zebra.org>
+
+	* bgpd.c (bgp_vty_init): Translate update commands are removed.
+
+2001-10-10  Kunihiro Ishiguro  <kunihiro@zebra.org>
+
+	* bgp_route.c (bgp_static_set): Add workaround for BGP static
+	route announcement when there is no zebra running.
+
+2001-10-08  Kunihiro Ishiguro  <kunihiro@zebra.org>
+
+	* bgpd.c (neighbor_remote_as_unicast): Remove "remote-as nlri
+	unicast multicast" commands.
+
+2001-09-14  Akihiro Mizutani <mizutani@dml.com>
+
+	* bgp_open.c: When we receive capability route-refresh, we should
+	check we send the capability not we receive the capability.
+
+	* bgp_route.c (bgp_network_mask_natural_route_map): network
+	statement route-map is added.
+
+2001-08-31  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* bgp_advertise.c (bgp_advertise_intern): attr must be interned
+	before looking up hash table.
+
+2001-08-30  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* bgpd.h (struct peer): BGP filter is moved from peer_conf to
+	peer.
+
+2001-08-28  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* bgp_nexthop.c (bnc_nexthop_free): Fix next pointer bug.
+	Suggested by: "Hong-Sung Kim" <hoskim@lanbird.co.kr>.
+
+2001-08-26  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* bgp_table.c (bgp_node_create): Clearn memory before use it.
+
+2001-08-24  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* Change to use bgp_table.[ch].
+
+2001-08-23  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* bgpd.c (bgp_init): Add "transparent-as" and
+	"transparent-nexthop" for old version compatibility.
+
+2001-08-23  Akihiro Mizutani <mizutani@dml.com>
+
+	* bgpd.h (struct peer): default-originate route-map is added.
+
+	* bgp_route.c: When self originated route is advertised with
+	attrubute-unchanged, nexthop was not properly set.  This bug is
+	fixed.
+
+2001-08-22  Akihiro Mizutani <mizutani@dml.com>
+
+	* bgpd.c (neighbor_attr_unchanged): transparent-as and
+	transparent-next-hop commands are restructured.  Instead of
+	current transparent-* commands, attribute-unchanged command is
+	introduced.
+
+	neighbor A.B.C.D attribute-unchanged [as-path|next-hop|med]
+
+	(neighbor_default_originate): "default-originate" configuration
+	announce default route even 0.0.0.0/0 does not exists in BGP RIB.
+
 2001-08-19  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
 	* zebra-0.92a released.

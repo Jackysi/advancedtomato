@@ -448,6 +448,8 @@ void ext3_put_super (struct super_block * sb)
 	return;
 }
 
+static struct dquot_operations ext3_qops;
+
 static struct super_operations ext3_sops = {
 	read_inode:	ext3_read_inode,	/* BKL held */
 	write_inode:	ext3_write_inode,	/* BKL not held.  Don't need */
@@ -600,6 +602,7 @@ static int parse_options (char * options, unsigned long * sb_block,
 		         || !strcmp (this_char, "usrquota"))
 			/* Don't do anything ;-) */ ;
 		else if (!strcmp (this_char, "journal")) {
+			/* @@@ FIXME */
 			/* Eventually we will want to be able to create
                            a journal file here.  For now, only allow the
                            user to specify an existing inode to be the
@@ -695,6 +698,13 @@ static int ext3_setup_super(struct super_block *sb, struct ext3_super_block *es,
 		printk (KERN_WARNING
 			"EXT3-fs warning: checktime reached, "
 			"running e2fsck is recommended\n");
+#if 0
+		/* @@@ We _will_ want to clear the valid bit if we find
+                   inconsistencies, to force a fsck at reboot.  But for
+                   a plain journaled filesystem we can keep it set as
+                   valid forever! :) */
+	es->s_state = cpu_to_le16(le16_to_cpu(es->s_state) & ~EXT3_VALID_FS);
+#endif
 	if (!(__s16) le16_to_cpu(es->s_max_mnt_count))
 		es->s_max_mnt_count =
 			(__s16) cpu_to_le16(EXT3_DFL_MAX_MNT_COUNT);
@@ -832,12 +842,6 @@ static void ext3_orphan_cleanup (struct super_block * sb,
 		return;
 	}
 
-	if (s_flags & MS_RDONLY) {
-		printk(KERN_INFO "EXT3-fs: %s: orphan cleanup on readonly fs\n",
-		       bdevname(sb->s_dev));
-		sb->s_flags &= ~MS_RDONLY;
-	}
-
 	if (sb->u.ext3_sb.s_mount_state & EXT3_ERROR_FS) {
 		if (es->s_last_orphan)
 			jbd_debug(1, "Errors on filesystem, "
@@ -845,6 +849,12 @@ static void ext3_orphan_cleanup (struct super_block * sb,
 		es->s_last_orphan = 0;
 		jbd_debug(1, "Skipping orphan recovery on fs with errors.\n");
 		return;
+	}
+
+	if (s_flags & MS_RDONLY) {
+		printk(KERN_INFO "EXT3-fs: %s: orphan cleanup on readonly fs\n",
+		       bdevname(sb->s_dev));
+		sb->s_flags &= ~MS_RDONLY;
 	}
 
 	while (es->s_last_orphan) {
@@ -1147,6 +1157,7 @@ struct super_block * ext3_read_super (struct super_block * sb, void * data,
 	 * set up enough so that it can read an inode
 	 */
 	sb->s_op = &ext3_sops;
+	sb->dq_op = &ext3_qops;
 	INIT_LIST_HEAD(&sbi->s_orphan); /* unlinked but open files */
 
 	sb->s_root = 0;
@@ -1161,6 +1172,8 @@ struct super_block * ext3_read_super (struct super_block * sb, void * data,
 	 */
 	if (!test_opt(sb, NOLOAD) &&
 	    EXT3_HAS_COMPAT_FEATURE(sb, EXT3_FEATURE_COMPAT_HAS_JOURNAL)) {
+		if (needs_recovery)
+			printk (KERN_INFO "EXT3-fs: recovery starting.\n");
 		if (ext3_load_journal(sb, es))
 			goto failed_mount2;
 	} else if (journal_inum) {
@@ -1219,18 +1232,8 @@ struct super_block * ext3_read_super (struct super_block * sb, void * data,
 	}
 
 	ext3_setup_super (sb, es, sb->s_flags & MS_RDONLY);
-	/*
-	 * akpm: core read_super() calls in here with the superblock locked.
-	 * That deadlocks, because orphan cleanup needs to lock the superblock
-	 * in numerous places.  Here we just pop the lock - it's relatively
-	 * harmless, because we are now ready to accept write_super() requests,
-	 * and aviro says that's the only reason for hanging onto the
-	 * superblock lock.
-	 */
 	EXT3_SB(sb)->s_mount_state |= EXT3_ORPHAN_FS;
-	unlock_super(sb);	/* akpm: sigh */
 	ext3_orphan_cleanup(sb, es);
-	lock_super(sb);
 	EXT3_SB(sb)->s_mount_state &= ~EXT3_ORPHAN_FS;
 	if (needs_recovery)
 		printk (KERN_INFO "EXT3-fs: recovery complete.\n");
@@ -1244,7 +1247,7 @@ struct super_block * ext3_read_super (struct super_block * sb, void * data,
 
 cantfind_ext3:
 	if (!silent)
-		printk(KERN_ERR 
+		printk(KERN_ERR
 		       "VFS: Can't find ext3 filesystem on dev %s.\n",
 		       bdevname(dev));
 	goto failed_mount;
@@ -1310,6 +1313,7 @@ static journal_t *ext3_get_journal(struct super_block *sb, int journal_inum)
 	if (!journal) {
 		printk(KERN_ERR "EXT3-fs: Could not load journal inode\n");
 		iput(journal_inode);
+		return NULL;
 	}
 	ext3_init_journal_params(EXT3_SB(sb), journal);
 	return journal;
@@ -1783,10 +1787,67 @@ int ext3_statfs (struct super_block * sb, struct statfs * buf)
 	return 0;
 }
 
+/* Helper function for writing quotas on sync - we need to start transaction before quota file
+ * is locked for write. Otherwise the are possible deadlocks:
+ * Process 1                         Process 2
+ * ext3_create()                     quota_sync()
+ *   journal_start()                   write_dquot()
+ *   DQUOT_INIT()                        down(dqio_sem)
+ *     down(dqio_sem)                    journal_start()
+ *
+ */
+
+#ifdef CONFIG_QUOTA
+
+static int (*old_write_dquot)(struct dquot *dquot);
+
+/* Blocks: (2 data blocks) * (3 indirect + 1 descriptor + 1 bitmap) + superblock */
+#define EXT3_OLD_QFMT_BLOCKS 11
+/* Blocks: quota info + (4 pointer blocks + 1 entry block) * (3 indirect + 1 descriptor + 1 bitmap) + superblock */
+#define EXT3_V0_QFMT_BLOCKS 27
+
+static int ext3_write_dquot(struct dquot *dquot)
+{
+	int nblocks, ret;
+	handle_t *handle;
+	struct quota_info *dqops = sb_dqopt(dquot->dq_sb);
+	struct inode *qinode;
+
+	switch (dqops->info[dquot->dq_type].dqi_format->qf_fmt_id) {
+		case QFMT_VFS_OLD:
+			nblocks = EXT3_OLD_QFMT_BLOCKS;
+			break;
+		case QFMT_VFS_V0:
+			nblocks = EXT3_V0_QFMT_BLOCKS;
+			break;
+		default:
+			nblocks = EXT3_MAX_TRANS_DATA;
+	}
+	lock_kernel();
+	qinode = dqops->files[dquot->dq_type]->f_dentry->d_inode;
+	handle = ext3_journal_start(qinode, nblocks);
+	if (IS_ERR(handle)) {
+		unlock_kernel();
+		return PTR_ERR(handle);
+	}
+	unlock_kernel();
+	ret = old_write_dquot(dquot);
+	lock_kernel();
+	ret = ext3_journal_stop(handle, qinode);
+	unlock_kernel();
+	return ret;
+}
+#endif
+
 static DECLARE_FSTYPE_DEV(ext3_fs_type, "ext3", ext3_read_super);
 
 static int __init init_ext3_fs(void)
 {
+#ifdef CONFIG_QUOTA
+	init_dquot_operations(&ext3_qops);
+	old_write_dquot = ext3_qops.write_dquot;
+	ext3_qops.write_dquot = ext3_write_dquot;
+#endif
         return register_filesystem(&ext3_fs_type);
 }
 

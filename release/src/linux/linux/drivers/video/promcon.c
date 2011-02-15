@@ -1,4 +1,4 @@
-/* $Id: promcon.c,v 1.1.1.4 2003/10/14 08:08:54 sparq Exp $
+/* $Id: promcon.c,v 1.17 2000/07/26 23:02:52 davem Exp $
  * Console driver utilizing PROM sun terminal emulation
  *
  * Copyright (C) 1998  Eddie C. Dost  (ecd@skynet.be)
@@ -428,6 +428,10 @@ promcon_bmove(struct vc_data *conp, int sy, int sx, int dy, int dx,
 		return;
 	}
 
+	/*
+	 * FIXME: What to do here???
+	 * Current console.c should not call it like that ever.
+	 */
 	prom_printf("\033[7mFIXME: bmove not handled\033[m\n");
 }
 

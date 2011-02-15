@@ -28,13 +28,13 @@ static void help(void)
 	printf(
 		"NVRAM Utility\n"
 		"Copyright (C) 2006-2009 Jonathan Zarate\n\n"	
-		"Usage: nvram set <key=value> | get <key> | unset <key> | "
-		"ren <key> <key> | commit | show [--nosort|--nostat] | "
-		"find <text> | defaults <--yes|--initcheck> | backup <filename> | "
-		"restore <filename> [--test] [--force] [--forceall] [--nocommit] | "
-		"export <--quote|--c|--dump|--dump0|--set|--tab> | "
-		"import [--forceall] | "
-		"setfb64 <key> <filename> | getfb64 <key> <filename>"
+		"Usage: nvram set <key=value> | get <key> | unset <key> |\n"
+		"ren <key> <key> | commit | erase | show [--nosort|--nostat] |\n"
+		"find <text> | defaults <--yes|--initcheck> | backup <filename> |\n"
+		"restore <filename> [--test] [--force] [--forceall] [--nocommit] |\n"
+		"export <--quote|--c|--dump|--dump0|--set|--tab> | import [--forceall] |\n"
+		"setfb64 <key> <filename> | getfb64 <key> <filename> |\n"
+		"setfile <key> <filename> | getfile <key> <filename> | setfile2nvram <filename>"
 //		"test"
 		"\n");
 	exit(1);
@@ -96,6 +96,28 @@ static int ren_main(int argc, char **argv)
 	return 0;
 }
 
+extern int nvram_file2nvram(const char *name, const char *filename);
+extern int nvram_nvram2file(const char *name, const char *filename);
+
+static int f2n_main(int argc, char **argv)
+{
+	return (nvram_file2nvram(argv[1], argv[2]));
+}
+
+
+static int n2f_main(int argc, char **argv)
+{
+	return (nvram_nvram2file(argv[1], argv[2]));
+}
+
+static int save2f_main(int argc, char **argv)
+{
+	char name[128] = "FILE:";
+
+	strcpy(name+5, argv[1]);
+	return (nvram_file2nvram(name, argv[1]));
+}
+
 static int show_main(int argc, char **argv)
 {
 	char *p, *q;
@@ -145,12 +167,68 @@ static int find_main(int argc, char **argv)
 	return (r == -1) ? 1 : WEXITSTATUS(r);
 }
 
+static const char *nv_default_value(const defaults_t *t)
+{
+	if (strcmp(t->key, "wl_txpwr") == 0) {
+		switch (get_model()) {
+		case MODEL_WHRG54S:
+			return "28";
+#ifdef CONFIG_BCMWL5
+		case MODEL_RTN10:
+		case MODEL_RTN12:
+		case MODEL_RTN16:
+			return "17";
+#endif
+		}
+	}
+	return t->value;
+}
+
+static void nv_fix_wl(const char *oldnv, const char *newnv)
+{
+	char *p;
+
+	if (nvram_get(wl_nvname(newnv, 0, 0)) == NULL) {
+		p = nvram_get(oldnv);
+		if (p != NULL) nvram_set(wl_nvname(newnv, -1, 0), p);
+		nvram_unset(oldnv);
+	}
+}
+
+static int validate_main(int argc, char **argv)
+{
+	const defaults_t *t;
+	char *p;
+	int i;
+	int force = 0;
+	int unit = 0;
+
+	for (i = 1; i < argc; ++i) {
+		if (strcmp(argv[i], "--restore") == 0) {
+			force = 1;
+		}
+		else if (strncmp(argv[i], "--wl", 4) == 0) {
+			unit = atoi(argv[i] + 4);
+		}
+	}
+
+	for (t = defaults; t->key; t++) {
+		if (strncmp(t->key, "wl_", 3) == 0) {
+			// sync wl_ and wlX_
+			p = wl_nvname(t->key + 3, unit, 0);
+			if (force || nvram_get(p) == NULL)
+				nvram_set(p, t->value);
+		}
+	}
+	return 0;
+}
+
 static int defaults_main(int argc, char **argv)
 {
 	const defaults_t *t;
 	char *p;
 	char s[256];
-	int i;
+	int i, j;
 	int force = 0;
 	int commit = 0;
 
@@ -185,17 +263,23 @@ static int defaults_main(int argc, char **argv)
 	if (force) nvram_unset("nvram_ver");	// prep to prevent problems later
 #endif
 
+	// keep the compatibility with old security_mode2, wds_enable, mac_wl - removeme after 1/1/2012
+	nv_fix_wl("security_mode2", "security_mode");
+	nv_fix_wl("wds_enable", "wds_enable");
+	nv_fix_wl("mac_wl", "macaddr");
 
 	for (t = defaults; t->key; t++) {
 		if (((p = nvram_get(t->key)) == NULL) || (force)) {
 			if (t->value == NULL) {
 				if (p != NULL) {
 					nvram_unset(t->key);
+					if (!force) _dprintf("%s=%s is not the default (NULL) - resetting\n", t->key, p);
 					commit = 1;
 				}
 			}
 			else {
-				nvram_set(t->key, t->value);
+				nvram_set(t->key, nv_default_value(t));
+				if (!force) _dprintf("%s=%s is not the default (%s) - resetting\n", t->key, p ? p : "(NULL)", nv_default_value(t));
 				commit = 1;
 			}
 		}
@@ -215,15 +299,18 @@ static int defaults_main(int argc, char **argv)
 		if (((p = nvram_get(t->key)) == NULL) || (*p == 0) || (force)) {
 			nvram_set(t->key, t->value);
 			commit = 1;
-//			if (!force) cprintf("SET %s=%s\n", t->key, t->value);
+			if (!force) _dprintf("%s=%s is not the default (%s) - resetting\n", t->key, p ? p : "(NULL)", t->value);
 		}
 	}
 
 	if (force) {
-		for (i = 0; i < 20; i++) {
-			sprintf(s, "wl0_wds%d", i);
-			nvram_unset(s);
+		for (j = 0; j < 2; j++) {
+			for (i = 0; i < 20; i++) {
+				sprintf(s, "wl%d_wds%d", j, i);
+				nvram_unset(s);
+			}
 		}
+
 		for (i = 0; i < LED_COUNT; ++i) {
 			sprintf(s, "led_%s", led_names[i]);
 			nvram_unset(s);
@@ -244,11 +331,6 @@ static int defaults_main(int argc, char **argv)
 	nvram_set("os_name", "linux");
 	nvram_set("os_version", tomato_version);
 	nvram_set("os_date", tomato_buildtime);
-
-/*	if (nvram_match("dirty", "1")) {
-		nvram_unset("dirty");
-		commit = 1;
-	}*/
 
 	if ((commit) || (force)) {
 		printf("Saving...\n");
@@ -271,6 +353,12 @@ static int commit_main(int argc, char **argv)
 	return r ? 1 : 0;
 }
 
+static int erase_main(int argc, char **argv)
+{
+	printf("Erasing nvram...\n");
+	return eval("mtd-erase", "-d", "nvram");
+}
+
 #define X_QUOTE		0
 #define X_SET		1
 #define X_C			2
@@ -284,7 +372,7 @@ static int export_main(int argc, char **argv)
 	int mode;
 
 	// C, set, quote
-	static const char *start[4] = { "\"", "nvram set \"", "{ \"", "" };
+	static const char *start[4] = { "\"", "nvram set ", "{ \"", "" };
 	static const char *stop[4] = { "\"", "\"", "\" },", "" };
 
 
@@ -315,21 +403,31 @@ static int export_main(int argc, char **argv)
 		do {
 			switch (*p) {
 			case 9:
-				printf("\\t");
+				if (mode == X_SET) putchar(*p);
+				else printf("\\t");
 				break;
 			case 13:
-				printf("\\r");
+				if (mode == X_SET) putchar(*p);
+				else printf("\\r");
 				break;
 			case 10:
-				printf("\\n");
+				if (mode == X_SET) putchar(*p);
+				else printf("\\n");
 				break;
 			case '"':
 			case '\\':
 				printf("\\%c", *p);
 				break;
+			case '$':
+			case '`':
+				if (mode != X_SET) putchar(*p);
+				else printf("\\$");
+				break;
 			case '=':
-				if ((eq == 0) && (mode > X_SET)) {
-					printf((mode == X_C) ? "\", \"" : "\t");
+				if ((eq == 0) && (mode > X_QUOTE)) {
+					printf((mode == X_C) ? "\", \"" :
+						((mode == X_SET) ? "=\"" : "\t"));
+					eq = 1;
 					break;
 				}
 				eq = 1;
@@ -775,14 +873,19 @@ static const applets_t applets[] = {
 	{ "ren",		4,	ren_main		},
 	{ "show",		-2,	show_main		},
 	{ "commit",		2,	commit_main		},
+	{ "erase",		2,	erase_main		},
 	{ "find",		3,	find_main		},
 	{ "export",		3,	export_main		},
 	{ "import",		-3,	import_main		},
 	{ "defaults",	3,	defaults_main	},
+	{ "validate",		-3,	validate_main		},
 	{ "backup",		3,	backup_main		},
 	{ "restore",	-3,	restore_main	},
 	{ "setfb64",	4,	setfb64_main	},
 	{ "getfb64",	4,	getfb64_main	},
+	{ "setfile",		4,	f2n_main		},
+	{ "getfile",		4,	n2f_main		},
+	{ "setfile2nvram",	3,	save2f_main		},
 //	{ "test",		2,	test_main		},
 	{ NULL, 		0,	NULL			}
 };

@@ -18,15 +18,19 @@
 
 /* This is a NOFORK applet. Be very careful! */
 
+//usage:#define yes_trivial_usage
+//usage:       "[STRING]"
+//usage:#define yes_full_usage "\n\n"
+//usage:       "Repeatedly output a line with STRING, or 'y'"
+
 int yes_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int yes_main(int argc, char **argv)
+int yes_main(int argc UNUSED_PARAM, char **argv)
 {
 	char **pp;
 
 	argv[0] = (char*)"y";
-	if (argc != 1) {
+	if (argv[1])
 		++argv;
-	}
 
 	do {
 		pp = argv;

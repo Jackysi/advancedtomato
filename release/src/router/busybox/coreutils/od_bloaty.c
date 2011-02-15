@@ -502,7 +502,7 @@ check_and_close(void)
 	}
 
 	if (ferror(stdout)) {
-		bb_error_msg("write error");
+		bb_error_msg(bb_msg_write_error);
 		ioerror = 1;
 	}
 }
@@ -521,7 +521,7 @@ check_and_close(void)
    S_ORIG is solely for reporting errors.  It should be the full format
    string argument. */
 
-static const char *
+static NOINLINE const char *
 decode_one_format(const char *s_orig, const char *s, struct tspec *tspec)
 {
 	enum size_spec size_spec;
@@ -545,7 +545,8 @@ decode_one_format(const char *s_orig, const char *s, struct tspec *tspec)
 
 		c = *s++;
 		p = strchr(CSIL, *s);
-		if (!p) {
+		/* if *s == NUL, p != NULL! Testcase: "od -tx" */
+		if (!p || *p == '\0') {
 			size = sizeof(int);
 			if (isdigit(s[0])) {
 				size = bb_strtou(s, &end, 0);
@@ -807,7 +808,7 @@ skip(off_t n_skip)
 	}
 
 	if (n_skip)
-		bb_error_msg_and_die("cannot skip past end of combined input");
+		bb_error_msg_and_die("can't skip past end of combined input");
 }
 
 
@@ -832,7 +833,7 @@ format_address_std(off_t address, char c)
 	printf(address_fmt, address);
 }
 
-#if ENABLE_GETOPT_LONG
+#if ENABLE_LONG_OPTS
 /* only used with --traditional */
 static void
 format_address_paren(off_t address, char c)
@@ -953,7 +954,7 @@ get_lcm(void)
 	return l_c_m;
 }
 
-#if ENABLE_GETOPT_LONG
+#if ENABLE_LONG_OPTS
 /* If S is a valid traditional offset specification with an optional
    leading '+' return nonzero and set *OFFSET to the offset it denotes.  */
 
@@ -963,7 +964,7 @@ parse_old_offset(const char *s, off_t *offset)
 	static const struct suffix_mult Bb[] = {
 		{ "B", 1024 },
 		{ "b", 512 },
-		{ }
+		{ "", 0 }
 	};
 	char *p;
 	int radix;
@@ -1178,7 +1179,7 @@ int od_main(int argc, char **argv)
 		{ "b", 512 },
 		{ "k", 1024 },
 		{ "m", 1024*1024 },
-		{ }
+		{ "", 0 }
 	};
 	enum {
 		OPT_A = 1 << 0,
@@ -1199,9 +1200,9 @@ int od_main(int argc, char **argv)
 		OPT_s = 1 << 15,
 		OPT_S = 1 << 16,
 		OPT_w = 1 << 17,
-		OPT_traditional = (1 << 18) * ENABLE_GETOPT_LONG,
+		OPT_traditional = (1 << 18) * ENABLE_LONG_OPTS,
 	};
-#if ENABLE_GETOPT_LONG
+#if ENABLE_LONG_OPTS
 	static const char od_longopts[] ALIGN1 =
 		"skip-bytes\0"        Required_argument "j"
 		"address-radix\0"     Required_argument "A"
@@ -1235,7 +1236,7 @@ int od_main(int argc, char **argv)
 
 	/* Parse command line */
 	opt_complementary = "w+:t::"; /* -w N, -t is a list */
-#if ENABLE_GETOPT_LONG
+#if ENABLE_LONG_OPTS
 	applet_long_options = od_longopts;
 #endif
 	opt = getopt32(argv, "A:N:abcdfhij:lot:vxsS:"
@@ -1306,7 +1307,7 @@ int od_main(int argc, char **argv)
 	 * FIXME: POSIX 1003.1-2001 with XSI requires support for the
 	 * traditional syntax even if --traditional is not given.  */
 
-#if ENABLE_GETOPT_LONG
+#if ENABLE_LONG_OPTS
 	if (opt & OPT_traditional) {
 		off_t o1, o2;
 

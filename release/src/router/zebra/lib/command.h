@@ -82,6 +82,7 @@ enum node_type
   RIPNG_NODE,			/* RIPng protocol mode node. */
   BGP_NODE,			/* BGP protocol mode which includes BGP4+ */
   BGP_VPNV4_NODE,		/* BGP MPLS-VPN PE exchange. */
+  BGP_IPV4_NODE,		/* BGP IPv4 unicast address family.  */
   BGP_IPV4M_NODE,		/* BGP IPv4 multicast address family.  */
   BGP_IPV6_NODE,		/* BGP IPv6 address family */
   OSPF_NODE,			/* OSPF protocol mode */
@@ -98,6 +99,7 @@ enum node_type
   RMAP_NODE,			/* Route map node. */
   SMUX_NODE,			/* SNMP configuration node. */
   DUMP_NODE,			/* Packet dump node. */
+  FORWARDING_NODE,		/* IP forwarding node. */
   VTY_NODE			/* Vty node. */
 };
 
@@ -252,8 +254,7 @@ struct desc
 #define ROUTE_STR "Routing Table\n"
 #define PREFIX_LIST_STR "Build a prefix list\n"
 #define OSPF6_DUMP_TYPE_LIST \
-"(hello|dbdesc|lsreq|lsupdate|lsack|neighbor|interface|area|"\
-"lsa|zebra|config|dbex|spf|route|lsdb|redistribute)"
+"(neighbor|interface|area|lsa|zebra|config|dbex|spf|route|lsdb|redistribute|hook|asbr|prefix|abr)"
 
 #define CONF_BACKUP_EXT ".sav"
 
@@ -262,11 +263,17 @@ struct desc
 #ifdef HAVE_IPV6
 #define NEIGHBOR_CMD       "neighbor (A.B.C.D|X:X::X:X) "
 #define NO_NEIGHBOR_CMD    "no neighbor (A.B.C.D|X:X::X:X) "
-#define NEIGHBOR_ADDR_STR  "IP address\nIPv6 address\n"
+#define NEIGHBOR_ADDR_STR  "Neighbor address\nIPv6 address\n"
+#define NEIGHBOR_CMD2      "neighbor (A.B.C.D|X:X::X:X|WORD) "
+#define NO_NEIGHBOR_CMD2   "no neighbor (A.B.C.D|X:X::X:X|WORD) "
+#define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor IPv6 address\nNeighbor tag\n"
 #else
 #define NEIGHBOR_CMD       "neighbor A.B.C.D "
 #define NO_NEIGHBOR_CMD    "no neighbor A.B.C.D "
-#define NEIGHBOR_ADDR_STR  "IP address\n"
+#define NEIGHBOR_ADDR_STR  "Neighbor address\n"
+#define NEIGHBOR_CMD2      "neighbor (A.B.C.D|WORD) "
+#define NO_NEIGHBOR_CMD2   "no neighbor (A.B.C.D|WORD) "
+#define NEIGHBOR_ADDR_STR2 "Neighbor address\nNeighbor tag\n"
 #endif /* HAVE_IPV6 */
 
 /* Prototypes. */
@@ -275,6 +282,7 @@ void install_default (enum node_type);
 void install_element (enum node_type, struct cmd_element *);
 void sort_node ();
 
+char *argv_concat (char **, int, int);
 vector cmd_make_strvec (char *);
 void cmd_free_strvec (vector);
 vector cmd_describe_command ();

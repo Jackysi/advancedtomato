@@ -4,83 +4,53 @@
  * Copyright (C) 1996 David S. Miller (dm@engr.sgi.com)
  * Copyright (C) 1998 Ralf Baechle
  */
+
 #include <linux/init.h>
 #include <linux/types.h>
 
-#include <asm/addrspace.h>
-#include <asm/sgi/sgihpc.h>
-#include <asm/sgi/sgint23.h>
-#include <asm/sgialib.h>
-#include <asm/bootinfo.h>
-
-#define HPC_DEBUG(args...)
+#include <asm/io.h>
+#include <asm/sgi/hpc3.h>
+#include <asm/sgi/ioc.h>
+#include <asm/sgi/ip22.h>
 
 struct hpc3_regs *hpc3c0, *hpc3c1;
-struct hpc3_miscregs *hpc3mregs;
+struct sgioc_regs *sgioc;
 
 /* We need software copies of these because they are write only. */
-u32 sgi_hpc_write1, sgi_hpc_write2;
-
-/* Machine specific identifier knobs. */
-int sgi_has_ioc2 = 0;
-int sgi_guiness = 0;
-int sgi_boardid;
+u8 sgi_ioc_reset, sgi_ioc_write;
 
 extern char *system_type;
 
 void __init sgihpc_init(void)
 {
-	unsigned int sid, crev, brev;
+	/* ioremap can't fail */
+	hpc3c0 = (struct hpc3_regs *)
+		 ioremap(HPC3_CHIP0_BASE, sizeof(struct hpc3_regs));
+	hpc3c1 = (struct hpc3_regs *)
+		 ioremap(HPC3_CHIP1_BASE, sizeof(struct hpc3_regs));
+	/* IOC lives in PBUS PIO channel 6 */
+	sgioc = (struct sgioc_regs *)hpc3c0->pbus_extregs[6];
 
-	hpc3c0 = (struct hpc3_regs *) (KSEG1 + HPC3_CHIP0_PBASE);
-	hpc3c1 = (struct hpc3_regs *) (KSEG1 + HPC3_CHIP1_PBASE);
-	hpc3mregs = (struct hpc3_miscregs *) (KSEG1 + HPC3_MREGS_PBASE);
-	sid = hpc3mregs->sysid;
-
-	sid &= 0xff;
-	crev = (sid & 0xe0) >> 5;
-	brev = (sid & 0x1e) >> 1;
-
-	HPC_DEBUG("sgihpc_init: crev<%2x> brev<%2x>\n", crev, brev);
-	HPC_DEBUG("sgihpc_init: ");
-
-	/* This test works now thanks to William J. Earl */
-	if ((sid & 1) == 0 ) {
-		HPC_DEBUG("GUINESS ");
-		sgi_guiness = 1;
-		system_type = "SGI Indy";
-	} else {
-		HPC_DEBUG("FULLHOUSE ");
-		sgi_guiness = 0;
+	hpc3c0->pbus_piocfg[6][0] |= HPC3_PIOCFG_DS16;
+	if (ip22_is_fullhouse()) {
+		/* Full House comes with INT2 which lives in PBUS PIO
+		 * channel 4 */
+		sgint = (struct sgint_regs *)hpc3c0->pbus_extregs[4];
 		system_type = "SGI Indigo2";
-	}
-	sgi_boardid = brev;
-
-	HPC_DEBUG("sgi_boardid<%d> ", sgi_boardid);
-
-	if(crev == 1) {
-		if((sid & 1) || (brev >= 2)) {
-			HPC_DEBUG("IOC2 ");
-			sgi_has_ioc2 = 1;
-		} else {
-			HPC_DEBUG("IOC1 revision 1 ");
-		}
 	} else {
-		HPC_DEBUG("IOC1 revision 0 ");
+		/* Guiness comes with INT3 which is part of IOC */
+		sgint = &sgioc->int3;
+		system_type = "SGI Indy";
 	}
-	HPC_DEBUG("\n");
+	
+	sgi_ioc_reset = (SGIOC_RESET_PPORT | SGIOC_RESET_KBDMOUSE |
+			 SGIOC_RESET_EISA | SGIOC_RESET_ISDN |
+			 SGIOC_RESET_LC0OFF);
 
-	sgi_hpc_write1 = (HPC3_WRITE1_PRESET | HPC3_WRITE1_KMRESET |
-			  HPC3_WRITE1_ERESET | HPC3_WRITE1_LC0OFF);
+	sgi_ioc_write = (SGIOC_WRITE_EASEL | SGIOC_WRITE_NTHRESH |
+			 SGIOC_WRITE_TPSPEED | SGIOC_WRITE_EPSEL |
+			 SGIOC_WRITE_U0AMODE | SGIOC_WRITE_U1AMODE);
 
-	sgi_hpc_write2 = (HPC3_WRITE2_EASEL   | HPC3_WRITE2_NTHRESH |
-			  HPC3_WRITE2_TPSPEED | HPC3_WRITE2_EPSEL   |
-			  HPC3_WRITE2_U0AMODE | HPC3_WRITE2_U1AMODE);
-
-	if(!sgi_guiness)
-		sgi_hpc_write1 |= HPC3_WRITE1_GRESET;
-	hpc3mregs->write1 = sgi_hpc_write1;
-	hpc3mregs->write2 = sgi_hpc_write2;
-
-	hpc3c0->pbus_piocfgs[0][6] |= HPC3_PIOPCFG_HW;
+	sgioc->reset = sgi_ioc_reset;
+	sgioc->write = sgi_ioc_write;
 }

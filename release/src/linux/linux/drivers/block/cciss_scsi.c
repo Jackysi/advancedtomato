@@ -1,7 +1,7 @@
 /*
- *    Disk Array driver for Compaq SA53xx Controllers, SCSI Tape module
- *    Copyright 2001 Compaq Computer Corporation
- *
+ *    Disk Array driver for HP SA 5xxx and 6xxx Controllers, SCSI Tape module
+ *    Copyright 2001, 2002 Hewlett-Packard Development Company, L.P.
+ *    
  *    This program is free software; you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
  *    the Free Software Foundation; either version 2 of the License, or
@@ -16,7 +16,7 @@
  *    along with this program; if not, write to the Free Software
  *    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *    Questions/Comments/Bugfixes to arrays@compaq.com
+ *    Questions/Comments/Bugfixes to Cciss-discuss@lists.sourceforge.net 
  *
  *    Author: Stephen M. Cameron
  */
@@ -49,7 +49,7 @@ static int sendcmd(
 	unsigned char *scsi3addr );
 
 
-int __init cciss_scsi_detect(Scsi_Host_Template *tpnt);
+int cciss_scsi_detect(Scsi_Host_Template *tpnt);
 int cciss_scsi_release(struct Scsi_Host *sh);
 const char *cciss_scsi_info(struct Scsi_Host *sa);
 
@@ -62,17 +62,16 @@ int cciss_scsi_proc_info(
 		int func);	   /* 0 == read, 1 == write */
 
 int cciss_scsi_queue_command (Scsi_Cmnd *cmd, void (* done)(Scsi_Cmnd *));
+#if 0
+int cciss_scsi_abort(Scsi_Cmnd *cmd);
+#if defined SCSI_RESET_SYNCHRONOUS && defined SCSI_RESET_ASYNCHRONOUS
+int cciss_scsi_reset(Scsi_Cmnd *cmd, unsigned int reset_flags);
+#else
+int cciss_scsi_reset(Scsi_Cmnd *cmd);
+#endif
+#endif
 
-static struct cciss_scsi_hba_t ccissscsi[MAX_CTLR] = {
-	{ name: "cciss0", ndevices: 0 },
-	{ name: "cciss1", ndevices: 0 },
-	{ name: "cciss2", ndevices: 0 },
-	{ name: "cciss3", ndevices: 0 },
-	{ name: "cciss4", ndevices: 0 },
-	{ name: "cciss5", ndevices: 0 },
-	{ name: "cciss6", ndevices: 0 },
-	{ name: "cciss7", ndevices: 0 },
-};
+static struct cciss_scsi_hba_t ccissscsi[MAX_CTLR];
 
 /* We need one Scsi_Host_Template *per controller* instead of
    the usual one Scsi_Host_Template per controller *type*. This
@@ -84,11 +83,7 @@ static struct cciss_scsi_hba_t ccissscsi[MAX_CTLR] = {
    (that's called from cciss.c:cciss_init_one()) */
 
 static
-Scsi_Host_Template driver_template[MAX_CTLR] =
-{
-	CCISS_SCSI, CCISS_SCSI, CCISS_SCSI, CCISS_SCSI,
-	CCISS_SCSI, CCISS_SCSI, CCISS_SCSI, CCISS_SCSI,
-};
+Scsi_Host_Template driver_template[MAX_CTLR];
 
 #pragma pack(1)
 struct cciss_scsi_cmd_stack_elem_t {
@@ -118,12 +113,17 @@ struct cciss_scsi_adapter_data_t {
 	int registered;
 	spinlock_t lock; // to protect ccissscsi[ctlr];
 };
+#if 1
 #define CPQ_TAPE_LOCK(ctlr, flags) spin_lock_irqsave( \
 	&(((struct cciss_scsi_adapter_data_t *) \
 	hba[ctlr]->scsi_ctlr)->lock), flags);
 #define CPQ_TAPE_UNLOCK(ctlr, flags) spin_unlock_irqrestore( \
 	&(((struct cciss_scsi_adapter_data_t *) \
 	hba[ctlr]->scsi_ctlr)->lock), flags);
+#else
+#define CPQ_TAPE_LOCK(x,y)
+#define CPQ_TAPE_UNLOCK(x,y)
+#endif
 
 static CommandList_struct *
 scsi_cmd_alloc(ctlr_info_t *h)
@@ -220,8 +220,8 @@ scsi_cmd_stack_free(int ctlr)
 		printk( "cciss: %d scsi commands are still outstanding.\n",
 			CMD_STACK_SIZE - stk->top);
 		// BUG();
-		printk("WE HAVE A BUG HERE!!! stk=%p\n",
-			stk);
+		printk("WE HAVE A BUG HERE!!! stk=0x%08x\n",
+			(unsigned int) stk);
 	}
 	size = sizeof(struct cciss_scsi_cmd_stack_elem_t) * CMD_STACK_SIZE;
 
@@ -233,6 +233,91 @@ scsi_cmd_stack_free(int ctlr)
 #define DEVICETYPE(n) (n<0 || n>MAX_SCSI_DEVICE_CODE) ? \
 	"Unknown" : scsi_device_types[n]
 
+#if 0
+static int xmargin=8;
+static int amargin=60;
+
+static void
+print_bytes (unsigned char *c, int len, int hex, int ascii)
+{
+
+	int i;
+	unsigned char *x;
+
+	if (hex)
+	{
+		x = c;
+		for (i=0;i<len;i++)
+		{
+			if ((i % xmargin) == 0 && i>0) printk("\n");
+			if ((i % xmargin) == 0) printk("0x%04x:", i);
+			printk(" %02x", *x);
+			x++;
+		}
+		printk("\n");
+	}
+	if (ascii)
+	{
+		x = c;
+		for (i=0;i<len;i++)
+		{
+			if ((i % amargin) == 0 && i>0) printk("\n");
+			if ((i % amargin) == 0) printk("0x%04x:", i);
+			if (*x > 26 && *x < 128) printk("%c", *x);
+			else printk(".");
+			x++;
+		}
+		printk("\n");
+	}
+}
+
+static void
+print_cmd(CommandList_struct *cp)
+{
+	printk("queue:%d\n", cp->Header.ReplyQueue);
+	printk("sglist:%d\n", cp->Header.SGList);
+	printk("sgtot:%d\n", cp->Header.SGTotal);
+	printk("Tag:0x%08x/0x%08x\n", cp->Header.Tag.upper,
+			cp->Header.Tag.lower);
+	printk("LUN:0x%02x%02x%02x%02x%02x%02x%02x%02x\n",
+		cp->Header.LUN.LunAddrBytes[0],
+		cp->Header.LUN.LunAddrBytes[1],
+		cp->Header.LUN.LunAddrBytes[2],
+		cp->Header.LUN.LunAddrBytes[3],
+		cp->Header.LUN.LunAddrBytes[4],
+		cp->Header.LUN.LunAddrBytes[5],
+		cp->Header.LUN.LunAddrBytes[6],
+		cp->Header.LUN.LunAddrBytes[7]);
+	printk("CDBLen:%d\n", cp->Request.CDBLen);
+	printk("Type:%d\n",cp->Request.Type.Type);
+	printk("Attr:%d\n",cp->Request.Type.Attribute);
+	printk(" Dir:%d\n",cp->Request.Type.Direction);
+	printk("Timeout:%d\n",cp->Request.Timeout);
+	printk( "CDB: %02x %02x %02x %02x %02x %02x %02x %02x"
+		" %02x %02x %02x %02x %02x %02x %02x %02x\n",
+		cp->Request.CDB[0], cp->Request.CDB[1],
+		cp->Request.CDB[2], cp->Request.CDB[3],
+		cp->Request.CDB[4], cp->Request.CDB[5],
+		cp->Request.CDB[6], cp->Request.CDB[7],
+		cp->Request.CDB[8], cp->Request.CDB[9],
+		cp->Request.CDB[10], cp->Request.CDB[11],
+		cp->Request.CDB[12], cp->Request.CDB[13],
+		cp->Request.CDB[14], cp->Request.CDB[15]),
+	printk("edesc.Addr: 0x%08x/0%08x, Len  = %d\n",
+		cp->ErrDesc.Addr.upper, cp->ErrDesc.Addr.lower,
+			cp->ErrDesc.Len);
+	printk("sgs..........Errorinfo:\n");
+	printk("scsistatus:%d\n", cp->err_info->ScsiStatus);
+	printk("senselen:%d\n", cp->err_info->SenseLen);
+	printk("cmd status:%d\n", cp->err_info->CommandStatus);
+	printk("resid cnt:%d\n", cp->err_info->ResidualCnt);
+	printk("offense size:%d\n", cp->err_info->MoreErrInfo.Invalid_Cmd.offense_size);
+	printk("offense byte:%d\n", cp->err_info->MoreErrInfo.Invalid_Cmd.offense_num);
+	printk("offense value:%d\n", cp->err_info->MoreErrInfo.Invalid_Cmd.offense_value);
+
+}
+
+#endif
 
 static int
 find_bus_target_lun(int ctlr, int *bus, int *target, int *lun)
@@ -504,6 +589,8 @@ cciss_find_non_disk_devices(int cntl_num)
 
 	for(i=0; i<num_luns; i++) {
 		/* Execute an inquiry to figure the device type */
+		/* Skip over masked devices */
+		if (ld_buff->LUN[i][3] & 0xC0) continue;
 		memset(inq_buff, 0, sizeof(InquiryData_struct));
 		memcpy(scsi3addr, ld_buff->LUN[i], 8); /* ugly... */
 		return_code = sendcmd(CISS_INQUIRY, cntl_num, inq_buff,
@@ -538,6 +625,14 @@ cciss_find_non_disk_devices(int cntl_num)
 		}
 		else printk("cciss: inquiry failed.\n");
 	}
+#if 0
+	for (i=0;i<ccissscsi[cntl_num].ndevices;i++)
+		printk("Tape device presented at c%db%dt%dl%d\n",
+			cntl_num, // <-- this is wrong
+			ccissscsi[cntl_num].dev[i].bus,
+			ccissscsi[cntl_num].dev[i].target,
+			ccissscsi[cntl_num].dev[i].lun);
+#endif
 	CPQ_TAPE_UNLOCK(cntl_num, flags);
 	kfree(ld_buff);
 	kfree(inq_buff);
@@ -682,7 +777,7 @@ complete_scsi_command( CommandList_struct *cp, int timeout, __u32 tag)
    The scsi mid layer (scsi_register_module) is
    called from cciss.c:cciss_init_one().  */
 
-int __init
+int
 cciss_scsi_detect(Scsi_Host_Template *tpnt)
 {
 	int i;
@@ -697,13 +792,7 @@ cciss_scsi_detect(Scsi_Host_Template *tpnt)
 
 	sh->this_id = SELF_SCSI_ID;
 
-	/* This is a bit kludgey, using the adapter name to figure out */
-	/* which scsi host template we've got, won't scale beyond 9 ctlrs. */
-	i = tpnt->name[5] - '0';
-
-#	if MAX_CTLR > 9
-#		error "cciss_scsi.c: MAX_CTLR > 9, code maintenance needed."
-#	endif
+	i = simple_strtol((char *)&tpnt->name[5], NULL, 10);
 
 	if (i<0 || i>=MAX_CTLR || hba[i] == NULL) {
 		/* we didn't find ourself... we shouldn't get here. */
@@ -790,7 +879,7 @@ cciss_scsi_do_simple_cmd(ctlr_info_t *c,
 
 	memset(cp->Request.CDB, 0, sizeof(cp->Request.CDB));
 	memcpy(cp->Request.CDB, cdb, cdblen);
-	cp->Request.Timeout = 1000;		// guarantee completion.
+	cp->Request.Timeout = 0;	// No timeout
 	cp->Request.CDBLen = cdblen;
 	cp->Request.Type.Type = TYPE_CMD;
 	cp->Request.Type.Attribute = ATTR_SIMPLE;
@@ -1061,6 +1150,7 @@ cciss_update_non_disk_devices(int cntl_num, int hostno)
 		int devtype;
 
 		/* for each physical lun, do an inquiry */
+		if (ld_buff->LUN[i][3] & 0xC0) continue;
 		memset(inq_buff, 0, sizeof(InquiryData_struct));
 		memcpy(&scsi3addr[0], &ld_buff->LUN[i][0], 8);
 
@@ -1076,6 +1166,12 @@ cciss_update_non_disk_devices(int cntl_num, int hostno)
 		{
 		  case 0x01: /* sequential access, (tape) */
 		  case 0x08: /* medium changer */
+			if (ncurrent >= CCISS_MAX_SCSI_DEVS_PER_HBA) {
+				printk(KERN_INFO "cciss%d: %s ignored, "
+					"too many devices.\n", cntl_num,
+					DEVICETYPE(devtype));
+				break;
+			}
 			memcpy(&currentsd[ncurrent].scsi3addr[0],
 				&scsi3addr[0], 8);
 			currentsd[ncurrent].devtype = devtype;
@@ -1287,6 +1383,7 @@ cciss_scsi_queue_command (Scsi_Cmnd *cmd, void (* done)(Scsi_Cmnd *))
 	cp = scsi_cmd_alloc(*c);
 	if (cp == NULL) {			/* trouble... */
 		printk("scsi_cmd_alloc returned NULL!\n");
+		/* FIXME: next 3 lines are -> BAD! <- */
 		cmd->result = DID_NO_CONNECT << 16;
 		done(cmd);
 		return 0;
@@ -1307,7 +1404,7 @@ cciss_scsi_queue_command (Scsi_Cmnd *cmd, void (* done)(Scsi_Cmnd *))
 
 	// Fill in the request block...
 
-	cp->Request.Timeout = 1000; // guarantee completion
+	cp->Request.Timeout = 0; // No timeout 
 	memset(cp->Request.CDB, 0, sizeof(cp->Request.CDB));
 	if (cmd->cmd_len > sizeof(cp->Request.CDB)) BUG();
 	cp->Request.CDBLen = cmd->cmd_len;
@@ -1415,9 +1512,10 @@ cciss_register_scsi(int ctlr, int this_is_init_time)
 	unsigned long flags;
 
 	CPQ_TAPE_LOCK(ctlr, flags);
-	driver_template[ctlr].name = ccissscsi[ctlr].name;
-	driver_template[ctlr].proc_name = ccissscsi[ctlr].name;
-	driver_template[ctlr].module = THIS_MODULE;;
+
+	sprintf( ccissscsi[ctlr].name, "cciss%d", ctlr );
+	
+	init_driver_template(ctlr);
 
 	/* Since this is really a block driver, the SCSI core may not be
 	   initialized yet, in which case, calling scsi_register_module
@@ -1477,8 +1575,8 @@ cciss_proc_tape_report(int ctlr, unsigned char *buffer, off_t *pos, off_t *len)
 
 	CPQ_TAPE_LOCK(ctlr, flags);
 	size = sprintf(buffer + *len,
-		"       Sequential access devices: %d\n\n",
-			ccissscsi[ctlr].ndevices);
+		"Sequential access devices: %d\n\n",
+		 ccissscsi[ctlr].ndevices);
 	CPQ_TAPE_UNLOCK(ctlr, flags);
 	*pos += size; *len += size;
 }

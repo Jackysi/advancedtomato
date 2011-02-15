@@ -10,25 +10,31 @@
 #include <linux/poll.h> /* for poll_table */
 
 
-int atm_create(struct socket *sock,int protocol,int family);
-int atm_release(struct socket *sock);
-int atm_connect(struct socket *sock,int itf,short vpi,int vci);
-int atm_recvmsg(struct socket *sock,struct msghdr *m,int total_len,
-    int flags,struct scm_cookie *scm);
-int atm_sendmsg(struct socket *sock,struct msghdr *m,int total_len,
-  struct scm_cookie *scm);
+int vcc_create(struct socket *sock, int protocol, int family);
+int vcc_release(struct socket *sock);
+int vcc_connect(struct socket *sock, int itf, short vpi, int vci);
+int vcc_recvmsg(struct socket *sock, struct msghdr *msg,
+		int size, int flags, struct scm_cookie *scm);
+int vcc_sendmsg(struct socket *sock, struct msghdr *m, int total_len,
+		struct scm_cookie *scm);
 unsigned int atm_poll(struct file *file,struct socket *sock,poll_table *wait);
-int atm_ioctl(struct socket *sock,unsigned int cmd,unsigned long arg);
-int atm_setsockopt(struct socket *sock,int level,int optname,char *optval,
-    int optlen);
-int atm_getsockopt(struct socket *sock,int level,int optname,char *optval,
-    int *optlen);
+int vcc_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg);
+int vcc_setsockopt(struct socket *sock, int level, int optname, char *optval,
+		   int optlen);
+int vcc_getsockopt(struct socket *sock, int level, int optname, char *optval,
+		   int *optlen);
 
-int atm_connect_vcc(struct atm_vcc *vcc,int itf,short vpi,int vci);
-void atm_release_vcc_sk(struct sock *sk,int free_sk);
 void atm_shutdown_dev(struct atm_dev *dev);
 
+void pppoatm_ioctl_set(int (*hook)(struct atm_vcc *, unsigned int, unsigned long));
+void br2684_ioctl_set(int (*hook)(struct atm_vcc *, unsigned int, unsigned long));
+
+int atmpvc_init(void);
+void atmpvc_exit(void);
+int atmsvc_init(void);
+void atmsvc_exit(void);
 int atm_proc_init(void);
+void atm_proc_exit(void);
 
 /* SVC */
 

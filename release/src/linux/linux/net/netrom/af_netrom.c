@@ -811,6 +811,7 @@ static int nr_getname(struct socket *sock, struct sockaddr *uaddr,
 		sax->fsa_ax25.sax25_family = AF_NETROM;
 		sax->fsa_ax25.sax25_ndigis = 1;
 		sax->fsa_ax25.sax25_call   = sk->protinfo.nr->user_addr;
+		memset(sax->fsa_digipeater, 0, sizeof(sax->fsa_digipeater));
 		sax->fsa_digipeater[0]     = sk->protinfo.nr->dest_addr;
 		*uaddr_len = sizeof(struct full_sockaddr_ax25);
 	} else {
@@ -922,6 +923,13 @@ int nr_rx_frame(struct sk_buff *skb, struct net_device *dev)
 		 * have been a way to extend the protocol but apparently
 		 * it kills BPQ boxes... :-(
 		 */
+#if 0
+		/*
+		 * Never reply to a CONNACK/CHOKE.
+		 */
+		if (frametype != NR_CONNACK || flags != NR_CHOKE_FLAG)
+			nr_transmit_refusal(skb, 1);
+#endif
 		return 0;
 	}
 
@@ -1035,7 +1043,11 @@ static int nr_sendmsg(struct socket *sock, struct msghdr *msg, int len, struct s
 
 	SOCK_DEBUG(sk, "NET/ROM: sendto: Addresses built.\n");
 
-	/* Build a packet */
+	/* Build a packet - the conventional user limit is 236 bytes. We can
+	   do ludicrously large NetROM frames but must not overflow */
+	if (len > 65536)
+		return -EMSGSIZE;
+
 	SOCK_DEBUG(sk, "NET/ROM: sendto: building packet.\n");
 	size = len + AX25_BPQ_HEADER_LEN + AX25_MAX_HEADER_LEN + NR_NETWORK_LEN + NR_TRANSPORT_LEN;
 

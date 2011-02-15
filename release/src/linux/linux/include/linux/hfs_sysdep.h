@@ -1,4 +1,18 @@
-
+/*
+ * linux/include/linux/hfs_sysdep.h
+ *
+ * Copyright (C) 1996-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * This file contains constants, types and inline
+ * functions for various system dependent things.
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ *
+ * In function preconditions the term "valid" applied to a pointer to
+ * a structure means that the pointer is non-NULL and the structure it
+ * points to has all fields initialized to consistent values.
+ */
 
 #ifndef _HFS_SYSDEP_H
 #define _HFS_SYSDEP_H

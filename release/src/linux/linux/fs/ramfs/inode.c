@@ -44,7 +44,7 @@ static int ramfs_statfs(struct super_block *sb, struct statfs *buf)
 {
 	buf->f_type = RAMFS_MAGIC;
 	buf->f_bsize = PAGE_CACHE_SIZE;
-	buf->f_namelen = 255;
+	buf->f_namelen = NAME_MAX;
 	return 0;
 }
 
@@ -54,6 +54,8 @@ static int ramfs_statfs(struct super_block *sb, struct statfs *buf)
  */
 static struct dentry * ramfs_lookup(struct inode *dir, struct dentry *dentry)
 {
+	if (dentry->d_name.len > NAME_MAX)
+		return ERR_PTR(-ENAMETOOLONG);
 	d_add(dentry, NULL);
 	return NULL;
 }
@@ -138,6 +140,11 @@ static int ramfs_mknod(struct inode *dir, struct dentry *dentry, int mode, int d
 	int error = -ENOSPC;
 
 	if (inode) {
+		if (dir->i_mode & S_ISGID) {
+			inode->i_gid = dir->i_gid;
+			if (S_ISDIR(mode))
+				inode->i_mode |= S_ISGID;
+		}
 		d_instantiate(dentry, inode);
 		dget(dentry);		/* Extra count - pin the dentry in core */
 		error = 0;

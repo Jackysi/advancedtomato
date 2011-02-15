@@ -65,11 +65,11 @@
 #include <linux/ioport.h>
 #ifdef ENABLE_PCI
 #include <linux/pci.h>
-#if (LINUX_VERSION_CODE < 0x020163)     /* 2.1.99 */
+#if (LINUX_VERSION_CODE < 0x020163) /* 2.1.99 */
 #include <linux/bios32.h>
 #endif
 #endif
-#if (LINUX_VERSION_CODE >= 131343)     /* 2.1.15 -- XX get correct version */
+#if (LINUX_VERSION_CODE >= 131343) /* 2.1.15 -- XX get correct version */
 #include <linux/init.h>
 #endif
 	
@@ -241,9 +241,12 @@ static _INLINE_ void rp_do_receive(struct r_port *info, struct tty_struct *tty,
 				   CHANNEL_t *cp, unsigned int ChanStatus)
 {
 	unsigned int CharNStat;
-	int ToRecv, wRecv, space, count;
+	int ToRecv, wRecv, space = 0, count;
 	unsigned char	*cbuf;
 	char		*fbuf;
+	struct tty_ldisc *ld;
+
+	ld = tty_ldisc_ref(tty);
 	
 	ToRecv= sGetRxCnt(cp);
 	space = 2*TTY_FLIPBUF_SIZE;
@@ -304,6 +307,10 @@ static _INLINE_ void rp_do_receive(struct r_port *info, struct tty_struct *tty,
 			CharNStat &= info->read_status_mask;
 			if (CharNStat & STMBREAKH) {
 				*fbuf++ = TTY_BREAK;
+#if 0
+				if (info->flags & ROCKET_SAK)
+					do_SAK(tty);
+#endif
 			} else if (CharNStat & STMPARITYH)
 				*fbuf++ = TTY_PARITY;
 			else if (CharNStat & STMFRAMEH)
@@ -344,8 +351,8 @@ static _INLINE_ void rp_do_receive(struct r_port *info, struct tty_struct *tty,
 		fbuf += ToRecv;
 		count += ToRecv;
 	}
-	tty->ldisc.receive_buf(tty, tty->flip.char_buf,
-			       tty->flip.flag_buf, count);
+	ld->receive_buf(tty, tty->flip.char_buf, tty->flip.flag_buf, count);
+	tty_ldisc_deref(ld);
 }
 
 /*
@@ -396,10 +403,7 @@ static _INLINE_ void rp_do_transmit(struct r_port *info)
 	if (info->xmit_cnt == 0)
 		xmit_flags[info->line >> 5] &= ~(1 << (info->line & 0x1f));
 	if (info->xmit_cnt < WAKEUP_CHARS) {
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    tty->ldisc.write_wakeup)
-			(tty->ldisc.write_wakeup)(tty);
-		wake_up_interruptible(&tty->write_wait);
+		tty_wakeup(tty);
 	}
 #ifdef ROCKET_DEBUG_INTR
 	printk("(%d,%d,%d,%d)...", info->xmit_cnt, info->xmit_head,
@@ -439,6 +443,10 @@ static _INLINE_ void rp_handle_port(struct r_port *info)
 	if (IntMask & RXF_TRIG) {	/* Rx FIFO trigger level */
 		rp_do_receive(info, tty, cp, ChanStatus);
 	}
+#if 0
+	if (IntMask & SRC_INT) {	/* Special receive condition */
+	}
+#endif
 	if (IntMask & DELTA_CD) {	/* CD change  */
 #if (defined(ROCKET_DEBUG_OPEN) || defined(ROCKET_DEBUG_INTR) || \
      defined(ROCKET_DEBUG_HANGUP))
@@ -603,7 +611,7 @@ static void init_r_port(int board, int aiop, int chan)
 	rp_table[line] = info;
 }
 
-#if (LINUX_VERSION_CODE < 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE < 131394) /* Linux 2.1.66 */
 static int baud_table[] = {
 	0, 50, 75, 110, 134, 150, 200, 300,
 	600, 1200, 1800, 2400, 4800, 9600, 19200,
@@ -619,7 +627,7 @@ static void configure_r_port(struct r_port *info)
 	unsigned cflag;
 	unsigned long 	flags;
 	int	bits, baud;
-#if (LINUX_VERSION_CODE < 131393)     /* Linux 2.1.65 */
+#if (LINUX_VERSION_CODE < 131393) /* Linux 2.1.65 */
 	int i;
 #endif
 	CHANNEL_t	*cp;
@@ -657,7 +665,7 @@ static void configure_r_port(struct r_port *info)
 	}
 	
 	/* baud rate */
-#if (LINUX_VERSION_CODE < 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE < 131394) /* Linux 2.1.66 */
 	i = cflag & CBAUD;
 	if (i & CBAUDEX) {
 		i &= ~CBAUDEX;
@@ -982,7 +990,7 @@ static int rp_open(struct tty_struct *tty, struct file * filp)
 
 	info->flags |= ROCKET_INITIALIZED;
 
-#if (LINUX_VERSION_CODE >= 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE >= 131394) /* Linux 2.1.66 */
 	/*
 	 * Set up the tty->alt_speed kludge
 	 */
@@ -1120,8 +1128,7 @@ static void rp_close(struct tty_struct *tty, struct file * filp)
 	}
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 
 	xmit_flags[info->line >> 5] &= ~(1 << (info->line & 0x1f));
 	if (info->blocked_open) {
@@ -1210,7 +1217,7 @@ static void rp_set_termios(struct tty_struct *tty, struct termios *old_termios)
 /*
  * Here are the routines used by rp_ioctl
  */
-#if (LINUX_VERSION_CODE < 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE < 131394) /* Linux 2.1.66 */
 static void send_break(	struct r_port * info, int duration)
 {
 	current->state = TASK_INTERRUPTIBLE;
@@ -1340,7 +1347,7 @@ static int set_config(struct r_port * info, struct rocket_config * new_info)
 	info->close_delay = new_serial.close_delay;
 	info->closing_wait = new_serial.closing_wait;
 
-#if (LINUX_VERSION_CODE >= 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE >= 131394) /* Linux 2.1.66 */
 	if ((info->flags & ROCKET_SPD_MASK) == ROCKET_SPD_HI)
 		info->tty->alt_speed = 57600;
 	if ((info->flags & ROCKET_SPD_MASK) == ROCKET_SPD_VHI)
@@ -1381,7 +1388,7 @@ static int rp_ioctl(struct tty_struct *tty, struct file * file,
 		    unsigned int cmd, unsigned long arg)
 {
 	struct r_port * info = (struct r_port *)tty->driver_data;
-#if (LINUX_VERSION_CODE < 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE < 131394) /* Linux 2.1.66 */
 	int retval, tmp;
 #endif
 
@@ -1390,7 +1397,7 @@ static int rp_ioctl(struct tty_struct *tty, struct file * file,
 		return -ENODEV;
 
 	switch (cmd) {
-#if (LINUX_VERSION_CODE < 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE < 131394) /* Linux 2.1.66 */
 		case TCSBRK:	/* SVID version: non-zero arg --> no break */
 			retval = tty_check_change(tty);
 			if (retval)
@@ -1798,10 +1805,7 @@ end_intr:
 	restore_flags(flags);
 end:
 	if (info->xmit_cnt < WAKEUP_CHARS) {
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    tty->ldisc.write_wakeup)
-			(tty->ldisc.write_wakeup)(tty);
-		wake_up_interruptible(&tty->write_wait);
+		tty_wakeup(tty);
 	}
 	return retval;
 }
@@ -1860,9 +1864,7 @@ static void rp_flush_buffer(struct tty_struct *tty)
 	info->xmit_cnt = info->xmit_head = info->xmit_tail = 0;
 	sti();
 	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 	
 	cp = &info->channel;
 	
@@ -1870,7 +1872,7 @@ static void rp_flush_buffer(struct tty_struct *tty)
 }
 
 #ifdef ENABLE_PCI
-#if (LINUX_VERSION_CODE < 0x020163)     /* 2.1.99 */
+#if (LINUX_VERSION_CODE < 0x020163) /* 2.1.99 */
 /* For compatibility */
 static struct pci_dev *pci_find_slot(unsigned char bus,
 				     unsigned char device_fn)
@@ -1907,7 +1909,7 @@ int __init register_PCI(int i, unsigned int bus, unsigned int device_fn)
 	char *str;
 	CONTROLLER_t	*ctlp;
 	struct pci_dev *dev = pci_find_slot(bus, device_fn);
-#if (LINUX_VERSION_CODE < 0x020163)     /* 2.1.99 */
+#if (LINUX_VERSION_CODE < 0x020163) /* 2.1.99 */
 	int	ret;
 	unsigned int port;
 #endif
@@ -1934,6 +1936,10 @@ int __init register_PCI(int i, unsigned int bus, unsigned int device_fn)
 		break;
 	case PCI_DEVICE_ID_RP8J:
 		str = "8J";
+		max_num_aiops = 1;
+		break;
+	case PCI_DEVICE_ID_RP4J:
+		str = "4J";
 		max_num_aiops = 1;
 		break;
 	case PCI_DEVICE_ID_RP16INTF:
@@ -1998,6 +2004,10 @@ static int __init init_PCI(int boards_found)
 			PCI_DEVICE_ID_RP8J, i, &bus, &device_fn)) 
 			if (register_PCI(count+boards_found, bus, device_fn))
 				count++;
+		if (!pcibios_find_device(PCI_VENDOR_ID_RP,
+			PCI_DEVICE_ID_RP4J, i, &bus, &device_fn)) 
+			if (register_PCI(count+boards_found, bus, device_fn))
+				count++;
 		if(!pcibios_find_device(PCI_VENDOR_ID_RP,
 			PCI_DEVICE_ID_RP8OCTA, i, &bus, &device_fn)) 
 			if(register_PCI(count+boards_found, bus, device_fn))
@@ -2020,6 +2030,10 @@ static int __init init_PCI(int boards_found)
 				count++;
 		if(!pcibios_find_device(PCI_VENDOR_ID_RP,
 			PCI_DEVICE_ID_RP8J, i, &bus, &device_fn)) 
+			if(register_PCI(count+boards_found, bus, device_fn))
+				count++;
+		if(!pcibios_find_device(PCI_VENDOR_ID_RP,
+			PCI_DEVICE_ID_RP4J, i, &bus, &device_fn)) 
 			if(register_PCI(count+boards_found, bus, device_fn))
 				count++;
 		if(!pcibios_find_device(PCI_VENDOR_ID_RP,
@@ -2211,7 +2225,7 @@ int __init rp_init(void)
 	rocket_driver.stop = rp_stop;
 	rocket_driver.start = rp_start;
 	rocket_driver.hangup = rp_hangup;
-#if (LINUX_VERSION_CODE >= 131394)     /* Linux 2.1.66 */
+#if (LINUX_VERSION_CODE >= 131394) /* Linux 2.1.66 */
 	rocket_driver.break_ctl = rp_break;
 #endif
 #if (LINUX_VERSION_CODE >= 131343)
@@ -2378,6 +2392,13 @@ CONTROLLER_T sController[CTL_SIZE] =
    {-1,-1,0,0,0,0,0,0,0,0,0,{0,0,0,0},{0,0,0,0},{-1,-1,-1,-1},{0,0,0,0}}
 };
 
+#if 0
+/* IRQ number to MUDBAC register 2 mapping */
+Byte_t sIRQMap[16] =
+{
+   0,0,0,0x10,0x20,0x30,0,0,0,0x40,0x50,0x60,0x70,0,0,0x80
+};
+#endif
 
 Byte_t sBitMapClrTbl[8] =
 {
@@ -2480,8 +2501,25 @@ int sInitController(	CONTROLLER_T *CtlP,
    CtlP->MReg1IO = MudbacIO + 1;
    CtlP->MReg2IO = MudbacIO + 2;
    CtlP->MReg3IO = MudbacIO + 3;
+#if 1
    CtlP->MReg2 = 0;                 /* interrupt disable */
    CtlP->MReg3 = 0;                 /* no periodic interrupts */
+#else
+   if(sIRQMap[IRQNum] == 0)            /* interrupts globally disabled */
+   {
+      CtlP->MReg2 = 0;                 /* interrupt disable */
+      CtlP->MReg3 = 0;                 /* no periodic interrupts */
+   }
+   else
+   {
+      CtlP->MReg2 = sIRQMap[IRQNum];   /* set IRQ number */
+      CtlP->MReg3 = Frequency;         /* set frequency */
+      if(PeriodicOnly)                 /* periodic interrupt only */
+      {
+         CtlP->MReg3 |= PERIODIC_ONLY;
+      }
+   }
+#endif
    sOutB(CtlP->MReg2IO,CtlP->MReg2);
    sOutB(CtlP->MReg3IO,CtlP->MReg3);
    sControllerEOI(CtlP);               /* clear EOI if warm init */

@@ -18,19 +18,19 @@ static void write_wtmp(void)
 {
 	struct utmp utmp;
 	struct utsname uts;
-	if (access(bb_path_wtmp_file, R_OK|W_OK) == -1) {
+	/* "man utmp" says wtmp file should *not* be created automagically */
+	/*if (access(bb_path_wtmp_file, R_OK|W_OK) == -1) {
 		close(creat(bb_path_wtmp_file, 0664));
-	}
+	}*/
 	memset(&utmp, 0, sizeof(utmp));
 	utmp.ut_tv.tv_sec = time(NULL);
-	safe_strncpy(utmp.ut_user, "shutdown", UT_NAMESIZE);
+	strcpy(utmp.ut_user, "shutdown"); /* it is wide enough */
 	utmp.ut_type = RUN_LVL;
-	safe_strncpy(utmp.ut_id, "~~", sizeof(utmp.ut_id));
-	safe_strncpy(utmp.ut_line, "~~", UT_LINESIZE);
-	if (uname(&uts) == 0)
-		safe_strncpy(utmp.ut_host, uts.release, sizeof(utmp.ut_host));
+	utmp.ut_id[0] = '~'; utmp.ut_id[1] = '~'; /* = strcpy(utmp.ut_id, "~~"); */
+	utmp.ut_line[0] = '~'; utmp.ut_line[1] = '~'; /* = strcpy(utmp.ut_line, "~~"); */
+	uname(&uts);
+	safe_strncpy(utmp.ut_host, uts.release, sizeof(utmp.ut_host));
 	updwtmp(bb_path_wtmp_file, &utmp);
-
 }
 #else
 #define write_wtmp() ((void)0)
@@ -40,9 +40,14 @@ static void write_wtmp(void)
 #define RB_HALT_SYSTEM RB_HALT
 #endif
 
-#ifndef RB_POWER_OFF
-#define RB_POWER_OFF RB_POWERDOWN
+#ifndef RB_POWERDOWN
+/* Stop system and switch power off if possible.  */
+# define RB_POWERDOWN   0x4321fedc
 #endif
+#ifndef RB_POWER_OFF
+# define RB_POWER_OFF RB_POWERDOWN
+#endif
+
 
 int halt_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int halt_main(int argc UNUSED_PARAM, char **argv)
@@ -85,6 +90,8 @@ int halt_main(int argc UNUSED_PARAM, char **argv)
 //TODO: I tend to think that signalling linuxrc is wrong
 // pity original author didn't comment on it...
 		if (ENABLE_FEATURE_INITRD) {
+			/* talk to linuxrc */
+			/* bbox init/linuxrc assumed */
 			pid_t *pidlist = find_pid_by_name("linuxrc");
 			if (pidlist[0] > 0)
 				rc = kill(pidlist[0], signals[which]);
@@ -92,7 +99,21 @@ int halt_main(int argc UNUSED_PARAM, char **argv)
 				free(pidlist);
 		}
 		if (rc) {
-			rc = kill(1, signals[which]);
+			/* talk to init */
+			if (!ENABLE_FEATURE_CALL_TELINIT) {
+				/* bbox init assumed */
+				rc = kill(1, signals[which]);
+			} else {
+				/* SysV style init assumed */
+				/* runlevels:
+				 * 0 == shutdown
+				 * 6 == reboot */
+				rc = execlp(CONFIG_TELINIT_PATH,
+						CONFIG_TELINIT_PATH,
+						which == 2 ? "6" : "0",
+						(char *)NULL
+				);
+			}
 		}
 	} else {
 		rc = reboot(magic[which]);

@@ -20,12 +20,12 @@ if [ "$CONFIG_TR" != "n" ]; then
    dep_tristate '  IBM Lanstreamer chipset PCI adapter support' CONFIG_IBMLS $CONFIG_TR $CONFIG_PCI
    dep_tristate '  3Com 3C359 Token Link Velocity XL adapter support' CONFIG_3C359 $CONFIG_TR $CONFIG_PCI
    tristate '  Generic TMS380 Token Ring ISA/PCI adapter support' CONFIG_TMS380TR
-   if [ "$CONFIG_TMS380TR" != "n" ]; then
-      dep_tristate '    Generic TMS380 PCI support' CONFIG_TMSPCI $CONFIG_PCI
-      dep_tristate '    Generic TMS380 ISA support' CONFIG_TMSISA $CONFIG_ISA
-      dep_tristate '    Madge Smart 16/4 PCI Mk2 support' CONFIG_ABYSS $CONFIG_PCI
-      dep_tristate '    Madge Smart 16/4 Ringnode MicroChannel' CONFIG_MADGEMC $CONFIG_MCA
-   fi
+
+   dep_tristate '    Generic TMS380 PCI support' CONFIG_TMSPCI $CONFIG_PCI $CONFIG_TMS380TR
+   dep_tristate '    Generic TMS380 ISA support' CONFIG_TMSISA $CONFIG_ISA $CONFIG_TMS380TR
+   dep_tristate '    Madge Smart 16/4 PCI Mk2 support' CONFIG_ABYSS $CONFIG_PCI $CONFIG_TMS380TR
+   dep_tristate '    Madge Smart 16/4 Ringnode MicroChannel' CONFIG_MADGEMC $CONFIG_MCA $CONFIG_TMS380TR
+
    if [ "$CONFIG_ISA" = "y" -o "$CONFIG_MCA" = "y" ]; then
       tristate '  SMC ISA/MCA adapter support' CONFIG_SMCTR
    fi

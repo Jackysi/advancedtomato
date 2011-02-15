@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Admin: JFFS2</title>
+<title>[<% ident(); %>] Admin: JFFS</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -22,7 +22,9 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("jffs2_on,jffs2_exec"); %>
+//	<% nvram("jffs2_on,jffs2_exec,t_fix1"); %>
+
+fmtwait = (nvram.t_fix1 == 'RT-N16' ? 120 : 60);
 
 function verifyFields(focused, quiet)
 {
@@ -35,14 +37,14 @@ function verifyFields(focused, quiet)
 function formatClicked()
 {
 	if (!verifyFields(null, 0)) return;
-	if (!confirm("Format the JFFS2 partition?")) return;
+	if (!confirm("Format the JFFS partition?")) return;
 	save(1);
 }
 
 function formatClock()
 {
 	if (ftime == 0) {
-		E('fclock').innerHTML = 'a few seconds';
+		E('fclock').innerHTML = 'a few more seconds';
 	}
 	else {
 		E('fclock').innerHTML = ((ftime > 0) ? 'about ' : '') + ftime + ' second' + ((ftime == 1) ? '' : 's');
@@ -63,7 +65,7 @@ function save(format)
 	if (format) {
 		fom.jffs2_format.value = 1;
 		fom._commit.value = 0;
-		fom._nextwait.value = 60;
+		fom._nextwait.value = fmtwait;
 	}
 	else {
 		fom.jffs2_format.value = 0;
@@ -73,7 +75,7 @@ function save(format)
 	form.submit(fom, 1);
 
 	if (format) {
-		ftime = 60;
+		ftime = fmtwait;
 		formatClock();
 	}
 }
@@ -106,7 +108,7 @@ function submit_complete()
 <input type='hidden' name='jffs2_on'>
 <input type='hidden' name='jffs2_format' value='0'>
 
-<div class='section-title'>JFFS2</div>
+<div class='section-title'>JFFS</div>
 <div class='section'>
 <script type='text/javascript'>
 // <% statfs("/jffs", "jffs2"); %>
@@ -116,15 +118,15 @@ createFieldTable('', [
 	{ title: 'Enable', name: 'f_jffs2_on', type: 'checkbox', value: jfon },
 	{ title: 'Execute When Mounted', name: 'jffs2_exec', type: 'text', maxlen: 64, size: 34, value: nvram.jffs2_exec },
 	null,
-	{ title: 'Total / Free Size', text: ((jfon) && (jffs2.size)) ? (scaleSize(jffs2.size) + ' / ' + scaleSize(jffs2.free)) : '(not mounted)' },
+	{ title: 'Total / Free Size', text: (((jffs2.mnt) || (jffs2.size > 0)) ? scaleSize(jffs2.size) : '') + ((jffs2.mnt) ? ' / ' + scaleSize(jffs2.free) : ' (not mounted)') },
 	null,
-	{ title: '', custom: '<input type="button" value="Format / Erase..." onclick="formatClicked()" id="format"><br>' +
+	{ title: '', custom: '<input type="button" value="Format / Erase..." onclick="formatClicked()" id="format"><br><br>' +
 		'<span style="background:#b55;color:#fff;padding:1px 8px;visibility:hidden" id="fmsg">Please wait for <span id="fclock">about 60 seconds</span>...</span>' }
 ]);
 </script>
 </div>
 
-<script type='text/javascript'>show_notice1('<% notice("jffs2"); %>');</script>
+<script type='text/javascript'>show_notice1('<% notice("jffs"); %>');</script>
 
 <!-- / / / -->
 

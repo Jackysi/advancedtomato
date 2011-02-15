@@ -122,9 +122,9 @@ int fat_add_cluster(struct inode *inode)
 	struct super_block *sb = inode->i_sb;
 	int count, nr, limit, last, curr, file_cluster;
 	int cluster_bits = MSDOS_SB(sb)->cluster_bits;
-
+	
 	lock_fat(sb);
-
+	
 	if (MSDOS_SB(sb)->free_clusters == 0) {
 		unlock_fat(sb);
 		return -ENOSPC;
@@ -141,22 +141,22 @@ int fat_add_cluster(struct inode *inode)
 		unlock_fat(sb);
 		return -ENOSPC;
 	}
-
+	
 	MSDOS_SB(sb)->prev_free = (count + MSDOS_SB(sb)->prev_free + 1) % limit;
 	fat_access(sb, nr, EOF_FAT(sb));
 	if (MSDOS_SB(sb)->free_clusters != -1)
 		MSDOS_SB(sb)->free_clusters--;
 	if (MSDOS_SB(sb)->fat_bits == 32)
 		fat_clusters_flush(sb);
-
+	
 	unlock_fat(sb);
-
+	
 	/* We must locate the last cluster of the file to add this
 	   new one (nr) to the end of the link list (the FAT).
-
+	   
 	   Here file_cluster will be the number of the last cluster of the
 	   file (before we add nr).
-
+	   
 	   last is the corresponding cluster number on the disk. We will
 	   use last to plug the nr cluster. We will use file_cluster to
 	   update the cache.
@@ -212,7 +212,7 @@ struct buffer_head *fat_extend_dir(struct inode *inode)
 	nr = fat_add_cluster(inode);
 	if (nr < 0)
 		return ERR_PTR(nr);
-
+	
 	sector = MSDOS_SB(sb)->data_start + (nr - 2) * cluster_size;
 	last_sector = sector + cluster_size;
 	if (MSDOS_SB(sb)->cvf_format
@@ -316,7 +316,7 @@ void fat_date_unix2dos(int unix_date,unsigned short *time,
    AV. want the next entry (took one explicit de=NULL in vfat/namei.c).
    AV. It's done in fat_get_entry() (inlined), here the slow case lives.
    AV. Additionally, when we return -1 (i.e. reached the end of directory)
-   AV. we make bh NULL.
+   AV. we make bh NULL. 
  */
 
 int fat__get_entry(struct inode *dir, loff_t *pos,struct buffer_head **bh,

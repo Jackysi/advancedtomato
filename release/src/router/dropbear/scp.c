@@ -492,9 +492,11 @@ toremote(char *targ, int argc, char **argv)
 			addargs(&alist, "%s", ssh_program);
 			if (verbose_mode)
 				addargs(&alist, "-v");
+#ifndef DROPBEAR_CLIENT
 			addargs(&alist, "-x");
 			addargs(&alist, "-oClearAllForwardings yes");
 			addargs(&alist, "-n");
+#endif
 
 			*src++ = 0;
 			if (*src == 0)

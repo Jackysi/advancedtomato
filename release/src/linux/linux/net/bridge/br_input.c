@@ -5,7 +5,7 @@
  *	Authors:
  *	Lennert Buytenhek		<buytenh@gnu.org>
  *
- *	$Id: br_input.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ *	$Id: br_input.c,v 1.9.2.1 2001/12/24 04:50:05 davem Exp $
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -24,7 +24,7 @@ unsigned char bridge_ula[6] = { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 };
 
 static int br_pass_frame_up_finish(struct sk_buff *skb)
 {
-	netif_rx(skb);
+	netif_receive_skb(skb);
 
 	return 0;
 }
@@ -160,7 +160,8 @@ err_nolock:
 
 handle_special_frame:
 	if (!dest[5]) {
-		br_stp_handle_bpdu(skb);
+		NF_HOOK(PF_BRIDGE, NF_BR_LOCAL_IN, skb, skb->dev,NULL,
+			br_stp_handle_bpdu);
 		read_unlock(&br->lock);
 		return;
 	}

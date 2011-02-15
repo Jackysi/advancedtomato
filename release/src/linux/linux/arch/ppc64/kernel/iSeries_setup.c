@@ -1,6 +1,4 @@
 /*
- * 
- *
  *    Copyright (c) 2000 Mike Corrigan <mikejc@us.ibm.com>
  *    Copyright (c) 1999-2000 Grant Erickson <grant@lcse.umn.edu>
  *
@@ -51,6 +49,7 @@
 #include <asm/proc_pmc.h>
 #include <asm/perfmon.h>
 #include <asm/iSeries/mf.h>
+#include <asm/cputable.h>
 
 /* Function Prototypes */
 
@@ -64,6 +63,7 @@ extern void ppcdbg_initialize(void);
 extern void iSeries_pcibios_init(void);
 extern void iSeries_pcibios_fixup(void);
 extern void iSeries_pcibios_fixup_bus(int);
+extern void iSeries_init_irq_desc(irq_desc_t *desc);
 
 /* Global Variables */
 
@@ -251,7 +251,8 @@ unsigned long iSeries_process_mainstore_vpd( struct MemoryBlock *mb_array, unsig
 {
 	unsigned long i;
 	unsigned long mem_blocks = 0;
-	if (__is_processor(PV_POWER4) || __is_processor(PV_POWER4p))
+
+	if (cur_cpu_spec->cpu_features & CPU_FTR_SLB)
 		mem_blocks = iSeries_process_Regatta_mainstore_vpd( mb_array, max_entries );
 	else
 		mem_blocks = iSeries_process_Condor_mainstore_vpd( mb_array, max_entries );
@@ -307,6 +308,7 @@ iSeries_init_early(void)
 	ppc_md.get_cpuinfo	 	= iSeries_get_cpuinfo;
 	ppc_md.irq_cannonicalize 	= NULL;
 	ppc_md.init_IRQ		 	= iSeries_init_IRQ;
+	ppc_md.init_irq_desc            = iSeries_init_irq_desc;
 	ppc_md.init_ras_IRQ		= NULL;
 	ppc_md.get_irq		 	= iSeries_get_irq;
 	ppc_md.init		 	= NULL;
@@ -431,7 +433,7 @@ static void __init build_iSeries_Memory_Map(void)
 	u32 chunkBit;
 	u64 map;
 	struct MemoryBlock mb[32];
-	unsigned long numMemoryBlocks, curBlock;
+	unsigned long numMemoryBlocks, curBlock, lock_shift;
 
 	/* Chunk size on iSeries is 256K bytes */
 	totalChunks = (u32)HvLpConfig_getMsChunks();
@@ -492,7 +494,15 @@ static void __init build_iSeries_Memory_Map(void)
 	num_ptegs = hptSizePages * (PAGE_SIZE/(sizeof(HPTE)*HPTES_PER_GROUP));
 	htab_data.htab_num_ptegs = num_ptegs;
 	htab_data.htab_hash_mask = num_ptegs - 1;
+	naca->pftSize = __ilog2(num_ptegs << 7);
 	
+	/* 
+	 * Calculate the number of bits to shift the pteg selector such that we
+	 * use the high order 8 bits to select a page table lock.
+	 */
+	asm ("cntlzd %0,%1" : "=r" (lock_shift) : "r" (htab_data.htab_hash_mask));
+	htab_data.htab_lock_shift = (64 - lock_shift) - 8;
+
 	/* The actual hashed page table is in the hypervisor, we have no direct access */
 	htab_data.htab = NULL;
 
@@ -550,15 +560,15 @@ static void __init build_iSeries_Memory_Map(void)
 	 * which should be equal to 
 	 *   nextPhysChunk
 	 */
-	naca->physicalMemorySize = chunk_to_addr(nextPhysChunk);
+	systemcfg->physicalMemorySize = chunk_to_addr(nextPhysChunk);
 
 	/* Bolt kernel mappings for all of memory */
-	iSeries_bolt_kernel( 0, naca->physicalMemorySize );
+	iSeries_bolt_kernel(0, systemcfg->physicalMemorySize);
 
 	lmb_init();
-	lmb_add( 0, naca->physicalMemorySize );
+	lmb_add(0, systemcfg->physicalMemorySize);
 	lmb_analyze();	/* ?? */
-	lmb_reserve( 0, __pa(klimit));
+	lmb_reserve(0, __pa(klimit));
 
 	/* 
 	 * Hardcode to GP size.  I am not sure where to get this info. DRENG
@@ -576,26 +586,24 @@ static void __init setup_iSeries_cache_sizes(void)
 	unsigned i,n;
 	unsigned procIx = get_paca()->xLpPaca.xDynHvPhysicalProcIndex;
 
-	naca->iCacheL1LineSize = xIoHriProcessorVpd[procIx].xInstCacheOperandSize;
-	naca->dCacheL1LineSize = xIoHriProcessorVpd[procIx].xDataCacheOperandSize;
-	naca->iCacheL1LinesPerPage = PAGE_SIZE / naca->iCacheL1LineSize;
-	naca->dCacheL1LinesPerPage = PAGE_SIZE / naca->dCacheL1LineSize;
-	i = naca->iCacheL1LineSize;
+	systemcfg->iCacheL1Size = xIoHriProcessorVpd[procIx].xInstCacheSize * 1024;
+	systemcfg->iCacheL1LineSize = xIoHriProcessorVpd[procIx].xInstCacheOperandSize;
+	systemcfg->dCacheL1Size = xIoHriProcessorVpd[procIx].xDataL1CacheSizeKB * 1024;
+	systemcfg->dCacheL1LineSize = xIoHriProcessorVpd[procIx].xDataCacheOperandSize;
+	naca->iCacheL1LinesPerPage = PAGE_SIZE / systemcfg->iCacheL1LineSize;
+	naca->dCacheL1LinesPerPage = PAGE_SIZE / systemcfg->dCacheL1LineSize;
+
+	i = systemcfg->iCacheL1LineSize;
 	n = 0;
 	while ((i=(i/2))) ++n;
 	naca->iCacheL1LogLineSize = n;
-	i = naca->dCacheL1LineSize;
+	i = systemcfg->dCacheL1LineSize;
 	n = 0;
 	while ((i=(i/2))) ++n;
 	naca->dCacheL1LogLineSize = n;
 
-	printk( "D-cache line size = %d  (log = %d)\n",
-			(unsigned)naca->dCacheL1LineSize,
-			(unsigned)naca->dCacheL1LogLineSize );
-	printk( "I-cache line size = %d  (log = %d)\n",
-			(unsigned)naca->iCacheL1LineSize,
-			(unsigned)naca->iCacheL1LogLineSize );
-	
+	printk( "D-cache line size = %d\n", (unsigned)systemcfg->dCacheL1LineSize);
+	printk( "I-cache line size = %d\n", (unsigned)systemcfg->iCacheL1LineSize);
 }
 
 /*
@@ -616,6 +624,8 @@ static void __init iSeries_bolt_kernel(unsigned long saddr, unsigned long eaddr)
 		if (hpte.dw0.dw0.v) {
 			/* HPTE exists, so just bolt it */
 			HvCallHpt_setSwBits(slot, 0x10, 0);
+			/* And make sure the pp bits are correct */
+			HvCallHpt_setPp(slot, PP_RWXX);
 		} else {
 			/* No HPTE exists, so create a new bolted one */
 			make_pte(NULL, va, (unsigned long)__v2a(ea), 
@@ -636,6 +646,12 @@ iSeries_setup_arch(void)
 {
 	void *	eventStack;
 	unsigned procIx = get_paca()->xLpPaca.xDynHvPhysicalProcIndex;
+
+        /* Add an eye catcher and the systemcfg layout version number */
+        strcpy(systemcfg->eye_catcher, "SYSTEMCFG:PPC64");
+        systemcfg->version.major = SYSTEMCFG_MAJOR;
+        systemcfg->version.minor = SYSTEMCFG_MINOR;
+
 
 	/* Setup the Lp Event Queue */
 
@@ -685,9 +701,12 @@ iSeries_setup_arch(void)
 	printk("Time base frequency = %lu.%02lu\n",
 			tbFreqMhz,
 			tbFreqMhzHundreths );
-	printk("Processor version = %x\n",
-			xIoHriProcessorVpd[procIx].xPVR );
+	systemcfg->processor = xIoHriProcessorVpd[procIx].xPVR;
+	printk("Processor version = %x\n", systemcfg->processor);
 
+#if defined(CONFIG_IRQ_ALL_CPUS)
+	do_spread_lpevents(MAX_PACAS);
+#endif
 }
 
 /*
@@ -715,9 +734,9 @@ void iSeries_setup_residual(struct seq_file *m)
 	seq_printf(m,"time base\t: %lu.%02luMHz\n",
 		tbFreqMhz, tbFreqMhzHundreths );
 	seq_printf(m,"i-cache\t\t: %d\n",
-		naca->iCacheL1LineSize);
+		systemcfg->iCacheL1LineSize);
 	seq_printf(m,"d-cache\t\t: %d\n",
-		naca->dCacheL1LineSize);
+		systemcfg->dCacheL1LineSize);
 
 }
 
@@ -808,6 +827,11 @@ iSeries_calibrate_decr(void)
 
 	tb_ticks_per_jiffy = ppc_tb_freq / HZ;
 
+#if 0
+	/* TEST CODE FOR ADJTIME */
+	tb_ticks_per_jiffy += tb_ticks_per_jiffy / 5000;
+	/* END OF TEST CODE */
+#endif
 
 	/*
 	 * tb_ticks_per_sec = freq; would give better accuracy

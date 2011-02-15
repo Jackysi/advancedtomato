@@ -2,7 +2,7 @@
  * ich2rom.c
  *
  * Normal mappings of chips in physical memory
- * $Id: ich2rom.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: ich2rom.c,v 1.2 2002/10/18 22:45:48 eric Exp $
  */
 
 #include <linux/module.h>
@@ -124,6 +124,7 @@ static int ich2rom_set_lock_state(struct mtd_info *mtd, loff_t ofs, size_t len,
 	unsigned long start = ofs;
 	unsigned long end = start + len -1;
 
+	/* FIXME do I need to guard against concurrency here? */
 	/* round down to 64K boundaries */
 	start = start & ~0xFFFF;
 	end = end & ~0xFFFF;
@@ -200,6 +201,7 @@ static int __devinit ich2rom_init_one (struct pci_dev *pdev,
 	 * intelligently.
 	 */
 
+	/* FIXME select the firmware hub and enable a window to it. */
 
 	info->mtd = 0;
 	info->map.map_priv_1 = 	info->window_addr;
@@ -259,21 +261,42 @@ static void __devexit ich2rom_remove_one (struct pci_dev *pdev)
 static struct pci_device_id ich2rom_pci_tbl[] __devinitdata = {
 	{ PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82801BA_0, 
 	  PCI_ANY_ID, PCI_ANY_ID, },
+	{ PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82801CA_0, 
+	  PCI_ANY_ID, PCI_ANY_ID, },
+	{ 0, },
 };
 
 MODULE_DEVICE_TABLE(pci, ich2rom_pci_tbl);
 
+#if 0
+static struct pci_driver ich2rom_driver = {
+	name:	  "ich2rom",
+	id_table: ich2rom_pci_tbl,
+	probe:    ich2rom_init_one,
+	remove:   ich2rom_remove_one,
+};
+#endif
 
 static struct pci_dev *mydev;
 int __init init_ich2rom(void)
 {
 	struct pci_dev *pdev;
-	pdev = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82801BA_0, 0);
+	struct pci_device_id *id;
+	pdev = 0;
+	for(id = ich2rom_pci_tbl; id->vendor; id++) {
+		pdev = pci_find_device(id->vendor, id->device, 0);
+		if (pdev) {
+			break;
+		}
+	}
 	if (pdev) {
 		mydev = pdev;
 		return ich2rom_init_one(pdev, &ich2rom_pci_tbl[0]);
 	}
 	return -ENXIO;
+#if 0
+	return pci_module_init(&ich2rom_driver);
+#endif
 }
 
 static void __exit cleanup_ich2rom(void)

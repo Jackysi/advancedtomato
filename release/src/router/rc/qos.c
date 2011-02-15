@@ -34,13 +34,11 @@ void ipt_qos(void)
 	const char *chain;
 	int used_qosox;
 	unsigned long min;
-	int used_bcount;
 	int gum;
 
 	if (!nvram_get_int("qos_enable")) return;
 
 	used_qosox = 0;
-	used_bcount = 0;
 	inuse = 0;
 	gum = 0x100;
 
@@ -105,12 +103,7 @@ void ipt_qos(void)
 
 		// mac or ip address
 		if ((*addr_type == '1') || (*addr_type == '2')) {	// match ip
-			if (strchr(addr, '-') != NULL) {
-				sprintf(saddr, "-m iprange --%s-range %s", (*addr_type == '1') ? "dst" : "src", addr);
-			}
-			else {
-				sprintf(saddr, "-%c %s", (*addr_type == '1') ? 'd' : 's', addr);
-			}
+			ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src");
 		}
 		else if (*addr_type == '3') {						// match mac
 			sprintf(saddr, "-m mac --mac-source %s", addr);	// (-m mac modified, returns !match in OUTPUT)
@@ -127,21 +120,20 @@ void ipt_qos(void)
 		}
 		strcpy(end, app);
 
-		// -m bcount --range x-y
+		// -m connbytes --connbytes x:y --connbytes-dir both --connbytes-mode bytes
 		if (*bcount) {
 			min = strtoul(bcount, &p, 10);
 			if (*p != 0) {
-				strcat(end, " -m bcount --range ");
+				strcat(end, " -m connbytes --connbytes-mode bytes --connbytes-dir both --connbytes ");
 				++p;
 				if (*p == 0) {
-					sprintf(end + strlen(end), "0x%lx", min * 1024);
+					sprintf(end + strlen(end), "%lu:", min * 1024);
 				}
 				else {
-					sprintf(end + strlen(end), "0x%lx-0x%lx", min * 1024, (strtoul(p, NULL, 10) * 1024) - 1);
+					sprintf(end + strlen(end), "%lu:%lu", min * 1024, (strtoul(p, NULL, 10) * 1024) - 1);
 					class_num &= 0x2FF;
 				}
 
-				used_bcount++;
 				gum = 0;
 			}
 			else {
@@ -159,8 +151,8 @@ void ipt_qos(void)
 			if ((proto_num == 6) || (proto_num == 17) || (proto_num == -1)) {
 				if (*port_type != 'a') {
 					if ((*port_type == 'x') || (strchr(port, ','))) {
-						// dst-or-src port matches, and anything with multiple lists "," use mport
-						sprintf(sport, "-m mport --%sports %s", (*port_type == 's') ? "s" : ((*port_type == 'd') ? "d" : ""), port);
+						// dst-or-src port matches, and anything with multiple lists "," use multiport
+						sprintf(sport, "-m multiport --%sports %s", (*port_type == 's') ? "s" : ((*port_type == 'd') ? "d" : ""), port);
 					}
 					else {
 						// single or simple x:y range, use built-in tcp/udp match
@@ -184,10 +176,6 @@ void ipt_qos(void)
 
 	}
 	free(buf);
-
-	if (used_bcount) {
-		ipt_write("-I QOSO -j BCOUNT\n");
-	}
 
 	i = nvram_get_int("qos_default");
 	if ((i < 0) || (i > 9)) i = 3;	// "low"
@@ -233,6 +221,7 @@ void start_qos(void)
 	unsigned int ceil;
 	unsigned int bw;
 	unsigned int mtu;
+	unsigned int r2q;
 	FILE *f;
 	int x;
 	int inuse;
@@ -244,13 +233,27 @@ void start_qos(void)
 
 	// move me?
 	x = nvram_get_int("ne_vegas");
+#ifdef LINUX26
+	if (x) {
+		char alpha[10], beta[10], gamma[10];
+		sprintf(alpha, "alpha=%d", nvram_get_int("ne_valpha"));
+		sprintf(beta, "beta=%d", nvram_get_int("ne_vbeta"));
+		sprintf(gamma, "gamma=%d", nvram_get_int("ne_vgamma"));
+		modprobe("tcp_vegas", alpha, beta, gamma);
+		f_write_string("/proc/sys/net/ipv4/tcp_congestion_control", "vegas", 0, 0);
+	}
+	else {
+		modprobe_r("tcp_vegas");
+		f_write_string("/proc/sys/net/ipv4/tcp_congestion_control", "", FW_NEWLINE, 0);
+	}
+#else
 	f_write_string("/proc/sys/net/ipv4/tcp_vegas_cong_avoid", x ? "1" : "0", 0, 0);
 	if (x) {
 		f_write_string("/proc/sys/net/ipv4/tcp_vegas_alpha", nvram_safe_get("ne_valpha"), 0, 0);
 		f_write_string("/proc/sys/net/ipv4/tcp_vegas_beta", nvram_safe_get("ne_vbeta"), 0, 0);
 		f_write_string("/proc/sys/net/ipv4/tcp_vegas_gamma", nvram_safe_get("ne_vgamma"), 0, 0);
 	}
-
+#endif
 
 	if (!nvram_get_int("qos_enable")) return;
 
@@ -266,6 +269,14 @@ void start_qos(void)
 	mtu = strtoul(nvram_safe_get("wan_mtu"), NULL, 10);
 	bw = strtoul(nvram_safe_get("qos_obw"), NULL, 10);
 
+	r2q = 10;
+	if ((bw * 1000) / (8 * r2q) < mtu) {
+		r2q = (bw * 1000) / (8 * mtu);
+		if (r2q < 1) r2q = 1;
+	} else if ((bw * 1000) / (8 * r2q) > 60000) {
+		r2q = (bw * 1000) / (8 * 60000) + 1;
+	}
+
 	fprintf(f,
 		"#!/bin/sh\n"
 		"I=%s\n"
@@ -277,11 +288,11 @@ void start_qos(void)
 		"case \"$1\" in\n"
 		"start)\n"
 		"\ttc qdisc del dev $I root 2>/dev/null\n"
-		"\t$TQA root handle 1: htb default %u\n"
+		"\t$TQA root handle 1: htb default %u r2q %u\n"
 		"\t$TCA parent 1: classid 1:1 htb rate %ukbit ceil %ukbit %s\n",
 			nvram_safe_get("wan_iface"),
 			nvram_get_int("qos_pfifo") ? "pfifo limit 256" : "sfq perturb 10",
-			(nvram_get_int("qos_default") + 1) * 10,
+			(nvram_get_int("qos_default") + 1) * 10, r2q,
 			bw, bw, burst_root);
 
 	inuse = nvram_get_int("qos_inuse");

@@ -7,9 +7,12 @@
 */
 
 #include "rc.h"
+
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <dirent.h>
 #include <string.h>
+#include <time.h>
 
 // Line number as text string
 #define __LINE_T__ __LINE_T_(__LINE__)
@@ -28,26 +31,46 @@
 #define BUF_SIZE 128
 #define IF_SIZE 8
 
+static int waitfor(const char *name)
+{
+	int pid, n = 5;
+
+	killall_tk(name);
+	while ( (pid = pidof(name)) >= 0 && (n-- > 0) )
+	{
+		// Reap the zombie if it has terminated
+		waitpid(pid, NULL, WNOHANG);
+		sleep(1);
+	}
+	return (pid >= 0);
+}
+
 void start_vpnclient(int clientNum)
 {
 	FILE *fp;
 	char iface[IF_SIZE];
 	char buffer[BUF_SIZE];
-	char *argv[5];
+	char *argv[6];
 	int argc = 0;
 	enum { TLS, SECRET, CUSTOM } cryptMode = CUSTOM;
 	enum { TAP, TUN } ifType = TUN;
 	enum { BRIDGE, NAT, NONE } routeMode = NONE;
 	int nvi, ip[4], nm[4];
 	long int nvl;
+	int pid;
+
+	sprintf(&buffer[0], "vpnclient%d", clientNum);
+	if (getpid() != 1) {
+		start_service(&buffer[0]);
+		return;
+	}
 
 	vpnlog(VPN_LOG_INFO,"VPN GUI client backend starting...");
 
-	sprintf(&buffer[0], "vpnclient%d", clientNum);
-	if ( pidof(&buffer[0]) >= 0 )
+	if ( (pid = pidof(&buffer[0])) >= 0 )
 	{
 		vpnlog(VPN_LOG_NOTE, "VPN Client %d already running...", clientNum);
-		vpnlog(VPN_LOG_INFO,"PID: %d", pidof(&buffer[0]));
+		vpnlog(VPN_LOG_INFO,"PID: %d", pid);
 		return;
 	}
 
@@ -306,7 +329,7 @@ void start_vpnclient(int clientNum)
 	sprintf(&buffer[0], "/etc/openvpn/vpnclient%d --cd /etc/openvpn/client%d --config config.ovpn", clientNum, clientNum);
 	vpnlog(VPN_LOG_INFO,"Starting OpenVPN: %s",&buffer[0]);
 	for (argv[argc=0] = strtok(&buffer[0], " "); argv[argc] != NULL; argv[++argc] = strtok(NULL, " "));
-	if ( _eval(argv, NULL, 0, NULL) )
+	if ( _eval(argv, NULL, 0, &pid) )
 	{
 		vpnlog(VPN_LOG_ERROR,"Starting OpenVPN failed...");
 		stop_vpnclient(clientNum);
@@ -371,6 +394,12 @@ void stop_vpnclient(int clientNum)
 	char *argv[7];
 	char buffer[BUF_SIZE];
 
+	sprintf(&buffer[0], "vpnclient%d", clientNum);
+	if (getpid() != 1) {
+		stop_service(&buffer[0]);
+		return;
+	}
+
 	vpnlog(VPN_LOG_INFO,"Stopping VPN GUI client backend.");
 
 	// Remove cron job
@@ -402,8 +431,8 @@ void stop_vpnclient(int clientNum)
 	// Stop the VPN client
 	vpnlog(VPN_LOG_EXTRA,"Stopping OpenVPN client.");
 	sprintf(&buffer[0], "vpnclient%d", clientNum);
-	killall(&buffer[0], SIGTERM);
-	vpnlog(VPN_LOG_EXTRA,"OpenVPN client stopped.");
+	if ( !waitfor(&buffer[0]) )
+		vpnlog(VPN_LOG_EXTRA,"OpenVPN client stopped.");
 
 	// NVRAM setting for device type could have changed, just try to remove both
 	vpnlog(VPN_LOG_EXTRA,"Removing VPN device.");
@@ -432,14 +461,6 @@ void stop_vpnclient(int clientNum)
 		vpnlog(VPN_LOG_EXTRA,"Done removing generated files.");
 	}
 
-	// Force OpenVPN process to end.  If we don't do this then it doesn't actually exit until
-	// all current queued service actions are run, including starting vpn back up (which
-	// will bail since the process is still running
-	vpnlog(VPN_LOG_EXTRA,"Killing OpenVPN client.");
-	sprintf(&buffer[0], "vpnclient%d", clientNum);
-	killall(&buffer[0], SIGKILL);
-	vpnlog(VPN_LOG_EXTRA,"OpenVPN client killed.");
-
 	vpnlog(VPN_LOG_INFO,"VPN GUI client backend stopped.");
 }
 
@@ -455,14 +476,20 @@ void start_vpnserver(int serverNum)
 	enum { TLS, SECRET, CUSTOM } cryptMode = CUSTOM;
 	int nvi, ip[4], nm[4];
 	long int nvl;
+	int pid;
+
+	sprintf(&buffer[0], "vpnserver%d", serverNum);
+	if (getpid() != 1) {
+		start_service(&buffer[0]);
+		return;
+	}
 
 	vpnlog(VPN_LOG_INFO,"VPN GUI server backend starting...");
 
-	sprintf(&buffer[0], "vpnserver%d", serverNum);
-	if ( pidof(&buffer[0]) >= 0 )
+	if ( (pid = pidof(&buffer[0])) >= 0 )
 	{
 		vpnlog(VPN_LOG_NOTE, "VPN Server %d already running...", serverNum);
-		vpnlog(VPN_LOG_INFO,"PID: %d", pidof(&buffer[0]));
+		vpnlog(VPN_LOG_INFO,"PID: %d", pid);
 		return;
 	}
 
@@ -817,7 +844,7 @@ void start_vpnserver(int serverNum)
 	sprintf(&buffer[0], "/etc/openvpn/vpnserver%d --cd /etc/openvpn/server%d --config config.ovpn", serverNum, serverNum);
 	vpnlog(VPN_LOG_INFO,"Starting OpenVPN: %s",&buffer[0]);
 	for (argv[argc=0] = strtok(&buffer[0], " "); argv[argc] != NULL; argv[++argc] = strtok(NULL, " "));
-	if ( _eval(argv, NULL, 0, NULL) )
+	if ( _eval(argv, NULL, 0, &pid) )
 	{
 		vpnlog(VPN_LOG_ERROR,"Starting VPN instance failed...");
 		stop_vpnserver(serverNum);
@@ -889,6 +916,12 @@ void stop_vpnserver(int serverNum)
 	char *argv[9];
 	char buffer[BUF_SIZE];
 
+	sprintf(&buffer[0], "vpnserver%d", serverNum);
+	if (getpid() != 1) {
+		stop_service(&buffer[0]);
+		return;
+	}
+
 	vpnlog(VPN_LOG_INFO,"Stopping VPN GUI server backend.");
 
 	// Remove cron job
@@ -920,8 +953,8 @@ void stop_vpnserver(int serverNum)
 	// Stop the VPN server
 	vpnlog(VPN_LOG_EXTRA,"Stopping OpenVPN server.");
 	sprintf(&buffer[0], "vpnserver%d", serverNum);
-	killall(&buffer[0], SIGTERM);
-	vpnlog(VPN_LOG_EXTRA,"OpenVPN server stopped.");
+	if ( !waitfor(&buffer[0]) )
+		vpnlog(VPN_LOG_EXTRA,"OpenVPN server stopped.");
 
 	// NVRAM setting for device type could have changed, just try to remove both
 	vpnlog(VPN_LOG_EXTRA,"Removing VPN device.");
@@ -950,14 +983,6 @@ void stop_vpnserver(int serverNum)
 		vpnlog(VPN_LOG_EXTRA,"Done removing generated files.");
 	}
 
-	// Force OpenVPN process to end.  If we don't do this then it doesn't actually exit until
-	// all current queued service actions are run, including starting vpn back up (which
-	// will bail since the process is still running
-	vpnlog(VPN_LOG_EXTRA,"Killing OpenVPN client.");
-	sprintf(&buffer[0], "vpnserver%d", serverNum);
-	killall(&buffer[0], SIGKILL);
-	vpnlog(VPN_LOG_EXTRA,"OpenVPN server killed.");
-
 	vpnlog(VPN_LOG_INFO,"VPN GUI server backend stopped.");
 }
 
@@ -965,6 +990,13 @@ void start_vpn_eas()
 {
 	char buffer[16], *cur;
 	int nums[4], i;
+
+	if (strlen(nvram_safe_get("vpn_server_eas")) == 0 && strlen(nvram_safe_get("vpn_client_eas")) == 0) return;
+	// wait for time sync for a while
+	i = 10;
+	while (time(0) < Y2K && i--) {
+		sleep(1);
+	}
 
 	// Parse and start servers
 	strlcpy(&buffer[0], nvram_safe_get("vpn_server_eas"), sizeof(buffer));

@@ -29,6 +29,14 @@
 #define SIG_SLAB_DEBUG	0
 #endif
 
+#define DEBUG_SIG 0
+
+#if DEBUG_SIG
+#define SIG_SLAB_DEBUG	(SLAB_DEBUG_FREE | SLAB_RED_ZONE /* | SLAB_POISON */)
+#else
+#define SIG_SLAB_DEBUG	0
+#endif
+
 static kmem_cache_t *sigqueue_cachep;
 
 atomic_t nr_queued_signals;
@@ -271,6 +279,11 @@ printk("SIG dequeue (%s:%d): %d ", current->comm, current->pid,
 	signal_pending(current));
 #endif
 
+#if DEBUG_SIG
+printk("SIG dequeue (%s:%d): %d ", current->comm, current->pid,
+	signal_pending(current));
+#endif
+
 	sig = next_signal(current, mask);
 	if (sig) {
 		if (current->notifier) {
@@ -285,8 +298,14 @@ printk("SIG dequeue (%s:%d): %d ", current->comm, current->pid,
 		if (!collect_signal(sig, &current->pending, info))
 			sig = 0;
 				
+		/* XXX: Once POSIX.1b timers are in, if si_code == SI_TIMER,
+		   we need to xchg out the timer overrun values.  */
 	}
 	recalc_sigpending(current);
+
+#if DEBUG_SIG
+printk(" %d -> %d\n", signal_pending(current), sig);
+#endif
 
 #if DEBUG_SIG
 printk(" %d -> %d\n", signal_pending(current), sig);
@@ -408,8 +427,19 @@ static int ignored_signal(int sig, struct task_struct *t)
 static void handle_stop_signal(int sig, struct task_struct *t)
 {
 	switch (sig) {
-	case SIGKILL: case SIGCONT:
-		/* Wake up the process if stopped.  */
+	case SIGCONT:
+		/* SIGCONT must not wake a task while it's being traced */
+		if ((t->state == TASK_STOPPED) &&
+		    ((t->ptrace & (PT_PTRACED|PT_TRACESYS)) ==
+		     (PT_PTRACED|PT_TRACESYS)))
+			return;
+		/* fall through */
+	case SIGKILL:
+		/* Wake up the process if stopped.
+		 * Note that if the process is being traced, waking it up
+		 * will make it continue before being killed. This may end
+		 * up unexpectedly completing whatever syscall is pending.
+		 */
 		if (t->state == TASK_STOPPED)
 			wake_up_process(t);
 		t->exit_code = 0;
@@ -533,6 +563,11 @@ send_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 {
 	unsigned long flags;
 	int ret;
+
+
+#if DEBUG_SIG
+printk("SIG queue (%s:%d): %d ", t->comm, t->pid, sig);
+#endif
 
 
 #if DEBUG_SIG
@@ -776,6 +811,7 @@ void do_notify_parent(struct task_struct *tsk, int sig)
 	info.si_pid = tsk->pid;
 	info.si_uid = tsk->uid;
 
+	/* FIXME: find out whether or not this is supposed to be c*time. */
 	info.si_utime = hz_to_std(tsk->times.tms_utime);
 	info.si_stime = hz_to_std(tsk->times.tms_stime);
 
@@ -783,6 +819,7 @@ void do_notify_parent(struct task_struct *tsk, int sig)
 	why = SI_KERNEL;	/* shouldn't happen */
 	switch (tsk->state) {
 	case TASK_STOPPED:
+		/* FIXME -- can we deduce CLD_TRAPPED or CLD_CONTINUED? */
 		if (tsk->ptrace & PT_PTRACED)
 			why = CLD_TRAPPED;
 		else
@@ -857,6 +894,7 @@ sys_rt_sigprocmask(int how, sigset_t *set, sigset_t *oset, size_t sigsetsize)
 	int error = -EINVAL;
 	sigset_t old_set, new_set;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		goto out;
 
@@ -875,16 +913,16 @@ sys_rt_sigprocmask(int how, sigset_t *set, sigset_t *oset, size_t sigsetsize)
 			error = -EINVAL;
 			break;
 		case SIG_BLOCK:
-			sigorsets(&new_set, &old_set, &new_set);
+			sigorsets(&current->blocked, &old_set, &new_set);
 			break;
 		case SIG_UNBLOCK:
-			signandsets(&new_set, &old_set, &new_set);
+			signandsets(&current->blocked, &old_set, &new_set);
 			break;
 		case SIG_SETMASK:
+			current->blocked = new_set;
 			break;
 		}
 
-		current->blocked = new_set;
 		recalc_sigpending(current);
 		spin_unlock_irq(&current->sigmask_lock);
 		if (error)
@@ -941,6 +979,7 @@ sys_rt_sigtimedwait(const sigset_t *uthese, siginfo_t *uinfo,
 	siginfo_t info;
 	long timeout = 0;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
 
@@ -1127,11 +1166,9 @@ do_sigaltstack (const stack_t *uss, stack_t *uoss, unsigned long sp)
 	stack_t oss;
 	int error;
 
-	if (uoss) {
-		oss.ss_sp = (void *) current->sas_ss_sp;
-		oss.ss_size = current->sas_ss_size;
-		oss.ss_flags = sas_ss_flags(sp);
-	}
+	oss.ss_sp = (void *) current->sas_ss_sp;
+	oss.ss_size = current->sas_ss_size;
+	oss.ss_flags = sas_ss_flags(sp);
 
 	if (uss) {
 		void *ss_sp;
@@ -1174,13 +1211,16 @@ do_sigaltstack (const stack_t *uss, stack_t *uoss, unsigned long sp)
 		current->sas_ss_size = ss_size;
 	}
 
+	error = 0;
 	if (uoss) {
 		error = -EFAULT;
-		if (copy_to_user(uoss, &oss, sizeof(oss)))
+		if (!access_ok(VERIFY_WRITE, uoss, sizeof(*uoss)))
 			goto out;
+		error = __put_user(oss.ss_sp, &uoss->ss_sp) |
+			__put_user(oss.ss_size, &uoss->ss_size) |
+			__put_user(oss.ss_flags, &uoss->ss_flags);
 	}
 
-	error = 0;
 out:
 	return error;
 }
@@ -1251,6 +1291,7 @@ sys_rt_sigaction(int sig, const struct sigaction *act, struct sigaction *oact,
 	struct k_sigaction new_sa, old_sa;
 	int ret = -EINVAL;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		goto out;
 

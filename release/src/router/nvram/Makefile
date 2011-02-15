@@ -1,7 +1,7 @@
 include ../common.mak
 
-CFLAGS = -O2 -Wall #-mips32
-CFLAGS += -I../shared -I../../include -I.
+CFLAGS = -O2 -Wall $(EXTRACFLAGS) -fPIC
+CFLAGS += -I$(TOP)/shared -I$(SRCBASE)/include -I.
 ifeq ($(STATIC),1)
 CFLAGS += -static
 endif
@@ -19,19 +19,20 @@ libnvram.a: nvram_linux.o nvram_convert.o
 nvram: nvram.o defaults.o libnvram.so
 	@echo " [nvram] CC $@"
 ifeq ($(STATIC),1)
-	$(CC) $(CFLAGS) -static -o $@ nvram.o defaults.o -L. -lnvram -L../shared -lshared
+	$(CC) $(CFLAGS) -static -o $@ nvram.o defaults.o -L. -lnvram -L$(TOP)/shared -lshared
 else
-	@$(CC) $(CFLAGS) -o $@ nvram.o defaults.o -L. -lnvram -L../shared -lshared
+	@$(CC) $(CFLAGS) -o $@ nvram.o defaults.o -L. -lnvram -L$(TOP)/shared -lshared
 endif
 	
 	$(SIZECHECK)
 	$(CPTMP)
 	
 install: all
-	install -D -m 0500 libnvram.so $(INSTALLDIR)/usr/lib/libnvram.so
-	install -D -m 0500 nvram $(INSTALLDIR)/bin/nvram
+	install -D libnvram.so $(INSTALLDIR)/usr/lib/libnvram.so
+	install -D nvram $(INSTALLDIR)/bin/nvram
 	$(STRIP) $(INSTALLDIR)/usr/lib/libnvram.so
 	$(STRIP) $(INSTALLDIR)/bin/nvram
+	chmod 0555 $(INSTALLDIR)/bin/nvram
 
 clean:
 	rm -f nvram *.o *.a *.so

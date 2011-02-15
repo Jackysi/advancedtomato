@@ -1,13 +1,13 @@
-/* $Id: parport.c,v 1.1.1.4 2003/10/14 08:07:16 sparq Exp $
- * 
- * Elinux parallel port driver
+/*
+ * Parallel port driver for ETRAX.
+ *
  * NOTE!
  *   Since par0 shares DMA with ser2 and par 1 shares DMA with ser3
  *   this should be handled if both are enabled at the same time.
  *   THIS IS NOT HANDLED YET!
  *
- * Copyright (c) 2001 Axis Communications AB
- * 
+ * Copyright (c) 2001, 2002, 2003 Axis Communications AB
+ *
  * Author: Fredrik Hugosson
  *
  */
@@ -56,11 +56,11 @@ static inline int DPRINTK(void *nothing, ...) {return 0;}
 //#define CONFIG_PAR0_INT 1
 //#define CONFIG_PAR1_INT 1
 
-#define SETF(var, reg, field, val) \
-	var = (var & ~IO_MASK(##reg##, field)) | IO_FIELD(##reg##, field, val)
-
-#define SETS(var, reg, field, val) \
-	var = (var & ~IO_MASK(##reg##, field)) | IO_STATE(##reg##, field, val)
+/* Define some macros to access ETRAX 100 registers */
+#define SETF(var, reg, field, val) var = (var & ~IO_MASK_(reg##_, field##_)) | \
+					  IO_FIELD_(reg##_, field##_, val)
+#define SETS(var, reg, field, val) var = (var & ~IO_MASK_(reg##_, field##_)) | \
+					  IO_STATE_(reg##_, field##_, _##val)
 
 struct etrax100par_struct {
 	/* parallell port control */
@@ -406,7 +406,7 @@ parport_etrax_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 static void __init
 parport_etrax_show_parallel_version(void)
 {
-	printk("ETRAX 100LX parallel port driver v1.0, (c) 2001 Axis Communications AB\n");
+	printk("ETRAX 100LX parallel port driver v1.0, (c) 2001-2003 Axis Communications AB\n");
 }
 
 #ifdef CONFIG_ETRAX_PAR0_DMA
@@ -530,6 +530,7 @@ parport_etrax_init(void)
 
                 info->port = p;
                 p->private_data = info;
+                /* Axis FIXME: Set mode flags. */
                 /* p->modes = PARPORT_MODE_TRISTATE | PARPORT_MODE_SAFEININT; */
 
 	        if(request_irq(info->int_irq, parport_etrax_interrupt,

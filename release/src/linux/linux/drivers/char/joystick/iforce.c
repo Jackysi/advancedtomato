@@ -1,5 +1,5 @@
 /*
- * $Id: iforce.c,v 1.1.1.4 2003/10/14 08:08:07 sparq Exp $
+ * $Id: iforce.c,v 1.56 2001/05/27 14:41:26 jdeneux Exp $
  *
  *  Copyright (c) 2000-2001 Vojtech Pavlik <vojtech@suse.cz>
  *  Copyright (c) 2001 Johann Deneux <deneux@ifrance.com>
@@ -93,6 +93,7 @@ static signed short btn_joystick[] = { BTN_TRIGGER, BTN_TOP, BTN_THUMB, BTN_TOP2
 	BTN_BASE2, BTN_BASE3, BTN_BASE4, BTN_BASE5, BTN_A, BTN_B, BTN_C, BTN_DEAD, -1 };
 static signed short btn_wheel[] =    { BTN_TRIGGER, BTN_TOP, BTN_THUMB, BTN_TOP2, BTN_BASE,
 	BTN_BASE2, BTN_BASE3, BTN_BASE4, BTN_BASE5, BTN_A, BTN_B, BTN_C, -1 };
+static signed short btn_avb_tw[] =   { BTN_TRIGGER, BTN_THUMB, BTN_TOP, BTN_TOP2, BTN_BASE, BTN_BASE2, BTN_BASE3, BTN_BASE4, -1 };
 static signed short abs_joystick[] = { ABS_X, ABS_Y, ABS_THROTTLE, ABS_HAT0X, ABS_HAT0Y, -1 };
 static signed short abs_wheel[] =    { ABS_WHEEL, ABS_GAS, ABS_BRAKE, ABS_HAT0X, ABS_HAT0Y, -1 };
 static signed short ff_iforce[] =    { FF_PERIODIC, FF_CONSTANT, FF_SPRING, FF_FRICTION,
@@ -106,11 +107,15 @@ static struct iforce_device {
 	signed short *abs;
 	signed short *ff;
 } iforce_device[] = {
+	{ 0x044f, 0xa01c, "Thrustmaster Motor Sport GT",		btn_wheel, abs_wheel, ff_iforce },
 	{ 0x046d, 0xc281, "Logitech WingMan Force",			btn_joystick, abs_joystick, ff_iforce },
 	{ 0x046d, 0xc291, "Logitech WingMan Formula Force",		btn_wheel, abs_wheel, ff_iforce },
 	{ 0x05ef, 0x020a, "AVB Top Shot Pegasus",			btn_joystick, abs_joystick, ff_iforce },
 	{ 0x05ef, 0x8884, "AVB Mag Turbo Force",			btn_wheel, abs_wheel, ff_iforce },
+	{ 0x05ef, 0x8888, "AVB Top Shot Force Feedback Racing Wheel",	btn_avb_tw, abs_wheel, ff_iforce },
+	{ 0x061c, 0xc084, "ACT LABS Force RS",                          btn_wheel, abs_wheel, ff_iforce },
 	{ 0x06f8, 0x0001, "Guillemot Race Leader Force Feedback",	btn_wheel, abs_wheel, ff_iforce },
+	{ 0x06f8, 0x0004, "Guillemot Force Feedback Racing Wheel",	btn_wheel, abs_wheel, ff_iforce },
 	{ 0x0000, 0x0000, "Unknown I-Force Device [%04x:%04x]",		btn_joystick, abs_joystick, ff_iforce }
 };
 
@@ -903,6 +908,10 @@ static int iforce_init_device(struct iforce *iforce)
 		if (!get_id_packet(iforce, c + i))
 			dump_packet("info", iforce->ecmd, iforce->edata);
 
+/*
+ * Disable spring, enable force feedback.
+ * FIXME: We should use iforce_set_autocenter() et al here.
+ */
 
 	send_packet(iforce, FF_CMD_AUTOCENTER, "\004\000");
 	send_packet(iforce, FF_CMD_ENABLE, "\004");
@@ -1057,11 +1066,15 @@ static void iforce_usb_disconnect(struct usb_device *dev, void *ptr)
 }
 
 static struct usb_device_id iforce_usb_ids [] = {
+	{ USB_DEVICE(0x044f, 0xa01c) },		/* Thrustmaster Motor Sport GT */
 	{ USB_DEVICE(0x046d, 0xc281) },		/* Logitech WingMan Force */
 	{ USB_DEVICE(0x046d, 0xc291) },		/* Logitech WingMan Formula Force */
 	{ USB_DEVICE(0x05ef, 0x020a) },		/* AVB Top Shot Pegasus */
 	{ USB_DEVICE(0x05ef, 0x8884) },		/* AVB Mag Turbo Force */
+	{ USB_DEVICE(0x05ef, 0x8888) },		/* AVB Top Shot FFB Racing Wheel */
+	{ USB_DEVICE(0x061c, 0xc084) },         /* ACT LABS Force RS */
 	{ USB_DEVICE(0x06f8, 0x0001) },		/* Guillemot Race Leader Force Feedback */
+	{ USB_DEVICE(0x06f8, 0x0004) },		/* Guillemot Force Feedback Racing Wheel */
 	{ }					/* Terminating entry */
 };
 

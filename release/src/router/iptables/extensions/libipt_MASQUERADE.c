@@ -6,7 +6,7 @@
 #include <getopt.h>
 #include <iptables.h>
 #include <linux/netfilter_ipv4/ip_tables.h>
-#include <linux/netfilter_ipv4/ip_nat_rule.h>
+#include <linux/netfilter/nf_nat.h>
 
 /* Function which prints out usage message. */
 static void
@@ -15,12 +15,17 @@ help(void)
 	printf(
 "MASQUERADE v%s options:\n"
 " --to-ports <port>[-<port>]\n"
-"				Port (range) to map to.\n\n",
+"				Port (range) to map to.\n"
+" --random\n"
+"				Randomize source port.\n"
+"\n"
+,
 IPTABLES_VERSION);
 }
 
 static struct option opts[] = {
 	{ "to-ports", 1, 0, '1' },
+	{ "random", 0, 0, '2' },
 	{ 0 }
 };
 
@@ -100,6 +105,10 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 		parse_ports(optarg, mr);
 		return 1;
 
+	case '2':
+		mr->range[0].flags |=  IP_NAT_RANGE_PROTO_RANDOM;
+		return 1;
+
 	default:
 		return 0;
 	}
@@ -127,6 +136,9 @@ print(const struct ipt_ip *ip,
 			printf("-%hu", ntohs(r->max.tcp.port));
 		printf(" ");
 	}
+
+	if (r->flags & IP_NAT_RANGE_PROTO_RANDOM)
+		printf("random ");
 }
 
 /* Saves the union ipt_targinfo in parsable form to stdout. */
@@ -143,6 +155,9 @@ save(const struct ipt_ip *ip, const struct ipt_entry_target *target)
 			printf("-%hu", ntohs(r->max.tcp.port));
 		printf(" ");
 	}
+
+	if (r->flags & IP_NAT_RANGE_PROTO_RANDOM)
+		printf("--random ");
 }
 
 static struct iptables_target masq = { NULL,

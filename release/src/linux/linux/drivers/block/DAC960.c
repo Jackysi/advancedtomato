@@ -1133,6 +1133,26 @@ static boolean DAC960_V1_ReadControllerConfiguration(DAC960_Controller_T
     DAC960PU/PD/PL	    3.51 and above
     DAC960PU/PD/PL/P	    2.73 and above
   */
+#if defined(__alpha__)
+  /*
+    DEC Alpha machines were often equipped with DAC960 cards that were
+    OEMed from Mylex, and had their own custom firmware. Version 2.70,
+    the last custom FW revision to be released by DEC for these older
+    controllers, appears to work quite well with this driver.
+
+    Cards tested successfully were several versions each of the PD and
+    PU, called by DEC the KZPSC and KZPAC, respectively, and having
+    the Manufacturer Numbers (from Mylex), usually on a sticker on the
+    back of the board, of:
+
+    KZPSC	D040347 (1ch) or D040348 (2ch) or D040349 (3ch)
+    KZPAC	D040395 (1ch) or D040396 (2ch) or D040397 (3ch)
+  */
+# define FIRMWARE_27x "2.70"
+#else
+# define FIRMWARE_27x "2.73"
+#endif
+
   if (Enquiry2.FirmwareID.MajorVersion == 0)
     {
       Enquiry2.FirmwareID.MajorVersion =
@@ -1152,7 +1172,7 @@ static boolean DAC960_V1_ReadControllerConfiguration(DAC960_Controller_T
 	(Controller->FirmwareVersion[0] == '3' &&
 	 strcmp(Controller->FirmwareVersion, "3.51") >= 0) ||
 	(Controller->FirmwareVersion[0] == '2' &&
-	 strcmp(Controller->FirmwareVersion, "2.73") >= 0)))
+	 strcmp(Controller->FirmwareVersion, FIRMWARE_27x) >= 0)))
     {
       DAC960_Failure(Controller, "FIRMWARE VERSION VERIFICATION");
       DAC960_Error("Firmware Version = '%s'\n", Controller,

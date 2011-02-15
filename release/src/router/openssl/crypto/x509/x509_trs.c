@@ -1,5 +1,5 @@
 /* x509_trs.c */
-/* Written by Dr Stephen N Henson (shenson@bigfoot.com) for the OpenSSL
+/* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 1999.
  */
 /* ====================================================================
@@ -66,6 +66,7 @@ static int tr_cmp(const X509_TRUST * const *a,
 static void trtable_free(X509_TRUST *p);
 
 static int trust_1oidany(X509_TRUST *trust, X509 *x, int flags);
+static int trust_1oid(X509_TRUST *trust, X509 *x, int flags);
 static int trust_compat(X509_TRUST *trust, X509 *x, int flags);
 
 static int obj_trust(int id, X509 *x, int flags);
@@ -81,6 +82,10 @@ static X509_TRUST trstandard[] = {
 {X509_TRUST_SSL_CLIENT, 0, trust_1oidany, "SSL Client", NID_client_auth, NULL},
 {X509_TRUST_SSL_SERVER, 0, trust_1oidany, "SSL Server", NID_server_auth, NULL},
 {X509_TRUST_EMAIL, 0, trust_1oidany, "S/MIME email", NID_email_protect, NULL},
+{X509_TRUST_OBJECT_SIGN, 0, trust_1oidany, "Object Signer", NID_code_sign, NULL},
+{X509_TRUST_OCSP_SIGN, 0, trust_1oid, "OCSP responder", NID_OCSP_sign, NULL},
+{X509_TRUST_OCSP_REQUEST, 0, trust_1oid, "OCSP request", NID_ad_OCSP, NULL},
+{X509_TRUST_TSA, 0, trust_1oidany, "TSA server", NID_time_stamp, NULL}
 };
 
 #define X509_TRUST_COUNT	(sizeof(trstandard)/sizeof(X509_TRUST))
@@ -97,10 +102,10 @@ static int tr_cmp(const X509_TRUST * const *a,
 
 int (*X509_TRUST_set_default(int (*trust)(int , X509 *, int)))(int, X509 *, int)
 {
-int (*oldtrust)(int , X509 *, int);
-oldtrust = default_trust;
-default_trust = trust;
-return oldtrust;
+	int (*oldtrust)(int , X509 *, int);
+	oldtrust = default_trust;
+	default_trust = trust;
+	return oldtrust;
 }
 
 
@@ -124,7 +129,7 @@ int X509_TRUST_get_count(void)
 X509_TRUST * X509_TRUST_get0(int idx)
 {
 	if(idx < 0) return NULL;
-	if(idx < X509_TRUST_COUNT) return trstandard + idx;
+	if(idx < (int)X509_TRUST_COUNT) return trstandard + idx;
 	return sk_X509_TRUST_value(trtable, idx - X509_TRUST_COUNT);
 }
 
@@ -139,6 +144,16 @@ int X509_TRUST_get_by_id(int id)
 	idx = sk_X509_TRUST_find(trtable, &tmp);
 	if(idx == -1) return -1;
 	return idx + X509_TRUST_COUNT;
+}
+
+int X509_TRUST_set(int *t, int trust)
+{
+	if(X509_TRUST_get_by_id(trust) == -1) {
+		X509err(X509_F_X509_TRUST_SET, X509_R_INVALID_TRUST);
+		return 0;
+	}
+	*t = trust;
+	return 1;
 }
 
 int X509_TRUST_add(int id, int flags, int (*ck)(X509_TRUST *, X509 *, int),
@@ -205,7 +220,7 @@ static void trtable_free(X509_TRUST *p)
 
 void X509_TRUST_cleanup(void)
 {
-	int i;
+	unsigned int i;
 	for(i = 0; i < X509_TRUST_COUNT; i++) trtable_free(trstandard + i);
 	sk_X509_TRUST_pop_free(trtable, trtable_free);
 	trtable = NULL;
@@ -234,6 +249,12 @@ static int trust_1oidany(X509_TRUST *trust, X509 *x, int flags)
 	 * we return trusted if it is self signed
 	 */
 	return trust_compat(trust, x, flags);
+}
+
+static int trust_1oid(X509_TRUST *trust, X509 *x, int flags)
+{
+	if(x->aux) return obj_trust(trust->arg1, x, flags);
+	return X509_TRUST_UNTRUSTED;
 }
 
 static int trust_compat(X509_TRUST *trust, X509 *x, int flags)

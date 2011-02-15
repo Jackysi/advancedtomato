@@ -20,15 +20,14 @@
 
 #include "volume_id_internal.h"
 
-struct hpfs_super
-{
+struct hpfs_super {
 	uint8_t		magic[4];
 	uint8_t		version;
-} __attribute__((__packed__));
+} PACKED;
 
 #define HPFS_SUPERBLOCK_OFFSET			0x2000
 
-int volume_id_probe_hpfs(struct volume_id *id, uint64_t off)
+int FAST_FUNC volume_id_probe_hpfs(struct volume_id *id, uint64_t off)
 {
 	struct hpfs_super *hs;
 

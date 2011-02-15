@@ -56,12 +56,12 @@ static int debug = 1;			/* 1 normal messages, 0 quiet .. 7 verbose. */
 /* Maximum events (Rx packets, etc.) to handle at each interrupt. */
 static int max_interrupt_work = 20;
 static int mtu;
-#ifdef YF_PROTOTYPE			    /* Support for prototype hardware errata. */
+#ifdef YF_PROTOTYPE			/* Support for prototype hardware errata. */
 /* System-wide count of bogus-rx frames. */
 static int bogus_rx;
 static int dma_ctrl = 0x004A0263; 			/* Constrained by errata */
 static int fifo_cfg = 0x0020;				/* Bypass external Tx FIFO. */
-#elif YF_NEW					  /* A future perfect board :->.  */
+#elif YF_NEW					/* A future perfect board :->.  */
 static int dma_ctrl = 0x00CAC277;			/* Override when loading module! */
 static int fifo_cfg = 0x0028;
 #else
@@ -81,6 +81,7 @@ static int rx_copybreak;
 static int options[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
 static int full_duplex[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
 
+/* Do ugly workaround for GX server chipset errata. */
 static int gx_fix;
 
 /* Operational parameters that are set at compile time. */
@@ -856,6 +857,7 @@ static int yellowfin_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct yellowfin_private *yp = dev->priv;
 	unsigned entry;
+	int len = skb->len;
 
 	netif_stop_queue (dev);
 
@@ -865,33 +867,43 @@ static int yellowfin_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	/* Calculate the next Tx descriptor entry. */
 	entry = yp->cur_tx % TX_RING_SIZE;
 
-	yp->tx_skbuff[entry] = skb;
-
 	if (gx_fix) {	/* Note: only works for paddable protocols e.g.  IP. */
 		int cacheline_end = ((unsigned long)skb->data + skb->len) % 32;
 		/* Fix GX chipset errata. */
 		if (cacheline_end > 24  || cacheline_end == 0)
-			skb->len += 32 - cacheline_end + 1;
+		{
+			len = skb->len + 32 - cacheline_end + 1;
+			if(len != skb->len)
+				skb = skb_padto(skb, len);
+		}
+		if(skb == NULL)
+		{
+			yp->tx_skbuff[entry] = NULL;
+			netif_wake_queue(dev);
+			return 0;
+		}
 	}
+	yp->tx_skbuff[entry] = skb;
+
 #ifdef NO_TXSTATS
 	yp->tx_ring[entry].addr = cpu_to_le32(pci_map_single(yp->pci_dev, 
-		skb->data, skb->len, PCI_DMA_TODEVICE));
+		skb->data, len, PCI_DMA_TODEVICE));
 	yp->tx_ring[entry].result_status = 0;
 	if (entry >= TX_RING_SIZE-1) {
 		/* New stop command. */
 		yp->tx_ring[0].dbdma_cmd = cpu_to_le32(CMD_STOP);
 		yp->tx_ring[TX_RING_SIZE-1].dbdma_cmd =
-			cpu_to_le32(CMD_TX_PKT|BRANCH_ALWAYS | skb->len);
+			cpu_to_le32(CMD_TX_PKT|BRANCH_ALWAYS | len);
 	} else {
 		yp->tx_ring[entry+1].dbdma_cmd = cpu_to_le32(CMD_STOP);
 		yp->tx_ring[entry].dbdma_cmd =
-			cpu_to_le32(CMD_TX_PKT | BRANCH_IFTRUE | skb->len);
+			cpu_to_le32(CMD_TX_PKT | BRANCH_IFTRUE | len);
 	}
 	yp->cur_tx++;
 #else
-	yp->tx_ring[entry<<1].request_cnt = skb->len;
+	yp->tx_ring[entry<<1].request_cnt = len;
 	yp->tx_ring[entry<<1].addr = cpu_to_le32(pci_map_single(yp->pci_dev, 
-		skb->data, skb->len, PCI_DMA_TODEVICE));
+		skb->data, len, PCI_DMA_TODEVICE));
 	/* The input_last (status-write) command is constant, but we must 
 	   rewrite the subsequent 'stop' command. */
 
@@ -904,7 +916,7 @@ static int yellowfin_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	yp->tx_ring[entry<<1].dbdma_cmd =
 		cpu_to_le32( ((entry % 6) == 0 ? CMD_TX_PKT|INTR_ALWAYS|BRANCH_IFTRUE :
-					  CMD_TX_PKT | BRANCH_IFTRUE) | skb->len);
+					  CMD_TX_PKT | BRANCH_IFTRUE) | len);
 #endif
 
 	/* Non-x86 Todo: explicitly flush cache lines here. */
@@ -934,7 +946,7 @@ static void yellowfin_interrupt(int irq, void *dev_instance, struct pt_regs *reg
 	long ioaddr;
 	int boguscnt = max_interrupt_work;
 
-#ifndef final_version			    /* Can never occur. */
+#ifndef final_version			/* Can never occur. */
 	if (dev == NULL) {
 		printk (KERN_ERR "yellowfin_interrupt(): irq %d for unknown device.\n", irq);
 		return;
@@ -1141,7 +1153,7 @@ static int yellowfin_rx(struct net_device *dev)
 			if (status2 & 0x03) yp->stats.rx_frame_errors++;
 			if (status2 & 0x04) yp->stats.rx_crc_errors++;
 			if (status2 & 0x80) yp->stats.rx_dropped++;
-#ifdef YF_PROTOTYPE		    /* Support for prototype hardware errata. */
+#ifdef YF_PROTOTYPE		/* Support for prototype hardware errata. */
 		} else if ((yp->flags & HasMACAddrBug)  &&
 			memcmp(le32_to_cpu(yp->rx_ring_dma +
 				entry*sizeof(struct yellowfin_desc)),
@@ -1315,7 +1327,7 @@ static int yellowfin_close(struct net_device *dev)
 		yp->tx_skbuff[i] = 0;
 	}
 
-#ifdef YF_PROTOTYPE			    /* Support for prototype hardware errata. */
+#ifdef YF_PROTOTYPE			/* Support for prototype hardware errata. */
 	if (yellowfin_debug > 0) {
 		printk(KERN_DEBUG "%s: Received %d frames that we should not have.\n",
 			   dev->name, bogus_rx);

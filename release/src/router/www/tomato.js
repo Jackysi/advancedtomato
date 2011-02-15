@@ -53,7 +53,7 @@ Number.prototype.hex = function(min)
 
 // -----------------------------------------------------------------------------
 
-//	Element.protoype. doesn't work with all browsers
+// ---- Element.protoype. doesn't work with all browsers
 
 var elem = {
 	getOffset: function(e) {
@@ -356,7 +356,7 @@ function _v_range(e, quiet, min, max, name)
 {
 	if ((e = E(e)) == null) return 0;
 	var v = e.value;
-	if ((!v.match(/^ *\d+ *$/)) || (v < min) || (v > max)) {
+	if ((!v.match(/^ *[-\+]?\d+ *$/)) || (v < min) || (v > max)) {
 		ferror.set(e, 'Invalid ' + name + '. Valid range: ' + min + '-' + max, quiet);
 		return 0;
 	}
@@ -533,7 +533,7 @@ function aton(ip)
 {
 	var o, x, i;
 
-	// this is goofy because << mangles numbers as signed
+	// ---- this is goofy because << mangles numbers as signed
 	o = ip.split('.');
 	x = '';
 	for (i = 0; i < 4; ++i) x += (o[i] * 1).hex(2);
@@ -546,7 +546,7 @@ function ntoa(ip)
 }
 
 
-// 1.2.3.4, 1.2.3.4/24, 1.2.3.4/255.255.255.0, 1.2.3.4-1.2.3.5
+// ---- 1.2.3.4, 1.2.3.4/24, 1.2.3.4/255.255.255.0, 1.2.3.4-1.2.3.5
 function _v_iptip(e, ip, quiet)
 {
 	var ma, x, y, z, oip;
@@ -809,7 +809,7 @@ function v_length(e, quiet, min, max)
 		return 0;
 	}
 	max = max || e.maxlength;
-    if (n > max) {
+	if (n > max) {
 		ferror.set(e, 'Invalid length. Please reduce the length to ' + max + ' characters or less.', quiet);
 		return 0;
 	}
@@ -829,6 +829,72 @@ function v_domain(e, quiet)
 		return 0;
 	}
 	e.value = s;
+	ferror.clear(e);
+	return 1;
+}
+
+function v_iptaddr(e, quiet, multi)
+{
+	if ((e = E(e)) == null) return 0;
+
+	if (!v_iptip(e, 1, multi)) {
+		var s = e._error_msg;
+		if (!v_domain(e, 1)) {
+			ferror.set(e, (s) ? s + ', or invalid domain name' : e._error_msg, quiet);
+			return 0;
+		}
+	}
+	ferror.clear(e);
+	return 1;
+}
+
+function v_hostname(e, quiet)
+{
+	var s;
+
+	if ((e = E(e)) == null) return 0;
+	if (!v_length(e, quiet, 0, 63)) return 0;
+
+	s = e.value.replace(/\s+/g, '_');
+	if (s.length > 0) {
+		if ((s.search(/^[a-zA-Z0-9][a-zA-Z0-9_\-]+$/) == -1) ||
+		    (s.search(/\-$/) >= 0)) {
+			ferror.set(e, 'Invalid hostname. Only characters "A-Z 0-9 _" and "-" in the middle are allowed.', quiet);
+			return 0;
+		}
+	}
+	e.value = s;
+	ferror.clear(e);
+	return 1;
+}
+
+function v_nodelim(e, quiet, name, checklist)
+{
+	if ((e = E(e)) == null) return 0;
+
+	e.value = e.value.trim();
+	if (e.value.indexOf('<') != -1 ||
+	   (checklist && e.value.indexOf('>') != -1)) {
+		ferror.set(e, 'Invalid ' + name + ': \"<\" ' + (checklist ? 'or \">\" are' : 'is') + ' not allowed.', quiet);
+		return 0;
+	}
+	ferror.clear(e);
+	return 1;
+}
+
+function v_path(e, quiet, required)
+{
+	if ((e = E(e)) == null) return 0;
+	if (required && !v_length(e, quiet, 1)) return 0;
+
+	if (!required && e.value.trim().length == 0) {
+		ferror.clear(e);
+		return 1;
+	}
+	if (e.value.substr(0, 1) != '/') {
+		ferror.set(e, 'Please start at the / root directory.', quiet);
+		return 0;
+	}
 	ferror.clear(e);
 	return 1;
 }
@@ -868,7 +934,7 @@ function cmpDate(a, b)
 
 // -----------------------------------------------------------------------------
 
-// todo: cleanup this mess
+// ---- todo: cleanup this mess
 
 function TGO(e)
 {
@@ -881,7 +947,7 @@ function tgHideIcons()
 	while ((e = document.getElementById('tg-row-panel')) != null) e.parentNode.removeChild(e);
 }
 
-// options = sort, move, delete
+// ---- options = sort, move, delete
 function TomatoGrid(tb, options, maxAdd, editorFields)
 {
 	this.init(tb, options, maxAdd, editorFields);
@@ -903,7 +969,7 @@ TomatoGrid.prototype = {
 		this.editor = null;
 		this.canSort = options.indexOf('sort') != -1;
 		this.canMove = options.indexOf('move') != -1;
-		this.maxAdd = maxAdd || 100;
+		this.maxAdd = maxAdd || 140;
 		this.canEdit = (editorFields != null);
 		this.canDelete = this.canEdit || (options.indexOf('delete') != -1);
 		this.editorFields = editorFields;
@@ -931,7 +997,7 @@ TomatoGrid.prototype = {
 		return tr;
 	},
 
-	// header
+	// ---- header
 
 	headerClick: function(cell) {
 		if (this.canSort) {
@@ -953,7 +1019,7 @@ TomatoGrid.prototype = {
 		return e;
 	},
 
-	// footer
+	// ---- footer
 
 	footerClick: function(cell) {
 	},
@@ -971,7 +1037,7 @@ TomatoGrid.prototype = {
 		return e;
 	},
 
-	//
+	// ----
 
 	rpUp: function(e) {
 		var i;
@@ -1062,7 +1128,7 @@ TomatoGrid.prototype = {
 
 	rpHide: tgHideIcons,
 
-	//
+	// ----
 
 	onClick: function(cell) {
 		if (this.canEdit) {
@@ -1101,14 +1167,14 @@ TomatoGrid.prototype = {
 
 		if ((this.canMove) || (this.canEdit) || (this.canDelete)) {
 			e.onmouseover = this.rpMouIn;
-//			e.onmouseout = this.rpMouOut;
+// ----			e.onmouseout = this.rpMouOut;
 			if (this.canEdit) e.title = 'Click to edit';
 		}
 
 		return e;
 	},
 
-	//
+	// ----
 
 	insertData: function(at, data) {
 		return this.insert(at, data, this.dataToView(data), false);
@@ -1116,8 +1182,19 @@ TomatoGrid.prototype = {
 
 	dataToView: function(data) {
 		var v = [];
-		for (var i = 0; i < data.length; ++i)
-			v.push(escapeHTML('' + data[i]));
+		for (var i = 0; i < data.length; ++i) {
+			var s = escapeHTML('' + data[i]);
+			if (this.editorFields && this.editorFields.length > i) {
+				var ef = this.editorFields[i].multi;
+				if (!ef) ef = [this.editorFields[i]];
+				var f = (ef && ef.length > 0 ? ef[0] : null);
+				if (f && f.type == 'password') {
+					if (!f.peekaboo || get_config('web_pb', '1') != '0')
+						s = s.replace(/./g, '&#x25CF;');
+				}
+			}
+			v.push(s);
+		}
 		return v;
 	},
 
@@ -1134,7 +1211,7 @@ TomatoGrid.prototype = {
 		return data;
 	},
 
-	//
+	// ----
 
 	edit: function(cell) {
 		var sr, er, e, c;
@@ -1147,7 +1224,7 @@ TomatoGrid.prototype = {
 		this.source = sr;
 
 		er = this.createEditor('edit', sr.rowIndex, sr);
-        er.className = 'editor';
+		er.className = 'editor';
 		this.editor = er;
 
 		c = er.cells[cell.cellIndex || 0];
@@ -1180,7 +1257,7 @@ TomatoGrid.prototype = {
 		var vi = 0;
 		for (var i = 0; i < this.editorFields.length; ++i) {
 			var s = '';
-    		var ef = this.editorFields[i].multi;
+			var ef = this.editorFields[i].multi;
 			if (!ef) ef = [this.editorFields[i]];
 
 			for (var j = 0; j < ef.length; ++j) {
@@ -1188,9 +1265,24 @@ TomatoGrid.prototype = {
 
 				if (f.prefix) s += f.prefix;
 				var attrib = ' class="fi' + (vi + 1) + '" ' + (f.attrib || '');
+				var id = (this.tb ? ('_' + this.tb + '_' + (vi + 1)) : null);
+				if (id) attrib += ' id="' + id + '"';
 				switch (f.type) {
+				case 'password':
+					if (f.peekaboo) {
+						switch (get_config('web_pb', '1')) {
+						case '0':
+							f.type = 'text';
+						case '2':
+							f.peekaboo = 0;
+							break;
+						}
+					}
+					attrib += ' autocomplete="off"';
+					if (f.peekaboo && id) attrib += ' onfocus=\'peekaboo("' + id + '",1)\'';
+					// drop
 				case 'text':
-					s += '<input type="text" maxlength=' + f.maxlen + common + attrib;
+					s += '<input type="' + f.type + '" maxlength=' + f.maxlen + common + attrib;
 					if (which == 'edit') s += ' value="' + escapeHTML('' + values[vi]) + '">';
 						else s += '>';
 					break;
@@ -1502,7 +1594,7 @@ XmlHttp.prototype = {
 		return vars;
 	},
 
-    get: function(url, vars) {
+	get: function(url, vars) {
 		try {
 			vars = this.addId(vars);
 			url += '?' + vars;
@@ -1829,7 +1921,7 @@ var cookie = {
 function checkEvent(evt)
 {
 	if (typeof(evt) == 'undefined') {
-		// IE
+		// ---- IE
 		evt = event;
 		evt.target = evt.srcElement;
 		evt.relatedTarget = evt.toElement;
@@ -1915,7 +2007,7 @@ function comma(n)
 	return n;
 }
 
-function scaleSize(n)
+function doScaleSize(n, sm)
 {
 	if (isNaN(n *= 1)) return '-';
 	if (n <= 9999) return '' + n;
@@ -1924,7 +2016,12 @@ function scaleSize(n)
 		n /= 1024;
 		++s;
 	} while ((n > 9999) && (s < 2));
-	return comma(n.toFixed(2)) + '<small> ' + (['KB', 'MB', 'GB'])[s] + '</small>';
+	return comma(n.toFixed(2)) + (sm ? '<small> ' : ' ') + (['KB', 'MB', 'GB'])[s] + (sm ? '</small>' : '');
+}
+
+function scaleSize(n)
+{
+	return doScaleSize(n, 1);
 }
 
 function timeString(mins)
@@ -1937,7 +2034,7 @@ function timeString(mins)
 
 function features(s)
 {
-	var features = ['ses','brau','aoss','wham','hpamp','!nve','11n'];
+	var features = ['ses','brau','aoss','wham','hpamp','!nve','11n','1000et'];
 	var i;
 
 	for (i = features.length - 1; i >= 0; --i) {
@@ -1959,7 +2056,8 @@ function nothing()
 
 function show_notice1(s)
 {
-	if (s.length) document.write('<div id="notice1">' + s + '</div><br style="clear:both">');
+// ---- !!TB - USB Support: multi-line notices
+	if (s.length) document.write('<div id="notice1">' + s.replace(/\n/g, '<br>') + '</div><br style="clear:both">');
 }
 
 // -----------------------------------------------------------------------------
@@ -1981,6 +2079,7 @@ function navi()
 		['Status', 				'status', 0, [
 			['Overview',		'overview.asp'],
 			['Device List',		'devices.asp'],
+			['Web Usage',		'webmon.asp'],
 			['Logs',			'log.asp'] ] ],
 		['Bandwidth', 			'bwm', 0, [
 			['Real-Time',		'realtime.asp'],
@@ -1991,6 +2090,7 @@ function navi()
 		['Tools', 				'tools', 0, [
 			['Ping',			'ping.asp'],
 			['Trace',			'trace.asp'],
+			['System',			'shell.asp'],
 			['Wireless Survey',	'survey.asp'],
 			['WOL',				'wol.asp'] ] ],
 		null,
@@ -2029,6 +2129,21 @@ function navi()
 			['WAN Up',			'wanup.asp']
 			] ],
 REMOVE-END */
+/* USB-BEGIN */
+// ---- !!TB - USB, FTP, Samba, Media Server
+		['USB and NAS',			'nas', 0, [
+			['USB Support',		'usb.asp']
+/* FTP-BEGIN */
+			,['FTP Server',		'ftp.asp']
+/* FTP-END */
+/* SAMBA-BEGIN */
+			,['File Sharing',	'samba.asp']
+/* SAMBA-END */
+/* MEDIA-SRV-BEGIN */
+			,['Media Server',	'media.asp']
+/* MEDIA-SRV-END */
+			] ],
+/* USB-END */
 /* VPN-BEGIN */
 		['VPN Tunneling', 		'vpn', 0, [
 			['Server',			'server.asp'],
@@ -2039,10 +2154,14 @@ REMOVE-END */
 			['Admin Access',	'access.asp'],
 			['Bandwidth Monitoring','bwm.asp'],
 			['Buttons / LED',	'buttons.asp'],
+/* CIFS-BEGIN */
 			['CIFS Client',		'cifs.asp'],
+/* CIFS-END */
 			['Configuration',	'config.asp'],
 			['Debugging',		'debug.asp'],
-			['JFFS2',			'jffs2.asp'],
+/* JFFS2-BEGIN */
+			['JFFS',			'jffs2.asp'],
+/* JFFS2-END */
 /* SDHC-BEGIN */
 			['SDHC/MMC',		'sdhc.asp'],
 /* SDHC-END */
@@ -2212,7 +2331,7 @@ function createFieldTable(flags, desc)
 				buf2.push('</select>');
 				break;
 			case 'textarea':
-				buf2.push('<textarea' + name + common + '>' + escapeHTML(UT(f.value)) + '</textarea>');
+				buf2.push('<textarea' + name + common + (f.wrap ? (' wrap=' + f.wrap) : '') + '>' + escapeHTML(UT(f.value)) + '</textarea>');
 				break;
 			default:
 				if (f.custom) buf2.push(f.custom);
@@ -2297,7 +2416,7 @@ function logout()
 
 
 
-// debug
+// ---- debug
 
 function isLocal()
 {

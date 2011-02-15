@@ -62,14 +62,14 @@
 
 /* r must not be a */
 /* I've just gone over this and it is now %20 faster on x86 - eay - 27 Jun 96 */
-int BN_sqr(BIGNUM *r, BIGNUM *a, BN_CTX *ctx)
+int BN_sqr(BIGNUM *r, const BIGNUM *a, BN_CTX *ctx)
 	{
 	int max,al;
 	int ret = 0;
 	BIGNUM *tmp,*rr;
 
 #ifdef BN_COUNT
-printf("BN_sqr %d * %d\n",a->top,a->top);
+	fprintf(stderr,"BN_sqr %d * %d\n",a->top,a->top);
 #endif
 	bn_check_top(a);
 
@@ -77,18 +77,17 @@ printf("BN_sqr %d * %d\n",a->top,a->top);
 	if (al <= 0)
 		{
 		r->top=0;
-		return(1);
+		return 1;
 		}
 
 	BN_CTX_start(ctx);
 	rr=(a != r) ? r : BN_CTX_get(ctx);
 	tmp=BN_CTX_get(ctx);
-	if (tmp == NULL) goto err;
+	if (!rr || !tmp) goto err;
 
-	max=(al+al);
-	if (bn_wexpand(rr,max+1) == NULL) goto err;
+	max = 2 * al; /* Non-zero (from above) */
+	if (bn_wexpand(rr,max) == NULL) goto err;
 
-	r->neg=0;
 	if (al == 4)
 		{
 #ifndef BN_SQR_COMBA
@@ -124,7 +123,6 @@ printf("BN_sqr %d * %d\n",a->top,a->top);
 			k=j+j;
 			if (al == j)
 				{
-				if (bn_wexpand(a,k*2) == NULL) goto err;
 				if (bn_wexpand(tmp,k*2) == NULL) goto err;
 				bn_sqr_recursive(rr->d,a->d,al,tmp->d);
 				}
@@ -140,20 +138,28 @@ printf("BN_sqr %d * %d\n",a->top,a->top);
 #endif
 		}
 
-	rr->top=max;
-	if ((max > 0) && (rr->d[max-1] == 0)) rr->top--;
+	rr->neg=0;
+	/* If the most-significant half of the top word of 'a' is zero, then
+	 * the square of 'a' will max-1 words. */
+	if(a->d[al - 1] == (a->d[al - 1] & BN_MASK2l))
+		rr->top = max - 1;
+	else
+		rr->top = max;
 	if (rr != r) BN_copy(r,rr);
 	ret = 1;
  err:
+	bn_check_top(rr);
+	bn_check_top(tmp);
 	BN_CTX_end(ctx);
 	return(ret);
 	}
 
 /* tmp must have 2*n words */
-void bn_sqr_normal(BN_ULONG *r, BN_ULONG *a, int n, BN_ULONG *tmp)
+void bn_sqr_normal(BN_ULONG *r, const BN_ULONG *a, int n, BN_ULONG *tmp)
 	{
 	int i,j,max;
-	BN_ULONG *ap,*rp;
+	const BN_ULONG *ap;
+	BN_ULONG *rp;
 
 	max=n*2;
 	ap=a;
@@ -197,14 +203,14 @@ void bn_sqr_normal(BN_ULONG *r, BN_ULONG *a, int n, BN_ULONG *tmp)
  * a[0]*b[0]+a[1]*b[1]+(a[0]-a[1])*(b[1]-b[0])
  * a[1]*b[1]
  */
-void bn_sqr_recursive(BN_ULONG *r, BN_ULONG *a, int n2, BN_ULONG *t)
+void bn_sqr_recursive(BN_ULONG *r, const BN_ULONG *a, int n2, BN_ULONG *t)
 	{
 	int n=n2/2;
 	int zero,c1;
 	BN_ULONG ln,lo,*p;
 
 #ifdef BN_COUNT
-printf(" bn_sqr_recursive %d * %d\n",n2,n2);
+	fprintf(stderr," bn_sqr_recursive %d * %d\n",n2,n2);
 #endif
 	if (n2 == 4)
 		{

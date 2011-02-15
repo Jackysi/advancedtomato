@@ -1,4 +1,4 @@
-/*  $Id: process.c,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/*  $Id: process.c,v 1.158 2001/11/26 23:45:00 davem Exp $
  *  linux/arch/sparc/kernel/process.c
  *
  *  Copyright (C) 1995 David S. Miller (davem@caip.rutgers.edu)
@@ -54,6 +54,12 @@ void (*pm_idle)(void);
  */
 void (*pm_power_off)(void);
 
+/*
+ * sysctl - toggle power-off restriction for serial console 
+ * systems in machine_power_off()
+ */
+int scons_pwroff = 1;
+
 extern void fpsave(unsigned long *, unsigned long *, void *, unsigned long *);
 
 struct task_struct *last_task_used_math = NULL;
@@ -100,6 +106,9 @@ int cpu_idle(void)
 				faults = sun4c_kernel_faults;
 				fps = (fps + (faults - last_faults)) >> 1;
 				last_faults = faults;
+#if 0
+				printk("kernel faults / second = %ld\n", fps);
+#endif
 				if (fps >= SUN4C_FAULT_HIGH) {
 					sun4c_grow_kernel_ring();
 				}
@@ -186,7 +195,7 @@ void machine_restart(char * cmd)
 void machine_power_off(void)
 {
 #ifdef CONFIG_SUN_AUXIO
-	if (auxio_power_register && !serial_console)
+	if (auxio_power_register && (!serial_console || scons_pwroff))
 		*auxio_power_register |= AUXIO_POWER_OFF;
 #endif
 	machine_halt();
@@ -381,54 +390,6 @@ void flush_thread(void)
 	}
 }
 
-static __inline__ void copy_regs(struct pt_regs *dst, struct pt_regs *src)
-{
-	__asm__ __volatile__("ldd\t[%1 + 0x00], %%g2\n\t"
-			     "ldd\t[%1 + 0x08], %%g4\n\t"
-			     "ldd\t[%1 + 0x10], %%o4\n\t"
-			     "std\t%%g2, [%0 + 0x00]\n\t"
-			     "std\t%%g4, [%0 + 0x08]\n\t"
-			     "std\t%%o4, [%0 + 0x10]\n\t"
-			     "ldd\t[%1 + 0x18], %%g2\n\t"
-			     "ldd\t[%1 + 0x20], %%g4\n\t"
-			     "ldd\t[%1 + 0x28], %%o4\n\t"
-			     "std\t%%g2, [%0 + 0x18]\n\t"
-			     "std\t%%g4, [%0 + 0x20]\n\t"
-			     "std\t%%o4, [%0 + 0x28]\n\t"
-			     "ldd\t[%1 + 0x30], %%g2\n\t"
-			     "ldd\t[%1 + 0x38], %%g4\n\t"
-			     "ldd\t[%1 + 0x40], %%o4\n\t"
-			     "std\t%%g2, [%0 + 0x30]\n\t"
-			     "std\t%%g4, [%0 + 0x38]\n\t"
-			     "ldd\t[%1 + 0x48], %%g2\n\t"
-			     "std\t%%o4, [%0 + 0x40]\n\t"
-			     "std\t%%g2, [%0 + 0x48]\n\t" : :
-			     "r" (dst), "r" (src) :
-			     "g2", "g3", "g4", "g5", "o4", "o5");
-}
-
-static __inline__ void copy_regwin(struct reg_window *dst, struct reg_window *src)
-{
-	__asm__ __volatile__("ldd\t[%1 + 0x00], %%g2\n\t"
-			     "ldd\t[%1 + 0x08], %%g4\n\t"
-			     "ldd\t[%1 + 0x10], %%o4\n\t"
-			     "std\t%%g2, [%0 + 0x00]\n\t"
-			     "std\t%%g4, [%0 + 0x08]\n\t"
-			     "std\t%%o4, [%0 + 0x10]\n\t"
-			     "ldd\t[%1 + 0x18], %%g2\n\t"
-			     "ldd\t[%1 + 0x20], %%g4\n\t"
-			     "ldd\t[%1 + 0x28], %%o4\n\t"
-			     "std\t%%g2, [%0 + 0x18]\n\t"
-			     "std\t%%g4, [%0 + 0x20]\n\t"
-			     "std\t%%o4, [%0 + 0x28]\n\t"
-			     "ldd\t[%1 + 0x30], %%g2\n\t"
-			     "ldd\t[%1 + 0x38], %%g4\n\t"
-			     "std\t%%g2, [%0 + 0x30]\n\t"
-			     "std\t%%g4, [%0 + 0x38]\n\t" : :
-			     "r" (dst), "r" (src) :
-			     "g2", "g3", "g4", "g5", "o4", "o5");
-}
-
 static __inline__ struct sparc_stackf *
 clone_stackframe(struct sparc_stackf *dst, struct sparc_stackf *src)
 {
@@ -470,8 +431,7 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long sp,
 		struct task_struct *p, struct pt_regs *regs)
 {
 	struct pt_regs *childregs;
-	struct reg_window *new_stack;
-	unsigned long stack_offset;
+	char *new_stack;
 
 #ifndef CONFIG_SMP
 	if(last_task_used_math == current) {
@@ -486,15 +446,18 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long sp,
 #endif
 	}
 
-	/* Calculate offset to stack_frame & pt_regs */
-	stack_offset = TASK_UNION_SIZE - TRACEREG_SZ;
-
-	if(regs->psr & PSR_PS)
-		stack_offset -= REGWIN_SZ;
-	childregs = ((struct pt_regs *) (((unsigned long)p) + stack_offset));
-	copy_regs(childregs, regs);
-	new_stack = (((struct reg_window *) childregs) - 1);
-	copy_regwin(new_stack, (((struct reg_window *) regs) - 1));
+	/*
+	 *  p                      new_stack   childregs
+	 *  !                      !           !             {if(PSR_PS) }
+	 *  V                      V (stk.fr.) V  (pt_regs)  { (stk.fr.) }
+	 *  +----- - - - - - ------+===========+============={+==========}+
+	 */
+	new_stack = (char*)p + TASK_UNION_SIZE;
+	if (regs->psr & PSR_PS)
+		new_stack -= STACKFRAME_SZ;
+	new_stack -= STACKFRAME_SZ + TRACEREG_SZ;
+	memcpy(new_stack, (char *)regs - STACKFRAME_SZ, STACKFRAME_SZ + TRACEREG_SZ);
+	childregs = (struct pt_regs *) (new_stack + STACKFRAME_SZ);
 
 	p->thread.ksp = (unsigned long) new_stack;
 	p->thread.kpc = (((unsigned long) ret_from_fork) - 0x8);
@@ -508,16 +471,11 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long sp,
 		extern struct pt_regs fake_swapper_regs;
 
 		p->thread.kregs = &fake_swapper_regs;
-		new_stack = (struct reg_window *)
-			((((unsigned long)p) +
-			  (TASK_UNION_SIZE)) -
-			 (REGWIN_SZ));
+		new_stack += STACKFRAME_SZ + TRACEREG_SZ;
 		childregs->u_regs[UREG_FP] = (unsigned long) new_stack;
 		p->thread.flags |= SPARC_FLAG_KTHREAD;
 		p->thread.current_ds = KERNEL_DS;
-		memcpy((void *)new_stack,
-		       (void *)regs->u_regs[UREG_FP],
-		       sizeof(struct reg_window));
+		memcpy(new_stack, (void *)regs->u_regs[UREG_FP], STACKFRAME_SZ);
 		childregs->u_regs[UREG_G6] = (unsigned long) p;
 	} else {
 		p->thread.kregs = childregs;
@@ -536,15 +494,28 @@ int copy_thread(int nr, unsigned long clone_flags, unsigned long sp,
 			childstack = (struct sparc_stackf *) (sp & ~0x7UL);
 			parentstack = (struct sparc_stackf *) regs->u_regs[UREG_FP];
 
+#if 0
+			printk("clone: parent stack:\n");
+			show_stackframe(parentstack);
+#endif
 
 			childstack = clone_stackframe(childstack, parentstack);
 			if (!childstack)
 				return -EFAULT;
 
+#if 0
+			printk("clone: child stack:\n");
+			show_stackframe(childstack);
+#endif
 
 			childregs->u_regs[UREG_FP] = (unsigned long)childstack;
 		}
 	}
+
+#ifdef CONFIG_SMP
+	/* FPU must be disabled on SMP. */
+	childregs->psr &= ~PSR_EF;
+#endif
 
 	/* Set the return value for the child. */
 	childregs->u_regs[UREG_I0] = current->pid;
@@ -665,7 +636,7 @@ out:
  * a system call from a "real" process, but the process memory space will
  * not be free'd until both the parent and the child have exited.
  */
-pid_t kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
+pid_t arch_kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 {
 	long retval;
 

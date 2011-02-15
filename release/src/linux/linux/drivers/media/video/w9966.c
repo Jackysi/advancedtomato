@@ -691,6 +691,14 @@ static inline void w9966_i2c_setsda(struct w9966_dev* cam, int state)
 	udelay(W9966_I2C_UDELAY);
 }
 
+// Get peripheral clock line
+// Expects a claimed pdev.
+static inline int w9966_i2c_getscl(struct w9966_dev* cam)
+{
+	const u8 pins = w9966_rreg(cam, 0x18);
+	return ((pins & W9966_I2C_R_CLOCK) > 0);
+}
+
 // Sets the clock line on the i2c bus.
 // Expects a claimed pdev.
 // 1 on success, else 0
@@ -721,14 +729,6 @@ static inline int w9966_i2c_getsda(struct w9966_dev* cam)
 {
 	const u8 pins = w9966_rreg(cam, 0x18);
 	return ((pins & W9966_I2C_R_DATA) > 0);
-}
-
-// Get peripheral clock line
-// Expects a claimed pdev.
-static inline int w9966_i2c_getscl(struct w9966_dev* cam)
-{
-	const u8 pins = w9966_rreg(cam, 0x18);
-	return ((pins & W9966_I2C_R_CLOCK) > 0);
 }
 
 // Write a byte with ack to the i2c bus.
@@ -931,7 +931,7 @@ static int w9966_v4l_ioctl(struct video_device *vdev, unsigned int cmd, void *ar
 		if(copy_from_user(&vtune, arg, sizeof(vtune)) != 0)
 			return -EFAULT;
 
-		if(vtune.tuner != 0);
+		if(vtune.tuner != 0)
 			return -EINVAL;
 
 		strcpy(vtune.name, "no tuner");

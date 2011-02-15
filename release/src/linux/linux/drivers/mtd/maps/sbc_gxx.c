@@ -17,7 +17,7 @@
    along with this program; if not, write to the Free Software
    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
 
-   $Id: sbc_gxx.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+   $Id: sbc_gxx.c,v 1.21 2003/01/24 13:40:14 dwmw2 Exp $
 
 The SBC-MediaGX / SBC-GXx has up to 16 MiB of 
 Intel StrataFlash (28F320/28F640) in x8 mode.  
@@ -26,7 +26,7 @@ This driver uses the CFI probe and Intel Extended Command Set drivers.
 
 The flash is accessed as follows:
 
-   16 kbyte memory window at 0xdc000-0xdffff
+   16 KiB memory window at 0xdc000-0xdffff
    
    Two IO address locations for paging
    
@@ -155,7 +155,7 @@ static void sbc_gxx_copy_from(struct map_info *map, void *to, unsigned long from
 		sbc_gxx_page(map, from);
 		memcpy_fromio(to, iomapadr + (from & WINDOW_MASK), thislen);
 		spin_unlock(&sbc_gxx_spin);
-		(__u8*)to += thislen;
+		to += thislen;
 		from += thislen;
 		len -= thislen;
 	}

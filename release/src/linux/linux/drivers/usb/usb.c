@@ -195,6 +195,17 @@ void usb_deregister(struct usb_driver *driver)
 	up (&usb_bus_list_lock);
 }
 
+int usb_ifnum_to_ifpos(struct usb_device *dev, unsigned ifnum)
+{
+	int i;
+
+	for (i = 0; i < dev->actconfig->bNumInterfaces; i++)
+		if (dev->actconfig->interface[i].altsetting[0].bInterfaceNumber == ifnum)
+			return i;
+
+	return -EINVAL;
+}
+
 struct usb_interface *usb_ifnum_to_if(struct usb_device *dev, unsigned ifnum)
 {
 	int i;
@@ -254,9 +265,9 @@ long usb_calc_bus_time (int speed, int is_input, int isoc, int bytecount)
 	case USB_SPEED_HIGH:	/* ISOC or INTR */
 		// FIXME adjust for input vs output
 		if (isoc)
-			tmp = HS_USECS (bytecount);
+			tmp = HS_NSECS (bytecount);
 		else
-			tmp = HS_USECS_ISO (bytecount);
+			tmp = HS_NSECS_ISO (bytecount);
 		return tmp;
 	default:
 		dbg ("bogus device speed!");
@@ -265,6 +276,30 @@ long usb_calc_bus_time (int speed, int is_input, int isoc, int bytecount)
 }
 
 
+/*
+ * usb_check_bandwidth():
+ *
+ * old_alloc is from host_controller->bandwidth_allocated in microseconds;
+ * bustime is from calc_bus_time(), but converted to microseconds.
+ *
+ * returns <bustime in us> if successful,
+ * or USB_ST_BANDWIDTH_ERROR if bandwidth request fails.
+ *
+ * FIXME:
+ * This initial implementation does not use Endpoint.bInterval
+ * in managing bandwidth allocation.
+ * It probably needs to be expanded to use Endpoint.bInterval.
+ * This can be done as a later enhancement (correction).
+ * This will also probably require some kind of
+ * frame allocation tracking...meaning, for example,
+ * that if multiple drivers request interrupts every 10 USB frames,
+ * they don't all have to be allocated at
+ * frame numbers N, N+10, N+20, etc.  Some of them could be at
+ * N+11, N+21, N+31, etc., and others at
+ * N+12, N+22, N+32, etc.
+ * However, this first cut at USB bandwidth allocation does not
+ * contain any frame allocation tracking.
+ */
 int usb_check_bandwidth (struct usb_device *dev, struct urb *urb)
 {
 	int		new_alloc;
@@ -735,6 +770,23 @@ out_err:
 	return -1;
 }
 
+/*
+ * This simply converts the interface _number_ (as in interface.bInterfaceNumber) and
+ * converts it to the interface _position_ (as in dev->actconfig->interface + position)
+ * and calls usb_find_interface_driver().
+ *
+ * Note that the number is the same as the position for all interfaces _except_
+ * devices with interfaces not sequentially numbered (e.g., 0, 2, 3, etc).
+ */
+int usb_find_interface_driver_for_ifnum(struct usb_device *dev, unsigned ifnum)
+{
+	int ifpos = usb_ifnum_to_ifpos(dev, ifnum);
+
+	if (0 > ifpos)
+		return -EINVAL;
+
+	return usb_find_interface_driver(dev, ifpos);
+}
 
 #ifdef	CONFIG_HOTPLUG
 
@@ -758,7 +810,7 @@ out_err:
  * cases, we know no other thread can recycle our address, since we must
  * already have been serialized enough to prevent that.
  */
-static void call_policy (char *verb, struct usb_device *dev)
+static void call_policy_interface (char *verb, struct usb_device *dev, int interface)
 {
 	char *argv [3], **envp, *buf, *scratch;
 	int i = 0, value;
@@ -811,6 +863,12 @@ static void call_policy (char *verb, struct usb_device *dev)
 	scratch += sprintf (scratch, "ACTION=%s", verb) + 1;
 
 #ifdef	CONFIG_USB_DEVICEFS
+	/* If this is available, userspace programs can directly read
+	 * all the device descriptors we don't tell them about.  Or
+	 * even act as usermode drivers.
+	 *
+	 * FIXME reduce hardwired intelligence here
+	 */
 	envp [i++] = "DEVFS=/proc/bus/usb";
 	envp [i++] = scratch;
 	scratch += sprintf (scratch, "DEVICE=/proc/bus/usb/%03d/%03d",
@@ -824,6 +882,13 @@ static void call_policy (char *verb, struct usb_device *dev)
 		dev->descriptor.idProduct,
 		dev->descriptor.bcdDevice) + 1;
 
+	/* The Scsi storage host #, if there is one. */
+	if (dev->storage_host_number > 0) {
+		envp [i++] = scratch;
+		scratch += sprintf (scratch, "SCSI_HOST=%d",
+			dev->storage_host_number - 1) + 1;
+	}
+
 	/* class-based driver binding models */
 	envp [i++] = scratch;
 	scratch += sprintf (scratch, "TYPE=%d/%d/%d",
@@ -831,20 +896,14 @@ static void call_policy (char *verb, struct usb_device *dev)
 			    dev->descriptor.bDeviceSubClass,
 			    dev->descriptor.bDeviceProtocol) + 1;
 	if (dev->descriptor.bDeviceClass == 0) {
-		int alt = dev->actconfig->interface [0].act_altsetting;
+		int alt = dev->actconfig->interface [interface].act_altsetting;
 
-		/* a simple/common case: one config, one interface, one driver
-		 * with current altsetting being a reasonable setting.
-		 * everything needs a smart agent and usbdevfs; or can rely on
-		 * device-specific binding policies.
-		 */
 		envp [i++] = scratch;
 		scratch += sprintf (scratch, "INTERFACE=%d/%d/%d",
-			dev->actconfig->interface [0].altsetting [alt].bInterfaceClass,
-			dev->actconfig->interface [0].altsetting [alt].bInterfaceSubClass,
-			dev->actconfig->interface [0].altsetting [alt].bInterfaceProtocol)
+			dev->actconfig->interface [interface].altsetting [alt].bInterfaceClass,
+			dev->actconfig->interface [interface].altsetting [alt].bInterfaceSubClass,
+			dev->actconfig->interface [interface].altsetting [alt].bInterfaceProtocol)
 			+ 1;
-		/* INTERFACE-0, INTERFACE-1, ... ? */
 	}
 	envp [i++] = 0;
 	/* assert: (scratch - buf) < sizeof buf */
@@ -857,6 +916,14 @@ static void call_policy (char *verb, struct usb_device *dev)
 	kfree (envp);
 	if (value != 0)
 		dbg ("kusbd policy returned 0x%x", value);
+}
+
+static void call_policy (char *verb, struct usb_device *dev)
+{
+	int i;
+	for (i = 0; i < dev->actconfig->bNumInterfaces; i++) {
+		call_policy_interface (verb, dev, i);
+	}
 }
 
 #else
@@ -929,6 +996,8 @@ struct usb_device *usb_alloc_dev(struct usb_device *parent, struct usb_bus *bus)
 	INIT_LIST_HEAD(&dev->filelist);
 
 	init_MUTEX(&dev->serialize);
+	spin_lock_init(&dev->excl_lock);
+	init_waitqueue_head(&dev->excl_wait);
 
 	dev->bus->op->allocate(dev);
 
@@ -973,7 +1042,7 @@ struct urb *usb_alloc_urb(int iso_packets)
 	struct urb *urb;
 
 	urb = (struct urb *)kmalloc(sizeof(struct urb) + iso_packets * sizeof(struct iso_packet_descriptor),
-	      in_interrupt() ? GFP_ATOMIC : GFP_KERNEL);
+			/* pessimize to prevent deadlocks */ GFP_ATOMIC);
 	if (!urb) {
 		err("alloc_urb: kmalloc failed");
 		return NULL;
@@ -1138,7 +1207,7 @@ int usb_internal_control_msg(struct usb_device *usb_dev, unsigned int pipe,
 int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request, __u8 requesttype,
 			 __u16 value, __u16 index, void *data, __u16 size, int timeout)
 {
-	struct usb_ctrlrequest *dr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_KERNEL);
+	struct usb_ctrlrequest *dr = kmalloc(sizeof(struct usb_ctrlrequest), GFP_NOIO);
 	int ret;
 	
 	if (!dr)
@@ -1672,10 +1741,40 @@ int __usb_get_extra_descriptor(char *buffer, unsigned size, unsigned char type, 
 /*
  * Something got disconnected. Get rid of it, and all of its children.
  */
+#define storage_host_access_count(ptr, lun) ((int)driver->magic_ops(ptr, 0xacc, lun))
+#define storage_host_put_offline(ptr) ((int)driver->magic_ops(ptr, 0x0ff, -1))
+/* Notes:
+   The scsi host's access_count gets bumped by 1 for each mount on it.
+   When the scsi_remove will decline to tear down the structures.
+   It will, though, flag the disc as offline and no_spinup, so it won't
+   actually try to read from the disk anymore.
+   
+   So: the info still appears in /proc/partitions & /dev/discs/discN.
+   Until something happens to trigger a re-read (revalidation).  Such as
+   reading from it.  This will fail and so the partitions will disappear
+   from /proc/partitions.
+   But the /dev/scsi/hostN/../disc and /dev/discs/discN will still be there.
+
+   If we do the unmounts ("remove") before calling scsi_remove, the
+   access_count will be 0, so the structures will be torn down.  The
+   device(s) will disappear from /proc/partitions & /dev/discs/discN.
+   We give the remove policy (hotplug) up to 10 seconds to do all the
+   unmounts.  If that doesn't happen, then we chug onward--knowing that
+   nothing will ever cleanup the scsi structures.
+
+   Evidently, the original design concept was that the hotplug
+   agent primarily would unload module(s).   But in practice it just
+   does mount processing.  So we call it before the disconnect (scsi_remove)
+   to do the unmounts, then once again after the disconnect to do unloads.
+*/
+
+#define DISCT_TIMEOUT (20 * (1000/MSEC_PER_TRY))	/* Wait up to 20 seconds, at 50 msec between retries. */
+#define MSEC_PER_TRY 50
 void usb_disconnect(struct usb_device **pdev)
 {
 	struct usb_device * dev = *pdev;
 	int i;
+	int acnt, cnt;
 
 	if (!dev)
 		return;
@@ -1690,6 +1789,29 @@ void usb_disconnect(struct usb_device **pdev)
 			struct usb_interface *interface = &dev->actconfig->interface[i];
 			struct usb_driver *driver = interface->driver;
 			if (driver) {
+				/* If it is a disk, mark it offline and call the remove policy to unmount it. */
+				if (dev->storage_host_number > 0) {
+					call_policy ("remove", dev);
+					if (driver->magic_ops) {
+						storage_host_put_offline(interface->private_data);
+						/* Wait a while (up to 20 seconds), for unmount to work.
+						 * It needs to be larger than the sd_init_onedisk spinup timeout (.../scsi/sd.c).
+						 */
+						for (cnt = DISCT_TIMEOUT; (acnt = storage_host_access_count(interface->private_data, -1)) > 0 && --cnt >= 0;) {
+							if (cnt == DISCT_TIMEOUT - (1 * (1000/MSEC_PER_TRY)))
+								info("USB disconnect waiting for all unmounts to finish.\n");
+							msleep(MSEC_PER_TRY);
+						}
+					}
+				}
+				/* umount make dirty buffer(s).  I have no idea why.  Force them to flush out.
+				 * This will fail, of course, since the device is unplugged, but if we don't then
+				 * kupdatd will eventually try to flush the dirties, and it will sometimes crash.
+				 * From looking at the kernel oops, it seems that it tries to jump to Pluto.
+				 * Probably de-referencing garbage that didn't get cleaned up when we disconnected.
+				 * Since it only happens sometimes, it's probably a race condition.
+				 */
+				sync_buffers(0, 1);
 				down(&driver->serialize);
 				driver->disconnect(dev, interface->private_data);
 				up(&driver->serialize);
@@ -1755,17 +1877,17 @@ void usb_connect(struct usb_device *dev)
  * These are the actual routines to send
  * and receive control messages.
  */
-#ifdef CONFIG_USB_LONG_TIMEOUT
-#define GET_TIMEOUT 4
-#else
-#define GET_TIMEOUT 3
-#endif
-#define SET_TIMEOUT 3
+
+/* USB spec identifies 5 second timeouts.
+ * Some devices (MGE Ellipse UPSes, etc) need it, too.
+ */
+#define GET_TIMEOUT 5
+#define SET_TIMEOUT 5
 
 int usb_set_address(struct usb_device *dev)
 {
 	return usb_control_msg(dev, usb_snddefctrl(dev), USB_REQ_SET_ADDRESS,
-		0, dev->devnum, 0, NULL, 0, HZ * GET_TIMEOUT);
+		0, dev->devnum, 0, NULL, 0, HZ * SET_TIMEOUT);
 }
 
 int usb_get_descriptor(struct usb_device *dev, unsigned char type, unsigned char index, void *buf, int size)
@@ -2122,7 +2244,7 @@ int usb_string(struct usb_device *dev, int index, char *buf, size_t size)
 		if (err < 0) {
 			err("error getting string descriptor 0 (error=%d)", err);
 			goto errout;
-		} else if (tbuf[0] < 4) {
+		} else if (err < 4 || tbuf[0] < 4) {
 			err("string descriptor 0 too short");
 			err = -EINVAL;
 			goto errout;
@@ -2202,6 +2324,48 @@ int usb_new_device(struct usb_device *dev)
 	dev->epmaxpacketin [0] = dev->descriptor.bMaxPacketSize0;
 	dev->epmaxpacketout[0] = dev->descriptor.bMaxPacketSize0;
 
+	if (dev->ttport) {
+		// !!TB - lly: This piece of code stolen from 2.6 tree
+		// Workaround for USB 1.1 device connected via high-speed USB 2.0 hub
+		// hub.c: hub_port_init()
+		dbg("Device via USB hub");
+
+		struct usb_device_descriptor *buf;
+		int j, r = 0;
+
+#define GET_DESCRIPTOR_BUFSIZE  64
+		buf = kmalloc(GET_DESCRIPTOR_BUFSIZE, GFP_NOIO);
+		if (!buf) {
+			return 1;
+		}
+
+		for (j = 0; j < 3; ++j) {
+			buf->bMaxPacketSize0 = 0;
+			r = usb_control_msg(dev, usb_rcvctrlpipe(dev, 0),
+				USB_REQ_GET_DESCRIPTOR, USB_DIR_IN,
+				USB_DT_DEVICE << 8, 0,
+				buf, GET_DESCRIPTOR_BUFSIZE,
+				HZ * GET_TIMEOUT);
+			switch (buf->bMaxPacketSize0) {
+				case 8: case 16: case 32: case 64: case 255:
+					if (buf->bDescriptorType == USB_DT_DEVICE) {
+						r = 0;
+						break;
+					}
+				/* FALL THROUGH */
+				default:
+					if (r == 0)
+					r = -EPROTO;
+					break;
+			}
+			if (r == 0) break;
+		}
+		dev->descriptor.bMaxPacketSize0 = buf->bMaxPacketSize0;
+		kfree(buf);
+#undef GET_DESCRIPTOR_BUFSIZE
+		// lly: End 2.6 code
+	}
+
 	err = usb_get_device_descriptor(dev);
 	if (err < (signed)sizeof(dev->descriptor)) {
 		if (err < 0)
@@ -2213,6 +2377,12 @@ int usb_new_device(struct usb_device *dev)
 		clear_bit(dev->devnum, &dev->bus->devmap.devicemap);
 		dev->devnum = -1;
 		return 1;
+	}
+
+	// !!TB - added delay (wait for data)
+	int wcnt;
+	for (wcnt = 0; wcnt < 20 && dev->descriptor.bNumConfigurations == 0; wcnt++) {
+		wait_ms(50);
 	}
 
 	err = usb_get_configuration(dev);
@@ -2319,6 +2489,61 @@ struct list_head *usb_bus_get_list(void)
 }
 #endif
 
+int usb_excl_lock(struct usb_device *dev, unsigned int type, int interruptible)
+{
+	DECLARE_WAITQUEUE(waita, current);
+
+	add_wait_queue(&dev->excl_wait, &waita);
+	if (interruptible)
+		set_current_state(TASK_INTERRUPTIBLE);
+	else
+		set_current_state(TASK_UNINTERRUPTIBLE);
+
+	for (;;) {
+		spin_lock_irq(&dev->excl_lock);
+		switch (type) {
+		case 1:		/* 1 - read */
+		case 2:		/* 2 - write */
+		case 3:		/* 3 - control: excludes both read and write */
+			if ((dev->excl_type & type) == 0) {
+				dev->excl_type |= type;
+				spin_unlock_irq(&dev->excl_lock);
+				set_current_state(TASK_RUNNING);
+				remove_wait_queue(&dev->excl_wait, &waita);
+				return 0;
+			}
+			break;
+		default:
+			spin_unlock_irq(&dev->excl_lock);
+			set_current_state(TASK_RUNNING);
+			remove_wait_queue(&dev->excl_wait, &waita);
+			return -EINVAL;
+		}
+		spin_unlock_irq(&dev->excl_lock);
+
+		if (interruptible) {
+			schedule();
+			if (signal_pending(current)) {
+				remove_wait_queue(&dev->excl_wait, &waita);
+				return 1;
+			}
+			set_current_state(TASK_INTERRUPTIBLE);
+		} else {
+			schedule();
+			set_current_state(TASK_UNINTERRUPTIBLE);
+		}
+	}
+}
+
+void usb_excl_unlock(struct usb_device *dev, unsigned int type)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&dev->excl_lock, flags);
+	dev->excl_type &= ~type;
+	wake_up(&dev->excl_wait);
+	spin_unlock_irqrestore(&dev->excl_lock, flags);
+}
 
 /*
  * Init
@@ -2326,6 +2551,9 @@ struct list_head *usb_bus_get_list(void)
 static int __init usb_init(void)
 {
 	init_MUTEX(&usb_bus_list_lock);
+#ifdef CONFIG_USB_DEVPATH
+	init_MUTEX(&usb_devpath_list_lock);
+#endif
 	usb_major_init();
 	usbdevfs_init();
 	usb_hub_init();
@@ -2352,6 +2580,7 @@ module_exit(usb_exit);
  * into the kernel, and other device drivers are built as modules,
  * then these symbols need to be exported for the modules to use.
  */
+EXPORT_SYMBOL(usb_ifnum_to_ifpos);
 EXPORT_SYMBOL(usb_ifnum_to_if);
 EXPORT_SYMBOL(usb_epnum_to_ep_desc);
 
@@ -2366,6 +2595,7 @@ EXPORT_SYMBOL(usb_alloc_dev);
 EXPORT_SYMBOL(usb_free_dev);
 EXPORT_SYMBOL(usb_inc_dev_use);
 
+EXPORT_SYMBOL(usb_find_interface_driver_for_ifnum);
 EXPORT_SYMBOL(usb_driver_claim_interface);
 EXPORT_SYMBOL(usb_interface_claimed);
 EXPORT_SYMBOL(usb_driver_release_interface);
@@ -2409,6 +2639,9 @@ EXPORT_SYMBOL(usb_unlink_urb);
 
 EXPORT_SYMBOL(usb_control_msg);
 EXPORT_SYMBOL(usb_bulk_msg);
+
+EXPORT_SYMBOL(usb_excl_lock);
+EXPORT_SYMBOL(usb_excl_unlock);
 
 EXPORT_SYMBOL(usb_devfs_handle);
 MODULE_LICENSE("GPL");

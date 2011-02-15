@@ -124,13 +124,10 @@ static inline void down(struct semaphore * sem)
 		LOCK "decl %0\n\t"     /* --sem->count */
 		"js 2f\n"
 		"1:\n"
-                ".subsection 1\n" \
-                ".ifndef _text_lock_" __stringify(KBUILD_BASENAME) "\n" \
-                "_text_lock_" __stringify(KBUILD_BASENAME) ":\n" \
-                ".endif\n" \
+		LOCK_SECTION_START("")
 		"2:\tcall __down_failed\n\t"
 		"jmp 1b\n"
-		".subsection 0"
+		LOCK_SECTION_END
 		:"=m" (sem->count)
 		:"D" (sem)
 		:"memory");
@@ -154,13 +151,10 @@ static inline int down_interruptible(struct semaphore * sem)
 		"js 2f\n\t"
 		"xorl %0,%0\n"
 		"1:\n"
-                ".subsection 1\n" \
-               ".ifndef _text_lock_" __stringify(KBUILD_BASENAME) "\n" \
-                "_text_lock_" __stringify(KBUILD_BASENAME) ":\n" \
-                ".endif\n" \
+		LOCK_SECTION_START("")
 		"2:\tcall __down_failed_interruptible\n\t"
 		"jmp 1b\n"
-		".subsection 0"
+		LOCK_SECTION_END
 		:"=a" (result), "=m" (sem->count)
 		:"D" (sem)
 		:"memory");
@@ -185,13 +179,10 @@ static inline int down_trylock(struct semaphore * sem)
 		"js 2f\n\t"
 		"xorl %0,%0\n"
 		"1:\n"
-                ".subsection 1\n" \
-                ".ifndef _text_lock_" __stringify(KBUILD_BASENAME) "\n" \
-                "_text_lock_" __stringify(KBUILD_BASENAME) ":\n" \
-                ".endif\n" \
+		LOCK_SECTION_START("")
 		"2:\tcall __down_failed_trylock\n\t"
 		"jmp 1b\n"
-		".subsection 0"
+		LOCK_SECTION_END
 		:"=a" (result), "=m" (sem->count)
 		:"D" (sem)
 		:"memory","cc");
@@ -214,13 +205,10 @@ static inline void up(struct semaphore * sem)
 		LOCK "incl %0\n\t"     /* ++sem->count */
 		"jle 2f\n"
 		"1:\n"
-                ".subsection 1\n" \
-                ".ifndef _text_lock_" __stringify(KBUILD_BASENAME) "\n" \
-                "_text_lock_" __stringify(KBUILD_BASENAME) ":\n" \
-                ".endif\n" \
+		LOCK_SECTION_START("")
 		"2:\tcall __up_wakeup\n\t"
 		"jmp 1b\n"
-		".subsection 0"
+		LOCK_SECTION_END
 		:"=m" (sem->count)
 		:"D" (sem)
 		:"memory");
@@ -228,7 +216,7 @@ static inline void up(struct semaphore * sem)
 
 static inline int sem_getcount(struct semaphore *sem)
 {
-       return atomic_read(&sem->count);
+	return atomic_read(&sem->count);
 }
 
 #endif /* __KERNEL__ */

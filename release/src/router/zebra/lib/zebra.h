@@ -1,22 +1,22 @@
 /* Zebra common header.
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
- */
+   Copyright (C) 1997, 1998, 1999, 2000, 2001, 2002 Kunihiro Ishiguro
+
+This file is part of GNU Zebra.
+
+GNU Zebra is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
+
+GNU Zebra is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Zebra; see the file COPYING.  If not, write to the Free
+Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #ifndef _ZEBRA_H
 #define _ZEBRA_H
@@ -28,7 +28,14 @@
 #ifdef SUNOS_5
 #define _XPG4_2
 #define __EXTENSIONS__
+typedef unsigned int u_int32_t; 
+typedef unsigned short u_int16_t; 
+typedef unsigned short u_int8_t; 
 #endif /* SUNOS_5 */
+
+#ifndef HAVE_SOCKLEN_T
+typedef int socklen_t;
+#endif /* HAVE_SOCKLEN_T */
 
 #include <unistd.h>
 #include <stdio.h>
@@ -63,6 +70,9 @@
 #include <time.h>
 #include <sys/uio.h>
 #include <sys/utsname.h>
+#ifdef HAVE_RUSAGE
+#include <sys/resource.h>
+#endif /* HAVE_RUSAGE */
 
 /* machine dependent includes */
 #ifdef SUNOS_5
@@ -114,12 +124,12 @@
 
 #include <net/route.h>
 
-#ifdef HAVE_LINUX_RTNETLINK_H
+#ifdef HAVE_NETLINK
 #include <linux/netlink.h>
 #include <linux/rtnetlink.h>
 #else
 #define RT_TABLE_MAIN		0
-#endif /* HAVE_LINUX_RTNETLINK_H */
+#endif /* HAVE_NETLINK */
 
 #ifdef HAVE_NETDB_H
 #include <netdb.h>
@@ -153,6 +163,10 @@
 #include <netinet/icmp6.h>
 #endif /* HAVE_NETINET_ICMP6_H */
 
+#ifdef HAVE_NETINET6_ND6_H
+#include <netinet6/nd6.h>
+#endif /* HAVE_NETINET6_ND6_H */
+
 #ifdef HAVE_LIBUTIL_H
 #include <libutil.h>
 #endif /* HAVE_LIBUTIL_H */
@@ -169,20 +183,16 @@
 
 #define IN6_ARE_ADDR_EQUAL IN6_IS_ADDR_EQUAL
 
-/* XXX:
-         Stupid BSD/OS 4.0 has lost belows defines, 
-         it should appear at /usr/include/sys/socket.h  
-*/
+/* BSD/OS 4.0 has lost belows defines, it should appear at
+   /usr/include/sys/socket.h.  */
 #define CMSG_ALIGN(n)           (((n) + 3) & ~3)
 #define CMSG_SPACE(l)   (CMSG_ALIGN(sizeof(struct cmsghdr)) + CMSG_ALIGN(l))
 #define CMSG_LEN(l)     (CMSG_ALIGN(sizeof(struct cmsghdr)) + (l))
 
 #endif /* BSDI_NRL */
 
-/*
-  The definition of struct in_pktinfo is missing in old version of GLIBC 2.1
-  (Redhat 6.1)
-*/
+/*  The definition of struct in_pktinfo is missing in old version of
+    GLIBC 2.1 (Redhat 6.1).  */
 #if defined (GNU_LINUX) && ! defined (HAVE_INPKTINFO)
 struct in_pktinfo
 {
@@ -192,6 +202,12 @@ struct in_pktinfo
 };
 #endif
 
+/* OpenBSD release month check.  */
+#ifdef __OpenBSD__
+#if OpenBSD < 200311
+#define OpenBSD_IP_LEN
+#endif /* OpenBSD */
+#endif /* __OpenBSD__ */
 
 /* For old definition. */
 #ifndef IN6_ARE_ADDR_EQUAL
@@ -260,6 +276,7 @@ struct in_pktinfo
 #define ZEBRA_NEXTHOP_IPV6               6
 #define ZEBRA_NEXTHOP_IPV6_IFINDEX       7
 #define ZEBRA_NEXTHOP_IPV6_IFNAME        8
+#define ZEBRA_NEXTHOP_BLACKHOLE          9 
 
 #ifndef INADDR_LOOPBACK
 #define	INADDR_LOOPBACK	0x7f000001	/* Internet address 127.0.0.1.  */
@@ -305,5 +322,44 @@ typedef u_char safi_t;
 /* Zebra types. */
 typedef u_int16_t zebra_size_t;
 typedef u_int8_t zebra_command_t;
+
+/* FIFO -- first in first out structure and macros.  */
+struct fifo
+{
+  struct fifo *next;
+  struct fifo *prev;
+};
+
+#define FIFO_INIT(F)                                  \
+  do {                                                \
+    struct fifo *Xfifo = (struct fifo *)(F);          \
+    Xfifo->next = Xfifo->prev = Xfifo;                \
+  } while (0)
+
+#define FIFO_ADD(F,N)                                 \
+  do {                                                \
+    struct fifo *Xfifo = (struct fifo *)(F);          \
+    struct fifo *Xnode = (struct fifo *)(N);          \
+    Xnode->next = Xfifo;                              \
+    Xnode->prev = Xfifo->prev;                        \
+    Xfifo->prev = Xfifo->prev->next = Xnode;          \
+  } while (0)
+
+#define FIFO_DEL(N)                                   \
+  do {                                                \
+    struct fifo *Xnode = (struct fifo *)(N);          \
+    Xnode->prev->next = Xnode->next;                  \
+    Xnode->next->prev = Xnode->prev;                  \
+  } while (0)
+
+#define FIFO_HEAD(F)                                  \
+  ((((struct fifo *)(F))->next == (struct fifo *)(F)) \
+  ? NULL : (F)->next)
+
+#define FIFO_EMPTY(F)                                 \
+  (((struct fifo *)(F))->next == (struct fifo *)(F))
+
+#define FIFO_TOP(F)                                   \
+  (FIFO_EMPTY(F) ? NULL : ((struct fifo *)(F))->next)
 
 #endif /* _ZEBRA_H */

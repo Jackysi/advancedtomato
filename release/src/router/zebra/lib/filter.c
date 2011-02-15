@@ -28,6 +28,25 @@
 #include "sockunion.h"
 #include "buffer.h"
 
+struct filter_cisco
+{
+  /* Cisco access-list */
+  int extended;
+  struct in_addr addr;
+  struct in_addr addr_mask;
+  struct in_addr mask;
+  struct in_addr mask_mask;
+};
+
+struct filter_zebra
+{
+  /* If this filter is "exact" match then this flag is set. */
+  int exact;
+
+  /* Prefix information. */
+  struct prefix prefix;
+};
+
 /* Filter element of access list */
 struct filter
 {
@@ -38,14 +57,14 @@ struct filter
   /* Filter type information. */
   enum filter_type type;
 
-  /* If this filter is "any" match then this flag is set. */
-  int any;
+  /* Cisco access-list */
+  int cisco;
 
-  /* If this filter is "exact" match then this flag is set. */
-  int exact;
-
-  /* Prefix information. */
-  struct prefix prefix;
+  union
+    {
+      struct filter_cisco cfilter;
+      struct filter_zebra zfilter;
+    } u;
 };
 
 /* List of access_list. */
@@ -107,11 +126,8 @@ access_master_get (afi_t afi)
 struct filter *
 filter_new ()
 {
-  struct filter *new;
-
-  new = XMALLOC (MTYPE_ACCESS_FILTER, sizeof (struct filter));
-  bzero (new, sizeof (struct filter));
-  return new;
+  return (struct filter *) XCALLOC (MTYPE_ACCESS_FILTER,
+				    sizeof (struct filter));
 }
 
 void
@@ -141,52 +157,41 @@ filter_type_str (struct filter *filter)
     }
 }
 
-/* Allocate and make new filter. */
-struct filter *
-filter_make (struct prefix *prefix, enum filter_type type)
+/* If filter match to the prefix then return 1. */
+static int
+filter_match_cisco (struct filter *mfilter, struct prefix *p)
 {
-  struct filter *filter;
+  struct filter_cisco *filter;
+  struct in_addr mask;
+  u_int32_t check_addr;
+  u_int32_t check_mask;
 
-  filter = filter_new ();
+  filter = &mfilter->u.cfilter;
+  check_addr = p->u.prefix4.s_addr & ~filter->addr_mask.s_addr;
 
-  /* If prefix is NULL then this is "any" match directive. */
-  if (prefix == NULL)
-    filter->any = 1;
-  else
-    prefix_copy (&filter->prefix, prefix);
-
-  filter->type = type;
-
-  return filter;
-}
-
-struct filter *
-filter_lookup (struct access_list *access, struct prefix *prefix,
-	       enum filter_type type, int exact)
-{
-  struct filter *filter;
-
-  for (filter = access->head; filter; filter = filter->next)
+  if (filter->extended)
     {
-      if (prefix == NULL)
-	{
-	  if (filter->any == 1 && filter->type == type)
-	    return filter;
-	}
-      else
-	{
-	  if (prefix_same (&filter->prefix, prefix) &&
-	      filter->type == type && filter->exact == exact)
-	    return filter;
-	}
+      masklen2ip (p->prefixlen, &mask);
+      check_mask = mask.s_addr & ~filter->mask_mask.s_addr;
+
+      if (memcmp (&check_addr, &filter->addr.s_addr, 4) == 0
+          && memcmp (&check_mask, &filter->mask.s_addr, 4) == 0)
+	return 1;
     }
-  return NULL;
+  else if (memcmp (&check_addr, &filter->addr.s_addr, 4) == 0)
+    return 1;
+
+  return 0;
 }
 
 /* If filter match to the prefix then return 1. */
 static int
-filter_match (struct filter *filter, struct prefix *p)
+filter_match_zebra (struct filter *mfilter, struct prefix *p)
 {
+  struct filter_zebra *filter;
+
+  filter = &mfilter->u.zfilter;
+
   if (filter->prefix.family == p->family)
     {
       if (filter->exact)
@@ -207,11 +212,8 @@ filter_match (struct filter *filter, struct prefix *p)
 struct access_list *
 access_list_new ()
 {
-  struct access_list *new;
-
-  new = XMALLOC (MTYPE_ACCESS_LIST, sizeof (struct access_list));
-  bzero (new, sizeof (struct access_list));
-  return new;
+  return (struct access_list *) XCALLOC (MTYPE_ACCESS_LIST,
+					 sizeof (struct access_list));
 }
 
 /* Free allocated access_list. */
@@ -392,32 +394,6 @@ access_list_get (afi_t afi, char *name)
   return access;
 }
 
-/* Print out contents of access list to the terminal. */
-void
-access_list_print (struct access_list *access)
-{
-  struct filter *filter;
-
-  printf ("access name %s\n", access->name);
-
-  for (filter = access->head; filter; filter = filter->next)
-    {
-      if (filter->any)
-	printf ("any %s\n", filter_type_str (filter));
-      else
-	{
-	  struct prefix *p;
-	  char buf[BUFSIZ];
-
-	  p = &filter->prefix;
-
-	  printf ("%s/%d %s\n", 
-		  inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ), 
-		  p->prefixlen, filter_type_str (filter));
-	}
-    }
-}
-
 /* Apply access list to object (which should be struct prefix *). */
 enum filter_type
 access_list_apply (struct access_list *access, void *object)
@@ -431,8 +407,18 @@ access_list_apply (struct access_list *access, void *object)
     return FILTER_DENY;
 
   for (filter = access->head; filter; filter = filter->next)
-    if (filter->any || filter_match (filter, p))
-      return filter->type;
+    {
+      if (filter->cisco)
+	{
+	  if (filter_match_cisco (filter, p))
+	    return filter->type;
+	}
+      else
+	{
+	  if (filter_match_zebra (filter, p))
+	    return filter->type;
+	}
+    }
 
   return FILTER_DENY;
 }
@@ -527,20 +513,59 @@ access_list_filter_delete (struct access_list *access, struct filter *filter)
   host                 A single host address
 */
 
-int
-access_list_dup_check (struct access_list *access, struct filter *new)
+struct filter *
+filter_lookup_cisco (struct access_list *access, struct filter *mnew)
 {
-  struct filter *filter;
+  struct filter *mfilter;
+  struct filter_cisco *filter;
+  struct filter_cisco *new;
 
-  for (filter = access->head; filter; filter = filter->next)
+  new = &mnew->u.cfilter;
+
+  for (mfilter = access->head; mfilter; mfilter = mfilter->next)
     {
-      if (filter->any == new->any
-	  && filter->exact == new->exact
-	  && filter->type == new->type
-	  && prefix_same (&filter->prefix, &new->prefix))
-	return 1;
+      filter = &mfilter->u.cfilter;
+
+      if (filter->extended)
+	{
+	  if (mfilter->type == mnew->type
+	      && filter->addr.s_addr == new->addr.s_addr
+	      && filter->addr_mask.s_addr == new->addr_mask.s_addr
+	      && filter->mask.s_addr == new->mask.s_addr
+	      && filter->mask_mask.s_addr == new->mask_mask.s_addr)
+	    return mfilter;
+	}
+      else
+	{
+	  if (mfilter->type == mnew->type
+	      && filter->addr.s_addr == new->addr.s_addr
+	      && filter->addr_mask.s_addr == new->addr_mask.s_addr)
+	    return mfilter;
+	}
     }
-  return 0;
+
+  return NULL;
+}
+
+struct filter *
+filter_lookup_zebra (struct access_list *access, struct filter *mnew)
+{
+  struct filter *mfilter;
+  struct filter_zebra *filter;
+  struct filter_zebra *new;
+
+  new = &mnew->u.zfilter;
+
+  for (mfilter = access->head; mfilter; mfilter = mfilter->next)
+    {
+      filter = &mfilter->u.zfilter;
+
+      if (filter->exact == new->exact
+	  && mfilter->type == mnew->type
+	  && prefix_same (&filter->prefix, &new->prefix))
+	return mfilter;
+    }
+  return NULL;
 }
 
 int
@@ -568,95 +593,580 @@ vty_access_list_remark_unset (struct vty *vty, afi_t afi, char *name)
   return CMD_SUCCESS;
 }
 
-DEFUN (access_list, access_list_cmd,
-       "access-list WORD (deny|permit) (A.B.C.D/M|any)",
-       "Add an access list entry\n"
-       "Access-list name\n"
-       "Specify packets to reject\n"
-       "Specify packets to forward\n"
-       "Prefix to match. e.g. 10.0.0.0/8\n"
-       "Any prefix to match\n")
+int
+filter_set_cisco (struct vty *vty, char *name_str, char *type_str,
+		  char *addr_str, char *addr_mask_str,
+		  char *mask_str, char *mask_mask_str,
+		  int extended, int set)
 {
   int ret;
   enum filter_type type;
-  struct filter *filter;
+  struct filter *mfilter;
+  struct filter_cisco *filter;
   struct access_list *access;
-  struct prefix p;
+  struct in_addr addr;
+  struct in_addr addr_mask;
+  struct in_addr mask;
+  struct in_addr mask_mask;
 
   /* Check of filter type. */
-  if (strncmp (argv[1], "p", 1) == 0)
+  if (strncmp (type_str, "p", 1) == 0)
     type = FILTER_PERMIT;
-  else if (strncmp (argv[1], "d", 1) == 0)
+  else if (strncmp (type_str, "d", 1) == 0)
     type = FILTER_DENY;
   else
     {
-      vty_out (vty, "filter type must be permit or deny%s", VTY_NEWLINE);
+      vty_out (vty, "%% filter type must be permit or deny%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
 
-  /* "any" is special token of matching IP addresses.  */
-  if (strncmp (argv[2], "a", 1) == 0)
-    filter = filter_make (NULL, type);
-  else
+  ret = inet_aton (addr_str, &addr);
+  if (ret <= 0)
     {
-      /* Check string format of prefix and prefixlen. */
-      ret = str2prefix_ipv4 (argv[2], (struct prefix_ipv4 *)&p);
+      vty_out (vty, "%%Inconsistent address and mask%s",
+	       VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  ret = inet_aton (addr_mask_str, &addr_mask);
+  if (ret <= 0)
+    {
+      vty_out (vty, "%%Inconsistent address and mask%s",
+	       VTY_NEWLINE);
+      return CMD_WARNING;
+    }
+
+  if (extended)
+    {
+      ret = inet_aton (mask_str, &mask);
       if (ret <= 0)
 	{
-	  vty_out (vty, "IP address prefix/prefixlen is malformed%s",
+	  vty_out (vty, "%%Inconsistent address and mask%s",
 		   VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
-      filter = filter_make (&p, type);
+
+      ret = inet_aton (mask_mask_str, &mask_mask);
+      if (ret <= 0)
+	{
+	  vty_out (vty, "%%Inconsistent address and mask%s",
+		   VTY_NEWLINE);
+	  return CMD_WARNING;
+	}
     }
 
-  /* "exact-match" */
-  if (argc == 4)
-    filter->exact = 1;
+  mfilter = filter_new();
+  mfilter->type = type;
+  mfilter->cisco = 1;
+  filter = &mfilter->u.cfilter;
+  filter->extended = extended;
+  filter->addr.s_addr = addr.s_addr & ~addr_mask.s_addr;
+  filter->addr_mask.s_addr = addr_mask.s_addr;
+
+  if (extended)
+    {
+      filter->mask.s_addr = mask.s_addr & ~mask_mask.s_addr;
+      filter->mask_mask.s_addr = mask_mask.s_addr;
+    }
 
   /* Install new filter to the access_list. */
-  access = access_list_get (AFI_IP, argv[0]);
+  access = access_list_get (AFI_IP, name_str);
 
-  /* Duplicate insertion check. */
-  if (access_list_dup_check (access, filter))
-    filter_free (filter);
+  if (set)
+    {
+      if (filter_lookup_cisco (access, mfilter))
+	filter_free (mfilter);
+      else
+	access_list_filter_add (access, mfilter);
+    }
   else
-    access_list_filter_add (access, filter);
+    {
+      struct filter *delete_filter;
+
+      delete_filter = filter_lookup_cisco (access, mfilter);
+      if (delete_filter)
+	access_list_filter_delete (access, delete_filter);
+
+      filter_free (mfilter);
+    }
 
   return CMD_SUCCESS;
 }
 
-ALIAS (access_list, access_list_exact_cmd,
-       "access-list WORD (deny|permit) A.B.C.D/M (exact-match|)",
+/* Standard access-list */
+DEFUN (access_list_standard,
+       access_list_standard_cmd,
+       "access-list (<1-99>|<1300-1999>) (deny|permit) A.B.C.D A.B.C.D",
        "Add an access list entry\n"
-       "Access-list name\n"
+       "IP standard access list\n"
+       "IP standard access list (expanded range)\n"
        "Specify packets to reject\n"
        "Specify packets to forward\n"
-       "Prefix to match. e.g. 10.0.0.0/8\n"
-       "Exact match of the prefixes\n")
+       "Address to match\n"
+       "Wildcard bits\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2], argv[3],
+			   NULL, NULL, 0, 1);
+}
 
-DEFUN (no_access_list,
-       no_access_list_cmd,
-       "no access-list WORD (deny|permit) (A.B.C.D/M|any)",
-       NO_STR 
+DEFUN (access_list_standard_nomask,
+       access_list_standard_nomask_cmd,
+       "access-list (<1-99>|<1300-1999>) (deny|permit) A.B.C.D",
        "Add an access list entry\n"
-       "Access-list name\n"
+       "IP standard access list\n"
+       "IP standard access list (expanded range)\n"
        "Specify packets to reject\n"
        "Specify packets to forward\n"
-       "Prefix to match. e.g. 10.0.0.0/8\n"
-       "Any prefix to match\n")
+       "Address to match\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2], "0.0.0.0",
+			   NULL, NULL, 0, 1);
+}
+
+DEFUN (access_list_standard_host,
+       access_list_standard_host_cmd,
+       "access-list (<1-99>|<1300-1999>) (deny|permit) host A.B.C.D",
+       "Add an access list entry\n"
+       "IP standard access list\n"
+       "IP standard access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "A single host address\n"
+       "Address to match\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2], "0.0.0.0",
+			   NULL, NULL, 0, 1);
+}
+
+DEFUN (access_list_standard_any,
+       access_list_standard_any_cmd,
+       "access-list (<1-99>|<1300-1999>) (deny|permit) any",
+       "Add an access list entry\n"
+       "IP standard access list\n"
+       "IP standard access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any source host\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], "0.0.0.0",
+			   "255.255.255.255", NULL, NULL, 0, 1);
+}
+
+DEFUN (no_access_list_standard,
+       no_access_list_standard_cmd,
+       "no access-list (<1-99>|<1300-1999>) (deny|permit) A.B.C.D A.B.C.D",
+       NO_STR
+       "Add an access list entry\n"
+       "IP standard access list\n"
+       "IP standard access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Address to match\n"
+       "Wildcard bits\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2], argv[3],
+			   NULL, NULL, 0, 0);
+}
+
+DEFUN (no_access_list_standard_nomask,
+       no_access_list_standard_nomask_cmd,
+       "no access-list (<1-99>|<1300-1999>) (deny|permit) A.B.C.D",
+       NO_STR
+       "Add an access list entry\n"
+       "IP standard access list\n"
+       "IP standard access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Address to match\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2], "0.0.0.0",
+			   NULL, NULL, 0, 0);
+}
+
+DEFUN (no_access_list_standard_host,
+       no_access_list_standard_host_cmd,
+       "no access-list (<1-99>|<1300-1999>) (deny|permit) host A.B.C.D",
+       NO_STR
+       "Add an access list entry\n"
+       "IP standard access list\n"
+       "IP standard access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "A single host address\n"
+       "Address to match\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2], "0.0.0.0",
+			   NULL, NULL, 0, 0);
+}
+
+DEFUN (no_access_list_standard_any,
+       no_access_list_standard_any_cmd,
+       "no access-list (<1-99>|<1300-1999>) (deny|permit) any",
+       NO_STR
+       "Add an access list entry\n"
+       "IP standard access list\n"
+       "IP standard access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any source host\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], "0.0.0.0",
+			   "255.255.255.255", NULL, NULL, 0, 0);
+}
+
+/* Extended access-list */
+DEFUN (access_list_extended,
+       access_list_extended_cmd,
+       "access-list (<100-199>|<2000-2699>) (deny|permit) ip A.B.C.D A.B.C.D A.B.C.D A.B.C.D",
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "Source address\n"
+       "Source wildcard bits\n"
+       "Destination address\n"
+       "Destination Wildcard bits\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2],
+			   argv[3], argv[4], argv[5], 1 ,1);
+}
+
+DEFUN (access_list_extended_mask_any,
+       access_list_extended_mask_any_cmd,
+       "access-list (<100-199>|<2000-2699>) (deny|permit) ip A.B.C.D A.B.C.D any",
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "Source address\n"
+       "Source wildcard bits\n"
+       "Any destination host\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2],
+			   argv[3], "0.0.0.0",
+			   "255.255.255.255", 1, 1);
+}
+
+DEFUN (access_list_extended_any_mask,
+       access_list_extended_any_mask_cmd,
+       "access-list (<100-199>|<2000-2699>) (deny|permit) ip any A.B.C.D A.B.C.D",
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "Any source host\n"
+       "Destination address\n"
+       "Destination Wildcard bits\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], "0.0.0.0",
+			   "255.255.255.255", argv[2],
+			   argv[3], 1, 1);
+}
+
+DEFUN (access_list_extended_any_any,
+       access_list_extended_any_any_cmd,
+       "access-list (<100-199>|<2000-2699>) (deny|permit) ip any any",
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "Any source host\n"
+       "Any destination host\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], "0.0.0.0",
+			   "255.255.255.255", "0.0.0.0",
+			   "255.255.255.255", 1, 1);
+}
+
+DEFUN (access_list_extended_mask_host,
+       access_list_extended_mask_host_cmd,
+       "access-list (<100-199>|<2000-2699>) (deny|permit) ip A.B.C.D A.B.C.D host A.B.C.D",
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "Source address\n"
+       "Source wildcard bits\n"
+       "A single destination host\n"
+       "Destination address\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2],
+			   argv[3], argv[4],
+			   "0.0.0.0", 1, 1);
+}
+
+DEFUN (access_list_extended_host_mask,
+       access_list_extended_host_mask_cmd,
+       "access-list (<100-199>|<2000-2699>) (deny|permit) ip host A.B.C.D A.B.C.D A.B.C.D",
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "A single source host\n"
+       "Source address\n"
+       "Destination address\n"
+       "Destination Wildcard bits\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2],
+			   "0.0.0.0", argv[3],
+			   argv[4], 1, 1);
+}
+
+DEFUN (access_list_extended_host_host,
+       access_list_extended_host_host_cmd,
+       "access-list (<100-199>|<2000-2699>) (deny|permit) ip host A.B.C.D host A.B.C.D",
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "A single source host\n"
+       "Source address\n"
+       "A single destination host\n"
+       "Destination address\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2],
+			   "0.0.0.0", argv[3],
+			   "0.0.0.0", 1, 1);
+}
+
+DEFUN (access_list_extended_any_host,
+       access_list_extended_any_host_cmd,
+       "access-list (<100-199>|<2000-2699>) (deny|permit) ip any host A.B.C.D",
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "Any source host\n"
+       "A single destination host\n"
+       "Destination address\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], "0.0.0.0",
+			   "255.255.255.255", argv[2],
+			   "0.0.0.0", 1, 1);
+}
+
+DEFUN (access_list_extended_host_any,
+       access_list_extended_host_any_cmd,
+       "access-list (<100-199>|<2000-2699>) (deny|permit) ip host A.B.C.D any",
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "A single source host\n"
+       "Source address\n"
+       "Any destination host\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2],
+			   "0.0.0.0", "0.0.0.0",
+			   "255.255.255.255", 1, 1);
+}
+
+DEFUN (no_access_list_extended,
+       no_access_list_extended_cmd,
+       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip A.B.C.D A.B.C.D A.B.C.D A.B.C.D",
+       NO_STR
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "Source address\n"
+       "Source wildcard bits\n"
+       "Destination address\n"
+       "Destination Wildcard bits\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2],
+			   argv[3], argv[4], argv[5], 1, 0);
+}
+
+DEFUN (no_access_list_extended_mask_any,
+       no_access_list_extended_mask_any_cmd,
+       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip A.B.C.D A.B.C.D any",
+       NO_STR
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "Source address\n"
+       "Source wildcard bits\n"
+       "Any destination host\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2],
+			   argv[3], "0.0.0.0",
+			   "255.255.255.255", 1, 0);
+}
+
+DEFUN (no_access_list_extended_any_mask,
+       no_access_list_extended_any_mask_cmd,
+       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip any A.B.C.D A.B.C.D",
+       NO_STR
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "Any source host\n"
+       "Destination address\n"
+       "Destination Wildcard bits\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], "0.0.0.0",
+			   "255.255.255.255", argv[2],
+			   argv[3], 1, 0);
+}
+
+DEFUN (no_access_list_extended_any_any,
+       no_access_list_extended_any_any_cmd,
+       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip any any",
+       NO_STR
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "Any source host\n"
+       "Any destination host\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], "0.0.0.0",
+			   "255.255.255.255", "0.0.0.0",
+			   "255.255.255.255", 1, 0);
+}
+
+DEFUN (no_access_list_extended_mask_host,
+       no_access_list_extended_mask_host_cmd,
+       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip A.B.C.D A.B.C.D host A.B.C.D",
+       NO_STR
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "Source address\n"
+       "Source wildcard bits\n"
+       "A single destination host\n"
+       "Destination address\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2],
+			   argv[3], argv[4],
+			   "0.0.0.0", 1, 0);
+}
+
+DEFUN (no_access_list_extended_host_mask,
+       no_access_list_extended_host_mask_cmd,
+       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip host A.B.C.D A.B.C.D A.B.C.D",
+       NO_STR
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "A single source host\n"
+       "Source address\n"
+       "Destination address\n"
+       "Destination Wildcard bits\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2],
+			   "0.0.0.0", argv[3],
+			   argv[4], 1, 0);
+}
+
+DEFUN (no_access_list_extended_host_host,
+       no_access_list_extended_host_host_cmd,
+       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip host A.B.C.D host A.B.C.D",
+       NO_STR
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "A single source host\n"
+       "Source address\n"
+       "A single destination host\n"
+       "Destination address\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2],
+			   "0.0.0.0", argv[3],
+			   "0.0.0.0", 1, 0);
+}
+
+DEFUN (no_access_list_extended_any_host,
+       no_access_list_extended_any_host_cmd,
+       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip any host A.B.C.D",
+       NO_STR
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "Any source host\n"
+       "A single destination host\n"
+       "Destination address\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], "0.0.0.0",
+			   "255.255.255.255", argv[2],
+			   "0.0.0.0", 1, 0);
+}
+
+DEFUN (no_access_list_extended_host_any,
+       no_access_list_extended_host_any_cmd,
+       "no access-list (<100-199>|<2000-2699>) (deny|permit) ip host A.B.C.D any",
+       NO_STR
+       "Add an access list entry\n"
+       "IP extended access list\n"
+       "IP extended access list (expanded range)\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any Internet Protocol\n"
+       "A single source host\n"
+       "Source address\n"
+       "Any destination host\n")
+{
+  return filter_set_cisco (vty, argv[0], argv[1], argv[2],
+			   "0.0.0.0", "0.0.0.0",
+			   "255.255.255.255", 1, 0);
+}
+
+int
+filter_set_zebra (struct vty *vty, char *name_str, char *type_str,
+		  afi_t afi, char *prefix_str, int exact, int set)
 {
   int ret;
   enum filter_type type;
-  struct filter *filter;
+  struct filter *mfilter;
+  struct filter_zebra *filter;
   struct access_list *access;
   struct prefix p;
-  int exact = 0;
 
   /* Check of filter type. */
-  if (strncmp (argv[1], "p", 1) == 0)
+  if (strncmp (type_str, "p", 1) == 0)
     type = FILTER_PERMIT;
-  else if (strncmp (argv[1], "d", 1) == 0)
+  else if (strncmp (type_str, "d", 1) == 0)
     type = FILTER_DENY;
   else
     {
@@ -664,68 +1174,156 @@ DEFUN (no_access_list,
       return CMD_WARNING;
     }
 
-  /* Looking up access_list. */
-  access = access_list_lookup (AFI_IP, argv[0]);
-  if (access == NULL)
-    {
-      vty_out (vty, "%% access-list %s doesn't exist%s", argv[0],
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (argc == 4)
-    exact = 1;
-
   /* Check string format of prefix and prefixlen. */
-  if (strncmp (argv[2], "a", 1) == 0)
-    filter = filter_lookup (access, NULL, type, exact);
-  else
+  if (afi == AFI_IP)
     {
-      ret = str2prefix_ipv4 (argv[2], (struct prefix_ipv4 *) &p);
+      ret = str2prefix_ipv4 (prefix_str, (struct prefix_ipv4 *)&p);
       if (ret <= 0)
 	{
-	  vty_out (vty, "IP address prefix/prefixlen is malformed%s", VTY_NEWLINE);
+	  vty_out (vty, "IP address prefix/prefixlen is malformed%s",
+		   VTY_NEWLINE);
 	  return CMD_WARNING;
 	}
-      filter = filter_lookup (access, &p, type, exact);
     }
-
-  /* Looking up filter from access_list. */
-  if (filter == NULL)
+#ifdef HAVE_IPV6
+  else if (afi == AFI_IP6)
     {
-      vty_out (vty, "%% access-list %s %s %s doesn't exist%s", 
-	       argv[0],
-	       strncmp (argv[1], "p", 1) == 0 ? "permit" : "deny",
-	       strncmp (argv[2], "a", 1) == 0 ? "any" : argv[2],
-	       VTY_NEWLINE);
-      return CMD_WARNING;
+      ret = str2prefix_ipv6 (prefix_str, (struct prefix_ipv6 *) &p);
+      if (ret <= 0)
+	{
+	  vty_out (vty, "IPv6 address prefix/prefixlen is malformed%s",
+		   VTY_NEWLINE);
+		   return CMD_WARNING;
+	}
     }
+#endif /* HAVE_IPV6 */
+  else
+    return CMD_WARNING;
 
-  /* Delete filter from access_list. */
-  access_list_filter_delete (access, filter);
+  mfilter = filter_new ();
+  mfilter->type = type;
+  filter = &mfilter->u.zfilter;
+  prefix_copy (&filter->prefix, &p);
+
+  /* "exact-match" */
+  if (exact)
+    filter->exact = 1;
+
+  /* Install new filter to the access_list. */
+  access = access_list_get (afi, name_str);
+
+  if (set)
+    {
+      if (filter_lookup_zebra (access, mfilter))
+	filter_free (mfilter);
+      else
+	access_list_filter_add (access, mfilter);
+    }
+  else
+    {
+      struct filter *delete_filter;
+
+      delete_filter = filter_lookup_zebra (access, mfilter);
+      if (delete_filter)
+        access_list_filter_delete (access, delete_filter);
+
+      filter_free (mfilter);
+    }
 
   return CMD_SUCCESS;
 }
 
-ALIAS (no_access_list,
-       no_access_list_exact_cmd,
-       "no access-list WORD (deny|permit) A.B.C.D/M (exact-match|)",
-       NO_STR 
+/* Zebra access-list */
+DEFUN (access_list,
+       access_list_cmd,
+       "access-list WORD (deny|permit) A.B.C.D/M",
        "Add an access list entry\n"
-       "Access-list name\n"
+       "IP zebra access-list name\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Prefix to match. e.g. 10.0.0.0/8\n")
+{
+  return filter_set_zebra (vty, argv[0], argv[1], AFI_IP, argv[2], 0, 1);
+}
+
+DEFUN (access_list_exact,
+       access_list_exact_cmd,
+       "access-list WORD (deny|permit) A.B.C.D/M exact-match",
+       "Add an access list entry\n"
+       "IP zebra access-list name\n"
        "Specify packets to reject\n"
        "Specify packets to forward\n"
        "Prefix to match. e.g. 10.0.0.0/8\n"
        "Exact match of the prefixes\n")
+{
+  return filter_set_zebra (vty, argv[0], argv[1], AFI_IP, argv[2], 1, 1);
+}
+
+DEFUN (access_list_any,
+       access_list_any_cmd,
+       "access-list WORD (deny|permit) any",
+       "Add an access list entry\n"
+       "IP zebra access-list name\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Prefix to match. e.g. 10.0.0.0/8\n")
+{
+  return filter_set_zebra (vty, argv[0], argv[1], AFI_IP, "0.0.0.0/0", 0, 1);
+}
+
+DEFUN (no_access_list,
+       no_access_list_cmd,
+       "no access-list WORD (deny|permit) A.B.C.D/M",
+       NO_STR
+       "Add an access list entry\n"
+       "IP zebra access-list name\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Prefix to match. e.g. 10.0.0.0/8\n")
+{
+  return filter_set_zebra (vty, argv[0], argv[1], AFI_IP, argv[2], 0, 0);
+}
+
+DEFUN (no_access_list_exact,
+       no_access_list_exact_cmd,
+       "no access-list WORD (deny|permit) A.B.C.D/M exact-match",
+       NO_STR
+       "Add an access list entry\n"
+       "IP zebra access-list name\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Prefix to match. e.g. 10.0.0.0/8\n"
+       "Exact match of the prefixes\n")
+{
+  return filter_set_zebra (vty, argv[0], argv[1], AFI_IP, argv[2], 1, 0);
+}
+
+DEFUN (no_access_list_any,
+       no_access_list_any_cmd,
+       "no access-list WORD (deny|permit) any",
+       NO_STR
+       "Add an access list entry\n"
+       "IP zebra access-list name\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Prefix to match. e.g. 10.0.0.0/8\n")
+{
+  return filter_set_zebra (vty, argv[0], argv[1], AFI_IP, "0.0.0.0/0", 0, 0);
+}
 
 DEFUN (no_access_list_all,
        no_access_list_all_cmd,
-       "no access-list WORD",
+       "no access-list (<1-99>|<100-199>|<1300-1999>|<2000-2699>|WORD)",
        NO_STR
        "Add an access list entry\n"
-       "Access-list name\n")
+       "IP standard access list\n"
+       "IP extended access list\n"
+       "IP standard access list (expanded range)\n"
+       "IP extended access list (expanded range)\n"
+       "IP zebra access-list name\n")
 {
   struct access_list *access;
+  struct access_master *master;
 
   /* Looking up access_list. */
   access = access_list_lookup (AFI_IP, argv[0]);
@@ -736,17 +1334,27 @@ DEFUN (no_access_list_all,
       return CMD_WARNING;
     }
 
+  master = access->master;
+
   /* Delete all filter from access-list. */
   access_list_delete (access);
+
+  /* Run hook function. */
+  if (master->delete_hook)
+    (*master->delete_hook) (access);
  
   return CMD_SUCCESS;
 }
 
 DEFUN (access_list_remark,
        access_list_remark_cmd,
-       "access-list WORD remark .LINE",
+       "access-list (<1-99>|<100-199>|<1300-1999>|<2000-2699>|WORD) remark .LINE",
        "Add an access list entry\n"
-       "Access-list name\n"
+       "IP standard access list\n"
+       "IP extended access list\n"
+       "IP standard access list (expanded range)\n"
+       "IP extended access list (expanded range)\n"
+       "IP zebra access-list\n"
        "Access list entry comment\n"
        "Comment up to 100 characters\n")
 {
@@ -780,10 +1388,14 @@ DEFUN (access_list_remark,
 
 DEFUN (no_access_list_remark,
        no_access_list_remark_cmd,
-       "no access-list WORD remark",
+       "no access-list (<1-99>|<100-199>|<1300-1999>|<2000-2699>|WORD) remark",
        NO_STR
        "Add an access list entry\n"
-       "Access-list name\n"
+       "IP standard access list\n"
+       "IP extended access list\n"
+       "IP standard access list (expanded range)\n"
+       "IP extended access list (expanded range)\n"
+       "IP zebra access-list\n"
        "Access list entry comment\n")
 {
   return vty_access_list_remark_unset (vty, AFI_IP, argv[0]);
@@ -791,163 +1403,101 @@ DEFUN (no_access_list_remark,
 	
 ALIAS (no_access_list_remark,
        no_access_list_remark_arg_cmd,
-       "no access-list WORD remark .LINE",
+       "no access-list (<1-99>|<100-199>|<1300-1999>|<2000-2699>|WORD) remark .LINE",
        NO_STR
        "Add an access list entry\n"
-       "Access-list name\n"
+       "IP standard access list\n"
+       "IP extended access list\n"
+       "IP standard access list (expanded range)\n"
+       "IP extended access list (expanded range)\n"
+       "IP zebra access-list\n"
        "Access list entry comment\n"
-       "Comment up to 100 characters\n")
+       "Comment up to 100 characters\n");
 
 #ifdef HAVE_IPV6
-DEFUN (ipv6_access_list, ipv6_access_list_cmd,
-       "ipv6 access-list WORD (deny|permit) (X:X::X:X/M|any)",
+DEFUN (ipv6_access_list,
+       ipv6_access_list_cmd,
+       "ipv6 access-list WORD (deny|permit) X:X::X:X/M",
        IPV6_STR
        "Add an access list entry\n"
-       "Access-list name\n"
+       "IPv6 zebra access-list\n"
        "Specify packets to reject\n"
        "Specify packets to forward\n"
-       "Prefix to match. e.g. 3ffe:506::/32\n"
-       "Any prefixi to match\n")
+       "Prefix to match. e.g. 3ffe:506::/32\n")
 {
-  int ret;
-  enum filter_type type;
-  struct filter *filter;
-  struct access_list *access;
-  struct prefix p;
-
-  /* Check of filter type. */
-  if (strncmp (argv[1], "p", 1) == 0)
-    type = FILTER_PERMIT;
-  else if (strncmp (argv[1], "d", 1) == 0)
-    type = FILTER_DENY;
-  else
-    {
-      vty_out (vty, "filter type must be [permit|deny]%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  /* "any" is special token of matching IP addresses.  */
-  if (strncmp (argv[2], "a", 1) == 0)
-    filter = filter_make (NULL, type);
-  else
-    {
-      /* Check string format of prefix and prefixlen. */
-      ret = str2prefix_ipv6 (argv[2], (struct prefix_ipv6 *) &p);
-      if (ret <= 0)
-	{
-	  vty_out (vty, "IPv6 address prefix/prefixlen is malformed%s",
-		   VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-      filter = filter_make (&p, type);
-    }
-
-  /* "exact-match" */
-  if (argc == 4)
-    filter->exact = 1;
-
-  /* Install new filter to the access_list. */
-  access = access_list_get (AFI_IP6, argv[0]);
-  access_list_filter_add (access, filter);
-
-  return CMD_SUCCESS;
+  return filter_set_zebra (vty, argv[0], argv[1], AFI_IP6, argv[2], 0, 1);
 }
 
-ALIAS (ipv6_access_list, ipv6_access_list_exact_cmd,
-       "ipv6 access-list WORD (deny|permit) X:X::X:X/M (exact-match|)",
+DEFUN (ipv6_access_list_exact,
+       ipv6_access_list_exact_cmd,
+       "ipv6 access-list WORD (deny|permit) X:X::X:X/M exact-match",
        IPV6_STR
        "Add an access list entry\n"
-       "Access-list name\n"
+       "IPv6 zebra access-list\n"
        "Specify packets to reject\n"
        "Specify packets to forward\n"
        "Prefix to match. e.g. 3ffe:506::/32\n"
        "Exact match of the prefixes\n")
+{
+  return filter_set_zebra (vty, argv[0], argv[1], AFI_IP6, argv[2], 1, 1);
+}
+
+DEFUN (ipv6_access_list_any,
+       ipv6_access_list_any_cmd,
+       "ipv6 access-list WORD (deny|permit) any",
+       IPV6_STR
+       "Add an access list entry\n"
+       "IPv6 zebra access-list\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any prefixi to match\n")
+{
+  return filter_set_zebra (vty, argv[0], argv[1], AFI_IP6, "::/0", 0, 1);
+}
 
 DEFUN (no_ipv6_access_list,
        no_ipv6_access_list_cmd,
-       "no ipv6 access-list WORD (deny|permit) (X:X::X:X/M|any)",
+       "no ipv6 access-list WORD (deny|permit) X:X::X:X/M",
        NO_STR
        IPV6_STR
        "Add an access list entry\n"
-       "Access-list name\n"
+       "IPv6 zebra access-list\n"
        "Specify packets to reject\n"
        "Specify packets to forward\n"
-       "Prefix to match. e.g. 3ffe:506::/32\n"
-       "Any prefixi to match\n")
+       "Prefix to match. e.g. 3ffe:506::/32\n")
 {
-  int ret;
-  enum filter_type type;
-  struct filter *filter;
-  struct access_list *access;
-  struct prefix p;
-  int exact = 0;
-
-  /* Check of filter type. */
-  if (strncmp (argv[1], "p", 1) == 0)
-    type = FILTER_PERMIT;
-  else if (strncmp (argv[1], "d", 1) == 0)
-    type = FILTER_DENY;
-  else
-    {
-      vty_out (vty, "filter type must be [permit|deny]%s", VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  /* Looking up access_list. */
-  access = access_list_lookup (AFI_IP6, argv[0]);
-  if (access == NULL)
-    {
-      vty_out (vty, "%% access-list %s doesn't exist%s", argv[0],
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  if (argc == 4)
-    exact = 1;
-
-  /* Check string format of prefix and prefixlen. */
-  if (strncmp (argv[2], "a", 1) == 0)
-    filter = filter_lookup (access, NULL, type, exact);
-  else
-    {
-      ret = str2prefix_ipv6 (argv[2], (struct prefix_ipv6 *) &p);
-      if (ret <= 0)
-	{
-	  vty_out (vty, "IPv6 address prefix/prefixlen is malformed%s",
-		   VTY_NEWLINE);
-	  return CMD_WARNING;
-	}
-      filter = filter_lookup (access, &p, type, exact);
-    }
-
-  /* Looking up filter from access_list. */
-  if (filter == NULL)
-    {
-      vty_out (vty, "%% access-list %s %s %s doesn't exist%s", 
-	       argv[0],
-	       strncmp (argv[1], "p", 1) == 0 ? "permit" : "deny",
-	       strncmp (argv[2], "a", 1) == 0 ? "any" : argv[2],
-	       VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-
-  /* Delete filter from access_list. */
-  access_list_filter_delete (access, filter);
-
-  return CMD_SUCCESS;
+  return filter_set_zebra (vty, argv[0], argv[1], AFI_IP6, argv[2], 0, 0);
 }
 
-ALIAS (no_ipv6_access_list,
+DEFUN (no_ipv6_access_list_exact,
        no_ipv6_access_list_exact_cmd,
-       "no ipv6 access-list WORD (deny|permit) X:X::X:X/M (exact-match|)",
+       "no ipv6 access-list WORD (deny|permit) X:X::X:X/M exact-match",
        NO_STR
        IPV6_STR
        "Add an access list entry\n"
-       "Access-list name\n"
+       "IPv6 zebra access-list\n"
        "Specify packets to reject\n"
        "Specify packets to forward\n"
        "Prefix to match. e.g. 3ffe:506::/32\n"
        "Exact match of the prefixes\n")
+{
+  return filter_set_zebra (vty, argv[0], argv[1], AFI_IP6, argv[2], 1, 0);
+}
+
+DEFUN (no_ipv6_access_list_any,
+       no_ipv6_access_list_any_cmd,
+       "no ipv6 access-list WORD (deny|permit) any",
+       NO_STR
+       IPV6_STR
+       "Add an access list entry\n"
+       "IPv6 zebra access-list\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "Any prefixi to match\n")
+{
+  return filter_set_zebra (vty, argv[0], argv[1], AFI_IP6, "::/0", 0, 0);
+}
+
 
 DEFUN (no_ipv6_access_list_all,
        no_ipv6_access_list_all_cmd,
@@ -955,9 +1505,10 @@ DEFUN (no_ipv6_access_list_all,
        NO_STR
        IPV6_STR
        "Add an access list entry\n"
-       "Access-list name\n")
+       "IPv6 zebra access-list\n")
 {
   struct access_list *access;
+  struct access_master *master;
 
   /* Looking up access_list. */
   access = access_list_lookup (AFI_IP6, argv[0]);
@@ -968,8 +1519,14 @@ DEFUN (no_ipv6_access_list_all,
       return CMD_WARNING;
     }
 
-  /* Delete filter from access_list. */
+  master = access->master;
+
+  /* Delete all filter from access-list. */
   access_list_delete (access);
+
+  /* Run hook function. */
+  if (master->delete_hook)
+    (*master->delete_hook) (access);
 
   return CMD_SUCCESS;
 }
@@ -979,7 +1536,7 @@ DEFUN (ipv6_access_list_remark,
        "ipv6 access-list WORD remark .LINE",
        IPV6_STR
        "Add an access list entry\n"
-       "Access-list name\n"
+       "IPv6 zebra access-list\n"
        "Access list entry comment\n"
        "Comment up to 100 characters\n")
 {
@@ -1017,7 +1574,7 @@ DEFUN (no_ipv6_access_list_remark,
        NO_STR
        IPV6_STR
        "Add an access list entry\n"
-       "Access-list name\n"
+       "IPv6 zebra access-list\n"
        "Access list entry comment\n")
 {
   return vty_access_list_remark_unset (vty, AFI_IP6, argv[0]);
@@ -1029,20 +1586,236 @@ ALIAS (no_ipv6_access_list_remark,
        NO_STR
        IPV6_STR
        "Add an access list entry\n"
-       "Access-list name\n"
+       "IPv6 zebra access-list\n"
        "Access list entry comment\n"
-       "Comment up to 100 characters\n")
+       "Comment up to 100 characters\n");
 #endif /* HAVE_IPV6 */
 
-/* Configuration write function. */
+void config_write_access_zebra (struct vty *, struct filter *);
+void config_write_access_cisco (struct vty *, struct filter *);
+
+/* show access-list command. */
 int
-config_write_access_afi (afi_t afi, struct vty *vty)
+filter_show (struct vty *vty, char *name, afi_t afi)
 {
   struct access_list *access;
   struct access_master *master;
-  struct filter *filter;
-  char buf[BUFSIZ];
+  struct filter *mfilter;
+  struct filter_cisco *filter;
+  int write = 0;
+
+  master = access_master_get (afi);
+  if (master == NULL)
+    return 0;
+
+  for (access = master->num.head; access; access = access->next)
+    {
+      if (name && strcmp (access->name, name) != 0)
+	continue;
+
+      write = 1;
+
+      for (mfilter = access->head; mfilter; mfilter = mfilter->next)
+	{
+	  filter = &mfilter->u.cfilter;
+
+	  if (write)
+	    {
+	      vty_out (vty, "%s IP%s access list %s%s",
+		       mfilter->cisco ? 
+		       (filter->extended ? "Extended" : "Standard") : "Zebra",
+		       afi == AFI_IP6 ? "v6" : "",
+		       access->name, VTY_NEWLINE);
+	      write = 0;
+	    }
+
+	  vty_out (vty, "    %s%s", filter_type_str (mfilter),
+		   mfilter->type == FILTER_DENY ? "  " : "");
+
+	  if (! mfilter->cisco)
+	    config_write_access_zebra (vty, mfilter);
+	  else if (filter->extended)
+	    config_write_access_cisco (vty, mfilter);
+	  else
+	    {
+	      if (filter->addr_mask.s_addr == 0xffffffff)
+		vty_out (vty, " any%s", VTY_NEWLINE);
+	      else
+		{
+		  vty_out (vty, " %s", inet_ntoa (filter->addr));
+		  if (filter->addr_mask.s_addr != 0)
+		    vty_out (vty, ", wildcard bits %s", inet_ntoa (filter->addr_mask));
+		  vty_out (vty, "%s", VTY_NEWLINE);
+		}
+	    }
+	}
+    }
+
+  for (access = master->str.head; access; access = access->next)
+    {
+      if (name && strcmp (access->name, name) != 0)
+	continue;
+
+      write = 1;
+
+      for (mfilter = access->head; mfilter; mfilter = mfilter->next)
+	{
+	  filter = &mfilter->u.cfilter;
+
+	  if (write)
+	    {
+	      vty_out (vty, "%s IP%s access list %s%s",
+		       mfilter->cisco ? 
+		       (filter->extended ? "Extended" : "Standard") : "Zebra",
+		       afi == AFI_IP6 ? "v6" : "",
+		       access->name, VTY_NEWLINE);
+	      write = 0;
+	    }
+
+	  vty_out (vty, "    %s%s", filter_type_str (mfilter),
+		   mfilter->type == FILTER_DENY ? "  " : "");
+
+	  if (! mfilter->cisco)
+	    config_write_access_zebra (vty, mfilter);
+	  else if (filter->extended)
+	    config_write_access_cisco (vty, mfilter);
+	  else
+	    {
+	      if (filter->addr_mask.s_addr == 0xffffffff)
+		vty_out (vty, " any%s", VTY_NEWLINE);
+	      else
+		{
+		  vty_out (vty, " %s", inet_ntoa (filter->addr));
+		  if (filter->addr_mask.s_addr != 0)
+		    vty_out (vty, ", wildcard bits %s", inet_ntoa (filter->addr_mask));
+		  vty_out (vty, "%s", VTY_NEWLINE);
+		}
+	    }
+	}
+    }
+  return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_access_list,
+       show_ip_access_list_cmd,
+       "show ip access-list",
+       SHOW_STR
+       IP_STR
+       "List IP access lists\n")
+{
+  return filter_show (vty, NULL, AFI_IP);
+}
+
+DEFUN (show_ip_access_list_name,
+       show_ip_access_list_name_cmd,
+       "show ip access-list (<1-99>|<100-199>|<1300-1999>|<2000-2699>|WORD)",
+       SHOW_STR
+       IP_STR
+       "List IP access lists\n"
+       "IP standard access list\n"
+       "IP extended access list\n"
+       "IP standard access list (expanded range)\n"
+       "IP extended access list (expanded range)\n"
+       "IP zebra access-list\n")
+{
+  return filter_show (vty, argv[0], AFI_IP);
+}
+
+#ifdef HAVE_IPV6
+DEFUN (show_ipv6_access_list,
+       show_ipv6_access_list_cmd,
+       "show ipv6 access-list",
+       SHOW_STR
+       IPV6_STR
+       "List IPv6 access lists\n")
+{
+  return filter_show (vty, NULL, AFI_IP6);
+}
+
+DEFUN (show_ipv6_access_list_name,
+       show_ipv6_access_list_name_cmd,
+       "show ipv6 access-list WORD",
+       SHOW_STR
+       IPV6_STR
+       "List IPv6 access lists\n"
+       "IPv6 zebra access-list\n")
+{
+  return filter_show (vty, argv[0], AFI_IP6);
+}
+#endif /* HAVE_IPV6 */
+
+void
+config_write_access_cisco (struct vty *vty, struct filter *mfilter)
+{
+  struct filter_cisco *filter;
+
+  filter = &mfilter->u.cfilter;
+
+  if (filter->extended)
+    {
+      vty_out (vty, " ip");
+      if (filter->addr_mask.s_addr == 0xffffffff)
+	vty_out (vty, " any");
+      else if (filter->addr_mask.s_addr == 0)
+	vty_out (vty, " host %s", inet_ntoa (filter->addr));
+      else
+	{
+	  vty_out (vty, " %s", inet_ntoa (filter->addr));
+	  vty_out (vty, " %s", inet_ntoa (filter->addr_mask));
+        }
+
+      if (filter->mask_mask.s_addr == 0xffffffff)
+	vty_out (vty, " any");
+      else if (filter->mask_mask.s_addr == 0)
+	vty_out (vty, " host %s", inet_ntoa (filter->mask));
+      else
+	{
+	  vty_out (vty, " %s", inet_ntoa (filter->mask));
+	  vty_out (vty, " %s", inet_ntoa (filter->mask_mask));
+	}
+      vty_out (vty, "%s", VTY_NEWLINE);
+    }
+  else
+    {
+      if (filter->addr_mask.s_addr == 0xffffffff)
+	vty_out (vty, " any%s", VTY_NEWLINE);
+      else
+	{
+	  vty_out (vty, " %s", inet_ntoa (filter->addr));
+	  if (filter->addr_mask.s_addr != 0)
+	    vty_out (vty, " %s", inet_ntoa (filter->addr_mask));
+	  vty_out (vty, "%s", VTY_NEWLINE);
+	}
+    }
+}
+
+void
+config_write_access_zebra (struct vty *vty, struct filter *mfilter)
+{
+  struct filter_zebra *filter;
   struct prefix *p;
+  char buf[BUFSIZ];
+
+  filter = &mfilter->u.zfilter;
+  p = &filter->prefix;
+
+  if (p->prefixlen == 0 && ! filter->exact)
+    vty_out (vty, " any");
+  else
+    vty_out (vty, " %s/%d%s",
+	     inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
+	     p->prefixlen,
+	     filter->exact ? " exact-match" : "");
+
+  vty_out (vty, "%s", VTY_NEWLINE);
+}
+
+int
+config_write_access (struct vty *vty, afi_t afi)
+{
+  struct access_list *access;
+  struct access_master *master;
+  struct filter *mfilter;
   int write = 0;
 
   master = access_master_get (afi);
@@ -1060,27 +1833,18 @@ config_write_access_afi (afi_t afi, struct vty *vty)
 	  write++;
 	}
 
-      for (filter = access->head; filter; filter = filter->next)
+      for (mfilter = access->head; mfilter; mfilter = mfilter->next)
 	{
-	  p = &filter->prefix;
+	  vty_out (vty, "%saccess-list %s %s",
+	     afi == AFI_IP ? "" : "ipv6 ",
+	     access->name,
+	     filter_type_str (mfilter));
 
-	  if (filter->any)
-	    vty_out (vty,
-	  	     "%saccess-list %s %s any%s", 
-		     afi == AFI_IP ? "" : "ipv6 ",
-		     access->name,
-		     filter_type_str (filter),
-		     VTY_NEWLINE);
+	  if (mfilter->cisco)
+	    config_write_access_cisco (vty, mfilter);
 	  else
-	    vty_out (vty,
-		     "%saccess-list %s %s %s/%d%s%s", 
-		     afi == AFI_IP ? "" : "ipv6 ",
-		     access->name,
-		     filter_type_str (filter),
-		     inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
-		     p->prefixlen,
-		     filter->exact ? " exact-match" : "",
-		     VTY_NEWLINE);
+	    config_write_access_zebra (vty, mfilter);
+
 	  write++;
 	}
     }
@@ -1090,35 +1854,26 @@ config_write_access_afi (afi_t afi, struct vty *vty)
       if (access->remark)
 	{
 	  vty_out (vty, "%saccess-list %s remark %s%s",
-	  	   afi == AFI_IP ? "" : "ipv6 ",
+		   afi == AFI_IP ? "" : "ipv6 ",
 		   access->name, access->remark,
 		   VTY_NEWLINE);
 	  write++;
 	}
 
-      for (filter = access->head; filter; filter = filter->next)
+      for (mfilter = access->head; mfilter; mfilter = mfilter->next)
 	{
-	  p = &filter->prefix;
+	  vty_out (vty, "%saccess-list %s %s",
+	     afi == AFI_IP ? "" : "ipv6 ",
+	     access->name,
+	     filter_type_str (mfilter));
 
-	  if (filter->any)
-	    vty_out (vty,
-	  	     "%saccess-list %s %s any%s", 
-		     afi == AFI_IP ? "" : "ipv6 ",
-		     access->name,
-		     filter_type_str (filter),
-		     VTY_NEWLINE);
+	  if (mfilter->cisco)
+	    config_write_access_cisco (vty, mfilter);
 	  else
-	    vty_out (vty, 
-	  	     "%saccess-list %s %s %s/%d%s%s", 
-		     afi == AFI_IP ? "" : "ipv6 ",
-		     access->name,
-		     filter_type_str (filter),
-		     inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
-		     p->prefixlen,
-		     filter->exact ? " exact-match" : "",
-		     VTY_NEWLINE);
+	    config_write_access_zebra (vty, mfilter);
+
 	  write++;
-        }
+	}
     }
   return write;
 }
@@ -1134,7 +1889,7 @@ struct cmd_node access_node =
 int
 config_write_access_ipv4 (struct vty *vty)
 {
-  return config_write_access_afi (AFI_IP, vty);
+  return config_write_access (vty, AFI_IP);
 }
 
 void
@@ -1172,11 +1927,48 @@ access_list_init_ipv4 ()
 {
   install_node (&access_node, config_write_access_ipv4);
 
-  install_element (CONFIG_NODE, &access_list_exact_cmd);
+  install_element (ENABLE_NODE, &show_ip_access_list_cmd);
+  install_element (ENABLE_NODE, &show_ip_access_list_name_cmd);
+
+  /* Zebra access-list */
   install_element (CONFIG_NODE, &access_list_cmd);
-  install_element (CONFIG_NODE, &access_list_remark_cmd);
-  install_element (CONFIG_NODE, &no_access_list_exact_cmd);
+  install_element (CONFIG_NODE, &access_list_exact_cmd);
+  install_element (CONFIG_NODE, &access_list_any_cmd);
   install_element (CONFIG_NODE, &no_access_list_cmd);
+  install_element (CONFIG_NODE, &no_access_list_exact_cmd);
+  install_element (CONFIG_NODE, &no_access_list_any_cmd);
+
+  /* Standard access-list */
+  install_element (CONFIG_NODE, &access_list_standard_cmd);
+  install_element (CONFIG_NODE, &access_list_standard_nomask_cmd);
+  install_element (CONFIG_NODE, &access_list_standard_host_cmd);
+  install_element (CONFIG_NODE, &access_list_standard_any_cmd);
+  install_element (CONFIG_NODE, &no_access_list_standard_cmd);
+  install_element (CONFIG_NODE, &no_access_list_standard_nomask_cmd);
+  install_element (CONFIG_NODE, &no_access_list_standard_host_cmd);
+  install_element (CONFIG_NODE, &no_access_list_standard_any_cmd);
+
+  /* Extended access-list */
+  install_element (CONFIG_NODE, &access_list_extended_cmd);
+  install_element (CONFIG_NODE, &access_list_extended_any_mask_cmd);
+  install_element (CONFIG_NODE, &access_list_extended_mask_any_cmd);
+  install_element (CONFIG_NODE, &access_list_extended_any_any_cmd);
+  install_element (CONFIG_NODE, &access_list_extended_host_mask_cmd);
+  install_element (CONFIG_NODE, &access_list_extended_mask_host_cmd);
+  install_element (CONFIG_NODE, &access_list_extended_host_host_cmd);
+  install_element (CONFIG_NODE, &access_list_extended_any_host_cmd);
+  install_element (CONFIG_NODE, &access_list_extended_host_any_cmd);
+  install_element (CONFIG_NODE, &no_access_list_extended_cmd);
+  install_element (CONFIG_NODE, &no_access_list_extended_any_mask_cmd);
+  install_element (CONFIG_NODE, &no_access_list_extended_mask_any_cmd);
+  install_element (CONFIG_NODE, &no_access_list_extended_any_any_cmd);
+  install_element (CONFIG_NODE, &no_access_list_extended_host_mask_cmd);
+  install_element (CONFIG_NODE, &no_access_list_extended_mask_host_cmd);
+  install_element (CONFIG_NODE, &no_access_list_extended_host_host_cmd);
+  install_element (CONFIG_NODE, &no_access_list_extended_any_host_cmd);
+  install_element (CONFIG_NODE, &no_access_list_extended_host_any_cmd);
+
+  install_element (CONFIG_NODE, &access_list_remark_cmd);
   install_element (CONFIG_NODE, &no_access_list_all_cmd);
   install_element (CONFIG_NODE, &no_access_list_remark_cmd);
   install_element (CONFIG_NODE, &no_access_list_remark_arg_cmd);
@@ -1193,7 +1985,7 @@ struct cmd_node access_ipv6_node =
 int
 config_write_access_ipv6 (struct vty *vty)
 {
-  return config_write_access_afi (AFI_IP6, vty);
+  return config_write_access (vty, AFI_IP6);
 }
 
 void
@@ -1230,12 +2022,18 @@ access_list_init_ipv6 ()
 {
   install_node (&access_ipv6_node, config_write_access_ipv6);
 
-  install_element (CONFIG_NODE, &ipv6_access_list_exact_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_access_list_cmd);
+  install_element (ENABLE_NODE, &show_ipv6_access_list_name_cmd);
+
   install_element (CONFIG_NODE, &ipv6_access_list_cmd);
-  install_element (CONFIG_NODE, &ipv6_access_list_remark_cmd);
+  install_element (CONFIG_NODE, &ipv6_access_list_exact_cmd);
+  install_element (CONFIG_NODE, &ipv6_access_list_any_cmd);
   install_element (CONFIG_NODE, &no_ipv6_access_list_exact_cmd);
   install_element (CONFIG_NODE, &no_ipv6_access_list_cmd);
+  install_element (CONFIG_NODE, &no_ipv6_access_list_any_cmd);
+
   install_element (CONFIG_NODE, &no_ipv6_access_list_all_cmd);
+  install_element (CONFIG_NODE, &ipv6_access_list_remark_cmd);
   install_element (CONFIG_NODE, &no_ipv6_access_list_remark_cmd);
   install_element (CONFIG_NODE, &no_ipv6_access_list_remark_arg_cmd);
 }

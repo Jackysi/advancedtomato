@@ -1,4 +1,4 @@
-/* $Id: display7seg.c,v 1.1.1.4 2003/10/14 08:08:35 sparq Exp $
+/* $Id: display7seg.c,v 1.5 2001/10/08 22:19:51 davem Exp $
  *
  * display7seg - Driver implementation for the 7-segment display
  * present on Sun Microsystems CP1400 and CP1500
@@ -198,6 +198,7 @@ ebus_done:
 	if (0 != iTmp) {
 		printk("%s: unable to acquire miscdevice minor %i\n",
 		       D7S_DEVNAME, D7S_MINOR);
+		iounmap(d7s_regs);
 		return iTmp;
 	}
 

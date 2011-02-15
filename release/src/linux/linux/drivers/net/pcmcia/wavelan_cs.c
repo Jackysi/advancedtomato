@@ -448,7 +448,7 @@ fee_read(u_long		base,	/* i/o port of the card */
     }
 }
 
-#ifdef WIRELESS_EXT	    /* If wireless extension exist in the kernel */
+#ifdef WIRELESS_EXT	/* If wireless extension exist in the kernel */
 
 /*------------------------------------------------------------------*/
 /*
@@ -465,8 +465,8 @@ fee_write(u_long	base,	/* i/o port of the card */
 {
   b += n;		/* Position at the end of the area */
 
-#ifdef EEPROM_IS_PROTECTED	    /* disabled */
-#ifdef DOESNT_SEEM_TO_WORK	    /* disabled */
+#ifdef EEPROM_IS_PROTECTED	/* disabled */
+#ifdef DOESNT_SEEM_TO_WORK	/* disabled */
   /* Ask to read the protected register */
   mmc_out(base, mmwoff(0, mmw_fee_ctrl), MMW_FEE_CTRL_PRREAD);
 
@@ -487,7 +487,7 @@ fee_write(u_long	base,	/* i/o port of the card */
   /* Unprotect area */
   mmc_out(base, mmwoff(0, mmw_fee_addr), o + n);
   mmc_out(base, mmwoff(0, mmw_fee_ctrl), MMW_FEE_CTRL_PRWRITE);
-#ifdef DOESNT_SEEM_TO_WORK	    /* disabled */
+#ifdef DOESNT_SEEM_TO_WORK	/* disabled */
   /* Or use : */
   mmc_out(base, mmwoff(0, mmw_fee_ctrl), MMW_FEE_CTRL_PRCLEAR);
 #endif	/* DOESNT_SEEM_TO_WORK */
@@ -525,7 +525,7 @@ fee_write(u_long	base,	/* i/o port of the card */
 
   fee_wait(base, 10, 100);
 
-#ifdef EEPROM_IS_PROTECTED	    /* disabled */
+#ifdef EEPROM_IS_PROTECTED	/* disabled */
   /* Reprotect EEprom */
   mmc_out(base, mmwoff(0, mmw_fee_addr), 0x00);
   mmc_out(base, mmwoff(0, mmw_fee_ctrl), MMW_FEE_CTRL_PRWRITE);
@@ -537,7 +537,7 @@ fee_write(u_long	base,	/* i/o port of the card */
 
 /******************* WaveLAN Roaming routines... ********************/
 
-#ifdef WAVELAN_ROAMING	    /* Conditional compile, see wavelan_cs.h */
+#ifdef WAVELAN_ROAMING	/* Conditional compile, see wavelan_cs.h */
 
 unsigned char WAVELAN_BEACON_ADDRESS[]= {0x09,0x00,0x0e,0x20,0x03,0x00};
   
@@ -577,6 +577,7 @@ void wv_roam_cleanup(struct net_device *dev)
   
   printk(KERN_DEBUG "WaveLAN: Roaming Disabled on device %s\n",dev->name);
   
+  /* Fixme : maybe we should check that the timer exist before deleting it */
   del_timer(&lp->cell_timer);          /* Remove cell expiry timer       */
   ptr=lp->wavepoint_table.head;        /* Clear device's WavePoint table */
   while(ptr!=NULL)
@@ -706,7 +707,7 @@ void wl_cell_expiry(unsigned long data)
   
   while(wavepoint!=NULL)
     {
-      if(wavepoint->last_seen < jiffies-CELL_TIMEOUT)
+      if(time_after(jiffies, wavepoint->last_seen + CELL_TIMEOUT))
 	{
 #ifdef WAVELAN_ROAMING_DEBUG
 	  printk(KERN_DEBUG "WaveLAN: Bye bye %.4X\n",wavepoint->nwid);
@@ -1193,7 +1194,7 @@ wv_mmc_show(device *	dev)
   mmc_read(base, 0, (u_char *)&m, sizeof(m));
   mmc_out(base, mmwoff(0, mmw_freeze), 0);
 
-#ifdef WIRELESS_EXT	    /* If wireless extension exist in the kernel */
+#ifdef WIRELESS_EXT	/* If wireless extension exist in the kernel */
   /* Don't forget to update statistics */
   lp->wstats.discard.nwid += (m.mmr_wrong_nwid_h << 8) | m.mmr_wrong_nwid_l;
 #endif	/* WIRELESS_EXT */
@@ -1584,7 +1585,7 @@ wavelan_set_mac_address(device *	dev,
 }
 #endif	/* SET_MAC_ADDRESS */
 
-#ifdef WIRELESS_EXT	    /* If wireless extension exist in the kernel */
+#ifdef WIRELESS_EXT	/* If wireless extension exist in the kernel */
 
 /*------------------------------------------------------------------*/
 /*
@@ -1889,25 +1890,16 @@ wl_his_gather(device *	dev,
 }
 #endif	/* HISTOGRAM */
 
-static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
+
+static void netdev_get_drvinfo(struct net_device *dev,
+			       struct ethtool_drvinfo *info)
 {
-	u32 ethcmd;
-		
-	if (copy_from_user(&ethcmd, useraddr, sizeof(ethcmd)))
-		return -EFAULT;
-	
-	switch (ethcmd) {
-	case ETHTOOL_GDRVINFO: {
-		struct ethtool_drvinfo info = {ETHTOOL_GDRVINFO};
-		strncpy(info.driver, "wavelan_cs", sizeof(info.driver)-1);
-		if (copy_to_user(useraddr, &info, sizeof(info)))
-			return -EFAULT;
-		return 0;
-	}
-	}
-	
-	return -EOPNOTSUPP;
+	strcpy(info->driver, "wavelan_cs");
 }
+
+static struct ethtool_ops netdev_ethtool_ops = {
+	.get_drvinfo		= netdev_get_drvinfo,
+};
 
 /*------------------------------------------------------------------*/
 /*
@@ -1930,9 +1922,6 @@ wavelan_ioctl(struct net_device *	dev,	/* Device on wich the ioctl apply */
 #ifdef DEBUG_IOCTL_TRACE
   printk(KERN_DEBUG "%s: ->wavelan_ioctl(cmd=0x%X)\n", dev->name, cmd);
 #endif
-
-  if (cmd == SIOCETHTOOL)
-    return netdev_ethtool_ioctl(dev, (void *) rq->ifr_data);
 
   /* Disable interrupts & save flags */
   wv_splhi(lp, &flags);
@@ -3343,8 +3332,17 @@ wv_ru_start(device *	dev)
   /* Reset ring management.  This sets the receive frame pointer to 1 */
   outb(OP1_RESET_RING_MNGMT, LCCR(base));
 
+#if 0
+  /* XXX the i82593 manual page 6-4 seems to indicate that the stop register
+     should be set as below */
+  /* outb(CR1_STOP_REG_UPDATE|((RX_SIZE - 0x40)>> RX_SIZE_SHIFT),LCCR(base));*/
+#elif 0
+  /* but I set it 0 instead */
+  lp->stop = 0;
+#else
   /* but I set it to 3 bytes per packet less than 8K */
   lp->stop = (0 + RX_SIZE - ((RX_SIZE / 64) * 3)) % RX_SIZE;
+#endif
   outb(CR1_STOP_REG_UPDATE | (lp->stop >> RX_SIZE_SHIFT), LCCR(base));
   outb(OP1_INT_ENABLE, LCCR(base));
   outb(OP1_SWIT_TO_PORT_0, LCCR(base));
@@ -4553,10 +4551,11 @@ wavelan_attach(void)
   dev->tx_timeout	= &wavelan_watchdog;
   dev->watchdog_timeo	= WATCHDOG_JIFFIES;
 
-#ifdef WIRELESS_EXT	    /* If wireless extension exist in the kernel */
+#ifdef WIRELESS_EXT	/* If wireless extension exist in the kernel */
   dev->do_ioctl = wavelan_ioctl;	/* wireless extensions */
   dev->get_wireless_stats = wavelan_get_wireless_stats;
 #endif
+  SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
 
   /* Other specific data */
   dev->mtu = WAVELAN_MTU;

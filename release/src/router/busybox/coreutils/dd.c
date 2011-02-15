@@ -29,24 +29,57 @@ static const struct suffix_mult dd_suffixes[] = {
 	{ "M", 1048576 },
 	{ "GD", 1000000000 },
 	{ "G", 1073741824 },
-	{ }
+	{ "", 0 }
 };
 
 struct globals {
 	off_t out_full, out_part, in_full, in_part;
-};
+#if ENABLE_FEATURE_DD_THIRD_STATUS_LINE
+	unsigned long long total_bytes;
+	unsigned long long begin_time_us;
+#endif
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
-/* We have to zero it out because of NOEXEC */
-#define INIT_G() memset(&G, 0, sizeof(G))
+#define INIT_G() do { \
+	/* we have to zero it out because of NOEXEC */ \
+	memset(&G, 0, sizeof(G)); \
+} while (0)
 
 
 static void dd_output_status(int UNUSED_PARAM cur_signal)
 {
+#if ENABLE_FEATURE_DD_THIRD_STATUS_LINE
+	double seconds;
+	unsigned long long bytes_sec;
+	unsigned long long now_us = monotonic_us(); /* before fprintf */
+#endif
+
 	/* Deliberately using %u, not %d */
 	fprintf(stderr, "%"OFF_FMT"u+%"OFF_FMT"u records in\n"
 			"%"OFF_FMT"u+%"OFF_FMT"u records out\n",
 			G.in_full, G.in_part,
 			G.out_full, G.out_part);
+
+#if ENABLE_FEATURE_DD_THIRD_STATUS_LINE
+	fprintf(stderr, "%llu bytes (%sB) copied, ",
+			G.total_bytes,
+			/* show fractional digit, use suffixes */
+			make_human_readable_str(G.total_bytes, 1, 0)
+	);
+	/* Corner cases:
+	 * ./busybox dd </dev/null >/dev/null
+	 * ./busybox dd bs=1M count=2000 </dev/zero >/dev/null
+	 * (echo DONE) | ./busybox dd >/dev/null
+	 * (sleep 1; echo DONE) | ./busybox dd >/dev/null
+	 */
+	seconds = (now_us - G.begin_time_us) / 1000000.0;
+	bytes_sec = G.total_bytes / seconds;
+	fprintf(stderr, "%f seconds, %sB/s\n",
+			seconds,
+			/* show fractional digit, use suffixes */
+			make_human_readable_str(bytes_sec, 1, 0)
+	);
+#endif
 }
 
 static ssize_t full_write_or_warn(const void *buf, size_t len,
@@ -68,13 +101,16 @@ static bool write_and_stats(const void *buf, size_t len, size_t obs,
 		G.out_full++;
 	else if (n) /* > 0 */
 		G.out_part++;
+#if ENABLE_FEATURE_DD_THIRD_STATUS_LINE
+	G.total_bytes += n;
+#endif
 	return 0;
 }
 
 #if ENABLE_LFS
-#define XATOU_SFX xatoull_sfx
+# define XATOU_SFX xatoull_sfx
 #else
-#define XATOU_SFX xatoul_sfx
+# define XATOU_SFX xatoul_sfx
 #endif
 
 int dd_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
@@ -153,11 +189,7 @@ int dd_main(int argc UNUSED_PARAM, char **argv)
 
 	memset(&Z, 0, sizeof(Z));
 	INIT_G();
-	//fflush(NULL); - is this needed because of NOEXEC?
-
-#if ENABLE_FEATURE_DD_SIGNAL_HANDLING
-	signal_SA_RESTART_empty_mask(SIGUSR1, dd_output_status);
-#endif
+	//fflush_all(); - is this needed because of NOEXEC?
 
 	for (n = 1; argv[n]; n++) {
 		int what;
@@ -244,6 +276,14 @@ int dd_main(int argc UNUSED_PARAM, char **argv)
 		flags |= FLAG_TWOBUFS;
 		obuf = xmalloc(obs);
 	}
+
+#if ENABLE_FEATURE_DD_SIGNAL_HANDLING
+	signal_SA_RESTART_empty_mask(SIGUSR1, dd_output_status);
+#endif
+#if ENABLE_FEATURE_DD_THIRD_STATUS_LINE
+	G.begin_time_us = monotonic_us();
+#endif
+
 	if (infile != NULL)
 		xmove_fd(xopen(infile, O_RDONLY), ifd);
 	else {
@@ -261,9 +301,12 @@ int dd_main(int argc UNUSED_PARAM, char **argv)
 			if (ftruncate(ofd, seek * obs) < 0) {
 				struct stat st;
 
-				if (fstat(ofd, &st) < 0 || S_ISREG(st.st_mode) ||
-						S_ISDIR(st.st_mode))
+				if (fstat(ofd, &st) < 0
+				 || S_ISREG(st.st_mode)
+				 || S_ISDIR(st.st_mode)
+				) {
 					goto die_outfile;
+				}
 			}
 		}
 	} else {
@@ -286,23 +329,26 @@ int dd_main(int argc UNUSED_PARAM, char **argv)
 	}
 
 	while (!(flags & FLAG_COUNT) || (G.in_full + G.in_part != count)) {
-		if (flags & FLAG_NOERROR) /* Pre-zero the buffer if conv=noerror */
-			memset(ibuf, 0, ibs);
 		n = safe_read(ifd, ibuf, ibs);
 		if (n == 0)
 			break;
 		if (n < 0) {
+			/* "Bad block" */
 			if (!(flags & FLAG_NOERROR))
 				goto die_infile;
-			n = ibs;
 			bb_simple_perror_msg(infile);
+			/* GNU dd with conv=noerror skips over bad blocks */
+			xlseek(ifd, ibs, SEEK_CUR);
+			/* conv=noerror,sync writes NULs,
+			 * conv=noerror just ignores input bad blocks */
+			n = 0;
 		}
 		if ((size_t)n == ibs)
 			G.in_full++;
 		else {
 			G.in_part++;
 			if (flags & FLAG_SYNC) {
-				memset(ibuf + n, '\0', ibs - n);
+				memset(ibuf + n, 0, ibs - n);
 				n = ibs;
 			}
 		}

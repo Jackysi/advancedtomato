@@ -15,9 +15,6 @@ SECTIONS {
 		*(.rdata.*)
 		*(.rodata)
 		*(.rodata.*)
-		_rstart = .;
-		*(.textini.*)
-		. = ALIGN(16);
 		_etext = .;
 		text_end = .;
 	}
@@ -25,8 +22,6 @@ SECTIONS {
 	.data : {
 		data_start = .;
 		_fdata = .;
-		*(.dataini.*)
-		_rend = .;
 		*(.data)
 		*(.data.*)
 		*(.sdata)
@@ -43,6 +38,19 @@ SECTIONS {
 		*(.bss.*)
 		*(COMMON)
 		bss_end = .;
+	}
+
+	.textrc : {
+		_rstart = .;
+		*(.textini.*)
+		. = ALIGN(16);
+		_retext = .;
+	}
+
+	.datarc : {
+		*(.dataini.*)
+		. = ALIGN(4);
+		_rend = .;
 	}
 	_end = .;
 }

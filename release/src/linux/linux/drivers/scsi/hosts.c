@@ -41,7 +41,7 @@
 #include "hosts.h"
 
 /*
-static const char RCSid[] = "$Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/scsi/hosts.c,v 1.1.1.2 2003/10/14 08:08:39 sparq Exp $";
+static const char RCSid[] = "$Header: /vger/u4/cvs/linux/drivers/scsi/hosts.c,v 1.20 1996/12/12 19:18:32 davem Exp $";
 */
 
 /*
@@ -81,8 +81,8 @@ Scsi_Host_Name * scsi_host_no_list;
 struct Scsi_Host * scsi_hostlist;
 struct Scsi_Device_Template * scsi_devicelist;
 
-int max_scsi_hosts;
-int next_scsi_host;
+int max_scsi_hosts;	/* host_no for next new host */
+int next_scsi_host;	/* count of registered scsi hosts */
 
 void
 scsi_unregister(struct Scsi_Host * sh){
@@ -107,21 +107,8 @@ scsi_unregister(struct Scsi_Host * sh){
     if (shn) shn->host_registered = 0;
     /* else {} : This should not happen, we should panic here... */
     
-    /* If we are removing the last host registered, it is safe to reuse
-     * its host number (this avoids "holes" at boot time) (DB) 
-     * It is also safe to reuse those of numbers directly below which have
-     * been released earlier (to avoid some holes in numbering).
-     */
-    if(sh->host_no == max_scsi_hosts - 1) {
-	while(--max_scsi_hosts >= next_scsi_host) {
-	    shpnt = scsi_hostlist;
-	    while(shpnt && shpnt->host_no != max_scsi_hosts - 1)
-		shpnt = shpnt->next;
-	    if(shpnt)
-		break;
-	}
-    }
     next_scsi_host--;
+
     kfree((char *) sh);
 }
 

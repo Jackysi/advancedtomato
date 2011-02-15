@@ -224,7 +224,7 @@ typedef enum { AUTH_NONE, AUTH_OK, AUTH_BAD } auth_t;
 static auth_t auth_check(const char *authorization)
 {
 	char buf[512];
-	const char *p;
+	const char *u, *p;
 	char* pass;
 	int len;
 
@@ -234,9 +234,10 @@ static auth_t auth_check(const char *authorization)
 			buf[len] = 0;
 			if ((pass = strchr(buf, ':')) != NULL) {
 				*pass++ = 0;
-				if ((strcmp(buf, "admin") == 0) || (strcmp(buf, "root") == 0)) {
-					p = nvram_get("http_passwd");
-					if (strcmp(pass, ((p == NULL) || (*p == 0)) ? "admin" : p) == 0) {
+				if (((u = nvram_get("http_username")) == NULL) || (*u == 0)) u = "admin";
+				if ((strcmp(buf, "root") == 0) || (strcmp(buf, u) == 0)) {
+					if (((p = nvram_get("http_passwd")) == NULL) || (*p == 0)) p = "admin";
+					if (strcmp(pass, p) == 0) {
 						return AUTH_OK;
 					}
 				}
@@ -255,6 +256,12 @@ static void auth_fail(int clen)
 	send_authenticate();
 }
 
+static int check_wif(int idx, int unit, int subunit, void *param)
+{
+	sta_info_t *sti = param;
+	return (wl_ioctl(nvram_safe_get(wl_nvname("ifname", unit, subunit)), WLC_GET_VAR, sti, sizeof(*sti)) == 0);
+}
+
 int check_wlaccess(void)
 {
 	char mac[32];
@@ -266,7 +273,7 @@ int check_wlaccess(void)
 			memset(&sti, 0, sizeof(sti));
 			strcpy((char *)&sti, "sta_info");	// sta_info0<mac>
 			ether_atoe(mac, (char *)&sti + 9);
-			if (wl_ioctl(nvram_safe_get("wl_ifname"), WLC_GET_VAR, &sti, sizeof(sti)) == 0) {
+			if (foreach_wif(1, &sti, check_wif)) {
 				if (nvram_match("debug_logwlac", "1")) {
 					syslog(LOG_WARNING, "Wireless access from %s blocked.", mac);
 				}
@@ -405,6 +412,7 @@ static void handle_request(void)
 
 	if ((cp = strchr(file, '?')) != NULL) {
 		*cp = 0;
+		setenv("QUERY_STRING", cp + 1, 1);
 		webcgi_init(cp + 1);
 	}
 
@@ -566,10 +574,14 @@ static void handle_request(void)
 }
 
 #ifdef TCONFIG_HTTPS
+
+#define HTTPS_CRT_VER	"1"
+
 static void save_cert(void)
 {
 	if (eval("tar", "-C", "/", "-czf", "/tmp/cert.tgz", "etc/cert.pem", "etc/key.pem") == 0) {
 		if (nvram_set_file("https_crt_file", "/tmp/cert.tgz", 8192)) {
+			nvram_set("crt_ver", HTTPS_CRT_VER);
 			nvram_commit_x();
 		}
 	}
@@ -602,7 +614,7 @@ static void start_ssl(void)
 
 		if ((!f_exists("/etc/cert.pem")) || (!f_exists("/etc/key.pem"))) {
 			ok = 0;
-			if (save) {
+			if (save && nvram_match("crt_ver", HTTPS_CRT_VER)) {
 				if (nvram_get_file("https_crt_file", "/tmp/cert.tgz", 8192)) {
 					if (eval("tar", "-xzf", "/tmp/cert.tgz", "-C", "/", "etc/cert.pem", "etc/key.pem") == 0)
 						ok = 1;
@@ -616,7 +628,7 @@ static void start_ssl(void)
 				// browsers seems to like this when the ip address moves...	-- zzz
 				f_read("/dev/urandom", &sn, sizeof(sn));
 
-				sprintf(t, "%llu", sn & 0x7FFFFFFFFFFFFFFFUL);
+				sprintf(t, "%llu", sn & 0x7FFFFFFFFFFFFFFFULL);
 				eval("gencert.sh", t);
 			}
 		}
@@ -625,7 +637,7 @@ static void start_ssl(void)
 			save_cert();
 		}
 
-		if (ssl_init("/etc/cert.pem", "/etc/key.pem")) return;
+		if (mssl_init("/etc/cert.pem", "/etc/key.pem")) return;
 
 		erase_cert();
 
@@ -787,7 +799,7 @@ int main(int argc, char **argv)
 	struct sockaddr_in	sai;
 	sai.sin_family = AF_INET;
 	sai.sin_port = htons(server_port);
-	sai.sin_addr.s_addr = INADDR_ANY;
+	sai.sin_addr.s_addr = inet_addr(nvram_get("lan_ipaddr"));
 	if (bind(listenfd, (struct sockaddr *)&sai, sizeof(sai)) < 0) {
 		syslog(LOG_ERR, "bind: %m");
 		return 1;

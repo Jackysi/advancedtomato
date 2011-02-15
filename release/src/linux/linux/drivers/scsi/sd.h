@@ -12,7 +12,7 @@
 #ifndef _SD_H
 #define _SD_H
 /*
-   $Header: /home/cvsroot/wrt54g/src/linux/linux/drivers/scsi/sd.h,v 1.1.1.2 2003/10/14 08:08:42 sparq Exp $
+   $Header: /usr/src/linux/kernel/blk_drv/scsi/RCS/sd.h,v 1.1 1992/07/24 06:27:38 root Exp root $
  */
 
 #ifndef _SCSI_H
@@ -26,6 +26,8 @@
 typedef struct scsi_disk {
 	unsigned capacity;	/* size in blocks */
 	Scsi_Device *device;
+        unsigned long idle;     /* idle time in jiffies */
+        unsigned char spindown; /* is down */
 	unsigned char ready;	/* flag ready for FLOPTICAL */
 	unsigned char write_prot;	/* flag write_protect for rmvable dev */
 	unsigned char sector_bit_size;	/* sector_size = 2 to the  bit size power */

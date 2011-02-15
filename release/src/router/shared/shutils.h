@@ -114,7 +114,9 @@ static inline char * strcat_r(const char *s1, const char *s2, char *buf)
 }	
 
 /* Check for a blank character; that is, a space or a tab */
+#ifndef isblank
 #define isblank(c) ((c) == ' ' || (c) == '\t')
+#endif
 
 /* Strip trailing CR/NL from string <s> */
 #define chomp(s) ({ \
@@ -227,6 +229,8 @@ extern int remove_from_list(const char *name, char *list, int listsize);
 extern int add_to_list(const char *name, char *list, int listsize);
 
 extern char *find_in_list(const char *haystack, const char *needle);
+
+extern char *remove_dups(char *inlist, int inlist_size);
 
 extern int nvifname_to_osifname(const char *nvifname, char *osifname_buf,
                                 int osifname_buf_len);

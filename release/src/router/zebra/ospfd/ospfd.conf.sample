@@ -2,7 +2,6 @@
 !
 ! OSPFd sample configuration file
 !
-!
 hostname ospfd
 password zebra
 !enable password please-set-at-here

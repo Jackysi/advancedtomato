@@ -20,7 +20,7 @@
 
 #endif				/* __KERNEL__ */
 
-#include "befs_fs.h"
+#include "befs.h"
 #include "endian.h"
 
 #define ERRBUFSIZE 1024

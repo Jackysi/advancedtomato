@@ -1,15 +1,22 @@
 include ../common.mak
 
-CFLAGS = -O2 -Wall
+CFLAGS = -Os -Wall $(EXTRACFLAGS)
 CFLAGS += -I$(SRCBASE) -I$(SRCBASE)/include -I. -I$(TOP)/shared
 
 OBJS = httpd.o cgi.o tomato.o version.o 
 OBJS += misc.o dhcp.o upgrade.o traceping.o parser.o upnp.o ctnf.o
 OBJS += nvram.o log.o webio.o wl.o devlist.o ddns.o config.o bwm.o
-OBJS += blackhole.o
+OBJS += blackhole.o utf8.o
+ifeq ($(TCONFIG_USB),y)
+OBJS += usb.o
+endif
 
-LIBS = -L../nvram -lnvram -L../shared -lshared
-LIBS += -L../mssl -lmssl
+LIBS = -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared
+LIBS += -L$(TOP)/mssl -lmssl
+
+ifeq ($(TCONFIG_OPENVPN),y)
+LIBS += -L$(TOP)/openssl -lssl -lcrypto
+endif
 
 all: httpd
 
@@ -23,8 +30,9 @@ httpd: $(OBJS)
 
 install:
 	@echo " [httpd] Installing to $(INSTALLDIR)"
-	@install -m 0500 -D httpd $(INSTALLDIR)/usr/sbin/httpd
+	@install -D httpd $(INSTALLDIR)/usr/sbin/httpd
 	@$(STRIP) $(INSTALLDIR)/usr/sbin/httpd
+	@chmod 0500 $(INSTALLDIR)/usr/sbin/httpd
 
 clean:
 	rm -f httpd *.o .*.depend

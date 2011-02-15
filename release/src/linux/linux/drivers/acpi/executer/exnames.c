@@ -2,36 +2,53 @@
 /******************************************************************************
  *
  * Module Name: exnames - interpreter/scanner name load/execute
- *              $Revision: 1.1.1.2 $
  *
  *****************************************************************************/
 
 /*
- *  Copyright (C) 2000, 2001 R. Byron Moore
+ * Copyright (C) 2000 - 2004, R. Byron Moore
+ * All rights reserved.
  *
- *  This program is free software; you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
- *  the Free Software Foundation; either version 2 of the License, or
- *  (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions, and the following disclaimer,
+ *    without modification.
+ * 2. Redistributions in binary form must reproduce at minimum a disclaimer
+ *    substantially similar to the "NO WARRANTY" disclaimer below
+ *    ("Disclaimer") and any redistribution must be conditioned upon
+ *    including a substantially similar Disclaimer requirement for further
+ *    binary redistribution.
+ * 3. Neither the names of the above-listed copyright holders nor the names
+ *    of any contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
  *
- *  This program is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
+ * Alternatively, this software may be distributed under the terms of the
+ * GNU General Public License ("GPL") version 2 as published by the Free
+ * Software Foundation.
  *
- *  You should have received a copy of the GNU General Public License
- *  along with this program; if not, write to the Free Software
- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * NO WARRANTY
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR
+ * A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+ * HOLDERS OR CONTRIBUTORS BE LIABLE FOR SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+ * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * POSSIBILITY OF SUCH DAMAGES.
  */
 
 
-#include "acpi.h"
-#include "acinterp.h"
-#include "amlcode.h"
-#include "acnamesp.h"
+#include <acpi/acpi.h>
+#include <acpi/acinterp.h>
+#include <acpi/amlcode.h>
 
 #define _COMPONENT          ACPI_EXECUTER
-	 MODULE_NAME         ("exnames")
+	 ACPI_MODULE_NAME    ("exnames")
 
 
 /* AML Package Length encodings */
@@ -44,11 +61,11 @@
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_allocate_name_string
+ * FUNCTION:    acpi_ex_allocate_name_string
  *
- * PARAMETERS:  Prefix_count        - Count of parent levels. Special cases:
+ * PARAMETERS:  prefix_count        - Count of parent levels. Special cases:
  *                                    (-1) = root,  0 = none
- *              Num_name_segs       - count of 4-character name segments
+ *              num_name_segs       - count of 4-character name segments
  *
  * RETURN:      A pointer to the allocated string segment.  This segment must
  *              be deleted by the caller.
@@ -58,24 +75,24 @@
  *
  ******************************************************************************/
 
-NATIVE_CHAR *
+char *
 acpi_ex_allocate_name_string (
-	u32                     prefix_count,
-	u32                     num_name_segs)
+	u32                             prefix_count,
+	u32                             num_name_segs)
 {
-	NATIVE_CHAR             *temp_ptr;
-	NATIVE_CHAR             *name_string;
-	u32                      size_needed;
+	char                            *temp_ptr;
+	char                            *name_string;
+	u32                              size_needed;
 
-	FUNCTION_TRACE ("Ex_allocate_name_string");
+	ACPI_FUNCTION_TRACE ("ex_allocate_name_string");
 
 
 	/*
-	 * Allow room for all \ and ^ prefixes, all segments, and a Multi_name_prefix.
+	 * Allow room for all \ and ^ prefixes, all segments, and a multi_name_prefix.
 	 * Also, one byte for the null terminator.
 	 * This may actually be somewhat longer than needed.
 	 */
-	if (prefix_count == (u32) -1) {
+	if (prefix_count == ACPI_UINT32_MAX) {
 		/* Special case for root */
 
 		size_needed = 1 + (ACPI_NAME_SIZE * num_name_segs) + 2 + 1;
@@ -90,7 +107,7 @@ acpi_ex_allocate_name_string (
 	 */
 	name_string = ACPI_MEM_ALLOCATE (size_needed);
 	if (!name_string) {
-		REPORT_ERROR (("Ex_allocate_name_string: Could not allocate size %d\n", size_needed));
+		ACPI_REPORT_ERROR (("ex_allocate_name_string: Could not allocate size %d\n", size_needed));
 		return_PTR (NULL);
 	}
 
@@ -98,10 +115,9 @@ acpi_ex_allocate_name_string (
 
 	/* Set up Root or Parent prefixes if needed */
 
-	if (prefix_count == (u32) -1) {
+	if (prefix_count == ACPI_UINT32_MAX) {
 		*temp_ptr++ = AML_ROOT_PREFIX;
 	}
-
 	else {
 		while (prefix_count--) {
 			*temp_ptr++ = AML_PARENT_PREFIX;
@@ -117,7 +133,6 @@ acpi_ex_allocate_name_string (
 		*temp_ptr++ = AML_MULTI_NAME_PREFIX_OP;
 		*temp_ptr++ = (char) num_name_segs;
 	}
-
 	else if (2 == num_name_segs) {
 		/* Set up dual prefixes */
 
@@ -125,7 +140,7 @@ acpi_ex_allocate_name_string (
 	}
 
 	/*
-	 * Terminate string following prefixes. Acpi_ex_name_segment() will
+	 * Terminate string following prefixes. acpi_ex_name_segment() will
 	 * append the segment(s)
 	 */
 	*temp_ptr = 0;
@@ -135,9 +150,9 @@ acpi_ex_allocate_name_string (
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_name_segment
+ * FUNCTION:    acpi_ex_name_segment
  *
- * PARAMETERS:  Interpreter_mode    - Current running mode (load1/Load2/Exec)
+ * PARAMETERS:  interpreter_mode    - Current running mode (load1/Load2/Exec)
  *
  * RETURN:      Status
  *
@@ -147,16 +162,16 @@ acpi_ex_allocate_name_string (
 
 acpi_status
 acpi_ex_name_segment (
-	u8                      **in_aml_address,
-	NATIVE_CHAR             *name_string)
+	u8                              **in_aml_address,
+	char                            *name_string)
 {
-	u8                      *aml_address = *in_aml_address;
-	acpi_status             status = AE_OK;
-	u32                     index;
-	NATIVE_CHAR             char_buf[5];
+	char                            *aml_address = (void *) *in_aml_address;
+	acpi_status                     status = AE_OK;
+	u32                             index;
+	char                            char_buf[5];
 
 
-	FUNCTION_TRACE ("Ex_name_segment");
+	ACPI_FUNCTION_TRACE ("ex_name_segment");
 
 
 	/*
@@ -172,34 +187,32 @@ acpi_ex_name_segment (
 
 	ACPI_DEBUG_PRINT ((ACPI_DB_LOAD, "Bytes from stream:\n"));
 
-	for (index = 4;
-		(index > 0) && (acpi_ut_valid_acpi_character (*aml_address));
-		--index) {
-		char_buf[4 - index] = *aml_address++;
-		ACPI_DEBUG_PRINT ((ACPI_DB_LOAD, "%c\n", char_buf[4 - index]));
+	for (index = 0;
+		(index < ACPI_NAME_SIZE) && (acpi_ut_valid_acpi_character (*aml_address));
+		index++) {
+		char_buf[index] = *aml_address++;
+		ACPI_DEBUG_PRINT ((ACPI_DB_LOAD, "%c\n", char_buf[index]));
 	}
 
 
 	/* Valid name segment  */
 
-	if (0 == index) {
+	if (index == 4) {
 		/* Found 4 valid characters */
 
 		char_buf[4] = '\0';
 
 		if (name_string) {
-			STRCAT (name_string, char_buf);
+			ACPI_STRCAT (name_string, char_buf);
 			ACPI_DEBUG_PRINT ((ACPI_DB_NAMES,
 				"Appended to - %s \n", name_string));
 		}
-
 		else {
 			ACPI_DEBUG_PRINT ((ACPI_DB_NAMES,
 				"No Name string - %s \n", char_buf));
 		}
 	}
-
-	else if (4 == index) {
+	else if (index == 0) {
 		/*
 		 * First character was not a valid name character,
 		 * so we are looking at something other than a name.
@@ -209,7 +222,6 @@ acpi_ex_name_segment (
 			char_buf[0]));
 		status = AE_CTRL_PENDING;
 	}
-
 	else {
 		/* Segment started with one or more valid characters, but fewer than 4 */
 
@@ -218,16 +230,16 @@ acpi_ex_name_segment (
 			*aml_address, aml_address));
 	}
 
-	*in_aml_address = aml_address;
+	*in_aml_address = (u8 *) aml_address;
 	return_ACPI_STATUS (status);
 }
 
 
 /*******************************************************************************
  *
- * FUNCTION:    Acpi_ex_get_name_string
+ * FUNCTION:    acpi_ex_get_name_string
  *
- * PARAMETERS:  Data_type           - Data type to be associated with this name
+ * PARAMETERS:  data_type           - Data type to be associated with this name
  *
  * RETURN:      Status
  *
@@ -235,30 +247,28 @@ acpi_ex_name_segment (
  *
  ******************************************************************************/
 
-
 acpi_status
 acpi_ex_get_name_string (
-	acpi_object_type8       data_type,
-	u8                      *in_aml_address,
-	NATIVE_CHAR             **out_name_string,
-	u32                     *out_name_length)
+	acpi_object_type                data_type,
+	u8                              *in_aml_address,
+	char                            **out_name_string,
+	u32                             *out_name_length)
 {
-	acpi_status             status = AE_OK;
-	u8                      *aml_address = in_aml_address;
-	NATIVE_CHAR             *name_string = NULL;
-	u32                     num_segments;
-	u32                     prefix_count = 0;
-	u8                      prefix = 0;
-	u8                      has_prefix = FALSE;
+	acpi_status                     status = AE_OK;
+	u8                              *aml_address = in_aml_address;
+	char                            *name_string = NULL;
+	u32                             num_segments;
+	u32                             prefix_count = 0;
+	u8                              has_prefix = FALSE;
 
 
-	FUNCTION_TRACE_PTR ("Ex_get_name_string", aml_address);
+	ACPI_FUNCTION_TRACE_PTR ("ex_get_name_string", aml_address);
 
 
-	if (INTERNAL_TYPE_REGION_FIELD == data_type  ||
-		INTERNAL_TYPE_BANK_FIELD == data_type    ||
-		INTERNAL_TYPE_INDEX_FIELD == data_type) {
-		/* Disallow prefixes for types associated with Field_unit names */
+	if (ACPI_TYPE_LOCAL_REGION_FIELD == data_type  ||
+		ACPI_TYPE_LOCAL_BANK_FIELD == data_type    ||
+		ACPI_TYPE_LOCAL_INDEX_FIELD == data_type) {
+		/* Disallow prefixes for types associated with field_unit names */
 
 		name_string = acpi_ex_allocate_name_string (0, 1);
 		if (!name_string) {
@@ -268,24 +278,22 @@ acpi_ex_get_name_string (
 			status = acpi_ex_name_segment (&aml_address, name_string);
 		}
 	}
-
 	else {
 		/*
-		 * Data_type is not a field name.
+		 * data_type is not a field name.
 		 * Examine first character of name for root or parent prefix operators
 		 */
 		switch (*aml_address) {
-
 		case AML_ROOT_PREFIX:
 
-			prefix = *aml_address++;
-			ACPI_DEBUG_PRINT ((ACPI_DB_LOAD, "Root_prefix: %x\n", prefix));
+			ACPI_DEBUG_PRINT ((ACPI_DB_LOAD, "root_prefix(\\) at %p\n", aml_address));
 
 			/*
-			 * Remember that we have a Root_prefix --
-			 * see comment in Acpi_ex_allocate_name_string()
+			 * Remember that we have a root_prefix --
+			 * see comment in acpi_ex_allocate_name_string()
 			 */
-			prefix_count = (u32) -1;
+			aml_address++;
+			prefix_count = ACPI_UINT32_MAX;
 			has_prefix = TRUE;
 			break;
 
@@ -295,17 +303,20 @@ acpi_ex_get_name_string (
 			/* Increment past possibly multiple parent prefixes */
 
 			do {
-				prefix = *aml_address++;
-				ACPI_DEBUG_PRINT ((ACPI_DB_LOAD, "Parent_prefix: %x\n", prefix));
+				ACPI_DEBUG_PRINT ((ACPI_DB_LOAD, "parent_prefix (^) at %p\n", aml_address));
 
-				++prefix_count;
+				aml_address++;
+				prefix_count++;
 
 			} while (*aml_address == AML_PARENT_PREFIX);
+
 			has_prefix = TRUE;
 			break;
 
 
 		default:
+
+			/* Not a prefix character */
 
 			break;
 		}
@@ -314,12 +325,11 @@ acpi_ex_get_name_string (
 		/* Examine first character of name for name segment prefix operator */
 
 		switch (*aml_address) {
-
 		case AML_DUAL_NAME_PREFIX:
 
-			prefix = *aml_address++;
-			ACPI_DEBUG_PRINT ((ACPI_DB_LOAD, "Dual_name_prefix: %x\n", prefix));
+			ACPI_DEBUG_PRINT ((ACPI_DB_LOAD, "dual_name_prefix at %p\n", aml_address));
 
+			aml_address++;
 			name_string = acpi_ex_allocate_name_string (prefix_count, 2);
 			if (!name_string) {
 				status = AE_NO_MEMORY;
@@ -339,12 +349,12 @@ acpi_ex_get_name_string (
 
 		case AML_MULTI_NAME_PREFIX_OP:
 
-			prefix = *aml_address++;
-			ACPI_DEBUG_PRINT ((ACPI_DB_LOAD, "Multi_name_prefix: %x\n", prefix));
+			ACPI_DEBUG_PRINT ((ACPI_DB_LOAD, "multi_name_prefix at %p\n", aml_address));
 
 			/* Fetch count of segments remaining in name path */
 
-			num_segments = *aml_address++;
+			aml_address++;
+			num_segments = *aml_address;
 
 			name_string = acpi_ex_allocate_name_string (prefix_count, num_segments);
 			if (!name_string) {
@@ -354,11 +364,12 @@ acpi_ex_get_name_string (
 
 			/* Indicate that we processed a prefix */
 
+			aml_address++;
 			has_prefix = TRUE;
 
 			while (num_segments &&
 					(status = acpi_ex_name_segment (&aml_address, name_string)) == AE_OK) {
-				--num_segments;
+				num_segments--;
 			}
 
 			break;
@@ -366,10 +377,10 @@ acpi_ex_get_name_string (
 
 		case 0:
 
-			/* Null_name valid as of 8-12-98 ASL/AML Grammar Update */
+			/* null_name valid as of 8-12-98 ASL/AML Grammar Update */
 
-			if (-1 == prefix_count) {
-				ACPI_DEBUG_PRINT ((ACPI_DB_EXEC, "Name_seg is \"\\\" followed by NULL\n"));
+			if (prefix_count == ACPI_UINT32_MAX) {
+				ACPI_DEBUG_PRINT ((ACPI_DB_EXEC, "name_seg is \"\\\" followed by NULL\n"));
 			}
 
 			/* Consume the NULL byte */
@@ -396,19 +407,16 @@ acpi_ex_get_name_string (
 
 			status = acpi_ex_name_segment (&aml_address, name_string);
 			break;
-
-		}   /* Switch (Peek_op ())   */
+		}
 	}
-
 
 	if (AE_CTRL_PENDING == status && has_prefix) {
 		/* Ran out of segments after processing a prefix */
 
-		REPORT_ERROR (
-			("Ex_do_name: Malformed Name at %p\n", name_string));
+		ACPI_REPORT_ERROR (
+			("ex_do_name: Malformed Name at %p\n", name_string));
 		status = AE_AML_BAD_NAME;
 	}
-
 
 	*out_name_string = name_string;
 	*out_name_length = (u32) (aml_address - in_aml_address);

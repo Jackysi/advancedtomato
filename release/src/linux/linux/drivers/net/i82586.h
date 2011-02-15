@@ -259,6 +259,10 @@ struct ac_mcs_t
 {
 	ach_t		mcs_h;
 	unsigned short	mcs_cnt;	/* No. of bytes of MC addresses	*/
+#if 0
+	unsigned char	mcs_data[ADDR_LEN]; /* The first MC address ..	*/
+	...
+#endif
 };
 
 #define I82586_MAX_MULTICAST_ADDRESSES	128	/* Hardware hashed filter */
@@ -271,6 +275,15 @@ struct ac_tx_t
 {
 	ach_t		tx_h;
 	unsigned short	tx_tbd_offset;	/* Address of list of buffers.	*/
+#if	0
+Linux packets are passed down with the destination MAC address
+and length/type field already prepended to the data,
+so we do not need to insert it.  Consistent with this
+we must also set the AC_CFG_ALOC(..) flag during the
+ac_cfg_t action command.
+	unsigned char	tx_addr[ADDR_LEN]; /* The frame dest. address	*/
+	unsigned short	tx_length;	/* The frame length		*/
+#endif	/* 0 */
 };
 
 /*
@@ -377,6 +390,11 @@ struct fd_t
 	unsigned short	fd_rbd_offset;		/* First RBD (data)	*/
 						/* Prepared by CPU,	*/
 						/* updated by 82586	*/
+#if	0
+I think the rest is unused since we
+have set AC_CFG_ALOC(..).  However, just
+in case, we leave the space.
+#endif	/* 0 */
 	unsigned char	fd_dest[ADDR_LEN];	/* Destination address	*/
 						/* Written by 82586	*/
 	unsigned char	fd_src[ADDR_LEN];	/* Source address	*/

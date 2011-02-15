@@ -1,0 +1,25 @@
+DEVPATH is set, ACTION == add {
+	makedev /dev/%DEVICENAME% 0644
+}
+
+MODALIAS is set, ACTION == add {
+	exec /sbin/modprobe -q %MODALIAS% ;
+}
+
+SUBSYSTEM == usb, DEVICENAME ~~ ^(lp[0-9]+)$, DEVPATH is set, ACTION == add {
+	exec mkdir -p -m 0777 /dev/usb ;
+	symlink /dev/%DEVICENAME% /dev/usb/%DEVICENAME%
+}
+
+SUBSYSTEM ~~ ^(block|net|usb)$, ACTION == add {
+	exec /sbin/hotplug %SUBSYSTEM% ;
+}
+
+SUBSYSTEM ~~ ^(block|net|usb)$, ACTION == remove {
+	exec /sbin/hotplug %SUBSYSTEM% ;
+}
+
+SUBSYSTEM == misc, DEVICENAME ~~ ^(tun|tap)$, DEVPATH is set, ACTION == add {
+	exec mkdir -p -m 0777 /dev/net ;
+	symlink /dev/%DEVICENAME% /dev/net/%DEVICENAME%
+}

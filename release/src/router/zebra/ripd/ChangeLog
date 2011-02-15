@@ -1,3 +1,43 @@
+2004-05-17  "Michele 'mydecay' Marchetto" <smarchetto1@tin.it>
+
+	* ripd.c (rip_rte_process): Fix nexthop and tag reflection bug.
+
+2004-02-02  Stephan Schweizer <stephan.schweizer@zurich.com>
+
+	* Set UDP receive buffer to large size.
+
+2003-05-18  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* ripd.h (RIP_PACKET_MAXSIZ): Increase size to 524 to avoid some
+	implemetation's RIP message size bug.  Reported by: Vladimir
+	Ivaschenko <hazard@francoudi.com>
+
+2002-07-07  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* zebra-0.93 released.
+
+2002-06-30  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
+
+	* ripd.c (rip_output_process): When outgoing interface is same as
+	next hop interface, announce RIPv2 next hop otherwise set next hop
+	to 0.  Revert previous change then take 6WIND way.
+
+2001-09-14  Akihiro Mizutani <mizutani@dml.com>
+
+	* ripd.c: RIP enabled interface's route is advertised by default.
+
+2001-08-28  NOGUCHI Kay <kay@v6.access.co.jp>
+
+	* rip_snmp.c (rip_ifaddr_delete): Add route_node_lookup() return
+	value check.
+
+	* rip_interface.c (rip_multicast_leave): Fix bug of multiple IP
+	address on one interface multicast join/leave bug.
+
+2001-08-26  NOGUCHI Kay <kay@v6.access.co.jp>
+
+	* rip_interface.c (no_rip_passive_interface): Add NO_STR.
+
 2001-08-19  Kunihiro Ishiguro  <kunihiro@ipinfusion.com>
 
 	* zebra-0.92a released.

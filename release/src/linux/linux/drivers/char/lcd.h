@@ -37,10 +37,10 @@ struct lcd_display {
 
 #define LCD_DRIVER	"Cobalt LCD Driver v2.10"
 
-#define kLCD_IR		0xBF000000
-#define kLCD_DR		0xBF000010
-#define kGPI            0xBD000000
-#define kLED		0xBC000000
+#define kLCD_IR		0x0F000000
+#define kLCD_DR		0x0F000010
+#define kGPI		0x0D000000
+#define kLED		0x0C000000
 
 #define kDD_R00         0x00
 #define kDD_R01         0x27
@@ -53,7 +53,7 @@ struct lcd_display {
 
 
 // Flash definitions AMD 29F040
-#define kFlashBase      0xBFC00000
+#define kFlashBase	0x0FC00000
 
 #define kFlash_Addr1    0x5555
 #define kFlash_Addr2    0x2AAA
@@ -74,21 +74,21 @@ struct lcd_display {
 
 // Macros
 
-#define LCDWriteData(x)	(*(volatile unsigned long *) kLCD_DR) = (x << 24)
-#define LCDWriteInst(x)	(*(volatile unsigned long *) kLCD_IR) = (x << 24)
+#define LCDWriteData(x)	outl((x << 24), kLCD_DR)
+#define LCDWriteInst(x)	outl((x << 24), kLCD_IR)
 
-#define LCDReadData	(((*(volatile unsigned long *) kLCD_DR) >> 24))
-#define LCDReadInst	(((*(volatile unsigned long *) kLCD_IR) >> 24))
+#define LCDReadData	(inl(kLCD_DR) >> 24)
+#define LCDReadInst	(inl(kLCD_IR) >> 24)
 
-#define GPIRead         (( (*(volatile unsigned long *) kGPI) >> 24))
+#define GPIRead		(inl(kGPI) >> 24)
 
-#define LEDSet(x)	(*(volatile unsigned char *) kLED) = ((char)x)
+#define LEDSet(x)	outb((char)x, kLED)
 
-#define WRITE_GAL(x,y)  (*((volatile unsigned long *) (0xB4000000 | (x)) ) =y)
-#define BusyCheck()     while ((LCDReadInst & 0x80) == 0x80)
+#define WRITE_GAL(x,y)	outl(y, 0x04000000 | (x))
+#define BusyCheck()	while ((LCDReadInst & 0x80) == 0x80)
 
-#define WRITE_FLASH(x,y)  (*((volatile unsigned char *) (kFlashBase | (x)) ) = y)
-#define READ_FLASH(x)     *((volatile unsigned char *) (kFlashBase | (x)) )
+#define WRITE_FLASH(x,y) outb((char)y, kFlashBase | (x))
+#define READ_FLASH(x)	(inb(kFlashBase | (x)))
 
 
 

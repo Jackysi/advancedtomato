@@ -2,6 +2,7 @@
 
 EXTRAS+=libipq/libipq.a
 #CFLAGS+=-DDEBUG_LIBIPTQ
+CFLAGS+=-fPIC
 
 DEVEL_MAN3+=libipq/ipq_create_handle.3 \
 	libipq/ipq_destroy_handle.3 \

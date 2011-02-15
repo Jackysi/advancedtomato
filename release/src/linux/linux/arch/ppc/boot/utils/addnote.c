@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.addnote.c 1.7 05/18/01 15:17:23 cort
- */
-/*
  * Program to hack in a PT_NOTE program header entry in an ELF file.
  * This is needed for OF on RS/6000s to load an image correctly.
  * Note that OF needs a program header entry for the note, not an
@@ -25,6 +22,7 @@ char arch[] = "PowerPC";
 
 #define N_DESCR	6
 unsigned int descr[N_DESCR] = {
+#if 1
 	/* values for IBM RS/6000 machines */
 	0xffffffff,		/* real-mode = true */
 	0x00c00000,		/* real-base, i.e. where we expect OF to be */
@@ -32,6 +30,15 @@ unsigned int descr[N_DESCR] = {
 	0xffffffff,		/* virt-base */
 	0xffffffff,		/* virt-size */
 	0x4000,			/* load-base */
+#else
+	/* values for longtrail CHRP */
+	0,			/* real-mode = false */
+	0xffffffff,		/* real-base */
+	0xffffffff,		/* real-size */
+	0xffffffff,		/* virt-base */
+	0xffffffff,		/* virt-size */
+	0x00600000,		/* load-base */
+#endif
 };
 
 unsigned char buf[512];
@@ -118,6 +125,7 @@ int main(int ac, char **av)
 		ph += ps;
 	}
 
+	/* XXX check that the area we want to use is all zeroes */
 	for (i = 0; i < ps + nnote; ++i)
 		if (buf[ph + i] != 0)
 			goto nospace;
@@ -129,6 +137,7 @@ int main(int ac, char **av)
 	PUT_32BE(ph + PH_FILESZ, nnote);
 
 	/* fill in the note area we point to */
+	/* XXX we should probably make this a proper section */
 	PUT_32BE(ns, strlen(arch) + 1);
 	PUT_32BE(ns + 4, N_DESCR * 4);
 	PUT_32BE(ns + 8, 0x1275);

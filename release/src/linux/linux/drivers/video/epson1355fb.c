@@ -110,6 +110,7 @@ static void e1355_detect(void)
 		printk(KERN_WARNING "Epson 1355 not detected\n");
 	}
 
+	/* XXX */
 	disable_hw_cursor();
 
 	e1355_encode_var(&default_var, NULL, NULL);
@@ -450,6 +451,9 @@ static void e1355_set_disp(const void *unused, struct display *disp,
 	memcpy(&e1355_dispsw, d, sizeof *d);
 
 	/* reading is terribly slow for us */
+#if 0 /* XXX: need to work out why this doesn't work */
+	e1355_dispsw.bmove = fbcon_redraw_bmove;
+#endif
 }
 
 /* ------------ Interfaces to hardware functions ------------ */

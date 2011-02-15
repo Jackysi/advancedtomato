@@ -8,6 +8,7 @@ define_bool CONFIG_ISDN_BOOL y
 if [ "$CONFIG_INET" != "n" ]; then
    bool '  Support synchronous PPP' CONFIG_ISDN_PPP
    if [ "$CONFIG_ISDN_PPP" != "n" ]; then
+      dep_bool     '    PPP filtering for ISDN' CONFIG_IPPP_FILTER $CONFIG_FILTER
       bool         '    Use VJ-compression with synchronous PPP' CONFIG_ISDN_PPP_VJ
       bool         '    Support generic MP (RFC 1717)' CONFIG_ISDN_MPP
       dep_tristate '    Support BSD compression' CONFIG_ISDN_PPP_BSDCOMP $CONFIG_ISDN
@@ -87,8 +88,9 @@ if [ "$CONFIG_ISDN_DRV_HISAX" != "n" ]; then
    dep_tristate 'Sedlbauer PCMCIA cards'                              CONFIG_HISAX_SEDLBAUER_CS  $CONFIG_ISDN_DRV_HISAX $CONFIG_PCMCIA
    dep_tristate 'ELSA PCMCIA MicroLink cards'                         CONFIG_HISAX_ELSA_CS       $CONFIG_ISDN_DRV_HISAX $CONFIG_PCMCIA
    dep_tristate 'AVM A1 PCMCIA cards'                                 CONFIG_HISAX_AVM_A1_CS     $CONFIG_ISDN_DRV_HISAX $CONFIG_PCMCIA $CONFIG_HISAX_AVM_A1_PCMCIA
-   dep_tristate 'ST5481 USB ISDN modem (EXPERIMENTAL)'                CONFIG_HISAX_ST5481        $CONFIG_ISDN_DRV_HISAX $CONFIG_USB    $CONFIG_EXPERIMENTAL
+   dep_tristate 'ST5481 USB ISDN modem (EXPERIMENTAL)'                CONFIG_HISAX_ST5481        $CONFIG_ISDN_DRV_HISAX    $CONFIG_EXPERIMENTAL
    dep_tristate 'AVM Fritz!Card PCI/PCIv2/PnP support (EXPERIMENTAL)' CONFIG_HISAX_FRITZ_PCIPNP  $CONFIG_ISDN_DRV_HISAX                $CONFIG_EXPERIMENTAL
+   dep_tristate 'Auerswald devices ISDN support'                      CONFIG_USB_AUERISDN        $CONFIG_ISDN_DRV_HISAX
 
 fi
 endmenu

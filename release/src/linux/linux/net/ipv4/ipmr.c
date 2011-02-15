@@ -9,7 +9,7 @@
  *	as published by the Free Software Foundation; either version
  *	2 of the License, or (at your option) any later version.
  *
- *	Version: $Id: ipmr.c,v 1.2 2004/04/28 07:34:04 kanki Exp $
+ *	Version: $Id: ipmr.c,v 1.65 2001/10/31 21:55:54 davem Exp $
  *
  *	Fixes:
  *	Michael Chastain	:	Incorrect size of copying.
@@ -290,6 +290,7 @@ static int vif_delete(int vifi)
 static void ipmr_destroy_unres(struct mfc_cache *c)
 {
 	struct sk_buff *skb;
+	struct nlmsgerr *e;
 
 	atomic_dec(&cache_resolve_queue_len);
 
@@ -299,7 +300,9 @@ static void ipmr_destroy_unres(struct mfc_cache *c)
 			nlh->nlmsg_type = NLMSG_ERROR;
 			nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct nlmsgerr));
 			skb_trim(skb, nlh->nlmsg_len);
-			((struct nlmsgerr*)NLMSG_DATA(nlh))->error = -ETIMEDOUT;
+			e = NLMSG_DATA(nlh);
+			e->error = -ETIMEDOUT;
+			memset(&e->msg, 0, sizeof(e->msg));
 			netlink_unicast(rtnl, skb, NETLINK_CB(skb).dst_pid, MSG_DONTWAIT);
 		} else
 			kfree_skb(skb);
@@ -451,7 +454,7 @@ static int vif_add(struct vifctl *vifc, int mrtsock)
 }
 
 static struct mfc_cache *ipmr_cache_find(__u32 origin, __u32 mcastgrp)
-{	
+{
 	struct mfc_cache *c;
 	int line;
 	
@@ -495,6 +498,7 @@ static struct mfc_cache *ipmr_cache_alloc_unres(void)
 static void ipmr_cache_resolve(struct mfc_cache *uc, struct mfc_cache *c)
 {
 	struct sk_buff *skb;
+	struct nlmsgerr *e;
 
 	/*
 	 *	Play the pending entries through our router
@@ -511,7 +515,9 @@ static void ipmr_cache_resolve(struct mfc_cache *uc, struct mfc_cache *c)
 				nlh->nlmsg_type = NLMSG_ERROR;
 				nlh->nlmsg_len = NLMSG_LENGTH(sizeof(struct nlmsgerr));
 				skb_trim(skb, nlh->nlmsg_len);
-				((struct nlmsgerr*)NLMSG_DATA(nlh))->error = -EMSGSIZE;
+				e = NLMSG_DATA(nlh);
+				e->error = -EMSGSIZE;
+				memset(&e->msg, 0, sizeof(e->msg));
 			}
 			err = netlink_unicast(rtnl, skb, NETLINK_CB(skb).dst_pid, MSG_DONTWAIT);
 		} else
@@ -1098,15 +1104,17 @@ static void ip_encap(struct sk_buff *skb, u32 saddr, u32 daddr)
 
 	skb->h.ipiph = skb->nh.iph;
 	skb->nh.iph = iph;
-#ifdef CONFIG_NETFILTER
-	nf_conntrack_put(skb->nfct);
-	skb->nfct = NULL;
-#endif
+	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+	nf_reset(skb);
 }
 
 static inline int ipmr_forward_finish(struct sk_buff *skb)
 {
+	struct ip_options *opt = &(IPCB(skb)->opt);
 	struct dst_entry *dst = skb->dst;
+
+	if (unlikely(opt->optlen))
+		ip_forward_options(skb);
 
 	if (skb->len <= dst->pmtu)
 		return dst->output(skb);
@@ -1188,8 +1196,11 @@ static void ipmr_queue_xmit(struct sk_buff *skb, struct mfc_cache *c,
 	iph = skb2->nh.iph;
 	ip_decrease_ttl(iph);
 
+	/* FIXME: forward and output firewalls used to be called here.
+	 * What do we do with netfilter? -- RR */
 	if (vif->flags & VIFF_TUNNEL) {
 		ip_encap(skb2, vif->local, vif->remote);
+		/* FIXME: extra output firewall step used to be here. --RR */
 		((struct ip_tunnel *)vif->dev->priv)->stat.tx_packets++;
 		((struct ip_tunnel *)vif->dev->priv)->stat.tx_bytes+=skb2->len;
 	}
@@ -1239,6 +1250,17 @@ int ip_mr_forward(struct sk_buff *skb, struct mfc_cache *cache, int local)
 		int true_vifi;
 
 		if (((struct rtable*)skb->dst)->key.iif == 0) {
+			/* It is our own packet, looped back.
+			   Very complicated situation...
+
+			   The best workaround until routing daemons will be
+			   fixed is not to redistribute packet, if it was
+			   send through wrong interface. It means, that
+			   multicast applications WILL NOT work for
+			   (S,G), which have default multicast route pointing
+			   to wrong oif. In any case, it is not a good
+			   idea to use multicasting applications on router.
+			 */
 			goto dont_forward;
 		}
 
@@ -1429,10 +1451,7 @@ int pim_rcv_v1(struct sk_buff * skb)
 	skb->dst = NULL;
 	((struct net_device_stats*)reg_dev->priv)->rx_bytes += skb->len;
 	((struct net_device_stats*)reg_dev->priv)->rx_packets++;
-#ifdef CONFIG_NETFILTER
-	nf_conntrack_put(skb->nfct);
-	skb->nfct = NULL;
-#endif
+	nf_reset(skb);
 	netif_rx(skb);
 	dev_put(reg_dev);
 	return 0;
@@ -1496,10 +1515,7 @@ int pim_rcv(struct sk_buff * skb)
 	((struct net_device_stats*)reg_dev->priv)->rx_bytes += skb->len;
 	((struct net_device_stats*)reg_dev->priv)->rx_packets++;
 	skb->dst = NULL;
-#ifdef CONFIG_NETFILTER
-	nf_conntrack_put(skb->nfct);
-	skb->nfct = NULL;
-#endif
+	nf_reset(skb);
 	netif_rx(skb);
 	dev_put(reg_dev);
 	return 0;

@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.ptrace.c 1.14 01/17/02 23:05:50 paulus
- */
-/*
  *  linux/arch/ppc/kernel/ptrace.c
  *
  *  PowerPC version
@@ -36,7 +33,11 @@
 /*
  * Set of msr bits that gdb can change on behalf of a process.
  */
+#if defined(CONFIG_4xx)
+#define MSR_DEBUGCHANGE	(0)
+#else
 #define MSR_DEBUGCHANGE	(MSR_FE0 | MSR_SE | MSR_BE | MSR_FE1)
+#endif
 
 /*
  * does not yet catch signals sent when the child dies.
@@ -111,12 +112,12 @@ static inline int set_vrregs(struct task_struct *task, unsigned long *data)
 
 	/* copy AltiVec registers VR[0] .. VR[31] */
 	for (i = 0; i < 32; i++)
-		for (j = 0; j < 4; j++, data++) 
+		for (j = 0; j < 4; j++, data++)
 			if (__get_user(task->thread.vr[i].u[j], data))
 				return -EFAULT;
 
 	/* copy VSCR */
-	for (i = 0; i < 4; i++, data++) 
+	for (i = 0; i < 4; i++, data++)
 		if (__get_user(task->thread.vscr.u[i], data))
 			return -EFAULT;
 
@@ -132,18 +133,27 @@ static inline void
 set_single_step(struct task_struct *task)
 {
 	struct pt_regs *regs = task->thread.regs;
-
+#if defined(CONFIG_4xx)
+	regs->msr |= MSR_DE;
+	task->thread.dbcr0 |=  (DBCR0_IDM | DBCR0_IC);
+#else
 	if (regs != NULL)
 		regs->msr |= MSR_SE;
+#endif
+
 }
 
 static inline void
 clear_single_step(struct task_struct *task)
 {
 	struct pt_regs *regs = task->thread.regs;
-
+#if defined(CONFIG_4xx)
+	regs->msr &= ~MSR_DE;
+	task->thread.dbcr0 &=  ~DBCR0_IC;
+#else
 	if (regs != NULL)
 		regs->msr &= ~MSR_SE;
+#endif
 }
 
 /*
@@ -196,7 +206,7 @@ int sys_ptrace(long request, long pid, long addr, long data)
 
 	switch (request) {
 	/* when I and D space are separate, these will need to be fixed. */
-	case PTRACE_PEEKTEXT: /* read word at location addr. */ 
+	case PTRACE_PEEKTEXT: /* read word at location addr. */
 	case PTRACE_PEEKDATA: {
 		unsigned long tmp;
 		int copied;
@@ -210,6 +220,7 @@ int sys_ptrace(long request, long pid, long addr, long data)
 	}
 
 	/* read the word at location addr in the USER area. */
+	/* XXX this will need fixing for 64-bit */
 	case PTRACE_PEEKUSR: {
 		unsigned long index, tmp;
 
@@ -241,6 +252,7 @@ int sys_ptrace(long request, long pid, long addr, long data)
 		break;
 
 	/* write the word at location addr in the USER area */
+	/* XXX this will need fixing for 64-bit */
 	case PTRACE_POKEUSR: {
 		unsigned long index;
 
@@ -276,14 +288,20 @@ int sys_ptrace(long request, long pid, long addr, long data)
 		child->exit_code = data;
 		/* make sure the single step bit is not set. */
 		clear_single_step(child);
+#ifdef CONFIG_4xx
+		/* ...but traps may be set, so catch those....
+		*/
+		child->thread.regs->msr   |= MSR_DE;
+		child->thread.dbcr0 |= (DBCR0_IDM | DBCR0_TDE);
+#endif
 		wake_up_process(child);
 		ret = 0;
 		break;
 	}
 
 /*
- * make the child exit.  Best I can do is send it a sigkill. 
- * perhaps it should be put in the status that it wants to 
+ * make the child exit.  Best I can do is send it a sigkill.
+ * perhaps it should be put in the status that it wants to
  * exit.
  */
 	case PTRACE_KILL: {

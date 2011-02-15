@@ -419,11 +419,50 @@ static void a5kkbd_tx(int irq, void *dev_id, struct pt_regs *regs)
 		disable_irq(irq);
 }
 
+static int a5kkbd_setkeycode(unsigned int scancode, unsigned int keycode)
+{
+	return -EINVAL;
+}
+
+static int a5kkbd_getkeycode(unsigned int scancode)
+{
+	return -EINVAL;
+}
+
+static int a5kkbd_translate(unsigned char scancode, unsigned char *keycode, char rawmode)
+{
+	*keycode = scancode;
+	return 1;
+}
+
+static char a5kkbd_unexpected_up(unsigned char keycode)
+{
+	return 0200;
+}
+
+static int a5kkbd_rate(struct kbd_repeat *rep)
+{
+	return -EINVAL;
+}
+
 #ifdef CONFIG_KBDMOUSE
 static struct busmouse a5kkbd_mouse = {
 	6, "kbdmouse", NULL, NULL, NULL, 7
 };
 #endif
+
+struct kbd_ops_struct a5k_kbd_ops = {
+	k_setkeycode:		a5kkbd_setkeycode,
+	k_getkeycode:		a5kkbd_getkeycode,
+	k_translate:		a5kkbd_translate,
+	k_unexpected_up:	a5kkbd_unexpected_up,
+	k_leds:			a5kkbd_leds,
+	k_rate:			a5kkbd_rate,
+#ifdef CONFIG_MAGIC_SYSRQ
+	k_sysrq_xlate:		a5kkbd_sysrq_xlate,
+	k_sysrq_key:		13,
+#endif
+};
 
 void __init a5kkbd_init_hw (void)
 {

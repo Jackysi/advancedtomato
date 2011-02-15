@@ -7,8 +7,8 @@
 # Uncomment when debugging
 #set -x
 
-CONFIG_OPTIONS="--prefix=/usr shared no-idea no-rc5 no-mdc2"
-INSTALL_PREFIX=/tmp/install
+CONFIG_OPTIONS="--prefix=/usr shared zlib no-idea no-rc5"
+INSTALL_PREFIX=/tmp/install/INSTALL
 
 VERSION=
 SUBVERSION=$1
@@ -21,11 +21,11 @@ function cleanup()
 
 function get_openssl_version()
 {
-  eval `grep '^VERSION=' Makefile.ssl`
+  eval `grep '^VERSION=' Makefile`
   if [ -z "${VERSION}" ]
   then
-    echo "Error: Couldn't retrieve OpenSSL version from Makefile.ssl."
-    echo "       Check value of variable VERSION in Makefile.ssl."
+    echo "Error: Couldn't retrieve OpenSSL version from Makefile."
+    echo "       Check value of variable VERSION in Makefile."
     exit 1
   fi
 }
@@ -39,7 +39,7 @@ function base_install()
 
 function doc_install()
 {
-  DOC_DIR=${INSTALL_PREFIX}/usr/doc/openssl
+  DOC_DIR=${INSTALL_PREFIX}/usr/share/doc/openssl
 
   mkdir -p ${DOC_DIR}
   cp CHANGES CHANGES.SSLeay INSTALL LICENSE NEWS README ${DOC_DIR}
@@ -47,9 +47,17 @@ function doc_install()
   create_cygwin_readme
 }
 
+function certs_install()
+{
+  CERTS_DIR=${INSTALL_PREFIX}/usr/ssl/certs
+
+  mkdir -p ${CERTS_DIR}
+  cp -rp certs/* ${CERTS_DIR}
+}
+
 function create_cygwin_readme()
 {
-  README_DIR=${INSTALL_PREFIX}/usr/doc/Cygwin
+  README_DIR=${INSTALL_PREFIX}/usr/share/doc/Cygwin
   README_FILE=${README_DIR}/openssl-${VERSION}.README
 
   mkdir -p ${README_DIR}
@@ -58,7 +66,7 @@ function create_cygwin_readme()
 
 	  ./config ${CONFIG_OPTIONS}
 
-	The IDEA, RC5 and MDC2 algorithms are disabled due to patent and/or
+	The IDEA and RC5 algorithms are disabled due to patent and/or
 	licensing issues.
 	EOF
 }
@@ -96,29 +104,42 @@ fi
 
 get_openssl_version
 
+make depend || exit 1
+
 make || exit 1
 
 base_install
 
 doc_install
 
+certs_install
+
 create_cygwin_readme
 
 create_profile_files
 
 cd ${INSTALL_PREFIX}
-strip usr/bin/*.exe usr/bin/*.dll
+chmod u+w usr/lib/engines/*.so
+strip usr/bin/*.exe usr/bin/*.dll usr/lib/engines/*.so
+chmod u-w usr/lib/engines/*.so
 
 # Runtime package
-find etc usr/bin usr/doc usr/ssl/certs usr/ssl/man/man[157] usr/ssl/misc \
-     usr/ssl/openssl.cnf usr/ssl/private -empty -o \! -type d |
+tar cjf libopenssl${VERSION//[!0-9]/}-${VERSION}-${SUBVERSION}.tar.bz2 \
+     usr/bin/cyg*dll
+# Base package
+find etc usr/bin/openssl.exe usr/bin/c_rehash usr/lib/engines usr/share/doc \
+     usr/ssl/certs usr/ssl/man/man[157] usr/ssl/misc usr/ssl/openssl.cnf \
+     usr/ssl/private \
+     -empty -o \! -type d |
 tar cjfT openssl-${VERSION}-${SUBVERSION}.tar.bz2 -
 # Development package
-find usr/include usr/lib usr/ssl/man/man3 -empty -o \! -type d |
+find usr/include usr/lib/*.a usr/lib/pkgconfig usr/ssl/man/man3 \
+     -empty -o \! -type d |
 tar cjfT openssl-devel-${VERSION}-${SUBVERSION}.tar.bz2 -
 
 ls -l openssl-${VERSION}-${SUBVERSION}.tar.bz2
 ls -l openssl-devel-${VERSION}-${SUBVERSION}.tar.bz2
+ls -l libopenssl${VERSION//[!0-9]/}-${VERSION}-${SUBVERSION}.tar.bz2
 
 cleanup
 

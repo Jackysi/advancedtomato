@@ -29,8 +29,17 @@
 #define DEFAULT_ROUTE		    ZEBRA_ROUTE_MAX
 #define DEFAULT_ROUTE_TYPE(T) ((T) == DEFAULT_ROUTE)
 
+/* OSPF distance. */
+struct ospf_distance
+{
+  /* Distance value for the IP source prefix. */
+  u_char distance;
+
+  /* Name of the access-list to be matched. */
+  char *access_list;
+};
+
 /* Prototypes */
-void zebra_init ();
 void ospf_zclient_start ();
 
 void ospf_zebra_add (struct prefix_ipv4 *, struct ospf_route *);
@@ -41,19 +50,27 @@ void ospf_zebra_delete_discard (struct prefix_ipv4 *);
 
 int ospf_default_originate_timer (struct thread *);
 
-int ospf_redistribute_check (struct external_info *, int *);
-int ospf_distribute_check_connected (struct external_info *);
-void ospf_distribute_list_update (int);
+int ospf_redistribute_check (struct ospf *, struct external_info *, int *);
+int ospf_distribute_check_connected (struct ospf *, struct external_info *);
+void ospf_distribute_list_update (struct ospf *, int);
 
-int config_write_ospf_redistribute (struct vty *);
-int config_write_ospf_default_metric (struct vty *);
-int config_write_ospf_distribute (struct vty *);
 int ospf_is_type_redistributed (int);
-int ospf_redistribute_unset (int);
-
-void ospf_distance_reset ();
+void ospf_distance_reset (struct ospf *);
 u_char ospf_distance_apply (struct prefix_ipv4 *, struct ospf_route *);
-int config_write_ospf_distance (struct vty *);
+
+struct vty;
+
+int ospf_redistribute_set (struct ospf *, int, int, int);
+int ospf_redistribute_unset (struct ospf *, int);
+int ospf_redistribute_default_set (struct ospf *, int, int, int);
+int ospf_redistribute_default_unset (struct ospf *);
+int ospf_distribute_list_out_set (struct ospf *, int, char *);
+int ospf_distribute_list_out_unset (struct ospf *, int, char *);
+void ospf_routemap_set (struct ospf *, int, char *);
+void ospf_routemap_unset (struct ospf *, int);
+int ospf_distance_set (struct vty *, struct ospf *, char *, char *, char *);
+int ospf_distance_unset (struct vty *, struct ospf *, char *, char *, char *);
+void ospf_zebra_init ();
 
 #endif /* _ZEBRA_OSPF_ZEBRA_H */
 

@@ -1,4 +1,4 @@
-/* $Id: pci_common.c,v 1.1.1.4 2003/10/14 08:07:50 sparq Exp $
+/* $Id: pci_common.c,v 1.27.2.5 2002/03/10 05:21:26 davem Exp $
  * pci_common.c: PCI controller common support.
  *
  * Copyright (C) 1999 David S. Miller (davem@redhat.com)
@@ -54,6 +54,7 @@ static int __init find_device_prom_node(struct pci_pbm_info *pbm,
 	    (pdev->vendor == PCI_VENDOR_ID_SUN) &&
 	    (pdev->device == PCI_DEVICE_ID_SUN_PBM ||
 	     pdev->device == PCI_DEVICE_ID_SUN_SCHIZO ||
+	     pdev->device == PCI_DEVICE_ID_SUN_TOMATILLO ||
 	     pdev->device == PCI_DEVICE_ID_SUN_SABRE ||
 	     pdev->device == PCI_DEVICE_ID_SUN_HUMMINGBIRD)) {
 		*nregs = 0;
@@ -316,14 +317,23 @@ __init get_device_resource(struct linux_prom_pci_registers *ap,
 {
 	struct resource *res;
 	int breg = (ap->phys_hi & 0xff);
-	int space = (ap->phys_hi >> 24) & 3;
 
 	switch (breg) {
 	case  PCI_ROM_ADDRESS:
+		/* Unfortunately I have seen several cases where
+		 * buggy FCODE uses a space value of '1' (I/O space)
+		 * in the register property for the ROM address
+		 * so disable this sanity check for now.
+		 */
+#if 0
+	{
+		int space = (ap->phys_hi >> 24) & 3;
+
 		/* It had better be MEM space. */
 		if (space != 2)
 			bad_assignment(pdev, ap, NULL, 0);
-
+	}
+#endif
 		res = &pdev->resource[PCI_ROM_RESOURCE];
 		break;
 
@@ -699,7 +709,7 @@ static void __init pdev_fixup_irq(struct pci_dev *pdev)
 	struct pcidev_cookie *pcp = pdev->sysdata;
 	struct pci_pbm_info *pbm = pcp->pbm;
 	struct pci_controller_info *p = pbm->parent;
-	unsigned int portid = p->portid;
+	unsigned int portid = pbm->portid;
 	unsigned int prom_irq;
 	int prom_node = pcp->prom_node;
 	int err;
@@ -848,6 +858,23 @@ static void pdev_setup_busmastering(struct pci_dev *pdev, int is_66mhz)
 	if (ltimer != 0)
 		return;
 
+	/* XXX Since I'm tipping off the min grant value to
+	 * XXX choose a suitable latency timer value, I also
+	 * XXX considered making use of the max latency value
+	 * XXX as well.  Unfortunately I've seen too many bogusly
+	 * XXX low settings for it to the point where it lacks
+	 * XXX any usefulness.  In one case, an ethernet card
+	 * XXX claimed a min grant of 10 and a max latency of 5.
+	 * XXX Now, if I had two such cards on the same bus I
+	 * XXX could not set the desired burst period (calculated
+	 * XXX from min grant) without violating the max latency
+	 * XXX bound.  Duh...
+	 * XXX
+	 * XXX I blame dumb PC bios implementors for stuff like
+	 * XXX this, most of them don't even try to do something
+	 * XXX sensible with latency timer values and just set some
+	 * XXX default value (usually 32) into every device.
+	 */
 
 	pci_read_config_byte(pdev, PCI_MIN_GNT, &min_gnt);
 

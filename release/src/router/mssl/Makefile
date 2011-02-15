@@ -1,17 +1,28 @@
 include ../common.mak
 
-CFLAGS	= -O2 -Wall
-CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared
+CFLAGS	= -Os -Wall $(EXTRACFLAGS) -fPIC
+LIBS =
 LDFLAGS	=
+
+ifeq ($(TCONFIG_OPENVPN),y)
+CFLAGS	+= -I$(TOP)/openssl/include -DUSE_OPENSSL
+LIBS += -L$(TOP)/openssl -lssl -lcrypto
+else
+CFLAGS	+= -I$(TOP)/cyassl/include
+LIBS += $(TOP)/cyassl/src/.libs/libcyassl.a
+endif
+
+LIBS += -lpthread
+OBJ = mssl.o
 
 all: libmssl.so libmssl.a
 
-libmssl.so: mssl.o
-	$(CC) -shared -o $@ $^ ../matrixssl/src/libmatrixsslstatic.a -L../shared -lshared
+libmssl.so: $(OBJ)
+	$(CC) -shared -o $@ $^ $(LIBS)
 	$(STRIP) $@
 	$(CPTMP)
 
-libmssl.a: mssl.o
+libmssl.a: $(OBJ)
 	rm -f $@
 	$(AR) cruv $@ $^
 
@@ -20,7 +31,7 @@ clean:
 
 install: all
 	@echo " [mssl] Installing..."
-	install -D -m 0500 libmssl.so $(INSTALLDIR)/usr/lib/libmssl.so
+	install -D libmssl.so $(INSTALLDIR)/usr/lib/libmssl.so
 	$(STRIP) $(INSTALLDIR)/usr/lib/libmssl.so
 
 %.o: %.c .%.depend

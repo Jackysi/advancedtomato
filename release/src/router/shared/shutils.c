@@ -9,6 +9,9 @@
 	
 */
 
+# ifndef _GNU_SOURCE
+#  define _GNU_SOURCE
+# endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -42,11 +45,15 @@
  * @param	timeout	seconds to wait before timing out or 0 for no timeout
  * @param	ppid	NULL to wait for child termination or pointer to pid
  * @return	return value of executed command or errno
+ *
+ * Ref: http://www.open-std.org/jtc1/sc22/WG15/docs/rr/9945-2/9945-2-28.html
  */
 int _eval(char *const argv[], const char *path, int timeout, int *ppid)
 {
-	pid_t pid;
-	int status;
+	sigset_t set, sigmask;
+	sighandler_t chld = SIG_IGN;
+	pid_t pid, w;
+	int status = 0;
 	int fd;
 	int flags;
 	int sig;
@@ -54,10 +61,20 @@ int _eval(char *const argv[], const char *path, int timeout, int *ppid)
 	const char *p;
 	char s[256];
 
+	if (!ppid) {
+		// block SIGCHLD
+		sigemptyset(&set);
+		sigaddset(&set, SIGCHLD);
+		sigprocmask(SIG_BLOCK, &set, &sigmask);
+		// without this we cannot rely on waitpid() to tell what happened to our children
+		chld = signal(SIGCHLD, SIG_DFL);
+	}
+
 	pid = fork();
 	if (pid == -1) {
 		perror("fork");
-		return errno;
+		status = errno;
+		goto EXIT;
 	}
 	if (pid != 0) {
 		// parent
@@ -65,17 +82,35 @@ int _eval(char *const argv[], const char *path, int timeout, int *ppid)
 			*ppid = pid;
 			return 0;
 		}
-		waitpid(pid, &status, 0);
-		if (WIFEXITED(status)) return WEXITSTATUS(status);
+		do {
+			if ((w = waitpid(pid, &status, 0)) == -1) {
+				status = errno;
+				perror("waitpid");
+				goto EXIT;
+			}
+		} while (!WIFEXITED(status) && !WIFSIGNALED(status));
+
+		if (WIFEXITED(status)) status = WEXITSTATUS(status);
+EXIT:
+		if (!ppid) {
+			// restore signals
+			sigprocmask(SIG_SETMASK, &sigmask, NULL);
+			signal(SIGCHLD, chld);
+			// reap zombies
+			chld_reap(0);
+		}
 		return status;
 	}
 	
 	// child
-	
 
 	// reset signal handlers
 	for (sig = 0; sig < (_NSIG - 1); sig++)
 		signal(sig, SIG_DFL);
+
+	// unblock signals if called from signal handler
+	sigemptyset(&set);
+	sigprocmask(SIG_SETMASK, &set, NULL);
 
 	setsid();
 
@@ -108,7 +143,7 @@ int _eval(char *const argv[], const char *path, int timeout, int *ppid)
 		if (fd > STDERR_FILENO) close(fd);
 	}
 
-	// Redirect stdout to <path>
+	// Redirect stdout & stderr to <path>
 	if (path) {
 		flags = O_WRONLY | O_CREAT;
 		if (*path == '>') {
@@ -129,6 +164,7 @@ int _eval(char *const argv[], const char *path, int timeout, int *ppid)
 		}
 		else {
 			dup2(fd, STDOUT_FILENO);
+			dup2(fd, STDERR_FILENO);
 			close(fd);
 		}
 	}
@@ -136,14 +172,14 @@ int _eval(char *const argv[], const char *path, int timeout, int *ppid)
 	// execute command
 
 	p = nvram_safe_get("env_path");
-	snprintf(s, sizeof(s), "%s%s/sbin:/bin:/usr/sbin:/usr/bin", *p ? p : "", *p ? ":" : "");
+	snprintf(s, sizeof(s), "%s%s/sbin:/bin:/usr/sbin:/usr/bin:/opt/sbin:/opt/bin", *p ? p : "", *p ? ":" : "");
 	setenv("PATH", s, 1);
 
 	alarm(timeout);
 	execvp(argv[0], argv);
 	
 	perror(argv[0]);
-	exit(errno);
+	_exit(errno);
 }
 
 /*
@@ -223,7 +259,11 @@ void cprintf(const char *format, ...)
 	FILE *f;
 	va_list args;
 
+#ifdef DEBUG_NOISY
+	{
+#else
 	if (nvram_match("debug_cprintf", "1")) {
+#endif
 		if ((f = fopen("/dev/console", "w")) != NULL) {
 			va_start(args, format);
 			vfprintf(f, format, args);
@@ -524,7 +564,6 @@ get_ifname_unit(const char* ifname, int *unit, int *subunit)
 	return 0;
 }
 
-#if 0
 /* In the space-separated/null-terminated list(haystack), try to
  * locate the string "needle"
  */
@@ -644,6 +683,36 @@ int add_to_list(const char *name, char *list, int listsize)
 	return 0;
 }
 
+/* Utility function to remove duplicate entries in a space separated list */
+
+char *remove_dups(char *inlist, int inlist_size)
+{
+	char name[256], *next = NULL;
+	char *outlist;
+
+	if (!inlist_size) return NULL;
+	if (!inlist) return NULL;
+
+	outlist = (char *) malloc(inlist_size);
+	if (!outlist) return NULL;
+	memset(outlist, 0, inlist_size);
+
+	foreach(name, inlist, next) {
+		if (!find_in_list(outlist, name)) {
+			if (strlen(outlist) == 0) {
+				snprintf(outlist, inlist_size, "%s", name);
+			} else {
+				strncat(outlist, " ",  inlist_size - strlen(outlist));
+				strncat(outlist, name, inlist_size - strlen(outlist));
+			}
+		}
+	}
+	strncpy(inlist, outlist, inlist_size);
+
+	free(outlist);
+	return inlist;
+}
+
 /*
 	 return true/false if any wireless interface has URE enabled.
 */
@@ -660,8 +729,6 @@ ure_any_enabled(void)
 	else
 		return 0;
 }
-
-#endif	// 0
 
 #define WLMBSS_DEV_NAME	"wlmbss"
 #define WL_DEV_NAME "wl"
@@ -731,9 +798,10 @@ osifname_to_nvifname(const char *osifname, char *nvifname_buf,
 		return -1;
 	}
 
-	memset(nvifname_buf, nvifname_buf_len, 0);
+	memset(nvifname_buf, 0, nvifname_buf_len);
 
-	if (strstr(osifname, "wl") || strstr(osifname, "br")) {
+	if (strstr(osifname, "wl") || strstr(osifname, "br") ||
+	     strstr(osifname, "wds")) {
 		strncpy(nvifname_buf, osifname, nvifname_buf_len);
 		return 0;
 	}

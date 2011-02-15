@@ -16,7 +16,7 @@
  * 1997-12-01  Modified for POSIX.1b signals by Andreas Schwab
  *
  * mathemu support by Roman Zippel
- *  (Note: fpstate in the signal context is completly ignored for the emulator
+ *  (Note: fpstate in the signal context is completely ignored for the emulator
  *         and the internal floating point format is put on stack)
  */
 
@@ -98,6 +98,7 @@ do_rt_sigsuspend(struct pt_regs *regs)
 	size_t sigsetsize = (size_t)regs->d2;
 	sigset_t saveset, newset;
 
+	/* XXX: Don't preclude handling different sized sigset_t's.  */
 	if (sigsetsize != sizeof(sigset_t))
 		return -EINVAL;
 

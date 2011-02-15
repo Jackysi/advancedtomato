@@ -1515,7 +1515,15 @@ lcp_reqci(f, inp, lenp, reject_if_disagree)
 	    }
 #if 1 //Fixed by crazy 20070424: bug id 6439(20070423)
 	    if (cishort > REJECT_MAXMRU) {
+#if 0
 			orc = CONFREJ;		/* Reject CI */
+#else 
+			//Fix by crazy 20080121: The Test Plan is updated. Please refer to the item 1.3.13 in latest Test Plan.
+			orc = CONFNAK;		/* Nak CI */
+			PUTCHAR(CI_MRU, nakp);
+			PUTCHAR(CILEN_SHORT, nakp);
+			PUTSHORT(REJECT_MAXMRU, nakp);	/* Give him a hint */
+#endif
 			LOGX_DEBUG("%s: cishort(%d) > REJECT_MAXMRU", __FUNCTION__, cishort);
 			break;
 	    }
@@ -1739,7 +1747,8 @@ lcp_reqci(f, inp, lenp, reject_if_disagree)
 
 	default:
 	    LCPDEBUG(("lcp_reqci: rcvd unknown option %d", citype));
-#if 0 //fixed by crazy 20070424: bug id 6438(20070423)
+#if 1 //fixed by crazy 20070424: bug id 6438(20070423)
+		//Fix by crazy 20071102 (Bug id IR-B0003328): This issue is reported by CRDC. Please refer to the email.
 	    orc = CONFREJ;
 #else
 		//FIXME: maybe it is a wrong packet...

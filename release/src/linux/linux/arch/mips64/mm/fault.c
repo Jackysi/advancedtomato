@@ -104,6 +104,10 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long write,
 	unsigned long fixup;
 	siginfo_t info;
 
+#if 0
+	printk("Cpu%d[%s:%d:%08lx:%ld:%08lx]\n", smp_processor_id(),
+		current->comm, current->pid, address, write, regs->cp0_epc);
+#endif
 
 	/*
 	 * We fault-in kernel-space virtual memory on-demand. The
@@ -182,6 +186,15 @@ bad_area:
 	if (user_mode(regs)) {
 		tsk->thread.cp0_badvaddr = address;
 		tsk->thread.error_code = write;
+#if 0
+		printk("do_page_fault() #2: sending SIGSEGV to %s for illegal %s\n"
+		       "%08lx (epc == %08lx, ra == %08lx)\n",
+		       tsk->comm,
+		       write ? "write access to" : "read access from",
+		       address,
+		       (unsigned long) regs->cp0_epc,
+		       (unsigned long) regs->regs[31]);
+#endif
 		info.si_signo = SIGSEGV;
 		info.si_errno = 0;
 		/* info.si_code has been set above */
@@ -253,5 +266,5 @@ do_sigbus:
 	return;
 
 vmalloc_fault:
-	panic("Pagefault for kernel virtual memory");
+	die("Pagefault for kernel virtual memory", regs);
 }

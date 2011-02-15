@@ -38,6 +38,7 @@ static void get_entry(struct umsdos_dirent *p, struct umsdos_dirent *q)
 	p->name[p->name_len]='\0';
 	p->flags = q->flags;
 	p->nlink = le16_to_cpu (q->nlink);
+	/* FIXME -- 32bit UID/GID issues */
 	p->uid = le16_to_cpu (q->uid);
 	p->gid = le16_to_cpu (q->gid);
 	p->atime = le32_to_cpu (q->atime);
@@ -149,6 +150,7 @@ int umsdos_emd_dir_readentry (struct dentry *demd, loff_t *pos, struct umsdos_di
 		printk (KERN_WARNING "Ignoring invalid EMD entry with size %d\n", entry->name_len);
 		p->name_len = 0; 
 		ret = -ENAMETOOLONG; /* notify umssync(8) code that something is wrong */
+		/* FIXME: does not work if we did 'ls -l' before 'udosctl uls' ?! */
 	}
 
 	recsize = umsdos_evalrecsize(p->name_len);

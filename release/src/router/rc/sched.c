@@ -122,7 +122,7 @@ int sched_main(int argc, char *argv[])
 
 			if (is_sched(argv[1])) {
 				if (strcmp(argv[1], "sch_rboot") == 0) {
-					syslog(LOG_INFO, "Performing scheduled %s...", "reboot");
+					if (log) syslog(LOG_INFO, "Performing scheduled %s...", "reboot");
 					system("reboot");
 					return 0;
 				}
@@ -141,7 +141,7 @@ int sched_main(int argc, char *argv[])
 							syslog(LOG_INFO, "Performing scheduled %s...", s);
 						}
 
-						signal(SIGCHLD, handle_reap);
+						signal(SIGCHLD, chld_reap);
 
 						sprintf(s, "%s_cmd", argv[1]);
 						DLOG("%s: run=%s", __FUNCTION__, nvram_safe_get(s));

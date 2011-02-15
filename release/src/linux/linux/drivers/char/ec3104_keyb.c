@@ -351,6 +351,14 @@ static void e5_receive(struct e5_struct *k)
 		if (e5_checksum(k->packet, k->length) != 0)
 			printk(KERN_WARNING "E5: wrong checksum\n");
 
+#if 0
+		printk("E5 packet [");
+		for(i=0; i<k->length; i++) {
+			printk("%02x ", k->packet[i]);
+		}
+
+		printk("(%02x)]\n", e5_checksum(k->packet, k->length-1));
+#endif
 
 		switch(k->packet[0]) {
 		case 0x80:

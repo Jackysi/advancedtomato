@@ -23,13 +23,16 @@
 				   Danger: may cause nasty hangs if the demon
 				   crashes. */
 
+#if 0
+#define DPRINTK(format,args...) printk(KERN_DEBUG format,##args)
+#else
 #define DPRINTK(format,args...)
+#endif
 
 
 struct atm_vcc *sigd = NULL;
 static DECLARE_WAIT_QUEUE_HEAD(sigd_sleep);
 
-extern spinlock_t atm_dev_lock;
 
 static void sigd_put_skb(struct sk_buff *skb)
 {
@@ -57,7 +60,7 @@ static void sigd_put_skb(struct sk_buff *skb)
 	}
 #endif
 	atm_force_charge(sigd,skb->truesize);
-	skb_queue_tail(&sigd->recvq,skb);
+	skb_queue_tail(&sigd->sk->receive_queue,skb);
 	wake_up(&sigd->sleep);
 }
 
@@ -94,7 +97,7 @@ static int sigd_send(struct atm_vcc *vcc,struct sk_buff *skb)
 	struct atm_vcc *session_vcc;
 
 	msg = (struct atmsvc_msg *) skb->data;
-	atomic_sub(skb->truesize+ATM_PDU_OVHD,&vcc->tx_inuse);
+	atomic_sub(skb->truesize, &vcc->sk->wmem_alloc);
 	DPRINTK("sigd_send %d (0x%lx)\n",(int) msg->type,
 	  (unsigned long) msg->vcc);
 	vcc = *(struct atm_vcc **) &msg->vcc;
@@ -121,26 +124,31 @@ static int sigd_send(struct atm_vcc *vcc,struct sk_buff *skb)
 			clear_bit(ATM_VF_REGIS,&vcc->flags);
 			clear_bit(ATM_VF_READY,&vcc->flags);
 			vcc->reply = msg->reply;
+			vcc->sk->err = -msg->reply;
 			break;
 		case as_indicate:
 			vcc = *(struct atm_vcc **) &msg->listen_vcc;
 			DPRINTK("as_indicate!!!\n");
-			if (!vcc->backlog_quota) {
+			lock_sock(vcc->sk);
+			if (vcc->sk->ack_backlog == vcc->sk->max_ack_backlog) {
 				sigd_enq(0,as_reject,vcc,NULL,NULL);
-				return 0;
+				goto as_indicate_complete;
 			}
-			vcc->backlog_quota--;
-			skb_queue_tail(&vcc->listenq,skb);
+			vcc->sk->ack_backlog++;
+			skb_queue_tail(&vcc->sk->receive_queue,skb);
 			if (vcc->callback) {
 				DPRINTK("waking vcc->sleep 0x%p\n",
 				    &vcc->sleep);
 				vcc->callback(vcc);
 			}
+as_indicate_complete:
+			release_sock(vcc->sk);
 			return 0;
 		case as_close:
 			set_bit(ATM_VF_RELEASED,&vcc->flags);
 			clear_bit(ATM_VF_READY,&vcc->flags);
 			vcc->reply = msg->reply;
+			vcc->sk->err = -msg->reply;
 			break;
 		case as_modify:
 			modify_qos(vcc,msg);
@@ -191,53 +199,50 @@ void sigd_enq(struct atm_vcc *vcc,enum atmsvc_msg_type type,
 }
 
 
-static void purge_vccs(struct atm_vcc *vcc)
+static void purge_vcc(struct atm_vcc *vcc)
 {
-	while (vcc) {
-		if (vcc->family == PF_ATMSVC &&
-		    !test_bit(ATM_VF_META,&vcc->flags)) {
-			set_bit(ATM_VF_RELEASED,&vcc->flags);
-			vcc->reply = -EUNATCH;
-			wake_up(&vcc->sleep);
-		}
-		vcc = vcc->next;
+	if (vcc->sk->family == PF_ATMSVC &&
+	    !test_bit(ATM_VF_META, &vcc->flags)) {
+		set_bit(ATM_VF_RELEASED, &vcc->flags);
+		vcc->reply = -EUNATCH;
+		vcc->sk->err = EUNATCH;
+		wake_up(&vcc->sleep);
 	}
 }
 
 
 static void sigd_close(struct atm_vcc *vcc)
 {
-	struct atm_dev *dev;
+	struct sock *s;
 
 	DPRINTK("sigd_close\n");
 	sigd = NULL;
-	if (skb_peek(&vcc->recvq))
+	if (skb_peek(&vcc->sk->receive_queue))
 		printk(KERN_ERR "sigd_close: closing with requests pending\n");
-	skb_queue_purge(&vcc->recvq);
-	purge_vccs(nodev_vccs);
+	skb_queue_purge(&vcc->sk->receive_queue);
 
-	spin_lock (&atm_dev_lock);
-	for (dev = atm_devs; dev; dev = dev->next) purge_vccs(dev->vccs);
-	spin_unlock (&atm_dev_lock);
+	read_lock(&vcc_sklist_lock);
+	for(s = vcc_sklist; s; s = s->next) {
+		struct atm_vcc *vcc = s->protinfo.af_atm;
+
+		if (vcc->dev)
+			purge_vcc(vcc);
+	}
+	read_unlock(&vcc_sklist_lock);
 }
 
 
 static struct atmdev_ops sigd_dev_ops = {
-	close:	sigd_close,
-	send:	sigd_send
+	.close =	sigd_close,
+	.send =		sigd_send
 };
 
 
 static struct atm_dev sigd_dev = {
-	&sigd_dev_ops,
-	NULL,		/* no PHY */
-    	"sig",		/* type */
-	999,		/* dummy device number */
-	NULL,NULL,	/* pretend not to have any VCCs */
-	NULL,NULL,	/* no data */
-	{ 0 },		/* no flags */
-	NULL,		/* no local address */
-	{ 0 }		/* no ESI, no statistics */
+	.ops =		&sigd_dev_ops,
+	.type =		"sig",
+	.number =	999,
+	.lock =		SPIN_LOCK_UNLOCKED
 };
 
 
@@ -246,7 +251,8 @@ int sigd_attach(struct atm_vcc *vcc)
 	if (sigd) return -EADDRINUSE;
 	DPRINTK("sigd_attach\n");
 	sigd = vcc;
-	bind_vcc(vcc,&sigd_dev);
+	vcc->dev = &sigd_dev;
+	vcc_insert_socket(vcc->sk);
 	set_bit(ATM_VF_META,&vcc->flags);
 	set_bit(ATM_VF_READY,&vcc->flags);
 	wake_up(&sigd_sleep);

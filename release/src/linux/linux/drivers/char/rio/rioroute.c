@@ -642,6 +642,9 @@ uint unit;
 
 		for (port = 0; port < PORTS_PER_RTA; port++, PortN++) {
 			ushort		dest_port = port + 8;
+#if 0
+			uint		PktInt;
+#endif
 			WORD		*TxPktP;
 			PKT		*Pkt;
 

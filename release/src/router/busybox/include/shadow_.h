@@ -24,10 +24,18 @@
 
 PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN
 
-/* This file is #included after #include <shadow.h>
- * We will use libc-defined structures, but will #define function names
- * so that function calls are directed to bb_internal_XXX replacements
- */
+/* Structure of the password file */
+struct spwd {
+	char *sp_namp;          /* Login name */
+	char *sp_pwdp;          /* Encrypted password */
+	long sp_lstchg;         /* Date of last change */
+	long sp_min;            /* Minimum number of days between changes */
+	long sp_max;            /* Maximum number of days between changes */
+	long sp_warn;           /* Number of days to warn user to change the password */
+	long sp_inact;          /* Number of days the account may be inactive */
+	long sp_expire;         /* Number of days since 1970-01-01 until account expires */
+	unsigned long sp_flag;  /* Reserved */
+};
 
 /* Paths to the user database files */
 #ifndef _PATH_SHADOW
@@ -52,7 +60,7 @@ PUSH_AND_SET_FUNCTION_VISIBILITY_TO_HIDDEN
 /* All function names below should be remapped by #defines above
  * in order to not collide with libc names. */
 
-
+#ifdef UNUSED_FOR_NOW
 /* Open database for reading */
 extern void setspent(void);
 
@@ -77,11 +85,13 @@ extern int putspent(const struct spwd *__p, FILE *__stream);
 /* Reentrant versions of some of the functions above */
 extern int getspent_r(struct spwd *__result_buf, char *__buffer,
 		       size_t __buflen, struct spwd **__result);
+#endif
 
 extern int getspnam_r(const char *__name, struct spwd *__result_buf,
 		       char *__buffer, size_t __buflen,
 		       struct spwd **__result);
 
+#ifdef UNUSED_FOR_NOW
 extern int sgetspent_r(const char *__string, struct spwd *__result_buf,
 			char *__buffer, size_t __buflen,
 			struct spwd **__result);
@@ -94,6 +104,7 @@ extern int lckpwdf(void);
 
 /* Unlock password file */
 extern int ulckpwdf(void);
+#endif
 
 POP_SAVED_FUNCTION_VISIBILITY
 

@@ -1,11 +1,12 @@
-/* MiniUPnP project
+/*
+ * MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006 Thomas Bernard 
+ * (c) 2009 Jardel Weyrich 
  * This software is subject to the conditions detailed
- * in the LICENCE file provided within the distribution */
+ * in the LICENCE file provided within the distribution
+ */
 
 #include <stdio.h>
-
 #include "../getifstats.h"
 
 int main(int argc, char * * argv) {

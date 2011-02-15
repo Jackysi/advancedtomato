@@ -342,6 +342,7 @@ static int whiteheat_open (struct usb_serial_port *port, struct file *filp)
 		goto exit;
 
 	/* Need to do device specific setup here (control lines, baud rate, etc.) */
+	/* FIXME!!! */
 
 exit:
 	dbg("%s - exit, retval = %d", __FUNCTION__, retval);
@@ -361,6 +362,7 @@ static void whiteheat_close(struct usb_serial_port *port, struct file * filp)
 	whiteheat_send_cmd (port->serial, WHITEHEAT_CLOSE, (__u8 *)&close_command, sizeof(close_command));
 
 	/* Need to change the control lines here */
+	/* FIXME */
 	
 	/* shutdown our bulk reads and writes */
 	usb_unlink_urb (port->write_urb);
@@ -472,6 +474,7 @@ static void whiteheat_throttle (struct usb_serial_port *port)
 	dbg("%s - port %d", __FUNCTION__, port->number);
 
 	/* Change the control signals */
+	/* FIXME!!! */
 
 	return;
 }
@@ -482,6 +485,7 @@ static void whiteheat_unthrottle (struct usb_serial_port *port)
 	dbg("%s - port %d", __FUNCTION__, port->number);
 
 	/* Change the control signals */
+	/* FIXME!!! */
 
 	return;
 }

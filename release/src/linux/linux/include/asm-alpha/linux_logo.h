@@ -1,4 +1,4 @@
-/* $Id: linux_logo.h,v 1.1.1.4 2003/10/14 08:09:06 sparq Exp $
+/* $Id: linux_logo.h,v 1.6 1998/07/30 16:30:20 jj Exp $
  * include/asm-alpha/linux_logo.h: This is a linux logo
  *                                 to be displayed on boot.
  *

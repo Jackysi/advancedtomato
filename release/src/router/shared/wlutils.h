@@ -66,6 +66,17 @@ extern int wl_get_val(char *name, char *var, void *val, int len);
 extern int wl_set_int(char *name, char *var, int val);
 extern int wl_get_int(char *name, char *var, int *val);
 
+static inline int wl_phytype_n(int phytype)
+{
+	return (phytype == WLC_PHY_TYPE_N)
+#ifdef WLC_PHY_TYPE_SSN
+		|| (phytype == WLC_PHY_TYPE_SSN)
+#endif
+#ifdef WLC_PHY_TYPE_LCN
+		|| (phytype == WLC_PHY_TYPE_LCN)
+#endif
+	;
+}
 
 #if 1
 /*

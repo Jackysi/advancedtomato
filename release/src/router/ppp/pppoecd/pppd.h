@@ -553,6 +553,12 @@ int  sifaddr __P((int, u_int32_t, u_int32_t, u_int32_t));
 				/* Configure IPv4 addresses for i/f */
 int  cifaddr __P((int, u_int32_t, u_int32_t));
 				/* Reset i/f IP addresses */
+#ifdef INET6
+int  sif6addr __P((int, eui64_t, eui64_t));
+				/* Configure IPv6 addresses for i/f */
+int  cif6addr __P((int, eui64_t, eui64_t));
+				/* Remove an IPv6 address from i/f */
+#endif
 int  sifdefaultroute __P((int, u_int32_t, u_int32_t));
 #define cifdefaultroute(a,b,c) do { } while(0)
 #define sifproxyarp(a,b) (0)

@@ -119,7 +119,13 @@ static struct riscom_port rc_port[RC_NBOARD * RC_NPORT];
 		
 /* RISCom/8 I/O ports addresses (without address translation) */
 static unsigned short rc_ioport[] =  {
+#if 1	
 	0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x09, 0x0a, 0x0b, 0x0c,
+#else	
+	0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x09, 0x0a, 0x0b, 0x0c, 0x10,
+	0x11, 0x12, 0x18, 0x28, 0x31, 0x32, 0x39, 0x3a, 0x40, 0x41, 0x61, 0x62,
+	0x63, 0x64, 0x6b, 0x70, 0x71, 0x78, 0x7a, 0x7b, 0x7f, 0x100, 0x101
+#endif	
 };
 #define RC_NIOPORT	(sizeof(rc_ioport) / sizeof(rc_ioport[0]))
 
@@ -187,6 +193,7 @@ static inline void rc_wait_CCR(struct riscom_board const * bp)
 {
 	unsigned long delay;
 
+	/* FIXME: need something more descriptive then 100000 :) */
 	for (delay = 100000; delay; delay--) 
 		if (!rc_in(bp, CD180_CCR))
 			return;
@@ -385,6 +392,10 @@ static inline void rc_receive_exc(struct riscom_board const * bp)
 	status = rc_in(bp, CD180_RCSR);
 	if (status & RCSR_OE)  {
 		port->overrun++;
+#if 0		
+		printk(KERN_ERR "rc%d: port %d: Overrun. Total %ld overruns\n", 
+		       board_No(bp), port_No(port), port->overrun);
+#endif		
 	}
 	status &= port->mark_mask;
 #else	
@@ -809,6 +820,7 @@ static void rc_change_speed(struct riscom_board *bp, struct riscom_port *port)
 		port->COR2 |= COR2_CTSAE;
 #endif
 	}
+	/* Enable Software Flow Control. FIXME: I'm not sure about this */
 	/* Some people reported that it works, but I still doubt */
 	if (I_IXON(tty))  {
 		port->COR2 |= COR2_TXIBE;
@@ -1188,8 +1200,7 @@ static void rc_close(struct tty_struct * tty, struct file * filp)
 	rc_shutdown_port(bp, port);
 	if (tty->driver.flush_buffer)
 		tty->driver.flush_buffer(tty);
-	if (tty->ldisc.flush_buffer)
-		tty->ldisc.flush_buffer(tty);
+	tty_ldisc_flush(tty);
 	tty->closing = 0;
 	port->event = 0;
 	port->tty = 0;
@@ -1209,17 +1220,22 @@ out:	restore_flags(flags);
 static int rc_write(struct tty_struct * tty, int from_user, 
 		    const unsigned char *buf, int count)
 {
-	struct riscom_port *port = (struct riscom_port *)tty->driver_data;
+	struct riscom_port *port;
 	struct riscom_board *bp;
 	int c, total = 0;
 	unsigned long flags;
+
+	if (!tty)
+		return 0;
+
+	port = (struct riscom_port *)tty->driver_data;
 				
 	if (rc_paranoia_check(port, tty->device, "rc_write"))
 		return 0;
 	
 	bp = port_Board(port);
 
-	if (!tty || !port->xmit_buf || !tmp_buf)
+	if (!port->xmit_buf || !tmp_buf)
 		return 0;
 
 	save_flags(flags);
@@ -1287,13 +1303,18 @@ static int rc_write(struct tty_struct * tty, int from_user,
 
 static void rc_put_char(struct tty_struct * tty, unsigned char ch)
 {
-	struct riscom_port *port = (struct riscom_port *)tty->driver_data;
+	struct riscom_port *port;
 	unsigned long flags;
+
+	if (!tty)
+		return;
+
+	port = (struct riscom_port *)tty->driver_data;
 
 	if (rc_paranoia_check(port, tty->device, "rc_put_char"))
 		return;
 
-	if (!tty || !port->xmit_buf)
+	if (!port->xmit_buf)
 		return;
 
 	save_flags(flags); cli();
@@ -1363,9 +1384,7 @@ static void rc_flush_buffer(struct tty_struct *tty)
 	restore_flags(flags);
 	
 	wake_up_interruptible(&tty->write_wait);
-	if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-	    tty->ldisc.write_wakeup)
-		(tty->ldisc.write_wakeup)(tty);
+	tty_wakeup(tty);
 }
 
 static int rc_get_modem_info(struct riscom_port * port, unsigned int *value)
@@ -1457,6 +1476,16 @@ static inline int rc_set_serial_info(struct riscom_port * port,
 	if (copy_from_user(&tmp, newinfo, sizeof(tmp)))
 		return -EFAULT;
 	
+#if 0	
+	if ((tmp.irq != bp->irq) ||
+	    (tmp.port != bp->base) ||
+	    (tmp.type != PORT_CIRRUS) ||
+	    (tmp.baud_base != (RC_OSCFREQ + CD180_TPC/2) / CD180_TPC) ||
+	    (tmp.custom_divisor != 0) ||
+	    (tmp.xmit_fifo_size != CD180_NFIFO) ||
+	    (tmp.flags & ~RISCOM_LEGAL_FLAGS))
+		return -EINVAL;
+#endif	
 	
 	change_speed = ((port->flags & ASYNC_SPD_MASK) !=
 			(tmp.flags & ASYNC_SPD_MASK));
@@ -1653,7 +1682,7 @@ static void do_rc_hangup(void *private_)
 	
 	tty = port->tty;
 	if (tty)
-		tty_hangup(tty);	
+		tty_hangup(tty);	/* FIXME: module removal race still here */
 	MOD_DEC_USE_COUNT;
 }
 
@@ -1712,10 +1741,7 @@ static void do_softint(void *private_)
 		return;
 
 	if (test_and_clear_bit(RS_EVENT_WRITE_WAKEUP, &port->event)) {
-		if ((tty->flags & (1 << TTY_DO_WRITE_WAKEUP)) &&
-		    tty->ldisc.write_wakeup)
-			(tty->ldisc.write_wakeup)(tty);
-		wake_up_interruptible(&tty->write_wait);
+		tty_wakeup(tty);
 	}
 }
 

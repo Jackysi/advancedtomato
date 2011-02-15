@@ -28,17 +28,20 @@ int dpkg_deb_main(int argc, char **argv)
 
 	/* Setup an ar archive handle that refers to the gzip sub archive */
 	ar_archive = init_handle();
-	ar_archive->sub_archive = tar_archive;
+	ar_archive->dpkg__sub_archive = tar_archive;
 	ar_archive->filter = filter_accept_list_reassign;
 
 #if ENABLE_FEATURE_SEAMLESS_GZ
-	llist_add_to(&(ar_archive->accept), (char*)"data.tar.gz");
+	llist_add_to(&ar_archive->accept, (char*)"data.tar.gz");
 	llist_add_to(&control_tar_llist, (char*)"control.tar.gz");
 #endif
-
 #if ENABLE_FEATURE_SEAMLESS_BZ2
-	llist_add_to(&(ar_archive->accept), (char*)"data.tar.bz2");
+	llist_add_to(&ar_archive->accept, (char*)"data.tar.bz2");
 	llist_add_to(&control_tar_llist, (char*)"control.tar.bz2");
+#endif
+#if ENABLE_FEATURE_SEAMLESS_LZMA
+	llist_add_to(&ar_archive->accept, (char*)"data.tar.lzma");
+	llist_add_to(&control_tar_llist, (char*)"control.tar.lzma");
 #endif
 
 	opt_complementary = "c--efXx:e--cfXx:f--ceXx:X--cefx:x--cefX";

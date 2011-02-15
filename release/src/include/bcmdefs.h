@@ -1,7 +1,7 @@
 /*
  * Misc system wide definitions
  *
- * Copyright 2006, Broadcom Corporation
+ * Copyright 2007, Broadcom Corporation
  * All Rights Reserved.
  * 
  * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
@@ -46,10 +46,6 @@ extern bool bcmreclaimed;
 #else
 #define CONST	const
 #endif /* BCMRECLAIM */
-
-/* Compatibility with old-style BCMRECLAIM */
-#define BCMINIT(_id)		_id
-
 
 /* Put some library data/code into ROM to reduce RAM requirements */
 #if defined(BCMROMOFFLOAD)
@@ -99,7 +95,7 @@ extern bool bcmreclaimed;
  * There is a compile time check in wlc.c which ensure that this value is at least as big
  * as TXOFF. This value is used in dma_rxfill (hnddma.c).
  */
-#define BCMEXTRAHDROOM 160
+#define BCMEXTRAHDROOM 164
 
 /* Headroom required for dongle-to-host communication.  Packets allocated
  * locally in the dongle (e.g. for CDC ioctls or RNDIS messages) should
@@ -114,15 +110,6 @@ extern bool bcmreclaimed;
 #define BCMDONGLEHDRSZ 8
 #endif
 
-#ifdef BCMDBG
-
-#define BCMDBG_ERR
-
-#ifndef BCMDBG_ASSERT
-#define BCMDBG_ASSERT
-#endif /* BCMDBG_ASSERT */
-
-#endif /* BCMDBG */
 
 /* Brett's nifty macros for doing definition and get/set of bitfields
  * Usage example, e.g. a three-bit field (bits 4-6):
@@ -146,5 +133,8 @@ extern bool bcmreclaimed;
 #define	BCMSPACE
 #define bcmspace	TRUE	/* if (bcmspace) code is retained */
 #endif
+
+/* Max. nvram variable table size */
+#define	MAXSZ_NVRAM_VARS	4096	
 
 #endif /* _bcmdefs_h_ */

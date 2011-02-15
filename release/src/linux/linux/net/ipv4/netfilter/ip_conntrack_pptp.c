@@ -57,8 +57,7 @@ DECLARE_LOCK(ip_pptp_lock);
 
 #if 0
 #include "ip_conntrack_pptp_priv.h"
-#define DEBUGP(format, args...)	printk(KERN_DEBUG __FILE__ ":" __FUNCTION__ \
-					": " format, ## args)
+#define DEBUGP(format, args...) printk(KERN_DEBUG "%s:%s: " format, __FILE__, __FUNCTION__, ## args)
 #else
 #define DEBUGP(format, args...)
 #endif
@@ -69,7 +68,7 @@ DECLARE_LOCK(ip_pptp_lock);
 #define DAYS * 24 HOURS
 
 #define PPTP_GRE_TIMEOUT 		(10 MINS)
-#define PPTP_GRE_STREAM_TIMEOUT 	(5 DAYS)
+#define PPTP_GRE_STREAM_TIMEOUT 	(6 HOURS)
 
 static int pptp_expectfn(struct ip_conntrack *ct)
 {
@@ -96,18 +95,18 @@ static int pptp_expectfn(struct ip_conntrack *ct)
 	DEBUGP("completing tuples with ct info\n");
 	/* we can do this, since we're unconfirmed */
 	if (ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u.gre.key == 
-		htonl(master->help.ct_pptp_info.pac_call_id)) {	
+		master->help.ct_pptp_info.pac_call_id) {
 		/* assume PNS->PAC */
 		ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.gre.key = 
-			htonl(master->help.ct_pptp_info.pns_call_id);
+			master->help.ct_pptp_info.pns_call_id;
 		ct->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u.gre.key =
-			htonl(master->help.ct_pptp_info.pns_call_id);
+			master->help.ct_pptp_info.pns_call_id;
 	} else {
 		/* assume PAC->PNS */
 		ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.gre.key =
-			htonl(master->help.ct_pptp_info.pac_call_id);
+			master->help.ct_pptp_info.pac_call_id;
 		ct->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u.gre.key =
-			htonl(master->help.ct_pptp_info.pac_call_id);
+			master->help.ct_pptp_info.pac_call_id;
 	}
 	
 	/* delete other expectation */
@@ -134,7 +133,7 @@ static int pptp_expectfn(struct ip_conntrack *ct)
 }
 
 /* timeout GRE data connections */
-static int pptp_timeout_related(struct ip_conntrack *ct)
+static int pptp_timeout_related(struct ip_conntrack *ct, enum ip_conntrack_info ctinfo, const struct iphdr *iph)
 {
 	struct list_head *cur_item, *next;
 	struct ip_conntrack_expect *exp;
@@ -156,7 +155,7 @@ static int pptp_timeout_related(struct ip_conntrack *ct)
 			exp->sibling);
 		exp->sibling->proto.gre.timeout = 0;
 		exp->sibling->proto.gre.stream_timeout = 0;
-		ip_ct_refresh(exp->sibling, 0);
+		ip_ct_refresh_acct(exp->sibling, ctinfo, iph, 0);
 	}
 
 	return 0;
@@ -175,30 +174,26 @@ exp_gre(struct ip_conntrack *master,
 	memset(&exp, 0, sizeof(exp));
 	/* tuple in original direction, PNS->PAC */
 	exp.tuple.src.ip = master->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.ip;
-	exp.tuple.src.u.gre.key = htonl(ntohs(peer_callid));
+	exp.tuple.src.u.gre.key = peer_callid;
 	exp.tuple.dst.ip = master->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.ip;
-	exp.tuple.dst.u.gre.key = htonl(ntohs(callid));
-	exp.tuple.dst.u.gre.protocol = __constant_htons(GRE_PROTOCOL_PPTP);
-	exp.tuple.dst.u.gre.version = GRE_VERSION_PPTP;
+	exp.tuple.dst.u.gre.key = callid;
 	exp.tuple.dst.protonum = IPPROTO_GRE;
 
 	exp.mask.src.ip = 0xffffffff;
 	exp.mask.src.u.all = 0;
 	exp.mask.dst.u.all = 0;
-	exp.mask.dst.u.gre.key = 0xffffffff;
-	exp.mask.dst.u.gre.version = 0xff;
-	exp.mask.dst.u.gre.protocol = 0xffff;
+	exp.mask.dst.u.gre.key = 0xffff;
 	exp.mask.dst.ip = 0xffffffff;
 	exp.mask.dst.protonum = 0xffff;
 			
 	exp.seq = seq;
 	exp.expectfn = pptp_expectfn;
 
-	exp.help.exp_pptp_info.pac_call_id = ntohs(callid);
-	exp.help.exp_pptp_info.pns_call_id = ntohs(peer_callid);
+	exp.help.exp_pptp_info.pac_call_id = callid;
+	exp.help.exp_pptp_info.pns_call_id = peer_callid;
 
 	DEBUGP("calling expect_related ");
-	DUMP_TUPLE_RAW(&exp.tuple);
+	DUMP_TUPLE(&exp.tuple);
 	
 	/* Add GRE keymap entries */
 	if (ip_ct_gre_keymap_add(&exp, &exp.tuple, 0) != 0)
@@ -218,12 +213,12 @@ exp_gre(struct ip_conntrack *master,
 
 	/* tuple in reply direction, PAC->PNS */
 	exp.tuple.src.ip = master->tuplehash[IP_CT_DIR_REPLY].tuple.src.ip;
-	exp.tuple.src.u.gre.key = htonl(ntohs(callid));
+	exp.tuple.src.u.gre.key = callid;
 	exp.tuple.dst.ip = master->tuplehash[IP_CT_DIR_REPLY].tuple.dst.ip;
-	exp.tuple.dst.u.gre.key = htonl(ntohs(peer_callid));
+	exp.tuple.dst.u.gre.key = peer_callid;
 
 	DEBUGP("calling expect_related ");
-	DUMP_TUPLE_RAW(&exp.tuple);
+	DUMP_TUPLE(&exp.tuple);
 	
 	/* Add GRE keymap entries */
 	ip_ct_gre_keymap_add(&exp, &exp.tuple, 0);
@@ -247,7 +242,8 @@ pptp_inbound_pkt(struct tcphdr *tcph,
 		 struct pptp_pkt_hdr *pptph, 
 		 size_t datalen,
 		 struct ip_conntrack *ct,
-		 enum ip_conntrack_info ctinfo)
+		 enum ip_conntrack_info ctinfo,
+		 const struct iphdr *iph)
 {
 	struct PptpControlHeader *ctlh;
         union pptp_ctrl_union pptpReq;
@@ -310,9 +306,9 @@ pptp_inbound_pkt(struct tcphdr *tcph,
 		cid = &pptpReq.ocack->callID;
 		pcid = &pptpReq.ocack->peersCallID;
 
-		info->pac_call_id = ntohs(*cid);
+		info->pac_call_id = *cid;
 		
-		if (htons(info->pns_call_id) != *pcid) {
+		if (info->pns_call_id != *pcid) {
 			DEBUGP("%s for unknown callid %u\n",
 				strMName[msg], ntohs(*pcid));
 			break;
@@ -337,7 +333,7 @@ pptp_inbound_pkt(struct tcphdr *tcph,
 		pcid = &pptpReq.icack->peersCallID;
 		DEBUGP("%s, PCID=%X\n", strMName[msg], ntohs(*pcid));
 		info->cstate = PPTP_CALL_IN_REQ;
-		info->pac_call_id= ntohs(*pcid);
+		info->pac_call_id= *pcid;
 		break;
 
 	case PPTP_IN_CALL_CONNECT:
@@ -356,7 +352,7 @@ pptp_inbound_pkt(struct tcphdr *tcph,
 		pcid = &pptpReq.iccon->peersCallID;
 		cid = &info->pac_call_id;
 
-		if (info->pns_call_id != ntohs(*pcid)) {
+		if (info->pns_call_id != *pcid) {
 			DEBUGP("%s for unknown CallID %u\n", 
 				strMName[msg], ntohs(*cid));
 			break;
@@ -379,7 +375,7 @@ pptp_inbound_pkt(struct tcphdr *tcph,
 		info->cstate = PPTP_CALL_NONE;
 
 		/* untrack this call id, unexpect GRE packets */
-		pptp_timeout_related(ct);
+		pptp_timeout_related(ct, ctinfo, iph);
 		break;
 
 	case PPTP_WAN_ERROR_NOTIFY:
@@ -442,7 +438,7 @@ pptp_outbound_pkt(struct tcphdr *tcph,
 		/* track PNS call id */
 		cid = &pptpReq.ocreq->callID;
 		DEBUGP("%s, CID=%X\n", strMName[msg], ntohs(*cid));
-		info->pns_call_id = ntohs(*cid);
+		info->pns_call_id = *cid;
 		break;
 	case PPTP_IN_CALL_REPLY:
 		/* client answers incoming call */
@@ -457,7 +453,7 @@ pptp_outbound_pkt(struct tcphdr *tcph,
 			break;
 		}
 		pcid = &pptpReq.icack->peersCallID;
-		if (info->pac_call_id != ntohs(*pcid)) {
+		if (info->pac_call_id != *pcid) {
 			DEBUGP("%s for unknown call %u\n", 
 				strMName[msg], ntohs(*pcid));
 			break;
@@ -465,7 +461,7 @@ pptp_outbound_pkt(struct tcphdr *tcph,
 		DEBUGP("%s, CID=%X\n", strMName[msg], ntohs(*pcid));
 		/* part two of the three-way handshake */
 		info->cstate = PPTP_CALL_IN_REP;
-		info->pns_call_id = ntohs(pptpReq.icack->callID);
+		info->pns_call_id = pptpReq.icack->callID;
 		break;
 
 	case PPTP_CALL_CLEAR_REQUEST:
@@ -541,7 +537,7 @@ conntrack_pptp_help(const struct iphdr *iph, size_t len,
 		info->cstate = PPTP_CALL_NONE;
 
 		/* untrack this call id, unexpect GRE packets */
-		pptp_timeout_related(ct);
+		pptp_timeout_related(ct, ctinfo, iph);
 	}
 
 
@@ -573,7 +569,7 @@ conntrack_pptp_help(const struct iphdr *iph, size_t len,
 		ret = pptp_outbound_pkt(tcph, pptph, datalen, ct, ctinfo);
 	else
 		/* server -> client (PAC -> PNS) */
-		ret = pptp_inbound_pkt(tcph, pptph, datalen, ct, ctinfo);
+		ret = pptp_inbound_pkt(tcph, pptph, datalen, ct, ctinfo, iph);
 	DEBUGP("sstate: %d->%d, cstate: %d->%d\n",
 		oldsstate, info->sstate, oldcstate, info->cstate);
 	UNLOCK_BH(&ip_pptp_lock);

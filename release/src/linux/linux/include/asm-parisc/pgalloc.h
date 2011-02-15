@@ -111,17 +111,21 @@ flush_cache_page(struct vm_area_struct *vma, unsigned long vmaddr)
 	}
 }
 
+extern void __flush_dcache_page(struct page *page);
 static inline void flush_dcache_page(struct page *page)
 {
 	if (page->mapping && !page->mapping->i_mmap &&
 			!page->mapping->i_mmap_shared) {
 		set_bit(PG_dcache_dirty, &page->flags);
 	} else {
-		flush_kernel_dcache_page(page_address(page));
+		__flush_dcache_page(page);
 	}
 }
 
 #define flush_icache_page(vma,page)	do { flush_kernel_dcache_page(page_address(page)); flush_kernel_icache_page(page_address(page)); } while (0)
+
+#define flush_icache_user_range(vma, page, addr, len) \
+	flush_user_icache_range(addr, addr + len);
 
 #define flush_icache_range(s,e)		do { flush_kernel_dcache_range_asm(s,e); flush_kernel_icache_range_asm(s,e); } while (0)
 
@@ -139,6 +143,21 @@ static inline void load_context(mm_context_t context)
 #endif
 }
 
+/*
+ * flush_tlb_mm()
+ *
+ * XXX This code is NOT valid for HP-UX compatibility processes,
+ * (although it will probably work 99% of the time). HP-UX
+ * processes are free to play with the space id's and save them
+ * over long periods of time, etc. so we have to preserve the
+ * space and just flush the entire tlb. We need to check the
+ * personality in order to do that, but the personality is not
+ * currently being set correctly.
+ *
+ * Of course, Linux processes could do the same thing, but
+ * we don't support that (and the compilers, dynamic linker,
+ * etc. do not do that).
+ */
 
 static inline void flush_tlb_mm(struct mm_struct *mm)
 {
@@ -177,7 +196,7 @@ static inline void flush_tlb_range(struct mm_struct *mm,
 	unsigned long npages;
 
 	npages = ((end - (start & PAGE_MASK)) + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
-	if (npages >= 512)  
+	if (npages >= 512)  /* XXX arbitrary, should be tuned */
 		flush_tlb_all();
 	else {
 

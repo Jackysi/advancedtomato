@@ -59,7 +59,7 @@ extern __inline void unlock_kernel(void)
 	 *	free the lock 
 	 */
 	if (kernel_counter == 0)
-		panic("Kernel counter wrong.\n"); 
+		panic("Kernel counter wrong.\n"); /* FIXME: Why is kernel_counter sometimes 0 here? */
 	
 	if(! --kernel_counter) 
 	{

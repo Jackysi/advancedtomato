@@ -96,6 +96,8 @@ int sound_install_mixer(int vers, char *name, struct mixer_operations *driver,
 		return -EINVAL;
 	}
 	
+	/* FIXME: This leaks a mixer_operations struct every time its called
+	   until you unload sound! */
 	   
 	op = (struct mixer_operations *) (sound_mem_blocks[sound_nblocks] = vmalloc(sizeof(struct mixer_operations)));
 

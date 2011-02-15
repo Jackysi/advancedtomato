@@ -3,7 +3,7 @@
  * 
  * (C) 2000 Nicolas Pitre <nico@cam.org>
  * 
- * $Id: sa1100-flash.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: sa1100-flash.c,v 1.29 2002/09/06 14:36:19 abz Exp $
  */
 
 #include <linux/config.h>
@@ -393,27 +393,23 @@ static struct mtd_partition freebird_partitions[] = {
 static struct mtd_partition frodo_partitions[] =
 {
 	{
-		name:		"bootloader",
+		name:		"Boot Loader",
 		size:		0x00040000,
-		offset:		0x00000000,
-		mask_flags:	MTD_WRITEABLE
+		offset:		0x00000000
 	}, {
-		name:		"bootloader params",
+		name:		"Parameter Block",
 		size:		0x00040000,
-		offset:		MTDPART_OFS_APPEND,
-		mask_flags:	MTD_WRITEABLE
+		offset:		MTDPART_OFS_APPEND
 	}, {
-		name:		"kernel",
+		name:		"Linux Kernel",
 		size:		0x00100000,
-		offset:		MTDPART_OFS_APPEND,
-		mask_flags:	MTD_WRITEABLE
+		offset:		MTDPART_OFS_APPEND
 	}, {
-		name:		"ramdisk",
-		size:		0x00400000,
-		offset:		MTDPART_OFS_APPEND,
-		mask_flags:	MTD_WRITEABLE
+		name:		"Ramdisk",
+		size:		0x00680000,
+		offset:		MTDPART_OFS_APPEND
 	}, {
-		name:		"file system",
+		name:		"Flash File System",
 		size:		MTDPART_SIZ_FULL,
 		offset:		MTDPART_OFS_APPEND
 	}
@@ -848,6 +844,7 @@ int __init sa1100_mtd_init(void)
 		sa1100_map.size = FRODO_FLASH_SIZE;
 		base = 0x00000000;
 	}
+#endif
 #ifdef CONFIG_SA1100_GRAPHICSCLIENT
 	if (machine_is_graphicsclient()) {
 		parts = graphicsclient_partitions;
@@ -975,11 +972,11 @@ int __init sa1100_mtd_init(void)
 		}
 	}
 #endif
-#ifdef CONFIG_MTD_BOOTLDR_PARTS
+#ifdef CONFIG_MTD_CMDLINE_PARTS
 	if (parsed_nr_parts == 0) {
-		int ret = parse_bootldr_partitions(mymtd, &parsed_parts);
+		int ret = parse_cmdline_partitions(mymtd, &parsed_parts, "sa1100");
 		if (ret > 0) {
-			part_type = "Compaq bootldr";
+			part_type = "Command Line";
 			parsed_nr_parts = ret;
 		}
 	}

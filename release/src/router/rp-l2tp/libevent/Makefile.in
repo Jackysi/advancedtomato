@@ -18,7 +18,7 @@ all: libevent.a
 
 libevent.a: $(OBJS)
 	rm -f libevent.a
-	ar -cq libevent.a $(OBJS)
+	@AR@ -cq libevent.a $(OBJS)
 	@RANLIB@ libevent.a
 
 event.o: event.c $(HDRS)

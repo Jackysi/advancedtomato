@@ -72,7 +72,7 @@ int i;
 	char *p;
 	unsigned char *q;
 	BUF_MEM *b=NULL;
-	static char hex[17]="0123456789ABCDEF";
+	static const char hex[17]="0123456789ABCDEF";
 	int gs_doit[4];
 	char tmp_buf[80];
 #ifdef CHARSET_EBCDIC
@@ -94,6 +94,7 @@ int i;
 		OPENSSL_free(b);
 		}
 	    strncpy(buf,"NO X509_NAME",len);
+	    buf[len-1]='\0';
 	    return buf;
 	    }
 

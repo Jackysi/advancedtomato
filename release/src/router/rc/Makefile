@@ -1,9 +1,11 @@
 include ../common.mak
 
-CFLAGS = -Wall -Os #-mips32
-CFLAGS += -I. -I../shared -I$(SRCBASE)/include
+CFLAGS = -Wall -Os $(EXTRACFLAGS)
+CFLAGS += -I. -I$(TOP)/shared -I$(SRCBASE)/include -idirafter$(LINUXDIR)/include
+CFLAGS += -ffunction-sections -fdata-sections
 
-LDFLAGS = -L../nvram -lnvram -L../shared -lshared -lcrypt
+LDFLAGS = -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -lcrypt
+LDFLAGS += -ffunction-sections -fdata-sections -Wl,--gc-sections
 ifeq ($(STATIC),1)
 LDFLAGS += -static
 endif
@@ -14,6 +16,9 @@ OBJS += listen.o redial.o led.o qos.o forward.o misc.o mtd.o
 OBJS += buttons.o restrict.o gpio.o sched.o
 #	heartbeat.o
 
+ifeq ($(TCONFIG_USB),y)
+OBJS += usb.o
+endif
 ifeq ($(TCONFIG_DDNS),y)
 OBJS += ddns.o
 endif
@@ -31,7 +36,7 @@ OBJS += mmc.o
 endif
 
 ifeq ($(TOMATO_SL),1)
-OBJS += usb.o
+#OBJS += usb.o
 OBJS += samba.o
 endif
 
@@ -47,10 +52,12 @@ rc: $(OBJS)
 
 install: all
 	@echo "[rc] Installing..."
-	@install -m 0500 -D rc $(INSTALLDIR)/sbin/rc
+	@install -D rc $(INSTALLDIR)/sbin/rc
 	@$(STRIP) $(INSTALLDIR)/sbin/rc
+	@chmod 0500 $(INSTALLDIR)/sbin/rc
 
 	@cd $(INSTALLDIR)/sbin && ln -sf rc init
+	@cd $(INSTALLDIR)/sbin && ln -sf rc console
 	@cd $(INSTALLDIR)/sbin && ln -sf rc hotplug
 	@cd $(INSTALLDIR)/sbin && ln -sf rc service
 	@cd $(INSTALLDIR)/sbin && ln -sf rc buttons

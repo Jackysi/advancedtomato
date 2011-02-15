@@ -34,19 +34,12 @@
 #define OSPF_PATH_TYPE2_EXTERNAL	4
 #define OSPF_PATH_MAX			5
 
-#ifndef NEW_OSPF_ROUTE
 /* OSPF Path. */
 struct ospf_path
 {
   struct in_addr nexthop;
   struct in_addr adv_router;
   struct ospf_interface *oi;
-};
-
-struct ospf_router_route
-{
-  list routes;			/* list of (struct ospf_route *) */
-  struct ospf_route *best;	/* the best route */
 };
 
 /* Below is the structure linked to every
@@ -130,106 +123,16 @@ struct ospf_route
   } u;
 };
 
-#else
-/* OSPF netxhop. */
-struct ospf_nexthop
-{
-  /* Type of NextHop. */
-  u_char type;
-#define OSPF_NEXTHOP_ADDRESS;
-#define OSPF_NEXTHOP_INTERFACE;
-
-  /* Nexthop Address or Interface. */
-  union
-  {
-    struct in_addr address;
-    struct ospf_interface *oi;
-  } nh;
-
-  /* Advertising Router. */
-  struct in_addr adv_router;
-
-  /* Pointer to ABR/ASBR route. */
-  struct ospf_route *router;
-
-  /* Tag value. */ 
-  u_int32_t tag;
-};
-
-/* OSPF Route. */
-struct ospf_path
-{
-  /* Cost. */
-  u_int32_t cost;
-
-  /* Path-Type specific info. */
-  union
-  {
-    struct ospf_area *area;    /* OSPF Area for Intra/Inter-Area route. */
-    u_int32_t type2_cost;      /* Type-2 cost for External route. */
-  } u;
-
-  /* Nexthops. */
-  struct ospf_nexthop *nexthop;
-  /* list nexthop; */
-#if 0
-  /* Link State Origin. */
-  struct ospf_lsa *origin;
-#endif  
-};
-
-struct network_route
-{
-  /* Create time. */
-  time_t ctime;
-
-  /* Destination Type. */
-  /* u_char dtype; */
-
-  /* Destination ID. */
-  struct in_addr id;
-
-  /* Address Mask. */
-  struct in_addr mask;
-
-  /* Store each type of paths. */
-  struct ospf_path *path[OSPF_PATH_MAX];
-};
-
-typedef struct network_route ospf_route;
-
-struct router_route
-{
-  /* Create time. */
-  time_t ctime;
-
-  /* Destination Type. */
-  /* u_char dtype; */
-
-  /* Destination ID. */
-  struct in_addr id;
-
-  /* Optional Capability. */
-  u_char options;
-
-  /* Store list of paths. */
-  list path;
-};
-
-#endif
-
 struct ospf_path *ospf_path_new ();
-void ospf_path_free (struct ospf_path *op);
+void ospf_path_free (struct ospf_path *);
 struct ospf_path *ospf_path_lookup (list, struct ospf_path *);
 struct ospf_route *ospf_route_new ();
-void ospf_route_free (struct ospf_route *or);
-void ospf_route_delete (struct route_table *rt);
-void ospf_route_table_free (struct route_table *rt);
+void ospf_route_free (struct ospf_route *);
+void ospf_route_delete (struct route_table *);
+void ospf_route_table_free (struct route_table *);
 
-void ospf_route_install (struct route_table *);
+void ospf_route_install (struct ospf *, struct route_table *);
 void ospf_route_table_dump (struct route_table *);
-void ospf_intra_route_add (struct route_table *, struct vertex *, 
-			   struct ospf_area *);
 
 void ospf_intra_add_router (struct route_table *, struct vertex *,
 			    struct ospf_area *);
@@ -240,7 +143,7 @@ void ospf_intra_add_transit (struct route_table *, struct vertex *,
 void ospf_intra_add_stub (struct route_table *, struct router_lsa_link *,
  		          struct vertex *, struct ospf_area *);
 
-int ospf_route_cmp (struct ospf_route *, struct ospf_route *);
+int ospf_route_cmp (struct ospf *, struct ospf_route *, struct ospf_route *);
 void ospf_route_copy_nexthops (struct ospf_route *, list);
 void ospf_route_copy_nexthops_from_vertex (struct ospf_route *,
 					   struct vertex * );

@@ -8,7 +8,7 @@
  *
  * Copyright (C) 1997 by Paul M. Antoine.
  * reworked 1998 by Harald Koerfgen.
- * Copyright (C) 2001, 2002  Maciej W. Rozycki
+ * Copyright (C) 2001, 2002, 2003  Maciej W. Rozycki
  */
 
 #ifndef __ASM_DEC_INTERRUPTS_H
@@ -33,7 +33,7 @@
 #define DEC_IRQ_HALT		7	/* HALT button or from ACCESS.Bus */
 #define DEC_IRQ_ISDN		8	/* Am79C30A ISDN */
 #define DEC_IRQ_LANCE		9	/* LANCE (Am7990) Ethernet */
-#define DEC_IRQ_MEMORY		10	/* memory, I/O bus write errors */
+#define DEC_IRQ_BUS		10	/* memory, I/O bus read/write errors */
 #define DEC_IRQ_PSU		11	/* power supply unit warning */
 #define DEC_IRQ_RTC		12	/* DS1287 RTC */
 #define DEC_IRQ_SCC0		13	/* SCC (Z85C30) serial #0 */

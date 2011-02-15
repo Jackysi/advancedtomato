@@ -349,6 +349,8 @@ void
 vtysh_pager_init ()
 {
   vtysh_pager_name = getenv ("VTYSH_PAGER");
+  if (! vtysh_pager_name)
+    vtysh_pager_name = "more";
 }
 
 /* Command execution over the vty interface. */
@@ -821,6 +823,29 @@ DEFUNSH (VTYSH_BGPD,
 }
 
 DEFUNSH (VTYSH_BGPD,
+	 address_family_ipv4_unicast,
+	 address_family_ipv4_unicast_cmd,
+	 "address-family ipv4 unicast",
+	 "Enter Address Family command mode\n"
+	 "Address family\n"
+	 "Address Family Modifier\n")
+{
+  vty->node = BGP_IPV4_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_BGPD,
+	 address_family_ipv4,
+	 address_family_ipv4_cmd,
+	 "address-family ipv4",
+	 "Enter Address Family command mode\n"
+	 "Address family\n")
+{
+  vty->node = BGP_IPV4_NODE;
+  return CMD_SUCCESS;
+}
+
+DEFUNSH (VTYSH_BGPD,
 	 address_family_ipv4_multicast,
 	 address_family_ipv4_multicast_cmd,
 	 "address-family ipv4 multicast",
@@ -997,6 +1022,7 @@ vtysh_exit (struct vty *vty)
       vty->node = CONFIG_NODE;
       break;
     case BGP_VPNV4_NODE:
+    case BGP_IPV4_NODE:
     case BGP_IPV4M_NODE:
     case BGP_IPV6_NODE:
       vty->node = BGP_NODE;
@@ -1022,7 +1048,7 @@ DEFUNSH (VTYSH_ALL,
 ALIAS (vtysh_exit_all,
        vtysh_quit_all_cmd,
        "quit",
-       "Exit current mode and down to previous mode\n")
+       "Exit current mode and down to previous mode\n");
 
 DEFUNSH (VTYSH_BGPD,
 	 exit_address_family,
@@ -1030,7 +1056,8 @@ DEFUNSH (VTYSH_BGPD,
 	 "exit-address-family",
 	 "Exit from Address Family configuration mode\n")
 {
-  if (vty->node == BGP_IPV4M_NODE
+  if (vty->node == BGP_IPV4_NODE
+      || vty->node == BGP_IPV4M_NODE
       || vty->node == BGP_VPNV4_NODE
       || vty->node == BGP_IPV6_NODE)
     vty->node = BGP_NODE;
@@ -1049,7 +1076,7 @@ DEFUNSH (VTYSH_ZEBRA,
 ALIAS (vtysh_exit_zebra,
        vtysh_quit_zebra_cmd,
        "quit",
-       "Exit current mode and down to previous mode\n")
+       "Exit current mode and down to previous mode\n");
 
 DEFUNSH (VTYSH_RIPD,
 	 vtysh_exit_ripd,
@@ -1063,7 +1090,21 @@ DEFUNSH (VTYSH_RIPD,
 ALIAS (vtysh_exit_ripd,
        vtysh_quit_ripd_cmd,
        "quit",
-       "Exit current mode and down to previous mode\n")
+       "Exit current mode and down to previous mode\n");
+
+DEFUNSH (VTYSH_RIPNGD,
+    vtysh_exit_ripngd,
+    vtysh_exit_ripngd_cmd,
+    "exit",
+    "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit (vty);
+}
+
+ALIAS (vtysh_exit_ripngd,
+       vtysh_quit_ripngd_cmd,
+       "quit",
+       "Exit current mode and down to previous mode\n");
 
 DEFUNSH (VTYSH_RMAP,
 	 vtysh_exit_rmap,
@@ -1077,7 +1118,7 @@ DEFUNSH (VTYSH_RMAP,
 ALIAS (vtysh_exit_rmap,
        vtysh_quit_rmap_cmd,
        "quit",
-       "Exit current mode and down to previous mode\n")
+       "Exit current mode and down to previous mode\n");
 
 DEFUNSH (VTYSH_BGPD,
 	 vtysh_exit_bgpd,
@@ -1091,7 +1132,7 @@ DEFUNSH (VTYSH_BGPD,
 ALIAS (vtysh_exit_bgpd,
        vtysh_quit_bgpd_cmd,
        "quit",
-       "Exit current mode and down to previous mode\n")
+       "Exit current mode and down to previous mode\n");
 
 DEFUNSH (VTYSH_OSPFD,
 	 vtysh_exit_ospfd,
@@ -1105,9 +1146,23 @@ DEFUNSH (VTYSH_OSPFD,
 ALIAS (vtysh_exit_ospfd,
        vtysh_quit_ospfd_cmd,
        "quit",
-       "Exit current mode and down to previous mode\n")
+       "Exit current mode and down to previous mode\n");
 
-DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
+DEFUNSH (VTYSH_OSPF6D,
+    vtysh_exit_ospf6d,
+    vtysh_exit_ospf6d_cmd,
+    "exit",
+    "Exit current mode and down to previous mode\n")
+{
+  return vtysh_exit (vty);
+}
+
+ALIAS (vtysh_exit_ospf6d,
+       vtysh_quit_ospf6d_cmd,
+       "quit",
+       "Exit current mode and down to previous mode\n");
+
+DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D,
 	 vtysh_interface,
 	 vtysh_interface_cmd,
 	 "interface IFNAME",
@@ -1118,22 +1173,7 @@ DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
   return CMD_SUCCESS;
 }
 
-DEFSH (VTYSH_RIPD|VTYSH_BGPD,
-       set_ip_nexthop_cmd,
-       "set ip next-hop A.B.C.D",
-       SET_STR
-       IP_STR
-       "Next hop address\n"
-       "IP address of next hop\n")
-
-DEFSH (VTYSH_RMAP,
-       set_metric_cmd,
-       "set metric <0-4294967295>",
-       SET_STR
-       "Metric value for destination routing protocol\n"
-       "Metric value\n")
-
-DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
+DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD|VTYSH_OSPF6D,
 	 vtysh_exit_interface,
 	 vtysh_exit_interface_cmd,
 	 "exit",
@@ -1145,7 +1185,7 @@ DEFUNSH (VTYSH_ZEBRA|VTYSH_RIPD|VTYSH_OSPFD,
 ALIAS (vtysh_exit_interface,
        vtysh_quit_interface_cmd,
        "quit",
-       "Exit current mode and down to previous mode\n")
+       "Exit current mode and down to previous mode\n");
 
 DEFUN (vtysh_write_terminal,
        vtysh_write_terminal_cmd,
@@ -1258,19 +1298,19 @@ ALIAS (vtysh_write_memory,
        "copy running-config startup-config",  
        "Copy from one file to another\n"
        "Copy from current system configuration\n"
-       "Copy to startup configuration\n")
+       "Copy to startup configuration\n");
 
 ALIAS (vtysh_write_memory,
        vtysh_write_file_cmd,
        "write file",
        "Write running configuration to memory, network, or terminal\n"
-       "Write configuration to the file (same as write memory)\n")
+       "Write configuration to the file (same as write memory)\n");
 
 ALIAS (vtysh_write_terminal,
        vtysh_show_running_config_cmd,
        "show running-config",
        SHOW_STR
-       "Current operating configuration\n")
+       "Current operating configuration\n");
 
 /* Execute command in child process. */
 int
@@ -1406,6 +1446,12 @@ struct cmd_node zebra_node =
 struct cmd_node bgp_vpnv4_node =
 {
   BGP_VPNV4_NODE,
+  "%s(config-router-af)# "
+};
+
+struct cmd_node bgp_ipv4_node =
+{
+  BGP_IPV4_NODE,
   "%s(config-router-af)# "
 };
 
@@ -1550,7 +1596,7 @@ vtysh_connect_all()
 
 /* To disable readline's filename completion */
 int
-vtysh_completion_entry_fucntion (int ignore, int invoking_key)
+vtysh_completion_entry_function (int ignore, int invoking_key)
 {
   return 0;
 }
@@ -1560,7 +1606,7 @@ vtysh_readline_init ()
 {
   /* readline related settings. */
   rl_bind_key ('?', vtysh_rl_describe);
-  rl_completion_entry_function = vtysh_completion_entry_fucntion;
+  rl_completion_entry_function = vtysh_completion_entry_function;
   rl_attempted_completion_function = (CPPFunction *)new_completion;
   /* do not append space after completion. It will be appended
      in new_completion() function explicitly */
@@ -1606,6 +1652,7 @@ vtysh_init_vty ()
   install_node (&rmap_node, NULL);
   install_node (&zebra_node, NULL);
   install_node (&bgp_vpnv4_node, NULL);
+  install_node (&bgp_ipv4_node, NULL);
   install_node (&bgp_ipv4m_node, NULL);
 /* #ifdef HAVE_IPV6 */
   install_node (&bgp_ipv6_node, NULL);
@@ -1627,6 +1674,7 @@ vtysh_init_vty ()
   vtysh_install_default (RMAP_NODE);
   vtysh_install_default (ZEBRA_NODE);
   vtysh_install_default (BGP_VPNV4_NODE);
+  vtysh_install_default (BGP_IPV4_NODE);
   vtysh_install_default (BGP_IPV4M_NODE);
   vtysh_install_default (BGP_IPV6_NODE);
   vtysh_install_default (OSPF_NODE);
@@ -1648,12 +1696,18 @@ vtysh_init_vty ()
   install_element (ENABLE_NODE, &vtysh_quit_all_cmd);
   install_element (RIP_NODE, &vtysh_exit_ripd_cmd);
   install_element (RIP_NODE, &vtysh_quit_ripd_cmd);
+  install_element (RIPNG_NODE, &vtysh_exit_ripngd_cmd);
+  install_element (RIPNG_NODE, &vtysh_quit_ripngd_cmd);
   install_element (OSPF_NODE, &vtysh_exit_ospfd_cmd);
   install_element (OSPF_NODE, &vtysh_quit_ospfd_cmd);
+  install_element (OSPF6_NODE, &vtysh_exit_ospf6d_cmd);
+  install_element (OSPF6_NODE, &vtysh_quit_ospf6d_cmd);
   install_element (BGP_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_VPNV4_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_VPNV4_NODE, &vtysh_quit_bgpd_cmd);
+  install_element (BGP_IPV4_NODE, &vtysh_exit_bgpd_cmd);
+  install_element (BGP_IPV4_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_IPV4M_NODE, &vtysh_exit_bgpd_cmd);
   install_element (BGP_IPV4M_NODE, &vtysh_quit_bgpd_cmd);
   install_element (BGP_IPV6_NODE, &vtysh_exit_bgpd_cmd);
@@ -1673,6 +1727,7 @@ vtysh_init_vty ()
   install_element (OSPF_NODE, &vtysh_end_all_cmd);
   install_element (OSPF6_NODE, &vtysh_end_all_cmd);
   install_element (BGP_NODE, &vtysh_end_all_cmd);
+  install_element (BGP_IPV4_NODE, &vtysh_end_all_cmd);
   install_element (BGP_IPV4M_NODE, &vtysh_end_all_cmd);
   install_element (BGP_VPNV4_NODE, &vtysh_end_all_cmd);
   install_element (BGP_IPV6_NODE, &vtysh_end_all_cmd);
@@ -1694,12 +1749,15 @@ vtysh_init_vty ()
   install_element (CONFIG_NODE, &router_bgp_cmd);
   install_element (BGP_NODE, &address_family_vpnv4_cmd);
   install_element (BGP_NODE, &address_family_vpnv4_unicast_cmd);
+  install_element (BGP_NODE, &address_family_ipv4_cmd);
+  install_element (BGP_NODE, &address_family_ipv4_unicast_cmd);
   install_element (BGP_NODE, &address_family_ipv4_multicast_cmd);
 #ifdef HAVE_IPV6
   install_element (BGP_NODE, &address_family_ipv6_cmd);
   install_element (BGP_NODE, &address_family_ipv6_unicast_cmd);
 #endif
   install_element (BGP_VPNV4_NODE, &exit_address_family_cmd);
+  install_element (BGP_IPV4_NODE, &exit_address_family_cmd);
   install_element (BGP_IPV4M_NODE, &exit_address_family_cmd);
   install_element (BGP_IPV6_NODE, &exit_address_family_cmd);
   install_element (CONFIG_NODE, &key_chain_cmd);
@@ -1717,6 +1775,7 @@ vtysh_init_vty ()
   install_element (CONFIG_NODE, &vtysh_write_terminal_cmd);
   install_element (BGP_NODE, &vtysh_write_terminal_cmd);
   install_element (BGP_VPNV4_NODE, &vtysh_write_terminal_cmd);
+  install_element (BGP_IPV4_NODE, &vtysh_write_terminal_cmd);
   install_element (BGP_IPV4M_NODE, &vtysh_write_terminal_cmd);
   install_element (BGP_IPV6_NODE, &vtysh_write_terminal_cmd);
   install_element (RIP_NODE, &vtysh_write_terminal_cmd);
@@ -1733,6 +1792,7 @@ vtysh_init_vty ()
   install_element (CONFIG_NODE, &vtysh_write_memory_cmd);
   install_element (BGP_NODE, &vtysh_write_memory_cmd);
   install_element (BGP_VPNV4_NODE, &vtysh_write_memory_cmd);
+  install_element (BGP_IPV4_NODE, &vtysh_write_memory_cmd);
   install_element (BGP_IPV4M_NODE, &vtysh_write_memory_cmd);
   install_element (BGP_IPV6_NODE, &vtysh_write_memory_cmd);
   install_element (RIP_NODE, &vtysh_write_memory_cmd);
@@ -1755,9 +1815,6 @@ vtysh_init_vty ()
   install_element (ENABLE_NODE, &vtysh_start_shell_cmd);
   install_element (ENABLE_NODE, &vtysh_start_bash_cmd);
   install_element (ENABLE_NODE, &vtysh_start_zsh_cmd);
-
-  install_element (RMAP_NODE, &set_metric_cmd);
-  install_element (RMAP_NODE, &set_ip_nexthop_cmd);
 
   install_element (CONFIG_NODE, &vtysh_log_stdout_cmd);
   install_element (CONFIG_NODE, &no_vtysh_log_stdout_cmd);

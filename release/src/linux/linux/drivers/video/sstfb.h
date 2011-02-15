@@ -5,7 +5,7 @@
  *
  *     Created 28 Aug 2001 by Ghozlane Toumi
  *
- * $Id: sstfb.h,v 1.1.1.4 2003/10/14 08:08:55 sparq Exp $
+ * $Id: sstfb.h,v 1.1.4.1 2001/08/29 01:30:38 ghoz Exp $
  */
 
 
@@ -359,6 +359,10 @@ struct sstfb_info {
 	u8	revision;
 
 	/* status */
+/*XXX	int	configured;
+	int	indexed_mode;
+	int	vgapass;
+	int	clipping; */
 	int	gfx_clock;
 
 	int	currcon;
@@ -370,7 +374,7 @@ struct sstfb_info {
 		u16 cfb16[16];
 #endif
 #ifdef EN_24_32_BPP
-#if defined(FBCON_HAS_CFB24) || defined(FBCON_HAS_CFB32)
+#if defined (FBCON_HAS_CFB24) || defined(FBCON_HAS_CFB32)
 		u32 cfb32[16];
 #endif
 #endif

@@ -1,0 +1,11 @@
+########################################################
+# Huawei E220, E230, E270, E870
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x1003
+
+TargetClass=0xff
+
+CheckSuccess=20
+
+HuaweiMode=1

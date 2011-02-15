@@ -1,0 +1,12 @@
+#########################################
+# Vodafone MD950 (Wisue Technology)
+
+DefaultVendor= 0x0471
+DefaultProduct=0x1210
+
+TargetVendor=  0x1dbc
+TargetProduct= 0x0005
+
+CheckSuccess=20
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"

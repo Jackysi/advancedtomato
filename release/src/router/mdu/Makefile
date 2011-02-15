@@ -1,17 +1,22 @@
 include ../common.mak
 
-CFLAGS	= -O2 -Wall
+CFLAGS	= -Os -Wall $(EXTRACFLAGS)
 CFLAGS	+= -I$(SRCBASE)/include -I$(TOP)/shared -I$(TOP)/mssl
 LDFLAGS	=
+LIBS = -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared -L$(TOP)/mssl -lmssl
+#LIBS = -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared $(TOP)/mssl/libmssl.a $(TOP)/matrixssl/src/libmatrixsslstatic.a
 
-OBJS = mdu.o
+ifeq ($(TCONFIG_OPENVPN),y)
+LIBS += -L$(TOP)/openssl -lssl -lcrypto
+endif
+
+OBJS = mdu.o md5.o
 
 all: mdu
 	
 mdu: $(OBJS)
 	@echo " [mdu] CC -o $@"
-	$(CC) $(LDFLAGS) -o $@ $^ -L../nvram -lnvram -L../shared -lshared -L../mssl -lmssl
-#	$(CC) $(LDFLAGS) -o $@ $^ -L../nvram -lnvram -L../shared -lshared ../mssl/libmssl.a ../matrixssl/src/libmatrixsslstatic.a
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 	$(SIZECHECK)
 	$(CPTMP)
@@ -22,8 +27,9 @@ clean:
 
 install: all
 	@echo " [mdu] Installing..."
-	install -D -m 0500 mdu $(INSTALLDIR)/bin/mdu
+	install -D mdu $(INSTALLDIR)/bin/mdu
 	$(STRIP) $(INSTALLDIR)/bin/mdu
+	chmod 0500 $(INSTALLDIR)/bin/mdu
 
 %.o: %.c .%.depend
 	@echo " [mdu] CC $@"

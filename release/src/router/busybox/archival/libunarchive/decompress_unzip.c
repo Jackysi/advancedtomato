@@ -503,7 +503,7 @@ static void inflate_codes_setup(STATE_PARAM unsigned my_bl, unsigned my_bd)
 	md = mask_bits[bd];
 }
 /* called once from inflate_get_next_window */
-static int inflate_codes(STATE_PARAM_ONLY)
+static NOINLINE int inflate_codes(STATE_PARAM_ONLY)
 {
 	unsigned e;	/* table entry flag/number of extra bits */
 	huft_t *t;	/* pointer to table entry */
@@ -575,13 +575,16 @@ static int inflate_codes(STATE_PARAM_ONLY)
 			do {
 				/* Was: nn -= (e = (e = GUNZIP_WSIZE - ((dd &= GUNZIP_WSIZE - 1) > w ? dd : w)) > nn ? nn : e); */
 				/* Who wrote THAT?? rewritten as: */
+				unsigned delta;
+
 				dd &= GUNZIP_WSIZE - 1;
 				e = GUNZIP_WSIZE - (dd > w ? dd : w);
+				delta = w > dd ? w - dd : dd - w;
 				if (e > nn) e = nn;
 				nn -= e;
 
 				/* copy to new buffer to prevent possible overwrite */
-				if (w - dd >= e) {	/* (this test assumes unsigned comparison) */
+				if (delta >= e) {
 					memcpy(gunzip_window + w, gunzip_window + dd, e);
 					w += e;
 					dd += e;
@@ -970,10 +973,10 @@ static int inflate_get_next_window(STATE_PARAM_ONLY)
 
 
 /* Called from unpack_gz_stream() and inflate_unzip() */
-static USE_DESKTOP(long long) int
+static IF_DESKTOP(long long) int
 inflate_unzip_internal(STATE_PARAM int in, int out)
 {
-	USE_DESKTOP(long long) int n = 0;
+	IF_DESKTOP(long long) int n = 0;
 	ssize_t nwrote;
 
 	/* Allocate all global buffers (for DYN_ALLOC option) */
@@ -1008,7 +1011,7 @@ inflate_unzip_internal(STATE_PARAM int in, int out)
 			n = -1;
 			goto ret;
 		}
-		USE_DESKTOP(n += nwrote;)
+		IF_DESKTOP(n += nwrote;)
 		if (r == 0) break;
 	}
 
@@ -1033,10 +1036,10 @@ inflate_unzip_internal(STATE_PARAM int in, int out)
 
 /* For unzip */
 
-USE_DESKTOP(long long) int FAST_FUNC
+IF_DESKTOP(long long) int FAST_FUNC
 inflate_unzip(inflate_unzip_result *res, off_t compr_size, int in, int out)
 {
-	USE_DESKTOP(long long) int n;
+	IF_DESKTOP(long long) int n;
 	DECLARE_STATE;
 
 	ALLOC_STATE;
@@ -1069,7 +1072,7 @@ static int top_up(STATE_PARAM unsigned n)
 		bytebuffer_offset = 0;
 		bytebuffer_size = full_read(gunzip_src_fd, &bytebuffer[count], bytebuffer_max - count);
 		if ((int)bytebuffer_size < 0) {
-			bb_error_msg("read error");
+			bb_error_msg(bb_msg_read_error);
 			return 0;
 		}
 		bytebuffer_size += count;
@@ -1117,7 +1120,7 @@ static int check_header_gzip(STATE_PARAM unpack_info_t *info)
 			uint32_t mtime;
 			uint8_t xtra_flags_UNUSED;
 			uint8_t os_flags_UNUSED;
-		} __attribute__((packed)) formatted;
+		} PACKED formatted;
 	} header;
 	struct BUG_header {
 		char BUG_header[sizeof(header) == 8 ? 1 : -1];
@@ -1181,11 +1184,11 @@ static int check_header_gzip(STATE_PARAM unpack_info_t *info)
 	return 1;
 }
 
-USE_DESKTOP(long long) int FAST_FUNC
+IF_DESKTOP(long long) int FAST_FUNC
 unpack_gz_stream_with_info(int in, int out, unpack_info_t *info)
 {
 	uint32_t v32;
-	USE_DESKTOP(long long) int n;
+	IF_DESKTOP(long long) int n;
 	DECLARE_STATE;
 
 	n = 0;
@@ -1245,7 +1248,7 @@ unpack_gz_stream_with_info(int in, int out, unpack_info_t *info)
 	return n;
 }
 
-USE_DESKTOP(long long) int FAST_FUNC
+IF_DESKTOP(long long) int FAST_FUNC
 unpack_gz_stream(int in, int out)
 {
 	return unpack_gz_stream_with_info(in, out, NULL);

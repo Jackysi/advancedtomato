@@ -37,13 +37,13 @@ struct ext2_super_block {
 	uint32_t	feature_ro_compat;
 	uint8_t	uuid[16];
 	uint8_t	volume_name[16];
-} __attribute__((__packed__));
+} PACKED;
 
 #define EXT3_FEATURE_COMPAT_HAS_JOURNAL		0x00000004
 #define EXT3_FEATURE_INCOMPAT_JOURNAL_DEV	0x00000008
 #define EXT_SUPERBLOCK_OFFSET			0x400
 
-int volume_id_probe_ext(struct volume_id *id /*,uint64_t off*/)
+int FAST_FUNC volume_id_probe_ext(struct volume_id *id /*,uint64_t off*/)
 {
 #define off ((uint64_t)0)
 	struct ext2_super_block *es;

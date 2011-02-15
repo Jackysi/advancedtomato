@@ -36,8 +36,7 @@ MODULE_AUTHOR("Harald Welte <laforge@gnumonks.org>");
 MODULE_DESCRIPTION("Netfilter NAT protocol helper module for GRE");
 
 #if 0
-#define DEBUGP(format, args...) printk(KERN_DEBUG __FILE__ ":" __FUNCTION__ \
-				       ": " format, ## args)
+#define DEBUGP(format, args...) printk(KERN_DEBUG "%s:%s: " format, __FILE__, __FUNCTION__, ## args)
 #else
 #define DEBUGP(x, args...)
 #endif
@@ -49,15 +48,15 @@ gre_in_range(const struct ip_conntrack_tuple *tuple,
 	     const union ip_conntrack_manip_proto *min,
 	     const union ip_conntrack_manip_proto *max)
 {
-	u_int32_t key;
+	u_int16_t key;
 
 	if (maniptype == IP_NAT_MANIP_SRC)
 		key = tuple->src.u.gre.key;
 	else
 		key = tuple->dst.u.gre.key;
 
-	return ntohl(key) >= ntohl(min->gre.key)
-		&& ntohl(key) <= ntohl(max->gre.key);
+	return ntohs(key) >= ntohs(min->gre.key)
+		&& ntohs(key) <= ntohs(max->gre.key);
 }
 
 /* generate unique tuple ... */
@@ -67,8 +66,13 @@ gre_unique_tuple(struct ip_conntrack_tuple *tuple,
 		 enum ip_nat_manip_type maniptype,
 		 const struct ip_conntrack *conntrack)
 {
-	u_int32_t min, i, range_size;
-	u_int32_t key = 0, *keyptr;
+	unsigned int min, i, range_size;
+	u_int16_t key = 0, *keyptr;
+
+	/* If there is no master conntrack we are not PPTP,
+	   do not change tuples */
+	if (!conntrack->master)
+		return 0;
 
 	if (maniptype == IP_NAT_MANIP_SRC)
 		keyptr = &tuple->src.u.gre.key;
@@ -77,34 +81,19 @@ gre_unique_tuple(struct ip_conntrack_tuple *tuple,
 
 	if (!(range->flags & IP_NAT_RANGE_PROTO_SPECIFIED)) {
 
-		switch (tuple->dst.u.gre.version) {
-		case 0:
-			DEBUGP("NATing GRE version 0 (ct=%p)\n",
-				conntrack);
-			min = 1;
-			range_size = 0xffffffff;
-			break;
-		case GRE_VERSION_PPTP:
-			DEBUGP("%p: NATing GRE PPTP\n", 
-				conntrack);
-			min = 1;
-			range_size = 0xffff;
-			break;
-		default:
-			printk(KERN_WARNING "nat_gre: unknown GRE version\n");
-			return 0;
-			break;
-		}
+		DEBUGP("%p: NATing GRE PPTP\n", conntrack);
+		min = 1;
+		range_size = 0xffff;
 
 	} else {
-		min = ntohl(range->min.gre.key);
-		range_size = ntohl(range->max.gre.key) - min + 1;
+		min = ntohs(range->min.gre.key);
+		range_size = ntohs(range->max.gre.key) - min + 1;
 	}
 
 	DEBUGP("min = %u, range_size = %u\n", min, range_size); 
 
 	for (i = 0; i < range_size; i++, key++) {
-		*keyptr = htonl(min + key % range_size);
+		*keyptr = htons(min + key % range_size);
 		if (!ip_nat_used_tuple(tuple, conntrack))
 			return 1;
 	}
@@ -128,24 +117,14 @@ gre_manip_pkt(struct iphdr *iph, size_t len,
 	if (maniptype == IP_NAT_MANIP_DST) {
 		/* key manipulation is always dest */
 		switch (greh->version) {
-		case 0:
-			if (!greh->key) {
-				DEBUGP("can't nat GRE w/o key\n");
-				break;
-			}
-			if (greh->csum) {
-				/* FIXME: Never tested this code... */
-				*(gre_csum(greh)) = 
-					ip_nat_cheat_check(~*(gre_key(greh)),
-							manip->u.gre.key,
-							*(gre_csum(greh)));
-			}
-			*(gre_key(greh)) = manip->u.gre.key;
+		case GRE_VERSION_1701:
+			/* We do not currently NAT any GREv0 packets.
+			 * Try to behave like "nf_nat_proto_unknown" */
 			break;
 		case GRE_VERSION_PPTP:
 			DEBUGP("call_id -> 0x%04x\n", 
-				ntohl(manip->u.gre.key));
-			pgreh->call_id = htons(ntohl(manip->u.gre.key));
+				ntohs(manip->u.gre.key));
+			pgreh->call_id = manip->u.gre.key;
 			break;
 		default:
 			DEBUGP("can't nat unknown GRE version\n");
@@ -162,21 +141,13 @@ gre_print(char *buffer,
 {
 	unsigned int len = 0;
 
-	if (mask->dst.u.gre.version)
-		len += sprintf(buffer + len, "version=%d ",
-				ntohs(match->dst.u.gre.version));
-
-	if (mask->dst.u.gre.protocol)
-		len += sprintf(buffer + len, "protocol=0x%x ",
-				ntohs(match->dst.u.gre.protocol));
-
 	if (mask->src.u.gre.key)
 		len += sprintf(buffer + len, "srckey=0x%x ", 
-				ntohl(match->src.u.gre.key));
+				ntohs(match->src.u.gre.key));
 
 	if (mask->dst.u.gre.key)
 		len += sprintf(buffer + len, "dstkey=0x%x ",
-				ntohl(match->src.u.gre.key));
+				ntohs(match->src.u.gre.key));
 
 	return len;
 }
@@ -189,11 +160,11 @@ gre_print_range(char *buffer, const struct ip_nat_range *range)
 	    || range->max.gre.key != 0xFFFF) {
 		if (range->min.gre.key == range->max.gre.key)
 			return sprintf(buffer, "key 0x%x ",
-					ntohl(range->min.gre.key));
+					ntohs(range->min.gre.key));
 		else
 			return sprintf(buffer, "keys 0x%u-0x%u ",
-					ntohl(range->min.gre.key),
-					ntohl(range->max.gre.key));
+					ntohs(range->min.gre.key),
+					ntohs(range->max.gre.key));
 	} else
 		return 0;
 }

@@ -1,4 +1,4 @@
-/* orinoco_plx.c 0.11b
+/* orinoco_plx.c 0.13d
  * 
  * Driver for Prism II devices which would usually be driven by orinoco_cs,
  * but are connected to the PCI bus by a PLX9052. 
@@ -119,7 +119,6 @@ not have time for a while..
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/system.h>
-#include <linux/proc_fs.h>
 #include <linux/netdevice.h>
 #include <linux/if_arp.h>
 #include <linux/etherdevice.h>
@@ -134,13 +133,6 @@ not have time for a while..
 #include "hermes.h"
 #include "orinoco.h"
 
-static char version[] __initdata = "orinoco_plx.c 0.11b (Daniel Barlow <dan@telent.net>)";
-MODULE_AUTHOR("Daniel Barlow <dan@telent.net>");
-MODULE_DESCRIPTION("Driver for wireless LAN cards using the PLX9052 PCI bridge");
-#ifdef MODULE_LICENSE
-MODULE_LICENSE("Dual MPL/GPL");
-#endif
-
 static char dev_info[] = "orinoco_plx";
 
 #define COR_OFFSET    (0x3e0 / 2)	/* COR attribute offset of Prism2 PC card */
@@ -148,37 +140,6 @@ static char dev_info[] = "orinoco_plx";
 
 #define PLX_INTCSR       0x4c /* Interrupt Control and Status Register */
 #define PLX_INTCSR_INTEN (1<<6) /* Interrupt Enable bit */
-
-static int orinoco_plx_open(struct net_device *dev)
-{
-	struct orinoco_private *priv = (struct orinoco_private *) dev->priv;
-	int err;
-
-	netif_device_attach(dev);
-
-	err = orinoco_reset(priv);
-	if (err)
-		printk(KERN_ERR "%s: orinoco_reset failed in orinoco_plx_open()",
-		       dev->name);
-	else
-		netif_start_queue(dev);
-
-	return err;
-}
-
-static int orinoco_plx_stop(struct net_device *dev)
-{
-	struct orinoco_private *priv = (struct orinoco_private *) dev->priv;
-	netif_stop_queue(dev);
-	orinoco_shutdown(priv);
-	return 0;
-}
-
-static void
-orinoco_plx_interrupt(int irq, void *dev_id, struct pt_regs *regs)
-{
-	orinoco_interrupt(irq, (struct orinoco_private *)dev_id, regs);
-}
 
 static const u16 cis_magic[] = {
 	0x0001, 0x0003, 0x0000, 0x0000, 0x00ff, 0x0017, 0x0004, 0x0067
@@ -197,8 +158,6 @@ static int orinoco_plx_init_one(struct pci_dev *pdev,
 	int netdev_registered = 0;
 	int i;
 
-	TRACE_ENTER("orinoco_plx");
-
 	err = pci_enable_device(pdev);
 	if (err)
 		return -EIO;
@@ -215,6 +174,7 @@ static int orinoco_plx_init_one(struct pci_dev *pdev,
 	printk("\n");
 
 	/* Verify whether PC card is present */
+	/* FIXME: we probably need to be smarted about this */
 	if (memcmp(attr_mem, cis_magic, sizeof(cis_magic)) != 0) {
 		printk(KERN_ERR "orinoco_plx: The CIS value of Prism2 PC card is invalid.\n");
 		err = -EIO;
@@ -265,7 +225,7 @@ static int orinoco_plx_init_one(struct pci_dev *pdev,
 		goto fail;
 	}
 
-	dev = alloc_orinocodev(0);
+	dev = alloc_orinocodev(0, NULL);
 	if (! dev) {
 		err = -ENOMEM;
 		goto fail;
@@ -273,8 +233,6 @@ static int orinoco_plx_init_one(struct pci_dev *pdev,
 
 	priv = dev->priv;
 	dev->base_addr = pccard_ioaddr;
-	dev->open = orinoco_plx_open;
-	dev->stop = orinoco_plx_stop;
 	SET_MODULE_OWNER(dev);
 
 	printk(KERN_DEBUG
@@ -285,7 +243,7 @@ static int orinoco_plx_init_one(struct pci_dev *pdev,
 			HERMES_IO, HERMES_16BIT_REGSPACING);
 	pci_set_drvdata(pdev, dev);
 
-	err = request_irq(pdev->irq, orinoco_plx_interrupt, SA_SHIRQ, dev->name, priv);
+	err = request_irq(pdev->irq, orinoco_interrupt, SA_SHIRQ, dev->name, dev);
 	if (err) {
 		printk(KERN_ERR "orinoco_plx: Error allocating IRQ %d.\n", pdev->irq);
 		err = -EBUSY;
@@ -298,25 +256,17 @@ static int orinoco_plx_init_one(struct pci_dev *pdev,
 		goto fail;
 	netdev_registered = 1;
 
-	err = orinoco_proc_dev_init(priv);
-	if (err)
-		goto fail;
-
-	TRACE_EXIT("orinoco_plx");
-
 	return 0;		/* succeeded */
 
  fail:	
 	printk(KERN_DEBUG "orinoco_plx: init_one(), FAIL!\n");
 
 	if (priv) {
-		orinoco_proc_dev_cleanup(priv);
-
 		if (netdev_registered)
 			unregister_netdev(dev);
 		
 		if (dev->irq)
-			free_irq(dev->irq, priv);
+			free_irq(dev->irq, dev);
 		
 		kfree(priv);
 	}
@@ -329,40 +279,32 @@ static int orinoco_plx_init_one(struct pci_dev *pdev,
 
 	pci_disable_device(pdev);
 
-	TRACE_EXIT("orinoco_plx");
-	
 	return err;
 }
 
 static void __devexit orinoco_plx_remove_one(struct pci_dev *pdev)
 {
 	struct net_device *dev = pci_get_drvdata(pdev);
-	struct orinoco_private *priv = dev->priv;
-
-	TRACE_ENTER("orinoco_plx");
 
 	if (! dev)
 		BUG();
 
-	orinoco_proc_dev_cleanup(priv);
-
 	unregister_netdev(dev);
 		
 	if (dev->irq)
-		free_irq(dev->irq, priv);
+		free_irq(dev->irq, dev);
 		
+	pci_set_drvdata(pdev, NULL);
+
 	kfree(dev);
 
 	release_region(pci_resource_start(pdev, 3), pci_resource_len(pdev, 3));
 
 	pci_disable_device(pdev);
-
-	TRACE_EXIT("orinoco_plx");
 }
 
 
 static struct pci_device_id orinoco_plx_pci_id_table[] __devinitdata = {
-	{0x10b7, 0x7770, PCI_ANY_ID, PCI_ANY_ID,},	/* 3ComAirConnect */
 	{0x111a, 0x1023, PCI_ANY_ID, PCI_ANY_ID,},	/* Siemens SpeedStream SS1023 */
 	{0x1385, 0x4100, PCI_ANY_ID, PCI_ANY_ID,},	/* Netgear MA301 */
 	{0x15e8, 0x0130, PCI_ANY_ID, PCI_ANY_ID,},	/* Correga  - does this work? */
@@ -375,20 +317,28 @@ static struct pci_device_id orinoco_plx_pci_id_table[] __devinitdata = {
 	{0x16ec, 0x3685, PCI_ANY_ID, PCI_ANY_ID,},	/* USR 2415 */
 	{0xec80, 0xec00, PCI_ANY_ID, PCI_ANY_ID,},	/* Belkin F5D6000 tested by
 							   Brendan W. McAdams <rit@jacked-in.org> */
-	{0x126c, 0x8030, PCI_ANY_ID, PCI_ANY_ID,},	/* Nortel emobility */
+	{0x10b7, 0x7770, PCI_ANY_ID, PCI_ANY_ID,},	/* 3Com AirConnect PCI tested by
+							   Damien Persohn <damien@persohn.net> */
 	{0,},
 };
 
 MODULE_DEVICE_TABLE(pci, orinoco_plx_pci_id_table);
 
 static struct pci_driver orinoco_plx_driver = {
-	name:"orinoco_plx",
-	id_table:orinoco_plx_pci_id_table,
-	probe:orinoco_plx_init_one,
-	remove:__devexit_p(orinoco_plx_remove_one),
-	suspend:0,
-	resume:0
+	.name		= "orinoco_plx",
+	.id_table	= orinoco_plx_pci_id_table,
+	.probe		= orinoco_plx_init_one,
+	.remove		= __devexit_p(orinoco_plx_remove_one),
+	.suspend	= 0,
+	.resume		= 0,
 };
+
+static char version[] __initdata = "orinoco_plx.c 0.13d (Daniel Barlow <dan@telent.net>, David Gibson <hermes@gibson.dropbear.id.au>)";
+MODULE_AUTHOR("Daniel Barlow <dan@telent.net>");
+MODULE_DESCRIPTION("Driver for wireless LAN cards using the PLX9052 PCI bridge");
+#ifdef MODULE_LICENSE
+MODULE_LICENSE("Dual MPL/GPL");
+#endif
 
 static int __init orinoco_plx_init(void)
 {

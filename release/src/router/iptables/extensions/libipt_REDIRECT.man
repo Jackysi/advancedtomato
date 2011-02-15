@@ -17,3 +17,10 @@ if the rule also specifies
 .B "-p tcp"
 or
 .BR "-p udp" .
+.TP
+.BR "--random"
+If option
+.B "--random"
+is used then port mapping will be randomized (kernel >= 2.6.22).
+.RS
+.PP

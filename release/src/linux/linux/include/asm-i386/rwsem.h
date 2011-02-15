@@ -113,8 +113,8 @@ LOCK_PREFIX	"  incl      (%%eax)\n\t" /* adds 0x00000001, returns the old value 
 		"  jmp       1b\n"
 		LOCK_SECTION_END
 		"# ending down_read\n\t"
-		: "+m"(sem->count)
-		: "a"(sem)
+		: "=m"(sem->count)
+		: "a"(sem), "m"(sem->count)
 		: "memory", "cc");
 }
 
@@ -151,8 +151,8 @@ static inline void __down_write(struct rw_semaphore *sem)
 	tmp = RWSEM_ACTIVE_WRITE_BIAS;
 	__asm__ __volatile__(
 		"# beginning down_write\n\t"
-LOCK_PREFIX	"  xadd      %0,(%%eax)\n\t" /* subtract 0x0000ffff, returns the old value */
-		"  testl     %0,%0\n\t" /* was the count 0 before? */
+LOCK_PREFIX	"  xadd      %%edx,(%%eax)\n\t" /* subtract 0x0000ffff, returns the old value */
+		"  testl     %%edx,%%edx\n\t" /* was the count 0 before? */
 		"  jnz       2f\n\t" /* jump if we weren't granted the lock */
 		"1:\n\t"
 		LOCK_SECTION_START("")
@@ -163,8 +163,8 @@ LOCK_PREFIX	"  xadd      %0,(%%eax)\n\t" /* subtract 0x0000ffff, returns the old
 		"  jmp       1b\n"
 		LOCK_SECTION_END
 		"# ending down_write"
-		: "+d"(tmp), "+m"(sem->count)
-		: "a"(sem)
+		: "=m"(sem->count), "=d"(tmp)
+		: "a"(sem), "1"(tmp), "m"(sem->count)
 		: "memory", "cc");
 }
 
@@ -202,8 +202,8 @@ LOCK_PREFIX	"  xadd      %%edx,(%%eax)\n\t" /* subtracts 1, returns the old valu
 		"  jmp       1b\n"
 		LOCK_SECTION_END
 		"# ending __up_read\n"
-		: "+m"(sem->count), "+d"(tmp)
-		: "a"(sem)
+		: "=m"(sem->count), "=d"(tmp)
+		: "a"(sem), "1"(tmp), "m"(sem->count)
 		: "memory", "cc");
 }
 
@@ -228,8 +228,8 @@ LOCK_PREFIX	"  xaddl     %%edx,(%%eax)\n\t" /* tries to transition 0xffff0001 ->
 		"  jmp       1b\n"
 		LOCK_SECTION_END
 		"# ending __up_write\n"
-		: "+m"(sem->count)
-		: "a"(sem), "i"(-RWSEM_ACTIVE_WRITE_BIAS)
+		: "=m"(sem->count)
+		: "a"(sem), "i"(-RWSEM_ACTIVE_WRITE_BIAS), "m"(sem->count)
 		: "memory", "cc", "edx");
 }
 

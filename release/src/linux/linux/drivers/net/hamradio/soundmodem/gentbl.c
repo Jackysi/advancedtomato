@@ -172,8 +172,12 @@ static void gentbl_fsk9600(FILE *f)
 	fprintf(f, "\n/*\n * fsk9600 specific tables\n */\n");
 	min = max = 0;
 	memset(c, 0, sizeof(c));
+#if 0
+	memcpy(c+2, fsk96_tx_coeff_4, sizeof(fsk96_tx_coeff_4));
+#else
 	for (i = 0; i < 29; i++)
 		c[3+i] = sinc(1.2*((i-14.0)/4.0))*hamming(i/28.0)/3.5;
+#endif
 	fprintf(f, "static unsigned char fsk96_txfilt_4[] = {\n\t");
 	for (i = 0; i < 4; i++) {
 		for (j = 0; j < 256; j++) {
@@ -203,8 +207,12 @@ static void gentbl_fsk9600(FILE *f)
 	fprintf(f, "\n};\n\n");
 	min = max = 0;
 	memset(c, 0, sizeof(c));
+#if 0
+	memcpy(c+2, fsk96_tx_coeff_5, sizeof(fsk96_tx_coeff_5));
+#else
 	for (i = 0; i < 36; i++)
 		c[4+i] = sinc(1.2*((i-17.5)/5.0))*hamming(i/35.0)/4.5;
+#endif
 	fprintf(f, "static unsigned char fsk96_txfilt_5[] = {\n\t");
 	for (i = 0; i < 5; i++) {
 		for (j = 0; j < 256; j++) {

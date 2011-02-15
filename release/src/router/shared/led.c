@@ -14,40 +14,84 @@
 #include <bcmnvram.h>
 
 #include "utils.h"
+#include "shutils.h"
 #include "shared.h"
 
 
-const char *led_names[] = { "wlan", "diag", "white", "amber", "dmz", "aoss", "bridge", "mystery" };
+const char *led_names[] = { "wlan", "diag", "white", "amber", "dmz", "aoss", "bridge", "usb" };
 
+#ifdef LINUX26
+#define GPIO_IOCTL
+#endif
 
 // --- move begin ---
-#if TOMATO_N
+#ifdef GPIO_IOCTL
 
-#else
+#include <sys/ioctl.h>
+#include <linux_gpio.h>
+
+static int _gpio_ioctl(int f, int gpioreg, unsigned int mask, unsigned int val)
+{
+	struct gpio_ioctl gpio;
+                                                                                                                     
+	gpio.val = val;
+	gpio.mask = mask;
+
+	if (ioctl(f, gpioreg, &gpio) < 0) {
+		_dprintf("Invalid gpioreg %d\n", gpioreg);
+		return -1;
+	}
+	return (gpio.val);
+}
+
+static int _gpio_open()
+{
+	int f = open("/dev/gpio", O_RDWR);
+	if (f < 0)
+		_dprintf ("Failed to open /dev/gpio\n");
+	return f;
+}
+
+int gpio_open(uint32_t mask)
+{
+	uint32_t bit;
+	int i;
+	int f = _gpio_open();
+
+	if ((f >= 0) && mask) {
+		for (i = 0; i <= 15; i++) {
+			bit = 1 << i;
+			if ((mask & bit) == bit) {
+				_gpio_ioctl(f, GPIO_IOC_RESERVE, bit, bit);
+				_gpio_ioctl(f, GPIO_IOC_OUTEN, bit, 0);
+			}
+		}
+		close(f);
+		f = _gpio_open();
+	}
+
+	return f;
+}
 
 void gpio_write(uint32_t bit, int en)
 {
 	int f;
+
+	if ((f = gpio_open(0)) < 0) return;
+
+	_gpio_ioctl(f, GPIO_IOC_RESERVE, bit, bit);
+	_gpio_ioctl(f, GPIO_IOC_OUTEN, bit, bit);
+	_gpio_ioctl(f, GPIO_IOC_OUT, bit, en ? bit : 0);
+	close(f);
+}
+
+uint32_t _gpio_read(int f)
+{
 	uint32_t r;
-
-	if ((f = open("/dev/gpio/control", O_RDWR)) < 0) return;
-	read(f, &r, sizeof(r));
-	r &= ~bit;
-	write(f, &r, sizeof(r));
-	close(f);
-
-	if ((f = open("/dev/gpio/outen", O_RDWR)) < 0) return;
-	read(f, &r, sizeof(r));
-	r |= bit;
-	write(f, &r, sizeof(r));
-	close(f);
-
-	if ((f = open("/dev/gpio/out", O_RDWR)) < 0) return;
-	read(f, &r, sizeof(r));
-	if (en) r |= bit;
-		else r &= ~bit;
-	write(f, &r, sizeof(r));
-	close(f);
+//	r = _gpio_ioctl(f, GPIO_IOC_IN, 0xFFFF, 0);
+	r = _gpio_ioctl(f, GPIO_IOC_IN, 0x07FF, 0);
+	if (r < 0) r = ~0;
+	return r;
 }
 
 uint32_t gpio_read(void)
@@ -55,8 +99,60 @@ uint32_t gpio_read(void)
 	int f;
 	uint32_t r;
 
-	if ((f = open("/dev/gpio/in", O_RDONLY)) < 0) return ~0;
-	if (read(f, &r, sizeof(r)) != sizeof(r)) r = ~0;
+	if ((f = gpio_open(0)) < 0) return ~0;
+	r = _gpio_read(f);
+	close(f);
+	return r;
+}
+
+#else
+
+int gpio_open(uint32_t mask)
+{
+	int f = open(DEV_GPIO(in), O_RDONLY|O_SYNC);
+	if (f < 0)
+		_dprintf ("Failed to open %s\n", DEV_GPIO(in));
+	return f;
+}
+
+void gpio_write(uint32_t bit, int en)
+{
+	int f;
+	uint32_t r;
+
+	if ((f = open(DEV_GPIO(control), O_RDWR)) < 0) return;
+	read(f, &r, sizeof(r));
+	r &= ~bit;
+	write(f, &r, sizeof(r));
+	close(f);
+
+	if ((f = open(DEV_GPIO(outen), O_RDWR)) < 0) return;
+	read(f, &r, sizeof(r));
+	r |= bit;
+	write(f, &r, sizeof(r));
+	close(f);
+
+	if ((f = open(DEV_GPIO(out), O_RDWR)) < 0) return;
+	read(f, &r, sizeof(r));
+	if (en) r |= bit;
+		else r &= ~bit;
+	write(f, &r, sizeof(r));
+	close(f);
+}
+
+uint32_t _gpio_read(int f)
+{
+	uint32_t v;
+	return (read(f, &v, sizeof(v)) == sizeof(v)) ? v : ~0;
+}
+
+uint32_t gpio_read(void)
+{
+	int f;
+	uint32_t r;
+
+	if ((f = open(DEV_GPIO(in), O_RDONLY)) < 0) return ~0;
+	r = _gpio_read(f);
 	close(f);
 	return r;
 }
@@ -83,19 +179,32 @@ int nvget_gpio(const char *name, int *gpio, int *inv)
 
 int led(int which, int mode)
 {
-//								WLAN  DIAG  WHITE AMBER DMZ   AOSS  BRIDG MYST
-//								----- ----- ----- ----- ----- ----- ----- -----
-	static int wrt54g[]		= { 0,    1,    2,    3,    7,    255,  255,  255	};
-	static int wrtsl[]		= { 255,  1,    5,    7,    0,    255,  255,  255	};
-	static int whrg54[]		= { 2,    7,    255,  255,  255,  6,    1,    3		};
+//				    WLAN  DIAG  WHITE AMBER DMZ   AOSS  BRIDG MYST/USB
+//				    ----- ----- ----- ----- ----- ----- ----- -----
+	static int wrt54g[]	= { 255,  1,    2,    3,    7,    255,  255,  255	};
+	static int wrtsl[]	= { 255,  1,    5,    7,    0,    255,  255,  255	};
+	static int whrg54[]	= { 2,    7,    255,  255,  255,  6,    1,    3		};
 	static int wbr2g54[]	= { 255,  -1,   255,  255,  255,  -6,   255,  255	};
-	static int wzrg54[]		= { 2,    7,    255,  255,  255,  6,    255,  255	};
+	static int wzrg54[]	= { 2,    7,    255,  255,  255,  6,    255,  255	};
 	static int wr850g1[]	= { 7,    3,    255,  255,  255,  255,  255,  255	};
 	static int wr850g2[]	= { 0,    1,    255,  255,  255,  255,  255,  255	};
 	static int wtr54gs[]	= { 1,    -1,   255,  255,  255,  255,  255,  255	};
+	static int dir320[]	= { -99,   1,     4,    3,  255,  255,  255,   -5	};
+	static int h618b[]	= { 255,  -1,   255,  255,  255,   -5,   -3,   -4	};
+	static int wl1600gl[]	= { 1,    -5, 	  0,  255,  255,  2,    255,  255	};
+	static int wrt310nv1[]	= { 255,   1,     9,    3,  255,  255,  255,  255	};
+	static int wrt160nv1[]	= { 255,   1,     5,    3,  255,  255,  255,  255	};
+#ifdef CONFIG_BCMWL5
+	static int wnr3500[]	= { 255, 255,     2,  255,  255,   -1,  255,  255	};
+	static int wnr2000v2[]	= { 255, 255,   255,  255,  255,   -7,  255,  255	};
+	static int wrt160nv3[]	= { 255,   1,     4,    2,  255,  255,  255,  255	};
+	static int wrt320n[]	= { 255,   2,     3,    4,  255,  255,  255,  255	};
+	static int wrt610nv2[]	= { 255,   5,     3,    0,  255,  255,  255,   -7	};
+#endif
+
 	char s[16];
 	int n;
-	int b;
+	int b = 255, c = 255;
 
 	if ((which < 0) || (which >= LED_COUNT)) return 0;
 
@@ -167,11 +276,61 @@ int led(int which, int mode)
 		if (which != LED_DIAG) return 0;
 		b = -1;	// power light
 		break;
+	case MODEL_WL500W:
+		if (which != LED_DIAG) return 0;
+		b = -5;	// power light
+		break;
+	case MODEL_DIR320:
+		b = dir320[which];
+		break;
+	case MODEL_H618B:
+		b = h618b[which];
+		break;
+	case MODEL_WL1600GL:
+		b = wl1600gl[which];
+		break;
+	case MODEL_WL500GPv2:
+	case MODEL_WL500GD:
 	case MODEL_WL520GU:
 		if (which != LED_DIAG) return 0;
-		b = 0;	// Invert power light as diag indicator
-		mode = !mode;
+		b = -99;	// Invert power light as diag indicator
 		break;
+#ifdef CONFIG_BCMWL5
+	case MODEL_RTN12:
+		if (which != LED_DIAG) return 0;
+		b = -2;	// power light
+		break;
+	case MODEL_RTN10:
+	case MODEL_RTN16:
+		if (which != LED_DIAG) return 0;
+		b = -1;	// power light
+		break;
+	case MODEL_WNR3500L:
+		if (which == LED_DIAG) {
+			// power led gpio: 0x03 - green, 0x07 - amber
+			b = (mode) ? 7 : 3;
+			c = (mode) ? 3 : 7;
+		} else
+			b = wnr3500[which];
+		break;
+	case MODEL_WNR2000v2:
+		if (which == LED_DIAG) {
+			// power led gpio: 0x01 - green, 0x02 - amber
+			b = (mode) ? 2 : 1;
+			c = (mode) ? 1 : 2;
+		} else
+			b = wnr2000v2[which];
+		break;
+	case MODEL_WRT160Nv3:
+		b = wrt160nv3[which];
+		break;
+	case MODEL_WRT320N:
+		b = wrt320n[which];
+		break;
+	case MODEL_WRT610Nv2:
+		b = wrt610nv2[which];
+		break;
+#endif
 /*
 	case MODEL_RT390W:
 		break;
@@ -184,6 +343,16 @@ int led(int which, int mode)
 		if (which != LED_DIAG) return 0;
 		b = 1;
 		break;
+	case MODEL_WRT300N:
+		if (which != LED_DIAG) return 0;
+		b = 1;
+		break;
+	case MODEL_WRT310Nv1:
+		b = wrt310nv1[which];
+		break;
+	case MODEL_WRT160Nv1:
+		b = wrt160nv1[which];
+		break;
 	default:
 		sprintf(s, "led_%s", led_names[which]);
 		if (nvget_gpio(s, &b, &n)) {
@@ -194,7 +363,7 @@ int led(int which, int mode)
 	}
 
 	if (b < 0) {
-		if (b == -99) b = 1; // -0 substitute
+		if (b == -99) b = 0; // -0 substitute
 			else b = -b;
 	}
 	else if (mode != LED_PROBE) {
@@ -205,6 +374,13 @@ SET:
 	if (b < 16) {
 		if (mode != LED_PROBE) {
 			gpio_write(1 << b, mode);
+
+			if (c < 0) {
+				if (c == -99) c = 0;
+				else c = -c;
+			}
+			else mode = !mode;
+			if (c < 16) gpio_write(1 << c, mode);
 		}
 		return 1;
 	}

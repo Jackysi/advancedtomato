@@ -1,4 +1,4 @@
-/* $Id: errno.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $ */
+/* $Id: errno.h,v 1.2 1997/04/15 12:46:11 jj Exp $ */
 #ifndef _SPARC64_ERRNO_H
 #define _SPARC64_ERRNO_H
 

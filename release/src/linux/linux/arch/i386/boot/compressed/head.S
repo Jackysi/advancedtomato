@@ -44,6 +44,11 @@ startup_32:
 	cmpl %eax,0x100000
 	je 1b
 
+/*
+ * Initialize eflags.  Some BIOS's leave bits like NT set.  This would
+ * confuse the debugger if this code is traced.
+ * XXX - best to initialize before switching to protected mode.
+ */
 	pushl $0
 	popfl
 /*

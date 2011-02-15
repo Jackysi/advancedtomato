@@ -48,8 +48,9 @@
  *  Fix handling of -a to not print "unknown", add -o and -i support.
  */
 
-#include <sys/utsname.h>
 #include "libbb.h"
+/* After libbb.h, since it needs sys/types.h on some systems */
+#include <sys/utsname.h>
 
 typedef struct {
 	struct utsname name;
@@ -73,8 +74,8 @@ static const unsigned short utsname_offset[] = {
 int uname_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int uname_main(int argc UNUSED_PARAM, char **argv)
 {
-#if ENABLE_GETOPT_LONG
-	static const char longopts[] ALIGN1 =
+#if ENABLE_LONG_OPTS
+	static const char uname_longopts[] ALIGN1 =
 		/* name, has_arg, val */
 		"all\0"               No_argument       "a"
 		"kernel-name\0"       No_argument       "s"
@@ -97,7 +98,7 @@ int uname_main(int argc UNUSED_PARAM, char **argv)
 	const unsigned short *delta;
 	unsigned toprint;
 
-	USE_GETOPT_LONG(applet_long_options = longopts);
+	IF_LONG_OPTS(applet_long_options = uname_longopts);
 	toprint = getopt32(argv, options);
 
 	if (argv[optind]) { /* coreutils-6.9 compat */

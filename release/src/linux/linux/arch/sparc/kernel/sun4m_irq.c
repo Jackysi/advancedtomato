@@ -36,6 +36,7 @@
 #include <asm/smp.h>
 #include <asm/irq.h>
 #include <asm/io.h>
+#include <asm/sbus.h>
 
 static unsigned long dummy;
 
@@ -77,6 +78,17 @@ static unsigned long irq_mask[] = {
 	SUN4M_INT_SBUS(6)				  /* 14 irq 13 */
 };
 
+static int sun4m_pil_map[] = { 0, 2, 3, 5, 7, 9, 11, 13 };
+
+unsigned int sun4m_sbint_to_irq(struct sbus_dev *sdev, unsigned int sbint) 
+{
+	if (sbint >= sizeof(sun4m_pil_map)) {
+		printk(KERN_ERR "%s: bogus SBINT %d\n", sdev->prom_name, sbint);
+		BUG();
+	}
+	return sun4m_pil_map[sbint] | 0x30;
+}
+
 inline unsigned long sun4m_get_irqmask(unsigned int irq)
 {
 	unsigned long mask;
@@ -117,6 +129,10 @@ static void sun4m_enable_irq(unsigned int irq_nr)
 	unsigned long mask, flags;
 	int cpu = smp_processor_id();
 
+	/* Dreadful floppy hack. When we use 0x2b instead of
+         * 0x0b the system blows (it starts to whistle!).
+         * So we continue to use 0x0b. Fixme ASAP. --P3
+         */
         if (irq_nr != 0x0b) {
 		mask = sun4m_get_irqmask(irq_nr);
 		save_and_cli(flags);
@@ -258,6 +274,7 @@ static void __init sun4m_init_timers(void (*counter_fn)(int, void *, struct pt_r
 	sun4m_timers = (struct sun4m_timer_regs *) sbus_ioremap(&r, 0,
 	    PAGE_SIZE*SUN4M_NCPUS, "sun4m_cpu_cnt");
 	/* Map the system Counter register. */
+	/* XXX Here we expect consequent calls to yeld adjusent maps. */
 	r.flags = cnt_regs[4].which_io;
 	r.start = cnt_regs[4].phys_addr;
 	sbus_ioremap(&r, 0, cnt_regs[4].reg_size, "sun4m_sys_cnt");
@@ -361,6 +378,7 @@ void __init sun4m_init_IRQ(void)
 				&sun4m_interrupts->undirected_target;
 		sun4m_interrupts->undirected_target = 0;
 	}
+	BTFIXUPSET_CALL(sbint_to_irq, sun4m_sbint_to_irq, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(enable_irq, sun4m_enable_irq, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(disable_irq, sun4m_disable_irq, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(enable_pil_irq, sun4m_enable_pil_irq, BTFIXUPCALL_NORM);
@@ -369,7 +387,7 @@ void __init sun4m_init_IRQ(void)
 	BTFIXUPSET_CALL(clear_profile_irq, sun4m_clear_profile_irq, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(load_profile_irq, sun4m_load_profile_irq, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(__irq_itoa, sun4m_irq_itoa, BTFIXUPCALL_NORM);
-	init_timers = sun4m_init_timers;
+	sparc_init_timers = sun4m_init_timers;
 #ifdef CONFIG_SMP
 	BTFIXUPSET_CALL(set_cpu_int, sun4m_send_ipi, BTFIXUPCALL_NORM);
 	BTFIXUPSET_CALL(clear_cpu_int, sun4m_clear_ipi, BTFIXUPCALL_NORM);

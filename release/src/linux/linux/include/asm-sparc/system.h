@@ -1,4 +1,4 @@
-/* $Id: system.h,v 1.1.1.4 2003/10/14 08:09:22 sparq Exp $ */
+/* $Id: system.h,v 1.86 2001/10/30 04:57:10 davem Exp $ */
 #include <linux/config.h>
 
 #ifndef __SPARC_SYSTEM_H
@@ -10,7 +10,6 @@
 
 #ifdef __KERNEL__
 #include <asm/page.h>
-#include <asm/oplib.h>
 #include <asm/psr.h>
 #include <asm/ptrace.h>
 #include <asm/btfixup.h>
@@ -51,9 +50,6 @@ extern enum sparc_cpu sparc_cpu_model;
 extern unsigned long empty_bad_page;
 extern unsigned long empty_bad_page_table;
 extern unsigned long empty_zero_page;
-
-extern struct linux_romvec *romvec;
-#define halt() romvec->pv_halt()
 
 /* When a context switch happens we must flush all user windows so that
  * the windows of the current process are flushed onto its stack. This
@@ -109,15 +105,14 @@ extern void fpsave(unsigned long *fpregs, unsigned long *fsr,
 	 * - Anton
 	 */
 #define switch_to(prev, next, last) do {						\
-	__label__ here;									\
-	register unsigned long task_pc asm("o7");					\
 	extern struct task_struct *current_set[NR_CPUS];				\
 	SWITCH_ENTER									\
 	SWITCH_DO_LAZY_FPU								\
 	next->active_mm->cpu_vm_mask |= (1 << smp_processor_id());			\
-	task_pc = ((unsigned long) &&here) - 0x8;					\
 	__asm__ __volatile__(								\
+	"sethi	%%hi(here - 0x8), %%o7\n\t"						\
 	"mov	%%g6, %%g3\n\t"								\
+	"or	%%o7, %%lo(here - 0x8), %%o7\n\t"					\
 	"rd	%%psr, %%g4\n\t"							\
 	"std	%%sp, [%%g6 + %4]\n\t"							\
 	"rd	%%wim, %%g5\n\t"							\
@@ -132,6 +127,7 @@ extern void fpsave(unsigned long *fpregs, unsigned long *fsr,
 	"wr	%%g4, 0x20, %%psr\n\t"							\
 	"nop\n\t"									\
 	"nop\n\t"									\
+	"nop\n\t"	/* LEON needs this: load to %sp depends on CWP. */		\
 	"ldd	[%%g6 + %4], %%sp\n\t"							\
 	"wr	%%g5, 0x0, %%wim\n\t"							\
 	"ldd	[%%sp + 0x00], %%l0\n\t"						\
@@ -140,16 +136,16 @@ extern void fpsave(unsigned long *fpregs, unsigned long *fsr,
 	"nop\n\t"									\
 	"nop\n\t"									\
 	"jmpl	%%o7 + 0x8, %%g0\n\t"							\
-	" mov	%%g3, %0\n\t"								\
+	" mov	%%g3, %0\n"								\
+	"here:\n"									\
         : "=&r" (last)									\
         : "r" (&(current_set[hard_smp_processor_id()])), "r" (next),			\
 	  "i" ((const unsigned long)(&((struct task_struct *)0)->thread.kpsr)),		\
-	  "i" ((const unsigned long)(&((struct task_struct *)0)->thread.ksp)),		\
-	  "r" (task_pc)									\
-	: "g1", "g2", "g3", "g4", "g5", "g7", "l0", "l1",				\
+	  "i" ((const unsigned long)(&((struct task_struct *)0)->thread.ksp))		\
+	: "g1", "g2", "g3", "g4", "g5", "g7", "l0", "l1", "l3",				\
 	"l4", "l5", "l6", "l7", "i0", "i1", "i2", "i3", "i4", "i5", "o0", "o1", "o2",	\
-	"o3");										\
-here:;  } while(0)
+	"o3", "o7");									\
+	} while(0)
 
 /*
  * Changing the IRQ level on the Sparc.
@@ -217,7 +213,7 @@ extern __inline__ unsigned long swap_pil(unsigned long __new_psr)
 		"wr	%0, %2, %%psr\n\t"
 		"nop; nop; nop;\n"
 		"1:\n"
-		: "=r" (retval)
+		: "=&r" (retval)
 		: "r" (__new_psr), "i" (PSR_PIL)
 		: "g1", "g2", "memory", "cc");
 
@@ -241,12 +237,31 @@ extern __inline__ unsigned long read_psr_and_cli(void)
 	return retval;
 }
 
+extern __inline__ unsigned long read_psr_and_sti(void)
+{
+	unsigned long retval;
+
+	__asm__ __volatile__(
+		"rd	%%psr, %0\n\t"
+		"nop; nop; nop;\n\t"	/* Sun4m + Cypress + SMP bug */
+		"andn	%0, %1, %%g1\n\t"
+		"wr	%%g1, 0x0, %%psr\n\t"
+		"nop; nop; nop\n\t"
+		: "=r" (retval)
+		: "i" (PSR_PIL)
+		: "g1", "memory");
+
+	return retval;
+}
+
 #define __save_flags(flags)	((flags) = getipl())
 #define __save_and_cli(flags)	((flags) = read_psr_and_cli())
+#define __save_and_sti(flags)	((flags) = read_psr_and_sti())
 #define __restore_flags(flags)	setipl((flags))
 #define local_irq_disable()		__cli()
 #define local_irq_enable()		__sti()
 #define local_irq_save(flags)		__save_and_cli(flags)
+#define local_irq_set(flags)		__save_and_sti(flags)
 #define local_irq_restore(flags)	__restore_flags(flags)
 
 #ifdef CONFIG_SMP
@@ -274,16 +289,17 @@ extern void __global_restore_flags(unsigned long flags);
 
 #endif
 
+/* XXX Change this if we ever use a PSO mode kernel. */
 #define mb()	__asm__ __volatile__ ("" : : : "memory")
 #define rmb()	mb()
 #define wmb()	mb()
 #define set_mb(__var, __value)  do { __var = __value; mb(); } while(0)
 #define set_wmb(__var, __value) set_mb(__var, __value)
-#define smp_mb()	__asm__ __volatile__("":::"memory");
-#define smp_rmb()	__asm__ __volatile__("":::"memory");
-#define smp_wmb()	__asm__ __volatile__("":::"memory");
+#define smp_mb()	__asm__ __volatile__("":::"memory")
+#define smp_rmb()	__asm__ __volatile__("":::"memory")
+#define smp_wmb()	__asm__ __volatile__("":::"memory")
 
-#define nop() __asm__ __volatile__ ("nop");
+#define nop() __asm__ __volatile__ ("nop")
 
 /* This has special calling conventions */
 #ifndef CONFIG_SMP
@@ -295,7 +311,8 @@ extern __inline__ unsigned long xchg_u32(__volatile__ unsigned long *m, unsigned
 #ifdef CONFIG_SMP
 	__asm__ __volatile__("swap [%2], %0"
 			     : "=&r" (val)
-			     : "0" (val), "r" (m));
+			     : "0" (val), "r" (m)
+			     : "memory");
 	return val;
 #else
 	register unsigned long *ptr asm("g1");

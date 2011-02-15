@@ -1,4 +1,4 @@
-This extension is loaded if `--protocol icmp' is specified.  It
+This extension can be used if `--protocol icmp' is specified.  It
 provides the following option:
 .TP
 .BR "--icmp-type " "[!] \fItypename\fP"

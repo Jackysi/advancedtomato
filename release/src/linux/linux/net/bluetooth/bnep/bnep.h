@@ -17,7 +17,7 @@
 */
 
 /*
- * $Id: bnep.h,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ * $Id: bnep2.h,v 1.9 2002/07/14 07:09:19 maxk Exp $
  */
 
 #ifndef _BNEP_H
@@ -26,7 +26,7 @@
 #include <linux/types.h>
 #include <net/bluetooth/bluetooth.h>
 
-#include "crc32.h"
+#include <linux/crc32.h>
 
 // Limits
 #define BNEP_MAX_PROTO_FILTERS     5
@@ -112,25 +112,25 @@ struct bnep_ext_hdr {
 	__u8  data[0];
 } __attribute__((packed));
 
-// Ioctl interface
-#define BNEPCONADD      1
-#define BNEPCONDEL      2
-#define BNEPGETCONLIST  3
-#define BNEPGETCONINFO  4
+/* BNEP ioctl defines */
+#define BNEPCONNADD	_IOW('B', 200, int)
+#define BNEPCONNDEL	_IOW('B', 201, int)
+#define BNEPGETCONNLIST	_IOR('B', 210, int)
+#define BNEPGETCONNINFO	_IOR('B', 211, int)
 
-struct bnep_conadd_req {
+struct bnep_connadd_req {
 	int   sock;       // Connected socket
 	__u32 flags;
 	__u16 role;
 	char  device[16]; // Name of the Ethernet device
 };
 
-struct bnep_condel_req {
+struct bnep_conndel_req {
 	__u32 flags;
 	__u8  dst[ETH_ALEN];
 };
 
-struct bnep_coninfo {
+struct bnep_conninfo {
 	__u32 flags;
 	__u16 role;
 	__u16 state;	
@@ -138,9 +138,9 @@ struct bnep_coninfo {
 	char  device[16];
 };
 
-struct bnep_conlist_req {
+struct bnep_connlist_req {
 	__u32  cnum;
-	struct bnep_coninfo *ci;
+	struct bnep_conninfo *ci;
 };
 
 struct bnep_proto_filter {
@@ -148,10 +148,10 @@ struct bnep_proto_filter {
 	__u16 end;
 };
 
-int bnep_add_connection(struct bnep_conadd_req *req, struct socket *sock);
-int bnep_del_connection(struct bnep_condel_req *req);
-int bnep_get_conlist(struct bnep_conlist_req *req);
-int bnep_get_coninfo(struct bnep_coninfo *ci);
+int bnep_add_connection(struct bnep_connadd_req *req, struct socket *sock);
+int bnep_del_connection(struct bnep_conndel_req *req);
+int bnep_get_connlist(struct bnep_connlist_req *req);
+int bnep_get_conninfo(struct bnep_conninfo *ci);
 
 // BNEP sessions
 struct bnep_session {
@@ -179,7 +179,7 @@ int bnep_sock_cleanup(void);
 
 static inline int bnep_mc_hash(__u8 *addr)
 {
-        return (bnep_crc32(~0, addr, ETH_ALEN) >> 26);
+        return (crc32_be(~0, addr, ETH_ALEN) >> 26);
 }
 
 #endif

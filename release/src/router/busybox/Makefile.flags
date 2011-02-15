@@ -32,6 +32,16 @@ CFLAGS += $(call cc-option,-Wdeclaration-after-statement,)
 
 ifeq ($(CONFIG_WERROR),y)
 CFLAGS += $(call cc-option,-Werror,)
+## TODO:
+## gcc version 4.4.0 20090506 (Red Hat 4.4.0-4) (GCC) is a PITA:
+## const char *ptr; ... off_t v = *(off_t*)ptr; -> BOOM
+## and no easy way to convince it to shut the hell up.
+## We have a lot of such things all over the place.
+## Classic *(off_t*)(void*)ptr does not work,
+## and I am unwilling to do crazy gcc specific ({ void *ppp = ...; })
+## stuff in macros. This would obfuscate the code too much.
+## Maybe try __attribute__((__may_alias__))?
+#CFLAGS += $(call cc-ifversion, -eq, 0404, -fno-strict-aliasing)
 endif
 # gcc 3.x emits bogus "old style proto" warning on find.c:alloc_action()
 CFLAGS += $(call cc-ifversion, -ge, 0400, -Wold-style-definition)
@@ -40,7 +50,7 @@ CFLAGS += $(call cc-option,-fno-builtin-strlen -finline-limit=0 -fomit-frame-poi
 # -fno-guess-branch-probability: prohibit pseudo-random guessing
 # of branch probabilities (hopefully makes bloatcheck more stable):
 CFLAGS += $(call cc-option,-fno-guess-branch-probability,)
-CFLAGS += $(call cc-option,-funsigned-char -static-libgcc,)
+CFLAGS += $(call cc-option,-funsigned-char -shared-libgcc,)
 CFLAGS += $(call cc-option,-falign-functions=1 -falign-jumps=1 -falign-labels=1 -falign-loops=1,)
 
 # FIXME: These warnings are at least partially to be concerned about and should

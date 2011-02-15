@@ -71,7 +71,7 @@
 #include <asm/system.h>
 #include <asm/div64.h>
 
-#define HFSC_DEBUG 0
+#define HFSC_DEBUG 1
 
 /*
  * kernel internal service curve representation:
@@ -281,7 +281,7 @@ static inline struct hfsc_class *
 eltree_get_minel(struct hfsc_sched *q)
 {
 	rb_node_t *n;
-
+	
 	n = rb_first(&q->eligible);
 	if (n == NULL)
 		return NULL;

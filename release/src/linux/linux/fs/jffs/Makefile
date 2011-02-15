@@ -11,7 +11,7 @@
 
 list-multi := jffs.o
 
-jffs-objs := jffs_fm.o intrep.o
+jffs-objs := jffs_fm.o intrep.o jffs_gc.o
 
 ifeq ($(PATCHLEVEL),2)
 	jffs-objs += inode-v22.o

@@ -197,6 +197,18 @@ get_std_req_name(int req)
 	return (req >= 0 && req <= 12) ? std_req_name[req] : "UNKNOWN";
 }
 
+#if 0
+static void
+dump_setup(struct usb_ctrlrequest* s)
+{
+	dbg(__FUNCTION__ ": requesttype=%d", s->requesttype);
+	dbg(__FUNCTION__ ": request=%d %s", s->request,
+	    get_std_req_name(s->request));
+	dbg(__FUNCTION__ ": value=0x%04x", s->wValue);
+	dbg(__FUNCTION__ ": index=%d", s->index);
+	dbg(__FUNCTION__ ": length=%d", s->length);
+}
+#endif
 
 static inline usbdev_pkt_t *
 alloc_packet(endpoint_t * ep, int data_size, void* data)
@@ -387,6 +399,32 @@ endpoint_fifo_read(endpoint_t * ep)
 	return read_count;
 }
 
+#if 0
+/* EP spinlock must be held when calling. */
+static int
+endpoint_fifo_write(endpoint_t * ep, int index)
+{
+	int write_count = 0;
+	u8 *bufptr;
+	usbdev_pkt_t *pkt = ep->inlist.head;
+
+	if (!pkt)
+		return -EINVAL;
+
+	bufptr = &pkt->payload[index];
+	while ((au_readl(ep->reg->write_fifo_status) &
+		USBDEV_FSTAT_FCNT_MASK) < EP_FIFO_DEPTH) {
+		if (bufptr < pkt->payload + pkt->size) {
+			au_writel(*bufptr++, ep->reg->write_fifo);
+			write_count++;
+		} else {
+			break;
+		}
+	}
+
+	return write_count;
+}
+#endif
 
 /*
  * This routine is called to restart transmission of a packet.
@@ -541,6 +579,15 @@ kickstart_receive_packet(endpoint_t * ep)
 }
 
 
+/*
+ * This routine is called when a packet in the outlist has been
+ * completed (received) and we need to prepare for a new packet
+ * to be received. Halts DMA and computes the packet size from the
+ * remaining DMA counter. Then prepares a new packet for reception
+ * and restarts DMA. FIXME: what if another packet comes in
+ * on top of the completed packet? Counter would be wrong.
+ * EP spinlock must be held when calling.
+ */
 static usbdev_pkt_t *
 receive_packet_complete(endpoint_t * ep)
 {

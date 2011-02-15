@@ -179,10 +179,15 @@ static struct miscdevice watchdog_miscdev=
 
 static int __init footbridge_watchdog_init(void)
 {
+	int retval;
+
 	if (machine_is_netwinder())
 		return -ENODEV;
 
-	misc_register(&watchdog_miscdev);
+	retval = misc_register(&watchdog_miscdev);
+	if(retval < 0)
+		return retval;
+
 	printk("Footbridge Watchdog Timer: 0.01, timer margin: %d sec\n", 
 	       soft_margin);
 	if (machine_is_cats())

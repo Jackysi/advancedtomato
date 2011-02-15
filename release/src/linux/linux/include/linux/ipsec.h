@@ -44,6 +44,9 @@
 #define SND_CRYPT		0x20
 #define SND_TUNNEL		0x40
 
+/*
+ *	FIXME: ignores network encryption for now..
+ */
  
 #ifdef CONFIG_NET_SECURITY
 static __inline__ int ipsec_sk_policy(struct sock *sk, struct sk_buff *skb)

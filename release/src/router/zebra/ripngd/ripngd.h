@@ -74,6 +74,9 @@
 #define RIPNG_DEFAULT_ACCEPT_NONE        1
 #define RIPNG_DEFAULT_ACCEPT             2
 
+/* Default value for "default-metric" command. */
+#define RIPNG_DEFAULT_METRIC_DEFAULT     1
+
 /* For max RTE calculation. */
 #ifndef IPV6_HDRLEN
 #define IPV6_HDRLEN 40
@@ -96,11 +99,21 @@ struct ripng
   unsigned long timeout_time;
   unsigned long garbage_time;
   int max_mtu;
+  int default_metric;
   int default_information;
 
   /* Input/output buffer of RIPng. */
   struct stream *ibuf;
   struct stream *obuf;
+
+  /* RIPng routing information base. */
+  struct route_table *table;
+
+  /* RIPng only static route information. */
+  struct route_table *route;
+
+  /* RIPng aggregate route information. */
+  struct route_table *aggregate;
 
   /* RIPng threads. */
   struct thread *t_read;
@@ -113,6 +126,15 @@ struct ripng
   int trigger;
   struct thread *t_triggered_update;
   struct thread *t_triggered_interval;
+
+  /* For redistribute route map. */
+  struct
+  {
+    char *name;
+    struct route_map *map;
+    int metric_config;
+    u_int32_t metric;
+  } route_map[ZEBRA_ROUTE_MAX];
 };
 
 /* Routing table entry. */
@@ -166,6 +188,9 @@ struct ripng_info
   /* Garbage collect timer. */
   struct thread *t_timeout;
   struct thread *t_garbage_collect;
+
+  /* Route-map features - this variables can be changed. */
+  u_char metric_set;
 
   struct route_node *rp;
 };
@@ -230,6 +255,9 @@ struct ripng_interface
 
   /* Wake up thread. */
   struct thread *t_wakeup;
+
+  /* Passive interface. */
+  int passive;
 };
 
 /* All RIPng events. */

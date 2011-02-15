@@ -5,5 +5,6 @@
  * includes it even if CONFIG_PCI is not set.
  */
 
+#define PCI_DMA_BUS_IS_PHYS	(0)
 #endif /* __ASM_CRIS_PCI_H */
 

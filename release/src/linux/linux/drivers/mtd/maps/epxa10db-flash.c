@@ -5,7 +5,7 @@
  *  Copyright (C) 2001 Altera Corporation
  *  Copyright (C) 2001 Red Hat, Inc.
  *
- * $Id: epxa10db-flash.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $ 
+ * $Id: epxa10db-flash.c,v 1.4 2002/08/22 10:46:19 cdavies Exp $ 
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,6 +32,11 @@
 #include <linux/mtd/partitions.h>
 
 #include <asm/hardware.h>
+#ifdef CONFIG_EPXA10DB
+#define BOARD_NAME "EPXA10DB"
+#else
+#define BOARD_NAME "EPXA1DB"
+#endif
 
 static int nr_parts = 0;
 static struct mtd_partition *parts;
@@ -39,91 +44,94 @@ static struct mtd_partition *parts;
 static struct mtd_info *mymtd;
 
 extern int parse_redboot_partitions(struct mtd_info *, struct mtd_partition **);
-static int epxa10db_default_partitions(struct mtd_info *master, struct mtd_partition **pparts);
+static int epxa_default_partitions(struct mtd_info *master, struct mtd_partition **pparts);
 
-static __u8 epxa10db_read8(struct map_info *map, unsigned long ofs)
+static __u8 epxa_read8(struct map_info *map, unsigned long ofs)
 {
 	return __raw_readb(map->map_priv_1 + ofs);
 }
 
-static __u16 epxa10db_read16(struct map_info *map, unsigned long ofs)
+static __u16 epxa_read16(struct map_info *map, unsigned long ofs)
 {
 	return __raw_readw(map->map_priv_1 + ofs);
 }
 
-static __u32 epxa10db_read32(struct map_info *map, unsigned long ofs)
+static __u32 epxa_read32(struct map_info *map, unsigned long ofs)
 {
 	return __raw_readl(map->map_priv_1 + ofs);
 }
 
-static void epxa10db_copy_from(struct map_info *map, void *to, unsigned long from, ssize_t len)
+static void epxa_copy_from(struct map_info *map, void *to, unsigned long from, ssize_t len)
 {
 	memcpy_fromio(to, (void *)(map->map_priv_1 + from), len);
 }
 
-static void epxa10db_write8(struct map_info *map, __u8 d, unsigned long adr)
+static void epxa_write8(struct map_info *map, __u8 d, unsigned long adr)
 {
 	__raw_writeb(d, map->map_priv_1 + adr);
 	mb();
 }
 
-static void epxa10db_write16(struct map_info *map, __u16 d, unsigned long adr)
+static void epxa_write16(struct map_info *map, __u16 d, unsigned long adr)
 {
 	__raw_writew(d, map->map_priv_1 + adr);
 	mb();
 }
 
-static void epxa10db_write32(struct map_info *map, __u32 d, unsigned long adr)
+static void epxa_write32(struct map_info *map, __u32 d, unsigned long adr)
 {
 	__raw_writel(d, map->map_priv_1 + adr);
 	mb();
 }
 
-static void epxa10db_copy_to(struct map_info *map, unsigned long to, const void *from, ssize_t len)
+static void epxa_copy_to(struct map_info *map, unsigned long to, const void *from, ssize_t len)
 {
 	memcpy_toio((void *)(map->map_priv_1 + to), from, len);
 }
 
 
 
-static struct map_info epxa10db_map = {
-	name:		"EPXA10DB flash",
+static struct map_info epxa_map = {
+	name:		"EPXA flash",
 	size:		FLASH_SIZE,
 	buswidth:	2,
-	read8:		epxa10db_read8,
-	read16:		epxa10db_read16,
-	read32:		epxa10db_read32,
-	copy_from:	epxa10db_copy_from,
-	write8:		epxa10db_write8,
-	write16:	epxa10db_write16,
-	write32:	epxa10db_write32,
-	copy_to:	epxa10db_copy_to
+	read8:		epxa_read8,
+	read16:		epxa_read16,
+	read32:		epxa_read32,
+	copy_from:	epxa_copy_from,
+	write8:		epxa_write8,
+	write16:	epxa_write16,
+	write32:	epxa_write32,
+	copy_to:	epxa_copy_to
 };
 
 
-static int __init epxa10db_mtd_init(void)
+static int __init epxa_mtd_init(void)
 {
 	int i;
-	printk(KERN_NOTICE "Epxa10db flash device: %x at %x\n", FLASH_SIZE, FLASH_START);
-	epxa10db_map.map_priv_1 = (unsigned long)ioremap(FLASH_START, FLASH_SIZE);
-	if (!epxa10db_map.map_priv_1) {
-		printk("Failed to ioremap Epxa10db flash\n");
+	
+	printk(KERN_NOTICE "%s flash device: %x at %x\n", BOARD_NAME, FLASH_SIZE, FLASH_START);
+	epxa_map.map_priv_1 = (unsigned long)ioremap(FLASH_START, FLASH_SIZE);
+	if (!epxa_map.map_priv_1) {
+		printk("Failed to ioremap %s flash\n",BOARD_NAME);
 		return -EIO;
 	}
 
-	mymtd = do_map_probe("cfi_probe", &epxa10db_map);
+	mymtd = do_map_probe("cfi_probe", &epxa_map);
 	if (!mymtd) {
-		iounmap((void *)epxa10db_map.map_priv_1);
+		iounmap((void *)epxa_map.map_priv_1);
 		return -ENXIO;
 	}
 
 	mymtd->module = THIS_MODULE;
 
 	/* Unlock the flash device. */
-	for (i=0; i<mymtd->numeraseregions;i++){
-		int j;
-		for(j=0;j<mymtd->eraseregions[i].numblocks;j++){
-			mymtd->unlock(mymtd,mymtd->eraseregions[i].offset + j * mymtd->eraseregions[i].erasesize,4);
+	if(mymtd->unlock){
+		for (i=0; i<mymtd->numeraseregions;i++){
+			int j;
+			for(j=0;j<mymtd->eraseregions[i].numblocks;j++){
+				mymtd->unlock(mymtd,mymtd->eraseregions[i].offset + j * mymtd->eraseregions[i].erasesize,mymtd->eraseregions[i].erasesize);
+			}
 		}
 	}
 
@@ -145,7 +153,7 @@ static int __init epxa10db_mtd_init(void)
 #endif
 
 	/* No recognised partitioning schemes found - use defaults */
-	nr_parts = epxa10db_default_partitions(mymtd, &parts);
+	nr_parts = epxa_default_partitions(mymtd, &parts);
 	if (nr_parts > 0) {
 		add_mtd_partitions(mymtd, parts, nr_parts);
 		return 0;
@@ -156,7 +164,7 @@ static int __init epxa10db_mtd_init(void)
 	return 0;
 }
 
-static void __exit epxa10db_mtd_cleanup(void)
+static void __exit epxa_mtd_cleanup(void)
 {
 	if (mymtd) {
 		if (nr_parts)
@@ -165,9 +173,9 @@ static void __exit epxa10db_mtd_cleanup(void)
 			del_mtd_device(mymtd);
 		map_destroy(mymtd);
 	}
-	if (epxa10db_map.map_priv_1) {
-		iounmap((void *)epxa10db_map.map_priv_1);
-		epxa10db_map.map_priv_1 = 0;
+	if (epxa_map.map_priv_1) {
+		iounmap((void *)epxa_map.map_priv_1);
+		epxa_map.map_priv_1 = 0;
 	}
 }
 
@@ -181,7 +189,7 @@ static void __exit epxa10db_mtd_cleanup(void)
  * 0x00400000 - 0x00FFFFFF - Flashdisk
  */
 
-static int __init epxa10db_default_partitions(struct mtd_info *master, struct mtd_partition **pparts)
+static int __init epxa_default_partitions(struct mtd_info *master, struct mtd_partition **pparts)
 {
 	struct mtd_partition *parts;
 	int ret, i;
@@ -189,9 +197,10 @@ static int __init epxa10db_default_partitions(struct mtd_info *master, struct mt
 	char *names; 
 	const char *name = "jffs";
 
-	printk("Using default partitions for epxa10db\n");
+	printk("Using default partitions for %s\n",BOARD_NAME);
 	npartitions=1;
 	parts = kmalloc(npartitions*sizeof(*parts)+strlen(name), GFP_KERNEL);
+	memzero(parts,npartitions*sizeof(*parts)+strlen(name));
 	if (!parts) {
 		ret = -ENOMEM;
 		goto out;
@@ -202,18 +211,23 @@ static int __init epxa10db_default_partitions(struct mtd_info *master, struct mt
 	names += strlen(name) + 1;
 	strcpy(parts[i].name, name);
 
+#ifdef CONFIG_EPXA10DB
 	parts[i].size = FLASH_SIZE-0x00400000;
 	parts[i].offset = 0x00400000;
-	parts[i].mask_flags = 0;
+#else
+	parts[i].size = FLASH_SIZE-0x00180000;
+	parts[i].offset = 0x00180000;
+#endif
 
  out:
 	*pparts = parts;
 	return npartitions;
 }
 
-module_init(epxa10db_mtd_init);
-module_exit(epxa10db_mtd_cleanup);
+
+module_init(epxa_mtd_init);
+module_exit(epxa_mtd_cleanup);
 
 MODULE_AUTHOR("Clive Davies");
-MODULE_DESCRIPTION("Altera epxa10db mtd flash map");
+MODULE_DESCRIPTION("Altera epxa mtd flash map");
 MODULE_LICENSE("GPL");

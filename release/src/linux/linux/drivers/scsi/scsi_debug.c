@@ -48,7 +48,7 @@
 
 #include "scsi_debug.h"
 
-static const char * scsi_debug_version_str = "Version: 0.61 (20020815)";
+static const char * scsi_debug_version_str = "Version: 0.63 (20040831)";
 
 
 #ifndef SCSI_CMD_READ_16
@@ -73,7 +73,7 @@ static const char * scsi_debug_version_str = "Version: 0.61 (20020815)";
 #define SCSI_DEBUG_OPT_MEDIUM_ERR   2
 #define SCSI_DEBUG_OPT_EVERY_NTH   4
 
-#define OPT_MEDIUM_ERR_ADDR   0x1234
+#define OPT_MEDIUM_ERR_ADDR   0x1234  /* that's 4660 in decimal */
 
 static int scsi_debug_num_devs = DEF_NR_FAKE_DEVS;
 static int scsi_debug_opts = DEF_OPTS;
@@ -124,7 +124,7 @@ static struct sdebug_queued_cmd queued_arr[SCSI_DEBUG_CANQUEUE];
 
 static unsigned char * fake_storep;	/* ramdisk storage */
 
-static unsigned char broken_buff[SDEBUG_SENSE_LEN];
+static unsigned char spare_buff[SDEBUG_SENSE_LEN];
 
 static int num_aborts = 0;
 static int num_dev_resets = 0;
@@ -193,8 +193,7 @@ int scsi_debug_queuecommand(Scsi_Cmnd * SCpnt, done_funct_t done)
 	else 
 		buff = (unsigned char *) SCpnt->request_buffer;
 	if (NULL == buff) {
-		printk(KERN_WARNING "scsi_debug:qc: buff was NULL??\n");
-		buff = broken_buff;	/* just point at dummy */
+		buff = spare_buff;	/* just point at dummy */
 		bufflen = SDEBUG_SENSE_LEN;
 	}
 
@@ -207,6 +206,11 @@ int scsi_debug_queuecommand(Scsi_Cmnd * SCpnt, done_funct_t done)
 	if ((target > driver_template.this_id) || (SCpnt->lun != 0))
 		return schedule_resp(SCpnt, NULL, done, 
 				     DID_NO_CONNECT << 16, 0);
+#if 0
+	printk(KERN_INFO "sdebug:qc: host_no=%d, id=%d, sdp=%p, cmd=0x%x\n",
+	       (int)SCpnt->device->host->host_no, (int)SCpnt->device->id,
+	       SCpnt->device, (int)*cmd);
+#endif
 	if (NULL == SCpnt->device->hostdata) {
 		devip = devInfoReg(SCpnt->device);
 		if (NULL == devip)
@@ -358,10 +362,14 @@ int scsi_debug_queuecommand(Scsi_Cmnd * SCpnt, done_funct_t done)
 		errsts = resp_mode_sense(cmd, target, buff, bufflen, devip);
 		break;
 	default:
+#if 0
+		printk(KERN_INFO "scsi_debug: Unsupported command, "
+		       "opcode=0x%x\n", (int)cmd[0]);
+#endif
 		if ((errsts = check_reset(SCpnt, devip)))
 			break;
 		mk_sense_buffer(devip, ILLEGAL_REQUEST, 0x20, 0, 14);
-		errsts = (COMMAND_COMPLETE << 8) | (CHECK_CONDITION << 1);
+		errsts = (DRIVER_SENSE << 24) | (CHECK_CONDITION << 1);
 		break;
 	}
 	return schedule_resp(SCpnt, devip, done, errsts, scsi_debug_delay);
@@ -381,7 +389,7 @@ static int check_reset(Scsi_Cmnd * SCpnt, struct sdebug_dev_info * devip)
 	if (devip->reset) {
 		devip->reset = 0;
 		mk_sense_buffer(devip, UNIT_ATTENTION, 0x29, 0, 14);
-		return (COMMAND_COMPLETE << 8) | (CHECK_CONDITION << 1);
+		return (DRIVER_SENSE << 24) | (CHECK_CONDITION << 1);
 	}
 	return 0;
 }
@@ -442,7 +450,7 @@ static int resp_inquiry(unsigned char * cmd, int target, unsigned char * buff,
 	arr[0] = pq_pdt;
 	if (0x2 & cmd[1]) {  /* CMDDT bit set */
 		mk_sense_buffer(devip, ILLEGAL_REQUEST, 0x24, 0, 14);
-		return (COMMAND_COMPLETE << 8) | (CHECK_CONDITION << 1);
+		return (DRIVER_SENSE << 24) | (CHECK_CONDITION << 1);
 	} else if (0x1 & cmd[1]) {  /* EVPD bit set */
 		int dev_id_num, len;
 		char dev_id_str[6];
@@ -467,7 +475,7 @@ static int resp_inquiry(unsigned char * cmd, int target, unsigned char * buff,
 		} else {
 			/* Illegal request, invalid field in cdb */
 			mk_sense_buffer(devip, ILLEGAL_REQUEST, 0x24, 0, 14);
-			return (COMMAND_COMPLETE << 8) | (CHECK_CONDITION << 1);
+			return (DRIVER_SENSE << 24) | (CHECK_CONDITION << 1);
 		}
 		memcpy(buff, arr, min_len); 
 		return 0;
@@ -580,7 +588,7 @@ static int resp_mode_sense(unsigned char * cmd, int target,
 	memset(arr, 0, SDEBUG_MAX_MSENSE_SZ);
 	if (0x3 == pcontrol) {  /* Saving values not supported */
 		mk_sense_buffer(devip, ILLEGAL_REQUEST, 0x39, 0, 14);
-		return (COMMAND_COMPLETE << 8) | (CHECK_CONDITION << 1);
+		return (DRIVER_SENSE << 24) | (CHECK_CONDITION << 1);
 	}
 	dev_spec = DEV_READONLY(target) ? 0x80 : 0x0;
 	if (msense_6) {
@@ -622,7 +630,7 @@ static int resp_mode_sense(unsigned char * cmd, int target,
 		break;
 	default:
 		mk_sense_buffer(devip, ILLEGAL_REQUEST, 0x24, 0, 14);
-		return (COMMAND_COMPLETE << 8) | (CHECK_CONDITION << 1);
+		return (DRIVER_SENSE << 24) | (CHECK_CONDITION << 1);
 	}
 	if (msense_6)
 		arr[0] = offset - 1;
@@ -646,14 +654,14 @@ static int resp_read(Scsi_Cmnd * SCpnt, int upper_blk, int block, int num,
 
 	if (upper_blk || (block + num > CAPACITY)) {
 		mk_sense_buffer(devip, ILLEGAL_REQUEST, 0x21, 0, 14);
-		return (COMMAND_COMPLETE << 8) | (CHECK_CONDITION << 1);
+		return (DRIVER_SENSE << 24) | (CHECK_CONDITION << 1);
 	}
 	if ((SCSI_DEBUG_OPT_MEDIUM_ERR & scsi_debug_opts) &&
-	    (block >= OPT_MEDIUM_ERR_ADDR) && 
-	    (block < (OPT_MEDIUM_ERR_ADDR + num))) {
+	    (block <= OPT_MEDIUM_ERR_ADDR) &&
+            ((block + num) > OPT_MEDIUM_ERR_ADDR)) {
 		mk_sense_buffer(devip, MEDIUM_ERROR, 0x11, 0, 14);
 		/* claim unrecoverable read error */
-		return (COMMAND_COMPLETE << 8) | (CHECK_CONDITION << 1);
+		return (DRIVER_SENSE << 24) | (CHECK_CONDITION << 1);
 	}
 	read_lock_irqsave(&atomic_rw, iflags);
         sgcount = 0;
@@ -695,7 +703,7 @@ static int resp_write(Scsi_Cmnd * SCpnt, int upper_blk, int block, int num,
 
 	if (upper_blk || (block + num > CAPACITY)) {
 		mk_sense_buffer(devip, ILLEGAL_REQUEST, 0x21, 0, 14);
-		return (COMMAND_COMPLETE << 8) | (CHECK_CONDITION << 1);
+		return (DRIVER_SENSE << 24) | (CHECK_CONDITION << 1);
 	}
 
 	write_lock_irqsave(&atomic_rw, iflags);
@@ -735,7 +743,7 @@ static int resp_report_luns(unsigned char * cmd, unsigned char * buff,
 	alloc_len = cmd[9] + (cmd[8] << 8) + (cmd[7] << 16) + (cmd[6] << 24);
 	if ((alloc_len < 16) || (select_report > 2)) {
 		mk_sense_buffer(devip, ILLEGAL_REQUEST, 0x24, 0, 14);
-		return (COMMAND_COMPLETE << 8) | (CHECK_CONDITION << 1);
+		return (DRIVER_SENSE << 24) | (CHECK_CONDITION << 1);
 	}
 	if (bufflen > 3) {
 		memset(buff, 0, bufflen);
@@ -764,8 +772,10 @@ static void timer_intr_handler(unsigned long indx)
 		return;
 	}
 	sqcp->in_use = 0;
-	if (sqcp->done_funct)
+	if (sqcp->done_funct) {
+		sqcp->a_cmnd->result = sqcp->scsi_result;
 		sqcp->done_funct(sqcp->a_cmnd); /* callback to mid level */
+	}
 	sqcp->done_funct = NULL;
 	spin_unlock_irqrestore(&queued_arr_lock, iflags);
 }

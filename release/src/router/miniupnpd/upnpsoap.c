@@ -1,7 +1,7 @@
-/* $Id: upnpsoap.c,v 1.63 2008/10/09 12:12:19 nanard Exp $ */
+/* $Id: upnpsoap.c,v 1.65 2010/01/02 17:54:46 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2008 Thomas Bernard 
+ * (c) 2006-2009 Thomas Bernard 
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -369,7 +369,8 @@ AddPortMapping(struct upnphttp * h, const char * action)
 	iport = (unsigned short)atoi(int_port);
 
 	if(leaseduration && atoi(leaseduration)) {
-		syslog(LOG_WARNING, "NewLeaseDuration=%s", leaseduration);
+		/* at the moment, lease duration is always infinite */
+		syslog(LOG_INFO, "NewLeaseDuration=%s not supported, ignored. (ip=%s, desc='%s')", leaseduration, int_ip, desc);
 	}
 
 	syslog(LOG_INFO, "%s: ext port %hu to %s:%hu protocol %s for: %s",

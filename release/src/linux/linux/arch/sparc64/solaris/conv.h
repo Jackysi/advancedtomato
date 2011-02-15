@@ -1,4 +1,4 @@
-/* $Id: conv.h,v 1.1.1.4 2003/10/14 08:07:51 sparq Exp $
+/* $Id: conv.h,v 1.4 1998/08/15 20:42:51 davem Exp $
  * conv.h: Utility macros for Solaris emulation
  *
  * Copyright (C) 1997 Jakub Jelinek (jj@sunsite.mff.cuni.cz)

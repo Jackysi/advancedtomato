@@ -875,7 +875,7 @@ ALIAS (no_bandwidth_if,
        "no bandwidth <1-10000000>",
        NO_STR
        "Set bandwidth informational parameter\n"
-       "Bandwidth in kilobits\n")
+       "Bandwidth in kilobits\n");
 
 int
 ip_address_install (struct vty *vty, struct interface *ifp, char *addr_str,
@@ -1070,8 +1070,8 @@ DEFUN (ip_address_label,
 
 DEFUN (no_ip_address_secondary,
        no_ip_address_secondary_cmd,
+       "no ip address A.B.C.D/M secondary",
        NO_STR
-       "ip address A.B.C.D/M secondary",
        "Interface Internet Protocol config commands\n"
        "Set the IP address of an interface\n"
        "IP address (e.g. 10.0.0.1/8)\n"
@@ -1336,6 +1336,10 @@ if_config_write (struct vty *vty)
 #ifdef RTADV
       rtadv_config_write (vty, ifp);
 #endif /* RTADV */
+
+#ifdef HAVE_IRDP
+      irdp_config_write (vty, ifp);
+#endif /* IRDP */
 
       vty_out (vty, "!%s", VTY_NEWLINE);
     }

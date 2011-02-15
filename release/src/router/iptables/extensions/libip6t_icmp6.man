@@ -1,4 +1,4 @@
-This extension is loaded if `--protocol ipv6-icmp' or `--protocol icmpv6' is
+This extension can be used if `--protocol ipv6-icmp' or `--protocol icmpv6' is
 specified. It provides the following option:
 .TP
 .BR "--icmpv6-type " "[!] \fItype\fP[/\fIcode\fP]|\fItypename\fP"

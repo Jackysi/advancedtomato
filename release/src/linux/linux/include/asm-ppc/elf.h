@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.elf.h 1.14 08/21/01 16:07:48 trini
- */
 #ifndef __PPC_ELF_H
 #define __PPC_ELF_H
 

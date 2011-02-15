@@ -209,7 +209,7 @@ qosg.verifyFields = function(row, quiet) {
 
 	a = f[0].value * 1;
 	if ((a == 1) || (a == 2)) {
-		if (!v_iptip(f[1], quiet)) return 0;
+		if (!v_iptaddr(f[1], quiet)) return 0;
 	}
 	else if ((a == 3) && (!v_mac(f[1], quiet))) return 0;
 
@@ -242,6 +242,7 @@ qosg.verifyFields = function(row, quiet) {
 		return 0;
 	}
 
+	if (!v_nodelim(f[10], quiet, 'Description', 1)) return 0;
 	return v_length(f[10], quiet);
 }
 
@@ -321,7 +322,7 @@ function save()
 	}
 	fom.qos_orules.value = a.join('>');
 
-	form.submit(fom, 1);
+	form.submit(fom, 0);
 }
 
 function init()
@@ -353,9 +354,13 @@ function init()
 	<table class='tomato-grid' cellspacing=1 id='qg'></table>
 </div>
 
+<br>
 <script type='text/javascript'>
 if (nvram.qos_enable != '1') {
 	W('<div class="note-disabled"><b>QoS disabled.</b> &nbsp; <a href="qos-settings.asp">Enable &raquo;</a></div>');
+}
+else {
+	show_notice1('<% notice("iptables"); %>');
 }
 </script>
 

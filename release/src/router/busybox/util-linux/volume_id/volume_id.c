@@ -45,8 +45,8 @@
 #define ENABLE_FEATURE_VOLUMEID_UFS           0
 
 
-typedef int (*raid_probe_fptr)(struct volume_id *id, /*uint64_t off,*/ uint64_t size);
-typedef int (*probe_fptr)(struct volume_id *id /*, uint64_t off*/);
+typedef int FAST_FUNC (*raid_probe_fptr)(struct volume_id *id, /*uint64_t off,*/ uint64_t size);
+typedef int FAST_FUNC (*probe_fptr)(struct volume_id *id /*, uint64_t off*/);
 
 static const raid_probe_fptr raid1[] = {
 #if ENABLE_FEATURE_VOLUMEID_LINUXRAID
@@ -88,8 +88,11 @@ static const probe_fptr raid2[] = {
 #endif
 };
 
-/* signature in the first block, only small buffer needed */
-static const probe_fptr fs1[] = {
+/* fill buffer with maximum */
+static const probe_fptr fs[] = {
+#if ENABLE_FEATURE_VOLUMEID_LINUXSWAP
+	volume_id_probe_linux_swap,
+#endif
 #if ENABLE_FEATURE_VOLUMEID_FAT
 	volume_id_probe_vfat,
 #endif
@@ -99,15 +102,11 @@ static const probe_fptr fs1[] = {
 #if ENABLE_FEATURE_VOLUMEID_XFS
 	volume_id_probe_xfs,
 #endif
-};
-
-/* fill buffer with maximum */
-static const probe_fptr fs2[] = {
-#if ENABLE_FEATURE_VOLUMEID_LINUXSWAP
-	volume_id_probe_linux_swap,
-#endif
 #if ENABLE_FEATURE_VOLUMEID_EXT
 	volume_id_probe_ext,
+#endif
+#if ENABLE_FEATURE_VOLUMEID_BTRFS
+	volume_id_probe_btrfs,
 #endif
 #if ENABLE_FEATURE_VOLUMEID_REISERFS
 	volume_id_probe_reiserfs,
@@ -150,7 +149,7 @@ static const probe_fptr fs2[] = {
 #endif
 };
 
-int volume_id_probe_all(struct volume_id *id, /*uint64_t off,*/ uint64_t size)
+int FAST_FUNC volume_id_probe_all(struct volume_id *id, /*uint64_t off,*/ uint64_t size)
 {
 	unsigned i;
 
@@ -171,19 +170,11 @@ int volume_id_probe_all(struct volume_id *id, /*uint64_t off,*/ uint64_t size)
 			goto ret;
 	}
 
-	/* signature in the first block, only small buffer needed */
-	for (i = 0; i < ARRAY_SIZE(fs1); i++) {
-		if (fs1[i](id /*,off*/) == 0)
-			goto ret;
-		if (id->error)
-			goto ret;
-	}
-
 	/* fill buffer with maximum */
 	volume_id_get_buffer(id, 0, SB_BUFFER_SIZE);
 
-	for (i = 0; i < ARRAY_SIZE(fs2); i++) {
-		if (fs2[i](id /*,off*/) == 0)
+	for (i = 0; i < ARRAY_SIZE(fs); i++) {
+		if (fs[i](id /*,off*/) == 0)
 			goto ret;
 		if (id->error)
 			goto ret;
@@ -196,7 +187,7 @@ int volume_id_probe_all(struct volume_id *id, /*uint64_t off,*/ uint64_t size)
 }
 
 /* open volume by device node */
-struct volume_id *volume_id_open_node(int fd)
+struct volume_id* FAST_FUNC volume_id_open_node(int fd)
 {
 	struct volume_id *id;
 
@@ -209,7 +200,7 @@ struct volume_id *volume_id_open_node(int fd)
 
 #ifdef UNUSED
 /* open volume by major/minor */
-struct volume_id *volume_id_open_dev_t(dev_t devt)
+struct volume_id* FAST_FUNC volume_id_open_dev_t(dev_t devt)
 {
 	struct volume_id *id;
 	char *tmp_node[VOLUME_ID_PATH_MAX];
@@ -220,7 +211,7 @@ struct volume_id *volume_id_open_dev_t(dev_t devt)
 	/* create temporary node to open block device */
 	unlink(tmp_node);
 	if (mknod(tmp_node, (S_IFBLK | 0600), devt) != 0)
-		bb_perror_msg_and_die("cannot mknod(%s)", tmp_node);
+		bb_perror_msg_and_die("can't mknod(%s)", tmp_node);
 
 	id = volume_id_open_node(tmp_node);
 	unlink(tmp_node);
@@ -229,7 +220,7 @@ struct volume_id *volume_id_open_dev_t(dev_t devt)
 }
 #endif
 
-void free_volume_id(struct volume_id *id)
+void FAST_FUNC free_volume_id(struct volume_id *id)
 {
 	if (id == NULL)
 		return;

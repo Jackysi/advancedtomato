@@ -4,7 +4,7 @@
  * for more details.
  *
  * Copyright (C) 1994, 1995 Waldorf GmbH
- * Copyright (C) 1994 - 2000 Ralf Baechle
+ * Copyright (C) 1994 - 2000, 03 Ralf Baechle
  * Copyright (C) 1999, 2000 Silicon Graphics, Inc.
  */
 #ifndef _ASM_IO_H
@@ -14,6 +14,10 @@
 #include <asm/addrspace.h>
 #include <asm/page.h>
 #include <asm/byteorder.h>
+
+#ifdef CONFIG_MIPS_COBALT
+#include <asm/cobalt/io.h>
+#endif
 
 #ifdef CONFIG_DECSTATION
 #include <asm/dec/io.h>
@@ -39,11 +43,7 @@
 #include <asm/sn/io.h>
 #endif
 
-#ifdef CONFIG_SGI_IP32
-#include <asm/ip32/io.h>
-#endif
-
-#ifdef CONFIG_SIBYTE_SB1250
+#ifdef CONFIG_SIBYTE_SB1xxx_SOC
 #include <asm/sibyte/io.h>
 #endif
 
@@ -135,6 +135,11 @@ static inline void iounmap(void *addr)
 {
 }
 
+/*
+ * XXX We need system specific versions of these to handle EISA address bits
+ * 24-31 on SNI.
+ * XXX more SNI hacks.
+ */
 #define readb(addr)		(*(volatile unsigned char *)(addr))
 #define readw(addr)		__ioswab16((*(volatile unsigned short *)(addr)))
 #define readl(addr)		__ioswab32((*(volatile unsigned int *)(addr)))
@@ -151,6 +156,9 @@ static inline void iounmap(void *addr)
 #define __raw_writew(w,addr)	((*(volatile unsigned short *)(addr)) = (w))
 #define __raw_writel(l,addr)	((*(volatile unsigned int *)(addr)) = (l))
 
+/*
+ * TODO: Should use variants that don't do prefetching.
+ */
 #define memset_io(a,b,c)	memset((void *)(a),(b),(c))
 #define memcpy_fromio(a,b,c)	memcpy((a),(void *)(b),(c))
 #define memcpy_toio(a,b,c)	memcpy((void *)(a),(b),(c))
@@ -406,7 +414,8 @@ static inline unsigned int inl_p(unsigned long port)
 	return __ioswab32(__val);
 }
 
-static inline void __outsb(unsigned long port, void *addr, unsigned int count)
+static inline void __outsb(unsigned long port, const void *addr,
+	unsigned int count)
 {
 	while (count--) {
 		outb(*(u8 *)addr, port);
@@ -422,7 +431,8 @@ static inline void __insb(unsigned long port, void *addr, unsigned int count)
 	}
 }
 
-static inline void __outsw(unsigned long port, void *addr, unsigned int count)
+static inline void __outsw(unsigned long port, const void *addr,
+	unsigned int count)
 {
 	while (count--) {
 		outw(*(u16 *)addr, port);
@@ -438,7 +448,8 @@ static inline void __insw(unsigned long port, void *addr, unsigned int count)
 	}
 }
 
-static inline void __outsl(unsigned long port, void *addr, unsigned int count)
+static inline void __outsl(unsigned long port, const void *addr,
+	unsigned int count)
 {
 	while (count--) {
 		outl(*(u32 *)addr, port);

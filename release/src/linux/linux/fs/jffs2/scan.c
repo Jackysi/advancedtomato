@@ -31,7 +31,11 @@
  * provisions above, a recipient may use your version of this file
  * under either the RHEPL or the GPL.
  *
- * $Id: scan.c,v 1.1.1.4 2003/10/14 08:09:00 sparq Exp $
+ * Modification for automatically cleaning the filesystem after
+ * a specially marked block
+ * Copyright (C) 2006 Felix Fietkau <nbd@openwrt.org>
+ *
+ * $Id: scan.c,v 1.51.2.4 2003/11/02 13:51:18 dwmw2 Exp $
  *
  */
 #include <linux/kernel.h>
@@ -40,7 +44,7 @@
 #include <linux/mtd/mtd.h>
 #include <linux/pagemap.h>
 #include "nodelist.h"
-#include "crc32.h"
+#include <linux/crc32.h>
 
 
 #define DIRTY_SPACE(x) do { typeof(x) _x = (x); \
@@ -88,7 +92,12 @@ int jffs2_scan_medium(struct jffs2_sb_info *c)
 	for (i=0; i<c->nr_blocks; i++) {
 		struct jffs2_eraseblock *jeb = &c->blocks[i];
 
-		ret = jffs2_scan_eraseblock(c, jeb);
+
+		if (c->flags & (1 << 7))
+			ret = 1;
+		else
+			ret = jffs2_scan_eraseblock(c, jeb);
+
 		if (ret < 0)
 			return ret;
 
@@ -181,6 +190,7 @@ static int jffs2_scan_eraseblock (struct jffs2_sb_info *c, struct jffs2_eraseblo
 
 	while(ofs < jeb->offset + c->sector_size) {
 		ssize_t retlen;
+		unsigned char *buf = (unsigned char *) &node;
 		ACCT_PARANOIA_CHECK(jeb);
 		
 		if (ofs & 3) {
@@ -202,8 +212,18 @@ static int jffs2_scan_eraseblock (struct jffs2_sb_info *c, struct jffs2_eraseblo
 			break;
 		}
 
-		err = c->mtd->read(c->mtd, ofs, sizeof(node), &retlen, (char *)&node);
+		err = c->mtd->read(c->mtd, ofs, sizeof(node), &retlen, buf);
+		if ((buf[0] == 0xde) &&
+			(buf[1] == 0xad) &&
+			(buf[2] == 0xc0) &&
+			(buf[3] == 0xde)) {
+				
+			/* end of filesystem. erase everything after this point */
+			c->flags |= (1 << 7);
+			printk("jffs2_scan_eraseblock(): End of filesystem marker found at 0x%x\n", jeb->offset);
 		
+			return 1;
+		}
 		if (err) {
 			D1(printk(KERN_WARNING "mtd->read(0x%x bytes from 0x%x) returned %d\n", sizeof(node), ofs, err));
 			return err;
@@ -455,6 +475,7 @@ static int jffs2_scan_inode_node(struct jffs2_sb_info *c, struct jffs2_erasebloc
 	if(crc != ri.node_crc) {
 		printk(KERN_NOTICE "jffs2_scan_inode_node(): CRC failed on node at 0x%08x: Read 0x%08x, calculated 0x%08x\n",
 		       *ofs, ri.node_crc, crc);
+		/* FIXME: Why do we believe totlen? */
 		DIRTY_SPACE(4);
 		*ofs += 4;
 		return 0;
@@ -630,6 +651,7 @@ static int jffs2_scan_dirent_node(struct jffs2_sb_info *c, struct jffs2_eraseblo
 	if (crc != rd.node_crc) {
 		printk(KERN_NOTICE "jffs2_scan_dirent_node(): Node CRC failed on node at 0x%08x: Read 0x%08x, calculated 0x%08x\n",
 		       *ofs, rd.node_crc, crc);
+		/* FIXME: Why do we believe totlen? */
 		DIRTY_SPACE(4);
 		*ofs += 4;
 		return 0;
@@ -661,6 +683,7 @@ static int jffs2_scan_dirent_node(struct jffs2_sb_info *c, struct jffs2_eraseblo
 		fd->name[rd.nsize]=0;
 		D1(printk(KERN_NOTICE "Name for which CRC failed is (now) '%s', ino #%d\n", fd->name, rd.ino));
 		jffs2_free_full_dirent(fd);
+		/* FIXME: Why do we believe totlen? */
 		DIRTY_SPACE(PAD(rd.totlen));
 		*ofs += PAD(rd.totlen);
 		return 0;

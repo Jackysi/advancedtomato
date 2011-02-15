@@ -27,7 +27,7 @@
  * SUCH DAMAGE.
  */
 
-#ident "$Id: vxfs_lookup.c,v 1.1.1.4 2003/10/14 08:08:59 sparq Exp $"
+#ident "$Id: vxfs_lookup.c,v 1.21 2002/01/02 22:00:13 hch Exp hch $"
 
 /*
  * Veritas filesystem driver - lookup and other directory related code.

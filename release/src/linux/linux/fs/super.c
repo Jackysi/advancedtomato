@@ -27,6 +27,7 @@
 #include <linux/devfs_fs_kernel.h>
 #include <linux/major.h>
 #include <linux/acct.h>
+#include <linux/quotaops.h>
 
 #include <asm/uaccess.h>
 
@@ -262,6 +263,7 @@ struct file_system_type *get_fs_type(const char *name)
  */
 static struct super_block *alloc_super(void)
 {
+	static struct super_operations empty_sops = {};
 	struct super_block *s = kmalloc(sizeof(struct super_block),  GFP_USER);
 	if (s) {
 		memset(s, 0, sizeof(struct super_block));
@@ -279,6 +281,9 @@ static struct super_block *alloc_super(void)
 		sema_init(&s->s_dquot.dqio_sem, 1);
 		sema_init(&s->s_dquot.dqoff_sem, 1);
 		s->s_maxbytes = MAX_NON_LFS;
+		s->s_op = &empty_sops;
+		s->dq_op = sb_dquot_ops;
+		s->s_qcop = sb_quotactl_ops;
 	}
 	return s;
 }
@@ -469,7 +474,7 @@ restart:
 			spin_unlock(&sb_lock);
 			down_read(&sb->s_umount);
 			write_super(sb);
-			if (wait && sb->s_op && sb->s_op->sync_fs)
+			if (wait && sb->s_root && sb->s_op && sb->s_op->sync_fs)
 				sb->s_op->sync_fs(sb);
 			drop_super(sb);
 			goto restart;

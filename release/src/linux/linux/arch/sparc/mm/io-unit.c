@@ -1,4 +1,4 @@
-/* $Id: io-unit.c,v 1.1.1.4 2003/10/14 08:07:49 sparq Exp $
+/* $Id: io-unit.c,v 1.23 2001/02/13 01:16:43 davem Exp $
  * io-unit.c:  IO-UNIT specific routines for memory management.
  *
  * Copyright (C) 1997,1998 Jakub Jelinek    (jj@sunsite.mff.cuni.cz)
@@ -128,6 +128,7 @@ static void iounit_get_scsi_sgl(struct scatterlist *sg, int sz, struct sbus_bus 
 	unsigned long flags;
 	struct iounit_struct *iounit = (struct iounit_struct *)sbus->iommu;
 
+	/* FIXME: Cache some resolved pages - often several sg entries are to the same page */
 	spin_lock_irqsave(&iounit->lock, flags);
 	while (sz != 0) {
 		sz--;
@@ -187,7 +188,7 @@ static void iounit_map_dma_area(unsigned long va, __u32 addr, int len)
 			pte_t *ptep;
 			long i;
 
-			pgdp = pgd_offset(init_task.mm, addr);
+			pgdp = pgd_offset(&init_mm, addr);
 			pmdp = pmd_offset(pgdp, addr);
 			ptep = pte_offset(pmdp, addr);
 
@@ -211,8 +212,10 @@ static void iounit_map_dma_area(unsigned long va, __u32 addr, int len)
 
 static void iounit_unmap_dma_area(unsigned long addr, int len)
 {
+	/* XXX Somebody please fill this in */
 }
 
+/* XXX We do not pass sbus device here, bad. */
 static unsigned long iounit_translate_dvma(unsigned long addr)
 {
 	struct sbus_bus *sbus = sbus_root;	/* They are all the same */
@@ -222,17 +225,19 @@ static unsigned long iounit_translate_dvma(unsigned long addr)
 
 	i = ((addr - IOUNIT_DMA_BASE) >> PAGE_SHIFT);
 	iopte = (iopte_t *)(iounit->page_table + i);
-	return (iopte_val(*iopte) & 0xFFFFFFF0) << 4; 
+	return (iopte_val(*iopte) & 0xFFFFFFF0) << 4; /* XXX sun4d guru, help */
 }
 #endif
 
 static char *iounit_lockarea(char *vaddr, unsigned long len)
 {
+/* FIXME: Write this */
 	return vaddr;
 }
 
 static void iounit_unlockarea(char *vaddr, unsigned long len)
 {
+/* FIXME: Write this */
 }
 
 void __init ld_mmu_iounit(void)

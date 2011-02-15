@@ -17,6 +17,7 @@
  *					thanks to Eric Gilmore
  *					and Rolf G. Tews
  *					for testing these extensively
+ *	Paul Diefenbaugh	:	Added full ACPI support
  */
 
 #include <linux/mm.h>
@@ -28,6 +29,7 @@
 #include <linux/config.h>
 #include <linux/smp_lock.h>
 #include <linux/mc146818rtc.h>
+#include <linux/acpi.h>
 
 #include <asm/io.h>
 #include <asm/smp.h>
@@ -123,7 +125,7 @@ static void __init replace_pin_at_irq(unsigned int irq,
 			break;						\
 		reg = io_apic_read(entry->apic, 0x10 + R + pin*2);	\
 		reg ACTION;						\
-		io_apic_modify(entry->apic, reg);			\
+		io_apic_write(entry->apic, 0x10 + R + pin*2, reg);	\
 		if (!entry->next)					\
 			break;						\
 		entry = irq_2_pin + entry->next;			\
@@ -167,6 +169,14 @@ void clear_IO_APIC_pin(unsigned int apic, unsigned int pin)
 {
 	struct IO_APIC_route_entry entry;
 	unsigned long flags;
+	
+	/* Check delivery_mode to be sure we're not clearing an SMI pin */
+	spin_lock_irqsave(&ioapic_lock, flags);
+	*(((int*)&entry) + 0) = io_apic_read(apic, 0x10 + 2 * pin);
+	*(((int*)&entry) + 1) = io_apic_read(apic, 0x11 + 2 * pin);
+	spin_unlock_irqrestore(&ioapic_lock, flags);
+	if (entry.delivery_mode == dest_SMI)
+		return;
 
 	/*
 	 * Disable it in the IO-APIC irq-routing table:
@@ -292,7 +302,7 @@ int IO_APIC_get_PCI_irq_vector(int bus, int slot, int pin)
 
 	Dprintk("querying PCI -> IRQ mapping bus:%d, slot:%d, pin:%d.\n",
 		bus, slot, pin);
-	if (mp_bus_id_to_pci_bus[bus] == -1) {
+	if ((mp_bus_id_to_pci_bus==NULL) || (mp_bus_id_to_pci_bus[bus] == -1)) {
 		printk(KERN_WARNING "PCI BIOS passed nonexistent PCI bus %d!\n", bus);
 		return -1;
 	}
@@ -739,8 +749,9 @@ void __init setup_ExtINT_IRQ0_pin(unsigned int pin, int vector)
 
 void __init UNEXPECTED_IO_APIC(void)
 {
-	printk(KERN_WARNING " WARNING: unexpected IO-APIC, please mail\n");
-	printk(KERN_WARNING "          to linux-smp@vger.kernel.org\n");
+	printk(KERN_WARNING 
+		"An unexpected IO-APIC was found. If this kernel release is less than\n"
+		"three months old please report this to linux-smp@vger.kernel.org\n");
 }
 
 void __init print_IO_APIC(void)
@@ -749,6 +760,7 @@ void __init print_IO_APIC(void)
 	struct IO_APIC_reg_00 reg_00;
 	struct IO_APIC_reg_01 reg_01;
 	struct IO_APIC_reg_02 reg_02;
+	struct IO_APIC_reg_03 reg_03;
 	unsigned long flags;
 
  	printk(KERN_DEBUG "number of MP IRQ sources: %d.\n", mp_irq_entries);
@@ -769,13 +781,17 @@ void __init print_IO_APIC(void)
 	*(int *)&reg_01 = io_apic_read(apic, 1);
 	if (reg_01.version >= 0x10)
 		*(int *)&reg_02 = io_apic_read(apic, 2);
+	if (reg_01.version >= 0x20)
+		*(int *)&reg_03 = io_apic_read(apic, 3);
 	spin_unlock_irqrestore(&ioapic_lock, flags);
 
 	printk("\n");
 	printk(KERN_DEBUG "IO APIC #%d......\n", mp_ioapics[apic].mpc_apicid);
 	printk(KERN_DEBUG ".... register #00: %08X\n", *(int *)&reg_00);
 	printk(KERN_DEBUG ".......    : physical APIC id: %02X\n", reg_00.ID);
-	if (reg_00.__reserved_1 || reg_00.__reserved_2)
+	printk(KERN_DEBUG ".......    : Delivery Type: %X\n", reg_00.delivery_type);
+	printk(KERN_DEBUG ".......    : LTS          : %X\n", reg_00.LTS);
+	if (reg_00.__reserved_0 || reg_00.__reserved_1 || reg_00.__reserved_2)
 		UNEXPECTED_IO_APIC();
 
 	printk(KERN_DEBUG ".... register #01: %08X\n", *(int *)&reg_01);
@@ -793,6 +809,8 @@ void __init print_IO_APIC(void)
 	printk(KERN_DEBUG ".......     : PRQ implemented: %X\n", reg_01.PRQ);
 	printk(KERN_DEBUG ".......     : IO APIC version: %04X\n", reg_01.version);
 	if (	(reg_01.version != 0x01) && /* 82489DX IO-APICs */
+		(reg_01.version != 0x02) && /* VIA */
+		(reg_01.version != 0x03) && /* later VIA */
 		(reg_01.version != 0x10) && /* oldest IO-APICs */
 		(reg_01.version != 0x11) && /* Pentium/Pro IO-APICs */
 		(reg_01.version != 0x13) && /* Xeon IO-APICs */
@@ -802,10 +820,28 @@ void __init print_IO_APIC(void)
 	if (reg_01.__reserved_1 || reg_01.__reserved_2)
 		UNEXPECTED_IO_APIC();
 
-	if (reg_01.version >= 0x10) {
+	/*
+	 * Some Intel chipsets with IO APIC VERSION of 0x1? don't have reg_02,
+	 * but the value of reg_02 is read as the previous read register
+	 * value, so ignore it if reg_02 == reg_01.
+	 */
+	if (reg_01.version >= 0x10 && *(int *)&reg_02 != *(int *)&reg_01) {
 		printk(KERN_DEBUG ".... register #02: %08X\n", *(int *)&reg_02);
 		printk(KERN_DEBUG ".......     : arbitration: %02X\n", reg_02.arbitration);
 		if (reg_02.__reserved_1 || reg_02.__reserved_2)
+			UNEXPECTED_IO_APIC();
+	}
+
+	/*
+	 * Some Intel chipsets with IO APIC VERSION of 0x2? don't have reg_02
+	 * or reg_03, but the value of reg_0[23] is read as the previous read
+	 * register value, so ignore it if reg_03 == reg_0[12].
+	 */
+	if (reg_01.version >= 0x20 && *(int *)&reg_03 != *(int *)&reg_02 &&
+	    *(int *)&reg_03 != *(int *)&reg_01) {
+		printk(KERN_DEBUG ".... register #03: %08X\n", *(int *)&reg_03);
+		printk(KERN_DEBUG ".......     : Boot DT    : %X\n", reg_03.boot_DT);
+		if (reg_03.__reserved_1)
 			UNEXPECTED_IO_APIC();
 	}
 
@@ -1067,7 +1103,7 @@ static void __init setup_ioapic_ids_from_mpc (void)
 		
 		old_id = mp_ioapics[apic].mpc_apicid;
 
-		if (mp_ioapics[apic].mpc_apicid >= 0xf) {
+		if (mp_ioapics[apic].mpc_apicid >= apic_broadcast_id) {
 			printk(KERN_ERR "BIOS bug, IO-APIC#%d ID is %d in the MPC table!...\n",
 				apic, mp_ioapics[apic].mpc_apicid);
 			printk(KERN_ERR "... fixing up to %d. (tell your hw vendor)\n",
@@ -1079,14 +1115,16 @@ static void __init setup_ioapic_ids_from_mpc (void)
 		 * Sanity check, is the ID really free? Every APIC in a
 		 * system must have a unique ID or we get lots of nice
 		 * 'stuck on smp_invalidate_needed IPI wait' messages.
+		 * I/O APIC IDs no longer have any meaning for xAPICs and SAPICs.
 		 */
-		if (phys_id_present_map & (1 << mp_ioapics[apic].mpc_apicid)) {
+		if ((clustered_apic_mode != CLUSTERED_APIC_XAPIC) &&
+		    (phys_id_present_map & (1 << mp_ioapics[apic].mpc_apicid))) {
 			printk(KERN_ERR "BIOS bug, IO-APIC#%d ID %d is already used!...\n",
 				apic, mp_ioapics[apic].mpc_apicid);
 			for (i = 0; i < 0xf; i++)
 				if (!(phys_id_present_map & (1 << i)))
 					break;
-			if (i >= 0xf)
+			if (i >= apic_broadcast_id)
 				panic("Max APIC ID exceeded!\n");
 			printk(KERN_ERR "... fixing up to %d. (tell your hw vendor)\n",
 				i);
@@ -1156,7 +1194,7 @@ static int __init timer_irq_works(void)
 	 * might have cached one ExtINT interrupt.  Finally, at
 	 * least one tick may be lost due to delays.
 	 */
-	if (jiffies - t1 > 4)
+	if (jiffies - t1 > 4 && jiffies - t1 < 16)
 		return 1;
 
 	return 0;
@@ -1253,6 +1291,25 @@ static void end_level_ioapic_irq (unsigned int irq)
 	unsigned long v;
 	int i;
 
+/*
+ * It appears there is an erratum which affects at least version 0x11
+ * of I/O APIC (that's the 82093AA and cores integrated into various
+ * chipsets).  Under certain conditions a level-triggered interrupt is
+ * erroneously delivered as edge-triggered one but the respective IRR
+ * bit gets set nevertheless.  As a result the I/O unit expects an EOI
+ * message but it will never arrive and further interrupts are blocked
+ * from the source.  The exact reason is so far unknown, but the
+ * phenomenon was observed when two consecutive interrupt requests
+ * from a given source get delivered to the same CPU and the source is
+ * temporarily disabled in between.
+ *
+ * A workaround is to simulate an EOI message manually.  We achieve it
+ * by setting the trigger mode to edge and then to level when the edge
+ * trigger mode gets detected in the TMR of a local APIC for a
+ * level-triggered interrupt.  We mask the source for the time of the
+ * operation to prevent an edge-triggered interrupt escaping meanwhile.
+ * The idea is from Manfred Spraul.  --macro
+ */
 	i = IO_APIC_VECTOR(irq);
 	v = apic_read(APIC_TMR + ((i & ~0x1f) >> 1));
 
@@ -1290,9 +1347,35 @@ static void end_level_ioapic_irq (unsigned int irq)
 
 static void mask_and_ack_level_ioapic_irq (unsigned int irq) { /* nothing */ }
 
+#ifndef CONFIG_SMP
+
+void fastcall send_IPI_self(int vector)
+{
+	unsigned int cfg;
+
+	/*
+	 * Wait for idle.
+	 */
+	apic_wait_icr_idle();
+	cfg = APIC_DM_FIXED | APIC_DEST_SELF | vector | APIC_DEST_LOGICAL;
+	/*
+	 * Send the IPI. The write to APIC_ICR fires this off.
+	 */
+	apic_write_around(APIC_ICR, cfg);
+}
+
+#endif /* CONFIG_SMP */
+
 static void set_ioapic_affinity (unsigned int irq, unsigned long mask)
 {
 	unsigned long flags;
+
+	/* pick a single cpu for clustered xapics */
+	if(clustered_apic_mode == CLUSTERED_APIC_XAPIC){
+		int cpu = ffs(mask)-1;
+		mask = cpu_to_physical_apicid(cpu);
+	}
+
 	/*
 	 * Only the first 8 bits are valid.
 	 */
@@ -1608,18 +1691,10 @@ static inline void check_timer(void)
 
 /*
  *
- * IRQ's that are handled by the old PIC in all cases:
+ * IRQ's that are handled by the PIC in the MPS IOAPIC case.
  * - IRQ2 is the cascade IRQ, and cannot be a io-apic IRQ.
  *   Linux doesn't really care, as it's not actually used
  *   for any interrupt handling anyway.
- * - There used to be IRQ13 here as well, but all
- *   MPS-compliant must not use it for FPU coupling and we
- *   want to use exception 16 anyway.  And there are
- *   systems who connect it to an I/O APIC for other uses.
- *   Thus we don't mark it special any longer.
- *
- * Additionally, something is definitely wrong with irq9
- * on PIIX4 boards.
  */
 #define PIC_IRQS	(1<<2)
 
@@ -1627,17 +1702,193 @@ void __init setup_IO_APIC(void)
 {
 	enable_IO_APIC();
 
-	io_apic_irqs = ~PIC_IRQS;
+	if (acpi_ioapic)
+		io_apic_irqs = ~0;	/* all IRQs go through IOAPIC */
+	else
+		io_apic_irqs = ~PIC_IRQS;
+
 	printk("ENABLING IO-APIC IRQs\n");
 
 	/*
-	 * Set up the IO-APIC IRQ routing table by parsing the MP-BIOS
-	 * mptable:
+	 * Set up IO-APIC IRQ routing.
 	 */
-	setup_ioapic_ids_from_mpc();
+	if (!acpi_ioapic)
+		setup_ioapic_ids_from_mpc();
 	sync_Arb_IDs();
 	setup_IO_APIC_irqs();
 	init_IO_APIC_traps();
 	check_timer();
-	print_IO_APIC();
+	if (!acpi_ioapic)
+		print_IO_APIC();
 }
+
+
+/* --------------------------------------------------------------------------
+                          ACPI-based IOAPIC Configuration
+   -------------------------------------------------------------------------- */
+
+#ifdef CONFIG_ACPI_BOOT
+
+#define IO_APIC_MAX_ID		15
+
+int __init io_apic_get_unique_id (int ioapic, int apic_id)
+{
+	struct IO_APIC_reg_00 reg_00;
+	static unsigned long apic_id_map = 0;
+	unsigned long flags;
+	int i = 0;
+
+	/*
+	 * The P4 platform supports up to 256 APIC IDs on two separate APIC 
+	 * buses (one for LAPICs, one for IOAPICs), where predecessors only 
+	 * supports up to 16 on one shared APIC bus.
+	 * 
+	 * TBD: Expand LAPIC/IOAPIC support on P4-class systems to take full
+	 *      advantage of new APIC bus architecture.
+	 */
+
+	if (!apic_id_map)
+		apic_id_map = phys_cpu_present_map;
+
+	spin_lock_irqsave(&ioapic_lock, flags);
+	*(int *)&reg_00 = io_apic_read(ioapic, 0);
+	spin_unlock_irqrestore(&ioapic_lock, flags);
+
+	if (apic_id >= IO_APIC_MAX_ID) {
+		printk(KERN_WARNING "IOAPIC[%d]: Invalid apic_id %d, trying "
+			"%d\n", ioapic, apic_id, reg_00.ID);
+		apic_id = reg_00.ID;
+	}
+
+	/* XAPICs do not need unique IDs */
+	if (clustered_apic_mode == CLUSTERED_APIC_XAPIC){
+		printk(KERN_INFO "IOAPIC[%d]: Assigned apic_id %d\n", 
+			ioapic, apic_id);
+		return apic_id;
+	}
+
+	/*
+	 * Every APIC in a system must have a unique ID or we get lots of nice 
+	 * 'stuck on smp_invalidate_needed IPI wait' messages.
+	 */
+	if (apic_id_map & (1 << apic_id)) {
+
+		for (i = 0; i < IO_APIC_MAX_ID; i++) {
+			if (!(apic_id_map & (1 << i)))
+				break;
+		}
+
+		if (i == IO_APIC_MAX_ID)
+			panic("Max apic_id exceeded!\n");
+
+		printk(KERN_WARNING "IOAPIC[%d]: apic_id %d already used, "
+			"trying %d\n", ioapic, apic_id, i);
+
+		apic_id = i;
+	} 
+
+	apic_id_map |= (1 << apic_id);
+
+	if (reg_00.ID != apic_id) {
+		reg_00.ID = apic_id;
+
+		spin_lock_irqsave(&ioapic_lock, flags);
+		io_apic_write(ioapic, 0, *(int *)&reg_00);
+		*(int *)&reg_00 = io_apic_read(ioapic, 0);
+		spin_unlock_irqrestore(&ioapic_lock, flags);
+
+		/* Sanity check */
+		if (reg_00.ID != apic_id)
+			panic("IOAPIC[%d]: Unable change apic_id!\n", ioapic);
+	}
+
+	printk(KERN_INFO "IOAPIC[%d]: Assigned apic_id %d\n", ioapic, apic_id);
+
+	return apic_id;
+}
+
+
+int __init io_apic_get_version (int ioapic)
+{
+	struct IO_APIC_reg_01	reg_01;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ioapic_lock, flags);
+	*(int *)&reg_01 = io_apic_read(ioapic, 1);
+	spin_unlock_irqrestore(&ioapic_lock, flags);
+
+	return reg_01.version;
+}
+
+
+int __init io_apic_get_redir_entries (int ioapic)
+{
+	struct IO_APIC_reg_01	reg_01;
+	unsigned long flags;
+
+	spin_lock_irqsave(&ioapic_lock, flags);
+	*(int *)&reg_01 = io_apic_read(ioapic, 1);
+	spin_unlock_irqrestore(&ioapic_lock, flags);
+
+	return reg_01.entries;
+}
+
+
+int io_apic_set_pci_routing (int ioapic, int pin, int irq, int edge_level, int active_high_low)
+{
+	struct IO_APIC_route_entry entry;
+	unsigned long flags;
+
+	if (!IO_APIC_IRQ(irq)) {
+		printk(KERN_ERR "IOAPIC[%d]: Invalid reference to IRQ 0/n", 
+			ioapic);
+		return -EINVAL;
+	}
+
+	/*
+	 * Generate a PCI IRQ routing entry and program the IOAPIC accordingly.
+	 * Note that we mask (disable) IRQs now -- these get enabled when the
+	 * corresponding device driver registers for this IRQ.
+	 */
+
+	memset(&entry,0,sizeof(entry));
+
+	entry.delivery_mode = dest_LowestPrio;
+	entry.dest_mode = INT_DELIVERY_MODE;
+	entry.dest.logical.logical_dest = target_cpus();
+	entry.mask = 1;					 /* Disabled (masked) */
+	entry.trigger = edge_level;
+	entry.polarity = active_high_low;
+
+	/*
+	 * IRQs < 16 are already in the irq_2_pin[] map
+	 */
+	if (irq >= 16)
+		add_pin_to_irq(irq, ioapic, pin);
+
+	entry.vector = assign_irq_vector(irq);
+
+	Dprintk(KERN_DEBUG "IOAPIC[%d]: Set PCI routing entry (%d-%d -> 0x%x -> "
+		"IRQ %d Mode:%i Active:%i)\n", ioapic,
+		mp_ioapics[ioapic].mpc_apicid, pin, entry.vector, irq, edge_level, active_high_low);
+
+	if (edge_level) {
+	irq_desc[irq].handler = &ioapic_level_irq_type;
+	} else {
+		irq_desc[irq].handler = &ioapic_edge_irq_type;
+	}
+
+	set_intr_gate(entry.vector, interrupt[irq]);
+
+	if (!ioapic && (irq < 16))
+		disable_8259A_irq(irq);
+
+	spin_lock_irqsave(&ioapic_lock, flags);
+	io_apic_write(ioapic, 0x11+2*pin, *(((int *)&entry)+1));
+	io_apic_write(ioapic, 0x10+2*pin, *(((int *)&entry)+0));
+	spin_unlock_irqrestore(&ioapic_lock, flags);
+
+	return 0;
+}
+
+#endif /*CONFIG_ACPI_BOOT*/

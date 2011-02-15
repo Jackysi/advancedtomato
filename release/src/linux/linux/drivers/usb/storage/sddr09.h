@@ -1,10 +1,11 @@
 /* Driver for SanDisk SDDR-09 SmartMedia reader
  * Header File
  *
- * $Id: sddr09.h,v 1.1.1.4 2003/10/14 08:08:52 sparq Exp $
+ * $Id: sddr09.h,v 1.5 2000/08/25 00:13:51 mdharm Exp $
  *
  * Current development and maintenance by:
  *   (c) 2000 Robert Baruch (autophile@dol.net)
+ *   (c) 2002 Andries Brouwer (aeb@cwi.nl)
  *
  * See sddr09.c for more explanation
  *
@@ -39,6 +40,9 @@ struct sddr09_card_info {
 	int		blockmask;	/* 2^blockshift - 1 */
 	int		*lba_to_pba;	/* logical to physical map */
 	int		*pba_to_lba;	/* physical to logical map */
+	int		lbact;		/* number of available pages */
+	int		flags;
+#define	SDDR09_WP	1		/* write protected */
 };
 
 #endif

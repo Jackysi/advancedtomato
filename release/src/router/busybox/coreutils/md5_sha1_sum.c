@@ -101,8 +101,10 @@ int md5_sha1_sum_main(int argc UNUSED_PARAM, char **argv)
 	unsigned flags;
 	/*hash_algo_t hash_algo = applet_name[3];*/
 
-	if (ENABLE_FEATURE_MD5_SHA1_SUM_CHECK)
-		flags = getopt32(argv, "scw");
+	if (ENABLE_FEATURE_MD5_SHA1_SUM_CHECK) {
+		/* -b "binary", -t "text" are ignored (shaNNNsum compat) */
+		flags = getopt32(argv, "scwbt");
+	}
 	else optind = 1;
 	argv += optind;
 	//argc -= optind;
@@ -174,7 +176,7 @@ int md5_sha1_sum_main(int argc UNUSED_PARAM, char **argv)
 		}
 		/*
 		if (fclose_if_not_stdin(pre_computed_stream) == EOF) {
-			bb_perror_msg_and_die("cannot close file %s", file_ptr);
+			bb_perror_msg_and_die("can't close file %s", file_ptr);
 		}
 		*/
 	} else {

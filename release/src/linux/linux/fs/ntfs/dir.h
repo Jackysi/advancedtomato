@@ -1,48 +1,47 @@
 /*
- * dir.h - Header file for dir.c
+ * dir.h - Defines for directory handling in NTFS Linux kernel driver. Part of
+ *	   the Linux-NTFS project.
  *
- * Copyright (C) 1997 Régis Duchesne
+ * Copyright (c) 2002 Anton Altaparmakov.
+ *
+ * This program/include file is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as published
+ * by the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program/include file is distributed in the hope that it will be 
+ * useful, but WITHOUT ANY WARRANTY; without even the implied warranty 
+ * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program (in the main directory of the Linux-NTFS 
+ * distribution in the file COPYING); if not, write to the Free Software
+ * Foundation,Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
-#define ITERATE_SPLIT_DONE      1
 
-enum ntfs_iterate_e {
-    BY_POSITION,
-    BY_NAME,
-    DIR_INSERT
-};
+#ifndef _LINUX_NTFS_DIR_H
+#define _LINUX_NTFS_DIR_H
 
-/* not all fields are used for all operations */
-typedef struct ntfs_iterate_s {
-	enum ntfs_iterate_e type;
-	ntfs_inode *dir;
-	union{
-		ntfs_u64 pos;
-		int flags;
-	}u;
-	char *result;      /* pointer to entry if found */
-	ntfs_u16* name;
-	int namelen;
-	int block;         /* current index record */
-	int newblock;      /* index record created in a split */
-	char *new_entry;
-	int new_entry_size;
-	/*ntfs_inode* new;*/
-} ntfs_iterate_s;
+#include "layout.h"
 
-int ntfs_getdir_unsorted(ntfs_inode *ino, ntfs_u32 *p_high, ntfs_u32* p_low,
-			 int (*cb)(ntfs_u8*, void*), void *param);
+/*
+ * ntfs_name is used to return the file name to the caller of
+ * ntfs_lookup_inode_by_name() in order for the caller (namei.c::ntfs_lookup())
+ * to be able to deal with dcache aliasing issues.
+ */
+typedef struct {
+	MFT_REF mref;
+	FILE_NAME_TYPE_FLAGS type;
+	u8 len;
+	uchar_t name[0];
+} __attribute__ ((__packed__)) ntfs_name;
 
-int ntfs_getdir_byname(ntfs_iterate_s *walk);
+/* The little endian Unicode string $I30 as a global constant. */
+extern uchar_t I30[5];
 
-int ntfs_dir_add(ntfs_inode *dir, ntfs_inode *new, ntfs_attribute *name);
+extern MFT_REF ntfs_lookup_inode_by_name(ntfs_inode *dir_ni,
+		const uchar_t *uname, const int uname_len, ntfs_name **res);
 
-int ntfs_check_index_record(ntfs_inode *ino, char *record);
-
-int ntfs_getdir_byposition(ntfs_iterate_s *walk);
-
-int ntfs_mkdir(ntfs_inode* dir,const char* name,int namelen, ntfs_inode *ino);
-
-int ntfs_split_indexroot(ntfs_inode *ino);
-
-int ntfs_add_index_root(ntfs_inode *ino, int type);
+#endif /* _LINUX_NTFS_FS_DIR_H */
 

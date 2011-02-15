@@ -19,6 +19,7 @@
 #include <linux/stat.h>
 #include <linux/in.h>
 #include <linux/seq_file.h>
+#include <linux/smp_lock.h>
 
 #include <linux/sunrpc/svc.h>
 #include <linux/nfsd/nfsd.h>
@@ -48,6 +49,7 @@ static int		exp_verify_string(char *cp, int max);
 #define CLIENT_HASHMASK		(CLIENT_HASHMAX - 1)
 #define CLIENT_HASH(a) \
 		((((a)>>24) ^ ((a)>>16) ^ ((a)>>8) ^(a)) & CLIENT_HASHMASK)
+/* XXX: is this adequate for 32bit kdev_t ? */
 #define EXPORT_HASH(dev)	((dev) & (NFSCLNT_EXPMAX - 1))
 #define EXPORT_FSID_HASH(fsid)	((fsid) & (NFSCLNT_EXPMAX - 1))
 
@@ -570,6 +572,7 @@ static void *e_start(struct seq_file *m, loff_t *pos)
 	svc_client *clp;
 	struct list_head *p;
 	
+	lock_kernel();
 	exp_readlock();
 	if (!n--)
 		return (void *)1;
@@ -621,6 +624,7 @@ static void *e_next(struct seq_file *m, void *p, loff_t *pos)
 static void e_stop(struct seq_file *m, void *p)
 {
 	exp_unlock();
+	unlock_kernel();
 }
 
 struct flags {
@@ -636,7 +640,7 @@ struct flags {
 	{ NFSEXP_UIDMAP, {"uidmap", ""}},
 	{ NFSEXP_KERBEROS, { "kerberos", ""}},
 	{ NFSEXP_SUNSECURE, { "sunsecure", ""}},
-	{ NFSEXP_CROSSMNT, {"nohide", ""}},
+	{ NFSEXP_NOHIDE, {"nohide", ""}},
 	{ NFSEXP_NOSUBTREECHECK, {"no_subtree_check", ""}},
 	{ NFSEXP_NOAUTHNLM, {"insecure_locks", ""}},
 #ifdef MSNFS
@@ -899,8 +903,10 @@ exp_nlmdetach(void)
 {
 	struct svc_client	*clp;
 
+	exp_readlock();
 	for (clp = clients; clp; clp = clp->cl_next)
 		nfsd_lockd_unexport(clp);
+	exp_unlock();
 }
 
 /*

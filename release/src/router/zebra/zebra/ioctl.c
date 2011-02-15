@@ -178,10 +178,10 @@ if_set_prefix (struct interface *ifp, struct connected *ifc)
 
   p = (struct prefix_ipv4 *) ifc->address;
 
-  bzero (&addreq, sizeof addreq);
+  memset (&addreq, 0, sizeof addreq);
   strncpy ((char *)&addreq.ifra_name, ifp->name, sizeof addreq.ifra_name);
 
-  bzero (&addr, sizeof (struct sockaddr_in));
+  memset (&addr, 0, sizeof (struct sockaddr_in));
   addr.sin_addr = p->prefix;
   addr.sin_family = p->family;
 #ifdef HAVE_SIN_LEN
@@ -189,7 +189,7 @@ if_set_prefix (struct interface *ifp, struct connected *ifc)
 #endif
   memcpy (&addreq.ifra_addr, &addr, sizeof (struct sockaddr_in));
 
-  bzero (&mask, sizeof (struct sockaddr_in));
+  memset (&mask, 0, sizeof (struct sockaddr_in));
   masklen2ip (p->prefixlen, &mask.sin_addr);
   mask.sin_family = p->family;
 #ifdef HAVE_SIN_LEN
@@ -216,10 +216,10 @@ if_unset_prefix (struct interface *ifp, struct connected *ifc)
 
   p = (struct prefix_ipv4 *)ifc->address;
 
-  bzero (&addreq, sizeof addreq);
+  memset (&addreq, 0, sizeof addreq);
   strncpy ((char *)&addreq.ifra_name, ifp->name, sizeof addreq.ifra_name);
 
-  bzero (&addr, sizeof (struct sockaddr_in));
+  memset (&addr, 0, sizeof (struct sockaddr_in));
   addr.sin_addr = p->prefix;
   addr.sin_family = p->family;
 #ifdef HAVE_SIN_LEN
@@ -227,7 +227,7 @@ if_unset_prefix (struct interface *ifp, struct connected *ifc)
 #endif
   memcpy (&addreq.ifra_addr, &addr, sizeof (struct sockaddr_in));
 
-  bzero (&mask, sizeof (struct sockaddr_in));
+  memset (&mask, 0, sizeof (struct sockaddr_in));
   masklen2ip (p->prefixlen, &mask.sin_addr);
   mask.sin_family = p->family;
 #ifdef HAVE_SIN_LEN
@@ -294,14 +294,6 @@ if_set_prefix (struct interface *ifp, struct connected *ifc)
   if (ret < 0)
     return ret;
 
-  /* Linux version before 2.1.0 need to interface route setup. */
-#if defined(GNU_LINUX) && LINUX_VERSION_CODE < 131328
-  {
-    apply_mask_ipv4 (&ifaddr);
-    kernel_add_route (&ifaddr, NULL, ifp->ifindex, 0, 0);
-  }
-#endif /* ! (GNU_LINUX && LINUX_VERSION_CODE) */
-
   return 0;
 }
 
@@ -319,7 +311,7 @@ if_unset_prefix (struct interface *ifp, struct connected *ifc)
 
   ifreq_set_name (&ifreq, ifp);
 
-  bzero (&addr, sizeof (struct sockaddr_in));
+  memset (&addr, 0, sizeof (struct sockaddr_in));
   addr.sin_family = p->family;
   memcpy (&ifreq.ifr_addr, &addr, sizeof (struct sockaddr_in));
   ret = if_ioctl (SIOCSIFADDR, (caddr_t) &ifreq);
@@ -449,6 +441,9 @@ if_prefix_delete_ipv6 (struct interface *ifp, struct connected *ifc)
 }
 #else /* LINUX_IPV6 */
 #ifdef HAVE_IN6_ALIASREQ
+#ifndef ND6_INFINITE_LIFETIME
+#define ND6_INFINITE_LIFETIME 0xffffffffL
+#endif /* ND6_INFINITE_LIFETIME */
 int
 if_prefix_add_ipv6 (struct interface *ifp, struct connected *ifc)
 {
@@ -460,10 +455,10 @@ if_prefix_add_ipv6 (struct interface *ifp, struct connected *ifc)
 
   p = (struct prefix_ipv6 * ) ifc->address;
 
-  bzero (&addreq, sizeof addreq);
+  memset (&addreq, 0, sizeof addreq);
   strncpy ((char *)&addreq.ifra_name, ifp->name, sizeof addreq.ifra_name);
 
-  bzero (&addr, sizeof (struct sockaddr_in6));
+  memset (&addr, 0, sizeof (struct sockaddr_in6));
   addr.sin6_addr = p->prefix;
   addr.sin6_family = p->family;
 #ifdef HAVE_SIN_LEN
@@ -471,7 +466,7 @@ if_prefix_add_ipv6 (struct interface *ifp, struct connected *ifc)
 #endif
   memcpy (&addreq.ifra_addr, &addr, sizeof (struct sockaddr_in6));
 
-  bzero (&mask, sizeof (struct sockaddr_in6));
+  memset (&mask, 0, sizeof (struct sockaddr_in6));
   masklen2ip6 (p->prefixlen, &mask.sin6_addr);
   mask.sin6_family = p->family;
 #ifdef HAVE_SIN_LEN
@@ -479,6 +474,9 @@ if_prefix_add_ipv6 (struct interface *ifp, struct connected *ifc)
 #endif
   memcpy (&addreq.ifra_prefixmask, &mask, sizeof (struct sockaddr_in6));
   
+  addreq.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME; 
+  addreq.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME; 
+
   ret = if_ioctl_ipv6 (SIOCAIFADDR_IN6, (caddr_t) &addreq);
   if (ret < 0)
     return ret;
@@ -496,10 +494,10 @@ if_prefix_delete_ipv6 (struct interface *ifp, struct connected *ifc)
 
   p = (struct prefix_ipv6 *) ifc->address;
 
-  bzero (&addreq, sizeof addreq);
+  memset (&addreq, 0, sizeof addreq);
   strncpy ((char *)&addreq.ifra_name, ifp->name, sizeof addreq.ifra_name);
 
-  bzero (&addr, sizeof (struct sockaddr_in6));
+  memset (&addr, 0, sizeof (struct sockaddr_in6));
   addr.sin6_addr = p->prefix;
   addr.sin6_family = p->family;
 #ifdef HAVE_SIN_LEN
@@ -507,14 +505,17 @@ if_prefix_delete_ipv6 (struct interface *ifp, struct connected *ifc)
 #endif
   memcpy (&addreq.ifra_addr, &addr, sizeof (struct sockaddr_in6));
 
-  bzero (&mask, sizeof (struct sockaddr_in6));
+  memset (&mask, 0, sizeof (struct sockaddr_in6));
   masklen2ip6 (p->prefixlen, &mask.sin6_addr);
   mask.sin6_family = p->family;
 #ifdef HAVE_SIN_LEN
   mask.sin6_len = sizeof (struct sockaddr_in6);
 #endif
   memcpy (&addreq.ifra_prefixmask, &mask, sizeof (struct sockaddr_in6));
-  
+
+  addreq.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME; 
+  addreq.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME; 
+
   ret = if_ioctl_ipv6 (SIOCDIFADDR_IN6, (caddr_t) &addreq);
   if (ret < 0)
     return ret;

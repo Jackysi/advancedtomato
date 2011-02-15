@@ -3,23 +3,26 @@
 @chapter Overview
 @cindex Overview
 
-  Zebra is a routing software package that provides TCP/IP based routing
-services with routing protocols support such as RIPv1, RIPv2, RIPng,
-OSPFv2, OSPFv3, BGP-4, and BGP-4+ (@pxref{Supported RFC}).  Zebra also
-supports special BGP Route Reflector and Route Server behavior.  In addition
-to traditional IPv4 routing protocols, Zebra also supports IPv6 routing
-protocols.  With SNMP daemon which supports SMUX protocol, Zebra provides
-routing protocol MIBs (@pxref{SNMP Support}).
+  Zebra is a routing software that provides TCP/IP based routing
+protocols support such as RIPv1, RIPv2, RIPng, OSPFv2, OSPFv3, BGP-4,
+and BGP-4+ (@pxref{Supported RFC}).  Zebra supports both IPv4 and IPv6
+routing protocols.  Zebra also supports BGP Route Reflector and BGP
+Route Server functionality.  With SNMP daemon which has SMUX protocol,
+Zebra provides routing protocol MIBs (@pxref{SNMP Support}).
 
-  Zebra uses an advanced software architecture to provide you with a
-high quality, multi server routing engine.  Zebra has an interactive
-user interface for each routing protocol and supports common client
-commands.  Due to this design, you can add new protocol daemons to Zebra
-easily.  You can use Zebra library as your program's client user
-interface.
+  Zebra has an advanced module based software architecture.  It is
+built by collection of protocol modules.  Due to this design, you can
+easily add a new protocol module to Zebra.  You can dynamically add or
+remove a protocol module even if other modules are up and runing.
+Zebra library provides basic functions to implement a routing protocol
+module.
 
-  Zebra is an official @sc{gnu} software and distributed under the
-@sc{gnu} General Public License.
+  Zebra has advanced CLI (Command Line Interface).  User can examine
+current routing protocol status, change the configuration, save the
+configuration at anytime user want.
+
+  Zebra is a @sc{gnu} software and distributed under the @sc{gnu}
+General Public License.
 
 @menu
 * About Zebra::                 Basic information about Zebra
@@ -72,7 +75,7 @@ administrator.
 routing protocols such as BGMP, PIM-SM, PIM-DM will be supported in
 Zebra 2.0.  MPLS support is going on.  In the future, TCP/IP filtering
 control, QoS control, diffserv configuration will be added to Zebra.
-Zebra project's final goal is making a productive, quality free TCP/IP
+Zebra project's final goal is making a productive, top-quality free TCP/IP
 routing software.
 
 @node System Architecture, Supported Platforms, About Zebra, Overview
@@ -105,17 +108,25 @@ architecture creates new possibilities for the routing system.
 
 @example
 @group
-+----+  +----+  +-----+  +-----+
-|bgpd|  |ripd|  |ospfd|  |zebra|
-+----+  +----+  +-----+  +-----+
-                            |
-+---------------------------|--+
-|                           v  |
-|  UNIX Kernel  routing table  |
-|                              |
-+------------------------------+
++----+ +------+ +-----+ +------+ +----+
+|ripd| |ripngd| |ospfd| |ospf6d| |bgpd|
++----+ +------+ +-----+ +------+ +----+
+   |       |       |        |       |
+   +-------+-------+--------+--+----+
+                               |
++------------------------------v------+
+|                           +-----+   |
+|                zebra      | RIB |   |
+|                           +-----+   |
++------------------------------|------+
+                               |
++------------------------------v------+
+|                           +-----+   |
+|              UNIX Kernel  | FIB |   |
+|                           +-----+   |
++-------------------------------------+
 
-    Zebra System Architecture
+   Zebra Software Architecture
 @end group
 @end example
 
@@ -161,25 +172,19 @@ listed below.
 @sp 1
 @itemize @bullet
 @item
-GNU/Linux 2.0.37
-@item
 GNU/Linux 2.2.x
 @item
-GNU/Linux 2.3.x
-@item
-FreeBSD 2.2.8
-@item
-FreeBSD 3.x
+GNU/Linux 2.4.x
 @item
 FreeBSD 4.x
 @item
-NetBSD 1.4
+FreeBSD 5.x
 @item
-OpenBSD 2.5
+NetBSD 1.6.x
 @item
-Solaris 2.6
+OpenBSD 3.x
 @item
-Solaris 7
+Solaris 8
 @end itemize
 
 @sp 1
@@ -191,9 +196,7 @@ not yet supported.
 @item
 Linux IPv6 stack for GNU/Linux 2.2.x and higher.
 @item
-KAME IPv6 stack for BSD.
-@item
-INRIA IPv6 stack for BSD.
+KAME BSD IPv6 stack
 @end itemize
 
 @node Supported RFC, How to get Zebra, Supported Platforms, Overview
@@ -303,18 +306,17 @@ comments or suggestions to Zebra, please send mail to
 notes, and patches are sent to the list.
 
   To subscribe to the @email{zebra@@zebra.org, Zebra mailing list},
-please send a mail to @email{majordomo@@zebra.org} with a message body
-that includes only:
+please send a mail to @email{zebra-request@@ml.zebra.org} with a message with a subject:
 
 @quotation
-subscribe zebra
+subscribe
 @end quotation
 
   To unsubscribe from the list, please send a mail to
-@email{majordomo@@zebra.org} with a message body that includes only:
+@email{zebra-request@@ml.zebra.org} with a message body that includes only:
 
 @quotation
-unsubscribe zebra
+unsubscribe
 @end quotation
 
 @node Bug Reports,  , Mailing List, Overview

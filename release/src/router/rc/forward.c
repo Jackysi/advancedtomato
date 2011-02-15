@@ -9,6 +9,7 @@
 
 #include <arpa/inet.h>
 
+extern char chain_wan_prerouting[];
 
 static const char tcpudp[2][4] = {"tcp", "udp"};
 
@@ -52,12 +53,11 @@ void ipt_forward(ipt_table_t table)
 				xports = saddr;
 				saddr = "";
 			}
-			else if (strlen(saddr) < 32) {
-				sprintf(src, "-%s %s", strchr(saddr, '-') ? "m iprange --src-range" : "s", saddr);
-			}
+			else
+				ipt_addr(src, sizeof(src), saddr, "src");
 		}
 
-		mdport = (strchr(xports, ',') != NULL) ? "-m mport --dports" : "--dport";
+		mdport = (strchr(xports, ',') != NULL) ? "-m multiport --dports" : "--dport";
 		for (i = 0; i < 2; ++i) {
 			if ((1 << i) & (*proto - '0')) {
 				c = tcpudp[i];
@@ -70,10 +70,10 @@ void ipt_forward(ipt_table_t table)
 					strlcat(ip, iaddr, sizeof(ip));
 				}
 				if (table == IPT_TABLE_NAT) {
-					ipt_write("-A PREROUTING -p %s %s -d %s %s %s -j DNAT --to-destination %s%s%s\n",
+					ipt_write("-A %s -p %s %s %s %s -j DNAT --to-destination %s%s%s\n",
+						chain_wan_prerouting,
 						c,
 						src,
-						wanaddr,
 						mdport, xports,
 						ip,  *iport ? ":" : "", iport);
 
@@ -84,7 +84,16 @@ void ipt_forward(ipt_table_t table)
 							nvram_safe_get("lan_ipaddr"),	// corrected by ipt
 							nvram_safe_get("lan_netmask"),
 							ip,
-							nvram_safe_get("wan_ipaddr"));
+							wanaddr);
+						if (*manaddr) {
+							ipt_write("-A POSTROUTING -p %s %s %s -s %s/%s -d %s -j SNAT --to-source %s\n",
+								c,
+								mdport, *iport ? iport : xports,
+								nvram_safe_get("lan_ipaddr"),	// corrected by ipt
+								nvram_safe_get("lan_netmask"),
+								ip,
+								manaddr);
+						}
 					}
 				}
 				else {	// filter
@@ -125,7 +134,7 @@ void ipt_triggered(ipt_table_t table)
 					// should only be created if there is at least one enabled
 
 					if (table == IPT_TABLE_NAT) {
-						ipt_write("-A PREROUTING -d %s -j TRIGGER --trigger-type dnat\n", wanaddr);
+						ipt_write("-A %s -j TRIGGER --trigger-type dnat\n", chain_wan_prerouting);
 						goto QUIT;
 					}
 
@@ -143,7 +152,7 @@ void ipt_triggered(ipt_table_t table)
 						  "-j TRIGGER --trigger-type out --trigger-proto %s --trigger-match %s --trigger-relate %s\n",
 							c, c, mports,
 							c, s, fports);
-				// can't use mport... trigger-match must be set to the same
+				// can't use multiport... trigger-match must be set to the same
 				// ports as dport since it's used to refresh timer during inbound	-- zzz
 			}
 		}

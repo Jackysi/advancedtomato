@@ -1,6 +1,6 @@
-@node zebra, ripd, Basic commands, Top
+@node Zebra
 @comment  node-name,  next,  previous,  up
-@chapter zebra
+@chapter Zebra
 
 @c SYNOPSIS
 @command{zebra} is an IP routing manager.  It provides kernel routing
@@ -15,7 +15,7 @@ different routing protocols.
 @end menu
 
 
-@node Invoking zebra, Interface Commands, zebra, zebra
+@node Invoking zebra, Interface Commands, Zebra, Zebra
 @comment  node-name,  next,  previous,  up
 @section Invoking zebra
 
@@ -42,7 +42,7 @@ When program terminates, retain routes added by zebra.
 
 @end table
 
-@node Interface Commands, Static Route Commands, Invoking zebra, zebra
+@node Interface Commands, Static Route Commands, Invoking zebra, Zebra
 @comment  node-name,  next,  previous,  up
 @section Interface Commands
 
@@ -73,7 +73,7 @@ Set bandwidth value to the interface.  This is for calculating OSPF
 cost.  This command does not affect the actual device configuration.
 @end deffn
 
-@node Static Route Commands, zebra Terminal Mode Commands, Interface Commands, zebra
+@node Static Route Commands, zebra Terminal Mode Commands, Interface Commands, Zebra
 @comment  node-name,  next,  previous,  up
 @section Static Route Commands
 
@@ -148,7 +148,7 @@ and later).  After setting @var{tableno} with this command,
 static routes defined after this are added to the specified table.
 @end deffn
 
-@node zebra Terminal Mode Commands,  , Static Route Commands, zebra
+@node zebra Terminal Mode Commands,  , Static Route Commands, Zebra
 @comment  node-name,  next,  previous,  up
 @section zebra Terminal Mode Commands
 

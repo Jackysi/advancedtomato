@@ -308,7 +308,7 @@ static int parse_options(char *options,int *fat, int *debug,
 			else {
 				*fat = simple_strtoul(value,&value,0);
 				if (*value || (*fat != 12 && *fat != 16 &&
-					       *fat != 32))
+					       *fat != 32)) 
 					ret = 0;
 			}
 		}
@@ -486,7 +486,7 @@ struct dentry *fat_fh_to_dentry(struct super_block *sb, __u32 *fh,
 	if (!inode)
 		return ERR_PTR(-ESTALE);
 
-
+	
 	/* now to find a dentry.
 	 * If possible, get a well-connected one
 	 *
@@ -521,7 +521,7 @@ int fat_dentry_to_fh(struct dentry *de, __u32 *fh, int *lenp, int needparent)
 	int len = *lenp;
 	struct inode *inode =  de->d_inode;
 	u32 ipos_h, ipos_m, ipos_l;
-
+	
 	if (len < 5)
 		return 255; /* no room */
 
@@ -537,7 +537,7 @@ int fat_dentry_to_fh(struct dentry *de, __u32 *fh, int *lenp, int needparent)
 	return 3;
 }
 
-static struct super_operations fat_sops = {
+static struct super_operations fat_sops = { 
 	write_inode:	fat_write_inode,
 	delete_inode:	fat_delete_inode,
 	put_super:	fat_put_super,
@@ -605,14 +605,14 @@ fat_read_super(struct super_block *sb, void *data, int silent,
 	}
 
 /*
- * The DOS3 partition size limit is *not* 32M as many people think.
+ * The DOS3 partition size limit is *not* 32M as many people think.  
  * Instead, it is 64K sectors (with the usual sector size being
  * 512 bytes, leading to a 32M limit).
- *
- * DOS 3 partition managers got around this problem by faking a
- * larger sector size, ie treating multiple physical sectors as
+ * 
+ * DOS 3 partition managers got around this problem by faking a 
+ * larger sector size, ie treating multiple physical sectors as 
  * a single logical sector.
- *
+ * 
  * We can accommodate this scheme by adjusting our cluster size,
  * fat_start, and data_start by an appropriate value.
  *
@@ -828,19 +828,19 @@ out_fail:
 	if(sbi->private_data)
 		kfree(sbi->private_data);
 	sbi->private_data = NULL;
-
+ 
 	return NULL;
 }
 
 int fat_statfs(struct super_block *sb,struct statfs *buf)
 {
 	int free,nr;
-
+       
 	if (MSDOS_SB(sb)->cvf_format &&
 	    MSDOS_SB(sb)->cvf_format->cvf_statfs)
 		return MSDOS_SB(sb)->cvf_format->cvf_statfs(sb,buf,
 						sizeof(struct statfs));
-
+	  
 	lock_fat(sb);
 	if (MSDOS_SB(sb)->free_clusters != -1)
 		free = MSDOS_SB(sb)->free_clusters;
@@ -910,7 +910,7 @@ static void fat_fill_inode(struct inode *inode, struct msdos_dir_entry *de)
 	inode->i_gid = sbi->options.fs_gid;
 	inode->i_version = ++event;
 	inode->i_generation = CURRENT_TIME;
-
+	
 	if ((de->attr & ATTR_DIR) && !IS_FREE(de->name)) {
 		inode->i_generation &= ~1;
 		inode->i_mode = MSDOS_MKMODE(de->attr,S_IRWXUGO &
@@ -1043,20 +1043,19 @@ int fat_notify_change(struct dentry * dentry, struct iattr * attr)
 	if (attr->ia_valid & ATTR_SIZE) {
 		if (attr->ia_size > inode->i_size)
 			/* return -EPERM; */
-			return 0;
-			/* We return 0 here to get around the problem that
-			 * Samba client times out when drag-and-drop a large size
-			 * file to a FAT32 formatted disk.
-			 */
+			return 0; /* We return 0 here to get around the problem that 
+					 * Samba client times out when drag-and-drop a large size 
+					 * file to a FAT32 formatted disk.
+			         */
 	}
 
 	error = inode_change_ok(inode, attr);
 	if (error)
 		return MSDOS_SB(sb)->options.quiet ? 0 : error;
 
-	if (((attr->ia_valid & ATTR_UID) &&
+	if (((attr->ia_valid & ATTR_UID) && 
 	     (attr->ia_uid != MSDOS_SB(sb)->options.fs_uid)) ||
-	    ((attr->ia_valid & ATTR_GID) &&
+	    ((attr->ia_valid & ATTR_GID) && 
 	     (attr->ia_gid != MSDOS_SB(sb)->options.fs_gid)) ||
 	    ((attr->ia_valid & ATTR_MODE) &&
 	     (attr->ia_mode & ~MSDOS_VALID_MODE)))

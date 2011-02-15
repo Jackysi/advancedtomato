@@ -3,10 +3,10 @@
  *	Linux INET6 implementation 
  *
  *	Authors:
- *	Pedro Roque		<roque@di.fc.ul.pt>
+ *	Pedro Roque		<pedro_m@yahoo.com>
  *	Ian P. Morris		<I.P.Morris@soton.ac.uk>
  *
- *	$Id: ip6_input.c,v 1.1.1.4 2003/10/14 08:09:34 sparq Exp $
+ *	$Id: ip6_input.c,v 1.19 2000/12/13 18:31:50 davem Exp $
  *
  *	Based in linux/net/ipv4/ip_input.c
  *
@@ -160,6 +160,10 @@ static inline int ip6_input_finish(struct sk_buff *skb)
 	if (!pskb_pull(skb, skb->h.raw - skb->data))
 		goto discard;
 
+	/* Free reference early: we don't need it any more, and it may
+	   hold ip_conntrack module loaded indefinitely. */
+	nf_reset(skb);
+
 	if (skb->ip_summed == CHECKSUM_HW)
 		skb->csum = csum_sub(skb->csum,
 				     csum_partial(skb->nh.raw, skb->h.raw-skb->nh.raw, 0));
@@ -221,12 +225,35 @@ int ip6_mc_input(struct sk_buff *skb)
 	IP6_INC_STATS_BH(Ip6InMcastPkts);
 
 	hdr = skb->nh.ipv6h;
-	if (ipv6_chk_mcast_addr(skb->dev, &hdr->daddr))
+	if (ipv6_chk_mcast_addr(skb->dev, &hdr->daddr, &hdr->saddr))
 		deliver = 1;
 
 	/*
 	 *	IPv6 multicast router mode isnt currently supported.
 	 */
+#if 0
+	if (ipv6_config.multicast_route) {
+		int addr_type;
+
+		addr_type = ipv6_addr_type(&hdr->daddr);
+
+		if (!(addr_type & (IPV6_ADDR_LOOPBACK | IPV6_ADDR_LINKLOCAL))) {
+			struct sk_buff *skb2;
+			struct dst_entry *dst;
+
+			dst = skb->dst;
+			
+			if (deliver) {
+				skb2 = skb_clone(skb, GFP_ATOMIC);
+			} else {
+				discard = 0;
+				skb2 = skb;
+			}
+
+			dst->output(skb2);
+		}
+	}
+#endif
 
 	if (deliver) {
 		discard = 0;

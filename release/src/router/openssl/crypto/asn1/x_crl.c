@@ -58,275 +58,307 @@
 
 #include <stdio.h>
 #include "cryptlib.h"
-#include <openssl/asn1_mac.h>
+#include "asn1_locl.h"
+#include <openssl/asn1t.h>
 #include <openssl/x509.h>
+#include <openssl/x509v3.h>
 
 static int X509_REVOKED_cmp(const X509_REVOKED * const *a,
 				const X509_REVOKED * const *b);
-static int X509_REVOKED_seq_cmp(const X509_REVOKED * const *a,
-				const X509_REVOKED * const *b);
-int i2d_X509_REVOKED(X509_REVOKED *a, unsigned char **pp)
+static void setup_idp(X509_CRL *crl, ISSUING_DIST_POINT *idp);
+
+ASN1_SEQUENCE(X509_REVOKED) = {
+	ASN1_SIMPLE(X509_REVOKED,serialNumber, ASN1_INTEGER),
+	ASN1_SIMPLE(X509_REVOKED,revocationDate, ASN1_TIME),
+	ASN1_SEQUENCE_OF_OPT(X509_REVOKED,extensions, X509_EXTENSION)
+} ASN1_SEQUENCE_END(X509_REVOKED)
+
+static int def_crl_verify(X509_CRL *crl, EVP_PKEY *r);
+static int def_crl_lookup(X509_CRL *crl,
+		X509_REVOKED **ret, ASN1_INTEGER *serial, X509_NAME *issuer);
+
+static X509_CRL_METHOD int_crl_meth =
 	{
-	M_ASN1_I2D_vars(a);
+	0,
+	0,0,
+	def_crl_lookup,
+	def_crl_verify
+	};
 
-	M_ASN1_I2D_len(a->serialNumber,i2d_ASN1_INTEGER);
-	M_ASN1_I2D_len(a->revocationDate,i2d_ASN1_TIME);
-	M_ASN1_I2D_len_SEQUENCE_opt_ex_type(X509_EXTENSION,a->extensions,
-					 i2d_X509_EXTENSION);
+static const X509_CRL_METHOD *default_crl_method = &int_crl_meth;
 
-	M_ASN1_I2D_seq_total();
+/* The X509_CRL_INFO structure needs a bit of customisation.
+ * Since we cache the original encoding the signature wont be affected by
+ * reordering of the revoked field.
+ */
+static int crl_inf_cb(int operation, ASN1_VALUE **pval, const ASN1_ITEM *it,
+								void *exarg)
+{
+	X509_CRL_INFO *a = (X509_CRL_INFO *)*pval;
 
-	M_ASN1_I2D_put(a->serialNumber,i2d_ASN1_INTEGER);
-	M_ASN1_I2D_put(a->revocationDate,i2d_ASN1_TIME);
-	M_ASN1_I2D_put_SEQUENCE_opt_ex_type(X509_EXTENSION,a->extensions,
-					 i2d_X509_EXTENSION);
-
-	M_ASN1_I2D_finish();
+	if(!a || !a->revoked) return 1;
+	switch(operation) {
+		/* Just set cmp function here. We don't sort because that
+		 * would affect the output of X509_CRL_print().
+		 */
+		case ASN1_OP_D2I_POST:
+		(void)sk_X509_REVOKED_set_cmp_func(a->revoked,X509_REVOKED_cmp);
+		break;
 	}
+	return 1;
+}
 
-X509_REVOKED *d2i_X509_REVOKED(X509_REVOKED **a, unsigned char **pp,
-	     long length)
+
+ASN1_SEQUENCE_enc(X509_CRL_INFO, enc, crl_inf_cb) = {
+	ASN1_OPT(X509_CRL_INFO, version, ASN1_INTEGER),
+	ASN1_SIMPLE(X509_CRL_INFO, sig_alg, X509_ALGOR),
+	ASN1_SIMPLE(X509_CRL_INFO, issuer, X509_NAME),
+	ASN1_SIMPLE(X509_CRL_INFO, lastUpdate, ASN1_TIME),
+	ASN1_OPT(X509_CRL_INFO, nextUpdate, ASN1_TIME),
+	ASN1_SEQUENCE_OF_OPT(X509_CRL_INFO, revoked, X509_REVOKED),
+	ASN1_EXP_SEQUENCE_OF_OPT(X509_CRL_INFO, extensions, X509_EXTENSION, 0)
+} ASN1_SEQUENCE_END_enc(X509_CRL_INFO, X509_CRL_INFO)
+
+/* Set CRL entry issuer according to CRL certificate issuer extension.
+ * Check for unhandled critical CRL entry extensions.
+ */
+
+static int crl_set_issuers(X509_CRL *crl)
 	{
-	M_ASN1_D2I_vars(a,X509_REVOKED *,X509_REVOKED_new);
 
-	M_ASN1_D2I_Init();
-	M_ASN1_D2I_start_sequence();
-	M_ASN1_D2I_get(ret->serialNumber,d2i_ASN1_INTEGER);
-	M_ASN1_D2I_get(ret->revocationDate,d2i_ASN1_TIME);
-	M_ASN1_D2I_get_seq_opt_type(X509_EXTENSION,ret->extensions,
-				    d2i_X509_EXTENSION,X509_EXTENSION_free);
-	M_ASN1_D2I_Finish(a,X509_REVOKED_free,ASN1_F_D2I_X509_REVOKED);
-	}
+	int i, j;
+	GENERAL_NAMES *gens, *gtmp;
+	STACK_OF(X509_REVOKED) *revoked;
 
-int i2d_X509_CRL_INFO(X509_CRL_INFO *a, unsigned char **pp)
-	{
-	int v1=0;
-	long l=0;
-	int (*old_cmp)(const X509_REVOKED * const *,
-			const X509_REVOKED * const *);
-	M_ASN1_I2D_vars(a);
-	
-	old_cmp=sk_X509_REVOKED_set_cmp_func(a->revoked,X509_REVOKED_seq_cmp);
-	sk_X509_REVOKED_sort(a->revoked);
-	sk_X509_REVOKED_set_cmp_func(a->revoked,old_cmp);
+	revoked = X509_CRL_get_REVOKED(crl);
 
-	if ((a->version != NULL) && ((l=ASN1_INTEGER_get(a->version)) != 0))
+	gens = NULL;
+	for (i = 0; i < sk_X509_REVOKED_num(revoked); i++)
 		{
-		M_ASN1_I2D_len(a->version,i2d_ASN1_INTEGER);
-		}
-	M_ASN1_I2D_len(a->sig_alg,i2d_X509_ALGOR);
-	M_ASN1_I2D_len(a->issuer,i2d_X509_NAME);
-	M_ASN1_I2D_len(a->lastUpdate,i2d_ASN1_TIME);
-	if (a->nextUpdate != NULL)
-		{ M_ASN1_I2D_len(a->nextUpdate,i2d_ASN1_TIME); }
-	M_ASN1_I2D_len_SEQUENCE_opt_type(X509_REVOKED,a->revoked,
-					 i2d_X509_REVOKED);
-	M_ASN1_I2D_len_EXP_SEQUENCE_opt_ex_type(X509_EXTENSION,a->extensions,
-					     i2d_X509_EXTENSION,0,
-					     V_ASN1_SEQUENCE,v1);
-
-	M_ASN1_I2D_seq_total();
-
-	if ((a->version != NULL) && (l != 0))
-		{
-		M_ASN1_I2D_put(a->version,i2d_ASN1_INTEGER);
-		}
-	M_ASN1_I2D_put(a->sig_alg,i2d_X509_ALGOR);
-	M_ASN1_I2D_put(a->issuer,i2d_X509_NAME);
-	M_ASN1_I2D_put(a->lastUpdate,i2d_ASN1_TIME);
-	if (a->nextUpdate != NULL)
-		{ M_ASN1_I2D_put(a->nextUpdate,i2d_ASN1_TIME); }
-	M_ASN1_I2D_put_SEQUENCE_opt_type(X509_REVOKED,a->revoked,
-					 i2d_X509_REVOKED);
-	M_ASN1_I2D_put_EXP_SEQUENCE_opt_ex_type(X509_EXTENSION,a->extensions,
-					     i2d_X509_EXTENSION,0,
-					     V_ASN1_SEQUENCE,v1);
-
-	M_ASN1_I2D_finish();
-	}
-
-X509_CRL_INFO *d2i_X509_CRL_INFO(X509_CRL_INFO **a, unsigned char **pp,
-	     long length)
-	{
-	int i,ver=0;
-	M_ASN1_D2I_vars(a,X509_CRL_INFO *,X509_CRL_INFO_new);
-
-
-	M_ASN1_D2I_Init();
-	M_ASN1_D2I_start_sequence();
-	M_ASN1_D2I_get_opt(ret->version,d2i_ASN1_INTEGER,V_ASN1_INTEGER);
-	if (ret->version != NULL)
-		ver=ret->version->data[0];
-	
-	if ((ver == 0) && (ret->version != NULL))
-		{
-		M_ASN1_INTEGER_free(ret->version);
-		ret->version=NULL;
-		}
-	M_ASN1_D2I_get(ret->sig_alg,d2i_X509_ALGOR);
-	M_ASN1_D2I_get(ret->issuer,d2i_X509_NAME);
-	M_ASN1_D2I_get(ret->lastUpdate,d2i_ASN1_TIME);
-	/* Manually handle the OPTIONAL ASN1_TIME stuff */
-	/* First try UTCTime */
-	M_ASN1_D2I_get_opt(ret->nextUpdate,d2i_ASN1_UTCTIME, V_ASN1_UTCTIME);
-	/* If that doesn't work try GeneralizedTime */
-	if(!ret->nextUpdate) 
-		M_ASN1_D2I_get_opt(ret->nextUpdate,d2i_ASN1_GENERALIZEDTIME,
-							V_ASN1_GENERALIZEDTIME);
-	if (ret->revoked != NULL)
-		{
-		while (sk_X509_REVOKED_num(ret->revoked))
-			X509_REVOKED_free(sk_X509_REVOKED_pop(ret->revoked));
-		}
-	M_ASN1_D2I_get_seq_opt_type(X509_REVOKED,ret->revoked,d2i_X509_REVOKED,
-				    X509_REVOKED_free);
-
-	if (ret->revoked != NULL)
-		{
-		for (i=0; i<sk_X509_REVOKED_num(ret->revoked); i++)
+		X509_REVOKED *rev = sk_X509_REVOKED_value(revoked, i);
+		STACK_OF(X509_EXTENSION) *exts;
+		ASN1_ENUMERATED *reason;
+		X509_EXTENSION *ext;
+		gtmp = X509_REVOKED_get_ext_d2i(rev, 
+						NID_certificate_issuer,
+						&j, NULL);
+		if (!gtmp && (j != -1))
 			{
-			sk_X509_REVOKED_value(ret->revoked,i)->sequence=i;
+			crl->flags |= EXFLAG_INVALID;
+			return 1;
 			}
+
+		if (gtmp)
+			{
+			gens = gtmp;
+			if (!crl->issuers)
+				{
+				crl->issuers = sk_GENERAL_NAMES_new_null();
+				if (!crl->issuers)
+					return 0;
+				}
+			if (!sk_GENERAL_NAMES_push(crl->issuers, gtmp))
+				return 0;
+			}
+		rev->issuer = gens;
+
+		reason = X509_REVOKED_get_ext_d2i(rev, NID_crl_reason,
+								&j, NULL);
+		if (!reason && (j != -1))
+			{
+			crl->flags |= EXFLAG_INVALID;
+			return 1;
+			}
+
+		if (reason)
+			{
+			rev->reason = ASN1_ENUMERATED_get(reason);
+			ASN1_ENUMERATED_free(reason);
+			}
+		else
+			rev->reason = CRL_REASON_NONE;	
+
+		/* Check for critical CRL entry extensions */
+
+		exts = rev->extensions;
+
+		for (j = 0; j < sk_X509_EXTENSION_num(exts); j++)
+			{
+			ext = sk_X509_EXTENSION_value(exts, j);
+			if (ext->critical > 0)
+				{
+				if (OBJ_obj2nid(ext->object) ==
+					NID_certificate_issuer)
+					continue;
+				crl->flags |= EXFLAG_CRITICAL;
+				break;
+				}
+			}
+
+
 		}
 
-	if (ret->extensions != NULL)
+	return 1;
+
+	}
+
+/* The X509_CRL structure needs a bit of customisation. Cache some extensions
+ * and hash of the whole CRL.
+ */
+static int crl_cb(int operation, ASN1_VALUE **pval, const ASN1_ITEM *it,
+								void *exarg)
+	{
+	X509_CRL *crl = (X509_CRL *)*pval;
+	STACK_OF(X509_EXTENSION) *exts;
+	X509_EXTENSION *ext;
+	int idx;
+
+	switch(operation)
 		{
-		while (sk_X509_EXTENSION_num(ret->extensions))
-			X509_EXTENSION_free(
-			sk_X509_EXTENSION_pop(ret->extensions));
-		}
-		
-	M_ASN1_D2I_get_EXP_set_opt_type(X509_EXTENSION,ret->extensions,
-					d2i_X509_EXTENSION,
-					X509_EXTENSION_free,0,
-					V_ASN1_SEQUENCE);
+		case ASN1_OP_NEW_POST:
+		crl->idp = NULL;
+		crl->akid = NULL;
+		crl->flags = 0;
+		crl->idp_flags = 0;
+		crl->idp_reasons = CRLDP_ALL_REASONS;
+		crl->meth = default_crl_method;
+		crl->meth_data = NULL;
+		crl->issuers = NULL;
+		crl->crl_number = NULL;
+		crl->base_crl_number = NULL;
+		break;
 
-	M_ASN1_D2I_Finish(a,X509_CRL_INFO_free,ASN1_F_D2I_X509_CRL_INFO);
-	}
-
-int i2d_X509_CRL(X509_CRL *a, unsigned char **pp)
-	{
-	M_ASN1_I2D_vars(a);
-
-	M_ASN1_I2D_len(a->crl,i2d_X509_CRL_INFO);
-	M_ASN1_I2D_len(a->sig_alg,i2d_X509_ALGOR);
-	M_ASN1_I2D_len(a->signature,i2d_ASN1_BIT_STRING);
-
-	M_ASN1_I2D_seq_total();
-
-	M_ASN1_I2D_put(a->crl,i2d_X509_CRL_INFO);
-	M_ASN1_I2D_put(a->sig_alg,i2d_X509_ALGOR);
-	M_ASN1_I2D_put(a->signature,i2d_ASN1_BIT_STRING);
-
-	M_ASN1_I2D_finish();
-	}
-
-X509_CRL *d2i_X509_CRL(X509_CRL **a, unsigned char **pp, long length)
-	{
-	M_ASN1_D2I_vars(a,X509_CRL *,X509_CRL_new);
-
-	M_ASN1_D2I_Init();
-	M_ASN1_D2I_start_sequence();
-	M_ASN1_D2I_get(ret->crl,d2i_X509_CRL_INFO);
-	M_ASN1_D2I_get(ret->sig_alg,d2i_X509_ALGOR);
-	M_ASN1_D2I_get(ret->signature,d2i_ASN1_BIT_STRING);
-
-	M_ASN1_D2I_Finish(a,X509_CRL_free,ASN1_F_D2I_X509_CRL);
-	}
-
-
-X509_REVOKED *X509_REVOKED_new(void)
-	{
-	X509_REVOKED *ret=NULL;
-	ASN1_CTX c;
-
-	M_ASN1_New_Malloc(ret,X509_REVOKED);
-	M_ASN1_New(ret->serialNumber,M_ASN1_INTEGER_new);
-	M_ASN1_New(ret->revocationDate,M_ASN1_UTCTIME_new);
-	ret->extensions=NULL;
-	return(ret);
-	M_ASN1_New_Error(ASN1_F_X509_REVOKED_NEW);
-	}
-
-X509_CRL_INFO *X509_CRL_INFO_new(void)
-	{
-	X509_CRL_INFO *ret=NULL;
-	ASN1_CTX c;
-
-	M_ASN1_New_Malloc(ret,X509_CRL_INFO);
-	ret->version=NULL;
-	M_ASN1_New(ret->sig_alg,X509_ALGOR_new);
-	M_ASN1_New(ret->issuer,X509_NAME_new);
-	M_ASN1_New(ret->lastUpdate,M_ASN1_UTCTIME_new);
-	ret->nextUpdate=NULL;
-	M_ASN1_New(ret->revoked,sk_X509_REVOKED_new_null);
-	ret->extensions = NULL;
-	sk_X509_REVOKED_set_cmp_func(ret->revoked,X509_REVOKED_cmp);
-	return(ret);
-	M_ASN1_New_Error(ASN1_F_X509_CRL_INFO_NEW);
-	}
-
-X509_CRL *X509_CRL_new(void)
-	{
-	X509_CRL *ret=NULL;
-	ASN1_CTX c;
-
-	M_ASN1_New_Malloc(ret,X509_CRL);
-	ret->references=1;
-	M_ASN1_New(ret->crl,X509_CRL_INFO_new);
-	M_ASN1_New(ret->sig_alg,X509_ALGOR_new);
-	M_ASN1_New(ret->signature,M_ASN1_BIT_STRING_new);
-	return(ret);
-	M_ASN1_New_Error(ASN1_F_X509_CRL_NEW);
-	}
-
-void X509_REVOKED_free(X509_REVOKED *a)
-	{
-	if (a == NULL) return;
-	M_ASN1_INTEGER_free(a->serialNumber);
-	M_ASN1_UTCTIME_free(a->revocationDate);
-	sk_X509_EXTENSION_pop_free(a->extensions,X509_EXTENSION_free);
-	OPENSSL_free(a);
-	}
-
-void X509_CRL_INFO_free(X509_CRL_INFO *a)
-	{
-	if (a == NULL) return;
-	M_ASN1_INTEGER_free(a->version);
-	X509_ALGOR_free(a->sig_alg);
-	X509_NAME_free(a->issuer);
-	M_ASN1_UTCTIME_free(a->lastUpdate);
-	if (a->nextUpdate)
-		M_ASN1_UTCTIME_free(a->nextUpdate);
-	sk_X509_REVOKED_pop_free(a->revoked,X509_REVOKED_free);
-	sk_X509_EXTENSION_pop_free(a->extensions,X509_EXTENSION_free);
-	OPENSSL_free(a);
-	}
-
-void X509_CRL_free(X509_CRL *a)
-	{
-	int i;
-
-	if (a == NULL) return;
-
-	i=CRYPTO_add(&a->references,-1,CRYPTO_LOCK_X509_CRL);
-#ifdef REF_PRINT
-	REF_PRINT("X509_CRL",a);
+		case ASN1_OP_D2I_POST:
+#ifndef OPENSSL_NO_SHA
+		X509_CRL_digest(crl, EVP_sha1(), crl->sha1_hash, NULL);
 #endif
-	if (i > 0) return;
-#ifdef REF_CHECK
-	if (i < 0)
+		crl->idp = X509_CRL_get_ext_d2i(crl,
+				NID_issuing_distribution_point, NULL, NULL);
+		if (crl->idp)
+			setup_idp(crl, crl->idp);
+
+		crl->akid = X509_CRL_get_ext_d2i(crl,
+				NID_authority_key_identifier, NULL, NULL);	
+
+		crl->crl_number = X509_CRL_get_ext_d2i(crl,
+				NID_crl_number, NULL, NULL);	
+
+		crl->base_crl_number = X509_CRL_get_ext_d2i(crl,
+				NID_delta_crl, NULL, NULL);	
+		/* Delta CRLs must have CRL number */
+		if (crl->base_crl_number && !crl->crl_number)
+			crl->flags |= EXFLAG_INVALID;
+
+		/* See if we have any unhandled critical CRL extensions and 
+		 * indicate this in a flag. We only currently handle IDP so
+		 * anything else critical sets the flag.
+		 *
+		 * This code accesses the X509_CRL structure directly:
+		 * applications shouldn't do this.
+		 */
+
+		exts = crl->crl->extensions;
+
+		for (idx = 0; idx < sk_X509_EXTENSION_num(exts); idx++)
+			{
+			int nid;
+			ext = sk_X509_EXTENSION_value(exts, idx);
+			nid = OBJ_obj2nid(ext->object);
+			if (nid == NID_freshest_crl)
+				crl->flags |= EXFLAG_FRESHEST;
+			if (ext->critical > 0)
+				{
+				/* We handle IDP and deltas */
+				if ((nid == NID_issuing_distribution_point)
+					|| (nid == NID_delta_crl))
+					break;;
+				crl->flags |= EXFLAG_CRITICAL;
+				break;
+				}
+			}
+
+
+		if (!crl_set_issuers(crl))
+			return 0;
+
+		if (crl->meth->crl_init)
+			{
+			if (crl->meth->crl_init(crl) == 0)
+				return 0;
+			}
+		break;
+
+		case ASN1_OP_FREE_POST:
+		if (crl->meth->crl_free)
+			{
+			if (!crl->meth->crl_free(crl))
+				return 0;
+			}
+		if (crl->akid)
+			AUTHORITY_KEYID_free(crl->akid);
+		if (crl->idp)
+			ISSUING_DIST_POINT_free(crl->idp);
+		ASN1_INTEGER_free(crl->crl_number);
+		ASN1_INTEGER_free(crl->base_crl_number);
+		sk_GENERAL_NAMES_pop_free(crl->issuers, GENERAL_NAMES_free);
+		break;
+		}
+	return 1;
+	}
+
+/* Convert IDP into a more convenient form */
+
+static void setup_idp(X509_CRL *crl, ISSUING_DIST_POINT *idp)
+	{
+	int idp_only = 0;
+	/* Set various flags according to IDP */
+	crl->idp_flags |= IDP_PRESENT;
+	if (idp->onlyuser > 0)
 		{
-		fprintf(stderr,"X509_CRL_free, bad reference count\n");
-		abort();
+		idp_only++;
+		crl->idp_flags |= IDP_ONLYUSER;
 		}
-#endif
+	if (idp->onlyCA > 0)
+		{
+		idp_only++;
+		crl->idp_flags |= IDP_ONLYCA;
+		}
+	if (idp->onlyattr > 0)
+		{
+		idp_only++;
+		crl->idp_flags |= IDP_ONLYATTR;
+		}
 
-	X509_CRL_INFO_free(a->crl);
-	X509_ALGOR_free(a->sig_alg);
-	M_ASN1_BIT_STRING_free(a->signature);
-	OPENSSL_free(a);
+	if (idp_only > 1)
+		crl->idp_flags |= IDP_INVALID;
+
+	if (idp->indirectCRL > 0)
+		crl->idp_flags |= IDP_INDIRECT;
+
+	if (idp->onlysomereasons)
+		{
+		crl->idp_flags |= IDP_REASONS;
+		if (idp->onlysomereasons->length > 0)
+			crl->idp_reasons = idp->onlysomereasons->data[0];
+		if (idp->onlysomereasons->length > 1)
+			crl->idp_reasons |=
+				(idp->onlysomereasons->data[1] << 8);
+		crl->idp_reasons &= CRLDP_ALL_REASONS;
+		}
+
+	DIST_POINT_set_dpname(idp->distpoint, X509_CRL_get_issuer(crl));
 	}
+
+ASN1_SEQUENCE_ref(X509_CRL, crl_cb, CRYPTO_LOCK_X509_CRL) = {
+	ASN1_SIMPLE(X509_CRL, crl, X509_CRL_INFO),
+	ASN1_SIMPLE(X509_CRL, sig_alg, X509_ALGOR),
+	ASN1_SIMPLE(X509_CRL, signature, ASN1_BIT_STRING)
+} ASN1_SEQUENCE_END_ref(X509_CRL, X509_CRL)
+
+IMPLEMENT_ASN1_FUNCTIONS(X509_REVOKED)
+IMPLEMENT_ASN1_FUNCTIONS(X509_CRL_INFO)
+IMPLEMENT_ASN1_FUNCTIONS(X509_CRL)
+IMPLEMENT_ASN1_DUP_FUNCTION(X509_CRL)
 
 static int X509_REVOKED_cmp(const X509_REVOKED * const *a,
 			const X509_REVOKED * const *b)
@@ -336,10 +368,157 @@ static int X509_REVOKED_cmp(const X509_REVOKED * const *a,
 		(ASN1_STRING *)(*b)->serialNumber));
 	}
 
-static int X509_REVOKED_seq_cmp(const X509_REVOKED * const *a,
-				const X509_REVOKED * const *b)
+int X509_CRL_add0_revoked(X509_CRL *crl, X509_REVOKED *rev)
+{
+	X509_CRL_INFO *inf;
+	inf = crl->crl;
+	if(!inf->revoked)
+		inf->revoked = sk_X509_REVOKED_new(X509_REVOKED_cmp);
+	if(!inf->revoked || !sk_X509_REVOKED_push(inf->revoked, rev)) {
+		ASN1err(ASN1_F_X509_CRL_ADD0_REVOKED, ERR_R_MALLOC_FAILURE);
+		return 0;
+	}
+	inf->enc.modified = 1;
+	return 1;
+}
+
+int X509_CRL_verify(X509_CRL *crl, EVP_PKEY *r)
 	{
-	return((*a)->sequence-(*b)->sequence);
+	if (crl->meth->crl_verify)
+		return crl->meth->crl_verify(crl, r);
+	return 0;
+	}
+
+int X509_CRL_get0_by_serial(X509_CRL *crl,
+		X509_REVOKED **ret, ASN1_INTEGER *serial)
+	{
+	if (crl->meth->crl_lookup)
+		return crl->meth->crl_lookup(crl, ret, serial, NULL);
+	return 0;
+	}
+
+int X509_CRL_get0_by_cert(X509_CRL *crl, X509_REVOKED **ret, X509 *x)
+	{
+	if (crl->meth->crl_lookup)
+		return crl->meth->crl_lookup(crl, ret,
+						X509_get_serialNumber(x),
+						X509_get_issuer_name(x));
+	return 0;
+	}
+
+static int def_crl_verify(X509_CRL *crl, EVP_PKEY *r)
+	{
+	return(ASN1_item_verify(ASN1_ITEM_rptr(X509_CRL_INFO),
+		crl->sig_alg, crl->signature,crl->crl,r));
+	}
+
+static int crl_revoked_issuer_match(X509_CRL *crl, X509_NAME *nm,
+						X509_REVOKED *rev)
+	{
+	int i;
+
+	if (!rev->issuer)
+		{
+		if (!nm)
+			return 1;
+		if (!X509_NAME_cmp(nm, X509_CRL_get_issuer(crl)))
+			return 1;
+		return 0;
+		}
+
+	if (!nm)
+		nm = X509_CRL_get_issuer(crl);
+
+	for (i = 0; i < sk_GENERAL_NAME_num(rev->issuer); i++)
+		{
+		GENERAL_NAME *gen = sk_GENERAL_NAME_value(rev->issuer, i);
+		if (gen->type != GEN_DIRNAME)
+			continue;
+		if (!X509_NAME_cmp(nm, gen->d.directoryName))
+			return 1;
+		}
+	return 0;
+
+	}
+
+static int def_crl_lookup(X509_CRL *crl,
+		X509_REVOKED **ret, ASN1_INTEGER *serial, X509_NAME *issuer)
+	{
+	X509_REVOKED rtmp, *rev;
+	int idx;
+	rtmp.serialNumber = serial;
+	/* Sort revoked into serial number order if not already sorted.
+	 * Do this under a lock to avoid race condition.
+ 	 */
+	if (!sk_X509_REVOKED_is_sorted(crl->crl->revoked))
+		{
+		CRYPTO_w_lock(CRYPTO_LOCK_X509_CRL);
+		sk_X509_REVOKED_sort(crl->crl->revoked);
+		CRYPTO_w_unlock(CRYPTO_LOCK_X509_CRL);
+		}
+	idx = sk_X509_REVOKED_find(crl->crl->revoked, &rtmp);
+	if(idx < 0)
+		return 0;
+	/* Need to look for matching name */
+	for(;idx < sk_X509_REVOKED_num(crl->crl->revoked); idx++)
+		{
+		rev = sk_X509_REVOKED_value(crl->crl->revoked, idx);
+		if (ASN1_INTEGER_cmp(rev->serialNumber, serial))
+			return 0;
+		if (crl_revoked_issuer_match(crl, issuer, rev))
+			{
+			if (ret)
+				*ret = rev;
+			if (rev->reason == CRL_REASON_REMOVE_FROM_CRL)
+				return 2;
+			return 1;
+			}
+		}
+	return 0;
+	}
+
+void X509_CRL_set_default_method(const X509_CRL_METHOD *meth)
+	{
+	if (meth == NULL)
+		default_crl_method = &int_crl_meth;
+	else 
+		default_crl_method = meth;
+	}
+
+X509_CRL_METHOD *X509_CRL_METHOD_new(
+	int (*crl_init)(X509_CRL *crl),
+	int (*crl_free)(X509_CRL *crl),
+	int (*crl_lookup)(X509_CRL *crl, X509_REVOKED **ret,
+				ASN1_INTEGER *ser, X509_NAME *issuer),
+	int (*crl_verify)(X509_CRL *crl, EVP_PKEY *pk))
+	{
+	X509_CRL_METHOD *m;
+	m = OPENSSL_malloc(sizeof(X509_CRL_METHOD));
+	if (!m)
+		return NULL;
+	m->crl_init = crl_init;
+	m->crl_free = crl_free;
+	m->crl_lookup = crl_lookup;
+	m->crl_verify = crl_verify;
+	m->flags = X509_CRL_METHOD_DYNAMIC;
+	return m;
+	}
+
+void X509_CRL_METHOD_free(X509_CRL_METHOD *m)
+	{
+	if (!(m->flags & X509_CRL_METHOD_DYNAMIC))
+		return;
+	OPENSSL_free(m);
+	}
+
+void X509_CRL_set_meth_data(X509_CRL *crl, void *dat)
+	{
+	crl->meth_data = dat;
+	}
+
+void *X509_CRL_get_meth_data(X509_CRL *crl)
+	{
+	return crl->meth_data;
 	}
 
 IMPLEMENT_STACK_OF(X509_REVOKED)

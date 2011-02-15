@@ -4,7 +4,7 @@
  * Author: Fabrice Bellard (fabrice.bellard@netgem.com) 
  * Copyright (C) 2000 Netgem S.A.
  *
- * $Id: nftlmount.c,v 1.1.1.4 2003/10/14 08:08:17 sparq Exp $
+ * $Id: nftlmount.c,v 1.31 2002/11/15 16:34:43 dwmw2 Exp $
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,12 +34,13 @@
 #include <linux/sched.h>
 #include <linux/init.h>
 #include <linux/mtd/mtd.h>
+#include <linux/mtd/nand.h>
 #include <linux/mtd/nftl.h>
 #include <linux/mtd/compatmac.h>
 
 #define SECTORSIZE 512
 
-char nftlmountrev[]="$Revision: 1.1.1.4 $";
+char nftlmountrev[]="$Revision: 1.31 $";
 
 /* find_boot_record: Find the NFTL Media Header and its Spare copy which contains the
  *	various device information of the NFTL partition and Bad Unit Table. Update
@@ -51,10 +52,15 @@ static int find_boot_record(struct NFTLrecord *nftl)
 	struct nftl_uci1 h1;
 	struct nftl_oob oob;
 	unsigned int block, boot_record_count = 0;
-	int retlen;
+	size_t retlen;
 	u8 buf[SECTORSIZE];
 	struct NFTLMediaHeader *mh = &nftl->MediaHdr;
 	unsigned int i;
+
+        /* Assume logical EraseSize == physical erasesize for starting the scan. 
+	   We'll sort it out later if we find a MediaHeader which says otherwise */
+	nftl->EraseSize = nftl->mtd->erasesize;
+        nftl->nb_blocks = nftl->mtd->size / nftl->EraseSize;
 
 	nftl->MediaUnit = BLOCK_NIL;
 	nftl->SpareMediaUnit = BLOCK_NIL;
@@ -79,12 +85,16 @@ static int find_boot_record(struct NFTLrecord *nftl)
 
 		if (retlen < 6 || memcmp(buf, "ANAND", 6)) {
 			/* ANAND\0 not found. Continue */
+#if 0
+			printk(KERN_DEBUG "ANAND header not found at 0x%x in mtd%d\n", 
+			       block * nftl->EraseSize, nftl->mtd->index);
+#endif			
 			continue;
 		}
 
 		/* To be safer with BIOS, also use erase mark as discriminant */
 		if ((ret = MTD_READOOB(nftl->mtd, block * nftl->EraseSize + SECTORSIZE + 8,
-				8, &retlen, (char *)&h1) < 0)) {
+				8, &retlen, (char *)&h1)) < 0) {
 			printk(KERN_WARNING "ANAND header found at 0x%x in mtd%d, but OOB data read failed (err %d)\n",
 			       block * nftl->EraseSize, nftl->mtd->index, ret);
 			continue;
@@ -103,7 +113,7 @@ static int find_boot_record(struct NFTLrecord *nftl)
 
 		/* Finally reread to check ECC */
 		if ((ret = MTD_READECC(nftl->mtd, block * nftl->EraseSize, SECTORSIZE,
-				&retlen, buf, (char *)&oob) < 0)) {
+				&retlen, buf, (char *)&oob, NAND_ECC_DISKONCHIP)) < 0) {
 			printk(KERN_NOTICE "ANAND header found at 0x%x in mtd%d, but ECC read failed (err %d)\n",
 			       block * nftl->EraseSize, nftl->mtd->index, ret);
 			continue;
@@ -118,7 +128,6 @@ static int find_boot_record(struct NFTLrecord *nftl)
 			continue;
 		}
 #endif
-			       
 		/* OK, we like it. */
 
 		if (boot_record_count) {
@@ -133,6 +142,10 @@ static int find_boot_record(struct NFTLrecord *nftl)
 			if (boot_record_count == 1)
 				nftl->SpareMediaUnit = block;
 
+			/* Mark this boot record (NFTL MediaHeader) block as reserved */
+			nftl->ReplUnitTable[block] = BLOCK_RESERVED;
+
+
 			boot_record_count++;
 			continue;
 		}
@@ -141,12 +154,18 @@ static int find_boot_record(struct NFTLrecord *nftl)
 		memcpy(mh, buf, sizeof(struct NFTLMediaHeader));
 
 		/* Do some sanity checks on it */
-		if (mh->UnitSizeFactor != 0xff) {
-			printk(KERN_NOTICE "Sorry, we don't support UnitSizeFactor "
-			       "of != 1 yet.\n");
+		if (mh->UnitSizeFactor == 0) {
+			printk(KERN_NOTICE "NFTL: UnitSizeFactor 0x00 detected. This violates the spec but we think we know what it means...\n");
+		} else if (mh->UnitSizeFactor < 0xfc) {
+			printk(KERN_NOTICE "Sorry, we don't support UnitSizeFactor 0x%02x\n",
+			       mh->UnitSizeFactor);
 			return -1;
+		} else if (mh->UnitSizeFactor != 0xff) {
+			printk(KERN_NOTICE "WARNING: Support for NFTL with UnitSizeFactor 0x%02x is experimental\n",
+			       mh->UnitSizeFactor);
+			nftl->EraseSize = nftl->mtd->erasesize << (0xff - mh->UnitSizeFactor);
+			nftl->nb_blocks = nftl->mtd->size / nftl->EraseSize;
 		}
-
 		nftl->nb_boot_blocks = le16_to_cpu(mh->FirstPhysicalEUN);
 		if ((nftl->nb_boot_blocks + 2) >= nftl->nb_blocks) {
 			printk(KERN_NOTICE "NFTL Media Header sanity check failed:\n");
@@ -164,20 +183,50 @@ static int find_boot_record(struct NFTLrecord *nftl)
 		}
 		
 		nftl->nr_sects  = nftl->numvunits * (nftl->EraseSize / SECTORSIZE);
-		
+
 		/* If we're not using the last sectors in the device for some reason,
 		   reduce nb_blocks accordingly so we forget they're there */
 		nftl->nb_blocks = le16_to_cpu(mh->NumEraseUnits) + le16_to_cpu(mh->FirstPhysicalEUN);
+
+		/* XXX: will be suppressed */
+		nftl->lastEUN = nftl->nb_blocks - 1;
+
+		/* memory alloc */
+		nftl->EUNtable = kmalloc(nftl->nb_blocks * sizeof(u16), GFP_KERNEL);
+		if (!nftl->EUNtable) {
+			printk(KERN_NOTICE "NFTL: allocation of EUNtable failed\n");
+			return -ENOMEM;
+		}
+
+		nftl->ReplUnitTable = kmalloc(nftl->nb_blocks * sizeof(u16), GFP_KERNEL);
+		if (!nftl->ReplUnitTable) {
+			kfree(nftl->EUNtable);
+			printk(KERN_NOTICE "NFTL: allocation of ReplUnitTable failed\n");
+			return -ENOMEM;
+		}
+		
+		/* mark the bios blocks (blocks before NFTL MediaHeader) as reserved */
+		for (i = 0; i < nftl->nb_boot_blocks; i++)
+			nftl->ReplUnitTable[i] = BLOCK_RESERVED;
+		/* mark all remaining blocks as potentially containing data */
+		for (; i < nftl->nb_blocks; i++) { 
+			nftl->ReplUnitTable[i] = BLOCK_NOTEXPLORED;
+		}
+
+		/* Mark this boot record (NFTL MediaHeader) block as reserved */
+		nftl->ReplUnitTable[block] = BLOCK_RESERVED;
 
 		/* read the Bad Erase Unit Table and modify ReplUnitTable[] accordingly */
 		for (i = 0; i < nftl->nb_blocks; i++) {
 			if ((i & (SECTORSIZE - 1)) == 0) {
 				/* read one sector for every SECTORSIZE of blocks */
 				if ((ret = MTD_READECC(nftl->mtd, block * nftl->EraseSize +
-						       i + SECTORSIZE, SECTORSIZE,
-						       &retlen, buf, (char *)&oob)) < 0) {
+						       i + SECTORSIZE, SECTORSIZE, &retlen, buf,
+						       (char *)&oob, NAND_ECC_DISKONCHIP)) < 0) {
 					printk(KERN_NOTICE "Read of bad sector table failed (err %d)\n",
 					       ret);
+					kfree(nftl->ReplUnitTable);
+					kfree(nftl->EUNtable);
 					return -1;
 				}
 			}
@@ -242,7 +291,7 @@ static int check_free_sectors(struct NFTLrecord *nftl, unsigned int address, int
  */
 int NFTL_formatblock(struct NFTLrecord *nftl, int block)
 {
-	int retlen;
+	size_t retlen;
 	unsigned int nb_erases, erase_mark;
 	struct nftl_uci1 uci;
 	struct erase_info *instr = &nftl->instr;
@@ -262,11 +311,14 @@ int NFTL_formatblock(struct NFTLrecord *nftl, int block)
 
 	memset(instr, 0, sizeof(struct erase_info));
 
+	/* XXX: use async erase interface, XXX: test return code */
 	instr->addr = block * nftl->EraseSize;
 	instr->len = nftl->EraseSize;
 	MTD_ERASE(nftl->mtd, instr);
 
 	if (instr->state == MTD_ERASE_FAILED) {
+		/* could not format, FixMe: We should update the BadUnitTable 
+		   both in memory and on disk */
 		printk("Error while formatting block %d\n", block);
 		return -1;
 	} else {
@@ -278,6 +330,9 @@ int NFTL_formatblock(struct NFTLrecord *nftl, int block)
 		if (nb_erases == 0)
 			nb_erases = 1;
 
+		/* check the "freeness" of Erase Unit before updating metadata
+		 * FixMe:  is this check really necessary ? since we have check the
+		 *         return code after the erase operation. */
 		if (check_free_sectors(nftl, instr->addr, nftl->EraseSize, 1) != 0)
 			return -1;
 
@@ -370,6 +425,16 @@ static int calc_chain_length(struct NFTLrecord *nftl, unsigned int first_block)
 	return length;
 }
 
+/* format_chain: Format an invalid Virtual Unit chain. It frees all the Erase Units in a
+ *	Virtual Unit Chain, i.e. all the units are disconnected.
+ *
+ *	It is not stricly correct to begin from the first block of the chain because
+ *	if we stop the code, we may see again a valid chain if there was a first_block
+ *	flag in a block inside it. But is it really a problem ?
+ *
+ * FixMe: Figure out what the last statesment means. What if power failure when we are
+ *	in the for (;;) loop formatting blocks ??
+ */
 static void format_chain(struct NFTLrecord *nftl, unsigned int first_block)
 {
 	unsigned int block = first_block, block1;
@@ -381,6 +446,8 @@ static void format_chain(struct NFTLrecord *nftl, unsigned int first_block)
 
 		printk("Formatting block %d\n", block);
 		if (NFTL_formatblock(nftl, block) < 0) {
+			/* cannot format !!!! Mark it as Bad Unit,
+			   FixMe: update the BadUnitTable on disk */
 			nftl->ReplUnitTable[block] = BLOCK_RESERVED;
 		} else {
 			nftl->ReplUnitTable[block] = BLOCK_FREE;
@@ -406,7 +473,7 @@ static int check_and_mark_free_block(struct NFTLrecord *nftl, int block)
 {
 	struct nftl_uci1 h1;
 	unsigned int erase_mark;
-	int retlen;
+	size_t retlen;
 
 	/* check erase mark. */
 	if (MTD_READOOB(nftl->mtd, block * nftl->EraseSize + SECTORSIZE + 8, 8, 
@@ -428,6 +495,27 @@ static int check_and_mark_free_block(struct NFTLrecord *nftl, int block)
 				 &retlen, (char *)&h1) < 0)
 			return -1;
 	} else {
+#if 0
+		/* if erase mark present, need to skip it when doing check */
+		for (i = 0; i < nftl->EraseSize; i += SECTORSIZE) {
+			/* check free sector */
+			if (check_free_sectors (nftl, block * nftl->EraseSize + i,
+						SECTORSIZE, 0) != 0)
+				return -1;
+
+			if (MTD_READOOB(nftl->mtd, block * nftl->EraseSize + i,
+					16, &retlen, buf) < 0)
+				return -1;
+			if (i == SECTORSIZE) {
+				/* skip erase mark */
+				if (memcmpb(buf, 0xff, 8))
+					return -1;
+			} else {
+				if (memcmpb(buf, 0xff, 16))
+					return -1;
+			}
+		}
+#endif
 	}
 
 	return 0;
@@ -443,7 +531,7 @@ static int check_and_mark_free_block(struct NFTLrecord *nftl, int block)
 static int get_fold_mark(struct NFTLrecord *nftl, unsigned int block)
 {
 	struct nftl_uci2 uci;
-	int retlen;
+	size_t retlen;
 
 	if (MTD_READOOB(nftl->mtd, block * nftl->EraseSize + 2 * SECTORSIZE + 8,
 			8, &retlen, (char *)&uci) < 0)
@@ -460,42 +548,13 @@ int NFTL_mount(struct NFTLrecord *s)
 	int chain_length, do_format_chain;
 	struct nftl_uci0 h0;
 	struct nftl_uci1 h1;
-	int retlen;
-
-	s->lastEUN = s->nb_blocks - 1;
-
-	/* memory alloc */
-	s->EUNtable = kmalloc(s->nb_blocks * sizeof(u16), GFP_KERNEL);
-	s->ReplUnitTable = kmalloc(s->nb_blocks * sizeof(u16), GFP_KERNEL);
-	if (!s->EUNtable || !s->ReplUnitTable) {
-	fail:
-		if (s->EUNtable)
-			kfree(s->EUNtable);
-		if (s->ReplUnitTable)
-			kfree(s->ReplUnitTable);
-		return -1;
-	}
-
-	/* mark all blocks as potentially containing data */
-	for (i = 0; i < s->nb_blocks; i++) { 
-		s->ReplUnitTable[i] = BLOCK_NOTEXPLORED;
-	}
+	size_t retlen;
 
 	/* search for NFTL MediaHeader and Spare NFTL Media Header */
 	if (find_boot_record(s) < 0) {
 		printk("Could not find valid boot record\n");
-		goto fail;
+		return -1;
 	}
-
-	/* mark the bios blocks (blocks before NFTL MediaHeader) as reserved */
-	for (i = 0; i < s->nb_boot_blocks; i++)
-		s->ReplUnitTable[i] = BLOCK_RESERVED;
-
-	/* also mark the boot records (NFTL MediaHeader) blocks as reserved */
-	if (s->MediaUnit != BLOCK_NIL)
-		s->ReplUnitTable[s->MediaUnit] = BLOCK_RESERVED;
-	if (s->SpareMediaUnit != BLOCK_NIL)
-		s->ReplUnitTable[s->SpareMediaUnit] = BLOCK_RESERVED;
 
 	/* init the logical to physical table */
 	for (i = 0; i < s->nb_blocks; i++) {
@@ -621,6 +680,7 @@ int NFTL_mount(struct NFTLrecord *s)
 					} else {
 						printk("Block %d: referencing block %d already in another chain\n", 
 						       block, rep_block);
+						/* XXX: should handle correctly fold in progress chains */
 						do_format_chain = 1;
 						s->ReplUnitTable[block] = BLOCK_NIL;
 					}
@@ -657,6 +717,7 @@ int NFTL_mount(struct NFTLrecord *s)
 					   folded if the folding was not done in place */
 					first_block1 = s->EUNtable[first_logical_block];
 					if (first_block1 != BLOCK_NIL) {
+						/* XXX: what to do if same length ? */
 						chain_length1 = calc_chain_length(s, first_block1);
 						printk("Two chains at blocks %d (len=%d) and %d (len=%d)\n", 
 						       first_block1, chain_length1, first_block, chain_length);
@@ -679,7 +740,7 @@ int NFTL_mount(struct NFTLrecord *s)
 
 	/* second pass to format unreferenced blocks  and init free block count */
 	s->numfreeEUNs = 0;
-	s->LastFreeEUN = BLOCK_NIL;
+	s->LastFreeEUN = le16_to_cpu(s->MediaHdr.FirstPhysicalEUN);
 
 	for (block = 0; block < s->nb_blocks; block++) {
 		if (s->ReplUnitTable[block] == BLOCK_NOTEXPLORED) {

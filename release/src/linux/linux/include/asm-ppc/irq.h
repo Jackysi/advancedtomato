@@ -1,6 +1,3 @@
-/*
- * BK Id: %F% %I% %G% %U% %#%
- */
 #ifdef __KERNEL__
 #ifndef _ASM_IRQ_H
 #define _ASM_IRQ_H
@@ -13,8 +10,35 @@ extern void disable_irq(unsigned int);
 extern void disable_irq_nosync(unsigned int);
 extern void enable_irq(unsigned int);
 
-#if defined(CONFIG_4xx)
+/*
+ * These constants are used for passing information about interrupt
+ * signal polarity and level/edge sensing to the low-level PIC chip
+ * drivers.
+ */
+#define IRQ_SENSE_MASK		0x1
+#define IRQ_SENSE_LEVEL		0x1	/* interrupt on active level */
+#define IRQ_SENSE_EDGE		0x0	/* interrupt triggered by edge */
 
+#define IRQ_POLARITY_MASK	0x2
+#define IRQ_POLARITY_POSITIVE	0x2	/* high level or low->high edge */
+#define IRQ_POLARITY_NEGATIVE	0x0	/* low level or high->low edge */
+
+#if defined(CONFIG_40x)
+#include <asm/ibm4xx.h>
+
+#ifndef NR_BOARD_IRQS
+#define NR_BOARD_IRQS 0
+#endif
+
+#ifndef UIC_WIDTH /* Number of interrupts per device */
+#define UIC_WIDTH 32
+#endif
+
+#ifndef NR_UICS /* number  of UIC devices */
+#define NR_UICS 1
+#endif
+
+#if defined (CONFIG_403)
 /*
  * The PowerPC 403 cores' Asynchronous Interrupt Controller (AIC) has
  * 32 possible interrupts, a majority of which are not implemented on
@@ -22,30 +46,36 @@ extern void enable_irq(unsigned int);
  * there are eight internal interrupts for the on-chip serial port
  * (SPU), DMA controller, and JTAG controller.
  *
- * The PowerPC 405 cores' Universal Interrupt Controller (UIC) has 32
+ */
+
+#define	NR_AIC_IRQS 32
+#define	NR_IRQS	 (NR_AIC_IRQS + NR_BOARD_IRQS)
+
+#elif !defined (CONFIG_403)
+
+/*
+ *  The PowerPC 405 cores' Universal Interrupt Controller (UIC) has 32
  * possible interrupts as well. There are seven, configurable external
  * interrupt pins and there are 17 internal interrupts for the on-chip
  * serial port, DMA controller, on-chip Ethernet controller, PCI, etc.
  *
  */
 
-#define	NR_IRQS		32
 
-#define	AIC_INT0	(0)
-#define	AIC_INT4	(4)
-#define	AIC_INT5	(5)
-#define	AIC_INT6	(6)
-#define	AIC_INT7	(7)
-#define	AIC_INT8	(8)
-#define	AIC_INT9	(9)
-#define	AIC_INT10	(10)
-#define	AIC_INT11	(11)
-#define	AIC_INT27	(27)
-#define	AIC_INT28	(28)
-#define	AIC_INT29	(29)
-#define	AIC_INT30	(30)
-#define	AIC_INT31	(31)
+#define NR_UIC_IRQS UIC_WIDTH
+#define NR_IRQS		((NR_UIC_IRQS * NR_UICS) + NR_BOARD_IRQS)
+#endif
+static __inline__ int
+irq_cannonicalize(int irq)
+{
+	return (irq);
+}
 
+#elif defined(CONFIG_44x)
+#include <asm/ibm44x.h>
+
+#define	NR_UIC_IRQS	32
+#define	NR_IRQS		((NR_UIC_IRQS * NR_UICS) + NR_BOARD_IRQS)
 
 static __inline__ int
 irq_cannonicalize(int irq)
@@ -55,18 +85,34 @@ irq_cannonicalize(int irq)
 
 #elif defined(CONFIG_8xx)
 
+/* Now include the board configuration specific associations.
+*/
+#include <asm/mpc8xx.h>
+
 /* The MPC8xx cores have 16 possible interrupts.  There are eight
  * possible level sensitive interrupts assigned and generated internally
  * from such devices as CPM, PCMCIA, RTC, PIT, TimeBase and Decrementer.
  * There are eight external interrupts (IRQs) that can be configured
- * as either level or edge sensitive. 
+ * as either level or edge sensitive.
  *
  * On some implementations, there is also the possibility of an 8259
  * through the PCI and PCI-ISA bridges.
+ *
+ * We are "flattening" the interrupt vectors of the cascaded CPM
+ * and 8259 interrupt controllers so that we can uniquely identify
+ * any interrupt source with a single integer.
  */
 #define NR_SIU_INTS	16
+#define NR_CPM_INTS	32
+#ifndef NR_8259_INTS
+#define NR_8259_INTS 0
+#endif
 
-#define NR_IRQS	(NR_SIU_INTS + NR_8259_INTS)
+#define SIU_IRQ_OFFSET		0
+#define CPM_IRQ_OFFSET		(SIU_IRQ_OFFSET + NR_SIU_INTS)
+#define I8259_IRQ_OFFSET	(CPM_IRQ_OFFSET + NR_CPM_INTS)
+
+#define NR_IRQS	(NR_SIU_INTS + NR_CPM_INTS + NR_8259_INTS)
 
 /* These values must be zero-based and map 1:1 with the SIU configuration.
  * They are used throughout the 8xx I/O subsystem to generate
@@ -90,10 +136,6 @@ irq_cannonicalize(int irq)
 #define	SIU_LEVEL6	(13)
 #define	SIU_IRQ7	(14)
 #define	SIU_LEVEL7	(15)
-
-/* Now include the board configuration specific associations.
-*/
-#include <asm/mpc8xx.h>
 
 /* The internal interrupts we can configure as we see fit.
  * My personal preference is CPM at level 2, which puts it above the
@@ -123,7 +165,7 @@ static __inline__ int irq_cannonicalize(int irq)
 	return irq;
 }
 
-#else /* CONFIG_4xx + CONFIG_8xx */
+#else /* CONFIG_40x + CONFIG_8xx */
 /*
  * this is the # irq's for all ppc arch's (pmac/chrp/prep)
  * so it is the max of them all
@@ -147,17 +189,55 @@ static __inline__ int irq_cannonicalize(int irq)
  */
 #define NR_SIU_INTS	64
 
-/* There are many more than these, we will add them as we need them.
-*/
+#define	SIU_INT_ERROR		((uint)0x00)
+#define	SIU_INT_I2C		((uint)0x01)
+#define	SIU_INT_SPI		((uint)0x02)
+#define	SIU_INT_RISC		((uint)0x03)
 #define	SIU_INT_SMC1		((uint)0x04)
 #define	SIU_INT_SMC2		((uint)0x05)
+#define	SIU_INT_IDMA1		((uint)0x06)
+#define	SIU_INT_IDMA2		((uint)0x07)
+#define	SIU_INT_IDMA3		((uint)0x08)
+#define	SIU_INT_IDMA4		((uint)0x09)
+#define	SIU_INT_SDMA		((uint)0x0a)
+#define	SIU_INT_TIMER1		((uint)0x0c)
+#define	SIU_INT_TIMER2		((uint)0x0d)
+#define	SIU_INT_TIMER3		((uint)0x0e)
+#define	SIU_INT_TIMER4		((uint)0x0f)
+#define	SIU_INT_TMCNT		((uint)0x10)
+#define	SIU_INT_PIT		((uint)0x11)
+#define	SIU_INT_IRQ1		((uint)0x13)
+#define	SIU_INT_IRQ2		((uint)0x14)
+#define	SIU_INT_IRQ3		((uint)0x15)
+#define	SIU_INT_IRQ4		((uint)0x16)
+#define	SIU_INT_IRQ5		((uint)0x17)
+#define	SIU_INT_IRQ6		((uint)0x18)
+#define	SIU_INT_IRQ7		((uint)0x19)
 #define	SIU_INT_FCC1		((uint)0x20)
 #define	SIU_INT_FCC2		((uint)0x21)
 #define	SIU_INT_FCC3		((uint)0x22)
+#define	SIU_INT_MCC1		((uint)0x24)
+#define	SIU_INT_MCC2		((uint)0x25)
 #define	SIU_INT_SCC1		((uint)0x28)
 #define	SIU_INT_SCC2		((uint)0x29)
 #define	SIU_INT_SCC3		((uint)0x2a)
 #define	SIU_INT_SCC4		((uint)0x2b)
+#define	SIU_INT_PC15		((uint)0x30)
+#define	SIU_INT_PC14		((uint)0x31)
+#define	SIU_INT_PC13		((uint)0x32)
+#define	SIU_INT_PC12		((uint)0x33)
+#define	SIU_INT_PC11		((uint)0x34)
+#define	SIU_INT_PC10		((uint)0x35)
+#define	SIU_INT_PC9		((uint)0x36)
+#define	SIU_INT_PC8		((uint)0x37)
+#define	SIU_INT_PC7		((uint)0x38)
+#define	SIU_INT_PC6		((uint)0x39)
+#define	SIU_INT_PC5		((uint)0x3a)
+#define	SIU_INT_PC4		((uint)0x3b)
+#define	SIU_INT_PC3		((uint)0x3c)
+#define	SIU_INT_PC2		((uint)0x3d)
+#define	SIU_INT_PC1		((uint)0x3e)
+#define	SIU_INT_PC0		((uint)0x3f)
 
 #endif /* CONFIG_8260 */
 

@@ -1,4 +1,4 @@
-/* $Id: sunserial.h,v 1.1.1.4 2003/10/14 08:08:35 sparq Exp $
+/* $Id: sunserial.h,v 1.19 1999/12/01 10:45:59 davem Exp $
  * sunserial.h: SUN serial driver infrastructure (including keyboards).
  *
  * Copyright (C) 1997  Eddie C. Dost  (ecd@skynet.be)

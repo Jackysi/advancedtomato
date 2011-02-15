@@ -1,10 +1,10 @@
-/* $Id: parport_sunbpp.c,v 1.1.1.4 2003/10/14 08:08:31 sparq Exp $
+/* $Id: parport_sunbpp.c,v 1.12 2001/05/26 03:01:42 davem Exp $
  * Parallel-port routines for Sun architecture
  * 
  * Author: Derrick J. Brashear <shadow@dementia.org>
  *
  * based on work by:
- *          Phil Blundell <Philip.Blundell@pobox.com>
+ *          Phil Blundell <philb@gnu.org>
  *          Tim Waugh <tim@cyberelk.demon.co.uk>
  *	    Jose Renau <renau@acm.org>
  *          David Campbell <campbell@tirian.che.curtin.edu.au>
@@ -84,6 +84,26 @@ static unsigned char parport_sunbpp_read_data(struct parport *p)
 	return sbus_readb(&regs->p_dr);
 }
 
+#if 0
+static void control_pc_to_sunbpp(struct parport *p, unsigned char status)
+{
+	struct bpp_regs *regs = (struct bpp_regs *)p->base;
+	unsigned char value_tcr = sbus_readb(&regs->p_tcr);
+	unsigned char value_or = sbus_readb(&regs->p_or);
+
+	if (status & PARPORT_CONTROL_STROBE) 
+		value_tcr |= P_TCR_DS;
+	if (status & PARPORT_CONTROL_AUTOFD) 
+		value_or |= P_OR_AFXN;
+	if (status & PARPORT_CONTROL_INIT) 
+		value_or |= P_OR_INIT;
+	if (status & PARPORT_CONTROL_SELECT) 
+		value_or |= P_OR_SLCT_IN;
+
+	sbus_writeb(value_or, &regs->p_or);
+	sbus_writeb(value_tcr, &regs->p_tcr);
+}
+#endif
 
 static unsigned char status_sunbpp_to_pc(struct parport *p)
 {

@@ -6,10 +6,13 @@
 /* PAGE_SHIFT determines the page size */
 #ifndef CONFIG_SUN3
 #define PAGE_SHIFT	(12)
-#define PAGE_SIZE	(4096)
 #else
 #define PAGE_SHIFT	(13)
-#define PAGE_SIZE	(8192)
+#endif
+#ifdef __ASSEMBLY__
+#define PAGE_SIZE	(1 << PAGE_SHIFT)
+#else
+#define PAGE_SIZE	(1UL << PAGE_SHIFT)
 #endif
 #define PAGE_MASK	(~(PAGE_SIZE-1))
 
@@ -101,7 +104,7 @@ typedef struct { unsigned long pgprot; } pgprot_t;
 #define PAGE_ALIGN(addr)	(((addr)+PAGE_SIZE-1)&PAGE_MASK)
 
 /* Pure 2^n version of get_order */
-extern __inline__ int get_order(unsigned long size)
+static inline int get_order(unsigned long size)
 {
 	int order;
 
@@ -124,6 +127,7 @@ extern __inline__ int get_order(unsigned long size)
 
 #ifndef CONFIG_SUN3
 
+#define WANT_PAGE_VIRTUAL
 #ifdef CONFIG_SINGLE_MEMORY_CHUNK
 extern unsigned long m68k_memoffset;
 
@@ -141,7 +145,7 @@ static inline unsigned long ___pa(unsigned long x)
 {
      if(x == 0)
 	  return 0;
-     if(x > PAGE_OFFSET)
+     if(x >= PAGE_OFFSET)
         return (x-PAGE_OFFSET);
      else
         return (x+0x2000000);

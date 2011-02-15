@@ -5,7 +5,7 @@
  *	Authors:
  *	Lennert Buytenhek		<buytenh@gnu.org>
  *
- *	$Id: br_forward.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ *	$Id: br_forward.c,v 1.4 2001/08/14 22:05:57 davem Exp $
  *
  *	This program is free software; you can redistribute it and/or
  *	modify it under the terms of the GNU General Public License
@@ -59,6 +59,7 @@ static void __br_forward(struct net_bridge_port *to, struct sk_buff *skb)
 
 	indev = skb->dev;
 	skb->dev = to->dev;
+	skb->ip_summed = CHECKSUM_NONE;
 
 	NF_HOOK(PF_BRIDGE, NF_BR_FORWARD, skb, indev, skb->dev,
 			__br_forward_finish);

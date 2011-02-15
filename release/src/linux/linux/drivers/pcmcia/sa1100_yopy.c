@@ -83,7 +83,7 @@ static int yopy_pcmcia_socket_state(struct pcmcia_state_array *state_array)
 	state_array->state[0].bvd1   = (levels & GPIO_CF_BVD1)  ? 1 : 0;
 	state_array->state[0].bvd2   = (levels & GPIO_CF_BVD2)  ? 1 : 0;
 	state_array->state[0].wrprot = 0; /* Not available on Yopy. */
-	state_array->state[0].vs_3v  = 0; 
+	state_array->state[0].vs_3v  = 0; /* FIXME Can only apply 3.3V on Yopy. */
 	state_array->state[0].vs_Xv  = 0;
 
 	return 1;

@@ -12,6 +12,7 @@
 #include <linux/errno.h>
 #include <linux/mm.h>
 #include <linux/bootmem.h>
+#include <linux/spinlock.h>
 #include <asm/mipsregs.h>
 #include <asm/jazz.h>
 #include <asm/io.h>
@@ -24,6 +25,8 @@
  * Set this to one to enable additional vdma debug code.
  */
 #define CONF_DEBUG_VDMA 0
+
+static spinlock_t jazz_dma_lock = SPIN_LOCK_UNLOCKED;
 
 static unsigned long vdma_pagetable_start;
 
@@ -42,10 +45,9 @@ static int debuglvl = 3;
  */
 static inline void vdma_pgtbl_init(void)
 {
-	int i;
+	VDMA_PGTBL_ENTRY *pgtbl = (VDMA_PGTBL_ENTRY *) vdma_pagetable_start;
 	unsigned long paddr = 0;
-	VDMA_PGTBL_ENTRY *pgtbl =
-	    (VDMA_PGTBL_ENTRY *) vdma_pagetable_start;
+	int i;
 
 	for (i = 0; i < VDMA_PGTBL_ENTRIES; i++) {
 		pgtbl[i].frame = paddr;
@@ -88,15 +90,9 @@ void __init vdma_init(void)
  */
 unsigned long vdma_alloc(unsigned long paddr, unsigned long size)
 {
-	VDMA_PGTBL_ENTRY *entry =
-	    (VDMA_PGTBL_ENTRY *) vdma_pagetable_start;
-	int first;
-	int last;
-	int pages;
-	unsigned int frame;
-	unsigned long laddr;
-	int i;
-	unsigned long flags;
+	VDMA_PGTBL_ENTRY *entry = (VDMA_PGTBL_ENTRY *) vdma_pagetable_start;
+	int first, last, pages, frame, i;
+	unsigned long laddr, flags;
 
 	/* check arguments */
 
@@ -112,7 +108,8 @@ unsigned long vdma_alloc(unsigned long paddr, unsigned long size)
 		return VDMA_ERROR;	/* invalid physical address */
 	}
 
-	save_and_cli(flags);
+	spin_lock_irqsave(&jazz_dma_lock, flags);
+
 	/*
 	 * Find free chunk
 	 */
@@ -121,8 +118,9 @@ unsigned long vdma_alloc(unsigned long paddr, unsigned long size)
 	while (1) {
 		while (entry[first].owner != VDMA_PAGE_EMPTY &&
 		       first < VDMA_PGTBL_ENTRIES) first++;
-		if (first + pages > VDMA_PGTBL_ENTRIES) {	/* nothing free */
-			restore_flags(flags);
+		if (first + pages > VDMA_PGTBL_ENTRIES) {
+			/* nothing free */
+			spin_unlock_irqrestore(&jazz_dma_lock, flags);
 			return VDMA_ERROR;
 		}
 
@@ -153,8 +151,7 @@ unsigned long vdma_alloc(unsigned long paddr, unsigned long size)
 	r4030_write_reg32(JAZZ_R4030_TRSTBL_INV, 0);
 
 	if (vdma_debug > 1)
-		printk
-		    ("vdma_alloc: Allocated %d pages starting from %08lx\n",
+		printk("vdma_alloc: Allocated %d pages starting from %08lx\n",
 		     pages, laddr);
 
 	if (vdma_debug > 2) {
@@ -170,7 +167,8 @@ unsigned long vdma_alloc(unsigned long paddr, unsigned long size)
 		printk("\n");
 	}
 
-	restore_flags(flags);
+	spin_unlock_irqrestore(&jazz_dma_lock, flags);
+
 	return laddr;
 }
 
@@ -181,8 +179,7 @@ unsigned long vdma_alloc(unsigned long paddr, unsigned long size)
  */
 int vdma_free(unsigned long laddr)
 {
-	VDMA_PGTBL_ENTRY *pgtbl =
-	    (VDMA_PGTBL_ENTRY *) vdma_pagetable_start;
+	VDMA_PGTBL_ENTRY *pgtbl = (VDMA_PGTBL_ENTRY *) vdma_pagetable_start;
 	int i;
 
 	i = laddr >> 12;
@@ -194,7 +191,7 @@ int vdma_free(unsigned long laddr)
 		return -1;
 	}
 
-	while (pgtbl[i].owner == laddr && i < VDMA_PGTBL_ENTRIES) {
+	while (i < VDMA_PGTBL_ENTRIES && pgtbl[i].owner == laddr) {
 		pgtbl[i].owner = VDMA_PAGE_EMPTY;
 		i++;
 	}
@@ -213,27 +210,23 @@ int vdma_free(unsigned long laddr)
 int vdma_remap(unsigned long laddr, unsigned long paddr,
 	       unsigned long size)
 {
-	VDMA_PGTBL_ENTRY *pgtbl =
-	    (VDMA_PGTBL_ENTRY *) vdma_pagetable_start;
+	VDMA_PGTBL_ENTRY *pgtbl = (VDMA_PGTBL_ENTRY *) vdma_pagetable_start;
 	int first, pages, npages;
 
 	if (laddr > 0xffffff) {
 		if (vdma_debug)
-			printk
-			    ("vdma_map: Invalid logical address: %08lx\n",
+			printk("vdma_map: Invalid logical address: %08lx\n",
 			     laddr);
 		return -EINVAL;	/* invalid logical address */
 	}
 	if (paddr > 0x1fffffff) {
 		if (vdma_debug)
-			printk
-			    ("vdma_map: Invalid physical address: %08lx\n",
+			printk("vdma_map: Invalid physical address: %08lx\n",
 			     paddr);
 		return -EINVAL;	/* invalid physical address */
 	}
 
-	npages = pages =
-	    (((paddr & (VDMA_PAGESIZE - 1)) + size) >> 12) + 1;
+	npages = pages = (((paddr & (VDMA_PAGESIZE - 1)) + size) >> 12) + 1;
 	first = laddr >> 12;
 	if (vdma_debug)
 		printk("vdma_remap: first=%x, pages=%x\n", first, pages);
@@ -287,10 +280,8 @@ int vdma_remap(unsigned long laddr, unsigned long paddr,
  */
 unsigned long vdma_phys2log(unsigned long paddr)
 {
-	int i;
-	int frame;
-	VDMA_PGTBL_ENTRY *pgtbl =
-	    (VDMA_PGTBL_ENTRY *) vdma_pagetable_start;
+	VDMA_PGTBL_ENTRY *pgtbl = (VDMA_PGTBL_ENTRY *) vdma_pagetable_start;
+	int frame, i;
 
 	frame = paddr & ~(VDMA_PAGESIZE - 1);
 
@@ -310,8 +301,7 @@ unsigned long vdma_phys2log(unsigned long paddr)
  */
 unsigned long vdma_log2phys(unsigned long laddr)
 {
-	VDMA_PGTBL_ENTRY *pgtbl =
-	    (VDMA_PGTBL_ENTRY *) vdma_pagetable_start;
+	VDMA_PGTBL_ENTRY *pgtbl = (VDMA_PGTBL_ENTRY *) vdma_pagetable_start;
 
 	return pgtbl[laddr >> 12].frame + (laddr & (VDMA_PAGESIZE - 1));
 }
@@ -347,9 +337,8 @@ void vdma_stats(void)
 	printk("\n");
 	printk("vdma_chnl_enables: ");
 	for (i = 0; i < 8; i++)
-		printk("%04x ",
-		       (unsigned) r4030_read_reg32(JAZZ_R4030_CHNL_ENABLE +
-						   (i << 5)));
+		printk("%04x ", r4030_read_reg32(JAZZ_R4030_CHNL_ENABLE +
+						(i << 5)));
 	printk("\n");
 }
 
@@ -399,8 +388,7 @@ void vdma_enable(int channel)
 void vdma_disable(int channel)
 {
 	if (vdma_debug) {
-		int status =
-		    r4030_read_reg32(JAZZ_R4030_CHNL_ENABLE +
+		int status = r4030_read_reg32(JAZZ_R4030_CHNL_ENABLE +
 				     (channel << 5));
 
 		printk("vdma_disable: channel %d\n", channel);

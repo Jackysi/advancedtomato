@@ -20,7 +20,7 @@
 
 #include "libbb.h"
 
-/* This is a NOFORK applet. Be very careful! */
+/* Do not make this applet NOFORK. It breaks ^C-ing of pauses in shells */
 
 
 #if ENABLE_FEATURE_FANCY_SLEEP || ENABLE_FEATURE_FLOAT_SLEEP
@@ -29,7 +29,7 @@ static const struct suffix_mult sfx[] = {
 	{ "m", 60 },
 	{ "h", 60*60 },
 	{ "d", 24*60*60 },
-	{ }
+	{ "", 0 }
 };
 #endif
 
@@ -49,25 +49,32 @@ int sleep_main(int argc UNUSED_PARAM, char **argv)
 
 #if ENABLE_FEATURE_FLOAT_SLEEP
 
+# if ENABLE_LOCALE_SUPPORT
+	/* undo busybox.c setlocale */
+	setlocale(LC_NUMERIC, "C");
+# endif
 	duration = 0;
 	do {
 		char *arg = *argv;
 		if (strchr(arg, '.')) {
 			double d;
+			char *pp;
 			int len = strspn(arg, "0123456789.");
 			char sv = arg[len];
 			arg[len] = '\0';
-			d = bb_strtod(arg, NULL);
-			if (errno)
+			errno = 0;
+			d = strtod(arg, &pp);
+			if (errno || *pp)
 				bb_show_usage();
-			arg[len] = sv;
-			len--;
-			sv = arg[len];
-			arg[len] = '1';
-			duration += d * xatoul_sfx(&arg[len], sfx);
-			arg[len] = sv;
-		} else
+			arg += len;
+			*arg-- = sv;
+			sv = *arg;
+			*arg = '1';
+			duration += d * xatoul_sfx(arg, sfx);
+			*arg = sv;
+		} else {
 			duration += xatoul_sfx(arg, sfx);
+		}
 	} while (*++argv);
 
 	ts.tv_sec = MAXINT(typeof(ts.tv_sec));

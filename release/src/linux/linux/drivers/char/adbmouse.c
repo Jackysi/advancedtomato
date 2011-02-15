@@ -54,6 +54,10 @@ extern int adb_emulate_buttons;
 extern int adb_button2_keycode;
 extern int adb_button3_keycode;
 
+/*
+ *    XXX: need to figure out what ADB mouse packets mean ... 
+ *      This is the stuff stolen from the Atari driver ...
+ */
 static void adb_mouse_interrupt(unsigned char *buf, int nb)
 {
 	int buttons, id;
@@ -127,6 +131,10 @@ static void adb_mouse_interrupt(unsigned char *buf, int nb)
 static int release_mouse(struct inode *inode, struct file *file)
 {
 	adb_mouse_interrupt_hook = NULL;
+	/*
+	 *	FIXME?: adb_mouse_interrupt_hook may still be executing
+	 *	on another CPU.
+	 */
 	return 0;
 }
 
@@ -165,6 +173,12 @@ static int __init adb_mouse_init(void)
 
 #ifndef MODULE
 
+/*
+ * XXX this function is misnamed.
+ * It is called if the kernel is booted with the adb_buttons=xxx
+ * option, which is about using ADB keyboard buttons to emulate
+ * mouse buttons. -- paulus
+ */
 static int __init adb_mouse_setup(char *str)
 {
 	int ints[4];

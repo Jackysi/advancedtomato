@@ -148,31 +148,47 @@ static int clearmarks_write(struct file *file, const char *buffer, unsigned long
 
 static int __init init(void)
 {
+#ifdef CONFIG_PROC_FS
 	struct proc_dir_entry *p;
 
 	printk(__FILE__ " [" __DATE__ " " __TIME__ "]\n");
 
 #ifdef TEST_HASHDIST
 	p = create_proc_entry("hash_dist", 0400, proc_net);
-	if (p) p->read_proc = hashdist_read;
+	if (p) {
+		p->owner = THIS_MODULE;
+		wmb();
+		p->read_proc = hashdist_read;
+	}
 #endif
 
 	p = create_proc_entry("expire_early", 0200, proc_net);
-	if (p) p->write_proc = expireearly_write;
+	if (p) {
+		p->owner = THIS_MODULE;
+		wmb();
+		p->write_proc = expireearly_write;
+	}
 	
 	p = create_proc_entry("clear_marks", 0200, proc_net);
-	if (p) p->write_proc = clearmarks_write;
+	if (p) {
+		p->owner = THIS_MODULE;
+		wmb();
+		p->write_proc = clearmarks_write;
+	}
+#endif /* CONFIG_PROC_FS */
 	
 	return 0;
 }
 
 static void __exit fini(void)
 {
+#ifdef CONFIG_PROC_FS
 #ifdef TEST_HASHDIST
 	remove_proc_entry("hash_dist", proc_net);
 #endif
 	remove_proc_entry("expire_early", proc_net);
 	remove_proc_entry("clear_marks", proc_net);
+#endif /* CONFIG_PROC_FS */
 }
 
 module_init(init);

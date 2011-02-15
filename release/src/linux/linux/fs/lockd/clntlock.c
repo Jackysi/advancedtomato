@@ -34,7 +34,7 @@ static int			reclaimer(void *ptr);
  * This is the representation of a blocked client lock.
  */
 struct nlm_wait {
-	struct nlm_wait *	b_next;		/* linked list */
+	struct list_head	b_list;		/* linked list */
 	wait_queue_head_t	b_wait;		/* where to wait on */
 	struct nlm_host *	b_host;
 	struct file_lock *	b_lock;		/* local file lock */
@@ -42,7 +42,7 @@ struct nlm_wait {
 	u32			b_status;	/* grant callback status */
 };
 
-static struct nlm_wait *	nlm_blocked;
+static LIST_HEAD(nlm_blocked);
 
 /*
  * Block on a lock
@@ -50,7 +50,7 @@ static struct nlm_wait *	nlm_blocked;
 int
 nlmclnt_block(struct nlm_host *host, struct file_lock *fl, u32 *statp)
 {
-	struct nlm_wait	block, **head;
+	struct nlm_wait	block;
 	int		err;
 	u32		pstate;
 
@@ -58,8 +58,7 @@ nlmclnt_block(struct nlm_host *host, struct file_lock *fl, u32 *statp)
 	block.b_lock   = fl;
 	init_waitqueue_head(&block.b_wait);
 	block.b_status = NLM_LCK_BLOCKED;
-	block.b_next   = nlm_blocked;
-	nlm_blocked    = &block;
+	list_add(&block.b_list, &nlm_blocked);
 
 	/* Remember pseudo nsm state */
 	pstate = host->h_state;
@@ -74,12 +73,7 @@ nlmclnt_block(struct nlm_host *host, struct file_lock *fl, u32 *statp)
 	 */
 	sleep_on_timeout(&block.b_wait, 30*HZ);
 
-	for (head = &nlm_blocked; *head; head = &(*head)->b_next) {
-		if (*head == &block) {
-			*head = block.b_next;
-			break;
-		}
-	}
+	list_del(&block.b_list);
 
 	if (!signalled()) {
 		*statp = block.b_status;
@@ -108,7 +102,7 @@ nlmclnt_grant(struct nlm_lock *lock)
 	 * Look up blocked request based on arguments. 
 	 * Warning: must not use cookie to match it!
 	 */
-	for (block = nlm_blocked; block; block = block->b_next) {
+	list_for_each_entry(block, &nlm_blocked, b_list) {
 		if (nlm_compare_locks(block->b_lock, &lock->fl))
 			break;
 	}
@@ -131,6 +125,11 @@ nlmclnt_grant(struct nlm_lock *lock)
  * server crash.
  */
 
+/*
+ * Mark the locks for reclaiming.
+ * FIXME: In 2.5 we don't want to iterate through any global file_lock_list.
+ *        Maintain NLM lock reclaiming lists in the nlm_host instead.
+ */
 static
 void nlmclnt_mark_reclaim(struct nlm_host *host)
 {
@@ -183,7 +182,8 @@ nlmclnt_recovery(struct nlm_host *host, u32 newstate)
 		nlmclnt_prepare_reclaim(host, newstate);
 		nlm_get_host(host);
 		MOD_INC_USE_COUNT;
-		kernel_thread(reclaimer, host, CLONE_SIGNAL);
+		if (kernel_thread(reclaimer, host, CLONE_SIGNAL) < 0)
+			MOD_DEC_USE_COUNT;
 	}
 }
 
@@ -231,7 +231,7 @@ restart:
 	wake_up(&host->h_gracewait);
 
 	/* Now, wake up all processes that sleep on a blocked lock */
-	for (block = nlm_blocked; block; block = block->b_next) {
+	list_for_each_entry(block, &nlm_blocked, b_list) {
 		if (block->b_host == host) {
 			block->b_status = NLM_LCK_DENIED_GRACE_PERIOD;
 			wake_up(&block->b_wait);

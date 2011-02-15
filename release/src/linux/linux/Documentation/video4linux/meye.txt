@@ -1,6 +1,7 @@
 Vaio Picturebook Motion Eye Camera Driver Readme
 ------------------------------------------------
-	Copyright (C) 2001 Stelian Pop <stelian.pop@fr.alcove.com>, Alcôve
+	Copyright (C) 2001-2003 Stelian Pop <stelian@popies.net>
+	Copyright (C) 2001-2002 Alcôve <www.alcove.com>
 	Copyright (C) 2000 Andrew Tridgell <tridge@samba.org>
 
 This driver enable the use of video4linux compatible applications with the
@@ -14,6 +15,28 @@ It can do at maximum 30 fps @ 320x240 or 15 fps @ 640x480.
 Grabbing is supported in packed YUV colorspace only.
 
 MJPEG hardware grabbing is supported via a private API (see below).
+
+Hardware supported:
+-------------------
+
+This driver supports the 'second' version of the MotionEye camera :)
+
+The first version was connected directly on the video bus of the Neomagic
+video card and is unsupported.
+
+The second one, made by Kawasaki Steel is fully supported by this 
+driver (PCI vendor/device is 0x136b/0xff01)
+
+The third one, present in recent (more or less last year) Picturebooks
+(C1M* models), is not supported. The manufacturer has given the specs
+to the developers under a NDA (which allows the develoment of a GPL
+driver however), but things are not moving very fast (see
+http://r-engine.sourceforge.net/) (PCI vendor/device is 0x10cf/0x2011).
+
+There is a forth model connected on the USB bus in TR1* Vaio laptops.
+This camera is not supported at all by the current driver, in fact
+little information if any is available for this camera
+(USB vendor/device is 0x054c/0x0107).
 
 Driver options:
 ---------------
@@ -52,7 +75,7 @@ Usage:
 				or
 			xawtv -c /dev/video0 -geometry 320x240
 
-	motioneye (<http://www.alcove-labs.org/en/software/meye/>)
+	motioneye (<http://popies.net/meye/>)
 		for getting ppm or jpg snapshots, mjpeg video
 
 Private API:

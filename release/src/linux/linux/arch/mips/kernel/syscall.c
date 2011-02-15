@@ -5,6 +5,7 @@
  *
  * Copyright (C) 1995 - 2000 by Ralf Baechle
  * Copyright (C) 2000 Silicon Graphics, Inc.
+ * Copyright (C) 2004  Maciej W. Rozycki
  *
  * TODO:  Implement the compatibility syscalls.
  *        Don't waste that much memory for empty entries in the syscall
@@ -39,7 +40,7 @@ extern asmlinkage int (*do_syscalls)(struct pt_regs *regs, syscall_t fun,
 extern syscall_t sys_call_table[];
 extern unsigned char sys_narg_table[];
 
-asmlinkage int sys_pipe(struct pt_regs regs)
+asmlinkage int sys_pipe(volatile struct pt_regs regs)
 {
 	int fd[2];
 	int error, res;
@@ -55,9 +56,11 @@ out:
 	return res;
 }
 
-#define COLOUR_ALIGN(addr,pgoff)		\
-	((((addr)+SHMLBA-1)&~(SHMLBA-1)) +	\
-	 (((pgoff)<<PAGE_SHIFT) & (SHMLBA-1)))
+unsigned long shm_align_mask = PAGE_SIZE - 1;	/* Sane caches */
+
+#define COLOUR_ALIGN(addr,pgoff)				\
+	((((addr) + shm_align_mask) & ~shm_align_mask) +	\
+	 (((pgoff) << PAGE_SHIFT) & shm_align_mask))
 
 unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 	unsigned long len, unsigned long pgoff, unsigned long flags)
@@ -70,7 +73,8 @@ unsigned long arch_get_unmapped_area(struct file *filp, unsigned long addr,
 		 * We do not accept a shared mapping if it would violate
 		 * cache aliasing constraints.
 		 */
-		if ((flags & MAP_SHARED) && (addr & (SHMLBA - 1)))
+		if ((flags & MAP_SHARED) &&
+		    ((addr - (pgoff << PAGE_SHIFT)) & shm_align_mask))
 			return -EINVAL;
 		return addr;
 	}
@@ -156,7 +160,8 @@ sys_mmap2(unsigned long addr, unsigned long len, unsigned long prot,
 }
 
 save_static_function(sys_fork);
-static_unused int _sys_fork(struct pt_regs regs)
+__attribute_used__ static int
+_sys_fork(struct pt_regs regs)
 {
 	int res;
 
@@ -166,7 +171,8 @@ static_unused int _sys_fork(struct pt_regs regs)
 
 
 save_static_function(sys_clone);
-static_unused int _sys_clone(struct pt_regs regs)
+__attribute_used__ static int
+_sys_clone(struct pt_regs regs)
 {
 	unsigned long clone_flags;
 	unsigned long newsp;
@@ -237,6 +243,11 @@ asmlinkage int sys_olduname(struct oldold_utsname * name)
 	return error;
 }
 
+/*
+ * If we ever come here the user sp is bad.  Zap the process right away.
+ * Due to the bad stack signaling wouldn't work.
+ * XXX kernel locking???
+ */
 asmlinkage void bad_stack(void)
 {
 	do_exit(SIGSEGV);
@@ -245,53 +256,11 @@ asmlinkage void bad_stack(void)
 /*
  * Build the string table for the builtin "poor man's strace".
  */
-#ifdef CONFIG_PRINT_SYSCALLS
+#ifdef CONF_PRINT_SYSCALLS
 #define SYS(fun, narg) #fun,
 static char *sfnames[] = {
 #include "syscalls.h"
 };
-
-#ifdef	CONFIG_HWSIM
-int do_strace = 1;
-#else
-int do_strace = 0;
-#endif
-
-asmlinkage void strace(struct pt_regs *regs)
-{
-	int i;
-	unsigned long scn, narg, *pa0;
-	char *name, space[16];
-
-	if (do_strace == 0)
-		return;
-
-	scn = regs->regs[2];
-	pa0 = &regs->regs[4];
-
-	if ((scn >= __NR_Linux)  && (scn < (__NR_Linux + __NR_Linux_syscalls))) {
-		name = sfnames[scn - __NR_Linux];
-		narg = sys_narg_table[scn];
-	} else {
-		sprintf(space, "sc%lu", scn);
-		name = space;
-		narg = 0;
-	}
-
-	printk("%lu[%s:%d]@0x%08lx: %s(", jiffies, current->comm, current->pid, regs->cp0_epc, name);
-
-	if (narg > 6) narg = 6;
-
-	for (i = 0; i < narg; i++) {
-		if (i) printk(", ");
-		if (i < 4)
-			printk("0x%08lx", pa0[i]);
-		else
-			printk("0x%08lx", regs->pad0[i]);
-	}
-
-	printk(")\n");
-}
 #endif
 
 #if defined(CONFIG_BINFMT_IRIX) && defined(CONF_DEBUG_IRIX)

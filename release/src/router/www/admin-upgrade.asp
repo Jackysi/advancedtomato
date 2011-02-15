@@ -48,7 +48,7 @@ function upgrade()
 	var ext;
 
 	name = fom.file.value;
-	if (name.search(/\.(bin|trx)$/i) == -1) {
+	if (name.search(/\.(bin|trx|chk)$/i) == -1) {
 		alert('Expecting a ".bin" or ".trx" file.');
 		return;
 	}
@@ -65,7 +65,8 @@ function upgrade()
 	startTime = (new Date()).getTime();
 	setInterval('clock()', 800);
 
-	fom.action += '?_http_id=' + nvram.http_id;
+	fom.action += '?_reset=' + (E('f_reset').checked ? "1" : "0");
+	form.addIdAction(fom);
 	fom.submit();
 }
 </script>
@@ -92,6 +93,11 @@ function upgrade()
 			<input type='file' name='file' size='50' style='height:20px'> <input type='button' value='Upgrade' id='afu-upgrade-button' onclick='upgrade()' style='height:20px'>
 		</div>
 		</form>
+		<br><form name='form_reset' action='javascript:{}'>
+		<div id='reset-input'>
+			<input type='checkbox' id='f_reset'>&nbsp;&nbsp;After flashing, erase all data in NVRAM memory
+		</div>
+		</form>
 
 		<br>
 		<table border=0>
@@ -105,12 +111,14 @@ function upgrade()
 	</div>
 </div>
 
+/* JFFS2-BEGIN */
 <div class='note-disabledw' style='display:none' id='jwarn'>
-<b>Cannot upgrade if JFFS2 is enabled.</b><br><br>
-An upgrade may overwrite the JFFS2 partition currently in use. Before upgrading,
-please backup the contents of the JFFS2 partition, disable it, then reboot the router.<br><br><br>
+<b>Cannot upgrade if JFFS is enabled.</b><br><br>
+An upgrade may overwrite the JFFS partition currently in use. Before upgrading,
+please backup the contents of the JFFS partition, disable it, then reboot the router.<br><br><br>
 <a href='admin-jffs2.asp'>Disable &raquo;</a>
 </div>
+/* JFFS2-END */
 
 <div id='afu-progress' style='display:none;margin:auto'>
 	<img src='spin.gif' style='vertical-align:baseline'> <span id='afu-time'>0:00</span><br>
@@ -123,11 +131,13 @@ please backup the contents of the JFFS2 partition, disable it, then reboot the r
 </td></tr>
 <tr><td id='footer' colspan=2>&nbsp;</td></tr>
 </table>
+/* JFFS2-BEGIN */
 <script type='text/javascript'>
 if (nvram.jffs2_on != '0') {
 	E('jwarn').style.display = '';
 	E('afu-input').style.display = 'none';
 }
 </script>
+/* JFFS2-END */
 </body>
 </html>

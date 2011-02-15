@@ -90,6 +90,9 @@ unsigned long (*mach_gettimeoffset) (void);
 void (*mach_gettod) (int*, int*, int*, int*, int*, int*);
 int (*mach_hwclk) (int, struct rtc_time*) = NULL;
 int (*mach_set_clock_mmss) (unsigned long) = NULL;
+unsigned int (*mach_get_ss)(void) = NULL;
+int (*mach_get_rtc_pll)(struct rtc_pll_info *) = NULL;
+int (*mach_set_rtc_pll)(struct rtc_pll_info *) = NULL;
 void (*mach_reset)( void );
 void (*mach_halt)( void ) = NULL;
 void (*mach_power_off)( void ) = NULL;
@@ -225,6 +228,7 @@ void __init setup_arch(char **cmdline_p)
 		/* The bootinfo is located right after the kernel bss */
 		m68k_parse_bootinfo((const struct bi_record *)&_end);
 	} else {
+		/* FIXME HP300 doesn't use bootinfo yet */
 		extern unsigned long hp300_phys_ram_base;
 		unsigned long hp300_mem_size = 0xffffffff-hp300_phys_ram_base;
 		m68k_cputype = CPU_68030;
@@ -240,6 +244,23 @@ void __init setup_arch(char **cmdline_p)
 	else if (CPU_IS_060)
 		m68k_is040or060 = 6;
 
+	if (CPU_IS_060) {
+		u32 pcr;
+
+		asm (".chip 68060; movec %%pcr,%0; .chip 68k"
+		     : "=d" (pcr));
+		if (((pcr >> 8) & 0xff) <= 5) {
+			printk("Enabling workaround for errata I14\n");
+			asm (".chip 68060; movec %0,%%pcr; .chip 68k"
+			     : : "d" (pcr | 0x20));
+		}
+	}
+
+	/* FIXME: m68k_fputype is passed in by Penguin booter, which can
+	 * be confused by software FPU emulation. BEWARE.
+	 * We should really do our own FPU check at startup.
+	 * [what do we do with buggy 68LC040s? if we have problems
+	 *  with them, we should add a test to check_bugs() below] */
 #ifndef CONFIG_M68KFPU_EMU_ONLY
 	/* clear the fpu if we have one */
 	if (m68k_fputype & (FPU_68881|FPU_68882|FPU_68040|FPU_68060)) {
@@ -256,6 +277,10 @@ void __init setup_arch(char **cmdline_p)
 	*cmdline_p = m68k_command_line;
 	memcpy(saved_command_line, *cmdline_p, CL_SIZE);
 
+	/* Parse the command line for arch-specific options.
+	 * For the m68k, this is currently only "debug=xxx" to enable printing
+	 * certain kernel messages to some machine-specific device.
+	 */
 	for( p = *cmdline_p; p && *p; ) {
 	    i = 0;
 	    if (!strncmp( p, "debug=", 6 )) {
@@ -265,13 +290,20 @@ void __init setup_arch(char **cmdline_p)
 		i = 1;
 	    }
 #ifdef CONFIG_ATARI
-	    /* This option must be parsed very early */
+	    /* These options must be parsed very early */
 	    if (!strncmp( p, "switches=", 9 )) {
 		extern void atari_switches_setup( const char *, int );
 		atari_switches_setup( p+9, (q = strchr( p+9, ' ' )) ?
 				           (q - (p+9)) : strlen(p+9) );
 		i = 1;
 	    }
+#ifdef CONFIG_STRAM_SWAP
+	    if (!strncmp( p, "stram_swap=", 11 )) {
+		extern void stram_swap_setup( char * );
+		stram_swap_setup( p+11 );
+		i = 1;
+	    }
+#endif	/* CONFIG_STRAM_SWAP */
 #endif
 
 	    if (i) {
@@ -565,7 +597,5 @@ void check_bugs(void)
 		printk( KERN_EMERG "(see http://no-fpu.linux-m68k.org)\n" );
 		panic( "no FPU" );
 	}
-
-#endif /* CONFIG_SUN3 */
-
+#endif /* !CONFIG_M68KFPU_EMU */
 }

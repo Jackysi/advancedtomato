@@ -63,7 +63,7 @@
 #ifdef LINUX
 #include <typedefs.h>
 #endif
-#ifdef WIN32
+#ifdef OPENSSL_SYS_WIN32
 #include <windows.h>
 #endif
 #ifdef SOLARIS
@@ -77,6 +77,12 @@
 #ifdef PTHREADS
 #include <pthread.h>
 #endif
+#ifdef OPENSSL_SYS_NETWARE
+#if !defined __int64
+#  define __int64 long long
+#endif   
+#include <nwmpk.h>
+#endif
 #include <openssl/lhash.h>
 #include <openssl/crypto.h>
 #include <openssl/buffer.h>
@@ -86,13 +92,18 @@
 #include <openssl/err.h>
 #include <openssl/rand.h>
 
-#ifdef NO_FP_API
+#ifdef OPENSSL_NO_FP_API
 #define APPS_WIN16
 #include "../buffer/bss_file.c"
 #endif
 
+#ifdef OPENSSL_SYS_NETWARE
+#define TEST_SERVER_CERT "/openssl/apps/server.pem"
+#define TEST_CLIENT_CERT "/openssl/apps/client.pem"
+#else
 #define TEST_SERVER_CERT "../../apps/server.pem"
 #define TEST_CLIENT_CERT "../../apps/client.pem"
+#endif
 
 #define MAX_THREAD_NUMBER	100
 
@@ -105,10 +116,20 @@ void irix_locking_callback(int mode,int type,char *file,int line);
 void solaris_locking_callback(int mode,int type,char *file,int line);
 void win32_locking_callback(int mode,int type,char *file,int line);
 void pthreads_locking_callback(int mode,int type,char *file,int line);
+void netware_locking_callback(int mode,int type,char *file,int line);
+void beos_locking_callback(int mode,int type,const char *file,int line);
 
 unsigned long irix_thread_id(void );
 unsigned long solaris_thread_id(void );
 unsigned long pthreads_thread_id(void );
+unsigned long netware_thread_id(void );
+unsigned long beos_thread_id(void );
+
+#if defined(OPENSSL_SYS_NETWARE)
+static MPKMutex *lock_cs;
+static MPKSema ThreadSem;
+static long *lock_count;
+#endif
 
 BIO *bio_err=NULL;
 BIO *bio_stdout=NULL;
@@ -248,7 +269,8 @@ bad:
 		goto end;
 		}
 
-	if (cipher == NULL) cipher=getenv("SSL_CIPHER");
+	if (cipher == NULL && OPENSSL_issetugid() == 0)
+		cipher=getenv("SSL_CIPHER");
 
 	SSL_load_error_strings();
 	OpenSSL_add_ssl_algorithms();
@@ -388,6 +410,9 @@ int ndoit(SSL_CTX *ssl_ctx[2])
 		SSL_free((SSL *)ctx[2]);
 		SSL_free((SSL *)ctx[3]);
 		}
+#   ifdef OPENSSL_SYS_NETWARE
+        MPKSemaphoreSignal(ThreadSem);
+#   endif
 	return(0);
 	}
 
@@ -631,6 +656,9 @@ int doit(char *ctx[4])
 			}
 
 		if ((done & S_DONE) && (done & C_DONE)) break;
+#   if defined(OPENSSL_SYS_NETWARE)
+        ThreadSwitchWithDelay();
+#   endif
 		}
 
 	SSL_set_shutdown(c_ssl,SSL_SENT_SHUTDOWN|SSL_RECEIVED_SHUTDOWN);
@@ -691,7 +719,7 @@ int MS_CALLBACK verify_callback(int ok, X509_STORE_CTX *ctx)
 
 #define THREAD_STACK_SIZE (16*1024)
 
-#ifdef WIN32
+#ifdef OPENSSL_SYS_WIN32
 
 static HANDLE *lock_cs;
 
@@ -782,7 +810,7 @@ void do_threads(SSL_CTX *s_ctx, SSL_CTX *c_ctx)
 	printf("win32 threads done - %.3f seconds\n",ret);
 	}
 
-#endif /* WIN32 */
+#endif /* OPENSSL_SYS_WIN32 */
 
 #ifdef SOLARIS
 
@@ -1098,3 +1126,185 @@ unsigned long pthreads_thread_id(void)
 
 
 
+#ifdef OPENSSL_SYS_NETWARE
+
+void thread_setup(void)
+{
+   int i;
+
+   lock_cs=OPENSSL_malloc(CRYPTO_num_locks() * sizeof(MPKMutex));
+   lock_count=OPENSSL_malloc(CRYPTO_num_locks() * sizeof(long));
+   for (i=0; i<CRYPTO_num_locks(); i++)
+   {
+      lock_count[i]=0;
+      lock_cs[i]=MPKMutexAlloc("OpenSSL mutex");
+   }
+
+   ThreadSem = MPKSemaphoreAlloc("OpenSSL mttest semaphore", 0 );
+
+   CRYPTO_set_id_callback((unsigned long (*)())netware_thread_id);
+   CRYPTO_set_locking_callback((void (*)())netware_locking_callback);
+}
+
+void thread_cleanup(void)
+{
+   int i;
+
+   CRYPTO_set_locking_callback(NULL);
+
+   fprintf(stdout,"thread_cleanup\n");
+
+   for (i=0; i<CRYPTO_num_locks(); i++)
+   {
+      MPKMutexFree(lock_cs[i]);
+      fprintf(stdout,"%8ld:%s\n",lock_count[i],CRYPTO_get_lock_name(i));
+   }
+   OPENSSL_free(lock_cs);
+   OPENSSL_free(lock_count);
+
+   MPKSemaphoreFree(ThreadSem);
+
+   fprintf(stdout,"done cleanup\n");
+}
+
+void netware_locking_callback(int mode, int type, char *file, int line)
+{
+   if (mode & CRYPTO_LOCK)
+   {
+      MPKMutexLock(lock_cs[type]);
+      lock_count[type]++;
+   }
+   else
+      MPKMutexUnlock(lock_cs[type]);
+}
+
+void do_threads(SSL_CTX *s_ctx, SSL_CTX *c_ctx)
+{
+   SSL_CTX *ssl_ctx[2];
+   int i;
+   ssl_ctx[0]=s_ctx;
+   ssl_ctx[1]=c_ctx;
+
+   for (i=0; i<thread_number; i++)
+   {
+      BeginThread( (void(*)(void*))ndoit, NULL, THREAD_STACK_SIZE, 
+                   (void*)ssl_ctx);
+      ThreadSwitchWithDelay();
+   }
+
+   printf("reaping\n");
+
+      /* loop until all threads have signaled the semaphore */
+   for (i=0; i<thread_number; i++)
+   {
+      MPKSemaphoreWait(ThreadSem);
+   }
+   printf("netware threads done (%d,%d)\n",
+         s_ctx->references,c_ctx->references);
+}
+
+unsigned long netware_thread_id(void)
+{
+   unsigned long ret;
+
+   ret=(unsigned long)GetThreadID();
+   return(ret);
+}
+#endif /* NETWARE */
+
+#ifdef BEOS_THREADS
+
+#include <Locker.h>
+
+static BLocker** lock_cs;
+static long* lock_count;
+
+void thread_setup(void)
+	{
+	int i;
+
+	lock_cs=(BLocker**)OPENSSL_malloc(CRYPTO_num_locks() * sizeof(BLocker*));
+	lock_count=(long*)OPENSSL_malloc(CRYPTO_num_locks() * sizeof(long));
+	for (i=0; i<CRYPTO_num_locks(); i++)
+		{
+		lock_count[i]=0;
+		lock_cs[i] = new BLocker(CRYPTO_get_lock_name(i));
+		}
+
+	CRYPTO_set_id_callback((unsigned long (*)())beos_thread_id);
+	CRYPTO_set_locking_callback(beos_locking_callback);
+	}
+
+void thread_cleanup(void)
+	{
+	int i;
+
+	CRYPTO_set_locking_callback(NULL);
+	fprintf(stderr,"cleanup\n");
+	for (i=0; i<CRYPTO_num_locks(); i++)
+		{
+		delete lock_cs[i];
+		fprintf(stderr,"%8ld:%s\n",lock_count[i],
+			CRYPTO_get_lock_name(i));
+		}
+	OPENSSL_free(lock_cs);
+	OPENSSL_free(lock_count);
+
+	fprintf(stderr,"done cleanup\n");
+	}
+
+void beos_locking_callback(int mode, int type, const char *file, int line)
+    {
+#if 0
+	fprintf(stderr,"thread=%4d mode=%s lock=%s %s:%d\n",
+		CRYPTO_thread_id(),
+		(mode&CRYPTO_LOCK)?"l":"u",
+		(type&CRYPTO_READ)?"r":"w",file,line);
+#endif
+	if (mode & CRYPTO_LOCK)
+		{
+		lock_cs[type]->Lock();
+		lock_count[type]++;
+		}
+	else
+		{
+		lock_cs[type]->Unlock();
+		}
+	}
+
+void do_threads(SSL_CTX *s_ctx, SSL_CTX *c_ctx)
+	{
+	SSL_CTX *ssl_ctx[2];
+	thread_id thread_ctx[MAX_THREAD_NUMBER];
+	int i;
+
+	ssl_ctx[0]=s_ctx;
+	ssl_ctx[1]=c_ctx;
+
+	for (i=0; i<thread_number; i++)
+		{
+		thread_ctx[i] = spawn_thread((thread_func)ndoit,
+			NULL, B_NORMAL_PRIORITY, (void *)ssl_ctx);
+		resume_thread(thread_ctx[i]);
+		}
+
+	printf("waiting...\n");
+	for (i=0; i<thread_number; i++)
+		{
+		status_t result;
+		wait_for_thread(thread_ctx[i], &result);
+		}
+
+	printf("beos threads done (%d,%d)\n",
+		s_ctx->references,c_ctx->references);
+	}
+
+unsigned long beos_thread_id(void)
+	{
+	unsigned long ret;
+
+	ret=(unsigned long)find_thread(NULL);
+	return(ret);
+	}
+
+#endif /* BEOS_THREADS */

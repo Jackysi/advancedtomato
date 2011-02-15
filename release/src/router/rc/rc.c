@@ -43,6 +43,17 @@ static int hotplug_main(int argc, char *argv[])
 		if (strcmp(argv[1], "net") == 0) {
 			hotplug_net();
 		}
+#ifdef TCONFIG_USB
+		// !!TB - USB Support
+		else if (strcmp(argv[1], "usb") == 0) {
+			hotplug_usb();
+		}
+#ifdef LINUX26
+		else if (strcmp(argv[1], "block") == 0) {
+			hotplug_usb();
+		}
+#endif
+#endif
 	}
 	return 0;
 }
@@ -65,6 +76,7 @@ typedef struct {
 
 static const applets_t applets[] = {
 	{ "init",				init_main				},
+	{ "console",				console_main				},
 	{ "rc",					rc_main					},
 	{ "ip-up",				ipup_main				},
 	{ "ip-down",			ipdown_main				},

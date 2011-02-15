@@ -29,13 +29,22 @@
 
 	.align  5
 NESTED(handle_sysn32, PT_SIZE, sp)
-	ld	t1, PT_EPC(sp)		# skip syscall on return
+#ifndef CONFIG_MIPS32_O32
+	.set	noat
+	SAVE_SOME
+	STI
+	.set	at
+#endif
 
 	subu	t0, v0, __NR_N32_Linux	# check syscall number
 	sltiu	t0, t0,	__NR_N32_Linux_syscalls + 1
+
+#ifndef CONFIG_MIPS32_O32
+	ld	t1, PT_EPC(sp)		# skip syscall on return
 	daddiu	t1, 4			# skip to next instruction
-	beqz	t0, not_n32_scall
 	sd	t1, PT_EPC(sp)
+#endif
+	beqz	t0, not_n32_scall
 
 	dsll	t0, v0, 3		# offset into table
 	ld	t2, (sysn32_call_table - (__NR_N32_Linux * 8))(t0)
@@ -64,7 +73,7 @@ ret_from_sys_call:
 	mtc0	t0, CP0_STATUS
 
 	ld	t2, TASK_NEED_RESCHED($28)
-	bnez	t2, reschedule
+	bnez	t2, n32_reschedule
 	lw	v0, TASK_SIGPENDING($28)
 	bnez	v0, signal_return
 
@@ -81,12 +90,14 @@ signal_return:
 	ori	t0, t0, 1
 	mtc0	t0, CP0_STATUS
 
+	SAVE_STATIC
 	move	a0, zero
 	move	a1, sp
 	jal	do_signal
+	RESTORE_STATIC
 	b	restore_all
 
-reschedule:
+n32_reschedule:
 	SAVE_STATIC
 	jal	schedule
 	b	ret_from_sys_call
@@ -95,15 +106,16 @@ reschedule:
 
 trace_a_syscall:
 	SAVE_STATIC
-	sd	t2,PT_R1(sp)
+	move	s0, t2
 	jal	syscall_trace
-	ld	t2,PT_R1(sp)
 
+	move	t0, s0
+	RESTORE_STATIC
 	ld	a0, PT_R4(sp)		# Restore argument registers
 	ld	a1, PT_R5(sp)
 	ld	a2, PT_R6(sp)
 	ld	a3, PT_R7(sp)
-	jalr	t2
+	jalr	t0
 
 	li	t0, -EMAXERRNO - 1	# error?
 	sltu	t0, t0, v0
@@ -129,9 +141,9 @@ EXPORT(sysn32_call_table)
 	PTR	sys_write
 	PTR	sys_open
 	PTR	sys_close
-	PTR	sys32_newstat
-	PTR	sys32_newfstat			/* 6005 */
-	PTR	sys32_newlstat
+	PTR	sys_newstat
+	PTR	sys_newfstat			/* 6005 */
+	PTR	sys_newlstat
 	PTR	sys_poll
 	PTR	sys_lseek
 	PTR	sys_mmap
@@ -162,7 +174,7 @@ EXPORT(sysn32_call_table)
 	PTR	sys32_nanosleep
 	PTR	sys32_getitimer			/* 6035 */
 	PTR	sys32_setitimer
-	PTR	sys32_alarm
+	PTR	sys_alarm
 	PTR	sys_getpid
 	PTR	sys32_sendfile
 	PTR	sys_socket			/* 6040 */
@@ -292,11 +304,11 @@ EXPORT(sysn32_call_table)
 	PTR	sys_reboot
 	PTR	sys_sethostname			/* 6165 */
 	PTR	sys_setdomainname
-	PTR	sys_create_module
-	PTR	sys_init_module
-	PTR	sys_delete_module
-	PTR	sys_get_kernel_syms		/* 6170 */
-	PTR	sys_query_module
+	PTR	sys32_create_module
+	PTR	sys32_init_module
+	PTR	sys32_delete_module
+	PTR	sys32_get_kernel_syms		/* 6170 */
+	PTR	sys32_query_module
 	PTR	sys_quotactl
 	PTR	sys_nfsservctl
 	PTR	sys_ni_syscall			/* res. for getpmsg */
@@ -318,10 +330,30 @@ EXPORT(sysn32_call_table)
 	PTR	sys_lremovexattr		/* 6190 */
 	PTR	sys_fremovexattr
 	PTR	sys_tkill
-	PTR	sys_time
+	PTR	sys_ni_syscall
 	PTR	sys_ni_syscall			/* res. for futex */
-	PTR	sys_ni_syscall			/* 5195 rs. sched_setaffinity */
+	PTR	sys_ni_syscall			/* 6195 rs. sched_setaffinity */
 	PTR	sys_ni_syscall			/* res. f. sched_getaffinity */
 	PTR	sys_cacheflush
 	PTR	sys_cachectl
 	PTR	sys_sysmips
+	PTR	sys_ni_syscall			/* 6200 */
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall			/* 6205 */
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall			/* 6210 */
+	PTR	sysn32_rt_sigreturn
+	PTR	sys_fcntl
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_semtimedop			/* 6215 */
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_ni_syscall
+	PTR	sys_sendfile64

@@ -24,8 +24,10 @@ extern LONG *_prom_argv, *_prom_envp;
 #define prom_argc(index) ((char *) (long) _prom_argc[(index)])
 
 extern int prom_flags;
+
 #define PROM_FLAG_ARCS			1
 #define PROM_FLAG_USE_AS_CONSOLE	2
+#define PROM_FLAG_DONT_FREE_TEMP	4
 
 /* Init the PROM library and it's internal data structures. */
 extern void prom_init(int argc, char **argv, char **envp, int *prom_vec);

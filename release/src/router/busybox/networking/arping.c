@@ -45,7 +45,7 @@ struct globals {
 	unsigned received;
 	unsigned brd_recv;
 	unsigned req_recv;
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define src        (G.src       )
 #define dst        (G.dst       )
@@ -169,7 +169,7 @@ static bool recv_pack(unsigned char *buf, int len, struct sockaddr_ll *FROM)
 	 && FROM->sll_pkttype != PACKET_MULTICAST)
 		return false;
 
-	/* Only these types are recognised */
+	/* Only these types are recognized */
 	if (ah->ar_op != htons(ARPOP_REQUEST) && ah->ar_op != htons(ARPOP_REPLY))
 		return false;
 
@@ -237,7 +237,7 @@ static bool recv_pack(unsigned char *buf, int len, struct sockaddr_ll *FROM)
 		} else {
 			printf(" UNSOLICITED?\n");
 		}
-		fflush(stdout);
+		fflush_all();
 	}
 	received++;
 	if (FROM->sll_pkttype != PACKET_HOST)
@@ -348,9 +348,10 @@ int arping_main(int argc UNUSED_PARAM, char **argv)
 			if (setsockopt(probe_fd, SOL_SOCKET, SO_DONTROUTE, &const_int_1, sizeof(const_int_1)) == -1)
 				bb_perror_msg("setsockopt(SO_DONTROUTE)");
 			xconnect(probe_fd, (struct sockaddr *) &saddr, sizeof(saddr));
-			if (getsockname(probe_fd, (struct sockaddr *) &saddr, &alen) == -1) {
-				bb_perror_msg_and_die("getsockname");
-			}
+			getsockname(probe_fd, (struct sockaddr *) &saddr, &alen);
+			//never happens:
+			//if (getsockname(probe_fd, (struct sockaddr *) &saddr, &alen) == -1)
+			//	bb_perror_msg_and_die("getsockname");
 			if (saddr.sin_family != AF_INET)
 				bb_error_msg_and_die("no IP address configured");
 			src = saddr.sin_addr;
@@ -365,10 +366,10 @@ int arping_main(int argc UNUSED_PARAM, char **argv)
 
 	{
 		socklen_t alen = sizeof(me);
-
-		if (getsockname(sock_fd, (struct sockaddr *) &me, &alen) == -1) {
-			bb_perror_msg_and_die("getsockname");
-		}
+		getsockname(sock_fd, (struct sockaddr *) &me, &alen);
+		//never happens:
+		//if (getsockname(sock_fd, (struct sockaddr *) &me, &alen) == -1)
+		//	bb_perror_msg_and_die("getsockname");
 	}
 	if (me.sll_halen == 0) {
 		bb_error_msg(err_str, "is not ARPable (no ll address)");

@@ -1,23 +1,22 @@
 /* AS path management routines.
- * Copyright (C) 1996, 97, 98, 99 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
- */
+   Copyright (C) 1996, 97, 98, 99 Kunihiro Ishiguro
+
+   This file is part of GNU Zebra.
+
+   GNU Zebra is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by the
+   Free Software Foundation; either version 2, or (at your option) any
+   later version.
+
+   GNU Zebra is distributed in the hope that it will be useful, but
+   WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   General Public License for more details.
+
+   You should have received a copy of the GNU General Public License
+   along with GNU Zebra; see the file COPYING.  If not, write to the Free
+   Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+   02111-1307, USA.  */
 
 #include <zebra.h>
 
@@ -31,8 +30,6 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
 
-/* Minimum size of aspath header and AS value. */
-
 /* Attr. Flags and Attr. Type Code. */
 #define AS_HEADER_SIZE        2	 
 
@@ -51,7 +48,7 @@ struct assegment
 };
 
 /* Hash for aspath.  This is the top level structure of AS path. */
-struct Hash *ashash;
+struct hash *ashash;
 
 static struct aspath *
 aspath_new ()
@@ -88,7 +85,7 @@ aspath_unintern (struct aspath *aspath)
   if (aspath->refcnt == 0)
     {
       /* This aspath must exist in aspath hash table. */
-      ret = hash_pull (ashash, aspath);
+      ret = hash_release (ashash, aspath);
       assert (ret != NULL);
       aspath_free (aspath);
     }
@@ -262,23 +259,19 @@ aspath_intern (struct aspath *aspath)
   
   /* Assert this AS path structure is not interned. */
   assert (aspath->refcnt == 0);
-  assert (aspath->str == NULL);
 
   /* Check AS path hash. */
-  find = hash_search (ashash, aspath);
-  if (find)
-    {
-      aspath_free (aspath);
-      find->refcnt++;
-      return find;
-    }
+  find = hash_get (ashash, aspath, hash_alloc_intern);
 
-  /* Push new AS path to AS path hash. */
-  aspath->refcnt = 1;
-  aspath->str = aspath_make_str_count (aspath);
-  hash_push (ashash, aspath);
+  if (find != aspath)
+    aspath_free (aspath);
 
-  return aspath;
+  find->refcnt++;
+
+  if (! find->str)
+    find->str = aspath_make_str_count (find);
+
+  return find;
 }
 
 /* Duplicate aspath structure.  Created same aspath structure but
@@ -306,42 +299,21 @@ aspath_dup (struct aspath *aspath)
   return new;
 }
 
-/* AS path parse function.  pnt is a pointer to byte stream and length
-   is length of byte stream.  If there is same AS path in the the AS
-   path hash then return it else make new AS path structure. */
-struct aspath *
-aspath_parse (caddr_t pnt, int length)
+void *
+aspath_hash_alloc (struct aspath *arg)
 {
-  struct aspath as;
-  struct aspath *find;
   struct aspath *aspath;
-
-  /* If length is odd it's malformed AS path. */
-  if (length % 2)
-    return NULL;
-
-  /* Looking up aspath hash entry. */
-  as.data = pnt;
-  as.length = length;
-
-  /* If already same aspath exist then return it. */
-  find = hash_search (ashash, &as);
-  if (find)
-    {
-      find->refcnt++;
-      return find;
-    }
 
   /* New aspath strucutre is needed. */
   aspath = XMALLOC (MTYPE_AS_PATH, sizeof (struct aspath));
-  memset ((void *)aspath, 0, sizeof (struct aspath));
-  aspath->length = length;
+  memset ((void *) aspath, 0, sizeof (struct aspath));
+  aspath->length = arg->length;
 
   /* In case of IBGP connection aspath's length can be zero. */
-  if (length)
+  if (arg->length)
     {
-      aspath->data = XMALLOC (MTYPE_AS_SEG, length);
-      memcpy (aspath->data, pnt, length);
+      aspath->data = XMALLOC (MTYPE_AS_SEG, arg->length);
+      memcpy (aspath->data, arg->data, arg->length);
     }
   else
     aspath->data = NULL;
@@ -356,13 +328,33 @@ aspath_parse (caddr_t pnt, int length)
       return NULL;
     }
 
-  /* Reference count set to 1. */
-  aspath->refcnt = 1;
-
-  /* Everyting OK, push this AS path to the AS path hash backet. */
-  hash_push (ashash, aspath);
-
   return aspath;
+}
+
+/* AS path parse function.  pnt is a pointer to byte stream and length
+   is length of byte stream.  If there is same AS path in the the AS
+   path hash then return it else make new AS path structure. */
+struct aspath *
+aspath_parse (caddr_t pnt, int length)
+{
+  struct aspath as;
+  struct aspath *find;
+
+  /* If length is odd it's malformed AS path. */
+  if (length % 2)
+    return NULL;
+
+  /* Looking up aspath hash entry. */
+  as.data = pnt;
+  as.length = length;
+
+  /* If already same aspath exist then return it. */
+  find = hash_get (ashash, &as, aspath_hash_alloc);
+  if (! find)
+    return NULL;
+  find->refcnt++;
+
+  return find;
 }
 
 #define min(A,B) ((A) < (B) ? (A) : (B))
@@ -537,35 +529,9 @@ aspath_aggregate (struct aspath *as1, struct aspath *as2)
   return aspath;
 }
 
-/* AS path loop check.  If aspath contains asno then return 1. */
-int
-aspath_loop_check (struct aspath *aspath, as_t asno)
-{
-  caddr_t pnt;
-  caddr_t end;
-  struct assegment *assegment;
-
-  if (aspath == NULL)
-    return 0;
-
-  pnt = aspath->data;
-  end = aspath->data + aspath->length;
-
-  while (pnt < end)
-    {
-      int i;
-      assegment = (struct assegment *) pnt;
-      
-      for (i = 0; i < assegment->length; i++)
-	if (assegment->asval[i] == htons(asno))
-	  return 1;
-
-      pnt += (assegment->length * AS_VALUE_SIZE) + AS_HEADER_SIZE;
-    }
-  return 0;
-}
-
-/* Command for enforce-first-as. */
+/* When a BGP router receives an UPDATE with an MP_REACH_NLRI
+   attribute, check the leftmost AS number in the AS_PATH attribute is
+   or not the peer's AS number. */ 
 int
 aspath_firstas_check (struct aspath *aspath, as_t asno)
 {
@@ -584,6 +550,68 @@ aspath_firstas_check (struct aspath *aspath, as_t asno)
     return 1;
 
   return 0;
+}
+
+/* AS path loop check.  If aspath contains asno then return 1. */
+int
+aspath_loop_check (struct aspath *aspath, as_t asno)
+{
+  caddr_t pnt;
+  caddr_t end;
+  struct assegment *assegment;
+  int count = 0;
+
+  if (aspath == NULL)
+    return 0;
+
+  pnt = aspath->data;
+  end = aspath->data + aspath->length;
+
+  while (pnt < end)
+    {
+      int i;
+      assegment = (struct assegment *) pnt;
+      
+      for (i = 0; i < assegment->length; i++)
+	if (assegment->asval[i] == htons (asno))
+	  count++;
+
+      pnt += (assegment->length * AS_VALUE_SIZE) + AS_HEADER_SIZE;
+    }
+  return count;
+}
+
+/* When all of AS path is private AS return 1.  */
+int
+aspath_private_as_check (struct aspath *aspath)
+{
+  caddr_t pnt;
+  caddr_t end;
+  struct assegment *assegment;
+
+  if (aspath == NULL)
+    return 0;
+
+  if (aspath->length == 0)
+    return 0;
+
+  pnt = aspath->data;
+  end = aspath->data + aspath->length;
+
+  while (pnt < end)
+    {
+      int i;
+      assegment = (struct assegment *) pnt;
+      
+      for (i = 0; i < assegment->length; i++)
+	{
+	  if (ntohs (assegment->asval[i]) < BGP_PRIVATE_AS_MIN
+	      || ntohs (assegment->asval[i]) > BGP_PRIVATE_AS_MAX)
+	    return 0;
+	}
+      pnt += (assegment->length * AS_VALUE_SIZE) + AS_HEADER_SIZE;
+    }
+  return 1;
 }
 
 /* Merge as1 to as2.  as2 should be uninterned aspath. */
@@ -928,6 +956,16 @@ aspath_empty ()
   return aspath_parse (NULL, 0);
 }
 
+struct aspath *
+aspath_empty_get ()
+{
+  struct aspath *aspath;
+
+  aspath = aspath_new ();
+  aspath->str = aspath_make_str_count (aspath);
+  return aspath;
+}
+
 unsigned long
 aspath_count ()
 {
@@ -940,19 +978,19 @@ aspath_count ()
    One BGP packet size should be less than 4096.
    One BGP attribute size should be less than 4096 - BGP header size.
    One BGP aspath size should be less than 4096 - BGP header size -
-       BGP mandantry attribute size.
+   BGP mandantry attribute size.
 */
 
 /* AS path string lexical token enum. */
 enum as_token
-{
-  as_token_asval,
-  as_token_set_start,
-  as_token_set_end,
-  as_token_confed_start,
-  as_token_confed_end,
-  as_token_unknown
-};
+  {
+    as_token_asval,
+    as_token_set_start,
+    as_token_set_end,
+    as_token_confed_start,
+    as_token_confed_end,
+    as_token_unknown
+  };
 
 /* Return next token and point for string parse. */
 char *
@@ -1079,15 +1117,18 @@ aspath_key_make (struct aspath *aspath)
 {
   unsigned int key = 0;
   int length;
-  caddr_t pnt;
+  unsigned short *pnt;
 
-  length = aspath->length;
-  pnt = aspath->data;
+  length = aspath->length / 2;
+  pnt = (unsigned short *) aspath->data;
 
   while (length)
-    key += pnt[--length];
+    {
+      key += *pnt++;
+      length--;
+    }
 
-  return key %= HASHTABSIZE;
+  return key;
 }
 
 /* If two aspath have same value then return 1 else return 0 */
@@ -1105,9 +1146,7 @@ aspath_cmp (struct aspath *as1, struct aspath *as2)
 void
 aspath_init ()
 {
-  ashash = hash_new (HASHTABSIZE);
-  ashash->hash_key = aspath_key_make;
-  ashash->hash_cmp = aspath_cmp;
+  ashash = hash_create_size (32767, aspath_key_make, aspath_cmp);
 }
 
 /* return and as path value */
@@ -1124,40 +1163,24 @@ aspath_print_vty (struct vty *vty, struct aspath *as)
   vty_out (vty, "%s", as->str);
 }
 
+void
+aspath_show_all_iterator (struct hash_backet *backet, struct vty *vty)
+{
+  struct aspath *as;
+
+  as = (struct aspath *) backet->data;
+
+  vty_out (vty, "[%p:%d] (%ld) ", backet, backet->key, as->refcnt);
+  vty_out (vty, "%s%s", as->str, VTY_NEWLINE);
+}
+
 /* Print all aspath and hash information.  This function is used from
    `show ip bgp paths' command. */
 void
 aspath_print_all_vty (struct vty *vty)
 {
-  int i;
-  HashBacket *mp;
-  struct aspath *as;
-
-  for (i = 0; i < HASHTABSIZE; i++)
-    if ((mp = hash_head (ashash, i)) != NULL)
-      while (mp) 
-	{
-	  vty_out (vty, "[%p:%d] (%ld) ", 
-		   mp, i, ((struct aspath *)mp->data)->refcnt);
-	  as = mp->data;
-	  vty_out (vty, "%s%s", as->str, VTY_NEWLINE);
-	  mp = mp->next;
-	}
-}
-
-void
-aspath_aggr_test()
-{
-  struct aspath *new;
-  struct aspath *as1 = aspath_str2aspath ("(3 4) 123");
-#if 0
-  struct aspath *as2 = aspath_str2aspath ("3");
-  struct aspath *as3 = aspath_str2aspath ("4");
-  struct aspath *as2 = aspath_empty();
-  struct aspath *as1 = aspath_empty();
-#endif
-
-  new = aspath_add_seq (as1, 123);
-  new->str = aspath_make_str_count (new);
-  printf ("new %s\n", new->str);
+  hash_iterate (ashash, 
+		(void (*) (struct hash_backet *, void *))
+		aspath_show_all_iterator,
+		vty);
 }

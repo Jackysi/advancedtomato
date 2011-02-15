@@ -18,21 +18,36 @@
  * ANY DAMAGES SUFFERED BY LICENSEE AS A RESULT OF USING, MODIFYING OR
  * DISTRIBUTING THIS SOFTWARE OR ITS DERIVATIVES
  *
- * Copyright (c) 1994 The Australian National University.
- * All rights reserved.
+ * Copyright (c) 1994 Paul Mackerras. All rights reserved.
  *
- * Permission to use, copy, modify, and distribute this software and its
- * documentation is hereby granted, provided that the above copyright
- * notice appears in all copies.  This software is provided without any
- * warranty, express or implied. The Australian National University
- * makes no representations about the suitability of this software for
- * any purpose.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
  *
- * IN NO EVENT SHALL THE AUSTRALIAN NATIONAL UNIVERSITY BE LIABLE TO ANY
- * PARTY FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
- * ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
- * THE AUSTRALIAN NATIONAL UNIVERSITY HAS BEEN ADVISED OF THE POSSIBILITY
- * OF SUCH DAMAGE.
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name(s) of the authors of this software must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission.
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Paul Mackerras
+ *     <paulus@samba.org>".
+ *
+ * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  * THE AUSTRALIAN NATIONAL UNIVERSITY SPECIFICALLY DISCLAIMS ANY WARRANTIES,
  * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY
@@ -41,7 +56,7 @@
  * OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS,
  * OR MODIFICATIONS.
  *
- * $Id: ppp_ahdlc.c,v 1.1 2003/07/10 07:43:04 honor Exp $
+ * $Id: ppp_ahdlc.c,v 1.18 2002/12/06 09:49:15 paulus Exp $
  */
 
 /*
@@ -527,7 +542,6 @@ ahdlc_rput(q, mp)
     switch (mp->b_datap->db_type) {
     case M_DATA:
 	ahdlc_decode(q, mp);
-	freemsg(mp);
 	break;
 
     case M_HANGUP:
@@ -715,26 +729,6 @@ ahdlc_decode(q, mp)
     ahdlc_state_t   *state;
     mblk_t	    *om;
     uchar_t	    *dp;
-    ushort_t	    fcs;
-#if defined(SOL2)
-    mblk_t	    *zmp;
-#endif /* SOL2 */
-
-#if defined(SOL2)
-    /*
-     * In case the driver (or something below) doesn't send
-     * data upstream in one message block, concatenate everything
-     */
-    if (!((mp->b_wptr - mp->b_rptr == msgdsize(mp)) && 
-         ((intpointer_t)mp->b_rptr % sizeof(intpointer_t) == 0))) {
-
-	zmp = msgpullup(mp, -1);
-	freemsg(mp);
-	mp = zmp;
-	if (mp == 0)
-	    return; 
-    }
-#endif /* SOL2 */
 
     state = (ahdlc_state_t *) q->q_ptr;
 
@@ -744,6 +738,7 @@ ahdlc_decode(q, mp)
 
     state->stats.ppp_ibytes += msgdsize(mp);
 
+    for (; mp != 0; om = mp->b_cont, freeb(mp), mp = om)
     for (dp = mp->b_rptr; dp < mp->b_wptr; dp++) {
 
 	/*

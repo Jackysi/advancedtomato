@@ -977,10 +977,17 @@ static int del_rule_from_chain(struct ip_chain *chainptr,
 		    || ftmp->ipfw.fw_dst.s_addr!=frwl->ipfw.fw_dst.s_addr
 		    || ftmp->ipfw.fw_smsk.s_addr!=frwl->ipfw.fw_smsk.s_addr
 		    || ftmp->ipfw.fw_dmsk.s_addr!=frwl->ipfw.fw_dmsk.s_addr
+#if 0
+		    || ftmp->ipfw.fw_flg!=frwl->ipfw.fw_flg
+#else
 		    || ((ftmp->ipfw.fw_flg & ~IP_FW_F_MARKABS)
 			!= (frwl->ipfw.fw_flg & ~IP_FW_F_MARKABS))
+#endif
 		    || ftmp->ipfw.fw_invflg!=frwl->ipfw.fw_invflg
 		    || ftmp->ipfw.fw_proto!=frwl->ipfw.fw_proto
+#if 0
+		    || ftmp->ipfw.fw_mark!=frwl->ipfw.fw_mark
+#endif
 		    || ftmp->ipfw.fw_redirpt!=frwl->ipfw.fw_redirpt
 		    || ftmp->ipfw.fw_spts[0]!=frwl->ipfw.fw_spts[0]
 		    || ftmp->ipfw.fw_spts[1]!=frwl->ipfw.fw_spts[1]
@@ -1559,15 +1566,8 @@ static int dump_rule(char *buffer,
 
 /* File offset is actually in records, not bytes. */
 static int ip_chain_procinfo(char *buffer, char **start,
-			     off_t offset, int length
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,29)
-			     , int reset
-#endif
-	)
+			     off_t offset, int length)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,29)
-	int reset = 0;
-#endif
 	struct ip_chain *i;
 	struct ip_fwkernel *j = ip_fw_chains->chain;
 	unsigned long flags;
@@ -1604,9 +1604,6 @@ static int ip_chain_procinfo(char *buffer, char **start,
 				len = last_len;
 				goto outside;
 			}
-			else if (reset)
-				memset(j->counters, 0,
-				       sizeof(struct ip_counters)*NUM_SLOTS);
 		}
 	}
 outside:

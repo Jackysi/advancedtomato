@@ -1,4 +1,4 @@
-/* $Id: dram_init.S,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
+/* $Id: dram_init.S,v 1.15 2003/09/22 09:22:22 starvik Exp $
  * 
  * DRAM/SDRAM initialization - alter with care
  * This file is intended to be included from other assembler files
@@ -11,11 +11,15 @@
  * Authors:  Mikael Starvik (starvik@axis.com)	
  * 
  * $Log: dram_init.S,v $
- * Revision 1.1.1.4  2003/10/14 08:07:17  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
+ * Revision 1.15  2003/09/22 09:22:22  starvik
+ * Decompresser is linked to 0x407xxxxx and sdram commands are at 0x000xxxxx
+ * so we need to mask off 12 bits.
  *
- * Revision 1.1.1.1  2003/02/03 22:37:20  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
+ * Revision 1.14  2003/03/31 07:07:08  starvik
+ * Corrected calculation of end of sdram init commands
+ *
+ * Revision 1.13  2002/10/30 07:42:28  starvik
+ * Always read SDRAM command sequence from flash
  *
  * Revision 1.12  2002/08/09 11:37:37  orjanf
  * Added double initialization work-around for Samsung SDRAMs.
@@ -149,7 +153,9 @@ _set_timing:
 	
 	; Issue initialization command sequence
 	move.d   _sdram_commands_start, $r2
+	and.d    0x000fffff, $r2 ; Make sure commands are read from flash
 	move.d   _sdram_commands_end,  $r3
+	and.d    0x000fffff, $r3
 1:	clear.d  $r4
 	move.b   [$r2+], $r4
 	lslq     9, $r4	; Command starts at bit 9

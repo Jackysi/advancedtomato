@@ -1,1 +1,0 @@
-#undef  CONFIG_AMD_PM768

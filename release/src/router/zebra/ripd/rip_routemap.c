@@ -473,16 +473,6 @@ route_set_metric_compile (char *arg)
   *metric = atoi (arg);
 
   return metric;
-
-#if 0
-  /* To make it consistent to other daemon, metric check is commented
-     out.*/
-  if (*metric >= 0 && *metric <= 16)
-    return metric;
-
-  XFREE (MTYPE_ROUTE_MAP_COMPILED, metric);
-  return NULL;
-#endif /* 0 */
 }
 
 /* Free route map's compiled `set metric' value. */
@@ -593,7 +583,7 @@ ALIAS (no_match_metric,
        NO_STR
        MATCH_STR
        "Match metric of route\n"
-       "Metric value\n")
+       "Metric value\n");
 
 DEFUN (match_interface,
        match_interface_cmd,
@@ -624,15 +614,17 @@ ALIAS (no_match_interface,
        NO_STR
        MATCH_STR
        "Match first hop interface of route\n"
-       "Interface name\n")
+       "Interface name\n");
 
 DEFUN (match_ip_next_hop,
        match_ip_next_hop_cmd,
-       "match ip next-hop WORD",
+       "match ip next-hop (<1-199>|<1300-2699>|WORD)",
        MATCH_STR
        IP_STR
        "Match next-hop address of route\n"
-       "IP access-list name\n")
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
 {
   return rip_route_match_add (vty, vty->index, "ip next-hop", argv[0]);
 }
@@ -653,12 +645,14 @@ DEFUN (no_match_ip_next_hop,
 
 ALIAS (no_match_ip_next_hop,
        no_match_ip_next_hop_val_cmd,
-       "no match ip next-hop WORD",
+       "no match ip next-hop (<1-199>|<1300-2699>|WORD)",
        NO_STR
        MATCH_STR
        IP_STR
        "Match next-hop address of route\n"
-       "IP access-list name\n")
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n");
 
 DEFUN (match_ip_next_hop_prefix_list,
        match_ip_next_hop_prefix_list_cmd,
@@ -695,15 +689,18 @@ ALIAS (no_match_ip_next_hop_prefix_list,
        IP_STR
        "Match next-hop address of route\n"
        "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
+       "IP prefix-list name\n");
 
-DEFUN (match_ip_address, 
+DEFUN (match_ip_address,
        match_ip_address_cmd,
-       "match ip address WORD",
+       "match ip address (<1-199>|<1300-2699>|WORD)",
        MATCH_STR
        IP_STR
        "Match address of route\n"
-       "IP access-list name\n")
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n")
+
 {
   return rip_route_match_add (vty, vty->index, "ip address", argv[0]);
 }
@@ -722,14 +719,16 @@ DEFUN (no_match_ip_address,
   return rip_route_match_delete (vty, vty->index, "ip address", argv[0]);
 }
 
-ALIAS (no_match_ip_address, 
+ALIAS (no_match_ip_address,
        no_match_ip_address_val_cmd,
-       "no match ip address WORD",
+       "no match ip address (<1-199>|<1300-2699>|WORD)",
        NO_STR
        MATCH_STR
        IP_STR
        "Match address of route\n"
-       "IP access-list name\n")
+       "IP access-list number\n"
+       "IP access-list number (expanded range)\n"
+       "IP Access-list name\n");
 
 DEFUN (match_ip_address_prefix_list, 
        match_ip_address_prefix_list_cmd,
@@ -766,7 +765,7 @@ ALIAS (no_match_ip_address_prefix_list,
        IP_STR
        "Match address of route\n"
        "Match entries of prefix-lists\n"
-       "IP prefix-list name\n")
+       "IP prefix-list name\n");
 
 /* set functions */
 
@@ -799,7 +798,7 @@ ALIAS (no_set_metric,
        NO_STR
        SET_STR
        "Metric value for destination routing protocol\n"
-       "Metric value\n")
+       "Metric value\n");
 
 DEFUN (set_ip_nexthop,
        set_ip_nexthop_cmd,
@@ -843,7 +842,7 @@ ALIAS (no_set_ip_nexthop,
        SET_STR
        IP_STR
        "Next hop address\n"
-       "IP address of next hop\n")
+       "IP address of next hop\n");
 
 void
 rip_route_map_reset ()

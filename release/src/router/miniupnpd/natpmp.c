@@ -1,6 +1,6 @@
-/* $Id: natpmp.c,v 1.13 2008/10/17 16:44:37 nanard Exp $ */
+/* $Id: natpmp.c,v 1.20 2010/05/06 13:42:47 nanard Exp $ */
 /* MiniUPnP project
- * (c) 2007 Thomas Bernard
+ * (c) 2007-2010 Thomas Bernard
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
@@ -22,7 +22,7 @@
 
 #ifdef ENABLE_NATPMP
 
-int OpenAndConfNATPMPSocket()
+int OpenAndConfNATPMPSocket(in_addr_t addr)
 {
 	int snatpmp;
 	snatpmp = socket(PF_INET, SOCK_DGRAM, 0/*IPPROTO_UDP*/);
@@ -37,7 +37,8 @@ int OpenAndConfNATPMPSocket()
 		memset(&natpmp_addr, 0, sizeof(natpmp_addr));
 		natpmp_addr.sin_family = AF_INET;
 		natpmp_addr.sin_port = htons(NATPMP_PORT);
-		natpmp_addr.sin_addr.s_addr = INADDR_ANY;
+		//natpmp_addr.sin_addr.s_addr = INADDR_ANY;
+		natpmp_addr.sin_addr.s_addr = addr;
 		//natpmp_addr.sin_addr.s_addr = inet_addr("192.168.0.1");
 		if(bind(snatpmp, (struct sockaddr *)&natpmp_addr, sizeof(natpmp_addr)) < 0)
 		{
@@ -49,6 +50,61 @@ int OpenAndConfNATPMPSocket()
 	return snatpmp;
 }
 
+int OpenAndConfNATPMPSockets(int * sockets)
+{
+	int i, j;
+	for(i=0; i<n_lan_addr; i++)
+	{
+		sockets[i] = OpenAndConfNATPMPSocket(lan_addr[i].addr.s_addr);
+		if(sockets[i] < 0)
+		{
+			for(j=0; j<i; j++)
+			{
+				close(sockets[j]);
+				sockets[j] = -1;
+			}
+			return -1;
+		}
+	}
+	return 0;
+}
+
+static void FillPublicAddressResponse(unsigned char * resp, in_addr_t senderaddr)
+{
+#ifndef MULTIPLE_EXTERNAL_IP
+	char tmp[16];
+
+	if(use_ext_ip_addr) {
+        inet_pton(AF_INET, use_ext_ip_addr, resp+8);
+	} else {
+		if(!ext_if_name || ext_if_name[0]=='\0') {
+			resp[3] = 3;	/* Network Failure (e.g. NAT box itself
+			                 * has not obtained a DHCP lease) */
+		} else if(getifaddr(ext_if_name, tmp, INET_ADDRSTRLEN) < 0) {
+			syslog(LOG_ERR, "Failed to get IP for interface %s", ext_if_name);
+			resp[3] = 3;	/* Network Failure (e.g. NAT box itself
+			                 * has not obtained a DHCP lease) */
+		} else {
+			inet_pton(AF_INET, tmp, resp+8);
+		}
+	}
+#else
+	int i;
+
+	for(i = 0; i<n_lan_addr; i++) {
+		if( (senderaddr & lan_addr[i].mask.s_addr)
+		   == (lan_addr[i].addr.s_addr & lan_addr[i].mask.s_addr)) {
+			memcpy(resp+8, &lan_addr[i].ext_ip_addr,
+			       sizeof(lan_addr[i].ext_ip_addr));
+			break;
+		}
+	}
+#endif
+}
+
+/** read the request from the socket, process it and then send the
+ * response back.
+ */
 void ProcessIncomingNATPMPPacket(int s)
 {
 	unsigned char req[32];	/* request udp packet */
@@ -58,11 +114,6 @@ void ProcessIncomingNATPMPPacket(int s)
 	socklen_t senderaddrlen = sizeof(senderaddr);
 	int n;
 	char senderaddrstr[16];
-#ifndef MULTIPLE_EXTERNAL_IP
-	char tmp[16];
-#else
-	int i;
-#endif
 	n = recvfrom(s, req, sizeof(req), 0,
 	             (struct sockaddr *)&senderaddr, &senderaddrlen);
 	if(n<0) {
@@ -97,31 +148,7 @@ void ProcessIncomingNATPMPPacket(int s)
 	} else switch(req[1]) {
 	case 0:	/* Public address request */
 		syslog(LOG_INFO, "NAT-PMP public address request");
-#ifndef MULTIPLE_EXTERNAL_IP
-		if(use_ext_ip_addr) {
-               inet_pton(AF_INET, use_ext_ip_addr, resp+8);
-		} else {
-			if(!ext_if_name || ext_if_name[0]=='\0') {
-				resp[3] = 3;	/* Network Failure (e.g. NAT box itself
-				                 * has not obtained a DHCP lease) */
-			} else if(getifaddr(ext_if_name, tmp, INET_ADDRSTRLEN) < 0) {
-				syslog(LOG_ERR, "Failed to get IP for interface %s", ext_if_name);
-				resp[3] = 3;	/* Network Failure (e.g. NAT box itself
-				                 * has not obtained a DHCP lease) */
-			} else {
-				inet_pton(AF_INET, tmp, resp+8);
-			}
-		}
-#else
-		for(i = 0; i<n_lan_addr; i++) {
-			if( (senderaddr.sin_addr.s_addr & lan_addr[i].mask.s_addr)
-			   == (lan_addr[i].addr.s_addr & lan_addr[i].mask.s_addr)) {
-				memcpy(resp+8, &lan_addr[i].ext_ip_addr,
-				       sizeof(lan_addr[i].ext_ip_addr));
-				break;
-			}
-		}
-#endif
+		FillPublicAddressResponse(resp, senderaddr.sin_addr.s_addr);
 		resplen = 12;
 		break;
 	case 1:	/* UDP port mapping request */
@@ -249,6 +276,8 @@ void ProcessIncomingNATPMPPacket(int s)
 	}
 }
 
+/* iterate through the redirection list to find those who came
+ * from NAT-PMP and select the first to expire */
 int ScanNATPMPforExpiration()
 {
 	char desc[64];
@@ -277,23 +306,78 @@ int ScanNATPMPforExpiration()
 	return 0;
 }
 
+/* remove the next redirection that is expired
+ */
 int CleanExpiredNATPMP()
 {
 	char desc[64];
+	unsigned timestamp;
 	unsigned short iport;
 	if(get_redirect_rule(ext_if_name, nextnatpmptoclean_eport,
 	                     nextnatpmptoclean_proto,
 	                     0, 0,
 	                     &iport, desc, sizeof(desc), 0, 0) < 0)
 		return ScanNATPMPforExpiration();
-	/* TODO: check desc */
+	/* check desc - this is important since we keep expiration time as part
+	 * of the desc.
+	 * If the rule is renewed, timestamp and nextnatpmptoclean_timestamp 
+	 * can be different. In that case, the rule must not be removed ! */
+	if(sscanf(desc, "NAT-PMP %u", &timestamp) == 1) {
+		if(timestamp > nextnatpmptoclean_timestamp)
+			return ScanNATPMPforExpiration();
+	}
 	/* remove redirection then search for next one:) */
 	if(_upnp_delete_redir(nextnatpmptoclean_eport, nextnatpmptoclean_proto)<0)
 		return -1;
-	syslog(LOG_INFO, "Expired NAT-PMP mapping port %hu %s removed",
+	syslog(LOG_NOTICE, "Expired NAT-PMP mapping port %hu %s removed",
 	       nextnatpmptoclean_eport,
 	       nextnatpmptoclean_proto==IPPROTO_TCP?"TCP":"UDP");
 	return ScanNATPMPforExpiration();
+}
+
+/* SendNATPMPPublicAddressChangeNotification()
+ * should be called when the public IP address changed */
+void SendNATPMPPublicAddressChangeNotification(int * sockets, int n_sockets)
+{
+	struct sockaddr_in sockname;
+	unsigned char notif[12];
+	int j, n;
+
+	notif[0] = 0;
+	notif[1] = 128;
+	notif[2] = 0;
+	notif[3] = 0;
+	*((uint32_t *)(notif+4)) = htonl(time(NULL) - startup_time);
+#ifndef MULTIPLE_EXTERNAL_IP
+	FillPublicAddressResponse(notif, 0);
+	if(notif[3])
+	{
+		syslog(LOG_WARNING, "%s: cannot get public IP address, stopping",
+		       "SendNATPMPPublicAddressChangeNotification");
+		return;
+	}
+#endif
+	memset(&sockname, 0, sizeof(struct sockaddr_in));
+    sockname.sin_family = AF_INET;
+    sockname.sin_port = htons(NATPMP_PORT);
+    sockname.sin_addr.s_addr = inet_addr(NATPMP_NOTIF_ADDR);
+
+	for(j=0; j<n_sockets; j++)
+	{
+		if(sockets[j] < 0)
+			continue;
+#ifdef MULTIPLE_EXTERNAL_IP
+		FillPublicAddressResponse(notif, lan_addr[j].addr.s_addr);
+#endif
+		n = sendto(sockets[j], notif, 12, 0,
+		           (struct sockaddr *)&sockname, sizeof(struct sockaddr_in));
+		if(n < 0)
+		{	
+			syslog(LOG_ERR, "%s: sendto(s_udp=%d): %m",
+			       "SendNATPMPPublicAddressChangeNotification", sockets[j]);
+			return;
+		}
+	}
 }
 
 #endif

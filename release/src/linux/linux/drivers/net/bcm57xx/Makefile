@@ -1,7 +1,7 @@
 #
 # Broadcom BCM57XX Gigabit Ethernet driver make file.
 #
-# $Id$
+# $Id: Makefile,v 1.1.1.1 2008/10/15 03:26:42 james26_jang Exp $
 #
 
 O_TARGET = bcm57xx.o
@@ -11,7 +11,7 @@ ifneq ($(wildcard $(SRCBASE)/bcm57xx/sys),)
 
 vpath %.c $(SRCBASE)/bcm57xx/linux $(SRCBASE)/bcm57xx/sys $(SRCBASE)/shared
 
-EXTRA_CFLAGS += -DDBG=0 -DT3_JUMBO_RCV_RCB_ENTRY_COUNT=256 -DNICE_SUPPORT
+EXTRA_CFLAGS += -DDBG=0 -DT3_JUMBO_RCV_RCB_ENTRY_COUNT=256 -DNICE_SUPPORT -DBCM_SMALL_DRV
 EXTRA_CFLAGS += -DPCIX_TARGET_WORKAROUND=1 -DINCLUDE_TBI_SUPPORT -DINCLUDE_5701_AX_FIX=1
 EXTRA_CFLAGS += -I$(SRCBASE)/bcm57xx/linux -I$(SRCBASE)/bcm57xx/sys -I$(SRCBASE)/include
 

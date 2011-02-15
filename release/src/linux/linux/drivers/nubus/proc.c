@@ -142,6 +142,7 @@ int nubus_proc_attach_device(struct nubus_dev *dev)
 	return 0;
 }
 
+/* FIXME: this is certainly broken! */
 int nubus_proc_detach_device(struct nubus_dev *dev)
 {
 	struct proc_dir_entry *e;

@@ -29,11 +29,11 @@
 #endif
 
 /* The escape codes for highlighted and normal text */
-#define HIGHLIGHT "\033[7m"
-#define NORMAL "\033[0m"
-/* The escape code to clear the screen */
-#define CLEAR "\033[H\033[J"
-/* The escape code to clear to end of line */
+#define HIGHLIGHT   "\033[7m"
+#define NORMAL      "\033[0m"
+/* The escape code to home and clear to the end of screen */
+#define CLEAR       "\033[H\033[J"
+/* The escape code to clear to the end of line */
 #define CLEAR_2_EOL "\033[K"
 
 enum {
@@ -96,7 +96,6 @@ struct globals {
 	smallint pattern_valid;
 #endif
 	smallint terminated;
-	smalluint kbd_input_size;
 	struct termios term_orig, term_less;
 	char kbd_input[KEYCODE_BUFFER_SIZE];
 };
@@ -135,7 +134,6 @@ struct globals {
 #define terminated          (G.terminated        )
 #define term_orig           (G.term_orig         )
 #define term_less           (G.term_less         )
-#define kbd_input_size      (G.kbd_input_size    )
 #define kbd_input           (G.kbd_input         )
 #define INIT_G() do { \
 	SET_PTR_TO_GLOBALS(xzalloc(sizeof(G))); \
@@ -145,7 +143,7 @@ struct globals {
 	current_file = 1; \
 	eof_error = 1; \
 	terminated = 1; \
-	USE_FEATURE_LESS_REGEXP(wanted_match = -1;) \
+	IF_FEATURE_LESS_REGEXP(wanted_match = -1;) \
 } while (0)
 
 /* flines[] are lines read from stdin, each in malloc'ed buffer.
@@ -159,7 +157,7 @@ struct globals {
 /* Reset terminal input to normal */
 static void set_tty_cooked(void)
 {
-	fflush(stdout);
+	fflush_all();
 	tcsetattr(kbd_fd, TCSANOW, &term_orig);
 }
 
@@ -326,7 +324,7 @@ static void read_lines(void)
 	if (option_mask32 & FLAG_N)
 		w -= 8;
 
- USE_FEATURE_LESS_REGEXP(again0:)
+ IF_FEATURE_LESS_REGEXP(again0:)
 
 	p = current_line = ((char*)xmalloc(w + 4)) + 4;
 	max_fline += last_terminated;
@@ -432,7 +430,7 @@ static void read_lines(void)
 					 * immediately */
 					eof_error = 1;
 				} else {
-					print_statusline("read error");
+					print_statusline(bb_msg_read_error);
 				}
 			}
 #if !ENABLE_FEATURE_LESS_REGEXP
@@ -544,7 +542,7 @@ static void cap_cur_fline(int nlines)
 			cur_fline = 0;
 		diff = max_fline - (cur_fline + max_displayed_line) + TILDES;
 		/* As the number of lines requested was too large, we just move
-		to the end of the file */
+		 * to the end of the file */
 		if (diff > 0)
 			cur_fline += diff;
 	}
@@ -556,7 +554,8 @@ static const char controls[] ALIGN1 =
 	"\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f"
 	"\x7f\x9b"; /* DEL and infamous Meta-ESC :( */
 static const char ctrlconv[] ALIGN1 =
-	/* '\n': it's a former NUL - subst with '@', not 'J' */
+	/* why 40 instead of 4a below? - it is a replacement for '\n'.
+	 * '\n' is a former NUL - we subst it with @, not J */
 	"\x40\x41\x42\x43\x44\x45\x46\x47\x48\x49\x40\x4b\x4c\x4d\x4e\x4f"
 	"\x50\x51\x52\x53\x54\x55\x56\x57\x58\x59\x5a\x5b\x5c\x5d\x5e\x5f";
 
@@ -626,7 +625,7 @@ static void print_found(const char *line)
 
 	while (match_status == 0) {
 		char *new = xasprintf("%s%.*s"HIGHLIGHT"%.*s"NORMAL,
-				growline ? : "",
+				growline ? growline : "",
 				match_structs.rm_so, str,
 				match_structs.rm_eo - match_structs.rm_so,
 						str + match_structs.rm_so);
@@ -806,7 +805,7 @@ static void reinitialize(void)
 	buffer_fill_and_print();
 }
 
-static ssize_t getch_nowait(void)
+static int getch_nowait(void)
 {
 	int rd;
 	struct pollfd pfd[2];
@@ -837,9 +836,9 @@ static ssize_t getch_nowait(void)
 	/* Position cursor if line input is done */
 	if (less_gets_pos >= 0)
 		move_cursor(max_displayed_line + 2, less_gets_pos + 1);
-	fflush(stdout);
+	fflush_all();
 
-	if (kbd_input_size == 0) {
+	if (kbd_input[0] == 0) { /* if nothing is buffered */
 #if ENABLE_FEATURE_LESS_WINCH
 		while (1) {
 			int r;
@@ -856,7 +855,7 @@ static ssize_t getch_nowait(void)
 
 	/* We have kbd_fd in O_NONBLOCK mode, read inside read_key()
 	 * would not block even if there is no input available */
-	rd = read_key(kbd_fd, &kbd_input_size, kbd_input);
+	rd = read_key(kbd_fd, kbd_input, /*timeout off:*/ -2);
 	if (rd == -1) {
 		if (errno == EAGAIN) {
 			/* No keyboard input available. Since poll() did return,
@@ -872,9 +871,9 @@ static ssize_t getch_nowait(void)
 	return rd;
 }
 
-/* Grab a character from input without requiring the return key. If the
- * character is ASCII \033, get more characters and assign certain sequences
- * special return codes. Note that this function works best with raw input. */
+/* Grab a character from input without requiring the return key.
+ * May return KEYCODE_xxx values.
+ * Note that this function works best with raw input. */
 static int less_getch(int pos)
 {
 	int i;
@@ -1509,7 +1508,7 @@ int less_main(int argc, char **argv)
 	/* TODO: -x: do not interpret backspace, -xx: tab also */
 	/* -xxx: newline also */
 	/* -w N: assume width N (-xxx -w 32: hex viewer of sorts) */
-	getopt32(argv, "EMmN~I" USE_FEATURE_LESS_DASHCMD("S"));
+	getopt32(argv, "EMmN~I" IF_FEATURE_LESS_DASHCMD("S"));
 	argc -= optind;
 	argv += optind;
 	num_files = argc;

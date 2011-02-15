@@ -26,6 +26,12 @@
 #define TR_HLEN   (sizeof(struct trh_hdr)+sizeof(struct trllc))
 #define AC			0x10
 #define LLC_FRAME 0x40
+#if 0
+#define ETH_HLEN	14		/* Total octets in header.	 */
+#define ETH_ZLEN	60		/* Min. octets in frame sans FCS */
+#define ETH_DATA_LEN	1500		/* Max. octets in payload	 */
+#define ETH_FRAME_LEN	1514		/* Max. octets in frame sans FCS */
+#endif
 
 
 /* LLC and SNAP constants */

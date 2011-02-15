@@ -75,26 +75,12 @@ static int get_wds_ifname(const struct ether_addr *ea, char *ifname)
 	return 0;
 }
 
-void asp_devlist(int argc, char **argv)
+static int get_wl_clients(int idx, int unit, int subunit, void *param)
 {
-	char *p;
-	FILE *f;
-	char buf[1024];
+	char *comma = param;
 	int i;
-	char comma;
-
-	// must be here for easier call via update.cgi. arg is ignored
-	asp_arplist(0, NULL);
-	asp_wlnoise(0, NULL);
-
-	//
-
-	p = js_string(nvram_safe_get("dhcpd_static"));
-	web_printf("dhcpd_static = '%s'.split('>');\n", p ? p : "");
-	free(p);
-
-	//
-
+	char *p;
+	char buf[32];
 #if 1
 	char *wlif;
 	scb_val_t rssi;
@@ -104,11 +90,9 @@ void asp_devlist(int argc, char **argv)
 	int mlsize;
 	char ifname[16];
 
-	web_puts("wldev = [");
-	comma = ' ';
 	mlsize = sizeof(struct maclist) + (255 * sizeof(struct ether_addr));
 	if ((mlist = malloc(mlsize)) != NULL) {
-		wlif = nvram_safe_get("wl0_ifname");
+		wlif = nvram_safe_get(wl_nvname("ifname", unit, 0));
 		cmd = WLC_GET_ASSOCLIST;
 		while (1) {
 			mlist->count = 255;
@@ -131,12 +115,13 @@ void asp_devlist(int argc, char **argv)
 						if (get_wds_ifname(&rssi.ea, ifname)) p = ifname;
 					}
 
-					web_printf("%c['%s','%s',%d]",
-						comma,
+					web_printf("%c['%s','%s',%d,%u,%u,%u]",
+						*comma,
 						p,
 						ether_etoa(rssi.ea.octet, buf),
-						rssi.val);
-					comma = ',';
+						rssi.val,
+						sti.tx_rate, sti.rx_rate, sti.in);
+					*comma = ',';
 				}
 			}
 			if (cmd == WLC_GET_WDSLIST) break;
@@ -153,8 +138,6 @@ void asp_devlist(int argc, char **argv)
 	int mlsize;
 	char ifname[16];
 
-	web_puts("wldev = [");
-	comma = ' ';
 	mlsize = sizeof(struct maclist) + (127 * sizeof(struct ether_addr));
 	if ((mlist = malloc(mlsize)) != NULL) {
 		for (j = 0; j < 2; ++j) {
@@ -179,11 +162,11 @@ void asp_devlist(int argc, char **argv)
 					}
 
 					web_printf("%c['%s','%s',%d]",
-						comma,
+						*comma,
 						p,
 						ether_etoa(rssi.ea.octet, buf),
 						rssi.val);
-					comma = ',';
+					*comma = ',';
 				}
 			}
 		}
@@ -191,6 +174,31 @@ void asp_devlist(int argc, char **argv)
 	}
 #endif
 
+	return 0;
+}
+
+void asp_devlist(int argc, char **argv)
+{
+	char *p;
+	FILE *f;
+	char buf[1024];
+	char comma;
+
+	// must be here for easier call via update.cgi. arg is ignored
+	asp_arplist(0, NULL);
+	asp_wlnoise(0, NULL);
+
+	//
+
+	p = js_string(nvram_safe_get("dhcpd_static"));
+	web_printf("dhcpd_static = '%s'.split('>');\n", p ? p : "");
+	free(p);
+
+	//
+
+	web_puts("wldev = [");
+	comma = ' ';
+	foreach_wif(1, &comma, get_wl_clients);
 	web_puts("];\n");
 
 	//

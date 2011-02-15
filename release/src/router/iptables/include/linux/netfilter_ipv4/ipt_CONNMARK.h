@@ -13,7 +13,8 @@
 enum {
 	IPT_CONNMARK_SET = 0,
 	IPT_CONNMARK_SAVE,
-	IPT_CONNMARK_RESTORE
+	IPT_CONNMARK_RESTORE,
+	IPT_CONNMARK_SET_RETURN
 };
 
 struct ipt_connmark_target_info {

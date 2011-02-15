@@ -1,6 +1,3 @@
-/*
- * BK Id: SCCS/s.kmap_types.h 1.9 08/29/01 14:03:05 paulus
- */
 #ifdef __KERNEL__
 #ifndef _ASM_KMAP_TYPES_H
 #define _ASM_KMAP_TYPES_H
@@ -12,6 +9,9 @@ enum km_type {
 	KM_USER0,
 	KM_USER1,
 	KM_BH_IRQ,
+	KM_SOFTIRQ0,
+	KM_SOFTIRQ1,
+	KM_BIO_IRQ,
 	KM_TYPE_NR
 };
 

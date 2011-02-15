@@ -66,6 +66,25 @@ unsigned long rom_pages[256];
 /* Print a PTE value in symbolic form. For debugging. */
 void print_pte (pte_t pte)
 {
+#if 0
+	/* Verbose version. */
+	unsigned long val = pte_val (pte);
+	printk (" pte=%lx [addr=%lx",
+		val, (val & SUN3_PAGE_PGNUM_MASK) << PAGE_SHIFT);
+	if (val & SUN3_PAGE_VALID)	printk (" valid");
+	if (val & SUN3_PAGE_WRITEABLE)	printk (" write");
+	if (val & SUN3_PAGE_SYSTEM)	printk (" sys");
+	if (val & SUN3_PAGE_NOCACHE)	printk (" nocache");
+	if (val & SUN3_PAGE_ACCESSED)	printk (" accessed");
+	if (val & SUN3_PAGE_MODIFIED)	printk (" modified");
+	switch (val & SUN3_PAGE_TYPE_MASK) {
+		case SUN3_PAGE_TYPE_MEMORY: printk (" memory"); break;
+		case SUN3_PAGE_TYPE_IO:     printk (" io");     break;
+		case SUN3_PAGE_TYPE_VME16:  printk (" vme16");  break;
+		case SUN3_PAGE_TYPE_VME32:  printk (" vme32");  break;
+	}
+	printk ("]\n");
+#else
 	/* Terse version. More likely to fit on a line. */
 	unsigned long val = pte_val (pte);
 	char flags[7], *type;
@@ -88,6 +107,7 @@ void print_pte (pte_t pte)
 
 	printk (" pte=%08lx [%07lx %s %s]\n",
 		val, (val & SUN3_PAGE_PGNUM_MASK) << PAGE_SHIFT, flags, type);
+#endif
 }
 
 /* Print the PTE value for a given virtual address. For debugging. */
@@ -158,7 +178,6 @@ void mmu_emu_init(unsigned long bootmem_end)
 			pmeg_alloc[sun3_get_segmap(seg)] = 2;
 		}
 	}
-
 	
 	dvma_init();
 	
@@ -257,7 +276,7 @@ unsigned long get_free_context(struct mm_struct *mm)
 //todo: better allocation scheme? but is extra complexity worthwhile?
 //todo: only clear old entries if necessary? how to tell?
 
-static inline void mmu_emu_map_pmeg (int context, int vaddr)
+inline void mmu_emu_map_pmeg (int context, int vaddr)
 {
 	static unsigned char curr_pmeg = 128;
 	int i;

@@ -343,24 +343,14 @@ function define_int () {
 #
 # int processes an integer argument with optional limits
 #
-#	int question define default [min max]
+#	int question define default
 #
 function int () {
 	old=$(eval echo "\${$2}")
 	def=${old:-$3}
-	if [ $# -gt 3 ]; then
-	  min=$4
-	else
-	  min=-10000000    # !!
-	fi
-	if [ $# -gt 4 ]; then
-	  max=$5
-	else
-	  max=10000000     # !!
-	fi
 	while :; do
 	  readln "$1 ($2) [$def] " "$def" "$old"
-	  if expr \( \( $ans + 0 \) \>= $min \) \& \( $ans \<= $max \) >/dev/null 2>&1 ; then
+	  if expr "$ans" : '[0-9]*$' > /dev/null; then
             define_int "$2" "$ans"
 	    break
           else
@@ -388,15 +378,18 @@ function define_hex () {
 function hex () {
 	old=$(eval echo "\${$2}")
 	def=${old:-$3}
-	def=${def#*[x,X]}
 	while :; do
 	  readln "$1 ($2) [$def] " "$def" "$old"
-	  ans=${ans#*[x,X]}
-	  if expr "$ans" : '[0-9a-fA-F][0-9a-fA-F]*$' > /dev/null; then
+	  if expr "$ans" : '0x[0-9a-fA-F][0-9a-fA-F]*$' > /dev/null; then
 	    define_hex "$2" "$ans"
 	    break
 	  else
-	    help "$2"
+	    if expr "$ans" : '[0-9a-fA-F][0-9a-fA-F]*$' > /dev/null; then
+	      define_hex "$2" "0x$ans"
+	      break
+	    else
+	      help "$2"
+	    fi
 	  fi
 	done
 }
@@ -553,9 +546,9 @@ if [ -f $DEFAULTS ]; then
   echo "#"
   echo "# Using defaults found in" $DEFAULTS
   echo "#"
-  . $DEFAULTS
+  . ./$DEFAULTS
   sed -e 's/# \(CONFIG_[^ ]*\) is not.*/\1=n/' <$DEFAULTS >.config-is-not.$$
-  . .config-is-not.$$
+  . ./.config-is-not.$$
   rm .config-is-not.$$
 else
   echo "#"

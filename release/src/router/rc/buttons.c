@@ -10,26 +10,9 @@
 #include <wlutils.h>
 #include <wlioctl.h>
 
-#if TOMATO_N
-#include <linux_gpio.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#endif
-
 //	#define DEBUG_TEST
 
-
 static int gf;
-
-static uint32_t _gpio_read(void)
-{
-#if TOMATO_N
-	// !
-#else
-	uint32_t v;
-	return (read(gf, &v, sizeof(v)) == sizeof(v)) ? v : ~0;
-#endif
-}
 
 static int get_btn(const char *name, uint32_t *bit, uint32_t *pushed)
 {
@@ -55,6 +38,8 @@ int buttons_main(int argc, char *argv[])
 	uint32_t reset_pushed;
 	uint32_t brau_mask;
 	uint32_t brau_state;
+	int brau_count_stable;
+	int brau_flag;
 	int count;
 	char s[16];
 	char *p;
@@ -126,6 +111,16 @@ int buttons_main(int argc, char *argv[])
 		reset_mask = reset_pushed = 1 << 0;
 		ses_mask = ses_pushed = 1 << 4;
 		break;
+	case MODEL_WL500W:
+		reset_mask = reset_pushed = 1 << 6;
+		ses_mask = ses_pushed = 1 << 7;
+		break;		
+	case MODEL_DIR320:
+	case MODEL_H618B:
+		reset_mask = 1 << 7;
+		ses_mask = 1 << 6;	// WLAN button on H618B
+		break;		
+	case MODEL_WL500GPv2:
 	case MODEL_WL520GU:
 		reset_mask = 1 << 2;
 		ses_mask = 1 << 3;
@@ -135,6 +130,59 @@ int buttons_main(int argc, char *argv[])
 //		break;
 	case MODEL_WLA2G54L:
 		reset_mask = reset_pushed = 1 << 7;
+		break;
+	case MODEL_WL1600GL:
+		reset_mask = 1 << 3;
+		ses_mask = 1 << 4;
+		ses_led = LED_AOSS;
+		break;
+#ifdef CONFIG_BCMWL5
+	case MODEL_RTN10:
+		reset_mask = 1 << 3;
+		ses_mask = 1 << 2;
+		break;
+	case MODEL_RTN12:
+		reset_mask = 1 << 1;
+		ses_mask = 1 << 0;
+		brau_mask = (1 << 4) | (1 << 5) | (1 << 6);
+		break;
+	case MODEL_RTN16:
+		reset_mask = 1 << 6;
+		ses_mask = 1 << 8;
+		break;
+	case MODEL_WNR3500L:
+		reset_mask = 1 << 4;
+		ses_mask = 1 << 6;
+		ses_led = LED_AOSS;
+		break;
+	case MODEL_WNR2000v2:
+		reset_mask = 1 << 1;
+		ses_mask = 1 << 0;
+		ses_led = LED_AOSS;
+		break;
+	case MODEL_WRT160Nv3:
+		reset_mask = 1 << 6;
+		ses_mask = 1 << 5;
+		break;
+	case MODEL_WRT320N:
+		reset_mask = 1 << 8;
+		ses_mask = 1 << 5;
+		ses_led = LED_AMBER;
+		break;
+	case MODEL_WRT610Nv2:
+		reset_mask = 1 << 6;
+		ses_mask = 1 << 4;
+		ses_led = LED_AMBER;
+		break;
+#endif
+	case MODEL_WRT160Nv1:
+	case MODEL_WRT300N:
+		reset_mask = 1 << 6;
+		ses_mask = 1 << 4;
+		break;
+	case MODEL_WRT310Nv1:
+		reset_mask = 1 << 6;
+		ses_mask = 1 << 8;
 		break;
 	default:
 		get_btn("btn_ses", &ses_mask, &ses_pushed);
@@ -156,17 +204,15 @@ int buttons_main(int argc, char *argv[])
 	setsid();
 #endif
 
-	signal(SIGCHLD, handle_reap);
+	signal(SIGCHLD, chld_reap);
 
-#if TOMATO_N
-	// !
-#else
-	if ((gf = open("/dev/gpio/in", O_RDONLY|O_SYNC)) < 0) return 1;
-#endif
+	if ((gf = gpio_open(mask)) < 0) return 1;
 
 	last = 0;
+	brau_count_stable = 0;
+	brau_flag = 0;
 	while (1) {
-		if (((gpio = _gpio_read()) == ~0) || (last == (gpio &= mask)) || (check_action() != ACT_IDLE)) {
+		if (((gpio = _gpio_read(gf)) == ~0) || (last == (gpio &= mask) && !brau_flag) || (check_action() != ACT_IDLE)) {
 #ifdef DEBUG_TEST
 			cprintf("gpio = %X\n", gpio);
 #endif
@@ -185,14 +231,15 @@ int buttons_main(int argc, char *argv[])
 			do {
 				sleep(1);
 				if (++count == 3) led(LED_DIAG, 1);
-			} while (((gpio = _gpio_read()) != ~0) && ((gpio & reset_mask) == reset_pushed));
+			} while (((gpio = _gpio_read(gf)) != ~0) && ((gpio & reset_mask) == reset_pushed));
 
 #ifdef DEBUG_TEST
 			cprintf("reset count = %d\n", count);
 #else
 			if (count >= 3) {
-				nvram_set("restore_defaults", "1");
-				nvram_commit();
+				eval("mtd-erase", "-d", "nvram");
+				//nvram_set("restore_defaults", "1");
+				//nvram_commit();
 				sync();
 				reboot(RB_AUTOBOOT);
 			}
@@ -215,7 +262,7 @@ int buttons_main(int argc, char *argv[])
 				led(ses_led, LED_OFF);
 				usleep(500000);
 				++count;
-			} while (((gpio = _gpio_read()) != ~0) && ((gpio & ses_mask) == ses_pushed));
+			} while (((gpio = _gpio_read(gf)) != ~0) && ((gpio & ses_mask) == ses_pushed));
 			gpio &= mask;
 
 			if ((ses_led == LED_DMZ) && (nvram_get_int("dmz_enable") > 0)) led(LED_DMZ, 1);
@@ -254,6 +301,11 @@ int buttons_main(int argc, char *argv[])
 						sprintf(s, "%d", count);
 						run_nvscript("sesx_script", s, 2);
 						break;
+#ifdef TCONFIG_USB
+					case '5':	// !!TB: unmount all USB drives
+						add_remove_usbhost("-1", 0);
+						break;
+#endif
 					}
 				}
 #endif
@@ -262,10 +314,26 @@ int buttons_main(int argc, char *argv[])
 		}
 
 		if (brau_mask) {
+			if (last == gpio)
+				sleep(1);
 			last = (gpio & brau_mask);
 			if (brau_state != last) {
+				brau_flag = (brau_state != ~0); // set to 1 to run at startup
 				brau_state = last;
-				p = brau_state ? "auto" : "bridge";
+				brau_count_stable = 0;
+			}
+			else if (brau_flag && ++brau_count_stable > 2) { // stable for 2+ seconds
+				brau_flag = 0;
+				switch (nvram_get_int("btn_override") ? MODEL_UNKNOWN : get_model()) {
+#ifdef CONFIG_BCMWL5
+				case MODEL_RTN12:
+					p = (brau_state & (1 << 4)) ? "ap" : (brau_state & (1 << 5)) ? "repeater" : "router";
+					break;
+#endif
+				default:
+					p = brau_state ? "auto" : "bridge";
+					break;
+				}
 				nvram_set("brau_state", p);
 #ifdef DEBUG_TEST
 				cprintf("bridge/auto state = %s\n", p);

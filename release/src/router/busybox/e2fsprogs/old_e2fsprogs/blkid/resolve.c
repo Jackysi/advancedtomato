@@ -65,7 +65,7 @@ char *blkid_get_devname(blkid_cache cache, const char *token,
 {
 	blkid_dev dev;
 	blkid_cache c = cache;
-	char *t = 0, *v = 0;
+	char *t = NULL, *v = NULL;
 	char *ret = NULL;
 
 	if (!token)
@@ -121,7 +121,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	if (blkid_get_cache(&cache, bb_dev_null) < 0) {
-		fprintf(stderr, "cannot get blkid cache\n");
+		fprintf(stderr, "Can't get blkid cache\n");
 		exit(1);
 	}
 

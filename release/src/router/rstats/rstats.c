@@ -30,20 +30,13 @@
 
 #include <bcmnvram.h>
 #include <shutils.h>
+
+
+//#define DEBUG_NOISY
+//#define DEBUG_STIME
+
+
 #include <shared.h>
-
-
-//	#define DEBUG_NOISY
-//	#define DEBUG_STIME
-
-
-#ifdef DEBUG_NOISY
-#define _dprintf(args...)	cprintf(args)
-#else
-#define _dprintf(args...)	do { } while (0)
-#endif
-
-
 
 #define K 1024
 #define M (1024 * 1024)
@@ -73,6 +66,7 @@
 #define ID_V1		0x31305352
 #define CURRENT_ID	ID_V1
 
+#define HI_BACK		5
 
 typedef struct {
 	uint32_t xtime;
@@ -156,9 +150,11 @@ static void save(int quick)
 	int i;
 	char *bi, *bo;
 	int n;
+	int b;
 	char hgz[256];
 	char tmp[256];
 	char bak[256];
+	char bkp[256];
 	time_t now;
 	struct tm *tms;
 	static int lastbak = -1;
@@ -227,8 +223,13 @@ static void save(int quick)
 							strcpy(bak, save_path);
 							n = strlen(bak);
 							if ((n > 3) && (strcmp(bak + (n - 3), ".gz") == 0)) n -= 3;
-							sprintf(bak + n, "_%d.bak", ((tms->tm_yday / 7) % 3) + 1);
-							if (eval("cp", save_path, bak) == 0) lastbak = tms->tm_yday;
+							strcpy(bkp, bak);
+							for (b = HI_BACK-1; b > 0; --b) {
+								sprintf(bkp + n, "_%d.bak", b + 1);
+								sprintf(bak + n, "_%d.bak", b);
+								rename(bak, bkp);
+							}
+							if (eval("cp", "-p", save_path, bak) == 0) lastbak = tms->tm_yday;
 						}
 					}
 
@@ -309,6 +310,29 @@ static int load_history(const char *fname)
 
 	_dprintf("%s: dailyp=%d monthlyp=%d\n", __FUNCTION__, history.dailyp, history.monthlyp);
 	return 1;
+}
+
+/* Try loading from the backup versions.
+ * We'll try from oldest to newest, then
+ * retry the requested one again last.  In case the drive mounts while
+ * we are trying to find a good version.
+ */
+static int try_hardway(const char *fname)
+{
+	char fn[256];
+	int n, b, found = 0;
+
+	strcpy(fn, fname);
+	n = strlen(fn);
+	if ((n > 3) && (strcmp(fn + (n - 3), ".gz") == 0))
+		n -= 3;
+	for (b = HI_BACK; b > 0; --b) {
+		sprintf(fn + n, "_%d.bak", b);
+		found |= load_history(fn);
+	}
+	found |= load_history(fname);
+
+	return found;
 }
 
 static void load_new(void)
@@ -399,7 +423,13 @@ static void load(int new)
 					// cifs quirk: try forcing refresh
 					eval("ls", save_path);
 
-					if (load_history(save_path)) {
+					/* If we can't access the path, keep trying - maybe it isn't mounted yet.
+					 * If we can, and we can sucessfully load it, oksy.
+					 * If we can, and we cannot load it, then maybe it has been deleted, or
+					 * maybe it's corrupted (like 0 bytes long).
+					 * In these cases, try the backup files.
+					 */
+					if (load_history(save_path) || try_hardway(save_path)) {
 						f_write_string(source_fn, save_path, 0, 0);
 						break;
 					}
@@ -629,7 +659,7 @@ static void calc(void)
 
 		// todo: split, delay
 
-		if (now > Y2K) {
+		if (now > Y2K) {	/* Skip this if the time&date is not set yet */
 			if (get_wan_proto() == WP_DISABLED) {
 				if ((nvram_get_int("wan_islan") == 0) || (!nvram_match("wan_ifnameX", ifname))) continue;
 			}

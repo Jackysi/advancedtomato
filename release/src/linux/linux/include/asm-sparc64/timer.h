@@ -1,4 +1,4 @@
-/* $Id: timer.h,v 1.1.1.4 2003/10/14 08:09:23 sparq Exp $
+/* $Id: timer.h,v 1.3 2000/05/09 17:40:15 davem Exp $
  * timer.h: System timer definitions for sun5.
  *
  * Copyright (C) 1997 David S. Miller (davem@caip.rutgers.edu)
@@ -25,6 +25,14 @@
 
 #include <linux/config.h>
 
+/* Two timers, traditionally steered to PIL's 10 and 14 respectively.
+ * But since INO packets are used on sun5, we could use any PIL level
+ * we like, however for now we use the normal ones.
+ *
+ * The 'reg' and 'interrupts' properties for these live in nodes named
+ * 'counter-timer'.  The first of three 'reg' properties describe where
+ * the sun5_timer registers are.  The other two I have no idea. (XXX)
+ */
 struct sun5_timer {
 	u64	count0;
 	u64	limit0;
@@ -41,6 +49,17 @@ struct sun5_timer {
  * gets delivered that often.
  */
 #define SUN5_HZ_TO_LIMIT(__hz)  (1000000/(__hz))
+
+struct sparc64_tick_ops {
+	void (*init_tick)(unsigned long);
+	unsigned long (*get_tick)(void);
+	unsigned long (*get_compare)(void);
+	unsigned long (*add_tick)(unsigned long, unsigned long);
+	unsigned long (*add_compare)(unsigned long);
+	unsigned long softint_mask;
+};
+
+extern struct sparc64_tick_ops *tick_ops;
 
 #ifdef CONFIG_SMP
 extern unsigned long timer_tick_offset;

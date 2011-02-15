@@ -5,7 +5,7 @@
  *
  *		The User Datagram Protocol (UDP).
  *
- * Version:	$Id: udp.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ * Version:	$Id: udp.c,v 1.100.2.4 2002/03/05 12:47:34 davem Exp $
  *
  * Authors:	Ross Biro, <bir7@leland.Stanford.Edu>
  *		Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
@@ -61,6 +61,9 @@
  *					return ENOTCONN for unconnected sockets (POSIX)
  *		Janos Farkas	:	don't deliver multi/broadcasts to a different
  *					bound-to-device socket
+ *	YOSHIFUJI Hideaki @USAGI and:	Support IPV6_V6ONLY socket option, which
+ *	Alexey Kuznetsov:		allow both IPv4 and IPv6 sockets to bind
+ *					a single port at the same time.
  *
  *
  *		This program is free software; you can redistribute it and/or
@@ -85,6 +88,7 @@
 #include <linux/netdevice.h>
 #include <net/snmp.h>
 #include <net/ip.h>
+#include <net/ipv6.h>
 #include <net/protocol.h>
 #include <linux/skbuff.h>
 #include <net/sock.h>
@@ -159,7 +163,10 @@ gotit:
 		     sk2 = sk2->next) {
 			if (sk2->num == snum &&
 			    sk2 != sk &&
-			    sk2->bound_dev_if == sk->bound_dev_if &&
+			    !ipv6_only_sock(sk2) &&
+			    (!sk2->bound_dev_if ||
+			     !sk->bound_dev_if ||
+			     sk2->bound_dev_if == sk->bound_dev_if) &&
 			    (!sk2->rcv_saddr ||
 			     !sk->rcv_saddr ||
 			     sk2->rcv_saddr == sk->rcv_saddr) &&
@@ -215,29 +222,34 @@ struct sock *udp_v4_lookup_longway(u32 saddr, u16 sport, u32 daddr, u16 dport, i
 	int badness = -1;
 
 	for(sk = udp_hash[hnum & (UDP_HTABLE_SIZE - 1)]; sk != NULL; sk = sk->next) {
-		if(sk->num == hnum) {
-			int score = 0;
+		if(sk->num == hnum && !ipv6_only_sock(sk)) {
+			int score;
+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+			score = sk->family == PF_INET ? 1 : 0;
+#else
+			score = 1;
+#endif
 			if(sk->rcv_saddr) {
 				if(sk->rcv_saddr != daddr)
 					continue;
-				score++;
+				score+=2;
 			}
 			if(sk->daddr) {
 				if(sk->daddr != saddr)
 					continue;
-				score++;
+				score+=2;
 			}
 			if(sk->dport) {
 				if(sk->dport != sport)
 					continue;
-				score++;
+				score+=2;
 			}
 			if(sk->bound_dev_if) {
 				if(sk->bound_dev_if != dif)
 					continue;
-				score++;
+				score+=2;
 			}
-			if(score == 4) {
+			if(score == 9) {
 				result = sk;
 				break;
 			} else if(score > badness) {
@@ -261,6 +273,8 @@ __inline__ struct sock *udp_v4_lookup(u32 saddr, u16 sport, u32 daddr, u16 dport
 	return sk;
 }
 
+extern int ip_mc_sf_allow(struct sock *sk, u32 local, u32 rmt, int dif);
+
 static inline struct sock *udp_v4_mcast_next(struct sock *sk,
 					     u16 loc_port, u32 loc_addr,
 					     u16 rmt_port, u32 rmt_addr,
@@ -273,7 +287,10 @@ static inline struct sock *udp_v4_mcast_next(struct sock *sk,
 		    (s->daddr && s->daddr!=rmt_addr)			||
 		    (s->dport != rmt_port && s->dport != 0)			||
 		    (s->rcv_saddr  && s->rcv_saddr != loc_addr)		||
+		    ipv6_only_sock(s)					||
 		    (s->bound_dev_if && s->bound_dev_if != dif))
+			continue;
+		if (!ip_mc_sf_allow(s, loc_addr, rmt_addr, dif))
 			continue;
 		break;
   	}
@@ -354,7 +371,6 @@ out:
 	sock_put(sk);
 }
 
-
 static unsigned short udp_check(struct udphdr *uh, int len, unsigned long saddr, unsigned long daddr, unsigned long base)
 {
 	return(csum_tcpudp_magic(saddr, daddr, len, IPPROTO_UDP, base));
@@ -373,7 +389,8 @@ struct udpfakehdr
  *	Copy and checksum a UDP packet from user space into a buffer.
  */
  
-static int udp_getfrag(const void *p, char * to, unsigned int offset, unsigned int fraglen) 
+static int udp_getfrag(const void *p, char * to, unsigned int offset,
+                       unsigned int fraglen, struct sk_buff *skb)
 {
 	struct udpfakehdr *ufh = (struct udpfakehdr *)p;
 	if (offset==0) {
@@ -400,7 +417,8 @@ static int udp_getfrag(const void *p, char * to, unsigned int offset, unsigned i
  *	Copy a UDP packet from user space into a buffer without checksumming.
  */
  
-static int udp_getfrag_nosum(const void *p, char * to, unsigned int offset, unsigned int fraglen) 
+static int udp_getfrag_nosum(const void *p, char * to, unsigned int offset,
+                             unsigned int fraglen, struct sk_buff *skb) 
 {
 	struct udpfakehdr *ufh = (struct udpfakehdr *)p;
 
@@ -465,7 +483,7 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, int len)
 			return -EINVAL;
 	} else {
 		if (sk->state != TCP_ESTABLISHED)
-			return -ENOTCONN;
+			return -EDESTADDRREQ;
 		ufh.daddr = sk->daddr;
 		ufh.uh.dest = sk->dport;
 		/* Open fast path for connected socket.
@@ -619,6 +637,55 @@ static __inline__ int udp_checksum_complete(struct sk_buff *skb)
 		__udp_checksum_complete(skb);
 }
 
+
+/**
+ * 	udp_poll - wait for a UDP event.
+ *	@file - file struct
+ *	@sock - socket
+ *	@wait - poll table
+ *
+ *	This is same as datagram poll, except for the special case of 
+ *	blocking sockets. If application is using a blocking fd
+ *	and a packet with checksum error is in the queue;
+ *	then it could get return from select indicating data available
+ *	but then block when reading it. Add special case code
+ *	to work around these arguably broken applications.
+ */
+unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
+{
+	unsigned int mask = datagram_poll(file, sock, wait);
+	struct sock *sk = sock->sk;
+	
+	/* Check for false positives due to checksum errors */
+	if ( (mask & POLLRDNORM) &&
+	     !(file->f_flags & O_NONBLOCK) &&
+	     !(sk->shutdown & RCV_SHUTDOWN)){
+		struct sk_buff_head *rcvq = &sk->receive_queue;
+		struct sk_buff *skb;
+
+		spin_lock_irq(&rcvq->lock);
+		while ((skb = skb_peek(rcvq)) != NULL) {
+			if (udp_checksum_complete(skb)) {
+				UDP_INC_STATS_BH(UdpInErrors);
+				IP_INC_STATS_BH(IpInDiscards);
+				__skb_unlink(skb, rcvq);
+				kfree_skb(skb);
+			} else {
+				skb->ip_summed = CHECKSUM_UNNECESSARY;
+				break;
+			}
+		}
+		spin_unlock_irq(&rcvq->lock);
+
+		/* nothing to see, move along */
+		if (skb == NULL)
+			mask &= ~(POLLIN | POLLRDNORM);
+	}
+
+	return mask;
+	
+}
+
 /*
  * 	This should be easy, if there is something there we
  * 	return it, otherwise we block.
@@ -640,10 +707,18 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, int len,
 	if (flags & MSG_ERRQUEUE)
 		return ip_recv_error(sk, msg, len);
 
+try_again:
 	skb = skb_recv_datagram(sk, flags, noblock, &err);
 	if (!skb)
 		goto out;
-  
+
+	if (skb->nh.iph->version != 4) {
+		skb_free_datagram(sk, skb);
+		if (noblock)
+			return -EAGAIN;
+		goto try_again;
+	}
+
   	copied = skb->len - sizeof(struct udphdr);
 	if (copied > len) {
 		copied = len;
@@ -680,7 +755,10 @@ int udp_recvmsg(struct sock *sk, struct msghdr *msg, int len,
   	}
 	if (sk->protinfo.af_inet.cmsg_flags)
 		ip_cmsg_recv(msg, skb);
+
 	err = copied;
+	if (flags & MSG_TRUNC)
+		err = skb->len - sizeof(struct udphdr);
   
 out_free:
   	skb_free_datagram(sk, skb);
@@ -705,7 +783,9 @@ csum_copy_err:
 
 	skb_free_datagram(sk, skb);
 
-	return -EAGAIN;	
+	if (noblock)
+		return -EAGAIN;	
+	goto try_again;
 }
 
 int udp_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
@@ -787,6 +867,9 @@ static void udp_close(struct sock *sk, long timeout)
 
 static int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
 {
+#if 1
+	struct udp_opt *up =  &(sk->tp_pinfo.af_udp);
+#endif
 	/*
 	 *	Charge it to the socket, dropping if the queue is full.
 	 */
@@ -801,6 +884,67 @@ static int udp_queue_rcv_skb(struct sock * sk, struct sk_buff *skb)
 			return -1;
 		}
 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+	}
+#endif
+
+	if (up->encap_type) {
+		/*
+		 * This is an encapsulation socket so pass the skb to
+		 * the socket's udp_encap_rcv() hook. Otherwise, just
+		 * fall through and pass this up the UDP socket.
+		 * up->encap_rcv() returns the following value:
+		 * =0 if skb was successfully passed to the encap
+		 *    handler or was discarded by it.
+		 * >0 if skb should be passed on to UDP.
+		 * <0 if skb should be resubmitted as proto -N
+		 */
+
+		/* if we're overly short, let UDP handle it */
+		if (skb->len > sizeof(struct udphdr) &&
+		    up->encap_rcv != NULL) {
+			int ret;
+
+			ret = (*up->encap_rcv)(sk, skb);
+			if (ret <= 0) {
+				UDP_INC_STATS_BH(UdpInDatagrams);
+				return -ret;
+			}
+		}
+
+		/* FALLTHROUGH -- it's a UDP Packet */
+	}
+
+#ifdef CONFIG_IPSEC_NAT_TRAVERSAL
+	if (up->esp_in_udp) {
+		/*
+		 * Set skb->sk and xmit packet to ipsec_rcv.
+		 *
+		 * If ret != 0, ipsec_rcv refused the packet (not ESPinUDP),
+		 * restore skb->sk and fall back to sock_queue_rcv_skb
+		 */
+		struct inet_protocol *esp = NULL;
+
+#if defined(CONFIG_IPSEC) && !defined(CONFIG_IPSEC_MODULE)
+               /* optomize only when we know it is statically linked */
+		extern struct inet_protocol esp_protocol;
+		esp = &esp_protocol;
+#else
+		for (esp = (struct inet_protocol *)inet_protos[IPPROTO_ESP & (MAX_INET_PROTOS - 1)];
+			(esp) && (esp->protocol != IPPROTO_ESP);
+			esp = esp->next);
+#endif
+
+		if (esp && esp->handler) {
+			struct sock *sav_sk = skb->sk;
+			skb->sk = sk;
+			if (esp->handler(skb) == 0) {
+				skb->sk = sav_sk;
+				/*not sure we might count ESPinUDP as UDP...*/
+				UDP_INC_STATS_BH(UdpInDatagrams);
+				return 0;
+			}
+			skb->sk = sav_sk;
+		}
 	}
 #endif
 
@@ -1027,13 +1171,46 @@ out:
 	return len;
 }
 
+static int udp_setsockopt(struct sock *sk, int level, int optname,
+	char *optval, int optlen)
+{
+	struct udp_opt *tp = &(sk->tp_pinfo.af_udp);
+	int val;
+	int err = 0;
+
+	if (level != SOL_UDP)
+		return ip_setsockopt(sk, level, optname, optval, optlen);
+
+	if(optlen<sizeof(int))
+		return -EINVAL;
+
+	if (get_user(val, (int *)optval))
+		return -EFAULT;
+	
+	lock_sock(sk);
+
+	switch(optname) {
+#ifdef CONFIG_IPSEC_NAT_TRAVERSAL
+		case UDP_ENCAP:
+			tp->esp_in_udp = val;
+			break;
+#endif
+		default:
+			err = -ENOPROTOOPT;
+			break;
+	}
+
+	release_sock(sk);
+	return err;
+}
+
 struct proto udp_prot = {
  	name:		"UDP",
 	close:		udp_close,
 	connect:	udp_connect,
 	disconnect:	udp_disconnect,
 	ioctl:		udp_ioctl,
-	setsockopt:	ip_setsockopt,
+	setsockopt:	udp_setsockopt,
 	getsockopt:	ip_getsockopt,
 	sendmsg:	udp_sendmsg,
 	recvmsg:	udp_recvmsg,

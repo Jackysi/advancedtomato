@@ -41,7 +41,7 @@
  * GPL licensing note -- nVidia is allowing a liberal interpretation of
  * the documentation restriction above, to merely say that this nVidia's
  * copyright and disclaimer should be included with all code derived
- * from this source.  -- Jeff Garzik <jgarzik@mandrakesoft.com>, 01/Nov/99 
+ * from this source.  -- Jeff Garzik <jgarzik@pobox.com>, 01/Nov/99 
  */
 
 /* $XFree86: xc/programs/Xserver/hw/xfree86/drivers/nv/riva_hw.c,v 1.8 2000/02/08 17:19:11 dawes Exp $ */
@@ -1449,6 +1449,16 @@ static void LoadStateExt
 		chip->PGRAPH[0x000009A4/4] = chip->PFB[0x00000200/4];
 		chip->PGRAPH[0x000009A8/4] = chip->PFB[0x00000204/4];
 	    }
+
+	    chip->PFB[0x00000240/4] = 0;
+	    chip->PFB[0x00000244/4] = 0;
+	    chip->PFB[0x00000248/4] = 0;
+	    chip->PFB[0x0000024C/4] = 0;
+	    chip->PFB[0x00000250/4] = 0;
+	    chip->PFB[0x00000244/4] = 0;
+	    chip->PFB[0x00000248/4] = 0;
+	    chip->PFB[0x0000024C/4] = 0;
+
             chip->PGRAPH[0x00000B00/4] = chip->PFB[0x00000240/4];
             chip->PGRAPH[0x00000B04/4] = chip->PFB[0x00000244/4];
             chip->PGRAPH[0x00000B08/4] = chip->PFB[0x00000248/4];
@@ -1522,6 +1532,15 @@ static void LoadStateExt
             chip->PGRAPH[0x00000F50/4] = 0x00000040;
             for (i = 0; i < 4; i++)
                 chip->PGRAPH[0x00000F54/4] = 0x00000000;
+
+	    if (chip->flatPanel) {
+		VGA_WR08(chip->PCIO, 0x3d4, 0x53);
+		VGA_WR08(chip->PCIO, 0x3d5, 0);
+		VGA_WR08(chip->PCIO, 0x3d4, 0x54);
+		VGA_WR08(chip->PCIO, 0x3d5, 0);
+		VGA_WR08(chip->PCIO, 0x3d4, 0x21);
+		VGA_WR08(chip->PCIO, 0x3d5, 0xfa);
+	    }
             break;
     }
     LOAD_FIXED_STATE(Riva,FIFO);
@@ -1547,6 +1566,16 @@ static void LoadStateExt
     VGA_WR08(chip->PCIO, 0x03D5, state->cursor0);
     VGA_WR08(chip->PCIO, 0x03D4, 0x31);
     VGA_WR08(chip->PCIO, 0x03D5, state->cursor1);
+    VGA_WR08(chip->PCIO, 0x03D4, 0x41);
+    VGA_WR08(chip->PCIO, 0x03D5, state->extra);
+
+    if (!chip->flatPanel) {
+        chip->PRAMDAC[0x00000508/4]  = state->vpll;
+        chip->PRAMDAC[0x00000520/4]  = state->vpll2;
+        chip->PRAMDAC[0x0000050C/4]  = state->pllsel;
+    } else {
+	chip->PRAMDAC[0x00000848/4]  = state->scale;
+    }
     chip->PRAMDAC[0x00000300/4]  = state->cursor2;
     chip->PRAMDAC[0x00000508/4]  = state->vpll;
     chip->PRAMDAC[0x0000050C/4]  = state->pllsel;
@@ -1598,10 +1627,14 @@ static void UnloadStateExt
     state->cursor0      = VGA_RD08(chip->PCIO, 0x03D5);
     VGA_WR08(chip->PCIO, 0x03D4, 0x31);
     state->cursor1      = VGA_RD08(chip->PCIO, 0x03D5);
+    VGA_WR08(chip->PCIO, 0x03D4, 0x41);
+    state->extra        = VGA_RD08(chip->PCIO, 0x03D5);
     state->cursor2      = chip->PRAMDAC[0x00000300/4];
     state->vpll         = chip->PRAMDAC[0x00000508/4];
+    state->vpll2        = chip->PRAMDAC[0x00000520/4];
     state->pllsel       = chip->PRAMDAC[0x0000050C/4];
     state->general      = chip->PRAMDAC[0x00000600/4];
+    state->scale	= chip->PRAMDAC[0x00000848/4];
     state->config       = chip->PFB[0x00000200/4];
     switch (chip->Architecture)
     {
@@ -1910,6 +1943,9 @@ static void nv10GetConfig
     RIVA_HW_INST *chip
 )
 {
+#if defined(__BIG_ENDIAN)
+    chip->PMC[0x00000004/4] = 0x01000001;
+#endif
     /*
      * Fill in chip configuration.
      */

@@ -904,6 +904,7 @@ static int rose_getname(struct socket *sock, struct sockaddr *uaddr,
 	struct sock *sk = sock->sk;
 	int n;
 
+	memset(srose, 0, sizeof(*srose));
 	if (peer != 0) {
 		if (sk->state != TCP_ESTABLISHED)
 			return -ENOTCONN;
@@ -1063,6 +1064,10 @@ static int rose_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 
 	/* Build a packet */
 	SOCK_DEBUG(sk, "ROSE: sendto: building packet.\n");
+	/* Sanity check the packet size */
+	if (len > 65535)
+		return -EMSGSIZE;
+
 	size = len + AX25_BPQ_HEADER_LEN + AX25_MAX_HEADER_LEN + ROSE_MIN_LEN;
 
 	if ((skb = sock_alloc_send_skb(sk, size, msg->msg_flags & MSG_DONTWAIT, &err)) == NULL)
@@ -1523,7 +1528,6 @@ static void __exit rose_exit(void)
 			dev_rose[i].priv = NULL;
 			unregister_netdev(&dev_rose[i]);
 		}
-		kfree(dev_rose[i].name);
 	}
 
 	kfree(dev_rose);

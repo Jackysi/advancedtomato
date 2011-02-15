@@ -1,5 +1,5 @@
 /* t_spki.c */
-/* Written by Dr Stephen N Henson (shenson@bigfoot.com) for the OpenSSL
+/* Written by Dr Stephen N Henson (steve@openssl.org) for the OpenSSL
  * project 1999.
  */
 /* ====================================================================
@@ -59,7 +59,14 @@
 #include <stdio.h>
 #include "cryptlib.h"
 #include <openssl/x509.h>
-#include <openssl/asn1_mac.h>
+#include <openssl/asn1.h>
+#ifndef OPENSSL_NO_RSA
+#include <openssl/rsa.h>
+#endif
+#ifndef OPENSSL_NO_DSA
+#include <openssl/dsa.h>
+#endif
+#include <openssl/bn.h>
 
 /* Print out an SPKI */
 
@@ -75,27 +82,11 @@ int NETSCAPE_SPKI_print(BIO *out, NETSCAPE_SPKI *spki)
 				(i == NID_undef)?"UNKNOWN":OBJ_nid2ln(i));
 	pkey = X509_PUBKEY_get(spki->spkac->pubkey);
 	if(!pkey) BIO_printf(out, "  Unable to load public key\n");
-	else {
-#ifndef NO_RSA
-		if (pkey->type == EVP_PKEY_RSA)
-			{
-			BIO_printf(out,"  RSA Public Key: (%d bit)\n",
-				BN_num_bits(pkey->pkey.rsa->n));
-			RSA_print(out,pkey->pkey.rsa,2);
-			}
-		else 
-#endif
-#ifndef NO_DSA
-		if (pkey->type == EVP_PKEY_DSA)
+	else
 		{
-		BIO_printf(out,"  DSA Public Key:\n");
-		DSA_print(out,pkey->pkey.dsa,2);
-		}
-		else
-#endif
-			BIO_printf(out,"  Unknown Public Key:\n");
+		EVP_PKEY_print_public(out, pkey, 4, NULL);
 		EVP_PKEY_free(pkey);
-	}
+		}
 	chal = spki->spkac->challenge;
 	if(chal->length)
 		BIO_printf(out, "  Challenge String: %s\n", chal->data);

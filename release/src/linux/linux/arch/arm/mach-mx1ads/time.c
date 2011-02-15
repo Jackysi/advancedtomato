@@ -18,6 +18,15 @@
 
 extern int (*set_rtc)(void);
 
+/* FIXME-
+ * When we have an external RTC part,
+ * put the mapping in for that part.
+ *
+ * The internal RTC within the MX1 is not sufficient
+ * for tracking time other than time of day, or
+ * date over very short periods of time.
+ *
+ */
 
 static int mx1ads_set_rtc(void)
 {

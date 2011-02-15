@@ -45,7 +45,12 @@
 #include <error.h>
 #include <sys/ioctl.h>
 #include <sys/sysinfo.h>
+#ifdef LINUX26
+#include <linux/compiler.h>
+#include <mtd/mtd-user.h>
+#else
 #include <linux/mtd/mtd.h>
+#endif
 #include <stdint.h>
 
 #include <trxhdr.h>
@@ -53,10 +58,6 @@
 
 
 //	#define DEBUG_SIMULATE
-
-#undef _dprintf
-//	#define _dprintf	cprintf
-#define _dprintf(args...)	do { } while(0)
 
 
 struct code_header {
@@ -100,55 +101,33 @@ static int crc_init(void)
 	return 1;
 }
 
-static uint32 crc_calc(uint32 crc, void *buf, int len)
+static uint32 crc_calc(uint32 crc, char *buf, int len)
 {
 	while (len-- > 0) {
 		crc = crc_table[(crc ^ *((char *)buf)) & 0xFF] ^ (crc >> 8);
-		(char *)buf++;
+		buf++;
 	}
 	return crc;
 }
 
 // -----------------------------------------------------------------------------
 
-
-int mtd_getinfo(const char *mtdname, int *part, int *size)
-{
-	FILE *f;
-	char s[256];
-	char t[256];
-	int r;
-
-	r = 0;
-	if ((strlen(mtdname) < 128) && (strcmp(mtdname, "pmon") != 0)) {
-		sprintf(t, "\"%s\"", mtdname);
-		if ((f = fopen("/proc/mtd", "r")) != NULL) {
-			while (fgets(s, sizeof(s), f) != NULL) {
-				if ((sscanf(s, "mtd%d: %x", part, size) == 2) && (strstr(s, t) != NULL)) {
-					// don't accidentally mess with bl (0)
-					if (*part > 0) r = 1;
-					break;
-				}
-			}
-			fclose(f);
-		}
-	}
-	if (!r) {
-		*size = 0;
-		*part = -1;
-	}
-	return r;
-}
-
-static int mtd_open(const char *mtdname)
+static int mtd_open(const char *mtdname, mtd_info_t *mi)
 {
 	char path[256];
 	int part;
 	int size;
+	int f;
 
 	if (mtd_getinfo(mtdname, &part, &size)) {
-		sprintf(path, "/dev/mtd/%d", part);
-		return open(path, O_RDWR|O_SYNC);
+		sprintf(path, MTD_DEV(%d), part);
+		if ((f = open(path, O_RDWR|O_SYNC)) >= 0) {
+			if ((mi) && ioctl(f, MEMGETINFO, mi) != 0) {
+				close(f);
+				return -1;
+			}
+			return f;
+		}
 	}
 	return -1;
 }
@@ -165,8 +144,7 @@ static int _unlock_erase(const char *mtdname, int erase)
 	if (erase) led(LED_DIAG, 1);
 
 	r = 0;
-	if ((mf = mtd_open(mtdname)) >= 0) {
-		if (ioctl(mf, MEMGETINFO, &mi) == 0) {
+	if ((mf = mtd_open(mtdname, &mi)) >= 0) {
 			r = 1;
 #if 1
 			ei.length = mi.erasesize;
@@ -209,8 +187,7 @@ static int _unlock_erase(const char *mtdname, int erase)
 			// checkme:
 			char buf[2];
 			read(mf, &buf, sizeof(buf));
-		}
-		close(mf);
+			close(mf);
 	}
 
 	if (erase) led(LED_DIAG, 0);
@@ -314,11 +291,15 @@ int mtd_write_main(int argc, char *argv[])
 	case 0x73343557: // W54s	GS v4
 	case 0x55343557: // W54U	SL
 	case 0x31345257: // WR41	WRH54G
-#if TOMATO_N
+	case 0x4E303233: // 320N	WRT320N
+	case 0x4E583233: // 32XN	E2000
+	case 0x4E303136: // 610N	WRT610N v2
+	case 0x4E583136: // 61XN	E3000
+	case 0x3036314E: // N160	WRT160N
 	case 0x42435745: // EWCB	WRT300N v1
+	case 0x4E303133: // 310N	WRT310N v1/v2
 //	case 0x32435745: // EWC2	WRT300N?
 	case 0x3035314E: // N150	WRT150N
-#endif
 		if (safe_fread(((char *)&cth) + 4, 1, sizeof(cth) - 4, f) != (sizeof(cth) - 4)) {
 			goto ERROR;
 		}
@@ -326,6 +307,27 @@ int mtd_write_main(int argc, char *argv[])
 			goto ERROR;
 		}
 
+		// trx should be next...
+		if (safe_fread(&sig, 1, sizeof(sig), f) != sizeof(sig)) {
+			goto ERROR;
+		}
+		break;
+	case 0x5E24232A: // Netgear
+		// header length is next
+		if (safe_fread(&n, 1, sizeof(n), f) != sizeof(n)) {
+			goto ERROR;
+		}
+		// skip the header - we can't use seek() for fifo, so read the rest of the header
+		n = ntohl(n) - sizeof(sig) - sizeof(n);
+		if ((buf = malloc(n + 1)) == NULL) {
+			error = "Not enough memory";
+			goto ERROR;
+		}
+		if (safe_fread(buf, 1, n, f) != n) {
+			goto ERROR;
+		}
+		free(buf);
+		buf = NULL;
 		// trx should be next...
 		if (safe_fread(&sig, 1, sizeof(sig), f) != sizeof(sig)) {
 			goto ERROR;
@@ -363,7 +365,7 @@ int mtd_write_main(int argc, char *argv[])
 		error = "Not enough memory";
 		goto ERROR;
 	}
-	crc = crc_calc(0xFFFFFFFF, (uint8*)&trx.flag_version, sizeof(struct trx_header) - OFFSETOF(struct trx_header, flag_version));
+	crc = crc_calc(0xFFFFFFFF, (char *)&trx.flag_version, sizeof(struct trx_header) - OFFSETOF(struct trx_header, flag_version));
 
 	if (trx.flag_version & TRX_NO_HEADER) {
 		trx.len -= sizeof(struct trx_header);
@@ -372,12 +374,12 @@ int mtd_write_main(int argc, char *argv[])
 
 	_dprintf("trx len=%db 0x%x\n", trx.len, trx.len);
 
-	if ((mf = mtd_open(dev)) < 0) {
+	if ((mf = mtd_open(dev, &mi)) < 0) {
 		error = "Error opening MTD device";
 		goto ERROR;
 	}
 
-    if ((ioctl(mf, MEMGETINFO, &mi) != 0) || (mi.erasesize < sizeof(struct trx_header))) {
+	if (mi.erasesize < sizeof(struct trx_header)) {
 		error = "Error obtaining MTD information";
 		goto ERROR;
 	}
@@ -474,6 +476,66 @@ int mtd_write_main(int argc, char *argv[])
 		ofs = 0;
 	}
 
+	// Netgear WNR3500L: write fake len and checksum at the end of mtd
+
+	char *tmp;
+	char imageInfo[8];
+
+	switch (get_model()) {
+	case MODEL_WNR3500L:
+	case MODEL_WNR2000v2:
+		error = "Error writing fake Netgear crc";
+
+		// Netgear CFE has the offset of the checksum hardcoded as
+		// 0x78FFF8 on 8MB flash, and 0x38FFF8 on 4MB flash - in both
+		// cases this is 8 last bytes in the block exactly 6 blocks to the end.
+		// We rely on linux partition to be sized correctly by the kernel,
+		// so the checksum area doesn't fall outside of the linux partition,
+		// and doesn't override the rootfs.
+		ofs = (mi.size > (4 *1024 * 1024) ? 0x78FFF8 : 0x38FFF8) - 0x040000;
+
+		n   = 0x00000004;	// fake length - little endian
+		crc = 0x02C0010E;	// fake crc - little endian
+		memcpy(&imageInfo[0], (char *)&n,   4);
+		memcpy(&imageInfo[4], (char *)&crc, 4);
+
+		ei.start = (ofs / mi.erasesize) * mi.erasesize;
+		ei.length = mi.erasesize;
+
+		if (lseek(mf, ei.start, SEEK_SET) < 0)
+			goto ERROR2;
+		if (buf) free(buf);
+		if (!(buf = malloc(mi.erasesize)))
+			goto ERROR2;
+		if (read(mf, buf, mi.erasesize) != mi.erasesize)
+			goto ERROR2;
+		if (lseek(mf, ei.start, SEEK_SET) < 0)
+			goto ERROR2;
+
+		tmp = buf + (ofs % mi.erasesize);
+		memcpy(tmp, imageInfo, sizeof(imageInfo));
+
+#ifdef DEBUG_SIMULATE
+		if (fseek(of, ei.start, SEEK_SET) < 0)
+			goto ERROR2;
+		if (fwrite(buf, 1, mi.erasesize, of) != n)
+			goto ERROR2;
+#else
+		ioctl(mf, MEMUNLOCK, &ei);
+		if (ioctl(mf, MEMERASE, &ei) != 0)
+			goto ERROR2;
+
+		if (write(mf, buf, mi.erasesize) != mi.erasesize)
+			goto ERROR2;
+#endif
+
+ERROR2:
+		_dprintf("%s.\n",  error ? : "Write Netgear fake len/crc completed");
+		// ignore crc write errors
+		error = NULL;
+		break;
+	}
+
 #ifdef DEBUG_SIMULATE
 	fclose(of);
 #endif
@@ -481,6 +543,7 @@ int mtd_write_main(int argc, char *argv[])
 ERROR:
 	if (buf) free(buf);
 	if (mf >= 0) {
+		// dummy read to ensure chip(s) are out of lock/suspend state
 		read(mf, &n, sizeof(n));
 		close(mf);
 	}
@@ -488,7 +551,9 @@ ERROR:
 
 	crc_done();
 
-//	set_action(ACT_IDLE);
+#ifdef DEBUG_SIMULATE
+	set_action(ACT_IDLE);
+#endif
 
 	printf("%s\n",  error ? error : "Image successfully flashed");
 	_dprintf("%s\n",  error ? error : "Image successfully flashed");

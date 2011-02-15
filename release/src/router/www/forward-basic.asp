@@ -90,7 +90,7 @@ fog.verifyFields = function(row, quiet) {
 
 	f[2].value = f[2].value.trim();
 	ferror.clear(f[2]);
-	if ((f[2].value.length) && (!v_iptip(f[2], 0))) return 0;
+	if ((f[2].value.length) && (!v_iptaddr(f[2], quiet))) return 0;
 
 	if (!v_iptport(f[3], quiet)) return 0;
 	ferror.clear(f[4]);
@@ -111,6 +111,7 @@ fog.verifyFields = function(row, quiet) {
 	if (!v_ip(f[5], quiet, 1)) return 0;
 
 	f[6].value = f[6].value.replace(/>/g, '_');
+	if (!v_nodelim(f[6], quiet, 'Description')) return 0;
 	return 1;
 }
 
@@ -180,7 +181,7 @@ function save()
 	}
 	var fom = E('_fom');
 	fom.portforward.value = s;
-	form.submit(fom, 1, 'tomato.cgi');
+	form.submit(fom, 0, 'tomato.cgi');
 }
 
 function init()
@@ -216,7 +217,7 @@ function init()
 
 <div>
 <ul>
-<li><b>Src Address</b> <i>(optional)</i> - Forward only if from this address. Ex: "1.2.3.4", "1.2.3.4 - 2.3.4.5", "1.2.3.0/24".
+<li><b>Src Address</b> <i>(optional)</i> - Forward only if from this address. Ex: "1.2.3.4", "1.2.3.4 - 2.3.4.5", "1.2.3.0/24", "me.example.com".
 <li><b>Ext Ports</b> - The ports to be forwarded, as seen from the WAN. Ex: "2345", "200,300", "200-300,400".
 <li><b>Int Port</b> <i>(optional)</i> - The destination port inside the LAN. If blank, the destination port
 is the same as <i>Ext Ports</i>. Only one port per entry is supported when forwarding to a different internal
@@ -224,6 +225,9 @@ port.
 <li><b>Int Address</b> - The destination address inside the LAN.
 </ul>
 </div>
+
+<br>
+<script type='text/javascript'>show_notice1('<% notice("iptables"); %>');</script>
 
 <!-- / / / -->
 

@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.system.h 1.20 03/19/02 15:04:39 benh
- */
-/*
  * Copyright (C) 1999 Cort Dougan <cort@cs.nmt.edu>
  */
 #ifndef __PPC_SYSTEM_H
@@ -105,6 +102,7 @@ extern void dump_regs(struct pt_regs *);
 #define save_flags(flags)	__save_flags(flags)
 #define restore_flags(flags)	__restore_flags(flags)
 #define save_and_cli(flags)	__save_and_cli(flags)
+#define save_and_sti(flags)	__save_and_sti(flags)
 
 #else /* CONFIG_SMP */
 
@@ -117,11 +115,15 @@ extern void __global_restore_flags(unsigned long);
 #define save_flags(x) ((x)=__global_save_flags())
 #define restore_flags(x) __global_restore_flags(x)
 
+#define save_and_cli(x) do { save_flags(x); cli(); } while(0);
+#define save_and_sti(x) do { save_flags(x); sti(); } while(0);
+
 #endif /* !CONFIG_SMP */
 
 #define local_irq_disable()		__cli()
 #define local_irq_enable()		__sti()
 #define local_irq_save(flags)		__save_and_cli(flags)
+#define local_irq_set(flags)		__save_and_sti(flags)
 #define local_irq_restore(flags)	__restore_flags(flags)
 
 static __inline__ unsigned long
@@ -130,8 +132,9 @@ xchg_u32(volatile void *p, unsigned long val)
 	unsigned long prev;
 
 	__asm__ __volatile__ ("\n\
-1:	lwarx	%0,0,%2 \n\
-	stwcx.	%3,0,%2 \n\
+1:	lwarx	%0,0,%2 \n"
+	PPC405_ERR77(0,%2)
+"	stwcx.	%3,0,%2 \n\
 	bne-	1b"
 	: "=&r" (prev), "=m" (*(volatile unsigned long *)p)
 	: "r" (p), "r" (val), "m" (*(volatile unsigned long *)p)
@@ -154,6 +157,10 @@ static inline unsigned long __xchg(unsigned long x, void * ptr, int size)
 	switch (size) {
 	case 4:
 		return (unsigned long )xchg_u32(ptr, x);
+#if 0	/* xchg_u64 doesn't exist on 32-bit PPC */
+	case 8:
+		return (unsigned long )xchg_u64(ptr, x);
+#endif /* 0 */
 	}
 	__xchg_called_with_bad_pointer();
 	return x;
@@ -177,8 +184,9 @@ __cmpxchg_u32(volatile int *p, int old, int new)
 	__asm__ __volatile__ ("\n\
 1:	lwarx	%0,0,%2 \n\
 	cmpw	0,%0,%3 \n\
-	bne	2f \n\
-	stwcx.	%4,0,%2 \n\
+	bne	2f \n"
+	PPC405_ERR77(0,%2)
+"	stwcx.	%4,0,%2 \n\
 	bne-	1b\n"
 #ifdef CONFIG_SMP
 "	sync\n"
@@ -201,6 +209,10 @@ __cmpxchg(volatile void *ptr, unsigned long old, unsigned long new, int size)
 	switch (size) {
 	case 4:
 		return __cmpxchg_u32(ptr, old, new);
+#if 0	/* we don't have __cmpxchg_u64 on 32-bit PPC */
+	case 8:
+		return __cmpxchg_u64(ptr, old, new);
+#endif /* 0 */
 	}
 	__cmpxchg_called_with_bad_pointer();
 	return old;

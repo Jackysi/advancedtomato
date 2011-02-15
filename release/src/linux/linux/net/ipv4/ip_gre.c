@@ -38,6 +38,10 @@
 #include <net/checksum.h>
 #include <net/inet_ecn.h>
 
+#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
+#include <net/gre.h>
+#endif
+
 #ifdef CONFIG_IPV6
 #include <net/ipv6.h>
 #include <net/ip6_fib.h>
@@ -644,13 +648,7 @@ int ipgre_rcv(struct sk_buff *skb)
 		skb->dev = tunnel->dev;
 		dst_release(skb->dst);
 		skb->dst = NULL;
-#ifdef CONFIG_NETFILTER
-		nf_conntrack_put(skb->nfct);
-		skb->nfct = NULL;
-#ifdef CONFIG_NETFILTER_DEBUG
-		skb->nf_debug = 0;
-#endif
-#endif
+		nf_reset(skb);
 		ipgre_ecn_decapsulate(iph, skb);
 		netif_rx(skb);
 		read_unlock(&ipgre_lock);
@@ -807,8 +805,6 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
 			tunnel->err_count = 0;
 	}
 
-	skb->h.raw = skb->nh.raw;
-
 	max_headroom = ((tdev->hard_header_len+15)&~15)+ gre_hlen;
 
 	if (skb_headroom(skb) < max_headroom || skb_cloned(skb) || skb_shared(skb)) {
@@ -824,8 +820,10 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
 			skb_set_owner_w(new_skb, skb->sk);
 		dev_kfree_skb(skb);
 		skb = new_skb;
+		old_iph = skb->nh.iph;
 	}
 
+	skb->h.raw = skb->nh.raw;
 	skb->nh.raw = skb_push(skb, gre_hlen);
 	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
 	dst_release(skb->dst);
@@ -876,13 +874,7 @@ static int ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
 		}
 	}
 
-#ifdef CONFIG_NETFILTER
-	nf_conntrack_put(skb->nfct);
-	skb->nfct = NULL;
-#ifdef CONFIG_NETFILTER_DEBUG
-	skb->nf_debug = 0;
-#endif
-#endif
+	nf_reset(skb);
 
 	IPTUNNEL_XMIT();
 	tunnel->recursion--;
@@ -1255,7 +1247,12 @@ int __init ipgre_fb_tunnel_init(struct net_device *dev)
 	return 0;
 }
 
-
+#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
+static struct gre_protocol ipgre_protocol = {
+	.handler	= ipgre_rcv,
+	.err_handler	= ipgre_err,
+};
+#else
 static struct inet_protocol ipgre_protocol = {
   ipgre_rcv,             /* GRE handler          */
   ipgre_err,             /* TUNNEL error control */
@@ -1265,7 +1262,7 @@ static struct inet_protocol ipgre_protocol = {
   NULL,                 /* data                 */
   "GRE"                 /* name                 */
 };
-
+#endif
 
 /*
  *	And now the modules code and kernel interface.
@@ -1281,7 +1278,12 @@ int __init ipgre_init(void)
 
 	ipgre_fb_tunnel_dev.priv = (void*)&ipgre_fb_tunnel;
 	register_netdev(&ipgre_fb_tunnel_dev);
+#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
+	if (gre_add_protocol(&ipgre_protocol, GREPROTO_CISCO) < 0)
+		printk(KERN_INFO "ipgre init: can't add protocol\n");
+#else
 	inet_add_protocol(&ipgre_protocol);
+#endif
 	return 0;
 }
 
@@ -1289,7 +1291,11 @@ int __init ipgre_init(void)
 
 void cleanup_module(void)
 {
+#if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
+	if (gre_del_protocol(&ipgre_protocol, GREPROTO_CISCO) < 0)
+#else
 	if ( inet_del_protocol(&ipgre_protocol) < 0 )
+#endif
 		printk(KERN_INFO "ipgre close: can't remove protocol\n");
 
 	unregister_netdev(&ipgre_fb_tunnel_dev);

@@ -1,287 +1,131 @@
 /*
 
-	Minimal MatrixSSL Helper
+	Minimal CyaSSL/OpenSSL Helper
 	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2010 Fedor Kozhevnikov
 
-	Licensed under GNU GPL v2 or later.
+	Licensed under GNU GPL v2 or later
 
 */
 
 #define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <syslog.h>
-#include <sys/socket.h>
 #include <fcntl.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <errno.h>
 
-#include <shutils.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
-#include "../matrixssl/matrixSsl.h"
-/*
-#include "mssl.h"
-*/
+#ifdef USE_OPENSSL
+#include <openssl/rsa.h>
+#include <openssl/crypto.h>
+#include <openssl/x509.h>
+#include <openssl/pem.h>
+#else	// CyaSSL
+#include <cyassl_error.h>
+#endif
 
-
-#define _dprintf(args...)	do { } while(0)
-//	#define _dprintf	cprintf
-
+#define _dprintf(args...)	while (0) {}
 
 typedef struct {
-	ssl_t *ssl;
-	sslBuf_t inbuf;		// buffer for decoded data
-	sslBuf_t insock;	// buffer for recv() data
-	sslBuf_t outsock;	// buffer for send() data
-	int sslend;
+	SSL* ssl;
 	int sd;
 } mssl_cookie_t;
 
-static sslKeys_t *keys;
+static SSL_CTX* ctx;
 
-
-
-inline int sb_used(sslBuf_t *b)
+static inline void mssl_print_err(SSL* ssl)
 {
-	return b->end - b->start;
+#ifdef USE_OPENSSL
+	ERR_print_errors_fp(stderr);
+#else
+	_dprintf("CyaSSL error %d\n", ssl ? SSL_get_error(ssl, 0) : -1);
+#endif
 }
 
-inline int sb_unused(sslBuf_t *b)
+static inline void mssl_cleanup(int err)
 {
-	return (b->buf + b->size) - b->end;
+	if (err) mssl_print_err(NULL);
+	SSL_CTX_free(ctx);
+	ctx = NULL;
 }
-
-static void sb_free(sslBuf_t *b)
-{
-	free(b->buf);
-	b->start = b->end = b->buf = NULL;
-	b->size = 0;
-}
-
-//  - expects ->buf to be valid or NULL
-//  - malloc error is fatal
-static int sb_alloc(sslBuf_t *b, int size)
-{
-	void *p;
-
-	sb_free(b);
-	if ((p = malloc(size)) == NULL) {
-		syslog(LOG_CRIT, "Not enough memory");
-		exit(1);
-	}
-	b->start = b->end = b->buf = p;
-	b->size = size;
-	return 1;
-}
-
-//  - expects ->buf to be valid or NULL
-//  - malloc error is fatal
-static int sb_realloc(sslBuf_t *b, int size)
-{
-	void *p;
-
-	if ((p = realloc(b->buf, size)) == NULL) {
-		syslog(LOG_CRIT, "Not enough memory");
-		exit(1);
-	}
-	b->start = p + (b->start - b->buf);
-	b->end = p + (b->end - b->buf);
-	b->buf = p;
-	b->size = size;
-	return 1;
-}
-
-static void sb_pack(sslBuf_t *b)
-{
-	int n;
-
-	if (b->start == b->end) {
-		b->start = b->end = b->buf;
-	}
-	else {
-		n = sb_used(b);
-		memmove(b->buf, b->start, n);
-		b->end = b->buf + n;
-		b->start = b->buf;
-	}
-}
-
-static int sb_read(sslBuf_t *b, unsigned char *buf, int len)
-{
-	int n;
-	n = min(sb_used(b), len);
-	memcpy(buf, b->start, n);
-	b->start += n;
-	if (b->start == b->end) b->start = b->end = b->buf;
-	return n;
-}
-
-
-// -----------------------------------------------------------------------------
-
 
 static ssize_t mssl_read(void *cookie, char *buf, size_t len)
 {
+	_dprintf("%s()\n", __FUNCTION__);
+
 	mssl_cookie_t *kuki = cookie;
-	int r;
-	unsigned char err, alevel, adesc;
+	int total = 0;
+	int n, err;
 
+	do {
+		n = SSL_read(kuki->ssl, &(buf[total]), len - total);
+		_dprintf("SSL_read(max=%d) returned %d\n", len - total, n);
 
-	_dprintf("%s\n", __FUNCTION__);
-
-	if (kuki->inbuf.buf) {
-		if (kuki->inbuf.start < kuki->inbuf.end) {
-			r = sb_read(&kuki->inbuf, buf, len);
-			_dprintf("sb_read r=%d\n", r);
-			return r;
+		err = SSL_get_error(kuki->ssl, n);
+		switch (err) {
+		case SSL_ERROR_NONE:
+			total += n;
+			break;
+		case SSL_ERROR_ZERO_RETURN:
+			total += n;
+			goto OUT;
+		case SSL_ERROR_WANT_WRITE:
+		case SSL_ERROR_WANT_READ:
+			break;
+		default:
+			_dprintf("%s(): SSL error %d\n", __FUNCTION__, err);
+			mssl_print_err(kuki->ssl);
+			if (total == 0) total = -1;
+			goto OUT;
 		}
-		sb_free(&kuki->inbuf);
-	}
+	} while ((len - total > 0) && SSL_pending(kuki->ssl));
 
-	sb_pack(&kuki->insock);
-
-	if (kuki->insock.start == kuki->insock.end) {
-READ:
-	_dprintf("READ\n");
-
-		while ((r = recv(kuki->sd, kuki->insock.end, sb_unused(&kuki->insock), 0)) == -1) {
-			if (errno != EINTR) {
-				_dprintf("recv failed errno=%d\n", errno);
-				return -1;
-			}
-		}
-		if (r == 0) {
-			kuki->sslend = 1;
-			return 0;
-		}
-		kuki->insock.end += r;
-	}
-
-	sb_alloc(&kuki->inbuf, len);
-
-DECODE:
-	_dprintf("DECODE\n");
-
-	err = 0;
-	alevel = 0;
-	adesc = 0;
-
-	switch (matrixSslDecode(kuki->ssl, &kuki->insock, &kuki->inbuf, &err, &alevel, &adesc)) {
-	case SSL_SUCCESS:
-		_dprintf("SSL_SUCCESS\n");
-		return 0;
-	case SSL_PROCESS_DATA:
-		_dprintf("SSL_PROCESS_DATA\n");
-
-		r = sb_used(&kuki->inbuf);
-		_dprintf(" r = %d len = %d\n", r, len);
-		r = min(r, len);
-		memcpy(buf, kuki->inbuf.start, r);
-		kuki->inbuf.start += r;
-		return r;
-	case SSL_SEND_RESPONSE:
-		_dprintf("SSL_SEND_RESPONSE\n");
-		_dprintf("send %d\n", sb_used(&kuki->inbuf));
-
-		while ((r = send(kuki->sd, kuki->inbuf.start, sb_used(&kuki->inbuf), MSG_NOSIGNAL)) == -1) {
-			if (errno != EINTR) {
-				_dprintf("send error\n");
-				return -1;
-			}
-		}
-		kuki->inbuf.start += r;
-		if (kuki->inbuf.start != kuki->inbuf.end) _dprintf("inbuf.start != inbuf.end\n");
-		kuki->inbuf.start = kuki->inbuf.end = kuki->inbuf.buf;
-		return 0;
-	case SSL_ERROR:
-		_dprintf("ssl error %d\n", err);
-
-		if (kuki->inbuf.start < kuki->inbuf.end) {
-			send(kuki->sd, kuki->inbuf.start, sb_used(&kuki->inbuf), MSG_NOSIGNAL);
-		}
-		errno = EIO;
-		return -1;
-	case SSL_ALERT:
-		_dprintf("SSL_ALERT\n");
-
-		if (adesc == SSL_ALERT_CLOSE_NOTIFY) {
-			kuki->sslend = 1;
-			return 0;
-		}
-
-		_dprintf("ssl closing on alert level=%d desc=%d\n", alevel, adesc);
-		errno = EIO;
-		return -1;
-	case SSL_PARTIAL:
-		_dprintf("SSL_PARTIAL insock.size=%d %d\n", kuki->insock.size, SSL_MAX_BUF_SIZE);
-
-		if ((kuki->insock.start == kuki->insock.buf) && (kuki->insock.end == (kuki->insock.buf + kuki->insock.size))) {
-			if (kuki->insock.size > SSL_MAX_BUF_SIZE) return -1;
-			sb_realloc(&kuki->insock, kuki->insock.size * 2);
-		}
-
-		if (kuki->inbuf.start != kuki->inbuf.end) {
-			_dprintf("!! inbuf.start != inbuf.end\n");
-		}
-
-		sb_free(&kuki->inbuf);
-		goto READ;
-	case SSL_FULL:
-		_dprintf("SSL_FULL\n");
-
-		sb_alloc(&kuki->inbuf, kuki->inbuf.size * 2);
-		goto DECODE;
-	}
-
-	return 0;
+OUT:
+	_dprintf("%s() returns %d\n", __FUNCTION__, total);
+	return total;
 }
 
 static ssize_t mssl_write(void *cookie, const char *buf, size_t len)
 {
+	_dprintf("%s()\n", __FUNCTION__);
+
 	mssl_cookie_t *kuki = cookie;
-	int r;
-	int nw;
+	int total = 0;
+	int n, err;
 
-	_dprintf("%s\n", __FUNCTION__);
-
-	nw = 0;
-	sb_pack(&kuki->outsock);
-	if (buf == NULL) goto PUMP;
-
-RETRY:
-	switch (matrixSslEncode(kuki->ssl, (unsigned char *)buf, len, &kuki->outsock)) {
-	case SSL_ERROR:
-		errno = EIO;
-		_dprintf("SSL_ERROR\n");
-		return -1;
-	case SSL_FULL:
-		if (kuki->outsock.size > SSL_MAX_BUF_SIZE) {
-			errno = EFBIG;
-			_dprintf("outsock.size > max\n");
-			return -1;
-		}
-		sb_realloc(&kuki->outsock, kuki->outsock.size * 2);
-		goto RETRY;
-	}
-
-PUMP:
-	while ((r = send(kuki->sd, kuki->outsock.start, sb_used(&kuki->outsock), MSG_NOSIGNAL)) == -1) {
-		if (errno != EINTR) {
-			_dprintf("send error %d\n", errno);
-			return -1;
+	while (total < len) {
+		n = SSL_write(kuki->ssl, &(buf[total]), len - total);
+		_dprintf("SSL_write(max=%d) returned %d\n", len - total, n);
+		err = SSL_get_error(kuki->ssl, n);
+		switch (err) {
+		case SSL_ERROR_NONE:
+			total += n;
+			break;
+		case SSL_ERROR_ZERO_RETURN:
+			total += n;
+			goto OUT;
+		case SSL_ERROR_WANT_WRITE:
+		case SSL_ERROR_WANT_READ:
+			break;
+		default:
+			_dprintf("%s(): SSL error %d\n", __FUNCTION__, err);
+			mssl_print_err(kuki->ssl);
+			if (total == 0) total = -1;
+			goto OUT;
 		}
 	}
-	kuki->outsock.start += r;
-	nw += r;
 
-	if (kuki->outsock.start < kuki->outsock.end) {
-		_dprintf("start < end\n");
-		goto PUMP;
-	}
-
-	return nw;
+OUT:
+	_dprintf("%s() returns %d\n", __FUNCTION__, total);
+	return total;
 }
 
 static int mssl_seek(void *cookie, __offmax_t *pos, int whence)
@@ -293,37 +137,18 @@ static int mssl_seek(void *cookie, __offmax_t *pos, int whence)
 
 static int mssl_close(void *cookie)
 {
-	mssl_cookie_t *kuki = cookie;
-
 	_dprintf("%s()\n", __FUNCTION__);
 
+	mssl_cookie_t *kuki = cookie;
 	if (!kuki) return 0;
 
 	if (kuki->ssl) {
-		if (kuki->outsock.buf) {
-			mssl_write(kuki, NULL, 0);
-
-			kuki->outsock.start = kuki->outsock.end = kuki->outsock.buf;
-			matrixSslEncodeClosureAlert(kuki->ssl, &kuki->outsock);
-			fcntl(kuki->sd, F_SETFL, fcntl(kuki->sd, F_GETFL) | O_NONBLOCK);
-			send(kuki->sd, kuki->outsock.start, sb_used(&kuki->outsock), MSG_NOSIGNAL);
-		}
-
-		matrixSslDeleteSession(kuki->ssl);
-		kuki->ssl = NULL;
+		SSL_shutdown(kuki->ssl);
+		SSL_free(kuki->ssl);
 	}
-	sb_free(&kuki->inbuf);
-	sb_free(&kuki->insock);
-	sb_free(&kuki->outsock);
 
 	free(kuki);
 	return 0;
-}
-
-static int cert_valid(sslCertInfo_t *cert, void *arg)
-{
-	// note: no validation!
-	return SSL_ALLOW_ANON_CONNECTION;
 }
 
 static const cookie_io_functions_t mssl = {
@@ -332,9 +157,7 @@ static const cookie_io_functions_t mssl = {
 
 static FILE *_ssl_fopen(int sd, int client)
 {
-	unsigned char buf[1024];
 	int r;
-	int n;
 	mssl_cookie_t *kuki;
 	FILE *f;
 
@@ -346,49 +169,35 @@ static FILE *_ssl_fopen(int sd, int client)
 	}
 	kuki->sd = sd;
 
-	if (matrixSslNewSession(&kuki->ssl, keys, NULL, client ? 0 : SSL_FLAGS_SERVER) < 0) {
-		_dprintf("%s: matrixSslNewSession failed\n", __FUNCTION__);
+	if ((kuki->ssl = SSL_new(ctx)) == NULL) {
+		_dprintf("%s: SSL_new failed\n", __FUNCTION__);
 		goto ERROR;
 	}
 
-	sb_alloc(&kuki->insock, 1024);
-	sb_alloc(&kuki->outsock, 2048);
+#ifdef USE_OPENSSL
+	SSL_set_verify(kuki->ssl, SSL_VERIFY_NONE, NULL);
+	SSL_set_mode(kuki->ssl, SSL_MODE_AUTO_RETRY);
+#endif
+	SSL_set_fd(kuki->ssl, kuki->sd);
 
-	if (client) {
-		matrixSslSetCertValidator(kuki->ssl, cert_valid, NULL);
-
-		n = matrixSslEncodeClientHello(kuki->ssl, &kuki->outsock, 0);
-		if (n < 0) {
-			_dprintf("%s: matrixSslEncodeClientHello failed\n", __FUNCTION__);
-			goto ERROR;
-		}
-		if (mssl_write(kuki, NULL, 0) <= 0) {
-			_dprintf("%s: error while writing HELLO\n", __FUNCTION__);
-			goto ERROR;
-		}
+	r = client ? SSL_connect(kuki->ssl) : SSL_accept(kuki->ssl);
+	if (r <= 0) {
+		_dprintf("%s: SSL handshake failed\n", __FUNCTION__);
+		mssl_print_err(kuki->ssl);
+		goto ERROR;
 	}
 
-MORE:
-	r = mssl_read(kuki, buf, sizeof(buf));
-	if (r == 0) {
-		if (kuki->sslend) {
-			_dprintf("%s: end reached\n", __FUNCTION__);
-			errno = EIO;
-			goto ERROR;
-		}
-		if (matrixSslHandshakeIsComplete(kuki->ssl) == 0) {
-			_dprintf("%s: =0 goto more\n", __FUNCTION__);
-			goto MORE;
-		}
-		if ((f = fopencookie(kuki, "r+", mssl)) == NULL) {
-			_dprintf("%s: fopencookie failed\n", __FUNCTION__);
-			goto ERROR;
-		}
-		return f;
+#ifdef USE_OPENSSL
+	_dprintf("SSL connection using %s cipher\n", SSL_get_cipher(kuki->ssl));
+#endif
+
+	if ((f = fopencookie(kuki, "r+", mssl)) == NULL) {
+		_dprintf("%s: fopencookie failed\n", __FUNCTION__);
+		goto ERROR;
 	}
 
-	_dprintf("%s: read error r=%d errno=%d\n", __FUNCTION__, r, errno);
-	errno = EIO;
+	_dprintf("%s() success\n", __FUNCTION__);
+	return f;
 
 ERROR:
 	mssl_close(kuki);
@@ -407,16 +216,50 @@ FILE *ssl_client_fopen(int sd)
 	return _ssl_fopen(sd, 1);
 }
 
-int ssl_init(char *cert, char *priv)
+int mssl_init(char *cert, char *priv)
 {
-	if (matrixSslOpen() < 0) {
-		_dprintf("matrixSslOpen failed");
+	_dprintf("%s()\n", __FUNCTION__);
+
+	int server = (cert != NULL);
+
+#ifdef USE_OPENSSL
+	SSL_load_error_strings();
+	SSLeay_add_ssl_algorithms();
+#endif
+
+	ctx = SSL_CTX_new(server ? TLSv1_server_method() : TLSv1_client_method());
+	if (!ctx) {
+		_dprintf("SSL_CTX_new() failed\n");
+		mssl_print_err(NULL);
 		return 0;
 	}
-	if (matrixSslReadKeys(&keys, cert, priv, NULL, NULL) < 0)  {
-		matrixSslClose();
-		_dprintf("matrixSslReadKeys failed");
-		return 0;
+
+#ifndef USE_OPENSSL
+	SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
+#endif
+
+	if (server) {
+		_dprintf("SSL_CTX_use_certificate_file(%s)\n", cert);
+		if (SSL_CTX_use_certificate_file(ctx, cert, SSL_FILETYPE_PEM) <= 0) {
+			_dprintf("SSL_CTX_use_certificate_file() failed\n");
+			mssl_cleanup(1);
+			return 0;
+		}
+		_dprintf("SSL_CTX_use_PrivateKey_file(%s)\n", priv);
+		if (SSL_CTX_use_PrivateKey_file(ctx, priv, SSL_FILETYPE_PEM) <= 0) {
+			_dprintf("SSL_CTX_use_PrivateKey_file() failed\n");
+			mssl_cleanup(1);
+			return 0;
+		}
+#ifdef USE_OPENSSL
+		if (!SSL_CTX_check_private_key(ctx)) {
+			_dprintf("Private key does not match the certificate public key\n");
+			mssl_cleanup(0);
+			return 0;
+		}
+#endif
 	}
+
+	_dprintf("%s() success\n", __FUNCTION__);
 	return 1;
 }

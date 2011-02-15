@@ -14,7 +14,6 @@
  * TODO:
  *
  * b layer1 delay?
- * hdlc as module
  * hotplug / unregister issues
  * mod_inc/dec_use_count
  * unify parts of d/b channel usb handling

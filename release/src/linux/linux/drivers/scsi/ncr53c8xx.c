@@ -187,6 +187,9 @@ typedef	u_long		vm_offset_t;
 **	and above since SCSI data structures are not ready yet.
 */
 /* #if LINUX_VERSION_CODE < LinuxVersionCode(2,3,0) */
+#if 0
+#define	SCSI_NCR_INTEGRITY_CHECKING
+#endif
 
 #define NAME53C			"ncr53c"
 #define NAME53C8XX		"ncr53c8xx"
@@ -859,6 +862,10 @@ struct head {
 #define  xerr_status   phys.xerr_st
 #define  nego_status   phys.nego_st
 
+#if 0
+#define  sync_status   phys.sync_st
+#define  wide_status   phys.wide_st
+#endif
 
 /*==========================================================
 **
@@ -1396,6 +1403,9 @@ static inline char *ncr_name (ncb_p np)
 #define	RELOC_SOFTC	0x40000000
 #define	RELOC_LABEL	0x50000000
 #define	RELOC_REGISTER	0x60000000
+#if 0
+#define	RELOC_KVAR	0x70000000
+#endif
 #define	RELOC_LABELH	0x80000000
 #define	RELOC_MASK	0xf0000000
 
@@ -1404,7 +1414,21 @@ static inline char *ncr_name (ncb_p np)
 #define PADDRH(label)   (RELOC_LABELH | offsetof(struct scripth, label))
 #define	RADDR(label)	(RELOC_REGISTER | REG(label))
 #define	FADDR(label,ofs)(RELOC_REGISTER | ((REG(label))+(ofs)))
+#if 0
+#define	KVAR(which)	(RELOC_KVAR | (which))
+#endif
 
+#if 0
+#define	SCRIPT_KVAR_JIFFIES	(0)
+#define	SCRIPT_KVAR_FIRST		SCRIPT_KVAR_JIFFIES
+#define	SCRIPT_KVAR_LAST		SCRIPT_KVAR_JIFFIES
+/*
+ * Kernel variables referenced in the scripts.
+ * THESE MUST ALL BE ALIGNED TO A 4-BYTE BOUNDARY.
+ */
+static void *script_kvars[] __initdata =
+	{ (void *)&jiffies };
+#endif
 
 static	struct script script0 __initdata = {
 /*--------------------------< START >-----------------------*/ {
@@ -1557,6 +1581,11 @@ static	struct script script0 __initdata = {
 	SCR_COPY (1),
 		RADDR (scratcha),
 		NADDR (msgout),
+#if 0
+	SCR_COPY (1),
+		RADDR (scratcha),
+		NADDR (msgin),
+#endif
 	/*
 	**	Anticipate the COMMAND phase.
 	**	This is the normal case for initial selection.
@@ -4270,6 +4299,12 @@ static int ncr_queue_command (ncb_p np, Scsi_Cmnd *cmd)
 	**
 	**----------------------------------------------------
 	*/
+#if 0	/* This stuff was only useful for linux-1.2.13 */
+	if (lp && !lp->numtags && cmd->device && cmd->device->tagged_queue) {
+		lp->numtags = tp->usrtags;
+		ncr_setup_tags (np, cmd->target, cmd->lun);
+	}
+#endif
 
 	/*----------------------------------------------------
 	**
@@ -4536,6 +4571,10 @@ static int ncr_queue_command (ncb_p np, Scsi_Cmnd *cmd)
 	cp->parity_status		= 0;
 
 	cp->xerr_status			= XE_OK;
+#if 0
+	cp->sync_status			= tp->sval;
+	cp->wide_status			= tp->wval;
+#endif
 
 	/*----------------------------------------------------
 	**
@@ -5659,6 +5698,26 @@ static void ncr_getsync(ncb_p np, u_char sfac, u_char *fakp, u_char *scntl3p)
 	*/
 	fak = (kpc - 1) / div_10M[div] + 1;
 
+#if 0	/* This optimization does not seem very useful */
+
+	per = (fak * div_10M[div]) / clk;
+
+	/*
+	**	Why not to try the immediate lower divisor and to choose 
+	**	the one that allows the fastest output speed ?
+	**	We dont want input speed too much greater than output speed.
+	*/
+	if (div >= 1 && fak < 8) {
+		u_long fak2, per2;
+		fak2 = (kpc - 1) / div_10M[div-1] + 1;
+		per2 = (fak2 * div_10M[div-1]) / clk;
+		if (per2 < per && fak2 <= 8) {
+			fak = fak2;
+			per = per2;
+			--div;
+		}
+	}
+#endif
 
 	if (fak < 4) fak = 4;	/* Should never happen, too bad ... */
 
@@ -5697,6 +5756,10 @@ static void ncr_set_sync_wide_status (ncb_p np, u_char target)
 	for (cp = np->ccb; cp; cp = cp->link_ccb) {
 		if (!cp->cmd) continue;
 		if (cp->cmd->target != target) continue;
+#if 0
+		cp->sync_status = tp->sval;
+		cp->wide_status = tp->wval;
+#endif
 		cp->phys.select.sel_scntl3 = tp->wval;
 		cp->phys.select.sel_sxfer  = tp->sval;
 	};
@@ -6811,6 +6874,11 @@ unexpected_phase:
 	case 2:	/* COMMAND phase */
 		nxtdsp = NCB_SCRIPT_PHYS (np, dispatch);
 		break;
+#if 0
+	case 3:	/* STATUS  phase */
+		nxtdsp = NCB_SCRIPT_PHYS (np, dispatch);
+		break;
+#endif
 	case 6:	/* MSG OUT phase */
 		np->scripth->nxtdsp_go_on[0] = cpu_to_scr(dsp + 8);
 		if	(dsp == NCB_SCRIPT_PHYS (np, send_ident)) {
@@ -6822,6 +6890,11 @@ unexpected_phase:
 			nxtdsp = NCB_SCRIPTH_PHYS (np, nego_bad_phase);
 		}
 		break;
+#if 0
+	case 7:	/* MSG IN  phase */
+		nxtdsp = NCB_SCRIPT_PHYS (np, clrack);
+		break;
+#endif
 	}
 
 	if (nxtdsp) {
@@ -7447,6 +7520,24 @@ void ncr_int_sir (ncb_p np)
 		PRINT_ADDR(cp->cmd);
 		printk ("M_IGN_RESIDUE received, but not yet implemented.\n");
 		break;
+#if 0
+	case SIR_MISSING_SAVE:
+		/*-----------------------------------------------
+		**
+		**	We received an DISCONNECT message,
+		**	but the datapointer wasn't saved before.
+		**
+		**-----------------------------------------------
+		*/
+
+		PRINT_ADDR(cp->cmd);
+		printk ("M_DISCONNECT received, but datapointer not saved: "
+			"data=%x save=%x goal=%x.\n",
+			(unsigned) INL (nc_temp),
+			(unsigned) scr_to_cpu(np->header.savep),
+			(unsigned) scr_to_cpu(np->header.goalp));
+		break;
+#endif
 	};
 
 out:
@@ -7531,6 +7622,13 @@ static	ccb_p ncr_get_ccb (ncb_p np, u_char tn, u_char ln)
 	/*
 	**	Wait until available.
 	*/
+#if 0
+	while (cp->magic) {
+		if (flags & SCSI_NOSLEEP) break;
+		if (tsleep ((caddr_t)cp, PRIBIO|PCATCH, "ncr", 0))
+			break;
+	};
+#endif
 
 	if (cp->magic)
 		return ((ccb_p) 0);
@@ -7624,6 +7722,10 @@ static void ncr_free_ccb (ncb_p np, ccb_p cp)
 		cp->queued = 0;
 	}
 
+#if 0
+	if (cp == np->ccb)
+		wakeup ((caddr_t) cp);
+#endif
 }
 
 
@@ -8071,7 +8173,11 @@ static int __init ncr_regtest (struct ncb* np)
 	data = 0xffffffff;
 	OUTL_OFF(offsetof(struct ncr_reg, nc_dstat), data);
 	data = INL_OFF(offsetof(struct ncr_reg, nc_dstat));
+#if 1
 	if (data == 0xffffffff) {
+#else
+	if ((data & 0xe2f0fffd) != 0x02000080) {
+#endif
 		printk ("CACHE TEST FAILED: reg dstat-sstat2 readback %x.\n",
 			(unsigned) data);
 		return (0x10);
@@ -8185,6 +8291,9 @@ struct table_entry {
 
 static struct table_entry device_tab[] =
 {
+#if 0
+	{"", "", "", QUIRK_NOMSG},
+#endif
 	{"SONY", "SDT-5000", "3.17", QUIRK_NOMSG},
 	{"WangDAT", "Model 2600", "01.7", QUIRK_NOMSG},
 	{"WangDAT", "Model 3200", "02.2", QUIRK_NOMSG},

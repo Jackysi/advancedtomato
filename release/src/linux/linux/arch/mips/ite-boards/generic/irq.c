@@ -36,6 +36,7 @@
 #include <linux/config.h>
 #include <linux/errno.h>
 #include <linux/init.h>
+#include <linux/irq.h>
 #include <linux/kernel_stat.h>
 #include <linux/module.h>
 #include <linux/signal.h>
@@ -65,7 +66,7 @@
 #define DPRINTK(fmt, args...)
 #endif
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 extern void breakpoint(void);
 #endif
 
@@ -286,6 +287,14 @@ void __init init_IRQ(void)
 	it8172_hw0_icregs->lpc_trigger |= (0x2 | 0x1000);
 
 
+#if 0
+	// Enable this piece of code to make internal USB interrupt
+	// edge triggered.
+	it8172_hw0_icregs->pci_trigger |=
+		(1 << (IT8172_USB_IRQ - IT8172_PCI_DEV_IRQ_BASE));
+	it8172_hw0_icregs->pci_level &=
+		~(1 << (IT8172_USB_IRQ - IT8172_PCI_DEV_IRQ_BASE));
+#endif
 
 	for (i = 0; i <= IT8172_LAST_IRQ; i++) {
 		irq_desc[i].handler = &it8172_irq_type;
@@ -293,7 +302,7 @@ void __init init_IRQ(void)
 	irq_desc[MIPS_CPU_TIMER_IRQ].handler = &cp0_irq_type;
 	set_c0_status(ALLINTS_NOTIMER);
 
-#ifdef CONFIG_REMOTE_DEBUG
+#ifdef CONFIG_KGDB
 	/* If local serial I/O used for debug port, enter kgdb at once */
 	puts("Waiting for kgdb to connect...");
 	set_debug_traps();
@@ -303,7 +312,18 @@ void __init init_IRQ(void)
 
 void mips_spurious_interrupt(struct pt_regs *regs)
 {
+#if 1
 	return;
+#else
+	unsigned long status, cause;
+
+	printk("got spurious interrupt\n");
+	status = read_c0_status();
+	cause = read_c0_cause();
+	printk("status %x cause %x\n", status, cause);
+	printk("epc %x badvaddr %x \n", regs->cp0_epc, regs->cp0_badvaddr);
+//	while(1);
+#endif
 }
 
 void it8172_hw0_irqdispatch(struct pt_regs *regs)

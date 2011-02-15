@@ -1,5 +1,5 @@
 /*
- * $Id: input.c,v 1.1.1.4 2003/10/14 08:08:10 sparq Exp $
+ * $Id: input.c,v 1.20 2001/05/17 15:50:27 vojtech Exp $
  *
  *  Copyright (c) 1999-2001 Vojtech Pavlik
  *
@@ -130,6 +130,8 @@ void input_event(struct input_dev *dev, unsigned int type, unsigned int code, in
 
 			if (code > MSC_MAX || !test_bit(code, dev->mscbit))
 				return;
+
+			if (dev->event) dev->event(dev, type, code, value);	
 	
 			break;
 
@@ -420,7 +422,7 @@ void input_unregister_minor(devfs_handle_t handle)
 static int __init input_init(void)
 {
 	if (devfs_register_chrdev(INPUT_MAJOR, "input", &input_fops)) {
-		printk(KERN_ERR "input: unable to register char major %d", INPUT_MAJOR);
+		printk(KERN_ERR "input: unable to register char major %d\n", INPUT_MAJOR);
 		return -EBUSY;
 	}
 	input_devfs_handle = devfs_mk_dir(NULL, "input", NULL);

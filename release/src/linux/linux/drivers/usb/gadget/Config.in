@@ -8,32 +8,33 @@
 mainmenu_option next_comment
 comment 'Support for USB gadgets'
 
-bool 'Support for USB Gadgets' CONFIG_USB_GADGET
-if [ "$CONFIG_USB_GADGET" = "y" ]; then
+tristate 'Support for USB Gadgets' CONFIG_USB_GADGET
+if [ "$CONFIG_USB_GADGET" = "y" -o "$CONFIG_USB_GADGET" = "m" ]; then
   
   #
   # really want _exactly one_ device controller driver at a time,
   # since they control compile options for gadget drivers.
   #
-  comment 'USB Peripheral Controller Drivers'
-  
-  # assume all the dependencies may be undefined ("== true", yeech)
-  if [ "$CONFIG_PCI" = "y" ] ; then
-    tristate '  NetChip 2280 support' CONFIG_USB_NET2280
+  choice 'USB Peripheral Controller Driver' "\
+	NetChip-2280			CONFIG_USB_GADGET_NET2280 \
+	Toshiba-TC86C001(Goku-S)	CONFIG_USB_GADGET_GOKU \
+	" NetChip-2280
+
+  define_tristate CONFIG_USB_GADGET_CONTROLLER n
+
+  if [ "$CONFIG_PCI" = "y" -a "$CONFIG_USB_GADGET_NET2280" = "y" ] ; then
+    define_tristate CONFIG_USB_NET2280 $CONFIG_USB_GADGET
     define_tristate CONFIG_USB_GADGET_CONTROLLER $CONFIG_USB_NET2280
   fi
-  if [ "$CONFIG_ARCH_PXA" = "y" ] ; then
-    tristate '  PXA 210/25x/26x UDC support' CONFIG_USB_PXA2XX
-    define_tristate CONFIG_USB_GADGET_CONTROLLER $CONFIG_USB_PXA2XX
-  fi
-  if [ "$CONFIG_HND" = "y" ] ; then
-    tristate '  Broadcom USB device support' CONFIG_USBDEV
+  if [ "$CONFIG_PCI" = "y" -a "$CONFIG_USB_GADGET_GOKU" = "y" ] ; then
+    define_tristate CONFIG_USB_GOKU $CONFIG_USB_GADGET
+    define_tristate CONFIG_USB_GADGET_CONTROLLER $CONFIG_USB_GOKU
   fi
 
-  if [ "$CONFIG_USB_GADGET_CONTROLLER" = "y" -o \
-       "$CONFIG_USB_GADGET_CONTROLLER" = "m" -o \
-       "$CONFIG_USBDEV" = "y" -o \
-       "$CONFIG_USBDEV" = "m" ] ; then
+  # or any other controller that supports high speed transfers ...
+  define_bool CONFIG_USB_GADGET_DUALSPEED $CONFIG_USB_GADGET_NET2280
+
+  if [ "$CONFIG_USB_GADGET_CONTROLLER" = "y" -o "$CONFIG_USB_GADGET_CONTROLLER" = "m" ] ; then
 
   #
   # no reason not to enable more than one gadget driver module, but
@@ -51,43 +52,33 @@ if [ "$CONFIG_USB_GADGET" = "y" ]; then
   comment 'USB Gadget Drivers'
 
   dep_tristate '  Gadget Zero (DEVELOPMENT)' CONFIG_USB_ZERO $CONFIG_USB_GADGET_CONTROLLER
-  if [ "$CONFIG_USB_ZERO" = "y" -o "$CONFIG_USB_ZERO" = "m" ]; then
-      if [ "$CONFIG_USB_NET2280" = "y" -o "$CONFIG_USB_NET2280" = "m" ]; then
-  	define_bool CONFIG_USB_ZERO_NET2280 y
-      fi
-      if [ "$CONFIG_USB_PXA2XX" = "y" -o "$CONFIG_USB_PXA2XX" = "m" ]; then
-  	define_bool CONFIG_USB_ZERO_PXA2XX y
-      fi
-      # ...
+  dep_tristate '  Ethernet Gadget' CONFIG_USB_ETH $CONFIG_USB_GADGET_CONTROLLER $CONFIG_NET
+  if [ "$CONFIG_USB_ETH" = "y" -o "$CONFIG_USB_ETH" = "m" ] ; then
+    dep_bool       '    RNDIS support (EXPERIMENTAL)' CONFIG_USB_ETH_RNDIS $CONFIG_EXPERIMENTAL
   fi
+  dep_tristate '  File-backed Storage Gadget (DEVELOPMENT)' CONFIG_USB_FILE_STORAGE $CONFIG_USB_GADGET_CONTROLLER
+  dep_mbool '    File-backed Storage Gadget test mode' CONFIG_USB_FILE_STORAGE_TEST $CONFIG_USB_FILE_STORAGE
   
-  dep_tristate '  Ethernet Gadget (EXPERIMENTAL)' CONFIG_USB_ETH $CONFIG_USB_GADGET_CONTROLLER
-  if [ "$CONFIG_USB_ETH" = "y" -o "$CONFIG_USB_ETH" = "m" ]; then
-      if [ "$CONFIG_USB_NET2280" = "y" -o "$CONFIG_USB_NET2280" = "m" ]; then
-  	define_bool CONFIG_USB_ETH_NET2280 y
-      fi
-      if [ "$CONFIG_USB_PXA2XX" = "y" -o "$CONFIG_USB_PXA2XX" = "m" ]; then
-  	define_bool CONFIG_USB_ETH_PXA2XX y
-      fi
-      # ...
-  fi
 
-  tristate '  Simple Gadget' CONFIG_USB_SIMPLE
-  tristate '  RNDIS Gadget' CONFIG_USB_RNDIS
-  
-  dep_tristate '  Gadget Filesystem API (EXPERIMENTAL)' CONFIG_USB_GADGETFS $CONFIG_USB_GADGET_CONTROLLER
-  if [ "$CONFIG_USB_GADGETFS" = "y" -o "$CONFIG_USB_GADGETFS" = "m" ]; then
-      if [ "$CONFIG_USB_NET2280" = "y" -o "$CONFIG_USB_NET2280" = "m" ]; then
-  	define_bool CONFIG_USB_GADGETFS_NET2280 y
-      fi
-      if [ "$CONFIG_USB_PXA2XX" = "y" -o "$CONFIG_USB_PXA2XX" = "m" ]; then
-  	define_bool CONFIG_USB_GADGETFS_PXA2XX y
-      fi
-      # ...
-  fi
-  
-  # ... or other gadget drivers:  printer class, storage, hid, etc ...
+    # enforce the "only one statically linked gadget driver" rule
 
+    if [ "$CONFIG_USB_ZERO" = "y" ]; then
+      # zero = y
+      define_tristate CONFIG_USB_ETH n
+      define_tristate CONFIG_USB_FILE_STORAGE n
+    fi
+
+    if [ "$CONFIG_USB_ETH" = "y" ]; then
+      define_tristate CONFIG_USB_ZERO n
+      # eth = y
+      define_tristate CONFIG_USB_FILE_STORAGE n
+    fi
+
+    if [ "$CONFIG_USB_FILE_STORAGE" = "y" ]; then
+      define_tristate CONFIG_USB_ZERO n
+      define_tristate CONFIG_USB_ETH n
+      # file_storage = y
+    fi
   fi
 fi
 endmenu

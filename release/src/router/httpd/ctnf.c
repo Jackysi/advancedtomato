@@ -119,11 +119,11 @@ void asp_ctcount(int argc, char **argv)
 					}
 				}
 				else if (strncmp(s, "udp", 3) == 0) {
-					if (strstr(s, "[UNREPLIED]") != NULL) {
-						count[10]++;
-					}
-					else if (strstr(s, "[ASSURED]") != NULL) {
+					if (strstr(s, "[ASSURED]") != NULL) {
 						count[11]++;
+					}
+					else {
+						count[10]++;
 					}
 				}
 				count[12]++;

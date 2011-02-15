@@ -4,7 +4,7 @@
  *	Authors:	Alan Cox <iiitac@pyr.swan.ac.uk>
  *			Florian La Roche <rzsfl@rz.uni-sb.de>
  *
- *	Version:	$Id: skbuff.c,v 1.1.1.4 2003/10/14 08:09:32 sparq Exp $
+ *	Version:	$Id: skbuff.c,v 1.90 2001/11/07 05:56:19 davem Exp $
  *
  *	Fixes:	
  *		Alan Cox	:	Fixed the worst of the load balancer bugs.
@@ -182,6 +182,7 @@ struct sk_buff *alloc_skb(unsigned int size,int gfp_mask)
 		skb = kmem_cache_alloc(skbuff_head_cache, gfp_mask & ~__GFP_DMA);
 		if (skb == NULL)
 			goto nohead;
+		skb->next = skb->prev = NULL;
 	}
 
 	/* Get the DATA. Size must match skb_add_mtu(). */
@@ -190,6 +191,7 @@ struct sk_buff *alloc_skb(unsigned int size,int gfp_mask)
 	if (data == NULL)
 		goto nodata;
 
+	/* XXX: does not include slab overhead */ 
 	skb->truesize = size + sizeof(struct sk_buff);
 
 	/* Load the data pointers. */
@@ -234,6 +236,7 @@ static inline void skb_headerinit(void *p, kmem_cache_t *cache,
 	skb->sk = NULL;
 	skb->stamp.tv_sec=0;	/* No idea about time */
 	skb->dev = NULL;
+	skb->real_dev = NULL;
 	skb->dst = NULL;
 	memset(skb->cb, 0, sizeof(skb->cb));
 	skb->pkt_type = PACKET_HOST;	/* Default type */
@@ -369,6 +372,7 @@ struct sk_buff *skb_clone(struct sk_buff *skb, int gfp_mask)
 	n->sk = NULL;
 	C(stamp);
 	C(dev);
+	C(real_dev);
 	C(h);
 	C(nh);
 	C(mac);
@@ -391,30 +395,17 @@ struct sk_buff *skb_clone(struct sk_buff *skb, int gfp_mask)
 	C(tail);
 	C(end);
 	n->destructor = NULL;
-#ifdef CONFIG_NETFILTER
-	C(nfmark);
-	C(nfcache);
-	C(nfct);
-#ifdef CONFIG_NETFILTER_DEBUG
-	C(nf_debug);
-#endif
-#endif /*CONFIG_NETFILTER*/
+	__nf_copy(n, skb);
 #if defined(CONFIG_HIPPI)
 	C(private);
 #endif
 #ifdef CONFIG_NET_SCHED
 	C(tc_index);
 #endif
-#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
-	C(imq_flags);
-	C(nf_info);
-#endif
 
 	atomic_inc(&(skb_shinfo(skb)->dataref));
 	skb->cloned = 1;
-#ifdef CONFIG_NETFILTER
-	nf_conntrack_get(skb->nfct);
-#endif
+
 	return n;
 }
 
@@ -428,6 +419,7 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 	new->list=NULL;
 	new->sk=NULL;
 	new->dev=old->dev;
+	new->real_dev=old->real_dev;
 	new->priority=old->priority;
 	new->protocol=old->protocol;
 	new->dst=dst_clone(old->dst);
@@ -440,21 +432,9 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 	new->stamp=old->stamp;
 	new->destructor = NULL;
 	new->security=old->security;
-#ifdef CONFIG_NETFILTER
-	new->nfmark=old->nfmark;
-	new->nfcache=old->nfcache;
-	new->nfct=old->nfct;
-	nf_conntrack_get(new->nfct);
-#ifdef CONFIG_NETFILTER_DEBUG
-	new->nf_debug=old->nf_debug;
-#endif
-#endif
+	__nf_copy(new, old);
 #ifdef CONFIG_NET_SCHED
 	new->tc_index = old->tc_index;
-#endif
-#if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
-	new->imq_flags=old->imq_flags;
-	new->nf_info=old->nf_info;
 #endif
 }
 
@@ -746,6 +726,36 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
 	return n;
 }
 
+/**
+ *	skb_pad			-	zero pad the tail of an skb
+ *	@skb: buffer to pad
+ *	@pad: space to pad
+ *
+ *	Ensure that a buffer is followed by a padding area that is zero
+ *	filled. Used by network drivers which may DMA or transfer data
+ *	beyond the buffer end onto the wire.
+ *
+ *	May return NULL in out of memory cases.
+ */
+ 
+struct sk_buff *skb_pad(struct sk_buff *skb, int pad)
+{
+	struct sk_buff *nskb;
+	
+	/* If the skbuff is non linear tailroom is always zero.. */
+	if(skb_tailroom(skb) >= pad)
+	{
+		memset(skb->data+skb->len, 0, pad);
+		return skb;
+	}
+	
+	nskb = skb_copy_expand(skb, skb_headroom(skb), skb_tailroom(skb) + pad, GFP_ATOMIC);
+	kfree_skb(skb);
+	if(nskb)
+		memset(nskb->data+nskb->len, 0, pad);
+	return nskb;
+}	
+ 
 /* Trims skb to length len. It can change skb pointers, if "realloc" is 1.
  * If realloc==0 and trimming is impossible without change of data,
  * it is BUG().
@@ -1190,6 +1200,18 @@ void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to)
 	}
 }
 
+#if 0
+/* 
+ * 	Tune the memory allocator for a new MTU size.
+ */
+void skb_add_mtu(int mtu)
+{
+	/* Must match allocation in alloc_skb */
+	mtu = SKB_DATA_ALIGN(mtu) + sizeof(struct skb_shared_info);
+
+	kmem_add_cache_size(mtu);
+}
+#endif
 
 void __init skb_init(void)
 {

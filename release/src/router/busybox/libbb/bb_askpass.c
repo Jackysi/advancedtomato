@@ -30,20 +30,19 @@ char* FAST_FUNC bb_ask(const int fd, int timeout, const char *prompt)
 	struct sigaction sa, oldsa;
 	struct termios tio, oldtio;
 
-	if (!passwd)
-		passwd = xmalloc(sizeof_passwd);
-	memset(passwd, 0, sizeof_passwd);
-
 	tcgetattr(fd, &oldtio);
 	tcflush(fd, TCIFLUSH);
 	tio = oldtio;
+#ifndef IUCLC
+# define IUCLC 0
+#endif
 	tio.c_iflag &= ~(IUCLC|IXON|IXOFF|IXANY);
 	tio.c_lflag &= ~(ECHO|ECHOE|ECHOK|ECHONL|TOSTOP);
-	tcsetattr_stdin_TCSANOW(&tio);
+	tcsetattr(fd, TCSANOW, &tio);
 
 	memset(&sa, 0, sizeof(sa));
 	/* sa.sa_flags = 0; - no SA_RESTART! */
-	/* SIGINT and SIGALRM will interrupt read below */
+	/* SIGINT and SIGALRM will interrupt reads below */
 	sa.sa_handler = askpass_timeout;
 	sigaction(SIGINT, &sa, &oldsa);
 	if (timeout) {
@@ -52,28 +51,34 @@ char* FAST_FUNC bb_ask(const int fd, int timeout, const char *prompt)
 	}
 
 	fputs(prompt, stdout);
-	fflush(stdout);
-	ret = NULL;
-	/* On timeout or Ctrl-C, read will hopefully be interrupted,
-	 * and we return NULL */
-	if (read(fd, passwd, sizeof_passwd - 1) > 0) {
-		ret = passwd;
-		i = 0;
-		/* Last byte is guaranteed to be 0
-		   (read did not overwrite it) */
-		do {
-			if (passwd[i] == '\r' || passwd[i] == '\n')
-				passwd[i] = '\0';
-		} while (passwd[i++]);
+	fflush_all();
+
+	if (!passwd)
+		passwd = xmalloc(sizeof_passwd);
+	ret = passwd;
+	i = 0;
+	while (1) {
+		int r = read(fd, &ret[i], 1);
+		if (r < 0) {
+			/* read is interrupted by timeout or ^C */
+			ret = NULL;
+			break;
+		}
+		if (r == 0 /* EOF */
+		 || ret[i] == '\r' || ret[i] == '\n' /* EOL */
+		 || ++i == sizeof_passwd-1 /* line limit */
+		) {
+			ret[i] = '\0';
+			break;
+		}
 	}
 
 	if (timeout) {
 		alarm(0);
 	}
 	sigaction_set(SIGINT, &oldsa);
-
-	tcsetattr_stdin_TCSANOW(&oldtio);
+	tcsetattr(fd, TCSANOW, &oldtio);
 	bb_putchar('\n');
-	fflush(stdout);
+	fflush_all();
 	return ret;
 }

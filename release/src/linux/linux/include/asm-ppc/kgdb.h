@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.kgdb.h 1.5 05/17/01 18:14:24 cort
- */
-/*
  * kgdb.h: Defines and declarations for serial line source level
  *         remote debugging of the Linux kernel using gdb.
  *
@@ -15,7 +12,7 @@
 
 #ifndef __ASSEMBLY__
 /* To initialize the serial, first thing called */
-extern void zs_kgdb_hook(int tty_num);
+extern void kgdb_map_scc(void);
 /* To init the kgdb engine. (called by serial hook)*/
 extern void set_debug_traps(void);
 
@@ -38,8 +35,6 @@ int kgdb_sstep(struct pt_regs *regs);
 void kgdb(struct pt_regs *regs);
 int kgdb_iabr_match(struct pt_regs *regs);
 int kgdb_dabr_match(struct pt_regs *regs);
-static void kgdb_fault_handler(struct pt_regs *regs);
-static void handle_exception (struct pt_regs *regs);
 
 /*
  * external low-level support routines (ie macserial.c)

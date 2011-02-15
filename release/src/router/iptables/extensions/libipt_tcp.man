@@ -1,4 +1,4 @@
-These extensions are loaded if `--protocol tcp' is specified. It
+These extensions can be used if `--protocol tcp' is specified. It
 provides the following options:
 .TP
 .BR "--source-port " "[!] \fIport\fP[:\fIport\fP]"
@@ -43,7 +43,3 @@ option is inverted.
 .TP
 .BR "--tcp-option " "[!] \fInumber\fP"
 Match if TCP option set.
-.TP
-.BR "--mss " "\fIvalue\fP[:\fIvalue\fP]"
-Match TCP SYN or SYN/ACK packets with the specified MSS value (or range),
-which control the maximum packet size for that connection.

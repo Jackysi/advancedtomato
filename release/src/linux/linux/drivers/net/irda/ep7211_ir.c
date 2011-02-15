@@ -45,6 +45,8 @@ static void ep7211_ir_open(dongle_t *self, struct qos_info *qos)
 	syscon1 |= SYSCON1_SIREN;
 	clps_writel(syscon1, SYSCON1);
 
+	/* XXX: We should disable modem status interrupts on the first
+		UART (interrupt #14). */
 
 	restore_flags(flags);
 
@@ -62,6 +64,8 @@ static void ep7211_ir_close(dongle_t *self)
 	syscon1 &= ~SYSCON1_SIREN;
 	clps_writel(syscon1, SYSCON1);
 
+	/* XXX: If we've disabled the modem status interrupts, we should
+		reset them back to their original state. */
 
 	restore_flags(flags);
 

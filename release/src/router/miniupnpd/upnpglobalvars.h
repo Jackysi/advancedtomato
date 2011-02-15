@@ -1,7 +1,7 @@
-/* $Id: upnpglobalvars.h,v 1.21 2008/10/06 13:22:02 nanard Exp $ */
+/* $Id: upnpglobalvars.h,v 1.22 2010/09/21 15:31:01 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006 Thomas Bernard 
+ * (c) 2006-2010 Thomas Bernard 
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -87,6 +87,11 @@ extern const char * miniupnpd_nat_chain;
 extern const char * miniupnpd_forward_chain;
 #endif
 
+#ifdef ENABLE_NFQUEUE
+extern int nfqueue;
+extern int n_nfqix;
+extern unsigned nfqix[];
+#endif
 /* lan addresses */
 /* MAX_LAN_ADDR : maximum number of interfaces
  * to listen to SSDP traffic */

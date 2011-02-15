@@ -15,7 +15,7 @@
  *     (enable driver on big-endian machines (hppa), ioctl fixes)
  *
  *
- * $Id: sstfb.c,v 1.1.1.4 2003/10/14 08:08:55 sparq Exp $
+ * $Id: sstfb.c,v 1.26.4.1 2001/08/29 01:30:37 ghoz Exp $
  */
 
 /*
@@ -25,6 +25,27 @@
  * 0x800000 - 0xffffff : texture memory         (8Mb)
  */
 
+/*
+ * misc notes, TODOs, toASKs, and deep thoughts
+
+-TODO: at one time or another test that the mode is acceptable by the monitor
+-ASK: I can choose different ordering for the color bitfields (rgba argb ...)
+      wich one should i use ? is there any preferred one ? It seems ARGB is
+      the one ...
+-TODO: check the error paths . if something get wrong, the error doesn't seem
+      to be very well handled...if handled at all.. not good.
+-TODO: in  set_var check the validity of timings (hsync vsync)...
+-TODO: check and recheck the use of sst_wait_idle : we dont flush the fifo via
+       a nop command . so it's ok as long as the commands we pass don't go
+       through the fifo. warning: issuing a nop command seems to need pci_fifo
+-FIXME: in case of failure in the init sequence, be sure we return to a safe
+        state.
+-FIXME: 4MB boards have banked memory (FbiInit2 bits 1 & 20)
+-ASK: I stole "inverse" but seems it doesn't work... check what it realy does...
+-TODO: change struct sst_info fb_info from static to array/dynamic
+
+ *
+ */
 
 /*
  * debug info
@@ -230,7 +251,7 @@ static struct pci_driver sstfb_driver = {
 };
 
 static struct fb_var_screeninfo	sstfb_default =
-#if DEFAULT_MODE == 0 
+#if ( DEFAULT_MODE == 0 )
     { /* 800x600@60, 16 bpp .borowed from glide/sst1/include/sst1init.h */
     800, 600, 800, 600, 0, 0, 16, 0,
     {11, 5, 0}, {5, 6, 0}, {0, 5, 0}, {0, 0, 0},
@@ -238,7 +259,7 @@ static struct fb_var_screeninfo	sstfb_default =
     25000, 86, 41, 23, 1, 127, 4,
     0, FB_VMODE_NONINTERLACED };
 #endif
-#if DEFAULT_MODE == 1 
+#if ( DEFAULT_MODE == 1 )
     {/* 640x480@75, 16 bpp .borowed from glide/sst1/include/sst1init.h */
     640, 480, 640, 480, 0, 0, 16, 0,
     {11, 5, 0}, {5, 6, 0}, {0, 5, 0}, {0, 0, 0},
@@ -246,7 +267,7 @@ static struct fb_var_screeninfo	sstfb_default =
     31746, 118, 17, 16, 1, 63, 3,
     0, FB_VMODE_NONINTERLACED };
 #endif
-#if DEFAULT_MODE == 2 
+#if ( DEFAULT_MODE == 2 )
     { /* 1024x768@76 took from my /etc/fb.modes */
     1024, 768, 1024, 768,0, 0, 16,0,
     {11, 5, 0}, {5, 6, 0}, {0, 5, 0}, {0, 0, 0},
@@ -254,7 +275,7 @@ static struct fb_var_screeninfo	sstfb_default =
     11764, 208, 8, 36, 16, 120, 3 ,
     0, FB_VMODE_NONINTERLACED };
 #endif
-#if DEFAULT_MODE == 3 
+#if ( DEFAULT_MODE == 3 )
     { /* 640x480@60 , 16bpp glide default ?*/
     640, 480, 640, 480, 0, 0, 16, 0,
     {11, 5, 0}, {5, 6, 0}, {0, 5, 0}, {0, 0, 0},
@@ -312,7 +333,7 @@ static void sst_dbg_print_var(struct fb_var_screeninfo *var) {
 
 #if (SST_DEBUG_REG > 0)
 static void sst_dbg_print_read_reg (u32 reg, u32 val) {
-	char * regname =NULL;
+	char * regname = NULL;
 	switch (reg) {
 	case FBIINIT0: regname="FbiInit0"; break;
 	case FBIINIT1: regname="FbiInit1"; break;
@@ -346,8 +367,8 @@ static void sst_dbg_print_write_reg (u32 reg, u32 val) {
 		r_dprintk(" sst_write(%s, %#x)\n", regname, val);
 }
 #else /*  (SST_DEBUG_REG > 0) */
-#  define sst_dbg_print_read_reg(reg, val)	do {}while(0)
-#  define sst_dbg_print_write_reg(reg, val)	do {}while(0)
+#  define sst_dbg_print_read_reg(reg, val)	do {} while(0)
+#  define sst_dbg_print_write_reg(reg, val)	do {} while(0)
 #endif /*  (SST_DEBUG_REG > 0) */
 
 /* register access */
@@ -510,20 +531,15 @@ static int sstfb_setcolreg(u_int regno, u_int red, u_int green, u_int blue,
 		break;
 #endif
 #ifdef EN_24_32_BPP
-#ifdef FBCON_HAS_CFB24
+#if defined(FBCON_HAS_CFB24) || defined(FBCON_HAS_CFB32)
 	case 24:
-		sst_info->fbcon_cmap.cfb32[regno]=col;
-		break;
-#endif
-#ifdef FBCON_HAS_CFB32
 	case 32:
 		sst_info->fbcon_cmap.cfb32[regno]=col;
 		break;
 #endif
 #endif
 	default:
-		eprintk("bug line %d: bad depth '%u'\n",__LINE__,
-			disp->var.bits_per_pixel);
+		BUG();
 		break;
 	}
 	f_dddprintk("bpp: %d . encoded color: %#x\n",
@@ -651,6 +667,7 @@ static int sstfb_decode_var (const struct fb_var_screeninfo *var,
 	}
 
 	/* it seems that the fbi uses tiles of 64x16 pixels to "map" the mem*/
+	/* FIXME: i don't like this... looks wrong*/
 	real_length = par->tiles_in_X  * (IS_VOODOO2(sst_info) ? 32 : 64 )
 	              * ((par->bpp == 16) ? 2 : 4);
 
@@ -714,6 +731,7 @@ static int sstfb_encode_var (struct fb_var_screeninfo *var,
 #ifdef EN_24_32_BPP
 	case 24:	/* RGB 888 LfbMode 4 */
 	case 32:	/* ARGB 8888 LfbMode 5 */
+	       	/* in 24bpp we fake a 32 bpp mode */
 		var->red.length    = 8;
 		var->green.length  = 8;
 		var->blue.length   = 8;
@@ -722,11 +740,11 @@ static int sstfb_encode_var (struct fb_var_screeninfo *var,
 		var->red.offset    = 16;
 		var->green.offset  = 8;
 		var->blue.offset   = 0;
-		var->transp.offset = 0; /* in 24bpp we fake a 32 bpp mode */
+		var->transp.offset = 0;
 		break;
 #endif
 	default:
-		eprintk ("bug line %d: bad depth '%u'\n", __LINE__, par->bpp);
+		eprintk("bug line %d: bad depth '%u'\n", __LINE__, par->bpp);
 		break;
 	}
 	return 0;
@@ -753,18 +771,16 @@ static int sstfb_get_fix(struct fb_fix_screeninfo *fix,
 {
 #define sst_info	((struct sstfb_info *) info)
 
-  	struct fb_var_screeninfo *var;
- 	struct fb_var_screeninfo var2;
+	struct fb_var_screeninfo *var;
+	struct fb_var_screeninfo var2;
 
 	f_dprintk("sstfb_get_fix(con: %d)\n",con);
 	memset(fix, 0, sizeof(struct fb_fix_screeninfo));
 	
-	if (con == -1)
-	{
+	if (con == -1) {
 		sstfb_encode_var(&var2, &sst_info->current_par, sst_info);
 		var = &var2;
-	}
-	else
+	} else
 		var = &fb_display[con].var;
 
 	strcpy(fix->id, sst_info->info.modename);
@@ -855,7 +871,7 @@ static int sstfb_set_var(struct fb_var_screeninfo *var,
 			break;
 #endif
 #ifdef EN_24_32_BPP
-#if defined(FBCON_HAS_CFB24) || defined(FBCON_HAS_CFB32)
+#if defined (FBCON_HAS_CFB24) || defined (FBCON_HAS_CFB32 )
 		case 24: /*24bpp non packed <=> 32 bpp */
 		case 32:
 			display->dispsw = &fbcon_cfb32;
@@ -926,6 +942,7 @@ static int sstfb_get_cmap(struct fb_cmap *cmap, int kspc,
 	f_ddprintk("con %d, curcon %d, cmap.len %d\n",
 		 con, sst_info->currcon, fb_display[con].cmap.len);
 
+	/* FIXME: check if con = -1 ? cf sstfb_set_cmap...  */
 	if (con == sst_info->currcon)
 		return fb_get_cmap(cmap, kspc, sstfb_getcolreg, info);
 	else if (fb_display[con].cmap.len)
@@ -951,27 +968,28 @@ static int sstfb_ioctl(struct inode *inode, struct file *file,
                        struct fb_info *info)
 {
 #define sst_info	((struct sstfb_info *) info)
-#if (SST_DEBUG_IOCTL >0)
-	int i;
 	u_long p;
 	u32 tmp, val;
 	u32 fbiinit0;
 	struct pci_dev * sst_dev = sst_info->dev;
-#endif
 
 	f_dprintk("sstfb_ioctl(%x)\n", cmd);
-#if (SST_DEBUG_IOCTL >0)
+	
 	switch (cmd) {
-#  if (SST_DEBUG_VAR >0)
-/* tmp ioctl : dumps fb_display[0-5] */
-	case _IO('F', 0xdb):		/* 0x46db */
+		
+#if (SST_DEBUG_VAR >0)
+	/* tmp ioctl : dumps fb_display[0-5] */
+	case _IO('F', 0xdb):		/* 0x46db */ {
+		int i;
 		f_dprintk("dumping fb_display[0-5].var\n");
 		for (i = 0 ; i< 6 ; i++) {
 			print_var(&fb_display[i].var, "var(%d)", i);
 		}
 		return 0;
-#  endif /* (SST_DEBUG_VAR >0) */
-/* fills the lfb up to *(u32*)arg */
+	}
+#endif /* (SST_DEBUG_VAR >0) */
+
+	/* fills the lfb up to given count of pixels */
 	case _IOW('F', 0xdc, u32):	/* 0x46dc */
 		if (copy_from_user(&val, (void *) arg, sizeof(val)))
 			return -EFAULT;
@@ -981,7 +999,8 @@ static int sstfb_ioctl(struct inode *inode, struct file *file,
 		for (p = 0 ; p < val; p+=2)
 			writew( p >> 6 , sst_info->video.vbase + p);
 		return 0;
-/* change VGA pass_through */
+		
+	/* enable/disable VGA pass_through */
 	case _IOW('F', 0xdd, u32):	/* 0x46dd */
 		if (copy_from_user(&val, (void *) arg, sizeof(val)))
 			return -EFAULT;
@@ -999,28 +1018,29 @@ static int sstfb_ioctl(struct inode *inode, struct file *file,
 		}
 		pci_write_config_dword(sst_dev, PCI_INIT_ENABLE, tmp);
 		return 0;
+
+	/* display test pattern */
 	case _IO('F', 0xde):		/* 0x46de */
 		f_dprintk("test color display\n");
 		f_ddprintk("currcon: %d, bpp %d\n", sst_info->currcon,
 			  sst_info->current_par.bpp);
 		memset_io(sst_info->video.vbase, 0, sst_info->video.len);
-	switch (sst_info->current_par.bpp) {
+		switch (sst_info->current_par.bpp) {
 	       	case 16:
 			sstfb_test16(sst_info);
 			break;
-#  ifdef EN_24_32_BPP
+#ifdef EN_24_32_BPP
 		case 24:
 		case 32:
 			sstfb_test32(sst_info);
 			break;
-#  endif
+#endif
 		default:
-			dprintk("bug line %d: bad depth '%u'\n", __LINE__,
-			        sst_info->current_par.bpp);
-			}
+			return -EFAULT;
+		}
 		return 0;
 	}
-#endif /* (SST_DEBUG_IOCTL >0) */
+	
 	return -EINVAL;
 #undef sst_info
 }
@@ -1085,6 +1105,7 @@ static int __sst_wait_idle(u_long vbase)
 	while(1) {
 		if (__sst_read(vbase, STATUS) & STATUS_FBI_BUSY) {
 			f_dddprintk("status: busy\n");
+/* FIXME basicaly, this is a busy wait. maybe not that good. oh well; this is a small loop after all ...*/
 			count = 0;
 		} else {
 			count++;
@@ -1422,6 +1443,13 @@ static int sstfb_set_par(const struct sstfb_par * par, struct sstfb_info * sst_i
 	            | SEL_INPUT_VCLK_2X
 /*	            | (2 << VCLK_2X_SEL_DEL_SHIFT)
 	            | (2 << VCLK_DEL_SHIFT)*/;
+/* try with vclk_in_delay =0 (bits 29:30) , vclk_out_delay =0 (bits(27:28)
+ in (near) future set them accordingly to revision + resolution (cf glide)
+ first understand what it stands for :)
+ FIXME: there are some artefacts... check for the vclk_in_delay
+ lets try with 6ns delay in both vclk_out & in...
+ doh... they're still there :\
+*/
 
 	ntiles = par->tiles_in_X;
 	if (IS_VOODOO2(sst_info)) {
@@ -1475,7 +1503,7 @@ static int sstfb_set_par(const struct sstfb_par * par, struct sstfb_info * sst_i
 	pci_write_config_dword(sst_dev, PCI_INIT_ENABLE, PCI_EN_FIFO_WR);
 
 	/* set lfbmode : set mode + front buffer for reads/writes
-	   + disable pipeline */
+	   + disable pipeline  */
 	switch(par->bpp) {
 	case 16:
 		lfbmode = LFB_565;
@@ -1489,18 +1517,16 @@ static int sstfb_set_par(const struct sstfb_par * par, struct sstfb_info * sst_i
 		break;
 #endif
 	default:
-		dprintk("bug line %d: bad depth '%u'\n", __LINE__,
-			par->bpp );
+		BUG();
 		return 0;
-		break;
 	}
 
 #if defined(__BIG_ENDIAN)
 	/* enable byte-swizzle functionality in hardware */
-	lfbmode |= ( LFB_WORD_SWIZZLE_WR | LFB_BYTE_SWIZZLE_WR |
+	lfbmode |= ( LFB_WORD_SWIZZLE_WR | LFB_BYTE_SWIZZLE_WR | 
 		     LFB_WORD_SWIZZLE_RD | LFB_BYTE_SWIZZLE_RD );
 #endif
-	
+
 	if (clipping) {
 		sst_write(LFBMODE, lfbmode | EN_PXL_PIPELINE);
 	/*
@@ -1508,7 +1534,7 @@ static int sstfb_set_par(const struct sstfb_par * par, struct sstfb_info * sst_i
 	 * writes to offscreen areas of the framebuffer are performed,
 	 * the "behaviour is undefined" (_very_ undefined) - Urs
 	 */
-	/* btw, it requires enabling pixel pipeline in LFBMODE .
+	/* btw, it requires enabling pixel pipeline in LFBMODE.
 	   off screen read/writes will just wrap and read/print pixels
 	   on screen. Ugly but not that dangerous */
 
@@ -1523,7 +1549,7 @@ static int sstfb_set_par(const struct sstfb_par * par, struct sstfb_info * sst_i
 		sst_write(LFBMODE, lfbmode );
 	}
 
-	sst_info->current_par = *par ;
+	sst_info->current_par = *par;
 	return 1;
 }
 
@@ -1558,8 +1584,7 @@ static void sst_set_vidmod_att_ti(struct sstfb_info * sst_info, const int bpp)
 		break;
 #endif
 	default:
-		dprintk("bug line %d: bad depth '%u'\n", __LINE__, bpp);
-		break;
+		BUG();
 	}
 }
 
@@ -1577,8 +1602,7 @@ static void sst_set_vidmod_ics(struct sstfb_info * sst_info, const int bpp)
 		break;
 #endif
 	default:
-		dprintk("bug line %d: bad depth '%u'\n", __LINE__, bpp);
-		break;
+		BUG();
 	}
 }
 
@@ -1798,6 +1822,8 @@ static int __devinit sstfb_probe(struct pci_dev *pdev, const struct pci_device_i
 	sst_info = (struct sstfb_info*)kmalloc(sizeof(*sst_info), GFP_KERNEL);
 	if (!sst_info)
 		goto fail_kmalloc;
+	memset(sst_info, 0, sizeof(*sst_info));
+	
 	pci_set_drvdata(pdev, sst_info);
 	sst_info->type = id->driver_data;
 	spec = &voodoo_spec[sst_info->type];
@@ -1881,7 +1907,7 @@ static int __devinit sstfb_probe(struct pci_dev *pdev, const struct pci_device_i
 	/*clear fb */
 	memset_io(sst_info->video.vbase, 0, sst_info->video.len);
 	/* print some squares ... */
-	sstfb_test16(sst_info); 
+	sstfb_test16(sst_info); /* FIXME this is only for 16bpp */
 
 	/* register fb */
 	if (register_framebuffer(&sst_info->info) < 0) {
@@ -1974,34 +2000,34 @@ static void sstfb_test16(struct sstfb_info *sst_info)
 	u_long fbbase_virt = sst_info->video.vbase;
 
 	f_dprintk("sstfb_test16\n");
-	/* rect blanc 20x100+200+0 */
+	/* white rectangle 20x100+200+0 */
 	for (i=0 ; i< 100; i++) {
 	  p = fbbase_virt + 2048 *i+400;
-	  for (j=0 ; j < 10 ; j++) {
-	    writel( 0xffffffff, p);
+	  for (j=0; j < 10; j++) {
+	    writel(0xffffffff, p);
 	    p+=4;
 	  }
 	}
-	/* rect bleu 180x200+0+0 */
+	/* blue rectangle 180x200+0+0 */
 	for (i=0 ; i< 200; i++) {
 	  p = fbbase_virt + 2048 *i;
-	  for (j=0 ; j < 90 ; j++) {
-	    writel(0x001f001f,p);
+	  for (j=0; j < 90; j++) {
+	    writel(0x001f001f, p);
 	    p+=4;
 	  }
 	}
-	/* carre vert 40x40+100+0 */
+	/* green rectangle 40x40+100+0 */
 	for (i=0 ; i< 40 ; i++) {
 	  p = fbbase_virt + 2048 *i + 200;
-	  for (j=0; j <20;j++) {
+	  for (j=0; j <20; j++) {
 	    writel(0x07e007e0, p);
 	    p+=4;
 	  }
 	}
-	/*carre rouge 40x40+100+40 */
+	/* red rectangle 40x40+100+40 */
 	for (i=0; i<40; i++) {
 	  p = fbbase_virt + 2048 * (i+40) + 200;
-	  for (j=0; j <20;j++) {
+	  for (j=0; j <20; j++) {
 	    writel( 0xf800f800, p);
 	    p+=4;
 	  }
@@ -2021,22 +2047,22 @@ static void sstfb_test32(struct sstfb_info *sst_info)
 	for (i=0 ; i< 100; i++) {
 	  p = fbbase_virt + 4096*i + 800;
 	  for (j=0 ; j < 20 ; j++) {
-	    writel( 0x00ffffff, p);
+	    writel(0x00ffffff, p);
 	    p+=4;
 	  }
 	}
 	/* rect bleu 180x200+0+0 */
 	for (i=0 ; i< 200; i++) {
 	  p = fbbase_virt + 4096 * i;
-	  for (j=0 ; j < 180 ; j++) {
-	    writel(0x000000ff,p);
+	  for (j=0 ; j < 180; j++) {
+	    writel(0x000000ff, p);
 	    p+=4;
 	  }
 	}
 	/* carre vert 40x40+100+0 */
 	for (i=0 ; i< 40 ; i++) {
 	  p = fbbase_virt + 4096 *i + 400;
-	  for (j=0; j <40;j++) {
+	  for (j=0; j <40; j++) {
 	    writel(0x0000ff00, p);
 	    p+=4;
 	  }
@@ -2044,8 +2070,8 @@ static void sstfb_test32(struct sstfb_info *sst_info)
 	/*carre rouge 40x40+100+10 */
 	for (i=0; i<40; i++) {
 	  p = fbbase_virt + 4096 * (i+40) + 400;
-	  for (j=0; j <40;j++) {
-	    writel( 0x00ff0000, p);
+	  for (j=0; j <40; j++) {
+	    writel(0x00ff0000, p);
 	    p+=4;
 	  }
 	}
@@ -2079,3 +2105,49 @@ MODULE_PARM_DESC(dev , "Attach to device ID (0..n) (default=1st device)");
  * End:
  */
 
+#if 0
+void __Dump_regs (struct sstfb_info * sst_info)
+{
+	struct { u32 reg ; char * reg_name;}  pci_regs [] =  {
+		{ PCI_INIT_ENABLE, "initenable"},
+		{ PCI_VCLK_ENABLE, "enable vclk"},
+		{ PCI_VCLK_DISABLE, "disable vclk"},
+	};
+
+	struct { u32 reg ; char * reg_name;}  sst_regs [] =  {
+		{FBIINIT0,"fbiinit0"},
+		{FBIINIT1,"fbiinit1"},
+		{FBIINIT2,"fbiinit2"},
+		{FBIINIT3,"fbiinit3"},
+		{FBIINIT4,"fbiinit4"},
+		{FBIINIT5,"fbiinit5"},
+		{FBIINIT6,"fbiinit6"},
+		{FBIINIT7,"fbiinit7"},
+		{LFBMODE,"lfbmode"},
+		{FBZMODE,"fbzmode"},
+	};
+	int pci_s = sizeof(pci_regs)/sizeof(*pci_regs);
+	int sst_s = sizeof(sst_regs)/sizeof(*sst_regs);
+	u32 pci_res[pci_s];
+	u32 sst_res[sst_s];
+
+	struct pci_dev * dev = sst_info->dev;
+
+	int i;
+
+	for (i=0; i < pci_s ; i++ ) {
+		pci_read_config_dword ( dev, pci_regs[i].reg , &pci_res[i]) ;
+	}
+	for (i=0; i < sst_s ; i++ ) {
+		sst_res[i]=sst_read(sst_regs[i].reg);
+	}
+
+	dprintk ("Dump regs\n");
+	for (i=0; i < pci_s ; i++ ) {
+		dprintk("%s = %0#10x\n", pci_regs[i].reg_name , pci_res[i]) ;
+	}
+	for (i=0; i < sst_s ; i++ ) {
+		dprintk("%s = %0#10x\n", sst_regs[i].reg_name , sst_res[i]) ;
+	}
+}
+#endif

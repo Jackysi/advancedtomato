@@ -162,7 +162,8 @@ static inline int fib_lookup(const struct rt_key *key, struct fib_result *res)
 
 static inline void fib_select_default(const struct rt_key *key, struct fib_result *res)
 {
-	if (FIB_RES_GW(*res) && FIB_RES_NH(*res).nh_scope == RT_SCOPE_LINK)
+	if ((FIB_RES_GW(*res) && FIB_RES_NH(*res).nh_scope == RT_SCOPE_LINK) ||
+	    FIB_RES_NH(*res).nh_scope == RT_SCOPE_HOST)
 		main_table->tb_select_default(main_table, key, res);
 }
 
@@ -174,6 +175,7 @@ extern struct fib_table * fib_tables[RT_TABLE_MAX+1];
 extern int fib_lookup(const struct rt_key *key, struct fib_result *res);
 extern struct fib_table *__fib_new_table(int id);
 extern void fib_rule_put(struct fib_rule *r);
+extern int fib_result_table(struct fib_result *res);
 
 static inline struct fib_table *fib_get_table(int id)
 {
@@ -275,5 +277,6 @@ static inline void fib_res_put(struct fib_result *res)
 #endif
 }
 
+extern rwlock_t fib_nhflags_lock;
 
 #endif  /* _NET_FIB_H */

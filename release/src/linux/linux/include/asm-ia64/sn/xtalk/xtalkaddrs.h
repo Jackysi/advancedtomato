@@ -1,11 +1,10 @@
-/* $Id: xtalkaddrs.h,v 1.1.1.4 2003/10/14 08:09:14 sparq Exp $
+/* $Id$
  *
  * This file is subject to the terms and conditions of the GNU General Public
  * License.  See the file "COPYING" in the main directory of this archive
  * for more details.
  *
- * Copyright (C) 1992 - 1997, 2000-2001 Silicon Graphics, Inc.
- * Copyright (C) 2000 by Colin Ngam
+ * Copyright (C) 1992-1997,2000-2003 Silicon Graphics, Inc. All Rights Reserved.
  */
 #ifndef _ASM_SN_XTALK_XTALKADDRS_H
 #define _ASM_SN_XTALK_XTALKADDRS_H
@@ -94,6 +93,13 @@
 #assert sizeof(iopaddr_t) == 8
 #endif /* TBD */
 
+/*
+ * Get widget part number, given node id and widget id. 
+ * Always do a 32-bit read, because some widgets, e.g., Bridge, require so.
+ * Widget ID is at offset 0 for 64-bit access.  Add 4 to get lower 32 bits
+ * in big endian mode. 
+ * XXX Double check this with Hub, Xbow, Bridge and other hardware folks.
+ */
 #define XWIDGET_ID_READ(nasid, widget) \
         (widgetreg_t)(*(volatile uint32_t *)(NODE_SWIN_BASE(nasid, widget) + WIDGET_ID))
 

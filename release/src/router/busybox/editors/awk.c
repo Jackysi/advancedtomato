@@ -14,6 +14,20 @@
 /* This is a NOEXEC applet. Be very careful! */
 
 
+/* If you comment out one of these below, it will be #defined later
+ * to perform debug printfs to stderr: */
+#define debug_printf_walker(...)  do {} while (0)
+#define debug_printf_eval(...)  do {} while (0)
+
+#ifndef debug_printf_walker
+# define debug_printf_walker(...) (fprintf(stderr, __VA_ARGS__))
+#endif
+#ifndef debug_printf_eval
+# define debug_printf_eval(...) (fprintf(stderr, __VA_ARGS__))
+#endif
+
+
+
 #define	MAXVARFMT       240
 #define	MINNVBLOCK      64
 
@@ -32,6 +46,13 @@
 /* these flags are static, don't change them when value is changed */
 #define	VF_DONTTOUCH    (VF_ARRAY | VF_SPECIAL | VF_WALK | VF_CHILD | VF_DIRTY)
 
+typedef struct walker_list {
+	char *end;
+	char *cur;
+	struct walker_list *prev;
+	char wbuf[1];
+} walker_list;
+
 /* Variable */
 typedef struct var_s {
 	unsigned type;            /* flags */
@@ -41,7 +62,7 @@ typedef struct var_s {
 		int aidx;               /* func arg idx (for compilation stage) */
 		struct xhash_s *array;  /* array ptr */
 		struct var_s *parent;   /* for func args, ptr to actual parameter */
-		char **walker;          /* list of array elements (for..in) */
+		walker_list *walker;    /* list of array elements (for..in) */
 	} x;
 } var;
 
@@ -93,15 +114,14 @@ typedef struct node_s {
 	union {
 		struct node_s *n;
 		var *v;
-		int i;
-		char *s;
+		int aidx;
+		char *new_progname;
 		regex_t *re;
 	} l;
 	union {
 		struct node_s *n;
 		regex_t *ire;
 		func *f;
-		int argno;
 	} r;
 	union {
 		struct node_s *n;
@@ -114,7 +134,7 @@ typedef struct nvblock_s {
 	var *pos;
 	struct nvblock_s *prev;
 	struct nvblock_s *next;
-	var nv[0];
+	var nv[];
 } nvblock;
 
 typedef struct tsplitter_s {
@@ -250,7 +270,7 @@ enum {
 
 /* builtins */
 enum {
-	B_a2,	B_ix,	B_ma,	B_sp,	B_ss,	B_ti,	B_lo,	B_up,
+	B_a2,	B_ix,	B_ma,	B_sp,	B_ss,	B_ti,   B_mt,	B_lo,	B_up,
 	B_ge,	B_gs,	B_su,
 	B_an,	B_co,	B_ls,	B_or,	B_rs,	B_xo,
 };
@@ -299,7 +319,7 @@ static const char tokenlist[] ALIGN1 =
 	"\4rand"    "\3sin"     "\4sqrt"    "\5srand"
 	"\6gensub"  "\4gsub"    "\5index"   "\6length"
 	"\5match"   "\5split"   "\7sprintf" "\3sub"
-	"\6substr"  "\7systime" "\10strftime"
+	"\6substr"  "\7systime" "\10strftime" "\6mktime"
 	"\7tolower" "\7toupper" NTC
 	"\7getline" NTC
 	"\4func"    "\10function"   NTC
@@ -353,7 +373,7 @@ static const uint32_t tokeninfo[] = {
 	OC_FBLTIN|F_rn,    OC_FBLTIN|Nx|F_si, OC_FBLTIN|Nx|F_sq, OC_FBLTIN|Nx|F_sr,
 	OC_B|B_ge|P(0xd6), OC_B|B_gs|P(0xb6), OC_B|B_ix|P(0x9b), OC_FBLTIN|Sx|F_le,
 	OC_B|B_ma|P(0x89), OC_B|B_sp|P(0x8b), OC_SPRINTF,        OC_B|B_su|P(0xb6),
-	OC_B|B_ss|P(0x8f), OC_FBLTIN|F_ti,    OC_B|B_ti|P(0x0b),
+	OC_B|B_ss|P(0x8f), OC_FBLTIN|F_ti,    OC_B|B_ti|P(0x0b), OC_B|B_mt|P(0x0b),
 	OC_B|B_lo|P(0x49), OC_B|B_up|P(0x49),
 	OC_GETLINE|SV|P(0),
 	0,	0,
@@ -486,7 +506,7 @@ struct globals2 {
 #define fsplitter    (G.fsplitter   )
 #define rsplitter    (G.rsplitter   )
 #define INIT_G() do { \
-	SET_PTR_TO_GLOBALS(xzalloc(sizeof(G1) + sizeof(G)) + sizeof(G1)); \
+	SET_PTR_TO_GLOBALS((char*)xzalloc(sizeof(G1)+sizeof(G)) + sizeof(G1)); \
 	G.next_token__ltclass = TC_OPTERM; \
 	G.evaluate__seed = 1; \
 } while (0)
@@ -516,13 +536,13 @@ static const char EMSG_UNDEF_FUNC[] ALIGN1 = "Call to undefined function";
 static const char EMSG_NO_MATH[] ALIGN1 = "Math support is not compiled in";
 #endif
 
-static void zero_out_var(var * vp)
+static void zero_out_var(var *vp)
 {
 	memset(vp, 0, sizeof(*vp));
 }
 
-static void syntax_error(const char *const message) NORETURN;
-static void syntax_error(const char *const message)
+static void syntax_error(const char *message) NORETURN;
+static void syntax_error(const char *message)
 {
 	bb_error_msg_and_die("%s:%i: %s", g_progname, g_lineno, message);
 }
@@ -533,7 +553,8 @@ static unsigned hashidx(const char *name)
 {
 	unsigned idx = 0;
 
-	while (*name) idx = *name++ + (idx << 6) - idx;
+	while (*name)
+		idx = *name++ + (idx << 6) - idx;
 	return idx;
 }
 
@@ -542,9 +563,9 @@ static xhash *hash_init(void)
 {
 	xhash *newhash;
 
-	newhash = xzalloc(sizeof(xhash));
+	newhash = xzalloc(sizeof(*newhash));
 	newhash->csize = FIRST_PRIME;
-	newhash->items = xzalloc(newhash->csize * sizeof(hash_item *));
+	newhash->items = xzalloc(FIRST_PRIME * sizeof(newhash->items[0]));
 
 	return newhash;
 }
@@ -554,10 +575,10 @@ static void *hash_search(xhash *hash, const char *name)
 {
 	hash_item *hi;
 
-	hi = hash->items [ hashidx(name) % hash->csize ];
+	hi = hash->items[hashidx(name) % hash->csize];
 	while (hi) {
 		if (strcmp(hi->name, name) == 0)
-			return &(hi->data);
+			return &hi->data;
 		hi = hi->next;
 	}
 	return NULL;
@@ -573,7 +594,7 @@ static void hash_rebuild(xhash *hash)
 		return;
 
 	newsize = PRIMES[hash->nprime++];
-	newitems = xzalloc(newsize * sizeof(hash_item *));
+	newitems = xzalloc(newsize * sizeof(newitems[0]));
 
 	for (i = 0; i < hash->csize; i++) {
 		hi = hash->items[i];
@@ -612,7 +633,7 @@ static void *hash_find(xhash *hash, const char *name)
 		hash->items[idx] = hi;
 		hash->glen += l;
 	}
-	return &(hi->data);
+	return &hi->data;
 }
 
 #define findvar(hash, name) ((var*)    hash_find((hash), (name)))
@@ -624,7 +645,7 @@ static void hash_remove(xhash *hash, const char *name)
 {
 	hash_item *hi, **phi;
 
-	phi = &(hash->items[hashidx(name) % hash->csize]);
+	phi = &hash->items[hashidx(name) % hash->csize];
 	while (*phi) {
 		hi = *phi;
 		if (strcmp(hi->name, name) == 0) {
@@ -634,16 +655,14 @@ static void hash_remove(xhash *hash, const char *name)
 			free(hi);
 			break;
 		}
-		phi = &(hi->next);
+		phi = &hi->next;
 	}
 }
 
 /* ------ some useful functions ------ */
 
-static void skip_spaces(char **s)
+static char *skip_spaces(char *p)
 {
-	char *p = *s;
-
 	while (1) {
 		if (*p == '\\' && p[1] == '\n') {
 			p++;
@@ -653,15 +672,15 @@ static void skip_spaces(char **s)
 		}
 		p++;
 	}
-	*s = p;
+	return p;
 }
 
+/* returns old *s, advances *s past word and terminating NUL */
 static char *nextword(char **s)
 {
 	char *p = *s;
-
-	while (*(*s)++) /* */;
-
+	while (*(*s)++ != '\0')
+		continue;
 	return p;
 }
 
@@ -669,10 +688,12 @@ static char nextchar(char **s)
 {
 	char c, *pps;
 
-	c = *((*s)++);
+	c = *(*s)++;
 	pps = *s;
-	if (c == '\\') c = bb_process_escape_sequence((const char**)s);
-	if (c == '\\' && *s == pps) c = *((*s)++);
+	if (c == '\\')
+		c = bb_process_escape_sequence((const char**)s);
+	if (c == '\\' && *s == pps)
+		c = *(*s)++;
 	return c;
 }
 
@@ -683,14 +704,27 @@ static ALWAYS_INLINE int isalnum_(int c)
 
 static double my_strtod(char **pp)
 {
+	char *cp = *pp;
 #if ENABLE_DESKTOP
-	if ((*pp)[0] == '0'
-	 && ((((*pp)[1] | 0x20) == 'x') || isdigit((*pp)[1]))
-	) {
-		return strtoull(*pp, pp, 0);
+	if (cp[0] == '0') {
+		/* Might be hex or octal integer: 0x123abc or 07777 */
+		char c = (cp[1] | 0x20);
+		if (c == 'x' || isdigit(cp[1])) {
+			unsigned long long ull = strtoull(cp, pp, 0);
+			if (c == 'x')
+				return ull;
+			c = **pp;
+			if (!isdigit(c) && c != '.')
+				return ull;
+			/* else: it may be a floating number. Examples:
+			 * 009.123 (*pp points to '9')
+			 * 000.123 (*pp points to '.')
+			 * fall through to strtod.
+			 */
+		}
 	}
 #endif
-	return strtod(*pp, pp);
+	return strtod(cp, pp);
 }
 
 /* -------- working with variables (set/get/copy/etc) -------- */
@@ -754,10 +788,10 @@ static var *setvar_s(var *v, const char *value)
 	return setvar_p(v, (value && *value) ? xstrdup(value) : NULL);
 }
 
-/* same as setvar_s but set USER flag */
+/* same as setvar_s but sets USER flag */
 static var *setvar_u(var *v, const char *value)
 {
-	setvar_s(v, value);
+	v = setvar_s(v, value);
 	v->type |= VF_USER;
 	return v;
 }
@@ -765,11 +799,9 @@ static var *setvar_u(var *v, const char *value)
 /* set array element to user string */
 static void setari_u(var *a, int idx, const char *s)
 {
-	char sidx[sizeof(int)*3 + 1];
 	var *v;
 
-	sprintf(sidx, "%d", idx);
-	v = findvar(iamarray(a), sidx);
+	v = findvar(iamarray(a), itoa(idx));
 	setvar_u(v, s);
 }
 
@@ -802,17 +834,21 @@ static double getvar_i(var *v)
 		v->number = 0;
 		s = v->string;
 		if (s && *s) {
+			debug_printf_eval("getvar_i: '%s'->", s);
 			v->number = my_strtod(&s);
+			debug_printf_eval("%f (s:'%s')\n", v->number, s);
 			if (v->type & VF_USER) {
-				skip_spaces(&s);
+				s = skip_spaces(s);
 				if (*s != '\0')
 					v->type &= ~VF_USER;
 			}
 		} else {
+			debug_printf_eval("getvar_i: '%s'->zero\n", s);
 			v->type &= ~VF_USER;
 		}
 		v->type |= VF_CACHED;
 	}
+	debug_printf_eval("getvar_i: %f\n", v->number);
 	return v->number;
 }
 
@@ -834,6 +870,7 @@ static var *copyvar(var *dest, const var *src)
 	if (dest != src) {
 		clrvar(dest);
 		dest->type |= (src->type & ~(VF_DONTTOUCH | VF_FSTR));
+		debug_printf_eval("copyvar: number:%f string:'%s'\n", src->number, src->string);
 		dest->number = src->number;
 		if (src->string)
 			dest->string = xstrdup(src->string);
@@ -844,7 +881,7 @@ static var *copyvar(var *dest, const var *src)
 
 static var *incvar(var *v)
 {
-	return setvar_i(v, getvar_i(v) + 1.);
+	return setvar_i(v, getvar_i(v) + 1.0);
 }
 
 /* return true if v is number or numeric string */
@@ -858,8 +895,8 @@ static int is_numeric(var *v)
 static int istrue(var *v)
 {
 	if (is_numeric(v))
-		return (v->number == 0) ? 0 : 1;
-	return (v->string && *(v->string)) ? 1 : 0;
+		return (v->number != 0);
+	return (v->string && v->string[0]);
 }
 
 /* temporary variables allocator. Last allocated should be first freed */
@@ -871,7 +908,8 @@ static var *nvalloc(int n)
 
 	while (g_cb) {
 		pb = g_cb;
-		if ((g_cb->pos - g_cb->nv) + n <= g_cb->size) break;
+		if ((g_cb->pos - g_cb->nv) + n <= g_cb->size)
+			break;
 		g_cb = g_cb->next;
 	}
 
@@ -882,7 +920,8 @@ static var *nvalloc(int n)
 		g_cb->pos = g_cb->nv;
 		g_cb->prev = pb;
 		/*g_cb->next = NULL; - xzalloc did it */
-		if (pb) pb->next = g_cb;
+		if (pb)
+			pb->next = g_cb;
 	}
 
 	v = r = g_cb->pos;
@@ -910,9 +949,18 @@ static void nvfree(var *v)
 			free(p->x.array->items);
 			free(p->x.array);
 		}
-		if (p->type & VF_WALK)
-			free(p->x.walker);
-
+		if (p->type & VF_WALK) {
+			walker_list *n;
+			walker_list *w = p->x.walker;
+			debug_printf_walker("nvfree: freeing walker @%p\n", &p->x.walker);
+			p->x.walker = NULL;
+			while (w) {
+				n = w->prev;
+				debug_printf_walker(" free(%p)\n", w);
+				free(w);
+				w = n;
+			}
+		}
 		clrvar(p);
 	}
 
@@ -935,11 +983,10 @@ static uint32_t next_token(uint32_t expected)
 /* Initialized to TC_OPTERM: */
 #define ltclass         (G.next_token__ltclass)
 
-	char *p, *pp, *s;
+	char *p, *s;
 	const char *tl;
 	uint32_t tc;
 	const uint32_t *ti;
-	int l;
 
 	if (t_rollback) {
 		t_rollback = FALSE;
@@ -952,7 +999,7 @@ static uint32_t next_token(uint32_t expected)
 	} else {
 		p = g_pos;
  readnext:
-		skip_spaces(&p);
+		p = skip_spaces(p);
 		g_lineno = t_lineno;
 		if (*p == '#')
 			while (*p != '\n' && *p != '\0')
@@ -968,9 +1015,11 @@ static uint32_t next_token(uint32_t expected)
 			/* it's a string */
 			t_string = s = ++p;
 			while (*p != '\"') {
+				char *pp = p;
 				if (*p == '\0' || *p == '\n')
 					syntax_error(EMSG_UNEXP_EOS);
-				*(s++) = nextchar(&p);
+				*s++ = nextchar(&pp);
+				p = pp;
 			}
 			p++;
 			*s = '\0';
@@ -984,12 +1033,14 @@ static uint32_t next_token(uint32_t expected)
 					syntax_error(EMSG_UNEXP_EOS);
 				*s = *p++;
 				if (*s++ == '\\') {
-					pp = p;
-					*(s-1) = bb_process_escape_sequence((const char **)&p);
-					if (*pp == '\\')
+					char *pp = p;
+					s[-1] = bb_process_escape_sequence((const char **)&pp);
+					if (*p == '\\')
 						*s++ = '\\';
-					if (p == pp)
+					if (pp == p)
 						*s++ = *p++;
+					else
+						p = pp;
 				}
 			}
 			p++;
@@ -998,7 +1049,9 @@ static uint32_t next_token(uint32_t expected)
 
 		} else if (*p == '.' || isdigit(*p)) {
 			/* it's a number */
-			t_double = my_strtod(&p);
+			char *pp = p;
+			t_double = my_strtod(&pp);
+			p = pp;
 			if (*p == '.')
 				syntax_error(EMSG_UNEXP_TOKEN);
 			tc = TC_NUMBER;
@@ -1009,52 +1062,51 @@ static uint32_t next_token(uint32_t expected)
 			tc = 0x00000001;
 			ti = tokeninfo;
 			while (*tl) {
-				l = *(tl++);
-				if (l == NTCC) {
+				int l = (unsigned char) *tl++;
+				if (l == (unsigned char) NTCC) {
 					tc <<= 1;
 					continue;
 				}
-				/* if token class is expected, token
-				 * matches and it's not a longer word,
-				 * then this is what we are looking for
+				/* if token class is expected,
+				 * token matches,
+				 * and it's not a longer word,
 				 */
 				if ((tc & (expected | TC_WORD | TC_NEWLINE))
-				 && *tl == *p && strncmp(p, tl, l) == 0
+				 && strncmp(p, tl, l) == 0
 				 && !((tc & TC_WORD) && isalnum_(p[l]))
 				) {
+					/* then this is what we are looking for */
 					t_info = *ti;
 					p += l;
-					break;
+					goto token_found;
 				}
 				ti++;
 				tl += l;
 			}
+			/* not a known token */
 
-			if (!*tl) {
-				/* it's a name (var/array/function),
-				 * otherwise it's something wrong
-				 */
-				if (!isalnum_(*p))
-					syntax_error(EMSG_UNEXP_TOKEN);
-
-				t_string = --p;
-				while (isalnum_(*(++p))) {
-					*(p-1) = *p;
-				}
-				*(p-1) = '\0';
-				tc = TC_VARIABLE;
-				/* also consume whitespace between functionname and bracket */
-				if (!(expected & TC_VARIABLE))
-					skip_spaces(&p);
-				if (*p == '(') {
-					tc = TC_FUNCTION;
-				} else {
-					if (*p == '[') {
-						p++;
-						tc = TC_ARRAY;
-					}
+			/* is it a name? (var/array/function) */
+			if (!isalnum_(*p))
+				syntax_error(EMSG_UNEXP_TOKEN); /* no */
+			/* yes */
+			t_string = --p;
+			while (isalnum_(*++p)) {
+				p[-1] = *p;
+			}
+			p[-1] = '\0';
+			tc = TC_VARIABLE;
+			/* also consume whitespace between functionname and bracket */
+			if (!(expected & TC_VARIABLE) || (expected & TC_ARRAY))
+				p = skip_spaces(p);
+			if (*p == '(') {
+				tc = TC_FUNCTION;
+			} else {
+				if (*p == '[') {
+					p++;
+					tc = TC_ARRAY;
 				}
 			}
+ token_found: ;
 		}
 		g_pos = p;
 
@@ -1102,15 +1154,13 @@ static node *new_node(uint32_t info)
 	return n;
 }
 
-static node *mk_re_node(const char *s, node *n, regex_t *re)
+static void mk_re_node(const char *s, node *n, regex_t *re)
 {
 	n->info = OC_REGEXP;
 	n->l.re = re;
 	n->r.ire = re + 1;
 	xregcomp(re, s, REG_EXTENDED);
 	xregcomp(re + 1, s, REG_EXTENDED | REG_ICASE);
-
-	return n;
 }
 
 static node *condition(void)
@@ -1134,6 +1184,7 @@ static node *parse_expr(uint32_t iexp)
 	xtc = TC_OPERAND | TC_UOPPRE | TC_REGEXP | iexp;
 
 	while (!((tc = next_token(xtc)) & iexp)) {
+
 		if (glptr && (t_info == (OC_COMPARE | VV | P(39) | 2))) {
 			/* input redirection (<) attached to glptr node */
 			cn = glptr->l.n = new_node(OC_CONCAT | SS | P(37));
@@ -1145,9 +1196,11 @@ static node *parse_expr(uint32_t iexp)
 			/* for binary and postfix-unary operators, jump back over
 			 * previous operators with higher priority */
 			vn = cn;
-			while ( ((t_info & PRIMASK) > (vn->a.n->info & PRIMASK2))
-			 || ((t_info == vn->info) && ((t_info & OPCLSMASK) == OC_COLON)) )
+			while (((t_info & PRIMASK) > (vn->a.n->info & PRIMASK2))
+			    || ((t_info == vn->info) && ((t_info & OPCLSMASK) == OC_COLON))
+			) {
 				vn = vn->a.n;
+			}
 			if ((t_info & OPCLSMASK) == OC_TERNARY)
 				t_info += P(6);
 			cn = vn->a.n->r.n = new_node(t_info);
@@ -1186,7 +1239,7 @@ static node *parse_expr(uint32_t iexp)
 					v = hash_search(ahash, t_string);
 					if (v != NULL) {
 						cn->info = OC_FNARG;
-						cn->l.i = v->x.aidx;
+						cn->l.aidx = v->x.aidx;
 					} else {
 						cn->l.v = newvar(t_string);
 					}
@@ -1247,7 +1300,7 @@ static node *chain_node(uint32_t info)
 	if (seq->programname != g_progname) {
 		seq->programname = g_progname;
 		n = chain_node(OC_NEWSOURCE);
-		n->l.s = xstrdup(g_progname);
+		n->l.new_progname = xstrdup(g_progname);
 	}
 
 	n = seq->last;
@@ -1302,7 +1355,8 @@ static void chain_group(void)
 
 	if (c & TC_GRPSTART) {
 		while (next_token(TC_GRPSEQ | TC_GRPTERM) != TC_GRPTERM) {
-			if (t_tclass & TC_NEWLINE) continue;
+			if (t_tclass & TC_NEWLINE)
+				continue;
 			rollback_token();
 			chain_group();
 		}
@@ -1424,12 +1478,12 @@ static void parse_program(char *p)
 			f->nargs = 0;
 			while (next_token(TC_VARIABLE | TC_SEQTERM) & TC_VARIABLE) {
 				v = findvar(ahash, t_string);
-				v->x.aidx = (f->nargs)++;
+				v->x.aidx = f->nargs++;
 
 				if (next_token(TC_COMMA | TC_SEQTERM) & TC_SEQTERM)
 					break;
 			}
-			seq = &(f->body);
+			seq = &f->body;
 			chain_group();
 			clear_array(ahash);
 
@@ -1467,10 +1521,10 @@ static node *mk_splitter(const char *s, tsplitter *spl)
 		regfree(re);
 		regfree(ire); // TODO: nuke ire, use re+1?
 	}
-	if (strlen(s) > 1) {
+	if (s[0] && s[1]) { /* strlen(s) > 1 */
 		mk_re_node(s, n, re);
 	} else {
-		n->info = (uint32_t) *s;
+		n->info = (uint32_t) s[0];
 	}
 
 	return n;
@@ -1506,13 +1560,17 @@ static regex_t *as_regex(node *op, regex_t *preg)
 	return preg;
 }
 
-/* gradually increasing buffer */
-static void qrealloc(char **b, int n, int *size)
+/* gradually increasing buffer.
+ * note that we reallocate even if n == old_size,
+ * and thus there is at least one extra allocated byte.
+ */
+static char* qrealloc(char *b, int n, int *size)
 {
-	if (!*b || n >= *size) {
+	if (!b || n >= *size) {
 		*size = n + (n>>1) + 80;
-		*b = xrealloc(*b, *size);
+		b = xrealloc(b, *size);
 	}
+	return b;
 }
 
 /* resize field storage space */
@@ -1523,24 +1581,22 @@ static void fsrealloc(int size)
 	if (size >= maxfields) {
 		i = maxfields;
 		maxfields = size + 16;
-		Fields = xrealloc(Fields, maxfields * sizeof(var));
+		Fields = xrealloc(Fields, maxfields * sizeof(Fields[0]));
 		for (; i < maxfields; i++) {
 			Fields[i].type = VF_SPECIAL;
 			Fields[i].string = NULL;
 		}
 	}
-
-	if (size < nfields) {
-		for (i = size; i < nfields; i++) {
-			clrvar(Fields + i);
-		}
+	/* if size < nfields, clear extra field variables */
+	for (i = size; i < nfields; i++) {
+		clrvar(Fields + i);
 	}
 	nfields = size;
 }
 
 static int awk_split(const char *s, node *spl, char **slist)
 {
-	int l, n = 0;
+	int l, n;
 	char c[4];
 	char *s1;
 	regmatch_t pmatch[2]; // TODO: why [2]? [1] is enough...
@@ -1554,6 +1610,7 @@ static int awk_split(const char *s, node *spl, char **slist)
 	if (*getvar_s(intvar[RS]) == '\0')
 		c[2] = '\n';
 
+	n = 0;
 	if ((spl->info & OPCLSMASK) == OC_REGEXP) {  /* regex split */
 		if (!*s)
 			return n; /* "": zero fields */
@@ -1597,8 +1654,9 @@ static int awk_split(const char *s, node *spl, char **slist)
 			c[0] = toupper(c[0]);
 			c[1] = tolower(c[1]);
 		}
-		if (*s1) n++;
-		while ((s1 = strpbrk(s1, c))) {
+		if (*s1)
+			n++;
+		while ((s1 = strpbrk(s1, c)) != NULL) {
 			*s1++ = '\0';
 			n++;
 		}
@@ -1607,7 +1665,8 @@ static int awk_split(const char *s, node *spl, char **slist)
 	/* space split */
 	while (*s) {
 		s = skip_whitespace(s);
-		if (!*s) break;
+		if (!*s)
+			break;
 		n++;
 		while (*s && !isspace(*s))
 			*s1++ = *s++;
@@ -1672,7 +1731,7 @@ static void handle_special(var *v)
 				memcpy(b+len, sep, sl);
 				len += sl;
 			}
-			qrealloc(&b, len+l+sl, &bsize);
+			b = qrealloc(b, len+l+sl, &bsize);
 			memcpy(b+len, s, l);
 			len += l;
 		}
@@ -1717,21 +1776,28 @@ static node *nextarg(node **pn)
 
 static void hashwalk_init(var *v, xhash *array)
 {
-	char **w;
 	hash_item *hi;
 	unsigned i;
+	walker_list *w;
+	walker_list *prev_walker;
 
-	if (v->type & VF_WALK)
-		free(v->x.walker);
+	if (v->type & VF_WALK) {
+		prev_walker = v->x.walker;
+	} else {
+		v->type |= VF_WALK;
+		prev_walker = NULL;
+	}
+	debug_printf_walker("hashwalk_init: prev_walker:%p\n", prev_walker);
 
-	v->type |= VF_WALK;
-	w = v->x.walker = xzalloc(2 + 2*sizeof(char *) + array->glen);
-	w[0] = w[1] = (char *)(w + 2);
+	w = v->x.walker = xzalloc(sizeof(*w) + array->glen + 1); /* why + 1? */
+	debug_printf_walker(" walker@%p=%p\n", &v->x.walker, w);
+	w->cur = w->end = w->wbuf;
+	w->prev = prev_walker;
 	for (i = 0; i < array->csize; i++) {
 		hi = array->items[i];
 		while (hi) {
-			strcpy(*w, hi->name);
-			nextword(w);
+			strcpy(w->end, hi->name);
+			nextword(&w->end);
 			hi = hi->next;
 		}
 	}
@@ -1739,13 +1805,18 @@ static void hashwalk_init(var *v, xhash *array)
 
 static int hashwalk_next(var *v)
 {
-	char **w;
+	walker_list *w = v->x.walker;
 
-	w = v->x.walker;
-	if (w[1] == w[0])
+	if (w->cur >= w->end) {
+		walker_list *prev_walker = w->prev;
+
+		debug_printf_walker("end of iteration, free(walker@%p:%p), prev_walker:%p\n", &v->x.walker, w, prev_walker);
+		free(w);
+		v->x.walker = prev_walker;
 		return FALSE;
+	}
 
-	setvar_s(v, nextword(w+1));
+	setvar_s(v, nextword(&w->cur));
 	return TRUE;
 }
 
@@ -1761,7 +1832,7 @@ static int awk_getline(rstream *rsm, var *v)
 {
 	char *b;
 	regmatch_t pmatch[2];
-	int a, p, pp=0, size;
+	int size, a, p, pp = 0;
 	int fd, so, eo, r, rp;
 	char c, *m, *s;
 
@@ -1776,7 +1847,9 @@ static int awk_getline(rstream *rsm, var *v)
 	c = (char) rsplitter.n.info;
 	rp = 0;
 
-	if (!m) qrealloc(&m, 256, &size);
+	if (!m)
+		m = qrealloc(m, 256, &size);
+
 	do {
 		b = m + a;
 		so = eo = p;
@@ -1792,7 +1865,8 @@ static int awk_getline(rstream *rsm, var *v)
 				}
 			} else if (c != '\0') {
 				s = strchr(b+pp, c);
-				if (!s) s = memchr(b+pp, '\0', p - pp);
+				if (!s)
+					s = memchr(b+pp, '\0', p - pp);
 				if (s) {
 					so = eo = s-b;
 					eo++;
@@ -1804,7 +1878,8 @@ static int awk_getline(rstream *rsm, var *v)
 				s = strstr(b+rp, "\n\n");
 				if (s) {
 					so = eo = s-b;
-					while (b[eo] == '\n') eo++;
+					while (b[eo] == '\n')
+						eo++;
 					if (b[eo] != '\0')
 						break;
 				}
@@ -1812,12 +1887,12 @@ static int awk_getline(rstream *rsm, var *v)
 		}
 
 		if (a > 0) {
-			memmove(m, (const void *)(m+a), p+1);
+			memmove(m, m+a, p+1);
 			b = m;
 			a = 0;
 		}
 
-		qrealloc(&m, a+p+128, &size);
+		m = qrealloc(m, a+p+128, &size);
 		b = m + a;
 		pp = p;
 		p += safe_read(fd, b+p, size-p-1);
@@ -1887,7 +1962,7 @@ static char *awk_printf(node *n)
 	i = 0;
 	while (*f) {
 		s = f;
-		while (*f && (*f != '%' || *(++f) == '%'))
+		while (*f && (*f != '%' || *++f == '%'))
 			f++;
 		while (*f && !isalpha(*f)) {
 			if (*f == '*')
@@ -1896,9 +1971,10 @@ static char *awk_printf(node *n)
 		}
 
 		incr = (f - s) + MAXVARFMT;
-		qrealloc(&b, incr + i, &bsize);
+		b = qrealloc(b, incr + i, &bsize);
 		c = *f;
-		if (c != '\0') f++;
+		if (c != '\0')
+			f++;
 		c1 = *f;
 		*f = '\0';
 		arg = evaluate(nextarg(&n), v);
@@ -1909,7 +1985,7 @@ static char *awk_printf(node *n)
 					(char)getvar_i(arg) : *getvar_s(arg));
 		} else if (c == 's') {
 			s1 = getvar_s(arg);
-			qrealloc(&b, incr+i+strlen(s1), &bsize);
+			b = qrealloc(b, incr+i+strlen(s1), &bsize);
 			i += sprintf(b+i, s, s1);
 		} else {
 			i += fmt_num(b+i, incr, s, getvar_i(arg), FALSE);
@@ -1917,95 +1993,147 @@ static char *awk_printf(node *n)
 		*f = c1;
 
 		/* if there was an error while sprintf, return value is negative */
-		if (i < j) i = j;
+		if (i < j)
+			i = j;
 	}
 
-	b = xrealloc(b, i + 1);
 	free(fmt);
 	nvfree(v);
+	b = xrealloc(b, i + 1);
 	b[i] = '\0';
 	return b;
 }
 
-/* common substitution routine
- * replace (nm) substring of (src) that match (n) with (repl), store
- * result into (dest), return number of substitutions. If nm=0, replace
- * all matches. If src or dst is NULL, use $0. If ex=TRUE, enable
- * subexpression matching (\1-\9)
+/* Common substitution routine.
+ * Replace (nm)'th substring of (src) that matches (rn) with (repl),
+ * store result into (dest), return number of substitutions.
+ * If nm = 0, replace all matches.
+ * If src or dst is NULL, use $0.
+ * If subexp != 0, enable subexpression matching (\1-\9).
  */
-static int awk_sub(node *rn, const char *repl, int nm, var *src, var *dest, int ex)
+static int awk_sub(node *rn, const char *repl, int nm, var *src, var *dest, int subexp)
 {
-	char *ds = NULL;
-	const char *s;
+	char *resbuf;
 	const char *sp;
-	int c, i, j, di, rl, so, eo, nbs, n, dssize;
+	int match_no, residx, replen, resbufsize;
+	int regexec_flags;
 	regmatch_t pmatch[10];
-	regex_t sreg, *re;
+	regex_t sreg, *regex;
 
-	re = as_regex(rn, &sreg);
-	if (!src) src = intvar[F0];
-	if (!dest) dest = intvar[F0];
+	resbuf = NULL;
+	residx = 0;
+	match_no = 0;
+	regexec_flags = 0;
+	regex = as_regex(rn, &sreg);
+	sp = getvar_s(src ? src : intvar[F0]);
+	replen = strlen(repl);
+	while (regexec(regex, sp, 10, pmatch, regexec_flags) == 0) {
+		int so = pmatch[0].rm_so;
+		int eo = pmatch[0].rm_eo;
 
-	i = di = 0;
-	sp = getvar_s(src);
-	rl = strlen(repl);
-	while (regexec(re, sp, 10, pmatch, sp==getvar_s(src) ? 0 : REG_NOTBOL) == 0) {
-		so = pmatch[0].rm_so;
-		eo = pmatch[0].rm_eo;
+		//bb_error_msg("match %u: [%u,%u] '%s'%p", match_no+1, so, eo, sp,sp);
+		resbuf = qrealloc(resbuf, residx + eo + replen, &resbufsize);
+		memcpy(resbuf + residx, sp, eo);
+		residx += eo;
+		if (++match_no >= nm) {
+			const char *s;
+			int nbs;
 
-		qrealloc(&ds, di + eo + rl, &dssize);
-		memcpy(ds + di, sp, eo);
-		di += eo;
-		if (++i >= nm) {
 			/* replace */
-			di -= (eo - so);
+			residx -= (eo - so);
 			nbs = 0;
 			for (s = repl; *s; s++) {
-				ds[di++] = c = *s;
+				char c = resbuf[residx++] = *s;
 				if (c == '\\') {
 					nbs++;
 					continue;
 				}
-				if (c == '&' || (ex && c >= '0' && c <= '9')) {
-					di -= ((nbs + 3) >> 1);
+				if (c == '&' || (subexp && c >= '0' && c <= '9')) {
+					int j;
+					residx -= ((nbs + 3) >> 1);
 					j = 0;
 					if (c != '&') {
 						j = c - '0';
 						nbs++;
 					}
 					if (nbs % 2) {
-						ds[di++] = c;
+						resbuf[residx++] = c;
 					} else {
-						n = pmatch[j].rm_eo - pmatch[j].rm_so;
-						qrealloc(&ds, di + rl + n, &dssize);
-						memcpy(ds + di, sp + pmatch[j].rm_so, n);
-						di += n;
+						int n = pmatch[j].rm_eo - pmatch[j].rm_so;
+						resbuf = qrealloc(resbuf, residx + replen + n, &resbufsize);
+						memcpy(resbuf + residx, sp + pmatch[j].rm_so, n);
+						residx += n;
 					}
 				}
 				nbs = 0;
 			}
 		}
 
+		regexec_flags = REG_NOTBOL;
 		sp += eo;
-		if (i == nm) break;
+		if (match_no == nm)
+			break;
 		if (eo == so) {
-			ds[di] = *sp++;
-			if (!ds[di++]) break;
+			/* Empty match (e.g. "b*" will match anywhere).
+			 * Advance by one char. */
+//BUG (bug 1333):
+//gsub(/\<b*/,"") on "abc" will reach this point, advance to "bc"
+//... and will erroneously match "b" even though it is NOT at the word start.
+//we need REG_NOTBOW but it does not exist...
+//TODO: if EXTRA_COMPAT=y, use GNU matching and re_search,
+//it should be able to do it correctly.
+			/* Subtle: this is safe only because
+			 * qrealloc allocated at least one extra byte */
+			resbuf[residx] = *sp;
+			if (*sp == '\0')
+				goto ret;
+			sp++;
+			residx++;
 		}
 	}
 
-	qrealloc(&ds, di + strlen(sp), &dssize);
-	strcpy(ds + di, sp);
-	setvar_p(dest, ds);
-	if (re == &sreg) regfree(re);
-	return i;
+	resbuf = qrealloc(resbuf, residx + strlen(sp), &resbufsize);
+	strcpy(resbuf + residx, sp);
+ ret:
+	//bb_error_msg("end sp:'%s'%p", sp,sp);
+	setvar_p(dest ? dest : intvar[F0], resbuf);
+	if (regex == &sreg)
+		regfree(regex);
+	return match_no;
 }
 
-static var *exec_builtin(node *op, var *res)
+static NOINLINE int do_mktime(const char *ds)
+{
+	struct tm then;
+	int count;
+
+	/*memset(&then, 0, sizeof(then)); - not needed */
+	then.tm_isdst = -1; /* default is unknown */
+
+	/* manpage of mktime says these fields are ints,
+	 * so we can sscanf stuff directly into them */
+	count = sscanf(ds, "%u %u %u %u %u %u %d",
+		&then.tm_year, &then.tm_mon, &then.tm_mday,
+		&then.tm_hour, &then.tm_min, &then.tm_sec,
+		&then.tm_isdst);
+
+	if (count < 6
+	 || (unsigned)then.tm_mon < 1
+	 || (unsigned)then.tm_year < 1900
+	) {
+		return -1;
+	}
+
+	then.tm_mon -= 1;
+	then.tm_year -= 1900;
+
+	return mktime(&then);
+}
+
+static NOINLINE var *exec_builtin(node *op, var *res)
 {
 #define tspl (G.exec_builtin__tspl)
 
-	int (*to_xxx)(int);
 	var *tv;
 	node *an[4];
 	var *av[4];
@@ -2016,7 +2144,6 @@ static var *exec_builtin(node *op, var *res)
 	uint32_t isr, info;
 	int nargs;
 	time_t tt;
-	char *s, *s1;
 	int i, l, ll, n;
 
 	tv = nvalloc(4);
@@ -2026,8 +2153,10 @@ static var *exec_builtin(node *op, var *res)
 	av[2] = av[3] = NULL;
 	for (i = 0; i < 4 && op; i++) {
 		an[i] = nextarg(&op);
-		if (isr & 0x09000000) av[i] = evaluate(an[i], &tv[i]);
-		if (isr & 0x08000000) as[i] = getvar_s(av[i]);
+		if (isr & 0x09000000)
+			av[i] = evaluate(an[i], &tv[i]);
+		if (isr & 0x08000000)
+			as[i] = getvar_s(av[i]);
 		isr >>= 1;
 	}
 
@@ -2035,7 +2164,8 @@ static var *exec_builtin(node *op, var *res)
 	if ((uint32_t)nargs < (info >> 30))
 		syntax_error(EMSG_TOO_FEW_ARGS);
 
-	switch (info & OPNMASK) {
+	info &= OPNMASK;
+	switch (info) {
 
 	case B_a2:
 #if ENABLE_FEATURE_AWK_LIBM
@@ -2045,7 +2175,9 @@ static var *exec_builtin(node *op, var *res)
 #endif
 		break;
 
-	case B_sp:
+	case B_sp: {
+		char *s, *s1;
+
 		if (nargs > 2) {
 			spl = (an[2]->info & OPCLSMASK) == OC_REGEXP ?
 				an[2] : mk_splitter(getvar_s(evaluate(an[2], &tv[2])), &tspl);
@@ -2057,21 +2189,28 @@ static var *exec_builtin(node *op, var *res)
 		s1 = s;
 		clear_array(iamarray(av[1]));
 		for (i = 1; i <= n; i++)
-			setari_u(av[1], i, nextword(&s1));
-		free(s);
+			setari_u(av[1], i, nextword(&s));
+		free(s1);
 		setvar_i(res, n);
 		break;
+	}
 
-	case B_ss:
+	case B_ss: {
+		char *s;
+
 		l = strlen(as[0]);
 		i = getvar_i(av[1]) - 1;
-		if (i > l) i = l;
-		if (i < 0) i = 0;
+		if (i > l)
+			i = l;
+		if (i < 0)
+			i = 0;
 		n = (nargs > 2) ? getvar_i(av[2]) : l-i;
-		if (n < 0) n = 0;
+		if (n < 0)
+			n = 0;
 		s = xstrndup(as[0]+i, n);
 		setvar_p(res, s);
 		break;
+	}
 
 	/* Bitwise ops must assume that operands are unsigned. GNU Awk 3.1.5:
 	 * awk '{ print or(-1,1) }' gives "4.29497e+09", not "-2.xxxe+09" */
@@ -2100,19 +2239,18 @@ static var *exec_builtin(node *op, var *res)
 		break;
 
 	case B_lo:
-		to_xxx = tolower;
-		goto lo_cont;
-
-	case B_up:
-		to_xxx = toupper;
- lo_cont:
+	case B_up: {
+		char *s, *s1;
 		s1 = s = xstrdup(as[0]);
 		while (*s1) {
-			*s1 = (*to_xxx)(*s1);
+			//*s1 = (info == B_up) ? toupper(*s1) : tolower(*s1);
+			if ((unsigned char)((*s1 | 0x20) - 'a') <= ('z' - 'a'))
+				*s1 = (info == B_up) ? (*s1 & 0xdf) : (*s1 | 0x20);
 			s1++;
 		}
 		setvar_p(res, s);
 		break;
+	}
 
 	case B_ix:
 		n = 0;
@@ -2120,13 +2258,14 @@ static var *exec_builtin(node *op, var *res)
 		l = strlen(as[0]) - ll;
 		if (ll > 0 && l >= 0) {
 			if (!icase) {
-				s = strstr(as[0], as[1]);
-				if (s) n = (s - as[0]) + 1;
+				char *s = strstr(as[0], as[1]);
+				if (s)
+					n = (s - as[0]) + 1;
 			} else {
 				/* this piece of code is terribly slow and
 				 * really should be rewritten
 				 */
-				for (i=0; i<=l; i++) {
+				for (i = 0; i <= l; i++) {
 					if (strncasecmp(as[0]+i, as[1], ll) == 0) {
 						n = i+1;
 						break;
@@ -2150,6 +2289,10 @@ static var *exec_builtin(node *op, var *res)
 		setvar_s(res, g_buf);
 		break;
 
+	case B_mt:
+		setvar_i(res, do_mktime(as[0]));
+		break;
+
 	case B_ma:
 		re = as_regex(an[1], &sreg);
 		n = regexec(re, as[0], 1, pmatch, 0);
@@ -2163,7 +2306,8 @@ static var *exec_builtin(node *op, var *res)
 		setvar_i(newvar("RSTART"), pmatch[0].rm_so);
 		setvar_i(newvar("RLENGTH"), pmatch[0].rm_eo - pmatch[0].rm_so);
 		setvar_i(res, pmatch[0].rm_so);
-		if (re == &sreg) regfree(re);
+		if (re == &sreg)
+			regfree(re);
 		break;
 
 	case B_ge:
@@ -2198,24 +2342,7 @@ static var *evaluate(node *op, var *res)
 #define seed   (G.evaluate__seed)
 #define	sreg   (G.evaluate__sreg)
 
-	node *op1;
 	var *v1;
-	union {
-		var *v;
-		const char *s;
-		double d;
-		int i;
-	} L, R;
-	uint32_t opinfo;
-	int opn;
-	union {
-		char *s;
-		rstream *rsm;
-		FILE *F;
-		var *v;
-		regex_t *re;
-		uint32_t info;
-	} X;
 
 	if (!op)
 		return setvar_s(res, NULL);
@@ -2223,17 +2350,42 @@ static var *evaluate(node *op, var *res)
 	v1 = nvalloc(2);
 
 	while (op) {
+		struct {
+			var *v;
+			const char *s;
+		} L = L; /* for compiler */
+		struct {
+			var *v;
+			const char *s;
+		} R = R;
+		double L_d = L_d;
+		uint32_t opinfo;
+		int opn;
+		node *op1;
+
 		opinfo = op->info;
 		opn = (opinfo & OPNMASK);
 		g_lineno = op->lineno;
+		op1 = op->l.n;
+		debug_printf_eval("opinfo:%08x opn:%08x XC:%x\n", opinfo, opn, XC(opinfo & OPCLSMASK));
 
 		/* execute inevitable things */
-		op1 = op->l.n;
-		if (opinfo & OF_RES1) X.v = L.v = evaluate(op1, v1);
-		if (opinfo & OF_RES2) R.v = evaluate(op->r.n, v1+1);
-		if (opinfo & OF_STR1) L.s = getvar_s(L.v);
-		if (opinfo & OF_STR2) R.s = getvar_s(R.v);
-		if (opinfo & OF_NUM1) L.d = getvar_i(L.v);
+		if (opinfo & OF_RES1)
+			L.v = evaluate(op1, v1);
+		if (opinfo & OF_RES2)
+			R.v = evaluate(op->r.n, v1+1);
+		if (opinfo & OF_STR1) {
+			L.s = getvar_s(L.v);
+			debug_printf_eval("L.s:'%s'\n", L.s);
+		}
+		if (opinfo & OF_STR2) {
+			R.s = getvar_s(R.v);
+			debug_printf_eval("R.s:'%s'\n", R.s);
+		}
+		if (opinfo & OF_NUM1) {
+			L_d = getvar_i(L.v);
+			debug_printf_eval("L_d:%f\n", L_d);
+		}
 
 		switch (XC(opinfo & OPCLSMASK)) {
 
@@ -2247,13 +2399,12 @@ static var *evaluate(node *op, var *res)
 					op->info |= OF_CHECKED;
 					if (ptest(op1->r.n))
 						op->info &= ~OF_CHECKED;
-
 					op = op->a.n;
 				} else {
 					op = op->r.n;
 				}
 			} else {
-				op = (ptest(op1)) ? op->a.n : op->r.n;
+				op = ptest(op1) ? op->a.n : op->r.n;
 			}
 			break;
 
@@ -2277,71 +2428,78 @@ static var *evaluate(node *op, var *res)
 			break;
 
 		case XC( OC_PRINT ):
-		case XC( OC_PRINTF ):
-			X.F = stdout;
+		case XC( OC_PRINTF ): {
+			FILE *F = stdout;
+
 			if (op->r.n) {
-				X.rsm = newfile(R.s);
-				if (!X.rsm->F) {
+				rstream *rsm = newfile(R.s);
+				if (!rsm->F) {
 					if (opn == '|') {
-						X.rsm->F = popen(R.s, "w");
-						if (X.rsm->F == NULL)
+						rsm->F = popen(R.s, "w");
+						if (rsm->F == NULL)
 							bb_perror_msg_and_die("popen");
-						X.rsm->is_pipe = 1;
+						rsm->is_pipe = 1;
 					} else {
-						X.rsm->F = xfopen(R.s, opn=='w' ? "w" : "a");
+						rsm->F = xfopen(R.s, opn=='w' ? "w" : "a");
 					}
 				}
-				X.F = X.rsm->F;
+				F = rsm->F;
 			}
 
 			if ((opinfo & OPCLSMASK) == OC_PRINT) {
 				if (!op1) {
-					fputs(getvar_s(intvar[F0]), X.F);
+					fputs(getvar_s(intvar[F0]), F);
 				} else {
 					while (op1) {
-						L.v = evaluate(nextarg(&op1), v1);
-						if (L.v->type & VF_NUMBER) {
+						var *v = evaluate(nextarg(&op1), v1);
+						if (v->type & VF_NUMBER) {
 							fmt_num(g_buf, MAXVARFMT, getvar_s(intvar[OFMT]),
-									getvar_i(L.v), TRUE);
-							fputs(g_buf, X.F);
+									getvar_i(v), TRUE);
+							fputs(g_buf, F);
 						} else {
-							fputs(getvar_s(L.v), X.F);
+							fputs(getvar_s(v), F);
 						}
 
-						if (op1) fputs(getvar_s(intvar[OFS]), X.F);
+						if (op1)
+							fputs(getvar_s(intvar[OFS]), F);
 					}
 				}
-				fputs(getvar_s(intvar[ORS]), X.F);
+				fputs(getvar_s(intvar[ORS]), F);
 
 			} else {	/* OC_PRINTF */
-				L.s = awk_printf(op1);
-				fputs(L.s, X.F);
-				free((char*)L.s);
+				char *s = awk_printf(op1);
+				fputs(s, F);
+				free(s);
 			}
-			fflush(X.F);
+			fflush(F);
 			break;
+		}
 
-		case XC( OC_DELETE ):
-			X.info = op1->info & OPCLSMASK;
-			if (X.info == OC_VAR) {
-				R.v = op1->l.v;
-			} else if (X.info == OC_FNARG) {
-				R.v = &fnargs[op1->l.i];
+		case XC( OC_DELETE ): {
+			uint32_t info = op1->info & OPCLSMASK;
+			var *v;
+
+			if (info == OC_VAR) {
+				v = op1->l.v;
+			} else if (info == OC_FNARG) {
+				v = &fnargs[op1->l.aidx];
 			} else {
 				syntax_error(EMSG_NOT_ARRAY);
 			}
 
 			if (op1->r.n) {
+				const char *s;
 				clrvar(L.v);
-				L.s = getvar_s(evaluate(op1->r.n, v1));
-				hash_remove(iamarray(R.v), L.s);
+				s = getvar_s(evaluate(op1->r.n, v1));
+				hash_remove(iamarray(v), s);
 			} else {
-				clear_array(iamarray(R.v));
+				clear_array(iamarray(v));
 			}
 			break;
+		}
 
 		case XC( OC_NEWSOURCE ):
-			g_progname = op->l.s;
+			g_progname = op->l.new_progname;
 			break;
 
 		case XC( OC_RETURN ):
@@ -2357,7 +2515,7 @@ static var *evaluate(node *op, var *res)
 			break;
 
 		case XC( OC_EXIT ):
-			awk_exit(L.d);
+			awk_exit(L_d);
 
 		/* -- recursive node type -- */
 
@@ -2368,7 +2526,7 @@ static var *evaluate(node *op, var *res)
 			goto v_cont;
 
 		case XC( OC_FNARG ):
-			L.v = &fnargs[op->l.i];
+			L.v = &fnargs[op->l.aidx];
  v_cont:
 			res = op->r.n ? findvar(iamarray(L.v), R.s) : L.v;
 			break;
@@ -2385,20 +2543,26 @@ static var *evaluate(node *op, var *res)
 		case XC( OC_MATCH ):
 			op1 = op->r.n;
  re_cont:
-			X.re = as_regex(op1, &sreg);
-			R.i = regexec(X.re, L.s, 0, NULL, 0);
-			if (X.re == &sreg) regfree(X.re);
-			setvar_i(res, (R.i == 0 ? 1 : 0) ^ (opn == '!' ? 1 : 0));
+			{
+				regex_t *re = as_regex(op1, &sreg);
+				int i = regexec(re, L.s, 0, NULL, 0);
+				if (re == &sreg)
+					regfree(re);
+				setvar_i(res, (i == 0) ^ (opn == '!'));
+			}
 			break;
 
 		case XC( OC_MOVE ):
+			debug_printf_eval("MOVE\n");
 			/* if source is a temporary string, jusk relink it to dest */
-			if (R.v == v1+1 && R.v->string) {
-				res = setvar_p(L.v, R.v->string);
-				R.v->string = NULL;
-			} else {
+//Disabled: if R.v is numeric but happens to have cached R.v->string,
+//then L.v ends up being a string, which is wrong
+//			if (R.v == v1+1 && R.v->string) {
+//				res = setvar_p(L.v, R.v->string);
+//				R.v->string = NULL;
+//			} else {
 				res = copyvar(L.v, R.v);
-			}
+//			}
 			break;
 
 		case XC( OC_TERNARY ):
@@ -2407,49 +2571,58 @@ static var *evaluate(node *op, var *res)
 			res = evaluate(istrue(L.v) ? op->r.n->l.n : op->r.n->r.n, res);
 			break;
 
-		case XC( OC_FUNC ):
+		case XC( OC_FUNC ): {
+			var *vbeg, *v;
+			const char *sv_progname;
+
 			if (!op->r.f->body.first)
 				syntax_error(EMSG_UNDEF_FUNC);
 
-			X.v = R.v = nvalloc(op->r.f->nargs+1);
+			vbeg = v = nvalloc(op->r.f->nargs + 1);
 			while (op1) {
-				L.v = evaluate(nextarg(&op1), v1);
-				copyvar(R.v, L.v);
-				R.v->type |= VF_CHILD;
-				R.v->x.parent = L.v;
-				if (++R.v - X.v >= op->r.f->nargs)
+				var *arg = evaluate(nextarg(&op1), v1);
+				copyvar(v, arg);
+				v->type |= VF_CHILD;
+				v->x.parent = arg;
+				if (++v - vbeg >= op->r.f->nargs)
 					break;
 			}
 
-			R.v = fnargs;
-			fnargs = X.v;
+			v = fnargs;
+			fnargs = vbeg;
+			sv_progname = g_progname;
 
-			L.s = g_progname;
 			res = evaluate(op->r.f->body.first, res);
-			g_progname = L.s;
 
+			g_progname = sv_progname;
 			nvfree(fnargs);
-			fnargs = R.v;
+			fnargs = v;
+
 			break;
+		}
 
 		case XC( OC_GETLINE ):
-		case XC( OC_PGETLINE ):
+		case XC( OC_PGETLINE ): {
+			rstream *rsm;
+			int i;
+
 			if (op1) {
-				X.rsm = newfile(L.s);
-				if (!X.rsm->F) {
+				rsm = newfile(L.s);
+				if (!rsm->F) {
 					if ((opinfo & OPCLSMASK) == OC_PGETLINE) {
-						X.rsm->F = popen(L.s, "r");
-						X.rsm->is_pipe = TRUE;
+						rsm->F = popen(L.s, "r");
+						rsm->is_pipe = TRUE;
 					} else {
-						X.rsm->F = fopen_for_read(L.s);		/* not xfopen! */
+						rsm->F = fopen_for_read(L.s);		/* not xfopen! */
 					}
 				}
 			} else {
-				if (!iF) iF = next_input_file();
-				X.rsm = iF;
+				if (!iF)
+					iF = next_input_file();
+				rsm = iF;
 			}
 
-			if (!X.rsm->F) {
+			if (!rsm->F) {
 				setvar_i(intvar[ERRNO], errno);
 				setvar_i(res, -1);
 				break;
@@ -2458,46 +2631,48 @@ static var *evaluate(node *op, var *res)
 			if (!op->r.n)
 				R.v = intvar[F0];
 
-			L.i = awk_getline(X.rsm, R.v);
-			if (L.i > 0) {
-				if (!op1) {
-					incvar(intvar[FNR]);
-					incvar(intvar[NR]);
-				}
+			i = awk_getline(rsm, R.v);
+			if (i > 0 && !op1) {
+				incvar(intvar[FNR]);
+				incvar(intvar[NR]);
 			}
-			setvar_i(res, L.i);
+			setvar_i(res, i);
 			break;
+		}
 
 		/* simple builtins */
-		case XC( OC_FBLTIN ):
-			switch (opn) {
+		case XC( OC_FBLTIN ): {
+			int i;
+			rstream *rsm;
+			double R_d = R_d; /* for compiler */
 
+			switch (opn) {
 			case F_in:
-				R.d = (int)L.d;
+				R_d = (int)L_d;
 				break;
 
 			case F_rn:
-				R.d = (double)rand() / (double)RAND_MAX;
+				R_d = (double)rand() / (double)RAND_MAX;
 				break;
 #if ENABLE_FEATURE_AWK_LIBM
 			case F_co:
-				R.d = cos(L.d);
+				R_d = cos(L_d);
 				break;
 
 			case F_ex:
-				R.d = exp(L.d);
+				R_d = exp(L_d);
 				break;
 
 			case F_lg:
-				R.d = log(L.d);
+				R_d = log(L_d);
 				break;
 
 			case F_si:
-				R.d = sin(L.d);
+				R_d = sin(L_d);
 				break;
 
 			case F_sq:
-				R.d = sqrt(L.d);
+				R_d = sqrt(L_d);
 				break;
 #else
 			case F_co:
@@ -2509,54 +2684,54 @@ static var *evaluate(node *op, var *res)
 				break;
 #endif
 			case F_sr:
-				R.d = (double)seed;
-				seed = op1 ? (unsigned)L.d : (unsigned)time(NULL);
+				R_d = (double)seed;
+				seed = op1 ? (unsigned)L_d : (unsigned)time(NULL);
 				srand(seed);
 				break;
 
 			case F_ti:
-				R.d = time(NULL);
+				R_d = time(NULL);
 				break;
 
 			case F_le:
 				if (!op1)
 					L.s = getvar_s(intvar[F0]);
-				R.d = strlen(L.s);
+				R_d = strlen(L.s);
 				break;
 
 			case F_sy:
-				fflush(NULL);
-				R.d = (ENABLE_FEATURE_ALLOW_EXEC && L.s && *L.s)
+				fflush_all();
+				R_d = (ENABLE_FEATURE_ALLOW_EXEC && L.s && *L.s)
 						? (system(L.s) >> 8) : 0;
 				break;
 
 			case F_ff:
-				if (!op1)
+				if (!op1) {
 					fflush(stdout);
-				else {
-					if (L.s && *L.s) {
-						X.rsm = newfile(L.s);
-						fflush(X.rsm->F);
-					} else {
-						fflush(NULL);
-					}
+				} else if (L.s && *L.s) {
+					rsm = newfile(L.s);
+					fflush(rsm->F);
+				} else {
+					fflush_all();
 				}
 				break;
 
 			case F_cl:
-				X.rsm = (rstream *)hash_search(fdhash, L.s);
-				if (X.rsm) {
-					R.i = X.rsm->is_pipe ? pclose(X.rsm->F) : fclose(X.rsm->F);
-					free(X.rsm->buffer);
+				i = 0;
+				rsm = (rstream *)hash_search(fdhash, L.s);
+				if (rsm) {
+					i = rsm->is_pipe ? pclose(rsm->F) : fclose(rsm->F);
+					free(rsm->buffer);
 					hash_remove(fdhash, L.s);
 				}
-				if (R.i != 0)
+				if (i != 0)
 					setvar_i(intvar[ERRNO], errno);
-				R.d = (double)R.i;
+				R_d = (double)i;
 				break;
 			}
-			setvar_i(res, R.d);
+			setvar_i(res, R_d);
 			break;
+		}
 
 		case XC( OC_BUILTIN ):
 			res = exec_builtin(op, res);
@@ -2566,60 +2741,58 @@ static var *evaluate(node *op, var *res)
 			setvar_p(res, awk_printf(op1));
 			break;
 
-		case XC( OC_UNARY ):
-			X.v = R.v;
-			L.d = R.d = getvar_i(R.v);
+		case XC( OC_UNARY ): {
+			double Ld, R_d;
+
+			Ld = R_d = getvar_i(R.v);
 			switch (opn) {
 			case 'P':
-				L.d = ++R.d;
+				Ld = ++R_d;
 				goto r_op_change;
 			case 'p':
-				R.d++;
+				R_d++;
 				goto r_op_change;
 			case 'M':
-				L.d = --R.d;
+				Ld = --R_d;
 				goto r_op_change;
 			case 'm':
-				R.d--;
-				goto r_op_change;
+				R_d--;
+ r_op_change:
+				setvar_i(R.v, R_d);
+				break;
 			case '!':
-				L.d = istrue(X.v) ? 0 : 1;
+				Ld = !istrue(R.v);
 				break;
 			case '-':
-				L.d = -R.d;
+				Ld = -R_d;
 				break;
- r_op_change:
-				setvar_i(X.v, R.d);
 			}
-			setvar_i(res, L.d);
+			setvar_i(res, Ld);
 			break;
+		}
 
-		case XC( OC_FIELD ):
-			R.i = (int)getvar_i(R.v);
-			if (R.i == 0) {
+		case XC( OC_FIELD ): {
+			int i = (int)getvar_i(R.v);
+			if (i == 0) {
 				res = intvar[F0];
 			} else {
 				split_f0();
-				if (R.i > nfields)
-					fsrealloc(R.i);
-				res = &Fields[R.i - 1];
+				if (i > nfields)
+					fsrealloc(i);
+				res = &Fields[i - 1];
 			}
 			break;
+		}
 
 		/* concatenation (" ") and index joining (",") */
 		case XC( OC_CONCAT ):
-		case XC( OC_COMMA ):
-			opn = strlen(L.s) + strlen(R.s) + 2;
-			X.s = xmalloc(opn);
-			strcpy(X.s, L.s);
-			if ((opinfo & OPCLSMASK) == OC_COMMA) {
-				L.s = getvar_s(intvar[SUBSEP]);
-				X.s = xrealloc(X.s, opn + strlen(L.s));
-				strcat(X.s, L.s);
-			}
-			strcat(X.s, R.s);
-			setvar_p(res, X.s);
+		case XC( OC_COMMA ): {
+			const char *sep = "";
+			if ((opinfo & OPCLSMASK) == OC_COMMA)
+				sep = getvar_s(intvar[SUBSEP]);
+			setvar_p(res, xasprintf("%s%s%s", L.s, sep, R.s));
 			break;
+		}
 
 		case XC( OC_LAND ):
 			setvar_i(res, istrue(L.v) ? ptest(op->r.n) : 0);
@@ -2630,58 +2803,67 @@ static var *evaluate(node *op, var *res)
 			break;
 
 		case XC( OC_BINARY ):
-		case XC( OC_REPLACE ):
-			R.d = getvar_i(R.v);
+		case XC( OC_REPLACE ): {
+			double R_d = getvar_i(R.v);
+			debug_printf_eval("BINARY/REPLACE: R_d:%f opn:%c\n", R_d, opn);
 			switch (opn) {
 			case '+':
-				L.d += R.d;
+				L_d += R_d;
 				break;
 			case '-':
-				L.d -= R.d;
+				L_d -= R_d;
 				break;
 			case '*':
-				L.d *= R.d;
+				L_d *= R_d;
 				break;
 			case '/':
-				if (R.d == 0) syntax_error(EMSG_DIV_BY_ZERO);
-				L.d /= R.d;
+				if (R_d == 0)
+					syntax_error(EMSG_DIV_BY_ZERO);
+				L_d /= R_d;
 				break;
 			case '&':
 #if ENABLE_FEATURE_AWK_LIBM
-				L.d = pow(L.d, R.d);
+				L_d = pow(L_d, R_d);
 #else
 				syntax_error(EMSG_NO_MATH);
 #endif
 				break;
 			case '%':
-				if (R.d == 0) syntax_error(EMSG_DIV_BY_ZERO);
-				L.d -= (int)(L.d / R.d) * R.d;
+				if (R_d == 0)
+					syntax_error(EMSG_DIV_BY_ZERO);
+				L_d -= (int)(L_d / R_d) * R_d;
 				break;
 			}
-			res = setvar_i(((opinfo & OPCLSMASK) == OC_BINARY) ? res : X.v, L.d);
+			debug_printf_eval("BINARY/REPLACE result:%f\n", L_d);
+			res = setvar_i(((opinfo & OPCLSMASK) == OC_BINARY) ? res : L.v, L_d);
 			break;
+		}
 
-		case XC( OC_COMPARE ):
+		case XC( OC_COMPARE ): {
+			int i = i; /* for compiler */
+			double Ld;
+
 			if (is_numeric(L.v) && is_numeric(R.v)) {
-				L.d = getvar_i(L.v) - getvar_i(R.v);
+				Ld = getvar_i(L.v) - getvar_i(R.v);
 			} else {
-				L.s = getvar_s(L.v);
-				R.s = getvar_s(R.v);
-				L.d = icase ? strcasecmp(L.s, R.s) : strcmp(L.s, R.s);
+				const char *l = getvar_s(L.v);
+				const char *r = getvar_s(R.v);
+				Ld = icase ? strcasecmp(l, r) : strcmp(l, r);
 			}
 			switch (opn & 0xfe) {
 			case 0:
-				R.i = (L.d > 0);
+				i = (Ld > 0);
 				break;
 			case 2:
-				R.i = (L.d >= 0);
+				i = (Ld >= 0);
 				break;
 			case 4:
-				R.i = (L.d == 0);
+				i = (Ld == 0);
 				break;
 			}
-			setvar_i(res, (opn & 0x1 ? R.i : !R.i) ? 1 : 0);
+			setvar_i(res, (i == 0) ^ (opn & 1));
 			break;
+		}
 
 		default:
 			syntax_error(EMSG_POSSIBLE_ERROR);
@@ -2692,7 +2874,8 @@ static var *evaluate(node *op, var *res)
 			break;
 		if (nextrec)
 			break;
-	}
+	} /* while (op) */
+
 	nvfree(v1);
 	return res;
 #undef fnargs
@@ -2742,10 +2925,10 @@ static int is_assignment(const char *expr)
 		return FALSE;
 	}
 
-	*(s++) = '\0';
+	*s++ = '\0';
 	s0 = s1 = s;
 	while (*s)
-		*(s1++) = nextchar(&s);
+		*s1++ = nextchar(&s);
 
 	*s1 = '\0';
 	setvar_u(newvar(exprc), s0);
@@ -2762,7 +2945,8 @@ static rstream *next_input_file(void)
 	FILE *F = NULL;
 	const char *fname, *ind;
 
-	if (rsm.F) fclose(rsm.F);
+	if (rsm.F)
+		fclose(rsm.F);
 	rsm.F = NULL;
 	rsm.pos = rsm.adv = 0;
 
@@ -2902,7 +3086,8 @@ int awk_main(int argc, char **argv)
 		awk_exit(EXIT_SUCCESS);
 
 	/* input file could already be opened in BEGIN block */
-	if (!iF) iF = next_input_file();
+	if (!iF)
+		iF = next_input_file();
 
 	/* passing through input files */
 	while (iF) {

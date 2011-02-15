@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.smplock.h 1.10 10/23/01 08:09:35 trini
- */
-/*
  * <asm/smplock.h>
  *
  * Default SMP lock implementation

@@ -149,11 +149,6 @@ static int rsvp_classify(struct sk_buff *skb, struct tcf_proto *tp,
 	struct iphdr *nhptr = skb->nh.iph;
 #endif
 
-#if !defined(__i386__) && !defined(__mc68000__)
-	if ((unsigned long)nhptr & 3)
-		return -1;
-#endif
-
 restart:
 
 #if RSVP_DST_LEN == 4
@@ -523,7 +518,7 @@ static int rsvp_change(struct tcf_proto *tp, unsigned long base,
 
 	for (sp = &data->ht[h1]; (s=*sp) != NULL; sp = &s->next) {
 		if (dst[RSVP_DST_LEN-1] == s->dst[RSVP_DST_LEN-1] &&
-		    pinfo->protocol == s->protocol &&
+		    pinfo && pinfo->protocol == s->protocol &&
 		    memcmp(&pinfo->dpi, &s->dpi, sizeof(s->dpi)) == 0
 #if RSVP_DST_LEN == 4
 		    && dst[0] == s->dst[0]
@@ -565,9 +560,12 @@ insert:
 		goto errout;
 	memset(s, 0, sizeof(*s));
 	memcpy(s->dst, dst, sizeof(s->dst));
-	s->dpi = pinfo->dpi;
-	s->protocol = pinfo->protocol;
-	s->tunnelid = pinfo->tunnelid;
+
+	if (pinfo) {
+		s->dpi = pinfo->dpi;
+		s->protocol = pinfo->protocol;
+		s->tunnelid = pinfo->tunnelid;
+	}
 	for (sp = &data->ht[h1]; *sp; sp = &(*sp)->next) {
 		if (((*sp)->dpi.mask&s->dpi.mask) != s->dpi.mask)
 			break;
@@ -606,7 +604,7 @@ static void rsvp_walk(struct tcf_proto *tp, struct tcf_walker *arg)
 					}
 					if (arg->fn(tp, (unsigned long)f, arg) < 0) {
 						arg->stop = 1;
-						break;
+						return;
 					}
 					arg->count++;
 				}
@@ -640,6 +638,7 @@ static int rsvp_dump(struct tcf_proto *tp, unsigned long fh,
 	pinfo.protocol = s->protocol;
 	pinfo.tunnelid = s->tunnelid;
 	pinfo.tunnelhdr = f->tunnelhdr;
+	pinfo.pad = 0;
 	RTA_PUT(skb, TCA_RSVP_PINFO, sizeof(pinfo), &pinfo);
 	if (f->res.classid)
 		RTA_PUT(skb, TCA_RSVP_CLASSID, 4, &f->res.classid);

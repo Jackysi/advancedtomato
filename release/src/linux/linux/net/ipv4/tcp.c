@@ -5,7 +5,7 @@
  *
  *		Implementation of the Transmission Control Protocol(TCP).
  *
- * Version:	$Id: tcp.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ * Version:	$Id: tcp.c,v 1.215 2001/10/31 08:17:58 davem Exp $
  *
  * Authors:	Ross Biro, <bir7@leland.Stanford.Edu>
  *		Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
@@ -252,6 +252,7 @@
 #include <linux/init.h>
 #include <linux/smp_lock.h>
 #include <linux/fs.h>
+#include <linux/random.h>
 
 #include <net/icmp.h>
 #include <net/tcp.h>
@@ -269,6 +270,8 @@ kmem_cache_t *tcp_timewait_cachep;
 
 atomic_t tcp_orphan_count = ATOMIC_INIT(0);
 
+int sysctl_tcp_default_win_scale = 0;
+
 int sysctl_tcp_mem[3];
 int sysctl_tcp_wmem[3] = { 4*1024, 16*1024, 128*1024 };
 int sysctl_tcp_rmem[3] = { 4*1024, 87380, 87380*2 };
@@ -282,13 +285,13 @@ atomic_t tcp_sockets_allocated;	/* Current number of TCP sockets. */
  * is strict, actions are advisory and have some latency. */
 int tcp_memory_pressure;
 
-#define TCP_PAGES(amt) (((amt)+TCP_MEM_QUANTUM-1)/TCP_MEM_QUANTUM)
+#define TCP_PAGES(amt) (((amt)+TCP_MEM_QUANTUM-1) >> TCP_MEM_QUANTUM_SHIFT)
 
 int tcp_mem_schedule(struct sock *sk, int size, int kind)
 {
 	int amt = TCP_PAGES(size);
 
-	sk->forward_alloc += amt*TCP_MEM_QUANTUM;
+	sk->forward_alloc += amt << TCP_MEM_QUANTUM_SHIFT;
 	atomic_add(amt, &tcp_memory_allocated);
 
 	/* Under limit. */
@@ -335,7 +338,7 @@ suppress_allocation:
 	}
 
 	/* Alas. Undo changes. */
-	sk->forward_alloc -= amt*TCP_MEM_QUANTUM;
+	sk->forward_alloc -= amt << TCP_MEM_QUANTUM_SHIFT;
 	atomic_sub(amt, &tcp_memory_allocated);
 	return 0;
 }
@@ -343,7 +346,7 @@ suppress_allocation:
 void __tcp_mem_reclaim(struct sock *sk)
 {
 	if (sk->forward_alloc >= TCP_MEM_QUANTUM) {
-		atomic_sub(sk->forward_alloc/TCP_MEM_QUANTUM, &tcp_memory_allocated);
+		atomic_sub(sk->forward_alloc >> TCP_MEM_QUANTUM_SHIFT, &tcp_memory_allocated);
 		sk->forward_alloc &= (TCP_MEM_QUANTUM-1);
 		if (tcp_memory_pressure &&
 		    atomic_read(&tcp_memory_allocated) < sysctl_tcp_mem[0])
@@ -542,6 +545,7 @@ int tcp_listen_start(struct sock *sk)
 	for (lopt->max_qlen_log = 6; ; lopt->max_qlen_log++)
 		if ((1<<lopt->max_qlen_log) >= sysctl_max_syn_backlog)
 			break;
+	get_random_bytes(&lopt->hash_rnd, 4);
 
 	write_lock_bh(&tp->syn_wait_lock);
 	tp->listen_opt = lopt;
@@ -1108,18 +1112,22 @@ new_segment:
 					if (off == PAGE_SIZE) {
 						put_page(page);
 						TCP_PAGE(sk) = page = NULL;
+						off = 0;
 					}
-				}
+				} else
+					off = 0;
+
+				if (copy > PAGE_SIZE - off)
+					copy = PAGE_SIZE - off;
+
+				if (!tcp_wmem_schedule(sk, copy))
+					goto wait_for_memory;
 
 				if (!page) {
 					/* Allocate new cache page. */
 					if (!(page=tcp_alloc_page(sk)))
 						goto wait_for_memory;
-					off = 0;
 				}
-
-				if (copy > PAGE_SIZE-off)
-					copy = PAGE_SIZE-off;
 
 				/* Time to copy data. We are close to the end! */
 				err = tcp_copy_to_page(sk, from, skb, page, off, copy);
@@ -1300,8 +1308,9 @@ static void cleanup_rbuf(struct sock *sk, int copied)
 		     * in queue.
 		     */
 		    || (copied > 0 &&
-			(tp->ack.pending&TCP_ACK_PUSHED) &&
-			!tp->ack.pingpong &&
+			((tp->ack.pending & TCP_ACK_PUSHED2) ||
+			((tp->ack.pending & TCP_ACK_PUSHED) &&
+			!tp->ack.pingpong)) &&
 			atomic_read(&sk->rmem_alloc) == 0)) {
 			time_to_ack = 1;
 		}
@@ -1450,6 +1459,9 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
 			break;
 	}
 	tp->copied_seq = seq;
+
+	tcp_rcv_space_adjust(sk);
+
 	/* Clean up data we have read: This will do ACK frames. */
 	if (copied)
 		cleanup_rbuf(sk, copied);
@@ -1503,15 +1515,14 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg,
 		struct sk_buff * skb;
 		u32 offset;
 
-		/* Are we at urgent data? Stop if we have read anything. */
-		if (copied && tp->urg_data && tp->urg_seq == *seq)
-			break;
-
-		if (signal_pending(current)) {
+		/* Are we at urgent data? Stop if we have read anything or have SIGURG pending. */
+		if (tp->urg_data && tp->urg_seq == *seq) {
 			if (copied)
 				break;
-			copied = timeo ? sock_intr_errno(timeo) : -EAGAIN;
-			break;
+			if (signal_pending(current)) {
+				copied = timeo ? sock_intr_errno(timeo) : -EAGAIN;
+				break;
+			}
 		}
 
 		/* Next get a buffer. */
@@ -1550,6 +1561,7 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg,
 			    sk->state == TCP_CLOSE ||
 			    (sk->shutdown & RCV_SHUTDOWN) ||
 			    !timeo ||
+			    signal_pending(current) ||
 			    (flags & MSG_PEEK))
 				break;
 		} else {
@@ -1577,6 +1589,11 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg,
 
 			if (!timeo) {
 				copied = -EAGAIN;
+				break;
+			}
+
+			if (signal_pending(current)) {
+				copied = sock_intr_errno(timeo);
 				break;
 			}
 		}
@@ -1702,6 +1719,8 @@ do_prequeue:
 		*seq += used;
 		copied += used;
 		len -= used;
+
+		tcp_rcv_space_adjust(sk);
 
 skip_copy:
 		if (tp->urg_data && after(tp->copied_seq,tp->urg_seq)) {
@@ -2061,7 +2080,7 @@ out:
 
 /* These states need RST on ABORT according to RFC793 */
 
-extern __inline__ int tcp_need_reset(int state)
+static inline int tcp_need_reset(int state)
 {
 	return ((1 << state) &
 	       	(TCPF_ESTABLISHED|TCPF_CLOSE_WAIT|TCPF_FIN_WAIT1|
@@ -2119,7 +2138,7 @@ int tcp_disconnect(struct sock *sk, int flags)
 	tp->packets_out = 0;
 	tp->snd_ssthresh = 0x7fffffff;
 	tp->snd_cwnd_cnt = 0;
-	tp->ca_state = TCP_CA_Open;
+	tcp_set_ca_state(tp, TCP_CA_Open);
 	tcp_clear_retrans(tp);
 	tcp_delack_init(tp);
 	tp->send_head = NULL;
@@ -2387,6 +2406,13 @@ int tcp_setsockopt(struct sock *sk, int level, int optname, char *optval,
 		}
 		break;
 
+#ifdef CONFIG_TCP_RFC2385
+	case TCP_RFC2385:
+		/* Read the IP->Key mappings from usermode */
+		err = tcp_v4_parse_md5_keys (sk, optval, optlen);
+		break;
+#endif
+
 	default:
 		err = -ENOPROTOOPT;
 		break;
@@ -2622,10 +2648,6 @@ void __init tcp_init(void)
 	sysctl_tcp_mem[0] = 768<<order;
 	sysctl_tcp_mem[1] = 1024<<order;
 	sysctl_tcp_mem[2] = 1536<<order;
-	if (sysctl_tcp_mem[2] - sysctl_tcp_mem[1] > 512)
-		sysctl_tcp_mem[1] = sysctl_tcp_mem[2] - 512;
-	if (sysctl_tcp_mem[1] - sysctl_tcp_mem[0] > 512)
-		sysctl_tcp_mem[0] = sysctl_tcp_mem[1] - 512;
 
 	if (order < 3) {
 		sysctl_tcp_wmem[2] = 64*1024;
@@ -2637,5 +2659,6 @@ void __init tcp_init(void)
 	printk(KERN_INFO "TCP: Hash tables configured (established %d bind %d)\n",
 	       tcp_ehash_size<<1, tcp_bhash_size);
 
+	(void) tcp_mib_init();
 	tcpdiag_init();
 }

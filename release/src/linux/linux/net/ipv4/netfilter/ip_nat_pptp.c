@@ -54,8 +54,7 @@ MODULE_DESCRIPTION("Netfilter NAT helper module for PPTP");
 
 #if 0
 #include "ip_conntrack_pptp_priv.h"
-#define DEBUGP(format, args...) printk(KERN_DEBUG __FILE__ ":" __FUNCTION__ \
-				       ": " format, ## args)
+#define DEBUGP(format, args...) printk(KERN_DEBUG "%s:%s: " format, __FILE__, __FUNCTION__, ## args)
 #else
 #define DEBUGP(format, args...)
 #endif
@@ -70,7 +69,8 @@ pptp_nat_expected(struct sk_buff **pskb,
 	struct ip_nat_multi_range mr;
 	struct ip_ct_pptp_master *ct_pptp_info;
 	struct ip_nat_pptp *nat_pptp_info;
-	u_int32_t newip, newcid;
+	u_int32_t newip;
+	u_int16_t newcid;
 	int ret;
 
 	IP_NF_ASSERT(info);
@@ -89,34 +89,34 @@ pptp_nat_expected(struct sk_buff **pskb,
 		DEBUGP("completing tuples with NAT info \n");
 		/* we can do this, since we're unconfirmed */
 		if (ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u.gre.key ==
-			htonl(ct_pptp_info->pac_call_id)) {	
+			ct_pptp_info->pac_call_id) {	
 			/* assume PNS->PAC */
 			ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.gre.key =
-				htonl(nat_pptp_info->pns_call_id);
+				nat_pptp_info->pns_call_id;
 			ct->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u.gre.key =
-				htonl(nat_pptp_info->pns_call_id);
+				nat_pptp_info->pns_call_id;
 			newip = master->tuplehash[IP_CT_DIR_REPLY].tuple.src.ip;
-			newcid = htonl(nat_pptp_info->pac_call_id);
+			newcid = nat_pptp_info->pac_call_id;
 		} else {
 			/* assume PAC->PNS */
 			ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.u.gre.key =
-				htonl(nat_pptp_info->pac_call_id);
+				nat_pptp_info->pac_call_id;
 			ct->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u.gre.key =
-				htonl(nat_pptp_info->pac_call_id);
+				nat_pptp_info->pac_call_id;
 			newip = master->tuplehash[IP_CT_DIR_ORIGINAL].tuple.src.ip;
-			newcid = htonl(nat_pptp_info->pns_call_id);
+			newcid = nat_pptp_info->pns_call_id;
 		}
 	} else {
 		if (ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.u.gre.key ==
-			htonl(ct_pptp_info->pac_call_id)) {	
+			ct_pptp_info->pac_call_id) {	
 			/* assume PNS->PAC */
 			newip = master->tuplehash[IP_CT_DIR_REPLY].tuple.dst.ip;
-			newcid = htonl(ct_pptp_info->pns_call_id);
+			newcid = ct_pptp_info->pns_call_id;
 		}
 		else {
 			/* assume PAC->PNS */
 			newip = master->tuplehash[IP_CT_DIR_ORIGINAL].tuple.dst.ip;
-			newcid = htonl(ct_pptp_info->pac_call_id);
+			newcid = ct_pptp_info->pac_call_id;
 		}
 	}
 
@@ -127,7 +127,7 @@ pptp_nat_expected(struct sk_buff **pskb,
 		((union ip_conntrack_manip_proto ) { newcid }); 
 	DEBUGP("change ip to %u.%u.%u.%u\n", 
 		NIPQUAD(newip));
-	DEBUGP("change key to 0x%x\n", ntohl(newcid));
+	DEBUGP("change key to 0x%x\n", newcid);
 	ret = ip_nat_setup_info(ct, &mr, hooknum);
 
 	UNLOCK_BH(&ip_pptp_lock);
@@ -160,7 +160,7 @@ pptp_outbound_pkt(struct sk_buff **pskb,
 	ctlh = (struct PptpControlHeader *) ((void *) pptph + sizeof(*pptph));
 	pptpReq.rawreq = (void *) ((void *) ctlh + sizeof(*ctlh));
 
-	new_callid = htons(ct_pptp_info->pns_call_id);
+	new_callid = ct_pptp_info->pns_call_id;
 	
 	switch (msg = ntohs(ctlh->messageType)) {
 		case PPTP_OUT_CALL_REQUEST:
@@ -178,7 +178,7 @@ pptp_outbound_pkt(struct sk_buff **pskb,
 			new_callid = ct->tuplehash[IP_CT_DIR_REPLY].tuple.dst.u.tcp.port;
 
 			/* save new call ID in ct info */
-			ct_pptp_info->pns_call_id = ntohs(new_callid);
+			ct_pptp_info->pns_call_id = new_callid;
 			break;
 		case PPTP_IN_CALL_REPLY:
 			cid = &pptpReq.icreq->callID;
@@ -243,7 +243,7 @@ pptp_inbound_pkt(struct sk_buff **pskb,
 	ctlh = (struct PptpControlHeader *) ((void *) pptph + sizeof(*pptph));
 	pptpReq.rawreq = (void *) ((void *) ctlh + sizeof(*ctlh));
 
-	new_pcid = htons(nat_pptp_info->pns_call_id);
+	new_pcid = nat_pptp_info->pns_call_id;
 
 	switch (msg = ntohs(ctlh->messageType)) {
 	case PPTP_OUT_CALL_REPLY:
@@ -265,20 +265,20 @@ pptp_inbound_pkt(struct sk_buff **pskb,
 		reply_t = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
 		if (t.src.ip == orig_t->src.ip && t.dst.ip == orig_t->dst.ip) {
 			/* expectation for PNS->PAC direction */
-			t.src.u.gre.key = htonl(nat_pptp_info->pns_call_id);
-			t.dst.u.gre.key = htonl(ct_pptp_info->pac_call_id);
+			t.src.u.gre.key = nat_pptp_info->pns_call_id;
+			t.dst.u.gre.key = ct_pptp_info->pac_call_id;
 			inv_t.src.ip = reply_t->src.ip;
 			inv_t.dst.ip = reply_t->dst.ip;
-			inv_t.src.u.gre.key = htonl(nat_pptp_info->pac_call_id);
-			inv_t.dst.u.gre.key = htonl(ct_pptp_info->pns_call_id);
+			inv_t.src.u.gre.key = nat_pptp_info->pac_call_id;
+			inv_t.dst.u.gre.key = ct_pptp_info->pns_call_id;
 		} else {
 			/* expectation for PAC->PNS direction */
-			t.src.u.gre.key = htonl(nat_pptp_info->pac_call_id);
-			t.dst.u.gre.key = htonl(ct_pptp_info->pns_call_id);
+			t.src.u.gre.key = nat_pptp_info->pac_call_id;
+			t.dst.u.gre.key = ct_pptp_info->pns_call_id;
 			inv_t.src.ip = orig_t->src.ip;
 			inv_t.dst.ip = orig_t->dst.ip;
-			inv_t.src.u.gre.key = htonl(nat_pptp_info->pns_call_id);
-			inv_t.dst.u.gre.key = htonl(ct_pptp_info->pac_call_id);
+			inv_t.src.u.gre.key = nat_pptp_info->pns_call_id;
+			inv_t.dst.u.gre.key = ct_pptp_info->pac_call_id;
 		}
 
 		if (!ip_conntrack_change_expect(oldexp, &t)) {
@@ -286,8 +286,12 @@ pptp_inbound_pkt(struct sk_buff **pskb,
 		} else {
 			DEBUGP("can't change expect\n");
 		}
-		ip_ct_gre_keymap_change(oldexp->proto.gre.keymap_orig, &t);
-		ip_ct_gre_keymap_change(oldexp->proto.gre.keymap_reply, &inv_t);
+		if (oldexp->proto.gre.keymap_orig)
+			ip_ct_gre_keymap_change(oldexp->proto.gre.keymap_orig, 
+						&t);
+		if (oldexp->proto.gre.keymap_reply)
+			ip_ct_gre_keymap_change(oldexp->proto.gre.keymap_reply, 
+						&inv_t);
 		break;
 	case PPTP_IN_CALL_CONNECT:
 		pcid = &pptpReq.iccon->peersCallID;
@@ -313,12 +317,15 @@ pptp_inbound_pkt(struct sk_buff **pskb,
 		break;
 	case PPTP_IN_CALL_REQUEST:
 		/* only need to nat in case PAC is behind NAT box */
-		break;
+		return NF_ACCEPT;
 	case PPTP_WAN_ERROR_NOTIFY:
 		pcid = &pptpReq.wanerr->peersCallID;
 		break;
 	case PPTP_CALL_DISCONNECT_NOTIFY:
 		pcid = &pptpReq.disc->callID;
+		break;
+	case PPTP_SET_LINK_INFO:
+		pcid = &pptpReq.setlink->peersCallID;
 		break;
 
 	default:

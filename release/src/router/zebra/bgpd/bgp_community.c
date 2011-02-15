@@ -1,52 +1,49 @@
 /* Community attribute related functions.
- * Copyright (C) 1998 Kunihiro Ishiguro
- *
- * This file is part of GNU Zebra.
- *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
- */
+   Copyright (C) 1998, 2001 Kunihiro Ishiguro
+
+This file is part of GNU Zebra.
+
+GNU Zebra is free software; you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by the
+Free Software Foundation; either version 2, or (at your option) any
+later version.
+
+GNU Zebra is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with GNU Zebra; see the file COPYING.  If not, write to the Free
+Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+02111-1307, USA.  */
 
 #include <zebra.h>
 
 #include "hash.h"
 #include "memory.h"
-#include "vector.h"
-#include "vty.h"
-#include "str.h"
 
 #include "bgpd/bgp_community.h"
 
 /* Hash of community attribute. */
-struct Hash *comhash;
+struct hash *comhash;
 
+/* Allocate a new communities value.  */
 struct community *
 community_new ()
 {
-  struct community *new;
-
-  new = XMALLOC (MTYPE_COMMUNITY, sizeof (struct community));
-  memset (new, 0, sizeof (struct community));
-  return new;
+  return (struct community *) XCALLOC (MTYPE_COMMUNITY,
+				       sizeof (struct community));
 }
 
+/* Free communities value.  */
 void
 community_free (struct community *com)
 {
   if (com->val)
     XFREE (MTYPE_COMMUNITY_VAL, com->val);
+  if (com->str)
+    XFREE (MTYPE_COMMUNITY_STR, com->str);
   XFREE (MTYPE_COMMUNITY, com);
 }
 
@@ -141,10 +138,9 @@ community_include (struct community *com, u_int32_t val)
   val = htonl (val);
 
   for (i = 0; i < com->size; i++)
-    {
-      if (memcmp (&val, com_nthval (com, i), sizeof (u_int32_t)) == 0)
-	return 1;
-    }
+    if (memcmp (&val, com_nthval (com, i), sizeof (u_int32_t)) == 0)
+      return 1;
+
   return 0;
 }
 
@@ -169,6 +165,9 @@ community_uniq_sort (struct community *com)
   int i;
   struct community *new;
   u_int32_t val;
+
+  if (! com)
+    return NULL;
   
   new = community_new ();;
   
@@ -185,12 +184,163 @@ community_uniq_sort (struct community *com)
   return new;
 }
 
+/* Convert communities attribute to string.
+
+   For Well-known communities value, below keyword is used.
+
+   0x0             "internet"    
+   0xFFFFFF01      "no-export"
+   0xFFFFFF02      "no-advertise"
+   0xFFFFFF03      "local-AS"
+
+   For other values, "AS:VAL" format is used.  */
+static char *
+community_com2str  (struct community *com)
+{
+  int i;
+  char *str;
+  char *pnt;
+  int len;
+  int first;
+  u_int32_t comval;
+  u_int16_t as;
+  u_int16_t val;
+
+  /* When communities attribute is empty.  */
+  if (com->size == 0)
+    {
+      str = XMALLOC (MTYPE_COMMUNITY_STR, 1);
+      str[0] = '\0';
+      return str;
+    }
+
+  /* Memory allocation is time consuming work.  So we calculate
+     required string length first.  */
+  len = 0;
+
+  for (i = 0; i < com->size; i++)
+    {
+      memcpy (&comval, com_nthval (com, i), sizeof (u_int32_t));
+      comval = ntohl (comval);
+
+      switch (comval) 
+	{
+	case COMMUNITY_INTERNET:
+	  len += strlen (" internet");
+	  break;
+	case COMMUNITY_NO_EXPORT:
+	  len += strlen (" no-export");
+	  break;
+	case COMMUNITY_NO_ADVERTISE:
+	  len += strlen (" no-advertise");
+	  break;
+	case COMMUNITY_LOCAL_AS:
+	  len += strlen (" local-AS");
+	  break;
+	default:
+	  len += strlen (" 65536:65535");
+	  break;
+	}
+    }
+
+  /* Allocate memory.  */
+  str = pnt = XMALLOC (MTYPE_COMMUNITY_STR, len);
+  first = 1;
+
+  /* Fill in string.  */
+  for (i = 0; i < com->size; i++)
+    {
+      memcpy (&comval, com_nthval (com, i), sizeof (u_int32_t));
+      comval = ntohl (comval);
+
+      if (first)
+	first = 0;
+      else
+	*pnt++ = ' ';
+
+      switch (comval) 
+	{
+	case COMMUNITY_INTERNET:
+	  strcpy (pnt, "internet");
+	  pnt += strlen ("internet");
+	  break;
+	case COMMUNITY_NO_EXPORT:
+	  strcpy (pnt, "no-export");
+	  pnt += strlen ("no-export");
+	  break;
+	case COMMUNITY_NO_ADVERTISE:
+	  strcpy (pnt, "no-advertise");
+	  pnt += strlen ("no-advertise");
+	  break;
+	case COMMUNITY_LOCAL_AS:
+	  strcpy (pnt, "local-AS");
+	  pnt += strlen ("local-AS");
+	  break;
+	default:
+	  as = (comval >> 16) & 0xFFFF;
+	  val = comval & 0xFFFF;
+	  sprintf (pnt, "%d:%d", as, val);
+	  pnt += strlen (pnt);
+	  break;
+	}
+    }
+  *pnt = '\0';
+
+  return str;
+}
+
+/* Intern communities attribute.  */
+struct community *
+community_intern (struct community *com)
+{
+  struct community *find;
+
+  /* Assert this community structure is not interned. */
+  assert (com->refcnt == 0);
+
+  /* Lookup community hash. */
+  find = (struct community *) hash_get (comhash, com, hash_alloc_intern);
+
+  /* Arguemnt com is allocated temporary.  So when it is not used in
+     hash, it should be freed.  */
+  if (find != com)
+    community_free (com);
+
+  /* Increment refrence counter.  */
+  find->refcnt++;
+
+  /* Make string.  */
+  if (! find->str)
+    find->str = community_com2str (find);
+
+  return find;
+}
+
+/* Free community attribute. */
+void
+community_unintern (struct community *com)
+{
+  struct community *ret;
+
+  if (com->refcnt)
+    com->refcnt--;
+
+  /* Pull off from hash.  */
+  if (com->refcnt == 0)
+    {
+      /* Community value com must exist in hash. */
+      ret = (struct community *) hash_release (comhash, com);
+      assert (ret != NULL);
+
+      community_free (com);
+    }
+}
+
 /* Create new community attribute. */
 struct community *
 community_parse (char *pnt, u_short length)
 {
   struct community tmp;
-  struct community *find;
   struct community *new;
 
   /* If length is malformed return NULL. */
@@ -203,23 +353,7 @@ community_parse (char *pnt, u_short length)
 
   new = community_uniq_sort (&tmp);
 
-  /* Looking up hash of community attribute. */
-  find = (struct community *) hash_search (comhash, new);
-  if (find)
-    {
-      find->refcnt++;
-      community_free (new);
-      return find;
-    }
-
-  new->refcnt = 1;
-  /* new->size = length / 4; */
-  /* new->val = (u_int32_t *) XMALLOC (MTYPE_COMMUNITY_VAL, length); */
-  /* memcpy (new->val, pnt, length); */
-
-  hash_push (comhash, new);
-
-  return new;
+  return community_intern (new);
 }
 
 struct community *
@@ -227,8 +361,7 @@ community_dup (struct community *com)
 {
   struct community *new;
 
-  new = XMALLOC (MTYPE_COMMUNITY, sizeof (struct community));
-  memset (new, 0, sizeof (struct community));
+  new = XCALLOC (MTYPE_COMMUNITY, sizeof (struct community));
   new->size = com->size;
   if (new->size)
     {
@@ -240,85 +373,13 @@ community_dup (struct community *com)
   return new;
 }
 
-struct community *
-community_intern (struct community *com)
+/* Retrun string representation of communities attribute. */
+char *
+community_str (struct community *com)
 {
-  struct community *find;
-
-  /* Assert this community structure is not interned. */
-  assert (com->refcnt == 0);
-
-  /* Lookup community hash. */
-  find = (struct community *) hash_search (comhash, com);
-  if (find)
-    {
-      community_free (com);
-      find->refcnt++;
-      return find;
-    }
-
-  /* Push new community to hash bucket. */
-  com->refcnt = 1;
-  hash_push (comhash, com);
-  return com;
-}
-
-/* Free community attribute. */
-void
-community_unintern (struct community *com)
-{
-  if (com->refcnt)
-    com->refcnt--;
-
-  if (com->refcnt == 0)
-    {
-      struct community *ret;
-  
-      /* Community value com must exist in hash. */
-      ret = (struct community *) hash_pull (comhash, com);
-      assert (ret != NULL);
-
-      community_free (com);
-    }
-}
-
-/* Pretty printing of community.  For debug and logging purpose. */
-const char *
-community_print (struct community *com)
-{
-  /* XXX non-re-entrant warning */
-  static char buf[BUFSIZ];
-  int i;
-  u_int32_t comval;
-  u_int16_t as;
-  u_int16_t val;
-
-  memset (buf, 0, BUFSIZ);
-
-  for (i = 0; i < com->size; i++) 
-    {
-      memcpy (&comval, com_nthval (com, i), sizeof (u_int32_t));
-      comval = ntohl (comval);
-      switch (comval) 
-	{
-	case COMMUNITY_NO_EXPORT:
-	  strlcat (buf, " no-export", BUFSIZ);
-	  break;
-	case COMMUNITY_NO_ADVERTISE:
-	  strlcat (buf, " no-advertise", BUFSIZ);
-	  break;
-	case COMMUNITY_LOCAL_AS:
-	  strlcat (buf, " local-AS", BUFSIZ);
-	  break;
-	default:
-	  as = (comval >> 16) & 0xFFFF;
-	  val = comval & 0xFFFF;
-	  snprintf (buf + strlen (buf), BUFSIZ - strlen (buf), 
-		    " %d:%d", as, val);
-	  break;
-	}
-    }
-  return buf;
+  if (! com->str)
+    com->str = community_com2str (com);
+  return com->str;
 }
 
 /* Make hash value of community attribute. This function is used by
@@ -336,7 +397,7 @@ community_hash_make (struct community *com)
   for(c = 0; c < com->size * 4; c++)
     key += pnt[c];
       
-  return key %= HASHTABSIZE;
+  return key;
 }
 
 int
@@ -400,72 +461,6 @@ community_merge (struct community *com1, struct community *com2)
   return com1;
 }
 
-/* Initialize comminity related hash. */
-void
-community_init ()
-{
-  comhash = hash_new (HASHTABSIZE);
-  comhash->hash_key = community_hash_make;
-  comhash->hash_cmp = community_cmp;
-}
-
-/* Below is vty related function which needs some header include. */
-
-/* Pretty printing of community attribute. */
-void
-community_print_vty (struct vty *vty, struct community *com)
-{
-  int i;
-  u_int32_t comval;
-  u_int16_t as;
-  u_int16_t val;
-
-  for (i = 0; i < com->size; i++) 
-    {
-      memcpy (&comval, com_nthval (com, i), sizeof (u_int32_t));
-      comval = ntohl (comval);
-      switch (comval) 
-	{
-	case COMMUNITY_NO_EXPORT:
-	  vty_out (vty, " no-export");
-	  break;
-	case COMMUNITY_NO_ADVERTISE:
-	  vty_out (vty, " no-advertise");
-	  break;
-	case COMMUNITY_LOCAL_AS:
-	  vty_out (vty, " local-AS");
-	  break;
-	default:
-	  as = (comval >> 16) & 0xFFFF ;
-	  val = comval & 0xFFFF;
-	  vty_out (vty, " %d:%d", as, val);
-	  break;
-	}
-    }
-}
-
-/* For `show ip bgp community' command. */
-void
-community_print_all_vty (struct vty *vty)
-{
-  int i;
-  HashBacket *mp;
-
-  for (i = 0; i < HASHTABSIZE; i++)
-    if ((mp = (HashBacket *) hash_head (comhash, i)) != NULL)
-      while (mp) 
-	{
-	  struct community *com;
-
-	  com = (struct community *) mp->data;
-
-	  vty_out (vty, "[%p:%d] (%ld)", mp, i, com->refcnt);
-	  community_print_vty (vty, com);
-	  vty_out (vty, "%s", VTY_NEWLINE);
-	  mp = mp->next;
-	}
-}
-
 /* Community token enum. */
 enum community_token
 {
@@ -477,7 +472,7 @@ enum community_token
 };
 
 /* Get next community token from string. */
-u_char *
+char *
 community_gettoken (char *buf, enum community_token *token, u_int32_t *val)
 {
   char *p = buf;
@@ -493,6 +488,13 @@ community_gettoken (char *buf, enum community_token *token, u_int32_t *val)
   /* Well known community string check. */
   if (isalpha ((int) *p)) 
     {
+      if (strncmp (p, "internet", strlen ("internet")) == 0)
+	{
+	  *val = COMMUNITY_INTERNET;
+	  *token = community_token_no_export;
+	  p += strlen ("internet");
+	  return p;
+	}
       if (strncmp (p, "no-export", strlen ("no-export")) == 0)
 	{
 	  *val = COMMUNITY_NO_EXPORT;
@@ -524,6 +526,7 @@ community_gettoken (char *buf, enum community_token *token, u_int32_t *val)
   if (isdigit ((int) *p)) 
     {
       int separator = 0;
+      int digit = 0;
       u_int32_t community_low = 0;
       u_int32_t community_high = 0;
 
@@ -539,16 +542,23 @@ community_gettoken (char *buf, enum community_token *token, u_int32_t *val)
 	      else
 		{
 		  separator = 1;
+		  digit = 0;
 		  community_high = community_low << 16;
 		  community_low = 0;
 		}
 	    }
 	  else 
 	    {
+	      digit = 1;
 	      community_low *= 10;
 	      community_low += (*p - '0');
 	    }
 	  p++;
+	}
+      if (! digit)
+	{
+	  *token = community_token_unknown;
+	  return p;
 	}
       *val = community_high + community_low;
       *token = community_token_val;
@@ -588,14 +598,32 @@ community_str2com (char *str)
 	}
     }
   
+  if (! com)
+    return NULL;
+
   com_sort = community_uniq_sort (com);
   community_free (com);
 
   return com_sort;
 }
 
+/* Return communities hash entry count.  */
 unsigned long
 community_count ()
 {
   return comhash->count;
+}
+
+/* Return communities hash.  */
+struct hash *
+community_hash ()
+{
+  return comhash;
+}
+
+/* Initialize comminity related hash. */
+void
+community_init ()
+{
+  comhash = hash_create (community_hash_make, community_cmp);
 }

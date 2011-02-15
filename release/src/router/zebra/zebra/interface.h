@@ -151,6 +151,12 @@ struct zebra_if
 #ifdef RTADV
   struct rtadvconf rtadv;
 #endif /* RTADV */
+
+#ifdef HAVE_IRDP
+#include "irdp.h"
+  struct irdp_interface irdp;
+#endif
+
 };
 
 void if_delete_update (struct interface *ifp);

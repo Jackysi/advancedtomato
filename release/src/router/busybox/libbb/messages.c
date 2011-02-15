@@ -28,7 +28,8 @@ const char bb_msg_write_error[] ALIGN1 = "write error";
 const char bb_msg_read_error[] ALIGN1 = "read error";
 const char bb_msg_unknown[] ALIGN1 = "(unknown)";
 const char bb_msg_can_not_create_raw_socket[] ALIGN1 = "can't create raw socket";
-const char bb_msg_perm_denied_are_you_root[] ALIGN1 = "permission denied. (are you root?)";
+const char bb_msg_perm_denied_are_you_root[] ALIGN1 = "permission denied (are you root?)";
+const char bb_msg_you_must_be_root[] ALIGN1 = "you must be root";
 const char bb_msg_requires_arg[] ALIGN1 = "%s requires an argument";
 const char bb_msg_invalid_arg[] ALIGN1 = "invalid argument '%s' to '%s'";
 const char bb_msg_standard_input[] ALIGN1 = "standard input";
@@ -48,7 +49,7 @@ const char bb_default_login_shell[] ALIGN1 = LIBBB_DEFAULT_LOGIN_SHELL;
 /* util-linux manpage says /sbin:/bin:/usr/sbin:/usr/bin,
  * but I want to save a few bytes here. Check libbb.h before changing! */
 const char bb_PATH_root_path[] ALIGN1 =
-	"PATH=/sbin:/usr/sbin:/bin:/usr/bin" BB_ADDITIONAL_PATH;
+	"PATH=/sbin:/usr/sbin:/opt/sbin:/bin:/usr/bin:/opt/bin" BB_ADDITIONAL_PATH;
 
 
 const int const_int_1 = 1;

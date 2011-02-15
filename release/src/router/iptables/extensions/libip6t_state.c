@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <ip6tables.h>
-#include <linux/netfilter_ipv4/ip_conntrack.h>
+#include <linux/netfilter/nf_conntrack_common.h>
 #include <linux/netfilter_ipv4/ipt_state.h>
 
 #ifndef IPT_STATE_UNTRACKED

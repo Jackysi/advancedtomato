@@ -2,7 +2,7 @@
 !
 ! zebra sample configuration file
 !
-! $Id: zebra.conf.sample,v 1.1 2003/07/14 06:08:42 honor Exp $
+! $Id: zebra.conf.sample,v 1.14 1999/02/19 17:26:38 developer Exp $
 !
 hostname Router
 password zebra

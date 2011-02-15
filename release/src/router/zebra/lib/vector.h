@@ -45,12 +45,14 @@ void vector_ensure (vector v, unsigned int num);
 int vector_empty_slot (vector v);
 int vector_set (vector v, void *val);
 int vector_set_index (vector v, unsigned int i, void *val);
-void *vector_lookup_index (vector v, unsigned int i);
 void vector_unset (vector v, unsigned int i);
 unsigned int vector_count (vector v);
 void vector_only_wrapper_free (vector v);
 void vector_only_index_free (void *index);
 void vector_free (vector v);
 vector vector_copy (vector v);
+
+void *vector_lookup (vector, unsigned int);
+void *vector_lookup_ensure (vector, unsigned int);
 
 #endif /* _ZEBRA_VECTOR_H */

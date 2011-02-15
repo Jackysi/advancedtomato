@@ -14,8 +14,7 @@
 
 
 //	#define DEBUG_NOEXECSERVICE
-//	#define DEBUG_NVRAMSET(k, v)	cprintf("nvram set %s=%s\n", k, v);
-#define	DEBUG_NVRAMSET(k, v)	do { } while(0);
+#define DEBUG_NVRAMSET(k, v)	_dprintf("nvram set %s=%s\n", k, v);
 
 
 char *post_buf = NULL;
@@ -77,7 +76,7 @@ static void wi_generic_noid(char *url, int len, char *boundary)
 			exit(1);
 		}
 
-		if (!post_buf) free(post_buf);
+		if (post_buf) free(post_buf);
 		if ((post_buf = malloc(len + 1)) == NULL) {
 //			syslog(LOG_CRIT, "Unable to allocate post buffer");
 			exit(1);
@@ -95,6 +94,127 @@ void wi_generic(char *url, int len, char *boundary)
 {
 	wi_generic_noid(url, len, boundary);
 	check_id(url);
+}
+
+// !!TB - CGI Support
+void wi_cgi_bin(char *url, int len, char *boundary)
+{
+	if (post_buf) free(post_buf);
+	post_buf = NULL;
+
+	if (post) {
+		if (len >= (32 * 1024)) {
+			syslog(LOG_WARNING, "POST length exceeded maximum allowed");
+			exit(1);
+		}
+
+		if (len > 0) {
+			if ((post_buf = malloc(len + 1)) == NULL) {
+				exit(1);
+			}
+			if (web_read_x(post_buf, len) != len) {
+				exit(1);
+			}
+			post_buf[len] = 0;
+		}
+	}
+}
+
+static void _execute_command(char *url, char *command, char *query, char *output)
+{
+	char webExecFile[]  = "/tmp/.wxXXXXXX";
+	char webQueryFile[] = "/tmp/.wqXXXXXX";
+	FILE *f;
+	int fe, fq = -1;
+
+	if ((fe = mkstemp(webExecFile)) < 0)
+		exit(1);
+	if (query) {
+		if ((fq = mkstemp(webQueryFile)) < 0) {
+			close(fe);
+			unlink(webExecFile);
+			exit(1);
+		}
+	}
+
+	if ((f = fdopen(fe, "wb")) != NULL) {
+		fprintf(f,
+			"#!/bin/sh\n"
+			"export REQUEST_METHOD=\"%s\"\n"
+			"export PATH=%s\n"
+			". /etc/profile\n"
+			"%s%s %s%s\n",
+			post ? "POST" : "GET", getenv("PATH"),
+			command ? "" : "./", command ? command : url,
+			query ? "<" : "", query ? webQueryFile : "");
+		fclose(f);
+	}
+	else {
+		unlink(output);
+		close(fe);
+		unlink(webExecFile);
+		if (query) {
+			close(fq);
+			unlink(webQueryFile);
+		}
+		exit(1);
+	}
+	chmod(webExecFile, 0700);
+
+	if (query) {
+		if ((f = fdopen(fq, "wb")) != NULL) {
+			fprintf(f, "%s\n", query);
+			fclose(f);
+		}
+		else {
+			unlink(output);
+			unlink(webExecFile);
+			close(fq);
+			unlink(webQueryFile);
+			exit(1);
+		}
+	}
+
+	char *cmd[] = { webExecFile, NULL };
+	_eval(cmd, output, 0, NULL);
+	unlink(webQueryFile);
+	unlink(webExecFile);
+}
+
+static void wo_cgi_bin(char *url)
+{
+	char webOutpFile[] = "/tmp/.woXXXXXX";
+	int fd;
+
+	if ((fd = mkstemp(webOutpFile)) < 0)
+		exit(1);
+	close(fd);
+
+	_execute_command(url, NULL, post_buf, webOutpFile);
+
+	if (post_buf) {
+		free(post_buf);
+		post_buf = NULL;
+	}
+	wo_asp(webOutpFile);
+	unlink(webOutpFile);
+}
+
+static void wo_shell(char *url)
+{
+	char webOutpFile[] = "/tmp/.woXXXXXX";
+	int fd;
+
+	if ((fd = mkstemp(webOutpFile)) < 0)
+		exit(1);
+	close(fd);
+
+	_execute_command(NULL, webcgi_get("command"), NULL, webOutpFile);
+
+	web_puts("\ncmdresult = '");
+	web_putfile(webOutpFile, WOF_JAVASCRIPT);
+	web_puts("';");
+	unlink(webOutpFile);
 }
 
 static void wo_blank(char *url)
@@ -119,7 +239,7 @@ static void wo_favicon(char *url)
 
 static void wo_cfe(char *url)
 {
-	do_file("/dev/mtd/0ro");
+	do_file(MTD_DEV(0ro));
 }
 
 static void wo_nvram(char *url)
@@ -175,6 +295,7 @@ const struct mime_handler mime_handlers[] = {
 
 	{ "logs/view.cgi",	NULL,						0,	wi_generic,			wo_viewlog,		1 },
 	{ "logs/*.txt",		NULL,						0,	wi_generic,			wo_syslog,		1 },
+	{ "webmon_**",		NULL,						0,	wi_generic,			wo_syslog,		1 },
 
 	{ "logout.asp",			NULL,					0,	wi_generic,			wo_asp,			1 },
 	{ "clearcookies.asp",	NULL,					0,	wi_generic,			wo_asp,			1 },
@@ -183,7 +304,7 @@ const struct mime_handler mime_handlers[] = {
 
 	{ "**.asp",			NULL,						0,	wi_generic_noid,	wo_asp,			1 },
 	{ "**.css",			"text/css",					2,	wi_generic_noid,	do_file,		1 },
-	{ "**.htm",			mime_html,		  		  	2,	wi_generic_noid,	do_file,		1 },
+	{ "**.htm|**.html",		mime_html,		  		  	2,	wi_generic_noid,	do_file,		1 },
 	{ "**.gif",			"image/gif",				5,	wi_generic_noid,	do_file,		1 },
 	{ "**.jpg",			"image/jpeg",				5,	wi_generic_noid,	do_file,		1 },
 	{ "**.png",			"image/png",				5,	wi_generic_noid,	do_file,		1 },
@@ -194,8 +315,13 @@ const struct mime_handler mime_handlers[] = {
 	{ "**.bin",			mime_binary,				0,	wi_generic_noid,	do_file,		1 },
 	{ "**.bino",		mime_octetstream,			0,	wi_generic_noid,	do_file,		1 },
 	{ "favicon.ico",	NULL,						5,	wi_generic_noid,	wo_favicon,		1 },
+// !!TB - CGI Support, enable downloading archives
+	{ "**/cgi-bin/**|**.sh",	NULL,					0,	wi_cgi_bin,		wo_cgi_bin,			1 },
+	{ "**.tar|**.gz",		mime_binary,				0,	wi_generic_noid,	do_file,		1 },
+	{ "shell.cgi",			mime_javascript,			0,	wi_generic,		wo_shell,		1 },
+	{ "wpad.dat|proxy.pac",		"application/x-ns-proxy-autoconfig",	0,	wi_generic_noid,	do_file,		0 },
 
-
+	{ "webmon.cgi",		mime_javascript,				0,	wi_generic,		wo_webmon,		1 },
 	{ "dhcpc.cgi",		NULL,						0,	wi_generic,			wo_dhcpc,		1 },
 	{ "dhcpd.cgi",		mime_javascript,			0,	wi_generic,			wo_dhcpd,		1 },
 	{ "nvcommit.cgi",	NULL,						0,	wi_generic,			wo_nvcommit,	1 },
@@ -211,8 +337,12 @@ const struct mime_handler mime_handlers[] = {
 	{ "service.cgi",	NULL,						0,	wi_generic,			wo_service,		1 },
 //	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },	// see httpd.c
 	{ "shutdown.cgi",	mime_html,					0,	wi_generic,			wo_shutdown,	1 },
+#ifdef TCONFIG_OPENVPN
 	{ "vpnstatus.cgi",	mime_javascript,			0,	wi_generic,			wo_vpn_status,		1 },
-
+#endif
+#ifdef TCONFIG_USB
+	{ "usbcmd.cgi",			mime_javascript,			0,	wi_generic,		wo_usbcommand,		1 },	//!!TB - USB
+#endif
 #ifdef BLACKHOLE
 	{ "blackhole.cgi",	NULL,						0,	wi_blackhole,		NULL,			1 },
 #endif
@@ -231,6 +361,7 @@ const aspapi_t aspapi[] = {
 	{ "ctdump",				asp_ctdump			},
 	{ "ddnsx",				asp_ddnsx			},
 	{ "devlist",			asp_devlist			},
+	{ "webmon",			asp_webmon			},
 	{ "dhcpc_time",			asp_dhcpc_time		},
 	{ "dns",				asp_dns				},
 	{ "ident",				asp_ident			},
@@ -243,6 +374,7 @@ const aspapi_t aspapi[] = {
 	{ "nv",					asp_nv				},
 	{ "nvram",				asp_nvram 			},
 	{ "nvramseq",			asp_nvramseq		},
+	{ "nvstat",				asp_nvstat 			},
 	{ "psup",				asp_psup			},
 	{ "qrate",				asp_qrate			},
 	{ "resmsg",				asp_resmsg			},
@@ -254,12 +386,17 @@ const aspapi_t aspapi[] = {
 	{ "version",			asp_version			},
 	{ "wanstatus",			asp_wanstatus		},
 	{ "wanup",				asp_wanup			},
-	{ "wlchannel",			asp_wlchannel		},
+	{ "wlstats",			asp_wlstats		},
 	{ "wlclient",			asp_wlclient		},
-	{ "wlcrssi",			asp_wlcrssi			},
 	{ "wlnoise",			asp_wlnoise			},
-	{ "wlradio",			asp_wlradio			},
 	{ "wlscan",				asp_wlscan			},
+	{ "wlchannels",			asp_wlchannels	},	//!!TB
+	{ "wlcountries",		asp_wlcountries	},
+	{ "wlifaces",			asp_wlifaces		},
+	{ "wlbands",			asp_wlbands		},
+#ifdef TCONFIG_USB
+	{ "usbdevices",			asp_usbdevices	},	//!!TB - USB Support
+#endif
 #ifdef TCONFIG_SDHC
 	{ "mmcid",			asp_mmcid		},
 #endif
@@ -389,12 +526,15 @@ static const nvset_t nvset_list[] = {
 	{ "wan_netmask",		V_IP				},
 	{ "wan_gateway",		V_IP				},
 	{ "hb_server_ip",		V_LENGTH(0, 32)		},
-	{ "l2tp_server_ip",		V_IP				},
-	{ "pptp_server_ip",		V_IP				},
+	{ "l2tp_server_ip",		V_LENGTH(0, 128)		},
+	{ "pptp_server_ip",		V_LENGTH(0, 128)		},
+	{ "pptp_dhcp",			V_01				},
+	{ "ppp_defgw",			V_01				},
 	{ "ppp_username",		V_LENGTH(0, 60)		},
 	{ "ppp_passwd",			V_LENGTH(0, 60)		},
 	{ "ppp_service",		V_LENGTH(0, 50)		},
 	{ "ppp_demand",			V_01				},
+	{ "ppp_custom",			V_LENGTH(0, 256)		},
 	{ "ppp_idletime",		V_RANGE(0, 1440)	},
 	{ "ppp_redialperiod",	V_RANGE(1, 86400)	},
 	{ "mtu_enable",			V_01				},
@@ -420,12 +560,9 @@ static const nvset_t nvset_list[] = {
 	{ "wl_net_mode",		V_LENGTH(5, 8)		},  // disabled, mixed, b-only, g-only, bg-mixed, n-only [speedbooster]
 	{ "wl_ssid",			V_LENGTH(1, 32)		},
 	{ "wl_closed",			V_01				},
-	{ "wl_channel",			V_RANGE(1, 14)		},
-#if TOMATO_N
-	// ! update
-#endif
+	{ "wl_channel",			V_RANGE(0, 216)		},
 
-	{ "security_mode2",		V_LENGTH(1, 32)		},	// disabled, radius, wep, wpa_personal, wpa_enterprise, wpa2_personal, wpa2_enterprise
+	{ "wl_security_mode",		V_LENGTH(1, 32)		},	// disabled, radius, wep, wpa_personal, wpa_enterprise, wpa2_personal, wpa2_enterprise
 	{ "wl_radius_ipaddr",	V_IP				},
 	{ "wl_radius_port",		V_PORT				},
 	{ "wl_radius_key",		V_LENGTH(1, 64)		},
@@ -443,17 +580,19 @@ static const nvset_t nvset_list[] = {
 	{ "wl_lazywds",			V_01				},
 	{ "wl_wds",				V_LENGTH(0, 180)	},	// mac mac mac (x 10)
 
-	{ "security_mode",		V_LENGTH(1, 32)		},	//  disabled, radius, wpa, psk,wep, wpa2, psk2, wpa wpa2, psk psk2
-	{ "wds_enable",			V_01				},
+	{ "wl_wds_enable",		V_01				},
 	{ "wl_gmode",			V_RANGE(-1, 6)		},
 	{ "wl_wep",				V_LENGTH(1, 32)		},	//  off, on, restricted,tkip,aes,tkip+aes
 	{ "wl_akm",				V_LENGTH(0, 32)		},	//  wpa, wpa2, psk, psk2, wpa wpa2, psk psk2, ""
 	{ "wl_auth_mode",	   	V_LENGTH(4, 6)		},	//  none, radius
 
-#if TOMATO_N
 	{ "wl_nmode",			V_NONE				},
+	{ "wl_nband",			V_RANGE(0, 2)			},	// 2 - 2.4GHz, 1 - 5GHz, 0 - Auto
 	{ "wl_nreqd",			V_NONE				},
-#endif
+	{ "wl_nbw_cap",			V_RANGE(0, 2)			},	// 0 - 20MHz, 1 - 40MHz, 2 - Auto
+	{ "wl_nbw",			V_NONE				},
+	{ "wl_mimo_preamble",		V_WORD				},	// 802.11n Preamble: mm/gf/auto/gfbcm
+	{ "wl_nctrlsb",			V_NONE				},	// none, lower, upper
 
 // basic-wfilter
 	{ "wl_macmode",			V_NONE				},	// allow, deny, disabled
@@ -461,11 +600,16 @@ static const nvset_t nvset_list[] = {
 	{ "macnames",			V_LENGTH(0, 62*201)	},	// 62 (12+1+48+1) x 50	(112233445566<..>)		todo: re-use -- zzz
 
 // advanced-ctnf
-	{ "ct_max",				V_RANGE(128, 10240)	},
+	{ "ct_max",			V_NUM			},
 	{ "ct_tcp_timeout",		V_LENGTH(20, 70)	},
 	{ "ct_udp_timeout",		V_LENGTH(5, 15)		},
-	{ "nf_ttl",				V_RANGE(-10, 10)	},
+	{ "ct_timeout",			V_LENGTH(5, 15)		},
+	{ "nf_ttl",			V_LENGTH(1, 6)		},
 	{ "nf_l7in",			V_01				},
+#ifdef LINUX26
+	{ "nf_sip",			V_01				},
+	{ "ct_hashsize",		V_NUM				},
+#endif
 	{ "nf_rtsp",			V_01				},
 	{ "nf_pptp",			V_01				},
 	{ "nf_h323",			V_01				},
@@ -479,6 +623,8 @@ static const nvset_t nvset_list[] = {
 	{ "dns_addget",			V_01				},
 	{ "dns_intcpt",			V_01				},
 	{ "dhcpc_minpkt",		V_01				},
+	{ "dhcpc_custom",		V_LENGTH(0, 80)			},
+	{ "dns_norebind",		V_01				},
 	{ "dnsmasq_custom",		V_TEXT(0, 2048)		},
 //	{ "dnsmasq_norw",		V_01				},
 
@@ -488,26 +634,41 @@ static const nvset_t nvset_list[] = {
 	{ "block_loopback",		V_01				},
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},
+	{ "dhcp_pass",			V_01				},
+#ifdef TCONFIG_EMF
+	{ "emf_entry",			V_NONE				},
+	{ "emf_uffp_entry",		V_NONE				},
+	{ "emf_rtport_entry",		V_NONE				},
+	{ "emf_enable",			V_01				},
+#endif
 
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
 	{ "wan_speed",			V_RANGE(0, 4)		},
+	{ "jumbo_frame_enable",		V_01			},	// Jumbo Frames support (for RT-N16/WNR3500L)
+	{ "jumbo_frame_size",		V_RANGE(1, 9720)	},
 
 // advanced-mac
 	{ "mac_wan",			V_LENGTH(0, 17)		},
-	{ "mac_wl",				V_LENGTH(0, 17)		},
+	{ "wl_macaddr",			V_LENGTH(0, 17)		},
 
 // advanced-routing
 	{ "routes_static",		V_LENGTH(0, 2048)	},
+	{ "dhcp_routes",		V_01			},
 	{ "lan_stp",			V_RANGE(0, 1)		},
 	{ "wk_mode",			V_LENGTH(1, 32)		},	// gateway, router
+#ifdef TCONFIG_ZEBRA
 	{ "dr_setting",			V_RANGE(0, 3)		},
 	{ "dr_lan_tx",			V_LENGTH(0, 32)		},
 	{ "dr_lan_rx",			V_LENGTH(0, 32)		},
 	{ "dr_wan_tx",			V_LENGTH(0, 32)		},
 	{ "dr_wan_rx",			V_LENGTH(0, 32)		},
+#endif
 
 // advanced-wireless
+	{ "wl_country",			V_LENGTH(0, 64)		},	// !!TB - Country code
+	{ "wl_country_code",		V_LENGTH(0, 4)		},	// !!TB - Country code
+	{ "wl_btc_mode",		V_RANGE(0, 2)		},	// !!TB - BT Coexistence Mode: 0 (disable), 1 (enable), 2 (preemption)
 	{ "wl_afterburner",		V_LENGTH(2, 4)		},	// off, on, auto
 	{ "wl_auth",			V_01				},
 	{ "wl_rateset",			V_LENGTH(2, 7)		},	// all, default, 12
@@ -523,18 +684,20 @@ static const nvset_t nvset_list[] = {
 	{ "wl_plcphdr",			V_LENGTH(4, 5)		},	// long, short
 	{ "wl_antdiv",			V_RANGE(0, 3)		},
 	{ "wl_txant",			V_RANGE(0, 3)		},
-	{ "wl_txpwr",			V_RANGE(0, 255)		},
-	{ "wl_wme",				V_ONOFF				},	// off, on
+	{ "wl_txpwr",			V_RANGE(0, 400)		},
+	{ "wl_wme",			V_WORD				},	// auto, off, on
 	{ "wl_wme_no_ack",		V_ONOFF				},	// off, on
+	{ "wl_wme_apsd",		V_ONOFF				},	// off, on
 	{ "wl_maxassoc",		V_RANGE(0, 255)	},
 	{ "wl_distance",		V_LENGTH(0, 5)		},	// "", 1-99999
 	{ "wlx_hpamp",			V_01				},
 	{ "wlx_hperx",			V_01				},
+	{ "wl_reg_mode",		V_LENGTH(1, 3)			},	// !!TB - Regulatory: off, h, d
+	{ "wl_interfmode",		V_RANGE(0, 3)			},	// Interference Mitigation Mode (0|1|2|3)
 
-#if TOMATO_N
-	{ "wl_nmode_protection",V_WORD,				},	// off, auto
-	{ "wl_nmcsidx",			V_RANGE(-2, 15),	},	// -2 - 15
-#endif
+	{ "wl_nmode_protection",	V_WORD,				},	// off, auto
+	{ "wl_nmcsidx",			V_RANGE(-2, 32),	},	// -2 - 32
+	{ "wl_obss_coex",		V_01			},
 
 // forward-dmz
 	{ "dmz_enable",			V_01				},
@@ -543,12 +706,17 @@ static const nvset_t nvset_list[] = {
 
 // forward-upnp
 	{ "upnp_enable",		V_NUM				},
-#ifndef USE_MINIUPNPD
+	{ "upnp_secure",		V_01				},
+	{ "upnp_port",			V_RANGE(0, 65535)		},
+	{ "upnp_ssdp_interval",		V_RANGE(10, 9999)		},
 	{ "upnp_mnp",			V_01				},
-//	{ "upnp_config",		V_01				},
-	{ "upnp_ssdp_interval", V_RANGE(10, 9999)	},
-	{ "upnp_max_age",		V_RANGE(5, 9999)	},
-#endif
+	{ "upnp_clean",			V_01				},
+	{ "upnp_clean_interval",	V_RANGE(60, 65535)		},
+	{ "upnp_clean_threshold",	V_RANGE(0, 9999)		},
+	{ "upnp_min_port_int",		V_PORT				},
+	{ "upnp_max_port_int",		V_PORT				},
+	{ "upnp_min_port_ext",		V_PORT				},
+	{ "upnp_max_port_ext",		V_PORT				},
 
 // forward-basic
 	{ "portforward",		V_LENGTH(0, 4096)	},
@@ -581,6 +749,7 @@ static const nvset_t nvset_list[] = {
 	{ "sshd_pass",			V_01				},
 	{ "sshd_port",			V_PORT				},
 	{ "sshd_remote",		V_01				},
+	{ "sshd_forwarding",		V_01				},
 	{ "sshd_rport", 		V_PORT				},
 	{ "sshd_authkeys",		V_TEXT(0, 4096)		},
 	{ "rmgt_sip",			V_LENGTH(0, 512)	},
@@ -597,10 +766,10 @@ static const nvset_t nvset_list[] = {
 
 // admin-buttons
 	{ "sesx_led",			V_RANGE(0, 255)		},	// amber, white, aoss
-	{ "sesx_b0",			V_RANGE(0, 4)		},	// 0-4: toggle wireless, reboot, shutdown, script
-	{ "sesx_b1",			V_RANGE(0, 4)		},	// "
-	{ "sesx_b2",			V_RANGE(0, 4)		},	// "
-	{ "sesx_b3",			V_RANGE(0, 4)		},	// "
+	{ "sesx_b0",			V_RANGE(0, 5)		},	// 0-5: toggle wireless, reboot, shutdown, script, usb unmount
+	{ "sesx_b1",			V_RANGE(0, 5)		},	// "
+	{ "sesx_b2",			V_RANGE(0, 5)		},	// "
+	{ "sesx_b3",			V_RANGE(0, 5)		},	// "
 	{ "sesx_script",		V_TEXT(0, 1024)		},	//
 	{ "script_brau",		V_TEXT(0, 1024)		},	//
 
@@ -633,14 +802,21 @@ static const nvset_t nvset_list[] = {
 
 // admin-log
 	{ "log_remote",			V_01				},
-	{ "log_remoteip",		V_IP				},
+	{ "log_remoteip",		V_LENGTH(0, 512)		},
 	{ "log_remoteport",		V_PORT				},
 	{ "log_file",			V_01				},
 	{ "log_limit",			V_RANGE(0, 2400)	},
 	{ "log_in",				V_RANGE(0, 3)		},
 	{ "log_out",			V_RANGE(0, 3)		},
-	{ "log_mark",			V_RANGE(0, 1440)	},
+	{ "log_mark",			V_RANGE(0, 99999)	},
 	{ "log_events",			V_TEXT(0, 32)		},	// "acre,crond,ntp"
+
+// admin-log-webmonitor
+	{ "log_wm",			V_01				},
+	{ "log_wmtype",			V_RANGE(0, 2)			},
+	{ "log_wmip",			V_LENGTH(0, 512)		},
+	{ "log_wmdmax",			V_RANGE(0, 9999)		},
+	{ "log_wmsmax",			V_RANGE(0, 9999)		},
 
 // admin-cifs
 	{ "cifs1",				V_LENGTH(1, 1024)	},
@@ -664,6 +840,76 @@ static const nvset_t nvset_list[] = {
 	{ "mmc_exec_umount",		V_LENGTH(0, 64)			},
 #endif
 
+// nas-usb - !!TB
+#ifdef TCONFIG_USB
+	{ "usb_enable",			V_01				},
+	{ "usb_uhci",			V_RANGE(-1, 1)			},	// -1 - disabled, 0 - off, 1 - on
+	{ "usb_ohci",			V_RANGE(-1, 1)			},
+	{ "usb_usb2",			V_RANGE(-1, 1)			},
+	{ "usb_irq_thresh",		V_RANGE(0, 6)			},
+	{ "usb_storage",		V_01				},
+	{ "usb_printer",		V_01				},
+	{ "usb_printer_bidirect",	V_01				},
+	{ "usb_fs_ext3",		V_01				},
+	{ "usb_fs_fat",			V_01				},
+#ifdef TCONFIG_NTFS
+	{ "usb_fs_ntfs",		V_01				},
+#endif
+	{ "usb_automount",		V_01				},
+	{ "script_usbhotplug", 		V_TEXT(0, 2048)			},
+	{ "script_usbmount", 		V_TEXT(0, 2048)			},
+	{ "script_usbumount", 		V_TEXT(0, 2048)			},
+#endif
+
+// nas-ftp - !!TB
+#ifdef TCONFIG_FTP
+	{ "ftp_enable",			V_RANGE(0, 2)			},
+	{ "ftp_super",			V_01				},
+	{ "ftp_anonymous",		V_RANGE(0, 3)			},
+	{ "ftp_dirlist",		V_RANGE(0, 2)			},
+	{ "ftp_port",			V_PORT				},
+	{ "ftp_max",			V_RANGE(0, 12)			},
+	{ "ftp_ipmax",			V_RANGE(0, 12)			},
+	{ "ftp_staytimeout",		V_RANGE(0, 65535)		},
+	{ "ftp_rate",			V_RANGE(0, 99999)		},
+	{ "ftp_anonrate",		V_RANGE(0, 99999)		},
+	{ "ftp_anonroot",		V_LENGTH(0, 256)		},
+	{ "ftp_pubroot",		V_LENGTH(0, 256)		},
+	{ "ftp_pvtroot",		V_LENGTH(0, 256)		},
+	{ "ftp_users",			V_LENGTH(0, 4096)		},
+	{ "ftp_custom",			V_TEXT(0, 2048)			},
+	{ "ftp_sip",			V_LENGTH(0, 512)		},
+	{ "ftp_limit",			V_TEXT(1, 50)			},
+	{ "log_ftp",			V_01				},
+#endif
+
+#ifdef TCONFIG_SAMBASRV
+// nas-samba - !!TB
+	{ "smbd_enable",		V_RANGE(0, 2)			},
+	{ "smbd_wgroup",		V_LENGTH(0, 20)			},
+	{ "smbd_master",		V_01				},
+	{ "smbd_wins",			V_01				},
+	{ "smbd_cpage",			V_LENGTH(0, 4)			},
+	{ "smbd_cset",			V_LENGTH(0, 20)			},
+	{ "smbd_custom",		V_TEXT(0, 2048)			},
+	{ "smbd_autoshare",		V_RANGE(0, 3)			},
+	{ "smbd_shares",		V_LENGTH(0, 4096)		},
+	{ "smbd_user",			V_LENGTH(0, 50)			},
+	{ "smbd_passwd",		V_LENGTH(0, 50)			},
+#endif
+
+#ifdef TCONFIG_MEDIA_SERVER
+// nas-media
+	{ "ms_enable",			V_01				},
+	{ "ms_dirs",			V_LENGTH(0, 1024)		},
+	{ "ms_port",			V_RANGE(0, 65535)		},
+	{ "ms_dbdir",			V_LENGTH(0, 256)		},
+	{ "ms_tivo",			V_01				},
+	{ "ms_stdlna",			V_01				},
+	{ "ms_rescan",			V_01				},
+	{ "ms_sas",			V_01				},
+#endif
+
 //	qos
 	{ "qos_enable",			V_01				},
 	{ "qos_ack",			V_01				},
@@ -672,6 +918,7 @@ static const nvset_t nvset_list[] = {
 	{ "qos_rst",			V_01				},
 	{ "qos_icmp",			V_01				},
 	{ "qos_reset",			V_01				},
+	{ "qos_pfifo",			V_01				}, // !!TB
 	{ "qos_obw",			V_RANGE(10, 999999)	},
 	{ "qos_ibw",			V_RANGE(10, 999999)	},
 	{ "qos_orules",			V_LENGTH(0, 4096)	},
@@ -684,6 +931,7 @@ static const nvset_t nvset_list[] = {
 	{ "ne_vbeta",			V_NUM				},
 	{ "ne_vgamma",			V_NUM				},
 
+#ifdef TCONFIG_OPENVPN
 // vpn
 	{ "vpn_debug",            V_01                },
 	{ "vpn_server_eas",       V_NONE              },
@@ -799,7 +1047,7 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client2_ca",       V_NONE              },
 	{ "vpn_client2_crt",      V_NONE              },
 	{ "vpn_client2_key",      V_NONE              },
-
+#endif // vpn
 
 /*
 ppp_static			0/1
@@ -838,63 +1086,112 @@ wl_ap_ssid
 	{ NULL }
 };
 
-static int save_variables(int write)
+
+static int webcgi_nvram_set(const nvset_t *v, const char *name, int write)
 {
-	const nvset_t *v;
 	char *p, *e;
 	int n;
 	long l;
 	unsigned u[6];
 	int ok;
+	int dirty;
+
+	if ((p = webcgi_get((char*)name)) == NULL) return 0;
+
+	_dprintf("[%s] %s=%s\n", v->name, (char*)name, p);
+	dirty = 0;
+	ok = 1;
+	switch (v->vtype) {
+	case VT_TEXT:
+		p = unix_string(p);	// NOTE: p = malloc'd
+		// drop
+	case VT_LENGTH:
+		n = strlen(p);
+		if ((n < v->va.i) || (n > v->vb.i)) ok = 0;
+		break;
+	case VT_RANGE:
+		l = strtol(p, &e, 10);
+		if ((p == e) || (*e) || (l < v->va.l) || (l > v->vb.l)) ok = 0;
+		break;
+	case VT_IP:
+		if ((sscanf(p, "%3u.%3u.%3u.%3u", &u[0], &u[1], &u[2], &u[3]) != 4) ||
+			(u[0] > 255) || (u[1] > 255) || (u[2] > 255) || (u[3] > 255)) ok = 0;
+		break;
+	case VT_MAC:
+		if ((sscanf(p, "%2x:%2x:%2x:%2x:%2x:%2x", &u[0], &u[1], &u[2], &u[3], &u[4], &u[5]) != 6) ||
+			(u[0] > 255) || (u[1] > 255) || (u[2] > 255) || (u[3] > 255) || (u[4] > 255) || (u[5] > 255)) ok = 0;
+		break;
+	default:
+		// shutup gcc
+		break;
+	}
+	if (!ok) {
+		if (v->vtype == VT_TEXT) free(p);
+		return -1;
+	}
+	if (write) {
+		if (!nvram_match((char *)name, p)) {
+			if (v->vtype != VT_TEMP) dirty = 1;
+			DEBUG_NVRAMSET(name, p);
+			nvram_set(name, p);
+		}
+	}
+	if (v->vtype == VT_TEXT) free(p);
+
+	return dirty;
+}
+
+typedef struct {
+	const nvset_t *v;
+	int write;
+	int dirty;
+} nv_list_t;
+
+static int nv_wl_find(int idx, int unit, int subunit, void *param)
+{
+	nv_list_t *p = param;
+
+	int ok = webcgi_nvram_set(p->v, wl_nvname(p->v->name + 3, unit, subunit), p->write);
+	if (ok < 0)
+		return 1;
+	else {
+		p->dirty |= ok;
+		return 0;
+	}
+}
+
+static int save_variables(int write)
+{
+	const nvset_t *v;
+	char *p;
+	int n;
+	int ok;
 	char s[256];
 	int dirty;
 	static const char *msgf = "The field \"%s\" is invalid. Please report this problem.";
+	nv_list_t nv;
 
 	dirty = 0;
+	nv.write = write;
 	for (v = nvset_list; v->name; ++v) {
-//		_dprintf("[%s] %p\n", v->name, webcgi_get((char*)v->name));
-		if ((p = webcgi_get((char*)v->name)) == NULL) continue;
-		ok = 1;
-		switch (v->vtype) {
-		case VT_TEXT:
-			p = unix_string(p);	// NOTE: p = malloc'd
-			// drop
-		case VT_LENGTH:
-			n = strlen(p);
-			if ((n < v->va.i) || (n > v->vb.i)) ok = 0;
-			break;
-		case VT_RANGE:
-			l = strtol(p, &e, 10);
-			if ((p == e) || (*e) || (l < v->va.l) || (l > v->vb.l)) ok = 0;
-			break;
-		case VT_IP:
-			if ((sscanf(p, "%3u.%3u.%3u.%3u", &u[0], &u[1], &u[2], &u[3]) != 4) ||
-				(u[0] > 255) || (u[1] > 255) || (u[2] > 255) || (u[3] > 255)) ok = 0;
-			break;
-		case VT_MAC:
-			if ((sscanf(p, "%2x:%2x:%2x:%2x:%2x:%2x", &u[0], &u[1], &u[2], &u[3], &u[4], &u[5]) != 6) ||
-				(u[0] > 255) || (u[1] > 255) || (u[2] > 255) || (u[3] > 255) || (u[4] > 255) || (u[5] > 255)) ok = 0;
-			break;
-		default:
-			// shutup gcc
-			break;
-		}
-		if (!ok) {
-			if (v->vtype == VT_TEXT) free(p);
+		ok = webcgi_nvram_set(v, v->name, write);
 
+		if ((ok >= 0) && (strncmp(v->name, "wl_", 3) == 0)) {
+			nv.dirty = dirty;
+			nv.v = v;
+			if (foreach_wif(1, &nv, nv_wl_find) == 0)
+				ok |= nv.dirty;
+			else
+				ok = -1;
+		}
+
+		if (ok < 0) {
 			sprintf(s, msgf, v->name);
 			resmsg_set(s);
 			return 0;
 		}
-		if (write) {
-			if (!nvram_match((char *)v->name, p)) {
-				if (v->vtype != VT_TEMP) dirty = 1;
-				nvram_set(v->name, p);
-			}
-		}
-		if (v->vtype == VT_TEXT) free(p);
+		dirty |= ok;
 	}
-
 
 	// special cases
 
@@ -914,18 +1211,19 @@ static int save_variables(int write)
 	}
 
 	for (n = 0; n < 50; ++n) {
-	    sprintf(s, "rrule%d", n);
-	    if ((p = webcgi_get(s)) != NULL) {
-	        if (strlen(p) > 2048) {
+		sprintf(s, "rrule%d", n);
+		if ((p = webcgi_get(s)) != NULL) {
+	        	if (strlen(p) > 2048) {
 				sprintf(s, msgf, s);
 				resmsg_set(s);
 				return 0;
-	        }
+	        	}
 			if ((write) && (!nvram_match(s, p))) {
 				dirty = 1;
+				DEBUG_NVRAMSET(s, p);
 				nvram_set(s, p);
 			}
-	    }
+		}
 	}
 
 	return (write) ? dirty : 1;

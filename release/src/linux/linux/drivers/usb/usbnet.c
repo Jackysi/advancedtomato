@@ -1,8 +1,128 @@
 /*
  * USB Host-to-Host Links
  * Copyright (C) 2000-2002 by David Brownell <dbrownell@users.sourceforge.net>
+ * Copyright (C) 2002 Pavel Machek <pavel@ucw.cz>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+/*
+ * This is used for "USB networking", connecting USB hosts as peers.
+ *
+ * It can be used with USB "network cables", for IP-over-USB communications;
+ * Ethernet speeds without the Ethernet.  USB devices (including some PDAs)
+ * can support such links directly, replacing device-specific protocols
+ * with Internet standard ones.
+ *
+ * The links can be bridged using the Ethernet bridging (net/bridge)
+ * support as appropriate.  Devices currently supported include:
+ *
+ *	- AnchorChip 2720
+ *	- Belkin, eTEK (interops with Win32 drivers)
+ *	- EPSON USB clients
+ *	- GeneSys GL620USB-A
+ *	- NetChip 1080 (interoperates with NetChip Win32 drivers)
+ *	- Prolific PL-2301/2302 (replaces "plusb" driver)
+ *	- PXA-250 or SA-1100 Linux PDAs like iPAQ, Yopy, and Zaurus
+ *
+ * USB devices can implement their side of this protocol at the cost
+ * of two bulk endpoints; it's not restricted to "cable" applications.
+ * See the SA1110, Zaurus, or EPSON device/client support in this driver;
+ * slave/target drivers such as "usb-eth" (on most SA-1100 PDAs) are
+ * used inside USB slave/target devices.
+ *
+ * 
+ * Status:
+ *
+ * - AN2720 ... not widely available, but reportedly works well
+ *
+ * - Belkin/eTEK ... no known issues
+ *
+ * - Both GeneSys and PL-230x use interrupt transfers for driver-to-driver
+ *   handshaking; it'd be worth implementing those as "carrier detect".
+ *   Prefer generic hooks, not minidriver-specific hacks.
+ *
+ * - For Netchip, should use keventd to poll via control requests to detect
+ *   hardware level "carrier detect". 
+ *
+ * - PL-230x ... the initialization protocol doesn't seem to match chip data
+ *   sheets, sometimes it's not needed and sometimes it hangs.  Prolific has
+ *   not responded to repeated support/information requests.
+ *
+ * - SA-1100 PDAs ... the standard ARM Linux SA-1100 support works nicely,
+ *   as found in www.handhelds.org and other kernels.  The Sharp/Lineo
+ *   kernels use different drivers, which also talk to this code.
+ *
+ * Interop with more Win32 drivers may be a good thing.
+ *
+ * Seems like reporting "peer connected" (carrier present) events may end
+ * up going through the netlink event system, not hotplug ... so new links
+ * would likely be handled with a link monitoring thread in some daemon.
+ *
+ * There are reports that bridging gives lower-than-usual throughput.
+ *
+ * Need smarter hotplug policy scripts ... ones that know how to arrange
+ * bridging with "brctl", and can handle static and dynamic ("pump") setups.
+ * Use those eventual "peer connected" events, and zeroconf.
+ *
+ *
+ * CHANGELOG:
+ *
+ * 13-sep-2000	experimental, new
+ * 10-oct-2000	usb_device_id table created. 
+ * 28-oct-2000	misc fixes; mostly, discard more TTL-mangled rx packets.
+ * 01-nov-2000	usb_device_id table and probing api update by
+ *		Adam J. Richter <adam@yggdrasil.com>.
+ * 18-dec-2000	(db) tx watchdog, "net1080" renaming to "usbnet", device_info
+ *		and prolific support, isolate net1080-specific bits, cleanup.
+ *		fix unlink_urbs oops in D3 PM resume code path.
+ *
+ * 02-feb-2001	(db) fix tx skb sharing, packet length, match_flags, ...
+ * 08-feb-2001	stubbed in "linuxdev", maybe the SA-1100 folk can use it;
+ *		AnchorChips 2720 support (from spec) for testing;
+ *		fix bit-ordering problem with ethernet multicast addr
+ * 19-feb-2001  Support for clearing halt conditions. SA1100 UDC support
+ *		updates. Oleg Drokin (green@iXcelerator.com)
+ * 25-mar-2001	More SA-1100 updates, including workaround for ip problem
+ *		expecting cleared skb->cb and framing change to match latest
+ *		handhelds.org version (Oleg).  Enable device IDs from the
+ *		Win32 Belkin driver; other cleanups (db).
+ * 16-jul-2001	Bugfixes for uhci oops-on-unplug, Belkin support, various
+ *		cleanups for problems not yet seen in the field. (db)
+ * 17-oct-2001	Handle "Advance USBNET" product, like Belkin/eTEK devices,
+ *		from Ioannis Mavroukakis <i.mavroukakis@btinternet.com>;
+ *		rx unlinks somehow weren't async; minor cleanup.
+ * 03-nov-2001	Merged GeneSys driver; original code from Jiun-Jie Huang
+ *		<huangjj@genesyslogic.com.tw>, updated by Stanislav Brabec
+ *		<utx@penguin.cz>.  Made framing options (NetChip/GeneSys)
+ *		tie mostly to (sub)driver info.  Workaround some PL-2302
+ *		chips that seem to reject SET_INTERFACE requests.
+ *
+ * 06-apr-2002	Added ethtool support, based on a patch from Brad Hards.
+ *		Level of diagnostics is more configurable; they use device
+ *		location (usb_device->devpath) instead of address (2.5).
+ *		For tx_fixup, memflags can't be NOIO.
+ * 07-may-2002	Generalize/cleanup keventd support, handling rx stalls (mostly
+ *		for USB 2.0 TTs) and memory shortages (potential) too. (db)
+ *		Use "locally assigned" IEEE802 address space. (Brad Hards)
+ * 18-oct-2002	Support for Zaurus (Pavel Machek), related cleanup (db).
+ * 15-dec-2002	Partial sync with 2.5 code: cleanups and stubbed PXA-250
+ * 		support (db), fix for framing issues on Z, net1080, and
+ * 		gl620a (Toby Milne)
+ *
+ *-------------------------------------------------------------------------*/
 
 #include <linux/config.h>
 #include <linux/module.h>
@@ -13,6 +133,7 @@
 #include <linux/etherdevice.h>
 #include <linux/random.h>
 #include <linux/ethtool.h>
+#include <linux/mii.h>
 #include <linux/tqueue.h>
 #include <asm/uaccess.h>
 #include <asm/unaligned.h>
@@ -21,7 +142,7 @@
 // #define	VERBOSE			// more; success messages
 // #define	REALLY_QUEUE
 
-#if !defined(DEBUG) && defined(CONFIG_USB_DEBUG)
+#if !defined (DEBUG) && defined (CONFIG_USB_DEBUG)
 #   define DEBUG
 #endif
 #include <linux/usb.h>
@@ -37,15 +158,17 @@
 
 /* minidrivers _could_ be individually configured */
 #define	CONFIG_USB_AN2720
+#define	CONFIG_USB_AX8817X
 #define	CONFIG_USB_BELKIN
 #define	CONFIG_USB_EPSON2888
 #define	CONFIG_USB_GENESYS
-#define	CONFIG_USB_LINUXDEV
 #define	CONFIG_USB_NET1080
 #define	CONFIG_USB_PL2301
+#define	CONFIG_USB_ARMLINUX
+#define	CONFIG_USB_ZAURUS
 
 
-#define DRIVER_VERSION		"17-Jul-2002"
+#define DRIVER_VERSION		"18-Oct-2002"
 
 /*-------------------------------------------------------------------------*/
 
@@ -53,6 +176,8 @@
  * Nineteen USB 1.1 max size bulk transactions per frame (ms), max.
  * Several dozen bytes of IPv4 data can fit in two such transactions.
  * One maximum size Ethernet packet takes twenty four of them.
+ * For high speed, each frame comfortably fits almost 36 max size
+ * Ethernet packets (so queues should be bigger).
  */
 #ifdef REALLY_QUEUE
 #define	RX_QLEN		4
@@ -95,10 +220,16 @@ struct usbnet {
 	struct list_head	dev_list;
 	wait_queue_head_t	*wait;
 
+	// i/o info: pipes etc
+	unsigned		in, out;
+	unsigned		maxpacket;
+	//struct timer_list	delay;
+
 	// protocol/interface state
 	struct net_device	net;
 	struct net_device_stats	stats;
 	int			msg_level;
+	struct mii_if_info	mii;
 
 #ifdef CONFIG_USB_NET1080
 	u16			packet_id;
@@ -124,7 +255,12 @@ struct driver_info {
 	int		flags;
 #define FLAG_FRAMING_NC	0x0001		/* guard against device dropouts */ 
 #define FLAG_FRAMING_GL	0x0002		/* genelink batches packets */
+#define FLAG_FRAMING_Z	0x0004		/* zaurus adds a trailer */
 #define FLAG_NO_SETINT	0x0010		/* device can't set_interface() */
+#define FLAG_ETHER	0x0020		/* maybe use "eth%d" names */
+
+	/* init device ... can sleep, or cause probe() failure */
+	int	(*bind)(struct usbnet *, struct usb_device *);
 
 	/* reset device ... can sleep */
 	int	(*reset)(struct usbnet *);
@@ -142,13 +278,13 @@ struct driver_info {
 	// FIXME -- also an interrupt mechanism
 	// useful for at least PL2301/2302 and GL620USB-A
 
-	/* framework currently "knows" bulk EPs talk packets */
+	/* for new devices, use the descriptor-reading code instead */
 	int		in;		/* rx endpoint */
 	int		out;		/* tx endpoint */
 	int		epsize;
-};
 
-#define EP_SIZE(usbnet)	((usbnet)->driver_info->epsize)
+	unsigned long	data;		/* Misc driver specific data */
+};
 
 // we record the state for each of our queued skbs
 enum skb_state {
@@ -178,18 +314,81 @@ MODULE_PARM_DESC (msg_level, "Initial message level (default = 1)");
 #define	RUN_CONTEXT (in_irq () ? "in_irq" \
 			: (in_interrupt () ? "in_interrupt" : "can sleep"))
 
+static struct ethtool_ops usbnet_ethtool_ops;
+
+/* mostly for PDA style devices, which are always present */
+static int always_connected (struct usbnet *dev)
+{
+	return 0;
+}
+
+/*-------------------------------------------------------------------------*/
+
+/* handles CDC Ethernet and many other network "bulk data" interfaces */
+static int
+get_endpoints (struct usbnet *dev, struct usb_interface *intf)
+{
+	int				tmp;
+	struct usb_interface_descriptor	*alt;
+	struct usb_endpoint_descriptor	*in, *out;
+
+	for (tmp = 0; tmp < intf->max_altsetting; tmp++) {
+		unsigned	ep;
+
+		in = out = 0;
+		alt = intf->altsetting + tmp;
+
+		/* take the first altsetting with in-bulk + out-bulk;
+		 * ignore other endpoints and altsetttings.
+		 */
+		for (ep = 0; ep < alt->bNumEndpoints; ep++) {
+			struct usb_endpoint_descriptor	*e;
+
+			e = alt->endpoint + ep;
+			if (e->bmAttributes != USB_ENDPOINT_XFER_BULK)
+				continue;
+			if (e->bEndpointAddress & USB_DIR_IN) {
+				if (!in)
+					in = e;
+			} else {
+				if (!out)
+					out = e;
+			}
+			if (in && out)
+				goto found;
+		}
+	}
+	return -EINVAL;
+
+found:
+	if (alt->bAlternateSetting != 0
+			|| !(dev->driver_info->flags & FLAG_NO_SETINT)) {
+		tmp = usb_set_interface (dev->udev, alt->bInterfaceNumber,
+				alt->bAlternateSetting);
+		if (tmp < 0)
+			return tmp;
+	}
+	
+	dev->in = usb_rcvbulkpipe (dev->udev,
+			in->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
+	dev->out = usb_sndbulkpipe (dev->udev,
+			out->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK);
+	dev->maxpacket = usb_maxpacket (dev->udev, dev->out, 1);
+	return 0;
+}
+
 /*-------------------------------------------------------------------------*/
 
 #ifdef DEBUG
 #define devdbg(usbnet, fmt, arg...) \
-	printk(KERN_DEBUG "%s: " fmt "\n" , (usbnet)->net.name, ## arg)
+	printk(KERN_DEBUG "%s: " fmt "\n" , (usbnet)->net.name , ## arg)
 #else
 #define devdbg(usbnet, fmt, arg...) do {} while(0)
 #endif
 
 #define devinfo(usbnet, fmt, arg...) \
 	do { if ((usbnet)->msg_level >= 1) \
-	printk(KERN_INFO "%s: " fmt "\n" , (usbnet)->net.name, ## arg); \
+	printk(KERN_INFO "%s: " fmt "\n" , (usbnet)->net.name , ## arg); \
 	} while (0)
 
 
@@ -217,6 +416,306 @@ static const struct driver_info	an2720_info = {
 
 #endif	/* CONFIG_USB_AN2720 */
 
+
+#ifdef CONFIG_USB_AX8817X
+/* ASIX AX8817X based USB 2.0 Ethernet Devices */
+
+#define HAVE_HARDWARE
+#define NEED_MII
+
+#include <linux/crc32.h>
+
+#define AX_CMD_SET_SW_MII		0x06
+#define AX_CMD_READ_MII_REG		0x07
+#define AX_CMD_WRITE_MII_REG		0x08
+#define AX_CMD_SET_HW_MII		0x0a
+#define AX_CMD_WRITE_RX_CTL		0x10
+#define AX_CMD_READ_IPG012		0x11
+#define AX_CMD_WRITE_IPG0		0x12
+#define AX_CMD_WRITE_IPG1		0x13
+#define AX_CMD_WRITE_IPG2		0x14
+#define AX_CMD_WRITE_MULTI_FILTER	0x16
+#define AX_CMD_READ_NODE_ID		0x17
+#define AX_CMD_READ_PHY_ID		0x19
+#define AX_CMD_WRITE_MEDIUM_MODE	0x1b
+#define AX_CMD_WRITE_GPIOS		0x1f
+
+#define AX_MCAST_FILTER_SIZE		8
+#define AX_MAX_MCAST			64
+
+static int ax8817x_read_cmd(struct usbnet *dev, u8 cmd, u16 value, u16 index,
+			    u16 size, void *data)
+{
+	return usb_control_msg(
+		dev->udev,
+		usb_rcvctrlpipe(dev->udev, 0),
+		cmd,
+		USB_DIR_IN | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+		value,
+		index,
+		data,
+		size,
+		CONTROL_TIMEOUT_JIFFIES);
+}
+
+static int ax8817x_write_cmd(struct usbnet *dev, u8 cmd, u16 value, u16 index,
+			     u16 size, void *data)
+{
+	return usb_control_msg(
+		dev->udev,
+		usb_sndctrlpipe(dev->udev, 0),
+		cmd,
+		USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
+		value,
+		index,
+		data,
+		size,
+		CONTROL_TIMEOUT_JIFFIES);
+}
+
+static void ax8817x_async_cmd_callback(struct urb *urb)
+{
+	struct usb_ctrlrequest *req = (struct usb_ctrlrequest *)urb->context;
+
+	if (urb->status < 0)
+		printk(KERN_DEBUG "ax8817x_async_cmd_callback() failed with %d",
+			urb->status);
+
+	kfree(req);
+	usb_free_urb(urb);
+}
+
+static void ax8817x_write_cmd_async(struct usbnet *dev, u8 cmd, u16 value, u16 index,
+				    u16 size, void *data)
+{
+	struct usb_ctrlrequest *req;
+	int status;
+	struct urb *urb;
+
+	if ((urb = ALLOC_URB(0, GFP_ATOMIC)) == NULL) {
+		devdbg(dev, "Error allocating URB in write_cmd_async!");
+		return;
+	}
+
+	if ((req = kmalloc(sizeof(struct usb_ctrlrequest), GFP_ATOMIC)) == NULL) {
+		devdbg(dev, "Failed to allocate memory for control request");
+		usb_free_urb(urb);
+		return;
+	}
+
+	req->bRequestType = USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE;
+	req->bRequest = cmd;
+	req->wValue = cpu_to_le16(value);
+	req->wIndex = cpu_to_le16(index); 
+	req->wLength = cpu_to_le16(size);
+
+	usb_fill_control_urb(urb, dev->udev,
+			     usb_sndctrlpipe(dev->udev, 0),
+			     (void *)req, data, size,
+			     ax8817x_async_cmd_callback, req);
+
+	if((status = SUBMIT_URB(urb, GFP_ATOMIC)) < 0)
+		devdbg(dev, "Error submitting the control message: status=%d", status);
+}
+
+static void ax8817x_set_multicast(struct net_device *net)
+{
+	struct usbnet *dev = (struct usbnet *) net->priv;
+	u8 rx_ctl = 0x8c;
+
+	if (net->flags & IFF_PROMISC) {
+		rx_ctl |= 0x01;
+	} else if (net->flags & IFF_ALLMULTI
+		   || net->mc_count > AX_MAX_MCAST) {
+		rx_ctl |= 0x02;
+	} else if (net->mc_count == 0) {
+		/* just broadcast and directed */
+	} else {
+		struct dev_mc_list *mc_list = net->mc_list;
+		u8 *multi_filter;
+		u32 crc_bits;
+		int i;
+
+		multi_filter = kmalloc(AX_MCAST_FILTER_SIZE, GFP_ATOMIC);
+		if (multi_filter == NULL) {
+			/* Oops, couldn't allocate a buffer for setting the multicast
+			   filter. Try all multi mode. */
+			rx_ctl |= 0x02;
+		} else {
+			memset(multi_filter, 0, AX_MCAST_FILTER_SIZE);
+
+			/* Build the multicast hash filter. */
+			for (i = 0; i < net->mc_count; i++) {
+				crc_bits =
+				    ether_crc(ETH_ALEN,
+					      mc_list->dmi_addr) >> 26;
+				multi_filter[crc_bits >> 3] |=
+				    1 << (crc_bits & 7);
+				mc_list = mc_list->next;
+			}
+
+			ax8817x_write_cmd_async(dev, AX_CMD_WRITE_MULTI_FILTER, 0, 0,
+					   AX_MCAST_FILTER_SIZE, multi_filter);
+
+			rx_ctl |= 0x10;
+		}
+	}
+
+	ax8817x_write_cmd_async(dev, AX_CMD_WRITE_RX_CTL, rx_ctl, 0, 0, NULL);
+}
+
+static int ax8817x_mdio_read(struct net_device *netdev, int phy_id, int loc)
+{
+	struct usbnet *dev = netdev->priv;
+	u16 res;
+	u8 buf[4];
+
+	ax8817x_write_cmd(dev, AX_CMD_SET_SW_MII, 0, 0, 0, &buf);
+	ax8817x_read_cmd(dev, AX_CMD_READ_MII_REG, phy_id, (__u16)loc, 2, (u16 *)&res);
+	ax8817x_write_cmd(dev, AX_CMD_SET_HW_MII, 0, 0, 0, &buf);
+
+	return res & 0xffff;
+}
+
+static void ax8817x_mdio_write(struct net_device *netdev, int phy_id, int loc, int val)
+{
+	struct usbnet *dev = netdev->priv;
+	u16 res = val;
+	u8 buf[4];
+
+	ax8817x_write_cmd(dev, AX_CMD_SET_SW_MII, 0, 0, 0, &buf);
+	ax8817x_write_cmd(dev, AX_CMD_WRITE_MII_REG, phy_id, (__u16)loc, 2, (u16 *)&res);
+	ax8817x_write_cmd(dev, AX_CMD_SET_HW_MII, 0, 0, 0, &buf);
+}
+
+static int ax8817x_bind(struct usbnet *dev, struct usb_device *intf)
+{
+	int ret;
+	u8 buf[6];
+	u16 *buf16 = (u16 *) buf;
+	int i;
+	unsigned long gpio_bits = dev->driver_info->data;
+
+	dev->in = usb_rcvbulkpipe(dev->udev, 3);
+	dev->out = usb_sndbulkpipe(dev->udev, 2);
+
+	/* Toggle the GPIOs in a manufacturer/model specific way */
+	for (i = 2; i >= 0; i--) {
+		if ((ret = ax8817x_write_cmd(dev, AX_CMD_WRITE_GPIOS,
+				       (gpio_bits >> (i * 8)) & 0xff, 0, 0,
+				       buf)) < 0)
+			return ret;
+		wait_ms(5);
+        }
+                                                                                
+	if ((ret = ax8817x_write_cmd(dev, AX_CMD_WRITE_RX_CTL, 0x80, 0, 0, buf)) < 0) {
+		dbg("send AX_CMD_WRITE_RX_CTL failed: %d", ret);
+		return ret;
+	}
+
+	/* Get the MAC address */
+	memset(buf, 0, ETH_ALEN);
+	if ((ret = ax8817x_read_cmd(dev, AX_CMD_READ_NODE_ID, 0, 0, 6, buf)) < 0) {
+		dbg("read AX_CMD_READ_NODE_ID failed: %d", ret);
+		return ret;
+	}
+	memcpy(dev->net.dev_addr, buf, ETH_ALEN);
+
+	/* Get IPG values */
+	if ((ret = ax8817x_read_cmd(dev, AX_CMD_READ_IPG012, 0, 0, 3, buf)) < 0) {
+		dbg("Error reading IPG values: %d", ret);
+		return ret;
+	}
+
+	for(i = 0;i < 3;i++) {
+		ax8817x_write_cmd(dev, AX_CMD_WRITE_IPG0 + i, 0, 0, 1, &buf[i]);
+	}
+
+	/* Get the PHY id */
+	if ((ret = ax8817x_read_cmd(dev, AX_CMD_READ_PHY_ID, 0, 0, 2, buf)) < 0) {
+		dbg("error on read AX_CMD_READ_PHY_ID: %02x", ret);
+		return ret;
+	} else if (ret < 2) {
+		/* this should always return 2 bytes */
+		dbg("AX_CMD_READ_PHY_ID returned less than 2 bytes: ret=%02x", ret);
+		return -EIO;
+	}
+
+	/* Initialize MII structure */
+	dev->mii.dev = &dev->net;
+	dev->mii.mdio_read = ax8817x_mdio_read;
+	dev->mii.mdio_write = ax8817x_mdio_write;
+	dev->mii.phy_id_mask = 0x3f;
+	dev->mii.reg_num_mask = 0x1f;
+	dev->mii.phy_id = buf[1];
+
+	if ((ret = ax8817x_write_cmd(dev, AX_CMD_SET_SW_MII, 0, 0, 0, &buf)) < 0) {
+		dbg("Failed to go to software MII mode: %02x", ret);
+		return ret;
+	}
+
+	*buf16 = cpu_to_le16(BMCR_RESET);
+	if ((ret = ax8817x_write_cmd(dev, AX_CMD_WRITE_MII_REG,
+				     dev->mii.phy_id, MII_BMCR, 2, buf16)) < 0) {
+		dbg("Failed to write MII reg - MII_BMCR: %02x", ret);
+		return ret;
+	}
+
+	/* Advertise that we can do full-duplex pause */
+	*buf16 = cpu_to_le16(ADVERTISE_ALL | ADVERTISE_CSMA | 0x0400);
+	if ((ret = ax8817x_write_cmd(dev, AX_CMD_WRITE_MII_REG,
+			   	     dev->mii.phy_id, MII_ADVERTISE, 
+				     2, buf16)) < 0) {
+		dbg("Failed to write MII_REG advertisement: %02x", ret);
+		return ret;
+	}
+
+	*buf16 = cpu_to_le16(BMCR_ANENABLE | BMCR_ANRESTART);
+	if ((ret = ax8817x_write_cmd(dev, AX_CMD_WRITE_MII_REG,
+			  	     dev->mii.phy_id, MII_BMCR, 
+				     2, buf16)) < 0) {
+		dbg("Failed to write MII reg autonegotiate: %02x", ret);
+		return ret;
+	}
+
+	if ((ret = ax8817x_write_cmd(dev, AX_CMD_SET_HW_MII, 0, 0, 0, &buf)) < 0) {
+		dbg("Failed to set hardware MII: %02x", ret);
+		return ret;
+	}
+
+	dev->net.set_multicast_list = ax8817x_set_multicast;
+
+	return 0;
+}
+
+static const struct driver_info ax8817x_info = {
+	.description = "ASIX AX8817x USB 2.0 Ethernet",
+	.bind = ax8817x_bind,
+	.flags =  FLAG_ETHER,
+	.data = 0x00130103,
+};
+
+static const struct driver_info dlink_dub_e100_info = {
+	.description = "DLink DUB-E100 USB Ethernet",
+	.bind = ax8817x_bind,
+	.flags =  FLAG_ETHER,
+	.data = 0x009f9d9f,
+};
+
+static const struct driver_info netgear_fa120_info = {
+	.description = "Netgear FA-120 USB Ethernet",
+	.bind = ax8817x_bind,
+	.flags =  FLAG_ETHER,
+	.data = 0x00130103,
+};
+
+static const struct driver_info hawking_uf200_info = {
+	.description = "Hawking UF200 USB Ethernet",
+	.bind = ax8817x_bind,
+	.flags =  FLAG_ETHER,
+	.data = 0x001f1d1f,
+};
+#endif /* CONFIG_USB_AX8817X */
 
 
 #ifdef	CONFIG_USB_BELKIN
@@ -231,9 +730,6 @@ static const struct driver_info	an2720_info = {
 
 static const struct driver_info	belkin_info = {
 	.description =	"Belkin, eTEK, or compatible",
-
-	.in = 1, .out = 1,		// direction distinguishes these
-	.epsize =64,
 };
 
 #endif	/* CONFIG_USB_BELKIN */
@@ -246,7 +742,7 @@ static const struct driver_info	belkin_info = {
  *
  * EPSON USB clients
  *
- * This is the same idea as "linuxdev" (below) except the firmware in the
+ * This is the same idea as Linux PDAs (below) except the firmware in the
  * device might not be Tux-powered.  Epson provides reference firmware that
  * implements this interface.  Product developers can reuse or modify that
  * code, such as by using their own product and vendor codes.
@@ -255,6 +751,7 @@ static const struct driver_info	belkin_info = {
 
 static const struct driver_info	epson2888_info = {
 	.description =	"Epson USB Device",
+	.check_connect = always_connected,
 
 	.in = 4, .out = 3,
 	.epsize = 64,
@@ -340,10 +837,28 @@ static void gl_interrupt_complete (struct urb *urb)
 {
 	int status = urb->status;
 	
+	switch (status) {
+	case 0:
+		/* success */
+		break;
+	case -ECONNRESET:
+	case -ENOENT:
+	case -ESHUTDOWN:
+		/* this urb is terminated, clean up */
+		dbg("%s - urb shutting down with status: %d",
+				__FUNCTION__, status);
+		return;
+	default:
+		dbg("%s - nonzero urb status received: %d",
+				__FUNCTION__, urb->status);
+	}
+
+	// NOTE:  2.4 still has automagic resubmit, so this would be
+	// wrong ... but this code has never worked, is always disabled.
+	status = usb_submit_urb (urb, GFP_ATOMIC);
 	if (status)
-		dbg ("gl_interrupt_complete fail - %X", status);
-	else
-		dbg ("gl_interrupt_complete success...");
+		err ("%s - usb_submit_urb failed with result %d",
+		     __FUNCTION__, status);
 }
 
 static int gl_interrupt_read (struct usbnet *dev)
@@ -409,7 +924,7 @@ static int genelink_init (struct usbnet *dev)
 	}
 
 	// fill irq urb
-	FILL_INT_URB (priv->irq_urb, dev->udev,
+	usb_fill_int_urb (priv->irq_urb, dev->udev,
 		usb_rcvintpipe (dev->udev, GENELINK_INTERRUPT_PIPE),
 		priv->irq_buf, INTERRUPT_BUFSIZE,
 		gl_interrupt_complete, 0,
@@ -559,7 +1074,7 @@ genelink_tx_fixup (struct usbnet *dev, struct sk_buff *skb, int flags)
 	*packet_len = length;
 
 	// add padding byte
-	if ((skb->len % EP_SIZE (dev)) == 0)
+	if ((skb->len % dev->maxpacket) == 0)
 		skb_put (skb, 1);
 
 	return skb;
@@ -581,34 +1096,6 @@ static const struct driver_info	genelink_info = {
 
 #endif /* CONFIG_USB_GENESYS */
 
-
-
-#ifdef	CONFIG_USB_LINUXDEV
-
-/*-------------------------------------------------------------------------
- *
- * This could talk to a device that uses Linux, such as a PDA or
- * an embedded system, or in fact to any "smart" device using this
- * particular mapping of USB and Ethernet.
- *
- * Such a Linux host would need a "USB Device Controller" hardware
- * (not "USB Host Controller"), and a network driver talking to that
- * hardware.
- *
- * One example is Intel's SA-1100 chip, which integrates basic USB
- * support (arch/arm/sa1100/usb-eth.c); it's used in the iPaq PDA.
- * And others too, like the Yopy.
- *
- *-------------------------------------------------------------------------*/
-
-static const struct driver_info	linuxdev_info = {
-	.description =	"Linux Device",
-
-	.in = 2, .out = 1,
-	.epsize = 64,
-};
-
-#endif	/* CONFIG_USB_LINUXDEV */
 
 
 #ifdef	CONFIG_USB_NET1080
@@ -724,6 +1211,38 @@ nc_register_write (struct usbnet *dev, u8 regnum, u16 value)
 }
 
 
+#if 0
+static void nc_dump_registers (struct usbnet *dev)
+{
+	u8	reg;
+	u16	*vp = kmalloc (sizeof (u16));
+
+	if (!vp) {
+		dbg ("no memory?");
+		return;
+	}
+
+	dbg ("%s registers:", dev->net.name);
+	for (reg = 0; reg < 0x20; reg++) {
+		int retval;
+
+		// reading some registers is trouble
+		if (reg >= 0x08 && reg <= 0xf)
+			continue;
+		if (reg >= 0x12 && reg <= 0x1e)
+			continue;
+
+		retval = nc_register_read (dev, reg, vp);
+		if (retval < 0)
+			dbg ("%s reg [0x%x] ==> error %d",
+				dev->net.name, reg, retval);
+		else
+			dbg ("%s reg [0x%x] = 0x%x",
+				dev->net.name, reg, *vp);
+	}
+	kfree (vp);
+}
+#endif
 
 
 /*-------------------------------------------------------------------------*/
@@ -779,12 +1298,12 @@ static inline void nc_dump_usbctl (struct usbnet *dev, u16 usbctl)
 #define	STATUS_CONN_OTHER	(1 << 14)
 #define	STATUS_SUSPEND_OTHER	(1 << 13)
 #define	STATUS_MAILBOX_OTHER	(1 << 12)
-#define	STATUS_PACKETS_OTHER(n)	(((n) >> 8) && 0x03)
+#define	STATUS_PACKETS_OTHER(n)	(((n) >> 8) & 0x03)
 
 #define	STATUS_CONN_THIS	(1 << 6)
 #define	STATUS_SUSPEND_THIS	(1 << 5)
 #define	STATUS_MAILBOX_THIS	(1 << 4)
-#define	STATUS_PACKETS_THIS(n)	(((n) >> 0) && 0x03)
+#define	STATUS_PACKETS_THIS(n)	(((n) >> 0) & 0x03)
 
 #define	STATUS_UNSPEC_MASK	0x0c8c
 #define	STATUS_NOISE_MASK 	((u16)~(0x0303|STATUS_UNSPEC_MASK))
@@ -973,6 +1492,10 @@ static int net1080_rx_fixup (struct usbnet *dev, struct sk_buff *skb)
 			header->packet_id, trailer->packet_id);
 		return 0;
 	}
+#if 0
+	devdbg (dev, "frame <rx h %d p %d id %d", header->hdr_len,
+		header->packet_len, header->packet_id);
+#endif
 	return 1;
 }
 
@@ -1017,9 +1540,6 @@ static const struct driver_info	net1080_info = {
 	.check_connect =net1080_check_connect,
 	.rx_fixup =	net1080_rx_fixup,
 	.tx_fixup =	net1080_tx_fixup,
-
-	.in = 1, .out = 1,		// direction distinguishes these
-	.epsize =64,
 };
 
 #endif /* CONFIG_USB_NET1080 */
@@ -1084,13 +1604,115 @@ static const struct driver_info	prolific_info = {
 	.flags =	FLAG_NO_SETINT,
 		/* some PL-2302 versions seem to fail usb_set_interface() */
 	.reset =	pl_reset,
-
-	.in = 3, .out = 2,
-	.epsize =64,
 };
 
 #endif /* CONFIG_USB_PL2301 */
 
+
+
+#ifdef	CONFIG_USB_ARMLINUX
+
+/*-------------------------------------------------------------------------
+ *
+ * Standard ARM kernels include a "usb-eth" driver, or a newer
+ * "ethernet gadget" driver for basic USB connectivity.  The vendor
+ * and product code may also be used for other non-CDC Linux devices,
+ * if they all maintain protocol compatibility.
+ *
+ * That means lots of hardware could match here, possibly using
+ * different endpoint numbers (and bcdVersion ids).  so we rely on
+ * endpoint descriptors to sort that out for us.
+ *
+ * (Current Zaurus models need a different driver; see later.)
+ *
+ *-------------------------------------------------------------------------*/
+
+static const struct driver_info	linuxdev_info = {
+	.description =	"Linux Device",
+	.check_connect = always_connected,
+};
+
+static const struct driver_info	yopy_info = {
+	.description =	"Yopy",
+	.check_connect = always_connected,
+};
+
+static const struct driver_info	blob_info = {
+	.description =	"Boot Loader OBject",
+	.check_connect = always_connected,
+};
+
+#endif	/* CONFIG_USB_ARMLINUX */
+
+
+#ifdef CONFIG_USB_ZAURUS
+
+#include <linux/crc32.h>
+
+/*-------------------------------------------------------------------------
+ *
+ * Zaurus PDAs are also ARM based, but currently use different drivers
+ * (and framing) for USB slave/gadget controllers than the case above.
+ *
+ * For the current version of that driver, the main way that framing is
+ * nonstandard (also from perspective of the CDC ethernet model!) is a
+ * crc32, added to help detect when some sa1100 usb-to-memory DMA errata
+ * haven't been fully worked around.
+ *
+ *-------------------------------------------------------------------------*/
+
+static struct sk_buff *
+zaurus_tx_fixup (struct usbnet *dev, struct sk_buff *skb, int flags)
+{
+	int			padlen;
+	struct sk_buff		*skb2;
+
+	padlen = 2;
+	if (!skb_cloned (skb)) {
+		int	tailroom = skb_tailroom (skb);
+		if ((padlen + 4) <= tailroom)
+			goto done;
+	}
+	skb2 = skb_copy_expand (skb, 0, 4 + padlen, flags);
+	dev_kfree_skb_any (skb);
+	skb = skb2;
+	if (skb) {
+		u32		fcs;
+done:
+		fcs = crc32_le (~0, skb->data, skb->len);
+		fcs = ~fcs;
+
+		*skb_put (skb, 1) = fcs       & 0xff;
+		*skb_put (skb, 1) = (fcs>> 8) & 0xff;
+		*skb_put (skb, 1) = (fcs>>16) & 0xff;
+		*skb_put (skb, 1) = (fcs>>24) & 0xff;
+	}
+	return skb;
+}
+
+/* SA-1100 based */
+static const struct driver_info	zaurus_sl5x00_info = {
+	.description =	"Sharp Zaurus SL-5x00",
+	.flags =	FLAG_FRAMING_Z,
+	.check_connect = always_connected,
+	.tx_fixup = 	zaurus_tx_fixup,
+
+	.in = 2, .out = 1,
+	.epsize = 64,
+};
+
+/* PXA-2xx based */
+static const struct driver_info zaurus_pxa_info = {
+	.description =	"Sharp Zaurus, PXA-2xx based",
+	.flags =	FLAG_FRAMING_Z,
+	.check_connect = always_connected,
+	.tx_fixup = 	zaurus_tx_fixup,
+
+	.in = 1, .out = 2,
+	.epsize = 64,
+};
+
+#endif
 
 
 /*-------------------------------------------------------------------------
@@ -1117,7 +1739,7 @@ static int usbnet_change_mtu (struct net_device *net, int new_mtu)
 		return -EINVAL;
 #endif
 	// no second zero-length packet read wanted after mtu-sized packets
-	if (((new_mtu + sizeof (struct ethhdr)) % EP_SIZE (dev)) == 0)
+	if (((new_mtu + sizeof (struct ethhdr)) % dev->maxpacket) == 0)
 		return -EDOM;
 	net->mtu = new_mtu;
 	return 0;
@@ -1132,7 +1754,7 @@ static struct net_device_stats *usbnet_get_stats (struct net_device *net)
 
 /*-------------------------------------------------------------------------*/
 
-/* urb completions are currently in_irq; avoid doing real work then. */
+/* urb completions may be in_irq; avoid doing real work then. */
 
 static void defer_bh (struct usbnet *dev, struct sk_buff *skb)
 {
@@ -1186,6 +1808,11 @@ static void rx_submit (struct usbnet *dev, struct urb *urb, int flags)
 		size = GL_RCV_BUF_SIZE;
 	else
 #endif
+#ifdef CONFIG_USB_ZAURUS
+	if (dev->driver_info->flags & FLAG_FRAMING_Z)
+		size = 6 + (sizeof (struct ethhdr) + dev->net.mtu);
+	else
+#endif
 		size = (sizeof (struct ethhdr) + dev->net.mtu);
 
 	if ((skb = alloc_skb (size, flags)) == 0) {
@@ -1201,8 +1828,7 @@ static void rx_submit (struct usbnet *dev, struct urb *urb, int flags)
 	entry->state = rx_start;
 	entry->length = 0;
 
-	FILL_BULK_URB (urb, dev->udev,
-		usb_rcvbulkpipe (dev->udev, dev->driver_info->in),
+	usb_fill_bulk_urb (urb, dev->udev, dev->in,
 		skb->data, size, rx_complete, skb);
 	urb->transfer_flags |= USB_ASYNC_UNLINK;
 
@@ -1247,8 +1873,6 @@ static inline void rx_process (struct usbnet *dev, struct sk_buff *skb)
 
 	if (skb->len) {
 		int	status;
-
-// FIXME: eth_copy_and_csum "small" packets to new SKB (small < ~200 bytes) ?
 
 		skb->dev = &dev->net;
 		skb->protocol = eth_type_trans (skb, &dev->net);
@@ -1466,74 +2090,56 @@ done:
 
 /*-------------------------------------------------------------------------*/
 
-static int usbnet_ethtool_ioctl (struct net_device *net, void *useraddr)
+static void usbnet_get_drvinfo (struct net_device *net, struct ethtool_drvinfo *info)
 {
-	struct usbnet	*dev = (struct usbnet *) net->priv;
-	u32		cmd;
+	struct usbnet *dev = net->priv;
 
-	if (get_user (cmd, (u32 *)useraddr))
-		return -EFAULT;
-	switch (cmd) {
+	strncpy (info->driver, driver_name, sizeof info->driver);
+	strncpy (info->version, DRIVER_VERSION, sizeof info->version);
+	strncpy (info->fw_version, dev->driver_info->description,
+		sizeof info->fw_version);
+	usb_make_path (dev->udev, info->bus_info, sizeof info->bus_info);
+}
 
-	case ETHTOOL_GDRVINFO: {	/* get driver info */
-		struct ethtool_drvinfo		info;
+static u32 usbnet_get_link (struct net_device *net)
+{
+	struct usbnet *dev = net->priv;
 
-		memset (&info, 0, sizeof info);
-		info.cmd = ETHTOOL_GDRVINFO;
-		strncpy (info.driver, driver_name, sizeof info.driver);
-		strncpy (info.version, DRIVER_VERSION, sizeof info.version);
-		strncpy (info.fw_version, dev->driver_info->description,
-			sizeof info.fw_version);
-		usb_make_path (dev->udev, info.bus_info, sizeof info.bus_info);
-		if (copy_to_user (useraddr, &info, sizeof (info)))
-			return -EFAULT;
-		return 0;
-		}
+	/* If a check_connect is defined, return it's results */
+	if (dev->driver_info->check_connect)
+		return dev->driver_info->check_connect (dev) == 0;
 
-	case ETHTOOL_GLINK: 		/* get link status */
-		if (dev->driver_info->check_connect) {
-			struct ethtool_value	edata = { ETHTOOL_GLINK };
+	/* Otherwise, we're up to avoid breaking scripts */
+	return 1;
+}
 
-			edata.data = dev->driver_info->check_connect (dev) == 0;
-			if (copy_to_user (useraddr, &edata, sizeof (edata)))
-				return -EFAULT;
-			return 0;
-		}
-		break;
+static u32 usbnet_get_msglevel (struct net_device *net)
+{
+	struct usbnet *dev = net->priv;
 
-	case ETHTOOL_GMSGLVL: {		/* get message-level */
-		struct ethtool_value	edata = {ETHTOOL_GMSGLVL};
+	return dev->msg_level;
+}
 
-		edata.data = dev->msg_level;
-		if (copy_to_user (useraddr, &edata, sizeof (edata)))
-			return -EFAULT;
-		return 0;
-		}
+static void usbnet_set_msglevel (struct net_device *net, u32 level)
+{
+	struct usbnet *dev = net->priv;
 
-	case ETHTOOL_SMSGLVL: {		/* set message-level */
-		struct ethtool_value	edata;
-
-		if (copy_from_user (&edata, useraddr, sizeof (edata)))
-			return -EFAULT;
-		dev->msg_level = edata.data;
-		return 0;
-		}
-	
-	/* could also map RINGPARAM to RX/TX QLEN */
-
-	}
-        /* Note that the ethtool user space code requires EOPNOTSUPP */
-	return -EOPNOTSUPP;
+	dev->msg_level = level;
 }
 
 static int usbnet_ioctl (struct net_device *net, struct ifreq *rq, int cmd)
 {
-	switch (cmd) {
-	case SIOCETHTOOL:
-		return usbnet_ethtool_ioctl (net, (void *)rq->ifr_data);
-	default:
-		return -EOPNOTSUPP;
+#ifdef NEED_MII
+	{
+	struct usbnet *dev = (struct usbnet *)net->priv;
+
+	if (dev->mii.mdio_read != NULL && dev->mii.mdio_write != NULL)
+		return generic_mii_ioctl(&dev->mii,
+				(struct mii_ioctl_data *) &rq->ifr_data,
+				cmd, NULL);
 	}
+#endif
+	return -EOPNOTSUPP;
 }
 
 /*-------------------------------------------------------------------------*/
@@ -1553,8 +2159,7 @@ kevent (void *data)
 	/* usb_clear_halt() needs a thread context */
 	if (test_bit (EVENT_TX_HALT, &dev->flags)) {
 		unlink_urbs (&dev->txq);
-		status = usb_clear_halt (dev->udev,
-			usb_sndbulkpipe (dev->udev, dev->driver_info->out));
+		status = usb_clear_halt (dev->udev, dev->out);
 		if (status < 0)
 			err ("%s: can't clear tx halt, status %d",
 				dev->net.name, status);
@@ -1565,8 +2170,7 @@ kevent (void *data)
 	}
 	if (test_bit (EVENT_RX_HALT, &dev->flags)) {
 		unlink_urbs (&dev->rxq);
-		status = usb_clear_halt (dev->udev,
-			usb_rcvbulkpipe (dev->udev, dev->driver_info->in));
+		status = usb_clear_halt (dev->udev, dev->in);
 		if (status < 0)
 			err ("%s: can't clear rx halt, status %d",
 				dev->net.name, status);
@@ -1628,7 +2232,7 @@ static void usbnet_tx_timeout (struct net_device *net)
 static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
 {
 	struct usbnet		*dev = (struct usbnet *) net->priv;
-	int			length = skb->len;
+	int			length;
 	int			retval = NET_XMIT_SUCCESS;
 	struct urb		*urb = 0;
 	struct skb_data		*entry;
@@ -1648,6 +2252,7 @@ static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
 			goto drop;
 		}
 	}
+	length = skb->len;
 
 	if (!(urb = ALLOC_URB (0, GFP_ATOMIC))) {
 		dbg ("no urb");
@@ -1662,6 +2267,7 @@ static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
 
 	// FIXME: reorganize a bit, so that fixup() fills out NetChip
 	// framing too. (Packet ID update needs the spinlock...)
+	// [ BETTER:  we already own net->xmit_lock, that's enough ]
 
 #ifdef	CONFIG_USB_NET1080
 	if (info->flags & FLAG_FRAMING_NC) {
@@ -1675,14 +2281,12 @@ static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
 #endif	/* CONFIG_USB_NET1080 */
 
 	/* don't assume the hardware handles USB_ZERO_PACKET */
-	if ((length % EP_SIZE (dev)) == 0)
+	if ((length % dev->maxpacket) == 0)
 		skb->len++;
 
-	FILL_BULK_URB (urb, dev->udev,
-			usb_sndbulkpipe (dev->udev, info->out),
+	usb_fill_bulk_urb (urb, dev->udev, dev->out,
 			skb->data, skb->len, tx_complete, skb);
 	urb->transfer_flags |= USB_ASYNC_UNLINK;
-	// FIXME urb->timeout = ... jiffies ... ;
 
 	spin_lock_irqsave (&dev->txq.lock, flags);
 
@@ -1690,6 +2294,11 @@ static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
 	if (info->flags & FLAG_FRAMING_NC) {
 		header->packet_id = cpu_to_le16 (dev->packet_id++);
 		put_unaligned (header->packet_id, &trailer->packet_id);
+#if 0
+		devdbg (dev, "frame >tx h %d p %d id %d",
+			header->hdr_len, header->packet_len,
+			header->packet_id);
+#endif
 	}
 #endif	/* CONFIG_USB_NET1080 */
 
@@ -1712,7 +2321,7 @@ static int usbnet_start_xmit (struct sk_buff *skb, struct net_device *net)
 	if (retval) {
 		devdbg (dev, "drop, code %d", retval);
 drop:
-		retval = NET_XMIT_DROP;
+		retval = NET_XMIT_SUCCESS;
 		dev->stats.tx_dropped++;
 		if (skb)
 			dev_kfree_skb_any (skb);
@@ -1837,21 +2446,27 @@ usbnet_probe (struct usb_device *udev, unsigned ifnum,
 {
 	struct usbnet			*dev;
 	struct net_device 		*net;
-	struct usb_interface_descriptor	*interface;
 	struct driver_info		*info;
 	int				altnum = 0;
+	int				status;
 
 	info = (struct driver_info *) prod->driver_info;
 
-	// sanity check; expect dedicated interface/devices for now.
-	interface = &udev->actconfig->interface [ifnum].altsetting [altnum];
-	if (udev->descriptor.bNumConfigurations != 1
-			|| udev->config[0].bNumInterfaces != 1
-//			|| interface->bInterfaceClass != USB_CLASS_VENDOR_SPEC
-			) {
-		dbg ("Bogus config info");
-		return 0;
+#ifdef CONFIG_USB_ZAURUS
+	if (info == &zaurus_sl5x00_info) {
+		int	status;
+
+		/* old ROMs have more than one config
+		 * so we have to make sure config="1" (?)
+		 */
+		status = usb_set_configuration (udev, 1);
+		if (status < 0) {
+			err ("set_config failed, %d", status);
+			return 0;
+		}
+		altnum = 1;
 	}
+#endif
 
 	// more sanity (unless the device is broken)
 	if (!(info->flags & FLAG_NO_SETINT)) {
@@ -1900,6 +2515,26 @@ usbnet_probe (struct usb_device *udev, unsigned ifnum,
 	net->watchdog_timeo = TX_TIMEOUT_JIFFIES;
 	net->tx_timeout = usbnet_tx_timeout;
 	net->do_ioctl = usbnet_ioctl;
+	net->ethtool_ops = &usbnet_ethtool_ops;
+
+	// allow device-specific bind/init procedures
+	// NOTE net->name still not usable ...
+	if (info->bind) {
+		status = info->bind (dev, udev);
+		// heuristic:  "usb%d" for links we know are two-host,
+		// else "eth%d" when there's reasonable doubt.  userspace
+		// can rename the link if it knows better.
+		if ((dev->driver_info->flags & FLAG_ETHER) != 0
+				&& (net->dev_addr [0] & 0x02) == 0)
+			strcpy (net->name, "eth%d");
+	} else if (!info->in || info->out)
+		status = get_endpoints (dev, udev->actconfig->interface + ifnum);
+	else {
+		dev->in = usb_rcvbulkpipe (udev, info->in);
+		dev->out = usb_sndbulkpipe (udev, info->out);
+	}
+
+	dev->maxpacket = usb_maxpacket (dev->udev, dev->out, 1);
 
 	register_netdev (&dev->net);
 	devinfo (dev, "register usbnet usb-%s-%s, %s",
@@ -1938,6 +2573,34 @@ static const struct usb_device_id	products [] = {
 },
 #endif
 
+#ifdef CONFIG_USB_AX8817X
+{
+	// Linksys USB200M
+	USB_DEVICE (0x077b, 0x2226),
+	.driver_info =	(unsigned long) &ax8817x_info,
+}, {
+	// Netgear FA120
+	USB_DEVICE (0x0846, 0x1040),
+	.driver_info =	(unsigned long) &netgear_fa120_info,
+}, {
+	// DLink DUB-E100
+	USB_DEVICE (0x2001, 0x1a00),
+	.driver_info =	(unsigned long) &dlink_dub_e100_info,
+}, {
+	// Intellinet, ST Lab USB Ethernet
+	USB_DEVICE (0x0b95, 0x1720),
+	.driver_info =	(unsigned long) &ax8817x_info,
+}, {
+	// Hawking UF200, TrendNet TU2-ET100
+	USB_DEVICE (0x07b8, 0x420a),
+	.driver_info =	(unsigned long) &hawking_uf200_info,
+}, {
+	// ATEN UC210T
+	USB_DEVICE (0x0557, 0x2009),
+	.driver_info =  (unsigned long) &ax8817x_info,
+},
+#endif
+
 #ifdef	CONFIG_USB_BELKIN
 {
 	USB_DEVICE (0x050d, 0x0004),	// Belkin
@@ -1954,7 +2617,7 @@ static const struct usb_device_id	products [] = {
 #ifdef	CONFIG_USB_EPSON2888
 {
 	USB_DEVICE (0x0525, 0x2888),	// EPSON USB client
-	driver_info:	(unsigned long) &epson2888_info,
+	.driver_info	= (unsigned long) &epson2888_info,
 },
 #endif
 
@@ -1966,23 +2629,6 @@ static const struct usb_device_id	products [] = {
 	/* NOT: USB_DEVICE (0x05e3, 0x0501),	// GL620USB
 	 * that's half duplex, not currently supported
 	 */
-#endif
-
-#ifdef	CONFIG_USB_LINUXDEV
-/*
- * for example, this can be a host side talk-to-PDA driver.
- * this driver is NOT what runs _inside_ a Linux device !!
- */
-{
-	// 1183 = 0x049F, both used as hex values?
-	USB_DEVICE (0x049F, 0x505A),	// Compaq "Itsy"
-	.driver_info =	(unsigned long) &linuxdev_info,
-}, {
-	USB_DEVICE (0x0E7E, 0x1001),	// G.Mate "Yopy"
-	.driver_info =	(unsigned long) &linuxdev_info,
-},
-	// NOTE:  the Sharp Zaurus uses a modified version of
-	// this driver, which is not interoperable with this.
 #endif
 
 #ifdef	CONFIG_USB_NET1080
@@ -2005,7 +2651,94 @@ static const struct usb_device_id	products [] = {
 },
 #endif
 
-/* KC2190 from www.sepoong.co.kr "InstaNET" */
+#ifdef	CONFIG_USB_ARMLINUX
+/*
+ * SA-1100 using standard ARM Linux kernels, or compatible.
+ * Often used when talking to Linux PDAs (iPaq, Yopy, etc).
+ * The sa-1100 "usb-eth" driver handles the basic framing.
+ * ARMv4.
+ *
+ * PXA2xx using usb "gadget" driver, or older "usb-eth" much like
+ * the sa1100 one. (But PXA hardware uses different endpoints.)
+ * ARMv5TE.
+ */
+{
+	// 1183 = 0x049F, both used as hex values?
+	// Compaq "Itsy" vendor/product id
+	// version numbers vary, along with endpoint usage
+	// but otherwise they're protocol-compatible
+	USB_DEVICE (0x049F, 0x505A),
+	.driver_info =	(unsigned long) &linuxdev_info,
+}, {
+	USB_DEVICE (0x0E7E, 0x1001),	// G.Mate "Yopy"
+	.driver_info =	(unsigned long) &yopy_info,
+}, {
+	USB_DEVICE (0x8086, 0x07d3),	// "blob" bootloader
+	.driver_info =	(unsigned long) &blob_info,
+}, 
+#endif
+
+#ifdef	CONFIG_USB_ZAURUS
+/*
+ * SA-1100 based Sharp Zaurus ("collie"), or compatible.
+ * Same idea as above, but different framing.
+ */
+{
+	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+			  | USB_DEVICE_ID_MATCH_DEVICE, 
+	.idVendor		= 0x04DD,
+	.idProduct		= 0x8004,
+	.bInterfaceClass	= 0x0a,
+	.bInterfaceSubClass	= 0x00,
+	.bInterfaceProtocol	= 0x00,
+	.driver_info =  (unsigned long) &zaurus_sl5x00_info,
+}, {
+	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+			  | USB_DEVICE_ID_MATCH_DEVICE, 
+	.idVendor		= 0x04DD,
+	.idProduct		= 0x8005, /* A-300 */
+	.bInterfaceClass	= 0x02,
+	.bInterfaceSubClass	= 0x0a,
+	.bInterfaceProtocol	= 0x00,
+	.driver_info =  (unsigned long) &zaurus_pxa_info,
+}, {
+	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+			  | USB_DEVICE_ID_MATCH_DEVICE, 
+	.idVendor		= 0x04DD,
+	.idProduct		= 0x8006, /* B-500/SL-5600 */
+	.bInterfaceClass	= 0x02,
+	.bInterfaceSubClass	= 0x0a,
+	.bInterfaceProtocol	= 0x00,
+	.driver_info =  (unsigned long) &zaurus_pxa_info,
+}, {
+	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+			  | USB_DEVICE_ID_MATCH_DEVICE, 
+	.idVendor		= 0x04DD,
+	.idProduct		= 0x8007, /* C-700 */
+	.bInterfaceClass	= 0x02,
+	.bInterfaceSubClass	= 0x0a,
+	.bInterfaceProtocol	= 0x00,
+	.driver_info =  (unsigned long) &zaurus_pxa_info,
+}, {
+	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+			  | USB_DEVICE_ID_MATCH_DEVICE,
+	.idVendor		= 0x04DD,
+	.idProduct		= 0x9031, /* C-750 C-760 */
+	.bInterfaceClass	= 0x02,
+	.bInterfaceSubClass	= 0x0a,
+	.bInterfaceProtocol	= 0x00,
+	.driver_info =	(unsigned long) &zaurus_pxa_info,
+}, {
+	.match_flags	=   USB_DEVICE_ID_MATCH_INT_INFO
+			  | USB_DEVICE_ID_MATCH_DEVICE,
+	.idVendor		= 0x04DD,
+	.idProduct		= 0x9032, /* SL-6000 */
+	.bInterfaceClass	= 0x02,
+	.bInterfaceSubClass	= 0x0a,
+	.bInterfaceProtocol	= 0x00,
+	.driver_info =	(unsigned long) &zaurus_pxa_info,
+},
+#endif
 
 	{ },		// END
 };
@@ -2018,6 +2751,13 @@ static struct usb_driver usbnet_driver = {
 	.disconnect =	usbnet_disconnect,
 };
 
+/* Default ethtool_ops assigned.  Devices can override in their bind() routine */
+static struct ethtool_ops usbnet_ethtool_ops = {
+	.get_drvinfo		= usbnet_get_drvinfo,
+	.get_link		= usbnet_get_link,
+	.get_msglevel		= usbnet_get_msglevel,
+	.set_msglevel		= usbnet_set_msglevel,
+};
 /*-------------------------------------------------------------------------*/
 
 static int __init usbnet_init (void)

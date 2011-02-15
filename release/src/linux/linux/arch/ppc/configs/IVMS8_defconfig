@@ -69,6 +69,7 @@ CONFIG_KCORE_ELF=y
 CONFIG_BINFMT_ELF=y
 CONFIG_KERNEL_ELF=y
 # CONFIG_BINFMT_MISC is not set
+# CONFIG_OOM_KILLER is not set
 # CONFIG_HOTPLUG is not set
 # CONFIG_PCMCIA is not set
 
@@ -76,7 +77,7 @@ CONFIG_KERNEL_ELF=y
 # Parallel port support
 #
 # CONFIG_PARPORT is not set
-CONFIG_PPC_RTC=y
+CONFIG_GEN_RTC=y
 # CONFIG_CMDLINE_BOOL is not set
 
 #
@@ -194,15 +195,6 @@ CONFIG_BLK_DEV_IDE=y
 CONFIG_BLK_DEV_IDEDISK=y
 CONFIG_IDEDISK_MULTI_MODE=y
 # CONFIG_IDEDISK_STROKE is not set
-# CONFIG_BLK_DEV_IDEDISK_VENDOR is not set
-# CONFIG_BLK_DEV_IDEDISK_FUJITSU is not set
-# CONFIG_BLK_DEV_IDEDISK_IBM is not set
-# CONFIG_BLK_DEV_IDEDISK_MAXTOR is not set
-# CONFIG_BLK_DEV_IDEDISK_QUANTUM is not set
-# CONFIG_BLK_DEV_IDEDISK_SEAGATE is not set
-# CONFIG_BLK_DEV_IDEDISK_WD is not set
-# CONFIG_BLK_DEV_COMMERIAL is not set
-# CONFIG_BLK_DEV_TIVO is not set
 # CONFIG_BLK_DEV_IDECS is not set
 CONFIG_BLK_DEV_IDECD=y
 # CONFIG_BLK_DEV_IDETAPE is not set
@@ -223,10 +215,10 @@ CONFIG_IDE_8xx_PCCARD=y
 # CONFIG_IDE_CHIPSETS is not set
 # CONFIG_IDEDMA_AUTO is not set
 # CONFIG_DMA_NONPCI is not set
-CONFIG_BLK_DEV_IDE_MODES=y
 # CONFIG_BLK_DEV_ATARAID is not set
 # CONFIG_BLK_DEV_ATARAID_PDC is not set
 # CONFIG_BLK_DEV_ATARAID_HPT is not set
+# CONFIG_BLK_DEV_ATARAID_SII is not set
 
 #
 # SCSI support
@@ -277,6 +269,7 @@ CONFIG_NET_ETHERNET=y
 # CONFIG_NS83820 is not set
 # CONFIG_HAMACHI is not set
 # CONFIG_YELLOWFIN is not set
+# CONFIG_R8169 is not set
 # CONFIG_SK98LIN is not set
 # CONFIG_TIGON3 is not set
 # CONFIG_FDDI is not set
@@ -379,11 +372,18 @@ CONFIG_UNIX98_PTY_COUNT=32
 # Input core support is needed for joysticks
 #
 # CONFIG_QIC02_TAPE is not set
+# CONFIG_IPMI_HANDLER is not set
+# CONFIG_IPMI_PANIC_EVENT is not set
+# CONFIG_IPMI_DEVICE_INTERFACE is not set
+# CONFIG_IPMI_KCS is not set
+# CONFIG_IPMI_WATCHDOG is not set
 
 #
 # Watchdog Cards
 #
 # CONFIG_WATCHDOG is not set
+# CONFIG_SCx200_GPIO is not set
+# CONFIG_AMD_PM768 is not set
 # CONFIG_NVRAM is not set
 # CONFIG_RTC is not set
 # CONFIG_DTLK is not set
@@ -506,14 +506,8 @@ CONFIG_MAC_PARTITION=y
 # CONFIG_SOUND is not set
 
 #
-# MPC8xx CPM Options
+# MPC8xx Options
 #
-# CONFIG_SCC_ENET is not set
-CONFIG_FEC_ENET=y
-CONFIG_USE_MDIO=y
-CONFIG_ENET_BIG_BUFFERS=y
-# CONFIG_SMC2_UART is not set
-# CONFIG_USE_SCC_IO is not set
 
 #
 # Generic MPC8xx Options
@@ -521,6 +515,27 @@ CONFIG_ENET_BIG_BUFFERS=y
 CONFIG_8xx_COPYBACK=y
 # CONFIG_8xx_CPU6 is not set
 # CONFIG_UCODE_PATCH is not set
+
+#
+# MPC8xx CPM Options
+#
+# CONFIG_SCC_ENET is not set
+CONFIG_FEC_ENET=y
+CONFIG_USE_MDIO=y
+# CONFIG_FEC_GENERIC_PHY is not set
+# CONFIG_FEC_AM79C874 is not set
+# CONFIG_FEC_LXT970 is not set
+# CONFIG_FEC_QS6612 is not set
+# CONFIG_FEC_LXT970 is not set
+CONFIG_FEC_DP83843=y
+# CONFIG_FEC_DP83846A is not set
+CONFIG_ENET_BIG_BUFFERS=y
+CONFIG_8xx_SMC1=y
+# CONFIG_8xx_SMC2 is not set
+# CONFIG_8xx_SCC1 is not set
+# CONFIG_8xx_SCC2 is not set
+# CONFIG_8xx_SCC3 is not set
+# CONFIG_8xx_SCC4 is not set
 
 #
 # USB support

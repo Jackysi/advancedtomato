@@ -64,8 +64,6 @@ struct cmp_host {
 		quadlet_t impr_quadlet;
 	} v;
 	struct plug ipcr[2];
-
-	struct list_head link;
 };
 
 enum {
@@ -76,32 +74,7 @@ enum {
 #define CSR_PCR_MAP      0x900
 #define CSR_PCR_MAP_END  0x9fc
 
-static struct hpsb_highlevel *cmp_highlevel;
-
-static LIST_HEAD(host_list);
-static spinlock_t host_list_lock = SPIN_LOCK_UNLOCKED;
-
-static struct cmp_host *
-lookup_cmp_host(struct hpsb_host *host)
-{
-	struct cmp_host *ch;
-	struct list_head *lh;
-	unsigned long flags;
-
-	ch = NULL;
-	spin_lock_irqsave(&host_list_lock, flags);
-	list_for_each(lh, &host_list) {
-		ch = list_entry(lh, struct cmp_host, link);
-		if (ch->host == host)
-			break;
-	}
-	spin_unlock_irqrestore(&host_list_lock, flags);
-
-	if (lh == &host_list)
-		return NULL;
-	else
-		return ch;
-}
+static struct hpsb_highlevel cmp_highlevel;
 
 struct cmp_pcr *
 cmp_register_opcr(struct hpsb_host *host, int opcr_number, int payload,
@@ -111,7 +84,7 @@ cmp_register_opcr(struct hpsb_host *host, int opcr_number, int payload,
 	struct cmp_host *ch;
 	struct plug *plug;
 
-	ch = lookup_cmp_host(host);
+	ch = hpsb_get_hostinfo(&cmp_highlevel, host);
 
 	if (opcr_number >= ch->u.ompr.nplugs ||
 	    ch->opcr[opcr_number].update != NULL)
@@ -134,7 +107,7 @@ void cmp_unregister_opcr(struct hpsb_host *host, struct cmp_pcr *opcr)
 	struct cmp_host *ch;
 	struct plug *plug;
 
-	ch = lookup_cmp_host(host);
+	ch = hpsb_get_hostinfo(&cmp_highlevel, host);
 	plug = (struct plug *)opcr;
 	if (plug - ch->opcr >= ch->u.ompr.nplugs) BUG();
 
@@ -156,50 +129,36 @@ static void reset_plugs(struct cmp_host *ch)
 
 static void cmp_add_host(struct hpsb_host *host)
 {
-	struct cmp_host *ch;
+	struct cmp_host *ch = hpsb_create_hostinfo(&cmp_highlevel, host, sizeof (*ch));
 
-	ch = kmalloc(sizeof *ch, SLAB_KERNEL);
 	if (ch == NULL) {
 		HPSB_ERR("Failed to allocate cmp_host");
 		return;
 	}
-	memset(ch, 0, sizeof *ch);
+
 	ch->host = host;
-	ch->u.ompr.rate = SPEED_100;
+	ch->u.ompr.rate = IEEE1394_SPEED_100;
 	ch->u.ompr.bcast_channel_base = 63;
 	ch->u.ompr.nplugs = 2;
-	reset_plugs(ch);
 
-	spin_lock_irq(&host_list_lock);
-	list_add_tail(&ch->link, &host_list);
-	spin_unlock_irq(&host_list_lock);
+	reset_plugs(ch);
 }
 
 static void cmp_host_reset(struct hpsb_host *host)
 {
 	struct cmp_host *ch;
 
-	ch = lookup_cmp_host(host);
-	if (ch == NULL) BUG();
+	ch = hpsb_get_hostinfo(&cmp_highlevel, host);
+	if (ch == NULL) {
+		HPSB_ERR("cmp: Tried to reset unknown host");
+		return;
+	}
+
 	reset_plugs(ch);
 }
 
-static void cmp_remove_host(struct hpsb_host *host)
-{
-	struct cmp_host *ch;
-
-	ch = lookup_cmp_host(host);
-	if (ch == NULL) BUG();
-
-	spin_lock_irq(&host_list_lock);
-	list_del(&ch->link);
-	spin_unlock_irq(&host_list_lock);
-
-	kfree(ch);
-}
-
 static int pcr_read(struct hpsb_host *host, int nodeid, quadlet_t *buf,
-		    u64 addr, unsigned int length)
+		    u64 addr, size_t length, u16 flags)
 {
 	int csraddr = addr - CSR_REGISTER_BASE;
 	int plug;
@@ -208,7 +167,7 @@ static int pcr_read(struct hpsb_host *host, int nodeid, quadlet_t *buf,
 	if (length != 4)
 		return RCODE_TYPE_ERROR;
 
-	ch = lookup_cmp_host(host);
+	ch = hpsb_get_hostinfo(&cmp_highlevel, host);
 	if (csraddr == 0x900) {
 		*buf = cpu_to_be32(ch->u.ompr_quadlet);
 		return RCODE_COMPLETE;   
@@ -235,18 +194,19 @@ static int pcr_read(struct hpsb_host *host, int nodeid, quadlet_t *buf,
 }
 
 static int pcr_lock(struct hpsb_host *host, int nodeid, quadlet_t *store,
-		    u64 addr, quadlet_t data, quadlet_t arg, int extcode)
+		    u64 addr, quadlet_t data, quadlet_t arg, int extcode, u16 flags)
 {
 	int csraddr = addr - CSR_REGISTER_BASE;
 	int plug;
 	struct cmp_host *ch;
 
-	ch = lookup_cmp_host(host);
+	ch = hpsb_get_hostinfo(&cmp_highlevel, host);
 	
 	if (extcode != EXTCODE_COMPARE_SWAP) 
 		return RCODE_TYPE_ERROR;
 	
 	if (csraddr == 0x900) {
+		/* FIXME: Ignore writes to bits 30-31 and 0-7 */
 		*store = cpu_to_be32(ch->u.ompr_quadlet);
 		if (arg == cpu_to_be32(ch->u.ompr_quadlet))
 			ch->u.ompr_quadlet = be32_to_cpu(data);
@@ -271,6 +231,7 @@ static int pcr_lock(struct hpsb_host *host, int nodeid, quadlet_t *store,
 		return RCODE_ADDRESS_ERROR;
 	}
 	else if (csraddr == 0x980) {
+		/* FIXME: Ignore writes to bits 24-31 and 0-7 */
 		*store = cpu_to_be32(ch->u.ompr_quadlet);
 		if (arg == cpu_to_be32(ch->u.ompr_quadlet))
 			ch->u.ompr_quadlet = be32_to_cpu(data);
@@ -296,9 +257,9 @@ static int pcr_lock(struct hpsb_host *host, int nodeid, quadlet_t *store,
 }
 
 
-static struct hpsb_highlevel_ops cmp_highlevel_ops = {
+static struct hpsb_highlevel cmp_highlevel = {
+	.name =		"cmp",
 	.add_host =	cmp_add_host,
-	.remove_host =	cmp_remove_host,
         .host_reset =	cmp_host_reset,
 };
 
@@ -319,14 +280,9 @@ EXPORT_SYMBOL(cmp_unregister_opcr);
 
 static int __init cmp_init_module (void)
 {
-	cmp_highlevel = hpsb_register_highlevel ("cmp",
-						 &cmp_highlevel_ops);
-	if (cmp_highlevel == NULL) {
-		HPSB_ERR("cmp: unable to register highlevel ops");
-		return -EIO;
-	}
+	hpsb_register_highlevel (&cmp_highlevel);
 
-	hpsb_register_addrspace(cmp_highlevel, &pcr_ops,
+	hpsb_register_addrspace(&cmp_highlevel, &pcr_ops,
 				CSR_REGISTER_BASE + CSR_PCR_MAP,
 				CSR_REGISTER_BASE + CSR_PCR_MAP_END);
 
@@ -337,7 +293,7 @@ static int __init cmp_init_module (void)
 
 static void __exit cmp_exit_module (void)
 {
-        hpsb_unregister_highlevel(cmp_highlevel);
+        hpsb_unregister_highlevel(&cmp_highlevel);
 
 	HPSB_INFO("Unloaded CMP driver");
 }

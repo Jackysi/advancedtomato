@@ -1,0 +1,39 @@
+20100826:
+    added Olivetti Olicard 145, Onda MW833UP, Huawei EC168C; duplicated Option
+    configuration for unusual device
+20100817:
+    added BSNL Capitel; added Samsung GT-B3730; added Vodafone/
+    ZTE K3806-Z; changed Vodafone/Huawei devices (added switching
+    command for cdc_ether mode): K4605, K3765 and K4505;
+    added rule for driver loading after reboot (wrapper 1.1.4)
+    change symlink rule in sync with changes in wrapper 1.1.4
+    final changes for ZTE 19d2:2000 ("...!")
+20100707:
+    added Vodafone/Huawei K4605 and Huawei R201 (from Betavine),
+    added Atheros Wireless / Netgear WNDA3200, added Onda MW833UP,
+    added Huawei U8110, added ZTE device from BSNL, added Nokia CS-10,
+    changed commands for ZTE 19d2:2000 - again ...;
+    remove unneeded definitions from Makefile
+20100623:
+    Huawei E173 was left out in previous release, add it again;
+    added BandLuxe C170 and C270 (now confirmed working)
+20100621 (with release 1.1.3):
+    added ZTE devices (MU351, MF110 variants, MF112, MF627);
+    added Sierra target IDs and Option devices (sync to kernel 2.6.34);
+    added LG L-05A, LG LUU-2100TI, LG KP500, Alcatel OT X220L, Olivetti Olicard
+    series, Huawei MTE WM610, Royaltek Q110, Rogers Rocket Stick;
+    changed most ZTE devices again to "eject" command with known specific
+    commands as second message; changed interface filter in rules file to
+    include "5" and "9" besides "0" (quirky devices)
+20100418 (with release 1.1.2):
+    First version with proper ChangeLog; added Digicom 8E4455 (needs multiple
+    commands, implemented in usb-modeswitch-1.1.2); added all other Pirelli
+    target IDs (from "option" driver) assuming they behave like the Digicom -
+    this is EXPERIMENTAL; added several ZTE devices and S.E. MD300, contributed
+    by Betavine project; new rule to add a symlink to interrupt ports (ignored
+    if wrapper is < 1.1.2)
+20100322:
+    Changed all ZTE devices to the "non-eject" command after annother report
+    of "eject" failure; even older ZTE devices seem to work with the former;
+    a conflict was exposed between two versions of 16d8:6803 (C-motech D50);
+    changed the default to the one which keeps the ID during switching

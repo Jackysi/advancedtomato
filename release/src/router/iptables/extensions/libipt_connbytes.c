@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <iptables.h>
-#include <linux/netfilter_ipv4/ip_conntrack.h>
+#include <linux/netfilter/nf_conntrack_common.h>
 #include <linux/netfilter_ipv4/ipt_connbytes.h>
 
 /* Function which prints out usage message. */
@@ -158,11 +158,9 @@ print(const struct ipt_ip *ip,
 	else
 		printf("connbytes %llu:%llu ",sinfo->count.from,
 			sinfo->count.to);
-
-	fputs("connbytes mode ", stdout);
 	print_mode(sinfo);
 
-	fputs("connbytes direction ", stdout);
+	fputs("direction ", stdout);
 	print_direction(sinfo);
 }
 

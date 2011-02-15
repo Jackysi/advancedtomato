@@ -147,7 +147,7 @@
  */
 #define SYMMON_STACK_SIZE		0x8000
 
-#if defined(PROM) || defined(SABLE)
+#if defined (PROM) || defined (SABLE)
 
 /*
  * These defines are prom version dependent.  No code other than the IP27
@@ -213,7 +213,7 @@
 typedef struct kldir_ent_s {
 	u64		magic;		/* Indicates validity of entry      */
 	off_t		offset;		/* Offset from start of node space  */
-#if defined(CONFIG_SGI_IO)	  
+#if defined(CONFIG_SGI_IO)	/* FIXME */
 	__psunsigned_t	pointer;	/* Pointer to area in some cases    */
 #else
 	unsigned long	pointer;	/* Pointer to area in some cases    */

@@ -25,11 +25,11 @@ struct nvidia_meta {
 	uint32_t	size;
 	uint32_t	chksum;
 	uint16_t	version;
-} __attribute__((packed));
+} PACKED;
 
 #define NVIDIA_SIGNATURE		"NVIDIA"
 
-int volume_id_probe_nvidia_raid(struct volume_id *id, uint64_t off, uint64_t size)
+int FAST_FUNC volume_id_probe_nvidia_raid(struct volume_id *id, uint64_t off, uint64_t size)
 {
 	uint64_t meta_off;
 	struct nvidia_meta *nv;

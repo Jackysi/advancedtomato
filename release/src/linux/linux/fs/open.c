@@ -105,11 +105,15 @@ int do_truncate(struct dentry *dentry, loff_t length)
 	if (length < 0)
 		return -EINVAL;
 
+	down_write(&inode->i_alloc_sem);
 	down(&inode->i_sem);
 	newattrs.ia_size = length;
 	newattrs.ia_valid = ATTR_SIZE | ATTR_CTIME;
+	/* Remove suid/sgid on truncate too */
+	remove_suid(inode);
 	error = notify_change(dentry, &newattrs);
 	up(&inode->i_sem);
+	up_write(&inode->i_alloc_sem);
 	return error;
 }
 
@@ -272,6 +276,9 @@ asmlinkage long sys_utime(char * filename, struct utimbuf * times)
 	/* Don't worry, the checks are done in inode_change_ok() */
 	newattrs.ia_valid = ATTR_CTIME | ATTR_MTIME | ATTR_ATIME;
 	if (times) {
+		error = -EPERM;
+		if (IS_APPEND(inode) || IS_IMMUTABLE(inode))
+			goto dput_and_out;
 		error = get_user(newattrs.ia_atime, &times->actime);
 		if (!error) 
 			error = get_user(newattrs.ia_mtime, &times->modtime);
@@ -280,6 +287,9 @@ asmlinkage long sys_utime(char * filename, struct utimbuf * times)
 
 		newattrs.ia_valid |= ATTR_ATIME_SET | ATTR_MTIME_SET;
 	} else {
+		error = -EACCES;
+		if (IS_IMMUTABLE(inode))
+			goto dput_and_out;
 		if (current->fsuid != inode->i_uid &&
 		    (error = permission(inode,MAY_WRITE)) != 0)
 			goto dput_and_out;
@@ -318,6 +328,9 @@ asmlinkage long sys_utimes(char * filename, struct timeval * utimes)
 	newattrs.ia_valid = ATTR_CTIME | ATTR_MTIME | ATTR_ATIME;
 	if (utimes) {
 		struct timeval times[2];
+		error = -EPERM;
+		if (IS_APPEND(inode) || IS_IMMUTABLE(inode))
+			goto dput_and_out;
 		error = -EFAULT;
 		if (copy_from_user(&times, utimes, sizeof(times)))
 			goto dput_and_out;
@@ -325,6 +338,10 @@ asmlinkage long sys_utimes(char * filename, struct timeval * utimes)
 		newattrs.ia_mtime = times[1].tv_sec;
 		newattrs.ia_valid |= ATTR_ATIME_SET | ATTR_MTIME_SET;
 	} else {
+		error = -EACCES;
+		if (IS_IMMUTABLE(inode))
+			goto dput_and_out;
+
 		if (current->fsuid != inode->i_uid &&
 		    (error = permission(inode,MAY_WRITE)) != 0)
 			goto dput_and_out;
@@ -766,11 +783,13 @@ repeat:
 	FD_SET(fd, files->open_fds);
 	FD_CLR(fd, files->close_on_exec);
 	files->next_fd = fd + 1;
+#if 1
 	/* Sanity check */
 	if (files->fd[fd] != NULL) {
 		printk(KERN_WARNING "get_unused_fd: slot %d not NULL!\n", fd);
 		files->fd[fd] = NULL;
 	}
+#endif
 	error = fd;
 
 out:
@@ -793,6 +812,30 @@ asmlinkage long sys_open(const char * filename, int flags, int mode)
 		if (fd >= 0) {
 			struct file *f = filp_open(tmp, flags, mode);
 			error = PTR_ERR(f);
+
+			/*
+			 * ESTALE errors can be a pain.  On some
+			 * filesystems (e.g. NFS), ESTALE can often
+			 * be resolved by retry, as the ESTALE resulted
+			 * in a cache invalidation.  We perform this
+			 * retry here, once for every directory element
+			 * in the path to avoid the case where the removal
+			 * of the nth parent directory of the file we're
+			 * trying to open results in n ESTALE errors.
+			 */
+			if (error == -ESTALE) {
+				int nretries = 1;
+				char *cp;
+
+				for (cp = tmp; *cp; cp++) {
+					if (*cp == '/')
+						nretries++;
+				}
+				do {
+					f = filp_open(tmp, flags, mode);
+					error = PTR_ERR(f);
+				} while (error == -ESTALE && --nretries > 0);
+			}
 			if (IS_ERR(f))
 				goto out_error;
 			fd_install(fd, f);

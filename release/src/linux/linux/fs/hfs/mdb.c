@@ -1,4 +1,22 @@
-
+/*
+ * linux/fs/hfs/mdb.c
+ *
+ * Copyright (C) 1995-1997  Paul H. Hargrove
+ * This file may be distributed under the terms of the GNU General Public License.
+ *
+ * This file contains functions for reading/writing the MDB.
+ *
+ * "XXX" in a comment is a note to myself to consider changing something.
+ *
+ * In function preconditions the term "valid" applied to a pointer to
+ * a structure means that the pointer is non-NULL and the structure it
+ * points to has all fields initialized to consistent values.
+ *
+ * The code in this file initializes some structures which contain
+ * pointers by calling memset(&foo, 0, sizeof(foo)).
+ * This produces the desired behavior only due to the non-ANSI
+ * assumption that the machine representation of NULL is all zeros.
+ */
 
 #include "hfs.h"
 
@@ -179,7 +197,7 @@ struct hfs_mdb *hfs_mdb_get(hfs_sysmdb sys_mdb, int readonly,
 
 	if (!(mdb->attrib & htons(HFS_SB_ATTRIB_CLEAN))) {
 		hfs_warn("hfs_fs: WARNING: mounting unclean filesystem.\n");
-	} else if (!readonly) {
+	} else if (!readonly && !(mdb->attrib & (HFS_SB_ATTRIB_HLOCK | HFS_SB_ATTRIB_SLOCK))) {
 		/* Mark the volume uncleanly unmounted in case we crash */
 		hfs_put_ns(mdb->attrib & htons(~HFS_SB_ATTRIB_CLEAN),
 			   raw->drAtrb);

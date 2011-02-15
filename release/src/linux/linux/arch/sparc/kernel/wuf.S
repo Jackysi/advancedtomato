@@ -1,4 +1,4 @@
-/* $Id: wuf.S,v 1.1.1.4 2003/10/14 08:07:48 sparq Exp $
+/* $Id: wuf.S,v 1.39 2000/01/08 16:38:18 anton Exp $
  * wuf.S: Window underflow trap handler for the Sparc.
  *
  * Copyright (C) 1995 David S. Miller
@@ -138,7 +138,7 @@ fwin_from_user:
 C_LABEL(fwin_mmu_patchme):	b	C_LABEL(sun4c_fwin_stackchk)
 				 andcc	%sp, 0x7, %g0
 
-#define STACK_OFFSET (TASK_UNION_SIZE - TRACEREG_SZ - REGWIN_SZ)
+#define STACK_OFFSET (TASK_UNION_SIZE - TRACEREG_SZ - STACKFRAME_SZ)
 
 fwin_user_stack_is_bolixed:
 	/* LOCATION: Window 'W' */

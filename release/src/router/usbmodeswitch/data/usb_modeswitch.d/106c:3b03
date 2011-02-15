@@ -1,0 +1,12 @@
+########################################################
+# UTStarcom UM175 (distributor "Alltel")
+
+DefaultVendor= 0x106c
+DefaultProduct=0x3b03
+
+TargetVendor=  0x106c
+TargetProduct= 0x3715
+
+CheckSuccess=20
+
+MessageContent="555342431234567824000000800008ff024445564348470000000000000000"

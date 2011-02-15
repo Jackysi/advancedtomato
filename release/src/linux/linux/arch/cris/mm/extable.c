@@ -2,12 +2,6 @@
  * linux/arch/cris/mm/extable.c
  *
  * $Log: extable.c,v $
- * Revision 1.1.1.2  2003/10/14 08:07:17  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
- *
- * Revision 1.1.1.1  2003/02/03 22:37:20  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
- *
  * Revision 1.4  2002/03/19 15:21:10  bjornw
  * Fixed warning
  *

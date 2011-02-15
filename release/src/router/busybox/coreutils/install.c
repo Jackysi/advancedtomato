@@ -50,7 +50,7 @@ static void setdefaultfilecon(const char *path)
 
 	if (lsetfilecon(path, scontext) < 0) {
 		if (errno != ENOTSUP) {
-			bb_perror_msg("warning: failed to change context"
+			bb_perror_msg("warning: can't change context"
 					" of %s to %s", path, scontext);
 		}
 	}
@@ -101,12 +101,12 @@ int install_main(int argc, char **argv)
 #if ENABLE_FEATURE_INSTALL_LONG_OPTIONS
 	applet_long_options = install_longopts;
 #endif
-	opt_complementary = "s--d:d--s" USE_SELINUX(":Z--\xff:\xff--Z");
+	opt_complementary = "s--d:d--s" IF_FEATURE_INSTALL_LONG_OPTIONS(IF_SELINUX(":Z--\xff:\xff--Z"));
 	/* -c exists for backwards compatibility, it's needed */
 	/* -v is ignored ("print name of each created directory") */
 	/* -b is ignored ("make a backup of each existing destination file") */
-	opts = getopt32(argv, "cvb" "Ddpsg:m:o:" USE_SELINUX("Z:"),
-			&gid_str, &mode_str, &uid_str USE_SELINUX(, &scontext));
+	opts = getopt32(argv, "cvb" "Ddpsg:m:o:" IF_SELINUX("Z:"),
+			&gid_str, &mode_str, &uid_str IF_SELINUX(, &scontext));
 	argc -= optind;
 	argv += optind;
 
@@ -129,7 +129,7 @@ int install_main(int argc, char **argv)
 	if (opts & OPT_PRESERVE_TIME) {
 		copy_flags |= FILEUTILS_PRESERVE_STATUS;
 	}
-	mode = 0666;
+	mode = 0755; /* GNU coreutils 6.10 compat */
 	if (opts & OPT_MODE)
 		bb_parse_mode(mode_str, &mode);
 	uid = (opts & OPT_OWNER) ? get_ug_id(uid_str, xuname2uid) : getuid();
@@ -167,16 +167,28 @@ int install_main(int argc, char **argv)
 				free(ddir);
 			}
 			if (isdir)
-				dest = concat_path_file(last, basename(arg));
-			if (copy_file(arg, dest, copy_flags)) {
+				dest = concat_path_file(last, bb_basename(arg));
+			if (copy_file(arg, dest, copy_flags) != 0) {
 				/* copy is not made */
 				ret = EXIT_FAILURE;
 				goto next;
 			}
+			if (opts & OPT_STRIP) {
+				char *args[4];
+				args[0] = (char*)"strip";
+				args[1] = (char*)"-p"; /* -p --preserve-dates */
+				args[2] = dest;
+				args[3] = NULL;
+				if (spawn_and_wait(args)) {
+					bb_perror_msg("strip");
+					ret = EXIT_FAILURE;
+				}
+			}
 		}
 
-		/* Set the file mode */
-		if ((opts & OPT_MODE) && chmod(dest, mode) == -1) {
+		/* Set the file mode (always, not only with -m).
+		 * GNU coreutils 6.10 is not affected by umask. */
+		if (chmod(dest, mode) == -1) {
 			bb_perror_msg("can't change %s of %s", "permissions", dest);
 			ret = EXIT_FAILURE;
 		}
@@ -190,16 +202,6 @@ int install_main(int argc, char **argv)
 		) {
 			bb_perror_msg("can't change %s of %s", "ownership", dest);
 			ret = EXIT_FAILURE;
-		}
-		if (opts & OPT_STRIP) {
-			char *args[3];
-			args[0] = (char*)"strip";
-			args[1] = dest;
-			args[2] = NULL;
-			if (spawn_and_wait(args)) {
-				bb_perror_msg("strip");
-				ret = EXIT_FAILURE;
-			}
 		}
  next:
 		if (ENABLE_FEATURE_CLEAN_UP && isdir)

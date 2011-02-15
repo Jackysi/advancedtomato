@@ -327,6 +327,7 @@ static void vlsi_unset_clock(struct pci_dev *pdev)
 /********************************************************/
 
 
+/* ### FIXME: don't use old virt_to_bus() anymore! */
 
 
 static void vlsi_arm_rx(struct vlsi_ring *r)
@@ -392,6 +393,11 @@ static int vlsi_init_ring(vlsi_irda_dev_t *idev)
 	}
 	memset(ringarea, 0, RING_AREA_SIZE);
 
+#if 0
+	printk(KERN_DEBUG "%s: (%d,%d)-ring %p / %p\n", __FUNCTION__,
+		ringsize[0], ringsize[1], ringarea, 
+		(void *)(unsigned)idev->busaddr);
+#endif
 
 	idev->rx_ring.size = ringsize[1];
 	idev->rx_ring.hw = (struct ring_descr *)ringarea;
@@ -717,6 +723,14 @@ static int vlsi_tx_interrupt(struct net_device *ndev)
 }
 
 
+#if 0	/* disable ACTIVITY handling for now */
+
+static int vlsi_act_interrupt(struct net_device *ndev)
+{
+	printk(KERN_DEBUG "%s\n", __FUNCTION__);
+	return 0;
+}
+#endif
 
 static void vlsi_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
 {
@@ -749,6 +763,16 @@ static void vlsi_interrupt(int irq, void *dev_instance, struct pt_regs *regs)
 		if (irintr&IRINTR_TPKTINT)
 			no_speed_check |= vlsi_tx_interrupt(ndev);
 
+#if 0	/* disable ACTIVITY handling for now */
+
+		if (got_act  &&  irintr==IRINTR_ACTIVITY) /* nothing new */
+			break;
+
+		if ((irintr&IRINTR_ACTIVITY) && !(irintr^IRINTR_ACTIVITY) ) {
+			no_speed_check |= vlsi_act_interrupt(ndev);
+			got_act = 1;
+		}
+#endif
 		if (irintr & ~(IRINTR_RPKTINT|IRINTR_TPKTINT|IRINTR_ACTIVITY))
 			printk(KERN_DEBUG "%s: IRINTR = %02x\n",
 				__FUNCTION__, (unsigned)irintr);
@@ -976,6 +1000,14 @@ static int vlsi_hard_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 
 	/* new entry not yet activated! */
 
+#if 0
+	printk(KERN_DEBUG "%s: dump entry %d: %u %02x %08x\n",
+		__FUNCTION__, r->head,
+		idev->ring_hw[r->head].rd_count,
+		(unsigned)idev->ring_hw[r->head].rd_status,
+		idev->ring_hw[r->head].rd_addr & 0xffffffff);
+	vlsi_reg_debug(iobase,__FUNCTION__);
+#endif
 
 
 	/* let mtt delay pass before we need to acquire the spinlock! */
@@ -1039,6 +1071,13 @@ static int vlsi_hard_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 		netif_stop_queue(ndev);
 		printk(KERN_DEBUG "%s: tx ring full - queue stopped: %d/%d\n",
 			__FUNCTION__, r->head, r->tail);
+#if 0
+		printk(KERN_INFO "%s: dump stalled entry %d: %u %02x %08x\n",
+			__FUNCTION__, r->tail,
+			r->hw[r->tail].rd_count,
+			(unsigned)r->hw[r->tail].rd_status,
+			r->hw[r->tail].rd_addr & 0xffffffff);
+#endif
 		vlsi_reg_debug(iobase,__FUNCTION__);
 	}
 

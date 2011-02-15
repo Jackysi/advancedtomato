@@ -35,8 +35,7 @@ struct globals {
 	dev_t dev_id; /* Device id where target file exists */
 	int nerr;
 	struct edir excludeArray[MAX_EXCLUDES];
-};
-
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 void BUG_setfiles_globals_too_big(void);
 #define INIT_G() do { \
@@ -112,7 +111,7 @@ static void inc_err(void)
 	}
 }
 
-static void add_exclude(const char *const directory)
+static void add_exclude(const char *directory)
 {
 	struct stat sb;
 	size_t len;
@@ -286,7 +285,7 @@ static int restore(const char *file)
 			if (count == 0)
 				bb_putchar('\n');
 			bb_putchar('*');
-			fflush(stdout);
+			fflush_all();
 		}
 	}
 
@@ -347,7 +346,7 @@ static int restore(const char *file)
 		 * same.  For "-vv", emit everything. */
 		if (verbose > 1 || !user_only_changed) {
 			bb_info_msg("%s: reset %s context %s->%s",
-				applet_name, my_file, context ?: "", newcon);
+				applet_name, my_file, context ? context : "", newcon);
 		}
 	}
 
@@ -490,7 +489,7 @@ static int process_one(char *name)
 }
 
 int setfiles_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
-int setfiles_main(int argc, char **argv)
+int setfiles_main(int argc UNUSED_PARAM, char **argv)
 {
 	struct stat sb;
 	int rc, i = 0;
@@ -544,11 +543,12 @@ int setfiles_main(int argc, char **argv)
 			&exclude_dir, &input_filename, &out_filename, &verbose);
 	} else { /* setfiles */
 		flags = getopt32(argv, "de:f:ilnpqr:svo:FW"
-				USE_FEATURE_SETFILES_CHECK_OPTION("c:"),
+				IF_FEATURE_SETFILES_CHECK_OPTION("c:"),
 			&exclude_dir, &input_filename, &rootpath, &out_filename,
-				 USE_FEATURE_SETFILES_CHECK_OPTION(&policyfile,)
+				 IF_FEATURE_SETFILES_CHECK_OPTION(&policyfile,)
 			&verbose);
 	}
+	argv += optind;
 
 #if ENABLE_FEATURE_SETFILES_CHECK_OPTION
 	if ((applet_name[0] == 's') && (flags & OPT_c)) {
@@ -595,24 +595,20 @@ int setfiles_main(int argc, char **argv)
 		   we can support either checking against the active policy or
 		   checking against a binary policy file. */
 		set_matchpathcon_canoncon(&canoncon);
-		if (argc == 1)
+		if (!argv[0])
 			bb_show_usage();
-		if (stat(argv[optind], &sb) < 0) {
-			bb_simple_perror_msg_and_die(argv[optind]);
-		}
+		xstat(argv[0], &sb);
 		if (!S_ISREG(sb.st_mode)) {
-			bb_error_msg_and_die("spec file %s is not a regular file", argv[optind]);
+			bb_error_msg_and_die("spec file %s is not a regular file", argv[0]);
 		}
 		/* Load the file contexts configuration and check it. */
-		rc = matchpathcon_init(argv[optind]);
+		rc = matchpathcon_init(argv[0]);
 		if (rc < 0) {
-			bb_simple_perror_msg_and_die(argv[optind]);
+			bb_simple_perror_msg_and_die(argv[0]);
 		}
-
-		optind++;
-
 		if (nerr)
 			exit(EXIT_FAILURE);
+		argv++;
 	}
 
 	if (input_filename) {
@@ -628,9 +624,9 @@ int setfiles_main(int argc, char **argv)
 		if (ENABLE_FEATURE_CLEAN_UP)
 			fclose_if_not_stdin(f);
 	} else {
-		if (optind >= argc)
+		if (!argv[0])
 			bb_show_usage();
-		for (i = optind; i < argc; i++) {
+		for (i = 0; argv[i]; i++) {
 			errors |= process_one(argv[i]);
 		}
 	}

@@ -359,8 +359,8 @@ static struct timer_list housekeeping;
 
 static unsigned short debug = 0;
 static unsigned short vpi_bits = 0;
-static unsigned short max_tx_size = 9000;
-static unsigned short max_rx_size = 9000;
+static int max_tx_size = 9000;
+static int max_rx_size = 9000;
 static unsigned char pci_lat = 0;
 
 /********** access functions **********/
@@ -481,6 +481,7 @@ static inline void dump_skb (char * prefix, unsigned int vc, struct sk_buff * sk
   return;
 }
 
+#if 0 /* unused and in conflict with <asm-ppc/system.h> */
 static inline void dump_regs (hrz_dev * dev) {
 #ifdef DEBUG_HORIZON
   PRINTD (DBG_REGS, "CONTROL 0: %#x", rd_regl (dev, CONTROL_0_REG));
@@ -494,6 +495,7 @@ static inline void dump_regs (hrz_dev * dev) {
 #endif
   return;
 }
+#endif
 
 static inline void dump_framer (hrz_dev * dev) {
 #ifdef DEBUG_HORIZON
@@ -801,6 +803,13 @@ static int hrz_open_rx (hrz_dev * dev, u16 channel) {
   return 0;
 }
 
+#if 0
+/********** change vc rate for a given vc **********/
+
+static void hrz_change_vc_qos (ATM_RXER * rxer, MAAL_QOS * qos) {
+  rxer->rate = make_rate (qos->peak_cells);
+}
+#endif
 
 /********** free an skb (as per ATM device driver documentation) **********/
 
@@ -914,6 +923,31 @@ static void hrz_close_rx (hrz_dev * dev, u16 vc) {
     }
   }
   
+#if 0
+  {
+    rx_q_entry * wr_ptr = &memmap->rx_q_entries[rd_regw (dev, RX_QUEUE_WR_PTR_OFF)];
+    rx_q_entry * rd_ptr = dev->rx_q_entry;
+    
+    PRINTD (DBG_VCC|DBG_RX, "rd_ptr = %u, wr_ptr = %u", rd_ptr, wr_ptr);
+    
+    while (rd_ptr != wr_ptr) {
+      u32 x = rd_mem (dev, (HDW *) rd_ptr);
+      
+      if (vc == rx_q_entry_to_rx_channel (x)) {
+	x |= SIMONS_DODGEY_MARKER;
+	
+	PRINTD (DBG_RX|DBG_VCC|DBG_WARN, "marking a frame as dodgey");
+	
+	wr_mem (dev, (HDW *) rd_ptr, x);
+      }
+      
+      if (rd_ptr == dev->rx_q_wrap)
+	rd_ptr = dev->rx_q_reset;
+      else
+	rd_ptr++;
+    }
+  }
+#endif
   
   spin_unlock_irqrestore (&dev->mem_lock, flags);
   
@@ -939,6 +973,19 @@ static void rx_schedule (hrz_dev * dev, int irq) {
     // bytes waiting for RX transfer
     rx_bytes = dev->rx_bytes;
     
+#if 0
+    spin_count = 0;
+    while (rd_regl (dev, MASTER_RX_COUNT_REG_OFF)) {
+      PRINTD (DBG_RX|DBG_WARN, "RX error: other PCI Bus Master RX still in progress!");
+      if (++spin_count > 10) {
+	PRINTD (DBG_RX|DBG_ERR, "spun out waiting PCI Bus Master RX completion");
+	wr_regl (dev, MASTER_RX_COUNT_REG_OFF, 0);
+	clear_bit (rx_busy, &dev->flags);
+	hrz_kfree_skb (dev->rx_skb);
+	return;
+      }
+    }
+#endif
     
     // this code follows the TX code but (at the moment) there is only
     // one region - the skb itself. I don't know if this will change,
@@ -961,9 +1008,33 @@ static void rx_schedule (hrz_dev * dev, int irq) {
     } else {
       // rx_bytes == 0 -- we're between regions
       // regions remaining to transfer
+#if 0
+      unsigned int rx_regions = dev->rx_regions;
+#else
       unsigned int rx_regions = 0;
+#endif
       
       if (rx_regions) {
+#if 0
+	// start a new region
+	dev->rx_addr = dev->rx_iovec->iov_base;
+	rx_bytes = dev->rx_iovec->iov_len;
+	++dev->rx_iovec;
+	dev->rx_regions = rx_regions - 1;
+	
+	if (rx_bytes <= MAX_PIO_COUNT) {
+	  PRINTD (DBG_RX|DBG_BUS, "(pio)");
+	  pio_instead = 1;
+	}
+	if (rx_bytes <= MAX_TRANSFER_COUNT) {
+	  PRINTD (DBG_RX|DBG_BUS, "(full region)");
+	  dev->rx_bytes = 0;
+	} else {
+	  PRINTD (DBG_RX|DBG_BUS, "(start multi region)");
+	  dev->rx_bytes = rx_bytes - MAX_TRANSFER_COUNT;
+	  rx_bytes = MAX_TRANSFER_COUNT;
+	}
+#endif
       } else {
 	// rx_regions == 0
 	// that's all folks - end of frame
@@ -1070,6 +1141,19 @@ static void tx_schedule (hrz_dev * const dev, int irq) {
     // bytes in current region waiting for TX transfer
     tx_bytes = dev->tx_bytes;
     
+#if 0
+    spin_count = 0;
+    while (rd_regl (dev, MASTER_TX_COUNT_REG_OFF)) {
+      PRINTD (DBG_TX|DBG_WARN, "TX error: other PCI Bus Master TX still in progress!");
+      if (++spin_count > 10) {
+	PRINTD (DBG_TX|DBG_ERR, "spun out waiting PCI Bus Master TX completion");
+	wr_regl (dev, MASTER_TX_COUNT_REG_OFF, 0);
+	tx_release (dev);
+	hrz_kfree_skb (dev->tx_skb);
+	return;
+      }
+    }
+#endif
     
     if (tx_bytes) {
       // start next transfer within same region
@@ -1480,6 +1564,21 @@ static inline short setup_idle_tx_channel (hrz_dev * dev, hrz_vcc * vcc) {
     update_tx_channel_config (dev, tx_channel, PCR_TIMER_ACCESS,
 			      vcc->tx_pcr_bits);
 
+#if 0
+    if (vcc->tx_xbr_bits == VBR_RATE_TYPE) {
+      // SCR timer
+      update_tx_channel_config (dev, tx_channel, SCR_TIMER_ACCESS,
+				vcc->tx_scr_bits);
+      
+      // Bucket size...
+      update_tx_channel_config (dev, tx_channel, BUCKET_CAPACITY_ACCESS,
+				vcc->tx_bucket_bits);
+      
+      // ... and fullness
+      update_tx_channel_config (dev, tx_channel, BUCKET_FULLNESS_ACCESS,
+				vcc->tx_bucket_bits);
+    }
+#endif
 
     // Initialise the read and write buffer pointers
     rd_ptr = rd_mem (dev, &tx_desc->rd_buf_type) & BUFFER_PTR_MASK;
@@ -1566,6 +1665,22 @@ static int hrz_send (struct atm_vcc * atm_vcc, struct sk_buff * skb) {
     return -EIO;
   }
   
+#if 0
+  {
+    // where would be a better place for this? housekeeping?
+    u16 status;
+    pci_read_config_word (dev->pci_dev, PCI_STATUS, &status);
+    if (status & PCI_STATUS_REC_MASTER_ABORT) {
+      PRINTD (DBG_BUS|DBG_ERR, "Clearing PCI Master Abort (and cleaning up)");
+      status &= ~PCI_STATUS_REC_MASTER_ABORT;
+      pci_write_config_word (dev->pci_dev, PCI_STATUS, status);
+      if (test_bit (tx_busy, &dev->flags)) {
+	hrz_kfree_skb (dev->tx_skb);
+	tx_release (dev);
+      }
+    }
+  }
+#endif
   
 #ifdef DEBUG_HORIZON
   /* wey-hey! */
@@ -1652,17 +1767,20 @@ static int hrz_send (struct atm_vcc * atm_vcc, struct sk_buff * skb) {
   
   {
     unsigned int tx_len = skb->len;
-    unsigned int tx_iovcnt = ATM_SKB(skb)->iovcnt;
+    unsigned int tx_iovcnt = skb_shinfo(skb)->nr_frags;
     // remember this so we can free it later
     dev->tx_skb = skb;
     
     if (tx_iovcnt) {
       // scatter gather transfer
       dev->tx_regions = tx_iovcnt;
-      dev->tx_iovec = (struct iovec *) skb->data;
+      dev->tx_iovec = 0;		/* @@@ needs rewritten */
       dev->tx_bytes = 0;
       PRINTD (DBG_TX|DBG_BUS, "TX start scatter-gather transfer (iovec %p, len %d)",
 	      skb->data, tx_len);
+      tx_release (dev);
+      hrz_kfree_skb (skb);
+      return -EIO;
     } else {
       // simple transfer
       dev->tx_regions = 0;
@@ -2161,6 +2279,10 @@ static int hrz_open (struct atm_vcc * atm_vcc, short vpi, int vci) {
   // who knows what would actually happen if you try and send on this?
   vcc.tx_xbr_bits = IDLE_RATE_TYPE;
   vcc.tx_pcr_bits = CLOCK_DISABLE;
+#if 0
+  vcc.tx_scr_bits = CLOCK_DISABLE;
+  vcc.tx_bucket_bits = 0;
+#endif
   
   if (txtp->traffic_class != ATM_NONE) {
     error = check_max_sdu (vcc.aal, txtp, max_tx_size);
@@ -2178,6 +2300,15 @@ static int hrz_open (struct atm_vcc * atm_vcc, short vpi, int vci) {
 	vcc.tx_xbr_bits = ABR_RATE_TYPE;
 	break;
       }
+#if 0
+      case ATM_ABR: {
+	// reserve min, allow up to max
+	vcc.tx_rate = 0; // ?
+	make_rate (dev, 1<<30, round_nearest, &vcc.tx_pcr_bits, 0);
+	vcc.tx_xbr_bits = ABR_RATE_TYPE;
+	break;
+      }
+#endif
       case ATM_CBR: {
 	int pcr = atm_pcr_goal (txtp);
 	rounding r;
@@ -2213,6 +2344,67 @@ static int hrz_open (struct atm_vcc * atm_vcc, short vpi, int vci) {
 	vcc.tx_xbr_bits = CBR_RATE_TYPE;
 	break;
       }
+#if 0
+      case ATM_VBR: {
+	int pcr = atm_pcr_goal (txtp);
+	// int scr = atm_scr_goal (txtp);
+	int scr = pcr/2; // just for fun
+	unsigned int mbs = 60; // just for fun
+	rounding pr;
+	rounding sr;
+	unsigned int bucket;
+	if (!pcr) {
+	  pr = round_nearest;
+	  pcr = 1<<30;
+	} else if (pcr < 0) {
+	  pr = round_down;
+	  pcr = -pcr;
+	} else {
+	  pr = round_up;
+	}
+	error = make_rate_with_tolerance (dev, pcr, pr, 10,
+					  &vcc.tx_pcr_bits, 0);
+	if (!scr) {
+	  // see comments for PCR with CBR above
+	  sr = round_down;
+	  // slight race (no locking) here so we may get -EAGAIN
+	  // later; the greedy bastards would deserve it :)
+	  PRINTD (DBG_QOS, "snatching all remaining TX bandwidth");
+	  scr = dev->tx_avail;
+	} else if (scr < 0) {
+	  sr = round_down;
+	  scr = -scr;
+	} else {
+	  sr = round_up;
+	}
+	error = make_rate_with_tolerance (dev, scr, sr, 10,
+					  &vcc.tx_scr_bits, &vcc.tx_rate);
+	if (error) {
+	  PRINTD (DBG_QOS, "could not make rate from TX SCR");
+	  return error;
+	}
+	// not really clear what further checking is needed
+	// error = atm_scr_check (txtp, vcc.tx_rate);
+	if (error) {
+	  PRINTD (DBG_QOS, "TX SCR failed consistency check");
+	  return error;
+	}
+	// bucket calculations (from a piece of paper...) cell bucket
+	// capacity must be largest integer smaller than m(p-s)/p + 1
+	// where m = max burst size, p = pcr, s = scr
+	bucket = mbs*(pcr-scr)/pcr;
+	if (bucket*pcr != mbs*(pcr-scr))
+	  bucket += 1;
+	if (bucket > BUCKET_MAX_SIZE) {
+	  PRINTD (DBG_QOS, "shrinking bucket from %u to %u",
+		  bucket, BUCKET_MAX_SIZE);
+	  bucket = BUCKET_MAX_SIZE;
+	}
+	vcc.tx_xbr_bits = VBR_RATE_TYPE;
+	vcc.tx_bucket_bits = bucket;
+	break;
+      }
+#endif
       default: {
 	PRINTD (DBG_QOS, "unsupported TX traffic class");
 	return -EINVAL;
@@ -2241,6 +2433,13 @@ static int hrz_open (struct atm_vcc * atm_vcc, short vpi, int vci) {
 	// not reserved
 	break;
       }
+#if 0
+      case ATM_ABR: {
+	// reserve min
+	vcc.rx_rate = 0; // ?
+	break;
+      }
+#endif
       case ATM_CBR: {
 	int pcr = atm_pcr_goal (rxtp);
 	if (!pcr) {
@@ -2260,6 +2459,28 @@ static int hrz_open (struct atm_vcc * atm_vcc, short vpi, int vci) {
 	}
 	break;
       }
+#if 0
+      case ATM_VBR: {
+	// int scr = atm_scr_goal (rxtp);
+	int scr = 1<<16; // just for fun
+	if (!scr) {
+	  // slight race (no locking) here so we may get -EAGAIN
+	  // later; the greedy bastards would deserve it :)
+	  PRINTD (DBG_QOS, "snatching all remaining RX bandwidth");
+	  scr = dev->rx_avail;
+	} else if (scr < 0) {
+	  scr = -scr;
+	}
+	vcc.rx_rate = scr;
+	// not really clear what further checking is needed
+	// error = atm_scr_check (rxtp, vcc.rx_rate);
+	if (error) {
+	  PRINTD (DBG_QOS, "RX SCR failed consistency check");
+	  return error;
+	}
+	break;
+      }
+#endif
       default: {
 	PRINTD (DBG_QOS, "unsupported RX traffic class");
 	return -EINVAL;
@@ -2399,6 +2620,47 @@ static void hrz_close (struct atm_vcc * atm_vcc) {
   clear_bit(ATM_VF_ADDR,&atm_vcc->flags);
 }
 
+#if 0
+static int hrz_getsockopt (struct atm_vcc * atm_vcc, int level, int optname,
+			   void *optval, int optlen) {
+  hrz_dev * dev = HRZ_DEV(atm_vcc->dev);
+  PRINTD (DBG_FLOW|DBG_VCC, "hrz_getsockopt");
+  switch (level) {
+    case SOL_SOCKET:
+      switch (optname) {
+//	case SO_BCTXOPT:
+//	  break;
+//	case SO_BCRXOPT:
+//	  break;
+	default:
+	  return -ENOPROTOOPT;
+	  break;
+      };
+      break;
+  }
+  return -EINVAL;
+}
+
+static int hrz_setsockopt (struct atm_vcc * atm_vcc, int level, int optname,
+			   void *optval, int optlen) {
+  hrz_dev * dev = HRZ_DEV(atm_vcc->dev);
+  PRINTD (DBG_FLOW|DBG_VCC, "hrz_setsockopt");
+  switch (level) {
+    case SOL_SOCKET:
+      switch (optname) {
+//	case SO_BCTXOPT:
+//	  break;
+//	case SO_BCRXOPT:
+//	  break;
+	default:
+	  return -ENOPROTOOPT;
+	  break;
+      };
+      break;
+  }
+  return -EINVAL;
+}
+#endif
 
 static int hrz_sg_send (struct atm_vcc * atm_vcc,
 			unsigned long start,
@@ -2412,6 +2674,31 @@ static int hrz_sg_send (struct atm_vcc * atm_vcc,
   }
 }
 
+#if 0
+static int hrz_ioctl (struct atm_dev * atm_dev, unsigned int cmd, void *arg) {
+  hrz_dev * dev = HRZ_DEV(atm_dev);
+  PRINTD (DBG_FLOW, "hrz_ioctl");
+  return -1;
+}
+
+unsigned char hrz_phy_get (struct atm_dev * atm_dev, unsigned long addr) {
+  hrz_dev * dev = HRZ_DEV(atm_dev);
+  PRINTD (DBG_FLOW, "hrz_phy_get");
+  return 0;
+}
+
+static void hrz_phy_put (struct atm_dev * atm_dev, unsigned char value,
+			 unsigned long addr) {
+  hrz_dev * dev = HRZ_DEV(atm_dev);
+  PRINTD (DBG_FLOW, "hrz_phy_put");
+}
+
+static int hrz_change_qos (struct atm_vcc * atm_vcc, struct atm_qos *qos, int flgs) {
+  hrz_dev * dev = HRZ_DEV(vcc->dev);
+  PRINTD (DBG_FLOW, "hrz_change_qos");
+  return -1;
+}
+#endif
 
 /********** proc file contents **********/
 
@@ -2422,6 +2709,18 @@ static int hrz_proc_read (struct atm_dev * atm_dev, loff_t * pos, char * page) {
   
   /* more diagnostics here? */
   
+#if 0
+  if (!left--) {
+    unsigned int count = sprintf (page, "vbr buckets:");
+    unsigned int i;
+    for (i = 0; i < TX_CHANS; ++i)
+      count += sprintf (page, " %u/%u",
+			query_tx_channel_config (dev, i, BUCKET_FULLNESS_ACCESS),
+			query_tx_channel_config (dev, i, BUCKET_CAPACITY_ACCESS));
+    count += sprintf (page+count, ".\n");
+    return count;
+  }
+#endif
   
   if (!left--)
     return sprintf (page,
@@ -2471,6 +2770,7 @@ static int __init hrz_probe (void) {
     u32 * membase = bus_to_virt (pci_resource_start (pci_dev, 1));
     u8 irq = pci_dev->irq;
     
+    /* XXX DEV_LABEL is a guess */
     if (!request_region (iobase, HRZ_IO_EXTENT, DEV_LABEL))
   	  continue;
 
@@ -2621,11 +2921,11 @@ static void __init hrz_check_args (void) {
     PRINTK (KERN_ERR, "vpi_bits has been limited to %hu",
 	    vpi_bits = HRZ_MAX_VPI);
   
-  if (max_tx_size > TX_AAL5_LIMIT)
+  if (max_tx_size < 0 || max_tx_size > TX_AAL5_LIMIT)
     PRINTK (KERN_NOTICE, "max_tx_size has been limited to %hu",
 	    max_tx_size = TX_AAL5_LIMIT);
   
-  if (max_rx_size > RX_AAL5_LIMIT)
+  if (max_rx_size < 0 || max_rx_size > RX_AAL5_LIMIT)
     PRINTK (KERN_NOTICE, "max_rx_size has been limited to %hu",
 	    max_rx_size = RX_AAL5_LIMIT);
   
@@ -2640,8 +2940,8 @@ MODULE_DESCRIPTION(description_string);
 MODULE_LICENSE("GPL");
 MODULE_PARM(debug, "h");
 MODULE_PARM(vpi_bits, "h");
-MODULE_PARM(max_tx_size, "h");
-MODULE_PARM(max_rx_size, "h");
+MODULE_PARM(max_tx_size, "i");
+MODULE_PARM(max_rx_size, "i");
 MODULE_PARM(pci_lat, "b");
 MODULE_PARM_DESC(debug, "debug bitmap, see .h file");
 MODULE_PARM_DESC(vpi_bits, "number of bits (0..4) to allocate to VPIs");

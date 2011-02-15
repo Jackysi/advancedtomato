@@ -99,6 +99,15 @@ enum {
 	SSTATUS	= 36, /* 0x90 */
 	PRC	= 37, /* 0x94 */
 
+#if 0	
+	/* PCI Registers */
+	DVID	= 0x00000000L,
+	SC	= 0x00000004L,
+	CCR	= 0x00000008L,
+	OG	= 0x0000000CL,
+	BARM	= 0x00000010L,
+	BARER	= 0x00000030L,
+#endif
 };
 
 /* IBM 624 RAMDAC Direct Registers */

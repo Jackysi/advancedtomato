@@ -1,4 +1,4 @@
-/* $Id: head.S,v 1.1.1.4 2003/10/14 08:07:17 sparq Exp $
+/* $Id: head.S,v 1.47 2003/07/08 09:53:35 starvik Exp $
  * 
  * Head of the kernel - alter with care
  *
@@ -7,11 +7,14 @@
  * Authors:	Bjorn Wesen (bjornw@axis.com)
  * 
  * $Log: head.S,v $
- * Revision 1.1.1.4  2003/10/14 08:07:17  sparq
- * Broadcom Release 3.51.8.0 for BCM4712.
+ * Revision 1.47  2003/07/08 09:53:35  starvik
+ * Corrected last CVS log entry
  *
- * Revision 1.1.1.1  2003/02/03 22:37:20  mhuang
- * LINUX_2_4 branch snapshot from linux-mips.org CVS
+ * Revision 1.46  2003/05/15 08:07:51  gunnard
+ * Removed serial port DMA when using AGDB.
+ *
+ * Revision 1.45  2003/04/28 05:31:05  starvik
+ * Added section attributes
  *
  * Revision 1.44  2002/02/05 15:39:57  bjornw
  * Oops.. non-CRAMFS_MAGIC should jump over the copying, not into it...
@@ -317,7 +320,7 @@ _inflash0:
 
 	;; Put this in a suitable section where we can reclaim storage
 	;; after init.
-	.section ".text.init"
+	.section ".text.init", "ax"
 _inflash:
 #ifdef CONFIG_ETRAX_ETHERNET	
 	;; Start MII clock to make sure it is running when tranceiver is reset
@@ -492,6 +495,18 @@ _start_it:
 	move.d	$r0,[R_ATA_CTRL_DATA]
 	move.d	$r0,[R_ATA_TRANSFER_CNT]
 	move.d	$r0,[R_ATA_CONFIG]
+#if 0
+	move.d	R_PORT_G_DATA, $r1
+	move.d	$r0, [$r1]; assert ATA bus-reset
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	move.d	0x08000000,$r0
+	move.d	$r0,[$r1]
+#endif
 #endif
 
 #ifdef CONFIG_JULIETTE
@@ -537,13 +552,23 @@ _start_it:
 #if (!defined(CONFIG_ETRAX_KGDB) || !defined(CONFIG_ETRAX_DEBUG_PORT0)) \
 	&& !defined(CONFIG_DMA_MEMCPY)
 	; DMA channels 6 and 7 to ser0, kgdb doesnt want DMA
+#if (defined(CONFIG_ETRAX_AGDB))
+	; agdb only wants DMA out, no dma in
+	or.d	  IO_STATE (R_GEN_CONFIG, dma6, serial0),$r0
+#else
 	or.d	  IO_STATE (R_GEN_CONFIG, dma7, serial0)	\
 		| IO_STATE (R_GEN_CONFIG, dma6, serial0),$r0
 #endif
+#endif
 #if !defined(CONFIG_ETRAX_KGDB) || !defined(CONFIG_ETRAX_DEBUG_PORT1)
 	; DMA channels 8 and 9 to ser1, kgdb doesnt want DMA
+#if (defined(CONFIG_ETRAX_AGDB))
+	  ; agdb only wants DMA out, no dma in
+	or.d	  IO_STATE (R_GEN_CONFIG, dma8, serial1),$r0
+#else
 	or.d	  IO_STATE (R_GEN_CONFIG, dma9, serial1)	\
 		| IO_STATE (R_GEN_CONFIG, dma8, serial1),$r0
+#endif	
 #endif	
 #ifdef CONFIG_DMA_MEMCPY
 	; 6/7 memory-memory DMA
@@ -555,8 +580,13 @@ _start_it:
 	or.w	IO_STATE (R_GEN_CONFIG, ser2, select),$r0
 #if !defined(CONFIG_ETRAX_KGDB) || !defined(CONFIG_ETRAX_DEBUG_PORT2)
 	; DMA channels 2 and 3 to ser2, kgdb doesnt want DMA
+#if (defined(CONFIG_ETRAX_AGDB))
+	; agdb only wants DMA out, no dma in
+	or.d	  IO_STATE (R_GEN_CONFIG, dma2, serial2),$r0
+#else
 	or.d	  IO_STATE (R_GEN_CONFIG, dma3, serial2)	\
 		| IO_STATE (R_GEN_CONFIG, dma2, serial2),$r0
+#endif
 #endif
 #endif
 #if defined(CONFIG_ETRAX_SERIAL_PORT3) || defined(CONFIG_ETRAX_SYNCHRONOUS_SERIAL_PORT1)
@@ -564,8 +594,13 @@ _start_it:
 	or.w	IO_STATE (R_GEN_CONFIG, ser3, select),$r0
 #if !defined(CONFIG_ETRAX_KGDB) || !defined(CONFIG_ETRAX_DEBUG_PORT3)
 	; DMA channels 4 and 5 to ser3, kgdb doesnt want DMA
+#if (defined(CONFIG_ETRAX_AGDB))
+	; agdb only wants DMA out, no dma in
+	or.d	  IO_STATE (R_GEN_CONFIG, dma4, serial3),$r0
+#else
 	or.d	  IO_STATE (R_GEN_CONFIG, dma5, serial3)	\
 		| IO_STATE (R_GEN_CONFIG, dma4, serial3),$r0
+#endif
 #endif
 #endif
 #if defined(CONFIG_ETRAX_PARALLEL_PORT0) || defined(CONFIG_ETRAX_ETHERNET_LPSLAVE)
@@ -614,6 +649,21 @@ _start_it:
 #ifndef CONFIG_SVINTO_SIM
 	move.d	$r0,[R_GEN_CONFIG]
 
+#if 0
+	moveq	4,$r0
+	move.b	$r0,[R_DMA_CH6_CMD]	; reset (ser0 dma out)
+	move.b	$r0,[R_DMA_CH7_CMD]	; reset (ser0 dma in)
+1:	move.b	[R_DMA_CH6_CMD],$r0	; wait for reset cycle to finish
+	and.b	7,$r0
+	cmp.b	4,$r0
+	beq	1b
+	nop
+1:	move.b	[R_DMA_CH7_CMD],$r0	; wait for reset cycle to finish
+	and.b	7,$r0
+	cmp.b	4,$r0
+	beq	1b
+	nop
+#endif
 	
 	moveq	IO_STATE (R_DMA_CH8_CMD, cmd, reset),$r0
 	move.b	$r0,[R_DMA_CH8_CMD]	; reset (ser1 dma out)
@@ -819,5 +869,5 @@ swapper_pg_dir = 0x60002000
 swapper_pg_dir = 0xc0002000
 #endif
 
-	.section ".data.init"
+	.section ".data.init", "aw"
 #include "../lib/hw_settings.S"

@@ -14,117 +14,114 @@
 #include "libbb.h"
 #include "unarchive.h"
 
-/*
- * GNU tar uses "base-256 encoding" for very large numbers (>8 billion).
- * Encoding is binary, with highest bit always set as a marker
- * and sign in next-highest bit:
- * 80 00 .. 00 - zero
- * bf ff .. ff - largest positive number
- * ff ff .. ff - minus 1
- * c0 00 .. 00 - smallest negative number
- *
- * We expect it only in size field, where negative numbers don't make sense.
- */
-static off_t getBase256_len12(const char *str)
-{
-	off_t value;
-	int len;
+typedef uint32_t aliased_uint32_t FIX_ALIASING;
+typedef off_t    aliased_off_t    FIX_ALIASING;
 
-	/* if (*str & 0x40) error; - caller prevents this */
-
-	if (sizeof(off_t) >= 12) {
-		/* Probably 128-bit (16 byte) off_t. Can be optimized. */
-		len = 12;
-		value = *str++ & 0x3f;
-		while (--len)
-			value = (value << 8) + (unsigned char) *str++;
-		return value;
-	}
-
-#ifdef CHECK_FOR_OVERFLOW
-	/* Can be optimized to eat 32-bit chunks */
-	char c = *str++ & 0x3f;
-	len = 12;
-	while (1) {
-		if (c)
-			bb_error_msg_and_die("overflow in base-256 encoded file size");
-		if (--len == sizeof(off_t))
-			break;
-		c = *str++;
-	}
-#else
-	str += (12 - sizeof(off_t));
-#endif
-
-/* Now str points to sizeof(off_t) least significant bytes.
- *
- * Example of tar file with 8914993153 (0x213600001) byte file.
- * Field starts at offset 7c:
- * 00070  30 30 30 00 30 30 30 30  30 30 30 00 80 00 00 00  |000.0000000.....|
- * 00080  00 00 00 02 13 60 00 01  31 31 31 32 30 33 33 36  |.....`..11120336|
- *
- * str is at offset 80 or 84 now (64-bit or 32-bit off_t).
- * We (ab)use the fact that value happens to be aligned,
- * and fetch it in one go:
- */
-	if (sizeof(off_t) == 8) {
-		value = *(off_t*)str;
-		value = SWAP_BE64(value);
-	} else if (sizeof(off_t) == 4) {
-		value = *(off_t*)str;
-		value = SWAP_BE32(value);
-	} else {
-		value = 0;
-		len = sizeof(off_t);
-		while (--len)
-			value = (value << 8) + (unsigned char) *str++;
-	}
-	return value;
-}
 
 /* NB: _DESTROYS_ str[len] character! */
 static unsigned long long getOctal(char *str, int len)
 {
 	unsigned long long v;
+	char *end;
 	/* NB: leading spaces are allowed. Using strtoull to handle that.
-	 * The downside is that we accept e.g. "-123" too :)
+	 * The downside is that we accept e.g. "-123" too :(
 	 */
 	str[len] = '\0';
-	v = strtoull(str, &str, 8);
-	if (*str && (!ENABLE_FEATURE_TAR_OLDGNU_COMPATIBILITY || *str != ' '))
-		bb_error_msg_and_die("corrupted octal value in tar header");
+	v = strtoull(str, &end, 8);
+	/* std: "Each numeric field is terminated by one or more
+	 * <space> or NUL characters". We must support ' '! */
+	if (*end != '\0' && *end != ' ') {
+		int8_t first = str[0];
+		if (!(first & 0x80))
+			bb_error_msg_and_die("corrupted octal value in tar header");
+		/*
+		 * GNU tar uses "base-256 encoding" for very large numbers.
+		 * Encoding is binary, with highest bit always set as a marker
+		 * and sign in next-highest bit:
+		 * 80 00 .. 00 - zero
+		 * bf ff .. ff - largest positive number
+		 * ff ff .. ff - minus 1
+		 * c0 00 .. 00 - smallest negative number
+		 *
+		 * Example of tar file with 8914993153 (0x213600001) byte file.
+		 * Field starts at offset 7c:
+		 * 00070  30 30 30 00 30 30 30 30  30 30 30 00 80 00 00 00  |000.0000000.....|
+		 * 00080  00 00 00 02 13 60 00 01  31 31 31 32 30 33 33 36  |.....`..11120336|
+		 *
+		 * NB: tarballs with NEGATIVE unix times encoded that way were seen!
+		 */
+		v = first;
+		/* Sign-extend using 6th bit: */
+		v <<= sizeof(unsigned long long)*8 - 7;
+		v = (long long)v >> (sizeof(unsigned long long)*8 - 7);
+		while (--len != 0)
+			v = (v << 8) + (unsigned char) *str++;
+	}
 	return v;
 }
 #define GET_OCTAL(a) getOctal((a), sizeof(a))
 
-void BUG_tar_header_size(void);
+#if ENABLE_FEATURE_TAR_SELINUX
+/* Scan a PAX header for SELinux contexts, via "RHT.security.selinux" keyword.
+ * This is what Red Hat's patched version of tar uses.
+ */
+# define SELINUX_CONTEXT_KEYWORD "RHT.security.selinux"
+static char *get_selinux_sctx_from_pax_hdr(archive_handle_t *archive_handle, unsigned sz)
+{
+	char *buf, *p;
+	char *result;
+
+	p = buf = xmalloc(sz + 1);
+	/* prevent bb_strtou from running off the buffer */
+	buf[sz] = '\0';
+	xread(archive_handle->src_fd, buf, sz);
+	archive_handle->offset += sz;
+
+	result = NULL;
+	while (sz != 0) {
+		char *end, *value;
+		unsigned len;
+
+		/* Every record has this format: "LEN NAME=VALUE\n" */
+		len = bb_strtou(p, &end, 10);
+		/* expect errno to be EINVAL, because the character
+		 * following the digits should be a space
+		 */
+		p += len;
+		sz -= len;
+		if ((int)sz < 0
+		 || len == 0
+		 || errno != EINVAL
+		 || *end != ' '
+		) {
+			bb_error_msg("malformed extended header, skipped");
+			// More verbose version:
+			//bb_error_msg("malformed extended header at %"OFF_FMT"d, skipped",
+			//		archive_handle->offset - (sz + len));
+			break;
+		}
+		/* overwrite the terminating newline with NUL
+		 * (we do not bother to check that it *was* a newline)
+		 */
+		p[-1] = '\0';
+		/* Is it selinux security context? */
+		value = end + 1;
+		if (strncmp(value, SELINUX_CONTEXT_KEYWORD"=", sizeof(SELINUX_CONTEXT_KEYWORD"=") - 1) == 0) {
+			value += sizeof(SELINUX_CONTEXT_KEYWORD"=") - 1;
+			result = xstrdup(value);
+			break;
+		}
+	}
+
+	free(buf);
+	return result;
+}
+#endif
+
 char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 {
 	file_header_t *file_header = archive_handle->file_header;
-	struct {
-		/* ustar header, Posix 1003.1 */
-		char name[100];     /*   0-99 */
-		char mode[8];       /* 100-107 */
-		char uid[8];        /* 108-115 */
-		char gid[8];        /* 116-123 */
-		char size[12];      /* 124-135 */
-		char mtime[12];     /* 136-147 */
-		char chksum[8];     /* 148-155 */
-		char typeflag;      /* 156-156 */
-		char linkname[100]; /* 157-256 */
-		/* POSIX:   "ustar" NUL "00" */
-		/* GNU tar: "ustar  " NUL */
-		/* Normally it's defined as magic[6] followed by
-		 * version[2], but we put them together to simplify code
-		 */
-		char magic[8];      /* 257-264 */
-		char uname[32];     /* 265-296 */
-		char gname[32];     /* 297-328 */
-		char devmajor[8];   /* 329-336 */
-		char devminor[8];   /* 337-344 */
-		char prefix[155];   /* 345-499 */
-		char padding[12];   /* 500-512 */
-	} tar;
+	struct tar_header_t tar;
 	char *cp;
 	int i, sum_u, sum;
 #if ENABLE_FEATURE_TAR_OLDSUN_COMPATIBILITY
@@ -133,25 +130,15 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 	int parse_names;
 
 	/* Our "private data" */
-#define p_end (*(smallint *)(&archive_handle->ah_priv[0]))
 #if ENABLE_FEATURE_TAR_GNU_EXTENSIONS
-#define p_longname (*(char* *)(&archive_handle->ah_priv[1]))
-#define p_linkname (*(char* *)(&archive_handle->ah_priv[2]))
+# define p_longname (archive_handle->tar__longname)
+# define p_linkname (archive_handle->tar__linkname)
 #else
-#define p_longname 0
-#define p_linkname 0
+# define p_longname 0
+# define p_linkname 0
 #endif
-//	if (!archive_handle->ah_priv_inited) {
-//		archive_handle->ah_priv_inited = 1;
-//		p_end = 0;
-//		USE_FEATURE_TAR_GNU_EXTENSIONS(p_longname = NULL;)
-//		USE_FEATURE_TAR_GNU_EXTENSIONS(p_linkname = NULL;)
-//	}
 
-	if (sizeof(tar) != 512)
-		BUG_tar_header_size();
-
-#if ENABLE_FEATURE_TAR_GNU_EXTENSIONS
+#if ENABLE_FEATURE_TAR_GNU_EXTENSIONS || ENABLE_FEATURE_TAR_SELINUX
  again:
 #endif
 	/* Align header */
@@ -161,7 +148,7 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 
 #if ENABLE_DESKTOP || ENABLE_FEATURE_TAR_AUTODETECT
 	/* to prevent misdetection of bz2 sig */
-	*(uint32_t*)(&tar) = 0;
+	*(aliased_uint32_t*)&tar = 0;
 	i = full_read(archive_handle->src_fd, &tar, 512);
 	/* If GNU tar sees EOF in above read, it says:
 	 * "tar: A lone zero block at N", where N = kilobyte
@@ -176,7 +163,7 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 		bb_error_msg_and_die("short read");
 	}
 	if (i != 512) {
-		USE_FEATURE_TAR_AUTODETECT(goto autodetect;)
+		IF_FEATURE_TAR_AUTODETECT(goto autodetect;)
 		goto short_read;
 	}
 
@@ -188,7 +175,7 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 
 	/* If there is no filename its an empty header */
 	if (tar.name[0] == 0 && tar.prefix[0] == 0) {
-		if (p_end) {
+		if (archive_handle->tar__end) {
 			/* Second consecutive empty header - end of archive.
 			 * Read until the end to empty the pipe from gz or bz2
 			 */
@@ -196,10 +183,10 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 				continue;
 			return EXIT_FAILURE;
 		}
-		p_end = 1;
+		archive_handle->tar__end = 1;
 		return EXIT_SUCCESS;
 	}
-	p_end = 0;
+	archive_handle->tar__end = 0;
 
 	/* Check header has valid magic, "ustar" is for the proper tar,
 	 * five NULs are for the old tar format  */
@@ -209,25 +196,31 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 	) {
 #if ENABLE_FEATURE_TAR_AUTODETECT
 		char FAST_FUNC (*get_header_ptr)(archive_handle_t *);
+		uint16_t magic2;
 
  autodetect:
+		magic2 = *(uint16_t*)tar.name;
 		/* tar gz/bz autodetect: check for gz/bz2 magic.
 		 * If we see the magic, and it is the very first block,
 		 * we can switch to get_header_tar_gz/bz2/lzma().
 		 * Needs seekable fd. I wish recv(MSG_PEEK) works
 		 * on any fd... */
-#if ENABLE_FEATURE_SEAMLESS_GZ
-		if (tar.name[0] == 0x1f && tar.name[1] == (char)0x8b) { /* gzip */
+# if ENABLE_FEATURE_SEAMLESS_GZ
+		if (magic2 == GZIP_MAGIC) {
 			get_header_ptr = get_header_tar_gz;
 		} else
-#endif
-#if ENABLE_FEATURE_SEAMLESS_BZ2
-		if (tar.name[0] == 'B' && tar.name[1] == 'Z'
+# endif
+# if ENABLE_FEATURE_SEAMLESS_BZ2
+		if (magic2 == BZIP2_MAGIC
 		 && tar.name[2] == 'h' && isdigit(tar.name[3])
 		) { /* bzip2 */
 			get_header_ptr = get_header_tar_bz2;
 		} else
-#endif
+# endif
+# if ENABLE_FEATURE_SEAMLESS_XZ
+		//TODO: if (magic2 == XZ_MAGIC1)...
+		//else
+# endif
 			goto err;
 		/* Two different causes for lseek() != 0:
 		 * unseekable fd (would like to support that too, but...),
@@ -262,20 +255,21 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 		sum_s += ((signed char*)&tar)[i];
 #endif
 	}
-#if ENABLE_FEATURE_TAR_OLDGNU_COMPATIBILITY
-	sum = strtoul(tar.chksum, &cp, 8);
-	if ((*cp && *cp != ' ')
-	 || (sum_u != sum USE_FEATURE_TAR_OLDSUN_COMPATIBILITY(&& sum_s != sum))
-	) {
-		bb_error_msg_and_die("invalid tar header checksum");
-	}
-#else
 	/* This field does not need special treatment (getOctal) */
-	sum = xstrtoul(tar.chksum, 8);
-	if (sum_u != sum USE_FEATURE_TAR_OLDSUN_COMPATIBILITY(&& sum_s != sum)) {
+	{
+		char *endp; /* gcc likes temp var for &endp */
+		sum = strtoul(tar.chksum, &endp, 8);
+		if ((*endp != '\0' && *endp != ' ')
+		 || (sum_u != sum IF_FEATURE_TAR_OLDSUN_COMPATIBILITY(&& sum_s != sum))
+		) {
+			bb_error_msg_and_die("invalid tar header checksum");
+		}
+	}
+	/* don't use xstrtoul, tar.chksum may have leading spaces */
+	sum = strtoul(tar.chksum, NULL, 8);
+	if (sum_u != sum IF_FEATURE_TAR_OLDSUN_COMPATIBILITY(&& sum_s != sum)) {
 		bb_error_msg_and_die("invalid tar header checksum");
 	}
-#endif
 
 	/* 0 is reserved for high perf file, treat as normal file */
 	if (!tar.typeflag) tar.typeflag = '0';
@@ -298,14 +292,11 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 		/* Will link_target be free()ed? */
 	}
 #if ENABLE_FEATURE_TAR_UNAME_GNAME
-	file_header->uname = tar.uname[0] ? xstrndup(tar.uname, sizeof(tar.uname)) : NULL;
-	file_header->gname = tar.gname[0] ? xstrndup(tar.gname, sizeof(tar.gname)) : NULL;
+	file_header->tar__uname = tar.uname[0] ? xstrndup(tar.uname, sizeof(tar.uname)) : NULL;
+	file_header->tar__gname = tar.gname[0] ? xstrndup(tar.gname, sizeof(tar.gname)) : NULL;
 #endif
 	file_header->mtime = GET_OCTAL(tar.mtime);
-	/* Size field: handle GNU tar's "base256 encoding" */
-	file_header->size = (*tar.size & 0xc0) == 0x80 /* positive base256? */
-			? getBase256_len12(tar.size)
-			: GET_OCTAL(tar.size);
+	file_header->size = GET_OCTAL(tar.size);
 	file_header->gid = GET_OCTAL(tar.gid);
 	file_header->uid = GET_OCTAL(tar.uid);
 	/* Set bits 0-11 of the files mode */
@@ -356,7 +347,7 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 		file_header->mode |= S_IFBLK;
 		goto size0;
 	case '5':
- USE_FEATURE_TAR_OLDGNU_COMPATIBILITY(set_dir:)
+ IF_FEATURE_TAR_OLDGNU_COMPATIBILITY(set_dir:)
 		file_header->mode |= S_IFDIR;
 		goto size0;
 	case '6':
@@ -388,8 +379,13 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 	case 'S':	/* Sparse file */
 	case 'V':	/* Volume header */
 #endif
+#if !ENABLE_FEATURE_TAR_SELINUX
 	case 'g':	/* pax global header */
-	case 'x': {	/* pax extended header */
+	case 'x':	/* pax extended header */
+#else
+ skip_ext_hdr:
+#endif
+	{
 		off_t sz;
 		bb_error_msg("warning: skipping header '%c'", tar.typeflag);
 		sz = (file_header->size + 511) & ~(off_t)511;
@@ -400,6 +396,18 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 		/* return get_header_tar(archive_handle); */
 		goto again_after_align;
 	}
+#if ENABLE_FEATURE_TAR_SELINUX
+	case 'g':	/* pax global header */
+	case 'x': {	/* pax extended header */
+		char **pp;
+		if ((uoff_t)file_header->size > 0xfffff) /* paranoia */
+			goto skip_ext_hdr;
+		pp = (tar.typeflag == 'g') ? &archive_handle->tar__global_sctx : &archive_handle->tar__next_file_sctx;
+		free(*pp);
+		*pp = get_selinux_sctx_from_pax_hdr(archive_handle, file_header->size);
+		goto again;
+	}
+#endif
 	default:
 		bb_error_msg_and_die("unknown typeflag: 0x%x", tar.typeflag);
 	}
@@ -429,10 +437,13 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 		archive_handle->action_header(/*archive_handle->*/ file_header);
 		/* Note that we kill the '/' only after action_header() */
 		/* (like GNU tar 1.15.1: verbose mode outputs "dir/dir/") */
-		if (cp) *cp = '\0';
-		archive_handle->ah_flags |= ARCHIVE_EXTRACT_QUIET;
+		if (cp)
+			*cp = '\0';
 		archive_handle->action_data(archive_handle);
-		llist_add_to(&(archive_handle->passed), file_header->name);
+		if (archive_handle->accept || archive_handle->reject)
+			llist_add_to(&archive_handle->passed, file_header->name);
+		else /* Caller isn't interested in list of unpacked files */
+			free(file_header->name);
 	} else {
 		data_skip(archive_handle);
 		free(file_header->name);
@@ -440,10 +451,11 @@ char FAST_FUNC get_header_tar(archive_handle_t *archive_handle)
 	archive_handle->offset += file_header->size;
 
 	free(file_header->link_target);
-	/* Do not free(file_header->name)! (why?) */
+	/* Do not free(file_header->name)!
+	 * It might be inserted in archive_handle->passed - see above */
 #if ENABLE_FEATURE_TAR_UNAME_GNAME
-	free(file_header->uname);
-	free(file_header->gname);
+	free(file_header->tar__uname);
+	free(file_header->tar__gname);
 #endif
 	return EXIT_SUCCESS;
 }

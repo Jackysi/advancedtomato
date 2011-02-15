@@ -1,4 +1,4 @@
-/* $Id: avm_cs.c,v 1.1.1.4 2003/10/14 08:08:11 sparq Exp $
+/* $Id: avm_cs.c,v 1.1.4.1 2001/11/20 14:19:34 kai Exp $
  *
  * A PCMCIA client driver for AVM B1/M1/M2
  *

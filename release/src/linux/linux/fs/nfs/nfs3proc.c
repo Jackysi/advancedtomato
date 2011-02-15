@@ -117,12 +117,13 @@ nfs3_proc_lookup(struct inode *dir, struct qstr *name,
 }
 
 static int
-nfs3_proc_access(struct inode *inode, int mode, int ruid)
+nfs3_proc_access(struct inode *inode, struct rpc_cred *cred, int mode)
 {
 	struct nfs_fattr	fattr;
 	struct nfs3_accessargs	arg = { NFS_FH(inode), 0 };
 	struct nfs3_accessres	res = { &fattr, 0 };
-	int	status, flags;
+	struct rpc_message msg = { NFS3PROC_ACCESS, &arg, &res, cred };
+	int	status;
 
 	dprintk("NFS call  access\n");
 	fattr.valid = 0;
@@ -140,8 +141,7 @@ nfs3_proc_access(struct inode *inode, int mode, int ruid)
 		if (mode & MAY_EXEC)
 			arg.access |= NFS3_ACCESS_EXECUTE;
 	}
-	flags = (ruid) ? RPC_CALL_REALUID : 0;
-	status = rpc_call(NFS_CLIENT(inode), NFS3PROC_ACCESS, &arg, &res, flags);
+	status = rpc_call_sync(NFS_CLIENT(inode), &msg, 0);
 	nfs_refresh_inode(inode, &fattr);
 	dprintk("NFS reply access\n");
 
@@ -300,11 +300,16 @@ nfs3_proc_unlink_setup(struct rpc_message *msg, struct dentry *dir, struct qstr 
 {
 	struct nfs3_diropargs	*arg;
 	struct nfs_fattr	*res;
+	struct unlinkxdr {
+		struct nfs3_diropargs arg;
+		struct nfs_fattr res;
+	} *ptr;
 
-	arg = (struct nfs3_diropargs *)kmalloc(sizeof(*arg)+sizeof(*res), GFP_KERNEL);
-	if (!arg)
+	ptr = (struct unlinkxdr *)kmalloc(sizeof(*ptr), GFP_KERNEL);
+	if (!ptr)
 		return -ENOMEM;
-	res = (struct nfs_fattr*)(arg + 1);
+	arg = &ptr->arg;
+	res = &ptr->res;
 	arg->fh = NFS_FH(dir->d_inode);
 	arg->name = name->name;
 	arg->len = name->len;
@@ -483,24 +488,42 @@ nfs3_proc_mknod(struct inode *dir, struct qstr *name, struct iattr *sattr,
 	return status;
 }
 
-/*
- * This is a combo call of fsstat and fsinfo
- */
 static int
 nfs3_proc_statfs(struct nfs_server *server, struct nfs_fh *fhandle,
-		 struct nfs_fsinfo *info)
+		 struct nfs_fsstat *stat)
 {
 	int	status;
 
-	dprintk("NFS call  fsstat\n");
-	memset((char *)info, 0, sizeof(*info));
-	status = rpc_call(server->client, NFS3PROC_FSSTAT, fhandle, info, 0);
-	if (status < 0)
-		goto error;
-	status = rpc_call(server->client, NFS3PROC_FSINFO, fhandle, info, 0);
-
-error:
+	stat->fattr->valid = 0;
+	dprintk("NFS call statfs\n");
+	status = rpc_call(server->client, NFS3PROC_FSSTAT, fhandle, stat, 0);
 	dprintk("NFS reply statfs: %d\n", status);
+	return status;
+}
+
+static int
+nfs3_proc_fsinfo(struct nfs_server *server, struct nfs_fh *fhandle,
+		 struct nfs_fsinfo *info)
+{
+	int status;
+
+	info->fattr->valid = 0;
+	dprintk("NFS call fsinfo\n");
+	status = rpc_call(server->client, NFS3PROC_FSINFO, fhandle, info, 0);
+	dprintk("NFS reply fsinfo: %d\n", status);
+	return status;
+}
+
+static int
+nfs3_proc_pathconf(struct nfs_server *server, struct nfs_fh *fhandle,
+		   struct nfs_pathconf *info)
+{
+	int status;
+
+	info->fattr->valid = 0;
+	dprintk("NFS call pathconf\n");
+	status = rpc_call(server->client, NFS3PROC_PATHCONF, fhandle, info, 0);
+	dprintk("NFS reply pathconf: %d\n", status);
 	return status;
 }
 
@@ -529,5 +552,7 @@ struct nfs_rpc_ops	nfs_v3_clientops = {
 	nfs3_proc_readdir,
 	nfs3_proc_mknod,
 	nfs3_proc_statfs,
+	nfs3_proc_fsinfo,
+	nfs3_proc_pathconf,
 	nfs3_decode_dirent,
 };

@@ -1,7 +1,7 @@
 /*
 	drivers/net/tulip/interrupt.c
 
-	Maintained by Jeff Garzik <jgarzik@mandrakesoft.com>
+	Maintained by Jeff Garzik <jgarzik@pobox.com>
 	Copyright 2000,2001  The Linux Kernel Team
 	Written/copyright 1994-2001 by Donald Becker.
 
@@ -14,10 +14,10 @@
 
 */
 
+#include <linux/pci.h>
 #include "tulip.h"
 #include <linux/config.h>
 #include <linux/etherdevice.h>
-#include <linux/pci.h>
 
 
 int tulip_rx_copybreak;
@@ -122,14 +122,35 @@ static int tulip_rx(struct net_device *dev)
 	/* If we own the next entry, it is a new packet. Send it up. */
 	while ( ! (tp->rx_ring[entry].status & cpu_to_le32(DescOwned))) {
 		s32 status = le32_to_cpu(tp->rx_ring[entry].status);
+		short pkt_len;
 
 		if (tulip_debug > 5)
 			printk(KERN_DEBUG "%s: In tulip_rx(), entry %d %8.8x.\n",
 				   dev->name, entry, status);
 		if (--rx_work_limit < 0)
 			break;
-		if ((status & 0x38008300) != 0x0300) {
-			if ((status & 0x38000300) != 0x0300) {
+		/*
+		 * Omit the four octet CRC from the length.
+		 * (May not be considered valid until we have
+		 * checked status for RxLengthOver2047 bits)
+		 */
+		pkt_len = ((status >> 16) & 0x7ff) - 4;
+
+		/*
+		 * Maximum pkt_len is 1518 (1514 + vlan header)
+		 * Anything higher than this is always invalid
+		 * regardless of RxLengthOver2047 bits
+		 */
+
+		if ((status & (RxLengthOver2047 |
+		               RxDescCRCError |
+		               RxDescCollisionSeen |
+		               RxDescRunt |
+		               RxDescDescErr |
+		               RxWholePkt)) != RxWholePkt
+		    || pkt_len > 1518) {
+			if ((status & (RxLengthOver2047 |
+			               RxWholePkt)) != RxWholePkt) {
 				/* Ingore earlier buffers. */
 				if ((status & 0xffff) != 0x7fff) {
 					if (tulip_debug > 1)
@@ -138,30 +159,21 @@ static int tulip_rx(struct net_device *dev)
 							   dev->name, status);
 					tp->stats.rx_length_errors++;
 				}
-			} else if (status & RxDescFatalErr) {
+			} else {
 				/* There was a fatal error. */
 				if (tulip_debug > 2)
 					printk(KERN_DEBUG "%s: Receive error, Rx status %8.8x.\n",
 						   dev->name, status);
 				tp->stats.rx_errors++; /* end of a packet.*/
-				if (status & 0x0890) tp->stats.rx_length_errors++;
+
+				if (pkt_len > 1518 || (status & RxDescRunt))
+					tp->stats.rx_length_errors++;
 				if (status & 0x0004) tp->stats.rx_frame_errors++;
 				if (status & 0x0002) tp->stats.rx_crc_errors++;
 				if (status & 0x0001) tp->stats.rx_fifo_errors++;
 			}
 		} else {
-			/* Omit the four octet CRC from the length. */
-			short pkt_len = ((status >> 16) & 0x7ff) - 4;
 			struct sk_buff *skb;
-
-#ifndef final_version
-			if (pkt_len > 1518) {
-				printk(KERN_WARNING "%s: Bogus packet size of %d (%#x).\n",
-					   dev->name, pkt_len, pkt_len);
-				pkt_len = 1518;
-				tp->stats.rx_length_errors++;
-			}
-#endif
 
 #ifdef CONFIG_NET_HW_FLOWCONTROL
                         drop = atomic_read(&netdev_dropping);
@@ -177,7 +189,7 @@ static int tulip_rx(struct net_device *dev)
 				pci_dma_sync_single(tp->pdev,
 						    tp->rx_buffers[entry].mapping,
 						    pkt_len, PCI_DMA_FROMDEVICE);
-#if !defined(__alpha__)
+#if ! defined(__alpha__)
 				eth_copy_and_sum(skb, tp->rx_buffers[entry].skb->tail,
 						 pkt_len, 0);
 				skb_put(skb, pkt_len);
@@ -263,7 +275,7 @@ throttle:
            This would turn on IM for devices that is not contributing
            to backlog congestion with unnecessary latency.
 
-           We monitor the the device RX-ring and have:
+           We monitor the device RX-ring and have:
 
            HW Interrupt Mitigation either ON or OFF.
 

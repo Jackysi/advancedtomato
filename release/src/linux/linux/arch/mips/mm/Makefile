@@ -10,29 +10,31 @@ USE_STANDARD_AS_RULE := true
 
 O_TARGET := mm.o
 
-export-objs			+= ioremap.o loadmmu.o umap.o
-obj-y				+= extable.o init.o ioremap.o fault.o loadmmu.o
+export-objs			:= cache.o ioremap.o loadmmu.o remap.o \
+				   tlb-r4k.o tlb-sb1.o c-r4k.o
+obj-y				+= cache.o extable.o init.o ioremap.o fault.o \
+				   loadmmu.o
 
-obj-$(CONFIG_CPU_R3000)		+= pg-r3k.o c-r3k.o c-tx39.o tlb-r3k.o \
-				   tlbex-r3k.o
-obj-$(CONFIG_CPU_TX39XX)	+= pg-r3k.o c-tx39.o tlb-r3k.o tlbex-r3k.o
-obj-$(CONFIG_CPU_TX49XX)	+= pg-r4k.o c-tx49.o tlb-r4k.o tlbex-r4k.o
+obj-$(CONFIG_CPU_R3000)		+= pg-r4k.o c-r3k.o tlb-r3k.o tlbex-r3k.o
+obj-$(CONFIG_CPU_TX39XX)	+= pg-r4k.o c-tx39.o tlb-r3k.o tlbex-r3k.o
+obj-$(CONFIG_CPU_TX49XX)	+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
 obj-$(CONFIG_CPU_R4300)		+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
 obj-$(CONFIG_CPU_R4X00)		+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
 obj-$(CONFIG_CPU_VR41XX)	+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
 obj-$(CONFIG_CPU_R5000)		+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
 obj-$(CONFIG_CPU_NEVADA)	+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
-obj-$(CONFIG_CPU_R5432)		+= pg-r5432.o c-r5432.o tlb-r4k.o tlbex-r4k.o
-obj-$(CONFIG_CPU_RM7000)	+= pg-rm7k.o c-rm7k.o tlb-r4k.o tlbex-r4k.o
-obj-$(CONFIG_CPU_R10000)	+= pg-andes.o c-andes.o tlb-r4k.o tlbex-r4k.o
-obj-$(CONFIG_CPU_MIPS32)	+= pg-mips32.o c-mips32.o tlb-r4k.o tlbex-r4k.o
-obj-$(CONFIG_CPU_MIPS64)	+= pg-mips32.o c-mips32.o tlb-r4k.o tlbex-r4k.o
-obj-$(CONFIG_CPU_SB1)		+= pg-sb1.o c-sb1.o tlb-sb1.o tlbex-r4k.o cex-sb1.o cerr-sb1.o
-obj-$(CONFIG_BCM4710)		+= c-bcm4710.o
+obj-$(CONFIG_CPU_R5432)		+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
+obj-$(CONFIG_CPU_RM7000)	+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
+obj-$(CONFIG_CPU_RM9000)	+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
+obj-$(CONFIG_CPU_R10000)	+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
+obj-$(CONFIG_CPU_MIPS32)	+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-mips32.o
+obj-$(CONFIG_CPU_MIPS64)	+= pg-r4k.o c-r4k.o tlb-r4k.o tlbex-r4k.o
+obj-$(CONFIG_CPU_SB1)		+= pg-sb1.o c-sb1.o tlb-sb1.o tlbex-r4k.o \
+				   cex-sb1.o cerr-sb1.o
 
-obj-$(CONFIG_R5000_CPU_SCACHE)	+= r5k-sc.o
-
-obj-$(CONFIG_SGI_IP22)		+= umap.o
-obj-$(CONFIG_BAGET_MIPS)	+= umap.o
+obj-$(CONFIG_64BIT_PHYS_ADDR)	+= remap.o
+obj-$(CONFIG_RM7000_CPU_SCACHE)	+= sc-rm7k.o
+obj-$(CONFIG_R5000_CPU_SCACHE)	+= sc-r5k.o
+obj-$(CONFIG_SGI_IP22)		+= sc-ip22.o
 
 include $(TOPDIR)/Rules.make

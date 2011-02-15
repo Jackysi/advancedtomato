@@ -1,4 +1,33 @@
-
+/*
+ *	AARP:		An implementation of the AppleTalk AARP protocol for
+ *			Ethernet 'ELAP'.
+ *
+ *		Alan Cox  <Alan.Cox@linux.org>
+ *
+ *	This doesn't fit cleanly with the IP arp. Potentially we can use
+ *	the generic neighbour discovery code to clean this up.
+ *
+ *	FIXME:
+ *		We ought to handle the retransmits with a single list and a 
+ *	separate fast timer for when it is needed.
+ *		Use neighbour discovery code.
+ *		Token Ring Support.
+ *
+ *		This program is free software; you can redistribute it and/or
+ *		modify it under the terms of the GNU General Public License
+ *		as published by the Free Software Foundation; either version
+ *		2 of the License, or (at your option) any later version.
+ *
+ *
+ *	References:
+ *		Inside AppleTalk (2nd Ed).
+ *	Fixes:
+ *		Jaume Grau	-	flush caches on AARP_PROBE
+ *		Rob Newberry	-	Added proxy AARP and AARP proc fs, 
+ *					moved probing from DDP module.
+ *		Arnaldo C. Melo -	don't mangle rx packets
+ *
+ */
 
 #include <linux/config.h>
 #if defined(CONFIG_ATALK) || defined(CONFIG_ATALK_MODULE) 
@@ -558,7 +587,7 @@ int aarp_send_ddp(struct net_device *dev,struct sk_buff *skb,
 	 
 	/* Non ELAP we cannot do. */
 	if (dev->type != ARPHRD_ETHER)
-		return -1;
+		goto free_it;
 
 	skb->dev = dev;
 	skb->protocol = htons(ETH_P_ATALK);
@@ -593,7 +622,7 @@ int aarp_send_ddp(struct net_device *dev,struct sk_buff *skb,
 	if (!a) {
 		/* Whoops slipped... good job it's an unreliable protocol 8) */
 		spin_unlock_bh(&aarp_lock);
-		return -1;
+		goto free_it;
 	}
 
 	/* Set up the queue */
@@ -621,13 +650,21 @@ int aarp_send_ddp(struct net_device *dev,struct sk_buff *skb,
 	spin_unlock_bh(&aarp_lock);
 
 	/* Tell the ddp layer we have taken over for this frame. */
-	return 0;
+	goto sent;
 
-sendit: if (skb->sk)
+sendit:
+	if (skb->sk)
 		skb->priority = skb->sk->priority;
-	dev_queue_xmit(skb);
-	return 1;
+	if (dev_queue_xmit(skb))
+		goto drop;
+ sent:
+	return NET_XMIT_SUCCESS;
+ free_it:
+	kfree_skb(skb);
+ drop:
+	return NET_XMIT_DROP;
 }
+EXPORT_SYMBOL(aarp_send_ddp);
 
 /*
  *	An entry in the aarp unresolved queue has become resolved. Send

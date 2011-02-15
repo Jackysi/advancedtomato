@@ -46,18 +46,16 @@ ospf_if_add_allspfrouters (struct ospf *top, struct prefix *p,
 {
   int ret;
   
-  ret = setsockopt_multicast_ipv4 (top->fd,
-                                   IP_ADD_MEMBERSHIP,
-                                   p->u.prefix4,
-                                   htonl (OSPF_ALLSPFROUTERS),
+  ret = setsockopt_multicast_ipv4 (top->fd, IP_ADD_MEMBERSHIP,
+                                   p->u.prefix4, htonl (OSPF_ALLSPFROUTERS),
                                    ifindex);
-  
   if (ret < 0)
-    zlog_warn ("can't setsockopt IP_ADD_MEMBERSHIP: %s", strerror (errno));
-  
-  zlog_info ("interface %s join AllSPFRouters Multicast group.",
-	     inet_ntoa (p->u.prefix4));
-  
+    zlog_warn ("can't setsockopt IP_ADD_MEMBERSHIP (AllSPFRouters): %s",
+               strerror (errno));
+  else
+    zlog_info ("interface %s join AllSPFRouters Multicast group.",
+	       inet_ntoa (p->u.prefix4));
+
   return ret;
 }
 
@@ -67,17 +65,15 @@ ospf_if_drop_allspfrouters (struct ospf *top, struct prefix *p,
 {
   int ret;
 
-  ret = setsockopt_multicast_ipv4 (top->fd,
-                                   IP_DROP_MEMBERSHIP,
-                                   p->u.prefix4,
-                                   htonl (OSPF_ALLSPFROUTERS),
+  ret = setsockopt_multicast_ipv4 (top->fd, IP_DROP_MEMBERSHIP,
+                                   p->u.prefix4, htonl (OSPF_ALLSPFROUTERS),
                                    ifindex);
-
   if (ret < 0)
-    zlog_warn("can't setsockopt IP_DROP_MEMBERSHIP: %s", strerror (errno));
-
-  zlog_info ("interface %s leave AllSPFRouters Multicast group.",
-	     inet_ntoa (p->u.prefix4));
+    zlog_warn("can't setsockopt IP_DROP_MEMBERSHIP (AllSPFRouters): %s",
+	      strerror (errno));
+  else
+    zlog_info ("interface %s leave AllSPFRouters Multicast group.",
+	       inet_ntoa (p->u.prefix4));
 
   return ret;
 }
@@ -89,17 +85,15 @@ ospf_if_add_alldrouters (struct ospf *top, struct prefix *p, unsigned int
 {
   int ret;
 
-  ret = setsockopt_multicast_ipv4 (top->fd,
-                                   IP_ADD_MEMBERSHIP,
-                                   p->u.prefix4,
-                                   htonl (OSPF_ALLDROUTERS),
+  ret = setsockopt_multicast_ipv4 (top->fd, IP_ADD_MEMBERSHIP,
+                                   p->u.prefix4, htonl (OSPF_ALLDROUTERS),
                                    ifindex);
-
   if (ret < 0)
-    zlog_warn ("can't setsockopt IP_ADD_MEMBERSHIP: %s", strerror (errno));
-
-  zlog_info ("interface %s join AllDRouters Multicast group.",
-	     inet_ntoa (p->u.prefix4));
+    zlog_warn ("can't setsockopt IP_ADD_MEMBERSHIP (AllDRouters): %s",
+               strerror (errno));
+  else
+    zlog_info ("interface %s join AllDRouters Multicast group.",
+	       inet_ntoa (p->u.prefix4));
 
   return ret;
 }
@@ -108,19 +102,17 @@ int
 ospf_if_drop_alldrouters (struct ospf *top, struct prefix *p, unsigned int
 			  ifindex)
 {
-    int ret;
+  int ret;
 
-  ret = setsockopt_multicast_ipv4 (top->fd,
-                                   IP_DROP_MEMBERSHIP,
-                                   p->u.prefix4,
-                                   htonl (OSPF_ALLDROUTERS),
+  ret = setsockopt_multicast_ipv4 (top->fd, IP_DROP_MEMBERSHIP,
+                                   p->u.prefix4, htonl (OSPF_ALLDROUTERS),
                                    ifindex);
-
   if (ret < 0)
-    zlog_warn ("can't setsockopt IP_DROP_MEMBERSHIP: %s", strerror (errno));
-
-  zlog_info ("interface %s leave AllDRouters Multicast group.",
-	     inet_ntoa (p->u.prefix4));
+    zlog_warn ("can't setsockopt IP_DROP_MEMBERSHIP (AllDRouters): %s",
+	       strerror (errno));
+  else
+    zlog_info ("interface %s leave AllDRouters Multicast group.",
+	       inet_ntoa (p->u.prefix4));
 
   return ret;
 }
@@ -139,12 +131,14 @@ ospf_if_ipmulticast (struct ospf *top, struct prefix *p, unsigned int ifindex)
   if (ret < 0)
     zlog_warn ("can't setsockopt IP_MULTICAST_LOOP(0): %s", strerror (errno));
   
-  ret = setsockopt_multicast_ipv4 (top->fd,
-                                   IP_MULTICAST_IF,
-                                   p->u.prefix4,
-                                   0,
-                                   ifindex);
-  
+  /* Explicitly set multicast ttl to 1 -- endo. */
+  val = 1;
+  ret = setsockopt (top->fd, IPPROTO_IP, IP_MULTICAST_TTL, (void *)&val, len);
+  if (ret < 0)
+    zlog_warn ("can't setsockopt IP_MULTICAST_TTL(1): %s", strerror (errno));
+
+  ret = setsockopt_multicast_ipv4 (top->fd, IP_MULTICAST_IF,
+                                   p->u.prefix4, 0, ifindex);
   if (ret < 0)
     zlog_warn ("can't setsockopt IP_MULTICAST_IF: %s", strerror (errno));
 

@@ -29,20 +29,25 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-ghz = ['2.412','2.417','2.422','2.427','2.432','2.437','2.442','2.447','2.452','2.457','2.462','2.467','2.472','2.484'];
 wmo = {'ap':'Access Point','sta':'Wireless Client','wet':'Wireless Ethernet Bridge','wds':'WDS'};
 auth = {'disabled':'-','wep':'WEP','wpa_personal':'WPA Personal (PSK)','wpa_enterprise':'WPA Enterprise','wpa2_personal':'WPA2 Personal (PSK)','wpa2_enterprise':'WPA2 Enterprise','wpaX_personal':'WPA / WPA2 Personal','wpaX_enterprise':'WPA / WPA2 Enterprise','radius':'Radius'};
 enc = {'tkip':'TKIP','aes':'AES','tkip+aes':'TKIP / AES'};
-bgmo = {'disabled':'-','mixed':'Mixed B+G','b-only':'B Only','g-only':'G Only'};
+bgmo = {'disabled':'-','mixed':'Auto','b-only':'B Only','g-only':'G Only','bg-mixed':'B/G Mixed','lrs':'LRS','n-only':'N Only'};
 </script>
 
+<script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript' src='status-data.jsx?_http_id=<% nv(http_id); %>'></script>
 
 <script type='text/javascript'>
-show_dhcpc = ((nvram.wan_proto == 'dhcp') || (nvram.wan_proto == 'l2tp'));
+show_dhcpc = ((nvram.wan_proto == 'dhcp') || (((nvram.wan_proto == 'l2tp') || (nvram.wan_proto == 'pptp')) && (nvram.pptp_dhcp == '1')));
 show_codi = ((nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp') || (nvram.wan_proto == 'pptp'));
-show_radio = (nvram.wl_radio == '1');
 
+show_radio = [];
+for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+	show_radio.push((nvram['wl'+wl_unit(uidx)+'_radio'] == '1'));
+}
+
+nphy = features('11n');
 
 function dhcpc(what)
 {
@@ -64,9 +69,9 @@ function wan_disconnect()
 	serv('wan-stop', 2);
 }
 
-function wlenable(n)
+function wlenable(uidx, n)
 {
-	form.submitHidden('wlradio.cgi', { enable: '' + n, _nextpage: 'status-overview.asp', _nextwait: n ? 10 : 3 });
+	form.submitHidden('wlradio.cgi', { enable: '' + n, _nextpage: 'status-overview.asp', _nextwait: n ? 6 : 3, _wl_unit: wl_unit(uidx) });
 }
 
 var ref = new TomatoRefresh('status-data.jsx', '', 0, 'status_overview_refresh');
@@ -99,6 +104,8 @@ function show()
 	c('wangateway', stats.wangateway);
 	c('dns', stats.dns);
 	c('memory', stats.memory);
+	c('swap', stats.swap);
+	elem.display('swap', stats.swap != '');
 
 	c('wanstatus', stats.wanstatus);
 	c('wanuptime', stats.wanuptime);
@@ -108,17 +115,25 @@ function show()
 		E('b_disconnect').disabled = !stats.wanup;
 	}
 
-	c('radio', wlradio ? 'Enabled' : '<b>Disabled</b>');
-	if (show_radio) {
-		E('b_wl_enable').disabled = wlradio;
-		E('b_wl_disable').disabled = !wlradio;
-	}
-	c('channel', stats.channel);
+	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+		c('radio'+uidx, wlstats[uidx].radio ? 'Enabled' : '<b>Disabled</b>');
+		c('rate'+uidx, wlstats[uidx].rate);
+		if (show_radio[uidx]) {
+			E('b_wl'+uidx+'_enable').disabled = wlstats[uidx].radio;
+			E('b_wl'+uidx+'_disable').disabled = !wlstats[uidx].radio;
+		}
+		c('channel'+uidx, stats.channel[uidx]);
+		if (nphy) {
+			c('nbw'+uidx, wlstats[uidx].nbw);
+		}
+		c('interference'+uidx, stats.interference[uidx]);
+		elem.display('interference'+uidx, stats.interference[uidx] != '');
 
-	if (isClient) {
-		c('rssi', wlcrssi);
-		c('noise', wlnoise);
-		c('qual', stats.qual);
+		if (wlstats[uidx].client) {
+			c('rssi'+uidx, wlstats[uidx].rssi || '');
+			c('noise'+uidx, wlstats[uidx].noise || '');
+			c('qual'+uidx, stats.qual[uidx] || '');
+		}
 	}
 }
 
@@ -127,7 +142,9 @@ function earlyInit()
 	elem.display('b_dhcpc', show_dhcpc);
 	elem.display('b_connect', 'b_disconnect', show_codi);
 	elem.display('wan-title', 'wan-section', nvram.wan_proto != 'disabled');
-	elem.display('b_wl_enable', 'b_wl_disable', show_radio);
+	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+		elem.display('b_wl'+uidx+'_enable', 'b_wl'+uidx+'_disable', show_radio[uidx]);
+	}
 	show();
 }
 
@@ -161,7 +178,8 @@ createFieldTable('', [
 	{ title: 'Time', rid: 'time', text: stats.time },
 	{ title: 'Uptime', rid: 'uptime', text: stats.uptime },
 	{ title: 'CPU Load <small>(1 / 5 / 15 mins)</small>', rid: 'cpu', text: stats.cpuload },
-	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory }
+	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory },
+	{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') }
 ]);
 </script>
 </div>
@@ -217,31 +235,43 @@ createFieldTable('', [
 </script>
 </div>
 
-<div class='section-title' id='wl-title'>Wireless</div>
-<div class='section' id='wl-section'>
-<script type='text/javascript'>
-sec = auth[nvram.security_mode2];
-if (sec.indexOf('WPA') != -1) sec += ' + ' + enc[nvram.wl_crypto];
 
-wmode = wmo[nvram.wl_mode];
-if ((nvram.wl_mode == 'ap') && (nvram.wds_enable * 1)) wmode += ' + WDS';
+<script type='text/javascript'>
+for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+u = wl_unit(uidx);
+W('<div class=\'section-title\' id=\'wl'+uidx+'-title\'>Wireless');
+if (wl_ifaces.length > 1)
+	W(' (' + wl_display_ifname(uidx) + ')');
+W('</div>');
+W('<div class=\'section\' id=\'wl'+uidx+'-section\'>');
+sec = auth[nvram['wl'+u+'_security_mode']] + '';
+if (sec.indexOf('WPA') != -1) sec += ' + ' + enc[nvram['wl'+u+'_crypto']];
+
+wmode = wmo[nvram['wl'+u+'_mode']] + '';
+if ((wmode == 'ap') && (nvram['wl'+u+'_wds_enable'] * 1)) wmode += ' + WDS';
 
 createFieldTable('', [
-	{ title: 'MAC Address', text: nvram.wl0_hwaddr },
+	{ title: 'MAC Address', text: nvram['wl'+u+'_hwaddr'] },
 	{ title: 'Wireless Mode', text: wmode },
-	{ title: 'B/G Mode', text: bgmo[nvram.wl_net_mode] },
-	{ title: 'Radio', rid: 'radio', text: (wlradio == 0) ? '<b>Disabled</b>' : 'Enabled' },
-	{ title: 'SSID', text: nvram.wl_ssid },
+	{ title: 'Wireless Network Mode', text: bgmo[nvram['wl'+u+'_net_mode']] },
+	{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? '<b>Disabled</b>' : 'Enabled' },
+	{ title: 'SSID', text: nvram['wl'+u+'_ssid'] },
 	{ title: 'Security', text: sec },
-	{ title: 'Channel', rid: 'channel', text: stats.channel },
-	{ title: 'RSSI', rid: 'rssi', text: wlcrssi, ignore: !isClient },
-	{ title: 'Noise', rid: 'noise', text: wlnoise, ignore: !isClient },
-	{ title: 'Signal Quality', rid: 'qual', text: stats.qual, ignore: !isClient }
+	{ title: 'Channel', rid: 'channel'+uidx, text: stats.channel[uidx] },
+	{ title: 'Channel Width', rid: 'nbw'+uidx, text: wlstats[uidx].nbw, ignore: !nphy },
+	{ title: 'Interference Level', rid: 'interference'+uidx, text: stats.interference[uidx], hidden: (stats.interference[uidx] == '') },
+	{ title: 'Rate', rid: 'rate'+uidx, text: wlstats[uidx].rate },
+	{ title: 'RSSI', rid: 'rssi'+uidx, text: wlstats[uidx].rssi || '', ignore: !wlstats[uidx].client },
+	{ title: 'Noise', rid: 'noise'+uidx, text: wlstats[uidx].noise || '', ignore: !wlstats[uidx].client },
+	{ title: 'Signal Quality', rid: 'qual'+uidx, text: stats.qual[uidx] || '', ignore: !wlstats[uidx].client }
 ]);
+
+W('<input type=\'button\' class=\'controls\' onclick=\'wlenable('+uidx+', 1)\' id=\'b_wl'+uidx+'_enable\' value=\'Enable\' style=\'display:none\'>');
+W('<input type=\'button\' class=\'controls\' onclick=\'wlenable('+uidx+', 0)\' id=\'b_wl'+uidx+'_disable\' value=\'Disable\' style=\'display:none\'>');
+W('</div>');
+}
 </script>
-<input type='button' class='controls' onclick='wlenable(1)' id='b_wl_enable' value='Enable' style='display:none'>
-<input type='button' class='controls' onclick='wlenable(0)' id='b_wl_disable' value='Disable' style='display:none'>
-</div>
+
 
 <!-- / / / -->
 

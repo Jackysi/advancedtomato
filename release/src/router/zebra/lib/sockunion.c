@@ -1,5 +1,4 @@
-/*
- * Socket union related function.
+/* Socket union related function.
  * Copyright (c) 1997, 98 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
@@ -273,7 +272,7 @@ sockunion_accept (int sock, union sockunion *su)
   return client_sock;
 }
 
-/**/
+/* Return sizeof union sockunion.  */
 int
 sockunion_sizeof (union sockunion *su)
 {
@@ -298,8 +297,7 @@ sockunion_sizeof (union sockunion *su)
 char *
 sockunion_log (union sockunion *su)
 {
-  /* XXX Not re-entrant - temporary hack */
-  static char buf[BUFSIZ];
+  static char buf[SU_ADDRSTRLEN];
 
   switch (su->sa.sa_family) 
     {
@@ -312,18 +310,6 @@ sockunion_log (union sockunion *su)
 		inet_ntop (AF_INET6, &(su->sin6.sin6_addr), buf, BUFSIZ));
       break;
 #endif /* HAVE_IPV6 */
-
-#ifdef AF_LINK
-    case AF_LINK:
-      {
-	struct sockaddr_dl *sdl;
-
-	sdl = (struct sockaddr_dl *)&(su->sa);
-	snprintf (buf, BUFSIZ, "link#%d ", sdl->sdl_index);
-      }
-      break;
-#endif /* AF_LINK */
-
     default:
       snprintf (buf, BUFSIZ, "af_unknown %d ", su->sa.sa_family);
       break;
@@ -442,7 +428,7 @@ sockunion_bind (int sock, union sockunion *su, unsigned short port,
       if (su_addr == NULL)
 	{
 #if defined(LINUX_IPV6) || defined(NRL)
-	  bzero (&su->sin6.sin6_addr, sizeof (struct in6_addr));
+	  memset (&su->sin6.sin6_addr, 0, sizeof (struct in6_addr));
 #else
 	  su->sin6.sin6_addr = in6addr_any;
 #endif /* LINUX_IPV6 */
@@ -591,14 +577,14 @@ sockunion_getsockname (int fd)
 
   if (name.sa.sa_family == AF_INET)
     {
-      su = XMALLOC (MTYPE_TMP, sizeof (union sockunion));
+      su = XCALLOC (MTYPE_TMP, sizeof (union sockunion));
       memcpy (su, &name, sizeof (struct sockaddr_in));
       return su;
     }
 #ifdef HAVE_IPV6
   if (name.sa.sa_family == AF_INET6)
     {
-      su = XMALLOC (MTYPE_TMP, sizeof (union sockunion));
+      su = XCALLOC (MTYPE_TMP, sizeof (union sockunion));
       memcpy (su, &name, sizeof (struct sockaddr_in6));
 
       if (IN6_IS_ADDR_V4MAPPED (&su->sin6.sin6_addr))
@@ -607,6 +593,7 @@ sockunion_getsockname (int fd)
 
 	  sin.sin_family = AF_INET;
 	  memcpy (&sin.sin_addr, ((char *)&su->sin6.sin6_addr) + 12, 4);
+	  sin.sin_port = su->sin6.sin6_port;
 	  memcpy (su, &sin, sizeof (struct sockaddr_in));
 	}
       return su;
@@ -644,14 +631,14 @@ sockunion_getpeername (int fd)
 
   if (name.sa.sa_family == AF_INET)
     {
-      su = XMALLOC (MTYPE_TMP, sizeof (union sockunion));
+      su = XCALLOC (MTYPE_TMP, sizeof (union sockunion));
       memcpy (su, &name, sizeof (struct sockaddr_in));
       return su;
     }
 #ifdef HAVE_IPV6
   if (name.sa.sa_family == AF_INET6)
     {
-      su = XMALLOC (MTYPE_TMP, sizeof (union sockunion));
+      su = XCALLOC (MTYPE_TMP, sizeof (union sockunion));
       memcpy (su, &name, sizeof (struct sockaddr_in6));
 
       if (IN6_IS_ADDR_V4MAPPED (&su->sin6.sin6_addr))
@@ -660,6 +647,7 @@ sockunion_getpeername (int fd)
 
 	  sin.sin_family = AF_INET;
 	  memcpy (&sin.sin_addr, ((char *)&su->sin6.sin6_addr) + 12, 4);
+	  sin.sin_port = su->sin6.sin6_port;
 	  memcpy (su, &sin, sizeof (struct sockaddr_in));
 	}
       return su;
@@ -750,4 +738,19 @@ sockunion_cmp (union sockunion *su1, union sockunion *su2)
     return in6addr_cmp (&su1->sin6.sin6_addr, &su2->sin6.sin6_addr);
 #endif /* HAVE_IPV6 */
   return 0;
+}
+
+/* Duplicate sockunion. */
+union sockunion *
+sockunion_dup (union sockunion *su)
+{
+  union sockunion *dup = XCALLOC (MTYPE_SOCKUNION, sizeof (union sockunion));
+  memcpy (dup, su, sizeof (union sockunion));
+  return dup;
+}
+
+void
+sockunion_free (union sockunion *su)
+{
+  XFREE (MTYPE_SOCKUNION, su);
 }

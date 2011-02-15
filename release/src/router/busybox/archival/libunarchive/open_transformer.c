@@ -12,26 +12,16 @@
  * in include/unarchive.h. On NOMMU, transformer is removed.
  */
 void FAST_FUNC open_transformer(int fd,
-	USE_DESKTOP(long long) int FAST_FUNC (*transformer)(int src_fd, int dst_fd),
+	IF_DESKTOP(long long) int FAST_FUNC (*transformer)(int src_fd, int dst_fd),
 	const char *transform_prog)
 {
 	struct fd_pair fd_pipe;
 	int pid;
 
 	xpiped_pair(fd_pipe);
-
-#if BB_MMU
-	pid = fork();
-	if (pid == -1)
-		bb_perror_msg_and_die("vfork" + 1);
-#else
-	pid = vfork();
-	if (pid == -1)
-		bb_perror_msg_and_die("vfork");
-#endif
-
+	pid = BB_MMU ? xfork() : xvfork();
 	if (pid == 0) {
-		/* child process */
+		/* Child */
 		close(fd_pipe.rd); /* we don't want to read from the parent */
 		// FIXME: error check?
 #if BB_MMU
@@ -52,7 +42,7 @@ void FAST_FUNC open_transformer(int fd,
 			argv[2] = (char*)"-";
 			argv[3] = NULL;
 			BB_EXECVP(transform_prog, argv);
-			bb_perror_msg_and_die("can't exec %s", transform_prog);
+			bb_perror_msg_and_die("can't execute '%s'", transform_prog);
 		}
 #endif
 		/* notreached */

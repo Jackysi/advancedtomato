@@ -20,7 +20,7 @@
  *	along with this program; if not, write to the Free Software
  *	Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- *  $Id: inode.c,v 1.1.1.4 2003/10/14 08:08:50 sparq Exp $
+ *  $Id: inode.c,v 1.3 2000/01/11 13:58:25 tom Exp $
  *
  *  History:
  *   0.1  04.01.2000  Created
@@ -41,6 +41,9 @@
 #include <linux/usbdevice_fs.h>
 #include <asm/uaccess.h>
 
+static struct inode_operations usbdevfs_bus_inode_operations;
+static struct file_operations usbdevfs_bus_file_operations;
+
 /* --------------------------------------------------------------------- */
 
 /*
@@ -59,7 +62,10 @@ struct special {
 
 static struct special special[] = { 
 	{ "devices", &usbdevfs_devices_fops,  },
-	{ "drivers", &usbdevfs_drivers_fops,  }
+	{ "drivers", &usbdevfs_drivers_fops,  },
+#ifdef CONFIG_USB_DEVPATH
+	{ "devpath", &usbdevfs_devpath_fops,  },
+#endif
 };
 
 #define NRSPECIAL (sizeof(special)/sizeof(special[0]))
@@ -158,9 +164,7 @@ static void free_inode(struct inode *inode)
 	inode->i_uid = inode->i_gid = 0;
 	inode->i_size = 0;
 	list_del(&inode->u.usbdev_i.slist);
-	INIT_LIST_HEAD(&inode->u.usbdev_i.slist);
 	list_del(&inode->u.usbdev_i.dlist);
-	INIT_LIST_HEAD(&inode->u.usbdev_i.dlist);
 	iput(inode);
 }
 
@@ -272,6 +276,30 @@ static struct usb_bus *usbdevfs_findbus(int busnr)
         return NULL;
 }
 
+#if 0
+static struct usb_device *finddev(struct usb_device *dev, int devnr)
+{
+        unsigned int i;
+        struct usb_device *d2;
+
+        if (!dev)
+                return NULL;
+        if (dev->devnum == devnr)
+                return dev;
+        for (i = 0; i < dev->maxchild; i++) {
+                if (!dev->children[i])
+                        continue;
+                if ((d2 = finddev(dev->children[i], devnr)))
+                        return d2;
+        }
+        return NULL;
+}
+
+static struct usb_device *usbdevfs_finddevice(struct usb_bus *bus, int devnr)
+{
+        return finddev(bus->root_hub, devnr);
+}
+#endif
 
 /* --------------------------------------------------------------------- */
 
@@ -488,8 +516,6 @@ static void usbdevfs_read_inode(struct inode *inode)
 	inode->i_ctime = inode->i_mtime = inode->i_atime = CURRENT_TIME;
 	inode->i_mode = S_IFREG;
 	inode->i_gid = inode->i_uid = 0;
-	INIT_LIST_HEAD(&inode->u.usbdev_i.dlist);
-	INIT_LIST_HEAD(&inode->u.usbdev_i.slist);
 	inode->u.usbdev_i.p.dev = NULL;
 	inode->u.usbdev_i.p.bus = NULL;
 	switch (ITYPE(inode->i_ino)) {
@@ -758,3 +784,7 @@ void __exit usbdevfs_cleanup(void)
 #endif
 }
 
+#if 0
+module_init(usbdevfs_init);
+module_exit(usbdevfs_cleanup);
+#endif

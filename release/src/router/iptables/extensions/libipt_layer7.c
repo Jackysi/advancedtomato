@@ -37,7 +37,9 @@ static void help(void)
 	"LAYER7 match v%s options:\n"
 	"--l7dir <directory>  : Look for patterns here instead of /etc/l7-protocols/\n"
 	"                       (--l7dir must be specified before --l7proto if used!)\n"
-	"--l7proto [!] <name> : Match the protocol defined in /etc/l7-protocols/name.pat\n",
+	"--l7proto [!] <name> : Match the protocol defined in /etc/l7-protocols/name.pat\n"
+	"--l7pkt              : Skip connection tracking and match individual packets\n",
+
 	IPTABLES_VERSION);
 	fputc('\n', stdout);
 }
@@ -45,6 +47,7 @@ static void help(void)
 static struct option opts[] = {
 	{ .name = "l7proto", .has_arg = 1, .flag = 0, .val = '1' },
 	{ .name = "l7dir",   .has_arg = 1, .flag = 0, .val = '2' },
+	{ .name = "l7pkt",   .has_arg = 0, .flag = 0, .val = '3' },
 	{ .name = 0 }
 };
 
@@ -171,6 +174,7 @@ static char * pre_process(char * s)
 			case 0x3f:
 			case 0x5b:
 			case 0x5c:
+			case 0x5d:
 			case 0x5e:
 			case 0x7c:
 				fprintf(stderr, 
@@ -333,6 +337,10 @@ static int parse(int c, char **argv, int invert, unsigned int *flags,
 		*flags = 1;
 		break;
 
+	case '3':
+		layer7info->pkt = 1;
+		break;
+
 	default:
 		return 0;
 	}
@@ -364,6 +372,9 @@ static void print(const struct ipt_ip *ip,
 
 	print_protocol(((struct ipt_layer7_info *)match->data)->protocol,
 		  ((struct ipt_layer7_info *)match->data)->invert, numeric);
+
+	if (((struct ipt_layer7_info *)match->data)->pkt)
+		printf("l7pkt ");
 }
 /* Saves the union ipt_matchinfo in parsable form to stdout. */
 static void save(const struct ipt_ip *ip, const struct ipt_entry_match *match)

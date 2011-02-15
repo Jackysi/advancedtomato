@@ -1,5 +1,4 @@
 /*
- *
  * BRIEF MODULE DESCRIPTION
  *	Galileo EV96100 setup.
  *
@@ -47,15 +46,9 @@
 #include <asm/mipsregs.h>
 #include <asm/irq.h>
 #include <asm/delay.h>
-#include <asm/gt64120.h>
-#include <asm/galileo-boards/ev96100.h>
+#include <asm/gt64120/gt64120.h>
 #include <asm/galileo-boards/ev96100int.h>
 
-
-#if defined(CONFIG_SERIAL_CONSOLE) || defined(CONFIG_PROM_CONSOLE)
-extern void console_setup(char *, int *);
-char serial_console[20];
-#endif
 
 extern char * __init prom_getcmdline(void);
 
@@ -64,10 +57,6 @@ extern struct rtc_ops no_rtc_ops;
 extern struct resource ioport_resource;
 
 unsigned char mac_0_1[12];
-
-void __init bus_error_init(void)
-{
-}
 
 void __init ev96100_setup(void)
 {
@@ -167,7 +156,7 @@ void __init ev96100_setup(void)
 		 GT_PCI0_CFGADDR_CONFIGEN_BIT);
 
 	udelay(2);
-	tmp = le32_to_cpu(*(volatile u32 *)(MIPS_GT_BASE+GT_PCI0_CFGDATA_OFS));
+	tmp = GT_READ(GT_PCI0_CFGDATA_OFS);
 
 	tmp |= (PCI_COMMAND_IO | PCI_COMMAND_MEMORY |
 		PCI_COMMAND_MASTER | PCI_COMMAND_SERR);
@@ -177,7 +166,7 @@ void __init ev96100_setup(void)
 		 ((PCI_COMMAND / 4) << GT_PCI0_CFGADDR_REGNUM_SHF)   |
 		 GT_PCI0_CFGADDR_CONFIGEN_BIT);
 	udelay(2);
-	*(volatile u32 *)(MIPS_GT_BASE+GT_PCI0_CFGDATA_OFS) = cpu_to_le32(tmp);
+	GT_WRITE(GT_PCI0_CFGDATA_OFS, tmp);
 
 	/* Setup address */
 	GT_WRITE(GT_PCI0_CFGADDR_OFS,
@@ -187,7 +176,7 @@ void __init ev96100_setup(void)
 		 GT_PCI0_CFGADDR_CONFIGEN_BIT);
 
 	udelay(2);
-	tmp = le32_to_cpu(*(volatile u32 *)(MIPS_GT_BASE+GT_PCI0_CFGDATA_OFS));
+	tmp = GT_READ(GT_PCI0_CFGDATA_OFS);
 }
 
 unsigned short get_gt_devid()
@@ -202,7 +191,7 @@ unsigned short get_gt_devid()
 		 GT_PCI0_CFGADDR_CONFIGEN_BIT);
 
 	udelay(4);
-	gt_devid = le32_to_cpu(*(volatile u32 *)
-			(MIPS_GT_BASE+GT_PCI0_CFGDATA_OFS));
-	return (unsigned short)(gt_devid>>16);
+	gt_devid = GT_READ(GT_PCI0_CFGDATA_OFS);
+
+	return gt_devid >> 16;
 }

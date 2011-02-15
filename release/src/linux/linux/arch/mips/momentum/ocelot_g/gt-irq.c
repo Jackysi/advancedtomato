@@ -154,6 +154,12 @@ static void gt64240_irq(int irq, void *dev_id, struct pt_regs *regs)
 	    int_high_src_mask;
 	int handled;
 
+#if 0
+	GT_READ(GT_INTRCAUSE_OFS, &irq_src);
+	GT_READ(GT_INTRMASK_OFS, &irq_src_mask);
+	GT_READ(GT_HINTRCAUSE_OFS, &int_high_src);
+	GT_READ(GT_HINTRMASK_OFS, &int_high_src_mask);
+#endif
 	irq_src = irq_src & irq_src_mask;
 	int_high_src = int_high_src & int_high_src_mask;
 
@@ -187,6 +193,10 @@ static void gt64240_irq(int irq, void *dev_id, struct pt_regs *regs)
 		}
 #endif				/*  UNUSED  */
 	}
+#if 0
+	GT_WRITE(GT_INTRCAUSE_OFS, 0);
+	GT_WRITE(GT_HINTRCAUSE_OFS, 0);
+#endif
 
 #undef GALILEO_I2O
 #ifdef GALILEO_I2O

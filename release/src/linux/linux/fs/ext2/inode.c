@@ -564,6 +564,7 @@ out:
 	if (err == -EAGAIN)
 		goto changed;
 
+	goal = 0;
 	if (ext2_find_goal(inode, iblock, chain, partial, &goal) < 0)
 		goto changed;
 
@@ -890,6 +891,21 @@ do_indirects:
 	}
 }
 
+void ext2_set_inode_flags(struct inode *inode)
+{
+	unsigned int flags = inode->u.ext2_i.i_flags;
+
+	inode->i_flags &= ~(S_SYNC|S_APPEND|S_IMMUTABLE|S_NOATIME);
+	if (flags & EXT2_SYNC_FL)
+		inode->i_flags |= S_SYNC;
+	if (flags & EXT2_APPEND_FL)
+		inode->i_flags |= S_APPEND;
+	if (flags & EXT2_IMMUTABLE_FL)
+		inode->i_flags |= S_IMMUTABLE;
+	if (flags & EXT2_NOATIME_FL)
+		inode->i_flags |= S_NOATIME;
+}
+
 void ext2_read_inode (struct inode * inode)
 {
 	struct buffer_head * bh;
@@ -1011,22 +1027,7 @@ void ext2_read_inode (struct inode * inode)
 				   le32_to_cpu(raw_inode->i_block[0]));
 	brelse (bh);
 	inode->i_attr_flags = 0;
-	if (inode->u.ext2_i.i_flags & EXT2_SYNC_FL) {
-		inode->i_attr_flags |= ATTR_FLAG_SYNCRONOUS;
-		inode->i_flags |= S_SYNC;
-	}
-	if (inode->u.ext2_i.i_flags & EXT2_APPEND_FL) {
-		inode->i_attr_flags |= ATTR_FLAG_APPEND;
-		inode->i_flags |= S_APPEND;
-	}
-	if (inode->u.ext2_i.i_flags & EXT2_IMMUTABLE_FL) {
-		inode->i_attr_flags |= ATTR_FLAG_IMMUTABLE;
-		inode->i_flags |= S_IMMUTABLE;
-	}
-	if (inode->u.ext2_i.i_flags & EXT2_NOATIME_FL) {
-		inode->i_attr_flags |= ATTR_FLAG_NOATIME;
-		inode->i_flags |= S_NOATIME;
-	}
+	ext2_set_inode_flags(inode);
 	return;
 	
 bad_inode:

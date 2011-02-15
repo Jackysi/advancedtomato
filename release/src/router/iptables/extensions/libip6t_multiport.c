@@ -9,6 +9,7 @@
 #include "../include/linux/netfilter_ipv6/ip6t_multiport.h"
 
 /* Function which prints out usage message. */
+#if 0
 static void
 help(void)
 {
@@ -25,6 +26,7 @@ help(void)
 " NOTE: this kernel does not support port ranges in multiport.\n",
 IPTABLES_VERSION);
 }
+#endif
 
 static void
 help_v1(void)
@@ -68,6 +70,7 @@ proto_to_name(u_int8_t proto)
 	}
 }
 
+#if 0
 static unsigned int
 parse_multi_ports(const char *portstring, u_int16_t *ports, const char *proto)
 {
@@ -87,6 +90,7 @@ parse_multi_ports(const char *portstring, u_int16_t *ports, const char *proto)
 	free(buffer);
 	return i;
 }
+#endif
 
 static void
 parse_multi_ports_v1(const char *portstring, 
@@ -151,6 +155,7 @@ check_proto(const struct ip6t_entry *entry)
 
 /* Function which parses command options; returns true if it
    ate an option */
+#if 0
 static int
 parse(int c, char **argv, int invert, unsigned int *flags,
       const struct ip6t_entry *entry,
@@ -200,6 +205,7 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 	*flags = 1;
 	return 1;
 }
+#endif
 
 static int
 parse_v1(int c, char **argv, int invert, unsigned int *flags,
@@ -278,6 +284,7 @@ print_port(u_int16_t port, u_int8_t protocol, int numeric)
 }
 
 /* Prints out the matchinfo. */
+#if 0
 static void
 print(const struct ip6t_ip6 *ip,
       const struct ip6t_entry_match *match,
@@ -313,6 +320,7 @@ print(const struct ip6t_ip6 *ip,
 	}
 	printf(" ");
 }
+#endif
 
 static void
 print_v1(const struct ip6t_ip6 *ip,
@@ -358,6 +366,7 @@ print_v1(const struct ip6t_ip6 *ip,
 }
 
 /* Saves the union ip6t_matchinfo in parsable form to stdout. */
+#if 0
 static void save(const struct ip6t_ip6 *ip, const struct ip6t_entry_match *match)
 {
 	const struct ip6t_multiport *multiinfo
@@ -384,6 +393,7 @@ static void save(const struct ip6t_ip6 *ip, const struct ip6t_entry_match *match
 	}
 	printf(" ");
 }
+#endif
 
 static void save_v1(const struct ip6t_ip6 *ip, 
 		    const struct ip6t_entry_match *match)
@@ -420,6 +430,7 @@ static void save_v1(const struct ip6t_ip6 *ip,
 	printf(" ");
 }
 
+#if 0
 static struct ip6tables_match multiport = {
 	.name		= "multiport",
 	.version	= IPTABLES_VERSION,
@@ -433,6 +444,7 @@ static struct ip6tables_match multiport = {
 	.save		= &save,
 	.extra_opts	= opts,
 };
+#endif
 
 static struct ip6tables_match multiport_v1 = { 
 	.next		= NULL,
@@ -453,6 +465,8 @@ static struct ip6tables_match multiport_v1 = {
 void
 _init(void)
 {
+#if 0
 	register_match6(&multiport);
+#endif
 	register_match6(&multiport_v1);
 }

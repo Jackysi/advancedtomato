@@ -37,31 +37,30 @@
 
 
 static char* usage = 
-      "
-Usage: add             [interface-name] [vlan_id]
-       rem             [vlan-name]
-       set_flag        [interface-name] [flag-num]       [0 | 1]
-       set_egress_map  [vlan-name]      [skb_priority]   [vlan_qos]
-       set_ingress_map [vlan-name]      [skb_priority]   [vlan_qos]
-       set_name_type   [name-type]
-
-* The [interface-name] is the name of the ethernet card that hosts
-  the VLAN you are talking about.
-* The vlan_id is the identifier (0-4095) of the VLAN you are operating on.
-* skb_priority is the priority in the socket buffer (sk_buff).
-* vlan_qos is the 3 bit priority in the VLAN header
-* name-type:  VLAN_PLUS_VID (vlan0005), VLAN_PLUS_VID_NO_PAD (vlan5),
-              DEV_PLUS_VID (eth0.0005), DEV_PLUS_VID_NO_PAD (eth0.5)
-* bind-type:  PER_DEVICE  # Allows vlan 5 on eth0 and eth1 to be unique.
-              PER_KERNEL  # Forces vlan 5 to be unique across all devices.
-* FLAGS:  1 REORDER_HDR  When this is set, the VLAN device will move the
-            ethernet header around to make it look exactly like a real
-            ethernet device.  This may help programs such as DHCPd which
-            read the raw ethernet packet and make assumptions about the
-            location of bytes.  If you don't need it, don't turn it on, because
-            there will be at least a small performance degradation.  Default
-            is OFF.
-";
+      "\n"
+"Usage: add             [interface-name] [vlan_id]\n"
+"       rem             [vlan-name]\n"
+"       set_flag        [interface-name] [flag-num]       [0 | 1]\n"
+"       set_egress_map  [vlan-name]      [skb_priority]   [vlan_qos]\n"
+"       set_ingress_map [vlan-name]      [skb_priority]   [vlan_qos]\n"
+"       set_name_type   [name-type]\n"
+"\n"
+"* The [interface-name] is the name of the ethernet card that hosts\n"
+"  the VLAN you are talking about.\n"
+"* The vlan_id is the identifier (0-4095) of the VLAN you are operating on.\n"
+"* skb_priority is the priority in the socket buffer (sk_buff).\n"
+"* vlan_qos is the 3 bit priority in the VLAN header\n"
+"* name-type:  VLAN_PLUS_VID (vlan0005), VLAN_PLUS_VID_NO_PAD (vlan5),\n"
+"              DEV_PLUS_VID (eth0.0005), DEV_PLUS_VID_NO_PAD (eth0.5)\n"
+"* bind-type:  PER_DEVICE  # Allows vlan 5 on eth0 and eth1 to be unique.\n"
+"              PER_KERNEL  # Forces vlan 5 to be unique across all devices.\n"
+"* FLAGS:  1 REORDER_HDR  When this is set, the VLAN device will move the\n"
+"            ethernet header around to make it look exactly like a real\n"
+"            ethernet device.  This may help programs such as DHCPd which\n"
+"            read the raw ethernet packet and make assumptions about the\n"
+"            location of bytes.  If you don't need it, don't turn it on, because\n"
+"            there will be at least a small performance degradation.  Default\n"
+"            is OFF.\n";
 
 void show_usage() {
    fprintf(stdout,usage);
@@ -133,7 +132,7 @@ int main(int argc, char** argv) {
          }
          else {
             // MATHIEU
-                    //cerr << "Invalid name type.\n";
+            //cerr << "Invalid name type.\n";
             fprintf(stderr,"Invalid name type.\n");
                                  
             show_usage();
@@ -145,10 +144,9 @@ int main(int argc, char** argv) {
          if_name = argv[2];
          if (strlen(if_name) > 15) {
             // MATHIEU
-                //cerr << "ERROR:  if_name must be 15 characters or less." << endl;
-            fprintf(stderr,"ERROR:  if_name must be 15 characters or less.\n");
-                        
-                        exit(1);
+            //cerr << "ERROR:  if_name must be 15 characters or less." << endl;
+            fprintf(stderr,"ERROR:  if_name must be 15 characters or less.\n");            
+            exit(1);
          }
          strcpy(if_request.device1, if_name);
       }
@@ -188,21 +186,39 @@ int main(int argc, char** argv) {
       if_request.cmd = ADD_VLAN_CMD;
       if (ioctl(fd, SIOCSIFVLAN, &if_request) < 0) {
          fprintf(stderr,"ERROR: trying to add VLAN #%u to IF -:%s:-  error: %s\n",
-                    vid, if_name, strerror(errno));                 
+                    vid, if_name, strerror(errno));
+         exit(3);
+      }
+      else {
+         fprintf(stdout,"Added VLAN with VID == %u to IF -:%s:-\n",
+                 vid, if_name);
+         if (vid == 1) {
+            fprintf(stdout, "WARNING:  VLAN 1 does not work with many switches,\nconsider another number if you have problems.\n");
+         }
       }
    }//if
    else if (strcasecmp(cmd, "rem") == 0) {
       if_request.cmd = DEL_VLAN_CMD;
       if (ioctl(fd, SIOCSIFVLAN, &if_request) < 0) {
          fprintf(stderr,"ERROR: trying to remove VLAN -:%s:- error: %s\n",
-                 if_name, strerror(errno));         
+                 if_name, strerror(errno));
+         exit(4);
+      }
+      else {
+         fprintf(stdout,"Removed VLAN -:%s:-\n", if_name);
       }
    }//if
    else if (strcasecmp(cmd, "set_egress_map") == 0) {
       if_request.cmd = SET_VLAN_EGRESS_PRIORITY_CMD;
       if (ioctl(fd, SIOCSIFVLAN, &if_request) < 0) {
          fprintf(stderr,"ERROR: trying to set egress map on device -:%s:- error: %s\n",
-                 if_name, strerror(errno));         
+                 if_name, strerror(errno));
+         exit(5);
+      }
+      else {
+         fprintf(stdout,"Set egress mapping on device -:%s:- "
+                 "Should be visible in /proc/net/vlan/%s\n",
+                 if_name, if_name);
       }
    }
    else if (strcasecmp(cmd, "set_ingress_map") == 0) {
@@ -210,6 +226,12 @@ int main(int argc, char** argv) {
       if (ioctl(fd, SIOCSIFVLAN, &if_request) < 0) {
          fprintf(stderr,"ERROR: trying to set ingress map on device -:%s:- error: %s\n",
                  if_name, strerror(errno));
+         exit(6);
+      }
+      else {
+         fprintf(stdout,"Set ingress mapping on device -:%s:- "
+                 "Should be visible in /proc/net/vlan/%s\n",
+                 if_name, if_name);                
       }
    }   
    else if (strcasecmp(cmd, "set_flag") == 0) {
@@ -217,13 +239,24 @@ int main(int argc, char** argv) {
       if (ioctl(fd, SIOCSIFVLAN, &if_request) < 0) {
          fprintf(stderr,"ERROR: trying to set flag on device -:%s:- error: %s\n",
                  if_name, strerror(errno));
+         exit(7);
+      }
+      else {
+         fprintf(stdout,"Set flag on device -:%s:- "
+                 "Should be visible in /proc/net/vlan/%s\n",
+                 if_name, if_name);
       }
    }
    else if (strcasecmp(cmd, "set_name_type") == 0) {
       if_request.cmd = SET_VLAN_NAME_TYPE_CMD;
       if (ioctl(fd, SIOCSIFVLAN, &if_request) < 0) {
          fprintf(stderr,"ERROR: trying to set name type for VLAN subsystem, error: %s\n",
-                 strerror(errno));         
+                 strerror(errno));
+         exit(8);
+      }
+      else {
+         fprintf(stdout,"Set name-type for VLAN subsystem."
+                 " Should be visible in /proc/net/vlan/config\n");         
       }
    }
    else {

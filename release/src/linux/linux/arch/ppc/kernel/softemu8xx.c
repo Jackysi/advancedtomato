@@ -1,7 +1,4 @@
 /*
- * BK Id: SCCS/s.softemu8xx.c 1.8 05/17/01 18:14:22 cort
- */
-/*
  * Software emulation of some PPC instructions for the 8xx core.
  *
  * Copyright (C) 1998 Dan Malek (dmalek@jlc.net)
@@ -34,6 +31,11 @@
 #include <asm/system.h>
 #include <asm/io.h>
 #include <asm/processor.h>
+
+extern void
+print_8xx_pte(struct mm_struct *mm, unsigned long addr);
+extern int
+get_8xx_pte(struct mm_struct *mm, unsigned long addr);
 
 /* Eventually we may need a look-up table, but this works for now.
 */
@@ -80,7 +82,7 @@ Soft_emulate_8xx(struct pt_regs *regs)
 		if (copy_from_user(ip, ea, sizeof(double)))
 			retval = -EFAULT;
 		break;
-		
+
 	case LFDU:
 		if (copy_from_user(ip, ea, sizeof(double)))
 			retval = -EFAULT;
@@ -117,7 +119,7 @@ Soft_emulate_8xx(struct pt_regs *regs)
 	default:
 		retval = 1;
 		printk("Bad emulation %s/%d\n"
-		       " NIP: %08x instruction: %08x opcode: %x "
+		       " NIP: %08lx instruction: %08x opcode: %x "
 		       "A: %x B: %x C: %x code: %x rc: %x\n",
 		       current->comm,current->pid,
 		       regs->nip,
@@ -128,15 +130,14 @@ Soft_emulate_8xx(struct pt_regs *regs)
 		       (instword>>1)&0x3ff,
 		       instword&1);
 		{
-			int pa;
+			unsigned long pa;
 			print_8xx_pte(current->mm,regs->nip);
-			pa = get_8xx_pte(current->mm,regs->nip) & PAGE_MASK;
-			pa |= (regs->nip & ~PAGE_MASK);
-			pa = __va(pa);
-			printk("Kernel VA for NIP %x ", pa);
-			print_8xx_pte(current->mm,pa);
+			pa = (get_8xx_pte(current->mm,regs->nip) & PAGE_MASK)
+				| (regs->nip & ~PAGE_MASK);
+			printk("Kernel VA for NIP 0x%p ", __va(pa));
+			print_8xx_pte(current->mm, (unsigned long)__va(pa));
 		}
-		
+
 	}
 
 	if (retval == 0)

@@ -7,6 +7,10 @@
 #	- create xref of symbols used
 #
 
+$root = $ENV{"TARGETDIR"};
+$uclibc = $ENV{"TOOLCHAIN"};
+$router = $ENV{"SRCBASE"} . "/router";
+
 sub error
 {
 	print STDERR "\n*** ERROR: " . (shift) . "\n\n";
@@ -136,6 +140,9 @@ sub fixDyn
 		if (/^libipt_.+\.so$/) {
 			fixDynDep("iptables", $_);
 		}
+		elsif (/^libip6t_.+\.so$/) {
+			fixDynDep("ip6tables", $_);
+		}
 		elsif (/^CP\d+\.so$/) {
 			fixDynDep("smbd", $_);
 		}
@@ -143,9 +150,19 @@ sub fixDyn
 
 	fixDynDep("l2tpd", "cmd.so");
 	fixDynDep("l2tpd", "sync-pppd.so");
+	fixDynDep("pppd", "pppol2tp.so");
+	fixDynDep("pppd", "pptp.so");
+	fixDynDep("libcrypto.so.1.0.0", "libssl.so.1.0.0");
 	
 #	fixDynDep("libbcm.so", "libshared.so");
 #	fixDynDep("libbcm.so", "libc.so.0");
+
+#!!TB - Updated Broadcom WL driver
+	fixDynDep("libbcmcrypto.so", "libc.so.0");
+	fixDynDep("nas", "libbcmcrypto.so");
+	fixDynDep("wl", "libbcmcrypto.so");
+	fixDynDep("nas", "libc.so.0");
+	fixDynDep("wl", "libc.so.0");
 }
 
 sub usersOf
@@ -197,7 +214,16 @@ sub fillGaps
 	foreach $name (@elfs) {
 		foreach $sym (keys %{$elf_ext{$name}}) {
 			$found = 0;
-			if (resolve($name, $sym) eq "*** unresolved ***") {
+
+			if ($sym eq '__uClibc_start_main') {
+				$sym = '__uClibc_main';
+			}
+
+			#  __gnu_local_gp is defined specially by the linker on MIPS
+			if ($sym eq '__gnu_local_gp') {
+				$found = 1;
+			}
+			elsif (resolve($name, $sym) eq "*** unresolved ***") {
 				@users = usersOf($name);
 				foreach $u (@users) {
 					# if exported by $u
@@ -289,7 +315,7 @@ sub genXref
 
 sub genSO
 {
-	my ($so, $arc, $opt) = @_;
+	my ($so, $arc, $strip, $opt) = @_;
 	my $name = basename($so);
 	my $sym;
 	my $fn;
@@ -303,9 +329,15 @@ sub genSO
 		print "$name: not found, skipping...\n";
 		return 0;
 	}
+
+	#!!TB
+	if (!-f $arc) {
+		print "$arc: not found, skipping...\n";
+		return 0;
+	}
 	
 	foreach $sym (sort keys %{$elf_exp{$name}}) {
-		if (scalar(usersOf($name, $sym)) > 0) {
+		if ((scalar(usersOf($name, $sym)) > 0) || (${strip} eq "no")) {
 			push(@used, $sym);
 		}
 		else {
@@ -328,9 +360,10 @@ sub genSO
 	}
 #	print "$cmd -u... ${arc}\n";	
 	if (scalar(@used) == 0) {
-		print "\n\n\n$name: WARNING: Library is not used by anything.\n\n\n";
-		<>;
-#		return 0;
+		print "$name: WARNING: Library is not used by anything, deleting...\n";
+		unlink $so;
+#		<>;
+		return 0;
 	}
 	$cmd .= " -u " . join(" -u ", @used) . " ". $arc;
 
@@ -364,10 +397,6 @@ sub genSO
 #	print "\nlibfoo.pl - fooify shared libraries\n";
 #	print "Copyright (C) 2006-2007 Jonathan Zarate\n\n";
 
-$root = $ENV{"TARGETDIR"};
-$uclibc = $ENV{"TOOLCHAIN"};
-$router = $ENV{"SRCBASE"} . "/router";
-
 if ((!-d $root) || (!-d $uclibc) || (!-d $router)) {
 	print "Missing or invalid environment variables\n";
 	exit(1);
@@ -385,24 +414,52 @@ fillGaps();
 
 genXref();
 
+$stripshared = "yes";
+if ($ARGV[0] eq "--noopt") {
+	$stripshared = "no";
+}
 
-genSO("${root}/lib/libc.so.0", "${uclibc}/lib/libc.a", "-init __uClibc_init ${uclibc}/lib/optinfo/interp.o");
-genSO("${root}/lib/libresolv.so.0", "${uclibc}/lib/libresolv.a");
-genSO("${root}/lib/libcrypt.so.0", "${uclibc}/lib/libcrypt.a");
-genSO("${root}/lib/libm.so.0", "${uclibc}/lib/libm.a");
-genSO("${root}/lib/libpthread.so.0", "${uclibc}/lib/libpthread.a");
-genSO("${root}/lib/libutil.so.0", "${uclibc}/lib/libutil.a");
-#	genSO("${root}/lib/libdl.so.0", "${uclibc}/lib/libdl.a");
-#  genSO("${root}/lib/libnsl.so.0", "${uclibc}/lib/libnsl.a");
+# WAR for a weird "ld" bug: unless we drag in these few functions, re-linking
+# libpthread.so.0 completely screws it up - at least in the current toolchain
+# (binutils 2.20.1 / gcc 4.2.4) :(
+$libpthreadwar = "-u pthread_mutexattr_init -u pthread_mutexattr_settype -u pthread_mutexattr_destroy";
 
-genSO("${root}/usr/lib/libssl.so", "${router}/openssl/libssl.a");
-genSO("${root}/usr/lib/libcrypto.so", "${router}/openssl/libcrypto.a");
+genSO("${root}/lib/libc.so.0", "${uclibc}/lib/libc.a", "${stripshared}", "-init __uClibc_init ${uclibc}/lib/optinfo/interp.os");
+genSO("${root}/lib/libresolv.so.0", "${uclibc}/lib/libresolv.a", "${stripshared}");
+genSO("${root}/lib/libcrypt.so.0", "${uclibc}/lib/libcrypt.a", "${stripshared}");
+genSO("${root}/lib/libm.so.0", "${uclibc}/lib/libm.a", "${stripshared}");
+genSO("${root}/lib/libpthread.so.0", "${uclibc}/lib/libpthread.a", "${stripshared}", "${libpthreadwar}");
+genSO("${root}/lib/libutil.so.0", "${uclibc}/lib/libutil.a", "${stripshared}");
+#  genSO("${root}/lib/libdl.so.0", "${uclibc}/lib/libdl.a", "${stripshared}");
+#  genSO("${root}/lib/libnsl.so.0", "${uclibc}/lib/libnsl.a", "${stripshared}");
+
+genSO("${root}/usr/lib/libcrypto.so.1.0.0", "${router}/openssl/libcrypto.a");
+genSO("${root}/usr/lib/libssl.so.1.0.0", "${router}/openssl/libssl.a", "", "-L${router}/openssl");
+
 genSO("${root}/usr/lib/libzebra.so", "${router}/zebra/lib/libzebra.a");
+genSO("${root}/usr/lib/libz.so.1", "${router}/zlib/libz.a");
+genSO("${root}/usr/lib/libjpeg.so", "${router}/jpeg/libjpeg.a");
+genSO("${root}/usr/lib/libsqlite3.so.0", "${router}/sqlite/.libs/libsqlite3.a");
+genSO("${root}/usr/lib/libogg.so.0", "${router}/libogg/src/.libs/libogg.a");
+genSO("${root}/usr/lib/libvorbis.so.0", "${router}/libvorbis/lib/.libs/libvorbis.a", "", "-L${router}/libogg/src/.libs");
+genSO("${root}/usr/lib/libid3tag.so.0", "${router}/libid3tag/.libs/libid3tag.a", "", "-L${router}/zlib");
+genSO("${root}/usr/lib/libexif.so.12", "${router}/libexif/libexif/.libs/libexif.a");
+genSO("${root}/usr/lib/libFLAC.so.8", "${router}/flac/src/libFLAC/.libs/libFLAC.a", "", "-L${router}/libogg/src/.libs");
+genSO("${root}/usr/lib/libavcodec.so.52", "${router}/ffmpeg/libavcodec/libavcodec.a", "", "-L${router}/ffmpeg/libavutil");
+genSO("${root}/usr/lib/libavutil.so.50", "${router}/ffmpeg/libavutil/libavutil.a");
+genSO("${root}/usr/lib/libavformat.so.52", "${router}/ffmpeg/libavformat/libavformat.a", "", "-L${router}/ffmpeg/libavutil -L${router}/ffmpeg/libavcodec");
+genSO("${root}/usr/lib/libsmb.so", "${router}/samba/source/bin/libsmb.a");
+genSO("${root}/usr/lib/libbigballofmud.so", "${router}/samba3/source/bin/libbigballofmud.a");
+
 genSO("${root}/usr/lib/liblzo2.so.2", "${router}/lzo/src/.libs/liblzo2.a");
 #	genSO("${root}/usr/lib/libtamba.so", "${router}/samba3/source/bin/libtamba.a");
 #	genSO("${root}/usr/lib/libiptc.so", "${router}/iptables/libiptc/libiptc.a");
 #	genSO("${root}/usr/lib/libshared.so", "${router}/shared/libshared.a");
 #	genSO("${root}/usr/lib/libnvram.so", "${router}/nvram/libnvram.a");
+#	genSO("${root}/usr/lib/libusb-1.0.so.0", "${router}/libusb10/libusb/.libs/libusb-1.0.a");
+#	genSO("${root}/usr/lib/libusb-0.1.so.4", "${router}/libusb/libusb/.libs/libusb.a", "", "-L${router}/libusb10/libusb/.libs");
+
+genSO("${root}/usr/lib/libbcmcrypto.so", "${router}/libbcmcrypto/libbcmcrypto.a");
 
 print "\n";
 

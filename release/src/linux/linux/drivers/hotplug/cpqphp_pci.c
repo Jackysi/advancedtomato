@@ -1,9 +1,9 @@
 /*
  * Compaq Hot Plug Controller Driver
  *
- * Copyright (c) 1995,2001 Compaq Computer Corporation
- * Copyright (c) 2001 Greg Kroah-Hartman (greg@kroah.com)
- * Copyright (c) 2001 IBM Corp.
+ * Copyright (C) 1995,2001 Compaq Computer Corporation
+ * Copyright (C) 2001 Greg Kroah-Hartman (greg@kroah.com)
+ * Copyright (C) 2001 IBM Corp.
  *
  * All rights reserved.
  *
@@ -139,7 +139,7 @@ static int configure_visit_pci_dev (struct pci_dev_wrapped *wrapped_dev, struct 
 		//We did not even find a hotplug rep of the function, create it
 		//This code might be taken out if we can guarantee the creation of functions
 		//in parallel (hotplug and Linux at the same time).
-		dbg("@@@@@@@@@@@ cpqhp_slot_create in "__FUNCTION__"\n");
+		dbg("@@@@@@@@@@@ cpqhp_slot_create in %s\n", __FUNCTION__);
 		temp_func = cpqhp_slot_create(bus->number);
 		if (temp_func == NULL)
 			return -ENOMEM;
@@ -306,7 +306,7 @@ int cpqhp_unconfigure_device(struct pci_func* func)
 	memset(&wrapped_dev, 0, sizeof(struct pci_dev_wrapped));
 	memset(&wrapped_bus, 0, sizeof(struct pci_bus_wrapped));
 
-	dbg(__FUNCTION__": bus/dev/func = %x/%x/%x\n",func->bus, func->device, func->function);
+	dbg("%s: bus/dev/func = %x/%x/%x\n", __FUNCTION__, func->bus, func->device, func->function);
 
 	for (j=0; j<8 ; j++) {
 		struct pci_dev* temp = pci_find_slot(func->bus, (func->device << 3) | j);
@@ -354,10 +354,10 @@ int cpqhp_set_irq (u8 bus_num, u8 dev_num, u8 int_pin, u8 irq_num)
 	fakedev.devfn = dev_num << 3;
 	fakedev.bus = &fakebus;
 	fakebus.number = bus_num;
-	dbg(__FUNCTION__": dev %d, bus %d, pin %d, num %d\n",
-	    dev_num, bus_num, int_pin, irq_num);
+	dbg("%s: dev %d, bus %d, pin %d, num %d\n",
+	    __FUNCTION__, dev_num, bus_num, int_pin, irq_num);
 	rc = pcibios_set_irq_routing(&fakedev, int_pin - 0x0a, irq_num);
-	dbg(__FUNCTION__":rc %d\n", rc);
+	dbg("%s:rc %d\n", __FUNCTION__, rc);
 	if (!rc)
 		return !rc;
 
@@ -387,7 +387,7 @@ static int PCI_ScanBusNonBridge (u8 bus, u8 device)
 
 static int PCI_ScanBusForNonBridge(struct controller *ctrl, u8 bus_num, u8 * dev_num)
 {
-	u8 tdevice;
+	u16 tdevice;
 	u32 work;
 	u8 tbus;
 
@@ -1585,7 +1585,7 @@ int cpqhp_return_board_resources(struct pci_func * func, struct resource_lists *
 	int rc = 0;
 	struct pci_resource *node;
 	struct pci_resource *t_node;
-	dbg(__FUNCTION__"\n");
+	dbg("%s\n", __FUNCTION__);
 
 	if (!func)
 		return(1);

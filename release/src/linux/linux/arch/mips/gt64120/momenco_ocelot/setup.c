@@ -83,7 +83,6 @@ static char reset_reason;
 #define ENTRYLO(x) ((pte_val(mk_pte_phys((x), PAGE_KERNEL_UNCACHED)) >> 6)|1)
 
 static void __init setup_l3cache(unsigned long size);
-void __init bus_error_init(void) { /* nothing */ }
 
 /* setup code for a handoff from a version 1 PMON 2000 PROM */
 void PMON_v1_setup()
@@ -328,7 +327,7 @@ static void __init setup_l3cache(unsigned long size)
 	printk("Enabling L3 cache...");
 
 	/* Enable the L3 cache in the GT64120A's CPU Configuration register */
-	GT_READ(0, &tmp);
+	tmp = GT_READ(0);
 	GT_WRITE(0, tmp | (1<<14));
 
 	/* Enable the L3 cache in the CPU */

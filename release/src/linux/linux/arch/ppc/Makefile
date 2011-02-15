@@ -1,4 +1,3 @@
-# BK Id: %F% %I% %G% %U% %#%
 #
 # This file is included by the global makefile so that you can add your own
 # architecture-specific flags and dependencies. Remember to do have actions
@@ -15,11 +14,7 @@
 #
 
 # Be sure to change PAGE_OFFSET in include/asm-ppc/page.h to match
-KERNELLOAD	=0xc0000000
-
-ifeq ($(shell uname -m),ppc)
-CHECKS		= checks
-endif
+KERNELLOAD	=$(CONFIG_KERNEL_START)
 
 LINKFLAGS	= -T arch/ppc/vmlinux.lds -Ttext $(KERNELLOAD) -Bstatic
 CPPFLAGS	:= $(CPPFLAGS) -I$(TOPDIR)/arch/$(ARCH)
@@ -47,18 +42,13 @@ ifdef CONFIG_MORE_COMPILE_OPTIONS
   CFLAGS += $(shell echo $(CONFIG_COMPILE_OPTIONS) | sed -e 's/"//g')
 endif
 
-ifdef CONFIG_4xx
-  HEAD := arch/ppc/kernel/head_4xx.o
-else
-  ifdef CONFIG_8xx
-    HEAD := arch/ppc/kernel/head_8xx.o
-  else
-    HEAD := arch/ppc/kernel/head.o
-    ifdef CONFIG_6xx
-	HEAD += arch/ppc/kernel/idle_6xx.o
-    endif
-  endif
-endif
+HEAD-y			:= arch/ppc/kernel/head.o
+HEAD-$(CONFIG_40x)	:= arch/ppc/kernel/head_4xx.o
+HEAD-$(CONFIG_44x)	:= arch/ppc/kernel/head_44x.o
+HEAD-$(CONFIG_8xx)	:= arch/ppc/kernel/head_8xx.o
+HEAD-$(CONFIG_6xx)	+= arch/ppc/kernel/idle_6xx.o
+
+HEAD := $(HEAD-y)
 
 ARCH_SUBDIRS = arch/ppc/kernel arch/ppc/platforms arch/ppc/mm arch/ppc/lib
 SUBDIRS := $(SUBDIRS) $(ARCH_SUBDIRS)
@@ -82,9 +72,9 @@ SUBDIRS += arch/ppc/8xx_io
 DRIVERS += arch/ppc/8xx_io/8xx_io.o
 endif
 
-ifdef CONFIG_8260
-SUBDIRS += arch/ppc/8260_io
-DRIVERS += arch/ppc/8260_io/8260_io.o
+ifdef CONFIG_CPM2
+SUBDIRS += arch/ppc/cpm2_io
+DRIVERS += arch/ppc/cpm2_io/cpm2_io.o
 endif
 
 ifdef CONFIG_APUS
@@ -95,12 +85,12 @@ endif
 checks:
 	@$(MAKE) -C arch/$(ARCH)/kernel checks
 
-BOOT_TARGETS = zImage zImage.initrd znetboot znetboot.initrd
+BOOT_TARGETS = zImage zImage.initrd znetboot znetboot.initrd uImage
 
 # All the instructions talk about "make bzImage".
 bzImage: zImage
 
-$(BOOT_TARGETS): $(CHECKS) vmlinux
+$(BOOT_TARGETS): vmlinux
 	@$(MAKEBOOT) $@
 
 %_config: arch/ppc/configs/%_defconfig

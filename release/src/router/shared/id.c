@@ -15,7 +15,7 @@
 
 /*
 
-					HW_*                  boardtype    boardnum  boardrev  boardflags  others
+		HW_*                  boardtype    boardnum  boardrev  boardflags  others
 					--------------------- ------------ --------- --------- ----------- ---------------
 WRT54G 1.x			BCM4702               bcm94710dev  42
 WRT54G 2.0			BCM4712               0x0101       42        0x10      0x0188
@@ -28,6 +28,10 @@ WRT54GS 3.0, 4.0    BCM5352E              0x0467       42        0x10      0x275
 WRT300N 1.0         BCM4704_BCM5325F_EWC  0x0472       42        0x10      0x10
 WRTSL54GS           BCM4704_BCM5325F      0x042f       42        0x10      0x0018
 WTR54GS v1, v2      BCM5350               0x456        56        0x10      0xb18       (source: BaoWeiQuan)
+WRT160Nv1           BCM4704_BCM5325F_EWC  0x0472       42        0x11      0x0010      boot_hw_model=WRT160N boot_hw_ver=1.0
+WRT160Nv3, M10      BCM4716               0x04cd       42        0x1700                boot_hw_model=WRT160N boot_hw_ver=3.0 (M10: boot_hw_model=M10 boot_hw_ver=1.0)
+WRT320N/E2000       BCM4717               0x04ef       42/66     0x1304/0x1305/0x1307  boardflags: 0x0040F10 / 0x00000602 (??)
+WRT610Nv2/E3000     BCM4718               0x04cf       42/??     ??                    boot_hw_model=WRT610N/E300
 
 WHR-G54S            BCM5352E              0x467        00        0x13      0x2758      melco_id=30182
 WHR-HP-G54S         BCM5352E              0x467        00        0x13      0x2758      melco_id=30189
@@ -47,13 +51,22 @@ WR850G v2 (& v3?)	BCM4712               0x0101       44                  0x0188 
 WR850G ?			BCM4712               0x0101       44        0x10      0x0188      CFEver=MotoWRv207
 WR850G v3			BCM4712               0x0101       44        0x10      0x0188      CFEver=MotoWRv301
 
-*WL-500G Deluxe		                      bcm95365r    45        0x10                  hardware_version=WL500gd-01-04-01-50 regulation_domain=0x30DE sdram_init=0x2008
+WL-500G Deluxe		BCM5365               bcm95365r    45        0x10                  hardware_version=WL500gd-01-04-01-50 regulation_domain=0x30DE sdram_init=0x2008
 WL-500G Premium		BCM4704_BCM5325F      0x042f       45        0x10      0x0110      hardware_version=WL500gp-01-02-00-00 regulation_domain=0X10US sdram_init=0x0009
 WL-500G Premium		BCM4704_BCM5325F      0x042f       45        0x10      0x0110      hardware_version=WL500gH-01-00-00-00 regulation_domain=0X30DE sdram_init=0x000b
+WL-500W			BCM4704_BCM5325F_EWC  0x0472       45        0x23      0x0010      hardware_version=WL500gW-01-00-00-00 regulation_domain=0X10US sdram_init=0x0009
 
-WL-500G Premium v2  HW_BCM5354G           0x48E        45        0x10      0x0750
+WL-500G Premium v2		HW_BCM5354G           0x48E        45        0x10      0x0750
 WL-520GU			HW_BCM5354G           0x48E        45        0x10      0x0750      hardware_version=WL520GU-01-07-02-00
+ZTE H618B			HW_BCM5354G           0x048e     1105        0x35      0x0750
+Ovislink WL1600GL		HW_BCM5354G           0x048E        8        0x11
 
+RT-N16				BCM4718               0x04cf       45        0x1218    0x0310      hardware_version=RT-N16-00-07-01-00 regulation_domain=0X10US sdram_init=0x419
+RT-N12				BCM4716               0x04cd       45        0x1201    0x????
+RT-N10				BCM5356               0x04ec       45        0x1402    0x????
+
+WNR3500L			BCM4718               0x04cf       3500      0x1213|02 0x0710|0x1710
+WNR2000v2			BCM4716B0             0xe4cd       1         0x1700
 
 WL-550gE			BCM5352E              0x0467       45        0x10      0x0758      hardware_version=WL550gE-01-05-01-00 sdram_init=0x2000
 
@@ -116,11 +129,29 @@ int check_hw_type(void)
 		return HW_BCM5354G;
 	case 0x456:
 		return HW_BCM5350;
+	case 0x4ec:
+		return HW_BCM5356;
+	case 0x489:
+		return HW_BCM4785;
+#ifdef CONFIG_BCMWL5
+	case 0x04cd:
+	case 0xe4cd:
+	case 0x04fb:
+		return HW_BCM4716;
+	case 0x04ef:
+		return HW_BCM4717;
+	case 0x04cf:
+		return HW_BCM4718;
+#endif
 	}
 
 	// WR850G may have "bcm94710dev " (extra space)
 	if ((strncmp(s, "bcm94710dev", 11) == 0) || (strcmp(s, "bcm94710r4") == 0)) {
 		return HW_BCM4702;
+	}
+
+	if ((strcmp(s, "bcm95365r") == 0)) {
+		return HW_BCM5365;
 	}
 
 	return HW_UNKNOWN;
@@ -160,10 +191,8 @@ int get_model(void)
 	case 0x30153:
 	case 0x31095:
 		return MODEL_WZRG108;
-#if TOMATO_N
 	case 0x31120:
 		return MODEL_WZRG300N;
-#endif
 	case 0:
 		break;
 	default:
@@ -196,14 +225,33 @@ int get_model(void)
 	}
 */
 
+#ifdef CONFIG_BCMWL5
+	if (hw == HW_BCM4718) {
+		if (nvram_match("boot_hw_model", "WRT610N") ||
+		    nvram_match("boot_hw_model", "E300"))
+		return MODEL_WRT610Nv2;
+	}
+#endif
+
 	switch (strtoul(nvram_safe_get("boardnum"), NULL, 0)) {
 	case 42:
 		switch (hw) {
 		case HW_BCM4704_BCM5325F:
 			return MODEL_WRTSL54GS;
-#if TOMATO_N
 		case HW_BCM4704_BCM5325F_EWC:
-			return MODEL_WRT300N;
+			if (nvram_match("boardrev", "0x10")) return MODEL_WRT300N;
+			if (nvram_match("boardrev", "0x11")) return MODEL_WRT160Nv1;
+			break;
+		case HW_BCM4785:
+			if (nvram_match("boardrev", "0x10")) return MODEL_WRT310Nv1;
+			break;
+#ifdef CONFIG_BCMWL5
+		case HW_BCM4716:
+			return MODEL_WRT160Nv3;
+		case HW_BCM4717:
+			return MODEL_WRT320N;
+		case HW_BCM4718:
+			return MODEL_WRT610Nv2;
 #endif
 		}
 		return MODEL_WRT54G;
@@ -211,12 +259,62 @@ int get_model(void)
 		switch (hw) {
 		case HW_BCM4704_BCM5325F:
 			return MODEL_WL500GP;
+		case HW_BCM4704_BCM5325F_EWC:
+			return MODEL_WL500W;
 		case HW_BCM5352E:
 			return MODEL_WL500GE;
 		case HW_BCM5354G:
 			if (strncmp(nvram_safe_get("hardware_version"), "WL520GU", 7) == 0) return MODEL_WL520GU;
 			return MODEL_WL500GPv2;
+		case HW_BCM5365:
+			return MODEL_WL500GD;
+#ifdef CONFIG_BCMWL5
+		case HW_BCM5356:
+			if (nvram_match("boardrev", "0x1402")) return MODEL_RTN10;
+			break;
+		case HW_BCM4716:
+			if (nvram_match("boardrev", "0x1201")) return MODEL_RTN12;
+			break;
+		case HW_BCM4718:
+			if (nvram_match("boardrev", "0x1218")) return MODEL_RTN16;
+			break;
+#endif
 		}
+		break;
+#ifdef CONFIG_BCMWL5
+	case 66:
+		switch (hw) {
+		case HW_BCM4717:
+			return MODEL_WRT320N;
+		}
+		break;
+	case 1:
+		switch (hw) {
+		case HW_BCM4716:
+			//if (nvram_match("boardrev", "0x1700"))
+			return MODEL_WNR2000v2;
+		}
+		/* fall through */
+	case 3500:
+		switch (hw) {
+		case HW_BCM4718:
+			//if (nvram_match("boardrev", "0x1213") || nvram_match("boardrev", "02"))
+			return MODEL_WNR3500L;
+		}
+		break;
+#endif
+	case 0:
+		switch (hw) {
+		case HW_BCM5354G:
+			if (nvram_match("boardrev", "0x35")) return MODEL_DIR320;
+			break;
+		}
+		break;
+	case 1105:
+		if ((hw == HW_BCM5354G) && nvram_match("boardrev", "0x35")) return MODEL_H618B;
+		break;
+	case 8:
+		if ((hw == HW_BCM5354G) && nvram_match("boardrev", "0x11")) return MODEL_WL1600GL;
 		break;
 	case 2:
 		if (nvram_match("GemtekPmonVer", "9")) return MODEL_WR850GV1;

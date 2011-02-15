@@ -39,7 +39,7 @@
  */
 #define MAX_PROPERTY_LENGTH	4096
 
-#ifndef FB_MAX			    /* avoid pulling in all of the fb stuff */
+#ifndef FB_MAX			/* avoid pulling in all of the fb stuff */
 #define FB_MAX	8
 #endif
 
@@ -266,7 +266,7 @@ check_display(unsigned long mem)
 {
 	phandle node;
 	ihandle ih;
-	int i;
+	int i, j;
 	char type[16], *path;
 	static unsigned char default_colors[] = {
 		0x00, 0x00, 0x00,
@@ -325,26 +325,26 @@ check_display(unsigned long mem)
 			break;
 	}
 
-try_again:
 	/*
 	 * Open the first display and set its colormap.
 	 */
-	if (prom_num_displays > 0) {
-		path = prom_display_paths[0];
+	for (j=0; j<prom_num_displays; j++) {
+		path = prom_display_paths[j];
 		prom_print("opening display ");
 		prom_print(path);
 		ih = call_prom("open", 1, 1, path);
 		if (ih == 0 || ih == (ihandle) -1) {
 			prom_print("... failed\n");
-			for (i=1; i<prom_num_displays; i++) {
+			for (i=j+1; i<prom_num_displays; i++) {
 				prom_display_paths[i-1] = prom_display_paths[i];
 				prom_display_nodes[i-1] = prom_display_nodes[i];
 			}
-			if (--prom_num_displays > 0)
-				prom_disp_node = prom_display_nodes[0];
-			else
+			if (--prom_num_displays > 0) {
+				prom_disp_node = prom_display_nodes[j];
+				j--;
+			} else
 				prom_disp_node = NULL;
-			goto try_again;
+			continue;
 		} else {
 			prom_print("... ok\n");
 			/*
@@ -582,6 +582,10 @@ prom_hold_cpus(unsigned long mem)
 	char type[16], *path;
 	unsigned int reg;
 
+	/*
+	 * XXX: hack to make sure we're chrp, assume that if we're
+	 *      chrp we have a device_type property -- Cort
+	 */
 	node = call_prom("finddevice", 1, 1, "/");
 	if ((int)call_prom("getprop", 4, 1, node,
 			   "device_type",type, sizeof(type)) <= 0)
@@ -613,6 +617,7 @@ prom_hold_cpus(unsigned long mem)
 #ifdef CONFIG_SMP
 		smp_hw_index[cpu] = reg;
 #endif /* CONFIG_SMP */
+		/* XXX: hack - don't start cpu 0, this cpu -- Cort */
 		if (cpu == 0)
 			continue;
 		prom_print("starting cpu ");
@@ -632,6 +637,72 @@ prom_hold_cpus(unsigned long mem)
 		}
 	}
 }
+
+#ifdef CONFIG_POWER4
+/*
+ * Set up a hash table with a set of entries in it to map the
+ * first 64MB of RAM.  This is used on 64-bit machines since
+ * some of them don't have BATs.
+ * We assume the PTE will fit in the primary PTEG.
+ */
+
+static inline void make_pte(unsigned long htab, unsigned int hsize,
+			    unsigned int va, unsigned int pa, int mode)
+{
+	unsigned int *pteg;
+	unsigned int hash, i, vsid;
+
+	vsid = ((va >> 28) * 0x111) << 12;
+	hash = ((va ^ vsid) >> 5) & 0x7fff80;
+	pteg = (unsigned int *)(htab + (hash & (hsize - 1)));
+	for (i = 0; i < 8; ++i, pteg += 4) {
+		if ((pteg[1] & 1) == 0) {
+			pteg[1] = vsid | ((va >> 16) & 0xf80) | 1;
+			pteg[3] = pa | mode;
+			break;
+		}
+	}
+}
+
+extern unsigned long _SDR1;
+extern PTE *Hash;
+extern unsigned long Hash_size;
+
+static void __init
+prom_alloc_htab(void)
+{
+	unsigned int hsize;
+	unsigned long htab;
+	unsigned int addr;
+
+	/*
+	 * Because of OF bugs we can't use the "claim" client
+	 * interface to allocate memory for the hash table.
+	 * This code is only used on 64-bit PPCs, and the only
+	 * 64-bit PPCs at the moment are RS/6000s, and their
+	 * OF is based at 0xc00000 (the 12M point), so we just
+	 * arbitrarily use the 0x800000 - 0xc00000 region for the
+	 * hash table.
+	 *  -- paulus.
+	 */
+	hsize = 4 << 20;	/* POWER4 has no BATs */
+	htab = (8 << 20);
+	call_prom("claim", 3, 1, htab, hsize, 0);
+	Hash = (void *)(htab + KERNELBASE);
+	Hash_size = hsize;
+	_SDR1 = htab + __ilog2(hsize) - 18;
+
+	/*
+	 * Put in PTEs for the first 64MB of RAM
+	 */
+	cacheable_memzero((void *)htab, hsize);
+	for (addr = 0; addr < 0x4000000; addr += 0x1000)
+		make_pte(htab, hsize, addr + KERNELBASE, addr,
+			 _PAGE_ACCESSED | _PAGE_COHERENT | PP_RWXX);
+	make_pte(htab, hsize, 0x80013000, 0x80013000,
+		 _PAGE_ACCESSED | _PAGE_NO_CACHE | _PAGE_GUARDED | PP_RWXX);
+}
+#endif /* CONFIG_POWER4 */
 
 static void __init
 prom_instantiate_rtas(void)
@@ -700,8 +771,7 @@ prom_init(int r3, int r4, prom_entry pp)
 
 	/* First get a handle for the stdout device */
 	prom = pp;
-	prom_chosen = call_prom("finddevice", 1, 1,
-				       "/chosen");
+	prom_chosen = call_prom("finddevice", 1, 1, "/chosen");
 	if (prom_chosen == (void *)-1)
 		prom_exit();
 	if ((int) call_prom("getprop", 4, 1, prom_chosen,
@@ -733,6 +803,14 @@ prom_init(int r3, int r4, prom_entry pp)
 	}
 
 	prom_instantiate_rtas();
+
+#ifdef CONFIG_POWER4
+	/*
+	 * Find out how much memory we have and allocate a
+	 * suitably-sized hash table.
+	 */
+	prom_alloc_htab();
+#endif
 
 	mem = check_display(mem);
 
@@ -840,12 +918,15 @@ bootx_init(unsigned long r4, unsigned long phys)
 	   here. This hack will have been done by the boostrap anyway.
 	*/
 	if (bi->version < 4) {
+		/*
+		 * XXX If this is an iMac, turn off the USB controller.
+		 */
 		model = (char *) early_get_property
 			(r4 + bi->deviceTreeOffset, 4, "model");
 		if (model
 		    && (strcmp(model, "iMac,1") == 0
 			|| strcmp(model, "PowerMac1,1") == 0)) {
-			out_le32((unsigned *)0x80880008, 1);	
+			out_le32((unsigned *)0x80880008, 1);	/* XXX */
 		}
 	}
 

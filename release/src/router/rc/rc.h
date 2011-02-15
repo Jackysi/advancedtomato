@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <ctype.h> // !!TB
 #include <string.h>
 #include <signal.h>
 #include <syslog.h>
@@ -35,21 +36,20 @@
 #include <tomato_profile.h>
 #include <tomato_config.h>
 
-#define USE_MINIUPNPD
-
 //	#define DEBUG_IPTFILE
 //	#define DEBUG_RCTEST
 //	#define DEBUG_NOISY
 
 #ifdef DEBUG_NOISY
-#define _dprintf(args...) cprintf(args)
-#define TRACE_PT(args...) do { cprintf("[%d:%s +%ld] ", getpid(), __FUNCTION__, get_uptime()); cprintf(args); } while(0)
+#define TRACE_PT(args...) do { _dprintf("[%d:%s +%ld] ", getpid(), __FUNCTION__, get_uptime()); _dprintf(args); } while(0)
 #else
-#define _dprintf(args...) do { } while(0)
 #define TRACE_PT(args...) do { } while(0)
 #endif
 
-
+#define MOUNT_ROOT	"/tmp/mnt"
+#define PROC_SCSI_ROOT	"/proc/scsi"
+#define USB_STORAGE	"usb-storage"
+ 
 #define BOOT		0
 #define REDIAL		1
 #define CONNECTING	2
@@ -57,12 +57,12 @@
 #define PPPOE0		0
 #define PPPOE1		1
 
-#define GOT_IP				0x01
-#define RELEASE_IP			0x02
+#define GOT_IP			0x01
+#define RELEASE_IP		0x02
 #define	GET_IP_ERROR		0x03
 #define RELEASE_WAN_CONTROL	0x04
 #define USB_DATA_ACCESS		0x05	//For WRTSL54GS
-#define USB_CONNECT			0x06	//For WRTSL54GS
+#define USB_CONNECT		0x06	//For WRTSL54GS
 #define USB_DISCONNECT		0x07	//For WRTSL54GS
 
 /*
@@ -82,14 +82,14 @@
 
 #define SET_LED(val)	do { } while(0)
 
-
 typedef enum { IPT_TABLE_NAT, IPT_TABLE_FILTER, IPT_TABLE_MANGLE } ipt_table_t;
 
+#define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 
 // init.c
-extern void handle_reap(int sig);
 extern int init_main(int argc, char *argv[]);
 extern int reboothalt_main(int argc, char *argv[]);
+extern int console_main(int argc, char *argv[]);
 
 // interface.c
 extern int ifconfig(const char *ifname, int flags, const char *addr, const char *netmask);
@@ -120,8 +120,8 @@ extern int stop_redial(void);
 extern int redial_main(int argc, char **argv);
 
 // wan.c
-extern int start_pptp(int mode);
-extern int stop_pptp(void);
+extern void start_pptp(int mode);
+extern void stop_pptp(void);
 extern void start_pppoe(int);
 extern void stop_pppoe(void);
 extern void stop_singe_pppoe(int num);
@@ -131,15 +131,19 @@ extern void start_wan(int mode);
 extern void start_wan_done(char *ifname);
 extern void stop_wan(void);
 extern void force_to_dial(void);
+extern void do_wan_routes(char *ifname, int metric, int add);
+extern void preset_wan(char *ifname, char *gw, char *netmask);
 
 // network.c
 extern void set_host_domain_name(void);
+extern void set_et_qos_mode(int sfd);
 extern void start_lan(void);
 extern void stop_lan(void);
 extern void hotplug_net(void);
 extern void do_static_routes(int add);
 extern int radio_main(int argc, char *argv[]);
 extern int wldist_main(int argc, char *argv[]);
+extern void start_wl(void);
 
 // dhcpc.c
 extern int dhcpc_event_main(int argc, char **argv);
@@ -176,16 +180,43 @@ extern void stop_service(const char *name);
 extern void restart_service(const char *name);
 extern void start_services(void);
 extern void stop_services(void);
+// !!TB - USB and NAS
+#ifdef TCONFIG_USB
+extern void restart_nas_services(int stop, int start);
+#else
+#define restart_nas_services(args...) do { } while(0)
+#endif
+#ifdef LINUX26
+extern void start_hotplug2();
+extern void stop_hotplug2(void);
+#endif
+
+// !!TB - USB Support
+// usb.c
+#ifdef TCONFIG_USB
+extern void start_usb(void);
+extern void stop_usb(void);
+extern void hotplug_usb(void);
+extern void remove_storage_main(int shutdn);
+#else
+#define start_usb(args...) do { } while(0)
+#define stop_usb(args...) do { } while(0)
+#define hotplug_usb(args...) do { } while(0)
+#define remove_storage_main(args...) do { } while(0)
+#endif
 
 // wnas.c
+extern int wds_enable(void);
 extern void start_nas(void);
 extern void stop_nas(void);
 extern void notify_nas(const char *ifname);
 
 // firewall.c
-extern char wanface[IFNAMSIZ];
-extern char lanface[IFNAMSIZ];
+extern char wanface[];
+extern char manface[];
+extern char lanface[];
 extern char wanaddr[];
+extern char manaddr[];
 extern char lan_cclass[];
 extern const char *chain_in_accept;
 extern const char *chain_out_drop;
@@ -195,6 +226,7 @@ extern char **layer7_in;
 
 extern void enable_ip_forward(void);
 extern void ipt_write(const char *format, ...);
+extern void ipt_addr(char *addr, int maxlen, const char *s, const char *dir);
 extern int ipt_ipp2p(const char *v, char *opt);
 extern int ipt_layer7(const char *v, char *opt);
 extern void ipt_layer7_inbound(void);
@@ -257,12 +289,14 @@ static inline void stop_ddns(void) { };
 
 // misc.c
 extern void usage_exit(const char *cmd, const char *help) __attribute__ ((noreturn));
-extern int modprobe(const char *mod);
+#define modprobe(mod, args...) ({ char *argv[] = { "modprobe", "-s", mod, ## args, NULL }; _eval(argv, NULL, 0, NULL); })
 extern int modprobe_r(const char *mod);
 #define xstart(args...)	_xstart(args, NULL)
 extern int _xstart(const char *cmd, ...);
 extern void run_nvscript(const char *nv, const char *arg1, int wtime);
+extern void run_userfile (char *folder, char *extension, const char *arg1, int wtime);
 extern void setup_conntrack(void);
+extern void inc_mac(char *mac, int plus);
 extern void set_mac(const char *ifname, const char *nvname, int plus);
 extern const char *default_wanif(void);
 //	extern const char *default_wlif(void);
@@ -271,7 +305,9 @@ extern int _vstrsep(char *buf, const char *sep, ...);
 extern void simple_unlock(const char *name);
 extern void simple_lock(const char *name);
 extern void killall_tk(const char *name);
-long fappend(FILE *out, const char *fname);
+extern int mkdir_if_none(const char *path);
+extern long fappend(FILE *out, const char *fname);
+extern long fappend_file(const char *path, const char *fname);
 
 // telssh.c
 extern void create_passwd(void);
@@ -281,7 +317,6 @@ extern void start_telnetd(void);
 extern void stop_telnetd(void);
 
 // mtd.c
-extern int mtd_getinfo(const char *mtdname, int *part, int *size);
 extern int mtd_erase(const char *mtdname);
 extern int mtd_unlock(const char *mtdname);
 extern int mtd_write_main(int argc, char *argv[]);
@@ -301,6 +336,9 @@ extern int sched_main(int argc, char *argv[]);
 extern void start_sched(void);
 extern void stop_sched(void);
 
+//nvram
+extern int nvram_file2nvram(const char *name, const char *filename);
+extern int nvram_nvram2file(const char *name, const char *filename);
 
 #ifdef TOMATO_SL
 // usb.c
@@ -333,14 +371,16 @@ extern void run_vpn_firewall_scripts();
 extern void write_vpn_dnsmasq_config(FILE*);
 extern int write_vpn_resolv(FILE*);
 #else
+/*
 static inline void start_vpnclient(int clientNum) {}
 static inline void stop_vpnclient(int clientNum) {}
 static inline void start_vpnserver(int serverNum) {}
 static inline void stop_vpnserver(int serverNum) {}
-static inline void start_vpn_eas() {}
 static inline void run_vpn_firewall_scripts() {}
 static inline void write_vpn_dnsmasq_config(FILE*) {}
-static inline int write_vpn_resolv(FILE*) { return 0; }
+*/
+static inline void start_vpn_eas() { }
+#define write_vpn_resolv(f) (0)
 #endif
 
 #endif

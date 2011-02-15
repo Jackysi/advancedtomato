@@ -317,6 +317,11 @@ sync_datalist_empty:
 	 */
 	while ((jh = commit_transaction->t_async_datalist)) {
 		struct buffer_head *bh = jh2bh(jh);
+		if (__buffer_state(bh, Freed)) {
+			BUFFER_TRACE(bh, "Cleaning freed buffer");
+			clear_bit(BH_Freed, &bh->b_state);
+			clear_bit(BH_Dirty, &bh->b_state);
+		}
 		if (buffer_locked(bh)) {
 			spin_unlock(&journal_datalist_lock);
 			unlock_journal(journal);

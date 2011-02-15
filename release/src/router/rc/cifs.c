@@ -9,6 +9,10 @@
 
 #include <sys/mount.h>
 #include <sys/stat.h>
+#include <sys/statfs.h>
+#ifndef MNT_DETACH
+#define MNT_DETACH	0x00000002
+#endif
 
 
 void start_cifs(void)
@@ -30,10 +34,9 @@ int mount_cifs_main(int argc, char *argv[])
 	int i, j;
 	int try;
 	int first;
-	char *on, *unc, *user, *pass, *dom, *exec;
+	char *on, *unc, *user, *pass, *dom, *exec, *servern, *sec, *custom;
 	int done[3];
-	char *exargv[3];
-	int pid;
+	struct statfs sf;
 
 	if (argc == 2) {
 		if (strcmp(argv[1], "-m") == 0) {
@@ -49,7 +52,8 @@ int mount_cifs_main(int argc, char *argv[])
 
 					sprintf(s, "cifs%d", i);
 					strlcpy(s, nvram_safe_get(s), sizeof(s));
-					if ((vstrsep(s, "<", &on, &unc, &user, &pass, &dom, &exec) != 6) || (*on != '1')) continue;
+					if ((vstrsep(s, "<", &on, &unc, &user, &pass, &dom, &exec, &servern, &sec) != 8) || (*on != '1')) continue;
+					custom = nvram_safe_get("cifs_opts");
 
 					done[i] = 0;
 
@@ -57,12 +61,18 @@ int mount_cifs_main(int argc, char *argv[])
 						notice_set("cifs", "Mounting...");
 						modprobe("cifs");
 						first = 0;
+						if (nvram_get_int("cifs_dbg") > 0) {
+							f_write_string("/proc/fs/cifs/cifsFYI", nvram_safe_get("cifs_dbg"), 0, 0);
+						}
 					}
 
 					j = sprintf(opt, "sep=<unc=%s", unc);
 					if (*user) j += sprintf(opt + j, "<user=%s", user);
 					if (*pass) j += sprintf(opt + j, "<pass=%s", pass);
 					if (*dom) j += sprintf(opt + j, "<dom=%s", dom);
+					if (*servern) j += sprintf(opt + j, "<servern=%s", servern);
+					if (*sec) j += sprintf(opt + j, "<sec=%s", sec);
+					if (*custom) j += sprintf(opt + j, "<%s", custom);
 
 					sprintf(mpath, "/cifs%d", i);
 					umount(mpath);
@@ -72,10 +82,9 @@ int mount_cifs_main(int argc, char *argv[])
 
 					if (*exec) {
 						chdir(mpath);
-						exargv[0] = exec;
-						exargv[1] = NULL;
-						_eval(exargv, NULL, 0, &pid);
+						system(exec);
 					}
+					run_userfile(mpath, ".autorun", mpath, 3);
 				}
 				if ((done[1]) && (done[2])) {
 					notice_set("cifs", "");
@@ -97,7 +106,12 @@ int mount_cifs_main(int argc, char *argv[])
 		if (strcmp(argv[1], "-u") == 0) {
 			for (i = 1; i <= 2; ++i) {
 				sprintf(mpath, "/cifs%d", i);
-				umount(mpath);
+				if ((statfs(mpath, &sf) == 0) && (sf.f_type != 0x73717368)) {
+					// is mounted
+					run_userfile(mpath, ".autostop", mpath, 5);
+					run_nvscript("script_autostop", mpath, 5);
+				}
+				umount2(mpath, MNT_DETACH);
 			}
 			modprobe_r("cifs");
 			notice_set("cifs", "");

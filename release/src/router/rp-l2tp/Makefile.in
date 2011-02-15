@@ -30,7 +30,7 @@ OBJS=auth.o debug.o dgram.o main.o md5.o network.o options.o peer.o session.o tu
 EXTRA_LIBS=@LIBEVENT@/*.o -ldl
 
 SRCS=$(OBJS:.o=.c)
-CFLAGS=-g -I.. -I@LIBEVENT@ -Wall -Wstrict-prototypes -ansi -pedantic -D_GNU_SOURCE -DVERSION=\"$(VERSION)\" -DPREFIX=\"$(prefix)\"
+CFLAGS=@CFLAGS@ -I.. -I@LIBEVENT@ -Wall -Wstrict-prototypes -ansi -pedantic -D_GNU_SOURCE -DVERSION=\"$(VERSION)\" -DPREFIX=\"$(prefix)\"
 
 TARGETS=l2tpd libl2tp.a handlers
 
@@ -38,8 +38,8 @@ all: $(TARGETS)
 
 libl2tp.a: $(OBJS)
 	rm -f $@
-	ar -rc $@ $^
-	ranlib $@ || true
+	@AR@ -rc $@ $^
+	@RANLIB@ $@ || true
 
 l2tpd: libl2tp.a libevent/libevent.a
 	$(MAKE) -C handlers
@@ -72,9 +72,10 @@ clean:
 	rm -f *.o *.a *~
 	rm -f l2tpd
 	$(MAKE) -C handlers clean
+	test -d libevent && $(MAKE) -C libevent clean
 
 distclean: clean
-	rm -f Makefile config.cache
+	rm -f Makefile config.cache .depend
 	$(MAKE) -C handlers distclean
 
 -include .depend

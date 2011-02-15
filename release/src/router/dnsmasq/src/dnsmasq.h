@@ -196,6 +196,8 @@ struct event_desc {
 #define OPT_NO_OVERRIDE    (1u<<30)
 #define OPT_NO_REBIND      (1u<<31)
 
+#define OPT_QT_DHCP        (1ull<<63)
+
 /* extra flags for my_syslog, we use a couple of facilities since they are known 
    not to occupy the same bits as priorities, no matter how syslog.h is set up. */
 #define MS_TFTP LOG_USER
@@ -629,7 +631,7 @@ extern struct daemon {
      config file arguments. All set (including defaults)
      in option.c */
 
-  unsigned int options;
+  unsigned long long options;
   struct resolvc default_resolv, *resolv_files;
   time_t last_resolv;
   struct mx_srv_record *mxnames;

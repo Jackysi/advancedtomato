@@ -20,7 +20,7 @@ static const struct suffix_mult split_suffices[] = {
 #if ENABLE_FEATURE_SPLIT_FANCY
 	{ "g", 1024*1024*1024 },
 #endif
-	{ }
+	{ "", 0 }
 };
 
 /* Increment the suffix part of the filename.
@@ -79,9 +79,11 @@ int split_main(int argc UNUSED_PARAM, char **argv)
 
 	argv += optind;
 	if (argv[0]) {
+		int fd;
 		if (argv[1])
 			sfx = argv[1];
-		xmove_fd(xopen(argv[0], O_RDONLY), 0);
+		fd = xopen_stdin(argv[0]);
+		xmove_fd(fd, STDIN_FILENO);
 	} else {
 		argv[0] = (char *) bb_msg_standard_input;
 	}

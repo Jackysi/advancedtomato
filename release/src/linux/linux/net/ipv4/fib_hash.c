@@ -5,7 +5,7 @@
  *
  *		IPv4 FIB: lookup engine and maintenance routines.
  *
- * Version:	$Id: fib_hash.c,v 1.1.1.4 2003/10/14 08:09:33 sparq Exp $
+ * Version:	$Id: fib_hash.c,v 1.13 2001/10/31 21:55:54 davem Exp $
  *
  * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
  *
@@ -71,6 +71,7 @@ struct fib_node
 	struct fib_info		*fn_info;
 #define FIB_INFO(f)	((f)->fn_info)
 	fn_key_t		fn_key;
+	int			fn_last_dflt;
 	u8			fn_tos;
 	u8			fn_type;
 	u8			fn_scope;
@@ -89,7 +90,7 @@ struct fn_zone
 	int		fz_nent;	/* Number of entries	*/
 
 	int		fz_divisor;	/* Hash divisor		*/
-	u32		fz_hashmask;	/* (1<<fz_divisor) - 1	*/
+	u32		fz_hashmask;	/* (fz_divisor - 1)	*/
 #define FZ_HASHMASK(fz)	((fz)->fz_hashmask)
 
 	int		fz_order;	/* Zone order		*/
@@ -149,9 +150,19 @@ extern __inline__ int fn_key_leq(fn_key_t a, fn_key_t b)
 
 static rwlock_t fib_hash_lock = RW_LOCK_UNLOCKED;
 
-#define FZ_MAX_DIVISOR 1024
+#define FZ_MAX_DIVISOR ((PAGE_SIZE<<MAX_ORDER) / sizeof(struct fib_node *))
 
-#ifdef CONFIG_IP_ROUTE_LARGE_TABLES
+static struct fib_node **fz_hash_alloc(int divisor)
+{
+	unsigned long size = divisor * sizeof(struct fib_node *);
+
+	if (divisor <= 1024) {
+		return kmalloc(size, GFP_KERNEL);
+	} else {
+		return (struct fib_node **)
+			__get_free_pages(GFP_KERNEL, get_order(size));
+	}
+}
 
 /* The fib hash lock must be held when this is called. */
 static __inline__ void fn_rebuild_zone(struct fn_zone *fz,
@@ -174,6 +185,15 @@ static __inline__ void fn_rebuild_zone(struct fn_zone *fz,
 	}
 }
 
+static void fz_hash_free(struct fib_node **hash, int divisor)
+{
+	if (divisor <= 1024)
+		kfree(hash);
+	else
+		free_pages((unsigned long) hash,
+			   get_order(divisor * sizeof(struct fib_node *)));
+}
+
 static void fn_rehash_zone(struct fn_zone *fz)
 {
 	struct fib_node **ht, **old_ht;
@@ -185,24 +205,30 @@ static void fn_rehash_zone(struct fn_zone *fz)
 	switch (old_divisor) {
 	case 16:
 		new_divisor = 256;
-		new_hashmask = 0xFF;
 		break;
 	case 256:
 		new_divisor = 1024;
-		new_hashmask = 0x3FF;
 		break;
 	default:
-		printk(KERN_CRIT "route.c: bad divisor %d!\n", old_divisor);
-		return;
+		if ((old_divisor << 1) > FZ_MAX_DIVISOR) {
+			printk(KERN_CRIT "route.c: bad divisor %d!\n", old_divisor);
+			return;
+		}
+		new_divisor = (old_divisor << 1);
+		break;
 	}
+
+	new_hashmask = (new_divisor - 1);
+
 #if RT_CACHE_DEBUG >= 2
 	printk("fn_rehash_zone: hash for zone %d grows from %d\n", fz->fz_order, old_divisor);
 #endif
 
-	ht = kmalloc(new_divisor*sizeof(struct fib_node*), GFP_KERNEL);
+	ht = fz_hash_alloc(new_divisor);
 
 	if (ht)	{
 		memset(ht, 0, new_divisor*sizeof(struct fib_node*));
+
 		write_lock_bh(&fib_hash_lock);
 		old_ht = fz->fz_hash;
 		fz->fz_hash = ht;
@@ -210,10 +236,10 @@ static void fn_rehash_zone(struct fn_zone *fz)
 		fz->fz_divisor = new_divisor;
 		fn_rebuild_zone(fz, old_ht, old_divisor);
 		write_unlock_bh(&fib_hash_lock);
-		kfree(old_ht);
+
+		fz_hash_free(old_ht, old_divisor);
 	}
 }
-#endif /* CONFIG_IP_ROUTE_LARGE_TABLES */
 
 static void fn_free_node(struct fib_node * f)
 {
@@ -233,12 +259,11 @@ fn_new_zone(struct fn_hash *table, int z)
 	memset(fz, 0, sizeof(struct fn_zone));
 	if (z) {
 		fz->fz_divisor = 16;
-		fz->fz_hashmask = 0xF;
 	} else {
 		fz->fz_divisor = 1;
-		fz->fz_hashmask = 0;
 	}
-	fz->fz_hash = kmalloc(fz->fz_divisor*sizeof(struct fib_node*), GFP_KERNEL);
+	fz->fz_hashmask = (fz->fz_divisor - 1);
+	fz->fz_hash = fz_hash_alloc(fz->fz_divisor);
 	if (!fz->fz_hash) {
 		kfree(fz);
 		return NULL;
@@ -312,72 +337,123 @@ out:
 	return err;
 }
 
-static int fn_hash_last_dflt=-1;
-
-static int fib_detect_death(struct fib_info *fi, int order,
-			    struct fib_info **last_resort, int *last_idx)
+static int fib_detect_death(struct fib_info *fi, int order, int last_dflt,
+			    struct fib_info **last_resort, int *last_idx,
+			    int *last_nhsel, const struct rt_key *key)
 {
 	struct neighbour *n;
-	int state = NUD_NONE;
+	int nhsel;
+	int state;
+	struct fib_nh * nh;
+	u32 dst;
+	int flag, dead = 1;
 
-	n = neigh_lookup(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
-	if (n) {
-		state = n->nud_state;
-		neigh_release(n);
+	/* change_nexthops(fi) { */
+	for (nhsel = 0, nh = fi->fib_nh; nhsel < fi->fib_nhs; nh++, nhsel++) {
+		if (key->oif && key->oif != nh->nh_oif)
+			continue;
+		if (key->gw && key->gw != nh->nh_gw && nh->nh_gw &&
+		    nh->nh_scope == RT_SCOPE_LINK)
+			continue;
+		if (nh->nh_flags & RTNH_F_DEAD)
+			continue;
+
+		flag = 0;
+		if (nh->nh_dev->flags & IFF_NOARP) {
+			dead = 0;
+			goto setfl;
+		}
+
+		dst = nh->nh_gw;
+		if (!nh->nh_gw || nh->nh_scope != RT_SCOPE_LINK)
+			dst = key->dst;
+
+		state = NUD_NONE;
+		n = neigh_lookup(&arp_tbl, &dst, nh->nh_dev);
+		if (n) {
+			state = n->nud_state;
+			neigh_release(n);
+		}
+		if (state==NUD_REACHABLE ||
+			((state&NUD_VALID) && order != last_dflt)) {
+			dead = 0;
+			goto setfl;
+		}
+		if (!(state&NUD_VALID))
+			flag = 1;
+		if (!dead)
+			goto setfl;
+		if ((state&NUD_VALID) ||
+		    (*last_idx<0 && order >= last_dflt)) {
+			*last_resort = fi;
+			*last_idx = order;
+			*last_nhsel = nhsel;
+		}
+
+		setfl:
+
+		read_lock_bh(&fib_nhflags_lock);
+		if (flag)
+			nh->nh_flags |= RTNH_F_SUSPECT;
+		else
+			nh->nh_flags &= ~RTNH_F_SUSPECT;
+		read_unlock_bh(&fib_nhflags_lock);
 	}
-	if (state==NUD_REACHABLE)
-		return 0;
-	if ((state&NUD_VALID) && order != fn_hash_last_dflt)
-		return 0;
-	if ((state&NUD_VALID) ||
-	    (*last_idx<0 && order > fn_hash_last_dflt)) {
-		*last_resort = fi;
-		*last_idx = order;
-	}
-	return 1;
+	/* } endfor_nexthops(fi) */
+
+	return dead;
 }
 
 static void
 fn_hash_select_default(struct fib_table *tb, const struct rt_key *key, struct fib_result *res)
 {
-	int order, last_idx;
-	struct fib_node *f;
+	int order, last_idx, last_dflt, last_nhsel;
+	struct fib_node *f, *first_node;
 	struct fib_info *fi = NULL;
 	struct fib_info *last_resort;
 	struct fn_hash *t = (struct fn_hash*)tb->tb_data;
-	struct fn_zone *fz = t->fn_zones[0];
+	struct fn_zone *fz = t->fn_zones[res->prefixlen];
+	fn_key_t k;
 
 	if (fz == NULL)
 		return;
 
+	k = fz_key(key->dst, fz);
+	last_dflt = -2;
+	first_node = NULL;
 	last_idx = -1;
 	last_resort = NULL;
+	last_nhsel = 0;
 	order = -1;
 
 	read_lock(&fib_hash_lock);
-	for (f = fz->fz_hash[0]; f; f = f->fn_next) {
+	for (f = fz_chain(k, fz); f; f = f->fn_next) {
 		struct fib_info *next_fi = FIB_INFO(f);
 
-		if ((f->fn_state&FN_S_ZOMBIE) ||
+		if (!fn_key_eq(k, f->fn_key) ||
+		    (f->fn_state&FN_S_ZOMBIE) ||
 		    f->fn_scope != res->scope ||
+#ifdef CONFIG_IP_ROUTE_TOS
+		    (f->fn_tos && f->fn_tos != key->tos) ||
+#endif
 		    f->fn_type != RTN_UNICAST)
 			continue;
 
 		if (next_fi->fib_priority > res->fi->fib_priority)
 			break;
-		if (!next_fi->fib_nh[0].nh_gw || next_fi->fib_nh[0].nh_scope != RT_SCOPE_LINK)
-			continue;
 		f->fn_state |= FN_S_ACCESSED;
 
-		if (fi == NULL) {
-			if (next_fi != res->fi)
-				break;
-		} else if (!fib_detect_death(fi, order, &last_resort, &last_idx)) {
+		if (!first_node) {
+			last_dflt = f->fn_last_dflt;
+			first_node = f;
+		}
+		if (fi && !fib_detect_death(fi, order, last_dflt,
+				&last_resort, &last_idx, &last_nhsel, key)) {
 			if (res->fi)
 				fib_info_put(res->fi);
 			res->fi = fi;
 			atomic_inc(&fi->fib_clntref);
-			fn_hash_last_dflt = order;
+			first_node->fn_last_dflt = order;
 			goto out;
 		}
 		fi = next_fi;
@@ -385,16 +461,25 @@ fn_hash_select_default(struct fib_table *tb, const struct rt_key *key, struct fi
 	}
 
 	if (order<=0 || fi==NULL) {
-		fn_hash_last_dflt = -1;
+		if (fi && fi->fib_nhs > 1 &&
+		    fib_detect_death(fi, order, last_dflt,
+			&last_resort, &last_idx, &last_nhsel, key) &&
+		    last_resort == fi) {
+			read_lock_bh(&fib_nhflags_lock);
+			fi->fib_nh[last_nhsel].nh_flags &= ~RTNH_F_SUSPECT;
+			read_unlock_bh(&fib_nhflags_lock);
+		}
+		if (first_node) first_node->fn_last_dflt = -1;
 		goto out;
 	}
 
-	if (!fib_detect_death(fi, order, &last_resort, &last_idx)) {
+	if (!fib_detect_death(fi, order, last_dflt, &last_resort, &last_idx,
+			      &last_nhsel, key)) {
 		if (res->fi)
 			fib_info_put(res->fi);
 		res->fi = fi;
 		atomic_inc(&fi->fib_clntref);
-		fn_hash_last_dflt = order;
+		first_node->fn_last_dflt = order;
 		goto out;
 	}
 
@@ -404,8 +489,11 @@ fn_hash_select_default(struct fib_table *tb, const struct rt_key *key, struct fi
 		res->fi = last_resort;
 		if (last_resort)
 			atomic_inc(&last_resort->fib_clntref);
+		read_lock_bh(&fib_nhflags_lock);
+		last_resort->fib_nh[last_nhsel].nh_flags &= ~RTNH_F_SUSPECT;
+		read_unlock_bh(&fib_nhflags_lock);
+		first_node->fn_last_dflt = last_idx;
 	}
-	fn_hash_last_dflt = last_idx;
 out:
 	read_unlock(&fib_hash_lock);
 }
@@ -467,12 +555,10 @@ rta->rta_prefsrc ? *(u32*)rta->rta_prefsrc : 0);
 	if  ((fi = fib_create_info(r, rta, n, &err)) == NULL)
 		return err;
 
-#ifdef CONFIG_IP_ROUTE_LARGE_TABLES
-	if (fz->fz_nent > (fz->fz_divisor<<2) &&
+	if (fz->fz_nent > (fz->fz_divisor<<1) &&
 	    fz->fz_divisor < FZ_MAX_DIVISOR &&
 	    (z==32 || (1<<z) > fz->fz_divisor))
 		fn_rehash_zone(fz);
-#endif
 
 	fp = fz_chain_p(key, fz);
 
@@ -524,32 +610,47 @@ rta->rta_prefsrc ? *(u32*)rta->rta_prefsrc : 0);
 #endif
 	    fn_key_eq(f->fn_key, key) &&
 	    fi->fib_priority == FIB_INFO(f)->fib_priority) {
-		struct fib_node **ins_fp;
+		struct fib_node **fp_first, **fp_match;
 
 		err = -EEXIST;
 		if (n->nlmsg_flags&NLM_F_EXCL)
 			goto out;
 
+		/* We have 2 goals:
+		 * 1. Find exact match for type, scope, fib_info to avoid
+		 * duplicate routes
+		 * 2. Find next 'fp' (or head), NLM_F_APPEND inserts before it
+		 */
+		fp_match = NULL;
+		fp_first = fp;
+		FIB_SCAN_TOS(f, fp, key, tos) {
+			if (fi->fib_priority != FIB_INFO(f)->fib_priority)
+				break;
+			if (f->fn_type == type && f->fn_scope == r->rtm_scope
+			    && FIB_INFO(f) == fi) {
+				fp_match = fp;
+				break;
+			}
+		}
+
 		if (n->nlmsg_flags&NLM_F_REPLACE) {
+			fp = fp_first;
+			if (fp_match) {
+				if (fp == fp_match)
+					err = 0;
+				goto out;
+			}
 			del_fp = fp;
 			fp = &f->fn_next;
 			f = *fp;
 			goto replace;
 		}
 
-		ins_fp = fp;
-		err = -EEXIST;
-
-		FIB_SCAN_TOS(f, fp, key, tos) {
-			if (fi->fib_priority != FIB_INFO(f)->fib_priority)
-				break;
-			if (f->fn_type == type && f->fn_scope == r->rtm_scope
-			    && FIB_INFO(f) == fi)
-				goto out;
-		}
+		if (fp_match)
+			goto out;
 
 		if (!(n->nlmsg_flags&NLM_F_APPEND)) {
-			fp = ins_fp;
+			fp = fp_first;
 			f = *fp;
 		}
 	}
@@ -567,6 +668,7 @@ replace:
 
 	memset(new_f, 0, sizeof(struct fib_node));
 
+	new_f->fn_last_dflt = -1;
 	new_f->fn_key = key;
 #ifdef CONFIG_IP_ROUTE_TOS
 	new_f->fn_tos = tos;

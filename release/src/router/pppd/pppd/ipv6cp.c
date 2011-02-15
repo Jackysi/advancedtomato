@@ -1,16 +1,38 @@
 /*
-    ipv6cp.c - PPP IPV6 Control Protocol.
-    Copyright (C) 1999  Tommi Komulainen <Tommi.Komulainen@iki.fi>
-
-    Redistribution and use in source and binary forms are permitted
-    provided that the above copyright notice and this paragraph are
-    duplicated in all such forms.  The name of the author may not be
-    used to endorse or promote products derived from this software
-    without specific prior written permission.
-    THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
-    IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
-    WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
-*/
+ * ipv6cp.c - PPP IPV6 Control Protocol.
+ *
+ * Copyright (c) 1999 Tommi Komulainen.  All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name(s) of the authors of this software must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission.
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Tommi Komulainen
+ *     <Tommi.Komulainen@iki.fi>".
+ *
+ * THE AUTHORS OF THIS SOFTWARE DISCLAIM ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ */
 
 /*  Original version, based on RFC2023 :
 
@@ -75,25 +97,48 @@
  *
  * ipcp.c - PPP IP Control Protocol.
  *
- * Copyright (c) 1989 Carnegie Mellon University.
- * All rights reserved.
+ * Copyright (c) 1984-2000 Carnegie Mellon University. All rights reserved.
  *
- * Redistribution and use in source and binary forms are permitted
- * provided that the above copyright notice and this paragraph are
- * duplicated in all such forms and that any documentation,
- * advertising materials, and other materials related to such
- * distribution and use acknowledge that the software was developed
- * by Carnegie Mellon University.  The name of the
- * University may not be used to endorse or promote products derived
- * from this software without specific prior written permission.
- * THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
- * IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
- * WARRANTIES OF MERCHANTIBILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
  *
- * $Id: ipv6cp.c,v 1.1 2003/07/10 07:43:04 honor Exp $ 
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in
+ *    the documentation and/or other materials provided with the
+ *    distribution.
+ *
+ * 3. The name "Carnegie Mellon University" must not be used to
+ *    endorse or promote products derived from this software without
+ *    prior written permission. For permission or any legal
+ *    details, please contact
+ *      Office of Technology Transfer
+ *      Carnegie Mellon University
+ *      5000 Forbes Avenue
+ *      Pittsburgh, PA  15213-3890
+ *      (412) 268-4387, fax: (412) 268-7395
+ *      tech-transfer@andrew.cmu.edu
+ *
+ * 4. Redistributions of any form whatsoever must retain the following
+ *    acknowledgment:
+ *    "This product includes software developed by Computing Services
+ *     at Carnegie Mellon University (http://www.cmu.edu/computing/)."
+ *
+ * CARNEGIE MELLON UNIVERSITY DISCLAIMS ALL WARRANTIES WITH REGARD TO
+ * THIS SOFTWARE, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY
+ * AND FITNESS, IN NO EVENT SHALL CARNEGIE MELLON UNIVERSITY BE LIABLE
+ * FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN
+ * AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING
+ * OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ * $Id: ipv6cp.c,v 1.21 2005/08/25 23:59:34 paulus Exp $ 
  */
 
-#define RCSID	"$Id: ipv6cp.c,v 1.1 2003/07/10 07:43:04 honor Exp $"
+#define RCSID	"$Id: ipv6cp.c,v 1.21 2005/08/25 23:59:34 paulus Exp $"
 
 /*
  * TODO: 
@@ -106,6 +151,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <netdb.h>
@@ -141,7 +187,7 @@ static void ipv6cp_resetci __P((fsm *));	/* Reset our CI */
 static int  ipv6cp_cilen __P((fsm *));	        /* Return length of our CI */
 static void ipv6cp_addci __P((fsm *, u_char *, int *)); /* Add our CI */
 static int  ipv6cp_ackci __P((fsm *, u_char *, int));	/* Peer ack'd our CI */
-static int  ipv6cp_nakci __P((fsm *, u_char *, int));	/* Peer nak'd our CI */
+static int  ipv6cp_nakci __P((fsm *, u_char *, int, int));/* Peer nak'd our CI */
 static int  ipv6cp_rejci __P((fsm *, u_char *, int));	/* Peer rej'd our CI */
 static int  ipv6cp_reqci __P((fsm *, u_char *, int *, int)); /* Rcv CI */
 static void ipv6cp_up __P((fsm *));		/* We're UP */
@@ -189,11 +235,13 @@ static option_t ipv6cp_option_list[] = {
 
     { "ipv6cp-accept-local", o_bool, &ipv6cp_allowoptions[0].accept_local,
       "Accept peer's interface identifier for us", 1 },
+    { "ipv6cp-accept-remote", o_bool, &ipv6cp_allowoptions[0].accept_remote,
+      "Accept peer's interface identifier for itself", 1 },
 
     { "ipv6cp-use-ipaddr", o_bool, &ipv6cp_allowoptions[0].use_ip,
       "Use (default) IPv4 address as interface identifier", 1 },
 
-#if defined(SOL2)
+#if defined(SOL2) || defined(__linux__)
     { "ipv6cp-use-persistent", o_bool, &ipv6cp_wantoptions[0].use_persistent,
       "Use uniquely-available persistent value for link local address", 1 },
 #endif /* defined(SOL2) */
@@ -330,6 +378,8 @@ setifaceid(argv)
     return 1;
 }
 
+char *llv6_ntoa(eui64_t ifaceid);
+
 static void
 printifaceid(opt, printer, arg)
     option_t *opt;
@@ -379,6 +429,7 @@ ipv6cp_init(unit)
     memset(ao, 0, sizeof(*ao));
 
     wo->accept_local = 1;
+    wo->accept_remote = 1;
     wo->neg_ifaceid = 1;
     ao->neg_ifaceid = 1;
 
@@ -623,10 +674,11 @@ bad:
  *	1 - Nak was good.
  */
 static int
-ipv6cp_nakci(f, p, len)
+ipv6cp_nakci(f, p, len, treat_as_reject)
     fsm *f;
     u_char *p;
     int len;
+    int treat_as_reject;
 {
     ipv6cp_options *go = &ipv6cp_gotoptions[f->unit];
     u_char citype, cilen, *next;
@@ -672,19 +724,21 @@ ipv6cp_nakci(f, p, len)
      * from our idea, only if the accept_{local,remote} flag is set.
      */
     NAKCIIFACEID(CI_IFACEID, neg_ifaceid,
-	      if (go->accept_local) {
-		  while (eui64_iszero(ifaceid) || 
-			 eui64_equals(ifaceid, go->hisid)) /* bad luck */
-		      eui64_magic(ifaceid);
-		  try.ourid = ifaceid;
-		  IPV6CPDEBUG(("local LL address %s", llv6_ntoa(ifaceid)));
-	      }
-	      );
+		 if (treat_as_reject) {
+		     try.neg_ifaceid = 0;
+		 } else if (go->accept_local) {
+		     while (eui64_iszero(ifaceid) || 
+			    eui64_equals(ifaceid, go->hisid)) /* bad luck */
+			 eui64_magic(ifaceid);
+		     try.ourid = ifaceid;
+		     IPV6CPDEBUG(("local LL address %s", llv6_ntoa(ifaceid)));
+		 }
+		 );
 
 #ifdef IPV6CP_COMP
     NAKCIVJ(CI_COMPRESSTYPE, neg_vj,
 	    {
-		if (cishort == IPV6CP_COMP) {
+		if (cishort == IPV6CP_COMP && !treat_as_reject) {
 		    try.vj_protocol = cishort;
 		} else {
 		    try.neg_vj = 0;
@@ -705,10 +759,10 @@ ipv6cp_nakci(f, p, len)
      * If they want to negotiate about interface identifier, we comply.
      * If they want us to ask for compression, we refuse.
      */
-    while (len > CILEN_VOID) {
+    while (len >= CILEN_VOID) {
 	GETCHAR(citype, p);
 	GETCHAR(cilen, p);
-	if( (len -= cilen) < 0 )
+	if ( cilen < CILEN_VOID || (len -= cilen) < 0 )
 	    goto bad;
 	next = p + cilen - 2;
 
@@ -901,7 +955,7 @@ ipv6cp_reqci(f, inp, len, reject_if_disagree)
 		orc = CONFREJ;		/* Reject CI */
 		break;
 	    }
-	    if (!eui64_iszero(wo->hisid) && 
+	    if (!eui64_iszero(wo->hisid) && !wo->accept_remote &&
 		!eui64_equals(ifaceid, wo->hisid) && 
 		eui64_iszero(go->hisid)) {
 		    
@@ -1014,7 +1068,9 @@ endswitch:
     return (rc);			/* Return final code */
 }
 
-
+#if defined(SOL2) || defined(__linux__)
+int ether_to_eui64(eui64_t *p_eui64);
+#endif
 /*
  * ipv6_check_options - check that any IP-related options are OK,
  * and assign appropriate defaults.
@@ -1027,7 +1083,7 @@ ipv6_check_options()
     if (!ipv6cp_protent.enabled_flag)
 	return;
 
-#if defined(SOL2)
+#if defined(SOL2) || defined(__linux__)
     /*
      * Persistent link-local id is only used when user has not explicitly
      * configure/hard-code the id
@@ -1182,7 +1238,7 @@ ipv6cp_up(f)
 	    }
 
 	}
-	demand_rexmit(PPP_IPV6);
+	demand_rexmit(PPP_IPV6,0);
 	sifnpmode(f->unit, PPP_IPV6, NPMODE_PASS);
 
     } else {
@@ -1369,7 +1425,8 @@ ipv6cp_script(script)
     argv[6] = ipparam;
     argv[7] = NULL;
 
-    ipv6cp_script_pid = run_program(script, argv, 0, ipv6cp_script_done, NULL);
+    ipv6cp_script_pid = run_program(script, argv, 0, ipv6cp_script_done,
+				    NULL, 0);
 }
 
 /*
@@ -1475,7 +1532,6 @@ ipv6cp_printpkt(p, plen, printer, arg)
  */
 #define IP6_HDRLEN	40	/* bytes */
 #define IP6_NHDR_FRAG	44	/* fragment IPv6 header */
-#define IPPROTO_TCP	6
 #define TCP_HDRLEN	20
 #define TH_FIN		0x01
 

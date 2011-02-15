@@ -13,10 +13,10 @@
 #include <linux/types.h>
 #include <asm/byteorder.h>		/* sigh ... */
 
-#if _MIPS_SZLONG == 32
+#if (_MIPS_SZLONG == 32)
 #define SZLONG_LOG 5
 #define SZLONG_MASK 31UL
-#elif _MIPS_SZLONG == 64
+#elif (_MIPS_SZLONG == 64)
 #define SZLONG_LOG 6
 #define SZLONG_MASK 63UL 
 #endif
@@ -24,7 +24,8 @@
 #ifdef __KERNEL__
 
 #include <asm/sgidefs.h>
-#include <asm/system.h>
+#include <asm-generic/__ffs.h>
+#include <asm-generic/__fls.h>
 
 /*
  * clear_bit() doesn't provide any barrier for the compiler.
@@ -619,6 +620,16 @@ static __inline__ unsigned long ffz(unsigned long word)
 
 #define ffs(x) generic_ffs(x)
 
+/**
+ * fls - find last (most-significant) bit set
+ * @x: the word to search
+ *
+ * This is defined the same way as ffs.
+ * Note fls(0) = 0, fls(1) = 1, fls(0x80000000) = 32.
+ */
+
+#define fls(x) generic_fls(x)
+
 /*
  * find_next_zero_bit - find the first zero bit in a memory region
  * @addr: The address to base the search on
@@ -658,6 +669,8 @@ static inline long find_next_zero_bit(void *addr, unsigned long size,
 
 found_first:
 	tmp |= ~0UL << size;
+	if (tmp == ~0UL)		/* Are any bits zero? */
+		return result + size;	/* Nope. */
 found_middle:
 	return result + ffz(tmp);
 }
@@ -665,9 +678,64 @@ found_middle:
 #define find_first_zero_bit(addr, size) \
 	find_next_zero_bit((addr), (size), 0)
 
+#if 0 /* Fool kernel-doc since it doesn't do macros yet */
+/*
+ * find_first_zero_bit - find the first zero bit in a memory region
+ * @addr: The address to start the search at
+ * @size: The maximum size to search
+ *
+ * Returns the bit-number of the first zero bit, not the number of the byte
+ * containing a bit.
+ */
+static int find_first_zero_bit (void *addr, unsigned size);
+#endif
 
 #define find_first_zero_bit(addr, size) \
         find_next_zero_bit((addr), (size), 0)
+
+
+#define BITOP_WORD(nr)		((nr) / BITS_PER_LONG)
+/*
+ * Find the next set bit in a memory region.
+ */
+static inline unsigned long find_next_bit(const unsigned long *addr,
+	unsigned long size, unsigned long offset)
+{
+	const unsigned long *p = addr + BITOP_WORD(offset);
+	unsigned long result = offset & ~(BITS_PER_LONG-1);
+	unsigned long tmp;
+
+	if (offset >= size)
+		return size;
+	size -= result;
+	offset %= BITS_PER_LONG;
+	if (offset) {
+		tmp = *(p++);
+		tmp &= (~0UL << offset);
+		if (size < BITS_PER_LONG)
+			goto found_first;
+		if (tmp)
+			goto found_middle;
+		size -= BITS_PER_LONG;
+		result += BITS_PER_LONG;
+	}
+	while (size & ~(BITS_PER_LONG-1)) {
+		if ((tmp = *(p++)))
+			goto found_middle;
+		result += BITS_PER_LONG;
+		size -= BITS_PER_LONG;
+	}
+	if (!size)
+		return result;
+	tmp = *p;
+
+found_first:
+	tmp &= (~0UL >> (BITS_PER_LONG - size));
+	if (tmp == 0UL)		/* Are any bits set? */
+		return result + size;	/* Nope. */
+found_middle:
+	return result + __ffs(tmp);
+}
 
 
 /*
@@ -783,6 +851,12 @@ found_middle:
 #define ext2_find_first_zero_bit	find_first_zero_le_bit
 #define ext2_find_next_zero_bit		find_next_zero_le_bit
 
+/*
+ * Bitmap functions for the minix filesystem.
+ *
+ * FIXME: These assume that Minix uses the native byte/bitorder.
+ * This limits the Minix filesystem's value for data exchange very much.
+ */
 #define minix_test_and_set_bit(nr,addr) test_and_set_bit(nr,addr)
 #define minix_set_bit(nr,addr) set_bit(nr,addr)
 #define minix_test_and_clear_bit(nr,addr) test_and_clear_bit(nr,addr)

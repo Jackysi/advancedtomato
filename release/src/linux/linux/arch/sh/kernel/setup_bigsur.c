@@ -364,7 +364,7 @@ int __init setup_bigsur(void)
 	outb(-1,BIGSUR_IRLMR0);
 	outb(-1,BIGSUR_IRLMR1);
 
-#if defined(CONFIG_HD64465) && defined(CONFIG_SERIAL) 
+#if defined (CONFIG_HD64465) && defined (CONFIG_SERIAL) 
 	/* remap IO ports for first ISA serial port to HD64465 UART */
 	bigsur_port_map(0x3f8, 8, CONFIG_HD64465_IOBASE + 0x8000, 1);
 #endif /* CONFIG_HD64465 && CONFIG_SERIAL */

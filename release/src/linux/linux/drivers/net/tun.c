@@ -12,7 +12,7 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  *  GNU General Public License for more details.
  *
- *  $Id: tun.c,v 1.1.1.4 2003/10/14 08:08:24 sparq Exp $
+ *  $Id: tun.c,v 1.15 2002/03/01 02:44:24 maxk Exp $
  */
 
 /*
@@ -118,6 +118,17 @@ static struct net_device_stats *tun_net_stats(struct net_device *dev)
 	return &tun->stats;
 }
 
+#define MIN_MTU 68
+#define MAX_MTU 65535
+
+static int tun_net_change_mtu(struct net_device *dev, int new_mtu)  {
+	if (new_mtu < MIN_MTU || new_mtu + dev->hard_header_len > MAX_MTU)
+		return -EINVAL;
+	dev->mtu = new_mtu;
+	return 0;
+}
+
+
 /* Initialize net device. */
 int tun_net_init(struct net_device *dev)
 {
@@ -138,8 +149,8 @@ int tun_net_init(struct net_device *dev)
 		dev->addr_len = 0;
 		dev->mtu = 1500;
 
-		/* Type PPP seems most suitable */
-		dev->type = ARPHRD_PPP; 
+		/* Zero header length */
+		dev->type = ARPHRD_NONE; 
 		dev->flags = IFF_POINTOPOINT | IFF_NOARP | IFF_MULTICAST;
 		dev->tx_queue_len = 10;
 		break;
@@ -156,6 +167,7 @@ int tun_net_init(struct net_device *dev)
 		break;
 	};
 
+	dev->change_mtu = tun_net_change_mtu;
 	return 0;
 }
 
@@ -185,22 +197,31 @@ static __inline__ ssize_t tun_get_user(struct tun_struct *tun, struct iovec *iv,
 {
 	struct tun_pi pi = { 0, __constant_htons(ETH_P_IP) };
 	struct sk_buff *skb;
-	size_t len = count;
+	size_t len = count, align = 0;
 
 	if (!(tun->flags & TUN_NO_PI)) {
-		if ((len -= sizeof(pi)) < 0)
+		if ((len -= sizeof(pi)) > count)
 			return -EINVAL;
 
-		memcpy_fromiovec((void *)&pi, iv, sizeof(pi));
+ 		if(memcpy_fromiovec((void *)&pi, iv, sizeof(pi)))
+ 			return -EFAULT;
 	}
- 
-	if (!(skb = alloc_skb(len + 2, GFP_KERNEL))) {
+
+	if ((tun->flags & TUN_TYPE_MASK) == TUN_TAP_DEV)
+		align = NET_IP_ALIGN;
+  
+	if (!(skb = alloc_skb(len + align, GFP_KERNEL))) {
 		tun->stats.rx_dropped++;
 		return -ENOMEM;
 	}
 
-	skb_reserve(skb, 2);
-	memcpy_fromiovec(skb_put(skb, len), iv, len);
+	if (align)
+		skb_reserve(skb, align);
+ 	if (memcpy_fromiovec(skb_put(skb, len), iv, len)) {
+		tun->stats.rx_dropped++;
+		kfree_skb(skb);
+ 		return -EFAULT;
+	}
 
 	skb->dev = &tun->dev;
 	switch (tun->flags & TUN_TYPE_MASK) {
@@ -271,7 +292,8 @@ static __inline__ ssize_t tun_put_user(struct tun_struct *tun,
 			pi.flags |= TUN_PKT_STRIP;
 		}
  
-		memcpy_toiovec(iv, (void *) &pi, sizeof(pi));
+		if(memcpy_toiovec(iv, (void *) &pi, sizeof(pi)))
+			return -EFAULT;
 		total += sizeof(pi);
 	}       
 

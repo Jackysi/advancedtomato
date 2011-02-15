@@ -1,4 +1,4 @@
-/* $Id: head.S,v 1.1.1.4 2003/10/14 08:07:50 sparq Exp $
+/* $Id: head.S,v 1.86 2001/12/05 01:02:16 davem Exp $
  * head.S: Initial boot code for the Sparc64 port of Linux.
  *
  * Copyright (C) 1996,1997 David S. Miller (davem@caip.rutgers.edu)
@@ -50,11 +50,19 @@ bootup_user_stack:
  */
         .global root_flags, ram_flags, root_dev
         .global sparc_ramdisk_image, sparc_ramdisk_size
-	.globl	silo_args
+	.global sparc_ramdisk_image64
 
         .ascii  "HdrS"
         .word   LINUX_VERSION_CODE
-        .half   0x0203          /* HdrS version */
+
+	/* History:
+	 *
+	 * 0x0300 : Supports being located at other than 0x4000
+	 * 0x0202 : Supports kernel params string
+	 * 0x0201 : Supports reboot_command
+	 */
+	.half   0x0301          /* HdrS version */
+
 root_flags:
         .half   1
 root_dev:
@@ -66,7 +74,9 @@ sparc_ramdisk_image:
 sparc_ramdisk_size:
         .word   0
         .xword  reboot_command
-	.xword	bootstr_len
+	.xword	bootstr_info
+sparc_ramdisk_image64:
+	.xword	0
 	.word	_end
 
 	/* We must be careful, 32-bit OpenBOOT will get confused if it
@@ -151,12 +161,31 @@ cheetah_generic_boot:
 	blu,pt	%xcc, 1b
 	 add	%l0, (1 << 3), %l0
 
+	/* Search the small TLB.  OBP never maps us like that but
+	 * newer SILO can.
+	 */
+	clr	%l0
+
+1:	ldxa	[%l0] ASI_ITLB_TAG_READ, %g1
+	membar	#Sync
+	andn	%g1, %l2, %g1
+	cmp	%g1, %g2
+	be,pn	%xcc, cheetah_got_tlbentry
+	 nop
+	cmp	%l0, (15 << 3)
+	blu,pt	%xcc, 1b
+	 add	%l0, (1 << 3), %l0
+
+	/* BUG() if we get here... */
+	ta	0x5
+
 cheetah_got_tlbentry:
 	ldxa	[%l0] ASI_ITLB_DATA_ACCESS, %g0
 	ldxa	[%l0] ASI_ITLB_DATA_ACCESS, %g1
 	membar	#Sync
 	and	%g1, %g3, %g1
-	sub	%g1, %g2, %g1
+	set	0x5fff, %l0
+	andn	%g1, %l0, %g1
 	or	%g5, %g1, %g5
 
 	/* Clear out any KERNBASE area entries. */
@@ -333,13 +362,17 @@ spitfire_create_mappings:
 	blu,pt	%xcc, 1b
 	 add	%l0, (1 << 3), %l0
 
+	/* BUG() if we get here... */
+	ta	0x5
+
 spitfire_got_tlbentry:
 	/* Nops here again, perhaps Cheetah/Blackbird are better behaved... */
 	nop
 	nop
 	nop
 	and	%g1, %g3, %g1		/* Mask to just get paddr bits.       */
-	sub	%g1, %g2, %g1		/* Get rid of %pc offset to get base. */
+	set	0x5fff, %l3		/* Mask offset to get phys base.      */
+	andn	%g1, %l3, %g1
 
 	/* NOTE: We hold on to %g1 paddr base as we need it below to lock
 	 * NOTE: the PROM cif code into the TLB.
@@ -537,6 +570,10 @@ tlb_fixup_done:
 	/* Setup "Linux Current Register", thanks Sun 8-) */
 	wr	%g0, 0x1, %pcr
 
+	/* Blackbird errata workaround.  See commentary in
+	 * smp.c:smp_percpu_timer_interrupt() for more
+	 * information.
+	 */
 	ba,pt	%xcc, 99f
 	 nop
 	.align	64
@@ -547,7 +584,7 @@ tlb_fixup_done:
 	wr	%g0, ASI_P, %asi
 	mov	1, %g5
 	sllx	%g5, THREAD_SHIFT, %g5
-	sub	%g5, (REGWIN_SZ + STACK_BIAS), %g5
+	sub	%g5, (STACKFRAME_SZ + STACK_BIAS), %g5
 	add	%g6, %g5, %sp
 	mov	0, %fp
 
@@ -643,10 +680,17 @@ spitfire_vpte_base:
 	 nop
 
 not_starfire:
+	BRANCH_IF_JALAPENO(g1,g5,is_jalapeno)
 	BRANCH_IF_ANY_CHEETAH(g1,g5,is_cheetah)
 
 	ba,pt	%xcc, not_cheetah
 	 nop
+
+is_jalapeno:
+	ldxa		[%g0] ASI_JBUS_CONFIG, %g1
+	srlx		%g1, 17, %g1
+	ba,pt		%xcc, set_worklist
+	 and		%g1, 0x1f, %g1		! 5bit JBUS ID
 
 is_cheetah:
 	ldxa		[%g0] ASI_SAFARI_CONFIG, %g1
@@ -669,7 +713,9 @@ set_worklist:
 #endif
 
 	/* Kill PROM timer */
-	wr	%g0, 0, %tick_cmpr
+	sethi	%hi(0x80000000), %g1
+	sllx	%g1, 32, %g1
+	wr	%g1, 0, %tick_cmpr
 
 	BRANCH_IF_ANY_CHEETAH(g1,g5,1f)
 
@@ -736,8 +782,9 @@ swapper_pg_dir:
 
 	.data
 	.align	8
-	.globl	prom_tba
+	.globl	prom_tba, tlb_type
 prom_tba:	.xword	0
+tlb_type:	.word	0	/* Must NOT end up in BSS */
 	.section	".fixup",#alloc,#execinstr
 	.globl	__ret_efault
 __ret_efault:

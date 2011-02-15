@@ -213,6 +213,21 @@ enum {
 #define DEFAULT_X_PLATE_OHMS 580
 #define DEFAULT_Y_PLATE_OHMS 580
 
+/*
+ * Pen up/down pressure resistance thresholds.
+ *
+ * FIXME: these are bogus and will have to be found empirically.
+ *
+ * These are hysteresis points. If pen state is up and pressure
+ * is greater than pen-down threshold, pen transitions to down.
+ * If pen state is down and pressure is less than pen-up threshold,
+ * pen transitions to up. If pressure is in-between, pen status
+ * doesn't change.
+ *
+ * This wouldn't be needed if PENIRQ* from the ADS7846 were
+ * routed to an interrupt line on the Au1000. This would issue
+ * an interrupt when the panel is touched.
+ */
 #define DEFAULT_PENDOWN_THRESH_OHMS 100
 #define DEFAULT_PENUP_THRESH_OHMS    80
 

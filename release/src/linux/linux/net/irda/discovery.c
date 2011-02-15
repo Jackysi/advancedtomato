@@ -327,6 +327,31 @@ int discovery_proc_read(char *buf, char **start, off_t offset, int length,
 		len += sprintf(buf+len, " hint: 0x%02x%02x", 
 			       discovery->hints.byte[0], 
 			       discovery->hints.byte[1]);
+#if 0
+		if ( discovery->hints.byte[0] & HINT_PNP)
+			len += sprintf( buf+len, "PnP Compatible ");
+		if ( discovery->hints.byte[0] & HINT_PDA)
+			len += sprintf( buf+len, "PDA/Palmtop ");
+		if ( discovery->hints.byte[0] & HINT_COMPUTER)
+			len += sprintf( buf+len, "Computer ");
+		if ( discovery->hints.byte[0] & HINT_PRINTER)
+			len += sprintf( buf+len, "Printer ");
+		if ( discovery->hints.byte[0] & HINT_MODEM)
+			len += sprintf( buf+len, "Modem ");
+		if ( discovery->hints.byte[0] & HINT_FAX)
+			len += sprintf( buf+len, "Fax ");
+		if ( discovery->hints.byte[0] & HINT_LAN)
+			len += sprintf( buf+len, "LAN Access ");
+		
+		if ( discovery->hints.byte[1] & HINT_TELEPHONY)
+			len += sprintf( buf+len, "Telephony ");
+		if ( discovery->hints.byte[1] & HINT_FILE_SERVER)
+			len += sprintf( buf+len, "File Server ");       
+		if ( discovery->hints.byte[1] & HINT_COMM)
+			len += sprintf( buf+len, "IrCOMM ");
+		if ( discovery->hints.byte[1] & HINT_OBEX)
+			len += sprintf( buf+len, "IrOBEX ");
+#endif		
 		len += sprintf(buf+len, ", saddr: 0x%08x", 
 			       discovery->saddr);
 
