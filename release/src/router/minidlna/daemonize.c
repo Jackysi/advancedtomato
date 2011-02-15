@@ -1,4 +1,4 @@
-/* $Id: daemonize.c,v 1.3 2010/11/11 23:48:13 jmaggard Exp $ */
+/* $Id: daemonize.c,v 1.4 2011/02/15 02:46:28 jmaggard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  *
@@ -93,7 +93,7 @@ writepidfile(const char * fname, int pid)
 	if(!fname || (strlen(fname) == 0))
 		return -1;
 	
-	if( (pidfile = open(fname, O_WRONLY|O_CREAT|O_TRUNC, 0666)) < 0)
+	if( (pidfile = open(fname, O_WRONLY|O_CREAT|O_TRUNC, 0644)) < 0)
 	{
 		DPRINTF(E_INFO, L_GENERAL, "Unable to open pidfile for writing %s: %s\n", fname, strerror(errno));
 		return -1;
