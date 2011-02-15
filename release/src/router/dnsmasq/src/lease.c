@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2010 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2011 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ void lease_init(time_t now)
  
   leases_left = daemon->dhcp_max;
 
-  if (daemon->options & OPT_LEASE_RO)
+  if (option_bool(OPT_LEASE_RO))
     {
       /* run "<lease_change_script> init" once to get the
 	 initial state of the database. If leasefile-ro is
@@ -258,7 +258,7 @@ void lease_update_dns(void)
 	  if (lease->fqdn)
 	    cache_add_dhcp_entry(lease->fqdn, &lease->addr, lease->expires);
 	     
-	  if (!(daemon->options & OPT_DHCP_FQDN) && lease->hostname)
+	  if (!option_bool(OPT_DHCP_FQDN) && lease->hostname)
 	    cache_add_dhcp_entry(lease->hostname, &lease->addr, lease->expires);
 	}
       
@@ -474,7 +474,7 @@ void lease_set_hostname(struct dhcp_lease *lease, char *name, int auth)
       /* Depending on mode, we check either unqualified name or FQDN. */
       for (lease_tmp = leases; lease_tmp; lease_tmp = lease_tmp->next)
 	{
-	  if (daemon->options & OPT_DHCP_FQDN)
+	  if (option_bool(OPT_DHCP_FQDN))
 	    {
 	      if (!new_fqdn || !lease_tmp->fqdn || !hostname_isequal(lease_tmp->fqdn, new_fqdn) )
 		continue;
@@ -538,7 +538,7 @@ int do_script_run(time_t now)
 #ifdef HAVE_DBUS
   /* If we're going to be sending DBus signals, but the connection is not yet up,
      delay everything until it is. */
-  if ((daemon->options & OPT_DBUS) && !daemon->dbus)
+  if (option_bool(OPT_DBUS) && !daemon->dbus)
     return 0;
 #endif
 
@@ -590,7 +590,7 @@ int do_script_run(time_t now)
   
   for (lease = leases; lease; lease = lease->next)
     if (lease->new || lease->changed || 
-	(lease->aux_changed && (daemon->options & OPT_LEASE_RO)))
+	(lease->aux_changed && option_bool(OPT_LEASE_RO)))
       {
 #ifdef HAVE_SCRIPT
 	queue_script(lease->new ? ACTION_ADD : ACTION_OLD, lease, 
