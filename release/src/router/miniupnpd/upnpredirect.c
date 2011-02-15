@@ -1,7 +1,7 @@
-/* $Id: upnpredirect.c,v 1.49 2009/12/22 17:20:10 nanard Exp $ */
+/* $Id: upnpredirect.c,v 1.50 2011/02/07 11:57:56 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2009 Thomas Bernard 
+ * (c) 2006-2011 Thomas Bernard 
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -449,6 +449,21 @@ remove_unused_rules(struct rule_state * list)
 		syslog(LOG_NOTICE, "removed %d unused rules", n);
 }
 
+/* upnp_get_portmappings_in_range()
+ * return a list of all "external" ports for which a port
+ * mapping exists */
+unsigned short *
+upnp_get_portmappings_in_range(unsigned short startport,
+                               unsigned short endport,
+                               const char * protocol,
+                               unsigned int * number)
+{
+	int proto;
+	proto = proto_atoi(protocol);
+	if(!number)
+		return NULL;
+	return get_portmappings_in_range(startport, endport, proto, number);
+}
 
 /* stuff for miniupnpdctl */
 #ifdef USE_MINIUPNPDCTL

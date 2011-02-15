@@ -1,11 +1,12 @@
-/* $Id: testobsdrdr.c,v 1.19 2010/03/07 09:25:20 nanard Exp $ */
+/* $Id: testobsdrdr.c,v 1.21 2011/02/07 12:11:28 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2010 Thomas Bernard 
+ * (c) 2006-2011 Thomas Bernard 
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <syslog.h>
@@ -18,6 +19,22 @@ const char * tag = 0;
 
 void
 list_rules(void);
+
+void
+list_eports_tcp(void)
+{
+	unsigned short * port_list;
+	unsigned int number = 0;
+	unsigned int i;
+	port_list = get_portmappings_in_range(0, 65535, IPPROTO_TCP, &number);
+	printf("%u ports redirected (TCP) :", number);
+	for(i = 0; i < number; i++)
+	{
+		printf(" %hu", port_list[i]);
+	}
+	printf("\n");
+	free(port_list);
+}
 
 void
 test_index(void)
@@ -67,6 +84,8 @@ main(int arc, char * * argv)
 	//                   IPPROTO_TCP, "test description tcp");
 
 	list_rules();
+	list_eports_tcp();
+	
 
 	if(get_redirect_rule("xl1", 4662, IPPROTO_TCP,
 	                     buf, 32, &iport, desc, sizeof(desc),
