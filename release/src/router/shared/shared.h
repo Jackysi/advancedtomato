@@ -91,6 +91,8 @@ extern int get_wan_proto(void);
 extern int get_ipv6_service(void);
 #define ipv6_enabled()	(get_ipv6_service() != IPV6_DISABLED)
 extern const char *ipv6_router_address(struct in6_addr *in6addr);
+#else
+#define ipv6_enabled()	(0)
 #endif
 extern int using_dhcpc(void);
 extern void notice_set(const char *path, const char *format, ...);

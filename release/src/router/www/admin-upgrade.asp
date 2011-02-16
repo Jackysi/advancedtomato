@@ -47,7 +47,7 @@ function upgrade()
 	var fom = document.form_upgrade;
 	var ext;
 
-	name = fom.file.value;
+	name = fixFile(fom.file.value);
 	if (name.search(/\.(bin|trx|chk)$/i) == -1) {
 		alert('Expecting a ".bin" or ".trx" file.');
 		return;

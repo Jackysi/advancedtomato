@@ -49,8 +49,12 @@ int redial_main(int argc, char **argv)
 {
 	int tm;
 	int count;
-	
-	if (nvram_get_int("ppp_demand") != 0) return 0;
+	int proto;
+
+	proto = get_wan_proto();
+	if (proto == WP_PPPOE || proto == WP_PPTP || proto == WP_L2TP) {
+		if (nvram_get_int("ppp_demand") != 0) return 0;
+	}
 
 	tm = nvram_get_int("ppp_redialperiod") ? : 30;
 	if (tm < 5) tm = 5;

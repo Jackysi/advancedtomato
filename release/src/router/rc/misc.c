@@ -10,6 +10,7 @@
 #include <stdarg.h>
 #include <sys/ioctl.h>
 #include <net/if_arp.h>
+#include <netdb.h>
 
 #include <bcmdevs.h>
 #include <wlutils.h>
@@ -446,6 +447,46 @@ void setup_conntrack(void)
 		ct_modprobe_r("pptp");
 		ct_modprobe_r("proto_gre");
 	}
+}
+
+struct sockaddr_storage *host_to_addr(const char *name, sa_family_t family)
+{
+	static struct sockaddr_storage buf;
+
+	struct addrinfo hints;
+	struct addrinfo *res;
+	int err;
+
+	memset(&hints, 0, sizeof(hints));
+#ifdef TCONFIG_IPV6
+	hints.ai_family = family;
+#else
+	hints.ai_family = AF_INET;
+#endif
+	hints.ai_socktype = SOCK_RAW;
+
+	if ((err = getaddrinfo(name, NULL, &hints, &res)) != 0)
+		return NULL;
+
+#ifdef TCONFIG_IPV6
+	if (res->ai_family != family)
+		return NULL;
+
+	if (family == AF_INET6) {
+		if (res->ai_addrlen != sizeof(struct sockaddr_in6))
+			return NULL;
+		memcpy(&buf, res->ai_addr, sizeof(struct sockaddr_in6));
+	}
+	else
+#endif
+	{
+		if (res->ai_addrlen != sizeof(struct sockaddr_in))
+			return NULL;
+		memcpy(&buf, res->ai_addr, sizeof(struct sockaddr_in));
+	}
+
+	freeaddrinfo(res);
+	return &(buf);
 }
 
 void inc_mac(char *mac, int plus)

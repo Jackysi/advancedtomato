@@ -686,6 +686,12 @@
 #define TTI_QL355P_PID		0x03E8	/* TTi QL355P power supply */
 
 /*
+ * Acton Research Corp.
+ */
+#define ACTON_VID		0x0647	/* Vendor ID */
+#define ACTON_SPECTRAPRO_PID	0x0100
+
+/*
  * Contec products (http://www.contec.com)
  * Submitted by Daniel Sangorrin
  */
@@ -842,6 +848,12 @@
  * PID 0xEA90 submitted by Martin Grill.
  */
 #define FTDI_ECLO_COM_1WIRE_PID	0xEA90	/* COM to 1-Wire USB adaptor */
+
+/*
+ * STMicroelectonics
+ */
+#define ST_VID			0x0483
+#define ST_STMCLT1030_PID	0x3747 /* ST Micro Connect Lite STMCLT1030 */
 
 /*
  * Papouch products (http://www.papouch.com/)

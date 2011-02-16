@@ -704,14 +704,16 @@ void start_wan(int mode)
 }
 
 #ifdef TCONFIG_IPV6
-void start_wan6_done(char *wan_ifname)
+void start_wan6_done(const char *wan_ifname)
 {
-	switch (get_ipv6_service()) {
+	int service;
+
+	switch ((service = get_ipv6_service())) {
 	case IPV6_NATIVE:
-		eval("ip", "route", "add", "::/0", "dev", wan_ifname);
+		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname);
 		break;
 	case IPV6_NATIVE_DHCP:
-		eval("ip", "route", "add", "::/0", "dev", wan_ifname);
+		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname);
 		stop_dhcp6c();
 		start_dhcp6c();
 		break;
@@ -719,6 +721,11 @@ void start_wan6_done(char *wan_ifname)
 		stop_ipv6_sit_tunnel();
 		start_ipv6_sit_tunnel();
 		break;
+	}
+
+	if (service != IPV6_DISABLED) {
+		if ((nvram_get_int("ipv6_accept_ra") & 1) != 0)
+			accept_ra(wan_ifname);
 	}
 }
 #endif
@@ -864,7 +871,7 @@ void start_wan_done(char *wan_ifname)
 	}
 
 #ifdef TCONFIG_IPV6
-	start_wan6_done(wan_ifname);
+	start_wan6_done(get_wan6face());
 #endif
 
 	// restart httpd
@@ -880,6 +887,9 @@ void start_wan_done(char *wan_ifname)
 		
 		run_nvscript("script_wanup", NULL, 0);
 	}
+
+	// flush conntrack entries
+	f_write_string("/proc/net/conntrack_clear", "1", 0, 0);
 
 	// We don't need STP after wireless led is lighted		//	no idea why... toggling it if necessary	-- zzz
 	if (check_hw_type() == HW_BCM4702) {

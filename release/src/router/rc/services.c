@@ -476,13 +476,13 @@ void start_radvd(void)
 
 		switch (get_ipv6_service()) {
 		case IPV6_NATIVE_DHCP:
-			prefix = "::";	
+			prefix = "::";
 			break;
 		default:
 			prefix = nvram_safe_get("ipv6_prefix");
 			break;
 		}
-		if (!(*prefix)) return;
+		if (!(*prefix)) prefix = "::";
 
 		// Create radvd.conf
 		if ((f = fopen("/etc/radvd.conf", "w")) == NULL) return;
@@ -541,19 +541,24 @@ void start_ipv6(void)
 	int service;
 
 	service = get_ipv6_service();
-	enable_ipv6(service != IPV6_DISABLED);
 	enable_ip_forward();
 
 	// Check if turned on
 	switch (service) {
 	case IPV6_NATIVE:
 	case IPV6_6IN4:
+	case IPV6_MANUAL:
 		p = (char *)ipv6_router_address(NULL);
 		if (*p) {
 			snprintf(ip, sizeof(ip), "%s/%d", p, nvram_get_int("ipv6_prefix_length") ? : 64);
 			eval("ip", "-6", "addr", "add", ip, "dev", nvram_safe_get("lan_ifname"));
 		}
 		break;
+	}
+
+	if (service != IPV6_DISABLED) {
+		if ((nvram_get_int("ipv6_accept_ra") & 2) != 0)
+			accept_ra(nvram_safe_get("lan_ifname"));
 	}
 }
 
@@ -1932,13 +1937,13 @@ TOP:
 		if (action & A_STOP) {
 			stop_syslog();
 		}
+		if (action & A_START) {
+			start_syslog();
+		}
 		if (!user) {
 			// always restarted except from "service" command
 			stop_cron(); start_cron();
 			stop_firewall(); start_firewall();
-		}
-		if (action & A_START) {
-			start_syslog();
 		}
 		goto CLEAR;
 	}

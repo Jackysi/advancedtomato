@@ -1049,9 +1049,15 @@ bcm_robo_config_vlan(robo_info_t *robo, uint8 *mac_addr)
 			/* Set the Static bit , Valid bit and Port ID fields in
 			 * ARL Table Data Entry 0 Register
 			 */
-			val16 = 0xc008;
-			robo->ops->write_reg(robo, PAGE_VTBL, REG_VTBL_DAT_E0,
-			                     &val16, sizeof(val16));
+			if (robo->devid == DEVID53115) {
+				val32 = 0x18008;
+				robo->ops->write_reg(robo, PAGE_VTBL, REG_VTBL_DAT_E0,
+				                     &val32, sizeof(val32));
+			} else {
+				val16 = 0xc008;
+				robo->ops->write_reg(robo, PAGE_VTBL, REG_VTBL_DAT_E0,
+				                     &val16, sizeof(val16));
+			}
 
 			/* Clear the ARL_R/W bit and set the START/DONE bit in
 			 * the ARL Read/Write Control Register.

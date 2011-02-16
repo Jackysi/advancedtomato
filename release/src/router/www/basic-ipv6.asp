@@ -21,7 +21,9 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("ipv6_prefix,ipv6_prefix_length,ipv6_radvd,ipv6_rtr_addr,ipv6_service,ipv6_dns,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_ifname,ipv6_tun_v4end,ipv6_tun_mtu,ipv6_tun_ttl"); %>
+//	<% nvram("ipv6_prefix,ipv6_prefix_length,ipv6_radvd,ipv6_accept_ra,ipv6_rtr_addr,ipv6_service,ipv6_dns,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_ifname,ipv6_tun_v4end,ipv6_tun_mtu,ipv6_tun_ttl"); %>
+
+nvram.ipv6_accept_ra = fixInt(nvram.ipv6_accept_ra, 0, 3, 0);
 
 function verifyFields(focused, quiet)
 {
@@ -40,6 +42,8 @@ function verifyFields(focused, quiet)
 		_f_ipv6_dns_2: 1,
 		_f_ipv6_dns_3: 1,
 		_f_ipv6_radvd: 1,
+		_f_ipv6_accept_ra_wan: 1,
+		_f_ipv6_accept_ra_lan: 1,
 		_ipv6_tun_v4end: 1,
 		_ipv6_ifname: 1,
 		_ipv6_tun_addr: 1,
@@ -51,15 +55,17 @@ function verifyFields(focused, quiet)
 	switch(E('_ipv6_service').value) {
 		case '':
 			vis._ipv6_ifname = 0;
+			vis._ipv6_rtr_addr = 0;
 			vis._f_ipv6_dns_1 = 0;
 			vis._f_ipv6_dns_2 = 0;
 			vis._f_ipv6_dns_3 = 0;
+			vis._f_ipv6_radvd = 0;
+			vis._f_ipv6_accept_ra_wan = 0;
+			vis._f_ipv6_accept_ra_lan = 0;
 			// fall through
 		case 'other':
-			vis._f_ipv6_radvd = 0;
 			vis._ipv6_prefix = 0;
 			vis._ipv6_prefix_length = 0;
-			vis._ipv6_rtr_addr = 0;
 			vis._ipv6_tun_v4end = 0;
 			vis._ipv6_tun_addr = 0;
 			vis._ipv6_tun_addrlen = 0;
@@ -91,12 +97,21 @@ function verifyFields(focused, quiet)
 
 	// --- verify ---
 
+	if (vis._ipv6_ifname == 1) {
+		if (E('_ipv6_service').value != 'other') {
+			if (!v_length('_ipv6_ifname', quiet || !ok, 2)) ok = 0;
+		}
+		else ferror.clear('_ipv6_ifname');
+	}
+
+/* REMOVE-BEGIN
 	// Length
 	a = [['_ipv6_ifname', 2]];
 	for (i = a.length - 1; i >= 0; --i) {
 		v = a[i];
 		if ((vis[v[0]]) && (!v_length(v[0], quiet || !ok, v[1]))) ok = 0;
 	}
+REMOVE-END */
 
 	// IP address
 	a = ['_ipv6_tun_v4end'];
@@ -154,8 +169,24 @@ function save()
 	if (!verifyFields(null, false)) return;
 
 	var fom = E('_fom');
+
 	fom.ipv6_dns.value = joinIPv6Addr([fom.f_ipv6_dns_1.value, fom.f_ipv6_dns_2.value, fom.f_ipv6_dns_3.value]);
 	fom.ipv6_radvd.value = fom.f_ipv6_radvd.checked ? 1 : 0;
+
+	fom.ipv6_accept_ra.value = 0;
+	if (fom.f_ipv6_accept_ra_wan.checked) fom.ipv6_accept_ra.value |= 1;
+	if (fom.f_ipv6_accept_ra_lan.checked) fom.ipv6_accept_ra.value |= 2;
+
+	switch(E('_ipv6_service').value) {
+		case 'other':
+			fom.ipv6_prefix_length = 64;
+			fom.ipv6_prefix = '';
+			break;
+		case 'native-pd':
+			fom.ipv6_prefix = '';
+			fom.ipv6_rtr_addr = '';
+			break;
+	}
 
 	form.submit(fom, 1);
 }
@@ -182,6 +213,7 @@ function save()
 
 <input type='hidden' name='ipv6_radvd'>
 <input type='hidden' name='ipv6_dns'>
+<input type='hidden' name='ipv6_accept_ra'>
 
 <div class='section-title'>IPv6 Configuration</div>
 <div class='section'>
@@ -190,9 +222,9 @@ dns = nvram.ipv6_dns.split(/\s+/);
 
 createFieldTable('', [
 	{ title: 'IPv6 Service Type', name: 'ipv6_service', type: 'select', 
-		options: [['', 'Disabled'],['native','Native IPv6 from ISP'],['native-pd','DHCPv6 with Prefix Delegation'],['sit','6in4 Static Tunnel'],['other','Other (manually configured)']],
+		options: [['', 'Disabled'],['native','Native IPv6 from ISP'],['native-pd','DHCPv6 with Prefix Delegation'],['sit','6in4 Static Tunnel'],['other','Other (Manual Configuration)']],
 		value: nvram.ipv6_service },
-	{ title: 'IPv6 Interface Name', name: 'ipv6_ifname', type: 'text', maxlen: 8, size: 10, value: nvram.ipv6_ifname },
+	{ title: 'IPv6 WAN Interface', name: 'ipv6_ifname', type: 'text', maxlen: 8, size: 10, value: nvram.ipv6_ifname },
 	null,
 	{ title: 'Assigned IPv6 Prefix', name: 'ipv6_prefix', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_prefix },
 	{ title: 'Prefix Length', name: 'ipv6_prefix_length', type: 'text', maxlen: 3, size: 5, value: nvram.ipv6_prefix_length },
@@ -201,6 +233,10 @@ createFieldTable('', [
 	{ title: '',           name: 'f_ipv6_dns_2', type: 'text', maxlen: 46, size: 48, value: dns[1] || '' },
 	{ title: '',           name: 'f_ipv6_dns_3', type: 'text', maxlen: 46, size: 48, value: dns[2] || '' },
 	{ title: 'Enable Router Advertisements', name: 'f_ipv6_radvd', type: 'checkbox', value: nvram.ipv6_radvd != '0' },
+	{ title: 'Accept RA from', multi: [
+		{ suffix: '&nbsp; WAN &nbsp;&nbsp;&nbsp;', name: 'f_ipv6_accept_ra_wan', type: 'checkbox', value: (nvram.ipv6_accept_ra & 1) },
+		{ suffix: '&nbsp; LAN &nbsp;',	name: 'f_ipv6_accept_ra_lan', type: 'checkbox', value: (nvram.ipv6_accept_ra & 2) }
+	] },
 	null,
 	{ title: 'Tunnel Remote Endpoint (IPv4 Address)', name: 'ipv6_tun_v4end', type: 'text', maxlen: 15, size: 17, value: nvram.ipv6_tun_v4end },
 	{ title: 'Tunnel Client IPv6 Address', multi: [

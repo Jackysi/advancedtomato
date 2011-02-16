@@ -596,6 +596,7 @@ static const nvset_t nvset_list[] = {
 	{ "ipv6_prefix_length",		V_RANGE(3, 127)			},
 	{ "ipv6_rtr_addr",		V_LENGTH(0, 40)			},
 	{ "ipv6_radvd",			V_01				},
+	{ "ipv6_accept_ra",		V_NUM				},
 	{ "ipv6_tun_addr",		V_IPV6				},
 	{ "ipv6_tun_addrlen",		V_RANGE(3, 127)			},
 	{ "ipv6_ifname",		V_LENGTH(0, 8)			},

@@ -1,6 +1,6 @@
-/* $Id: commonrdr.h,v 1.3 2008/02/21 18:21:01 nanard Exp $ */
+/* $Id: commonrdr.h,v 1.4 2011/02/07 11:57:56 nanard Exp $ */
 /* MiniUPnP project
- * (c) 2006-2007 Thomas Bernard
+ * (c) 2006-2011 Thomas Bernard
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
@@ -31,6 +31,12 @@ get_redirect_rule_by_index(int index,
                            char * iaddr, int iaddrlen, unsigned short * iport,
                            int * proto, char * desc, int desclen,
                            u_int64_t * packets, u_int64_t * bytes);
+
+/* return an (malloc'ed) array of "external" port for which there is
+ * a port mapping. number is the size of the array */
+unsigned short *
+get_portmappings_in_range(unsigned short startport, unsigned short endport,
+                          int proto, unsigned int * number);
 
 #endif
 

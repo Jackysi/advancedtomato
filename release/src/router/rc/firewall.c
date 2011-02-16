@@ -124,25 +124,45 @@ static int dmz_dst(char *s)
 	return 1;
 }
 
-void ipt_addr(char *addr, int maxlen, const char *s, const char *dir)
+int ipt_addr(char *addr, int maxlen, const char *s, const char *dir, int family,
+	const char *categ, const char *name)
 {
-	char p[32];
+	char p[INET6_ADDRSTRLEN * 2];
+	int r = 1;
 
-	if ((*s) && (*dir))
+	if ((s) && (*s) && (*dir))
 	{
-		if (sscanf(s, "%[0-9.]-%[0-9.]", p, p) == 2)
+		if (sscanf(s, "%[0-9.]-%[0-9.]", p, p) == 2) {
 			snprintf(addr, maxlen, "-m iprange --%s-range %s", dir, s);
-		else
+			r = (family == AF_INET);
+		}
+#ifdef TCONFIG_IPV6
+		else if (sscanf(s, "%[0-9A-Fa-f:]-%[0-9A-Fa-f:]", p, p) == 2) {
+			snprintf(addr, maxlen, "-m iprange --%s-range %s", dir, s);
+			r = (family == AF_INET6);
+		}
+#endif
+		else {
 			snprintf(addr, maxlen, "-%c %s", dir[0], s);
+			r = (host_to_addr(s, family) != NULL);
+		}
 	}
 	else
 		*addr = 0;
+
+	if (r == 0 && (categ && *categ)) {
+		syslog(LOG_WARNING,
+			"IPv%d firewall: %s: not using %s%s%s (could not resolve as valid IPv%d address)",
+			(family == AF_INET6) ? 6 : 4, categ, s,
+			(name && *name) ? " for " : "", (name && *name) ? name : "",
+			(family == AF_INET6) ? 6 : 4);
+	}
+
+	return r;
 }
 
-static inline void ipt_source(const char *s, char *src)
-{
-	ipt_addr(src, 64, s, "src");
-}
+#define ipt_source(s, src, categ, name) ipt_addr(src, 64, s, "src", AF_INET, categ, name)
+#define ip6t_source(s, src, categ, name) ipt_addr(src, 128, s, "src", AF_INET6, categ, name)
 
 /*
 static void get_src(const char *nv, char *src)
@@ -176,6 +196,29 @@ void ip6t_write(const char *format, ...)
 	vfprintf(ip6t_file, format, args);
 	va_end(args);
 #endif
+}
+
+// -----------------------------------------------------------------------------
+
+int ipt_dscp(const char *v, char *opt)
+{
+	unsigned int n;
+
+	if (*v == 0) {
+		*opt = 0;
+		return 0;
+	}
+
+	n = strtoul(v, NULL, 0);
+	if (n > 63) n = 63;
+	sprintf(opt, " -m dscp --dscp 0x%02X", n);
+
+#ifdef LINUX26
+	modprobe("xt_dscp");
+#else
+	modprobe("ipt_dscp");
+#endif
+	return 1;
 }
 
 // -----------------------------------------------------------------------------
@@ -307,7 +350,7 @@ static void ipt_webmon(int do_ip6t)
 {
 	int wmtype, clear, i;
 	char t[512];
-	char src[64];
+	char src[128];
 	char *p, *c;
 
 	if (!nvram_get_int("log_wm")) return;
@@ -316,42 +359,42 @@ static void ipt_webmon(int do_ip6t)
 
 	ip46t_cond_write(do_ip6t, ":monitor - [0:0]\n");
 
-#ifdef TCONFIG_IPV6
-	// TODO: check for the IP address type (v4/v6)
-	// (currently IPv6 source addresses are not filtered)
-	if (do_ip6t)
-		ip6t_write("-A FORWARD -o %s -j monitor\n", wan6face);
-	else {
-#endif
 	// include IPs
 	strlcpy(t, wmtype == 1 ? nvram_safe_get("log_wmip") : "", sizeof(t));
 	p = t;
 	do {
 		if ((c = strchr(p, ',')) != NULL) *c = 0;
-		ipt_source(p, src);
 
-		for (i = 0; i < wanfaces.count; ++i) {
-			if (*(wanfaces.iface[i].name)) {
-				ipt_write("-A FORWARD -o %s %s -j monitor\n",
-					wanfaces.iface[i].name, src);
+		if (ipt_addr(src, sizeof(src), p, "src", do_ip6t ? AF_INET6 : AF_INET, "webmon", "filtering")) {
+#ifdef TCONFIG_IPV6
+			if (do_ip6t) {
+				if (*wan6face)
+					ip6t_write("-A FORWARD -o %s %s -j monitor\n", wan6face, src);
+			}
+			else
+#endif
+			for (i = 0; i < wanfaces.count; ++i) {
+				if (*(wanfaces.iface[i].name)) {
+					ipt_write("-A FORWARD -o %s %s -j monitor\n",
+						wanfaces.iface[i].name, src);
+				}
 			}
 		}
 
 		if (!c) break;
 		p = c + 1;
 	} while (*p);
-#ifdef TCONFIG_IPV6
-	}
-#endif
 
 	// exclude IPs
-	if (wmtype == 2 && !do_ip6t) {
+	if (wmtype == 2) {
 		strlcpy(t, nvram_safe_get("log_wmip"), sizeof(t));
 		p = t;
 		do {
 			if ((c = strchr(p, ',')) != NULL) *c = 0;
-			ipt_source(p, src);
-			if (*src) ipt_write("-A monitor %s -j RETURN\n", src);
+			if (ipt_addr(src, sizeof(src), p, "src", do_ip6t ? AF_INET6 : AF_INET, "webmon", "filtering")) {
+				if (*src)
+					ip46t_cond_write(do_ip6t, "-A monitor %s -j RETURN\n", src);
+			}
 			if (!c) break;
 			p = c + 1;
 		} while (*p);
@@ -504,8 +547,8 @@ static void nat_table(void)
 				p = t;
 				do {
 					if ((c = strchr(p, ',')) != NULL) *c = 0;
-					ipt_source(p, src);
-					ipt_write("-A %s %s -j DNAT --to-destination %s\n", chain_wan_prerouting, src, dst);
+					if (ipt_source(p, src, "dmz", NULL))
+						ipt_write("-A %s %s -j DNAT --to-destination %s\n", chain_wan_prerouting, src, dst);
 					if (!c) break;
 					p = c + 1;
 				} while (*p);
@@ -658,22 +701,22 @@ static void filter_input(void)
 	do {
 		if ((c = strchr(p, ',')) != NULL) *c = 0;
 
-		ipt_source(p, s);
+		if (ipt_source(p, s, "remote management", NULL)) {
 
-		if (remotemanage) {
-			ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
-				s, nvram_safe_get("http_wanport"), chain_in_accept);
-		}
+			if (remotemanage) {
+				ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+					s, nvram_safe_get("http_wanport"), chain_in_accept);
+			}
 
-		if (nvram_get_int("sshd_remote")) {
-			ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
-				s, nvram_safe_get("sshd_rport"), chain_in_accept);
+			if (nvram_get_int("sshd_remote")) {
+				ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+					s, nvram_safe_get("sshd_rport"), chain_in_accept);
+			}
 		}
 
 		if (!c) break;
 		p = c + 1;
 	} while (*p);
-
 
 #ifdef TCONFIG_FTP	// !!TB - FTP Server
 	if (nvram_match("ftp_enable", "1")) {	// FTP WAN access enabled
@@ -681,11 +724,10 @@ static void filter_input(void)
 		p = t;
 		do {
 			if ((c = strchr(p, ',')) != NULL) *c = 0;
-			ipt_source(p, s);
-
-			ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
-				s, nvram_safe_get("ftp_port"), chain_in_accept);
-
+			if (ipt_source(p, s, "ftp", "remote access")) {
+				ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+					s, nvram_safe_get("ftp_port"), chain_in_accept);
+			}
 			if (!c) break;
 			p = c + 1;
 		} while (*p);
@@ -790,14 +832,13 @@ static void filter_forward(void)
 			p = t;
 			do {
 				if ((c = strchr(p, ',')) != NULL) *c = 0;
-				ipt_source(p, src);
-				ipt_write("-A FORWARD -o %s %s -d %s -j %s\n", lanface, src, dst, chain_in_accept);
+				if (ipt_source(p, src, "dmz", NULL))
+					ipt_write("-A FORWARD -o %s %s -d %s -j %s\n", lanface, src, dst, chain_in_accept);
 				if (!c) break;
 				p = c + 1;
 			} while (*p);
 		}
 	}
-
 
 	// default policy: DROP
 }
@@ -840,11 +881,13 @@ static void filter_log(void)
 #ifdef TCONFIG_IPV6
 static void filter6_input(void)
 {
-	char s[64];
+	char s[128];
+	char t[512];
 	char *en;
 	char *sec;
 	char *hit;
 	int n;	
+	char *p, *c;
 
 	ip6t_write(
 		"-A INPUT -m rt --rt-type 0 -j %s\n"
@@ -917,29 +960,42 @@ static void filter6_input(void)
 	}
 
 	// Remote Managment
-	// TODO: create list for allowed remote ipv6 addresses?
-	// Currently: disabled if there is a non-empty list of allowed ipv4 addresses,
-	// otherwise unrestricted
-	if (strlen(nvram_safe_get("rmgt_sip")) == 0) {
-		if (remotemanage) {
-			ip6t_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
-				nvram_safe_get("http_wanport"), chain_in_accept);
+	strlcpy(t, nvram_safe_get("rmgt_sip"), sizeof(t));
+	p = t;
+	do {
+		if ((c = strchr(p, ',')) != NULL) *c = 0;
+
+		if (ip6t_source(p, s, "remote management", NULL)) {
+
+			if (remotemanage) {
+				ip6t_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+					s, nvram_safe_get("http_wanport"), chain_in_accept);
+			}
+
+			if (nvram_get_int("sshd_remote")) {
+				ip6t_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+					s, nvram_safe_get("sshd_rport"), chain_in_accept);
+			}
 		}
 
-		if (nvram_get_int("sshd_remote")) {
-			ip6t_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
-				nvram_safe_get("sshd_rport"), chain_in_accept);
-		}
-	}
+		if (!c) break;
+		p = c + 1;
+	} while (*p);
 
-	// FTP server
-	// TODO: create list for allowed remote ipv6 addresses? (see above)...
 #ifdef TCONFIG_FTP
+	// FTP server
 	if (nvram_match("ftp_enable", "1")) {	// FTP WAN access enabled
-		if (strlen(nvram_safe_get("ftp_sip")) == 0) {
-			ip6t_write("-A INPUT -p tcp -m tcp --dport %s -j %s\n",
-				nvram_safe_get("ftp_port"), chain_in_accept);
-		}
+		strlcpy(t, nvram_safe_get("ftp_sip"), sizeof(t));
+		p = t;
+		do {
+			if ((c = strchr(p, ',')) != NULL) *c = 0;
+			if (ip6t_source(p, s, "ftp", "remote access")) {
+				ip6t_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+					s, nvram_safe_get("ftp_port"), chain_in_accept);
+			}
+			if (!c) break;
+			p = c + 1;
+		} while (*p);
 	}
 #endif
 
@@ -962,7 +1018,8 @@ static void filter6_forward(void)
 		lanface, lanface);
 
 	// Filter out invalid WAN->WAN connections
-	ip6t_write("-A FORWARD -o %s ! -i %s -j %s\n", wan6face, lanface, chain_in_drop);
+	if (*wan6face)
+		ip6t_write("-A FORWARD -o %s ! -i %s -j %s\n", wan6face, lanface, chain_in_drop);
 
 #ifdef LINUX26
 	modprobe("xt_length");
@@ -986,11 +1043,18 @@ static void filter6_forward(void)
 	ip6t_write(
 		":wanin - [0:0]\n"
 		":wanout - [0:0]\n"
-		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n"	// already established or related (via helper)
-		"-A FORWARD -i %s -j wanin\n"					// generic from wan
-		"-A FORWARD -o %s -j wanout\n"					// generic to wan
+		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
+
+	if (*wan6face) {
+		ip6t_write(
+			"-A FORWARD -i %s -j wanin\n"				// generic from wan
+			"-A FORWARD -o %s -j wanout\n",				// generic to wan
+			wan6face, wan6face);
+	}
+
+	ip6t_write(
 		"-A FORWARD -i %s -j %s\n",					// from lan
-		wan6face, wan6face, lanface, chain_out_accept);
+		lanface, chain_out_accept);
 
 	// ICMPv6 rules
 	const int allowed_icmpv6[6] = { 1, 2, 3, 4, 128, 129 };
@@ -1220,7 +1284,6 @@ int start_firewall(void)
 	if (ipv6_enabled()) {
 		notice_set("ip6tables", "");
 		if (_eval(ip6trestore_argv, ">/var/notice/ip6tables", 0, NULL) == 0) {
-			led(LED_DIAG, 0);
 			notice_set("ip6tables", "");
 		}
 		else {
@@ -1255,12 +1318,14 @@ int start_firewall(void)
 	modprobe_r("xt_length");
 	modprobe_r("xt_web");
 	modprobe_r("xt_webmon");
+	modprobe_r("xt_dscp");
 #else
 	modprobe_r("ipt_layer7");
 	modprobe_r("ipt_recent");
 	modprobe_r("ipt_TTL");
 	modprobe_r("ipt_web");
 	modprobe_r("ipt_webmon");
+	modprobe_r("ipt_dscp");
 #endif
 	modprobe_r("ipt_ipp2p");
 

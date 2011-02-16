@@ -1,4 +1,4 @@
-/* $Id: obsdrdr.c,v 1.59 2010/05/11 16:19:26 nanard Exp $ */
+/* $Id: obsdrdr.c,v 1.61 2011/02/07 12:11:28 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2010 Thomas Bernard 
@@ -663,6 +663,74 @@ get_redirect_rule_by_index(int index,
 	return 0;
 error:
 	return -1;
+}
+
+/* return an (malloc'ed) array of "external" port for which there is
+ * a port mapping. number is the size of the array */
+unsigned short *
+get_portmappings_in_range(unsigned short startport, unsigned short endport,
+                          int proto, unsigned int * number)
+{
+	unsigned short * array;
+	unsigned int capacity;
+	int i, n;
+	unsigned short eport;
+	struct pfioc_rule pr;
+
+	*number = 0;
+	if(dev<0) {
+		syslog(LOG_ERR, "pf device is not open");
+		return NULL;
+	}
+	capacity = 128;
+	array = calloc(capacity, sizeof(unsigned short));
+	if(!array)
+	{
+		syslog(LOG_ERR, "get_portmappings_in_range() : calloc error");
+		return NULL;
+	}
+	memset(&pr, 0, sizeof(pr));
+	strlcpy(pr.anchor, anchor_name, MAXPATHLEN);
+#ifndef PF_NEWSTYLE
+	pr.rule.action = PF_RDR;
+#endif
+	if(ioctl(dev, DIOCGETRULES, &pr) < 0)
+	{
+		syslog(LOG_ERR, "ioctl(dev, DIOCGETRULES, ...): %m");
+		free(array);
+		return NULL;
+	}
+	n = pr.nr;
+	for(i=0; i<n; i++)
+	{
+		pr.nr = i;
+		if(ioctl(dev, DIOCGETRULE, &pr) < 0)
+		{
+			syslog(LOG_ERR, "ioctl(dev, DIOCGETRULE): %m");
+			continue;
+		}
+		eport = ntohs(pr.rule.dst.port[0]);
+		if( (eport == ntohs(pr.rule.dst.port[1]))
+		  && (pr.rule.proto == proto)
+		  && (startport <= eport) && (eport <= endport) )
+		{
+			if(*number >= capacity)
+			{
+				/* need to increase the capacity of the array */
+				capacity += 128;
+				array = realloc(array, sizeof(unsigned short)*capacity);
+				if(!array)
+				{
+					syslog(LOG_ERR, "get_portmappings_in_range() : realloc(%lu) error", sizeof(unsigned short)*capacity);
+					*number = 0;
+					return NULL;
+				}
+			}
+			array[*number] = eport;
+			(*number)++;
+		}
+	}
+	return array;
 }
 
 /* this function is only for testing */

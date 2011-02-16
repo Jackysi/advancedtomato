@@ -79,15 +79,16 @@ fog.fieldValuesToData = function(row) {
 
 fog.verifyFields = function(row, quiet) {
 	var f = fields.getAll(row);
-	var s;
 	
-	/* TODO: more validation of src,dst addresses or names? */
-
 	f[2].value = f[2].value.trim();
-	
+	if ((f[2].value.length) && (!_v_iptaddr(f[2], quiet, 0, 0, 1))) return 0;
+
 	f[3].value = f[3].value.trim();	
 	if (!v_length(f[3], quiet, 1)) return 0;
-	
+	if (!v_hostname(f[3], 1)) {
+		if (!v_ipv6_addr(f[3], quiet)) return 0;
+	}
+
 	if (!v_iptport(f[4], quiet)) return 0;
 
 	f[5].value = f[5].value.replace(/>/g, '_');

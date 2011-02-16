@@ -193,7 +193,7 @@ what:
 # KERN_SIZE_OPT
 # USB ("USB"|"")
 # JFFSv1 | NO_JFFS
-# NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_LIBOPT
+# NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM
 
 define RouterOptions
@@ -262,6 +262,16 @@ define RouterOptions
 	if [ "$(NO_SSH)" = "y" ]; then \
 		sed -i "/TCONFIG_SSH/d" $(1); \
 		echo "# TCONFIG_SSH is not set" >>$(1); \
+	fi; \
+	if [ "$(NO_HTTPS)" = "y" ]; then \
+		sed -i "/TCONFIG_HTTPS/d" $(1); \
+		echo "# TCONFIG_HTTPS is not set" >>$(1); \
+	fi; \
+	if [ "$(NO_XXTP)" = "y" ]; then \
+		sed -i "/TCONFIG_L2TP/d" $(1); \
+		echo "# TCONFIG_L2TP is not set" >>$(1); \
+		sed -i "/TCONFIG_PPTP/d" $(1); \
+		echo "# TCONFIG_PPTP is not set" >>$(1); \
 	fi; \
 	if [ "$(NO_LIBOPT)" = "y" ]; then \
 		sed -i "/TCONFIG_OPTIMIZE_SHARED_LIBS/d" $(1); \
@@ -571,6 +581,12 @@ endif
 f:
 	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y SLIM=y B=F BUILD_DESC="Mini" USB=""
 
+ifeq ($(CONFIG_LINUX26),y)
+## Make the "No USB with IPv6, no Zebra" build - for 4MB routers
+i:
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB=""
+endif
+
 ## Make the "VPN witn no USB support" build
 v:
 ifeq ($(CONFIG_LINUX26),y)
@@ -592,6 +608,9 @@ r2s:
 
 r2v:
 	@$(MAKE) v MIPS32=r2
+
+r2i:
+	@$(MAKE) i MIPS32=r2
 
 r2f:
 	@$(MAKE) f MIPS32=r2
@@ -670,11 +689,12 @@ help:
 	@echo "m            M build (standard plus extra utilities and NTFS support)"
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "e            E build (standard plus VPN, extra utilities and NTFS support)"
+	@echo "i            I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
 else
 	@echo "e            E build (standard plus VPN and NTFS support)"
 endif
 	@echo "s            S build (no USB support)"
-	@echo "f            F build (no USB support minus JFFS and CIFS)"
+	@echo "f            F build (no USB support minus CIFS and RIPv1/2)"
 	@echo "v            V build (VPN with no USB support)"
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "t            T build (no USB support with extra utilities)"
@@ -685,7 +705,8 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2e          MIPS Release 2 E build (standard plus VPN and extras)"
 	@echo "r2v          MIPS Release 2 V build (VPN with no USB support)"
 	@echo "r2s          MIPS Release 2 S build (no USB support)"
-	@echo "r2f          MIPS Release 2 F build (no USB support minus JFFS and CIFS)"
+	@echo "r2i          MIPS Release 2 I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
+	@echo "r2f          MIPS Release 2 F build (no USB support minus CIFS and RIPv1/2)"
 	@echo "r2t          MIPS Release 2 T build (no USB support with extra utilities)"
 	@echo "r2u          MIPS Release 2 U build (no USB support with VPN and extra utilities)"
 endif

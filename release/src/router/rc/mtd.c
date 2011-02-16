@@ -295,6 +295,9 @@ int mtd_write_main(int argc, char *argv[])
 	case 0x4E583233: // 32XN	E2000
 	case 0x4E303136: // 610N	WRT610N v2
 	case 0x4E583136: // 61XN	E3000
+	case 0x30303145: // E100	E1000
+	case 0x3031304D: // M010	M10
+	case 0x3032304D: // M020	M20
 	case 0x3036314E: // N160	WRT160N
 	case 0x42435745: // EWCB	WRT300N v1
 	case 0x4E303133: // 310N	WRT310N v1/v2

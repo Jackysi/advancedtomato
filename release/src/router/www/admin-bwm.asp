@@ -30,18 +30,10 @@ textarea {
 
 //	<% nvram("rstats_enable,rstats_path,rstats_stime,rstats_offset,rstats_exclude,rstats_sshut,et0macaddr,cifs1,cifs2,jffs2_on,rstats_bak"); %>
 
-function fix(name)
-{
-	var i;
-	if (((i = name.lastIndexOf('/')) > 0) || ((i = name.lastIndexOf('\\')) > 0))
-		name = name.substring(i + 1, name.length);
-	return name;
-}
-
 function backupNameChanged()
 {
 	if (location.href.match(/^(http.+?\/.+\/)/)) {
-		E('backup-link').href = RegExp.$1 + 'bwm/' + fix(E('backup-name').value) + '.gz?_http_id=' + nvram.http_id;
+		E('backup-link').href = RegExp.$1 + 'bwm/' + fixFile(E('backup-name').value) + '.gz?_http_id=' + nvram.http_id;
 	}
 }
 
@@ -49,7 +41,7 @@ function backupButton()
 {
 	var name;
 
-	name = fix(E('backup-name').value);
+	name = fixFile(E('backup-name').value);
 	if (name.length <= 1) {
 		alert('Invalid filename');
 		return;
@@ -63,7 +55,7 @@ function restoreButton()
 	var name;
 	var i;
 
-	name = fix(E('restore-name').value);
+	name = fixFile(E('restore-name').value);
 	name = name.toLowerCase();
 	if ((name.length <= 3) || (name.substring(name.length - 3, name.length).toLowerCase() != '.gz')) {
 		alert('Incorrect filename. Expecting a ".gz" file.');

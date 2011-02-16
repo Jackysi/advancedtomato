@@ -411,11 +411,18 @@ void asp_activeroutes(int argc, char **argv)
 			} while (i < 40+28+7);
 
 			inet_pton(AF_INET6, addr6x, (struct sockaddr *) &snaddr6.sin6_addr);
-			inet_ntop(AF_INET6, &snaddr6.sin6_addr, addr6, sizeof(addr6));
-			inet_pton(AF_INET6, addr6x + 40, (struct sockaddr *) &snaddr6.sin6_addr);
-			inet_ntop(AF_INET6, &snaddr6.sin6_addr, nhop6, sizeof(nhop6));
+			if (IN6_IS_ADDR_UNSPECIFIED(&snaddr6.sin6_addr))
+				strcpy(addr6, "default");
+			else
+				inet_ntop(AF_INET6, &snaddr6.sin6_addr, addr6, sizeof(addr6));
 
-			web_printf("%s['%s','%s/%d','%s','',%u]", n ? "," : "", dev, addr6, pxlen, nhop6, metric);
+			inet_pton(AF_INET6, addr6x + 40, (struct sockaddr *) &snaddr6.sin6_addr);
+			if (IN6_IS_ADDR_UNSPECIFIED(&snaddr6.sin6_addr))
+				strcpy(nhop6, "*");
+			else
+				inet_ntop(AF_INET6, &snaddr6.sin6_addr, nhop6, sizeof(nhop6));
+
+			web_printf("%s['%s','%s','%s','%d',%u]", n ? "," : "", dev, addr6, nhop6, pxlen, metric);
 			++n;
 		}
 OUT:
