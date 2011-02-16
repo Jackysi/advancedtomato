@@ -3,6 +3,9 @@ include ../common.mak
 WARN    := -W -Wall -Wstrict-prototypes -Wmissing-prototypes -fno-strict-aliasing -mips32
 INCLUDE := -isystem $(TOP)/../linux/linux/include 
 CFLAGS  := -O2 -DMODULE -D__KERNEL__ ${WARN} ${INCLUDE} -fno-pic -mno-abicalls -mlong-calls
+ifneq ($(KERNELCC),)
+	CC=$(KERNELCC)
+endif
 
 all:	mmc.o
 
@@ -10,7 +13,7 @@ clean:
 	rm -f mmc.o
 
 install:	all
-	install -m 0644 -D mmc.o $(INSTALLDIR)/lib/modules/2.4.20/kernel/drivers/mmc.o
+	install -m 0644 -D mmc.o $(INSTALLDIR)/lib/modules/2.4.37.10/kernel/drivers/mmc.o
 
 mmc.o:	mmc.c init.c spi.c Makefile
 	@echo " [mmc] CC -o $@"
