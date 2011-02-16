@@ -303,7 +303,7 @@ void ipt_restrictions(void)
 
 			// dest ip/domain address
 			if ((*addr_type == '1') || (*addr_type == '2')) {
-				if (!ipt_addr(iptaddr, sizeof(iptaddr), addr, (*addr_type == '1') ? "dst" : "src", AF_INET, "restrictions", NULL))
+				if (!ipt_addr(iptaddr, sizeof(iptaddr), addr, (*addr_type == '1') ? "dst" : "src", IPT_V4, 1, "restrictions", NULL))
 					continue;
 			}
 			else {
@@ -401,7 +401,7 @@ void ipt_restrictions(void)
 					snprintf(iptaddr, sizeof(iptaddr), "-m mac --mac-source %s", q);
 				}
 				else {
-					if (!ipt_addr(iptaddr, sizeof(iptaddr), q, "src", AF_INET, "restrictions", "filtering"))
+					if (!ipt_addr(iptaddr, sizeof(iptaddr), q, "src", IPT_V4, 1, "restrictions", "filtering"))
 						continue;
 				}
 				ipt_write("-A %s %s %s\n", devchain, iptaddr, ex ? "-j RETURN" : nextchain);
