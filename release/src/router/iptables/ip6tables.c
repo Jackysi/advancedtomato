@@ -545,31 +545,31 @@ static struct in6_addr *
 host_to_addr(const char *name, unsigned int *naddr)
 {
 	struct addrinfo hints;
-        struct addrinfo *res;
-        static struct in6_addr *addr;
+	struct addrinfo *res;
+	static struct in6_addr *addr;
 	int err;
 
 	memset(&hints, 0, sizeof(hints));
-        hints.ai_flags=AI_CANONNAME;
-        hints.ai_family=AF_INET6;
-        hints.ai_socktype=SOCK_RAW;
-        hints.ai_protocol=41;
-        hints.ai_next=NULL;
+	hints.ai_flags=AI_CANONNAME;
+	hints.ai_family=AF_INET6;
+	hints.ai_socktype=SOCK_RAW;
+	hints.ai_protocol=41;
+	hints.ai_next=NULL;
 
 	*naddr = 0;
-        if ( (err=getaddrinfo(name, NULL, &hints, &res)) != 0 ){
+	if ( (err=getaddrinfo(name, NULL, &hints, &res)) != 0 ){
 #ifdef DEBUG
-                fprintf(stderr,"Name2IP: %s\n",gai_strerror(err)); 
+		fprintf(stderr,"Name2IP: %s\n",gai_strerror(err)); 
 #endif
-                return (struct in6_addr *) NULL;
-        } else {
+		return (struct in6_addr *) NULL;
+	} else {
 		if (res->ai_family != AF_INET6 ||
 		    res->ai_addrlen != sizeof(struct sockaddr_in6))
 			return (struct in6_addr *) NULL;
 
 #ifdef DEBUG
-                fprintf(stderr, "resolved: len=%d  %s ", res->ai_addrlen, 
-                    addr_to_numeric(&(((struct sockaddr_in6 *)res->ai_addr)->sin6_addr)));
+		fprintf(stderr, "resolved: len=%d  %s ", res->ai_addrlen, 
+		    addr_to_numeric(&(((struct sockaddr_in6 *)res->ai_addr)->sin6_addr)));
 #endif
 		/* Get the first element of the address-chain */
 		addr = fw_calloc(1, sizeof(struct in6_addr));
