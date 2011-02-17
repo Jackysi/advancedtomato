@@ -733,8 +733,7 @@ parse_hostnetworkmask(const char *name, struct in6_addr **addrpp,
 		j++;
 		for (k = 0; k < j - 1; k++) {
 			if (IN6_ARE_ADDR_EQUAL(&addrp[k], &addrp[j - 1])) {
-				(*naddrs)--;
-				j--;
+				in6addrcpy( &addrp[--j], &addrp[--(*naddrs)] );
 				break;
 			}
 		}

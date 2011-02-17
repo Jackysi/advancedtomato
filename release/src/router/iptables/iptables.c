@@ -722,8 +722,7 @@ parse_hostnetworkmask(const char *name, struct in_addr **addrpp,
 		addrp[j++].s_addr &= maskp->s_addr;
 		for (k = 0; k < j - 1; k++) {
 			if (addrp[k].s_addr == addrp[j - 1].s_addr) {
-				(*naddrs)--;
-				j--;
+				inaddrcpy( &addrp[--j], &addrp[--(*naddrs)] );
 				break;
 			}
 		}
