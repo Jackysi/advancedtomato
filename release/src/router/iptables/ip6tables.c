@@ -547,7 +547,7 @@ host_to_addr(const char *name, unsigned int *naddr)
 	struct addrinfo hints;
 	struct addrinfo *res;
 	struct addrinfo *p;
-	static struct in6_addr *addr;
+	struct in6_addr *addr;
 	int err;
 	unsigned int i;
 
@@ -570,7 +570,7 @@ host_to_addr(const char *name, unsigned int *naddr)
 		fprintf(stderr, "resolved: len=%d  %s ", res->ai_addrlen, 
 		    addr_to_numeric(&(((struct sockaddr_in6 *)res->ai_addr)->sin6_addr)));
 #endif
-		addr = fw_calloc(*naddr, sizeof(struct in6_addr) * *naddr);
+		addr = fw_calloc(*naddr, sizeof(struct in6_addr));
 		i = 0;
 		for(p = res; p != NULL; p = p->ai_next)
 			in6addrcpy(&(addr[i++]), (struct in6_addr *)
@@ -2512,12 +2512,8 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 		e = NULL;
 	}
 
-	for (c = 0; c < nsaddrs; c++)
-		free(&saddrs[c]);
-
-	for (c = 0; c < ndaddrs; c++)
-		free(&daddrs[c]);
-
+	free(saddrs);
+	free(daddrs);
 	free_opts(1);
 
 	return ret;
