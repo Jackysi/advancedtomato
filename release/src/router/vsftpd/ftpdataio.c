@@ -116,7 +116,6 @@ vsf_ftpdataio_get_pasv_fd(struct vsf_session* p_sess)
   else if (remote_fd == -2)
   {
     vsf_cmdio_write(p_sess, FTP_BADSENDCONN, "Security: Bad IP connecting.");
-    vsf_sysutil_close(remote_fd);
     return -1;
   }
   init_data_sock_params(p_sess, remote_fd);
@@ -364,6 +363,7 @@ transfer_dir_internal(struct vsf_session* p_sess, int is_control,
       if (retval != 0)
       {
         failed = 1;
+        vsf_sysutil_closedir(p_subdir);
         break;
       }
       retval = transfer_dir_internal(p_sess, is_control, p_subdir, &sub_str,
