@@ -379,7 +379,7 @@ int parse_hex(char *in, unsigned char *out, int maxlen,
   while (maxlen == -1 || i < maxlen)
     {
       for (r = in; *r != 0 && *r != ':' && *r != '-'; r++)
-	if (!isxdigit((int)*r))
+	if (*r != '*' && !isxdigit((int)*r))
 	  return -1;
       
       if (*r == 0)
