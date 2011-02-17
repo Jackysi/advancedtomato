@@ -1245,3 +1245,17 @@ At this point: v2.3.1 released!
 
 At this point: v2.3.2 released!
 ===============================
+
+- Avoid consuming excessive CPU when matching filenames to patterns. Thanks to
+Maksymilian Arciemowicz <cxib@securityreason.com>.
+- Some bugfixes from Raphaël Rigo <raphael.rigo@syscall.eu> -- good bugs but
+no apparent security impact.
+
+At this point: v2.3.3 released!
+===============================
+
+- Fix compile. Extreme suckage.
+
+At this point: v2.3.4 released!
+===============================
+
