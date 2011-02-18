@@ -1,4 +1,4 @@
-/* $Id: options.c,v 1.13 2010/11/11 23:48:13 jmaggard Exp $ */
+/* $Id: options.c,v 1.14 2011/02/17 23:17:24 jmaggard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * author: Ryan Wagoner
@@ -50,6 +50,7 @@ static const struct {
 	{ UPNPSYSTEM_UPTIME, "system_uptime" },
 	{ UPNPUUID, "uuid"},
 	{ UPNPSERIAL, "serial"},
+	{ UPNPMODEL_NAME, "model_name"},
 	{ UPNPMODEL_NUMBER, "model_number"},
 	{ UPNPFRIENDLYNAME, "friendly_name"},
 	{ UPNPMEDIADIR, "media_dir"},
