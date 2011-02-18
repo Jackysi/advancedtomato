@@ -57,6 +57,8 @@ FILE *ipt_file;
 #ifdef TCONFIG_IPV6
 const char ip6t_fname[] = "/etc/ip6tables";
 FILE *ip6t_file;
+
+const int allowed_icmpv6[] = { 1, 2, 3, 4, 128, 129 };
 #endif
 
 
@@ -1002,7 +1004,6 @@ static void filter6_input(void)
 	}
 
 	// ICMPv6 rules
-	const int allowed_icmpv6[6] = { 1, 2, 3, 4, 128, 129 };
 	for (n = 0; n < sizeof(allowed_icmpv6)/sizeof(int); n++) {
 		ip6t_write("-A INPUT -p ipv6-icmp --icmpv6-type %i -j %s\n", allowed_icmpv6[n], chain_in_accept);
 	}
@@ -1058,26 +1059,19 @@ static void filter6_input(void)
 static void filter6_forward(void)
 {
 	int n;
-	
+
 	ip6t_write(
+		":wanin - [0:0]\n"
+		":wanout - [0:0]\n"
 		"-A FORWARD -m rt --rt-type 0 -j DROP\n"
 		"-A FORWARD -i %s -o %s -j ACCEPT\n"			// accept all lan to lan
 		/*"-A FORWARD -m state --state INVALID -j DROP\n"*/,	// drop if INVALID state
 		lanface, lanface);
 
-	// Filter out invalid WAN->WAN connections
-	if (*wan6face)
-		ip6t_write("-A FORWARD -o %s ! -i %s -j %s\n", wan6face, lanface, chain_in_drop);
-
-#ifdef LINUX26
-	modprobe("xt_length");
-	ip6t_write("-A FORWARD -p ipv6-nonxt -m length --length 40 -j ACCEPT\n");
-#endif
-
 	// clamp tcp mss to pmtu TODO?
 	// clampmss();
 
-	// TODO: support l7, access restrictions on ipv6?
+	// TODO: support l7, access restrictions on ipv6
 /*
 	if (wanup) {
 		ipt_restrictions();
@@ -1089,9 +1083,16 @@ static void filter6_forward(void)
 #endif
 
 	ip6t_write(
-		":wanin - [0:0]\n"
-		":wanout - [0:0]\n"
 		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
+
+	// Filter out invalid WAN->WAN connections
+	if (*wan6face)
+		ip6t_write("-A FORWARD -o %s ! -i %s -j %s\n", wan6face, lanface, chain_in_drop);
+
+#ifdef LINUX26
+	modprobe("xt_length");
+	ip6t_write("-A FORWARD -p ipv6-nonxt -m length --length 40 -j ACCEPT\n");
+#endif
 
 	if (*wan6face) {
 		ip6t_write(
@@ -1105,7 +1106,6 @@ static void filter6_forward(void)
 		lanface, chain_out_accept);
 
 	// ICMPv6 rules
-	const int allowed_icmpv6[6] = { 1, 2, 3, 4, 128, 129 };
 	for (n = 0; n < sizeof(allowed_icmpv6)/sizeof(int); n++) {
 		ip6t_write("-A FORWARD -p ipv6-icmp --icmpv6-type %i -j %s\n", allowed_icmpv6[n], chain_in_accept);
 	}
