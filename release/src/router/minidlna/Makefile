@@ -29,6 +29,8 @@ CFLAGS += -L$(TOP)/zlib -L$(TOP)/sqlite/.libs -L$(TOP)/jpeg -L$(TOP)/libvorbis/l
 	-L$(TOP)/libogg/src/.libs -L$(TOP)/libexif/libexif/.libs -L$(TOP)/flac/src/libFLAC/.libs \
 	-L$(TOP)/ffmpeg/libavutil -L$(TOP)/ffmpeg/libavcodec -L$(TOP)/ffmpeg/libavformat \
 	-L$(TOP)/libid3tag/.libs
+LDFLAGS += -static
+CFLAGS += -DSTATIC
 endif
 
 #STATIC_LINKING: CFLAGS += -DSTATIC
@@ -56,8 +58,6 @@ LIBS = -lpthread -lexif -ljpeg -lsqlite3 -lavformat -lavutil -lavcodec -lid3tag 
 #STATIC_LINKING: LIBS = -lvorbis -logg -lm -lsqlite3 -lpthread -lexif -ljpeg -lFLAC -lm -lid3tag -lz -lavformat -lavutil -lavcodec -lm
 
 ifeq ($(STATIC),1)
-CFLAGS += -DSTATIC
-LDFLAGS += -static
 LIBS = -lpthread -lm \
 	$(TOP)/libvorbis/lib/.libs/libvorbis.a \
 	$(TOP)/libogg/src/.libs/libogg.a \
