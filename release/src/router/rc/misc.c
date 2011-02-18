@@ -449,6 +449,7 @@ void setup_conntrack(void)
 	}
 }
 
+/*
 struct sockaddr_storage *host_to_addr(const char *name, sa_family_t family)
 {
 	static struct sockaddr_storage buf;
@@ -488,6 +489,54 @@ struct sockaddr_storage *host_to_addr(const char *name, sa_family_t family)
 	freeaddrinfo(res);
 	return &(buf);
 }
+*/
+
+int host_addrtypes(const char *name, int af)
+{
+	struct addrinfo hints;
+	struct addrinfo *res;
+	struct addrinfo *p;
+	int err;
+	int addrtypes = 0;
+
+	memset(&hints, 0, sizeof hints);
+#ifdef TCONFIG_IPV6
+	switch (af & (IPT_V4 | IPT_V6)) {
+	case IPT_V4:
+		hints.ai_family = AF_INET;
+		break;
+	case IPT_V6:
+		hints.ai_family = AF_INET6;
+		break;
+	//case (IPT_V4 | IPT_V6):
+	//case 0: // error?
+	default:
+		hints.ai_family = AF_UNSPEC;
+	}
+#else
+	hints.ai_family = AF_INET;
+#endif
+	hints.ai_socktype = SOCK_RAW;
+	
+	if ((err = getaddrinfo(name, NULL, &hints, &res)) != 0) {
+		return addrtypes;
+	}
+
+	for(p = res; p != NULL; p = p->ai_next) {
+		switch(p->ai_family) {
+		case AF_INET:
+			addrtypes |= IPT_V4;
+			break;
+		case AF_INET6:
+			addrtypes |= IPT_V6;
+			break;
+		}
+	}
+
+	freeaddrinfo(res);
+	return (addrtypes & af);
+}
+
 
 void inc_mac(char *mac, int plus)
 {

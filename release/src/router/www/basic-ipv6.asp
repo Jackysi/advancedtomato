@@ -37,7 +37,8 @@ function verifyFields(focused, quiet)
 		_ipv6_service: 1,
 		_ipv6_prefix: 1,
 		_ipv6_prefix_length: 1,
-		_ipv6_rtr_addr: 1,
+		_f_ipv6_rtr_addr_auto: 1,
+		_f_ipv6_rtr_addr: 1,
 		_f_ipv6_dns_1: 1,
 		_f_ipv6_dns_2: 1,
 		_f_ipv6_dns_3: 1,
@@ -55,7 +56,8 @@ function verifyFields(focused, quiet)
 	switch(E('_ipv6_service').value) {
 		case '':
 			vis._ipv6_ifname = 0;
-			vis._ipv6_rtr_addr = 0;
+			vis._f_ipv6_rtr_addr_auto = 0;
+			vis._f_ipv6_rtr_addr = 0;
 			vis._f_ipv6_dns_1 = 0;
 			vis._f_ipv6_dns_2 = 0;
 			vis._f_ipv6_dns_3 = 0;
@@ -66,6 +68,7 @@ function verifyFields(focused, quiet)
 		case 'other':
 			vis._ipv6_prefix = 0;
 			vis._ipv6_prefix_length = 0;
+			E('_f_ipv6_rtr_addr_auto').value = 1;
 			vis._ipv6_tun_v4end = 0;
 			vis._ipv6_tun_addr = 0;
 			vis._ipv6_tun_addrlen = 0;
@@ -74,7 +77,8 @@ function verifyFields(focused, quiet)
 			break;
 		case 'native-pd':
 			vis._ipv6_prefix = 0;
-			vis._ipv6_rtr_addr = 0;
+			vis._f_ipv6_rtr_addr_auto = 0;
+			vis._f_ipv6_rtr_addr = 0;
 			// fall through
 		case 'native':
 			vis._ipv6_ifname = 0;
@@ -86,6 +90,10 @@ function verifyFields(focused, quiet)
 			break;
 		case 'sit':
 			break;
+	}
+	
+	if (vis._f_ipv6_rtr_addr_auto && E('_f_ipv6_rtr_addr_auto').value == 0) {
+		vis._f_ipv6_rtr_addr = 2;
 	}
 	
 	for (a in vis) {
@@ -136,11 +144,18 @@ REMOVE-END */
 	a = ['_ipv6_prefix', '_ipv6_tun_addr'];
 	for (i = a.length - 1; i >= 0; --i)
 		if ((vis[a[i]]) && (!v_ipv6_addr(a[i], quiet || !ok))) ok = 0;
+			
+	if (vis._f_ipv6_rtr_addr == 2 && ok) {
+		b = E('_ipv6_prefix');
+		ip = ZeroIPv6PrefixBits(b.value, E('_ipv6_prefix_length').value);
+		b.value = ip;
+		E('_f_ipv6_rtr_addr').value = ip + '1';
+	}
 
 	// optional IPv6 address
-	a = ['_ipv6_rtr_addr', '_f_ipv6_dns_1', '_f_ipv6_dns_2', '_f_ipv6_dns_3'];
+	a = ['_f_ipv6_rtr_addr', '_f_ipv6_dns_1', '_f_ipv6_dns_2', '_f_ipv6_dns_3'];
 	for (i = a.length - 1; i >= 0; --i)
-		if ((vis[a[i]]) && (E(a[i]).value.length > 0) && (!v_ipv6_addr(a[i], quiet || !ok))) ok = 0;
+		if ((vis[a[i]]==1) && (E(a[i]).value.length > 0) && (!v_ipv6_addr(a[i], quiet || !ok))) ok = 0;
 
 	return ok;
 }
@@ -172,21 +187,29 @@ function save()
 
 	fom.ipv6_dns.value = joinIPv6Addr([fom.f_ipv6_dns_1.value, fom.f_ipv6_dns_2.value, fom.f_ipv6_dns_3.value]);
 	fom.ipv6_radvd.value = fom.f_ipv6_radvd.checked ? 1 : 0;
-
+	
 	fom.ipv6_accept_ra.value = 0;
 	if (fom.f_ipv6_accept_ra_wan.checked) fom.ipv6_accept_ra.value |= 1;
 	if (fom.f_ipv6_accept_ra_lan.checked) fom.ipv6_accept_ra.value |= 2;
 
 	switch(E('_ipv6_service').value) {
 		case 'other':
-			fom.ipv6_prefix_length = 64;
-			fom.ipv6_prefix = '';
+			fom.ipv6_prefix_length.value = 64;
+			fom.ipv6_prefix.value = '';
+			fom.ipv6_rtr_addr.value = fom.f_ipv6_rtr_addr.value;
 			break;
 		case 'native-pd':
-			fom.ipv6_prefix = '';
-			fom.ipv6_rtr_addr = '';
+			fom.ipv6_prefix.value = '';
+			fom.ipv6_rtr_addr.value = '';
 			break;
+		default:
+			fom.ipv6_rtr_addr.disabled = fom.f_ipv6_rtr_addr_auto.disabled;
+			if (fom.f_ipv6_rtr_addr_auto.value == 1)
+				fom.ipv6_rtr_addr.value = fom.f_ipv6_rtr_addr.value;
+			else
+				fom.ipv6_rtr_addr.value = '';
 	}
+	
 
 	form.submit(fom, 1);
 }
@@ -213,6 +236,7 @@ function save()
 
 <input type='hidden' name='ipv6_radvd'>
 <input type='hidden' name='ipv6_dns'>
+<input type='hidden' name='ipv6_rtr_addr'>
 <input type='hidden' name='ipv6_accept_ra'>
 
 <div class='section-title'>IPv6 Configuration</div>
@@ -228,7 +252,10 @@ createFieldTable('', [
 	null,
 	{ title: 'Assigned IPv6 Prefix', name: 'ipv6_prefix', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_prefix },
 	{ title: 'Prefix Length', name: 'ipv6_prefix_length', type: 'text', maxlen: 3, size: 5, value: nvram.ipv6_prefix_length },
-	{ title: 'Router IPv6 Address', name: 'ipv6_rtr_addr', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_rtr_addr },
+	{ title: 'Router IPv6 Address', multi: [
+		{ name: 'f_ipv6_rtr_addr_auto', type: 'select', options: [['0', 'Default'],['1','Manual']], value: (nvram.ipv6_rtr_addr != '') },
+		{ name: 'f_ipv6_rtr_addr', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_rtr_addr }
+	] },
 	{ title: 'Static DNS', name: 'f_ipv6_dns_1', type: 'text', maxlen: 46, size: 48, value: dns[0] || '' },
 	{ title: '',           name: 'f_ipv6_dns_2', type: 'text', maxlen: 46, size: 48, value: dns[1] || '' },
 	{ title: '',           name: 'f_ipv6_dns_3', type: 'text', maxlen: 46, size: 48, value: dns[2] || '' },

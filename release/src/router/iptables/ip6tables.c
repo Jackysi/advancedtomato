@@ -545,38 +545,37 @@ static struct in6_addr *
 host_to_addr(const char *name, unsigned int *naddr)
 {
 	struct addrinfo hints;
-        struct addrinfo *res;
-        static struct in6_addr *addr;
+	struct addrinfo *res;
+	struct addrinfo *p;
+	struct in6_addr *addr;
 	int err;
+	unsigned int i;
 
 	memset(&hints, 0, sizeof(hints));
-        hints.ai_flags=AI_CANONNAME;
-        hints.ai_family=AF_INET6;
-        hints.ai_socktype=SOCK_RAW;
-        hints.ai_protocol=41;
-        hints.ai_next=NULL;
+	hints.ai_flags=AI_CANONNAME;
+	hints.ai_family=AF_INET6;
+	hints.ai_socktype=SOCK_RAW;
 
 	*naddr = 0;
-        if ( (err=getaddrinfo(name, NULL, &hints, &res)) != 0 ){
+	if ( (err=getaddrinfo(name, NULL, &hints, &res)) != 0 ){
 #ifdef DEBUG
-                fprintf(stderr,"Name2IP: %s\n",gai_strerror(err)); 
+		fprintf(stderr,"Name2IP: %s\n",gai_strerror(err)); 
 #endif
-                return (struct in6_addr *) NULL;
-        } else {
-		if (res->ai_family != AF_INET6 ||
-		    res->ai_addrlen != sizeof(struct sockaddr_in6))
-			return (struct in6_addr *) NULL;
-
+		return (struct in6_addr *) NULL;
+	} else {
+		/* Find length of address-chain */
+		for(p = res; p != NULL; p = p->ai_next)
+			(*naddr)++;
 #ifdef DEBUG
-                fprintf(stderr, "resolved: len=%d  %s ", res->ai_addrlen, 
-                    addr_to_numeric(&(((struct sockaddr_in6 *)res->ai_addr)->sin6_addr)));
+		fprintf(stderr, "resolved: len=%d  %s ", res->ai_addrlen, 
+		    addr_to_numeric(&(((struct sockaddr_in6 *)res->ai_addr)->sin6_addr)));
 #endif
-		/* Get the first element of the address-chain */
-		addr = fw_calloc(1, sizeof(struct in6_addr));
-		in6addrcpy(addr, (struct in6_addr *)
-			&((struct sockaddr_in6 *)res->ai_addr)->sin6_addr);
+		addr = fw_calloc(*naddr, sizeof(struct in6_addr));
+		i = 0;
+		for(p = res; p != NULL; p = p->ai_next)
+			in6addrcpy(&(addr[i++]), (struct in6_addr *)
+				&((struct sockaddr_in6 *)p->ai_addr)->sin6_addr);
 		freeaddrinfo(res);
-		*naddr = 1;
 		return addr;
 	}
 
@@ -734,8 +733,7 @@ parse_hostnetworkmask(const char *name, struct in6_addr **addrpp,
 		j++;
 		for (k = 0; k < j - 1; k++) {
 			if (IN6_ARE_ADDR_EQUAL(&addrp[k], &addrp[j - 1])) {
-				(*naddrs)--;
-				j--;
+				in6addrcpy( &addrp[--j], &addrp[--(*naddrs)] );
 				break;
 			}
 		}
@@ -2513,12 +2511,8 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 		e = NULL;
 	}
 
-	for (c = 0; c < nsaddrs; c++)
-		free(&saddrs[c]);
-
-	for (c = 0; c < ndaddrs; c++)
-		free(&daddrs[c]);
-
+	free(saddrs);
+	free(daddrs);
 	free_opts(1);
 
 	return ret;

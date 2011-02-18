@@ -2013,7 +2013,7 @@ vsf_sysutil_sockaddr_set_ipv4addr(struct vsf_sysutil_sockaddr* p_sockptr,
     static struct vsf_sysutil_sockaddr* s_p_sockaddr;
     vsf_sysutil_sockaddr_alloc_ipv4(&s_p_sockaddr);
     vsf_sysutil_memcpy(&s_p_sockaddr->u.u_sockaddr_in.sin_addr, p_raw,
-                       sizeof(&s_p_sockaddr->u.u_sockaddr_in.sin_addr));
+                       sizeof(s_p_sockaddr->u.u_sockaddr_in.sin_addr));
     vsf_sysutil_memcpy(&p_sockptr->u.u_sockaddr_in6.sin6_addr,
                        vsf_sysutil_sockaddr_ipv4_v6(s_p_sockaddr),
                        sizeof(p_sockptr->u.u_sockaddr_in6.sin6_addr));

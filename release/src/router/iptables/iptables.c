@@ -618,7 +618,7 @@ host_to_addr(const char *name, unsigned int *naddr)
 
 		while (host->h_addr_list[*naddr] != (char *) NULL)
 			(*naddr)++;
-		addr = fw_calloc(*naddr, sizeof(struct in_addr) * *naddr);
+		addr = fw_calloc(*naddr, sizeof(struct in_addr));
 		for (i = 0; i < *naddr; i++)
 			inaddrcpy(&(addr[i]),
 				  (struct in_addr *) host->h_addr_list[i]);
@@ -722,8 +722,7 @@ parse_hostnetworkmask(const char *name, struct in_addr **addrpp,
 		addrp[j++].s_addr &= maskp->s_addr;
 		for (k = 0; k < j - 1; k++) {
 			if (addrp[k].s_addr == addrp[j - 1].s_addr) {
-				(*naddrs)--;
-				j--;
+				inaddrcpy( &addrp[--j], &addrp[--(*naddrs)] );
 				break;
 			}
 		}

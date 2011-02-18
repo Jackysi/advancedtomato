@@ -53,7 +53,7 @@ void ipt_forward(ipt_table_t table)
 			saddr = "";
 		}
 
-		if (!ipt_addr(src, sizeof(src), saddr, "src", AF_INET, "port forwarding", desc))
+		if (!ipt_addr(src, sizeof(src), saddr, "src", IPT_V4, 1, "IPv4 port forwarding", desc))
 			continue;
 
 		if (strchr(iaddr, '.') == NULL && strtol(iaddr, NULL, 10) > 0) {
@@ -62,8 +62,8 @@ void ipt_forward(ipt_table_t table)
 			strlcat(ip, iaddr, sizeof(ip));
 		}
 		else {
-			if (host_to_addr(iaddr, AF_INET) == NULL) {
-				syslog(LOG_WARNING, "firewall: port forwarding: not using %s%s%s (could not resolve as valid IPv4 address)",
+			if (host_addrtypes(iaddr, IPT_V4) != IPT_V4) {
+				syslog(LOG_WARNING, "firewall: IPv4 port forwarding: not using %s%s%s (could not resolve as valid IPv4 address)",
 					iaddr, (desc && *desc) ? " for " : "", (desc && *desc) ? desc : "");
 				continue;
 			}
@@ -187,11 +187,11 @@ void ip6t_forward(void)
 		*/
 		if ((vstrsep(b, "<", &c, &proto, &saddr, &daddr, &dports, &desc) != 6) || (*c != '1')) continue;
 
-		if (!ipt_addr(src, sizeof(src), saddr, "src", AF_INET6, "port forwarding", desc))
+		if (!ipt_addr(src, sizeof(src), saddr, "src", IPT_V6, 1, "IPv6 port forwarding", desc))
 			continue;
 
-		if (host_to_addr(daddr, AF_INET6) == NULL) {
-			syslog(LOG_WARNING, "firewall: port forwarding: not using %s%s%s (could not resolve as valid IPv6 address)",
+		if (host_addrtypes(daddr, IPT_V6) != IPT_V6) {
+			syslog(LOG_WARNING, "firewall: IPv6 port forwarding: not using %s%s%s (could not resolve as valid IPv6 address)",
 				daddr, (desc && *desc) ? " for " : "", (desc && *desc) ? desc : "");
 			continue;
 		}

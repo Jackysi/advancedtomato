@@ -124,6 +124,7 @@ static int dmz_dst(char *s)
 	return 1;
 }
 
+/*
 int ipt_addr(char *addr, int maxlen, const char *s, const char *dir, int family,
 	const char *categ, const char *name)
 {
@@ -160,9 +161,55 @@ int ipt_addr(char *addr, int maxlen, const char *s, const char *dir, int family,
 
 	return r;
 }
+*/
 
-#define ipt_source(s, src, categ, name) ipt_addr(src, 64, s, "src", AF_INET, categ, name)
-#define ip6t_source(s, src, categ, name) ipt_addr(src, 128, s, "src", AF_INET6, categ, name)
+int ipt_addr(char *addr, int maxlen, const char *s, const char *dir, int af,
+	int strict, const char *categ, const char *name)
+{
+	char p[INET6_ADDRSTRLEN * 2];
+	int r = 0;
+
+	if ((s) && (*s) && (*dir))
+	{
+		if (sscanf(s, "%[0-9.]-%[0-9.]", p, p) == 2) {
+			snprintf(addr, maxlen, "-m iprange --%s-range %s", dir, s);
+			r = IPT_V4;
+		}
+#ifdef TCONFIG_IPV6
+		else if (sscanf(s, "%[0-9A-Fa-f:]-%[0-9A-Fa-f:]", p, p) == 2) {
+			snprintf(addr, maxlen, "-m iprange --%s-range %s", dir, s);
+			r = IPT_V6;
+		}
+#endif
+		else {
+			snprintf(addr, maxlen, "-%c %s", dir[0], s);
+			if (sscanf(s, "%[^/]/", p)) {
+#ifdef TCONFIG_IPV6
+				r = host_addrtypes(p, strict ? af : (IPT_V4 | IPT_V6));
+#else
+				r = host_addrtypes(p, IPT_V4);
+#endif
+			}
+		}
+	}
+	else
+	{
+		*addr = 0;
+		r = (IPT_V4 | IPT_V6);
+	}
+	
+	if ((r==0 || (strict && ((r & af) != af))) && (categ && *categ)) {
+		syslog(LOG_WARNING,
+			"firewall: %s: not using %s%s%s (could not resolve as valid %s%saddress)",
+			categ, s, (name && *name) ? " for " : "", (name && *name) ? name : "",
+			(af & IPT_V4 & ~r) ? "IPv4 " : "", (af & IPT_V6 & ~r) ? "IPv6 " : "" );
+	}
+	return (r & af);
+}
+
+#define ipt_source_strict(s, src, categ, name) ipt_addr(src, 64, s, "src", IPT_V4, 1, categ, name)
+#define ipt_source(s, src, categ, name) ipt_addr(src, 64, s, "src", IPT_V4, 0, categ, name)
+#define ip6t_source(s, src, categ, name) ipt_addr(src, 128, s, "src", IPT_V6, 0, categ, name)
 
 /*
 static void get_src(const char *nv, char *src)
@@ -352,6 +399,7 @@ static void ipt_webmon(int do_ip6t)
 	char t[512];
 	char src[128];
 	char *p, *c;
+	int af = do_ip6t ? IPT_V6 : IPT_V4;
 
 	if (!nvram_get_int("log_wm")) return;
 	wmtype = nvram_get_int("log_wmtype");
@@ -365,7 +413,7 @@ static void ipt_webmon(int do_ip6t)
 	do {
 		if ((c = strchr(p, ',')) != NULL) *c = 0;
 
-		if (ipt_addr(src, sizeof(src), p, "src", do_ip6t ? AF_INET6 : AF_INET, "webmon", "filtering")) {
+		if (ipt_addr(src, sizeof(src), p, "src", af, 0, "webmon", "filtering")) {
 #ifdef TCONFIG_IPV6
 			if (do_ip6t) {
 				if (*wan6face)
@@ -391,7 +439,7 @@ static void ipt_webmon(int do_ip6t)
 		p = t;
 		do {
 			if ((c = strchr(p, ',')) != NULL) *c = 0;
-			if (ipt_addr(src, sizeof(src), p, "src", do_ip6t ? AF_INET6 : AF_INET, "webmon", "filtering")) {
+			if (ipt_addr(src, sizeof(src), p, "src", af, 0, "webmon", "filtering")) {
 				if (*src)
 					ip46t_cond_write(do_ip6t, "-A monitor %s -j RETURN\n", src);
 			}
@@ -547,7 +595,7 @@ static void nat_table(void)
 				p = t;
 				do {
 					if ((c = strchr(p, ',')) != NULL) *c = 0;
-					if (ipt_source(p, src, "dmz", NULL))
+					if (ipt_source_strict(p, src, "dmz", NULL))
 						ipt_write("-A %s %s -j DNAT --to-destination %s\n", chain_wan_prerouting, src, dst);
 					if (!c) break;
 					p = c + 1;
@@ -832,7 +880,7 @@ static void filter_forward(void)
 			p = t;
 			do {
 				if ((c = strchr(p, ',')) != NULL) *c = 0;
-				if (ipt_source(p, src, "dmz", NULL))
+				if (ipt_source_strict(p, src, "dmz", NULL))
 					ipt_write("-A FORWARD -o %s %s -d %s -j %s\n", lanface, src, dst, chain_in_accept);
 				if (!c) break;
 				p = c + 1;
