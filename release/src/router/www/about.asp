@@ -99,19 +99,20 @@ support for additional router models and Wireless-N mode.<br>
 Copyright (C) 2008-2010 Fedor Kozhevnikov and Ray Van Tassle<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <!-- / / / -->
-<br><br>
+<br>
 
 /* VPN-BEGIN */
 VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
-<br><br>
+<br>
 /* VPN-END */
+/* SDHC-BEGIN */
 SDHC integration and GUI Copyright (C) 2011 Tomasz Słodkowicz,
 <a href='http://gemini.net.pl/~slodki/tomato-sdhc.html' target='_new'>http://gemini.net.pl/~slodki/tomato-sdhc.html</a><br>
 <br>
+/* SDHC-END */
 
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
->>>>>>> tomatousb-ND-1.28.8754
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
 Built on <% build_time(); %><br>

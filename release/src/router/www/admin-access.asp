@@ -41,7 +41,12 @@ if (shlimit.length != 3) shlimit = [0,3,60];
 var xmenus = [['Status', 'status'], ['Bandwidth', 'bwm'], ['Tools', 'tools'], ['Basic', 'basic'],
 	['Advanced', 'advanced'], ['Port Forwarding', 'forward'], ['QoS', 'qos'],
 /* USB-BEGIN */
+/* NOSDHC-BEGIN */
 	['USB and NAS', 'nas'],
+/* NOSDHC-END */
+/* SDHC-BEGIN */
+	['USB/SD and NAS', 'nas'],
+/* SDHC-END */
 /* USB-END */
 /* VPN-BEGIN */
 	['VPN Tunneling', 'vpn'],

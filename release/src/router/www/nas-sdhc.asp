@@ -151,7 +151,7 @@ function submit_complete()
 
 <!-- / / / -->
 
-<input type='hidden' name='_nextpage' value='admin-sdhc.asp'>
+<input type='hidden' name='_nextpage' value='nas-sdhc.asp'>
 <input type='hidden' name='_nextwait' value='10'>
 <input type='hidden' name='_service' value='mmc-restart'>
 <input type='hidden' name='_commit' value='1'>
@@ -166,7 +166,7 @@ function submit_complete()
 <input type='hidden' name='mmc_exec_mount'>
 <input type='hidden' name='mmc_exec_umount'>
 
-<div class='section-title'>SDHC/MMC</div>
+<div class='section-title'>SDHC/MMC support</div>
 <div class='section'>
 <script type='text/javascript'>
 // <% statfs("/mmc", "mmc"); %>
@@ -175,7 +175,7 @@ mmcon = (nvram.mmc_on == 1);
 createFieldTable('', [
 	{ title: 'Enable', name: 'f_mmc_on', type: 'checkbox', value: mmcon },
 	{ text: 'GPIO pins configuration' },
-	{ title: 'Router model', name: 'f_mmc_model', type: 'select', options: [[1,'custom'],[2,'WRT54G up to v3.1'],[3,'WRT54G v4.0 and later'],[4,'WRT54GL']], value: 1 },
+	{ title: 'Router model', indent: 2, name: 'f_mmc_model', type: 'select', options: [[1,'custom'],[2,'WRT54G up to v3.1'],[3,'WRT54G v4.0 and later'],[4,'WRT54GL']], value: 1 },
 	{ title: 'Chip select (CS)', indent: 2, name: 'f_mmc_cs', type: 'select', options: [[1,1],[2,2],[3,3],[4,4],[5,5],[6,6],[7,7]], value: nvram.mmc_cs },
 	{ title: 'Clock (CLK)', indent: 2, name: 'f_mmc_clk', type: 'select', options: [[1,1],[2,2],[3,3],[4,4],[5,5],[6,6],[7,7]], value: nvram.mmc_clk },
 	{ title: 'Data in (DI)', indent: 2, name: 'f_mmc_din', type: 'select', options: [[1,1],[2,2],[3,3],[4,4],[5,5],[6,6],[7,7]], value: nvram.mmc_din },

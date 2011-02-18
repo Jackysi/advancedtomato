@@ -2131,8 +2131,16 @@ function navi()
 REMOVE-END */
 /* USB-BEGIN */
 // ---- !!TB - USB, FTP, Samba, Media Server
+/* NOSDHC-BEGIN */
 		['USB and NAS',			'nas', 0, [
+/* NOSDHC-END */
+/* SDHC-BEGIN */
+		['USB/SD and NAS',		'nas', 0, [
+/* SDHC-END */
 			['USB Support',		'usb.asp']
+/* SDHC-BEGIN */
+			,['SDHC/MMC',		'sdhc.asp']
+/* SDHC-END */
 /* FTP-BEGIN */
 			,['FTP Server',		'ftp.asp']
 /* FTP-END */
@@ -2162,9 +2170,11 @@ REMOVE-END */
 /* JFFS2-BEGIN */
 			['JFFS',			'jffs2.asp'],
 /* JFFS2-END */
+/* SDHC-NOUSB-BEGIN */
 /* SDHC-BEGIN */
 			['SDHC/MMC',		'sdhc.asp'],
 /* SDHC-END */
+/* SDHC-NOUSB-END */
 			['Logging',			'log.asp'],
 			['Scheduler',		'sched.asp'],
 			['Scripts',			'scripts.asp'],

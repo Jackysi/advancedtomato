@@ -115,11 +115,21 @@ ifneq ($(TCONFIG_USB),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/USB-BEGIN/,/USB-END/d"
 endif
 
-
 # Only include the SDHC page in the navigation if SDHC is compiled in
-
 ifneq ($(TCONFIG_SDHC),y)
+	rm -f $(INSTALLDIR)/www/admin-sdhc.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/SDHC-BEGIN/,/SDHC-END/d"
+	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/SDHC-BEGIN/,/SDHC-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/SDHC-BEGIN/,/SDHC-END/d"
+else
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/NOSDHC-BEGIN/,/NOSDHC-END/d"
+	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/NOSDHC-BEGIN/,/NOSDHC-END/d"
+  ifeq ($(TCONFIG_USB),y)
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/SDHC-NOUSB-BEGIN/,/SDHC-NOUSB-END/d"
+  else
+	mv -f $(INSTALLDIR)/www/nas-sdhc.asp $(INSTALLDIR)/www/admin-sdhc.asp
+	sed -i $(INSTALLDIR)/www/admin-sdhc.asp -e "s/'nas-sdhc.asp'/'admin-sdhc.asp'/"
+  endif
 endif
 	
 ifeq ($(TOMATO_EXPERIMENTAL),1)
@@ -162,6 +172,9 @@ endif
 		-e "/VPN-BEGIN/d"	-e "/VPN-END/d" \
 		-e "/AES-BEGIN/d"	-e "/AES-END/d" \
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
+		-e "/SDHC-BEGIN/d"	-e "/SDHC-END/d" \
+		-e "/NOSDHC-BEGIN/d"	-e "/NOSDHC-END/d" \
+		-e "/SDHC-NOUSB-BEGIN/d" -e "/SDHC-NOUSB-END/d" \
 		|| true; \
 	done
 
