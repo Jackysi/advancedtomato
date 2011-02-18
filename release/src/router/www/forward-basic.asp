@@ -111,9 +111,7 @@ fog.verifyFields = function(row, quiet) {
 
 	s = f[5].value.trim();
 	if (s.match(/^ *\d+ *$/)) f[5].value = lipp + s;
-	if (!v_hostname(f[5], 1)) {
-		if (!v_ip(f[5], quiet, 1)) return 0;
-	}
+	if (!v_ip(f[5], quiet, 1)) return 0;
 
 	f[6].value = f[6].value.replace(/>/g, '_');
 	if (!v_nodelim(f[6], quiet, 'Description')) return 0;

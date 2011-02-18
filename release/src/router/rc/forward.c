@@ -181,7 +181,7 @@ void ip6t_forward(void)
 			1 = enabled
 			3 = tcp & udp
 			2001:23:45:67::/64 = src addr
-			2600:abc:def:123::1 = dst addr
+			2600:abc:def:123::1 = dst addr (optional)
 			30,40-45 = dst port
 			desc = desc
 		*/
@@ -190,7 +190,7 @@ void ip6t_forward(void)
 		if (!ipt_addr(src, sizeof(src), saddr, "src", IPT_V6, 1, "IPv6 port forwarding", desc))
 			continue;
 
-		if (host_addrtypes(daddr, IPT_V6) != IPT_V6) {
+		if ((*daddr) && (host_addrtypes(daddr, IPT_V6) != IPT_V6)) {
 			syslog(LOG_WARNING, "firewall: IPv6 port forwarding: not using %s%s%s (could not resolve as valid IPv6 address)",
 				daddr, (desc && *desc) ? " for " : "", (desc && *desc) ? desc : "");
 			continue;
@@ -200,11 +200,11 @@ void ip6t_forward(void)
 		for (i = 0; i < 2; ++i) {
 			if ((1 << i) & (*proto - '0')) {
 				c = tcpudp[i];
-				ip6t_write("-A wanin %s -p %s -m %s -d %s %s %s -j %s\n",
+				ip6t_write("-A wanin %s -p %s -m %s %s%s %s %s -j %s\n",
 					src,
 					c,
 					c,
-					daddr,
+					(*daddr) ? "-d " : "", daddr,
 					mdport, dports,
 					chain_in_accept);
 			}
