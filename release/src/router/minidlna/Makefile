@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.29 2010/10/27 00:40:47 jmaggard Exp $
+# $Id: Makefile,v 1.30 2011/02/17 23:17:24 jmaggard Exp $
 # MiniDLNA project
 # http://sourceforge.net/projects/minidlna/
 # (c) 2008-2009 Justin Maggard
@@ -16,6 +16,7 @@ CFLAGS = -Wall -g -O3 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
 	 -I/usr/include/ffmpeg \
 	 -I/usr/include/libavutil -I/usr/include/libavcodec -I/usr/include/libavformat \
 	 -I/usr/include/ffmpeg/libavutil -I/usr/include/ffmpeg/libavcodec -I/usr/include/ffmpeg/libavformat
+#STATIC_LINKING: CFLAGS += -DSTATIC
 #STATIC_LINKING: LDFLAGS = -static
 CC = gcc
 RM = rm -f
