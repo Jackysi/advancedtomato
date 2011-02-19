@@ -143,6 +143,7 @@ unsigned int nf_iterate(struct list_head *head,
 
 		/* Optimization: we don't need to hold module
 		   reference here, since function can't sleep. --RR */
+repeat:
 		verdict = elem->hook(hook, skb, indev, outdev, okfn);
 
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
@@ -161,7 +162,7 @@ unsigned int nf_iterate(struct list_head *head,
 #endif
 			if (verdict != NF_REPEAT)
 				return verdict;
-			*i = (*i)->prev;
+			goto repeat;
 		}
 	}
 	return NF_ACCEPT;
