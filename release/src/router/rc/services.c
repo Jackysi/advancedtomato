@@ -935,7 +935,7 @@ void start_igmp_proxy(void)
 				"phyint %s upstream\n"
 				"\taltnet %s\n"
 				"phyint %s downstream ratelimit 0\n",
-				get_wanface(),
+				nvram_safe_get("wan_ifname"),
 				nvram_get("multicast_altnet") ? : "0.0.0.0/0",
 				nvram_safe_get("lan_ifname"));
 			fclose(fp);
