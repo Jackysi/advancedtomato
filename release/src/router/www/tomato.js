@@ -711,8 +711,26 @@ function CompressIPv6Address(ip)
 
 	ip = ip.replace(/(^|:)0{1,3}/g, '$1');
 	ip = ip.replace(/(:0)+$/, '::');
-	ip = ip.replace(/(:0){2,}(:[a-f0-9]{1,4})$/, ':$2');
+	ip = ip.replace(/(?:(?:^|:)0){2,}(?!.*(?:::|(?::0){3,}))/, ':');
 	return ip;	
+}
+
+function ZeroIPv6PrefixBits(ip, prefix_length)
+{
+	ip = ExpandIPv6Address(ip);
+	ip = ip.replace(/:/g,'');
+	n = Math.floor(prefix_length/4);
+	m = 32 - Math.ceil(prefix_length/4);
+	b = prefix_length % 4;
+	if (b != 0) 
+		c = (parseInt(ip.charAt(n), 16) & (0xf << b)).toString(16);
+	else
+		c = '';
+	
+	ip = ip.substring(0, n) + c + Array((m%4)+1).join('0') + (m>4 ? '::' : '');
+	ip = ip.replace(/([a-f0-9]{4})(?=[a-f0-9])/g,'$1:');
+	ip = ip.replace(/(^|:)0{1,3}/g, '$1');
+	return ip;
 }
 
 function ipv6ton(ip)

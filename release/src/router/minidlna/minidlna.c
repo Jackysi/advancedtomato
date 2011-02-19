@@ -206,11 +206,13 @@ getfriendlyname(char * buf, int len)
 {
 	char * dot = NULL;
 	char * hn = calloc(1, 256);
+	int off;
+
 	if( gethostname(hn, 256) == 0 )
 	{
 		strncpy(buf, hn, len-1);
 		buf[len] = '\0';
-		dot = index(buf, '.');
+		dot = strchr(buf, '.');
 		if( dot )
 			*dot = '\0';
 	}
@@ -219,13 +221,69 @@ getfriendlyname(char * buf, int len)
 		strcpy(buf, "Unknown");
 	}
 	free(hn);
-	strcat(buf, ": ");
-	#ifdef READYNAS
-	strncat(buf, "ReadyNAS", len-strlen(buf)-1);
-	#else
+
+	off = strlen(buf);
+	off += snprintf(buf+off, len-off, ": ");
+#ifdef READYNAS
+	FILE * info;
+	char ibuf[64], *key, *val;
+	snprintf(buf+off, len-off, "ReadyNAS");
+	info = fopen("/proc/sys/dev/boot/info", "r");
+	if( !info )
+		return;
+	while( (val = fgets(ibuf, 64, info)) != NULL )
+	{
+		key = strsep(&val, ": \t");
+		val = trim(val);
+		if( strcmp(key, "model") == 0 )
+		{
+			snprintf(buf+off, len-off, "%s", val);
+			key = strchr(val, ' ');
+			if( key )
+			{
+				strncpy(modelnumber, key+1, MODELNUMBER_MAX_LEN);
+				modelnumber[MODELNUMBER_MAX_LEN-1] = '\0';
+				*key = '\0';
+			}
+			snprintf(modelname, MODELNAME_MAX_LEN,
+				"Windows Media Connect compatible (%s)", val);
+		}
+		else if( strcmp(key, "serial") == 0 )
+		{
+			strncpy(serialnumber, val, SERIALNUMBER_MAX_LEN);
+			serialnumber[SERIALNUMBER_MAX_LEN-1] = '\0';
+			if( serialnumber[0] == '\0' )
+			{
+				char mac_str[13];
+				if( getsyshwaddr(mac_str, sizeof(mac_str)) == 0 )
+					strcpy(serialnumber, mac_str);
+				else
+					strcpy(serialnumber, "0");
+			}
+			break;
+		}
+	}
+	fclose(info);
+	if( strcmp(modelnumber, "NVX") == 0 )
+		memcpy(pnpx_hwid+4, "01F2&amp;DEV_0101", 17);
+	else if( strcmp(modelnumber, "Pro") == 0 ||
+	         strcmp(modelnumber, "Pro 6") == 0 ||
+	         strncmp(modelnumber, "Ultra 6", 7) == 0 )
+		memcpy(pnpx_hwid+4, "01F2&amp;DEV_0102", 17);
+	else if( strcmp(modelnumber, "Pro 2") == 0 ||
+	         strncmp(modelnumber, "Ultra 2", 7) == 0 )
+		memcpy(pnpx_hwid+4, "01F2&amp;DEV_0103", 17);
+	else if( strcmp(modelnumber, "Pro 4") == 0 ||
+	         strncmp(modelnumber, "Ultra 4", 7) == 0 )
+		memcpy(pnpx_hwid+4, "01F2&amp;DEV_0104", 17);
+	else if( strcmp(modelnumber+1, "100") == 0 )
+		memcpy(pnpx_hwid+4, "01F2&amp;DEV_0105", 17);
+	else if( strcmp(modelnumber+1, "200") == 0 )
+		memcpy(pnpx_hwid+4, "01F2&amp;DEV_0106", 17);
+#else
 	char * logname;
 	logname = getenv("LOGNAME");
-#if 1 // Disable for static linking
+#ifndef STATIC // Disable for static linking
 	if( !logname )
 	{
 		struct passwd * pwent;
@@ -234,8 +292,8 @@ getfriendlyname(char * buf, int len)
 			logname = pwent->pw_name;
 	}
 #endif
-	strncat(buf, logname?logname:"Unknown", len-strlen(buf)-1);
-	#endif
+	snprintf(buf+off, len-off, "%s", logname?logname:"Unknown");
+#endif
 }
 
 int
@@ -365,6 +423,10 @@ init(int argc, char * * argv)
 				strncpy(serialnumber, ary_options[i].value, SERIALNUMBER_MAX_LEN);
 				serialnumber[SERIALNUMBER_MAX_LEN-1] = '\0';
 				break;				
+			case UPNPMODEL_NAME:
+				strncpy(modelname, ary_options[i].value, MODELNAME_MAX_LEN);
+				modelname[MODELNAME_MAX_LEN-1] = '\0';
+				break;
 			case UPNPMODEL_NUMBER:
 				strncpy(modelnumber, ary_options[i].value, MODELNUMBER_MAX_LEN);
 				modelnumber[MODELNUMBER_MAX_LEN-1] = '\0';
@@ -766,6 +828,7 @@ main(int argc, char * * argv)
 #ifdef ENABLE_NLS
 	setlocale(LC_MESSAGES, "");
 	setlocale(LC_CTYPE, "en_US.utf8");
+	DPRINTF(E_DEBUG, L_GENERAL, "Using locale dir %s\n", bindtextdomain("minidlna", getenv("TEXTDOMAINDIR")));
 	textdomain("minidlna");
 #endif
 
@@ -773,10 +836,10 @@ main(int argc, char * * argv)
 		return 1;
 
 #ifdef READYNAS
-	DPRINTF(E_WARN, L_GENERAL, "Starting ReadyDLNA version " MINIDLNA_VERSION ".\n");
+	DPRINTF(E_WARN, L_GENERAL, "Starting " SERVER_NAME " version " MINIDLNA_VERSION ".\n");
 	unlink("/ramfs/.upnp-av_scan");
 #else
-	DPRINTF(E_WARN, L_GENERAL, "Starting MiniDLNA version " MINIDLNA_VERSION " [SQLite %s].\n", sqlite3_libversion());
+	DPRINTF(E_WARN, L_GENERAL, "Starting " SERVER_NAME " version " MINIDLNA_VERSION " [SQLite %s].\n", sqlite3_libversion());
 	unlink("/var/notice/dlna");
 	if( !sqlite3_threadsafe() )
 	{
@@ -997,7 +1060,13 @@ main(int argc, char * * argv)
 			FD_SET(shttpl, &readset);
 			max_fd = MAX( max_fd, shttpl);
 		}
-
+#ifdef TIVO_SUPPORT
+		if (sbeacon >= 0) 
+		{
+			FD_SET(sbeacon, &readset);
+			max_fd = MAX(max_fd, sbeacon);
+		}
+#endif
 		i = 0;	/* active HTTP connections count */
 		for(e = upnphttphead.lh_first; e != NULL; e = e->entries.le_next)
 		{
@@ -1008,14 +1077,13 @@ main(int argc, char * * argv)
 				i++;
 			}
 		}
-		/* for debug */
 #ifdef DEBUG
+		/* for debug */
 		if(i > 1)
 		{
 			DPRINTF(E_DEBUG, L_GENERAL, "%d active incoming HTTP connections\n", i);
 		}
 #endif
-
 		FD_ZERO(&writeset);
 		upnpevents_selectfds(&readset, &writeset, &max_fd);
 
@@ -1032,6 +1100,13 @@ main(int argc, char * * argv)
 			/*DPRINTF(E_DEBUG, L_GENERAL, "Received UDP Packet\n");*/
 			ProcessSSDPRequest(sudp, (unsigned short)runtime_vars.port);
 		}
+#ifdef TIVO_SUPPORT
+		if(sbeacon >= 0 && FD_ISSET(sbeacon, &readset))
+		{
+			/*DPRINTF(E_DEBUG, L_GENERAL, "Received UDP Packet\n");*/
+			ProcessTiVoBeacon(sbeacon);
+		}
+#endif
 		/* increment SystemUpdateID if the content database has changed,
 		 * and if there is an active HTTP connection, at most once every 2 seconds */
 		if( i && (time(NULL) >= (lastupdatetime.tv_sec + 2)) )

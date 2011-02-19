@@ -79,13 +79,12 @@ fog.fieldValuesToData = function(row) {
 
 fog.verifyFields = function(row, quiet) {
 	var f = fields.getAll(row);
-	
+
 	f[2].value = f[2].value.trim();
 	if ((f[2].value.length) && (!_v_iptaddr(f[2], quiet, 0, 0, 1))) return 0;
 
 	f[3].value = f[3].value.trim();	
-	if (!v_length(f[3], quiet, 1)) return 0;
-	if (!v_hostname(f[3], 1)) {
+	if ((f[3].value.length) && !v_hostname(f[3], 1)) {
 		if (!v_ipv6_addr(f[3], quiet)) return 0;
 	}
 
@@ -188,7 +187,7 @@ function init()
 Opens access to ports on machines inside the LAN, but does <b>not</b> re-map ports.
 <ul>
 <li><b>Src Address</b> <i>(optional)</i> - Forward only if from this address. Ex: "2001:4860:800b::/48", "me.example.com".
-<li><b>Dest Address</b> - The destination address inside the LAN.
+<li><b>Dest Address</b> <i>(optional)</i> - The destination address inside the LAN.
 <li><b>Dest Ports</b> - The ports to be opened for forwarding. Ex: "2345", "200,300", "200-300,400".
 </ul>
 </div>
