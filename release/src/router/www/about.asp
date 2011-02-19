@@ -90,14 +90,17 @@ function init()
 </div>
 <div style='margin:30px 30px;font-size:14px;color:#555;'>
 
-
 <b>Tomato Firmware v<% version(1); %></b><br>
+- Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates<br>
+- Support for additional router models, dual-band and Wireless-N mode.<br>
 <!-- USB-BEGIN -->
-- USB support integration and GUI,<br>
+- USB support integration and GUI,
 <!-- USB-END -->
-- Linux kernel <% version(2); %> & Broadcom Wireless Driver <% version(3); %><br>
-- Support for additional router models and Wireless-N mode.<br>
-Copyright (C) 2008-2011 Fedor Kozhevnikov and Ray Van Tassle<br>
+<!-- IPV6-BEGIN -->
+IPv6 support,
+<!-- IPV6-END -->
+<br>
+Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <!-- / / / -->
 <br>
@@ -111,13 +114,9 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <br>
 <b>All current "Teddy Bear" features, notably:</b><br>
 - USB Support, Samba, FTP, Media Servers<br>
-- Web Monitor<br>
-- Per-connection transfer rates<br>
-- Byte counter added to QOS/Details<br>
-- QOS rule ID added to QOS/Details<br>
+- Web Monitor, Per-connection transfer rates<br>
+- Byte counter, QOS rule ID added to QOS/Details<br>
 - Additional ipv6 support in GUI, QOS, Conntrack<br>
-<br>
-With special thanks to Wes Campaigne<br>
 <br>
 <b>"Victek" RAF features:</b><br>
 - IP/MAC Bandwidth Limiter | ARP Binding<br>
@@ -126,11 +125,10 @@ With special thanks to Wes Campaigne<br>
 <br>
 <b>"Toastman" Features:</b><br>
 - 250 entry Static DHCP | 500 entry Access Restrictions<br>
-- QOS class labels | Toastman QOS rules<br>
-- Fast conntrack timeout | Fast auto refresh<br>
-- Tools/System refresh timer<br>
+- QOS class labels | Toastman QOS rules | Fast conntrack timeout<br>
+- Fast auto refresh | Tools/System refresh timer<br>
 - Safe CPU frequency selector<br>
-- Loads upnpconfig.custom from JFFS, for VPN UPnP support<br>
+- Loads upnpconfig.custom from JFFS for Vlan UPnP support<br>
 <br>
 
 Based on Tomato Firmware v<% version(); %><br>
