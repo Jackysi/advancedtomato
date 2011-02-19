@@ -16,6 +16,11 @@
  *	Port 9100+n will then be passively opened
  *	n defaults to 0
  *
+ *	Version 0.95
+ *	Patch by Mario Izquierdo
+ *	Fix incomplete conversion to manipulate new ip_addr structure
+ *	when LIBWRAP is selected
+ *
  *	Version 0.94
  *	Patch by Guenther Niess:
  *	Support IPv6
@@ -571,15 +576,15 @@ void server(int lpnumber)
 	clientlen = sizeof(client);
 	memset(&client, 0, sizeof(client));
 	while ((fd = accept(netfd, (struct sockaddr *)&client, &clientlen)) >= 0) {
+		char host[INET6_ADDRSTRLEN];
 #ifdef	USE_LIBWRAP
-		if (hosts_ctl("p910nd", STRING_UNKNOWN, inet_ntoa(client.sin_addr), STRING_UNKNOWN) == 0) {
+		if (hosts_ctl("p910nd", STRING_UNKNOWN, get_ip_str((struct sockaddr *)&client, host, sizeof(host)), STRING_UNKNOWN) == 0) {
 			syslog(LOGOPTS,
-			       "Connection from %s port %hu rejected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
+			       "Connection from %s port %hu rejected\n", get_ip_str((struct sockaddr *)&client, host, sizeof(host)), get_port((struct sockaddr *)&client));
 			close(fd);
 			continue;
 		}
 #endif
-		char host[INET6_ADDRSTRLEN];
 		syslog(LOG_NOTICE, "Connection from %s port %hu accepted\n", get_ip_str((struct sockaddr *)&client, host, sizeof(host)), get_port((struct sockaddr *)&client));
 		/*write(fd, "Printing", 8); */
 
