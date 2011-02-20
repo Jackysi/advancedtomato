@@ -265,7 +265,7 @@ void start_pptp(int mode)
 void preset_wan(char *ifname, char *gw, char *netmask)
 {
 	int i = 0;
-	int metric = nvram_get_int("ppp_defgw") ? 2 : 0;
+	int metric = 2;
 
 	/* Delete all default routes */
 	while ((route_del(ifname, metric, NULL, NULL, NULL) == 0) || (i++ < 10));
@@ -741,7 +741,6 @@ void start_wan_done(char *wan_ifname)
 	char *gw;
 	struct sysinfo si;
 	int wanup;
-	int metric;
 		
 	TRACE_PT("begin wan_ifname=%s\n", wan_ifname);
 	
@@ -776,36 +775,8 @@ void start_wan_done(char *wan_ifname)
 				route_add(wan_ifname, 0, gw, NULL, "255.255.255.255");
 			}
 
-			metric = 0;
-			if (proto == WP_PPTP || proto == WP_L2TP) {
-				if (nvram_get_int("ppp_defgw") || !using_dhcpc())
-					metric = 0;
-				else {
-					metric = 2;
-
-					// we are not using default gateway on remote network,
-					// add route to the vpn subnet
-					char *netmask = nvram_safe_get("wan_netmask");
-					struct in_addr net, mask;
-					if (strcmp(netmask, "0.0.0.0") == 0 || !inet_aton(netmask, &mask)) {
-						netmask = "255.255.255.0";
-						inet_aton(netmask, &mask);
-					}
-					if (inet_aton(gw, &net)) {
-						net.s_addr &= mask.s_addr;
-						route_add(wan_ifname, 0, inet_ntoa(net), gw, netmask);
-
-						// add routes to dns servers
-						char word[100], *next;
-						foreach(word, nvram_safe_get("wan_get_dns"), next) {
-							route_add(wan_ifname, 0, word, gw, "255.255.255.255");
-						}
-					}
-				}
-			}
-
 			n = 5;
-			while ((route_add(wan_ifname, metric, "0.0.0.0", gw, "0.0.0.0") == 1) && (n--)) {
+			while ((route_add(wan_ifname, 0, "0.0.0.0", gw, "0.0.0.0") == 1) && (n--)) {
 				sleep(1);
 			}
 			_dprintf("set default gateway=%s n=%d\n", gw, n);
