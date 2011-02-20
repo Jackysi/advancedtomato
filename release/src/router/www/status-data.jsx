@@ -80,6 +80,12 @@ do {
 		}
 	}
 
+/* IPV6-BEGIN */
+	stats.ip6_wan = sysinfo.ip6_wan + '';
+	stats.ip6_lan = sysinfo.ip6_lan + '';
+	stats.ip6_lan_ll = sysinfo.ip6_lan_ll + '';
+/* IPV6-END */
+
 	stats.wanstatus = '<% wanstatus(); %>';
 	if (stats.wanstatus != 'Connected') stats.wanstatus = '<b>' + stats.wanstatus + '</b>';
 
