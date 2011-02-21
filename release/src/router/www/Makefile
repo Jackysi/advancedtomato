@@ -72,13 +72,13 @@ ifneq ($(TCONFIG_EMF),y)
 endif
 
 # Only include extra themes if USB Extras are configured in.
-ifneq ($(TCONFIG_USB_EXTRAS),y)
-	rm -f $(INSTALLDIR)/www/usbred.css
-	rm -f $(INSTALLDIR)/www/usbblue.css
-	rm -f $(INSTALLDIR)/www/tomatousb.png
-	rm -f $(INSTALLDIR)/www/tomatousb_bg.png
-	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/THEMES-BEGIN/,/THEMES-END/d"
-endif
+# ifneq ($(TCONFIG_USB_EXTRAS),y)
+#	rm -f $(INSTALLDIR)/www/usbred.css
+#	rm -f $(INSTALLDIR)/www/usbblue.css
+#	rm -f $(INSTALLDIR)/www/tomatousb.png
+#	rm -f $(INSTALLDIR)/www/tomatousb_bg.png
+#	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/THEMES-BEGIN/,/THEMES-END/d"
+# endif
 
 # Only include NTFS settings if NTFS support is configured in.
 ifneq ($(TCONFIG_NTFS),y)

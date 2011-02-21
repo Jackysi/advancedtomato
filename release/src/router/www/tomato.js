@@ -2338,6 +2338,10 @@ function navi()
 			['View Details',	'detailed.asp'],
 			['Transfer Rates',	'ctrate.asp']
 			] ],
+		['RAF Features',		'new', 0, [
+			['IP/Range BW Limiter',	'qoslimit.asp'],
+			['ARP Binding',		'arpbind.asp']
+			] ],
 		['Access Restriction',	'restrict.asp'],
 /* REMOVE-BEGIN
 		['Scripts',				'sc', 0, [

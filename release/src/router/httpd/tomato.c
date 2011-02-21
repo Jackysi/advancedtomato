@@ -503,7 +503,7 @@ static const nvset_t nvset_list[] = {
 	{ "ntp_kiss",			V_LENGTH(0, 255)	},
 
 // basic-static
-	{ "dhcpd_static",		V_LENGTH(0, 106*101)},	// 106 (max chars per entry) x 100 entries
+	{ "dhcpd_static",		V_LENGTH(0, 106*251)},	// 251 (max chars per entry) x 100 entries
 
 // basic-ddns
 	{ "ddnsx0",				V_LENGTH(0, 2048)	},
@@ -746,7 +746,7 @@ static const nvset_t nvset_list[] = {
 
 
 // access restriction
-	{ "rruleN",				V_RANGE(0, 49)		},
+	{ "rruleN",				V_RANGE(0, 99)		},
 //	{ "rrule##",			V_LENGTH(0, 2048)	},	// in save_variables()
 
 // admin-access
@@ -937,6 +937,23 @@ static const nvset_t nvset_list[] = {
 	{ "ne_valpha",			V_NUM				},
 	{ "ne_vbeta",			V_NUM				},
 	{ "ne_vgamma",			V_NUM				},
+
+// new_qoslimit
+	{ "new_qoslimit_enable",         V_01                    }, // !!RAF
+	{ "new_qoslimit_obw",            V_RANGE(10, 999999)     }, // !!RAF
+	{ "new_qoslimit_ibw",            V_RANGE(10, 999999)     }, // !!RAF
+	{ "new_qoslimit_rules",          V_LENGTH(0, 4096)       }, // !!RAF
+	{ "new_qoslimit_d_enable",       V_01                    }, // !!RAF
+	{ "new_qoslimit_d_dlr",          V_RANGE(10, 999999)     }, // !!RAF
+	{ "new_qoslimit_d_dlc",          V_RANGE(10, 999999)     }, // !!RAF
+	{ "new_qoslimit_d_ulr",          V_RANGE(10, 999999)     }, // !!RAF
+	{ "new_qoslimit_d_ulc",          V_RANGE(10, 999999)     }, // !!RAF
+
+
+// new_arpbind
+	{ "new_arpbind_enable",          V_01                    }, // !!RAF
+	{ "new_arpbind_only",            V_01                   },  // !!RAF
+	{ "new_arpbind_list",            V_LENGTH(0, 4096)       }, // !!RAF
 
 #ifdef TCONFIG_OPENVPN
 // vpn

@@ -93,7 +93,7 @@ const defaults_t defaults[] = {
 	{ "autofw_port0",		""				},	// out_proto:out_port,in_proto:in_port0-in_port1>to_port0-to_port1,enable,desc
 */
 	// DHCP server parameters
-	{ "dhcp_start",			"100"			},	//
+	{ "dhcp_start",			"2"			},	//
 	{ "dhcp_num",			"50"			},	//
 	{ "dhcpd_startip",		"" 				},	// if empty, tomato will use dhcp_start/dchp_num for better compatibility
 	{ "dhcpd_endip",		"" 				},	// "
@@ -150,8 +150,8 @@ const defaults_t defaults[] = {
 	{ "wl_corerev",			""				},	// Current core revision
 	{ "wl_phytypes",		""				},	// List of supported wireless bands (e.g. "ga")
 	{ "wl_radioids",		""				},	// List of radio IDs
-	{ "wl_ssid",			"wireless"		},	// Service set ID (network name)
-	{ "wl1_ssid",			"wireless1"		},
+	{ "wl_ssid",			"Tomato.RAF24"		},	// Service set ID (network name)
+	{ "wl1_ssid",			"Tomato.RAF50"		},
 	{ "wl_country_code",		""		},		// Country (default obtained from driver)
 	{ "wl_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl1_radio",			"1"				},	// Enable (1) or disable (0) radio
@@ -319,17 +319,17 @@ const defaults_t defaults[] = {
 	{ "ddnsx_refresh",		"28"			},
 
 // basic-ident
-	{ "router_name",		"tomato"		},
+	{ "router_name",		"tomatoRAF"		},
 	{ "wan_hostname",		"unknown"		},
 	{ "wan_domain",			""				},
 
 // basic-time
-	{ "tm_sel",				"PST8PDT,M3.2.0/2,M11.1.0/2"	},
-	{ "tm_tz",				"PST8PDT,M3.2.0/2,M11.1.0/2"	},
+	{ "tm_sel",				"CET-1CEST,M3.5.0/2,M10.5.0/3"	},
+	{ "tm_tz",				"CET-1CEST,M3.5.0/2,M10.5.0/3"	},
 	{ "tm_dst",				"1",							},
 	{ "ntp_updates",		"4"								},
 	{ "ntp_tdod",			"0"								},
-	{ "ntp_server",			"0.pool.ntp.org 1.pool.ntp.org 2.pool.ntp.org" },
+	{ "ntp_server",			"0.europe.pool.ntp.org 1.europe.pool.ntp.org 2.europe.pool.ntp.org" },
 	{ "ntp_kiss",			""								},
 	{ "ntp_kiss_ignore",	""								},
 
@@ -493,7 +493,7 @@ const defaults_t defaults[] = {
 	{ "https_crt_file",		""				},
 	{ "https_crt",			""				},
 	{ "web_wl_filter",		"0"				},	// Allow/Deny Wireless Access Web
-	{ "web_css",			"tomato"		},
+	{ "web_css",			"usbred"		},
 	{ "web_svg",			"1"				},
 	{ "telnetd_eas",		"1"				},
 	{ "telnetd_port",		"23"			},
@@ -796,6 +796,22 @@ const defaults_t defaults[] = {
 	{ "vpn_client2_crt",      ""              },
 	{ "vpn_client2_key",      ""              },
 #endif	// vpn
+
+// new_qoslimit
+	{ "new_qoslimit_enable",		"0"			}, //!! RAF
+	{ "new_qoslimit_obw",			""			}, //!! RAF
+	{ "new_qoslimit_ibw",			""			}, //!! RAF
+	{ "new_qoslimit_rules",			"" 			}, //!! RAF
+	{ "new_qoslimit_d_enable",		"0"			}, //!! RAF
+	{ "new_qoslimit_d_dlr",			""			}, //!! RAF
+	{ "new_qoslimit_d_dlc",			""			}, //!! RAF
+	{ "new_qoslimit_d_ulr",			""			}, //!! RAF
+	{ "new_qoslimit_d_ulc",			""			}, //!! RAF
+ 
+// new_arpbind
+	{ "new_arpbind_enable",			"0"			}, //!! RAF
+	{ "new_arpbind_only",			"0"			}, //!! RAF
+	{ "new_arpbind_list",			"" 			}, //!! RAF
 
 #if 0
 // safe to remove?

@@ -39,7 +39,7 @@ shlimit = nvram.ne_shlimit.split(',');
 if (shlimit.length != 3) shlimit = [0,3,60];
 
 var xmenus = [['Status', 'status'], ['Bandwidth', 'bwm'], ['Tools', 'tools'], ['Basic', 'basic'],
-	['Advanced', 'advanced'], ['Port Forwarding', 'forward'], ['QoS', 'qos'],
+	['Advanced', 'advanced'], ['Port Forwarding', 'forward'], ['QoS', 'qos'],['RAF Features', 'new'],
 /* USB-BEGIN */
 	['USB and NAS', 'nas'],
 /* USB-END */
@@ -237,7 +237,7 @@ function init()
 <form id='_fom' method='post' action='tomato.cgi'>
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
-	<div class='title'>Tomato</div>
+	<div class='title'>Tomato RAF</div>
 	<div class='version'>Version <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
@@ -285,11 +285,7 @@ var m = [
 	{ title: 'Allow Wireless Access', name: 'f_http_wireless', type: 'checkbox', value:  nvram.web_wl_filter == 0 },
 	null,
 	{ title: 'Color Scheme', name: 'web_css', type: 'select',
-		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],
-/* THEMES-BEGIN */
-		['usbred','USB Red'],['usbblue','USB Blue'],
-/* THEMES-END */
-		['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css },
+		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],['usbred','USB Red'],['usbblue','USB Blue'],['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css },
 	{ title: 'Open Menus' }
 ];
 
