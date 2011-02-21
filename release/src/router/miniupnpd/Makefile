@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.53 2010/01/08 16:23:16 nanard Exp $
+# $Id: Makefile,v 1.54 2011/02/20 23:39:43 nanard Exp $
 # MiniUPnP project
 # http://miniupnp.free.fr/
 # Author: Thomas Bernard
@@ -42,6 +42,10 @@ FWNAME != . /etc/rc.subr; . /etc/rc.conf; \
           echo "ipf"; else echo "pf"; fi
 .endif
 
+.if $(OSNAME) == "Darwin"
+FWNAME = ipfw
+.endif
+
 # Solaris specific CFLAGS
 .if $(OSNAME) == "SunOS"
 CFLAGS += -DSOLARIS2=`uname -r | cut -d. -f2`
@@ -58,29 +62,33 @@ STDOBJS = miniupnpd.o upnphttp.o upnpdescgen.o upnpsoap.o \
           upnpevents.o
 BSDOBJS = bsd/getifstats.o
 SUNOSOBJS = solaris/getifstats.o
+MACOBJS = mac/getifstats.o
 PFOBJS = pf/obsdrdr.o
 IPFOBJS = ipf/ipfrdr.o
+IPFWOBJS = ipfw/ipfwrdr.o
 MISCOBJS = upnpreplyparse.o minixml.o
 
 ALLOBJS = $(STDOBJS) $(MISCOBJS)
 .if $(OSNAME) == "SunOS"
 ALLOBJS += $(SUNOSOBJS)
+TESTGETIFSTATSOBJS = testgetifstats.o solaris/getifstats.o
+.elif $(OSNAME) == "Darwin"
+ALLOBJS += $(MACOBJS)
+TESTGETIFSTATSOBJS = testgetifstats.o mac/getifstats.o
 .else
 ALLOBJS += $(BSDOBJS)
+TESTGETIFSTATSOBJS = testgetifstats.o bsd/getifstats.o
 .endif
 
 .if $(FWNAME) == "pf"
 ALLOBJS += $(PFOBJS)
+.elif $(FWNAME) == "ipfw"
+ALLOBJS += $(IPFWOBJS)
 .else
 ALLOBJS += $(IPFOBJS)
 .endif
 
 TESTUPNPDESCGENOBJS = testupnpdescgen.o upnpdescgen.o
-.if $(OSNAME) == "SunOS"
-TESTGETIFSTATSOBJS = testgetifstats.o solaris/getifstats.o
-.else
-TESTGETIFSTATSOBJS = testgetifstats.o bsd/getifstats.o
-.endif
 TESTUPNPPERMISSIONSOBJS = testupnppermissions.o upnppermissions.o
 TESTGETIFADDROBJS = testgetifaddr.o getifaddr.o
 MINIUPNPDCTLOBJS = miniupnpdctl.o
@@ -88,8 +96,11 @@ MINIUPNPDCTLOBJS = miniupnpdctl.o
 EXECUTABLES = miniupnpd testupnpdescgen testgetifstats \
               testupnppermissions miniupnpdctl \
               testgetifaddr
-
+.if $(OSNAME) == "Darwin"
+LIBS =
+.else
 LIBS = -lkvm
+.endif
 .if $(OSNAME) == "SunOS"
 LIBS += -lsocket -lnsl -lkstat -lresolv
 .endif
@@ -104,7 +115,7 @@ INSTALLMANDIR = /usr/share/man
 all:	$(EXECUTABLES)
 
 clean:
-	$(RM) $(STDOBJS) $(BSDOBJS) $(SUNOSOBJS) $(EXECUTABLES) \
+	$(RM) $(STDOBJS) $(BSDOBJS) $(SUNOSOBJS) $(MACOBJS) $(EXECUTABLES) \
 	testupnpdescgen.o \
 	$(MISCOBJS) config.h testgetifstats.o testupnppermissions.o \
 	miniupnpdctl.o testgetifaddr.o \
