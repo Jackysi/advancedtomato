@@ -482,6 +482,8 @@ static void mangle_table(void)
 	if (wanup) {
 
 		ipt_qos();
+		//1 for mangle
+		ipt_qoslimit(1);
 
 		p = nvram_safe_get("nf_ttl");
 		if (strncmp(p, "c:", 2) == 0) {
@@ -520,8 +522,6 @@ static void mangle_table(void)
 	ip46t_write("COMMIT\n");
 }
 
-
-
 // -----------------------------------------------------------------------------
 // NAT
 // -----------------------------------------------------------------------------
@@ -542,7 +542,10 @@ static void nat_table(void)
 		":OUTPUT ACCEPT [0:0]\n"
 		":%s - [0:0]\n",
 		chain_wan_prerouting);
-
+	
+	//2 for nat
+	ipt_qoslimit(2);
+	
 	if (gateway_mode) {
 		strlcpy(lanaddr, nvram_safe_get("lan_ipaddr"), sizeof(lanaddr));
 		strlcpy(lanmask, nvram_safe_get("lan_netmask"), sizeof(lanmask));
@@ -1272,7 +1275,10 @@ int start_firewall(void)
 	modprobe("nf_conntrack_ipv6");
 	modprobe("ip6t_REJECT");
 #endif
-
+	/*Deon Thomas attempt to start xt_IMQ and imq */
+	modprobe("imq");
+	modprobe("xt_IMQ");
+	
 	mangle_table();
 	nat_table();
 	filter_table();

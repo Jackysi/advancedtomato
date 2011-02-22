@@ -425,6 +425,7 @@ static inline void start_vpn_eas() { }
 #endif
 
 // new_qoslimit.c
+extern void ipt_qoslimit(int chain);
 extern void new_qoslimit_start(void);
 extern void new_qoslimit_stop(void);
 
