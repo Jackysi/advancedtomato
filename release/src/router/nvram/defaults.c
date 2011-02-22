@@ -152,7 +152,7 @@ const defaults_t defaults[] = {
 	{ "wl_radioids",		""				},	// List of radio IDs
 	{ "wl_ssid",			"wireless"			},	// Service set ID (network name)
 	{ "wl1_ssid",			"wireless1"			},
-	{ "wl_country_code",		""				},		// Country (default obtained from driver)
+	{ "wl_country_code",		"US"				},		// Country (default obtained from driver)
 	{ "wl_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl1_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl_closed",			"0"				},	// Closed (hidden) network
@@ -189,7 +189,7 @@ const defaults_t defaults[] = {
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
-	{ "wl_interfmode",		"3"				},	// Interference Mitigation Mode (0|1|2|3)
+	{ "wl_interfmode",		"0"				},	// Interference Mitigation Mode (0|1|2|3)
 
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"			},	// WEP encryption [64 | 128] // Add
@@ -319,7 +319,7 @@ const defaults_t defaults[] = {
 	{ "ddnsx_refresh",		"28"			},
 
 // basic-ident
-	{ "router_name",		"tomato"		},
+	{ "router_name",		"toast"		},
 	{ "wan_hostname",		"unknown"		},
 	{ "wan_domain",			""				},
 
@@ -391,7 +391,7 @@ const defaults_t defaults[] = {
 
 // advanced-firewall
 //		{ "block_loopback",		"0"				},	// nat loopback
-	{ "nf_loopback",		"1"				},
+	{ "nf_loopback",		"0"				},
 	{ "block_wan",			"1"				},	// block inbound icmp
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
@@ -428,7 +428,7 @@ const defaults_t defaults[] = {
 	{ "dmz_sip",			""				},
 
 // forward-upnp
-	{ "upnp_enable",		"0"				},
+	{ "upnp_enable",		"3"				},
 	{ "upnp_secure",		"1"				},
 	{ "upnp_port",			"0"				},
 	{ "upnp_ssdp_interval",		"60"				},	// SSDP interval
@@ -675,7 +675,7 @@ const defaults_t defaults[] = {
 // admin-script
 	{ "script_init",		""				},
 	{ "script_shut",		""				},
-	{ "script_fire",		""				},
+	{ "script_fire",		" Restrict number of TCP connections per user #iptables -t nat -I PREROUTING -p tcp --syn -m iprange --src-range 192.168.1.50-192.168.1.250 -m connlimit --connlimit-above 100 -j DROP  # Restrict number of non-TCP connections per user #iptables -t nat -I PREROUTING -p ! tcp -m iprange --src-range 192.168.1.50-192.168.1.250 -m connlimit --connlimit-above 50 -j DROP  # Restrict number of simltaneous SMTP connections (from mailer viruses) #iptables -t nat -I PREROUTING -p tcp --dport 25 -m connlimit --connlimit-above 5 -j DROP"				},
 	{ "script_wanup",		""				},
 
 #ifdef TCONFIG_OPENVPN

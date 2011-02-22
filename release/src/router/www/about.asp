@@ -119,18 +119,18 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 - Additional ipv6 support in GUI, QOS, Conntrack<br>
 <br>
 <b>"Victek" RAF features:</b><br>
-- IP/MAC Bandwidth Limiter | ARP Binding<br>
-- CPU Info & Overclock | Previous WAN IP<br>
+- ARP Binding | CPU Info & Overclock | Previous WAN IP<br>
 - Access Concentrator ID | Additional Themes<br>
 <br>
-<b>"Toastman" Features:</b><br>
-- 250 entry Static DHCP | 500 entry Access Restrictions<br>
-- QOS class labels | Toastman QOS rules | Fast conntrack timeout<br>
-- Fast auto refresh | Tools/System refresh timer<br>
-- Safe CPU frequency selector<br>
-- Loads upnpconfig.custom from JFFS for Vlan UPnP support<br>
+<b>"PrinceAMD" features:</b><br>
+- IP/MAC Bandwidth Limiter/QOS<br>
 <br>
-
+<b>"Toastman" Features:</b><br>
+- 250 entry limit in Static DHCP | 500 entry limit in Access Restrictions<br>
+- QOS class labels | Toastman QOS rules | Fast conntrack timeout<br>
+- CPU frequency selector | Faster page refresh settings<br>
+- VLAN Support for UPnP - if exists, loads upnpconfig.custom from JFFS<br>
+<br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>

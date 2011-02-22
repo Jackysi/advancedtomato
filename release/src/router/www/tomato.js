@@ -2338,8 +2338,8 @@ function navi()
 			['View Details',	'detailed.asp'],
 			['Transfer Rates',	'ctrate.asp']
 			] ],
-		['IP/MAC BW Limiter',    		'new', 0, [
-                       ['IP/MAC BW Limit',     'qoslimit.asp'],
+		['BW Limiter/QoS',    		'new', 0, [
+                       ['BW Limit/QoS',         'qoslimit.asp'],
                        ['ARP Binding',         'arpbind.asp']
                        ] ],
 		['Access Restriction',	'restrict.asp'],
