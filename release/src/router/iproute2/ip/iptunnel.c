@@ -39,10 +39,16 @@ static void usage(void) __attribute__((noreturn));
 
 static void usage(void)
 {
+#ifdef NO_IPV6
+	fprintf(stderr, "Usage: ip tunnel { add | change | del | show } [ NAME ]\n");
+#else
 	fprintf(stderr, "Usage: ip tunnel { add | change | del | show | 6rd } [ NAME ]\n");
+#endif
 	fprintf(stderr, "          [ mode { ipip | gre | sit } ] [ remote ADDR ] [ local ADDR ]\n");
 	fprintf(stderr, "          [ [i|o]seq ] [ [i|o]key KEY ] [ [i|o]csum ]\n");
+#ifndef NO_IPV6
 	fprintf(stderr, "          [ 6rd-prefix ADDR ] [ 6rd-relay_prefix ADDR ] [ 6rd-reset ]\n");
+#endif
 	fprintf(stderr, "          [ ttl TTL ] [ tos TOS ] [ [no]pmtudisc ] [ dev PHYS_DEV ]\n");
 	fprintf(stderr, "\n");
 	fprintf(stderr, "Where: NAME := STRING\n");
@@ -293,13 +299,17 @@ static int do_del(int argc, char **argv)
 
 static void print_tunnel(struct ip_tunnel_parm *p)
 {
+#ifndef NO_IPV6
 	struct ip_tunnel_6rd ip6rd;
+#endif
 	char s1[1024];
 	char s2[1024];
 	char s3[64];
 	char s4[64];
 
+#ifndef NO_IPV6
 	memset(&ip6rd, 0, sizeof(ip6rd));
+#endif
 	inet_ntop(AF_INET, &p->i_key, s3, sizeof(s3));
 	inet_ntop(AF_INET, &p->o_key, s4, sizeof(s4));
 
@@ -336,6 +346,7 @@ static void print_tunnel(struct ip_tunnel_parm *p)
 	if (!(p->iph.frag_off&htons(IP_DF)))
 		printf(" nopmtudisc");
 
+#ifndef NO_IPV6
 	if (p->iph.protocol == IPPROTO_IPV6 && !tnl_ioctl_get_6rd(p->name, &ip6rd) && ip6rd.prefixlen) {
 		printf(" 6rd-prefix %s/%u ",
 		       inet_ntop(AF_INET6, &ip6rd.prefix, s1, sizeof(s1)),
@@ -346,6 +357,7 @@ static void print_tunnel(struct ip_tunnel_parm *p)
 			       ip6rd.relay_prefixlen);
 		}
 	}
+#endif
 
 	if ((p->i_flags&GRE_KEY) && (p->o_flags&GRE_KEY) && p->o_key == p->i_key)
 		printf(" key %s", s3);
@@ -463,6 +475,7 @@ static int do_show(int argc, char **argv)
 	return 0;
 }
 
+#ifndef NO_IPV6
 static int do_6rd(int argc, char **argv)
 {
 	struct ip_tunnel_6rd ip6rd;
@@ -508,6 +521,7 @@ static int do_6rd(int argc, char **argv)
 
 	return tnl_6rd_ioctl(cmd, medium, &ip6rd);
 }
+#endif
 
 int do_iptunnel(int argc, char **argv)
 {
@@ -517,6 +531,7 @@ int do_iptunnel(int argc, char **argv)
 		break;
 	case AF_INET:
 		break;
+#ifndef NO_IPV6
 	/*
 	 * This is silly enough but we have no easy way to make it
 	 * protocol-independent because of unarranged structure between
@@ -524,6 +539,7 @@ int do_iptunnel(int argc, char **argv)
 	 */
 	case AF_INET6:
 		return do_ip6tunnel(argc, argv);
+#endif
 	default:
 		fprintf(stderr, "Unsupported family:%d\n", preferred_family);
 		exit(-1);
@@ -540,8 +556,10 @@ int do_iptunnel(int argc, char **argv)
 		    matches(*argv, "lst") == 0 ||
 		    matches(*argv, "list") == 0)
 			return do_show(argc-1, argv+1);
+#ifndef NO_IPV6
 		if (matches(*argv, "6rd") == 0)
 			return do_6rd(argc-1, argv+1);
+#endif
 		if (matches(*argv, "help") == 0)
 			usage();
 	} else

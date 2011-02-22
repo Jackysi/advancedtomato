@@ -169,6 +169,7 @@ int tnl_del_ioctl(const char *basedev, const char *name, void *p)
 	return err;
 }
 
+#ifndef NO_IPV6
 static int tnl_gen_ioctl(int cmd, const char *name, void *p, int skiperr)
 {
 	struct ifreq ifr;
@@ -194,3 +195,4 @@ int tnl_ioctl_get_6rd(const char *name, void *p)
 {
 	return tnl_gen_ioctl(SIOCGET6RD, name, p, EINVAL);
 }
+#endif	// NO_IPV6

@@ -24,7 +24,9 @@
  * Author:
  *	Masahide NAKAMURA @USAGI
  */
- 
+
+#ifndef NO_IPV6
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -403,3 +405,5 @@ int do_ip6tunnel(int argc, char **argv)
 	fprintf(stderr, "Command \"%s\" is unknown, try \"ip -f inet6 tunnel help\".\n", *argv);
 	exit(-1);
 }
+
+#endif // NO_IPV6
