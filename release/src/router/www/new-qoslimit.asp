@@ -22,10 +22,10 @@
 	width: 100%;
 }
 #qosg-grid .co1 {
-	width: 10%;
+	width: 5%;
 }
 #qosg-grid .co2 {
-	width: 20%;
+	width: 25%;
 }
 #qosg-grid .co3,
 #qosg-grid .co4,
@@ -55,7 +55,7 @@ var qosg = new TomatoGrid();
 qosg.setup = function() {
 	this.init('qosg-grid', '', 40, [
 		{ type: 'text', maxlen: 2 },
-		{ type: 'text', maxlen: 15 },
+		{ type: 'text', maxlen: 31 },
 		{ type: 'text', maxlen: 6 },
 		{ type: 'text', maxlen: 6 },
 		{ type: 'text', maxlen: 6 },
@@ -63,7 +63,7 @@ qosg.setup = function() {
 		{ type: 'select', options: class_prio },
 		{ type: 'select', options: class_tcp },
 		{ type: 'select', options: class_udp }]);
-	this.headerSet(['TC Tag', 'IP Address', 'DLRate', 'DLCeil', 'ULRate', 'ULCeil', 'Priority', 'TCP Limit', 'UDP Limit']);
+	this.headerSet(['TC Tag', 'IP | IP Range | MAC Address', 'DLRate', 'DLCeil', 'ULRate', 'ULCeil', 'Priority', 'TCP Limit', 'UDP Limit']);
 	var qoslimitrules = nvram.new_qoslimit_rules.split('>');
 	for (var i = 0; i < qoslimitrules.length; ++i) {
 		var t = qoslimitrules[i].split('<');
@@ -148,14 +148,21 @@ qosg.verifyFields = function(row, quiet)
 			ok = 0;
 		}
 	}
-
+/*
 	if (v_ip(f[1], quiet)) {
 		if(this.existIP(f[1].value)) {
 			ferror.set(f[1], 'duplicate IP address', quiet);
 			ok = 0;
 		}
 	}
-
+*/
+	if(v_macip(f[1], quiet, 0, 0)) {
+		if(this.existIP(f[1].value)) {
+			ferror.set(f[1], 'duplicate IP address', quiet);
+			ok = 0;
+		}
+	}
+     
 	if( this.checkRate(f[2].value)) {
 		ferror.set(f[2], 'DLRate must between 1 and 99999', quiet);
 		ok = 0;
