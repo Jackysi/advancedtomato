@@ -69,34 +69,85 @@ void ipt_qoslimit(int chain)
 		if (!strcmp(dlceil,"")) strcpy(dlceil, dlrate);
 		if (strcmp(dlrate,"") && strcmp(dlceil, "")) {
 			if(chain == 1) {
-				ipt_write(
-				"-A POSTROUTING ! -s %s/%s -d %s -j MARK --set-mark %s\n"
-				,lanipaddr,lanmask,ipaddr,seq);
+				if (strlen(ipaddr) != 17 ) {
+					if (strchr(ipaddr, '-') != NULL) {
+						ipt_write(
+							"-A POSTROUTING ! -s %s/%s -m iprange --dst-range  %s -j MARK --set-mark %s\n"
+							,lanipaddr,lanmask,ipaddr,seq);
+					}
+					else {
+						ipt_write(
+							"-A POSTROUTING ! -s %s/%s -d %s -j MARK --set-mark %s\n"
+							,lanipaddr,lanmask,ipaddr,seq);
+					}
+				}
 			}
 		}
 		
 		if (!strcmp(ulceil,"")) strcpy(ulceil, dlrate);
 		if (strcmp(ulrate,"") && strcmp(ulceil, "")) {
 			if (chain == 1) {
-				ipt_write(
-					"-A PREROUTING -s %s ! -d %s/%s -j MARK --set-mark %s\n"
+				if (strlen(ipaddr) != 17 ) {
+					if (strchr(ipaddr, '-') != NULL) {
+						ipt_write(
+							"-A PREROUTING -m iprange --src-range %s ! -d %s/%s -j MARK --set-mark %s\n"
+							,ipaddr,lanipaddr,lanmask,seq);
+					}
+					else {
+						ipt_write(
+							"-A PREROUTING -s %s ! -d %s/%s -j MARK --set-mark %s\n"
+							,ipaddr,lanipaddr,lanmask,seq);
+					}
+				}
+				else if (strlen(ipaddr) == 17 ) {
+					ipt_write(
+					 "-A PREROUTING -m mac --mac-source %s ! -d %s/%s  -j MARK --set-mark %s\n"
 					,ipaddr,lanipaddr,lanmask,seq);
+				}
 			}
 		}
 		
-		// not sure if to use -I or -A but i am using -I as u can SEE!!!!
+		// not sure if to use -I or -A but i am using -A as u can SEE!!!!
 		if(atoi(tcplimit) > 0){
 			if (chain == 2) {
-				ipt_write(
-					"-A PREROUTING -s %s -p tcp --syn -m connlimit --connlimit-above %s -j DROP\n"
-					,ipaddr,tcplimit);
+				if (strlen(ipaddr) != 17 ) {
+					if (strchr(ipaddr, '-') != NULL) {
+						ipt_write(
+							"-A PREROUTING -m iprange --src-range %s -p tcp --syn -m connlimit --connlimit-above %s -j DROP\n"
+							,ipaddr,tcplimit);
+					}
+					else	{
+						ipt_write(
+							"-A PREROUTING -s %s -p tcp --syn -m connlimit --connlimit-above %s -j DROP\n"
+							,ipaddr,tcplimit);
+					}
+				}
+				else if (strlen(ipaddr) == 17 ) {
+					ipt_write(
+						"-A PREROUTING -m mac --mac-source %s -p tcp --syn -m connlimit --connlimit-above %s -j DROP\n"
+						,ipaddr,tcplimit);
+				}
 			}
 		}
 		if(atoi(udplimit) > 0){
 			if (chain == 2) {
-				ipt_write(
-					"-A PREROUTING -s %s -p udp -m limit --limit %s/sec -j ACCEPT\n"
-					,ipaddr,udplimit);
+				if (strlen(ipaddr) != 17 ) {
+					if (strchr(ipaddr, '-') != NULL) {
+						ipt_write(
+							"-A PREROUTING -m iprange --src-range %s -p udp -m limit --limit %s/sec -j ACCEPT\n"
+							,ipaddr,udplimit);
+					}
+					else	{
+						ipt_write(
+							"-A PREROUTING -s %s -p udp -m limit --limit %s/sec -j ACCEPT\n"
+							,ipaddr,udplimit);
+					}
+				}
+				else if (strlen(ipaddr) == 17 ) {
+					ipt_write(
+						"-A PREROUTING -m iprange --src-range %s -p udp -m limit --limit %s/sec -j ACCEPT\n"
+						,ipaddr,udplimit);
+				}
 			}
 		}
 	}
@@ -121,6 +172,7 @@ void new_qoslimit_start(void)
 	char *tcplimit,*udplimit;//tcp connection limit & udp packets per second
 	int priority_num;
 	int i;
+	int s[6];
 
 	//qos1 is enable
 	if (!nvram_get_int("new_qoslimit_enable")) return;
@@ -143,20 +195,32 @@ void new_qoslimit_start(void)
 		"\n"
 		"tc qdisc del dev imq0 root 2>/dev/null\n"
 		"tc qdisc del dev imq1 root 2>/dev/null\n"
+		"tc qdisc del dev br0 root 2>/dev/null\n" //fix me [why should mac get filter here??]
+		"\n"
+		"TCAM=\"tc class add dev br0\"\n" //fix me
+		"TFAM=\"tc filter add dev br0\"\n" //fix me
+		"TQAM=\"tc qdisc add dev br0\"\n" //fix me
 		"\n"
 		"TCA=\"tc class add dev imq1\"\n"
 		"TFA=\"tc filter add dev imq1\"\n"
 		"TQA=\"tc qdisc add dev imq1\"\n"
+		"\n"
 		"SFQ=\"sfq perturb 10\"\n"
+		"\n"
 		"TCAU=\"tc class add dev imq0\"\n"
 		"TFAU=\"tc filter add dev imq0\"\n"
 		"TQAU=\"tc qdisc add dev imq0\"\n"
 		"\n"
 		"tc qdisc add dev imq1 root handle 1: htb\n"
 		"tc class add dev imq1 parent 1: classid 1:1 htb rate %skbit\n"
+		"\n"
+		"tc qdisc add dev br0 root handle 1: htb\n"
+		"tc class add dev br0 parent 1: classid 1:1 htb rate %skbit\n"
+		"\n"
+		"\n"
 		"tc qdisc add dev imq0 root handle 1: htb\n"
 		"tc class add dev imq0 parent 1: classid 1:1 htb rate %skbit\n"
-		,ibw,obw
+		,ibw,ibw,obw
 	);
 	
 	while (g) {
@@ -173,14 +237,28 @@ void new_qoslimit_start(void)
 
 		if (!strcmp(dlceil,"")) strcpy(dlceil, dlrate);
 		if (strcmp(dlrate,"") && strcmp(dlceil, "")) {
-			fprintf(tc,
-				"$TCA parent 1:1 classid 1:%s htb rate %skbit ceil %skbit prio %s\n"
-				"$TQA parent 1:%s handle %s: $SFQ\n"
-				"$TFA parent 1:0 prio %s protocol ip handle %s fw flowid 1:%s\n"
-				"\n"
-				,seq,dlrate,dlceil,priority
-				,seq,seq
-				,priority,seq,seq);
+			if (strlen(ipaddr) != 17 ) {
+				fprintf(tc,
+					"$TCA parent 1:1 classid 1:%s htb rate %skbit ceil %skbit prio %s\n"
+					"$TQA parent 1:%s handle %s: $SFQ\n"
+					"$TFA parent 1:0 prio %s protocol ip handle %s fw flowid 1:%s\n"
+					"\n"
+					,seq,dlrate,dlceil,priority
+					,seq,seq
+					,priority,seq,seq);
+			}
+			else if (strlen(ipaddr) == 17 ) {
+				sscanf(ipaddr, "%02X:%02X:%02X:%02X:%02X:%02X",&s[0],&s[1],&s[2],&s[3],&s[4],&s[5]);
+				
+				fprintf(tc,
+					"$TCAM parent 1:1 classid 1:%s htb rate %skbit ceil %skbit prio %s\n"
+					"$TQAM parent 1:%s handle %s: $SFQ\n"
+					"$TFAM parent 1:0 protocol ip prio %s u32 match u16 0x0800 0xFFFF at -2 match u32 0x%02X%02X%02X%02X 0xFFFFFFFF at -12 match u16 0x%02X%02X 0xFFFF at -14 flowid 1:%s\n"
+					"\n"
+					,seq,dlrate,dlceil,priority
+					,seq,seq
+					,priority,s[2],s[3],s[4],s[5],s[0],s[1],seq);
+			}
 		}
 		
 		if (!strcmp(ulceil,"")) strcpy(ulceil, dlrate);
@@ -215,6 +293,7 @@ void new_qoslimit_stop(void)
 		"#!/bin/sh\n"
 		"tc qdisc del dev imq1 root\n"
 		"tc qdisc del dev imq0 root\n"
+		"tc qdisc del dev br0 root\n" //fix me
 		"\n"
 	);
 
