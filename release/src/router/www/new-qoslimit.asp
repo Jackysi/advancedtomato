@@ -41,7 +41,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-// <% nvram("new_qoslimit_enable,new_qoslimit_ibw,new_qoslimit_obw,new_qoslimit_rules"); %>
+// <% nvram("new_qoslimit_enable,qos_ibw,qos_obw,new_qoslimit_rules"); %>
 
 var class_prio = [['0','Highest'],['1','High'],['2','Normal'],['3','Low'],['4','Lowest']];
 var class_tcp = [['0','nolimit']];
@@ -158,7 +158,7 @@ qosg.verifyFields = function(row, quiet)
 */
 	if(v_macip(f[1], quiet, 0, 0)) {
 		if(this.existIP(f[1].value)) {
-			ferror.set(f[1], 'duplicate IP address', quiet);
+			ferror.set(f[1], 'duplicate MAC address', quiet);
 			ok = 0;
 		}
 	}
@@ -250,9 +250,9 @@ function init()
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Enable QoS Limit', name: 'f_new_qoslimit_enable', type: 'checkbox', value: nvram.new_qoslimit_enable != '0' },
-	{ title: 'Download Bandwidth', name: 'new_qoslimit_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.new_qoslimit_ibw },
-	{ title: 'Upload Bandwidth', name: 'new_qoslimit_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.new_qoslimit_obw }
+	{ title: 'Enable Limiter', name: 'f_new_qoslimit_enable', type: 'checkbox', value: nvram.new_qoslimit_enable != '0' },
+	{ title: 'Set Max Available Download Bandwidth <small>(also used for QOS)', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw },
+	{ title: 'Set Max Available Upload Bandwidth <small>(also used for QOS)', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw }
 ]);
 </script>
 <br>
