@@ -130,6 +130,7 @@ int ipdown_main(int argc, char **argv)
 		nvram_set("wan_gateway_get", nvram_safe_get("wan_gateway"));
 
 		// Set default route to gateway if specified
+		route_del(nvram_safe_get("wan_ifname"), 0, "0.0.0.0", nvram_safe_get("wan_gateway"), "0.0.0.0");
 		route_add(nvram_safe_get("wan_ifname"), 0, "0.0.0.0", nvram_safe_get("wan_gateway"), "0.0.0.0");
 	}
 

@@ -1351,6 +1351,10 @@ int start_firewall(void)
 			led(LED_DIAG, 1);
 		}
 	}
+	else {
+		eval("ip6tables", "-F");
+		eval("ip6tables", "-t", "mangle", "-F");
+	}
 #endif
 
 	if (nvram_get_int("upnp_enable") & 3) {

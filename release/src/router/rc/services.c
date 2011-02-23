@@ -45,8 +45,6 @@
 #include <mntent.h>
 #include <dirent.h>
 
-#define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
-
 // Pop an alarm to recheck pids in 500 msec.
 static const struct itimerval pop_tv = { {0,0}, {0, 500 * 1000} };
 

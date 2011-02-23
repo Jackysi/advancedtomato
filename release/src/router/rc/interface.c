@@ -37,8 +37,6 @@
 
 #include "rc.h"
 
-#define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
-
 int ifconfig(const char *name, int flags, const char *addr, const char *netmask)
 {
 	int s;
@@ -136,12 +134,14 @@ static int route_manip(int cmd, char *name, int metric, char *dst, char *gateway
 
 int route_add(char *name, int metric, char *dst, char *gateway, char *genmask)
 {
-	return route_manip(SIOCADDRT, name, metric, dst, gateway, genmask);
+	return route_manip(SIOCADDRT, name, metric + 1, dst, gateway, genmask);
 }
 
-int route_del(char *name, int metric, char *dst, char *gateway, char *genmask)
+void route_del(char *name, int metric, char *dst, char *gateway, char *genmask)
 {
-	return route_manip(SIOCDELRT, name, metric, dst, gateway, genmask);
+	while (route_manip(SIOCDELRT, name, metric + 1, dst, gateway, genmask) == 0) {
+		//
+	}
 }
 
 /* configure loopback interface */
