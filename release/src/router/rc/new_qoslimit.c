@@ -39,8 +39,8 @@ void ipt_qoslimit(int chain)
 	//read qos1rules from nvram
 	g = buf = strdup(nvram_safe_get("new_qoslimit_rules"));
 
-	ibw = nvram_safe_get("new_qoslimit_ibw");
-	obw = nvram_safe_get("new_qoslimit_obw");
+	ibw = nvram_safe_get("qos_ibw");  // Read from QOS setting - KRP
+	obw = nvram_safe_get("qos_obw");  // Read from QOS setting - KRP
 	
 	lanipaddr = nvram_safe_get("lan_ipaddr");
 	lanmask = nvram_safe_get("lan_netmask");
@@ -180,8 +180,8 @@ void new_qoslimit_start(void)
 	//read qos1rules from nvram
 	g = buf = strdup(nvram_safe_get("new_qoslimit_rules"));
 
-	ibw = nvram_safe_get("new_qoslimit_ibw");
-	obw = nvram_safe_get("new_qoslimit_obw");
+	ibw = nvram_safe_get("qos_ibw");  // Read from QOS setting - KRP
+	obw = nvram_safe_get("qos_obw");  // Read from QOS setting - KRP
 	
 	lanipaddr = nvram_safe_get("lan_ipaddr");
 	lanmask = nvram_safe_get("lan_netmask");
