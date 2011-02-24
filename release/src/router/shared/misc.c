@@ -313,21 +313,20 @@ const wanface_list_t *get_wanfaces(void)
 {
 	static wanface_list_t wanfaces;
 	char *ip, *iface;
-	int defgw, proto;
+	int proto;
 
 	wanfaces.count = 0;
 
 	switch ((proto = get_wan_proto())) {
 		case WP_PPTP:
 		case WP_L2TP:
-			defgw = nvram_get_int("ppp_defgw");
 			while (wanfaces.count < 2) {
-				if ((defgw && wanfaces.count == 0) || (!defgw && wanfaces.count == 1)) {
+				if (wanfaces.count == 0) {
 					ip = nvram_safe_get("ppp_get_ip");
 					iface = nvram_safe_get("wan_iface");
 					if (!(*iface)) iface = "ppp+";
 				}
-				else /* if ((!defgw && wanfaces.count == 0) || (defgw && wanfaces.count == 1)) */ {
+				else /* if (wanfaces.count == 1) */ {
 					ip = nvram_safe_get("wan_ipaddr");
 					if ((!(*ip) || strcmp(ip, "0.0.0.0") == 0) && (wanfaces.count > 0))
 						iface = "";

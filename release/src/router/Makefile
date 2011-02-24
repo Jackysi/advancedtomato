@@ -126,6 +126,16 @@ obj-$(TCONFIG_EMF) += igs
 obj-$(CONFIG_LINUX26) += hotplug2
 obj-$(CONFIG_LINUX26) += udev
 
+ifeq ($(TCONFIG_OPENVPN),y)
+  export FULL_OPENSSL := y
+else
+  ifeq ($(TCONFIG_FTP_SSL),y)
+    export FULL_OPENSSL := y
+  else
+    FULL_OPENSSL :=
+  endif
+endif
+
 obj-clean := $(foreach obj, $(obj-y) $(obj-n) $(obj-), $(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 
@@ -450,6 +460,8 @@ libc:	$(LIBDIR)/ld-uClibc.so.0
 
 clean: clean-build $(obj-clean)
 	rm -rf layer7/squished
+	rm -f .ipv6-y .ipv6-n
+	rm -f .fullssl-y .fullssl-n
 	make -C config clean
 
 clean-build: dummy
@@ -481,8 +493,7 @@ rmconf: config/mconf
 
 roldconf: config/conf
 	@config/conf -o $(CONFIG_IN)
-	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean prebuilt-clean libbcmcrypto-clean vsftpd-clean
-	@$(MAKE) iptables-clean ebtables-clean pppd-clean zebra-clean openssl-clean mssl-clean mdu-clean dnsmasq-clean dhcpv6-clean
+	@$(MAKE) shared-clean rc-clean nvram-clean httpd-clean prebuilt-clean libbcmcrypto-clean dhcpv6-clean
 
 kconf:
 	@$(MAKE) -C $(LINUXDIR) config
@@ -501,7 +512,19 @@ config conf: rconf kconf
 
 menuconfig mconf: rmconf kmconf
 
-oldconfig oldconf: koldconf roldconf bboldconf
+.ipv6-y .ipv6-n:
+	@rm -f .ipv6-y .ipv6-n
+	@$(MAKE) iptables-clean ebtables-clean pppd-clean zebra-clean dnsmasq-clean iproute2-clean
+	@touch $@
+
+.fullssl-y .fullssl-n:
+	@rm -f .fullssl-y .fullssl-n
+	@$(MAKE) openssl-clean vsftpd-clean mssl-clean mdu-clean httpd-clean
+	@touch $@
+
+dependconf: .ipv6-$(if $(TCONFIG_IPV6),y,n) .fullssl-$(if $(FULL_OPENSSL),y,n)
+
+oldconfig oldconf: koldconf roldconf dependconf bboldconf
 
 
 #
@@ -561,7 +584,7 @@ cyassl-clean:
 cyassl-install:
 	@true
 
-ifeq ($(TCONFIG_OPENVPN),y)
+ifeq ($(FULL_OPENSSL),y)
 OPENSSL_CIPHERS:=enable-rc5
 else
 OPENSSL_CIPHERS:=no-dh no-idea no-rc2 no-rc5 no-aes no-aes192 no-cast no-des no-modes no-tls1 no-tlsext
@@ -601,20 +624,13 @@ openssl-install: openssl
 #	perl -e 'while (<>) { s/.SECS/time()-(24*60*60)/e; print; }' < httpd/gencert.sh > $(INSTALLDIR)/openssl/usr/sbin/gencert.sh
 #	chmod 0500 $(INSTALLDIR)/openssl/usr/sbin/gencert.sh
 
-ifeq ($(TCONFIG_FTP_SSL),y)
-# !!TB
+ifeq ($(FULL_OPENSSL),y)
 	install -D openssl/libssl.so.1.0.0 $(INSTALLDIR)/openssl/usr/lib/libssl.so.1.0.0
 	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so.1.0.0
 	cd $(INSTALLDIR)/openssl/usr/lib && ln -sf libssl.so.1.0.0 libssl.so
 endif
 
-ifeq ($(TCONFIG_OPENVPN),y)
-	install -D openssl/libssl.so.1.0.0 $(INSTALLDIR)/openssl/usr/lib/libssl.so.1.0.0
-	$(STRIP) $(INSTALLDIR)/openssl/usr/lib/libssl.so.1.0.0
-	cd $(INSTALLDIR)/openssl/usr/lib && ln -sf libssl.so.1.0.0 libssl.so
-endif
-
-mssl:	$(if $(TCONFIG_OPENVPN),openssl,cyassl)
+mssl:	$(if $(FULL_OPENSSL),openssl,cyassl)
 
 mdu:	shared mssl
 
@@ -719,7 +735,7 @@ miniupnpd-install:
 # !!TB
 shared: busybox
 
-vsftpd: openssl
+vsftpd: $(if $(TCONFIG_FTP_SSL),openssl,)
 	@$(SEP)
 	$(MAKE) -C vsftpd
 
@@ -970,7 +986,7 @@ libbcm-install:
 
 iproute2:
 	@$(SEP)
-	@$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="$(EXTRACFLAGS)"
+	@$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="$(EXTRACFLAGS) $(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6)"
 	
 iproute2-install: iproute2
 	install -D iproute2/tc/tc $(INSTALLDIR)/iproute2/usr/sbin/tc
@@ -1329,7 +1345,7 @@ lzo-install: lzo
 	cd $(INSTALLDIR)/lzo/usr/lib && ln -sf liblzo2.so.2 liblzo2.so
 
 
-openvpn: openvpn/.conf
+openvpn: openvpn/.conf openssl lzo
 
 openvpn/.conf:
 	cd openvpn && CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \

@@ -524,7 +524,6 @@ static const nvset_t nvset_list[] = {
 	{ "l2tp_server_ip",		V_LENGTH(0, 128)		},
 	{ "pptp_server_ip",		V_LENGTH(0, 128)		},
 	{ "pptp_dhcp",			V_01				},
-	{ "ppp_defgw",			V_01				},
 	{ "ppp_username",		V_LENGTH(0, 60)		},
 	{ "ppp_passwd",			V_LENGTH(0, 60)		},
 	{ "ppp_service",		V_LENGTH(0, 50)		},

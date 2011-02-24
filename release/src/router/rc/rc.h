@@ -86,6 +86,8 @@ typedef enum { IPT_TABLE_NAT, IPT_TABLE_FILTER, IPT_TABLE_MANGLE } ipt_table_t;
 
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 
+#define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
+
 #define IPT_V4	0x01
 #define IPT_V6	0x02
 #define IPT_ANY_AF	(IPT_V4 | IPT_V6)
@@ -99,7 +101,7 @@ extern int console_main(int argc, char *argv[]);
 // interface.c
 extern int ifconfig(const char *ifname, int flags, const char *addr, const char *netmask);
 extern int route_add(char *name, int metric, char *dst, char *gateway, char *genmask);
-extern int route_del(char *name, int metric, char *dst, char *gateway, char *genmask);
+extern void route_del(char *name, int metric, char *dst, char *gateway, char *genmask);
 extern void config_loopback(void);
 extern int start_vlan(void);
 extern int stop_vlan(void);
