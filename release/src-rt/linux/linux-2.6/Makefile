@@ -310,7 +310,10 @@ LINUXINCLUDE    := -Iinclude \
 CPPFLAGS        := -D__KERNEL__ $(LINUXINCLUDE)
 
 CFLAGS          := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
-                   -fno-strict-aliasing -fno-common
+                   -fno-strict-aliasing -fno-common \
+		   -Werror-implicit-function-declaration \
+		   -Wno-format-security \
+		   -fno-delete-null-pointer-checks
 AFLAGS          := -D__ASSEMBLY__
 
 
@@ -531,6 +534,12 @@ CFLAGS += $(call cc-option,-Wdeclaration-after-statement,)
 
 # disable pointer signed / unsigned warnings in gcc 4.0
 CFLAGS += $(call cc-option,-Wno-pointer-sign,)
+
+# disable invalid "can't wrap" optimizations for signed / pointers
+CFLAGS	+= $(call cc-option,-fno-strict-overflow)
+
+# revert to pre-gcc-4.4 behaviour of .eh_frame
+CFLAGS	+= $(call cc-option,-fno-dwarf2-cfi-asm)
 
 ifdef CONFIG_BCM_CTF
 CFLAGS += -DHNDCTF -DCTFPOOL
