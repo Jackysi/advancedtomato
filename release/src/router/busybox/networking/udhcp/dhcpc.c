@@ -45,6 +45,9 @@ static const uint8_t len_of_option_as_string[] = {
 	[OPTION_IP              ] = sizeof("255.255.255.255 "),
 	[OPTION_IP_PAIR         ] = sizeof("255.255.255.255 ") * 2,
 	[OPTION_STATIC_ROUTES   ] = sizeof("255.255.255.255/32 255.255.255.255 "),
+#if ENABLE_FEATURE_UDHCP_RFC5969
+	[OPTION_6RD             ] = sizeof("32 128 FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF 255.255.255.255 "),
+#endif
 	[OPTION_STRING          ] = 1,
 #if ENABLE_FEATURE_UDHCP_RFC3397
 	[OPTION_DNS_STRING      ] = 1, /* unused */
@@ -67,6 +70,25 @@ static int sprint_nip(char *dest, const char *pre, const uint8_t *ip)
 {
 	return sprintf(dest, "%s%u.%u.%u.%u", pre, ip[0], ip[1], ip[2], ip[3]);
 }
+
+#if ENABLE_FEATURE_UDHCP_RFC5969
+static int sprint_nip6(char *dest, const char *pre, const uint8_t *ip)
+{
+	int len = 0;
+	int off;
+	uint16_t word;
+
+	len += sprintf(dest, "%s", pre);
+
+	for (off = 0; off < 16; off += 2)
+	{
+		move_from_unaligned16(word, &ip[off]);
+		len += sprintf(dest+len, "%s%04X", off ? ":" : "", htons(word));
+	}
+
+	return len;
+}
+#endif
 
 /* really simple implementation, just count the bits */
 static int mton(uint32_t mask)
@@ -213,6 +235,71 @@ static NOINLINE char *xmalloc_optname_optval(uint8_t *option, const struct dhcp_
 					option += 4;
 				}
 			}
+			return ret;
+#endif
+#if ENABLE_FEATURE_UDHCP_RFC5969
+		case OPTION_6RD:
+			/* Option binary format:
+			 *  0                   1                   2                   3
+			 *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+			 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			 *  |  OPTION_6RD   | option-length |  IPv4MaskLen  |  6rdPrefixLen |
+			 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			 *  |                                                               |
+			 *  |                           6rdPrefix                           |
+			 *  |                          (16 octets)                          |
+			 *  |                                                               |
+			 *  |                                                               |
+			 *  |                                                               |
+			 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			 *  |                     6rdBRIPv4Address(es)                      |
+			 *  .                                                               .
+			 *  .                                                               .
+			 *  .                                                               .
+			 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			 *
+			 * We convert it to a string "IPv4MaskLen 6rdPrefixLen 6rdPrefix 6rdBRIPv4Address"
+			 */
+
+			/* Sanity check: ensure that our length is at least 22 bytes, that
+			 * IPv4MaskLen is <= 32, 6rdPrefixLen <= 128 and that the sum of
+			 * (32 - IPv4MaskLen) + 6rdPrefixLen is less than or equal to 128.
+			 * If any of these requirements is not fulfilled, return with empty
+			 * value.
+			 */
+			if ((len >= 22) && (*option <= 32) && (*(option+1) <= 128) &&
+			    (((32 - *option) + *(option+1)) <= 128))
+			{
+				/* IPv4MaskLen */
+				dest += sprintf(dest, "%u ", *option++);
+				len--;
+
+				/* 6rdPrefixLen */
+				dest += sprintf(dest, "%u ", *option++);
+				len--;
+
+				/* 6rdPrefix */
+				dest += sprint_nip6(dest, "", option);
+				option += 16;
+				len -= 16;
+
+				/* 6rdBRIPv4Addresses */
+				while (len >= 4)
+				{
+					dest += sprint_nip(dest, " ", option);
+					option += 4;
+					len -= 4;
+
+					/* the code to determine the option size fails to work with
+					 * lengths that are not a multiple of the minimum length,
+					 * adding all advertised 6rdBRIPv4Addresses here would
+					 * overflow the destination buffer, therefore skip the rest
+					 * for now
+					 */
+					break;
+				}
+			}
+
 			return ret;
 #endif
 		} /* switch */

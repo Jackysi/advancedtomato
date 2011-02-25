@@ -2752,7 +2752,7 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 		 * on the parent.
 		 */
 		if (udev->descriptor.bDeviceClass == USB_CLASS_HUB
-				&& udev->bus_mA <= 100) {
+				&& udev->bus_mA < 100) {
 			u16	devstat;
 
 			status = usb_get_status(udev, USB_RECIP_DEVICE, 0,
