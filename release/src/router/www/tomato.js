@@ -2371,6 +2371,9 @@ REMOVE-END */
 /* MEDIA-SRV-BEGIN */
 			,['Media Server',	'media.asp']
 /* MEDIA-SRV-END */
+/* BT-BEGIN */
+			,['BitTorrent Client',	'bittorrent.asp']
+/* BT-END */
 			] ],
 /* USB-END */
 /* VPN-BEGIN */

@@ -796,6 +796,34 @@ const defaults_t defaults[] = {
 	{ "vpn_client2_key",      ""              },
 #endif	// vpn
 
+
+#ifdef TCONFIG_BT
+// nas-transmission
+	{ "bt_enable",				"0"			},
+	{ "bt_custom",				""			},
+	{ "bt_port",				"51515"			},
+	{ "bt_dir",				"/mnt"			},
+	{ "bt_incomplete",			"1"			},
+	{ "bt_settings",			"down_dir"		},
+	{ "bt_rpc_enable",			"1"			},
+	{ "bt_rpc_wan",				"0"			},
+	{ "bt_login",				"admin"			},
+	{ "bt_password",			"admin11"		},
+	{ "bt_port_gui",			"9091"			},
+	{ "bt_dl_enable",			"0"			},
+	{ "bt_ul_enable",			"0"			},
+	{ "bt_dl",				"248"			},
+	{ "bt_ul",				"64"			},
+	{ "bt_peer_limit_global",		"150"			},
+	{ "bt_peer_limit_per_torrent",		"30"			},
+	{ "bt_ul_slot_per_torrent",		"10"			},
+	{ "bt_ratio_enable",			"0"			},
+	{ "bt_ratio",				"1.0000"		},
+	{ "bt_dht",				"0"			},
+	{ "bt_pex",				"0"			},
+#endif
+
+
 #if 0
 // safe to remove?
 	{ "QoS",					"0"			},

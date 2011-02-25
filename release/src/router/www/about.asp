@@ -110,7 +110,15 @@ Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br><br>
 <!-- VPN-END -->
-
+<b>
+<!-- BT-BEGIN -->
+"Transmission 2.13 integration and GUI<br>
+Copyright (C) 2007-2011 Michał Rupental, Vicente Soriano. <br>
+<a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
+<a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
+<!-- BT-END -->
+<br>
+<br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>

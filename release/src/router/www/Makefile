@@ -123,6 +123,12 @@ endif
 # Only include CTF option if CTF module exists
 	test -d $(SRCBASE)/ctf/linux || sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
 
+# Only include the Transmission pages if Transmission is configured in.
+ifneq ($(TCONFIG_BT),y)
+	rm -f $(INSTALLDIR)/www/nas-bittorrent.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/BT-BEGIN/,/BT-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/BT-BEGIN/,/BT-END/d"
+endif
 
 ifeq ($(TOMATO_EXPERIMENTAL),1)
 	cd $(INSTALLDIR)/www && \
@@ -165,6 +171,7 @@ endif
 		-e "/AES-BEGIN/d"	-e "/AES-END/d" \
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
 		-e "/CTF-BEGIN/d"	-e "/CTF-END/d" \
+		-e "/BT-BEGIN/d"	-e "/BT-END/d" \
 		|| true; \
 	done
 
