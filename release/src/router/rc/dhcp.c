@@ -107,9 +107,6 @@ static int deconfig(char *ifname)
 {
 	TRACE_PT("begin\n");
 
-	int wan_proto;
-
-	wan_proto = get_wan_proto();
 	ifconfig(ifname, IFUP, "0.0.0.0", NULL);
 
 	if (using_dhcpc()) {
@@ -121,14 +118,13 @@ static int deconfig(char *ifname)
 	nvram_set("wan_routes2", "");
 	expires(0);
 
-	if (wan_proto == WP_DHCP) {
+	if (get_wan_proto() == WP_DHCP) {
 		nvram_set("wan_netmask", "0.0.0.0");
 		nvram_set("wan_gateway_get", "0.0.0.0");
 		nvram_set("wan_get_dns", "");
 	}
 
-	//	int i = 10;
-	//	while ((route_del(ifname, 0, NULL, NULL, NULL) == 0) && (i-- > 0)) { }
+	//	route_del(ifname, 0, NULL, NULL, NULL);
 
 	TRACE_PT("end\n");
 	return 0;

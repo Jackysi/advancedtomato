@@ -41,7 +41,6 @@
 #include <asm/traps.h>
 #include <asm/uaccess.h>
 #include <asm/mmu_context.h>
-#include <asm/watch.h>
 #include <asm/types.h>
 #include <asm/stacktrace.h>
 
@@ -348,8 +347,8 @@ NORET_TYPE void ATTRIB_NORET die(const char * str, struct pt_regs * regs)
 	do_exit(SIGSEGV);
 }
 
-extern const struct exception_table_entry __start___dbe_table[];
-extern const struct exception_table_entry __stop___dbe_table[];
+extern struct exception_table_entry __start___dbe_table[];
+extern struct exception_table_entry __stop___dbe_table[];
 
 __asm__(
 "	.section	__dbe_table, \"a\"\n"
@@ -1578,4 +1577,6 @@ void __init trap_init(void)
 
 	flush_icache_range(ebase, ebase + 0x400);
 	flush_tlb_handlers();
+
+	sort_extable(__start___dbe_table, __stop___dbe_table);
 }

@@ -70,8 +70,6 @@ typedef u_int8_t u8;
 #include <etsockio.h>
 #endif
 
-#define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
-
 static void set_lan_hostname(const char *wan_hostname)
 {
 	const char *s;
@@ -632,12 +630,12 @@ void do_static_routes(int add)
 				       ((*ifname == 'W') ? "wan_iface" : "wan_ifname"));
 		if (add) {
 			for (r = 3; r >= 0; --r) {
-				if (route_add(ifname, atoi(metric) + 1, dest, gateway, mask) == 0) break;
+				if (route_add(ifname, atoi(metric), dest, gateway, mask) == 0) break;
 				sleep(1);
 			}
 		}
 		else {
-			route_del(ifname, atoi(metric) + 1, dest, gateway, mask);
+			route_del(ifname, atoi(metric), dest, gateway, mask);
 		}
 	}
 	free(buf);

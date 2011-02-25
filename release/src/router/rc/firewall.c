@@ -58,6 +58,7 @@ FILE *ipt_file;
 const char ip6t_fname[] = "/etc/ip6tables";
 FILE *ip6t_file;
 
+// RFC-4890, sec. 4.3.1
 const int allowed_icmpv6[] = { 1, 2, 3, 4, 128, 129 };
 #endif
 
@@ -939,6 +940,12 @@ static void filter6_input(void)
 	int n;	
 	char *p, *c;
 
+	// RFC-4890, sec. 4.4.1
+	const int allowed_local_icmpv6[] =
+		{ 130, 131, 132, 133, 134, 135, 136,
+		  141, 142, 143,
+		  148, 149, 151, 152, 153 };
+
 	ip6t_write(
 		"-A INPUT -m rt --rt-type 0 -j %s\n"
 		/* "-A INPUT -m state --state INVALID -j %s\n" */
@@ -1006,6 +1013,9 @@ static void filter6_input(void)
 	// ICMPv6 rules
 	for (n = 0; n < sizeof(allowed_icmpv6)/sizeof(int); n++) {
 		ip6t_write("-A INPUT -p ipv6-icmp --icmpv6-type %i -j %s\n", allowed_icmpv6[n], chain_in_accept);
+	}
+	for (n = 0; n < sizeof(allowed_local_icmpv6)/sizeof(int); n++) {
+		ip6t_write("-A INPUT -p ipv6-icmp --icmpv6-type %i -j %s\n", allowed_local_icmpv6[n], chain_in_accept);
 	}
 
 	// Remote Managment
@@ -1340,6 +1350,10 @@ int start_firewall(void)
 			syslog(LOG_CRIT, "Error while loading rules. See %s file.", s);
 			led(LED_DIAG, 1);
 		}
+	}
+	else {
+		eval("ip6tables", "-F");
+		eval("ip6tables", "-t", "mangle", "-F");
 	}
 #endif
 

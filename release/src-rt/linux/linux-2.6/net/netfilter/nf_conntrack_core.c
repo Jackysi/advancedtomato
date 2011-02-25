@@ -1021,6 +1021,12 @@ int nf_ct_invert_tuplepr(struct nf_conntrack_tuple *inverse,
 }
 EXPORT_SYMBOL_GPL(nf_ct_invert_tuplepr);
 
+static const u8 expecting_none[NF_CT_MAX_EXPECT_CLASSES] = { 0 };
+static inline int nfct_help_expecting(struct nf_conn_help *help)
+{
+	return (memcmp(&(help->expecting), &expecting_none, sizeof(help->expecting)) != 0);
+}
+
 /* Alter reply tuple (maybe alter helper).  This is for NAT, and is
    implicitly racy: see __nf_conntrack_confirm */
 void nf_conntrack_alter_reply(struct nf_conn *ct,
@@ -1036,7 +1042,7 @@ void nf_conntrack_alter_reply(struct nf_conn *ct,
 	NF_CT_DUMP_TUPLE(newreply);
 
 	ct->tuplehash[IP_CT_DIR_REPLY].tuple = *newreply;
-	if (!ct->master && help && help->expecting == 0) {
+	if (!ct->master && help && nfct_help_expecting(help) == 0) {
 		struct nf_conntrack_helper *helper;
 		helper = __nf_ct_helper_find(newreply);
 		if (helper)

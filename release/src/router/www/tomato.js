@@ -567,7 +567,7 @@ function _v_iptip(e, ip, quiet)
 		a = fixIP(RegExp.$1);
 		b = fixIP(RegExp.$2);
 		if ((a == null) || (b == null)) {
-			ferror.set(e, 'Invalid IP address range - ' + oip, quiet);
+			ferror.set(e, oip + ' - invalid IP address range', quiet);
 			return null;
 		}
 		ferror.clear(e);
@@ -588,13 +588,13 @@ function _v_iptip(e, ip, quiet)
 		if (isNaN(ma)) {
 			ma = fixIP(b);
 			if ((ma == null) || (!_v_netmask(ma))) {
-				ferror.set(e, 'Invalid netmask - ' + oip, quiet);
+				ferror.set(e, oip + ' - invalid netmask', quiet);
 				return null;
 			}
 		}
 		else {
 			if ((ma < 0) || (ma > 32)) {
-				ferror.set(e, 'Invalid netmask - ' + oip, quiet);
+				ferror.set(e, oip + ' - invalid netmask', quiet);
 				return null;
 			}
 		}
@@ -602,7 +602,7 @@ function _v_iptip(e, ip, quiet)
 
 	ip = fixIP(ip);
 	if (!ip) {
-		ferror.set(e, 'Invalid IP address - ' + oip, quiet);
+		ferror.set(e, oip + ' - invalid IP address', quiet);
 		return null;
 	}
 
@@ -641,9 +641,9 @@ function _v_domain(e, dom, quiet)
 
 	s = dom.replace(/\s+/g, ' ').trim();
 	if (s.length > 0) {
-		if ((s.search(/^[a-zA-Z0-9][.a-zA-Z0-9_\- ]+$/) == -1) ||
-		    (s.search(/\-$/) >= 0)) {
-			ferror.set(e, "Invalid name. Only characters \"A-Z 0-9 . - _\" are allowed.", quiet);
+		s = _v_hostname(e, s, 1, 1, 7, '.');
+		if (s == null) {
+			ferror.set(e, "Invalid name. Only characters \"A-Z 0-9 . -\" are allowed.", quiet);
 			return null;
 		}
 	}
@@ -758,7 +758,7 @@ function _v_ipv6_addr(e, ip, ipt, quiet)
 		a = CompressIPv6Address(RegExp.$1);
 		b = CompressIPv6Address(RegExp.$2);
 		if ((a == null) || (b == null)) {
-			ferror.set(e, 'Invalid IPv6 address range - ' + oip, quiet);
+			ferror.set(e, oip + ' - invalid IPv6 address range', quiet);
 			return null;
 		}
 		ferror.clear(e);
@@ -769,7 +769,7 @@ function _v_ipv6_addr(e, ip, ipt, quiet)
 
 	ip = CompressIPv6Address(oip);
 	if (!ip) {
-		ferror.set(e, 'Invalid IPv6 address - ' + oip, quiet);
+		ferror.set(e, oip + ' - invalid IPv6 address', quiet);
 		return null;
 	}
 
@@ -1030,45 +1030,56 @@ function v_iptaddr(e, quiet, multi)
 	return _v_iptaddr(e, quiet, multi, 1, 0);
 }
 
-function v_hostname(e, quiet, multi, delim)
+function _v_hostname(e, h, quiet, required, multi, delim)
 {
 	var s;
 	var v, i;
 
-	if ((e = E(e)) == null) return 0;
-	v = (typeof(delim) == 'undefined') ? e.value.split(/\s+/) : e.value.split(delim);
+	v = (typeof(delim) == 'undefined') ? h.split(/\s+/) : h.split(delim);
 
 	if (multi) {
 		if (v.length > multi) {
 			ferror.set(e, 'Too many hostnames.', quiet);
-			return 0;
+			return null;
 		}
 	}
 	else {
 		if (v.length > 1) {
 			ferror.set(e, 'Invalid hostname.', quiet);
-			return 0;
+			return null;
 		}
 	}
 
 	for (i = 0; i < v.length; ++i) {
-		s = v[i].replace(/\s+/g, '_');
+		s = v[i].replace(/_+/g, '-').replace(/\s+/g, '-');
 		if (s.length > 0) {
-			if (s.length > 63) {
-				ferror.set(e, 'Hostname length should not exceed 63 characters.', quiet);
-				return 0;
+			if (!s.match(/^[a-zA-Z0-9](([a-zA-Z0-9\-]{0,61})[a-zA-Z0-9]){0,1}$/) ||
+			    s.match(/^\d+$/)) {
+				ferror.set(e, 'Invalid hostname. Only "A-Z 0-9" and "-" in the middle are allowed (up to 63 characters).', quiet);
+				return null;
 			}
-			if ((s.search(/^[a-zA-Z0-9][a-zA-Z0-9_\-]+$/) == -1) ||
-			    (s.search(/\-$/) >= 0)) {
-				ferror.set(e, 'Invalid hostname. Only characters "A-Z 0-9 _" and "-" in the middle are allowed.', quiet);
-				return 0;
-			}
+		} else if (required) {
+			ferror.set(e, 'Invalid hostname.', quiet);
+			return null;
 		}
 		v[i] = s;
 	}
-	e.value = v.join(' ');
 
 	ferror.clear(e);
+	return v.join((typeof(delim) == 'undefined') ? ' ' : delim);
+}
+
+function v_hostname(e, quiet, multi, delim)
+{
+	var v;
+
+	if ((e = E(e)) == null) return 0;
+
+	v = _v_hostname(e, e.value, quiet, 0, multi, delim);
+
+	if (v == null) return 0;
+
+	e.value = v;
 	return 1;
 }
 

@@ -1,7 +1,9 @@
+/* $Id: ipfwrdr.c,v 1.4 2011/02/20 23:43:41 nanard Exp $ */
 /*
  * MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2009 Jardel Weyrich
+ * (c) 2011 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution
  */
@@ -286,3 +288,59 @@ error:
 		ipfw_free_ruleset(&rules);	
 	return -1;	
 }
+
+/* upnp_get_portmappings_in_range()
+ * return a list of all "external" ports for which a port
+ * mapping exists */
+unsigned short *
+get_portmappings_in_range(unsigned short startport,
+                          unsigned short endport,
+                          int proto,
+                          unsigned int * number)
+{
+	unsigned short * array = NULL;
+	unsigned int capacity = 128;
+	int i, count_rules, total_rules = 0;
+	struct ip_fw * rules = NULL;
+	
+	if (ipfw_validate_protocol(proto) < 0)
+		return NULL;
+	
+	do {
+		count_rules = ipfw_fetch_ruleset(&rules, &total_rules, 10);
+		if (count_rules < 0)
+			goto error;
+	} while (count_rules == 10);
+	
+	array = calloc(capacity, sizeof(unsigned short));
+	if(!array) {
+		syslog(LOG_ERR, "get_portmappings_in_range() : calloc error");
+                goto error;
+	}
+	*number = 0;
+
+	for (i=0; i<total_rules-1; i++) {
+		const struct ip_fw const * ptr = &rules[i];
+		unsigned short eport = ptr->fw_uar.fw_pts[0];
+		if (proto == ptr->fw_prot
+		    && startport <= eport
+		    && eport <= endport) {
+			if(*number >= capacity) {
+				capacity += 128;
+				array = realloc(array, sizeof(unsigned short)*capacity);
+				if(!array) {
+					syslog(LOG_ERR, "get_portmappings_in_range() : realloc(%lu) error", sizeof(unsigned short)*capacity);
+					*number = 0;
+					goto error;
+				}
+			}
+			array[*number] = eport;
+			(*number)++;
+		}
+	}
+error:
+	if (rules != NULL)
+		ipfw_free_ruleset(&rules);	
+	return array;
+}
+

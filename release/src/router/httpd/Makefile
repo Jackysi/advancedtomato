@@ -14,7 +14,7 @@ endif
 LIBS = -L$(TOP)/nvram -lnvram -L$(TOP)/shared -lshared
 LIBS += -L$(TOP)/mssl -lmssl
 
-ifeq ($(TCONFIG_OPENVPN),y)
+ifeq ($(FULL_OPENSSL),y)
 LIBS += -L$(TOP)/openssl -lssl -lcrypto
 endif
 

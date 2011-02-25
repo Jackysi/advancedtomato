@@ -3,11 +3,6 @@
 
 #include <linux/types.h>
 
-#ifdef __KERNEL__
-#include <linux/ip.h>
-#include <linux/in6.h>
-#endif
-
 #define SIOCGETTUNNEL   (SIOCDEVPRIVATE + 0)
 #define SIOCADDTUNNEL   (SIOCDEVPRIVATE + 1)
 #define SIOCDELTUNNEL   (SIOCDEVPRIVATE + 2)
@@ -25,6 +20,9 @@
 #define GRE_REC		__constant_htons(0x0700)
 #define GRE_FLAGS	__constant_htons(0x00F8)
 #define GRE_VERSION	__constant_htons(0x0007)
+
+/* i_flags values for SIT mode */
+#define	SIT_ISATAP	0x0001
 
 struct ip_tunnel_parm
 {

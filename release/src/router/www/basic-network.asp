@@ -23,7 +23,7 @@
 <script type='text/javascript' src='md5.js'></script>
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,ppp_defgw,wl_security_mode,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype"); %>
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,wl_security_mode,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype"); %>
 
 W('<style type=\'text/css\'>');
 for (var u = 0; u < wl_ifaces.length; ++u) {
@@ -368,7 +368,6 @@ function verifyFields(focused, quiet)
 		_wan_gateway: 1,
 		_pptp_server_ip: 1,
 		_f_pptp_dhcp: 1,
-		_f_ppp_defgw: 1,
 		_ppp_demand: 1,
 		_ppp_idletime: 1,
 		_ppp_redialperiod: 1,
@@ -455,7 +454,6 @@ function verifyFields(focused, quiet)
 		vis._wan_gateway = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
-		vis._f_ppp_defgw = 0;
 		vis._ppp_demand = 0;
 		vis._mtu_enable = 0;
 		vis._f_wan_mtu = 0;
@@ -468,7 +466,6 @@ function verifyFields(focused, quiet)
 		vis._ppp_custom = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
-		vis._f_ppp_defgw = 0;
 		vis._wan_gateway = 0;
 		vis._wan_ipaddr = 0;
 		vis._wan_netmask = 0;
@@ -479,7 +476,6 @@ function verifyFields(focused, quiet)
 		vis._l2tp_server_ip = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
-		vis._f_ppp_defgw = 0;
 		vis._wan_gateway = 0;
 		vis._wan_ipaddr = 0;
 		vis._wan_netmask = 0;
@@ -494,7 +490,6 @@ function verifyFields(focused, quiet)
 		vis._ppp_custom = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
-		vis._f_ppp_defgw = 0;
 
 		vis._lan_gateway = 0;
 		break;
@@ -503,7 +498,6 @@ function verifyFields(focused, quiet)
 		vis._ppp_service = 0;
 		vis._wan_gateway = (!E('_f_pptp_dhcp').checked);
 		vis._wan_ipaddr = (!E('_f_pptp_dhcp').checked);
-		vis._f_ppp_defgw = (E('_f_pptp_dhcp').checked);
 
 		vis._lan_gateway = 0;
 		break;
@@ -512,7 +506,6 @@ function verifyFields(focused, quiet)
 		vis._ppp_service = 0;
 		vis._wan_gateway = (!E('_f_pptp_dhcp').checked);
 		vis._wan_ipaddr = (!E('_f_pptp_dhcp').checked);
-		vis._f_ppp_defgw = (E('_f_pptp_dhcp').checked);
 
 		vis._lan_gateway = 0;
 		break;
@@ -1006,7 +999,6 @@ function save()
 	
 	fom.wan_islan.value = fom.f_wan_islan.checked ? 1 : 0;
 	fom.pptp_dhcp.value = fom.f_pptp_dhcp.checked ? 1 : 0;
-	fom.ppp_defgw.value = fom.f_pptp_dhcp.checked ? (fom.f_ppp_defgw.checked ? 1 : 0) : 1;
 
 	fom.wan_dns.value = joinAddr([fom.f_dns_1.value, fom.f_dns_2.value, fom.f_dns_3.value]);
 
@@ -1050,7 +1042,6 @@ function init()
 <input type='hidden' name='wan_mtu'>
 <input type='hidden' name='wan_islan'>
 <input type='hidden' name='pptp_dhcp'>
-<input type='hidden' name='ppp_defgw'>
 <input type='hidden' name='lan_proto'>
 <input type='hidden' name='wan_dns'>
 
@@ -1066,7 +1057,6 @@ createFieldTable('', [
 	{ title: 'Service Name', name: 'ppp_service', type: 'text', maxlen: 50, size: 64, value: nvram.ppp_service },
 	{ title: 'L2TP Server', name: 'l2tp_server_ip', type: 'text', maxlen: 128, size: 64, value: nvram.l2tp_server_ip },
 	{ title: 'Use DHCP', name: 'f_pptp_dhcp', type: 'checkbox', value: (nvram.pptp_dhcp == 1) },
-	{ title: 'Use Default Gateway on Remote Network', name: 'f_ppp_defgw', type: 'checkbox', value: (nvram.ppp_defgw == 1) },
 	{ title: 'IP Address', name: 'wan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.wan_ipaddr },
 	{ title: 'Subnet Mask', name: 'wan_netmask', type: 'text', maxlen: 15, size: 17, value: nvram.wan_netmask },
 	{ title: 'Gateway', name: 'wan_gateway', type: 'text', maxlen: 15, size: 17, value: nvram.wan_gateway },

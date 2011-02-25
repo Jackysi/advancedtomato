@@ -104,6 +104,8 @@ endif
 ifneq ($(TCONFIG_IPV6),y)
 	rm -f $(INSTALLDIR)/www/basic-ipv6.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/IPV6-BEGIN/,/IPV6-END/d"
+	sed -i $(INSTALLDIR)/www/status-data.jsx -e "/IPV6-BEGIN/,/IPV6-END/d"
+	sed -i $(INSTALLDIR)/www/status-overview.asp -e "/IPV6-BEGIN/,/IPV6-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/IPV6-BEGIN/,/IPV6-END/d"
 	sed -i $(INSTALLDIR)/www/admin-debug.asp -e "/IPV6-BEGIN/,/IPV6-END/d"
 	sed -i $(INSTALLDIR)/www/advanced-dhcpdns.asp -e "/IPV6-BEGIN/,/IPV6-END/d"
@@ -146,7 +148,7 @@ endif
 
 # clean up
 	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp *.js); do \
+	for F in $(wildcard *.asp *.js *.jsx); do \
 		[ -f $(INSTALLDIR)/www/$$F ] && sed -i $$F \
 		-e "/LINUX26-BEGIN/d"	-e "/LINUX26-END/d" \
 		-e "/USB-BEGIN/d"	-e "/USB-END/d" \

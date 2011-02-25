@@ -99,7 +99,6 @@ int usb_choose_configuration(struct usb_device *udev)
 		/* Rule out configs that draw too much bus current */
 		if (c->desc.bMaxPower * 2 > udev->bus_mA) {
 			insufficient_power++;
-			continue;
 		}
 
 		/* When the first config's first interface is one of Microsoft's
@@ -135,7 +134,7 @@ int usb_choose_configuration(struct usb_device *udev)
 	}
 
 	if (insufficient_power > 0)
-		dev_info(&udev->dev, "rejected %d configuration%s "
+		dev_warn(&udev->dev, "%d configuration%s can be unstable"
 			"due to insufficient available bus power\n",
 			insufficient_power, plural(insufficient_power));
 

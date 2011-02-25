@@ -80,6 +80,22 @@ int sysctl_ipv6_bindv6only __read_mostly;
 static struct list_head inetsw6[SOCK_MAX];
 static DEFINE_SPINLOCK(inetsw6_lock);
 
+struct ipv6_params ipv6_defaults = {
+	.disable_ipv6 = 0,
+	.autoconf = 1,
+};
+
+static int disable_ipv6_mod = 0;
+
+module_param_named(disable, disable_ipv6_mod, int, 0444);
+MODULE_PARM_DESC(disable, "Disable IPv6 module such that it is non-functional");
+
+module_param_named(disable_ipv6, ipv6_defaults.disable_ipv6, int, 0444);
+MODULE_PARM_DESC(disable_ipv6, "Disable IPv6 on all interfaces");
+
+module_param_named(autoconf, ipv6_defaults.autoconf, int, 0444);
+MODULE_PARM_DESC(autoconf, "Enable IPv6 address autoconfiguration on all interfaces");
+
 static __inline__ struct ipv6_pinfo *inet6_sk_generic(struct sock *sk)
 {
 	const int offset = sk->sk_prot->obj_size - sizeof(struct ipv6_pinfo);
@@ -753,7 +769,7 @@ static int __init inet6_init(void)
 {
 	struct sk_buff *dummy_skb;
 	struct list_head *r;
-	int err;
+	int err = 0;
 
 	BUILD_BUG_ON(sizeof(struct inet6_skb_parm) > sizeof(dummy_skb->cb));
 
@@ -765,6 +781,17 @@ static int __init inet6_init(void)
 	__this_module.can_unload = &ipv6_unload;
 #endif
 #endif
+
+	/* Register the socket-side information for inet6_create.  */
+	for(r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
+		INIT_LIST_HEAD(r);
+
+	if (disable_ipv6_mod) {
+		printk(KERN_INFO
+		       "IPv6: Loaded, but administratively disabled, "
+		       "reboot required to enable\n");
+		goto out;
+	}
 
 	err = proto_register(&tcpv6_prot, 1);
 	if (err)
@@ -782,10 +809,6 @@ static int __init inet6_init(void)
 	if (err)
 		goto out_unregister_udplite_proto;
 
-
-	/* Register the socket-side information for inet6_create.  */
-	for(r = &inetsw6[0]; r < &inetsw6[SOCK_MAX]; ++r)
-		INIT_LIST_HEAD(r);
 
 	/* We MUST register RAW sockets before we create the ICMP6,
 	 * IGMP6, or NDISC control sockets.
@@ -920,6 +943,9 @@ module_init(inet6_init);
 
 static void __exit inet6_exit(void)
 {
+	if (disable_ipv6_mod)
+		return;
+
 	/* First of all disallow new sockets creation. */
 	sock_unregister(PF_INET6);
 	/* Disallow any further netlink messages */

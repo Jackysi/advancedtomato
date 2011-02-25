@@ -3922,6 +3922,68 @@ static int addrconf_sysctl_forward_strategy(ctl_table *table,
 	return 1;
 }
 
+static void dev_disable_change(struct inet6_dev *idev)
+{
+	if (!idev || !idev->dev)
+		return;
+
+	if (idev->cnf.disable_ipv6)
+		addrconf_notify(NULL, NETDEV_DOWN, idev->dev);
+	else
+		addrconf_notify(NULL, NETDEV_UP, idev->dev);
+}
+
+static int addrconf_disable_ipv6(struct ctl_table *table, int *valp, int old)
+{
+	if (valp == &ipv6_devconf_dflt.disable_ipv6)
+		return 0;
+
+	if (!rtnl_trylock()) {
+		/* Restore the original values before restarting */
+		*valp = old;
+		return restart_syscall();
+	}
+
+	if (valp == &ipv6_devconf.disable_ipv6) {
+		struct net_device *dev;
+		struct inet6_dev *idev;
+
+		read_lock(&dev_base_lock);
+		for_each_netdev(dev) {
+			rcu_read_lock();
+			idev = __in6_dev_get(dev);
+			if (idev) {
+				int changed = (!idev->cnf.disable_ipv6) ^ (!*valp);
+				idev->cnf.disable_ipv6 = *valp;
+				if (changed)
+					dev_disable_change(idev);
+			}
+			rcu_read_unlock();
+		}
+		read_unlock(&dev_base_lock);
+	}
+
+	rtnl_unlock();
+	return 0;
+}
+
+static int addrconf_sysctl_disable(ctl_table *ctl, int write, struct file * filp,
+			   void __user *buffer, size_t *lenp, loff_t *ppos)
+{
+	int *valp = ctl->data;
+	int val = *valp;
+	loff_t pos = *ppos;
+	int ret;
+
+	ret = proc_dointvec(ctl, write, filp, buffer, lenp, ppos);
+
+	if (write)
+		ret = addrconf_disable_ipv6(ctl, valp, val);
+	if (ret)
+		*ppos = pos;
+	return ret;
+}
+
 static struct addrconf_sysctl_table
 {
 	struct ctl_table_header *sysctl_header;
@@ -4162,7 +4224,7 @@ static struct addrconf_sysctl_table
 			.data		=	&ipv6_devconf.disable_ipv6,
 			.maxlen		=	sizeof(int),
 			.mode		=	0644,
-			.proc_handler	=	&proc_dointvec,
+			.proc_handler	=	&addrconf_sysctl_disable,
 		},
 		{
 			.ctl_name	=	0,	/* sentinel */

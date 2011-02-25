@@ -1,4 +1,8 @@
-$Id: Changelog.txt,v 1.205 2011/02/07 11:57:55 nanard Exp $
+$Id: Changelog.txt,v 1.206 2011/02/20 23:39:42 nanard Exp $
+
+2011/02/21:
+  Make "Makefile" work under Mac OS X with bsdmake.
+  added get_portmappings_in_range() in ipfwrdr.c
 
 2011/02/07:
   added get_portmappings_in_range() / upnp_get_portmappings_in_range()
