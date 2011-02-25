@@ -1,0 +1,167 @@
+#! /bin/sh
+#***************************************************************************
+#                                  _   _ ____  _
+#  Project                     ___| | | |  _ \| |
+#                             / __| | | | |_) | |
+#                            | (__| |_| |  _ <| |___
+#                             \___|\___/|_| \_\_____|
+#
+# Copyright (C) 2001 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+#
+# This software is licensed as described in the file COPYING, which
+# you should have received as part of this distribution. The terms
+# are also available at http://curl.haxx.se/docs/copyright.html.
+#
+# You may opt to use, copy, modify, merge, publish, distribute and/or sell
+# copies of the Software, and permit persons to whom the Software is
+# furnished to do so, under the terms of the COPYING file.
+#
+# This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+# KIND, either express or implied.
+#
+###########################################################################
+
+prefix=/usr
+exec_prefix=${prefix}
+includedir=${prefix}/include
+
+usage()
+{
+    cat <<EOF
+Usage: curl-config [OPTION]
+
+Available values for OPTION include:
+
+  --built-shared says 'yes' if libcurl was built shared
+  --ca        ca bundle install path
+  --cc        compiler
+  --cflags    pre-processor and compiler flags
+  --checkfor [version] check for (lib)curl of the specified version
+  --configure the arguments given to configure when building curl
+  --features  newline separated list of enabled features
+  --help      display this help and exit
+  --libs      library linking information
+  --prefix    curl install prefix
+  --protocols newline separated list of enabled protocols
+  --static-libs static libcurl library linking information
+  --version   output version information
+  --vernum    output the version information as a number (hexadecimal)
+EOF
+
+    exit $1
+}
+
+if test $# -eq 0; then
+    usage 1
+fi
+
+while test $# -gt 0; do
+    case "$1" in
+    # this deals with options in the style
+    # --option=value and extracts the value part
+    # [not currently used]
+    -*=*) value=`echo "$1" | sed 's/[-_a-zA-Z0-9]*=//'` ;;
+    *) value= ;;
+    esac
+
+    case "$1" in
+    --built-shared)
+        echo yes
+        ;;
+
+    --ca)
+	echo ""/etc/ssl/certs/ca-certificates.crt""
+	;;
+
+    --cc)
+	echo "mipsel-uclibc-gcc"
+	;;
+
+    --prefix)
+	echo "$prefix"
+	;;
+
+    --feature|--features)
+        for feature in IPv6 libz ""; do
+            test -n "$feature" && echo "$feature"
+        done
+	;;
+
+    --protocols)
+        for protocol in FILE FTP HTTP IMAP POP3 RTSP SMTP TFTP; do
+            echo "$protocol"
+        done
+	;;
+
+    --version)
+	echo libcurl 7.21.1
+	exit 0
+	;;
+
+    --checkfor)
+        checkfor=$2
+        cmajor=`echo $checkfor | cut -d. -f1`
+        cminor=`echo $checkfor | cut -d. -f2`
+        # when extracting the patch part we strip off everything after a
+	# dash as that's used for things like version 1.2.3-CVS
+	cpatch=`echo $checkfor | cut -d. -f3 | cut -d- -f1`
+        checknum=`echo "$cmajor*256*256 + $cminor*256 + ${cpatch:-0}" | bc`
+        numuppercase=`echo 071501 | tr 'a-f' 'A-F'`
+        nownum=`echo "obase=10; ibase=16; $numuppercase" | bc`
+
+	if test "$nownum" -ge "$checknum"; then
+	  # silent success
+	  exit 0
+	else
+	  echo "requested version $checkfor is newer than existing 7.21.1"
+	  exit 1
+	fi
+	;;
+
+    --vernum)
+	echo 071501
+	exit 0
+	;;
+
+    --help)
+	usage 0
+	;;
+
+    --cflags)
+       	if test "X${prefix}/include" = "X/usr/include"; then
+          echo ""
+        else
+          echo "-I${prefix}/include"
+        fi
+       	;;
+
+    --libs)
+	if test "X${exec_prefix}/lib" != "X/usr/lib" -a "X${exec_prefix}/lib" != "X/usr/lib64"; then
+	   CURLLIBDIR="-L${exec_prefix}/lib "
+	else
+	   CURLLIBDIR=""
+	fi
+	if test "Xno" = "Xyes"; then
+	  echo ${CURLLIBDIR}-lcurl -L/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC -lz 
+	else
+	  echo ${CURLLIBDIR}-lcurl -L/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC 
+	fi
+	;;
+
+    --static-libs)
+	echo ${exec_prefix}/lib/libcurl.a -L/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC -lz 
+	;;
+
+    --configure)
+      echo " '--host=mipsel-linux' '--build=x86_64-linux-gnu' '--prefix=/usr' '--disable-thread' '--enable-shared' '--enable-static' '--enable-ares' '--enable-cookies' '--enable-crypto-auth' '--enable-nonblocking' '--enable-file' '--enable-ftp' '--enable-http' '--enable-ipv6' '--enable-tftp' '--disable-nls' '--disable-ares' '--disable-dict' '--disable-debug' '--disable-gopher' '--disable-ldap' '--disable-manual' '--disable-telnet' '--disable-verbose' '--with-random=/dev/urandom' '--with-ssl=/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/openssl' '--without-gnutls' '--without-krb4' '--without-libidn' '--with-linux-headers=/root/openwrt/tomato-b54/tomato.en/release/src-rt/linux/linux-2.6/include' 'OPENSSL_CFLAGS=-I/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/openssl/include' 'OPENSSL_LIBS=-L/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/openssl -lcrypto -lssl' 'build_alias=x86_64-linux-gnu' 'host_alias=mipsel-linux' 'CC=mipsel-uclibc-gcc' 'CFLAGS=-Os -Wall -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32  -ffunction-sections -fdata-sections' 'LDFLAGS=-L/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC' 'CPPFLAGS=-I/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/zlib'"
+    ;;
+
+    *)
+        echo "unknown option: $1"
+	usage 1
+	;;
+    esac
+    shift
+done
+
+exit 0
