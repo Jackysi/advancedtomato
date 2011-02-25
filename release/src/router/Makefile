@@ -132,7 +132,11 @@ else
   ifeq ($(TCONFIG_FTP_SSL),y)
     export FULL_OPENSSL := y
   else
-    FULL_OPENSSL :=
+    ifeq ($(TCONFIG_BT),y)
+      export FULL_OPENSSL := y
+    else
+      FULL_OPENSSL :=
+    endif
   endif
 endif
 
@@ -276,6 +280,9 @@ endif
 	install $(LIBDIR)/libnsl.so.0 $(TARGETDIR)/lib/
 ifeq ($(TCONFIG_SSH),y)
 	install $(LIBDIR)/libutil.so.0 $(TARGETDIR)/lib/
+endif
+ifeq ($(TCONFIG_BT),y)
+	install $(LIBDIR)/librt-0.9.30.1.so $(TARGETDIR)/lib/librt.so.0
 endif
 ifneq ($(TCONFIG_OPTIMIZE_SHARED_LIBS),y)
 	install $(LIBDIR)/libresolv.so.0 $(TARGETDIR)/lib/
@@ -1206,6 +1213,11 @@ ifneq ($(MEDIA_SERVER_STATIC),y)
 	install -D zlib/libz.so.1 $(INSTALLDIR)/zlib/usr/lib/
 	$(STRIP) $(INSTALLDIR)/zlib/usr/lib/libz.so.1
 endif
+ifeq ($(TCONFIG_BT),y)
+	install -d $(INSTALLDIR)/zlib/usr/lib
+	install -D zlib/libz.so.1 $(INSTALLDIR)/zlib/usr/lib/
+	$(STRIP) $(INSTALLDIR)/zlib/usr/lib/libz.so.1
+endif
 
 libid3tag/stamp-h1: zlib
 	cd libid3tag && \
@@ -1367,6 +1379,93 @@ openvpn-install: openvpn
 	$(STRIP) -s $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	chmod 0500 $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 
+#shibby
+libcurl/Makefile: zlib openssl
+	cd libcurl && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		CPPFLAGS="-I$(TOP)/zlib" \
+		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+		$(CONFIGURE) --prefix=/usr --disable-thread --enable-shared --enable-static \
+		--enable-ares --enable-cookies --enable-crypto-auth --enable-nonblocking \
+		--enable-file --enable-ftp --enable-http --enable-ipv6 --enable-tftp \
+		--disable-nls --disable-ares --disable-dict --disable-debug --disable-gopher \
+		--disable-ldap --disable-manual --disable-telnet --disable-verbose \
+		--with-random="/dev/urandom" --with-ssl="$(TOP)/openssl" \
+		--without-gnutls --without-krb4 --without-libidn \
+		--with-linux-headers=$(LINUXDIR)/include \
+		OPENSSL_CFLAGS="-I$(TOP)/openssl/include" \
+		OPENSSL_LIBS="-L$(TOP)/openssl -lcrypto -lssl"
+
+libcurl: libcurl/Makefile
+	@$(MAKE) -C libcurl
+
+libcurl-clean:
+	@$(MAKE) -C libcurl clean
+	@rm -f libcurl/Makefile
+
+libcurl-install: libcurl
+	install -d $(INSTALLDIR)/libcurl/usr/lib
+	install -D libcurl/lib/.libs/libcurl.so.4.2.0 $(INSTALLDIR)/libcurl/usr/lib/libcurl.so.4.2.0
+	$(STRIP) -s $(INSTALLDIR)/libcurl/usr/lib/libcurl.so.4.2.0
+	cd $(INSTALLDIR)/libcurl/usr/lib/ && \
+		ln -sf libcurl.so.4.2.0 libcurl.so.4 && \
+		ln -sf libcurl.so.4.2.0 libcurl.so
+
+libevent/Makefile:
+	cd libevent && \
+	CC=$(CC) CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+		$(CONFIGURE)
+
+libevent: libevent/Makefile
+	@$(SEP)
+	$(MAKE) -C libevent
+
+libevent-clean:
+	@$(MAKE) -C libevent clean
+	@rm -f libevent/Makefile
+
+libevent-install: libevent
+	install -d $(INSTALLDIR)/libevent/usr/lib
+	install libevent/.libs/libevent-1.4.so.2.2.0 $(INSTALLDIR)/libevent/usr/lib/libevent-1.4.so.2.2.0
+	$(STRIP) -s $(INSTALLDIR)/libevent/usr/lib/libevent-1.4.so.2.2.0
+	cd $(INSTALLDIR)/libevent/usr/lib/ && \
+		ln -sf libevent-1.4.so.2.2.0 libevent-1.4.so.2 && \
+		ln -sf libevent-1.4.so.2.2.0 libevent.so
+
+transmission/Makefile: openssl libcurl libevent zlib transmission/Makefile
+	cd transmission && CC=$(CC) AR=$(AR) LD=$(LD) STRIP='mipsel-uclibc-strip' \
+		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+		CPPFLAGS="-I$(TOP)/zlib" \
+		$(CONFIGURE) --prefix=/usr --disable-gtk --disable-nls \
+		--enable-largefile \
+		--with-ssl="$(TOP)/openssl" \
+		--with-ssl-headers="$(TOP)/openssl/include/" \
+		LIBCURL_CFLAGS="-I$(TOP)/libcurl/include" \
+		LIBCURL_LIBS="-L$(TOP)/libcurl/lib/.libs/ -lcurl" \
+		LIBEVENT_CFLAGS="-I$(TOP)/libevent" \
+		LIBEVENT_LIBS="-L$(TOP)/libevent/.libs -levent" \
+		OPENSSL_CFLAGS="-I$(TOP)/openssl/include" \
+		OPENSSL_LIBS="-L$(TOP)/openssl -lcrypto -lssl"
+
+transmission: transmission/Makefile
+	@$(SEP)
+	$(MAKE) -C transmission
+
+transmission-clean:
+	@$(MAKE) -C transmission clean
+	@rm -f transmission/Makefile
+
+transmission-install: transmission
+	$(MAKE) -C transmission DESTDIR=$(INSTALLDIR)/transmission install-strip
+	@rm -rf $(INSTALLDIR)/transmission/usr/share/man
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-cli
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-create
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-remote
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-show
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-edit
+	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-daemon
 
 #
 # Generic rules
