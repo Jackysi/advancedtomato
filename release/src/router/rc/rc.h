@@ -403,6 +403,12 @@ extern void start_smbd(void);
 extern void stop_smbd(void);
 #endif
 
+// transmission.c
+#ifdef TCONFIG_BT
+extern void start_bittorrent();
+extern void stop_bittorrent();
+#endif
+
 // vpn.c
 #ifdef TCONFIG_OPENVPN
 extern void start_vpnclient(int clientNum);

@@ -954,6 +954,32 @@ static const nvset_t nvset_list[] = {
 	{ "new_arpbind_only",            V_01                   },  // !!RAF
 	{ "new_arpbind_list",            V_LENGTH(0, 4096)       }, // !!RAF
 
+#ifdef TCONFIG_BT
+// nas-transmission
+	{ "bt_enable",                  V_01                            },
+	{ "bt_custom",                  V_TEXT(0, 2048)                 },
+	{ "bt_port",                    V_PORT                          },
+	{ "bt_dir",                     V_LENGTH(0, 50)                 },
+	{ "bt_settings",                V_LENGTH(0, 50)                 },
+	{ "bt_incomplete",              V_01                            },
+	{ "bt_rpc_enable",              V_01                            },
+	{ "bt_rpc_wan",                 V_01                            },
+	{ "bt_login",                   V_LENGTH(0, 50)                 },
+	{ "bt_password",                V_LENGTH(0, 50)                 },
+	{ "bt_port_gui",                V_PORT                          },
+	{ "bt_dl_enable",               V_01                            },
+	{ "bt_ul_enable",               V_01                            },
+	{ "bt_dl",                      V_RANGE(1, 999999)              },
+	{ "bt_ul",                      V_RANGE(1, 999999)              },
+	{ "bt_peer_limit_global",       V_RANGE(10, 500)                },
+	{ "bt_peer_limit_per_torrent",  V_RANGE(10, 100)                },
+	{ "bt_ul_slot_per_torrent",     V_RANGE(5, 50)                  },
+	{ "bt_ratio_enable",            V_01                            },
+	{ "bt_ratio",                   V_LENGTH(0, 999999)             },
+	{ "bt_dht",                     V_01                            },
+	{ "bt_pex",                     V_01                            },
+#endif
+
 #ifdef TCONFIG_OPENVPN
 // vpn
 	{ "vpn_debug",            V_01                },

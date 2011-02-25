@@ -114,8 +114,12 @@ Copyright (C) 2010 Keith Moyer,<br>
 
 <b>RAF features,</b><br>
 QoS IP/Range BW Limiter | ARP Binding<br>
+/* BT-BEGIN */
+"Transmission 2.13 integration and GUI<br>
+/* BT-END */
 Copyright (C) 2007-2011 Michał Rupental, Vicente Soriano. <br>
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
+<a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
 
 Based on Tomato Firmware v<% version(); %><br>
