@@ -123,6 +123,12 @@ obj-$(TCONFIG_OPENVPN) += openvpn
 obj-$(TCONFIG_EMF) += emf
 obj-$(TCONFIG_EMF) += igs
 
+obj-$(TCONFIG_BT) += openssl
+obj-$(TCONFIG_BT) += libevent
+obj-$(TCONFIG_BT) += libcurl
+obj-$(TCONFIG_BT) += transmission
+obj-$(TCONFIG_BT) += zlib
+
 obj-$(CONFIG_LINUX26) += hotplug2
 obj-$(CONFIG_LINUX26) += udev
 
