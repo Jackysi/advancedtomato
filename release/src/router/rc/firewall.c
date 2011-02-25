@@ -664,10 +664,8 @@ static void filter_input(void)
 	}
 
 	ipt_write(
-		"-A INPUT -m state --state INVALID -j %s\n"
-		"-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT\n",
-		chain_in_drop);
-
+		"-A INPUT -m state --state INVALID -j DROP\n"
+		"-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT\n");
 
 	strlcpy(s, nvram_safe_get("ne_shlimit"), sizeof(s));
 	if ((vstrsep(s, ",", &en, &hit, &sec) == 3) && ((n = atoi(en) & 3) != 0)) {
@@ -913,17 +911,29 @@ static void filter_log(void)
 	if ((*chain_in_drop == 'l') || (*chain_out_drop == 'l'))  {
 		ip46t_write(
 			":logdrop - [0:0]\n"
-			"-A logdrop -m state --state NEW %s -j LOG --log-prefix \"DROP \" --log-tcp-options --log-ip-options\n"
+			"-A logdrop -m state --state NEW %s -j LOG --log-prefix \"DROP \""
+#ifdef LINUX26
+				" --log-macdecode"
+#endif
+				" --log-tcp-sequence --log-tcp-options --log-ip-options\n"
 			"-A logdrop -j DROP\n"
 			":logreject - [0:0]\n"
-			"-A logreject %s -j LOG --log-prefix \"REJECT \" --log-tcp-options --log-ip-options\n"
+			"-A logreject %s -j LOG --log-prefix \"REJECT \""
+#ifdef LINUX26
+				" --log-macdecode"
+#endif
+				" --log-tcp-sequence --log-tcp-options --log-ip-options\n"
 			"-A logreject -p tcp -j REJECT --reject-with tcp-reset\n",
 			limit, limit);
 	}
 	if ((*chain_in_accept == 'l') || (*chain_out_accept == 'l'))  {
 		ip46t_write(
 			":logaccept - [0:0]\n"
-			"-A logaccept -m state --state NEW %s -j LOG --log-prefix \"ACCEPT \" --log-tcp-options --log-ip-options\n"
+			"-A logaccept -m state --state NEW %s -j LOG --log-prefix \"ACCEPT \""
+#ifdef LINUX26
+				" --log-macdecode"
+#endif
+				" --log-tcp-sequence --log-tcp-options --log-ip-options\n"
 			"-A logaccept -j ACCEPT\n",
 			limit);
 	}
@@ -948,9 +958,9 @@ static void filter6_input(void)
 
 	ip6t_write(
 		"-A INPUT -m rt --rt-type 0 -j %s\n"
-		/* "-A INPUT -m state --state INVALID -j %s\n" */
+		/* "-A INPUT -m state --state INVALID -j DROP\n" */
 		"-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT\n",
-		chain_in_drop/*, chain_in_drop*/);
+		chain_in_drop);
 
 #ifdef LINUX26
 	modprobe("xt_length");
