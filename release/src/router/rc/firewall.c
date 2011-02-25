@@ -127,44 +127,17 @@ static int dmz_dst(char *s)
 	return 1;
 }
 
-/*
-int ipt_addr(char *addr, int maxlen, const char *s, const char *dir, int family,
-	const char *categ, const char *name)
+void ipt_log_unresolved(const char *addr, const char *addrtype, const char *categ, const char *name)
 {
-	char p[INET6_ADDRSTRLEN * 2];
-	int r = 1;
+	char *pre, *post;
 
-	if ((s) && (*s) && (*dir))
-	{
-		if (sscanf(s, "%[0-9.]-%[0-9.]", p, p) == 2) {
-			snprintf(addr, maxlen, "-m iprange --%s-range %s", dir, s);
-			r = (family == AF_INET);
-		}
-#ifdef TCONFIG_IPV6
-		else if (sscanf(s, "%[0-9A-Fa-f:]-%[0-9A-Fa-f:]", p, p) == 2) {
-			snprintf(addr, maxlen, "-m iprange --%s-range %s", dir, s);
-			r = (family == AF_INET6);
-		}
-#endif
-		else {
-			snprintf(addr, maxlen, "-%c %s", dir[0], s);
-			r = (host_to_addr(s, family) != NULL);
-		}
-	}
-	else
-		*addr = 0;
+	pre = (name && *name) ? " for \"" : "";
+	post = (name && *name) ? "\"" : "";
 
-	if (r == 0 && (categ && *categ)) {
-		syslog(LOG_WARNING,
-			"IPv%d firewall: %s: not using %s%s%s (could not resolve as valid IPv%d address)",
-			(family == AF_INET6) ? 6 : 4, categ, s,
-			(name && *name) ? " for " : "", (name && *name) ? name : "",
-			(family == AF_INET6) ? 6 : 4);
-	}
-
-	return r;
+	syslog(LOG_WARNING, "firewall: "
+		"%s: not using %s%s%s%s (could not resolve as valid %s address)",
+		categ, addr, pre, (name) ? : "", post, (addrtype) ? : "IP");
 }
-*/
 
 int ipt_addr(char *addr, int maxlen, const char *s, const char *dir, int af,
 	int strict, const char *categ, const char *name)
@@ -200,13 +173,12 @@ int ipt_addr(char *addr, int maxlen, const char *s, const char *dir, int af,
 		*addr = 0;
 		r = (IPT_V4 | IPT_V6);
 	}
-	
-	if ((r==0 || (strict && ((r & af) != af))) && (categ && *categ)) {
-		syslog(LOG_WARNING,
-			"firewall: %s: not using %s%s%s (could not resolve as valid %s%saddress)",
-			categ, s, (name && *name) ? " for " : "", (name && *name) ? name : "",
-			(af & IPT_V4 & ~r) ? "IPv4 " : "", (af & IPT_V6 & ~r) ? "IPv6 " : "" );
+
+	if ((r == 0 || (strict && ((r & af) != af))) && (categ && *categ)) {
+		ipt_log_unresolved(s, categ, name,
+			(af & IPT_V4 & ~r) ? "IPv4" : ((af & IPT_V6 & ~r) ? "IPv6" : NULL));
 	}
+
 	return (r & af);
 }
 
