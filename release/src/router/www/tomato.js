@@ -450,7 +450,7 @@ function v_macip(e, quiet, bok, lan_ipaddr, lan_netmask)
         ferror.set(e, 'Invalid IP address range', quiet);
         return false;
     }
-    c = 0;
+
     for (i = 0; i < a.length; ++i) {
         b = a[i];    
         if (b.match(/^\d+$/)) b = ipp + b;
@@ -467,7 +467,7 @@ function v_macip(e, quiet, bok, lan_ipaddr, lan_netmask)
         }
 
         d = (b.split('.'))[3];
-        if (d <= c) {
+        if (parseInt(d) <= parseInt(c)) {
             ferror.set(e, 'Invalid IP address range', quiet);
             return false;
         }
