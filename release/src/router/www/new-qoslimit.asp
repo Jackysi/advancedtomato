@@ -303,7 +303,7 @@ function save()
 </div>
 
 <div class='note-disabledw' style='display:none' id='qoswarn'>
-	<b>You have to disable standar QoS prior Qos/ IP Range BW Limit activation.</b><br><br>
+	<b>You have to disable standard QoS prior to Qos/IP Range BW Limit activation.</b><br><br>
 	Both features can't run together.<br><br>
 	<a href='qos-settings.asp'>Disable &raquo;</a>
 </div>
