@@ -242,6 +242,7 @@ typedef unsigned char *sk_buff_data_t;
  *	@dma_cookie: a cookie to one of several possible DMA operations
  *		done by skb DMA functions
  *	@secmark: security marking
+ *	@vlan_tci: vlan tag control information
  */
 
 struct sk_buff {
@@ -331,8 +332,9 @@ struct sk_buff {
 #ifdef CONFIG_NETWORK_SECMARK
 	__u32			secmark;
 #endif
+	__u16			vlan_tci;
 #if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
-	unsigned char		imq_flags;
+	__u8			imq_flags;
 	struct nf_info		*nf_info;
 #endif
 };
