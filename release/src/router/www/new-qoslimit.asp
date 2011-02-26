@@ -41,7 +41,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-// <% nvram("new_qoslimit_enable,qos_ibw,qos_obw,new_qoslimit_rules"); %>
+// <% nvram("new_qoslimit_enable,qos_ibw,qos_obw,new_qoslimit_rules,lan_ipaddr,lan_netmask"); %>
 
 var class_prio = [['0','Highest'],['1','High'],['2','Normal'],['3','Low'],['4','Lowest']];
 var class_tcp = [['0','nolimit']];
@@ -156,7 +156,7 @@ qosg.verifyFields = function(row, quiet)
 		}
 	}
 */
-	if(v_macip(f[1], quiet, 0, 0)) {
+if(v_macip(f[1], quiet, 0, nvram.lan_ipaddr, nvram.lan_netmask)) {
 		if(this.existIP(f[1].value)) {
 			ferror.set(f[1], 'duplicate MAC address', quiet);
 			ok = 0;
