@@ -303,6 +303,7 @@ int mtd_write_main(int argc, char *argv[])
 	case 0x4E303133: // 310N	WRT310N v1/v2
 //	case 0x32435745: // EWC2	WRT300N?
 	case 0x3035314E: // N150	WRT150N
+	case 0x30303234: // 4200	E4200
 		if (safe_fread(((char *)&cth) + 4, 1, sizeof(cth) - 4, f) != (sizeof(cth) - 4)) {
 			goto ERROR;
 		}
