@@ -414,8 +414,19 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan1ports", "4 5");
 		break;
 	case MODEL_WRT610Nv2:
+	case MODEL_F5D8235v3:
 		dirty |= check_nv("vlan1ports", "1 2 3 4 8*");
 		dirty |= check_nv("vlan2ports", "0 8");
+		break;
+	case MODEL_F7D3301:
+	case MODEL_F7D4301:
+		dirty |= check_nv("vlan1ports", "3 2 1 0 8*");
+		dirty |= check_nv("vlan2ports", "4 8");
+		break;
+	case MODEL_F7D3302:
+	case MODEL_F7D4302:
+		dirty |= check_nv("vlan1ports", "0 1 2 3 5*");
+		dirty |= check_nv("vlan2ports", "4 5");
 		break;
 	case MODEL_E4200:
 		dirty |= check_nv("vlan1ports", "0 1 2 3 8*");
@@ -948,6 +959,35 @@ static int init_nvram(void)
 			nvram_set("lan_ifnames", "vlan0 eth1");
 			nvram_set("wan_ifnameX", "vlan1");
 			nvram_set("wl_ifname", "eth1");
+		}
+		break;
+	case MODEL_F7D3301:
+	case MODEL_F7D3302:
+	case MODEL_F7D4301:
+	case MODEL_F7D4302:
+	case MODEL_F5D8235v3:
+		mfr = "Belkin";
+		features = SUP_SES | SUP_80211N;
+		switch (model) {
+		case MODEL_F7D3301:
+			name = "Share Max F7D3301 v1";
+			break;
+		case MODEL_F7D3302:
+			name = "Share F7D3302 v1";
+			break;
+		case MODEL_F7D4301:
+			name = "Play Max F7D4301 v1";
+			break;
+		case MODEL_F7D4302:
+			name = "Play F7D4302 v1";
+			break;
+		case MODEL_F5D8235v3:
+			name = "F5D8235-4 v3";
+			break;
+		}
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
+			nvram_set("wan_ifnameX", "vlan2");
 		}
 		break;
 	case MODEL_WRT160Nv3:

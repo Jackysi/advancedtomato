@@ -250,6 +250,7 @@ int mtd_write_main(int argc, char *argv[])
 	int web = 0;
 	char *iname = NULL;
 	char *dev = NULL;
+	int model;
 
 	while ((c = getopt(argc, argv, "i:d:w")) != -1) {
 		switch (c) {
@@ -339,6 +340,15 @@ int mtd_write_main(int argc, char *argv[])
 		break;
 	case TRX_MAGIC:
 		break;
+#ifdef CONFIG_BCMWL5
+	case TRX_MAGIC_F7D3301:
+	case TRX_MAGIC_F7D3302:
+	case TRX_MAGIC_F7D4302:
+	case TRX_MAGIC_F5D8235V3:
+	case TRX_MAGIC_QA:
+		sig = TRX_MAGIC;
+		break;
+#endif
 	default:
 		// moto
 		if (safe_fread(&sig, 1, sizeof(sig), f) != sizeof(sig)) {
@@ -363,7 +373,28 @@ int mtd_write_main(int argc, char *argv[])
 	if ((safe_fread(((char *)&trx) + 4, 1, sizeof(trx) - 4, f) != (sizeof(trx) - 4)) || (trx.len <= sizeof(trx))) {
 		goto ERROR;
 	}
-	trx.magic = sig;
+
+	model = get_model();
+
+	switch (model) {
+#ifdef CONFIG_BCMWL5
+	case MODEL_F7D3301:
+		trx.magic = TRX_MAGIC_F7D3301;
+		break;
+	case MODEL_F7D3302:
+		trx.magic = TRX_MAGIC_F7D3302;
+		break;
+	case MODEL_F7D4302:
+		trx.magic = TRX_MAGIC_F7D4302;
+		break;
+	case MODEL_F5D8235v3:
+		trx.magic = TRX_MAGIC_F5D8235V3;
+		break;
+#endif
+	default:
+		trx.magic = sig;
+		break;
+	}
 
 	if (!crc_init()) {
 		error = "Not enough memory";
@@ -485,7 +516,7 @@ int mtd_write_main(int argc, char *argv[])
 	char *tmp;
 	char imageInfo[8];
 
-	switch (get_model()) {
+	switch (model) {
 	case MODEL_WNR3500L:
 	case MODEL_WNR2000v2:
 		error = "Error writing fake Netgear crc";
