@@ -15,6 +15,12 @@
 #define IP6T_LOG_MASK	0x0f
 #endif
 
+#ifndef IPT_LOG_MACDECODE /* Old kernel */
+#define IPT_LOG_MACDECODE 0x20
+#undef  IPT_LOG_MASK
+#define IPT_LOG_MASK	0x2f
+#endif
+
 #define LOG_DEFAULT_LEVEL LOG_WARNING
 
 /* Function which prints out usage message. */
@@ -28,7 +34,8 @@ help(void)
 " --log-tcp-sequence		Log TCP sequence numbers.\n\n"
 " --log-tcp-options		Log TCP options.\n\n"
 " --log-ip-options		Log IP options.\n\n"
-" --log-uid			Log UID owning the local socket.\n\n",
+" --log-uid			Log UID owning the local socket.\n\n"
+" --log-macdecode		Decode MAC addresses and protocol.\n\n",
 IPTABLES_VERSION);
 }
 
@@ -39,6 +46,7 @@ static struct option opts[] = {
 	{ .name = "log-tcp-options",  .has_arg = 0, .flag = 0, .val = '2' },
 	{ .name = "log-ip-options",   .has_arg = 0, .flag = 0, .val = '3' },
 	{ .name = "log-uid",          .has_arg = 0, .flag = 0, .val = '4' },
+	{ .name = "log-macdecode",    .has_arg = 0, .flag = 0, .val = '5' },
 	{ .name = 0 }
 };
 
@@ -105,6 +113,7 @@ parse_level(const char *level)
 #define IP6T_LOG_OPT_TCPOPT 0x08
 #define IP6T_LOG_OPT_IPOPT 0x10
 #define IP6T_LOG_OPT_UID 0x20
+#define IPT_LOG_OPT_MACDECODE 0x40
 
 /* Function which parses command options; returns true if it
    ate an option */
@@ -192,6 +201,15 @@ parse(int c, char **argv, int invert, unsigned int *flags,
 		*flags |= IP6T_LOG_OPT_UID;
 		break;
 
+	case '5':
+		if (*flags & IPT_LOG_OPT_MACDECODE)
+			exit_error(PARAMETER_PROBLEM,
+				   "Can't specify --log-macdecode twice");
+
+		loginfo->logflags |= IPT_LOG_MACDECODE;
+		*flags |= IPT_LOG_OPT_MACDECODE;
+		break;
+
 	default:
 		return 0;
 	}
@@ -237,6 +255,8 @@ print(const struct ip6t_ip6 *ip,
 			printf("ip-options ");
 		if (loginfo->logflags & IP6T_LOG_UID)
 			printf("uid ");
+		if (loginfo->logflags & IPT_LOG_MACDECODE)
+			printf("macdecode ");
 		if (loginfo->logflags & ~(IP6T_LOG_MASK))
 			printf("unknown-flags ");
 	}
@@ -249,6 +269,7 @@ print(const struct ip6t_ip6 *ip,
 static void
 save(const struct ip6t_ip6 *ip, const struct ip6t_entry_target *target)
 {
+#ifdef IPTABLES_SAVE
 	const struct ip6t_log_info *loginfo
 		= (const struct ip6t_log_info *)target->data;
 
@@ -266,6 +287,9 @@ save(const struct ip6t_ip6 *ip, const struct ip6t_entry_target *target)
 		printf("--log-ip-options ");
 	if (loginfo->logflags & IP6T_LOG_UID)
 		printf("--log-uid ");
+	if (loginfo->logflags & IPT_LOG_MACDECODE)
+		printf("--log-macdecode ");
+#endif
 }
 
 static

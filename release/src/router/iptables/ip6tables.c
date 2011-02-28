@@ -134,6 +134,7 @@ static struct option original_opts[] = {
 	{ "line-numbers", 0, 0, '0' },
 	{ "modprobe", 1, 0, 'M' },
 	{ "set-counters", 1, 0, 'c' },
+	{ "goto", 1, 0, 'g' },
 	{ 0 }
 };
 
@@ -378,6 +379,10 @@ exit_printhelp(struct ip6tables_rule_match *matches)
 "				network interface name ([+] for wildcard)\n"
 "  --jump	-j target\n"
 "				target for rule (may load target extension)\n"
+#ifdef IP6T_F_GOTO
+"  --goto	-g chain\n"
+"				jump to chain with no return\n"
+#endif
 "  --match	-m match\n"
 "				extended match (may load extension)\n"
 "  --numeric	-n		numeric output of addresses and ports\n"
@@ -1438,6 +1443,11 @@ print_firewall(const struct ip6t_entry *fw,
 	if (format & FMT_NOTABLE)
 		fputs("  ", stdout);
 
+#ifdef IP6T_F_GOTO
+	if(fw->ipv6.flags & IP6T_F_GOTO)
+		printf("[goto] ");
+#endif
+
 	IP6T_MATCH_ITERATE(fw, print_match, &fw->ipv6, format & FMT_NUMERIC);
 
 	if (target) {
@@ -1904,7 +1914,7 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 	opterr = 0;
 
 	while ((c = getopt_long(argc, argv,
-	   "-A:D:R:I:L::M:F::Z::N:X::E:P:Vh::o:p:s:d:j:i:bvnt:m:xc:",
+	   "-A:D:R:I:L::M:F::Z::N:X::E:P:Vh::o:p:s:d:j:i:bvnt:m:xc:g:",
 					   opts, NULL)) != -1) {
 		switch (c) {
 			/*
@@ -2078,6 +2088,15 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 				   invert);
 			dhostnetworkmask = argv[optind-1];
 			break;
+
+#ifdef IP6T_F_GOTO
+		case 'g':
+			set_option(&options, OPT_JUMP, &fw.ipv6.invflags,
+				   invert);
+			fw.ipv6.flags |= IP6T_F_GOTO;
+			jumpto = parse_target(optarg);
+			break;
+#endif
 
 		case 'j':
 			set_option(&options, OPT_JUMP, &fw.ipv6.invflags,
@@ -2425,6 +2444,11 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 			 * We cannot know if the plugin is corrupt, non
 			 * existant OR if the user just misspelled a
 			 * chain. */
+#ifdef IP6T_F_GOTO
+			if (fw.ipv6.flags & IP6T_F_GOTO)
+				exit_error(PARAMETER_PROBLEM,
+					   "goto '%s' is not a chain\n", jumpto);
+#endif
 			find_target(jumpto, LOAD_MUST_SUCCEED);
 		} else {
 			e = generate_entry(&fw, matches, target->t);
