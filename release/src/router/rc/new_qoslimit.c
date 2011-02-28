@@ -15,6 +15,48 @@ static const char *qoslimitfn = "/etc/qoslimit";
 1 = MANGLE
 2 = NAT
 */
+
+#define IP_ADDRESS 0
+#define MAC_ADDRESS 1
+#define IP_RANGE 2
+
+void address_checker (int * address_type, char *ipaddr_old, char *ipaddr)
+{
+	char * second_part, *last_dot;
+	int length_to_minus, length_to_dot;
+	
+	second_part = strchr(ipaddr_old, '-');
+	if (second_part != NULL) {
+		/* ip range */
+		*address_type = IP_RANGE;
+		if (strchr(second_part+1, '.') != NULL) {
+			/* long notation */
+			strcpy (ipaddr, ipaddr_old);
+		}
+		else {
+			/* short notation */
+			last_dot = strrchr(ipaddr_old, '.');
+			length_to_minus = second_part - ipaddr_old;
+			length_to_dot = last_dot- ipaddr_old;
+			strncpy(ipaddr, ipaddr_old, length_to_minus + 1);
+			strncpy(ipaddr + length_to_minus + 1, ipaddr, length_to_dot + 1);
+			strcpy(ipaddr + length_to_minus + length_to_dot + 2, second_part +1); 
+		}
+	}
+	else {
+		/* mac address of ipaddres */
+		if (strlen(ipaddr_old) != 17) {
+			/* IP_ADDRESS */
+			*address_type = IP_ADDRESS;
+		}
+		else {
+			/* MAC ADDRESS */
+			*address_type = MAC_ADDRESS;
+		}
+		strcpy (ipaddr, ipaddr_old);
+	}	
+}
+		
 void ipt_qoslimit(int chain)
 {
 	char *buf;
@@ -22,7 +64,7 @@ void ipt_qoslimit(int chain)
 	char *p;
 	char *ibw,*obw;//bandwidth
 	char *seq;//mark number
-	char *ipaddr;//ip address
+	char *ipaddr_old, *ipaddr;//ip address
 	char *dlrate,*dlceil;//guaranteed rate & maximum rate for download
 	char *ulrate,*ulceil;//guaranteed rate & maximum rate for upload
 	char *priority;//priority
@@ -32,7 +74,7 @@ void ipt_qoslimit(int chain)
 	char *laninface; // lan interface
 	int priority_num;
 	char *qosl_tcp,*qosl_udp;
-	int i;
+	int i, address_type;
 
 	//qos1 is enable
 	if (!nvram_get_int("new_qoslimit_enable")) return;
@@ -86,30 +128,35 @@ void ipt_qoslimit(int chain)
 	
 	while (g) {
 		/*
-		seq<ipaddr<dlrate<dlceil<ulrate<ulceil<priority<tcplimit<udplimit
+		seq<ipaddr_old<dlrate<dlceil<ulrate<ulceil<priority<tcplimit<udplimit
 		*/
 		if ((p = strsep(&g, ">")) == NULL) break;
-		i = vstrsep(p, "<", &seq, &ipaddr, &dlrate, &dlceil, &ulrate, &ulceil, &priority, &tcplimit, &udplimit);
+		i = vstrsep(p, "<", &seq, &ipaddr_old, &dlrate, &dlceil, &ulrate, &ulceil, &priority, &tcplimit, &udplimit);
 
 		priority_num = atoi(priority);
 		if ((priority_num < 0) || (priority_num > 5)) continue;
 
-		if (!strcmp(ipaddr,"")) continue;
+		if (!strcmp(ipaddr_old,"")) continue;
+		ipaddr = malloc(sizeof(char)*(strlen(ipaddr_old) + 20)); /*extra bytes for range expansion */
+		address_checker (&address_type, ipaddr_old, ipaddr); 
 
 		if (!strcmp(dlceil,"")) strcpy(dlceil, dlrate);
 		if (strcmp(dlrate,"") && strcmp(dlceil, "")) {
 			if(chain == 1) {
-				if (strlen(ipaddr) != 17 ) {
-					if (strchr(ipaddr, '-') != NULL) {
-						ipt_write(
-							"-A POSTROUTING ! -s %s/%s -m iprange --dst-range  %s -j MARK --set-mark %s\n"
-							,lanipaddr,lanmask,ipaddr,seq);
-					}
-					else {
+				switch (address_type)
+				{
+					case IP_ADDRESS:
 						ipt_write(
 							"-A POSTROUTING ! -s %s/%s -d %s -j MARK --set-mark %s\n"
 							,lanipaddr,lanmask,ipaddr,seq);
-					}
+						break;
+					case MAC_ADDRESS:
+						break;
+					case IP_RANGE:
+						ipt_write(
+							"-A POSTROUTING ! -s %s/%s -m iprange --dst-range  %s -j MARK --set-mark %s\n"
+							,lanipaddr,lanmask,ipaddr,seq);
+						break;
 				}
 			}
 		}
@@ -117,68 +164,72 @@ void ipt_qoslimit(int chain)
 		if (!strcmp(ulceil,"")) strcpy(ulceil, ulrate);
 		if (strcmp(ulrate,"") && strcmp(ulceil, "")) {
 			if (chain == 1) {
-				if (strlen(ipaddr) != 17 ) {
-					if (strchr(ipaddr, '-') != NULL) {
-						ipt_write(
-							"-A PREROUTING -m iprange --src-range %s ! -d %s/%s -j MARK --set-mark %s\n"
-							,ipaddr,lanipaddr,lanmask,seq);
-					}
-					else {
+				switch (address_type)
+				{
+					case IP_ADDRESS:
 						ipt_write(
 							"-A PREROUTING -s %s ! -d %s/%s -j MARK --set-mark %s\n"
 							,ipaddr,lanipaddr,lanmask,seq);
-					}
-				}
-				else if (strlen(ipaddr) == 17 ) {
-					ipt_write(
-					 "-A PREROUTING -m mac --mac-source %s ! -d %s/%s  -j MARK --set-mark %s\n"
-					,ipaddr,lanipaddr,lanmask,seq);
+						break;
+					case MAC_ADDRESS:
+						ipt_write(
+							"-A PREROUTING -m mac --mac-source %s ! -d %s/%s  -j MARK --set-mark %s\n"
+							,ipaddr,lanipaddr,lanmask,seq);
+						break;
+					case IP_RANGE:
+						ipt_write(
+							"-A PREROUTING -m iprange --src-range %s ! -d %s/%s -j MARK --set-mark %s\n"
+							,ipaddr,lanipaddr,lanmask,seq);
+						break;
 				}
 			}
 		}
 		
 		if(atoi(tcplimit) > 0){
 			if (chain == 2) {
-				if (strlen(ipaddr) != 17 ) {
-					if (strchr(ipaddr, '-') != NULL) {
-						ipt_write(
-							"-A PREROUTING -m iprange --src-range %s -p tcp --syn -m connlimit --connlimit-above %s -j DROP\n"
-							,ipaddr,tcplimit);
-					}
-					else	{
-						ipt_write(
+				switch (address_type)
+				{
+						case IP_ADDRESS:
+							ipt_write(
 							"-A PREROUTING -s %s -p tcp --syn -m connlimit --connlimit-above %s -j DROP\n"
 							,ipaddr,tcplimit);
-					}
-				}
-				else if (strlen(ipaddr) == 17 ) {
-					ipt_write(
-						"-A PREROUTING -m mac --mac-source %s -p tcp --syn -m connlimit --connlimit-above %s -j DROP\n"
-						,ipaddr,tcplimit);
+							break;
+						case MAC_ADDRESS:
+							ipt_write(
+							"-A PREROUTING -m mac --mac-source %s -p tcp --syn -m connlimit --connlimit-above %s -j DROP\n"
+							,ipaddr,tcplimit);
+							break;
+						case IP_RANGE:
+							ipt_write(
+							"-A PREROUTING -m iprange --src-range %s -p tcp --syn -m connlimit --connlimit-above %s -j DROP\n"
+							,ipaddr,tcplimit);
+							break;
 				}
 			}
 		}
 		if(atoi(udplimit) > 0){
 			if (chain == 2) {
-				if (strlen(ipaddr) != 17 ) {
-					if (strchr(ipaddr, '-') != NULL) {
-						ipt_write(
-							"-A PREROUTING -m iprange --src-range %s -p udp -m limit --limit %s/sec -j ACCEPT\n"
-							,ipaddr,udplimit);
-					}
-					else	{
+				switch (address_type)
+				{
+					case IP_ADDRESS:
 						ipt_write(
 							"-A PREROUTING -s %s -p udp -m limit --limit %s/sec -j ACCEPT\n"
 							,ipaddr,udplimit);
-					}
-				}
-				else if (strlen(ipaddr) == 17 ) {
-					ipt_write(
-						"-A PREROUTING -m iprange --src-range %s -p udp -m limit --limit %s/sec -j ACCEPT\n"
-						,ipaddr,udplimit);
+						break;
+					case MAC_ADDRESS:
+						ipt_write(
+							"-A PREROUTING -m iprange --src-range %s -p udp -m limit --limit %s/sec -j ACCEPT\n"
+							,ipaddr,udplimit);
+						break;
+					case IP_RANGE:
+						ipt_write(
+							"-A PREROUTING -m iprange --src-range %s -p udp -m limit --limit %s/sec -j ACCEPT\n"
+							,ipaddr,udplimit);
+						break;
 				}
 			}
 		}
+		free (ipaddr);
 	}
 	free(buf);
 }
@@ -192,7 +243,7 @@ void new_qoslimit_start(void)
 	char *p;
 	char *ibw,*obw;//bandwidth
 	char *seq;//mark number
-	char *ipaddr;//ip address
+	char *ipaddr_old, *ipaddr;//ip address
 	char *dlrate,*dlceil;//guaranteed rate & maximum rate for download
 	char *ulrate,*ulceil;//guaranteed rate & maximum rate for upload
 	char *priority;//priority
@@ -201,7 +252,7 @@ void new_qoslimit_start(void)
 	char *tcplimit,*udplimit;//tcp connection limit & udp packets per second
 	int priority_num;
 	char *dlr,*dlc,*ulr,*ulc; //download / upload - rate / ceiling
-	int i;
+	int i, address_type;
 	int s[6];
 
 	//qos1 is enable
@@ -276,19 +327,20 @@ void new_qoslimit_start(void)
 		
 	while (g) {
 		/*
-		seq<ipaddr<dlrate<dlceil<ulrate<ulceil<priority<tcplimit<udplimit
+		seq<ipaddr_old<dlrate<dlceil<ulrate<ulceil<priority<tcplimit<udplimit
 		*/
 		if ((p = strsep(&g, ">")) == NULL) break;
-		i = vstrsep(p, "<", &seq, &ipaddr, &dlrate, &dlceil, &ulrate, &ulceil, &priority, &tcplimit, &udplimit);
+		i = vstrsep(p, "<", &seq, &ipaddr_old, &dlrate, &dlceil, &ulrate, &ulceil, &priority, &tcplimit, &udplimit);
 
 		priority_num = atoi(priority);
 		if ((priority_num < 0) || (priority_num > 5)) continue;
 
-		if (!strcmp(ipaddr,"")) continue;
-
+		if (!strcmp(ipaddr_old,"")) continue;
+		ipaddr = malloc(sizeof(char)*(strlen(ipaddr_old) + 20)); /*extra bytes for range expansion */
+		address_checker(&address_type, ipaddr_old, ipaddr);
 		if (!strcmp(dlceil,"")) strcpy(dlceil, dlrate);
 		if (strcmp(dlrate,"") && strcmp(dlceil, "")) {
-			if (strlen(ipaddr) != 17 ) {
+			if (address_type != MAC_ADDRESS) {
 				fprintf(tc,
 					"$TCA parent 1:1 classid 1:%s htb rate %skbit ceil %skbit prio %s\n"
 					"$TQA parent 1:%s handle %s: $SFQ\n"
@@ -298,7 +350,7 @@ void new_qoslimit_start(void)
 					,seq,seq
 					,priority,seq,seq);
 			}
-			else if (strlen(ipaddr) == 17 ) {
+			else if (address_type == MAC_ADDRESS ) {
 				sscanf(ipaddr, "%02X:%02X:%02X:%02X:%02X:%02X",&s[0],&s[1],&s[2],&s[3],&s[4],&s[5]);
 				
 				fprintf(tc,
@@ -322,6 +374,7 @@ void new_qoslimit_start(void)
 				,seq,ulrate,ulceil,priority
 				,seq,seq
 				,priority,seq,seq);
+		free(ipaddr);
 		}
 	}
 	free(buf);
