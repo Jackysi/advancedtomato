@@ -980,10 +980,6 @@ static const nvset_t nvset_list[] = {
 	{ "bt_pex",                     V_01                            },
 #endif
 
-<<<<<<< HEAD:release/src/router/httpd/tomato.c
-
-=======
->>>>>>> origin/Tomato-RAF:release/src/router/httpd/tomato.c
 #ifdef TCONFIG_OPENVPN
 // vpn
 	{ "vpn_debug",            V_01                },
