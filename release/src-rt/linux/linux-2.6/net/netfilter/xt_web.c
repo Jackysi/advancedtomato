@@ -223,7 +223,7 @@ static int match_payload(const struct xt_web_info *info, const char *data, int d
 }
 
 static int
-match4(const struct sk_buff *skb,
+match4(const struct sk_buff *skbin,
        const struct net_device *in,
        const struct net_device *out,
        const struct xt_match *match,
@@ -232,13 +232,24 @@ match4(const struct sk_buff *skb,
        unsigned int protoff,
        int *hotdrop)
 {
+	/* sidestep const without getting a compiler warning... */
+	struct sk_buff * skb = (struct sk_buff *)skbin; 
+
 	const struct xt_web_info *info = matchinfo;
-	const struct iphdr *iph = ip_hdr(skb);
+	const struct iphdr *iph;
 	struct tcphdr *tcph;
 	const char *data;
 
 	if (offset != 0) return info->invert;
 
+	if (skb_is_nonlinear(skb)) {
+		if (unlikely(skb_linearize(skb))) {
+			// failed to linearize packet, bailing
+			return info->invert;
+		}
+	}
+
+	iph = ip_hdr(skb);
 	tcph = (void *)iph + (iph->ihl * 4);
 	data = (void *)tcph + (tcph->doff * 4);
 
@@ -248,7 +259,7 @@ match4(const struct sk_buff *skb,
 
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
 static int
-match6(const struct sk_buff *skb,
+match6(const struct sk_buff *skbin,
        const struct net_device *in,
        const struct net_device *out,
        const struct xt_match *match,
@@ -257,14 +268,25 @@ match6(const struct sk_buff *skb,
        unsigned int protoff,
        int *hotdrop)
 {
+	/* sidestep const without getting a compiler warning... */
+	struct sk_buff * skb = (struct sk_buff *)skbin; 
+
 	const struct xt_web_info *info = matchinfo;
-	const struct ipv6hdr *iph = ipv6_hdr(skb);
+	const struct ipv6hdr *iph;
 	u8 nexthdr;
 	struct tcphdr *tcph;
 	const char *data;
 
 	if (offset != 0) return info->invert;
 
+	if (skb_is_nonlinear(skb)) {
+		if (unlikely(skb_linearize(skb))) {
+			// failed to linearize packet, bailing
+			return info->invert;
+		}
+	}
+
+	iph = ipv6_hdr(skb);
 	nexthdr = iph->nexthdr;
 	tcph = (void *)iph + ipv6_skip_exthdr(skb, sizeof(*iph), &nexthdr);
 	data = (void *)tcph + (tcph->doff * 4);

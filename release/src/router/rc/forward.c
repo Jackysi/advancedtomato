@@ -63,8 +63,7 @@ void ipt_forward(ipt_table_t table)
 		}
 		else {
 			if (host_addrtypes(iaddr, IPT_V4) != IPT_V4) {
-				syslog(LOG_WARNING, "firewall: IPv4 port forwarding: not using %s%s%s (could not resolve as valid IPv4 address)",
-					iaddr, (desc && *desc) ? " for " : "", (desc && *desc) ? desc : "");
+				ipt_log_unresolved(iaddr, "IPv4", "IPv4 port forwarding", desc);
 				continue;
 			}
 			strlcpy(ip, iaddr, sizeof(ip));
@@ -191,8 +190,7 @@ void ip6t_forward(void)
 			continue;
 
 		if ((*daddr) && (host_addrtypes(daddr, IPT_V6) != IPT_V6)) {
-			syslog(LOG_WARNING, "firewall: IPv6 port forwarding: not using %s%s%s (could not resolve as valid IPv6 address)",
-				daddr, (desc && *desc) ? " for " : "", (desc && *desc) ? desc : "");
+			ipt_log_unresolved(daddr, "IPv6", "IPv6 port forwarding", desc);
 			continue;
 		}
 

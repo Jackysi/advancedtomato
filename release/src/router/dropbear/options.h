@@ -38,7 +38,7 @@
  * Both of these flags can be defined at once, don't compile without at least
  * one of them. */
 #define NON_INETD_MODE
-//	#define INETD_MODE
+/*#define INETD_MODE*/
 
 /* Setting this disables the fast exptmod bignum code. It saves ~5kB, but is
  * perhaps 20% slower for pubkey operations (it is probably worth experimenting
@@ -46,12 +46,13 @@
 /*#define NO_FAST_EXPTMOD*/
 
 /* Set this if you want to use the DROPBEAR_SMALL_CODE option. This can save
-several kB in binary size, however will make the symmetrical ciphers (AES, DES
-etc) slower (perhaps by 50%). Recommended for most small systems. */
+several kB in binary size however will make the symmetrical ciphers and hashes
+slower, perhaps by 50%. Recommended for small systems that aren't doing
+much traffic. */
 #define DROPBEAR_SMALL_CODE
 
 /* Enable X11 Forwarding - server only */
-//	#define ENABLE_X11FWD
+/*#define ENABLE_X11FWD*/
 
 /* Enable TCP Fowarding */
 /* 'Local' is "-L" style (client listening port forwarded via server)
@@ -64,7 +65,8 @@ etc) slower (perhaps by 50%). Recommended for most small systems. */
 #define ENABLE_SVR_REMOTETCPFWD
 
 /* Enable Authentication Agent Forwarding - server only for now */
-#define ENABLE_AGENTFWD
+#define ENABLE_SVR_AGENTFWD
+#define ENABLE_CLI_AGENTFWD
 
 
 /* Note: Both ENABLE_CLI_PROXYCMD and ENABLE_CLI_NETCAT must be set to
@@ -85,7 +87,8 @@ etc) slower (perhaps by 50%). Recommended for most small systems. */
 #define DROPBEAR_AES128
 #define DROPBEAR_3DES
 #define DROPBEAR_AES256
-#define DROPBEAR_BLOWFISH
+/* Compiling in Blowfish will add ~6kB to runtime heap memory usage */
+/*#define DROPBEAR_BLOWFISH*/
 #define DROPBEAR_TWOFISH256
 #define DROPBEAR_TWOFISH128
 
@@ -125,11 +128,27 @@ etc) slower (perhaps by 50%). Recommended for most small systems. */
 /* Define DSS_PROTOK to use PuTTY's method of generating the value k for dss,
  * rather than just from the random byte source. Undefining this will save you
  * ~4k in binary size with static uclibc, but your DSS hostkey could be exposed
- * if the random number source isn't good. In general this isn't required */
+ * if the random number source isn't good. It happened to Sony. 
+ * On systems with a decent random source this isn't required. */
 /* #define DSS_PROTOK */
 
+/* Control the memory/performance/compression tradeoff for zlib.
+ * Set windowBits=8, memLevel=1 for least memory usage, see your system's
+ * zlib.h for full details.
+ * Default settings (windowBits=15, memLevel=8) will use 
+ * 256kB for compression + 32kB for decompression.
+ * windowBits=8, memLevel=1 will use 10kB compression + 32kB decompression.
+ * Note that windowBits is only set for deflate() - inflate() always uses the
+ * default of 15 so as to interoperate with other clients. */
+#ifndef DROPBEAR_ZLIB_WINDOW_BITS
+#define DROPBEAR_ZLIB_WINDOW_BITS 15 
+#endif
+#ifndef DROPBEAR_ZLIB_MEM_LEVEL
+#define DROPBEAR_ZLIB_MEM_LEVEL 8
+#endif
+
 /* Whether to do reverse DNS lookups. */
-//#define DO_HOST_LOOKUP
+/*#define DO_HOST_LOOKUP*/
 
 /* Whether to print the message of the day (MOTD). This doesn't add much code
  * size */
@@ -154,7 +173,8 @@ etc) slower (perhaps by 50%). Recommended for most small systems. */
 /*#define ENABLE_SVR_PAM_AUTH*/
 #define ENABLE_SVR_PUBKEY_AUTH
 
-/* Wether to ake public key options in authorized_keys file into account */
+/* Whether to take public key options in 
+ * authorized_keys file into account */
 #ifdef ENABLE_SVR_PUBKEY_AUTH
 #define ENABLE_SVR_PUBKEY_OPTIONS
 #endif
@@ -246,14 +266,19 @@ etc) slower (perhaps by 50%). Recommended for most small systems. */
    significant difference to network performance. 24kB was empirically
    chosen for a 100mbit ethernet network. The value can be altered at
    runtime with the -W argument. */
-//	#define DEFAULT_RECV_WINDOW 24576
+#ifndef DEFAULT_RECV_WINDOW
 #define DEFAULT_RECV_WINDOW 12288
+#endif
 /* Maximum size of a received SSH data packet - this _MUST_ be >= 32768
    in order to interoperate with other implementations */
+#ifndef RECV_MAX_PAYLOAD_LEN
 #define RECV_MAX_PAYLOAD_LEN 32768
+#endif
 /* Maximum size of a transmitted data packet - this can be any value,
    though increasing it may not make a significant difference. */
+#ifndef TRANS_MAX_PAYLOAD_LEN
 #define TRANS_MAX_PAYLOAD_LEN 16384
+#endif
 
 /* Ensure that data is transmitted every KEEPALIVE seconds. This can
 be overridden at runtime with -K. 0 disables keepalives */

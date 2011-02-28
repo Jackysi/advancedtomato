@@ -436,6 +436,13 @@ main(argc, argv)
     }
 
     /*
+     * pppd sends signals to the whole process group, so it must always
+     * create a new one or it may kill the parent process and its siblings.
+     */
+    setsid();
+    chdir("/");
+
+    /*
      * Initialize system-dependent stuff.
      */
     sys_init();
@@ -780,8 +787,6 @@ detach()
 	    create_linkpidfile(pid);
 	exit(0);		/* parent dies */
     }
-    setsid();
-    chdir("/");
     dup2(fd_devnull, 0);
     dup2(fd_devnull, 1);
     dup2(fd_devnull, 2);

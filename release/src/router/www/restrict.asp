@@ -130,6 +130,8 @@ function init()
 
 <br>
 <script type='text/javascript'>show_notice1('<% notice("iptables"); %>');</script>
+<br>
+<script type='text/javascript'>show_notice1('<% notice("ip6tables"); %>');</script>
 
 <!-- / / / -->
 

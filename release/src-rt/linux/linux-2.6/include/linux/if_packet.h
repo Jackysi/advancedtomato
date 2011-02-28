@@ -43,6 +43,11 @@ struct sockaddr_ll
 #define PACKET_COPY_THRESH		7
 #define PACKET_AUXDATA			8
 #define PACKET_ORIGDEV			9
+#define PACKET_VERSION			10
+#define PACKET_HDRLEN			11
+#define PACKET_RESERVE			12
+#define PACKET_TX_RING			13
+#define PACKET_LOSS			14
 
 struct tpacket_stats
 {
@@ -57,16 +62,25 @@ struct tpacket_auxdata
 	__u32		tp_snaplen;
 	__u16		tp_mac;
 	__u16		tp_net;
+	__u16		tp_vlan_tci;
 };
+
+/* Rx ring - header status */
+#define TP_STATUS_KERNEL	0x0
+#define TP_STATUS_USER		0x1
+#define TP_STATUS_COPY		0x2
+#define TP_STATUS_LOSING	0x4
+#define TP_STATUS_CSUMNOTREADY	0x8
+
+/* Tx ring - header status */
+#define TP_STATUS_AVAILABLE	0x0
+#define TP_STATUS_SEND_REQUEST	0x1
+#define TP_STATUS_SENDING	0x2
+#define TP_STATUS_WRONG_FORMAT	0x4
 
 struct tpacket_hdr
 {
 	unsigned long	tp_status;
-#define TP_STATUS_KERNEL	0
-#define TP_STATUS_USER		1
-#define TP_STATUS_COPY		2
-#define TP_STATUS_LOSING	4
-#define TP_STATUS_CSUMNOTREADY	8
 	unsigned int	tp_len;
 	unsigned int	tp_snaplen;
 	unsigned short	tp_mac;
@@ -78,6 +92,26 @@ struct tpacket_hdr
 #define TPACKET_ALIGNMENT	16
 #define TPACKET_ALIGN(x)	(((x)+TPACKET_ALIGNMENT-1)&~(TPACKET_ALIGNMENT-1))
 #define TPACKET_HDRLEN		(TPACKET_ALIGN(sizeof(struct tpacket_hdr)) + sizeof(struct sockaddr_ll))
+
+struct tpacket2_hdr
+{
+	__u32		tp_status;
+	__u32		tp_len;
+	__u32		tp_snaplen;
+	__u16		tp_mac;
+	__u16		tp_net;
+	__u32		tp_sec;
+	__u32		tp_nsec;
+	__u16		tp_vlan_tci;
+};
+
+#define TPACKET2_HDRLEN		(TPACKET_ALIGN(sizeof(struct tpacket2_hdr)) + sizeof(struct sockaddr_ll))
+
+enum tpacket_versions
+{
+	TPACKET_V1,
+	TPACKET_V2,
+};
 
 /*
    Frame structure:

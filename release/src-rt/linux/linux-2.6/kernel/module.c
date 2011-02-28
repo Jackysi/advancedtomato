@@ -286,7 +286,7 @@ static unsigned long __find_symbol(const char *name,
 		}
 	}
 	DEBUGP("Failed to find symbol %s\n", name);
- 	return 0;
+	return -ENOENT;
 }
 
 /* Search for module by name: must hold module_mutex. */
@@ -765,7 +765,7 @@ void __symbol_put(const char *symbol)
 	const unsigned long *crc;
 
 	spin_lock_irqsave(&modlist_lock, flags);
-	if (!__find_symbol(symbol, &owner, &crc, 1))
+	if (IS_ERR_VALUE(__find_symbol(symbol, &owner, &crc, 1)))
 		BUG();
 	module_put(owner);
 	spin_unlock_irqrestore(&modlist_lock, flags);
@@ -912,7 +912,8 @@ static inline int check_modstruct_version(Elf_Shdr *sechdrs,
 	const unsigned long *crc;
 	struct module *owner;
 
-	if (!__find_symbol("struct_module", &owner, &crc, 1))
+	if (IS_ERR_VALUE(__find_symbol("struct_module",
+						&owner, &crc, 1)))
 		BUG();
 	return check_version(sechdrs, versindex, "struct_module", mod,
 			     crc);
@@ -961,11 +962,11 @@ static unsigned long resolve_symbol(Elf_Shdr *sechdrs,
 
 	ret = __find_symbol(name, &owner, &crc,
 			!(mod->taints & TAINT_PROPRIETARY_MODULE));
-	if (ret) {
+	if (!IS_ERR_VALUE(ret)) {
 		/* use_module can fail due to OOM, or module unloading */
 		if (!check_version(sechdrs, versindex, name, mod, crc) ||
 		    !use_module(mod, owner))
-			ret = 0;
+			ret = -EINVAL;
 	}
 	return ret;
 }
@@ -1236,7 +1237,9 @@ void *__symbol_get(const char *symbol)
 
 	spin_lock_irqsave(&modlist_lock, flags);
 	value = __find_symbol(symbol, &owner, &crc, 1);
-	if (value && !strong_try_module_get(owner))
+	if (IS_ERR_VALUE(value))
+		value = 0;
+	else if (strong_try_module_get(owner))
 		value = 0;
 	spin_unlock_irqrestore(&modlist_lock, flags);
 
@@ -1256,14 +1259,16 @@ static int verify_export_symbols(struct module *mod)
 	const unsigned long *crc;
 
 	for (i = 0; i < mod->num_syms; i++)
-	        if (__find_symbol(mod->syms[i].name, &owner, &crc, 1)) {
+	        if (!IS_ERR_VALUE(__find_symbol(mod->syms[i].name,
+	    						&owner, &crc, 1))) {
 			name = mod->syms[i].name;
 			ret = -ENOEXEC;
 			goto dup;
 		}
 
 	for (i = 0; i < mod->num_gpl_syms; i++)
-	        if (__find_symbol(mod->gpl_syms[i].name, &owner, &crc, 1)) {
+	        if (!IS_ERR_VALUE(__find_symbol(mod->gpl_syms[i].name,
+	    						&owner, &crc, 1))) {
 			name = mod->gpl_syms[i].name;
 			ret = -ENOEXEC;
 			goto dup;
@@ -1313,7 +1318,7 @@ static int simplify_symbols(Elf_Shdr *sechdrs,
 					   strtab + sym[i].st_name, mod);
 
 			/* Ok if resolved.  */
-			if (sym[i].st_value != 0)
+			if (!IS_ERR_VALUE(sym[i].st_value))
 				break;
 			/* Ok if weak.  */
 			if (ELF_ST_BIND(sym[i].st_info) == STB_WEAK)

@@ -138,6 +138,9 @@ static int et_poll(struct net_device *dev, int *budget);
 static void et_dpc(ulong data);
 #endif /* NAPI_POLL */
 static void et_sendup(et_info_t *et, struct sk_buff *skb);
+#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
+static void et_poll_controller(struct net_device *dev);
+#endif
 
 /* recognized PCI IDs */
 static struct pci_device_id et_id_table[] __devinitdata = {
@@ -320,6 +323,10 @@ et_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	dev->poll = et_poll;
 	dev->weight = (ET_GMAC(et->etc) ? 64 : 32);
 #endif /* NAPI_POLL */
+
+#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
+	dev->poll_controller = et_poll_controller;
+#endif
 
 	if (register_netdev(dev)) {
 		ET_ERROR(("et%d: register_netdev() failed\n", unit));
@@ -566,14 +573,18 @@ et_start(struct sk_buff *skb, struct net_device *dev)
 	ET_TRACE(("et%d: et_start: len %d\n", et->etc->unit, skb->len));
 	ET_LOG("et%d: et_start: len %d", et->etc->unit, skb->len);
 
+#ifndef NAPI_POLL
 	ET_LOCK(et);
+#endif
 
 	/* put it on the tx queue and call sendnext */
 	__skb_queue_tail(&et->txq[q], skb);
 	et->etc->txq_state |= (1 << q);
 	et_sendnext(et);
 
+#ifndef NAPI_POLL
 	ET_UNLOCK(et);
+#endif
 
 	ET_LOG("et%d: et_start ret\n", et->etc->unit, 0);
 
@@ -1522,3 +1533,19 @@ et_phywr(et_info_t *et, uint phyaddr, uint reg, uint16 val)
 	et->etc->chops->phywr(et->etc->ch, phyaddr, reg, val);
 	ET_UNLOCK(et);
 }
+
+#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
+static void
+et_poll_controller(struct net_device *dev)
+{
+	et_info_t *et = ET_INFO(dev);
+
+	disable_irq(et->pdev->irq);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 20)
+	et_isr(et->pdev->irq, et);
+#else
+	et_isr(et->pdev->irq, et, NULL);
+#endif
+	enable_irq(et->pdev->irq);
+}
+#endif
