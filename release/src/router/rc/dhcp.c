@@ -247,6 +247,7 @@ static int bound(char *ifname, int renew)
 	TRACE_PT("wan_routes1=%s\n", nvram_safe_get("wan_routes1"));
 	TRACE_PT("wan_routes2=%s\n", nvram_safe_get("wan_routes2"));
 
+	ifconfig(ifname, IFUP, "0.0.0.0", NULL);
 	ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), netmask);
 
 	if (wan_proto != WP_DHCP) {

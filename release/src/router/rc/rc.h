@@ -99,7 +99,8 @@ extern int reboothalt_main(int argc, char *argv[]);
 extern int console_main(int argc, char *argv[]);
 
 // interface.c
-extern int ifconfig(const char *ifname, int flags, const char *addr, const char *netmask);
+extern int _ifconfig(const char *name, int flags, const char *addr, const char *netmask, const char *dstaddr);
+#define ifconfig(name, flags, addr, netmask) _ifconfig(name, flags, addr, netmask, NULL)
 extern int route_add(char *name, int metric, char *dst, char *gateway, char *genmask);
 extern void route_del(char *name, int metric, char *dst, char *gateway, char *genmask);
 extern void config_loopback(void);

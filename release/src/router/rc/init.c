@@ -1158,7 +1158,7 @@ static int init_nvram(void)
 	//nvram_set("wl_country_code", "JP");
 	nvram_set("wan_get_dns", "");
 	nvram_set("wan_get_domain", "");
-	nvram_set("pppoe_pid0", "");
+	nvram_set("ppp_get_ip", "");
 	nvram_set("action_service", "");
 	nvram_set("jffs2_format", "0");
 	nvram_set("rrules_radio", "-1");
