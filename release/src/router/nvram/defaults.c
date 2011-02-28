@@ -895,6 +895,24 @@ const defaults_t defaults[] = {
 
 #endif	// 0
 
+
+// new_qoslimit
+	{ "new_qoslimit_enable",		"0"			},
+	{ "new_qoslimit_obw",			""			},
+	{ "new_qoslimit_ibw",			""			},
+	{ "new_qoslimit_rules",			"" 			},
+	{ "qosl_enable",			"0" 			},
+	{ "qosl_tcp",			"0" 			},//unlimited
+	{ "qosl_udp",			"0" 			},//unlimited
+	{ "qosl_dlc",			"" 			},
+	{ "qosl_ulc",			"" 			},
+	{ "qosl_dlr",			"" 			},
+	{ "qosl_ulr",			"" 			},
+
+// new_arpbind
+	{ "new_arpbind_enable",			"0"			},
+	{ "new_arpbind_only",			"0"			},
+	{ "new_arpbind_list",			"" 			},
 	{ NULL, NULL	}
 };
 
