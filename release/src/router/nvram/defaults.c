@@ -394,7 +394,7 @@ const defaults_t defaults[] = {
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
 	{ "dhcp_pass",			"1"				},	// allow DHCP responses
-	{ "ne_shlimit",			"0,3,60"		},
+	{ "ne_shlimit",			"1,3,60"			},	//shibby - enable limit connection attempts for sshd
 
 // advanced-routing
 	{ "routes_static",		""				},
@@ -492,15 +492,15 @@ const defaults_t defaults[] = {
 	{ "https_crt_file",		""				},
 	{ "https_crt",			""				},
 	{ "web_wl_filter",		"0"				},	// Allow/Deny Wireless Access Web
-	{ "web_css",			"usbred"		},
+	{ "web_css",			"usbblue"		},
 	{ "web_svg",			"1"				},
 	{ "telnetd_eas",		"1"				},
 	{ "telnetd_port",		"23"			},
-	{ "sshd_eas",			"0"				},
+	{ "sshd_eas",			"1"				}, //shibby - enable sshd by default
 	{ "sshd_pass",			"1"				},
 	{ "sshd_port",			"22"			},
 	{ "sshd_remote",		"0"				},
-	{ "sshd_rport",			"2222"			},
+	{ "sshd_rport",			"22"			},
 	{ "sshd_authkeys",		""				},
 	{ "sshd_hostkey",		""				},
 	{ "sshd_dsskey",		""				},
