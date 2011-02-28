@@ -31,6 +31,7 @@ void ipt_qoslimit(int chain)
 	char *tcplimit,*udplimit;//tcp connection limit & udp packets per second
 	char *laninface; // lan interface
 	int priority_num;
+	char *qosl_tcp,*qosl_udp;
 	int i;
 
 	//qos1 is enable
@@ -46,12 +47,41 @@ void ipt_qoslimit(int chain)
 	lanmask = nvram_safe_get("lan_netmask");
 	laninface = nvram_safe_get("lan_ifname");
 	
+	qosl_tcp = nvram_safe_get("qosl_tcp");
+	qosl_udp = nvram_safe_get("qosl_udp");
+	
+	//MANGLE
 	if (chain == 1)
 	{
 		ipt_write(
 			"-A PREROUTING -j IMQ -i %s --todev 0\n"
 			"-A POSTROUTING -j IMQ -o %s --todev 1\n"
 			,laninface,laninface);
+		if (nvram_get_int("qosl_enable") == 1) {
+			ipt_write(
+			"-A POSTROUTING ! -s %s/%s -j MARK --set-mark 100\n"
+			"-A PREROUTING  ! -d %s/%s -j MARK --set-mark 100\n"
+			,lanipaddr,lanmask
+			,lanipaddr,lanmask);
+		}
+	}
+	
+	//NAT
+	if (chain == 2)
+	{
+		if (nvram_get_int("qosl_enable") == 1) {
+			if (nvram_get_int("qosl_tcp") > 0) {
+				ipt_write(
+					"-A PREROUTING -s %s/%s -p tcp --syn -m connlimit --connlimit-above %s -j DROP\n"
+				,lanipaddr,lanmask,qosl_tcp);
+			}
+			
+			if (nvram_get_int("qosl_udp") > 0) {
+				ipt_write(
+					"-A PREROUTING -s %s/%s -p udp -m limit --limit %s/sec -j ACCEPT\n"
+				,lanipaddr,lanmask,qosl_udp);
+			}
+		}
 	}
 	
 	while (g) {
@@ -84,7 +114,7 @@ void ipt_qoslimit(int chain)
 			}
 		}
 		
-		if (!strcmp(ulceil,"")) strcpy(ulceil, dlrate);
+		if (!strcmp(ulceil,"")) strcpy(ulceil, ulrate);
 		if (strcmp(ulrate,"") && strcmp(ulceil, "")) {
 			if (chain == 1) {
 				if (strlen(ipaddr) != 17 ) {
@@ -107,7 +137,6 @@ void ipt_qoslimit(int chain)
 			}
 		}
 		
-		// not sure if to use -I or -A but i am using -A as u can SEE!!!!
 		if(atoi(tcplimit) > 0){
 			if (chain == 2) {
 				if (strlen(ipaddr) != 17 ) {
@@ -171,6 +200,7 @@ void new_qoslimit_start(void)
 	char *lanmask; //lan netmask
 	char *tcplimit,*udplimit;//tcp connection limit & udp packets per second
 	int priority_num;
+	char *dlr,*dlc,*ulr,*ulc; //download / upload - rate / ceiling
 	int i;
 	int s[6];
 
@@ -186,6 +216,11 @@ void new_qoslimit_start(void)
 	lanipaddr = nvram_safe_get("lan_ipaddr");
 	lanmask = nvram_safe_get("lan_netmask");
 
+	dlr = nvram_safe_get("qosl_dlr"); //Qos limit download rate
+	dlc = nvram_safe_get("qosl_dlc"); //download ceiling
+	ulr = nvram_safe_get("qosl_ulr"); //upload rate
+	ulc = nvram_safe_get("qosl_ulc"); //upload ceiling
+	
 	if ((tc = fopen(qoslimitfn, "w")) == NULL) return;
 
 	fprintf(tc,
@@ -217,12 +252,28 @@ void new_qoslimit_start(void)
 		"tc qdisc add dev br0 root handle 1: htb\n"
 		"tc class add dev br0 parent 1: classid 1:1 htb rate %skbit\n"
 		"\n"
-		"\n"
 		"tc qdisc add dev imq0 root handle 1: htb\n"
 		"tc class add dev imq0 parent 1: classid 1:1 htb rate %skbit\n"
+		"\n"
 		,ibw,ibw,obw
 	);
 	
+	if ((nvram_get_int("qosl_enable") == 1) && strcmp(dlr,"") && strcmp(ulr,"")) {
+		if (!strcmp(dlr,"")) strcpy(dlc, dlr);
+		if (!strcmp(ulr,"")) strcpy(ulc, ulr);
+		fprintf(tc,
+		"$TCA parent 1:1 classid 1:100 htb rate %skbit ceil %skbit prio 3\n"
+		"$TQA parent 1:100 handle 100: $SFQ\n"
+		"$TFA parent 1:0 prio 3 protocol ip handle 100 fw flowid 1:100\n"
+		"\n"
+		"$TCAU parent 1:1 classid 1:100 htb rate %skbit ceil %skbit prio 3\n"
+		"$TQAU parent 1:100 handle 100: $SFQ\n"
+		"$TFAU parent 1:0 prio 3 protocol ip handle 100 fw flowid 1:100\n"
+		"\n"
+		,dlr,dlc
+		,ulr,ulc);
+	}
+		
 	while (g) {
 		/*
 		seq<ipaddr<dlrate<dlceil<ulrate<ulceil<priority<tcplimit<udplimit
