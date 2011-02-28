@@ -807,6 +807,12 @@ void start_wan_done(char *wan_ifname)
 	start_firewall();
 	start_qos();
 
+	new_qoslimit_start(); //!! RAF
+	new_arpbind_start(); //!! RAF
+
+
+
+
 	do_static_routes(1);
 	// and routes supplied via DHCP
 	do_wan_routes(using_dhcpc() ? nvram_safe_get("wan_ifname") : wan_ifname, 0, 1);
@@ -866,6 +872,9 @@ void stop_wan(void)
 	char *next;
 	
 	TRACE_PT("begin\n");
+
+	new_arpbind_stop(); //!! RAF
+	new_qoslimit_stop(); //!! RAF
 
 	stop_qos();
 	stop_upnp();	//!!TB - moved from stop_services()

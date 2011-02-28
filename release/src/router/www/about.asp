@@ -76,7 +76,7 @@ function init()
 <body onload='init()'>
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
-	<div class='title'>Tomato</div>
+	<div class='title'>Tomato RAF</div>
 	<div class='version'>Version <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
@@ -89,11 +89,10 @@ function init()
 <img src='tux.png' alt='Linux &amp; Tomato' id='tux'>
 </div>
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
-Tomato Firmware v<% version(1); %><br>
+Tomato Firmware RAF<% version(1); %><br>
 
-<br>
 <!-- USB-BEGIN -->
-USB support integration and GUI,
+<br>USB support integration and GUI,<br>
 <!-- USB-END -->
 <!-- IPV6-BEGIN -->
 IPv6 support,
@@ -107,18 +106,22 @@ Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <br><br>
 
 <!-- VPN-BEGIN -->
-VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
+VPN integration and GUI,
+Copyright (C) 2010 Keith Moyer,<br>
+<a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br><br>
 <!-- VPN-END -->
-<b>
+
+<b>RAF features,</b><br>
+QoS IP/Range BW Limiter | ARP Binding<br>
 <!-- BT-BEGIN -->
-"Transmission 2.13 integration and GUI<br>
+Transmission 2.13 integration and GUI<br>
+<!-- BT-END -->
 Copyright (C) 2007-2011 Michał Rupental, Vicente Soriano. <br>
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
-<!-- BT-END -->
 <br>
-<br>
+
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
