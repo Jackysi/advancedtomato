@@ -127,44 +127,17 @@ static int dmz_dst(char *s)
 	return 1;
 }
 
-/*
-int ipt_addr(char *addr, int maxlen, const char *s, const char *dir, int family,
-	const char *categ, const char *name)
+void ipt_log_unresolved(const char *addr, const char *addrtype, const char *categ, const char *name)
 {
-	char p[INET6_ADDRSTRLEN * 2];
-	int r = 1;
+	char *pre, *post;
 
-	if ((s) && (*s) && (*dir))
-	{
-		if (sscanf(s, "%[0-9.]-%[0-9.]", p, p) == 2) {
-			snprintf(addr, maxlen, "-m iprange --%s-range %s", dir, s);
-			r = (family == AF_INET);
-		}
-#ifdef TCONFIG_IPV6
-		else if (sscanf(s, "%[0-9A-Fa-f:]-%[0-9A-Fa-f:]", p, p) == 2) {
-			snprintf(addr, maxlen, "-m iprange --%s-range %s", dir, s);
-			r = (family == AF_INET6);
-		}
-#endif
-		else {
-			snprintf(addr, maxlen, "-%c %s", dir[0], s);
-			r = (host_to_addr(s, family) != NULL);
-		}
-	}
-	else
-		*addr = 0;
+	pre = (name && *name) ? " for \"" : "";
+	post = (name && *name) ? "\"" : "";
 
-	if (r == 0 && (categ && *categ)) {
-		syslog(LOG_WARNING,
-			"IPv%d firewall: %s: not using %s%s%s (could not resolve as valid IPv%d address)",
-			(family == AF_INET6) ? 6 : 4, categ, s,
-			(name && *name) ? " for " : "", (name && *name) ? name : "",
-			(family == AF_INET6) ? 6 : 4);
-	}
-
-	return r;
+	syslog(LOG_WARNING, "firewall: "
+		"%s: not using %s%s%s%s (could not resolve as valid %s address)",
+		categ, addr, pre, (name) ? : "", post, (addrtype) ? : "IP");
 }
-*/
 
 int ipt_addr(char *addr, int maxlen, const char *s, const char *dir, int af,
 	int strict, const char *categ, const char *name)
@@ -200,13 +173,12 @@ int ipt_addr(char *addr, int maxlen, const char *s, const char *dir, int af,
 		*addr = 0;
 		r = (IPT_V4 | IPT_V6);
 	}
-	
-	if ((r==0 || (strict && ((r & af) != af))) && (categ && *categ)) {
-		syslog(LOG_WARNING,
-			"firewall: %s: not using %s%s%s (could not resolve as valid %s%saddress)",
-			categ, s, (name && *name) ? " for " : "", (name && *name) ? name : "",
-			(af & IPT_V4 & ~r) ? "IPv4 " : "", (af & IPT_V6 & ~r) ? "IPv6 " : "" );
+
+	if ((r == 0 || (strict && ((r & af) != af))) && (categ && *categ)) {
+		ipt_log_unresolved(s, categ, name,
+			(af & IPT_V4 & ~r) ? "IPv4" : ((af & IPT_V6 & ~r) ? "IPv6" : NULL));
 	}
+
 	return (r & af);
 }
 
@@ -396,19 +368,19 @@ static void save_webmon(void)
 	system("cp /proc/webmon_recent_searches /var/webmon/search");
 }
 
-static void ipt_webmon(int do_ip6t)
+static void ipt_webmon()
 {
 	int wmtype, clear, i;
 	char t[512];
 	char src[128];
 	char *p, *c;
-	int af = do_ip6t ? IPT_V6 : IPT_V4;
+	int ok;
 
 	if (!nvram_get_int("log_wm")) return;
 	wmtype = nvram_get_int("log_wmtype");
 	clear = nvram_get_int("log_wmclear");
 
-	ip46t_cond_write(do_ip6t, ":monitor - [0:0]\n");
+	ip46t_write(":monitor - [0:0]\n");
 
 	// include IPs
 	strlcpy(t, wmtype == 1 ? nvram_safe_get("log_wmip") : "", sizeof(t));
@@ -416,18 +388,17 @@ static void ipt_webmon(int do_ip6t)
 	do {
 		if ((c = strchr(p, ',')) != NULL) *c = 0;
 
-		if (ipt_addr(src, sizeof(src), p, "src", af, 0, "webmon", "filtering")) {
+		if ((ok = ipt_addr(src, sizeof(src), p, "src", IPT_V4|IPT_V6, 0, "webmon", NULL))) {
 #ifdef TCONFIG_IPV6
-			if (do_ip6t) {
-				if (*wan6face)
-					ip6t_write("-A FORWARD -o %s %s -j monitor\n", wan6face, src);
-			}
-			else
+			if (*wan6face && (ok & IPT_V6))
+				ip6t_write("-A FORWARD -o %s %s -j monitor\n", wan6face, src);
 #endif
-			for (i = 0; i < wanfaces.count; ++i) {
-				if (*(wanfaces.iface[i].name)) {
-					ipt_write("-A FORWARD -o %s %s -j monitor\n",
-						wanfaces.iface[i].name, src);
+			if (ok & IPT_V4) {
+				for (i = 0; i < wanfaces.count; ++i) {
+					if (*(wanfaces.iface[i].name)) {
+						ipt_write("-A FORWARD -o %s %s -j monitor\n",
+							wanfaces.iface[i].name, src);
+					}
 				}
 			}
 		}
@@ -442,16 +413,16 @@ static void ipt_webmon(int do_ip6t)
 		p = t;
 		do {
 			if ((c = strchr(p, ',')) != NULL) *c = 0;
-			if (ipt_addr(src, sizeof(src), p, "src", af, 0, "webmon", "filtering")) {
+			if ((ok = ipt_addr(src, sizeof(src), p, "src", IPT_V4|IPT_V6, 0, "webmon", NULL))) {
 				if (*src)
-					ip46t_cond_write(do_ip6t, "-A monitor %s -j RETURN\n", src);
+					ip46t_flagged_write(ok, "-A monitor %s -j RETURN\n", src);
 			}
 			if (!c) break;
 			p = c + 1;
 		} while (*p);
 	}
 
-	ip46t_cond_write(do_ip6t,
+	ip46t_write(
 		"-A monitor -p tcp -m webmon "
 		"--max_domains %d --max_searches %d %s %s -j RETURN\n",
 		nvram_get_int("log_wmdmax") ? : 1, nvram_get_int("log_wmsmax") ? : 1,
@@ -664,10 +635,8 @@ static void filter_input(void)
 	}
 
 	ipt_write(
-		"-A INPUT -m state --state INVALID -j %s\n"
-		"-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT\n",
-		chain_in_drop);
-
+		"-A INPUT -m state --state INVALID -j DROP\n"
+		"-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT\n");
 
 	strlcpy(s, nvram_safe_get("ne_shlimit"), sizeof(s));
 	if ((vstrsep(s, ",", &en, &hit, &sec) == 3) && ((n = atoi(en) & 3) != 0)) {
@@ -804,7 +773,7 @@ static void filter_input(void)
 	// default policy: DROP
 }
 
-// clamp TCP MSS to PMTU of WAN interface
+// clamp TCP MSS to PMTU of WAN interface (IPv4 only?)
 static void clampmss(void)
 {
 #if 1
@@ -829,25 +798,57 @@ static void filter_forward(void)
 	char *p, *c;
 	int i;
 
-	ipt_write(
-		"-A FORWARD -i %s -o %s -j ACCEPT\n"			// accept all lan to lan
-		"-A FORWARD -m state --state INVALID -j DROP\n",	// drop if INVALID state
+#ifdef TCONFIG_IPV6
+	ip6t_write(
+		"-A FORWARD -m rt --rt-type 0 -j DROP\n");
+#endif
+
+	ip46t_write(
+		"-A FORWARD -i %s -o %s -j ACCEPT\n",			// accept all lan to lan
 		lanface, lanface);
+
+	// IPv4 only ?
+	ipt_write(
+		"-A FORWARD -m state --state INVALID -j DROP\n");	// drop if INVALID state
 
 	// clamp tcp mss to pmtu
 	clampmss();
 
 	if (wanup) {
 		ipt_restrictions();
+
 		ipt_layer7_inbound();
 	}
 
-	ipt_webmon(0);
+	ipt_webmon();
 
-	ipt_write(
+	ip46t_write(
 		":wanin - [0:0]\n"
 		":wanout - [0:0]\n"
 		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
+
+#ifdef TCONFIG_IPV6
+	// Filter out invalid WAN->WAN connections
+	if (*wan6face)
+		ip6t_write("-A FORWARD -o %s ! -i %s -j %s\n", wan6face, lanface, chain_in_drop);
+
+#ifdef LINUX26
+	modprobe("xt_length");
+	ip6t_write("-A FORWARD -p ipv6-nonxt -m length --length 40 -j ACCEPT\n");
+#endif
+
+	// ICMPv6 rules
+	for (i = 0; i < sizeof(allowed_icmpv6)/sizeof(int); ++i) {
+		ip6t_write("-A FORWARD -p ipv6-icmp --icmpv6-type %i -j %s\n", allowed_icmpv6[i], chain_in_accept);
+	}
+
+	if (*wan6face) {
+		ip6t_write(
+			"-A FORWARD -i %s -j wanin\n"				// generic from wan
+			"-A FORWARD -o %s -j wanout\n",				// generic to wan
+			wan6face, wan6face);
+	}
+#endif
 
 	for (i = 0; i < wanfaces.count; ++i) {
 		if (*(wanfaces.iface[i].name)) {
@@ -858,9 +859,10 @@ static void filter_forward(void)
 		}
 	}
 
-	ipt_write("-A FORWARD -i %s -j %s\n",					// from lan
+	ip46t_write("-A FORWARD -i %s -j %s\n",					// from lan
 		lanface, chain_out_accept);
 
+	// IPv4 only
 	if (nvram_get_int("upnp_enable") & 3) {
 		ipt_write(":upnp - [0:0]\n");
 		for (i = 0; i < wanfaces.count; ++i) {
@@ -877,6 +879,9 @@ static void filter_forward(void)
 		}
 		ipt_triggered(IPT_TABLE_FILTER);
 		ipt_forward(IPT_TABLE_FILTER);
+#ifdef TCONFIG_IPV6
+		ip6t_forward();
+#endif
 
 		if (dmz_dst(dst)) {
 			strlcpy(t, nvram_safe_get("dmz_sip"), sizeof(t));
@@ -913,17 +918,29 @@ static void filter_log(void)
 	if ((*chain_in_drop == 'l') || (*chain_out_drop == 'l'))  {
 		ip46t_write(
 			":logdrop - [0:0]\n"
-			"-A logdrop -m state --state NEW %s -j LOG --log-prefix \"DROP \" --log-tcp-options --log-ip-options\n"
+			"-A logdrop -m state --state NEW %s -j LOG --log-prefix \"DROP \""
+#ifdef LINUX26
+				" --log-macdecode"
+#endif
+				" --log-tcp-sequence --log-tcp-options --log-ip-options\n"
 			"-A logdrop -j DROP\n"
 			":logreject - [0:0]\n"
-			"-A logreject %s -j LOG --log-prefix \"REJECT \" --log-tcp-options --log-ip-options\n"
+			"-A logreject %s -j LOG --log-prefix \"REJECT \""
+#ifdef LINUX26
+				" --log-macdecode"
+#endif
+				" --log-tcp-sequence --log-tcp-options --log-ip-options\n"
 			"-A logreject -p tcp -j REJECT --reject-with tcp-reset\n",
 			limit, limit);
 	}
 	if ((*chain_in_accept == 'l') || (*chain_out_accept == 'l'))  {
 		ip46t_write(
 			":logaccept - [0:0]\n"
-			"-A logaccept -m state --state NEW %s -j LOG --log-prefix \"ACCEPT \" --log-tcp-options --log-ip-options\n"
+			"-A logaccept -m state --state NEW %s -j LOG --log-prefix \"ACCEPT \""
+#ifdef LINUX26
+				" --log-macdecode"
+#endif
+				" --log-tcp-sequence --log-tcp-options --log-ip-options\n"
 			"-A logaccept -j ACCEPT\n",
 			limit);
 	}
@@ -948,9 +965,9 @@ static void filter6_input(void)
 
 	ip6t_write(
 		"-A INPUT -m rt --rt-type 0 -j %s\n"
-		/* "-A INPUT -m state --state INVALID -j %s\n" */
+		/* "-A INPUT -m state --state INVALID -j DROP\n" */
 		"-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT\n",
-		chain_in_drop/*, chain_in_drop*/);
+		chain_in_drop);
 
 #ifdef LINUX26
 	modprobe("xt_length");
@@ -1066,68 +1083,6 @@ static void filter6_input(void)
 	// default policy: DROP
 }
 
-static void filter6_forward(void)
-{
-	int n;
-
-	ip6t_write(
-		":wanin - [0:0]\n"
-		":wanout - [0:0]\n"
-		"-A FORWARD -m rt --rt-type 0 -j DROP\n"
-		"-A FORWARD -i %s -o %s -j ACCEPT\n"			// accept all lan to lan
-		/*"-A FORWARD -m state --state INVALID -j DROP\n"*/,	// drop if INVALID state
-		lanface, lanface);
-
-	// clamp tcp mss to pmtu TODO?
-	// clampmss();
-
-	// TODO: support l7, access restrictions on ipv6
-/*
-	if (wanup) {
-		ipt_restrictions();
-		ipt_layer7_inbound();
-	}
-*/
-#ifdef LINUX26
-	ipt_webmon(1);
-#endif
-
-	ip6t_write(
-		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
-
-	// Filter out invalid WAN->WAN connections
-	if (*wan6face)
-		ip6t_write("-A FORWARD -o %s ! -i %s -j %s\n", wan6face, lanface, chain_in_drop);
-
-#ifdef LINUX26
-	modprobe("xt_length");
-	ip6t_write("-A FORWARD -p ipv6-nonxt -m length --length 40 -j ACCEPT\n");
-#endif
-
-	if (*wan6face) {
-		ip6t_write(
-			"-A FORWARD -i %s -j wanin\n"				// generic from wan
-			"-A FORWARD -o %s -j wanout\n",				// generic to wan
-			wan6face, wan6face);
-	}
-
-	ip6t_write(
-		"-A FORWARD -i %s -j %s\n",					// from lan
-		lanface, chain_out_accept);
-
-	// ICMPv6 rules
-	for (n = 0; n < sizeof(allowed_icmpv6)/sizeof(int); n++) {
-		ip6t_write("-A FORWARD -p ipv6-icmp --icmpv6-type %i -j %s\n", allowed_icmpv6[n], chain_in_accept);
-	}
-
-	if (wanup) {
-		//ipt_triggered(IPT_TABLE_FILTER);
-		ip6t_forward();
-	}
-
-	// default policy: DROP
-}
-
 #endif
 
 static void filter_table(void)
@@ -1149,9 +1104,6 @@ static void filter_table(void)
 	if ((gateway_mode) || (nvram_match("wk_mode_x", "1"))) {
 		ip46t_write(":FORWARD DROP [0:0]\n");
 		filter_forward();
-#ifdef TCONFIG_IPV6
-		filter6_forward();
-#endif
 	}
 	else {
 		ip46t_write(":FORWARD ACCEPT [0:0]\n");

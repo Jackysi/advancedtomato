@@ -6226,7 +6226,11 @@ poll_bcm5700(struct net_device *dev)
 #endif
 	{
 		disable_irq(pUmDevice->pdev->irq);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 20)
+		bcm5700_interrupt(pUmDevice->pdev->irq, dev);
+#else
 		bcm5700_interrupt(pUmDevice->pdev->irq, dev, NULL);
+#endif
 		enable_irq(pUmDevice->pdev->irq);
 	}
 }
