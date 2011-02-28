@@ -142,6 +142,11 @@ struct skb_shared_info {
 	unsigned short  gso_type;
 	__be32          ip6_frag_id;
 	struct sk_buff	*frag_list;
+
+	/* Intermediate layers must ensure that destructor_arg
+	 * remains valid until skb destructor */
+	void *		destructor_arg;
+
 	/* must be last field, see pskb_expand_head() */
 	skb_frag_t	frags[MAX_SKB_FRAGS];
 };
@@ -237,6 +242,7 @@ typedef unsigned char *sk_buff_data_t;
  *	@dma_cookie: a cookie to one of several possible DMA operations
  *		done by skb DMA functions
  *	@secmark: security marking
+ *	@vlan_tci: vlan tag control information
  */
 
 struct sk_buff {
@@ -326,8 +332,9 @@ struct sk_buff {
 #ifdef CONFIG_NETWORK_SECMARK
 	__u32			secmark;
 #endif
+	__u16			vlan_tci;
 #if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
-	unsigned char		imq_flags;
+	__u8			imq_flags;
 	struct nf_info		*nf_info;
 #endif
 };

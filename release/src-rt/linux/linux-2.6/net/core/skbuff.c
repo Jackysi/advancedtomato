@@ -206,6 +206,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 #ifdef NET_SKBUFF_DATA_USES_OFFSET
 	skb->mac_header = ~0U;
 #endif
+	skb->vlan_tci = 0;
 #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
 	skb->nfct_reasm = NULL;
 	skb->nfct = NULL;
@@ -447,6 +448,8 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 	new->tc_verd		= old->tc_verd;
 //#endif
 #endif
+	new->vlan_tci		= old->vlan_tci;
+
 	skb_copy_secmark(new, old);
 #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
 	new->nfcache		= old->nfcache;

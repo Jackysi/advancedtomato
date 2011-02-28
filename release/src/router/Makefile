@@ -831,10 +831,11 @@ usbmodeswitch-install: usbmodeswitch usbmodeswitchdb-install
 	@sed 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < $(TOP)/usbmodeswitch/usb_modeswitch.conf > $(TARGETDIR)/rom/etc/usb_modeswitch.conf
 
 
-radvd/stamp-h1: radvd/Makefile.in
+radvd/stamp-h1:
 	cd radvd && CFLAGS="-Os $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	$(CONFIGURE) --prefix=""
+	@$(MAKE) -C radvd clean
 	@touch radvd/stamp-h1
 
 radvd: radvd/stamp-h1
@@ -843,7 +844,7 @@ radvd-clean:
 	-@$(MAKE) -C radvd distclean
 	@rm -f radvd/stamp-h1
 
-radvd-install:
+radvd-install: radvd
 	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd
 	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
 
@@ -1037,7 +1038,7 @@ dropbear/config.h:
 		ac_cv_func_logout=no ac_cv_func_logwtmp=no \
 		$(CONFIGURE) --disable-zlib --enable-syslog --disable-lastlog --disable-utmp \
 		--disable-utmpx --disable-wtmp --disable-wtmpx --disable-pututline \
-		--disable-pututxline --disable-loginfunc --disable-pam --enable-openpty
+		--disable-pututxline --disable-loginfunc --disable-pam --enable-openpty --enable-bundled-libtom
 	@$(MAKE) -C dropbear clean
 
 # Media libraries

@@ -2523,15 +2523,29 @@ int netdev_set_master(struct net_device *slave, struct net_device *master)
  *	remains above zero the interface remains promiscuous. Once it hits zero
  *	the device reverts back to normal filtering operation. A negative inc
  *	value is used to drop promiscuity on the device.
+ *	Return 0 if successful or a negative errno code on error.
  */
-void dev_set_promiscuity(struct net_device *dev, int inc)
+int dev_set_promiscuity(struct net_device *dev, int inc)
 {
 	unsigned short old_flags = dev->flags;
 
-	if ((dev->promiscuity += inc) == 0)
-		dev->flags &= ~IFF_PROMISC;
-	else
-		dev->flags |= IFF_PROMISC;
+	dev->flags |= IFF_PROMISC;
+	dev->promiscuity += inc;
+	if (dev->promiscuity == 0) {
+		/*
+		 * Avoid overflow.
+		 * If inc causes overflow, untouch promisc and return error.
+		 */
+		if (inc < 0)
+			dev->flags &= ~IFF_PROMISC;
+		else {
+			dev->promiscuity -= inc;
+			printk(KERN_WARNING "%s: promiscuity touches roof, "
+				"set promiscuity failed, promiscuity feature "
+				"of device might be broken.\n", dev->name);
+			return -EOVERFLOW;
+		}
+	}
 	if (dev->flags != old_flags) {
 		dev_mc_upload(dev);
 		printk(KERN_INFO "device %s %s promiscuous mode\n",
@@ -2544,6 +2558,7 @@ void dev_set_promiscuity(struct net_device *dev, int inc)
 			(old_flags & IFF_PROMISC),
 			audit_get_loginuid(current->audit_context));
 	}
+	return 0;
 }
 
 /**
@@ -2556,17 +2571,33 @@ void dev_set_promiscuity(struct net_device *dev, int inc)
  *	to all interfaces. Once it hits zero the device reverts back to normal
  *	filtering operation. A negative @inc value is used to drop the counter
  *	when releasing a resource needing all multicasts.
+ *	Return 0 if successful or a negative errno code on error.
  */
 
-void dev_set_allmulti(struct net_device *dev, int inc)
+int dev_set_allmulti(struct net_device *dev, int inc)
 {
 	unsigned short old_flags = dev->flags;
 
 	dev->flags |= IFF_ALLMULTI;
-	if ((dev->allmulti += inc) == 0)
-		dev->flags &= ~IFF_ALLMULTI;
+	dev->allmulti += inc;
+	if (dev->allmulti == 0) {
+		/*
+		 * Avoid overflow.
+		 * If inc causes overflow, untouch allmulti and return error.
+		 */
+		if (inc < 0)
+			dev->flags &= ~IFF_ALLMULTI;
+		else {
+			dev->allmulti -= inc;
+			printk(KERN_WARNING "%s: allmulti touches roof, "
+				"set allmulti failed, allmulti feature of "
+				"device might be broken.\n", dev->name);
+			return -EOVERFLOW;
+		}
+	}
 	if (dev->flags ^ old_flags)
 		dev_mc_upload(dev);
+	return 0;
 }
 
 unsigned dev_get_flags(const struct net_device *dev)
