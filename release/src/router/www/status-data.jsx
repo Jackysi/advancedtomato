@@ -8,7 +8,7 @@
 */
 
 
-//<% nvram("ppp_get_ac,ppp_get_ip,pptp_server_ip,router_name,ac,clkfreq,wan_ipaddr_buf,wan_domain,wan_gateway,wan_gateway_get,wan_get_domain,wan_hostname,wan_hwaddr,wan_ipaddr,wan_netmask,wan_proto,wan_run_mtu,et0macaddr,lan_proto,lan_ipaddr,dhcp_start,dhcp_num,dhcpd_startip,dhcpd_endip,lan_netmask,wl_security_mode,wl_crypto,wl_mode,wl_wds_enable,wl_hwaddr,wl_net_mode,wl_radio,wl_channel,lan_gateway,wl_ssid,t_model_name,t_features,pptp_dhcp"); %>
+//<% nvram("ppp_get_ip,pptp_server_ip,router_name,clkfreq,wan_ipaddr_buf,wan_domain,wan_gateway,wan_gateway_get,wan_get_domain,wan_hostname,wan_hwaddr,wan_ipaddr,wan_netmask,wan_proto,wan_run_mtu,et0macaddr,lan_proto,lan_ipaddr,dhcp_start,dhcp_num,dhcpd_startip,dhcpd_endip,lan_netmask,wl_security_mode,wl_crypto,wl_mode,wl_wds_enable,wl_hwaddr,wl_net_mode,wl_radio,wl_channel,lan_gateway,wl_ssid,t_model_name,t_features,pptp_dhcp"); %>
 
 
 //<% uptime(); %>
@@ -54,7 +54,6 @@ do {
 
 	stats.wanip = nvram.wan_ipaddr;
 	stats.wannetmask = nvram.wan_netmask;
-	stats.ispconid = nvram.ppp_get_ac; //Victek
 	stats.wangateway = nvram.wan_gateway_get;
 	if (stats.wangateway == '0.0.0.0' || stats.wangateway == '')
 		stats.wangateway = nvram.wan_gateway;

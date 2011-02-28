@@ -104,7 +104,6 @@ function show()
 	c('wanprebuf',stats.wanprebuf); //Victek
 	c('wannetmask', stats.wannetmask);
 	c('wangateway', stats.wangateway);
-	c('ispconid', stats.ispconid); //Victek
 	c('dns', stats.dns);
 	c('memory', stats.memory);
 	c('swap', stats.swap);
@@ -207,7 +206,6 @@ createFieldTable('', [
 	{ title: 'Previous WAN IP', rid: 'wanprebuf',text:stats.wanprebuf }, //Victek
 	{ title: 'Subnet Mask', rid: 'wannetmask', text: stats.wannetmask },
 	{ title: 'Gateway', rid: 'wangateway', text: stats.wangateway },
-	{ title: 'ISP Concentrator ID', rid: 'ispconid', text: stats.ispconid }, //Victek
 /* IPV6-BEGIN */
 	{ title: 'IPv6 Address', rid: 'ip6_wan', text: stats.ip6_wan, hidden: (stats.ip6_wan == '') },
 /* IPV6-END */

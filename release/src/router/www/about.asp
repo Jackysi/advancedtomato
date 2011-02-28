@@ -119,11 +119,11 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 - Additional ipv6 support in GUI, QOS, Conntrack<br>
 <br>
 <b>"Victek" RAF features:</b><br>
-- ARP Binding | CPU Info & Overclock | Previous WAN IP<br>
-- Access Concentrator ID | Additional Themes<br>
+- ARP Binding | CPU Info & Overclock
+- Previous WAN IP | Additional Themes<br>
 <br>
 <b>"PrinceAMD" features:</b><br>
-- IP/MAC Bandwidth Limiter/QOS<br>
+- Revised IP/MAC QOS/Bandwidth Limiter<br>
 <br>
 <b>"Toastman" Features:</b><br>
 - 250 entry limit in Static DHCP | 500 entry limit in Access Restrictions<br>
