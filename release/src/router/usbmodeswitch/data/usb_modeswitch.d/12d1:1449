@@ -1,11 +1,11 @@
-#######################################################
-# Huawei E173s
+######################################################## 
+# Huawei E352
 
 DefaultVendor= 0x12d1
-DefaultProduct=0x1c0b
+DefaultProduct=0x1449
 
 TargetVendor=  0x12d1
-TargetProductList="1c05,1c08"
+TargetProduct= 0x1444
 
 MessageContent="55534243123456780000000000000011062000000100000000000000000000"
 
