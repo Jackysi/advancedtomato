@@ -1406,7 +1406,7 @@ libcurl: libcurl/Makefile
 	@$(MAKE) -C libcurl
 
 libcurl-clean:
-	@$(MAKE) -C libcurl clean
+	-@$(MAKE) -C libcurl clean
 	@rm -f libcurl/Makefile
 
 libcurl-install: libcurl
@@ -1428,7 +1428,7 @@ libevent: libevent/Makefile
 	$(MAKE) -C libevent
 
 libevent-clean:
-	@$(MAKE) -C libevent clean
+	-@$(MAKE) -C libevent clean
 	@rm -f libevent/Makefile
 
 libevent-install: libevent
@@ -1460,7 +1460,7 @@ transmission: transmission/Makefile
 	$(MAKE) -C transmission
 
 transmission-clean:
-	@$(MAKE) -C transmission clean
+	-@$(MAKE) -C transmission clean
 	@rm -f transmission/Makefile
 
 transmission-install: transmission
