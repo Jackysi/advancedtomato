@@ -112,7 +112,7 @@ Copyright (C) 2010 Keith Moyer,<br>
 <br><br>
 <!-- VPN-END -->
 
-<b>RAF features,</b><br>
+<b>Victek and Shibby RAF features:</b><br>
 QoS IP/Range BW Limiter | ARP Binding<br>
 <!-- BT-BEGIN -->
 Transmission 2.13 integration and GUI<br>
@@ -120,6 +120,7 @@ Transmission 2.13 integration and GUI<br>
 Copyright (C) 2007-2011 Vicente Soriano, Michał Rupental.<br>
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
+<br>
 <br>
 
 Based on Tomato Firmware v<% version(); %><br>
