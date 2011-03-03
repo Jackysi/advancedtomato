@@ -183,6 +183,8 @@ function init()
 createFieldTable('', [
 	{ title: 'Name', text: nvram.router_name },
 	{ title: 'Model', text: nvram.t_model_name },
+	{ title: 'Chipset', text: stats.systemtype },
+	{ title: 'CPU Freq', text: stats.cpumhz },
 	null,
 	{ title: 'Time', rid: 'time', text: stats.time },
 	{ title: 'Uptime', rid: 'uptime', text: stats.uptime },
