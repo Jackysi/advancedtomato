@@ -1826,14 +1826,15 @@ TOP:
 		goto CLEAR;
 	}
 
+
 	if (strcmp(service, "qoslimit") == 0) {
-	if (action & A_STOP) {
-	new_qoslimit_stop();
-	}
-	stop_firewall(); start_firewall();		// always restarted
-	if (action & A_START) {
-		new_qoslimit_start();
-	}
+		if (action & A_STOP) {
+			new_qoslimit_stop();
+		}
+		stop_firewall(); start_firewall();		// always restarted
+		if (action & A_START) {
+			new_qoslimit_start();
+		}
 		goto CLEAR;
 	}
 
@@ -1842,6 +1843,7 @@ TOP:
 		if (action & A_START) new_arpbind_start();
 		goto CLEAR;
 	}
+
 
 	if (strcmp(service, "upnp") == 0) {
 		if (action & A_STOP) {

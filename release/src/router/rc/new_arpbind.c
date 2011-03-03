@@ -120,4 +120,3 @@ void new_arpbind_stop(void)
       
   chdir("/");
 }
-

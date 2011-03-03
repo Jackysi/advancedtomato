@@ -434,11 +434,13 @@ static inline void start_vpn_eas() { }
 #endif
 
 // new_qoslimit.c
+extern void ipt_qoslimit(int chain);
 extern void new_qoslimit_start(void);
 extern void new_qoslimit_stop(void);
 
 // new_arpbind.c
 extern void new_arpbind_start(void);
 extern void new_arpbind_stop(void);
+
 
 #endif

@@ -89,7 +89,7 @@ function init()
 <img src='tux.png' alt='Linux &amp; Tomato' id='tux'>
 </div>
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
-Tomato Firmware RAF<% version(1); %><br>
+Tomato Firmware <% version(1); %><br>
 
 <!-- USB-BEGIN -->
 <br>USB support integration and GUI,<br>
@@ -106,21 +106,26 @@ Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <br><br>
 
 <!-- VPN-BEGIN -->
-VPN integration and GUI,
+<b>VPN integration and GUI,</b>
 Copyright (C) 2010 Keith Moyer,<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br><br>
 <!-- VPN-END -->
 
-<b>Victek and Shibby RAF features:</b><br>
-QoS IP/Range BW Limiter | ARP Binding<br>
-<!-- BT-BEGIN -->
-Transmission 2.13 integration and GUI<br>
-<!-- BT-END -->
-Copyright (C) 2007-2011 Vicente Soriano, Michał Rupental.<br>
+<b>"Victek RAF" features:</b><br> 
+- ARP Binding<br> 
+Copyright (C) 2007-2011 Vicente Soriano<br>
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
+<br>
+<b>"Victek/PrinceAMD/Phykris/Shibby" features:</b><br>
+- Revised IP/MAC QOS/Bandwidth Limiter<br>
+<br>
+<!-- BT-BEGIN -->
+<b>Transmission 2.13 integration and GUI,</b><br>
+Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
+<!-- BT-END -->
 <br>
 
 Based on Tomato Firmware v<% version(); %><br>

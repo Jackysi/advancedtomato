@@ -349,7 +349,7 @@ const defaults_t defaults[] = {
 	{ "nf_l7in",			"1"				},
 #ifdef LINUX26
 	{ "nf_sip",			"1"				},
-	{ "ct_hashsize",		""				},
+	{ "ct_hashsize",		"2048"				},
 #endif
 #ifdef LINUX26
 	{ "nf_rtsp",			"0"				},
@@ -389,7 +389,7 @@ const defaults_t defaults[] = {
 
 // advanced-firewall
 //		{ "block_loopback",		"0"				},	// nat loopback
-	{ "nf_loopback",		"1"				},
+	{ "nf_loopback",		"0"				},
 	{ "block_wan",			"1"				},	// block inbound icmp
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
@@ -796,22 +796,6 @@ const defaults_t defaults[] = {
 	{ "vpn_client2_key",      ""              },
 #endif	// vpn
 
-// new_qoslimit
-	{ "new_qoslimit_enable",		"0"			}, //!! RAF
-	{ "new_qoslimit_obw",			""			}, //!! RAF
-	{ "new_qoslimit_ibw",			""			}, //!! RAF
-	{ "new_qoslimit_rules",			"" 			}, //!! RAF
-	{ "new_qoslimit_d_enable",		"0"			}, //!! RAF
-	{ "new_qoslimit_d_dlr",			""			}, //!! RAF
-	{ "new_qoslimit_d_dlc",			""			}, //!! RAF
-	{ "new_qoslimit_d_ulr",			""			}, //!! RAF
-	{ "new_qoslimit_d_ulc",			""			}, //!! RAF
- 
-// new_arpbind
-	{ "new_arpbind_enable",			"0"			}, //!! RAF
-	{ "new_arpbind_only",			"0"			}, //!! RAF
-	{ "new_arpbind_list",			"" 			}, //!! RAF
-
 #ifdef TCONFIG_BT
 // nas-transmission
 	{ "bt_enable",				"0"			},
@@ -837,7 +821,6 @@ const defaults_t defaults[] = {
 	{ "bt_dht",				"0"			},
 	{ "bt_pex",				"0"			},
 #endif
-
 
 #if 0
 // safe to remove?
@@ -937,6 +920,24 @@ const defaults_t defaults[] = {
 	{ "wd_aof",				""				},
 
 #endif	// 0
+
+// new_qoslimit
+	{ "new_qoslimit_enable",		"0"			},
+	{ "new_qoslimit_obw",			""			},
+	{ "new_qoslimit_ibw",			""			},
+	{ "new_qoslimit_rules",			""			},
+	{ "qosl_enable",			"0"			},
+	{ "qosl_tcp",				"0"			},//unlimited
+	{ "qosl_udp",				"0"			},//unlimited
+	{ "qosl_dlc",				""			},
+	{ "qosl_ulc",				""			},
+	{ "qosl_dlr",				""			},
+	{ "qosl_ulr",				""			},
+
+// new_arpbind
+	{ "new_arpbind_enable",			"0"			},
+	{ "new_arpbind_only",			"0"			},
+	{ "new_arpbind_list",			"" 			},
 
 	{ NULL, NULL	}
 };
