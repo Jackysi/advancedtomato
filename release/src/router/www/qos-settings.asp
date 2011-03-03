@@ -204,7 +204,7 @@ createFieldTable('', f);
 </script>
 </div>
 
-<span id='s_vegas' style='display:none'>
+<span id='s_vegas'>
 <div class='section-title'>TCP Vegas <small>(network congestion control)</small></div>
 <div class='section'>
 <script type='text/javascript'>

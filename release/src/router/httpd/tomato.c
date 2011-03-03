@@ -938,21 +938,23 @@ static const nvset_t nvset_list[] = {
 	{ "ne_vgamma",			V_NUM				},
 
 // new_qoslimit
-	{ "new_qoslimit_enable",         V_01                    }, // !!RAF
-	{ "new_qoslimit_obw",            V_RANGE(10, 999999)     }, // !!RAF
-	{ "new_qoslimit_ibw",            V_RANGE(10, 999999)     }, // !!RAF
-	{ "new_qoslimit_rules",          V_LENGTH(0, 4096)       }, // !!RAF
-	{ "new_qoslimit_d_enable",       V_01                    }, // !!RAF
-	{ "new_qoslimit_d_dlr",          V_RANGE(10, 999999)     }, // !!RAF
-	{ "new_qoslimit_d_dlc",          V_RANGE(10, 999999)     }, // !!RAF
-	{ "new_qoslimit_d_ulr",          V_RANGE(10, 999999)     }, // !!RAF
-	{ "new_qoslimit_d_ulc",          V_RANGE(10, 999999)     }, // !!RAF
-
+	{ "new_qoslimit_enable",         V_01                   },
+	/*qos_obw shared*/
+	/*qos_ibw shared*/
+	{ "new_qoslimit_rules",          V_LENGTH(0, 4096)      },
+	{ "qosl_enable",                 V_01                   },					
+	{ "qosl_ulr",                    V_RANGE(0, 999999)     },
+	{ "qosl_ulc",                    V_RANGE(0, 999999)     },
+	{ "qosl_dlr",                    V_RANGE(0, 999999)     },
+	{ "qosl_dlc",                    V_RANGE(0, 999999)     },	
+	{ "qosl_tcp",                    V_RANGE(0, 1000)       },
+	{ "qosl_udp",                    V_RANGE(0, 100)        },
+	
 
 // new_arpbind
-	{ "new_arpbind_enable",          V_01                    }, // !!RAF
-	{ "new_arpbind_only",            V_01                   },  // !!RAF
-	{ "new_arpbind_list",            V_LENGTH(0, 4096)       }, // !!RAF
+	{ "new_arpbind_enable",          V_01                    },
+	{ "new_arpbind_only",            V_01                   },
+	{ "new_arpbind_list",            V_LENGTH(0, 4096)       },
 
 #ifdef TCONFIG_OPENVPN
 // vpn
