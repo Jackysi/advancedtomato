@@ -1,4 +1,12 @@
-$Id: Changelog.txt,v 1.206 2011/02/20 23:39:42 nanard Exp $
+$Id: Changelog.txt,v 1.208 2011/03/02 16:04:22 nanard Exp $
+
+2011/03/02:
+  improved netfilter/delete_redirect_and_filter_rules() in order
+  to remove the right filter rule, even if it has another index than
+  the nat rule.
+
+2011/03/01:
+  clean up an fixes to make netfilter/testiptcrdr compile
 
 2011/02/21:
   Make "Makefile" work under Mac OS X with bsdmake.
