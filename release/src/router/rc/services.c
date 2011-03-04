@@ -406,14 +406,24 @@ void dns_to_resolv(void)
 
 void start_httpd(void)
 {
+	if (getpid() != 1) {
+		start_service("httpd");
+		return;
+	}
+
 	stop_httpd();
 	chdir("/www");
-	xstart("httpd");
+	eval("httpd");
 	chdir("/");
 }
 
 void stop_httpd(void)
 {
+	if (getpid() != 1) {
+		stop_service("httpd");
+		return;
+	}
+
 	killall_tk("httpd");
 }
 

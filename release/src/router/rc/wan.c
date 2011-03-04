@@ -836,7 +836,6 @@ void start_wan_done(char *wan_ifname)
 #endif
 
 	// restart httpd
-	stop_httpd();
 	start_httpd();
 
 	stop_upnp();
