@@ -45,7 +45,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-// <% nvram("new_qoslimit_enable,qos_ibw,qos_obw,new_qoslimit_rules,lan_ipaddr,lan_netmask,qosl_enable,qosl_dlr,qosl_dlc,qosl_ulr,qosl_ulc,qosl_upd,qosl_tcp"); %>
+// <% nvram("new_qoslimit_enable,qos_ibw,qos_obw,new_qoslimit_rules,lan_ipaddr,lan_netmask,qosl_enable,qosl_dlr,qosl_dlc,qosl_ulr,qosl_ulc,qosl_udp,qosl_tcp"); %>
 
 var class_prio = [['0','Highest'],['1','High'],['2','Normal'],['3','Low'],['4','Lowest']];
 var class_tcp = [['0','nolimit']];
