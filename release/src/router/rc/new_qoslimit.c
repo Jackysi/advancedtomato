@@ -115,7 +115,7 @@ void ipt_qoslimit(int chain)
 		if (nvram_get_int("qosl_enable") == 1) {
 			if (nvram_get_int("qosl_tcp") > 0) {
 				ipt_write(
-					"-A PREROUTING -s %s/%s -p tcp --syn -m connlimit --connlimit-above %s --connlimit-mask 32 -j REJECT\n"
+					"-A PREROUTING -s %s/%s -p tcp --syn -m connlimit --connlimit-above %s -j DROP\n"
 				,lanipaddr,lanmask,qosl_tcp);
 			}
 			
@@ -192,17 +192,17 @@ void ipt_qoslimit(int chain)
 				{
 						case IP_ADDRESS:
 							ipt_write(
-							"-A PREROUTING -s %s -p tcp --syn -m connlimit --connlimit-above %s --connlimit-mask 32 -j REJECT\n"
+							"-A PREROUTING -s %s -p tcp --syn -m connlimit --connlimit-above %s -j DROP\n"
 							,ipaddr,tcplimit);
 							break;
 						case MAC_ADDRESS:
 							ipt_write(
-							"-A PREROUTING -m mac --mac-source %s -p tcp --syn -m connlimit --connlimit-above %s --connlimit-mask 32 -j REJECT\n"
+							"-A PREROUTING -m mac --mac-source %s -p tcp --syn -m connlimit --connlimit-above %s -j DROP\n"
 							,ipaddr,tcplimit);
 							break;
 						case IP_RANGE:
 							ipt_write(
-							"-A PREROUTING -m iprange --src-range %s -p tcp --syn -m connlimit --connlimit-above %s --connlimit-mask 32 -j REJECT\n"
+							"-A PREROUTING -m iprange --src-range %s -p tcp --syn -m connlimit --connlimit-above %s -j DROP\n"
 							,ipaddr,tcplimit);
 							break;
 				}
