@@ -103,36 +103,38 @@ support for additional router models, dual-band and Wireless-N mode.<br>
 Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <!-- / / / -->
-<br><br>
+<br>
 
 <!-- VPN-BEGIN -->
 <b>VPN integration and GUI,</b>
 Copyright (C) 2010 Keith Moyer,<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
-<br><br>
+<br>
 <!-- VPN-END -->
 
-<b>"Victek RAF" features:</b><br> 
-- ARP Binding<br> 
-Copyright (C) 2007-2011 Vicente Soriano<br>
-<a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
-<br>
-<b>"Victek/PrinceAMD/Phykris/Shibby" features:</b><br>
-- Revised IP/MAC QOS/Bandwidth Limiter<br>
-<br>
 <!-- BT-BEGIN -->
 <b>Transmission 2.13 integration and GUI,</b><br>
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
 <!-- BT-END -->
+
+<b>"Victek RAF" features:</b><br> 
+- ARP Binding<br>
+- Sysinfo<br>
+Copyright (C) 2007-2011 Vicente Soriano<br>
+<a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
+<br>
+
+<b>"Victek/PrinceAMD/Phykris/Shibby" features:</b><br>
+- Revised IP/MAC QOS/Bandwidth Limiter<br>
 <br>
 
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
-Built on <% build_time(); %><br>
+Built on <% build_time(); %> by Shibby<br>
 <br><br>
 
 <!--
