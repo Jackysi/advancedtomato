@@ -45,7 +45,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-// <% nvram("new_qoslimit_enable,qos_ibw,qos_obw,new_qoslimit_rules,lan_ipaddr,lan_netmask,qosl_enable,qosl_dlr,qosl_dlc,qosl_ulr,qosl_ulc,qosl_upd,qosl_tcp"); %>
+// <% nvram("new_qoslimit_enable,qos_ibw,qos_obw,new_qoslimit_rules,lan_ipaddr,lan_netmask,qosl_enable,qosl_dlr,qosl_dlc,qosl_ulr,qosl_ulc,qosl_udp,qosl_tcp"); %>
 
 var class_prio = [['0','Highest'],['1','High'],['2','Normal'],['3','Low'],['4','Lowest']];
 var class_tcp = [['0','nolimit']];
@@ -230,7 +230,7 @@ function save()
 	var qoslimitrules = '';
 	var i;
 
-	if (data.length != 0) qoslimitrules += data[0].join('<');	
+        if (data.length != 0) qoslimitrules += data[0].join('<');	
 	for (i = 1; i < data.length; ++i) {
 		qoslimitrules += '>' + data[i].join('<');
 	}
@@ -277,8 +277,8 @@ function init()
 		<script type='text/javascript'>
 			createFieldTable('', [
 			{ title: 'Enable Limiter', name: 'f_new_qoslimit_enable', type: 'checkbox', value: nvram.new_qoslimit_enable != '0' },
-			{ title: 'Set Max Available Download Bandwidth <small>(also used for QOS)', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw },
-			{title: 'Set Max Available Upload Bandwidth <small>(also used for QOS)', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw }
+			{ title: 'Max Download Bandwidth <small>(also used by QOS)', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw },
+			{ title: 'Max Upload Bandwidth <small>(also used by QOS)', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw }
 			]);
 		</script>
 		<br>
@@ -342,6 +342,6 @@ function init()
 </td></tr>
 </table>
 </form>
-<script type='text/javascript'>qosg.setup();</script>
+<script type='text/javascript'>qosg.setup(); verifyFields(null, 1);</script>
 </body>
 </html>
