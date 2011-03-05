@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) 2008-2010 Mnemosyne LLC
+ * This file Copyright (C) Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2.  Works owned by the
+ * This file is licensed by the GPL version 2. Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: rpc-server.h 9868 2010-01-04 21:00:47Z charles $
+ * $Id: rpc-server.h 11709 2011-01-19 13:48:47Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -33,6 +33,11 @@ void            tr_rpcSetPort( tr_rpc_server * server,
                                tr_port         port );
 
 tr_port         tr_rpcGetPort( const tr_rpc_server * server );
+
+void            tr_rpcSetUrl( tr_rpc_server * server,
+                              const char    * url );
+
+const char *    tr_rpcGetUrl( const tr_rpc_server * server );
 
 int             tr_rpcSetTest( const tr_rpc_server   * server,
                                const char            * whitelist,

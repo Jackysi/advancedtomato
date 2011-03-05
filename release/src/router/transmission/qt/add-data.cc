@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: add-data.cc 11092 2010-08-01 20:36:13Z charles $
+ * $Id: add-data.cc 11623 2011-01-02 23:42:46Z charles $
  */
 
 #include <libtransmission/transmission.h>
@@ -39,6 +39,11 @@ AddData :: set( const QString& key )
         file.open( QIODevice::ReadOnly );
         metainfo = file.readAll( );
         file.close( );
+    }
+    else if( Utils::isHexHashcode( key ) )
+    {
+        magnet = QString("magnet:?xt=urn:btih:") + key;
+        type = MAGNET;
     }
     else
     {

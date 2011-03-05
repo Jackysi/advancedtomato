@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: app.cc 11437 2010-11-25 03:00:25Z charles $
+ * $Id: app.cc 12031 2011-02-24 15:36:26Z jordan $
  */
 
 #include <cassert>
@@ -23,6 +23,7 @@
 #include <QLabel>
 #include <QLibraryInfo>
 #include <QRect>
+#include <QtGlobal>
 
 #include <libtransmission/transmission.h>
 #include <libtransmission/tr-getopt.h>
@@ -97,7 +98,11 @@ MyApp :: MyApp( int& argc, char ** argv ):
     installTranslator( &qtTranslator );
 
     // install the transmission translator
+#ifdef Q_OS_WIN32
     appTranslator.load( QString(MY_CONFIG_NAME) + "_" + QLocale::system().name(), QCoreApplication::applicationDirPath() + "/translations" );
+#else
+    appTranslator.load( QString(MY_CONFIG_NAME) + "_" + QLocale::system().name(), QLibraryInfo::location(QLibraryInfo::TranslationsPath) );
+#endif
     installTranslator( &appTranslator );
 
     Formatter::initUnits( );
@@ -138,6 +143,11 @@ MyApp :: MyApp( int& argc, char ** argv ):
     // set the fallback config dir
     if( configDir == 0 )
         configDir = tr_getDefaultConfigDir( MY_CONFIG_NAME );
+
+    // ensure our config directory exists
+    QDir dir( configDir );
+    if( !dir.exists() )
+        dir.mkpath( configDir );
 
     // is this the first time we've run transmission?
     const bool firstTime = !QFile(QDir(configDir).absoluteFilePath("settings.json")).exists();

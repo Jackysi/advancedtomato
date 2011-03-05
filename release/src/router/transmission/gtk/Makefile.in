@@ -62,16 +62,15 @@ am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)" \
 	"$(DESTDIR)$(Productivitydir)" "$(DESTDIR)$(icondir)"
 PROGRAMS = $(bin_PROGRAMS)
 am__objects_1 =
-am_transmission_gtk_OBJECTS = actions.$(OBJEXT) add-dialog.$(OBJEXT) \
-	conf.$(OBJEXT) details.$(OBJEXT) dialogs.$(OBJEXT) \
-	favicon.$(OBJEXT) file-list.$(OBJEXT) filter.$(OBJEXT) \
-	hig.$(OBJEXT) icons.$(OBJEXT) main.$(OBJEXT) \
-	makemeta-ui.$(OBJEXT) msgwin.$(OBJEXT) notify.$(OBJEXT) \
+am_transmission_gtk_OBJECTS = actions.$(OBJEXT) conf.$(OBJEXT) \
+	details.$(OBJEXT) dialogs.$(OBJEXT) favicon.$(OBJEXT) \
+	file-list.$(OBJEXT) filter.$(OBJEXT) hig.$(OBJEXT) \
+	icons.$(OBJEXT) main.$(OBJEXT) makemeta-ui.$(OBJEXT) \
+	msgwin.$(OBJEXT) notify.$(OBJEXT) open-dialog.$(OBJEXT) \
 	relocate.$(OBJEXT) stats.$(OBJEXT) \
-	torrent-cell-renderer.$(OBJEXT) tracker-list.$(OBJEXT) \
-	tr-core.$(OBJEXT) tr-icon.$(OBJEXT) tr-prefs.$(OBJEXT) \
-	tr-torrent.$(OBJEXT) tr-window.$(OBJEXT) util.$(OBJEXT) \
-	$(am__objects_1)
+	torrent-cell-renderer.$(OBJEXT) tr-core.$(OBJEXT) \
+	tr-icon.$(OBJEXT) tr-prefs.$(OBJEXT) tr-torrent.$(OBJEXT) \
+	tr-window.$(OBJEXT) util.$(OBJEXT) $(am__objects_1)
 transmission_gtk_OBJECTS = $(am_transmission_gtk_OBJECTS)
 transmission_gtk_DEPENDENCIES =  \
 	$(top_builddir)/libtransmission/libtransmission.a \
@@ -394,7 +393,6 @@ AM_LDFLAGS = \
 
 noinst_HEADERS = \
     actions.h \
-    add-dialog.h \
     conf.h \
     details.h \
     dialogs.h \
@@ -412,10 +410,10 @@ noinst_HEADERS = \
     makemeta-ui.h \
     msgwin.h \
     notify.h \
+    open-dialog.h \
     relocate.h \
     stats.h \
     torrent-cell-renderer.h \
-    tracker-list.h \
     tr-core.h \
     tr-core-dbus.h \
     tr-icon.h \
@@ -428,7 +426,6 @@ noinst_HEADERS = \
 dbus_generated_sources = tr-core-dbus.h
 transmission_gtk_SOURCES = \
     actions.c \
-    add-dialog.c \
     conf.c \
     details.c \
     dialogs.c \
@@ -441,10 +438,10 @@ transmission_gtk_SOURCES = \
     makemeta-ui.c \
     msgwin.c \
     notify.c \
+    open-dialog.c \
     relocate.c \
     stats.c \
     torrent-cell-renderer.c \
-    tracker-list.c \
     tr-core.c \
     tr-icon.c \
     tr-prefs.c \
@@ -573,7 +570,6 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/actions.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/add-dialog.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/conf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/details.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dialogs.Po@am__quote@
@@ -586,6 +582,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/makemeta-ui.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/msgwin.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/notify.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/open-dialog.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/relocate.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/stats.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/torrent-cell-renderer.Po@am__quote@
@@ -594,7 +591,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-prefs.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-torrent.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-window.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tracker-list.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util.Po@am__quote@
 
 .c.o:

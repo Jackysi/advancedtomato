@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: tr-core.h 11114 2010-08-04 17:35:48Z Longinus00 $
+ * $Id: tr-core.h 12088 2011-03-04 06:03:14Z jordan $
  *
- * Copyright (c) 2007-2008 Transmission authors and contributors
+ * Copyright (c) Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,14 +22,13 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef TR_CORE_H
-#define TR_CORE_H
+#ifndef GTR_CORE_H
+#define GTR_CORE_H
 
 #include <glib-object.h>
 #include <gtk/gtk.h>
 
 #include <libtransmission/transmission.h>
-#include "conf.h" /* pref_flag_t */
 #include "tr-torrent.h"
 
 #define TR_CORE_TYPE ( tr_core_get_type( ) )
@@ -81,11 +80,16 @@ void           tr_core_close( TrCore* );
 /* Return the model used without incrementing the reference count */
 GtkTreeModel * tr_core_model( TrCore * self );
 
+void           tr_core_clear( TrCore * self );
+
 tr_session *   tr_core_session( TrCore * self );
 
-int            tr_core_get_active_torrent_count( TrCore * self );
+size_t         tr_core_get_active_torrent_count( TrCore * self );
 
-int            tr_core_get_torrent_count( TrCore * self );
+size_t         tr_core_get_torrent_count( TrCore * self );
+
+void           tr_core_pref_changed( TrCore * core, const char * key );
+
 
 /******
 *******
@@ -95,8 +99,7 @@ int            tr_core_get_torrent_count( TrCore * self );
  * Load saved state and return number of torrents added.
  * May trigger one or more "error" signals with TR_CORE_ERR_ADD_TORRENT
  */
-int      tr_core_load( TrCore * self,
-                       gboolean forcepaused );
+void tr_core_load( TrCore * self, gboolean forcepaused );
 
 /**
  * Add a list of torrents.
@@ -105,14 +108,15 @@ int      tr_core_load( TrCore * self,
  * May pop up dialogs for each torrent if that preference is enabled.
  * May trigger one or more "error" signals with TR_CORE_ERR_ADD_TORRENT
  */
-void     tr_core_add_list( TrCore *    self,
-                           GSList *    torrentFiles,
-                           pref_flag_t start,
-                           pref_flag_t prompt,
-                           gboolean    doNotify );
+void tr_core_add_list( TrCore *    self,
+                       GSList *    torrentFiles,
+                       gboolean    doStart,
+                       gboolean    doPrompt,
+                       gboolean    doNotify );
 
-#define tr_core_add_list_defaults( c, l, doNotify ) \
-    tr_core_add_list( c, l, PREF_FLAG_DEFAULT, PREF_FLAG_DEFAULT, doNotify )
+void tr_core_add_list_defaults( TrCore    * core,
+                                GSList    * torrentFiles,
+                                gboolean    doNotify );
 
 
 /** @brief Add a torrent. */
@@ -154,9 +158,6 @@ void  tr_core_remove_torrent_from_id( TrCore * self, int id, gboolean deleteFile
 /* update the model with current torrent status */
 void  tr_core_update( TrCore * self );
 
-/* emit the "quit" signal */
-void  tr_core_quit( TrCore * self );
-
 /**
 ***  Set a preference value, save the prefs file, and emit the "prefs-changed" signal
 **/
@@ -169,8 +170,6 @@ void tr_core_set_pref_double( TrCore * self, const char * key, double val );
 /**
 ***
 **/
-
-void tr_core_torrent_changed( TrCore * core, int id );
 
 void tr_core_port_test( TrCore * core );
 
@@ -195,12 +194,23 @@ enum
     MC_TORRENT_RAW,
     MC_SPEED_UP,
     MC_SPEED_DOWN,
+    MC_RECHECK_PROGRESS,
     MC_ACTIVE,
     MC_ACTIVITY,
     MC_FINISHED,
     MC_PRIORITY,
     MC_TRACKERS,
+
+    /* tr_stat.error
+     * Tracked because ACTIVITY_FILTER_ERROR needs the row-changed events */
+    MC_ERROR,
+
+    /* tr_stat.{ peersSendingToUs + peersGettingFromUs + webseedsSendingToUs }
+     * Tracked because ACTIVITY_FILTER_ACTIVE needs the row-changed events */
+    MC_ACTIVE_PEER_COUNT,
+
+
     MC_ROW_COUNT
 };
 
-#endif
+#endif /* GTR_CORE_H */

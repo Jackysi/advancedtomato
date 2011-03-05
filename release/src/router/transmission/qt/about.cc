@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: about.cc 11095 2010-08-02 16:29:23Z charles $
+ * $Id: about.cc 11626 2011-01-03 05:58:58Z jordan $
  */
 
 #include <QDialogButtonBox>
@@ -87,7 +87,7 @@ void
 AboutDialog :: showCredits( )
 {
     QMessageBox::about( this, tr( "Credits" ),
-        "Charles Kerr (Backend; Daemon; GTK+; Qt)\n"
+        "Jordan Lee (Backend; Daemon; GTK+; Qt)\n"
         "Michell Livingston (Backend; OS X)\n"
         "Kevin Glowacz (Web client)" );
 }

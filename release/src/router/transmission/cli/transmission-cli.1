@@ -47,7 +47,7 @@ scripting capabilities.
 The options are as follows:
 .Bl -tag -width Ds
 .It Fl b Fl -blocklist
-Enable peer blocklists.  Transmission understands the bluetack blocklist file format.
+Enable peer blocklists. Transmission understands the bluetack blocklist file format.
 New blocklists can be added by copying them into the config-dir's "blocklists" subdirectory.
 .It Fl B Fl -no-blocklist
 Disble blocklists.
@@ -64,7 +64,7 @@ Prefer unencrypted peer connections.
 .It Fl f, -finish Ar script
 Set a script to run when the torrent finishes
 .It Fl g, Fl -config-dir Ar directory
-Where to look for configuration files.  This can be used to swap between using the cli, daemon, gtk, and qt clients.
+Where to look for configuration files. This can be used to swap between using the cli, daemon, gtk, and qt clients.
 See http://trac.transmissionbt.com/wiki/ConfigFiles for more information.
 .It Fl h, Fl -help
 Prints a short usage summary.
@@ -91,6 +91,13 @@ Where to save downloaded data.
 In addition to these options, sending
 .Nm
 a SIGHUP signal will contact the tracker for more peers.
+.Sh ENVIRONMENT
+.Bl -tag -width Fl
+.It Ev TRANSMISSION_HOME
+Sets the default config-dir.
+.It Ev http_proxy
+libcurl uses this environment variable when performing tracker announces.
+.El
 .Sh FILES
 .Bl -tag -width Ds -compact
 .It ~/.config/transmission
@@ -105,7 +112,7 @@ program was written by
 .An -nosplit
 .An Eric Petit ,
 .An Josh Elsasser ,
-.An Charles Kerr ,
+.An Jordan Lee ,
 and
 .An Mitchell Livingston .
 .Sh SEE ALSO

@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) 2007-2010 Mnemosyne LLC
+ * This file Copyright (C) Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2.  Works owned by the
+ * This file is licensed by the GPL version 2. Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: hig.c 9868 2010-01-04 21:00:47Z charles $
+ * $Id: hig.c 11709 2011-01-19 13:48:47Z jordan $
  */
 
 #include <gtk/gtk.h>
@@ -155,7 +155,7 @@ hig_workarea_add_tall_control( GtkWidget * t,
                       0, 0 );
 }
 
-void
+static void
 hig_workarea_add_control( GtkWidget * t,
                           int         row,
                           GtkWidget * control )
@@ -226,13 +226,3 @@ hig_workarea_finish( GtkWidget * t,
 {
     gtk_table_resize( GTK_TABLE( t ), *row, 2 );
 }
-
-void
-hig_message_dialog_set_text( GtkMessageDialog * dialog,
-                             const char *       primary,
-                             const char *       secondary )
-{
-    gtk_message_dialog_set_markup ( dialog, primary );
-    gtk_message_dialog_format_secondary_text ( dialog, "%s", secondary );
-}
-

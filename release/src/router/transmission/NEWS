@@ -1,3 +1,66 @@
+=== Transmission 2.22 (2011/03/04) ===
+==== All Platforms ====
+  * Faster endgame
+  * Fix bug where leechers might be disconnected while seeding in some situations
+  * Fix 2.20 bug that sometimes showed inaccurate upload/download speeds
+  * Support for unsorted blacklists
+  * Fix IPv6 DHT
+  * Re-add support to automatically close idle peers
+  * Fix bug where the resume file did not save the time checked for the last piece
+==== Mac ====
+  * Fixes for Dutch, German, and Russian localizations
+==== GTK+ ====
+  * Fix setting individual idle seeding time
+==== Qt ====
+  * Fix loading localizations on Linux
+==== CLI ====
+  * Fix bandwidth display issue
+
+=== Transmission 2.21 (2011/02/08) ===
+==== All Platforms ====
+  * Fix compile error in the 2.20 tarball
+==== GTK+ ====
+  * Several updated translations
+==== Qt ====
+  * Updated Spanish translation
+
+=== Transmission 2.20 (2011/02/06) ===
+[http://trac.transmissionbt.com/query?milestone=2.20&group=component&order=severity All tickets closed by this release]
+==== All Platforms ====
+  * Remember downloaded files when a drive is unplugged
+  * File re-verification is no longer needed in some situations
+  * Fix "Too many open files" error
+  * Show the total downloading and seeding time per torrent
+  * Fix webseeds
+  * Better support for IPv6-only trackers
+  * Add the ability to shutdown Transmission sessions via RPC
+  * NAT-PMP and UPnP now also map the UDP port
+  * Update the DHT code to dht-0.18
+  * Faster parsing of bencoded data
+  * Improve support for running scripts when a torrent finishes downloading
+  * Fix reannounce interval when trackers return a 404 error
+  * Fix checksum error on platforms running uClibc 0.9.27 or older
+  * Fix memmem() errors on Solaris
+==== Mac ====
+  * Fix issues in the German and Spanish localizations
+  * Interface tweaks
+  * Support ZIP and other compression formats in the blocklist downloader
+==== GTK+ ====
+  * Add "Add" and "Remove" buttons to the tracker list
+  * Add filesize column to the files list
+  * Several minor bugfixes and interface improvements
+==== Qt ====
+  * Accept info_hash values in the "Add url..." dialog
+==== Daemon ====
+  * Add "reannounce to tracker" option to transmission-remote
+  * transmission-remote can now read auth info from environment variables
+  * Fix configuration file bug with transmission-daemon running on Macs
+==== Web Client ====
+  * Right-clicking a torrent now works with Firefox / Firegestures / Ubuntu
+==== Utils ====
+  * Fix error when replacing substrings in tracker announce URLs
+  * Webseeds are now displayed in transmission-show
+
 === Transmission 2.13 (2010/12/09) ===
 [http://trac.transmissionbt.com/query?milestone=2.13&group=component&order=severity All tickets closed by this release]
 ==== All Platforms ====
@@ -7,10 +70,10 @@
   * Fix minor packaging errors
 ==== Mac ====
   * Add option to run a script when torrents finish downloading
-  * Simplify editing the blacklist URL in the preferences window
+  * Simplify editing the blocklist URL in the preferences window
 ==== GTK+ ====
   * Unblur the statusbar icons
-  * Fix truncation error in the Torrent Properties dialog.
+  * Fix truncation error in the Torrent Properties dialog
 ==== Qt ====
   * Fix crash when opening the Torrent Properties dialog on magnet links
   * Fix "undo" error when making changes in the Torrent Properties dialog
@@ -499,7 +562,7 @@
   * Fix 1.70 crash when setting options in the Properties dialog
   * Fix a rare crash in desktop notifications
   * Can now sort the file list by priority, download, and completeness
-  * Adding a torrent from a browser sometimes didn't work.
+  * Adding a torrent from a browser sometimes didn't work
   * Various usability improvements
 ==== Daemon ====
   * Remote didn't always send the right Encoding header in requests

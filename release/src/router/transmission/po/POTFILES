@@ -1,5 +1,4 @@
 	../gtk/actions.c \
-	../gtk/add-dialog.c \
 	../gtk/conf.c \
 	../gtk/details.c \
 	../gtk/dialogs.c \
@@ -10,10 +9,10 @@
 	../gtk/makemeta-ui.c \
 	../gtk/msgwin.c \
 	../gtk/notify.c \
+	../gtk/open-dialog.c \
 	../gtk/relocate.c \
 	../gtk/stats.c \
 	../gtk/torrent-cell-renderer.c \
-	../gtk/tracker-list.c \
 	../gtk/transmission-gtk.desktop.in \
 	../gtk/tr-core.c \
 	../gtk/tr-icon.c \

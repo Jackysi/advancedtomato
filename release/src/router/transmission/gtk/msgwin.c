@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) 2008-2010 Mnemosyne LLC
+ * This file Copyright (C) Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2.  Works owned by the
+ * This file is licensed by the GPL version 2. Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: msgwin.c 11337 2010-10-18 22:18:15Z charles $
+ * $Id: msgwin.c 12023 2011-02-24 14:59:13Z jordan $
  */
 
 #include <errno.h>
@@ -50,20 +50,74 @@ struct MsgData
 static struct tr_msg_list * myTail = NULL;
 static struct tr_msg_list * myHead = NULL;
 
-/***
-****
-***/
+/****
+*****
+****/
+
+/* is the user looking at the latest messages? */
+static gboolean
+is_pinned_to_new( struct MsgData * data )
+{
+    gboolean pinned_to_new = FALSE;
+
+    if( data->view == NULL )
+    {
+        pinned_to_new = TRUE;
+    }
+    else
+    {
+        GtkTreePath * last_visible;
+        if( gtk_tree_view_get_visible_range( data->view, NULL, &last_visible ) )
+        {
+            GtkTreeIter iter;
+            const int row_count = gtk_tree_model_iter_n_children( data->sort, NULL );
+            if( gtk_tree_model_iter_nth_child( data->sort, &iter, NULL, row_count-1 ) )
+            {
+                GtkTreePath * last_row = gtk_tree_model_get_path( data->sort, &iter );
+                pinned_to_new = !gtk_tree_path_compare( last_visible, last_row );
+                gtk_tree_path_free( last_row );
+            }
+            gtk_tree_path_free( last_visible );
+        }
+    }
+
+    return pinned_to_new;
+}
+
+static void
+scroll_to_bottom( struct MsgData * data )
+{
+    if( data->sort != NULL )
+    {
+        GtkTreeIter iter;
+        const int row_count = gtk_tree_model_iter_n_children( data->sort, NULL );
+        if( gtk_tree_model_iter_nth_child( data->sort, &iter, NULL, row_count-1 ) )
+        {
+            GtkTreePath * last_row = gtk_tree_model_get_path( data->sort, &iter );
+            gtk_tree_view_scroll_to_cell( data->view, last_row, NULL, TRUE, 1, 0 );
+            gtk_tree_path_free( last_row );
+        }
+    }
+}
+
+/****
+*****
+****/
 
 static void
 level_combo_changed_cb( GtkComboBox * combo_box, gpointer gdata )
 {
     struct MsgData * data = gdata;
     const int level = gtr_combo_box_get_active_enum( combo_box );
+    const gboolean pinned_to_new = is_pinned_to_new( data );
 
     tr_setMessageLevel( level );
     tr_core_set_pref_int( data->core, TR_PREFS_KEY_MSGLEVEL, level );
     data->maxLevel = level;
     gtk_tree_model_filter_refilter( GTK_TREE_MODEL_FILTER( data->filter ) );
+
+    if( pinned_to_new )
+        scroll_to_bottom( data );
 }
 
 static void
@@ -232,11 +286,11 @@ appendColumn( GtkTreeView * view,
         case COL_SEQUENCE:
             title = _( "Time" ); break;
 
-        /* noun.  column title for a list */
+        /* noun. column title for a list */
         case COL_NAME:
             title = _( "Name" ); break;
 
-        /* noun.  column title for a list */
+        /* noun. column title for a list */
         case COL_MESSAGE:
             title = _( "Message" ); break;
 
@@ -281,14 +335,11 @@ appendColumn( GtkTreeView * view,
             break;
     }
 
-    gtk_tree_view_column_set_sort_column_id( c, col );
     gtk_tree_view_append_column( view, c );
 }
 
 static gboolean
-isRowVisible( GtkTreeModel * model,
-              GtkTreeIter *  iter,
-              gpointer       gdata )
+isRowVisible( GtkTreeModel * model, GtkTreeIter * iter, gpointer gdata )
 {
     const struct MsgData *     data = gdata;
     const struct tr_msg_list * node;
@@ -298,8 +349,7 @@ isRowVisible( GtkTreeModel * model,
 }
 
 static void
-onWindowDestroyed( gpointer             gdata,
-                   GObject * deadWindow UNUSED )
+onWindowDestroyed( gpointer gdata, GObject * deadWindow UNUSED )
 {
     struct MsgData * data = gdata;
 
@@ -308,28 +358,22 @@ onWindowDestroyed( gpointer             gdata,
 }
 
 static tr_msg_list *
-addMessages( GtkListStore *       store,
-             struct tr_msg_list * head )
+addMessages( GtkListStore * store, struct tr_msg_list * head )
 {
-    const char *        default_name = g_get_application_name( );
-    static unsigned int sequence = 1;
-    tr_msg_list *       i;
+    tr_msg_list * i;
+    static unsigned int sequence = 0;
+    const char * default_name = g_get_application_name( );
 
-    for( i = head; i; i = i->next )
+    for( i=head; i && i->next; i=i->next )
     {
-        GtkTreeIter unused;
+        const char * name = i->name ? i->name : default_name;
 
-        gtk_list_store_insert_with_values( store, &unused, 0,
+        gtk_list_store_insert_with_values( store, NULL, 0,
                                            COL_TR_MSG, i,
-                                           COL_NAME,
-                                           ( i->name ? i->name :
-                                             default_name ),
+                                           COL_NAME, name,
                                            COL_MESSAGE, i->message,
-                                           COL_SEQUENCE, sequence++,
+                                           COL_SEQUENCE, ++sequence,
                                            -1 );
-
-        if( !i->next )
-            break;
     }
 
     return i; /* tail */
@@ -339,6 +383,7 @@ static gboolean
 onRefresh( gpointer gdata )
 {
     struct MsgData * data = gdata;
+    const gboolean pinned_to_new = is_pinned_to_new( data );
 
     if( !data->isPaused )
     {
@@ -354,7 +399,11 @@ onRefresh( gpointer gdata )
                 myHead = msgs;
             myTail = tail;
         }
+
+        if( pinned_to_new )
+            scroll_to_bottom( data );
     }
+        
     return TRUE;
 }
 
@@ -365,7 +414,7 @@ debug_level_combo_new( void )
                                             _( "Information" ), TR_MSG_INF,
                                             _( "Debug" ),       TR_MSG_DBG,
                                             NULL );
-    gtr_combo_box_set_active_enum( GTK_COMBO_BOX( w ), pref_int_get( TR_PREFS_KEY_MSGLEVEL ) );
+    gtr_combo_box_set_active_enum( GTK_COMBO_BOX( w ), gtr_pref_int_get( TR_PREFS_KEY_MSGLEVEL ) );
     return w;
 }
 
@@ -374,7 +423,7 @@ debug_level_combo_new( void )
 **/
 
 GtkWidget *
-msgwin_new( TrCore * core, GtkWindow * parent )
+gtr_message_log_window_new( GtkWindow * parent, TrCore * core )
 {
     GtkWidget *      win;
     GtkWidget *      vbox;
@@ -399,7 +448,6 @@ msgwin_new( TrCore * core, GtkWindow * parent )
     **/
 
     toolbar = gtk_toolbar_new( );
-    gtr_toolbar_set_orientation( GTK_TOOLBAR( toolbar ), GTK_ORIENTATION_HORIZONTAL );
     gtk_toolbar_set_style( GTK_TOOLBAR( toolbar ), GTK_TOOLBAR_BOTH_HORIZ );
 
     item = gtk_tool_button_new_from_stock( GTK_STOCK_SAVE_AS );
@@ -457,7 +505,7 @@ msgwin_new( TrCore * core, GtkWindow * parent )
     gtk_tree_sortable_set_sort_column_id( GTK_TREE_SORTABLE( data->sort ),
                                           COL_SEQUENCE,
                                           GTK_SORT_ASCENDING );
-    data->maxLevel = pref_int_get( TR_PREFS_KEY_MSGLEVEL );
+    data->maxLevel = gtr_pref_int_get( TR_PREFS_KEY_MSGLEVEL );
     gtk_tree_model_filter_set_visible_func( GTK_TREE_MODEL_FILTER( data->
                                                                    filter ),
                                             isRowVisible, data, NULL );
@@ -484,6 +532,7 @@ msgwin_new( TrCore * core, GtkWindow * parent )
     data->refresh_tag = gtr_timeout_add_seconds( SECONDARY_WINDOW_REFRESH_INTERVAL_SECONDS, onRefresh, data );
     g_object_weak_ref( G_OBJECT( win ), onWindowDestroyed, data );
 
+    scroll_to_bottom( data );
     gtk_widget_show_all( win );
     return win;
 }

@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) 2007-2010 Mnemosyne LLC
+ * This file Copyright (C) Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2.  Works owned by the
+ * This file is licensed by the GPL version 2. Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: list.h 11023 2010-07-19 14:44:24Z charles $
+ * $Id: list.h 11709 2011-01-19 13:48:47Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -82,7 +82,7 @@ void* tr_list_remove_data( tr_list ** list, const void * data );
  * @brief remove the list's node that compares equal to "b" when compared with "compare_func"
  * @param list pointer to the list
  * @param b the comparison key
- * @param compare_func the comparison function.  The arguments passed to it will be the list's pointers and the comparison key "b"
+ * @param compare_func the comparison function. The arguments passed to it will be the list's pointers and the comparison key "b"
  * @return the removed data pointer, or NULL if no match was found
  */
 void*    tr_list_remove( tr_list **        list,
@@ -93,19 +93,19 @@ void*    tr_list_remove( tr_list **        list,
  * @brief find the list node whose data that compares equal to "b" when compared with "compare_func"
  * @param list pointer to the list
  * @param b the comparison key
- * @param compare_func the comparison function.  The arguments passed to it will be the list's pointers and the comparison key "b"
+ * @param compare_func the comparison function. The arguments passed to it will be the list's pointers and the comparison key "b"
  * @return the matching list node, or NULL if not match was found
  */
 tr_list* tr_list_find( tr_list *         list,
                        const void *      b,
                        TrListCompareFunc compare_func );
 
-/** 
- * @brief Insert in an ordered list 
- * @param list pointer to the list 
- * @param item the item to be inserted 
- * @param compare the comparison function. 
- */ 
+/**
+ * @brief Insert in an ordered list
+ * @param list pointer to the list
+ * @param item the item to be inserted
+ * @param compare the comparison function.
+ */
 void tr_list_insert_sorted( tr_list          ** list,
                             void              * data,
                             TrListCompareFunc   compare );

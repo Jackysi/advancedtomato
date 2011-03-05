@@ -113,7 +113,7 @@ Copyright (C) 2010 Keith Moyer,<br>
 <!-- VPN-END -->
 
 <!-- BT-BEGIN -->
-<b>Transmission 2.13 integration and GUI,</b><br>
+<b>Transmission 2.22 integration and GUI,</b><br>
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
@@ -134,7 +134,7 @@ Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
-Built on <% build_time(); %> by Shibby<br>
+Built on <% build_time(); %> by Shibby, <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br><br>
 <br><br>
 
 <!--

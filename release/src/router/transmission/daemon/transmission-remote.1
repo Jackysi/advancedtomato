@@ -23,6 +23,7 @@ and
 .Op Fl d Ar number | Fl D
 .Op Fl e Ar size
 .Op Fl er | ep | et
+.Op Fl -exit
 .Op Fl f
 .Op Fl g Ar files
 .Op Fl G Ar files
@@ -33,6 +34,7 @@ and
 .Op Fl l
 .Op Fl m | M
 .Op Fl n Ar user:pass
+.Op Fl ne
 .Op Fl N Ar netrc
 .Op Fl o | O
 .Op Fl p Ar port
@@ -121,18 +123,20 @@ Don't store incomplete torrents in a different directory.
 Limit the maximum download speed to
 .Ar limit
 KiB/s.
-If current torrent(s) are selected this operates on them.  Otherwise, it changes the global setting.
+If current torrent(s) are selected this operates on them. Otherwise, it changes the global setting.
 .It Fl D Fl -no-downlimit
 Disable download speed limits.
-If current torrent(s) are selected this operates on them.  Otherwise, it changes the global setting.
+If current torrent(s) are selected this operates on them. Otherwise, it changes the global setting.
 .It Fl e Fl -cache Ar size
-Set the session's maximum memory cache size in MiB.  This cache is used to reduce disk IO.
+Set the session's maximum memory cache size in MiB. This cache is used to reduce disk IO.
 .It Fl er Fl -encryption-required
 Encrypt all peer connections.
 .It Fl ep Fl -encryption-preferred
 Prefer encrypted peer connections.
 .It Fl et Fl -encryption-tolerated
 Prefer unencrypted peer connections.
+.It Fl -exit
+Tell the Transmission to initiate a shutdown.
 .It Fl f Fl -files
 Get a file list for the current torrent(s)
 .It Fl g Fl -get Ar all | file-index | files
@@ -171,6 +175,11 @@ Set the
 and
 .Ar password
 for authentication
+.It Fl ne Fl -authenv
+Set the authentication information from the
+.Ar TR_AUTH
+environment variable which must be formatted as
+.Ar username:password.
 .It Fl N Fl -netrc Ar filename
 Set the authentication information from a
 .Ar netrc file.
@@ -204,11 +213,13 @@ Try to download the specified files normally.
 Try to download the specified files last
 .It Fl pr Fl -peers Ar number
 Set the maximum number of peers.
-If current torrent(s) are selected this operates on them.  Otherwise, it changes the global setting.
+If current torrent(s) are selected this operates on them. Otherwise, it changes the global setting.
 .It Fl r Fl -remove
-Remove the current torrent(s).  This does not delete the downloaded data.
+Remove the current torrent(s). This does not delete the downloaded data.
 .It Fl -remove-and-delete
 Remove the current torrent(s) and delete their downloaded data.
+.It Fl -reannounce
+Reannounce the current torrent(s). This is the same as the GUI's "ask tracker for more peers" button.
 .It Fl -move
 Move the current torrents' data from their current locations to the specified directory.
 .It Fl -find
@@ -220,9 +231,9 @@ Let the current torrent(s) seed until a specific
 Let the current torrent(s) seed regardless of ratio
 .It Fl srd Fl -seedratio-default
 Let the current torrent(s) use the global seedratio settings
-.It Fl ta Fl -tracker-add Ar tracker
+.It Fl td Fl -tracker-add Ar tracker
 Add a tracker to a torrent
-.It Fl ta Fl -tracker-remove Ar trackerId
+.It Fl tr Fl -tracker-remove Ar trackerId
 Remove a tracker from a torrent
 .It Fl s Fl -start
 Start the current torrent(s)
@@ -253,10 +264,10 @@ Make the current torrent(s) not honor the session limits.
 Limit the maximum upload speed to
 .Ar limit
 KiB/s.
-If current torrent(s) are selected this operates on them.  Otherwise, it changes the global setting.
+If current torrent(s) are selected this operates on them. Otherwise, it changes the global setting.
 .It Fl U Fl -no-uplimit
 Disable upload speed limits.
-If current torrent(s) are selected this operates on them.  Otherwise, it changes the global setting.
+If current torrent(s) are selected this operates on them. Otherwise, it changes the global setting.
 .It Fl v Fl -verify
 Verify the current torrent(s)
 .It Fl V Fl -version
@@ -345,9 +356,14 @@ Set all torrents' files' priorities to normal:
 .Bd -literal -offset indent
 $ transmission-remote \-tall \-pnall
 .Ed
+.Sh ENVIRONMENT
+.Bl -tag -width Fl
+.It Ev http_proxy
+Sets the proxy to use for http tracker announces.
+.El
 .Sh AUTHORS
 .An -nosplit
-.An Charles Kerr ,
+.An Jordan Lee ,
 .An Josh Elsasser ,
 .An Eric Petit ,
 and

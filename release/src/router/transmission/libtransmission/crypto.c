@@ -1,12 +1,13 @@
-/* * This file Copyright (C) 2007-2010 Mnemosyne LLC
+/*
+ * This file Copyright (C) Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2.  Works owned by the
+ * This file is licensed by the GPL version 2. Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: crypto.c 11333 2010-10-17 18:32:55Z charles $
+ * $Id: crypto.c 11717 2011-01-19 21:50:51Z jordan $
  */
 
 #include <assert.h>
@@ -34,27 +35,20 @@
 **/
 
 void
-tr_sha1( uint8_t *    setme,
-         const void * content1,
-         int          content1_len,
-         ... )
+tr_sha1( uint8_t * setme, const void * content1, int content1_len, ... )
 {
     va_list vl;
     SHA_CTX sha;
+    const void * content;
 
     SHA1_Init( &sha );
     SHA1_Update( &sha, content1, content1_len );
 
     va_start( vl, content1_len );
-    for( ; ; )
-    {
-        const void * content = (const void*) va_arg( vl, const void* );
-        const int    content_len = content ? (int) va_arg( vl, int ) : -1;
-        if( content == NULL || content_len < 1 )
-            break;
-        SHA1_Update( &sha, content, content_len );
-    }
+    while(( content = va_arg( vl, const void* )))
+        SHA1_Update( &sha, content, va_arg( vl, int ) );
     va_end( vl );
+
     SHA1_Final( setme, &sha );
 }
 

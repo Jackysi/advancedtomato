@@ -16,6 +16,7 @@
 
 
 
+
 pkgdatadir = $(datadir)/libevent
 pkgincludedir = $(includedir)/libevent
 pkglibdir = $(libdir)/libevent
@@ -36,14 +37,24 @@ build_triplet = x86_64-pc-linux-gnu
 host_triplet = mipsel-unknown-linux-gnu
 noinst_PROGRAMS = test-init$(EXEEXT) test-eof$(EXEEXT) \
 	test-weof$(EXEEXT) test-time$(EXEEXT) regress$(EXEEXT) \
-	bench$(EXEEXT)
+	bench$(EXEEXT) bench_cascade$(EXEEXT) bench_http$(EXEEXT) \
+	bench_httpclient$(EXEEXT) test-ratelim$(EXEEXT) \
+	test-changelist$(EXEEXT)
+am__append_1 = ../libevent_pthreads.la
+#am__append_2 = regress_iocp.c
+#am__append_3 = regress_ssl.c
+#am__append_4 = ../libevent_openssl.la -lcrypto -lssl
 subdir = test
-DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
+DIST_COMMON = $(noinst_HEADERS) $(srcdir)/Makefile.am \
+	$(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/configure.in
+am__aclocal_m4_deps = $(top_srcdir)/m4/acx_pthread.m4 \
+	$(top_srcdir)/m4/libtool.m4 $(top_srcdir)/m4/ltoptions.m4 \
+	$(top_srcdir)/m4/ltsugar.m4 $(top_srcdir)/m4/ltversion.m4 \
+	$(top_srcdir)/m4/lt~obsolete.m4 $(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
@@ -51,17 +62,59 @@ PROGRAMS = $(noinst_PROGRAMS)
 am_bench_OBJECTS = bench.$(OBJEXT)
 bench_OBJECTS = $(am_bench_OBJECTS)
 bench_DEPENDENCIES = ../libevent.la
-am_regress_OBJECTS = regress.$(OBJEXT) regress_http.$(OBJEXT) \
-	regress_dns.$(OBJEXT) regress_rpc.$(OBJEXT) \
-	regress.gen.$(OBJEXT)
+am_bench_cascade_OBJECTS = bench_cascade.$(OBJEXT)
+bench_cascade_OBJECTS = $(am_bench_cascade_OBJECTS)
+bench_cascade_DEPENDENCIES = ../libevent.la
+am_bench_http_OBJECTS = bench_http.$(OBJEXT)
+bench_http_OBJECTS = $(am_bench_http_OBJECTS)
+bench_http_DEPENDENCIES = ../libevent.la
+am_bench_httpclient_OBJECTS = bench_httpclient.$(OBJEXT)
+bench_httpclient_OBJECTS = $(am_bench_httpclient_OBJECTS)
+bench_httpclient_DEPENDENCIES = ../libevent_core.la
+am__regress_SOURCES_DIST = regress.c regress_buffer.c regress_http.c \
+	regress_dns.c regress_testutils.c regress_testutils.h \
+	regress_rpc.c regress.gen.c regress.gen.h regress_et.c \
+	regress_bufferevent.c regress_listener.c regress_util.c \
+	tinytest.c regress_main.c regress_minheap.c regress_thread.c \
+	regress_zlib.c regress_iocp.c regress_ssl.c
+am__objects_1 = regress-regress_thread.$(OBJEXT)
+#am__objects_1 = regress-regress_thread.$(OBJEXT)
+#am__objects_2 = regress-regress_zlib.$(OBJEXT)
+#am__objects_3 = regress-regress_iocp.$(OBJEXT)
+#am__objects_4 = regress-regress_ssl.$(OBJEXT)
+am_regress_OBJECTS = regress-regress.$(OBJEXT) \
+	regress-regress_buffer.$(OBJEXT) \
+	regress-regress_http.$(OBJEXT) regress-regress_dns.$(OBJEXT) \
+	regress-regress_testutils.$(OBJEXT) \
+	regress-regress_rpc.$(OBJEXT) regress-regress.gen.$(OBJEXT) \
+	regress-regress_et.$(OBJEXT) \
+	regress-regress_bufferevent.$(OBJEXT) \
+	regress-regress_listener.$(OBJEXT) \
+	regress-regress_util.$(OBJEXT) regress-tinytest.$(OBJEXT) \
+	regress-regress_main.$(OBJEXT) \
+	regress-regress_minheap.$(OBJEXT) $(am__objects_1) \
+	$(am__objects_2) $(am__objects_3) $(am__objects_4)
 regress_OBJECTS = $(am_regress_OBJECTS)
-regress_DEPENDENCIES = ../libevent.la
+am__DEPENDENCIES_1 = $(am__append_1)
+am__DEPENDENCIES_2 =
+#am__DEPENDENCIES_3 = ../libevent_openssl.la
+regress_DEPENDENCIES = ../libevent.la $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_2) $(am__DEPENDENCIES_3)
+regress_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+	--mode=link $(CCLD) $(regress_CFLAGS) $(CFLAGS) \
+	$(regress_LDFLAGS) $(LDFLAGS) -o $@
+am_test_changelist_OBJECTS = test-changelist.$(OBJEXT)
+test_changelist_OBJECTS = $(am_test_changelist_OBJECTS)
+test_changelist_DEPENDENCIES = ../libevent_core.la
 am_test_eof_OBJECTS = test-eof.$(OBJEXT)
 test_eof_OBJECTS = $(am_test_eof_OBJECTS)
 test_eof_DEPENDENCIES = ../libevent_core.la
 am_test_init_OBJECTS = test-init.$(OBJEXT)
 test_init_OBJECTS = $(am_test_init_OBJECTS)
 test_init_DEPENDENCIES = ../libevent_core.la
+am_test_ratelim_OBJECTS = test-ratelim.$(OBJEXT)
+test_ratelim_OBJECTS = $(am_test_ratelim_OBJECTS)
+test_ratelim_DEPENDENCIES = ../libevent_core.la
 am_test_time_OBJECTS = test-time.$(OBJEXT)
 test_time_OBJECTS = $(am_test_time_OBJECTS)
 test_time_DEPENDENCIES = ../libevent_core.la
@@ -69,8 +122,9 @@ am_test_weof_OBJECTS = test-weof.$(OBJEXT)
 test_weof_OBJECTS = $(am_test_weof_OBJECTS)
 test_weof_DEPENDENCIES = ../libevent_core.la
 DEFAULT_INCLUDES = -I. -I$(top_builddir)
-depcomp =
-am__depfiles_maybe =
+depcomp = $(SHELL) $(top_srcdir)/depcomp
+am__depfiles_maybe = depfiles
+am__mv = mv -f
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
@@ -80,23 +134,34 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = $(bench_SOURCES) $(regress_SOURCES) $(test_eof_SOURCES) \
-	$(test_init_SOURCES) $(test_time_SOURCES) $(test_weof_SOURCES)
-DIST_SOURCES = $(bench_SOURCES) $(regress_SOURCES) $(test_eof_SOURCES) \
-	$(test_init_SOURCES) $(test_time_SOURCES) $(test_weof_SOURCES)
+SOURCES = $(bench_SOURCES) $(bench_cascade_SOURCES) \
+	$(bench_http_SOURCES) $(bench_httpclient_SOURCES) \
+	$(regress_SOURCES) $(test_changelist_SOURCES) \
+	$(test_eof_SOURCES) $(test_init_SOURCES) \
+	$(test_ratelim_SOURCES) $(test_time_SOURCES) \
+	$(test_weof_SOURCES)
+DIST_SOURCES = $(bench_SOURCES) $(bench_cascade_SOURCES) \
+	$(bench_http_SOURCES) $(bench_httpclient_SOURCES) \
+	$(am__regress_SOURCES_DIST) $(test_changelist_SOURCES) \
+	$(test_eof_SOURCES) $(test_init_SOURCES) \
+	$(test_ratelim_SOURCES) $(test_time_SOURCES) \
+	$(test_weof_SOURCES)
+HEADERS = $(noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
+am__tty_colors = \
+red=; grn=; lgn=; blu=; std=
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/missing --run aclocal-1.11
-AMTAR = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/missing --run tar
+ACLOCAL = ${SHELL} /root/openwrt/tomato.git-dev/src/router/libevent/missing --run aclocal-1.11
+AMTAR = ${SHELL} /root/openwrt/tomato.git-dev/src/router/libevent/missing --run tar
 AR = mipsel-uclibc-ar
-AUTOCONF = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/missing --run autoconf
-AUTOHEADER = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/missing --run autoheader
-AUTOMAKE = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/missing --run automake-1.11
+AUTOCONF = ${SHELL} /root/openwrt/tomato.git-dev/src/router/libevent/missing --run autoconf
+AUTOHEADER = ${SHELL} /root/openwrt/tomato.git-dev/src/router/libevent/missing --run autoheader
+AUTOMAKE = ${SHELL} /root/openwrt/tomato.git-dev/src/router/libevent/missing --run automake-1.11
 AWK = gawk
 CC = mipsel-uclibc-gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = -Os -Wall -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32  -ffunction-sections -fdata-sections -Wall -fno-strict-aliasing
+CFLAGS = -Os -Wall -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32 -ffunction-sections -fdata-sections -Wall -fno-strict-aliasing -pthread
 CPP = mipsel-uclibc-gcc -E
 CPPFLAGS = 
 CYGPATH_W = echo
@@ -118,19 +183,20 @@ INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = $(install_sh) -c -s
 LD = mipsel-uclibc-ld
 LDFLAGS = -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC
-LIBOBJS =  ${LIBOBJDIR}select$U.o ${LIBOBJDIR}poll$U.o ${LIBOBJDIR}epoll$U.o ${LIBOBJDIR}signal$U.o
-LIBS = -lnsl -lrt -lresolv 
+LIBOBJS = 
+LIBS = 
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LIBTOOL_DEPS = ./ltmain.sh
 LIPO = 
 LN_S = ln -s
-LTLIBOBJS =  ${LIBOBJDIR}select$U.lo ${LIBOBJDIR}poll$U.lo ${LIBOBJDIR}epoll$U.lo ${LIBOBJDIR}signal$U.lo
-MAKEINFO = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/missing --run makeinfo
+LTLIBOBJS = 
+MAKEINFO = ${SHELL} /root/openwrt/tomato.git-dev/src/router/libevent/missing --run makeinfo
 MKDIR_P = /bin/mkdir -p
 NM = mipsel-uclibc-nm
 NMEDIT = 
 OBJDUMP = mipsel-linux-objdump
 OBJEXT = o
+OPENSSL_LIBS = 
 OTOOL = 
 OTOOL64 = 
 PACKAGE = libevent
@@ -141,18 +207,23 @@ PACKAGE_TARNAME =
 PACKAGE_URL = 
 PACKAGE_VERSION = 
 PATH_SEPARATOR = :
+PTHREAD_CC = mipsel-uclibc-gcc
+PTHREAD_CFLAGS = -pthread
+PTHREAD_LIBS =  $(am__append_1)
 RANLIB = mipsel-uclibc-ranlib
 SED = /bin/sed
 SET_MAKE = 
 SHELL = /bin/sh
 STRIP = mipsel-uclibc-strip -R .note -R .comment
-VERSION = 1.4.14b-stable
-abs_builddir = /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/test
-abs_srcdir = /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/test
-abs_top_builddir = /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent
-abs_top_srcdir = /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent
+VERSION = 2.0.10-stable
+ZLIB_LIBS = 
+abs_builddir = /root/openwrt/tomato.git-dev/src/router/libevent/test
+abs_srcdir = /root/openwrt/tomato.git-dev/src/router/libevent/test
+abs_top_builddir = /root/openwrt/tomato.git-dev/src/router/libevent
+abs_top_srcdir = /root/openwrt/tomato.git-dev/src/router/libevent
 ac_ct_CC = 
 ac_ct_DUMPBIN = 
+acx_pthread_config = 
 am__include = include
 am__leading_dot = .
 am__quote = 
@@ -178,12 +249,11 @@ host_vendor = unknown
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/install-sh
+install_sh = ${SHELL} /root/openwrt/tomato.git-dev/src/router/libevent/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
 localstatedir = ${prefix}/var
-lt_ECHO = echo
 mandir = ${datarootdir}/man
 mkdir_p = /bin/mkdir -p
 oldincludedir = /usr/include
@@ -199,25 +269,48 @@ target_alias =
 top_build_prefix = ../
 top_builddir = ..
 top_srcdir = ..
-AUTOMAKE_OPTIONS = foreign no-dependencies
-AM_CFLAGS = -I$(top_srcdir) -I$(top_srcdir)/compat
-EXTRA_DIST = regress.rpc regress.gen.h regress.gen.c
+AUTOMAKE_OPTIONS = foreign
+AM_CFLAGS = -I$(top_srcdir) -I$(top_srcdir)/compat -I$(top_srcdir)/include -I../include -DTINYTEST_LOCAL
+EXTRA_DIST = regress.rpc regress.gen.h regress.gen.c test.sh
+noinst_HEADERS = tinytest.h tinytest_macros.h regress.h tinytest_local.h
+TESTS = $(top_srcdir)/test/test.sh
 BUILT_SOURCES = regress.gen.c regress.gen.h
 test_init_SOURCES = test-init.c
 test_init_LDADD = ../libevent_core.la
 test_eof_SOURCES = test-eof.c
 test_eof_LDADD = ../libevent_core.la
+test_changelist_SOURCES = test-changelist.c
+test_changelist_LDADD = ../libevent_core.la
 test_weof_SOURCES = test-weof.c
 test_weof_LDADD = ../libevent_core.la
 test_time_SOURCES = test-time.c
 test_time_LDADD = ../libevent_core.la
-regress_SOURCES = regress.c regress.h regress_http.c regress_dns.c \
-	regress_rpc.c \
-	regress.gen.c regress.gen.h
+test_ratelim_SOURCES = test-ratelim.c
+test_ratelim_LDADD = ../libevent_core.la -lm
+regress_SOURCES = regress.c regress_buffer.c regress_http.c \
+	regress_dns.c regress_testutils.c regress_testutils.h \
+	regress_rpc.c regress.gen.c regress.gen.h regress_et.c \
+	regress_bufferevent.c regress_listener.c regress_util.c \
+	tinytest.c regress_main.c regress_minheap.c \
+	$(regress_thread_SOURCES) $(regress_zlib_SOURCES) \
+	$(am__append_2) $(am__append_3)
+#regress_thread_SOURCES = regress_thread.c
+regress_thread_SOURCES = regress_thread.c
+#regress_zlib_SOURCES = regress_zlib.c
+regress_LDADD = ../libevent.la $(PTHREAD_LIBS) $(ZLIB_LIBS) \
+	$(am__append_4)
+regress_CFLAGS = -I$(top_srcdir) -I$(top_srcdir)/compat \
+	-I$(top_srcdir)/include -I../include $(PTHREAD_CFLAGS) $(ZLIB_CFLAGS)
 
-regress_LDADD = ../libevent.la
+regress_LDFLAGS = $(PTHREAD_CFLAGS)
 bench_SOURCES = bench.c
 bench_LDADD = ../libevent.la
+bench_cascade_SOURCES = bench_cascade.c
+bench_cascade_LDADD = ../libevent.la
+bench_http_SOURCES = bench_http.c
+bench_http_LDADD = ../libevent.la
+bench_httpclient_SOURCES = bench_httpclient.c
+bench_httpclient_LDADD = ../libevent_core.la
 DISTCLEANFILES = *~
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
@@ -266,15 +359,30 @@ clean-noinstPROGRAMS:
 bench$(EXEEXT): $(bench_OBJECTS) $(bench_DEPENDENCIES) 
 	@rm -f bench$(EXEEXT)
 	$(LINK) $(bench_OBJECTS) $(bench_LDADD) $(LIBS)
+bench_cascade$(EXEEXT): $(bench_cascade_OBJECTS) $(bench_cascade_DEPENDENCIES) 
+	@rm -f bench_cascade$(EXEEXT)
+	$(LINK) $(bench_cascade_OBJECTS) $(bench_cascade_LDADD) $(LIBS)
+bench_http$(EXEEXT): $(bench_http_OBJECTS) $(bench_http_DEPENDENCIES) 
+	@rm -f bench_http$(EXEEXT)
+	$(LINK) $(bench_http_OBJECTS) $(bench_http_LDADD) $(LIBS)
+bench_httpclient$(EXEEXT): $(bench_httpclient_OBJECTS) $(bench_httpclient_DEPENDENCIES) 
+	@rm -f bench_httpclient$(EXEEXT)
+	$(LINK) $(bench_httpclient_OBJECTS) $(bench_httpclient_LDADD) $(LIBS)
 regress$(EXEEXT): $(regress_OBJECTS) $(regress_DEPENDENCIES) 
 	@rm -f regress$(EXEEXT)
-	$(LINK) $(regress_OBJECTS) $(regress_LDADD) $(LIBS)
+	$(regress_LINK) $(regress_OBJECTS) $(regress_LDADD) $(LIBS)
+test-changelist$(EXEEXT): $(test_changelist_OBJECTS) $(test_changelist_DEPENDENCIES) 
+	@rm -f test-changelist$(EXEEXT)
+	$(LINK) $(test_changelist_OBJECTS) $(test_changelist_LDADD) $(LIBS)
 test-eof$(EXEEXT): $(test_eof_OBJECTS) $(test_eof_DEPENDENCIES) 
 	@rm -f test-eof$(EXEEXT)
 	$(LINK) $(test_eof_OBJECTS) $(test_eof_LDADD) $(LIBS)
 test-init$(EXEEXT): $(test_init_OBJECTS) $(test_init_DEPENDENCIES) 
 	@rm -f test-init$(EXEEXT)
 	$(LINK) $(test_init_OBJECTS) $(test_init_LDADD) $(LIBS)
+test-ratelim$(EXEEXT): $(test_ratelim_OBJECTS) $(test_ratelim_DEPENDENCIES) 
+	@rm -f test-ratelim$(EXEEXT)
+	$(LINK) $(test_ratelim_OBJECTS) $(test_ratelim_LDADD) $(LIBS)
 test-time$(EXEEXT): $(test_time_OBJECTS) $(test_time_DEPENDENCIES) 
 	@rm -f test-time$(EXEEXT)
 	$(LINK) $(test_time_OBJECTS) $(test_time_LDADD) $(LIBS)
@@ -288,14 +396,307 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+include ./$(DEPDIR)/bench.Po
+include ./$(DEPDIR)/bench_cascade.Po
+include ./$(DEPDIR)/bench_http.Po
+include ./$(DEPDIR)/bench_httpclient.Po
+include ./$(DEPDIR)/regress-regress.Po
+include ./$(DEPDIR)/regress-regress.gen.Po
+include ./$(DEPDIR)/regress-regress_buffer.Po
+include ./$(DEPDIR)/regress-regress_bufferevent.Po
+include ./$(DEPDIR)/regress-regress_dns.Po
+include ./$(DEPDIR)/regress-regress_et.Po
+include ./$(DEPDIR)/regress-regress_http.Po
+include ./$(DEPDIR)/regress-regress_iocp.Po
+include ./$(DEPDIR)/regress-regress_listener.Po
+include ./$(DEPDIR)/regress-regress_main.Po
+include ./$(DEPDIR)/regress-regress_minheap.Po
+include ./$(DEPDIR)/regress-regress_rpc.Po
+include ./$(DEPDIR)/regress-regress_ssl.Po
+include ./$(DEPDIR)/regress-regress_testutils.Po
+include ./$(DEPDIR)/regress-regress_thread.Po
+include ./$(DEPDIR)/regress-regress_util.Po
+include ./$(DEPDIR)/regress-regress_zlib.Po
+include ./$(DEPDIR)/regress-tinytest.Po
+include ./$(DEPDIR)/test-changelist.Po
+include ./$(DEPDIR)/test-eof.Po
+include ./$(DEPDIR)/test-init.Po
+include ./$(DEPDIR)/test-ratelim.Po
+include ./$(DEPDIR)/test-time.Po
+include ./$(DEPDIR)/test-weof.Po
+
 .c.o:
-	$(COMPILE) -c $<
+	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+#	source='$<' object='$@' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(COMPILE) -c $<
 
 .c.obj:
-	$(COMPILE) -c `$(CYGPATH_W) '$<'`
+	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
+	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+#	source='$<' object='$@' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(COMPILE) -c `$(CYGPATH_W) '$<'`
 
 .c.lo:
-	$(LTCOMPILE) -c -o $@ $<
+	$(LTCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Plo
+#	source='$<' object='$@' libtool=yes \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(LTCOMPILE) -c -o $@ $<
+
+regress-regress.o: regress.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress.o -MD -MP -MF $(DEPDIR)/regress-regress.Tpo -c -o regress-regress.o `test -f 'regress.c' || echo '$(srcdir)/'`regress.c
+	$(am__mv) $(DEPDIR)/regress-regress.Tpo $(DEPDIR)/regress-regress.Po
+#	source='regress.c' object='regress-regress.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress.o `test -f 'regress.c' || echo '$(srcdir)/'`regress.c
+
+regress-regress.obj: regress.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress.obj -MD -MP -MF $(DEPDIR)/regress-regress.Tpo -c -o regress-regress.obj `if test -f 'regress.c'; then $(CYGPATH_W) 'regress.c'; else $(CYGPATH_W) '$(srcdir)/regress.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress.Tpo $(DEPDIR)/regress-regress.Po
+#	source='regress.c' object='regress-regress.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress.obj `if test -f 'regress.c'; then $(CYGPATH_W) 'regress.c'; else $(CYGPATH_W) '$(srcdir)/regress.c'; fi`
+
+regress-regress_buffer.o: regress_buffer.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_buffer.o -MD -MP -MF $(DEPDIR)/regress-regress_buffer.Tpo -c -o regress-regress_buffer.o `test -f 'regress_buffer.c' || echo '$(srcdir)/'`regress_buffer.c
+	$(am__mv) $(DEPDIR)/regress-regress_buffer.Tpo $(DEPDIR)/regress-regress_buffer.Po
+#	source='regress_buffer.c' object='regress-regress_buffer.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_buffer.o `test -f 'regress_buffer.c' || echo '$(srcdir)/'`regress_buffer.c
+
+regress-regress_buffer.obj: regress_buffer.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_buffer.obj -MD -MP -MF $(DEPDIR)/regress-regress_buffer.Tpo -c -o regress-regress_buffer.obj `if test -f 'regress_buffer.c'; then $(CYGPATH_W) 'regress_buffer.c'; else $(CYGPATH_W) '$(srcdir)/regress_buffer.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress_buffer.Tpo $(DEPDIR)/regress-regress_buffer.Po
+#	source='regress_buffer.c' object='regress-regress_buffer.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_buffer.obj `if test -f 'regress_buffer.c'; then $(CYGPATH_W) 'regress_buffer.c'; else $(CYGPATH_W) '$(srcdir)/regress_buffer.c'; fi`
+
+regress-regress_http.o: regress_http.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_http.o -MD -MP -MF $(DEPDIR)/regress-regress_http.Tpo -c -o regress-regress_http.o `test -f 'regress_http.c' || echo '$(srcdir)/'`regress_http.c
+	$(am__mv) $(DEPDIR)/regress-regress_http.Tpo $(DEPDIR)/regress-regress_http.Po
+#	source='regress_http.c' object='regress-regress_http.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_http.o `test -f 'regress_http.c' || echo '$(srcdir)/'`regress_http.c
+
+regress-regress_http.obj: regress_http.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_http.obj -MD -MP -MF $(DEPDIR)/regress-regress_http.Tpo -c -o regress-regress_http.obj `if test -f 'regress_http.c'; then $(CYGPATH_W) 'regress_http.c'; else $(CYGPATH_W) '$(srcdir)/regress_http.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress_http.Tpo $(DEPDIR)/regress-regress_http.Po
+#	source='regress_http.c' object='regress-regress_http.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_http.obj `if test -f 'regress_http.c'; then $(CYGPATH_W) 'regress_http.c'; else $(CYGPATH_W) '$(srcdir)/regress_http.c'; fi`
+
+regress-regress_dns.o: regress_dns.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_dns.o -MD -MP -MF $(DEPDIR)/regress-regress_dns.Tpo -c -o regress-regress_dns.o `test -f 'regress_dns.c' || echo '$(srcdir)/'`regress_dns.c
+	$(am__mv) $(DEPDIR)/regress-regress_dns.Tpo $(DEPDIR)/regress-regress_dns.Po
+#	source='regress_dns.c' object='regress-regress_dns.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_dns.o `test -f 'regress_dns.c' || echo '$(srcdir)/'`regress_dns.c
+
+regress-regress_dns.obj: regress_dns.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_dns.obj -MD -MP -MF $(DEPDIR)/regress-regress_dns.Tpo -c -o regress-regress_dns.obj `if test -f 'regress_dns.c'; then $(CYGPATH_W) 'regress_dns.c'; else $(CYGPATH_W) '$(srcdir)/regress_dns.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress_dns.Tpo $(DEPDIR)/regress-regress_dns.Po
+#	source='regress_dns.c' object='regress-regress_dns.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_dns.obj `if test -f 'regress_dns.c'; then $(CYGPATH_W) 'regress_dns.c'; else $(CYGPATH_W) '$(srcdir)/regress_dns.c'; fi`
+
+regress-regress_testutils.o: regress_testutils.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_testutils.o -MD -MP -MF $(DEPDIR)/regress-regress_testutils.Tpo -c -o regress-regress_testutils.o `test -f 'regress_testutils.c' || echo '$(srcdir)/'`regress_testutils.c
+	$(am__mv) $(DEPDIR)/regress-regress_testutils.Tpo $(DEPDIR)/regress-regress_testutils.Po
+#	source='regress_testutils.c' object='regress-regress_testutils.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_testutils.o `test -f 'regress_testutils.c' || echo '$(srcdir)/'`regress_testutils.c
+
+regress-regress_testutils.obj: regress_testutils.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_testutils.obj -MD -MP -MF $(DEPDIR)/regress-regress_testutils.Tpo -c -o regress-regress_testutils.obj `if test -f 'regress_testutils.c'; then $(CYGPATH_W) 'regress_testutils.c'; else $(CYGPATH_W) '$(srcdir)/regress_testutils.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress_testutils.Tpo $(DEPDIR)/regress-regress_testutils.Po
+#	source='regress_testutils.c' object='regress-regress_testutils.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_testutils.obj `if test -f 'regress_testutils.c'; then $(CYGPATH_W) 'regress_testutils.c'; else $(CYGPATH_W) '$(srcdir)/regress_testutils.c'; fi`
+
+regress-regress_rpc.o: regress_rpc.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_rpc.o -MD -MP -MF $(DEPDIR)/regress-regress_rpc.Tpo -c -o regress-regress_rpc.o `test -f 'regress_rpc.c' || echo '$(srcdir)/'`regress_rpc.c
+	$(am__mv) $(DEPDIR)/regress-regress_rpc.Tpo $(DEPDIR)/regress-regress_rpc.Po
+#	source='regress_rpc.c' object='regress-regress_rpc.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_rpc.o `test -f 'regress_rpc.c' || echo '$(srcdir)/'`regress_rpc.c
+
+regress-regress_rpc.obj: regress_rpc.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_rpc.obj -MD -MP -MF $(DEPDIR)/regress-regress_rpc.Tpo -c -o regress-regress_rpc.obj `if test -f 'regress_rpc.c'; then $(CYGPATH_W) 'regress_rpc.c'; else $(CYGPATH_W) '$(srcdir)/regress_rpc.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress_rpc.Tpo $(DEPDIR)/regress-regress_rpc.Po
+#	source='regress_rpc.c' object='regress-regress_rpc.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_rpc.obj `if test -f 'regress_rpc.c'; then $(CYGPATH_W) 'regress_rpc.c'; else $(CYGPATH_W) '$(srcdir)/regress_rpc.c'; fi`
+
+regress-regress.gen.o: regress.gen.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress.gen.o -MD -MP -MF $(DEPDIR)/regress-regress.gen.Tpo -c -o regress-regress.gen.o `test -f 'regress.gen.c' || echo '$(srcdir)/'`regress.gen.c
+	$(am__mv) $(DEPDIR)/regress-regress.gen.Tpo $(DEPDIR)/regress-regress.gen.Po
+#	source='regress.gen.c' object='regress-regress.gen.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress.gen.o `test -f 'regress.gen.c' || echo '$(srcdir)/'`regress.gen.c
+
+regress-regress.gen.obj: regress.gen.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress.gen.obj -MD -MP -MF $(DEPDIR)/regress-regress.gen.Tpo -c -o regress-regress.gen.obj `if test -f 'regress.gen.c'; then $(CYGPATH_W) 'regress.gen.c'; else $(CYGPATH_W) '$(srcdir)/regress.gen.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress.gen.Tpo $(DEPDIR)/regress-regress.gen.Po
+#	source='regress.gen.c' object='regress-regress.gen.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress.gen.obj `if test -f 'regress.gen.c'; then $(CYGPATH_W) 'regress.gen.c'; else $(CYGPATH_W) '$(srcdir)/regress.gen.c'; fi`
+
+regress-regress_et.o: regress_et.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_et.o -MD -MP -MF $(DEPDIR)/regress-regress_et.Tpo -c -o regress-regress_et.o `test -f 'regress_et.c' || echo '$(srcdir)/'`regress_et.c
+	$(am__mv) $(DEPDIR)/regress-regress_et.Tpo $(DEPDIR)/regress-regress_et.Po
+#	source='regress_et.c' object='regress-regress_et.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_et.o `test -f 'regress_et.c' || echo '$(srcdir)/'`regress_et.c
+
+regress-regress_et.obj: regress_et.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_et.obj -MD -MP -MF $(DEPDIR)/regress-regress_et.Tpo -c -o regress-regress_et.obj `if test -f 'regress_et.c'; then $(CYGPATH_W) 'regress_et.c'; else $(CYGPATH_W) '$(srcdir)/regress_et.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress_et.Tpo $(DEPDIR)/regress-regress_et.Po
+#	source='regress_et.c' object='regress-regress_et.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_et.obj `if test -f 'regress_et.c'; then $(CYGPATH_W) 'regress_et.c'; else $(CYGPATH_W) '$(srcdir)/regress_et.c'; fi`
+
+regress-regress_bufferevent.o: regress_bufferevent.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_bufferevent.o -MD -MP -MF $(DEPDIR)/regress-regress_bufferevent.Tpo -c -o regress-regress_bufferevent.o `test -f 'regress_bufferevent.c' || echo '$(srcdir)/'`regress_bufferevent.c
+	$(am__mv) $(DEPDIR)/regress-regress_bufferevent.Tpo $(DEPDIR)/regress-regress_bufferevent.Po
+#	source='regress_bufferevent.c' object='regress-regress_bufferevent.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_bufferevent.o `test -f 'regress_bufferevent.c' || echo '$(srcdir)/'`regress_bufferevent.c
+
+regress-regress_bufferevent.obj: regress_bufferevent.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_bufferevent.obj -MD -MP -MF $(DEPDIR)/regress-regress_bufferevent.Tpo -c -o regress-regress_bufferevent.obj `if test -f 'regress_bufferevent.c'; then $(CYGPATH_W) 'regress_bufferevent.c'; else $(CYGPATH_W) '$(srcdir)/regress_bufferevent.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress_bufferevent.Tpo $(DEPDIR)/regress-regress_bufferevent.Po
+#	source='regress_bufferevent.c' object='regress-regress_bufferevent.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_bufferevent.obj `if test -f 'regress_bufferevent.c'; then $(CYGPATH_W) 'regress_bufferevent.c'; else $(CYGPATH_W) '$(srcdir)/regress_bufferevent.c'; fi`
+
+regress-regress_listener.o: regress_listener.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_listener.o -MD -MP -MF $(DEPDIR)/regress-regress_listener.Tpo -c -o regress-regress_listener.o `test -f 'regress_listener.c' || echo '$(srcdir)/'`regress_listener.c
+	$(am__mv) $(DEPDIR)/regress-regress_listener.Tpo $(DEPDIR)/regress-regress_listener.Po
+#	source='regress_listener.c' object='regress-regress_listener.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_listener.o `test -f 'regress_listener.c' || echo '$(srcdir)/'`regress_listener.c
+
+regress-regress_listener.obj: regress_listener.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_listener.obj -MD -MP -MF $(DEPDIR)/regress-regress_listener.Tpo -c -o regress-regress_listener.obj `if test -f 'regress_listener.c'; then $(CYGPATH_W) 'regress_listener.c'; else $(CYGPATH_W) '$(srcdir)/regress_listener.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress_listener.Tpo $(DEPDIR)/regress-regress_listener.Po
+#	source='regress_listener.c' object='regress-regress_listener.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_listener.obj `if test -f 'regress_listener.c'; then $(CYGPATH_W) 'regress_listener.c'; else $(CYGPATH_W) '$(srcdir)/regress_listener.c'; fi`
+
+regress-regress_util.o: regress_util.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_util.o -MD -MP -MF $(DEPDIR)/regress-regress_util.Tpo -c -o regress-regress_util.o `test -f 'regress_util.c' || echo '$(srcdir)/'`regress_util.c
+	$(am__mv) $(DEPDIR)/regress-regress_util.Tpo $(DEPDIR)/regress-regress_util.Po
+#	source='regress_util.c' object='regress-regress_util.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_util.o `test -f 'regress_util.c' || echo '$(srcdir)/'`regress_util.c
+
+regress-regress_util.obj: regress_util.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_util.obj -MD -MP -MF $(DEPDIR)/regress-regress_util.Tpo -c -o regress-regress_util.obj `if test -f 'regress_util.c'; then $(CYGPATH_W) 'regress_util.c'; else $(CYGPATH_W) '$(srcdir)/regress_util.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress_util.Tpo $(DEPDIR)/regress-regress_util.Po
+#	source='regress_util.c' object='regress-regress_util.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_util.obj `if test -f 'regress_util.c'; then $(CYGPATH_W) 'regress_util.c'; else $(CYGPATH_W) '$(srcdir)/regress_util.c'; fi`
+
+regress-tinytest.o: tinytest.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-tinytest.o -MD -MP -MF $(DEPDIR)/regress-tinytest.Tpo -c -o regress-tinytest.o `test -f 'tinytest.c' || echo '$(srcdir)/'`tinytest.c
+	$(am__mv) $(DEPDIR)/regress-tinytest.Tpo $(DEPDIR)/regress-tinytest.Po
+#	source='tinytest.c' object='regress-tinytest.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-tinytest.o `test -f 'tinytest.c' || echo '$(srcdir)/'`tinytest.c
+
+regress-tinytest.obj: tinytest.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-tinytest.obj -MD -MP -MF $(DEPDIR)/regress-tinytest.Tpo -c -o regress-tinytest.obj `if test -f 'tinytest.c'; then $(CYGPATH_W) 'tinytest.c'; else $(CYGPATH_W) '$(srcdir)/tinytest.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-tinytest.Tpo $(DEPDIR)/regress-tinytest.Po
+#	source='tinytest.c' object='regress-tinytest.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-tinytest.obj `if test -f 'tinytest.c'; then $(CYGPATH_W) 'tinytest.c'; else $(CYGPATH_W) '$(srcdir)/tinytest.c'; fi`
+
+regress-regress_main.o: regress_main.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_main.o -MD -MP -MF $(DEPDIR)/regress-regress_main.Tpo -c -o regress-regress_main.o `test -f 'regress_main.c' || echo '$(srcdir)/'`regress_main.c
+	$(am__mv) $(DEPDIR)/regress-regress_main.Tpo $(DEPDIR)/regress-regress_main.Po
+#	source='regress_main.c' object='regress-regress_main.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_main.o `test -f 'regress_main.c' || echo '$(srcdir)/'`regress_main.c
+
+regress-regress_main.obj: regress_main.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_main.obj -MD -MP -MF $(DEPDIR)/regress-regress_main.Tpo -c -o regress-regress_main.obj `if test -f 'regress_main.c'; then $(CYGPATH_W) 'regress_main.c'; else $(CYGPATH_W) '$(srcdir)/regress_main.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress_main.Tpo $(DEPDIR)/regress-regress_main.Po
+#	source='regress_main.c' object='regress-regress_main.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_main.obj `if test -f 'regress_main.c'; then $(CYGPATH_W) 'regress_main.c'; else $(CYGPATH_W) '$(srcdir)/regress_main.c'; fi`
+
+regress-regress_minheap.o: regress_minheap.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_minheap.o -MD -MP -MF $(DEPDIR)/regress-regress_minheap.Tpo -c -o regress-regress_minheap.o `test -f 'regress_minheap.c' || echo '$(srcdir)/'`regress_minheap.c
+	$(am__mv) $(DEPDIR)/regress-regress_minheap.Tpo $(DEPDIR)/regress-regress_minheap.Po
+#	source='regress_minheap.c' object='regress-regress_minheap.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_minheap.o `test -f 'regress_minheap.c' || echo '$(srcdir)/'`regress_minheap.c
+
+regress-regress_minheap.obj: regress_minheap.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_minheap.obj -MD -MP -MF $(DEPDIR)/regress-regress_minheap.Tpo -c -o regress-regress_minheap.obj `if test -f 'regress_minheap.c'; then $(CYGPATH_W) 'regress_minheap.c'; else $(CYGPATH_W) '$(srcdir)/regress_minheap.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress_minheap.Tpo $(DEPDIR)/regress-regress_minheap.Po
+#	source='regress_minheap.c' object='regress-regress_minheap.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_minheap.obj `if test -f 'regress_minheap.c'; then $(CYGPATH_W) 'regress_minheap.c'; else $(CYGPATH_W) '$(srcdir)/regress_minheap.c'; fi`
+
+regress-regress_thread.o: regress_thread.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_thread.o -MD -MP -MF $(DEPDIR)/regress-regress_thread.Tpo -c -o regress-regress_thread.o `test -f 'regress_thread.c' || echo '$(srcdir)/'`regress_thread.c
+	$(am__mv) $(DEPDIR)/regress-regress_thread.Tpo $(DEPDIR)/regress-regress_thread.Po
+#	source='regress_thread.c' object='regress-regress_thread.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_thread.o `test -f 'regress_thread.c' || echo '$(srcdir)/'`regress_thread.c
+
+regress-regress_thread.obj: regress_thread.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_thread.obj -MD -MP -MF $(DEPDIR)/regress-regress_thread.Tpo -c -o regress-regress_thread.obj `if test -f 'regress_thread.c'; then $(CYGPATH_W) 'regress_thread.c'; else $(CYGPATH_W) '$(srcdir)/regress_thread.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress_thread.Tpo $(DEPDIR)/regress-regress_thread.Po
+#	source='regress_thread.c' object='regress-regress_thread.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_thread.obj `if test -f 'regress_thread.c'; then $(CYGPATH_W) 'regress_thread.c'; else $(CYGPATH_W) '$(srcdir)/regress_thread.c'; fi`
+
+regress-regress_zlib.o: regress_zlib.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_zlib.o -MD -MP -MF $(DEPDIR)/regress-regress_zlib.Tpo -c -o regress-regress_zlib.o `test -f 'regress_zlib.c' || echo '$(srcdir)/'`regress_zlib.c
+	$(am__mv) $(DEPDIR)/regress-regress_zlib.Tpo $(DEPDIR)/regress-regress_zlib.Po
+#	source='regress_zlib.c' object='regress-regress_zlib.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_zlib.o `test -f 'regress_zlib.c' || echo '$(srcdir)/'`regress_zlib.c
+
+regress-regress_zlib.obj: regress_zlib.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_zlib.obj -MD -MP -MF $(DEPDIR)/regress-regress_zlib.Tpo -c -o regress-regress_zlib.obj `if test -f 'regress_zlib.c'; then $(CYGPATH_W) 'regress_zlib.c'; else $(CYGPATH_W) '$(srcdir)/regress_zlib.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress_zlib.Tpo $(DEPDIR)/regress-regress_zlib.Po
+#	source='regress_zlib.c' object='regress-regress_zlib.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_zlib.obj `if test -f 'regress_zlib.c'; then $(CYGPATH_W) 'regress_zlib.c'; else $(CYGPATH_W) '$(srcdir)/regress_zlib.c'; fi`
+
+regress-regress_iocp.o: regress_iocp.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_iocp.o -MD -MP -MF $(DEPDIR)/regress-regress_iocp.Tpo -c -o regress-regress_iocp.o `test -f 'regress_iocp.c' || echo '$(srcdir)/'`regress_iocp.c
+	$(am__mv) $(DEPDIR)/regress-regress_iocp.Tpo $(DEPDIR)/regress-regress_iocp.Po
+#	source='regress_iocp.c' object='regress-regress_iocp.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_iocp.o `test -f 'regress_iocp.c' || echo '$(srcdir)/'`regress_iocp.c
+
+regress-regress_iocp.obj: regress_iocp.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_iocp.obj -MD -MP -MF $(DEPDIR)/regress-regress_iocp.Tpo -c -o regress-regress_iocp.obj `if test -f 'regress_iocp.c'; then $(CYGPATH_W) 'regress_iocp.c'; else $(CYGPATH_W) '$(srcdir)/regress_iocp.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress_iocp.Tpo $(DEPDIR)/regress-regress_iocp.Po
+#	source='regress_iocp.c' object='regress-regress_iocp.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_iocp.obj `if test -f 'regress_iocp.c'; then $(CYGPATH_W) 'regress_iocp.c'; else $(CYGPATH_W) '$(srcdir)/regress_iocp.c'; fi`
+
+regress-regress_ssl.o: regress_ssl.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_ssl.o -MD -MP -MF $(DEPDIR)/regress-regress_ssl.Tpo -c -o regress-regress_ssl.o `test -f 'regress_ssl.c' || echo '$(srcdir)/'`regress_ssl.c
+	$(am__mv) $(DEPDIR)/regress-regress_ssl.Tpo $(DEPDIR)/regress-regress_ssl.Po
+#	source='regress_ssl.c' object='regress-regress_ssl.o' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_ssl.o `test -f 'regress_ssl.c' || echo '$(srcdir)/'`regress_ssl.c
+
+regress-regress_ssl.obj: regress_ssl.c
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -MT regress-regress_ssl.obj -MD -MP -MF $(DEPDIR)/regress-regress_ssl.Tpo -c -o regress-regress_ssl.obj `if test -f 'regress_ssl.c'; then $(CYGPATH_W) 'regress_ssl.c'; else $(CYGPATH_W) '$(srcdir)/regress_ssl.c'; fi`
+	$(am__mv) $(DEPDIR)/regress-regress_ssl.Tpo $(DEPDIR)/regress-regress_ssl.Po
+#	source='regress_ssl.c' object='regress-regress_ssl.obj' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(regress_CFLAGS) $(CFLAGS) -c -o regress-regress_ssl.obj `if test -f 'regress_ssl.c'; then $(CYGPATH_W) 'regress_ssl.c'; else $(CYGPATH_W) '$(srcdir)/regress_ssl.c'; fi`
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -355,6 +756,98 @@ GTAGS:
 distclean-tags:
 	-rm -f TAGS ID GTAGS GRTAGS GSYMS GPATH tags
 
+check-TESTS: $(TESTS)
+	@failed=0; all=0; xfail=0; xpass=0; skip=0; \
+	srcdir=$(srcdir); export srcdir; \
+	list=' $(TESTS) '; \
+	$(am__tty_colors); \
+	if test -n "$$list"; then \
+	  for tst in $$list; do \
+	    if test -f ./$$tst; then dir=./; \
+	    elif test -f $$tst; then dir=; \
+	    else dir="$(srcdir)/"; fi; \
+	    if $(TESTS_ENVIRONMENT) $${dir}$$tst; then \
+	      all=`expr $$all + 1`; \
+	      case " $(XFAIL_TESTS) " in \
+	      *[\ \	]$$tst[\ \	]*) \
+		xpass=`expr $$xpass + 1`; \
+		failed=`expr $$failed + 1`; \
+		col=$$red; res=XPASS; \
+	      ;; \
+	      *) \
+		col=$$grn; res=PASS; \
+	      ;; \
+	      esac; \
+	    elif test $$? -ne 77; then \
+	      all=`expr $$all + 1`; \
+	      case " $(XFAIL_TESTS) " in \
+	      *[\ \	]$$tst[\ \	]*) \
+		xfail=`expr $$xfail + 1`; \
+		col=$$lgn; res=XFAIL; \
+	      ;; \
+	      *) \
+		failed=`expr $$failed + 1`; \
+		col=$$red; res=FAIL; \
+	      ;; \
+	      esac; \
+	    else \
+	      skip=`expr $$skip + 1`; \
+	      col=$$blu; res=SKIP; \
+	    fi; \
+	    echo "$${col}$$res$${std}: $$tst"; \
+	  done; \
+	  if test "$$all" -eq 1; then \
+	    tests="test"; \
+	    All=""; \
+	  else \
+	    tests="tests"; \
+	    All="All "; \
+	  fi; \
+	  if test "$$failed" -eq 0; then \
+	    if test "$$xfail" -eq 0; then \
+	      banner="$$All$$all $$tests passed"; \
+	    else \
+	      if test "$$xfail" -eq 1; then failures=failure; else failures=failures; fi; \
+	      banner="$$All$$all $$tests behaved as expected ($$xfail expected $$failures)"; \
+	    fi; \
+	  else \
+	    if test "$$xpass" -eq 0; then \
+	      banner="$$failed of $$all $$tests failed"; \
+	    else \
+	      if test "$$xpass" -eq 1; then passes=pass; else passes=passes; fi; \
+	      banner="$$failed of $$all $$tests did not behave as expected ($$xpass unexpected $$passes)"; \
+	    fi; \
+	  fi; \
+	  dashes="$$banner"; \
+	  skipped=""; \
+	  if test "$$skip" -ne 0; then \
+	    if test "$$skip" -eq 1; then \
+	      skipped="($$skip test was not run)"; \
+	    else \
+	      skipped="($$skip tests were not run)"; \
+	    fi; \
+	    test `echo "$$skipped" | wc -c` -le `echo "$$banner" | wc -c` || \
+	      dashes="$$skipped"; \
+	  fi; \
+	  report=""; \
+	  if test "$$failed" -ne 0 && test -n "$(PACKAGE_BUGREPORT)"; then \
+	    report="Please report to $(PACKAGE_BUGREPORT)"; \
+	    test `echo "$$report" | wc -c` -le `echo "$$banner" | wc -c` || \
+	      dashes="$$report"; \
+	  fi; \
+	  dashes=`echo "$$dashes" | sed s/./=/g`; \
+	  if test "$$failed" -eq 0; then \
+	    echo "$$grn$$dashes"; \
+	  else \
+	    echo "$$red$$dashes"; \
+	  fi; \
+	  echo "$$banner"; \
+	  test -z "$$skipped" || echo "$$skipped"; \
+	  test -z "$$report" || echo "$$report"; \
+	  echo "$$dashes$$std"; \
+	  test "$$failed" -eq 0; \
+	else :; fi
+
 distdir: $(DISTFILES)
 	@srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*]/\\\\&/g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's/[].[^$$\\*]/\\\\&/g'`; \
@@ -386,9 +879,10 @@ distdir: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
+	$(MAKE) $(AM_MAKEFLAGS) check-TESTS
 check: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) check-am
-all-am: Makefile $(PROGRAMS)
+all-am: Makefile $(PROGRAMS) $(HEADERS)
 installdirs:
 install: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) install-am
@@ -424,6 +918,7 @@ clean-am: clean-generic clean-libtool clean-noinstPROGRAMS \
 	mostlyclean-am
 
 distclean: distclean-am
+	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-tags
@@ -469,6 +964,7 @@ install-ps-am:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
+	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
@@ -487,31 +983,29 @@ ps-am:
 
 uninstall-am:
 
-.MAKE: all check install install-am install-strip
+.MAKE: all check check-am install install-am install-strip
 
-.PHONY: CTAGS GTAGS all all-am check check-am clean clean-generic \
-	clean-libtool clean-noinstPROGRAMS ctags distclean \
-	distclean-compile distclean-generic distclean-libtool \
-	distclean-tags distdir dvi dvi-am html html-am info info-am \
-	install install-am install-data install-data-am install-dvi \
-	install-dvi-am install-exec install-exec-am install-html \
-	install-html-am install-info install-info-am install-man \
-	install-pdf install-pdf-am install-ps install-ps-am \
-	install-strip installcheck installcheck-am installdirs \
-	maintainer-clean maintainer-clean-generic mostlyclean \
-	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
-	pdf pdf-am ps ps-am tags uninstall uninstall-am
+.PHONY: CTAGS GTAGS all all-am check check-TESTS check-am clean \
+	clean-generic clean-libtool clean-noinstPROGRAMS ctags \
+	distclean distclean-compile distclean-generic \
+	distclean-libtool distclean-tags distdir dvi dvi-am html \
+	html-am info info-am install install-am install-data \
+	install-data-am install-dvi install-dvi-am install-exec \
+	install-exec-am install-html install-html-am install-info \
+	install-info-am install-man install-pdf install-pdf-am \
+	install-ps install-ps-am install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags uninstall uninstall-am
 
 
 regress.gen.c regress.gen.h: regress.rpc $(top_srcdir)/event_rpcgen.py
 	$(top_srcdir)/event_rpcgen.py $(srcdir)/regress.rpc || echo "No Python installed"
 
-test: test-init test-eof test-weof test-time regress
+verify: check
 
-verify: test
-	@$(srcdir)/test.sh
-
-bench test-init test-eof test-weof test-time: ../libevent.la
+bench test-init test-eof test-weof test-time test-changelist: ../libevent.la
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

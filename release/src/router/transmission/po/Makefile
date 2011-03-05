@@ -19,7 +19,7 @@
 
 GETTEXT_PACKAGE = 
 PACKAGE = transmission
-VERSION = 2.13
+VERSION = 2.22
 
 SHELL = /bin/sh
 
@@ -36,7 +36,7 @@ libdir = ${exec_prefix}/lib
 DATADIRNAME = 
 itlocaledir = $(prefix)/$(DATADIRNAME)/locale
 subdir = po
-install_sh = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/transmission/install-sh
+install_sh = ${SHELL} /root/openwrt/tomato.git-dev/src/router/transmission/install-sh
 # Automake >= 1.8 provides /bin/mkdir -p.
 # Until it can be supposed, use the safe fallback:
 mkdir_p = $(install_sh) -d
@@ -67,7 +67,6 @@ EXTRA_DISTFILES = ChangeLog POTFILES.skip Makevars LINGUAS
 
 POTFILES = \
 	../gtk/actions.c \
-	../gtk/add-dialog.c \
 	../gtk/conf.c \
 	../gtk/details.c \
 	../gtk/dialogs.c \
@@ -78,10 +77,10 @@ POTFILES = \
 	../gtk/makemeta-ui.c \
 	../gtk/msgwin.c \
 	../gtk/notify.c \
+	../gtk/open-dialog.c \
 	../gtk/relocate.c \
 	../gtk/stats.c \
 	../gtk/torrent-cell-renderer.c \
-	../gtk/tracker-list.c \
 	../gtk/transmission-gtk.desktop.in \
 	../gtk/tr-core.c \
 	../gtk/tr-icon.c \
