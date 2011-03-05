@@ -70,7 +70,6 @@ function init()
 	}
 }
 </script>
-<!-- / / / -->
 
 </head>
 <body onload='init()'>
@@ -82,8 +81,6 @@ function init()
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
 <div id='ident'><% ident(); %></div>
-
-<!-- / / / -->
 
 <div style='float:right;margin:80px 20px;text-align:center'>
 <img src='kinaree.png' alt='Linux &amp; Tomato' id='tux'>
@@ -102,34 +99,41 @@ IPv6 support,
 <br>
 Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
-<!-- / / / -->
 <br>
 <!-- VPN-BEGIN -->
 VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
-<br>
 <!-- VPN-END -->
 <br>
-<b>This compilation by Toastman, Bangkok, may include:</b><br>
 <br>
-<b>All current "Teddy Bear" features, notably:</b><br>
+<b>This compilation by Toastman, Bangkok, may also include:</b><br>
+<br>
+<b>"Teddy Bear" current features, notably:</b><br>
 - USB Support, Samba, FTP, Media Servers<br>
 - Web Monitor, Per-connection transfer rates<br>
 - Byte counter, QOS rule ID added to QOS/Details<br>
 - Additional ipv6 support in GUI, QOS, Conntrack<br>
 <br>
-<b>"Victek" RAF features:</b><br>
-- ARP Binding | CPU Info & Overclock
+<b>"Victek RAF" features:</b><br>
+- ARP Binding | CPU Info & Freq<br>
 - Previous WAN IP | Additional Themes<br>
 <br>
-<b>"PrinceAMD" features:</b><br>
-- Revised IP/MAC QOS/Bandwidth Limiter<br>
+<b>"Victek/PrinceAMD/Phykris/Shibby" features:</b><br>
+- Revised IP/MAC/Range QOS/Bandwidth Limiter<br>
+<!-- BT-BEGIN -->
+<br>
+Transmission 2.13 integration and GUI<br>
+Copyright (C) 2007-2011 Michał Rupental, Vicente Soriano. <br>
+<a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
+<a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
+<!-- BT-END -->
 <br>
 <b>"Toastman" Features:</b><br>
 - 250 entry limit in Static DHCP | 500 entry limit in Access Restrictions<br>
 - QOS class labels | Toastman QOS rules | Fast conntrack timeout<br>
 - CPU frequency selector | Faster page refresh settings<br>
 - VLAN Support for UPnP - if exists, loads upnpconfig.custom from JFFS<br>
+<br>
 <br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
@@ -159,7 +163,7 @@ suggestions and contributed to this project. ^ _ ^</b><br>
 </div>
 
 </div>
-<!-- / / / -->
+
 
 </td></tr>
 	<tr><td id='footer' colspan=2>&nbsp;</td></tr>
