@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: utils.h 11092 2010-08-01 20:36:13Z charles $
+ * $Id: utils.h 11623 2011-01-02 23:42:46Z charles $
  */
 
 #ifndef QTR_UTILS
@@ -16,6 +16,8 @@
 #include <QString>
 #include <QObject>
 #include <QIcon>
+
+#include <cctype> // isxdigit()
 
 #include "speed.h"
 
@@ -34,11 +36,18 @@ class Utils: public QObject
         // meh
         static void toStderr( const QString& qstr );
 
-        /// 
+        ///
         /// URLs
         ///
 
         static bool isMagnetLink( const QString& s ) { return s.startsWith( "magnet:?" ); }
+
+        static bool isHexHashcode( const QString& s )
+        {
+            if( s.length() != 40 ) return false;
+            foreach( QChar ch, s ) if( !isxdigit( ch.toAscii() ) ) return false;
+            return true;
+        }
 
         static bool isURL( const QString& s ) { return s.startsWith( "http://" )
                                                     || s.startsWith( "https://" )

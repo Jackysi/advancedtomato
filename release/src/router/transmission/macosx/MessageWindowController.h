@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: MessageWindowController.h 10071 2010-02-02 01:13:15Z livings124 $
+ * $Id: MessageWindowController.h 11617 2011-01-01 20:42:14Z livings124 $
  *
- * Copyright (c) 2006-2010 Transmission authors and contributors
+ * Copyright (c) 2006-2011 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),

@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) 2007-2010 Mnemosyne LLC
+ * This file Copyright (C) Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2.  Works owned by the
+ * This file is licensed by the GPL version 2. Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: makemeta-ui.c 11132 2010-08-06 14:38:54Z charles $
+ * $Id: makemeta-ui.c 11738 2011-01-21 16:32:27Z jordan $
  */
 
 #include <string.h>
@@ -90,7 +90,7 @@ onProgressDialogRefresh( gpointer data )
         g_assert_not_reached( );
 
     if( str != NULL ) {
-        gtk_label_set_text( GTK_LABEL( ui->progress_label ), str );
+        gtr_label_set_text( GTK_LABEL( ui->progress_label ), str );
         g_free( str );
     }
 
@@ -197,8 +197,8 @@ makeProgressDialog( GtkWidget * parent, MakeMetaUI * ui )
     g_object_weak_ref( G_OBJECT( d ), onProgressDialogDestroyed, ui );
     onProgressDialogRefresh( ui );
 
-    gtk_box_pack_start( GTK_BOX( GTK_DIALOG( d )->vbox ), fr, TRUE, TRUE, 0 );
-    gtk_widget_show_all( d );
+    gtr_dialog_set_content( GTK_DIALOG( d ), fr );
+    gtk_widget_show( d );
 }
 
 static void
@@ -303,7 +303,7 @@ updatePiecesLabel( MakeMetaUI * ui )
                                                     builder->fileCount ),
                                 buf, builder->fileCount );
         g_string_append( gstr, "; " );
-  
+
         tr_formatter_mem_B( buf, builder->pieceSize, sizeof( buf ) );
         g_string_append_printf( gstr, gtr_ngettext( "%1$'d Piece @ %2$s",
                                                     "%1$'d Pieces @ %2$s",
@@ -421,7 +421,7 @@ on_drag_data_received( GtkWidget         * widget           UNUSED,
 }
 
 GtkWidget*
-make_meta_ui( GtkWindow  * parent, TrCore * core )
+gtr_torrent_creation_dialog_new( GtkWindow  * parent, TrCore * core )
 {
     int row = 0;
     const char * str;
@@ -433,8 +433,7 @@ make_meta_ui( GtkWindow  * parent, TrCore * core )
 
     d = gtk_dialog_new_with_buttons( _( "New Torrent" ),
                                      parent,
-                                     GTK_DIALOG_DESTROY_WITH_PARENT |
-                                     GTK_DIALOG_NO_SEPARATOR,
+                                     GTK_DIALOG_DESTROY_WITH_PARENT,
                                      GTK_STOCK_CLOSE, GTK_RESPONSE_CLOSE,
                                      GTK_STOCK_NEW, GTK_RESPONSE_ACCEPT,
                                      NULL );
@@ -517,7 +516,7 @@ make_meta_ui( GtkWindow  * parent, TrCore * core )
         ui->private_check = w;
 
     hig_workarea_finish( t, &row );
-    gtk_box_pack_start( GTK_BOX( GTK_DIALOG( d )->vbox ), t, TRUE, TRUE, 0 );
+    gtr_dialog_set_content( GTK_DIALOG( d ), t );
 
     gtk_drag_dest_set( d, GTK_DEST_DEFAULT_ALL, NULL, 0, GDK_ACTION_COPY );
     gtk_drag_dest_add_uri_targets( d );

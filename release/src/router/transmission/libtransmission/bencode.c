@@ -1,21 +1,20 @@
 /*
- * This file Copyright (C) 2008-2010 Mnemosyne LLC
+ * This file Copyright (C) Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2.  Works owned by the
+ * This file is licensed by the GPL version 2. Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: bencode.c 11445 2010-12-01 04:54:18Z charles $
+ * $Id: bencode.c 11838 2011-02-06 18:56:44Z jordan $
  */
 
 #include <assert.h>
 #include <ctype.h> /* isdigit() */
 #include <errno.h>
 #include <math.h> /* fabs() */
-#include <stdio.h>
-#include <stdlib.h> /* realpath() */
+#include <stdio.h> /* rename() */
 #include <string.h>
 
 #ifdef WIN32 /* tr_mkstemp() */
@@ -24,12 +23,10 @@
  #define _S_IWRITE 128
 #endif
 
-#include <sys/types.h> /* stat() */
-#include <sys/stat.h> /* stat() */
-#include <locale.h>
-#include <unistd.h> /* stat() */
+#include <locale.h> /* setlocale() */
+#include <unistd.h> /* write(), unlink() */
 
-#include <event.h> /* struct evbuffer */
+#include <event2/buffer.h>
 
 #include "ConvertUTF.h"
 
@@ -942,35 +939,44 @@ struct SaveNode
 };
 
 static void
-nodeInitDict( struct SaveNode * node, const tr_benc * val )
+nodeInitDict( struct SaveNode * node, const tr_benc * val, tr_bool sort_dicts )
 {
-    int               i, j;
-    int               nKeys;
-    struct KeyIndex * indices;
+    const int n = val->val.l.count;
+    const int nKeys = n / 2;
 
     assert( tr_bencIsDict( val ) );
 
-    nKeys = val->val.l.count / 2;
     node->val = val;
-    node->children = tr_new0( int, nKeys * 2 );
+    node->children = tr_new0( int, n );
 
-    /* ugh, a dictionary's children have to be sorted by key... */
-    indices = tr_new( struct KeyIndex, nKeys );
-    for( i = j = 0; i < ( nKeys * 2 ); i += 2, ++j )
+    if( sort_dicts )
     {
-        indices[j].key = getStr(&val->val.l.vals[i]);
-        indices[j].index = i;
+        int i, j;
+        struct KeyIndex * indices = tr_new( struct KeyIndex, nKeys );
+        for( i=j=0; i<n; i+=2, ++j )
+        {
+            indices[j].key = getStr(&val->val.l.vals[i]);
+            indices[j].index = i;
+        }
+        qsort( indices, j, sizeof( struct KeyIndex ), compareKeyIndex );
+        for( i = 0; i < j; ++i )
+        {
+            const int index = indices[i].index;
+            node->children[node->childCount++] = index;
+            node->children[node->childCount++] = index + 1;
+        }
+
+        tr_free( indices );
     }
-    qsort( indices, j, sizeof( struct KeyIndex ), compareKeyIndex );
-    for( i = 0; i < j; ++i )
+    else
     {
-        const int index = indices[i].index;
-        node->children[node->childCount++] = index;
-        node->children[node->childCount++] = index + 1;
+        int i;
+
+        for( i=0; i<n; ++i )
+            node->children[node->childCount++] = i;
     }
 
-    assert( node->childCount == nKeys * 2 );
-    tr_free( indices );
+    assert( node->childCount == n );
 }
 
 static void
@@ -997,13 +1003,13 @@ nodeInitLeaf( struct SaveNode * node, const tr_benc * val )
 }
 
 static void
-nodeInit( struct SaveNode * node, const tr_benc * val )
+nodeInit( struct SaveNode * node, const tr_benc * val, tr_bool sort_dicts )
 {
     static const struct SaveNode INIT_NODE = { NULL, 0, 0, 0, NULL };
     *node = INIT_NODE;
 
          if( tr_bencIsList( val ) ) nodeInitList( node, val );
-    else if( tr_bencIsDict( val ) ) nodeInitDict( node, val );
+    else if( tr_bencIsDict( val ) ) nodeInitDict( node, val, sort_dicts );
     else                            nodeInitLeaf( node, val );
 }
 
@@ -1028,13 +1034,14 @@ struct WalkFuncs
 static void
 bencWalk( const tr_benc          * top,
           const struct WalkFuncs * walkFuncs,
-          void                   * user_data )
+          void                   * user_data,
+          tr_bool                  sort_dicts )
 {
     int stackSize = 0;
     int stackAlloc = 64;
     struct SaveNode * stack = tr_new( struct SaveNode, stackAlloc );
 
-    nodeInit( &stack[stackSize++], top );
+    nodeInit( &stack[stackSize++], top, sort_dicts );
 
     while( stackSize > 0 )
     {
@@ -1086,7 +1093,7 @@ bencWalk( const tr_benc          * top,
                             stackAlloc *= 2;
                             stack = tr_renew( struct SaveNode, stack, stackAlloc );
                         }
-                        nodeInit( &stack[stackSize++], val );
+                        nodeInit( &stack[stackSize++], val, sort_dicts );
                     }
                     break;
 
@@ -1098,7 +1105,7 @@ bencWalk( const tr_benc          * top,
                             stackAlloc *= 2;
                             stack = tr_renew( struct SaveNode, stack, stackAlloc );
                         }
-                        nodeInit( &stack[stackSize++], val );
+                        nodeInit( &stack[stackSize++], val, sort_dicts );
                     }
                     break;
 
@@ -1215,7 +1222,7 @@ void
 tr_bencFree( tr_benc * val )
 {
     if( isSomething( val ) )
-        bencWalk( val, &freeWalkFuncs, NULL );
+        bencWalk( val, &freeWalkFuncs, NULL, FALSE );
 }
 
 /***
@@ -1355,41 +1362,54 @@ jsonRealFunc( const tr_benc * val, void * vdata )
 static void
 jsonStringFunc( const tr_benc * val, void * vdata )
 {
+    char * out;
+    char * outwalk;
+    char * outend;
+    struct evbuffer_iovec vec[1];
     struct jsonWalk * data = vdata;
     const unsigned char * it = (const unsigned char *) getStr(val);
     const unsigned char * end = it + val->val.s.len;
+    const int safeguard = 512; /* arbitrary margin for escapes and unicode */
 
-    evbuffer_expand( data->out, val->val.s.len + 2 );
-    evbuffer_add( data->out, "\"", 1 );
+    evbuffer_reserve_space( data->out, val->val.s.len+safeguard, vec, 1 );
+    out = vec[0].iov_base;
+    outend = out + vec[0].iov_len;
+
+    outwalk = out;
+    *outwalk++ = '"';
 
     for( ; it!=end; ++it )
     {
         switch( *it )
         {
-            case '\b': evbuffer_add( data->out, "\\b", 2 ); break;
-            case '\f': evbuffer_add( data->out, "\\f", 2 ); break;
-            case '\n': evbuffer_add( data->out, "\\n", 2 ); break;
-            case '\r': evbuffer_add( data->out, "\\r", 2 ); break;
-            case '\t': evbuffer_add( data->out, "\\t", 2 ); break;
-            case '"': evbuffer_add( data->out, "\\\"", 2 ); break;
-            case '\\': evbuffer_add( data->out, "\\\\", 2 ); break;
+            case '\b': *outwalk++ = '\\'; *outwalk++ = 'b'; break;
+            case '\f': *outwalk++ = '\\'; *outwalk++ = 'f'; break;
+            case '\n': *outwalk++ = '\\'; *outwalk++ = 'n'; break;
+            case '\r': *outwalk++ = '\\'; *outwalk++ = 'r'; break;
+            case '\t': *outwalk++ = '\\'; *outwalk++ = 't'; break;
+            case '"' : *outwalk++ = '\\'; *outwalk++ = '"'; break;
+            case '\\': *outwalk++ = '\\'; *outwalk++ = '\\'; break;
 
             default:
                 if( isascii( *it ) )
-                    evbuffer_add( data->out, it, 1 );
+                    *outwalk++ = *it;
                 else {
                     const UTF8 * tmp = it;
                     UTF32        buf = 0;
                     UTF32 *      u32 = &buf;
                     ConversionResult result = ConvertUTF8toUTF32( &tmp, end, &u32, &buf + 1, 0 );
                     if((( result==conversionOK ) || (result==targetExhausted)) && (tmp!=it)) {
-                        evbuffer_add_printf( data->out, "\\u%04x", (unsigned int)buf );
+                        outwalk += tr_snprintf( outwalk, outend-outwalk, "\\u%04x", (unsigned int)buf );
                         it = tmp - 1;
                     }
                 }
         }
     }
-    evbuffer_add( data->out, "\"", 1 );
+
+    *outwalk++ = '"';
+    vec[0].iov_len = outwalk - out;
+    evbuffer_commit_space( data->out, vec, 1 );
+
     jsonChildFunc( data );
 }
 
@@ -1586,13 +1606,13 @@ tr_bencMergeDicts( tr_benc * target, const tr_benc * source )
 void
 tr_bencToBuf( const tr_benc * top, tr_fmt_mode mode, struct evbuffer * buf )
 {
-    evbuffer_drain( buf, EVBUFFER_LENGTH( buf ) );
+    evbuffer_drain( buf, evbuffer_get_length( buf ) );
     evbuffer_expand( buf, 4096 ); /* alloc a little memory to start off with */
 
     switch( mode )
     {
         case TR_FMT_BENC:
-            bencWalk( top, &saveFuncs, buf );
+            bencWalk( top, &saveFuncs, buf, TRUE );
             break;
 
         case TR_FMT_JSON:
@@ -1601,8 +1621,8 @@ tr_bencToBuf( const tr_benc * top, tr_fmt_mode mode, struct evbuffer * buf )
             data.doIndent = mode==TR_FMT_JSON;
             data.out = buf;
             data.parents = NULL;
-            bencWalk( top, &jsonWalkFuncs, &data );
-            if( EVBUFFER_LENGTH( buf ) )
+            bencWalk( top, &jsonWalkFuncs, &data, TRUE );
+            if( evbuffer_get_length( buf ) )
                 evbuffer_add_printf( buf, "\n" );
             break;
         }
@@ -1614,11 +1634,12 @@ tr_bencToStr( const tr_benc * top, tr_fmt_mode mode, int * len )
 {
     char * ret;
     struct evbuffer * buf = evbuffer_new( );
+    size_t n;
     tr_bencToBuf( top, mode, buf );
-    ret = tr_strndup( EVBUFFER_DATA( buf ), EVBUFFER_LENGTH( buf ) );
+    n = evbuffer_get_length( buf );
+    ret = evbuffer_free_to_str( buf );
     if( len != NULL )
-        *len = (int) EVBUFFER_LENGTH( buf );
-    evbuffer_free( buf );
+        *len = (int) n;
     return ret;
 }
 
@@ -1633,17 +1654,6 @@ tr_mkstemp( char * template )
     return open( template, flags, mode );
 #else
     return mkstemp( template );
-#endif
-}
-
-/* portability wrapper for fsync(). */
-static void
-tr_fsync( int fd )
-{
-#ifdef WIN32
-    _commit( fd );
-#else
-    fsync( fd );
 #endif
 }
 
@@ -1663,31 +1673,47 @@ tr_bencToFile( const tr_benc * top, tr_fmt_mode mode, const char * filename )
     /* if the file already exists, try to move it out of the way & keep it as a backup */
     tmp = tr_strdup_printf( "%s.tmp.XXXXXX", filename );
     fd = tr_mkstemp( tmp );
+    tr_set_file_for_single_pass( fd );
     if( fd >= 0 )
     {
-        int len;
-        char * str = tr_bencToStr( top, mode, &len );
+        int nleft;
 
-        if( write( fd, str, len ) == (ssize_t)len )
+        /* save the benc to a temporary file */
         {
-            struct stat sb;
-            const tr_bool already_exists = !stat( filename, &sb ) && S_ISREG( sb.st_mode );
+            char * buf = tr_bencToStr( top, mode, &nleft );
+            const char * walk = buf;
+            while( nleft > 0 ) {
+                const int n = write( fd, walk, nleft );
+                if( n >= 0 ) {
+                    nleft -= n;
+                    walk += n;
+                }
+                else if( errno != EAGAIN ) {
+                    err = errno;
+                    break;
+                }
+            }
+            tr_free( buf );
+        }
 
+        if( nleft > 0 )
+        {
+            tr_err( _( "Couldn't save temporary file \"%1$s\": %2$s" ), tmp, tr_strerror( err ) );
+            tr_close_file( fd );
+            unlink( tmp );
+        }
+        else
+        {
             tr_fsync( fd );
             tr_close_file( fd );
 
-            if( !already_exists || !unlink( filename ) )
+#ifdef WIN32
+            if( MoveFileEx( tmp, filename, MOVEFILE_REPLACE_EXISTING ) )
+#else
+            if( !rename( tmp, filename ) )
+#endif
             {
-                if( !rename( tmp, filename ) )
-                {
-                    tr_inf( _( "Saved \"%s\"" ), filename );
-                }
-                else
-                {
-                    err = errno;
-                    tr_err( _( "Couldn't save file \"%1$s\": %2$s" ), filename, tr_strerror( err ) );
-                    unlink( tmp );
-                }
+                tr_inf( _( "Saved \"%s\"" ), filename );
             }
             else
             {
@@ -1696,15 +1722,6 @@ tr_bencToFile( const tr_benc * top, tr_fmt_mode mode, const char * filename )
                 unlink( tmp );
             }
         }
-        else
-        {
-            err = errno;
-            tr_err( _( "Couldn't save temporary file \"%1$s\": %2$s" ), tmp, tr_strerror( err ) );
-            tr_close_file( fd );
-            unlink( tmp );
-        }
-
-        tr_free( str );
     }
     else
     {

@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: tr-torrent.h 10505 2010-04-21 04:38:54Z charles $
+ * $Id: tr-torrent.h 11709 2011-01-19 13:48:47Z jordan $
  *
- * Copyright (c) 2006-2008 Transmission authors and contributors
+ * Copyright (c) Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef TR_TORRENT_H
-#define TR_TORRENT_H
+#ifndef GTR_TORRENT_H
+#define GTR_TORRENT_H
 
 #include <glib-object.h>
 #include <libtransmission/transmission.h>
@@ -71,7 +71,9 @@ TrTorrent *    tr_torrent_new_ctor( tr_session  * session,
                                     tr_ctor     * ctor,
                                     int         * errcode );
 
-void           tr_torrent_set_remove_flag( TrTorrent *,
-                                           gboolean );
+void tr_torrent_set_remove_flag( TrTorrent *, gboolean );
+
+void tr_torrent_set_delete_local_data_flag( TrTorrent *, gboolean );
+
 
 #endif
