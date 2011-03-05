@@ -70,7 +70,6 @@ function init()
 	}
 }
 </script>
-<!-- / / / -->
 
 </head>
 <body onload='init()'>
@@ -103,14 +102,13 @@ Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> up
 support for additional router models, dual-band and Wireless-N mode.<br>
 Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
-<!-- / / / -->
-<br><br>
-
+<br>
 <!-- VPN-BEGIN -->
-VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
-<br><br>
+VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
+<a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <!-- VPN-END -->
-
+<br>
+<br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
@@ -139,7 +137,7 @@ suggestions and contributed to this project. ^ _ ^</b><br>
 </div>
 
 </div>
-<!-- / / / -->
+
 
 </td></tr>
 	<tr><td id='footer' colspan=2>&nbsp;</td></tr>
