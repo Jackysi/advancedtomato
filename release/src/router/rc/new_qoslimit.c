@@ -310,8 +310,8 @@ void new_qoslimit_start(void)
 	);
 	
 	if ((nvram_get_int("qosl_enable") == 1) && strcmp(dlr,"") && strcmp(ulr,"")) {
-		if (!strcmp(dlr,"")) strcpy(dlc, dlr);
-		if (!strcmp(ulr,"")) strcpy(ulc, ulr);
+		if (!strcmp(dlc,"")) strcpy(dlc, dlr);
+		if (!strcmp(ulc,"")) strcpy(ulc, ulr);
 		fprintf(tc,
 		"$TCA parent 1:1 classid 1:100 htb rate %skbit ceil %skbit prio 3\n"
 		"$TQA parent 1:100 handle 100: $SFQ\n"
@@ -374,8 +374,8 @@ void new_qoslimit_start(void)
 				,seq,ulrate,ulceil,priority
 				,seq,seq
 				,priority,seq,seq);
-		free(ipaddr);
 		}
+		free(ipaddr);
 	}
 	free(buf);
 
