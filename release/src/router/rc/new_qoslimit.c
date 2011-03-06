@@ -132,6 +132,7 @@ void ipt_qoslimit(int chain)
 		*/
 		if ((p = strsep(&g, ">")) == NULL) break;
 		i = vstrsep(p, "<", &seq, &ipaddr_old, &dlrate, &dlceil, &ulrate, &ulceil, &priority, &tcplimit, &udplimit);
+		if (i!=9) continue;
 
 		priority_num = atoi(priority);
 		if ((priority_num < 0) || (priority_num > 5)) continue;
@@ -331,6 +332,7 @@ void new_qoslimit_start(void)
 		*/
 		if ((p = strsep(&g, ">")) == NULL) break;
 		i = vstrsep(p, "<", &seq, &ipaddr_old, &dlrate, &dlceil, &ulrate, &ulceil, &priority, &tcplimit, &udplimit);
+		if (i!=9) continue;
 
 		priority_num = atoi(priority);
 		if ((priority_num < 0) || (priority_num > 5)) continue;
