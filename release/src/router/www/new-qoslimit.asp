@@ -285,7 +285,7 @@ function init()
 		<table class='tomato-grid' id='qosg-grid'></table>
 		<div>
 			<ul>
-				<li><b>IP Address / IP Range</b> - i.e: 192.168.1.5 or 192.168.1.4-7
+				<li><b>IP Address / IP Range</b> - i.e: 192.168.1.5 or 192.168.1.4-7  -  A range of IP's will <b>share</b> the bandwidth.
 			</ul>
 		</div>
 	</div>
@@ -326,7 +326,7 @@ function init()
 		</script>
 		<div>
 			<ul>
-				<li><b>Default Class</b> - IP's non included in the list will take the Default Rate/Ceiling setting.
+				<li><b>Default Class</b> - All clients not included in the list will <b>share</b> the Default Rate/Ceiling setting.
 			</ul>
 		</div>
 	</div>
