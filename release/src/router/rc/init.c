@@ -1384,7 +1384,7 @@ static void sysinit(void)
 
 	config_loopback();
 
-	system("nvram defaults --initcheck");
+	eval("nvram", "defaults", "--initcheck");
 	init_nvram();
 
 	// set the packet size

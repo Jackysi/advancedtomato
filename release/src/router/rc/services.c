@@ -896,11 +896,11 @@ void start_syslog(void)
 				sprintf(rem, "0 */%d * * *", n / 60);
 			else
 				sprintf(rem, "0 0 */%d * *", n / (60 * 24));
-			sprintf(s, "cru a syslogdmark \"%s logger -p syslog.info -- -- MARK --\"", rem);
-			system(s);
+			sprintf(s, "%s logger -p syslog.info -- -- MARK --", rem);
+			eval("cru", "a", "syslogdmark", s);
 		}
 		else {
-			system("cru d syslogdmark");
+			eval("cru", "d", "syslogdmark");
 		}
 	}
 }

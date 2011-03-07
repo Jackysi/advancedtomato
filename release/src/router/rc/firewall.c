@@ -364,8 +364,8 @@ int ipt_layer7(const char *v, char *opt)
 
 static void save_webmon(void)
 {
-	system("cp /proc/webmon_recent_domains /var/webmon/domain");
-	system("cp /proc/webmon_recent_searches /var/webmon/search");
+	eval("cp", "/proc/webmon_recent_domains", "/var/webmon/domain");
+	eval("cp", "/proc/webmon_recent_searches", "/var/webmon/search");
 }
 
 static void ipt_webmon()
