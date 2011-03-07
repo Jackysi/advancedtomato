@@ -380,7 +380,9 @@ void __kfree_skb(struct sk_buff *skb)
 	secpath_put(skb->sp);
 #endif
 	if (skb->destructor) {
+#ifdef CONFIG_NETCORE_DEBUG
 		WARN_ON(in_irq());
+#endif
 		skb->destructor(skb);
 	}
 #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
