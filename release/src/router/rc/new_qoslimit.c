@@ -54,7 +54,7 @@ void address_checker (int * address_type, char *ipaddr_old, char *ipaddr)
 			*address_type = MAC_ADDRESS;
 		}
 		strcpy (ipaddr, ipaddr_old);
-	}	
+	}
 }
 		
 void ipt_qoslimit(int chain)
@@ -63,8 +63,10 @@ void ipt_qoslimit(int chain)
 	char *g;
 	char *p;
 	char *ibw,*obw;//bandwidth
-	char *seq;//mark number
-	char *ipaddr_old, *ipaddr;//ip address
+	char seq[4];//mark number
+	int iSeq = 10;
+	char *ipaddr_old;
+	char ipaddr[30];//ip address
 	char *dlrate,*dlceil;//guaranteed rate & maximum rate for download
 	char *ulrate,*ulceil;//guaranteed rate & maximum rate for upload
 	char *priority;//priority
@@ -128,18 +130,20 @@ void ipt_qoslimit(int chain)
 	
 	while (g) {
 		/*
-		seq<ipaddr_old<dlrate<dlceil<ulrate<ulceil<priority<tcplimit<udplimit
+		ipaddr_old<dlrate<dlceil<ulrate<ulceil<priority<tcplimit<udplimit
 		*/
 		if ((p = strsep(&g, ">")) == NULL) break;
-		i = vstrsep(p, "<", &seq, &ipaddr_old, &dlrate, &dlceil, &ulrate, &ulceil, &priority, &tcplimit, &udplimit);
-		if (i!=9) continue;
+		i = vstrsep(p, "<", &ipaddr_old, &dlrate, &dlceil, &ulrate, &ulceil, &priority, &tcplimit, &udplimit);
+		if (i!=8) continue;
 
 		priority_num = atoi(priority);
 		if ((priority_num < 0) || (priority_num > 5)) continue;
 
 		if (!strcmp(ipaddr_old,"")) continue;
-		ipaddr = malloc(sizeof(char)*(strlen(ipaddr_old) + 20)); /*extra bytes for range expansion */
+
 		address_checker (&address_type, ipaddr_old, ipaddr); 
+		sprintf(seq,"%d",iSeq);
+		iSeq++;
 
 		if (!strcmp(dlceil,"")) strcpy(dlceil, dlrate);
 		if (strcmp(dlrate,"") && strcmp(dlceil, "")) {
@@ -161,7 +165,7 @@ void ipt_qoslimit(int chain)
 				}
 			}
 		}
-		
+
 		if (!strcmp(ulceil,"")) strcpy(ulceil, ulrate);
 		if (strcmp(ulrate,"") && strcmp(ulceil, "")) {
 			if (chain == 1) {
@@ -185,7 +189,7 @@ void ipt_qoslimit(int chain)
 				}
 			}
 		}
-		
+	
 		if(atoi(tcplimit) > 0){
 			if (chain == 2) {
 				switch (address_type)
@@ -230,7 +234,6 @@ void ipt_qoslimit(int chain)
 				}
 			}
 		}
-		free (ipaddr);
 	}
 	free(buf);
 }
@@ -243,8 +246,10 @@ void new_qoslimit_start(void)
 	char *g;
 	char *p;
 	char *ibw,*obw;//bandwidth
-	char *seq;//mark number
-	char *ipaddr_old, *ipaddr;//ip address
+	char seq[4];//mark number
+	int iSeq = 10;
+	char *ipaddr_old; 
+	char ipaddr[30];//ip address
 	char *dlrate,*dlceil;//guaranteed rate & maximum rate for download
 	char *ulrate,*ulceil;//guaranteed rate & maximum rate for upload
 	char *priority;//priority
@@ -328,18 +333,18 @@ void new_qoslimit_start(void)
 		
 	while (g) {
 		/*
-		seq<ipaddr_old<dlrate<dlceil<ulrate<ulceil<priority<tcplimit<udplimit
+		ipaddr_old<dlrate<dlceil<ulrate<ulceil<priority<tcplimit<udplimit
 		*/
 		if ((p = strsep(&g, ">")) == NULL) break;
-		i = vstrsep(p, "<", &seq, &ipaddr_old, &dlrate, &dlceil, &ulrate, &ulceil, &priority, &tcplimit, &udplimit);
-		if (i!=9) continue;
-
+		i = vstrsep(p, "<", &ipaddr_old, &dlrate, &dlceil, &ulrate, &ulceil, &priority, &tcplimit, &udplimit);
+		if (i!=8) continue;
 		priority_num = atoi(priority);
 		if ((priority_num < 0) || (priority_num > 5)) continue;
-
 		if (!strcmp(ipaddr_old,"")) continue;
-		ipaddr = malloc(sizeof(char)*(strlen(ipaddr_old) + 20)); /*extra bytes for range expansion */
+
 		address_checker(&address_type, ipaddr_old, ipaddr);
+		sprintf(seq,"%d",iSeq);
+		iSeq++;
 		if (!strcmp(dlceil,"")) strcpy(dlceil, dlrate);
 		if (strcmp(dlrate,"") && strcmp(dlceil, "")) {
 			if (address_type != MAC_ADDRESS) {
@@ -377,7 +382,6 @@ void new_qoslimit_start(void)
 				,seq,seq
 				,priority,seq,seq);
 		}
-		free(ipaddr);
 	}
 	free(buf);
 
