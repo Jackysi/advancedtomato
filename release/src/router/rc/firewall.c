@@ -1293,9 +1293,14 @@ int start_firewall(void)
 	modprobe("ip6t_REJECT");
 #endif
 	/*Deon Thomas attempt to start xt_IMQ and imq */
+	/*shibby - fix modprobing IMQ for kernel 2.4 */
 	modprobe("imq");
+#ifdef LINUX26
 	modprobe("xt_IMQ");
-	
+#else
+	modprobe("ipt_IMQ");
+#endif
+
 	mangle_table();
 	nat_table();
 	filter_table();
