@@ -124,7 +124,7 @@ obj-$(TCONFIG_EMF) += emf
 obj-$(TCONFIG_EMF) += igs
 
 obj-$(CONFIG_LINUX26) += hotplug2
-obj-$(CONFIG_LINUX26) += udev
+obj-$(CONFIG_LINUX26) += udevtrigger
 
 ifeq ($(TCONFIG_OPENVPN),y)
   export FULL_OPENSSL := y
