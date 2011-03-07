@@ -184,7 +184,9 @@ createFieldTable('', [
 	{ title: 'Name', text: nvram.router_name },
 	{ title: 'Model', text: nvram.t_model_name },
 	{ title: 'Chipset', text: stats.systemtype },
+/* LINUX26-BEGIN */
 	{ title: 'CPU Freq', text: stats.cpumhz },
+/* LINUX26-END */
 	null,
 	{ title: 'Time', rid: 'time', text: stats.time },
 	{ title: 'Uptime', rid: 'uptime', text: stats.uptime },
