@@ -259,7 +259,7 @@ var form = {
 		}
 
 		if ((msg = E('footer-msg')) != null) {
-			msg.innerHTML = 'Saving...';
+			msg.innerHTML = '<% translate("Saving"); %>...';
 			msg.style.visibility = 'visible';
 		}
 
@@ -267,7 +267,7 @@ var form = {
 		this.xhttp.onCompleted = function(text, xml) {
 			if (msg) {
 				if (text.match(/@msg:(.+)/)) msg.innerHTML = escapeHTML(RegExp.$1);
-					else msg.innerHTML = 'Saved';
+					else msg.innerHTML = '<% translate("Saved"); %>';
 			}
 			setTimeout(
 				function() {
@@ -365,7 +365,7 @@ function _v_range(e, quiet, min, max, name)
 	if ((e = E(e)) == null) return 0;
 	var v = e.value;
 	if ((!v.match(/^ *[-\+]?\d+ *$/)) || (v < min) || (v > max)) {
-		ferror.set(e, 'Invalid ' + name + '. Valid range: ' + min + '-' + max, quiet);
+		ferror.set(e, '<% translate("Invalid"); %> ' + name + '. <% translate("Valid range");%>: ' + min + '-' + max, quiet);
 		return 0;
 	}
 	e.value = v * 1;
@@ -403,13 +403,17 @@ function v_mins(e, quiet, min, max)
 			return _v_range(e, quiet, min, max, 'minutes');
 		}
 	}
-	ferror.set(e, 'Invalid number of minutes.', quiet);
+	ferror.set(e, '<% translate("Invalid number of minutes"); %>.', quiet);
 	return 0;
 }
 
-function v_macip(e, quiet, bok, ipp)
+function v_macip(e, quiet, bok, lan_ipaddr, lan_netmask)
 {
 	var s, a, b, c, d, i;
+	var ipp, temp;
+
+	temp = lan_ipaddr.split('.');
+	ipp = temp[0]+'.'+temp[1]+'.'+temp[2]+'.';
 
 	if ((e = E(e)) == null) return 0;
 	s = e.value.replace(/\s+/g, '');
@@ -420,45 +424,55 @@ function v_macip(e, quiet, bok, ipp)
 				e.value = '';
 			}
 			else {
-				ferror.set(e, 'Invalid MAC or IP address');
+				ferror.set(e, '<% translate("Invalid MAC or IP address"); %>');
 				return false;
 			}
 		}
-        else e.value = a;
+		else e.value = a;
 		ferror.clear(e);
 		return true;
 	}
 
 	a = s.split('-');
+
 	if (a.length > 2) {
-		ferror.set(e, 'Invalid IP address range', quiet);
+		ferror.set(e, '<% translate("Invalid IP address range"); %>', quiet);
 		return false;
 	}
-	c = 0;
+
+	if (a[0].match(/^\d+$/)){
+		a[0]=ipp+a[0];
+		if ((a.length == 2) && (a[1].match(/^\d+$/)))
+			a[1]=ipp+a[1];
+	}
+	else {
+		if ((a.length == 2) && (a[1].match(/^\d+$/))){
+			temp=a[0].split('.');
+			a[1]=temp[0]+'.'+temp[1]+'.'+temp[2]+'.'+a[1];
+		}
+	}
 	for (i = 0; i < a.length; ++i) {
 		b = a[i];
-		if (b.match(/^\d+$/)) b = ipp + b;
-
 		b = fixIP(b);
 		if (!b) {
-			ferror.set(e, 'Invalid IP address', quiet);
+			ferror.set(e, '<% translate("Invalid IP address"); %>', quiet);
 			return false;
 		}
 
-		if (b.indexOf(ipp) != 0) {
-			ferror.set(e, 'IP address outside of LAN', quiet);
+		if ((aton(b) & aton(lan_netmask))!=(aton(lan_ipaddr) & aton(lan_netmask))) {
+			ferror.set(e, '<% translate("IP address outside of LAN"); %>', quiet);
 			return false;
 		}
 
 		d = (b.split('.'))[3];
-		if (d <= c) {
-			ferror.set(e, 'Invalid IP address range', quiet);
+		if (parseInt(d) <= parseInt(c)) {
+			ferror.set(e, '<% translate("Invalid IP address range"); %>', quiet);
 			return false;
 		}
 
 		a[i] = c = d;
 	}
-	e.value = ipp + a.join('-');
+	e.value = b.split('.')[0] + '.' + b.split('.')[1] + '.' + b.split('.')[2] + '.' + a.join('-');
 	return true;
 }
 
@@ -484,7 +498,7 @@ function v_ip(e, quiet, x)
 	if ((e = E(e)) == null) return 0;
 	ip = fixIP(e.value, x);
 	if (!ip) {
-		ferror.set(e, 'Invalid IP address', quiet);
+		ferror.set(e, '<% translate("Invalid IP address"); %>', quiet);
 		return false;
 	}
 	e.value = ip;
@@ -511,17 +525,17 @@ function v_dns(e, quiet)
 			s.push(53);
 		}
 		else if (s.length != 2) {
-			ferror.set(e, 'Invalid IP address or port', quiet);
+			ferror.set(e, '<% translate("Invalid IP address or port"); %>', quiet);
 			return false;
 		}
 		
 		if ((s[0] = fixIP(s[0])) == null) {
-			ferror.set(e, 'Invalid IP address', quiet);
+			ferror.set(e, '<% translate("Invalid IP address"); %>', quiet);
 			return false;
 		}
 
 		if ((s[1] = fixPort(s[1], -1)) == -1) {
-			ferror.set(e, 'Invalid port', quiet);
+			ferror.set(e, '<% translate("Invalid port"); %>', quiet);
 			return false;
 		}
 	
@@ -567,7 +581,7 @@ function _v_iptip(e, ip, quiet)
 		a = fixIP(RegExp.$1);
 		b = fixIP(RegExp.$2);
 		if ((a == null) || (b == null)) {
-			ferror.set(e, oip + ' - invalid IP address range', quiet);
+			ferror.set(e, oip + ' - <% translate("invalid IP address range"); %>', quiet);
 			return null;
 		}
 		ferror.clear(e);
@@ -588,13 +602,13 @@ function _v_iptip(e, ip, quiet)
 		if (isNaN(ma)) {
 			ma = fixIP(b);
 			if ((ma == null) || (!_v_netmask(ma))) {
-				ferror.set(e, oip + ' - invalid netmask', quiet);
+				ferror.set(e, oip + ' - <% translate("invalid netmask"); %>', quiet);
 				return null;
 			}
 		}
 		else {
 			if ((ma < 0) || (ma > 32)) {
-				ferror.set(e, oip + ' - invalid netmask', quiet);
+				ferror.set(e, oip + ' - <% translate("invalid netmask"); %>', quiet);
 				return null;
 			}
 		}
@@ -602,7 +616,7 @@ function _v_iptip(e, ip, quiet)
 
 	ip = fixIP(ip);
 	if (!ip) {
-		ferror.set(e, oip + ' - invalid IP address', quiet);
+		ferror.set(e, oip + ' - <% translate("invalid IP address"); %>', quiet);
 		return null;
 	}
 
@@ -618,13 +632,13 @@ function v_iptip(e, quiet, multi)
 	v = e.value.split(',');
 	if (multi) {
 		if (v.length > multi) {
-			ferror.set(e, 'Too many IP addresses', quiet);
+			ferror.set(e, '<% translate("Too many IP addresses"); %>', quiet);
 			return 0;
 		}
 	}
 	else {
 		if (v.length > 1) {
-			ferror.set(e, 'Invalid IP address', quiet);
+			ferror.set(e, '<% translate("Invalid IP address"); %>', quiet);
 			return 0;
 		}
 	}
@@ -643,7 +657,7 @@ function _v_domain(e, dom, quiet)
 	if (s.length > 0) {
 		s = _v_hostname(e, s, 1, 1, 7, '.', true);
 		if (s == null) {
-			ferror.set(e, "Invalid name. Only characters \"A-Z 0-9 . -\" are allowed.", quiet);
+			ferror.set(e, "<% translate("Invalid name. Only characters"); %> \"A-Z 0-9 . -\" <% translate("are allowed"); %>.", quiet);
 			return null;
 		}
 	}
@@ -761,7 +775,7 @@ function _v_ipv6_addr(e, ip, ipt, quiet)
 		a = CompressIPv6Address(a);
 		b = CompressIPv6Address(b);
 		if ((a == null) || (b == null)) {
-			ferror.set(e, oip + ' - invalid IPv6 address range', quiet);
+			ferror.set(e, oip + ' - <% translate("invalid IPv6 address range"); %>', quiet);
 			return null;
 		}
 		ferror.clear(e);
@@ -775,11 +789,11 @@ function _v_ipv6_addr(e, ip, ipt, quiet)
 		b = parseInt(RegExp.$2, 10);
 		a = ExpandIPv6Address(a);
 		if ((a == null) || (b == null)) {
-			ferror.set(e, oip + ' - invalid IPv6 address', quiet);
+			ferror.set(e, oip + ' - <% translate("invalid IPv6 address"); %>', quiet);
 			return null;
 		}
 		if (b < 0 || b > 128) {
-			ferror.set(e, oip + ' - invalid CIDR notation on IPv6 address', quiet);
+			ferror.set(e, oip + ' - <% translate("invalid CIDR notation on IPv6 address"); %>', quiet);
 			return null;
 		}
 		ferror.clear(e);
@@ -790,7 +804,7 @@ function _v_ipv6_addr(e, ip, ipt, quiet)
 
 	ip = CompressIPv6Address(oip);
 	if (!ip) {
-		ferror.set(e, oip + ' - invalid IPv6 address', quiet);
+		ferror.set(e, oip + ' - <% translate("invalid IPv6 address"); %>', quiet);
 		return null;
 	}
 
@@ -826,7 +840,7 @@ function _v_portrange(e, quiet, v)
 		x = fixPort(x, -1);
 		y = fixPort(y, -1);
 		if ((x == -1) || (y == -1)) {
-			ferror.set(e, 'Invalid port range: ' + v, quiet);
+			ferror.set(e, '<% translate("Invalid port range"); %>: ' + v, quiet);
 			return null;
 		}
 		if (x > y) {
@@ -841,7 +855,7 @@ function _v_portrange(e, quiet, v)
 
 	v = fixPort(v, -1);
 	if (v == -1) {
-		ferror.set(e, 'Invalid port', quiet);
+		ferror.set(e, '<% translate("Invalid port"); %>', quiet);
 		return null;
 	}
 
@@ -869,11 +883,11 @@ function v_iptport(e, quiet)
 	a = e.value.split(/[,\.]/);
 
 	if (a.length == 0) {
-		ferror.set(e, 'Expecting a list of ports or port range.', quiet);
+		ferror.set(e, '<% translate("Expecting a list of ports or port range"); %>.', quiet);
 		return 0;
 	}
 	if (a.length > 10) {
-		ferror.set(e, 'Only 10 ports/range sets are allowed.', quiet);
+		ferror.set(e, '<% translate("Only 10 ports/range sets are allowed"); %>.', quiet);
 		return 0;
 	}
 
@@ -918,7 +932,7 @@ function v_netmask(e, quiet)
 			return 1;
 		}
 	}
-	ferror.set(e, 'Invalid netmask', quiet);
+	ferror.set(e, '<% translate("Invalid netmask"); %>', quiet);
 	return 0;
 }
 
@@ -953,7 +967,7 @@ function v_mac(e, quiet)
 	if ((e = E(e)) == null) return 0;
 	mac = fixMAC(e.value);
 	if ((!mac) || (isMAC0(mac))) {
-		ferror.set(e, 'Invalid MAC address', quiet);
+		ferror.set(e, '<% translate("Invalid MAC address"); %>', quiet);
 		return 0;
 	}
 	e.value = mac;
@@ -968,7 +982,7 @@ function v_macz(e, quiet)
 	if ((e = E(e)) == null) return 0;
 	mac = fixMAC(e.value);
 	if (!mac) {
-		ferror.set(e, 'Invalid MAC address', quiet);
+		ferror.set(e, '<% translate("Invalid MAC address"); %>', quiet);
 		return false;
 	}
 	e.value = mac;
@@ -985,12 +999,12 @@ function v_length(e, quiet, min, max)
 	n = s.length;
 	if (min == undefined) min = 1;
 	if (n < min) {
-		ferror.set(e, 'Invalid length. Please enter at least ' + min + ' character' + (min == 1 ? '.' : 's.'), quiet);
+		ferror.set(e, '<% translate("Invalid length. Please enter at least"); %> ' + min + ' ' + (min == 1 ? '<% translate("character"); %>.' : '<% translate("characters"); %>.'), quiet);
 		return 0;
 	}
 	max = max || e.maxlength;
 	if (n > max) {
-		ferror.set(e, 'Invalid length. Please reduce the length to ' + max + ' characters or less.', quiet);
+		ferror.set(e, '<% translate("Invalid length. Please reduce the length to"); %> ' + max + ' <% translate("characters or less"); %>.', quiet);
 		return 0;
 	}
 	e.value = s;
@@ -1006,13 +1020,13 @@ function _v_iptaddr(e, quiet, multi, ipv4, ipv6)
 	v = e.value.split(',');
 	if (multi) {
 		if (v.length > multi) {
-			ferror.set(e, 'Too many addresses', quiet);
+			ferror.set(e, '<% translate("Too many addresses"); %>', quiet);
 			return 0;
 		}
 	}
 	else {
 		if (v.length > 1) {
-			ferror.set(e, 'Invalid domain name or IP address', quiet);
+			ferror.set(e, '<% translate("Invalid domain name or IP address"); %>', quiet);
 			return 0;
 		}
 	}
@@ -1031,7 +1045,7 @@ function _v_iptaddr(e, quiet, multi, ipv4, ipv6)
 					return 0;
 				}
 				if ((t = _v_iptip(e, v[i], 1)) == null) {
-					ferror.set(e, e._error_msg + ', or invalid domain name', quiet);
+					ferror.set(e, e._error_msg + ', <% translate("or invalid domain name");', quiet);
 					return 0;
 				}
 /* IPV6-BEGIN */
@@ -1061,13 +1075,13 @@ function _v_hostname(e, h, quiet, required, multi, delim, cidr)
 
 	if (multi) {
 		if (v.length > multi) {
-			ferror.set(e, 'Too many hostnames.', quiet);
+			ferror.set(e, '<% translate("Too many hostnames"); %>.', quiet);
 			return null;
 		}
 	}
 	else {
 		if (v.length > 1) {
-			ferror.set(e, 'Invalid hostname.', quiet);
+			ferror.set(e, '<% translate("Invalid hostname"); %>.', quiet);
 			return null;
 		}
 	}
@@ -1084,7 +1098,7 @@ function _v_hostname(e, h, quiet, required, multi, delim, cidr)
 				return null;
 			}
 		} else if (required) {
-			ferror.set(e, 'Invalid hostname.', quiet);
+			ferror.set(e, '<% translate("Invalid hostname"); %>.', quiet);
 			return null;
 		}
 		v[i] = s;
@@ -1115,7 +1129,7 @@ function v_nodelim(e, quiet, name, checklist)
 	e.value = e.value.trim();
 	if (e.value.indexOf('<') != -1 ||
 	   (checklist && e.value.indexOf('>') != -1)) {
-		ferror.set(e, 'Invalid ' + name + ': \"<\" ' + (checklist ? 'or \">\" are' : 'is') + ' not allowed.', quiet);
+		ferror.set(e, '<% translate("Invalid"); %> ' + name + ': \"<\" ' + (checklist ? '<% translate("or"); %> \">\" <% translate("are"); %>' : '<% translate("is"); %>') + ' <% translate("not allowed"); %>.', quiet);
 		return 0;
 	}
 	ferror.clear(e);
@@ -1132,7 +1146,7 @@ function v_path(e, quiet, required)
 		return 1;
 	}
 	if (e.value.substr(0, 1) != '/') {
-		ferror.set(e, 'Please start at the / root directory.', quiet);
+		ferror.set(e, '<% translate("Please start at the / root directory"); %>.', quiet);
 		return 0;
 	}
 	ferror.clear(e);
@@ -1216,7 +1230,7 @@ TomatoGrid.prototype = {
 		this.editor = null;
 		this.canSort = options.indexOf('sort') != -1;
 		this.canMove = options.indexOf('move') != -1;
-		this.maxAdd = maxAdd || 140;
+		this.maxAdd = maxAdd || 500;
 		this.canEdit = (editorFields != null);
 		this.canDelete = this.canEdit || (options.indexOf('delete') != -1);
 		this.editorFields = editorFields;
@@ -1354,11 +1368,11 @@ TomatoGrid.prototype = {
 		n = 0;
 		s = '';
 		if (me.canMove) {
-			s = '<img src="rpu.gif" onclick="this.parentNode.tgo.rpUp(this.parentNode.ref)" title="Move Up"><img src="rpd.gif" onclick="this.parentNode.tgo.rpDn(this.parentNode.ref)" title="Move Down"><img src="rpm.gif" onclick="this.parentNode.tgo.rpMo(this,this.parentNode.ref)" title="Move">';
+			s = '<img src="rpu.gif" onclick="this.parentNode.tgo.rpUp(this.parentNode.ref)" title="<% translate("Move Up"); %>"><img src="rpd.gif" onclick="this.parentNode.tgo.rpDn(this.parentNode.ref)" title="<% translate("Move Down");%>"><img src="rpm.gif" onclick="this.parentNode.tgo.rpMo(this,this.parentNode.ref)" title="Move">';
 			n += 3;
 		}
 		if (me.canDelete) {
-			s += '<img src="rpx.gif" onclick="this.parentNode.tgo.rpDel(this.parentNode.ref)" title="Delete">';
+			s += '<img src="rpx.gif" onclick="this.parentNode.tgo.rpDel(this.parentNode.ref)" title="<% translate("Delete"); %>">';
 			++n;
 		}
 		x = PR(evt.target);
@@ -1415,7 +1429,7 @@ TomatoGrid.prototype = {
 		if ((this.canMove) || (this.canEdit) || (this.canDelete)) {
 			e.onmouseover = this.rpMouIn;
 // ----			e.onmouseout = this.rpMouOut;
-			if (this.canEdit) e.title = 'Click to edit';
+			if (this.canEdit) e.title = '<% translate("Click to edit"); %>';
 		}
 
 		return e;
@@ -1576,13 +1590,13 @@ TomatoGrid.prototype = {
 		c.colSpan = this.header.cells.length;
 		if (which == 'edit') {
 			c.innerHTML =
-				'<input type=button value="Delete" onclick="TGO(this).onDelete()"> &nbsp; ' +
+				'<input type=button value="<% translate("Delete"); %>" onclick="TGO(this).onDelete()"> &nbsp; ' +
 				'<input type=button value="OK" onclick="TGO(this).onOK()"> ' +
-				'<input type=button value="Cancel" onclick="TGO(this).onCancel()">';
+				'<input type=button value="<% translate("Cancel"); %>" onclick="TGO(this).onCancel()">';
 		}
 		else {
 			c.innerHTML =
-				'<input type=button value="Add" onclick="TGO(this).onAdd()">';
+				'<input type=button value="<% translate("Add"); %>" onclick="TGO(this).onAdd()">';
 		}
 		return r;
 	},
@@ -2051,7 +2065,7 @@ TomatoRefresh.prototype = {
 
 		b = (mode != 'stop') && (this.refreshTime > 0);
 		if ((e = E('refresh-button')) != null) {
-			e.value = b ? 'Stop' : 'Refresh';
+			e.value = b ? 'Stop' : '<% translate("Refresh"); %>';
 			e.disabled = ((mode == 'start') && (!b));
 		}
 		if ((e = E('refresh-time')) != null) e.disabled = b;
@@ -2099,9 +2113,11 @@ function genStdTimeList(id, zero, min)
 			v = t[i];
 			if (v < min) continue;
 			b.push('<option value=' + v + '>');
-			if (v == 60) b.push('1 minute');
-				else if (v > 60) b.push((v / 60) + ' minutes');
-				else b.push(v + ' seconds');
+			if (v == 60) b.push('1 <% translate("minute"); %>');
+				else if (v > 60) b.push((v / 60) + ' <% translate("minutes"); %>');
+				else if (v == 3) b.push('<% translate("3 seconds"); %>');
+				else if (v == 4) b.push('<% translate("4 seconds"); %>');
+				else b.push(v + ' <% translate("seconds"); %>');
 		}
 		b.push('</select> ');
 	}
@@ -2112,8 +2128,8 @@ function genStdRefresh(spin, min, exec)
 {
 	W('<div style="text-align:right">');
 	if (spin) W('<img src="spin.gif" id="refresh-spinner"> ');
-	genStdTimeList('refresh-time', 'Auto Refresh', min);
-	W('<input type="button" value="Refresh" onclick="' + (exec ? exec : 'refreshClick()') + '" id="refresh-button"></div>');
+	genStdTimeList('refresh-time', '<% translate("Auto Refresh"); %>', min);
+	W('<input type="button" value="<% translate("Refresh"); %>" onclick="' + (exec ? exec : 'refreshClick()') + '" id="refresh-button"></div>');
 }
 
 
@@ -2323,58 +2339,62 @@ function myName()
 function navi()
 {
 	var menu = [
-		['Status', 				'status', 0, [
-			['Overview',		'overview.asp'],
-			['Device List',		'devices.asp'],
-			['Web Usage',		'webmon.asp'],
-			['Logs',			'log.asp'] ] ],
-		['Bandwidth', 			'bwm', 0, [
-			['Real-Time',		'realtime.asp'],
-			['Last 24 Hours',	'24.asp'],
-			['Daily',			'daily.asp'],
-			['Weekly',			'weekly.asp'],
-			['Monthly',			'monthly.asp'] ] ],
-		['Tools', 				'tools', 0, [
-			['Ping',			'ping.asp'],
-			['Trace',			'trace.asp'],
-			['System',			'shell.asp'],
-			['Wireless Survey',	'survey.asp'],
-			['WOL',				'wol.asp'] ] ],
+		['<% translate("<% translate("Status"); %>', 				'status', 0, [
+			['<% translate("<% translate("Overview"); %>',		'overview.asp'],
+			['<% translate("<% translate("Device List"); %>',		'devices.asp'],
+			['<% translate("<% translate("Web Usage"); %>',		'webmon.asp'],
+			['<% translate("Logs"); %>',			'log.asp'] ] ],
+		['<% translate("Bandwidth"); %>', 			'bwm', 0, [
+			['<% translate("Real-Time"); %>',		'realtime.asp'],
+			['<% translate("Last 24 Hours"); %>',	'24.asp'],
+			['<% translate("Daily"); %>',			'daily.asp'],
+			['<% translate("Weekly"); %>',			'weekly.asp'],
+			['<% translate("Monthly"); %>',			'monthly.asp'] ] ],
+		['<% translate("Tools"); %>', 				'tools', 0, [
+			['<% translate("Ping"); %>',			'ping.asp'],
+			['<% translate("Trace"); %>',			'trace.asp'],
+			['<% translate("System"); %>',			'shell.asp'],
+			['<% translate("Wireless Survey"); %>',	'survey.asp'],
+			['<% translate("WOL"); %>',				'wol.asp'] ] ],
 		null,
-		['Basic', 				'basic', 0, [
-			['Network',			'network.asp'],
+		['<% translate("Basic"); %>', 				'basic', 0, [
+			['<% translate("Network"); %>',			'network.asp'],
 /* IPV6-BEGIN */
 			['IPv6',			'ipv6.asp'],
 /* IPV6-END */
-			['Identification',	'ident.asp'],
-			['Time',			'time.asp'],
-			['DDNS',			'ddns.asp'],
-			['Static DHCP',		'static.asp'],
-			['Wireless Filter',	'wfilter.asp'] ] ],
-		['Advanced', 			'advanced', 0, [
-			['Conntrack / Netfilter',	'ctnf.asp'],
-			['DHCP / DNS',		'dhcpdns.asp'],
-			['Firewall',		'firewall.asp'],
-			['MAC Address',		'mac.asp'],
-			['Miscellaneous',	'misc.asp'],
-			['Routing',			'routing.asp'],
-			['Wireless',		'wireless.asp'] ] ],
-		['Port Forwarding', 	'forward', 0, [
-			['Basic',			'basic.asp'],
+			['<% translate("Identification"); %>',	'ident.asp'],
+			['<% translate("Time"); %>',			'time.asp'],
+			['<% translate("DDNS"); %>',			'ddns.asp'],
+			['<% translate("Static DHCP"); %>',		'static.asp'],
+			['<% translate("Wireless Filter"); %>',	'wfilter.asp'] ] ],
+		['<% translate("Advanced"); %>', 			'advanced', 0, [
+			['<% translate("Conntrack / Netfilter"); %>',	'ctnf.asp'],
+			['<% translate("DHCP / DNS"); %>',		'dhcpdns.asp'],
+			['<% translate("Firewall"); %>',		'firewall.asp'],
+			['<% translate("MAC Address"); %>',		'mac.asp'],
+			['<% translate("Miscellaneous"); %>',	'misc.asp'],
+			['<% translate("Routing"); %>',			'routing.asp'],
+			['<% translate("Wireless"); %>',		'wireless.asp'] ] ],
+		['<% translate("Port Forwarding"); %>', 	'forward', 0, [
+			['<% translate("Basic"); %>',			'basic.asp'],
 /* IPV6-BEGIN */
-			['Basic IPv6',		'basic-ipv6.asp'],
+			['<% translate("Basic"); %> IPv6',		'basic-ipv6.asp'],
 /* IPV6-END */
 			['DMZ',				'dmz.asp'],
-			['Triggered',		'triggered.asp'],
-			['UPnP / NAT-PMP',	'upnp.asp'] ] ],
+			['<% translate("Triggered"); %>',		'triggered.asp'],
+			['<% translate("UPnP / NAT-PMP"); %>',	'upnp.asp'] ] ],
 		['QoS',					'qos', 0, [
-			['Basic Settings',	'settings.asp'],
-			['Classification',	'classify.asp'],
-			['View Graphs',		'graphs.asp'],
-			['View Details',	'detailed.asp'],
-			['Transfer Rates',	'ctrate.asp']
+			['<% translate("Basic Settings"); %>',	'settings.asp'],
+			['<% translate("Classification"); %>',	'classify.asp'],
+			['<% translate("View Graphs"); %>',		'graphs.asp'],
+			['<% translate("View Details"); %>',	'detailed.asp'],
+			['<% translate("Transfer Rates"); %>',	'ctrate.asp']
 			] ],
-		['Access Restriction',	'restrict.asp'],
+		['<% translate("RAF Features"); %>',		'new', 0, [
+			['<% translate("MAC/IP Range BW Limit"); %>',	'qoslimit.asp'],
+			['<% translate("ARP Binding"); %>',		'arpbind.asp']
+			] ],
+		['<% translate("Access Restriction"); %>',	'restrict.asp'],
 /* REMOVE-BEGIN
 		['Scripts',				'sc', 0, [
 			['Startup',			'startup.asp'],
@@ -2385,46 +2405,49 @@ function navi()
 REMOVE-END */
 /* USB-BEGIN */
 // ---- !!TB - USB, FTP, Samba, Media Server
-		['USB and NAS',			'nas', 0, [
-			['USB Support',		'usb.asp']
+		['<% translate("USB and NAS"); %>',			'nas', 0, [
+			['<% translate("USB Support"); %>',		'usb.asp']
 /* FTP-BEGIN */
-			,['FTP Server',		'ftp.asp']
+			,['<% translate("FTP Server"); %>',		'ftp.asp']
 /* FTP-END */
 /* SAMBA-BEGIN */
-			,['File Sharing',	'samba.asp']
+			,['<% translate("File Sharing"); %>',	'samba.asp']
 /* SAMBA-END */
 /* MEDIA-SRV-BEGIN */
-			,['Media Server',	'media.asp']
+			,['<% translate("Media Server"); %>',	'media.asp']
 /* MEDIA-SRV-END */
+/* BT-BEGIN */
+			,['<% translate("BitTorrent Client"); %>',	'bittorrent.asp']
+/* BT-END */
 			] ],
 /* USB-END */
 /* VPN-BEGIN */
-		['VPN Tunneling', 		'vpn', 0, [
-			['Server',			'server.asp'],
-			['Client',			'client.asp'] ] ],
+		['<% translate("VPN Tunneling"); %>', 		'vpn', 0, [
+			['<% translate("Server"); %>',			'server.asp'],
+			['<% translate("Client"); %>',			'client.asp'] ] ],
 /* VPN-END */
 		null,
-		['Administration',		'admin', 0, [
-			['Admin Access',	'access.asp'],
-			['Bandwidth Monitoring','bwm.asp'],
-			['Buttons / LED',	'buttons.asp'],
+		['<% translate("Administration"); %>',		'admin', 0, [
+			['<% translate("Admin Access"); %>',	'access.asp'],
+			['<% translate("Bandwidth Monitoring"); %>','bwm.asp'],
+			['<% translate("Buttons / LED"); %>',	'buttons.asp'],
 /* CIFS-BEGIN */
-			['CIFS Client',		'cifs.asp'],
+			['<% translate("CIFS Client"); %>',		'cifs.asp'],
 /* CIFS-END */
-			['Configuration',	'config.asp'],
-			['Debugging',		'debug.asp'],
+			['<% translate("Configuration"); %>',	'config.asp'],
+			['<% translate("Debugging"); %>',		'debug.asp'],
 /* JFFS2-BEGIN */
-			['JFFS',			'jffs2.asp'],
+			['<% translate("JFFS"); %>',			'jffs2.asp'],
 /* JFFS2-END */
-			['Logging',			'log.asp'],
-			['Scheduler',		'sched.asp'],
-			['Scripts',			'scripts.asp'],
-			['Upgrade',			'upgrade.asp'] ] ],
+			['<% translate("Logging"); %>',			'log.asp'],
+			['<% translate("Scheduler"); %>',		'sched.asp'],
+			['<% translate("Scripts"); %>',			'scripts.asp'],
+			['<% translate("Upgrade"); %>',			'upgrade.asp'] ] ],
 		null,
-		['About',				'about.asp'],
-		['Reboot...',			'javascript:reboot()'],
-		['Shutdown...',			'javascript:shutdown()'],
-		['Logout',				'javascript:logout()']
+		['<% translate("About"); %>',				'about.asp'],
+		['<% translate("Reboot"); %>...',			'javascript:reboot()'],
+		['<% translate("Shutdown"); %>...',			'javascript:shutdown()'],
+		['<% translate("Logout"); %>',				'javascript:logout()']
 	];
 	var name, base;
 	var i, j;
@@ -2650,12 +2673,12 @@ function reloadPage()
 
 function reboot()
 {
-	if (confirm("Reboot?")) form.submitHidden('tomato.cgi', { _reboot: 1, _commit: 0, _nvset: 0 });
+	if (confirm("<% translate("Reboot"); %>?")) form.submitHidden('tomato.cgi', { _reboot: 1, _commit: 0, _nvset: 0 });
 }
 
 function shutdown()
 {
-	if (confirm("Shutdown?")) form.submitHidden('shutdown.cgi', { });
+	if (confirm("<% translate("Shutdown"); %>?")) form.submitHidden('shutdown.cgi', { });
 }
 
 function logout()
