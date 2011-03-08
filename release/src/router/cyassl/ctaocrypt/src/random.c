@@ -1,6 +1,6 @@
 /* random.c
  *
- * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -124,6 +124,18 @@ int GenerateSeed(OS_Seed* os, byte* output, word32 sz)
     #if (NET_SECURE_MGR_CFG_EN == DEF_ENABLED)
         NetSecure_InitSeed(output, sz);
     #endif
+    return 0;
+}
+
+#elif defined(MBED)
+
+/* write a real one !!!, just for testing board */
+int GenerateSeed(OS_Seed* os, byte* output, word32 sz)
+{
+    int i;
+    for (i = 0; i < sz; i++ )
+        output[i] = i;
+
     return 0;
 }
 

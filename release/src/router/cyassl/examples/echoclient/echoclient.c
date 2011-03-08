@@ -55,6 +55,10 @@ void echoclient_test(void* args)
 #ifndef NO_FILESYSTEM
     if (SSL_CTX_load_verify_locations(ctx, caCert, 0) != SSL_SUCCESS)
         err_sys("can't load ca file");
+    #ifdef HAVE_ECC
+        if (SSL_CTX_load_verify_locations(ctx, eccCert, 0) != SSL_SUCCESS)
+            err_sys("can't load ca file");
+    #endif
 #else
     load_buffer(ctx, caCert, CYASSL_CA);
 #endif

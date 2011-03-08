@@ -1,6 +1,6 @@
 /* ssl.h
  *
- * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -31,13 +31,15 @@
 
 #include "os_settings.h"   /* for users not using preprocessor flags */
 
-#ifndef NO_FILESYTEM
+#ifndef NO_FILESYSTEM
     #include <stdio.h>   /* ERR_print fp */
 #endif
 
 #ifdef YASSL_PREFIX
     #include "prefix_ssl.h"
 #endif
+
+#define CYASSL_VERSION "1.9.0"
 
 #undef X509_NAME   /* wincrypt.h clash */
 

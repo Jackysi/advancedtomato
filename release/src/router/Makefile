@@ -569,7 +569,7 @@ cyassl/stamp-h1:
 	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections \
 	-DNO_MD4 -DNO_AES -DNO_ERROR_STRINGS -DNO_HC128 -DNO_RABBIT -DNO_PSK -DNO_DSA -DNO_DH -DNO_PWDBASED" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
-	PTHREAD_CFLAGS="-lpthread" PTHREAD_LIBS="-lpthread" \
+	PTHREAD_LIBS="-lpthread" \
 	$(CONFIGURE) --with-libz=no
 	@touch cyassl/stamp-h1
 

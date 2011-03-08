@@ -1,6 +1,6 @@
 /* tfm.c
  *
- * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -29,6 +29,7 @@
  *  to fit CyaSSL's needs.
  */
 
+#include "os_settings.h"     /* in case user set USE_FAST_MATH there */
 
 #ifdef USE_FAST_MATH
 
@@ -1897,6 +1898,41 @@ int mp_read_unsigned_bin (mp_int * a, const unsigned char *b, int c)
 }
 
 
+#if defined(CYASSL_KEY_GEN) || defined (HAVE_ECC)
+
+/* c = a * a (mod b) */
+int fp_sqrmod(fp_int *a, fp_int *b, fp_int *c)
+{
+  fp_int tmp;
+  fp_zero(&tmp);
+  fp_sqr(a, &tmp);
+  return fp_mod(&tmp, b, c);
+}
+
+/* fast math conversion */
+int mp_sqrmod(mp_int *a, mp_int *b, mp_int *c)
+{
+    return fp_sqrmod(a, b, c);
+}
+
+/* fast math conversion */
+int mp_montgomery_calc_normalization(mp_int *a, mp_int *b)
+{
+    fp_montgomery_calc_normalization(a, b);
+    return MP_OKAY;
+}
+
+/* fast math conversion */
+int mp_copy(fp_int* a, fp_int* b)
+{
+    fp_copy(a, b);
+    return MP_OKAY;
+}
+
+
+#endif /* CYASSL_KEYGEN || HAVE_ECC */
+
+
 #ifdef CYASSL_KEY_GEN
 
 void fp_gcd(fp_int *a, fp_int *b, fp_int *c);
@@ -1927,13 +1963,6 @@ int mp_lcm(fp_int *a, fp_int *b, fp_int *c)
 }
 
 
-int mp_copy(fp_int* a, fp_int* b)
-{
-    fp_copy(a, b);
-    return MP_OKAY;
-}
-
-
 int mp_sub_d(fp_int *a, fp_digit b, fp_int *c)
 {
     fp_sub_d(a, b, c);
@@ -1947,16 +1976,6 @@ int mp_prime_is_prime(mp_int* a, int t, int* result)
     return MP_OKAY;
 }
 
-
-
-/* c = a * a (mod b) */
-int fp_sqrmod(fp_int *a, fp_int *b, fp_int *c)
-{
-  fp_int tmp;
-  fp_zero(&tmp);
-  fp_sqr(a, &tmp);
-  return fp_mod(&tmp, b, c);
-}
 
 
 /* c = a - b */
@@ -2280,6 +2299,132 @@ void fp_gcd(fp_int *a, fp_int *b, fp_int *c)
    fp_copy(&u, c);
 }
 
-
 #endif /* CYASSL_KEY_GEN */
+
+
+#ifdef HAVE_ECC
+
+/* chars used in radix conversions */
+const char *fp_s_rmap = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+/";
+
+/* c = a + b */
+void fp_add_d(fp_int *a, fp_digit b, fp_int *c)
+{
+   fp_int tmp;
+   fp_set(&tmp, b);
+   fp_add(a,&tmp,c);
+}
+
+
+int fp_read_radix(fp_int *a, const char *str, int radix)
+{
+  int     y, neg;
+  char    ch;
+
+  /* make sure the radix is ok */
+  if (radix < 2 || radix > 64) {
+    return FP_VAL;
+  }
+
+  /* if the leading digit is a
+   * minus set the sign to negative.
+   */
+  if (*str == '-') {
+    ++str;
+    neg = FP_NEG;
+  } else {
+    neg = FP_ZPOS;
+  }
+
+  /* set the integer to the default of zero */
+  fp_zero (a);
+
+  /* process each digit of the string */
+  while (*str) {
+    /* if the radix < 36 the conversion is case insensitive
+     * this allows numbers like 1AB and 1ab to represent the same  value
+     * [e.g. in hex]
+     */
+    ch = (char) ((radix < 36) ? XTOUPPER(*str) : *str);
+    for (y = 0; y < 64; y++) {
+      if (ch == fp_s_rmap[y]) {
+         break;
+      }
+    }
+
+    /* if the char was found in the map
+     * and is less than the given radix add it
+     * to the number, otherwise exit the loop.
+     */
+    if (y < radix) {
+      fp_mul_d (a, (fp_digit) radix, a);
+      fp_add_d (a, (fp_digit) y, a);
+    } else {
+      break;
+    }
+    ++str;
+  }
+
+  /* set the sign only if a != 0 */
+  if (fp_iszero(a) != FP_YES) {
+     a->sign = neg;
+  }
+  return FP_OKAY;
+}
+
+/* fast math conversion */
+int mp_read_radix(mp_int *a, const char *str, int radix)
+{
+    return fp_read_radix(a, str, radix);
+}
+
+/* fast math conversion */
+int mp_iszero(mp_int* a)
+{
+    return fp_iszero(a);
+}
+
+/* fast math conversion */
+int mp_set(fp_int *a, fp_digit b)
+{
+    fp_set(a,b);
+    return MP_OKAY;
+}
+
+/* fast math conversion */
+int mp_sqr(fp_int *A, fp_int *B)
+{
+    fp_sqr(A, B);
+    return MP_OKAY;
+}
+  
+/* fast math conversion */
+int mp_montgomery_reduce(fp_int *a, fp_int *m, fp_digit mp)
+{
+    fp_montgomery_reduce(a, m, mp);
+    return MP_OKAY;
+}
+
+
+/* fast math conversion */
+int mp_montgomery_setup(fp_int *a, fp_digit *rho)
+{
+    return fp_montgomery_setup(a, rho);
+}
+
+/* fast math conversion */
+int mp_isodd(mp_int* a)
+{
+    return fp_isodd(a);
+}
+
+
+int mp_div_2(fp_int * a, fp_int * b)
+{
+    fp_div_2(a, b);
+    return MP_OKAY;
+}
+
+#endif /* HAVE_ECC */
+
 #endif /* USE_FAST_MATH */
