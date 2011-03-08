@@ -74,13 +74,15 @@
 #include "../mssl/mssl.h"
 int do_ssl;
 
+#define HTTP_MAX_LISTENERS 8
+
 typedef struct {
 	int count;
 	fd_set lfdset;
 	struct {
 		int listenfd;
 		int ssl;
-	} listener[8];
+	} listener[HTTP_MAX_LISTENERS];
 } listeners_t;
 static listeners_t listeners;
 static int maxfd = -1;
@@ -744,6 +746,11 @@ static void add_listen_socket(const char *addr, int server_port, int do_ipv6, in
 #define HTTPD_FAMILY AF_INET
 #endif
 
+	if (listeners.count >= HTTP_MAX_LISTENERS) {
+		syslog(LOG_ERR, "number of listeners exceeded the max allowed (%d)", HTTP_MAX_LISTENERS);
+		return;
+	}
+
 	if (server_port <= 0) {
 #ifdef TCONFIG_HTTPS
 		if (do_ssl) server_port = 443;
@@ -966,9 +973,6 @@ int main(int argc, char **argv)
 				_dprintf("accept: %m");
 				continue;
 			}
-#ifdef TCONFIG_HTTPS
-			do_ssl = listeners.listener[i].ssl;
-#endif
 			_dprintf("%s: connfd = accept(listener=%d) = %d\n", __FUNCTION__, listeners.listener[i].listenfd, connfd);
 
 			if (!wait_action_idle(10)) {
@@ -977,6 +981,9 @@ int main(int argc, char **argv)
 			}
 
 			if (fork() == 0) {
+#ifdef TCONFIG_HTTPS
+				do_ssl = listeners.listener[i].ssl;
+#endif
 				close_listen_sockets();
 				webcgi_init(NULL);
 

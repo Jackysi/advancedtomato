@@ -638,6 +638,8 @@ void start_wan(int mode)
 
 	ifconfig(wan_ifname, IFUP, NULL, NULL);
 
+	start_firewall();
+
 	set_host_domain_name();
 
 	switch (wan_proto) {
@@ -652,6 +654,7 @@ void start_wan(int mode)
 			start_dhcpc();
 		}
 		else if (wan_proto != WP_DHCP) {
+			ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
 			ifconfig(wan_ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
 
 			p = nvram_safe_get("wan_gateway");
@@ -833,7 +836,6 @@ void start_wan_done(char *wan_ifname)
 #endif
 
 	// restart httpd
-	stop_httpd();
 	start_httpd();
 
 	stop_upnp();

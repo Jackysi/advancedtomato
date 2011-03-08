@@ -1,6 +1,6 @@
 /* os_settings.h
  *
- * Copyright (C) 2006-2010 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -38,6 +38,9 @@
 /* Uncomment next line if using Micrium ucOS */
 /* #define MICRIUM */
 
+/* Uncomment next line if using Mbed */
+/* #define MBED */
+
 
 #ifdef IPHONE
     #define SIZEOF_LONG_LONG 8
@@ -47,11 +50,23 @@
     #define SIZEOF_LONG_LONG 8
 #endif
 
+#ifdef MBED
+    #define SINGLE_THREADED
+    #define CYASSL_USER_IO
+    #define NO_WRITEV
+    #define NO_DEV_RANDOM
+    #define NO_SHA512
+    #define NO_DH
+    #define NO_DSA
+    #define NO_HC128
+#endif /* MBED */
+
 
 #ifdef MICRIUM
 
+    #include "stdlib.h"
     #include "net_cfg.h"
-    #include "cyassl_cfg.h"
+    #include "ssl_cfg.h"
     #include "net_secure_os.h"
 
     #define CYASSL_TYPES
@@ -61,7 +76,7 @@
     typedef CPU_INT32U word32;
 
     #if (NET_SECURE_MGR_CFG_WORD_SIZE == CPU_WORD_SIZE_32)
-        #define SIZEOF_LONG        8
+        #define SIZEOF_LONG        4
         #undef  SIZEOF_LONG_LONG
     #else
         #undef  SIZEOF_LONG
@@ -88,16 +103,16 @@
     #define XMEMCMP(pmem_1, pmem_2, size) \
                    (((CPU_BOOLEAN)Mem_Cmp((void *)(pmem_1), (void *)(pmem_2), \
                      (CPU_SIZE_T)(size))) ? DEF_NO : DEF_YES)
+    #define XMEMMOVE XMEMCPY
 
-    #if (NET_SECURE_MGR_CFG_EN == DEF_ENABLED)
-        #define MICRIUM_MALLOC
-        #define XMALLOC(s, h, type) (((type) <= DYNAMIC_TYPE_SIGNER) ? \
-                                 ((void *)NetSecure_Malloc((CPU_INT08U)(type), \
-                                 (CPU_SIZE_T)(s))) : malloc(s))
-        #define XFREE(p, h, type)   (((type) <= DYNAMIC_TYPE_SIGNER) ? \
-                          (NetSecure_Free((CPU_INT08U)(type), (p))) : free((p)))
-        #define XREALLOC(p, n, h, t) realloc((p), (n))
-    #endif
+#if (NET_SECURE_MGR_CFG_EN == DEF_ENABLED)
+    #define MICRIUM_MALLOC    
+    #define XMALLOC(s, h, type) ((void *)NetSecure_BlkGet((CPU_INT08U)(type), \
+                                 (CPU_SIZE_T)(s), (void *)0))
+    #define XFREE(p, h, type)   (NetSecure_BlkFree((CPU_INT08U)(type), \
+                                 (p), (void *)0))
+    #define XREALLOC(p, n, h, t) realloc((p), (n))
+#endif
 
     #if (NET_SECURE_MGR_CFG_FS_EN == DEF_ENABLED)
         #undef  NO_FILESYSTEM
@@ -105,67 +120,67 @@
         #define NO_FILESYSTEM
     #endif
 
-    #if (CYASSL_CFG_TRACE_LEVEL == CYASSL_TRACE_LEVEL_DBG)
+    #if (SSL_CFG_TRACE_LEVEL == CYASSL_TRACE_LEVEL_DBG)
         #define DEBUG_CYASSL
     #else
         #undef  DEBUG_CYASSL
     #endif
 
-    #if (CYASSL_CFG_OPENSSL_EN == DEF_ENABLED)
+    #if (SSL_CFG_OPENSSL_EN == DEF_ENABLED)
         #define OPENSSL_EXTRA
     #else
         #undef  OPENSSL_EXTRA
     #endif
 
-    #if (CYASSL_CFG_MULTI_THREAD_EN == DEF_ENABLED)
+    #if (SSL_CFG_MULTI_THREAD_EN == DEF_ENABLED)
         #undef  SINGLE_THREADED
     #else
         #define SINGLE_THREADED
     #endif
 
-    #if (CYASSL_CFG_DH_EN == DEF_ENABLED)
+    #if (SSL_CFG_DH_EN == DEF_ENABLED)
         #undef  NO_DH
     #else
         #define NO_DH
     #endif
 
-    #if (CYASSL_CFG_DSA_EN == DEF_ENABLED)
+    #if (SSL_CFG_DSA_EN == DEF_ENABLED)
         #undef  NO_DSA
     #else
         #define NO_DSA
     #endif
 
-    #if (CYASSL_CFG_PSK_EN == DEF_ENABLED)
+    #if (SSL_CFG_PSK_EN == DEF_ENABLED)
         #undef  NO_PSK
     #else
         #define NO_PSK
     #endif
 
-    #if (CYASSL_CFG_3DES_EN == DEF_ENABLED)
+    #if (SSL_CFG_3DES_EN == DEF_ENABLED)
         #undef  NO_DES
     #else
         #define NO_DES
     #endif
 
-    #if (CYASSL_CFG_AES_EN == DEF_ENABLED)
+    #if (SSL_CFG_AES_EN == DEF_ENABLED)
         #undef  NO_AES
     #else
         #define NO_AES
     #endif
 
-    #if (CYASSL_CFG_RC4_EN == DEF_ENABLED)
+    #if (SSL_CFG_RC4_EN == DEF_ENABLED)
         #undef  NO_RC4
     #else
         #define NO_RC4
     #endif
 
-    #if (CYASSL_CFG_RABBIT_EN == DEF_ENABLED)
+    #if (SSL_CFG_RABBIT_EN == DEF_ENABLED)
         #undef  NO_RABBIT
     #else
         #define NO_RABBIT
     #endif
 
-    #if (CYASSL_CFG_HC128_EN == DEF_ENABLED)
+    #if (SSL_CFG_HC128_EN == DEF_ENABLED)
         #undef  NO_HC128
     #else
         #define NO_HC128
@@ -178,14 +193,67 @@
         #define LITTLE_ENDIAN_ORDER
     #endif
 
+    #if (SSL_CFG_MD4_EN == DEF_ENABLED)
+        #undef  NO_MD4
+    #else
+        #define NO_MD4
+    #endif
 
-    #define  NO_MD4
-    #define  NO_WRITEV
-    #define  NO_DEV_RANDOM
-    #define  CYASSL_USER_IO
-    #define  LARGE_STATIC_BUFFERS
-    #define  CYASSL_DER_LOAD
-    #undef   CYASSL_DTLS
+    #if (SSL_CFG_WRITEV_EN == DEF_ENABLED)
+        #undef  NO_WRITEV
+    #else
+        #define NO_WRITEV
+    #endif
+
+    #if (SSL_CFG_USER_RNG_SEED_EN == DEF_ENABLED)
+        #define NO_DEV_RANDOM   
+    #else
+        #undef  NO_DEV_RANDOM
+    #endif
+
+    #if (SSL_CFG_USER_IO_EN == DEF_ENABLED)
+        #define CYASSL_USER_IO   
+    #else
+        #undef  CYASSL_USER_IO
+    #endif
+
+    #if (SSL_CFG_DYNAMIC_BUFFERS_EN == DEF_ENABLED)
+        #undef  LARGE_STATIC_BUFFERS
+        #undef  STATIC_CHUNKS_ONLY
+    #else
+        #define LARGE_STATIC_BUFFERS
+        #define STATIC_CHUNKS_ONLY
+    #endif
+
+    #if (SSL_CFG_DER_LOAD_EN == DEF_ENABLED)
+        #define  CYASSL_DER_LOAD
+    #else
+        #undef   CYASSL_DER_LOAD
+    #endif
+
+    #if (SSL_CFG_DTLS_EN == DEF_ENABLED)
+        #define  CYASSL_DTLS
+    #else
+        #undef   CYASSL_DTLS
+    #endif
+
+    #if (SSL_CFG_CALLBACKS_EN == DEF_ENABLED)
+         #define CYASSL_CALLBACKS
+    #else
+         #undef  CYASSL_CALLBACKS
+    #endif
+
+    #if (SSL_CFG_FAST_MATH_EN == DEF_ENABLED)
+         #define USE_FAST_MATH
+    #else
+         #undef  USE_FAST_MATH
+    #endif
+
+    #if (SSL_CFG_TFM_TIMING_RESISTANT_EN == DEF_ENABLED)
+         #define TFM_TIMING_RESISTANT
+    #else
+         #undef  TFM_TIMING_RESISTANT
+    #endif
 
 #endif /* MICRIUM */
 

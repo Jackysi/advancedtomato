@@ -37,7 +37,7 @@
 
 #include "rc.h"
 
-int ifconfig(const char *name, int flags, const char *addr, const char *netmask)
+int _ifconfig(const char *name, int flags, const char *addr, const char *netmask, const char *dstaddr)
 {
 	int s;
 	struct ifreq ifr;
@@ -80,6 +80,15 @@ int ifconfig(const char *name, int flags, const char *addr, const char *netmask)
 			goto ERROR;
 	}
 
+	/* Set dst or P-t-P IP address */
+	if (dstaddr) {
+		inet_aton(dstaddr, &in_addr);
+		sin_addr(&ifr.ifr_dstaddr).s_addr = in_addr.s_addr;
+		ifr.ifr_dstaddr.sa_family = AF_INET;
+		if (ioctl(s, SIOCSIFDSTADDR, &ifr) < 0)
+			goto ERROR;
+	}
+
 	close(s);
 	return 0;
 
@@ -87,7 +96,7 @@ int ifconfig(const char *name, int flags, const char *addr, const char *netmask)
 	close(s);
 	perror(name);
 	return errno;
-}	
+}
 
 static int route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *genmask)
 {

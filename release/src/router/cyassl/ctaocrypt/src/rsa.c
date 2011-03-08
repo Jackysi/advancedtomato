@@ -1,6 +1,6 @@
 /* rsa.c
  *
- * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -385,10 +385,11 @@ static int rand_prime(mp_int* N, int len, RNG* rng, void* heap)
     }
    
     /* allocate buffer to work with */
-    buf = XCALLOC(1, len, heap);
+    buf = XMALLOC(len, heap, DYNAMIC_TYPE_RSA);
     if (buf == NULL) {
         return -1;
     }
+    XMEMSET(buf, 0, len);
 
     do {
 #ifdef SHOW_GEN

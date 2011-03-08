@@ -16,7 +16,7 @@ help(void)
 " --tcp-flags [!] mask comp	match when TCP flags & mask == comp\n"
 "				(Flags: SYN ACK FIN RST URG PSH ALL NONE)\n"
 "[!] --syn			match when only SYN flag set\n"
-"				(equivalent to --tcp-flags SYN,RST,ACK SYN)\n"
+"				(equivalent to --tcp-flags SYN,RST,ACK,FIN SYN)\n"
 " --source-port [!] port[:port]\n"
 " --sport ...\n"
 "				match source port(s)\n"

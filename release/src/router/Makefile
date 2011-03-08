@@ -124,7 +124,7 @@ obj-$(TCONFIG_EMF) += emf
 obj-$(TCONFIG_EMF) += igs
 
 obj-$(CONFIG_LINUX26) += hotplug2
-obj-$(CONFIG_LINUX26) += udev
+obj-$(CONFIG_LINUX26) += udevtrigger
 
 ifeq ($(TCONFIG_OPENVPN),y)
   export FULL_OPENSSL := y
@@ -569,7 +569,7 @@ cyassl/stamp-h1:
 	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections \
 	-DNO_MD4 -DNO_AES -DNO_ERROR_STRINGS -DNO_HC128 -DNO_RABBIT -DNO_PSK -DNO_DSA -DNO_DH -DNO_PWDBASED" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
-	PTHREAD_CFLAGS="-lpthread" PTHREAD_LIBS="-lpthread" \
+	PTHREAD_LIBS="-lpthread" \
 	$(CONFIGURE) --with-libz=no
 	@touch cyassl/stamp-h1
 
@@ -664,7 +664,7 @@ dnsmasq-install:
 
 iptables:
 	@$(SEP)
-	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os $(EXTRACFLAGS)"
+	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os $(EXTRACFLAGS) -U CONFIG_NVRAM_SIZE"
 
 iptables-install:
 	install -D iptables/iptables $(INSTALLDIR)/iptables/usr/sbin/iptables

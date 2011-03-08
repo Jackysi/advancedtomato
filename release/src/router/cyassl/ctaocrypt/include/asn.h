@@ -1,6 +1,6 @@
 /* asn.h
  *
- * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -28,11 +28,22 @@
 #include "ctc_dh.h"
 #include "ctc_dsa.h"
 #include "ctc_sha.h"
-
+#ifdef HAVE_ECC
+    #include "ctc_ecc.h"
+#endif
 
 #ifdef __cplusplus
     extern "C" {
 #endif
+
+
+enum {
+    ISSUER  = 0,
+    SUBJECT = 1,
+
+    BEFORE  = 0,
+    AFTER   = 1
+};
 
 /* ASN Tags   */
 enum ASN_Tags {        
@@ -96,10 +107,11 @@ enum Oid_Types {
 
 
 enum Sig_Sum  {
-    SHAwDSA = 517,
-    MD2wRSA = 646,
-    MD5wRSA = 648,
-    SHAwRSA = 649
+    SHAwDSA   = 517,
+    MD2wRSA   = 646,
+    MD5wRSA   = 648,
+    SHAwRSA   = 649,
+    SHAwECDSA = 520
 };
 
 enum Hash_Sum  {
@@ -109,9 +121,19 @@ enum Hash_Sum  {
 };
 
 enum Key_Sum {
-    DSAk  = 515,
-    RSAk  = 645,
-    NTRUk = 364
+    DSAk   = 515,
+    RSAk   = 645,
+    NTRUk  = 364,
+    ECDSAk = 518
+};
+
+enum Ecc_Sum {
+    ECC_256R1 = 526,
+    ECC_384R1 = 210,
+    ECC_521R1 = 211,
+    ECC_160R1 = 184,
+    ECC_192R1 = 520,
+    ECC_224R1 = 209
 };
 
 
@@ -212,6 +234,13 @@ int DsaPrivateKeyDecode(const byte* input, word32* inOutIdx, DsaKey*, word32);
 int RsaKeyToDer(RsaKey*, byte* output, word32 inLen);
 #endif
 
+#ifdef HAVE_ECC
+    /* ASN sig helpers */
+    int StoreECC_DSA_Sig(byte* out, word32* outLen, mp_int* r, mp_int* s);
+    int DecodeECC_DSA_Sig(const byte* sig, word32 sigLen, mp_int* r, mp_int* s);
+    /* private key helpers */
+    int EccPrivateKeyDecode(const byte* input,word32* inOutIdx,ecc_key*,word32);
+#endif
 
 #if defined(CYASSL_KEY_GEN) || defined(CYASSL_CERT_GEN)
 int DerToPem(const byte* der, word32 derSz, byte* output, word32 outputSz,
