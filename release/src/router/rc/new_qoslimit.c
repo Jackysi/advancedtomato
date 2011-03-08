@@ -64,8 +64,10 @@ void ipt_qoslimit(int chain)
 	char *g;
 	char *p;
 	char *ibw,*obw;//bandwidth
-	char *seq;//mark number
-	char *ipaddr_old, *ipaddr;//ip address
+	char seq[4];//mark number
+	int iSeq = 10;
+	char *ipaddr_old;
+	char ipaddr[30];//ip address
 	char *dlrate,*dlceil;//guaranteed rate & maximum rate for download
 	char *ulrate,*ulceil;//guaranteed rate & maximum rate for upload
 	char *priority;//priority
@@ -129,17 +131,20 @@ void ipt_qoslimit(int chain)
 	
 	while (g) {
 		/*
-		seq<ipaddr_old<dlrate<dlceil<ulrate<ulceil<priority<tcplimit<udplimit
+		ipaddr_old<dlrate<dlceil<ulrate<ulceil<priority<tcplimit<udplimit
 		*/
 		if ((p = strsep(&g, ">")) == NULL) break;
-		i = vstrsep(p, "<", &seq, &ipaddr_old, &dlrate, &dlceil, &ulrate, &ulceil, &priority, &tcplimit, &udplimit);
+		i = vstrsep(p, "<", &ipaddr_old, &dlrate, &dlceil, &ulrate, &ulceil, &priority, &tcplimit, &udplimit);
+		if (i!=8) continue;
 
 		priority_num = atoi(priority);
 		if ((priority_num < 0) || (priority_num > 5)) continue;
 
 		if (!strcmp(ipaddr_old,"")) continue;
-		ipaddr = malloc(sizeof(char)*(strlen(ipaddr_old) + 20)); /*extra bytes for range expansion */
-		address_checker (&address_type, ipaddr_old, ipaddr); 
+		
+		address_checker (&address_type, ipaddr_old, ipaddr);
+		sprintf(seq,"%d",iSeq);
+		iSeq++; 
 
 		if (!strcmp(dlceil,"")) strcpy(dlceil, dlrate);
 		if (strcmp(dlrate,"") && strcmp(dlceil, "")) {
@@ -230,7 +235,6 @@ void ipt_qoslimit(int chain)
 				}
 			}
 		}
-		free (ipaddr);
 	}
 	free(buf);
 }
@@ -243,8 +247,10 @@ void new_qoslimit_start(void)
 	char *g;
 	char *p;
 	char *ibw,*obw;//bandwidth
-	char *seq;//mark number
-	char *ipaddr_old, *ipaddr;//ip address
+	char seq[4];//mark number
+	int iSeq = 10;
+	char *ipaddr_old; 
+	char ipaddr[30];//ip address
 	char *dlrate,*dlceil;//guaranteed rate & maximum rate for download
 	char *ulrate,*ulceil;//guaranteed rate & maximum rate for upload
 	char *priority;//priority
@@ -262,8 +268,8 @@ void new_qoslimit_start(void)
 	//read qos1rules from nvram
 	g = buf = strdup(nvram_safe_get("new_qoslimit_rules"));
 
-	ibw = nvram_safe_get("qos_ibw");  // Read from QOS setting - KRP
-	obw = nvram_safe_get("qos_obw");  // Read from QOS setting - KRP
+	ibw = nvram_safe_get("qos_ibw");  
+	obw = nvram_safe_get("qos_obw");  
 	
 	lanipaddr = nvram_safe_get("lan_ipaddr");
 	lanmask = nvram_safe_get("lan_netmask");
@@ -311,8 +317,8 @@ void new_qoslimit_start(void)
 	);
 	
 	if ((nvram_get_int("qosl_enable") == 1) && strcmp(dlr,"") && strcmp(ulr,"")) {
-		if (!strcmp(dlr,"")) strcpy(dlc, dlr);
-		if (!strcmp(ulr,"")) strcpy(ulc, ulr);
+		if (!strcmp(dlc,"")) strcpy(dlc, dlr);
+		if (!strcmp(ulc,"")) strcpy(ulc, ulr);
 		fprintf(tc,
 		"$TCA parent 1:1 classid 1:100 htb rate %skbit ceil %skbit prio 3\n"
 		"$TQA parent 1:100 handle 100: $SFQ\n"
@@ -328,17 +334,20 @@ void new_qoslimit_start(void)
 		
 	while (g) {
 		/*
-		seq<ipaddr_old<dlrate<dlceil<ulrate<ulceil<priority<tcplimit<udplimit
+		ipaddr_old<dlrate<dlceil<ulrate<ulceil<priority<tcplimit<udplimit
 		*/
 		if ((p = strsep(&g, ">")) == NULL) break;
-		i = vstrsep(p, "<", &seq, &ipaddr_old, &dlrate, &dlceil, &ulrate, &ulceil, &priority, &tcplimit, &udplimit);
+		i = vstrsep(p, "<", &ipaddr_old, &dlrate, &dlceil, &ulrate, &ulceil, &priority, &tcplimit, &udplimit);
+		if (i!=8) continue;
 
 		priority_num = atoi(priority);
 		if ((priority_num < 0) || (priority_num > 5)) continue;
 
 		if (!strcmp(ipaddr_old,"")) continue;
-		ipaddr = malloc(sizeof(char)*(strlen(ipaddr_old) + 20)); /*extra bytes for range expansion */
+		
 		address_checker(&address_type, ipaddr_old, ipaddr);
+		sprintf(seq,"%d",iSeq);
+		iSeq++;
 		if (!strcmp(dlceil,"")) strcpy(dlceil, dlrate);
 		if (strcmp(dlrate,"") && strcmp(dlceil, "")) {
 			if (address_type != MAC_ADDRESS) {
@@ -375,7 +384,6 @@ void new_qoslimit_start(void)
 				,seq,ulrate,ulceil,priority
 				,seq,seq
 				,priority,seq,seq);
-		free(ipaddr);
 		}
 	}
 	free(buf);

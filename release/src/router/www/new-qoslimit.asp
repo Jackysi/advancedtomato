@@ -26,18 +26,15 @@
 	width: 100%;
 }
 #qosg-grid .co1 {
-	width: 5%;
+	width: 30%;
 }
-#qosg-grid .co2 {
-	width: 25%;
-}
+#qosg-grid .co2,
 #qosg-grid .co3,
 #qosg-grid .co4,
 #qosg-grid .co5,
 #qosg-grid .co6,
 #qosg-grid .co7,
-#qosg-grid .co8,
-#qosg-grid .co9 {
+#qosg-grid .co8 {
 	width: 10%;
 }
 </style>
@@ -45,7 +42,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-// <% nvram("new_qoslimit_enable,qos_ibw,qos_obw,new_qoslimit_rules,lan_ipaddr,lan_netmask,qosl_enable,qosl_dlr,qosl_dlc,qosl_ulr,qosl_ulc,qosl_upd,qosl_tcp"); %>
+// <% nvram("new_qoslimit_enable,qos_ibw,qos_obw,new_qoslimit_rules,lan_ipaddr,lan_netmask,qosl_enable,qosl_dlr,qosl_dlc,qosl_ulr,qosl_ulc,qosl_udp,qosl_tcp"); %>
 
 var class_prio = [['0','Highest'],['1','High'],['2','Normal'],['3','Low'],['4','Lowest']];
 var class_tcp = [['0','nolimit']];
@@ -57,8 +54,7 @@ for (var i = 1; i <= 100; ++i) {
 var qosg = new TomatoGrid();
 
 qosg.setup = function() {
-	this.init('qosg-grid', 'sort', 60, [
-		{ type: 'text', maxlen: 2 },
+	this.init('qosg-grid', '', 40, [
 		{ type: 'text', maxlen: 31 },
 		{ type: 'text', maxlen: 6 },
 		{ type: 'text', maxlen: 6 },
@@ -67,41 +63,31 @@ qosg.setup = function() {
 		{ type: 'select', options: class_prio },
 		{ type: 'select', options: class_tcp },
 		{ type: 'select', options: class_udp }]);
-	this.headerSet(['TC Tag', 'IP | IP Range | MAC Address', 'DLRate', 'DLCeil', 'ULRate', 'ULCeil', 'Priority', 'TCP Limit', 'UDP Limit']);
+	this.headerSet(['IP | IP Range | MAC Address', 'DLRate', 'DLCeil', 'ULRate', 'ULCeil', 'Priority', 'TCP Limit', 'UDP Limit']);
 	var qoslimitrules = nvram.new_qoslimit_rules.split('>');
 	for (var i = 0; i < qoslimitrules.length; ++i) {
 		var t = qoslimitrules[i].split('<');
-		if (t.length == 9) this.insertData(-1, t);
+		if (t.length == 8) this.insertData(-1, t);
 	}
 	this.showNewEditor();
 	this.resetNewEditor();
 }
 
 qosg.dataToView = function(data) {
-	return [data[0],data[1],data[2]+'kbps',data[3]+'kbps',data[4]+'kbps',data[5]+'kbps',class_prio[data[6]*1][1],class_tcp[data[7]*1/10][1],class_udp[data[8]*1][1]];
+	return [data[0],data[1]+'kbps',data[2]+'kbps',data[3]+'kbps',data[4]+'kbps',class_prio[data[5]*1][1],class_tcp[data[6]*1/10][1],class_udp[data[7]*1][1]];
 }
 
 qosg.resetNewEditor = function() {
 	var f = fields.getAll(this.newEditor);
-	var data = this.getAllData();
-	var tag = '9';
-
-	for (var i = 0; i < data.length; ++i) {	
-		if (parseInt(data[i][0], 10) > parseInt(tag, 10))
-			tag = data[i][0];
-	}
 	
-	tag = parseInt(tag, 10)+1;
-
-	f[0].value = tag+'';
+	f[0].value = '';
 	f[1].value = '';
 	f[2].value = '';
 	f[3].value = '';
 	f[4].value = '';
-	f[5].value = '';
-	f[6].selectedIndex = '2';
+	f[5].selectedIndex = '2';
+	f[6].selectedIndex = '0';
 	f[7].selectedIndex = '0';
-	f[8].selectedIndex = '0';
 	ferror.clearAll(fields.getAll(this.newEditor));
 }
 
@@ -146,55 +132,49 @@ qosg.verifyFields = function(row, quiet)
 	var f = fields.getAll(row);
 	var s;
 
-	if (v_range(f[0], quiet, 10, 99)) {
-		if(this.existID(f[0].value)) {
-			ferror.set(f[0], 'ID must between 10 and 99', quiet);
-			ok = 0;
-		}
-	}
 /*
-	if (v_ip(f[1], quiet)) {
-		if(this.existIP(f[1].value)) {
-			ferror.set(f[1], 'duplicate IP address', quiet);
+	if (v_ip(f[0], quiet)) {
+               if(this.existIP(f[0].value)) {
+                       ferror.set(f[0], 'duplicate IP address', quiet);
 			ok = 0;
 		}
 	}
 */
-	if(v_macip(f[1], quiet, 0, nvram.lan_ipaddr, nvram.lan_netmask)) {
-		if(this.existIP(f[1].value)) {
-			ferror.set(f[1], 'duplicate IP or MAC address', quiet);
+	if(v_macip(f[0], quiet, 0, nvram.lan_ipaddr, nvram.lan_netmask)) {
+               if(this.existIP(f[0].value)) {
+                    ferror.set(f[0], 'duplicate IP or MAC address', quiet);
 			ok = 0;
 		}
 	}
      
+	if( this.checkRate(f[1].value)) {
+	        ferror.set(f[1], 'DLRate must between 1 and 99999', quiet);
+		ok = 0;
+	}
+
 	if( this.checkRate(f[2].value)) {
-		ferror.set(f[2], 'DLRate must between 1 and 99999', quiet);
+		ferror.set(f[2], 'DLCeil must between 1 and 99999', quiet);
+		ok = 0;
+	}
+
+	if( this.checkRateCeil(f[1].value, f[2].value)) {
+               ferror.set(f[2], 'DLCeil must be greater than DLRate', quiet);
 		ok = 0;
 	}
 
 	if( this.checkRate(f[3].value)) {
-		ferror.set(f[3], 'DLCeil must between 1 and 99999', quiet);
-		ok = 0;
-	}
-
-	if( this.checkRateCeil(f[2].value, f[3].value)) {
-		ferror.set(f[3], 'DLCeil must be greater than DLRate', quiet);
+                ferror.set(f[3], 'ULRate must between 1 and 99999', quiet);
 		ok = 0;
 	}
 
 	if( this.checkRate(f[4].value)) {
-		ferror.set(f[4], 'ULRate must between 1 and 99999', quiet);
+                ferror.set(f[4], 'ULCeil must between 1 and 99999', quiet);
 		ok = 0;
 	}
 
-	if( this.checkRate(f[5].value)) {
-		ferror.set(f[5], 'ULCeil must between 1 and 99999', quiet);
-		ok = 0;
-	}
-
-	if( this.checkRateCeil(f[4].value, f[5].value)) {
-		ferror.set(f[5], 'ULCeil must be greater than ULRate', quiet);
-		ok = 0;
+	if( this.checkRateCeil(f[3].value, f[4].value)) {
+                    ferror.set(f[4], 'ULCeil must be greater than ULRate', quiet);
+			ok = 0;
 	}
 
 	return ok;
@@ -230,7 +210,7 @@ function save()
 	var qoslimitrules = '';
 	var i;
 
-	if (data.length != 0) qoslimitrules += data[0].join('<');	
+        if (data.length != 0) qoslimitrules += data[0].join('<'); 	
 	for (i = 1; i < data.length; ++i) {
 		qoslimitrules += '>' + data[i].join('<');
 	}
@@ -277,16 +257,20 @@ function init()
 		<script type='text/javascript'>
 			createFieldTable('', [
 			{ title: 'Enable Limiter', name: 'f_new_qoslimit_enable', type: 'checkbox', value: nvram.new_qoslimit_enable != '0' },
-			{ title: 'Set Max Available Download Bandwidth <small>(same as used in QOS)', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw },
-			{title: 'Set Max Available Upload Bandwidth <small>(same as used in QOS)', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw }
+			{ title: 'Set Max Available Download Bandwidth <small>(same as used in QoS)', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw },
+			{title: 'Set Max Available Upload Bandwidth <small>(same as used in QoS)', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw }
 			]);
 		</script>
 		<br>
 		<table class='tomato-grid' id='qosg-grid'></table>
 		<div>
 			<ul>
-				<li><b>IP Address / IP Range</b> - i.e: 192.168.1.5 or 192.168.1.4-7
-				<li><b>MAC Address</b> - i.e: 00:2E:3C:6A:22:D8
+				<li><b>IP Address / IP Range:</b>
+				<li>Example: 192.168.1.5 for one IP.
+				<li>Example: 192.168.1.4-7 for IP 192.168.1.4 to 192.168.1.7
+				<li>Example: 4-7 for IP Range .4 to .7
+				<li><b>The IP Range devices will share the Bandwidth<br>
+				<li><b>MAC Address</b> Example: 00:2E:3C:6A:22:D8
 			</ul>
 		</div>
 	</div>
@@ -327,7 +311,8 @@ function init()
 		</script>
 		<div>
 			<ul>
-				<li><b>Default Class</b> - IP / MAC's non included in the list will take the Default Rate/Ceiling setting.
+				<li><b>Default Class</b> - IP / MAC's non included in the list will take the Default Rate/Ceiling setting
+				<li><b>The bandwitdh will be shared by all unlisted hosts.</b>
 			</ul>
 		</div>
 	</div>
@@ -343,6 +328,6 @@ function init()
 </td></tr>
 </table>
 </form>
-<script type='text/javascript'>qosg.setup();</script>
+<script type='text/javascript'>qosg.setup(); verifyFields(null, 1);</script>
 </body>
 </html>

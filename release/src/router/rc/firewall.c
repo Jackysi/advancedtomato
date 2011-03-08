@@ -1239,7 +1239,11 @@ int start_firewall(void)
 #endif
 	/*Deon Thomas attempt to start xt_IMQ and imq */
 	modprobe("imq");
+#ifdef LINUX26
 	modprobe("xt_IMQ");
+#else
+	modprobe("ipt_IMQ");
+#endif
 	
 	mangle_table();
 	nat_table();
