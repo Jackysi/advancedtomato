@@ -2374,7 +2374,8 @@ function navi()
 			['View Details',	'detailed.asp'],
 			['Transfer Rates',	'ctrate.asp']
 			] ],
-		['Access Restriction',	'restrict.asp'],
+		['QOS/Bandwidth Limiter',	'new-qoslimit.asp'],
+		['Access Restriction',		'restrict.asp'],
 /* REMOVE-BEGIN
 		['Scripts',				'sc', 0, [
 			['Startup',			'startup.asp'],
