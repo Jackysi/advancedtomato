@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2008-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: webseed.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: webseed.h 10931 2010-07-03 00:25:22Z charles $
  */
 
 #ifndef __TRANSMISSION__
@@ -28,13 +28,18 @@ tr_webseed* tr_webseedNew( struct tr_torrent * torrent,
 
 void        tr_webseedFree( tr_webseed * );
 
+tr_addreq_t tr_webseedAddRequest( tr_webseed *     w,
+                                  uint32_t         index,
+                                  uint32_t         offset,
+                                  uint32_t         length );
+
 /** @return true if a request is being processed, or false if idle */
-tr_bool     tr_webseedGetSpeed_Bps( const tr_webseed * w,
+int         tr_webseedGetSpeed_Bps( const tr_webseed * w,
                                     uint64_t           now,
                                     int              * setme_Bps );
 
 /** @return true if a request is being processed, or false if idle */
-tr_bool     tr_webseedIsActive( const tr_webseed * w );
+int         tr_webseedIsActive( const tr_webseed * w );
 
 
 #endif

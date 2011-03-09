@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: FileNameCell.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: FileNameCell.m 10976 2010-07-08 01:53:09Z livings124 $
  * 
- * Copyright (c) 2007-2011 Transmission authors and contributors
+ * Copyright (c) 2007-2010 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),

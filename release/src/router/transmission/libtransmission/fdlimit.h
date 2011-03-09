@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2007-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: fdlimit.h 11817 2011-02-02 23:29:17Z jordan $
+ * $Id: fdlimit.h 10904 2010-06-28 13:42:45Z charles $
  */
 
 #ifndef __TRANSMISSION__
@@ -24,7 +24,7 @@
 
 void tr_fdSetFileLimit( tr_session * session, int limit );
 
-int tr_fdGetFileLimit( tr_session * session );
+int tr_fdGetFileLimit( const tr_session * session );
 
 void tr_fdSetGlobalPeerLimit( tr_session * session, int limit );
 
@@ -32,15 +32,11 @@ void tr_fdSetGlobalPeerLimit( tr_session * session, int limit );
 ****
 ***/
 
-void tr_set_file_for_single_pass( int fd );
-
 int tr_open_file_for_scanning( const char * filename );
 
 int tr_open_file_for_writing( const char * filename );
 
 void tr_close_file( int fd );
-
-int tr_fsync(int fd);
 
 ssize_t tr_pread(int fd, void *buf, size_t count, off_t offset);
 ssize_t tr_pwrite(int fd, const void *buf, size_t count, off_t offset);
@@ -78,7 +74,7 @@ int tr_fdFileGetCached( tr_session             * session,
 /**
  * Closes a file that's being held by our file repository.
  *
- * If the file isn't checked out, it's fsync()ed and close()d immediately.
+ * If the file isn't checked out, it's closed immediately.
  * If the file is currently checked out, it will be closed upon its return.
  *
  * @see tr_fdFileCheckout
@@ -100,7 +96,7 @@ void tr_fdTorrentClose( tr_session * session, int torrentId );
 int      tr_fdSocketCreate( tr_session * session, int domain, int type );
 
 int      tr_fdSocketAccept( tr_session  * session,
-                            int           listening_sockfd,
+                            int           b,
                             tr_address  * addr,
                             tr_port     * port );
 

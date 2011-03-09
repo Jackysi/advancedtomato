@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: cli.c 12054 2011-02-28 02:45:25Z livings124 $
+ * $Id: cli.c 11335 2010-10-18 03:11:51Z charles $
  *
- * Copyright (c) Transmission authors and contributors
+ * Copyright (c) 2005-2006 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -172,8 +172,8 @@ getStatusStr( const tr_stat * st,
             "ul to %d (%s) "
             "[%s]",
             tr_truncd( 100 * st->percentDone, 1 ),
-            st->peersSendingToUs, st->peersConnected, dnStr,
-            st->peersGettingFromUs, upStr,
+            st->peersSendingToUs, st->peersConnected, upStr,
+            st->peersGettingFromUs, dnStr,
             ratioStr );
     }
     else if( st->activity & TR_STATUS_SEED )

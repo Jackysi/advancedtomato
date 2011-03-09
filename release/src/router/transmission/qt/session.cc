@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: session.cc 11616 2010-12-31 19:44:51Z charles $
+ * $Id: session.cc 11368 2010-10-31 17:16:12Z charles $
  */
 
 #include <cassert>
@@ -19,8 +19,6 @@
 #include <QCoreApplication>
 #include <QDesktopServices>
 #include <QMessageBox>
-#include <QNetworkProxy>
-#include <QNetworkProxyFactory>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QSet>
@@ -28,17 +26,12 @@
 #include <QStyle>
 #include <QTextStream>
 
-#include <curl/curl.h>
-
-#include <event2/buffer.h>
-
 #include <libtransmission/transmission.h>
 #include <libtransmission/bencode.h>
 #include <libtransmission/json.h>
 #include <libtransmission/rpcimpl.h>
-#include <libtransmission/utils.h> // tr_free
-#include <libtransmission/version.h> // LONG_VERSION
-#include <libtransmission/web.h>
+#include <libtransmission/utils.h> /* tr_free */
+#include <libtransmission/version.h> /* LONG_VERSION */
 
 #include "add-data.h"
 #include "prefs.h"
@@ -306,37 +299,6 @@ Session :: restart( )
     start( );
 }
 
-static void
-curlConfigFunc( tr_session * session UNUSED, void * vcurl, const char * destination )
-{
-    CURL * easy = vcurl;
-    const QUrl url( destination );
-    const QNetworkProxyQuery query( url );
-    QList<QNetworkProxy> proxyList = QNetworkProxyFactory :: systemProxyForQuery( query );
-
-    foreach( QNetworkProxy proxy, proxyList )
-    {
-        long type = -1;
-
-        switch( proxy.type( ) ) {
-            case QNetworkProxy::HttpProxy: type = CURLPROXY_HTTP; break;
-            case QNetworkProxy::Socks5Proxy: type = CURLPROXY_SOCKS5; break;
-            default: break;
-        }
-
-        if( type != -1 ) {
-            curl_easy_setopt( easy, CURLOPT_PROXY, proxy.hostName().toUtf8().data() );
-            curl_easy_setopt( easy, CURLOPT_PROXYPORT, long(proxy.port()) );
-            curl_easy_setopt( easy, CURLOPT_PROXYTYPE, type );
-            const QString user = proxy.user();
-            const QString pass = proxy.password();
-            if( !user.isEmpty() && !pass.isEmpty() )
-                curl_easy_setopt( easy, CURLOPT_PROXYUSERPWD, (user+":"+pass).toUtf8().data() );
-            return;
-        }
-    }
-}
-
 void
 Session :: start( )
 {
@@ -360,7 +322,6 @@ Session :: start( )
         tr_bencInitDict( &settings, 0 );
         tr_sessionLoadSettings( &settings, myConfigDir.toUtf8().constData(), "qt" );
         mySession = tr_sessionInit( "qt", myConfigDir.toUtf8().constData(), true, &settings );
-        tr_sessionSetWebConfigFunc( mySession, curlConfigFunc );
         tr_bencFree( &settings );
 
         tr_ctor * ctor = tr_ctorNew( mySession );
@@ -664,11 +625,11 @@ Session :: exec( const tr_benc * request )
 }
 
 void
-Session :: localSessionCallback( tr_session * session, struct evbuffer * json, void * self )
+Session :: localSessionCallback( tr_session * session, const char * json, size_t len, void * self )
 {
     Q_UNUSED( session );
 
-    ((Session*)self)->parseResponse( (const char*) evbuffer_pullup( json, -1 ), evbuffer_get_length( json ) );
+    ((Session*)self)->parseResponse( json, len );
 }
 
 #define REQUEST_DATA_PROPERTY_KEY "requestData"

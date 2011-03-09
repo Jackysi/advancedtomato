@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2008-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: util.h 11738 2011-01-21 16:32:27Z jordan $
+ * $Id: util.h 11253 2010-09-22 16:44:38Z charles $
  */
 
 #ifndef GTR_UTIL_H
@@ -55,8 +55,7 @@ enum
 {
     GTR_UNICODE_UP,
     GTR_UNICODE_DOWN,
-    GTR_UNICODE_INF,
-    GTR_UNICODE_BULLET
+    GTR_UNICODE_INF
 };
 const char * gtr_get_unicode_string( int );
 
@@ -131,22 +130,19 @@ int gtr_mkdir_with_parents( const char *name, int mode );
 guint gtr_timeout_add_seconds( guint seconds, GSourceFunc func, gpointer data );
 
 /* backwards-compatible wrapper around gdk_threads_add_idle() */
-guint gtr_idle_add( GSourceFunc  func, gpointer data );
+void gtr_idle_add( GSourceFunc  func, gpointer data );
+
+/* backwards-compatible wrapper around gtk_orientable_set_orientation() */
+void gtr_toolbar_set_orientation( GtkToolbar * tb, GtkOrientation orientation );
 
 /* backwards-compatible wrapper around gtk_widget_set_tooltip_text() */
 void gtr_widget_set_tooltip_text( GtkWidget * w, const char * tip );
-
-/* backwards-compatible wrapper around gtk_widget_get_window() */
-GdkWindow* gtr_widget_get_window( GtkWidget * w );
 
 /* backwards-compatible wrapper around gtk_widget_get_realized() */
 gboolean gtr_widget_get_realized( GtkWidget * w );
 
 /* backwards-compatible wrapper around gtk_widget_set_visible() */
 void gtr_widget_set_visible( GtkWidget *, gboolean );
-
-/* backwards-compatible wrapper around gtk_cell_renderer_get_padding() */
-void gtr_cell_renderer_get_padding( GtkCellRenderer *, gint * xpad, gint * ypad );
 
 /* backwards-compatible wrapper around g_object_ref_sink() */
 gpointer gtr_object_ref_sink( gpointer object );
@@ -156,8 +152,6 @@ int gtr_strcmp0( const char * str1, const char * str2 );
 
 /* backwards-compatible wrapper around g_dngettext() */
 const gchar* gtr_ngettext( const gchar*, const gchar*, gulong );
-
-void gtr_dialog_set_content( GtkDialog * dialog, GtkWidget * content );
 
 /***
 ****
@@ -179,9 +173,9 @@ void gtr_unrecognized_url_dialog( GtkWidget * parent, const char * url );
 
 void gtr_http_failure_dialog( GtkWidget * parent, const char * url, long response_code );
 
-void gtr_add_torrent_error_dialog( GtkWidget  * window_or_child,
-                                   int          err,
-                                   const char * filename );
+void addTorrentErrorDialog( GtkWidget  * window_or_child,
+                            int          err,
+                            const char * filename );
 
 /* pop up the context menu if a user right-clicks.
    if the row they right-click on isn't selected, select it. */
@@ -197,12 +191,5 @@ gboolean on_tree_view_button_released( GtkWidget      * view,
 
 /* move a file to the trashcan if GIO is available; otherwise, delete it */
 int gtr_file_trash_or_remove( const char * filename );
-
-void gtr_paste_clipboard_url_into_entry( GtkWidget * entry );
-
-/* Only call gtk_label_set_text() if the new text differs from the old.
- * This prevents the label from having to recalculate its size
- * and prevents selected text in the label from being deselected */
-void gtr_label_set_text( GtkLabel * lb, const char * text );
 
 #endif /* GTR_UTIL_H */

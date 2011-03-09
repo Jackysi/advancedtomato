@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2007-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: inout.c 11811 2011-02-02 06:06:09Z jordan $
+ * $Id: inout.c 11313 2010-10-14 19:43:18Z charles $
  */
 
 #ifdef HAVE_LSEEK64
@@ -60,11 +60,11 @@ enum { TR_IO_READ, TR_IO_PREFETCH,
 /* returns 0 on success, or an errno on failure */
 static int
 readOrWriteBytes( tr_session       * session,
-                  tr_torrent       * tor,
+                  const tr_torrent * tor,
                   int                ioMode,
                   tr_file_index_t    fileIndex,
                   uint64_t           fileOffset,
-                  void             * buf,
+                  void *             buf,
                   size_t             buflen )
 {
     const tr_info * info = &tor->info;
@@ -136,18 +136,6 @@ readOrWriteBytes( tr_session       * session,
         tr_free( subpath );
     }
 
-    /* check that the file corresponding to 'fd' still exists */
-    if( fd >= 0 )
-    {
-        struct stat sb;
-
-        if( !fstat( fd, &sb ) && sb.st_nlink < 1 )
-        {
-            tr_torrentSetLocalError( tor, "Please Verify Local Data! A file disappeared: \"%s\"", file->name );
-            err = ENOENT;
-        }
-    }
-
     if( !err )
     {
         if( ioMode == TR_IO_READ ) {
@@ -160,9 +148,8 @@ readOrWriteBytes( tr_session       * session,
         } else if( ioMode == TR_IO_PREFETCH ) {
             const int rc = tr_prefetch( fd, fileOffset, buflen );
             if( rc < 0 ) {
-                /* (don't set "err" here... it's okay for prefetch to fail) */
                 tr_tordbg( tor, "prefetch failed for \"%s\": %s",
-                           file->name, tr_strerror( errno ) );
+                           file->name, tr_strerror( err ) );
             }
         } else if( ioMode == TR_IO_WRITE ) {
             const int rc = tr_pwrite( fd, buf, buflen, fileOffset );
@@ -251,7 +238,7 @@ readOrWritePiece( tr_torrent       * tor,
         ++fileIndex;
         fileOffset = 0;
 
-        if( ( err != 0 ) && (ioMode == TR_IO_WRITE ) && ( tor->error != TR_STAT_LOCAL_ERROR ) )
+        if( ( err != 0 ) && (ioMode == TR_IO_WRITE ) )
         {
             char * path = tr_buildPath( tor->downloadDir, file->name, NULL );
             tr_torrentSetLocalError( tor, "%s (%s)", tr_strerror( err ), path );

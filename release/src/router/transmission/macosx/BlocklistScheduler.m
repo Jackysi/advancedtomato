@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: BlocklistScheduler.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: BlocklistScheduler.m 11399 2010-11-13 16:07:27Z livings124 $
  *
- * Copyright (c) 2008-2011 Transmission authors and contributors
+ * Copyright (c) 2008-2010 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),

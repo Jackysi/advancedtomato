@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2009-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: bitfield.c 12034 2011-02-24 15:50:09Z jordan $
+ * $Id: bitfield.c 11299 2010-10-11 15:41:27Z charles $
  */
 
 #include <assert.h>
@@ -49,6 +49,18 @@ void
 tr_bitfieldClear( tr_bitfield * bitfield )
 {
     memset( bitfield->bits, 0, bitfield->byteCount );
+}
+
+int
+tr_bitfieldIsEmpty( const tr_bitfield * bitfield )
+{
+    size_t i;
+
+    for( i = 0; i < bitfield->byteCount; ++i )
+        if( bitfield->bits[i] )
+            return 0;
+
+    return 1;
 }
 
 int

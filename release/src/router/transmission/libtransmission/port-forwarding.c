@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2008-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: port-forwarding.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: port-forwarding.c 10945 2010-07-05 21:04:17Z charles $
  */
 
 #include <assert.h>
@@ -16,7 +16,7 @@
 
 #include <sys/types.h>
 
-#include <event2/event.h>
+#include <event.h>
 
 #include "transmission.h"
 #include "natpmp.h"
@@ -111,12 +111,12 @@ set_evtimer_from_status( tr_shared * s )
             break;
 
         case TR_PORT_ERROR:
-            /* some kind of an error. wait 60 seconds and retry */
+            /* some kind of an error.  wait 60 seconds and retry */
             sec = 60;
             break;
 
         default:
-            /* in progress. pulse frequently. */
+            /* in progress.  pulse frequently. */
             msec = 333000;
             break;
     }
@@ -172,7 +172,8 @@ stop_timer( tr_shared * s )
 {
     if( s->timer != NULL )
     {
-        event_free( s->timer );
+        evtimer_del( s->timer );
+        tr_free( s->timer );
         s->timer = NULL;
     }
 }
@@ -208,7 +209,8 @@ tr_sharedClose( tr_session * session )
 static void
 start_timer( tr_shared * s )
 {
-    s->timer = evtimer_new( s->session->event_base, onTimer, s );
+    s->timer = tr_new0( struct event, 1 );
+    evtimer_set( s->timer, onTimer, s );
     set_evtimer_from_status( s );
 }
 

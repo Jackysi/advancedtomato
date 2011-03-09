@@ -1,5 +1,5 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2009-2010 Mnemosyne LLC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: watch.c 11823 2011-02-03 17:37:53Z jordan $
+ * $Id: watch.c 10783 2010-06-16 14:27:24Z charles $
  */
 #ifdef WITH_INOTIFY
   #include <sys/inotify.h>
@@ -16,7 +16,7 @@
 #else
   #include <sys/types.h> /* stat */
   #include <sys/stat.h> /* stat */
-  #include <event2/buffer.h> /* evbuffer */
+  #include <event.h> /* evbuffer */
 #endif
 
 #include <errno.h>
@@ -153,7 +153,7 @@ watchdir_update_impl( dtr_watchdir * w )
 
 #define WATCHDIR_POLL_INTERVAL_SECS 10
 
-#define FILE_DELIMITER '\t'
+#define FILE_DELIMITER '\0'
 
 static void
 watchdir_new_impl( dtr_watchdir * w UNUSED )
@@ -166,31 +166,22 @@ watchdir_free_impl( dtr_watchdir * w )
 {
     evbuffer_free( w->lastFiles );
 }
-
-static char*
-get_key_from_file( const char * filename, const size_t len )
-{
-    return tr_strdup_printf( "%c%*.*s%d", FILE_DELIMITER, (int)len, (int)len, filename, FILE_DELIMITER );
-}
-
 static void
 add_file_to_list( struct evbuffer * buf, const char * filename, size_t len )
 {
-    char * key = get_key_from_file( filename, len );
-    evbuffer_add( buf, key, strlen( key ) );
-    tr_free( key );
+    const char delimiter = FILE_DELIMITER;
+    evbuffer_add( buf, &delimiter, 1 );
+    evbuffer_add( buf, filename, len );
+    evbuffer_add( buf, &delimiter, 1 );
 }
 static tr_bool
 is_file_in_list( struct evbuffer * buf, const char * filename, size_t len )
 {
     tr_bool in_list;
-    struct evbuffer_ptr ptr;
-    char * key = get_key_from_file( filename, len );
-
-    ptr = evbuffer_search( buf, key, strlen( key ), NULL );
-    in_list = ptr.pos != -1;
-
-    tr_free( key );
+    struct evbuffer * test = evbuffer_new( );
+    add_file_to_list( test, filename, len );
+    in_list = evbuffer_find( buf, EVBUFFER_DATA( test ), EVBUFFER_LENGTH( test ) ) != NULL;
+    evbuffer_free( test );
     return in_list;
 }
 static void

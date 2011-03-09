@@ -1,18 +1,8 @@
-# 'foreign' means that we're not enforcing GNU package rules strictly.
-# '1.7' means that we need automake 1.7 or later (and we do).
-AUTOMAKE_OPTIONS = foreign 1.7
+AUTOMAKE_OPTIONS = foreign no-dependencies
 
-ACLOCAL_AMFLAGS = -I m4
-
-# This is the "Release" of the Libevent ABI.  It takes precedence over
-# the VERSION_INFO, so that two versions of Libevent with the same
-# "Release" are never binary-compatible.
-#
-# This number incremented once for the 2.0 release candidate, and
-# will increment for each series until we revise our interfaces enough
-# that we can seriously expect ABI compatibility between series.
-#
-RELEASE = -release 2.0
+# This is the point release for libevent.  It shouldn't include any
+# a/b/c/d/e notations.
+RELEASE = 1.4
 
 # This is the version info for the libevent binary API.  It has three
 # numbers:
@@ -22,202 +12,137 @@ RELEASE = -release 2.0
 #   Age      -- How many previous binary API versions do we also
 #               support?
 #
-# To increment a VERSION_INFO (current:revision:age):
-#    If the ABI didn't change:
-#        Return (current:revision+1:age)
-#    If the ABI changed, but it's backward-compatible:
-#        Return (current+1:0:age+1)
-#    If the ABI changed and it isn't backward-compatible:
-#        Return (current+1:0:0)
+# If we release a new version that does not change the binary API,
+# increment Revision.
 #
-# Once an RC is out, DO NOT MAKE ANY ABI-BREAKING CHANGES IN THAT SERIES
-# UNLESS YOU REALLY REALLY HAVE TO.
-VERSION_INFO = 5:1:0
-
-# History:          RELEASE    VERSION_INFO
-#  2.0.1-alpha --     2.0        1:0:0
-#  2.0.2-alpha --                2:0:0
-#  2.0.3-alpha --                2:0:0  (should have incremented; didn't.)
-#  2.0.4-alpha --                3:0:0
-#  2.0.5-beta  --                4:0:0
-#  2.0.6-rc    --     2.0        2:0:0
-#  2.0.7-rc    --     2.0        3:0:1
-#  2.0.8-rc    --     2.0        4:0:2
-#  2.0.9-rc    --     2.0        5:0:0 (ABI changed slightly)
-# Planned:
-#  2.0.10-stable--    2.0        5:1:0 (No ABI change)
+# If we release a new version that changes the binary API, but does
+# not break programs compiled against the old binary API, increment
+# Current and Age.  Set Revision to 0, since this is the first
+# implementation of the new API.
 #
-# For Libevent 2.1:
-#  2.1.1-alpha --     2.1        1:0:0
+# Otherwise, we're changing the binary API and breaking bakward
+# compatibility with old binaries.  Increment Current.  Set Age to 0,
+# since we're backward compatible with no previous APIs.  Set Revision
+# to 0 too.
+VERSION_INFO = 4:0:2
 
-
-# ABI version history for this package effectively restarts every time
-# we change RELEASE.  Version 1.4.x had RELEASE of 1.4.
+###
+# History:
+#   We started using Libtool around version 1.0d.  For all versions from
+#   1.0d through 1.3e, we set RELEASE to the version name, and
+#   VERSION_INFO to something haphazard.  The didn't matter, since
+#   setting RELEASE meant that no version of Libevent was treated as
+#   binary-compatible with any other version.
 #
-# Ideally, we would not be using RELEASE at all; instead we could just
-# use the VERSION_INFO field to label our backward-incompatible ABI
-# changes, and those would be few and far between.  Unfortunately,
-# Libevent still exposes far too many volatile structures in its
-# headers, so we pretty much have to assume that most development
-# series will break ABI compatibility.  For now, it's simplest just to
-# keep incrementing the RELEASE between series and resetting VERSION_INFO.
+#   As of 1.4.0-beta, we set RELEASE to "1.4", so that releases in the
+#   1.4.x series could be potentially binary-compatible with one another,
+#   but not with any other series.  (They aren't.)  We didn't necessarily
+#   set VERSION_INFO correctly, or update it as often as we should have.
+#   The VERSION_INFO values were:
+#    1.4.0-beta .. 1.4.4-stable     : 2:0:0   [See note 1]
+#    1.4.5-stable                   : 3:0:1   (compatible ABI change)
+#    1.4.6-stable                   : 3:1:1   (no ABI change)
+#    1.4.7-stable                   : 3:1:1   [see note 1]
+#    1.4.8-stable                   : 3:2:1   (no ABI change)
+#    1.4.9-stable                   : 3:2:1   [see note 1]
+#    1.4.10-stable                  : 3:3:1   (no ABI change)
+#    1.4.11-stable .. 1.4.13-stable : 3:3:1   [see note 1]
+#    1.4.14a-stable:                : 3:3:2   [see note 2]
+#    1.4.14b-stable:                : 4:0:2   (compatible ABI change)
 #
-# Eventually, when we get to the point where the structures in the
-# headers are all non-changing (or not there at all!), we can shift to
-# a more normal worldview where backward-incompatible ABI changes are
-# nice and rare.  For the next couple of years, though, 'struct event'
-# is user-visible, and so we can pretty much guarantee that release
-# series won't be binary-compatible.
+# [1]: Using the same VERSION_INFO value was wrong; we should have been
+#      updating the Revision field.
+# [2]: We set the VERSION_INFO completely wrong on 1.4.14b-stable
 
-dist_bin_SCRIPTS = event_rpcgen.py
+bin_SCRIPTS = event_rpcgen.py
 
-pkgconfigdir=$(libdir)/pkgconfig
-pkgconfig_DATA=libevent.pc
-
-# These sources are conditionally added by configure.in or conditionally
-# included from other files.
-PLATFORM_DEPENDENT_SRC = \
-	epoll_sub.c \
-	arc4random.c
-
-EXTRA_DIST = \
-	LICENSE \
-	autogen.sh \
-	libevent.pc.in \
+EXTRA_DIST = autogen.sh event.h event-internal.h log.h evsignal.h evdns.3 \
+	evrpc.h evrpc-internal.h min_heap.h \
+	event.3 \
 	Doxyfile \
-	whatsnew-2.0.txt \
-	Makefile.nmake test/Makefile.nmake \
-	$(PLATFORM_DEPENDENT_SRC)
+	kqueue.c epoll_sub.c epoll.c select.c poll.c signal.c \
+	evport.c devpoll.c event_rpcgen.py \
+	sample/Makefile.am sample/Makefile.in sample/event-test.c \
+	sample/signal-test.c sample/time-test.c \
+	test/Makefile.am test/Makefile.in test/bench.c test/regress.c \
+	test/test-eof.c test/test-weof.c test/test-time.c \
+	test/test-init.c test/test.sh \
+	compat/sys/queue.h compat/sys/_libevent_time.h \
+	WIN32-Code/config.h \
+	WIN32-Code/event-config.h \
+	WIN32-Code/win32.c \
+	WIN32-Code/tree.h \
+	WIN32-Prj/event_test/event_test.dsp \
+	WIN32-Prj/event_test/test.txt WIN32-Prj/libevent.dsp \
+	WIN32-Prj/libevent.dsw WIN32-Prj/signal_test/signal_test.dsp \
+	WIN32-Prj/time_test/time_test.dsp WIN32-Prj/regress/regress.vcproj \
+	WIN32-Prj/libevent.sln WIN32-Prj/libevent.vcproj \
+	Makefile.nmake test/Makefile.nmake
 
 lib_LTLIBRARIES = libevent.la libevent_core.la libevent_extra.la
-if PTHREADS
-lib_LTLIBRARIES += libevent_pthreads.la
-pkgconfig_DATA += libevent_pthreads.pc
-endif
-if OPENSSL
-lib_LTLIBRARIES += libevent_openssl.la
-pkgconfig_DATA += libevent_openssl.pc
-endif
-
-SUBDIRS = . include sample test
 
 if BUILD_WIN32
 
+SUBDIRS = . sample
 SYS_LIBS = -lws2_32
-SYS_SRC = win32select.c evthread_win32.c buffer_iocp.c event_iocp.c \
-	bufferevent_async.c
+SYS_SRC = WIN32-Code/win32.c
 SYS_INCLUDES = -IWIN32-Code
 
 else
 
+SUBDIRS = . sample test
 SYS_LIBS =
 SYS_SRC =
 SYS_INCLUDES =
 
 endif
 
-if SELECT_BACKEND
-SYS_SRC += select.c
-endif
-if POLL_BACKEND
-SYS_SRC += poll.c
-endif
-if DEVPOLL_BACKEND
-SYS_SRC += devpoll.c
-endif
-if KQUEUE_BACKEND
-SYS_SRC += kqueue.c
-endif
-if EPOLL_BACKEND
-SYS_SRC += epoll.c
-endif
-if EVPORT_BACKEND
-SYS_SRC += evport.c
-endif
-if SIGNAL_SUPPORT
-SYS_SRC += signal.c
-endif
+BUILT_SOURCES = event-config.h
 
-BUILT_SOURCES = ./include/event2/event-config.h
-
-./include/event2/event-config.h: config.h
-	@MKDIR_P@ ./include/event2
-	echo '/* event2/event-config.h' > $@
-	echo ' *' >> $@
-	echo ' * This file was generated by autoconf when libevent was built, and post-' >> $@
-	echo ' * processed by Libevent so that its macros would have a uniform prefix.' >> $@
-	echo ' *' >> $@
-	echo ' * DO NOT EDIT THIS FILE.' >> $@
-	echo ' *' >> $@
+event-config.h: config.h
+	echo '/* event-config.h' > $@
+	echo ' * Generated by autoconf; post-processed by libevent.' >> $@
+	echo ' * Do not edit this file.' >> $@
 	echo ' * Do not rely on macros in this file existing in later versions.'>> $@
 	echo ' */' >> $@
-	echo '#ifndef _EVENT2_EVENT_CONFIG_H_' >> $@
-	echo '#define _EVENT2_EVENT_CONFIG_H_' >> $@
+	echo '#ifndef _EVENT_CONFIG_H_' >> $@
+	echo '#define _EVENT_CONFIG_H_' >> $@
 
 	sed -e 's/#define /#define _EVENT_/' \
 	    -e 's/#undef /#undef _EVENT_/' \
 	    -e 's/#ifndef /#ifndef _EVENT_/' < config.h >> $@
 	echo "#endif" >> $@
 
-CORE_SRC = event.c evthread.c buffer.c \
-	bufferevent.c bufferevent_sock.c bufferevent_filter.c \
-	bufferevent_pair.c listener.c bufferevent_ratelim.c \
-	evmap.c	log.c evutil.c evutil_rand.c strlcpy.c $(SYS_SRC)
-EXTRA_SRC = event_tagging.c http.c evdns.c evrpc.c
-
-if BUILD_WIN32
-NO_UNDEFINED = -no-undefined
-MAYBE_CORE = libevent_core.la
-else
-NO_UNDEFINED =
-MAYBE_CORE =
-endif
-
-GENERIC_LDFLAGS = -version-info $(VERSION_INFO) $(RELEASE) $(NO_UNDEFINED)
+CORE_SRC = event.c buffer.c evbuffer.c log.c evutil.c $(SYS_SRC)
+EXTRA_SRC = event_tagging.c http.c evhttp.h http-internal.h evdns.c \
+	evdns.h evrpc.c evrpc.h evrpc-internal.h \
+	strlcpy.c strlcpy-internal.h strlcpy-internal.h
 
 libevent_la_SOURCES = $(CORE_SRC) $(EXTRA_SRC)
 libevent_la_LIBADD = @LTLIBOBJS@ $(SYS_LIBS)
-libevent_la_LDFLAGS = $(GENERIC_LDFLAGS)
+libevent_la_LDFLAGS = -release $(RELEASE) -version-info $(VERSION_INFO)
 
 libevent_core_la_SOURCES = $(CORE_SRC)
 libevent_core_la_LIBADD = @LTLIBOBJS@ $(SYS_LIBS)
-libevent_core_la_LDFLAGS = $(GENERIC_LDFLAGS)
-
-if PTHREADS
-libevent_pthreads_la_SOURCES = evthread_pthread.c
-libevent_pthreads_la_LDFLAGS = $(GENERIC_LDFLAGS)
-endif
+libevent_core_la_LDFLAGS = -release $(RELEASE) -version-info $(VERSION_INFO)
 
 libevent_extra_la_SOURCES = $(EXTRA_SRC)
-libevent_extra_la_LIBADD = $(MAYBE_CORE) $(SYS_LIBS)
-libevent_extra_la_LDFLAGS = $(GENERIC_LDFLAGS)
-
-if OPENSSL
-libevent_openssl_la_SOURCES = bufferevent_openssl.c
-libevent_openssl_la_LIBADD = $(MAYBE_CORE) -lcrypto -lssl
-libevent_openssl_la_LDFLAGS = $(GENERIC_LDFLAGS)
-endif
-
-noinst_HEADERS = util-internal.h mm-internal.h ipv6-internal.h \
-	evrpc-internal.h strlcpy-internal.h evbuffer-internal.h \
-	bufferevent-internal.h http-internal.h event-internal.h \
-	evthread-internal.h ht-internal.h defer-internal.h \
-	minheap-internal.h log-internal.h evsignal-internal.h evmap-internal.h \
-	changelist-internal.h iocp-internal.h \
-	ratelim-internal.h \
-	WIN32-Code/event2/event-config.h \
-	WIN32-Code/tree.h \
-	compat/sys/queue.h
+libevent_extra_la_LIBADD = @LTLIBOBJS@ $(SYS_LIBS)
+libevent_extra_la_LDFLAGS = -release $(RELEASE) -version-info $(VERSION_INFO)
 
 include_HEADERS = event.h evhttp.h evdns.h evrpc.h evutil.h
 
-INCLUDES = -I$(srcdir)/compat -I$(srcdir)/include -I./include $(SYS_INCLUDES)
+nodist_include_HEADERS = event-config.h
 
-verify: check
+INCLUDES = -I$(srcdir)/compat $(SYS_INCLUDES)
+
+man_MANS = event.3 evdns.3
+
+verify: libevent.la
+	cd test && make verify
 
 doxygen: FORCE
 	doxygen $(srcdir)/Doxyfile
 FORCE:
 
-DISTCLEANFILES = *~ libevent.pc ./include/event2/event-config.h
-
+DISTCLEANFILES = *~ event-config.h

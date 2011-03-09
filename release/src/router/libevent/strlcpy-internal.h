@@ -5,9 +5,11 @@
 extern "C" {
 #endif
 
-#include "event2/event-config.h"
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif /* HAVE_CONFIG_H */
 
-#ifndef _EVENT_HAVE_STRLCPY
+#ifndef HAVE_STRLCPY
 #include <string.h>
 size_t _event_strlcpy(char *dst, const char *src, size_t siz);
 #define strlcpy _event_strlcpy

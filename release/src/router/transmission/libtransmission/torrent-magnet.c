@@ -1,19 +1,18 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2009-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: torrent-magnet.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: torrent-magnet.c 11301 2010-10-11 21:44:46Z charles $
  */
 
 #include <assert.h>
+#include <event.h> /* struct evbuffer */
 #include <stdio.h> /* remove() */
-
-#include <event2/buffer.h>
 
 #include "transmission.h"
 #include "bencode.h"
@@ -358,7 +357,7 @@ tr_torrentGetMetadataPercent( const tr_torrent * tor )
         ret = 1.0;
     else {
         const struct tr_incomplete_metadata * m = tor->incompleteMetadata;
-        if( !m || !m->pieceCount )
+        if( m == NULL )
             ret = 0.0;
         else
             ret = (m->pieceCount - m->piecesNeededCount) / (double)m->pieceCount;
@@ -371,6 +370,7 @@ char*
 tr_torrentGetMagnetLink( const tr_torrent * tor )
 {
     int i;
+    char * ret;
     const char * name;
     struct evbuffer * s;
 
@@ -390,5 +390,7 @@ tr_torrentGetMagnetLink( const tr_torrent * tor )
         tr_http_escape( s, tor->info.trackers[i].announce, -1, TRUE );
     }
 
-    return evbuffer_free_to_str( s );
+    ret = tr_strndup( EVBUFFER_DATA( s ), EVBUFFER_LENGTH( s ) );
+    evbuffer_free( s );
+    return ret;
 }

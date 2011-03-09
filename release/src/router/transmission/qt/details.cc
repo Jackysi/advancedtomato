@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: details.cc 11672 2011-01-13 19:12:18Z jordan $
+ * $Id: details.cc 11492 2010-12-08 16:23:21Z charles $
  */
 
 #include <cassert>
@@ -423,7 +423,7 @@ Details :: refresh( )
             }
             else
             {
-                string = tr( "%1 of %2 (%3%), %4 Unverified" )
+                string = tr( "%1 of %2% (%3%), %4 Unverified" )
                              .arg( Formatter::sizeToString( haveVerified + haveUnverified ) )
                              .arg( Formatter::sizeToString( sizeWhenDone ) )
                              .arg( pct )

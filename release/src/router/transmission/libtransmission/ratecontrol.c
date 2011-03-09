@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: ratecontrol.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: ratecontrol.c 10998 2010-07-11 20:49:19Z charles $
  *
- * Copyright (c) Transmission authors and contributors
+ * Copyright (c) 2006-2008 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -73,7 +73,8 @@ tr_rcRate_Bps( const tr_ratecontrol * r, uint64_t now )
 ***/
 
 void
-tr_rcTransferred( tr_ratecontrol * r, size_t size )
+tr_rcTransferred( tr_ratecontrol * r,
+                  size_t           size )
 {
     const uint64_t now = tr_time_msec ( );
 

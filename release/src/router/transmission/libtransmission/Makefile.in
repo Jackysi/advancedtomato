@@ -80,8 +80,8 @@ am_libtransmission_a_OBJECTS = announcer.$(OBJEXT) bandwidth.$(OBJEXT) \
 	rpc-server.$(OBJEXT) session.$(OBJEXT) stats.$(OBJEXT) \
 	torrent.$(OBJEXT) torrent-ctor.$(OBJEXT) \
 	torrent-magnet.$(OBJEXT) tr-dht.$(OBJEXT) tr-lpd.$(OBJEXT) \
-	tr-udp.$(OBJEXT) tr-getopt.$(OBJEXT) trevent.$(OBJEXT) \
-	upnp.$(OBJEXT) utils.$(OBJEXT) verify.$(OBJEXT) web.$(OBJEXT) \
+	tr-getopt.$(OBJEXT) trevent.$(OBJEXT) upnp.$(OBJEXT) \
+	utils.$(OBJEXT) verify.$(OBJEXT) web.$(OBJEXT) \
 	webseed.$(OBJEXT) wildmat.$(OBJEXT)
 libtransmission_a_OBJECTS = $(am_libtransmission_a_OBJECTS)
 am__EXEEXT_1 = blocklist-test$(EXEEXT) bencode-test$(EXEEXT) \
@@ -439,7 +439,6 @@ libtransmission_a_SOURCES = \
     torrent-magnet.c \
     tr-dht.c \
     tr-lpd.c \
-    tr-udp.c \
     tr-getopt.c \
     trevent.c \
     upnp.c \
@@ -491,7 +490,6 @@ noinst_HEADERS = \
     tr-getopt.h \
     transmission.h \
     tr-dht.h \
-    tr-udp.h \
     tr-lpd.h \
     trevent.h \
     upnp.h \
@@ -682,7 +680,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-dht.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-getopt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-lpd.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-udp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trevent.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/upnp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utils-test.Po@am__quote@

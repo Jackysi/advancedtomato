@@ -1,5 +1,5 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2010 Mnemosyne LLC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -7,10 +7,9 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: create.c 12023 2011-02-24 14:59:13Z jordan $
+ * $Id: create.c 11266 2010-09-27 15:07:57Z charles $
  */
 
-#include <errno.h>
 #include <stdio.h>
 #include <unistd.h> /* getcwd() */
 
@@ -78,16 +77,13 @@ parseCommandLine( int argc, const char ** argv )
 static char*
 tr_getcwd( void )
 {
-    char * result;
     char buf[2048];
     *buf = '\0';
 #ifdef WIN32
-    result = _getcwd( buf, sizeof( buf ) );
+    _getcwd( buf, sizeof( buf ) );
 #else
-    result = getcwd( buf, sizeof( buf ) );
+    getcwd( buf, sizeof( buf ) );
 #endif
-    if( result == NULL )
-        fprintf( stderr, "getcwd error: \"%s\"", tr_strerror( errno ) );
     return tr_strdup( buf );
 }
 

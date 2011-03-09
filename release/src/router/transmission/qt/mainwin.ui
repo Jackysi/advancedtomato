@@ -126,7 +126,7 @@
     <property name="title">
      <string>&amp;File</string>
     </property>
-    <addaction name="action_OpenFile"/>
+    <addaction name="action_AddFile"/>
     <addaction name="action_AddURL"/>
     <addaction name="action_New"/>
     <addaction name="separator"/>
@@ -169,25 +169,25 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
-   <addaction name="action_OpenFile"/>
+   <addaction name="action_AddFile"/>
    <addaction name="action_Start"/>
    <addaction name="action_Pause"/>
    <addaction name="action_Remove"/>
    <addaction name="separator"/>
    <addaction name="action_Properties"/>
   </widget>
-  <action name="action_OpenFile">
+  <action name="action_AddFile">
    <property name="text">
-    <string>&amp;Open...</string>
+    <string>&amp;Add File...</string>
    </property>
    <property name="iconText">
-    <string>Open</string>
+    <string>Add</string>
    </property>
    <property name="toolTip">
-    <string>Open a torrent</string>
+    <string>Add a torrent</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+O</string>
+    <string>Ctrl+D</string>
    </property>
   </action>
   <action name="action_New">
@@ -214,13 +214,13 @@
   </action>
   <action name="action_OpenFolder">
    <property name="text">
-    <string>Open Fold&amp;er</string>
+    <string>&amp;Open Folder</string>
    </property>
    <property name="toolTip">
     <string>Open the torrent's folder</string>
    </property>
    <property name="shortcut">
-    <string>Ctrl+E</string>
+    <string>Ctrl+O</string>
    </property>
   </action>
   <action name="action_Start">
@@ -265,9 +265,6 @@
    </property>
    <property name="toolTip">
     <string>Verify local data</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+V</string>
    </property>
   </action>
   <action name="action_Remove">
@@ -576,10 +573,7 @@
   </action>
   <action name="action_AddURL">
    <property name="text">
-    <string>Open &amp;URL...</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+U</string>
+    <string>Add &amp;URL...</string>
    </property>
   </action>
   <action name="action_Donate">

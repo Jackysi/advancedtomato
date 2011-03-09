@@ -1,16 +1,14 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: cache.c 11782 2011-01-29 18:56:53Z jordan $
+ * $Id: cache.c 11398 2010-11-11 15:31:11Z charles $
  */
-
-#include <event2/buffer.h>
 
 #include "transmission.h"
 #include "cache.h"
@@ -44,7 +42,7 @@ struct cache_block
     time_t time;
     tr_block_index_t block;
 
-    struct evbuffer * evbuf;
+    uint8_t * buf;
 };
 
 struct tr_cache
@@ -172,9 +170,9 @@ flushContiguous( tr_cache * cache, int pos, int n )
 
     for( i=pos; i<pos+n; ++i ) {
         b = blocks[i];
-        evbuffer_copyout( b->evbuf, walk, b->length );
+        memcpy( walk, b->buf, b->length );
         walk += b->length;
-        evbuffer_free( b->evbuf );
+        tr_free( b->buf );
         tr_free( b );
     }
     tr_ptrArrayErase( &cache->blocks, pos, pos+n );
@@ -321,7 +319,7 @@ tr_cacheWriteBlock( tr_cache         * cache,
                     tr_piece_index_t   piece,
                     uint32_t           offset,
                     uint32_t           length,
-                    struct evbuffer  * writeme )
+                    const uint8_t    * writeme )
 {
     struct cache_block * cb = findBlock( cache, torrent, piece, offset );
 
@@ -333,15 +331,14 @@ tr_cacheWriteBlock( tr_cache         * cache,
         cb->offset = offset;
         cb->length = length;
         cb->block = _tr_block( torrent, piece, offset );
-        cb->evbuf = evbuffer_new( );
+        cb->buf = NULL;
         tr_ptrArrayInsertSorted( &cache->blocks, cb, cache_block_compare );
     }
 
     cb->time = tr_time();
 
-    assert( cb->length == length );
-    evbuffer_drain( cb->evbuf, evbuffer_get_length( cb->evbuf ) );
-    evbuffer_remove_buffer( writeme, cb->evbuf, cb->length );
+    tr_free( cb->buf );
+    cb->buf = tr_memdup( writeme, cb->length );
 
     ++cache->cache_writes;
     cache->cache_write_bytes += cb->length;
@@ -361,7 +358,7 @@ tr_cacheReadBlock( tr_cache         * cache,
     struct cache_block * cb = findBlock( cache, torrent, piece, offset );
 
     if( cb )
-        evbuffer_copyout( cb->evbuf, setme, len );
+        memcpy( setme, cb->buf, len );
     else
         err = tr_ioRead( torrent, piece, offset, len, setme );
 

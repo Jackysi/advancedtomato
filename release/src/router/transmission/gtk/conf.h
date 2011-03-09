@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: conf.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: conf.h 8929 2009-08-14 12:53:08Z charles $
  *
- * Copyright (c) Transmission authors and contributors
+ * Copyright (c) 2005-2008 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,34 +22,53 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef GTR_CONFIG_H
-#define GTR_CONFIG_H
+#ifndef TG_CONF_H
+#define TG_CONF_H
 
 #include <inttypes.h>
 #include <libtransmission/transmission.h>
 #include "util.h" /* gtr_lockfile */
 
-int64_t          gtr_pref_int_get           ( const char * key );
-void             gtr_pref_int_set           ( const char * key, int64_t value );
+int64_t          pref_int_get           ( const char * key );
+void             pref_int_set           ( const char * key, int64_t value );
 
-double           gtr_pref_double_get        ( const char * key );
-void             gtr_pref_double_set        ( const char * key, double value );
+double           pref_double_get        ( const char * key );
+void             pref_double_set        ( const char * key, double value );
 
-gboolean         gtr_pref_flag_get          ( const char * key );
-void             gtr_pref_flag_set          ( const char * key, gboolean value );
+gboolean         pref_flag_get          ( const char * key );
+void             pref_flag_set          ( const char * key, gboolean value );
 
-const char*      gtr_pref_string_get        ( const char * key );
-void             gtr_pref_string_set        ( const char * key, const char * value );
+const char*      pref_string_get        ( const char * key );
+void             pref_string_set        ( const char * key, const char * value );
 
-void             gtr_pref_save              ( tr_session * );
-struct tr_benc*  gtr_pref_get_all           ( void );
+void             pref_save              ( tr_session * );
+struct tr_benc*  pref_get_all           ( void );
 
 /**
 ***
 **/
 
-gboolean cf_init( const char *confdir, char ** errstr );
+enum
+{
+    PREF_FLAG_DEFAULT = 0,
+    PREF_FLAG_FALSE = 1,
+    PREF_FLAG_TRUE = 2
+};
 
-gboolean cf_lock( gtr_lockfile_state_t * tr_state, char ** errstr );
+typedef int pref_flag_t;
 
-#endif /* GTR_CONFIG_H */
+gboolean pref_flag_eval( pref_flag_t  val,
+                         const char * key );
+
+
+/**
+***
+**/
+
+gboolean cf_init( const char *confdir,
+                  char **     errstr );
+
+gboolean cf_lock( gtr_lockfile_state_t  * tr_state,
+                  char                 ** errstr );
+
+#endif /* TG_CONF_H */

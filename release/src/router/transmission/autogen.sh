@@ -24,8 +24,7 @@ export LIBTOOLIZE
 
 ./update-version-h.sh
 
-autoreconf -fi || exit 1;
-
+autoreconf -fi
 
 if test "$GETTEXTIZE"; then
   echo "Creating aclocal.m4 ..."

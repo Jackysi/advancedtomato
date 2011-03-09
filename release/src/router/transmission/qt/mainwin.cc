@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: mainwin.cc 11744 2011-01-21 21:51:50Z jordan $
+ * $Id: mainwin.cc 11263 2010-09-24 15:22:53Z charles $
  */
 
 #include <cassert>
@@ -20,7 +20,6 @@
 #include <libtransmission/version.h>
 
 #include "about.h"
-#include "add-data.h"
 #include "app.h"
 #include "details.h"
 #include "filterbar.h"
@@ -105,7 +104,7 @@ TrMainWindow :: TrMainWindow( Session& session, Prefs& prefs, TorrentModel& mode
     const QSize smallIconSize( i, i );
 
     // icons
-    ui.action_OpenFile->setIcon( getStockIcon( "folder-open", QStyle::SP_DialogOpenButton ) );
+    ui.action_AddFile->setIcon( getStockIcon( "list-add", QStyle::SP_DialogOpenButton ) );
     ui.action_New->setIcon( getStockIcon( "document-new", QStyle::SP_DesktopIcon ) );
     ui.action_Properties->setIcon( getStockIcon( "document-properties", QStyle::SP_DesktopIcon ) );
     ui.action_OpenFolder->setIcon( getStockIcon( "folder-open", QStyle::SP_DirOpenIcon ) );
@@ -145,7 +144,7 @@ TrMainWindow :: TrMainWindow( Session& session, Prefs& prefs, TorrentModel& mode
     connect( ui.action_Announce, SIGNAL(triggered()), this, SLOT(reannounceSelected()) );
     connect( ui.action_StartAll, SIGNAL(triggered()), this, SLOT(startAll()));
     connect( ui.action_PauseAll, SIGNAL(triggered()), this, SLOT(pauseAll()));
-    connect( ui.action_OpenFile, SIGNAL(triggered()), this, SLOT(openTorrent()));
+    connect( ui.action_AddFile, SIGNAL(triggered()), this, SLOT(openTorrent()));
     connect( ui.action_AddURL, SIGNAL(triggered()), this, SLOT(openURL()));
     connect( ui.action_New, SIGNAL(triggered()), this, SLOT(newTorrent()));
     connect( ui.action_Preferences, SIGNAL(triggered()), this, SLOT(openPreferences()));
@@ -215,7 +214,7 @@ TrMainWindow :: TrMainWindow( Session& session, Prefs& prefs, TorrentModel& mode
     actionGroup->addAction( ui.action_SortByState );
 
     QMenu * menu = new QMenu( );
-    menu->addAction( ui.action_OpenFile );
+    menu->addAction( ui.action_AddFile );
     menu->addAction( ui.action_AddURL );
     menu->addSeparator( );
     menu->addAction( ui.action_ShowMainWindow );
@@ -1028,7 +1027,7 @@ TrMainWindow :: openTorrent( )
 {
     QFileDialog * myFileDialog;
     myFileDialog = new QFileDialog( this,
-                                    tr( "Open Torrent" ),
+                                    tr( "Add Torrent" ),
                                     myPrefs.getString( Prefs::OPEN_DIALOG_FOLDER ),
                                     tr( "Torrent Files (*.torrent);;All Files (*.*)" ) );
     myFileDialog->setFileMode( QFileDialog::ExistingFiles );
@@ -1048,15 +1047,8 @@ TrMainWindow :: openTorrent( )
 void
 TrMainWindow :: openURL( )
 {
-    QString str = QApplication::clipboard()->text( QClipboard::Selection );
-
-    if( !AddData::isSupported( str ) )
-        str = QApplication::clipboard()->text( QClipboard::Clipboard );
-
-    if( !AddData::isSupported( str ) )
-        str.clear();
-
-    openURL( str );
+    QString tmp;
+    openURL( tmp );
 }
 
 void
@@ -1064,8 +1056,8 @@ TrMainWindow :: openURL( QString url )
 {
     bool ok;
     const QString key = QInputDialog::getText( this,
-                                               tr( "Open URL or Magnet Link" ),
-                                               tr( "Open URL or Magnet Link" ),
+                                               tr( "Add URL or Magnet Link" ),
+                                               tr( "Add URL or Magnet Link" ),
                                                QLineEdit::Normal,
                                                url,
                                                &ok );

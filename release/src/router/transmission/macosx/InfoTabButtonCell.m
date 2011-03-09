@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: InfoTabButtonCell.m 11796 2011-01-30 21:34:46Z livings124 $
+ * $Id: InfoTabButtonCell.m 10376 2010-03-14 15:03:14Z livings124 $
  *
- * Copyright (c) 2007-2011 Transmission authors and contributors
+ * Copyright (c) 2007-2010 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -33,7 +33,7 @@
     NSNotificationCenter * nc = [NSNotificationCenter defaultCenter];
     [nc addObserver: self selector: @selector(updateControlTint:)
         name: NSControlTintDidChangeNotification object: NSApp];
-        
+    
     fSelected = NO;
     
     //expects the icon to currently be set as the image
@@ -53,52 +53,25 @@
 {
     fSelected = selected;
     
-    NSInteger row, col;
-    [(NSMatrix *)[self controlView] getRow: &row column: &col ofCell: self];
-    NSRect tabRect = [(NSMatrix *)[self controlView] cellFrameAtRow: row column: col];
-    tabRect.origin.x = 0.0;
-    tabRect.origin.y = 0.0;
-    
-    NSImage * tabImage = [[NSImage alloc] initWithSize: tabRect.size];
-        
-    [tabImage lockFocus];
-    
-    NSGradient * gradient;
+    NSImage * tabImage;
     if (fSelected)
-    {
-        NSColor * lightColor = [NSColor colorForControlTint: [NSColor currentControlTint]];
-        NSColor * darkColor = [lightColor blendedColorWithFraction: 0.2 ofColor: [NSColor blackColor]];
-        gradient = [[NSGradient alloc] initWithStartingColor: lightColor endingColor: darkColor];
-    }
+        tabImage = [NSColor currentControlTint] == NSGraphiteControlTint
+                    ? [[NSImage imageNamed: @"InfoTabBackGraphite.png"] copy] : [[NSImage imageNamed: @"InfoTabBackBlue.png"] copy];
     else
-    {
-        NSColor * lightColor = [NSColor colorWithCalibratedRed: 245.0/255.0 green: 245.0/255.0 blue: 245.0/255.0 alpha: 1.0];
-        NSColor * darkColor = [NSColor colorWithCalibratedRed: 215.0/255.0 green: 215.0/255.0 blue: 215.0/255.0 alpha: 1.0];
-        gradient = [[NSGradient alloc] initWithStartingColor: lightColor endingColor: darkColor];
-    }
-    
-    [[NSColor grayColor] set];
-    NSRectFill(NSMakeRect(0.0, 0.0, NSWidth(tabRect), 1.0));
-    NSRectFill(NSMakeRect(0.0, NSHeight(tabRect) - 1.0, NSWidth(tabRect), 1.0));
-    NSRectFill(NSMakeRect(NSWidth(tabRect) - 1.0, 1.0, NSWidth(tabRect) - 1.0, NSHeight(tabRect) - 2.0));
-    
-    tabRect = NSMakeRect(0.0, 1.0, NSWidth(tabRect) - 1.0, NSHeight(tabRect) - 2.0);
-    
-    [gradient drawInRect: tabRect angle: 270.0];
-    [gradient release];
+        tabImage = [[NSImage imageNamed: @"InfoTabBack.png"] copy];
     
     if (fIcon)
     {
-        const NSSize iconSize = [fIcon size];
+        const NSSize iconSize = [fIcon size], tabSize = [tabImage size];
         
-        const NSRect iconRect = NSMakeRect(NSMinX(tabRect) + floor((NSWidth(tabRect) - iconSize.width) * 0.5),
-                                            NSMinY(tabRect) + floor((NSHeight(tabRect) - iconSize.height) * 0.5),
+        const NSRect iconRect = NSMakeRect(floor((tabSize.width - iconSize.width) * 0.5),
+                                            floor((tabSize.height - iconSize.height) * 0.5),
                                             iconSize.width, iconSize.height);
         
+        [tabImage lockFocus];
         [fIcon drawInRect: iconRect fromRect: NSZeroRect operation: NSCompositeSourceOver fraction: 1.0];
+        [tabImage unlockFocus];
     }
-    
-    [tabImage unlockFocus];
     
     [self setImage: tabImage];
     [tabImage release];

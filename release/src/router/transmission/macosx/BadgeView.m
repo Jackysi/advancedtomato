@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: BadgeView.m 12070 2011-03-03 03:53:30Z livings124 $
+ * $Id: BadgeView.m 9844 2010-01-01 21:12:04Z livings124 $
  *
- * Copyright (c) 2007-2011 Transmission authors and contributors
+ * Copyright (c) 2007-2010 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -35,9 +35,9 @@
 
 @implementation BadgeView
 
-- (id) initWithLib: (tr_session *) lib
+- (id) initWithFrame: (NSRect) frame lib: (tr_session *) lib
 {
-    if ((self = [super init]))
+    if ((self = [super initWithFrame: frame]))
     {
         fLib = lib;
         

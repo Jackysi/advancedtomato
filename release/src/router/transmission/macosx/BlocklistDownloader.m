@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: BlocklistDownloader.m 11767 2011-01-25 01:53:33Z livings124 $
+ * $Id: BlocklistDownloader.m 11399 2010-11-13 16:07:27Z livings124 $
  *
- * Copyright (c) 2008-2011 Transmission authors and contributors
+ * Copyright (c) 2008-2010 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -27,10 +27,11 @@
 #import "BlocklistScheduler.h"
 #import "PrefsController.h"
 
+#define FILE_NAME @"blocklist.temp"
+
 @interface BlocklistDownloader (Private)
 
 - (void) startDownload;
-- (void) decompressBlocklist;
 - (void) finishDownloadSuccess;
 
 @end
@@ -93,15 +94,8 @@ BlocklistDownloader * fDownloader = nil;
     [self release];
 }
 
-//using the actual filename is the best bet
-- (void) download: (NSURLDownload *) download decideDestinationWithSuggestedFilename: (NSString *) filename
-{
-    [fDownload setDestination: [NSTemporaryDirectory() stringByAppendingPathComponent: filename] allowOverwrite: NO];
-}
-
 - (void) download: (NSURLDownload *) download didCreateDestination: (NSString *) path
 {
-    [fDestination release];
     fDestination = [path retain];
 }
 
@@ -138,11 +132,6 @@ BlocklistDownloader * fDownloader = nil;
     [self performSelectorInBackground: @selector(finishDownloadSuccess) withObject: nil];
 }
 
-- (BOOL) download: (NSURLDownload *) download shouldDecodeSourceDataOfMIMEType: (NSString *) encodingType
-{
-    return YES;
-}
-
 @end
 
 @implementation BlocklistDownloader (Private)
@@ -162,77 +151,8 @@ BlocklistDownloader * fDownloader = nil;
     NSURLRequest * request = [NSURLRequest requestWithURL: [NSURL URLWithString: urlString]];
     
     fDownload = [[NSURLDownload alloc] initWithRequest: request delegate: self];
+    [fDownload setDestination: [NSTemporaryDirectory() stringByAppendingPathComponent: FILE_NAME] allowOverwrite: NO];
 }
-
-//.gz, .tar.gz, .tgz, and .bgz will be decompressed by NSURLDownload for us. However, we have to do .zip files manually.
-- (void) decompressBlocklist
-{
-	if ([[[fDestination pathExtension] lowercaseString] isEqualToString: @"zip"]) {
-		BOOL success = NO;
-        
-        NSString * workingDirectory = [fDestination stringByDeletingLastPathComponent];
-		
-		//First, perform the actual unzipping
-		NSTask	* unzip = [[NSTask alloc] init];
-		[unzip setLaunchPath: @"/usr/bin/unzip"];
-		[unzip setCurrentDirectoryPath: workingDirectory];
-		[unzip setArguments: [NSArray arrayWithObjects:
-                                @"-o",  /* overwrite */
-                                @"-q", /* quiet! */
-                                fDestination, /* source zip file */
-                                @"-d", workingDirectory, /*destination*/
-                                nil]];
-		
-		@try
-		{
-			[unzip launch];
-			[unzip waitUntilExit];
-			
-			if ([unzip terminationStatus] == 0)
-				success = YES;
-		}
-		@catch(id exc)
-		{
-			success = NO;
-		}
-		[unzip release];
-		
-		if (success) {
-			//Now find out what file we actually extracted; don't just assume it matches the zipfile's name
-			NSTask *zipinfo;
-			
-			zipinfo = [[NSTask alloc] init];
-			[zipinfo setLaunchPath: @"/usr/bin/zipinfo"];
-			[zipinfo setArguments: [NSArray arrayWithObjects:
-                                    @"-1",  /* just the filename */
-                                    fDestination, /* source zip file */
-                                    nil]];
-			[zipinfo setStandardOutput: [NSPipe pipe]];
-						
-			@try
-			{
-				NSFileHandle * zipinfoOutput = [[zipinfo standardOutput] fileHandleForReading];
-
-				[zipinfo launch];
-				[zipinfo waitUntilExit];
-				
-				NSString * actualFilename = [[[NSString alloc] initWithData: [zipinfoOutput readDataToEndOfFile]
-                                                encoding: NSUTF8StringEncoding] autorelease];
-				actualFilename = [actualFilename stringByTrimmingCharactersInSet: [NSCharacterSet whitespaceAndNewlineCharacterSet]];
-				NSString * newBlocklistPath = [workingDirectory stringByAppendingPathComponent: actualFilename];
-				
-				//Finally, delete the ZIP file; we're done with it, and we'll return the unzipped blocklist
-				[[NSFileManager defaultManager] removeItemAtPath: fDestination error: NULL];
-                
-                [fDestination release];
-                fDestination = [newBlocklistPath retain];
-			}
-            @catch(id exc) {}
-			[zipinfo release];
-		}		
-	}
-}
-
 
 - (void) finishDownloadSuccess
 {
@@ -242,9 +162,6 @@ BlocklistDownloader * fDownloader = nil;
     
     //process data
     NSAssert(fDestination != nil, @"the blocklist file destination has not been specified");
-    
-    [self decompressBlocklist];
-    
     const int count = tr_blocklistSetContent([PrefsController handle], [fDestination UTF8String]);
     
     //delete downloaded file

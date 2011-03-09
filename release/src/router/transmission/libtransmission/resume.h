@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2008-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: resume.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: resume.h 11044 2010-07-24 02:57:39Z charles $
  */
 
 #ifndef __TRANSMISSION__
@@ -36,9 +36,7 @@ enum
     TR_FR_DONE_DATE           = ( 1 << 14 ),
     TR_FR_ACTIVITY_DATE       = ( 1 << 15 ),
     TR_FR_RATIOLIMIT          = ( 1 << 16 ),
-    TR_FR_IDLELIMIT           = ( 1 << 17 ),
-    TR_FR_TIME_SEEDING        = ( 1 << 18 ),
-    TR_FR_TIME_DOWNLOADING    = ( 1 << 19 )
+    TR_FR_IDLELIMIT           = ( 1 << 17 )
 };
 
 /**

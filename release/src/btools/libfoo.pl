@@ -157,7 +157,7 @@ sub fixDyn
 	fixDynDep("libcrypto.so.1.0.0", "libssl.so.1.0.0");
 
 #shibby
-	fixDynDep("transmission-daemon", "libevent-2.0.so.5.0.1");
+	fixDynDep("transmission-daemon", "libevent-1.4.so.2.2.0");
 	fixDynDep("transmission-daemon", "libcurl.so.4.2.0");
 
 #	fixDynDep("libbcm.so", "libshared.so");
@@ -465,7 +465,7 @@ genSO("${root}/usr/lib/libbcmcrypto.so", "${router}/libbcmcrypto/libbcmcrypto.a"
 
 #shibby
 genSO("${root}/usr/lib/libcurl.so.4.2.0", "${router}/libcurl/lib/.libs/libcurl.a", "", "-L${router}/zlib");
-genSO("${root}/usr/lib/libevent-2.0.so.5.0.1", "${router}/libevent/.libs/libevent.a");
+genSO("${root}/usr/lib/libevent-1.4.so.2.2.0", "${router}/libevent/.libs/libevent.a");
 
 print "\n";
 

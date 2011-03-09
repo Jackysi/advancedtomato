@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2009-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: completion.c 12035 2011-02-24 15:58:47Z jordan $
+ * $Id: completion.c 10912 2010-06-30 16:40:19Z charles $
  */
 
 #include <assert.h>
@@ -27,7 +27,6 @@ tr_cpReset( tr_completion * cp )
     memset( cp->completeBlocks, 0, sizeof( uint16_t ) * cp->tor->info.pieceCount );
     cp->sizeNow = 0;
     cp->sizeWhenDoneIsDirty = 1;
-    cp->blocksWantedIsDirty = 1;
     cp->haveValidIsDirty = 1;
 }
 
@@ -55,36 +54,6 @@ void
 tr_cpInvalidateDND( tr_completion * cp )
 {
     cp->sizeWhenDoneIsDirty = 1;
-    cp->blocksWantedIsDirty = 1;
-}
-
-tr_block_index_t
-tr_cpBlocksMissing( const tr_completion * ccp )
-{
-    if( ccp->blocksWantedIsDirty )
-    {
-        tr_completion *    cp = (tr_completion *) ccp; /* mutable */
-        const tr_torrent * tor = cp->tor;
-        const tr_info *    info = &tor->info;
-        tr_piece_index_t   i;
-        tr_block_index_t   wanted = 0;
-        tr_block_index_t   complete = 0;
-
-        for( i = 0; i < info->pieceCount; ++i )
-        {
-            if( info->pieces[i].dnd )
-                continue;
-
-            wanted += tr_torPieceCountBlocks( tor, i );
-            complete += cp->completeBlocks[i];
-        }
-
-        cp->blocksWantedLazy = wanted;
-        cp->blocksWantedCompleteLazy = complete;
-        cp->blocksWantedIsDirty = FALSE;
-    }
-
-    return ccp->blocksWantedLazy - ccp->blocksWantedCompleteLazy;
 }
 
 uint64_t
@@ -163,9 +132,6 @@ tr_cpPieceRem( tr_completion *  cp,
         if( tr_cpBlockIsCompleteFast( cp, block ) )
             cp->sizeNow -= tr_torBlockCountBytes( tor, block );
 
-    if( !tor->info.pieces[piece].dnd )
-        cp->blocksWantedCompleteLazy -= cp->completeBlocks[piece];
-
     cp->sizeWhenDoneIsDirty = 1;
     cp->haveValidIsDirty = 1;
     cp->completeBlocks[piece] = 0;
@@ -192,8 +158,6 @@ tr_cpBlockAdd( tr_completion * cp, tr_block_index_t block )
         tr_bitfieldAdd( &cp->blockBitfield, block );
 
         cp->sizeNow += blockSize;
-        if( !tor->info.pieces[piece].dnd )
-            cp->blocksWantedCompleteLazy++;
 
         cp->haveValidIsDirty = 1;
         cp->sizeWhenDoneIsDirty = 1;
@@ -215,7 +179,6 @@ tr_cpSetHaveAll( tr_completion * cp )
     for( i=0; i<tor->info.pieceCount; ++i )
         cp->completeBlocks[i] = tr_torPieceCountBlocks( tor, i );
     cp->sizeWhenDoneIsDirty = 1;
-    cp->blocksWantedIsDirty = 1;
     cp->haveValidIsDirty = 1;
 }
 
@@ -247,7 +210,6 @@ tr_cpBlockBitfieldSet( tr_completion * cp, tr_bitfield * blockBitfield )
 
         /* invalidate the fields that are lazy-evaluated */
         cp->sizeWhenDoneIsDirty = TRUE;
-        cp->blocksWantedIsDirty = TRUE;
         cp->haveValidIsDirty = TRUE;
 
         /* to set the remaining fields, we walk through every block... */
@@ -383,53 +345,15 @@ tr_cpFileIsComplete( const tr_completion * cp, tr_file_index_t fileIndex )
 
     const tr_torrent * tor = cp->tor;
     const tr_file * file = &tor->info.files[fileIndex];
+    const tr_block_index_t firstBlock = file->offset / tor->blockSize;
+    const tr_block_index_t lastBlock = file->length ? ( ( file->offset + file->length - 1 ) / tor->blockSize ) : firstBlock;
 
-    if( file->firstPiece == file->lastPiece )
-    {
-        const tr_block_index_t firstBlock = file->offset / tor->blockSize;
-        const tr_block_index_t lastBlock = file->length ? ( ( file->offset + file->length - 1 ) / tor->blockSize ) : firstBlock;
-        for( block=firstBlock; block<=lastBlock; ++block )
-            if( !tr_cpBlockIsCompleteFast( cp, block ) )
-                return FALSE;
-    }
-    else
-    {
-        tr_piece_index_t piece;
-        tr_block_index_t firstBlock;
-        tr_block_index_t firstBlockInLastPiece;
-        tr_block_index_t lastBlock;
-        tr_block_index_t lastBlockInFirstPiece;
-        uint64_t lastByteInFirstPiece;
-        uint64_t firstByteInLastPiece;
+    assert( tr_torBlockPiece( tor, firstBlock ) == file->firstPiece );
+    assert( tr_torBlockPiece( tor, lastBlock ) == file->lastPiece );
 
-        /* go piece-by-piece in the middle pieces... it's faster than block-by-block */
-        for( piece=file->firstPiece+1; piece<file->lastPiece; ++piece )
-            if( !tr_cpPieceIsComplete( cp, piece ) )
-                return FALSE;
-
-        /* go block-by-block in the first piece */
-        firstBlock = file->offset / tor->blockSize;
-        lastByteInFirstPiece = ( (uint64_t)(file->firstPiece+1) * tor->info.pieceSize ) - 1;
-        lastBlockInFirstPiece = lastByteInFirstPiece / tor->blockSize;
-        assert( lastBlockInFirstPiece >= firstBlock );
-        assert( lastBlockInFirstPiece - firstBlock <= tr_torPieceCountBlocks( tor, file->firstPiece ) );
-        for( block=firstBlock; block<=lastBlockInFirstPiece; ++block )
-            if( !tr_cpBlockIsCompleteFast( cp, block ) )
-                return FALSE;
-
-        /* go block-by-block in the last piece */
-        lastBlock = file->length ? ( ( file->offset + file->length - 1 ) / tor->blockSize ) : firstBlock;
-        firstByteInLastPiece = (uint64_t)file->lastPiece * tor->info.pieceSize;
-        firstBlockInLastPiece = firstByteInLastPiece / tor->blockSize;
-        assert( firstBlockInLastPiece <= lastBlock );
-        assert( firstBlockInLastPiece >= firstBlock );
-        assert( firstBlockInLastPiece >= lastBlockInFirstPiece );
-        assert( lastBlock - firstBlockInLastPiece <= tr_torPieceCountBlocks( tor, file->lastPiece ) );
-        for( block=firstBlockInLastPiece; block<=lastBlock; ++block )
-            if( !tr_cpBlockIsCompleteFast( cp, block ) )
-                return FALSE;
-    }
+    for( block=firstBlock; block<=lastBlock; ++block )
+        if( !tr_cpBlockIsCompleteFast( cp, block ) )
+            return FALSE;
 
     return TRUE;
-
 }

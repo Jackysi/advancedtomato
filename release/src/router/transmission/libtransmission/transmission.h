@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: transmission.h 11834 2011-02-06 17:30:46Z jordan $
+ * $Id: transmission.h 11373 2010-11-01 00:12:30Z charles $
  *
- * Copyright (c) Transmission authors and contributors
+ * Copyright (c) 2005-2008 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -108,7 +108,7 @@ tr_encryption_mode;
  *
  * A libtransmission session is created by calling tr_sessionInit().
  * libtransmission creates a thread for itself so that it can operate
- * independently of the caller's event loop. The session will continue
+ * independently of the caller's event loop.  The session will continue
  * until tr_sessionClose() is called.
  *
  * @{
@@ -142,9 +142,8 @@ const char* tr_getDefaultDownloadDir( void );
 #define TR_DEFAULT_OPEN_FILE_LIMIT_STR           "32"
 #define TR_DEFAULT_RPC_WHITELIST          "127.0.0.1"
 #define TR_DEFAULT_RPC_PORT_STR                "9091"
-#define TR_DEFAULT_RPC_URL_STR       "/transmission/"
 #define TR_DEFAULT_PEER_PORT_STR              "51413"
-#define TR_DEFAULT_PEER_SOCKET_TOS_STR      "default"
+#define TR_DEFAULT_PEER_SOCKET_TOS_STR            "0"
 #define TR_DEFAULT_PEER_LIMIT_GLOBAL_STR        "240"
 #define TR_DEFAULT_PEER_LIMIT_TORRENT_STR        "60"
 
@@ -162,7 +161,6 @@ const char* tr_getDefaultDownloadDir( void );
 #define TR_PREFS_KEY_MAX_CACHE_SIZE_MB             "cache-size-mb"
 #define TR_PREFS_KEY_DHT_ENABLED                   "dht-enabled"
 #define TR_PREFS_KEY_LPD_ENABLED                   "lpd-enabled"
-#define TR_PREFS_KEY_PREFETCH_ENABLED              "prefetch-enabled"
 #define TR_PREFS_KEY_DOWNLOAD_DIR                  "download-dir"
 #define TR_PREFS_KEY_ENCRYPTION                    "encryption"
 #define TR_PREFS_KEY_IDLE_LIMIT                    "idle-seeding-limit"
@@ -192,7 +190,6 @@ const char* tr_getDefaultDownloadDir( void );
 #define TR_PREFS_KEY_RPC_PASSWORD                  "rpc-password"
 #define TR_PREFS_KEY_RPC_PORT                      "rpc-port"
 #define TR_PREFS_KEY_RPC_USERNAME                  "rpc-username"
-#define TR_PREFS_KEY_RPC_URL                       "rpc-url"
 #define TR_PREFS_KEY_RPC_WHITELIST_ENABLED         "rpc-whitelist-enabled"
 #define TR_PREFS_KEY_SCRIPT_TORRENT_DONE_FILENAME  "script-torrent-done-filename"
 #define TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED   "script-torrent-done-enabled"
@@ -318,7 +315,7 @@ void tr_sessionClose( tr_session * );
  * @brief Return the session's configuration directory.
  *
  * This is where transmission stores its .torrent files, .resume files,
- * blocklists, etc. It's set in tr_transmissionInit() and is immutable
+ * blocklists, etc.  It's set in tr_transmissionInit() and is immutable
  * during the session.
  */
 const char * tr_sessionGetConfigDir( const tr_session * );
@@ -339,11 +336,6 @@ void tr_sessionSetDownloadDir( tr_session * session, const char * downloadDir );
  */
 const char * tr_sessionGetDownloadDir( const tr_session * session );
 
-/**
- * @brief Get available disk space (in bytes) for the default download folder.
- * @return zero or positive integer on success, -1 in case of error.
- */
-int64_t tr_sessionGetDownloadDirFreeSpace( const tr_session * session );
 
 /**
  * @brief Set the torrent's bandwidth priority.
@@ -430,28 +422,10 @@ void tr_sessionSetRPCPort( tr_session  * session,
 tr_port tr_sessionGetRPCPort( const tr_session * session );
 
 /**
- * @brief Specify which base URL to use.
- *
- * @detail The RPC API is accessible under <url>/rpc, the web interface under
- * <url>/web.
- *
- *  @see tr_sessionGetRPCUrl
- */
-void tr_sessionSetRPCUrl( tr_session  * session,
-                          const char * url );
-
-/**
- * @brief Get the base URL.
- * @see tr_sessionInit()
- * @see tr_sessionSetRPCUrl
- */
-const char* tr_sessionGetRPCUrl( const tr_session * session );
-
-/**
  * @brief Specify a whitelist for remote RPC access
  *
  * The whitelist is a comma-separated list of dotted-quad IP addresses
- * to be allowed. Wildmat notation is supported, meaning that
+ * to be allowed.  Wildmat notation is supported, meaning that
  * '?' is interpreted as a single-character wildcard and
  * '*' is interprted as a multi-character wildcard.
  */
@@ -497,11 +471,9 @@ typedef enum
     TR_RPC_TORRENT_STARTED,
     TR_RPC_TORRENT_STOPPED,
     TR_RPC_TORRENT_REMOVING,
-    TR_RPC_TORRENT_TRASHING, /* _REMOVING + delete local data */
     TR_RPC_TORRENT_CHANGED, /* catch-all for the "torrent-set" rpc method */
     TR_RPC_TORRENT_MOVED,
-    TR_RPC_SESSION_CHANGED,
-    TR_RPC_SESSION_CLOSE
+    TR_RPC_SESSION_CHANGED
 }
 tr_rpc_callback_type;
 
@@ -511,7 +483,7 @@ typedef enum
     TR_RPC_OK            = 0,
 
     /* indicates to the caller that the client will take care of
-     * removing the torrent itself. For example the client may
+     * removing the torrent itself.  For example the client may
      * need to keep the torrent alive long enough to cleanly close
      * some resources in another thread. */
     TR_RPC_NOREMOVE   = ( 1 << 1 )
@@ -692,6 +664,7 @@ tr_bool  tr_sessionGetActiveSpeedLimit_KBps( const tr_session  * session,
 ***/
 
 double     tr_sessionGetRawSpeed_KBps  ( const tr_session *, tr_direction );
+double     tr_sessionGetPieceSpeed_KBps( const tr_session *, tr_direction );
 
 void       tr_sessionSetRatioLimited  ( tr_session *, tr_bool isLimited );
 tr_bool    tr_sessionIsRatioLimited   ( const tr_session * );
@@ -762,6 +735,8 @@ typedef enum
 tr_msg_level;
 
 void tr_setMessageLevel( tr_msg_level );
+
+tr_msg_level tr_getMessageLevel( void );
 
 typedef struct tr_msg_list
 {
@@ -846,7 +821,7 @@ const char * tr_blocklistGetURL ( const tr_session * );
     @{
 
     Instantiating a tr_torrent had gotten more complicated as features were
-    added. At one point there were four functions to check metainfo and five
+    added.  At one point there were four functions to check metainfo and five
     to create tr_torrent.
 
     To remedy this, a Torrent Constructor (struct tr_ctor) has been introduced:
@@ -859,7 +834,7 @@ const char * tr_blocklistGetURL ( const tr_session * );
     an error number, or zero if no error occurred.
 
     You must call one of the SetMetainfo() functions before creating
-    a torrent with a tr_ctor. The other functions are optional.
+    a torrent with a tr_ctor.  The other functions are optional.
 
     You can reuse a single tr_ctor to create a batch of torrents --
     just call one of the SetMetainfo() functions between each
@@ -881,7 +856,7 @@ tr_ctorMode;
 struct tr_benc;
 
 /** @brief Create a new torrent constructor object used to instantiate a tr_torrent
-    @param session the tr_session. NULL is allowed if you're only calling tr_torrentParse() rather than tr_torrentNew()
+    @param session the tr_session.  NULL is allowed if you're only calling tr_torrentParse() rather than tr_torrentNew()
     @see tr_torrentNew(), tr_torrentParse() */
 tr_ctor* tr_ctorNew( const tr_session * session_or_NULL );
 
@@ -1033,16 +1008,12 @@ tr_torrent * tr_torrentNew( const tr_ctor   * ctor,
     @{ */
 
 /** @brief Frees memory allocated by tr_torrentNew().
-           Running torrents are stopped first. */
+           Running torrents are stopped first.  */
 void tr_torrentFree( tr_torrent * torrent );
-
-typedef int tr_fileFunc( const char * filename );
 
 /** @brief Removes our .torrent and .resume files for
            this torrent, then calls tr_torrentFree(). */
-void tr_torrentRemove( tr_torrent  * torrent,
-                       tr_bool       removeLocalData,
-                       tr_fileFunc   removeFunc );
+void tr_torrentRemove( tr_torrent * torrent );
 
 /** @brief Start a torrent */
 void tr_torrentStart( tr_torrent * torrent );
@@ -1070,13 +1041,24 @@ void tr_torrentSetLocation( tr_torrent  * torrent,
                             double      * setme_progress,
                             int         * setme_state );
 
+typedef int tr_fileFunc( const char * filename );
+
+/**
+ * @brief Deletes the torrent's local data.
+ * @param torrent
+ * @param fileFunc Pass in "unlink" to destroy the files or, on platforms with
+ *                 recycle bins, pass in a function that uses it instead.
+ *                 tr_torrentDeleteLocalData() ignores fileFunc's return value.
+ */
+void tr_torrentDeleteLocalData( tr_torrent * torrent, tr_fileFunc fileFunc );
+
 uint64_t tr_torrentGetBytesLeftToAllocate( const tr_torrent * torrent );
 
 /**
  * @brief Returns this torrent's unique ID.
  *
  * IDs are good as simple lookup keys, but are not persistent
- * between sessions. If you need that, use tr_info.hash or
+ * between sessions.  If you need that, use tr_info.hash or
  * tr_info.hashString.
  */
 int tr_torrentId( const tr_torrent * torrent );
@@ -1224,7 +1206,7 @@ const char * tr_torrentGetDownloadDir( const tr_torrent * torrent );
 /**
  * Returns the root directory of where the torrent is.
  *
- * This will usually be the downloadDir. However if the torrent
+ * This will usually be the downloadDir.  However if the torrent
  * has an incompleteDir enabled and hasn't finished downloading
  * yet, that will be returned instead.
  */
@@ -1301,7 +1283,7 @@ typedef void ( tr_torrent_idle_limit_hit_func )( tr_torrent   * torrent,
 
 /**
  * Register to be notified whenever a torrent's "completeness"
- * changes. This will be called, for example, when a torrent
+ * changes.  This will be called, for example, when a torrent
  * finishes downloading and changes from TR_LEECH to
  * either TR_SEED or TR_PARTIAL_SEED.
  *
@@ -1613,23 +1595,24 @@ void tr_torrentVerify( tr_torrent * torrent );
 /** @brief a part of tr_info that represents a single file of the torrent's content */
 typedef struct tr_file
 {
-    uint64_t          length;      /* Length of the file, in bytes */
-    char *            name;        /* Path to the file */
-    int8_t            priority;    /* TR_PRI_HIGH, _NORMAL, or _LOW */
-    int8_t            dnd;         /* "do not download" flag */
-    tr_piece_index_t  firstPiece;  /* We need pieces [firstPiece... */
-    tr_piece_index_t  lastPiece;   /* ...lastPiece] to dl this file */
-    uint64_t          offset;      /* file begins at the torrent's nth byte */
+    uint64_t            length;    /* Length of the file, in bytes */
+    char *              name;      /* Path to the file */
+    int8_t              priority;  /* TR_PRI_HIGH, _NORMAL, or _LOW */
+    int8_t              dnd;       /* nonzero if the file shouldn't be
+                                     downloaded */
+    tr_piece_index_t    firstPiece; /* We need pieces [firstPiece... */
+    tr_piece_index_t    lastPiece; /* ...lastPiece] to dl this file */
+    uint64_t            offset;    /* file begins at the torrent's nth byte */
 }
 tr_file;
 
 /** @brief a part of tr_info that represents a single piece of the torrent's content */
 typedef struct tr_piece
 {
-    time_t   timeChecked;              /* the last time we tested this piece */
-    uint8_t  hash[SHA_DIGEST_LENGTH];  /* pieces hash */
-    int8_t   priority;                 /* TR_PRI_HIGH, _NORMAL, or _LOW */
-    int8_t   dnd;                      /* "do not download" flag */
+    uint8_t    hash[SHA_DIGEST_LENGTH]; /* pieces hash */
+    int8_t     priority;               /* TR_PRI_HIGH, _NORMAL, or _LOW */
+    int8_t     dnd;                    /* nonzero if the piece shouldn't be
+                                         downloaded */
 }
 tr_piece;
 
@@ -1745,7 +1728,7 @@ typedef struct tr_stat
 
     /** When tr_stat.activity is TR_STATUS_CHECK or TR_STATUS_CHECK_WAIT,
         this is the percentage of how much of the files has been
-        verified. When it gets to 1, the verify process is done.
+        verified.  When it gets to 1, the verify process is done.
         Range is [0..1]
         @see tr_stat.activity */
     double recheckProgress;
@@ -1760,7 +1743,7 @@ typedef struct tr_stat
         Range is [0..1] */
     double metadataPercentComplete;
 
-    /** How much has been downloaded of the files the user wants. This differs
+    /** How much has been downloaded of the files the user wants.  This differs
         from percentComplete if the user wants only some of the torrent's files.
         Range is [0..1]
         @see tr_stat.leftUntilDone */
@@ -1815,13 +1798,13 @@ typedef struct tr_stat
     int    webseedsSendingToUs;
 
     /** Byte count of all the piece data we'll have downloaded when we're done,
-        whether or not we have it yet. This may be less than tr_info.totalSize
+        whether or not we have it yet.  This may be less than tr_info.totalSize
         if only some of the torrent's files are wanted.
         [0...tr_info.totalSize] */
     uint64_t    sizeWhenDone;
 
     /** Byte count of how much data is left to be downloaded until we've got
-        all the pieces that we want. [0...tr_info.sizeWhenDone] */
+        all the pieces that we want.  [0...tr_info.sizeWhenDone] */
     uint64_t    leftUntilDone;
 
     /** Byte count of all the piece data we want and don't have yet,
@@ -1829,7 +1812,7 @@ typedef struct tr_stat
     uint64_t    desiredAvailable;
 
     /** Byte count of all the corrupt data you've ever downloaded for
-        this torrent. If you're on a poisoned torrent, this number can
+        this torrent.  If you're on a poisoned torrent, this number can
         grow very large. */
     uint64_t    corruptEver;
 
@@ -1837,7 +1820,7 @@ typedef struct tr_stat
     uint64_t    uploadedEver;
 
     /** Byte count of all the non-corrupt data you've ever downloaded
-        for this torrent. If you deleted the files and downloaded a second
+        for this torrent.  If you deleted the files and downloaded a second
         time, this will be 2*totalSize.. */
     uint64_t    downloadedEver;
 
@@ -1871,16 +1854,10 @@ typedef struct tr_stat
 
     /** The last time we uploaded or downloaded piece data on this torrent. */
     time_t    activityDate;
-
+    
     /** Number of seconds since the last activity (or since started).
         -1 if activity is not seeding or downloading. */
     int    idleSecs;
-
-    /** Cumulative seconds the torrent's ever spent downloading */
-    int    secondsDownloading;
-
-    /** Cumulative seconds the torrent's ever spent seeding */
-    int    secondsSeeding;
 
     /** A torrent is considered finished if it has met its seed ratio.
         As a result, only paused torrents can be finished. */
@@ -1889,12 +1866,12 @@ typedef struct tr_stat
 tr_stat;
 
 /** Return a pointer to an tr_stat structure with updated information
-    on the torrent. This is typically called by the GUI clients every
+    on the torrent.  This is typically called by the GUI clients every
     second or so to get a new snapshot of the torrent's status. */
 const tr_stat * tr_torrentStat( tr_torrent * torrent );
 
 /** Like tr_torrentStat(), but only recalculates the statistics if it's
-    been longer than a second since they were last calculated. This can
+    been longer than a second since they were last calculated.  This can
     reduce the CPU load if you're calling tr_torrentStat() frequently. */
 const tr_stat * tr_torrentStatCached( tr_torrent * torrent );
 

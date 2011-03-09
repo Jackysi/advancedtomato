@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: filterbar.cc 11522 2010-12-12 16:43:19Z charles $
+ * $Id: filterbar.cc 11423 2010-11-15 15:19:57Z charles $
  */
 
 #include <QString>
@@ -265,7 +265,7 @@ FilterBar :: createActivityCombo( )
 
 /****
 *****
-*****
+*****  
 *****
 ****/
 
@@ -385,7 +385,7 @@ FilterBar :: createTrackerCombo( QStandardItemModel * model )
 
 /****
 *****
-*****
+*****  
 *****
 ****/
 
@@ -413,7 +413,7 @@ FilterBar :: FilterBar( Prefs& prefs, TorrentModel& torrents, TorrentFilter& fil
     myTrackerCombo = createTrackerCombo( myTrackerModel );
     h->addWidget( myTrackerCombo, 1 );
     h->addSpacing( hmargin*2 );
-
+    
     myLineEdit = new QLineEdit( this );
     h->addWidget( myLineEdit );
     connect( myLineEdit, SIGNAL(textChanged(QString)), this, SLOT(onTextChanged(QString)));

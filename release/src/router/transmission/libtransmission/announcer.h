@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2009-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: announcer.h 11844 2011-02-07 23:09:36Z jordan $
+ * $Id: announcer.h 11280 2010-10-01 13:33:39Z charles $
  */
 
 #ifndef __TRANSMISSION__
@@ -35,8 +35,6 @@ typedef enum
 }
 TrackerEventType;
 
-struct tr_pex;
-
 /** @brief Notification object to tell listeners about announce or scrape occurences */
 typedef struct
 {
@@ -48,10 +46,10 @@ typedef struct
     const char * tracker;
 
     /* for TR_TRACKER_PEERS */
-    const struct tr_pex * pex;
-    size_t pexCount;
+    const uint8_t *  compact;
+    int              compactLen;
 
-    /* [0...100] for probability a peer is a seed. calculated by the leecher/seeder ratio */
+    /* [0...100] for probability a peer is a seed.  calculated by the leecher/seeder ratio */
     int8_t           seedProbability;
 }
 tr_tracker_event;
@@ -72,7 +70,8 @@ void tr_announcerClose( tr_session * );
 ***  For torrent customers
 **/
 
-struct tr_torrent_tiers * tr_announcerAddTorrent( tr_torrent          * torrent,
+struct tr_torrent_tiers * tr_announcerAddTorrent( struct tr_announcer *,
+                                                  tr_torrent          * torrent,
                                                   tr_tracker_callback * cb,
                                                   void                * cbdata );
 

@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2009-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: bitfield.h 12034 2011-02-24 15:50:09Z jordan $
+ * $Id: bitfield.h 11280 2010-10-01 13:33:39Z charles $
  */
 
 #ifndef __TRANSMISSION__
@@ -57,12 +57,14 @@ int          tr_bitfieldRemRange( tr_bitfield*, size_t begin, size_t end );
 
 void         tr_bitfieldDifference( tr_bitfield *, const tr_bitfield * );
 
+int          tr_bitfieldIsEmpty( const tr_bitfield* );
+
 size_t       tr_bitfieldCountTrueBits( const tr_bitfield* );
 
 tr_bitfield* tr_bitfieldOr( tr_bitfield*, const tr_bitfield* );
 
 /** A stripped-down version of bitfieldHas to be used
-    for speed when you're looping quickly. This version
+    for speed when you're looping quickly.  This version
     has none of tr_bitfieldHas()'s safety checks, so you
     need to call tr_bitfieldTestFast() first before you
     start looping. */

@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: tracker-delegate.h 11522 2010-12-12 16:43:19Z charles $
+ * $Id: tracker-delegate.h 11284 2010-10-01 20:22:51Z charles $
  */
 
 #ifndef QTR_TORRENT_DELEGATE_H
@@ -38,7 +38,7 @@ class TrackerDelegate: public QItemDelegate
         void setShowMore( bool b );
 
     protected:
-        QString getText( const TrackerInfo& ) const;
+        QString getText( const TrackerInfo& ) const; 
         QSize margin( const QStyle& style ) const;
         virtual QSize sizeHint( const QStyleOptionViewItem&, const TrackerInfo& ) const;
         void drawTracker( QPainter*, const QStyleOptionViewItem&, const TrackerInfo& ) const;
