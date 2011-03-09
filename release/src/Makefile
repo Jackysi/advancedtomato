@@ -16,7 +16,6 @@
 
 # To rebuild everything and all configurations:
 #  make distclean
-#  make libc (usually doesn't need to be done ???)
 #  make V1=whatever V2=sub-whatever VPN=vpn3.6 a b c d m
 # The 1st "whatever" would be the build number, the sub-whatever would
 #	be the update to the version.
@@ -81,7 +80,6 @@ tomato_ver:
 ifeq ($(TOMATO_BUILD),)
 
 all:
-	$(MAKE) libc
 	$(MAKE) a
 
 else
@@ -176,7 +174,7 @@ kernel:
 	@$(MAKE) -C router kernel
 	@ls -l $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/zImage
 
-distclean: clean cleanimage cleankernel cleantools cleanlibc
+distclean: clean cleanimage cleankernel cleantools
 ifneq ($(INSIDE_MAK),1)
 	@$(MAKE) -C router $@ INSIDE_MAK=1
 endif
@@ -704,13 +702,6 @@ setprofile:
 
 	@$(MAKE) -C router oldconfig
 
-cleanlibc:
-#	@$(MAKE) -C ../../tools-src/uClibc clean
-
-libc: cleanlibc
-#	@$(MAKE) -C ../../tools-src/uClibc
-#	@$(MAKE) -C ../../tools-src/uClibc install
-
 help:
 	@echo "a            A build (standard)"
 	@echo "b            B build (standard minus SSH)"
@@ -745,7 +736,6 @@ endif
 	@echo "cleankernel  -C Linux distclean (but preserves .config)"
 	@echo "distclean    distclean of Linux & busybox (but preserve .configs)"
 	@echo "prepk        -C Linux oldconfig dep"
-	@echo "libc         -C uClibc clean, all, install"
 	
-.PHONY: all clean distclean cleanimage cleantools cleankernel prepk what setprofile libc help
+.PHONY: all clean distclean cleanimage cleantools cleankernel prepk what setprofile help
 .PHONY: a b c d m Makefile allversions tomato_profile.mak

@@ -570,7 +570,7 @@ cyassl/stamp-h1:
 	-DNO_MD4 -DNO_AES -DNO_ERROR_STRINGS -DNO_HC128 -DNO_RABBIT -DNO_PSK -DNO_DSA -DNO_DH -DNO_PWDBASED" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
 	PTHREAD_LIBS="-lpthread" \
-	$(CONFIGURE) --with-libz=no
+	$(CONFIGURE)
 	@touch cyassl/stamp-h1
 
 cyassl: cyassl/stamp-h1
