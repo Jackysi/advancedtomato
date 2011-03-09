@@ -307,7 +307,6 @@ extern int	holdoff;	/* Dead time before restarting */
 extern bool	holdoff_specified; /* true if user gave a holdoff value */
 extern bool	notty;		/* Stdin/out is not a tty */
 extern char	*pty_socket;	/* Socket to connect to pty */
-extern char	*record_file;	/* File to record chars sent/received */
 extern bool	sync_serial;	/* Device is synchronous serial device */
 extern int	maxfail;	/* Max # of unsuccessful connection attempts */
 extern char	linkname[MAXPATHLEN]; /* logical name for link */
