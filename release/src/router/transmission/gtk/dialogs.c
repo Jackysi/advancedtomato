@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: dialogs.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: dialogs.c 11132 2010-08-06 14:38:54Z charles $
  *
- * Copyright (c) Transmission authors and contributors
+ * Copyright (c) 2005-2008 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -65,10 +65,10 @@ quitresp( GtkWidget * widget,
 }
 
 GtkWidget *
-gtr_confirm_quit( GtkWindow *    parent,
-                  TrCore *       core,
-                  callbackfunc_t func,
-                  void *         cbdata )
+askquit( TrCore *       core,
+         GtkWindow *    parent,
+         callbackfunc_t func,
+         void *         cbdata )
 {
     struct quitdata * stuff;
     GtkWidget *       w;
@@ -101,13 +101,16 @@ gtr_confirm_quit( GtkWindow *    parent,
     dontask = gtk_check_button_new_with_mnemonic( _( "_Don't ask me again" ) );
     stuff->dontask = dontask;
 
-    gtr_dialog_set_content( GTK_DIALOG( wind ), dontask );
+    gtk_box_pack_start( GTK_BOX( GTK_DIALOG(
+                                     wind )->vbox ), dontask, FALSE, FALSE,
+                        GUI_PAD );
 
     g_signal_connect( G_OBJECT( wind ), "response",
                       G_CALLBACK( quitresp ), stuff );
     gtk_widget_grab_focus( w );
 
-    gtk_widget_show( wind );
+    gtk_widget_show_all( wind );
+
     return wind;
 }
 
@@ -165,10 +168,10 @@ countBusyTorrents( gpointer gtor, gpointer gdata )
 }
 
 void
-gtr_confirm_remove( GtkWindow  * parent,
-                    TrCore     * core,
-                    GSList     * torrents,
-                    gboolean     delete_files )
+confirmRemove( GtkWindow * parent,
+               TrCore *    core,
+               GSList *    torrents,
+               gboolean    delete_files )
 {
     GtkWidget *         d;
     const int           count = g_slist_length( torrents );

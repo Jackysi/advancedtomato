@@ -1,5 +1,5 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2008-2010 Mnemosyne LLC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: daemon.c 12029 2011-02-24 15:17:43Z jordan $
+ * $Id: daemon.c 11254 2010-09-22 22:19:21Z charles $
  */
 
 #include <errno.h>
@@ -25,7 +25,7 @@
 #endif
 #include <unistd.h> /* daemon */
 
-#include <event2/buffer.h>
+#include <event.h>
 
 #include <libtransmission/transmission.h>
 #include <libtransmission/bencode.h>
@@ -86,7 +86,7 @@ getUsage( void )
 static const struct tr_option options[] =
 {
 
-    { 'a', "allowed", "Allowed IP addresses. (Default: " TR_DEFAULT_RPC_WHITELIST ")", "a", 1, "<list>" },
+    { 'a', "allowed", "Allowed IP addresses.  (Default: " TR_DEFAULT_RPC_WHITELIST ")", "a", 1, "<list>" },
     { 'b', "blocklist", "Enable peer blocklists", "b", 0, NULL },
     { 'B', "no-blocklist", "Disable peer blocklists", "B", 0, NULL },
     { 'c', "watch-dir", "Where to watch for new .torrent files", "c", 1, "<directory>" },
@@ -323,21 +323,7 @@ pumpLogMessages( FILE * logfile )
     for( l=list; l!=NULL; l=l->next )
         printMessage( logfile, l->level, l->name, l->message, l->file, l->line );
 
-    if( logfile != NULL )
-        fflush( logfile );
-
     tr_freeMessageList( list );
-}
-
-static tr_rpc_callback_status
-on_rpc_callback( tr_session            * session UNUSED,
-                 tr_rpc_callback_type    type,
-                 struct tr_torrent     * tor UNUSED,
-                 void                  * user_data UNUSED )
-{
-    if( type == TR_RPC_SESSION_CLOSE )
-        closing = TRUE;
-    return TR_RPC_OK;
 }
 
 int
@@ -494,7 +480,6 @@ main( int argc, char ** argv )
     tr_formatter_size_init( DISK_K, DISK_K_STR, DISK_M_STR, DISK_G_STR, DISK_T_STR );
     tr_formatter_speed_init( SPEED_K, SPEED_K_STR, SPEED_M_STR, SPEED_G_STR, SPEED_T_STR );
     mySession = tr_sessionInit( "daemon", configDir, TRUE, &settings );
-    tr_sessionSetRPCCallback( mySession, on_rpc_callback, NULL );
     tr_ninf( NULL, "Using settings from \"%s\"", configDir );
     tr_sessionSaveSettings( mySession, configDir, &settings );
 
@@ -554,13 +539,6 @@ main( int argc, char ** argv )
         pumpLogMessages( logfile );
     }
 
-    printf( "Closing transmission session..." );
-    tr_sessionSaveSettings( mySession, configDir, &settings );
-    dtr_watchdir_free( watchdir );
-    tr_sessionClose( mySession );
-    pumpLogMessages( logfile );
-    printf( " done.\n" );
-
     /* shutdown */
 #if HAVE_SYSLOG
     if( !foreground )
@@ -569,6 +547,12 @@ main( int argc, char ** argv )
         closelog( );
     }
 #endif
+
+    printf( "Closing transmission session..." );
+    tr_sessionSaveSettings( mySession, configDir, &settings );
+    dtr_watchdir_free( watchdir );
+    tr_sessionClose( mySession );
+    printf( " done.\n" );
 
     /* cleanup */
     if( pidfile_created )

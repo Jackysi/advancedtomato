@@ -3,8 +3,8 @@ dnl STATUS: "X" for prerelease beta builds,
 dnl         "Z" for unsupported trunk builds,
 dnl         "0" for stable, supported releases
 dnl these should be the only two lines you need to change
-m4_define([user_agent_prefix],[2.22])
-m4_define([peer_id_prefix],[-TR2220-])
+m4_define([user_agent_prefix],[2.13])
+m4_define([peer_id_prefix],[-TR2130-])
 
 AC_INIT([transmission],
         [user_agent_prefix],
@@ -40,7 +40,7 @@ AM_CONDITIONAL(TR_UNSTABLE, test "x$supported_build" = "xno")
 ##
 CURL_MINIMUM=7.15.4
 AC_SUBST(CURL_MINIMUM)
-LIBEVENT_MINIMUM=2.0.10
+LIBEVENT_MINIMUM=1.4.9
 AC_SUBST(LIBEVENT_MINIUM)
 OPENSSL_MINIMUM=0.9.4
 AC_SUBST(OPENSSL_MINIMUM)
@@ -85,7 +85,7 @@ AC_PROG_CXX
 AC_C_INLINE
 if test "x$GCC" = "xyes" ; then
 
-    CFLAGS="$CFLAGS -std=gnu99 -ggdb3 -Wall -W -Wpointer-arith -Wformat-security -Wcast-align -Wundef -Wcast-align -Wstrict-prototypes -Wmissing-declarations -Wmissing-format-attribute -Wredundant-decls -Wnested-externs -Wunused-parameter -Wwrite-strings -Winline -Wfloat-equal"
+    CFLAGS="$CFLAGS -std=gnu99 -ggdb3 -Wall -W -Wpointer-arith -Wformat-security -Wcast-align -Wundef -Wcast-align -Wstrict-prototypes -Wmissing-declarations -Wmissing-format-attribute -Wredundant-decls -Wnested-externs -Wunused-parameter -Wwrite-strings -Waggregate-return -Winline -Wfloat-equal"
 
     dnl figure out gcc version
     AC_MSG_CHECKING([gcc version])
@@ -108,7 +108,7 @@ fi
 AC_HEADER_STDC
 AC_HEADER_TIME
 
-AC_CHECK_FUNCS([iconv_open pread pwrite lrintf strlcpy daemon dirname basename strcasecmp localtime_r fallocate64 posix_fallocate memmem strsep strtold syslog valloc getpagesize posix_memalign statvfs])
+AC_CHECK_FUNCS([iconv_open pread pwrite lrintf strlcpy daemon dirname basename strcasecmp localtime_r fallocate64 posix_fallocate memmem strsep strtold syslog valloc getpagesize posix_memalign])
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 ACX_PTHREAD
@@ -122,7 +122,6 @@ AC_SEARCH_LIBS([socket], [socket net])
 AC_SEARCH_LIBS([gethostbyname], [nsl bind])
 PKG_CHECK_MODULES(OPENSSL, [openssl >= $OPENSSL_MINIMUM], , [CHECK_SSL()])
 PKG_CHECK_MODULES(LIBCURL, [libcurl >= $CURL_MINIMUM])
-PKG_CHECK_MODULES(LIBEVENT, [libevent >= $LIBEVENT_MINIMUM])
 AC_PATH_ZLIB
 
 AC_SYS_LARGEFILE
@@ -174,8 +173,7 @@ if test "x$want_kqueue" = "xyes" ; then
     fi 
 fi 
 
-AC_CHECK_HEADERS([sys/statvfs.h \
-                  xfs/xfs.h])
+AC_CHECK_HEADERS([xfs/xfs.h])
 
 
 dnl ----------------------------------------------------------------------------
@@ -203,6 +201,30 @@ AC_CHECK_LIB([rt],
              [clock_gettime],
              [libevent_extra_libs="-lrt"],
              [libevent_extra_libs=""])
+
+
+dnl libevent
+dnl if the user specified LIBEVENT_LIBS or
+if test -n "$LIBEVENT_LIBS"; then
+    user_specified_libevent=yes
+elif test -n "$LIBEVENT_CFLAGS"; then
+    user_specified_libevent=yes
+fi
+if test "x$user_specified_libevent" = "xyes"; then
+    AC_MSG_NOTICE([Using user-specified LIBEVENT_LIBS and LIBEVENT_CFLAGS])
+else
+    AC_CHECK_LIB([event],[evutil_vsnprintf],
+                 [],
+                 [AC_MSG_ERROR(libevent $LIBEVENT_MINIMUM or higher not found!)],
+                 [$libevent_extra_libs])
+    AC_CHECK_HEADER([event-config.h],[],
+                    [AC_MSG_ERROR(event-config.h not found!)])
+    LIBEVENT_CFLAGS=""
+    LIBEVENT_LIBS="-levent $libevent_extra_libs"
+fi
+AC_ARG_VAR([LIBEVENT_CFLAGS], [C compiler flags for LIBEVENT, overriding pkg-config])dnl
+AC_ARG_VAR([LIBEVENT_LIBS], [linker flags for LIBEVENT, overriding pkg-config])dnl
+
 
 
 dnl ----------------------------------------------------------------------------
@@ -406,14 +428,6 @@ case $host_os in
 
 esac
 
-AC_ARG_ENABLE([lightweight],
-              AS_HELP_STRING([--enable-lightweight],[optimize libtransmission for low-resource systems: smaller cache size, prefer unencrypted peer connections, etc.]),
-              [enable_lightweight=${enableval}],
-              [enable_lightweight="no"])
-if test "x$enable_lightweight" = "xyes" ; then 
-  AC_DEFINE([TR_LIGHTWEIGHT],[1],[optimize libtransmission for low-resource systems])
-fi 
-
 AC_ARG_ENABLE([cli],
               [AS_HELP_STRING([--enable-cli],[build command-line client])],
               [build_cli=${enableval}],
@@ -484,6 +498,7 @@ AC_CONFIG_FILES([Makefile
                  web/stylesheets/Makefile
                  po/Makefile.in])
 
+ac_configure_args="$ac_configure_args --enable-static --disable-shared -q"
 AC_OUTPUT
 
 echo "
@@ -492,10 +507,6 @@ Configuration:
 
    Source code location:                              ${srcdir}
    Compiler:                                          ${CXX}
-
-   Build libtransmission:                             yes
-
-      * optimized for low-resource systems:           ${enable_lightweight}
 
    Build Command-Line client:                         ${build_cli}
 

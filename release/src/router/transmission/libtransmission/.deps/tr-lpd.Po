@@ -72,12 +72,9 @@ tr-lpd.o tr-lpd.o: tr-lpd.c \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/in.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/linux/version.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/byteswap.h \
-  /root/openwrt/tomato.git-dev/src-rt/router/libevent/include/event2/event.h \
-  /root/openwrt/tomato.git-dev/src-rt/router/libevent/include/event2/event-config.h \
-  /root/openwrt/tomato.git-dev/src-rt/router/libevent/include/event2/util.h \
-  /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/netdb.h \
-  /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/rpc/netdb.h \
-  /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/netdb.h \
+  /root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent/event.h \
+  /root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent/event-config.h \
+  /root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent/evutil.h \
   transmission.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/inttypes.h \
   crypto.h utils.h \
@@ -237,17 +234,11 @@ tr-lpd.o tr-lpd.o: tr-lpd.c \
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/byteswap.h:
 
-/root/openwrt/tomato.git-dev/src-rt/router/libevent/include/event2/event.h:
+/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent/event.h:
 
-/root/openwrt/tomato.git-dev/src-rt/router/libevent/include/event2/event-config.h:
+/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent/event-config.h:
 
-/root/openwrt/tomato.git-dev/src-rt/router/libevent/include/event2/util.h:
-
-/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/netdb.h:
-
-/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/rpc/netdb.h:
-
-/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/netdb.h:
+/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent/evutil.h:
 
 transmission.h:
 

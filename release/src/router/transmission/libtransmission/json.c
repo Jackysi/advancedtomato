@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2008-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: json.c 12032 2011-02-24 15:38:58Z jordan $
+ * $Id: json.c 10662 2010-05-19 16:17:51Z charles $
  */
 
 #include <assert.h>
@@ -91,7 +91,7 @@ callback( void *             vdata,
 
         case JSON_T_FLOAT:
             data->hasContent = TRUE;
-            tr_bencInitReal( getNode( data ), value->vu.float_value );
+            tr_bencInitReal( getNode( data ), (double)value->vu.float_value );
             break;
 
         case JSON_T_NULL:

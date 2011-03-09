@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2009-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: metainfo.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: metainfo.c 11398 2010-11-11 15:31:11Z charles $
  */
 
 #include <assert.h>
@@ -19,7 +19,7 @@
 #include <sys/stat.h>
 #include <unistd.h> /* unlink, stat */
 
-#include <event2/buffer.h>
+#include <event.h> /* struct evbuffer */
 
 #include "transmission.h"
 #include "session.h"
@@ -154,7 +154,6 @@ getfile( char ** setme, const char * root, tr_benc * path )
     if( tr_bencIsList( path ) )
     {
         int i;
-        char * tmp;
         const int n = tr_bencListSize( path );
         struct evbuffer * buf = evbuffer_new( );
 
@@ -169,10 +168,9 @@ getfile( char ** setme, const char * root, tr_benc * path )
             }
         }
 
-        tmp = evbuffer_free_to_str( buf );
-        *setme = tr_utf8clean( tmp, -1 );
-        tr_free( tmp );
+        *setme = tr_utf8clean( (char*)EVBUFFER_DATA( buf ), EVBUFFER_LENGTH( buf ) );
         /* fprintf( stderr, "[%s]\n", *setme ); */
+        evbuffer_free( buf );
         success = TRUE;
     }
 
@@ -255,7 +253,7 @@ tr_convertAnnounceToScrape( const char * announce )
      * If the text immediately following that '/' isn't 'announce'
      * it will be taken as a sign that that tracker doesn't support
      * the scrape convention. If it does, substitute 'scrape' for
-     * 'announce' to find the scrape page. */
+     * 'announce' to find the scrape page.  */
     if( ( ( s = strrchr( announce, '/' ) ) ) && !strncmp( ++s, "announce", 8 ) )
     {
         const char * prefix = announce;

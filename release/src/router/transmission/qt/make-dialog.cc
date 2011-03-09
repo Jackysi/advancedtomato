@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: make-dialog.cc 11824 2011-02-03 22:13:31Z jordan $
+ * $Id: make-dialog.cc 11098 2010-08-02 20:55:11Z charles $
  */
 
 #include <cassert>
@@ -192,7 +192,7 @@ void
 MakeDialog :: onFolderClicked( )
 {
     QFileDialog * d = new QFileDialog( this, tr( "Select Folder" ) );
-    d->setFileMode( QFileDialog::DirectoryOnly );
+    d->setFileMode( QFileDialog::Directory );
     connect( d, SIGNAL(filesSelected(const QStringList&)),
              this, SLOT(onFolderSelected(const QStringList&)) );
     d->show( );
@@ -215,7 +215,7 @@ void
 MakeDialog :: onDestinationClicked( )
 {
     QFileDialog * d = new QFileDialog( this, tr( "Select Folder" ) );
-    d->setFileMode( QFileDialog::DirectoryOnly );
+    d->setFileMode( QFileDialog::Directory );
     connect( d, SIGNAL(filesSelected(const QStringList&)),
              this, SLOT(onDestinationSelected(const QStringList&)) );
     d->show( );

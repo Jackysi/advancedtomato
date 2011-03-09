@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: StatusBarView.h 11621 2011-01-02 17:11:41Z livings124 $
+ * $Id: StatusBarView.h 11489 2010-12-05 19:20:07Z livings124 $
  * 
- * Copyright (c) 2006-2011 Transmission authors and contributors
+ * Copyright (c) 2006-2010 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,7 @@
 
 @interface StatusBarView : NSView
 {
-    NSGradient * fGradient;
+    NSColor * fGrayBorderColor;
 }
 
 @end

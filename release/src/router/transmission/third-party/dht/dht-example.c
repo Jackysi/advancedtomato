@@ -88,8 +88,6 @@ callback(void *closure,
         printf("Received %d values.\n", (int)(data_len / 6));
 }
 
-static unsigned char buf[4096];
-
 int
 main(int argc, char **argv)
 {
@@ -103,8 +101,6 @@ main(int argc, char **argv)
     int quiet = 0, ipv4 = 1, ipv6 = 1;
     struct sockaddr_in sin;
     struct sockaddr_in6 sin6;
-    struct sockaddr_storage from;
-    socklen_t fromlen;
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
@@ -342,25 +338,7 @@ main(int argc, char **argv)
         if(exiting)
             break;
 
-        if(rc > 0) {
-            fromlen = sizeof(from);
-            if(s >= 0 && FD_ISSET(s, &readfds))
-                rc = recvfrom(s, buf, sizeof(buf) - 1, 0,
-                              (struct sockaddr*)&from, &fromlen);
-            else if(s6 >= 0 && FD_ISSET(s6, &readfds))
-                rc = recvfrom(s6, buf, sizeof(buf) - 1, 0,
-                              (struct sockaddr*)&from, &fromlen);
-            else
-                abort();
-        }
-
-        if(rc > 0) {
-            buf[rc] = '\0';
-            rc = dht_periodic(buf, rc, (struct sockaddr*)&from, fromlen,
-                              &tosleep, callback, NULL);
-        } else {
-            rc = dht_periodic(NULL, 0, NULL, 0, &tosleep, callback, NULL);
-        }
+        rc = dht_periodic(rc > 0, &tosleep, callback, NULL);
         if(rc < 0) {
             if(errno == EINTR) {
                 continue;
@@ -400,7 +378,7 @@ main(int argc, char **argv)
         printf("Found %d (%d + %d) good nodes.\n", i, num, num6);
     }
 
-    dht_uninit();
+    dht_uninit(1);
     return 0;
     
  usage:

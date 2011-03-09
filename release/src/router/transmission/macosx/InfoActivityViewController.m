@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: InfoActivityViewController.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: InfoActivityViewController.m 10832 2010-06-24 00:00:43Z livings124 $
  *
- * Copyright (c) 2010-2011 Transmission authors and contributors
+ * Copyright (c) 2010 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -142,9 +142,6 @@
         
         [fDateCompletedField setObjectValue: [torrent dateCompleted]];
         
-        [fDownloadTimeField setStringValue: [NSString timeString: [torrent secondsDownloading] showSeconds: YES]];
-        [fSeedTimeField setStringValue: [NSString timeString: [torrent secondsSeeding] showSeconds: YES]];
-        
         [fPiecesView updateView];
     }
     else if (numberSelected > 1)
@@ -192,9 +189,6 @@
         
         [fDateAddedField setStringValue: @""];
         [fDateCompletedField setStringValue: @""];
-        
-        [fDownloadTimeField setStringValue: @""];
-        [fSeedTimeField setStringValue: @""];
         
         [fPiecesControl setSelected: NO forSegment: PIECES_CONTROL_AVAILABLE];
         [fPiecesControl setSelected: NO forSegment: PIECES_CONTROL_PROGRESS];

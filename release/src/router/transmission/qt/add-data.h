@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: add-data.h 11744 2011-01-21 21:51:50Z jordan $
+ * $Id: add-data.h 11092 2010-08-01 20:36:13Z charles $
  */
 
 #ifndef ADD_DATA_H
@@ -40,10 +40,6 @@ class AddData
         QByteArray toBase64( ) const;
 
         QString readableName( ) const;
-
-    public:
-
-        static bool isSupported( const QString& str ) { return AddData(str).type != NONE; }
 };
 
 #endif

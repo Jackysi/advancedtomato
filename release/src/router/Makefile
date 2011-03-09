@@ -287,6 +287,9 @@ endif
 ifeq ($(TCONFIG_SSH),y)
 	install $(LIBDIR)/libutil.so.0 $(TARGETDIR)/lib/
 endif
+ifeq ($(TCONFIG_BT),y)
+	install $(LIBDIR)/librt-0.9.30.1.so $(TARGETDIR)/lib/librt.so.0
+endif
 ifneq ($(TCONFIG_OPTIMIZE_SHARED_LIBS),y)
 	install $(LIBDIR)/libresolv.so.0 $(TARGETDIR)/lib/
 	$(STRIP) $(TARGETDIR)/lib/*.so.0
@@ -1430,11 +1433,11 @@ libevent-clean:
 
 libevent-install: libevent
 	install -d $(INSTALLDIR)/libevent/usr/lib
-	install libevent/.libs/libevent-2.0.so.5.0.1 $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5.0.1
-	$(STRIP) -s $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5.0.1
+	install libevent/.libs/libevent-1.4.so.2.2.0 $(INSTALLDIR)/libevent/usr/lib/libevent-1.4.so.2.2.0
+	$(STRIP) -s $(INSTALLDIR)/libevent/usr/lib/libevent-1.4.so.2.2.0
 	cd $(INSTALLDIR)/libevent/usr/lib/ && \
-		ln -sf libevent-2.0.so.5.0.1 libevent-2.0.so.5 && \
-		ln -sf libevent-2.0.so.5.0.1 libevent.so
+		ln -sf libevent-1.4.so.2.2.0 libevent-1.4.so.2 && \
+		ln -sf libevent-1.4.so.2.2.0 libevent.so
 
 transmission/Makefile: openssl libcurl libevent zlib transmission/Makefile
 	cd transmission && CC=$(CC) AR=$(AR) LD=$(LD) STRIP='mipsel-uclibc-strip' \
@@ -1447,7 +1450,7 @@ transmission/Makefile: openssl libcurl libevent zlib transmission/Makefile
 		--with-ssl-headers="$(TOP)/openssl/include/" \
 		LIBCURL_CFLAGS="-I$(TOP)/libcurl/include" \
 		LIBCURL_LIBS="-L$(TOP)/libcurl/lib/.libs/ -lcurl" \
-		LIBEVENT_CFLAGS="-I$(TOP)/libevent/include" \
+		LIBEVENT_CFLAGS="-I$(TOP)/libevent" \
 		LIBEVENT_LIBS="-L$(TOP)/libevent/.libs -levent" \
 		OPENSSL_CFLAGS="-I$(TOP)/openssl/include" \
 		OPENSSL_LIBS="-L$(TOP)/openssl -lcrypto -lssl"

@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2007-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: actions.c 11726 2011-01-20 20:32:28Z jordan $
+ * $Id: actions.c 11263 2010-09-24 15:22:53Z charles $
  */
 
 #include <string.h>
@@ -31,13 +31,15 @@
 
 #define UNUSED G_GNUC_UNUSED
 
-static TrCore * myCore = NULL;
+static TrCore *         myCore = NULL;
+
 static GtkActionGroup * myGroup = NULL;
 
 static void
-action_cb( GtkAction * a, gpointer user_data )
+action_cb( GtkAction * a,
+           gpointer    user_data )
 {
-    gtr_actions_handler( gtk_action_get_name( a ), user_data );
+    doAction ( gtk_action_get_name( a ), user_data );
 }
 
 #if !GTK_CHECK_VERSION( 2, 8, 0 )
@@ -90,7 +92,7 @@ toggle_pref_cb( GtkToggleAction *  action,
 
 static GtkToggleActionEntry  pref_toggle_entries[] =
 {
-    { "alt-speed-enabled", NULL, N_( "Enable Alternative Speed _Limits" ), NULL, NULL, G_CALLBACK( toggle_pref_cb ), FALSE },
+    { "alt-speed-enabled", NULL, N_( "Enable Temporary Speed _Limits" ), NULL, NULL, G_CALLBACK( toggle_pref_cb ), FALSE },
     { "compact-view",      NULL, N_( "_Compact View" ), "<alt>C", NULL, G_CALLBACK( toggle_pref_cb ), FALSE },
     { "sort-reversed",     NULL, N_( "Re_verse Sort Order" ), NULL, NULL, G_CALLBACK( toggle_pref_cb ), FALSE },
     { "show-filterbar",    NULL, N_( "_Filterbar" ), NULL, NULL, G_CALLBACK( toggle_pref_cb ), FALSE },
@@ -106,10 +108,10 @@ static GtkActionEntry entries[] =
     { "sort-menu", NULL, N_( "_Sort Torrents By" ), NULL, NULL, NULL },
     { "edit-menu", NULL, N_( "_Edit" ), NULL, NULL, NULL },
     { "help-menu", NULL, N_( "_Help" ), NULL, NULL, NULL },
-    { "copy-magnet-link-to-clipboard",  GTK_STOCK_COPY, N_("Copy _Magnet Link to Clipboard" ), "", NULL,  G_CALLBACK( action_cb ) },
-    { "open-torrent-from-url",  GTK_STOCK_OPEN, N_("Open _URL..." ), "<control>U", N_( "Open URL..." ),  G_CALLBACK( action_cb ) },
-    { "open-torrent-toolbar",  GTK_STOCK_OPEN, NULL, NULL, N_( "Open a torrent" ),  G_CALLBACK( action_cb ) },
-    { "open-torrent-menu", GTK_STOCK_OPEN, NULL, NULL, N_( "Open a torrent" ), G_CALLBACK( action_cb ) },
+    { "copy-magnet-link-to-clipboard",  GTK_STOCK_COPY, N_("Copy _Magnet Link to Clipboard" ), "<control>M", NULL,  G_CALLBACK( action_cb ) },
+    { "add-torrent-from-url",  GTK_STOCK_ADD, N_("Add _URL..." ), NULL, N_( "Add URL..." ),  G_CALLBACK( action_cb ) },
+    { "add-torrent-toolbar",  GTK_STOCK_ADD, NULL, NULL, N_( "Add a torrent" ),  G_CALLBACK( action_cb ) },
+    { "add-torrent-menu", GTK_STOCK_ADD, N_( "_Add File..." ), "<control>D", N_( "Add a torrent" ), G_CALLBACK( action_cb ) },
     { "start-torrent", GTK_STOCK_MEDIA_PLAY, N_( "_Start" ), "<control>S", N_( "Start torrent" ), G_CALLBACK( action_cb ) },
     { "show-stats", NULL, N_( "_Statistics" ), NULL, NULL, G_CALLBACK( action_cb ) },
     { "donate", NULL, N_( "_Donate" ), NULL, NULL, G_CALLBACK( action_cb ) },
@@ -126,7 +128,7 @@ static GtkActionEntry entries[] =
     { "deselect-all", NULL, N_( "Dese_lect All" ), "<shift><control>A", NULL, G_CALLBACK( action_cb ) },
     { "edit-preferences", GTK_STOCK_PREFERENCES, NULL, NULL, NULL, G_CALLBACK( action_cb ) },
     { "show-torrent-properties", GTK_STOCK_PROPERTIES, NULL, "<alt>Return", N_( "Torrent properties" ), G_CALLBACK( action_cb ) },
-    { "open-torrent-folder",  GTK_STOCK_OPEN, N_( "Open Fold_er" ), "<control>E", NULL, G_CALLBACK( action_cb ) },
+    { "open-torrent-folder",  GTK_STOCK_OPEN, N_( "_Open Folder" ), NULL, NULL, G_CALLBACK( action_cb ) },
     { "show-about-dialog", GTK_STOCK_ABOUT, NULL, NULL, NULL, G_CALLBACK( action_cb ) },
     { "help", GTK_STOCK_HELP, N_( "_Contents" ), "F1", NULL, G_CALLBACK( action_cb ) },
     { "update-tracker", GTK_STOCK_NETWORK, N_( "Ask Tracker for _More Peers" ), NULL, NULL, G_CALLBACK( action_cb ) },
@@ -191,13 +193,14 @@ register_my_icons( void )
 static GtkUIManager * myUIManager = NULL;
 
 void
-gtr_actions_set_core( TrCore * core )
+actions_set_core( TrCore * core )
 {
     myCore = core;
 }
 
 void
-gtr_actions_init( GtkUIManager * ui_manager, gpointer callback_user_data )
+actions_init( GtkUIManager * ui_manager,
+              gpointer       callback_user_data )
 {
     int              i, n;
     int              active;
@@ -213,7 +216,7 @@ gtr_actions_init( GtkUIManager * ui_manager, gpointer callback_user_data )
     gtk_action_group_set_translation_domain( action_group, NULL );
 
 
-    match = gtr_pref_string_get( PREF_KEY_SORT_MODE );
+    match = pref_string_get( PREF_KEY_SORT_MODE );
     for( i = 0, n = G_N_ELEMENTS( sort_radio_entries ), active = -1;
          active == -1 && i < n; ++i )
         if( !strcmp( sort_radio_entries[i].name, match ) )
@@ -233,7 +236,7 @@ gtr_actions_init( GtkUIManager * ui_manager, gpointer callback_user_data )
 
     for( i = 0, n = G_N_ELEMENTS( pref_toggle_entries ); i < n; ++i )
         pref_toggle_entries[i].is_active =
-            gtr_pref_flag_get( pref_toggle_entries[i].name );
+            pref_flag_get( pref_toggle_entries[i].name );
 
     gtk_action_group_add_toggle_actions( action_group,
                                          pref_toggle_entries,
@@ -289,7 +292,7 @@ get_action( const char* name )
 }
 
 void
-gtr_action_activate( const char * name )
+action_activate( const char * name )
 {
     GtkAction * action = get_action( name );
 
@@ -298,7 +301,8 @@ gtr_action_activate( const char * name )
 }
 
 void
-gtr_action_set_sensitive( const char * name, gboolean b )
+action_sensitize( const char * name,
+                  gboolean     b )
 {
     GtkAction * action = get_action( name );
 
@@ -307,7 +311,7 @@ gtr_action_set_sensitive( const char * name, gboolean b )
 }
 
 void
-gtr_action_set_important( const char * name, gboolean b )
+action_set_important( const char * name, gboolean b )
 {
     GtkAction * action = get_action( name );
 
@@ -316,7 +320,8 @@ gtr_action_set_important( const char * name, gboolean b )
 }
 
 void
-gtr_action_set_toggled( const char * name, gboolean b )
+action_toggle( const char * name,
+               gboolean     b )
 {
     GtkAction * action = get_action( name );
 
@@ -324,7 +329,7 @@ gtr_action_set_toggled( const char * name, gboolean b )
 }
 
 GtkWidget*
-gtr_action_get_widget( const char * path )
+action_get_widget( const char * path )
 {
     return gtk_ui_manager_get_widget( myUIManager, path );
 }

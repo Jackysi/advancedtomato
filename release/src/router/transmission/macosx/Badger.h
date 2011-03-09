@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: Badger.h 11756 2011-01-23 18:23:52Z livings124 $
+ * $Id: Badger.h 9844 2010-01-01 21:12:04Z livings124 $
  *
- * Copyright (c) 2006-2011 Transmission authors and contributors
+ * Copyright (c) 2006-2010 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -34,7 +34,7 @@
 
 - (id) initWithLib: (tr_session *) lib;
 
-- (void) updateBadgeWithDownload: (CGFloat) downloadRate upload: (CGFloat) uploadRate;
+- (void) updateBadge;
 - (void) incrementCompleted;
 - (void) clearCompleted;
 - (void) setQuitting;

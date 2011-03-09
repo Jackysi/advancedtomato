@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: torrent-filter.cc 11519 2010-12-12 16:07:04Z charles $
+ * $Id: torrent-filter.cc 11446 2010-12-01 05:41:58Z charles $
  */
 
 #include <iostream>
@@ -159,7 +159,7 @@ TorrentFilter :: activityFilterAcceptsTorrent( const Torrent * tor, const Filter
             accepts = tor->isWaitingToVerify( );
             break;
         case FilterMode::SHOW_VERIFYING:
-            accepts = tor->isVerifying( ) || tor->isWaitingToVerify( );
+            accepts = tor->isVerifying( );
             break;
         case FilterMode::SHOW_ERROR:
             accepts = tor->hasError( );

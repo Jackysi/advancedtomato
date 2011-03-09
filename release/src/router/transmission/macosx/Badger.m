@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: Badger.m 12070 2011-03-03 03:53:30Z livings124 $
+ * $Id: Badger.m 10949 2010-07-06 03:40:34Z livings124 $
  *
- * Copyright (c) 2006-2011 Transmission authors and contributors
+ * Copyright (c) 2006-2010 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -35,9 +35,12 @@
         
         fCompleted = 0;
         
-        BadgeView * view = [[BadgeView alloc] initWithLib: lib];
+        BadgeView * view = [[BadgeView alloc] initWithFrame: [[[NSApp dockTile] contentView] frame] lib: lib];
         [[NSApp dockTile] setContentView: view];
         [view release];
+        
+        //change that just impacts the dock badge
+        [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(updateBadge) name: @"DockBadgeChange" object: nil];
     }
     
     return self;
@@ -50,15 +53,15 @@
     [super dealloc];
 }
 
-- (void) updateBadgeWithDownload: (CGFloat) downloadRate upload: (CGFloat) uploadRate
+- (void) updateBadge
 {
-    const CGFloat displayDlRate = [[NSUserDefaults standardUserDefaults] boolForKey: @"BadgeDownloadRate"]
-                                    ? downloadRate : 0.0;
-    const CGFloat displayUlRate = [[NSUserDefaults standardUserDefaults] boolForKey: @"BadgeUploadRate"]
-                                    ? uploadRate : 0.0;
+    const double downloadRate = [[NSUserDefaults standardUserDefaults] boolForKey: @"BadgeDownloadRate"]
+                                ? tr_sessionGetPieceSpeed_KBps(fLib, TR_DOWN) : 0.0;
+    const double uploadRate = [[NSUserDefaults standardUserDefaults] boolForKey: @"BadgeUploadRate"]
+                                ? tr_sessionGetPieceSpeed_KBps(fLib, TR_UP) : 0.0;
     
     //only update if the badged values change
-    if ([(BadgeView *)[[NSApp dockTile] contentView] setRatesWithDownload: displayDlRate upload: displayUlRate])
+    if ([(BadgeView *)[[NSApp dockTile] contentView] setRatesWithDownload: downloadRate upload: uploadRate])
         [[NSApp dockTile] display];
 }
 

@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: filter.c 11801 2011-02-01 01:38:58Z jordan $
+ * $Id: filter.c 11134 2010-08-06 15:03:25Z charles $
  */
 
 #include <gtk/gtk.h>
@@ -70,12 +70,10 @@ get_name_from_host( const char * host )
     char * name;
     const char * dot = strrchr( host, '.' );
 
-    if( tr_addressIsIP( host ) )
+    if( dot == NULL )
         name = g_strdup( host );
-    else if( dot )
-        name = g_strndup( host, dot - host );
     else
-        name = g_strdup( host );
+        name = g_strndup( host, dot - host );
 
     *name = g_ascii_toupper( *name );
 
@@ -139,8 +137,8 @@ category_filter_model_update( GtkTreeStore * store )
 
     g_object_steal_data( o, DIRTY_KEY );
 
-    /* Walk through all the torrents, tallying how many matches there are
-     * for the various categories. Also make a sorted list of all tracker
+    /* walk through all the torrents, tallying how many matches there are
+     * for the various categories.  also make a sorted list of all tracker
      * hosts s.t. we can merge it with the existing list */
     if( gtk_tree_model_get_iter_first( tmodel, &iter )) do
     {
@@ -610,7 +608,7 @@ activity_is_it_a_separator( GtkTreeModel * m, GtkTreeIter * i, gpointer d UNUSED
 static gboolean
 test_torrent_activity( tr_torrent * tor, int type )
 {
-    const tr_stat * st = tr_torrentStatCached( tor );
+    const tr_stat * st = tr_torrentStat( tor );
 
     switch( type )
     {
@@ -623,7 +621,6 @@ test_torrent_activity( tr_torrent * tor, int type )
         case ACTIVITY_FILTER_ACTIVE:
             return ( st->peersSendingToUs > 0 )
                 || ( st->peersGettingFromUs > 0 )
-                || ( st->webseedsSendingToUs > 0 )
                 || ( st->activity == TR_STATUS_CHECK );
 
         case ACTIVITY_FILTER_PAUSED:
@@ -636,7 +633,7 @@ test_torrent_activity( tr_torrent * tor, int type )
             return st->activity == TR_STATUS_CHECK_WAIT;
 
         case ACTIVITY_FILTER_VERIFYING:
-            return ( st->activity == TR_STATUS_CHECK ) || ( st->activity == TR_STATUS_CHECK_WAIT );
+            return st->activity == TR_STATUS_CHECK ;
 
         case ACTIVITY_FILTER_ERROR:
             return st->error != 0;

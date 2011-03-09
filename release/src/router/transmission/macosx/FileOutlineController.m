@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: FileOutlineController.m 11762 2011-01-24 02:01:36Z livings124 $
+ * $Id: FileOutlineController.m 10206 2010-02-15 14:56:14Z livings124 $
  *
- * Copyright (c) 2008-2011 Transmission authors and contributors
+ * Copyright (c) 2008-2010 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -351,7 +351,7 @@ typedef enum
     {
         NSIndexSet * indexSet = [fOutline selectedRowIndexes];
         for (NSInteger i = [indexSet firstIndex]; i != NSNotFound; i = [indexSet indexGreaterThanIndex: i])
-            if ([fTorrent fileLocation: [fOutline itemAtRow: i]] != nil)
+            if ([fTorrent fileLocation: [fFileList objectAtIndex: i]] != nil)
                 return YES;
         return NO;
     }

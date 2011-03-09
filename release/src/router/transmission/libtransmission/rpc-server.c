@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2008-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: rpc-server.c 11775 2011-01-27 03:53:02Z jordan $
+ * $Id: rpc-server.c 11398 2010-11-11 15:31:11Z charles $
  */
 
 #include <assert.h>
@@ -24,22 +24,18 @@
  #include <zlib.h>
 #endif
 
-#include <event2/buffer.h>
-#include <event2/event.h>
-#include <event2/http.h>
-#include <event2/http_struct.h> /* TODO: eventually remove this */
+#include <event.h>
+#include <evhttp.h>
 
 #include "transmission.h"
 #include "bencode.h"
 #include "crypto.h"
-#include "fdlimit.h"
 #include "list.h"
 #include "net.h"
 #include "platform.h"
 #include "ptrarray.h"
 #include "rpcimpl.h"
 #include "rpc-server.h"
-#include "session.h"
 #include "trevent.h"
 #include "utils.h"
 #include "web.h"
@@ -65,7 +61,6 @@ struct tr_rpc_server
     tr_bool            isPasswordEnabled;
     tr_bool            isWhitelistEnabled;
     tr_port            port;
-    char *             url;
     struct in_addr     bindAddress;
     struct evhttp *    httpd;
     tr_session *       session;
@@ -159,12 +154,12 @@ tr_mimepart_free( struct tr_mimepart * p )
 
 static void
 extract_parts_from_multipart( const struct evkeyvalq * headers,
-                              struct evbuffer * body,
+                              const struct evbuffer * body,
                               tr_ptrArray * setme_parts )
 {
     const char * content_type = evhttp_find_header( headers, "Content-Type" );
-    const char * in = (const char*) evbuffer_pullup( body, -1 );
-    size_t inlen = evbuffer_get_length( body );
+    const char * in = (const char*) EVBUFFER_DATA( body );
+    size_t inlen = EVBUFFER_LENGTH( body );
 
     const char * boundary_key = "boundary=";
     const char * boundary_key_begin = strstr( content_type, boundary_key );
@@ -280,8 +275,8 @@ handle_upload( struct evhttp_request * req,
                 struct evbuffer * json = evbuffer_new( );
                 tr_bencToBuf( &top, TR_FMT_JSON, json );
                 tr_rpc_request_exec_json( server->session,
-                                          evbuffer_pullup( json, -1 ),
-                                          evbuffer_get_length( json ),
+                                          EVBUFFER_DATA( json ),
+                                          EVBUFFER_LENGTH( json ),
                                           NULL, NULL );
                 evbuffer_free( json );
             }
@@ -331,11 +326,14 @@ mimetype_guess( const char * path )
 }
 
 static void
-add_response( struct evhttp_request * req, struct tr_rpc_server * server,
-              struct evbuffer * out, struct evbuffer * content )
+add_response( struct evhttp_request * req,
+              struct tr_rpc_server *  server,
+              struct evbuffer *       out,
+              const void *            content,
+              size_t                  content_len )
 {
 #ifndef HAVE_ZLIB
-    evbuffer_add_buffer( out, content );
+    evbuffer_add( out, content, content_len );
 #else
     const char * key = "Accept-Encoding";
     const char * encoding = evhttp_find_header( req->input_headers, key );
@@ -343,14 +341,14 @@ add_response( struct evhttp_request * req, struct tr_rpc_server * server,
 
     if( !do_compress )
     {
-        evbuffer_add_buffer( out, content );
+        evbuffer_add( out, content, content_len );
     }
     else
     {
         int state;
-        struct evbuffer_iovec iovec[1];
-        void * content_ptr = evbuffer_pullup( content, -1 );
-        const size_t content_len = evbuffer_get_length( content );
+
+        /* FIXME(libevent2): this won't compile under libevent2.
+           but we can use evbuffer_reserve_space() + evbuffer_commit_space() instead */
 
         if( !server->isStreamInitialized )
         {
@@ -363,7 +361,7 @@ add_response( struct evhttp_request * req, struct tr_rpc_server * server,
 
             /* zlib's manual says: "Add 16 to windowBits to write a simple gzip header
              * and trailer around the compressed data instead of a zlib wrapper." */
-#ifdef TR_LIGHTWEIGHT
+#ifdef TR_EMBEDDED
             compressionLevel = Z_DEFAULT_COMPRESSION;
 #else
             compressionLevel = Z_BEST_COMPRESSION;
@@ -371,36 +369,36 @@ add_response( struct evhttp_request * req, struct tr_rpc_server * server,
             deflateInit2( &server->stream, compressionLevel, Z_DEFLATED, 15+16, 8, Z_DEFAULT_STRATEGY );
         }
 
-        server->stream.next_in = content_ptr;
+        server->stream.next_in = (Bytef*) content;
         server->stream.avail_in = content_len;
 
         /* allocate space for the raw data and call deflate() just once --
          * we won't use the deflated data if it's longer than the raw data,
          * so it's okay to let deflate() run out of output buffer space */
-        evbuffer_reserve_space( out, content_len, iovec, 1 );
-        server->stream.next_out = iovec[0].iov_base;
-        server->stream.avail_out = iovec[0].iov_len;
+        evbuffer_expand( out, content_len );
+        server->stream.next_out = EVBUFFER_DATA( out );
+        server->stream.avail_out = content_len;
+
         state = deflate( &server->stream, Z_FINISH );
 
         if( state == Z_STREAM_END )
         {
-            iovec[0].iov_len -= server->stream.avail_out;
+            EVBUFFER_LENGTH( out ) = content_len - server->stream.avail_out;
 
 #if 0
             fprintf( stderr, "compressed response is %.2f of original (raw==%zu bytes; compressed==%zu)\n",
-                             (double)evbuffer_get_length(out)/content_len,
-                             content_len, evbuffer_get_length(out) );
+                             (double)EVBUFFER_LENGTH(out)/content_len,
+                             content_len, EVBUFFER_LENGTH(out) );
 #endif
             evhttp_add_header( req->output_headers,
                                "Content-Encoding", "gzip" );
         }
         else
         {
-            memcpy( iovec[0].iov_base, content_ptr, content_len );
-            iovec[0].iov_len = content_len;
+            evbuffer_drain( out, EVBUFFER_LENGTH( out ) );
+            evbuffer_add( out, content, content_len );
         }
 
-        evbuffer_commit_space( out, iovec, 1 );
         deflateReset( &server->stream );
     }
 #endif
@@ -429,16 +427,13 @@ serve_file( struct evhttp_request * req,
     }
     else
     {
-        void * file;
-        size_t file_len;
-        struct evbuffer * content = evbuffer_new( );
+        size_t content_len;
+        uint8_t * content;
         const int error = errno;
 
         errno = 0;
-        file_len = 0;
-        file = tr_loadFile( filename, &file_len );
-        content = evbuffer_new( );
-        evbuffer_add_reference( content, file, file_len, evbuffer_ref_cleanup_tr_free, file );
+        content_len = 0;
+        content = tr_loadFile( filename, &content_len );
 
         if( errno )
         {
@@ -456,13 +451,12 @@ serve_file( struct evhttp_request * req,
             evhttp_add_header( req->output_headers, "Content-Type", mimetype_guess( filename ) );
             add_time_header( req->output_headers, "Date", now );
             add_time_header( req->output_headers, "Expires", now+(24*60*60) );
-            add_response( req, server, out, content );
+            add_response( req, server, out, content, content_len );
             evhttp_send_reply( req, HTTP_OK, "OK", out );
 
             evbuffer_free( out );
+            tr_free( content );
         }
-
-        evbuffer_free( content );
     }
 }
 
@@ -471,6 +465,8 @@ handle_web_client( struct evhttp_request * req,
                    struct tr_rpc_server *  server )
 {
     const char * webClientDir = tr_getWebClientDir( server->session );
+
+    assert( !strncmp( req->uri, "/transmission/web/", 18 ) );
 
     if( !webClientDir || !*webClientDir )
     {
@@ -489,7 +485,7 @@ handle_web_client( struct evhttp_request * req,
         char * pch;
         char * subpath;
 
-        subpath = tr_strdup( req->uri + strlen( server->url ) + 4 );
+        subpath = tr_strdup( req->uri + 18 );
         if(( pch = strchr( subpath, '?' )))
             *pch = '\0';
 
@@ -517,15 +513,17 @@ struct rpc_response_data
     struct tr_rpc_server  * server;
 };
 
+/* FIXME(libevent2): make "response" an evbuffer and remove response_len */
 static void
 rpc_response_func( tr_session      * session UNUSED,
-                   struct evbuffer * response,
+                   const char      * response,
+                   size_t            response_len,
                    void            * user_data )
 {
     struct rpc_response_data * data = user_data;
     struct evbuffer * buf = evbuffer_new( );
 
-    add_response( data->req, data->server, buf, response );
+    add_response( data->req, data->server, buf, response, response_len );
     evhttp_add_header( data->req->output_headers,
                            "Content-Type", "application/json; charset=UTF-8" );
     evhttp_send_reply( data->req, HTTP_OK, "OK", buf );
@@ -553,8 +551,8 @@ handle_rpc( struct evhttp_request * req,
     else if( req->type == EVHTTP_REQ_POST )
     {
         tr_rpc_request_exec_json( server->session,
-                                  evbuffer_pullup( req->input_buffer, -1 ),
-                                  evbuffer_get_length( req->input_buffer ),
+                                  EVBUFFER_DATA( req->input_buffer ),
+                                  EVBUFFER_LENGTH( req->input_buffer ),
                                   rpc_response_func, data );
     }
 
@@ -616,7 +614,7 @@ handle_request( struct evhttp_request * req, void * arg )
                 "<p>Unauthorized IP Address.</p>"
                 "<p>Either disable the IP address whitelist or add your address to it.</p>"
                 "<p>If you're editing settings.json, see the 'rpc-whitelist' and 'rpc-whitelist-enabled' entries.</p>"
-                "<p>If you're still using ACLs, use a whitelist instead. See the transmission-daemon manpage for details.</p>" );
+                "<p>If you're still using ACLs, use a whitelist instead.  See the transmission-daemon manpage for details.</p>" );
         }
         else if( server->isPasswordEnabled
                  && ( !pass || !user || strcmp( server->username, user )
@@ -628,20 +626,18 @@ handle_request( struct evhttp_request * req, void * arg )
                                "Basic realm=\"" MY_REALM "\"" );
             send_simple_response( req, 401, "Unauthorized User" );
         }
-        else if( strncmp( req->uri, server->url, strlen( server->url ) ) )
+        else if( !strcmp( req->uri, "/transmission/web" )
+               || !strcmp( req->uri, "/transmission/clutch" )
+               || !strcmp( req->uri, "/" ) )
         {
-            const char * protocol = "http";
-            const char * host = evhttp_find_header( req->input_headers, "Host" );
-            char * location = tr_strdup_printf( "%s://%s%sweb/", protocol, host, server->url );
-            evhttp_add_header( req->output_headers, "Location", location );
+            evhttp_add_header( req->output_headers, "Location", "/transmission/web/" );
             send_simple_response( req, HTTP_MOVEPERM, NULL );
-            tr_free( location );
         }
-        else if( !strncmp( req->uri + strlen( server->url ), "web/", 4 ) )
+        else if( !strncmp( req->uri, "/transmission/web/", 18 ) )
         {
             handle_web_client( req, server );
         }
-        else if( !strncmp( req->uri + strlen( server->url ), "upload", 6 ) )
+        else if( !strncmp( req->uri, "/transmission/upload", 20 ) )
         {
             handle_upload( req, server );
         }
@@ -666,7 +662,7 @@ handle_request( struct evhttp_request * req, void * arg )
             tr_free( tmp );
         }
 #endif
-        else if( !strncmp( req->uri + strlen( server->url ), "rpc", 3 ) )
+        else if( !strncmp( req->uri, "/transmission/rpc", 17 ) )
         {
             handle_rpc( req, server );
         }
@@ -689,8 +685,9 @@ startServer( void * vserver )
     {
         addr.type = TR_AF_INET;
         addr.addr.addr4 = server->bindAddress;
-        server->httpd = evhttp_new( server->session->event_base );
-        evhttp_bind_socket( server->httpd, tr_ntop_non_ts( &addr ), server->port );
+        server->httpd = evhttp_new( tr_eventGetBase( server->session ) );
+        evhttp_bind_socket( server->httpd, tr_ntop_non_ts( &addr ),
+                            server->port );
         evhttp_set_gencb( server->httpd, handle_request, server );
 
     }
@@ -766,30 +763,15 @@ tr_rpcGetPort( const tr_rpc_server * server )
 }
 
 void
-tr_rpcSetUrl( tr_rpc_server * server, const char * url )
-{
-    char * tmp = server->url;
-    server->url = tr_strdup( url );
-    dbgmsg( "setting our URL to [%s]", server->url );
-    tr_free( tmp );
-}
-
-const char*
-tr_rpcGetUrl( const tr_rpc_server * server )
-{
-    return server->url ? server->url : "";
-}
-
-void
-tr_rpcSetWhitelist( tr_rpc_server * server, const char * whitelistStr )
+tr_rpcSetWhitelist( tr_rpc_server * server,
+                    const char    * whitelistStr )
 {
     void * tmp;
     const char * walk;
 
     /* keep the string */
-    tmp = server->whitelistStr;
+    tr_free( server->whitelistStr );
     server->whitelistStr = tr_strdup( whitelistStr );
-    tr_free( tmp );
 
     /* clear out the old whitelist entries */
     while(( tmp = tr_list_pop_front( &server->whitelist )))
@@ -836,12 +818,12 @@ tr_rpcGetWhitelistEnabled( const tr_rpc_server * server )
 ****/
 
 void
-tr_rpcSetUsername( tr_rpc_server * server, const char * username )
+tr_rpcSetUsername( tr_rpc_server * server,
+                   const char *    username )
 {
-    char * tmp = server->username;
+    tr_free( server->username );
     server->username = tr_strdup( username );
     dbgmsg( "setting our Username to [%s]", server->username );
-    tr_free( tmp );
 }
 
 const char*
@@ -908,7 +890,6 @@ closeServer( void * vserver )
     if( s->isStreamInitialized )
         deflateEnd( &s->stream );
 #endif
-    tr_free( s->url );
     tr_free( s->sessionId );
     tr_free( s->whitelistStr );
     tr_free( s->username );
@@ -944,10 +925,6 @@ tr_rpcInit( tr_session  * session, tr_benc * settings )
     assert( found );
     s->port = i;
 
-    found = tr_bencDictFindStr( settings, TR_PREFS_KEY_RPC_URL, &str );
-    assert( found );
-    s->url = tr_strdup( str );
-
     found = tr_bencDictFindBool( settings, TR_PREFS_KEY_RPC_WHITELIST_ENABLED, &boolVal );
     assert( found );
     tr_rpcSetWhitelistEnabled( s, boolVal );
@@ -982,7 +959,7 @@ tr_rpcInit( tr_session  * session, tr_benc * settings )
 
     if( s->isEnabled )
     {
-        tr_ninf( MY_NAME, _( "Serving RPC and Web requests on port 127.0.0.1:%d%s" ), (int) s->port, s->url );
+        tr_ninf( MY_NAME, _( "Serving RPC and Web requests on port %d" ), (int) s->port );
         tr_runInEventThread( session, startServer, s );
 
         if( s->isWhitelistEnabled )

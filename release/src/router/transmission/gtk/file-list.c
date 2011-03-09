@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2007-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: file-list.c 12036 2011-02-24 16:00:34Z jordan $
+ * $Id: file-list.c 11217 2010-09-17 13:23:20Z charles $
  */
 
 #include <stddef.h>
@@ -24,10 +24,6 @@
 #include "icons.h"
 #include "tr-prefs.h"
 
-#define TR_DOWNLOAD_KEY  "tr-download-key"
-#define TR_COLUMN_ID_KEY "tr-model-column-id-key"
-#define TR_PRIORITY_KEY  "tr-priority-key"
-
 enum
 {
     /* these two fields could be any number at all so long as they're not
@@ -43,7 +39,6 @@ enum
     FC_PROG,
     FC_INDEX,
     FC_SIZE,
-    FC_SIZE_STR,
     FC_HAVE,
     FC_PRIORITY,
     FC_ENABLED,
@@ -131,7 +126,7 @@ refreshFilesForeach( GtkTreeModel * model,
         if( (priority!=old_priority) || (enabled!=old_enabled) || (have!=old_have) || (prog!=old_prog) )
         {
             /* Changing a value in the sort column can trigger a resort
-             * which breaks this foreach() call. (See #3529)
+             * which breaks this foreach() call.  (See #3529)
              * As a workaround: if that's about to happen, temporarily disable
              * sorting until we finish walking the tree. */
             if( !refresh_data->resort_needed )
@@ -199,17 +194,12 @@ refreshFilesForeach( GtkTreeModel * model,
                              || (priority!=old_priority)
                              || (enabled!=old_enabled)
                              || (prog!=old_prog) )
-        {
-            char size_str[64];
-            tr_strlsize( size_str, sub_size, sizeof size_str );
             gtk_tree_store_set( data->store, iter, FC_SIZE, sub_size,
-                                                   FC_SIZE_STR, size_str,
                                                    FC_HAVE, have,
                                                    FC_PRIORITY, priority,
                                                    FC_ENABLED, enabled,
                                                    FC_PROG, prog,
                                                    -1 );
-        }
     }
 
     return FALSE; /* keep walking */
@@ -251,7 +241,7 @@ refresh( FileData * data )
 
     if( tor == NULL )
     {
-        gtr_file_list_clear( data->top );
+        file_list_clear( data->top );
     }
     else
     {
@@ -305,7 +295,7 @@ getSelectedFilesForeach( GtkTreeModel * model,
     if( is_file )
     {
         struct ActiveData * data = gdata;
-
+    
         /* active means: if it's selected or any ancestor is selected */
 
         gboolean is_active = gtk_tree_selection_iter_is_selected( data->sel, iter );
@@ -332,16 +322,15 @@ getSelectedFilesForeach( GtkTreeModel * model,
     return FALSE; /* keep walking */
 }
 
-static GArray*
-getSelectedFilesAndDescendants( GtkTreeView * view )
+static void
+getSelectedFilesAndDescendants( GtkTreeView * view, GArray * indices )
 {
     struct ActiveData data;
 
     data.sel = gtk_tree_view_get_selection( view );
-    data.array = g_array_new( FALSE, FALSE, sizeof( tr_file_index_t ) );
+    data.array  = indices;
     gtk_tree_model_foreach( gtk_tree_view_get_model( view ),
                             getSelectedFilesForeach, &data );
-    return data.array;
 }
 
 struct SubtreeForeachData
@@ -389,18 +378,17 @@ getSubtree( GtkTreeView * view, GtkTreePath * path, GArray * indices )
 static GArray*
 getActiveFilesForPath( GtkTreeView * view, GtkTreePath * path )
 {
-    GArray * indices;
     GtkTreeSelection * sel = gtk_tree_view_get_selection( view );
+    GArray * indices = g_array_new( FALSE, FALSE, sizeof( tr_file_index_t ) );
 
     if( gtk_tree_selection_path_is_selected( sel, path ) )
     {
         /* clicked in a selected row... use the current selection */
-        indices = getSelectedFilesAndDescendants( view );
+        getSelectedFilesAndDescendants( view, indices );
     }
     else
     {
         /* clicked OUTSIDE of the selected row... just use the clicked row */
-        indices = g_array_new( FALSE, FALSE, sizeof( tr_file_index_t ) );
         getSubtree( view, path, indices );
     }
 
@@ -412,9 +400,9 @@ getActiveFilesForPath( GtkTreeView * view, GtkTreePath * path )
 ***/
 
 void
-gtr_file_list_clear( GtkWidget * w )
+file_list_clear( GtkWidget * w )
 {
-    gtr_file_list_set_torrent( w, -1 );
+    file_list_set_torrent( w, -1 );
 }
 
 struct build_data
@@ -435,26 +423,21 @@ struct row_struct
 static void
 buildTree( GNode * node, gpointer gdata )
 {
-    char size_str[64];
     GtkTreeIter child_iter;
     struct build_data * build = gdata;
     struct row_struct *child_data = node->data;
     const gboolean isLeaf = node->children == NULL;
 
-    const char * mime_type = isLeaf ? gtr_get_mime_type_from_filename( child_data->name ) : DIRECTORY_MIME_TYPE;
-    GdkPixbuf * icon = gtr_get_mime_type_icon( mime_type, GTK_ICON_SIZE_MENU, build->w );
+    const char * mime_type = isLeaf ? get_mime_type_from_filename( child_data->name ) : DIRECTORY_MIME_TYPE;
+    GdkPixbuf * icon = get_mime_type_icon( mime_type, GTK_ICON_SIZE_MENU, build->w );
     const tr_info * inf = tr_torrentInfo( build->tor );
     const int priority = isLeaf ? inf->files[ child_data->index ].priority : 0;
     const gboolean enabled = isLeaf ? !inf->files[ child_data->index ].dnd : TRUE;
-
-    tr_strlsize( size_str, child_data->length, sizeof size_str );
-
 #if GTK_CHECK_VERSION(2,10,0)
     gtk_tree_store_insert_with_values( build->store, &child_iter, build->iter, INT_MAX,
                                        FC_INDEX, child_data->index,
                                        FC_LABEL, child_data->name,
                                        FC_SIZE, child_data->length,
-                                       FC_SIZE_STR, size_str,
                                        FC_ICON, icon,
                                        FC_PRIORITY, priority,
                                        FC_ENABLED, enabled,
@@ -465,7 +448,6 @@ buildTree( GNode * node, gpointer gdata )
                         FC_INDEX, child_data->index,
                         FC_LABEL, child_data->name,
                         FC_SIZE, child_data->length,
-                        FC_SIZE_STR, size_str,
                         FC_ICON, icon,
                         FC_PRIORITY, priority,
                         FC_ENABLED, enabled,
@@ -500,7 +482,7 @@ find_child( GNode* parent, const char * name )
 }
 
 void
-gtr_file_list_set_torrent( GtkWidget * w, int torrentId )
+file_list_set_torrent( GtkWidget * w, int torrentId )
 {
     GtkTreeStore * store;
     FileData * data = g_object_get_data( G_OBJECT( w ), "file-data" );
@@ -515,7 +497,6 @@ gtr_file_list_set_torrent( GtkWidget * w, int torrentId )
                                  G_TYPE_INT,       /* prog [0..100] */
                                  G_TYPE_UINT,      /* index */
                                  G_TYPE_UINT64,    /* size */
-                                 G_TYPE_STRING,    /* size str */
                                  G_TYPE_UINT64,    /* have */
                                  G_TYPE_INT,       /* priority */
                                  G_TYPE_INT );     /* dl enabled */
@@ -589,6 +570,28 @@ gtr_file_list_set_torrent( GtkWidget * w, int torrentId )
 /***
 ****
 ***/
+
+static void
+renderFilename( GtkTreeViewColumn  * column UNUSED,
+                GtkCellRenderer    * renderer,
+                GtkTreeModel       * model,
+                GtkTreeIter        * iter,
+                gpointer             data UNUSED )
+{
+    char *   filename;
+    char *   str;
+    int64_t  size;
+    char     buf[64];
+
+    gtk_tree_model_get( model, iter, FC_LABEL, &filename,
+                                     FC_SIZE, &size,
+                                     -1 );
+    tr_strlsize( buf, size, sizeof( buf ) );
+    str = g_markup_printf_escaped( "<small>%s (%s)</small>", filename, buf );
+    g_object_set( renderer, "markup", str, NULL );
+    g_free( str );
+    g_free( filename );
+}
 
 static void
 renderDownload( GtkTreeViewColumn  * column UNUSED,
@@ -680,120 +683,99 @@ onRowActivated( GtkTreeView * view, GtkTreePath * path,
     return handled;
 }
 
-static gboolean
-onViewPathToggled( GtkTreeView       * view,
-                   GtkTreeViewColumn * col,
-                   GtkTreePath       * path,
-                   FileData          * data )
-{
-    int cid;
-    tr_torrent * tor;
-    gboolean handled = FALSE;
-
-    if( !col || !path )
-        return FALSE;
-
-    cid = GPOINTER_TO_INT( g_object_get_data( G_OBJECT( col ), TR_COLUMN_ID_KEY ) );
-    tor = tr_torrentFindFromId( tr_core_session( data->core ), data->torrentId );
-    if( ( tor != NULL ) && ( ( cid == FC_PRIORITY ) || ( cid == FC_ENABLED ) ) )
-    {
-        GtkTreeIter iter;
-        GArray * indices = getActiveFilesForPath( view, path );
-        GtkTreeModel * model = data->model;
-
-        gtk_tree_model_get_iter( model, &iter, path );
-
-        if( cid == FC_PRIORITY )
-        {
-            int priority;
-            gtk_tree_model_get( model, &iter, FC_PRIORITY, &priority, -1 );
-            switch( priority ) {
-                case TR_PRI_NORMAL: priority = TR_PRI_HIGH; break;
-                case TR_PRI_HIGH:   priority = TR_PRI_LOW; break;
-                default:            priority = TR_PRI_NORMAL; break;
-            }
-            tr_torrentSetFilePriorities( tor,
-                                         (tr_file_index_t *) indices->data,
-                                         (tr_file_index_t) indices->len,
-                                         priority );
-        }
-        else
-        {
-            int enabled;
-            gtk_tree_model_get( model, &iter, FC_ENABLED, &enabled, -1 );
-            enabled = !enabled;
-
-            tr_torrentSetFileDLs( tor,
-                                  (tr_file_index_t *) indices->data,
-                                  (tr_file_index_t) indices->len,
-                                  enabled );
-        }
-
-        refresh( data );
-        g_array_free( indices, TRUE );
-        handled = TRUE;
-    }
-
-    return handled;
-}
-
-/**
- * @note 'col' and 'path' are assumed not to be NULL.
- */
-static gboolean
-getAndSelectEventPath( GtkTreeView        * treeview,
-                       GdkEventButton     * event,
-                       GtkTreeViewColumn ** col,
-                       GtkTreePath       ** path )
-{
-    GtkTreeSelection * sel;
-
-    if( gtk_tree_view_get_path_at_pos( treeview,
-                                       event->x, event->y,
-                                       path, col, NULL, NULL ) )
-    {
-        sel = gtk_tree_view_get_selection( treeview );
-        if( !gtk_tree_selection_path_is_selected( sel, *path ) )
-        {
-            gtk_tree_selection_unselect_all( sel );
-            gtk_tree_selection_select_path( sel, *path );
-        }
-        return TRUE;
-    }
-
-    return FALSE;
-}
 
 static gboolean
 onViewButtonPressed( GtkWidget * w, GdkEventButton * event, gpointer gdata )
 {
-    tr_torrent        * tor;
-    GtkTreeViewColumn * col = NULL;
-    GtkTreePath       * path = NULL;
-    FileData          * data = gdata;
-    gboolean            handled = FALSE;
-    GtkTreeView       * treeview = GTK_TREE_VIEW( w );
+    FileData * data = gdata;
+    gboolean   handled = FALSE;
+    tr_torrent * tor = tr_torrentFindFromId( tr_core_session( data->core ), data->torrentId );
 
-    tor = tr_torrentFindFromId( tr_core_session( data->core ),
-                                data->torrentId );
     if( tor == NULL )
-        return FALSE;
+        return handled;
 
-    if( event->type == GDK_BUTTON_PRESS && event->button == 1
-        && !( event->state & ( GDK_SHIFT_MASK | GDK_CONTROL_MASK ) )
-        && getAndSelectEventPath( treeview, event, &col, &path ) )
+    if( ( event->type == GDK_BUTTON_PRESS ) && ( event->button == 1 )
+      && !( event->state & ( GDK_SHIFT_MASK | GDK_CONTROL_MASK ) ) )
     {
-        handled = onViewPathToggled( treeview, col, path, data );
+        GtkTreeView *       view = GTK_TREE_VIEW( w );
+        GtkTreePath *       path;
+        GtkTreeViewColumn * column;
+        int                 cell_x;
+        int                 cell_y;
+        if( gtk_tree_view_get_path_at_pos( view, event->x, event->y,
+                                           &path, &column, &cell_x, &cell_y ) )
+        {
+            const char * column_title = gtk_tree_view_column_get_title( column );
+            const gboolean downloadColumn = !strcmp( column_title, _( "Download" ) );
+            const gboolean priorityColumn = !strcmp( column_title, _( "Priority" ) );
+            if( downloadColumn || priorityColumn )
+            {
+                GArray * a = getActiveFilesForPath( view, path );
+                GtkTreeSelection * sel = gtk_tree_view_get_selection( view );
+                const gboolean isSelected = gtk_tree_selection_path_is_selected( sel, path );
+                GtkTreeModel * model = data->model;
+                GtkTreeIter iter;
+
+                gtk_tree_model_get_iter( model, &iter, path );
+
+                if( priorityColumn )
+                {
+                    int priority;
+
+                    /* get the `priority' state of the clicked row */
+                    gtk_tree_model_get( model, &iter, FC_PRIORITY, &priority, -1 );
+
+                    /* twiddle it to the next state */
+                    switch( priority ) {
+                        case TR_PRI_NORMAL: priority = TR_PRI_HIGH; break;
+                        case TR_PRI_HIGH:   priority = TR_PRI_LOW; break;
+                        default:            priority = TR_PRI_NORMAL; break;
+                    }
+
+                    /* apply that new state to the active files */
+                    tr_torrentSetFilePriorities( tor,
+                                                 (tr_file_index_t*)a->data,
+                                                 (tr_file_index_t)a->len,
+                                                 priority );
+                }
+                else if( downloadColumn )
+                {
+                    int enabled;
+
+                    /* get the `enabled' state of the clicked row */
+                    gtk_tree_model_get( model, &iter, FC_ENABLED, &enabled, -1 );
+
+                    /* twiddle it to the next state */
+                    enabled = !enabled;
+
+                    /* apply that new state to the active files */
+                    tr_torrentSetFileDLs( tor,
+                                          (tr_file_index_t*)a->data,
+                                          (tr_file_index_t)a->len,
+                                          enabled );
+                }
+
+                refresh( data );
+
+                /* the click was meant to change the priority or enabled state,
+                   not to alter which rows were selected, so don't pass this
+                   event on to the other handlers. */
+                handled = isSelected;
+
+                /* cleanup */
+                g_array_free( a, TRUE );
+            }
+
+            gtk_tree_path_free( path );
+        }
     }
 
-    gtk_tree_path_free( path );
     return handled;
 }
 
 GtkWidget *
-gtr_file_list_new( TrCore * core, int torrentId )
+file_list_new( TrCore * core, int torrentId )
 {
-    int size;
     int width;
     GtkWidget * ret;
     GtkWidget * view;
@@ -804,8 +786,6 @@ gtr_file_list_new( TrCore * core, int torrentId )
     GtkTreeView * tree_view;
     const char * title;
     PangoLayout * pango_layout;
-    PangoContext * pango_context;
-    PangoFontDescription * pango_font_description;
     FileData * data = g_new0( FileData, 1 );
 
     data->core = core;
@@ -823,12 +803,6 @@ gtr_file_list_new( TrCore * core, int torrentId )
                       G_CALLBACK( on_tree_view_button_released ), NULL );
 
 
-    pango_context = gtk_widget_create_pango_context( view );
-    pango_font_description = pango_font_description_copy( pango_context_get_font_description( pango_context ) );
-    size = pango_font_description_get_size( pango_font_description );
-    pango_font_description_set_size( pango_font_description, size * 0.8 );
-    g_object_unref( G_OBJECT( pango_context ) );
-
     /* set up view */
     sel = gtk_tree_view_get_selection( tree_view );
     gtk_tree_selection_set_mode( sel, GTK_SELECTION_MULTIPLE );
@@ -836,9 +810,10 @@ gtr_file_list_new( TrCore * core, int torrentId )
     gtk_tree_view_set_search_column( tree_view, FC_LABEL );
 
     /* add file column */
+
     col = GTK_TREE_VIEW_COLUMN ( g_object_new ( GTK_TYPE_TREE_VIEW_COLUMN,
                                                 "expand", TRUE,
-                                                "title", _( "Name" ),
+                                                "title", _( "File" ),
                                                 NULL ) );
     gtk_tree_view_column_set_resizable( col, TRUE );
     rend = gtk_cell_renderer_pixbuf_new( );
@@ -846,29 +821,14 @@ gtr_file_list_new( TrCore * core, int torrentId )
     gtk_tree_view_column_add_attribute( col, rend, "pixbuf", FC_ICON );
     /* add text renderer */
     rend = gtk_cell_renderer_text_new( );
-    g_object_set( rend, "ellipsize", PANGO_ELLIPSIZE_END, "font-desc", pango_font_description, NULL );
+    g_object_set( rend, "ellipsize", PANGO_ELLIPSIZE_END, NULL );
     gtk_tree_view_column_pack_start( col, rend, TRUE );
-    gtk_tree_view_column_set_attributes( col, rend, "text", FC_LABEL, NULL );
+    gtk_tree_view_column_set_cell_data_func( col, rend, renderFilename, NULL, NULL );
     gtk_tree_view_column_set_sort_column_id( col, FC_LABEL );
     gtk_tree_view_append_column( tree_view, col );
 
-    /* add "size" column */
-    title = _( "Size" );
-    rend = gtk_cell_renderer_text_new( );
-    g_object_set( rend, "alignment", PANGO_ALIGN_RIGHT,
-                        "font-desc", pango_font_description,
-                        "xpad", GUI_PAD,
-                        "xalign", 1.0f,
-                        "yalign", 0.5f,
-                        NULL );
-    col = gtk_tree_view_column_new_with_attributes( title, rend, NULL );
-    gtk_tree_view_column_set_sizing( col, GTK_TREE_VIEW_COLUMN_GROW_ONLY );
-    gtk_tree_view_column_set_sort_column_id( col, FC_SIZE );
-    gtk_tree_view_column_set_attributes( col, rend, "text", FC_SIZE_STR, NULL );
-    gtk_tree_view_append_column( tree_view, col );
-
     /* add "progress" column */
-    title = _( "Have" );
+    title = _( "Progress" );
     pango_layout = gtk_widget_create_pango_layout( view, title );
     pango_layout_get_pixel_size( pango_layout, &width, NULL );
     width += 30; /* room for the sort indicator */
@@ -888,8 +848,6 @@ gtr_file_list_new( TrCore * core, int torrentId )
     g_object_unref( G_OBJECT( pango_layout ) );
     rend = gtk_cell_renderer_toggle_new( );
     col = gtk_tree_view_column_new_with_attributes( title, rend, NULL );
-    g_object_set_data( G_OBJECT( col ), TR_COLUMN_ID_KEY,
-                       GINT_TO_POINTER( FC_ENABLED ) );
     gtk_tree_view_column_set_fixed_width( col, width );
     gtk_tree_view_column_set_sizing( col, GTK_TREE_VIEW_COLUMN_FIXED );
     gtk_tree_view_column_set_cell_data_func( col, rend, renderDownload, NULL, NULL );
@@ -905,8 +863,6 @@ gtr_file_list_new( TrCore * core, int torrentId )
     rend = gtk_cell_renderer_text_new( );
     g_object_set( rend, "xalign", (gfloat)0.5, "yalign", (gfloat)0.5, NULL );
     col = gtk_tree_view_column_new_with_attributes( title, rend, NULL );
-    g_object_set_data( G_OBJECT( col ), TR_COLUMN_ID_KEY,
-                       GINT_TO_POINTER( FC_PRIORITY ) );
     gtk_tree_view_column_set_fixed_width( col, width );
     gtk_tree_view_column_set_sizing( col, GTK_TREE_VIEW_COLUMN_FIXED );
     gtk_tree_view_column_set_sort_column_id( col, FC_PRIORITY );
@@ -927,8 +883,7 @@ gtr_file_list_new( TrCore * core, int torrentId )
     data->view = view;
     data->top = scroll;
     g_object_set_data_full( G_OBJECT( ret ), "file-data", data, freeData );
-    gtr_file_list_set_torrent( ret, torrentId );
+    file_list_set_torrent( ret, torrentId );
 
-    pango_font_description_free( pango_font_description );
     return ret;
 }

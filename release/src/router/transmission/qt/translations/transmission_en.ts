@@ -37,7 +37,7 @@
 <context>
     <name>Details</name>
     <message>
-        <location filename="../details.cc" line="+153"/>
+        <location filename="../details.cc" line="+151"/>
         <source>Torrent Properties</source>
         <translation type="unfinished"></translation>
     </message>
@@ -67,7 +67,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+176"/>
+        <location line="+144"/>
         <source>None</source>
         <translation type="unfinished"></translation>
     </message>
@@ -78,12 +78,12 @@
     </message>
     <message>
         <location line="+1"/>
-        <location line="+175"/>
+        <location line="+181"/>
         <source>Unknown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-143"/>
+        <location line="-149"/>
         <source>Finished</source>
         <translation type="unfinished"></translation>
     </message>
@@ -93,7 +93,17 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+163"/>
+        <location line="+42"/>
+        <source>%1 (%2%)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+46"/>
+        <source>%1 (+%2 corrupt)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+81"/>
         <source>Active now</source>
         <translation type="unfinished"></translation>
     </message>
@@ -144,7 +154,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+121"/>
+        <location line="+139"/>
         <location line="+21"/>
         <source>Encrypted connection</source>
         <translation type="unfinished"></translation>
@@ -206,6 +216,11 @@
     </message>
     <message>
         <location line="+1"/>
+        <source>Torrent size:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+1"/>
         <source>Have:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -255,7 +270,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+2"/>
+        <location line="+1"/>
         <source>Location:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -280,7 +295,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+105"/>
+        <location line="+125"/>
         <location line="+12"/>
         <location line="+34"/>
         <source>Error</source>
@@ -292,27 +307,17 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-581"/>
-        <source>%1 (100%)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+5"/>
-        <source>%1 of %2 (%3%)</source>
+        <location line="-614"/>
+        <source>%1 (%2% of %3% Available)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location line="+7"/>
-        <source>%1 of %2 (%3%), %4 Unverified</source>
+        <source>%1 (%2% of %3% Available) + %4 Unverified</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+33"/>
-        <source>%1 (%2 corrupt)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+15"/>
+        <location line="+48"/>
         <source>%1 (Ratio: %2)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -322,12 +327,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+217"/>
-        <source>Size:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+102"/>
+        <location line="+357"/>
         <source>Add URL </source>
         <translation type="unfinished"></translation>
     </message>
@@ -368,12 +368,12 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+12"/>
+        <location line="+11"/>
         <source>Limit &amp;upload speed (%1):</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+13"/>
+        <location line="+12"/>
         <source>High</source>
         <translation type="unfinished"></translation>
     </message>
@@ -399,12 +399,12 @@
     </message>
     <message>
         <location line="+5"/>
-        <location line="+15"/>
+        <location line="+14"/>
         <source>Use Global Settings</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-14"/>
+        <location line="-13"/>
         <source>Seed regardless of ratio</source>
         <translation type="unfinished"></translation>
     </message>
@@ -414,7 +414,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+7"/>
         <source>&amp;Ratio:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -429,7 +429,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+9"/>
+        <location line="+8"/>
         <source>&amp;Idle:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -439,7 +439,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+7"/>
         <source>&amp;Maximum peers:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -742,7 +742,27 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+49"/>
+        <location line="+35"/>
+        <source>&amp;Add File...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Add</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Add a torrent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Ctrl+D</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+5"/>
         <source>&amp;New...</source>
         <translation type="unfinished"></translation>
     </message>
@@ -772,38 +792,18 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+8"/>
+        <location line="+5"/>
+        <source>&amp;Open Folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+3"/>
         <source>Open the torrent&apos;s folder</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-30"/>
+        <location line="+3"/>
         <source>Ctrl+O</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="-9"/>
-        <source>&amp;Open...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Open</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Open a torrent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+30"/>
-        <source>Open Fold&amp;er</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+6"/>
-        <source>Ctrl+E</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -854,11 +854,6 @@
     <message>
         <location line="+3"/>
         <source>Verify local data</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Ctrl+V</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1111,12 +1106,7 @@
     </message>
     <message>
         <location line="+5"/>
-        <source>Open &amp;URL...</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Ctrl+U</source>
+        <source>Add &amp;URL...</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1256,7 +1246,7 @@ To add another primary URL, add it after a blank line.</source>
 <context>
     <name>MyApp</name>
     <message>
-        <location filename="../app.cc" line="+223"/>
+        <location filename="../app.cc" line="+218"/>
         <source>Transmission is a file-sharing program.  When you run a torrent, its data will be made available to others by means of upload.  You and you alone are fully responsible for exercising proper judgement and abiding by your local laws.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1281,7 +1271,7 @@ To add another primary URL, add it after a blank line.</source>
     <message>
         <location filename="../options.cc" line="+22"/>
         <location line="+314"/>
-        <source>Open Torrent</source>
+        <source>Add Torrent</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -1343,7 +1333,7 @@ To add another primary URL, add it after a blank line.</source>
 <context>
     <name>PrefsDialog</name>
     <message>
-        <location filename="../prefs-dialog.cc" line="+186"/>
+        <location filename="../prefs-dialog.cc" line="+208"/>
         <source>Use &amp;authentication</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1499,12 +1489,12 @@ To add another primary URL, add it after a blank line.</source>
     </message>
     <message>
         <location line="+5"/>
-        <location line="+365"/>
+        <location line="+358"/>
         <source>Status unknown</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-357"/>
+        <location line="-350"/>
         <source>&amp;Port for incoming connections:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1513,16 +1503,8 @@ To add another primary URL, add it after a blank line.</source>
         <source>Use UPnP or NAT-PMP port &amp;forwarding from my router</source>
         <translation type="unfinished"></translation>
     </message>
-    <message numerus="yes">
-        <location line="+311"/>
-        <source>&lt;i&gt;Blocklist contains %Ln rules&lt;/i&gt;</source>
-        <translation type="unfinished">
-            <numerusform></numerusform>
-            <numerusform></numerusform>
-        </translation>
-    </message>
     <message>
-        <location line="-312"/>
+        <location line="-1"/>
         <source>Pick a &amp;random port every time Transmission is started</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1721,8 +1703,16 @@ To add another primary URL, add it after a blank line.</source>
         <source>Keep &amp;incomplete files in:</source>
         <translation type="unfinished"></translation>
     </message>
+    <message numerus="yes">
+        <location line="+110"/>
+        <source>&lt;i&gt;Blocklist contains %Ln rules)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
     <message>
-        <location line="-2"/>
+        <location line="-112"/>
         <source>Save to &amp;Location:</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1773,7 +1763,7 @@ To add another primary URL, add it after a blank line.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+28"/>
+        <location line="+27"/>
         <source>Not supported by remote sessions</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1781,7 +1771,7 @@ To add another primary URL, add it after a blank line.</source>
 <context>
     <name>QObject</name>
     <message>
-        <location filename="../app.cc" line="-145"/>
+        <location filename="../app.cc" line="-140"/>
         <source>Invalid option</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1822,7 +1812,7 @@ To add another primary URL, add it after a blank line.</source>
 <context>
     <name>Session</name>
     <message>
-        <location filename="../session.cc" line="+824"/>
+        <location filename="../session.cc" line="+785"/>
         <source>Add Torrent</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1929,7 +1919,7 @@ To add another primary URL, add it after a blank line.</source>
 <context>
     <name>Torrent</name>
     <message>
-        <location filename="../torrent.cc" line="+699"/>
+        <location filename="../torrent.cc" line="+686"/>
         <source>Waiting to verify local data</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2077,7 +2067,7 @@ To add another primary URL, add it after a blank line.</source>
 <context>
     <name>TrMainWindow</name>
     <message>
-        <location filename="../mainwin.cc" line="+451"/>
+        <location filename="../mainwin.cc" line="+450"/>
         <source>Limit Download Speed</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2166,7 +2156,12 @@ Down: %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="+31"/>
+        <location line="+29"/>
+        <source>Add Torrent</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location line="+2"/>
         <source>Torrent Files (*.torrent);;All Files (*.*)</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2176,14 +2171,9 @@ Down: %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location line="-5"/>
-        <source>Open Torrent</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location line="+36"/>
+        <location line="+24"/>
         <location line="+1"/>
-        <source>Open URL or Magnet Link</source>
+        <source>Add URL or Magnet Link</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2267,7 +2257,7 @@ Down: %2</source>
         <translation type="unfinished"></translation>
     </message>
     <message numerus="yes">
-        <location line="-580"/>
+        <location line="-573"/>
         <source>%L1 of %Ln Torrent(s)</source>
         <translation>
             <numerusform>%L1 of %Ln Torrent</numerusform>

@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: Torrent.h 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: Torrent.h 11175 2010-08-14 17:32:52Z livings124 $
  *
- * Copyright (c) 2006-2011 Transmission authors and contributors
+ * Copyright (c) 2006-2010 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -64,7 +64,7 @@
 
 - (NSDictionary *) history;
 
-- (void) closeRemoveTorrent: (BOOL) trashFiles;
+- (void) closeRemoveTorrent;
 
 - (void) changeDownloadFolderBeforeUsing: (NSString *) folder;
 
@@ -119,6 +119,7 @@
 - (void) setPriority: (tr_priority_t) priority;
 
 + (void) trashFile: (NSString *) path;
+- (void) trashData;
 - (void) moveTorrentDataFileTo: (NSString *) folder;
 - (void) copyTorrentFileTo: (NSString *) path;
 
@@ -225,9 +226,6 @@
 - (NSDate *) dateCompleted;
 - (NSDate *) dateActivity;
 - (NSDate *) dateActivityOrAdd;
-
-- (NSInteger) secondsDownloading;
-- (NSInteger) secondsSeeding;
 
 - (NSInteger) stalledMinutes;
 - (BOOL) isStalled;

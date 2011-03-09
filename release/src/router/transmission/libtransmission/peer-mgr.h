@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2007-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-mgr.h 12030 2011-02-24 15:33:50Z jordan $
+ * $Id: peer-mgr.h 11295 2010-10-08 13:33:50Z charles $
  */
 
 #ifndef __TRANSMISSION__
@@ -38,24 +38,13 @@ struct tr_peer_stat;
 struct tr_torrent;
 typedef struct tr_peerMgr tr_peerMgr;
 
-/* added_f's bitwise-or'ed flags */
 enum
 {
-    /* true if the peer supports encryption */
+    /* corresponds to ut_pex's added.f flags */
     ADDED_F_ENCRYPTION_FLAG = 1,
 
-    /* true if the peer is a seed or partial seed */
+    /* corresponds to ut_pex's added.f flags */
     ADDED_F_SEED_FLAG = 2,
-
-    /* true if the peer supports uTP */
-    ADDED_F_UTP_FLAGS = 4,
-
-    /* true if the peer has holepunch support */
-    ADDED_F_HOLEPUNCH = 8,
-
-    /* true if the peer telling us about this peer 
-     * initiated the connection (implying that it is connectible) */ 
-   ADDED_F_CONNECTABLE = 16 
 };
 
 typedef struct tr_pex
@@ -130,12 +119,6 @@ typedef struct tr_peer
     struct tr_peermsgs     * msgs;
 }
 tr_peer;
-
-static inline tr_bool
-tr_isPex( const tr_pex * pex )
-{
-    return pex && tr_isAddress( &pex->addr );
-}
 
 const tr_address * tr_peerAddress( const tr_peer * );
 
@@ -221,8 +204,6 @@ void tr_peerMgrTorrentAvailability( const tr_torrent * tor,
                                     unsigned int       tabCount );
 
 struct tr_bitfield* tr_peerMgrGetAvailable( const tr_torrent * tor );
-
-void tr_peerMgrOnTorrentGotMetainfo( tr_torrent * tor );
 
 void tr_peerMgrOnBlocklistChanged( tr_peerMgr * manager );
 

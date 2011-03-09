@@ -1,5 +1,5 @@
 %define name transmission
-%define version 2.22
+%define version 2.13
 %define release 1
 
 Summary:   Transmission BitTorrent Client
@@ -66,11 +66,11 @@ rm -rf $RPM_BUILD_ROOT
 
 %changelog
 
-* Wed Jan 13 2010 Jordan Lee <jordan@transmissionbt.com>
+* Wed Jan 13 2010 Charles Kerr <charles@transmissionbt.com>
 - made the GConf dependency explicit
 - annotated the Depends section to show which libraries are optional
 * Thu Mar 5 2009 Gijs <info@bsnw.nl>
 - fixed %files section
 - added Source0
-* Wed Jul 18 2006 Jordan Lee <jordan@transmissionbt.com>
+* Wed Jul 18 2006 Charles Kerr <charles@transmissionbt.com>
 - first draft at a spec file, cribbed from Pan's spec file

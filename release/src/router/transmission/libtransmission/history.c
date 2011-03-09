@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: history.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: history.c 11425 2010-11-16 15:17:34Z charles $
  */
 
 #include <assert.h>
@@ -33,7 +33,7 @@ struct tr_recentHistory
 void
 tr_historyAdd( tr_recentHistory * h, time_t now, unsigned int n )
 {
-    if( h->slices[h->newest].date + (time_t)h->precision >= now )
+    if( h->slices[h->newest].date + h->precision >= now )
         h->slices[h->newest].n += n;
     else {
         if( ++h->newest == h->sliceCount ) h->newest = 0;

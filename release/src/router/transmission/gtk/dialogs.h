@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: dialogs.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: dialogs.h 10993 2010-07-11 06:46:46Z charles $
  *
- * Copyright (c) Transmission authors and contributors
+ * Copyright (c) 2005-2008 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,8 +22,8 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef GTR_DIALOGS_H
-#define GTR_DIALOGS_H
+#ifndef TG_PREFS_H
+#define TG_PREFS_H
 
 #include "tr-core.h"
 #include "tr-torrent.h"
@@ -33,21 +33,15 @@
 /* used for a callback function with a data parameter */
 typedef void ( *callbackfunc_t )( gpointer );
 
-/**
- * Prompt the user to confirm exiting the app.
- * Call func(cbdata) if user confirms.
- */
-GtkWidget * gtr_confirm_quit   ( GtkWindow       * parent,
-                                 TrCore          * core,
-                                 callbackfunc_t    func,
-                                 gpointer          cbdata );
+/* prompt if the user wants to quit, calls func with cbdata if they do */
+GtkWidget *  askquit( TrCore          * core,
+                      GtkWindow       * parent,
+                      callbackfunc_t    func,
+                      gpointer          cbdata );
 
-/**
- * Prompt the user to confirm removing a torrent.
- */
-void        gtr_confirm_remove ( GtkWindow * parent,
-                                 TrCore    * core,
-                                 GSList    * gtorrents,
-                                 gboolean    doDelete );
+void confirmRemove( GtkWindow * parent,
+                    TrCore    * core,
+                    GSList    * gtorrents,
+                    gboolean    doDelete );
 
-#endif /* GTR_DIALOGS_H */
+#endif /* TG_PREFS_H */

@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2008-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: platform.c 11785 2011-01-30 01:33:53Z jordan $
+ * $Id: platform.c 11227 2010-09-18 22:13:46Z charles $
  */
 
 #ifdef WIN32
@@ -34,16 +34,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef SYS_DARWIN
- #define HAVE_SYS_STATVFS_H
- #define HAVE_STATVFS
-#endif
-
 #include <sys/stat.h>
 #include <sys/types.h>
-#ifdef HAVE_SYS_STATVFS_H
- #include <sys/statvfs.h>
-#endif
 #ifdef WIN32
 #include <libgen.h>
 #endif
@@ -369,18 +361,12 @@ moveFiles( const char * oldDir,
     }
 }
 
-/**
- * This function is for transmission-gtk users to migrate the config files
- * from $HOME/.transmission/ (where they were kept before Transmission 1.30)
- * to $HOME/.config/$appname as per the XDG directory spec.
- */
 static void
 migrateFiles( const tr_session * session )
 {
     static int migrated = FALSE;
-    const tr_bool should_migrate = strstr( getOldConfigDir(), ".transmission" ) != NULL;
 
-    if( !migrated && should_migrate )
+    if( !migrated )
     {
         const char * oldDir;
         const char * newDir;
@@ -692,27 +678,6 @@ tr_getWebClientDir( const tr_session * session UNUSED )
 ****
 ***/
 
-int64_t
-tr_getFreeSpace( const char * path )
-{
-#ifdef WIN32
-    uint64_t freeBytesAvailable = 0;
-    return GetDiskFreeSpaceEx( path, &freeBytesAvailable, NULL, NULL)
-        ? (int64_t)freeBytesAvailable
-        : -1;
-#elif defined(HAVE_STATVFS)
-    struct statvfs buf;
-    return statvfs( path, &buf ) ? -1 : (int64_t)buf.f_bavail * (int64_t)buf.f_bsize;
-#else
-    #warning FIXME: not implemented
-    return -1;
-#endif
-}
-
-/***
-****
-***/
-
 #ifdef WIN32
 
 /* The following mmap functions are by Joerg Walter, and were taken from
@@ -832,3 +797,4 @@ munmap_exit:
 }
 
 #endif
+

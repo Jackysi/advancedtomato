@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) Mnemosyne LLC
+ * This file Copyright (C) 2007-2010 Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2. Works owned by the
+ * This file is licensed by the GPL version 2.  Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: natpmp.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: natpmp.c 11391 2010-11-07 21:33:01Z charles $
  */
 
 #include <errno.h>
@@ -71,7 +71,7 @@ logVal( const char * func,
     else
         tr_ndbg(
              getKey( ),
-            "%s failed. Natpmp returned %d (%s); errno is %d (%s)",
+            "%s failed.  natpmp returned %d (%s); errno is %d (%s)",
             func, ret, strnatpmperr( ret ), errno, tr_strerror( errno ) );
 }
 

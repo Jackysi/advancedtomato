@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: PiecesView.m 12049 2011-02-26 15:14:03Z livings124 $
+ * $Id: PiecesView.m 10522 2010-04-23 16:59:14Z charles $
  *
- * Copyright (c) 2006-2011 Transmission authors and contributors
+ * Copyright (c) 2006-2010 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -70,6 +70,16 @@ enum
     [self clearView];
     
     fTorrent = torrent;
+    if (fTorrent)
+    {
+        //determine relevant values
+        fNumPieces = MIN([fTorrent pieceCount], MAX_ACROSS * MAX_ACROSS);
+        fAcross = ceil(sqrt(fNumPieces));
+        
+        const CGFloat width = [self bounds].size.width;
+        fWidth = (width - (fAcross + 1) * BETWEEN) / fAcross;
+        fExtraBorder = (width - ((fWidth + BETWEEN) * fAcross + BETWEEN)) / 2;
+    }
     
     NSImage * back = [[NSImage alloc] initWithSize: [self bounds].size];
     [back lockFocus];
@@ -94,23 +104,13 @@ enum
 
 - (void) updateView
 {
-    if (!fTorrent || [fTorrent isMagnet])
+    if (!fTorrent)
         return;
     
     //determine if first time
     const BOOL first = fPieces == NULL;
     if (first)
-    {
-        //determine relevant values
-        fNumPieces = MIN([fTorrent pieceCount], MAX_ACROSS * MAX_ACROSS);
-        fAcross = ceil(sqrt(fNumPieces));
-        
-        const CGFloat width = [self bounds].size.width;
-        fWidth = (width - (fAcross + 1) * BETWEEN) / fAcross;
-        fExtraBorder = (width - ((fWidth + BETWEEN) * fAcross + BETWEEN)) / 2;
-        
         fPieces = (int8_t *)tr_malloc(fNumPieces * sizeof(int8_t));
-    }
 
     int8_t * pieces = NULL;
     float * piecesPercent = NULL;

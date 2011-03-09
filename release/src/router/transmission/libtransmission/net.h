@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: net.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: net.h 10913 2010-06-30 21:24:36Z charles $
  *
- * Copyright (c) Transmission authors and contributors
+ * Copyright (c) 2005-2008 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),

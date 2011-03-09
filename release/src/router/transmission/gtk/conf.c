@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: conf.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: conf.c 11136 2010-08-06 15:35:10Z charles $
  *
- * Copyright (c) Transmission authors and contributors
+ * Copyright (c) 2005-2008 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -48,7 +48,8 @@ static char * gl_lockpath = NULL;
 
 /* errstr may be NULL, this might be called before GTK is initialized */
 gboolean
-cf_init( const char * configDir, char ** errstr )
+cf_init( const char   * configDir,
+         char        ** errstr )
 {
     if( errstr != NULL )
         *errstr = NULL;
@@ -73,7 +74,9 @@ cf_init( const char * configDir, char ** errstr )
 
 /* errstr may be NULL, this might be called before GTK is initialized */
 static gboolean
-lockfile( const char * filename, gtr_lockfile_state_t * tr_state, char ** errstr )
+lockfile( const char             * filename,
+          gtr_lockfile_state_t   * tr_state,
+          char                  ** errstr )
 {
     const gtr_lockfile_state_t state = gtr_lockfile( filename );
     const gboolean success = state == GTR_LOCKFILE_SUCCESS;
@@ -229,13 +232,13 @@ getPrefs( void )
 ***/
 
 tr_benc*
-gtr_pref_get_all( void )
+pref_get_all( void )
 {
     return getPrefs( );
 }
 
 int64_t
-gtr_pref_int_get( const char * key )
+pref_int_get( const char * key )
 {
     int64_t i = 0;
 
@@ -244,13 +247,14 @@ gtr_pref_int_get( const char * key )
 }
 
 void
-gtr_pref_int_set( const char * key, int64_t value )
+pref_int_set( const char * key,
+              int64_t      value )
 {
     tr_bencDictAddInt( getPrefs( ), key, value );
 }
 
 double
-gtr_pref_double_get( const char * key )
+pref_double_get( const char * key )
 {
     double d = 0.0;
     tr_bencDictFindReal( getPrefs( ), key, &d );
@@ -258,7 +262,8 @@ gtr_pref_double_get( const char * key )
 }
 
 void
-gtr_pref_double_set( const char * key, double value )
+pref_double_set( const char * key,
+                 double       value )
 {
     tr_bencDictAddReal( getPrefs( ), key, value );
 }
@@ -268,15 +273,33 @@ gtr_pref_double_set( const char * key, double value )
 ***/
 
 gboolean
-gtr_pref_flag_get( const char * key )
+pref_flag_get( const char * key )
 {
     tr_bool boolVal;
     tr_bencDictFindBool( getPrefs( ), key, &boolVal );
     return boolVal != 0;
 }
 
+gboolean
+pref_flag_eval( pref_flag_t  val,
+                const char * key )
+{
+    switch( val )
+    {
+        case PREF_FLAG_TRUE:
+            return TRUE;
+
+        case PREF_FLAG_FALSE:
+            return FALSE;
+
+        default:
+            return pref_flag_get( key );
+    }
+}
+
 void
-gtr_pref_flag_set( const char * key, gboolean value )
+pref_flag_set( const char * key,
+               gboolean     value )
 {
     tr_bencDictAddBool( getPrefs( ), key, value );
 }
@@ -286,7 +309,7 @@ gtr_pref_flag_set( const char * key, gboolean value )
 ***/
 
 const char*
-gtr_pref_string_get( const char * key )
+pref_string_get( const char * key )
 {
     const char * str = NULL;
     tr_bencDictFindStr( getPrefs( ), key, &str );
@@ -294,7 +317,7 @@ gtr_pref_string_get( const char * key )
 }
 
 void
-gtr_pref_string_set( const char * key, const char * value )
+pref_string_set( const char * key, const char * value )
 {
     tr_bencDictAddStr( getPrefs( ), key, value );
 }
@@ -304,7 +327,7 @@ gtr_pref_string_set( const char * key, const char * value )
 ***/
 
 void
-gtr_pref_save( tr_session * session )
+pref_save( tr_session * session )
 {
     tr_sessionSaveSettings( session, gl_confdir, getPrefs( ) );
 }
@@ -328,7 +351,8 @@ getCompat121PrefsFilename( void )
 }
 
 static void
-translate_keyfile_to_json( const char * old_file, const char * new_file )
+translate_keyfile_to_json( const char * old_file,
+                           const char * new_file )
 {
     tr_benc    dict;
     GKeyFile * keyfile;
