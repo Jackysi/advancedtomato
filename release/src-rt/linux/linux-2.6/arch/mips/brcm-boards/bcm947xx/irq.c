@@ -150,6 +150,8 @@ end_brcm_irq2(unsigned int irq)
 	/* Already done in plat_irq_dispatch()! */
 }
 
+extern asmlinkage void __do_softirq(void);
+
 /*
  * Route interrupts to ISR(s).
  *
@@ -253,7 +255,7 @@ plat_irq_dispatch(struct pt_regs *regs)
 	set_c0_status(pending);
 	irq_enable_hazard();
 
-#if 0
+#if 1
 	/* Process any pending softirqs (tasklets, softirqs ...) */
 	local_irq_save(flags);
 	if (local_softirq_pending() && !in_interrupt())

@@ -37,3 +37,7 @@ libcyassl_la_SOURCES += ../ctaocrypt/src/tfm.c
 else
 libcyassl_la_SOURCES += ../ctaocrypt/src/integer.c
 endif
+
+if BUILD_ECC
+libcyassl_la_SOURCES += ../ctaocrypt/src/ecc.c
+endif

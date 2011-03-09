@@ -228,7 +228,8 @@ enum {
 	RT_UNKNOWN,
 	RT_DIR320,	// D-Link DIR-320
 	RT_WNR3500L,	// Netgear WNR3500v2/U/L
-	RT_WNR2000V2	// Netgear WNR2000v2
+	RT_WNR2000V2,	// Netgear WNR2000v2
+	RT_BELKIN_F7D	// Belkin F7D3301, F7D3302, F7D4302, F7D8235V3
 };
 
 static int get_router(void)
@@ -245,6 +246,9 @@ static int get_router(void)
 	}
 	else if (boardnum == 0 && boardtype == 0x48E && boardrev == 0x35) {
 		return RT_DIR320;
+	}
+	else if (boardtype == 0xA4CF && (boardrev == 0x1102 || boardrev == 0x1100)) {
+		return RT_BELKIN_F7D;
 	}
 
 	return RT_UNKNOWN;
@@ -374,15 +378,27 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 			continue;
 
 		/* Try looking at TRX header for rootfs offset */
-		if (le32_to_cpu(trx->magic) == TRX_MAGIC) {
+		switch (le32_to_cpu(trx->magic)) {
+		case TRX_MAGIC_F7D3301:
+		case TRX_MAGIC_F7D3302:
+		case TRX_MAGIC_F7D4302:
+		case TRX_MAGIC_F5D8235V3:
+		case TRX_MAGIC_QA:
+			if (router != RT_BELKIN_F7D)
+				continue;
+			// fall through
+		case TRX_MAGIC:
+			trxsize = ROUNDUP(le32_to_cpu(trx->len), mtd->erasesize);	// kernel + rootfs
+			break;
+		}
+
+		if (trxsize) {
 			/* Size pmon */
 			bcm947xx_parts[PART_BOOT].size = off;
 
 			/* Size linux (kernel and rootfs) */
 			bcm947xx_parts[PART_LINUX].offset = off;
 			bcm947xx_parts[PART_LINUX].size = boardoff - off;
-
-			trxsize = ROUNDUP(le32_to_cpu(trx->len), mtd->erasesize);	// kernel + rootfs
 
 			/* Find and size rootfs */
 			trxoff = (le32_to_cpu(trx->offsets[2]) > off) ? trx->offsets[2] : trx->offsets[1];

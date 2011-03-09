@@ -1,0 +1,13 @@
+#########################################
+# Philips (?)
+
+DefaultVendor= 0x0471
+DefaultProduct=0x1210
+
+TargetClass=0xff
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+NeedResponse=1
+
+# Device will not "vanish", skip check
+#CheckSuccess=20

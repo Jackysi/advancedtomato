@@ -1,6 +1,6 @@
 /* keys.c
  *
- * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -38,6 +38,143 @@
 
 int SetCipherSpecs(SSL* ssl)
 {
+    /* ECC extensions */
+    if (ssl->options.cipherSuite0 == ECC_BYTE) {
+    
+    switch (ssl->options.cipherSuite) {
+
+#ifdef BUILD_TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+    case TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA :
+        ssl->specs.bulk_cipher_algorithm = aes;
+        ssl->specs.cipher_type           = block;
+        ssl->specs.mac_algorithm         = sha_mac;
+        ssl->specs.kea                   = ecc_diffie_hellman_kea;
+        ssl->specs.sig_algo              = rsa_sa_algo;
+        ssl->specs.hash_size             = SHA_DIGEST_SIZE;
+        ssl->specs.pad_size              = PAD_SHA;
+        ssl->specs.key_size              = AES_128_KEY_SIZE;
+        ssl->specs.block_size            = AES_BLOCK_SIZE;
+        ssl->specs.iv_size               = AES_IV_SIZE;
+
+        break;
+#endif
+
+#ifdef BUILD_TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA
+    case TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA :
+        ssl->specs.bulk_cipher_algorithm = triple_des;
+        ssl->specs.cipher_type           = block;
+        ssl->specs.mac_algorithm         = sha_mac;
+        ssl->specs.kea                   = ecc_diffie_hellman_kea;
+        ssl->specs.sig_algo              = rsa_sa_algo;
+        ssl->specs.hash_size             = SHA_DIGEST_SIZE;
+        ssl->specs.pad_size              = PAD_SHA;
+        ssl->specs.key_size              = DES3_KEY_SIZE;
+        ssl->specs.block_size            = DES_BLOCK_SIZE;
+        ssl->specs.iv_size               = DES_IV_SIZE;
+
+        break;
+#endif
+
+#ifdef BUILD_TLS_ECDHE_RSA_WITH_RC4_128_SHA
+    case TLS_ECDHE_RSA_WITH_RC4_128_SHA :
+        ssl->specs.bulk_cipher_algorithm = rc4;
+        ssl->specs.cipher_type           = stream;
+        ssl->specs.mac_algorithm         = sha_mac;
+        ssl->specs.kea                   = ecc_diffie_hellman_kea;
+        ssl->specs.sig_algo              = rsa_sa_algo;
+        ssl->specs.hash_size             = SHA_DIGEST_SIZE;
+        ssl->specs.pad_size              = PAD_SHA;
+        ssl->specs.key_size              = RC4_KEY_SIZE;
+        ssl->specs.iv_size               = 0;
+        ssl->specs.block_size            = 0;
+
+        break;
+#endif
+
+#ifdef BUILD_TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA
+    case TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA :
+        ssl->specs.bulk_cipher_algorithm = triple_des;
+        ssl->specs.cipher_type           = block;
+        ssl->specs.mac_algorithm         = sha_mac;
+        ssl->specs.kea                   = ecc_diffie_hellman_kea;
+        ssl->specs.sig_algo              = ecc_dsa_sa_algo;
+        ssl->specs.hash_size             = SHA_DIGEST_SIZE;
+        ssl->specs.pad_size              = PAD_SHA;
+        ssl->specs.key_size              = DES3_KEY_SIZE;
+        ssl->specs.block_size            = DES_BLOCK_SIZE;
+        ssl->specs.iv_size               = DES_IV_SIZE;
+
+        break;
+#endif
+
+#ifdef BUILD_TLS_ECDHE_ECDSA_WITH_RC4_128_SHA
+    case TLS_ECDHE_ECDSA_WITH_RC4_128_SHA :
+        ssl->specs.bulk_cipher_algorithm = rc4;
+        ssl->specs.cipher_type           = stream;
+        ssl->specs.mac_algorithm         = sha_mac;
+        ssl->specs.kea                   = ecc_diffie_hellman_kea;
+        ssl->specs.sig_algo              = ecc_dsa_sa_algo;
+        ssl->specs.hash_size             = SHA_DIGEST_SIZE;
+        ssl->specs.pad_size              = PAD_SHA;
+        ssl->specs.key_size              = RC4_KEY_SIZE;
+        ssl->specs.iv_size               = 0;
+        ssl->specs.block_size            = 0;
+
+        break;
+#endif
+
+#ifdef BUILD_TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+    case TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA :
+        ssl->specs.bulk_cipher_algorithm = aes;
+        ssl->specs.cipher_type           = block;
+        ssl->specs.mac_algorithm         = sha_mac;
+        ssl->specs.kea                   = ecc_diffie_hellman_kea;
+        ssl->specs.sig_algo              = rsa_sa_algo;
+        ssl->specs.hash_size             = SHA_DIGEST_SIZE;
+        ssl->specs.pad_size              = PAD_SHA;
+        ssl->specs.key_size              = AES_256_KEY_SIZE;
+        ssl->specs.block_size            = AES_BLOCK_SIZE;
+        ssl->specs.iv_size               = AES_IV_SIZE;
+
+        break;
+#endif
+
+#ifdef BUILD_TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA
+    case TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA :
+        ssl->specs.bulk_cipher_algorithm = aes;
+        ssl->specs.cipher_type           = block;
+        ssl->specs.mac_algorithm         = sha_mac;
+        ssl->specs.kea                   = ecc_diffie_hellman_kea;
+        ssl->specs.sig_algo              = ecc_dsa_sa_algo;
+        ssl->specs.hash_size             = SHA_DIGEST_SIZE;
+        ssl->specs.pad_size              = PAD_SHA;
+        ssl->specs.key_size              = AES_128_KEY_SIZE;
+        ssl->specs.block_size            = AES_BLOCK_SIZE;
+        ssl->specs.iv_size               = AES_IV_SIZE;
+
+        break;
+#endif
+
+#ifdef BUILD_TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA
+    case TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA :
+        ssl->specs.bulk_cipher_algorithm = aes;
+        ssl->specs.cipher_type           = block;
+        ssl->specs.mac_algorithm         = sha_mac;
+        ssl->specs.kea                   = ecc_diffie_hellman_kea;
+        ssl->specs.sig_algo              = ecc_dsa_sa_algo;
+        ssl->specs.hash_size             = SHA_DIGEST_SIZE;
+        ssl->specs.pad_size              = PAD_SHA;
+        ssl->specs.key_size              = AES_256_KEY_SIZE;
+        ssl->specs.block_size            = AES_BLOCK_SIZE;
+        ssl->specs.iv_size               = AES_IV_SIZE;
+
+        break;
+#endif
+
+    default:
+        return UNSUPPORTED_SUITE;
+    }
+    } else {  /* Normal suites */
     switch (ssl->options.cipherSuite) {
 
 #ifdef BUILD_SSL_RSA_WITH_RC4_128_SHA
@@ -287,13 +424,14 @@ int SetCipherSpecs(SSL* ssl)
     default:
         return UNSUPPORTED_SUITE;
     }
+    }  /* ECC / Normal suites else */
 
     /* set TLS if it hasn't been turned off */
     if (ssl->version.major == 3 && ssl->version.minor >= 1) {
 #ifndef NO_TLS
         ssl->options.tls = 1;
         ssl->hmac = TLS_hmac;
-        if (ssl->version.minor == 2)
+        if (ssl->version.minor >= 2)
             ssl->options.tls1_1 = 1;
 #endif
     }
@@ -540,7 +678,7 @@ int MakeMasterSecret(SSL* ssl)
     byte   shaOutput[SHA_DIGEST_SIZE];
     byte   md5Input[ENCRYPT_LEN + SHA_DIGEST_SIZE];
     byte   shaInput[PREFIX + ENCRYPT_LEN + 2 * RAN_LEN];
-    int    i;
+    int    i, ret;
     word32 idx;
     word32 pmsSz = ssl->arrays.preMasterSz;
 
@@ -602,10 +740,10 @@ int MakeMasterSecret(SSL* ssl)
     }
 #endif
 
-    DeriveKeys(ssl);
+    ret = DeriveKeys(ssl);
     CleanPreMaster(ssl);
 
-    return 0;
+    return ret;
 }
 
 

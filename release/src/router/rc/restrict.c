@@ -12,14 +12,14 @@
 #define MAX_NRULES	50
 
 
-static void unsched_restrictions(void)
+static inline void unsched_restrictions(void)
 {
-	system("cru d rcheck");
+	eval("cru", "d", "rcheck");
 }
 
-void sched_restrictions(void)
+inline void sched_restrictions(void)
 {
-	system("rcheck");
+	eval("rcheck");
 }
 
 static int in_sched(int now_mins, int now_dow, int sched_begin, int sched_end, int sched_dow)
@@ -168,7 +168,7 @@ int rcheck_main(int argc, char *argv[])
 
 	if (count > 0) {
 		if ((argc != 2) || (strcmp(argv[1], "--cron") != 0)) {
-			system("cru a rcheck '*/15 * * * * rcheck --cron'");
+			eval("cru", "a", "rcheck", "*/15 * * * * rcheck --cron");
 		}
 	}
 	else {

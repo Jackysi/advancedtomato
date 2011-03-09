@@ -234,6 +234,10 @@ WMGrid.prototype.populateData = function(data, url)
 	var dt = new Date();
 	for (i = list.length - 1; i >= 0; --i) {
 		e = list[i];
+/* IPV6-BEGIN */
+		a = CompressIPv6Address(e.ip);
+		if (a != null) e.ip = a;
+/* IPV6-END */
 		if (cache[e.ip] != null) {
 			new_cache[e.ip] = cache[e.ip];
 			e.ip = cache[e.ip] + ((e.ip.indexOf(':') != -1) ? '<br>' : ' ') + '<small>(' + e.ip + ')</small>';

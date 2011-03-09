@@ -32,10 +32,6 @@
 #include <shared.h>
 
 #define PATH_DEV_NVRAM "/dev/nvram"
-#ifdef MOD_NVR
-#define PATH_DEV_NVRAM "/dev/nvram2"
-#endif
-#define NVRAM_BUF_SIZE (2 * NVRAM_SPACE)
 
 /* Globals */
 static int nvram_fd = -1;
@@ -45,8 +41,8 @@ int nvram_init(void *unused)
 {
 	if ((nvram_fd = open(PATH_DEV_NVRAM, O_RDWR)) >= 0) {
 		/* Map kernel string buffer into user space */
-		if ((nvram_buf = mmap(NULL, NVRAM_BUF_SIZE, PROT_READ, MAP_SHARED, nvram_fd, 0)) != MAP_FAILED) {
-			fcntl(nvram_fd, F_SETFD, FD_CLOEXEC);
+		if ((nvram_buf = mmap(NULL, NVRAM_SPACE, PROT_READ, MAP_SHARED, nvram_fd, 0)) != MAP_FAILED) {
+			fcntl(nvram_fd, F_SETFD, FD_CLOEXEC);	// zzz
 			return 0;
 		}
 		close(nvram_fd);

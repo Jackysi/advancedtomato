@@ -93,10 +93,11 @@ int modprobe_r(const char *mod)
  *	all for the child to exit, regardless of the wtime.
  */
 
+#define MAX_XSTART_ARGC 16
 int _xstart(const char *cmd, ...)
 {
 	va_list ap;
-	char *argv[16];
+	char *argv[MAX_XSTART_ARGC];
 	int argc;
 	int pid;
 
@@ -104,7 +105,10 @@ int _xstart(const char *cmd, ...)
 	argc = 1;
 	va_start(ap, cmd);
 	while ((argv[argc++] = va_arg(ap, char *)) != NULL) {
-		//
+		if (argc >= MAX_XSTART_ARGC) {
+			_dprintf("%s: too many parameters\n", __FUNCTION__);
+			break;
+		}
 	}
 	va_end(ap);
 

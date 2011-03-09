@@ -1,0 +1,13 @@
+########################################################
+# Franklin Wireless U210 (Variant)
+
+DefaultVendor= 0x1fac
+DefaultProduct=0x0032
+
+TargetClass=0xff
+
+ 
+Configuration=2
+
+CheckSuccess=20
+

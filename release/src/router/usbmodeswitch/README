@@ -8,7 +8,7 @@ What it is
 ==========
 
 USB_ModeSwitch is (surprise!) a small mode switching tool for controlling
-"flip flop" (multiple mode) USB gear.
+"flip flop" (multiple mode) USB devices.
 
 Several new USB devices (especially high-speed WAN stuff, based on cell phone
 chipsets containing that feature) have their MS Windows drivers onboard; when
@@ -17,7 +17,7 @@ installing the driver from there.
 After installation (and on every consecutive plugging) the driver switches the
 mode internally, the storage device vanishes (in most cases), and a new device
 (like an USB modem) shows up. Modem maker "Option" calls that feature "ZeroCD
-(TM)".
+(TM)" since it eliminates the need for shipping a separate driver carrier.
 
 In the beginning, nothing of this was documented in any form and there was
 hardly any Linux support available.
@@ -29,14 +29,14 @@ the thing is supposed to do.
 Fortunately there are things like human intelligence, USB sniffing programs and
 "libusb". It is possible to eavesdrop the communication of the MS Windows
 driver, to isolate the command or action that does the switching, and to replay
-the same thing with Linux.
+the same sequence in Linux.
 
-USB_ModeSwitch eases the pain considerably by taking just the important para-
+USB_ModeSwitch makes this process easy to handle by taking the relevant para-
 meters from a configuration file and doing all the initialization and communi-
 cation stuff, with heavy help from "libusb".
 It is mainly used automatically - via udev events and rules - to do the switch
 without any user interaction. But it can also be run as a command line tool,
-usually when trying to make it work with unknown devices.
+usually when trying to make unknown devices work with it.
 
 We have already collected a wide range of information on how to switch all
 sorts of devices. If you run into a new one that is unknown yet, don't despair:
@@ -54,9 +54,11 @@ orphaned in /usr/sbin.
 
 Important: you need "tcl" for the wrapper script to work; if you enter "tclsh"
 and you get a "%" prompt, you are set (to exit type "exit"). The "tcl" package
-is part of all distributions I know.
-If you are space-restricted you can also use the "jimsh" mini tcl interpreter. The
-tcl wrapper is compatible with the limited command set of this small shell.
+is part of all distributions I know. Use version 8.4 and higher.
+If you are space-restricted you can also use the "jimsh" mini Tcl interpreter. The
+Tcl wrapper is compatible with the limited command set of this small shell. Since
+version 1.1.7 an alternative source package containing jimsh will be provided.
+The typical size of jimsh is 140 kB, or 70 kB in a compressed file system.
 
 To install the tool set, unpack and in the newly created directory use this line
 at the shell (as root):
@@ -64,7 +66,9 @@ at the shell (as root):
 > make install
 
 This installs the small shell script, the dispatcher (wrapper) script, a global
-config file, the binary and a man page.
+config file, the binary and a man page. If you chose the package with jimsh, the
+Tcl shell is configured, built and installed in the same step, optimized for
+size.
 
 Install the data package as well and you are set already; if your device is
 known, you should be able to just plug it and use it. If it doesn't work -
@@ -167,6 +171,7 @@ Code, fixes and ideas from:
  Christophe Fergeau
  Nils Radtke
  Filip Aben
+ Amit Mendapara
 
 Device information contributors are named in the "device_reference.txt" file.
 
@@ -190,4 +195,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2010-12-22, Josua Dietze
+Last revised: 2011-02-24, Josua Dietze

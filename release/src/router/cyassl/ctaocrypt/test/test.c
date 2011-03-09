@@ -23,6 +23,9 @@
 #include "rabbit.h"
 #include "pwdbased.h"
 #include "ctc_ripemd.h"
+#ifdef HAVE_ECC
+    #include "ctc_ecc.h"
+#endif    
 
 #ifdef _MSC_VER
     /* 4996 warning to use MS extensions e.g., strcpy_s instead of strncpy */
@@ -75,6 +78,9 @@ int  random_test();
 int  pwdbased_test();
 int  ripemd_test();
 int  openssl_test();   /* test mini api */
+#ifdef HAVE_ECC
+    int  ecc_test();
+#endif
 
 int PemToDer(const char* inName, const char* outName);
 
@@ -222,6 +228,13 @@ void ctaocrypt_test(void* args)
         err_sys("OPENSSL  test failed!\n", ret);
     else
         printf( "OPENSSL  test passed!\n");
+#endif
+
+#ifdef HAVE_ECC
+    if ( (ret = ecc_test()) ) 
+        err_sys("ECC      test failed!\n", ret);
+    else
+        printf( "ECC      test passed!\n");
 #endif
 
     ((func_args*)args)->return_code = ret;
@@ -1680,3 +1693,91 @@ int pwdbased_test()
 }
 
 #endif /* NO_PWDBASED */
+
+
+#ifdef HAVE_ECC
+
+int ecc_test()
+{
+    RNG     rng;
+    byte    sharedA[1024];
+    byte    sharedB[1024];
+    byte    sig[1024];
+    byte    digest[20];
+    byte    export[1024];
+    word32  x, y;
+    int     i, verify, ret;
+    ecc_key userA, userB, pubKey;
+
+    ret = InitRng(&rng);
+    if (ret != 0)
+        return -1001;
+
+    ecc_init(&userA);
+    ecc_init(&userB);
+    ecc_init(&pubKey);
+
+    ret = ecc_make_key(&rng, 32, &userA);
+    ret = ecc_make_key(&rng, 32, &userB);
+
+    if (ret != 0)
+        return -1002;
+
+    x = sizeof(sharedA);
+    ret = ecc_shared_secret(&userA, &userB, sharedA, &x);
+   
+    y = sizeof(sharedB);
+    ret = ecc_shared_secret(&userB, &userA, sharedB, &y);
+    
+    if (ret != 0)
+        return -1003;
+
+    if (y != x)
+        return -1004;
+
+    if (memcmp(sharedA, sharedB, x))
+        return -1005;
+
+    x = sizeof(export);
+    ret = ecc_export_x963(&userA, export, &x);
+    if (ret != 0)
+        return -1006;
+
+    ret = ecc_import_x963(export, x, &pubKey);
+
+    if (ret != 0) 
+        return -1007;
+
+    y = sizeof(sharedB);
+    ret = ecc_shared_secret(&userB, &pubKey, sharedB, &y);
+   
+    if (ret != 0)
+        return -1008;
+
+    if (memcmp(sharedA, sharedB, y))
+        return -1010;
+
+    /* test DSA sign hash */
+    for (i = 0; i < sizeof(digest); i++)
+        digest[i] = i;
+
+    x = sizeof(sig);
+    ret = ecc_sign_hash(digest, sizeof(digest), sig, &x, &rng, &userA);
+    
+    verify = 0;
+    ret = ecc_verify_hash(sig, x, digest, sizeof(digest), &verify, &userA);
+
+    if (ret != 0)
+        return -1011;
+
+    if (verify != 1)
+        return -1012;
+
+    ecc_free(&pubKey);
+    ecc_free(&userB);
+    ecc_free(&userA);
+
+    return 0;
+}
+
+#endif /* HAVE_ECC */
