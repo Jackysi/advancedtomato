@@ -1,5 +1,5 @@
 #! /bin/sh
-# $Id: genconfig.sh,v 1.40 2011/01/04 11:55:18 nanard Exp $
+# $Id: genconfig.sh,v 1.41 2011/03/09 15:09:07 nanard Exp $
 # miniupnp daemon
 # http://miniupnp.free.fr or http://miniupnp.tuxfamily.org/
 # (c) 2006-2011 Thomas Bernard
@@ -26,6 +26,12 @@ if [ -f /etc/platform ]; then
 		OS_NAME=pfSense
 		OS_VERSION=`cat /etc/version`
 	fi
+fi
+
+# OpenWRT special case
+if [ -f ./os.openwrt ]; then
+	OS_NAME=OpenWRT
+	OS_VERSION=$(cat ./os.openwrt)
 fi
 
 ${RM} ${CONFIGFILE}
@@ -173,6 +179,11 @@ case $OS_NAME in
 					;;
 			esac
 		fi
+		echo "#define USE_NETFILTER 1" >> ${CONFIGFILE}
+		FW=netfilter
+		;;
+	OpenWRT)
+		OS_URL=http://www.openwrt.org/
 		echo "#define USE_NETFILTER 1" >> ${CONFIGFILE}
 		FW=netfilter
 		;;
