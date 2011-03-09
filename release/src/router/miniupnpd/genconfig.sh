@@ -34,6 +34,12 @@ if [ -f ./os.openwrt ]; then
 	OS_VERSION=$(cat ./os.openwrt)
 fi
 
+# Tomato USB special case
+if [ -f ../shared/tomato_version ]; then
+	OS_NAME=Tomato
+	OS_VERSION="Tomato $(cat ../shared/tomato_version)"
+fi
+
 ${RM} ${CONFIGFILE}
 
 echo "/* MiniUPnP Project" >> ${CONFIGFILE}
@@ -187,6 +193,12 @@ case $OS_NAME in
 		echo "#define USE_NETFILTER 1" >> ${CONFIGFILE}
 		FW=netfilter
 		;;
+	Tomato)
+		OS_NAME=UPnP
+		OS_URL=http://tomatousb.org/
+		echo "#define USE_NETFILTER 1" >> ${CONFIGFILE}
+		FW=netfilter
+		;;
 	Darwin)
 		echo "#define USE_IPFW 1" >> ${CONFIGFILE}
 		FW=ipfw
@@ -257,7 +269,7 @@ echo "#define ENABLE_L3F_SERVICE" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 
 echo "/* Experimental UPnP Events support. */" >> ${CONFIGFILE}
-echo "/*#define ENABLE_EVENTS*/" >> ${CONFIGFILE}
+echo "#define ENABLE_EVENTS" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 
 echo "/* include interface name in pf and ipf rules */" >> ${CONFIGFILE}

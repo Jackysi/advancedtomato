@@ -367,12 +367,19 @@ ppp-%:
 
 upnp: nvram shared iptables
 
-miniupnpd: iptables
+miniupnpd-config:
+	@cd miniupnpd && ./genconfig.sh
+
+miniupnpd: iptables miniupnpd-config
 	@$(SEP)
-	$(MAKE) -C miniupnpd -f Makefile.tomato
+	$(MAKE) -C miniupnpd miniupnpd -f Makefile.linux \
+	TARGET_OPENWRT="not really" CC=$(CC) \
+	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include" \
+	LDFLAGS="-L$(TOP)/iptables -liptc" LIBS=""
 
 miniupnpd-clean:
-	-$(MAKE) -C miniupnpd -f Makefile.tomato clean
+	-$(MAKE) -C miniupnpd -f Makefile.linux clean
+	@rm -f miniupnpd/config.h
 
 miniupnpd-install:
 	install -D miniupnpd/miniupnpd $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd
