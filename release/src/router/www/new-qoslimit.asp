@@ -15,7 +15,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] New: QoS Limit</title>
+<title>[<% ident(); %>] New: IP/Range BW Limiter</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -134,21 +134,21 @@ qosg.verifyFields = function(row, quiet)
 
 /*
 	if (v_ip(f[0], quiet)) {
-		if(this.existIP(f[0].value)) {
-			ferror.set(f[0], 'duplicate IP address', quiet);
+               if(this.existIP(f[0].value)) {
+                       ferror.set(f[0], 'duplicate IP address', quiet);
 			ok = 0;
 		}
 	}
 */
 	if(v_macip(f[0], quiet, 0, nvram.lan_ipaddr, nvram.lan_netmask)) {
-		if(this.existIP(f[0].value)) {
-			ferror.set(f[0], 'duplicate IP or MAC address', quiet);
+               if(this.existIP(f[0].value)) {
+                    ferror.set(f[0], 'duplicate IP or MAC address', quiet);
 			ok = 0;
 		}
 	}
      
 	if( this.checkRate(f[1].value)) {
-		ferror.set(f[1], 'DLRate must between 1 and 99999', quiet);
+	        ferror.set(f[1], 'DLRate must between 1 and 99999', quiet);
 		ok = 0;
 	}
 
@@ -158,23 +158,23 @@ qosg.verifyFields = function(row, quiet)
 	}
 
 	if( this.checkRateCeil(f[1].value, f[2].value)) {
-		ferror.set(f[2], 'DLCeil must be greater than DLRate', quiet);
+               ferror.set(f[2], 'DLCeil must be greater than DLRate', quiet);
 		ok = 0;
 	}
 
 	if( this.checkRate(f[3].value)) {
-		ferror.set(f[3], 'ULRate must between 1 and 99999', quiet);
+                ferror.set(f[3], 'ULRate must between 1 and 99999', quiet);
 		ok = 0;
 	}
 
 	if( this.checkRate(f[4].value)) {
-		ferror.set(f[4], 'ULCeil must between 1 and 99999', quiet);
+                ferror.set(f[4], 'ULCeil must between 1 and 99999', quiet);
 		ok = 0;
 	}
 
 	if( this.checkRateCeil(f[3].value, f[4].value)) {
-		ferror.set(f[4], 'ULCeil must be greater than ULRate', quiet);
-		ok = 0;
+                    ferror.set(f[4], 'ULCeil must be greater than ULRate', quiet);
+			ok = 0;
 	}
 
 	return ok;
@@ -210,7 +210,7 @@ function save()
 	var qoslimitrules = '';
 	var i;
 
-    if (data.length != 0) qoslimitrules += data[0].join('<');	
+        if (data.length != 0) qoslimitrules += data[0].join('<'); 	
 	for (i = 1; i < data.length; ++i) {
 		qoslimitrules += '>' + data[i].join('<');
 	}
@@ -232,7 +232,7 @@ function init()
 <form id='_fom' method='post' action='tomato.cgi'>
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
-	<div class='title'>Tomato</div>
+	<div class='title'>Tomato RAF</div>
 	<div class='version'>Version <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
@@ -252,29 +252,32 @@ function init()
 
 <div id='bwlimit'>
 
-	<div class='section-title'>QoS Limit</div>
+	<div class='section-title'>QoS BW Limiter</div>
 	<div class='section'>
 		<script type='text/javascript'>
 			createFieldTable('', [
 			{ title: 'Enable Limiter', name: 'f_new_qoslimit_enable', type: 'checkbox', value: nvram.new_qoslimit_enable != '0' },
-			{ title: 'Max Download Bandwidth <br><small>(also used by QOS)', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw },
-			{ title: 'Max Upload Bandwidth <br><small>(also used by QOS)', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw }
+			{ title: 'Set Max Available Download Bandwidth <small>(same as used in QoS)', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw },
+			{title: 'Set Max Available Upload Bandwidth <small>(same as used in QoS)', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw }
 			]);
 		</script>
 		<br>
 		<table class='tomato-grid' id='qosg-grid'></table>
 		<div>
 			<ul>
-				<li><b>IP Address</b> - i.e: 192.168.1.5
-				<li><b>IP Range</b> - i.e: 192.168.1.45-57 or 45-57 -  A range of IP's will <b>share</b> the bandwidth.
-				<li><b>MAC Address</b> - i.e: 00:2E:3C:6A:22:D8
+				<li><b>IP Address / IP Range:</b>
+				<li>Example: 192.168.1.5 for one IP.
+				<li>Example: 192.168.1.4-7 for IP 192.168.1.4 to 192.168.1.7
+				<li>Example: 4-7 for IP Range .4 to .7
+				<li><b>The IP Range devices will share the Bandwidth<br>
+				<li><b>MAC Address</b> Example: 00:2E:3C:6A:22:D8
 			</ul>
 		</div>
 	</div>
 	
 	<br>
 
-	<div class='section-title'>Default Class rate/ceiling for unlisted IP's</div>
+	<div class='section-title'>Default Class rate/ceiling for unlisted MAC / IP's</div>
 	<div class='section'>
 		<script type='text/javascript'>
 			createFieldTable('', [
@@ -308,7 +311,8 @@ function init()
 		</script>
 		<div>
 			<ul>
-				<li><b>Default Class</b> - All clients not included in the list will <b>share</b> the Default Rate/Ceiling setting.
+				<li><b>Default Class</b> - IP / MAC's non included in the list will take the Default Rate/Ceiling setting
+				<li><b>The bandwitdh will be shared by all unlisted hosts.</b>
 			</ul>
 		</div>
 	</div>

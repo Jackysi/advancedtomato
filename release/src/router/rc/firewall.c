@@ -364,8 +364,8 @@ int ipt_layer7(const char *v, char *opt)
 
 static void save_webmon(void)
 {
-	eval("cp", "/proc/webmon_recent_domains", "/var/webmon/domain");
-	eval("cp", "/proc/webmon_recent_searches", "/var/webmon/search");
+	system("cp /proc/webmon_recent_domains /var/webmon/domain");
+	system("cp /proc/webmon_recent_searches /var/webmon/search");
 }
 
 static void ipt_webmon()
@@ -1134,6 +1134,7 @@ int start_firewall(void)
 	simple_lock("firewall");
 	simple_lock("restrictions");
 
+	wanproto = get_wan_proto();
 	wanup = check_wanup();
 
 	f_write_string("/proc/sys/net/ipv4/tcp_syncookies", nvram_get_int("ne_syncookies") ? "1" : "0", 0, 0);
@@ -1158,9 +1159,6 @@ int start_firewall(void)
 	f_write_string("/proc/sys/net/ipv4/icmp_ignore_bogus_error_responses", "1", 0, 0);
 	f_write_string("/proc/sys/net/ipv4/tcp_rfc1337", "1", 0, 0);
 	f_write_string("/proc/sys/net/ipv4/ip_local_port_range", "1024 65535", 0, 0);
-
-	wanproto = get_wan_proto();
-	f_write_string("/proc/sys/net/ipv4/ip_dynaddr", (wanproto == WP_DISABLED || wanproto == WP_STATIC) ? "0" : "1", 0, 0);
 
 #ifdef TCONFIG_EMF
 	/* Force IGMPv2 due EMF limitations */
@@ -1240,14 +1238,13 @@ int start_firewall(void)
 	modprobe("ip6t_REJECT");
 #endif
 	/*Deon Thomas attempt to start xt_IMQ and imq */
-	/*shibby - fix modprobing IMQ for kernel 2.4 */
 	modprobe("imq");
 #ifdef LINUX26
 	modprobe("xt_IMQ");
 #else
 	modprobe("ipt_IMQ");
 #endif
-
+	
 	mangle_table();
 	nat_table();
 	filter_table();

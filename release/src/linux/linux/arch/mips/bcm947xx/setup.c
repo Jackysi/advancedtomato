@@ -70,6 +70,10 @@ spinlock_t bcm947xx_sbh_lock = SPIN_LOCK_UNLOCKED;
 EXPORT_SYMBOL(bcm947xx_sbh);
 EXPORT_SYMBOL(bcm947xx_sbh_lock);
 
+/* CPU freq Tomato RAF features */
+int bcm947xx_cpu_clk;
+EXPORT_SYMBOL(bcm947xx_cpu_clk);
+
 /* Convenience */
 #define sbh bcm947xx_sbh
 #define sbh_lock bcm947xx_sbh_lock

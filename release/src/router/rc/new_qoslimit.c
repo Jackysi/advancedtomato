@@ -2,8 +2,9 @@
 
 	Tomato Firmware
 	Copyright (C) 2006-2008 Jonathan Zarate
-	Copyright (C) 2011 Deon 'PrinceAMD' Thomas 
 	rate limit & connection limit by conanxu
+	2011 modified by Victek & Shibby for 2.6 kernel
+	last changed: 20110210
 */
 
 #include "rc.h"
@@ -54,7 +55,7 @@ void address_checker (int * address_type, char *ipaddr_old, char *ipaddr)
 			*address_type = MAC_ADDRESS;
 		}
 		strcpy (ipaddr, ipaddr_old);
-	}
+	}	
 }
 		
 void ipt_qoslimit(int chain)
@@ -140,10 +141,10 @@ void ipt_qoslimit(int chain)
 		if ((priority_num < 0) || (priority_num > 5)) continue;
 
 		if (!strcmp(ipaddr_old,"")) continue;
-
-		address_checker (&address_type, ipaddr_old, ipaddr); 
+		
+		address_checker (&address_type, ipaddr_old, ipaddr);
 		sprintf(seq,"%d",iSeq);
-		iSeq++;
+		iSeq++; 
 
 		if (!strcmp(dlceil,"")) strcpy(dlceil, dlrate);
 		if (strcmp(dlrate,"") && strcmp(dlceil, "")) {
@@ -165,7 +166,7 @@ void ipt_qoslimit(int chain)
 				}
 			}
 		}
-
+		
 		if (!strcmp(ulceil,"")) strcpy(ulceil, ulrate);
 		if (strcmp(ulrate,"") && strcmp(ulceil, "")) {
 			if (chain == 1) {
@@ -189,7 +190,7 @@ void ipt_qoslimit(int chain)
 				}
 			}
 		}
-	
+		
 		if(atoi(tcplimit) > 0){
 			if (chain == 2) {
 				switch (address_type)
@@ -267,8 +268,8 @@ void new_qoslimit_start(void)
 	//read qos1rules from nvram
 	g = buf = strdup(nvram_safe_get("new_qoslimit_rules"));
 
-	ibw = nvram_safe_get("qos_ibw");  // Read from QOS setting - KRP
-	obw = nvram_safe_get("qos_obw");  // Read from QOS setting - KRP
+	ibw = nvram_safe_get("qos_ibw");  
+	obw = nvram_safe_get("qos_obw");  
 	
 	lanipaddr = nvram_safe_get("lan_ipaddr");
 	lanmask = nvram_safe_get("lan_netmask");
@@ -338,10 +339,12 @@ void new_qoslimit_start(void)
 		if ((p = strsep(&g, ">")) == NULL) break;
 		i = vstrsep(p, "<", &ipaddr_old, &dlrate, &dlceil, &ulrate, &ulceil, &priority, &tcplimit, &udplimit);
 		if (i!=8) continue;
+
 		priority_num = atoi(priority);
 		if ((priority_num < 0) || (priority_num > 5)) continue;
-		if (!strcmp(ipaddr_old,"")) continue;
 
+		if (!strcmp(ipaddr_old,"")) continue;
+		
 		address_checker(&address_type, ipaddr_old, ipaddr);
 		sprintf(seq,"%d",iSeq);
 		iSeq++;

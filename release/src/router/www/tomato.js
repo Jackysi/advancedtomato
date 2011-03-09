@@ -434,25 +434,25 @@ function v_macip(e, quiet, bok, lan_ipaddr, lan_netmask)
 	}
 
 	a = s.split('-');
-
+    
 	if (a.length > 2) {
 		ferror.set(e, 'Invalid IP address range', quiet);
 		return false;
 	}
-
+	
 	if (a[0].match(/^\d+$/)){
 		a[0]=ipp+a[0];
 		if ((a.length == 2) && (a[1].match(/^\d+$/)))
 			a[1]=ipp+a[1];
 	}
-	else {
+	else{
 		if ((a.length == 2) && (a[1].match(/^\d+$/))){
 			temp=a[0].split('.');
 			a[1]=temp[0]+'.'+temp[1]+'.'+temp[2]+'.'+a[1];
 		}
 	}
 	for (i = 0; i < a.length; ++i) {
-		b = a[i];
+		b = a[i];    
 		b = fixIP(b);
 		if (!b) {
 			ferror.set(e, 'Invalid IP address', quiet);

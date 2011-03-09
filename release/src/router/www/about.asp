@@ -121,8 +121,9 @@ Copyright (C) 2011 Michał Rupental<br>
 
 <b>"Victek RAF" features:</b><br> 
 - ARP Binding<br>
-- Sysinfo<br>
-Copyright (C) 2007-2011 Vicente Soriano<br>
+- Extended Sysinfo<br>
+- Multilanguage<br>
+Copyright (C) 2007-2011 Vicente Soriano, Michał Rupental<br>
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
 
