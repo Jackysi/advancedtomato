@@ -334,6 +334,8 @@ define BusyboxOptions
 		echo "# CONFIG_FEATURE_DEVFS is not set" >>$(1); \
 		sed -i "/CONFIG_MKNOD/d" $(1); \
 		echo "CONFIG_MKNOD=y" >>$(1); \
+		sed -i "/CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE/d" $(1); \
+		echo "CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE=512" >>$(1); \
 	fi; \
 	if [ "$(NO_CIFS)" = "y" ]; then \
 		sed -i "/CONFIG_FEATURE_MOUNT_CIFS/d" $(1); \
@@ -346,14 +348,14 @@ define BusyboxOptions
 		echo "CONFIG_FEATURE_SORT_BIG=y" >>$(1); \
 		sed -i "/CONFIG_FTPPUT/d" $(1); \
 		echo "CONFIG_FTPPUT=y" >>$(1); \
+		sed -i "/CONFIG_FTPGET/d" $(1); \
+		echo "CONFIG_FTPGET=y" >>$(1); \
 		sed -i "/CONFIG_CLEAR/d" $(1); \
 		echo "CONFIG_CLEAR=y" >>$(1); \
+		sed -i "/CONFIG_NICE/d" $(1); \
+		echo "CONFIG_NICE=y" >>$(1); \
 		sed -i "/CONFIG_SETCONSOLE/d" $(1); \
 		echo "CONFIG_SETCONSOLE=y" >>$(1); \
-		if [ "$(CONFIG_LINUX26)" = "y" ]; then \
-			sed -i "/CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE/d" $(1); \
-			echo "CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE=512" >>$(1); \
-		fi; \
 	fi; \
 	if [ "$(USB)" = "USB" ]; then \
 		if [ "$(USBEXTRAS)" = "y" ]; then \
@@ -399,6 +401,10 @@ define BusyboxOptions
 		echo "# CONFIG_BLKID is not set" >>$(1); \
 		sed -i "/CONFIG_SWAPONOFF/d" $(1); \
 		echo "# CONFIG_SWAPONOFF is not set" >>$(1); \
+		sed -i "/CONFIG_CHROOT/d" $(1); \
+		echo "# CONFIG_CHROOT is not set" >>$(1); \
+		sed -i "/CONFIG_PIVOT_ROOT/d" $(1); \
+		echo "# CONFIG_PIVOT_ROOT is not set" >>$(1); \
 		sed -i "/CONFIG_TRUE/d" $(1); \
 		echo "# CONFIG_TRUE is not set" >>$(1); \
 	fi; \
