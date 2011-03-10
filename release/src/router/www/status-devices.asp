@@ -147,6 +147,12 @@ function addWF(n)
 	location.href = 'basic-wfilter.asp';
 }
 
+function addbwlimit(n)
+{
+	var e = list[n];
+	cookie.set('addbwlimit', [e.mac, e.name.split(',')[0]].join(','), 1);
+	location.href = 'new-qoslimit.asp';
+}
 
 var ref = new TomatoRefresh('update.cgi', 'exec=devlist', 0, 'status_devices_refresh');
 
@@ -271,7 +277,8 @@ dg.populate = function()
 		if (e.mac.match(/^(..):(..):(..)/)) {
 			b += '<br><small>' +
 				'<a href="http://standards.ieee.org/cgi-bin/ouisearch?' + RegExp.$1 + '-' + RegExp.$2 + '-' + RegExp.$3 + '" target="_new" title="OUI Search">[oui]</a> ' +
-				'<a href="javascript:addStatic(' + i + ')" title="Static Lease...">[static]</a>';
+				'<a href="javascript:addStatic(' + i + ')" title="Static Lease...">[static]</a>' +
+				'<a href="javascript:addbwlimit(' + i + ')" title="QoS BW Limiter">[bwlimit]</a>';
 
 			if (e.rssi != '') {
 				b += ' <a href="javascript:addWF(' + i + ')" title="Wireless Filter...">[wfilter]</a>';
@@ -321,7 +328,7 @@ function init()
 <body onload='init()'>
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
-	<div class='title'>Tomato</div>
+	<div class='title'>Tomato RAF</div>
 	<div class='version'>Version <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>

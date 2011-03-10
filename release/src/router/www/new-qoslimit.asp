@@ -78,8 +78,26 @@ qosg.dataToView = function(data) {
 }
 
 qosg.resetNewEditor = function() {
+	var f, c, n;
+
 	var f = fields.getAll(this.newEditor);
-	
+	ferror.clearAll(f);
+	if ((c = cookie.get('addbwlimit')) != null) {
+		cookie.set('addbwlimit', '', 0);
+		c = c.split(',');
+		if (c.length == 2) {
+	f[0].value = c[0];
+	f[1].value = c[1];
+	f[2].value = '';
+	f[3].value = '';
+	f[4].value = '';
+	f[5].selectedIndex = '2';
+	f[6].selectedIndex = '0';
+	f[7].selectedIndex = '0';
+	return;
+		}
+	}
+
 	f[0].value = '';
 	f[1].value = '';
 	f[2].value = '';
@@ -88,8 +106,8 @@ qosg.resetNewEditor = function() {
 	f[5].selectedIndex = '2';
 	f[6].selectedIndex = '0';
 	f[7].selectedIndex = '0';
-	ferror.clearAll(fields.getAll(this.newEditor));
-}
+	
+	}
 
 qosg.exist = function(f, v)
 {
