@@ -196,7 +196,7 @@ sg.resetNewEditor = function() {
 
 sg.setup = function()
 {
-	this.init('bs-grid', 'sort', 140, [
+	this.init('bs-grid', 'sort', 250, [
 		{ multi: [ { type: 'text', maxlen: 17 }, { type: 'text', maxlen: 17 } ] },
 		{ type: 'text', maxlen: 15 },
 		{ type: 'text', maxlen: 63 } ] );
@@ -278,16 +278,21 @@ function init()
 	<script type='text/javascript'>
 	createFieldTable('', [
 		{ title: 'Enable static ARP', name: 'f_new_arpbind_enable', type: 'checkbox', value: nvram.new_arpbind_enable != '0' },
-		{ title: 'Limit unlisted machines', name: 'f_new_arpbind_only', type: 'checkbox', value: nvram.new_arpbind_only != '0' }
+		{ title: 'Restrict unlisted machines', name: 'f_new_arpbind_only', type: 'checkbox', value: nvram.new_arpbind_only != '0' }
 	]);
 	</script>
 </div>
 <div>
-
 <small>
-<li>Static ARP only works if there's one MAC address per IP. You can't enter two MAC addreses in the above table.
-<li>When limiting unlisted machines, please set your DHCP range to match with at least one static IP address.
-<li>When using that feature you must also fill in the IP and MAC address of any access point(s) in the above table.
+<li>Static ARP only works if there's one MAC address per IP. You can't enter two MAC addresses in the above table.
+</small>
+<br>
+When using "Restrict unlisted machines":
+<br>
+<small>
+<li>DHCP should issue a "range" with only 1 IP address, preferably the administrator's IP - e.g. 192.168.1.100-100
+<li>You <b>MUST</b> enter your own (administrator) IP and MAC into the table, or you may be locked out of the router.
+<li>You must add the IP/MAC address of all your access point(s) to the table.
 </small>
 </div>
 
