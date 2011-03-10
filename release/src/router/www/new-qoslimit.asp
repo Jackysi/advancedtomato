@@ -269,7 +269,7 @@ function init()
 				<li>Example: 192.168.1.5 for one IP.
 				<li>Example: 192.168.1.4-7 for IP 192.168.1.4 to 192.168.1.7
 				<li>Example: 4-7 for IP Range .4 to .7
-				<li><b>The IP Range devices will share the Bandwidth<br>
+				<li><b>The IP Range devices will share the Bandwidth</b>
 				<li><b>MAC Address</b> Example: 00:2E:3C:6A:22:D8
 			</ul>
 		</div>
