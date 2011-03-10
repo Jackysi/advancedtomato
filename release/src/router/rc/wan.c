@@ -809,6 +809,7 @@ void start_wan_done(char *wan_ifname)
 
 	start_firewall();
 	start_qos();
+	new_arpbind_start();
 
 	do_static_routes(1);
 	// and routes supplied via DHCP
