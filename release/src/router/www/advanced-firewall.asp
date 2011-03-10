@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Advanced: Firewall</title>
+<title>[<% ident(); %>] <% translate("Advanced"); %>: <% translate("Firewall"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -49,7 +49,7 @@ function save()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -64,14 +64,14 @@ function save()
 <input type='hidden' name='multicast_pass'>
 <input type='hidden' name='ne_syncookies'>
 
-<div class='section-title'>Firewall</div>
+<div class='section-title'><% translate("Firewall"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Respond to ICMP ping', name: 'f_icmp', type: 'checkbox', value: nvram.block_wan == '0' },
-	{ title: 'Allow multicast', name: 'f_multicast', type: 'checkbox', value: nvram.multicast_pass == '1' },
-	{ title: 'NAT loopback', name: 'nf_loopback', type: 'select', options: [[0,'All'],[1,'Forwarded Only'],[2,'Disabled']], value: fixInt(nvram.nf_loopback, 0, 2, 1) },
-	{ title: 'Enable SYN cookies', name: 'f_syncookies', type: 'checkbox', value: nvram.ne_syncookies != '0' },
+	{ title: '<% translate("Respond to ICMP ping"); %>', name: 'f_icmp', type: 'checkbox', value: nvram.block_wan == '0' },
+	{ title: '<% translate("Allow multicast"); %>', name: 'f_multicast', type: 'checkbox', value: nvram.multicast_pass == '1' },
+	{ title: '<% translate("NAT loopback"); %>', name: 'nf_loopback', type: 'select', options: [[0,'<% translate("All"); %>'],[1,'<% translate("Forwarded Only"); %>'],[2,'<% translate("Disabled"); %>']], value: fixInt(nvram.nf_loopback, 0, 2, 1) },
+	{ title: '<% translate("Enable SYN cookies"); %>', name: 'f_syncookies', type: 'checkbox', value: nvram.ne_syncookies != '0' },
 ]);
 </script>
 </div>
@@ -81,8 +81,8 @@ createFieldTable('', [
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='reloadPage();'>
 </td></tr>
 </table>
 </form>

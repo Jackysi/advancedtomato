@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Scheduler</title>
+<title>[<% ident(); %>] <% translate("Scheduler"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -34,7 +34,7 @@ textarea {
 
 //	<% nvram("sch_rboot,sch_rcon,sch_c1,sch_c1_cmd,sch_c2,sch_c2_cmd,sch_c3,sch_c3_cmd"); %>
 
-var dowNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+var dowNames = ['<% translate("Sun"); %>', '<% translate("Mon"); %>', '<% translate("Tue"); %>', '<% translate("Wed"); %>', '<% translate("Thu"); %>', '<% translate("Fri"); %>', '<% translate("Sat"); %>'];
 var dowLow = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 var scheds = []
 
@@ -44,9 +44,9 @@ for (i = 0; i < 1440; i += 15) {
 }
 
 tm.push(
-	[-1, 'Every minute'], [-3, 'Every 3 minutes'], [-5, 'Every 5 minutes'], [-15, 'Every 15 minutes'], [-30, 'Every 30 minutes'],
-	[-60, 'Every hour'], [-(12 * 60), 'Every 12 hours'], [-(24 * 60), 'Every 24 hours'],
-	['e', 'Every...']);
+	[-1, '<% translate("Every minute"); %>'], [-3, '<% translate("Every 3 minutes"); %>'], [-5, '<% translate("Every 5 minutes"); %>'], [-15, '<% translate("Every 15 minutes"); %>'], [-30, '<% translate("Every 30 minutes"); %>'],
+	[-60, '<% translate("Every hour"); %>'], [-(12 * 60), '<% translate("Every 12 hours"); %>'], [-(24 * 60), '<% translate("Every 24 hours"); %>'],
+	['e', '<% translate("Every"); %>...']);
 
 /* REMOVE-BEGIN
 
@@ -89,24 +89,24 @@ function makeSched(key, custom)
 	}
 
 	a = [
-		{ title: 'Enabled', name: key + 'enabled', type: 'checkbox', value: v[1] == '1' },
-		{ title: 'Time', multi: [
+		{ title: '<% translate("Enabled"); %>', name: key + 'enabled', type: 'checkbox', value: v[1] == '1' },
+		{ title: '<% translate("Time"); %>', multi: [
 			{ name: key + 'time', type: 'select', options: t, value: oe ? 'e' : v[2] },
 			{ name: key + 'every', type: 'text', maxlen: 10, size: 10, value: (v[2] < 0) ? -v[2] : 30,
-				prefix: ' ', suffix: ' <small id="_' + key + 'mins"><i>minutes</i></small>' } ] },
+				prefix: ' ', suffix: ' <small id="_' + key + 'mins"><i><% translate("minutes"); %></i></small>' } ] },
 		{ title: 'Days', multi: [
-			{ name: key + 'sun', type: 'checkbox', suffix: ' Sun &nbsp; ', value: w & 1 },
-			{ name: key + 'mon', type: 'checkbox', suffix: ' Mon &nbsp; ', value: w & 2 },
-			{ name: key + 'tue', type: 'checkbox', suffix: ' Tue &nbsp; ', value: w & 4 },
-			{ name: key + 'wed', type: 'checkbox', suffix: ' Wed &nbsp; ', value: w & 8 },
-			{ name: key + 'thu', type: 'checkbox', suffix: ' Thu &nbsp; ', value: w & 16 },
-			{ name: key + 'fri', type: 'checkbox', suffix: ' Fri &nbsp; ', value: w & 32 },
-			{ name: key + 'sat', type: 'checkbox', suffix: ' Sat &nbsp; &nbsp;', value: w & 64 },
-			{ name: key + 'everyday', type: 'checkbox', suffix: ' Everyday', value: (w & 0x7F) == 0x7F } ] }
+			{ name: key + 'sun', type: 'checkbox', suffix: ' <% translate("Sun"); %> &nbsp; ', value: w & 1 },
+			{ name: key + 'mon', type: 'checkbox', suffix: ' <% translate("Mon"); %> &nbsp; ', value: w & 2 },
+			{ name: key + 'tue', type: 'checkbox', suffix: ' <% translate("Tue"); %> &nbsp; ', value: w & 4 },
+			{ name: key + 'wed', type: 'checkbox', suffix: ' <% translate("Wed"); %> &nbsp; ', value: w & 8 },
+			{ name: key + 'thu', type: 'checkbox', suffix: ' <% translate("Thu"); %> &nbsp; ', value: w & 16 },
+			{ name: key + 'fri', type: 'checkbox', suffix: ' <% translate("Fri"); %> &nbsp; ', value: w & 32 },
+			{ name: key + 'sat', type: 'checkbox', suffix: ' <% translate("Sat"); %> &nbsp; &nbsp;', value: w & 64 },
+			{ name: key + 'everyday', type: 'checkbox', suffix: ' <% translate("Everyday"); %>', value: (w & 0x7F) == 0x7F } ] }
 	];
 
 	if (custom) {
-		a.push({ title: 'Command', name: 'sch_' + key + 'cmd', type: 'textarea', value: nvram['sch_' + key + 'cmd' ] });
+		a.push({ title: '<% translate("Command"); %>', name: 'sch_' + key + 'cmd', type: 'textarea', value: nvram['sch_' + key + 'cmd' ] });
 	}
 
 	createFieldTable('', a);
@@ -238,7 +238,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version() %></div>
+	<div class='version'><% translate("Version"); %> <% version() %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content' style='visibility:hidden'>
@@ -254,35 +254,35 @@ function init()
 <input type='hidden' name='sch_c2' value=''>
 <input type='hidden' name='sch_c3' value=''>
 
-<div class='section-title'>Reboot</div>
+<div class='section-title'><% translate("Reboot"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 makeSched('rboot');
 </script>
 </div>
 
-<div class='section-title'>Reconnect</div>
+<div class='section-title'><% translate("Reconnect"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 makeSched('rcon');
 </script>
 </div>
 
-<div class='section-title'>Custom 1</div>
+<div class='section-title'><% translate("Custom"); %> 1</div>
 <div class='section'>
 <script type='text/javascript'>
 makeSched('c1', 1);
 </script>
 </div>
 
-<div class='section-title'>Custom 2</div>
+<div class='section-title'><% translate("Custom"); %> 2</div>
 <div class='section'>
 <script type='text/javascript'>
 makeSched('c2', 1);
 </script>
 </div>
 
-<div class='section-title'>Custom 3</div>
+<div class='section-title'><% translate("Custom"); %> 3</div>
 <div class='section'>
 <script type='text/javascript'>
 makeSched('c3', 1);
@@ -294,8 +294,8 @@ makeSched('c3', 1);
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='javascript:reloadPage();'>
 </td></tr>
 </table>
 <br><br>
