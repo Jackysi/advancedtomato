@@ -379,10 +379,10 @@ const char *get_wanip(void)
 	return (*get_wanfaces()).iface[0].ip;
 }
 
-const char *getifaddr(char *ifname, int family)
+const char *getifaddr(char *ifname, int family, int linklocal)
 {
 	static char buf[INET6_ADDRSTRLEN];
-	void *addr;
+	void *addr = NULL;
 	struct ifaddrs *ifap, *ifa;
 
 	if (getifaddrs(&ifap) != 0) {
@@ -396,23 +396,24 @@ const char *getifaddr(char *ifname, int family)
 		    (ifa->ifa_addr->sa_family != family))
 			continue;
 
+#ifdef TCONFIG_IPV6
 		if (ifa->ifa_addr->sa_family == AF_INET6) {
 			struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
-			if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr))
+			if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr) ^ linklocal)
 				continue;
 			addr = (void *)&(s6->sin6_addr);
 		}
-		else {
+		else
+#endif
+		{
 			struct sockaddr_in *s = (struct sockaddr_in *)(ifa->ifa_addr);
 			addr = (void *)&(s->sin_addr);
 		}
 
-		if (inet_ntop(ifa->ifa_addr->sa_family, addr, buf, sizeof(buf)) != NULL) {
+		if ((addr) && inet_ntop(ifa->ifa_addr->sa_family, addr, buf, sizeof(buf)) != NULL) {
 			freeifaddrs(ifap);
 			return buf;
 		}
-		else
-			_dprintf("%s: inet_ntop failed\n", ifa->ifa_name);
 	}
 
 	freeifaddrs(ifap);
