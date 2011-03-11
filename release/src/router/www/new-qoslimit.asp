@@ -87,7 +87,7 @@ qosg.resetNewEditor = function() {
 		c = c.split(',');
 		if (c.length == 2) {
 	f[0].value = c[0];
-	f[1].value = c[1];
+	f[1].value = '';
 	f[2].value = '';
 	f[3].value = '';
 	f[4].value = '';
