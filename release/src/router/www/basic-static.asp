@@ -290,9 +290,10 @@ function init()
 When using "Restrict unlisted machines":
 <br>
 <small>
-<li>DHCP should issue a "range" with only 1 IP address, preferably the administrator's IP - e.g. 192.168.1.100-100
+<li>DHCP should issue a "range" with only 1 IP address, preferably the administrator's IP - e.g. 192.168.1.100-100.
 <li>You <b>MUST</b> enter your own (administrator) IP and MAC into the table, or you may be locked out of the router.
 <li>You must add the IP/MAC address of all your access point(s) to the table.
+<li>All listed IP's will now show as "active" in the WOL table.
 </small>
 </div>
 
