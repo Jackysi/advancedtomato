@@ -150,7 +150,7 @@ function addWF(n)
 function addbwlimit(n)
 {
 	var e = list[n];
-	cookie.set('addbwlimit', [e.mac, e.name.split(',')[0]].join(','), 1);
+	cookie.set('addbwlimit', [e.ip, e.name.split(',')[0]].join(','), 1);
 	location.href = 'new-qoslimit.asp';
 }
 
