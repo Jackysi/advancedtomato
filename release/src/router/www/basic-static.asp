@@ -196,7 +196,7 @@ sg.resetNewEditor = function() {
 
 sg.setup = function()
 {
-	this.init('bs-grid', 'sort', 140, [
+	this.init('bs-grid', 'sort', 250, [
 		{ multi: [ { type: 'text', maxlen: 17 }, { type: 'text', maxlen: 17 } ] },
 		{ type: 'text', maxlen: 15 },
 		{ type: 'text', maxlen: 63 } ] );
@@ -269,9 +269,9 @@ function init()
 	<table class='tomato-grid' id='bs-grid'></table>
 </div>
 
-<div>
-<small><li>To specify multiple hostnames per device, separate them with spaces.</small>
-</div>
+<small>
+<div>* To specify multiple hostnames per device, separate them with spaces.</div>
+</small>
 <br>
 <div class='section-title'>Static ARP</div>
 <div class='section'>
@@ -282,20 +282,19 @@ function init()
 	]);
 	</script>
 </div>
-<div>
 <small>
-<li>Static ARP only works if there's one MAC address per IP. You can't enter two MAC addresses in the above table.
-</small>
+<div>* Static ARP only works if there's one MAC address per IP. You can't enter two MAC addresses in the above table.</small></div>
 <br>
-When using "Restrict unlisted machines":
+<br>
+<br>
+<div>When using "Restrict unlisted machines":-</div>
 <br>
 <small>
-<li>DHCP should issue a "range" with only 1 IP address, preferably the administrator's IP - e.g. 192.168.1.100-100.
-<li>You <b>MUST</b> enter your own (administrator) IP and MAC into the table, or you may be locked out of the router.
-<li>You must add the IP/MAC address of all your access point(s) to the table.
-<li>All listed IP's will now show as "active" in the WOL table.
-</small>
-</div>
+<div>* DHCP should issue a "range" with only 1 IP address, preferably the administrator's IP - e.g. 192.168.1.100-100.</div><br>
+<div>* You <b>MUST</b> enter your own (administrator) IP and MAC into the table, or you may be locked out of the router.</div><br>
+<div>* You must add the IP/MAC address of all your access point(s) to the table.</div><br>
+<div>* All listed IP's will now show as "active" in the WOL table.</div>
+</small></div>
 
 <!-- / / / -->
 
