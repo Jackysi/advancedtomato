@@ -191,7 +191,7 @@ createFieldTable('', [
 	{ title: 'CPU Load <small>(1 / 5 / 15 mins)</small>', rid: 'cpu', text: stats.cpuload },
 	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory },
 	{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') },
-	{ title: 'Flash Size', text: stats.flashsize }
+	{ title: 'Flash RAM Size', text: stats.flashsize }
 ]);
 </script>
 </div>
