@@ -26,9 +26,8 @@ do {
 	else if (last_wan_proto != nvram.wan_proto) {
 		reloadPage();
 	}
-/* LINUX26-BEGIN */
+	stats.flashsize = sysinfo.flashsize+'MB';
 	stats.cpumhz = sysinfo.cpuclk+'MHz';
-/* LINUX26-END */
 	stats.systemtype = sysinfo.systemtype;
 	stats.cpuload = ((sysinfo.loads[0] / 65536.0).toFixed(2) + '<small> / </small> ' +
 		(sysinfo.loads[1] / 65536.0).toFixed(2) + '<small> / </small>' +
