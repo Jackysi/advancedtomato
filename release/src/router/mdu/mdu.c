@@ -45,7 +45,7 @@
 
 
 #define M_UNKNOWN_ERROR__D		"Unknown error (%d)."
-#define M_UNKNOWN_RESPONSE__D	"Unknown response (%d)."
+#define M_UNKNOWN_RESPONSE__D		"Unknown response (%d)."
 #define M_INVALID_HOST			"Invalid hostname."
 #define M_INVALID_AUTH			"Invalid authentication."
 #define M_INVALID_PARAM__D		"Invalid parameter (%d)."
@@ -1366,6 +1366,55 @@ static void update_everydns(void)
 	error(M_UNKNOWN_ERROR__D, r);
 }
 
+
+/*
+
+	miniDNS.net
+	http://www.minidns.net/areg.php?opcode=ADD&host=bar.minidns.net&username=foo&password=topsecret&ip=1.2.3.4
+
+	---
+
+"okay. BAR.MINIDNS.NET mapped to 1.2.3.4."
+"auth_fail. Incorrect username/password/hostname."
+"auth_fail. Host name format error."
+
+*/
+static void update_minidns(void)
+{
+	int r;
+	char *body;
+	char query[2048];
+	const char *p;
+
+	// +opt +opt +opt
+	sprintf(query, "/areg.php?opcode=ADD&host=%s&username=%s&password=%s",
+		get_option_required("host"),
+		get_option_required("user"),
+		get_option_required("pass"));
+
+	// +opt
+	append_addr_option(query, "&ip=%s");
+
+	r = wget(0, 0, "www.minidns.net", query, NULL, 1, &body);
+	if (r == 200) {
+		if (strstr(body, "okay.") != NULL) {
+			success();
+		}
+		else if (strstr(body, "Host name format error") != NULL) {
+			error(M_INVALID_HOST);
+		}
+		else if (strstr(body, "auth_fail") != NULL) {
+			error(M_INVALID_AUTH);
+		}
+		else {
+			error(M_UNKNOWN_RESPONSE__D, -1);
+		}
+	}
+
+	error(M_UNKNOWN_ERROR__D, r);
+}
+
+
 /*
 
 	editdns.net
@@ -1759,6 +1808,9 @@ int main(int argc, char *argv[])
 	}
 	else if (strcmp(p, "editdns") == 0) {
 		update_editdns();
+	}
+	else if (strcmp(p, "minidns") == 0) {
+		update_minidns();
 	}
 	else if (strcmp(p, "heipv6tb") == 0) {
 		update_heipv6tb();
