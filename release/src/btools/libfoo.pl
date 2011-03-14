@@ -159,6 +159,8 @@ sub fixDyn
 #shibby
 	fixDynDep("transmission-daemon", "libevent-1.4.so.2.2.0");
 	fixDynDep("transmission-daemon", "libcurl.so.4.2.0");
+	fixDynDep("transmission-remote", "libevent-1.4.so.2.2.0");
+	fixDynDep("transmission-remote", "libcurl.so.4.2.0");
 
 #	fixDynDep("libbcm.so", "libshared.so");
 #	fixDynDep("libbcm.so", "libc.so.0");
