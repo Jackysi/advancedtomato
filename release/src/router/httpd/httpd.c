@@ -740,6 +740,7 @@ static void add_listen_socket(const char *addr, int server_port, int do_ipv6, in
 {
 	int listenfd, n;
 	struct sockaddr_storage sai_stor;
+
 #ifdef TCONFIG_IPV6
 	sa_family_t HTTPD_FAMILY = do_ipv6 ? AF_INET6 : AF_INET;
 #else
@@ -752,10 +753,7 @@ static void add_listen_socket(const char *addr, int server_port, int do_ipv6, in
 	}
 
 	if (server_port <= 0) {
-#ifdef TCONFIG_HTTPS
-		if (do_ssl) server_port = 443;
-		else
-#endif
+		IF_TCONFIG_HTTPS(if (do_ssl) server_port = 443; else)
 		server_port = 80;
 	}
 
@@ -819,10 +817,10 @@ static void setup_listeners(int do_ipv6)
 	wanport = nvram_get_int("http_wanport");
 #ifdef TCONFIG_IPV6
 	if (do_ipv6) {
-		// get the configured IPv6 address
+		// get the configured routable IPv6 address from the lan iface.
 		// add_listen_socket() will fall back to in6addr_any
-		// if empty address is returned
-		ipaddr = ipv6_router_address(NULL);
+		// if NULL or empty address is returned
+		ipaddr = getifaddr(nvram_safe_get("lan_ifname"), AF_INET6, 0);
 	}
 	else
 #endif
@@ -831,9 +829,7 @@ static void setup_listeners(int do_ipv6)
 	if (!nvram_match("http_enable", "0")) {
 		p = nvram_get_int("http_lanport");
 		add_listen_socket(ipaddr, p, do_ipv6, 0);
-#ifdef TCONFIG_IPV6
-		if (do_ipv6 && wanport == p) wanport = 0;
-#endif
+		IF_TCONFIG_IPV6(if (do_ipv6 && wanport == p) wanport = 0);
 	}
 
 #ifdef TCONFIG_HTTPS
@@ -841,18 +837,18 @@ static void setup_listeners(int do_ipv6)
 		do_ssl = 1;
 		p = nvram_get_int("https_lanport");
 		add_listen_socket(ipaddr, p, do_ipv6, 1);
-#ifdef TCONFIG_IPV6
-		if (do_ipv6 && wanport == p) wanport = 0;
-#endif
+		IF_TCONFIG_IPV6(if (do_ipv6 && wanport == p) wanport = 0);
 	}
 #endif
 
 	if ((wanport) && nvram_match("wk_mode","gateway") && nvram_match("remote_management", "1") && check_wanup()) {
-#ifdef TCONFIG_HTTPS
-		if (nvram_match("remote_mgt_https", "1")) do_ssl = 1;
-#endif
+		IF_TCONFIG_HTTPS(if (nvram_match("remote_mgt_https", "1")) do_ssl = 1);
 #ifdef TCONFIG_IPV6
 		if (do_ipv6) {
+			if (!ipaddr || !(*ipaddr)) {
+				// try to get the address from wan iface
+				ipaddr = getifaddr((char *)get_wan6face(), AF_INET6, 0);
+			}
 			add_listen_socket(ipaddr, wanport, 1, nvram_match("remote_mgt_https", "1"));
 		} else
 #endif
@@ -891,8 +887,22 @@ int main(int argc, char **argv)
 	fd_set rfdset;
 	int i, n;
 	struct sockaddr_storage sai;
+	char bind[128];
+	char *port = NULL;
+#ifdef TCONFIG_IPV6
+	int ip6 = 0;
+#else
+#define ip6 0
+#endif
 
-	while ((c = getopt(argc, argv, "hd")) != -1) {
+	openlog("httpd", LOG_PID, LOG_DAEMON);
+
+	do_ssl = 0;
+	listeners.count = 0;
+	FD_ZERO(&listeners.lfdset);
+	memset(bind, 0, sizeof(bind));
+
+	while ((c = getopt(argc, argv, "hdp:s:")) != -1) {
 		switch (c) {
 		case 'h':
 			printf(
@@ -903,27 +913,39 @@ int main(int argc, char **argv)
 		case 'd':
 			debug = 1;
 			break;
+		case 'p':
+		case 's':
+			// [addr:]port
+			if ((port = strrchr(optarg, ':')) != NULL) {
+				if ((optarg[0] == '[') && (port > optarg) && (port[-1] == ']'))
+					memcpy(bind, optarg + 1, MIN(sizeof(bind), (int)(port - optarg) - 2));
+				else
+					memcpy(bind, optarg, MIN(sizeof(bind), (int)(port - optarg)));
+				port++;
+			}
+			else {
+				port = optarg;
+			}
+
+			IF_TCONFIG_HTTPS(if (c == 's') do_ssl = 1);
+			IF_TCONFIG_IPV6(ip6 = (*bind && strchr(bind, ':')));
+			add_listen_socket(bind, atoi(port), ip6, (c == 's'));
+
+			memset(bind, 0, sizeof(bind));
+			break;
 		}
 	}
 
-	openlog("httpd", LOG_PID, LOG_DAEMON);
-
-	do_ssl = 0;
-	listeners.count = 0;
-	FD_ZERO(&listeners.lfdset);
 	setup_listeners(0);
-#ifdef TCONFIG_IPV6
-	if (ipv6_enabled()) setup_listeners(1);
-#endif
+	IF_TCONFIG_IPV6(if (ipv6_enabled()) setup_listeners(1));
+
 	if (listeners.count == 0) {
 		syslog(LOG_ERR, "can't bind to any address");
 		return 1;
 	}
 	_dprintf("%s: initialized %d listener(s)\n", __FUNCTION__, listeners.count);
 
-#ifdef TCONFIG_HTTPS
-	if (do_ssl) start_ssl();
-#endif
+	IF_TCONFIG_HTTPS(if (do_ssl) start_ssl());
 
 	init_id();
 
@@ -986,9 +1008,7 @@ int main(int argc, char **argv)
 			}
 
 			if (fork() == 0) {
-#ifdef TCONFIG_HTTPS
-				do_ssl = listeners.listener[i].ssl;
-#endif
+				IF_TCONFIG_HTTPS(do_ssl = listeners.listener[i].ssl);
 				close_listen_sockets();
 				webcgi_init(NULL);
 
