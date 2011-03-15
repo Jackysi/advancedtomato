@@ -92,19 +92,14 @@ typedef int (*bcmNatBindHook)(struct nf_conn *ct,
 	struct sk_buff **pskb, 
 	struct nf_conntrack_l3proto *l3proto,
 	struct nf_conntrack_l4proto *l4proto);
-
-static bcmNatBindHook bcm_nat_bind_hook = NULL;
-int bcm_nat_bind_hook_func(bcmNatBindHook hook_func) {
-	bcm_nat_bind_hook = hook_func;
-	return 1;
-};
-
 typedef int (*bcmNatHitHook)(struct sk_buff *skb);
+
+bcmNatBindHook bcm_nat_bind_hook = NULL;
 bcmNatHitHook bcm_nat_hit_hook = NULL;
-int bcm_nat_hit_hook_func(bcmNatHitHook hook_func) {
-	bcm_nat_hit_hook = hook_func;
-	return 1;
-};
+#ifdef CONFIG_BCM_NAT_MODULE
+EXPORT_SYMBOL(bcm_nat_hit_hook);
+EXPORT_SYMBOL(bcm_nat_bind_hook);
+#endif
 #endif
 
 /*
@@ -316,6 +311,22 @@ nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
 	return l4proto->invert_tuple(inverse, orig);
 }
 EXPORT_SYMBOL_GPL(nf_ct_invert_tuple);
+
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+#ifndef CONFIG_BCM_NAT_MODULE
+inline
+#endif
+int bcm_nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
+	const struct nf_conntrack_tuple *orig,
+	const struct nf_conntrack_l3proto *l3proto,
+	const struct nf_conntrack_l4proto *l4proto)
+{
+	return nf_ct_invert_tuple(inverse, orig, l3proto,l4proto);
+}
+#ifdef CONFIG_BCM_NAT_MODULE
+EXPORT_SYMBOL(bcm_nf_ct_invert_tuple);
+#endif
+#endif
 
 static void
 clean_from_lists(struct nf_conn *ct)
