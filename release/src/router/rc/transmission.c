@@ -22,6 +22,8 @@ void start_bittorrent(void)
     char *pi;
     char *pj;
     char *pk;
+    char *pl;
+    char *pm;
 
 // make sure its really stop
     stop_bittorrent();
@@ -38,6 +40,8 @@ void start_bittorrent(void)
     if (nvram_match( "bt_dht", "1") ) { pi = "true"; } else { pi = "false"; }
     if (nvram_match( "bt_pex", "1") ) { pj = "true"; } else { pj = "false"; }
     if (nvram_match( "bt_settings", "down_dir" ) ) { pk = nvram_safe_get( "bt_dir" ); } else { pk = nvram_safe_get( "bt_settings" ); }
+    if (nvram_match( "bt_auth", "1") ) { pl = "true"; } else { pl = "false"; }
+    if (nvram_match( "bt_blocklist", "1") ) { pm = "true"; } else { pm = "false"; }
 
     //writing data to file
     if( !( fp = fopen( "/tmp/settings.json", "w" ) ) )
@@ -68,8 +72,10 @@ void start_bittorrent(void)
     fprintf( fp, "\"pex-enabled\": %s, \n", pj );
     fprintf( fp, "\"ratio-limit-enabled\": %s, \n", ph );
     fprintf( fp, "\"ratio-limit\": %s, \n", nvram_safe_get( "bt_ratio" ) );
+    fprintf( fp, "\"blocklist-enabled\": %s, \n", pm );
+    fprintf( fp, "\"blocklist-url\": \"%s\", \n", nvram_safe_get( "bt_blocklist_url" ) );
     fprintf( fp, "%s\n", nvram_safe_get("bt_custom"));
-    fprintf( fp, "\"rpc-authentication-required\": true \n");
+    fprintf( fp, "\"rpc-authentication-required\": %s \n", pl );
     fprintf( fp, "}\n");
 
     fclose( fp );
@@ -105,6 +111,19 @@ void start_bittorrent(void)
     {
     fprintf( fp, "iptables -A INPUT -p tcp --dport %s -j ACCEPT\n", nvram_safe_get( "bt_port_gui" ) );
     }
+
+    if ( nvram_match( "bt_blocklist", "1") )
+    {
+        if ( nvram_match( "bt_auth", "1") )
+        {
+            fprintf( fp, "/usr/bin/transmission-remote --auth %s:%s --blocklist-update\n", nvram_safe_get( "bt_login" ), nvram_safe_get( "bt_password" ) );
+        }
+        else
+        {
+            fprintf( fp, "/usr/bin/transmission-remote --blocklist-update\n" );
+        }
+    }
+
     fclose( fp );
 
     chmod( "/tmp/start_transmission.sh", 0755 );
