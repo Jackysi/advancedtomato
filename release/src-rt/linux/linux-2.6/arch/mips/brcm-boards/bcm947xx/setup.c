@@ -244,9 +244,11 @@ static int get_router(void)
 	else if (boardnum == 1 && boardtype == 0xE4CD && boardrev == 0x1700) {
 		return RT_WNR2000V2;
 	}
+#ifdef DIR320_BOARD
 	else if (boardnum == 0 && boardtype == 0x48E && boardrev == 0x35) {
 		return RT_DIR320;
 	}
+#endif
 	else if (boardtype == 0xA4CF && (boardrev == 0x1102 || boardrev == 0x1100)) {
 		return RT_BELKIN_F7D;
 	}
@@ -254,6 +256,7 @@ static int get_router(void)
 	return RT_UNKNOWN;
 }
 
+#ifdef DIR320_BOARD
 static size_t get_erasesize(struct mtd_info *mtd, size_t offset, size_t size)
 {
 	int i;
@@ -277,6 +280,7 @@ static size_t get_erasesize(struct mtd_info *mtd, size_t offset, size_t size)
 
 	return erasesize;
 }
+#endif
 
 /*
 	new layout -- zzz 04/2006
@@ -338,6 +342,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 	boardoff = bcm947xx_parts[PART_NVRAM].offset;
 	router = get_router();
 	switch (router) {
+#ifdef DIR320_BOARD
 	case RT_DIR320:
 		if (get_erasesize(mtd, bcm947xx_parts[PART_NVRAM].offset, bcm947xx_parts[PART_NVRAM].size) == 0x2000) {
 			bcm947xx_parts[PART_NVRAM].size = ROUNDUP(NVRAM_SPACE, 0x2000);
@@ -347,6 +352,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 		}
 		else bcm947xx_parts[PART_BOARD].name = NULL;
 		break;
+#endif
 	case RT_WNR3500L:
 	case RT_WNR2000V2:
 		bcm947xx_parts[PART_BOARD].size = mtd->erasesize;

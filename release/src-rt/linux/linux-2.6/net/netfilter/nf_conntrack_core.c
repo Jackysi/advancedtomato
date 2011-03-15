@@ -885,7 +885,7 @@ resolve_normal_ct(struct sk_buff *skb,
 }
 
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-extern struct sk_buff * nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user);
+extern int nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user);
 #endif
 
 unsigned int
@@ -922,11 +922,10 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb)
 	if (pf == PF_INET) {
 		/* Gather fragments. */
 		if (ip_hdr(*pskb)->frag_off & htons(IP_MF | IP_OFFSET)) {
-			*pskb = nf_ct_ipv4_gather_frags(*pskb,
+			if (nf_ct_ipv4_gather_frags(*pskb,
 						hooknum == NF_IP_PRE_ROUTING ?
 						IP_DEFRAG_CONNTRACK_IN :
-						IP_DEFRAG_CONNTRACK_OUT);
-			if (!*pskb)
+						IP_DEFRAG_CONNTRACK_OUT))
 				return NF_STOLEN;
 		}
 	}

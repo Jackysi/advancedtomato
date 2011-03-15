@@ -524,15 +524,16 @@ static void nat_table(void)
 
 		for (i = 0; i < wanfaces.count; ++i) {
 			if (*(wanfaces.iface[i].name)) {
-				// chain_wan_prerouting
-				if (wanup)
-					ipt_write("-A PREROUTING -d %s -j %s\n",
-						wanfaces.iface[i].ip, chain_wan_prerouting);
-
 				// Drop incoming packets which destination IP address is to our LAN side directly
 				ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
 					wanfaces.iface[i].name,
 					lanaddr, lanmask);	// note: ipt will correct lanaddr
+
+				// chain_wan_prerouting
+				if (wanup) {
+					ipt_write("-A PREROUTING -d %s -j %s\n",
+						wanfaces.iface[i].ip, chain_wan_prerouting);
+				}
 			}
 		}
 
@@ -553,13 +554,14 @@ static void nat_table(void)
 
 		if (nvram_get_int("upnp_enable") & 3) {
 			ipt_write(":upnp - [0:0]\n");
-			if (wanup) {
-				// ! for loopback (all) to work
-				ipt_write("-A %s -j upnp\n", chain_wan_prerouting);
-			}
-			else {
-				for (i = 0; i < wanfaces.count; ++i) {
-					if (*(wanfaces.iface[i].name)) {
+
+			for (i = 0; i < wanfaces.count; ++i) {
+				if (*(wanfaces.iface[i].name)) {
+					if (wanup) {
+						// ! for loopback (all) to work
+						ipt_write("-A PREROUTING -d %s -j upnp\n", wanfaces.iface[i].ip);
+					}
+					else {
 						ipt_write("-A PREROUTING -i %s -j upnp\n", wanfaces.iface[i].name);
 					}
 				}

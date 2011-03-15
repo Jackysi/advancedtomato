@@ -87,6 +87,7 @@ typedef enum { IPT_TABLE_NAT, IPT_TABLE_FILTER, IPT_TABLE_MANGLE } ipt_table_t;
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 
 #define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
+#define sin6_addr(s) (((struct sockaddr_in6 *)(s))->sin6_addr)
 
 #define IPT_V4	0x01
 #define IPT_V6	0x02
@@ -339,7 +340,7 @@ extern int _xstart(const char *cmd, ...);
 extern void run_nvscript(const char *nv, const char *arg1, int wtime);
 extern void run_userfile (char *folder, char *extension, const char *arg1, int wtime);
 extern void setup_conntrack(void);
-extern struct sockaddr_storage *host_to_addr(const char *name, sa_family_t family);
+extern int host_addr_info(const char *name, int af, struct sockaddr_storage *buf);
 extern int host_addrtypes(const char *name, int af);
 extern void inc_mac(char *mac, int plus);
 extern void set_mac(const char *ifname, const char *nvname, int plus);

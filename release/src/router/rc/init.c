@@ -456,7 +456,7 @@ static void check_bootnv(void)
 	char mac[18];
 
 	model = get_model();
-	dirty = 0;
+	dirty = check_nv("wl0_leddc", "0x640000") | check_nv("wl1_leddc", "0x640000");
 
 	switch (model) {
 	case MODEL_WTR54GS:
@@ -465,6 +465,14 @@ static void check_bootnv(void)
 		break;
 	case MODEL_WBRG54:
 		dirty |= check_nv("wl0gpio0", "130");
+		break;
+	case MODEL_WR850GV1:
+	case MODEL_WR850GV2:
+		// need to cleanup some variables...
+		if ((nvram_get("t_model") == NULL) && (nvram_get("MyFirmwareVersion") != NULL)) {
+			nvram_unset("MyFirmwareVersion");
+			nvram_set("restore_defaults", "1");
+		}
 		break;
 	case MODEL_WL500W:
 		/* fix WL500W mac adresses for WAN port */
@@ -533,7 +541,6 @@ static void check_bootnv(void)
 		break;
 	case MODEL_WRT610Nv2:
 		dirty |= check_nv("vlan2hwname", "et0");
-		dirty |= check_nv("wl1_leddc", "0x640000");
 		dirty |= check_nv("pci/1/1/ledbh2", "8");
 		dirty |= check_nv("sb/1/ledbh1", "8");
 		if (strncasecmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0) {
@@ -544,7 +551,6 @@ static void check_bootnv(void)
 		break;
 	case MODEL_E4200:
 		dirty |= check_nv("vlan2hwname", "et0");
-		dirty |= check_nv("wl1_leddc", "0x640000");
 		if (strncasecmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0) {
 			strcpy(mac, nvram_safe_get("et0macaddr"));
 			inc_mac(mac, 3);
@@ -634,7 +640,6 @@ static void check_bootnv(void)
 
 	} // switch (model)
 
-	dirty |= check_nv("wl0_leddc", "0x640000");
 	dirty |= init_vlan_ports();
 
 	if (dirty) {
@@ -1247,7 +1252,6 @@ static void sysinit(void)
 	struct dirent *de;
 	char s[256];
 	char t[256];
-	int model;
 
 	mount("proc", "/proc", "proc", 0, NULL);
 	mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
@@ -1349,17 +1353,6 @@ static void sysinit(void)
 		signal(fatalsigs[i], handle_fatalsigs);
 	}
 	signal(SIGCHLD, handle_reap);
-
-	switch (model = get_model()) {
-	case MODEL_WR850GV1:
-	case MODEL_WR850GV2:
-		// need to cleanup some variables...
-		if ((nvram_get("t_model") == NULL) && (nvram_get("MyFirmwareVersion") != NULL)) {
-			nvram_unset("MyFirmwareVersion");
-			nvram_set("restore_defaults", "1");
-		}
-		break;
-	}
 
 #ifdef CONFIG_BCMWL5
 	// ctf must be loaded prior to any other modules

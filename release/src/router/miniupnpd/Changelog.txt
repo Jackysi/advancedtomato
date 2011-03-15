@@ -1,4 +1,13 @@
-$Id: Changelog.txt,v 1.208 2011/03/02 16:04:22 nanard Exp $
+$Id: Changelog.txt,v 1.211 2011/03/09 15:27:41 nanard Exp $
+
+2011/03/09:
+  Some modifications thanks to Daniel Dickinson to improve OpenWRT
+  build.
+  Fixed some warnings.
+
+2011/03/03:
+  Added code to generate devices/services descriptions for IGD v2
+  (to be continued)
 
 2011/03/02:
   improved netfilter/delete_redirect_and_filter_rules() in order
