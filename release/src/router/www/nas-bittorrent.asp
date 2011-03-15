@@ -21,7 +21,7 @@ textarea {
 }
 </style>
 <script type='text/javascript'>
-//	<% nvram("bt_enable,bt_custom,bt_port,bt_dir,bt_settings,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_dht,bt_pex"); %>
+//	<% nvram("bt_enable,bt_custom,bt_port,bt_dir,bt_settings,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_dht,bt_pex,bt_blocklist,bt_blocklist_url"); %>
 
 var btgui_link = '&nbsp;&nbsp;<a href="http://' + location.hostname +':<% nv('bt_port_gui'); %>" target="_blank"><i>[Click here to open Transmission GUI]</i></a>';
 
@@ -35,6 +35,8 @@ function verifyFields(focused, quiet)
 	var d = E('_f_bt_dl_enable').checked;
 	var e = E('_f_bt_ul_enable').checked;
 	var g = E('_f_bt_ratio_enable').checked;
+	var h = E('_f_bt_auth').checked;
+	var i = E('_f_bt_blocklist').checked;
 
 	E('_bt_custom').disabled = !a;
 	E('_bt_dir').disabled = !a;
@@ -43,9 +45,10 @@ function verifyFields(focused, quiet)
 	E('_bt_settings').disabled = !a;
 	E('_f_bt_rpc_enable').disabled = !a;
 	E('_bt_port_gui').disabled = !a || !c;
-	E('_f_bt_rpc_wan').disabled = !a || !c;
-	E('_bt_login').disabled = !a || !c;
-	E('_bt_password').disabled = !a || !c;
+	E('_f_bt_auth').disabled = !a || !c;
+	E('_bt_login').disabled = !a || !c || !h;
+	E('_bt_password').disabled = !a || !c | !h;
+	E('_f_bt_rpc_wan').disabled = !a || !c || !h;
 	E('_f_bt_dl_enable').disabled = !a;
 	E('_bt_dl').disabled = !a || !d;
 	E('_f_bt_ul_enable').disabled = !a;
@@ -57,6 +60,8 @@ function verifyFields(focused, quiet)
 	E('_bt_ratio').disabled = !a || !g;
 	E('_f_bt_dht').disabled = !a;
 	E('_f_bt_pex').disabled = !a;
+	E('_f_bt_blocklist').disabled = !a;
+	E('_bt_blocklist_url').disabled = !a || !i;
 
 	if (!v_length('_bt_custom', quiet, 0, 2048)) ok = 0;
 
@@ -142,7 +147,15 @@ function verifyFields(focused, quiet)
 		ok = 0; }
 
 	if (s.value.search(/"rpc-authentication-required":/) == 0)  {
-		ferror.set(s, 'Cannot set "rpc-authentication-required" option here. Authentication is always required', quiet);
+		ferror.set(s, 'Cannot set "rpc-authentication-required" option here. You can set it in Tomato GUI', quiet);
+		ok = 0; }
+
+	if (s.value.search(/"blocklist-enabled":/) == 0)  {
+		ferror.set(s, 'Cannot set "blocklist-enabled" option here. You can set it in Tomato GUI', quiet);
+		ok = 0; }
+
+	if (s.value.search(/"blocklist-url":/) == 0)  {
+		ferror.set(s, 'Cannot set "blocklist-url" option here. You can set it in Tomato GUI', quiet);
 		ok = 0; }
 
 	return ok;
@@ -155,12 +168,14 @@ function save()
   fom.bt_enable.value = E('_f_bt_enable').checked ? 1 : 0;
   fom.bt_incomplete.value = E('_f_bt_incomplete').checked ? 1 : 0;
   fom.bt_rpc_enable.value = E('_f_bt_rpc_enable').checked ? 1 : 0;
+  fom.bt_auth.value = E('_f_bt_auth').checked ? 1 : 0;
   fom.bt_rpc_wan.value = E('_f_bt_rpc_wan').checked ? 1 : 0;
   fom.bt_dl_enable.value = E('_f_bt_dl_enable').checked ? 1 : 0;
   fom.bt_ul_enable.value = E('_f_bt_ul_enable').checked ? 1 : 0;
   fom.bt_ratio_enable.value = E('_f_bt_ratio_enable').checked ? 1 : 0;
   fom.bt_dht.value = E('_f_bt_dht').checked ? 1 : 0;
   fom.bt_pex.value = E('_f_bt_pex').checked ? 1 : 0;
+  fom.bt_blocklist.value = E('_f_bt_blocklist').checked ? 1 : 0;
 
   if (fom.bt_enable.value == 0) {
   	fom._service.value = 'bittorrent-stop';
@@ -194,6 +209,7 @@ function init()
 <input type='hidden' name='bt_enable'>
 <input type='hidden' name='bt_incomplete'>
 <input type='hidden' name='bt_rpc_enable'>
+<input type='hidden' name='bt_auth'>
 <input type='hidden' name='bt_rpc_wan'>
 <input type='hidden' name='bt_dl_enable'>
 <input type='hidden' name='bt_ul_enable'>
@@ -213,7 +229,7 @@ createFieldTable('', [
 </div>
 <div>
 	<ul>
-		<li><b>Enable torrent client</b> - Attention! - If your router has only 32MB RAM, swap is highly recomended.
+		<li><b>Enable torrent client</b> - Attention! - If your router has only 32MB RAM, you have to use swap.
 		<li><b>Listening port</b> - Port for torrent client. Make sure port is not in use.
 	</ul>
 <br><br>
@@ -224,6 +240,7 @@ createFieldTable('', [
 createFieldTable('', [
 	{ title: 'Enable GUI', name: 'f_bt_rpc_enable', type: 'checkbox', value: nvram.bt_rpc_enable == '1' },
 	{ title: 'Listening GUI port', indent: 2, name: 'bt_port_gui', type: 'text', maxlen: 32, size: 5, value: nvram.bt_port_gui, suffix: ' <small>*</small>' },
+	{ title: 'Authentication required', name: 'f_bt_auth', type: 'checkbox', value: nvram.bt_auth == '1', suffix: ' <small>*</small>' },
 	{ title: 'Username', indent: 2, name: 'bt_login', type: 'text', maxlen: 32, size: 15, value: nvram.bt_login },
 	{ title: 'Password', indent: 2, name: 'bt_password', type: 'password', maxlen: 32, size: 15, value: nvram.bt_password },
 	{ title: 'Allow remote access', name: 'f_bt_rpc_wan', type: 'checkbox', value: nvram.bt_rpc_wan == '1', suffix: ' <small>*</small>' }
@@ -233,6 +250,7 @@ createFieldTable('', [
 <div>
 	<ul>
 		<li><b>Listening GUI port</b> - Port for Transmission GUI. Make sure port is not in use.
+		<li><b>Authentication required</b> - Authentication is <b><i>highly recomended</i></b>.
 		<li><b>Allow remote access</b> - This option will open Transmission GUI port from WAN site and allow use GUI from the internet.
 	</ul>
 <br><br>
@@ -240,13 +258,13 @@ createFieldTable('', [
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Download limit On/Off', multi: [
+	{ title: 'Download limit', multi: [
 		{ name: 'f_bt_dl_enable', type: 'checkbox', value: nvram.bt_dl_enable == '1', suffix: '  ' },
 		{ name: 'bt_dl', type: 'text', maxlen: 10, size: 7, value: nvram.bt_dl, suffix: ' <small>kB/s</small>' } ] },
-	{ title: 'Upload limit On/Off', multi: [
+	{ title: 'Upload limit', multi: [
 		{ name: 'f_bt_ul_enable', type: 'checkbox', value: nvram.bt_ul_enable == '1', suffix: '  ' },
 		{ name: 'bt_ul', type: 'text', maxlen: 10, size: 7, value: nvram.bt_ul, suffix: ' <small>kB/s</small>' } ] },
-	{ title: 'Ratio limit On/Off', multi: [
+	{ title: 'Ratio limit', multi: [
 		{ name: 'f_bt_ratio_enable', type: 'checkbox', value: nvram.bt_ratio_enable == '1', suffix: '  ' },
 		{ name: 'bt_ratio', type: 'select', options: [['0.2000','0.2'],['0.5000','0.5'],['1.0000','1.0'],['1.5000','1.5'],['2.0000','2.0'],['3.0000','3.0']], value: nvram.bt_ratio } ] },
 	{ title: 'Global peer limit', name: 'bt_peer_limit_global', type: 'text', maxlen: 10, size: 7, value: nvram.bt_peer_limit_global, suffix: ' <small>(range: 10 - 500; default: 150)</small>' },
@@ -270,6 +288,10 @@ createFieldTable('', [
 			['/tmp','RAM (Temporary)']], value: nvram.bt_settings },
 	{ title: 'DHT enable', name: 'f_bt_dht', type: 'checkbox', value: nvram.bt_dht == '1' },
 	{ title: 'PEX enable', name: 'f_bt_pex', type: 'checkbox', value: nvram.bt_pex == '1' },
+	{ title: 'Blocklist', multi: [
+		{ name: 'f_bt_blocklist', type: 'checkbox', value: nvram.bt_blocklist == '1', suffix: '  ' },
+		{ name: 'bt_blocklist_url', type: 'text', maxlen: 40, size: 40, value: nvram.bt_blocklist_url } ] },
+	null,
 	{ title: '<a href="https://trac.transmissionbt.com/wiki/EditConfigFiles" target="_new">Transmission</a><br>Custom configuration', name: 'bt_custom', type: 'textarea', value: nvram.bt_custom }
 ]);
 </script>

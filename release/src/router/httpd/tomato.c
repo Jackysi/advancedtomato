@@ -948,6 +948,7 @@ static const nvset_t nvset_list[] = {
 	{ "bt_incomplete",              V_01                            },
 	{ "bt_rpc_enable",              V_01                            },
 	{ "bt_rpc_wan",                 V_01                            },
+	{ "bt_auth",                    V_01                            },
 	{ "bt_login",                   V_LENGTH(0, 50)                 },
 	{ "bt_password",                V_LENGTH(0, 50)                 },
 	{ "bt_port_gui",                V_PORT                          },
@@ -962,6 +963,8 @@ static const nvset_t nvset_list[] = {
 	{ "bt_ratio",                   V_LENGTH(0, 999999)             },
 	{ "bt_dht",                     V_01                            },
 	{ "bt_pex",                     V_01                            },
+	{ "bt_blocklist",               V_01                            },
+	{ "bt_blocklist_url",           V_LENGTH(0, 50)                 },
 #endif
 
 

@@ -807,6 +807,7 @@ const defaults_t defaults[] = {
 	{ "bt_settings",			"down_dir"		},
 	{ "bt_rpc_enable",			"1"			},
 	{ "bt_rpc_wan",				"0"			},
+	{ "bt_auth",				"1"			},
 	{ "bt_login",				"admin"			},
 	{ "bt_password",			"admin11"		},
 	{ "bt_port_gui",			"9091"			},
@@ -821,6 +822,8 @@ const defaults_t defaults[] = {
 	{ "bt_ratio",				"1.0000"		},
 	{ "bt_dht",				"0"			},
 	{ "bt_pex",				"0"			},
+	{ "bt_blocklist",			"0"			},
+	{ "bt_blocklist_url",			"http://list.iblocklist.com/?list=bt_level1"	},
 #endif
 
 
