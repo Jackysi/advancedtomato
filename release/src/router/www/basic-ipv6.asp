@@ -69,6 +69,7 @@ function verifyFields(focused, quiet)
 			vis._ipv6_prefix = 0;
 			vis._ipv6_prefix_length = 0;
 			E('_f_ipv6_rtr_addr_auto').value = 1;
+			vis._f_ipv6_rtr_addr_auto = 2;
 			vis._ipv6_tun_v4end = 0;
 			vis._ipv6_tun_addr = 0;
 			vis._ipv6_tun_addrlen = 0;
@@ -95,7 +96,7 @@ function verifyFields(focused, quiet)
 	if (vis._f_ipv6_rtr_addr_auto && E('_f_ipv6_rtr_addr_auto').value == 0) {
 		vis._f_ipv6_rtr_addr = 2;
 	}
-	
+
 	for (a in vis) {
 		b = E(a);
 		c = vis[a];
@@ -140,16 +141,24 @@ REMOVE-END */
 		else ferror.clear(E(b));
 	}
 
+	// IPv6 prefix
+	b = '_ipv6_prefix';
+	c = vis._f_ipv6_accept_ra_wan && (E('_f_ipv6_accept_ra_wan').checked || E('_f_ipv6_accept_ra_lan').checked);
+	if (vis[b] && (E(b).value.length > 0 || (!c))) {
+		if (!v_ipv6_addr(b, quiet || !ok)) ok = 0;
+	}
+	else ferror.clear(b);
+
 	// IPv6 address
-	a = ['_ipv6_prefix', '_ipv6_tun_addr'];
+	a = ['_ipv6_tun_addr'];
 	for (i = a.length - 1; i >= 0; --i)
 		if ((vis[a[i]]) && (!v_ipv6_addr(a[i], quiet || !ok))) ok = 0;
 			
-	if (vis._f_ipv6_rtr_addr == 2 && ok) {
+	if (vis._f_ipv6_rtr_addr == 2) {
 		b = E('_ipv6_prefix');
-		ip = ZeroIPv6PrefixBits(b.value, E('_ipv6_prefix_length').value);
+		ip = (b.value.length > 0) ? ZeroIPv6PrefixBits(b.value, E('_ipv6_prefix_length').value) : '';
 		b.value = ip;
-		E('_f_ipv6_rtr_addr').value = ip + '1';
+		E('_f_ipv6_rtr_addr').value = (ip.length > 0) ? (ip + '1') : '';
 	}
 
 	// optional IPv6 address
@@ -209,7 +218,6 @@ function save()
 			else
 				fom.ipv6_rtr_addr.value = '';
 	}
-	
 
 	form.submit(fom, 1);
 }
