@@ -1,7 +1,7 @@
-/* $Id: upnpglobalvars.h,v 1.22 2010/09/21 15:31:01 nanard Exp $ */
+/* $Id: upnpglobalvars.h,v 1.23 2011/03/09 15:27:41 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2010 Thomas Bernard 
+ * (c) 2006-2011 Thomas Bernard 
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -49,7 +49,7 @@ extern int runtime_flags;
 #endif
 
 #define SETFLAG(mask)	runtime_flags |= mask
-#define GETFLAG(mask)	runtime_flags & mask
+#define GETFLAG(mask)	(runtime_flags & mask)
 #define CLEARFLAG(mask)	runtime_flags &= ~mask
 
 extern const char * pidfilename;

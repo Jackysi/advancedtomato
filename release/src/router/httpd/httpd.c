@@ -818,7 +818,12 @@ static void setup_listeners(int do_ipv6)
 
 	wanport = nvram_get_int("http_wanport");
 #ifdef TCONFIG_IPV6
-	if (do_ipv6) ipaddr = NULL;
+	if (do_ipv6) {
+		// get the configured IPv6 address
+		// add_listen_socket() will fall back to in6addr_any
+		// if empty address is returned
+		ipaddr = ipv6_router_address(NULL);
+	}
 	else
 #endif
 	ipaddr = nvram_safe_get("lan_ipaddr");
@@ -848,7 +853,7 @@ static void setup_listeners(int do_ipv6)
 #endif
 #ifdef TCONFIG_IPV6
 		if (do_ipv6) {
-			add_listen_socket(NULL, wanport, 1, nvram_match("remote_mgt_https", "1"));
+			add_listen_socket(ipaddr, wanport, 1, nvram_match("remote_mgt_https", "1"));
 		} else
 #endif
 		{

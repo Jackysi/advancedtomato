@@ -108,7 +108,7 @@ extern const char *get_wanip(void);
 #ifdef TCONFIG_IPV6
 extern const char *get_wan6face(void);
 #endif
-extern const char *getifaddr(char *ifname, int family);
+extern const char *getifaddr(char *ifname, int family, int linklocal);
 extern long get_uptime(void);
 extern char *wl_nvname(const char *nv, int unit, int subunit);
 extern int get_radio(int unit);

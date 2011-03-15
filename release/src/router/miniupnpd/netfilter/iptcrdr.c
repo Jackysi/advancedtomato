@@ -1,4 +1,4 @@
-/* $Id: iptcrdr.c,v 1.38 2011/03/02 16:04:22 nanard Exp $ */
+/* $Id: iptcrdr.c,v 1.39 2011/03/09 15:27:42 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard
@@ -399,8 +399,8 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 	const struct ipt_entry_target * target;
 	const struct ip_nat_multi_range * mr;
 	const struct ipt_entry_match *match;
-	unsigned short iport;
-	uint32_t iaddr;
+	unsigned short iport = 0;
+	uint32_t iaddr = 0;
 
 	h = iptc_init("nat");
 	if(!h)

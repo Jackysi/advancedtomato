@@ -1,5 +1,5 @@
 #! /bin/sh
-# $Id: genconfig.sh,v 1.40 2011/01/04 11:55:18 nanard Exp $
+# $Id: genconfig.sh,v 1.41 2011/03/09 15:09:07 nanard Exp $
 # miniupnp daemon
 # http://miniupnp.free.fr or http://miniupnp.tuxfamily.org/
 # (c) 2006-2011 Thomas Bernard
@@ -26,6 +26,18 @@ if [ -f /etc/platform ]; then
 		OS_NAME=pfSense
 		OS_VERSION=`cat /etc/version`
 	fi
+fi
+
+# OpenWRT special case
+if [ -f ./os.openwrt ]; then
+	OS_NAME=OpenWRT
+	OS_VERSION=$(cat ./os.openwrt)
+fi
+
+# Tomato USB special case
+if [ -f ../shared/tomato_version ]; then
+	OS_NAME=Tomato
+	OS_VERSION="Tomato $(cat ../shared/tomato_version)"
 fi
 
 ${RM} ${CONFIGFILE}
@@ -176,6 +188,17 @@ case $OS_NAME in
 		echo "#define USE_NETFILTER 1" >> ${CONFIGFILE}
 		FW=netfilter
 		;;
+	OpenWRT)
+		OS_URL=http://www.openwrt.org/
+		echo "#define USE_NETFILTER 1" >> ${CONFIGFILE}
+		FW=netfilter
+		;;
+	Tomato)
+		OS_NAME=UPnP
+		OS_URL=http://tomatousb.org/
+		echo "#define USE_NETFILTER 1" >> ${CONFIGFILE}
+		FW=netfilter
+		;;
 	Darwin)
 		echo "#define USE_IPFW 1" >> ${CONFIGFILE}
 		FW=ipfw
@@ -246,7 +269,7 @@ echo "#define ENABLE_L3F_SERVICE" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 
 echo "/* Experimental UPnP Events support. */" >> ${CONFIGFILE}
-echo "/*#define ENABLE_EVENTS*/" >> ${CONFIGFILE}
+echo "#define ENABLE_EVENTS" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 
 echo "/* include interface name in pf and ipf rules */" >> ${CONFIGFILE}

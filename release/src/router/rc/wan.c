@@ -706,11 +706,16 @@ void start_wan(int mode)
 #ifdef TCONFIG_IPV6
 void start_wan6_done(const char *wan_ifname)
 {
-	int service;
+	int service = get_ipv6_service();
 
-	switch ((service = get_ipv6_service())) {
+	if (service != IPV6_DISABLED) {
+		if ((nvram_get_int("ipv6_accept_ra") & 1) != 0)
+			accept_ra(wan_ifname);
+	}
+
+	switch (service) {
 	case IPV6_NATIVE:
-		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname);
+		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname, "metric", "2048");
 		break;
 	case IPV6_NATIVE_DHCP:
 		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname);
@@ -721,11 +726,6 @@ void start_wan6_done(const char *wan_ifname)
 		stop_ipv6_sit_tunnel();
 		start_ipv6_sit_tunnel();
 		break;
-	}
-
-	if (service != IPV6_DISABLED) {
-		if ((nvram_get_int("ipv6_accept_ra") & 1) != 0)
-			accept_ra(wan_ifname);
 	}
 }
 #endif
