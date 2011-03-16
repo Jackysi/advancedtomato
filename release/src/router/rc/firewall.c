@@ -796,6 +796,15 @@ static void filter_input(void)
 		ipt_write("-A INPUT -p udp -m udp --dport 520 -j ACCEPT\n");
 	}
 
+	//BT Client ports from WAN interface
+	if (nvram_match("bt_enable", "1")) {
+		ipt_write( "-A INPUT -p tcp --dport %s -j ACCEPT\n", nvram_safe_get( "bt_port" ) );
+		if (nvram_match( "bt_rpc_wan", "1") )
+		{
+			ipt_write( "-A INPUT -p tcp --dport %s -j ACCEPT\n", nvram_safe_get( "bt_port_gui" ) );
+		}
+	}
+
 	// if logging
 	if (*chain_in_drop == 'l') {
 		ipt_write( "-A INPUT -j %s\n", chain_in_drop);
