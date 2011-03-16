@@ -105,12 +105,6 @@ void start_bittorrent(void)
     fprintf( fp, "/usr/bin/transmission-daemon -g %s/.settings\n", pk );
     fprintf( fp, "logger \"Transmission daemon successfully started\" \n");
     fprintf( fp, "sleep 2\n" );
-    fprintf( fp, "iptables -A INPUT -p tcp --dport %s -j ACCEPT\n", nvram_safe_get( "bt_port" ) );
-
-    if (nvram_match( "bt_rpc_wan", "1") ) 
-    {
-    fprintf( fp, "iptables -A INPUT -p tcp --dport %s -j ACCEPT\n", nvram_safe_get( "bt_port_gui" ) );
-    }
 
     if ( nvram_match( "bt_blocklist", "1") )
     {
@@ -147,14 +141,6 @@ void stop_bittorrent(void)
     fprintf( fp, "#!/bin/sh\n" );
     fprintf( fp, "killall -KILL transmission-daemon\n");
     fprintf( fp, "logger \"Transmission daemon successfully stoped\" \n");
-    if (nvram_match( "new_qoslimit_enable", "1") )
-    {
-        fprintf( fp, "service new_qoslimit restart\n" );
-    }
-    else
-    {
-        fprintf( fp, "service firewall restart\n" );
-    }
     fprintf( fp, "sleep 2\n");
     fclose( fp );
     chmod( "/tmp/stop_transmission.sh", 0755 );

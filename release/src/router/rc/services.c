@@ -2125,8 +2125,13 @@ TOP:
 
 #ifdef TCONFIG_BT
 	if (strcmp(service, "bittorrent") == 0) {
-		if (action & A_STOP) stop_bittorrent();
-		if (action & A_START) start_bittorrent();
+		if (action & A_STOP) {
+			stop_bittorrent();
+		}
+		stop_firewall(); start_firewall();		// always restarted
+		if (action & A_START) {
+			start_bittorrent();
+		}
 		goto CLEAR;
 	}
 #endif
