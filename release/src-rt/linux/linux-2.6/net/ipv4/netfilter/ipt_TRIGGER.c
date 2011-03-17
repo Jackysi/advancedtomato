@@ -184,11 +184,11 @@ static inline int trigger_out_matched(const struct ipt_trigger *i,
 }
 
 static unsigned int
-trigger_out(struct sk_buff **pskb, const void *targinfo)
+trigger_out(struct sk_buff *skb, const void *targinfo)
 {
     const struct ipt_trigger_info *info = targinfo;
     struct ipt_trigger *trig;
-    struct iphdr *iph = ip_hdr(*pskb);
+    struct iphdr *iph = ip_hdr(skb);
     struct tcphdr *tcph = (void *)iph + (iph->ihl << 2);	/* Might be TCP, UDP */
 
     /* Check if the trigger range has already existed in 'trigger_list'. */
@@ -273,7 +273,7 @@ static inline int trigger_in_matched(const struct ipt_trigger *i,
 }
 
 static unsigned int
-trigger_in(struct sk_buff **pskb)
+trigger_in(struct sk_buff *skb)
 {
     struct ipt_trigger *trig;
     struct nf_conn *ct;
@@ -281,11 +281,11 @@ trigger_in(struct sk_buff **pskb)
     struct iphdr *iph;
     struct tcphdr *tcph;
 
-    ct = nf_ct_get(*pskb, &ctinfo);
+    ct = nf_ct_get(skb, &ctinfo);
     if ((ct == NULL) || !(ct->status & IPS_TRIGGER))
 	return IPT_CONTINUE;
 
-    iph = ip_hdr(*pskb);
+    iph = ip_hdr(skb);
     tcph = (void *)iph + (iph->ihl << 2);	/* Might be TCP, UDP */
 
     /* Check if the trigger-ed range has already existed in 'trigger_list'. */
@@ -308,7 +308,7 @@ trigger_in(struct sk_buff **pskb)
 }
 
 static unsigned int
-trigger_dnat(struct sk_buff **pskb, unsigned int hooknum)
+trigger_dnat(struct sk_buff *skb, unsigned int hooknum)
 {
     struct ipt_trigger *trig;
     struct iphdr *iph;
@@ -317,7 +317,7 @@ trigger_dnat(struct sk_buff **pskb, unsigned int hooknum)
     enum ip_conntrack_info ctinfo;
     struct nf_nat_range newrange;
 
-    iph = ip_hdr(*pskb);
+    iph = ip_hdr(skb);
     tcph = (void *)iph + (iph->ihl << 2);	/* Might be TCP, UDP */
 
     NF_CT_ASSERT(hooknum == NF_IP_PRE_ROUTING);
@@ -331,7 +331,7 @@ trigger_dnat(struct sk_buff **pskb, unsigned int hooknum)
 	return IPT_CONTINUE;	/* We don't block any packet. */
 
     trig->reply = 1;	/* Confirm there has been a reply connection. */
-    ct = nf_ct_get(*pskb, &ctinfo);
+    ct = nf_ct_get(skb, &ctinfo);
     NF_CT_ASSERT(ct && (ctinfo == IP_CT_NEW));
 
     DEBUGP("Trigger DNAT: %u.%u.%u.%u ", NIPQUAD(trig->srcip));
@@ -361,7 +361,7 @@ static inline int trigger_refresh_matched(const struct ipt_trigger *i,
 	i->ports.rport[1] >= sport;
 }
 
-static unsigned int trigger_refresh(struct sk_buff **pskb)
+static unsigned int trigger_refresh(struct sk_buff *skb)
 {
     struct iphdr *iph;
     struct tcphdr *tcph;
@@ -369,11 +369,11 @@ static unsigned int trigger_refresh(struct sk_buff **pskb)
     struct nf_conn *ct;
     enum ip_conntrack_info ctinfo;
 
-    ct = nf_ct_get(*pskb, &ctinfo);
+    ct = nf_ct_get(skb, &ctinfo);
     if ((ct == NULL) || !(ct->status & IPS_TRIGGER))
 	return IPT_CONTINUE;
 
-    iph = ip_hdr(*pskb);
+    iph = ip_hdr(skb);
     tcph = (void *)iph + (iph->ihl << 2);	/* Might be TCP, UDP */
 
     trig = LIST_FIND(&trigger_list,
@@ -431,13 +431,13 @@ target(struct sk_buff *skb,
 	return IPT_CONTINUE;
 
     if (info->type == IPT_TRIGGER_OUT)
-	return trigger_out(&skb, targinfo);
+	return trigger_out(skb, targinfo);
     else if (info->type == IPT_TRIGGER_IN)
-	return trigger_in(&skb);
+	return trigger_in(skb);
     else if (info->type == IPT_TRIGGER_DNAT)
-    	return trigger_dnat(&skb, hooknum);
+    	return trigger_dnat(skb, hooknum);
     else if (info->type == IPT_TRIGGER_REFRESH)
-    	return trigger_refresh(&skb);
+    	return trigger_refresh(skb);
 
     return IPT_CONTINUE;
 }

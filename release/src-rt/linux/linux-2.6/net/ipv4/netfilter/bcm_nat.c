@@ -43,12 +43,41 @@ typedef int (*bcmNatBindHook)(struct nf_conn *ct,enum ip_conntrack_info ctinfo,
 	    						unsigned int hooknum, struct sk_buff **pskb);
 extern int bcm_nat_bind_hook_func(bcmNatBindHook hook_func);
 
-extern int
-bcm_manip_pkt(u_int16_t proto,
-	  struct sk_buff **pskb,
-	  unsigned int iphdroff,
-	  const struct nf_conntrack_tuple *target,
-	  enum nf_nat_manip_type maniptype);
+extern bcmNatBindHook bcm_nat_bind_hook;
+extern bcmNatHitHook bcm_nat_hit_hook;
+
+static inline int
+bcm_nat_bind_hook_func(bcmNatBindHook hook_func)
+{
+	bcm_nat_bind_hook = hook_func;
+	return 1;
+}
+
+static inline int
+bcm_nat_hit_hook_func(bcmNatHitHook hook_func)
+{
+	bcm_nat_hit_hook = hook_func;
+	return 1;
+}
+
+extern
+#ifndef MODULE
+inline
+#endif
+int bcm_manip_pkt(u_int16_t proto,
+	struct sk_buff **pskb,
+	unsigned int iphdroff,
+	const struct nf_conntrack_tuple *target,
+	enum nf_nat_manip_type maniptype);
+
+extern
+#ifndef MODULE
+inline
+#endif
+int bcm_nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
+	const struct nf_conntrack_tuple *orig,
+	const struct nf_conntrack_l3proto *l3proto,
+	const struct nf_conntrack_l4proto *l4proto);
 
 /* 
  * Send packets to output.
@@ -146,14 +175,8 @@ bcm_do_bindings(struct nf_conn *ct,
 		if (ct->status & statusbit) {
 			struct nf_conntrack_tuple target;
 
-			if (skb_cloned(*pskb) && !(*pskb)->sk) {
-				struct sk_buff *nskb = skb_copy(*pskb, GFP_ATOMIC);
-				if (!nskb)
-					return NF_DROP;
-
-				kfree_skb(*pskb);
-				*pskb = nskb;
-			}
+			if (!skb_make_writable(pskb, 0))
+				return NF_DROP;
 
 			if ((*pskb)->dst == NULL && mtype == IP_NAT_MANIP_SRC) {
 				struct net_device *dev = (*pskb)->dev;
@@ -164,7 +187,7 @@ bcm_do_bindings(struct nf_conn *ct,
 			}
 
 			/* We are aiming to look like inverse of other direction. */
-			nf_ct_invert_tuple(&target, &ct->tuplehash[!dir].tuple, l3proto, l4proto);
+			bcm_nf_ct_invert_tuple(&target, &ct->tuplehash[!dir].tuple, l3proto, l4proto);
 #ifdef HNDCTF
 			if (enabled)
 				ip_conntrack_ipct_add(*pskb, hn[i], ct, ctinfo, &target);
