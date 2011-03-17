@@ -426,7 +426,7 @@ genSO("${root}/lib/libc.so.0", "${uclibc}/lib/libc.a", "${stripshared}", "-Wl,-i
 genSO("${root}/lib/libresolv.so.0", "${uclibc}/lib/libresolv.a", "${stripshared}");
 genSO("${root}/lib/libcrypt.so.0", "${uclibc}/lib/libcrypt.a", "${stripshared}");
 genSO("${root}/lib/libm.so.0", "${uclibc}/lib/libm.a", "${stripshared}");
-genSO("${root}/lib/libpthread.so.0", "${uclibc}/lib/libpthread.a", "${stripshared}", "-Wl,-init=__pthread_initialize_minimal_internal");
+genSO("${root}/lib/libpthread.so.0", "${uclibc}/lib/libpthread.a", "${stripshared}", "-u pthread_mutexattr_init -Wl,-init=__pthread_initialize_minimal_internal");
 genSO("${root}/lib/libutil.so.0", "${uclibc}/lib/libutil.a", "${stripshared}");
 #  genSO("${root}/lib/libdl.so.0", "${uclibc}/lib/libdl.a", "${stripshared}");
 #  genSO("${root}/lib/libnsl.so.0", "${uclibc}/lib/libnsl.a", "${stripshared}");

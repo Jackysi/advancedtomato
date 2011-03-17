@@ -480,7 +480,7 @@ void start_radvd(void)
 
 	stop_radvd();
 
-	if (ipv6_enabled() && nvram_match("ipv6_radvd", "1")) {
+	if (ipv6_enabled() && nvram_get_int("ipv6_radvd")) {
 
 		switch (get_ipv6_service()) {
 		case IPV6_NATIVE_DHCP:
@@ -565,7 +565,7 @@ void start_ipv6(void)
 	}
 
 	if (service != IPV6_DISABLED) {
-		if ((nvram_get_int("ipv6_accept_ra") & 2) != 0)
+		if ((nvram_get_int("ipv6_accept_ra") & 2) != 0 && !nvram_get_int("ipv6_radvd"))
 			accept_ra(nvram_safe_get("lan_ifname"));
 	}
 }
