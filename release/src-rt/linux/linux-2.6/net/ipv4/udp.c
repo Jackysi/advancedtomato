@@ -905,7 +905,7 @@ try_again:
 		err = ulen;
 
 out_free:
-	skb_free_datagram(sk, skb);
+	skb_free_datagram_locked(sk, skb);
 out:
 	return err;
 
