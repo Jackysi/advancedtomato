@@ -1625,7 +1625,11 @@ static int unix_dgram_recvmsg(struct kiocb *iocb, struct socket *sock,
 
 	msg->msg_namelen = 0;
 
-	mutex_lock(&u->readlock);
+	err = mutex_lock_interruptible(&u->readlock);
+	if (err) {
+		err = sock_intr_errno(sock_rcvtimeo(sk, noblock));
+		goto out;
+	}
 
 	skb = skb_recv_datagram(sk, flags, noblock, &err);
 	if (!skb) {
@@ -1764,7 +1768,11 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
 		memset(&tmp_scm, 0, sizeof(tmp_scm));
 	}
 
-	mutex_lock(&u->readlock);
+	err = mutex_lock_interruptible(&u->readlock);
+	if (err) {
+		err = sock_intr_errno(timeo);
+		goto out;
+	}
 
 	do
 	{
@@ -1795,11 +1803,12 @@ static int unix_stream_recvmsg(struct kiocb *iocb, struct socket *sock,
 
 			timeo = unix_stream_data_wait(sk, timeo);
 
-			if (signal_pending(current)) {
+			if (signal_pending(current)
+			    ||  mutex_lock_interruptible(&u->readlock)) {
 				err = sock_intr_errno(timeo);
 				goto out;
 			}
-			mutex_lock(&u->readlock);
+
 			continue;
  unlock:
 			unix_state_unlock(sk);
