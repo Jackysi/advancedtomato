@@ -970,8 +970,10 @@ static struct udp_seq_afinfo udp6_seq_afinfo = {
 	.name		= "udp6",
 	.family		= AF_INET6,
 	.hashtable	= udp_hash,
-	.seq_show	= udp6_seq_show,
 	.seq_fops	= &udp6_seq_fops,
+	.seq_ops	= {
+		.show		= udp6_seq_show,
+	},
 };
 
 int __init udp6_proc_init(void)

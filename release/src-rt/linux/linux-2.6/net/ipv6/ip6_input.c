@@ -308,8 +308,8 @@ int ip6_mc_input(struct sk_buff *skb)
 			ip6_mr_input(skb2);
 		}
 	}
-#endif
 out:
+#endif
 	if (likely(deliver)) {
 		ip6_input(skb);
 		return 0;

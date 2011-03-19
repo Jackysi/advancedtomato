@@ -2100,13 +2100,13 @@ out:
 	return 0;
 }
 
-static struct file_operations tcp6_seq_fops;
 static struct tcp_seq_afinfo tcp6_seq_afinfo = {
 	.owner		= THIS_MODULE,
 	.name		= "tcp6",
 	.family		= AF_INET6,
-	.seq_show	= tcp6_seq_show,
-	.seq_fops	= &tcp6_seq_fops,
+	.seq_ops	= {
+		.show		= tcp6_seq_show,
+	},
 };
 
 int __init tcp6_proc_init(void)
