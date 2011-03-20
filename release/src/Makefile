@@ -496,6 +496,8 @@ define KernelConfig
 			echo "CONFIG_IPV6_MULTIPLE_TABLES=y" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_RAW/d" $(1); \
 			echo "CONFIG_IP6_NF_RAW=m" >>$(1); \
+			sed -i "/CONFIG_IPV6_OPTIMISTIC_DAD/d" $(1); \
+			echo "CONFIG_IPV6_OPTIMISTIC_DAD=y" >>$(1); \
 			sed -i "/CONFIG_IPV6_MROUTE/d" $(1); \
 			echo "CONFIG_IPV6_MROUTE=y" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_TARGET_ROUTE/d" $(1); \
