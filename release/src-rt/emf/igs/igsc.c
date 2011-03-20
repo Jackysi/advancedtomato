@@ -241,19 +241,21 @@ igsc_rtlist_add(igsc_info_t *igsc_info, void *ifp, uint32 mr_ip)
 static void
 igsc_rtlist_clear(igsc_info_t *igsc_info)
 {
-	clist_head_t *ptr;
+	clist_head_t *ptr, *tmp;
 	igsc_rtlist_t *rtl_ptr;
 
 	OSL_LOCK(igsc_info->rtlist_lock);
 
-	for (ptr = igsc_info->rtlist_head.next;
-	     ptr != &igsc_info->rtlist_head; ptr = ptr->next)
+	ptr = igsc_info->rtlist_head.next;
+	while (ptr != &igsc_info->rtlist_head)
 	{
 		rtl_ptr = clist_entry(ptr, igsc_rtlist_t, list);
+		tmp = ptr->next;
 		osl_timer_del(rtl_ptr->rtlist_timer);
 		emfc_rtport_del(igsc_info->emf_handle, rtl_ptr->ifp);
 		clist_delete(ptr);
 		MFREE(igsc_info->osh, rtl_ptr, sizeof(igsc_rtlist_t));
+		ptr = tmp;
 	}
 
 	OSL_UNLOCK(igsc_info->rtlist_lock);
