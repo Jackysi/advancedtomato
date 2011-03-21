@@ -77,7 +77,7 @@ static DEFINE_SPINLOCK(rtsp_buffer_lock);
 
 static struct nf_conntrack_expect_policy rtsp_exp_policy;
 
-unsigned int (*nf_nat_rtsp_hook)(struct sk_buff **pskb,
+unsigned int (*nf_nat_rtsp_hook)(struct sk_buff *skb,
 				 enum ip_conntrack_info ctinfo,
 				 unsigned int matchoff, unsigned int matchlen,struct ip_ct_rtsp_expect* prtspexp,
 				 struct nf_conntrack_expect *exp);
@@ -274,7 +274,7 @@ void expected(struct nf_conn *ct, struct nf_conntrack_expect *exp)
 /* outbound packet: client->server */
 
 static inline int
-help_out(struct sk_buff **pskb, unsigned char *rb_ptr, unsigned int datalen,
+help_out(struct sk_buff *skb, unsigned char *rb_ptr, unsigned int datalen,
 	struct nf_conn *ct, enum ip_conntrack_info ctinfo)
 {
 	struct ip_ct_rtsp_expect expinfo;
@@ -358,7 +358,7 @@ help_out(struct sk_buff **pskb, unsigned char *rb_ptr, unsigned int datalen,
 		nf_nat_rtsp = rcu_dereference(nf_nat_rtsp_hook);
 		if (nf_nat_rtsp && ct->status & IPS_NAT_MASK)
 			/* pass the request off to the nat helper */
-			ret = nf_nat_rtsp(pskb, ctinfo, hdrsoff, hdrslen, &expinfo, exp);
+			ret = nf_nat_rtsp(skb, ctinfo, hdrsoff, hdrslen, &expinfo, exp);
 		else if (nf_conntrack_expect_related(exp) != 0) {
 			DEBUGP("nf_conntrack_expect_related failed\n");
 			ret  = NF_DROP;
@@ -373,13 +373,13 @@ out:
 
 
 static inline int
-help_in(struct sk_buff **pskb, size_t pktlen,
+help_in(struct sk_buff *skb, size_t pktlen,
 	struct nf_conn* ct, enum ip_conntrack_info ctinfo)
 {
 	return NF_ACCEPT;
 }
 
-static int help(struct sk_buff **pskb, unsigned int protoff,
+static int help(struct sk_buff *skb, unsigned int protoff,
 		struct nf_conn *ct, enum ip_conntrack_info ctinfo)
 {
 	struct tcphdr _tcph, *th;
@@ -395,20 +395,20 @@ static int help(struct sk_buff **pskb, unsigned int protoff,
 	}
 
 	/* Not whole TCP header? */
-	th = skb_header_pointer(*pskb, protoff, sizeof(_tcph), &_tcph);
+	th = skb_header_pointer(skb, protoff, sizeof(_tcph), &_tcph);
 
 	if (!th)
 		return NF_ACCEPT;
 
 	/* No data ? */
 	dataoff = protoff + th->doff*4;
-	datalen = (*pskb)->len - dataoff;
-	if (dataoff >= (*pskb)->len)
+	datalen = skb->len - dataoff;
+	if (dataoff >= skb->len)
 		return NF_ACCEPT;
 
 	spin_lock_bh(&rtsp_buffer_lock);
-	rb_ptr = skb_header_pointer(*pskb, dataoff,
-				    (*pskb)->len - dataoff, rtsp_buffer);
+	rb_ptr = skb_header_pointer(skb, dataoff,
+				    skb->len - dataoff, rtsp_buffer);
 	BUG_ON(rb_ptr == NULL);
 
 #if 0
@@ -425,7 +425,7 @@ static int help(struct sk_buff **pskb, unsigned int protoff,
 
 	switch (CTINFO2DIR(ctinfo)) {
 	case IP_CT_DIR_ORIGINAL:
-		ret = help_out(pskb, rb_ptr, datalen, ct, ctinfo);
+		ret = help_out(skb, rb_ptr, datalen, ct, ctinfo);
 		break;
 	case IP_CT_DIR_REPLY:
 		DEBUGP("IP_CT_DIR_REPLY\n");

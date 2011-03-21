@@ -1690,9 +1690,8 @@ ipv6_pktoptions:
 	return 0;
 }
 
-static int tcp_v6_rcv(struct sk_buff **pskb)
+static int tcp_v6_rcv(struct sk_buff *skb)
 {
-	struct sk_buff *skb = *pskb;
 	struct tcphdr *th;
 	struct sock *sk;
 	int ret;

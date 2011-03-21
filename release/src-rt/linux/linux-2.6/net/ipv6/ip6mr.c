@@ -346,9 +346,8 @@ static struct file_operations ip6mr_mfc_fops = {
 #ifdef CONFIG_IPV6_PIMSM_V2
 static int reg_vif_num = -1;
 
-static int pim6_rcv(struct sk_buff **pskb)
+static int pim6_rcv(struct sk_buff *skb)
 {
-	struct sk_buff *skb = (*pskb);
 	struct pimreghdr *pim;
 	struct ipv6hdr   *encap;
 	struct net_device  *reg_dev = NULL;

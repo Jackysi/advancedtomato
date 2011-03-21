@@ -7,7 +7,7 @@
 struct sk_buff;
 
 /* These return true or false. */
-extern int __nf_nat_mangle_tcp_packet(struct sk_buff **pskb,
+extern int __nf_nat_mangle_tcp_packet(struct sk_buff *skb,
 				      struct nf_conn *ct,
 				      enum ip_conntrack_info ctinfo,
 				      unsigned int match_offset,
@@ -15,7 +15,7 @@ extern int __nf_nat_mangle_tcp_packet(struct sk_buff **pskb,
 				      const char *rep_buffer,
 				      unsigned int rep_len, bool adjust);
 
-static inline int nf_nat_mangle_tcp_packet(struct sk_buff **pskb,
+static inline int nf_nat_mangle_tcp_packet(struct sk_buff *skb,
 					   struct nf_conn *ct,
 					   enum ip_conntrack_info ctinfo,
 					   unsigned int match_offset,
@@ -23,12 +23,12 @@ static inline int nf_nat_mangle_tcp_packet(struct sk_buff **pskb,
 					   const char *rep_buffer,
 					   unsigned int rep_len)
 {
-	return __nf_nat_mangle_tcp_packet(pskb, ct, ctinfo,
+	return __nf_nat_mangle_tcp_packet(skb, ct, ctinfo,
 					  match_offset, match_len,
 					  rep_buffer, rep_len, true);
 }
 
-extern int nf_nat_mangle_udp_packet(struct sk_buff **skb,
+extern int nf_nat_mangle_udp_packet(struct sk_buff *skb,
 				    struct nf_conn *ct,
 				    enum ip_conntrack_info ctinfo,
 				    unsigned int match_offset,
@@ -39,7 +39,7 @@ extern int nf_nat_mangle_udp_packet(struct sk_buff **skb,
 extern void nf_nat_set_seq_adjust(struct nf_conn *ct,
 				  enum ip_conntrack_info ctinfo,
 				  __be32 seq, s16 off);
-extern int nf_nat_seq_adjust(struct sk_buff **pskb,
+extern int nf_nat_seq_adjust(struct sk_buff *skb,
 			     struct nf_conn *ct,
 			     enum ip_conntrack_info ctinfo);
 

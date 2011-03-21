@@ -104,7 +104,7 @@ ipt_cone_cleanup_conntrack(struct nf_conn_nat *nat)
 }
 
 unsigned int
-ipt_cone_target(struct sk_buff **pskb,
+ipt_cone_target(struct sk_buff *skb,
 	unsigned int hooknum,
 	const struct net_device *in,
 	const struct net_device *out,
@@ -123,7 +123,7 @@ ipt_cone_target(struct sk_buff **pskb,
 
 
 	/* Care about only new created one */
-	ct = nf_ct_get(*pskb, &ctinfo);
+	ct = nf_ct_get(skb, &ctinfo);
 	if (ct == 0 || (ctinfo != IP_CT_NEW && ctinfo != IP_CT_RELATED))
 		return XT_CONTINUE;
 
