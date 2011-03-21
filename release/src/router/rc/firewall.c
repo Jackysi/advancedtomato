@@ -510,11 +510,22 @@ static void mangle_table(void)
 #endif
 			// set TTL on primary WAN iface only
 			wanface = wanfaces.iface[0].name;
-			ip46t_write(
+			ipt_write(
 				"-I PREROUTING -i %s -j TTL --ttl-%s %d\n"
 				"-I POSTROUTING -o %s -j TTL --ttl-%s %d\n",
 					wanface, p, ttl,
 					wanface, p, ttl);
+#ifdef TCONFIG_IPV6
+	// FIXME: IPv6 HL should be configurable separately from TTL.
+	//        disable it until GUI setting is implemented.
+	#if 0
+			ip6t_write(
+				"-I PREROUTING -i %s -j HL --hl-%s %d\n"
+				"-I POSTROUTING -o %s -j HL --hl-%s %d\n",
+					wan6face, p, ttl,
+					wan6face, p, ttl);
+	#endif
+#endif
 		}
 	}
 
