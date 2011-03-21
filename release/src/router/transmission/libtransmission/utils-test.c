@@ -270,7 +270,7 @@ test_lowerbound( void )
         const int pos = tr_lowerBound( &i, A, N, sizeof(int), compareInts, &exact );
 
 #if 0
-        fprintf( stderr, "searching for %d.  ", i );
+        fprintf( stderr, "searching for %d. ", i );
         fprintf( stderr, "result: index = %d, ", pos );
         if( pos != N )
             fprintf( stderr, "A[%d] == %d\n", pos, A[pos] );
@@ -293,9 +293,6 @@ test_memmem( void )
     check( tr_memmem( haystack, sizeof haystack, haystack, sizeof haystack) == haystack )
     check( tr_memmem( haystack, sizeof haystack, needle, sizeof needle) == haystack + 2 )
     check( tr_memmem( needle, sizeof needle, haystack, sizeof haystack) == NULL )
-    check( tr_memmem( haystack, sizeof haystack, "", 0) == haystack )
-    check( tr_memmem( haystack, sizeof haystack, NULL, 0) == haystack )
-    check( tr_memmem( haystack, 0, "", 0) == haystack )
 
     return 0;
 }
@@ -404,7 +401,7 @@ test_truncd( void )
     check( !strcmp( buf, "3" ) );
 
     tr_snprintf( buf, sizeof( buf ), "%.2f", tr_truncd( nan, 2 ) );
-    check( !strcmp( buf, "nan" ) );
+    check( strstr( buf, "nan" ) != NULL );
 
     return 0;
 }
@@ -420,8 +417,8 @@ main( void )
     /* base64 */
     out = tr_base64_encode( "YOYO!", -1, &len );
     check( out );
-    check( !strcmp( out, "WU9ZTyE=\n" ) );
-    check( len == 9 );
+    check( !strcmp( out, "WU9ZTyE=" ) );
+    check( len == 8 );
     in = tr_base64_decode( out, -1, &len );
     check( in );
     check( !strcmp( in, "YOYO!" ) );

@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) 2008-2010 Mnemosyne LLC
+ * This file Copyright (C) Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2.  Works owned by the
+ * This file is licensed by the GPL version 2. Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: web.c 11398 2010-11-11 15:31:11Z charles $
+ * $Id: web.c 12029 2011-02-24 15:17:43Z jordan $
  */
 
 #ifdef WIN32
@@ -17,7 +17,8 @@
 #endif
 
 #include <curl/curl.h>
-#include <event.h>
+
+#include <event2/buffer.h>
 
 #include "transmission.h"
 #include "list.h"
@@ -72,6 +73,7 @@ struct tr_web_task
 {
     long code;
     struct evbuffer * response;
+    struct evbuffer * freebuf;
     char * url;
     char * range;
     tr_session * session;
@@ -82,7 +84,8 @@ struct tr_web_task
 static void
 task_free( struct tr_web_task * task )
 {
-    evbuffer_free( task->response );
+    if( task->freebuf )
+        evbuffer_free( task->freebuf );
     tr_free( task->range );
     tr_free( task->url );
     tr_free( task );
@@ -142,6 +145,7 @@ static CURL *
 createEasy( tr_session * s, struct tr_web_task * task )
 {
     const tr_address * addr;
+    tr_bool is_default_value;
     CURL * e = curl_easy_init( );
     const long verbose = getenv( "TR_CURL_VERBOSE" ) != NULL;
     char * cookie_filename = tr_buildPath( s->configDir, "cookies.txt", NULL );
@@ -166,11 +170,16 @@ createEasy( tr_session * s, struct tr_web_task * task )
     curl_easy_setopt( e, CURLOPT_WRITEDATA, task );
     curl_easy_setopt( e, CURLOPT_WRITEFUNCTION, writeFunc );
 
-    if(( addr = tr_sessionGetPublicAddress( s, TR_AF_INET )))
+    if((( addr = tr_sessionGetPublicAddress( s, TR_AF_INET, &is_default_value ))) && !is_default_value )
+        curl_easy_setopt( e, CURLOPT_INTERFACE, tr_ntop_non_ts( addr ) );
+    else if ((( addr = tr_sessionGetPublicAddress( s, TR_AF_INET6, &is_default_value ))) && !is_default_value )
         curl_easy_setopt( e, CURLOPT_INTERFACE, tr_ntop_non_ts( addr ) );
 
     if( task->range )
         curl_easy_setopt( e, CURLOPT_RANGE, task->range );
+
+    if( s->curl_easy_config_func != NULL )
+        s->curl_easy_config_func( s, e, task->url );
 
     tr_free( cookie_filename );
     return e;
@@ -189,8 +198,8 @@ task_finish_func( void * vtask )
     if( task->done_func != NULL )
         task->done_func( task->session,
                          task->code,
-                         EVBUFFER_DATA( task->response ),
-                         EVBUFFER_LENGTH( task->response ),
+                         evbuffer_pullup( task->response, -1 ),
+                         evbuffer_get_length( task->response ),
                          task->done_func_user_data );
 
     task_free( task );
@@ -207,6 +216,19 @@ tr_webRun( tr_session         * session,
            tr_web_done_func     done_func,
            void               * done_func_user_data )
 {
+    tr_webRunWithBuffer( session, url, range,
+                         done_func, done_func_user_data,
+                         NULL );
+}
+
+void
+tr_webRunWithBuffer( tr_session         * session,
+                     const char         * url,
+                     const char         * range,
+                     tr_web_done_func     done_func,
+                     void               * done_func_user_data,
+                     struct evbuffer    * buffer )
+{
     struct tr_web * web = session->web;
 
     if( web != NULL )
@@ -218,7 +240,8 @@ tr_webRun( tr_session         * session,
         task->range = tr_strdup( range );
         task->done_func = done_func;
         task->done_func_user_data = done_func_user_data;
-        task->response = evbuffer_new( );
+        task->response = buffer ? buffer : evbuffer_new( );
+        task->freebuf = buffer ? NULL : task->response;
 
         tr_lockLock( web->taskLock );
         tr_list_append( &web->tasks, task );
@@ -262,10 +285,10 @@ tr_select( int nfds,
 static void
 tr_webThreadFunc( void * vsession )
 {
-    int unused;
     CURLM * multi;
     struct tr_web * web;
     int taskCount = 0;
+    struct tr_web_task * task;
     tr_session * session = vsession;
 
     /* try to enable ssl for https support; but if that fails,
@@ -283,9 +306,9 @@ tr_webThreadFunc( void * vsession )
     for( ;; )
     {
         long msec;
+        int unused;
         CURLMsg * msg;
         CURLMcode mcode;
-        struct tr_web_task * task;
 
         if( web->close_mode == TR_WEB_CLOSE_NOW )
             break;
@@ -296,7 +319,7 @@ tr_webThreadFunc( void * vsession )
         tr_lockLock( web->taskLock );
         while(( task = tr_list_pop_front( &web->tasks )))
         {
-            dbgmsg( "adding task to curl: [%s]\n", task->url );
+            dbgmsg( "adding task to curl: [%s]", task->url );
             curl_multi_add_handle( multi, createEasy( session, task ));
             /*fprintf( stderr, "adding a task.. taskCount is now %d\n", taskCount );*/
             ++taskCount;
@@ -347,11 +370,18 @@ tr_webThreadFunc( void * vsession )
                 curl_easy_getinfo( e, CURLINFO_RESPONSE_CODE, &task->code );
                 curl_multi_remove_handle( multi, e );
                 curl_easy_cleanup( e );
-/*fprintf( stderr, "removing a completed task.. taskCount is now %d (response code: %d, response len: %d)\n", taskCount, (int)task->code, (int)EVBUFFER_LENGTH(task->response) );*/
+/*fprintf( stderr, "removing a completed task.. taskCount is now %d (response code: %d, response len: %d)\n", taskCount, (int)task->code, (int)evbuffer_get_length(task->response) );*/
                 tr_runInEventThread( task->session, task_finish_func, task );
                 --taskCount;
             }
         }
+    }
+
+    /* Discard any remaining tasks.
+     * This is rare, but can happen on shutdown with unresponsive trackers. */
+    while(( task = tr_list_pop_front( &web->tasks ))) {
+        dbgmsg( "Discarding task \"%s\"", task->url );
+        task_free( task );
     }
 
     /* cleanup */

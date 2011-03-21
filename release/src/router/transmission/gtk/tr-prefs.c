@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) 2007-2010 Mnemosyne LLC
+ * This file Copyright (C) Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2.  Works owned by the
+ * This file is licensed by the GPL version 2. Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: tr-prefs.c 11401 2010-11-13 17:05:22Z charles $
+ * $Id: tr-prefs.c 12027 2011-02-24 15:10:18Z jordan $
  */
 
 #include <ctype.h> /* isspace */
@@ -68,7 +68,7 @@ new_check_button( const char * mnemonic,
     g_object_set_data_full( G_OBJECT( w ), PREF_KEY, g_strdup(
                                 key ), g_free );
     gtk_toggle_button_set_active( GTK_TOGGLE_BUTTON( w ),
-                                 pref_flag_get( key ) );
+                                 gtr_pref_flag_get( key ) );
     g_signal_connect( w, "toggled", G_CALLBACK( toggled_cb ), core );
     return w;
 }
@@ -167,7 +167,7 @@ new_spin_button( const char * key,
     GtkWidget * w = gtk_spin_button_new_with_range( low, high, step );
     g_object_set_data_full( G_OBJECT( w ), PREF_KEY, g_strdup( key ), g_free );
     gtk_spin_button_set_digits( GTK_SPIN_BUTTON( w ), 0 );
-    gtk_spin_button_set_value( GTK_SPIN_BUTTON( w ), pref_int_get( key ) );
+    gtk_spin_button_set_value( GTK_SPIN_BUTTON( w ), gtr_pref_int_get( key ) );
     g_signal_connect( w, "value-changed", G_CALLBACK( spun_cb_int ), core );
     return w;
 }
@@ -182,7 +182,7 @@ new_spin_button_double( const char * key,
     GtkWidget * w = gtk_spin_button_new_with_range( low, high, step );
     g_object_set_data_full( G_OBJECT( w ), PREF_KEY, g_strdup( key ), g_free );
     gtk_spin_button_set_digits( GTK_SPIN_BUTTON( w ), 2 );
-    gtk_spin_button_set_value( GTK_SPIN_BUTTON( w ), pref_double_get( key ) );
+    gtk_spin_button_set_value( GTK_SPIN_BUTTON( w ), gtr_pref_double_get( key ) );
     g_signal_connect( w, "value-changed", G_CALLBACK( spun_cb_double ), core );
     return w;
 }
@@ -201,7 +201,7 @@ new_entry( const char * key,
            gpointer     core )
 {
     GtkWidget *  w = gtk_entry_new( );
-    const char * value = pref_string_get( key );
+    const char * value = gtr_pref_string_get( key );
 
     if( value )
         gtk_entry_set_text( GTK_ENTRY( w ), value );
@@ -224,7 +224,7 @@ static GtkWidget*
 new_path_chooser_button( const char * key, gpointer core )
 {
     GtkWidget *  w = gtk_file_chooser_button_new( NULL, GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER );
-    const char * path = pref_string_get( key );
+    const char * path = gtr_pref_string_get( key );
     g_object_set_data_full( G_OBJECT( w ), PREF_KEY, g_strdup( key ), g_free );
     g_signal_connect( w, "selection-changed", G_CALLBACK( chosen_cb ), core );
     if( path != NULL )
@@ -236,7 +236,7 @@ static GtkWidget*
 new_file_chooser_button( const char * key, gpointer core )
 {
     GtkWidget *  w = gtk_file_chooser_button_new( NULL, GTK_FILE_CHOOSER_ACTION_OPEN );
-    const char * path = pref_string_get( key );
+    const char * path = gtr_pref_string_get( key );
     g_object_set_data_full( G_OBJECT( w ), PREF_KEY, g_strdup( key ), g_free );
     if( path != NULL )
         gtk_file_chooser_set_filename( GTK_FILE_CHOOSER( w ), path );
@@ -269,27 +269,27 @@ torrentPage( GObject * core )
     t = hig_workarea_create( );
     hig_workarea_add_section_title( t, &row, _( "Adding" ) );
 
-#ifdef HAVE_GIO
-    s = _( "Automatically _add torrents from:" );
-    l = new_check_button( s, PREF_KEY_DIR_WATCH_ENABLED, core );
-    w = new_path_chooser_button( PREF_KEY_DIR_WATCH, core );
-    gtk_widget_set_sensitive( GTK_WIDGET( w ),
-                             pref_flag_get( PREF_KEY_DIR_WATCH_ENABLED ) );
-    g_signal_connect( l, "toggled", G_CALLBACK( target_cb ), w );
-    hig_workarea_add_row_w( t, &row, l, w, NULL );
-#endif
+    s = _( "_Start when added" );
+    w = new_check_button( s, TR_PREFS_KEY_START, core );
+    hig_workarea_add_wide_control( t, &row, w );
 
     s = _( "Show _options dialog" );
     w = new_check_button( s, PREF_KEY_OPTIONS_PROMPT, core );
     hig_workarea_add_wide_control( t, &row, w );
 
-    s = _( "_Start when added" );
-    w = new_check_button( s, TR_PREFS_KEY_START, core );
-    hig_workarea_add_wide_control( t, &row, w );
-
     s = _( "Mo_ve .torrent file to the trash" );
     w = new_check_button( s, TR_PREFS_KEY_TRASH_ORIGINAL, core );
     hig_workarea_add_wide_control( t, &row, w );
+
+#ifdef HAVE_GIO
+    s = _( "Automatically _add torrents from:" );
+    l = new_check_button( s, PREF_KEY_DIR_WATCH_ENABLED, core );
+    w = new_path_chooser_button( PREF_KEY_DIR_WATCH, core );
+    gtk_widget_set_sensitive( GTK_WIDGET( w ),
+                             gtr_pref_flag_get( PREF_KEY_DIR_WATCH_ENABLED ) );
+    g_signal_connect( l, "toggled", G_CALLBACK( target_cb ), w );
+    hig_workarea_add_row_w( t, &row, l, w, NULL );
+#endif
 
     hig_workarea_add_section_divider( t, &row );
     hig_workarea_add_section_title( t, &row, _( "Downloading" ) );
@@ -304,31 +304,31 @@ torrentPage( GObject * core )
     s = _( "Keep _incomplete torrents in:" );
     l = new_check_button( s, TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED, core );
     w = new_path_chooser_button( TR_PREFS_KEY_INCOMPLETE_DIR, core );
-    gtk_widget_set_sensitive( GTK_WIDGET( w ), pref_flag_get( TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED ) );
+    gtk_widget_set_sensitive( GTK_WIDGET( w ), gtr_pref_flag_get( TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED ) );
     g_signal_connect( l, "toggled", G_CALLBACK( target_cb ), w );
     hig_workarea_add_row_w( t, &row, l, w, NULL );
 
     s = _( "Call scrip_t when torrent is completed:" );
     l = new_check_button( s, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED, core );
     w = new_file_chooser_button( TR_PREFS_KEY_SCRIPT_TORRENT_DONE_FILENAME, core );
-    gtk_widget_set_sensitive( GTK_WIDGET( w ), pref_flag_get( TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED ) );
+    gtk_widget_set_sensitive( GTK_WIDGET( w ), gtr_pref_flag_get( TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED ) );
     g_signal_connect( l, "toggled", G_CALLBACK( target_cb ), w );
     hig_workarea_add_row_w( t, &row, l, w, NULL );
 
     hig_workarea_add_section_divider( t, &row );
-    hig_workarea_add_section_title( t, &row, _( "Seeding Limits" ) );
+    hig_workarea_add_section_title( t, &row, _( "Seeding" ) );
 
     s = _( "Stop seeding at _ratio:" );
     w = new_check_button( s, TR_PREFS_KEY_RATIO_ENABLED, core );
     w2 = new_spin_button_double( TR_PREFS_KEY_RATIO, core, 0, 1000, .05 );
-    gtk_widget_set_sensitive( GTK_WIDGET( w2 ), pref_flag_get( TR_PREFS_KEY_RATIO_ENABLED ) );
+    gtk_widget_set_sensitive( GTK_WIDGET( w2 ), gtr_pref_flag_get( TR_PREFS_KEY_RATIO_ENABLED ) );
     g_signal_connect( w, "toggled", G_CALLBACK( target_cb ), w2 );
     hig_workarea_add_row_w( t, &row, w, w2, NULL );
 
     s = _( "Stop seeding if idle for _N minutes:" );
     w = new_check_button( s, TR_PREFS_KEY_IDLE_LIMIT_ENABLED, core );
     w2 = new_spin_button( TR_PREFS_KEY_IDLE_LIMIT, core, 1, 9999, 5 );
-    gtk_widget_set_sensitive( GTK_WIDGET( w2 ), pref_flag_get( TR_PREFS_KEY_IDLE_LIMIT_ENABLED ) );
+    gtk_widget_set_sensitive( GTK_WIDGET( w2 ), gtr_pref_flag_get( TR_PREFS_KEY_IDLE_LIMIT_ENABLED ) );
     g_signal_connect( w, "toggled", G_CALLBACK( target_cb ), w2 );
     hig_workarea_add_row_w( t, &row, w, w2, NULL );
 
@@ -457,6 +457,15 @@ onBlocklistUpdate( GtkButton * w, gpointer gdata )
 }
 
 static void
+on_blocklist_url_changed( GtkEditable * e, gpointer gbutton )
+{
+    gchar * url = gtk_editable_get_chars( e, 0, -1 );
+    const gboolean err = tr_urlParse( url, -1, NULL, NULL, NULL, NULL );
+    gtk_widget_set_sensitive( GTK_WIDGET( gbutton ), !err );
+    g_free( url );
+}
+
+static void
 onIntComboChanged( GtkComboBox * combo_box, gpointer core )
 {
     const int val = gtr_combo_box_get_active_enum( combo_box );
@@ -471,7 +480,7 @@ new_encryption_combo( GObject * core, const char * key )
                                             _( "Prefer encryption" ),  TR_ENCRYPTION_PREFERRED,
                                             _( "Require encryption" ), TR_ENCRYPTION_REQUIRED,
                                             NULL );
-    gtr_combo_box_set_active_enum( GTK_COMBO_BOX( w ), pref_int_get( key ) );
+    gtr_combo_box_set_active_enum( GTK_COMBO_BOX( w ), gtr_pref_int_get( key ) );
     g_object_set_data_full( G_OBJECT( w ), PREF_KEY, tr_strdup( key ), g_free );
     g_signal_connect( w, "changed", G_CALLBACK( onIntComboChanged ), core );
     return w;
@@ -516,6 +525,8 @@ privacyPage( GObject * core )
     gtk_box_pack_start( GTK_BOX( h ), b, FALSE, FALSE, 0 );
     g_signal_connect( data->check, "toggled", G_CALLBACK( target_cb ), w ); target_cb( data->check, w );
     hig_workarea_add_wide_control( t, &row, h );
+    g_signal_connect( e, "changed", G_CALLBACK( on_blocklist_url_changed ), data->updateBlocklistButton );
+    on_blocklist_url_changed( GTK_EDITABLE( e ), data->updateBlocklistButton );
 
     s = _( "Enable _automatic updates" );
     w = new_check_button( s, PREF_KEY_BLOCKLIST_UPDATES_ENABLED, core );
@@ -729,7 +740,7 @@ onWhitelistSelectionChanged( GtkTreeSelection * sel UNUSED,
 static void
 onLaunchClutchCB( GtkButton * w UNUSED, gpointer data UNUSED )
 {
-    const int port = pref_int_get( TR_PREFS_KEY_RPC_PORT );
+    const int port = gtr_pref_int_get( TR_PREFS_KEY_RPC_PORT );
     char * uri = g_strdup_printf( "http://localhost:%d/transmission/web", port );
 
     gtr_open_uri( uri );
@@ -780,7 +791,7 @@ webPage( GObject * core )
     /* port */
     w = new_spin_button( TR_PREFS_KEY_RPC_PORT, core, 0, USHRT_MAX, 1 );
     page->widgets = g_slist_append( page->widgets, w );
-    w = hig_workarea_add_row( t, &row, _( "Listening _port:" ), w, NULL );
+    w = hig_workarea_add_row( t, &row, _( "HTTP _port:" ), w, NULL );
     page->widgets = g_slist_append( page->widgets, w );
 
     /* require authentication */
@@ -816,7 +827,7 @@ webPage( GObject * core )
 
     /* access control list */
     {
-        const char *        val = pref_string_get( TR_PREFS_KEY_RPC_WHITELIST );
+        const char *        val = gtr_pref_string_get( TR_PREFS_KEY_RPC_WHITELIST );
         GtkTreeModel *      m = whitelist_tree_model_new( val );
         GtkTreeViewColumn * c;
         GtkCellRenderer *   r;
@@ -897,7 +908,7 @@ static void
 refreshSchedSensitivity( struct BandwidthPage * p )
 {
     GSList *       l;
-    const gboolean sched_enabled = pref_flag_get( TR_PREFS_KEY_ALT_SPEED_TIME_ENABLED );
+    const gboolean sched_enabled = gtr_pref_flag_get( TR_PREFS_KEY_ALT_SPEED_TIME_ENABLED );
 
     for( l = p->sched_widgets; l != NULL; l = l->next )
         gtk_widget_set_sensitive( GTK_WIDGET( l->data ), sched_enabled );
@@ -960,7 +971,7 @@ new_time_combo( GObject *    core,
                                         w ), r, "text", 1, NULL );
     g_object_set_data_full( G_OBJECT( w ), PREF_KEY, tr_strdup(
                                 key ), g_free );
-    val = pref_int_get( key );
+    val = gtr_pref_int_get( key );
     gtk_combo_box_set_active( GTK_COMBO_BOX( w ), val / ( 15 ) );
     g_signal_connect( w, "changed", G_CALLBACK( onTimeComboChanged ), core );
 
@@ -983,7 +994,7 @@ new_week_combo( GObject * core, const char * key )
                                             _( "Friday" ),    TR_SCHED_FRI,
                                             _( "Saturday" ),  TR_SCHED_SAT,
                                             NULL );
-    gtr_combo_box_set_active_enum( GTK_COMBO_BOX( w ), pref_int_get( key ) );
+    gtr_combo_box_set_active_enum( GTK_COMBO_BOX( w ), gtr_pref_int_get( key ) );
     g_object_set_data_full( G_OBJECT( w ), PREF_KEY, tr_strdup( key ), g_free );
     g_signal_connect( w, "changed", G_CALLBACK( onIntComboChanged ), core );
     return w;
@@ -1014,25 +1025,25 @@ bandwidthPage( GObject * core )
     t = hig_workarea_create( );
     hig_workarea_add_section_title( t, &row, _( "Speed Limits" ) );
 
-        g_snprintf( buf, sizeof( buf ), _( "Limit _download speed (%s):" ), _(speed_K_str) );
-        w = new_check_button( buf, TR_PREFS_KEY_DSPEED_ENABLED, core );
-        w2 = new_spin_button( TR_PREFS_KEY_DSPEED_KBps, core, 0, INT_MAX, 5 );
-        gtk_widget_set_sensitive( GTK_WIDGET( w2 ), pref_flag_get( TR_PREFS_KEY_DSPEED_ENABLED ) );
+        g_snprintf( buf, sizeof( buf ), _( "_Upload (%s):" ), _(speed_K_str) );
+        w = new_check_button( buf, TR_PREFS_KEY_USPEED_ENABLED, core );
+        w2 = new_spin_button( TR_PREFS_KEY_USPEED_KBps, core, 0, INT_MAX, 5 );
+        gtk_widget_set_sensitive( GTK_WIDGET( w2 ), gtr_pref_flag_get( TR_PREFS_KEY_USPEED_ENABLED ) );
         g_signal_connect( w, "toggled", G_CALLBACK( target_cb ), w2 );
         hig_workarea_add_row_w( t, &row, w, w2, NULL );
 
-        g_snprintf( buf, sizeof( buf ), _( "Limit _upload speed (%s):" ), _(speed_K_str) );
-        w = new_check_button( buf, TR_PREFS_KEY_USPEED_ENABLED, core );
-        w2 = new_spin_button( TR_PREFS_KEY_USPEED_KBps, core, 0, INT_MAX, 5 );
-        gtk_widget_set_sensitive( GTK_WIDGET( w2 ), pref_flag_get( TR_PREFS_KEY_USPEED_ENABLED ) );
+        g_snprintf( buf, sizeof( buf ), _( "_Download (%s):" ), _(speed_K_str) );
+        w = new_check_button( buf, TR_PREFS_KEY_DSPEED_ENABLED, core );
+        w2 = new_spin_button( TR_PREFS_KEY_DSPEED_KBps, core, 0, INT_MAX, 5 );
+        gtk_widget_set_sensitive( GTK_WIDGET( w2 ), gtr_pref_flag_get( TR_PREFS_KEY_DSPEED_ENABLED ) );
         g_signal_connect( w, "toggled", G_CALLBACK( target_cb ), w2 );
         hig_workarea_add_row_w( t, &row, w, w2, NULL );
 
     hig_workarea_add_section_divider( t, &row );
     h = gtk_hbox_new( FALSE, GUI_PAD );
-    w = gtk_image_new_from_stock( "alt-speed-off", -1 );
+    w = gtk_image_new_from_stock( "alt-speed-on", -1 );
     gtk_box_pack_start( GTK_BOX( h ), w, FALSE, FALSE, 0 );
-    g_snprintf( buf, sizeof( buf ), "<b>%s</b>", _( "Temporary Speed Limits" ) );
+    g_snprintf( buf, sizeof( buf ), "<b>%s</b>", _( "Alternative Speed Limits" ) );
     w = gtk_label_new( buf );
     gtk_misc_set_alignment( GTK_MISC( w ), 0.0f, 0.5f );
     gtk_label_set_use_markup( GTK_LABEL( w ), TRUE );
@@ -1046,12 +1057,12 @@ bandwidthPage( GObject * core )
         gtk_misc_set_alignment( GTK_MISC( w ), 0.5f, 0.5f );
         hig_workarea_add_wide_control( t, &row, w );
 
-        g_snprintf( buf, sizeof( buf ), _( "Limit do_wnload speed (%s):" ), _(speed_K_str) );
-        w = new_spin_button( TR_PREFS_KEY_ALT_SPEED_DOWN_KBps, core, 0, INT_MAX, 5 );
+        g_snprintf( buf, sizeof( buf ), _( "U_pload (%s):" ), _(speed_K_str) );
+        w = new_spin_button( TR_PREFS_KEY_ALT_SPEED_UP_KBps, core, 0, INT_MAX, 5 );
         hig_workarea_add_row( t, &row, buf, w, NULL );
 
-        g_snprintf( buf, sizeof( buf ), _( "Limit u_pload speed (%s):" ), _(speed_K_str) );
-        w = new_spin_button( TR_PREFS_KEY_ALT_SPEED_UP_KBps, core, 0, INT_MAX, 5 );
+        g_snprintf( buf, sizeof( buf ), _( "Do_wnload (%s):" ), _(speed_K_str) );
+        w = new_spin_button( TR_PREFS_KEY_ALT_SPEED_DOWN_KBps, core, 0, INT_MAX, 5 );
         hig_workarea_add_row( t, &row, buf, w, NULL );
 
         s = _( "_Scheduled times:" );
@@ -1104,7 +1115,7 @@ onCorePrefsChanged( TrCore * core UNUSED, const char *  key, gpointer gdata )
     {
         struct network_page_data * data = gdata;
         gdk_threads_enter();
-        gtk_label_set_text( GTK_LABEL( data->portLabel ), _( "Status unknown" ) );
+        gtr_label_set_text( GTK_LABEL( data->portLabel ), _( "Status unknown" ) );
         gtk_widget_set_sensitive( data->portButton, TRUE );
         gtk_widget_set_sensitive( data->portSpin, TRUE );
         gdk_threads_leave();
@@ -1112,7 +1123,7 @@ onCorePrefsChanged( TrCore * core UNUSED, const char *  key, gpointer gdata )
 }
 
 static void
-peerPageDestroyed( gpointer gdata, GObject * dead UNUSED )
+networkPageDestroyed( gpointer gdata, GObject * dead UNUSED )
 {
     struct network_page_data * data = gdata;
     if( data->prefsTag > 0 )
@@ -1146,8 +1157,26 @@ onPortTest( GtkButton * button UNUSED, gpointer vdata )
     tr_core_port_test( data->core );
 }
 
+static void
+onGNOMEClicked( GtkButton * button, gpointer vdata UNUSED )
+{
+    GError * err = NULL;
+
+    if( !g_spawn_command_line_async( "gnome-network-properties", &err ) )
+    {
+        GtkWidget * d = gtk_message_dialog_new( GTK_WINDOW( gtk_widget_get_toplevel( GTK_WIDGET( button ) ) ),
+                                                GTK_DIALOG_DESTROY_WITH_PARENT,
+                                                GTK_MESSAGE_ERROR,
+                                                GTK_BUTTONS_CLOSE,
+                                                "%s", err->message );
+        g_signal_connect_swapped( d, "response", G_CALLBACK( gtk_widget_destroy ), d );
+        gtk_widget_show( d );
+        g_clear_error( &err );
+    }
+}
+
 static GtkWidget*
-peerPage( GObject * core )
+networkPage( GObject * core )
 {
     int                        row = 0;
     const char *               s;
@@ -1163,9 +1192,9 @@ peerPage( GObject * core )
 
     /* build the page */
     t = hig_workarea_create( );
-    hig_workarea_add_section_title( t, &row, _( "Incoming Peers" ) );
+    hig_workarea_add_section_title( t, &row, _( "Listening Port" ) );
 
-    s = _( "_Port for incoming connections:" );
+    s = _( "_Port used for incoming connections:" );
     w = data->portSpin = new_spin_button( TR_PREFS_KEY_PEER_PORT, core, 1, USHRT_MAX, 1 );
     hig_workarea_add_row( t, &row, s, w, NULL );
 
@@ -1178,7 +1207,7 @@ peerPage( GObject * core )
     g_signal_connect( w, "clicked", G_CALLBACK(onPortTest), data );
     hig_workarea_add_row( t, &row, NULL, h, NULL );
     data->prefsTag = g_signal_connect( TR_CORE( core ), "prefs-changed", G_CALLBACK( onCorePrefsChanged ), data );
-    g_object_weak_ref( G_OBJECT( t ), peerPageDestroyed, data );
+    g_object_weak_ref( G_OBJECT( t ), networkPageDestroyed, data );
 
     s = _( "Pick a _random port every time Transmission is started" );
     w = new_check_button( s, TR_PREFS_KEY_PEER_PORT_RANDOM_ON_START, core );
@@ -1189,12 +1218,21 @@ peerPage( GObject * core )
     hig_workarea_add_wide_control( t, &row, w );
 
     hig_workarea_add_section_divider( t, &row );
-    hig_workarea_add_section_title( t, &row, _( "Limits" ) );
+    hig_workarea_add_section_title( t, &row, _( "Peer Limits" ) );
 
     w = new_spin_button( TR_PREFS_KEY_PEER_LIMIT_TORRENT, core, 1, 300, 5 );
     hig_workarea_add_row( t, &row, _( "Maximum peers per _torrent:" ), w, NULL );
     w = new_spin_button( TR_PREFS_KEY_PEER_LIMIT_GLOBAL, core, 1, 3000, 5 );
     hig_workarea_add_row( t, &row, _( "Maximum peers _overall:" ), w, NULL );
+
+    hig_workarea_add_section_divider( t, &row );
+    hig_workarea_add_section_title( t, &row, _( "Options" ) );
+
+    w = gtk_button_new_with_mnemonic( _( "Edit GNOME Proxy Settings" ) );
+    g_signal_connect( w, "clicked", G_CALLBACK( onGNOMEClicked ), data );
+    h = gtk_hbox_new( FALSE, 0 );
+    gtk_box_pack_start( GTK_BOX( h ), w, FALSE, FALSE, 0 );
+    hig_workarea_add_wide_control( t, &row, h );
 
     hig_workarea_finish( t, &row );
     return t;
@@ -1205,8 +1243,7 @@ peerPage( GObject * core )
 ****/
 
 GtkWidget *
-tr_prefs_dialog_new( GObject *   core,
-                     GtkWindow * parent )
+gtr_prefs_dialog_new( GtkWindow * parent, GObject * core )
 {
     GtkWidget * d;
     GtkWidget * n;
@@ -1234,7 +1271,7 @@ tr_prefs_dialog_new( GObject *   core,
                               privacyPage( core ),
                               gtk_label_new ( _( "Privacy" ) ) );
     gtk_notebook_append_page( GTK_NOTEBOOK( n ),
-                              peerPage( core ),
+                              networkPage( core ),
                               gtk_label_new ( _( "Network" ) ) );
     gtk_notebook_append_page( GTK_NOTEBOOK( n ),
                               desktopPage( core ),
@@ -1244,8 +1281,7 @@ tr_prefs_dialog_new( GObject *   core,
                               gtk_label_new ( _( "Web" ) ) );
 
     g_signal_connect( d, "response", G_CALLBACK( response_cb ), core );
-    gtk_box_pack_start( GTK_BOX( GTK_DIALOG( d )->vbox ), n, TRUE, TRUE, 0 );
-    gtk_widget_show_all( GTK_DIALOG( d )->vbox );
+    gtr_dialog_set_content( GTK_DIALOG( d ), n );
     return d;
 }
 

@@ -62,16 +62,15 @@ am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)" \
 	"$(DESTDIR)$(Productivitydir)" "$(DESTDIR)$(icondir)"
 PROGRAMS = $(bin_PROGRAMS)
 am__objects_1 =
-am_transmission_gtk_OBJECTS = actions.$(OBJEXT) add-dialog.$(OBJEXT) \
-	conf.$(OBJEXT) details.$(OBJEXT) dialogs.$(OBJEXT) \
-	favicon.$(OBJEXT) file-list.$(OBJEXT) filter.$(OBJEXT) \
-	hig.$(OBJEXT) icons.$(OBJEXT) main.$(OBJEXT) \
-	makemeta-ui.$(OBJEXT) msgwin.$(OBJEXT) notify.$(OBJEXT) \
+am_transmission_gtk_OBJECTS = actions.$(OBJEXT) conf.$(OBJEXT) \
+	details.$(OBJEXT) dialogs.$(OBJEXT) favicon.$(OBJEXT) \
+	file-list.$(OBJEXT) filter.$(OBJEXT) hig.$(OBJEXT) \
+	icons.$(OBJEXT) main.$(OBJEXT) makemeta-ui.$(OBJEXT) \
+	msgwin.$(OBJEXT) notify.$(OBJEXT) open-dialog.$(OBJEXT) \
 	relocate.$(OBJEXT) stats.$(OBJEXT) \
-	torrent-cell-renderer.$(OBJEXT) tracker-list.$(OBJEXT) \
-	tr-core.$(OBJEXT) tr-icon.$(OBJEXT) tr-prefs.$(OBJEXT) \
-	tr-torrent.$(OBJEXT) tr-window.$(OBJEXT) util.$(OBJEXT) \
-	$(am__objects_1)
+	torrent-cell-renderer.$(OBJEXT) tr-core.$(OBJEXT) \
+	tr-icon.$(OBJEXT) tr-prefs.$(OBJEXT) tr-torrent.$(OBJEXT) \
+	tr-window.$(OBJEXT) util.$(OBJEXT) $(am__objects_1)
 transmission_gtk_OBJECTS = $(am_transmission_gtk_OBJECTS)
 transmission_gtk_DEPENDENCIES =  \
 	$(top_builddir)/libtransmission/libtransmission.a \
@@ -180,23 +179,23 @@ am__relativize = \
     dir1=`echo "$$dir1" | sed -e "$$sed_rest"`; \
   done; \
   reldir="$$dir2"
-ACLOCAL = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/transmission/missing --run aclocal-1.11
+ACLOCAL = ${SHELL} /root/openwrt/tomato.git-compile/src/router/transmission/missing --run aclocal-1.11
 ALL_LINGUAS = 
-AMTAR = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/transmission/missing --run tar
+AMTAR = ${SHELL} /root/openwrt/tomato.git-compile/src/router/transmission/missing --run tar
 AM_DEFAULT_VERBOSITY = 0
 AR = mipsel-uclibc-ar
-AUTOCONF = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/transmission/missing --run autoconf
-AUTOHEADER = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/transmission/missing --run autoheader
-AUTOMAKE = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/transmission/missing --run automake-1.11
+AUTOCONF = ${SHELL} /root/openwrt/tomato.git-compile/src/router/transmission/missing --run autoconf
+AUTOHEADER = ${SHELL} /root/openwrt/tomato.git-compile/src/router/transmission/missing --run autoheader
+AUTOMAKE = ${SHELL} /root/openwrt/tomato.git-compile/src/router/transmission/missing --run automake-1.11
 AWK = gawk
 CANBERRA_MINIMUM = 0.10
 CATALOGS = 
 CATOBJEXT = 
 CC = mipsel-uclibc-gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = -Os -Wall -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32  -ffunction-sections -fdata-sections -std=gnu99 -ggdb3 -Wall -W -Wpointer-arith -Wformat-security -Wcast-align -Wundef -Wcast-align -Wstrict-prototypes -Wmissing-declarations -Wmissing-format-attribute -Wredundant-decls -Wnested-externs -Wunused-parameter -Wwrite-strings -Waggregate-return -Winline -Wfloat-equal -Wextra -Wdeclaration-after-statement -Winit-self
+CFLAGS = -Os -Wall -DBCMWPA2 -fno-delete-null-pointer-checks -funit-at-a-time 	--param large-function-growth=800 --param max-inline-insns-single=3000 	-ffunction-sections -fdata-sections -std=gnu99 -ggdb3 -Wall -W -Wpointer-arith -Wformat-security -Wcast-align -Wundef -Wcast-align -Wstrict-prototypes -Wmissing-declarations -Wmissing-format-attribute -Wredundant-decls -Wnested-externs -Wunused-parameter -Wwrite-strings -Winline -Wfloat-equal -Wextra -Wdeclaration-after-statement -Winit-self
 CPP = mipsel-uclibc-gcc -E
-CPPFLAGS = -I/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/zlib -DNDEBUG
+CPPFLAGS = -I/root/openwrt/tomato.git-compile/src-rt/router/zlib -DNDEBUG
 CURL_MINIMUM = 7.15.4
 CXX = mipsel-linux-g++
 CXXCPP = mipsel-linux-g++ -E
@@ -208,7 +207,7 @@ DBUS_BINDING_TOOL =
 DBUS_GLIB_CFLAGS = 
 DBUS_GLIB_LIBS = 
 DBUS_GLIB_MINIMUM = 0.70
-DEFS = -DPACKAGE_NAME=\"transmission\" -DPACKAGE_TARNAME=\"transmission\" -DPACKAGE_VERSION=\"2.13\" -DPACKAGE_STRING=\"transmission\ 2.13\" -DPACKAGE_BUGREPORT=\"http://trac.transmissionbt.com/newticket\" -DPACKAGE_URL=\"\" -DPACKAGE=\"transmission\" -DVERSION=\"2.13\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DHAVE_DLFCN_H=1 -DLT_OBJDIR=\".libs/\" -DSTDC_HEADERS=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_PREAD=1 -DHAVE_PWRITE=1 -DHAVE_STRLCPY=1 -DHAVE_DAEMON=1 -DHAVE_DIRNAME=1 -DHAVE_BASENAME=1 -DHAVE_STRCASECMP=1 -DHAVE_LOCALTIME_R=1 -DHAVE_MEMMEM=1 -DHAVE_STRSEP=1 -DHAVE_STRTOLD=1 -DHAVE_SYSLOG=1 -DHAVE_VALLOC=1 -DHAVE_GETPAGESIZE=1 -DHAVE_PTHREAD=1 -DHAVE__TMP_DUMMY1_ZLIB_H=1 -DHAVE_ZLIB=1 -D_FILE_OFFSET_BITS=64 -DHAVE_LSEEK64=1 -DHAVE_DECL_POSIX_FADVISE=0 -DHAVE_POSIX_FADVISE=1 -DWITH_INOTIFY=1
+DEFS = -DPACKAGE_NAME=\"transmission\" -DPACKAGE_TARNAME=\"transmission\" -DPACKAGE_VERSION=\"2.22\" -DPACKAGE_STRING=\"transmission\ 2.22\" -DPACKAGE_BUGREPORT=\"http://trac.transmissionbt.com/newticket\" -DPACKAGE_URL=\"\" -DPACKAGE=\"transmission\" -DVERSION=\"2.22\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DHAVE_DLFCN_H=1 -DLT_OBJDIR=\".libs/\" -DSTDC_HEADERS=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_PREAD=1 -DHAVE_PWRITE=1 -DHAVE_STRLCPY=1 -DHAVE_DAEMON=1 -DHAVE_DIRNAME=1 -DHAVE_BASENAME=1 -DHAVE_STRCASECMP=1 -DHAVE_LOCALTIME_R=1 -DHAVE_MEMMEM=1 -DHAVE_STRSEP=1 -DHAVE_STRTOLD=1 -DHAVE_SYSLOG=1 -DHAVE_VALLOC=1 -DHAVE_GETPAGESIZE=1 -DHAVE_STATVFS=1 -DHAVE_PTHREAD=1 -DHAVE__TMP_DUMMY1_ZLIB_H=1 -DHAVE_ZLIB=1 -D_FILE_OFFSET_BITS=64 -DHAVE_LSEEK64=1 -DHAVE_DECL_POSIX_FADVISE=0 -DHAVE_POSIX_FADVISE=1 -DWITH_INOTIFY=1 -DHAVE_SYS_STATVFS_H=1 -DTR_LIGHTWEIGHT=1
 DEPDIR = .deps
 DHT_CFLAGS = -I$(top_srcdir)/third-party/dht
 DHT_LIBS = $(top_builddir)/third-party/dht/libdht.a
@@ -246,16 +245,16 @@ INTLTOOL_MERGE =
 INTLTOOL_PERL = 
 INTLTOOL_UPDATE = 
 LD = mipsel-uclibc-ld
-LDFLAGS = -L/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC
+LDFLAGS = -L/root/openwrt/tomato.git-compile/src-rt/router/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC
 LIBAPPINDICATOR_CFLAGS = 
 LIBAPPINDICATOR_LIBS = 
 LIBAPPINDICATOR_MINIMUM = 0.0.11
 LIBCANBERRA_CFLAGS = 
 LIBCANBERRA_LIBS = 
-LIBCURL_CFLAGS = -I/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libcurl/include
-LIBCURL_LIBS = -L/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libcurl/lib/.libs/ -lcurl
-LIBEVENT_CFLAGS = -I/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent
-LIBEVENT_LIBS = -L/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent/.libs -levent
+LIBCURL_CFLAGS = -I/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include
+LIBCURL_LIBS = -L/root/openwrt/tomato.git-compile/src-rt/router/libcurl/lib/.libs/ -lcurl
+LIBEVENT_CFLAGS = -I/root/openwrt/tomato.git-compile/src-rt/router/libevent/include
+LIBEVENT_LIBS = -L/root/openwrt/tomato.git-compile/src-rt/router/libevent/.libs -levent
 LIBEVENT_MINIUM = 
 LIBNOTIFY_CFLAGS = 
 LIBNOTIFY_LIBS = 
@@ -266,7 +265,7 @@ LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LIPO = 
 LN_S = ln -s
 LTLIBOBJS = 
-MAKEINFO = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/transmission/missing --run makeinfo
+MAKEINFO = ${SHELL} /root/openwrt/tomato.git-compile/src/router/transmission/missing --run makeinfo
 MKDIR_P = /bin/mkdir -p
 MKINSTALLDIRS = 
 MSGFMT = 
@@ -275,20 +274,20 @@ NM = mipsel-uclibc-nm
 NMEDIT = 
 OBJDUMP = mipsel-linux-objdump
 OBJEXT = o
-OPENSSL_CFLAGS = -I/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/openssl/include
-OPENSSL_LIBS = -L/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/openssl -lcrypto -lssl
+OPENSSL_CFLAGS = -I/root/openwrt/tomato.git-compile/src-rt/router/openssl/include
+OPENSSL_LIBS = -L/root/openwrt/tomato.git-compile/src-rt/router/openssl -lcrypto -lssl
 OPENSSL_MINIMUM = 0.9.4
 OTOOL = 
 OTOOL64 = 
 PACKAGE = transmission
 PACKAGE_BUGREPORT = http://trac.transmissionbt.com/newticket
 PACKAGE_NAME = transmission
-PACKAGE_STRING = transmission 2.13
+PACKAGE_STRING = transmission 2.22
 PACKAGE_TARNAME = transmission
 PACKAGE_URL = 
-PACKAGE_VERSION = 2.13
+PACKAGE_VERSION = 2.22
 PATH_SEPARATOR = :
-PEERID_PREFIX = -TR2130-
+PEERID_PREFIX = -TR2220-
 PKG_CONFIG = /usr/bin/pkg-config
 POFILES = 
 POSUB = 
@@ -302,18 +301,18 @@ SED = /bin/sed
 SET_MAKE = 
 SHELL = /bin/sh
 STRIP = mipsel-uclibc-strip
-USERAGENT_PREFIX = 2.13
+USERAGENT_PREFIX = 2.22
 USE_NLS = 
-VERSION = 2.13
+VERSION = 2.22
 WINDRES = 
 XGETTEXT = 
 ZLIB_CFLAGS = 
 ZLIB_LDFLAGS = 
 ZLIB_LIBS = -lz -lm 
-abs_builddir = /root/openwrt/tomato-b54/tomato.en/release/src/router/transmission/gtk
-abs_srcdir = /root/openwrt/tomato-b54/tomato.en/release/src/router/transmission/gtk
-abs_top_builddir = /root/openwrt/tomato-b54/tomato.en/release/src/router/transmission
-abs_top_srcdir = /root/openwrt/tomato-b54/tomato.en/release/src/router/transmission
+abs_builddir = /root/openwrt/tomato.git-compile/src/router/transmission/gtk
+abs_srcdir = /root/openwrt/tomato.git-compile/src/router/transmission/gtk
+abs_top_builddir = /root/openwrt/tomato.git-compile/src/router/transmission
+abs_top_srcdir = /root/openwrt/tomato.git-compile/src/router/transmission
 ac_ct_CC = 
 ac_ct_CXX = 
 ac_ct_DUMPBIN = 
@@ -343,7 +342,7 @@ host_vendor = unknown
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/transmission/install-sh
+install_sh = ${SHELL} /root/openwrt/tomato.git-compile/src/router/transmission/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
@@ -377,15 +376,15 @@ AM_CPPFLAGS = \
 
 AM_CFLAGS = \
      \
-    -I/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent \
+    -I/root/openwrt/tomato.git-compile/src-rt/router/libevent/include \
      \
      \
      \
-    -I/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libcurl/include \
+    -I/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include \
      \
      \
      \
-    -I/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/openssl/include \
+    -I/root/openwrt/tomato.git-compile/src-rt/router/openssl/include \
      \
     -pthread
 
@@ -394,7 +393,6 @@ AM_LDFLAGS = \
 
 noinst_HEADERS = \
     actions.h \
-    add-dialog.h \
     conf.h \
     details.h \
     dialogs.h \
@@ -412,10 +410,10 @@ noinst_HEADERS = \
     makemeta-ui.h \
     msgwin.h \
     notify.h \
+    open-dialog.h \
     relocate.h \
     stats.h \
     torrent-cell-renderer.h \
-    tracker-list.h \
     tr-core.h \
     tr-core-dbus.h \
     tr-icon.h \
@@ -428,7 +426,6 @@ noinst_HEADERS = \
 dbus_generated_sources = tr-core-dbus.h
 transmission_gtk_SOURCES = \
     actions.c \
-    add-dialog.c \
     conf.c \
     details.c \
     dialogs.c \
@@ -441,10 +438,10 @@ transmission_gtk_SOURCES = \
     makemeta-ui.c \
     msgwin.c \
     notify.c \
+    open-dialog.c \
     relocate.c \
     stats.c \
     torrent-cell-renderer.c \
-    tracker-list.c \
     tr-core.c \
     tr-icon.c \
     tr-prefs.c \
@@ -460,7 +457,7 @@ transmission_gtk_LDADD =  \
 	$(top_builddir)/third-party/libnatpmp/libnatpmp.a \
 	  $(top_builddir)/third-party/dht/libdht.a  \
 	   \
-	-L/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent/.libs -levent  -L/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libcurl/lib/.libs/ -lcurl -L/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/openssl -lcrypto -lssl \
+	-L/root/openwrt/tomato.git-compile/src-rt/router/libevent/.libs -levent  -L/root/openwrt/tomato.git-compile/src-rt/router/libcurl/lib/.libs/ -lcurl -L/root/openwrt/tomato.git-compile/src-rt/router/openssl -lcrypto -lssl \
 	-lz -lm   $(am__append_2)
 DESKTOP_IN_FILES = transmission-gtk.desktop.in
 DESKTOP_FILES = $(DESKTOP_IN_FILES:.desktop.in=.desktop)
@@ -573,7 +570,6 @@ distclean-compile:
 	-rm -f *.tab.c
 
 include ./$(DEPDIR)/actions.Po
-include ./$(DEPDIR)/add-dialog.Po
 include ./$(DEPDIR)/conf.Po
 include ./$(DEPDIR)/details.Po
 include ./$(DEPDIR)/dialogs.Po
@@ -586,6 +582,7 @@ include ./$(DEPDIR)/main.Po
 include ./$(DEPDIR)/makemeta-ui.Po
 include ./$(DEPDIR)/msgwin.Po
 include ./$(DEPDIR)/notify.Po
+include ./$(DEPDIR)/open-dialog.Po
 include ./$(DEPDIR)/relocate.Po
 include ./$(DEPDIR)/stats.Po
 include ./$(DEPDIR)/torrent-cell-renderer.Po
@@ -594,7 +591,6 @@ include ./$(DEPDIR)/tr-icon.Po
 include ./$(DEPDIR)/tr-prefs.Po
 include ./$(DEPDIR)/tr-torrent.Po
 include ./$(DEPDIR)/tr-window.Po
-include ./$(DEPDIR)/tracker-list.Po
 include ./$(DEPDIR)/util.Po
 
 .c.o:

@@ -35,22 +35,43 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 noinst_PROGRAMS = event-test$(EXEEXT) time-test$(EXEEXT) \
-	signal-test$(EXEEXT)
+	signal-test$(EXEEXT) dns-example$(EXEEXT) hello-world$(EXEEXT) \
+	http-server$(EXEEXT) $(am__EXEEXT_1)
+@OPENSSL_TRUE@am__append_1 = le-proxy
 subdir = sample
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/configure.in
+am__aclocal_m4_deps = $(top_srcdir)/m4/acx_pthread.m4 \
+	$(top_srcdir)/m4/libtool.m4 $(top_srcdir)/m4/ltoptions.m4 \
+	$(top_srcdir)/m4/ltsugar.m4 $(top_srcdir)/m4/ltversion.m4 \
+	$(top_srcdir)/m4/lt~obsolete.m4 $(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
+@OPENSSL_TRUE@am__EXEEXT_1 = le-proxy$(EXEEXT)
 PROGRAMS = $(noinst_PROGRAMS)
+dns_example_SOURCES = dns-example.c
+dns_example_OBJECTS = dns-example.$(OBJEXT)
+dns_example_LDADD = $(LDADD)
+dns_example_DEPENDENCIES = ../libevent.la
 event_test_SOURCES = event-test.c
 event_test_OBJECTS = event-test.$(OBJEXT)
 event_test_LDADD = $(LDADD)
 event_test_DEPENDENCIES = ../libevent.la
+hello_world_SOURCES = hello-world.c
+hello_world_OBJECTS = hello-world.$(OBJEXT)
+hello_world_LDADD = $(LDADD)
+hello_world_DEPENDENCIES = ../libevent.la
+http_server_SOURCES = http-server.c
+http_server_OBJECTS = http-server.$(OBJEXT)
+http_server_LDADD = $(LDADD)
+http_server_DEPENDENCIES = ../libevent.la
+le_proxy_SOURCES = le-proxy.c
+le_proxy_OBJECTS = le-proxy.$(OBJEXT)
+@OPENSSL_TRUE@le_proxy_DEPENDENCIES = $(LDADD) ../libevent_openssl.la
 signal_test_SOURCES = signal-test.c
 signal_test_OBJECTS = signal-test.$(OBJEXT)
 signal_test_LDADD = $(LDADD)
@@ -71,8 +92,10 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = event-test.c signal-test.c time-test.c
-DIST_SOURCES = event-test.c signal-test.c time-test.c
+SOURCES = dns-example.c event-test.c hello-world.c http-server.c \
+	le-proxy.c signal-test.c time-test.c
+DIST_SOURCES = dns-example.c event-test.c hello-world.c http-server.c \
+	le-proxy.c signal-test.c time-test.c
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -120,6 +143,7 @@ NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OPENSSL_LIBS = @OPENSSL_LIBS@
 OTOOL = @OTOOL@
 OTOOL64 = @OTOOL64@
 PACKAGE = @PACKAGE@
@@ -130,18 +154,23 @@ PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_URL = @PACKAGE_URL@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
+PTHREAD_CC = @PTHREAD_CC@
+PTHREAD_CFLAGS = @PTHREAD_CFLAGS@
+PTHREAD_LIBS = @PTHREAD_LIBS@
 RANLIB = @RANLIB@
 SED = @SED@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
 VERSION = @VERSION@
+ZLIB_LIBS = @ZLIB_LIBS@
 abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
+acx_pthread_config = @acx_pthread_config@
 am__include = @am__include@
 am__leading_dot = @am__leading_dot@
 am__quote = @am__quote@
@@ -172,7 +201,6 @@ libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
 localstatedir = @localstatedir@
-lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
@@ -190,10 +218,15 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign no-dependencies
 LDADD = ../libevent.la
-AM_CFLAGS = -I$(top_srcdir) -I$(top_srcdir)/compat
+AM_CFLAGS = -I$(top_srcdir) -I$(top_srcdir)/compat -I$(top_srcdir)/include -I../include
 event_test_sources = event-test.c
 time_test_sources = time-test.c
 signal_test_sources = signal-test.c
+dns_example_sources = dns-example.c
+hello_world_sources = hello-world.c
+http_server_sources = http-server.c
+@OPENSSL_TRUE@le_proxy_sources = le-proxy.c
+@OPENSSL_TRUE@le_proxy_LDADD = $(LDADD) ../libevent_openssl.la -lcrypto -lssl
 DISTCLEANFILES = *~
 all: all-am
 
@@ -238,9 +271,21 @@ clean-noinstPROGRAMS:
 	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
 	echo " rm -f" $$list; \
 	rm -f $$list
+dns-example$(EXEEXT): $(dns_example_OBJECTS) $(dns_example_DEPENDENCIES) 
+	@rm -f dns-example$(EXEEXT)
+	$(LINK) $(dns_example_OBJECTS) $(dns_example_LDADD) $(LIBS)
 event-test$(EXEEXT): $(event_test_OBJECTS) $(event_test_DEPENDENCIES) 
 	@rm -f event-test$(EXEEXT)
 	$(LINK) $(event_test_OBJECTS) $(event_test_LDADD) $(LIBS)
+hello-world$(EXEEXT): $(hello_world_OBJECTS) $(hello_world_DEPENDENCIES) 
+	@rm -f hello-world$(EXEEXT)
+	$(LINK) $(hello_world_OBJECTS) $(hello_world_LDADD) $(LIBS)
+http-server$(EXEEXT): $(http_server_OBJECTS) $(http_server_DEPENDENCIES) 
+	@rm -f http-server$(EXEEXT)
+	$(LINK) $(http_server_OBJECTS) $(http_server_LDADD) $(LIBS)
+le-proxy$(EXEEXT): $(le_proxy_OBJECTS) $(le_proxy_DEPENDENCIES) 
+	@rm -f le-proxy$(EXEEXT)
+	$(LINK) $(le_proxy_OBJECTS) $(le_proxy_LDADD) $(LIBS)
 signal-test$(EXEEXT): $(signal_test_OBJECTS) $(signal_test_DEPENDENCIES) 
 	@rm -f signal-test$(EXEEXT)
 	$(LINK) $(signal_test_OBJECTS) $(signal_test_LDADD) $(LIBS)

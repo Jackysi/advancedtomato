@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) 2007-2010 Mnemosyne LLC
+ * This file Copyright (C) Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2.  Works owned by the
+ * This file is licensed by the GPL version 2. Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-io.c 11398 2010-11-11 15:31:11Z charles $
+ * $Id: peer-io.c 12060 2011-03-01 15:23:22Z jordan $
  */
 
 #include <assert.h>
@@ -23,7 +23,8 @@
  #include <arpa/inet.h> /* inet_ntoa */
 #endif
 
-#include <event.h>
+#include <event2/event.h>
+#include <event2/bufferevent.h>
 
 #include "transmission.h"
 #include "session.h"
@@ -85,6 +86,7 @@ struct tr_datatype
     size_t   length;
 };
 
+
 /***
 ****
 ***/
@@ -138,22 +140,22 @@ canReadWrapper( tr_peerIo * io )
     /* try to consume the input buffer */
     if( io->canRead )
     {
+        const uint64_t now = tr_time_msec( );
+
         tr_sessionLock( session );
 
         while( !done && !err )
         {
             size_t piece = 0;
-            const size_t oldLen = EVBUFFER_LENGTH( io->inbuf );
+            const size_t oldLen = evbuffer_get_length( io->inbuf );
             const int ret = io->canRead( io, io->userData, &piece );
-
-            const size_t used = oldLen - EVBUFFER_LENGTH( io->inbuf );
+            const size_t used = oldLen - evbuffer_get_length( io->inbuf );
+            const unsigned int overhead = guessPacketOverhead( used );
 
             assert( tr_isPeerIo( io ) );
 
             if( piece || (piece!=used) )
             {
-                const uint64_t now = tr_time_msec( );
-
                 if( piece )
                     tr_bandwidthUsed( &io->bandwidth, TR_DOWN, piece, TRUE, now );
 
@@ -161,10 +163,13 @@ canReadWrapper( tr_peerIo * io )
                     tr_bandwidthUsed( &io->bandwidth, TR_DOWN, used - piece, FALSE, now );
             }
 
+            if( overhead > 0 )
+                tr_bandwidthUsed( &io->bandwidth, TR_UP, overhead, FALSE, now );
+
             switch( ret )
             {
                 case READ_NOW:
-                    if( EVBUFFER_LENGTH( io->inbuf ) )
+                    if( evbuffer_get_length( io->inbuf ) )
                         continue;
                     done = 1;
                     break;
@@ -182,12 +187,6 @@ canReadWrapper( tr_peerIo * io )
         }
 
         tr_sessionUnlock( session );
-    }
-
-    /* keep the iobuf's excess capacity from growing too large */
-    if( EVBUFFER_LENGTH( io->inbuf ) == 0 ) {
-        evbuffer_free( io->inbuf );
-        io->inbuf = evbuffer_new( );
     }
 
     assert( tr_isPeerIo( io ) );
@@ -219,10 +218,9 @@ event_read_cb( int fd, short event UNUSED, void * vio )
 
     assert( tr_isPeerIo( io ) );
 
-    io->hasFinishedConnecting = TRUE;
     io->pendingEvents &= ~EV_READ;
 
-    curlen = EVBUFFER_LENGTH( io->inbuf );
+    curlen = evbuffer_get_length( io->inbuf );
     howmuch = curlen >= max ? 0 : max - curlen;
     howmuch = tr_bandwidthClamp( &io->bandwidth, TR_DOWN, howmuch );
 
@@ -248,16 +246,16 @@ event_read_cb( int fd, short event UNUSED, void * vio )
     else
     {
         char errstr[512];
-        short what = EVBUFFER_READ;
+        short what = BEV_EVENT_READING;
 
         if( res == 0 ) /* EOF */
-            what |= EVBUFFER_EOF;
+            what |= BEV_EVENT_EOF;
         else if( res == -1 ) {
             if( e == EAGAIN || e == EINTR ) {
                 tr_peerIoSetEnabled( io, dir, TRUE );
                 return;
             }
-            what |= EVBUFFER_ERROR;
+            what |= BEV_EVENT_ERROR;
         }
 
         tr_net_strerror( errstr, sizeof( errstr ), e );
@@ -274,27 +272,11 @@ tr_evbuffer_write( tr_peerIo * io, int fd, size_t howmuch )
     int e;
     int n;
     char errstr[256];
-    struct evbuffer * buffer = io->outbuf;
-
-    howmuch = MIN( EVBUFFER_LENGTH( buffer ), howmuch );
 
     EVUTIL_SET_SOCKET_ERROR( 0 );
-#ifdef WIN32
-    n = (int) send(fd, buffer->buffer, howmuch,  0 );
-#else
-    n = (int) write(fd, buffer->buffer, howmuch );
-#endif
+    n = evbuffer_write_atmost( io->outbuf, fd, howmuch );
     e = EVUTIL_SOCKET_ERROR( );
     dbgmsg( io, "wrote %d to peer (%s)", n, (n==-1?tr_net_strerror(errstr,sizeof(errstr),e):"") );
-
-    if( n > 0 )
-        evbuffer_drain( buffer, (size_t)n );
-
-    /* keep the iobuf's excess capacity from growing too large */
-    if( EVBUFFER_LENGTH( io->outbuf ) == 0 ) {
-        evbuffer_free( io->outbuf );
-        io->outbuf = evbuffer_new( );
-    }
 
     return n;
 }
@@ -304,21 +286,20 @@ event_write_cb( int fd, short event UNUSED, void * vio )
 {
     int res = 0;
     int e;
-    short what = EVBUFFER_WRITE;
+    short what = BEV_EVENT_WRITING;
     tr_peerIo * io = vio;
     size_t howmuch;
     const tr_direction dir = TR_UP;
 
     assert( tr_isPeerIo( io ) );
 
-    io->hasFinishedConnecting = TRUE;
     io->pendingEvents &= ~EV_WRITE;
 
     dbgmsg( io, "libevent says this peer is ready to write" );
 
     /* Write as much as possible, since the socket is non-blocking, write() will
      * return if it can't write any more data without blocking */
-    howmuch = tr_bandwidthClamp( &io->bandwidth, dir, EVBUFFER_LENGTH( io->outbuf ) );
+    howmuch = tr_bandwidthClamp( &io->bandwidth, dir, evbuffer_get_length( io->outbuf ) );
 
     /* if we don't have any bandwidth left, stop writing */
     if( howmuch < 1 ) {
@@ -331,25 +312,25 @@ event_write_cb( int fd, short event UNUSED, void * vio )
     e = EVUTIL_SOCKET_ERROR( );
 
     if (res == -1) {
-        if (e == EAGAIN || e == EINTR || e == EINPROGRESS)
+        if (!e || e == EAGAIN || e == EINTR || e == EINPROGRESS)
             goto reschedule;
         /* error case */
-        what |= EVBUFFER_ERROR;
+        what |= BEV_EVENT_ERROR;
     } else if (res == 0) {
         /* eof case */
-        what |= EVBUFFER_EOF;
+        what |= BEV_EVENT_EOF;
     }
     if (res <= 0)
         goto error;
 
-    if( EVBUFFER_LENGTH( io->outbuf ) )
+    if( evbuffer_get_length( io->outbuf ) )
         tr_peerIoSetEnabled( io, dir, TRUE );
 
     didWriteWrapper( io, res );
     return;
 
  reschedule:
-    if( EVBUFFER_LENGTH( io->outbuf ) )
+    if( evbuffer_get_length( io->outbuf ) )
         tr_peerIoSetEnabled( io, dir, TRUE );
     return;
 
@@ -411,16 +392,14 @@ tr_peerIoNew( tr_session       * session,
     io->port = port;
     io->socket = socket;
     io->isIncoming = isIncoming != 0;
-    io->hasFinishedConnecting = FALSE;
     io->timeCreated = tr_time( );
     io->inbuf = evbuffer_new( );
     io->outbuf = evbuffer_new( );
+    io->event_read = event_new( session->event_base, io->socket, EV_READ, event_read_cb, io );
+    io->event_write = event_new( session->event_base, io->socket, EV_WRITE, event_write_cb, io );
     tr_bandwidthConstruct( &io->bandwidth, session, parent );
     tr_bandwidthSetPeer( &io->bandwidth, io );
     dbgmsg( io, "bandwidth is %p; its parent is %p", &io->bandwidth, parent );
-
-    event_set( &io->event_read, io->socket, EV_READ, event_read_cb, io );
-    event_set( &io->event_write, io->socket, EV_WRITE, event_write_cb, io );
 
     return io;
 }
@@ -470,8 +449,8 @@ event_enable( tr_peerIo * io, short event )
     assert( tr_amInEventThread( io->session ) );
     assert( io->session != NULL );
     assert( io->session->events != NULL );
-    assert( event_initialized( &io->event_read ) );
-    assert( event_initialized( &io->event_write ) );
+    assert( event_initialized( io->event_read ) );
+    assert( event_initialized( io->event_write ) );
 
     if( io->socket < 0 )
         return;
@@ -479,14 +458,14 @@ event_enable( tr_peerIo * io, short event )
     if( ( event & EV_READ ) && ! ( io->pendingEvents & EV_READ ) )
     {
         dbgmsg( io, "enabling libevent ready-to-read polling" );
-        event_add( &io->event_read, NULL );
+        event_add( io->event_read, NULL );
         io->pendingEvents |= EV_READ;
     }
 
     if( ( event & EV_WRITE ) && ! ( io->pendingEvents & EV_WRITE ) )
     {
         dbgmsg( io, "enabling libevent ready-to-write polling" );
-        event_add( &io->event_write, NULL );
+        event_add( io->event_write, NULL );
         io->pendingEvents |= EV_WRITE;
     }
 }
@@ -497,20 +476,20 @@ event_disable( struct tr_peerIo * io, short event )
     assert( tr_amInEventThread( io->session ) );
     assert( io->session != NULL );
     assert( io->session->events != NULL );
-    assert( event_initialized( &io->event_read ) );
-    assert( event_initialized( &io->event_write ) );
+    assert( event_initialized( io->event_read ) );
+    assert( event_initialized( io->event_write ) );
 
     if( ( event & EV_READ ) && ( io->pendingEvents & EV_READ ) )
     {
         dbgmsg( io, "disabling libevent ready-to-read polling" );
-        event_del( &io->event_read );
+        event_del( io->event_read );
         io->pendingEvents &= ~EV_READ;
     }
 
     if( ( event & EV_WRITE ) && ( io->pendingEvents & EV_WRITE ) )
     {
         dbgmsg( io, "disabling libevent ready-to-write polling" );
-        event_del( &io->event_write );
+        event_del( io->event_write );
         io->pendingEvents &= ~EV_WRITE;
     }
 }
@@ -548,6 +527,8 @@ io_dtor( void * vio )
 
     dbgmsg( io, "in tr_peerIo destructor" );
     event_disable( io, EV_READ | EV_WRITE );
+    event_free( io->event_read );
+    event_free( io->event_write );
     tr_bandwidthDestruct( &io->bandwidth );
     evbuffer_free( io->outbuf );
     evbuffer_free( io->inbuf );
@@ -661,9 +642,11 @@ tr_peerIoReconnect( tr_peerIo * io )
     if( io->socket >= 0 )
         tr_netClose( session, io->socket );
 
+    event_free( io->event_read );
+    event_free( io->event_write );
     io->socket = tr_netOpenPeerSocket( session, &io->addr, io->port, io->isSeed );
-    event_set( &io->event_read, io->socket, EV_READ, event_read_cb, io );
-    event_set( &io->event_write, io->socket, EV_WRITE, event_write_cb, io );
+    io->event_read = event_new( session->event_base, io->socket, EV_READ, event_read_cb, io );
+    io->event_write = event_new( session->event_base, io->socket, EV_WRITE, event_write_cb, io );
 
     if( io->socket >= 0 )
     {
@@ -745,7 +728,7 @@ size_t
 tr_peerIoGetWriteBufferSpace( const tr_peerIo * io, uint64_t now )
 {
     const size_t desiredLen = getDesiredOutputBufferSize( io, now );
-    const size_t currentLen = EVBUFFER_LENGTH( io->outbuf );
+    const size_t currentLen = evbuffer_get_length( io->outbuf );
     size_t freeSpace = 0;
 
     if( desiredLen > currentLen )
@@ -772,81 +755,60 @@ tr_peerIoSetEncryption( tr_peerIo * io, uint32_t encryptionMode )
 ***
 **/
 
-void
-tr_peerIoWrite( tr_peerIo   * io,
-                const void  * bytes,
-                size_t        byteCount,
-                tr_bool       isPieceData )
+static void
+addDatatype( tr_peerIo * io, size_t byteCount, tr_bool isPieceData )
 {
-    /* FIXME(libevent2): this implementation snould be moved to tr_peerIoWriteBuf.   This function should be implemented as evbuffer_new() + evbuffer_add_reference() + a call to tr_peerIoWriteBuf() + evbuffer_free() */
-    struct tr_datatype * datatype;
+    struct tr_datatype * d;
 
-    assert( tr_amInEventThread( io->session ) );
-    dbgmsg( io, "adding %zu bytes into io->output", byteCount );
+    d = tr_new( struct tr_datatype, 1 );
+    d->isPieceData = isPieceData != 0;
+    d->length = byteCount;
+    tr_list_append( &io->outbuf_datatypes, d );
+}
 
-    datatype = tr_new( struct tr_datatype, 1 );
-    datatype->isPieceData = isPieceData != 0;
-    datatype->length = byteCount;
-    tr_list_append( &io->outbuf_datatypes, datatype );
+static struct evbuffer_iovec *
+evbuffer_peek_all( struct evbuffer * buf, size_t * setme_vecCount )
+{
+    const size_t byteCount = evbuffer_get_length( buf );
+    const int vecCount = evbuffer_peek( buf, byteCount, NULL, NULL, 0 );
+    struct evbuffer_iovec * iovec = tr_new0( struct evbuffer_iovec, vecCount );
+    const int n = evbuffer_peek( buf, byteCount, NULL, iovec, vecCount );
+    assert( n == vecCount );
+    *setme_vecCount = n;
+    return iovec;
+}
 
-    switch( io->encryptionMode )
+static void
+maybeEncryptBuffer( tr_peerIo * io, struct evbuffer * buf )
+{
+    if( io->encryptionMode == PEER_ENCRYPTION_RC4 )
     {
-        case PEER_ENCRYPTION_RC4:
-        {
-            /* FIXME(libevent2): use evbuffer_reserve_space() and evbuffer_commit_space() instead of tmp */
-            void * tmp = tr_sessionGetBuffer( io->session );
-            const size_t tmplen = SESSION_BUFFER_SIZE;
-            const uint8_t * walk = bytes;
-            evbuffer_expand( io->outbuf, byteCount );
-            while( byteCount > 0 )
-            {
-                const size_t thisPass = MIN( byteCount, tmplen );
-                tr_cryptoEncrypt( io->crypto, thisPass, walk, tmp );
-                evbuffer_add( io->outbuf, tmp, thisPass );
-                walk += thisPass;
-                byteCount -= thisPass;
-            }
-            tr_sessionReleaseBuffer( io->session );
-            break;
-        }
+        size_t i, n;
+        struct evbuffer_iovec * iovec = evbuffer_peek_all( buf, &n );
 
-        case PEER_ENCRYPTION_NONE:
-            evbuffer_add( io->outbuf, bytes, byteCount );
-            break;
+        for( i=0; i<n; ++i )
+            tr_cryptoEncrypt( io->crypto, iovec[i].iov_len, iovec[i].iov_base, iovec[i].iov_base );
 
-        default:
-            assert( 0 );
-            break;
+        tr_free( iovec );
     }
 }
 
 void
-tr_peerIoWriteBuf( tr_peerIo         * io,
-                   struct evbuffer   * buf,
-                   tr_bool             isPieceData )
+tr_peerIoWriteBuf( tr_peerIo * io, struct evbuffer * buf, tr_bool isPieceData )
 {
-    /* FIXME(libevent2): loop through calls to evbuffer_get_contiguous_space() + evbuffer_drain() */
-    const size_t n = EVBUFFER_LENGTH( buf );
-    tr_peerIoWrite( io, EVBUFFER_DATA( buf ), n, isPieceData );
-    evbuffer_drain( buf, n );
+    const size_t byteCount = evbuffer_get_length( buf );
+    maybeEncryptBuffer( io, buf );
+    evbuffer_add_buffer( io->outbuf, buf );
+    addDatatype( io, byteCount, isPieceData );
 }
 
 void
-tr_peerIoWriteUint16( tr_peerIo        * io,
-                      struct evbuffer  * outbuf,
-                      uint16_t           writeme )
+tr_peerIoWriteBytes( tr_peerIo * io, const void * bytes, size_t byteCount, tr_bool isPieceData )
 {
-    const uint16_t tmp = htons( writeme );
-    tr_peerIoWriteBytes( io, outbuf, &tmp, sizeof( uint16_t ) );
-}
-
-void
-tr_peerIoWriteUint32( tr_peerIo        * io,
-                      struct evbuffer  * outbuf,
-                      uint32_t           writeme )
-{
-    const uint32_t tmp = htonl( writeme );
-    tr_peerIoWriteBytes( io, outbuf, &tmp, sizeof( uint32_t ) );
+    struct evbuffer * buf = evbuffer_new( );
+    evbuffer_add( buf, bytes, byteCount );
+    tr_peerIoWriteBuf( io, buf, isPieceData );
+    evbuffer_free( buf );
 }
 
 /***
@@ -854,14 +816,34 @@ tr_peerIoWriteUint32( tr_peerIo        * io,
 ***/
 
 void
-tr_peerIoReadBytes( tr_peerIo       * io,
-                    struct evbuffer * inbuf,
-                    void            * bytes,
-                    size_t            byteCount )
+evbuffer_add_uint8( struct evbuffer * outbuf, uint8_t byte )
+{
+    evbuffer_add( outbuf, &byte, 1 );
+}
+
+void
+evbuffer_add_uint16( struct evbuffer * outbuf, uint16_t addme_hs )
+{
+    const uint16_t ns = htons( addme_hs );
+    evbuffer_add( outbuf, &ns, sizeof( ns ) );
+}
+
+void
+evbuffer_add_uint32( struct evbuffer * outbuf, uint32_t addme_hl )
+{
+    const uint32_t nl = htonl( addme_hl );
+    evbuffer_add( outbuf, &nl, sizeof( nl ) );
+}
+
+/***
+****
+***/
+
+void
+tr_peerIoReadBytes( tr_peerIo * io, struct evbuffer * inbuf, void * bytes, size_t byteCount )
 {
     assert( tr_isPeerIo( io ) );
-    /* FIXME(libevent2): use evbuffer_get_length() */
-    assert( EVBUFFER_LENGTH( inbuf ) >= byteCount );
+    assert( evbuffer_get_length( inbuf )  >= byteCount );
 
     switch( io->encryptionMode )
     {
@@ -870,9 +852,8 @@ tr_peerIoReadBytes( tr_peerIo       * io,
             break;
 
         case PEER_ENCRYPTION_RC4:
-            /* FIXME(libevent2): loop through calls to evbuffer_get_contiguous_space() + evbuffer_drain() */
-            tr_cryptoDecrypt( io->crypto, byteCount, EVBUFFER_DATA(inbuf), bytes );
-            evbuffer_drain(inbuf, byteCount );
+            evbuffer_remove( inbuf, bytes, byteCount );
+            tr_cryptoDecrypt( io->crypto, byteCount, bytes, bytes );
             break;
 
         default:
@@ -936,15 +917,15 @@ tr_peerIoTryRead( tr_peerIo * io, size_t howmuch )
 
         dbgmsg( io, "read %d from peer (%s)", res, (res==-1?strerror(e):"") );
 
-        if( EVBUFFER_LENGTH( io->inbuf ) )
+        if( evbuffer_get_length( io->inbuf ) )
             canReadWrapper( io );
 
         if( ( res <= 0 ) && ( io->gotError ) && ( e != EAGAIN ) && ( e != EINTR ) && ( e != EINPROGRESS ) )
         {
             char errstr[512];
-            short what = EVBUFFER_READ | EVBUFFER_ERROR;
+            short what = BEV_EVENT_READING | BEV_EVENT_ERROR;
             if( res == 0 )
-                what |= EVBUFFER_EOF;
+                what |= BEV_EVENT_EOF;
             tr_net_strerror( errstr, sizeof( errstr ), e );
             dbgmsg( io, "tr_peerIoTryRead got an error. res is %d, what is %hd, errno is %d (%s)", res, what, e, errstr );
             io->gotError( io, what, io->userData );
@@ -969,10 +950,10 @@ tr_peerIoTryWrite( tr_peerIo * io, size_t howmuch )
         if( n > 0 )
             didWriteWrapper( io, n );
 
-        if( ( n < 0 ) && ( io->gotError ) && ( e != EPIPE ) && ( e != EAGAIN ) && ( e != EINTR ) && ( e != EINPROGRESS ) )
+        if( ( n < 0 ) && ( io->gotError ) && e && ( e != EPIPE ) && ( e != EAGAIN ) && ( e != EINTR ) && ( e != EINPROGRESS ) )
         {
             char errstr[512];
-            const short what = EVBUFFER_WRITE | EVBUFFER_ERROR;
+            const short what = BEV_EVENT_WRITING | BEV_EVENT_ERROR;
 
             tr_net_strerror( errstr, sizeof( errstr ), e );
             dbgmsg( io, "tr_peerIoTryWrite got an error. res is %d, what is %hd, errno is %d (%s)", n, what, e, errstr );
@@ -993,15 +974,12 @@ tr_peerIoFlush( tr_peerIo  * io, tr_direction dir, size_t limit )
     assert( tr_isPeerIo( io ) );
     assert( tr_isDirection( dir ) );
 
-    if( io->hasFinishedConnecting )
-    {
-        if( dir == TR_DOWN )
-            bytesUsed = tr_peerIoTryRead( io, limit );
-        else
-            bytesUsed = tr_peerIoTryWrite( io, limit );
-    }
+    if( dir == TR_DOWN )
+        bytesUsed = tr_peerIoTryRead( io, limit );
+    else
+        bytesUsed = tr_peerIoTryWrite( io, limit );
 
-    dbgmsg( io, "flushing peer-io, hasFinishedConnecting %d, direction %d, limit %zu, bytesUsed %d", (int)io->hasFinishedConnecting, (int)dir, limit, bytesUsed );
+    dbgmsg( io, "flushing peer-io, direction %d, limit %zu, bytesUsed %d", (int)dir, limit, bytesUsed );
     return bytesUsed;
 }
 

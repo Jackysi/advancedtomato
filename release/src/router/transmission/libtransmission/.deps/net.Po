@@ -75,13 +75,14 @@ net.o net.o: net.c \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/posix_opt.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/confname.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/getopt.h \
-  /root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent/evutil.h \
-  /root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent/event-config.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/util.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/event-config.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/time.h \
   transmission.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/inttypes.h \
   fdlimit.h net.h natpmp.h peer-io.h \
-  /root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent/event.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/buffer.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/event.h \
   bandwidth.h ptrarray.h utils.h list.h platform.h session.h bencode.h \
   bitfield.h
 
@@ -237,9 +238,9 @@ net.o net.o: net.c \
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/getopt.h:
 
-/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent/evutil.h:
+/root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/util.h:
 
-/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent/event-config.h:
+/root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/event-config.h:
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/time.h:
 
@@ -255,7 +256,9 @@ natpmp.h:
 
 peer-io.h:
 
-/root/openwrt/tomato-b54/tomato.en/release/src-rt/router/libevent/event.h:
+/root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/buffer.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/event.h:
 
 bandwidth.h:
 

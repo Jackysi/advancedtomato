@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: Controller.h 11178 2010-08-14 19:44:43Z livings124 $
+ * $Id: Controller.h 11835 2011-02-06 17:32:16Z livings124 $
  *
- * Copyright (c) 2005-2010 Transmission authors and contributors
+ * Copyright (c) 2005-2011 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -31,6 +31,7 @@
 @class AddWindowController;
 @class Badger;
 @class DragOverlayWindow;
+@class FilterBarView;
 @class FilterButton;
 @class InfoWindowController;
 @class MessageWindowController;
@@ -77,7 +78,7 @@ typedef enum
     IBOutlet NSTextField            * fTotalDLField, * fTotalULField;
     IBOutlet NSImageView            * fTotalDLImageView;
     
-    IBOutlet StatusBarView          * fFilterBar;
+    IBOutlet FilterBarView          * fFilterBar;
     IBOutlet FilterButton           * fNoFilterButton, * fActiveFilterButton, * fDownloadFilterButton,
                                     * fSeedFilterButton, * fPauseFilterButton;
     IBOutlet NSSearchField          * fSearchFilterField;
@@ -102,8 +103,7 @@ typedef enum
     #warning change to QLPreviewPanel
     id                              fPreviewPanel;
     BOOL                            fQuitting;
-    
-    BOOL                            fUpdateInProgress;
+    BOOL                            fQuitRequested;
     BOOL                            fPauseOnLaunch;
     
     Badger                          * fBadger;
@@ -274,6 +274,7 @@ typedef enum
 - (void) rpcCallback: (tr_rpc_callback_type) type forTorrentStruct: (struct tr_torrent *) torrentStruct;
 - (void) rpcAddTorrentStruct: (NSValue *) torrentStructPtr;
 - (void) rpcRemoveTorrent: (Torrent *) torrent;
+- (void) rpcRemoveTorrentDeleteData: (Torrent *) torrent;
 - (void) rpcStartedStoppedTorrent: (Torrent *) torrent;
 - (void) rpcChangedTorrent: (Torrent *) torrent;
 - (void) rpcMovedTorrent: (Torrent *) torrent;

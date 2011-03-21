@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: tracker-delegate.cc 11284 2010-10-01 20:22:51Z charles $
+ * $Id: tracker-delegate.cc 11522 2010-12-12 16:43:19Z charles $
  */
 
 #include <iostream>
@@ -53,7 +53,7 @@ TrackerDelegate :: sizeHint( const QStyleOptionViewItem& option, const TrackerIn
     Q_UNUSED( option );
 
     QPixmap favicon = info.st.getFavicon( );
-    
+
     const QString text = TrackerDelegate :: getText( info );
     QTextDocument textDoc;
     textDoc.setHtml( text );

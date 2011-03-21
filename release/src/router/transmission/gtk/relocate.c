@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) 2009-2010 Mnemosyne LLC
+ * This file Copyright (C) Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2.  Works owned by the
+ * This file is licensed by the GPL version 2. Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: relocate.c 11280 2010-10-01 13:33:39Z charles $
+ * $Id: relocate.c 11709 2011-01-19 13:48:47Z jordan $
  */
 
 #include <libtransmission/transmission.h>
@@ -15,7 +15,7 @@
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
 
-#include "conf.h" /* pref_string_get */
+#include "conf.h" /* gtr_pref_string_get */
 #include "hig.h"
 #include "relocate.h"
 #include "util.h"
@@ -157,8 +157,7 @@ gtr_relocate_dialog_new( GtkWindow * parent,
 
     d = gtk_dialog_new_with_buttons( _( "Set Torrent Location" ), parent,
                                      GTK_DIALOG_DESTROY_WITH_PARENT |
-                                     GTK_DIALOG_MODAL |
-                                     GTK_DIALOG_NO_SEPARATOR,
+                                     GTK_DIALOG_MODAL,
                                      GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
                                      GTK_STOCK_APPLY, GTK_RESPONSE_APPLY,
                                      NULL );
@@ -175,7 +174,7 @@ gtr_relocate_dialog_new( GtkWindow * parent,
     hig_workarea_add_section_title( t, &row, _( "Location" ) );
 
     if( previousLocation == NULL )
-        previousLocation = g_strdup( pref_string_get( TR_PREFS_KEY_DOWNLOAD_DIR ) );
+        previousLocation = g_strdup( gtr_pref_string_get( TR_PREFS_KEY_DOWNLOAD_DIR ) );
     w = gtk_file_chooser_button_new( _( "Set Torrent Location" ), GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER );
     gtk_file_chooser_set_current_folder( GTK_FILE_CHOOSER( w ), previousLocation );
     g_object_set_data( G_OBJECT( d ), "chooser", w );
@@ -186,8 +185,7 @@ gtr_relocate_dialog_new( GtkWindow * parent,
     w = gtk_radio_button_new_with_mnemonic_from_widget( GTK_RADIO_BUTTON( w ), _( "Local data is _already there" ) );
     hig_workarea_add_wide_control( t, &row, w );
     hig_workarea_finish( t, &row );
-    gtk_widget_show_all( t );
-    gtk_box_pack_start( GTK_BOX( GTK_DIALOG( d )->vbox ), t, TRUE, TRUE, 0 );
+    gtr_dialog_set_content( GTK_DIALOG( d ), t );
 
     data = g_new0( struct relocate_dialog_data, 1 );
     data->core = core;
