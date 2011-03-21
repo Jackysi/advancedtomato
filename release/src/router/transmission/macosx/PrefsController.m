@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: PrefsController.m 11499 2010-12-09 19:50:16Z livings124 $
+ * $Id: PrefsController.m 11757 2011-01-23 18:26:35Z livings124 $
  *
- * Copyright (c) 2005-2010 Transmission authors and contributors
+ * Copyright (c) 2005-2011 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -409,6 +409,9 @@ tr_session * fHandle;
             [fPortStatusField setStringValue: NSLocalizedString(@"Port check site is down", "Preferences -> Network -> port status")];
             [fPortStatusImage setImage: [NSImage imageNamed: @"YellowDot.png"]];
             break;
+        default:
+            NSAssert1(NO, @"Port checker returned invalid status: %d", [fPortChecker status]);
+            break;
     }
     [fPortChecker release];
     fPortChecker = nil;
@@ -700,7 +703,7 @@ tr_session * fHandle;
 
 - (void) setBadge: (id) sender
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"DockBadgeChange" object: self];
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateUI" object: self];
 }
 
 - (void) resetWarnings: (id) sender

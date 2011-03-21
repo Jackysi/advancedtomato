@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) 2009-2010 Mnemosyne LLC
+ * This file Copyright (C) Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2.  Works owned by the
+ * This file is licensed by the GPL version 2. Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: utils.h 11490 2010-12-08 14:57:34Z charles $
+ * $Id: utils.h 12032 2011-02-24 15:38:58Z jordan $
  */
 
 #ifndef TR_UTILS_H
@@ -101,7 +101,7 @@ const char * tr_strip_positional_args( const char * fmt );
 
 /* #define DISABLE_GETTEXT */
 #ifndef DISABLE_GETTEXT
- #if defined(WIN32) || defined(TR_EMBEDDED)
+ #if defined(WIN32) || defined(TR_LIGHTWEIGHT)
    #define DISABLE_GETTEXT
  #endif
 #endif
@@ -116,11 +116,16 @@ const char * tr_strip_positional_args( const char * fmt );
 
 #define TR_MAX_MSG_LOG 10000
 
-extern tr_msg_level messageLevel;
+extern tr_msg_level __tr_message_level;
+
+static inline tr_msg_level tr_getMessageLevel( void )
+{
+    return __tr_message_level;
+}
 
 static inline tr_bool tr_msgLoggingIsActive( tr_msg_level level )
 {
-    return messageLevel >= level;
+    return tr_getMessageLevel() >= level;
 }
 
 void tr_msg( const char * file, int line,
@@ -272,7 +277,7 @@ void tr_wait_msec( long int delay_milliseconds );
  * @brief make a copy of 'str' whose non-utf8 content has been corrected or stripped
  * @return a newly-allocated string that must be freed with tr_free()
  * @param str the string to make a clean copy of
- * @param len the length of the string to copy.  If -1, the entire string is used.
+ * @param len the length of the string to copy. If -1, the entire string is used.
  */
 char* tr_utf8clean( const char * str, int len ) TR_GNUC_MALLOC;
 
@@ -303,6 +308,12 @@ void* tr_malloc0( size_t size );
 /** @brief Portability wrapper around free() in which `NULL' is a safe argument */
 void tr_free( void * p );
 
+static inline
+void evbuffer_ref_cleanup_tr_free( const void * data UNUSED, size_t datalen UNUSED, void * extra )
+{
+    tr_free( extra );
+}
+
 /**
  * @brief make a newly-allocated copy of a chunk of memory
  * @param src the memory to copy
@@ -312,20 +323,20 @@ void tr_free( void * p );
 void* tr_memdup( const void * src, size_t byteCount );
 
 #define tr_new( struct_type, n_structs )           \
-    ( (struct_type *) tr_malloc ( ( (size_t) sizeof ( struct_type ) ) * ( ( size_t) ( n_structs ) ) ) )
+    ( (struct_type *) tr_malloc ( sizeof ( struct_type ) * ( ( size_t) ( n_structs ) ) ) )
 
 #define tr_new0( struct_type, n_structs )          \
-    ( (struct_type *) tr_malloc0 ( ( (size_t) sizeof ( struct_type ) ) * ( ( size_t) ( n_structs ) ) ) )
+    ( (struct_type *) tr_malloc0 ( sizeof ( struct_type ) * ( ( size_t) ( n_structs ) ) ) )
 
 #define tr_renew( struct_type, mem, n_structs )    \
-    ( (struct_type *) realloc ( ( mem ), ( (size_t) sizeof ( struct_type ) ) * ( ( size_t) ( n_structs ) ) ) )
+    ( (struct_type *) realloc ( ( mem ), sizeof ( struct_type ) * ( ( size_t) ( n_structs ) ) ) )
 
 void* tr_valloc( size_t bufLen );
 
 /**
  * @brief make a newly-allocated copy of a substring
  * @param in is a void* so that callers can pass in both signed & unsigned without a cast
- * @param len length of the substring to copy.  if a length less than zero is passed in, strlen( len ) is used
+ * @param len length of the substring to copy. if a length less than zero is passed in, strlen( len ) is used
  * @return a newly-allocated copy of `in' that can be freed with tr_free()
  */
 char* tr_strndup( const void * in, int len ) TR_GNUC_MALLOC;
@@ -336,6 +347,17 @@ char* tr_strndup( const void * in, int len ) TR_GNUC_MALLOC;
  * @return a newly-allocated copy of `in' that can be freed with tr_free()
  */
 char* tr_strdup( const void * in );
+
+/**
+ * @brief like strcmp() but gracefully handles NULL strings
+ */
+int tr_strcmp0( const char * str1, const char * str2 );
+
+
+
+struct evbuffer;
+
+char* evbuffer_free_to_str( struct evbuffer * buf );
 
 /** @brief similar to bsearch() but returns the index of the lower bound */
 int tr_lowerBound( const void * key,
@@ -506,6 +528,9 @@ struct tm * tr_localtime_r( const time_t *_clock, struct tm *_result );
 int tr_moveFile( const char * oldpath, const char * newpath,
                  tr_bool * renamed ) TR_GNUC_NONNULL(1,2);
 
+/** @brief Test to see if the two filenames point to the same file. */
+tr_bool tr_is_same_file( const char * filename1, const char * filename2 );
+
 /** @brief convenience function to remove an item from an array */
 void tr_removeElementFromArray( void         * array,
                                 unsigned int   index_to_remove,
@@ -517,7 +542,7 @@ void tr_removeElementFromArray( void         * array,
 ***/
 
 /** @brief Private libtransmission variable that's visible only for inlining in tr_time() */
-extern time_t transmission_now;
+extern time_t __tr_current_time;
 
 /**
  * @brief very inexpensive form of time(NULL)
@@ -526,13 +551,13 @@ extern time_t transmission_now;
  * This function returns a second counter that is updated once per second.
  * If something blocks the libtransmission thread for more than a second,
  * that counter may be thrown off, so this function is not guaranteed
- * to always be accurate.  However, it is *much* faster when 100% accuracy
+ * to always be accurate. However, it is *much* faster when 100% accuracy
  * isn't needed
  */
-static inline time_t tr_time( void ) { return transmission_now; }
+static inline time_t tr_time( void ) { return __tr_current_time; }
 
 /** @brief Private libtransmission function to update tr_time()'s counter */
-static inline void tr_timeUpdate( time_t now ) { transmission_now = now; }
+static inline void tr_timeUpdate( time_t now ) { __tr_current_time = now; }
 
 /** @brief Portability wrapper for realpath() that uses the system implementation if available */
 char* tr_realpath( const char *path, char * resolved_path );
@@ -560,13 +585,13 @@ extern unsigned int tr_size_K;
 char* tr_formatter_speed_KBps( char * buf, double KBps, size_t buflen );
 
 /* format a memory size from bytes into a user-readable string. */
-char* tr_formatter_mem_B( char * buf, uint64_t bytes, size_t buflen );
+char* tr_formatter_mem_B( char * buf, int64_t bytes, size_t buflen );
 
 /* format a memory size from MB into a user-readable string. */
 static inline char* tr_formatter_mem_MB( char * buf, double MBps, size_t buflen ) { return tr_formatter_mem_B( buf, MBps * tr_mem_K * tr_mem_K, buflen ); }
 
 /* format a file size from bytes into a user-readable string. */
-char* tr_formatter_size_B( char * buf, uint64_t bytes, size_t buflen );
+char* tr_formatter_size_B( char * buf, int64_t bytes, size_t buflen );
 
 void tr_formatter_get_units( struct tr_benc * dict );
 

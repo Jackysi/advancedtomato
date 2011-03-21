@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) 2008-2010 Mnemosyne LLC
+ * This file Copyright (C) Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2.  Works owned by the
+ * This file is licensed by the GPL version 2. Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: resume.c 11455 2010-12-04 14:53:53Z charles $
+ * $Id: resume.c 12026 2011-02-24 15:07:59Z jordan $
  */
 
 #include <unistd.h> /* unlink */
@@ -51,6 +51,8 @@
 #define KEY_SPEED_Bps              "speed-Bps"
 #define KEY_USE_GLOBAL_SPEED_LIMIT "use-global-speed-limit"
 #define KEY_USE_SPEED_LIMIT        "use-speed-limit"
+#define KEY_TIME_SEEDING           "seeding-time-seconds"
+#define KEY_TIME_DOWNLOADING       "downloading-time-seconds"
 #define KEY_SPEEDLIMIT_DOWN_SPEED  "down-speed"
 #define KEY_SPEEDLIMIT_DOWN_MODE   "down-mode"
 #define KEY_SPEEDLIMIT_UP_SPEED    "up-speed"
@@ -60,6 +62,7 @@
 #define KEY_IDLELIMIT_MINS         "idle-limit"
 #define KEY_IDLELIMIT_MODE         "idle-mode"
 
+#define KEY_PROGRESS_CHECKTIME "time-checked"
 #define KEY_PROGRESS_MTIMES    "mtimes"
 #define KEY_PROGRESS_BITFIELD  "bitfield"
 #define KEY_PROGRESS_HAVE      "have"
@@ -99,13 +102,6 @@ savePeers( tr_benc * dict, const tr_torrent * tor )
         tr_bencDictAddRaw( dict, KEY_PEERS6, pex, sizeof( tr_pex ) * count );
 
     tr_free( pex );
-}
-
-static tr_bool
-tr_isPex( const tr_pex * pex )
-{
-    return tr_isAddress( &pex->addr )
-        && ( pex->flags & 3 ) == pex->flags;
 }
 
 static int
@@ -219,7 +215,7 @@ loadDND( tr_benc *    dict,
     {
         tr_tordbg(
             tor,
-            "Couldn't load DND flags.  dnd list (%p) has %zu children; torrent has %d files",
+            "Couldn't load DND flags. DND list (%p) has %zu children; torrent has %d files",
             list, tr_bencListSize( list ), (int)n );
     }
 
@@ -411,104 +407,172 @@ loadIdleLimits( tr_benc *    dict,
 ***/
 
 static void
-saveProgress( tr_benc *          dict,
-              const tr_torrent * tor )
+saveProgress( tr_benc * dict, const tr_torrent * tor )
 {
-    size_t              i, n;
-    time_t *            mtimes;
-    tr_benc *           p;
-    tr_benc *           m;
-    const tr_bitfield * bitfield;
+    tr_benc * l;
+    tr_benc * prog;
+    tr_file_index_t fi;
+    const struct tr_bitfield * bitfield;
+    const tr_info * inf = tr_torrentInfo( tor );
+    const time_t now = tr_time( );
 
-    p = tr_bencDictAdd( dict, KEY_PROGRESS );
-    tr_bencInitDict( p, 2 );
+    prog = tr_bencDictAddDict( dict, KEY_PROGRESS, 3 );
 
-    /* add the mtimes */
-    mtimes = tr_torrentGetMTimes( tor, &n );
-    m = tr_bencDictAddList( p, KEY_PROGRESS_MTIMES, n );
-    for( i = 0; i < n; ++i )
+    /* add the file/piece check timestamps... */
+    l = tr_bencDictAddList( prog, KEY_PROGRESS_CHECKTIME, inf->fileCount );
+    for( fi=0; fi<inf->fileCount; ++fi )
     {
-        if( !tr_torrentIsFileChecked( tor, i ) )
-            mtimes[i] = ~(time_t)0; /* force a recheck */
-        tr_bencListAddInt( m, mtimes[i] );
+        const tr_piece * p;
+        const tr_piece * pend;
+        time_t oldest_nonzero = now;
+        time_t newest = 0;
+        tr_bool has_zero = FALSE;
+        const time_t mtime = tr_torrentGetFileMTime( tor, fi );
+        const tr_file * f = &inf->files[fi];
+
+        /* get the oldest and newest nonzero timestamps for pieces in this file */
+        for( p=&inf->pieces[f->firstPiece], pend=&inf->pieces[f->lastPiece]; p!=pend; ++p )
+        {
+            if( !p->timeChecked )
+                has_zero = TRUE;
+            else if( oldest_nonzero > p->timeChecked )
+                oldest_nonzero = p->timeChecked;
+            if( newest < p->timeChecked )
+                newest = p->timeChecked;
+        }
+
+        /* If some of a file's pieces have been checked more recently than
+           the file's mtime, and some lest recently, then that file will
+           have a list containing timestamps for each piece.
+           
+           However, the most common use case is that the file doesn't change
+           after it's downloaded. To reduce overhead in the .resume file,
+           only a single timestamp is saved for the file if *all* or *none*
+           of the pieces were tested more recently than the file's mtime. */
+
+        if( !has_zero && ( mtime <= oldest_nonzero ) ) /* all checked */
+            tr_bencListAddInt( l, oldest_nonzero );
+        else if( newest < mtime ) /* none checked */
+            tr_bencListAddInt( l, newest );
+        else { /* some are checked, some aren't... so list piece by piece */
+            const int offset = oldest_nonzero - 1;
+            tr_benc * ll = tr_bencListAddList( l, 2 + f->lastPiece - f->firstPiece );
+            tr_bencListAddInt( ll, offset );
+            for( p=&inf->pieces[f->firstPiece], pend=&inf->pieces[f->lastPiece]+1; p!=pend; ++p )
+                tr_bencListAddInt( ll, p->timeChecked ? p->timeChecked - offset : 0 );
+        }
     }
 
     /* add the progress */
     if( tor->completeness == TR_SEED )
-        tr_bencDictAddStr( p, KEY_PROGRESS_HAVE, "all" );
-    bitfield = tr_cpBlockBitfield( &tor->completion );
-    tr_bencDictAddRaw( p, KEY_PROGRESS_BITFIELD,
-                       bitfield->bits, bitfield->byteCount );
+        tr_bencDictAddStr( prog, KEY_PROGRESS_HAVE, "all" );
 
-    /* cleanup */
-    tr_free( mtimes );
+    /* add the pieces bitfield */
+    bitfield = tr_cpBlockBitfield( &tor->completion );
+    tr_bencDictAddRaw( prog, KEY_PROGRESS_BITFIELD, bitfield->bits,
+                                                    bitfield->byteCount );
 }
 
 static uint64_t
-loadProgress( tr_benc *    dict,
-              tr_torrent * tor )
+loadProgress( tr_benc * dict, tr_torrent * tor )
 {
-    uint64_t  ret = 0;
-    tr_benc * p;
+    size_t i, n;
+    uint64_t ret = 0;
+    tr_benc * prog;
+    const tr_info * inf = tr_torrentInfo( tor );
 
-    if( tr_bencDictFindDict( dict, KEY_PROGRESS, &p ) )
+    for( i=0, n=inf->pieceCount; i<n; ++i )
+        inf->pieces[i].timeChecked = 0;
+
+    if( tr_bencDictFindDict( dict, KEY_PROGRESS, &prog ) )
     {
         const char * err;
         const char * str;
         const uint8_t * raw;
-        size_t          rawlen;
-        tr_benc *       m;
-        size_t          n;
-        time_t *        curMTimes = tr_torrentGetMTimes( tor, &n );
+        size_t rawlen;
+        tr_benc * l;
 
-        if( tr_bencDictFindList( p, KEY_PROGRESS_MTIMES, &m )
-          && ( n == tor->info.fileCount )
-          && ( n == tr_bencListSize( m ) ) )
+        if( tr_bencDictFindList( prog, KEY_PROGRESS_CHECKTIME, &l ) )
         {
-            size_t i;
-            for( i = 0; i < n; ++i )
+            /* per-piece timestamps were added in 2.20.
+              
+               If some of a file's pieces have been checked more recently than
+               the file's mtime, and some lest recently, then that file will
+               have a list containing timestamps for each piece.
+              
+               However, the most common use case is that the file doesn't change
+               after it's downloaded. To reduce overhead in the .resume file,
+               only a single timestamp is saved for the file if *all* or *none*
+               of the pieces were tested more recently than the file's mtime. */
+
+            tr_file_index_t fi;
+
+            for( fi=0; fi<inf->fileCount; ++fi )
             {
-                int64_t tmp;
-                if( !tr_bencGetInt( tr_bencListChild( m, i ), &tmp ) )
+                tr_benc * b = tr_bencListChild( l, fi );
+                const tr_file * f = &inf->files[fi];
+                tr_piece * p = &inf->pieces[f->firstPiece];
+                const tr_piece * pend = &inf->pieces[f->lastPiece]+1;
+
+                if( tr_bencIsInt( b ) )
                 {
-                    tr_tordbg(
-                        tor,
-                        "File #%zu needs to be verified - couldn't find benc entry",
-                        i );
-                    tr_torrentSetFileChecked( tor, i, FALSE );
+                    int64_t t;
+                    tr_bencGetInt( b, &t );
+                    for( ; p!=pend; ++p )
+                        p->timeChecked = (time_t)t;
                 }
-                else
+                else if( tr_bencIsList( b ) )
                 {
-                    const time_t t = (time_t) tmp;
-                    if( t == curMTimes[i] )
-                        tr_torrentSetFileChecked( tor, i, TRUE );
-                    else
+                    int i = 0;
+                    int64_t offset = 0;
+                    const int pieces = f->lastPiece + 1 - f->firstPiece;
+
+                    tr_bencGetInt( tr_bencListChild( b, 0 ), &offset );
+
+                    for( i=0; i<pieces; ++i )
                     {
-                        tr_tordbg(
-                            tor,
-                            "File #%zu needs to be verified - times %lu and %lu don't match",
-                            i, t, curMTimes[i] );
-                        tr_torrentSetFileChecked( tor, i, FALSE );
+                        int64_t t = 0;
+                        tr_bencGetInt( tr_bencListChild( b, i+1 ), &t );
+                        inf->pieces[f->firstPiece+i].timeChecked = (time_t)(t ? t + offset : 0);
                     }
                 }
             }
         }
-        else
+        else if( tr_bencDictFindList( prog, KEY_PROGRESS_MTIMES, &l ) )
         {
-            tr_torrentUncheck( tor );
-            tr_tordbg(
-                tor, "Torrent needs to be verified - unable to find mtimes" );
+            tr_file_index_t fi;
+
+            /* Before 2.20, we stored the files' mtimes in the .resume file.
+               When loading the .resume file, a torrent's file would be flagged
+               as untested if its stored mtime didn't match its real mtime. */
+
+            for( fi=0; fi<inf->fileCount; ++fi )
+            {
+                int64_t t;
+
+                if( tr_bencGetInt( tr_bencListChild( l, fi ), &t ) )
+                {
+                    const tr_file * f = &inf->files[fi];
+                    tr_piece * p = &inf->pieces[f->firstPiece];
+                    const tr_piece * pend = &inf->pieces[f->lastPiece];
+                    const time_t mtime = tr_torrentGetFileMTime( tor, fi );
+                    const time_t timeChecked = mtime==t ? mtime : 0;
+
+                    for( ; p!=pend; ++p )
+                        p->timeChecked = timeChecked;
+                }
+            }
         }
 
         err = NULL;
-        if( tr_bencDictFindStr( p, KEY_PROGRESS_HAVE, &str ) )
+        if( tr_bencDictFindStr( prog, KEY_PROGRESS_HAVE, &str ) )
         {
             if( !strcmp( str, "all" ) )
                 tr_cpSetHaveAll( &tor->completion );
             else
                 err = "Invalid value for HAVE";
         }
-        else if( tr_bencDictFindRaw( p, KEY_PROGRESS_BITFIELD, &raw, &rawlen ) )
+        else if( tr_bencDictFindRaw( prog, KEY_PROGRESS_BITFIELD, &raw, &rawlen ) )
         {
             tr_bitfield tmp;
             tmp.byteCount = rawlen;
@@ -518,13 +582,10 @@ loadProgress( tr_benc *    dict,
                 err = "Error loading bitfield";
         }
         else err = "Couldn't find 'have' or 'bitfield'";
-        if( err != NULL )
-        {
-            tr_torrentUncheck( tor );
-            tr_tordbg( tor, "Torrent needs to be verified - %s", err );
-        }
 
-        tr_free( curMTimes );
+        if( err != NULL )
+            tr_tordbg( tor, "Torrent needs to be verified - %s", err );
+
         ret = TR_FR_PROGRESS;
     }
 
@@ -546,6 +607,8 @@ tr_torrentSaveResume( tr_torrent * tor )
         return;
 
     tr_bencInitDict( &top, 50 ); /* arbitrary "big enough" number */
+    tr_bencDictAddInt( &top, KEY_TIME_SEEDING, tor->secondsSeeding );
+    tr_bencDictAddInt( &top, KEY_TIME_DOWNLOADING, tor->secondsDownloading );
     tr_bencDictAddInt( &top, KEY_ACTIVITY_DATE, tor->activityDate );
     tr_bencDictAddInt( &top, KEY_ADDED_DATE, tor->addedDate );
     tr_bencDictAddInt( &top, KEY_CORRUPT, tor->corruptPrev + tor->corruptCur );
@@ -675,6 +738,20 @@ loadFromFile( tr_torrent * tor,
     {
         tr_torrentSetActivityDate( tor, i );
         fieldsLoaded |= TR_FR_ACTIVITY_DATE;
+    }
+
+    if( ( fieldsToLoad & TR_FR_TIME_SEEDING )
+      && tr_bencDictFindInt( &top, KEY_TIME_SEEDING, &i ) )
+    {
+        tor->secondsSeeding = i;
+        fieldsLoaded |= TR_FR_TIME_SEEDING;
+    }
+
+    if( ( fieldsToLoad & TR_FR_TIME_DOWNLOADING )
+      && tr_bencDictFindInt( &top, KEY_TIME_DOWNLOADING, &i ) )
+    {
+        tor->secondsDownloading = i;
+        fieldsLoaded |= TR_FR_TIME_DOWNLOADING;
     }
 
     if( ( fieldsToLoad & TR_FR_BANDWIDTH_PRIORITY )

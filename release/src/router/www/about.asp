@@ -113,7 +113,7 @@ Copyright (C) 2010 Keith Moyer,<br>
 <!-- VPN-END -->
 
 <!-- BT-BEGIN -->
-<b>Transmission 2.13 integration and GUI,</b><br>
+<b>Transmission 2.22 integration and GUI,</b><br>
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>

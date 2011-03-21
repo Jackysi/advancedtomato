@@ -35,22 +35,43 @@ POST_UNINSTALL = :
 build_triplet = x86_64-pc-linux-gnu
 host_triplet = mipsel-unknown-linux-gnu
 noinst_PROGRAMS = event-test$(EXEEXT) time-test$(EXEEXT) \
-	signal-test$(EXEEXT)
+	signal-test$(EXEEXT) dns-example$(EXEEXT) hello-world$(EXEEXT) \
+	http-server$(EXEEXT) $(am__EXEEXT_1)
+#am__append_1 = le-proxy
 subdir = sample
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/configure.in
+am__aclocal_m4_deps = $(top_srcdir)/m4/acx_pthread.m4 \
+	$(top_srcdir)/m4/libtool.m4 $(top_srcdir)/m4/ltoptions.m4 \
+	$(top_srcdir)/m4/ltsugar.m4 $(top_srcdir)/m4/ltversion.m4 \
+	$(top_srcdir)/m4/lt~obsolete.m4 $(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
+#am__EXEEXT_1 = le-proxy$(EXEEXT)
 PROGRAMS = $(noinst_PROGRAMS)
+dns_example_SOURCES = dns-example.c
+dns_example_OBJECTS = dns-example.$(OBJEXT)
+dns_example_LDADD = $(LDADD)
+dns_example_DEPENDENCIES = ../libevent.la
 event_test_SOURCES = event-test.c
 event_test_OBJECTS = event-test.$(OBJEXT)
 event_test_LDADD = $(LDADD)
 event_test_DEPENDENCIES = ../libevent.la
+hello_world_SOURCES = hello-world.c
+hello_world_OBJECTS = hello-world.$(OBJEXT)
+hello_world_LDADD = $(LDADD)
+hello_world_DEPENDENCIES = ../libevent.la
+http_server_SOURCES = http-server.c
+http_server_OBJECTS = http-server.$(OBJEXT)
+http_server_LDADD = $(LDADD)
+http_server_DEPENDENCIES = ../libevent.la
+le_proxy_SOURCES = le-proxy.c
+le_proxy_OBJECTS = le-proxy.$(OBJEXT)
+#le_proxy_DEPENDENCIES = $(LDADD) ../libevent_openssl.la
 signal_test_SOURCES = signal-test.c
 signal_test_OBJECTS = signal-test.$(OBJEXT)
 signal_test_LDADD = $(LDADD)
@@ -71,21 +92,23 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
 	$(LDFLAGS) -o $@
-SOURCES = event-test.c signal-test.c time-test.c
-DIST_SOURCES = event-test.c signal-test.c time-test.c
+SOURCES = dns-example.c event-test.c hello-world.c http-server.c \
+	le-proxy.c signal-test.c time-test.c
+DIST_SOURCES = dns-example.c event-test.c hello-world.c http-server.c \
+	le-proxy.c signal-test.c time-test.c
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/missing --run aclocal-1.11
-AMTAR = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/missing --run tar
+ACLOCAL = ${SHELL} /root/openwrt/tomato.git-compile/src/router/libevent/missing --run aclocal-1.11
+AMTAR = ${SHELL} /root/openwrt/tomato.git-compile/src/router/libevent/missing --run tar
 AR = mipsel-uclibc-ar
-AUTOCONF = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/missing --run autoconf
-AUTOHEADER = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/missing --run autoheader
-AUTOMAKE = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/missing --run automake-1.11
+AUTOCONF = ${SHELL} /root/openwrt/tomato.git-compile/src/router/libevent/missing --run autoconf
+AUTOHEADER = ${SHELL} /root/openwrt/tomato.git-compile/src/router/libevent/missing --run autoheader
+AUTOMAKE = ${SHELL} /root/openwrt/tomato.git-compile/src/router/libevent/missing --run automake-1.11
 AWK = gawk
 CC = mipsel-uclibc-gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = -Os -Wall -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32  -ffunction-sections -fdata-sections -Wall -fno-strict-aliasing
+CFLAGS = -Os -Wall -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32  -ffunction-sections -fdata-sections -Wall -fno-strict-aliasing -pthread
 CPP = mipsel-uclibc-gcc -E
 CPPFLAGS = 
 CYGPATH_W = echo
@@ -107,19 +130,20 @@ INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = $(install_sh) -c -s
 LD = mipsel-uclibc-ld
 LDFLAGS = -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC
-LIBOBJS =  ${LIBOBJDIR}select$U.o ${LIBOBJDIR}poll$U.o ${LIBOBJDIR}epoll$U.o ${LIBOBJDIR}signal$U.o
-LIBS = -lnsl -lrt -lresolv 
+LIBOBJS = 
+LIBS = 
 LIBTOOL = $(SHELL) $(top_builddir)/libtool
 LIBTOOL_DEPS = ./ltmain.sh
 LIPO = 
 LN_S = ln -s
-LTLIBOBJS =  ${LIBOBJDIR}select$U.lo ${LIBOBJDIR}poll$U.lo ${LIBOBJDIR}epoll$U.lo ${LIBOBJDIR}signal$U.lo
-MAKEINFO = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/missing --run makeinfo
+LTLIBOBJS = 
+MAKEINFO = ${SHELL} /root/openwrt/tomato.git-compile/src/router/libevent/missing --run makeinfo
 MKDIR_P = /bin/mkdir -p
 NM = mipsel-uclibc-nm
 NMEDIT = 
 OBJDUMP = mipsel-linux-objdump
 OBJEXT = o
+OPENSSL_LIBS = 
 OTOOL = 
 OTOOL64 = 
 PACKAGE = libevent
@@ -130,18 +154,23 @@ PACKAGE_TARNAME =
 PACKAGE_URL = 
 PACKAGE_VERSION = 
 PATH_SEPARATOR = :
+PTHREAD_CC = mipsel-uclibc-gcc
+PTHREAD_CFLAGS = -pthread
+PTHREAD_LIBS = 
 RANLIB = mipsel-uclibc-ranlib
 SED = /bin/sed
 SET_MAKE = 
 SHELL = /bin/sh
 STRIP = mipsel-uclibc-strip -R .note -R .comment
-VERSION = 1.4.14b-stable
-abs_builddir = /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/sample
-abs_srcdir = /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/sample
-abs_top_builddir = /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent
-abs_top_srcdir = /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent
+VERSION = 2.0.10-stable
+ZLIB_LIBS = 
+abs_builddir = /root/openwrt/tomato.git-compile/src/router/libevent/sample
+abs_srcdir = /root/openwrt/tomato.git-compile/src/router/libevent/sample
+abs_top_builddir = /root/openwrt/tomato.git-compile/src/router/libevent
+abs_top_srcdir = /root/openwrt/tomato.git-compile/src/router/libevent
 ac_ct_CC = 
 ac_ct_DUMPBIN = 
+acx_pthread_config = 
 am__include = include
 am__leading_dot = .
 am__quote = 
@@ -167,12 +196,11 @@ host_vendor = unknown
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = ${SHELL} /root/openwrt/tomato-b54/tomato.en/release/src/router/libevent/install-sh
+install_sh = ${SHELL} /root/openwrt/tomato.git-compile/src/router/libevent/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
 localstatedir = ${prefix}/var
-lt_ECHO = echo
 mandir = ${datarootdir}/man
 mkdir_p = /bin/mkdir -p
 oldincludedir = /usr/include
@@ -190,10 +218,15 @@ top_builddir = ..
 top_srcdir = ..
 AUTOMAKE_OPTIONS = foreign no-dependencies
 LDADD = ../libevent.la
-AM_CFLAGS = -I$(top_srcdir) -I$(top_srcdir)/compat
+AM_CFLAGS = -I$(top_srcdir) -I$(top_srcdir)/compat -I$(top_srcdir)/include -I../include
 event_test_sources = event-test.c
 time_test_sources = time-test.c
 signal_test_sources = signal-test.c
+dns_example_sources = dns-example.c
+hello_world_sources = hello-world.c
+http_server_sources = http-server.c
+#le_proxy_sources = le-proxy.c
+#le_proxy_LDADD = $(LDADD) ../libevent_openssl.la -lcrypto -lssl
 DISTCLEANFILES = *~
 all: all-am
 
@@ -238,9 +271,21 @@ clean-noinstPROGRAMS:
 	list=`for p in $$list; do echo "$$p"; done | sed 's/$(EXEEXT)$$//'`; \
 	echo " rm -f" $$list; \
 	rm -f $$list
+dns-example$(EXEEXT): $(dns_example_OBJECTS) $(dns_example_DEPENDENCIES) 
+	@rm -f dns-example$(EXEEXT)
+	$(LINK) $(dns_example_OBJECTS) $(dns_example_LDADD) $(LIBS)
 event-test$(EXEEXT): $(event_test_OBJECTS) $(event_test_DEPENDENCIES) 
 	@rm -f event-test$(EXEEXT)
 	$(LINK) $(event_test_OBJECTS) $(event_test_LDADD) $(LIBS)
+hello-world$(EXEEXT): $(hello_world_OBJECTS) $(hello_world_DEPENDENCIES) 
+	@rm -f hello-world$(EXEEXT)
+	$(LINK) $(hello_world_OBJECTS) $(hello_world_LDADD) $(LIBS)
+http-server$(EXEEXT): $(http_server_OBJECTS) $(http_server_DEPENDENCIES) 
+	@rm -f http-server$(EXEEXT)
+	$(LINK) $(http_server_OBJECTS) $(http_server_LDADD) $(LIBS)
+le-proxy$(EXEEXT): $(le_proxy_OBJECTS) $(le_proxy_DEPENDENCIES) 
+	@rm -f le-proxy$(EXEEXT)
+	$(LINK) $(le_proxy_OBJECTS) $(le_proxy_LDADD) $(LIBS)
 signal-test$(EXEEXT): $(signal_test_OBJECTS) $(signal_test_DEPENDENCIES) 
 	@rm -f signal-test$(EXEEXT)
 	$(LINK) $(signal_test_OBJECTS) $(signal_test_LDADD) $(LIBS)

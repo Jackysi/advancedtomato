@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) 2009-2010 Mnemosyne LLC
+ * This file Copyright (C) Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2.  Works owned by the
+ * This file is licensed by the GPL version 2. Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: utils.c 11490 2010-12-08 14:57:34Z charles $
+ * $Id: utils.c 12032 2011-02-24 15:38:58Z jordan $
  */
 
 #ifdef HAVE_MEMMEM
@@ -42,7 +42,8 @@
 #include <sys/stat.h>
 #include <unistd.h> /* stat(), getcwd(), getpagesize() */
 
-#include "event.h"
+#include <event2/buffer.h>
+#include <event2/event.h>
 
 #ifdef WIN32
  #include <w32api.h>
@@ -62,9 +63,9 @@
 #include "version.h"
 
 
-time_t transmission_now = 0;
+time_t       __tr_current_time   = 0;
+tr_msg_level __tr_message_level  = TR_MSG_ERR;
 
-tr_msg_level messageLevel = TR_MSG_ERR;
 static tr_bool        messageQueuing = FALSE;
 static tr_msg_list *  messageQueue = NULL;
 static tr_msg_list ** messageQueueTail = &messageQueue;
@@ -123,13 +124,7 @@ tr_getLog( void )
 void
 tr_setMessageLevel( tr_msg_level level )
 {
-    messageLevel = level;
-}
-
-tr_msg_level
-tr_getMessageLevel( void )
-{
-    return messageLevel;
+    __tr_message_level = level;
 }
 
 void
@@ -206,7 +201,7 @@ tr_getLogTimeStr( char * buf, int buflen )
     seconds = tv.tv_sec;
     tr_localtime_r( &seconds, &now_tm );
     strftime( tmp, sizeof( tmp ), "%H:%M:%S", &now_tm );
-    milliseconds = (int)( tv.tv_usec / 1000 );
+    milliseconds = tv.tv_usec / 1000;
     tr_snprintf( buf, buflen, "%s.%03d", tmp, milliseconds );
 
     return buf;
@@ -247,9 +242,9 @@ tr_deepLog( const char  * file,
         va_end( args );
         evbuffer_add_printf( buf, " (%s:%d)\n", base, line );
         /* FIXME(libevent2) ifdef this out for nonwindows platforms */
-        OutputDebugString( EVBUFFER_DATA( buf ) );
-        if(fp) /* FIXME(libevent2) tr_getLog() should return an fd, then use evbuffer_write() here ) */
-            (void) fwrite( EVBUFFER_DATA( buf ), 1, EVBUFFER_LENGTH( buf ), fp );
+        OutputDebugString( evbuffer_pullup( buf, -1 ) );
+        if( fp )
+            fputs( (const char*)evbuffer_pullup( buf, -1 ), fp );
 
         tr_free( base );
         evbuffer_free( buf );
@@ -427,7 +422,7 @@ tr_strip_positional_args( const char* str )
     const char * in = str;
     static size_t bufsize = 0;
     static char * buf = NULL;
-    const size_t  len = strlen( str );
+    const size_t  len = str ? strlen( str ) : 0;
     char *        out;
 
     if( !buf || ( bufsize < len ) )
@@ -436,7 +431,7 @@ tr_strip_positional_args( const char* str )
         buf = tr_renew( char, buf, bufsize );
     }
 
-    for( out = buf; *str; ++str )
+    for( out = buf; str && *str; ++str )
     {
         *out++ = *str;
 
@@ -455,7 +450,7 @@ tr_strip_positional_args( const char* str )
     }
     *out = '\0';
 
-    return strcmp( buf, in ) ? buf : in;
+    return !in || strcmp( buf, in ) ? buf : in;
 }
 
 /**
@@ -677,7 +672,7 @@ tr_buildPath( const char *first_element, ... )
     }
     va_end( vl );
 
-    /* terminate the string.  if nonempty, eat the unwanted trailing slash */
+    /* terminate the string. if nonempty, eat the unwanted trailing slash */
     if( pch != buf )
         --pch;
     *pch++ = '\0';
@@ -690,6 +685,17 @@ tr_buildPath( const char *first_element, ... )
 /****
 *****
 ****/
+
+char*
+evbuffer_free_to_str( struct evbuffer * buf )
+{
+    const size_t n = evbuffer_get_length( buf );
+    char * ret = tr_new( char, n + 1 );
+    evbuffer_copyout( buf, ret, n );
+    evbuffer_free( buf );
+    ret[n] = '\0';
+    return ret;
+}
 
 char*
 tr_strdup( const void * in )
@@ -766,6 +772,15 @@ tr_strerror( int i )
     if( ret == NULL )
         ret = "Unknown Error";
     return ret;
+}
+
+int
+tr_strcmp0( const char * str1, const char * str2 )
+{
+    if( str1 && str2 ) return strcmp( str1, str2 );
+    if( str1 ) return 1;
+    if( str2 ) return -1;
+    return 0;
 }
 
 /****
@@ -887,14 +902,12 @@ tr_snprintf( char * buf, size_t buflen, const char * fmt, ... )
 }
 
 /*
- * Copy src to string dst of size siz.  At most siz-1 characters
- * will be copied.  Always NUL terminates (unless siz == 0).
+ * Copy src to string dst of size siz. At most siz-1 characters
+ * will be copied. Always NUL terminates (unless siz == 0).
  * Returns strlen(src); if retval >= siz, truncation occurred.
  */
 size_t
-tr_strlcpy( char *       dst,
-            const void * src,
-            size_t       siz )
+tr_strlcpy( char * dst, const void * src, size_t siz )
 {
 #ifdef HAVE_STRLCPY
     return strlcpy( dst, src, siz );
@@ -1141,6 +1154,7 @@ tr_base64_encode( const void * input, int length, int * setme_len )
 
         bmem = BIO_new( BIO_s_mem( ) );
         b64 = BIO_new( BIO_f_base64( ) );
+        BIO_set_flags( b64, BIO_FLAGS_BASE64_NO_NL );
         b64 = BIO_push( b64, bmem );
         BIO_write( b64, input, length );
         (void) BIO_flush( b64 );
@@ -1249,7 +1263,6 @@ tr_lowerBound( const void * key,
 static char*
 strip_non_utf8( const char * in, size_t inlen )
 {
-    char * ret;
     const char * end;
     const char zero = '\0';
     struct evbuffer * buf = evbuffer_new( );
@@ -1266,9 +1279,7 @@ strip_non_utf8( const char * in, size_t inlen )
 
     evbuffer_add( buf, in, inlen );
     evbuffer_add( buf, &zero, 1 );
-    ret = tr_memdup( EVBUFFER_DATA( buf ), EVBUFFER_LENGTH( buf ) );
-    evbuffer_free( buf );
-    return ret;
+    return evbuffer_free_to_str( buf );
 }
 
 static char*
@@ -1578,6 +1589,17 @@ tr_moveFile( const char * oldpath, const char * newpath, tr_bool * renamed )
     return 0;
 }
 
+tr_bool
+tr_is_same_file( const char * filename1, const char * filename2 )
+{
+    struct stat sb1, sb2;
+
+    return !stat( filename1, &sb1 )
+        && !stat( filename2, &sb2 )
+        && ( sb1.st_dev == sb2.st_dev )
+        && ( sb1.st_ino == sb2.st_ino );
+}
+
 /***
 ****
 ***/
@@ -1603,7 +1625,8 @@ tr_valloc( size_t bufLen )
 
 #ifdef HAVE_POSIX_MEMALIGN
     if( !buf )
-        posix_memalign( &buf, pageSize, allocLen );
+        if( posix_memalign( &buf, pageSize, allocLen ) )
+            buf = NULL; /* just retry with valloc/malloc */
 #endif
 #ifdef HAVE_VALLOC
     if( !buf )
@@ -1637,7 +1660,7 @@ tr_realpath( const char * path, char * resolved_path )
 struct formatter_unit
 {
     char * name;
-    uint64_t value;
+    int64_t value;
 };
 
 struct formatter_units
@@ -1672,7 +1695,7 @@ formatter_init( struct formatter_units * units,
 
 static char*
 formatter_get_size_str( const struct formatter_units * u,
-                        char * buf, uint64_t bytes, size_t buflen )
+                        char * buf, int64_t bytes, size_t buflen )
 {
     int precision;
     double value;
@@ -1707,7 +1730,7 @@ tr_formatter_size_init( unsigned int kilo,
 }
 
 char*
-tr_formatter_size_B( char * buf, uint64_t bytes, size_t buflen )
+tr_formatter_size_B( char * buf, int64_t bytes, size_t buflen )
 {
     return formatter_get_size_str( &size_units, buf, bytes, buflen );
 }
@@ -1762,7 +1785,7 @@ tr_formatter_mem_init( unsigned int kilo,
 }
 
 char*
-tr_formatter_mem_B( char * buf, uint64_t bytes_per_second, size_t buflen )
+tr_formatter_mem_B( char * buf, int64_t bytes_per_second, size_t buflen )
 {
     return formatter_get_size_str( &mem_units, buf, bytes_per_second, buflen );
 }

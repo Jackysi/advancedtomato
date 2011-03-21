@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: InfoViewController.h 10389 2010-03-16 00:45:52Z charles $
+ * $Id: InfoViewController.h 11617 2011-01-01 20:42:14Z livings124 $
  *
- * Copyright (c) 2010 Transmission authors and contributors
+ * Copyright (c) 2010-2011 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),

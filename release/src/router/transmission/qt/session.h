@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: session.h 11209 2010-09-14 06:23:48Z Longinus00 $
+ * $Id: session.h 11616 2010-12-31 19:44:51Z charles $
  */
 
 #ifndef TR_APP_SESSION_H
@@ -29,6 +29,7 @@ class AddData;
 
 extern "C"
 {
+    struct evbuffer;
     struct tr_benc;
 }
 
@@ -74,7 +75,7 @@ class Session: public QObject
         void updateStats( struct tr_benc * args );
         void updateInfo( struct tr_benc * args );
         void parseResponse( const char * json, size_t len );
-        static void localSessionCallback( tr_session *, const char *, size_t, void * );
+        static void localSessionCallback( tr_session *, struct evbuffer *, void * );
 
     public:
         void exec( const char * json );

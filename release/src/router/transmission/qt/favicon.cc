@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: favicon.cc 11092 2010-08-01 20:36:13Z charles $
+ * $Id: favicon.cc 11522 2010-12-12 16:43:19Z charles $
  */
 
 #include <QDesktopServices>
@@ -52,7 +52,7 @@ Favicons :: ensureCacheDirHasBeenScanned( )
     if( !hasBeenScanned )
     {
         hasBeenScanned = true;
-   
+
         QDir cacheDir( getCacheDir( ) );
         cacheDir.mkpath( cacheDir.absolutePath( ) );
 

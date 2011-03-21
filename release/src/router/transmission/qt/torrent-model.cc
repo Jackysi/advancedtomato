@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: torrent-model.cc 11092 2010-08-01 20:36:13Z charles $
+ * $Id: torrent-model.cc 11522 2010-12-12 16:43:19Z charles $
  */
 
 #include <cassert>
@@ -216,7 +216,7 @@ TorrentModel :: removeTorrent( int id )
 
         beginRemoveRows( QModelIndex(), row, row );
         // make the myIdToRow map consistent with list view/model
-        for( QMap<int,int>::iterator i = myIdToRow.begin(); i != myIdToRow.end(); ++i ) 
+        for( QMap<int,int>::iterator i = myIdToRow.begin(); i != myIdToRow.end(); ++i )
             if( i.value() > row )
                 --i.value();
         myIdToRow.remove( id );

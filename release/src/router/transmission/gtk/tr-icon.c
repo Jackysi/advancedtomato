@@ -1,13 +1,13 @@
 /*
- * This file Copyright (C) 2007-2010 Mnemosyne LLC
+ * This file Copyright (C) Mnemosyne LLC
  *
- * This file is licensed by the GPL version 2.  Works owned by the
+ * This file is licensed by the GPL version 2. Works owned by the
  * Transmission project are granted a special exemption to clause 2(b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: tr-icon.c 11124 2010-08-05 13:24:46Z charles $
+ * $Id: tr-icon.c 11709 2011-01-19 13:48:47Z jordan $
  */
 
 #include <glib/gi18n.h>
@@ -24,31 +24,20 @@
 #define ICON_NAME "transmission"
 
 #ifndef STATUS_ICON_SUPPORTED
-
-gpointer
-tr_icon_new( TrCore * core )
-{
-    return NULL;
-}
-
-void
-tr_icon_refresh( gpointer vicon UNUSED )
-{
-}
-
+gpointer gtr_icon_new( TrCore * core UNUSED ) { return NULL; }
+void gtr_icon_refresh( gpointer vicon UNUSED ) { } 
 #else
 
 #ifdef HAVE_LIBAPPINDICATOR
 void
-tr_icon_refresh( gpointer vindicator UNUSED )
+gtr_icon_refresh( gpointer vindicator UNUSED )
 {
 }
 #else
 static void
-activated( GtkStatusIcon   * self      UNUSED,
-           gpointer          user_data UNUSED )
+activated( GtkStatusIcon * self UNUSED, gpointer user_data UNUSED )
 {
-    action_activate ( "toggle-main-window" );
+    gtr_action_activate( "toggle-main-window" );
 }
 
 static void
@@ -57,7 +46,7 @@ popup( GtkStatusIcon *       self,
        guint                 when,
        gpointer         data UNUSED )
 {
-    GtkWidget * w = action_get_widget( "/icon-popup" );
+    GtkWidget * w = gtr_action_get_widget( "/icon-popup" );
 
     gtk_menu_popup ( GTK_MENU( w ), NULL, NULL,
                      gtk_status_icon_position_menu,
@@ -65,7 +54,7 @@ popup( GtkStatusIcon *       self,
 }
 
 void
-tr_icon_refresh( gpointer vicon )
+gtr_icon_refresh( gpointer vicon )
 {
     double KBps;
     double limit;
@@ -147,20 +136,20 @@ getIconName( void )
 
 #ifdef HAVE_LIBAPPINDICATOR
 gpointer
-tr_icon_new( TrCore * core)
+gtr_icon_new( TrCore * core)
 {
     GtkWidget * w;
     const char * icon_name = getIconName( );
     AppIndicator * indicator = app_indicator_new( ICON_NAME, icon_name, APP_INDICATOR_CATEGORY_SYSTEM_SERVICES );
     app_indicator_set_status( indicator, APP_INDICATOR_STATUS_ACTIVE );
-    w = action_get_widget( "/icon-popup" );
+    w = gtr_action_get_widget( "/icon-popup" );
     app_indicator_set_menu( indicator, GTK_MENU ( w ) );
     g_object_set_data( G_OBJECT( indicator ), "tr-core", core );
     return indicator;
 }
 #else
 gpointer
-tr_icon_new( TrCore * core )
+gtr_icon_new( TrCore * core )
 {
     const char * icon_name = getIconName( );
     GtkStatusIcon * icon = gtk_status_icon_new_from_icon_name( icon_name );

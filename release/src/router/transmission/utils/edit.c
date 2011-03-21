@@ -1,5 +1,5 @@
 /*
- * This file Copyright (C) 2010 Mnemosyne LLC
+ * This file Copyright (C) Mnemosyne LLC
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2
@@ -7,12 +7,12 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: edit.c 11160 2010-08-08 22:53:24Z charles $
+ * $Id: edit.c 11791 2011-01-30 16:40:11Z jordan $
  */
 
 #include <stdio.h>
 
-#include <event.h> /* evbuffer */
+#include <event2/buffer.h>
 
 #include <libtransmission/transmission.h>
 #include <libtransmission/bencode.h>
@@ -137,7 +137,6 @@ removeURL( tr_benc * metainfo, const char * url )
             }
         }
     }
-        
 
     return changed;
 }
@@ -157,9 +156,9 @@ replaceSubstr( const char * str, const char * in, const char * out )
         str = walk + inlen;
     }
 
-    walk = tr_strndup( EVBUFFER_DATA( buf ), EVBUFFER_LENGTH( buf ) );
-    evbuffer_free( buf );
-    return walk;
+    evbuffer_add( buf, str, strlen( str ) );
+
+    return evbuffer_free_to_str( buf );
 }
 
 static tr_bool

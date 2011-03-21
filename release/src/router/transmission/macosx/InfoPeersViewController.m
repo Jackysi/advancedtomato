@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: InfoPeersViewController.m 11409 2010-11-14 15:16:39Z livings124 $
+ * $Id: InfoPeersViewController.m 11617 2011-01-01 20:42:14Z livings124 $
  *
- * Copyright (c) 2010 Transmission authors and contributors
+ * Copyright (c) 2010-2011 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -185,7 +185,7 @@
         
         if (connected > 0)
         {
-            NSMutableArray * fromComponents = [NSMutableArray arrayWithCapacity: 6];
+            NSMutableArray * fromComponents = [NSMutableArray arrayWithCapacity: 7];
             if (tracker > 0)
                 [fromComponents addObject: [NSString stringWithFormat:
                                         NSLocalizedString(@"%d tracker", "Inspector -> Peers tab -> peers"), tracker]];
