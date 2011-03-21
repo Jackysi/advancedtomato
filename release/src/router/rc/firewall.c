@@ -35,6 +35,9 @@ char lanface[IFNAMSIZ + 1];
 char wan6face[IFNAMSIZ + 1];
 #endif
 char lan_cclass[sizeof("xxx.xxx.xxx.") + 1];
+#ifdef LINUX26
+static int can_enable_fastnat;
+#endif
 
 #ifdef DEBUG_IPTFILE
 static int debug_only = 0;
@@ -70,6 +73,23 @@ struct {
 
 // -----------------------------------------------------------------------------
 
+#ifdef LINUX26
+void enable_fastnat(int enable)
+{
+	f_write_string("/proc/sys/net/ipv4/netfilter/ip_conntrack_fastnat",
+		enable ? "1" : "0", 0, 0);
+}
+
+int fastnat_enabled(void)
+{
+	char v[4];
+
+	if (f_read_string("/proc/sys/net/ipv4/netfilter/ip_conntrack_fastnat", v, sizeof(v)) > 0)
+		return atoi(v);
+
+	return 0;
+}
+#endif
 
 void enable_ip_forward(void)
 {
@@ -307,7 +327,12 @@ void ipt_layer7_inbound(void)
 
 	p = layer7_in;
 	while (*p) {
-		if (en) ipt_write("-A L7in %s -j RETURN\n", *p);
+		if (en) {
+			ipt_write("-A L7in %s -j RETURN\n", *p);
+#ifdef LINUX26
+			can_enable_fastnat = 0;
+#endif
+		}
 		free(*p);
 		++p;
 	}
@@ -377,6 +402,10 @@ static void ipt_webmon()
 	int ok;
 
 	if (!nvram_get_int("log_wm")) return;
+
+#ifdef LINUX26
+	can_enable_fastnat = 0;
+#endif
 	wmtype = nvram_get_int("log_wmtype");
 	clear = nvram_get_int("log_wmclear");
 
@@ -1188,6 +1217,10 @@ int start_firewall(void)
 	strlcpy(wan6face, get_wan6face(), sizeof(wan6face));
 #endif
 
+#ifdef LINUX26
+	can_enable_fastnat = (nvram_get_int("fastnat_disable") == 0);
+#endif
+
 	strlcpy(s, nvram_safe_get("lan_ipaddr"), sizeof(s));
 	if ((c = strrchr(s, '.')) != NULL) *(c + 1) = 0;
 	strlcpy(lan_cclass, s, sizeof(lan_cclass));
@@ -1318,6 +1351,9 @@ int start_firewall(void)
 		killall("miniupnpd", SIGUSR2);
 	}
 
+#ifdef LINUX26
+	enable_fastnat(can_enable_fastnat);
+#endif
 	simple_unlock("restrictions");
 	sched_restrictions();
 	enable_ip_forward();
