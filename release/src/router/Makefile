@@ -1457,7 +1457,7 @@ transmission/Makefile: openssl libcurl libevent zlib transmission/Makefile
 		--with-ssl-headers="$(TOP)/openssl/include/" \
 		LIBCURL_CFLAGS="-I$(TOP)/libcurl/include" \
 		LIBCURL_LIBS="-L$(TOP)/libcurl/lib/.libs/ -lcurl" \
-		LIBEVENT_CFLAGS="-I$(TOP)/libevent" \
+		LIBEVENT_CFLAGS="-I$(TOP)/libevent/include" \
 		LIBEVENT_LIBS="-L$(TOP)/libevent/.libs -levent" \
 		OPENSSL_CFLAGS="-I$(TOP)/openssl/include" \
 		OPENSSL_LIBS="-L$(TOP)/openssl -lcrypto -lssl"
