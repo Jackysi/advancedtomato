@@ -109,6 +109,9 @@ extern int start_vlan(void);
 extern int stop_vlan(void);
 extern int config_vlan(void);
 extern void config_loopback(void);
+#ifdef TCONFIG_IPV6
+extern int ipv6_mapaddr4(struct in6_addr *addr6, int ip6len, struct in_addr *addr4, int ip4mask);
+#endif
 
 // listen.c
 extern int listen_main(int argc, char **argv);
@@ -216,8 +219,8 @@ extern void start_hotplug2();
 extern void stop_hotplug2(void);
 #endif
 #ifdef TCONFIG_IPV6
-extern void start_ipv6_sit_tunnel(void);
-extern void stop_ipv6_sit_tunnel(void);
+extern void start_ipv6_tunnel(void);
+extern void stop_ipv6_tunnel(void);
 extern void start_radvd(void);
 extern void stop_radvd(void);
 extern void start_ipv6(void);

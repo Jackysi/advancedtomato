@@ -21,7 +21,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("ipv6_prefix,ipv6_prefix_length,ipv6_radvd,ipv6_accept_ra,ipv6_rtr_addr,ipv6_service,ipv6_dns,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_ifname,ipv6_tun_v4end,ipv6_tun_mtu,ipv6_tun_ttl"); %>
+//	<% nvram("ipv6_prefix,ipv6_prefix_length,ipv6_radvd,ipv6_accept_ra,ipv6_rtr_addr,ipv6_service,ipv6_dns,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_ifname,ipv6_tun_v4end,ipv6_relay,ipv6_tun_mtu,ipv6_tun_ttl"); %>
 
 nvram.ipv6_accept_ra = fixInt(nvram.ipv6_accept_ra, 0, 3, 0);
 
@@ -46,6 +46,7 @@ function verifyFields(focused, quiet)
 		_f_ipv6_accept_ra_wan: 1,
 		_f_ipv6_accept_ra_lan: 1,
 		_ipv6_tun_v4end: 1,
+		_ipv6_relay: 1,
 		_ipv6_ifname: 1,
 		_ipv6_tun_addr: 1,
 		_ipv6_tun_addrlen: 1,
@@ -70,6 +71,7 @@ function verifyFields(focused, quiet)
 			vis._f_ipv6_prefix = 0;
 			vis._f_ipv6_prefix_length = 0;
 			vis._ipv6_tun_v4end = 0;
+			vis._ipv6_relay = 0;
 			vis._ipv6_tun_addr = 0;
 			vis._ipv6_tun_addrlen = 0;
 			vis._ipv6_tun_ttl = 0;
@@ -87,12 +89,24 @@ function verifyFields(focused, quiet)
 		case 'native':
 			vis._ipv6_ifname = 0;
 			vis._ipv6_tun_v4end = 0;
+			vis._ipv6_relay = 0;
 			vis._ipv6_tun_addr = 0;
 			vis._ipv6_tun_addrlen = 0;
 			vis._ipv6_tun_ttl = 0;
 			vis._ipv6_tun_mtu = 0;
 			break;
+		case '6to4':
+			vis._f_ipv6_prefix = 0;
+			vis._f_ipv6_rtr_addr_auto = 0;
+			vis._f_ipv6_rtr_addr = 0;
+			vis._ipv6_tun_v4end = 0;
+			vis._ipv6_tun_addr = 0;
+			vis._ipv6_tun_addrlen = 0;
+			vis._f_ipv6_accept_ra_wan = 0;
+			vis._f_ipv6_accept_ra_lan = 0;
+			break;
 		case 'sit':
+			vis._ipv6_relay = 0;
 			vis._f_ipv6_accept_ra_wan = 0;
 			vis._f_ipv6_accept_ra_lan = 0;
 			break;
@@ -138,7 +152,7 @@ REMOVE-END */
 		if ((vis[a[i]]) && (!v_ip(a[i], quiet || !ok))) ok = 0;
 
 	// range
-	a = [['_f_ipv6_prefix_length', 3, 64], ['_ipv6_tun_addrlen', 3, 127], ['_ipv6_tun_ttl', 0, 255]];
+	a = [['_f_ipv6_prefix_length', 3, 64], ['_ipv6_tun_addrlen', 3, 127], ['_ipv6_tun_ttl', 0, 255], ['_ipv6_relay', 1, 254]];
 	for (i = a.length - 1; i >= 0; --i) {
 		b = a[i];
 		if ((vis[b[0]]) && (!v_range(b[0], quiet || !ok, b[1], b[2]))) ok = 0;
@@ -222,6 +236,7 @@ function save()
 			fom.ipv6_prefix.value = '';
 			fom.ipv6_rtr_addr.value = fom.f_ipv6_rtr_addr.value;
 			break;
+		case '6to4':
 		case 'native-pd':
 			fom.ipv6_prefix.value = '';
 			fom.ipv6_rtr_addr.value = '';
@@ -272,7 +287,7 @@ dns = nvram.ipv6_dns.split(/\s+/);
 
 createFieldTable('', [
 	{ title: 'IPv6 Service Type', name: 'ipv6_service', type: 'select', 
-		options: [['', 'Disabled'],['native','Native IPv6 from ISP'],['native-pd','DHCPv6 with Prefix Delegation'],['sit','6in4 Static Tunnel'],['other','Other (Manual Configuration)']],
+		options: [['', 'Disabled'],['native','Native IPv6 from ISP'],['native-pd','DHCPv6 with Prefix Delegation'],['6to4','6to4 Anycast Relay'],['sit','6in4 Static Tunnel'],['other','Other (Manual Configuration)']],
 		value: nvram.ipv6_service },
 	{ title: 'IPv6 WAN Interface', name: 'ipv6_ifname', type: 'text', maxlen: 8, size: 10, value: nvram.ipv6_ifname },
 	null,
@@ -292,6 +307,7 @@ createFieldTable('', [
 	] },
 	null,
 	{ title: 'Tunnel Remote Endpoint (IPv4 Address)', name: 'ipv6_tun_v4end', type: 'text', maxlen: 15, size: 17, value: nvram.ipv6_tun_v4end },
+	{ title: 'Relay Anycast Address', name: 'ipv6_relay', type: 'text', maxlen: 3, size: 5, prefix: '192.88.99.&nbsp&nbsp', value: nvram.ipv6_relay },
 	{ title: 'Tunnel Client IPv6 Address', multi: [
 		{ name: 'ipv6_tun_addr', type: 'text', maxlen: 46, size: 48, value: nvram.ipv6_tun_addr, suffix: ' / ' },
 		{ name: 'ipv6_tun_addrlen', type: 'text', maxlen: 3, size: 5, value: nvram.ipv6_tun_addrlen }

@@ -732,11 +732,17 @@ static void filter_input(void)
 			lanface);
 
 #ifdef TCONFIG_IPV6
-	switch (get_ipv6_service()) {
+	n = get_ipv6_service();
+	switch (n) {
+	case IPV6_ANYCAST_6TO4:
 	case IPV6_6IN4:
 		// Accept ICMP requests from the remote tunnel endpoint
-		if ((p = nvram_get("ipv6_tun_v4end")) && *p && strcmp(p, "0.0.0.0") != 0)
-			ipt_write("-A INPUT -p icmp -s %s -j %s\n", p, chain_in_accept);
+		if (n == IPV6_ANYCAST_6TO4)
+			sprintf(s, "192.88.99.%d", nvram_get_int("ipv6_relay"));
+		else
+			strlcpy(s, nvram_safe_get("ipv6_tun_v4end"), sizeof(s));
+		if (*s && strcmp(s, "0.0.0.0") != 0)
+			ipt_write("-A INPUT -p icmp -s %s -j %s\n", s, chain_in_accept);
 		ipt_write("-A INPUT -p 41 -j %s\n", chain_in_accept);
 		break;
 	}
@@ -1063,6 +1069,7 @@ static void filter6_input(void)
 			lanface );
 
 	switch (get_ipv6_service()) {
+	case IPV6_ANYCAST_6TO4:
 	case IPV6_NATIVE_DHCP:
 		// allow responses from the dhcpv6 server
 		ip6t_write("-A INPUT -p udp --dport 546 -j %s\n", chain_in_accept);
