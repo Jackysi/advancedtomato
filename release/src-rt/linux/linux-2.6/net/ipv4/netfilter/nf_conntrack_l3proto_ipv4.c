@@ -31,7 +31,7 @@
 #endif
 
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-int ipv4_conntrack_fastnat = 1;
+int ipv4_conntrack_fastnat = 0;
 EXPORT_SYMBOL_GPL(ipv4_conntrack_fastnat);
 #endif
 

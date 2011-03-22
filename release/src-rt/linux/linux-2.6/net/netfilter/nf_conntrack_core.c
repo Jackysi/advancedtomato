@@ -84,7 +84,6 @@ extern int ip_conntrack_ipct_delete(struct nf_conn *ct, int ct_timeout);
 #endif /* HNDCTF */
 
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-#define	BCM_FASTNAT_DENY	1
 extern int ipv4_conntrack_fastnat;
 
 typedef int (*bcmNatBindHook)(struct nf_conn *ct,
