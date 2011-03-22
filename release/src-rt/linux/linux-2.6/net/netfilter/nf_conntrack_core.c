@@ -911,8 +911,7 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb)
 	int set_reply = 0;
 	int ret;
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	struct nf_conn_nat *nat;
-	struct nf_conn_help *help;
+	struct nf_conn_nat *nat = NULL;
 #endif
 
 	/* Previously seen (loopback or untracked)?  Ignore. */
@@ -930,7 +929,7 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb)
 	}
 
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	if (pf == PF_INET) {
+	if (pf == PF_INET && ipv4_conntrack_fastnat) {
 		/* Gather fragments. */
 		if (ip_hdr(*pskb)->frag_off & htons(IP_MF | IP_OFFSET)) {
 			if (nf_ct_ipv4_gather_frags(*pskb,
@@ -984,30 +983,34 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb)
 	}
 
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	help = nfct_help(ct);
-	nat = nfct_nat(ct);
-	if (pf == PF_INET && ipv4_conntrack_fastnat && bcm_nat_bind_hook
-		&& !(nat->info.nat_type & BCM_FASTNAT_DENY)
-		&& !help->helper
-		&& (ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_IS_REPLY)
-		&& (hooknum == NF_IP_PRE_ROUTING) && 
-		(protonum == IPPROTO_TCP || protonum == IPPROTO_UDP)) {
+	if (pf == PF_INET)
+		nat = nfct_nat(ct);
 
-		struct nf_conntrack_tuple *t1, *t2;
-		t1 = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
-		t2 = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
-		if (!(t1->dst.u3.ip == t2->src.u3.ip &&
-			t1->src.u3.ip == t2->dst.u3.ip &&
-			t1->dst.u.all == t2->src.u.all &&
-			t1->src.u.all == t2->dst.u.all)) {
-			ret = bcm_nat_bind_hook(ct, ctinfo, pskb, l3proto, l4proto);
+	if (nat && hooknum == NF_IP_PRE_ROUTING &&
+	    ipv4_conntrack_fastnat && bcm_nat_bind_hook) {
+		struct nf_conn_help *help = nfct_help(ct);
+
+		if (!(nat->info.nat_type & BCM_FASTNAT_DENY) &&
+		    !help->helper &&
+		    (ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_IS_REPLY) &&
+		    (protonum == IPPROTO_TCP || protonum == IPPROTO_UDP)) {
+			struct nf_conntrack_tuple *t1, *t2;
+
+			t1 = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+			t2 = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
+			if (!(t1->dst.u3.ip == t2->src.u3.ip &&
+			      t1->src.u3.ip == t2->dst.u3.ip &&
+			      t1->dst.u.all == t2->src.u.all &&
+			      t1->src.u.all == t2->dst.u.all)) {
+				ret = bcm_nat_bind_hook(ct, ctinfo, pskb, l3proto, l4proto);
+			}
 		}
 	}
 #endif
 
 	if (set_reply && !test_and_set_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-		if (pf == PF_INET && hooknum == NF_IP_LOCAL_OUT)
+		if (nat && hooknum == NF_IP_LOCAL_OUT)
 			nat->info.nat_type |= BCM_FASTNAT_DENY;
 #endif
 		nf_conntrack_event_cache(IPCT_STATUS, *pskb);

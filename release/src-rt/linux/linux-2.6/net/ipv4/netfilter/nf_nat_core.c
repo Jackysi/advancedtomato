@@ -132,6 +132,9 @@ ip_conntrack_is_ipc_allowed(struct sk_buff *skb, u_int32_t hooknum)
 
 	return FALSE;
 }
+#ifdef CONFIG_BCM_NAT_MODULE
+EXPORT_SYMBOL(ip_conntrack_is_ipc_allowed);
+#endif
 
 void
 ip_conntrack_ipct_add(struct sk_buff *skb, u_int32_t hooknum,
@@ -267,6 +270,9 @@ ip_conntrack_ipct_add(struct sk_buff *skb, u_int32_t hooknum,
 	/* Update the attributes flag to indicate a CTF conn */
 	ct->ctf_flags |= CTF_FLAGS_CACHED;
 }
+#ifdef CONFIG_BCM_NAT_MODULE
+EXPORT_SYMBOL(ip_conntrack_ipct_add);
+#endif
 
 int
 ip_conntrack_ipct_delete(struct nf_conn *ct, int ct_timeout)

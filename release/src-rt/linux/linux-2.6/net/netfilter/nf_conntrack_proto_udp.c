@@ -23,6 +23,10 @@
 #include <net/netfilter/nf_conntrack_l4proto.h>
 #include <net/netfilter/nf_conntrack_ecache.h>
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+extern int ipv4_conntrack_fastnat;
+#endif
+
 static unsigned int nf_ct_udp_timeout __read_mostly = 30*HZ;
 static unsigned int nf_ct_udp_timeout_stream __read_mostly = 180*HZ;
 
@@ -96,6 +100,11 @@ static int udp_error(struct sk_buff *skb, unsigned int dataoff,
 {
 	unsigned int udplen = skb->len - dataoff;
 	struct udphdr _hdr, *hdr;
+
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	if (ipv4_conntrack_fastnat)
+		return NF_ACCEPT;
+#endif
 
 	/* Header is too small? */
 	hdr = skb_header_pointer(skb, dataoff, sizeof(_hdr), &_hdr);
@@ -194,11 +203,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_udp4 =
 	.print_tuple		= udp_print_tuple,
 	.packet			= udp_packet,
 	.new			= udp_new,
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	.error                  = NULL,
-#else
 	.error			= udp_error,
-#endif
 #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
 	.tuple_to_nfattr	= nf_ct_port_tuple_to_nfattr,
 	.nfattr_to_tuple	= nf_ct_port_nfattr_to_tuple,

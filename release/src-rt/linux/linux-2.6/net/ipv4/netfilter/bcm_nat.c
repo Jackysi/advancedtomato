@@ -37,11 +37,8 @@ extern void ip_conntrack_ipct_add(struct sk_buff *skb, u_int32_t hooknum,
 #define DEBUGP(format, args...)
 
 typedef int (*bcmNatHitHook)(struct sk_buff *skb);
-extern int bcm_nat_hit_hook_func(bcmNatHitHook hook_func);
-
 typedef int (*bcmNatBindHook)(struct nf_conn *ct,enum ip_conntrack_info ctinfo,
-	    						unsigned int hooknum, struct sk_buff **pskb);
-extern int bcm_nat_bind_hook_func(bcmNatBindHook hook_func);
+			      unsigned int hooknum, struct sk_buff *skb);
 
 extern bcmNatBindHook bcm_nat_bind_hook;
 extern bcmNatHitHook bcm_nat_hit_hook;
@@ -60,21 +57,13 @@ bcm_nat_hit_hook_func(bcmNatHitHook hook_func)
 	return 1;
 }
 
-extern
-#ifndef MODULE
-inline
-#endif
-int bcm_manip_pkt(u_int16_t proto,
+extern int bcm_manip_pkt(u_int16_t proto,
 	struct sk_buff **pskb,
 	unsigned int iphdroff,
 	const struct nf_conntrack_tuple *target,
 	enum nf_nat_manip_type maniptype);
 
-extern
-#ifndef MODULE
-inline
-#endif
-int bcm_nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
+extern int bcm_nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
 	const struct nf_conntrack_tuple *orig,
 	const struct nf_conntrack_l3proto *l3proto,
 	const struct nf_conntrack_l4proto *l4proto);
@@ -120,7 +109,7 @@ static inline int ip_skb_dst_mtu(struct sk_buff *skb)
 	       skb->dst->dev->mtu : dst_mtu(skb->dst);
 }
 
-static inline int bcm_fast_path(struct sk_buff *skb)
+static int bcm_fast_path(struct sk_buff *skb)
 {
 	if (skb->dst == NULL) {
 		struct iphdr *iph = ip_hdr(skb);
@@ -144,7 +133,7 @@ static inline int bcm_fast_path(struct sk_buff *skb)
 	return -EINVAL;
 }
 
-static inline int
+static int
 bcm_do_bindings(struct nf_conn *ct,
 		enum ip_conntrack_info ctinfo,
 		struct sk_buff **pskb,
