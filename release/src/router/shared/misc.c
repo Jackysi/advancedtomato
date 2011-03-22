@@ -56,6 +56,7 @@ int get_ipv6_service(void)
 	const char *names[] = {	// order must be synced with def at shared.h
 		"native",	// IPV6_NATIVE
 		"native-pd",	// IPV6_NATIVE_DHCP
+		"6to4",		// IPV6_ANYCAST_6TO4
 		"sit",		// IPV6_6IN4
 		"other",	// IPV6_MANUAL
 		NULL

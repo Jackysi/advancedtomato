@@ -131,6 +131,8 @@ ipx		213/tcp				# IPX
 ipx		213/udp
 imap3		220/tcp				# Interactive Mail Access
 imap3		220/udp				# Protocol v3
+zserv		346/tcp				# Zebra server
+zserv		346/udp
 rpc2portmap	369/tcp
 rpc2portmap	369/udp				# Coda portmapper
 codaauth2	370/tcp
@@ -145,6 +147,8 @@ snpp		444/tcp				# Simple Network Paging Protocol
 snpp		444/udp				# Simple Network Paging Protocol
 saft		487/tcp				# Simple Asynchronous File Transfer
 saft		487/udp				# Simple Asynchronous File Transfer
+rtsp		554/tcp				# Real Time Stream Control Protocol
+rtsp		554/udp				# Real Time Stream Control Protocol
 npmp-local	610/tcp		dqs313_qmaster	# npmp-local / DQS
 npmp-local	610/udp		dqs313_qmaster	# npmp-local / DQS
 npmp-gui	611/tcp		dqs313_execd	# npmp-gui / DQS
@@ -177,6 +181,10 @@ remotefs	556/tcp		rfs_server rfs	# Brunhoff remote filesystem
 #
 webster		765/tcp				# Network dictionary
 webster		765/udp
+rsync		873/tcp
+rsync		873/udp
+ftps-data	989/tcp				# FTP over SSL (data)
+ftps		990/tcp
 swat		901/tcp				# Samba Web Administration Tool
 #
 # From ``Assigned Numbers'':
@@ -226,14 +234,67 @@ codasrv-se	2433/udp			# udp sftp side effect
 squid		3128/tcp			# squid web proxy
 mysql		3306/tcp			# MySQL
 mysql		3306/udp			# MySQL
+nut		3493/tcp			# Network UPS Tools
+nut		3493/udp
+distcc		3632/tcp			# distributed compiler
+distcc		3632/udp
+daap		3689/tcp			# Digital Audio Access Protocol
+daap		3689/udp
+svn		3690/tcp	subversion	# Subversion protocol
+svn		3690/udp	subversion
+suucp		4013/tcp			# UUCP over SSL
+suucp		4013/udp			# UUCP over SSL
+sysrqd		4094/tcp			# sysrq daemon
+sysrqd		4094/udp			# sysrq daemon
+iax		4569/tcp			# Inter-Asterisk eXchange
+iax		4569/udp
+radmin-port	4899/tcp			# RAdmin Port
+radmin-port	4899/udp
 rfe		5002/tcp			# Radio Free Ethernet
 rfe		5002/udp			# Actually uses UDP only
+mmcc		5050/tcp			# multimedia conference control tool (Yahoo IM)
+mmcc		5050/udp
+sip		5060/tcp			# Session Initiation Protocol
+sip		5060/udp
+sip-tls		5061/tcp
+sip-tls		5061/udp
+aol		5190/tcp			# AIM
+aol		5190/udp
+xmpp-client	5222/tcp	jabber-client	# Jabber Client Connection
+xmpp-client	5222/udp	jabber-client
+xmpp-server	5269/tcp	jabber-server	# Jabber Server Connection
+xmpp-server	5269/udp	jabber-server
 cfengine	5308/tcp			# CFengine
 cfengine	5308/udp			# CFengine
-X		6000/tcp			# the X Window System
+mdns		5353/tcp			# Multicast DNS
+mdns		5353/udp			# Multicast DNS
+x11		6000/tcp	X x11-0		# X Window System
+x11		6000/udp	X x11-0
+x11-1		6001/tcp
+x11-1		6001/udp
+x11-2		6002/tcp
+x11-2		6002/udp
+x11-3		6003/tcp
+x11-3		6003/udp
+x11-4		6004/tcp
+x11-4		6004/udp
+x11-5		6005/tcp
+x11-5		6005/udp
+x11-6		6006/tcp
+x11-6		6006/udp
+x11-7		6007/tcp
+x11-7		6007/udp
+gnutella-svc	6346/tcp			# gnutella
+gnutella-svc	6346/udp
+gnutella-rtr	6347/tcp			# gnutella 
+gnutella-rtr	6347/udp
 bbs		7000/tcp			# BBS service
-xfs		7100/tcp			# X font server
+bbs		7000/udp
+font-service	7100/tcp	xfs		# X Font Service
+font-service	7100/udp	xfs
 laserjet	9100/tcp	hplj
+hkp		11371/tcp			# OpenPGP HTTP Keyserver
+hkp		11371/udp			# OpenPGP HTTP Keyserver
 #
 #
 # Kerberos (Project Athena/MIT) services
@@ -299,6 +360,15 @@ support		1529/tcp			# GNATS
 cfinger		2003/tcp			# GNU Finger
 ninstall	2150/tcp			# ninstall service
 ninstall	2150/udp			# ninstall service
+zebrasrv	2600/tcp			# zebra service
+zebra		2601/tcp			# zebra vty
+ripd		2602/tcp			# ripd vty (zebra)
+ripngd		2603/tcp			# ripngd vty (zebra)
+ospfd		2604/tcp			# ospfd vty (zebra)
+bgpd		2605/tcp			# bgpd vty (zebra)
+ospf6d		2606/tcp			# ospf6d vty (zebra)
+ospfapi		2607/tcp			# OSPF-API
+isisd		2608/tcp			# ISISd vty (zebra)
 afbackup	2988/tcp			# Afbackup system
 afbackup	2988/udp			# Afbackup system
 icp		3130/tcp			# Internet Cache Protocol (Squid)
@@ -311,14 +381,16 @@ noclog		5354/tcp			# noclogd with TCP (nocol)
 noclog		5354/udp			# noclogd with UDP (nocol)
 hostmon		5355/tcp			# hostmon uses TCP (nocol)
 hostmon		5355/udp			# hostmon uses TCP (nocol)
-saned		6566/tcp			# SANE network scanner daemon
+sane-port	6566/tcp	sane saned	# SANE network scanner daemon
 ircd		6667/tcp			# Internet Relay Chat
 ircd		6667/udp			# Internet Relay Chat
 webcache	8080/tcp			# WWW caching service
 webcache	8080/udp			# WWW caching service
 tproxy		8081/tcp			# Transparent Proxy
 tproxy		8081/udp			# Transparent Proxy
+xinetd		9098/tcp
 mandelspawn	9359/udp	mandelbrot	# network mandelbrot
+git		9418/tcp			# Git Version Control System
 amanda		10080/udp			# amanda backup services
 kamanda		10081/tcp			# amanda backup services (Kerberos)
 kamanda		10081/udp			# amanda backup services (Kerberos)

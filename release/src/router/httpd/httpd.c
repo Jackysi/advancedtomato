@@ -787,7 +787,7 @@ static void add_listen_socket(const char *addr, int server_port, int do_ipv6, in
 	}
 
 	if (bind(listenfd, (struct sockaddr *)&sai_stor, sizeof(sai_stor)) < 0) {
-		syslog(LOG_ERR, "bind: %m");
+		syslog(LOG_ERR, "bind: [%s]:%d: %m", (addr && *addr) ? addr : (IF_TCONFIG_IPV6(do_ipv6 ? "::" :) ""), server_port);
 		close(listenfd);
 		return;
 	}
@@ -811,25 +811,28 @@ static void add_listen_socket(const char *addr, int server_port, int do_ipv6, in
 
 static void setup_listeners(int do_ipv6)
 {
-	const char *ipaddr;
+	char ipaddr[INET6_ADDRSTRLEN];
+	IF_TCONFIG_IPV6(const char *wanaddr);
 	int wanport, p;
+	IF_TCONFIG_IPV6(int wan6port);
 
 	wanport = nvram_get_int("http_wanport");
 #ifdef TCONFIG_IPV6
+	wan6port = wanport;
 	if (do_ipv6) {
 		// get the configured routable IPv6 address from the lan iface.
 		// add_listen_socket() will fall back to in6addr_any
 		// if NULL or empty address is returned
-		ipaddr = getifaddr(nvram_safe_get("lan_ifname"), AF_INET6, 0);
+		strlcpy(ipaddr, getifaddr(nvram_safe_get("lan_ifname"), AF_INET6, 0) ? : "", sizeof(ipaddr));
 	}
 	else
 #endif
-	ipaddr = nvram_safe_get("lan_ipaddr");
+	strlcpy(ipaddr, nvram_safe_get("lan_ipaddr"), sizeof(ipaddr));
 
 	if (!nvram_match("http_enable", "0")) {
 		p = nvram_get_int("http_lanport");
 		add_listen_socket(ipaddr, p, do_ipv6, 0);
-		IF_TCONFIG_IPV6(if (do_ipv6 && wanport == p) wanport = 0);
+		IF_TCONFIG_IPV6(if (do_ipv6 && wanport == p) wan6port = 0);
 	}
 
 #ifdef TCONFIG_HTTPS
@@ -837,7 +840,7 @@ static void setup_listeners(int do_ipv6)
 		do_ssl = 1;
 		p = nvram_get_int("https_lanport");
 		add_listen_socket(ipaddr, p, do_ipv6, 1);
-		IF_TCONFIG_IPV6(if (do_ipv6 && wanport == p) wanport = 0);
+		IF_TCONFIG_IPV6(if (do_ipv6 && wanport == p) wan6port = 0);
 	}
 #endif
 
@@ -845,23 +848,29 @@ static void setup_listeners(int do_ipv6)
 		IF_TCONFIG_HTTPS(if (nvram_match("remote_mgt_https", "1")) do_ssl = 1);
 #ifdef TCONFIG_IPV6
 		if (do_ipv6) {
-			if (!ipaddr || !(*ipaddr)) {
-				// try to get the address from wan iface
-				ipaddr = getifaddr((char *)get_wan6face(), AF_INET6, 0);
+			if (*ipaddr && wan6port) {
+				add_listen_socket(ipaddr, wan6port, 1, nvram_match("remote_mgt_https", "1"));
 			}
-			add_listen_socket(ipaddr, wanport, 1, nvram_match("remote_mgt_https", "1"));
+			if (*ipaddr || wan6port) {
+				// get the IPv6 address from wan iface
+				wanaddr = getifaddr((char *)get_wan6face(), AF_INET6, 0);
+				if (wanaddr && *wanaddr && strcmp(wanaddr, ipaddr) != 0) {
+					add_listen_socket(wanaddr, wanport, 1, nvram_match("remote_mgt_https", "1"));
+				}
+			}
 		} else
 #endif
 		{
 			int i;
+			char *ip;
 			wanface_list_t wanfaces;
 
 			memcpy(&wanfaces, get_wanfaces(), sizeof(wanfaces));
 			for (i = 0; i < wanfaces.count; ++i) {
-				ipaddr = wanfaces.iface[i].ip;
-				if (!(*ipaddr) || strcmp(ipaddr, "0.0.0.0") == 0)
+				ip = wanfaces.iface[i].ip;
+				if (!(*ip) || strcmp(ip, "0.0.0.0") == 0)
 					continue;
-				add_listen_socket(ipaddr, wanport, 0, nvram_match("remote_mgt_https", "1"));
+				add_listen_socket(ip, wanport, 0, nvram_match("remote_mgt_https", "1"));
 			}
 		}
 	}
