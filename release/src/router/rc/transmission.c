@@ -110,11 +110,11 @@ void start_bittorrent(void)
     {
         if ( nvram_match( "bt_auth", "1") )
         {
-            fprintf( fp, "/usr/bin/transmission-remote --auth %s:%s --blocklist-update\n", nvram_safe_get( "bt_login" ), nvram_safe_get( "bt_password" ) );
+            fprintf( fp, "/usr/bin/transmission-remote %s --auth %s:%s --blocklist-update\n", nvram_safe_get( "bt_port_gui" ), nvram_safe_get( "bt_login" ), nvram_safe_get( "bt_password" ) );
         }
         else
         {
-            fprintf( fp, "/usr/bin/transmission-remote --blocklist-update\n" );
+            fprintf( fp, "/usr/bin/transmission-remote %s --blocklist-update\n", nvram_safe_get( "bt_port_gui" ) );
         }
     }
 
