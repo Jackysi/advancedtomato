@@ -1579,7 +1579,7 @@ static void start_media_server(void)
 					"presentation_url=http%s://%s:%s/nas-media.asp\n"
 					"inotify=yes\n"
 					"notify_interval=600\n"
-					"album_art_names=Cover.jpg/cover.jpg/Thumb.jpg/thumb.jpg\n"
+					"album_art_names=Cover.jpg/cover.jpg/AlbumArtSmall.jpg/albumartsmall.jpg/AlbumArt.jpg/albumart.jpg/Album.jpg/album.jpg/Folder.jpg/folder.jpg/Thumb.jpg/thumb.jpg\n"
 					"\n",
 					nvram_safe_get("lan_ifname"),
 					(port < 0) || (port >= 0xffff) ? 0 : port,
