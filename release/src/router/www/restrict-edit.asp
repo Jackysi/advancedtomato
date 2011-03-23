@@ -399,8 +399,8 @@ function save()
 	data.push(E('_f_desc').value);
 	data = data.join('|');
 
-	if (data.length >= 2048) {
-		alert('This rule is too big. Please reduce by ' + (data.length - 2048) + ' characters.');
+	if (data.length >= 8192) {
+		alert('This rule is too big. Please reduce by ' + (data.length - 8192) + ' characters.');
 		return;
 	}
 
