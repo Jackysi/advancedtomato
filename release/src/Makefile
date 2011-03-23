@@ -681,6 +681,12 @@ e3000:
 e3000v:
 	@$(MAKE) r2e ND=E3000 NVRAM_SIZE=60
 
+e3000n:
+	@$(MAKE) r2n ND=E3000 NVRAM_SIZE=60
+
+e3000o:
+	@$(MAKE) r2o ND=E3000 NVRAM_SIZE=60
+
 e2000:
 	@$(MAKE) bin MIPS32=r2 B=S USB="" ND=E2000 NVRAM_SIZE=60 BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y BUILD_DESC="Std"
 
@@ -766,7 +772,9 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2i          MIPS Release 2 I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
 	@echo "r2f          MIPS Release 2 F build (no USB support minus CIFS and RIPv1/2)"
 	@echo "e3000        Linksys E3000 build (standard plus extras)"
+	@echo "e3000n       Linksys E3000 build (standard plus extras plus BT Client)"
 	@echo "e3000v       Linksys E3000 build (standard plus VPN and extras)"
+	@echo "e3000v       Linksys E3000 build (standard plus VPN and extras and BT Client)"
 	@echo "e2000        Linksys E2000 build (no USB support)"
 	@echo "e2000v       Linksys E2000 build (VPN with no USB support)"
 endif
