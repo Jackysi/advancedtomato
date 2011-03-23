@@ -49,6 +49,8 @@
 
 #define FFprint(a...) printk(KERN_DEBUG a)
 
+static struct sock *fibnl;
+
 #ifndef CONFIG_IP_MULTIPLE_TABLES
 
 struct fib_table *ip_fib_local_table;
@@ -784,24 +786,22 @@ static void nl_fib_lookup(struct fib_result_nl *frn, struct fib_table *tb )
 	}
 }
 
-static void nl_fib_input(struct sock *sk, int len)
+static void nl_fib_input(struct sk_buff *skb)
 {
-	struct sk_buff *skb = NULL;
-	struct nlmsghdr *nlh = NULL;
 	struct fib_result_nl *frn;
-	u32 pid;
+	struct nlmsghdr *nlh;
 	struct fib_table *tb;
-
-	skb = skb_dequeue(&sk->sk_receive_queue);
-	if (skb == NULL)
-		return;
+	u32 pid;
 
 	nlh = nlmsg_hdr(skb);
 	if (skb->len < NLMSG_SPACE(0) || skb->len < nlh->nlmsg_len ||
-	    nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*frn))) {
-		kfree_skb(skb);
+	    nlh->nlmsg_len < NLMSG_LENGTH(sizeof(*frn)))
 		return;
-	}
+
+	skb = skb_clone(skb, GFP_KERNEL);
+	if (skb == NULL)
+		return;
+	nlh = nlmsg_hdr(skb);
 
 	frn = (struct fib_result_nl *) NLMSG_DATA(nlh);
 	tb = fib_get_table(frn->tb_id_in);
@@ -811,13 +811,13 @@ static void nl_fib_input(struct sock *sk, int len)
 	pid = NETLINK_CB(skb).pid;       /* pid of sending process */
 	NETLINK_CB(skb).pid = 0;         /* from kernel */
 	NETLINK_CB(skb).dst_group = 0;  /* unicast */
-	netlink_unicast(sk, skb, pid, MSG_DONTWAIT);
+	netlink_unicast(fibnl, skb, pid, MSG_DONTWAIT);
 }
 
 static void nl_fib_lookup_init(void)
 {
-      netlink_kernel_create(NETLINK_FIB_LOOKUP, 0, nl_fib_input, NULL,
-      			    THIS_MODULE);
+	fibnl = netlink_kernel_create(NETLINK_FIB_LOOKUP, 0,
+				      nl_fib_input, NULL, THIS_MODULE);
 }
 
 static void fib_disable_ip(struct net_device *dev, int force)
