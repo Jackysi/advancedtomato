@@ -430,33 +430,68 @@ void stop_httpd(void)
 // -----------------------------------------------------------------------------
 #ifdef TCONFIG_IPV6
 
-void start_ipv6_sit_tunnel(void)
+static void add_ip6_lanaddr(void)
 {
-	char *tun_dev = nvram_safe_get("ipv6_ifname");
 	char ip[INET6_ADDRSTRLEN + 4];
-	const char *wanip;
+	const char *p;
 
-	if (get_ipv6_service() == IPV6_6IN4) {
-		modprobe("sit");
-		snprintf(ip, sizeof(ip), "%s/%d",
-			nvram_safe_get("ipv6_tun_addr"),
-			nvram_get_int("ipv6_tun_addrlen") ? : 64);
-		wanip = get_wanip();
-
-		eval("ip", "tunnel", "add", tun_dev, "mode", "sit",
-			"remote", nvram_safe_get("ipv6_tun_v4end"),
-			"local", (char *)wanip,
-			"ttl", nvram_safe_get("ipv6_tun_ttl"));
-		if (nvram_get_int("ipv6_tun_mtu") > 0)
-			eval("ip", "link", "set", tun_dev, "mtu", nvram_safe_get("ipv6_tun_mtu"), "up");
-		else
-			eval("ip", "link", "set", tun_dev, "up");
-		eval("ip", "addr", "add", ip, "dev", tun_dev);
-		eval("ip", "route", "add", "::/0", "dev", tun_dev);
+	p = ipv6_router_address(NULL);
+	if (*p) {
+		snprintf(ip, sizeof(ip), "%s/%d", p, nvram_get_int("ipv6_prefix_length") ? : 64);
+		eval("ip", "-6", "addr", "add", ip, "dev", nvram_safe_get("lan_ifname"));
 	}
 }
 
-void stop_ipv6_sit_tunnel(void)
+void start_ipv6_tunnel(void)
+{
+	char ip[INET6_ADDRSTRLEN + 4];
+	struct in_addr addr4;
+	struct in6_addr addr;
+	const char *wanip, *mtu, *tun_dev;
+	int service;
+
+	service = get_ipv6_service();
+	tun_dev = nvram_safe_get("ipv6_ifname");
+	wanip = get_wanip();
+	mtu = (nvram_get_int("ipv6_tun_mtu") > 0) ? nvram_safe_get("ipv6_tun_mtu") : "1480";
+	modprobe("sit");
+
+	if (service == IPV6_ANYCAST_6TO4)
+		snprintf(ip, sizeof(ip), "192.88.99.%d", nvram_get_int("ipv6_relay"));
+	else
+		strlcpy(ip, (char *)nvram_safe_get("ipv6_tun_v4end"), sizeof(ip));
+	eval("ip", "tunnel", "add", (char *)tun_dev, "mode", "sit",
+		"remote", ip,
+		"local", (char *)wanip,
+		"ttl", nvram_safe_get("ipv6_tun_ttl"));
+
+	eval("ip", "link", "set", (char *)tun_dev, "mtu", (char *)mtu, "up");
+
+	if (service == IPV6_ANYCAST_6TO4) {
+		add_ip6_lanaddr();
+		addr4.s_addr = 0;
+		memset(&addr, 0, sizeof(addr));
+		inet_aton(wanip, &addr4);
+		addr.s6_addr16[0] = htons(0x2002);
+		ipv6_mapaddr4(&addr, 16, &addr4, 0);
+		addr.s6_addr16[7] = htons(0x0001);
+		inet_ntop(AF_INET6, &addr, ip, sizeof(ip));
+		strncat(ip, "/16", sizeof(ip));
+	}
+	else {
+		snprintf(ip, sizeof(ip), "%s/%d",
+			nvram_safe_get("ipv6_tun_addr"),
+			nvram_get_int("ipv6_tun_addrlen") ? : 64);
+	}
+	eval("ip", "addr", "add", ip, "dev", (char *)tun_dev);
+	eval("ip", "route", "add", "::/0", "dev", (char *)tun_dev);
+
+	// notify radvd of possible change
+	if (service == IPV6_ANYCAST_6TO4)
+		killall("radvd", SIGHUP);
+}
+
+void stop_ipv6_tunnel(void)
 {
 	char *tun_dev = nvram_safe_get("ipv6_ifname");
 	eval("ip", "tunnel", "del", tun_dev);
@@ -468,10 +503,10 @@ static pid_t pid_radvd = -1;
 void start_radvd(void)
 {
 	FILE *f;
-	char *prefix, *ip;
-	int do_dns;
+	char *prefix, *ip, *mtu;
+	int do_dns, do_6to4;
 	char *argv[] = { "radvd", NULL, NULL, NULL };
-	int pid, argc;
+	int pid, argc, service;
 
 	if (getpid() != 1) {
 		start_service("radvd");
@@ -481,13 +516,20 @@ void start_radvd(void)
 	stop_radvd();
 
 	if (ipv6_enabled() && nvram_get_int("ipv6_radvd")) {
+		service = get_ipv6_service();
+		do_6to4 = (service == IPV6_ANYCAST_6TO4);
+		mtu = NULL;
 
-		switch (get_ipv6_service()) {
+		switch (service) {
 		case IPV6_NATIVE_DHCP:
 			prefix = "::";
 			break;
+		case IPV6_ANYCAST_6TO4:
+		case IPV6_6IN4:
+			mtu = (nvram_get_int("ipv6_tun_mtu") > 0) ? nvram_safe_get("ipv6_tun_mtu") : "1480";
+			// fall through
 		default:
-			prefix = nvram_safe_get("ipv6_prefix");
+			prefix = do_6to4 ? "0:0:0:1::" : nvram_safe_get("ipv6_prefix");
 			break;
 		}
 		if (!(*prefix)) prefix = "::";
@@ -501,18 +543,26 @@ void start_radvd(void)
 		fprintf(f,
 			"interface %s\n"
 			"{\n"
+			" IgnoreIfMissing on;\n"
 			" AdvSendAdvert on;\n"
 			" MaxRtrAdvInterval 60;\n"
 			" AdvHomeAgentFlag off;\n"
 			" AdvManagedFlag off;\n"
+			"%s%s%s"
 			" prefix %s/64 \n"
 			" {\n"
 			"  AdvOnLink on;\n"
 			"  AdvAutonomous on;\n"
+			"%s%s%s"
 			" };\n"
 			" %s%s%s\n"
 			"};\n",
-			nvram_safe_get("lan_ifname"), prefix,
+			nvram_safe_get("lan_ifname"),
+			mtu ? " AdvLinkMTU " : "", mtu ? : "", mtu ? ";\n" : "",
+			prefix,
+		        do_6to4 ? "  Base6to4Interface " : "",
+		        do_6to4 ? get_wanface() : "",
+		        do_6to4 ? ";\n" : "",
 			do_dns ? "RDNSS " : "", do_dns ? ip : "", do_dns ? " { };" : "");
 		fclose(f);
 
@@ -544,8 +594,6 @@ void stop_radvd(void)
 
 void start_ipv6(void)
 {
-	char *p;
-	char ip[INET6_ADDRSTRLEN + 4];
 	int service;
 
 	service = get_ipv6_service();
@@ -556,11 +604,12 @@ void start_ipv6(void)
 	case IPV6_NATIVE:
 	case IPV6_6IN4:
 	case IPV6_MANUAL:
-		p = (char *)ipv6_router_address(NULL);
-		if (*p) {
-			snprintf(ip, sizeof(ip), "%s/%d", p, nvram_get_int("ipv6_prefix_length") ? : 64);
-			eval("ip", "-6", "addr", "add", ip, "dev", nvram_safe_get("lan_ifname"));
-		}
+		add_ip6_lanaddr();
+		break;
+	case IPV6_NATIVE_DHCP:
+	case IPV6_ANYCAST_6TO4:
+		nvram_set("ipv6_rtr_addr", "");
+		nvram_set("ipv6_prefix", "");
 		break;
 	}
 
@@ -572,7 +621,7 @@ void start_ipv6(void)
 
 void stop_ipv6(void)
 {
-	stop_ipv6_sit_tunnel();
+	stop_ipv6_tunnel();
 	stop_dhcp6c();
 	eval("ip", "-6", "addr", "flush", "scope", "global");
 }

@@ -163,6 +163,35 @@ void config_loopback(void)
 	route_add("lo", 0, "127.0.0.0", "0.0.0.0", "255.0.0.0");
 }
 
+#ifdef TCONFIG_IPV6
+int ipv6_mapaddr4(struct in6_addr *addr6, int ip6len, struct in_addr *addr4, int ip4mask)
+{
+	int i = ip6len >> 5;
+	int m = ip6len & 0x1f;
+	int ret = ip6len + 32 - ip4mask;
+	u_int32_t addr = 0;
+	u_int32_t mask = 0xffffffffUL << ip4mask;
+
+	if (ip6len > 128 || ip4mask > 32 || ret > 128)
+		return 0;
+	if (ip4mask == 32)
+		return ret;
+
+	if (addr4)
+		addr = ntohl(addr4->s_addr) << ip4mask;
+
+	addr6->s6_addr32[i] &= ~htonl(mask >> m);
+	addr6->s6_addr32[i] |= htonl(addr >> m);
+	if (m) {
+		i++;
+		addr6->s6_addr32[i] &= ~htonl(mask << (32 - m));
+		addr6->s6_addr32[i] |= htonl(addr << (32 - m));
+	}
+
+	return ret;
+}
+#endif
+
 /* configure/start vlan interface(s) based on nvram settings */
 int start_vlan(void)
 {

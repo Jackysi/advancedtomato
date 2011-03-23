@@ -84,12 +84,11 @@ extern int ip_conntrack_ipct_delete(struct nf_conn *ct, int ct_timeout);
 #endif /* HNDCTF */
 
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-#define	BCM_FASTNAT_DENY	1
 extern int ipv4_conntrack_fastnat;
 
 typedef int (*bcmNatBindHook)(struct nf_conn *ct,
 	enum ip_conntrack_info ctinfo,
-	struct sk_buff **pskb, 
+	struct sk_buff *skb, 
 	struct nf_conntrack_l3proto *l3proto,
 	struct nf_conntrack_l4proto *l4proto);
 typedef int (*bcmNatHitHook)(struct sk_buff *skb);
@@ -500,7 +499,7 @@ EXPORT_SYMBOL_GPL(nf_conntrack_hash_insert);
 
 /* Confirm a connection given skb; places it in hash table */
 int
-__nf_conntrack_confirm(struct sk_buff **pskb)
+__nf_conntrack_confirm(struct sk_buff *skb)
 {
 	unsigned int hash, repl_hash;
 	struct nf_conntrack_tuple_hash *h;
@@ -508,7 +507,7 @@ __nf_conntrack_confirm(struct sk_buff **pskb)
 	struct nf_conn_help *help;
 	enum ip_conntrack_info ctinfo;
 
-	ct = nf_ct_get(*pskb, &ctinfo);
+	ct = nf_ct_get(skb, &ctinfo);
 
 	/* ipt_REJECT uses nf_conntrack_attach to attach related
 	   ICMP/TCP RST packets in other direction.  Actual packet
@@ -569,14 +568,14 @@ __nf_conntrack_confirm(struct sk_buff **pskb)
 	write_unlock_bh(&nf_conntrack_lock);
 	help = nfct_help(ct);
 	if (help && help->helper)
-		nf_conntrack_event_cache(IPCT_HELPER, *pskb);
+		nf_conntrack_event_cache(IPCT_HELPER, skb);
 #ifdef CONFIG_NF_NAT_NEEDED
 	if (test_bit(IPS_SRC_NAT_DONE_BIT, &ct->status) ||
 	    test_bit(IPS_DST_NAT_DONE_BIT, &ct->status))
-		nf_conntrack_event_cache(IPCT_NATINFO, *pskb);
+		nf_conntrack_event_cache(IPCT_NATINFO, skb);
 #endif
 	nf_conntrack_event_cache(master_ct(ct) ?
-				 IPCT_RELATED : IPCT_NEW, *pskb);
+				 IPCT_RELATED : IPCT_NEW, skb);
 	return NF_ACCEPT;
 
 out:
@@ -900,7 +899,7 @@ extern int nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user);
 #endif
 
 unsigned int
-nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb)
+nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff *skb)
 {
 	struct nf_conn *ct;
 	enum ip_conntrack_info ctinfo;
@@ -911,12 +910,11 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb)
 	int set_reply = 0;
 	int ret;
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	struct nf_conn_nat *nat;
-	struct nf_conn_help *help;
+	struct nf_conn_nat *nat = NULL;
 #endif
 
 	/* Previously seen (loopback or untracked)?  Ignore. */
-	if ((*pskb)->nfct) {
+	if (skb->nfct) {
 		NF_CT_STAT_INC_ATOMIC(ignore);
 		return NF_ACCEPT;
 	}
@@ -924,16 +922,16 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb)
 	/* rcu_read_lock()ed by nf_hook_slow */
 	l3proto = __nf_ct_l3proto_find((u_int16_t)pf);
 
-	if ((ret = l3proto->prepare(pskb, hooknum, &dataoff, &protonum)) <= 0) {
+	if ((ret = l3proto->prepare(skb, hooknum, &dataoff, &protonum)) <= 0) {
 		DEBUGP("not prepared to track yet or error occured\n");
 		return -ret;
 	}
 
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	if (pf == PF_INET) {
+	if (pf == PF_INET && ipv4_conntrack_fastnat) {
 		/* Gather fragments. */
-		if (ip_hdr(*pskb)->frag_off & htons(IP_MF | IP_OFFSET)) {
-			if (nf_ct_ipv4_gather_frags(*pskb,
+		if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+			if (nf_ct_ipv4_gather_frags(skb,
 						hooknum == NF_IP_PRE_ROUTING ?
 						IP_DEFRAG_CONNTRACK_IN :
 						IP_DEFRAG_CONNTRACK_OUT))
@@ -948,13 +946,13 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb)
 	 * inverse of the return code tells to the netfilter
 	 * core what to do with the packet. */
 	if (l4proto->error != NULL &&
-	    (ret = l4proto->error(*pskb, dataoff, &ctinfo, pf, hooknum)) <= 0) {
+	    (ret = l4proto->error(skb, dataoff, &ctinfo, pf, hooknum)) <= 0) {
 		NF_CT_STAT_INC_ATOMIC(error);
 		NF_CT_STAT_INC_ATOMIC(invalid);
 		return -ret;
 	}
 
-	ct = resolve_normal_ct(*pskb, dataoff, pf, protonum, l3proto, l4proto,
+	ct = resolve_normal_ct(skb, dataoff, pf, protonum, l3proto, l4proto,
 			       &set_reply, &ctinfo);
 	if (!ct) {
 		/* Not valid part of a connection */
@@ -968,15 +966,15 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb)
 		return NF_DROP;
 	}
 
-	NF_CT_ASSERT((*pskb)->nfct);
+	NF_CT_ASSERT(skb->nfct);
 
-	ret = l4proto->packet(ct, *pskb, dataoff, ctinfo, pf, hooknum);
+	ret = l4proto->packet(ct, skb, dataoff, ctinfo, pf, hooknum);
 	if (ret <= 0) {
 		/* Invalid: inverse of the return code tells
 		 * the netfilter core what to do */
 		DEBUGP("nf_conntrack_in: Can't track with proto module\n");
-		nf_conntrack_put((*pskb)->nfct);
-		(*pskb)->nfct = NULL;
+		nf_conntrack_put(skb->nfct);
+		skb->nfct = NULL;
 		NF_CT_STAT_INC_ATOMIC(invalid);
 		if (ret == -NF_DROP)
 			NF_CT_STAT_INC_ATOMIC(drop);
@@ -984,33 +982,37 @@ nf_conntrack_in(int pf, unsigned int hooknum, struct sk_buff **pskb)
 	}
 
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	help = nfct_help(ct);
-	nat = nfct_nat(ct);
-	if (pf == PF_INET && ipv4_conntrack_fastnat && bcm_nat_bind_hook
-		&& !(nat->info.nat_type & BCM_FASTNAT_DENY)
-		&& !help->helper
-		&& (ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_IS_REPLY)
-		&& (hooknum == NF_IP_PRE_ROUTING) && 
-		(protonum == IPPROTO_TCP || protonum == IPPROTO_UDP)) {
+	if (pf == PF_INET)
+		nat = nfct_nat(ct);
 
-		struct nf_conntrack_tuple *t1, *t2;
-		t1 = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
-		t2 = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
-		if (!(t1->dst.u3.ip == t2->src.u3.ip &&
-			t1->src.u3.ip == t2->dst.u3.ip &&
-			t1->dst.u.all == t2->src.u.all &&
-			t1->src.u.all == t2->dst.u.all)) {
-			ret = bcm_nat_bind_hook(ct, ctinfo, pskb, l3proto, l4proto);
+	if (nat && hooknum == NF_IP_PRE_ROUTING &&
+	    ipv4_conntrack_fastnat && bcm_nat_bind_hook) {
+		struct nf_conn_help *help = nfct_help(ct);
+
+		if (!(nat->info.nat_type & BCM_FASTNAT_DENY) &&
+		    !help->helper &&
+		    (ctinfo == IP_CT_ESTABLISHED || ctinfo == IP_CT_IS_REPLY) &&
+		    (protonum == IPPROTO_TCP || protonum == IPPROTO_UDP)) {
+			struct nf_conntrack_tuple *t1, *t2;
+
+			t1 = &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple;
+			t2 = &ct->tuplehash[IP_CT_DIR_REPLY].tuple;
+			if (!(t1->dst.u3.ip == t2->src.u3.ip &&
+			      t1->src.u3.ip == t2->dst.u3.ip &&
+			      t1->dst.u.all == t2->src.u.all &&
+			      t1->src.u.all == t2->dst.u.all)) {
+				ret = bcm_nat_bind_hook(ct, ctinfo, skb, l3proto, l4proto);
+			}
 		}
 	}
 #endif
 
 	if (set_reply && !test_and_set_bit(IPS_SEEN_REPLY_BIT, &ct->status)) {
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-		if (pf == PF_INET && hooknum == NF_IP_LOCAL_OUT)
+		if (nat && hooknum == NF_IP_LOCAL_OUT)
 			nat->info.nat_type |= BCM_FASTNAT_DENY;
 #endif
-		nf_conntrack_event_cache(IPCT_STATUS, *pskb);
+		nf_conntrack_event_cache(IPCT_STATUS, skb);
 	}
 	return ret;
 }

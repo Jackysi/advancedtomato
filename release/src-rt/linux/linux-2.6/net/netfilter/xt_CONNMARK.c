@@ -30,10 +30,15 @@ MODULE_ALIAS("ipt_CONNMARK");
 
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_CONNMARK.h>
+#include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_ecache.h>
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+extern int ipv4_conntrack_fastnat;
+#endif
+
 static unsigned int
-target(struct sk_buff **pskb,
+target(struct sk_buff *skb,
        const struct net_device *in,
        const struct net_device *out,
        unsigned int hooknum,
@@ -46,38 +51,49 @@ target(struct sk_buff **pskb,
 	u_int32_t diff;
 	u_int32_t mark;
 	u_int32_t newmark;
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	struct nf_conn_nat *nat;
+#endif
 
-	ct = nf_ct_get(*pskb, &ctinfo);
+	ct = nf_ct_get(skb, &ctinfo);
 	if (ct) {
 		switch(markinfo->mode) {
 		case XT_CONNMARK_SET:
 			newmark = (ct->mark & ~markinfo->mask) | markinfo->mark;
 			if (newmark != ct->mark) {
 				ct->mark = newmark;
-				nf_conntrack_event_cache(IPCT_MARK, *pskb);
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+				if (ipv4_conntrack_fastnat && (nat = nfct_nat(ct)))
+					nat->info.nat_type |= BCM_FASTNAT_DENY;
+#endif
+				nf_conntrack_event_cache(IPCT_MARK, skb);
 			}
 			break;
 		case XT_CONNMARK_SET_RETURN:
 			// Set connmark and mark, apply mask to mark, do XT_RETURN	- zzz
 			newmark = ct->mark = markinfo->mark;
 			newmark &= markinfo->mask;
-			mark = (*pskb)->mark;
+			mark = skb->mark;
 			if (newmark != mark) {
-				(*pskb)->mark = newmark;
+				skb->mark = newmark;
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+				if (ipv4_conntrack_fastnat && (nat = nfct_nat(ct)))
+					nat->info.nat_type |= BCM_FASTNAT_DENY;
+#endif
 			}				
 			return XT_RETURN;
 		case XT_CONNMARK_SAVE:
 			newmark = (ct->mark & ~markinfo->mask) |
-				  ((*pskb)->mark & markinfo->mask);
+				  (skb->mark & markinfo->mask);
 			if (ct->mark != newmark) {
 				ct->mark = newmark;
-				nf_conntrack_event_cache(IPCT_MARK, *pskb);
+				nf_conntrack_event_cache(IPCT_MARK, skb);
 			}
 			break;
 		case XT_CONNMARK_RESTORE:
-			mark = (*pskb)->mark;
+			mark = skb->mark;
 			diff = (ct->mark ^ mark) & markinfo->mask;
-			(*pskb)->mark = mark ^ diff;
+			skb->mark = mark ^ diff;
 			break;
 		}
 	}

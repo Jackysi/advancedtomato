@@ -104,14 +104,14 @@ emf_instance_find_by_brptr(emf_struct_t *emf, struct net_device *br_ptr)
  *              the bridge pre routing hook. All IP packets are given
  *              to EMFL for its processing.
  *
- * Input:       pskb - Pointer to the packet buffer. Other parameters
+ * Input:       skb - Pointer to the packet buffer. Other parameters
  *                     are not used.
  *
  * Return:      Returns the value indicating packet can be forwarded
  *              or packet is stolen.
  */
 static uint32
-emf_br_pre_hook(uint32 hook, struct sk_buff **pskb,
+emf_br_pre_hook(uint32 hook, struct sk_buff *skb,
                 const struct net_device *in,
                 const struct net_device *out,
                 int32 (*okfn)(struct sk_buff *))
@@ -119,10 +119,10 @@ emf_br_pre_hook(uint32 hook, struct sk_buff **pskb,
 	emf_info_t *emfi;
 
 	EMF_INFO("Frame at BR_PRE_HOOK received from if %p %s\n",
-	         (*pskb)->dev, (*pskb)->dev->name);
+	         skb->dev, skb->dev->name);
 
 	/* Find the bridge that the receive interface corresponds to */
-	emfi = emf_instance_find_by_ifptr(emf, (*pskb)->dev);
+	emfi = emf_instance_find_by_ifptr(emf, skb->dev);
 	if (emfi == NULL)
 	{
 		EMF_INFO("No EMF processing needed for unknown ports\n");
@@ -132,16 +132,16 @@ emf_br_pre_hook(uint32 hook, struct sk_buff **pskb,
 	/* Non IP packet received from LAN port is returned back to
 	 * bridge.
 	 */
-	if ((*pskb)->protocol != __constant_htons(ETH_P_IP))
+	if (skb->protocol != __constant_htons(ETH_P_IP))
 	{
 		EMF_INFO("Ignoring non IP packets from LAN ports\n");
 		return (NF_ACCEPT);
 	}
 
-	EMF_DUMP_PKT((*pskb)->data);
+	EMF_DUMP_PKT(skb->data);
 
-	return (emfc_input(emfi->emfci, *pskb, (*pskb)->dev,
-	                   PKTDATA(NULL, *pskb), FALSE));
+	return (emfc_input(emfi->emfci, skb, skb->dev,
+	                   PKTDATA(NULL, skb), FALSE));
 }
 
 /*
@@ -149,37 +149,37 @@ emf_br_pre_hook(uint32 hook, struct sk_buff **pskb,
  *              the ip post routing hook. The packet is sent to EMFL
  *              only when it is going on to bridge port.
  *
- * Input:       pskb - Pointer to the packet buffer. Other parameters
+ * Input:       skb - Pointer to the packet buffer. Other parameters
  *                     are not used.
  *
  * Return:      Returns the value indicating packet can be forwarded
  *              or packet is stolen.
  */
 static uint32
-emf_ip_post_hook(uint32 hook, struct sk_buff **pskb,
+emf_ip_post_hook(uint32 hook, struct sk_buff *skb,
                  const struct net_device *in,
                  const struct net_device *out,
                  int32 (*okfn)(struct sk_buff *))
 {
 	emf_info_t *emfi;
 
-	ASSERT((*pskb)->protocol == __constant_htons(ETH_P_IP));
+	ASSERT(skb->protocol == __constant_htons(ETH_P_IP));
 
 	EMF_DEBUG("Frame at IP_POST_HOOK going to if %p %s\n",
-	          (*pskb)->dev, (*pskb)->dev->name);
+	          skb->dev, skb->dev->name);
 
 	/* Find the LAN that the bridge interface corresponds to */
-	emfi = emf_instance_find_by_brptr(emf, (*pskb)->dev);
+	emfi = emf_instance_find_by_brptr(emf, skb->dev);
 	if (emfi == NULL)
 	{
 		EMF_INFO("No EMF processing needed for unknown ports\n");
 		return (NF_ACCEPT);
 	}
 
-	EMF_DUMP_PKT((*pskb)->data);
+	EMF_DUMP_PKT(skb->data);
 
-	return (emfc_input(emfi->emfci, *pskb, (*pskb)->dev,
-	                   PKTDATA(NULL, *pskb), TRUE));
+	return (emfc_input(emfi->emfci, skb, skb->dev,
+	                   PKTDATA(NULL, skb), TRUE));
 }
 
 #ifdef CONFIG_PROC_FS

@@ -132,6 +132,9 @@ ip_conntrack_is_ipc_allowed(struct sk_buff *skb, u_int32_t hooknum)
 
 	return FALSE;
 }
+#ifdef CONFIG_BCM_NAT_MODULE
+EXPORT_SYMBOL(ip_conntrack_is_ipc_allowed);
+#endif
 
 void
 ip_conntrack_ipct_add(struct sk_buff *skb, u_int32_t hooknum,
@@ -267,6 +270,9 @@ ip_conntrack_ipct_add(struct sk_buff *skb, u_int32_t hooknum,
 	/* Update the attributes flag to indicate a CTF conn */
 	ct->ctf_flags |= CTF_FLAGS_CACHED;
 }
+#ifdef CONFIG_BCM_NAT_MODULE
+EXPORT_SYMBOL(ip_conntrack_ipct_add);
+#endif
 
 int
 ip_conntrack_ipct_delete(struct nf_conn *ct, int ct_timeout)
@@ -609,7 +615,7 @@ EXPORT_SYMBOL(nf_nat_setup_info);
 /* Returns true if succeeded. */
 static int
 manip_pkt(u_int16_t proto,
-	  struct sk_buff **pskb,
+	  struct sk_buff *skb,
 	  unsigned int iphdroff,
 	  const struct nf_conntrack_tuple *target,
 	  enum nf_nat_manip_type maniptype)
@@ -617,19 +623,19 @@ manip_pkt(u_int16_t proto,
 	struct iphdr *iph;
 	struct nf_nat_protocol *p;
 
-	if (!skb_make_writable(pskb, iphdroff + sizeof(*iph)))
+	if (!skb_make_writable(skb, iphdroff + sizeof(*iph)))
 		return 0;
 
-	iph = (void *)(*pskb)->data + iphdroff;
+	iph = (void *)skb->data + iphdroff;
 
 	/* Manipulate protcol part. */
 
 	/* rcu_read_lock()ed by nf_hook_slow */
 	p = __nf_nat_proto_find(proto);
-	if (!p->manip_pkt(pskb, iphdroff, target, maniptype))
+	if (!p->manip_pkt(skb, iphdroff, target, maniptype))
 		return 0;
 
-	iph = (void *)(*pskb)->data + iphdroff;
+	iph = (void *)skb->data + iphdroff;
 
 	if (maniptype == IP_NAT_MANIP_SRC) {
 		nf_csum_replace4(&iph->check, iph->saddr, target->src.u3.ip);
@@ -646,12 +652,12 @@ manip_pkt(u_int16_t proto,
 inline
 #endif
 int bcm_manip_pkt(u_int16_t proto,
-	  struct sk_buff **pskb,
+	  struct sk_buff *skb,
 	  unsigned int iphdroff,
 	  const struct nf_conntrack_tuple *target,
 	  enum nf_nat_manip_type maniptype)
 {
-	return manip_pkt(proto, pskb, iphdroff, target, maniptype);
+	return manip_pkt(proto, skb, iphdroff, target, maniptype);
 }
 #ifdef CONFIG_BCM_NAT_MODULE
 EXPORT_SYMBOL(bcm_manip_pkt);
@@ -662,13 +668,13 @@ EXPORT_SYMBOL(bcm_manip_pkt);
 unsigned int nf_nat_packet(struct nf_conn *ct,
 			   enum ip_conntrack_info ctinfo,
 			   unsigned int hooknum,
-			   struct sk_buff **pskb)
+			   struct sk_buff *skb)
 {
 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
 	unsigned long statusbit;
 	enum nf_nat_manip_type mtype = HOOK2MANIP(hooknum);
 #ifdef HNDCTF
-	bool enabled = ip_conntrack_is_ipc_allowed(*pskb, hooknum);
+	bool enabled = ip_conntrack_is_ipc_allowed(skb, hooknum);
 #endif /* HNDCTF */
 
 	if (mtype == IP_NAT_MANIP_SRC)
@@ -688,14 +694,14 @@ unsigned int nf_nat_packet(struct nf_conn *ct,
 		nf_ct_invert_tuplepr(&target, &ct->tuplehash[!dir].tuple);
 #ifdef HNDCTF
 		if (enabled)
-			ip_conntrack_ipct_add(*pskb, hooknum, ct, ctinfo, &target);
+			ip_conntrack_ipct_add(skb, hooknum, ct, ctinfo, &target);
 #endif /* HNDCTF */
-		if (!manip_pkt(target.dst.protonum, pskb, 0, &target, mtype))
+		if (!manip_pkt(target.dst.protonum, skb, 0, &target, mtype))
 			return NF_DROP;
 	} else {
 #ifdef HNDCTF
 		if (enabled)
-			ip_conntrack_ipct_add(*pskb, hooknum, ct, ctinfo, NULL);
+			ip_conntrack_ipct_add(skb, hooknum, ct, ctinfo, NULL);
 #endif /* HNDCTF */
 	}
 
@@ -707,7 +713,7 @@ EXPORT_SYMBOL_GPL(nf_nat_packet);
 int nf_nat_icmp_reply_translation(struct nf_conn *ct,
 				  enum ip_conntrack_info ctinfo,
 				  unsigned int hooknum,
-				  struct sk_buff **pskb)
+				  struct sk_buff *skb)
 {
 	struct {
 		struct icmphdr icmp;
@@ -715,24 +721,24 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
 	} *inside;
 	struct nf_conntrack_l4proto *l4proto;
 	struct nf_conntrack_tuple inner, target;
-	int hdrlen = ip_hdrlen(*pskb);
+	int hdrlen = ip_hdrlen(skb);
 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
 	unsigned long statusbit;
 	enum nf_nat_manip_type manip = HOOK2MANIP(hooknum);
 
-	if (!skb_make_writable(pskb, hdrlen + sizeof(*inside)))
+	if (!skb_make_writable(skb, hdrlen + sizeof(*inside)))
 		return 0;
 
-	inside = (void *)(*pskb)->data + hdrlen;
+	inside = (void *)skb->data + hdrlen;
 
 	/* We're actually going to mangle it beyond trivial checksum
 	   adjustment, so make sure the current checksum is correct. */
-	if (nf_ip_checksum(*pskb, hooknum, hdrlen, 0))
+	if (nf_ip_checksum(skb, hooknum, hdrlen, 0))
 		return 0;
 
 	/* Must be RELATED */
-	NF_CT_ASSERT((*pskb)->nfctinfo == IP_CT_RELATED ||
-		     (*pskb)->nfctinfo == IP_CT_RELATED+IP_CT_IS_REPLY);
+	NF_CT_ASSERT(skb->nfctinfo == IP_CT_RELATED ||
+		     skb->nfctinfo == IP_CT_RELATED+IP_CT_IS_REPLY);
 
 	/* Redirects on non-null nats must be dropped, else they'll
 	   start talking to each other without our translation, and be
@@ -747,12 +753,12 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
 	}
 
 	DEBUGP("icmp_reply_translation: translating error %p manp %u dir %s\n",
-	       *pskb, manip, dir == IP_CT_DIR_ORIGINAL ? "ORIG" : "REPLY");
+	       skb, manip, dir == IP_CT_DIR_ORIGINAL ? "ORIG" : "REPLY");
 
 	/* rcu_read_lock()ed by nf_hook_slow */
 	l4proto = __nf_ct_l4proto_find(PF_INET, inside->ip.protocol);
 
-	if (!nf_ct_get_tuple(*pskb, hdrlen + sizeof(struct icmphdr),
+	if (!nf_ct_get_tuple(skb, hdrlen + sizeof(struct icmphdr),
 			     (hdrlen +
 			      sizeof(struct icmphdr) + inside->ip.ihl * 4),
 			     (u_int16_t)AF_INET, inside->ip.protocol,
@@ -764,17 +770,17 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
 	   pass all hooks (locally-generated ICMP).  Consider incoming
 	   packet: PREROUTING (DST manip), routing produces ICMP, goes
 	   through POSTROUTING (which must correct the DST manip). */
-	if (!manip_pkt(inside->ip.protocol, pskb, hdrlen + sizeof(inside->icmp),
+	if (!manip_pkt(inside->ip.protocol, skb, hdrlen + sizeof(inside->icmp),
 		       &ct->tuplehash[!dir].tuple, !manip))
 		return 0;
 
-	if ((*pskb)->ip_summed != CHECKSUM_PARTIAL) {
+	if (skb->ip_summed != CHECKSUM_PARTIAL) {
 		/* Reloading "inside" here since manip_pkt inner. */
-		inside = (void *)(*pskb)->data + hdrlen;
+		inside = (void *)skb->data + hdrlen;
 		inside->icmp.checksum = 0;
 		inside->icmp.checksum =
-			csum_fold(skb_checksum(*pskb, hdrlen,
-					       (*pskb)->len - hdrlen, 0));
+			csum_fold(skb_checksum(skb, hdrlen,
+					       skb->len - hdrlen, 0));
 	}
 
 	/* Change outer to look the reply to an incoming packet
@@ -790,7 +796,7 @@ int nf_nat_icmp_reply_translation(struct nf_conn *ct,
 
 	if (ct->status & statusbit) {
 		nf_ct_invert_tuplepr(&target, &ct->tuplehash[!dir].tuple);
-		if (!manip_pkt(0, pskb, 0, &target, manip))
+		if (!manip_pkt(0, skb, 0, &target, manip))
 			return 0;
 	}
 

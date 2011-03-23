@@ -35,6 +35,9 @@ char lanface[IFNAMSIZ + 1];
 char wan6face[IFNAMSIZ + 1];
 #endif
 char lan_cclass[sizeof("xxx.xxx.xxx.") + 1];
+#ifdef LINUX26
+static int can_enable_fastnat;
+#endif
 
 #ifdef DEBUG_IPTFILE
 static int debug_only = 0;
@@ -70,6 +73,23 @@ struct {
 
 // -----------------------------------------------------------------------------
 
+#ifdef LINUX26
+void enable_fastnat(int enable)
+{
+	f_write_string("/proc/sys/net/ipv4/netfilter/ip_conntrack_fastnat",
+		enable ? "1" : "0", 0, 0);
+}
+
+int fastnat_enabled(void)
+{
+	char v[4];
+
+	if (f_read_string("/proc/sys/net/ipv4/netfilter/ip_conntrack_fastnat", v, sizeof(v)) > 0)
+		return atoi(v);
+
+	return 0;
+}
+#endif
 
 void enable_ip_forward(void)
 {
@@ -307,7 +327,12 @@ void ipt_layer7_inbound(void)
 
 	p = layer7_in;
 	while (*p) {
-		if (en) ipt_write("-A L7in %s -j RETURN\n", *p);
+		if (en) {
+			ipt_write("-A L7in %s -j RETURN\n", *p);
+#ifdef LINUX26
+			can_enable_fastnat = 0;
+#endif
+		}
 		free(*p);
 		++p;
 	}
@@ -377,6 +402,10 @@ static void ipt_webmon()
 	int ok;
 
 	if (!nvram_get_int("log_wm")) return;
+
+#ifdef LINUX26
+	can_enable_fastnat = 0;
+#endif
 	wmtype = nvram_get_int("log_wmtype");
 	clear = nvram_get_int("log_wmclear");
 
@@ -483,11 +512,22 @@ static void mangle_table(void)
 #endif
 			// set TTL on primary WAN iface only
 			wanface = wanfaces.iface[0].name;
-			ip46t_write(
+			ipt_write(
 				"-I PREROUTING -i %s -j TTL --ttl-%s %d\n"
 				"-I POSTROUTING -o %s -j TTL --ttl-%s %d\n",
 					wanface, p, ttl,
 					wanface, p, ttl);
+#ifdef TCONFIG_IPV6
+	// FIXME: IPv6 HL should be configurable separately from TTL.
+	//        disable it until GUI setting is implemented.
+	#if 0
+			ip6t_write(
+				"-I PREROUTING -i %s -j HL --hl-%s %d\n"
+				"-I POSTROUTING -o %s -j HL --hl-%s %d\n",
+					wan6face, p, ttl,
+					wan6face, p, ttl);
+	#endif
+#endif
 		}
 	}
 
@@ -695,11 +735,17 @@ static void filter_input(void)
 			lanface);
 
 #ifdef TCONFIG_IPV6
-	switch (get_ipv6_service()) {
+	n = get_ipv6_service();
+	switch (n) {
+	case IPV6_ANYCAST_6TO4:
 	case IPV6_6IN4:
 		// Accept ICMP requests from the remote tunnel endpoint
-		if ((p = nvram_get("ipv6_tun_v4end")) && *p && strcmp(p, "0.0.0.0") != 0)
-			ipt_write("-A INPUT -p icmp -s %s -j %s\n", p, chain_in_accept);
+		if (n == IPV6_ANYCAST_6TO4)
+			sprintf(s, "192.88.99.%d", nvram_get_int("ipv6_relay"));
+		else
+			strlcpy(s, nvram_safe_get("ipv6_tun_v4end"), sizeof(s));
+		if (*s && strcmp(s, "0.0.0.0") != 0)
+			ipt_write("-A INPUT -p icmp -s %s -j %s\n", s, chain_in_accept);
 		ipt_write("-A INPUT -p 41 -j %s\n", chain_in_accept);
 		break;
 	}
@@ -1035,6 +1081,7 @@ static void filter6_input(void)
 			lanface );
 
 	switch (get_ipv6_service()) {
+	case IPV6_ANYCAST_6TO4:
 	case IPV6_NATIVE_DHCP:
 		// allow responses from the dhcpv6 server
 		ip6t_write("-A INPUT -p udp --dport 546 -j %s\n", chain_in_accept);
@@ -1198,6 +1245,10 @@ int start_firewall(void)
 	strlcpy(wan6face, get_wan6face(), sizeof(wan6face));
 #endif
 
+#ifdef LINUX26
+	can_enable_fastnat = (nvram_get_int("fastnat_disable") == 0);
+#endif
+
 	strlcpy(s, nvram_safe_get("lan_ipaddr"), sizeof(s));
 	if ((c = strrchr(s, '.')) != NULL) *(c + 1) = 0;
 	strlcpy(lan_cclass, s, sizeof(lan_cclass));
@@ -1335,6 +1386,9 @@ int start_firewall(void)
 		killall("miniupnpd", SIGUSR2);
 	}
 
+#ifdef LINUX26
+	enable_fastnat(can_enable_fastnat);
+#endif
 	simple_unlock("restrictions");
 	sched_restrictions();
 	enable_ip_forward();

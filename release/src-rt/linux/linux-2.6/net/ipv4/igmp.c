@@ -348,17 +348,12 @@ static struct sk_buff *igmpv3_newpack(struct net_device *dev, int size)
 
 static int igmpv3_sendpack(struct sk_buff *skb)
 {
-	struct iphdr *pip = ip_hdr(skb);
 	struct igmphdr *pig = igmp_hdr(skb);
-	const int iplen = skb->tail - skb->network_header;
 	const int igmplen = skb->tail - skb->transport_header;
 
-	pip->tot_len = htons(iplen);
-	ip_send_check(pip);
 	pig->csum = ip_compute_csum(igmp_hdr(skb), igmplen);
 
-	return NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, skb->dev,
-		       dst_output);
+	return ip_local_out(skb);
 }
 
 static int grec_size(struct ip_mc_list *pmc, int type, int gdel, int sdel)
@@ -679,13 +674,11 @@ static int igmp_send_report(struct in_device *in_dev, struct ip_mc_list *pmc,
 	iph->daddr    = dst;
 	iph->saddr    = rt->rt_src;
 	iph->protocol = IPPROTO_IGMP;
-	iph->tot_len  = htons(IGMP_SIZE);
 	ip_select_ident(iph, &rt->u.dst, NULL);
 	((u8*)&iph[1])[0] = IPOPT_RA;
 	((u8*)&iph[1])[1] = 4;
 	((u8*)&iph[1])[2] = 0;
 	((u8*)&iph[1])[3] = 0;
-	ip_send_check(iph);
 
 	ih = (struct igmphdr *)skb_put(skb, sizeof(struct igmphdr));
 	ih->type=type;
@@ -694,8 +687,7 @@ static int igmp_send_report(struct in_device *in_dev, struct ip_mc_list *pmc,
 	ih->group=group;
 	ih->csum=ip_compute_csum((void *)ih, sizeof(struct igmphdr));
 
-	return NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, skb, NULL, rt->u.dst.dev,
-		       dst_output);
+	return ip_local_out(skb);
 }
 
 static void igmp_gq_timer_expire(unsigned long data)
@@ -2419,23 +2411,8 @@ static const struct seq_operations igmp_mc_seq_ops = {
 
 static int igmp_mc_seq_open(struct inode *inode, struct file *file)
 {
-	struct seq_file *seq;
-	int rc = -ENOMEM;
-	struct igmp_mc_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
-
-	if (!s)
-		goto out;
-	rc = seq_open(file, &igmp_mc_seq_ops);
-	if (rc)
-		goto out_kfree;
-
-	seq = file->private_data;
-	seq->private = s;
-out:
-	return rc;
-out_kfree:
-	kfree(s);
-	goto out;
+	return seq_open_private(file, &igmp_mc_seq_ops,
+			sizeof(struct igmp_mc_iter_state));
 }
 
 static const struct file_operations igmp_mc_seq_fops = {
@@ -2593,23 +2570,8 @@ static const struct seq_operations igmp_mcf_seq_ops = {
 
 static int igmp_mcf_seq_open(struct inode *inode, struct file *file)
 {
-	struct seq_file *seq;
-	int rc = -ENOMEM;
-	struct igmp_mcf_iter_state *s = kzalloc(sizeof(*s), GFP_KERNEL);
-
-	if (!s)
-		goto out;
-	rc = seq_open(file, &igmp_mcf_seq_ops);
-	if (rc)
-		goto out_kfree;
-
-	seq = file->private_data;
-	seq->private = s;
-out:
-	return rc;
-out_kfree:
-	kfree(s);
-	goto out;
+	return seq_open_private(file, &igmp_mcf_seq_ops,
+			sizeof(struct igmp_mcf_iter_state));
 }
 
 static const struct file_operations igmp_mcf_seq_fops = {

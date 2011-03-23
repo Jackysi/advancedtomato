@@ -14,6 +14,7 @@
 
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_MARK.h>
+#include <net/netfilter/nf_conntrack.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Marc Boucher <marc@mbsi.ca>");
@@ -21,46 +22,74 @@ MODULE_DESCRIPTION("ip[6]tables MARK modification module");
 MODULE_ALIAS("ipt_MARK");
 MODULE_ALIAS("ip6t_MARK");
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+extern int ipv4_conntrack_fastnat;
+#endif
+
 static unsigned int
-target_v0(struct sk_buff **pskb,
+target_v0(struct sk_buff *skb,
 	  const struct net_device *in,
 	  const struct net_device *out,
 	  unsigned int hooknum,
 	  const struct xt_target *target,
 	  const void *targinfo)
 {
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	struct nf_conn *ct;
+	struct nf_conn_nat *nat;
+	enum ip_conntrack_info ctinfo;
+#endif
+
 	const struct xt_mark_target_info *markinfo = targinfo;
 
-	(*pskb)->mark = markinfo->mark;
+	skb->mark = markinfo->mark;
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	if (ipv4_conntrack_fastnat) {
+		nat = (ct = nf_ct_get(skb, &ctinfo)) ? nfct_nat(ct) : NULL;
+		if (nat) nat->info.nat_type |= BCM_FASTNAT_DENY;
+	}
+#endif
 	return XT_CONTINUE;
 }
 
 static unsigned int
-target_v1(struct sk_buff **pskb,
+target_v1(struct sk_buff *skb,
 	  const struct net_device *in,
 	  const struct net_device *out,
 	  unsigned int hooknum,
 	  const struct xt_target *target,
 	  const void *targinfo)
 {
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	struct nf_conn *ct;
+	struct nf_conn_nat *nat;
+	enum ip_conntrack_info ctinfo;
+#endif
+
 	const struct xt_mark_target_info_v1 *markinfo = targinfo;
 	int mark = 0;
 
 	switch (markinfo->mode) {
 	case XT_MARK_SET:
 		mark = markinfo->mark;
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	if (ipv4_conntrack_fastnat) {
+		nat = (ct = nf_ct_get(skb, &ctinfo)) ? nfct_nat(ct) : NULL;
+		if (nat) nat->info.nat_type |= BCM_FASTNAT_DENY;
+	}
+#endif
 		break;
 
 	case XT_MARK_AND:
-		mark = (*pskb)->mark & markinfo->mark;
+		mark = skb->mark & markinfo->mark;
 		break;
 
 	case XT_MARK_OR:
-		mark = (*pskb)->mark | markinfo->mark;
+		mark = skb->mark | markinfo->mark;
 		break;
 	}
 
-	(*pskb)->mark = mark;
+	skb->mark = mark;
 	return XT_CONTINUE;
 }
 

@@ -391,7 +391,7 @@ static unsigned int trigger_refresh(struct sk_buff *skb)
 
 static unsigned int
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-target(struct sk_buff **pskb,
+target(struct sk_buff *skb,
        const struct net_device *in,
        const struct net_device *out,
        unsigned int hooknum,
@@ -416,9 +416,6 @@ target(struct sk_buff *skb,
     const struct net_device *in = par->in;
     const struct net_device *out = par->out;
     unsigned int hooknum = par->hooknum;
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,24)
-    struct sk_buff *skb = *pskb;
 #endif
     const struct iphdr *iph = ip_hdr(skb);
 
