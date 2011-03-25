@@ -486,9 +486,9 @@ void start_ipv6_tunnel(void)
 	eval("ip", "addr", "add", ip, "dev", (char *)tun_dev);
 	eval("ip", "route", "add", "::/0", "dev", (char *)tun_dev);
 
-	// notify radvd of possible change
+	// (re)start radvd
 	if (service == IPV6_ANYCAST_6TO4)
-		killall("radvd", SIGHUP);
+		start_radvd();
 }
 
 void stop_ipv6_tunnel(void)
@@ -1752,9 +1752,9 @@ void start_services(void)
 	start_sched();
 #ifdef TCONFIG_IPV6
 	/* note: starting radvd here might be too early in case of
-	 * DHCPv6 because we won't have received a prefix and so it
-	 * will disable advertisements, but the SIGHUP sent from
-	 * dhcp6c-state will restart them.
+	 * DHCPv6 or 6to4 because we won't have received a prefix and
+	 * so it will disable advertisements. To restart them, we have
+	 * to send radvd a SIGHUP, or restart it.
 	 */
 	start_radvd();
 #endif
