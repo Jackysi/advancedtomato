@@ -53,8 +53,9 @@ static const struct itimerval zombie_tv = { {0,0}, {307, 0} };
 
 // -----------------------------------------------------------------------------
 
-static const char dmhosts[] = "/etc/hosts.dnsmasq";
-static const char dmresolv[] = "/etc/resolv.dnsmasq";
+static const char dmhosts[] = "/etc/dnsmasq/hosts";
+static const char dmdhcp[] = "/etc/dnsmasq/dhcp";
+static const char dmresolv[] = "/etc/dnsmasq/resolv.conf";
 
 static pid_t pid_dnsmasq = -1;
 
@@ -78,7 +79,7 @@ void start_dnsmasq()
 	char *p;
 	int ipn;
 	char ipbuf[32];
-	FILE *hf;
+	FILE *hf, *df;
 	int dhcp_start;
 	int dhcp_count;
 	int dhcp_lease;
@@ -118,10 +119,11 @@ void start_dnsmasq()
 		else n = 4096;
 	fprintf(f,
 		"resolv-file=%s\n"		// the real stuff is here
-		"addn-hosts=%s\n"		// "
+		"addn-hosts=%s\n"		// directory with additional hosts files
+		"dhcp-hostsfile=%s\n"		// directory with dhcp hosts files
 		"expand-hosts\n"		// expand hostnames in hosts file
 		"min-port=%u\n", 		// min port used for random src port
-		dmresolv, dmhosts, n);
+		dmresolv, dmhosts, dmdhcp, n);
 	do_dns = nvram_match("dhcpd_dmdns", "1");
 
 	// DNS rebinding protection, will discard upstream RFC1918 responses
@@ -227,7 +229,9 @@ void start_dnsmasq()
 
 	// write static lease entries & create hosts file
 
-	if ((hf = fopen(dmhosts, "w")) != NULL) {
+	mkdir_if_none(dmhosts);
+	snprintf(buf, sizeof(buf), "%s/hosts", dmhosts);
+	if ((hf = fopen(buf, "w")) != NULL) {
 		if (((nv = nvram_get("wan_hostname")) != NULL) && (*nv))
 			fprintf(hf, "%s %s\n", router_ip, nv);
 #ifdef TCONFIG_SAMBASRV
@@ -241,6 +245,10 @@ void start_dnsmasq()
 		if (nv && (*nv))
 			fprintf(hf, "%s %s-wan\n", p, nv);
 	}
+
+	mkdir_if_none(dmdhcp);
+	snprintf(buf, sizeof(buf), "%s/dhcp-hosts", dmdhcp);
+	df = fopen(buf, "w");
 
 	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 53 w/ delim
 	// 00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 85 w/ delim
@@ -281,10 +289,14 @@ void start_dnsmasq()
 		}
 
 		if ((do_dhcpd) && (*mac != 0) && (strcmp(mac, "00:00:00:00:00:00") != 0)) {
-			fprintf(f, "dhcp-host=%s,%s,%s\n", mac, ip, sdhcp_lease);
+			if (df)
+				fprintf(df, "%s,%s,%s\n", mac, ip, sdhcp_lease);
+			else
+				fprintf(f, "dhcp-host=%s,%s,%s\n", mac, ip, sdhcp_lease);
 		}
 	}
 
+	if (df) fclose(df);
 	if (hf) fclose(hf);
 
 	//
