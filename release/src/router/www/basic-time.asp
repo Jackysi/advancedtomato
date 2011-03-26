@@ -231,7 +231,7 @@ createFieldTable('', [
 		['UTC0','UTC+00:00 Gambia, Liberia, Morocco'],
 		['GMT0BST,M3.5.0/2,M10.5.0/2','UTC+00:00 England'],
 		['UTC-1','UTC+01:00 Tunisia'],
-		['CET-1CEST,M3.5.0/2,M10.5.0/3','UTC+01:00 France, Germany, Italy, Poland, Sweden'],
+		['CET-1CEST,M3.5.0/2,M10.5.0/3','UTC+01:00 France, Germany, Italy, Poland, Spain, Sweden'],
 		['EET-2EEST-3,M3.5.0/3,M10.5.0/4','UTC+02:00 Estonia, Finland, Latvia, Lithuania'],
 		['UTC-2','UTC+02:00 South Africa, Israel'],
 		['STD-2DST,M3.5.0/2,M10.5.0/2','UTC+02:00 Greece, Ukraine, Romania, Turkey, Latvia'],
