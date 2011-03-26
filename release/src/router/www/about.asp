@@ -113,7 +113,7 @@ Copyright (C) 2010 Keith Moyer,<br>
 <!-- VPN-END -->
 
 <b>RAF features,</b><br>
-Multilanguage<br>
+Transmission<br>
 Extended Sysinfo<br>
 QoS IP/Range BW Limiter | ARP Binding<br>
 Copyright (C) 2007-2011 Michał Rupental, Vicente Soriano. <br>

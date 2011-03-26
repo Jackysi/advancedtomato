@@ -38,6 +38,9 @@ ifeq ($(TOMATO_SL),1)
 OBJS += samba.o
 endif
 
+ifeq ($(TCONFIG_BT),y)
+OBJS += transmission.o
+endif
 
 all: rc
 

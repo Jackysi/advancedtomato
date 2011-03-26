@@ -1,4 +1,4 @@
-# Part of usb-modeswitch-data, version 20101222
+# Part of usb-modeswitch-data, version 20110217
 #
 # This file is intended for USB_ModeSwitch version >= 1.1.2
 # but will not break anything if used with versions >= 1.0.3
@@ -6,7 +6,8 @@
 ACTION!="add", GOTO="modeswitch_rules_end"
 
 # This adds a symlink "gsmmodem[n]" to ttyUSB ports with interrupt transfer;
-# will work only with wrapper from 1.1.4 and above (otherwise ignored)
+# will work only with wrapper from 1.1.4 and above (otherwise ignored,
+# non-fatal)
 KERNEL=="ttyUSB*", ATTRS{bNumConfigurations}=="*", PROGRAM="usb_modeswitch --symlink-name %p %s{idVendor} %s{idProduct} %E{PRODUCT}", SYMLINK="%c"
 
 SUBSYSTEM!="usb", GOTO="modeswitch_rules_end"
@@ -39,7 +40,7 @@ ATTRS{idVendor}=="0421", ATTRS{idProduct}=="0622", RUN+="usb_modeswitch '%b/%k'"
 # Nokia CS-18
 ATTRS{idVendor}=="0421", ATTRS{idProduct}=="0627", RUN+="usb_modeswitch '%b/%k'"
 
-# Vodafone MD950 (Wisue Technology)
+# Vodafone MD950 (Wisue Technology), Philips (?)
 ATTRS{idVendor}=="0471", ATTRS{idProduct}=="1210", RUN+="usb_modeswitch '%b/%k'"
 
 # Philips TalkTalk (NXP Semiconductors "Dragonfly")
@@ -57,8 +58,11 @@ ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 # AVM Fritz!Wlan USB Stick N
 ATTRS{idVendor}=="057c", ATTRS{idProduct}=="84ff", RUN+="usb_modeswitch '%b/%k'"
 
-# Samsung SGH-Z810, older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165
+# Prolink P2000 CDMA, Samsung SGH-Z810, Older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165
 ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
+
+# HSDPA USB modem from dealextreme 
+ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="2000", RUN+="usb_modeswitch '%b/%k'"
 
 # D-Link DWM-162-U5, Micromax MMX 300c
 ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="2001", RUN+="usb_modeswitch '%b/%k'"
@@ -71,6 +75,9 @@ ATTRS{idVendor}=="05c7", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # InfoCert Business Key (SmartCard/Reader emulation)
 ATTRS{idVendor}=="072f", ATTRS{idProduct}=="100d", RUN+="usb_modeswitch '%b/%k'"
+
+# D-Link DWM-156 HSUPA 3.75G USB Modem 
+ATTRS{idVendor}=="07d1", ATTRS{idProduct}=="a800", RUN+="usb_modeswitch '%b/%k'"
 
 # Toshiba G450
 ATTRS{idVendor}=="0930", ATTRS{idProduct}=="0d46", RUN+="usb_modeswitch '%b/%k'"
@@ -294,6 +301,9 @@ ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1001", RUN+="usb_modeswitch '%b/%k'"
 # Huawei E220, E230, E270, E870
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1003", RUN+="usb_modeswitch '%b/%k'"
 
+# Huawei V725 Phone (aka Vodafone 725)
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1009", RUN+="usb_modeswitch '%b/%k'"
+
 # Huawei U7510 / U7517
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="101e", RUN+="usb_modeswitch '%b/%k'"
 
@@ -305,6 +315,9 @@ ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1414", RUN+="usb_modeswitch '%b/%k'"
 
 # Huawei, newer modems
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1446", RUN+="usb_modeswitch '%b/%k'"
+
+# Huawei E352
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1449", RUN+="usb_modeswitch '%b/%k'"
 
 # Vodafone (Huawei) K3806
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14ad", RUN+="usb_modeswitch '%b/%k'"
@@ -329,6 +342,12 @@ ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1557", RUN+="usb_modeswitch '%b/%k'"
 
 # Huawei E173s
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1c0b", RUN+="usb_modeswitch '%b/%k'"
+
+# Huawei ET8282 
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1da1", RUN+="usb_modeswitch '%b/%k'"
+
+# Huawei BM358 WiMAX
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="380b", RUN+="usb_modeswitch '%b/%k'"
 
 # Novatel Wireless devices
 ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5010", RUN+="usb_modeswitch '%b/%k'"
@@ -384,6 +403,9 @@ ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0101", RUN+="usb_modeswitch '%b/%k'"
 # ZTE MF112
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0103", RUN+="usb_modeswitch '%b/%k'"
 
+# ZTE MF637 (Variant for Orange France)
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0110", RUN+="usb_modeswitch '%b/%k'"
+
 # ZTE MF651
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="0115", RUN+="usb_modeswitch '%b/%k'"
 
@@ -423,6 +445,9 @@ ATTRS{idVendor}=="1bbb", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 # Alcatel One Touch X020
 ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="1001", RUN+="usb_modeswitch '%b/%k'"
 
+# Vibe 3G Modem 
+ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="6061", RUN+="usb_modeswitch '%b/%k'"
+
 # MyWave SW006 Sport Phone/Modem Combination
 ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="9200", RUN+="usb_modeswitch '%b/%k'"
 
@@ -447,13 +472,25 @@ ATTRS{idVendor}=="1ee8", ATTRS{idProduct}=="0009", RUN+="usb_modeswitch '%b/%k'"
 # Onda MW833UP
 ATTRS{idVendor}=="1ee8", ATTRS{idProduct}=="0013", RUN+="usb_modeswitch '%b/%k'"
 
+# Onda MW836UP-K
+ATTRS{idVendor}=="1ee8", ATTRS{idProduct}=="0040", RUN+="usb_modeswitch '%b/%k'"
+
 # Cricket A600
 ATTRS{idVendor}=="1f28", ATTRS{idProduct}=="0021", RUN+="usb_modeswitch '%b/%k'"
+
+# Franklin Wireless U210 (Variant)
+ATTRS{idVendor}=="1fac", ATTRS{idProduct}=="0032", RUN+="usb_modeswitch '%b/%k'"
 
 # Franklin Wireless U210
 ATTRS{idVendor}=="1fac", ATTRS{idProduct}=="0130", RUN+="usb_modeswitch '%b/%k'"
 
+# Haier CE 100 
+ATTRS{idVendor}=="201e", ATTRS{idProduct}=="2009", RUN+="usb_modeswitch '%b/%k'"
+
 # Linktop LW272/LW273 (BSNL Teracom)
 ATTRS{idVendor}=="230d", ATTRS{idProduct}=="0001", RUN+="usb_modeswitch '%b/%k'"
+
+# Exiss Mobile E-190 series (made by C-motech)
+ATTRS{idVendor}=="8888", ATTRS{idProduct}=="6500", RUN+="usb_modeswitch '%b/%k'"
 
 LABEL="modeswitch_rules_end"

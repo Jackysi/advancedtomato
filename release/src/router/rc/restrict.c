@@ -11,15 +11,19 @@
 
 #define MAX_NRULES	50
 
+#ifdef LINUX26
+extern void enable_fastnat(int enable);
+extern int fastnat_enabled(void);
+#endif
 
-static void unsched_restrictions(void)
+static inline void unsched_restrictions(void)
 {
-	system("cru d rcheck");
+	eval("cru", "d", "rcheck");
 }
 
-void sched_restrictions(void)
+inline void sched_restrictions(void)
 {
-	system("rcheck");
+	eval("rcheck");
 }
 
 static int in_sched(int now_mins, int now_dow, int sched_begin, int sched_end, int sched_dow)
@@ -80,6 +84,9 @@ int rcheck_main(int argc, char *argv[])
 #ifdef TCONFIG_IPV6
 	int r6;
 #endif
+#ifdef LINUX26
+	int fastnat;
+#endif
 
 	if (!nvram_contains_word("log_events", "acre")) {
 		setlogmask(LOG_MASK(LOG_EMERG));	// can't set to 0
@@ -100,6 +107,10 @@ int rcheck_main(int argc, char *argv[])
 		now_dow = 1 << tms->tm_wday;
 		now_mins = (tms->tm_hour * 60) + tms->tm_min;
 	}
+
+#ifdef LINUX26
+	fastnat = fastnat_enabled() && (nvram_get_int("fastnat_disable") == 0);
+#endif
 
 	activated = strtoull(nvram_safe_get("rrules_activated"), NULL, 16);
 	count = 0;
@@ -138,6 +149,9 @@ int rcheck_main(int argc, char *argv[])
 				// ignore error above (if any)
 
 				r = eval("iptables", "-A", "restrict", "-j", buf);
+#ifdef LINUX26
+				if (r == 0) fastnat = 0;
+#endif
 			}
 
 #ifdef TCONFIG_IPV6
@@ -168,7 +182,7 @@ int rcheck_main(int argc, char *argv[])
 
 	if (count > 0) {
 		if ((argc != 2) || (strcmp(argv[1], "--cron") != 0)) {
-			system("cru a rcheck '*/15 * * * * rcheck --cron'");
+			eval("cru", "a", "rcheck", "*/15 * * * * rcheck --cron");
 		}
 	}
 	else {
@@ -192,6 +206,9 @@ int rcheck_main(int argc, char *argv[])
 #endif
 	}
 
+#ifdef LINUX26
+	enable_fastnat(fastnat);
+#endif
 	simple_unlock("restrictions");
 	return 0;
 }

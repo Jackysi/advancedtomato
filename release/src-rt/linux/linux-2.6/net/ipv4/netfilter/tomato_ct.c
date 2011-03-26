@@ -141,7 +141,12 @@ static int clearmarks_write(struct file *file, const char *buffer, unsigned long
 static int conntrack_clear_write(struct file *file, const char *buffer, unsigned long length, void *data)
 {
 	if ((length > 0) && (buffer[0] == '1')) {
+ i_see_dead_people:
 		nf_conntrack_flush();
+		if (atomic_read(&nf_conntrack_count) != 0) {
+			schedule();
+			goto i_see_dead_people;
+		}
 	}
 	return length;
 }

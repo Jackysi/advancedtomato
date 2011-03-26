@@ -60,6 +60,7 @@ var services = [
 	['seasydns', 'easyDNS (https)', 'http://www.easydns.com/', 'uhwm'],
 	['editdns', 'EditDNS', 'http://www.editdns.net/', 'tpz'],
 	['everydns', 'EveryDNS', 'http://www.everydns.net/', 'uj', null, null, 'Domain <small>(optional)</small>'],
+	['minidns', 'miniDNS', 'http://www.minidns.net/', 'uh'],
 	['enom', 'eNom', 'http://www.enom.com/', 'ut', 'Domain'],
 	['afraid', 'FreeDNS (afraid.org)', 'http://freedns.afraid.org/', 'az'],
 	['heipv6tb', 'HE.net IPv6 Tunnel Broker', 'http://www.tunnelbroker.net/', 'uh', 'User ID <small>(not your username)</small>', null, 'Global Tunnel ID'],

@@ -1,3 +1,13 @@
+20110227:
+    Attention: path for database has changed! Use this data pack version
+    with program version >= 1.1.7
+    added devices: Prolink P2000, D-Link DWM-156 HSUPA, MediaTek WiMAX,
+    Huawei V725, Huawei E352, Huawei ET8282, Huawei BM358 WiMAX, ZTE MF637
+    (variant for Orange France), Vibe 3G, Onda MW836UP-K, Franklin U210
+    (variant), Haier CE 100, Exiss Mobile E-190, unnamed Philips modem,
+    unnamed HSDPA modem from "dealextreme";
+    added target product IDs for ZTE and Huawei; corrected typos in Sierra
+    configuration (thanks to "Cezary")
 20101222:
     added C-motech CHU-628S; added MediaTek Wimax USB Card; changed
     BandLuxe configuration (new parameter ReleaseDelay) to make it work on

@@ -79,9 +79,10 @@ void start_nas(void)
 #endif	
 
 #ifdef CONFIG_BCMWL5
-	xstart("eapd");
-	usleep(250000);
-	xstart("nas");
+	setenv("UDP_BIND_IP", "127.0.0.1", 1);
+	eval("eapd");
+	unsetenv("UDP_BIND_IP");
+	eval("nas");
 #else
 	mode_t m;
 

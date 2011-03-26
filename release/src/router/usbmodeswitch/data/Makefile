@@ -1,5 +1,5 @@
 PROG        = usb-modeswitch-data
-VERS        = 20100817
+VERS        = 20110227
 RM          = /bin/rm -f
 PREFIX      = $(DESTDIR)/usr
 ETCDIR      = $(DESTDIR)/etc
@@ -17,15 +17,15 @@ install: files-install db-install rules-reload
 install-packed: files-install db-install-packed rules-reload
 
 files-install:
-	install -d $(ETCDIR)/usb_modeswitch.d
+	install -d $(PREFIX)/share/usb_modeswitch
 	install -D --mode=644 40-usb_modeswitch.rules $(RULESDIR)/40-usb_modeswitch.rules
 
 db-install:
-	install --mode=644 -t $(ETCDIR)/usb_modeswitch.d ./usb_modeswitch.d/*
+	install --mode=644 -t $(PREFIX)/share/usb_modeswitch ./usb_modeswitch.d/*
 
 db-install-packed:
 	cd ./usb_modeswitch.d; tar -czf ../configPack.tar.gz *
-	install --mode=644 -t $(ETCDIR)/usb_modeswitch.d ./configPack.tar.gz
+	install --mode=644 -t $(PREFIX)/share/usb_modeswitch ./configPack.tar.gz
 	rm -f ./configPack.tar.gz
 
 
@@ -51,7 +51,6 @@ uninstall: files-uninstall rules-reload
 
 files-uninstall:
 	$(RM) $(RULESDIR)/40-usb_modeswitch.rules
-	$(RM) -R $(ETCDIR)/usb_modeswitch.d
+	$(RM) -R $(PREFIX)/share/usb_modeswitch
 
 .PHONY:    clean install uninstall
-

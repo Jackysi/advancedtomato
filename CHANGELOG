@@ -1443,9 +1443,6 @@ rp-pppoe 3.10.
 
 GUI: enhancements for QoS -> Detailed page, added QoS -> Transfer Rates page.
 
-Added NVRAM size auto-detection - no more special builds for routers with
-60KB NVRAM (Linksys E2000/E3000).
-
 Added DSCP matching criteria for QoS Classification.
 
 Fixed: made MAC address set for the LAN bridge to stick.
@@ -1496,9 +1493,9 @@ WAN IPv4 address in iptables rules.
 GUI: restored ability to enter multiple hostnames (space separated) per
 device on "Static DHCP" page.
 
-Software updates: OpenSSL 1.0.0d, Busybox 1.18.3, CyaSSL 1.8.0, p910nd 0.94,
-MiniUPnPd 1.5 (20110214), usb_modeswitch 1.1.6 with data package 2010-12-22,
-Dnsmasq 2.56, ntfs-3g 2011.1.15, vsftpd 2.3.4.
+Software updates: OpenSSL 1.0.0d, Busybox 1.18.3, CyaSSL 1.9.0, p910nd 0.95,
+MiniUPnPd 1.5 (20110302), usb_modeswitch 1.1.7 with data package 2011-02-27,
+Dnsmasq 2.57, Dropbear 0.53.1, ntfs-3g 2011.1.15, vsftpd 2.3.4.
 
 Lots of cosmetics and optimization, some code clean-up.
 
@@ -1523,11 +1520,15 @@ Fixed: SIP conntrack module corrupting SIP message headers.
 
 Fixed: ping6 doesn't get responses from Apple OS X and iOS systems.
 
+Support for Belkin F7D3301/F7D3302/F7D4301/F7D4302/F5D8235v3 routers.
+
 Added support for USB led on E3000, WRT610Nv2, DIR-320, H-618B routers.
 
 Various optimizations backports and fixes from upstream 2.6 kernel.
 
-Software updates: MiniDLNA cvs 2011-02-17, SQLite 3.7.5, radvd 1.7.
+Software updates: MiniDLNA 1.0.19 cvs 2011-03-02, SQLite 3.7.5, radvd 1.7.
+
+Samba 3 CVE-2011-0719 security fix.
 
 * Kernel 2.4-based builds only:
 

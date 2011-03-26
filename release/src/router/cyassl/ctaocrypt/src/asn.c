@@ -1,6 +1,6 @@
 /* asn.c
  *
- * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -34,6 +34,10 @@
     #include "crypto_ntru.h"
 #endif
 
+#ifdef HAVE_ECC
+    #include "ctc_ecc.h"
+#endif
+
 
 #ifdef _MSC_VER
     /* 4996 warning to use MS extensions e.g., strcpy_s instead of XSTRNCPY */
@@ -48,14 +52,6 @@ enum {
 };
 #endif
 
-enum {
-    ISSUER  = 0,
-    SUBJECT = 1,
-
-    BEFORE  = 0,
-    AFTER   = 1
-};
-
 
 #ifdef THREADX
     /* uses parital <time.h> structures */
@@ -63,9 +59,8 @@ enum {
     #define XGMTIME(c) my_gmtime((c))
     #define XVALIDATE_DATE(d, f, t) ValidateDate((d), (f), (t))
 #elif defined(MICRIUM)
-    #include <clk.h>
     #if (NET_SECURE_MGR_CFG_EN == DEF_ENABLED)
-        #define XVALIDATE_DATE(d, f, t) NetSecure_ValidDate((d), (f), (t))
+        #define XVALIDATE_DATE(d,f,t) NetSecure_ValidateDateHandler((d),(f),(t))
     #else
         #define XVALIDATE_DATE(d, f, t) (0)
     #endif
@@ -216,73 +211,58 @@ static INLINE void GetTime(int* value, const byte* date, int* idx)
 
 #if defined(MICRIUM)
 
-static int NetSecure_ValidDate(CPU_INT08U *date, CPU_INT08U format,
-                               CPU_INT08U dateType)
+CPU_INT32S NetSecure_ValidateDateHandler(CPU_INT08U *date, CPU_INT08U format,
+                                         CPU_INT08U dateType)
 {
-    CLK_DATE_TIME   cert_date_time;
-    CLK_TS_SEC      cert_ts_sec;
-    CLK_TS_SEC      local_ts_sec;
-    CPU_INT32S      i;
-    CPU_INT32S      val;
+    CPU_BOOLEAN  rtn_code;
+    CPU_INT32S   i;
+    CPU_INT32S   val;    
+    CPU_INT16U   year;
+    CPU_INT08U   month;
+    CPU_INT16U   day;
+    CPU_INT08U   hour;
+    CPU_INT08U   min;
+    CPU_INT08U   sec;
 
-    local_ts_sec = Clk_GetTS();
-    XMEMSET(&cert_date_time, 0, sizeof(cert_date_time));
+    i    = 0;
+    year = 0u;
 
-    i = 0;
     if (format == ASN_UTC_TIME) {
         if (btoi(date[0]) >= 5)
-            cert_date_time.Yr = 1900;
+            year = 1900;
         else
-            cert_date_time.Yr = 2000;
+            year = 2000;
     }
     else  { /* format == GENERALIZED_TIME */
-        cert_date_time.Yr += btoi(date[i++]) * 1000;
-        cert_date_time.Yr += btoi(date[i++]) * 100;
-    }
+        year += btoi(date[i++]) * 1000;
+        year += btoi(date[i++]) * 100;
+    }    
 
-    val = cert_date_time.Yr;
-    GetTime(&val,   date, &i);
-    cert_date_time.Yr =    (CLK_YR)val;
+    val = year;
+    GetTime(&val, date, &i);
+    year = (CPU_INT16U)val;
 
     val = 0;
     GetTime(&val, date, &i);   
-    cert_date_time.Month = (CLK_MONTH)val;
-  
-    val = 0;
-    GetTime(&val, date, &i);  
-    cert_date_time.Day =   (CLK_DAY)val;
+    month = (CPU_INT08U)val;   
 
     val = 0;
     GetTime(&val, date, &i);  
-    cert_date_time.Hr =    (CLK_HR)val;
-    
+    day = (CPU_INT16U)val;
+
     val = 0;
     GetTime(&val, date, &i);  
-    cert_date_time.Min =   (CLK_MIN)val;
-    
+    hour = (CPU_INT08U)val;
+
     val = 0;
     GetTime(&val, date, &i);  
-    cert_date_time.Sec =   (CLK_SEC)val;
+    min = (CPU_INT08U)val;
 
-    if (date[i] != 'Z')     /* only Zulu supported for this profile */
-        return 0;
+    val = 0;
+    GetTime(&val, date, &i);  
+    sec = (CPU_INT08U)val;
 
-    cert_date_time.DayOfWk = 1;
-    cert_date_time.DayOfYr = 1;
-    Clk_DateTimeToTS(&cert_ts_sec, &cert_date_time);
-
-
-    if (dateType == BEFORE) {
-        if (local_ts_sec < cert_ts_sec)  /* If cert creation date after
-                                             current date...  */
-            return (DEF_FAIL);           /* ... report an error. */
-   } else {
-        if (local_ts_sec > cert_ts_sec)  /* If cert expiration date before
-                                           current date...  */
-            return (DEF_FAIL);           /* ... report an error. */
-   }
-
-    return (DEF_OK);
+    return NetSecure_ValidateDate(year, month, day, hour, min, sec, dateType); 
 }
 
 #endif /* MICRIUM */
@@ -743,13 +723,11 @@ static int GetCertHeader(DecodedCert* cert, word32 inSz)
 }
 
 
-static int StoreKey(DecodedCert* cert)
+/* Store Rsa Key, may save later, Dsa could use in future */
+static int StoreRsaKey(DecodedCert* cert)
 {
     int    length;
     word32 read = cert->srcIdx;
-
-    if (cert->keyOID == NTRUk)
-        return 0;                /* already stored */
 
     if (GetSequence(cert->source, &cert->srcIdx, &length) < 0)
         return ASN_PARSE_E;
@@ -766,6 +744,21 @@ static int StoreKey(DecodedCert* cert)
 
     return 0;
 }
+
+
+#ifdef HAVE_ECC
+
+    /* return 0 on sucess if the ECC curve oid sum is supported */
+    static int CheckCurve(word32 oid)
+    {
+        if (oid != ECC_256R1 && oid != ECC_384R1 && oid != ECC_521R1 && oid !=
+                   ECC_160R1 && oid != ECC_192R1 && oid != ECC_224R1)
+            return -1;
+
+        return 0;
+    }
+
+#endif /* HAVE_ECC */
 
 
 static int GetKey(DecodedCert* cert)
@@ -827,11 +820,53 @@ static int GetKey(DecodedCert* cert)
         cert->pubKeyStored = 1;
         cert->pubKeySize   = keyLen;
     }
-#endif
+#endif /* HAVE_NTRU */
+#ifdef HAVE_ECC
+    else if (cert->keyOID == ECDSAk ) {
+        word32 oid = 0;
+        int    oidSz = 0;
+        byte   b = cert->source[cert->srcIdx++];
+    
+        if (b != ASN_OBJECT_ID) 
+            return ASN_OBJECT_ID_E;
+
+        if (GetLength(cert->source, &cert->srcIdx, &oidSz) < 0)
+            return ASN_PARSE_E;
+
+        while(oidSz--)
+            oid += cert->source[cert->srcIdx++];
+        if (CheckCurve(oid) < 0)
+            return ECC_CURVE_OID_E;
+
+        /* key header */
+        b = cert->source[cert->srcIdx++];
+        if (b != ASN_BIT_STRING)
+            return ASN_BITSTR_E;
+
+        if (GetLength(cert->source, &cert->srcIdx, &length) < 0)
+            return ASN_PARSE_E;
+        b = cert->source[cert->srcIdx++];
+        if (b != 0x00)
+            return ASN_EXPECT_0_E;
+
+        /* actual key, use length - 1 since preceding 0 */
+        cert->publicKey = (byte*) XMALLOC(length - 1, cert->heap,
+                                          DYNAMIC_TYPE_PUBLIC_KEY);
+        if (cert->publicKey == NULL)
+            return MEMORY_E;
+        memcpy(cert->publicKey, &cert->source[cert->srcIdx], length - 1);
+        cert->pubKeyStored = 1;
+        cert->pubKeySize   = length - 1;
+
+        cert->srcIdx += length;
+    }
+#endif /* HAVE_ECC */
     else
         return ASN_UNKNOWN_OID_E;
-    
-    return StoreKey(cert);
+   
+    if (cert->keyOID == RSAk) 
+        return StoreRsaKey(cert);
+    return 0;
 }
 
 
@@ -1383,7 +1418,8 @@ static int ConfirmSignature(DecodedCert* cert, const byte* key, word32 keySz,
         hashType = MD5h;
         digestSz = MD5_DIGEST_SIZE;
     }
-    else if (cert->signatureOID == SHAwRSA || cert->signatureOID == SHAwDSA) {
+    else if (cert->signatureOID == SHAwRSA || cert->signatureOID == SHAwDSA ||
+                                              cert->signatureOID == SHAwECDSA) {
         Sha sha;
         InitSha(&sha);
         ShaUpdate(&sha, cert->source + cert->certBegin,
@@ -1427,6 +1463,23 @@ static int ConfirmSignature(DecodedCert* cert, const byte* key, word32 keySz,
         FreeRsaKey(&pubKey);
         return ret;
     }
+#ifdef HAVE_ECC
+    else if (keyOID == ECDSAk) {
+        ecc_key pubKey;
+        int     verify = 0;
+        
+        if (ecc_import_x963(key, keySz, &pubKey) < 0)
+            return 0; /* ASN_KEY_DECODE_E */
+    
+        ret = ecc_verify_hash(cert->signature, cert->sigLength, digest,
+                              digestSz, &verify, &pubKey);
+        ecc_free(&pubKey);
+        if (ret == 0 && verify == 1)
+            return 1;  /* match */
+
+        return 0;  /* ASN_VERIFY_E */
+    }
+#endif /* HAVE_ECC */
     else
         return 0; /* ASN_SIG_KEY_E; */
 }
@@ -1737,6 +1790,18 @@ void CTaoCryptErrorString(int error, char* buffer)
 
     case ASN_NTRU_KEY_E :
         XSTRNCPY(buffer, "ASN NTRU key decode error, invalid input", max);
+        break;
+
+    case ECC_BAD_ARG_E :
+        XSTRNCPY(buffer, "ECC input argument wrong type, invalid input", max);
+        break;
+
+    case ASN_ECC_KEY_E :
+        XSTRNCPY(buffer, "ECC ASN1 bad key data, invalid input", max);
+        break;
+
+    case ECC_CURVE_OID_E :
+        XSTRNCPY(buffer, "ECC curve sum OID unsupported, invalid input", max);
         break;
 
     default:
@@ -2646,3 +2711,156 @@ int SetIssuer(Cert* cert, const char* issuerCertFile)
 
 #endif /* NO_FILESYSTEM */
 #endif /* CYASSL_CERT_GEN */
+
+
+#ifdef HAVE_ECC
+
+/* Der Eoncde r & s ints into out, outLen is (in/out) size */
+int StoreECC_DSA_Sig(byte* out, word32* outLen, mp_int* r, mp_int* s)
+{
+    word32 idx = 0;
+    word32 rSz;                           /* encoding size */
+    word32 sSz;
+    word32 headerSz = 4;   /* 2*ASN_TAG + 2*LEN(ENUM) */
+
+    int rLen = mp_unsigned_bin_size(r);   /* big int size */
+    int sLen = mp_unsigned_bin_size(s);
+    int err;
+
+    if (*outLen < (rLen + sLen + headerSz + 2))  /* SEQ_TAG + LEN(ENUM) */
+        return -1;
+
+    idx = SetSequence(rLen + sLen + headerSz, out);
+
+    /* store r */
+    out[idx++] = ASN_INTEGER;
+    rSz = SetLength(rLen, &out[idx]);
+    idx += rSz;
+    err = mp_to_unsigned_bin(r, &out[idx]);
+    if (err != MP_OKAY) return err;
+    idx += rLen;
+
+    /* store s */
+    out[idx++] = ASN_INTEGER;
+    sSz = SetLength(sLen, &out[idx]);
+    idx += sSz;
+    err = mp_to_unsigned_bin(s, &out[idx]);
+    if (err != MP_OKAY) return err;
+    idx += sLen;
+
+    *outLen = idx;
+
+    return 0;
+}
+
+
+/* Der Decode ECC-DSA Signautre, r & s stored as big ints */
+int DecodeECC_DSA_Sig(const byte* sig, word32 sigLen, mp_int* r, mp_int* s)
+{
+    word32 idx = 0;
+    int    len = 0;
+
+    if (GetSequence(sig, &idx, &len) < 0)
+        return ASN_ECC_KEY_E;
+
+    if ((word32)len > (sigLen - idx))
+        return ASN_ECC_KEY_E;
+
+    if (GetInt(r, sig, &idx) < 0)
+        return ASN_ECC_KEY_E;
+
+    if (GetInt(s, sig, &idx) < 0)
+        return ASN_ECC_KEY_E;
+
+    return 0;
+}
+
+
+int EccPrivateKeyDecode(const byte* input, word32* inOutIdx, ecc_key* key,
+                        word32 inSz)
+{
+    word32 begin = *inOutIdx;
+    word32 oid = 0;
+    int    version, length;
+    int    privSz, pubSz;
+    byte   b;
+    byte   priv[ECC_MAXSIZE];
+    byte   pub[ECC_MAXSIZE * 2 + 1]; /* public key has two parts plus header */
+
+    if (GetSequence(input, inOutIdx, &length) < 0)
+        return ASN_PARSE_E;
+
+    if ((word32)length > (inSz - (*inOutIdx - begin)))
+        return ASN_INPUT_E;
+
+    if (GetMyVersion(input, inOutIdx, &version) < 0)
+        return ASN_PARSE_E;
+
+    b = input[*inOutIdx];
+    *inOutIdx += 1;
+
+    /* priv type */
+    if (b != 4 && b != 6 && b != 7) 
+        return ASN_PARSE_E;
+
+    if (GetLength(input, inOutIdx, &length) < 0)
+        return ASN_PARSE_E;
+
+    /* priv key */
+    privSz = length;
+    XMEMCPY(priv, &input[*inOutIdx], privSz);
+    *inOutIdx += length;
+
+    /* prefix 0 */
+    b = input[*inOutIdx];
+    *inOutIdx += 1;
+
+    if (GetLength(input, inOutIdx, &length) < 0)
+        return ASN_PARSE_E;
+
+    /* object id */
+    b = input[*inOutIdx];
+    *inOutIdx += 1;
+    
+    if (b != ASN_OBJECT_ID) 
+        return ASN_OBJECT_ID_E;
+
+    if (GetLength(input, inOutIdx, &length) < 0)
+        return ASN_PARSE_E;
+
+    while(length--) {
+        oid += input[*inOutIdx];
+        *inOutIdx += 1;
+    }
+    if (CheckCurve(oid) < 0)
+        return ECC_CURVE_OID_E;
+    
+    /* prefix 1 */
+    b = input[*inOutIdx];
+    *inOutIdx += 1;
+
+    if (GetLength(input, inOutIdx, &length) < 0)
+        return ASN_PARSE_E;
+
+    /* key header */
+    b = input[*inOutIdx];
+    *inOutIdx += 1;
+    if (b != ASN_BIT_STRING)
+        return ASN_BITSTR_E;
+
+    if (GetLength(input, inOutIdx, &length) < 0)
+        return ASN_PARSE_E;
+    b = input[*inOutIdx];
+    *inOutIdx += 1;
+    if (b != 0x00)
+        return ASN_EXPECT_0_E;
+
+    pubSz = length - 1;  /* null prefix */
+    XMEMCPY(pub, &input[*inOutIdx], pubSz);
+
+    *inOutIdx += length;
+    
+    return ecc_import_private_key(priv, privSz, pub, pubSz, key);
+}
+
+#endif  /* HAVE_ECC */

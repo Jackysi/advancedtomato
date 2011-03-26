@@ -155,7 +155,13 @@ sub fixDyn
 	fixDynDep("pppd", "rp-pppoe.so");
 
 	fixDynDep("libcrypto.so.1.0.0", "libssl.so.1.0.0");
-	
+
+#shibby
+	fixDynDep("transmission-daemon", "libevent-1.4.so.2.2.0");
+	fixDynDep("transmission-daemon", "libcurl.so.4.2.0");
+	fixDynDep("transmission-remote", "libevent-1.4.so.2.2.0");
+	fixDynDep("transmission-remote", "libcurl.so.4.2.0");
+
 #	fixDynDep("libbcm.so", "libshared.so");
 #	fixDynDep("libbcm.so", "libc.so.0");
 
@@ -351,7 +357,8 @@ sub genSO
 
 	print LOG "\n\n${base}\n";
 	
-	$cmd = "mipsel-uclibc-ld -shared -s -z combreloc --warn-common --fatal-warnings ${opt} -soname ${name} -o ${so}";
+#	$cmd = "mipsel-uclibc-ld -shared -s -z combreloc --warn-common --fatal-warnings ${opt} -soname ${name} -o ${so}";
+	$cmd = "mipsel-uclibc-gcc -shared -nostdlib -Wl,-s,-z,combreloc -Wl,--warn-common -Wl,--fatal-warnings -Wl,--gc-sections ${opt} -Wl,-soname=${name} -o ${so}";
 	foreach (@{$elf_lib{$name}}) {
 		if ((!$elf_dyn{$name}{$_}) && (/^lib(.+)\.so/)) {
 			$cmd .= " -l$1";
@@ -421,16 +428,11 @@ if ($ARGV[0] eq "--noopt") {
 	$stripshared = "no";
 }
 
-# WAR for a weird "ld" bug: unless we drag in these few functions, re-linking
-# libpthread.so.0 completely screws it up - at least in the current toolchain
-# (binutils 2.20.1 / gcc 4.2.4) :(
-$libpthreadwar = "-u pthread_mutexattr_init -u pthread_mutexattr_settype -u pthread_mutexattr_destroy";
-
-genSO("${root}/lib/libc.so.0", "${uclibc}/lib/libc.a", "${stripshared}", "-init __uClibc_init ${uclibc}/lib/optinfo/interp.os");
+genSO("${root}/lib/libc.so.0", "${uclibc}/lib/libc.a", "${stripshared}", "-Wl,-init=__uClibc_init ${uclibc}/lib/optinfo/interp.os");
 genSO("${root}/lib/libresolv.so.0", "${uclibc}/lib/libresolv.a", "${stripshared}");
 genSO("${root}/lib/libcrypt.so.0", "${uclibc}/lib/libcrypt.a", "${stripshared}");
 genSO("${root}/lib/libm.so.0", "${uclibc}/lib/libm.a", "${stripshared}");
-genSO("${root}/lib/libpthread.so.0", "${uclibc}/lib/libpthread.a", "${stripshared}", "${libpthreadwar}");
+genSO("${root}/lib/libpthread.so.0", "${uclibc}/lib/libpthread.a", "${stripshared}", "-u pthread_mutexattr_init -Wl,-init=__pthread_initialize_minimal_internal");
 genSO("${root}/lib/libutil.so.0", "${uclibc}/lib/libutil.a", "${stripshared}");
 #  genSO("${root}/lib/libdl.so.0", "${uclibc}/lib/libdl.a", "${stripshared}");
 #  genSO("${root}/lib/libnsl.so.0", "${uclibc}/lib/libnsl.a", "${stripshared}");
@@ -462,6 +464,10 @@ genSO("${root}/usr/lib/liblzo2.so.2", "${router}/lzo/src/.libs/liblzo2.a");
 #	genSO("${root}/usr/lib/libusb-0.1.so.4", "${router}/libusb/libusb/.libs/libusb.a", "", "-L${router}/libusb10/libusb/.libs");
 
 genSO("${root}/usr/lib/libbcmcrypto.so", "${router}/libbcmcrypto/libbcmcrypto.a");
+
+#shibby
+genSO("${root}/usr/lib/libcurl.so.4.2.0", "${router}/libcurl/lib/.libs/libcurl.a", "", "-L${router}/zlib");
+genSO("${root}/usr/lib/libevent-1.4.so.2.2.0", "${router}/libevent/.libs/libevent.a");
 
 print "\n";
 

@@ -5,7 +5,7 @@ DefaultVendor= 0x12d1
 DefaultProduct=0x1c0b
 
 TargetVendor=  0x12d1
-TargetProduct= 0x1c05
+TargetProductList="1c05,1c08"
 
 MessageContent="55534243123456780000000000000011062000000100000000000000000000"
 

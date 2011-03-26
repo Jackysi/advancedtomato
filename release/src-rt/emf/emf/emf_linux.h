@@ -73,11 +73,11 @@ typedef struct br_port
 #endif
 } br_port_t;
 
-static uint32 emf_br_pre_hook(uint32, struct sk_buff **,
+static uint32 emf_br_pre_hook(uint32, struct sk_buff *,
                               const struct net_device *,
                               const struct net_device *,
                               int32 (*)(struct sk_buff *));
-static uint32 emf_ip_post_hook(uint32, struct sk_buff **,
+static uint32 emf_ip_post_hook(uint32, struct sk_buff *,
                               const struct net_device *,
                               const struct net_device *,
                               int32 (*)(struct sk_buff *));

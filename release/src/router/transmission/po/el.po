@@ -1,0 +1,2098 @@
+# Transmission in Greek
+#
+#
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: el\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2010-11-16 09:19-0600\n"
+"PO-Revision-Date: 2010-09-26 11:51+0000\n"
+"Last-Translator: Christos Spyroglou <Unknown>\n"
+"Language-Team: Greek <team@gnome.gr>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Launchpad-Export-Date: 2010-12-09 19:16+0000\n"
+"X-Generator: Launchpad (build Unknown)\n"
+
+#: ../gtk/actions.c:55
+msgid "Sort by _Activity"
+msgstr "Ταξινόμηση κατά _Δραστηριότητα"
+
+#: ../gtk/actions.c:56
+msgid "Sort by _Name"
+msgstr "Ταξινόμηση κατά Ό_νομα"
+
+#: ../gtk/actions.c:57
+msgid "Sort by _Progress"
+msgstr "Ταξινόμηση κατά _Πρόοδο"
+
+#: ../gtk/actions.c:58
+msgid "Sort by Rati_o"
+msgstr "Ταξινόμηση κατά _Αναλογία"
+
+#: ../gtk/actions.c:59
+msgid "Sort by Stat_e"
+msgstr "Ταξινόμηση κατά _Κατάσταση"
+
+#: ../gtk/actions.c:60
+msgid "Sort by A_ge"
+msgstr "Ταξινόμηση κατά Πα_λαιότητα"
+
+#: ../gtk/actions.c:61
+msgid "Sort by Time _Left"
+msgstr "Ταξινόμηση βάσει _Εναπομείναντος χρόνου"
+
+#: ../gtk/actions.c:62
+msgid "Sort by Si_ze"
+msgstr "Ταξινόμηση κατά Μέ_γεθος"
+
+#: ../gtk/actions.c:79
+msgid "_Show Transmission"
+msgstr "_Εμφάνιση του Transmission"
+
+#: ../gtk/actions.c:80
+msgid "Message _Log"
+msgstr "Κ_αταγραφή μηνυμάτων"
+
+#: ../gtk/actions.c:95
+msgid "Enable Temporary Speed _Limits"
+msgstr "Ενεργοποίηση προσωρινών ορίων ταχύτητας"
+
+#: ../gtk/actions.c:96
+msgid "_Compact View"
+msgstr "_Συνοπτική προβολή"
+
+#: ../gtk/actions.c:97
+msgid "Re_verse Sort Order"
+msgstr "Αντιστρο_φή ταξινόμησης"
+
+#: ../gtk/actions.c:98
+msgid "_Filterbar"
+msgstr "Γραμμή _φίλτρου"
+
+#: ../gtk/actions.c:99
+msgid "_Statusbar"
+msgstr "Γραμμή _κατάστασης"
+
+#: ../gtk/actions.c:100
+msgid "_Toolbar"
+msgstr "_Εργαλειοθήκη"
+
+#: ../gtk/actions.c:105
+msgid "_File"
+msgstr "_Αρχείο"
+
+#: ../gtk/actions.c:106
+msgid "_Torrent"
+msgstr "_Torrent"
+
+#: ../gtk/actions.c:107
+msgid "_View"
+msgstr "_Προβολή"
+
+#: ../gtk/actions.c:108
+msgid "_Sort Torrents By"
+msgstr "_Ταξινόμηση torrent κατά"
+
+#: ../gtk/actions.c:109
+msgid "_Edit"
+msgstr "_Επεξεργασία"
+
+#: ../gtk/actions.c:110
+msgid "_Help"
+msgstr "_Βοήθεια"
+
+#: ../gtk/actions.c:111
+msgid "Copy _Magnet Link to Clipboard"
+msgstr "Αντιγραφή του δεσμού _Magnet στο πρόχειρο"
+
+#: ../gtk/actions.c:112
+msgid "Add _URL..."
+msgstr "Προσθήκη _URL..."
+
+#: ../gtk/actions.c:112
+msgid "Add URL..."
+msgstr "Προσθήκη URL..."
+
+#: ../gtk/actions.c:113 ../gtk/actions.c:114
+msgid "Add a torrent"
+msgstr "Προσθήκη torrent"
+
+#: ../gtk/actions.c:114
+msgid "_Add File..."
+msgstr "_Προσθήκη αρχείου"
+
+#: ../gtk/actions.c:115
+msgid "_Start"
+msgstr "_Εκκίνηση"
+
+#: ../gtk/actions.c:115
+msgid "Start torrent"
+msgstr "Εκκίνηση torrent"
+
+#: ../gtk/actions.c:116
+msgid "_Statistics"
+msgstr "_Στατιστικά"
+
+#: ../gtk/actions.c:117
+msgid "_Donate"
+msgstr "_Δωρεά"
+
+#: ../gtk/actions.c:118
+msgid "_Verify Local Data"
+msgstr "_Επαλήθευση τοπικών δεδομένων"
+
+#: ../gtk/actions.c:119
+msgid "_Pause"
+msgstr "Παύ_ση"
+
+#: ../gtk/actions.c:119
+msgid "Pause torrent"
+msgstr "Παύση torrent"
+
+#: ../gtk/actions.c:120
+msgid "_Pause All"
+msgstr "_Παύση όλων"
+
+#: ../gtk/actions.c:120
+msgid "Pause all torrents"
+msgstr "Παύση όλων των torrent"
+
+#: ../gtk/actions.c:121
+msgid "_Start All"
+msgstr "_Εκκίνηση όλων"
+
+#: ../gtk/actions.c:121
+msgid "Start all torrents"
+msgstr "Εκκίνηση όλων των torrent"
+
+#: ../gtk/actions.c:122
+msgid "Set _Location..."
+msgstr ""
+
+#: ../gtk/actions.c:123
+msgid "Remove torrent"
+msgstr "Αφαίρεση torrent"
+
+#: ../gtk/actions.c:124
+msgid "_Delete Files and Remove"
+msgstr "_Διαγραφή αρχείων και αφαίρεση από την λίστα"
+
+#: ../gtk/actions.c:125
+msgid "_New..."
+msgstr "_Νέο..."
+
+#: ../gtk/actions.c:125
+msgid "Create a torrent"
+msgstr "Δημιουργία torrent"
+
+#: ../gtk/actions.c:126
+msgid "_Quit"
+msgstr "Έ_ξοδος"
+
+#: ../gtk/actions.c:127
+msgid "Select _All"
+msgstr "Επιλογή _όλων"
+
+#: ../gtk/actions.c:128
+msgid "Dese_lect All"
+msgstr "Αποεπι_λογή όλων"
+
+#: ../gtk/actions.c:130
+msgid "Torrent properties"
+msgstr "Ιδιότητες torrent"
+
+#: ../gtk/actions.c:131
+msgid "_Open Folder"
+msgstr "Ά_νοιγμα φακέλου"
+
+#: ../gtk/actions.c:133
+msgid "_Contents"
+msgstr "_Περιεχόμενα"
+
+#: ../gtk/actions.c:134
+msgid "Ask Tracker for _More Peers"
+msgstr "Αίτηση στον ανιχνευτή για ε_πιπλέον ομότιμους χρήστες"
+
+#: ../gtk/add-dialog.c:240
+msgid "Torrent files"
+msgstr "Αρχεία torrent"
+
+#: ../gtk/add-dialog.c:245
+msgid "All files"
+msgstr "Όλα τα αρχεία"
+
+#. make the dialog
+#: ../gtk/add-dialog.c:272
+msgid "Torrent Options"
+msgstr "Επιλογές torrent"
+
+#: ../gtk/add-dialog.c:295 ../gtk/tr-prefs.c:290
+msgid "Mo_ve .torrent file to the trash"
+msgstr "Μετακ_ίνηση του αρχείου .torrent στα απορρίμματα"
+
+#: ../gtk/add-dialog.c:297 ../gtk/tr-prefs.c:286
+msgid "_Start when added"
+msgstr "_Εκκίνηση κατά την προσθήκη"
+
+#: ../gtk/add-dialog.c:312
+msgid "_Torrent file:"
+msgstr "_Αρχείο torrent:"
+
+#: ../gtk/add-dialog.c:316
+msgid "Select Source File"
+msgstr "Επιλέξτε το πηγαίο αρχείο"
+
+#: ../gtk/add-dialog.c:327
+msgid "_Destination folder:"
+msgstr "_Φάκελος προορισμού"
+
+#: ../gtk/add-dialog.c:331
+msgid "Select Destination Folder"
+msgstr "Επιλογή φακέλου προορισμού"
+
+#: ../gtk/add-dialog.c:353 ../gtk/details.c:513
+msgid "Torrent _priority:"
+msgstr "_Προτεραιότητα torrent"
+
+#: ../gtk/add-dialog.c:433
+msgid "Add a Torrent"
+msgstr "Προσθήκη torrent"
+
+#: ../gtk/add-dialog.c:450 ../gtk/tr-prefs.c:282
+msgid "Show _options dialog"
+msgstr "Εμφάνιση του _διαλόγου επιλογών"
+
+#: ../gtk/add-dialog.c:528
+msgid "Add URL"
+msgstr "Προσθήκη URL"
+
+#: ../gtk/add-dialog.c:541
+msgid "Add torrent from URL"
+msgstr "Προσθήκη torrent από URL"
+
+#: ../gtk/add-dialog.c:546
+msgid "_URL"
+msgstr "_URL"
+
+#: ../gtk/conf.c:63 ../libtransmission/fdlimit.c:346
+#: ../libtransmission/metainfo.c:114 ../libtransmission/utils.c:619
+#: ../libtransmission/utils.c:630
+#, c-format
+msgid "Couldn't create \"%1$s\": %2$s"
+msgstr "Δεν μπορεί να δημιουργηθεί το \"%1$s\": %2$s"
+
+#: ../gtk/conf.c:88 ../libtransmission/fdlimit.c:374
+#, c-format
+msgid "Couldn't open \"%1$s\": %2$s"
+msgstr "Δεν μπορεί να ανοιχτεί το \"%1$s\": %2$s"
+
+#: ../gtk/conf.c:93
+#, c-format
+msgid "%s is already running."
+msgstr "Το %s εκτελείται ήδη."
+
+#: ../gtk/conf.c:427 ../gtk/conf.c:432
+#, c-format
+msgid "Importing \"%s\""
+msgstr "Εισαγωγή του \"%s\""
+
+#: ../gtk/details.c:451 ../gtk/details.c:462
+msgid "Use global settings"
+msgstr ""
+
+#: ../gtk/details.c:452
+msgid "Seed regardless of ratio"
+msgstr ""
+
+#: ../gtk/details.c:453
+msgid "Stop seeding at ratio:"
+msgstr ""
+
+#: ../gtk/details.c:463
+msgid "Seed regardless of activity"
+msgstr ""
+
+#: ../gtk/details.c:464
+msgid "Stop seeding if idle for N minutes:"
+msgstr ""
+
+#: ../gtk/details.c:480 ../gtk/tr-prefs.c:1232
+msgid "Speed"
+msgstr "Ταχύτητα"
+
+#: ../gtk/details.c:482
+msgid "Honor global _limits"
+msgstr "Τήρηση καθολικών _ορίων"
+
+#: ../gtk/details.c:487 ../gtk/tr-prefs.c:1017
+#, c-format
+msgid "Limit _download speed (%s):"
+msgstr ""
+
+#: ../gtk/details.c:500 ../gtk/tr-prefs.c:1024
+#, c-format
+msgid "Limit _upload speed (%s):"
+msgstr ""
+
+#: ../gtk/details.c:517 ../gtk/tr-prefs.c:319
+msgid "Seeding Limits"
+msgstr ""
+
+#: ../gtk/details.c:527
+msgid "_Ratio:"
+msgstr ""
+
+#: ../gtk/details.c:536
+msgid "_Idle:"
+msgstr ""
+
+#: ../gtk/details.c:539
+msgid "Peer Connections"
+msgstr "Συνδέσεις ομότιμων χρηστών"
+
+#: ../gtk/details.c:542
+msgid "_Maximum peers:"
+msgstr "_Μέγιστος αριθμός ομότιμων χρηστών:"
+
+#: ../gtk/details.c:562 ../gtk/torrent-cell-renderer.c:212
+msgid "Waiting to verify local data"
+msgstr "Αναμονή για την επαλήθευση των τοπικών δεδομένων"
+
+#: ../gtk/details.c:563
+msgid "Verifying local data"
+msgstr "Eπαλήθευση των τοπικών δεδομένων"
+
+#: ../gtk/details.c:564 ../gtk/filter.c:714 ../gtk/tr-prefs.c:295
+msgid "Downloading"
+msgstr "Λήψη"
+
+#: ../gtk/details.c:565 ../gtk/filter.c:715
+msgid "Seeding"
+msgstr "Τροφοδοσία"
+
+#: ../gtk/details.c:566 ../gtk/filter.c:717 ../gtk/torrent-cell-renderer.c:206
+msgid "Finished"
+msgstr "Ολοκληρώθηκε"
+
+#: ../gtk/details.c:566 ../gtk/filter.c:716 ../gtk/torrent-cell-renderer.c:208
+msgid "Paused"
+msgstr "Σε παύση"
+
+#: ../gtk/details.c:610
+msgid "N/A"
+msgstr ""
+
+#: ../gtk/details.c:622 ../gtk/file-list.c:624
+msgid "Mixed"
+msgstr "Μικτή"
+
+#: ../gtk/details.c:623
+msgid "No Torrents Selected"
+msgstr ""
+
+#: ../gtk/details.c:645
+msgid "Private to this tracker -- DHT and PEX disabled"
+msgstr "Ιδιωτικά προς αυτόν τον ανιχνευτή -- απενεργοποιημένα DHT και PEX"
+
+#: ../gtk/details.c:647
+msgid "Public torrent"
+msgstr "Δημόσιο torrent"
+
+#: ../gtk/details.c:670
+#, c-format
+msgid "Created by %1$s"
+msgstr "Δημιουργήθηκε από %1$s"
+
+#: ../gtk/details.c:672
+#, c-format
+msgid "Created on %1$s"
+msgstr "Δημιουργήθηκε στις %1$s"
+
+#: ../gtk/details.c:674
+#, c-format
+msgid "Created by %1$s on %2$s"
+msgstr "Δημιουργήθηκε από %1$s στις %2$s"
+
+#: ../gtk/details.c:760
+msgid "Unknown"
+msgstr "Άγνωστος"
+
+#: ../gtk/details.c:831
+#, c-format
+msgid "%1$s (%2$s%%)"
+msgstr ""
+
+#: ../gtk/details.c:833
+#, c-format
+msgid "%1$s (%2$s%% of %3$s%% Available)"
+msgstr ""
+
+#: ../gtk/details.c:835
+#, c-format
+msgid "%1$s (%2$s%% of %3$s%% Available) + %4$s Unverified"
+msgstr ""
+
+#: ../gtk/details.c:854
+#, c-format
+msgid "%1$s (+%2$s corrupt)"
+msgstr "%1$s (+%2$s κατεστραμμένα)"
+
+#: ../gtk/details.c:876
+#, c-format
+msgid "%s (Ratio: %s)"
+msgstr ""
+
+#: ../gtk/details.c:904
+msgid "No errors"
+msgstr ""
+
+#: ../gtk/details.c:917
+msgid "Never"
+msgstr ""
+
+#: ../gtk/details.c:921
+msgid "Active now"
+msgstr "Ενεργές τώρα"
+
+#: ../gtk/details.c:925
+#, c-format
+msgid "%1$s ago"
+msgstr "πριν από %1$s"
+
+#: ../gtk/details.c:944
+msgid "Activity"
+msgstr "Δραστηριότητα"
+
+#: ../gtk/details.c:948
+msgid "Torrent size:"
+msgstr "Μέγεθος torrent:"
+
+#: ../gtk/details.c:952
+msgid "Have:"
+msgstr "Έχουμε:"
+
+#: ../gtk/details.c:956 ../gtk/stats.c:168 ../gtk/stats.c:180
+msgid "Downloaded:"
+msgstr "Ληφθέντα:"
+
+#: ../gtk/details.c:960 ../gtk/stats.c:166 ../gtk/stats.c:178
+msgid "Uploaded:"
+msgstr "Απεσταλμένα:"
+
+#: ../gtk/details.c:964
+msgid "State:"
+msgstr "Κατάσταση:"
+
+#: ../gtk/details.c:968
+msgid "Running time:"
+msgstr "Χρόνος σε εκτέλεση:"
+
+#: ../gtk/details.c:972
+msgid "Remaining time:"
+msgstr "Χρόνος που απομένει:"
+
+#: ../gtk/details.c:976
+msgid "Last activity:"
+msgstr "Τελευταία δραστηριότητα:"
+
+#: ../gtk/details.c:980
+msgid "Error:"
+msgstr "Σφάλμα:"
+
+#: ../gtk/details.c:984
+msgid "Details"
+msgstr "Λεπτομέρειες"
+
+#: ../gtk/details.c:990
+msgid "Location:"
+msgstr "Τοποθεσία:"
+
+#: ../gtk/details.c:997
+msgid "Hash:"
+msgstr "Κλειδί ελέγχου ακεραιότητας δεδομένων:"
+
+#: ../gtk/details.c:1002
+msgid "Privacy:"
+msgstr "Απόρρητο:"
+
+#: ../gtk/details.c:1007
+msgid "Origin:"
+msgstr "Προέλευση:"
+
+#: ../gtk/details.c:1024
+msgid "Comment:"
+msgstr "Σχόλιο:"
+
+#: ../gtk/details.c:1056
+msgid "Webseeds"
+msgstr "Τροφοδότες Ιστού"
+
+#: ../gtk/details.c:1058 ../gtk/details.c:1110
+msgid "Down"
+msgstr "Λήψη"
+
+#: ../gtk/details.c:1108
+msgid "Address"
+msgstr "Διεύθυνση"
+
+#: ../gtk/details.c:1112
+msgid "Up"
+msgstr "Αποστολή"
+
+#: ../gtk/details.c:1113
+msgid "Client"
+msgstr "Πελάτης"
+
+#: ../gtk/details.c:1114
+msgid "%"
+msgstr "%"
+
+#: ../gtk/details.c:1116
+msgid "Up Reqs"
+msgstr "Αιτήσεις αποστολής"
+
+#: ../gtk/details.c:1118
+msgid "Dn Reqs"
+msgstr "Αιτήσεις λήψης"
+
+#: ../gtk/details.c:1120
+msgid "Dn Blocks"
+msgstr ""
+
+#: ../gtk/details.c:1122
+msgid "Up Blocks"
+msgstr ""
+
+#: ../gtk/details.c:1124
+msgid "We Cancelled"
+msgstr "Ακυρώθηκαν από εμάς"
+
+#: ../gtk/details.c:1126
+msgid "They Cancelled"
+msgstr "Ακυρώθηκαν από άλλους"
+
+#: ../gtk/details.c:1127
+msgid "Status"
+msgstr "Κατάσταση"
+
+#: ../gtk/details.c:1466
+msgid "Optimistic unchoke"
+msgstr "Βελτιωτική απόφραξη"
+
+#: ../gtk/details.c:1467
+msgid "Downloading from this peer"
+msgstr "Γίνεται λήψη από αυτόν τον ομότιμο χρήστη"
+
+#: ../gtk/details.c:1468
+msgid "We would download from this peer if they would let us"
+msgstr "Θα γινόταν λήψη από αυτόν τον ομότιμο χρήστη εαν μας το επιτρέπε"
+
+#: ../gtk/details.c:1469
+msgid "Uploading to peer"
+msgstr "Αποστολή σε ομότιμο χρήστη"
+
+#: ../gtk/details.c:1470
+msgid "We would upload to this peer if they asked"
+msgstr "Θα γίνει αποστολή σε αυτό τον ομότιμο χρήστη αν ζητηθεί"
+
+#: ../gtk/details.c:1471
+msgid "Peer has unchoked us, but we're not interested"
+msgstr ""
+"Ο ομότιμος χρήστης μας επιτρέπει την ανταλλαγή δεδομένων, αλλά δεν "
+"ενδιαφερόμαστε"
+
+#: ../gtk/details.c:1472
+msgid "We unchoked this peer, but they're not interested"
+msgstr ""
+"Επιτρέπουμε την ανταλλαγή δεδομένων στον ομότιμο χρήστη, αλλά δεν "
+"ενδιαφέρεται"
+
+#: ../gtk/details.c:1473
+msgid "Encrypted connection"
+msgstr "Κρυπρογραφημένη σύνδεση"
+
+#: ../gtk/details.c:1474
+msgid "Peer was discovered through Peer Exchange (PEX)"
+msgstr ""
+"Ο ομότιμος χρήστης βρέθηκε από την υπηρεσία Ανταλλαγής Ομότιμων Χρηστών"
+
+#: ../gtk/details.c:1475
+msgid "Peer was discovered through DHT"
+msgstr "Ο ομότιμος χρήστης βρέθηκε μέσω DHT"
+
+#: ../gtk/details.c:1476
+msgid "Peer is an incoming connection"
+msgstr "O ομότιμος χρήστης είναι μια εισερχόμενη σύνδεση"
+
+#: ../gtk/details.c:1733 ../gtk/details.c:2252
+msgid "Show _more details"
+msgstr "Εμφάνιση _περισσότερων  λεπτομερειών"
+
+#: ../gtk/details.c:1807
+#, c-format
+msgid "Got a list of %1$s%2$'d peers%3$s %4$s ago"
+msgstr "Λήφθηκε μια λίστα %1$s%2$'d ομότιμων χρηστών%3$s πριν από %4$s"
+
+#: ../gtk/details.c:1811
+#, c-format
+msgid "Peer list request %1$stimed out%2$s %3$s ago; will retry"
+msgstr ""
+"%1$sΛήξη χρονικού ορίου%2$s της αίτησης λίστας ομότιμων χρηστών πριν από "
+"%3$s· θα ξαναδοκιμάσω"
+
+#: ../gtk/details.c:1814
+#, c-format
+msgid "Got an error %1$s\"%2$s\"%3$s %4$s ago"
+msgstr "Παρουσιάστηκε  σφάλμα %1$s\"%2$s\"%3$s πριν από %4$s"
+
+#: ../gtk/details.c:1822
+msgid "No updates scheduled"
+msgstr "Δεν έχει προγραμματιστεί καμία ενημέρωση"
+
+#: ../gtk/details.c:1827
+#, c-format
+msgid "Asking for more peers in %s"
+msgstr "Αίτηση λίστας επιπλέον ομότιμων χρηστών σε %s"
+
+#: ../gtk/details.c:1831
+msgid "Queued to ask for more peers"
+msgstr "Σε αναμονή αίτησης για επιπλέον ομότιμους χρήστες"
+
+#: ../gtk/details.c:1836
+#, c-format
+msgid "Asking for more peers now... <small>%s</small>"
+msgstr "Αίτηση επιπλέον ομότιμων χρηστών τώρα... <small>%s</small>"
+
+#: ../gtk/details.c:1846
+#, c-format
+msgid "Tracker had %s%'d seeders and %'d leechers%s %s ago"
+msgstr "Ο ανιχνευτής είχε %s%'d seeders και %'d leechers%s πριν από %s"
+
+#: ../gtk/details.c:1850
+#, c-format
+msgid "Got a scrape error \"%s%s%s\" %s ago"
+msgstr "Λήφθηκε ένα scrape error \"%s%s%s\" πριν από %s"
+
+#: ../gtk/details.c:1860
+#, c-format
+msgid "Asking for peer counts in %s"
+msgstr "Αίτηση αριθμού ομότιμων χρηστών σε %s"
+
+#: ../gtk/details.c:1864
+msgid "Queued to ask for peer counts"
+msgstr "Σε αναμονή για αίτηση αριθμού ομότιμων χρηστών"
+
+#: ../gtk/details.c:1869
+#, c-format
+msgid "Asking for peer counts now... <small>%s</small>"
+msgstr "Αίτηση αριθμού ομότιμων χρηστών τώρα... <small>%s</small>"
+
+#: ../gtk/details.c:2129
+msgid "List contains invalid URLs"
+msgstr "Η λίστα περιέχει μη έγκυρα URL"
+
+#: ../gtk/details.c:2168
+msgid "Edit Trackers"
+msgstr "Επεξεργασία ανιχνευτών"
+
+#: ../gtk/details.c:2180
+msgid "Tracker Announce URLs"
+msgstr "URL αναφοράς Ανιχνευτή"
+
+#: ../gtk/details.c:2183 ../gtk/makemeta-ui.c:500
+msgid ""
+"To add a backup URL, add it on the line after the primary URL.\n"
+"To add another primary URL, add it after a blank line."
+msgstr ""
+"Για να προσθέσετε ένα δευτερεύον (backup) URL, εισάγετέ το στη γραμμή αμέσως "
+"μετά το πρωτεύον URL.\n"
+"Για να προσθέσετε ακόμη ένα πρωτεύον URL, εισάγετέ το αφήνοντας μία κενή "
+"γραμμή."
+
+#: ../gtk/details.c:2227 ../gtk/details.c:2347 ../gtk/filter.c:316
+msgid "Trackers"
+msgstr "Ανιχνευτές"
+
+#: ../gtk/details.c:2259
+msgid "_Edit Trackers"
+msgstr "_Επεξεργασία ανιχνευτών"
+
+#: ../gtk/details.c:2267
+msgid "Show _backup trackers"
+msgstr "Εμφάνιση _δευτερευόντων ανιχνευτών"
+
+#: ../gtk/details.c:2339 ../gtk/msgwin.c:365
+msgid "Information"
+msgstr "Πληροφορίες"
+
+#: ../gtk/details.c:2343
+msgid "Peers"
+msgstr "Ομότιμοι χρήστες"
+
+#: ../gtk/details.c:2353
+msgid "File listing not available for combined torrent properties"
+msgstr ""
+"Η λίστα αρχείων δεν είναι διαθέσιμη κατά την εμφάνιση πολλαπλών torrent"
+
+#: ../gtk/details.c:2357 ../gtk/makemeta-ui.c:447
+msgid "Files"
+msgstr "Αρχεία"
+
+#: ../gtk/details.c:2362 ../gtk/tr-window.c:644
+msgid "Options"
+msgstr "Επιλογές"
+
+#: ../gtk/details.c:2389
+#, c-format
+msgid "%s Properties"
+msgstr "Ιδιότητες του %s"
+
+#: ../gtk/details.c:2400
+#, c-format
+msgid "%'d Torrent Properties"
+msgstr "Ιδιότητες %'d torrent"
+
+#: ../gtk/dialogs.c:89
+msgid "<big><b>Quit Transmission?</b></big>"
+msgstr "<big><b>Έξοδος από το Transmission;</b></big>"
+
+#: ../gtk/dialogs.c:101
+msgid "_Don't ask me again"
+msgstr "_Να μην ερωτηθώ ξανά"
+
+#: ../gtk/file-list.c:621 ../gtk/filter.c:341 ../gtk/util.c:696
+msgid "High"
+msgstr "Υψηλή"
+
+#: ../gtk/file-list.c:622 ../gtk/filter.c:345 ../gtk/util.c:697
+msgid "Normal"
+msgstr "Κανονική"
+
+#: ../gtk/file-list.c:623 ../gtk/filter.c:349 ../gtk/util.c:698
+msgid "Low"
+msgstr "Χαμηλή"
+
+#. add "enabled" column
+#: ../gtk/file-list.c:709 ../gtk/file-list.c:844
+msgid "Download"
+msgstr "Λήψη"
+
+#. add priority column
+#: ../gtk/file-list.c:710 ../gtk/file-list.c:858 ../gtk/filter.c:336
+msgid "Priority"
+msgstr "Προτεραιότητα"
+
+#: ../gtk/file-list.c:816
+msgid "File"
+msgstr "Αρχείο"
+
+#. add "progress" column
+#: ../gtk/file-list.c:831
+msgid "Progress"
+msgstr "Πρόοδος"
+
+#: ../gtk/filter.c:308 ../gtk/filter.c:711
+msgid "All"
+msgstr "Όλα"
+
+#: ../gtk/filter.c:322 ../gtk/tr-prefs.c:526 ../gtk/tr-prefs.c:1235
+msgid "Privacy"
+msgstr "Απόρρητο"
+
+#: ../gtk/filter.c:327
+msgid "Public"
+msgstr "Δημόσιο"
+
+#: ../gtk/filter.c:331
+msgid "Private"
+msgstr "Ιδιωτικό"
+
+#: ../gtk/filter.c:713
+msgid "Active"
+msgstr "Ενεργά"
+
+#: ../gtk/filter.c:718
+msgid "Queued"
+msgstr "Σε αναμονή"
+
+#: ../gtk/filter.c:719
+msgid "Verifying"
+msgstr "Επαλήθευση"
+
+#: ../gtk/filter.c:720 ../gtk/msgwin.c:364
+msgid "Error"
+msgstr "Σφάλμα"
+
+#. add the activity combobox
+#: ../gtk/filter.c:958
+msgid "_Show:"
+msgstr "Ε_μφάνιση:"
+
+#: ../gtk/main.c:392
+#, c-format
+msgid ""
+"Got signal %d; trying to shut down cleanly.  Do it again if it gets stuck."
+msgstr ""
+"Λήφθηκε σήμα %d· προσπάθεια για καθαρό κλείσιμο. Αν κολλήσει κάντε το ξανά."
+
+#: ../gtk/main.c:548
+msgid "Start with all torrents paused"
+msgstr "Έναρξη με όλα τα torrent σε παύση"
+
+#: ../gtk/main.c:550
+msgid "Show version number and exit"
+msgstr "Εμφάνισε τον αριθμό έκδοσης και πραγματοποίησε έξοδο"
+
+#: ../gtk/main.c:554
+msgid "Start minimized in notification area"
+msgstr "Εκκίνούμενο με ελαχιστοποίηση στην περιοχή ειδοποιήσεων"
+
+#: ../gtk/main.c:557
+msgid "Where to look for configuration files"
+msgstr "Που υπάρχουν τα αρχεία ρυθμίσεων"
+
+#: ../gtk/main.c:566 ../gtk/transmission-gtk.desktop.in.h:3
+msgid "Transmission"
+msgstr "Transmission"
+
+#: ../gtk/main.c:576
+msgid "[torrent files or urls]"
+msgstr "[αρχεία ή url του torrent]"
+
+#: ../gtk/main.c:639
+msgid ""
+"Transmission is already running, but is not responding.  To start a new "
+"session, you must first close the existing Transmission process."
+msgstr ""
+"Το Transmission εκτελείται ήδη, αλλά δεν ανταποκρίνεται. Για να ξεκινήσετε "
+"μια νέα συνεδρία, θα πρέπει αν τερματίσετε πρώτα την υπάρχουσα διεργασία του "
+"Transmission."
+
+#: ../gtk/main.c:699
+msgid "Transmission cannot be started."
+msgstr "Αδύνατη η εκκίνηση του Transmission."
+
+#: ../gtk/main.c:785
+msgid ""
+"Transmission is a file-sharing program.  When you run a torrent, its data "
+"will be made available to others by means of upload.  You and you alone are "
+"fully responsible for exercising proper judgement and abiding by your local "
+"laws."
+msgstr ""
+"To Transmission είναι ένα πρόγραμμα διαμοιρασμού αρχείων (file-sharing). "
+"Όταν εκτελείτε ένα torrent, τα δεδομένα του θα διατεθούν σε άλλους "
+"ανεβάζοντάς το (upload). Εσείς και μόνο εσείς έχετε την πλήρη ευθύνη για την "
+"ορθή κρίση και τήρηση των τοπικών σας νόμων."
+
+#: ../gtk/main.c:787
+msgid "I _Accept"
+msgstr "Απο_δοχή"
+
+#: ../gtk/main.c:1036
+msgid "<b>Closing Connections</b>"
+msgstr "<b>Τερματισμός συνδέσεων</b>"
+
+#: ../gtk/main.c:1040
+msgid "Sending upload/download totals to tracker..."
+msgstr "Αποστολή συνόλων κίνησης στον ανιχνευτή..."
+
+#: ../gtk/main.c:1045
+msgid "_Quit Now"
+msgstr "_Τερματισμός τώρα"
+
+#: ../gtk/main.c:1400
+msgid "A fast and easy BitTorrent client"
+msgstr "Ένα γρήγορο κι εύχρηστο πρόγραμμα για το πρωτόκολλο BitTorrent"
+
+#: ../gtk/main.c:1401
+msgid "Copyright (c) The Transmission Project"
+msgstr ""
+
+#. Translators: translate "translator-credits" as your name
+#. to have it appear in the credits in the "About"
+#. dialog
+#: ../gtk/main.c:1407
+msgid "translator-credits"
+msgstr ""
+"Λίστα ελληνοποίησης προγραμμάτων ανοιχτού λογισμικού <i18ngr@hellug.gr>\n"
+"\n"
+"Launchpad Contributions:\n"
+"  Alexandros https://launchpad.net/~alexandros-java\n"
+"  Christos Spyroglou https://launchpad.net/~cspyroglou\n"
+"  Dim. Tsim. https://launchpad.net/~karivolas\n"
+"  Dimitris Athanasopoulos https://launchpad.net/~motzin\n"
+"  Galatsanos Panagiotis https://launchpad.net/~oneinchman\n"
+"  George Kontis https://launchpad.net/~giormatsis\n"
+"  Jennie Petoumenou https://launchpad.net/~jennie\n"
+"  John Kapnogiannis https://launchpad.net/~smokejohn\n"
+"  Kainourgiakis Giorgos https://launchpad.net/~kaingeo\n"
+"  Kostas Milonas https://launchpad.net/~grimmoner\n"
+"  Michalis Ntovas https://launchpad.net/~michalisntovas\n"
+"  Nikos Charonitakis https://launchpad.net/~charosn\n"
+"  Spiros Georgaras https://launchpad.net/~sngeorgaras\n"
+"  Thomas Dislis https://launchpad.net/~mparmpathomas\n"
+"  agerom https://launchpad.net/~agerom\n"
+"  j0hn aka c7p https://launchpad.net/~j0hn-07-\n"
+"  msrowley https://launchpad.net/~msrowley\n"
+"  tsampikos92 https://launchpad.net/~tsampikos92\n"
+"  Νιάνιος Ρωμανός https://launchpad.net/~romanos-nianios"
+
+#: ../gtk/makemeta-ui.c:78
+#, c-format
+msgid "Creating \"%s\""
+msgstr "Δημιουργώντας \"%s\""
+
+#: ../gtk/makemeta-ui.c:80
+#, c-format
+msgid "Created \"%s\"!"
+msgstr "Δημιουργήθηκαν \"%s\"!"
+
+#: ../gtk/makemeta-ui.c:82
+#, c-format
+msgid "Error: invalid announce URL \"%s\""
+msgstr "Σφάλμα: μή έγκυρη αναφορά URL \"%s\""
+
+#: ../gtk/makemeta-ui.c:84
+#, c-format
+msgid "Cancelled"
+msgstr "Ακυρώθηκε"
+
+#: ../gtk/makemeta-ui.c:86
+#, c-format
+msgid "Error reading \"%s\": %s"
+msgstr "Σφάλμα κατά την ανάγνωση του \"%s\": %s"
+
+#: ../gtk/makemeta-ui.c:88
+#, c-format
+msgid "Error writing \"%s\": %s"
+msgstr "Σφάλμα κατά την εγγραφή του \"%s\": %s"
+
+#. how much data we've scanned through to generate checksums
+#: ../gtk/makemeta-ui.c:105
+#, c-format
+msgid "Scanned %s"
+msgstr "Σαρώθηκαν %s"
+
+#: ../gtk/makemeta-ui.c:170 ../gtk/makemeta-ui.c:434
+msgid "New Torrent"
+msgstr "Νέο Torrent"
+
+#: ../gtk/makemeta-ui.c:186
+msgid "Creating torrent..."
+msgstr "Δημιουργία torrent..."
+
+#: ../gtk/makemeta-ui.c:295
+msgid "No source selected"
+msgstr "Δεν έχει επιλεγεί καμία πηγή"
+
+#: ../gtk/makemeta-ui.c:449
+msgid "Sa_ve to:"
+msgstr "Αποθή_κευση σε:"
+
+#: ../gtk/makemeta-ui.c:455
+msgid "Source F_older:"
+msgstr "Πηγαίος Φ_άκελος:"
+
+#: ../gtk/makemeta-ui.c:467
+msgid "Source _File:"
+msgstr "Πηγαίο _Αρχείο:"
+
+#: ../gtk/makemeta-ui.c:479
+msgid "<i>No source selected</i>"
+msgstr "<i>Δεν έχει επιλεγεί πηγή</i>"
+
+#: ../gtk/makemeta-ui.c:483
+msgid "Properties"
+msgstr "Ιδιότητες"
+
+#: ../gtk/makemeta-ui.c:485
+msgid "_Trackers:"
+msgstr "_Ανιχνευτές:"
+
+#: ../gtk/makemeta-ui.c:507
+msgid "Co_mment:"
+msgstr "Σχό_λιο:"
+
+#: ../gtk/makemeta-ui.c:516
+msgid "_Private torrent"
+msgstr "_Ιδιωτικό torrent"
+
+#: ../gtk/msgwin.c:76
+#, c-format
+msgid "Couldn't save \"%s\""
+msgstr "Αδύνατη η αποθήκευση του \"%s\""
+
+#: ../gtk/msgwin.c:127
+msgid "Save Log"
+msgstr "Αποθήκευση καταγραφής"
+
+#: ../gtk/msgwin.c:233
+msgid "Time"
+msgstr "Χρόνος"
+
+#: ../gtk/msgwin.c:237
+msgid "Name"
+msgstr "Όνομα"
+
+#: ../gtk/msgwin.c:241
+msgid "Message"
+msgstr "Μήνυμα"
+
+#: ../gtk/msgwin.c:366
+msgid "Debug"
+msgstr "Αποσφαλμάτωση"
+
+#: ../gtk/msgwin.c:392
+msgid "Message Log"
+msgstr "Καταγραφή μηνυμάτων"
+
+#: ../gtk/msgwin.c:426
+msgid "Level"
+msgstr "Επίπεδο"
+
+#: ../gtk/notify.c:121
+msgid "Download complete"
+msgstr "Η λήψη ολοκληρώθηκε"
+
+#: ../gtk/notify.c:131
+msgid "Torrent Complete"
+msgstr "Το torrent oλοκληρώθηκε"
+
+#: ../gtk/notify.c:144
+msgid "Open File"
+msgstr "Αναπαραγωγή Αρχείου"
+
+#: ../gtk/notify.c:149
+msgid "Open Folder"
+msgstr "Άνοιγμα φακέλου"
+
+#: ../gtk/notify.c:163
+msgid "Torrent Added"
+msgstr "Το Torrent Προστέθηκε"
+
+#: ../gtk/relocate.c:64
+#, c-format
+msgid "Moving \"%s\""
+msgstr "Μετακίνηση του \"%s\""
+
+#: ../gtk/relocate.c:86
+msgid "Couldn't move torrent"
+msgstr "Αδυναμία μετακίνησης του torrent"
+
+#: ../gtk/relocate.c:127
+msgid "This may take a moment..."
+msgstr "Αυτό μπορεί να πάρει λίγη ώρα..."
+
+#: ../gtk/relocate.c:158 ../gtk/relocate.c:179
+msgid "Set Torrent Location"
+msgstr "Ορισμός τοποθεσίας του torrent"
+
+#: ../gtk/relocate.c:175
+msgid "Location"
+msgstr "Τοποθεσία"
+
+#: ../gtk/relocate.c:182
+msgid "Torrent _location:"
+msgstr "Torrent _τοποθεσία"
+
+#: ../gtk/relocate.c:183
+msgid "_Move from the current folder"
+msgstr "_Μετακίνηση από τον τρέχοντα φάκελο"
+
+#: ../gtk/relocate.c:186
+msgid "Local data is _already there"
+msgstr "Τα τοπικά δεδομένα είναι _ήδη εκεί"
+
+#: ../gtk/stats.c:107
+msgid "Reset your statistics?"
+msgstr "Μηδενισμός των στατιστικών σας;"
+
+#: ../gtk/stats.c:108
+msgid ""
+"These statistics are for your information only.  Resetting them doesn't "
+"affect the statistics logged by your BitTorrent trackers."
+msgstr ""
+"Αυτά τα στατιστικά είναι μόνο για την ενημέρωσή σας.  Ο μηδενισμός τους δεν "
+"επηρεάζει τα στατιστικά που καταγράφονται από τους ανιχνευτές BitTorrent."
+
+#: ../gtk/stats.c:119 ../gtk/stats.c:151
+msgid "_Reset"
+msgstr "_Μηδενισμός"
+
+#: ../gtk/stats.c:147 ../gtk/tr-window.c:682
+msgid "Statistics"
+msgstr "Στατιστικά"
+
+#: ../gtk/stats.c:164
+msgid "Current Session"
+msgstr "Τρέχουσα Συνεδρία"
+
+#: ../gtk/stats.c:170 ../gtk/stats.c:182
+msgid "Ratio:"
+msgstr "Αναλογία:"
+
+#: ../gtk/stats.c:172 ../gtk/stats.c:184
+msgid "Duration:"
+msgstr "Διάρκεια:"
+
+#: ../gtk/stats.c:174
+msgid "Total"
+msgstr "Σύνολο"
+
+#: ../gtk/stats.c:175
+#, c-format
+msgid "Started %'d time"
+msgstr ""
+
+#. %1$s is how much we've got,
+#. %2$s is how much we'll have when done,
+#. %3$s%% is a percentage of the two
+#: ../gtk/torrent-cell-renderer.c:63
+#, c-format
+msgid "%1$s of %2$s (%3$s%%)"
+msgstr ""
+
+#. %1$s is how much we've got,
+#. %2$s is the torrent's total size,
+#. %3$s%% is a percentage of the two,
+#. %4$s is how much we've uploaded,
+#. %5$s is our upload-to-download ratio,
+#. %6$s is the ratio we want to reach before we stop uploading
+#: ../gtk/torrent-cell-renderer.c:79
+#, c-format
+msgid "%1$s of %2$s (%3$s%%), uploaded %4$s (Ratio: %5$s Goal: %6$s)"
+msgstr ""
+
+#. %1$s is how much we've got,
+#. %2$s is the torrent's total size,
+#. %3$s%% is a percentage of the two,
+#. %4$s is how much we've uploaded,
+#. %5$s is our upload-to-download ratio
+#: ../gtk/torrent-cell-renderer.c:95
+#, c-format
+msgid "%1$s of %2$s (%3$s%%), uploaded %4$s (Ratio: %5$s)"
+msgstr ""
+
+#. %1$s is the torrent's total size,
+#. %2$s is how much we've uploaded,
+#. %3$s is our upload-to-download ratio,
+#. %4$s is the ratio we want to reach before we stop uploading
+#: ../gtk/torrent-cell-renderer.c:112
+#, c-format
+msgid "%1$s, uploaded %2$s (Ratio: %3$s Goal: %4$s)"
+msgstr "%1$s, απεστάλησαν %2$s (Αναλογία: %3$s Στόχος: %4$s)"
+
+#. %1$s is the torrent's total size,
+#. %2$s is how much we've uploaded,
+#. %3$s is our upload-to-download ratio
+#: ../gtk/torrent-cell-renderer.c:124
+#, c-format
+msgid "%1$s, uploaded %2$s (Ratio: %3$s)"
+msgstr "%1$s, απεστάλησαν %2$s (Αναλογία: %3$s)"
+
+#: ../gtk/torrent-cell-renderer.c:139
+msgid "Remaining time unknown"
+msgstr "Άγνωστος εναπομένων χρόνος"
+
+#. time remaining
+#: ../gtk/torrent-cell-renderer.c:145
+#, c-format
+msgid "%s remaining"
+msgstr "απομένουν %s"
+
+#. 1==down arrow, 2==down speed, 3==up arrow, 4==down speed
+#: ../gtk/torrent-cell-renderer.c:174
+#, c-format
+msgid "%1$s %2$s, %3$s %4$s"
+msgstr "%1$s %2$s, %3$s %4$s"
+
+#. bandwidth speed + unicode arrow
+#: ../gtk/torrent-cell-renderer.c:179 ../gtk/torrent-cell-renderer.c:183
+#, c-format
+msgid "%1$s %2$s"
+msgstr "%1$s %2$s"
+
+#. the torrent isn't uploading or downloading
+#: ../gtk/torrent-cell-renderer.c:187 ../gtk/tr-icon.c:77
+msgid "Idle"
+msgstr "Αδρανές"
+
+#: ../gtk/torrent-cell-renderer.c:217
+#, c-format
+msgid "Verifying local data (%.1f%% tested)"
+msgstr "Επαλήθευση τοπικών δεδομένων (%.1f%% ελέγχθηκαν)"
+
+#: ../gtk/torrent-cell-renderer.c:228
+#, c-format
+msgid "Ratio %s"
+msgstr "Αναλογία %s"
+
+#: ../gtk/torrent-cell-renderer.c:257
+#, c-format
+msgid "Tracker gave a warning: \"%s\""
+msgstr "Ο ανιχνευτής έδωσε μία προειδοποίηση: \"%s\""
+
+#: ../gtk/torrent-cell-renderer.c:258
+#, c-format
+msgid "Tracker gave an error: \"%s\""
+msgstr "Ο ανιχνευτής έδωσε σφάλμα: \"%s\""
+
+#: ../gtk/torrent-cell-renderer.c:259
+#, c-format
+msgid "Error: %s"
+msgstr "Σφάλμα: %s"
+
+#: ../gtk/tracker-list.c:344
+msgid "Tier"
+msgstr "Βαθμίδα"
+
+#: ../gtk/tracker-list.c:350
+msgid "Announce URL"
+msgstr "Ανακοίνωση URL"
+
+#: ../gtk/transmission-gtk.desktop.in.h:1
+msgid "BitTorrent Client"
+msgstr "Πελάτης BitTorrent"
+
+#: ../gtk/transmission-gtk.desktop.in.h:2
+msgid "Download and share files over BitTorrent"
+msgstr "Λήψη και διαμοιρασμός των αρχείων μέσω του BitTorrent"
+
+#: ../gtk/transmission-gtk.desktop.in.h:4
+msgid "Transmission BitTorrent Client"
+msgstr "Transmission πελάτης BitTorrent"
+
+#: ../gtk/tr-core.c:1411
+msgid "Transmission Bittorrent Client"
+msgstr "Transmission πελάτης Bittorrent"
+
+#: ../gtk/tr-core.c:1412
+msgid "BitTorrent Activity"
+msgstr "Δραστηριότητα BitTorrent"
+
+#: ../gtk/tr-core.c:1425
+msgid "Disallowing desktop hibernation"
+msgstr "Απαγόρευση της αδρανοποίησης"
+
+#: ../gtk/tr-core.c:1428
+#, c-format
+msgid "Couldn't disable desktop hibernation: %s"
+msgstr "Αδύνατη η απενεργοποίηση της αδρανοποίησης: %s"
+
+#: ../gtk/tr-core.c:1452
+msgid "Allowing desktop hibernation"
+msgstr "Η ρύθμιση για να επιτρέπεται η αδρανοποίηση βρίσκεται σε εξέλιξη"
+
+#: ../gtk/tr-icon.c:94 ../gtk/tr-icon.c:110
+#, c-format
+msgid "(Limit: %s)"
+msgstr "(Όριο: %s)"
+
+#. %1$s: current upload speed
+#. * %2$s: current upload limit, if any
+#. * %3$s: current download speed
+#. * %4$s: current download limit, if any
+#: ../gtk/tr-icon.c:117
+#, c-format
+msgid ""
+"Transmission\n"
+"Up: %1$s %2$s\n"
+"Down: %3$s %4$s"
+msgstr ""
+"Transmission\n"
+"Αποστολή: %1$s %2$s\n"
+"Λήψη: %3$s %4$s"
+
+#: ../gtk/tr-prefs.c:270
+msgid "Adding"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:273
+msgid "Automatically _add torrents from:"
+msgstr "Αυτόματη _προσθήκη torrent από:"
+
+#: ../gtk/tr-prefs.c:297
+msgid "Append \"._part\" to incomplete files' names"
+msgstr ""
+"Προσθήκη της λέξης \"._part\" στα ονόματα των μη ολοκληρωμένων αρχείων"
+
+#: ../gtk/tr-prefs.c:302
+msgid "Save to _Location:"
+msgstr "Αποθήκευση στην _τοποθεσία:"
+
+#: ../gtk/tr-prefs.c:304
+msgid "Keep _incomplete torrents in:"
+msgstr "Διατήρηση _μη ολοκληρωμένων torrent στο:"
+
+#: ../gtk/tr-prefs.c:311
+msgid "Call scrip_t when torrent is completed:"
+msgstr "Εκ_τέλεση σεναρίου κελύφους όταν ολοκληρωθεί το torrent:"
+
+#: ../gtk/tr-prefs.c:321
+msgid "Stop seeding at _ratio:"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:328
+msgid "Stop seeding if idle for _N minutes:"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:352 ../gtk/tr-prefs.c:1241
+msgid "Desktop"
+msgstr "Επιφάνεια Eργασίας"
+
+#: ../gtk/tr-prefs.c:354
+msgid "Inhibit _hibernation when torrents are active"
+msgstr "Απαγόρευση _αδρανοποίησης όταν υπάρχουν ενεργά torrent"
+
+#: ../gtk/tr-prefs.c:358
+msgid "Show Transmission icon in the _notification area"
+msgstr "Εμφάνιση του εικονιδίου του Transmission στην _περιοχή ειδοποιήσεων"
+
+#: ../gtk/tr-prefs.c:362
+msgid "Show _popup notifications"
+msgstr "Εμφάνιση _αναδυώμενων ειδοποιήσεων"
+
+#: ../gtk/tr-prefs.c:367
+msgid "Play _sound when downloads are complete"
+msgstr "Αναπαραγωγή _ήχου όταν ολοκληρωθούν οι λήψεις"
+
+#: ../gtk/tr-prefs.c:434
+msgid "<b>Update succeeded!</b>"
+msgstr "<b>Επιτυχής ενημέρωση!</b>"
+
+#: ../gtk/tr-prefs.c:434
+msgid "<b>Unable to update.</b>"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:449
+msgid "Update Blocklist"
+msgstr "Ενημέρωση μαύρης λίστας"
+
+#: ../gtk/tr-prefs.c:451
+msgid "Getting new blocklist..."
+msgstr "Λήψη  νέας μαύρης λίστας..."
+
+#: ../gtk/tr-prefs.c:470
+msgid "Allow encryption"
+msgstr "Επέτρεψε την κρυπτογράφηση"
+
+#: ../gtk/tr-prefs.c:471
+msgid "Prefer encryption"
+msgstr "Προτίμηση κρυπτογράφησης"
+
+#: ../gtk/tr-prefs.c:472
+msgid "Require encryption"
+msgstr "Απαίτηση κρυπτογράφησης"
+
+#: ../gtk/tr-prefs.c:496
+msgid "Blocklist"
+msgstr "Μαύρη λίστα"
+
+#: ../gtk/tr-prefs.c:498
+msgid "Enable _blocklist:"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:512
+msgid "_Update"
+msgstr "_Ενημέρωση"
+
+#: ../gtk/tr-prefs.c:520
+msgid "Enable _automatic updates"
+msgstr "Ενεργοποίηση _αυτόματων ενημερώσεων"
+
+#: ../gtk/tr-prefs.c:528
+msgid "_Encryption mode:"
+msgstr "_Κατάσταση κρυπτογράφησης"
+
+#: ../gtk/tr-prefs.c:532
+msgid "Use PE_X to find more peers"
+msgstr "Χρήση του P_EX για εύρεση επιπλέον ομότιμων χρηστών"
+
+#: ../gtk/tr-prefs.c:534
+msgid ""
+"PEX is a tool for exchanging peer lists with the peers you're connected to."
+msgstr ""
+"Το PEX είναι ένα εργαλείο για ανταλλαγή λιστών ομότιμων χρηστών μεταξύ "
+"ομοτιμών χρηστών, με τους οποίους είστε συνδεδεμένοι."
+
+#: ../gtk/tr-prefs.c:538
+msgid "Use _DHT to find more peers"
+msgstr "Χρήση του _DHT για εύρεση επιπλέον ομότιμων χρηστών"
+
+#: ../gtk/tr-prefs.c:540
+msgid "DHT is a tool for finding peers without a tracker."
+msgstr ""
+"Το DHT είναι ένα εργαλείο για την εύρεση ομότιμων χρηστών χωρίς τη βοήθεια "
+"ανιχνευτή."
+
+#: ../gtk/tr-prefs.c:544
+msgid "Use _Local Peer Discovery to find more peers"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:546
+msgid "LPD is a tool for finding peers on your local network."
+msgstr ""
+"Το LPD είναι ένα εργαλείο ανεύρεσης ομότιμων χρηστών στο τοπικό σας δίκτυο."
+
+#: ../gtk/tr-prefs.c:765
+msgid "Web Client"
+msgstr "Πελάτης Ιστού"
+
+#. "enabled" checkbutton
+#: ../gtk/tr-prefs.c:768
+msgid "_Enable web client"
+msgstr "_Ενεργοποίηση πελάτη Ιστού (Web)"
+
+#: ../gtk/tr-prefs.c:774
+msgid "_Open web client"
+msgstr "_Άνοιγμα Πελάτη ιστού"
+
+#: ../gtk/tr-prefs.c:783
+msgid "Listening _port:"
+msgstr "Ανοικτή _θύρα"
+
+#. require authentication
+#: ../gtk/tr-prefs.c:787
+msgid "Use _authentication"
+msgstr "Χρήση _πιστοποίησης"
+
+#. username
+#: ../gtk/tr-prefs.c:795
+msgid "_Username:"
+msgstr "Ό_νομα χρήστη:"
+
+#. password
+#: ../gtk/tr-prefs.c:802
+msgid "Pass_word:"
+msgstr "_Κωδικός πρόσβασης:"
+
+#. require authentication
+#: ../gtk/tr-prefs.c:810
+msgid "Only allow these IP a_ddresses to connect:"
+msgstr "Επέτρεψε μόνο αυτές τις IP δ_ιευθύνσεις να συνδεθούν:"
+
+#: ../gtk/tr-prefs.c:835
+msgid "IP addresses may use wildcards, such as 192.168.*.*"
+msgstr ""
+"Οι διευθύνσεις IP μπορεί να χρησιμοποιούν μπαλαντέρ, όπως 192.168.*.*"
+
+#: ../gtk/tr-prefs.c:857
+msgid "Addresses:"
+msgstr "Διευθύνσεις:"
+
+#: ../gtk/tr-prefs.c:975
+msgid "Every Day"
+msgstr "Κάθε μέρα"
+
+#: ../gtk/tr-prefs.c:976
+msgid "Weekdays"
+msgstr "Καθημερινές"
+
+#: ../gtk/tr-prefs.c:977
+msgid "Weekends"
+msgstr "Σαββατοκύριακα"
+
+#: ../gtk/tr-prefs.c:978
+msgid "Sunday"
+msgstr "Κυριακή"
+
+#: ../gtk/tr-prefs.c:979
+msgid "Monday"
+msgstr "Δευτέρα"
+
+#: ../gtk/tr-prefs.c:980
+msgid "Tuesday"
+msgstr "Τρίτη"
+
+#: ../gtk/tr-prefs.c:981
+msgid "Wednesday"
+msgstr "Τετάρτη"
+
+#: ../gtk/tr-prefs.c:982
+msgid "Thursday"
+msgstr "Πέμπτη"
+
+#: ../gtk/tr-prefs.c:983
+msgid "Friday"
+msgstr "Παρασκευή"
+
+#: ../gtk/tr-prefs.c:984
+msgid "Saturday"
+msgstr "Σάββατο"
+
+#: ../gtk/tr-prefs.c:1015
+msgid "Speed Limits"
+msgstr "Όρια ταχύτητας"
+
+#: ../gtk/tr-prefs.c:1035
+msgid "Temporary Speed Limits"
+msgstr "Προσωρινά όρια ταχύτητας"
+
+#: ../gtk/tr-prefs.c:1042
+msgid "Override normal speed limits manually or at scheduled times"
+msgstr ""
+"Παράκαμψη των κανονικών ορίων ταχύτητας χειροκίνητα ή σε καθορισμένο χρόνο"
+
+#: ../gtk/tr-prefs.c:1049
+#, c-format
+msgid "Limit do_wnload speed (%s):"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:1053
+#, c-format
+msgid "Limit u_pload speed (%s):"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:1057
+msgid "_Scheduled times:"
+msgstr "_Προκαθορισμένοι χρόνοι"
+
+#: ../gtk/tr-prefs.c:1062
+msgid " _to "
+msgstr " _μέχρι "
+
+#: ../gtk/tr-prefs.c:1073
+msgid "_On days:"
+msgstr "_Τις ημέρες:"
+
+#: ../gtk/tr-prefs.c:1107 ../gtk/tr-prefs.c:1173
+msgid "Status unknown"
+msgstr "Άγνωστη κατάσταση"
+
+#: ../gtk/tr-prefs.c:1129
+msgid "Port is <b>open</b>"
+msgstr "Η θύρα είναι <b>ανοιχτή</b>"
+
+#: ../gtk/tr-prefs.c:1129
+msgid "Port is <b>closed</b>"
+msgstr "Η θύρα είναι <b>κλειστή</b>"
+
+#: ../gtk/tr-prefs.c:1143
+msgid "<i>Testing...</i>"
+msgstr "<i>Έλεγχος...</i>"
+
+#: ../gtk/tr-prefs.c:1166
+msgid "Incoming Peers"
+msgstr "Εισερχόμενες συνδέσεις ομότιμων χρηστών"
+
+#: ../gtk/tr-prefs.c:1168
+msgid "_Port for incoming connections:"
+msgstr "_Θύρα για εισερχόμενες συνδέσεις:"
+
+#: ../gtk/tr-prefs.c:1176
+msgid "Te_st Port"
+msgstr "Έλ_εγχος Θύρας"
+
+#: ../gtk/tr-prefs.c:1183
+msgid "Pick a _random port every time Transmission is started"
+msgstr "Επιλογή τυχαίας θύρας κάθε φορά που εκκινείται το Transmission"
+
+#: ../gtk/tr-prefs.c:1187
+msgid "Use UPnP or NAT-PMP port _forwarding from my router"
+msgstr ""
+"Χρήση του UPnP ή του NAT-PMP για την _προώθηση θυρών από τον δρομολογητή μου"
+
+#: ../gtk/tr-prefs.c:1192
+msgid "Limits"
+msgstr "Όρια"
+
+#: ../gtk/tr-prefs.c:1195
+msgid "Maximum peers per _torrent:"
+msgstr "Μέγιστος αριθμός ομότιμων χρηστών ανά _torrent:"
+
+#: ../gtk/tr-prefs.c:1197
+msgid "Maximum peers _overall:"
+msgstr "Μέγιστος αριθμός ομότιμων χρηστών _συνολικά:"
+
+#: ../gtk/tr-prefs.c:1215
+msgid "Transmission Preferences"
+msgstr "Προτιμήσεις του Transmission"
+
+#: ../gtk/tr-prefs.c:1229
+msgid "Torrents"
+msgstr "Torrent"
+
+#: ../gtk/tr-prefs.c:1238
+msgid "Network"
+msgstr "Δίκτυο"
+
+#: ../gtk/tr-prefs.c:1244
+msgid "Web"
+msgstr "Ιστός"
+
+#: ../gtk/tr-window.c:129
+msgid "Torrent"
+msgstr "Torrent"
+
+#: ../gtk/tr-window.c:232
+msgid "Total Ratio"
+msgstr "Συνολική αναλογία"
+
+#: ../gtk/tr-window.c:233
+msgid "Session Ratio"
+msgstr "Αναλογία συνεδρίας"
+
+#: ../gtk/tr-window.c:234
+msgid "Total Transfer"
+msgstr "Συνολικώς μεταφερθέντα"
+
+#: ../gtk/tr-window.c:235
+msgid "Session Transfer"
+msgstr "Μεταφερθέντα συνεδρίας"
+
+#: ../gtk/tr-window.c:264
+#, c-format
+msgid ""
+"Click to disable Temporary Speed Limits\n"
+"(%1$s down, %2$s up)"
+msgstr ""
+"Κάντε κλικ για να απενεργοποιήσετε τα Προσωρινά Όρια Ταχύτητας\n"
+"(%1$s Λήψη, %2$s Αποστολή)"
+
+#: ../gtk/tr-window.c:265
+#, c-format
+msgid ""
+"Click to enable Temporary Speed Limits\n"
+"(%1$s down, %2$s up)"
+msgstr ""
+"Κάντε κλικ για να ενεργοποιήσετε τα Προσωρινά Όρια Ταχύτητας\n"
+"(%1$s Λήψη, %2$s Αποστολή)"
+
+#: ../gtk/tr-window.c:332
+#, c-format
+msgid "Tracker will allow requests in %s"
+msgstr "Ο ανιχνευτής θα δεχτεί αιτήσεις σε %s"
+
+#: ../gtk/tr-window.c:403
+msgid "Unlimited"
+msgstr "Απεριόριστο"
+
+#: ../gtk/tr-window.c:470
+msgid "Seed Forever"
+msgstr "Τροφοδοσία για πάντα"
+
+#: ../gtk/tr-window.c:508
+msgid "Limit Download Speed"
+msgstr "Περιορισμός ταχύτητας λήψης"
+
+#: ../gtk/tr-window.c:512
+msgid "Limit Upload Speed"
+msgstr "Περιορισμός ταχύτητας αποστολής"
+
+#: ../gtk/tr-window.c:519
+msgid "Stop Seeding at Ratio"
+msgstr "Διακοπή τροφοδοσίας σε αναλογία"
+
+#: ../gtk/tr-window.c:553
+#, c-format
+msgid "Stop at Ratio (%s)"
+msgstr "Διακοπή σε αναλογία (%s)"
+
+#: ../gtk/tr-window.c:779 ../gtk/tr-window.c:807
+#, c-format
+msgid "Ratio: %s"
+msgstr "Αναλογία: %s"
+
+#: ../gtk/tr-window.c:790 ../gtk/tr-window.c:801
+#, c-format
+msgid "size|Down: %1$s, Up: %2$s"
+msgstr "μέγεθος|Λήψη:%1$s, Αποστολή: %2$s"
+
+#: ../gtk/util.c:51 ../gtk/util.c:57
+msgid "KiB"
+msgstr ""
+
+#: ../gtk/util.c:52 ../gtk/util.c:58
+msgid "MiB"
+msgstr ""
+
+#: ../gtk/util.c:53 ../gtk/util.c:59
+msgid "GiB"
+msgstr ""
+
+#: ../gtk/util.c:54 ../gtk/util.c:60
+msgid "TiB"
+msgstr ""
+
+#: ../gtk/util.c:63
+msgid "KiB/s"
+msgstr ""
+
+#: ../gtk/util.c:64
+msgid "MiB/s"
+msgstr ""
+
+#: ../gtk/util.c:65
+msgid "GiB/s"
+msgstr ""
+
+#: ../gtk/util.c:66
+msgid "TiB/s"
+msgstr ""
+
+#: ../gtk/util.c:161
+msgid "size|None"
+msgstr ""
+
+#: ../gtk/util.c:326
+#, c-format
+msgid "The torrent file \"%s\" contains invalid data."
+msgstr "Το αρχείο torrent \"%s\" περιλαμβάνει άκυρα δεδομένα."
+
+#: ../gtk/util.c:327
+#, c-format
+msgid "The torrent file \"%s\" is already in use."
+msgstr "Το αρχείο torrent \"%s\" είναι ήδη σε χρήση."
+
+#: ../gtk/util.c:328
+#, c-format
+msgid "The torrent file \"%s\" encountered an unknown error."
+msgstr "Το αρχείο torrent \"%s\" αντιμετώπισε ένα άγνωστο πρόβλημα."
+
+#: ../gtk/util.c:336
+msgid "Error opening torrent"
+msgstr "Σφάλμα κατά το άνοιγμα του torrent"
+
+#: ../gtk/util.c:854
+#, c-format
+msgid "Error opening \"%s\""
+msgstr ""
+
+#: ../gtk/util.c:857
+#, c-format
+msgid "Server returned \"%1$ld %2$s\""
+msgstr ""
+
+#: ../gtk/util.c:877
+msgid "Unrecognized URL"
+msgstr "Μη αναγνωρίσιμο URL"
+
+#: ../gtk/util.c:879
+#, c-format
+msgid "Transmission doesn't know how to use \"%s\""
+msgstr "Το Transmission δεν ξέρει πως να διαχειριστεί το \"%s\""
+
+#: ../gtk/util.c:884
+#, c-format
+msgid ""
+"This magnet link appears to be intended for something other than BitTorrent. "
+" BitTorrent magnet links have a section containing \"%s\"."
+msgstr ""
+"Αυτός ο δεσμός magnet φαίνεται να μην έχει φτιαχτεί για το BitTorrent. Οι "
+"δεσμοί magnet του BitTorrent περιλαμβάνουν ένα τμήμα που περιέχει το \"%s\"."
+
+#. did caller give us an uninitialized val?
+#: ../libtransmission/bencode.c:1107
+msgid "Invalid metadata"
+msgstr "Μη έγκυρα μεταδεδομένα"
+
+#: ../libtransmission/bencode.c:1686
+#, c-format
+msgid "Saved \"%s\""
+msgstr "Αποθηκευμένο στο \"%s\""
+
+#: ../libtransmission/bencode.c:1691 ../libtransmission/bencode.c:1698
+#: ../libtransmission/blocklist.c:363
+#, c-format
+msgid "Couldn't save file \"%1$s\": %2$s"
+msgstr "Αδύνατη η αποθήκευση του αρχείου \"%1$s\": %2$s"
+
+#: ../libtransmission/bencode.c:1705 ../libtransmission/bencode.c:1715
+#, c-format
+msgid "Couldn't save temporary file \"%1$s\": %2$s"
+msgstr "Αδύνατη  η αποθήκευση του προσωρινού αρχείου \"%1$s\": %2$s"
+
+#: ../libtransmission/blocklist.c:85 ../libtransmission/blocklist.c:318
+#: ../libtransmission/utils.c:499
+#, c-format
+msgid "Couldn't read \"%1$s\": %2$s"
+msgstr "Αδύνατη η ανάγνωση του \"%1$s\": %2$s"
+
+#: ../libtransmission/blocklist.c:114
+#, c-format
+msgid "Blocklist \"%s\" contains %zu entries"
+msgstr ""
+
+#. don't try to display the actual lines - it causes issues
+#: ../libtransmission/blocklist.c:357
+#, c-format
+msgid "blocklist skipped invalid address at line %d"
+msgstr ""
+"Η λίστα αποκλεισμού προσπέρασε την λανθασμένη διεύθυνση στη γραμμή %d"
+
+#: ../libtransmission/blocklist.c:373
+#, c-format
+msgid "Blocklist \"%s\" updated with %d entries"
+msgstr ""
+
+#: ../libtransmission/fdlimit.c:357
+#, c-format
+msgid "Preallocated file \"%s\""
+msgstr "Προδιατιθέμενο αρχείο \"%s\""
+
+#: ../libtransmission/fdlimit.c:658
+#, c-format
+msgid "Couldn't create socket: %s"
+msgstr "Αδύνατη η δημιουργία υποδοχής: %s"
+
+#: ../libtransmission/makemeta.c:61
+#, c-format
+msgid "Torrent Creator is skipping file \"%s\": %s"
+msgstr "Ο Δημιουργός torrent προσπερνάει το αρχείο \"%s\": %s"
+
+#: ../libtransmission/metainfo.c:575
+#, c-format
+msgid "Invalid metadata entry \"%s\""
+msgstr "Μη έγκυρη καταχώρηση μεταδεδομένων \"%s\""
+
+#: ../libtransmission/natpmp.c:30
+msgid "Port Forwarding (NAT-PMP)"
+msgstr "Προώθηση θύρας (NAT-PMP)"
+
+#: ../libtransmission/natpmp.c:70
+#, c-format
+msgid "%s succeeded (%d)"
+msgstr "%s επιτεύχθηκαν (%d)"
+
+#: ../libtransmission/natpmp.c:137
+#, c-format
+msgid "Found public address \"%s\""
+msgstr "Βρέθηκε η δημόσια διεύθυνση \"%s\""
+
+#: ../libtransmission/natpmp.c:173
+#, c-format
+msgid "no longer forwarding port %d"
+msgstr "η θύρα %d δεν προωθείται πλέον"
+
+#: ../libtransmission/natpmp.c:218
+#, c-format
+msgid "Port %d forwarded successfully"
+msgstr "Η προώθηση της  θύρας %d έγινε επιτυχώς"
+
+#: ../libtransmission/net.c:324
+#, c-format
+msgid "Couldn't set source address %s on %d: %s"
+msgstr "Δε μπόρεσε να οριστεί η διεύθυνση προέλευσης %s σε %d: %s"
+
+#: ../libtransmission/net.c:340
+#, c-format
+msgid "Couldn't connect socket %d to %s, port %d (errno %d - %s)"
+msgstr "Αδυναμία σύνδεσης της υποδοχής %d στο %s, θύρα %d (errno %d - %s)"
+
+#: ../libtransmission/net.c:398
+msgid "Is another copy of Transmission already running?"
+msgstr "Μήπως ένα ακόμα αντίγραφο του Transmission τρέχει ήδη;"
+
+#: ../libtransmission/net.c:403
+#, c-format
+msgid "Couldn't bind port %d on %s: %s"
+msgstr "Δεν συνδέθηκε η θύρα %d στο %s: %s"
+
+#: ../libtransmission/net.c:405
+#, c-format
+msgid "Couldn't bind port %d on %s: %s (%s)"
+msgstr "Αδυναμία δέσμευσης της θύρας %d στο %s: %s (%s)"
+
+#: ../libtransmission/port-forwarding.c:33
+msgid "Port Forwarding"
+msgstr "Προώθηση θύρας"
+
+#: ../libtransmission/port-forwarding.c:60
+msgid "Starting"
+msgstr "Εκκίνηση"
+
+#: ../libtransmission/port-forwarding.c:61
+msgid "Forwarded"
+msgstr "Προωθημένη"
+
+#: ../libtransmission/port-forwarding.c:62
+msgid "Stopping"
+msgstr "Διακόπτεται"
+
+#: ../libtransmission/port-forwarding.c:63
+msgid "Not forwarded"
+msgstr "Δεν έγινε προώθηση"
+
+#: ../libtransmission/port-forwarding.c:93 ../libtransmission/torrent.c:1867
+#, c-format
+msgid "State changed from \"%1$s\" to \"%2$s\""
+msgstr "Η κατάσταση άλλαξε από \"%1$s\" σε \"%2$s\""
+
+#: ../libtransmission/port-forwarding.c:184
+msgid "Stopped"
+msgstr "Διακόπηκε"
+
+#. first %s is the application name
+#. second %s is the version number
+#: ../libtransmission/session.c:622
+#, c-format
+msgid "%s %s started"
+msgstr "Η εφαρμογή %s %s ξεκίνησε"
+
+#: ../libtransmission/session.c:1814
+#, c-format
+msgid "Loaded %d torrents"
+msgstr "Φορτώθηκαν %d torrent"
+
+#: ../libtransmission/torrent.c:504
+#, c-format
+msgid "Tracker warning: \"%s\""
+msgstr "Προειδοποίηση ανιχνευτή: \"%s\""
+
+#: ../libtransmission/torrent.c:511
+#, c-format
+msgid "Tracker error: \"%s\""
+msgstr "Σφάλμα ανιχνευτή: \"%s\""
+
+#: ../libtransmission/torrent.c:1487
+msgid ""
+"No data found!  Reconnect any disconnected drives, use \"Set Location\", or "
+"restart the torrent to re-download."
+msgstr ""
+"Δε βρέθηκαν δεδομένα! Επανασυνδέστε τυχόν αποσυνδεδεμένα μέσα και "
+"χρησιμοποιήσετε το 'Ορισμός τοποθεσίας', ή επανεκκινήστε το torrent για να "
+"το ξανακατεβάσετε."
+
+#: ../libtransmission/torrent.c:1570
+msgid ""
+"Can't find local data.  Try \"Set Location\" to find it, or restart the "
+"torrent to re-download."
+msgstr ""
+"Δε βρέθηκαν τοπικά δεδομένα! Χρησιμοποιήσετε το 'Ορισμός τοποθεσίας' για να "
+"τα εντοπίσετε, ή επανεκκινήστε το torrent για να το ξανακατεβάσετε."
+
+#: ../libtransmission/torrent.c:1683
+msgid "Removing torrent"
+msgstr "Γίνεται αφαίρεση του torrent"
+
+#: ../libtransmission/torrent.c:1737
+msgid "Done"
+msgstr "Έτοιμο"
+
+#: ../libtransmission/torrent.c:1740
+msgid "Complete"
+msgstr "Ολοκληρωμένο"
+
+#: ../libtransmission/torrent.c:1743
+msgid "Incomplete"
+msgstr "Μη ολοκληρωμένο"
+
+#: ../libtransmission/upnp.c:26
+msgid "Port Forwarding (UPnP)"
+msgstr "Προώθηση θύρας (UPnP)"
+
+#: ../libtransmission/upnp.c:112
+#, c-format
+msgid "Found Internet Gateway Device \"%s\""
+msgstr "Βρέθηκε συσκευή σύνδεσης διαδικτύου \"%s\""
+
+#: ../libtransmission/upnp.c:115
+#, c-format
+msgid "Local Address is \"%s\""
+msgstr "Η τοπική διεύθυνση είναι \"%s\""
+
+#: ../libtransmission/upnp.c:152
+#, c-format
+msgid "Port %d isn't forwarded"
+msgstr "Η Θύρα %d δεν ανακατευθήνεται"
+
+#: ../libtransmission/upnp.c:166
+#, c-format
+msgid "Stopping port forwarding through \"%s\", service \"%s\""
+msgstr "Διακόπτεται η προώθηση θύρας μέσω \"%s\", υπηρεσία \"%s\""
+
+#: ../libtransmission/upnp.c:200
+#, c-format
+msgid ""
+"Port forwarding through \"%s\", service \"%s\".  (local address: %s:%d)"
+msgstr ""
+"Προώθηση θύρας μέσω \"%s\", υπηρεσία \"%s\". (τοπική διεύθυνση : %s:%d)"
+
+#: ../libtransmission/upnp.c:205
+msgid "Port forwarding successful!"
+msgstr "Η προώθηση της θύρας έγινε επιτυχώς!"
+
+#: ../libtransmission/utils.c:513
+msgid "Not a regular file"
+msgstr "Δεν είναι κανονικό αρχείο"
+
+#: ../libtransmission/utils.c:531
+msgid "Memory allocation failed"
+msgstr "Η προσπάθεια δέσμευσης μνήμης απέτυχε"
+
+#. Node exists but isn't a folder
+#: ../libtransmission/utils.c:629
+#, c-format
+msgid "File \"%s\" is in the way"
+msgstr "Το αρχείο \"%s\" εμποδίζει"
+
+#: ../libtransmission/utils.c:1470
+msgid "None"
+msgstr "Κανένα"
+
+#: ../libtransmission/verify.c:235
+msgid "Verifying torrent"
+msgstr "Γίνεται επαλήθευση του torrent"
+
+#: ../libtransmission/verify.c:328
+msgid "Queued for verification"
+msgstr "Σε αναμονή για επαλήθευση"
+
+#~ msgid "Sort by _State"
+#~ msgstr "Ταξινόμηση κατά _κατάσταση"
+
+#~ msgid "Pieces:"
+#~ msgstr "Τμήματα:"
+
+#~ msgid "Creator:"
+#~ msgstr "Δημιουργός:"
+
+#~ msgid "Date:"
+#~ msgstr "Ημερομηνία:"
+
+#~ msgid "Transfer"
+#~ msgstr "Μεταφορά"
+
+#~ msgid "Progress:"
+#~ msgstr "Πρόοδος:"
+
+#~ msgid "Dates"
+#~ msgstr "Ημερομηνίες"
+
+#~ msgid "Start minimized in system tray"
+#~ msgstr "Εκκίνηση με την εφαρμογή ελαχιστοποιημένη"
+
+#
+#~ msgid "[torrent files]"
+#~ msgstr "[αρχεία torrent]"
+
+#~ msgid "Commen_t:"
+#~ msgstr "_Σχόλιο:"
+
+#, c-format
+#~ msgid "Down: %s"
+#~ msgstr "Λήψη: %s"
+
+#, c-format
+#~ msgid "Up: %s"
+#~ msgstr "Αποστολή: %s"
+
+#, c-format
+#~ msgid "Waiting to verify local data (%.1f%% tested)"
+#~ msgstr "Αναμονή για επαλήθευση τοπικών δεδομένων (%.1f%% ελέγχθηκαν)"
+
+#~ msgid "A_ll"
+#~ msgstr "Ό_λες"
+
+#~ msgid "_Active"
+#~ msgstr "_Ενεργές"
+
+#~ msgid "_Downloading"
+#~ msgstr "_Λήψεις"
+
+#~ msgid "_Paused"
+#~ msgstr "Σε _παύση"

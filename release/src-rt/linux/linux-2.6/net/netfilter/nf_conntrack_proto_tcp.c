@@ -39,6 +39,10 @@ extern ctf_t *kcih;
 extern int ip_conntrack_ipct_delete(struct nf_conn *ct, int ct_timeout);
 #endif /* HNDCTF */
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+extern int ipv4_conntrack_fastnat;
+#endif
+
 /* Protects conntrack->proto.tcp */
 static DEFINE_RWLOCK(tcp_lock);
 
@@ -765,6 +769,11 @@ static int tcp_error(struct sk_buff *skb,
 	unsigned int tcplen = skb->len - dataoff;
 	u_int8_t tcpflags;
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	if (ipv4_conntrack_fastnat)
+		return NF_ACCEPT;
+#endif
+
 	/* Smaller that minimal TCP header? */
 	th = skb_header_pointer(skb, dataoff, sizeof(_tcph), &_tcph);
 	if (th == NULL) {
@@ -1419,11 +1428,7 @@ struct nf_conntrack_l4proto nf_conntrack_l4proto_tcp4 =
 	.print_conntrack 	= tcp_print_conntrack,
 	.packet 		= tcp_packet,
 	.new 			= tcp_new,
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	.error			= NULL,
-#else
 	.error			= tcp_error,
-#endif
 #if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
 	.to_nfattr		= tcp_to_nfattr,
 	.from_nfattr		= nfattr_to_tcp,

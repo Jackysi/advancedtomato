@@ -2,6 +2,15 @@
 History of USB_ModeSwitch
 =========================
 
+Version 1.1.7, 2011/02/27
+    Attention: paths for runtime files and database have changed! Old places
+    will be found but are deprecated; /usr/share/usb_modeswitch for database,
+    /var/lib/usb_modeswitch for "remembered" IDs;
+    fix for configuration setting race (thanks to Amit Mendapara); discovered
+    incompatibility between Tcl versions <= 8.3 and >=8.4, so 8.4 is the
+    minimum prerequisite now;
+    first availability of an alternative source pack which includes "jimsh",
+    a fast Tcl mini shell, intended for resource-constrained systems
 Version 1.1.6, 2010/12/22
     Moved warm-boot driver binding to sh wrapper, was unreliable in 1.1.5;
     sh wrapper overhaul, made compatible with Ubuntu's "dash" shell, tclsh

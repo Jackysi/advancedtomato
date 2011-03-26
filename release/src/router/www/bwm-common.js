@@ -182,6 +182,10 @@ function loadData()
 				delete speed_history[i];
 				continue;
 			}
+			if ((h.rx_total == 0) && (h.tx_total == 0) && (h.up == 0)) {
+				delete speed_history[i];
+				continue;
+			}
 
 			if (updateReTotal) {
 				h.rx_total = h.rx_max = 0;

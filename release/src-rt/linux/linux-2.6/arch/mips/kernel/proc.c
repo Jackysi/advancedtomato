@@ -147,7 +147,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 
 	seq_printf(m, "unaligned_instructions\t: %lu\n", unaligned_instructions);
 
-#ifdef CONFIG_BCM47XX
+#ifdef CONFIG_HND_BMIPS3300_PROF
 	seq_printf(m, "dcache hits\t\t: %u\n", read_perf_cntr(0));
 	seq_printf(m, "dcache misses\t\t: %u\n", read_perf_cntr(1));
 	seq_printf(m, "icache hits\t\t: %u\n", read_perf_cntr(2));

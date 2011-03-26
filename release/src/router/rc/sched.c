@@ -10,17 +10,13 @@
 
 
 //	#define DLOG(args...) syslog(LOG_DEBUG, args)
-#define DLOG(args...) do { } while(0)
+#define DLOG(fmt, args...) _dprintf(fmt"\n", args)
 
-
-static void unsched(const char *key)
+static inline void unsched(const char *key)
 {
-	char s[64];
-
 	DLOG("%s: %s", __FUNCTION__, key);
 
-	sprintf(s, "cru d %s", key);
-	system(s);
+	eval("cru", "d", (char *) key);
 }
 
 static void sched(const char *key, int resched)
@@ -62,12 +58,12 @@ static void sched(const char *key, int resched)
 	}
 
 	if (t >= 0) {	// specific time
-		sprintf(s, "cru a %s \"%d %d * * %s sched %s\"", key, t % 60, t / 60, w + 1, key);
+		sprintf(s, "%d %d * * %s sched %s", t % 60, t / 60, w + 1, key);
 	}
 	else {	// every ...
 		t = -t;
 		if (t <= 5) {	// 1 to 5m = a simple cron job
-			sprintf(s, "cru a %s \"*/%d * * * %s sched %s\"", key, t, w + 1, key);
+			sprintf(s, "*/%d * * * %s sched %s", t, w + 1, key);
 		}
 		else {
 			t *= 60;
@@ -92,13 +88,12 @@ static void sched(const char *key, int resched)
 				tt += 60;
 			}
 
-			sprintf(s, "cru a %s \"%d %d %d %d * sched %s\"", key, tm.tm_min, tm.tm_hour, tm.tm_mday, tm.tm_mon + 1, key);
+			sprintf(s, "%d %d %d %d * sched %s", tm.tm_min, tm.tm_hour, tm.tm_mday, tm.tm_mon + 1, key);
 		}
 	}
 
-	DLOG("%s: %s", __FUNCTION__, s);
-
-	system(s);
+	DLOG("%s: cru a %s %s", __FUNCTION__, key, s);
+	eval("cru", "a", (char *) key, s);
 }
 
 static inline int is_sched(const char *key)
@@ -123,13 +118,13 @@ int sched_main(int argc, char *argv[])
 			if (is_sched(argv[1])) {
 				if (strcmp(argv[1], "sch_rboot") == 0) {
 					if (log) syslog(LOG_INFO, "Performing scheduled %s...", "reboot");
-					system("reboot");
+					eval("reboot");
 					return 0;
 				}
 				else if (strcmp(argv[1], "sch_rcon") == 0) {
 					sched(argv[1], 1);
 					if (log) syslog(LOG_INFO, "Performing scheduled %s...", "reconnect");
-					system("service wan restart");
+					eval("service", "wan", "restart");
 				}
 				else if (strncmp(argv[1], "sch_c", 5) == 0) {
 					n = atoi(argv[1] + 5);

@@ -121,7 +121,7 @@ int ipv6_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt
 	}
 
 	if (hdr->nexthdr == NEXTHDR_HOP) {
-		if (ipv6_parse_hopopts(&skb) < 0) {
+		if (ipv6_parse_hopopts(skb) < 0) {
 			IP6_INC_STATS_BH(idev, IPSTATS_MIB_INHDRERRORS);
 			rcu_read_unlock();
 			return 0;
@@ -194,7 +194,7 @@ resubmit:
 		    !xfrm6_policy_check(NULL, XFRM_POLICY_IN, skb))
 			goto discard;
 
-		ret = ipprot->handler(&skb);
+		ret = ipprot->handler(skb);
 		if (ret > 0)
 			goto resubmit;
 		else if (ret == 0)
@@ -308,8 +308,8 @@ int ip6_mc_input(struct sk_buff *skb)
 			ip6_mr_input(skb2);
 		}
 	}
-#endif
 out:
+#endif
 	if (likely(deliver)) {
 		ip6_input(skb);
 		return 0;
