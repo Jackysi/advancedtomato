@@ -320,10 +320,6 @@ define RouterOptions
 			echo "TCONFIG_FTP_SSL=y" >>$(1); \
 		fi; \
 	fi; \
-	if [ "$(BTCLIENT)" = "y" ]; then \
-		sed -i "/TCONFIG_BT/d" $(1); \
-		echo "TCONFIG_BT=y" >>$(1); \
-	fi; \
 	)
 endef
 
@@ -597,28 +593,12 @@ else
 	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB"
 endif
 
-## Make the "normal (with NTFS support) + VPN + BT Client" build
-o:
-ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)-BT" USB="USB" BTCLIENT=y
-else
-	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)-BT" USB="USB" BTCLIENT=y
-endif
-
 ## Make the "normal with Extras and NTFS" build
 m:
 ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB"
 else
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB"
-endif
-
-## Make the "normal with Extras and NTFS and BT Client" build
-n:
-ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext-BT" USB="USB" BTCLIENT=y
-else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext-BT" USB="USB" BTCLIENT=y
 endif
 
 ## Make the "No USB" build
@@ -651,14 +631,8 @@ endif
 r2m:
 	@$(MAKE) m MIPS32=r2
 
-r2n:
-	@$(MAKE) n MIPS32=r2
-
 r2e:
 	@$(MAKE) e MIPS32=r2
-
-r2o:
-	@$(MAKE) o MIPS32=r2
 
 r2s:
 	@$(MAKE) s MIPS32=r2
@@ -744,23 +718,18 @@ help:
 	@echo "c            C build (standard minus CIFS)"
 	@echo "d            D build (standard minus Samba server)"
 	@echo "m            M build (standard plus extra utilities and NTFS support)"
-	@echo "n            N build (standard plus extra utilities and NTFS support and BT Client)"
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "e            E build (standard plus VPN, extra utilities and NTFS support)"
-	@echo "o            O build (standard plus VPN, extra utilities and NTFS support and BT Client)"
 	@echo "i            I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
 else
 	@echo "e            E build (standard plus VPN and NTFS support)"
-	@echo "o            O build (standard plus VPN and NTFS support and BT Client)"
 endif
 	@echo "s            S build (no USB support)"
 	@echo "f            F build (no USB support minus CIFS and RIPv1/2)"
 	@echo "v            V build (VPN with no USB support)"
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2m          MIPS Release 2 M build (standard plus extras)"
-	@echo "r2n          MIPS Release 2 N build (standard plus extras plus BT Client)"
 	@echo "r2e          MIPS Release 2 E build (standard plus VPN and extras)"
-	@echo "r2o          MIPS Release 2 O build (standard plus VPN and extras and BT Client)"
 	@echo "r2v          MIPS Release 2 V build (VPN with no USB support)"
 	@echo "r2s          MIPS Release 2 S build (no USB support)"
 	@echo "r2i          MIPS Release 2 I build (IPv6 with no USB support minus CIFS and RIPv1/2)"

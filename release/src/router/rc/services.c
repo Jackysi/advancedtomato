@@ -1759,18 +1759,12 @@ void start_services(void)
 	start_radvd();
 #endif
 	restart_nas_services(1, 1);	// !!TB - Samba, FTP and Media Server
-#ifdef TCONFIG_BT
-	start_bittorrent();
-#endif
 }
 
 void stop_services(void)
 {
 	clear_resolv();
 
-#ifdef TCONFIG_BT
-	stop_bittorrent();
-#endif
 	restart_nas_services(1, 0);	// stop Samba, FTP and Media Server
 #ifdef TCONFIG_IPV6
 	stop_radvd();
@@ -1884,25 +1878,6 @@ TOP:
 		}
 		goto CLEAR;
 	}
-
-
-	if (strcmp(service, "qoslimit") == 0) {
-		if (action & A_STOP) {
-			new_qoslimit_stop();
-		}
-		stop_firewall(); start_firewall();		// always restarted
-		if (action & A_START) {
-			new_qoslimit_start();
-		}
-		goto CLEAR;
-	}
-
-	if (strcmp(service, "arpbind") == 0) {
-		if (action & A_STOP) new_arpbind_stop();
-		if (action & A_START) new_arpbind_start();
-		goto CLEAR;
-	}
-
 
 	if (strcmp(service, "upnp") == 0) {
 		if (action & A_STOP) {
@@ -2171,19 +2146,6 @@ TOP:
 		if (action & A_START) start_sched();
 		goto CLEAR;
 	}
-
-#ifdef TCONFIG_BT
-	if (strcmp(service, "bittorrent") == 0) {
-		if (action & A_STOP) {
-			stop_bittorrent();
-		}
-		stop_firewall(); start_firewall();		// always restarted
-		if (action & A_START) {
-			start_bittorrent();
-		}
-		goto CLEAR;
-	}
-#endif
 
 #ifdef TCONFIG_USB
 	// !!TB - USB Support

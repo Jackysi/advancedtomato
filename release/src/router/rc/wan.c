@@ -706,6 +706,10 @@ void start_wan(int mode)
 #ifdef TCONFIG_IPV6
 void start_wan6_done(const char *wan_ifname)
 {
+	struct in_addr addr4;
+	struct in6_addr addr;
+	static char addr6[INET6_ADDRSTRLEN];
+
 	int service = get_ipv6_service();
 
 	if (service != IPV6_DISABLED) {
@@ -722,9 +726,21 @@ void start_wan6_done(const char *wan_ifname)
 		stop_dhcp6c();
 		start_dhcp6c();
 		break;
+	case IPV6_ANYCAST_6TO4:
+		addr4.s_addr = 0;
+		memset(&addr, 0, sizeof(addr));
+		inet_aton(get_wanip(), &addr4);
+		addr.s6_addr16[0] = htons(0x2002);
+		ipv6_mapaddr4(&addr, 16, &addr4, 0);
+		addr.s6_addr16[3] = htons(0x0001);
+		inet_ntop(AF_INET6, &addr, addr6, sizeof(addr6));
+		nvram_set("ipv6_prefix", addr6);
+		// fall through
 	case IPV6_6IN4:
-		stop_ipv6_sit_tunnel();
-		start_ipv6_sit_tunnel();
+		stop_ipv6_tunnel();
+		start_ipv6_tunnel();
+		// FIXME: give it a few seconds for DAD completion
+		sleep(2);
 		break;
 	}
 }
@@ -810,12 +826,6 @@ void start_wan_done(char *wan_ifname)
 	start_firewall();
 	start_qos();
 
-	new_qoslimit_start(); //!! RAF
-	new_arpbind_start(); //!! RAF
-
-
-
-
 	do_static_routes(1);
 	// and routes supplied via DHCP
 	do_wan_routes(using_dhcpc() ? nvram_safe_get("wan_ifname") : wan_ifname, 0, 1);
@@ -841,16 +851,16 @@ void start_wan_done(char *wan_ifname)
 	start_wan6_done(get_wan6face());
 #endif
 
-	// restart httpd
-	start_httpd();
-
 	stop_upnp();
 	start_upnp();
+
+	// restart httpd
+	start_httpd();
 
 	if (wanup) {
 		SET_LED(GOT_IP);
 		notice_set("wan", "");
-		
+
 		run_nvscript("script_wanup", NULL, 0);
 	}
 
@@ -875,9 +885,6 @@ void stop_wan(void)
 	
 	TRACE_PT("begin\n");
 
-	new_arpbind_stop(); //!! RAF
-	new_qoslimit_stop(); //!! RAF
-
 	stop_qos();
 	stop_upnp();	//!!TB - moved from stop_services()
 	stop_firewall();
@@ -885,7 +892,7 @@ void stop_wan(void)
 	stop_ntpc();
 
 #ifdef TCONFIG_IPV6
-	stop_ipv6_sit_tunnel();
+	stop_ipv6_tunnel();
 	stop_dhcp6c();
 	nvram_set("ipv6_get_dns", "");
 #endif
