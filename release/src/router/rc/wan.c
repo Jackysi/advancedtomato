@@ -578,9 +578,9 @@ void start_wan(int mode)
 		nvram_set("wan_proto", "disabled");
 		syslog(LOG_INFO, "No WAN");
 	}
-
+	
 	//
-
+	
 	wan_proto = get_wan_proto();
 
 	// set the default gateway for WAN interface
@@ -595,7 +595,7 @@ void start_wan(int mode)
 		perror("socket");
 		return;
 	}
-
+	
 	// MTU
 
 	switch (wan_proto) {
@@ -626,7 +626,7 @@ void start_wan(int mode)
 /*	if (wan_proto == WP_PPTP) {
 		mtu += 40;
 	} */	// commented out; checkme -- zzz
-
+	
 	if (wan_proto != WP_PPTP && wan_proto != WP_L2TP && wan_proto != WP_PPPOE) {
 		// Don't set the MTU on the port for PPP connections, it will be set on the link instead
 		ifr.ifr_mtu =  mtu;
@@ -635,7 +635,7 @@ void start_wan(int mode)
 	}
 
 	//
-
+	
 	ifconfig(wan_ifname, IFUP, NULL, NULL);
 
 	start_firewall();
@@ -674,12 +674,12 @@ void start_wan(int mode)
 	default:	// static
 		nvram_set("wan_iface", wan_ifname);
 		ifconfig(wan_ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
-
+		
 		int r = 10;
 		while ((!check_wanup()) && (r-- > 0)) {
 			sleep(1);
 		}
-
+		
 		start_wan_done(wan_ifname);
 		break;
 	}
@@ -826,6 +826,12 @@ void start_wan_done(char *wan_ifname)
 	start_firewall();
 	start_qos();
 
+	new_qoslimit_start(); //!! RAF
+	new_arpbind_start(); //!! RAF
+
+
+
+
 	do_static_routes(1);
 	// and routes supplied via DHCP
 	do_wan_routes(using_dhcpc() ? nvram_safe_get("wan_ifname") : wan_ifname, 0, 1);
@@ -860,7 +866,7 @@ void start_wan_done(char *wan_ifname)
 	if (wanup) {
 		SET_LED(GOT_IP);
 		notice_set("wan", "");
-
+		
 		run_nvscript("script_wanup", NULL, 0);
 	}
 
@@ -884,6 +890,9 @@ void stop_wan(void)
 	char *next;
 	
 	TRACE_PT("begin\n");
+
+	new_arpbind_stop(); //!! RAF
+	new_qoslimit_stop(); //!! RAF
 
 	stop_qos();
 	stop_upnp();	//!!TB - moved from stop_services()
