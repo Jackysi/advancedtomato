@@ -985,6 +985,7 @@ static const nvset_t nvset_list[] = {
 	{ "bt_pex",                     V_01                            },
 	{ "bt_blocklist",               V_01                            },
 	{ "bt_blocklist_url",           V_LENGTH(0, 80)                 },
+	{ "bt_sleep",                   V_RANGE(1,60)                   },
 #endif
 
 #ifdef TCONFIG_OPENVPN

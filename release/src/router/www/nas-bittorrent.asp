@@ -21,7 +21,7 @@ textarea {
 }
 </style>
 <script type='text/javascript'>
-//	<% nvram("bt_enable,bt_custom,bt_port,bt_dir,bt_settings,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_dht,bt_pex,bt_blocklist,bt_blocklist_url"); %>
+//	<% nvram("bt_enable,bt_custom,bt_port,bt_dir,bt_settings,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_dht,bt_pex,bt_blocklist,bt_blocklist_url,bt_sleep"); %>
 
 var btgui_link = '&nbsp;&nbsp;<a href="http://' + location.hostname +':<% nv('bt_port_gui'); %>" target="_blank"><i>[Click here to open Transmission GUI]</i></a>';
 
@@ -41,6 +41,7 @@ function verifyFields(focused, quiet)
 	E('_bt_custom').disabled = !a;
 	E('_bt_dir').disabled = !a;
 	E('_bt_port').disabled = !a;
+	E('_bt_sleep').disabled = !a;
 	E('_f_bt_incomplete').disabled = !a;
 	E('_bt_settings').disabled = !a;
 	E('_f_bt_rpc_enable').disabled = !a;
@@ -221,6 +222,7 @@ function init()
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Enable torrent client', name: 'f_bt_enable', type: 'checkbox', value: nvram.bt_enable == '1', suffix: ' <small>*</small>' },
+	{ title: 'Delay at startup', name: 'bt_sleep', type: 'text', maxlen: 5, size: 7, value: nvram.bt_sleep, suffix: ' <small>(range: 1 - 60; default: 10 seconds)</small>' },
 	{ title: 'Listening port', name: 'bt_port', type: 'text', maxlen: 5, size: 7, value: nvram.bt_port, suffix: ' <small>*</small>' },
 	{ title: 'Download directory', name: 'bt_dir', type: 'text', maxlen: 40, size: 40, value: nvram.bt_dir },
 	{ title: 'Use .incomplete/', indent: 2, name: 'f_bt_incomplete', type: 'checkbox', value: nvram.bt_incomplete == '1' }
