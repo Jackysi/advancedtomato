@@ -647,6 +647,7 @@ static const nvset_t nvset_list[] = {
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},
 	{ "dhcp_pass",			V_01				},
+	{ "imq_numdevs",		V_RANGE(2, 16)			},
 #ifdef TCONFIG_EMF
 	{ "emf_entry",			V_NONE				},
 	{ "emf_uffp_entry",		V_NONE				},
