@@ -89,7 +89,7 @@ void start_bittorrent(void)
     }
 
     fprintf( fp, "#!/bin/sh\n" );
-    fprintf( fp, "sleep 2\n");
+    fprintf( fp, "sleep %s\n", nvram_safe_get( "bt_sleep" ) );
 
     if ( nvram_match( "bt_incomplete", "1") )
     {
