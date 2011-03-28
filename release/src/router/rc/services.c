@@ -565,6 +565,7 @@ void start_radvd(void)
 			" {\n"
 			"  AdvOnLink on;\n"
 			"  AdvAutonomous on;\n"
+			"%s"
 			"%s%s%s"
 			" };\n"
 			" %s%s%s\n"
@@ -572,6 +573,7 @@ void start_radvd(void)
 			nvram_safe_get("lan_ifname"),
 			mtu ? " AdvLinkMTU " : "", mtu ? : "", mtu ? ";\n" : "",
 			prefix,
+			do_6to4 ? "  AdvValidLifetime 300;\n  AdvPreferredLifetime 120;\n" : "",
 		        do_6to4 ? "  Base6to4Interface " : "",
 		        do_6to4 ? get_wanface() : "",
 		        do_6to4 ? ";\n" : "",
