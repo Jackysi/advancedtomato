@@ -1033,13 +1033,13 @@ static int init_nvram(void)
 		break;
 	case MODEL_E4200:
 		mfr = "Linksys";
-		name = nvram_safe_get("boot_hw_model");
+		name = "E4200 v1";
 		features = SUP_SES | SUP_80211N | SUP_1000ET;
 #ifdef TCONFIG_USB
 		nvram_set("usb_uhci", "-1");
 #endif
 		if (!nvram_match("t_fix1", (char *)name)) {
-			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");
 		}
