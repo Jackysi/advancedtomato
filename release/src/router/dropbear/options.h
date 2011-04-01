@@ -89,8 +89,8 @@ much traffic. */
 #define DROPBEAR_AES256
 /* Compiling in Blowfish will add ~6kB to runtime heap memory usage */
 /*#define DROPBEAR_BLOWFISH*/
-#define DROPBEAR_TWOFISH256
-#define DROPBEAR_TWOFISH128
+/*#define DROPBEAR_TWOFISH256*/
+/*#define DROPBEAR_TWOFISH128*/
 
 /* Enable "Counter Mode" for ciphers. This is more secure than normal
  * CBC mode against certain attacks. This adds around 1kB to binary 
@@ -185,7 +185,7 @@ much traffic. */
  * note that it will be provided for all "hidden" client-interactive
  * style prompts - if you want something more sophisticated, use 
  * SSH_ASKPASS instead. Comment out this var to remove this functionality.*/
-#define DROPBEAR_PASSWORD_ENV "DROPBEAR_PASSWORD"
+/*#define DROPBEAR_PASSWORD_ENV "DROPBEAR_PASSWORD"*/
 
 /* Define this (as well as ENABLE_CLI_PASSWORD_AUTH) to allow the use of
  * a helper program for the ssh client. The helper program should be
