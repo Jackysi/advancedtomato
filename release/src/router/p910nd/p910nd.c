@@ -147,7 +147,7 @@ typedef struct {
 } Buffer_t;
 
 static char *progname;
-static char version[] = "Version 0.94";
+static char version[] = "Version 0.95";
 static char copyright[] = "Copyright (c) 2008 Ken Yap, GPLv2";
 static int lockfd = -1;
 static char *device = 0;
