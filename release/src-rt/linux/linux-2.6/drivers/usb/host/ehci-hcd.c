@@ -1110,48 +1110,42 @@ static int __init ehci_hcd_init(void)
 
 #ifdef PLATFORM_DRIVER
 	retval = platform_driver_register(&PLATFORM_DRIVER);
-	if (retval < 0) {
-#ifdef DEBUG
-		debugfs_remove(ehci_debug_root);
-		ehci_debug_root = NULL;
-#endif
-		return retval;
-	}
+	if (retval < 0)
+		goto clean0;
 #endif
 
 #ifdef PCI_DRIVER
 	retval = pci_register_driver(&PCI_DRIVER);
-	if (retval < 0) {
-#ifdef DEBUG
-		debugfs_remove(ehci_debug_root);
-		ehci_debug_root = NULL;
-#endif
-#ifdef PLATFORM_DRIVER
-		platform_driver_unregister(&PLATFORM_DRIVER);
-#endif
-		return retval;
-	}
+	if (retval < 0)
+		goto clean1;
 #endif
 
 #ifdef PS3_SYSTEM_BUS_DRIVER
 	retval = ps3_ehci_driver_register(&PS3_SYSTEM_BUS_DRIVER);
-	if (retval < 0) {
+	if (retval < 0)
+		goto clean2;
+#endif
+
+	return retval;
+
+#ifdef PS3_SYSTEM_BUS_DRIVER
+        ps3_ehci_driver_unregister(&PS3_SYSTEM_BUS_DRIVER);
+clean2:
+#endif
+#ifdef PCI_DRIVER
+	pci_unregister_driver(&PCI_DRIVER);
+clean1:
+#endif
+#ifdef PLATFORM_DRIVER
+	platform_driver_unregister(&PLATFORM_DRIVER);
+clean0:
+#endif
 #ifdef DEBUG
 		debugfs_remove(ehci_debug_root);
 		ehci_debug_root = NULL;
-#endif
-#ifdef PLATFORM_DRIVER
-		platform_driver_unregister(&PLATFORM_DRIVER);
-#endif
-#ifdef PCI_DRIVER
-		pci_unregister_driver(&PCI_DRIVER);
-#endif
 err_debug:
-	clear_bit(USB_EHCI_LOADED, &usb_hcds_loaded);
-		return retval;
-	}
 #endif
-
+	clear_bit(USB_EHCI_LOADED, &usb_hcds_loaded);
 	return retval;
 }
 module_init(ehci_hcd_init);
