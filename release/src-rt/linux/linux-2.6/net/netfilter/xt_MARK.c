@@ -14,17 +14,12 @@
 
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_MARK.h>
-#include <net/netfilter/nf_conntrack.h>
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Marc Boucher <marc@mbsi.ca>");
 MODULE_DESCRIPTION("ip[6]tables MARK modification module");
 MODULE_ALIAS("ipt_MARK");
 MODULE_ALIAS("ip6t_MARK");
-
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-extern int ipv4_conntrack_fastnat;
-#endif
 
 static unsigned int
 target_v0(struct sk_buff *skb,
@@ -37,20 +32,6 @@ target_v0(struct sk_buff *skb,
 	const struct xt_mark_target_info *markinfo = targinfo;
 
 	skb->mark = markinfo->mark;
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE) || defined(HNDCTF)
-	{
-		enum ip_conntrack_info ctinfo;
-		struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
-
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-		struct nf_conn_nat *nat = (ipv4_conntrack_fastnat && ct) ? nfct_nat(ct) : NULL;
-		if (nat) nat->info.nat_type |= BCM_FASTNAT_DENY;
-#endif	// BCM_NAT
-#ifdef HNDCTF
-		ct->ctf_flags |= CTF_FLAGS_EXCLUDED;
-#endif /* HNDCTF */
-	}
-#endif
 	return XT_CONTINUE;
 }
 
@@ -68,20 +49,6 @@ target_v1(struct sk_buff *skb,
 	switch (markinfo->mode) {
 	case XT_MARK_SET:
 		mark = markinfo->mark;
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE) || defined(HNDCTF)
-		{
-			enum ip_conntrack_info ctinfo;
-			struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
-
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-			struct nf_conn_nat *nat = (ipv4_conntrack_fastnat && ct) ? nfct_nat(ct) : NULL;
-			if (nat) nat->info.nat_type |= BCM_FASTNAT_DENY;
-#endif	// BCM_NAT
-#ifdef HNDCTF
-			ct->ctf_flags |= CTF_FLAGS_EXCLUDED;
-#endif /* HNDCTF */
-		}
-#endif
 		break;
 
 	case XT_MARK_AND:
