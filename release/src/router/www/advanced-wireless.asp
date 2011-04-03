@@ -132,7 +132,7 @@ createFieldTable('', [
 	{ title: '<% translate("Basic Rate"); %>', name: 'wl'+u+'_rateset', type: 'select', options: [['default','<% translate("Default"); %> *'],['12','1-2 Mbps'],['all','<% translate("All"); %>']],
 		value: nvram['wl'+u+'_rateset'] },
 	{ title: '<% translate("Beacon Interval"); %>', name: 'wl'+u+'_bcn', type: 'text', maxlen: 5, size: 7,
-		suffix: ' <small>(<% translate("range"); %>: 1 - 65535; <% translate(""); %>default: 100)</small>', value: nvram['wl'+u+'_bcn'] },
+		suffix: ' <small>(<% translate("range"); %>: 1 - 65535; <% translate("default"); %>: 100)</small>', value: nvram['wl'+u+'_bcn'] },
 	{ title: '<% translate("CTS Protection Mode"); %>', name: 'wl'+u+'_gmode_protection', type: 'select', options: [['off','<% translate("Disable"); %> *'],['auto','<% translate("Auto"); %>']],
 		value: nvram['wl'+u+'_gmode_protection'] },
 	{ title: '<% translate("Regulatory Mode"); %>', name: 'wl'+u+'_reg_mode', type: 'select',

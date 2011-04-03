@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Status: Device List</title>
+<title>[<% ident(); %>] <% translate("Status"); %>: <% translate("Device List"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -210,7 +210,7 @@ dg.populate = function()
 	for (i = dhcpd_lease.length - 1; i >= 0; --i) {
 		a = dhcpd_lease[i];
 		e = get(a[2], a[1]);
-		e.lease = '<small><a href="javascript:deleteLease(\'L' + i + '\',\'' + a[1] + '\')" title="Delete Lease" id="L' + i + '">' + a[3] + '</a></small>';
+		e.lease = '<small><a href="javascript:deleteLease(\'L' + i + '\',\'' + a[1] + '\')" title="<% translate("Delete Lease"); %>" id="L' + i + '">' + a[3] + '</a></small>';
 		e.name = a[0];
 		e.ifname = nvram.lan_ifname;
 	}
@@ -270,11 +270,11 @@ dg.populate = function()
 		b = e.mac;
 		if (e.mac.match(/^(..):(..):(..)/)) {
 			b += '<br><small>' +
-				'<a href="http://standards.ieee.org/cgi-bin/ouisearch?' + RegExp.$1 + '-' + RegExp.$2 + '-' + RegExp.$3 + '" target="_new" title="OUI Search">[oui]</a> ' +
-				'<a href="javascript:addStatic(' + i + ')" title="Static Lease...">[static]</a>';
+				'<a href="http://standards.ieee.org/cgi-bin/ouisearch?' + RegExp.$1 + '-' + RegExp.$2 + '-' + RegExp.$3 + '" target="_new" title="<% translate("OUI Search"); %>">[<% translate("oui"); %>]</a> ' +
+				'<a href="javascript:addStatic(' + i + ')" title="<% translate("Static Lease"); %>...">[<% translate("static"); %>]</a>';
 
 			if (e.rssi != '') {
-				b += ' <a href="javascript:addWF(' + i + ')" title="Wireless Filter...">[wfilter]</a>';
+				b += ' <a href="javascript:addWF(' + i + ')" title="<% translate("Wireless Filter"); %>...">[<% translate("wfilter"); %>]</a>';
 			}
 			b += '</small>';
 		}
@@ -301,7 +301,7 @@ dg.populate = function()
 dg.setup = function()
 {
 	this.init('dev-grid', 'sort');
-	this.headerSet(['Interface', 'MAC Address', 'IP Address', 'Name', 'RSSI &nbsp; &nbsp; ', 'Quality', 'TX/RX Rate&nbsp;', 'Lease &nbsp; &nbsp; ']);
+	this.headerSet(['<% translate("Interface"); %>', '<% translate("MAC Address"); %>', '<% translate("IP Address"); %>', '<% translate("Name"); %>', 'RSSI &nbsp; &nbsp; ', '<% translate("Quality"); %>', '<% translate("TX/RX Rate"); %> &nbsp;', '<% translate("Lease"); %> &nbsp; &nbsp; ']);
 	this.populate();
 	this.sort(2);
 }
@@ -322,7 +322,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -330,7 +330,7 @@ function init()
 
 <!-- / / / -->
 
-<div class='section-title'>Device List</div>
+<div class='section-title'><% translate("Device List"); %></div>
 <div class='section'>
 	<table id='dev-grid' class='tomato-grid' cellspacing=0></table>
 
@@ -341,8 +341,8 @@ for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 	if (nvram['wl'+u+'_radio'] == '1') {
 		var a = '';
 		if ((nvram['wl'+u+'_mode'] == 'ap') || (nvram['wl'+u+'_mode'] == 'wds'))
-			a = '&nbsp;&nbsp;&nbsp; <input type="button" value="Measure" onclick="javascript:window.location=\'wlmnoise.cgi?_http_id=' + nvram.http_id + '&_wl_unit=' + u +'\'">';
-		f.push( { title: '<b>Noise Floor (' + wl_ifaces[uidx][0] + ')&nbsp;:</b>',
+			a = '&nbsp;&nbsp;&nbsp; <input type="button" value="<% translate("Measure"); %>" onclick="javascript:window.location=\'wlmnoise.cgi?_http_id=' + nvram.http_id + '&_wl_unit=' + u +'\'">';
+		f.push( { title: '<b><% translate("Noise Floor"); %> (' + wl_ifaces[uidx][0] + ')&nbsp;:</b>',
 			prefix: '<span id="noise'+uidx+'">',
 			custom: wlnoise[uidx],
 			suffix: '</span>&nbsp;<small>dBm</small>' + a } );

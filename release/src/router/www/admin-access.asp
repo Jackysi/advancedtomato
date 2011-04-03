@@ -314,7 +314,7 @@ createFieldTable('', [
 	{ title: '<% translate("Allow Password Login"); %>', name: 'f_sshd_pass', type: 'checkbox', value: nvram.sshd_pass == 1 },
 	{ title: '<% translate("Authorized Keys"); %>', name: 'sshd_authkeys', type: 'textarea', value: nvram.sshd_authkeys }
 ]);
-W('<input type="button" value="' + (sdup ? '<% translate("Stop"); %>' : '<% translate("Start"); %>') + ' Now" onclick="toggle(\'sshd\', sdup)" id="_sshd_button">');
+W('<input type="button" value="' + (sdup ? '<% translate("Stop"); %>' : '<% translate("Start"); %>') + ' <% translate("Now"); %>" onclick="toggle(\'sshd\', sdup)" id="_sshd_button">');
 </script>
 </div>
 
@@ -325,7 +325,7 @@ createFieldTable('', [
 	{ title: '<% translate("Enable at Startup"); %>', name: 'f_telnetd_eas', type: 'checkbox', value: nvram.telnetd_eas == 1 },
 	{ title: '<% translate("Port"); %>', name: 'telnetd_port', type: 'text', maxlen: 5, size: 7, value: nvram.telnetd_port }
 ]);
-W('<input type="button" value="' + (tdup ? '<% translate("Stop"); %>' : '<% translate("Start"); %>') + ' Now" onclick="toggle(\'telnetd\', tdup)" id="_telnetd_button">');
+W('<input type="button" value="' + (tdup ? '<% translate("Stop"); %>' : '<% translate("Start"); %>') + ' <% translate("Now"); %>" onclick="toggle(\'telnetd\', tdup)" id="_telnetd_button">');
 </script>
 </div>
 

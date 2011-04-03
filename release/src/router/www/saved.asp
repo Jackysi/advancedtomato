@@ -51,8 +51,8 @@ function init()
 <tr><td style='text-align:center;vertical-align:middle;font:16px sans-serif;width:100%;height:100%'>
 <form>
 <script type='text/javascript'>
-if (wait <= 0) s = '<b>Changes Saved...</b> &nbsp; <input type="button" value="Continue" onclick="go()" style="font:10px sans-serif;vertical-align:top">';
-	else s = '<b>Please Wait...</b><span id="xclock" style="font-size:9px;background:#f7f7f7;padding:1px;visibility:hidden">&nbsp;</span> <img src="spin.gif" id="spin" onload="setSpin(1)">';
+if (wait <= 0) s = '<b><% translate("Changes Saved"); %>...</b> &nbsp; <input type="button" value="<% translate("Continue"); %>" onclick="go()" style="font:10px sans-serif;vertical-align:top">';
+	else s = '<b><% translate("Please Wait"); %>...</b><span id="xclock" style="font-size:9px;background:#f7f7f7;padding:1px;visibility:hidden">&nbsp;</span> <img src="spin.gif" id="spin" onload="setSpin(1)">';
 document.write(s);
 </script>
 </form>

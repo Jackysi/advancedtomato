@@ -10,7 +10,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Restarting...</title>
+<title>[<% ident(); %>] <% translate("Restarting"); %>...</title>
 <script language='javascript'>
 var n = 20;
 function tick()
@@ -21,7 +21,7 @@ function tick()
 		e.disabled = false;
 	}
 	if (n == 0) {
-		e.value = 'Continue';
+		e.value = '<% translate("Continue"); %>';
 	}
 	else {
 		--n;
@@ -38,9 +38,9 @@ function go()
 <tr><td style='text-align:center;vertical-align:middle;font:12px sans-serif'>
 <form>
 <div style='width:600px;border-bottom:1px solid #aaa;margin:5px auto;padding:5px 0;font-size:14px'>
-The router's new IP address is <% nv("lan_ipaddr"); %>. You may need to release then renew your computer's DHCP lease before continuing.
+<% translate("The router's new IP address is"); %> <% nv("lan_ipaddr"); %>. <% translate("You may need to release then renew your computer's DHCP lease before continuing"); %>.
 </div>
-Please wait while the router restarts... &nbsp;
+<% translate("Please wait while the router restarts"); %>... &nbsp;
 <input type='button' value='' style='font:12px sans-serif;width:80px;height:24px' id='continue' onclick='go()' disabled>
 </form>
 </td></tr></table></body></html>

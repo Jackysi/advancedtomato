@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Forwarding: Basic</title>
+<title>[<% ident(); %>] <% translate("Forwarding"); %>: <% translate("Basic"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -78,7 +78,7 @@ fog.sortCompare = function(a, b) {
 }
 
 fog.dataToView = function(data) {
-	return [(data[0] != '0') ? 'On' : '', ['TCP', 'UDP', 'Both'][data[1] - 1], (data[2].match(/(.+)-(.+)/)) ? (RegExp.$1 + ' -<br>' + RegExp.$2) : data[2], data[3], data[4], data[5], data[6]];
+	return [(data[0] != '0') ? '<% translate("On"); %>' : '', ['TCP', 'UDP', '<% translate("Both"); %>'][data[1] - 1], (data[2].match(/(.+)-(.+)/)) ? (RegExp.$1 + ' -<br>' + RegExp.$2) : data[2], data[3], data[4], data[5], data[6]];
 }
 
 fog.fieldValuesToData = function(row) {
@@ -139,7 +139,7 @@ fog.setup = function() {
 		{ type: 'text', maxlen: 5 },
 		{ type: 'text', maxlen: 15 },
 		{ type: 'text', maxlen: 32 }]);
-	this.headerSet(['On', 'Proto', 'Src Address', 'Ext Ports', 'Int Port', 'Int Address', 'Description']);
+	this.headerSet(['<% translate("On"); %>', '<% translate("Proto"); %>', '<% translate("Src Address"); %>', '<% translate("Ext Ports"); %>', '<% translate("Int Port"); %>', '<% translate("Int Address"); %>', '<% translate("Description"); %>']);
 	var nv = nvram.portforward.split('>');
 	for (var i = 0; i < nv.length; ++i) {
 		var r;
@@ -199,7 +199,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -212,7 +212,7 @@ function init()
 
 <input type='hidden' name='portforward'>
 
-<div class='section-title'>Port Forwarding</div>
+<div class='section-title'><% translate("Port Forwarding"); %></div>
 <div class='section'>
 	<table class='tomato-grid' cellspacing=1 id='fo-grid'></table>
 	<script type='text/javascript'>fog.setup();</script>
@@ -220,12 +220,11 @@ function init()
 
 <div>
 <ul>
-<li><b>Src Address</b> <i>(optional)</i> - Forward only if from this address. Ex: "1.2.3.4", "1.2.3.4 - 2.3.4.5", "1.2.3.0/24", "me.example.com".
-<li><b>Ext Ports</b> - The ports to be forwarded, as seen from the WAN. Ex: "2345", "200,300", "200-300,400".
-<li><b>Int Port</b> <i>(optional)</i> - The destination port inside the LAN. If blank, the destination port
-is the same as <i>Ext Ports</i>. Only one port per entry is supported when forwarding to a different internal
-port.
-<li><b>Int Address</b> - The destination address inside the LAN.
+<li><b><% translate("Src Address"); %></b> <i>(<% translate("optional"); %>)</i> - <% translate("Forward only if from this address"); %>. <% translate("Ex"); %>: "1.2.3.4", "1.2.3.4 - 2.3.4.5", "1.2.3.0/24", "me.example.com".
+<li><b><% translate("Ext Ports"); %></b> - <% translate("The ports to be forwarded, as seen from the WAN"); %>. <% translate("Ex"); %>: "2345", "200,300", "200-300,400".
+<li><b><% translate("Int Port"); %></b> <i>(<% translate("optional"); %>)</i> - <% translate("The destination port inside the LAN. If blank, the destination port is the same as"); %> <i><% translate("Ext Ports"); %></i>. 
+<% translate("Only one port per entry is supported when forwarding to a different internal port"); %>.
+<li><b><% translate("Int Address"); %></b> - <% translate("The destination address inside the LAN"); %>.
 </ul>
 </div>
 
@@ -237,8 +236,8 @@ port.
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='reloadPage();'>
 </td></tr>
 </table>
 </form>
