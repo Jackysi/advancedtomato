@@ -8,6 +8,9 @@
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
 -->
+
+
+
 <svg width="100%" height="100%" version="1.1" xmlns="http://www.w3.org/2000/svg" onload="init(evt)" onmouseout="mOut()">
 <style type='text/css'>
 * {
@@ -30,13 +33,28 @@ path {
 #tip-text {
 	font: 11px sans-serif;
 	font-weight: normal;
+
 }
 </style>
+
+
 <script type='text/ecmascript'><![CDATA[
+
+//	<% nvram("qos_classnames,qos_enable,qos_orules"); %>
+
+//	var Unclassified = ['Unclassified'];			//	Todo - Toastman - assign Class Labels
+//	var classNames = nvram.qos_classnames.split(' ');	// 	How to fetch nvram variable in SVG ?
+//	var abc = Unclassified.concat(classNames);		//	var abc = Unclassified + the NVRAM variable
+
+var abc = ['Unclassified', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5', 'Class 6','Class 7','Class 8','Class 9','Class 10'];
+
+
 
 var vWidth = 310;
 var vHeight = 310;
-var abc = ['Unclassified', 'Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
+
+
+
 var tipInfo = [];
 var tipTimer = null;
 var tipLastN = null;
