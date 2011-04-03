@@ -39,8 +39,13 @@
 <script type='text/javascript' src='interfaces.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram('lan_ipaddr,lan1_ipaddr,lan2_ipaddr,lan3_ipaddr,lan_netmask,lan1_netmask,lan2_netmask,lan3_netmask,t_hidelr'); %>
-var abc = ['Unclassified', 'Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A','Class B','Class C','Class D','Class E'];
+
+//	<% nvram('qos_classnames,lan_ipaddr,lan1_ipaddr,lan2_ipaddr,lan3_ipaddr,lan_netmask,lan1_netmask,lan2_netmask,lan3_netmask,t_hidelr'); %>
+
+var Unclassified = ['Unclassified'];
+var classNames = nvram.qos_classnames.split(' ');		//Toastman Class Labels
+var abc = Unclassified.concat(classNames);
+
 var colors = ['F08080','E6E6FA','0066CC','8FBC8F','FAFAD2','ADD8E6','9ACD32','E0FFFF','90EE90','FF9933','FFF0F5'];
 var filterip = [];
 var filteripe = [];
