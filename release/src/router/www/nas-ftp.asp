@@ -88,6 +88,10 @@ aftg.verifyFields = function(row, quiet)
 			ferror.set(f[0], 'Duplicate user name.', quiet);
 			return 0;
 		}
+		if (s == 'root' || s == 'admin') {
+			ferror.set(f[0], 'User names "root" and "admin" are not allowed.', quiet);
+			return 0;
+		}
 		f[0].value = s;
 	}
 

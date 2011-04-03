@@ -66,6 +66,9 @@ target(struct sk_buff *skb,
 				if (ipv4_conntrack_fastnat && (nat = nfct_nat(ct)))
 					nat->info.nat_type |= BCM_FASTNAT_DENY;
 #endif
+#ifdef HNDCTF
+				ct->ctf_flags |= CTF_FLAGS_EXCLUDED;
+#endif /* HNDCTF */
 				nf_conntrack_event_cache(IPCT_MARK, skb);
 			}
 			break;
@@ -80,6 +83,9 @@ target(struct sk_buff *skb,
 				if (ipv4_conntrack_fastnat && (nat = nfct_nat(ct)))
 					nat->info.nat_type |= BCM_FASTNAT_DENY;
 #endif
+#ifdef HNDCTF
+				ct->ctf_flags |= CTF_FLAGS_EXCLUDED;
+#endif /* HNDCTF */
 			}				
 			return XT_RETURN;
 		case XT_CONNMARK_SAVE:

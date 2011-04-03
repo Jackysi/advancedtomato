@@ -58,7 +58,6 @@ main(int ac, char *av[])
 	int vecarg[VECLEN];
 	int s;
 	static int optind;
-	et_var_t var;
 
 	if (ac < 2)
 		usage(av[0]);
@@ -210,8 +209,10 @@ main(int ac, char *av[])
 		if (ioctl(s, SIOCSETCROBOWR, (caddr_t)&ifr) < 0)
 			syserr("etcrobowr");
 	} else {
+#ifdef IOV_ET_POWER_SAVE_MODE
 		if (strcmp(av[optind], "switch_mode") == 0) {
 			int all = 0;
+			et_var_t var;
 
 			/* GET case */
 			if (ac == (optind + 1)) {
@@ -252,7 +253,9 @@ main(int ac, char *av[])
 					printf("phy power save mode for phy %d mode %d\n",
 						vecarg[0], vecarg[1]);
 			}
-		} else {
+		} else
+#endif // IOV_ET_POWER_SAVE_MODE
+		{
 			usage(av[0]);
 		}
 	}
@@ -276,7 +279,9 @@ usage(char *av0)
 		"\tphywr [<phyaddr>] <reg> <val>\n"
 		"\trobord <page> <reg>\n"
 		"\trobowr <page> <reg> <val>\n"
+#ifdef IOV_ET_POWER_SAVE_MODE
 		"\tswitch_mode <phy> <mode> (mode 0, 1, 2, 3)\n"
+#endif
 		,
 		av0);
 	exit(1);

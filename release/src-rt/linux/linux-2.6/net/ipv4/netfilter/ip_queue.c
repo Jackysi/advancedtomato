@@ -470,7 +470,7 @@ ipq_dev_drop(int ifindex)
 #define RCV_SKB_FAIL(err) do { netlink_ack(skb, nlh, (err)); return; } while (0)
 
 static inline void
-ipq_rcv_skb(struct sk_buff *skb)
+__ipq_rcv_skb(struct sk_buff *skb)
 {
 	int status, type, pid, flags, nlmsglen, skblen;
 	struct nlmsghdr *nlh;
@@ -528,19 +528,10 @@ ipq_rcv_skb(struct sk_buff *skb)
 }
 
 static void
-ipq_rcv_sk(struct sock *sk, int len)
+ipq_rcv_skb(struct sk_buff *skb)
 {
-	struct sk_buff *skb;
-	unsigned int qlen;
-
 	mutex_lock(&ipqnl_mutex);
-
-	for (qlen = skb_queue_len(&sk->sk_receive_queue); qlen; qlen--) {
-		skb = skb_dequeue(&sk->sk_receive_queue);
-		ipq_rcv_skb(skb);
-		kfree_skb(skb);
-	}
-
+	__ipq_rcv_skb(skb);
 	mutex_unlock(&ipqnl_mutex);
 }
 
@@ -661,7 +652,7 @@ static int __init ip_queue_init(void)
 	struct proc_dir_entry *proc;
 
 	netlink_register_notifier(&ipq_nl_notifier);
-	ipqnl = netlink_kernel_create(NETLINK_FIREWALL, 0, ipq_rcv_sk,
+	ipqnl = netlink_kernel_create(NETLINK_FIREWALL, 0, ipq_rcv_skb,
 				      NULL, THIS_MODULE);
 	if (ipqnl == NULL) {
 		printk(KERN_ERR "ip_queue: failed to create netlink socket\n");

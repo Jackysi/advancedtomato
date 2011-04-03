@@ -481,56 +481,38 @@ igs_cfg_request_process(igs_cfg_request_t *cfg)
  *              dequeues the message, calls the functions to process
  *              the commands and sends the result back to user.
  *
- * Input:       sk  - Kernel socket structure
- *              len - Length of the message received from user app.
+ * Input:       skb  - Kernel socket structure
  */
 static void
-igs_netlink_sock_cb(struct sock *sk, int32 len)
+igs_netlink_sock_cb(struct sk_buff *skb)
 {
-	struct sk_buff	*skb;
-	struct nlmsghdr	*nlh = NULL;
-	uint8 *data = NULL;
+	struct nlmsghdr	*nlh;
 
-	IGS_DEBUG("Length of the command buffer %d\n", len);
+	nlh = nlmsg_hdr(skb);
+	IGS_DEBUG("Length of the command buffer %d\n", nlh->nlmsg_len);
 
-	/* Dequeue the message from netlink socket */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
-	while ((skb = skb_dequeue(&sk->sk_receive_queue)) != NULL)
-#else
-	while ((skb = skb_dequeue(&sk->receive_queue)) != NULL)
-#endif
+	/* Check the buffer for min size */
+	if (skb->len < NLMSG_SPACE(0) || skb->len < nlh->nlmsg_len ||
+		nlh->nlmsg_len < NLMSG_LENGTH(sizeof(igs_cfg_request_t)))
 	{
-		/* Check the buffer for min size */
-		if (skb->len < sizeof(igs_cfg_request_t))
-		{
-			IGS_ERROR("Configuration request size not > %d\n",
-			          sizeof(igs_cfg_request_t));
-			return;
-		}
-
-
-		/* Buffer contains netlink header followed by data */
-		nlh = (struct nlmsghdr *)skb->data;
-		data = NLMSG_DATA(nlh);
-
-		/* Process the message */
-		igs_cfg_request_process((igs_cfg_request_t *)data);
-
-		/* Send the result to user process */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
-		NETLINK_CB(skb).pid = nlh->nlmsg_pid;
-		NETLINK_CB(skb).dst_group = 0;
-#else
-		NETLINK_CB(skb).groups = 0;
-		NETLINK_CB(skb).pid = 0;
-		NETLINK_CB(skb).dst_groups = 0;
-		NETLINK_CB(skb).dst_pid = nlh->nlmsg_pid;
-#endif
-
-		netlink_unicast(igs.nl_sk, skb, nlh->nlmsg_pid, MSG_DONTWAIT);
+		IGS_ERROR("Configuration request size not > %d\n",
+		          sizeof(igs_cfg_request_t));
+		return;
 	}
 
-	return;
+	skb = skb_clone(skb, GFP_KERNEL);
+	if (skb == NULL)
+		return;
+	nlh = nlmsg_hdr(skb);
+
+	/* Process the message */
+	igs_cfg_request_process((igs_cfg_request_t *)NLMSG_DATA(nlh));
+
+	/* Send the result to user process */
+	NETLINK_CB(skb).pid = nlh->nlmsg_pid;
+	NETLINK_CB(skb).dst_group = 0;
+
+	netlink_unicast(igs.nl_sk, skb, nlh->nlmsg_pid, MSG_DONTWAIT);
 }
 
 /*
@@ -542,12 +524,8 @@ static int32 __init
 igs_module_init(void)
 {
 #define NETLINK_IGSC 18
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
 	igs.nl_sk = netlink_kernel_create(NETLINK_IGSC, 0, igs_netlink_sock_cb,
 	                                  NULL, THIS_MODULE);
-#else
-	igs.nl_sk = netlink_kernel_create(NETLINK_IGSC, igs_netlink_sock_cb);
-#endif
 
 	if (igs.nl_sk == NULL)
 	{
@@ -569,11 +547,7 @@ igs_module_init(void)
 static void __exit
 igs_module_exit(void)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
 	sock_release(igs.nl_sk->sk_socket);
-#else
-	sock_release(igs.nl_sk->socket);
-#endif
 	igs_instances_clear();
 	OSL_LOCK_DESTROY(igs.lock);
 
@@ -583,9 +557,7 @@ igs_module_exit(void)
 module_init(igs_module_init);
 module_exit(igs_module_exit);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
 EXPORT_SYMBOL(igsc_init);
 EXPORT_SYMBOL(igsc_exit);
 EXPORT_SYMBOL(igsc_sdb_interface_del);
 EXPORT_SYMBOL(igsc_interface_rtport_del);
-#endif

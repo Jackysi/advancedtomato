@@ -756,7 +756,7 @@ static void filter_input(void)
 		// allow ICMP packets to be received, but restrict the flow to avoid ping flood attacks
 		ipt_write("-A INPUT -p icmp -m limit --limit 1/second -j %s\n", chain_in_accept);
 		// allow udp traceroute packets
-		ipt_write("-A INPUT -p udp -m udp --dport 33434:33534 -m limit --limit 5/second -j %s\n", chain_in_accept);
+		ipt_write("-A INPUT -p udp --dport 33434:33534 -m limit --limit 5/second -j %s\n", chain_in_accept);
 	}
 
 	/* Accept incoming packets from broken dhcp servers, which are sending replies
@@ -775,12 +775,12 @@ static void filter_input(void)
 		if (ipt_source(p, s, "remote management", NULL)) {
 
 			if (remotemanage) {
-				ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				ipt_write("-A INPUT -p tcp %s --dport %s -j %s\n",
 					s, nvram_safe_get("http_wanport"), chain_in_accept);
 			}
 
 			if (nvram_get_int("sshd_remote")) {
-				ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				ipt_write("-A INPUT -p tcp %s --dport %s -j %s\n",
 					s, nvram_safe_get("sshd_rport"), chain_in_accept);
 			}
 		}
@@ -796,7 +796,7 @@ static void filter_input(void)
 		do {
 			if ((c = strchr(p, ',')) != NULL) *c = 0;
 			if (ipt_source(p, s, "ftp", "remote access")) {
-				ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				ipt_write("-A INPUT -p tcp %s --dport %s -j %s\n",
 					s, nvram_safe_get("ftp_port"), chain_in_accept);
 			}
 			if (!c) break;
@@ -813,7 +813,7 @@ static void filter_input(void)
 
 	// Routing protocol, RIP, accept
 	if (nvram_invmatch("dr_wan_rx", "0")) {
-		ipt_write("-A INPUT -p udp -m udp --dport 520 -j ACCEPT\n");
+		ipt_write("-A INPUT -p udp --dport 520 -j ACCEPT\n");
 	}
 
 	// if logging
@@ -1096,12 +1096,12 @@ static void filter6_input(void)
 		if (ip6t_source(p, s, "remote management", NULL)) {
 
 			if (remotemanage) {
-				ip6t_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				ip6t_write("-A INPUT -p tcp %s --dport %s -j %s\n",
 					s, nvram_safe_get("http_wanport"), chain_in_accept);
 			}
 
 			if (nvram_get_int("sshd_remote")) {
-				ip6t_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				ip6t_write("-A INPUT -p tcp %s --dport %s -j %s\n",
 					s, nvram_safe_get("sshd_rport"), chain_in_accept);
 			}
 		}
@@ -1118,7 +1118,7 @@ static void filter6_input(void)
 		do {
 			if ((c = strchr(p, ',')) != NULL) *c = 0;
 			if (ip6t_source(p, s, "ftp", "remote access")) {
-				ip6t_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				ip6t_write("-A INPUT -p tcp %s --dport %s -j %s\n",
 					s, nvram_safe_get("ftp_port"), chain_in_accept);
 			}
 			if (!c) break;

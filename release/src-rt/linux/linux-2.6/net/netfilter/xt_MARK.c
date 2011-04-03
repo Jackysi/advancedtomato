@@ -34,19 +34,21 @@ target_v0(struct sk_buff *skb,
 	  const struct xt_target *target,
 	  const void *targinfo)
 {
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	struct nf_conn *ct;
-	struct nf_conn_nat *nat;
-	enum ip_conntrack_info ctinfo;
-#endif
-
 	const struct xt_mark_target_info *markinfo = targinfo;
 
 	skb->mark = markinfo->mark;
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE) || defined(HNDCTF)
+	{
+		enum ip_conntrack_info ctinfo;
+		struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	if (ipv4_conntrack_fastnat) {
-		nat = (ct = nf_ct_get(skb, &ctinfo)) ? nfct_nat(ct) : NULL;
+		struct nf_conn_nat *nat = (ipv4_conntrack_fastnat && ct) ? nfct_nat(ct) : NULL;
 		if (nat) nat->info.nat_type |= BCM_FASTNAT_DENY;
+#endif	// BCM_NAT
+#ifdef HNDCTF
+		ct->ctf_flags |= CTF_FLAGS_EXCLUDED;
+#endif /* HNDCTF */
 	}
 #endif
 	return XT_CONTINUE;
@@ -60,23 +62,25 @@ target_v1(struct sk_buff *skb,
 	  const struct xt_target *target,
 	  const void *targinfo)
 {
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	struct nf_conn *ct;
-	struct nf_conn_nat *nat;
-	enum ip_conntrack_info ctinfo;
-#endif
-
 	const struct xt_mark_target_info_v1 *markinfo = targinfo;
 	int mark = 0;
 
 	switch (markinfo->mode) {
 	case XT_MARK_SET:
 		mark = markinfo->mark;
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE) || defined(HNDCTF)
+		{
+			enum ip_conntrack_info ctinfo;
+			struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+
 #if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	if (ipv4_conntrack_fastnat) {
-		nat = (ct = nf_ct_get(skb, &ctinfo)) ? nfct_nat(ct) : NULL;
-		if (nat) nat->info.nat_type |= BCM_FASTNAT_DENY;
-	}
+			struct nf_conn_nat *nat = (ipv4_conntrack_fastnat && ct) ? nfct_nat(ct) : NULL;
+			if (nat) nat->info.nat_type |= BCM_FASTNAT_DENY;
+#endif	// BCM_NAT
+#ifdef HNDCTF
+			ct->ctf_flags |= CTF_FLAGS_EXCLUDED;
+#endif /* HNDCTF */
+		}
 #endif
 		break;
 
