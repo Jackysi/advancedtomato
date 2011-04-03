@@ -96,8 +96,11 @@ all: tomato_ver
 	@$(MAKE) -C router install
 	@$(MAKE) -C btools
 
-	@rm -f image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx
-	@rm -f image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx
+	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+ifeq ($(LINKSYS_E),1)
+	@rm -f image/tomato-E??00$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+endif
 	@echo "" >>fpkg.log
 	@echo "***********************" `date` "************************" >>fpkg.log
 	@cat router/shared/tomato_version >>fpkg.log
@@ -113,22 +116,18 @@ ifeq ($(wildcard include/bcm20xx.h),)
 		-m 0x10577050,image/WR850G.bin \
 		| tee -a fpkg.log
 else
-ifeq ($(NVRAM_SIZE),60)
-ifeq ($(USB),USB)
-	# Linksys E3000 build
+ifeq ($(LINKSYS_E),1)
+	# Linksys E-series build plus generic TRX image
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-l 61XN,image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-t image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
+		-l 4200,image/tomato-E4200$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l 61XN,image/tomato-E3000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l 32XN,image/tomato-E2000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		| tee -a fpkg.log
-else
-	# Linksys E2000 build
-	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-l 32XN,image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
-		| tee -a fpkg.log
-endif
 else
 	# Create generic TRX image
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-t image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
+		-t image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
 		| tee -a fpkg.log
 endif
 endif
@@ -196,7 +195,10 @@ prepk:
 		rm -f config_current ; \
 		ln -s config_base config_current ; \
 		cp -f config_current .config
-	$(MAKE) -C $(LINUXDIR) oldconfig dep
+	$(MAKE) -C $(LINUXDIR) oldconfig
+ifneq ($(CONFIG_LINUX26),y)
+	$(MAKE) -C $(LINUXDIR) dep
+endif
 
 what:
 	@echo ""
@@ -435,6 +437,8 @@ define BusyboxOptions
 		echo "# CONFIG_ARPING is not set" >>$(1); \
 		sed -i "/CONFIG_FEATURE_LS_COLOR/d" $(1); \
 		echo "# CONFIG_FEATURE_LS_COLOR is not set" >>$(1); \
+		sed -i "/CONFIG_CHOWN/d" $(1); \
+		echo "# CONFIG_CHOWN is not set" >>$(1); \
 	else \
 		sed -i "/CONFIG_FEATURE_LS_COLOR/d" $(1); \
 		echo "CONFIG_FEATURE_LS_COLOR=y" >>$(1); \
@@ -649,17 +653,17 @@ r2f:
 r2d:
 	@$(MAKE) d MIPS32=r2
 
-e3000:
-	@$(MAKE) r2m ND=E3000 NVRAM_SIZE=60
+n60m:
+	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=1
 
-e3000v:
-	@$(MAKE) r2e ND=E3000 NVRAM_SIZE=60
+n60e:
+	@$(MAKE) r2e NVRAM_SIZE=60 LINKSYS_E=1
 
-e2000:
-	@$(MAKE) bin MIPS32=r2 B=S USB="" ND=E2000 NVRAM_SIZE=60 BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y BUILD_DESC="Std"
+n60s:
+	@$(MAKE) bin MIPS32=r2 B=S USB="" NVRAM_SIZE=60 LINKSYS_E=1 BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y BUILD_DESC="Std"
 
-e2000v:
-	@$(MAKE) bin MIPS32=r2 B=V USB="" ND=E2000 NVRAM_SIZE=60 BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y OPENVPN=y BUILD_DESC="$(VPN)"
+n60v:
+	@$(MAKE) bin MIPS32=r2 B=V USB="" NVRAM_SIZE=60 LINKSYS_E=1 BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y OPENVPN=y BUILD_DESC="$(VPN)"
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -734,10 +738,10 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2s          MIPS Release 2 S build (no USB support)"
 	@echo "r2i          MIPS Release 2 I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
 	@echo "r2f          MIPS Release 2 F build (no USB support minus CIFS and RIPv1/2)"
-	@echo "e3000        Linksys E3000 build (standard plus extras)"
-	@echo "e3000v       Linksys E3000 build (standard plus VPN and extras)"
-	@echo "e2000        Linksys E2000 build (no USB support)"
-	@echo "e2000v       Linksys E2000 build (VPN with no USB support)"
+	@echo "n60m         Linksys E-series build (60KB NVRAM, standard plus extras)"
+	@echo "n60e         Linksys E-series build (60KB NVRAM, standard plus VPN and extras)"
+	@echo "n60s         Linksys E-series build (60KB NVRAM, no USB support)"
+	@echo "n60v         Linksys E-series build (60KB NVRAM, VPN with no USB support)"
 endif
 	@echo "..etc..      other build configs"
 	@echo "clean        -C router clean"
