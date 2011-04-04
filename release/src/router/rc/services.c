@@ -2094,6 +2094,9 @@ TOP:
 
 	if (strcmp(service, "net") == 0) {
 		if (action & A_STOP) {
+#ifdef TCONFIG_USB
+			stop_nas_services();
+#endif
 #ifdef TCONFIG_IPV6
 			stop_radvd();
 #endif
@@ -2115,6 +2118,9 @@ TOP:
 			start_radvd();
 #endif
 			start_wl();
+#ifdef TCONFIG_USB
+			start_nas_services();
+#endif
 		}
 		goto CLEAR;
 	}
