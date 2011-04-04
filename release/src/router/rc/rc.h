@@ -232,11 +232,13 @@ extern void stop_ipv6(void);
 #ifdef TCONFIG_USB
 extern void start_usb(void);
 extern void stop_usb(void);
+extern int dir_is_mountpoint(const char *root, const char *dir);
 extern void hotplug_usb(void);
 extern void remove_storage_main(int shutdn);
 #else
 #define start_usb(args...) do { } while(0)
 #define stop_usb(args...) do { } while(0)
+#define dir_is_mountpoint(args...) (0)
 #define hotplug_usb(args...) do { } while(0)
 #define remove_storage_main(args...) do { } while(0)
 #endif
