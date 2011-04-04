@@ -235,10 +235,10 @@ if ((v = nvram.qos_classnames.match(/^(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)\s+
 	v = ["-","Highest","High","Medium","Low","Lowest","A","B","C","D","E"];
 }
 titles = ['-','Priority Class 1', 'Priority Class 2', 'Priority Class 3', 'Priority Class 4', 'Priority Class 5', 'Priority Class 6', 'Priority Class 7', 'Priority Class 8', 'Priority Class 9', 'Priority Class 10'];
-f = [{ title: ' ', text: '<small>(Maximum 9 characters)</small>' }];
+f = [{ title: ' ', text: '<small>(Maximum 10 characters)</small>' }];
 for (i = 1; i < 11; ++i) {
 	f.push({ title: titles[i], name: ('f_qos_' + (i - 1)),
-		type: 'text', maxlen: 9, size: 9, value: v[i],
+		type: 'text', maxlen: 10, size: 15, value: v[i],
 		suffix: '<span id="count' + i + '"></span>' });
 }
 createFieldTable('', f);
