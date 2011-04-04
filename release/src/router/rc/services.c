@@ -463,7 +463,7 @@ void start_ipv6_tunnel(void)
 	int service;
 
 	service = get_ipv6_service();
-	tun_dev = nvram_safe_get("ipv6_ifname");
+	tun_dev = get_wan6face();
 	wanip = get_wanip();
 	mtu = (nvram_get_int("ipv6_tun_mtu") > 0) ? nvram_safe_get("ipv6_tun_mtu") : "1480";
 	modprobe("sit");
@@ -478,6 +478,7 @@ void start_ipv6_tunnel(void)
 		"ttl", nvram_safe_get("ipv6_tun_ttl"));
 
 	eval("ip", "link", "set", (char *)tun_dev, "mtu", (char *)mtu, "up");
+	nvram_set("ipv6_ifname", (char *)tun_dev);
 
 	if (service == IPV6_ANYCAST_6TO4) {
 		add_ip6_lanaddr();
@@ -505,8 +506,11 @@ void start_ipv6_tunnel(void)
 
 void stop_ipv6_tunnel(void)
 {
-	char *tun_dev = nvram_safe_get("ipv6_ifname");
-	eval("ip", "tunnel", "del", tun_dev);
+	eval("ip", "tunnel", "del", (char *)get_wan6face());
+	if (get_ipv6_service() == IPV6_ANYCAST_6TO4) {
+		// get rid of old IPv6 address from lan iface
+		eval("ip", "-6", "addr", "flush", "dev", nvram_safe_get("lan_ifname"), "scope", "global");
+	}
 	modprobe_r("sit");
 }
 
