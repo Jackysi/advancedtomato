@@ -355,7 +355,7 @@ void clear_resolv(void)
 }
 
 #ifdef TCONFIG_IPV6
-static int write_ipv6_dns_servers(FILE *f, const char *prefix, char *dns)
+static int write_ipv6_dns_servers(FILE *f, const char *prefix, char *dns, const char *suffix, int once)
 {
 	char p[INET6_ADDRSTRLEN + 1], *next = NULL;
 	struct in6_addr addr;
@@ -364,7 +364,7 @@ static int write_ipv6_dns_servers(FILE *f, const char *prefix, char *dns)
 	foreach(p, dns, next) {
 		// verify that this is a valid IPv6 address
 		if (inet_pton(AF_INET6, p, &addr) == 1) {
-			fprintf(f, "%s%s\n", prefix, p);
+			fprintf(f, "%s%s%s", (once && cnt) ? "" : prefix, p, suffix);
 			++cnt;
 		}
 	}
@@ -385,8 +385,8 @@ void dns_to_resolv(void)
 		// Check for VPN DNS entries
 		if (!write_vpn_resolv(f)) {
 #ifdef TCONFIG_IPV6
-			if (write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_dns")) == 0 || nvram_get_int("dns_addget"))
-				write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_get_dns"));
+			if (write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_dns"), "\n", 0) == 0 || nvram_get_int("dns_addget"))
+				write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_get_dns"), "\n", 0);
 #endif
 			dns = get_dns();	// static buffer
 			if (dns->count == 0) {
@@ -522,7 +522,7 @@ void start_radvd(void)
 	char *prefix, *ip, *mtu;
 	int do_dns, do_6to4;
 	char *argv[] = { "radvd", NULL, NULL, NULL };
-	int pid, argc, service;
+	int pid, argc, service, cnt;
 
 	if (getpid() != 1) {
 		start_service("radvd");
@@ -571,17 +571,27 @@ void start_radvd(void)
 			"  AdvAutonomous on;\n"
 			"%s"
 			"%s%s%s"
-			" };\n"
-			" %s%s%s\n"
-			"};\n",
+			" };\n",
 			nvram_safe_get("lan_ifname"),
 			mtu ? " AdvLinkMTU " : "", mtu ? : "", mtu ? ";\n" : "",
 			prefix,
 			do_6to4 ? "  AdvValidLifetime 300;\n  AdvPreferredLifetime 120;\n" : "",
 		        do_6to4 ? "  Base6to4Interface " : "",
 		        do_6to4 ? get_wanface() : "",
-		        do_6to4 ? ";\n" : "",
-			do_dns ? "RDNSS " : "", do_dns ? ip : "", do_dns ? " { };" : "");
+		        do_6to4 ? ";\n" : "");
+
+		if (do_dns) {
+			fprintf(f, " RDNSS %s {};\n", ip);
+		}
+		else {
+			cnt = write_ipv6_dns_servers(f, " RDNSS ", nvram_safe_get("ipv6_dns"), " ", 1);
+			if (cnt == 0 || nvram_get_int("dns_addget"))
+				cnt += write_ipv6_dns_servers(f, (cnt) ? "" : " RDNSS ", nvram_safe_get("ipv6_get_dns"), " ", 1);
+			if (cnt) fprintf(f, "{};\n");
+		}
+
+		fprintf(f,
+			"};\n");	// close "interface" section
 		fclose(f);
 
 		// Start radvd
