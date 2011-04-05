@@ -53,11 +53,10 @@ var svgReady = 0;
 
 
 var Unclassified = ['Unclassified'];
-var classNames = nvram.qos_classnames.split(' ');		//Toastman Class Labels
+var classNames = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
 var abc = Unclassified.concat(classNames);
 
 
-//      var abc = ['Unclassified', 'Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
 
 var colors = [
 	'c6e2ff',
@@ -129,8 +128,8 @@ ref.refresh = function(text)
 
 	showData();
 	if (svgReady == 1) {
-		updateCD(nfmarks);
-		updateBD(qrates);
+		updateCD(nfmarks, abc);
+		updateBD(qrates, abc);
 	}
 }
 
@@ -154,8 +153,8 @@ function checkSVG()
 
 	if (i < 0) {
 		svgReady = 1;
-		updateCD(nfmarks);
-		updateBD(qrates);
+		updateCD(nfmarks, abc);
+		updateBD(qrates, abc);
 	}
 	else if (--svgReady > -5) {
 		setTimeout(checkSVG, 500);

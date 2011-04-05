@@ -26,9 +26,8 @@
 REMOVE-END */
 //	<% nvram("qos_classnames,qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_default,qos_pfifo,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma"); %>
 
-var classNames = nvram.qos_classnames.split(' ');		//Toastman Class Labels
+var classNames = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
 
-//      classNames = ['Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
 
 pctList = [[0, 'None']];
 for (i = 1; i <= 100; ++i) pctList.push([i, i + '%']);
@@ -235,7 +234,7 @@ if ((v = nvram.qos_classnames.match(/^(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)\s+
 	v = ["-","Highest","High","Medium","Low","Lowest","A","B","C","D","E"];
 }
 titles = ['-','Priority Class 1', 'Priority Class 2', 'Priority Class 3', 'Priority Class 4', 'Priority Class 5', 'Priority Class 6', 'Priority Class 7', 'Priority Class 8', 'Priority Class 9', 'Priority Class 10'];
-f = [{ title: ' ', text: '<small>(Maximum 10 characters)</small>' }];
+f = [{ title: ' ', text: '<small>(Maximum 10 characters, no spaces)</small>' }];
 for (i = 1; i < 11; ++i) {
 	f.push({ title: titles[i], name: ('f_qos_' + (i - 1)),
 		type: 'text', maxlen: 10, size: 15, value: v[i],
