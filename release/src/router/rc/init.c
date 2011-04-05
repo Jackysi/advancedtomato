@@ -286,6 +286,11 @@ static int check_nv(const char *name, const char *value)
 	return 0;
 }
 
+static inline int invalid_mac(const char *mac)
+{
+	return (!mac || !(*mac) || strncasecmp(mac, "00:90:4c", 8) == 0);
+}
+
 static int find_sercom_mac_addr(void)
 {
 	FILE *fp;
@@ -299,7 +304,7 @@ static int find_sercom_mac_addr(void)
 		sprintf(s, "%02X:%02X:%02X:%02X:%02X:%02X",
 			m[0], m[1], m[2], m[3], m[4], m[5]);
 		nvram_set("et0macaddr", s);
-		return (strncasecmp(s, "00:90:4c", 8) != 0);
+		return !invalid_mac(s);
 	}
 	return 0;
 }
@@ -476,7 +481,7 @@ static void check_bootnv(void)
 		break;
 	case MODEL_WL500W:
 		/* fix WL500W mac adresses for WAN port */
-		if (strncasecmp(nvram_safe_get("et1macaddr"), "00:90:4c", 8) == 0) {
+		if (invalid_mac(nvram_get("et1macaddr"))) {
 			strcpy(mac, nvram_safe_get("et0macaddr"));
 			inc_mac(mac, 1);
 			dirty |= check_nv("et1macaddr", mac);
@@ -513,7 +518,7 @@ static void check_bootnv(void)
 		dirty |= check_nv("wl0gpio2", "0");
 		dirty |= check_nv("wl0gpio3", "0");
 	case MODEL_WL1600GL:
-		if (strncasecmp(nvram_safe_get("et0macaddr"), "00:90:4c", 8) == 0) {
+		if (invalid_mac(nvram_get("et0macaddr"))) {
 			dirty |= find_sercom_mac_addr();
 		}
 		break;
@@ -543,7 +548,7 @@ static void check_bootnv(void)
 		dirty |= check_nv("vlan2hwname", "et0");
 		dirty |= check_nv("pci/1/1/ledbh2", "8");
 		dirty |= check_nv("sb/1/ledbh1", "8");
-		if (strncasecmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0) {
+		if (invalid_mac(nvram_get("pci/1/1/macaddr"))) {
 			strcpy(mac, nvram_safe_get("et0macaddr"));
 			inc_mac(mac, 3);
 			dirty |= check_nv("pci/1/1/macaddr", mac);
@@ -551,8 +556,8 @@ static void check_bootnv(void)
 		break;
 	case MODEL_E4200:
 		dirty |= check_nv("vlan2hwname", "et0");
-		if (strncasecmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0 ||
-		    strncasecmp(nvram_safe_get("sb/1/macaddr"), "00:90:4c", 8) == 0) {
+		if (invalid_mac(nvram_get("pci/1/1/macaddr")) == 0 ||
+		    invalid_mac(nvram_get("sb/1/macaddr"))) {
 			strcpy(mac, nvram_safe_get("et0macaddr"));
 			inc_mac(mac, 2);
 			dirty |= check_nv("sb/1/macaddr", mac);
@@ -1268,6 +1273,9 @@ static void sysinit(void)
 	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
 	mkdir("/dev/shm", 0777);
 	mkdir("/dev/pts", 0777);
+	mknod("/dev/pts/ptmx", S_IRWXU|S_IFCHR, makedev(5, 2));
+	mknod("/dev/pts/0", S_IRWXU|S_IFCHR, makedev(136, 0));
+	mknod("/dev/pts/1", S_IRWXU|S_IFCHR, makedev(136, 1));
 	mount("devpts", "/dev/pts", "devpts", MS_MGC_VAL, NULL);
 #endif
 
@@ -1365,6 +1373,11 @@ static void sysinit(void)
 		modprobe("ctf");
 #endif
 
+#ifdef TCONFIG_EMF
+	modprobe("emf");
+	modprobe("igs");
+#endif
+
 	switch (hardware = check_hw_type()) {
 	case HW_BCM4785:
 		modprobe("bcm57xx");
@@ -1374,10 +1387,6 @@ static void sysinit(void)
 		break;
 	}
 
-#ifdef TCONFIG_EMF
-	modprobe("emf");
-	modprobe("igs");
-#endif
 	modprobe("wl");
 
 	config_loopback();
