@@ -569,8 +569,8 @@ static void check_bootnv(void)
 		}
 	case MODEL_E4200:
 		dirty |= check_nv("vlan2hwname", "et0");
-		if (invalid_mac(nvram_get("pci/1/1/macaddr")) == 0 ||
-		    invalid_mac(nvram_get("sb/1/macaddr"))) {
+		if (strncasecmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0 ||
+		    strncasecmp(nvram_safe_get("sb/1/macaddr"), "00:90:4c", 8) == 0) {
 			strcpy(mac, nvram_safe_get("et0macaddr"));
 			inc_mac(mac, 2);
 			dirty |= check_nv("sb/1/macaddr", mac);
