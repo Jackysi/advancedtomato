@@ -483,7 +483,7 @@ typedef struct {
 #define V_NUM				VT_RANGE,	{ .l = 0 },		{ .l = 0x7FFFFFFF }
 #define	V_TEMP				VT_TEMP,	{ }, 			{ }
 #ifdef TCONFIG_IPV6
-#define V_IPV6				VT_IPV6,	{ },			{ }
+#define V_IPV6(required)		VT_IPV6,	{ .i = required },	{ }
 #endif
 
 static const nvset_t nvset_list[] = {
@@ -590,16 +590,17 @@ static const nvset_t nvset_list[] = {
 
 #ifdef TCONFIG_IPV6
 // basic-ipv6
-	{ "ipv6_service",		V_LENGTH(0, 16)			},	// '', native, native-pd, sit, other
-	{ "ipv6_prefix",		V_IPV6				},
+	{ "ipv6_service",		V_LENGTH(0, 16)			},	// '', native, native-pd, 6to4, sit, other
+	{ "ipv6_prefix",		V_IPV6(0)			},
 	{ "ipv6_prefix_length",		V_RANGE(3, 127)			},
-	{ "ipv6_rtr_addr",		V_LENGTH(0, 40)			},
+	{ "ipv6_rtr_addr",		V_IPV6(0)			},
 	{ "ipv6_radvd",			V_01				},
 	{ "ipv6_accept_ra",		V_NUM				},
-	{ "ipv6_tun_addr",		V_IPV6				},
+	{ "ipv6_tun_addr",		V_IPV6(1)			},
 	{ "ipv6_tun_addrlen",		V_RANGE(3, 127)			},
 	{ "ipv6_ifname",		V_LENGTH(0, 8)			},
 	{ "ipv6_tun_v4end",		V_IP				},
+	{ "ipv6_relay",			V_RANGE(1, 254)			},
 	{ "ipv6_tun_mtu",		V_NUM				},	// Tunnel MTU
 	{ "ipv6_tun_ttl",		V_NUM				},	// Tunnel TTL
 	{ "ipv6_dns",			V_LENGTH(0, 40*3)		},	// ip6 ip6 ip6
@@ -1155,7 +1156,9 @@ static int webcgi_nvram_set(const nvset_t *v, const char *name, int write)
 		break;
 #ifdef TCONFIG_IPV6
 	case VT_IPV6:
-		if (inet_pton(AF_INET6, p, &addr) != 1) ok = 0;
+		if (strlen(p) > 0 || v->va.i) {
+			if (inet_pton(AF_INET6, p, &addr) != 1) ok = 0;
+		}
 		break;
 #endif
 	default:

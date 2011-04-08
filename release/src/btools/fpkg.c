@@ -2,6 +2,7 @@
 
 	fpkg - Package a firmware
 	Copyright (C) 2007 Jonathan Zarate
+	Portions Copyright (C) 2010 Fedor Kozhevnikov
 
 	This program is free software; you can redistribute it and/or
 	modify it under the terms of the GNU General Public License
@@ -49,6 +50,7 @@ char names[TRX_MAX_OFFSET][80];
 char trx_version = 1;
 int trx_max_offset = 3;
 
+uint32_t trx_magic = TRX_MAGIC;
 
 typedef struct {
 	uint32_t crc32;
@@ -138,6 +140,12 @@ void help(void)
 		"   0x10577000 WE800\n"
 		"   0x10577040 WA840\n"
 		"   0x10577050 WR850\n"
+		" Belkin:         -b <id>,<output file>\n"
+		"   0x20100322 F7D3301 (Share Max)\n"
+		"   0x20090928 F7D3302 (Share)\n"
+		"   0x20091006 F7D4302 (Play)\n"
+		"   0x00017116 F5D8235 v3\n"
+		"   0x12345678 QA (QA firmware)\n"
 		"\n"
 	);
 	exit(1);
@@ -264,7 +272,7 @@ void finalize_trx(void)
 	len = trx->length;
 
 	trx->length = ROUNDUP(len, 4096);
-	trx->magic = TRX_MAGIC;
+	trx->magic = trx_magic;
 	trx->flag_version = trx_version << 16;
 	trx->crc32 = crc_calc(0xFFFFFFFF, (void *)&trx->flag_version,
 		trx->length - (sizeof(*trx) - (sizeof(trx->flag_version) + sizeof(trx->offsets))));
@@ -355,7 +363,7 @@ void create_moto(const char *fname, const char *signature)
 int main(int argc, char **argv)
 {
 	char s[256];
-	char *p;
+	char *p, *e;
 	int o;
 	unsigned l, j;
 
@@ -367,7 +375,7 @@ int main(int argc, char **argv)
 	}
 	trx->length = trx_header_size();
 
-	while ((o = getopt(argc, argv, "v:i:a:t:l:m:")) != -1) {
+	while ((o = getopt(argc, argv, "v:i:a:t:l:m:b:")) != -1) {
 		switch (o) {
 		case 'v':
 			set_trx_version(optarg);
@@ -377,6 +385,17 @@ int main(int argc, char **argv)
 			break;
 		case 'a':
 			align_trx(optarg);
+			break;
+		case 'b':
+			if (strlen(optarg) >= sizeof(s)) help();
+			strcpy(s, optarg);
+			if ((p = strchr(s, ',')) == NULL) help();
+			*p = 0;
+			++p;
+			trx_magic = strtoul(s, &e, 0);
+			if (*e != 0) help();
+			create_trx(p);
+			trx_magic = TRX_MAGIC;
 			break;
 		case 't':
 			create_trx(optarg);

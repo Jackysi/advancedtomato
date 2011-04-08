@@ -28,12 +28,12 @@
 #endif
 
 /****************************************************************************/
-static int set_addr(struct sk_buff **pskb,
+static int set_addr(struct sk_buff *skb,
 		    unsigned char **data, int dataoff,
 		    unsigned int addroff, __be32 ip, __be16 port)
 {
 	enum ip_conntrack_info ctinfo;
-	struct nf_conn *ct = nf_ct_get(*pskb, &ctinfo);
+	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
 	struct {
 		__be32 ip;
 		__be16 port;
@@ -44,8 +44,8 @@ static int set_addr(struct sk_buff **pskb,
 	buf.port = port;
 	addroff += dataoff;
 
-	if (ip_hdr(*pskb)->protocol == IPPROTO_TCP) {
-		if (!nf_nat_mangle_tcp_packet(pskb, ct, ctinfo,
+	if (ip_hdr(skb)->protocol == IPPROTO_TCP) {
+		if (!nf_nat_mangle_tcp_packet(skb, ct, ctinfo,
 					      addroff, sizeof(buf),
 					      (char *) &buf, sizeof(buf))) {
 			if (net_ratelimit())
@@ -55,14 +55,13 @@ static int set_addr(struct sk_buff **pskb,
 		}
 
 		/* Relocate data pointer */
-		th = skb_header_pointer(*pskb, ip_hdrlen(*pskb),
+		th = skb_header_pointer(skb, ip_hdrlen(skb),
 					sizeof(_tcph), &_tcph);
 		if (th == NULL)
 			return -1;
-		*data = (*pskb)->data + ip_hdrlen(*pskb) +
-		    th->doff * 4 + dataoff;
+		*data = skb->data + ip_hdrlen(skb) + th->doff * 4 + dataoff;
 	} else {
-		if (!nf_nat_mangle_udp_packet(pskb, ct, ctinfo,
+		if (!nf_nat_mangle_udp_packet(skb, ct, ctinfo,
 					      addroff, sizeof(buf),
 					      (char *) &buf, sizeof(buf))) {
 			if (net_ratelimit())
@@ -73,36 +72,35 @@ static int set_addr(struct sk_buff **pskb,
 		/* nf_nat_mangle_udp_packet uses skb_make_writable() to copy
 		 * or pull everything in a linear buffer, so we can safely
 		 * use the skb pointers now */
-		*data = ((*pskb)->data + ip_hdrlen(*pskb) +
-			 sizeof(struct udphdr));
+		*data = skb->data + ip_hdrlen(skb) + sizeof(struct udphdr);
 	}
 
 	return 0;
 }
 
 /****************************************************************************/
-static int set_h225_addr(struct sk_buff **pskb,
+static int set_h225_addr(struct sk_buff *skb,
 			 unsigned char **data, int dataoff,
 			 TransportAddress *taddr,
 			 union nf_inet_addr *addr, __be16 port)
 {
-	return set_addr(pskb, data, dataoff, taddr->ipAddress.ip,
+	return set_addr(skb, data, dataoff, taddr->ipAddress.ip,
 			addr->ip, port);
 }
 
 /****************************************************************************/
-static int set_h245_addr(struct sk_buff **pskb,
+static int set_h245_addr(struct sk_buff *skb,
 			 unsigned char **data, int dataoff,
 			 H245_TransportAddress *taddr,
 			 union nf_inet_addr *addr, __be16 port)
 {
-	return set_addr(pskb, data, dataoff,
+	return set_addr(skb, data, dataoff,
 			taddr->unicastAddress.iPAddress.network,
 			addr->ip, port);
 }
 
 /****************************************************************************/
-static int set_sig_addr(struct sk_buff **pskb, struct nf_conn *ct,
+static int set_sig_addr(struct sk_buff *skb, struct nf_conn *ct,
 			enum ip_conntrack_info ctinfo,
 			unsigned char **data,
 			TransportAddress *taddr, int count)
@@ -132,7 +130,7 @@ static int set_sig_addr(struct sk_buff **pskb, struct nf_conn *ct,
 				     NIPQUAD(ip), port,
 				     NIPQUAD(ct->tuplehash[!dir].tuple.dst.
 					     ip), info->sig_port[!dir]);
-				return set_h225_addr(pskb, data, 0, &taddr[i],
+				return set_h225_addr(skb, data, 0, &taddr[i],
 						     &ct->tuplehash[!dir].
 						     tuple.dst.u3,
 						     info->sig_port[!dir]);
@@ -145,7 +143,7 @@ static int set_sig_addr(struct sk_buff **pskb, struct nf_conn *ct,
 				     NIPQUAD(ip), port,
 				     NIPQUAD(ct->tuplehash[!dir].tuple.src.
 					     ip), info->sig_port[!dir]);
-				return set_h225_addr(pskb, data, 0, &taddr[i],
+				return set_h225_addr(skb, data, 0, &taddr[i],
 						     &ct->tuplehash[!dir].
 						     tuple.src.u3,
 						     info->sig_port[!dir]);
@@ -157,7 +155,7 @@ static int set_sig_addr(struct sk_buff **pskb, struct nf_conn *ct,
 }
 
 /****************************************************************************/
-static int set_ras_addr(struct sk_buff **pskb, struct nf_conn *ct,
+static int set_ras_addr(struct sk_buff *skb, struct nf_conn *ct,
 			enum ip_conntrack_info ctinfo,
 			unsigned char **data,
 			TransportAddress *taddr, int count)
@@ -177,7 +175,7 @@ static int set_ras_addr(struct sk_buff **pskb, struct nf_conn *ct,
 			       NIPQUAD(ct->tuplehash[!dir].tuple.dst.u3.ip),
 			       ntohs(ct->tuplehash[!dir].tuple.dst.u.udp.
 				     port));
-			return set_h225_addr(pskb, data, 0, &taddr[i],
+			return set_h225_addr(skb, data, 0, &taddr[i],
 					     &ct->tuplehash[!dir].tuple.dst.u3,
 					     ct->tuplehash[!dir].tuple.
 								dst.u.udp.port);
@@ -188,7 +186,7 @@ static int set_ras_addr(struct sk_buff **pskb, struct nf_conn *ct,
 }
 
 /****************************************************************************/
-static int nat_rtp_rtcp(struct sk_buff **pskb, struct nf_conn *ct,
+static int nat_rtp_rtcp(struct sk_buff *skb, struct nf_conn *ct,
 			enum ip_conntrack_info ctinfo,
 			unsigned char **data, int dataoff,
 			H245_TransportAddress *taddr,
@@ -253,7 +251,7 @@ static int nat_rtp_rtcp(struct sk_buff **pskb, struct nf_conn *ct,
 	}
 
 	/* Modify signal */
-	if (set_h245_addr(pskb, data, dataoff, taddr,
+	if (set_h245_addr(skb, data, dataoff, taddr,
 			  &ct->tuplehash[!dir].tuple.dst.u3,
 			  htons((port & htons(1)) ? nated_port + 1 :
 						    nated_port)) == 0) {
@@ -282,7 +280,7 @@ static int nat_rtp_rtcp(struct sk_buff **pskb, struct nf_conn *ct,
 }
 
 /****************************************************************************/
-static int nat_t120(struct sk_buff **pskb, struct nf_conn *ct,
+static int nat_t120(struct sk_buff *skb, struct nf_conn *ct,
 		    enum ip_conntrack_info ctinfo,
 		    unsigned char **data, int dataoff,
 		    H245_TransportAddress *taddr, __be16 port,
@@ -310,7 +308,7 @@ static int nat_t120(struct sk_buff **pskb, struct nf_conn *ct,
 	}
 
 	/* Modify signal */
-	if (set_h245_addr(pskb, data, dataoff, taddr,
+	if (set_h245_addr(skb, data, dataoff, taddr,
 			  &ct->tuplehash[!dir].tuple.dst.u3,
 			  htons(nated_port)) < 0) {
 		nf_conntrack_unexpect_related(exp);
@@ -325,7 +323,7 @@ static int nat_t120(struct sk_buff **pskb, struct nf_conn *ct,
 }
 
 /****************************************************************************/
-static int nat_h245(struct sk_buff **pskb, struct nf_conn *ct,
+static int nat_h245(struct sk_buff *skb, struct nf_conn *ct,
 		    enum ip_conntrack_info ctinfo,
 		    unsigned char **data, int dataoff,
 		    TransportAddress *taddr, __be16 port,
@@ -358,7 +356,7 @@ static int nat_h245(struct sk_buff **pskb, struct nf_conn *ct,
 	}
 
 	/* Modify signal */
-	if (set_h225_addr(pskb, data, dataoff, taddr,
+	if (set_h225_addr(skb, data, dataoff, taddr,
 			  &ct->tuplehash[!dir].tuple.dst.u3,
 			  htons(nated_port)) == 0) {
 		/* Save ports */
@@ -411,7 +409,7 @@ static void ip_nat_q931_expect(struct nf_conn *new,
 }
 
 /****************************************************************************/
-static int nat_q931(struct sk_buff **pskb, struct nf_conn *ct,
+static int nat_q931(struct sk_buff *skb, struct nf_conn *ct,
 		    enum ip_conntrack_info ctinfo,
 		    unsigned char **data, TransportAddress *taddr, int idx,
 		    __be16 port, struct nf_conntrack_expect *exp)
@@ -444,7 +442,7 @@ static int nat_q931(struct sk_buff **pskb, struct nf_conn *ct,
 	}
 
 	/* Modify signal */
-	if (set_h225_addr(pskb, data, 0, &taddr[idx],
+	if (set_h225_addr(skb, data, 0, &taddr[idx],
 			  &ct->tuplehash[!dir].tuple.dst.u3,
 			  htons(nated_port)) == 0) {
 		/* Save ports */
@@ -455,7 +453,7 @@ static int nat_q931(struct sk_buff **pskb, struct nf_conn *ct,
 		if (idx > 0 &&
 		    get_h225_addr(ct, *data, &taddr[0], &addr, &port) &&
 		    (ntohl(addr.ip) & 0xff000000) == 0x7f000000) {
-			set_h225_addr(pskb, data, 0, &taddr[0],
+			set_h225_addr(skb, data, 0, &taddr[0],
 				      &ct->tuplehash[!dir].tuple.dst.u3,
 				      info->sig_port[!dir]);
 		}
@@ -498,7 +496,7 @@ static void ip_nat_callforwarding_expect(struct nf_conn *new,
 }
 
 /****************************************************************************/
-static int nat_callforwarding(struct sk_buff **pskb, struct nf_conn *ct,
+static int nat_callforwarding(struct sk_buff *skb, struct nf_conn *ct,
 			      enum ip_conntrack_info ctinfo,
 			      unsigned char **data, int dataoff,
 			      TransportAddress *taddr, __be16 port,
@@ -528,7 +526,7 @@ static int nat_callforwarding(struct sk_buff **pskb, struct nf_conn *ct,
 	}
 
 	/* Modify signal */
-	if (!set_h225_addr(pskb, data, dataoff, taddr,
+	if (!set_h225_addr(skb, data, dataoff, taddr,
 			   &ct->tuplehash[!dir].tuple.dst.u3,
 			   htons(nated_port)) == 0) {
 		nf_conntrack_unexpect_related(exp);

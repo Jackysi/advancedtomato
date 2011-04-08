@@ -1,10 +1,11 @@
 /*
   Mode switching tool for controlling flip flop (multiple device) USB gear
-  Version 1.1.6, 2010/12/22
+  Version 1.1.7, 2011/02/27
 
-  Copyright (C) 2007, 2008, 2009, 2010 Josua Dietze (mail to "usb_admin" at the
-  domain from the README; please do not post the complete address to the Net!
-  Or write a personal message through the forum to "Josh")
+  Copyright (C) 2007 - 2011 Josua Dietze (mail to "usb_admin" at the domain
+  from the README; please do not post the complete address to the Internet!
+  Or write a personal message through the forum to "Josh". NO SUPPORT VIA
+  E-MAIL - please use the forum for that)
 
   Command line parsing, decent usage/config output/handling, bugfixes and advanced
   options added by:
@@ -958,13 +959,18 @@ skip:
 	return 2;
 }
 
+#define SWITCH_CONFIG_MAXTRIES   5
 
 int switchConfiguration ()
 {
+	int count = SWITCH_CONFIG_MAXTRIES; 
 	int ret;
 
 	SHOW_PROGRESS("Changing configuration to %i ...\n", Configuration);
-	ret = usb_set_configuration(devh, Configuration);
+	while (((ret = usb_set_configuration(devh, Configuration)) < 0) && --count) { 
+		SHOW_PROGRESS(" Device is busy, trying to detach kernel driver\n"); 
+		detachDriver(); 
+	} 
 	if (ret == 0 ) {
 		SHOW_PROGRESS(" OK, configuration set\n");
 		return 1;

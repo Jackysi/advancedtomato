@@ -638,6 +638,8 @@ void start_wan(int mode)
 
 	ifconfig(wan_ifname, IFUP, NULL, NULL);
 
+	start_firewall();
+
 	set_host_domain_name();
 
 	switch (wan_proto) {
@@ -652,6 +654,7 @@ void start_wan(int mode)
 			start_dhcpc();
 		}
 		else if (wan_proto != WP_DHCP) {
+			ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
 			ifconfig(wan_ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
 
 			p = nvram_safe_get("wan_gateway");
@@ -703,26 +706,42 @@ void start_wan(int mode)
 #ifdef TCONFIG_IPV6
 void start_wan6_done(const char *wan_ifname)
 {
-	int service;
+	struct in_addr addr4;
+	struct in6_addr addr;
+	static char addr6[INET6_ADDRSTRLEN];
 
-	switch ((service = get_ipv6_service())) {
+	int service = get_ipv6_service();
+
+	if (service != IPV6_DISABLED) {
+		if ((nvram_get_int("ipv6_accept_ra") & 1) != 0)
+			accept_ra(wan_ifname);
+	}
+
+	switch (service) {
 	case IPV6_NATIVE:
-		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname);
+		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname, "metric", "2048");
 		break;
 	case IPV6_NATIVE_DHCP:
 		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname);
 		stop_dhcp6c();
 		start_dhcp6c();
 		break;
+	case IPV6_ANYCAST_6TO4:
+		addr4.s_addr = 0;
+		memset(&addr, 0, sizeof(addr));
+		inet_aton(get_wanip(), &addr4);
+		addr.s6_addr16[0] = htons(0x2002);
+		ipv6_mapaddr4(&addr, 16, &addr4, 0);
+		addr.s6_addr16[3] = htons(0x0001);
+		inet_ntop(AF_INET6, &addr, addr6, sizeof(addr6));
+		nvram_set("ipv6_prefix", addr6);
+		// fall through
 	case IPV6_6IN4:
-		stop_ipv6_sit_tunnel();
-		start_ipv6_sit_tunnel();
+		stop_ipv6_tunnel();
+		start_ipv6_tunnel();
+		// FIXME: give it a few seconds for DAD completion
+		sleep(2);
 		break;
-	}
-
-	if (service != IPV6_DISABLED) {
-		if ((nvram_get_int("ipv6_accept_ra") & 1) != 0)
-			accept_ra(wan_ifname);
 	}
 }
 #endif
@@ -834,17 +853,16 @@ void start_wan_done(char *wan_ifname)
 	start_wan6_done(get_wan6face());
 #endif
 
-	// restart httpd
-	stop_httpd();
-	start_httpd();
-
 	stop_upnp();
 	start_upnp();
+
+	// restart httpd
+	start_httpd();
 
 	if (wanup) {
 		SET_LED(GOT_IP);
 		notice_set("wan", "");
-		
+
 		run_nvscript("script_wanup", NULL, 0);
 	}
 
@@ -878,7 +896,7 @@ void stop_wan(void)
 	stop_ntpc();
 
 #ifdef TCONFIG_IPV6
-	stop_ipv6_sit_tunnel();
+	stop_ipv6_tunnel();
 	stop_dhcp6c();
 	nvram_set("ipv6_get_dns", "");
 #endif

@@ -8,6 +8,7 @@
 #include "tomato.h"
 
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 
 /*
 #include <fcntl.h>
@@ -113,6 +114,8 @@ void asp_netdev(int argc, char **argv)
 	char *ifname;
 	char comma;
 	char *exclude;
+	int sfd;
+	struct ifreq ifr;
 
 	exclude = nvram_safe_get("rstats_exclude");
 	web_puts("\n\nnetdev={");
@@ -120,6 +123,11 @@ void asp_netdev(int argc, char **argv)
 		fgets(buf, sizeof(buf), f);	// header
 		fgets(buf, sizeof(buf), f);	// "
 		comma = ' ';
+
+		if ((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
+			_dprintf("[%s %d]: error opening socket %m\n", __FUNCTION__, __LINE__);
+		}
+
 		while (fgets(buf, sizeof(buf), f)) {
 			if ((p = strchr(buf, ':')) == NULL) continue;
 			*p = 0;
@@ -127,6 +135,13 @@ void asp_netdev(int argc, char **argv)
 				else ++ifname;
 //			if (strncmp(ifname, "ppp", 3) == 0) ifname = "ppp";
 			if ((strcmp(ifname, "lo") == 0) || (find_word(exclude, ifname))) continue;
+
+			// skip down interfaces
+			if (sfd >= 0) {
+				strcpy(ifr.ifr_name, ifname);
+				if (ioctl(sfd, SIOCGIFFLAGS, &ifr) != 0) continue;
+				if ((ifr.ifr_flags & IFF_UP) == 0) continue;
+			}
 
 			// <rx bytes, packets, errors, dropped, fifo errors, frame errors, compressed, multicast><tx ...>
 			if (sscanf(p + 1, "%lu%*u%*u%*u%*u%*u%*u%*u%lu", &rx, &tx) != 2) continue;
@@ -139,6 +154,8 @@ void asp_netdev(int argc, char **argv)
 				
 			comma = ',';
 		}
+
+		if (sfd >= 0) close(sfd);
 		fclose(f);
 	}
 	web_puts("};\n");

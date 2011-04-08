@@ -1,0 +1,14 @@
+######################################################## 
+# Huawei ET8282 
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x1da1
+
+TargetClass=0xff
+
+DefaultVendor= 0x12d1
+TargetProduct= 0x1d09
+HuaweiMode=1
+
+CheckSuccess=20
+

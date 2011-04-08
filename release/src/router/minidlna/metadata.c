@@ -795,7 +795,7 @@ GetVideoMetadata(const char * path, char * name)
 				break;
 		}
 		asprintf(&m.frequency, "%u", ctx->streams[audio_stream]->codec->sample_rate);
-		#if LIBAVCODEC_VERSION_INT < ((52<<16)+(0<<8)+0)
+		#if LIBAVCODEC_VERSION_INT < (52<<16)
 		asprintf(&m.bps, "%u", ctx->streams[audio_stream]->codec->bits_per_sample);
 		#else
 		asprintf(&m.bps, "%u", ctx->streams[audio_stream]->codec->bits_per_coded_sample);
@@ -1075,29 +1075,37 @@ GetVideoMetadata(const char * path, char * name)
 								m.dlna_pn = NULL;
 								break;
 							}
-							switch( audio_profile )
+							if( audio_profile == PROFILE_AUDIO_AMR )
 							{
-								case PROFILE_AUDIO_AMR:
-									off += sprintf(m.dlna_pn+off, "AMR");
-									break;
-								case PROFILE_AUDIO_AAC:
-									off += sprintf(m.dlna_pn+off, "AAC_");
-									if( ctx->bit_rate < 540000 )
-									{
-										off += sprintf(m.dlna_pn+off, "540");
-										break;
-									}
-									else if( ctx->bit_rate < 940000 )
-									{
-										off += sprintf(m.dlna_pn+off, "940");
-										break;
-									}
-								default:
+								off += sprintf(m.dlna_pn+off, "AMR");
+							}
+							else if( audio_profile == PROFILE_AUDIO_AAC )
+							{
+								off += sprintf(m.dlna_pn+off, "AAC_");
+								if( ctx->bit_rate < 540000 )
+								{
+									off += sprintf(m.dlna_pn+off, "540");
+								}
+								else if( ctx->bit_rate < 940000 )
+								{
+									off += sprintf(m.dlna_pn+off, "940");
+								}
+								else
+								{
 									DPRINTF(E_DEBUG, L_METADATA, "No DLNA profile found for %s file %s\n",
 										m.dlna_pn, basename(path));
 									free(m.dlna_pn);
 									m.dlna_pn = NULL;
 									break;
+								}
+							}
+							else
+							{
+								DPRINTF(E_DEBUG, L_METADATA, "No DLNA profile found for %s file %s\n",
+									m.dlna_pn, basename(path));
+								free(m.dlna_pn);
+								m.dlna_pn = NULL;
+								break;
 							}
 						}
 						else if( ctx->streams[video_stream]->codec->width  <= 720 &&
@@ -1195,6 +1203,11 @@ GetVideoMetadata(const char * path, char * name)
 						m.dlna_pn = NULL;
 						break;
 					}
+				}
+				else
+				{
+					free(m.dlna_pn);
+					m.dlna_pn = NULL;
 				}
 				if( m.dlna_pn )
 					sprintf(m.dlna_pn+off, ";%s", dlna_no_conv);
@@ -1426,6 +1439,29 @@ GetVideoMetadata(const char * path, char * name)
 			}
 		}
 	}
+	#if LIBAVFORMAT_VERSION_INT >= ((52<<16)+(31<<8)+0)
+	else if( strcmp(ctx->iformat->name, "mov,mp4,m4a,3gp,3g2,mj2") == 0 )
+	{
+		if( ctx->metadata )
+		{
+			AVMetadataTag *tag = NULL;
+
+			//DEBUG DPRINTF(E_DEBUG, L_METADATA, "Metadata:\n");
+			while( (tag = av_metadata_get(ctx->metadata, "", tag, AV_METADATA_IGNORE_SUFFIX)) )
+			{
+				//DEBUG DPRINTF(E_DEBUG, L_METADATA, "  %-16s: %s\n", tag->key, tag->value);
+				if( strcmp(tag->key, "title") == 0 )
+					m.title = strdup(trim(tag->value));
+				else if( strcmp(tag->key, "genre") == 0 )
+					m.genre = strdup(trim(tag->value));
+				else if( strcmp(tag->key, "artist") == 0 )
+					m.artist = strdup(trim(tag->value));
+				else if( strcmp(tag->key, "comment") == 0 )
+					m.comment = strdup(trim(tag->value));
+			}
+		}
+	}
+	#endif
 video_no_dlna:
 	av_close_input_file(ctx);
 

@@ -1,6 +1,6 @@
 /* types.h
  *
- * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -154,6 +154,13 @@ enum {
        CTaoCrypt only */
     #define XSTRSTR(s1,s2)    strstr((s1),(s2))
     #define XSTRNCMP(s1,s2,n) strncmp((s1),(s2),(n))
+#endif
+
+#ifdef HAVE_ECC
+    #ifndef CTYPE_USER
+        #include <ctype.h>
+        #define XTOUPPER(c)     toupper((c))
+    #endif
 #endif
 
 

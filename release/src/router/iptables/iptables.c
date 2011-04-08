@@ -850,6 +850,9 @@ parse_protocol(const char *s)
 			for (i = 0;
 			     i < sizeof(chain_protos)/sizeof(struct pprot);
 			     i++) {
+				if (chain_protos[i].name == NULL)
+					continue;
+
 				if (strcmp(s, chain_protos[i].name) == 0) {
 					proto = chain_protos[i].num;
 					break;
@@ -1129,6 +1132,9 @@ merge_options(struct option *oldopts, const struct option *newopts,
 {
 	unsigned int num_old, num_new, i;
 	struct option *merge;
+
+	if (newopts == NULL)
+		return oldopts;
 
 	for (num_old = 0; oldopts[num_old].name; num_old++);
 	for (num_new = 0; newopts[num_new].name; num_new++);
@@ -1610,7 +1616,8 @@ insert_entry(const ipt_chainlabel chain,
 }
 
 static unsigned char *
-make_delete_mask(struct ipt_entry *fw, struct iptables_rule_match *matches)
+make_delete_mask(struct ipt_entry *fw, struct iptables_rule_match *matches,
+		 const struct iptables_target *target)
 {
 	/* Establish mask for comparison */
 	unsigned int size;
@@ -1623,7 +1630,7 @@ make_delete_mask(struct ipt_entry *fw, struct iptables_rule_match *matches)
 
 	mask = fw_calloc(1, size
 			 + IPT_ALIGN(sizeof(struct ipt_entry_target))
-			 + iptables_targets->size);
+			 + target->size);
 
 	memset(mask, 0xFF, sizeof(struct ipt_entry));
 	mptr = mask + sizeof(struct ipt_entry);
@@ -1637,7 +1644,7 @@ make_delete_mask(struct ipt_entry *fw, struct iptables_rule_match *matches)
 
 	memset(mptr, 0xFF,
 	       IPT_ALIGN(sizeof(struct ipt_entry_target))
-	       + iptables_targets->userspacesize);
+	       + target->userspacesize);
 
 	return mask;
 }
@@ -1651,13 +1658,14 @@ delete_entry(const ipt_chainlabel chain,
 	     const struct in_addr daddrs[],
 	     int verbose,
 	     iptc_handle_t *handle,
-	     struct iptables_rule_match *matches)
+	     struct iptables_rule_match *matches,
+	     const struct iptables_target *target)
 {
 	unsigned int i, j;
 	int ret = 1;
 	unsigned char *mask;
 
-	mask = make_delete_mask(fw, matches);
+	mask = make_delete_mask(fw, matches, target);
 	for (i = 0; i < nsaddrs; i++) {
 		fw->ip.src.s_addr = saddrs[i].s_addr;
 		for (j = 0; j < ndaddrs; j++) {
@@ -1981,6 +1989,7 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 	const char *jumpto = "";
 	char *protocol = NULL;
 	int proto_used = 0;
+	unsigned long long cnt;
 
 	memset(&fw, 0, sizeof(fw));
 
@@ -2200,7 +2209,12 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 					     target->revision);
 				if (target->init != NULL)
 					target->init(target->t, &fw.nfcache);
-				opts = merge_options(opts, target->extra_opts, &target->option_offset);
+				opts = merge_options(opts,
+						     target->extra_opts,
+						     &target->option_offset);
+				if (opts == NULL)
+					exit_error(OTHER_PROBLEM,
+						   "can't alloc memory!");
 			}
 			break;
 
@@ -2267,7 +2281,7 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 			if (invert)
 				exit_error(PARAMETER_PROBLEM,
 					   "unexpected ! flag before --table");
-			*table = argv[optind-1];
+			*table = optarg;
 			break;
 
 		case 'x':
@@ -2305,16 +2319,18 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 					"-%c requires packet and byte counter",
 					opt2char(OPT_COUNTERS));
 
-			if (sscanf(pcnt, "%llu", (unsigned long long *)&fw.counters.pcnt) != 1)
+			if (sscanf(pcnt, "%llu", (unsigned long long *)&cnt) != 1)
 				exit_error(PARAMETER_PROBLEM,
 					"-%c packet counter not numeric",
 					opt2char(OPT_COUNTERS));
+			fw.counters.pcnt = cnt;
 
-			if (sscanf(bcnt, "%llu", (unsigned long long *)&fw.counters.bcnt) != 1)
+			if (sscanf(bcnt, "%llu", (unsigned long long *)&cnt) != 1)
 				exit_error(PARAMETER_PROBLEM,
 					"-%c byte counter not numeric",
 					opt2char(OPT_COUNTERS));
-			
+			fw.counters.bcnt = cnt;
+
 			break;
 
 
@@ -2332,13 +2348,19 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 			exit_tryhelp(2);
 
 		default:
-			if (!target
-			    || !(target->parse(c - target->option_offset,
+			if (target == NULL || target->parse == NULL ||
+			    c < target->option_offset ||
+			    c >= target->option_offset + OPTION_OFFSET ||
+			    !(target->parse(c - target->option_offset,
 					       argv, invert,
 					       &target->tflags,
 					       &fw, &target->t))) {
 				for (matchp = matches; matchp; matchp = matchp->next) {
-					if (matchp->completed) 
+					if (matchp->completed ||
+					    matchp->match->parse == NULL)
+						continue;
+					if (c < matchp->match->option_offset ||
+					    c >= matchp->match->option_offset + OPTION_OFFSET)
 						continue;
 					if (matchp->match->parse(c - matchp->match->option_offset,
 						     argv, invert,
@@ -2407,8 +2429,7 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 				}
 				if (!m)
 					exit_error(PARAMETER_PROBLEM,
-						   "Unknown arg `%s'",
-						   argv[optind-1]);
+						   "Unknown arg `%s'", optarg);
 			}
 		}
 		invert = FALSE;
@@ -2559,7 +2580,7 @@ int do_command(int argc, char *argv[], char **table, iptc_handle_t *handle)
 		ret = delete_entry(chain, e,
 				   nsaddrs, saddrs, ndaddrs, daddrs,
 				   options&OPT_VERBOSE,
-				   handle, matches);
+				   handle, matches, target);
 		break;
 	case CMD_DELETE_NUM:
 		ret = iptc_delete_num_entry(chain, rulenum - 1, handle);

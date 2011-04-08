@@ -22,6 +22,12 @@
 #define TRX_MAX_OFFSET	3		/* Max number of individual files */
 #define TRX_UNCOMP_IMAGE	0x20	/* Trx contains uncompressed rtecdc.bin image */
 
+#define TRX_MAGIC_F7D3301	0x20100322	/* Belkin Share Max */
+#define TRX_MAGIC_F7D3302	0x20090928	/* Belkin Share */
+#define TRX_MAGIC_F7D4302	0x20091006	/* Belkin Play */
+#define TRX_MAGIC_F5D8235V3	0x00017116	/* Belkin F5D8235V3 */
+#define TRX_MAGIC_QA		0x12345678	/* QA firmware */
+
 struct trx_header {
 	uint32 magic;		/* "HDR0" */
 	uint32 len;		/* Length of file including header */

@@ -64,7 +64,7 @@ typedef u_int8_t u8;
 #ifndef WL_BSS_INFO_VERSION
 #error WL_BSS_INFO_VERSION
 #endif
-#if WL_BSS_INFO_VERSION == 108
+#if WL_BSS_INFO_VERSION >= 108
 #include <etioctl.h>
 #else
 #include <etsockio.h>

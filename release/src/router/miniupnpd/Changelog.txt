@@ -1,4 +1,21 @@
-$Id: Changelog.txt,v 1.206 2011/02/20 23:39:42 nanard Exp $
+$Id: Changelog.txt,v 1.211 2011/03/09 15:27:41 nanard Exp $
+
+2011/03/09:
+  Some modifications thanks to Daniel Dickinson to improve OpenWRT
+  build.
+  Fixed some warnings.
+
+2011/03/03:
+  Added code to generate devices/services descriptions for IGD v2
+  (to be continued)
+
+2011/03/02:
+  improved netfilter/delete_redirect_and_filter_rules() in order
+  to remove the right filter rule, even if it has another index than
+  the nat rule.
+
+2011/03/01:
+  clean up an fixes to make netfilter/testiptcrdr compile
 
 2011/02/21:
   Make "Makefile" work under Mac OS X with bsdmake.

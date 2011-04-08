@@ -996,17 +996,13 @@ static void match_packet(const unsigned char* payload, unsigned short payload_le
 	#else
 		static int
 	#endif
-	match4(		const struct sk_buff *skb,
+	match(		const struct sk_buff *skbin,
 			const struct net_device *in,
 			const struct net_device *out,
-			#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
-				const struct xt_match *match,
-			#endif
+			const struct xt_match *match,
 			const void *matchinfo,
 			int offset,
-			#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
-				unsigned int protoff,
-			#endif
+			unsigned int protoff,
 			#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
 				bool *hotdrop
 			#else
@@ -1014,115 +1010,61 @@ static void match_packet(const unsigned char* payload, unsigned short payload_le
 			#endif	
 			)
 #else
-	static bool match4(const struct sk_buff *skb, const struct xt_match_param *par)
+	static bool match(const struct sk_buff *skbin, const struct xt_match_param *par)
 #endif
 {
-	struct iphdr* iph;
+	/* sidestep const without getting a compiler warning... */
+	struct sk_buff *skb = (struct sk_buff *)skbin;
+
+	struct tcphdr *tcp_hdr;
+	const unsigned char *payload;
+	unsigned short payload_length;
 	union nf_inet_addr addr = {};
 
 	/* linearize skb if necessary */
-	struct sk_buff *linear_skb;
-	int skb_copied;
-	if(skb_is_nonlinear(skb))
+	if (skb_is_nonlinear(skb))
 	{
-		linear_skb = skb_copy(skb, GFP_ATOMIC);
-		skb_copied = 1;
+		if (unlikely(skb_linearize((struct sk_buff *)skb)))
+		{
+			if (net_ratelimit())
+				printk(KERN_ERR "webmon: failed to linearize packet, bailing.\n");
+			return 0;
+		}
 	}
-	else
-	{
-		linear_skb = (struct sk_buff*)skb;
-		skb_copied = 0;
-	}
-
-	iph = ip_hdr(skb);
-	{
-		/* get payload */
-		struct tcphdr* tcp_hdr		= (void *)iph + (iph->ihl * 4);
-		const unsigned char* payload	= (void *)tcp_hdr + (tcp_hdr->doff * 4);
-		unsigned short payload_length	= ntohs(iph->tot_len) - (payload - (unsigned char *)iph);
-
-		addr.ip = iph->saddr;
-		match_packet(payload, payload_length, &addr, AF_INET);
-	}
-
-	/* free skb if we made a copy to linearize it */
-	if(skb_copied == 1)
-	{
-		kfree_skb(linear_skb);
-	}
-
-	/* printk("returning %d from webmon\n\n\n", test); */
-	return 0;
-}
 
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
-	#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
-		static bool 
+	#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
+	if (match->family == AF_INET6)
 	#else
-		static int
+	if (par->match->family == AF_INET6)
 	#endif
-	match6(		const struct sk_buff *skb,
-			const struct net_device *in,
-			const struct net_device *out,
-			#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
-				const struct xt_match *match,
-			#endif
-			const void *matchinfo,
-			int offset,
-			#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
-				unsigned int protoff,
-			#endif
-			#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,23)
-				bool *hotdrop
-			#else
-				int *hotdrop
-			#endif	
-			)
-#else
-	static bool match6(const struct sk_buff *skb, const struct xt_match_param *par)
-#endif
-{
-	struct ipv6hdr* iph;
-	union nf_inet_addr addr = {};
+	{
+		struct ipv6hdr *iph = ipv6_hdr(skb);
 
-	/* linearize skb if necessary */
-	struct sk_buff *linear_skb;
-	int skb_copied;
-	if(skb_is_nonlinear(skb))
-	{
-		linear_skb = skb_copy(skb, GFP_ATOMIC);
-		skb_copied = 1;
-	}
-	else
-	{
-		linear_skb = (struct sk_buff*)skb;
-		skb_copied = 0;
-	}
-
-	iph = ipv6_hdr(skb);
-	{
 		/* get payload */
-		u8 nexthdr			= iph->nexthdr;
-		struct tcphdr* tcp_hdr		= (void *)iph + ipv6_skip_exthdr(skb, sizeof(*iph), &nexthdr);
-		const unsigned char* payload	= (void *)tcp_hdr + (tcp_hdr->doff*4);
-		unsigned short payload_length	= ntohs(iph->payload_len) - (payload - (unsigned char *)tcp_hdr);
+		u8 nexthdr = iph->nexthdr;
+		tcp_hdr = (void *)iph + ipv6_skip_exthdr(skb, sizeof(*iph), &nexthdr);
+		payload = (void *)tcp_hdr + (tcp_hdr->doff*4);
+		payload_length = ntohs(iph->payload_len) - (payload - (unsigned char *)tcp_hdr);
 
 		memcpy(&addr.in6, &iph->saddr, sizeof(addr.in6));
-		match_packet(payload, payload_length, &addr, AF_INET6);
 	}
-
-	/* free skb if we made a copy to linearize it */
-	if(skb_copied == 1)
+	else
+#endif
 	{
-		kfree_skb(linear_skb);
+		struct iphdr *iph = ip_hdr(skb);
+
+		/* get payload */
+		tcp_hdr = (void *)iph + (iph->ihl * 4);
+		payload = (void *)tcp_hdr + (tcp_hdr->doff * 4);
+		payload_length = ntohs(iph->tot_len) - (payload - (unsigned char *)iph);
+
+		addr.ip = iph->saddr;
 	}
 
+	match_packet(payload, payload_length, &addr, match->family);
 	return 0;
 }
-
-#endif	// IP6
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,28)
 	#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,23)
@@ -1131,18 +1073,11 @@ static void match_packet(const unsigned char* payload, unsigned short payload_le
 	static int
 	#endif
 	checkentry(	const char *tablename,
-	#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,18)
-				const void *ip,
-				const struct xt_match *match,
-	#else
-				const struct ipt_ip *ip,
-	#endif
-				void *matchinfo,
-	#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
-		    		unsigned int matchsize,
-	#endif
-				unsigned int hook_mask
-				)
+			const void *ip,
+			const struct xt_match *match,
+			void *matchinfo,
+			unsigned int hook_mask
+			)
 #else
 	static bool checkentry(const struct xt_mtchk_param *par)
 #endif
@@ -1153,8 +1088,6 @@ static void match_packet(const unsigned char* payload, unsigned short payload_le
 		struct xt_webmon_info *info = (struct xt_webmon_info*)(par->matchinfo);
 	#endif
 
-
-	
 	if(info->ref_count == NULL) /* first instance, we're inserting rule */
 	{
 		info->ref_count = (uint32_t*)kmalloc(sizeof(uint32_t), GFP_ATOMIC);
@@ -1205,7 +1138,7 @@ static void destroy(
 static struct xt_match webmon_match[] __read_mostly = {
 	{
 	.name		= "webmon",
-	.match		= match4,
+	.match		= match,
 	.family		= AF_INET,
 	.matchsize	= sizeof(struct xt_webmon_info),
 	.checkentry	= checkentry,
@@ -1216,7 +1149,7 @@ static struct xt_match webmon_match[] __read_mostly = {
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
 	{
 	.name		= "webmon",
-	.match		= match6,
+	.match		= match,
 	.family		= AF_INET6,
 	.matchsize	= sizeof(struct xt_webmon_info),
 	.checkentry	= checkentry,

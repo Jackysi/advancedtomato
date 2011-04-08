@@ -124,7 +124,7 @@ obj-$(TCONFIG_EMF) += emf
 obj-$(TCONFIG_EMF) += igs
 
 obj-$(CONFIG_LINUX26) += hotplug2
-obj-$(CONFIG_LINUX26) += udev
+obj-$(CONFIG_LINUX26) += udevtrigger
 
 ifeq ($(TCONFIG_OPENVPN),y)
   export FULL_OPENSSL := y
@@ -183,17 +183,21 @@ install package: $(obj-install) $(LINUXDIR)/.config
 
 
 # kernel modules
-	$(MAKE) -C $(LINUXDIR) modules_install DEPMOD=/bin/true INSTALL_MOD_PATH=$(TARGETDIR)
+	$(MAKE) -C $(LINUXDIR) modules_install \
+	INSTALL_MOD_STRIP="--strip-debug -x -R .comment -R .note -R .pdr -R .mdebug.abi32 -R .note.gnu.build-id -R .gnu.attributes -R .reginfo" \
+	DEPMOD=/bin/true INSTALL_MOD_PATH=$(TARGETDIR)
 
-	find $(TARGETDIR)/lib/modules -name wl.*o -exec $(STRIP) --strip-unneeded {} \;
-	find $(TARGETDIR)/lib/modules -name et.*o -exec $(STRIP) --strip-unneeded {} \;
-	find $(TARGETDIR)/lib/modules -name bcm57*.*o -exec $(STRIP) --strip-unneeded {} \;
-	find $(TARGETDIR)/lib/modules -name ctf.*o -exec $(STRIP) --strip-unneeded {} \;
-	find $(TARGETDIR)/lib/modules -name emf.*o -exec $(STRIP) --strip-unneeded {} \;
-	find $(TARGETDIR)/lib/modules -name igs.*o -exec $(STRIP) --strip-unneeded {} \;
-	find $(TARGETDIR)/lib/modules -name jffs*.*o -exec $(STRIP) --strip-unneeded {} \;
+ifneq ($(CONFIG_LINUX26),y)
+	find $(TARGETDIR)/lib/modules -name wl.*o -exec $(STRIP) --strip-unneeded -x {} \;
+	find $(TARGETDIR)/lib/modules -name et.*o -exec $(STRIP) --strip-unneeded -x {} \;
+	find $(TARGETDIR)/lib/modules -name bcm57*.*o -exec $(STRIP) --strip-unneeded -x {} \;
+	find $(TARGETDIR)/lib/modules -name ctf.*o -exec $(STRIP) --strip-unneeded -x {} \;
+	find $(TARGETDIR)/lib/modules -name emf.*o -exec $(STRIP) --strip-unneeded -x {} \;
+	find $(TARGETDIR)/lib/modules -name igs.*o -exec $(STRIP) --strip-unneeded -x {} \;
+	find $(TARGETDIR)/lib/modules -name jffs*.*o -exec $(STRIP) --strip-unneeded -x {} \;
 
-	find $(TARGETDIR)/lib/modules -name *.*o -exec $(STRIP) --strip-debug {} \;
+	find $(TARGETDIR)/lib/modules -name *.*o -exec $(STRIP) --strip-debug -x -R .mdebug.abi32 {} \;
+endif
 
 	-cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv diag/* . && rm -rf diag
 
@@ -247,6 +251,11 @@ install package: $(obj-install) $(LINUXDIR)/.config
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/input && mv misc/* . && rm -rf misc || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/input && mv mouse/* . && rm -rf mouse || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/media/video && mv uvc/* . && rm -rf uvc || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/media/video && mv pwc/* . && rm -rf pwc || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/media/video/gspca && mv gl860/* . && rm -rf gl860 || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/media/video/gspca && mv m5602/* . && rm -rf m5602 || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/media/video/gspca && mv stv06xx/* . && rm -rf stv06xx || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/media/video && mv gspca/* . && rm -rf gspca || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/media && mv video/* . && rm -rf video || true
 
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/net && mv bcm57xx/* . && rm -rf bcm57xx || true
@@ -569,8 +578,8 @@ cyassl/stamp-h1:
 	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections \
 	-DNO_MD4 -DNO_AES -DNO_ERROR_STRINGS -DNO_HC128 -DNO_RABBIT -DNO_PSK -DNO_DSA -DNO_DH -DNO_PWDBASED" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
-	PTHREAD_CFLAGS="-lpthread" PTHREAD_LIBS="-lpthread" \
-	$(CONFIGURE) --with-libz=no
+	PTHREAD_LIBS="-lpthread" \
+	$(CONFIGURE)
 	@touch cyassl/stamp-h1
 
 cyassl: cyassl/stamp-h1
@@ -664,7 +673,7 @@ dnsmasq-install:
 
 iptables:
 	@$(SEP)
-	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os $(EXTRACFLAGS)"
+	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os $(EXTRACFLAGS) -U CONFIG_NVRAM_SIZE"
 
 iptables-install:
 	install -D iptables/iptables $(INSTALLDIR)/iptables/usr/sbin/iptables
@@ -721,12 +730,19 @@ rp-pppoe-install: rp-pppoe
 
 upnp: nvram shared iptables
 
-miniupnpd: iptables
+miniupnpd-config:
+	@cd miniupnpd && ./genconfig.sh
+
+miniupnpd: iptables miniupnpd-config
 	@$(SEP)
-	$(MAKE) -C miniupnpd -f Makefile.tomato
+	$(MAKE) -C miniupnpd miniupnpd -f Makefile.linux \
+	TARGET_OPENWRT="not really" CC=$(CC) \
+	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include" \
+	LDFLAGS="-L$(TOP)/iptables -liptc" LIBS=""
 
 miniupnpd-clean:
-	-$(MAKE) -C miniupnpd -f Makefile.tomato clean
+	-$(MAKE) -C miniupnpd -f Makefile.linux clean
+	@rm -f miniupnpd/config.h
 
 miniupnpd-install:
 	install -D miniupnpd/miniupnpd $(INSTALLDIR)/miniupnpd/usr/sbin/miniupnpd

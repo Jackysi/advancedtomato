@@ -35,6 +35,9 @@ char lanface[IFNAMSIZ + 1];
 char wan6face[IFNAMSIZ + 1];
 #endif
 char lan_cclass[sizeof("xxx.xxx.xxx.") + 1];
+#ifdef LINUX26
+static int can_enable_fastnat;
+#endif
 
 #ifdef DEBUG_IPTFILE
 static int debug_only = 0;
@@ -70,6 +73,23 @@ struct {
 
 // -----------------------------------------------------------------------------
 
+#ifdef LINUX26
+void enable_fastnat(int enable)
+{
+	f_write_string("/proc/sys/net/ipv4/netfilter/ip_conntrack_fastnat",
+		enable ? "1" : "0", 0, 0);
+}
+
+int fastnat_enabled(void)
+{
+	char v[4];
+
+	if (f_read_string("/proc/sys/net/ipv4/netfilter/ip_conntrack_fastnat", v, sizeof(v)) > 0)
+		return atoi(v);
+
+	return 0;
+}
+#endif
 
 void enable_ip_forward(void)
 {
@@ -307,7 +327,12 @@ void ipt_layer7_inbound(void)
 
 	p = layer7_in;
 	while (*p) {
-		if (en) ipt_write("-A L7in %s -j RETURN\n", *p);
+		if (en) {
+			ipt_write("-A L7in %s -j RETURN\n", *p);
+#ifdef LINUX26
+			can_enable_fastnat = 0;
+#endif
+		}
 		free(*p);
 		++p;
 	}
@@ -364,8 +389,8 @@ int ipt_layer7(const char *v, char *opt)
 
 static void save_webmon(void)
 {
-	system("cp /proc/webmon_recent_domains /var/webmon/domain");
-	system("cp /proc/webmon_recent_searches /var/webmon/search");
+	eval("cp", "/proc/webmon_recent_domains", "/var/webmon/domain");
+	eval("cp", "/proc/webmon_recent_searches", "/var/webmon/search");
 }
 
 static void ipt_webmon()
@@ -377,6 +402,10 @@ static void ipt_webmon()
 	int ok;
 
 	if (!nvram_get_int("log_wm")) return;
+
+#ifdef LINUX26
+	can_enable_fastnat = 0;
+#endif
 	wmtype = nvram_get_int("log_wmtype");
 	clear = nvram_get_int("log_wmclear");
 
@@ -483,11 +512,22 @@ static void mangle_table(void)
 #endif
 			// set TTL on primary WAN iface only
 			wanface = wanfaces.iface[0].name;
-			ip46t_write(
+			ipt_write(
 				"-I PREROUTING -i %s -j TTL --ttl-%s %d\n"
 				"-I POSTROUTING -o %s -j TTL --ttl-%s %d\n",
 					wanface, p, ttl,
 					wanface, p, ttl);
+#ifdef TCONFIG_IPV6
+	// FIXME: IPv6 HL should be configurable separately from TTL.
+	//        disable it until GUI setting is implemented.
+	#if 0
+			ip6t_write(
+				"-I PREROUTING -i %s -j HL --hl-%s %d\n"
+				"-I POSTROUTING -o %s -j HL --hl-%s %d\n",
+					wan6face, p, ttl,
+					wan6face, p, ttl);
+	#endif
+#endif
 		}
 	}
 
@@ -524,15 +564,16 @@ static void nat_table(void)
 
 		for (i = 0; i < wanfaces.count; ++i) {
 			if (*(wanfaces.iface[i].name)) {
-				// chain_wan_prerouting
-				if (wanup)
-					ipt_write("-A PREROUTING -d %s -j %s\n",
-						wanfaces.iface[i].ip, chain_wan_prerouting);
-
 				// Drop incoming packets which destination IP address is to our LAN side directly
 				ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
 					wanfaces.iface[i].name,
 					lanaddr, lanmask);	// note: ipt will correct lanaddr
+
+				// chain_wan_prerouting
+				if (wanup) {
+					ipt_write("-A PREROUTING -d %s -j %s\n",
+						wanfaces.iface[i].ip, chain_wan_prerouting);
+				}
 			}
 		}
 
@@ -553,13 +594,14 @@ static void nat_table(void)
 
 		if (nvram_get_int("upnp_enable") & 3) {
 			ipt_write(":upnp - [0:0]\n");
-			if (wanup) {
-				// ! for loopback (all) to work
-				ipt_write("-A %s -j upnp\n", chain_wan_prerouting);
-			}
-			else {
-				for (i = 0; i < wanfaces.count; ++i) {
-					if (*(wanfaces.iface[i].name)) {
+
+			for (i = 0; i < wanfaces.count; ++i) {
+				if (*(wanfaces.iface[i].name)) {
+					if (wanup) {
+						// ! for loopback (all) to work
+						ipt_write("-A PREROUTING -d %s -j upnp\n", wanfaces.iface[i].ip);
+					}
+					else {
 						ipt_write("-A PREROUTING -i %s -j upnp\n", wanfaces.iface[i].name);
 					}
 				}
@@ -693,11 +735,17 @@ static void filter_input(void)
 			lanface);
 
 #ifdef TCONFIG_IPV6
-	switch (get_ipv6_service()) {
+	n = get_ipv6_service();
+	switch (n) {
+	case IPV6_ANYCAST_6TO4:
 	case IPV6_6IN4:
 		// Accept ICMP requests from the remote tunnel endpoint
-		if ((p = nvram_get("ipv6_tun_v4end")) && *p && strcmp(p, "0.0.0.0") != 0)
-			ipt_write("-A INPUT -p icmp -s %s -j %s\n", p, chain_in_accept);
+		if (n == IPV6_ANYCAST_6TO4)
+			sprintf(s, "192.88.99.%d", nvram_get_int("ipv6_relay"));
+		else
+			strlcpy(s, nvram_safe_get("ipv6_tun_v4end"), sizeof(s));
+		if (*s && strcmp(s, "0.0.0.0") != 0)
+			ipt_write("-A INPUT -p icmp -s %s -j %s\n", s, chain_in_accept);
 		ipt_write("-A INPUT -p 41 -j %s\n", chain_in_accept);
 		break;
 	}
@@ -708,7 +756,7 @@ static void filter_input(void)
 		// allow ICMP packets to be received, but restrict the flow to avoid ping flood attacks
 		ipt_write("-A INPUT -p icmp -m limit --limit 1/second -j %s\n", chain_in_accept);
 		// allow udp traceroute packets
-		ipt_write("-A INPUT -p udp -m udp --dport 33434:33534 -m limit --limit 5/second -j %s\n", chain_in_accept);
+		ipt_write("-A INPUT -p udp --dport 33434:33534 -m limit --limit 5/second -j %s\n", chain_in_accept);
 	}
 
 	/* Accept incoming packets from broken dhcp servers, which are sending replies
@@ -727,12 +775,12 @@ static void filter_input(void)
 		if (ipt_source(p, s, "remote management", NULL)) {
 
 			if (remotemanage) {
-				ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				ipt_write("-A INPUT -p tcp %s --dport %s -j %s\n",
 					s, nvram_safe_get("http_wanport"), chain_in_accept);
 			}
 
 			if (nvram_get_int("sshd_remote")) {
-				ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				ipt_write("-A INPUT -p tcp %s --dport %s -j %s\n",
 					s, nvram_safe_get("sshd_rport"), chain_in_accept);
 			}
 		}
@@ -748,7 +796,7 @@ static void filter_input(void)
 		do {
 			if ((c = strchr(p, ',')) != NULL) *c = 0;
 			if (ipt_source(p, s, "ftp", "remote access")) {
-				ipt_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				ipt_write("-A INPUT -p tcp %s --dport %s -j %s\n",
 					s, nvram_safe_get("ftp_port"), chain_in_accept);
 			}
 			if (!c) break;
@@ -765,7 +813,7 @@ static void filter_input(void)
 
 	// Routing protocol, RIP, accept
 	if (nvram_invmatch("dr_wan_rx", "0")) {
-		ipt_write("-A INPUT -p udp -m udp --dport 520 -j ACCEPT\n");
+		ipt_write("-A INPUT -p udp --dport 520 -j ACCEPT\n");
 	}
 
 	// if logging
@@ -1024,6 +1072,7 @@ static void filter6_input(void)
 			lanface );
 
 	switch (get_ipv6_service()) {
+	case IPV6_ANYCAST_6TO4:
 	case IPV6_NATIVE_DHCP:
 		// allow responses from the dhcpv6 server
 		ip6t_write("-A INPUT -p udp --dport 546 -j %s\n", chain_in_accept);
@@ -1047,12 +1096,12 @@ static void filter6_input(void)
 		if (ip6t_source(p, s, "remote management", NULL)) {
 
 			if (remotemanage) {
-				ip6t_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				ip6t_write("-A INPUT -p tcp %s --dport %s -j %s\n",
 					s, nvram_safe_get("http_wanport"), chain_in_accept);
 			}
 
 			if (nvram_get_int("sshd_remote")) {
-				ip6t_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				ip6t_write("-A INPUT -p tcp %s --dport %s -j %s\n",
 					s, nvram_safe_get("sshd_rport"), chain_in_accept);
 			}
 		}
@@ -1069,7 +1118,7 @@ static void filter6_input(void)
 		do {
 			if ((c = strchr(p, ',')) != NULL) *c = 0;
 			if (ip6t_source(p, s, "ftp", "remote access")) {
-				ip6t_write("-A INPUT -p tcp %s -m tcp --dport %s -j %s\n",
+				ip6t_write("-A INPUT -p tcp %s --dport %s -j %s\n",
 					s, nvram_safe_get("ftp_port"), chain_in_accept);
 			}
 			if (!c) break;
@@ -1134,7 +1183,6 @@ int start_firewall(void)
 	simple_lock("firewall");
 	simple_lock("restrictions");
 
-	wanproto = get_wan_proto();
 	wanup = check_wanup();
 
 	f_write_string("/proc/sys/net/ipv4/tcp_syncookies", nvram_get_int("ne_syncookies") ? "1" : "0", 0, 0);
@@ -1159,6 +1207,9 @@ int start_firewall(void)
 	f_write_string("/proc/sys/net/ipv4/icmp_ignore_bogus_error_responses", "1", 0, 0);
 	f_write_string("/proc/sys/net/ipv4/tcp_rfc1337", "1", 0, 0);
 	f_write_string("/proc/sys/net/ipv4/ip_local_port_range", "1024 65535", 0, 0);
+
+	wanproto = get_wan_proto();
+	f_write_string("/proc/sys/net/ipv4/ip_dynaddr", (wanproto == WP_DISABLED || wanproto == WP_STATIC) ? "0" : "1", 0, 0);
 
 #ifdef TCONFIG_EMF
 	/* Force IGMPv2 due EMF limitations */
@@ -1185,6 +1236,10 @@ int start_firewall(void)
 	wanface = wanfaces.iface[0].name;
 #ifdef TCONFIG_IPV6
 	strlcpy(wan6face, get_wan6face(), sizeof(wan6face));
+#endif
+
+#ifdef LINUX26
+	can_enable_fastnat = (nvram_get_int("fastnat_disable") == 0);
 #endif
 
 	strlcpy(s, nvram_safe_get("lan_ipaddr"), sizeof(s));
@@ -1320,6 +1375,9 @@ int start_firewall(void)
 		killall("miniupnpd", SIGUSR2);
 	}
 
+#ifdef LINUX26
+	enable_fastnat(can_enable_fastnat);
+#endif
 	simple_unlock("restrictions");
 	sched_restrictions();
 	enable_ip_forward();

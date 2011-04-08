@@ -215,7 +215,7 @@ try_again:
 		err = ulen;
 
 out_free:
-	skb_free_datagram(sk, skb);
+	skb_free_datagram_locked(sk, skb);
 out:
 	return err;
 
@@ -420,10 +420,9 @@ static inline int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh,
 	return 0;
 }
 
-int __udp6_lib_rcv(struct sk_buff **pskb, struct hlist_head udptable[],
+int __udp6_lib_rcv(struct sk_buff *skb, struct hlist_head udptable[],
 		   int proto)
 {
-	struct sk_buff *skb = *pskb;
 	struct sock *sk;
 	struct udphdr *uh;
 	struct net_device *dev = skb->dev;
@@ -508,9 +507,9 @@ discard:
 	return 0;
 }
 
-static __inline__ int udpv6_rcv(struct sk_buff **pskb)
+static __inline__ int udpv6_rcv(struct sk_buff *skb)
 {
-	return __udp6_lib_rcv(pskb, udp_hash, IPPROTO_UDP);
+	return __udp6_lib_rcv(skb, udp_hash, IPPROTO_UDP);
 }
 
 /*
@@ -624,7 +623,7 @@ int udpv6_sendmsg(struct kiocb *iocb, struct sock *sk,
 		daddr = NULL;
 
 	if (daddr) {
-		if (ipv6_addr_type(daddr) == IPV6_ADDR_MAPPED) {
+		if (ipv6_addr_v4mapped(daddr)) {
 			struct sockaddr_in sin;
 			sin.sin_family = AF_INET;
 			sin.sin_port = sin6 ? sin6->sin6_port : inet->dport;
@@ -970,8 +969,10 @@ static struct udp_seq_afinfo udp6_seq_afinfo = {
 	.name		= "udp6",
 	.family		= AF_INET6,
 	.hashtable	= udp_hash,
-	.seq_show	= udp6_seq_show,
 	.seq_fops	= &udp6_seq_fops,
+	.seq_ops	= {
+		.show		= udp6_seq_show,
+	},
 };
 
 int __init udp6_proc_init(void)

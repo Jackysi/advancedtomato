@@ -69,6 +69,11 @@ static char *smb_readline_replacement(const char *prompt, void (*callback)(void)
 		timeout.tv_sec = 5;
 		timeout.tv_usec = 0;
 
+		if (fd < 0 || fd >= FD_SETSIZE) {
+			errno = EBADF;
+			break;
+		}
+
 		FD_ZERO(&fds);
 		FD_SET(fd,&fds);
 	
@@ -79,6 +84,7 @@ static char *smb_readline_replacement(const char *prompt, void (*callback)(void)
 		if (callback)
 			callback();
 	}
+	return NULL;
 }
 
 /****************************************************************************

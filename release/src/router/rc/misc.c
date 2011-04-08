@@ -93,10 +93,11 @@ int modprobe_r(const char *mod)
  *	all for the child to exit, regardless of the wtime.
  */
 
+#define MAX_XSTART_ARGC 16
 int _xstart(const char *cmd, ...)
 {
 	va_list ap;
-	char *argv[16];
+	char *argv[MAX_XSTART_ARGC];
 	int argc;
 	int pid;
 
@@ -104,7 +105,10 @@ int _xstart(const char *cmd, ...)
 	argc = 1;
 	va_start(ap, cmd);
 	while ((argv[argc++] = va_arg(ap, char *)) != NULL) {
-		//
+		if (argc >= MAX_XSTART_ARGC) {
+			_dprintf("%s: too many parameters\n", __FUNCTION__);
+			break;
+		}
 	}
 	va_end(ap);
 
@@ -449,49 +453,7 @@ void setup_conntrack(void)
 	}
 }
 
-/*
-struct sockaddr_storage *host_to_addr(const char *name, sa_family_t family)
-{
-	static struct sockaddr_storage buf;
-
-	struct addrinfo hints;
-	struct addrinfo *res;
-	int err;
-
-	memset(&hints, 0, sizeof(hints));
-#ifdef TCONFIG_IPV6
-	hints.ai_family = family;
-#else
-	hints.ai_family = AF_INET;
-#endif
-	hints.ai_socktype = SOCK_RAW;
-
-	if ((err = getaddrinfo(name, NULL, &hints, &res)) != 0)
-		return NULL;
-
-#ifdef TCONFIG_IPV6
-	if (res->ai_family != family)
-		return NULL;
-
-	if (family == AF_INET6) {
-		if (res->ai_addrlen != sizeof(struct sockaddr_in6))
-			return NULL;
-		memcpy(&buf, res->ai_addr, sizeof(struct sockaddr_in6));
-	}
-	else
-#endif
-	{
-		if (res->ai_addrlen != sizeof(struct sockaddr_in))
-			return NULL;
-		memcpy(&buf, res->ai_addr, sizeof(struct sockaddr_in));
-	}
-
-	freeaddrinfo(res);
-	return &(buf);
-}
-*/
-
-int host_addrtypes(const char *name, int af)
+int host_addr_info(const char *name, int af, struct sockaddr_storage *buf)
 {
 	struct addrinfo hints;
 	struct addrinfo *res;
@@ -517,7 +479,7 @@ int host_addrtypes(const char *name, int af)
 	hints.ai_family = AF_INET;
 #endif
 	hints.ai_socktype = SOCK_RAW;
-	
+
 	if ((err = getaddrinfo(name, NULL, &hints, &res)) != 0) {
 		return addrtypes;
 	}
@@ -531,12 +493,19 @@ int host_addrtypes(const char *name, int af)
 			addrtypes |= IPT_V6;
 			break;
 		}
+		if (buf && (hints.ai_family == p->ai_family) && res->ai_addrlen) {
+			memcpy(buf, res->ai_addr, res->ai_addrlen);
+		}
 	}
 
 	freeaddrinfo(res);
 	return (addrtypes & af);
 }
 
+inline int host_addrtypes(const char *name, int af)
+{
+	return host_addr_info(name, af, NULL);
+}
 
 void inc_mac(char *mac, int plus)
 {

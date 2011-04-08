@@ -99,9 +99,11 @@ static void send_reset(struct sk_buff *oldskb)
 	fl.fl_ip_dport = otcph.source;
 	security_skb_classify_flow(oldskb, &fl);
 	dst = ip6_route_output(NULL, &fl);
-	if (dst == NULL)
+	if (dst == NULL || dst->error) {
+		dst_release(dst);
 		return;
-	if (dst->error || xfrm_lookup(&dst, &fl, NULL, 0))
+	}
+	if (xfrm_lookup(&dst, &fl, NULL, 0))
 		return;
 
 	hh_len = (dst->dev->hard_header_len + 15)&~15;
@@ -126,7 +128,6 @@ static void send_reset(struct sk_buff *oldskb)
 	ip6h->version = 6;
 	ip6h->hop_limit = dst_metric(dst, RTAX_HOPLIMIT);
 	ip6h->nexthdr = IPPROTO_TCP;
-	ip6h->payload_len = htons(sizeof(struct tcphdr));
 	ipv6_addr_copy(&ip6h->saddr, &oip6h->daddr);
 	ipv6_addr_copy(&ip6h->daddr, &oip6h->saddr);
 
@@ -164,8 +165,7 @@ static void send_reset(struct sk_buff *oldskb)
 
 	nf_ct_attach(nskb, oldskb);
 
-	NF_HOOK(PF_INET6, NF_IP6_LOCAL_OUT, nskb, NULL, nskb->dst->dev,
-		dst_output);
+	ip6_local_out(nskb);
 }
 
 static inline void
@@ -177,7 +177,7 @@ send_unreach(struct sk_buff *skb_in, unsigned char code, unsigned int hooknum)
 	icmpv6_send(skb_in, ICMPV6_DEST_UNREACH, code, 0, NULL);
 }
 
-static unsigned int reject6_target(struct sk_buff **pskb,
+static unsigned int reject6_target(struct sk_buff *skb,
 			   const struct net_device *in,
 			   const struct net_device *out,
 			   unsigned int hooknum,
@@ -192,25 +192,25 @@ static unsigned int reject6_target(struct sk_buff **pskb,
 	   must return an absolute verdict. --RR */
 	switch (reject->with) {
 	case IP6T_ICMP6_NO_ROUTE:
-		send_unreach(*pskb, ICMPV6_NOROUTE, hooknum);
+		send_unreach(skb, ICMPV6_NOROUTE, hooknum);
 		break;
 	case IP6T_ICMP6_ADM_PROHIBITED:
-		send_unreach(*pskb, ICMPV6_ADM_PROHIBITED, hooknum);
+		send_unreach(skb, ICMPV6_ADM_PROHIBITED, hooknum);
 		break;
 	case IP6T_ICMP6_NOT_NEIGHBOUR:
-		send_unreach(*pskb, ICMPV6_NOT_NEIGHBOUR, hooknum);
+		send_unreach(skb, ICMPV6_NOT_NEIGHBOUR, hooknum);
 		break;
 	case IP6T_ICMP6_ADDR_UNREACH:
-		send_unreach(*pskb, ICMPV6_ADDR_UNREACH, hooknum);
+		send_unreach(skb, ICMPV6_ADDR_UNREACH, hooknum);
 		break;
 	case IP6T_ICMP6_PORT_UNREACH:
-		send_unreach(*pskb, ICMPV6_PORT_UNREACH, hooknum);
+		send_unreach(skb, ICMPV6_PORT_UNREACH, hooknum);
 		break;
 	case IP6T_ICMP6_ECHOREPLY:
 		/* Do nothing */
 		break;
 	case IP6T_TCP_RESET:
-		send_reset(*pskb);
+		send_reset(skb);
 		break;
 	default:
 		if (net_ratelimit())

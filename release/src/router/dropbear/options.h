@@ -64,7 +64,7 @@ much traffic. */
 #define ENABLE_SVR_LOCALTCPFWD
 #define ENABLE_SVR_REMOTETCPFWD
 
-/* Enable Authentication Agent Forwarding - server only for now */
+/* Enable Authentication Agent Forwarding */
 #define ENABLE_SVR_AGENTFWD
 #define ENABLE_CLI_AGENTFWD
 
@@ -89,8 +89,8 @@ much traffic. */
 #define DROPBEAR_AES256
 /* Compiling in Blowfish will add ~6kB to runtime heap memory usage */
 /*#define DROPBEAR_BLOWFISH*/
-#define DROPBEAR_TWOFISH256
-#define DROPBEAR_TWOFISH128
+/*#define DROPBEAR_TWOFISH256*/
+/*#define DROPBEAR_TWOFISH128*/
 
 /* Enable "Counter Mode" for ciphers. This is more secure than normal
  * CBC mode against certain attacks. This adds around 1kB to binary 
@@ -133,18 +133,14 @@ much traffic. */
 /* #define DSS_PROTOK */
 
 /* Control the memory/performance/compression tradeoff for zlib.
- * Set windowBits=8, memLevel=1 for least memory usage, see your system's
+ * Set windowBits=8 for least memory usage, see your system's
  * zlib.h for full details.
- * Default settings (windowBits=15, memLevel=8) will use 
- * 256kB for compression + 32kB for decompression.
- * windowBits=8, memLevel=1 will use 10kB compression + 32kB decompression.
- * Note that windowBits is only set for deflate() - inflate() always uses the
- * default of 15 so as to interoperate with other clients. */
+ * Default settings (windowBits=15) will use 256kB for compression
+ * windowBits=8 will use 129kB for compression.
+ * Both modes will use ~35kB for decompression (using windowBits=15 for
+ * interoperability) */
 #ifndef DROPBEAR_ZLIB_WINDOW_BITS
 #define DROPBEAR_ZLIB_WINDOW_BITS 15 
-#endif
-#ifndef DROPBEAR_ZLIB_MEM_LEVEL
-#define DROPBEAR_ZLIB_MEM_LEVEL 8
 #endif
 
 /* Whether to do reverse DNS lookups. */
@@ -189,7 +185,7 @@ much traffic. */
  * note that it will be provided for all "hidden" client-interactive
  * style prompts - if you want something more sophisticated, use 
  * SSH_ASKPASS instead. Comment out this var to remove this functionality.*/
-#define DROPBEAR_PASSWORD_ENV "DROPBEAR_PASSWORD"
+/*#define DROPBEAR_PASSWORD_ENV "DROPBEAR_PASSWORD"*/
 
 /* Define this (as well as ENABLE_CLI_PASSWORD_AUTH) to allow the use of
  * a helper program for the ssh client. The helper program should be
