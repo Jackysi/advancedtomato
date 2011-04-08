@@ -1894,7 +1894,6 @@ TOP:
 		goto CLEAR;
 	}
 
-
 	if (strcmp(service, "qoslimit") == 0) {
 		if (action & A_STOP) {
 			new_qoslimit_stop();
