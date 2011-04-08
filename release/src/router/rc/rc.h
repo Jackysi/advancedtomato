@@ -287,6 +287,10 @@ extern int stop_firewall(void);
 #ifdef DEBUG_IPTFILE
 extern void create_test_iptfile(void);
 #endif
+#ifdef LINUX26
+extern void allow_fastnat(const char *service, int allow);
+extern void try_enabling_fastnat(void);
+#endif
 
 // forward.c
 extern void ipt_forward(ipt_table_t table);
