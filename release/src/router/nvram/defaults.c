@@ -342,7 +342,7 @@ const defaults_t defaults[] = {
 
 // advanced-ctnf
 	{ "ct_tcp_timeout",		"0 1800 30 20 20 20 10 20 20 0"				},
-	{ "ct_udp_timeout",		"10 10"				},
+	{ "ct_udp_timeout",		"30 180"				},
 	{ "ct_timeout",			"10 10"				},
 	{ "ct_max",			"8192"				},
 	{ "nf_ttl",			"0"				},
@@ -675,7 +675,7 @@ const defaults_t defaults[] = {
 // admin-script
 	{ "script_init",		""				},
 	{ "script_shut",		""				},
-	{ "script_fire",		" Restrict number of TCP connections per user #iptables -t nat -I PREROUTING -p tcp --syn -m iprange --src-range 192.168.1.50-192.168.1.250 -m connlimit --connlimit-above 100 -j DROP  # Restrict number of non-TCP connections per user #iptables -t nat -I PREROUTING -p ! tcp -m iprange --src-range 192.168.1.50-192.168.1.250 -m connlimit --connlimit-above 50 -j DROP  # Restrict number of simltaneous SMTP connections (from mailer viruses) #iptables -t nat -I PREROUTING -p tcp --dport 25 -m connlimit --connlimit-above 5 -j DROP"				},
+	{ "script_fire",		"#Restrict number of TCP connections per user #iptables -t nat -I PREROUTING -p tcp --syn -m iprange --src-range 192.168.1.50-192.168.1.250 -m connlimit --connlimit-above 100 -j DROP  #Restrict number of non-TCP connections per user #iptables -t nat -I PREROUTING -p ! tcp -m iprange --src-range 192.168.1.50-192.168.1.250 -m connlimit --connlimit-above 50 -j DROP  #Restrict number of simltaneous SMTP connections (from mailer viruses) #iptables -t nat -I PREROUTING -p tcp --dport 25 -m connlimit --connlimit-above 5 -j DROP"				},
 	{ "script_wanup",		""				},
 
 #ifdef TCONFIG_OPENVPN
