@@ -107,6 +107,8 @@ createFieldTable('', [
 </script>
 <br>
 <small>* Not all models support these options.</small>
+<br>
+<small>* Set CPU frequency to enable the "Overview" display.</small>
 </div>
 
 
