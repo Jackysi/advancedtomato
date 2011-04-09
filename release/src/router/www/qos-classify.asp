@@ -107,13 +107,11 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("qos_enable,qos_orules"); %>
+//	<% nvram("qos_classnames,qos_enable,qos_orules"); %>
 
-//Toastman Class Labels
 
-var abc = ['Service','VOIP/Game','Media','Remote','WWW', 'Mail', 'Messenger','Download','P2P/Bulk','Crawl'];
-//	var abc = ['1)', '2)', '3)', '4)', '5)', '6)','7)','8)','9)','10)'];
-//      var abc = ['Highest', 'High', 'Medium', 'Low', 'Lowest', 'A','B','C','D','E'];
+var abc = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
+
 
 var ipp2p = [
 	[0,'IPP2P (disabled)'],[0xFFF,'All IPP2P filters'],[1,'AppleJuice'],[2,'Ares'],[4,'BitTorrent'],[8,'Direct Connect'],

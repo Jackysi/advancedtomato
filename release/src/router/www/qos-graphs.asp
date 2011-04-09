@@ -44,17 +44,15 @@
 </style>
 
 <script type='text/javascript'>
-// <% nvram("web_svg,qos_enable"); %>
+// <% nvram("qos_classnames,web_svg,qos_enable"); %>
 
 //<% qrate(); %>
 
 var svgReady = 0;
 
-//Toastman Class Labels
-
-var abc = ['Unclassified','Service','VOIP/Game','Media','Remote','WWW', 'Mail', 'Messenger','Download','P2P/Bulk','Crawl'];
-//	var abc = ['Unclassified', '1)', '2)', '3)', '4)', '5)', '6)','7)','8)','9)','10)'];
-//      var abc = ['Unclassified', 'Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
+var Unclassified = ['Unclassified'];
+var classNames = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
+var abc = Unclassified.concat(classNames);
 
 var colors = [
 	'c6e2ff',
@@ -126,8 +124,8 @@ ref.refresh = function(text)
 
 	showData();
 	if (svgReady == 1) {
-		updateCD(nfmarks);
-		updateBD(qrates);
+		updateCD(nfmarks, abc);
+		updateBD(qrates, abc);
 	}
 }
 
@@ -151,8 +149,8 @@ function checkSVG()
 
 	if (i < 0) {
 		svgReady = 1;
-		updateCD(nfmarks);
-		updateBD(qrates);
+		updateCD(nfmarks, abc);
+		updateBD(qrates, abc);
 	}
 	else if (--svgReady > -5) {
 		setTimeout(checkSVG, 500);

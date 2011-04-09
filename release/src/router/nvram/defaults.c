@@ -457,6 +457,7 @@ const defaults_t defaults[] = {
 	{ "qos_default",		"8"				},
 	{ "qos_orates",			"5-20,5-20,5-25,5-70,20-100,5-80,5-80,5-80,5-50,0-0"	},
 	{ "qos_irates",			"10,60,60,70,0,60,60,80,30,1"	},
+	{ "qos_classnames",		"Service VOIP/Game Media Remote WWW Mail Messenger Download P2P/Bulk Crawl"	},
 
 	{ "ne_vegas",			"0"				},	// TCP Vegas
 	{ "ne_valpha",			"3"				},	// "

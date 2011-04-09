@@ -24,13 +24,9 @@
 /* REMOVE-BEGIN
 	!!TB - added qos_pfifo
 REMOVE-END */
-//	<% nvram("qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_default,qos_pfifo,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma"); %>
+//	<% nvram("qos_classnames,qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_default,qos_pfifo,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma"); %>
 
-//Toastman Class Labels
-
-classNames = ['Service','VOIP/Game','Media','Remote','WWW', 'Mail', 'Messenger','Download','P2P/Bulk','Crawl'];
-//	classNames = ['1)', '2)', '3)', '4)', '5)', '6)','7)','8)','9)','10)'];
-//      classNames = ['Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
+var classNames = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
 
 pctList = [[0, 'None']];
 for (i = 1; i <= 100; ++i) pctList.push([i, i + '%']);
@@ -87,7 +83,8 @@ function verifyFields(focused, quiet)
 function save()
 {
 	var fom = E('_fom');
-	var i, a, c;
+	var i, a, qos, c;
+
 
 	fom.qos_enable.value = E('_f_qos_enable').checked ? 1 : 0;
 	fom.qos_ack.value = E('_f_qos_ack').checked ? 1 : 0;
@@ -96,6 +93,14 @@ function save()
 	fom.qos_rst.value = E('_f_qos_rst').checked ? 1 : 0;
 	fom.qos_icmp.value = E('_f_qos_icmp').checked ? 1 : 0;
 	fom.qos_reset.value = E('_f_qos_reset').checked ? 1 : 0;
+
+	qos = [];
+	for (i = 1; i < 11; ++i) {
+		qos.push(E('_f_qos_' + (i - 1)).value);
+	}
+
+	fom = E('_fom');
+	fom.qos_classnames.value = qos.join(' ');
 
 	a = [];
 	for (i = 0; i < 10; ++i) {
@@ -113,6 +118,9 @@ function save()
 
 	form.submit(fom, 1);
 }
+
+
+
 </script>
 
 </head>
@@ -129,9 +137,11 @@ function save()
 
 <!-- / / / -->
 
+
 <input type='hidden' name='_nextpage' value='qos-settings.asp'>
 <input type='hidden' name='_service' value='qos-restart'>
 
+<input type='hidden' name='qos_classnames'>
 <input type='hidden' name='qos_enable'>
 <input type='hidden' name='qos_ack'>
 <input type='hidden' name='qos_syn'>
@@ -143,9 +153,12 @@ function save()
 <input type='hidden' name='qos_reset'>
 <input type='hidden' name='ne_vegas'>
 
+
+
 <div class='section-title'>Basic Settings</div>
 <div class='section'>
 <script type='text/javascript'>
+
 classList = [];
 for (i = 0; i < 10; ++i) {
 	classList.push([i, classNames[i]]);
@@ -169,6 +182,8 @@ REMOVE-END */
 </script>
 </div>
 
+
+
 <div class='section-title'>Outbound Rates / Limits</div>
 <div class='section'>
 <script type='text/javascript'>
@@ -191,6 +206,7 @@ createFieldTable('', f);
 </div>
 
 
+
 <div class='section-title'>Inbound Class Limits</div>
 <div class='section'>
 <script type='text/javascript'>
@@ -207,6 +223,27 @@ for (i = 0; i < 10; ++i) {
 createFieldTable('', f);
 </script>
 </div>
+
+
+
+<div class='section-title'>QOS Class Names</div>
+<div class='section'>
+<script type='text/javascript'>
+if ((v = nvram.qos_classnames.match(/^(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)$/)) == null) {
+	v = ["-","Highest","High","Medium","Low","Lowest","A","B","C","D","E"];
+}
+titles = ['-','Priority Class 1', 'Priority Class 2', 'Priority Class 3', 'Priority Class 4', 'Priority Class 5', 'Priority Class 6', 'Priority Class 7', 'Priority Class 8', 'Priority Class 9', 'Priority Class 10'];
+f = [{ title: ' ', text: '<small>(Maximum 10 characters, no spaces)</small>' }];
+for (i = 1; i < 11; ++i) {
+	f.push({ title: titles[i], name: ('f_qos_' + (i - 1)),
+		type: 'text', maxlen: 10, size: 15, value: v[i],
+		suffix: '<span id="count' + i + '"></span>' });
+}
+createFieldTable('', f);
+</script>
+</div>
+
+
 
 <span id='s_vegas' style='display:none'>
 <div class='section-title'>TCP Vegas <small>(network congestion control)</small></div>

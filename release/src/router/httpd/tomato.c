@@ -934,6 +934,7 @@ static const nvset_t nvset_list[] = {
 	{ "qos_default",		V_RANGE(0, 9)		},
 	{ "qos_irates",			V_LENGTH(0, 128)	},
 	{ "qos_orates",			V_LENGTH(0, 128)	},
+	{ "qos_classnames",		V_LENGTH(10, 128)		}, // !!TOASTMAN
 
 	{ "ne_vegas",			V_01				},
 	{ "ne_valpha",			V_NUM				},
