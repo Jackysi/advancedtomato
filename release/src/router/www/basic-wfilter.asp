@@ -70,7 +70,7 @@ smg.setup = function() {
 	var i, i, m, s, t, n;
 	var macs, names;
 
-	this.init('sm-grid', 'sort', 200, [
+	this.init('sm-grid', 'sort', 250, [
 		{ type: 'text', maxlen: 17 },
 		{ type: 'text', maxlen: 48 }
 	]);

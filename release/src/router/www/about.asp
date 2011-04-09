@@ -82,7 +82,7 @@ function init()
 <td id='content'>
 <div id='ident'><% ident(); %></div>
 
-<div style='float:right;margin:140px 30px;text-align:center'>
+<div style='float:right;margin:140px 40px;text-align:center'>
 <img src='kinaree.png' alt='Linux &amp; Tomato' id='tux'>
 </div>
 <div style='margin:30px 30px;font-size:14px;color:#555;'>
@@ -119,7 +119,8 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 - Revised Static ARP Binding | Revised IP/MAC/Range QOS/Bandwidth Limiter<br>
 <br>
 <b>"Toastman" Features:</b><br>
-- 250 entry limit in Static DHCP | 500 entry limit in Access Restrictions<br>
+- Supports 250+ simultaneous users, comprehensive QOS rules set by default<br>
+- 250 entry limit in Static DHCP  & Wireless Filter | 500 entry limit in Access Restrictions<br>
 - QOS class labels | Toastman QOS rules | Fast conntrack timeout<br>
 - CPU frequency selector | Faster page refresh settings<br>
 - VLAN Support for UPnP - if exists, loads upnpconfig.custom from JFFS<br>
