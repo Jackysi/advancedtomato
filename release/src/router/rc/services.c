@@ -55,7 +55,7 @@ static const struct itimerval zombie_tv = { {0,0}, {307, 0} };
 
 static const char dmhosts[] = "/etc/dnsmasq/hosts";
 static const char dmdhcp[] = "/etc/dnsmasq/dhcp";
-static const char dmresolv[] = "/etc/dnsmasq/resolv.conf";
+static const char dmresolv[] = "/etc/resolv.dnsmasq";
 
 static pid_t pid_dnsmasq = -1;
 
