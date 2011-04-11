@@ -127,7 +127,7 @@ const defaults_t defaults[] = {
 
 #ifdef TCONFIG_IPV6
 	// IPv6 parameters
-	{ "ipv6_service",		""				},	// [''|native|native-pd|sit|other]
+	{ "ipv6_service",		""				},	// [''|native|native-pd|6to4|sit|other]
 	{ "ipv6_prefix",		""				},	// The global-scope IPv6 prefix to route/advertise
 	{ "ipv6_prefix_length",		"64"				},	// The bit length of the prefix. Used by dhcp6c. For radvd, /64 is always assumed.
 	{ "ipv6_rtr_addr",		""				},	// defaults to $ipv6_prefix::1
@@ -135,6 +135,7 @@ const defaults_t defaults[] = {
 	{ "ipv6_accept_ra",		"0"				},	// Accept RA on WAN and/or LAN interfaces
 	{ "ipv6_ifname",		"six0"				},	// The interface facing the rest of the IPv6 world
 	{ "ipv6_tun_v4end",		"0.0.0.0"			},	// Foreign IPv4 endpoint of SIT tunnel
+	{ "ipv6_relay",			"1"				},	// Foreign IPv4 endpoint host of SIT tunnel 192.88.99.?
 	{ "ipv6_tun_addr",		""				},	// IPv6 address to assign to local tunnel endpoint
 	{ "ipv6_tun_addrlen",		"64"				},	// CIDR prefix length for tunnel's IPv6 address	
 	{ "ipv6_tun_mtu",		"0"				},	// Tunnel MTU, 0 for default

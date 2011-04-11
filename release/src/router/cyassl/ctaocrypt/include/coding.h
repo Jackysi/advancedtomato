@@ -1,6 +1,6 @@
 /* coding.h
  *
- * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -33,7 +33,7 @@
 /* decode needed by CyaSSL */
 int Base64Decode(const byte* in, word32 inLen, byte* out, word32* outLen);
 
-#if defined(OPENSSL_EXTRA) || defined(SESSION_CERTS) || defined(CYASSL_KEY_GEN)  || defined(CYASSL_CERT_GEN)
+#if defined(OPENSSL_EXTRA) || defined(SESSION_CERTS) || defined(CYASSL_KEY_GEN)  || defined(CYASSL_CERT_GEN) || defined(HAVE_WEBSERVER)
     /* encode isn't */
     int Base64Encode(const byte* in, word32 inLen, byte* out, word32* outLen);
     int Base16Decode(const byte* in, word32 inLen, byte* out, word32* outLen);

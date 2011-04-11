@@ -34,7 +34,7 @@ diff --git a/libc/sysdeps/linux/common/bits/byteswap.h b/libc/sysdeps/linux/comm
  #ifndef _BITS_BYTESWAP_H
  #define _BITS_BYTESWAP_H 1
  
-+#if __GNUC_PREREQ(4,2)
++#if __GNUC_PREREQ(4,3)
 +# undef __bswap_non_constant_32
 +# define __bswap_non_constant_32 __builtin_bswap32
 +

@@ -98,6 +98,7 @@ struct input_absinfo {
 #define EV_PWR			0x16
 #define EV_FF_STATUS		0x17
 #define EV_MAX			0x1f
+#define EV_CNT			(EV_MAX+1)
 
 /*
  * Synchronization events.
@@ -555,6 +556,7 @@ struct input_absinfo {
 /* We avoid low common keys in module aliases so they don't get huge. */
 #define KEY_MIN_INTERESTING	KEY_MUTE
 #define KEY_MAX			0x1ff
+#define KEY_CNT			(KEY_MAX+1)
 
 /*
  * Relative axes
@@ -571,6 +573,7 @@ struct input_absinfo {
 #define REL_WHEEL		0x08
 #define REL_MISC		0x09
 #define REL_MAX			0x0f
+#define REL_CNT			(REL_MAX+1)
 
 /*
  * Absolute axes
@@ -603,6 +606,7 @@ struct input_absinfo {
 #define ABS_VOLUME		0x20
 #define ABS_MISC		0x28
 #define ABS_MAX			0x3f
+#define ABS_CNT			(ABS_MAX+1)
 
 /*
  * Switch events
@@ -613,6 +617,7 @@ struct input_absinfo {
 #define SW_HEADPHONE_INSERT	0x02  /* set = inserted */
 #define SW_RADIO		0x03  /* set = radio enabled */
 #define SW_MAX			0x0f
+#define SW_CNT			(SW_MAX+1)
 
 /*
  * Misc events
@@ -624,6 +629,7 @@ struct input_absinfo {
 #define MSC_RAW			0x03
 #define MSC_SCAN		0x04
 #define MSC_MAX			0x07
+#define MSC_CNT			(MSC_MAX+1)
 
 /*
  * LEDs
@@ -641,6 +647,7 @@ struct input_absinfo {
 #define LED_MAIL		0x09
 #define LED_CHARGING		0x0a
 #define LED_MAX			0x0f
+#define LED_CNT			(LED_MAX+1)
 
 /*
  * Autorepeat values
@@ -658,6 +665,7 @@ struct input_absinfo {
 #define SND_BELL		0x01
 #define SND_TONE		0x02
 #define SND_MAX			0x07
+#define SND_CNT			(SND_MAX+1)
 
 /*
  * IDs.
@@ -908,6 +916,7 @@ struct ff_effect {
 #define FF_AUTOCENTER	0x61
 
 #define FF_MAX		0x7f
+#define FF_CNT		(FF_MAX+1)
 
 #ifdef __KERNEL__
 
@@ -920,10 +929,6 @@ struct ff_effect {
 #include <linux/timer.h>
 #include <linux/mod_devicetable.h>
 
-#define NBITS(x) (((x)/BITS_PER_LONG)+1)
-#define BIT(x)	(1UL<<((x)%BITS_PER_LONG))
-#define LONG(x) ((x)/BITS_PER_LONG)
-
 struct input_dev {
 
 	void *private;
@@ -933,15 +938,15 @@ struct input_dev {
 	const char *uniq;
 	struct input_id id;
 
-	unsigned long evbit[NBITS(EV_MAX)];
-	unsigned long keybit[NBITS(KEY_MAX)];
-	unsigned long relbit[NBITS(REL_MAX)];
-	unsigned long absbit[NBITS(ABS_MAX)];
-	unsigned long mscbit[NBITS(MSC_MAX)];
-	unsigned long ledbit[NBITS(LED_MAX)];
-	unsigned long sndbit[NBITS(SND_MAX)];
-	unsigned long ffbit[NBITS(FF_MAX)];
-	unsigned long swbit[NBITS(SW_MAX)];
+	unsigned long evbit[BITS_TO_LONGS(EV_CNT)];
+	unsigned long keybit[BITS_TO_LONGS(KEY_CNT)];
+	unsigned long relbit[BITS_TO_LONGS(REL_CNT)];
+	unsigned long absbit[BITS_TO_LONGS(ABS_CNT)];
+	unsigned long mscbit[BITS_TO_LONGS(MSC_CNT)];
+	unsigned long ledbit[BITS_TO_LONGS(LED_CNT)];
+	unsigned long sndbit[BITS_TO_LONGS(SND_CNT)];
+	unsigned long ffbit[BITS_TO_LONGS(FF_CNT)];
+	unsigned long swbit[BITS_TO_LONGS(SW_CNT)];
 
 	unsigned int keycodemax;
 	unsigned int keycodesize;
@@ -961,10 +966,10 @@ struct input_dev {
 	int abs[ABS_MAX + 1];
 	int rep[REP_MAX + 1];
 
-	unsigned long key[NBITS(KEY_MAX)];
-	unsigned long led[NBITS(LED_MAX)];
-	unsigned long snd[NBITS(SND_MAX)];
-	unsigned long sw[NBITS(SW_MAX)];
+	unsigned long key[BITS_TO_LONGS(KEY_CNT)];
+	unsigned long led[BITS_TO_LONGS(LED_CNT)];
+	unsigned long snd[BITS_TO_LONGS(SND_CNT)];
+	unsigned long sw[BITS_TO_LONGS(SW_CNT)];
 
 	int absmax[ABS_MAX + 1];
 	int absmin[ABS_MAX + 1];
@@ -1183,7 +1188,7 @@ static inline void input_set_abs_params(struct input_dev *dev, int axis, int min
 	dev->absfuzz[axis] = fuzz;
 	dev->absflat[axis] = flat;
 
-	dev->absbit[LONG(axis)] |= BIT(axis);
+	dev->absbit[BIT_WORD(axis)] |= BIT_MASK(axis);
 }
 
 extern struct class input_class;
@@ -1224,7 +1229,7 @@ struct ff_device {
 
 	void *private;
 
-	unsigned long ffbit[NBITS(FF_MAX)];
+	unsigned long ffbit[BITS_TO_LONGS(FF_CNT)];
 
 	struct mutex mutex;
 

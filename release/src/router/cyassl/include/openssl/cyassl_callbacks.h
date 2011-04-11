@@ -1,6 +1,6 @@
 /* cyassl_callbacks.h
  *
- * Copyright (C) 2008 Sawtooth Consulting Ltd.
+ * Copyright (C) 2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *

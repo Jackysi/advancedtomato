@@ -559,7 +559,11 @@ static int print_wlbands(int idx, int unit, int subunit, void *param)
 
 	web_printf("%c[", (idx == 0) ? ' ' : ',');
 
-	if (phytype[0] == 'n' || phytype[0] == 'l' || phytype[0] == 's' || phytype[0] == 'c') {
+	if (phytype[0] == 'n' ||
+	    phytype[0] == 'l' ||
+	    phytype[0] == 's' ||
+	    phytype[0] == 'c' ||
+	    phytype[0] == 'h') {
 		/* Get band list. Assume both the bands in case of error */
 		if (wl_ioctl(ifname, WLC_GET_BANDLIST, list, sizeof(list)) < 0) {
 			for (i = WLC_BAND_5G; i <= WLC_BAND_2G; i++) {

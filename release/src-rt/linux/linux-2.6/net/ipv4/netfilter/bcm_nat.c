@@ -37,18 +37,36 @@ extern void ip_conntrack_ipct_add(struct sk_buff *skb, u_int32_t hooknum,
 #define DEBUGP(format, args...)
 
 typedef int (*bcmNatHitHook)(struct sk_buff *skb);
-extern int bcm_nat_hit_hook_func(bcmNatHitHook hook_func);
-
 typedef int (*bcmNatBindHook)(struct nf_conn *ct,enum ip_conntrack_info ctinfo,
-	    						unsigned int hooknum, struct sk_buff **pskb);
-extern int bcm_nat_bind_hook_func(bcmNatBindHook hook_func);
+			      unsigned int hooknum, struct sk_buff *skb);
 
-extern int
-bcm_manip_pkt(u_int16_t proto,
-	  struct sk_buff **pskb,
-	  unsigned int iphdroff,
-	  const struct nf_conntrack_tuple *target,
-	  enum nf_nat_manip_type maniptype);
+extern bcmNatBindHook bcm_nat_bind_hook;
+extern bcmNatHitHook bcm_nat_hit_hook;
+
+static inline int
+bcm_nat_bind_hook_func(bcmNatBindHook hook_func)
+{
+	bcm_nat_bind_hook = hook_func;
+	return 1;
+}
+
+static inline int
+bcm_nat_hit_hook_func(bcmNatHitHook hook_func)
+{
+	bcm_nat_hit_hook = hook_func;
+	return 1;
+}
+
+extern int bcm_manip_pkt(u_int16_t proto,
+	struct sk_buff *skb,
+	unsigned int iphdroff,
+	const struct nf_conntrack_tuple *target,
+	enum nf_nat_manip_type maniptype);
+
+extern int bcm_nf_ct_invert_tuple(struct nf_conntrack_tuple *inverse,
+	const struct nf_conntrack_tuple *orig,
+	const struct nf_conntrack_l3proto *l3proto,
+	const struct nf_conntrack_l4proto *l4proto);
 
 /* 
  * Send packets to output.
@@ -91,7 +109,7 @@ static inline int ip_skb_dst_mtu(struct sk_buff *skb)
 	       skb->dst->dev->mtu : dst_mtu(skb->dst);
 }
 
-static inline int bcm_fast_path(struct sk_buff *skb)
+static int bcm_fast_path(struct sk_buff *skb)
 {
 	if (skb->dst == NULL) {
 		struct iphdr *iph = ip_hdr(skb);
@@ -115,19 +133,19 @@ static inline int bcm_fast_path(struct sk_buff *skb)
 	return -EINVAL;
 }
 
-static inline int
+static int
 bcm_do_bindings(struct nf_conn *ct,
 		enum ip_conntrack_info ctinfo,
-		struct sk_buff **pskb,
+		struct sk_buff *skb,
 		struct nf_conntrack_l3proto *l3proto,
 		struct nf_conntrack_l4proto *l4proto)
 {
-	struct iphdr *iph = ip_hdr(*pskb);
+	struct iphdr *iph = ip_hdr(skb);
 	unsigned int i;
 	static int hn[2] = {NF_IP_PRE_ROUTING, NF_IP_POST_ROUTING};
 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
 #ifdef HNDCTF
-	bool enabled = ip_conntrack_is_ipc_allowed(*pskb, NF_IP_PRE_ROUTING);
+	bool enabled = ip_conntrack_is_ipc_allowed(skb, NF_IP_PRE_ROUTING);
 #endif /* HNDCTF */
 
 	for (i = 0; i < 2; i++) {
@@ -146,30 +164,24 @@ bcm_do_bindings(struct nf_conn *ct,
 		if (ct->status & statusbit) {
 			struct nf_conntrack_tuple target;
 
-			if (skb_cloned(*pskb) && !(*pskb)->sk) {
-				struct sk_buff *nskb = skb_copy(*pskb, GFP_ATOMIC);
-				if (!nskb)
-					return NF_DROP;
+			if (!skb_make_writable(skb, 0))
+				return NF_DROP;
 
-				kfree_skb(*pskb);
-				*pskb = nskb;
-			}
-
-			if ((*pskb)->dst == NULL && mtype == IP_NAT_MANIP_SRC) {
-				struct net_device *dev = (*pskb)->dev;
-				if (ip_route_input((*pskb), iph->daddr, iph->saddr, iph->tos, dev))
+			if (skb->dst == NULL && mtype == IP_NAT_MANIP_SRC) {
+				struct net_device *dev = skb->dev;
+				if (ip_route_input(skb, iph->daddr, iph->saddr, iph->tos, dev))
 					return NF_DROP;
 				/* Change skb owner */
-				(*pskb)->dev = (*pskb)->dst->dev;
+				skb->dev = skb->dst->dev;
 			}
 
 			/* We are aiming to look like inverse of other direction. */
-			nf_ct_invert_tuple(&target, &ct->tuplehash[!dir].tuple, l3proto, l4proto);
+			bcm_nf_ct_invert_tuple(&target, &ct->tuplehash[!dir].tuple, l3proto, l4proto);
 #ifdef HNDCTF
 			if (enabled)
-				ip_conntrack_ipct_add(*pskb, hn[i], ct, ctinfo, &target);
+				ip_conntrack_ipct_add(skb, hn[i], ct, ctinfo, &target);
 #endif /* HNDCTF */
-			if (!bcm_manip_pkt(target.dst.protonum, pskb, 0, &target, mtype))
+			if (!bcm_manip_pkt(target.dst.protonum, skb, 0, &target, mtype))
 				return NF_DROP;
 		}
 	}

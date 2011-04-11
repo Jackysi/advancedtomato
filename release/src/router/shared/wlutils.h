@@ -75,6 +75,9 @@ static inline int wl_phytype_n(int phytype)
 #ifdef WLC_PHY_TYPE_LCN
 		|| (phytype == WLC_PHY_TYPE_LCN)
 #endif
+#ifdef WLC_PHY_TYPE_HT
+		|| (phytype == WLC_PHY_TYPE_HT)
+#endif
 	;
 }
 

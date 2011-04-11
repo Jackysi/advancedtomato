@@ -15,6 +15,11 @@
 #include <linux/netfilter/nf_conntrack_common.h>
 
 #ifdef __KERNEL__
+
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+#define	BCM_FASTNAT_DENY	1
+#endif
+
 #include <linux/bitops.h>
 #include <linux/compiler.h>
 #include <asm/atomic.h>
@@ -111,6 +116,7 @@ struct nf_conn_help {
 };
 
 #define CTF_FLAGS_CACHED	(1 << 0)	/* Indicates cached connection */
+#define CTF_FLAGS_EXCLUDED	(1 << 30)
 
 #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
 #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>

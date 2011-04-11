@@ -27,6 +27,10 @@
 #include <proto/802.1d.h>
 #include <shared.h>
 
+#ifndef BCM4331_CHIP_ID
+#define BCM4331_CHIP_ID	0x4331	/* 4331 chipcommon chipid */
+#endif
+
 /* phy types */
 #define	PHY_TYPE_A		0
 #define	PHY_TYPE_B		1
@@ -34,7 +38,7 @@
 #define	PHY_TYPE_N		4
 #define	PHY_TYPE_LP		5
 #define PHY_TYPE_SSN		6
-#define	PHY_TYPE_QN		7
+#define	PHY_TYPE_HT		7
 #define	PHY_TYPE_LCN		8
 #define	PHY_TYPE_NULL		0xf
 
@@ -619,13 +623,18 @@ wlconf_auto_chanspec(char *name)
 				 (phy) == PHY_TYPE_LP ? "l" : \
 				 (phy) == PHY_TYPE_G ? "g" : \
 				 (phy) == PHY_TYPE_SSN ? "s" : \
+				 (phy) == PHY_TYPE_HT ? "h" : \
 				 (phy) == PHY_TYPE_LCN ? "c" : "n")
 #define WLCONF_STR2PHYTYPE(ch)	((ch) == 'a' ? PHY_TYPE_A : \
 				 (ch) == 'b' ? PHY_TYPE_B : \
 				 (ch) == 'l' ? PHY_TYPE_LP : \
 				 (ch) == 'g' ? PHY_TYPE_G : \
 				 (ch) == 's' ? PHY_TYPE_SSN : \
+				 (ch) == 'h' ? PHY_TYPE_HT : \
 				 (ch) == 'c' ? PHY_TYPE_LCN : PHY_TYPE_N)
+
+#define WLCONF_PHYTYPE_11N(phy)	((phy) == PHY_TYPE_N	|| (phy) == PHY_TYPE_SSN || \
+				 (phy) == PHY_TYPE_LCN	|| (phy) == PHY_TYPE_HT)
 
 #define PREFIX_LEN 32			/* buffer size for wlXXX_ prefix */
 
@@ -1263,7 +1272,7 @@ wlconf(char *name)
 	for (i = 0; i < strlen(var); i++) {
 		/* Switch to band */
 		val = WLCONF_STR2PHYTYPE(var[i]);
-		if (val == PHY_TYPE_N || val == PHY_TYPE_SSN) {
+		if (WLCONF_PHYTYPE_11N(val)) {
 			WL_GETINT(name, WLC_GET_BAND, &val);
 		} else
 			val = WLCONF_PHYTYPE2BAND(val);
@@ -1279,7 +1288,7 @@ wlconf(char *name)
 	str = nvram_get(strcat_r(prefix, "phytype", tmp));
 	val = str ? WLCONF_STR2PHYTYPE(str[0]) : PHY_TYPE_G;
 	/* For NPHY use band value from NVRAM */
-	if (val == PHY_TYPE_N || val == PHY_TYPE_SSN) {
+	if (WLCONF_PHYTYPE_11N(val)) {
 		str = nvram_get(strcat_r(prefix, "nband", tmp));
 		if (str)
 			val = atoi(str);
@@ -1308,7 +1317,7 @@ wlconf(char *name)
 	nvram_set(strcat_r(prefix, "corerev", tmp), buf);
 
 	if ((rev.chipnum == BCM4716_CHIP_ID) || (rev.chipnum == BCM47162_CHIP_ID) ||
-		(rev.chipnum == BCM4748_CHIP_ID)) {
+		(rev.chipnum == BCM4748_CHIP_ID) || (rev.chipnum == BCM4331_CHIP_ID)) {
 		int pam_mode = WLC_N_PREAMBLE_GF_BRCM; /* default GF-BRCM */
 
 		strcat_r(prefix, "mimo_preamble", tmp);
@@ -1359,7 +1368,7 @@ wlconf(char *name)
 	}
 
 	/* set bandwidth capability for nphy and calculate nbw */
-	if (phytype == PHY_TYPE_N || phytype == PHY_TYPE_SSN || phytype == PHY_TYPE_LCN) {
+	if (WLCONF_PHYTYPE_11N(phytype)) {
 		/* Get the user nmode setting now */
 		nmode = AUTO;	/* enable by default for NPHY */
 		/* Set n mode */
@@ -1395,7 +1404,7 @@ wlconf(char *name)
 			snprintf(buf, sizeof(buf), "%d", ci.target_channel);
 			nvram_set(strcat_r(prefix, "channel", tmp), buf);
 		}
-	} else if (val && (phytype == PHY_TYPE_N || phytype == PHY_TYPE_SSN)) {
+	} else if (val && WLCONF_PHYTYPE_11N(phytype)) {
 		chanspec_t chanspec = 0;
 		uint channel;
 		uint nctrlsb = WL_CHANSPEC_CTL_SB_NONE;
@@ -1424,9 +1433,10 @@ wlconf(char *name)
 	}
 
 	/* Set up number of Tx and Rx streams */
-	if (phytype == PHY_TYPE_N || phytype == PHY_TYPE_SSN || phytype == PHY_TYPE_LCN) {
+	if (WLCONF_PHYTYPE_11N(phytype)) {
 		int count;
 		int streams;
+		int policy;
 
 		/* Get the number of tx chains supported by the hardware */
 		wl_iovar_getint(name, "hw_txchain", &count);
@@ -1463,6 +1473,12 @@ wlconf(char *name)
 
 		/* Apply user configured rxstreams, use 1 if user disabled nmode */
 		WL_IOVAR_SETINT(name, "rxchain", streams);
+
+		/* update the spatial policy to make chain changes effect */
+		if (phytype == PHY_TYPE_HT) {
+			wl_iovar_getint(name, "spatial_policy", &policy);
+			WL_IOVAR_SETINT(name, "spatial_policy", policy);
+		}
 	}
 
 	/* Reset to hardware rateset (band may have changed) */
@@ -1489,7 +1505,7 @@ wlconf(char *name)
 	}
 
 	/* Set nmode_protection */
-	if (phytype == PHY_TYPE_N || phytype == PHY_TYPE_SSN || phytype == PHY_TYPE_LCN) {
+	if (WLCONF_PHYTYPE_11N(phytype)) {
 		int override = WLC_PROTECTION_OFF;
 		int control = WLC_PROTECTION_CTL_OFF;
 
@@ -1597,9 +1613,7 @@ wlconf(char *name)
 	 * 11n - short/long applicable in 2.4G band only
 	 */
 	if (phytype == PHY_TYPE_B ||
-	    ((phytype == PHY_TYPE_N) && (bandtype == WLC_BAND_2G)) ||
-	    ((phytype == PHY_TYPE_SSN) && (bandtype == WLC_BAND_2G)) ||
-	    ((phytype == PHY_TYPE_LCN) && (bandtype == WLC_BAND_2G)) ||
+	    (WLCONF_PHYTYPE_11N(phytype) && (bandtype == WLC_BAND_2G)) ||
 	    ((phytype == PHY_TYPE_G || phytype == PHY_TYPE_LP) &&
 	     (gmode == GMODE_LEGACY_B || gmode == GMODE_AUTO))) {
 		strcat_r(prefix, "plcphdr", tmp);
@@ -1614,7 +1628,7 @@ wlconf(char *name)
 	val = atoi(nvram_safe_get(strcat_r(prefix, "rate", tmp))) / 500000;
 
 	/* Convert Auto mcsidx to Auto rate */
-	if (phytype == PHY_TYPE_N || phytype == PHY_TYPE_SSN || phytype == PHY_TYPE_LCN) {
+	if (WLCONF_PHYTYPE_11N(phytype)) {
 		int mcsidx = atoi(nvram_safe_get(strcat_r(prefix, "nmcsidx", tmp)));
 
 		/* -1 mcsidx used to designate AUTO rate */
@@ -1732,7 +1746,7 @@ wlconf(char *name)
 	}
 
 	/* Set RIFS mode based on framebursting */
-	if (phytype == PHY_TYPE_N || phytype == PHY_TYPE_SSN || phytype == PHY_TYPE_LCN) {
+	if (WLCONF_PHYTYPE_11N(phytype)) {
 		char *nvram_str = nvram_safe_get(strcat_r(prefix, "rifs", tmp));
 		if (!strcmp(nvram_str, "on"))
 			wl_iovar_setint(name, "rifs", ON);
@@ -1754,7 +1768,7 @@ wlconf(char *name)
 	else if (!strcmp(ba, "off"))
 		wl_iovar_setint(name, "ba", OFF);
 
-	if (phytype == PHY_TYPE_N || phytype == PHY_TYPE_SSN || phytype == PHY_TYPE_LCN) {
+	if (WLCONF_PHYTYPE_11N(phytype)) {
 		val = AVG_DMA_XFER_RATE;
 		wl_iovar_set(name, "avg_dma_xfer_rate", &val, sizeof(val));
 	}
@@ -1800,7 +1814,7 @@ wlconf(char *name)
 	 * For an AP - Only use if 2G band AND user wants a 40Mhz chanspec.
 	 * For a STA - Always
 	 */
-	if (phytype == PHY_TYPE_N || phytype == PHY_TYPE_SSN) {
+	if (WLCONF_PHYTYPE_11N(phytype)) {
 		if (sta ||
 		    ((ap || apsta) && (nbw == WL_CHANSPEC_BW_40) && (bandtype == WLC_BAND_2G))) {
 			str = nvram_safe_get(strcat_r(prefix, "obss_coex", tmp));
@@ -1809,8 +1823,13 @@ wlconf(char *name)
 				str = "0"; //nvram_default_get(strcat_r(prefix, "obss_coex", tmp));
 			}
 			obss_coex = atoi(str);
-			WL_IOVAR_SETINT(name, "obss_coex", obss_coex);
+		} else {
+			/* Need to disable obss coex in case of 20MHz and/or
+			 * in case of 5G.
+			 */
+			obss_coex = 0;
 		}
+		WL_IOVAR_SETINT(name, "obss_coex", obss_coex);
 	}
 
 	/* Auto Channel Selection:

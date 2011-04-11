@@ -9,6 +9,7 @@
  * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
  *
+ * $Id: nvram_linux.c,v 1.19 2006/04/08 07:12:42 honor Exp $
  */
 
 #include <linux/config.h>
@@ -20,6 +21,7 @@
 #include <linux/spinlock.h>
 #include <linux/slab.h>
 #include <linux/bootmem.h>
+#include <linux/wrapper.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
 #include <linux/mtd/mtd.h>
@@ -34,102 +36,30 @@
 #include <bcmutils.h>
 #include <sbconfig.h>
 #include <sbchipc.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-#include <siutils.h>
-#else	// K24
-#include <linux/wrapper.h>
 #include <sbutils.h>
-#endif
 #include <hndmips.h>
 #include <sflash.h>
-#include <linux/vmalloc.h>
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-#include <asm/cacheflush.h>
-#include <bcmdefs.h>
-#include <hndsoc.h>
-#include <linux/nls.h>
-#ifdef MODULE
-/* This isn't right, but I can't figure out how to make the link error go away. */
-#define flush_cache_all() do { hndcrc8(nvram_buf, sizeof(nvram_buf), 0); hndcrc8(nvram_buf, sizeof(nvram_buf), 0); } while (0)
-#endif
-#endif	// K26
-
-MODULE_LICENSE("GPL");
-
-#define KB * 1024
-
-static int hdr_valid(struct nvram_header *header, int max);
 
 /* In BSS to minimize text size and page aligned so it can be mmap()-ed */
-/* Used for:
- *	In early... as nvram (read) staging buffer.
- *	In normal.. to hold the values of items.
- */
-char nvram_buf[NVRAM_VAL_SIZE] __attribute__((aligned(PAGE_SIZE)));
+static char nvram_buf[NVRAM_SPACE] __attribute__((aligned(PAGE_SIZE)));
+static char *nvram_commit_buf = NULL;
 
-/* This is the staging buffer for data going to/from the flash.
- * Also as work buffer for compactify.
- * It is large enough to hold all the NVRAM data and is 1 or more EBs is size.
- * The first chunk (before the nvram areaa) in the flash eb is preserved. */
-unsigned char *nvram_commit_buf = NULL;
-static int erasesize;	/* The size of flash eraseblock & commit_buf.
-			 * 32KB rounded up to mtd->erasesise. (64KB or 128KB) */
+#ifdef MODULE
 
-int oflow_area_present = 0;
+#define early_nvram_get(name) nvram_get(name)
 
-/* The nvram area is the last 32KB (or 60kb for E3000) of the last eraseblock of the flash chip.
- * Normally this is the mtdN partition named "nvram".
- * Normally this paritition is the entire last eraseblock. Do "cat /proc/mtd" to see this.
- * The first part of the last EB, from the start up to the NVRAM area, is
- * not used by pmon/cfe.
- * We use the next-to-last 32kb for overflow (extended) nvram area.  On a
- * smallish flash chip these 2 areas are the entire EB.  Some larger routers
- * have 128KB EB size, and on these the 1st 64KB of the last EB is unused.
- *
- * The implementation of this code is one main area of 32KB and one oflow area
- * of 32KB, for a total available nvram of 64KB.
- * Period.
- *
- * Some routers have pmon/cfe that uses 60KB for nvram.  On these, there is no
- * overflow area.  The total nvram area of these is 60kb.
- *
- */
+#else /* !MODULE */
 
-#if NVRAM_SPACE != (32 * 1024)
-#error	Attempt to redefine NVRAM_SPACE to something other than 32K.
-#endif
+/* Global SB handle */
+extern void *bcm947xx_sbh;
+extern spinlock_t bcm947xx_sbh_lock;
 
-/* This is the size of pmon/cfe (and for us: "main") nvram area.
- * Normally 32kb, but a few routers it is 60kb.
- */
-int nvram_space = NVRAM_32K;	/* Determined at probe time. */
+/* Convenience */
+#define sbh bcm947xx_sbh
+#define sbh_lock bcm947xx_sbh_lock
+#define KB * 1024
+#define MB * 1024 * 1024
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-#define MTD_ERASE(mtd, args...) (*(mtd->erase))(mtd, args)
-#define MTD_READ(mtd, args...) (*(mtd->read))(mtd, args)
-#define MTD_WRITE(mtd, args...) (*(mtd->write))(mtd, args)
-
-#define mem_map_reserve(a) SetPageReserved(a)
-#define mem_map_unreserve(a) ClearPageReserved(a)
-
-#define bcm947xx_sbh bcm947xx_sih
-extern void *bcm947xx_sih;
-
-#define sb_setcore	si_setcore
-#define SB_CC		CC_CORE_ID
-#define SB_FLASH2_SZ	SI_FLASH2_SZ
-#define SB_FLASH1_SZ	SI_FLASH1_SZ
-#define SB_FLASH1	SI_FLASH1
-#define SB_FLASH2	SI_FLASH2
-#define SB_BUS		SI_BUS
-#define sb_setosh	si_setosh
-#define sb_memc_get_ncdl	si_memc_get_ncdl
-
-#define sih bcm947xx_sih
-#endif	// KERNEL 2.6
-
-#if 0
 static int
 nvram_valid(struct nvram_header *header)
 {
@@ -141,48 +71,18 @@ nvram_valid(struct nvram_header *header)
 	    1;	/* oleg -- no crc check for now */
 #else
 	    (header->crc_ver_init & 255) ==
-		hndcrc8((char *) header + NVRAM_CRC_START_POSITION,
-		header->len - NVRAM_CRC_START_POSITION, CRC8_INIT_VALUE);
+		hndcrc8((char *) header + 9, header->len - 9, CRC8_INIT_VALUE);
 #endif
 }
-#endif
 
-#ifdef MODULE
-
-#define early_nvram_get(name) nvram_get(name)
-#define early_nvram_getall(name,c) _nvram_getall(name,c)
-extern void *bcm947xx_sbh;   
-#define sbh bcm947xx_sbh
-#define sbh_lock bcm947xx_sbh_lock
-
-#define NVR_DEVNAME "nvram2"
-#define NVR_DEVNUM  1
-
-#else /* !MODULE */
-#define NVR_DEVNAME "nvram"
-#define NVR_DEVNUM  0
-
-/* Global SB handle */
-extern void *bcm947xx_sbh;
-extern spinlock_t bcm947xx_sbh_lock;
-
-/* Convenience */
-#define sbh bcm947xx_sbh
-#define sbh_lock bcm947xx_sbh_lock
-
-/* Early (before mm or mtd) read-only access to NVRAM */
 /* Probe for NVRAM header */
-static void
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-__init
-#endif
+static void __init
 early_nvram_init(void)
 {
 	struct nvram_header *header;
 	chipcregs_t *cc;
 	struct sflash *info = NULL;
 	int i;
-	int j;
 	uint32 base, off, lim;
 	u32 *src, *dst;
 
@@ -195,13 +95,8 @@ early_nvram_init(void)
 
 		case SFLASH_ST:
 		case SFLASH_AT:
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-			if ((info = sflash_init(sih, cc)) == NULL)
-				return;
-#else
 			if ((info = sflash_init(cc)) == NULL)
 				return;
-#endif
 			lim = info->size;
 			break;
 
@@ -232,19 +127,12 @@ early_nvram_init(void)
 	off = FLASH_MIN;
 	while (off <= lim) {
 		/* Windowed flash access */
-		j = 32 KB;
-		header = (struct nvram_header *) KSEG1ADDR(base + off - NVRAM_32K);
-		if (hdr_valid(header, NVRAM_32K))
-			goto found;
-		j = 4 KB;
-		header = (struct nvram_header *) KSEG1ADDR(base + off - (NVRAM_32K + 28 KB));
-		if (hdr_valid(header, NVRAM_32K + 28 KB))
+		header = (struct nvram_header *) KSEG1ADDR(base + off - NVRAM_SPACE);
+		if (nvram_valid(header))
 			goto found;
 		off <<= 1;
 	}
 
-	printk("Probing didn't find nvram, assuming 32K.\n");
-	j = 32 KB;
 	/* Try embedded NVRAM at 4 KB and 1 KB as last resorts */
 	header = (struct nvram_header *) KSEG1ADDR(base + 4 KB);
 	if (header->magic == NVRAM_MAGIC)
@@ -260,20 +148,14 @@ early_nvram_init(void)
 found:
 	src = (u32 *) header;
 	dst = (u32 *) nvram_buf;
-	nvram_space = 64 KB - j;
-	printk("early_nvram_init detected %d KB NVRAM area\n", nvram_space/1024);
-	bzero(nvram_buf, sizeof(nvram_buf));
 	for (i = 0; i < sizeof(struct nvram_header); i += 4)
 		*dst++ = *src++;
-	for (; i < header->len && i < nvram_space; i += 4)
-		*dst++ = *src++;
+	for (; i < header->len && i < NVRAM_SPACE; i += 4)
+		*dst++ = ltoh32(*src++);
 }
 
 /* Early (before mm or mtd) read-only access to NVRAM */
-static char *
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-__init
-#endif
+static char * __init
 early_nvram_get(const char *name)
 {
 	char *var, *value, *end, *eq;
@@ -303,10 +185,7 @@ early_nvram_get(const char *name)
 	return NULL;
 }
 
-static int
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-__init
-#endif
+static int __init
 early_nvram_getall(char *buf, int count)
 {
 	char *var, *end;
@@ -346,30 +225,11 @@ extern void _nvram_exit(void);
 /* Globals */
 static spinlock_t nvram_lock = SPIN_LOCK_UNLOCKED;
 static struct semaphore nvram_sem;
+static unsigned long nvram_offset = 0;
 static int nvram_major = -1;
-static struct mtd_info *nvram_mtd = NULL;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-static struct class *nvram_class = NULL;
-#else
 static devfs_handle_t nvram_handle = NULL;
-#endif
+static struct mtd_info *nvram_mtd = NULL;
 
-static int
-hdr_valid(struct nvram_header *header, int max)
-{
-	return (header->magic == NVRAM_MAGIC &&
-		header->len >= sizeof(struct nvram_header) && 
-		header->len <= max &&
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-		(nvram_calc_crc(header) == (uint8) header->crc_ver_init));
-#else
-		(header->crc_ver_init & 255) ==
-		hndcrc8((char *) header + NVRAM_CRC_START_POSITION,
-		header->len - NVRAM_CRC_START_POSITION, CRC8_INIT_VALUE));
-#endif
-}
-
-#if 0
 int
 _nvram_read(char *buf)
 {
@@ -377,71 +237,53 @@ _nvram_read(char *buf)
 	size_t len;
 
 	if (!nvram_mtd ||
-	    MTD_READ(nvram_mtd, nvram_mtd->size - nvram_space, nvram_space, &len, buf) ||
-	    len != nvram_space ||
+	    MTD_READ(nvram_mtd, nvram_mtd->size - NVRAM_SPACE, NVRAM_SPACE, &len, buf) ||
+	    len != NVRAM_SPACE ||
 	    !nvram_valid(header)) {
 		printk("_nvram_read: invalid nvram image\n");
 		/* Maybe we can recover some data from early initialization */
-		memcpy(buf, nvram_buf, nvram_space);
+		memcpy(buf, nvram_buf, NVRAM_SPACE);
 	}
 
 	return 0;
 }
-#endif
 
-/* Read the entire /dev/nvram block. Works only if EB is >= 32KB.
- * Uses the beginning of commit_buf.
- * Returns: < 0 for error.
- * >= 0 -- offset into nvram_commit_buf of the NVRAM header.
- * N.B.,  nvram_commit_buf[] has the last 64KB of the flash nvram partition.
- */
-int
-_nvram_init_read(void)
+struct nvram_tuple *
+_nvram_realloc(struct nvram_tuple *t, const char *name, const char *value)
 {
-	size_t len;
-	int j;
-	int ret;
-	struct nvram_header *header;
-	u_int32_t offset;	/* fseek position of the last EB in the /mtd/nvram partition. */
-	unsigned int i;
+	if ((nvram_offset + strlen(value) + 1) > NVRAM_SPACE)
+		return NULL;
 
-	if (!nvram_mtd) {
-		printk("nvram_init: NVRAM not found\n");
-		return -ENODEV;
+	if (!t) {
+		if (!(t = kmalloc(sizeof(struct nvram_tuple) + strlen(name) + 1, GFP_ATOMIC)))
+			return NULL;
+
+		/* Copy name */
+		t->name = (char *) &t[1];
+		strcpy(t->name, name);
+
+		t->value = NULL;
 	}
 
-	oflow_area_present = 0;
-	if (erasesize < 2 * NVRAM_32K)
-		return -ENODEV;
+	/* Copy value */
+	if (!t->value || strcmp(t->value, value)) {
+		t->value = &nvram_buf[nvram_offset];
+		strcpy(t->value, value);
+		nvram_offset += strlen(value) + 1;
+	}
 
-	i = 2 * NVRAM_32K;
-	/* seek offset to the last 64KB.  Normally 0. 64k on 128k EB size. */
-	offset = nvram_mtd->size - i;
-	len = 0;
-	/* Read the last 64kb of flash */
-	ret = MTD_READ(nvram_mtd, offset, i, &len, nvram_commit_buf);
-	if (ret || len != i) {
-		printk("nvram_init: read error ret = %d, len = %d/%d\n", ret, len, i);
-		return -EIO;
-	}
-	/* Probe various spots to find the header. Every 4K down from 32K from the end.*/
-	for (j = 32 KB; j >= 0 ; j -= 4 KB) {
-		header = (struct nvram_header *)(nvram_commit_buf + j);
-		if (hdr_valid(header, 64 KB - j))
-			break;
-	}
-	if (j >= 0)
-		printk("Probing found nvram header at %dK, size %dK\n", (j)/1024, (64 KB - j)/1024);
-	else {
-		printk("Probing didn't find nvram header. Assuming 32K\n");
-		j = 32 KB;
-	}
-	nvram_space = 64 KB - j;
-	return j;
+	return t;
 }
 
+void
+_nvram_free(struct nvram_tuple *t)
+{
+	if (!t)
+		nvram_offset = 0;
+	else
+		kfree(t);
+}
 
-/* Called in early initialization. */
 int
 nvram_init(void *sbh)
 {
@@ -453,9 +295,17 @@ nvram_set(const char *name, const char *value)
 {
 	unsigned long flags;
 	int ret;
+	struct nvram_header *header;
 
 	spin_lock_irqsave(&nvram_lock, flags);
-	ret = _nvram_set(name, value);
+	if ((ret = _nvram_set(name, value))) {
+		/* Consolidate space and try again */
+		if ((header = kmalloc(NVRAM_SPACE, GFP_ATOMIC))) {
+			if (_nvram_commit(header) == 0)
+				ret = _nvram_set(name, value);
+			kfree(header);
+		}
+	}
 	spin_unlock_irqrestore(&nvram_lock, flags);
 
 	return ret;
@@ -506,6 +356,9 @@ erase_callback(struct erase_info *done)
 int
 nvram_commit(void)
 {
+#if 0
+	char *buf;
+#endif
 	size_t erasesize, len, magic_len;
 	unsigned int i;
 	int ret;
@@ -528,13 +381,16 @@ nvram_commit(void)
 	}
 
 	/* Backup sector blocks to be erased */
-	erasesize = ROUNDUP(nvram_space, nvram_mtd->erasesize);
+	erasesize = ROUNDUP(NVRAM_SPACE, nvram_mtd->erasesize);
+#if 0
+	if (!(buf = kmalloc(erasesize, GFP_KERNEL))) {
+		printk("nvram_commit: out of memory\n");
+		return -ENOMEM;
+	}
+#endif
 	down(&nvram_sem);
 
-	//#warning no commit
-	//_nvram_commit(nvram_commit_buf);  ret = -ENODEV; goto done;	//temp!!!
-
-	if ((i = erasesize - nvram_space) > 0) {
+	if ((i = erasesize - NVRAM_SPACE) > 0) {
 		offset = nvram_mtd->size - erasesize;
 		len = 0;
 		ret = MTD_READ(nvram_mtd, offset, i, &len, nvram_commit_buf);
@@ -543,35 +399,32 @@ nvram_commit(void)
 			ret = -EIO;
 			goto done;
 		}
+		header = (struct nvram_header *)(nvram_commit_buf + i);
+		magic_offset = i + ((void *)&header->magic - (void *)header);
+	} else {
+		offset = nvram_mtd->size - NVRAM_SPACE;
+		magic_offset = ((void *)&header->magic - (void *)header);
+		header = (struct nvram_header *)nvram_commit_buf;
 	}
-	else {
-		offset = nvram_mtd->size - nvram_space;
-		i = 0;
-	}
-	header = (struct nvram_header *)(nvram_commit_buf + i);
-	magic_offset = i + offsetof(struct nvram_header, magic);
 
 	/* clear the existing magic # to mark the NVRAM as unusable 
-	 * we can pull MAGIC bits low without erase
-	 */
+		 we can pull MAGIC bits low without erase	*/
 	header->magic = NVRAM_CLEAR_MAGIC; /* All zeros magic */
 
 	/* Unlock sector blocks (for Intel 28F320C3B flash) , 20060309 */
-	if (nvram_mtd->unlock)
+	if(nvram_mtd->unlock)
 		nvram_mtd->unlock(nvram_mtd, offset, nvram_mtd->erasesize);
 
-	ret = MTD_WRITE(nvram_mtd, offset + magic_offset, sizeof(header->magic),
-		&magic_len, (char *)&header->magic);
+	ret = MTD_WRITE(nvram_mtd, offset + magic_offset, sizeof(header->magic), 
+									&magic_len, (char *)&header->magic);
 	if (ret || magic_len != sizeof(header->magic)) {
 		printk("nvram_commit: clear MAGIC error\n");
 		ret = -EIO;
 		goto done;
 	}
 
-	/* reset MAGIC before we regenerate the NVRAM,
-	 * otherwise we'll have an incorrect CRC
-	 */
-	header->magic = NVRAM_MAGIC;
+	header->magic = NVRAM_MAGIC; /* reset MAGIC before we regenerate the NVRAM,
+																otherwise we'll have an incorrect CRC */
 	/* Regenerate NVRAM */
 	spin_lock_irqsave(&nvram_lock, flags);
 	ret = _nvram_commit(header);
@@ -581,7 +434,7 @@ nvram_commit(void)
 
 	/* Erase sector blocks */
 	init_waitqueue_head(&wait_q);
-	for (; offset < nvram_mtd->size - nvram_space + header->len; offset += nvram_mtd->erasesize) {
+	for (; offset < nvram_mtd->size - NVRAM_SPACE + header->len; offset += nvram_mtd->erasesize) {
 		erase.mtd = nvram_mtd;
 		erase.addr = offset;
 		erase.len = nvram_mtd->erasesize;
@@ -610,7 +463,7 @@ nvram_commit(void)
 	/* Write partition up to end of data area */
 	header->magic = NVRAM_INVALID_MAGIC; /* All ones magic */
 	offset = nvram_mtd->size - erasesize;
-	i = erasesize - nvram_space + header->len;
+	i = erasesize - NVRAM_SPACE + header->len;
 	ret = MTD_WRITE(nvram_mtd, offset, i, &len, nvram_commit_buf);
 	if (ret || len != i) {
 		printk("nvram_commit: write error\n");
@@ -618,10 +471,11 @@ nvram_commit(void)
 		goto done;
 	}
 
-	/* Now mark the NVRAM in flash as "valid" by setting the correct MAGIC # */
+	/* Now mark the NVRAM in flash as "valid" by setting the correct
+		 MAGIC # */
 	header->magic = NVRAM_MAGIC;
-	ret = MTD_WRITE(nvram_mtd, offset + magic_offset, sizeof(header->magic),
-		&magic_len, (char *)&header->magic);
+	ret = MTD_WRITE(nvram_mtd, offset + magic_offset, sizeof(header->magic), 
+									&magic_len, (char *)&header->magic);
 	if (ret || magic_len != sizeof(header->magic)) {
 		printk("nvram_commit: write MAGIC error\n");
 		ret = -EIO;
@@ -630,13 +484,15 @@ nvram_commit(void)
 
 	/*
 	 * Reading a few bytes back here will put the device
-	 * back to the correct mode on certain flashes
-	 */
+	 * back to the correct mode on certain flashes */
 	offset = nvram_mtd->size - erasesize;
 	ret = MTD_READ(nvram_mtd, offset, 4, &len, nvram_commit_buf);
 
-done:
+ done:
 	up(&nvram_sem);
+#if 0
+	kfree(buf);
+#endif
 	return ret;
 }
 
@@ -656,13 +512,11 @@ nvram_getall(char *buf, int count)
 	return ret;
 }
 
-#ifndef MODULE
 EXPORT_SYMBOL(nvram_get);
 EXPORT_SYMBOL(nvram_getall);
 EXPORT_SYMBOL(nvram_set);
 EXPORT_SYMBOL(nvram_unset);
 EXPORT_SYMBOL(nvram_commit);
-#endif
 
 /* User mode interface below */
 
@@ -707,11 +561,11 @@ dev_nvram_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 			goto done;
 		}
 
-		ret = sizeof(char *);
+		ret = sizeof(unsigned long);
 	}
 
-	flush_cache_all();
-
+	flush_cache_all();	
+ 
 done:
 	if (name != tmp)
 		kfree(name);
@@ -742,7 +596,7 @@ dev_nvram_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 	else
 		ret = nvram_unset(name) ? : count;
 
-done:
+ done:
 	if (name != tmp)
 		kfree(name);
 
@@ -758,83 +612,16 @@ dev_nvram_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsign
 	return nvram_commit();
 }
 
-#ifdef MODULE
-/*  This maps the vmalloced module buffer to user space. */
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-static int do_vm_mmap(struct vm_area_struct *vma, char *adr, unsigned long siz)
-{
-	unsigned int start = vma->vm_start;
-	int pfn;
-	int ret;
-
-	while (siz > 0) {
-		pfn = vmalloc_to_pfn(adr);
-		if ((ret = remap_pfn_range(vma, start, pfn, PAGE_SIZE, PAGE_READONLY)) < 0) {
-			return ret;
-		}
-		start += PAGE_SIZE;
-		adr += PAGE_SIZE;
-		siz -= PAGE_SIZE;
-	}
-
-	return 0;
-}
-
-#else	// K24
-/* From bttv-driver.c
- * Here we want the physical address of the memory.
- * This is used when initializing the contents of the
- * area and marking the pages as reserved.
- */
-static inline unsigned long kvirt_to_pa(unsigned long adr) 
-{
-	unsigned long kva;
-
-	kva = (unsigned long)page_address(vmalloc_to_page((void *)adr));
-	kva |= adr & (PAGE_SIZE-1); /* restore the offset */
-	return __pa(kva);
-}
-
-static int do_vm_mmap(struct vm_area_struct *vma, char *adr, unsigned long siz)
-{
-	unsigned int start = vma->vm_start;
-	unsigned long page;
-
-	while (siz > 0) {
-		page = kvirt_to_pa((unsigned long)adr);
-		if (remap_page_range(start, page, PAGE_SIZE, PAGE_READONLY))
-			return -EAGAIN;
-		start += PAGE_SIZE;
-		adr += PAGE_SIZE;
-		siz -= PAGE_SIZE;
-	}
-	return 0;
-}
-#endif
-#endif	// MODULE
-
 static int
 dev_nvram_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	unsigned long siz = vma->vm_end - vma->vm_start;
+	unsigned long offset = virt_to_phys(nvram_buf);
 
-	if (siz > NVRAM_VAL_SIZE) siz = NVRAM_VAL_SIZE;
-#ifdef MODULE
-	return (do_vm_mmap(vma, nvram_buf, siz));
-#else	
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-	if (remap_pfn_range(vma, vma->vm_start,
-			    __pa(nvram_buf) >> PAGE_SHIFT,
-			    siz, vma->vm_page_prot))
+	if (remap_page_range(vma->vm_start, offset, vma->vm_end-vma->vm_start,
+			     vma->vm_page_prot))
 		return -EAGAIN;
-#else
-	if (remap_page_range(vma->vm_start, virt_to_phys(nvram_buf),
-			     siz, vma->vm_page_prot))
-		return -EAGAIN;
-#endif
+
 	return 0;
-#endif
 }
 
 static int
@@ -858,97 +645,55 @@ static struct file_operations dev_nvram_fops = {
 	read:		dev_nvram_read,
 	write:		dev_nvram_write,
 	ioctl:		dev_nvram_ioctl,
-	mmap:		dev_nvram_mmap
+	mmap:		dev_nvram_mmap,
 };
 
 static void
 dev_nvram_exit(void)
 {
-#ifndef MODULE
 	int order = 0;
 	struct page *page, *end;
-#else
-	char *adr = nvram_buf;
-	int size = NVRAM_VAL_SIZE;
-#endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 	if (nvram_handle)
 		devfs_unregister(nvram_handle);
 
 	if (nvram_major >= 0)
-		devfs_unregister_chrdev(nvram_major, NVR_DEVNAME);
-#else	// K26
-	if (nvram_class) {
-		class_device_destroy(nvram_class, MKDEV(nvram_major, NVR_DEVNUM));
-		class_destroy(nvram_class);
-	}
+		devfs_unregister_chrdev(nvram_major, "nvram");
 
-	if (nvram_major >= 0)
-		unregister_chrdev(nvram_major, NVR_DEVNAME);
-#endif
 	if (nvram_mtd)
 		put_mtd_device(nvram_mtd);
 
-#ifndef MODULE
-	while ((PAGE_SIZE << order) < NVRAM_VAL_SIZE)
+	while ((PAGE_SIZE << order) < NVRAM_SPACE)
 		order++;
 	end = virt_to_page(nvram_buf + (PAGE_SIZE << order) - 1);
 	for (page = virt_to_page(nvram_buf); page <= end; page++)
 		mem_map_unreserve(page);
-#else
-	while (size > 0) {
-		mem_map_unreserve(vmalloc_to_page((void *)adr));
-		adr += PAGE_SIZE;
-		size -= PAGE_SIZE;
-	}
-#endif
+
 	_nvram_exit();
-	vfree(nvram_commit_buf);
 }
 
-static int
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-__init
-#endif
+static int __init
 dev_nvram_init(void)
 {
-	int ret = 0;
+	int order = 0, ret = 0;
+	struct page *page, *end;
 	unsigned int i;
 	osl_t *osh;
-#ifndef MODULE
-	int order = 0;
-	struct page *page, *end;
-#else
-	char *adr = nvram_buf;
-	int size = NVRAM_VAL_SIZE;
-#endif
 
-	//printk("---------------------------------------------------------\n");
-	printk("----nvram loading -----" __DATE__ " " __TIME__ " --------\n");
-#ifndef MODULE
 	/* Allocate and reserve memory to mmap() */
-	while ((PAGE_SIZE << order) < NVRAM_VAL_SIZE)
+	while ((PAGE_SIZE << order) < NVRAM_SPACE)
 		order++;
 	end = virt_to_page(nvram_buf + (PAGE_SIZE << order) - 1);
 	for (page = virt_to_page(nvram_buf); page <= end; page++)
 		mem_map_reserve(page);
-#else
-	while (size > 0) {
-		mem_map_reserve(vmalloc_to_page((void *)adr));
-		adr += PAGE_SIZE;
-		size -= PAGE_SIZE;
-	}
-#endif
-	
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
+
 #ifdef CONFIG_MTD
 	/* Find associated MTD device */
 	for (i = 0; i < MAX_MTD_DEVICES; i++) {
 		nvram_mtd = get_mtd_device(NULL, i);
 		if (nvram_mtd) {
 			if (!strcmp(nvram_mtd->name, "nvram") &&
-			    nvram_mtd->size >= NVRAM_32K)
+			    nvram_mtd->size >= NVRAM_SPACE)
 				break;
 			put_mtd_device(nvram_mtd);
 		}
@@ -964,7 +709,7 @@ dev_nvram_init(void)
 	init_MUTEX(&nvram_sem);
 
 	/* Register char device */
-	if ((nvram_major = devfs_register_chrdev(0, NVR_DEVNAME, &dev_nvram_fops)) < 0) {
+	if ((nvram_major = devfs_register_chrdev(0, "nvram", &dev_nvram_fops)) < 0) {
 		ret = nvram_major;
 		goto err;
 	}
@@ -978,75 +723,24 @@ dev_nvram_init(void)
 		sb_setosh(sbh, osh);
 	}
 
+	/* Initialize hash table */
+	_nvram_init(sbh);
+
 	/* Create /dev/nvram handle */
-	nvram_handle = devfs_register(NULL, NVR_DEVNAME, DEVFS_FL_NONE, nvram_major, NVR_DEVNUM,
+	nvram_handle = devfs_register(NULL, "nvram", DEVFS_FL_NONE, nvram_major, 0,
 				      S_IFCHR | S_IRUSR | S_IWUSR | S_IRGRP, &dev_nvram_fops, NULL);
-
-#else	// KERNEL 2.6 
-#if defined(CONFIG_MTD) || defined(CONFIG_MTD_MODULE)
-	/* Find associated MTD device */
-	for (i = 0; i < MAX_MTD_DEVICES; i++) {
-		nvram_mtd = get_mtd_device(NULL, i);
-		if (!IS_ERR(nvram_mtd)) {
-			if (!strcmp(nvram_mtd->name, "nvram") &&
-			    nvram_mtd->size >= NVRAM_32K) {
-				break;
-			}
-			put_mtd_device(nvram_mtd);
-		}
-	}
-	if (i >= MAX_MTD_DEVICES)
-		nvram_mtd = NULL;
-#endif
-
-	/* Initialize hash table lock */
-	spin_lock_init(&nvram_lock);
-
-	/* Initialize commit semaphore */
-	init_MUTEX(&nvram_sem);
-
-	/* Register char device */
-	if ((nvram_major = register_chrdev(0, NVR_DEVNAME, &dev_nvram_fops)) < 0) {
-		ret = nvram_major;
-		goto err;
-	}
-
-	if (si_osh(sih) == NULL) {
-		osh = osl_attach(NULL, SI_BUS, FALSE);
-		if (osh == NULL) {
-			printk("Error allocating osh\n");
-			unregister_chrdev(nvram_major, NVR_DEVNAME);
-			goto err;
-		}
-		si_setosh(sih, osh);
-	}
-
-	/* Create /dev/nvram handle */
-	nvram_class = class_create(THIS_MODULE, NVR_DEVNAME);
-	if (IS_ERR(nvram_class)) {
-		printk("Error creating nvram class\n");
-		goto err;
-	}
-
-	/* Add the device nvram0 */
-	class_device_create(nvram_class, NULL, MKDEV(nvram_major, NVR_DEVNUM), NULL, NVR_DEVNAME);
-#endif
 
 	/* reserve commit read buffer */
 	/* Backup sector blocks to be erased */
-	erasesize = ROUNDUP(NVRAM_VAL_SIZE, nvram_mtd->erasesize);
-	if (!(nvram_commit_buf = vmalloc(erasesize))) {
+	if (!(nvram_commit_buf = kmalloc(ROUNDUP(NVRAM_SPACE, nvram_mtd->erasesize), GFP_KERNEL))) {
 		printk("dev_nvram_init: nvram_commit_buf out of memory\n");
 		goto err;
 	}
 
-	/* Initialize the in-memory database */
-	_nvram_init(sbh);
-
 	/* Set the SDRAM NCDL value into NVRAM if not already done */
 	if (getintvar(NULL, "sdram_ncdl") == 0) {
 		unsigned int ncdl;
-		char buf[16];
+		char buf[] = "0x00000000";
 
 		if ((ncdl = sb_memc_get_ncdl(sbh))) {
 			sprintf(buf, "0x%08x", ncdl);
@@ -1056,16 +750,11 @@ dev_nvram_init(void)
 	}
 
 	return 0;
-err:
+
+ err:
 	dev_nvram_exit();
 	return ret;
 }
 
 module_init(dev_nvram_init);
 module_exit(dev_nvram_exit);
-
-/* For the emacs code formatting
-Local Variables:
-   c-basic-offset: 8
-End:
-*/

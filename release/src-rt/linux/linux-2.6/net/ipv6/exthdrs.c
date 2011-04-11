@@ -101,7 +101,7 @@ int ipv6_find_tlv(struct sk_buff *skb, int offset, int type)
 
 struct tlvtype_proc {
 	int	type;
-	int	(*func)(struct sk_buff **skbp, int offset);
+	int	(*func)(struct sk_buff *skb, int offset);
 };
 
 /*********************
@@ -110,10 +110,8 @@ struct tlvtype_proc {
 
 /* An unknown option is detected, decide what to do */
 
-static int ip6_tlvopt_unknown(struct sk_buff **skbp, int optoff)
+static int ip6_tlvopt_unknown(struct sk_buff *skb, int optoff)
 {
-	struct sk_buff *skb = *skbp;
-
 	switch ((skb_network_header(skb)[optoff] & 0xC0) >> 6) {
 	case 0: /* ignore */
 		return 1;
@@ -138,9 +136,8 @@ static int ip6_tlvopt_unknown(struct sk_buff **skbp, int optoff)
 
 /* Parse tlv encoded option header (hop-by-hop or destination) */
 
-static int ip6_parse_tlv(struct tlvtype_proc *procs, struct sk_buff **skbp)
+static int ip6_parse_tlv(struct tlvtype_proc *procs, struct sk_buff *skb)
 {
-	struct sk_buff *skb = *skbp;
 	struct tlvtype_proc *curr;
 	const unsigned char *nh = skb_network_header(skb);
 	int off = skb_network_header_len(skb);
@@ -171,13 +168,13 @@ static int ip6_parse_tlv(struct tlvtype_proc *procs, struct sk_buff **skbp)
 					/* type specific length/alignment
 					   checks will be performed in the
 					   func(). */
-					if (curr->func(skbp, off) == 0)
+					if (curr->func(skb, off) == 0)
 						return 0;
 					break;
 				}
 			}
 			if (curr->type < 0) {
-				if (ip6_tlvopt_unknown(skbp, off) == 0)
+				if (ip6_tlvopt_unknown(skb, off) == 0)
 					return 0;
 			}
 			break;
@@ -197,9 +194,8 @@ bad:
  *****************************/
 
 #ifdef CONFIG_IPV6_MIP6
-static int ipv6_dest_hao(struct sk_buff **skbp, int optoff)
+static int ipv6_dest_hao(struct sk_buff *skb, int optoff)
 {
-	struct sk_buff *skb = *skbp;
 	struct ipv6_destopt_hao *hao;
 	struct inet6_skb_parm *opt = IP6CB(skb);
 	struct ipv6hdr *ipv6h = ipv6_hdr(skb);
@@ -233,22 +229,13 @@ static int ipv6_dest_hao(struct sk_buff **skbp, int optoff)
 		goto discard;
 
 	if (skb_cloned(skb)) {
-		struct sk_buff *skb2 = skb_copy(skb, GFP_ATOMIC);
-		struct inet6_skb_parm *opt2;
-
-		if (skb2 == NULL)
+		if (pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
 			goto discard;
 
-		opt2 = IP6CB(skb2);
-		memcpy(opt2, opt, sizeof(*opt2));
-
-		kfree_skb(skb);
-
 		/* update all variable using below by copied skbuff */
-		*skbp = skb = skb2;
-		hao = (struct ipv6_destopt_hao *)(skb_network_header(skb2) +
+		hao = (struct ipv6_destopt_hao *)(skb_network_header(skb) +
 						  optoff);
-		ipv6h = ipv6_hdr(skb2);
+		ipv6h = ipv6_hdr(skb);
 	}
 
 	if (skb->ip_summed == CHECKSUM_COMPLETE)
@@ -279,9 +266,8 @@ static struct tlvtype_proc tlvprocdestopt_lst[] = {
 	{-1,			NULL}
 };
 
-static int ipv6_destopt_rcv(struct sk_buff **skbp)
+static int ipv6_destopt_rcv(struct sk_buff *skb)
 {
-	struct sk_buff *skb = *skbp;
 	struct inet6_skb_parm *opt = IP6CB(skb);
 #ifdef CONFIG_IPV6_MIP6
 	__u16 dstbuf;
@@ -303,9 +289,8 @@ static int ipv6_destopt_rcv(struct sk_buff **skbp)
 #endif
 
 	dst = dst_clone(skb->dst);
-	if (ip6_parse_tlv(tlvprocdestopt_lst, skbp)) {
+	if (ip6_parse_tlv(tlvprocdestopt_lst, skb)) {
 		dst_release(dst);
-		skb = *skbp;
 		skb->transport_header += (skb_transport_header(skb)[1] + 1) << 3;
 		opt = IP6CB(skb);
 #ifdef CONFIG_IPV6_MIP6
@@ -336,10 +321,8 @@ void __init ipv6_destopt_init(void)
   NONE header. No data in packet.
  ********************************/
 
-static int ipv6_nodata_rcv(struct sk_buff **skbp)
+static int ipv6_nodata_rcv(struct sk_buff *skb)
 {
-	struct sk_buff *skb = *skbp;
-
 	kfree_skb(skb);
 	return 0;
 }
@@ -359,9 +342,8 @@ void __init ipv6_nodata_init(void)
   Routing header.
  ********************************/
 
-static int ipv6_rthdr_rcv(struct sk_buff **skbp)
+static int ipv6_rthdr_rcv(struct sk_buff *skb)
 {
-	struct sk_buff *skb = *skbp;
 	struct inet6_skb_parm *opt = IP6CB(skb);
 	struct in6_addr *addr = NULL;
 	struct in6_addr daddr;
@@ -496,18 +478,14 @@ looped_back:
 	   Do not damage packets queued somewhere.
 	 */
 	if (skb_cloned(skb)) {
-		struct sk_buff *skb2 = skb_copy(skb, GFP_ATOMIC);
 		/* the copy is a forwarded packet */
-		if (skb2 == NULL) {
+		if (pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
 			IP6_INC_STATS_BH(ip6_dst_idev(skb->dst),
 					 IPSTATS_MIB_OUTDISCARDS);
 			kfree_skb(skb);
 			return -1;
 		}
-		kfree_skb(skb);
-		*skbp = skb = skb2;
-		opt = IP6CB(skb2);
-		hdr = (struct ipv6_rt_hdr *)skb_transport_header(skb2);
+		hdr = (struct ipv6_rt_hdr *)skb_transport_header(skb);
 	}
 
 	if (skb->ip_summed == CHECKSUM_COMPLETE)
@@ -670,9 +648,8 @@ static inline struct inet6_dev *ipv6_skb_idev(struct sk_buff *skb)
 
 /* Router Alert as of RFC 2711 */
 
-static int ipv6_hop_ra(struct sk_buff **skbp, int optoff)
+static int ipv6_hop_ra(struct sk_buff *skb, int optoff)
 {
-	struct sk_buff *skb = *skbp;
 	const unsigned char *nh = skb_network_header(skb);
 
 	if (nh[optoff + 1] == 2) {
@@ -687,9 +664,8 @@ static int ipv6_hop_ra(struct sk_buff **skbp, int optoff)
 
 /* Jumbo payload */
 
-static int ipv6_hop_jumbo(struct sk_buff **skbp, int optoff)
+static int ipv6_hop_jumbo(struct sk_buff *skb, int optoff)
 {
-	struct sk_buff *skb = *skbp;
 	const unsigned char *nh = skb_network_header(skb);
 	u32 pkt_len;
 
@@ -740,9 +716,8 @@ static struct tlvtype_proc tlvprochopopt_lst[] = {
 	{ -1, }
 };
 
-int ipv6_parse_hopopts(struct sk_buff **skbp)
+int ipv6_parse_hopopts(struct sk_buff *skb)
 {
-	struct sk_buff *skb = *skbp;
 	struct inet6_skb_parm *opt = IP6CB(skb);
 
 	/*
@@ -759,8 +734,7 @@ int ipv6_parse_hopopts(struct sk_buff **skbp)
 	}
 
 	opt->hop = sizeof(struct ipv6hdr);
-	if (ip6_parse_tlv(tlvprochopopt_lst, skbp)) {
-		skb = *skbp;
+	if (ip6_parse_tlv(tlvprochopopt_lst, skb)) {
 		skb->transport_header += (skb_transport_header(skb)[1] + 1) << 3;
 		opt = IP6CB(skb);
 		opt->nhoff = sizeof(struct ipv6hdr);

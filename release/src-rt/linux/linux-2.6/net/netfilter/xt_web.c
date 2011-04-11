@@ -222,23 +222,22 @@ static int match_payload(const struct xt_web_info *info, const char *data, int d
 	return !info->invert;
 }
 
-static int
-match4(const struct sk_buff *skbin,
-       const struct net_device *in,
-       const struct net_device *out,
-       const struct xt_match *match,
-       const void *matchinfo,
-       int offset,
-       unsigned int protoff,
-       int *hotdrop)
+static int match(const struct sk_buff *skbin,
+		 const struct net_device *in,
+		 const struct net_device *out,
+		 const struct xt_match *match,
+		 const void *matchinfo,
+		 int offset,
+		 unsigned int protoff,
+		 int *hotdrop)
 {
 	/* sidestep const without getting a compiler warning... */
-	struct sk_buff * skb = (struct sk_buff *)skbin; 
+	struct sk_buff *skb = (struct sk_buff *)skbin;
 
 	const struct xt_web_info *info = matchinfo;
-	const struct iphdr *iph;
 	struct tcphdr *tcph;
 	const char *data;
+	int len;
 
 	if (offset != 0) return info->invert;
 
@@ -248,59 +247,35 @@ match4(const struct sk_buff *skbin,
 			return info->invert;
 		}
 	}
-
-	iph = ip_hdr(skb);
-	tcph = (void *)iph + (iph->ihl * 4);
-	data = (void *)tcph + (tcph->doff * 4);
-
-	return match_payload(info, data,
-		ntohs(iph->tot_len) - (data - (char *)iph));
-}
 
 #if defined(CONFIG_IP6_NF_IPTABLES) || defined(CONFIG_IP6_NF_IPTABLES_MODULE)
-static int
-match6(const struct sk_buff *skbin,
-       const struct net_device *in,
-       const struct net_device *out,
-       const struct xt_match *match,
-       const void *matchinfo,
-       int offset,
-       unsigned int protoff,
-       int *hotdrop)
-{
-	/* sidestep const without getting a compiler warning... */
-	struct sk_buff * skb = (struct sk_buff *)skbin; 
+	if (match->family == AF_INET6)
+	{
+		const struct ipv6hdr *iph = ipv6_hdr(skb);
+		u8 nexthdr = iph->nexthdr;
 
-	const struct xt_web_info *info = matchinfo;
-	const struct ipv6hdr *iph;
-	u8 nexthdr;
-	struct tcphdr *tcph;
-	const char *data;
+		tcph = (void *)iph + ipv6_skip_exthdr(skb, sizeof(*iph), &nexthdr);
+		data = (void *)tcph + (tcph->doff * 4);
+		len = ntohs(iph->payload_len) - (data - (char *)tcph);
+	}
+	else
+#endif
+	{
+		const struct iphdr *iph = ip_hdr(skb);
 
-	if (offset != 0) return info->invert;
-
-	if (skb_is_nonlinear(skb)) {
-		if (unlikely(skb_linearize(skb))) {
-			// failed to linearize packet, bailing
-			return info->invert;
-		}
+		tcph = (void *)iph + (iph->ihl * 4);
+		data = (void *)tcph + (tcph->doff * 4);
+		len = ntohs(iph->tot_len) - (data - (char *)iph);
 	}
 
-	iph = ipv6_hdr(skb);
-	nexthdr = iph->nexthdr;
-	tcph = (void *)iph + ipv6_skip_exthdr(skb, sizeof(*iph), &nexthdr);
-	data = (void *)tcph + (tcph->doff * 4);
-
-	return match_payload(info, data,
-		ntohs(iph->payload_len) - (data - (char *)tcph));
+	return match_payload(info, data, len);
 }
-#endif
 
 static struct xt_match web_match[] = {
 	{
 		.name		= "web",
 		.family		= AF_INET,
-		.match		= match4,
+		.match		= match,
 		.matchsize	= sizeof(struct xt_web_info),
 		.proto		= IPPROTO_TCP,
 		.me		= THIS_MODULE,
@@ -309,7 +284,7 @@ static struct xt_match web_match[] = {
 	{
 		.name		= "web",
 		.family		= AF_INET6,
-		.match		= match6,
+		.match		= match,
 		.matchsize	= sizeof(struct xt_web_info),
 		.proto		= IPPROTO_TCP,
 		.me		= THIS_MODULE,

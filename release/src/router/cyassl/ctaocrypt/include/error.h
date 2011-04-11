@@ -1,6 +1,6 @@
 /* error.h
  *
- * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -85,6 +85,12 @@ enum {
     ASN_SIG_KEY_E      = -157,  /* ASN sig error, unsupported key  type */
     ASN_DH_KEY_E       = -158,  /* ASN key init error, invalid input */
     ASN_NTRU_KEY_E     = -159,  /* ASN ntru key decode error, invalid input */
+
+    /* TODO: TAO add ECC error strings to ErrorString() */
+    ECC_BAD_ARG_E      = -170,  /* ECC input argument of wrong type */
+    ASN_ECC_KEY_E      = -171,  /* ASN ECC bad input */
+    ECC_CURVE_OID_E    = -172,  /* Unsupported ECC OID curve type */
+
     MIN_CODE_E         = -200   /* errors -101 - -199 */
 };
 

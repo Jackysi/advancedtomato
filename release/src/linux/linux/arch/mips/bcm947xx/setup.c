@@ -268,13 +268,16 @@ static int get_router(void)
 	uint boardrev = bcm_strtoul(nvram_safe_get("boardrev"), NULL, 0);
 	uint boardtype = bcm_strtoul(nvram_safe_get("boardtype"), NULL, 0);
 
+#ifdef DIR320_BOARD
 	if (boardnum == 0 && boardtype == 0x48E && boardrev == 0x35) {
 		return RT_DIR320;
 	}
+#endif
 
 	return RT_UNKNOWN;
 }
 
+#ifdef DIR320_BOARD
 static size_t get_erasesize(struct mtd_info *mtd, size_t offset, size_t size)
 {
 	int i;
@@ -298,6 +301,7 @@ static size_t get_erasesize(struct mtd_info *mtd, size_t offset, size_t size)
 
 	return erasesize;
 }
+#endif	// DIR320_BOARD
 
 /*
 	new layout -- zzz 04/2006
@@ -356,6 +360,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 	boardoff = bcm947xx_parts[PART_NVRAM].offset;
 	router = get_router();
 	switch (router) {
+#ifdef DIR320_BOARD
 	case RT_DIR320:
 		if (get_erasesize(mtd, bcm947xx_parts[PART_NVRAM].offset, bcm947xx_parts[PART_NVRAM].size) == 0x2000) {
 			bcm947xx_parts[PART_NVRAM].size = ROUNDUP(NVRAM_SPACE, 0x2000);
@@ -365,6 +370,7 @@ init_mtd_partitions(struct mtd_info *mtd, size_t size)
 		}
 		else bcm947xx_parts[PART_BOARD].name = NULL;
 		break;
+#endif
 	default:
 		bcm947xx_parts[PART_BOARD].name = NULL;
 		break;

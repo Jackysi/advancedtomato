@@ -219,12 +219,12 @@ static struct nf_queue_handler nfqh = {
 	.outfn = imq_nf_queue,
 };
 
-static unsigned int imq_nf_hook(unsigned int hook, struct sk_buff **pskb,
+static unsigned int imq_nf_hook(unsigned int hook, struct sk_buff *skb,
 				const struct net_device *indev,
 				const struct net_device *outdev,
 				int (*okfn)(struct sk_buff *))
 {
-	if ((*pskb)->imq_flags & IMQ_F_ENQUEUE)
+	if (skb->imq_flags & IMQ_F_ENQUEUE)
 		return NF_QUEUE;
 
 	return NF_ACCEPT;

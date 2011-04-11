@@ -58,7 +58,7 @@ struct nf_conntrack_l3proto
 	 *	*dataoff: offset of protocol header (TCP, UDP,...) in *pskb
 	 *	*protonum: protocol number
 	 */
-	int (*prepare)(struct sk_buff **pskb, unsigned int hooknum,
+	int (*prepare)(struct sk_buff *skb, unsigned int hooknum,
 		       unsigned int *dataoff, u_int8_t *protonum);
 
 	u_int32_t (*get_features)(const struct nf_conntrack_tuple *tuple);

@@ -7,10 +7,10 @@
 #
 # Does ID check on newly discovered USB devices and calls
 # the mode switching program with the matching parameter
-# file from /etc/usb_modeswitch.d
+# file from /usr/share/usb_modeswitch
 #
-# Part of usb-modeswitch-1.1.6 package
-# (C) Josua Dietze 2009, 2010
+# Part of usb-modeswitch-1.1.7 package
+# (C) Josua Dietze 2009, 2010, 2011
 
 
 # Setting of the these switches is done in the global config
@@ -45,8 +45,17 @@ if {[lindex $argv 0] == "--symlink-name"} {
 	SafeExit
 }
 
-set settings(dbdir)	/etc/usb_modeswitch.d
-set bindir	/usr/sbin
+set settings(dbdir)	/usr/share/usb_modeswitch
+if {![file exists $settings(dbdir)]} {
+	# Old place available?
+	set settings(dbdir)	/etc/usb_modeswitch.d
+	if {![file exists $settings(dbdir)]} {
+		set device "noname"
+		Log "Error: no config database found in /usr/share or /etc. Exiting"
+		SafeExit
+	}
+}
+set bindir /usr/sbin
 
 set devList1 {}
 set devList2 {}
@@ -265,7 +274,7 @@ foreach configuration [lsort -decreasing $configList] {
 	Log "checking config: $configuration"
 	if [MatchDevice $configuration] {
 		ParseDeviceConfig [ConfigGet config $configuration]
-		set devList1 [glob -nocomplain /dev/ttyUSB* /dev/ttyACM* /dev/ttyHS*]
+		set devList1 [ListSerialDevs]
 		if {$config(waitBefore) == ""} {
 			Log "! matched, now switching"
 		} else {
@@ -302,20 +311,22 @@ foreach configuration [lsort -decreasing $configList] {
 # If switching was OK we now check for drivers by
 # simply recounting serial devices under /dev
 
-# If target ID given, driver shall be loaded
-if [regexp -nocase {ok:[0-9a-f]{4}:[0-9a-f]{4}|ok:no_data} $report] {
-
-	if {![file isdirectory $devdir]} {
-		Log "Device directory in sysfs is gone! Something went wrong, aborting"
-		SafeExit
-	}
-
+if {![file isdirectory $devdir]} {
+	Log "Device directory in sysfs is gone! Something went wrong, aborting"
+	SafeExit
+}
 	# Give the device annother second if it's not fully back yet
 	if {![file exists $devdir/idProduct]} {
 		after 1000
 	}
+if {![file exists $devdir/idProduct]} {
+	after 1000
+}
+ReadUSBAttrs $devdir
 
-	ReadUSBAttrs $devdir
+# If target ID given, driver shall be loaded
+if [regexp -nocase {ok:[0-9a-f]{4}:[0-9a-f]{4}|ok:no_data} $report] {
+
 	if {[string length "$usb(idVendor)$usb(idProduct)"] < 8} {
 		regexp {ok:(\w{4}):(\w{4})} $report d usb(idVendor) usb(idProduct)
 	}
@@ -344,18 +355,27 @@ if [regexp -nocase {ok:[0-9a-f]{4}:[0-9a-f]{4}|ok:no_data} $report] {
 	after 500
 
 	Log "Now checking for newly created serial devices ..."
-	set devList2 [glob -nocomplain /dev/ttyUSB* /dev/ttyACM* /dev/ttyHS*]
+	set devList2 [ListSerialDevs]
 
 	if {[llength $devList1] >= [llength $devList2]} {
 		Log " no new serial devices found"
 		AddToList link_list $usb(idVendor):$usb(idProduct)
+
+		# If device is known, the sh wrapper will take care, else:
 		if {[InBindList $usb(idVendor):$usb(idProduct)] == 0} {
 			Log "Device not in bind_list"
 
+			# Load driver
 			CheckDriverBind $usb(idVendor) $usb(idProduct)
-			after 400
-			set devList2 [glob -nocomplain /dev/ttyUSB* /dev/ttyACM* /dev/ttyHS*]
-			if {[llength $devList1] >= [llength $devList2]} {
+			set counter 0
+
+			# Old/slow systems may take a while to create the devices
+			while {[llength $devList1] >= [llength $devList2] && $counter < 14} {
+				after 500
+				set devList2 [ListSerialDevs]
+				incr counter
+			}
+			if {$counter == 14} {
 				Log " still no new serial devices found"
 			} else {
 				Log " driver successfully bound"
@@ -364,10 +384,13 @@ if [regexp -nocase {ok:[0-9a-f]{4}:[0-9a-f]{4}|ok:no_data} $report] {
 		}
 	} else {
 		Log " new serial devices found, driver has bound"
-		if {[llength [lsearch -all $devList2 *ttyUSB*]] > [llength [lsearch -all $devList1 *ttyUSB*]]} {
+		if {[llength [lsearch -glob -all $devList2 *ttyUSB*]] > [llength [lsearch -glob -all $devList1 *ttyUSB*]]} {
 			AddToList link_list $usb(idVendor):$usb(idProduct)
 		}
 	}
+} else {
+	# Just in case "NoDriverLoading" was added after the first bind
+	RemoveFromBindList $usb(idVendor):$usb(idProduct)
 }
 
 if [regexp {ok:$} $report] {
@@ -530,7 +553,7 @@ set config(waitBefore) [string trimleft $config(waitBefore) 0]
 # end of proc {ParseDeviceConfig}
 
 
-proc {ConfigGet} {command config} {
+proc ConfigGet {command config} {
 
 global settings
 
@@ -544,7 +567,7 @@ switch $command {
 				return {}
 			}
 			set configList [split $configList \n]
-			set configList [lsearch -all -inline $configList $config*]
+			set configList [lsearch -glob -all -inline $configList $config*]
 		} else {
 			set configList [glob -nocomplain $settings(dbdir)/$config*]
 		}
@@ -561,7 +584,6 @@ switch $command {
 		} else {
 			set settings(tmpConfig) $config
 		}
-Log "ConfigGet returns $settings(tmpConfig)"
 		return $settings(tmpConfig)
 	}
 }
@@ -797,7 +819,7 @@ if {$i < 50} {
 # Check if USB ID is listed as needing driver binding
 proc {InBindList} {id} {
 
-set listfile /etc/usb_modeswitch.d/bind_list
+set listfile /var/lib/usb_modeswitch/bind_list
 if {![file exists $listfile]} {return 0}
 set rc [open $listfile r]
 set buffer [read $rc]
@@ -816,14 +838,16 @@ Log "No $id in bind_list"
 # Add USB ID to list of devices needing later treatment
 proc {AddToList} {name id} {
 
-if [file exists /etc/usb_modeswitch.d/last_seen] {
-	if [catch {file rename /etc/usb_modeswitch.d/last_seen /etc/usb_modeswitch.d/bind_list} err] {
+set listfile /var/lib/usb_modeswitch/$name
+set oldlistfile /etc/usb_modeswitch.d/bind_list
+
+if {($name == "bind_list") && [file exists $oldlistfile] && ![file exists $listfile]} {
+	if [catch {file rename $oldlistfile $listfile} err] {
 		Log "Error renaming the old bind list file ($err)"
 		return
 	}
 }
 
-set listfile /etc/usb_modeswitch.d/$name
 if [file exists $listfile] {
 	set rc [open $listfile r]
 	set buffer [read $rc]
@@ -840,7 +864,50 @@ puts $wc $buffer
 close $wc
 
 }
-# end of proc {AddToBindList}
+# end of proc {AddToList}
+
+
+# Remove USB ID from bind list (NoDriverLoading is set)
+proc {RemoveFromBindList} {id} {
+
+set listfile /var/lib/usb_modeswitch/bind_list
+if [file exists $listfile] {
+	set rc [open $listfile r]
+	set buffer [read $rc]
+	close $rc
+	set idList [split [string trim $buffer] \n]
+} else {
+	return
+}
+set idx [lsearch $idList $id]
+if {$idx > -1} {
+	set idList [lreplace $idList $idx $idx]
+} else {
+	return
+}
+if {[llength $idList] == 0} {
+	file delete $listfile
+	return
+}
+set buffer [join $idList "\n"]
+if [catch {set wc [open $listfile w]}] {return}
+puts $wc $buffer
+close $wc
+
+}
+# end of proc {RemoveFromBindList}
+
+# Return a list with all relevant serial devices that are present
+proc {ListSerialDevs} {} {
+
+set devList [glob -nocomplain /dev/ttyUSB* /dev/ttyACM* /dev/ttyHS*]
+if [file isdirectory /dev/tts] {
+	eval lappend devList [glob -nocomplain /dev/tts/*]
+}
+return $devList
+
+}
+# end of proc {ListSerialDevs}
 
 
 # The actual entry point

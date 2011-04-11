@@ -214,15 +214,16 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 #endif
 #ifdef HNDCTF
 	skb->mac_len = 0;
+	skb->hdr_len = 0;
 #endif
 #ifdef CONFIG_BRIDGE_NETFILTER
 	skb->nf_bridge = NULL;
 #endif
 #ifdef CONFIG_NET_SCHED
 	skb->tc_index = 0;
-//#ifdef CONFIG_NET_CLS_ACT
+#ifdef CONFIG_NET_CLS_ACT
 	skb->tc_verd = 0;
-//#endif
+#endif
 #endif
 #ifdef CONFIG_NET_DMA
 	memset(&skb->dma_cookie, 0, sizeof(dma_cookie_t));
@@ -332,12 +333,11 @@ static void skb_release_data(struct sk_buff *skb)
 /*
  *	Free an skbuff by memory without cleaning the state.
  */
-void kfree_skbmem(struct sk_buff *skb)
+static void kfree_skbmem(struct sk_buff *skb)
 {
 	struct sk_buff *other;
 	atomic_t *fclone_ref;
 
-	skb_release_data(skb);
 	switch (skb->fclone) {
 	case SKB_FCLONE_UNAVAILABLE:
 		kmem_cache_free(skbuff_head_cache, skb);
@@ -364,23 +364,17 @@ void kfree_skbmem(struct sk_buff *skb)
 	}
 }
 
-/**
- *	__kfree_skb - private function
- *	@skb: buffer
- *
- *	Free an sk_buff. Release anything attached to the buffer.
- *	Clean the state. This is an internal helper function. Users should
- *	always call kfree_skb
- */
-
-void __kfree_skb(struct sk_buff *skb)
+/* Free everything but the sk_buff shell. */
+static void skb_release_all(struct sk_buff *skb)
 {
 	dst_release(skb->dst);
 #ifdef CONFIG_XFRM
 	secpath_put(skb->sp);
 #endif
 	if (skb->destructor) {
+#ifdef CONFIG_NETCORE_DEBUG
 		WARN_ON(in_irq());
+#endif
 		skb->destructor(skb);
 	}
 #if defined(CONFIG_NF_CONNTRACK) || defined(CONFIG_NF_CONNTRACK_MODULE)
@@ -393,11 +387,25 @@ void __kfree_skb(struct sk_buff *skb)
 /* XXX: IS this still necessary? - JHS */
 #ifdef CONFIG_NET_SCHED
 	skb->tc_index = 0;
-//#ifdef CONFIG_NET_CLS_ACT
+#ifdef CONFIG_NET_CLS_ACT
 	skb->tc_verd = 0;
-//#endif
 #endif
+#endif
+	skb_release_data(skb);
+}
 
+/**
+ *	__kfree_skb - private function
+ *	@skb: buffer
+ *
+ *	Free an sk_buff. Release anything attached to the buffer.
+ *	Clean the state. This is an internal helper function. Users should
+ *	always call kfree_skb
+ */
+
+void __kfree_skb(struct sk_buff *skb)
+{
+	skb_release_all(skb);
 	kfree_skbmem(skb);
 }
 
@@ -441,12 +449,13 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 #endif
 	new->protocol		= old->protocol;
 	new->mark		= old->mark;
+	new->iif		= old->iif;
 	__nf_copy(new, old);
 #ifdef CONFIG_NET_SCHED
 	new->tc_index		= old->tc_index;
-//#ifdef CONFIG_NET_CLS_ACT
+#ifdef CONFIG_NET_CLS_ACT
 	new->tc_verd		= old->tc_verd;
-//#endif
+#endif
 #endif
 	new->vlan_tci		= old->vlan_tci;
 
@@ -455,6 +464,59 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 	new->nfcache		= old->nfcache;
 #endif
 }
+
+/*
+ * You should not add any new code to this function.  Add it to
+ * __copy_skb_header above instead.
+ */
+static struct sk_buff *__skb_clone(struct sk_buff *n, struct sk_buff *skb)
+{
+#define C(x) n->x = skb->x
+
+	n->next = n->prev = NULL;
+	n->sk = NULL;
+	__copy_skb_header(n, skb);
+
+	C(len);
+	C(data_len);
+	C(mac_len);
+#ifdef HNDCTF
+	C(ctf_mac_len);	/* used by Broadcom CTF driver! */
+#endif
+	n->hdr_len = skb->nohdr ? skb_headroom(skb) : skb->hdr_len;
+	n->cloned = 1;
+	n->nohdr = 0;
+	n->destructor = NULL;
+	C(tail);
+	C(end);
+	C(head);
+	C(data);
+	C(truesize);
+	atomic_set(&n->users, 1);
+
+	atomic_inc(&(skb_shinfo(skb)->dataref));
+	skb->cloned = 1;
+
+	return n;
+#undef C
+}
+
+/**
+ *	skb_morph	-	morph one skb into another
+ *	@dst: the skb to receive the contents
+ *	@src: the skb to supply the contents
+ *
+ *	This is identical to skb_clone except that the target skb is
+ *	supplied by the user.
+ *
+ *	The target skb is returned upon exit.
+ */
+struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src)
+{
+	skb_release_all(dst);
+	return __skb_clone(dst, src);
+}
+EXPORT_SYMBOL_GPL(skb_morph);
 
 /**
  *	skb_clone	-	duplicate an sk_buff
@@ -487,34 +549,7 @@ struct sk_buff *skb_clone(struct sk_buff *skb, gfp_t gfp_mask)
 		n->fclone = SKB_FCLONE_UNAVAILABLE;
 	}
 
-#define C(x) n->x = skb->x
-
-	n->next = n->prev = NULL;
-	n->sk = NULL;
-	__copy_skb_header(n, skb);
-
-	C(len);
-	C(data_len);
-	C(mac_len);
-#ifdef HNDCTF
-	C(ctf_mac_len);	/* used by Broadcom CTF driver! */
-#endif
-	n->hdr_len = skb->nohdr ? skb_headroom(skb) : skb->hdr_len;
-	n->cloned = 1;
-	n->nohdr = 0;
-	n->destructor = NULL;
-	C(iif);
-	C(tail);
-	C(end);
-	C(head);
-	C(data);
-	C(truesize);
-	atomic_set(&n->users, 1);
-
-	atomic_inc(&(skb_shinfo(skb)->dataref));
-	skb->cloned = 1;
-
-	return n;
+	return __skb_clone(n, skb);
 }
 
 static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)

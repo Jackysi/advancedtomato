@@ -704,6 +704,10 @@ config RAM_SIZE
        int "Memory size (in megabytes)"
        depends on BCM947XX
 
+config NVRAM_SIZE
+       int "NVRAM size (in kilobytes, 0 = default)"
+       depends on BCM947XX
+
 config SHRINKMEM
 	bool "Support for shrink memory"
 	depends on BCM947XX

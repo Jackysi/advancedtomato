@@ -30,8 +30,8 @@
 #define DEBUGP(format, args...)
 #endif
 
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-int ipv4_conntrack_fastnat = 1;
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE) || defined(HNDCTF)
+int ipv4_conntrack_fastnat = 0;
 EXPORT_SYMBOL_GPL(ipv4_conntrack_fastnat);
 #endif
 
@@ -71,36 +71,37 @@ static int ipv4_print_tuple(struct seq_file *s,
 #if !defined(CONFIG_BCM_NAT) && !defined(CONFIG_BCM_NAT_MODULE)
 static
 #endif
- struct sk_buff *
-nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
+int nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
 {
+	int err;
+
 	skb_orphan(skb);
 
 	local_bh_disable();
-	skb = ip_defrag(skb, user);
+	err = ip_defrag(skb, user);
 	local_bh_enable();
 
-	if (skb)
+	if (!err)
 		ip_send_check(ip_hdr(skb));
 
-	return skb;
+	return err;
 }
 
 static int
-ipv4_prepare(struct sk_buff **pskb, unsigned int hooknum, unsigned int *dataoff,
+ipv4_prepare(struct sk_buff *skb, unsigned int hooknum, unsigned int *dataoff,
 	     u_int8_t *protonum)
 {
 	/* Never happen */
-	if (ip_hdr(*pskb)->frag_off & htons(IP_OFFSET)) {
+	if (ip_hdr(skb)->frag_off & htons(IP_OFFSET)) {
 		if (net_ratelimit()) {
 			printk(KERN_ERR "ipv4_prepare: Frag of proto %u (hook=%u)\n",
-			ip_hdr(*pskb)->protocol, hooknum);
+			ip_hdr(skb)->protocol, hooknum);
 		}
 		return -NF_DROP;
 	}
 
-	*dataoff = skb_network_offset(*pskb) + ip_hdrlen(*pskb);
-	*protonum = ip_hdr(*pskb)->protocol;
+	*dataoff = skb_network_offset(skb) + ip_hdrlen(skb);
+	*protonum = ip_hdr(skb)->protocol;
 
 	return NF_ACCEPT;
 }
@@ -117,17 +118,17 @@ static u_int32_t ipv4_get_features(const struct nf_conntrack_tuple *tuple)
 }
 
 static unsigned int ipv4_confirm(unsigned int hooknum,
-				 struct sk_buff **pskb,
+				 struct sk_buff *skb,
 				 const struct net_device *in,
 				 const struct net_device *out,
 				 int (*okfn)(struct sk_buff *))
 {
 	/* We've seen it coming out the other side: confirm it */
-	return nf_conntrack_confirm(pskb);
+	return nf_conntrack_confirm(skb);
 }
 
 static unsigned int ipv4_conntrack_help(unsigned int hooknum,
-				      struct sk_buff **pskb,
+				      struct sk_buff *skb,
 				      const struct net_device *in,
 				      const struct net_device *out,
 				      int (*okfn)(struct sk_buff *))
@@ -138,7 +139,7 @@ static unsigned int ipv4_conntrack_help(unsigned int hooknum,
 	struct nf_conntrack_helper *helper;
 
 	/* This is where we call the helper: as the packet goes out. */
-	ct = nf_ct_get(*pskb, &ctinfo);
+	ct = nf_ct_get(skb, &ctinfo);
 	if (!ct || ctinfo == IP_CT_RELATED + IP_CT_IS_REPLY)
 		return NF_ACCEPT;
 
@@ -149,56 +150,55 @@ static unsigned int ipv4_conntrack_help(unsigned int hooknum,
 	helper = rcu_dereference(help->helper);
 	if (!helper)
 		return NF_ACCEPT;
-	return helper->help(pskb, skb_network_offset(*pskb) + ip_hdrlen(*pskb),
+	return helper->help(skb, skb_network_offset(skb) + ip_hdrlen(skb),
 			    ct, ctinfo);
 }
 
 static unsigned int ipv4_conntrack_defrag(unsigned int hooknum,
-					  struct sk_buff **pskb,
+					  struct sk_buff *skb,
 					  const struct net_device *in,
 					  const struct net_device *out,
 					  int (*okfn)(struct sk_buff *))
 {
 	/* Previously seen (loopback)?  Ignore.  Do this before
 	   fragment check. */
-	if ((*pskb)->nfct)
+	if (skb->nfct)
 		return NF_ACCEPT;
 
 	/* Gather fragments. */
-	if (ip_hdr(*pskb)->frag_off & htons(IP_MF | IP_OFFSET)) {
-		*pskb = nf_ct_ipv4_gather_frags(*pskb,
-						hooknum == NF_IP_PRE_ROUTING ?
-						IP_DEFRAG_CONNTRACK_IN :
-						IP_DEFRAG_CONNTRACK_OUT);
-		if (!*pskb)
+	if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
+		if (nf_ct_ipv4_gather_frags(skb,
+					    hooknum == NF_IP_PRE_ROUTING ?
+					    IP_DEFRAG_CONNTRACK_IN :
+					    IP_DEFRAG_CONNTRACK_OUT))
 			return NF_STOLEN;
 	}
 	return NF_ACCEPT;
 }
 
 static unsigned int ipv4_conntrack_in(unsigned int hooknum,
-				      struct sk_buff **pskb,
+				      struct sk_buff *skb,
 				      const struct net_device *in,
 				      const struct net_device *out,
 				      int (*okfn)(struct sk_buff *))
 {
-	return nf_conntrack_in(PF_INET, hooknum, pskb);
+	return nf_conntrack_in(PF_INET, hooknum, skb);
 }
 
 static unsigned int ipv4_conntrack_local(unsigned int hooknum,
-					 struct sk_buff **pskb,
+					 struct sk_buff *skb,
 					 const struct net_device *in,
 					 const struct net_device *out,
 					 int (*okfn)(struct sk_buff *))
 {
 	/* root is playing with raw sockets. */
-	if ((*pskb)->len < sizeof(struct iphdr)
-	    || ip_hdrlen(*pskb) < sizeof(struct iphdr)) {
+	if (skb->len < sizeof(struct iphdr) ||
+	    ip_hdrlen(skb) < sizeof(struct iphdr)) {
 		if (net_ratelimit())
 			printk("ipt_hook: happy cracking.\n");
 		return NF_ACCEPT;
 	}
-	return nf_conntrack_in(PF_INET, hooknum, pskb);
+	return nf_conntrack_in(PF_INET, hooknum, skb);
 }
 
 /* Connection tracking may drop packets, but never alters them, so
@@ -310,7 +310,7 @@ static ctl_table ip_ct_sysctl_table[] = {
 		.extra1		= &log_invalid_proto_min,
 		.extra2		= &log_invalid_proto_max,
 	},
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE) || defined(HNDCTF)
 	{
 		.ctl_name	= NET_IPV4_CONNTRACK_FASTNAT,
 		.procname	= "ip_conntrack_fastnat",
