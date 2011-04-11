@@ -214,15 +214,16 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 #endif
 #ifdef HNDCTF
 	skb->mac_len = 0;
+	skb->hdr_len = 0;
 #endif
 #ifdef CONFIG_BRIDGE_NETFILTER
 	skb->nf_bridge = NULL;
 #endif
 #ifdef CONFIG_NET_SCHED
 	skb->tc_index = 0;
-//#ifdef CONFIG_NET_CLS_ACT
+#ifdef CONFIG_NET_CLS_ACT
 	skb->tc_verd = 0;
-//#endif
+#endif
 #endif
 #ifdef CONFIG_NET_DMA
 	memset(&skb->dma_cookie, 0, sizeof(dma_cookie_t));
@@ -386,9 +387,9 @@ static void skb_release_all(struct sk_buff *skb)
 /* XXX: IS this still necessary? - JHS */
 #ifdef CONFIG_NET_SCHED
 	skb->tc_index = 0;
-//#ifdef CONFIG_NET_CLS_ACT
+#ifdef CONFIG_NET_CLS_ACT
 	skb->tc_verd = 0;
-//#endif
+#endif
 #endif
 	skb_release_data(skb);
 }
@@ -452,9 +453,9 @@ static void __copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
 	__nf_copy(new, old);
 #ifdef CONFIG_NET_SCHED
 	new->tc_index		= old->tc_index;
-//#ifdef CONFIG_NET_CLS_ACT
+#ifdef CONFIG_NET_CLS_ACT
 	new->tc_verd		= old->tc_verd;
-//#endif
+#endif
 #endif
 	new->vlan_tci		= old->vlan_tci;
 

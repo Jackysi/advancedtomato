@@ -947,55 +947,38 @@ emf_cfg_request_process(emf_cfg_request_t *cfg)
  *              dequeues the message, calls the functions to process
  *              the commands and sends the result back to user.
  *
- * Input:       sk  - Kernel socket structure
- *              len - Length of the message received from user app.
+ * Input:       skb  - Kernel socket structure
  */
 static void
-emf_netlink_sock_cb(struct sock *sk, int32 len)
+emf_netlink_sock_cb(struct sk_buff *skb)
 {
-	struct sk_buff	*skb;
-	struct nlmsghdr	*nlh = NULL;
-	uint8 *data = NULL;
+	struct nlmsghdr	*nlh;
 
-	EMF_DEBUG("Length of the command buffer %d\n", len);
+	nlh = nlmsg_hdr(skb);
+	EMF_DEBUG("Length of the command buffer %d\n", nlh->nlmsg_len);
 
-	/* Dequeue the message from netlink socket */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
-	while ((skb = skb_dequeue(&sk->sk_receive_queue)) != NULL)
-#else
-	while ((skb = skb_dequeue(&sk->receive_queue)) != NULL)
-#endif
+	/* Check the buffer for min size */
+	if (skb->len < NLMSG_SPACE(0) || skb->len < nlh->nlmsg_len ||
+		nlh->nlmsg_len < NLMSG_LENGTH(sizeof(emf_cfg_request_t)))
 	{
-		/* Check the buffer for min size */
-		if (skb->len < sizeof(emf_cfg_request_t))
-		{
-			EMF_ERROR("Configuration request size not > %d\n",
-			          sizeof(emf_cfg_request_t));
-			return;
-		}
-
-		/* Buffer contains netlink header followed by data */
-		nlh = (struct nlmsghdr *)skb->data;
-		data = NLMSG_DATA(nlh);
-
-		/* Process the message */
-		emf_cfg_request_process((emf_cfg_request_t *)data);
-
-		/* Send the result to user process */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
-		NETLINK_CB(skb).pid = nlh->nlmsg_pid;
-		NETLINK_CB(skb).dst_group = 0;
-#else
-		NETLINK_CB(skb).groups = 0;
-		NETLINK_CB(skb).pid = 0;
-		NETLINK_CB(skb).dst_groups = 0;
-		NETLINK_CB(skb).dst_pid = nlh->nlmsg_pid;
-#endif
-
-		netlink_unicast(emf->nl_sk, skb, nlh->nlmsg_pid, MSG_DONTWAIT);
+		EMF_ERROR("Configuration request size not > %d\n",
+		          sizeof(emf_cfg_request_t));
+		return;
 	}
 
-	return;
+	skb = skb_clone(skb, GFP_KERNEL);
+	if (skb == NULL)
+		return;
+	nlh = nlmsg_hdr(skb);
+
+	/* Process the message */
+	emf_cfg_request_process((emf_cfg_request_t *)NLMSG_DATA(nlh));
+
+	/* Send the result to user process */
+	NETLINK_CB(skb).pid = nlh->nlmsg_pid;
+	NETLINK_CB(skb).dst_group = 0;
+
+	netlink_unicast(emf->nl_sk, skb, nlh->nlmsg_pid, MSG_DONTWAIT);
 }
 
 static void
@@ -1042,12 +1025,8 @@ emf_module_init(void)
 
 	/* Create a Netlink socket in kernel-space */
 #define NETLINK_EMFC 17
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
 	emf->nl_sk = netlink_kernel_create(NETLINK_EMFC, 0, emf_netlink_sock_cb,
 	                                   NULL, THIS_MODULE);
-#else
-	emf->nl_sk = netlink_kernel_create(NETLINK_EMFC, emf_netlink_sock_cb);
-#endif
 
 	if (emf->nl_sk == NULL)
 	{
@@ -1061,11 +1040,7 @@ emf_module_init(void)
 	if (emf->lock == NULL)
 	{
 		EMF_ERROR("EMF instance list lock create failed\n");
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
 		sock_release(emf->nl_sk->sk_socket);
-#else
-		sock_release(emf->nl_sk->socket);
-#endif
 		MFREE(NULL, emf, sizeof(emf_struct_t));
 		return (FAILURE);
 	}
@@ -1090,11 +1065,7 @@ emf_module_exit(void)
 	emfc_module_exit();
 
 	/* Clean up the instances and exit */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
 	sock_release(emf->nl_sk->sk_socket);
-#else
-	sock_release(emf->nl_sk->socket);
-#endif
 	emf_instances_clear(emf);
 	OSL_LOCK_DESTROY(emf->lock);
 	MFREE(NULL, emf, sizeof(emf_struct_t));
@@ -1105,7 +1076,6 @@ emf_module_exit(void)
 module_init(emf_module_init);
 module_exit(emf_module_exit);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 0)
 EXPORT_SYMBOL(emfc_init);
 EXPORT_SYMBOL(emfc_exit);
 EXPORT_SYMBOL(emfc_input);
@@ -1116,4 +1086,3 @@ EXPORT_SYMBOL(emfc_rtport_add);
 EXPORT_SYMBOL(emfc_rtport_del);
 EXPORT_SYMBOL(emfc_igmp_snooper_register);
 EXPORT_SYMBOL(emfc_igmp_snooper_unregister);
-#endif
