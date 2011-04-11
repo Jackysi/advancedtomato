@@ -136,6 +136,7 @@ void help(void)
 		"   610N WRT610N v2\n"
 		"   32XN E2000\n"
 		"   61XN E3000\n"
+		"   4200 E4200\n"
 		" Motorola:       -m <id>,<output file>\n"
 		"   0x10577000 WE800\n"
 		"   0x10577040 WA840\n"
