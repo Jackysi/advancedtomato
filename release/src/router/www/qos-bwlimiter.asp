@@ -15,7 +15,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] New: QoS Limit</title>
+<title>[<% ident(); %>] QoS: Bandwidth Limiter</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -259,7 +259,7 @@ function init()
 
 <!-- / / / -->
 
-<input type='hidden' name='_nextpage' value='new-qoslimit.asp'>
+<input type='hidden' name='_nextpage' value='qos-bwlimiter.asp'>
 <input type='hidden' name='_nextwait' value='10'>
 <input type='hidden' name='_service' value='qoslimit-restart'>
 

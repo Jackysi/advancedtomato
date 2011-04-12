@@ -2363,11 +2363,11 @@ function navi()
 			['Identification',	'ident.asp'],
 			['Time',			'time.asp'],
 			['DDNS',			'ddns.asp'],
-			['Static DHCP / ARP',		'static.asp'],
+			['Static DHCP/ARP',		'static.asp'],
 			['Wireless Filter',	'wfilter.asp'] ] ],
 		['Advanced', 			'advanced', 0, [
 			['Conntrack / Netfilter',	'ctnf.asp'],
-			['DHCP / DNS',		'dhcpdns.asp'],
+			['DHCP/DNS',		'dhcpdns.asp'],
 			['Firewall',		'firewall.asp'],
 			['MAC Address',		'mac.asp'],
 			['Miscellaneous',	'misc.asp'],
@@ -2378,22 +2378,16 @@ function navi()
 /* IPV6-BEGIN */
 			['Basic IPv6',		'basic-ipv6.asp'],
 /* IPV6-END */
-			['DMZ',				'dmz.asp'],
+			['DMZ',			'dmz.asp'],
 			['Triggered',		'triggered.asp'],
-			['UPnP / NAT-PMP',	'upnp.asp'] ] ],
+			['UPnP/NAT-PMP',	'upnp.asp'] ] ],
 		['QoS',					'qos', 0, [
 			['Basic Settings',	'settings.asp'],
 			['Classification',	'classify.asp'],
 			['View Graphs',		'graphs.asp'],
 			['View Details',	'detailed.asp'],
-			['Transfer Rates',	'ctrate.asp']
-			] ],
-
-		['BW Limiter/QoS',    		'new', 0, [
-                       ['ARP Binding',         'arpbind.asp']
-                       ] ],
-		['Access Restriction',	'restrict.asp'],
-		['QOS/Bandwidth Limiter',	'new-qoslimit.asp'],
+			['Transfer Rates',	'ctrate.asp'],
+			['B/W Limiter',		'bwlimiter.asp'] ] ],
 		['Access Restriction',		'restrict.asp'],
 
 /* REMOVE-BEGIN
