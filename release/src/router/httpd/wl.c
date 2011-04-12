@@ -211,7 +211,11 @@ static int get_scan_results(int idx, int unit, int subunit, void *param)
 		for (j = 0; j < bssi->rateset.count; ++j) {
 			web_printf("%s%u", j ? "," : "", bssi->rateset.rates[j]);
 		}
-		web_printf("],%d,%d]", bssi->n_cap, bssi->nbss_cap);
+
+		web_printf("],%d,%d,%d]",
+			bssi->n_cap,
+			bssi->nbss_cap,
+			bssi->n_cap ? (CHSPEC_IS40(bssi->chanspec) ? 40 : (CHSPEC_IS20(bssi->chanspec) ? 20 : 10)) : 0);
 
 		bssi = (wl_bss_info_t*)((uint8*)bssi + bssi->length);
 	}
