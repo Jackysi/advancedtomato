@@ -15,7 +15,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] QoS: Bandwidth Limiter</title>
+<title>[<% ident(); %>] QoS - Bandwidth Limiter</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -42,7 +42,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-// <% nvram("new_qoslimit_enable,qos_ibw,qos_obw,new_qoslimit_rules,lan_ipaddr,lan_netmask,qosl_enable,qosl_dlr,qosl_dlc,qosl_ulr,qosl_ulc,qosl_udp,qosl_tcp"); %>
+// <% nvram("qosl_enable,qos_ibw,qos_obw,qosl_rules,lan_ipaddr,lan_netmask,qosl_denable,qosl_ddlr,qosl_ddlc,qosl_dulr,qosl_dulc,qosl_dudp,qosl_dtcp"); %>
 
 var class_prio = [['0','Highest'],['1','High'],['2','Normal'],['3','Low'],['4','Lowest']];
 var class_tcp = [['0','nolimit']];
@@ -64,7 +64,7 @@ qosg.setup = function() {
 		{ type: 'select', options: class_tcp },
 		{ type: 'select', options: class_udp }]);
 	this.headerSet(['IP | IP Range | MAC Address', 'DLRate', 'DLCeil', 'ULRate', 'ULCeil', 'Priority', 'TCP Limit', 'UDP Limit']);
-	var qoslimitrules = nvram.new_qoslimit_rules.split('>');
+	var qoslimitrules = nvram.qosl_rules.split('>');
 	for (var i = 0; i < qoslimitrules.length; ++i) {
 		var t = qoslimitrules[i].split('<');
 		if (t.length == 8) this.insertData(-1, t);
@@ -200,22 +200,22 @@ qosg.verifyFields = function(row, quiet)
 
 function verifyFields(focused, quiet)
 {
-	var a = !E('_f_new_qoslimit_enable').checked;
-	var b = !E('_f_qosl_enable').checked;
+	var a = !E('_f_qosl_enable').checked;
+	var b = !E('_f_qosl_denable').checked;
 
 	E('_qos_ibw').disabled = a;
 	E('_qos_obw').disabled = a;
-	E('_f_qosl_enable').disabled = a;
+	E('_f_qosl_denable').disabled = a;
 
-	E('_qosl_dlr').disabled = b || a;
-	E('_qosl_dlc').disabled = b || a;
-	E('_qosl_ulr').disabled = b || a;
-	E('_qosl_ulc').disabled = b || a;
-	E('_qosl_tcp').disabled = b || a;
-	E('_qosl_udp').disabled = b || a;
+	E('_qosl_ddlr').disabled = b || a;
+	E('_qosl_ddlc').disabled = b || a;
+	E('_qosl_dulr').disabled = b || a;
+	E('_qosl_dulc').disabled = b || a;
+	E('_qosl_dtcp').disabled = b || a;
+	E('_qosl_dudp').disabled = b || a;
 
 	elem.display(PR('_qos_ibw'), PR('_qos_obw'), !a);
-	elem.display(PR('_qosl_dlr'), PR('_qosl_dlc'), PR('_qosl_ulr'), PR('_qosl_ulc'), PR('_qosl_tcp'), PR('_qosl_udp'), !a && !b);
+	elem.display(PR('_qosl_ddlr'), PR('_qosl_ddlc'), PR('_qosl_dulr'), PR('_qosl_dulc'), PR('_qosl_dtcp'), PR('_qosl_dudp'), !a && !b);
 
 	return 1;
 }
@@ -234,9 +234,9 @@ function save()
 	}
 
 	var fom = E('_fom');
-	fom.new_qoslimit_enable.value = E('_f_new_qoslimit_enable').checked ? 1 : 0;
 	fom.qosl_enable.value = E('_f_qosl_enable').checked ? 1 : 0;
-	fom.new_qoslimit_rules.value = qoslimitrules;
+	fom.qosl_denable.value = E('_f_qosl_denable').checked ? 1 : 0;
+	fom.qosl_rules.value = qoslimitrules;
 	form.submit(fom, 1);
 }
 
@@ -263,18 +263,18 @@ function init()
 <input type='hidden' name='_nextwait' value='10'>
 <input type='hidden' name='_service' value='qoslimit-restart'>
 
-<input type='hidden' name='new_qoslimit_enable'>
-<input type='hidden' name='new_qoslimit_rules'>
 <input type='hidden' name='qosl_enable'>
+<input type='hidden' name='qosl_rules'>
+<input type='hidden' name='qosl_denable'>
 
 
 <div id='bwlimit'>
 
-	<div class='section-title'>QoS Limit</div>
+	<div class='section-title'>Bandwidth Limiter - QOS</div>
 	<div class='section'>
 		<script type='text/javascript'>
 			createFieldTable('', [
-			{ title: 'Enable Limiter', name: 'f_new_qoslimit_enable', type: 'checkbox', value: nvram.new_qoslimit_enable != '0' },
+			{ title: 'Enable Limiter', name: 'f_qosl_enable', type: 'checkbox', value: nvram.qosl_enable != '0' },
 			{ title: 'Max Download Bandwidth <small>(also used by QOS)', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw },
 			{ title: 'Max Upload Bandwidth <small>(also used by QOS)', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw }
 			]);
@@ -283,7 +283,7 @@ function init()
 		<table class='tomato-grid' id='qosg-grid'></table>
 		<div>
 			<ul>
-				<li><b>IP Address / IP Range</b> - i.e: 192.168.1.5 or 192.168.1.45-57 or 45-57 -  A range of IP's will <b>share</b> the bandwidth.
+				<li><b>IP Address / IP Range</b> - e.g. 192.168.1.5 or 192.168.1.45-57 or 45-57 -  A range of IP's will <b>share</b> the bandwidth.
 			</ul>
 		</div>
 	</div>
@@ -294,12 +294,12 @@ function init()
 	<div class='section'>
 		<script type='text/javascript'>
 			createFieldTable('', [
-				{ title: 'Enable', name: 'f_qosl_enable', type: 'checkbox', value: nvram.qosl_enable == '1'},
-				{ title: 'Download rate', name: 'qosl_dlr', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_dlr },
-				{ title: 'Download ceil', name: 'qosl_dlc', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_dlc },
-				{ title: 'Upload rate', name: 'qosl_ulr', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_ulr },
-				{ title: 'Upload ceil', name: 'qosl_ulc', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_ulc },
-				{ title: 'TCP Limit', name: 'qosl_tcp', type: 'select', options:
+				{ title: 'Enable', name: 'f_qosl_denable', type: 'checkbox', value: nvram.qosl_denable == '1'},
+				{ title: 'Download rate', name: 'qosl_ddlr', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_ddlr },
+				{ title: 'Download ceil', name: 'qosl_ddlc', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_ddlc },
+				{ title: 'Upload rate', name: 'qosl_dulr', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_dulr },
+				{ title: 'Upload ceil', name: 'qosl_dulc', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_dulc },
+				{ title: 'TCP Limit', name: 'qosl_dtcp', type: 'select', options:
 					[['0', 'no limit'],
 					['1', '1'],
 					['2', '2'],
@@ -310,8 +310,8 @@ function init()
 					['100', '100'],
 					['200', '200'],
 					['500', '500'],
-					['1000', '1000']], value: nvram.qosl_tcp },
-				{ title: 'UDP limit', name: 'qosl_udp', type: 'select', options:
+					['1000', '1000']], value: nvram.qosl_dtcp },
+				{ title: 'UDP limit', name: 'qosl_dudp', type: 'select', options:
 					[['0', 'no limit'],
 					['1', '1/s'],
 					['2', '2/s'],
@@ -319,7 +319,7 @@ function init()
 					['10', '10/s'],
 					['20', '20/s'],
 					['50', '50/s'],
-					['100', '100/s']], value: nvram.qosl_udp }
+					['100', '100/s']], value: nvram.qosl_dudp }
 			]);
 		</script>
 		<div>

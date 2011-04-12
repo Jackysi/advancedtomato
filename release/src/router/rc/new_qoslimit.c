@@ -75,14 +75,14 @@ void ipt_qoslimit(int chain)
 	char *tcplimit,*udplimit;//tcp connection limit & udp packets per second
 	char *laninface; // lan interface
 	int priority_num;
-	char *qosl_tcp,*qosl_udp;
+	char *qosl_dtcp,*qosl_dudp;
 	int i, address_type;
 
-	//qos1 is enable
-	if (!nvram_get_int("new_qoslimit_enable")) return;
+	//qosl is enabled?
+	if (!nvram_get_int("qosl_enable")) return;
 	
 	//read qos1rules from nvram
-	g = buf = strdup(nvram_safe_get("new_qoslimit_rules"));
+	g = buf = strdup(nvram_safe_get("qosl_rules"));
 
 	ibw = nvram_safe_get("qos_ibw");  // Read from QOS setting - KRP
 	obw = nvram_safe_get("qos_obw");  // Read from QOS setting - KRP
@@ -91,8 +91,8 @@ void ipt_qoslimit(int chain)
 	lanmask = nvram_safe_get("lan_netmask");
 	laninface = nvram_safe_get("lan_ifname");
 	
-	qosl_tcp = nvram_safe_get("qosl_tcp");
-	qosl_udp = nvram_safe_get("qosl_udp");
+	qosl_dtcp = nvram_safe_get("qosl_dtcp");
+	qosl_dudp = nvram_safe_get("qosl_dudp");
 	
 	//MANGLE
 	if (chain == 1)
@@ -101,7 +101,7 @@ void ipt_qoslimit(int chain)
 			"-A PREROUTING -j IMQ -i %s --todev 0\n"
 			"-A POSTROUTING -j IMQ -o %s --todev 1\n"
 			,laninface,laninface);
-		if (nvram_get_int("qosl_enable") == 1) {
+		if (nvram_get_int("qosl_denable") == 1) {
 			ipt_write(
 			"-A POSTROUTING ! -s %s/%s -j MARK --set-mark 100\n"
 			"-A PREROUTING  ! -d %s/%s -j MARK --set-mark 100\n"
@@ -113,17 +113,17 @@ void ipt_qoslimit(int chain)
 	//NAT
 	if (chain == 2)
 	{
-		if (nvram_get_int("qosl_enable") == 1) {
-			if (nvram_get_int("qosl_tcp") > 0) {
+		if (nvram_get_int("qosl_denable") == 1) {
+			if (nvram_get_int("qosl_dtcp") > 0) {
 				ipt_write(
 					"-A PREROUTING -s %s/%s -p tcp --syn -m connlimit --connlimit-above %s -j DROP\n"
-				,lanipaddr,lanmask,qosl_tcp);
+				,lanipaddr,lanmask,qosl_dtcp);
 			}
 			
-			if (nvram_get_int("qosl_udp") > 0) {
+			if (nvram_get_int("qosl_dudp") > 0) {
 				ipt_write(
 					"-A PREROUTING -s %s/%s -p udp -m limit --limit %s/sec -j ACCEPT\n"
-				,lanipaddr,lanmask,qosl_udp);
+				,lanipaddr,lanmask,qosl_dudp);
 			}
 		}
 	}
@@ -257,15 +257,15 @@ void new_qoslimit_start(void)
 	char *lanmask; //lan netmask
 	char *tcplimit,*udplimit;//tcp connection limit & udp packets per second
 	int priority_num;
-	char *dlr,*dlc,*ulr,*ulc; //download / upload - rate / ceiling
+	char *ddlr,*ddlc,*dulr,*dulc; //download / upload - rate / ceiling
 	int i, address_type;
 	int s[6];
 
-	//qos1 is enable
-	if (!nvram_get_int("new_qoslimit_enable")) return;
+	//qosl is enabled?
+	if (!nvram_get_int("qosl_enable")) return;
 
-	//read qos1rules from nvram
-	g = buf = strdup(nvram_safe_get("new_qoslimit_rules"));
+	//read qosl rules from nvram
+	g = buf = strdup(nvram_safe_get("qosl_rules"));
 
 	ibw = nvram_safe_get("qos_ibw");  // Read from QOS setting - KRP
 	obw = nvram_safe_get("qos_obw");  // Read from QOS setting - KRP
@@ -273,10 +273,10 @@ void new_qoslimit_start(void)
 	lanipaddr = nvram_safe_get("lan_ipaddr");
 	lanmask = nvram_safe_get("lan_netmask");
 
-	dlr = nvram_safe_get("qosl_dlr"); //Qos limit download rate
-	dlc = nvram_safe_get("qosl_dlc"); //download ceiling
-	ulr = nvram_safe_get("qosl_ulr"); //upload rate
-	ulc = nvram_safe_get("qosl_ulc"); //upload ceiling
+	ddlr = nvram_safe_get("qosl_ddlr"); //Default download rate
+	ddlc = nvram_safe_get("qosl_ddlc"); //Default download ceiling
+	dulr = nvram_safe_get("qosl_dulr"); //Default upload rate
+	dulc = nvram_safe_get("qosl_dulc"); //Default upload ceiling
 	
 	if ((tc = fopen(qoslimitfn, "w")) == NULL) return;
 
@@ -315,9 +315,9 @@ void new_qoslimit_start(void)
 		,ibw,ibw,obw
 	);
 	
-	if ((nvram_get_int("qosl_enable") == 1) && strcmp(dlr,"") && strcmp(ulr,"")) {
-		if (!strcmp(dlc,"")) strcpy(dlc, dlr);
-		if (!strcmp(ulc,"")) strcpy(ulc, ulr);
+	if ((nvram_get_int("qosl_denable") == 1) && strcmp(ddlr,"") && strcmp(dulr,"")) {
+		if (!strcmp(ddlc,"")) strcpy(ddlc, ddlr);
+		if (!strcmp(dulc,"")) strcpy(dulc, dulr);
 		fprintf(tc,
 		"$TCA parent 1:1 classid 1:100 htb rate %skbit ceil %skbit prio 3\n"
 		"$TQA parent 1:100 handle 100: $SFQ\n"
@@ -327,8 +327,8 @@ void new_qoslimit_start(void)
 		"$TQAU parent 1:100 handle 100: $SFQ\n"
 		"$TFAU parent 1:0 prio 3 protocol ip handle 100 fw flowid 1:100\n"
 		"\n"
-		,dlr,dlc
-		,ulr,ulc);
+		,ddlr,ddlc
+		,dulr,dulc);
 	}
 		
 	while (g) {

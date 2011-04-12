@@ -2366,7 +2366,7 @@ function navi()
 			['Static DHCP/ARP',		'static.asp'],
 			['Wireless Filter',	'wfilter.asp'] ] ],
 		['Advanced', 			'advanced', 0, [
-			['Conntrack / Netfilter',	'ctnf.asp'],
+			['Conntrack /Netfilter',	'ctnf.asp'],
 			['DHCP/DNS',		'dhcpdns.asp'],
 			['Firewall',		'firewall.asp'],
 			['MAC Address',		'mac.asp'],
