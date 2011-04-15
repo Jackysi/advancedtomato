@@ -105,18 +105,13 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <!-- VPN-END -->
 <br>
-<br>
 <b>This compilation by Toastman may also include:</b><br>
 <br>
-<b>"Teddy Bear" current features, notably:</b><br>
-- USB Support, Samba, FTP, Media Servers<br>
-- Web Monitor, Per-connection transfer rates<br>
-- Byte counter, QOS rule ID added to QOS/Details<br>
-- Additional ipv6 support in GUI, QOS, Conntrack<br>
+<b>All current "Teddy Bear" features, notably:</b><br>
+- USB Support | Samba | FTP | Media Server | IPv6<br>
 <br>
 <b>"Victek RAF" features:</b><br>
 - CPU Freq | Previous WAN IP | Additional Themes<br>
-- Revised Static ARP Binding | Revised IP/MAC/Range QOS/Bandwidth Limiter<br>
 <br>
 <b>"Toastman" Features:</b><br>
 - Supports 250+ simultaneous users, comprehensive QOS rules set by default<br>
@@ -125,7 +120,8 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 - CPU frequency selector | Faster page refresh settings<br>
 - VLAN Support for UPnP - if exists, loads upnpconfig.custom from JFFS<br>
 <br>
-Developments by Victek/PrinceAMD/Phykris/Shibby/Toastman<br>
+<b>Developments by Victek/PrinceAMD/Phykris/Shibby/Toastman</b><br>
+- Revised Static ARP Binding | Revised IP/MAC/Range QOS/Bandwidth Limiter<br>
 <br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>

@@ -1415,7 +1415,7 @@ static int submit_bulk_transfer(struct usbi_transfer *itransfer,
 			}
 
 			/* if it's not the first URB that failed, the situation is a bit
-			 * tricky. we must discard all previous URBs. there are
+			 * tricky. we may need to discard all previous URBs. there are
 			 * complications:
 			 *  - discarding is asynchronous - discarded urbs will be reaped
 			 *    later. the user must not have freed the transfer when the
@@ -1423,16 +1423,26 @@ static int submit_bulk_transfer(struct usbi_transfer *itransfer,
 			 *    freed memory.
 			 *  - the earlier URBs may have completed successfully and we do
 			 *    not want to throw away any data.
-			 * so, in this case we discard all the previous URBs BUT we report
-			 * that the transfer was submitted successfully. then later when
-			 * the final discard completes we can report error to the user.
+			 *  - this URB failing may be no error; EREMOTEIO means that
+			 *    this transfer simply didn't need all the URBs we submitted
+			 * so, we report that the transfer was submitted successfully and
+			 * in case of error we discard all previous URBs. later when
+			 * the final reap completes we can report error to the user,
+			 * or success if an earlier URB was completed successfully.
 			 */
-			tpriv->reap_action = SUBMIT_FAILED;
+			tpriv->reap_action = EREMOTEIO == errno ? COMPLETED_EARLY : SUBMIT_FAILED;
 
 			/* The URBs we haven't submitted yet we count as already
 			 * retired. */
 			tpriv->num_retired += num_urbs - i;
-			for (j = 0; j < i; j++) {
+
+			/* If we completed short then don't try to discard. */
+			if (COMPLETED_EARLY == tpriv->reap_action)
+				return 0;
+
+			/* The URBs are discarded in reverse order of
+			 * submission, to avoid races. */
+			for (j = i - 1; j >= 0; j--) {
 				int tmp = ioctl(dpriv->fd, IOCTL_USBFS_DISCARDURB, &urbs[j]);
 				if (tmp && errno != EINVAL)
 					usbi_warn(TRANSFER_CTX(transfer),
@@ -1589,7 +1599,7 @@ static int submit_iso_transfer(struct usbi_transfer *itransfer)
 			/* The URBs we haven't submitted yet we count as already
 			 * retired. */
 			tpriv->num_retired = num_urbs - i;
-			for (j = 0; j < i; j++) {
+			for (j = i - 1; j >= 0; j--) {
 				int tmp = ioctl(dpriv->fd, IOCTL_USBFS_DISCARDURB, urbs[j]);
 				if (tmp && errno != EINVAL)
 					usbi_warn(TRANSFER_CTX(transfer),
@@ -1710,7 +1720,7 @@ static int cancel_bulk_transfer(struct usbi_transfer *itransfer)
 		return LIBUSB_ERROR_NOT_FOUND;
 
 	tpriv->reap_action = CANCELLED;
-	for (i = 0; i < tpriv->num_urbs; i++) {
+	for (i = tpriv->num_urbs - 1; i >= 0; i--) {
 		int tmp = ioctl(dpriv->fd, IOCTL_USBFS_DISCARDURB, &tpriv->urbs[i]);
 		if (tmp && errno != EINVAL)
 			usbi_warn(TRANSFER_CTX(transfer),
@@ -1732,7 +1742,7 @@ static int cancel_iso_transfer(struct usbi_transfer *itransfer)
 		return LIBUSB_ERROR_NOT_FOUND;
 
 	tpriv->reap_action = CANCELLED;
-	for (i = 0; i < tpriv->num_urbs; i++) {
+	for (i = tpriv->num_urbs - 1; i >= 0; i--) {
 		int tmp = ioctl(dpriv->fd, IOCTL_USBFS_DISCARDURB, tpriv->iso_urbs[i]);
 		if (tmp && errno != EINVAL)
 			usbi_warn(TRANSFER_CTX(transfer),
@@ -1856,16 +1866,23 @@ static int handle_bulk_completion(struct usbi_transfer *itransfer,
 		goto out_unlock;
 	}
 
-	if (urb->status == 0 || urb->status == -EREMOTEIO ||
-			(urb->status == -EOVERFLOW && urb->actual_length > 0))
-		itransfer->transferred += urb->actual_length;
+	itransfer->transferred += urb->actual_length;
 
-
+	/* Many of these errors can occur on *any* urb of a multi-urb
+	 * transfer.  When they do, we tear down the rest of the transfer.
+	 */
 	switch (urb->status) {
 	case 0:
 		break;
 	case -EREMOTEIO: /* short transfer */
 		break;
+	case -ENOENT: /* cancelled */
+	case -ECONNRESET:
+		break;
+	case -ESHUTDOWN:
+		usbi_dbg("device removed");
+		status = LIBUSB_TRANSFER_NO_DEVICE;
+		goto completed;
 	case -EPIPE:
 		usbi_dbg("detected endpoint stall");
 		status = LIBUSB_TRANSFER_STALL;
@@ -1905,7 +1922,7 @@ static int handle_bulk_completion(struct usbi_transfer *itransfer,
 		/* we have to cancel the remaining urbs and wait for their completion
 		 * before reporting results */
 		tpriv->reap_action = COMPLETED_EARLY;
-		for (i = urb_idx + 1; i < tpriv->num_urbs; i++) {
+		for (i = tpriv->num_urbs - 1; i > urb_idx; i--) {
 			/* remaining URBs with continuation flag are automatically
 			 * cancelled by the kernel */
 			if (tpriv->urbs[i].flags & USBFS_URB_BULK_CONTINUATION)
@@ -1939,6 +1956,7 @@ static int handle_iso_completion(struct usbi_transfer *itransfer,
 	int num_urbs = tpriv->num_urbs;
 	int urb_idx = 0;
 	int i;
+	enum libusb_transfer_status status = LIBUSB_TRANSFER_COMPLETED;
 
 	pthread_mutex_lock(&itransfer->lock);
 	for (i = 0; i < num_urbs; i++) {
@@ -1956,22 +1974,23 @@ static int handle_iso_completion(struct usbi_transfer *itransfer,
 	usbi_dbg("handling completion status %d of iso urb %d/%d", urb->status,
 		urb_idx, num_urbs);
 
-	if (urb->status == 0) {
-		/* copy isochronous results back in */
+	/* copy isochronous results back in */
 
-		for (i = 0; i < urb->number_of_packets; i++) {
-			struct usbfs_iso_packet_desc *urb_desc = &urb->iso_frame_desc[i];
-			struct libusb_iso_packet_descriptor *lib_desc =
-				&transfer->iso_packet_desc[tpriv->iso_packet_offset++];
-			lib_desc->status = urb_desc->status;
-			lib_desc->actual_length = urb_desc->actual_length;
-		}
+	for (i = 0; i < urb->number_of_packets; i++) {
+		struct usbfs_iso_packet_desc *urb_desc = &urb->iso_frame_desc[i];
+		struct libusb_iso_packet_descriptor *lib_desc =
+			&transfer->iso_packet_desc[tpriv->iso_packet_offset++];
+		lib_desc->status = urb_desc->status;
+		lib_desc->actual_length = urb_desc->actual_length;
 	}
 
 	tpriv->num_retired++;
 
 	if (tpriv->reap_action != NORMAL) { /* cancelled or submit_fail */
 		usbi_dbg("CANCEL: urb status %d", urb->status);
+
+		if (status == LIBUSB_TRANSFER_COMPLETED)
+			status = LIBUSB_TRANSFER_ERROR;
 
 		if (tpriv->num_retired == num_urbs) {
 			usbi_dbg("CANCEL: last URB handled, reporting");
@@ -1991,6 +2010,12 @@ static int handle_iso_completion(struct usbi_transfer *itransfer,
 	switch (urb->status) {
 	case 0:
 		break;
+	case -ENOENT: /* cancelled */
+		break;
+	case -ESHUTDOWN:
+		usbi_dbg("device removed");
+		status = LIBUSB_TRANSFER_NO_DEVICE;
+		break;
 	case -ETIME:
 	case -EPROTO:
 	case -EILSEQ:
@@ -2008,7 +2033,7 @@ static int handle_iso_completion(struct usbi_transfer *itransfer,
 		usbi_dbg("last URB in transfer --> complete!");
 		free_iso_urbs(tpriv);
 		pthread_mutex_unlock(&itransfer->lock);
-		return usbi_handle_transfer_completion(itransfer, LIBUSB_TRANSFER_COMPLETED);
+		return usbi_handle_transfer_completion(itransfer, status);
 	}
 
 out:
@@ -2025,8 +2050,7 @@ static int handle_control_completion(struct usbi_transfer *itransfer,
 	pthread_mutex_lock(&itransfer->lock);
 	usbi_dbg("handling completion status %d", urb->status);
 
-	if (urb->status == 0)
-		itransfer->transferred += urb->actual_length;
+	itransfer->transferred += urb->actual_length;
 
 	if (tpriv->reap_action == CANCELLED) {
 		if (urb->status != 0 && urb->status != -ENOENT)
@@ -2040,8 +2064,13 @@ static int handle_control_completion(struct usbi_transfer *itransfer,
 
 	switch (urb->status) {
 	case 0:
-		itransfer->transferred = urb->actual_length;
 		status = LIBUSB_TRANSFER_COMPLETED;
+		break;
+	case -ENOENT: /* cancelled */
+		break;
+	case -ESHUTDOWN:
+		usbi_dbg("device removed");
+		status = LIBUSB_TRANSFER_NO_DEVICE;
 		break;
 	case -EPIPE:
 		usbi_dbg("unsupported control request");

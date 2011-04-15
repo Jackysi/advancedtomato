@@ -368,6 +368,10 @@ const char *get_wan6face(void)
 	case IPV6_NATIVE:
 	case IPV6_NATIVE_DHCP:
 		return get_wanface();
+	case IPV6_ANYCAST_6TO4:
+		return "v6to4";
+	case IPV6_6IN4:
+		return "v6in4";
 	}
 	return nvram_safe_get("ipv6_ifname");
 }
