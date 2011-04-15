@@ -112,6 +112,8 @@ F77 = @F77@
 FFLAGS = @FFLAGS@
 FUSE_MODULE_CFLAGS = @FUSE_MODULE_CFLAGS@
 FUSE_MODULE_LIBS = @FUSE_MODULE_LIBS@
+GNUTLS_CFLAGS = @GNUTLS_CFLAGS@
+GNUTLS_LIBS = @GNUTLS_LIBS@
 GREP = @GREP@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
@@ -121,6 +123,9 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LDCONFIG = @LDCONFIG@
 LDFLAGS = @LDFLAGS@
 LIBFUSE_LITE_LIBS = @LIBFUSE_LITE_LIBS@
+LIBGCRYPT_CFLAGS = @LIBGCRYPT_CFLAGS@
+LIBGCRYPT_CONFIG = @LIBGCRYPT_CONFIG@
+LIBGCRYPT_LIBS = @LIBGCRYPT_LIBS@
 LIBNTFS_3G_VERSION = @LIBNTFS_3G_VERSION@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
@@ -130,6 +135,8 @@ LTLIBOBJS = @LTLIBOBJS@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
+MKNTFS_CPPFLAGS = @MKNTFS_CPPFLAGS@
+MKNTFS_LIBS = @MKNTFS_LIBS@
 MV = @MV@
 NMEDIT = @NMEDIT@
 OBJEXT = @OBJEXT@
@@ -156,6 +163,8 @@ abs_top_srcdir = @abs_top_srcdir@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
 ac_ct_F77 = @ac_ct_F77@
+all_includes = @all_includes@
+all_libraries = @all_libraries@
 am__include = @am__include@
 am__leading_dot = @am__leading_dot@
 am__quote = @am__quote@
@@ -232,7 +241,7 @@ MAINTAINERCLEANFILES = \
 	$(srcdir)/m4/lt~obsolete.m4 \
 	$(srcdir)/m4/ltoptions.m4
 
-SUBDIRS = include libfuse-lite libntfs-3g src
+SUBDIRS = include libfuse-lite libntfs-3g ntfsprogs src
 doc_DATA = README
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
@@ -710,6 +719,20 @@ uninstall-am: uninstall-docDATA
 
 dist-hook:
 	$(MKDIR_P) "$(distdir)/m4"
+
+libtool: $(LIBTOOL_DEPS)
+	$(SHELL) ./config.status --recheck
+
+@ENABLE_NTFSPROGS_TRUE@strip:
+@ENABLE_NTFSPROGS_TRUE@	(cd ntfsprogs && $(MAKE) strip) || exit 1;
+
+@ENABLE_NTFSPROGS_TRUE@libs:
+@ENABLE_NTFSPROGS_TRUE@	(cd libntfs-3g && $(MAKE) libs) || exit 1;
+
+@ENABLE_NTFSPROGS_TRUE@extra:	extras
+
+@ENABLE_NTFSPROGS_TRUE@extras: libs
+@ENABLE_NTFSPROGS_TRUE@	(cd ntfsprogs && $(MAKE) extras) || exit 1;
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

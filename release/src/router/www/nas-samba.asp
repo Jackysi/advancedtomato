@@ -252,12 +252,12 @@ createFieldTable('', [
 </div>
 <br>
 
-<div class='section-title'>Network Shares List</div>
+<div class='section-title'>Additional Shares List</div>
 <div class='section'>
 	<table class='tomato-grid' cellspacing=1 id='ss-grid'></table>
 	<script type='text/javascript'>ssg.setup();</script>
 <br>
-<small>When no shares are specified, <i>/mnt</i> directory is shared in Read Only mode.</small>
+<small>When no shares are specified and auto-sharing is disabled, <i>/mnt</i> directory is shared in Read Only mode.</small>
 </div>
 
 <!-- / / / -->

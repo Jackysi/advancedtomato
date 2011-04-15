@@ -36,7 +36,6 @@ path {
 
 var vWidth = 310;
 var vHeight = 310;
-var abc = ['Unclassified', 'Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
 var tipInfo = [];
 var tipTimer = null;
 var tipLastN = null;
@@ -75,7 +74,7 @@ function init(evt)
 	ready = 1;
 }
 
-function updateSVG(data)
+function updateSVG(data, abc)
 {
 	var path, i, e, r, x, y, cx, cy, nx, ny, t, p, total;
 
