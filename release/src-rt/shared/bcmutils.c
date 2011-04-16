@@ -133,7 +133,7 @@ pkt2pktcopy(osl_t *osh, void *p1, uint offs1, void *p2, uint offs2, int maxlen)
 
 
 /* return total length of buffer chain */
-uint BCMFASTPATH
+uint
 pkttotlen(osl_t *osh, void *p)
 {
 	uint total;
@@ -155,7 +155,7 @@ pktlast(osl_t *osh, void *p)
 }
 
 /* count segments of a chained packet */
-uint BCMFASTPATH
+uint
 pktsegcnt(osl_t *osh, void *p)
 {
 	uint cnt;
@@ -282,7 +282,7 @@ pktq_pdeq_tail(struct pktq *pq, int prec)
 	return p;
 }
 
-void
+void BCMFASTPATH
 pktq_pflush(osl_t *osh, struct pktq *pq, int prec, bool dir)
 {
 	struct pktq_prec *q;
@@ -426,7 +426,7 @@ pktq_deq_tail(struct pktq *pq, int *prec_out)
 	return p;
 }
 
-void *
+void * BCMFASTPATH
 pktq_peek(struct pktq *pq, int *prec_out)
 {
 	int prec;
@@ -443,7 +443,7 @@ pktq_peek(struct pktq *pq, int *prec_out)
 	return (pq->q[prec].head);
 }
 
-void *
+void * BCMFASTPATH
 pktq_peek_tail(struct pktq *pq, int *prec_out)
 {
 	int prec;
@@ -461,7 +461,7 @@ pktq_peek_tail(struct pktq *pq, int *prec_out)
 	return (pq->q[prec].tail);
 }
 
-void
+void BCMFASTPATH
 pktq_flush(osl_t *osh, struct pktq *pq, bool dir)
 {
 	int prec;
@@ -471,7 +471,7 @@ pktq_flush(osl_t *osh, struct pktq *pq, bool dir)
 }
 
 /* Return sum of lengths of a specific set of precedences */
-int
+int BCMFASTPATH
 pktq_mlen(struct pktq *pq, uint prec_bmp)
 {
 	int prec, len;

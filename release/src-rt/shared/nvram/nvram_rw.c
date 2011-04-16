@@ -191,7 +191,7 @@ BCMINITFN(find_nvram)(bool embonly, bool *isemb)
 }
 
 int
-BCMATTACHFN(nvram_init)(void *si)
+BCMINITFN(nvram_init)(void *si)
 {
 	bool isemb;
 	int ret;
