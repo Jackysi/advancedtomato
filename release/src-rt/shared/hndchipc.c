@@ -24,9 +24,17 @@
 #include <hndcpu.h>
 
 /* debug/trace */
+#ifdef BCMDBG_ERR
+#define	CC_ERROR(args)	printf args
+#else
 #define	CC_ERROR(args)
+#endif	/* BCMDBG_ERR */
 
+#ifdef BCMDBG
+#define	CC_MSG(args)	printf args
+#else
 #define	CC_MSG(args)
+#endif	/* BCMDBG */
 
 /* interested chipcommon interrupt source
  *  - GPIO

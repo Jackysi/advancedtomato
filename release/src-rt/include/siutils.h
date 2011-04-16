@@ -262,6 +262,10 @@ extern bool si_ldo_war(si_t *sih, uint devid);
 
 extern bool si_taclear(si_t *sih, bool details);
 
+#ifdef BCMDBG
+extern void si_view(si_t *sih, bool verbose);
+extern void si_viewall(si_t *sih, bool verbose);
+#endif
 
 #if defined(BCMDBG_DUMP)
 extern void si_dump(si_t *sih, struct bcmstrbuf *b);
@@ -269,7 +273,7 @@ extern void si_ccreg_dump(si_t *sih, struct bcmstrbuf *b);
 extern void si_clkctl_dump(si_t *sih, struct bcmstrbuf *b);
 extern int si_gpiodump(si_t *sih, struct bcmstrbuf *b);
 #endif
-#if defined(BCMDBG_DUMP)
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 extern void si_dumpregs(si_t *sih, struct bcmstrbuf *b);
 #endif
 extern void si_4329_vbatmeas_on(si_t *sih, uint32 *save_reg0, uint32 *save_reg5);

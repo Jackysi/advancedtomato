@@ -591,6 +591,10 @@ BCMATTACHFN(si_doattach)(si_info_t *sii, uint devid, osl_t *osh, void *regs,
 		}
 	}
 
+#ifdef BCMDBG
+	/* clear any previous epidiag-induced target abort */
+	si_taclear(sih, FALSE);
+#endif	/* BCMDBG */
 
 
 	return (sii);
@@ -1283,7 +1287,7 @@ si_watchdog_ms(si_t *sih, uint32 ms)
 	si_watchdog(sih, wd_msticks * ms);
 }
 
-#if defined(BCMASSERT_SUPPORT) || defined(BCMDBG_DUMP)
+#if defined(BCMDBG_ERR) || defined(BCMASSERT_SUPPORT) || defined(BCMDBG_DUMP)
 bool
 si_taclear(si_t *sih, bool details)
 {
@@ -1494,6 +1498,10 @@ si_dump(si_t *sih, struct bcmstrbuf *b)
 	bcm_bprintf(b, "ccrev %d buscoretype 0x%x buscorerev %d curidx %d\n",
 	            sih->ccrev, sih->buscoretype, sih->buscorerev, sii->curidx);
 
+#ifdef	BCMDBG
+	if ((BUSTYPE(sih->bustype) == PCI_BUS) && (sii->pch))
+		pcicore_dump(sii->pch, b);
+#endif
 
 	bcm_bprintf(b, "cores:  ");
 	for (i = 0; i < sii->numcores; i++)
@@ -1502,7 +1510,7 @@ si_dump(si_t *sih, struct bcmstrbuf *b)
 }
 #endif	
 
-#if defined(BCMDBG_DUMP)
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 /* print interesting sbconfig registers */
 void
 si_dumpregs(si_t *sih, struct bcmstrbuf *b)
@@ -1524,8 +1532,41 @@ si_dumpregs(si_t *sih, struct bcmstrbuf *b)
 	si_setcoreidx(sih, origidx);
 	INTR_RESTORE(sii, intr_val);
 }
-#endif	
+#endif	/* BCMDBG || BCMDBG_DUMP */
 
+#ifdef BCMDBG
+void
+si_view(si_t *sih, bool verbose)
+{
+	if (CHIPTYPE(sih->socitype) == SOCI_SB)
+		sb_view(sih, verbose);
+	else if (CHIPTYPE(sih->socitype) == SOCI_AI)
+		ai_view(sih, verbose);
+	else
+		ASSERT(0);
+}
+
+void
+si_viewall(si_t *sih, bool verbose)
+{
+	si_info_t *sii;
+	uint curidx, i;
+	uint intr_val = 0;
+
+	sii = SI_INFO(sih);
+	curidx = sii->curidx;
+
+	SI_ERROR(("sb_viewall: num_cores %d\n", sii->numcores));
+	for (i = 0; i < sii->numcores; i++) {
+		INTR_OFF(sii, intr_val);
+		si_setcoreidx(sih, i);
+		si_view(sih, verbose);
+		INTR_RESTORE(sii, intr_val);
+	}
+
+	si_setcoreidx(sih, curidx);
+}
+#endif	/* BCMDBG */
 
 #if defined(BCMDBG_DUMP)
 void
@@ -2717,6 +2758,19 @@ BCMINITFN(si_gpio_handler_register)(si_t *sih, uint32 event,
 	gi->next = sii->gpioh_head;
 	sii->gpioh_head = gi;
 
+#ifdef BCMDBG_ERR
+	{
+		gpioh_item_t *h = sii->gpioh_head;
+		int cnt = 0;
+
+		for (; h; h = h->next) {
+			cnt++;
+			SI_ERROR(("gpiohdler=%p cb=%p event=0x%x\n",
+				h, h->handler, h->event));
+		}
+		SI_ERROR(("gpiohdler total=%d\n", cnt));
+	}
+#endif
 	return (void *)(gi);
 }
 
@@ -2749,6 +2803,19 @@ BCMINITFN(si_gpio_handler_unregister)(si_t *sih, void *gpioh)
 		}
 	}
 
+#ifdef BCMDBG_ERR
+	{
+		gpioh_item_t *h = sii->gpioh_head;
+		int cnt = 0;
+
+		for (; h; h = h->next) {
+			cnt++;
+			SI_ERROR(("gpiohdler=%p cb=%p event=0x%x\n",
+				h, h->handler, h->event));
+		}
+		SI_ERROR(("gpiohdler total=%d\n", cnt));
+	}
+#endif
 	ASSERT(0); /* Not found in list */
 }
 
