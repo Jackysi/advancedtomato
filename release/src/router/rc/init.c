@@ -558,6 +558,18 @@ static void check_bootnv(void)
 			dirty |= check_nv("pci/1/1/macaddr", mac);
 		}
 		break;
+	case MODEL_F7D3301:
+	case MODEL_F7D3302:
+	case MODEL_F7D4301:
+	case MODEL_F7D4302:
+	case MODEL_F5D8235v3:
+		if (nvram_match("sb/1/macaddr", nvram_safe_get("et0macaddr"))) {
+			strcpy(mac, nvram_safe_get("et0macaddr"));
+			inc_mac(mac, 2);
+			dirty |= check_nv("sb/1/macaddr", mac);
+			inc_mac(mac, 1);
+			dirty |= check_nv("pci/1/1/macaddr", mac);
+		}
 	case MODEL_E4200:
 		dirty |= check_nv("vlan2hwname", "et0");
 		if (strncasecmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0 ||
@@ -1002,6 +1014,9 @@ static int init_nvram(void)
 			name = "N F5D8235-4 v3";
 			break;
 		}
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
 			nvram_set("wan_ifnameX", "vlan2");
