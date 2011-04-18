@@ -551,18 +551,17 @@ parse_sort_criteria(char * sortCriteria, int * error)
 	return order;
 }
 
-static void add_resized_res(int srcw, int srch, int reqw, int reqh, char *dlna_pn, char *detailID, struct Response *passed_args)
+inline static void
+add_resized_res(int srcw, int srch, int reqw, int reqh, char *dlna_pn,
+                char *detailID, struct Response *passed_args)
 {
 	int ret;
 	int dstw = reqw;
 	int dsth = reqh;
 	char str_buf[256];
 
-
 	if( passed_args->flags & FLAG_NO_RESIZE )
-	{
 		return;
-	}
 
 	ret = sprintf(str_buf, "&lt;res ");
 	memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
@@ -584,6 +583,55 @@ static void add_resized_res(int srcw, int srch, int reqw, int reqh, char *dlna_p
 	                       "&lt;/res&gt;",
 	                       dlna_pn, lan_addr[0].str, runtime_vars.port,
 	                       detailID, dstw, dsth);
+	memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
+	passed_args->size += ret;
+}
+
+inline static void
+add_res(char *size, char *duration, char *bitrate, char *sampleFrequency,
+        char *nrAudioChannels, char *resolution, char *dlna_pn, char *mime,
+        char *detailID, char *ext, struct Response *passed_args)
+{
+	int ret;
+	char str_buf[256];
+
+	ret = sprintf(str_buf, "&lt;res ");
+	memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
+	passed_args->size += ret;
+	if( size && (passed_args->filter & FILTER_RES_SIZE) ) {
+		ret = sprintf(str_buf, "size=\"%s\" ", size);
+		memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
+		passed_args->size += ret;
+	}
+	if( duration && (passed_args->filter & FILTER_RES_DURATION) ) {
+		ret = sprintf(str_buf, "duration=\"%s\" ", duration);
+		memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
+		passed_args->size += ret;
+	}
+	if( bitrate && (passed_args->filter & FILTER_RES_BITRATE) ) {
+		ret = sprintf(str_buf, "bitrate=\"%s\" ", bitrate);
+		memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
+		passed_args->size += ret;
+	}
+	if( sampleFrequency && (passed_args->filter & FILTER_RES_SAMPLEFREQUENCY) ) {
+		ret = sprintf(str_buf, "sampleFrequency=\"%s\" ", sampleFrequency);
+		memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
+		passed_args->size += ret;
+	}
+	if( nrAudioChannels && (passed_args->filter & FILTER_RES_NRAUDIOCHANNELS) ) {
+		ret = sprintf(str_buf, "nrAudioChannels=\"%s\" ", nrAudioChannels);
+		memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
+		passed_args->size += ret;
+	}
+	if( resolution && (passed_args->filter & FILTER_RES_RESOLUTION) ) {
+		ret = sprintf(str_buf, "resolution=\"%s\" ", resolution);
+		memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
+		passed_args->size += ret;
+	}
+	ret = snprintf(str_buf, sizeof(str_buf), "protocolInfo=\"http-get:*:%s:%s\"&gt;"
+	                                         "http://%s:%d/MediaItems/%s.%s"
+	                                         "&lt;/res&gt;",
+		mime, dlna_pn, lan_addr[0].str, runtime_vars.port, detailID, ext);
 	memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
 	passed_args->size += ret;
 }
@@ -678,20 +726,6 @@ callback(void *args, int argc, char **argv, char **azColName)
 				{
 					strcpy(mime+8, "mkv");
 				}
-			}
-			else if( passed_args->client == ESonyBDP || passed_args->client == ESonyBravia )
-			{
-				if( passed_args->client == ESonyBDP &&
-				    (strcmp(mime+6, "x-matroska") == 0 ||
-				     strcmp(mime+6, "mpeg") == 0) )
-				{
-					strcpy(mime+6, "divx");
-				}
-				/* BRAVIA KDL-##*X### series TVs do natively support AVC/AC3 in TS, but
-				   require profile to be renamed (applies to _T and _ISO variants also) */
-				modifyString(dlna_buf, "AVC_TS_MP_SD_AC3", "AVC_TS_HD_50_AC3", 0);
-				modifyString(dlna_buf, "AVC_TS_MP_HD_AC3", "AVC_TS_HD_50_AC3", 0);
-				modifyString(dlna_buf, "AVC_TS_HP_HD_AC3", "AVC_TS_HD_50_AC3", 0);
 			}
 		}
 		else if( *mime == 'a' )
@@ -820,48 +854,8 @@ callback(void *args, int argc, char **argv, char **azColName)
 				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
 				passed_args->size += ret;
 			}
-			ret = sprintf(str_buf, "&lt;res ");
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
-			if( size && (passed_args->filter & FILTER_RES_SIZE) ) {
-				ret = sprintf(str_buf, "size=\"%s\" ", size);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
-			}
-			if( duration && (passed_args->filter & FILTER_RES_DURATION) ) {
-				ret = sprintf(str_buf, "duration=\"%s\" ", duration);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
-			}
-			if( bitrate && (passed_args->filter & FILTER_RES_BITRATE) ) {
-				if( passed_args->flags & FLAG_MS_PFS )
-					ret = sprintf(str_buf, "bitrate=\"%d\" ", atoi(bitrate)/1024);
-				else
-					ret = sprintf(str_buf, "bitrate=\"%s\" ", bitrate);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
-			}
-			if( sampleFrequency && (passed_args->filter & FILTER_RES_SAMPLEFREQUENCY) ) {
-				ret = sprintf(str_buf, "sampleFrequency=\"%s\" ", sampleFrequency);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
-			}
-			if( nrAudioChannels && (passed_args->filter & FILTER_RES_NRAUDIOCHANNELS) ) {
-				ret = sprintf(str_buf, "nrAudioChannels=\"%s\" ", nrAudioChannels);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
-			}
-			if( resolution && (passed_args->filter & FILTER_RES_RESOLUTION) ) {
-				ret = sprintf(str_buf, "resolution=\"%s\" ", resolution);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
-			}
-			ret = sprintf(str_buf, "protocolInfo=\"http-get:*:%s:%s\"&gt;"
-			                       "http://%s:%d/MediaItems/%s.%s"
-			                       "&lt;/res&gt;",
-			                       mime, dlna_buf, lan_addr[0].str, runtime_vars.port, detailID, ext);
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
+			        resolution, dlna_buf, mime, detailID, ext, passed_args);
 			if( (*mime == 'i') && (passed_args->client != EFreeBox) ) {
 #if 1 //JPEG_RESIZE
 				int srcw = atoi(strsep(&resolution, "x"));
@@ -880,6 +874,76 @@ callback(void *args, int argc, char **argv, char **azColName)
 					                       mime, "DLNA.ORG_PN=JPEG_TN", lan_addr[0].str, runtime_vars.port, detailID);
 					memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
 					passed_args->size += ret;
+				}
+			}
+			else if( *mime == 'v' ) {
+				switch( passed_args->client ) {
+				case EToshibaTV:
+					if( dlna_pn &&
+					    (strncmp(dlna_pn, "MPEG_TS_HD_NA", 13) == 0 ||
+					     strncmp(dlna_pn, "MPEG_TS_SD_NA", 13) == 0 ||
+					     strncmp(dlna_pn, "AVC_TS_MP_HD_AC3", 16) == 0))
+					{
+						sprintf(dlna_buf, "DLNA.ORG_PN=MPEG_PS_NTSC;DLNA.ORG_OP=01;DLNA.ORG_CI=0");
+						add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
+						        resolution, dlna_buf, mime, detailID, ext, passed_args);
+					}
+					break;
+				case ESonyBDP:
+					if( dlna_pn &&
+					    (strncmp(dlna_pn, "AVC_TS", 6) == 0 ||
+					     strncmp(dlna_pn, "MPEG_TS", 7) == 0) )
+					{
+						if( strncmp(dlna_pn, "MPEG_TS_SD_NA", 13) != 0 )
+						{
+							sprintf(dlna_buf, "DLNA.ORG_PN=MPEG_TS_SD_NA;DLNA.ORG_OP=01;DLNA.ORG_CI=0");
+							add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
+							        resolution, dlna_buf, mime, detailID, ext, passed_args);
+						}
+						if( strncmp(dlna_pn, "MPEG_TS_SD_EU", 13) != 0 )
+						{
+							sprintf(dlna_buf, "DLNA.ORG_PN=MPEG_TS_SD_EU;DLNA.ORG_OP=01;DLNA.ORG_CI=0");
+							add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
+							        resolution, dlna_buf, mime, detailID, ext, passed_args);
+						}
+					}
+					else if( (dlna_pn &&
+					          (strncmp(dlna_pn, "AVC_MP4", 7) == 0 ||
+					           strncmp(dlna_pn, "MPEG4_P2_MP4", 12) == 0)) ||
+					         strcmp(mime+6, "x-matroska") == 0 ||
+					         strcmp(mime+6, "x-msvideo") == 0 ||
+					         strcmp(mime+6, "mpeg") == 0 )
+					{
+						strcpy(mime+6, "avi");
+						if( !dlna_pn || strncmp(dlna_pn, "MPEG_PS_NTSC", 12) != 0 )
+						{
+							sprintf(dlna_buf, "DLNA.ORG_PN=MPEG_PS_NTSC;DLNA.ORG_OP=01;DLNA.ORG_CI=0");
+							add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
+						        	resolution, dlna_buf, mime, detailID, ext, passed_args);
+						}
+						if( !dlna_pn || strncmp(dlna_pn, "MPEG_PS_PAL", 11) != 0 )
+						{
+							sprintf(dlna_buf, "DLNA.ORG_PN=MPEG_PS_PAL;DLNA.ORG_OP=01;DLNA.ORG_CI=0");
+							add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
+						        	resolution, dlna_buf, mime, detailID, ext, passed_args);
+						}
+					}
+					break;
+				case ESonyBravia:
+					/* BRAVIA KDL-##*X### series TVs do natively support AVC/AC3 in TS, but
+					   require profile to be renamed (applies to _T and _ISO variants also) */
+					if( dlna_pn &&
+					    (strncmp(dlna_pn, "AVC_TS_MP_SD_AC3", 16) == 0 ||
+					     strncmp(dlna_pn, "AVC_TS_MP_HD_AC3", 16) == 0 ||
+					     strncmp(dlna_pn, "AVC_TS_HP_HD_AC3", 16) == 0))
+					{
+						sprintf(dlna_buf, "DLNA.ORG_PN=AVC_TS_HD_50_AC3;DLNA.ORG_OP=01;DLNA.ORG_CI=0");
+						add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
+						        resolution, dlna_buf, mime, detailID, ext, passed_args);
+					}
+					break;
+				default:
+					break;
 				}
 			}
 		}
@@ -1023,22 +1087,19 @@ BrowseContentDirectory(struct upnphttp * h, const char * action)
 	args.requested = RequestedCount;
 	args.client = h->req_client;
 	args.flags = h->reqflags;
-	if( h->reqflags & FLAG_MS_PFS )
+	if( args.flags & FLAG_MS_PFS )
 	{
-		if( strchr(ObjectId, '$') || (strcmp(ObjectId, "0") == 0) )
-		{
-			ObjectId = sqlite3_mprintf("%s", ObjectId);
-		}
-		else
+		if( !strchr(ObjectId, '$') && (strcmp(ObjectId, "0") != 0) )
 		{
 			ptr = sql_get_text_field(db, "SELECT OBJECT_ID from OBJECTS"
 			                             " where OBJECT_ID in "
 			                             "('"MUSIC_ID"$%s', '"VIDEO_ID"$%s', '"IMAGE_ID"$%s')",
 			                             ObjectId, ObjectId, ObjectId);
 			if( ptr )
+			{
 				ObjectId = ptr;
-			else
-				ObjectId = sqlite3_mprintf("%s", ObjectId);
+				args.flags |= FLAG_FREE_OBJECT_ID;
+			}
 		}
 	}
 	DPRINTF(E_DEBUG, L_HTTP, "Browsing ContentDirectory:\n"
@@ -1050,6 +1111,12 @@ BrowseContentDirectory(struct upnphttp * h, const char * action)
 	                         " * SortCriteria: %s\n",
 				ObjectId, RequestedCount, StartingIndex,
 	                        BrowseFlag, Filter, SortCriteria);
+
+	if( (args.flags & FLAG_AUDIO_ONLY) && (strcmp(ObjectId, "0") == 0) )
+	{
+		ObjectId = sqlite3_mprintf("%s", MUSIC_ID);
+		args.flags |= FLAG_FREE_OBJECT_ID;
+	}
 
 	if( strcmp(BrowseFlag+6, "Metadata") == 0 )
 	{
@@ -1082,13 +1149,12 @@ BrowseContentDirectory(struct upnphttp * h, const char * action)
 				else
 					asprintf(&orderBy, "order by length(OBJECT_ID), OBJECT_ID");
 			}
-			else if( strncmp(ObjectId, MUSIC_ID, strlen(MUSIC_ID)) == 0 )
+			else if( args.client == ERokuSoundBridge )
 			{
 #ifdef __sparc__
 				if( totalMatches < 10000 )
 #endif
 				asprintf(&orderBy, "order by o.CLASS, d.DISC, d.TRACK, d.TITLE");
-			
 			}
 		}
 		/* If it's a DLNA client, return an error for bad sort criteria */
@@ -1134,11 +1200,9 @@ browse_error:
 	ClearNameValueList(&data);
 	if( orderBy )
 		free(orderBy);
-	free(resp);
-	if( h->reqflags & FLAG_MS_PFS )
-	{
+	if( args.flags & FLAG_FREE_OBJECT_ID )
 		sqlite3_free(ObjectId);
-	}
+	free(resp);
 }
 
 static void
