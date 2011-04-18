@@ -132,7 +132,7 @@ old_postuninstall_cmds=""
 LTCC="mipsel-uclibc-gcc"
 
 # LTCC compiler flags.
-LTCFLAGS="-Os -Wall -DBCMWPA2 -fno-delete-null-pointer-checks -funit-at-a-time 	--param large-function-growth=800 --param max-inline-insns-single=3000 	-ffunction-sections -fdata-sections -std=gnu99 -ggdb3 -Wall -W -Wpointer-arith -Wformat-security -Wcast-align -Wundef -Wcast-align -Wstrict-prototypes -Wmissing-declarations -Wmissing-format-attribute -Wredundant-decls -Wnested-externs -Wunused-parameter -Wwrite-strings -Winline -Wfloat-equal -Wextra -Wdeclaration-after-statement -Winit-self"
+LTCFLAGS="-Os -Wall -fno-delete-null-pointer-checks -funit-at-a-time 	--param large-function-growth=800 --param max-inline-insns-single=3000 	-ffunction-sections -fdata-sections -std=gnu99 -ggdb3 -Wall -W -Wpointer-arith -Wformat-security -Wcast-align -Wundef -Wcast-align -Wstrict-prototypes -Wmissing-declarations -Wmissing-format-attribute -Wredundant-decls -Wnested-externs -Wunused-parameter -Wwrite-strings -Winline -Wfloat-equal -Wextra -Wdeclaration-after-statement -Winit-self"
 
 # Take the output of nm and produce a listing of raw symbols and C names.
 global_symbol_pipe="sed -n -e 's/^.*[	 ]\\([ABCDGIRSTW][ABCDGIRSTW]*\\)[	 ][	 ]*\\([_A-Za-z][_A-Za-z0-9]*\\)\$/\\1 \\2 \\2/p'"
@@ -234,7 +234,7 @@ finish_eval=""
 hardcode_into_libs=yes
 
 # Compile-time system search path for libraries.
-sys_lib_search_path_spec="/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/lib/gcc/mipsel-linux-uclibc/4.2.4 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/lib/gcc /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/mipsel-linux-uclibc/lib"
+sys_lib_search_path_spec="/opt/brcm/K24/hndtools-mipsel-uclibc-4.2.4/lib/gcc/mipsel-linux-uclibc/4.2.4 /opt/brcm/K24/hndtools-mipsel-uclibc-4.2.4/lib/gcc /opt/brcm/K24/hndtools-mipsel-uclibc-4.2.4/mipsel-linux-uclibc/lib"
 
 # Run-time system search path for libraries.
 sys_lib_dlsearch_path_spec="/lib /usr/lib /usr/local/lib /lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu "
@@ -9047,17 +9047,17 @@ file_list_spec=""
 hardcode_action=immediate
 
 # The directories searched by this compiler when creating a shared library.
-compiler_lib_search_dirs="/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/lib"
+compiler_lib_search_dirs="/opt/brcm/K24/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4 /opt/brcm/K24/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc /opt/brcm/K24/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/lib"
 
 # Dependencies to place before and after the objects being linked to
 # create a shared library.
-predep_objects="/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/lib/crti.o /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/crtbeginS.o"
-postdep_objects="/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/crtendS.o /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/lib/crtn.o"
+predep_objects="/opt/brcm/K24/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/lib/crti.o /opt/brcm/K24/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/crtbeginS.o"
+postdep_objects="/opt/brcm/K24/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/crtendS.o /opt/brcm/K24/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/lib/crtn.o"
 predeps=""
 postdeps="-lstdc++ -lm -lgcc_s -lc -lgcc_s"
 
 # The library search path used internally by the compiler when linking
 # a shared library.
-compiler_lib_search_path="-L/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4 -L/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc -L/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/lib"
+compiler_lib_search_path="-L/opt/brcm/K24/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4 -L/opt/brcm/K24/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc -L/opt/brcm/K24/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/lib"
 
 # ### END LIBTOOL TAG CONFIG: CXX

@@ -143,9 +143,9 @@ CATALOGS =
 CATOBJEXT = 
 CC = mipsel-uclibc-gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = -Os -Wall -DBCMWPA2 -fno-delete-null-pointer-checks -funit-at-a-time 	--param large-function-growth=800 --param max-inline-insns-single=3000 	-ffunction-sections -fdata-sections -std=gnu99 -ggdb3 -Wall -W -Wpointer-arith -Wformat-security -Wcast-align -Wundef -Wcast-align -Wstrict-prototypes -Wmissing-declarations -Wmissing-format-attribute -Wredundant-decls -Wnested-externs -Wunused-parameter -Wwrite-strings -Winline -Wfloat-equal -Wextra -Wdeclaration-after-statement -Winit-self
+CFLAGS = -Os -Wall -fno-delete-null-pointer-checks -funit-at-a-time 	--param large-function-growth=800 --param max-inline-insns-single=3000 	-ffunction-sections -fdata-sections -std=gnu99 -ggdb3 -Wall -W -Wpointer-arith -Wformat-security -Wcast-align -Wundef -Wcast-align -Wstrict-prototypes -Wmissing-declarations -Wmissing-format-attribute -Wredundant-decls -Wnested-externs -Wunused-parameter -Wwrite-strings -Winline -Wfloat-equal -Wextra -Wdeclaration-after-statement -Winit-self
 CPP = mipsel-uclibc-gcc -E
-CPPFLAGS = -I/root/openwrt/tomato.git-compile/src-rt/router/zlib -DNDEBUG
+CPPFLAGS = -I/root/openwrt/tomato.git-compile/src/router/zlib -DNDEBUG
 CURL_MINIMUM = 7.15.4
 CXX = mipsel-linux-g++
 CXXCPP = mipsel-linux-g++ -E
@@ -157,7 +157,7 @@ DBUS_BINDING_TOOL =
 DBUS_GLIB_CFLAGS = 
 DBUS_GLIB_LIBS = 
 DBUS_GLIB_MINIMUM = 0.70
-DEFS = -DPACKAGE_NAME=\"transmission\" -DPACKAGE_TARNAME=\"transmission\" -DPACKAGE_VERSION=\"2.22\" -DPACKAGE_STRING=\"transmission\ 2.22\" -DPACKAGE_BUGREPORT=\"http://trac.transmissionbt.com/newticket\" -DPACKAGE_URL=\"\" -DPACKAGE=\"transmission\" -DVERSION=\"2.22\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DHAVE_DLFCN_H=1 -DLT_OBJDIR=\".libs/\" -DSTDC_HEADERS=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_PREAD=1 -DHAVE_PWRITE=1 -DHAVE_STRLCPY=1 -DHAVE_DAEMON=1 -DHAVE_DIRNAME=1 -DHAVE_BASENAME=1 -DHAVE_STRCASECMP=1 -DHAVE_LOCALTIME_R=1 -DHAVE_MEMMEM=1 -DHAVE_STRSEP=1 -DHAVE_STRTOLD=1 -DHAVE_SYSLOG=1 -DHAVE_VALLOC=1 -DHAVE_GETPAGESIZE=1 -DHAVE_STATVFS=1 -DHAVE_PTHREAD=1 -DHAVE__TMP_DUMMY1_ZLIB_H=1 -DHAVE_ZLIB=1 -D_FILE_OFFSET_BITS=64 -DHAVE_LSEEK64=1 -DHAVE_DECL_POSIX_FADVISE=0 -DHAVE_POSIX_FADVISE=1 -DWITH_INOTIFY=1 -DHAVE_SYS_STATVFS_H=1 -DTR_LIGHTWEIGHT=1
+DEFS = -DPACKAGE_NAME=\"transmission\" -DPACKAGE_TARNAME=\"transmission\" -DPACKAGE_VERSION=\"2.22\" -DPACKAGE_STRING=\"transmission\ 2.22\" -DPACKAGE_BUGREPORT=\"http://trac.transmissionbt.com/newticket\" -DPACKAGE_URL=\"\" -DPACKAGE=\"transmission\" -DVERSION=\"2.22\" -DSTDC_HEADERS=1 -DHAVE_SYS_TYPES_H=1 -DHAVE_SYS_STAT_H=1 -DHAVE_STDLIB_H=1 -DHAVE_STRING_H=1 -DHAVE_MEMORY_H=1 -DHAVE_STRINGS_H=1 -DHAVE_INTTYPES_H=1 -DHAVE_STDINT_H=1 -DHAVE_UNISTD_H=1 -DHAVE_DLFCN_H=1 -DLT_OBJDIR=\".libs/\" -DSTDC_HEADERS=1 -DTIME_WITH_SYS_TIME=1 -DHAVE_PREAD=1 -DHAVE_PWRITE=1 -DHAVE_STRLCPY=1 -DHAVE_DAEMON=1 -DHAVE_DIRNAME=1 -DHAVE_BASENAME=1 -DHAVE_STRCASECMP=1 -DHAVE_LOCALTIME_R=1 -DHAVE_MEMMEM=1 -DHAVE_STRSEP=1 -DHAVE_STRTOLD=1 -DHAVE_SYSLOG=1 -DHAVE_VALLOC=1 -DHAVE_GETPAGESIZE=1 -DHAVE_STATVFS=1 -DHAVE_PTHREAD=1 -DHAVE__TMP_DUMMY1_ZLIB_H=1 -DHAVE_ZLIB=1 -D_FILE_OFFSET_BITS=64 -DHAVE_LSEEK64=1 -DHAVE_DECL_POSIX_FADVISE=0 -DHAVE_POSIX_FADVISE=1 -DHAVE_SYS_STATVFS_H=1 -DTR_LIGHTWEIGHT=1
 DEPDIR = .deps
 DHT_CFLAGS = -I$(top_srcdir)/third-party/dht
 DHT_LIBS = $(top_builddir)/third-party/dht/libdht.a
@@ -195,16 +195,16 @@ INTLTOOL_MERGE =
 INTLTOOL_PERL = 
 INTLTOOL_UPDATE = 
 LD = mipsel-uclibc-ld
-LDFLAGS = -L/root/openwrt/tomato.git-compile/src-rt/router/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC
+LDFLAGS = -L/root/openwrt/tomato.git-compile/src/router/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC
 LIBAPPINDICATOR_CFLAGS = 
 LIBAPPINDICATOR_LIBS = 
 LIBAPPINDICATOR_MINIMUM = 0.0.11
 LIBCANBERRA_CFLAGS = 
 LIBCANBERRA_LIBS = 
-LIBCURL_CFLAGS = -I/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include
-LIBCURL_LIBS = -L/root/openwrt/tomato.git-compile/src-rt/router/libcurl/lib/.libs/ -lcurl
-LIBEVENT_CFLAGS = -I/root/openwrt/tomato.git-compile/src-rt/router/libevent/include
-LIBEVENT_LIBS = -L/root/openwrt/tomato.git-compile/src-rt/router/libevent/.libs -levent
+LIBCURL_CFLAGS = -I/root/openwrt/tomato.git-compile/src/router/libcurl/include
+LIBCURL_LIBS = -L/root/openwrt/tomato.git-compile/src/router/libcurl/lib/.libs/ -lcurl
+LIBEVENT_CFLAGS = -I/root/openwrt/tomato.git-compile/src/router/libevent/include
+LIBEVENT_LIBS = -L/root/openwrt/tomato.git-compile/src/router/libevent/.libs -levent
 LIBEVENT_MINIUM = 
 LIBNOTIFY_CFLAGS = 
 LIBNOTIFY_LIBS = 
@@ -224,8 +224,8 @@ NM = mipsel-uclibc-nm
 NMEDIT = 
 OBJDUMP = mipsel-linux-objdump
 OBJEXT = o
-OPENSSL_CFLAGS = -I/root/openwrt/tomato.git-compile/src-rt/router/openssl/include
-OPENSSL_LIBS = -L/root/openwrt/tomato.git-compile/src-rt/router/openssl -lcrypto -lssl
+OPENSSL_CFLAGS = -I/root/openwrt/tomato.git-compile/src/router/openssl/include
+OPENSSL_LIBS = -L/root/openwrt/tomato.git-compile/src/router/openssl -lcrypto -lssl
 OPENSSL_MINIMUM = 0.9.4
 OTOOL = 
 OTOOL64 = 
@@ -316,9 +316,9 @@ top_srcdir = ..
 transmissionlocaledir = 
 AM_CPPFLAGS = -I.. -DEMBEDDED
 AM_CFLAGS = \
-    -I/root/openwrt/tomato.git-compile/src-rt/router/libevent/include \
-    -I/root/openwrt/tomato.git-compile/src-rt/router/openssl/include \
-    -I/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include \
+    -I/root/openwrt/tomato.git-compile/src/router/libevent/include \
+    -I/root/openwrt/tomato.git-compile/src/router/openssl/include \
+    -I/root/openwrt/tomato.git-compile/src/router/libcurl/include \
      \
     -pthread
 
@@ -334,9 +334,9 @@ LDADD = \
     $(top_builddir)/third-party/miniupnp/libminiupnp.a \
     $(top_builddir)/third-party/libnatpmp/libnatpmp.a \
     $(top_builddir)/third-party/dht/libdht.a \
-    -L/root/openwrt/tomato.git-compile/src-rt/router/libevent/.libs -levent \
-    -L/root/openwrt/tomato.git-compile/src-rt/router/libcurl/lib/.libs/ -lcurl \
-    -L/root/openwrt/tomato.git-compile/src-rt/router/openssl -lcrypto -lssl \
+    -L/root/openwrt/tomato.git-compile/src/router/libevent/.libs -levent \
+    -L/root/openwrt/tomato.git-compile/src/router/libcurl/lib/.libs/ -lcurl \
+    -L/root/openwrt/tomato.git-compile/src/router/openssl -lcrypto -lssl \
      \
     -lz -lm  \
     

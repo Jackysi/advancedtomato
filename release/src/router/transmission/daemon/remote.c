@@ -1630,10 +1630,12 @@ processResponse( const char * rpcurl, const void * response, size_t len )
     else
     {
         int64_t      tag = -1;
+        int          itag;
         const char * str;
         tr_bencDictFindInt( &top, "tag", &tag );
 
-        switch( tag )
+        itag = tag;
+        switch( itag )
         {
             case TAG_SESSION:
                 printSession( &top ); break;
