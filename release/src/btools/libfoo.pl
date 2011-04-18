@@ -161,6 +161,8 @@ sub fixDyn
 	fixDynDep("transmission-daemon", "libcurl.so.4.2.0");
 	fixDynDep("transmission-remote", "libevent-2.0.so.5.0.1");
 	fixDynDep("transmission-remote", "libcurl.so.4.2.0");
+	fixDynDep("transmission-create", "libevent-2.0.so.5.0.1");
+	fixDynDep("transmission-create", "libcurl.so.4.2.0");
 
 #	fixDynDep("libbcm.so", "libshared.so");
 #	fixDynDep("libbcm.so", "libc.so.0");

@@ -1404,7 +1404,7 @@ openvpn-install: openvpn
 	chmod 0500 $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 
 #shibby
-libcurl/Makefile: zlib openssl
+libcurl/stamp-h1: zlib openssl
 	cd libcurl && CC=$(CC) STRIP='mipsel-uclibc-strip' \
 		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 		CPPFLAGS="-I$(TOP)/zlib" \
@@ -1419,13 +1419,14 @@ libcurl/Makefile: zlib openssl
 		--with-linux-headers=$(LINUXDIR)/include \
 		OPENSSL_CFLAGS="-I$(TOP)/openssl/include" \
 		OPENSSL_LIBS="-L$(TOP)/openssl -lcrypto -lssl"
+		touch libcurl/stamp-h1
 
-libcurl: libcurl/Makefile
+libcurl: libcurl/stamp-h1
 	@$(MAKE) -C libcurl
 
 libcurl-clean:
 	-@$(MAKE) -C libcurl clean
-	@rm -f libcurl/Makefile
+	@rm -f libcurl/stamp-h1 libcurl/Makefile
 
 libcurl-install: libcurl
 	install -d $(INSTALLDIR)/libcurl/usr/lib
@@ -1435,19 +1436,20 @@ libcurl-install: libcurl
 		ln -sf libcurl.so.4.2.0 libcurl.so.4 && \
 		ln -sf libcurl.so.4.2.0 libcurl.so
 
-libevent/Makefile:
+libevent/stamp-h1:
 	cd libevent && \
 	CC=$(CC) CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
 		$(CONFIGURE)
+		touch libevent/stamp-h1
 
-libevent: libevent/Makefile
+libevent: libevent/stamp-h1
 	@$(SEP)
 	$(MAKE) -C libevent
 
 libevent-clean:
 	-@$(MAKE) -C libevent clean
-	@rm -f libevent/Makefile
+	@rm -f libevent/stamp-h1 libevent/Makefile
 
 libevent-install: libevent
 	install -d $(INSTALLDIR)/libevent/usr/lib
@@ -1457,9 +1459,9 @@ libevent-install: libevent
 		ln -sf libevent-2.0.so.5.0.1 libevent-2.0.so.5 && \
 		ln -sf libevent-2.0.so.5.0.1 libevent.so
 
-transmission/Makefile: openssl libcurl libevent zlib transmission/Makefile
+transmission/stamp-h1: openssl libcurl libevent zlib
 	cd transmission && CC=$(CC) AR=$(AR) LD=$(LD) STRIP='mipsel-uclibc-strip' \
-		CFLAGS="-Os -Wall -DBCMWPA2 -fno-delete-null-pointer-checks -funit-at-a-time \
+		CFLAGS="-Os -Wall -fno-delete-null-pointer-checks -funit-at-a-time \
 		--param large-function-growth=800 --param max-inline-insns-single=3000 \
 		-ffunction-sections -fdata-sections" \
 		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
@@ -1474,24 +1476,25 @@ transmission/Makefile: openssl libcurl libevent zlib transmission/Makefile
 		LIBEVENT_LIBS="-L$(TOP)/libevent/.libs -levent" \
 		OPENSSL_CFLAGS="-I$(TOP)/openssl/include" \
 		OPENSSL_LIBS="-L$(TOP)/openssl -lcrypto -lssl"
+		touch transmission/stamp-h1
 
-transmission: transmission/Makefile
+transmission: transmission/stamp-h1
 	@$(SEP)
 	$(MAKE) -C transmission
 
 transmission-clean:
 	-@$(MAKE) -C transmission clean
-	@rm -f transmission/Makefile
+	@rm -f transmission/stamp-h1 transmission/Makefile
 
 transmission-install: transmission
 	$(MAKE) -C transmission DESTDIR=$(INSTALLDIR)/transmission install-strip
 	@rm -rf $(INSTALLDIR)/transmission/usr/share/man
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-cli
-	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-create
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-show
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-edit
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-daemon
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-remote
+	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-create
 
 #
 # Generic rules
