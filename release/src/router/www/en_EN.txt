@@ -384,6 +384,39 @@ redirections
 Secure Mode
 when enabled, UPnP clients are allowed to add mappings only to their IP
 Show In My Network Places
+Rebooting
+Please wait while the router reboots
+Restoring Defaults
+The router will reset its address back to 192.168.1.1. You may need to renew your computer's DHCP or reboot your computer before continuing
+Access Restrictions
+the following day
+Access Restriction Overview
+Edit Access Restrictions
+New Rule
+All IPP2P Filters
+Invalid MAC address or IP address/range
+MAC / IP Address
+Please enter a specific address or port, or select an application match
+Any Protocol
+Any Port
+Dst Port
+Src Port
+Src or Dst
+Any Address
+Delete this rule
+No MAC or IP address was specified
+Please specify what items should be blocked
+This rule is too big. Please reduce by
+characters
+All Day
+Normal Access Restriction
+Disable Wireless
+Applies To
+Blocked Resources
+Block All Internet Access
+Application
+HTTP Request
+HTTP Requested Files
 Changes Saved
 Please Wait
 Restarting
@@ -413,7 +446,6 @@ Download Log File
 Find
 Logging Configuration
 Internal logging disabled
-Overview
 Access Point
 Wireless Client
 Wireless Ethernet Bridge
@@ -457,6 +489,44 @@ Recently Visited Web Sites
 available entries
 Web Monitor Configuration
 Web Monitoring disabled
+Ping
+Seq
+RX Bytes
+Packets
+transmitted
+Round-Trip
+avg
+Invalid address
+Ping Count
+Packet Size
+System Commands
+Execute System Commands
+Wireless Survey
+NEW
+OUI search
+removed
+total
+Last updated
+Last Seen
+Capabilities
+Rates
+Wireless Site Survey
+Auto Expire
+Auto Refresh
+Warning: Wireless connections to this router may be disrupted while using this tool
+Trace
+Avg
+Traceroute
+Maximum Hops
+Maximum Wait Time
+seconds per hop
+WOL
+Active
+In ARP
+Click to wake up
+Wake On LAN
+MAC Address List
+Wake Up
 Use Default
 Invalid server address
 VPN Client Configuration
@@ -503,7 +573,6 @@ General Statistics
 Refresh Status
 Common name is mandatory
 Common name cannot contain
-characters
 Either both or neither subnet and netmask must be provided
 Cannot push routes if they're not given. Please provide subnet/netmask
 Netmask
