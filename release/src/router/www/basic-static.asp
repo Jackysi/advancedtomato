@@ -284,6 +284,7 @@ function init()
 </div>
 <small>
 <div>* Static ARP only works if there's one MAC address per IP. You can't enter two MAC addresses in the above table.</small></div>
+<div>* Enabling these functions on the router will prevent unauthorized clients from accessing the router or the internet.</small></div>
 <br>
 <br>
 <br>
