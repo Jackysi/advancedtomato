@@ -27,7 +27,7 @@ obj-$(CONFIG_ET) := et.o
 EXTRA_CFLAGS	+= -DDMA -Werror
 
 # Search for sources under src/et/sys or objects under src/et/linux
-ifneq ($(wildcard $(src)/$(ETSRCDIR)/sys),)
+ifneq ($(wildcard $(src)/$(ETSRCDIR)/sys/*),)
 EXTRA_CFLAGS	+= -I$(src)/$(ETSRCDIR)/sys
 else
 et-objs := $(ETSRCDIR)/linux/et.o

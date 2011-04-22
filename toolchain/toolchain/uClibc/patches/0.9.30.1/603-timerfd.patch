@@ -30,7 +30,7 @@ new file mode 100644
 index 0000000..c1bb06f
 --- a/dev/null
 +++ b/libc/sysdeps/linux/common/sys/timerfd.h
-@@ -0,0 +1,60 @@
+@@ -0,0 +1,57 @@
 +/* Copyright (C) 2008 Free Software Foundation, Inc.
 +   This file is part of the GNU C Library.
 +
@@ -54,16 +54,13 @@ index 0000000..c1bb06f
 +
 +#include <time.h>
 +
++#ifndef _FCNTL_H
++# include <fcntl.h>
++#endif
 +
 +/* Bits to be set in the FLAGS parameter of `timerfd_create'.  */
-+enum
-+  {
-+    TFD_CLOEXEC = 02000000,
-+#define TFD_CLOEXEC TFD_CLOEXEC
-+    TFD_NONBLOCK = 04000
-+#define TFD_NONBLOCK TFD_NONBLOCK
-+  };
-+
++#define TFD_CLOEXEC	O_CLOEXEC
++#define TFD_NONBLOCK	O_NONBLOCK
 +
 +/* Bits to be set in the FLAGS parameter of `timerfd_settime'.  */
 +enum
@@ -96,7 +93,7 @@ new file mode 100644
 index 0000000..2332044
 --- a/dev/null
 +++ b/libc/sysdeps/linux/common/timerfd.c
-@@ -0,0 +1,32 @@
+@@ -0,0 +1,50 @@
 +/* vi: set sw=4 ts=4: */
 +/*
 + * timerfd_create() / timerfd_settime() / timerfd_gettime() for uClibc
@@ -114,6 +111,12 @@ index 0000000..2332044
 + */
 +#ifdef __NR_timerfd_create
 +_syscall2(int, timerfd_create, int, clockid, int, flags)
++#else
++int timerfd_create (clockid_t __clock_id, int __flags)
++{
++	__set_errno(ENOSYS);
++	return -1;
++}
 +#endif
 +
 +/*
@@ -121,6 +124,12 @@ index 0000000..2332044
 + */
 +#ifdef __NR_timerfd_settime
 +_syscall4(int,timerfd_settime, int, ufd, int, flags, const struct itimerspec *, utmr, struct itimerspec *, otmr)
++#else
++int timerfd_settime (int __ufd, int __flags, __const struct itimerspec *__utmr, struct itimerspec *__otmr)
++{
++	__set_errno(ENOSYS);
++	return -1;
++}
 +#endif
 +
 +/*
@@ -128,6 +137,12 @@ index 0000000..2332044
 + */
 +#ifdef __NR_timerfd_gettime
 +_syscall2(int, timerfd_gettime, int, ufd, struct itimerspec *, otmr)
++#else
++int timerfd_gettime (int __ufd, struct itimerspec *__otmr)
++{
++	__set_errno(ENOSYS);
++	return -1;
++}
 +#endif
 --
 cgit v0.8.2.1

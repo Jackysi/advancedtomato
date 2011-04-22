@@ -121,7 +121,8 @@ ifneq ($(TCONFIG_USB),y)
 endif
 
 # Only include CTF option if CTF module exists
-	test -d $(SRCBASE)/ctf/linux || sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
+##	test -d $(SRCBASE)/ctf/linux || 
+	sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
 
 
 ifeq ($(TOMATO_EXPERIMENTAL),1)
