@@ -403,7 +403,9 @@ void new_qoslimit_stop(void)
 		"#!/bin/sh\n"
 		"tc qdisc del dev imq1 root\n"
 		"tc qdisc del dev imq0 root\n"
-		"tc qdisc del dev br0 root\n" //fix me
+		"tc qdisc del dev br0 root\n" 	//fix me
+		"ip link set imq0 down\n"
+		"ip link set imq1 down\n"	//take imq's down - Toastman
 		"\n"
 	);
 
