@@ -303,6 +303,11 @@ extern void ipt_qos(void);
 extern void start_qos(void);
 extern void stop_qos(void);
 
+// cmon.c
+extern void ipt_cmon(void);						// Do we need this ?
+extern void start_cmon(void);
+extern void stop_cmon(void);
+
 // cifs.c
 #ifdef TCONFIG_CIFS
 extern void start_cifs(void);

@@ -38,7 +38,7 @@
 <script type='text/javascript' src='bwm-common.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,rstats_colors"); %>
+//	<% nvram("cmon_enable,cmon_ipaddr,wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,rstats_colors"); %>
 
 var cprefix = 'bw_r';
 var updateInt = 2;
@@ -134,11 +134,35 @@ function init()
 
 	ref.start();
 }
-</script>
 
+
+
+function verifyFields(focused, quiet)
+{
+
+
+	var a = !E('_f_cmon_enable').checked;
+	E('_cmon_ipaddr').enabled = a;
+	elem.display(PR('_cmon_ipaddr'), !a);
+
+	return 1
+}
+
+function save()
+{
+
+	var fom = E('_fom');
+	fom.cmon_enable.value = E('_f_cmon_enable').checked ? 1 : 0;
+	form.submit(fom, 0);
+}
+
+
+
+
+</script>
 </head>
 <body onload='init()'>
-<form>
+<form id='_fom' method='post' action='tomato.cgi'>
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
@@ -180,6 +204,8 @@ function init()
 
 		<br><br>
 		&nbsp; &raquo; <a href="admin-bwm.asp">Configure</a>
+
+
 	</div>
 
 	<br><br>
@@ -211,15 +237,55 @@ function init()
 <br>
 <br>
 
-<!-- / / / -->
+
+<input type='hidden' name='cmon_enable'>
+<input type='hidden' name='cmon_ipaddr'>
+<input type='hidden' name='_nextpage' value='bwm-realtime.asp'>
+<input type='hidden' name='_service' value='bwm-restart'>
+<input type='hidden' name='_service' value='cmon-restart'>
+
+
+<br>
+<br>
+
+
+<div class='section-title'><b>Client Monitor</b></div>
+<br>
+<div class='section'>
+<script type='text/javascript'>
+
+createFieldTable('', [
+{ title: 'Enable Monitor', name: 'f_cmon_enable', type: 'checkbox', value: nvram.cmon_enable != '0'},
+{ title: 'Monitoring IP Address', name: 'cmon_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.cmon_ipaddr }
+]);
+
+</script>
+</div>
+
+<div>
+	<ul>
+	<br>
+	<br>
+	<li><b>Note:</b> The monitored client is isolated from the BW/Limiter graphs and details.
+	</ul>
+</div>
+
+
 
 </td></tr>
+
+
 <tr><td id='footer' colspan=2>
-	<span id='warnwd' style='display:none'>Warning: 10 second timeout, restarting...&nbsp;</span>
-	<span id='dtime'></span>
-	<img src='spin.gif' id='refresh-spinner' onclick='javascript:debugTime=1'>
+<span id='warnwd' style='display:none'>Warning: 10 second session timeout, restarting...&nbsp;</span>
+<span id='footer-msg'></span>
+<input type='button' value='Save' id='save-button' onclick='save()'>
+<input type='button' value='Refresh' onclick='reloadPage()'>
+<span id='dtime'></span>
+<img src='spin.gif' id='refresh-spinner' onclick='javascript:debugTime=1'>
 </td></tr>
 </table>
 </form>
+<script type='text/javascript'>verifyFields(null, 1);</script>
 </body>
 </html>
+

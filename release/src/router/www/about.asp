@@ -122,7 +122,7 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 - Supports 250+ simultaneous users, comprehensive QOS rules set by default<br>
 - 250 entry limit in Static DHCP  & Wireless Filter | 500 entry limit in Access Restrictions<br>
 - Configurable QOS class names | Toastman QOS rules | Fast conntrack timeout<br>
-- CPU frequency selector | Faster page refresh settings<br>
+- CPU frequency selector | Faster page refresh settings | Client Monitor Graphs<br>
 - VLAN Support for UPnP - if exists, loads upnpconfig.custom from JFFS<br>
 <br>
 Developments by Victek/PrinceAMD/Phykris/Shibby/Toastman<br>

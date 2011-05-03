@@ -218,11 +218,19 @@ function loadData()
 			}
 			
 			if (i == 'imq0')	{
-				t = 'Limit/Up <small>(' + i + ')</small>';
+				t = 'Lim. OUT <small>(' + i + ')</small>';
 			}
 			
 			if (i == 'imq1')	{
-				t = 'Limit/Dwn <small>(' + i + ')</small>';
+				t = 'Lim. IN <small>(' + i + ')</small>';
+			}
+			
+			if (i == 'imq2')	{
+				t = 'Mon. OUT <small>(' + i + ')</small>';
+			}
+			
+			if (i == 'imq3')	{
+				t = 'Mon. IN <small>(' + i + ')</small>';
 			}
 			
 			else if ((nvram.wan_proto == 'pptp') || (nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp')) {

@@ -1911,6 +1911,16 @@ TOP:
 		goto CLEAR;
 	}
 
+	if (strcmp(service, "cmon") == 0) {			// TOASTMAN CLIENT MONITOR - EXPERIMENTAL
+		if (action & A_STOP) {
+			stop_cmon();
+		}
+		if (action & A_START) {	
+//			stop_qos(); start_qos();		//always restarted  ???  
+ 			start_cmon();
+		}
+		goto CLEAR;
+	}
 
 	if (strcmp(service, "upnp") == 0) {
 		if (action & A_STOP) {

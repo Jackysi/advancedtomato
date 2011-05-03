@@ -226,6 +226,14 @@ function init()
 </div>
 <br>
 
+<div>
+	<ul>
+	<br>
+	<br>
+	<li><b>Client Monitor:</b> You can set an individual IP to monitor in the realtime graph page.
+	</ul>
+</div>
+
 <script type='text/javascript'>
 if (nvram.rstats_enable != '1') {
 	W('<div class="note-disabled">Bandwidth monitoring disabled.</b><br><br><a href="admin-bwm.asp">Enable &raquo;</a><div>');

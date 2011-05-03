@@ -720,6 +720,12 @@ static const nvset_t nvset_list[] = {
 	{ "dmz_ipaddr",			V_LENGTH(0, 15)		},
 	{ "dmz_sip",			V_LENGTH(0, 512)	},
 
+
+// bwm-client monitor
+	{ "cmon_enable",		V_01				},
+	{ "cmon_ipaddr",		V_IP				},
+	
+
 // forward-upnp
 	{ "upnp_enable",		V_NUM				},
 	{ "upnp_secure",		V_01				},
@@ -918,7 +924,7 @@ static const nvset_t nvset_list[] = {
 	{ "ms_sas",			V_01				},
 #endif
 
-//	qos
+// qos
 	{ "qos_enable",			V_01				},
 	{ "qos_pfifo",			V_01				},
 	{ "qos_ack",			V_01				},

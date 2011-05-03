@@ -2343,7 +2343,7 @@ function navi()
 			['Web Usage',		'webmon.asp'],
 			['Logs',			'log.asp'] ] ],
 		['Bandwidth', 			'bwm', 0, [
-			['Real-Time',		'realtime.asp'],
+			['Realtime /Client Monitor',		'realtime.asp'],
 			['Last 24 Hours',	'24.asp'],
 			['Daily',			'daily.asp'],
 			['Weekly',			'weekly.asp'],

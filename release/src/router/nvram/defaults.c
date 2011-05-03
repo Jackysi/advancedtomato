@@ -336,9 +336,13 @@ const defaults_t defaults[] = {
 	{ "dhcpd_static",		""				},
 
 // basic-wfilter
-	{ "wl_maclist",			""			},	// xx:xx:xx:xx:xx:xx ...
+	{ "wl_maclist",			""			},	// xx:xx:xx:xx:xx:xx ... = 17
 	{ "wl_macmode",			"disabled"		},
 	{ "macnames",			""			},
+
+// bwm-realtime
+	{ "cmon_enable",		"0"			},
+	{ "cmon_ipaddr",		"0.0.0.0"		},
 
 // advanced-ctnf
 	{ "ct_tcp_timeout",		"0 1800 30 20 20 20 10 20 20 0"				},

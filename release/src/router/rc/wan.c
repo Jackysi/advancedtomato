@@ -283,6 +283,7 @@ void preset_wan(char *ifname, char *gw, char *netmask)
 	start_dnsmasq();
 	sleep(1);
 	start_firewall();
+	start_cmon();							// Where to put this?
 }
 
 // -----------------------------------------------------------------------------
@@ -825,8 +826,10 @@ void start_wan_done(char *wan_ifname)
 
 	start_firewall();
 	start_qos();
+	start_cmon();							// Where to put this?
 	new_qoslimit_start();
 	new_arpbind_start();
+
 
 	do_static_routes(1);
 	// and routes supplied via DHCP
@@ -890,6 +893,7 @@ void stop_wan(void)
 	new_arpbind_stop();
 	new_qoslimit_stop();
 	stop_qos();
+	stop_cmon();
 	stop_upnp();	//!!TB - moved from stop_services()
 	stop_firewall();
 	stop_igmp_proxy();

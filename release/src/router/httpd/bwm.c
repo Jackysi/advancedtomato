@@ -149,6 +149,10 @@ void asp_netdev(int argc, char **argv)
 				web_printf("%c'%s':{rx:0x0,tx:0x%lx}", comma, ifname, rx, tx);
 			else if (!strcmp(ifname, "imq1"))
 				web_printf("%c'%s':{rx:0x%lx,tx:0x0}", comma, ifname, rx, tx);
+			else if (!strcmp(ifname, "imq2"))
+				web_printf("%c'%s':{rx:0x0,tx:0x%lx}", comma, ifname, rx, tx);
+			else if (!strcmp(ifname, "imq3"))
+				web_printf("%c'%s':{rx:0x%lx,tx:0x0}", comma, ifname, rx, tx);
 			else
 				web_printf("%c'%s':{rx:0x%lx,tx:0x%lx}", comma, ifname, rx, tx);
 				
