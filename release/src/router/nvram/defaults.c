@@ -917,10 +917,10 @@ const defaults_t defaults[] = {
 
 
 
-// new_arpbind
-	{ "new_arpbind_enable",			"0"			},
-	{ "new_arpbind_only",			"0"			},
-	{ "new_arpbind_list",			"" 			},
+// arpbind
+	{ "arpbind_enable",			"0"			},
+	{ "arpbind_only",			"0"			},
+	{ "arpbind_list",			"" 			},
 
 	{ NULL, NULL	}
 };

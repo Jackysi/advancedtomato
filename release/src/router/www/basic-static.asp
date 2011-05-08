@@ -34,7 +34,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("lan_ipaddr,lan_netmask,dhcpd_static,dhcpd_startip,new_arpbind_enable,new_arpbind_only"); %>
+//	<% nvram("lan_ipaddr,lan_netmask,dhcpd_static,dhcpd_startip,arpbind_enable,arpbind_only"); %>
 
 if (nvram.lan_ipaddr.match(/^(\d+\.\d+\.\d+)\.(\d+)$/)) ipp = RegExp.$1 + '.';
 	else ipp = '?.?.?.';
@@ -233,8 +233,8 @@ function save()
 
 	var fom = E('_fom');
 	fom.dhcpd_static.value = sdhcp;
-	fom.new_arpbind_enable.value = E('_f_new_arpbind_enable').checked ? 1 : 0;
-	fom.new_arpbind_only.value = E('_f_new_arpbind_only').checked ? 1 : 0;
+	fom.arpbind_enable.value = E('_f_arpbind_enable').checked ? 1 : 0;
+	fom.arpbind_only.value = E('_f_arpbind_only').checked ? 1 : 0;
 	form.submit(fom, 1);
 }
 
@@ -261,8 +261,8 @@ function init()
 <input type='hidden' name='_service' value='dhcpd-restart,arpbind-restart'>
 <input type='hidden' name='dhcpd_static'>
 
-<input type='hidden' name='new_arpbind_enable'>
-<input type='hidden' name='new_arpbind_only'>
+<input type='hidden' name='arpbind_enable'>
+<input type='hidden' name='arpbind_only'>
 
 <div class='section-title'>Static DHCP</div>
 <div class='section'>
@@ -277,8 +277,8 @@ function init()
 <div class='section'>
 	<script type='text/javascript'>
 	createFieldTable('', [
-		{ title: 'Enable static ARP', name: 'f_new_arpbind_enable', type: 'checkbox', value: nvram.new_arpbind_enable != '0' },
-		{ title: 'Restrict unlisted machines', name: 'f_new_arpbind_only', type: 'checkbox', value: nvram.new_arpbind_only != '0' }
+		{ title: 'Enable static ARP', name: 'f_arpbind_enable', type: 'checkbox', value: nvram.arpbind_enable != '0' },
+		{ title: 'Restrict unlisted machines', name: 'f_arpbind_only', type: 'checkbox', value: nvram.arpbind_only != '0' }
 	]);
 	</script>
 </div>

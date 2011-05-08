@@ -11,13 +11,13 @@
 //#include <sys/stat.h>
 
 // read nvram into files
-void new_arpbind_start(void)
+void start_arpbind(void)
 {
 	FILE *f;
 	char *p, *q, *e;
 	char *ipaddr;//ip address
 	char *macaddr;//mac address
-	char *s = "/tmp/new_arpbind_start.sh";
+	char *s = "/tmp/start_arpbind.sh";
 	char *argv[3];
 	int pid;
 	int i;
@@ -28,8 +28,8 @@ void new_arpbind_start(void)
 	char ipbuf[32];
 	int ipn, length;
 
-	//arpbind is enable
-	if (!nvram_get_int("new_arpbind_enable")) return;
+	//arpbind is enabled?
+	if (!nvram_get_int("arpbind_enable")) return;
 
 	//read static dhcp list from nvram
 	p = nvram_safe_get("dhcpd_static");
@@ -100,7 +100,7 @@ void new_arpbind_start(void)
 		}
 	}
 
-	if (nvram_get_int("new_arpbind_only")) {
+	if (nvram_get_int("arpbind_only")) {
 		for (i = 1; i < 255; i++) {
 			if (!host[i]) {
 				fprintf(f, "arp -s %s.%d 00:00:00:00:00:00\n", lan, i);
@@ -125,14 +125,14 @@ void new_arpbind_start(void)
 	chdir("/");
 }
 
-void new_arpbind_stop(void)
+void stop_arpbind(void)
 {
 	FILE *f;
-	char *s = "/tmp/new_arpbind_stop.sh";
+	char *s = "/tmp/stop_arpbind.sh";
 	char *argv[3];
 	int pid;
 
-	if (nvram_get_int("new_arpbind_enable")) return;
+	if (nvram_get_int("arpbind_enable")) return;
 
 	if ((f = fopen(s, "w")) == NULL) return;
 

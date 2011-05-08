@@ -960,10 +960,10 @@ static const nvset_t nvset_list[] = {
 	/*qosl_ibw unused - qos_ibw shared*/
 	/*qosl_obw unused - qos_obw shared*/
 	
-// new_arpbind
-	{ "new_arpbind_enable",          V_01                    },
-	{ "new_arpbind_only",            V_01                   },
-	{ "new_arpbind_list",            V_LENGTH(0, 4096)       },
+// arpbind
+	{ "arpbind_enable",    	 	V_01                    },
+	{ "arpbind_only",       	V_01                   	},
+	{ "arpbind_list",		V_LENGTH(0, 4096)       },
 
 #ifdef TCONFIG_OPENVPN
 // vpn

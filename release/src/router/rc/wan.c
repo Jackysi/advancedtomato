@@ -828,7 +828,7 @@ void start_wan_done(char *wan_ifname)
 	start_qos();
 	start_cmon();							// Where to put this?
 	new_qoslimit_start();
-	new_arpbind_start();
+	start_arpbind();
 
 
 	do_static_routes(1);
@@ -890,7 +890,7 @@ void stop_wan(void)
 	
 	TRACE_PT("begin\n");
 
-	new_arpbind_stop();
+	stop_arpbind();
 	new_qoslimit_stop();
 	stop_qos();
 	stop_cmon();
