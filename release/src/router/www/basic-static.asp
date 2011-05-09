@@ -34,7 +34,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("lan_ipaddr,lan_netmask,dhcpd_static,dhcpd_startip"); %>
+//	<% nvram("lan_ipaddr,lan_netmask,dhcpd_static,dhcpd_startip,new_arpbind_enable,new_arpbind_only"); %>
 
 if (nvram.lan_ipaddr.match(/^(\d+\.\d+\.\d+)\.(\d+)$/)) ipp = RegExp.$1 + '.';
 	else ipp = '?.?.?.';
@@ -196,7 +196,7 @@ sg.resetNewEditor = function() {
 
 sg.setup = function()
 {
-	this.init('bs-grid', 'sort', 140, [
+	this.init('bs-grid', 'sort', 250, [
 		{ multi: [ { type: 'text', maxlen: 17 }, { type: 'text', maxlen: 17 } ] },
 		{ type: 'text', maxlen: 15 },
 		{ type: 'text', maxlen: 63 } ] );
@@ -233,6 +233,8 @@ function save()
 
 	var fom = E('_fom');
 	fom.dhcpd_static.value = sdhcp;
+	fom.new_arpbind_enable.value = E('_f_new_arpbind_enable').checked ? 1 : 0;
+	fom.new_arpbind_only.value = E('_f_new_arpbind_only').checked ? 1 : 0;
 	form.submit(fom, 1);
 }
 
@@ -256,18 +258,43 @@ function init()
 <!-- / / / -->
 
 <input type='hidden' name='_nextpage' value='basic-static.asp'>
-<input type='hidden' name='_service' value='dhcpd-restart'>
-
+<input type='hidden' name='_service' value='dhcpd-restart,arpbind-restart'>
 <input type='hidden' name='dhcpd_static'>
+
+<input type='hidden' name='new_arpbind_enable'>
+<input type='hidden' name='new_arpbind_only'>
 
 <div class='section-title'>Static DHCP</div>
 <div class='section'>
 	<table class='tomato-grid' id='bs-grid'></table>
 </div>
 
-<div>
-<small>To specify multiple hostnames per device, separate them with spaces.</small>
+<small>
+<div>* To specify multiple hostnames per device, separate them with spaces.</div>
+</small>
+<br>
+<div class='section-title'>Static ARP</div>
+<div class='section'>
+	<script type='text/javascript'>
+	createFieldTable('', [
+		{ title: 'Enable static ARP', name: 'f_new_arpbind_enable', type: 'checkbox', value: nvram.new_arpbind_enable != '0' },
+		{ title: 'Restrict unlisted machines', name: 'f_new_arpbind_only', type: 'checkbox', value: nvram.new_arpbind_only != '0' }
+	]);
+	</script>
 </div>
+<small>
+<div>* Static ARP only works if there's one MAC address per IP. You can't enter two MAC addresses in the above table.</small></div>
+<br>
+<br>
+<br>
+<div>When using "Restrict unlisted machines":-</div>
+<br>
+<small>
+<div>* DHCP should issue a "range" with only 1 IP address, preferably the administrator's IP - e.g. 192.168.1.100-100.</div><br>
+<div>* You <b>MUST</b> enter your own (administrator) IP and MAC into the table, or you may be locked out of the router.</div><br>
+<div>* You must add the IP/MAC address of all your access point(s) to the table.</div><br>
+<div>* All listed IP's will now show as "active" in the WOL table.</div>
+</small></div>
 
 <!-- / / / -->
 

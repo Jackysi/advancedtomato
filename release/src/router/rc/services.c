@@ -1905,7 +1905,6 @@ TOP:
 		goto CLEAR;
 	}
 
-
 	if (strcmp(service, "qoslimit") == 0) {
 		if (action & A_STOP) {
 			new_qoslimit_stop();
@@ -1922,7 +1921,6 @@ TOP:
 		if (action & A_START) new_arpbind_start();
 		goto CLEAR;
 	}
-
 
 	if (strcmp(service, "upnp") == 0) {
 		if (action & A_STOP) {
@@ -2209,6 +2207,7 @@ TOP:
 		}
 		goto CLEAR;
 	}
+#endif
 
 #ifdef TCONFIG_NFS
 	if (strcmp(service, "nfs") == 0) {
