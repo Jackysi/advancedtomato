@@ -142,6 +142,7 @@ void auth_unix_gid(FILE *f)
 	pw = getpwuid(uid);
 	if (!pw)
 		rv = -1;
+#ifndef __UCLIBC__
 	else {
 		rv = getgrouplist(pw->pw_name, pw->pw_gid, groups, &ngroups);
 		if (rv == -1 && ngroups >= 100) {
@@ -153,6 +154,7 @@ void auth_unix_gid(FILE *f)
 						  groups, &ngroups);
 		}
 	}
+#endif /* __UCLIBC__ */
 	qword_printint(f, uid);
 	qword_printint(f, time(0)+30*60);
 	if (rv >= 0) {

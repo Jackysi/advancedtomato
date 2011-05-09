@@ -18,14 +18,14 @@ FACILITY=LOG_DAEMON
 # target system will never user NIS for hostname lookup, you can define
 # USE_DNS to add hostname tests in hosts.allow/deny.
 
-ifeq ($(NO_TCP_WRAPPER),)
-CPPFLAGS += -DHOSTS_ACCESS
-WRAP_LIB  = -lwrap
-ifdef USE_DNS
-CPPFLAGS += -DENABLE_DNS
-MAN_SED += -e 's/USE_DNS/yes/'
-endif
-endif
+#ifeq ($(NO_TCP_WRAPPER),)
+#CPPFLAGS += -DHOSTS_ACCESS
+#WRAP_LIB  = -lwrap
+#ifdef USE_DNS
+#CPPFLAGS += -DENABLE_DNS
+#MAN_SED += -e 's/USE_DNS/yes/'
+#endif
+#endif
 
 # Comment out if your RPC library does not allocate privileged ports for
 # requests from processes with root privilege, or the new portmap will
@@ -119,15 +119,16 @@ CPPFLAGS += -DIGNORE_SIGCHLD	# AIX 4.x, HP-UX 9.x
 ##############################
 
 CPPFLAGS += -DFACILITY=$(FACILITY)
+
 CFLAGS   ?= -O2
 CFLAGS   += -Wall -Wstrict-prototypes
 
 all:	portmap pmap_dump pmap_set portmap.man
 
-CPPFLAGS += $(HOSTS_ACCESS)
-portmap: CFLAGS   += -fpie
-portmap: LDLIBS   += $(WRAP_LIB)
-portmap: LDFLAGS  += -pie
+#CPPFLAGS += $(HOSTS_ACCESS)
+#portmap: CFLAGS   += -fpie
+#portmap: LDLIBS   += $(WRAP_LIB)
+#portmap: LDFLAGS  += -pie
 portmap: portmap.o pmap_check.o from_local.o
 
 from_local: CPPFLAGS += -DTEST

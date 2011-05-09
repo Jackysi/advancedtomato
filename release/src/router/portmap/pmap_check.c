@@ -44,7 +44,7 @@
 #include <netinet/in.h>
 #include <rpc/rpcent.h>
 #endif
-#include <tcpd.h>
+//#include <tcpd.h>
 #include <arpa/inet.h>
 #include <grp.h>
 
