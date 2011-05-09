@@ -322,6 +322,10 @@ define RouterOptions
 			echo "TCONFIG_FTP_SSL=y" >>$(1); \
 		fi; \
 	fi; \
+	if [ "$(NFS)" = "y" ]; then \
+		sed -i "/TCONFIG_NFS/d" $(1); \
+		echo "TCONFIG_NFS=y" >>$(1); \
+	fi; \
 	)
 endef
 
