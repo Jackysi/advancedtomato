@@ -1,0 +1,1 @@
+./configure && make && make install
