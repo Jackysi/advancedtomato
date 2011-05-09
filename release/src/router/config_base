@@ -28,3 +28,4 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_LZO is not set
 # TCONFIG_OPENVPN is not set
 # TCONFIG_BT is not set
+# TCONFIG_NFS is not set

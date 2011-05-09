@@ -55,6 +55,12 @@ obj-y += cyassl
 obj-y += mssl
 obj-y += mdu
 
+obj-$(TCONFIG_NFS) += portmap
+obj-$(TCONFIG_NFS) += e2fsprogs
+obj-$(TCONFIG_NFS) += libevent
+obj-$(TCONFIG_NFS) += libnfsidmap
+obj-$(TCONFIG_NFS) += nfs-utils
+
 # !!TB
 obj-$(TCONFIG_USB) += p910nd
 obj-$(TCONFIG_USB) += scsi-idle
@@ -330,11 +336,11 @@ endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/reiserfs.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/hfsplus.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/jfs.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nfs.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nfsd.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/lockd.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/exportfs.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/net/sunrpc.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_NFS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nfs.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_NFS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nfsd.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_NFS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/lockd.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_NFS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/exportfs.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_NFS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/net/sunrpc.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/auth_rpcgss.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/rpcsec_gss_krb5.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/xfs.*o $(PLATFORMDIR)/extras/ || true
@@ -1450,14 +1456,14 @@ libevent: libevent/stamp-h1
 libevent-clean:
 	-@$(MAKE) -C libevent clean
 	@rm -f libevent/stamp-h1 libevent/Makefile
+	@rm -rf libevent/staged
 
 libevent-install: libevent
 	install -d $(INSTALLDIR)/libevent/usr/lib
-	install libevent/.libs/libevent-2.0.so.5.0.1 $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5.0.1
-	$(STRIP) -s $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5.0.1
-	cd $(INSTALLDIR)/libevent/usr/lib/ && \
-		ln -sf libevent-2.0.so.5.0.1 libevent-2.0.so.5 && \
-		ln -sf libevent-2.0.so.5.0.1 libevent.so
+	install libevent/.libs/libevent-2.0.so.5.0.1 $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5
+	$(STRIP) -s $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5
+	install -d $(TOP)/libevent/staged
+	$(MAKE) -C libevent DESTDIR=$(TOP)/libevent/staged install
 
 transmission/stamp-h1: openssl libcurl libevent zlib
 	cd transmission && CC=$(CC) AR=$(AR) LD=$(LD) STRIP='mipsel-uclibc-strip' \
@@ -1495,6 +1501,94 @@ transmission-install: transmission
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-daemon
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-remote
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-create
+
+libnfsidmap/stamp-h1:
+	cd libnfsidmap && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	ac_cv_func_malloc_0_nonnull=yes \
+	ac_cv_func_realloc_0_nonnull=yes \
+	$(CONFIGURE) --prefix=/usr --enable-shared --enable-static
+	touch libnfsidmap/stamp-h1
+
+libnfsidmap: libnfsidmap/stamp-h1
+	@$(SEP)
+	$(MAKE) -C libnfsidmap
+
+libnfsidmap-clean:
+	-$(MAKE) -C libnfsidmap clean
+	@rm -f libnfsidmap/stamp-h1
+	@rm -rf libnfsidmap/staged
+
+libnfsidmap-install: libnfsidmap
+	install -d $(TOP)/libnfsidmap/staged
+	$(MAKE) -C libnfsidmap DESTDIR=$(TOP)/libnfsidmap/staged install
+
+portmap/stamp-h1:
+	cd portmap \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	$(MAKE) -C portmap CC=$(CC) AR=$(AR) LD=$(LD) RANLIB=$(RANLIB) RPCUSER="nobody"
+	touch portmap/stamp-h1
+
+portmap: portmap/stamp-h1
+	@$(SEP)
+	$(MAKE) -C portmap
+
+portmap-clean:
+	-$(MAKE) -C portmap clean
+	@rm -f portmap/stamp-h1
+
+portmap-install: portmap
+	install -d $(INSTALLDIR)/portmap/usr/sbin
+	install -D portmap/portmap $(INSTALLDIR)/portmap/usr/sbin/portmap
+	$(STRIP) -s $(INSTALLDIR)/portmap/usr/sbin/portmap
+
+e2fsprogs/stamp-h1:
+	cd e2fsprogs && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static
+	touch e2fsprogs/stamp-h1
+
+e2fsprogs: e2fsprogs/stamp-h1
+
+e2fsprogs-clean:
+	-$(MAKE) -C e2fsprogs clean
+	@rm -f e2fsprogs/stamp-h1
+
+e2fsprogs-install: e2fsprogs
+
+nfs-utils/stamp-h1: libevent-install e2fsprogs portmap libnfsidmap-install
+	cd nfs-utils && STRIP='mipsel-uclibc-strip' \
+	CFLAGS="-Os -Wall -fno-delete-null-pointer-checks -funit-at-a-time \
+	-I$(TOP)/libevent/staged/usr/local/include -I$(TOP)/e2fsprogs/lib \
+	-I$(TOP)/libnfsidmap/staged/usr/include -ffunction-sections -fdata-sections" \
+	LDFLAGS="-L$(TOP)/libevent/staged/usr/local/lib -L$(TOP)/e2fsprogs/lib \
+	-L$(TOP)/libnfsidmap/staged/usr/lib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+	ac_cv_func_malloc_0_nonnull=yes \
+	ac_cv_func_realloc_0_nonnull=yes \
+	$(CONFIGURE) --disable-gss --without-tcp-wrappers --enable-static --enable-shared \
+	--enable-nfsv4 --enable-nfsv3
+	touch nfs-utils/stamp-h1
+
+nfs-utils: nfs-utils/stamp-h1
+
+nfs-utils-clean:
+	-$(MAKE) -C nfs-utils clean
+	@rm -f nfs-utils/stamp-h1
+
+nfs-utils-install: nfs-utils
+	install -d $(INSTALLDIR)/nfs-utils/usr/sbin
+	install -D nfs-utils/utils/mount/mount.nfs $(INSTALLDIR)/nfs-utils/usr/sbin/mount.nfs
+	install -D nfs-utils/utils/nfsd/nfsd $(INSTALLDIR)/nfs-utils/usr/sbin/nfsd
+	install -D nfs-utils/utils/showmount/showmount $(INSTALLDIR)/nfs-utils/usr/sbin/showmount
+	install -D nfs-utils/utils/exportfs/exportfs $(INSTALLDIR)/nfs-utils/usr/sbin/exportfs
+	install -D nfs-utils/utils/statd/statd $(INSTALLDIR)/nfs-utils/usr/sbin/statd
+	install -D nfs-utils/utils/mountd/mountd $(INSTALLDIR)/nfs-utils/usr/sbin/mountd
+	install -D nfs-utils/nfs.rc $(INSTALLDIR)/nfs-utils/usr/sbin/nfs.rc
+	$(STRIP) -s $(INSTALLDIR)/nfs-utils/usr/sbin/mount.nfs
+	$(STRIP) -s $(INSTALLDIR)/nfs-utils/usr/sbin/nfsd
+	$(STRIP) -s $(INSTALLDIR)/nfs-utils/usr/sbin/showmount
+	$(STRIP) -s $(INSTALLDIR)/nfs-utils/usr/sbin/exportfs
+	$(STRIP) -s $(INSTALLDIR)/nfs-utils/usr/sbin/statd
+	$(STRIP) -s $(INSTALLDIR)/nfs-utils/usr/sbin/mountd
 
 #
 # Generic rules

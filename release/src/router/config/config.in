@@ -115,3 +115,7 @@ config TCONFIG_NTFS
 config TCONFIG_BT
 	bool "  Bittorrent client"
 	default n
+
+config TCONFIG_NFS
+	bool "  NFS Server"
+	default n

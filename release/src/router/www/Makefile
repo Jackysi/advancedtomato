@@ -157,6 +157,13 @@ else
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/VPN-BEGIN/,/VPN-END/d"
 endif
 
+# Only include the nfs pages if NFS is compiled in
+ifneq ($(TCONFIG_NFS),y)
+	rm -f $(INSTALLDIR)/www/admin-nfs.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/NFS-BEGIN/,/NFS-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/NFS-BEGIN/,/NFS-END/d"
+endif
+
 
 # clean up
 	cd $(INSTALLDIR)/www && \
@@ -178,6 +185,7 @@ endif
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
 		-e "/CTF-BEGIN/d"	-e "/CTF-END/d" \
 		-e "/BT-BEGIN/d"	-e "/BT-END/d" \
+		-e "/NFS-BEGIN/d"	-e "/NFS-END/d" \
 		|| true; \
 	done
 

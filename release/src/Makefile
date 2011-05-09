@@ -326,6 +326,10 @@ define RouterOptions
 		sed -i "/TCONFIG_BT/d" $(1); \
 		echo "TCONFIG_BT=y" >>$(1); \
 	fi; \
+	if [ "$(NFS)" = "y" ]; then \
+		sed -i "/TCONFIG_NFS/d" $(1); \
+		echo "TCONFIG_NFS=y" >>$(1); \
+	fi; \
 	)
 endef
 
@@ -596,7 +600,7 @@ endif
 ## Make the "normal (with NTFS support) + VPN" build
 e:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB"
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E NFS=y BUILD_DESC="$(VPN)" USB="USB"
 else
 	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB"
 endif
@@ -604,7 +608,7 @@ endif
 ## Make the "normal (with NTFS support) + VPN + BT Client" build
 o:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)-BT" USB="USB" BTCLIENT=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E NFS=y BUILD_DESC="$(VPN)-BT" USB="USB" BTCLIENT=y
 else
 	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)-BT" USB="USB" BTCLIENT=y
 endif
@@ -612,7 +616,7 @@ endif
 ## Make the "normal with Extras and NTFS" build
 m:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB"
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M NFS=y BUILD_DESC="Ext" USB="USB"
 else
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB"
 endif
@@ -620,7 +624,7 @@ endif
 ## Make the "normal with Extras and NTFS and BT Client" build
 n:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext-BT" USB="USB" BTCLIENT=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M NFS=y BUILD_DESC="Ext-BT" USB="USB" BTCLIENT=y
 else
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext-BT" USB="USB" BTCLIENT=y
 endif

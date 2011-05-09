@@ -114,10 +114,13 @@ Copyright (C) 2010 Keith Moyer,<br>
 
 <!-- BT-BEGIN -->
 <b>Transmission 2.22 integration and GUI,</b><br>
+<!-- BT-END -->
+<!-- NFS-BEGIN -->
+<b>NFS utils integration and GUI,</b><br>
+<!-- NFS-END -->
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
-<!-- BT-END -->
 
 <b>"Victek RAF" features:</b><br> 
 - ARP Binding<br>

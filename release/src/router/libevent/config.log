@@ -30,6 +30,10 @@ uname -v = #4 SMP Mon Jun 15 11:45:55 CEST 2009
 PATH: /root/openwrt/tomato.git-compile/tools
 PATH: /root/openwrt/tomato.git-compile/tools
 PATH: /root/openwrt/tomato.git-compile/tools
+<<<<<<< HEAD:release/src/router/libevent/config.log
+=======
+PATH: /root/openwrt/tomato.git-compile/tools
+>>>>>>> nfs_server:release/src/router/libevent/config.log
 PATH: /usr/local/sbin
 PATH: /usr/local/bin
 PATH: /usr/sbin
@@ -317,7 +321,11 @@ configure:11262: $? = 0
 configure:11279: result: none required
 configure:11292: checking for library containing inflateEnd
 configure:11323: mipsel-uclibc-gcc -o conftest -Os -Wall -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32  -ffunction-sections -fdata-sections -Wall -fno-strict-aliasing  -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC conftest.c  >&5
+<<<<<<< HEAD:release/src/router/libevent/config.log
 /tmp/cc0w59ha.o: In function `main':
+=======
+/tmp/ccJ76nON.o: In function `main':
+>>>>>>> nfs_server:release/src/router/libevent/config.log
 conftest.c:(.text.main+0x18): undefined reference to `inflateEnd'
 collect2: ld returned 1 exit status
 configure:11323: $? = 1
@@ -406,7 +414,11 @@ configure: failed program was:
 configure:11340: result: no
 configure:11368: checking for library containing SSL_new
 configure:11399: mipsel-uclibc-gcc -o conftest -Os -Wall -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32  -ffunction-sections -fdata-sections -Wall -fno-strict-aliasing  -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC conftest.c  >&5
+<<<<<<< HEAD:release/src/router/libevent/config.log
 /tmp/ccCoY4Ue.o: In function `main':
+=======
+/tmp/ccVxaxsS.o: In function `main':
+>>>>>>> nfs_server:release/src/router/libevent/config.log
 conftest.c:(.text.main+0x18): undefined reference to `SSL_new'
 collect2: ld returned 1 exit status
 configure:11399: $? = 1
@@ -1566,7 +1578,11 @@ configure:12025: $? = 0
 configure:12025: result: yes
 configure:12025: checking for eventfd
 configure:12025: mipsel-uclibc-gcc -o conftest -Os -Wall -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32  -ffunction-sections -fdata-sections -Wall -fno-strict-aliasing  -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC conftest.c  >&5
+<<<<<<< HEAD:release/src/router/libevent/config.log
 /tmp/cccNhVyL.o: In function `main':
+=======
+/tmp/cc6E1G9f.o: In function `main':
+>>>>>>> nfs_server:release/src/router/libevent/config.log
 conftest.c:(.text.main+0x18): undefined reference to `eventfd'
 collect2: ld returned 1 exit status
 configure:12025: $? = 1
@@ -1696,7 +1712,11 @@ configure:12025: $? = 0
 configure:12025: result: yes
 configure:12025: checking for arc4random
 configure:12025: mipsel-uclibc-gcc -o conftest -Os -Wall -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32  -ffunction-sections -fdata-sections -Wall -fno-strict-aliasing  -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC conftest.c  >&5
+<<<<<<< HEAD:release/src/router/libevent/config.log
 /tmp/ccfrSMXW.o: In function `main':
+=======
+/tmp/ccxrr6dp.o: In function `main':
+>>>>>>> nfs_server:release/src/router/libevent/config.log
 conftest.c:(.text.main+0x18): undefined reference to `arc4random'
 collect2: ld returned 1 exit status
 configure:12025: $? = 1
@@ -1817,7 +1837,11 @@ configure: failed program was:
 configure:12025: result: no
 configure:12025: checking for arc4random_buf
 configure:12025: mipsel-uclibc-gcc -o conftest -Os -Wall -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32  -ffunction-sections -fdata-sections -Wall -fno-strict-aliasing  -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC conftest.c  >&5
+<<<<<<< HEAD:release/src/router/libevent/config.log
 /tmp/ccFzq5sX.o: In function `main':
+=======
+/tmp/cc3YpTuu.o: In function `main':
+>>>>>>> nfs_server:release/src/router/libevent/config.log
 conftest.c:(.text.main+0x18): undefined reference to `arc4random_buf'
 collect2: ld returned 1 exit status
 configure:12025: $? = 1
@@ -1938,7 +1962,11 @@ configure: failed program was:
 configure:12025: result: no
 configure:12025: checking for issetugid
 configure:12025: mipsel-uclibc-gcc -o conftest -Os -Wall -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32  -ffunction-sections -fdata-sections -Wall -fno-strict-aliasing  -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC conftest.c  >&5
+<<<<<<< HEAD:release/src/router/libevent/config.log
 /tmp/cc9xW9x0.o: In function `main':
+=======
+/tmp/ccJ1dmvx.o: In function `main':
+>>>>>>> nfs_server:release/src/router/libevent/config.log
 conftest.c:(.text.main+0x18): undefined reference to `issetugid'
 collect2: ld returned 1 exit status
 configure:12025: $? = 1
@@ -2517,7 +2545,11 @@ configure:12380: $? = 0
 configure:12380: result: yes
 configure:12464: checking for port_create
 configure:12464: mipsel-uclibc-gcc -o conftest -Os -Wall -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32  -ffunction-sections -fdata-sections -Wall -fno-strict-aliasing  -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC conftest.c  >&5
+<<<<<<< HEAD:release/src/router/libevent/config.log
 /tmp/ccNwunaN.o: In function `main':
+=======
+/tmp/ccHyOhnj.o: In function `main':
+>>>>>>> nfs_server:release/src/router/libevent/config.log
 conftest.c:(.text.main+0x18): undefined reference to `port_create'
 collect2: ld returned 1 exit status
 configure:12464: $? = 1
@@ -7640,7 +7672,11 @@ configure:13358: checking whether pthreads work without any flags
 configure:13446: mipsel-uclibc-gcc -o conftest -Os -Wall -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32  -ffunction-sections -fdata-sections -Wall -fno-strict-aliasing   -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC conftest.c   >&5
 conftest.c: In function 'main':
 conftest.c:114: warning: 'th' is used uninitialized in this function
+<<<<<<< HEAD:release/src/router/libevent/config.log
 /tmp/ccY24sqo.o: In function `main':
+=======
+/tmp/ccganW36.o: In function `main':
+>>>>>>> nfs_server:release/src/router/libevent/config.log
 conftest.c:(.text.main+0x1c): undefined reference to `pthread_join'
 conftest.c:(.text.main+0x58): undefined reference to `pthread_create'
 collect2: ld returned 1 exit status
@@ -7771,7 +7807,11 @@ configure:13446: mipsel-uclibc-gcc -o conftest -Os -Wall -DLINUX26 -DCONFIG_BCMW
 mipsel-uclibc-gcc: unrecognized option '-Kthread'
 conftest.c: In function 'main':
 conftest.c:114: warning: 'th' is used uninitialized in this function
+<<<<<<< HEAD:release/src/router/libevent/config.log
 /tmp/ccEtBOar.o: In function `main':
+=======
+/tmp/ccszG1Gc.o: In function `main':
+>>>>>>> nfs_server:release/src/router/libevent/config.log
 conftest.c:(.text.main+0x1c): undefined reference to `pthread_join'
 conftest.c:(.text.main+0x58): undefined reference to `pthread_create'
 collect2: ld returned 1 exit status
@@ -7902,7 +7942,11 @@ configure:13446: mipsel-uclibc-gcc -o conftest -Os -Wall -DLINUX26 -DCONFIG_BCMW
 mipsel-uclibc-gcc: unrecognized option '-kthread'
 conftest.c: In function 'main':
 conftest.c:114: warning: 'th' is used uninitialized in this function
+<<<<<<< HEAD:release/src/router/libevent/config.log
 /tmp/ccetF6Zw.o: In function `main':
+=======
+/tmp/ccO9YE2f.o: In function `main':
+>>>>>>> nfs_server:release/src/router/libevent/config.log
 conftest.c:(.text.main+0x1c): undefined reference to `pthread_join'
 conftest.c:(.text.main+0x58): undefined reference to `pthread_create'
 collect2: ld returned 1 exit status

@@ -941,8 +941,6 @@ static const nvset_t nvset_list[] = {
 
 // new_qoslimit
 	{ "new_qoslimit_enable",         V_01                   },
-	/*qos_obw shared*/
-	/*qos_ibw shared*/
 	{ "new_qoslimit_rules",          V_LENGTH(0, 4096)      },
 	{ "qosl_enable",                 V_01                   },
 	{ "qosl_ulr",                    V_RANGE(0, 999999)     },
@@ -986,6 +984,11 @@ static const nvset_t nvset_list[] = {
 	{ "bt_blocklist",               V_01                            },
 	{ "bt_blocklist_url",           V_LENGTH(0, 80)                 },
 	{ "bt_sleep",                   V_RANGE(1,60)                   },
+#endif
+
+#ifdef TCONFIG_NFS
+	{ "nfs_enable",			V_01				},
+	{ "nfs_exports",		V_LENGTH(0, 4096)		},
 #endif
 
 #ifdef TCONFIG_OPENVPN
