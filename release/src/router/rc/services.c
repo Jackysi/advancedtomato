@@ -1770,30 +1770,26 @@ void start_services(void)
 	start_radvd();
 #endif
 	restart_nas_services(1, 1);	// !!TB - Samba, FTP and Media Server
-<<<<<<< HEAD:release/src/router/rc/services.c
+
 #ifdef TCONFIG_BT
 	start_bittorrent();
 #endif
-=======
 
 #ifdef TCONFIG_NFS
 	start_nfs();
 #endif
-
->>>>>>> nfs_server:release/src/router/rc/services.c
 }
 
 void stop_services(void)
 {
 	clear_resolv();
 
-<<<<<<< HEAD:release/src/router/rc/services.c
 #ifdef TCONFIG_BT
 	stop_bittorrent();
-=======
+#endif
+
 #ifdef TCONFIG_NFS
 	stop_nfs();
->>>>>>> nfs_server:release/src/router/rc/services.c
 #endif
 	restart_nas_services(1, 0);	// stop Samba, FTP and Media Server
 #ifdef TCONFIG_IPV6
