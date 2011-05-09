@@ -2172,6 +2172,14 @@ TOP:
 		goto CLEAR;
 	}
 
+#ifdef TCONFIG_NFS
+	if (strcmp(service, "nfs") == 0) {
+		if (action & A_STOP) stop_nfs();
+		if (action & A_START) start_nfs();
+		goto CLEAR;
+	}
+#endif
+
 #ifdef TCONFIG_USB
 	// !!TB - USB Support
 	if (strcmp(service, "usb") == 0) {
