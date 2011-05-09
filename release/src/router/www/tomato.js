@@ -2388,7 +2388,7 @@ function navi()
 			['View Details',	'detailed.asp'],
 			['Transfer Rates',	'ctrate.asp']
 			] ],
-		['RAF BW Limiter	'new-qoslimit.asp'],
+		['RAF BW Limiter',	'new-qoslimit.asp'],
 		['Access Restriction',	'restrict.asp'],
 /* REMOVE-BEGIN
 		['Scripts',				'sc', 0, [
