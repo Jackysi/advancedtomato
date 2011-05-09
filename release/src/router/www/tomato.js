@@ -2416,6 +2416,9 @@ REMOVE-END */
 /* JFFS2-BEGIN */
 			['JFFS',			'jffs2.asp'],
 /* JFFS2-END */
+/* NFS-BEGIN */
+			['NFS Server',		'nfs.asp'],
+/* NFS-END */
 			['Logging',			'log.asp'],
 			['Scheduler',		'sched.asp'],
 			['Scripts',			'scripts.asp'],

@@ -37,6 +37,10 @@ ifeq ($(TOMATO_SL),1)
 OBJS += samba.o
 endif
 
+ifeq ($(TCONFIG_NFS),y)
+OBJS += nfs.o
+endif
+
 
 all: rc
 

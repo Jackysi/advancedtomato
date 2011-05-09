@@ -938,6 +938,11 @@ static const nvset_t nvset_list[] = {
 	{ "ne_vbeta",			V_NUM				},
 	{ "ne_vgamma",			V_NUM				},
 
+#ifdef TCONFIG_NFS
+	{ "nfs_enable",			V_01				},
+	{ "nfs_exports",		V_LENGTH(0, 4096)		},
+#endif
+
 #ifdef TCONFIG_OPENVPN
 // vpn
 	{ "vpn_debug",            V_01                },

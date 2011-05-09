@@ -1770,12 +1770,20 @@ void start_services(void)
 	start_radvd();
 #endif
 	restart_nas_services(1, 1);	// !!TB - Samba, FTP and Media Server
+
+#ifdef TCONFIG_NFS
+	start_nfs();
+#endif
+
 }
 
 void stop_services(void)
 {
 	clear_resolv();
 
+#ifdef TCONFIG_NFS
+	stop_nfs();
+#endif
 	restart_nas_services(1, 0);	// stop Samba, FTP and Media Server
 #ifdef TCONFIG_IPV6
 	stop_radvd();

@@ -415,6 +415,12 @@ extern void start_smbd(void);
 extern void stop_smbd(void);
 #endif
 
+// nfs.c
+#ifdef TCONFIG_NFS
+extern void start_nfs();
+extern void stop_nfs();
+#endif
+
 // vpn.c
 #ifdef TCONFIG_OPENVPN
 extern void start_vpnclient(int clientNum);

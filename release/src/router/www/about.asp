@@ -111,6 +111,11 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovp
 <br><br>
 <!-- VPN-END -->
 
+<!-- NFS-BEGIN -->
+NFS-UTILS integration and GUI Copyright (C) 2011 Michał Rupental, <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
+<br><br>
+<!-- NFS-END -->
+
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>

@@ -677,6 +677,11 @@ const defaults_t defaults[] = {
 	{ "script_fire",		""				},
 	{ "script_wanup",		""				},
 
+#ifdef TCONFIG_NFS
+	{ "nfs_enable",			"0"				},
+	{ "nfs_exports",		""				},
+#endif
+
 #ifdef TCONFIG_OPENVPN
 // vpn
 	{ "vpn_debug",            "0"             },
