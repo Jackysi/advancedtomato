@@ -275,8 +275,8 @@ function init()
 		<script type='text/javascript'>
 			createFieldTable('', [
 			{ title: 'Enable Limiter', name: 'f_new_qoslimit_enable', type: 'checkbox', value: nvram.new_qoslimit_enable != '0' },
-			{ title: 'Set Max Available Download Bandwidth <small>(same as used in QoS)', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw },
-			{title: 'Set Max Available Upload Bandwidth <small>(same as used in QoS)', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw }
+			{ title: 'Max Available Download <br><small>(same as used in QoS)</small>', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw },
+			{ title: 'Max Available Upload <br><small>(same as used in QoS)</small>', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw }
 			]);
 		</script>
 		<br>
