@@ -947,9 +947,9 @@ static const nvset_t nvset_list[] = {
 	{ "ne_vbeta",			V_NUM				},
 	{ "ne_vgamma",			V_NUM				},
 
-// new_qoslimit
+// qos-bw-limiter
 	{ "qosl_enable",        	 V_01                   },
-	{ "qosl_rules",          V_LENGTH(0, 4096)      },
+	{ "qosl_rules",          	  V_LENGTH(0, 4096)      },
 	{ "qosl_denable",                 V_01                   },					
 	{ "qosl_dulr",                    V_RANGE(0, 999999)     },
 	{ "qosl_dulc",                    V_RANGE(0, 999999)     },

@@ -304,7 +304,6 @@ extern void start_qos(void);
 extern void stop_qos(void);
 
 // cmon.c
-extern void ipt_cmon(void);						// Do we need this ?
 extern void start_cmon(void);
 extern void stop_cmon(void);
 
@@ -437,15 +436,14 @@ static inline void start_vpn_eas() { }
 #define write_vpn_resolv(f) (0)
 #endif
 
-// new_qoslimit.c
+// qoslimit.c
 extern void ipt_qoslimit(int chain);
-extern void new_qoslimit_start(void);
-extern void new_qoslimit_stop(void);
+extern void start_qoslimit(void);
+extern void stop_qoslimit(void);
 
 // arpbind.c
 extern void start_arpbind(void);
 extern void stop_arpbind(void);
-
 
 
 #endif

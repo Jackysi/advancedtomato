@@ -1896,12 +1896,12 @@ TOP:
 
 	if (strcmp(service, "qoslimit") == 0) {
 		if (action & A_STOP) {
-			new_qoslimit_stop();
+			stop_qoslimit();
 			start_cmon();
 		}
 		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) {
-			new_qoslimit_start();
+			start_qoslimit();
 			start_cmon();
 
 		}
@@ -1910,7 +1910,7 @@ TOP:
 
 	if (strcmp(service, "arpbind") == 0) {
 		if (action & A_STOP) stop_arpbind();
-		if (action & A_START) start_arpbind();
+		if (action & A_START) stop_arpbind();
 		goto CLEAR;
 	}
 

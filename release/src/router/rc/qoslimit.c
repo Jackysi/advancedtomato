@@ -239,7 +239,7 @@ void ipt_qoslimit(int chain)
 }
 
 // read nvram into files
-void new_qoslimit_start(void)
+void start_qoslimit(void)
 {
 	FILE *tc;
 	char *buf;
@@ -392,10 +392,10 @@ void new_qoslimit_start(void)
 	eval((char *)qoslimitfn, "start");
 }
 
-void new_qoslimit_stop(void)
+void stop_qoslimit(void)
 {
 	FILE *f;
-	char *s = "/tmp/qoslimittc_stop.sh";
+	char *s = "/tmp/stop_qoslimittc.sh";
 
 	if ((f = fopen(s, "w")) == NULL) return;
 

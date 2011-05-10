@@ -269,9 +269,14 @@ function init()
 	<table class='tomato-grid' id='bs-grid'></table>
 </div>
 
-<small>
-<div>* To specify multiple hostnames per device, separate them with spaces.</div>
-</small>
+<div>
+		<small>
+		<ul>
+		<li>To specify multiple hostnames per device, separate them with spaces.<br>
+		</ul>
+		</small>
+</div>		
+
 <br>
 <div class='section-title'>Static ARP</div>
 <div class='section'>
@@ -282,20 +287,36 @@ function init()
 	]);
 	</script>
 </div>
-<small>
-<div>* Static ARP only works if there's one MAC address per IP. You can't enter two MAC addresses in the above table.</small></div>
-<div>* Enabling these functions on the router will prevent unauthorized clients from accessing the router or the internet.</small></div>
-<br>
-<br>
-<br>
-<div>When using "Restrict unlisted machines":-</div>
-<br>
-<small>
-<div>* DHCP should issue a "range" with only 1 IP address, preferably the administrator's IP - e.g. 192.168.1.100-100.</div><br>
-<div>* You <b>MUST</b> enter your own (administrator) IP and MAC into the table, or you may be locked out of the router.</div><br>
-<div>* You must add the IP/MAC address of all your access point(s) to the table.</div><br>
-<div>* All listed IP's will now show as "active" in the WOL table.</div>
-</small></div>
+
+<div>
+		<small>
+		<ul>
+		<li>Static ARP only works if there's one MAC address per IP. You can't enter two MAC addresses in the above table.<br>
+		</ul>
+		</small>
+</div>	
+
+			<br>
+			<br>
+			<br>
+
+<div>
+			<ul>
+			<b>When using "Restrict unlisted machines"</b>
+			</ul>
+</div>
+
+<div>
+		<small>
+		<ul>
+		<li> DHCP should issue a "range" with only 1 IP address, preferably the administrator's IP - e.g. 192.168.1.100-100.<br>
+		<li> You <b>MUST</b> enter your own (administrator) IP and MAC into the table, or you may be locked out of the router.<br>
+		<li> You must add the IP/MAC address of all your access point(s) etc. to the table.<br>
+		<li> All listed IP's will now show as "active" in the WOL table.<br>
+		</ul>
+		</small>
+
+</div>
 
 <!-- / / / -->
 

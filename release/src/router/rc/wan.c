@@ -827,7 +827,7 @@ void start_wan_done(char *wan_ifname)
 	start_firewall();
 	start_qos();
 	start_cmon();							// Where to put this?
-	new_qoslimit_start();
+	start_qoslimit();
 	start_arpbind();
 
 
@@ -891,7 +891,7 @@ void stop_wan(void)
 	TRACE_PT("begin\n");
 
 	stop_arpbind();
-	new_qoslimit_stop();
+	stop_qoslimit();
 	stop_qos();
 	stop_cmon();
 	stop_upnp();	//!!TB - moved from stop_services()
