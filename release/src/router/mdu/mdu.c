@@ -1384,7 +1384,6 @@ static void update_minidns(void)
 	int r;
 	char *body;
 	char query[2048];
-	const char *p;
 
 	// +opt +opt +opt
 	sprintf(query, "/areg.php?opcode=ADD&host=%s&username=%s&password=%s",
@@ -1455,7 +1454,7 @@ static void update_editdns(void)
 			error(M_INVALID_HOST);
 		}
 		else {
-			error(M_UNKNOWN_RESPONSE__D, -1);
+			error(body);
 		}
 	}
 
@@ -1467,7 +1466,7 @@ static void update_editdns(void)
 /*
 
 	HE.net IPv6 TunnelBroker
-	https://ipv4.tunnelbroker.net/ipv4_end.php?ipv4b=$IPV4ADDR&pass=$MD5PASS&user_id=$USERID&tunnel_id=$GTUNID
+	https://ipv4.tunnelbroker.net/ipv4_end.php?ip=$IPV4ADDR&pass=$MD5PASS&apikey=$USERID&tid=$TUNNELID
 
 	---
 
@@ -1475,42 +1474,48 @@ static void update_editdns(void)
 ...
 
 Good responses:
-	Your tunnel endpoint has been updated to: X.X.X.X
-	That IPv4 endpoint is already in use.
-Bad responses:
-	Please enter a valid IPv4 endpoint!
-	That user_id or password is not valid
-	Unable to find your tunnel
+	+OK: Tunnel endpoint updated to: X.X.X.X
 
+Bad responses:
+	-ERROR: This tunnel is already associated with this IP address.  Please try and limit your updates to IP changes.
+	-ERROR: Invalid API key or password
+	-ERROR: Tunnel not found
+	-ERROR: IP is not in a valid format
+	-ERROR: IP is blocked. (RFC1918 Private Address Space)
+	-ERROR: IP is not ICMP pingable. Please make sure ICMP is not blocked. If you are blocking ICMP, please allow 66.220.2.74 through your firewall.
+	-ERROR: Missing parameter(s).
 */
 static void update_heipv6tb(void)
 {
 	int r;
-	char *body;
+	char *body, *p;
+	const char *serr = "-ERROR: ";
 	char query[2048];
 
 	// +opt +opt +opt
-	sprintf(query, "/ipv4_end.php?pass=%s&user_id=%s&tunnel_id=%s",
+	sprintf(query, "/ipv4_end.php?pass=%s&apikey=%s&tid=%s",
 		md5_string(get_option_required("pass")),
 		get_option_required("user"),
 		get_option_required("host"));
 
 	// +opt
-	append_addr_option(query, "&ipv4b=%s");
+	append_addr_option(query, "&ip=%s");
 
 	r = wget(1, 0, "ipv4.tunnelbroker.net", query, NULL, 0, &body);
 	if (r == 200) {
-		if ((strstr(body, "has been updated") != NULL) || (strstr(body, "already in use") != NULL)) {
+		if (strstr(body, "+OK:") != NULL) {
 			success();
 		}
-		if (strstr(body, "is not valid") != NULL) {
-			error(M_INVALID_AUTH);
-		}
-		if (strstr(body, "find your tunnel") != NULL) {
-			error(M_INVALID_PARAM__S, "Tunnel ID");
-		}
-		if (strstr(body, "valid IPv4 endpoint") != NULL) {
-			error(M_INVALID_PARAM__S, "IPv4 endpoint");
+
+		p = strstr(body, serr);
+		if (p != NULL) {
+			p += strlen(serr);
+			if (p != NULL) {
+				if (strstr(p, "already associated with this IP") != NULL)
+					success_msg(p);
+				else
+					error(p);
+			}
 		}
 
 		error(M_UNKNOWN_RESPONSE__D, -1);

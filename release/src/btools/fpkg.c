@@ -267,7 +267,10 @@ void finalize_trx(void)
 		exit(1);
 	}
 
-	if (trx_final) return;
+	if (trx_final) {
+		trx->magic = trx_magic;
+		return;
+	}
 	trx_final = 1;
 
 	len = trx->length;
@@ -375,6 +378,7 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	trx->length = trx_header_size();
+	trx_magic = TRX_MAGIC;
 
 	while ((o = getopt(argc, argv, "v:i:a:t:l:m:b:")) != -1) {
 		switch (o) {
@@ -417,6 +421,7 @@ int main(int argc, char **argv)
 		}
 	}
 
+	trx_magic = TRX_MAGIC;
 	if (trx_count == 0) {
 		help();
 	}
