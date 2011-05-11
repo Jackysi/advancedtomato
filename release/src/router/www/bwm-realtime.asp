@@ -37,6 +37,17 @@
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript' src='bwm-common.js'></script>
 
+
+<script type="text/javascript">
+	function stopRKey(evt) {
+  	var evt = (evt) ? evt : ((event) ? event : null);
+  	var node = (evt.target) ? evt.target : ((evt.srcElement) ? evt.srcElement : null);
+  	if ((evt.keyCode == 13) && (node.type=="text"))  {return false;}
+	}
+	document.onkeypress = stopRKey;
+</script> 
+
+
 <script type='text/javascript'>
 //	<% nvram("cmon_enable,cmon_ipaddr,wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,rstats_colors"); %>
 
