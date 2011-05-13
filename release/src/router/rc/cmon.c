@@ -69,8 +69,8 @@ void start_cmon(void)
 	}
 
 	fprintf(f, 
-		"ip link set imq2 up\n"
-		"ip link set imq3 up\n"
+		"ip link set imq2 up txqueuelen 100\n"
+		"ip link set imq3 up txqueuelen 100\n"
 		"iptables -t mangle -A PREROUTING -s %s -j IMQ --todev 2\n"
 		"iptables -t mangle -A POSTROUTING -d %s -j IMQ --todev 3\n"	
 		"\n", p, p

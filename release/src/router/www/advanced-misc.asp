@@ -113,6 +113,18 @@ createFieldTable('', [
 
 
 
+
+<div>
+	<ul>
+	<br>
+	<br>
+	<li> Not all models support these options.
+	<li> Set a CPU frequency to enable the "Overview" display.
+	<li> You must reboot the router for the setting to take effect.
+	</ul>
+</div>
+
+
 <!-- / / / -->
 
 </td></tr>

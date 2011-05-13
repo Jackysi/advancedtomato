@@ -113,12 +113,15 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 - Web Monitor, Per-connection transfer rates<br>
 - Byte counter, QOS rule ID added to QOS/Details<br>
 - Additional ipv6 support in GUI, QOS, Conntrack<br>
+<a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <br>
 <b>"Victek RAF" features:</b><br>
 - CPU Freq | Previous WAN IP | Additional Themes<br>
-- Revised Static ARP Binding | Revised IP/MAC/Range QOS/Bandwidth Limiter<br>
+- Static ARP Binding | QOS/Bandwidth Limiter<br>
+Copyright (C) 2007-2011 Vicente Soriano<br>
+<a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
-<b>"Toastman" Features - will support 250 simultaneous users :</b><br>
+<b>"Toastman" Features:</b><br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules<br>
 - Configurable QOS class names<br>
@@ -127,10 +130,10 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 - Faster page refresh settings<br>
 - Fast conntrack timeout settings<br>
 - UPnP Support for vlans (if exists, loads upnpconfig.custom from JFFS)<br>
-- Comprehensive QOS rule examples set by default, refer to this website for help:<br>
+- Comprehensive QOS rule examples set by default<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>
 <br>
-Developments by Victek/PrinceAMD/Phykris/Shibby/Toastman<br>
+<b>Development by Victek/PrinceAMD/Phykris/Shibby/Toastman</b><br>
 <br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
