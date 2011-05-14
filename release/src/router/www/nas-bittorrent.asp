@@ -21,7 +21,7 @@ textarea {
 }
 </style>
 <script type='text/javascript'>
-//	<% nvram("bt_enable,bt_custom,bt_port,bt_dir,bt_settings,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_dht,bt_pex,bt_blocklist,bt_blocklist_url,bt_sleep"); %>
+//	<% nvram("bt_enable,bt_custom,bt_port,bt_dir,bt_settings,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_dht,bt_pex,bt_blocklist,bt_blocklist_url,bt_sleep,bt_check,bt_queue,bt_maxdown,bt_maxactive"); %>
 
 var btgui_link = '&nbsp;&nbsp;<a href="http://' + location.hostname +':<% nv('bt_port_gui'); %>" target="_blank"><i>[Click here to open Transmission GUI]</i></a>';
 
@@ -37,12 +37,14 @@ function verifyFields(focused, quiet)
 	var g = E('_f_bt_ratio_enable').checked;
 	var h = E('_f_bt_auth').checked;
 	var i = E('_f_bt_blocklist').checked;
+	var j = E('_f_bt_queue').checked;
 
 	E('_bt_custom').disabled = !a;
 	E('_bt_dir').disabled = !a;
 	E('_bt_port').disabled = !a;
 	E('_bt_sleep').disabled = !a;
 	E('_f_bt_incomplete').disabled = !a;
+	E('_f_bt_check').disabled = !a;
 	E('_bt_settings').disabled = !a;
 	E('_f_bt_rpc_enable').disabled = !a;
 	E('_bt_port_gui').disabled = !a || !c;
@@ -63,6 +65,9 @@ function verifyFields(focused, quiet)
 	E('_f_bt_pex').disabled = !a;
 	E('_f_bt_blocklist').disabled = !a;
 	E('_bt_blocklist_url').disabled = !a || !i;
+	E('_f_bt_queue').disabled = !a;
+	E('_bt_maxdown').disabled = !a || !j;
+	E('_bt_maxactive').disabled = !a || !j;
 
 	if (!v_length('_bt_custom', quiet, 0, 2048)) ok = 0;
 
@@ -168,6 +173,7 @@ function save()
   var fom = E('_fom');
   fom.bt_enable.value = E('_f_bt_enable').checked ? 1 : 0;
   fom.bt_incomplete.value = E('_f_bt_incomplete').checked ? 1 : 0;
+  fom.bt_check.value = E('_f_bt_check').checked ? 1 : 0;
   fom.bt_rpc_enable.value = E('_f_bt_rpc_enable').checked ? 1 : 0;
   fom.bt_auth.value = E('_f_bt_auth').checked ? 1 : 0;
   fom.bt_rpc_wan.value = E('_f_bt_rpc_wan').checked ? 1 : 0;
@@ -177,6 +183,7 @@ function save()
   fom.bt_dht.value = E('_f_bt_dht').checked ? 1 : 0;
   fom.bt_pex.value = E('_f_bt_pex').checked ? 1 : 0;
   fom.bt_blocklist.value = E('_f_bt_blocklist').checked ? 1 : 0;
+  fom.bt_queue.value = E('_f_bt_queue').checked ? 1 : 0;
 
   if (fom.bt_enable.value == 0) {
   	fom._service.value = 'bittorrent-stop';
@@ -209,6 +216,7 @@ function init()
 <input type='hidden' name='_service' value='bittorrent-restart'>
 <input type='hidden' name='bt_enable'>
 <input type='hidden' name='bt_incomplete'>
+<input type='hidden' name='bt_check'>
 <input type='hidden' name='bt_rpc_enable'>
 <input type='hidden' name='bt_auth'>
 <input type='hidden' name='bt_rpc_wan'>
@@ -218,11 +226,13 @@ function init()
 <input type='hidden' name='bt_ratio_enable'>
 <input type='hidden' name='bt_dht'>
 <input type='hidden' name='bt_pex'>
+<input type='hidden' name='bt_queue'>
 
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Enable torrent client', name: 'f_bt_enable', type: 'checkbox', value: nvram.bt_enable == '1', suffix: ' <small>*</small>' },
-	{ title: 'Delay at startup', name: 'bt_sleep', type: 'text', maxlen: 5, size: 7, value: nvram.bt_sleep, suffix: ' <small>(range: 1 - 60; default: 10 seconds)</small>' },
+	{ title: 'Keep alive', indent: 2, name: 'f_bt_check', type: 'checkbox', value: nvram.bt_check == '1', suffix: ' <small>*</small>' },
+	{ title: 'Delay at startup', indent: 2, name: 'bt_sleep', type: 'text', maxlen: 5, size: 7, value: nvram.bt_sleep, suffix: ' <small>(range: 1 - 60; default: 10 seconds)</small>' },
 	{ title: 'Listening port', name: 'bt_port', type: 'text', maxlen: 5, size: 7, value: nvram.bt_port, suffix: ' <small>*</small>' },
 	{ title: 'Download directory', name: 'bt_dir', type: 'text', maxlen: 40, size: 40, value: nvram.bt_dir },
 	{ title: 'Use .incomplete/', indent: 2, name: 'f_bt_incomplete', type: 'checkbox', value: nvram.bt_incomplete == '1' }
@@ -232,6 +242,7 @@ createFieldTable('', [
 <div>
 	<ul>
 		<li><b>Enable torrent client</b> - Attention! - If your router has only 32MB RAM, you have to use swap.
+		<li><b>Keep alive</b> - If enabled, transmission daemon will be checked every 5min and run after crash.
 		<li><b>Listening port</b> - Port for torrent client. Make sure port is not in use.
 	</ul>
 <br><br>
@@ -256,6 +267,7 @@ createFieldTable('', [
 		<li><b>Allow remote access</b> - This option will open Transmission GUI port from WAN site and allow use GUI from the internet.
 	</ul>
 <br><br>
+</div>
 <div class='section-title'>Limits</div>
 <div class='section'>
 <script type='text/javascript'>
@@ -274,6 +286,23 @@ createFieldTable('', [
 	{ title: 'Upload slots per torrent', name: 'bt_ul_slot_per_torrent', type: 'text', maxlen: 10, size: 7, value: nvram.bt_ul_slot_per_torrent, suffix: ' <small>(range: 5 - 50; default: 10)</small>' }
 ]);
 </script>
+</div>
+<div class='section-title'>Queue torrents</div>
+<div class='section'>
+<script type='text/javascript'>
+createFieldTable('', [
+	{ title: 'Enable queuing', name: 'f_bt_queue', type: 'checkbox', value: nvram.bt_queue == '1' },
+	{ title: 'Max downloads', indent: 2, name: 'bt_maxdown', type: 'text', maxlen: 32, size: 5, value: nvram.bt_maxdown, suffix: ' <small>(range: 1 - 10; default: 2)</small>' },
+	{ title: 'Max active torrents', indent: 2, name: 'bt_maxactive', type: 'text', maxlen: 32, size: 5, value: nvram.bt_maxactive, suffix: ' <small>(range: 1 - 20; default: 5)</small>' }
+]);
+</script>
+</div>
+<div>
+	<ul>
+		<li><b>Max downloads</b> - This is the maximum number of torrents that you would like to have in queue for downloading.
+		<li><b>Max active torrents</b> - This is the maximum number of active torrents in your list.
+	</ul>
+<br><br>
 </div>
 <div class='section-title'>Advanced Settings</div>
 <div class='section'>

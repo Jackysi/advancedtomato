@@ -118,6 +118,9 @@ void start_bittorrent(void)
         }
     }
 
+    fprintf( fp, "/usr/bin/btcheck addcru\n");
+    fprintf( fp, "/usr/bin/btqueue addcru\n");
+
     fclose( fp );
 
     chmod( "/tmp/start_transmission.sh", 0755 );
@@ -142,6 +145,9 @@ void stop_bittorrent(void)
     fprintf( fp, "killall -KILL transmission-daemon\n");
     fprintf( fp, "logger \"Transmission daemon successfully stoped\" \n");
     fprintf( fp, "sleep 2\n");
+    fprintf( fp, "/usr/bin/btcheck addcru\n");
+    fprintf( fp, "/usr/bin/btqueue addcru\n");
+
     fclose( fp );
     chmod( "/tmp/stop_transmission.sh", 0755 );
 
