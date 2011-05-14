@@ -145,13 +145,13 @@ void asp_netdev(int argc, char **argv)
 
 			// <rx bytes, packets, errors, dropped, fifo errors, frame errors, compressed, multicast><tx ...>
 			if (sscanf(p + 1, "%lu%*u%*u%*u%*u%*u%*u%*u%lu", &rx, &tx) != 2) continue;
-			if (!strcmp(ifname, "imq0"))
+			if (!strcmp(ifname, "imq1"))
 				web_printf("%c'%s':{rx:0x0,tx:0x%lx}", comma, ifname, rx, tx);
-			else if (!strcmp(ifname, "imq1"))
-				web_printf("%c'%s':{rx:0x%lx,tx:0x0}", comma, ifname, rx, tx);
 			else if (!strcmp(ifname, "imq2"))
-				web_printf("%c'%s':{rx:0x0,tx:0x%lx}", comma, ifname, rx, tx);
+				web_printf("%c'%s':{rx:0x%lx,tx:0x0}", comma, ifname, rx, tx);
 			else if (!strcmp(ifname, "imq3"))
+				web_printf("%c'%s':{rx:0x0,tx:0x%lx}", comma, ifname, rx, tx);
+			else if (!strcmp(ifname, "imq4"))
 				web_printf("%c'%s':{rx:0x%lx,tx:0x0}", comma, ifname, rx, tx);
 			else
 				web_printf("%c'%s':{rx:0x%lx,tx:0x%lx}", comma, ifname, rx, tx);

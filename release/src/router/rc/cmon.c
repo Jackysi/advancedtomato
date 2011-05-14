@@ -62,17 +62,17 @@ void start_cmon(void)
 	if (strcmp(old_ip_address, "none"))
 	{
 		fprintf(f, 			
-			"iptables -t mangle -D PREROUTING -s %s -j IMQ --todev 2\n"
-			"iptables -t mangle -D POSTROUTING -d %s -j IMQ --todev 3\n",
+			"iptables -t mangle -D PREROUTING -s %s -j IMQ --todev 3\n"
+			"iptables -t mangle -D POSTROUTING -d %s -j IMQ --todev 4\n",
 			old_ip_address, old_ip_address
 		);
 	}
 
 	fprintf(f, 
-		"ip link set imq2 up txqueuelen 100\n"
 		"ip link set imq3 up txqueuelen 100\n"
-		"iptables -t mangle -A PREROUTING -s %s -j IMQ --todev 2\n"
-		"iptables -t mangle -A POSTROUTING -d %s -j IMQ --todev 3\n"	
+		"ip link set imq4 up txqueuelen 100\n"
+		"iptables -t mangle -A PREROUTING -s %s -j IMQ --todev 3\n"
+		"iptables -t mangle -A POSTROUTING -d %s -j IMQ --todev 4\n"	
 		"\n", p, p
 	);
 
@@ -120,13 +120,13 @@ void stop_cmon(void)
 	if (strcmp(old_ip_address, "none"))
 	{
 		fprintf(f, 
-			"iptables -t mangle -D PREROUTING -s %s -j IMQ --todev 2\n"
-			"iptables -t mangle -D POSTROUTING -d %s -j IMQ --todev 3\n",
+			"iptables -t mangle -D PREROUTING -s %s -j IMQ --todev 3\n"
+			"iptables -t mangle -D POSTROUTING -d %s -j IMQ --todev 4\n",
 			old_ip_address, old_ip_address);
 	}
 	fprintf(f,
-		"ip link set imq2 down\n"
 		"ip link set imq3 down\n"
+		"ip link set imq4 down\n"
 		"\n"
 	);
 

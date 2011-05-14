@@ -217,19 +217,19 @@ function loadData()
 				t = 'WL <small>(' + i + ')</small>';
 			}
 			
-			if (i == 'imq0')	{
+			if (i == 'imq1')	{
 				t = 'Lim. OUT <small>(' + i + ')</small>';
 			}
 			
-			if (i == 'imq1')	{
+			if (i == 'imq2')	{
 				t = 'Lim. IN <small>(' + i + ')</small>';
 			}
 			
-			if (i == 'imq2')	{
+			if (i == 'imq3')	{
 				t = 'Mon. OUT <small>(' + i + ')</small>';
 			}
 			
-			if (i == 'imq3')	{
+			if (i == 'imq4')	{
 				t = 'Mon. IN <small>(' + i + ')</small>';
 			}
 			

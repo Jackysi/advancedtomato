@@ -98,8 +98,8 @@ void ipt_qoslimit(int chain)
 	if (chain == 1)
 	{
 		ipt_write(
-			"-A PREROUTING -j IMQ -i %s --todev 0\n"
-			"-A POSTROUTING -j IMQ -o %s --todev 1\n"
+			"-A PREROUTING -j IMQ -i %s --todev 1\n"
+			"-A POSTROUTING -j IMQ -o %s --todev 2\n"
 			,laninface,laninface);
 		if (nvram_get_int("qosl_denable") == 1) {
 			ipt_write(
@@ -282,35 +282,35 @@ void start_qoslimit(void)
 
 	fprintf(tc,
 		"#!/bin/sh\n"
-		"ip link set imq0 up\n"
 		"ip link set imq1 up\n"
+		"ip link set imq2 up\n"
 		"\n"
-		"tc qdisc del dev imq0 root 2>/dev/null\n"
 		"tc qdisc del dev imq1 root 2>/dev/null\n"
+		"tc qdisc del dev imq2 root 2>/dev/null\n"
 		"tc qdisc del dev br0 root 2>/dev/null\n" //fix me [why should mac get filter here??]
 		"\n"
 		"TCAM=\"tc class add dev br0\"\n" //fix me
 		"TFAM=\"tc filter add dev br0\"\n" //fix me
 		"TQAM=\"tc qdisc add dev br0\"\n" //fix me
 		"\n"
-		"TCA=\"tc class add dev imq1\"\n"
-		"TFA=\"tc filter add dev imq1\"\n"
-		"TQA=\"tc qdisc add dev imq1\"\n"
+		"TCA=\"tc class add dev imq2\"\n"
+		"TFA=\"tc filter add dev imq2\"\n"
+		"TQA=\"tc qdisc add dev imq2\"\n"
 		"\n"
 		"SFQ=\"sfq perturb 10\"\n"
 		"\n"
-		"TCAU=\"tc class add dev imq0\"\n"
-		"TFAU=\"tc filter add dev imq0\"\n"
-		"TQAU=\"tc qdisc add dev imq0\"\n"
+		"TCAU=\"tc class add dev imq1\"\n"
+		"TFAU=\"tc filter add dev imq1\"\n"
+		"TQAU=\"tc qdisc add dev imq1\"\n"
 		"\n"
-		"tc qdisc add dev imq1 root handle 1: htb\n"
-		"tc class add dev imq1 parent 1: classid 1:1 htb rate %skbit\n"
+		"tc qdisc add dev imq2 root handle 1: htb\n"
+		"tc class add dev imq2 parent 1: classid 1:1 htb rate %skbit\n"
 		"\n"
 		"tc qdisc add dev br0 root handle 1: htb\n"
 		"tc class add dev br0 parent 1: classid 1:1 htb rate %skbit\n"
 		"\n"
-		"tc qdisc add dev imq0 root handle 1: htb\n"
-		"tc class add dev imq0 parent 1: classid 1:1 htb rate %skbit\n"
+		"tc qdisc add dev imq1 root handle 1: htb\n"
+		"tc class add dev imq1 parent 1: classid 1:1 htb rate %skbit\n"
 		"\n"
 		,ibw,ibw,obw
 	);
@@ -401,11 +401,11 @@ void stop_qoslimit(void)
 
 	fprintf(f,
 		"#!/bin/sh\n"
+		"tc qdisc del dev imq2 root\n"
 		"tc qdisc del dev imq1 root\n"
-		"tc qdisc del dev imq0 root\n"
 		"tc qdisc del dev br0 root\n" 	//fix me
-		"ip link set imq0 down\n"
-		"ip link set imq1 down\n"	//take imq's down - Toastman
+		"ip link set imq1 down\n"
+		"ip link set imq2 down\n"	//take imq's down - Toastman
 		"\n"
 	);
 
