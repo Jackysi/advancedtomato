@@ -1,0 +1,111 @@
+#!/bin/sh
+
+# *************
+# Configuration
+REMOTE="/usr/bin/transmission-remote"
+USERNAME=`nvram get bt_login`
+PASSWORD=`nvram get bt_password`
+PORT=`nvram get bt_port_gui`
+MAXDOWN=`nvram get bt_maxdown`
+MAXACTIVE=`nvram get bt_maxactive`
+
+# *************
+# Set-up variables
+CMD="$REMOTE $PORT --auth $USERNAME:$PASSWORD"
+LOGCMD="/usr/bin/logger -t transmission-queue "
+MAXRATIO=`nvram get bt_ratio`
+
+
+case "$1" in
+  addcru)
+   ISCRU=`cru l | grep btqueue | wc -l`
+
+   BTON=`nvram get bt_enable`
+   if [ "$BTON" == "1" ]; then
+    BTQU=`nvram get bt_queue`
+    if [ "$BTQU" == "1" ]; then
+     if [ "$ISCRU" == "0" ]; then
+      cru a btqueue "*/5 * * * * /usr/bin/btqueue check"
+     fi
+    else
+     if [ "$ISCRU" == "1" ]; then
+      cru d btqueue
+      $CMD --start-paused
+      #start all paused torrent if queuing was turned off
+     fi
+    fi
+   else
+    if [ "$ISCRU" == "1" ]; then
+      cru d btqueue
+    fi
+   fi
+  ;;
+  check)
+   BTON=`nvram get bt_enable`
+   if [ "$BTON" == "1" ]; then
+    BTQU=`nvram get bt_queue`
+    if [ "$BTQU" == "1" ]; then
+
+#script from http://www.4geeksfromnet.com/2010/02/how-to-queue-torrents-in-transmission.html
+#modyfied by Shibby for Tomato-BT
+
+
+# *************
+# deal with downloads
+DOWNACTIVE="$($CMD -l | tail -n+2 | grep -v 100% | grep -v Sum | grep -v Stopped | wc -l)"
+if [ $MAXDOWN -lt $DOWNACTIVE ]; then
+	DOWNTOSTOP="$($CMD -l | tail -n+2 | grep -v 100% | grep -v Sum | grep -v Stopped | \
+		tail -n $(expr $DOWNACTIVE - $MAXDOWN) | awk '{ print $1; }')"
+	for ID in $DOWNTOSTOP; do
+		NAME="$($CMD --torrent $ID --info | grep Name:)"
+		$LOGCMD "<<< $ID: ${NAME#*Name: }"
+		$CMD --torrent $ID --stop >> /dev/null 2>&1
+	done
+else
+	[ $(expr $MAXDOWN - $DOWNACTIVE) -gt 0 ] && (
+	DOWNINACTIVE="$($CMD -l | tail -n+2 | grep -v 100% | grep Stopped | wc -l)"
+	[ $DOWNINACTIVE -gt 0 ] && (
+		DOWNTOSTART="$($CMD -l | tail -n+2 | grep -v 100% | grep Stopped | \
+			head -n $(expr $MAXDOWN - $DOWNACTIVE) | awk '{ print $1; }')"
+		for ID in $DOWNTOSTART; do
+			NAME="$($CMD --torrent $ID --info | grep Name:)"
+			$LOGCMD ">>> $ID: ${NAME#*Name: }"
+			$CMD --torrent $ID --start >> /dev/null 2>&1
+		done
+		)
+	)
+fi
+# Then deal with total active
+ACTIVE="$($CMD -l | tail -n+2 | grep -v Sum | grep -v Stopped | wc -l)"
+if [ $MAXACTIVE -lt $ACTIVE ]; then
+	TOSTOP="$($CMD -l | tail -n+2 | grep 100% | grep -v Stopped | \
+		tail -n $(expr $ACTIVE - $MAXACTIVE) | awk '{ print $1; }')"
+	for ID in $TOSTOP; do
+		NAME="$($CMD --torrent $ID --info | grep Name:)"
+		$LOGCMD "<<< $ID: ${NAME#*Name: }"
+		$CMD --torrent $ID --stop >> /dev/null 2>&1
+	done
+else
+	[ $(expr $MAXACTIVE - $ACTIVE) -gt 0 ] && (
+	SEEDINACTIVE="$($CMD -l | tail -n+2 | grep 100% | grep Stopped | \
+		awk -v ratio=$MAXRATIO '{ if (strtonum(substr($0,52,4)) < ratio) print $0 ;}' | wc -l)"
+	[ $SEEDINACTIVE -gt 0 ] && (
+		TOSTART="$($CMD -l | tail -n+2 | grep 100% | grep Stopped | \
+			awk -v ratio=$MAXRATIO '{ if (strtonum(substr($0,52,4)) < ratio) print $0 ;}' | \
+			head -n $(expr $MAXACTIVE - $ACTIVE) | awk '{ print $1; }')"
+		for ID in $TOSTART; do
+			NAME="$($CMD --torrent $ID --info | grep Name:)"
+			$LOGCMD ">>> $ID: ${NAME#*Name: }" 
+			$CMD --torrent $ID --start >> /dev/null 2>&1
+		done
+		)
+	)
+fi
+
+# End script
+
+    fi
+   fi
+  ;;
+esac
+exit 0

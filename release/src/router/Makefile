@@ -1501,6 +1501,8 @@ transmission-install: transmission
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-daemon
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-remote
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-create
+	install -D transmission/btcheck $(INSTALLDIR)/transmission/usr/bin/btcheck
+	install -D transmission/btqueue $(INSTALLDIR)/transmission/usr/bin/btqueue
 
 libnfsidmap/stamp-h1:
 	cd libnfsidmap && \
