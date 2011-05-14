@@ -283,8 +283,8 @@ void new_qoslimit_start(void)
 
 	fprintf(tc,
 		"#!/bin/sh\n"
-		"ip link set imq0 name Limit_Out up txqueuelen 100\n"
-		"ip link set imq1 name Limit_In up txqueuelen 100\n"
+		"ip link set imq0 up\n"
+		"ip link set imq1 up\n"
 		"\n"
 		"tc qdisc del dev imq0 root 2>/dev/null\n"
 		"tc qdisc del dev imq1 root 2>/dev/null\n"
