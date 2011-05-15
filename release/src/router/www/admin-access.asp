@@ -285,7 +285,7 @@ var m = [
 	{ title: 'Allow Wireless Access', name: 'f_http_wireless', type: 'checkbox', value:  nvram.web_wl_filter == 0 },
 	null,
 	{ title: 'Color Scheme', name: 'web_css', type: 'select',
-		options: [['red','Tomato'],['asus','Asustek'],['asus_red','Asus Red'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['bluedream','Bluedream'],['buffalo','Buffalo'],['brown','Brown'],['cyan','Cyan'],['enlightened','Enlightened'],['linksys','Linksys'],['olive','Olive'],['purple','Purple'],['pumpkin','Pumpkin'],['tijuana','Tijuana'],
+		options: [['red','Tomato'],['asus','Asustek'],['asus_red','Asus Red'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['bluedream','Bluedream'],['brownlight','Brownlight'],['buffalo','Buffalo'],['brown','Brown'],['cisco','Cisco'],['cyan','Cyan'],['enlightened','Enlightened'],['linksys','Linksys'],['olive','Olive'],['purple','Purple'],['pumpkin','Pumpkin'],['tijuana','Tijuana'],
 
 /* THEMES-BEGIN */
 		['usbred','USB Red'],['usbblue','USB Blue'],
