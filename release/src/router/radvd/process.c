@@ -137,7 +137,7 @@ process(struct Interface *ifacel, unsigned char *msg, int len,
 	}
 	else if (icmph->icmp6_type == ND_ROUTER_ADVERT)
 	{
-		flog(LOG_WARNING, "received RA from %s", addr_str);
+		dlog(LOG_DEBUG, 3, "received RA from %s", addr_str);
 		process_ra(iface, msg, len, addr);
 	}
 }
