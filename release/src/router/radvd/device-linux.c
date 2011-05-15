@@ -1,5 +1,5 @@
 /*
- *   $Id: device-linux.c,v 1.27 2010/12/14 11:58:21 psavola Exp $
+ *   $Id: device-linux.c,v 1.28 2011/02/06 03:41:38 reubenhwk Exp $
  *
  *   Authors:
  *    Lars Fenneberg		<lf@elemental.net>
@@ -29,7 +29,7 @@
  * the defined prefixes
  */
 int
-setup_deviceinfo(int sock, struct Interface *iface)
+setup_deviceinfo(struct Interface *iface)
 {
 	struct ifreq	ifr;
 	struct AdvPrefix *prefix;
@@ -124,7 +124,7 @@ setup_deviceinfo(int sock, struct Interface *iface)
  * this function extracts the link local address and interface index
  * from PATH_PROC_NET_IF_INET6.  Note: 'sock' unused in Linux.
  */
-int setup_linklocal_addr(int sock, struct Interface *iface)
+int setup_linklocal_addr(struct Interface *iface)
 {
 	FILE *fp;
 	char str_addr[40];
@@ -167,7 +167,7 @@ int setup_linklocal_addr(int sock, struct Interface *iface)
 	return (-1);
 }
 
-int setup_allrouters_membership(int sock, struct Interface *iface)
+int setup_allrouters_membership(struct Interface *iface)
 {
 	struct ipv6_mreq mreq;
 
@@ -191,7 +191,7 @@ int setup_allrouters_membership(int sock, struct Interface *iface)
 	return (0);
 }
 
-int check_allrouters_membership(int sock, struct Interface *iface)
+int check_allrouters_membership(struct Interface *iface)
 {
 	#define ALL_ROUTERS_MCAST "ff020000000000000000000000000002"
 
@@ -226,7 +226,7 @@ int check_allrouters_membership(int sock, struct Interface *iface)
 
 	if (!allrouters_ok) {
 		flog(LOG_WARNING, "resetting ipv6-allrouters membership on %s", iface->Name);
-		setup_allrouters_membership(sock, iface);
+		setup_allrouters_membership(iface);
 	}
 
 	return(0);

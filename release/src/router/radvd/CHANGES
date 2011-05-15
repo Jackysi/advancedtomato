@@ -1,4 +1,37 @@
-$Id: CHANGES,v 1.109 2011/01/07 17:40:20 reubenhwk Exp $
+14/05/2011	Version 1.8 release
+
+10/05/2011	removed AdvRDNSSPreference and AdvRDNSSOpen from the manpages
+
+06/05/2011	- IgnoreIfMissing now defaults to on
+		- Fixed inf loop in Base6Interface (from Ludwig Nussel)
+		- Modified string regex in scanner.l reducing the compiled
+		size of scanner.o by a factor or 10.
+
+04/05/2011	- radvd is useful for advertising ULA's without having a
+		router too (from Ludwig Nussel)
+		- Bumping version number to 1.8alpha in VERSION for testing
+
+28/04/2011	Adding DecrementLifetimes patch (from Mark Smith)
+
+25/03/2011	Renaming RemoveRoute to FlushRoute (from Mark Smith)
+
+22/03/2011	Adding RemoveRoute options (from Mark Smith)
+
+20/03/2011	Added DeprecatePrefix option (from Mark Smith)
+
+28/02/2011	fixed Debian Bug#615625: radvd: Error in DNSSL parsing
+
+26/02/2011	Added Base6Interface option
+
+30/01/2011	Added detailed output to radvd --help for the long options.
+		Two sigterms or sigints calls abort.
+		build system cleanup work.
+
+22/01/2011	Fixed crash and memory leak in device-bsd44.c when an
+		interface defined in the config file doesn't exist.
+		Patch submitted by Manual Kasper.
+
+12/01/2011	Release 1.7.
 
 07/01/2011	make dist (for building tar.gz source packages) fixed.
 		- 07/01: AdvSourceLLAddress fixed on FreeBSD when link
