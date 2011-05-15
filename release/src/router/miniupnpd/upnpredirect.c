@@ -1,4 +1,4 @@
-/* $Id: upnpredirect.c,v 1.50 2011/02/07 11:57:56 nanard Exp $ */
+/* $Id: upnpredirect.c,v 1.52 2011/05/13 14:00:22 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -464,6 +464,562 @@ upnp_get_portmappings_in_range(unsigned short startport,
 		return NULL;
 	return get_portmappings_in_range(startport, endport, proto, number);
 }
+
+#ifdef ENABLE_6FC_SERVICE
+int
+upnp_check_outbound_pinhole(int proto, int * timeout)
+{
+#if 0
+	int s, tmptimeout, tmptime_out;
+	switch(proto)
+	{
+		case IPPROTO_UDP:
+			s = retrieve_timeout("udp_timeout", timeout);
+			return s;
+			break;
+		case IPPROTO_UDPLITE:
+			s = retrieve_timeout("udp_timeout_stream", timeout);
+			return s;
+			break;
+		case IPPROTO_TCP:
+			s = retrieve_timeout("tcp_timeout_established", timeout);
+			return s;
+			break;
+		case 65535:
+			s = retrieve_timeout("udp_timeout", timeout);
+			s = retrieve_timeout("udp_timeout_stream", &tmptimeout);
+			s = retrieve_timeout("tcp_timeout_established", &tmptime_out);
+			if(tmptimeout<tmptime_out)
+			{
+				if(tmptimeout<*timeout)
+					*timeout = tmptimeout;
+			}
+			else
+			{
+				if(tmptime_out<*timeout)
+					*timeout = tmptimeout;
+			}
+			return s;
+			break;
+		default:
+			return -5;
+			break;
+	}
+#endif
+	return 0;
+}
+
+/* upnp_add_inboundpinhole()
+ * returns: 0 on success
+ *          -1 failed to add pinhole
+ *          -2 already created
+ *          -3 inbound pinhole disabled
+ */
+int
+upnp_add_inboundpinhole(const char * raddr, unsigned short rport, const char * iaddr, unsigned short iport, const char * protocol, const char * leaseTime, int * uid)
+{
+	// Check if there is enough space to create inbound pinhole
+/*	if(!inboundPinholeSpace)
+	{
+		syslog(LOG_INFO, "Not enough space for adding pinhole for inbound traffic [%s]:%hu->[%s]:%hu %s.", raddr, rport, iaddr, iport, protocol); // IPv6 Modification
+		return -1;
+	}*/
+	int r, s, t, lt=0;
+	char iaddr_old[40]="", proto[6]="", idfound[5]="", leaseTmp[12]; // IPv6 Modification
+	snprintf(proto, sizeof(proto), "%.5d", atoi(protocol));
+	unsigned short iport_old = 0;
+	time_t current = time(NULL);
+	/*struct in6_addr address; // IPv6 Modification
+	if(inet_pton(AF_INET6, iaddr, &address) < 0) // IPv6 Modification
+	{
+		syslog(LOG_ERR, "inet_pton(%s) : %m", iaddr);
+		return 0;
+	}*/
+
+#if 0
+	r = get_rule_from_file(raddr, rport, iaddr_old, &iport_old, proto, 0, 0, idfound);
+#endif
+	r = 0;
+
+	lt = (int) current + atoi(leaseTime);
+	snprintf(leaseTmp, sizeof(leaseTmp), "%d", lt);
+	printf("LeaseTime: %d / %d -> %s\n", atoi(leaseTime), (int)current, leaseTmp);
+
+	printf("\tCompare addr: %s // port: %d\n\t     to addr: %s // port: %d\n", iaddr, iport, iaddr_old, iport_old);
+	if(r == 1 && strcmp(iaddr, iaddr_old)==0 && iport==iport_old)
+	{
+		syslog(LOG_INFO, "Pinhole for inbound traffic from [%s]:%hu to [%s]:%hu with protocol %s already done. Updating it.", raddr, rport, iaddr_old, iport_old, protocol);
+		t = upnp_update_inboundpinhole(idfound, leaseTime);
+		*uid = atoi(idfound);
+		return t;
+	}
+	else
+	{
+		syslog(LOG_INFO, "Adding pinhole for inbound traffic from [%s]:%hu to [%s]:%hu with protocol %s and %s lease time.", raddr, rport, iaddr, iport, protocol, leaseTime);
+		s = upnp_add_inboundpinhole_internal(raddr, rport, iaddr, iport, protocol, uid);
+#if 0
+		if(rule_file_add(raddr, rport, iaddr, iport, protocol, leaseTmp, uid)<0)
+			return -8;
+		else
+		{
+			if(nextpinholetoclean_timestamp == 0 || (atoi(leaseTmp) <= nextpinholetoclean_timestamp))
+			{
+				printf("Initializing the nextpinholetoclean variables. uid = %d\n", *uid);
+				snprintf(nextpinholetoclean_uid, 5, "%.4d", *uid);
+				nextpinholetoclean_timestamp = atoi(leaseTmp);
+			}
+			return s;
+		}
+#endif
+	}
+return 0;
+}
+
+int
+upnp_add_inboundpinhole_internal(const char * raddr, unsigned short rport,
+                       const char * iaddr, unsigned short iport,
+                       const char * proto, int * uid)
+{
+	int c = 9999;
+	char cmd[256], cmd_raw[256], cuid[42];
+#if 0
+	static const char cmdval_full_udptcp[] = "ip6tables -I %s %d -p %s -i %s -s %s --sport %hu -d %s --dport %hu -j ACCEPT";
+	static const char cmdval_udptcp[] = "ip6tables -I %s %d -p %s -i %s --sport %hu -d %s --dport %hu -j ACCEPT";
+	static const char cmdval_full_udplite[] = "ip6tables -I %s %d -p %s -i %s -s %s -d %s -j ACCEPT";
+	static const char cmdval_udplite[] = "ip6tables -I %s %d -p %s -i %s -d %s -j ACCEPT";
+	// raw table command
+	static const char cmdval_full_udptcp_raw[] = "ip6tables -t raw -I PREROUTING %d -p %s -i %s -s %s --sport %hu -d %s --dport %hu -j TRACE";
+	static const char cmdval_udptcp_raw[] = "ip6tables -t raw -I PREROUTING %d -p %s -i %s --sport %hu -d %s --dport %hu -j TRACE";
+	static const char cmdval_full_udplite_raw[] = "ip6tables -t raw -I PREROUTING %d -p %s -i %s -s %s -d %s -j TRACE";
+	static const char cmdval_udplite_raw[] = "ip6tables -t raw -I PREROUTING %d -p %s -i %s -d %s -j TRACE";
+#endif
+	//printf("%s\n", raddr);
+	if(raddr!=NULL)
+	{
+#ifdef IPPROTO_UDPLITE
+		if(atoi(proto) == IPPROTO_UDPLITE)
+		{
+	/*		snprintf(cmd, sizeof(cmd), cmdval_full_udplite, miniupnpd_forward_chain, line_number, proto, ext_if_name, raddr, iaddr);
+			snprintf(cmd_raw, sizeof(cmd_raw), cmdval_full_udplite_raw, line_number, proto, ext_if_name, raddr, iaddr);*/
+		}
+		else
+#endif
+		{
+	/*		snprintf(cmd, sizeof(cmd), cmdval_full_udptcp, miniupnpd_forward_chain, line_number, proto, ext_if_name, raddr, rport, iaddr, iport);
+			snprintf(cmd_raw, sizeof(cmd_raw), cmdval_full_udptcp_raw, line_number, proto, ext_if_name, raddr, rport, iaddr, iport);*/
+		}
+	}
+	else
+	{
+#ifdef IPPROTO_UDPLITE
+		if(atoi(proto) == IPPROTO_UDPLITE)
+		{
+			/*snprintf(cmd, sizeof(cmd), cmdval_udplite, miniupnpd_forward_chain, line_number, proto, ext_if_name, iaddr);
+			snprintf(cmd_raw, sizeof(cmd_raw), cmdval_udplite_raw, line_number, proto, ext_if_name, iaddr);*/
+		}
+		else
+#endif
+		{
+			/*snprintf(cmd, sizeof(cmd), cmdval_udptcp, miniupnpd_forward_chain, line_number, proto, ext_if_name, rport, iaddr, iport);
+			snprintf(cmd_raw, sizeof(cmd_raw), cmdval_udptcp_raw, line_number, proto, ext_if_name, rport, iaddr, iport);
+*/
+		}
+	}
+#ifdef DEBUG
+	syslog(LOG_INFO, "Adding following ip6tables rule:");
+	syslog(LOG_INFO, "  -> %s", cmd);
+	syslog(LOG_INFO, "  -> %s", cmd_raw);
+#endif
+	// TODO Add a better checking error.
+	if(system(cmd) < 0 || system(cmd_raw) < 0)
+	{
+		return 0;
+	}
+	srand(time(NULL));
+	snprintf(cuid, sizeof(cuid), "%.4d", rand()%c);
+	*uid = atoi(cuid);
+	printf("\t_add_ uid: %s\n", cuid);
+	return 1;
+}
+
+int
+upnp_get_pinhole_info(const char * raddr, unsigned short rport, char * iaddr, unsigned short * iport, char * proto, const char * uid, char * lt)
+{
+#if 0
+	if(!raddr)
+		return get_rule_from_file(0, 0, iaddr, iport, proto, uid, lt, 0);
+	else
+		return get_rule_from_file(raddr, rport, iaddr, iport, proto, uid, lt, 0);
+#endif
+return 0;
+}
+
+int
+upnp_update_inboundpinhole(const char * uid, const char * leasetime)
+{
+#if 0
+	int r, n;
+	syslog(LOG_INFO, "Updating pinhole for inbound traffic with ID: %s", uid);
+	r = check_rule_from_file(uid, 0);
+	if(r < 0)
+		return r;
+	else
+	{
+		n = rule_file_update(uid, leasetime);
+		upnp_update_expiredpinhole();
+		return n;
+	}
+#else
+	return -1;
+#endif
+}
+
+int
+upnp_delete_inboundpinhole(const char * uid)
+{
+#if 0
+	int r, s, linenum=0;
+	char cmd[256], cmd_raw[256];
+	syslog(LOG_INFO, "Removing pinhole for inbound traffic with ID: %s", uid);
+	r = check_rule_from_file(uid, &linenum);
+	if(r > 0)
+	{
+		s = rule_file_remove(uid, linenum);
+		if(s < 0)
+			return s;
+		else
+		{
+			snprintf(cmd, sizeof(cmd), "ip6tables -t filter -D %s %d", miniupnpd_forward_chain, linenum);
+			snprintf(cmd_raw, sizeof(cmd_raw), "ip6tables -t raw -D PREROUTING %d", linenum -1);
+#ifdef DEBUG
+			syslog(LOG_INFO, "Deleting ip6tables rule:");
+			syslog(LOG_INFO, "  -> %s", cmd);
+			syslog(LOG_INFO, "  -> %s", cmd_raw);
+#endif
+			// TODO Add a better checking error.
+			if(system(cmd) < 0 || system(cmd_raw) < 0)
+			{
+				return 0;
+			}
+		}
+	}
+	upnp_update_expiredpinhole();
+	return r;
+#else
+return -1;
+#endif
+}
+
+static int
+compare_time(char * traced_time, char * action_time)
+{
+	char * t, * a;
+	char t_month[4], a_month[4], t_strdate[3], a_strdate[3], t_strhour[3], a_strhour[3], t_strmin[3], a_strmin[3], t_strsec[3], a_strsec[3];
+	int t_date, a_date, t_hour, a_hour, t_min, a_min, t_sec, a_sec;
+
+	t = traced_time; printf("\ttraced_time = %s\n", t);
+	a = action_time; printf("\taction_time = %s\n", a);
+
+	snprintf(t_month, sizeof(t_month),"%.*s", 3, t);
+	t += 4;
+	snprintf(t_strdate,  sizeof(t_strdate),"%.*s", 2, t);
+	t += 3;
+	snprintf(t_strhour,  sizeof(t_strhour),"%.*s", 2, t);
+	t += 3;
+	snprintf(t_strmin,  sizeof(t_strmin),"%.*s", 2, t);
+	t += 3;
+	snprintf(t_strsec,  sizeof(t_strsec),"%.*s", 2, t);
+
+	snprintf(a_month,  sizeof(a_month),"%.*s", 3, a);
+	a += 4;
+	snprintf(a_strdate,  sizeof(a_strdate),"%.*s", 2, a);
+	a += 3;
+	snprintf(a_strhour,  sizeof(a_strhour),"%.*s", 2, a);
+	a += 3;
+	snprintf(a_strmin,  sizeof(a_strmin),"%.*s", 2, a);
+	a += 3;
+	snprintf(a_strsec,  sizeof(a_strsec),"%.*s", 2, a);
+
+	printf("\tCompare traced_time = M:%s d:%s h:%s m:%s s:%s\n", t_month, t_strdate, t_strhour, t_strmin, t_strsec);
+	printf("\t     to action_time = M:%s d:%s h:%s m:%s s:%s\n", a_month, a_strdate, a_strhour, a_strmin, a_strsec);
+	t_date = atoi(t_strdate);
+	a_date = atoi(a_strdate);
+	t_hour = atoi(t_strhour);
+	a_hour = atoi(a_strhour);
+	t_min = atoi(t_strmin);
+	a_min = atoi(a_strmin);
+	t_sec = atoi(t_strsec);
+	a_sec = atoi(a_strsec);
+	if((strcmp(t_month, a_month) == 0) && t_date == a_date && t_hour == a_hour)
+	{
+		if( (t_min == a_min && (a_sec-10 <= t_sec && t_sec <= a_sec))
+			|| ((a_min-1 == t_min) && ((60 - t_sec + a_min) <= 10)) )
+			return 1;
+		else
+			return -1;
+		
+	}
+	else
+		return -1;
+}
+
+/*
+ * Result:
+ * 	 1: Found Result
+ * 	-4: No result
+ * 	-5: Result in another table
+ * 	-6: Result in another chain
+ * 	-7: Result in a chain not a rule
+*/
+int
+upnp_check_pinhole_working(const char * uid, char * eaddr, char * iaddr, unsigned short * eport, unsigned short * iport, char * protocol, int * rulenum_used)
+{
+	FILE * fd;
+	time_t expire = time(NULL);
+	char buf[1024], filename[] = "/var/log/kern.log", expire_time[32]="";
+	int res = -4, str_len;
+
+	str_len = strftime(expire_time, sizeof(expire_time), "%b %d %H:%M:%S", localtime(&expire));
+
+	fd = fopen(filename, "r");
+	if (fd==NULL)
+	{
+		syslog(LOG_ERR, "Get_rule: could not open file: %s", filename);
+		return -1;
+	}
+
+	syslog(LOG_INFO, "Get_rule: Starting getting info in file %s for %s\n", filename, uid);
+	buf[sizeof(buf)-1] = 0;
+	while(fgets(buf, sizeof(buf)-1, fd) != NULL && res != 1)
+	{
+		//printf("line: %s\n", buf);
+		char * r, * t, * c, * p;
+		// looking for something like filter:FORWARD:rule: or filter:MINIUPNPD:rule:
+		r = strstr(buf, ":rule:");
+		p = strstr(buf, ":policy:");
+		t = strstr(buf, "TRACE:"); // table pointeur
+		t += 7;
+		c = t + 7; // chain pointeur
+		if(r)
+		{
+			printf("\t** Found %.*s\n", 24 ,t);
+			char * src, * dst, * sport, * dport, * proto, * line;
+			char time[15]="", src_addr[40], dst_addr[40], proto_tmp[8];
+			int proto_int;
+			strncpy(time, buf, sizeof(time));
+			if(compare_time(time, expire_time)<0)
+			{
+				printf("\t\tNot corresponding time\n");
+				continue;
+			}
+
+			line = r + 6;
+			printf("\trule line = %d\n", atoi(line));
+
+			src = strstr(buf, "SRC=");
+			src += 4;
+			snprintf(src_addr, sizeof(src_addr), "%.*s", 39, src);
+#if 0
+			del_char(src_addr);
+			add_char(src_addr);
+#endif
+
+			dst = strstr(buf, "DST=");
+			dst += 4;
+			snprintf(dst_addr, sizeof(dst_addr), "%.*s", 39, dst);
+#if 0
+			del_char(dst_addr);
+			add_char(dst_addr);
+#endif
+
+			proto = strstr(buf, "PROTO=");
+			proto += 6;
+			proto_int = atoi(protocol);
+			if(proto_int == IPPROTO_UDP)
+				strcpy(proto_tmp, "UDP");
+			else if(proto_int == IPPROTO_TCP)
+				strcpy(proto_tmp, "TCP");
+#ifdef IPPROTO_UDPLITE
+			else if(proto_int == IPPROTO_UDPLITE)
+				strcpy(proto_tmp, "UDPLITE");
+#endif
+			else
+				strcpy(proto_tmp, "UnsupportedProto");
+
+	//		printf("\tCompare eaddr: %s // protocol: %s\n\t     to  addr: %s // protocol: %.*s\n", eaddr, proto_tmp, src_addr, strlen(proto_tmp), proto);
+	//		printf("\tCompare iaddr: %s // protocol: %s\n\t     to  addr: %s // protocol: %.*s\n", iaddr, proto_tmp, dst_addr, strlen(proto_tmp), proto);
+			// TODO Check time
+			// Check that the paquet found in trace correspond to the one we are looking for
+			if( /*(strcmp(eaddr, src_addr) == 0) &&*/ (strcmp(iaddr, dst_addr) == 0) && (strncmp(proto_tmp, proto, strlen(proto_tmp))==0))
+			{
+				sport = strstr(buf, "SPT=");
+				sport += 4;
+				dport = strstr(buf, "DPT=");
+				dport += 4;
+				printf("\tCompare eport: %hu\n\t     to   port: %d\n", *eport, atoi(sport));
+				printf("\tCompare iport: %hu\n\t     to   port: %d\n", *iport, atoi(dport));
+				if(/*eport != atoi(sport) &&*/ *iport != atoi(dport))
+				{
+					printf("\t\tPort not corresponding\n");
+					continue;
+				}
+				printf("\ttable found: %.*s\n", 6, t);
+				printf("\tchain found: %.*s\n", 9, c);
+				// Check that the table correspond to the filter table
+				if(strncmp(t, "filter", 6)==0)
+				{
+					// Check that the table correspond to the MINIUPNP table
+					if(strncmp(c, "MINIUPNPD", 9)==0)
+					{
+						*rulenum_used = atoi(line);
+						res = 1;
+					}
+					else
+					{
+						res = -6;
+						continue;
+					}
+				}
+				else
+				{
+					res = -5;
+					continue;
+				}
+			}
+			else
+			{
+				printf("Packet information not corresponding\n");
+				continue;
+			}
+		}
+		if(!r && p)
+		{
+			printf("\t** Policy case\n");
+			char * src, * dst, * sport, * dport, * proto, * line;
+			char time[15], src_addr[40], dst_addr[40], proto_tmp[8];
+			int proto_int;
+			strncpy(time, buf, sizeof(time));
+			if(compare_time(time, expire_time)<0)
+			{
+				printf("\t\tNot corresponding time\n");
+				continue;
+			}
+
+			line = p + 8;
+			printf("\trule line = %d\n", atoi(line));
+
+			src = strstr(buf, "SRC=");
+			src += 4;
+			snprintf(src_addr, sizeof(src_addr), "%.*s", 39, src);
+#if 0
+			del_char(src_addr);
+			add_char(src_addr);
+#endif
+
+			dst = strstr(buf, "DST=");
+			dst += 4;
+			snprintf(dst_addr, sizeof(dst_addr), "%.*s", 39, dst);
+#if 0
+			del_char(dst_addr);
+			add_char(dst_addr);
+#endif
+
+			proto = strstr(buf, "PROTO=");
+			proto += 6;
+			proto_int = atoi(protocol);
+			if(proto_int == IPPROTO_UDP)
+				strcpy(proto_tmp, "UDP");
+			else if(proto_int == IPPROTO_TCP)
+				strcpy(proto_tmp, "TCP");
+#ifdef IPPROTO_UDPLITE
+			else if(proto_int == IPPROTO_UDPLITE)
+				strcpy(proto_tmp, "UDPLITE");
+#endif
+			else
+				strcpy(proto_tmp, "UnsupportedProto");
+
+	//		printf("\tCompare eaddr: %s // protocol: %s\n\t     to  addr: %s // protocol: %.*s\n", eaddr, proto_tmp, src_addr, strlen(proto_tmp), proto);
+	//		printf("\tCompare iaddr: %s // protocol: %s\n\t     to  addr: %s // protocol: %.*s\n", iaddr, proto_tmp, dst_addr, strlen(proto_tmp), proto);
+			// Check that the paquet found in trace correspond to the one we are looking for
+			if( (strcmp(eaddr, src_addr) == 0) && (strcmp(iaddr, dst_addr) == 0) && (strncmp(proto_tmp, proto, 5)==0))
+			{
+				sport = strstr(buf, "SPT=");
+				sport += 4;
+				dport = strstr(buf, "DPT=");
+				dport += 4;
+				printf("\tCompare eport: %hu\n\t     to   port: %d\n", *eport, atoi(sport));
+				printf("\tCompare iport: %hu\n\t     to   port: %d\n", *iport, atoi(dport));
+				if(*eport != atoi(sport) && *iport != atoi(dport))
+				{
+					printf("\t\tPort not corresponding\n");
+					continue;
+				}
+				else
+				{
+					printf("Find a corresponding policy trace in the chain: %.*s\n", 10, c);
+					res = -7;
+					continue;
+				}
+			}
+			else
+				continue;
+		}
+	}
+	fclose(fd);
+	return res;
+
+}
+
+int
+upnp_get_pinhole_packets(const char * uid, int * packets)
+{
+#if 0
+	int line=0, r;
+	char cmd[256];
+	r = check_rule_from_file(uid, &line);
+	if(r < 0)
+		return r;
+	else
+	{
+		snprintf(cmd, sizeof(cmd), "ip6tables -L MINIUPNPD %d -v", line);
+		return retrieve_packets(cmd, &line, packets);
+	}
+#else
+	return 0;
+#endif
+}
+
+int
+upnp_update_expiredpinhole()
+{
+#if 0
+	int r;
+	char uid[5], leaseTime[12];
+
+	r = get_rule_from_leasetime(uid, leaseTime);
+	if(r<0)
+		return r;
+	else
+	{
+		strcpy(nextpinholetoclean_uid, uid);
+		nextpinholetoclean_timestamp = atoi(leaseTime);
+		return 1;
+	}
+#endif
+	return 0;
+}
+
+int
+upnp_clean_expiredpinhole()
+{
+#if 0
+	upnp_delete_inboundpinhole(nextpinholetoclean_uid);
+
+	return upnp_update_expiredpinhole();
+#endif
+	return 0;
+}
+#endif
 
 /* stuff for miniupnpdctl */
 #ifdef USE_MINIUPNPDCTL

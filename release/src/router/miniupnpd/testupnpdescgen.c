@@ -1,13 +1,16 @@
-/* $Id: testupnpdescgen.c,v 1.19 2011/01/02 09:25:50 nanard Exp $ */
+/* $Id: testupnpdescgen.c,v 1.22 2011/05/13 11:38:02 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2008 Thomas Bernard 
+ * (c) 2006-2011 Thomas Bernard 
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+/* for mkdir */
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "config.h"
 #include "upnpdescgen.h"
@@ -20,6 +23,11 @@ char presentationurl[] = "http://192.168.0.1:8080/";
 
 char * use_ext_ip_addr = NULL;
 const char * ext_if_name = "eth0";
+
+#ifdef ENABLE_6FC_SERVICE
+int ipv6fc_firewall_enabled = 1;
+int ipv6fc_inbound_pinhole_allowed = 1;
+#endif
 
 int getifaddr(const char * ifname, char * buf, int len)
 {
@@ -39,6 +47,8 @@ xml_pretty_print(const char * s, int len, FILE * f)
 	int n = 0, i;
 	int elt_close = 0;
 	int c, indent = 0;
+	if(!s)
+		return n;
 	while(len > 0)
 	{
 		c = *(s++);	len--;
@@ -74,6 +84,9 @@ xml_pretty_print(const char * s, int len, FILE * f)
 			else if(elt_close == 0)
 				indent++;
 			break;
+		case '\n':
+			/* remove existing LF */
+			break;
 		default:
 			fputc(c, f); n++;
 		}
@@ -100,25 +113,60 @@ main(int argc, char * * argv)
 	int rootDescLen;
 	char * s;
 	int l;
+	FILE * f;
+
+	mkdir("testdescs", 0777);
 	printf("Root Description :\n");
 	rootDesc = genRootDesc(&rootDescLen);
 	xml_pretty_print(rootDesc, rootDescLen, stdout);
+	f = fopen("testdescs/rootdesc.xml", "w");
+	if(f) {
+		xml_pretty_print(rootDesc, rootDescLen, f);
+		fclose(f);
+	}
 	free(rootDesc);
 	printf("\n-------------\n");
 	printf("WANIPConnection Description :\n");
 	s = genWANIPCn(&l);
 	xml_pretty_print(s, l, stdout);
+	f = fopen("testdescs/wanipc_scpd.xml", "w");
+	if(f) {
+		xml_pretty_print(s, l, f);
+		fclose(f);
+	}
 	free(s);
 	printf("\n-------------\n");
 	printf("WANConfig Description :\n");
 	s = genWANCfg(&l);
 	xml_pretty_print(s, l, stdout);
+	f = fopen("testdescs/wanconfig_scpd.xml", "w");
+	if(f) {
+		xml_pretty_print(s, l, f);
+		fclose(f);
+	}
 	free(s);
 	printf("\n-------------\n");
 #ifdef ENABLE_L3F_SERVICE
 	printf("Layer3Forwarding service :\n");
 	s = genL3F(&l);
 	xml_pretty_print(s, l, stdout);
+	f = fopen("testdescs/l3f_scpd.xml", "w");
+	if(f) {
+		xml_pretty_print(s, l, f);
+		fclose(f);
+	}
+	free(s);
+	printf("\n-------------\n");
+#endif
+#ifdef ENABLE_6FC_SERVICE
+	printf("WANIPv6FirewallControl service :\n");
+	s = gen6FC(&l);
+	xml_pretty_print(s, l, stdout);
+	f = fopen("testdescs/wanipv6fc_scpd.xml", "w");
+	if(f) {
+		xml_pretty_print(s, l, f);
+		fclose(f);
+	}
 	free(s);
 	printf("\n-------------\n");
 #endif
@@ -136,6 +184,12 @@ main(int argc, char * * argv)
 	xml_pretty_print(s, l, stdout);
 	free(s);
 	printf("\n-------------\n");
+#ifdef ENABLE_6FC_SERVICE
+	s = getVars6FC(&l);
+	xml_pretty_print(s, l, stdout);
+	free(s);
+	printf("\n-------------\n");
+#endif
 #endif
 #endif
 /*

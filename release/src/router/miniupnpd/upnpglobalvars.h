@@ -1,4 +1,4 @@
-/* $Id: upnpglobalvars.h,v 1.23 2011/03/09 15:27:41 nanard Exp $ */
+/* $Id: upnpglobalvars.h,v 1.26 2011/05/13 13:56:18 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -92,14 +92,20 @@ extern int nfqueue;
 extern int n_nfqix;
 extern unsigned nfqix[];
 #endif
-/* lan addresses */
-/* MAX_LAN_ADDR : maximum number of interfaces
- * to listen to SSDP traffic */
-#define MAX_LAN_ADDR (4)
-extern int n_lan_addr;
-extern struct lan_addr_s lan_addr[];
+
+/* lan addresses to listen to SSDP traffic */
+extern struct lan_addr_list lan_addrs;
 
 extern const char * minissdpdsocketpath;
+
+/* BOOTID.UPNP.ORG and CONFIGID.UPNP.ORG */
+extern unsigned int upnp_bootid;
+extern unsigned int upnp_configid;
+
+#ifdef ENABLE_6FC_SERVICE
+extern int ipv6fc_firewall_enabled;
+extern int ipv6fc_inbound_pinhole_allowed;
+#endif
 
 #endif
 
