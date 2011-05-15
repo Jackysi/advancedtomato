@@ -31,6 +31,20 @@
 #include "upnpglobalvars.h"
 #include "log.h"
 
+inline int
+strcatf(struct string_s *str, const char *fmt, ...)
+{
+	int ret;
+	va_list ap;
+
+	va_start(ap, fmt);
+	ret = vsnprintf(str->data + str->off, str->size - str->off, fmt, ap);
+	str->off += ret;
+	va_end(ap);
+
+	return ret;
+}
+
 int
 ends_with(const char * haystack, const char * needle)
 {
@@ -100,7 +114,12 @@ modifyString(char * string, const char * before, const char * after, short like)
 			chgcnt++;
 			s = p+oldlen;
 		}
-		string = realloc(string, strlen(string)+((newlen-oldlen)*chgcnt)+1+like);
+		s = realloc(string, strlen(string)+((newlen-oldlen)*chgcnt)+1+like);
+		/* If we failed to realloc, return the original alloc'd string */
+		if( s )
+			string = s;
+		else
+			return string;
 	}
 
 	s = string;
@@ -136,7 +155,7 @@ modifyString(char * string, const char * before, const char * after, short like)
 }
 
 char *
-escape_tag(const char *tag)
+escape_tag(const char *tag, int force_alloc)
 {
 	char *esc_tag = NULL;
 
@@ -147,6 +166,8 @@ escape_tag(const char *tag)
 		esc_tag = modifyString(esc_tag, "<", "&amp;lt;", 0);
 		esc_tag = modifyString(esc_tag, ">", "&amp;gt;", 0);
 	}
+	else if( force_alloc )
+		esc_tag = strdup(tag);
 
 	return esc_tag;
 }
