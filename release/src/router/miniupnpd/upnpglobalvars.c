@@ -1,4 +1,4 @@
-/* $Id: upnpglobalvars.c,v 1.19 2010/09/21 15:31:01 nanard Exp $ */
+/* $Id: upnpglobalvars.c,v 1.22 2011/05/13 13:56:18 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2010 Thomas Bernard 
@@ -84,9 +84,17 @@ int nfqueue = -1;
 int n_nfqix = 0;
 unsigned nfqix[MAX_LAN_ADDR];
 #endif
-int n_lan_addr = 0;
-struct lan_addr_s lan_addr[MAX_LAN_ADDR];
+struct lan_addr_list lan_addrs;
 
 /* Path of the Unix socket used to communicate with MiniSSDPd */
 const char * minissdpdsocketpath = "/var/run/minissdpd.sock";
+
+/* BOOTID.UPNP.ORG and CONFIGID.UPNP.ORG */
+unsigned int upnp_bootid = 1;
+unsigned int upnp_configid = 1337;
+
+#ifdef ENABLE_6FC_SERVICE
+int ipv6fc_firewall_enabled = 1;
+int ipv6fc_inbound_pinhole_allowed = 1;
+#endif
 

@@ -1,4 +1,4 @@
-/* $Id: natpmp.c,v 1.20 2010/05/06 13:42:47 nanard Exp $ */
+/* $Id: natpmp.c,v 1.21 2011/05/13 13:56:18 nanard Exp $ */
 /* MiniUPnP project
  * (c) 2007-2010 Thomas Bernard
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -53,9 +53,10 @@ int OpenAndConfNATPMPSocket(in_addr_t addr)
 int OpenAndConfNATPMPSockets(int * sockets)
 {
 	int i, j;
-	for(i=0; i<n_lan_addr; i++)
+	struct lan_addr_s * lan_addr;
+	for(i = 0, lan_addr = lan_addrs.lh_first; lan_addr != NULL; lan_addr = lan_addr->list.le_next, i++)
 	{
-		sockets[i] = OpenAndConfNATPMPSocket(lan_addr[i].addr.s_addr);
+		sockets[i] = OpenAndConfNATPMPSocket(lan_addr->addr.s_addr);
 		if(sockets[i] < 0)
 		{
 			for(j=0; j<i; j++)
@@ -367,7 +368,13 @@ void SendNATPMPPublicAddressChangeNotification(int * sockets, int n_sockets)
 		if(sockets[j] < 0)
 			continue;
 #ifdef MULTIPLE_EXTERNAL_IP
-		FillPublicAddressResponse(notif, lan_addr[j].addr.s_addr);
+		{
+			struct lan_addr_s * lan_addr = lan_addrs.lh_first;
+			int i;
+			for(i=0; i<j; i++)
+				lan_addr = lan_addr->list.le_next;
+			FillPublicAddressResponse(notif, lan_addr->addr.s_addr);
+		}
 #endif
 		n = sendto(sockets[j], notif, 12, 0,
 		           (struct sockaddr *)&sockname, sizeof(struct sockaddr_in));

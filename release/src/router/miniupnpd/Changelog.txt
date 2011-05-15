@@ -1,4 +1,25 @@
-$Id: Changelog.txt,v 1.211 2011/03/09 15:27:41 nanard Exp $
+$Id: Changelog.txt,v 1.216 2011/05/13 13:59:26 nanard Exp $
+
+2011/05/13:
+  add new options in genconfig.sh (IGD_V2, ENABLE_DP_SERVICE)
+  add global vars ipv6fc_firewall_enabled and ipv6fc_inbound_pinhole_allowed
+  have MACROS for magical values in upnpdescgen.c, add eventing vars for WanIPv6FirewallControl.
+  applied 0001-Cosmetic-changes.patch(see http://miniupnp.tuxfamily.org/forum/viewtopic.php?t=764)
+  applied 0002-Remove-lan-addresses-limit-by-changing-storage-type-.patch
+
+2011/05/09:
+  updating upnp descriptions for IGDv2
+
+2011/05/07:
+  Adding WANIPv6FirewallContro to upnp description
+
+2011/04/30:
+  adding a UPNP_STRICT config macro. Use it now for checking RemoteHost.
+  ENABLE_6FC_SERVICE : add the implementations of WANIPv6FirewallControl actions
+
+2011/04/11:
+  preparing getifaddr() for IP v6
+  preparing SSDP stuff for IP v6. Trying to conform to UDA v1.1
 
 2011/03/09:
   Some modifications thanks to Daniel Dickinson to improve OpenWRT
