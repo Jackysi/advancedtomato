@@ -2375,6 +2375,9 @@ function navi()
 			['Transfer Rates',	'ctrate.asp']
 			] ],
 		['RAF Features',		'new', 0, [
+/* NOCAT-BEGIN */
+			['Captive Portal',	'splashd.asp'],
+/* NOCAT-END */
 			['MAC/IP Range BW Limit',	'qoslimit.asp'],
 			['ARP Binding',		'arpbind.asp']
 			] ],

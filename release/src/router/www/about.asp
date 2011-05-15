@@ -115,7 +115,10 @@ Copyright (C) 2010 Keith Moyer,<br>
 <b>RAF features,</b><br>
 Extended Sysinfo<br>
 QoS IP/Range BW Limiter | ARP Binding<br>
-Copyright (C) 2007-2011 Vicente Soriano. <br>
+<!-- NOCAT-BEGIN -->
+Captive Portal. (Based in NocatSplash). Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
+<!-- NOCAT-END -->
+Tomato RAF. Copyright (C) 2007-2011 Vicente Soriano. <br>
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
 

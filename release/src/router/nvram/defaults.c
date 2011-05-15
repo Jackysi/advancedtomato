@@ -914,6 +914,23 @@ const defaults_t defaults[] = {
 	{ "new_arpbind_only",			"0"			},
 	{ "new_arpbind_list",			"" 			},
 
+// NoCatSplash. !!Victek
+	{ "NC_enable",		"0" }, // enable NoCatSplash
+	{ "NC_Verbosity",	"2" },
+	{ "NC_GatewayName",	"Tomato RAF Portal" },
+        { "NC_GatewayPort",	"5280" },
+        { "NC_GatewayMode",	"Open" },
+        { "NC_DocumentRoot",	"/tmp/splashd" },
+        { "NC_ExcludePorts",	"1863" },
+        { "NC_HomePage",	"http://victek.is-a-geek.com" },
+        { "NC_ForcedRedirect",	"0" },
+        { "NC_IdleTimeout",	"0" },
+        { "NC_MaxMissedARP",	"5" },
+	{ "NC_PeerChecktimeout", "0"	},
+        { "NC_LoginTimeout",	"3600"	},
+        { "NC_RenewTimeout",	"0" },
+        { "NC_AllowedWebHosts",	"www.victek.is-a-geek.com" },
+
 	{ NULL, NULL	}
 };
 
