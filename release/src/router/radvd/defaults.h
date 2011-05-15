@@ -1,5 +1,5 @@
 /*
- *   $Id: defaults.h,v 1.25 2010/12/14 11:58:21 psavola Exp $
+ *   $Id: defaults.h,v 1.31 2011/05/04 18:03:57 reubenhwk Exp $
  *
  *   Authors:
  *    Lars Fenneberg		<lf@elemental.net>
@@ -31,7 +31,7 @@
 
 /* For each multicast interface: */
 
-#define DFLT_IgnoreIfMissing		0
+#define DFLT_IgnoreIfMissing		1
 #define DFLT_AdvSendAdv			0
 #define DFLT_MaxRtrAdvInterval		600
 #define DFLT_MinRtrAdvInterval(iface)	(0.33 * (iface)->MaxRtrAdvInterval)
@@ -56,17 +56,22 @@
 #define DFLT_AdvOnLinkFlag		1
 #define DFLT_AdvPreferredLifetime	14400 /* seconds */
 #define DFLT_AdvAutonomousFlag		1
+#define DFLT_DeprecatePrefixFlag	0
+#define DFLT_DecrementLifetimesFlag	0
 
 /* Each route has an associated: */
 #define DFLT_AdvRouteLifetime(iface)	(3 * (iface)->MaxRtrAdvInterval)
 
 #define DFLT_AdvRoutePreference		0 /* medium*/
+#define DFLT_RemoveRouteFlag		1
 
 /* RDNSS */
 #define DFLT_AdvRDNSSLifetime(iface)			(iface)->MaxRtrAdvInterval
+#define DFLT_FlushRDNSSFlag		1
 
 /* DNSSL */
 #define DFLT_AdvDNSSLLifetime(iface)			(iface)->MaxRtrAdvInterval
+#define DFLT_FlushDNSSLFlag		1
 
 /* Protocol (RFC4861) constants: */
 
@@ -121,6 +126,9 @@
 #define MAX_AdvCurHopLimit		255
 
 #define MAX_PrefixLen			128
+
+/* SLAAC (RFC4862) Constants and Derived Values */
+#define MIN_AdvValidLifetime		7203	/* slight >2 hours in secs */
 
 /*
  * Mobile IPv6 extensions, off by default

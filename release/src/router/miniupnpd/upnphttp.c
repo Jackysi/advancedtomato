@@ -1,8 +1,8 @@
-/* $Id: upnphttp.c,v 1.57 2009/02/12 23:38:40 nanard Exp $ */
+/* $Id: upnphttp.c,v 1.58 2011/05/07 10:23:58 nanard Exp $ */
 /* Project :  miniupnp
  * Website :  http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * Author :   Thomas Bernard
- * Copyright (c) 2005-2008 Thomas Bernard
+ * Copyright (c) 2005-2011 Thomas Bernard
  * This software is subject to the conditions detailed in the
  * LICENCE file included in this distribution.
  * */
@@ -428,6 +428,12 @@ ProcessHttpQuery_upnphttp(struct upnphttp * h)
 		else if(strcasecmp(L3F_PATH, HttpUrl) == 0)
 		{
 			sendXMLdesc(h, genL3F);
+		}
+#endif
+#ifdef ENABLE_6FC_SERVICE
+		else if(strcasecmp(WANIP6FC_PATH, HttpUrl) == 0)
+		{
+			sendXMLdesc(h, gen6FC);
 		}
 #endif
 		else

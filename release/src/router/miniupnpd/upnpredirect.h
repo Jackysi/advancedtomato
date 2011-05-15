@@ -1,4 +1,4 @@
-/* $Id: upnpredirect.h,v 1.17 2011/02/07 11:57:56 nanard Exp $ */
+/* $Id: upnpredirect.h,v 1.18 2011/05/13 12:43:57 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -96,6 +96,40 @@ upnp_get_portmappings_in_range(unsigned short startport,
                                unsigned short endport,
                                const char * protocol,
                                unsigned int * number);
+
+#ifdef ENABLE_6FC_SERVICE
+int
+upnp_check_outbound_pinhole(int proto, int * timeout);
+
+int
+upnp_add_inboundpinhole(const char * raddr, unsigned short rport,
+              const char * iaddr, unsigned short iport,
+              const char * protocol, const char * leaseTime, int * uid);
+
+int
+upnp_add_inboundpinhole_internal(const char * raddr, unsigned short rport,
+                       const char * iaddr, unsigned short iport,
+                       const char * proto, int * uid);
+
+int
+upnp_get_pinhole_info(const char * raddr, unsigned short rport, char * iaddr, unsigned short * iport, char * proto, const char * uid, char * lt);
+
+int
+upnp_update_inboundpinhole(const char * uid, const char * leasetime);
+
+int
+upnp_delete_inboundpinhole(const char * uid);
+
+int
+upnp_check_pinhole_working(const char * uid, char * eaddr, char * iaddr, unsigned short * eport, unsigned short * iport, char * protocol, int * rulenum_used);
+
+int
+upnp_get_pinhole_packets(const char * uid, int * packets);
+
+int
+upnp_clean_expiredpinhole();
+
+#endif /* ENABLE_6FC_SERVICE */
 
 /* stuff for responding to miniupnpdctl */
 #ifdef USE_MINIUPNPDCTL

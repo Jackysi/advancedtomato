@@ -1,7 +1,7 @@
-/* $Id: miniupnpd.c,v 1.125 2010/09/21 15:31:01 nanard Exp $ */
+/* $Id: miniupnpd.c,v 1.127 2011/05/13 13:56:17 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2010 Thomas Bernard
+ * (c) 2006-2011 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -89,10 +89,6 @@ int get_udp_dst_port (char *payload);
 
 
 static int sudp = -1;
-
-/* MAX_LAN_ADDR : maximum number of interfaces
- * to listen to SSDP traffic */
-/*#define MAX_LAN_ADDR (4)*/
 
 static volatile int quitting = 0;
 static volatile int should_send_public_address_change_notif = 0;
@@ -255,7 +251,7 @@ OpenAndConfHTTPSocket(unsigned short port)
 		return -1;
 	}
 
-	if(listen(s, 6) < 0)
+	if(listen(s, 5) < 0)
 	{
 		syslog(LOG_ERR, "listen(http): %m");
 		close(s);
@@ -598,8 +594,6 @@ set_startup_time(int sysuptime)
 struct runtime_vars {
 	/* LAN IP addresses for SSDP traffic and HTTP */
 	/* moved to global vars */
-	/*int n_lan_addr;*/
-	/*struct lan_addr_s lan_addr[MAX_LAN_ADDR];*/
 	int port;	/* HTTP Port */
 	int notify_interval;	/* seconds between SSDP announces */
 	/* unused rules cleaning related variables : */
@@ -698,6 +692,8 @@ init(int argc, char * * argv, struct runtime_vars * v)
 	/*const char * logfilename = 0;*/
 	const char * presurl = 0;
 	const char * optionsfile = DEFAULT_CONFIG;
+	struct lan_addr_s * lan_addr;
+	struct lan_addr_s * lan_addr2;
 
 	/* only print usage if -h is used */
 	for(i=1; i<argc; i++)
@@ -719,7 +715,7 @@ init(int argc, char * * argv, struct runtime_vars * v)
 	/* set initial values */
 	SETFLAG(ENABLEUPNPMASK);
 
-	/*v->n_lan_addr = 0;*/
+	LIST_INIT(&lan_addrs);
 	v->port = -1;
 	v->notify_interval = 30;	/* seconds between SSDP announces */
 	v->clean_ruleset_threshold = 20;
@@ -746,18 +742,19 @@ init(int argc, char * * argv, struct runtime_vars * v)
 				use_ext_ip_addr = ary_options[i].value;
 				break;
 			case UPNPLISTENING_IP:
-				if(n_lan_addr < MAX_LAN_ADDR)/* if(v->n_lan_addr < MAX_LAN_ADDR)*/
+				lan_addr = (struct lan_addr_s *) malloc(sizeof(struct lan_addr_s));
+				if (lan_addr == NULL)
 				{
-					/*if(parselanaddr(&v->lan_addr[v->n_lan_addr],*/
-					if(parselanaddr(&lan_addr[n_lan_addr],
-					             ary_options[i].value) == 0)
-						n_lan_addr++; /*v->n_lan_addr++; */
+					fprintf(stderr, "malloc(sizeof(struct lan_addr_s)): %m");
+					break;
 				}
-				else
+				if(parselanaddr(lan_addr, ary_options[i].value) != 0)
 				{
-					fprintf(stderr, "Too many listening ips (max: %d), ignoring %s\n",
-			    		    MAX_LAN_ADDR, ary_options[i].value);
+					fprintf(stderr, "can't parse \"%s\" as valid lan address\n", ary_options[i].value);
+					free(lan_addr);
+					break;
 				}
+				LIST_INSERT_HEAD(&lan_addrs, lan_addr, list);
 				break;
 			case UPNPPORT:
 				v->port = atoi(ary_options[i].value);
@@ -991,28 +988,27 @@ init(int argc, char * * argv, struct runtime_vars * v)
 		case 'a':
 			if(i+1 < argc)
 			{
-				int address_already_there = 0;
-				int j;
 				i++;
-				for(j=0; j<n_lan_addr; j++)
+				lan_addr = (struct lan_addr_s *) malloc(sizeof(struct lan_addr_s));
+				if (lan_addr == NULL)
 				{
-					struct lan_addr_s tmpaddr;
-					parselanaddr(&tmpaddr, argv[i]);
-					if(0 == strcmp(lan_addr[j].str, tmpaddr.str))
-						address_already_there = 1;
-				}
-				if(address_already_there)
+					fprintf(stderr, "malloc(sizeof(struct lan_addr_s)): %m");
 					break;
-				if(n_lan_addr < MAX_LAN_ADDR)
-				{
-					if(parselanaddr(&lan_addr[n_lan_addr], argv[i]) == 0)
-						n_lan_addr++;
 				}
-				else
+				if(parselanaddr(lan_addr, argv[i]) != 0)
 				{
-					fprintf(stderr, "Too many listening ips (max: %d), ignoring %s\n",
-				    	    MAX_LAN_ADDR, argv[i]);
+					fprintf(stderr, "can't parse \"%s\" as valid lan address\n", argv[i]);
+					free(lan_addr);
+					break;
 				}
+				/* check if we already have this address */
+				for(lan_addr2 = lan_addrs.lh_first; lan_addr2 != NULL; lan_addr2 = lan_addr2->list.le_next)
+				{
+					if (0 == strncmp(lan_addr2->str, lan_addr->str, 15))
+						break;
+				}
+				if (lan_addr2 == NULL)
+					LIST_INSERT_HEAD(&lan_addrs, lan_addr, list);
 			}
 			else
 				fprintf(stderr, "Option -%c takes one argument.\n", argv[i][1]);
@@ -1024,7 +1020,7 @@ init(int argc, char * * argv, struct runtime_vars * v)
 			fprintf(stderr, "Unknown option: %s\n", argv[i]);
 		}
 	}
-	if(!ext_if_name || (n_lan_addr==0))
+	if(!ext_if_name || !lan_addrs.lh_first)
 	{
 		/* bad configuration */
 		goto print_usage;
@@ -1077,8 +1073,8 @@ init(int argc, char * * argv, struct runtime_vars * v)
 	else
 	{
 		snprintf(presentationurl, PRESENTATIONURL_MAX_LEN,
-		         "http://%s/", lan_addr[0].str);
-		         /*"http://%s:%d/", lan_addr[0].str, 80);*/
+		         "http://%s/", lan_addrs.lh_first->str);
+		         /*"http://%s:%d/", lan_addrs.lh_first->str, 80);*/
 	}
 
 	/* set signal handler */
@@ -1179,12 +1175,13 @@ main(int argc, char * * argv)
 	int i;
 	int shttpl = -1;
 #ifdef ENABLE_NATPMP
-	int snatpmp[MAX_LAN_ADDR];
+	int * snatpmp;
 #ifdef ENABLE_NFQUEUE
 	int nfqh = -1;
 #endif
 #endif
-	int snotify[MAX_LAN_ADDR];
+	int * snotify;
+	int addr_count;
 	LIST_HEAD(httplisthead, upnphttp) upnphttphead;
 	struct upnphttp * e = 0;
 	struct upnphttp * next;
@@ -1204,16 +1201,22 @@ main(int argc, char * * argv)
 	/* variables used for the unused-rule cleanup process */
 	struct rule_state * rule_list = 0;
 	struct timeval checktime = {0, 0};
+	struct lan_addr_s * lan_addr;
 	syslog(LOG_INFO, "SNet version started");
 
-
-	memset(snotify, 0, sizeof(snotify));
-#ifdef ENABLE_NATPMP
-	for(i = 0; i < MAX_LAN_ADDR; i++)
-		snatpmp[i] = -1;
-#endif
 	if(init(argc, argv, &v) != 0)
 		return 1;
+	/* count lan addrs */
+	addr_count = 0;
+	for(lan_addr = lan_addrs.lh_first; lan_addr != NULL; lan_addr = lan_addr->list.le_next)
+		addr_count++;
+	snotify = (int*) malloc(addr_count * sizeof(int));
+	memset(snotify, 0, sizeof(snotify));
+#ifdef ENABLE_NATPMP
+	snatpmp = (int*) malloc(addr_count * sizeof(int));
+	for(i = 0; i < addr_count; i++)
+		snatpmp[i] = -1;
+#endif
 
 	LIST_INIT(&upnphttphead);
 #ifdef USE_MINIUPNPDCTL
@@ -1251,11 +1254,11 @@ main(int argc, char * * argv)
 		syslog(LOG_NOTICE, "HTTP listening on port %d", v.port);
 
 		/* open socket for SSDP connections */
-		sudp = OpenAndConfSSDPReceiveSocket(n_lan_addr, lan_addr);
+		sudp = OpenAndConfSSDPReceiveSocket();
 		if(sudp < 0)
 		{
 			syslog(LOG_INFO, "Failed to open socket for receiving SSDP. Trying to use MiniSSDPd");
-			if(SubmitServicesToMiniSSDPD(lan_addr[0].str, v.port) < 0) {
+			if(SubmitServicesToMiniSSDPD(lan_addrs.lh_first->str, v.port) < 0) {
 				syslog(LOG_ERR, "Failed to connect to MiniSSDPd. EXITING");
 				return 1;
 			}
@@ -1423,7 +1426,7 @@ main(int argc, char * * argv)
 		}
 #endif
 #ifdef ENABLE_NATPMP
-		for(i=0; i<n_lan_addr; i++) {
+		for(i=0; i<addr_count; i++) {
 			if(snatpmp[i] >= 0) {
 				FD_SET(snatpmp[i], &readset);
 				max_fd = MAX( max_fd, snatpmp[i]);
@@ -1525,7 +1528,7 @@ main(int argc, char * * argv)
 #endif
 #ifdef ENABLE_NATPMP
 		/* process NAT-PMP packets */
-		for(i=0; i<n_lan_addr; i++)
+		for(i=0; i<addr_count; i++)
 		{
 			if((snatpmp[i] >= 0) && FD_ISSET(snatpmp[i], &readset))
 			{
@@ -1610,7 +1613,7 @@ main(int argc, char * * argv)
 		{
 #ifdef ENABLE_NATPMP
 			if(GETFLAG(ENABLENATPMPMASK))
-				SendNATPMPPublicAddressChangeNotification(snatpmp/*snotify*/, n_lan_addr);
+				SendNATPMPPublicAddressChangeNotification(snatpmp/*snotify*/, addr_count);
 #endif
 #ifdef ENABLE_EVENTS
 			if(GETFLAG(ENABLEUPNPMASK))
@@ -1636,7 +1639,7 @@ shutdown:
 	if (sudp >= 0) close(sudp);
 	if (shttpl >= 0) close(shttpl);
 #ifdef ENABLE_NATPMP
-	for(i=0; i<n_lan_addr; i++) {
+	for(i=0; i<addr_count; i++) {
 		if(snatpmp[i]>=0)
 		{
 			close(snatpmp[i]);
@@ -1659,11 +1662,11 @@ shutdown:
 	/*if(SendSSDPGoodbye(snotify, v.n_lan_addr) < 0)*/
 	if (GETFLAG(ENABLEUPNPMASK))
 	{
-		if(SendSSDPGoodbye(snotify, n_lan_addr) < 0)
+		if(SendSSDPGoodbye(snotify, addr_count) < 0)
 		{
 			syslog(LOG_ERR, "Failed to broadcast good-bye notifications");
 		}
-		for(i=0; i<n_lan_addr; i++)/* for(i=0; i<v.n_lan_addr; i++)*/
+		for(i=0; i<addr_count; i++)
 			close(snotify[i]);
 	}
 
@@ -1672,6 +1675,18 @@ shutdown:
 		syslog(LOG_ERR, "Failed to remove pidfile %s: %m", pidfilename);
 	}
 
+	/* delete lists */
+	while(lan_addrs.lh_first != NULL)
+	{
+		lan_addr = lan_addrs.lh_first;
+		LIST_REMOVE(lan_addrs.lh_first, list);
+		free(lan_addr);
+	}
+
+#ifdef ENABLE_NATPMP
+	free(snatpmp);
+#endif
+	free(snotify);
 	closelog();	
 	freeoptions();
 	

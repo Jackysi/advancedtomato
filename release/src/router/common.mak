@@ -37,6 +37,8 @@ export RANLIB := $(CROSS_COMPILE)ranlib
 export STRIP := $(CROSS_COMPILE)strip -R .note -R .comment
 export SIZE := $(CROSS_COMPILE)size
 
+include $(SRCBASE)/target.mak
+
 # Determine kernel version
 kver=$(subst ",,$(word 3, $(shell grep "UTS_RELEASE" $(LINUXDIR)/include/linux/$(1))))
 
@@ -44,8 +46,6 @@ LINUX_KERNEL=$(call kver,version.h)
 ifeq ($(LINUX_KERNEL),)
 LINUX_KERNEL=$(call kver,utsrelease.h)
 endif
-
-include $(SRCBASE)/target.mak
 
 export LIBDIR := $(TOOLCHAIN)/lib
 export USRLIBDIR := $(TOOLCHAIN)/usr/lib

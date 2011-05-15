@@ -1,5 +1,5 @@
 /*
- *   $Id: gram.y,v 1.26 2010/12/14 11:58:21 psavola Exp $
+ *   $Id: gram.y,v 1.39 2011/05/06 13:58:57 reubenhwk Exp $
  *
  *   Authors:
  *    Pedro Roque		<roque@di.fc.ul.pt>
@@ -29,10 +29,12 @@ struct AdvDNSSL *dnssl = NULL;
 extern char *conf_file;
 extern int num_lines;
 extern char *yytext;
-extern int sock;
 
 static void cleanup(void);
 static void yyerror(char *msg);
+static int countbits(int b);
+static int count_mask(struct sockaddr_in6 *m);
+static struct in6_addr get_prefix6(struct in6_addr const *addr, struct in6_addr const *mask);
 
 #if 0 /* no longer necessary? */
 #ifndef HAVE_IN6_ADDR_S6_ADDR
@@ -93,12 +95,15 @@ static void yyerror(char *msg);
 %token		T_AdvAutonomous
 %token		T_AdvValidLifetime
 %token		T_AdvPreferredLifetime
+%token		T_DeprecatePrefix
+%token		T_DecrementLifetimes
 
 %token		T_AdvRouterAddr
 %token		T_AdvHomeAgentFlag
 %token		T_AdvIntervalOpt
 %token		T_AdvHomeAgentInfo
 
+%token		T_Base6Interface
 %token		T_Base6to4Interface
 %token		T_UnicastOnly
 
@@ -107,12 +112,15 @@ static void yyerror(char *msg);
 
 %token		T_AdvRoutePreference
 %token		T_AdvRouteLifetime
+%token		T_RemoveRoute
 
 %token		T_AdvRDNSSPreference
 %token		T_AdvRDNSSOpenFlag
 %token		T_AdvRDNSSLifetime
+%token		T_FlushRDNSS
 
 %token		T_AdvDNSSLLifetime
+%token		T_FlushDNSSL
 
 %token		T_AdvMobRtrSupportFlag
 
@@ -161,7 +169,7 @@ ifacedef	: ifacehead '{' ifaceparams  '}' ';'
 				iface2 = iface2->next;
 			}
 
-			if (check_device(sock, iface) < 0) {
+			if (check_device(iface) < 0) {
 				if (iface->IgnoreIfMissing) {
 					dlog(LOG_DEBUG, 4, "interface %s did not exist, ignoring the interface", iface->Name);
 				}
@@ -170,16 +178,16 @@ ifacedef	: ifacehead '{' ifaceparams  '}' ';'
 					ABORT;
 				}
 			}
-			if (setup_deviceinfo(sock, iface) < 0)
+			if (setup_deviceinfo(iface) < 0)
 				if (!iface->IgnoreIfMissing)
 				ABORT;
 			if (check_iface(iface) < 0)
 				if (!iface->IgnoreIfMissing)
 				ABORT;
-			if (setup_linklocal_addr(sock, iface) < 0)
+			if (setup_linklocal_addr(iface) < 0)
 				if (!iface->IgnoreIfMissing)
 				ABORT;
-			if (setup_allrouters_membership(sock, iface) < 0)
+			if (setup_allrouters_membership(iface) < 0)
 				if (!iface->IgnoreIfMissing)
 				ABORT;
 
@@ -356,32 +364,94 @@ v6addrlist	: IPV6ADDR ';'
 		;
 
 
-prefixdef	: prefixhead '{' optional_prefixplist '}' ';'
+prefixdef	: prefixhead optional_prefixplist ';'
 		{
-			unsigned int dst;
+			if (prefix) {
+				unsigned int dst;
 
-			if (prefix->AdvPreferredLifetime >
-			    prefix->AdvValidLifetime)
-			{
-				flog(LOG_ERR, "AdvValidLifeTime must be "
-					"greater than AdvPreferredLifetime in %s, line %d",
-					conf_file, num_lines);
-				ABORT;
-			}
+				if (prefix->AdvPreferredLifetime > prefix->AdvValidLifetime)
+				{
+					flog(LOG_ERR, "AdvValidLifeTime must be "
+						"greater than AdvPreferredLifetime in %s, line %d",
+						conf_file, num_lines);
+					ABORT;
+				}
 
-			if( prefix->if6to4[0] )
-			{
-				if (get_v4addr(prefix->if6to4, &dst) < 0)
+				if ( prefix->if6[0] && prefix->if6to4[0]) {
+					flog(LOG_ERR, "Base6Interface and Base6to4Interface are mutually exclusive at this time.");
+					ABORT;
+				}
+
+				if ( prefix->if6to4[0] )
 				{
-					flog(LOG_ERR, "interface %s has no IPv4 addresses, disabling 6to4 prefix", prefix->if6to4 );
-					prefix->enabled = 0;
-				} else
+					if (get_v4addr(prefix->if6to4, &dst) < 0)
+					{
+						flog(LOG_ERR, "interface %s has no IPv4 addresses, disabling 6to4 prefix", prefix->if6to4 );
+						prefix->enabled = 0;
+					}
+					else
+					{
+						*((uint16_t *)(prefix->Prefix.s6_addr)) = htons(0x2002);
+						memcpy( prefix->Prefix.s6_addr + 2, &dst, sizeof( dst ) );
+					}
+				}
+
+				if ( prefix->if6[0] )
 				{
-					*((uint16_t *)(prefix->Prefix.s6_addr)) = htons(0x2002);
-					memcpy( prefix->Prefix.s6_addr + 2, &dst, sizeof( dst ) );
+					struct ifaddrs *ifap = 0, *ifa = 0;
+					struct AdvPrefix *next = prefix->next;
+
+					if (prefix->PrefixLen != 64) {
+						flog(LOG_ERR, "Only /64 is allowed with Base6Interface.  %s:%d", conf_file, num_lines);
+						ABORT;
+					}
+
+					if (getifaddrs(&ifap) != 0)
+						flog(LOG_ERR, "getifaddrs failed: %s", strerror(errno));
+
+					for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+						struct sockaddr_in6 *s6 = 0;
+						struct sockaddr_in6 *mask = (struct sockaddr_in6 *)ifa->ifa_netmask;
+						struct in6_addr base6prefix;
+						char buf[INET6_ADDRSTRLEN];
+						int i;
+
+						if (strncmp(ifa->ifa_name, prefix->if6, IFNAMSIZ))
+							continue;
+
+						if (ifa->ifa_addr->sa_family != AF_INET6)
+							continue;
+
+						s6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
+
+						if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr))
+							continue;
+
+						base6prefix = get_prefix6(&s6->sin6_addr, &mask->sin6_addr);
+						for (i = 0; i < 8; ++i) {
+							prefix->Prefix.s6_addr[i] &= ~mask->sin6_addr.s6_addr[i];
+							prefix->Prefix.s6_addr[i] |= base6prefix.s6_addr[i];
+						}
+						memset(&prefix->Prefix.s6_addr[8], 0, 8);
+						prefix->AdvRouterAddr = 1;
+						prefix->AutoSelected = 1;
+						prefix->next = next;
+
+						if (inet_ntop(ifa->ifa_addr->sa_family, (void *)&(prefix->Prefix), buf, sizeof(buf)) == NULL)
+							flog(LOG_ERR, "%s: inet_ntop failed in %s, line %d!", ifa->ifa_name, conf_file, num_lines);
+						else
+							dlog(LOG_DEBUG, 3, "auto-selected prefix %s/%d on interface %s from interface %s",
+								buf, prefix->PrefixLen, iface->Name, ifa->ifa_name);
+
+						/* Taking only one prefix from the Base6Interface.  Taking more than one would require allocating new
+						   prefixes and building a list.  I'm not sure how to do that from here. So for now, break. */
+						break;
+					}
+
+					if (ifap)
+						freeifaddrs(ifap);
 				}
 			}
-
 			$$ = prefix;
 			prefix = NULL;
 		}
@@ -390,68 +460,102 @@ prefixdef	: prefixhead '{' optional_prefixplist '}' ';'
 prefixhead	: T_PREFIX IPV6ADDR '/' NUMBER
 		{
 			struct in6_addr zeroaddr;
-			prefix = malloc(sizeof(struct AdvPrefix));
-
-			if (prefix == NULL) {
-				flog(LOG_CRIT, "malloc failed: %s", strerror(errno));
-				ABORT;
-			}
-
-			prefix_init_defaults(prefix);
-
-			if ($4 > MAX_PrefixLen)
-			{
-				flog(LOG_ERR, "invalid prefix length in %s, line %d", conf_file, num_lines);
-				ABORT;
-			}
-
-			prefix->PrefixLen = $4;
-
-			memcpy(&prefix->Prefix, $2, sizeof(struct in6_addr));
-
 			memset(&zeroaddr, 0, sizeof(zeroaddr));
+
 			if (!memcmp($2, &zeroaddr, sizeof(struct in6_addr))) {
+				struct ifaddrs *ifap = 0, *ifa = 0;
+				struct AdvPrefix *next = iface->AdvPrefixList;
 #ifndef HAVE_IFADDRS_H
 				flog(LOG_ERR, "invalid all-zeros prefix in %s, line %d", conf_file, num_lines);
 				ABORT;
 #else
+				while (next) {
+					if (next->AutoSelected) {
+						flog(LOG_ERR, "auto selecting prefixes works only once per interface.  See %s, line %d", conf_file, num_lines);
+						ABORT;
+					}
+					next = next->next;
+				}
+				next = 0;
+
 				dlog(LOG_DEBUG, 5, "all-zeros prefix in %s, line %d, parsing..", conf_file, num_lines);
-				struct ifaddrs *ifap, *ifa;
+
 				if (getifaddrs(&ifap) != 0)
 					flog(LOG_ERR, "getifaddrs failed: %s", strerror(errno));
-			        for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
-				        struct sockaddr_in6 *s6;
+
+				for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+					struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)ifa->ifa_addr;
+					struct sockaddr_in6 *mask = (struct sockaddr_in6 *)ifa->ifa_netmask;
 					char buf[INET6_ADDRSTRLEN];
+
 					if (strncmp(ifa->ifa_name, iface->Name, IFNAMSIZ))
 						continue;
-                			if (ifa->ifa_addr->sa_family != AF_INET6)
-			                        continue;
-					s6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
-	                		if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr))
+
+					if (ifa->ifa_addr->sa_family != AF_INET6)
 						continue;
-					if (inet_ntop(ifa->ifa_addr->sa_family, (void *)&(s6->sin6_addr), buf, sizeof(buf)) == NULL) {
+
+					s6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
+
+					if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr))
+						continue;
+
+					prefix = malloc(sizeof(struct AdvPrefix));
+
+					if (prefix == NULL) {
+						flog(LOG_CRIT, "malloc failed: %s", strerror(errno));
+						ABORT;
+					}
+
+					prefix_init_defaults(prefix);
+					prefix->Prefix = get_prefix6(&s6->sin6_addr, &mask->sin6_addr);
+					prefix->AdvRouterAddr = 1;
+					prefix->AutoSelected = 1;
+					prefix->next = next;
+					next = prefix;
+
+					if (prefix->PrefixLen == 0)
+						prefix->PrefixLen = count_mask(mask);
+
+					if (inet_ntop(ifa->ifa_addr->sa_family, (void *)&(prefix->Prefix), buf, sizeof(buf)) == NULL)
 						flog(LOG_ERR, "%s: inet_ntop failed in %s, line %d!", ifa->ifa_name, conf_file, num_lines);
-					}
-					else {
-						dlog(LOG_DEBUG, 5, "auto-selected prefix %s on interface %s", buf, ifa->ifa_name);
-						memcpy(&prefix->Prefix, &s6->sin6_addr, sizeof(struct in6_addr));
-						prefix->AdvRouterAddr=1;
-						prefix->AutoSelected=1;
-					}
+					else
+						dlog(LOG_DEBUG, 3, "auto-selected prefix %s/%d on interface %s", buf, prefix->PrefixLen, ifa->ifa_name);
 				}
-				if (!memcmp(&prefix->Prefix, &zeroaddr, sizeof(struct in6_addr))) {
-					prefix->enabled = 0;
+
+				if (!prefix) {
 					flog(LOG_WARNING, "no auto-selected prefix on interface %s, disabling advertisements",  iface->Name);
 				}
-				freeifaddrs(ifap);
-				freeifaddrs(ifa);
+
+				if (ifap)
+					freeifaddrs(ifap);
 #endif /* ifndef HAVE_IFADDRS_H */
+			}
+			else {
+				prefix = malloc(sizeof(struct AdvPrefix));
+
+				if (prefix == NULL) {
+					flog(LOG_CRIT, "malloc failed: %s", strerror(errno));
+					ABORT;
+				}
+
+				prefix_init_defaults(prefix);
+
+				if ($4 > MAX_PrefixLen)
+				{
+					flog(LOG_ERR, "invalid prefix length in %s, line %d", conf_file, num_lines);
+					ABORT;
+				}
+
+				prefix->PrefixLen = $4;
+
+				memcpy(&prefix->Prefix, $2, sizeof(struct in6_addr));
 			}
 		}
 		;
 
 optional_prefixplist: /* empty */
-		| prefixplist
+		| '{' /* somewhat empty */ '}'
+		| '{' prefixplist '}'
 		;
 
 prefixplist	: prefixplist prefixparms
@@ -460,36 +564,105 @@ prefixplist	: prefixplist prefixparms
 
 prefixparms	: T_AdvOnLink SWITCH ';'
 		{
-			prefix->AdvOnLinkFlag = $2;
+			if (prefix) {
+				if (prefix->AutoSelected) {
+					struct AdvPrefix *p = prefix;
+					do {
+						p->AdvOnLinkFlag = $2;
+						p = p->next;
+					} while (p && p->AutoSelected);
+				}
+				else
+					prefix->AdvOnLinkFlag = $2;
+			}
 		}
 		| T_AdvAutonomous SWITCH ';'
 		{
-			prefix->AdvAutonomousFlag = $2;
+			if (prefix) {
+				if (prefix->AutoSelected) {
+					struct AdvPrefix *p = prefix;
+					do {
+						p->AdvAutonomousFlag = $2;
+						p = p->next;
+					} while (p && p->AutoSelected);
+				}
+				else
+					prefix->AdvAutonomousFlag = $2;
+			}
 		}
 		| T_AdvRouterAddr SWITCH ';'
 		{
-			if (prefix->AutoSelected && $2 == 0)
-				flog(LOG_WARNING, "prefix automatically selected, AdvRouterAddr always enabled, ignoring config line %d", num_lines);
-			else
-				prefix->AdvRouterAddr = $2;
+			if (prefix) {
+				if (prefix->AutoSelected && $2 == 0)
+					flog(LOG_WARNING, "prefix automatically selected, AdvRouterAddr always enabled, ignoring config line %d", num_lines);
+				else
+					prefix->AdvRouterAddr = $2;
+			}
 		}
 		| T_AdvValidLifetime number_or_infinity ';'
 		{
-			prefix->AdvValidLifetime = $2;
+			if (prefix) {
+				if (prefix->AutoSelected) {
+					struct AdvPrefix *p = prefix;
+					do {
+						p->AdvValidLifetime = $2;
+						p->curr_validlft = $2;
+						p = p->next;
+					} while (p && p->AutoSelected);
+				}
+				else
+					prefix->AdvValidLifetime = $2;
+					prefix->curr_validlft = $2;
+			}
 		}
 		| T_AdvPreferredLifetime number_or_infinity ';'
 		{
-			prefix->AdvPreferredLifetime = $2;
+			if (prefix) {
+				if (prefix->AutoSelected) {
+					struct AdvPrefix *p = prefix;
+					do {
+						p->AdvPreferredLifetime = $2;
+						p->curr_preferredlft = $2;
+						p = p->next;
+					} while (p && p->AutoSelected);
+				}
+				else
+					prefix->AdvPreferredLifetime = $2;
+					prefix->curr_preferredlft = $2;
+			}
 		}
+		| T_DeprecatePrefix SWITCH ';'
+		{
+			prefix->DeprecatePrefixFlag = $2;
+		}
+		| T_DecrementLifetimes SWITCH ';'
+		{
+			prefix->DecrementLifetimesFlag = $2;
+		}
+		| T_Base6Interface name ';'
+		{
+			if (prefix) {
+				if (prefix->AutoSelected) {
+					flog(LOG_ERR, "automatically selecting the prefix and Base6to4Interface are mutually exclusive");
+					ABORT;
+				} /* fallthrough */
+				dlog(LOG_DEBUG, 4, "using prefixes on interface %s for prefixes on interface %s", $2, iface->Name);
+				strncpy(prefix->if6, $2, IFNAMSIZ-1);
+				prefix->if6[IFNAMSIZ-1] = '\0';
+			}
+		}
+
 		| T_Base6to4Interface name ';'
 		{
-			if (prefix->AutoSelected) {
-				flog(LOG_ERR, "automatically selecting the prefix and Base6to4Interface are mutually exclusive");
-				ABORT;
-			} /* fallthrough */
-			dlog(LOG_DEBUG, 4, "using interface %s for 6to4", $2);
-			strncpy(prefix->if6to4, $2, IFNAMSIZ-1);
-			prefix->if6to4[IFNAMSIZ-1] = '\0';
+			if (prefix) {
+				if (prefix->AutoSelected) {
+					flog(LOG_ERR, "automatically selecting the prefix and Base6to4Interface are mutually exclusive");
+					ABORT;
+				} /* fallthrough */
+				dlog(LOG_DEBUG, 4, "using interface %s for 6to4 prefixes on interface %s", $2, iface->Name);
+				strncpy(prefix->if6to4, $2, IFNAMSIZ-1);
+				prefix->if6to4[IFNAMSIZ-1] = '\0';
+			}
 		}
 		;
 
@@ -541,6 +714,10 @@ routeparms	: T_AdvRoutePreference SIGNEDNUMBER ';'
 		| T_AdvRouteLifetime number_or_infinity ';'
 		{
 			route->AdvRouteLifetime = $2;
+		}
+		| T_RemoveRoute SWITCH ';'
+		{
+			route->RemoveRouteFlag = $2;
 		}
 		;
 
@@ -627,6 +804,10 @@ rdnssparms	: T_AdvRDNSSPreference NUMBER ';'
 
 			rdnss->AdvRDNSSLifetime = $2;
 		}
+		| T_FlushRDNSS SWITCH ';'
+		{
+			rdnss->FlushRDNSSFlag = $2;
+		}
 		;
 
 dnssldef	: dnsslhead '{' optional_dnsslplist '}' ';'
@@ -711,19 +892,61 @@ dnsslparms	: T_AdvDNSSLLifetime number_or_infinity ';'
 
 			dnssl->AdvDNSSLLifetime = $2;
 		}
+		| T_FlushDNSSL SWITCH ';'
+		{
+			dnssl->FlushDNSSLFlag = $2;
+		}
 		;
 
-number_or_infinity      : NUMBER
-                        {
-                                $$ = $1;
-                        }
-                        | INFINITY
-                        {
-                                $$ = (uint32_t)~0;
-                        }
-                        ;
+number_or_infinity	: NUMBER
+			{
+				$$ = $1;
+			}
+			| INFINITY
+			{
+				$$ = (uint32_t)~0;
+			}
+			;
 
 %%
+
+static
+int countbits(int b)
+{
+	int count;
+
+	for (count = 0; b != 0; count++) {
+		b &= b - 1; // this clears the LSB-most set bit
+	}
+
+	return (count);
+}
+
+static
+int count_mask(struct sockaddr_in6 *m)
+{
+	struct in6_addr *in6 = &m->sin6_addr;
+	int i;
+	int count = 0;
+
+	for (i = 0; i < 16; ++i) {
+		count += countbits(in6->s6_addr[i]);
+	}
+	return count;
+}
+
+static
+struct in6_addr get_prefix6(struct in6_addr const *addr, struct in6_addr const *mask)
+{
+	struct in6_addr prefix = *addr;
+	int i = 0;
+
+	for (; i < 16; ++i) {
+		prefix.s6_addr[i] &= mask->s6_addr[i];
+	}
+
+	return prefix;
+}
 
 static
 void cleanup(void)

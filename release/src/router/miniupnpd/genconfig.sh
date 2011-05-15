@@ -1,5 +1,5 @@
 #! /bin/sh
-# $Id: genconfig.sh,v 1.41 2011/03/09 15:09:07 nanard Exp $
+# $Id: genconfig.sh,v 1.44 2011/05/13 11:41:26 nanard Exp $
 # miniupnp daemon
 # http://miniupnp.free.fr or http://miniupnp.tuxfamily.org/
 # (c) 2006-2011 Thomas Bernard
@@ -146,7 +146,6 @@ case $OS_NAME in
 			echo "#define USE_PF 1" >> ${CONFIGFILE}
 			FW=pf
 		fi
-		echo "#define USE_PF 1" >> ${CONFIGFILE}
 		OS_URL=http://www.dragonflybsd.org/
 		;;
 	SunOS)
@@ -268,6 +267,19 @@ echo "/*#define HAS_DUMMY_SERVICE*/" >> ${CONFIGFILE}
 echo "#define ENABLE_L3F_SERVICE" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 
+echo "/* Enable the support of IGD v2 specification */" >> ${CONFIGFILE}
+echo "/*#define IGD_V2*/" >> ${CONFIGFILE}
+echo "" >> ${CONFIGFILE}
+
+echo "#ifdef IGD_V2" >> ${CONFIGFILE}
+echo "/* Enable DeviceProtection service (IGDv2) */" >> ${CONFIGFILE}
+echo "#define ENABLE_DP_SERVICE" >> ${CONFIGFILE}
+echo "" >> ${CONFIGFILE}
+echo "/* Enable WANIPv6FirewallControl service (IGDv2) */" >> ${CONFIGFILE}
+echo "#define ENABLE_6FC_SERVICE" >> ${CONFIGFILE}
+echo "#endif /* IGD_V2 */" >> ${CONFIGFILE}
+echo "" >> ${CONFIGFILE}
+
 echo "/* Experimental UPnP Events support. */" >> ${CONFIGFILE}
 echo "#define ENABLE_EVENTS" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
@@ -278,6 +290,11 @@ echo "" >> ${CONFIGFILE}
 
 echo "/* Experimental NFQUEUE support. */" >> ${CONFIGFILE}
 echo "/*#define ENABLE_NFQUEUE*/" >> ${CONFIGFILE}
+echo "" >> ${CONFIGFILE}
+
+echo "/* Enable to make MiniUPnPd more strict about UPnP conformance" >> ${CONFIGFILE}
+echo " * and the messages it receive from control points */" >> ${CONFIGFILE}
+echo "/*#define UPNP_STRICT*/" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 
 echo "#endif" >> ${CONFIGFILE}

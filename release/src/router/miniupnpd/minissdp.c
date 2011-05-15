@@ -1,7 +1,7 @@
-/* $Id: minissdp.c,v 1.19 2010/09/21 15:31:02 nanard Exp $ */
+/* $Id: minissdp.c,v 1.23 2011/05/13 14:01:34 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2010 Thomas Bernard
+ * (c) 2006-2011 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -28,6 +28,8 @@ void ProcessSSDPData(int s, char *bufr, struct sockaddr_in sendername, int n, un
 
 
 #define SSDP_MCAST_ADDR ("239.255.255.250")
+#define LL_SSDP_MCAST_ADDR ("FF02::C")
+#define SL_SSDP_MCAST_ADDR ("FF05::C")
 
 static int
 AddMulticastMembership(int s, in_addr_t ifaddr)
@@ -54,23 +56,23 @@ int
 OpenAndConfSSDPReceiveSocket()
 {
 	int s;
-	int i;
-	int j = 1;
 	struct sockaddr_in sockname;
-	
+	struct lan_addr_s * lan_addr;
+	int j = 1;
+
 	if( (s = socket(PF_INET, SOCK_DGRAM, 0)) < 0)
 	{
 		syslog(LOG_ERR, "socket(udp): %m");
 		return -1;
-	}	
-	
+	}
+
 	memset(&sockname, 0, sizeof(struct sockaddr_in));
-    sockname.sin_family = AF_INET;
-    sockname.sin_port = htons(SSDP_PORT);
+	sockname.sin_family = AF_INET;
+	sockname.sin_port = htons(SSDP_PORT);
 	/* NOTE : it seems it doesnt work when binding on the specific address */
-    /*sockname.sin_addr.s_addr = inet_addr(UPNP_MCAST_ADDR);*/
-    sockname.sin_addr.s_addr = htonl(INADDR_ANY);
-    /*sockname.sin_addr.s_addr = inet_addr(ifaddr);*/
+	/*sockname.sin_addr.s_addr = inet_addr(UPNP_MCAST_ADDR);*/
+	sockname.sin_addr.s_addr = htonl(INADDR_ANY);
+	/*sockname.sin_addr.s_addr = inet_addr(ifaddr);*/
 
 	if(setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &j, sizeof(j)) < 0)
 	{
@@ -78,22 +80,20 @@ OpenAndConfSSDPReceiveSocket()
 	}
 
 
-    if(bind(s, (struct sockaddr *)&sockname, sizeof(struct sockaddr_in)) < 0)
+	if(bind(s, (struct sockaddr *)&sockname, sizeof(struct sockaddr_in)) < 0)
 	{
 		syslog(LOG_ERR, "bind(udp): %m");
 		close(s);
 		return -1;
-    }
+	}
 
-	i = n_lan_addr;
-	while(i>0)
+	for(lan_addr = lan_addrs.lh_first; lan_addr != NULL; lan_addr = lan_addr->list.le_next)
 	{
-		i--;
-		if(AddMulticastMembership(s, lan_addr[i].addr.s_addr) < 0)
+		if(AddMulticastMembership(s, lan_addr->addr.s_addr) < 0)
 		{
 			syslog(LOG_WARNING,
-			       "Failed to add multicast membership for address %s", 
-			       lan_addr[i].str );
+			       "Failed to add multicast membership for interface %s", 
+			       lan_addr->str);
 		}
 	}
 
@@ -160,9 +160,11 @@ OpenAndConfSSDPNotifySockets(int * sockets)
                              struct lan_addr_s * lan_addr, int n_lan_addr)*/
 {
 	int i, j;
-	for(i=0; i<n_lan_addr; i++)
+	struct lan_addr_s * lan_addr;
+
+	for(i=0, lan_addr = lan_addrs.lh_first; lan_addr != NULL; lan_addr = lan_addr->list.le_next, i++)
 	{
-		sockets[i] = OpenAndConfSSDPNotifySocket(lan_addr[i].addr.s_addr);
+		sockets[i] = OpenAndConfSSDPNotifySocket(lan_addr->addr.s_addr);
 		if(sockets[i] < 0)
 		{
 			for(j=0; j<i; j++)
@@ -212,7 +214,8 @@ SendSSDPAnnounce2(int s, struct sockaddr_in sockname,
 	 * DATE: is recommended
 	 * SERVER: OS/ver UPnP/1.0 miniupnpd/1.0
 	 * - check what to put in the 'Cache-Control' header 
-	 * */
+	 *
+	 * have a look at the document "UPnP Device Architecture v1.1 */
 	l = snprintf(buf, sizeof(buf), "HTTP/1.1 200 OK\r\n"
 		"CACHE-CONTROL: max-age=120\r\n"
 		/*"DATE: ...\r\n"*/
@@ -221,10 +224,15 @@ SendSSDPAnnounce2(int s, struct sockaddr_in sockname,
 		"EXT:\r\n"
 		"SERVER: " MINIUPNPD_SERVER_STRING "\r\n"
 		"LOCATION: http://%s:%u" ROOTDESC_PATH "\r\n"
+		"OPT: \"http://schemas.upnp.org/upnp/1/0/\";\r\n" /* UDA v1.1 */
+		"01-NLS: %u\r\n" /* same as BOOTID. UDA v1.1 */
+		"BOOTID.UPNP.ORG: %u\r\n" /* UDA v1.1 */
+		"CONFIGID.UPNP.ORG: %u\r\n" /* UDA v1.1 */
 		"\r\n",
 		st_len, st, suffix,
 		uuidvalue, st_len, st, suffix,
-		host, (unsigned int)port);
+		host, (unsigned int)port,
+		upnp_bootid, upnp_bootid, upnp_configid);
 	n = sendto(s, buf, l, 0,
 	           (struct sockaddr *)&sockname, sizeof(struct sockaddr_in) );
 	syslog(LOG_INFO, "SSDP Announce %d bytes to %s:%d ST: %.*s",n,
@@ -246,7 +254,12 @@ static const char * const known_service_types[] =
 	"urn:schemas-upnp-org:service:WANCommonInterfaceConfig:",
 	"urn:schemas-upnp-org:service:WANIPConnection:",
 	"urn:schemas-upnp-org:service:WANPPPConnection:",
+#ifdef ENABLE_L3F_SERVICE
 	"urn:schemas-upnp-org:service:Layer3Forwarding:",
+#endif
+#ifdef ENABLE_6FC_SERVICE
+	"url:schemas-upnp-org:service:WANIPv6FirewallControl:",
+#endif
 	0
 };
 
@@ -266,21 +279,25 @@ SendSSDPNotifies(int s, const char * host, unsigned short port,
 	while(known_service_types[i])
 	{
 		l = snprintf(bufr, sizeof(bufr), 
-				"NOTIFY * HTTP/1.1\r\n"
-				"HOST:%s:%d\r\n"
-				"Cache-Control:max-age=%u\r\n"
-				"Location:http://%s:%d" ROOTDESC_PATH"\r\n"
-				/*"Server:miniupnpd/1.0 UPnP/1.0\r\n"*/
-				"Server: " MINIUPNPD_SERVER_STRING "\r\n"
-				"NT:%s%s\r\n"
-				"USN:%s::%s%s\r\n"
-				"NTS:ssdp:alive\r\n"
-				"\r\n",
-				SSDP_MCAST_ADDR, SSDP_PORT,
-				lifetime,
-				host, port,
-				known_service_types[i], (i==0?"":"1"),
-				uuidvalue, known_service_types[i], (i==0?"":"1") );
+			"NOTIFY * HTTP/1.1\r\n"
+			"HOST: %s:%d\r\n"
+			"CACHE-CONTROL: max-age=%u\r\n"
+			"lOCATION: http://%s:%d" ROOTDESC_PATH"\r\n"
+			"SERVER: " MINIUPNPD_SERVER_STRING "\r\n"
+			"NT: %s%s\r\n"
+			"USN: %s::%s%s\r\n"
+			"NTS: ssdp:alive\r\n"
+			"OPT: \"http://schemas.upnp.org/upnp/1/0/\";\r\n" /* UDA v1.1 */
+			"01-NLS: %u\r\n" /* same as BOOTID field. UDA v1.1 */
+			"BOOTID.UPNP.ORG: %u\r\n" /* UDA v1.1 */
+			"CONFIGID.UPNP.ORG: %u\r\n" /* UDA v1.1 */
+			"\r\n",
+			SSDP_MCAST_ADDR, SSDP_PORT,
+			lifetime,
+			host, port,
+			known_service_types[i], (i==0?"":"1"),
+			uuidvalue, known_service_types[i], (i==0?"":"1"),
+			upnp_bootid, upnp_bootid, upnp_configid );
 		if(l>=sizeof(bufr))
 		{
 			syslog(LOG_WARNING, "SendSSDPNotifies(): truncated output");
@@ -300,14 +317,12 @@ void
 SendSSDPNotifies2(int * sockets,
                   unsigned short port,
                   unsigned int lifetime)
-/*SendSSDPNotifies2(int * sockets, struct lan_addr_s * lan_addr, int n_lan_addr,
-                  unsigned short port,
-                  unsigned int lifetime)*/
 {
 	int i;
-	for(i=0; i<n_lan_addr; i++)
+	struct lan_addr_s * lan_addr;
+	for(i=0, lan_addr = lan_addrs.lh_first; lan_addr != NULL; lan_addr = lan_addr->list.le_next, i++)
 	{
-		SendSSDPNotifies(sockets[i], lan_addr[i].str, port, lifetime);
+		SendSSDPNotifies(sockets[i], lan_addr->str, port, lifetime);
 	}
 }
 
@@ -335,7 +350,7 @@ ProcessSSDPRequest(int s, unsigned short port)
 
 void ProcessSSDPData(int s, char *bufr, struct sockaddr_in sendername, int n, unsigned short port) {
 	int i, l;
-	int lan_addr_index = 0;
+	struct lan_addr_s * lan_addr = NULL;
 	char * st = 0;
 	int st_len = 0;
 
@@ -379,14 +394,16 @@ void ProcessSSDPData(int s, char *bufr, struct sockaddr_in sendername, int n, un
 	           	   ntohs(sendername.sin_port),
 				   st_len, st);
 			/* find in which sub network the client is */
-			for(i = 0; i<n_lan_addr; i++)
+			for(lan_addr = lan_addrs.lh_first; lan_addr != NULL; lan_addr = lan_addr->list.le_next)
 			{
-				if( (sendername.sin_addr.s_addr & lan_addr[i].mask.s_addr)
-				   == (lan_addr[i].addr.s_addr & lan_addr[i].mask.s_addr))
-				{
-					lan_addr_index = i;
+				if( (sendername.sin_addr.s_addr & lan_addr->mask.s_addr)
+				   == (lan_addr->addr.s_addr & lan_addr->mask.s_addr))
 					break;
-				}
+			}
+			if (lan_addr == NULL)
+			{
+				syslog(LOG_ERR, "Can't find in which sub network the client is");
+				return;
 			}
 			/* Responds to request with a device as ST header */
 			for(i = 0; known_service_types[i]; i++)
@@ -397,7 +414,7 @@ void ProcessSSDPData(int s, char *bufr, struct sockaddr_in sendername, int n, un
 					syslog(LOG_INFO, "Single search found");
 					SendSSDPAnnounce2(s, sendername,
 					                  st, st_len, "",
-					                  lan_addr[lan_addr_index].str, port);
+					                  lan_addr->str, port);
 					break;
 				}
 			}
@@ -411,7 +428,7 @@ void ProcessSSDPData(int s, char *bufr, struct sockaddr_in sendername, int n, un
 					l = (int)strlen(known_service_types[i]);
 					SendSSDPAnnounce2(s, sendername,
 					                  known_service_types[i], l, i==0?"":"1",
-					                  lan_addr[lan_addr_index].str, port);
+					                  lan_addr->str, port);
 				}
 			}
 			/* responds to request by UUID value */
@@ -420,7 +437,7 @@ void ProcessSSDPData(int s, char *bufr, struct sockaddr_in sendername, int n, un
 			{
 				syslog(LOG_INFO, "ssdp:uuid found");
 				SendSSDPAnnounce2(s, sendername, st, st_len, "",
-				                  lan_addr[lan_addr_index].str, port);
+				                  lan_addr->str, port);
 			}
 		}
 		else
@@ -456,15 +473,20 @@ SendSSDPGoodbye(int * sockets, int n_sockets)
 	    for(i=0; known_service_types[i]; i++)
 	    {
 	        l = snprintf(bufr, sizeof(bufr),
-	                 "NOTIFY * HTTP/1.1\r\n"
-	                 "HOST:%s:%d\r\n"
-	                 "NT:%s%s\r\n"
-	                 "USN:%s::%s%s\r\n"
-	                 "NTS:ssdp:byebye\r\n"
-	                 "\r\n",
-	                 SSDP_MCAST_ADDR, SSDP_PORT,
-					 known_service_types[i], (i==0?"":"1"),
-	                 uuidvalue, known_service_types[i], (i==0?"":"1"));
+                 "NOTIFY * HTTP/1.1\r\n"
+                 "HOST: %s:%d\r\n"
+                 "NT: %s%s\r\n"
+                 "USN: %s::%s%s\r\n"
+                 "NTS: ssdp:byebye\r\n"
+				 "OPT: \"http://schemas.upnp.org/upnp/1/0/\";\r\n" /* UDA v1.1 */
+				 "01-NLS: %u\r\n" /* same as BOOTID field. UDA v1.1 */
+				 "BOOTID.UPNP.ORG: %u\r\n" /* UDA v1.1 */
+				 "CONFIGID.UPNP.ORG: %u\r\n" /* UDA v1.1 */
+                 "\r\n",
+                 SSDP_MCAST_ADDR, SSDP_PORT,
+				 known_service_types[i], (i==0?"":"1"),
+                 uuidvalue, known_service_types[i], (i==0?"":"1"),
+                 upnp_bootid, upnp_bootid, upnp_configid);
 	        n = sendto(sockets[j], bufr, l, 0,
 	                   (struct sockaddr *)&sockname, sizeof(struct sockaddr_in) );
 			if(n < 0)
