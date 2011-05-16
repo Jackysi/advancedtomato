@@ -955,9 +955,9 @@ const defaults_t defaults[] = {
 // new_arpbind
 	{ "new_arpbind_enable",			"0"			},
 	{ "new_arpbind_only",			"0"			},
-	{ "new_arpbind_list",			"" 			},
 
 // NoCatSplash. !!Victek
+#ifdef TCONFIG_NOCAT
 	{ "NC_enable",		"0" }, // enable NoCatSplash
 	{ "NC_Verbosity",	"2" },
 	{ "NC_GatewayName",	"Tomato RAF Portal" },
@@ -973,7 +973,7 @@ const defaults_t defaults[] = {
         { "NC_LoginTimeout",	"3600"	},
         { "NC_RenewTimeout",	"0" },
         { "NC_AllowedWebHosts",	"www.victek.is-a-geek.com" },
-
+#endif
 	{ NULL, NULL	}
 };
 

@@ -407,9 +407,13 @@ function v_mins(e, quiet, min, max)
 	return 0;
 }
 
-function v_macip(e, quiet, bok, ipp)
+function v_macip(e, quiet, bok, lan_ipaddr, lan_netmask)
 {
 	var s, a, b, c, d, i;
+	var ipp, temp;
+
+	temp = lan_ipaddr.split('.');
+	ipp = temp[0]+'.'+temp[1]+'.'+temp[2]+'.';
 
 	if ((e = E(e)) == null) return 0;
 	s = e.value.replace(/\s+/g, '');
@@ -424,41 +428,51 @@ function v_macip(e, quiet, bok, ipp)
 				return false;
 			}
 		}
-        else e.value = a;
+		else e.value = a;
 		ferror.clear(e);
 		return true;
 	}
 
 	a = s.split('-');
+    
 	if (a.length > 2) {
 		ferror.set(e, 'Invalid IP address range', quiet);
 		return false;
 	}
-	c = 0;
+	
+	if (a[0].match(/^\d+$/)){
+		a[0]=ipp+a[0];
+		if ((a.length == 2) && (a[1].match(/^\d+$/)))
+			a[1]=ipp+a[1];
+	}
+	else{
+		if ((a.length == 2) && (a[1].match(/^\d+$/))){
+			temp=a[0].split('.');
+			a[1]=temp[0]+'.'+temp[1]+'.'+temp[2]+'.'+a[1];
+		}
+	}
 	for (i = 0; i < a.length; ++i) {
-		b = a[i];
-		if (b.match(/^\d+$/)) b = ipp + b;
-
+		b = a[i];    
 		b = fixIP(b);
 		if (!b) {
 			ferror.set(e, 'Invalid IP address', quiet);
 			return false;
 		}
 
-		if (b.indexOf(ipp) != 0) {
+		if ((aton(b) & aton(lan_netmask))!=(aton(lan_ipaddr) & aton(lan_netmask))) {
 			ferror.set(e, 'IP address outside of LAN', quiet);
 			return false;
 		}
 
 		d = (b.split('.'))[3];
-		if (d <= c) {
+		if (parseInt(d) <= parseInt(c)) {
 			ferror.set(e, 'Invalid IP address range', quiet);
 			return false;
 		}
 
 		a[i] = c = d;
 	}
-	e.value = ipp + a.join('-');
+	e.value = b.split('.')[0] + '.' + b.split('.')[1] + '.' + b.split('.')[2] + '.' + a.join('-');
 	return true;
 }
 
