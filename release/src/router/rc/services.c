@@ -971,8 +971,10 @@ void start_syslog(void)
 			}
 		}
 
+		if (nvram_match("log_file_custom", "0")) {
 		argv[argc++] = "-s";
 		argv[argc++] = rot_siz;
+		}
 
 		if (isdigit(*b_opt)) {
 			argv[argc++] = "-b";
