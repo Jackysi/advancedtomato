@@ -390,7 +390,7 @@ const defaults_t defaults[] = {
 
 // advanced-firewall
 //		{ "block_loopback",		"0"				},	// nat loopback
-	{ "nf_loopback",		"1"				},
+	{ "nf_loopback",		"0"				},
 	{ "block_wan",			"1"				},	// block inbound icmp
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
