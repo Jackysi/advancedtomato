@@ -16,12 +16,12 @@
 
 # To rebuild everything and all configurations:
 #  make distclean
-#  make V1=whatever V2=sub-whatever VPN=vpn3.6 a b c d m nc
+#  make V1=whatever V2=sub-whatever VPN=vpn3.6 a b c d m n o
 # The 1st "whatever" would be the build number, the sub-whatever would
 #	be the update to the version.
 #
 # Example:
-# make V1=8516 V2="-jffs.1" a b c d m s nc
+# make V1=8516 V2="-jffs.1" a b c d m s n o
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -38,7 +38,6 @@ include ./target.mak
 # But if you don't give anything for "V1", it'll get a default from tomato_version.
 V1 ?= "--def"
 VPN ?= "VPN"
-NC ?="NOCAT"
 ifeq ($(CONFIG_LINUX26),y)
 ND = "K26"
 else
@@ -223,6 +222,7 @@ what:
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT
+# NFS BTCLIENT
 
 define RouterOptions
 	@( \
@@ -691,11 +691,14 @@ r2d:
 n60m:
 	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=1
 
-n60nc:
-	@$(MAKE) r2nc NVRAM_SIZE=60 LINKSYS_E=1
+n60n:
+	@$(MAKE) r2n NVRAM_SIZE=60 LINKSYS_E=1
 
 n60e:
 	@$(MAKE) r2e NVRAM_SIZE=60 LINKSYS_E=1
+
+n60o:
+	@$(MAKE) r2o NVRAM_SIZE=60 LINKSYS_E=1
 
 n60s:
 	@$(MAKE) bin MIPS32=r2 B=S USB="" NVRAM_SIZE=60 LINKSYS_E=1 BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y BUILD_DESC="Std"
@@ -782,8 +785,9 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2i          MIPS Release 2 I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
 	@echo "r2f          MIPS Release 2 F build (no USB support minus CIFS and RIPv1/2)"
 	@echo "n60m         Linksys E-series build (60KB NVRAM, standard plus extras)"
-	@echo "n60nc        Linksys E-series build (60KB NVRAM, standard plus extras, plus VPN, plus NOCAT)"
+	@echo "n60n         Linksys E-series build (60KB NVRAM, Big)"
 	@echo "n60e         Linksys E-series build (60KB NVRAM, standard plus VPN and extras)"
+	@echo "n60o         Linksys E-series build (60KB NVRAM, Big plus BT client)"
 	@echo "n60s         Linksys E-series build (60KB NVRAM, no USB support)"
 	@echo "n60v         Linksys E-series build (60KB NVRAM, VPN with no USB support)"
 endif
