@@ -945,6 +945,7 @@ static const nvset_t nvset_list[] = {
 	{ "bt_port",                    V_PORT                          },
 	{ "bt_dir",                     V_LENGTH(0, 50)                 },
 	{ "bt_settings",                V_LENGTH(0, 50)                 },
+	{ "bt_settings_custom",         V_LENGTH(0, 50)                 },
 	{ "bt_incomplete",              V_01                            },
 	{ "bt_rpc_enable",              V_01                            },
 	{ "bt_rpc_wan",                 V_01                            },

@@ -39,7 +39,9 @@ void start_bittorrent(void)
     if (nvram_match( "bt_ratio_enable", "1") ) { ph = "true"; } else { ph = "false"; }
     if (nvram_match( "bt_dht", "1") ) { pi = "true"; } else { pi = "false"; }
     if (nvram_match( "bt_pex", "1") ) { pj = "true"; } else { pj = "false"; }
-    if (nvram_match( "bt_settings", "down_dir" ) ) { pk = nvram_safe_get( "bt_dir" ); } else { pk = nvram_safe_get( "bt_settings" ); }
+    if (nvram_match( "bt_settings", "down_dir" ) ){ pk = nvram_safe_get( "bt_dir" ); }
+        else if (nvram_match( "bt_settings", "custom" ) ) { pk = nvram_safe_get( "bt_settings_custom" ); }
+        else { pk = nvram_safe_get( "bt_settings" ); }
     if (nvram_match( "bt_auth", "1") ) { pl = "true"; } else { pl = "false"; }
     if (nvram_match( "bt_blocklist", "1") ) { pm = "true"; } else { pm = "false"; }
 

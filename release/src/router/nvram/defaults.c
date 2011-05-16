@@ -805,6 +805,7 @@ const defaults_t defaults[] = {
 	{ "bt_dir",				"/mnt"			},
 	{ "bt_incomplete",			"1"			},
 	{ "bt_settings",			"down_dir"		},
+	{ "bt_settings_custom",			"/tmp/btclient"		},
 	{ "bt_rpc_enable",			"1"			},
 	{ "bt_rpc_wan",				"0"			},
 	{ "bt_auth",				"1"			},
