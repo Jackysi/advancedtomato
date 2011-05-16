@@ -450,6 +450,7 @@ static inline void start_vpn_eas() { }
 #define write_vpn_resolv(f) (0)
 #endif
 
+
 // new_qoslimit.c
 extern void ipt_qoslimit(int chain);
 extern void new_qoslimit_start(void);
@@ -459,5 +460,13 @@ extern void new_qoslimit_stop(void);
 extern void new_arpbind_start(void);
 extern void new_arpbind_stop(void);
 
+#ifdef TCONFIG_NOCAT
+// nocat.c 
+extern void start_nocat(); 
+extern void stop_nocat(); 
+extern void reset_nocat(); 
+#endif
 
 #endif
+
+

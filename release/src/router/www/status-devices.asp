@@ -328,7 +328,7 @@ function init()
 <body onload='init()'>
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
-	<div class='title'>Tomato</div>
+	<div class='title'>Tomato RAF</div>
 	<div class='version'>Version <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>

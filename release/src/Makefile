@@ -16,12 +16,12 @@
 
 # To rebuild everything and all configurations:
 #  make distclean
-#  make V1=whatever V2=sub-whatever VPN=vpn3.6 a b c d m
+#  make V1=whatever V2=sub-whatever VPN=vpn3.6 a b c d m nc
 # The 1st "whatever" would be the build number, the sub-whatever would
 #	be the update to the version.
 #
 # Example:
-# make V1=8516 V2="-jffs.1" a b c d m s
+# make V1=8516 V2="-jffs.1" a b c d m s nc
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -38,6 +38,7 @@ include ./target.mak
 # But if you don't give anything for "V1", it'll get a default from tomato_version.
 V1 ?= "--def"
 VPN ?= "VPN"
+NC ?="NOCAT"
 ifeq ($(CONFIG_LINUX26),y)
 ND = "K26"
 else
@@ -221,7 +222,7 @@ what:
 # USB ("USB"|"")
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
-# SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM
+# SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT
 
 define RouterOptions
 	@( \
@@ -311,6 +312,10 @@ define RouterOptions
 	if [ "$(IPV6SUPP)" = "y" ]; then \
 		sed -i "/TCONFIG_IPV6/d" $(1); \
 		echo "TCONFIG_IPV6=y" >>$(1); \
+	fi; \
+	if [ "$(NOCAT)" = "y" ]; then \
+		sed -i "/TCONFIG_NOCAT/d" $(1); \
+		echo "TCONFIG_NOCAT=y" >>$(1); \
 	fi; \
 	if [ "$(OPENVPN)" = "y" ]; then \
 		sed -i "/TCONFIG_LZO/d" $(1); \
@@ -605,12 +610,12 @@ else
 	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB"
 endif
 
-## Make the "normal (with NTFS support) + VPN + BT Client" build
+## Make the "BIG + BT" build
 o:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E NFS=y BUILD_DESC="$(VPN)-BT" USB="USB" BTCLIENT=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E NFS=y BUILD_DESC="Big-BT" USB="USB" NOCAT=y BTCLIENT=y
 else
-	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)-BT" USB="USB" BTCLIENT=y
+	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="Big-BT" USB="USB" BTCLIENT=y NFS=y NOCAT=y
 endif
 
 ## Make the "normal with Extras and NTFS" build
@@ -621,12 +626,12 @@ else
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB"
 endif
 
-## Make the "normal with Extras and NTFS and BT Client" build
+## Make the "BIG with Extras and NTFS and NFS and NOCAT and IPv6" build
 n:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M NFS=y BUILD_DESC="Ext-BT" USB="USB" BTCLIENT=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M NFS=y BUILD_DESC="Big" USB="USB" NOCAT=y
 else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext-BT" USB="USB" BTCLIENT=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Big" USB="USB" NFS=y NOCAT=y
 endif
 
 ## Make the "No USB" build
@@ -685,6 +690,9 @@ r2d:
 
 n60m:
 	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=1
+
+n60nc:
+	@$(MAKE) r2nc NVRAM_SIZE=60 LINKSYS_E=1
 
 n60e:
 	@$(MAKE) r2e NVRAM_SIZE=60 LINKSYS_E=1
@@ -752,28 +760,29 @@ help:
 	@echo "c            C build (standard minus CIFS)"
 	@echo "d            D build (standard minus Samba server)"
 	@echo "m            M build (standard plus extra utilities and NTFS support)"
-	@echo "n            N build (standard plus extra utilities and NTFS support and BT Client)"
+	@echo "n            N build (Big - extra utilities and NTFS support and VPN and Nocat and NFS)"
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "e            E build (standard plus VPN, extra utilities and NTFS support)"
-	@echo "o            O build (standard plus VPN, extra utilities and NTFS support and BT Client)"
+	@echo "o            O build (Big plus BT client)"
 	@echo "i            I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
 else
 	@echo "e            E build (standard plus VPN and NTFS support)"
-	@echo "o            O build (standard plus VPN and NTFS support and BT Client)"
+	@echo "o            O build (Big plus BT client)"
 endif
 	@echo "s            S build (no USB support)"
 	@echo "f            F build (no USB support minus CIFS and RIPv1/2)"
 	@echo "v            V build (VPN with no USB support)"
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2m          MIPS Release 2 M build (standard plus extras)"
-	@echo "r2n          MIPS Release 2 N build (standard plus extras plus BT Client)"
+	@echo "r2n          MIPS Release 2 N build (Big - extra utilities and NTFS support and VPN and Nocat and NFS)"
 	@echo "r2e          MIPS Release 2 E build (standard plus VPN and extras)"
-	@echo "r2o          MIPS Release 2 O build (standard plus VPN and extras and BT Client)"
+	@echo "r2o          MIPS Release 2 O build (Big plus BT client)"
 	@echo "r2v          MIPS Release 2 V build (VPN with no USB support)"
 	@echo "r2s          MIPS Release 2 S build (no USB support)"
 	@echo "r2i          MIPS Release 2 I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
 	@echo "r2f          MIPS Release 2 F build (no USB support minus CIFS and RIPv1/2)"
 	@echo "n60m         Linksys E-series build (60KB NVRAM, standard plus extras)"
+	@echo "n60nc        Linksys E-series build (60KB NVRAM, standard plus extras, plus VPN, plus NOCAT)"
 	@echo "n60e         Linksys E-series build (60KB NVRAM, standard plus VPN and extras)"
 	@echo "n60s         Linksys E-series build (60KB NVRAM, no USB support)"
 	@echo "n60v         Linksys E-series build (60KB NVRAM, VPN with no USB support)"
@@ -787,4 +796,4 @@ endif
 	@echo "prepk        -C Linux oldconfig dep"
 	
 .PHONY: all clean distclean cleanimage cleantools cleankernel prepk what setprofile help
-.PHONY: a b c d m Makefile allversions tomato_profile.mak
+.PHONY: a b c d m nc Makefile allversions tomato_profile.mak

@@ -112,22 +112,29 @@ Copyright (C) 2010 Keith Moyer,<br>
 <br>
 <!-- VPN-END -->
 
+<b>"Shibby" features:</b><br>
 <!-- BT-BEGIN -->
-<b>Transmission 2.22 integration and GUI,</b><br>
+- Transmission 2.22 integration and GUI<br>
 <!-- BT-END -->
 <!-- NFS-BEGIN -->
-<b>NFS utils integration and GUI,</b><br>
+- NFS utils integration and GUI,<br>
 <!-- NFS-END -->
+- Custom log file path
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
 
-<b>"Victek RAF" features:</b><br> 
-- ARP Binding<br>
+<b>"Victek" features:</b><br> 
 - Extended Sysinfo<br>
-- Multilanguage<br>
-Copyright (C) 2007-2011 Vicente Soriano, Michał Rupental<br>
+<!-- NOCAT-BEGIN -->
+- Captive Portal. (Based in NocatSplash)<br>
+<!-- NOCAT-END -->
+Copyright (C) 2007-2011 Ofer Chen & Vicente Soriano<br>
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
+<br>
+
+<b>"Victek/Toastman" features:</b><br>
+- Static ARP<br>
 <br>
 
 <b>"Victek/PrinceAMD/Phykris/Shibby" features:</b><br>
