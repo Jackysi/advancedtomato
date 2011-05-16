@@ -117,9 +117,9 @@ Copyright (C) 2010 Keith Moyer,<br>
 - Transmission 2.22 integration and GUI<br>
 <!-- BT-END -->
 <!-- NFS-BEGIN -->
-- NFS utils integration and GUI,<br>
+- NFS utils integration and GUI<br>
 <!-- NFS-END -->
-- Custom log file path
+- Custom log file path<br>
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
