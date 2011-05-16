@@ -21,7 +21,7 @@ textarea {
 }
 </style>
 <script type='text/javascript'>
-//	<% nvram("bt_enable,bt_custom,bt_port,bt_dir,bt_settings,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_dht,bt_pex,bt_blocklist,bt_blocklist_url,bt_sleep,bt_check,bt_queue,bt_maxdown,bt_maxactive"); %>
+//	<% nvram("bt_enable,bt_custom,bt_port,bt_dir,bt_settings,bt_settings_custom,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_dht,bt_pex,bt_blocklist,bt_blocklist_url,bt_sleep,bt_check,bt_queue,bt_maxdown,bt_maxactive"); %>
 
 var btgui_link = '&nbsp;&nbsp;<a href="http://' + location.hostname +':<% nv('bt_port_gui'); %>" target="_blank"><i>[Click here to open Transmission GUI]</i></a>';
 
@@ -68,6 +68,9 @@ function verifyFields(focused, quiet)
 	E('_f_bt_queue').disabled = !a;
 	E('_bt_maxdown').disabled = !a || !j;
 	E('_bt_maxactive').disabled = !a || !j;
+
+	var k = (E('_bt_settings').value == 'custom');
+	elem.display('_bt_settings_custom', k && a);
 
 	if (!v_length('_bt_custom', quiet, 0, 2048)) ok = 0;
 
@@ -308,7 +311,8 @@ createFieldTable('', [
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Save settings location', name: 'bt_settings', type: 'select', options: [
+	{ title: 'Save settings location', multi: [
+		{ name: 'bt_settings', type: 'select', options: [
 			['down_dir','In the Download directory (Recommended)'],
 /* JFFS2-BEGIN */
 			['/jffs','JFFS2'],
@@ -316,12 +320,15 @@ createFieldTable('', [
 /* CIFS-BEGIN */
 			['/cifs1','CIFS 1'],['/cifs2','CIFS 2'],
 /* CIFS-END */
-			['/tmp','RAM (Temporary)']], value: nvram.bt_settings },
+			['/tmp','RAM (Temporary)'], ['custom','Custom'] ], value: nvram.bt_settings, suffix: ' ' },
+		{ name: 'bt_settings_custom', type: 'text', maxlen: 40, size: 40, value: nvram.bt_settings_custom }
+		] },
 	{ title: 'DHT enable', name: 'f_bt_dht', type: 'checkbox', value: nvram.bt_dht == '1' },
 	{ title: 'PEX enable', name: 'f_bt_pex', type: 'checkbox', value: nvram.bt_pex == '1' },
 	{ title: 'Blocklist', multi: [
 		{ name: 'f_bt_blocklist', type: 'checkbox', value: nvram.bt_blocklist == '1', suffix: '  ' },
-		{ name: 'bt_blocklist_url', type: 'text', maxlen: 80, size: 80, value: nvram.bt_blocklist_url } ] },
+		{ name: 'bt_blocklist_url', type: 'text', maxlen: 80, size: 80, value: nvram.bt_blocklist_url }
+		] },
 	null,
 	{ title: '<a href="https://trac.transmissionbt.com/wiki/EditConfigFiles" target="_new">Transmission</a><br>Custom configuration', name: 'bt_custom', type: 'textarea', value: nvram.bt_custom }
 ]);
