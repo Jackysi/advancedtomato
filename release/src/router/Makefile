@@ -1516,7 +1516,7 @@ transmission/stamp-h1: openssl libcurl libevent zlib
 		-ffunction-sections -fdata-sections" \
 		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
 		CPPFLAGS="-I$(TOP)/zlib" \
-		$(CONFIGURE) --prefix=/usr --disable-gtk --disable-nls \
+		$(CONFIGURE) --target=mipsel-linux --prefix=/usr --disable-gtk --disable-nls \
 		--enable-lightweight --enable-largefile \
 		--with-ssl="$(TOP)/openssl" \
 		--with-ssl-headers="$(TOP)/openssl/include/" \
