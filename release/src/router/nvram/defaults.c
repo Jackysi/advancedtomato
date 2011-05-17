@@ -617,6 +617,8 @@ const defaults_t defaults[] = {
 	{ "log_remoteip",		""				},
 	{ "log_remoteport",		"514"			},
 	{ "log_file",			"1"				},
+	{ "log_file_custom",	"0"				},
+	{ "log_file_path",		"/var/log/messages"},
 	{ "log_limit",			"60"			},
 	{ "log_in",				"0"				},
 	{ "log_out",			"0"				},
