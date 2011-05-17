@@ -86,7 +86,8 @@ function init()
 <img src='kinaree.png' alt='Linux &amp; Tomato' id='tux'>
 </div>
 <div style='margin:30px 30px;font-size:14px;color:#555;'>
-
+<br>
+<br>
 <b>Tomato Firmware v<% version(1); %></b><br>
 - Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates<br>
 - Support for additional router models, dual-band and Wireless-N mode.<br>

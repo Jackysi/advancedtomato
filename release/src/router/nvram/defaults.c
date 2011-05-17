@@ -569,12 +569,14 @@ const defaults_t defaults[] = {
 // admin-log
 	{ "log_remote",			"0"				},
 	{ "log_remoteip",		""				},
-	{ "log_remoteport",		"514"			},
+	{ "log_remoteport",		"514"				},
 	{ "log_file",			"1"				},
-	{ "log_limit",			"60"			},
-	{ "log_in",				"0"				},
+	{ "log_file_custom",		"0"				},
+	{ "log_file_path",		"/var/log/messages"		},
+	{ "log_limit",			"60"				},
+	{ "log_in",			"0"				},
 	{ "log_out",			"0"				},
-	{ "log_mark",			"60"			},
+	{ "log_mark",			"60"				},
 	{ "log_events",			""				},
 
 // admin-log-webmonitor
