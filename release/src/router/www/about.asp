@@ -127,7 +127,6 @@ Copyright (C) 2007-2011 Vicente Soriano<br>
 - 500 entry limit in Access Restriction rules<br>
 - Configurable QOS class names<br>
 - Client Monitor Graphs<br>
-- CPU frequency selector<br>
 - Faster page refresh settings<br>
 - Fast conntrack timeout settings<br>
 - UPnP Support for vlans (if exists, loads upnpconfig.custom from JFFS)<br>

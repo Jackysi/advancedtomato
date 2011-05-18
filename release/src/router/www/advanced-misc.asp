@@ -22,7 +22,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("t_features,wait_time,wan_speed,clkfreq,jumbo_frame_enable,jumbo_frame_size,ctf_disable"); %>
+//	<% nvram("t_features,wait_time,wan_speed,jumbo_frame_enable,jumbo_frame_size,ctf_disable"); %>
 
 et1000 = features('1000et');
 
@@ -86,12 +86,6 @@ createFieldTable('', [
 	{ title: 'Boot Wait Time *', name: 'wait_time', type: 'select', options: a, value: fixInt(nvram.wait_time, 3, 20, 3) },
 	{ title: 'WAN Port Speed *', name: 'wan_speed', type: 'select', options: [[0,'10Mb Full'],[1,'10Mb Half'],[2,'100Mb Full'],[3,'100Mb Half'],[4,'Auto']], value: nvram.wan_speed },
 
-
-//	{ title: 'CPU Frequency *', name: 'clkfreq', type: 'text', maxlen: 3, size: 3, value: nvram.clkfreq },
-
-	{ title: 'CPU Frequency **', name: 'clkfreq', type: 'select', options: [[,],[188,'188'],[200,'200'],[216,'216'],[225,'225'],[240,'240'],[250,'250'],[266,'266'],[300,'300'],[354,'354'],[400,'400'],[453,'453'],[480,'480'],[500,'500'],[532,'532']], value: nvram.clkfreq },
-
-
 	null,
 
 /* CTF-BEGIN */
@@ -106,21 +100,14 @@ createFieldTable('', [
 ]);
 </script>
 <br>
-<small>*  Not all models support these options.</small>
-<br>
-<small>** Set CPU frequency to enable the "Overview" display. You must reboot the router for the new setting to take effect.</small>
-</div>
-
-
-
 
 <div>
 	<ul>
 	<br>
 	<br>
-	<li> Not all models support these options.
-	<li> Set a CPU frequency to enable the "Overview" display.
-	<li> You must reboot the router for the setting to take effect.
+	<small>
+	* Not all models support these options.
+	</small>
 	</ul>
 </div>
 
