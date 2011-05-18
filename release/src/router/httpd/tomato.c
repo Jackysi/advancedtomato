@@ -507,7 +507,7 @@ static const nvset_t nvset_list[] = {
 	{ "ntp_kiss",			V_LENGTH(0, 255)	},
 
 // basic-static
-	{ "dhcpd_static",		V_LENGTH(0, 106*251)},	// 106 (max chars per entry) x 100 entries
+	{ "dhcpd_static",		V_LENGTH(0, 106*251)},		// 106 (max chars per entry) x "n" entries
 
 // basic-ddns
 	{ "ddnsx0",				V_LENGTH(0, 2048)	},
@@ -772,7 +772,7 @@ static const nvset_t nvset_list[] = {
 	{ "https_lanport",		V_PORT				},
 	{ "web_wl_filter",		V_01				},
 	{ "web_css",			V_LENGTH(1, 32)		},
-	{ "web_mx",				V_LENGTH(0, 128)	},
+	{ "web_mx",			V_LENGTH(0, 128)	},
 	{ "http_wanport",		V_PORT				},
 	{ "telnetd_eas",		V_01				},
 	{ "telnetd_port",		V_PORT				},
@@ -975,6 +975,7 @@ static const nvset_t nvset_list[] = {
 	{ "NC_enable",			V_01				},
 	{ "NC_Verbosity",		V_RANGE(0, 10)			},
         { "NC_GatewayName",		V_LENGTH(0, 255)		},
+	{ "NC_GatewayPort",		V_PORT				},
         { "NC_ForcedRedirect",		V_01				},
         { "NC_HomePage",		V_LENGTH(0, 255)		},
         { "NC_DocumentRoot",		V_LENGTH(0, 255)		},

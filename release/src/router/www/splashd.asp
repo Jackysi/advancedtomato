@@ -25,7 +25,10 @@ textarea {
 }
 </style>
 <script type='text/javascript'>
-//	<% nvram("lan_ipaddr,NC_enable,NC_Verbosity,NC_GatewayName,NC_ForcedRedirect,NC_HomePage,NC_DocumentRoot,NC_LoginTimeout,NC_IdleTimeout,NC_MaxMissedARP,NC_ExcludePorts,NC_IncludePorts,NC_AllowedWebHosts,NC_MACWhiteList"); %>
+
+//	<% nvram("lan_ipaddr,NC_enable,NC_Verbosity,NC_GatewayName,NC_GatewayPort,NC_ForcedRedirect,NC_HomePage,NC_DocumentRoot,NC_LoginTimeout,NC_IdleTimeout,NC_MaxMissedARP,NC_ExcludePorts,NC_IncludePorts,NC_AllowedWebHosts,NC_MACWhiteList"); %>
+
+
 function fix(name)
 {
  var i;
@@ -117,6 +120,7 @@ createFieldTable('', [
 	{ title: 'Enable',  name: 'f_NC_enable', type: 'checkbox', value: nvram.NC_enable == '1' },
 	{ title: 'Log Info Level',  name: 'NC_Verbosity', type: 'text', maxlen: 10, size: 2, value: nvram.NC_Verbosity },
 	{ title: 'Gateway Name', name: 'NC_GatewayName', type: 'text', maxlen: 255, size: 34, value: nvram.NC_GatewayName },
+	{ title: 'Gateway Port', indent: 2, name: 'NC_GatewayPort', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.NC_GatewayPort, 5280) },
 	{ title: 'Captive Site Forwarding', name: 'f_NC_ForcedRedirect', type: 'checkbox', value: (nvram.NC_ForcedRedirect == '1') },	
 		{ title: 'Home Page', indent: 2, name: 'NC_HomePage', type: 'text', maxlen: 255, size: 34, value: nvram.NC_HomePage },
 	{ title: 'Welcome HTML Path', name: 'NC_DocumentRoot', type: 'text', maxlen: 255, size: 20, value: nvram.NC_DocumentRoot, suffix: '<span>&nbsp;/splash.html</span>' },
@@ -152,6 +156,7 @@ createFieldTable('', [
 <li><b>Enable</b> - The router will show a Welcome banner when a client attempts to access the Internet.<br>
 <li><b>Log Info Level</b> - Verbosity level for log messages from this module, Level 0=Silent, 10=Verbose, (Default=2).<br>
 <li><b>Gateway name</b> - The name of the gateway appearing in the Welcome banner.<br>
+<li><b>Gateway port</b> - The port number of the gateway. Default=5280.<br>
 <li><b>Captive Site Forwarding</b> - When active, a 'Home Page' will appear after you click "Agree" in the Welcome banner.<br>
 <li><b>Home Page</b> - The URL for the 'Home Page' mentioned above is located.<br>
 <li><b>Welcome HTML Path</b> - The location where the Welcome banner is stored.<br>

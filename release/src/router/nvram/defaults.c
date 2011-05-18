@@ -917,29 +917,32 @@ const defaults_t defaults[] = {
 
 #endif	// 0
 
-
 // arpbind
 	{ "arpbind_enable",			"0"			},
 	{ "arpbind_only",			"0"			},
 	{ "arpbind_list",			"" 			},
 
+#ifdef TCONFIG_NOCAT
+
 // NoCatSplash. !!Victek
 	{ "NC_enable",		"0" 					}, 	// enable NoCatSplash
-	{ "NC_Verbosity",	"2"					},
-	{ "NC_GatewayName",	"Tomato Portal" 			},
+	{ "NC_Verbosity",	"0"					},	// logging verbose on startup!
+	{ "NC_GatewayName",	"WWW Portal" 				},
         { "NC_GatewayPort",	"5280" 					},
         { "NC_GatewayMode",	"Open" 					},
         { "NC_DocumentRoot",	"/tmp/splashd" 				},
         { "NC_ExcludePorts",	"1863" 					},
-        { "NC_HomePage",	"http://victek.is-a-geek.com" 		},
+        { "NC_HomePage",	"" 					},
         { "NC_ForcedRedirect",	"0" 					},
         { "NC_IdleTimeout",	"0" 					},
         { "NC_MaxMissedARP",	"5" 					},
 	{ "NC_PeerChecktimeout", "0"					},
         { "NC_LoginTimeout",	"3600"					},
         { "NC_RenewTimeout",	"0" 					},
-        { "NC_AllowedWebHosts",	"www.victek.is-a-geek.com"		},
-	{ NULL, NULL	}
+        { "NC_AllowedWebHosts",	""					},
+	{ NULL, NULL}
+#endif
+
 };
 
 const defaults_t if_generic[] = {
