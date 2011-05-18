@@ -1509,7 +1509,7 @@ libevent-install: libevent
 	install -d $(TOP)/libevent/staged
 	$(MAKE) -C libevent DESTDIR=$(TOP)/libevent/staged install
 
-transmission/stamp-h1: openssl libcurl libevent zlib gettext
+transmission/stamp-h1: openssl libcurl libevent zlib
 	cd transmission && CC=$(CC) AR=$(AR) LD=$(LD) STRIP='mipsel-uclibc-strip' \
 		CFLAGS="-Os -Wall -fno-delete-null-pointer-checks -funit-at-a-time \
 		--param large-function-growth=800 --param max-inline-insns-single=3000 \
