@@ -1435,17 +1435,20 @@ libevent-install: libevent
 	install libevent/.libs/libevent-2.0.so.5.1.0 $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5
 	$(STRIP) -s $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5
 
-transmission/stamp-h1: openssl libcurl libevent zlib
+transmission/stamp-h1: openssl libcurl libevent zlib gettext
 	cd transmission && CC=$(CC) AR=$(AR) LD=$(LD) STRIP='mipsel-uclibc-strip' \
 		CFLAGS="-Os -Wall -fno-delete-null-pointer-checks -funit-at-a-time \
 		--param large-function-growth=800 --param max-inline-insns-single=3000 \
-		-ffunction-sections -fdata-sections" \
+		-ffunction-sections -fdata-sections \
+		-O2 -O0 -std=gnu99 -ggdb3 -W -Wpointer-arith -Wformat-security -Wcast-align -Wundef \
+		-Wcast-align -Wstrict-prototypes -Wmissing-declarations -Wmissing-format-attribute \
+		-Wredundant-decls -Wnested-externs -Wunused-parameter -Wwrite-strings -Winline -Wfloat-equal \
+		-Wextra -Wdeclaration-after-statement -Winit-self" \
 		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
-		CPPFLAGS="-I$(TOP)/zlib" \
+		CPPFLAGS="-I$(TOP)/zlib -O3 -DTR_EMBEDDED" \
+		ac_cv_header_libintl_h=no \
 		$(CONFIGURE) --target=mipsel-linux --prefix=/usr --disable-gtk --disable-nls \
 		--enable-lightweight --enable-largefile \
-		--with-ssl="$(TOP)/openssl" \
-		--with-ssl-headers="$(TOP)/openssl/include/" \
 		LIBCURL_CFLAGS="-I$(TOP)/libcurl/include" \
 		LIBCURL_LIBS="-L$(TOP)/libcurl/lib/.libs/ -lcurl" \
 		LIBEVENT_CFLAGS="-I$(TOP)/libevent/include" \
