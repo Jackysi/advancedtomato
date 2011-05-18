@@ -223,7 +223,7 @@ void ipt_qoslimit(int chain)
 						break;
 					case MAC_ADDRESS:
 						ipt_write(
-							"-A PREROUTING -m iprange --src-range %s -p udp -m limit --limit %s/sec -j ACCEPT\n"
+							"-A PREROUTING -m mac --mac-source %s -p udp -m limit --limit %s/sec -j ACCEPT\n"
 							,ipaddr,udplimit);
 						break;
 					case IP_RANGE:
