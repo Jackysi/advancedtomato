@@ -54,6 +54,22 @@ function uploadButton()
 
 function verifyFields(focused, quiet)
 {
+	var a = E('_f_NC_enable').checked;
+
+	E('_NC_Verbosity').disabled = !a;
+	E('_NC_GatewayName').disabled = !a;
+	E('_NC_GatewayPort').disabled = !a;
+	E('_f_NC_ForcedRedirect').disabled = !a;
+	E('_NC_HomePage').disabled = !a;
+	E('_NC_DocumentRoot').disabled = !a;
+	E('_NC_LoginTimeout').disabled = !a;
+	E('_NC_IdleTimeout').disabled = !a;
+	E('_NC_MaxMissedARP').disabled = !a;
+	E('_NC_ExcludePorts').disabled = !a;
+	E('_NC_IncludePorts').disabled = !a;
+	E('_NC_AllowedWebHosts').disabled = !a;
+	E('_NC_MACWhiteList').disabled = !a;
+
 	if ( (E('_f_NC_ForcedRedirect').checked) && (!v_length('_NC_HomePage', quiet, 1, 255))) return 0;
 	if (!v_length('_NC_GatewayName', quiet, 1, 255)) return 0;	
 	if ( (E('_NC_IdleTimeout').value != '0') && (!v_range('_NC_IdleTimeout', quiet, 300))) return 0;
