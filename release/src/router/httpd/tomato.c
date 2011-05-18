@@ -1006,6 +1006,7 @@ static const nvset_t nvset_list[] = {
 	{ "NC_enable",			V_01				},
 	{ "NC_Verbosity",		V_RANGE(0, 10)			},
 	{ "NC_GatewayName",		V_LENGTH(0, 255)		},
+	{ "NC_GatewayPort",		V_PORT				},
 	{ "NC_ForcedRedirect",		V_01				},
 	{ "NC_HomePage",		V_LENGTH(0, 255)		},
 	{ "NC_DocumentRoot",		V_LENGTH(0, 255)		},
