@@ -273,6 +273,7 @@ function init()
 <div>* To specify multiple hostnames per device, separate them with spaces.</div>
 </small>
 <br>
+<br>
 <div class='section-title'>Static ARP</div>
 <div class='section'>
 	<script type='text/javascript'>
@@ -286,8 +287,7 @@ function init()
 <div>* Static ARP only works if there's one MAC address per IP. You can't enter two MAC addresses in the above table.</small></div>
 <br>
 <br>
-<br>
-<div>When using "Restrict unlisted machines":-</div>
+<div>When using <b>"Restrict unlisted machines"</b>:</div>
 <br>
 <small>
 <div>* DHCP should issue a "range" with only 1 IP address, preferably the administrator's IP - e.g. 192.168.1.100-100.</div><br>
