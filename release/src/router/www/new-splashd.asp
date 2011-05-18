@@ -65,7 +65,7 @@ function save()
   if (verifyFields(null, 0)==0) return;
   var fom = E('_fom');
   fom.NC_enable.value = E('_f_NC_enable').checked ? 1 : 0;
-  fom.NC_ForcedRedirect.value = E('_f_NC_ForcedRedirect').checked ? 1 : 0;  
+  fom.NC_ForcedRedirect.value = E('_f_NC_ForcedRedirect').checked ? 1 : 0;
 
   // blank spaces with commas
   e = E('_NC_ExcludePorts');
@@ -80,13 +80,13 @@ function save()
   e = E('_NC_MACWhiteList');
   e.value = e.value.replace(/\,+/g, ' ');
 
-  fields.disableAll(E('upload-section'), 1);  
+  fields.disableAll(E('upload-section'), 1);
   if (fom.NC_enable.value == 0) {
-  	fom._service.value = 'splashd-stop';
+	fom._service.value = 'splashd-stop';
   }
- 	else {
-  	fom._service.value = 'splashd-restart'; 	
- 	}
+	else {
+	fom._service.value = 'splashd-restart';
+	}
 	form.submit('_fom', 1);
 }
 
@@ -118,17 +118,17 @@ createFieldTable('', [
 	{ title: 'Log Info Level',  name: 'NC_Verbosity', type: 'text', maxlen: 10, size: 2, value: nvram.NC_Verbosity },
 	{ title: 'Gateway Name', name: 'NC_GatewayName', type: 'text', maxlen: 255, size: 34, value: nvram.NC_GatewayName },
 	{ title: 'Gateway Port', indent: 2, name: 'NC_GatewayPort', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.NC_GatewayPort, 5280) },
-	{ title: 'Captive Site Forwarding', name: 'f_NC_ForcedRedirect', type: 'checkbox', value: (nvram.NC_ForcedRedirect == '1') },	
+	{ title: 'Captive Site Forwarding', name: 'f_NC_ForcedRedirect', type: 'checkbox', value: (nvram.NC_ForcedRedirect == '1') },
 	{ title: 'Home Page', indent: 2, name: 'NC_HomePage', type: 'text', maxlen: 255, size: 34, value: nvram.NC_HomePage },
 	{ title: 'Welcome html Path', name: 'NC_DocumentRoot', type: 'text', maxlen: 255, size: 20, value: nvram.NC_DocumentRoot, suffix: '<span>&nbsp;/splash.html</span>' },
-	{ title: 'Logged Timeout', name: 'NC_LoginTimeout', type: 'text', maxlen: 8, size: 4, value: nvram.NC_LoginTimeout },	
+	{ title: 'Logged Timeout', name: 'NC_LoginTimeout', type: 'text', maxlen: 8, size: 4, value: nvram.NC_LoginTimeout },
 	{ title: 'Idle Timeout', name: 'NC_IdleTimeout', type: 'text', maxlen: 8, size: 4, value: nvram.NC_IdleTimeout },
 	{ title: 'Max Missed ARP', name: 'NC_MaxMissedARP', type: 'text', maxlen: 10, size: 2, value: nvram.NC_MaxMissedARP },
 	null,
 	{ title: 'Excluded Ports to be redirected', name: 'NC_ExcludePorts', type: 'text', maxlen: 255, size: 34, value: nvram.NC_ExcludePorts },
-	{ title: 'Included Ports to be redirected', name: 'NC_IncludePorts', type: 'text', maxlen: 255, size: 34, value: nvram.NC_IncludePorts },	
-	{ title: 'URL Excluded off Captive Portal', name: 'NC_AllowedWebHosts', type: 'text', maxlen: 255, size: 34, value: nvram.NC_AllowedWebHosts },	
-	{ title: 'MAC Address Whitelist', name: 'NC_MACWhiteList', type: 'text', maxlen: 255, size: 34, value: nvram.NC_MACWhiteList }		
+	{ title: 'Included Ports to be redirected', name: 'NC_IncludePorts', type: 'text', maxlen: 255, size: 34, value: nvram.NC_IncludePorts },
+	{ title: 'URL Excluded off Captive Portal', name: 'NC_AllowedWebHosts', type: 'text', maxlen: 255, size: 34, value: nvram.NC_AllowedWebHosts },
+	{ title: 'MAC Address Whitelist', name: 'NC_MACWhiteList', type: 'text', maxlen: 255, size: 34, value: nvram.NC_MACWhiteList }
 ]);
 </script>
 </form>
@@ -169,7 +169,7 @@ createFieldTable('', [
 </td></tr>
 <tr><td id='footer' colspan=2>
  <form>
- <span id='footer-msg'></span>	
+ <span id='footer-msg'></span>
  <input type='button' value='Save' id='save-button' onclick='save()'>
  <input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
  </form>
