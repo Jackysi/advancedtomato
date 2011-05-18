@@ -76,7 +76,7 @@
 /* Define to 1 if the system has the type `fd_mask'. */
 #define _EVENT_HAVE_FD_MASK 1
 
-/* Define to 1 if you have the `getaddrinfo' function. */
+/* Do we have getaddrinfo()? */
 #define _EVENT_HAVE_GETADDRINFO 1
 
 /* Define to 1 if you have the `getegid' function. */
@@ -86,7 +86,7 @@
 #define _EVENT_HAVE_GETEUID 1
 
 /* Define this if you have any gethostbyname_r() */
-#define _EVENT_HAVE_GETHOSTBYNAME_R 1
+/* #undef _EVENT_HAVE_GETHOSTBYNAME_R */
 
 /* Define this if gethostbyname_r takes 3 arguments */
 /* #undef _EVENT_HAVE_GETHOSTBYNAME_R_3_ARG */
@@ -95,7 +95,7 @@
 /* #undef _EVENT_HAVE_GETHOSTBYNAME_R_5_ARG */
 
 /* Define this if gethostbyname_r takes 6 arguments */
-#define _EVENT_HAVE_GETHOSTBYNAME_R_6_ARG 1
+/* #undef _EVENT_HAVE_GETHOSTBYNAME_R_6_ARG */
 
 /* Define to 1 if you have the `getnameinfo' function. */
 #define _EVENT_HAVE_GETNAMEINFO 1
@@ -104,7 +104,7 @@
 #define _EVENT_HAVE_GETPROTOBYNUMBER 1
 
 /* Define to 1 if you have the `getservbyname' function. */
-#define _EVENT_HAVE_GETSERVBYNAME 1
+/* #undef _EVENT_HAVE_GETSERVBYNAME */
 
 /* Define to 1 if you have the `gettimeofday' function. */
 #define _EVENT_HAVE_GETTIMEOFDAY 1
@@ -128,7 +128,7 @@
 /* #undef _EVENT_HAVE_KQUEUE */
 
 /* Define if the system has zlib */
-/* #undef _EVENT_HAVE_LIBZ */
+#define _EVENT_HAVE_LIBZ 1
 
 /* Define to 1 if you have the <memory.h> header file. */
 #define _EVENT_HAVE_MEMORY_H 1
@@ -146,7 +146,7 @@
 #define _EVENT_HAVE_NETINET_IN_H 1
 
 /* Define if the system has openssl */
-/* #undef _EVENT_HAVE_OPENSSL */
+#define _EVENT_HAVE_OPENSSL 1
 
 /* Define to 1 if you have the `pipe' function. */
 #define _EVENT_HAVE_PIPE 1
@@ -194,7 +194,7 @@
 #define _EVENT_HAVE_SIGNAL 1
 
 /* Define to 1 if you have the `splice' function. */
-#define _EVENT_HAVE_SPLICE 1
+/* #undef _EVENT_HAVE_SPLICE */
 
 /* Define to 1 if you have the <stdarg.h> header file. */
 #define _EVENT_HAVE_STDARG_H 1
@@ -246,6 +246,9 @@
 
 /* Define to 1 if `sin_len' is a member of `struct sockaddr_in'. */
 /* #undef _EVENT_HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+
+/* Define to 1 if the system has the type `struct sockaddr_storage'. */
+#define _EVENT_HAVE_STRUCT_SOCKADDR_STORAGE 1
 
 /* Define to 1 if `ss_family' is a member of `struct sockaddr_storage'. */
 #define _EVENT_HAVE_STRUCT_SOCKADDR_STORAGE_SS_FAMILY 1
@@ -305,7 +308,7 @@
 #define _EVENT_HAVE_SYS_WAIT_H 1
 
 /* Define if TAILQ_FOREACH is defined in <sys/queue.h> */
-#define _EVENT_HAVE_TAILQFOREACH 1
+/* #undef _EVENT_HAVE_TAILQFOREACH */
 
 /* Define if timeradd is defined in <sys/time.h> */
 #define _EVENT_HAVE_TIMERADD 1
@@ -346,12 +349,15 @@
 /* Define if kqueue works correctly with pipes */
 /* #undef _EVENT_HAVE_WORKING_KQUEUE */
 
+/* Define to 1 if you have the <zlib.h> header file. */
+#define _EVENT_HAVE_ZLIB_H 1
+
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
 #define _EVENT_LT_OBJDIR ".libs/"
 
 /* Numeric representation of the version */
-#define _EVENT_NUMERIC_VERSION 0x02000a00
+#define _EVENT_NUMERIC_VERSION 0x02000b00
 
 /* Name of package */
 #define _EVENT_PACKAGE "libevent"
@@ -406,7 +412,7 @@
 #define _EVENT_TIME_WITH_SYS_TIME 1
 
 /* Version number of package */
-#define _EVENT_VERSION "2.0.10-stable"
+#define _EVENT_VERSION "2.0.11-stable"
 
 /* Define to appropriate substitue if compiler doesnt have __func__ */
 /* #undef _EVENT___func__ */

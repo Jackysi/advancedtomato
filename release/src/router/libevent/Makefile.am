@@ -32,7 +32,7 @@ RELEASE = -release 2.0
 #
 # Once an RC is out, DO NOT MAKE ANY ABI-BREAKING CHANGES IN THAT SERIES
 # UNLESS YOU REALLY REALLY HAVE TO.
-VERSION_INFO = 5:1:0
+VERSION_INFO = 6:0:1
 
 # History:          RELEASE    VERSION_INFO
 #  2.0.1-alpha --     2.0        1:0:0
@@ -72,7 +72,7 @@ VERSION_INFO = 5:1:0
 dist_bin_SCRIPTS = event_rpcgen.py
 
 pkgconfigdir=$(libdir)/pkgconfig
-pkgconfig_DATA=libevent.pc
+LIBEVENT_PKGCONFIG=libevent.pc
 
 # These sources are conditionally added by configure.in or conditionally
 # included from other files.
@@ -89,14 +89,21 @@ EXTRA_DIST = \
 	Makefile.nmake test/Makefile.nmake \
 	$(PLATFORM_DEPENDENT_SRC)
 
-lib_LTLIBRARIES = libevent.la libevent_core.la libevent_extra.la
+LIBEVENT_LIBS_LA = libevent.la libevent_core.la libevent_extra.la
 if PTHREADS
-lib_LTLIBRARIES += libevent_pthreads.la
-pkgconfig_DATA += libevent_pthreads.pc
+LIBEVENT_LIBS_LA += libevent_pthreads.la
+LIBEVENT_PKGCONFIG += libevent_pthreads.pc
 endif
 if OPENSSL
-lib_LTLIBRARIES += libevent_openssl.la
-pkgconfig_DATA += libevent_openssl.pc
+LIBEVENT_LIBS_LA += libevent_openssl.la
+LIBEVENT_PKGCONFIG += libevent_openssl.pc
+endif
+
+if INSTALL_LIBEVENT
+lib_LTLIBRARIES = $(LIBEVENT_LIBS_LA)
+pkgconfig_DATA = $(LIBEVENT_PKGCONFIG)
+else
+noinst_LTLIBRARIES =  $(LIBEVENT_LIBS_LA)
 endif
 
 SUBDIRS = . include sample test
@@ -209,9 +216,15 @@ noinst_HEADERS = util-internal.h mm-internal.h ipv6-internal.h \
 	WIN32-Code/tree.h \
 	compat/sys/queue.h
 
-include_HEADERS = event.h evhttp.h evdns.h evrpc.h evutil.h
+EVENT1_HDRS = event.h evhttp.h evdns.h evrpc.h evutil.h
 
-INCLUDES = -I$(srcdir)/compat -I$(srcdir)/include -I./include $(SYS_INCLUDES)
+if INSTALL_LIBEVENT
+include_HEADERS = $(EVENT1_HDRS)
+else
+noinst_HEADERS += $(EVENT1_HDRS)
+endif
+
+AM_CPPFLAGS = -I$(srcdir)/compat -I$(srcdir)/include -I./include $(SYS_INCLUDES)
 
 verify: check
 

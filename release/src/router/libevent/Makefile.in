@@ -48,13 +48,15 @@ host_triplet = @host@
 @EPOLL_BACKEND_TRUE@am__append_9 = epoll.c
 @EVPORT_BACKEND_TRUE@am__append_10 = evport.c
 @SIGNAL_SUPPORT_TRUE@am__append_11 = signal.c
+@INSTALL_LIBEVENT_FALSE@am__append_12 = $(EVENT1_HDRS)
 subdir = .
-DIST_COMMON = README $(am__configure_deps) $(dist_bin_SCRIPTS) \
-	$(include_HEADERS) $(noinst_HEADERS) $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in $(srcdir)/config.h.in \
-	$(srcdir)/libevent.pc.in $(srcdir)/libevent_openssl.pc.in \
+DIST_COMMON = README $(am__configure_deps) $(am__include_HEADERS_DIST) \
+	$(am__noinst_HEADERS_DIST) $(dist_bin_SCRIPTS) \
+	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
+	$(srcdir)/config.h.in $(srcdir)/libevent.pc.in \
+	$(srcdir)/libevent_openssl.pc.in \
 	$(srcdir)/libevent_pthreads.pc.in $(top_srcdir)/configure \
-	ChangeLog compile config.guess config.sub depcomp epoll_sub.c \
+	ChangeLog config.guess config.sub depcomp epoll_sub.c \
 	install-sh ltmain.sh missing
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/acx_pthread.m4 \
@@ -93,7 +95,7 @@ am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
 am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" \
 	"$(DESTDIR)$(pkgconfigdir)" "$(DESTDIR)$(includedir)"
-LTLIBRARIES = $(lib_LTLIBRARIES)
+LTLIBRARIES = $(lib_LTLIBRARIES) $(noinst_LTLIBRARIES)
 am__DEPENDENCIES_1 =
 libevent_la_DEPENDENCIES = @LTLIBOBJS@ $(am__DEPENDENCIES_1)
 am__libevent_la_SOURCES_DIST = event.c evthread.c buffer.c \
@@ -130,6 +132,8 @@ libevent_la_OBJECTS = $(am_libevent_la_OBJECTS)
 libevent_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(libevent_la_LDFLAGS) $(LDFLAGS) -o $@
+@INSTALL_LIBEVENT_FALSE@am_libevent_la_rpath =
+@INSTALL_LIBEVENT_TRUE@am_libevent_la_rpath = -rpath $(libdir)
 libevent_core_la_DEPENDENCIES = @LTLIBOBJS@ $(am__DEPENDENCIES_1)
 am__libevent_core_la_SOURCES_DIST = event.c evthread.c buffer.c \
 	bufferevent.c bufferevent_sock.c bufferevent_filter.c \
@@ -143,6 +147,8 @@ libevent_core_la_OBJECTS = $(am_libevent_core_la_OBJECTS)
 libevent_core_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(libevent_core_la_LDFLAGS) $(LDFLAGS) -o $@
+@INSTALL_LIBEVENT_FALSE@am_libevent_core_la_rpath =
+@INSTALL_LIBEVENT_TRUE@am_libevent_core_la_rpath = -rpath $(libdir)
 @BUILD_WIN32_TRUE@am__DEPENDENCIES_2 = libevent_core.la
 libevent_extra_la_DEPENDENCIES = $(am__DEPENDENCIES_2) \
 	$(am__DEPENDENCIES_1)
@@ -151,6 +157,8 @@ libevent_extra_la_OBJECTS = $(am_libevent_extra_la_OBJECTS)
 libevent_extra_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(libevent_extra_la_LDFLAGS) $(LDFLAGS) -o $@
+@INSTALL_LIBEVENT_FALSE@am_libevent_extra_la_rpath =
+@INSTALL_LIBEVENT_TRUE@am_libevent_extra_la_rpath = -rpath $(libdir)
 @OPENSSL_TRUE@libevent_openssl_la_DEPENDENCIES =  \
 @OPENSSL_TRUE@	$(am__DEPENDENCIES_2)
 am__libevent_openssl_la_SOURCES_DIST = bufferevent_openssl.c
@@ -159,7 +167,9 @@ libevent_openssl_la_OBJECTS = $(am_libevent_openssl_la_OBJECTS)
 libevent_openssl_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(libevent_openssl_la_LDFLAGS) $(LDFLAGS) -o $@
-@OPENSSL_TRUE@am_libevent_openssl_la_rpath = -rpath $(libdir)
+@INSTALL_LIBEVENT_FALSE@@OPENSSL_TRUE@am_libevent_openssl_la_rpath =
+@INSTALL_LIBEVENT_TRUE@@OPENSSL_TRUE@am_libevent_openssl_la_rpath =  \
+@INSTALL_LIBEVENT_TRUE@@OPENSSL_TRUE@	-rpath $(libdir)
 libevent_pthreads_la_LIBADD =
 am__libevent_pthreads_la_SOURCES_DIST = evthread_pthread.c
 @PTHREADS_TRUE@am_libevent_pthreads_la_OBJECTS = evthread_pthread.lo
@@ -167,7 +177,9 @@ libevent_pthreads_la_OBJECTS = $(am_libevent_pthreads_la_OBJECTS)
 libevent_pthreads_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(libevent_pthreads_la_LDFLAGS) $(LDFLAGS) -o $@
-@PTHREADS_TRUE@am_libevent_pthreads_la_rpath = -rpath $(libdir)
+@INSTALL_LIBEVENT_FALSE@@PTHREADS_TRUE@am_libevent_pthreads_la_rpath =
+@INSTALL_LIBEVENT_TRUE@@PTHREADS_TRUE@am_libevent_pthreads_la_rpath =  \
+@INSTALL_LIBEVENT_TRUE@@PTHREADS_TRUE@	-rpath $(libdir)
 SCRIPTS = $(dist_bin_SCRIPTS)
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -198,6 +210,16 @@ RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	installcheck-recursive installdirs-recursive pdf-recursive \
 	ps-recursive uninstall-recursive
 DATA = $(pkgconfig_DATA)
+am__include_HEADERS_DIST = event.h evhttp.h evdns.h evrpc.h evutil.h
+am__noinst_HEADERS_DIST = util-internal.h mm-internal.h \
+	ipv6-internal.h evrpc-internal.h strlcpy-internal.h \
+	evbuffer-internal.h bufferevent-internal.h http-internal.h \
+	event-internal.h evthread-internal.h ht-internal.h \
+	defer-internal.h minheap-internal.h log-internal.h \
+	evsignal-internal.h evmap-internal.h changelist-internal.h \
+	iocp-internal.h ratelim-internal.h \
+	WIN32-Code/event2/event-config.h WIN32-Code/tree.h \
+	compat/sys/queue.h event.h evhttp.h evdns.h evrpc.h evutil.h
 HEADERS = $(include_HEADERS) $(noinst_HEADERS)
 RECURSIVE_CLEAN_TARGETS = mostlyclean-recursive clean-recursive	\
   distclean-recursive maintainer-clean-recursive
@@ -274,6 +296,7 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LIBEVENT_GC_SECTIONS = @LIBEVENT_GC_SECTIONS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
@@ -394,7 +417,7 @@ RELEASE = -release 2.0
 #
 # Once an RC is out, DO NOT MAKE ANY ABI-BREAKING CHANGES IN THAT SERIES
 # UNLESS YOU REALLY REALLY HAVE TO.
-VERSION_INFO = 5:1:0
+VERSION_INFO = 6:0:1
 
 # History:          RELEASE    VERSION_INFO
 #  2.0.1-alpha --     2.0        1:0:0
@@ -431,7 +454,7 @@ VERSION_INFO = 5:1:0
 # series won't be binary-compatible.
 dist_bin_SCRIPTS = event_rpcgen.py
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = libevent.pc $(am__append_2) $(am__append_4)
+LIBEVENT_PKGCONFIG = libevent.pc $(am__append_2) $(am__append_4)
 
 # These sources are conditionally added by configure.in or conditionally
 # included from other files.
@@ -448,8 +471,11 @@ EXTRA_DIST = \
 	Makefile.nmake test/Makefile.nmake \
 	$(PLATFORM_DEPENDENT_SRC)
 
-lib_LTLIBRARIES = libevent.la libevent_core.la libevent_extra.la \
+LIBEVENT_LIBS_LA = libevent.la libevent_core.la libevent_extra.la \
 	$(am__append_1) $(am__append_3)
+@INSTALL_LIBEVENT_TRUE@lib_LTLIBRARIES = $(LIBEVENT_LIBS_LA)
+@INSTALL_LIBEVENT_TRUE@pkgconfig_DATA = $(LIBEVENT_PKGCONFIG)
+@INSTALL_LIBEVENT_FALSE@noinst_LTLIBRARIES = $(LIBEVENT_LIBS_LA)
 SUBDIRS = . include sample test
 @BUILD_WIN32_FALSE@SYS_LIBS = 
 @BUILD_WIN32_TRUE@SYS_LIBS = -lws2_32
@@ -495,15 +521,13 @@ noinst_HEADERS = util-internal.h mm-internal.h ipv6-internal.h \
 	evrpc-internal.h strlcpy-internal.h evbuffer-internal.h \
 	bufferevent-internal.h http-internal.h event-internal.h \
 	evthread-internal.h ht-internal.h defer-internal.h \
-	minheap-internal.h log-internal.h evsignal-internal.h evmap-internal.h \
-	changelist-internal.h iocp-internal.h \
-	ratelim-internal.h \
-	WIN32-Code/event2/event-config.h \
-	WIN32-Code/tree.h \
-	compat/sys/queue.h
-
-include_HEADERS = event.h evhttp.h evdns.h evrpc.h evutil.h
-INCLUDES = -I$(srcdir)/compat -I$(srcdir)/include -I./include $(SYS_INCLUDES)
+	minheap-internal.h log-internal.h evsignal-internal.h \
+	evmap-internal.h changelist-internal.h iocp-internal.h \
+	ratelim-internal.h WIN32-Code/event2/event-config.h \
+	WIN32-Code/tree.h compat/sys/queue.h $(am__append_12)
+EVENT1_HDRS = event.h evhttp.h evdns.h evrpc.h evutil.h
+@INSTALL_LIBEVENT_TRUE@include_HEADERS = $(EVENT1_HDRS)
+AM_CPPFLAGS = -I$(srcdir)/compat -I$(srcdir)/include -I./include $(SYS_INCLUDES)
 DISTCLEANFILES = *~ libevent.pc ./include/event2/event-config.h
 all: $(BUILT_SOURCES) config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
@@ -598,12 +622,21 @@ clean-libLTLIBRARIES:
 	  echo "rm -f \"$${dir}/so_locations\""; \
 	  rm -f "$${dir}/so_locations"; \
 	done
+
+clean-noinstLTLIBRARIES:
+	-test -z "$(noinst_LTLIBRARIES)" || rm -f $(noinst_LTLIBRARIES)
+	@list='$(noinst_LTLIBRARIES)'; for p in $$list; do \
+	  dir="`echo $$p | sed -e 's|/[^/]*$$||'`"; \
+	  test "$$dir" != "$$p" || dir=.; \
+	  echo "rm -f \"$${dir}/so_locations\""; \
+	  rm -f "$${dir}/so_locations"; \
+	done
 libevent.la: $(libevent_la_OBJECTS) $(libevent_la_DEPENDENCIES) 
-	$(libevent_la_LINK) -rpath $(libdir) $(libevent_la_OBJECTS) $(libevent_la_LIBADD) $(LIBS)
+	$(libevent_la_LINK) $(am_libevent_la_rpath) $(libevent_la_OBJECTS) $(libevent_la_LIBADD) $(LIBS)
 libevent_core.la: $(libevent_core_la_OBJECTS) $(libevent_core_la_DEPENDENCIES) 
-	$(libevent_core_la_LINK) -rpath $(libdir) $(libevent_core_la_OBJECTS) $(libevent_core_la_LIBADD) $(LIBS)
+	$(libevent_core_la_LINK) $(am_libevent_core_la_rpath) $(libevent_core_la_OBJECTS) $(libevent_core_la_LIBADD) $(LIBS)
 libevent_extra.la: $(libevent_extra_la_OBJECTS) $(libevent_extra_la_DEPENDENCIES) 
-	$(libevent_extra_la_LINK) -rpath $(libdir) $(libevent_extra_la_OBJECTS) $(libevent_extra_la_LIBADD) $(LIBS)
+	$(libevent_extra_la_LINK) $(am_libevent_extra_la_rpath) $(libevent_extra_la_OBJECTS) $(libevent_extra_la_LIBADD) $(LIBS)
 libevent_openssl.la: $(libevent_openssl_la_OBJECTS) $(libevent_openssl_la_DEPENDENCIES) 
 	$(libevent_openssl_la_LINK) $(am_libevent_openssl_la_rpath) $(libevent_openssl_la_OBJECTS) $(libevent_openssl_la_LIBADD) $(LIBS)
 libevent_pthreads.la: $(libevent_pthreads_la_OBJECTS) $(libevent_pthreads_la_DEPENDENCIES) 
@@ -1103,7 +1136,7 @@ maintainer-clean-generic:
 clean: clean-recursive
 
 clean-am: clean-generic clean-libLTLIBRARIES clean-libtool \
-	mostlyclean-am
+	clean-noinstLTLIBRARIES mostlyclean-am
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
@@ -1181,22 +1214,22 @@ uninstall-am: uninstall-dist_binSCRIPTS uninstall-includeHEADERS \
 
 .PHONY: $(RECURSIVE_CLEAN_TARGETS) $(RECURSIVE_TARGETS) CTAGS GTAGS \
 	all all-am am--refresh check check-am clean clean-generic \
-	clean-libLTLIBRARIES clean-libtool ctags ctags-recursive dist \
-	dist-all dist-bzip2 dist-gzip dist-lzma dist-shar dist-tarZ \
-	dist-xz dist-zip distcheck distclean distclean-compile \
-	distclean-generic distclean-hdr distclean-libtool \
-	distclean-tags distcleancheck distdir distuninstallcheck dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-data install-data-am install-dist_binSCRIPTS \
-	install-dvi install-dvi-am install-exec install-exec-am \
-	install-html install-html-am install-includeHEADERS \
-	install-info install-info-am install-libLTLIBRARIES \
-	install-man install-pdf install-pdf-am install-pkgconfigDATA \
-	install-ps install-ps-am install-strip installcheck \
-	installcheck-am installdirs installdirs-am maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags tags-recursive uninstall uninstall-am \
+	clean-libLTLIBRARIES clean-libtool clean-noinstLTLIBRARIES \
+	ctags ctags-recursive dist dist-all dist-bzip2 dist-gzip \
+	dist-lzma dist-shar dist-tarZ dist-xz dist-zip distcheck \
+	distclean distclean-compile distclean-generic distclean-hdr \
+	distclean-libtool distclean-tags distcleancheck distdir \
+	distuninstallcheck dvi dvi-am html html-am info info-am \
+	install install-am install-data install-data-am \
+	install-dist_binSCRIPTS install-dvi install-dvi-am \
+	install-exec install-exec-am install-html install-html-am \
+	install-includeHEADERS install-info install-info-am \
+	install-libLTLIBRARIES install-man install-pdf install-pdf-am \
+	install-pkgconfigDATA install-ps install-ps-am install-strip \
+	installcheck installcheck-am installdirs installdirs-am \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
+	pdf pdf-am ps ps-am tags tags-recursive uninstall uninstall-am \
 	uninstall-dist_binSCRIPTS uninstall-includeHEADERS \
 	uninstall-libLTLIBRARIES uninstall-pkgconfigDATA
 

@@ -1432,11 +1432,8 @@ libevent-clean:
 
 libevent-install: libevent
 	install -d $(INSTALLDIR)/libevent/usr/lib
-	install libevent/.libs/libevent-2.0.so.5.0.1 $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5.0.1
-	$(STRIP) -s $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5.0.1
-	cd $(INSTALLDIR)/libevent/usr/lib/ && \
-		ln -sf libevent-2.0.so.5.0.1 libevent-2.0.so.5 && \
-		ln -sf libevent-2.0.so.5.0.1 libevent.so
+	install libevent/.libs/libevent-2.0.so.5.1.0 $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5
+	$(STRIP) -s $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5
 
 transmission/stamp-h1: openssl libcurl libevent zlib
 	cd transmission && CC=$(CC) AR=$(AR) LD=$(LD) STRIP='mipsel-uclibc-strip' \
