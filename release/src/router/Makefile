@@ -1504,7 +1504,7 @@ libevent-clean:
 
 libevent-install: libevent
 	install -d $(INSTALLDIR)/libevent/usr/lib
-	install libevent/.libs/libevent-2.0.so.5.0.1 $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5
+	install libevent/.libs/libevent-2.0.so.5.1.0 $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5
 	$(STRIP) -s $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5
 	install -d $(TOP)/libevent/staged
 	$(MAKE) -C libevent DESTDIR=$(TOP)/libevent/staged install

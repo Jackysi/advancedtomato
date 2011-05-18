@@ -604,6 +604,9 @@ ac_includes_default="\
 ac_subst_vars='am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
+INSTALL_LIBEVENT_FALSE
+INSTALL_LIBEVENT_TRUE
+LIBEVENT_GC_SECTIONS
 OPENSSL_FALSE
 OPENSSL_TRUE
 PTHREADS_FALSE
@@ -633,6 +636,8 @@ OPENSSL_LIBS
 ZLIB_REGRESS_FALSE
 ZLIB_REGRESS_TRUE
 ZLIB_LIBS
+BUILD_REGRESS_FALSE
+BUILD_REGRESS_TRUE
 LIBTOOL_DEPS
 OTOOL64
 OTOOL
@@ -648,14 +653,6 @@ DUMPBIN
 LD
 FGREP
 SED
-host_os
-host_vendor
-host_cpu
-host
-build_os
-build_vendor
-build_cpu
-build
 LIBTOOL
 EGREP
 GREP
@@ -677,6 +674,14 @@ CPPFLAGS
 LDFLAGS
 CFLAGS
 CC
+host_os
+host_vendor
+host_cpu
+host
+build_os
+build_vendor
+build_cpu
+build
 am__untar
 am__tar
 AMTAR
@@ -747,6 +752,9 @@ enable_thread_support
 enable_malloc_replacement
 enable_openssl
 enable_debug_mode
+enable_libevent_install
+enable_libevent_regress
+enable_function_sections
 enable_shared
 enable_static
 with_pic
@@ -1390,6 +1398,12 @@ Optional Features:
                           functions
   --disable-openssl       disable support for openssl encryption
   --disable-debug-mode    disable support for running in debug mode
+  --disable-libevent-install, disable installation of libevent
+
+  --disable-libevent-regress, skip regress in make check
+
+  --enable-function-sections, make static library allow smaller binaries with --gc-sections
+
   --enable-shared[=PKGS]  build shared libraries [default=yes]
   --enable-static[=PKGS]  build static libraries [default=yes]
   --enable-fast-install[=PKGS]
@@ -2997,7 +3011,7 @@ fi
 
 # Define the identity of the package.
  PACKAGE=libevent
- VERSION=2.0.10-stable
+ VERSION=2.0.11-stable
 
 
 cat >>confdefs.h <<_ACEOF
@@ -3040,12 +3054,91 @@ am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'
 ac_config_headers="$ac_config_headers config.h"
 
 
-$as_echo "#define NUMERIC_VERSION 0x02000a00" >>confdefs.h
+$as_echo "#define NUMERIC_VERSION 0x02000b00" >>confdefs.h
 
 
 if test "$prefix" = "NONE"; then
    prefix="/usr/local"
 fi
+
+# Make sure we can run config.sub.
+$SHELL "$ac_aux_dir/config.sub" sun4 >/dev/null 2>&1 ||
+  as_fn_error $? "cannot run $SHELL $ac_aux_dir/config.sub" "$LINENO" 5
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking build system type" >&5
+$as_echo_n "checking build system type... " >&6; }
+if test "${ac_cv_build+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_build_alias=$build_alias
+test "x$ac_build_alias" = x &&
+  ac_build_alias=`$SHELL "$ac_aux_dir/config.guess"`
+test "x$ac_build_alias" = x &&
+  as_fn_error $? "cannot guess build type; you must specify one" "$LINENO" 5
+ac_cv_build=`$SHELL "$ac_aux_dir/config.sub" $ac_build_alias` ||
+  as_fn_error $? "$SHELL $ac_aux_dir/config.sub $ac_build_alias failed" "$LINENO" 5
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_build" >&5
+$as_echo "$ac_cv_build" >&6; }
+case $ac_cv_build in
+*-*-*) ;;
+*) as_fn_error $? "invalid value of canonical build" "$LINENO" 5;;
+esac
+build=$ac_cv_build
+ac_save_IFS=$IFS; IFS='-'
+set x $ac_cv_build
+shift
+build_cpu=$1
+build_vendor=$2
+shift; shift
+# Remember, the first character of IFS is used to create $*,
+# except with old shells:
+build_os=$*
+IFS=$ac_save_IFS
+case $build_os in *\ *) build_os=`echo "$build_os" | sed 's/ /-/g'`;; esac
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking host system type" >&5
+$as_echo_n "checking host system type... " >&6; }
+if test "${ac_cv_host+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test "x$host_alias" = x; then
+  ac_cv_host=$ac_cv_build
+else
+  ac_cv_host=`$SHELL "$ac_aux_dir/config.sub" $host_alias` ||
+    as_fn_error $? "$SHELL $ac_aux_dir/config.sub $host_alias failed" "$LINENO" 5
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_host" >&5
+$as_echo "$ac_cv_host" >&6; }
+case $ac_cv_host in
+*-*-*) ;;
+*) as_fn_error $? "invalid value of canonical host" "$LINENO" 5;;
+esac
+host=$ac_cv_host
+ac_save_IFS=$IFS; IFS='-'
+set x $ac_cv_host
+shift
+host_cpu=$1
+host_vendor=$2
+shift; shift
+# Remember, the first character of IFS is used to create $*,
+# except with old shells:
+host_os=$*
+IFS=$ac_save_IFS
+case $host_os in *\ *) host_os=`echo "$host_os" | sed 's/ /-/g'`;; esac
+
+
+
+case "$host_os" in
+
+ osf5*)
+    CFLAGS="$CFLAGS -D_OSF_SOURCE"
+    ;;
+esac
 
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
@@ -4393,6 +4486,28 @@ else
   enable_debug_mode=yes
 fi
 
+# Check whether --enable-libevent-install was given.
+if test "${enable_libevent_install+set}" = set; then :
+  enableval=$enable_libevent_install;
+else
+  enable_libevent_install=yes
+fi
+
+# Check whether --enable-libevent-regress was given.
+if test "${enable_libevent_regress+set}" = set; then :
+  enableval=$enable_libevent_regress;
+else
+  enable_libevent_regress=yes
+fi
+
+# Check whether --enable-function-sections was given.
+if test "${enable_function_sections+set}" = set; then :
+  enableval=$enable_function_sections;
+else
+  enable_function_sections=no
+fi
+
+
 
 case `pwd` in
   *\ * | *\	*)
@@ -4418,77 +4533,6 @@ macro_revision='1.3175'
 
 
 ltmain="$ac_aux_dir/ltmain.sh"
-
-# Make sure we can run config.sub.
-$SHELL "$ac_aux_dir/config.sub" sun4 >/dev/null 2>&1 ||
-  as_fn_error $? "cannot run $SHELL $ac_aux_dir/config.sub" "$LINENO" 5
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking build system type" >&5
-$as_echo_n "checking build system type... " >&6; }
-if test "${ac_cv_build+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_build_alias=$build_alias
-test "x$ac_build_alias" = x &&
-  ac_build_alias=`$SHELL "$ac_aux_dir/config.guess"`
-test "x$ac_build_alias" = x &&
-  as_fn_error $? "cannot guess build type; you must specify one" "$LINENO" 5
-ac_cv_build=`$SHELL "$ac_aux_dir/config.sub" $ac_build_alias` ||
-  as_fn_error $? "$SHELL $ac_aux_dir/config.sub $ac_build_alias failed" "$LINENO" 5
-
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_build" >&5
-$as_echo "$ac_cv_build" >&6; }
-case $ac_cv_build in
-*-*-*) ;;
-*) as_fn_error $? "invalid value of canonical build" "$LINENO" 5;;
-esac
-build=$ac_cv_build
-ac_save_IFS=$IFS; IFS='-'
-set x $ac_cv_build
-shift
-build_cpu=$1
-build_vendor=$2
-shift; shift
-# Remember, the first character of IFS is used to create $*,
-# except with old shells:
-build_os=$*
-IFS=$ac_save_IFS
-case $build_os in *\ *) build_os=`echo "$build_os" | sed 's/ /-/g'`;; esac
-
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking host system type" >&5
-$as_echo_n "checking host system type... " >&6; }
-if test "${ac_cv_host+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  if test "x$host_alias" = x; then
-  ac_cv_host=$ac_cv_build
-else
-  ac_cv_host=`$SHELL "$ac_aux_dir/config.sub" $host_alias` ||
-    as_fn_error $? "$SHELL $ac_aux_dir/config.sub $host_alias failed" "$LINENO" 5
-fi
-
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_host" >&5
-$as_echo "$ac_cv_host" >&6; }
-case $ac_cv_host in
-*-*-*) ;;
-*) as_fn_error $? "invalid value of canonical host" "$LINENO" 5;;
-esac
-host=$ac_cv_host
-ac_save_IFS=$IFS; IFS='-'
-set x $ac_cv_host
-shift
-host_cpu=$1
-host_vendor=$2
-shift; shift
-# Remember, the first character of IFS is used to create $*,
-# except with old shells:
-host_os=$*
-IFS=$ac_save_IFS
-case $host_os in *\ *) host_os=`echo "$host_os" | sed 's/ /-/g'`;; esac
-
 
 # Backslashify metacharacters that are still active within
 # double-quoted strings.
@@ -11004,6 +11048,15 @@ CC="$lt_save_CC"
 
 
 
+ if test "$enable_libevent_regress" = "yes"; then
+  BUILD_REGRESS_TRUE=
+  BUILD_REGRESS_FALSE='#'
+else
+  BUILD_REGRESS_TRUE='#'
+  BUILD_REGRESS_FALSE=
+fi
+
+
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing inet_ntoa" >&5
 $as_echo_n "checking for library containing inet_ntoa... " >&6; }
 if test "${ac_cv_search_inet_ntoa+set}" = set; then :
@@ -11285,6 +11338,20 @@ if test "$ac_res" != no; then :
 fi
 
 
+for ac_header in zlib.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "zlib.h" "ac_cv_header_zlib_h" "$ac_includes_default"
+if test "x$ac_cv_header_zlib_h" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_ZLIB_H 1
+_ACEOF
+
+fi
+
+done
+
+
+if test "x$ac_cv_header_zlib_h" = "xyes"; then
 save_LIBS="$LIBS"
 LIBS=""
 ZLIB_LIBS=""
@@ -11351,6 +11418,7 @@ fi
 
 LIBS="$save_LIBS"
 
+fi
  if test "$have_zlib" = "yes"; then
   ZLIB_REGRESS_TRUE=
   ZLIB_REGRESS_FALSE='#'
@@ -12019,7 +12087,7 @@ $as_echo "#define TIME_WITH_SYS_TIME 1" >>confdefs.h
 fi
 
 
-for ac_func in gettimeofday vasprintf fcntl clock_gettime strtok_r strsep getaddrinfo getnameinfo strlcpy inet_ntop inet_pton signal sigaction strtoll inet_aton pipe eventfd sendfile mmap splice arc4random arc4random_buf issetugid geteuid getegid getservbyname getprotobynumber setenv unsetenv putenv
+for ac_func in gettimeofday vasprintf fcntl clock_gettime strtok_r strsep
 do :
   as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
 ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
@@ -12031,6 +12099,70 @@ _ACEOF
 fi
 done
 
+for ac_func in getnameinfo strlcpy inet_ntop inet_pton signal sigaction strtoll inet_aton pipe eventfd sendfile mmap splice arc4random arc4random_buf issetugid geteuid getegid getprotobynumber setenv unsetenv putenv
+do :
+  as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
+ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
+if eval test \"x\$"$as_ac_var"\" = x"yes"; then :
+  cat >>confdefs.h <<_ACEOF
+#define `$as_echo "HAVE_$ac_func" | $as_tr_cpp` 1
+_ACEOF
+
+fi
+done
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for getaddrinfo" >&5
+$as_echo_n "checking for getaddrinfo... " >&6; }
+if test "${libevent_cv_getaddrinfo+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+		#ifdef HAVE_NETDB_H
+		#include <netdb.h>
+		#endif
+
+int
+main ()
+{
+
+		getaddrinfo;
+
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  libevent_cv_getaddrinfo=yes
+else
+  libevent_cv_getaddrinfo=no
+
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $libevent_cv_getaddrinfo" >&5
+$as_echo "$libevent_cv_getaddrinfo" >&6; }
+if test "$libevent_cv_getaddrinfo" = "yes" ; then
+
+$as_echo "#define HAVE_GETADDRINFO 1" >>confdefs.h
+
+else
+
+for ac_func in getservbyname
+do :
+  ac_fn_c_check_func "$LINENO" "getservbyname" "ac_cv_func_getservbyname"
+if test "x$ac_cv_func_getservbyname" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_GETSERVBYNAME 1
+_ACEOF
+
+fi
+done
 
 # Check for gethostbyname_r in all its glorious incompatible versions.
 #   (This is cut-and-pasted from Tor, which based its logic on
@@ -12150,6 +12282,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 fi
 
 
+fi
 
 # The cast to long int works around a bug in the HP C Compiler
 # version HP92453-01 B.11.11.23709.GP, which incorrectly rejects
@@ -12975,6 +13108,41 @@ _ACEOF
 
 
 fi
+ac_fn_c_check_type "$LINENO" "struct sockaddr_storage" "ac_cv_type_struct_sockaddr_storage" "#define _GNU_SOURCE
+#include <sys/types.h>
+#ifdef HAVE_NETINET_IN_H
+#include <netinet/in.h>
+#endif
+#ifdef HAVE_NETINET_IN6_H
+#include <netinet/in6.h>
+#endif
+#ifdef HAVE_SYS_SOCKET_H
+#include <sys/socket.h>
+#endif
+#ifdef HAVE_NETDB_H
+#include <netdb.h>
+#endif
+#ifdef WIN32
+#define WIN32_WINNT 0x400
+#define _WIN32_WINNT 0x400
+#define WIN32_LEAN_AND_MEAN
+#if defined(_MSC_VER) && (_MSC_VER < 1300)
+#include <winsock.h>
+#else
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#endif
+#endif
+
+"
+if test "x$ac_cv_type_struct_sockaddr_storage" = x""yes; then :
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_STRUCT_SOCKADDR_STORAGE 1
+_ACEOF
+
+
+fi
 
 ac_fn_c_check_member "$LINENO" "struct in6_addr" "s6_addr32" "ac_cv_member_struct_in6_addr_s6_addr32" "#include <sys/types.h>
 #ifdef HAVE_NETINET_IN_H
@@ -13673,7 +13841,7 @@ fi
 
 # Add some more warnings which we use in development but not in the
 # released versions.  (Some relevant gcc versions can't handle these.)
-if test x$enable_gcc_warnings = xyes; then
+if test x$enable_gcc_warnings = xyes && test "$GCC" = "yes"; then
 
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
@@ -13738,6 +13906,48 @@ else
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+#if !defined(__clang__)
+#error
+#endif
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  have_clang=yes
+else
+  have_clang=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+#if !defined(__clang__) || (__clang_major__ > 2) || (__clang_major__ == 2 && __clang_minor__ > 9)
+#error
+#endif
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  have_clang29orlower=yes
+else
+  have_clang29orlower=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
   CFLAGS="$CFLAGS -W -Wfloat-equal -Wundef -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes -Wwrite-strings -Wredundant-decls -Wchar-subscripts -Wcomment -Wformat -Wwrite-strings -Wmissing-declarations -Wredundant-decls -Wnested-externs -Wbad-function-cast -Wswitch-enum -Werror"
   CFLAGS="$CFLAGS -Wno-unused-parameter -Wstrict-aliasing"
 
@@ -13749,17 +13959,117 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 
   if test x$have_gcc42 = xyes ; then
     # These warnings break gcc 4.0.2 and work on gcc 4.2
-    CFLAGS="$CFLAGS -Waddress -Wnormalized=id -Woverride-init"
+    CFLAGS="$CFLAGS -Waddress"
+  fi
+
+  if test x$have_gcc42 = xyes && test x$have_clang29orlower = xno; then
+    # These warnings break gcc 4.0.2 and clang, but work on gcc 4.2
+    # We only disable these for clang 2.9 and lower, in case they are
+    # supported in later versions.
+    CFLAGS="$CFLAGS -Wnormalized=id -Woverride-init"
   fi
 
   if test x$have_gcc45 = xyes ; then
     # These warnings work on gcc 4.5
     CFLAGS="$CFLAGS -Wlogical-op"
   fi
+
+  if test x$have_clang = xyes; then
+    # Disable the unused-function warnings, because these trigger
+    # for minheap-internal.h related code.
+    CFLAGS="$CFLAGS -Wno-unused-function"
+  fi
+
 ##This will break the world on some 64-bit architectures
 # CFLAGS="$CFLAGS -Winline"
 
 fi
+
+LIBEVENT_GC_SECTIONS=
+if test "$GCC" = yes && test "$enable_function_sections" = yes ; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking if linker supports omitting unused code and data" >&5
+$as_echo_n "checking if linker supports omitting unused code and data... " >&6; }
+if test "${libevent_cv_gc_sections_runs+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+
+	    	    	    	    	    	    	    	    	    	    	    origCFLAGS="$CFLAGS"
+	    CFLAGS="$CFLAGS -Wl,--gc-sections"
+	    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+			#include <stdlib.h>
+			#include <stdio.h>
+
+int
+main ()
+{
+
+			FILE *	fpC;
+			char	buf[32];
+			size_t	cch;
+			int	read_success_once;
+
+			fpC = fopen("conftest.c", "r");
+			if (NULL == fpC)
+				exit(1);
+			do {
+				cch = fread(buf, sizeof(buf), 1, fpC);
+				read_success_once |= (0 != cch);
+			} while (0 != cch);
+			if (!read_success_once)
+				exit(2);
+			if (!feof(fpC))
+				exit(3);
+			if (0 != fclose(fpC))
+				exit(4);
+
+			exit(EXIT_SUCCESS);
+
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+
+                                                            		    if test "X$cross_compiling" = "Xyes" || grep gc-sections conftest.err ; then
+			libevent_cv_gc_sections_runs=no
+		    else
+			libevent_cv_gc_sections_runs=no
+			./conftest >/dev/null 2>&1 && libevent_cv_gc_sections_runs=yes
+		    fi
+
+else
+  libevent_cv_gc_sections_runs=no
+
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+	    CFLAGS="$origCFLAGS"
+	    { origCFLAGS=; unset origCFLAGS;}
+
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $libevent_cv_gc_sections_runs" >&5
+$as_echo "$libevent_cv_gc_sections_runs" >&6; }
+    case "$libevent_cv_gc_sections_runs" in
+     yes)
+	CFLAGS="-ffunction-sections -fdata-sections $CFLAGS"
+	LIBEVENT_GC_SECTIONS="-Wl,--gc-sections"
+	;;
+    esac
+fi
+
+
+ if test "$enable_libevent_install" = "yes"; then
+  INSTALL_LIBEVENT_TRUE=
+  INSTALL_LIBEVENT_FALSE='#'
+else
+  INSTALL_LIBEVENT_TRUE='#'
+  INSTALL_LIBEVENT_FALSE=
+fi
+
 
 ac_config_files="$ac_config_files libevent.pc libevent_openssl.pc libevent_pthreads.pc"
 
@@ -13879,6 +14189,10 @@ if test -z "${am__fastdepCC_TRUE}" && test -z "${am__fastdepCC_FALSE}"; then
   as_fn_error $? "conditional \"am__fastdepCC\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
+if test -z "${BUILD_REGRESS_TRUE}" && test -z "${BUILD_REGRESS_FALSE}"; then
+  as_fn_error $? "conditional \"BUILD_REGRESS\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
 if test -z "${ZLIB_REGRESS_TRUE}" && test -z "${ZLIB_REGRESS_FALSE}"; then
   as_fn_error $? "conditional \"ZLIB_REGRESS\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
@@ -13921,6 +14235,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${OPENSSL_TRUE}" && test -z "${OPENSSL_FALSE}"; then
   as_fn_error $? "conditional \"OPENSSL\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${INSTALL_LIBEVENT_TRUE}" && test -z "${INSTALL_LIBEVENT_FALSE}"; then
+  as_fn_error $? "conditional \"INSTALL_LIBEVENT\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 

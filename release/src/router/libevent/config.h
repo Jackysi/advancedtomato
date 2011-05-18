@@ -65,7 +65,7 @@
 /* Define to 1 if the system has the type `fd_mask'. */
 #define HAVE_FD_MASK 1
 
-/* Define to 1 if you have the `getaddrinfo' function. */
+/* Do we have getaddrinfo()? */
 #define HAVE_GETADDRINFO 1
 
 /* Define to 1 if you have the `getegid' function. */
@@ -75,7 +75,7 @@
 #define HAVE_GETEUID 1
 
 /* Define this if you have any gethostbyname_r() */
-#define HAVE_GETHOSTBYNAME_R 1
+/* #undef HAVE_GETHOSTBYNAME_R */
 
 /* Define this if gethostbyname_r takes 3 arguments */
 /* #undef HAVE_GETHOSTBYNAME_R_3_ARG */
@@ -84,7 +84,7 @@
 /* #undef HAVE_GETHOSTBYNAME_R_5_ARG */
 
 /* Define this if gethostbyname_r takes 6 arguments */
-#define HAVE_GETHOSTBYNAME_R_6_ARG 1
+/* #undef HAVE_GETHOSTBYNAME_R_6_ARG */
 
 /* Define to 1 if you have the `getnameinfo' function. */
 #define HAVE_GETNAMEINFO 1
@@ -93,7 +93,7 @@
 #define HAVE_GETPROTOBYNUMBER 1
 
 /* Define to 1 if you have the `getservbyname' function. */
-#define HAVE_GETSERVBYNAME 1
+/* #undef HAVE_GETSERVBYNAME */
 
 /* Define to 1 if you have the `gettimeofday' function. */
 #define HAVE_GETTIMEOFDAY 1
@@ -117,7 +117,7 @@
 /* #undef HAVE_KQUEUE */
 
 /* Define if the system has zlib */
-/* #undef HAVE_LIBZ */
+#define HAVE_LIBZ 1
 
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
@@ -135,7 +135,7 @@
 #define HAVE_NETINET_IN_H 1
 
 /* Define if the system has openssl */
-/* #undef HAVE_OPENSSL */
+#define HAVE_OPENSSL 1
 
 /* Define to 1 if you have the `pipe' function. */
 #define HAVE_PIPE 1
@@ -183,7 +183,7 @@
 #define HAVE_SIGNAL 1
 
 /* Define to 1 if you have the `splice' function. */
-#define HAVE_SPLICE 1
+/* #undef HAVE_SPLICE */
 
 /* Define to 1 if you have the <stdarg.h> header file. */
 #define HAVE_STDARG_H 1
@@ -235,6 +235,9 @@
 
 /* Define to 1 if `sin_len' is a member of `struct sockaddr_in'. */
 /* #undef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
+
+/* Define to 1 if the system has the type `struct sockaddr_storage'. */
+#define HAVE_STRUCT_SOCKADDR_STORAGE 1
 
 /* Define to 1 if `ss_family' is a member of `struct sockaddr_storage'. */
 #define HAVE_STRUCT_SOCKADDR_STORAGE_SS_FAMILY 1
@@ -294,7 +297,7 @@
 #define HAVE_SYS_WAIT_H 1
 
 /* Define if TAILQ_FOREACH is defined in <sys/queue.h> */
-#define HAVE_TAILQFOREACH 1
+/* #undef HAVE_TAILQFOREACH */
 
 /* Define if timeradd is defined in <sys/time.h> */
 #define HAVE_TIMERADD 1
@@ -335,12 +338,15 @@
 /* Define if kqueue works correctly with pipes */
 /* #undef HAVE_WORKING_KQUEUE */
 
+/* Define to 1 if you have the <zlib.h> header file. */
+#define HAVE_ZLIB_H 1
+
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
 #define LT_OBJDIR ".libs/"
 
 /* Numeric representation of the version */
-#define NUMERIC_VERSION 0x02000a00
+#define NUMERIC_VERSION 0x02000b00
 
 /* Name of package */
 #define PACKAGE "libevent"
@@ -395,7 +401,7 @@
 #define TIME_WITH_SYS_TIME 1
 
 /* Version number of package */
-#define VERSION "2.0.10-stable"
+#define VERSION "2.0.11-stable"
 
 /* Define to appropriate substitue if compiler doesnt have __func__ */
 /* #undef __func__ */

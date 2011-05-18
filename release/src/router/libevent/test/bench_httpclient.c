@@ -31,8 +31,12 @@
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
+# ifdef _XOPEN_SOURCE_EXTENDED
+#  include <arpa/inet.h>
+# endif
 #endif
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
 
 #include "event2/event.h"
@@ -126,6 +130,8 @@ launch_request(void)
 	struct bufferevent *b;
 
 	struct request_info *ri;
+
+	memset(&sin, 0, sizeof(sin));
 
 	++total_n_launched;
 

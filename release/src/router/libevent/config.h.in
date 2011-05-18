@@ -64,7 +64,7 @@
 /* Define to 1 if the system has the type `fd_mask'. */
 #undef HAVE_FD_MASK
 
-/* Define to 1 if you have the `getaddrinfo' function. */
+/* Do we have getaddrinfo()? */
 #undef HAVE_GETADDRINFO
 
 /* Define to 1 if you have the `getegid' function. */
@@ -235,6 +235,9 @@
 /* Define to 1 if `sin_len' is a member of `struct sockaddr_in'. */
 #undef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 
+/* Define to 1 if the system has the type `struct sockaddr_storage'. */
+#undef HAVE_STRUCT_SOCKADDR_STORAGE
+
 /* Define to 1 if `ss_family' is a member of `struct sockaddr_storage'. */
 #undef HAVE_STRUCT_SOCKADDR_STORAGE_SS_FAMILY
 
@@ -333,6 +336,9 @@
 
 /* Define if kqueue works correctly with pipes */
 #undef HAVE_WORKING_KQUEUE
+
+/* Define to 1 if you have the <zlib.h> header file. */
+#undef HAVE_ZLIB_H
 
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */

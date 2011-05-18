@@ -35,7 +35,8 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 subdir = include
-DIST_COMMON = $(nobase_include_HEADERS) $(srcdir)/Makefile.am \
+DIST_COMMON = $(am__nobase_include_HEADERS_DIST) \
+	$(am__noinst_HEADERS_DIST) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/acx_pthread.m4 \
@@ -50,6 +51,15 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 SOURCES =
 DIST_SOURCES =
+am__nobase_include_HEADERS_DIST = event2/buffer.h \
+	event2/buffer_compat.h event2/bufferevent.h \
+	event2/bufferevent_compat.h event2/bufferevent_ssl.h \
+	event2/bufferevent_struct.h event2/dns.h event2/dns_compat.h \
+	event2/dns_struct.h event2/event.h event2/event_compat.h \
+	event2/event_struct.h event2/http.h event2/http_compat.h \
+	event2/http_struct.h event2/keyvalq_struct.h event2/listener.h \
+	event2/rpc.h event2/rpc_compat.h event2/rpc_struct.h \
+	event2/tag.h event2/tag_compat.h event2/thread.h event2/util.h
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
     $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
@@ -72,7 +82,17 @@ am__base_list = \
   sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
   sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
 am__installdirs = "$(DESTDIR)$(includedir)" "$(DESTDIR)$(includedir)"
-HEADERS = $(nobase_include_HEADERS) $(nobase_nodist_include_HEADERS)
+am__noinst_HEADERS_DIST = event2/buffer.h event2/buffer_compat.h \
+	event2/bufferevent.h event2/bufferevent_compat.h \
+	event2/bufferevent_ssl.h event2/bufferevent_struct.h \
+	event2/dns.h event2/dns_compat.h event2/dns_struct.h \
+	event2/event.h event2/event_compat.h event2/event_struct.h \
+	event2/http.h event2/http_compat.h event2/http_struct.h \
+	event2/keyvalq_struct.h event2/listener.h event2/rpc.h \
+	event2/rpc_compat.h event2/rpc_struct.h event2/tag.h \
+	event2/tag_compat.h event2/thread.h event2/util.h
+HEADERS = $(nobase_include_HEADERS) $(nobase_nodist_include_HEADERS) \
+	$(nodist_noinst_HEADERS) $(noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -107,6 +127,7 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LD = @LD@
 LDFLAGS = @LDFLAGS@
+LIBEVENT_GC_SECTIONS = @LIBEVENT_GC_SECTIONS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
@@ -221,8 +242,10 @@ EVENT2_EXPORT = \
 	event2/util.h
 
 EXTRA_SRC = $(EVENT2_EXPORT)
-nobase_include_HEADERS = $(EVENT2_EXPORT)
-nobase_nodist_include_HEADERS = ./event2/event-config.h
+@INSTALL_LIBEVENT_TRUE@nobase_include_HEADERS = $(EVENT2_EXPORT)
+@INSTALL_LIBEVENT_TRUE@nobase_nodist_include_HEADERS = ./event2/event-config.h
+@INSTALL_LIBEVENT_FALSE@noinst_HEADERS = $(EVENT2_EXPORT)
+@INSTALL_LIBEVENT_FALSE@nodist_noinst_HEADERS = ./event2/event-config.h
 all: all-am
 
 .SUFFIXES:

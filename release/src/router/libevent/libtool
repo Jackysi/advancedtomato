@@ -1,7 +1,7 @@
 #! /bin/sh
 
 # libtool - Provide generalized library-building support services.
-# Generated automatically by config.status (libevent) 2.0.10-stable
+# Generated automatically by config.status (libevent) 2.0.11-stable
 # Libtool was configured on host archeo:
 # NOTE: Changes made to this file will be lost: look at ltmain.sh.
 #
@@ -67,7 +67,7 @@ host=mipsel-unknown-linux-gnu
 host_os=linux-gnu
 
 # The build system.
-build_alias=x86_64-linux-gnu
+build_alias=x86_64-pc-linux-gnu
 build=x86_64-pc-linux-gnu
 build_os=linux-gnu
 
@@ -87,7 +87,7 @@ EGREP="/bin/grep -E"
 FGREP="/bin/grep -F"
 
 # A BSD- or MS-compatible name lister.
-NM="mipsel-uclibc-nm"
+NM="/root/openwrt/optware-clean/ddwrt/toolchain/mipsel-linux-uclibc/gcc-4.1.1-uclibc-0.9.28/bin/mipsel-linux-uclibc-nm"
 
 # Whether we need soft or hard links.
 LN_S="ln -s"
@@ -120,14 +120,14 @@ deplibs_check_method="pass_all"
 file_magic_cmd="\$MAGIC_CMD"
 
 # The archiver.
-AR="mipsel-uclibc-ar"
+AR="/root/openwrt/optware-clean/ddwrt/toolchain/mipsel-linux-uclibc/gcc-4.1.1-uclibc-0.9.28/bin/mipsel-linux-uclibc-ar"
 AR_FLAGS="cru"
 
 # A symbol stripping program.
-STRIP="mipsel-uclibc-strip -R .note -R .comment"
+STRIP="/root/openwrt/optware-clean/ddwrt/toolchain/mipsel-linux-uclibc/gcc-4.1.1-uclibc-0.9.28/bin/mipsel-linux-uclibc-strip"
 
 # Commands used to install an old-style archive.
-RANLIB="mipsel-uclibc-ranlib"
+RANLIB="/root/openwrt/optware-clean/ddwrt/toolchain/mipsel-linux-uclibc/gcc-4.1.1-uclibc-0.9.28/bin/mipsel-linux-uclibc-ranlib"
 old_postinstall_cmds="chmod 644 \$oldlib~\$RANLIB \$oldlib"
 old_postuninstall_cmds=""
 
@@ -135,10 +135,10 @@ old_postuninstall_cmds=""
 lock_old_archive_extraction=no
 
 # A C compiler.
-LTCC="mipsel-uclibc-gcc"
+LTCC="/root/openwrt/optware-clean/ddwrt/toolchain/mipsel-linux-uclibc/gcc-4.1.1-uclibc-0.9.28/bin/mipsel-linux-uclibc-gcc"
 
 # LTCC compiler flags.
-LTCFLAGS="-Os -Wall -DLINUX26 -DCONFIG_BCMWL5 -pipe -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32  -ffunction-sections -fdata-sections -Wall -fno-strict-aliasing -pthread"
+LTCFLAGS="-g -O2 -Wall -fno-strict-aliasing -pthread"
 
 # Take the output of nm and produce a listing of raw symbols and C names.
 global_symbol_pipe="sed -n -e 's/^.*[	 ]\\([ABCDGIRSTW][ABCDGIRSTW]*\\)[	 ][	 ]*\\([_A-Za-z][_A-Za-z0-9]*\\)\$/\\1 \\2 \\2/p'"
@@ -237,10 +237,10 @@ finish_eval=""
 hardcode_into_libs=yes
 
 # Compile-time system search path for libraries.
-sys_lib_search_path_spec="/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/lib/gcc/mipsel-linux-uclibc/4.2.4 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/lib/gcc /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/mipsel-linux-uclibc/lib "
+sys_lib_search_path_spec="/root/openwrt/optware-clean/ddwrt/toolchain/mipsel-linux-uclibc/gcc-4.1.1-uclibc-0.9.28/lib /root/openwrt/optware-clean/ddwrt/staging/opt/lib"
 
 # Run-time system search path for libraries.
-sys_lib_dlsearch_path_spec="/lib64 /usr/lib64 /lib /usr/lib /usr/local/lib /lib/x86_64-linux-gnu /usr/lib/x86_64-linux-gnu "
+sys_lib_dlsearch_path_spec=""
 
 # Whether dlopen is supported.
 dlopen_support=unknown
@@ -252,12 +252,12 @@ dlopen_self=unknown
 dlopen_self_static=unknown
 
 # Commands to strip libraries.
-old_striplib="mipsel-uclibc-strip -R .note -R .comment --strip-debug"
-striplib="mipsel-uclibc-strip -R .note -R .comment --strip-unneeded"
+old_striplib="/root/openwrt/optware-clean/ddwrt/toolchain/mipsel-linux-uclibc/gcc-4.1.1-uclibc-0.9.28/bin/mipsel-linux-uclibc-strip --strip-debug"
+striplib="/root/openwrt/optware-clean/ddwrt/toolchain/mipsel-linux-uclibc/gcc-4.1.1-uclibc-0.9.28/bin/mipsel-linux-uclibc-strip --strip-unneeded"
 
 
 # The linker used to build libraries.
-LD="mipsel-uclibc-ld"
+LD="/root/openwrt/optware-clean/ddwrt/toolchain/mipsel-linux-uclibc/gcc-4.1.1-uclibc-0.9.28/bin/mipsel-linux-uclibc-ld"
 
 # How to create reloadable object files.
 reload_flag=" -r"
@@ -267,7 +267,7 @@ reload_cmds="\$LD\$reload_flag -o \$output\$reload_objs"
 old_archive_cmds="\$AR \$AR_FLAGS \$oldlib\$oldobjs~\$RANLIB \$oldlib"
 
 # A language specific compiler.
-CC="mipsel-uclibc-gcc"
+CC="/root/openwrt/optware-clean/ddwrt/toolchain/mipsel-linux-uclibc/gcc-4.1.1-uclibc-0.9.28/bin/mipsel-linux-uclibc-gcc"
 
 # Is the compiler the GNU compiler?
 with_gcc=yes
@@ -331,7 +331,7 @@ no_undefined_flag=""
 
 # Flag to hardcode $libdir into a binary during linking.
 # This must work even if $libdir does not exist
-hardcode_libdir_flag_spec="\${wl}-rpath \${wl}\$libdir"
+hardcode_libdir_flag_spec=""
 
 # If ld is used when linking, flag to hardcode $libdir into a binary
 # during linking.  This must work even if $libdir does not exist.
