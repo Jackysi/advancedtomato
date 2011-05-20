@@ -65,7 +65,8 @@ void process_netlink_msg(int sock)
                 else {
                         dlog(LOG_DEBUG, 3, "%s, ifindex %d, flags is *NOT* running", ifname, ifinfo->ifi_index);
                 }
-		reload_config();
+		config_interface();
+		kickoff_adverts();
 	}
 }
 
