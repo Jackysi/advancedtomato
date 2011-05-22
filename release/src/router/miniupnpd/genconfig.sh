@@ -213,6 +213,7 @@ case $OS_NAME in
 		OS_NAME=UPnP
 		OS_URL=http://tomatousb.org/
 		echo "#define USE_NETFILTER 1" >> ${CONFIGFILE}
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		FW=netfilter
 		;;
 	Darwin)
