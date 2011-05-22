@@ -1,4 +1,4 @@
-/* $Id: upnpdescgen.c,v 1.57 2011/05/13 11:39:30 nanard Exp $ */
+/* $Id: upnpdescgen.c,v 1.60 2011/05/18 22:22:23 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -18,24 +18,12 @@
 #include "miniupnpdpath.h"
 #include "upnpglobalvars.h"
 #include "upnpdescstrings.h"
+#include "upnpurns.h"
+#include "getconnstatus.h"
 
-#ifdef IGD_V2
-/* IGD v2 */
-#define DEVICE_TYPE_IGD     "urn:schemas-upnp-org:device:InternetGatewayDevice:2"
-#define DEVICE_TYPE_WAN     "urn:schemas-upnp-org:device:WANDevice:2"
-#define DEVICE_TYPE_WANC    "urn:schemas-upnp-org:device:WANConnectionDevice:2"
-#define SERVICE_TYPE_WANIPC "urn:schemas-upnp-org:service:WANIPConnection:2"
-#define SERVICE_ID_WANIPC   "urn:upnp-org:serviceId:WANIPConn1"
-#else
-/* IGD v1 */
-#define DEVICE_TYPE_IGD     "urn:schemas-upnp-org:device:InternetGatewayDevice:1"
-#define DEVICE_TYPE_WAN     "urn:schemas-upnp-org:device:WANDevice:1"
-#define DEVICE_TYPE_WANC    "urn:schemas-upnp-org:device:WANConnectionDevice:1"
-#define SERVICE_TYPE_WANIPC "urn:schemas-upnp-org:service:WANIPConnection:1"
-#define SERVICE_ID_WANIPC   "urn:upnp-org:serviceId:WANIPConn1"
-#endif
 
 /* Event magical values codes */
+#define CONNECTIONSTATUS_MAGICALVALUE (249)
 #define FIREWALLENABLED_MAGICALVALUE (250)
 #define INBOUNDPINHOLEALLOWED_MAGICALVALUE (251)
 #define SYSTEMUPDATEID_MAGICALVALUE (252)
@@ -49,7 +37,8 @@ static const char * const upnptypes[] =
 	"string",
 	"boolean",
 	"ui2",
-	"ui4"
+	"ui4",
+	"bin.base64"
 };
 
 static const char * const upnpdefaultvalues[] =
@@ -489,7 +478,8 @@ static const struct stateVar WANIPCnVars[] =
 	{"PossibleConnectionTypes", 0|0x80, 0, 0, 15},
 	 /* Required
 	  * Allowed values : Unconfigured / IP_Routed / IP_Bridged */
-	{"ConnectionStatus", 0|0x80, 0/*1*/, 18, 20}, /* required */
+	{"ConnectionStatus", 0|0x80, 0/*1*/, 18,
+	 CONNECTIONSTATUS_MAGICALVALUE }, /* required */
 	 /* Allowed Values : Unconfigured / Connecting(opt) / Connected
 	  *                  PendingDisconnect(opt) / Disconnecting (opt)
 	  *                  Disconnected */
@@ -736,6 +726,32 @@ static const struct stateVar IPv6FCVars[] =
 
 static const struct serviceDesc scpd6FC =
 { IPv6FCActions, IPv6FCVars };
+#endif
+
+#ifdef ENABLE_DP_SERVICE
+/* UPnP-gw-DeviceProtection-v1-Service.pdf */
+static const struct action DPActions[] =
+{
+	{"SendSetupMessage", 0},
+	{"GetSupportedProtocols", 0},
+	{"GetAssignedRoles", 0},
+	{0, 0}
+};
+
+static const struct stateVar DPVars[] =
+{
+	{"SetupReady", 1|0x80},
+	{"SupportedProtocols", 0},
+	{"A_ARG_TYPE_ACL", 0},
+	{"A_ARG_TYPE_IdentityList", 0},
+	{"A_ARG_TYPE_Identity", 0},
+	{"A_ARG_TYPE_Base64", 4},
+	{"A_ARG_TYPE_String", 0},
+	{0, 0}
+};
+
+static const struct serviceDesc scpdDP =
+{ DPActions, DPVars };
 #endif
 
 /* strcat_str()
@@ -1093,6 +1109,14 @@ gen6FC(int * len)
 }
 #endif
 
+#ifdef ENABLE_DP_SERVICE
+char *
+genDP(int * len)
+{
+	return genServiceDesc(len, &scpdDP);
+}
+#endif
+
 #ifdef ENABLE_EVENTS
 static char *
 genEventVars(int * len, const struct serviceDesc * s, const char * servns)
@@ -1118,6 +1142,10 @@ genEventVars(int * len, const struct serviceDesc * s, const char * servns)
 			//printf("<e:property><s:%s>", v->name);
 			switch(v->ieventvalue) {
 			case 0:
+				break;
+			case CONNECTIONSTATUS_MAGICALVALUE:
+				str = strcat_str(str, len, &tmplen,
+				   upnpallowedvalues[18 + get_wan_connection_status(ext_if_name)]);
 				break;
 #ifdef ENABLE_6FC_SERVICE
 			case FIREWALLENABLED_MAGICALVALUE:
@@ -1219,4 +1247,15 @@ getVars6FC(int * l)
 	                    "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1");
 }
 #endif
+
+#ifdef ENABLE_DP_SERVICE
+char *
+getVarsDP(int * l)
+{
+	return genEventVars(l,
+	                    &scpdDP,
+	                    "urn:schemas-upnp-org:service:DeviceProtection:1");
+}
 #endif
+
+#endif /* ENABLE_EVENTS */

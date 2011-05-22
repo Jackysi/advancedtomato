@@ -1,5 +1,5 @@
 #! /bin/sh
-# $Id: genconfig.sh,v 1.44 2011/05/13 11:41:26 nanard Exp $
+# $Id: genconfig.sh,v 1.47 2011/05/20 09:33:06 nanard Exp $
 # miniupnp daemon
 # http://miniupnp.free.fr or http://miniupnp.tuxfamily.org/
 # (c) 2006-2011 Thomas Bernard
@@ -75,6 +75,7 @@ case $OS_NAME in
 		fi
 		echo "#define USE_PF 1" >> ${CONFIGFILE}
 		FW=pf
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		OS_URL=http://www.openbsd.org/
 		;;
 	FreeBSD)
@@ -104,12 +105,14 @@ case $OS_NAME in
 			FW=pf
 			echo "#define USE_PF 1" >> ${CONFIGFILE}
 		fi
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		OS_URL=http://www.freebsd.org/
 		;;
 	pfSense)
 		# we need to detect if PFRULE_INOUT_COUNTS macro is needed
 		echo "#define USE_PF 1" >> ${CONFIGFILE}
 		FW=pf
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		OS_URL=http://www.pfsense.com/
 		;;
 	NetBSD)
@@ -128,6 +131,7 @@ case $OS_NAME in
 			echo "#define USE_PF 1" >> ${CONFIGFILE}
 			FW=pf
 		fi
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		OS_URL=http://www.netbsd.org/
 		;;
 	DragonFly)
@@ -146,10 +150,12 @@ case $OS_NAME in
 			echo "#define USE_PF 1" >> ${CONFIGFILE}
 			FW=pf
 		fi
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		OS_URL=http://www.dragonflybsd.org/
 		;;
 	SunOS)
 		echo "#define USE_IPF 1" >> ${CONFIGFILE}
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		FW=ipf
 		echo "#define LOG_PERROR 0" >> ${CONFIGFILE}
 		echo "#define SOLARIS_KSTATS 1" >> ${CONFIGFILE}
@@ -168,6 +174,12 @@ case $OS_NAME in
 			OS_VERSION=`cat /etc/debian_version`
 			OS_URL=http://www.debian.org/
 		fi
+		# same thing for Gentoo linux
+		if  [ -f /etc/gentoo-release ]; then
+			OS_NAME=Gentoo
+			OS_VERSION=`cat /etc/gentoo-release`
+			OS_URL=http://www.gentoo.org/
+		fi
 		# use lsb_release (Linux Standard Base) when available
 		LSB_RELEASE=`which lsb_release`
 		if [ 0 -eq $? ]; then
@@ -182,14 +194,19 @@ case $OS_NAME in
 					OS_URL=http://www.ubuntu.com/
 					OS_VERSION=`${LSB_RELEASE} -c -s`
 					;;
+				Gentoo)
+					OS_URL=http://www.gentoo.org/
+					;;
 			esac
 		fi
 		echo "#define USE_NETFILTER 1" >> ${CONFIGFILE}
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		FW=netfilter
 		;;
 	OpenWRT)
 		OS_URL=http://www.openwrt.org/
 		echo "#define USE_NETFILTER 1" >> ${CONFIGFILE}
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		FW=netfilter
 		;;
 	Tomato)
@@ -200,6 +217,7 @@ case $OS_NAME in
 		;;
 	Darwin)
 		echo "#define USE_IPFW 1" >> ${CONFIGFILE}
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		FW=ipfw
 		OS_URL=http://developer.apple.com/macosx
 		;;
@@ -267,6 +285,10 @@ echo "/*#define HAS_DUMMY_SERVICE*/" >> ${CONFIGFILE}
 echo "#define ENABLE_L3F_SERVICE" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 
+echo "/* Enable IP v6 support */" >> ${CONFIGFILE}
+echo "/*#define ENABLE_IPV6*/" >> ${CONFIGFILE}
+echo "" >> ${CONFIGFILE}
+
 echo "/* Enable the support of IGD v2 specification */" >> ${CONFIGFILE}
 echo "/*#define IGD_V2*/" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
@@ -275,8 +297,10 @@ echo "#ifdef IGD_V2" >> ${CONFIGFILE}
 echo "/* Enable DeviceProtection service (IGDv2) */" >> ${CONFIGFILE}
 echo "#define ENABLE_DP_SERVICE" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
-echo "/* Enable WANIPv6FirewallControl service (IGDv2) */" >> ${CONFIGFILE}
+echo "/* Enable WANIPv6FirewallControl service (IGDv2). needs IPv6 */" >> ${CONFIGFILE}
+echo "#ifdef ENABLE_IPV6" >> ${CONFIGFILE}
 echo "#define ENABLE_6FC_SERVICE" >> ${CONFIGFILE}
+echo "#endif /* ENABLE_IPV6 */" >> ${CONFIGFILE}
 echo "#endif /* IGD_V2 */" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 

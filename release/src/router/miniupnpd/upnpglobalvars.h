@@ -1,4 +1,4 @@
-/* $Id: upnpglobalvars.h,v 1.26 2011/05/13 13:56:18 nanard Exp $ */
+/* $Id: upnpglobalvars.h,v 1.27 2011/05/15 09:00:49 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -95,6 +95,11 @@ extern unsigned nfqix[];
 
 /* lan addresses to listen to SSDP traffic */
 extern struct lan_addr_list lan_addrs;
+
+#ifdef ENABLE_IPV6
+/* ipv6 address used for HTTP */
+extern char ipv6_addr_for_http_with_brackets[64];
+#endif
 
 extern const char * minissdpdsocketpath;
 

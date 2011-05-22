@@ -1,4 +1,4 @@
-/* $Id: upnpglobalvars.c,v 1.22 2011/05/13 13:56:18 nanard Exp $ */
+/* $Id: upnpglobalvars.c,v 1.23 2011/05/15 09:00:49 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2010 Thomas Bernard 
@@ -85,6 +85,11 @@ int n_nfqix = 0;
 unsigned nfqix[MAX_LAN_ADDR];
 #endif
 struct lan_addr_list lan_addrs;
+
+#ifdef ENABLE_IPV6
+/* ipv6 address used for HTTP */
+char ipv6_addr_for_http_with_brackets[64];
+#endif
 
 /* Path of the Unix socket used to communicate with MiniSSDPd */
 const char * minissdpdsocketpath = "/var/run/minissdpd.sock";

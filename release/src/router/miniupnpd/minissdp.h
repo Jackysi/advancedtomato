@@ -1,4 +1,4 @@
-/* $Id: minissdp.h,v 1.7 2008/10/06 13:20:56 nanard Exp $ */
+/* $Id: minissdp.h,v 1.9 2011/05/15 09:00:48 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2007 Thomas Bernard
@@ -10,11 +10,7 @@
 /*#include "miniupnpdtypes.h"*/
 
 int
-OpenAndConfSSDPReceiveSocket();
-/* OpenAndConfSSDPReceiveSocket(int n_lan_addr, struct lan_addr_s * lan_addr);*/
-
-/*int
-OpenAndConfSSDPNotifySocket(const char * addr);*/
+OpenAndConfSSDPReceiveSocket(int ipv6);
 
 int
 OpenAndConfSSDPNotifySockets(int * sockets);
@@ -36,6 +32,10 @@ void
 ProcessSSDPRequest(int s, unsigned short port);
 /*ProcessSSDPRequest(int s, struct lan_addr_s * lan_addr, int n_lan_addr,
                    unsigned short port);*/
+
+void
+ProcessSSDPData(int s, const char *bufr, int n,
+                const struct sockaddr * sendername, unsigned short port);
 
 int
 SendSSDPGoodbye(int * sockets, int n);

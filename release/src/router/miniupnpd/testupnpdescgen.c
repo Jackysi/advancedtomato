@@ -1,4 +1,4 @@
-/* $Id: testupnpdescgen.c,v 1.22 2011/05/13 11:38:02 nanard Exp $ */
+/* $Id: testupnpdescgen.c,v 1.25 2011/05/18 22:22:23 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -11,6 +11,7 @@
 /* for mkdir */
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <errno.h>
 
 #include "config.h"
 #include "upnpdescgen.h"
@@ -35,9 +36,14 @@ int getifaddr(const char * ifname, char * buf, int len)
 	return 0;
 }
 
-int upnp_get_portmapping_number_of_entries()
+int upnp_get_portmapping_number_of_entries(void)
 {
 	return 42;
+}
+
+int get_wan_connection_status(const char * ifname)
+{
+	return 2;
 }
 
 /* To be improved */
@@ -98,7 +104,7 @@ xml_pretty_print(const char * s, int len, FILE * f)
 const char * str1 = "Prefix123String";
 const char * str2 = "123String";
 
-void stupid_test()
+void stupid_test(void)
 {
 	printf("str1:'%s' str2:'%s'\n", str1, str2);
 	printf("str1:%p str2:%p str2-str1:%ld\n", str1, str2, (long)(str2-str1));
@@ -115,7 +121,11 @@ main(int argc, char * * argv)
 	int l;
 	FILE * f;
 
-	mkdir("testdescs", 0777);
+	if(mkdir("testdescs", 0777) < 0) {
+		if(errno != EEXIST) {
+			perror("mkdir");
+		}
+	}
 	printf("Root Description :\n");
 	rootDesc = genRootDesc(&rootDescLen);
 	xml_pretty_print(rootDesc, rootDescLen, stdout);
@@ -170,6 +180,18 @@ main(int argc, char * * argv)
 	free(s);
 	printf("\n-------------\n");
 #endif
+#ifdef ENABLE_DP_SERVICE
+	printf("DeviceProtection service :\n");
+	s = genDP(&l);
+	xml_pretty_print(s, l, stdout);
+	f = fopen("testdescs/dp_scpd.xml", "w");
+	if(f) {
+		xml_pretty_print(s, l, f);
+		fclose(f);
+	}
+	free(s);
+	printf("\n-------------\n");
+#endif
 #ifdef ENABLE_EVENTS
 	s = getVarsWANIPCn(&l);
 	xml_pretty_print(s, l, stdout);
@@ -186,6 +208,12 @@ main(int argc, char * * argv)
 	printf("\n-------------\n");
 #ifdef ENABLE_6FC_SERVICE
 	s = getVars6FC(&l);
+	xml_pretty_print(s, l, stdout);
+	free(s);
+	printf("\n-------------\n");
+#endif
+#ifdef ENABLE_DP_SERVICE
+	s = getVarsDP(&l);
 	xml_pretty_print(s, l, stdout);
 	free(s);
 	printf("\n-------------\n");

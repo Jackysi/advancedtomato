@@ -1,4 +1,4 @@
-/* $Id: upnphttp.h,v 1.22 2011/01/04 11:55:18 nanard Exp $ */ 
+/* $Id: upnphttp.h,v 1.23 2011/05/13 16:34:02 nanard Exp $ */ 
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -34,6 +34,10 @@ enum httpCommands {
 struct upnphttp {
 	int socket;
 	struct in_addr clientaddr;	/* client address */
+#ifdef ENABLE_IPV6
+	int ipv6;
+	struct in6_addr clientaddr_v6;
+#endif
 	int state;
 	char HttpVer[16];
 	/* request */

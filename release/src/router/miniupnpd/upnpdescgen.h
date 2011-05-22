@@ -1,4 +1,4 @@
-/* $Id: upnpdescgen.h,v 1.20 2011/05/09 16:27:43 nanard Exp $ */
+/* $Id: upnpdescgen.h,v 1.22 2011/05/18 22:22:24 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -72,6 +72,11 @@ char *
 gen6FC(int * len);
 #endif
 
+#ifdef ENABLE_DP_SERVICE
+char *
+genDP(int * len);
+#endif
+
 #ifdef ENABLE_EVENTS
 char *
 getVarsWANIPCn(int * len);
@@ -87,7 +92,11 @@ getVarsL3F(int * len);
 char *
 getVars6FC(int * len);
 #endif
+#ifdef ENABLE_DP_SERVICE
+char *
+getVarsDP(int * len);
 #endif
+#endif /* ENABLE_EVENTS */
 
 #endif
 
