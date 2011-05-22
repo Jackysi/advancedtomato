@@ -94,7 +94,7 @@ getifstats(const char * ifname, struct ifdata * data)
 			data->baudrate = 1000000*atoi(line);
 		}
 	} else {
-		syslog(LOG_WARNING, "cannot read %s file : %m", fname);
+		syslog(LOG_INFO, "cannot read %s file : %m", fname);
 	}
 #ifdef ENABLE_GETIFSTATS_CACHING
 	if(r==0 && current_time!=((time_t)-1)) {
