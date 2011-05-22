@@ -31,16 +31,14 @@ int build_nocat_conf( void )
 
     /*
      * settings that need to be set based on router configurations 
-     *
-     * These are now autodetected on the device via: lan_ifname and wan_ifname 
+     * Autodetected on the device: lan_ifname & NC_Iface variable
      */
-    fprintf( fp, "InternalDevice\t%s\n", nvram_safe_get("lan_ifname"));
-    fprintf( fp, "ExternalDevice\t%s\n", nvram_safe_get("wan_ifname")); 
-    fprintf( fp, "RouteOnly\t%s\n", "1" );
-
+        fprintf( fp, "InternalDevice\t%s\n", nvram_safe_get( "lan_ifname" ));
+	fprintf( fp, "ExternalDevice\t%s\n", nvram_safe_get("wan_iface"));
+	fprintf( fp, "RouteOnly\t%s\n", "1" );
     /*
-     * These are user defined, eventually via the web page 
-     */
+    *These are user defined, eventually via the web page 
+    */
     if ((p = nvram_get("NC_Verbosity")) == NULL) p = "2";
     fprintf( fp, "Verbosity\t%s\n", p );
 
