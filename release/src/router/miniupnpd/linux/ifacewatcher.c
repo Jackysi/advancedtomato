@@ -36,6 +36,10 @@
  * POSSIBILITY OF SUCH DAMAGE. */
 
 
+#include "../config.h"
+
+#ifdef USE_IFACEWATCHER
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <linux/netlink.h>
@@ -46,10 +50,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
-
-#include "../config.h"
-
-#ifdef USE_IFACEWATCHER
 
 #include "../ifacewatcher.h"
 #include "../minissdp.h"

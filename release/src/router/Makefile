@@ -374,7 +374,7 @@ miniupnpd: iptables miniupnpd-config
 	@$(SEP)
 	$(MAKE) -C miniupnpd miniupnpd -f Makefile.linux \
 	TARGET_OPENWRT="not really" CC=$(CC) \
-	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include" \
+	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include -I$(TOP)/shared" \
 	LDFLAGS="-L$(TOP)/iptables -liptc" LIBS=""
 
 miniupnpd-clean:
