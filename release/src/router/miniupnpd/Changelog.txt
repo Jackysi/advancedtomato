@@ -1,4 +1,23 @@
-$Id: Changelog.txt,v 1.216 2011/05/13 13:59:26 nanard Exp $
+$Id: Changelog.txt,v 1.222 2011/05/20 17:52:07 nanard Exp $
+
+2011/05/20:
+  adding ifacewatcher thanks to Alexey Osipov
+  GET /DP.xml is now available. The description has to be completed.
+
+2011/05/19:
+  Add getconnstatus.c/.h. Dont always have ConnectionStatus to "Connected"
+  Events for WANIPv6FirewallControll
+
+2011/05/16:
+  patches for gentoo linux.
+  generation of the DeviceProtection service description.
+
+2011/05/15:
+  Making the SSDP receiving socket work in IPv6 !
+
+2011/05/14:
+  Support for HTTP in both IPv6 and IPv4.
+  IPv6 for SSDP receiving socket.
 
 2011/05/13:
   add new options in genconfig.sh (IGD_V2, ENABLE_DP_SERVICE)
@@ -6,6 +25,9 @@ $Id: Changelog.txt,v 1.216 2011/05/13 13:59:26 nanard Exp $
   have MACROS for magical values in upnpdescgen.c, add eventing vars for WanIPv6FirewallControl.
   applied 0001-Cosmetic-changes.patch(see http://miniupnp.tuxfamily.org/forum/viewtopic.php?t=764)
   applied 0002-Remove-lan-addresses-limit-by-changing-storage-type-.patch
+  replaced some of the urn:schemas-upnp-org:device:* literal strings by macros.
+  adding some support for IP v6. #define ENABLE_IPV6
+  added -fno-strict-aliasing to compile options.
 
 2011/05/09:
   updating upnp descriptions for IGDv2

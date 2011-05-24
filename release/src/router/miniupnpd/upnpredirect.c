@@ -1,4 +1,4 @@
-/* $Id: upnpredirect.c,v 1.52 2011/05/13 14:00:22 nanard Exp $ */
+/* $Id: upnpredirect.c,v 1.53 2011/05/14 13:44:42 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -990,7 +990,7 @@ upnp_get_pinhole_packets(const char * uid, int * packets)
 }
 
 int
-upnp_update_expiredpinhole()
+upnp_update_expiredpinhole(void)
 {
 #if 0
 	int r;

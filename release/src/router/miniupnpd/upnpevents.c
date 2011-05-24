@@ -1,7 +1,7 @@
-/* $Id: upnpevents.c,v 1.13 2009/12/22 17:20:10 nanard Exp $ */
+/* $Id: upnpevents.c,v 1.14 2011/05/18 22:21:19 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2008-2009 Thomas Bernard
+ * (c) 2008-2011 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
@@ -291,6 +291,16 @@ static void upnp_event_prepare(struct upnp_event_notify * obj)
 		xml = getVarsL3F(&l);
 		break;
 #endif
+#ifdef ENABLE_6FC_SERVICE
+	case E6FC:
+		xml = getVars6FC(&l);
+		break;
+#endif
+#ifdef ENABLE_DP_SERVICE
+	case EDP:
+		xml = getVarsDP(&l);
+		break;
+#endif
 	default:
 		xml = NULL;
 		l = 0;
@@ -394,6 +404,8 @@ void upnpevents_selectfds(fd_set *readset, fd_set *writeset, int * max_fd)
 				if(obj->s > *max_fd)
 					*max_fd = obj->s;
 				break;
+			default:
+				;
 			}
 		}
 	}
