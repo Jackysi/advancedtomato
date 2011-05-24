@@ -1326,7 +1326,9 @@ int start_firewall(void)
 	modprobe("nf_conntrack_ipv6");
 	modprobe("ip6t_REJECT");
 #endif
-	/*Deon Thomas attempt to start xt_IMQ and imq */
+
+/* shibby */
+if (nvram_match("imq_enable", "1")) {
 	char numdevs[10];
 	sprintf(numdevs, "numdevs=%d", nvram_get_int("imq_numdevs"));
 	modprobe("imq", numdevs );
@@ -1335,7 +1337,8 @@ int start_firewall(void)
 #else
 	modprobe("ipt_IMQ");
 #endif
-	
+	}
+
 	mangle_table();
 	nat_table();
 	filter_table();

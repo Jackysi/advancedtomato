@@ -22,10 +22,13 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("block_wan,multicast_pass,nf_loopback,ne_syncookies,imq_numdevs"); %>
+//	<% nvram("block_wan,multicast_pass,nf_loopback,ne_syncookies,imq_enable,imq_numdevs"); %>
 
 function verifyFields(focused, quiet)
 {
+	var a = E('_f_imq_enable').checked;
+	E('_imq_numdevs').disabled = !a;
+
 	return 1;
 }
 
@@ -39,6 +42,7 @@ function save()
 	fom.block_wan.value = E('_f_icmp').checked ? 0 : 1;
 	fom.multicast_pass.value = E('_f_multicast').checked ? 1 : 0;
 	fom.ne_syncookies.value = E('_f_syncookies').checked ? 1 : 0;
+	fom.imq_enable.value = E('_f_imq_enable').checked ? 1 : 0;
 	form.submit(fom, 1);
 }
 </script>
@@ -63,6 +67,7 @@ function save()
 <input type='hidden' name='block_wan'>
 <input type='hidden' name='multicast_pass'>
 <input type='hidden' name='ne_syncookies'>
+<input type='hidden' name='imq_enable'>
 
 <div class='section-title'>Firewall</div>
 <div class='section'>
@@ -73,9 +78,10 @@ createFieldTable('', [
 	{ title: 'NAT loopback', name: 'nf_loopback', type: 'select', options: [[0,'All'],[1,'Forwarded Only'],[2,'Disabled']], value: fixInt(nvram.nf_loopback, 0, 2, 1) },
 	{ title: 'Enable SYN cookies', name: 'f_syncookies', type: 'checkbox', value: nvram.ne_syncookies != '0' },
 	null,
+	{ title: 'IMQ Enable', name: 'f_imq_enable', type: 'checkbox', value: nvram.imq_enable == '1', suffix: ' <small>*</small>' },
 	{ title: 'Set IMQ Numdevs', name: 'imq_numdevs', type: 'text', maxlen: 4, size: 6, value: nvram.imq_numdevs, suffix: ' <small>* (range: 2 - 16; default: 2)</small>' },
 	null,
-	{ text: '<small>* Will take effect only after a restart.</small>' }
+	{ text: '<small>* May take effect after reboot</small>' }
 
 ]);
 </script>

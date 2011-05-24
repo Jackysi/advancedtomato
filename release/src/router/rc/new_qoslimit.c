@@ -74,7 +74,6 @@ void ipt_qoslimit(int chain)
 	char *lanipaddr; //lan ip address
 	char *lanmask; //lan netmask
 	char *tcplimit,*udplimit;//tcp connection limit & udp packets per second
-	char *laninface; // lan interface
 	int priority_num;
 	char *qosl_tcp,*qosl_udp;
 	int i, address_type;
@@ -90,7 +89,6 @@ void ipt_qoslimit(int chain)
 	
 	lanipaddr = nvram_safe_get("lan_ipaddr");
 	lanmask = nvram_safe_get("lan_netmask");
-	laninface = nvram_safe_get("lan_ifname");
 	
 	qosl_tcp = nvram_safe_get("qosl_tcp");
 	qosl_udp = nvram_safe_get("qosl_udp");
@@ -98,10 +96,6 @@ void ipt_qoslimit(int chain)
 	//MANGLE
 	if (chain == 1)
 	{
-		ipt_write(
-			"-A PREROUTING -j IMQ -i %s --todev 0\n"
-			"-A POSTROUTING -j IMQ -o %s --todev 1\n"
-			,laninface,laninface);
 		if (nvram_get_int("qosl_enable") == 1) {
 			ipt_write(
 			"-A POSTROUTING ! -s %s/%s -j MARK --set-mark 100\n"
@@ -261,6 +255,7 @@ void new_qoslimit_start(void)
 	char *dlr,*dlc,*ulr,*ulc; //download / upload - rate / ceiling
 	int i, address_type;
 	int s[6];
+	char *waniface; //shibby
 
 	//qos1 is enable
 	if (!nvram_get_int("new_qoslimit_enable")) return;
@@ -273,6 +268,7 @@ void new_qoslimit_start(void)
 	
 	lanipaddr = nvram_safe_get("lan_ipaddr");
 	lanmask = nvram_safe_get("lan_netmask");
+	waniface = nvram_safe_get("wan_iface"); //shibby
 
 	dlr = nvram_safe_get("qosl_dlr"); //Qos limit download rate
 	dlc = nvram_safe_get("qosl_dlc"); //download ceiling
@@ -283,37 +279,32 @@ void new_qoslimit_start(void)
 
 	fprintf(tc,
 		"#!/bin/sh\n"
-		"ip link set imq0 up\n"
-		"ip link set imq1 up\n"
+		"tc qdisc del dev br0 root 2>/dev/null\n"
+		"tc qdisc del dev %s root 2>/dev/null\n"
 		"\n"
-		"tc qdisc del dev imq0 root 2>/dev/null\n"
-		"tc qdisc del dev imq1 root 2>/dev/null\n"
-		"tc qdisc del dev br0 root 2>/dev/null\n" //fix me [why should mac get filter here??]
-		"\n"
-		"TCAM=\"tc class add dev br0\"\n" //fix me
-		"TFAM=\"tc filter add dev br0\"\n" //fix me
-		"TQAM=\"tc qdisc add dev br0\"\n" //fix me
-		"\n"
-		"TCA=\"tc class add dev imq1\"\n"
-		"TFA=\"tc filter add dev imq1\"\n"
-		"TQA=\"tc qdisc add dev imq1\"\n"
+		"TCA=\"tc class add dev br0\"\n"
+		"TFA=\"tc filter add dev br0\"\n"
+		"TQA=\"tc qdisc add dev br0\"\n"
 		"\n"
 		"SFQ=\"sfq perturb 10\"\n"
 		"\n"
-		"TCAU=\"tc class add dev imq0\"\n"
-		"TFAU=\"tc filter add dev imq0\"\n"
-		"TQAU=\"tc qdisc add dev imq0\"\n"
-		"\n"
-		"tc qdisc add dev imq1 root handle 1: htb\n"
-		"tc class add dev imq1 parent 1: classid 1:1 htb rate %skbit\n"
+		"TCAU=\"tc class add dev %s\"\n"
+		"TFAU=\"tc filter add dev %s\"\n"
+		"TQAU=\"tc qdisc add dev %s\"\n"
 		"\n"
 		"tc qdisc add dev br0 root handle 1: htb\n"
 		"tc class add dev br0 parent 1: classid 1:1 htb rate %skbit\n"
 		"\n"
-		"tc qdisc add dev imq0 root handle 1: htb\n"
-		"tc class add dev imq0 parent 1: classid 1:1 htb rate %skbit\n"
+		"tc qdisc add dev %s root handle 2: htb\n"
+		"tc class add dev %s parent 2: classid 2:1 htb rate %skbit\n"
 		"\n"
-		,ibw,ibw,obw
+		,waniface
+		,waniface
+		,waniface
+		,waniface
+		,ibw
+		,waniface
+		,waniface,obw
 	);
 	
 	if ((nvram_get_int("qosl_enable") == 1) && strcmp(dlr,"") && strcmp(ulr,"")) {
@@ -324,9 +315,9 @@ void new_qoslimit_start(void)
 		"$TQA parent 1:100 handle 100: $SFQ\n"
 		"$TFA parent 1:0 prio 3 protocol ip handle 100 fw flowid 1:100\n"
 		"\n"
-		"$TCAU parent 1:1 classid 1:100 htb rate %skbit ceil %skbit prio 3\n"
-		"$TQAU parent 1:100 handle 100: $SFQ\n"
-		"$TFAU parent 1:0 prio 3 protocol ip handle 100 fw flowid 1:100\n"
+		"$TCAU parent 2:1 classid 2:100 htb rate %skbit ceil %skbit prio 3\n"
+		"$TQAU parent 2:100 handle 100: $SFQ\n"
+		"$TFAU parent 2:0 prio 3 protocol ip handle 100 fw flowid 2:100\n"
 		"\n"
 		,dlr,dlc
 		,ulr,ulc);
@@ -364,9 +355,9 @@ void new_qoslimit_start(void)
 				sscanf(ipaddr, "%02X:%02X:%02X:%02X:%02X:%02X",&s[0],&s[1],&s[2],&s[3],&s[4],&s[5]);
 				
 				fprintf(tc,
-					"$TCAM parent 1:1 classid 1:%s htb rate %skbit ceil %skbit prio %s\n"
-					"$TQAM parent 1:%s handle %s: $SFQ\n"
-					"$TFAM parent 1:0 protocol ip prio %s u32 match u16 0x0800 0xFFFF at -2 match u32 0x%02X%02X%02X%02X 0xFFFFFFFF at -12 match u16 0x%02X%02X 0xFFFF at -14 flowid 1:%s\n"
+					"$TCA parent 1:1 classid 1:%s htb rate %skbit ceil %skbit prio %s\n"
+					"$TQA parent 1:%s handle %s: $SFQ\n"
+					"$TFA parent 1:0 protocol ip prio %s u32 match u16 0x0800 0xFFFF at -2 match u32 0x%02X%02X%02X%02X 0xFFFFFFFF at -12 match u16 0x%02X%02X 0xFFFF at -14 flowid 1:%s\n"
 					"\n"
 					,seq,dlrate,dlceil,priority
 					,seq,seq
@@ -377,9 +368,9 @@ void new_qoslimit_start(void)
 		if (!strcmp(ulceil,"")) strcpy(ulceil, dlrate);
 		if (strcmp(ulrate,"") && strcmp(ulceil, "")) {
 			fprintf(tc,
-				"$TCAU parent 1:1 classid 1:%s htb rate %skbit ceil %skbit prio %s\n"
-				"$TQAU parent 1:%s handle %s: $SFQ\n"
-				"$TFAU parent 1:0 prio %s protocol ip handle %s fw flowid 1:%s\n"
+				"$TCAU parent 2:1 classid 2:%s htb rate %skbit ceil %skbit prio %s\n"
+				"$TQAU parent 2:%s handle %s: $SFQ\n"
+				"$TFAU parent 2:0 prio %s protocol ip handle %s fw flowid 2:%s\n"
 				"\n"
 				,seq,ulrate,ulceil,priority
 				,seq,seq
@@ -399,17 +390,18 @@ void new_qoslimit_stop(void)
 {
 	FILE *f;
 	char *s = "/tmp/qoslimittc_stop.sh";
+	char *waniface;
+
+	waniface = nvram_safe_get("wan_iface"); //shibby
 
 	if ((f = fopen(s, "w")) == NULL) return;
 
 	fprintf(f,
 		"#!/bin/sh\n"
-		"tc qdisc del dev imq1 root\n"
-		"tc qdisc del dev imq0 root\n"
-		"tc qdisc del dev br0 root\n" //fix me
-		"ip link set imq0 down\n"
-		"ip link set imq1 down\n"
+		"tc qdisc del dev %s root\n"
+		"tc qdisc del dev br0 root\n"
 		"\n"
+		,waniface
 	);
 
 	fclose(f);

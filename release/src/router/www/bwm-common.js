@@ -217,14 +217,6 @@ function loadData()
 				t = 'WL <small>(' + i + ')</small>';
 			}
 
-			if (i == 'imq0') {
-				t = 'Limit/Up <small>(' + i + ')</small>';
-			}
-
-			if (i == 'imq1') {
-				t = 'Limit/Dwn <small>(' + i + ')</small>';
-			}
-
 			else if ((nvram.wan_proto == 'pptp') || (nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp')) {
 				if (nvram.wan_iface == i) t = 'WAN <small>(' + i + ')</small>';
 				else if (nvram.wan_ifname == i && nvram.wan_proto != 'pppoe') t = 'MAN <small>(' + i + ')</small>';
