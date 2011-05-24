@@ -1,4 +1,4 @@
-/* $Id: upnphttp.c,v 1.58 2011/05/07 10:23:58 nanard Exp $ */
+/* $Id: upnphttp.c,v 1.59 2011/05/20 17:51:23 nanard Exp $ */
 /* Project :  miniupnp
  * Website :  http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * Author :   Thomas Bernard
@@ -434,6 +434,12 @@ ProcessHttpQuery_upnphttp(struct upnphttp * h)
 		else if(strcasecmp(WANIP6FC_PATH, HttpUrl) == 0)
 		{
 			sendXMLdesc(h, gen6FC);
+		}
+#endif
+#ifdef ENABLE_DP_SERVICE
+		else if(strcasecmp(DP_PATH, HttpUrl) == 0)
+		{
+			sendXMLdesc(h, genDP);
 		}
 #endif
 		else

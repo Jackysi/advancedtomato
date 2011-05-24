@@ -1,4 +1,4 @@
-/* $Id: upnpredirect.h,v 1.18 2011/05/13 12:43:57 nanard Exp $ */
+/* $Id: upnpredirect.h,v 1.20 2011/05/14 13:44:04 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -11,7 +11,7 @@
 #include "config.h"
 
 #ifdef ENABLE_LEASEFILE
-int reload_from_lease_file();
+int reload_from_lease_file(void);
 #endif
 
 /* upnp_redirect() 
@@ -81,7 +81,7 @@ get_upnp_rules_state_list(int max_rules_number_target);
 
 /* return the number of port mapping entries */
 int
-upnp_get_portmapping_number_of_entries();
+upnp_get_portmapping_number_of_entries(void);
 
 /* remove_unused_rules() :
  * also free the list */
@@ -98,9 +98,17 @@ upnp_get_portmappings_in_range(unsigned short startport,
                                unsigned int * number);
 
 #ifdef ENABLE_6FC_SERVICE
+/* function to be used by WANIPv6_FirewallControl implementation */
+
+/* retreive outbound pinhole timeout*/
 int
 upnp_check_outbound_pinhole(int proto, int * timeout);
 
+/* add an inbound pinehole
+ * return value :
+ *  1 = success
+ * -1 = Pinhole space exhausted
+ * .. = error */
 int
 upnp_add_inboundpinhole(const char * raddr, unsigned short rport,
               const char * iaddr, unsigned short iport,
@@ -111,23 +119,35 @@ upnp_add_inboundpinhole_internal(const char * raddr, unsigned short rport,
                        const char * iaddr, unsigned short iport,
                        const char * proto, int * uid);
 
+/*
+ * return values :
+ *  -4 not found
+ *  -5 in another table
+ *  -6 in another chain
+ *  -7 in a chain but not a rule. (chain policy)
+ * */
 int
 upnp_get_pinhole_info(const char * raddr, unsigned short rport, char * iaddr, unsigned short * iport, char * proto, const char * uid, char * lt);
 
+/* update the lease time */
 int
 upnp_update_inboundpinhole(const char * uid, const char * leasetime);
 
+/* remove the inbound pinhole */
 int
 upnp_delete_inboundpinhole(const char * uid);
 
+/* ... */
 int
 upnp_check_pinhole_working(const char * uid, char * eaddr, char * iaddr, unsigned short * eport, unsigned short * iport, char * protocol, int * rulenum_used);
 
+/* number of packets that went through the pinhole */
 int
 upnp_get_pinhole_packets(const char * uid, int * packets);
 
+/* ? */
 int
-upnp_clean_expiredpinhole();
+upnp_clean_expiredpinhole(void);
 
 #endif /* ENABLE_6FC_SERVICE */
 

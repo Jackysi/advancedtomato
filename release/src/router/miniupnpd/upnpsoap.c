@@ -1,4 +1,4 @@
-/* $Id: upnpsoap.c,v 1.76 2011/05/13 14:00:22 nanard Exp $ */
+/* $Id: upnpsoap.c,v 1.79 2011/05/18 22:22:24 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -24,6 +24,8 @@
 #include "upnpredirect.h"
 #include "getifaddr.h"
 #include "getifstats.h"
+#include "getconnstatus.h"
+#include "upnpurns.h"
 
 static void
 BuildSendAndCloseSoapResp(struct upnphttp * h,
@@ -60,7 +62,7 @@ GetConnectionTypeInfo(struct upnphttp * h, const char * action)
 {
 	static const char resp[] =
 		"<u:GetConnectionTypeInfoResponse "
-		"xmlns:u=\"urn:schemas-upnp-org:service:WANIPConnection:1\">"
+		"xmlns:u=\"" SERVICE_TYPE_WANIPC "\">"
 		"<NewConnectionType>IP_Routed</NewConnectionType>"
 		"<NewPossibleConnectionTypes>IP_Routed</NewPossibleConnectionTypes>"
 		"</u:GetConnectionTypeInfoResponse>";
@@ -213,14 +215,18 @@ GetStatusInfo(struct upnphttp * h, const char * action)
 	/* ConnectionStatus possible values :
 	 * Unconfigured, Connecting, Connected, PendingDisconnect,
 	 * Disconnecting, Disconnected */
-	char ext_ip_addr[INET_ADDRSTRLEN];
 
-	if(getifaddr(ext_if_name, ext_ip_addr, INET_ADDRSTRLEN) < 0) {
-		status = "Disconnected";
+	switch(get_wan_connection_status(ext_if_name)) {
+		case 0:
+			status = "Unconfigured";
+			break;
+		case 5:
+			status = "Disconnected";
+			break;
 	}
 	uptime = (time(NULL) - startup_time);
 	bodylen = snprintf(body, sizeof(body), resp,
-		action, "urn:schemas-upnp-org:service:WANIPConnection:1",
+		action, SERVICE_TYPE_WANIPC,
 		status, (long)uptime, action);	
 	BuildSendAndCloseSoapResp(h, body, bodylen);
 }
@@ -230,7 +236,7 @@ GetNATRSIPStatus(struct upnphttp * h, const char * action)
 {
 	static const char resp[] =
 		"<u:GetNATRSIPStatusResponse "
-		"xmlns:u=\"urn:schemas-upnp-org:service:WANIPConnection:1\">"
+		"xmlns:u=\"" SERVICE_TYPE_WANIPC "\">"
 		"<NewRSIPAvailable>0</NewRSIPAvailable>"
 		"<NewNATEnabled>1</NewNATEnabled>"
 		"</u:GetNATRSIPStatusResponse>";
@@ -257,6 +263,8 @@ GetExternalIPAddress(struct upnphttp * h, const char * action)
 	char body[512];
 	int bodylen;
 	char ext_ip_addr[INET_ADDRSTRLEN];
+	/* Does that method need to work with IPv6 ?
+	 * There is usually no NAT with IPv6 */
 
 #ifndef MULTIPLE_EXTERNAL_IP
 	if(use_ext_ip_addr)
@@ -283,11 +291,13 @@ GetExternalIPAddress(struct upnphttp * h, const char * action)
 	}
 #endif
 	bodylen = snprintf(body, sizeof(body), resp,
-	              action, "urn:schemas-upnp-org:service:WANIPConnection:1",
+	              action, SERVICE_TYPE_WANIPC,
 				  ext_ip_addr, action);
 	BuildSendAndCloseSoapResp(h, body, bodylen);
 }
 
+/* AddPortMapping method of WANIPConnection Service
+ * Ignored argument : NewEnabled */
 static void
 AddPortMapping(struct upnphttp * h, const char * action)
 {
@@ -295,11 +305,12 @@ AddPortMapping(struct upnphttp * h, const char * action)
 
 	static const char resp[] =
 		"<u:AddPortMappingResponse "
-		"xmlns:u=\"urn:schemas-upnp-org:service:WANIPConnection:1\"/>";
+		"xmlns:u=\"" SERVICE_TYPE_WANIPC "\"/>";
 
 	struct NameValueParserData data;
 	char * int_ip, * int_port, * ext_port, * protocol, * desc;
 	char * leaseduration;
+	char * r_host;
 	unsigned short iport, eport;
 
 	struct hostent *hp; /* getbyhostname() */
@@ -308,13 +319,22 @@ AddPortMapping(struct upnphttp * h, const char * action)
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
 	int_ip = GetValueFromNameValueList(&data, "NewInternalClient");
-
 	if (!int_ip)
 	{
 		ClearNameValueList(&data);
 		SoapError(h, 402, "Invalid Args");
 		return;
 	}
+
+	r_host = GetValueFromNameValueList(&data, "NewRemoteHost");
+#ifdef UPNP_STRICT
+	if (r_host && (strlen(r_host) > 0) && (0 != strcmp(r_host, "*")))
+	{
+		ClearNameValueList(&data);
+		SoapError(h, 726, "RemoteHostOnlySupportsWildcard");
+		return;
+	}
+#endif
 
 	/* if ip not valid assume hostname and convert */
 	if (inet_pton(AF_INET, int_ip, &result_ip) <= 0) 
@@ -522,7 +542,7 @@ AddAnyPortMapping(struct upnphttp * h, const char * action)
 	{
 	case 0:	/* success */
 		bodylen = snprintf(body, sizeof(body), resp,
-		              action, "urn:schemas-upnp-org:service:WANIPConnection:2",
+		              action, SERVICE_TYPE_WANIPC,
 					  eport, action);
 		BuildSendAndCloseSoapResp(h, body, bodylen);
 		break;
@@ -597,7 +617,7 @@ GetSpecificPortMappingEntry(struct upnphttp * h, const char * action)
 		       action,
 		       r_host, ext_port, protocol, int_ip, (unsigned int)iport, desc);
 		bodylen = snprintf(body, sizeof(body), resp,
-				action, "urn:schemas-upnp-org:service:WANIPConnection:1",
+				action, SERVICE_TYPE_WANIPC,
 				(unsigned int)iport, int_ip, desc, lease_duration,
 				action);
 		BuildSendAndCloseSoapResp(h, body, bodylen);
@@ -613,7 +633,7 @@ DeletePortMapping(struct upnphttp * h, const char * action)
 
 	static const char resp[] =
 		"<u:DeletePortMappingResponse "
-		"xmlns:u=\"urn:schemas-upnp-org:service:WANIPConnection:1\">"
+		"xmlns:u=\"" SERVICE_TYPE_WANIPC "\">"
 		"</u:DeletePortMappingResponse>";
 
 	struct NameValueParserData data;
@@ -671,7 +691,7 @@ DeletePortMappingRange(struct upnphttp * h, const char * action)
 	int r = -1;
 	static const char resp[] =
 		"<u:DeletePortMappingRangeResponse "
-		"xmlns:u=\"urn:schemas-upnp-org:service:WANIPConnection:2\">"
+		"xmlns:u=\"" SERVICE_TYPE_WANIPC "\">"
 		"</u:DeletePortMappingRangeResponse>";
 	struct NameValueParserData data;
 	const char * protocol;
@@ -764,7 +784,7 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 		int bodylen;
 		char body[2048];
 		bodylen = snprintf(body, sizeof(body), resp,
-			action, "urn:schemas-upnp-org:service:WANIPConnection:1",
+			action, SERVICE_TYPE_WANIPC,
 			(unsigned int)eport, protocol, (unsigned int)iport, iaddr, desc,
 		    lease_duration, action);
 		BuildSendAndCloseSoapResp(h, body, bodylen);
@@ -865,7 +885,7 @@ http://www.upnp.org/schemas/gw/WANIPConnection-v2.xsd">
 		return;
 	}
 	bodylen = snprintf(body, bodyalloc, resp_start,
-	              action, "urn:schemas-upnp-org:service:WANIPConnection:2");
+	              action, SERVICE_TYPE_WANIPC);
 	memcpy(body+bodylen, list_start, sizeof(list_start));
 	bodylen += (sizeof(list_start) - 1);
 
@@ -937,7 +957,7 @@ GetDefaultConnectionService(struct upnphttp * h, const char * action)
 		"<u:%sResponse "
 		"xmlns:u=\"urn:schemas-upnp-org:service:Layer3Forwarding:1\">"
 		"<NewDefaultConnectionService>%s:WANConnectionDevice:1,"
-		"urn:upnp-org:serviceId:WANIPConn1</NewDefaultConnectionService>"
+		SERVICE_ID_WANIPC "</NewDefaultConnectionService>"
 		"</u:%sResponse>";
 	/* example from UPnP_IGD_Layer3Forwarding 1.0.pdf :
 	 * uuid:44f5824f-c57d-418c-a131-f22b34e14111:WANConnectionDevice:1,
@@ -1016,9 +1036,14 @@ QueryStateVariable(struct upnphttp * h, const char * action)
 	else if(strcmp(var_name, "ConnectionStatus") == 0)
 	{	
 		const char * status = "Connected";
-		char ext_ip_addr[INET_ADDRSTRLEN];
-		if(getifaddr(ext_if_name, ext_ip_addr, INET_ADDRSTRLEN) < 0) {
+
+		switch(get_wan_connection_status(ext_if_name)) {
+		case 0:
+			status = "Unconfigured";
+			break;
+		case 5:
 			status = "Disconnected";
+			break;
 		}
 		bodylen = snprintf(body, sizeof(body), resp,
                            action, "urn:schemas-upnp-org:control-1-0",
@@ -1058,6 +1083,9 @@ QueryStateVariable(struct upnphttp * h, const char * action)
 }
 
 #ifdef ENABLE_6FC_SERVICE
+#ifndef ENABLE_IPV6
+#error "ENABLE_6FC_SERVICE needs ENABLE_IPV6"
+#endif
 /* WANIPv6FirewallControl actions */
 static void
 GetFirewallStatus(struct upnphttp * h, const char * action)
@@ -1113,7 +1141,7 @@ DataVerification(struct upnphttp * h, char * int_ip, unsigned short * int_port, 
 	}
 
 	// ** Internal port can't be wilcarded. 
-	printf("\tint_port: *%d*\n", *int_port);
+//	printf("\tint_port: *%d*\n", *int_port);
 	if (*int_port == 0)
 	{
 		SoapError(h, 706, "InternalPortWilcardingNotAllowed");
@@ -1121,7 +1149,7 @@ DataVerification(struct upnphttp * h, char * int_ip, unsigned short * int_port, 
 	}
 
 	// ** Protocol can't be wilcarded and can't be an unknown port (here deal with only UDP, TCP, UDPLITE)
-	printf("\tprotocol: *%s*\n", protocol);
+//	printf("\tprotocol: *%s*\n", protocol);
 	if (atoi(protocol) == 65535)
 	{
 		SoapError(h, 707, "ProtocolWilcardingNotAllowed");
@@ -1139,7 +1167,7 @@ DataVerification(struct upnphttp * h, char * int_ip, unsigned short * int_port, 
 	}
 
 	// ** Lease Time can't be wilcarded nor >86400.
-	printf("\tlease time: %s\n", leaseTime);
+//	printf("\tlease time: %s\n", leaseTime);
 	if(!leaseTime || !atoi(leaseTime) || atoi(leaseTime)>86400)
 	{
 		/* lease duration is never infinite, nor wilcarded. In this case, use default value */
@@ -1248,13 +1276,16 @@ PinholeVerification(struct upnphttp * h, char * int_ip, unsigned short * int_por
         freeaddrinfo(p);
 	}
 
-	if(inet_ntop(AF_INET6, &(h->clientaddr), senderAddr, INET6_ADDRSTRLEN)<=0)
-		printf("Failed to inet_ntop\n");
+	if(inet_ntop(AF_INET6, &(h->clientaddr_v6), senderAddr, INET6_ADDRSTRLEN)<=0)
+	{
+		//printf("Failed to inet_ntop\n");
+		syslog(LOG_ERR, "inet_ntop: %m");
+	}
 #ifdef DEBUG
 	printf("\tPinholeVerification:\n\t\tCompare sender @: %s\n\t\t  to intClient @: %s\n", senderAddr, int_ip);
 #endif
 	if(strcmp(senderAddr, int_ip) != 0)
-	//if(h->clientaddr.s6_addr != result_ip.s6_addr) //TODO IPv6 Modification
+	if(h->clientaddr_v6.s6_addr != result_ip.s6_addr)
 	{
 		syslog(LOG_INFO, "Client %s tried to access pinhole for internal %s and is not authorized to do it",
 		       senderAddr, int_ip);
@@ -1276,8 +1307,6 @@ PinholeVerification(struct upnphttp * h, char * int_ip, unsigned short * int_por
 static void
 AddPinhole(struct upnphttp * h, const char * action)
 {
-	if(CheckStatus(h)==0)
-		return;
 	int r;
 	static const char resp[] =
 		"<u:%sResponse "
@@ -1291,6 +1320,9 @@ AddPinhole(struct upnphttp * h, const char * action)
 	int uid = 0;
 	unsigned short iport, rport;
 
+	if(CheckStatus(h)==0)
+		return;
+
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
 	rem_host = GetValueFromNameValueList(&data, "RemoteHost");
 	rem_port = GetValueFromNameValueList(&data, "RemotePort");
@@ -1303,7 +1335,8 @@ AddPinhole(struct upnphttp * h, const char * action)
 	iport = (unsigned short)atoi(int_port);
 
 	// **  As there is no security policy, InternalClient must be equal to the CP's IP address.
-	if(DataVerification(h, int_ip, &iport, protocol, leaseTime)==0 || PinholeVerification(h, int_ip, &iport)<=0)
+	if(DataVerification(h, int_ip, &iport, protocol, leaseTime) == 0
+	   || PinholeVerification(h, int_ip, &iport) <= 0)
 	{
 		ClearNameValueList(&data);
 		return ;
@@ -1342,19 +1375,18 @@ AddPinhole(struct upnphttp * h, const char * action)
 static void
 UpdatePinhole(struct upnphttp * h, const char * action)
 {
-	if(CheckStatus(h)==0)
-		return;
 	int r, n;
-
 	static const char resp[] =
 		"<u:UpdatePinholeResponse "
 		"xmlns:u=\"urn:schemas-upnp-org:service:WANIPv6FirewallControl:1\">"
 		"</u:UpdatePinholeResponse>";
-
 	struct NameValueParserData data;
 	const char * uid, * leaseTime;
 	char iaddr[40], proto[6], lt[12];
 	unsigned short iport;
+
+	if(CheckStatus(h)==0)
+		return;
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
 	uid = GetValueFromNameValueList(&data, "UniqueID");

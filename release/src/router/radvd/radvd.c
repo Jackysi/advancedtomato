@@ -430,7 +430,7 @@ void main_loop(void)
 			if (next)
 				timer_handler(next);
 		}
-		else if ( rc == -1 ) {
+		else if ( rc == -1 && errno != EINTR ) {
 			flog(LOG_ERR, "poll error: %s", strerror(errno));
 		}
 

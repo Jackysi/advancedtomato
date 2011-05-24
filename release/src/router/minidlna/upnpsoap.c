@@ -819,7 +819,8 @@ callback(void *args, int argc, char **argv, char **azColName)
 					if( dlna_pn &&
 					    (strncmp(dlna_pn, "MPEG_TS_HD_NA", 13) == 0 ||
 					     strncmp(dlna_pn, "MPEG_TS_SD_NA", 13) == 0 ||
-					     strncmp(dlna_pn, "AVC_TS_MP_HD_AC3", 16) == 0))
+					     strncmp(dlna_pn, "AVC_TS_MP_HD_AC3", 16) == 0 ||
+					     strncmp(dlna_pn, "AVC_TS_HP_HD_AC3", 16) == 0))
 					{
 						sprintf(dlna_buf, "DLNA.ORG_PN=MPEG_PS_NTSC;DLNA.ORG_OP=01;DLNA.ORG_CI=0");
 						add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
@@ -877,6 +878,15 @@ callback(void *args, int argc, char **argv, char **azColName)
 						sprintf(dlna_buf, "DLNA.ORG_PN=AVC_TS_HD_50_AC3;DLNA.ORG_OP=01;DLNA.ORG_CI=0");
 						add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
 						        resolution, dlna_buf, mime, detailID, ext, passed_args);
+					}
+					break;
+				case ELGDevice:
+					if( sql_get_int_field(db, "SELECT ID from CAPTIONS where ID = '%s'", detailID) > 0 )
+					{
+						ret = strcatf(str, "&lt;res protocolInfo=\"http-get:*:text/srt:*\"&gt;"
+						                     "http://%s:%d/Captions/%s.srt"
+						                   "&lt;/res&gt;",
+						                   lan_addr[0].str, runtime_vars.port, detailID);
 					}
 					break;
 				default:

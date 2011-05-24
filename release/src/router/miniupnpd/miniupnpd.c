@@ -1,4 +1,4 @@
-/* $Id: miniupnpd.c,v 1.127 2011/05/13 13:56:17 nanard Exp $ */
+/* $Id: miniupnpd.c,v 1.135 2011/05/20 09:43:23 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard
@@ -63,6 +63,10 @@
 #include "natpmp.h"
 #endif
 #include "commonrdr.h"
+#include "upnputils.h"
+#ifdef USE_IFACEWATCHER
+#include "ifacewatcher.h"
+#endif
 
 #ifndef DEFAULT_CONFIG
 #define DEFAULT_CONFIG "/etc/miniupnpd.conf"
@@ -81,17 +85,14 @@ static struct nfq_handle *nfqHandle;
 static struct sockaddr_in ssdp;
 
 /* prototypes */
-void ProcessSSDPData(int s, char *bufr, struct sockaddr_in sendername, int n, unsigned short port);
 static int nfqueue_cb( struct nfq_q_handle *qh, struct nfgenmsg *nfmsg, struct nfq_data *nfa, void *data) ;
 int identify_ip_protocol (char *payload);
 int get_udp_dst_port (char *payload);
 #endif
 
-
-static int sudp = -1;
-
+/* variables used by signals */
 static volatile int quitting = 0;
-static volatile int should_send_public_address_change_notif = 0;
+volatile int should_send_public_address_change_notif = 0;
 
 
 #if 1
@@ -226,9 +227,20 @@ OpenAndConfHTTPSocket(unsigned short port)
 {
 	int s;
 	int i = 1;
+#ifdef ENABLE_IPV6
+	struct sockaddr_in6 listenname;
+#else
 	struct sockaddr_in listenname;
+#endif
+	socklen_t listenname_len;
 
-	if( (s = socket(PF_INET, SOCK_STREAM, 0)) < 0)
+	if( (s = socket(
+#ifdef ENABLE_IPV6
+	                PF_INET6,
+#else
+	                PF_INET,
+#endif
+	                SOCK_STREAM, 0)) < 0)
 	{
 		syslog(LOG_ERR, "socket(http): %m");
 		return -1;
@@ -238,13 +250,29 @@ OpenAndConfHTTPSocket(unsigned short port)
 	{
 		syslog(LOG_WARNING, "setsockopt(http, SO_REUSEADDR): %m");
 	}
+#if 0
+	/* enable this to force IPV6 only for IPV6 socket.
+	 * see http://www.ietf.org/rfc/rfc3493.txt section 5.3 */
+	if(setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, &i, sizeof(i)) < 0)
+	{
+		syslog(LOG_WARNING, "setsockopt(http, IPV6_V6ONLY): %m");
+	}
+#endif
 
-	memset(&listenname, 0, sizeof(struct sockaddr_in));
+#ifdef ENABLE_IPV6
+	memset(&listenname, 0, sizeof(struct sockaddr_in6));
+	listenname.sin6_family = AF_INET6;
+	listenname.sin6_port = htons(port);
+	listenname.sin6_addr = in6addr_any;
+	listenname_len =  sizeof(struct sockaddr_in6);
+#else
 	listenname.sin_family = AF_INET;
 	listenname.sin_port = htons(port);
 	listenname.sin_addr.s_addr = htonl(INADDR_ANY);
+	listenname_len =  sizeof(struct sockaddr_in);
+#endif
 
-	if(bind(s, (struct sockaddr *)&listenname, sizeof(struct sockaddr_in)) < 0)
+	if(bind(s, (struct sockaddr *)&listenname, listenname_len) < 0)
 	{
 		syslog(LOG_ERR, "bind(http): %m");
 		close(s);
@@ -377,7 +405,8 @@ static int nfqueue_cb(
 					sendername.sin_addr.s_addr = iph->ip_src.s_addr;
 
 					/* printf("pkt found %s\n",dd);*/
-					ProcessSSDPData (sudp, dd, sendername, size - x, (unsigned short) 5555);
+					ProcessSSDPData (sudp, dd, size - x,
+					                 &sendername, (unsigned short) 5555);
 				}
 			}
 		}
@@ -1062,6 +1091,8 @@ init(int argc, char * * argv, struct runtime_vars * v)
 		return 1;
 	}	
 
+	syslog(LOG_NOTICE, "version " MINIUPNPD_VERSION " started");
+
 	set_startup_time(GETFLAG(SYSUPTIMEMASK));
 
 	/* presentation url */
@@ -1173,13 +1204,21 @@ int
 main(int argc, char * * argv)
 {
 	int i;
-	int shttpl = -1;
+	int shttpl = -1;	/* socket for HTTP */
+	int sudp = -1;		/* IP v4 socket for receiving SSDP */
+#ifdef ENABLE_IPV6
+	int sudpv6 = -1;	/* IP v6 socket for receiving SSDP */
+#endif
 #ifdef ENABLE_NATPMP
 	int * snatpmp;
+#endif
 #ifdef ENABLE_NFQUEUE
 	int nfqh = -1;
 #endif
+#ifdef USE_IFACEWATCHER
+	int sifacewatcher = -1;
 #endif
+
 	int * snotify;
 	int addr_count;
 	LIST_HEAD(httplisthead, upnphttp) upnphttphead;
@@ -1202,7 +1241,6 @@ main(int argc, char * * argv)
 	struct rule_state * rule_list = 0;
 	struct timeval checktime = {0, 0};
 	struct lan_addr_s * lan_addr;
-	syslog(LOG_INFO, "SNet version started");
 
 	if(init(argc, argv, &v) != 0)
 		return 1;
@@ -1252,9 +1290,18 @@ main(int argc, char * * argv)
 			v.port = ntohs(sockinfo.sin_port);
 		}
 		syslog(LOG_NOTICE, "HTTP listening on port %d", v.port);
+#ifdef ENABLE_IPV6
+		if(find_ipv6_addr(NULL, ipv6_addr_for_http_with_brackets, sizeof(ipv6_addr_for_http_with_brackets)) > 0) {
+			syslog(LOG_NOTICE, "HTTP IPv6 address given to control points : %s",
+			       ipv6_addr_for_http_with_brackets);
+		} else {
+			memcpy(ipv6_addr_for_http_with_brackets, "[::1]", 6);
+			syslog(LOG_WARNING, "no HTTP IPv6 address");
+		}
+#endif
 
 		/* open socket for SSDP connections */
-		sudp = OpenAndConfSSDPReceiveSocket();
+		sudp = OpenAndConfSSDPReceiveSocket(0);
 		if(sudp < 0)
 		{
 			syslog(LOG_INFO, "Failed to open socket for receiving SSDP. Trying to use MiniSSDPd");
@@ -1263,6 +1310,13 @@ main(int argc, char * * argv)
 				return 1;
 			}
 		}
+#ifdef ENABLE_IPV6
+		sudpv6 = OpenAndConfSSDPReceiveSocket(1);
+		if(sudpv6 < 0)
+		{
+			syslog(LOG_INFO, "Failed to open socket for receiving SSDP (IP v6).");
+		}
+#endif
 
 		/* open socket for sending notifications */
 		if(OpenAndConfSSDPNotifySockets(snotify) < 0)
@@ -1271,6 +1325,18 @@ main(int argc, char * * argv)
 		                "messages. EXITING");
 			return 1;
 		}
+
+#ifdef USE_IFACEWATCHER
+		/* open socket for kernel notifications about new network interfaces */
+		if (sudp >= 0)
+		{
+			sifacewatcher = OpenAndConfInterfaceWatchSocket();
+			if (sifacewatcher < 0)
+			{
+				syslog(LOG_ERR, "Failed to open socket for receiving network interface notifications");
+			}
+		}
+#endif
 	}
 
 #ifdef ENABLE_NATPMP
@@ -1315,6 +1381,22 @@ main(int argc, char * * argv)
 		{
 			set_startup_time(GETFLAG(SYSUPTIMEMASK));
 		} 
+		/* send public address change notifications if needed */
+		if(should_send_public_address_change_notif)
+		{
+			syslog(LOG_DEBUG, "should send external iface address change notification(s)");
+#ifdef ENABLE_NATPMP
+			if(GETFLAG(ENABLENATPMPMASK))
+				SendNATPMPPublicAddressChangeNotification(snatpmp, addr_count);
+#endif
+#ifdef ENABLE_EVENTS
+			if(GETFLAG(ENABLEUPNPMASK))
+			{
+				upnp_event_var_change_notify(EWanIPC);
+			}
+#endif
+			should_send_public_address_change_notif = 0;
+		}
 		/* Check if we need to send SSDP NOTIFY messages and do it if
 		 * needed */
 		if(gettimeofday(&timeofday, 0) < 0)
@@ -1400,13 +1482,26 @@ main(int argc, char * * argv)
 		{
 			FD_SET(sudp, &readset);
 			max_fd = MAX( max_fd, sudp);
+#ifdef USE_IFACEWATCHER
+			if (sifacewatcher >= 0)
+			{
+				FD_SET(sifacewatcher, &readset);
+				max_fd = MAX(max_fd, sifacewatcher);
+			}
+#endif
 		}
-		
 		if (shttpl >= 0) 
 		{
 			FD_SET(shttpl, &readset);
 			max_fd = MAX( max_fd, shttpl);
 		}
+#ifdef ENABLE_IPV6
+		if (sudpv6 >= 0)
+		{
+			FD_SET(sudpv6, &readset);
+			max_fd = MAX( max_fd, sudpv6);
+		}
+#endif
 
 		i = 0;	/* active HTTP connections count */
 		for(e = upnphttphead.lh_first; e != NULL; e = e->entries.le_next)
@@ -1542,6 +1637,19 @@ main(int argc, char * * argv)
 			/*syslog(LOG_INFO, "Received UDP Packet");*/
 			ProcessSSDPRequest(sudp, (unsigned short)v.port);
 		}
+#ifdef ENABLE_IPV6
+		if(sudpv6 >= 0 && FD_ISSET(sudpv6, &readset))
+		{
+			syslog(LOG_INFO, "Received UDP Packet (IPv6)");
+			ProcessSSDPRequest(sudpv6, (unsigned short)v.port);
+		}
+#endif
+#ifdef USE_IFACEWATCHER
+		/* process kernel notifications */
+		if (sifacewatcher >= 0 && FD_ISSET(sifacewatcher, &readset))
+			ProcessInterfaceWatchNotify(sifacewatcher);
+#endif
+
 		/* process active HTTP connections */
 		/* LIST_FOREACH macro is not available under linux */
 		for(e = upnphttphead.lh_first; e != NULL; e = e->entries.le_next)
@@ -1557,8 +1665,13 @@ main(int argc, char * * argv)
 		{
 			int shttp;
 			socklen_t clientnamelen;
+#ifdef ENABLE_IPV6
+			struct sockaddr_storage clientname;
+			clientnamelen = sizeof(struct sockaddr_storage);
+#else
 			struct sockaddr_in clientname;
 			clientnamelen = sizeof(struct sockaddr_in);
+#endif
 			shttp = accept(shttpl, (struct sockaddr *)&clientname, &clientnamelen);
 			if(shttp<0)
 			{
@@ -1567,26 +1680,43 @@ main(int argc, char * * argv)
 			else
 			{
 				struct upnphttp * tmp = 0;
-				syslog(LOG_INFO, "HTTP connection from %s:%d",
-					inet_ntoa(clientname.sin_addr),
-					ntohs(clientname.sin_port) );
+				char addr_str[64];
+
+				sockaddr_to_string((struct sockaddr *)&clientname, addr_str, sizeof(addr_str));
+				syslog(LOG_INFO, "HTTP connection from %s", addr_str);
 				/*if (fcntl(shttp, F_SETFL, O_NONBLOCK) < 0) {
 					syslog(LOG_ERR, "fcntl F_SETFL, O_NONBLOCK");
 				}*/
-#ifdef ENABLE_NFQUEUE
-		/* process NFQ packets */
-		if(nfqh >= 0 && FD_ISSET(nfqh, &readset))
-		{
-			/* syslog(LOG_INFO, "Received NFQUEUE Packet");*/
-			ProcessNFQUEUE(nfqh);
-		}
-#endif
 				/* Create a new upnphttp object and add it to
 				 * the active upnphttp object list */
 				tmp = New_upnphttp(shttp);
 				if(tmp)
 				{
+#ifdef ENABLE_IPV6
+					if(clientname.ss_family == AF_INET)
+					{
+						tmp->clientaddr = ((struct sockaddr_in *)&clientname)->sin_addr;
+					}
+					else if(clientname.ss_family == AF_INET6)
+					{
+						struct sockaddr_in6 * addr = (struct sockaddr_in6 *)&clientname;
+						if(IN6_IS_ADDR_V4MAPPED(&addr->sin6_addr))
+						{
+							memcpy(&tmp->clientaddr,
+							       &addr->sin6_addr.s6_addr[12],
+							       4);
+						}
+						else
+						{
+							tmp->ipv6 = 1;
+							memcpy(&tmp->clientaddr_v6,
+							       &addr->sin6_addr,
+							       sizeof(struct in6_addr));
+						}
+					}
+#else
 					tmp->clientaddr = clientname.sin_addr;
+#endif
 					LIST_INSERT_HEAD(&upnphttphead, tmp, entries);
 				}
 				else
@@ -1596,6 +1726,14 @@ main(int argc, char * * argv)
 				}
 			}
 		}
+#ifdef ENABLE_NFQUEUE
+		/* process NFQ packets */
+		if(nfqh >= 0 && FD_ISSET(nfqh, &readset))
+		{
+			/* syslog(LOG_INFO, "Received NFQUEUE Packet");*/
+			ProcessNFQUEUE(nfqh);
+		}
+#endif
 		/* delete finished HTTP connections */
 		for(e = upnphttphead.lh_first; e != NULL; )
 		{
@@ -1608,21 +1746,6 @@ main(int argc, char * * argv)
 			e = next;
 		}
 
-		/* send public address change notifications */
-		if(should_send_public_address_change_notif)
-		{
-#ifdef ENABLE_NATPMP
-			if(GETFLAG(ENABLENATPMPMASK))
-				SendNATPMPPublicAddressChangeNotification(snatpmp/*snotify*/, addr_count);
-#endif
-#ifdef ENABLE_EVENTS
-			if(GETFLAG(ENABLEUPNPMASK))
-			{
-				upnp_event_var_change_notify(EWanIPC);
-			}
-#endif
-			should_send_public_address_change_notif = 0;
-		}
 	}	/* end of main loop */
 
 shutdown:
@@ -1638,6 +1761,13 @@ shutdown:
 
 	if (sudp >= 0) close(sudp);
 	if (shttpl >= 0) close(shttpl);
+#ifdef ENABLE_IPV6
+	if (sudpv6 >= 0) close(sudpv6);
+	//if (shttplv6 >= 0) close(shttplv6);
+#endif
+#ifdef USE_IFACEWATCHER
+	if(sifacewatcher >= 0) close(sifacewatcher);
+#endif
 #ifdef ENABLE_NATPMP
 	for(i=0; i<addr_count; i++) {
 		if(snatpmp[i]>=0)

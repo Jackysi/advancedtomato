@@ -1,4 +1,4 @@
-/* $Id: iptcrdr.c,v 1.39 2011/03/09 15:27:42 nanard Exp $ */
+/* $Id: iptcrdr.c,v 1.40 2011/05/16 12:11:37 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard
@@ -20,6 +20,15 @@
 
 #if IPTABLES_143
 /* IPTABLES API version >= 1.4.3 */
+
+/* added in order to compile on gentoo :
+ * http://miniupnp.tuxfamily.org/forum/viewtopic.php?p=2183 */
+#define BUILD_BUG_ON_ZERO(e) (sizeof(struct { int:-!!(e); }))
+#define __must_be_array(a) \
+	BUILD_BUG_ON_ZERO(__builtin_types_compatible_p(typeof(a), typeof(&a[0])))
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
+#define LIST_POISON2  ((void *) 0x00200200 )
+
 #include <net/netfilter/nf_nat.h>
 #define ip_nat_multi_range	nf_nat_multi_range
 #define ip_nat_range		nf_nat_range
@@ -532,7 +541,7 @@ get_tcp_match(unsigned short dport)
 	       + IPT_ALIGN(sizeof(struct ipt_tcp));
 	match = calloc(1, size);
 	match->u.match_size = size;
-	strncpy(match->u.user.name, "tcp", IPT_FUNCTION_MAXNAMELEN);
+	strncpy(match->u.user.name, "tcp", sizeof(match->u.user.name));
 	tcpinfo = (struct ipt_tcp *)match->data;
 	tcpinfo->spts[0] = 0;		/* all source ports */
 	tcpinfo->spts[1] = 0xFFFF;
@@ -551,7 +560,7 @@ get_udp_match(unsigned short dport)
 	       + IPT_ALIGN(sizeof(struct ipt_udp));
 	match = calloc(1, size);
 	match->u.match_size = size;
-	strncpy(match->u.user.name, "udp", IPT_FUNCTION_MAXNAMELEN);
+	strncpy(match->u.user.name, "udp", sizeof(match->u.user.name));
 	udpinfo = (struct ipt_udp *)match->data;
 	udpinfo->spts[0] = 0;		/* all source ports */
 	udpinfo->spts[1] = 0xFFFF;
@@ -572,7 +581,7 @@ get_dnat_target(const char * daddr, unsigned short dport)
 	       + IPT_ALIGN(sizeof(struct ip_nat_multi_range));
 	target = calloc(1, size);
 	target->u.target_size = size;
-	strncpy(target->u.user.name, "DNAT", IPT_FUNCTION_MAXNAMELEN);
+	strncpy(target->u.user.name, "DNAT", sizeof(target->u.user.name));
 	/* one ip_nat_range already included in ip_nat_multi_range */
 	mr = (struct ip_nat_multi_range *)&target->data[0];
 	mr->rangesize = 1;
@@ -706,7 +715,7 @@ get_accept_target(void)
 	       + IPT_ALIGN(sizeof(int));
 	target = calloc(1, size);
 	target->u.user.target_size = size;
-	strncpy(target->u.user.name, "ACCEPT", IPT_FUNCTION_MAXNAMELEN);
+	strncpy(target->u.user.name, "ACCEPT", sizeof(target->u.user.name));
 	return target;
 }
 
