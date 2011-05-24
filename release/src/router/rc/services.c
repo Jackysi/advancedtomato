@@ -961,6 +961,7 @@ void start_syslog(void)
 		if (nvram_match("log_file_custom", "0")) {
 		argv[argc++] = "-s";
 		argv[argc++] = rot_siz;
+		remove("/var/log/messages");
 		}
 
 
