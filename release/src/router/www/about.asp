@@ -114,8 +114,11 @@ Copyright (C) 2010 Keith Moyer,<br>
 
 <b>"Shibby" features:</b><br>
 <!-- BT-BEGIN -->
-- Transmission 2.22 integration and GUI<br>
+- Transmission 2.22 integration<br>
 <!-- BT-END -->
+<!-- BBT-BEGIN -->
+- GUI for Transmission<br>
+<!-- BBT-END -->
 <!-- NFS-BEGIN -->
 - NFS utils integration and GUI<br>
 <!-- NFS-END -->

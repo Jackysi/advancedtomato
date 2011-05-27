@@ -965,6 +965,8 @@ static const nvset_t nvset_list[] = {
 #ifdef TCONFIG_BT
 // nas-transmission
 	{ "bt_enable",                  V_01                            },
+	{ "bt_binary",                  V_LENGTH(0, 50)                 },
+	{ "bt_binary_custom",           V_LENGTH(0, 50)                 },
 	{ "bt_custom",                  V_TEXT(0, 2048)                 },
 	{ "bt_port",                    V_PORT                          },
 	{ "bt_dir",                     V_LENGTH(0, 50)                 },

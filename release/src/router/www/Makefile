@@ -139,6 +139,11 @@ ifneq ($(TCONFIG_BT),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/BT-BEGIN/,/BT-END/d"
 endif
 
+# Only include the Transmission binary path select if Transmission binaries is configured in.
+ifneq ($(TCONFIG_BBT),y)
+	sed -i $(INSTALLDIR)/www/nas-bittorrent.asp -e "/BBT-BEGIN/,/BBT-END/d"
+endif
+
 ifeq ($(TOMATO_EXPERIMENTAL),1)
 	cd $(INSTALLDIR)/www && \
 	for F in $(wildcard *.asp); do \
@@ -193,6 +198,7 @@ endif
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
 		-e "/CTF-BEGIN/d"	-e "/CTF-END/d" \
 		-e "/BT-BEGIN/d"	-e "/BT-END/d" \
+		-e "/BBT-BEGIN/d"	-e "/BBT-END/d" \
 		-e "/NFS-BEGIN/d"	-e "/NFS-END/d" \
 		-e "/NOCAT-BEGIN/d"	-e "/NOCAT_END/d"\
 		|| true; \

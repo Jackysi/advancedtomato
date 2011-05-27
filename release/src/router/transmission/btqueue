@@ -2,7 +2,17 @@
 
 # *************
 # Configuration
-REMOTE="/usr/bin/transmission-remote"
+PATH_DIR=`nvram get bt_binary`
+if [ "$PATH_DIR" == "internal" ]; then
+    PATH_BT="/usr/bin"
+fi
+if [ "$PATH_DIR" == "optware" ]; then
+    PATH_BT="/opt/bin"
+fi
+if [ "$PATH_DIR" == "custom" ]; then
+    PATH_BT=`nvram get bt_binary_custom`
+fi
+
 USERNAME=`nvram get bt_login`
 PASSWORD=`nvram get bt_password`
 PORT=`nvram get bt_port_gui`
@@ -11,6 +21,7 @@ MAXACTIVE=`nvram get bt_maxactive`
 
 # *************
 # Set-up variables
+REMOTE="$PATH_BT/transmission-remote"
 CMD="$REMOTE $PORT --auth $USERNAME:$PASSWORD"
 LOGCMD="/usr/bin/logger -t transmission-queue "
 MAXRATIO=`nvram get bt_ratio`

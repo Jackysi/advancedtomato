@@ -809,6 +809,12 @@ const defaults_t defaults[] = {
 #ifdef TCONFIG_BT
 // nas-transmission
 	{ "bt_enable",				"0"			},
+#ifdef TCONFIG_BBT
+	{ "bt_binary",				"internal"		},
+#else
+	{ "bt_binary",				"optware"		},
+#endif
+	{ "bt_binary_custom",			"/path/to/binaries/directory"	},
 	{ "bt_custom",				""			},
 	{ "bt_port",				"51515"			},
 	{ "bt_dir",				"/mnt"			},
