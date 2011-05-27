@@ -24,6 +24,7 @@ void start_bittorrent(void)
     char *pk;
     char *pl;
     char *pm;
+    char *pn;
 
 // make sure its really stop
     stop_bittorrent();
@@ -44,6 +45,10 @@ void start_bittorrent(void)
         else { pk = nvram_safe_get( "bt_settings" ); }
     if (nvram_match( "bt_auth", "1") ) { pl = "true"; } else { pl = "false"; }
     if (nvram_match( "bt_blocklist", "1") ) { pm = "true"; } else { pm = "false"; }
+    if (nvram_match( "bt_binary", "internal" ) ) { pn = "/usr/bin"; }
+        else if (nvram_match( "bt_binary", "optware" ) ) { pn = "/opt/bin"; }
+        else { pn = nvram_safe_get( "bt_binary_custom" ); }
+
 
     //writing data to file
     if( !( fp = fopen( "/tmp/settings.json", "w" ) ) )
@@ -104,7 +109,7 @@ void start_bittorrent(void)
     fprintf( fp, "mkdir %s/.settings\n", pk );
     fprintf( fp, "fi\n");
     fprintf( fp, "mv /tmp/settings.json %s/.settings\n", pk );
-    fprintf( fp, "/usr/bin/transmission-daemon -g %s/.settings\n", pk );
+    fprintf( fp, "%s/transmission-daemon -g %s/.settings\n", pn, pk );
     fprintf( fp, "logger \"Transmission daemon successfully started\" \n");
     fprintf( fp, "sleep 2\n" );
 
@@ -112,11 +117,11 @@ void start_bittorrent(void)
     {
         if ( nvram_match( "bt_auth", "1") )
         {
-            fprintf( fp, "/usr/bin/transmission-remote %s --auth %s:%s --blocklist-update\n", nvram_safe_get( "bt_port_gui" ), nvram_safe_get( "bt_login" ), nvram_safe_get( "bt_password" ) );
+            fprintf( fp, "%s/transmission-remote %s --auth %s:%s --blocklist-update\n", pn, nvram_safe_get( "bt_port_gui" ), nvram_safe_get( "bt_login" ), nvram_safe_get( "bt_password" ) );
         }
         else
         {
-            fprintf( fp, "/usr/bin/transmission-remote %s --blocklist-update\n", nvram_safe_get( "bt_port_gui" ) );
+            fprintf( fp, "%s/transmission-remote %s --blocklist-update\n", pn, nvram_safe_get( "bt_port_gui" ) );
         }
     }
 

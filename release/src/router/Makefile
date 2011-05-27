@@ -123,11 +123,12 @@ obj-$(TCONFIG_OPENVPN) += openvpn
 obj-$(TCONFIG_EMF) += emf
 obj-$(TCONFIG_EMF) += igs
 
-obj-$(TCONFIG_BT) += openssl
-obj-$(TCONFIG_BT) += libevent
-obj-$(TCONFIG_BT) += libcurl
-obj-$(TCONFIG_BT) += transmission
-obj-$(TCONFIG_BT) += zlib
+obj-$(TCONFIG_BTB) += openssl
+obj-$(TCONFIG_BTB) += libevent
+obj-$(TCONFIG_BTB) += libcurl
+obj-$(TCONFIG_BTB) += transmission
+obj-$(TCONFIG_BT) += btgui
+obj-$(TCONFIG_BTB) += zlib
 
 obj-$(CONFIG_LINUX26) += hotplug2
 obj-$(CONFIG_LINUX26) += udev
@@ -138,7 +139,7 @@ else
   ifeq ($(TCONFIG_FTP_SSL),y)
     export FULL_OPENSSL := y
   else
-    ifeq ($(TCONFIG_BT),y)
+    ifeq ($(TCONFIG_BTB),y)
       export FULL_OPENSSL := y
     else
       FULL_OPENSSL :=
@@ -1416,8 +1417,8 @@ libcurl-install: libcurl
 		ln -sf libcurl.so.4.2.0 libcurl.so
 
 libevent/stamp-h1:
-	cd libevent && \
-	CC=$(CC) CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	cd libevent && CC=$(CC) \
+		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
 		$(CONFIGURE)
 		touch libevent/stamp-h1
@@ -1474,8 +1475,14 @@ transmission-install: transmission
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-daemon
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-remote
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-create
-	install -D transmission/btcheck $(INSTALLDIR)/transmission/usr/bin/btcheck
-	install -D transmission/btqueue $(INSTALLDIR)/transmission/usr/bin/btqueue
+
+btgui:
+	@$(SEP)
+
+btgui-install: btgui
+	install -d $(INSTALLDIR)/btgui/usr/bin
+	install -D transmission/btcheck $(INSTALLDIR)/btgui/usr/bin/btcheck
+	install -D transmission/btqueue $(INSTALLDIR)/btgui/usr/bin/btqueue
 
 #
 # Generic rules

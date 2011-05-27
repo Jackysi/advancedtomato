@@ -195,6 +195,7 @@ what:
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM
+# BTCLIENT BTGUI
 
 define RouterOptions
 	@( \
@@ -296,6 +297,12 @@ define RouterOptions
 		fi; \
 	fi; \
 	if [ "$(BTCLIENT)" = "y" ]; then \
+		sed -i "/TCONFIG_BT/d" $(1); \
+		echo "TCONFIG_BT=y" >>$(1); \
+		sed -i "/TCONFIG_BBT/d" $(1); \
+		echo "TCONFIG_BBT=y" >>$(1); \
+	fi; \
+	if [ "$(BTGUI)" = "y" ]; then \
 		sed -i "/TCONFIG_BT/d" $(1); \
 		echo "TCONFIG_BT=y" >>$(1); \
 	fi; \
@@ -557,9 +564,9 @@ endif
 ## Make the "normal (with NTFS support) + VPN" build
 e:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB"
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" BTGUI=y
 else
-	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB"
+	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB" BTGUI=y
 endif
 
 ## Make the "normal (with NTFS support) + VPN + BT Client" build
@@ -573,9 +580,9 @@ endif
 ## Make the "normal with Extras and NTFS" build
 m:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB"
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB" BTGUI=y
 else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB"
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB" BTGUI=y
 endif
 
 ## Make the "normal with Extras and NTFS and BT Client" build

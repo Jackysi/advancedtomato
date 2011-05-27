@@ -113,5 +113,9 @@ config TCONFIG_NTFS
 	default n
 
 config TCONFIG_BT
-	bool "  Bittorrent client"
+	bool "  Bittorrent client gui only"
+	default n
+
+config TCONFIG_BBT
+	bool "  Bittorrent client binaries only"
 	default n
