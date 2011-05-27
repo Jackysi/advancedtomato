@@ -21,7 +21,7 @@ textarea {
 }
 </style>
 <script type='text/javascript'>
-//	<% nvram("bt_enable,bt_custom,bt_port,bt_dir,bt_settings,bt_settings_custom,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_dht,bt_pex,bt_blocklist,bt_blocklist_url,bt_sleep,bt_check,bt_queue,bt_maxdown,bt_maxactive"); %>
+//	<% nvram("bt_enable,bt_binary,bt_binary_custom,bt_custom,bt_port,bt_dir,bt_settings,bt_settings_custom,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_dht,bt_pex,bt_blocklist,bt_blocklist_url,bt_sleep,bt_check,bt_queue,bt_maxdown,bt_maxactive"); %>
 
 var btgui_link = '&nbsp;&nbsp;<a href="http://' + location.hostname +':<% nv('bt_port_gui'); %>" target="_blank"><i>[Click here to open Transmission GUI]</i></a>';
 
@@ -40,6 +40,7 @@ function verifyFields(focused, quiet)
 	var j = E('_f_bt_queue').checked;
 
 	E('_bt_custom').disabled = !a;
+	E('_bt_binary').disabled = !a;
 	E('_bt_dir').disabled = !a;
 	E('_bt_port').disabled = !a;
 	E('_bt_sleep').disabled = !a;
@@ -71,6 +72,9 @@ function verifyFields(focused, quiet)
 
 	var k = (E('_bt_settings').value == 'custom');
 	elem.display('_bt_settings_custom', k && a);
+
+	var l = (E('_bt_binary').value == 'custom');
+	elem.display('_bt_binary_custom', l && a);
 
 	if (!v_length('_bt_custom', quiet, 0, 2048)) ok = 0;
 
@@ -234,6 +238,15 @@ function init()
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Enable torrent client', name: 'f_bt_enable', type: 'checkbox', value: nvram.bt_enable == '1', suffix: ' <small>*</small>' },
+	{ title: 'Transmission binary path', multi: [
+		{ name: 'bt_binary', type: 'select', options: [
+/* BBT-BEGIN */
+			['internal','Internal (/usr/bin)'],
+/* BBT-END */
+			['optware','Optware (/opt/bin)'],
+			['custom','Custom'] ], value: nvram.bt_binary, suffix: ' <small>*</small> ' },
+		{ name: 'bt_binary_custom', type: 'text', maxlen: 40, size: 40, value: nvram.bt_binary_custom }
+	] },
 	{ title: 'Keep alive', indent: 2, name: 'f_bt_check', type: 'checkbox', value: nvram.bt_check == '1', suffix: ' <small>*</small>' },
 	{ title: 'Delay at startup', indent: 2, name: 'bt_sleep', type: 'text', maxlen: 5, size: 7, value: nvram.bt_sleep, suffix: ' <small>(range: 1 - 60; default: 10 seconds)</small>' },
 	{ title: 'Listening port', name: 'bt_port', type: 'text', maxlen: 5, size: 7, value: nvram.bt_port, suffix: ' <small>*</small>' },
@@ -245,6 +258,7 @@ createFieldTable('', [
 <div>
 	<ul>
 		<li><b>Enable torrent client</b> - Attention! - If your router has only 32MB RAM, you have to use swap.
+		<li><b>Transmission binary path</b> Path to directory with transmission-daemon etc.
 		<li><b>Keep alive</b> - If enabled, transmission daemon will be checked every 5min and run after crash.
 		<li><b>Listening port</b> - Port for torrent client. Make sure port is not in use.
 	</ul>
