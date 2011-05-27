@@ -142,6 +142,7 @@ endif
 # Only include the Transmission binary path select if Transmission binaries is configured in.
 ifneq ($(TCONFIG_BBT),y)
 	sed -i $(INSTALLDIR)/www/nas-bittorrent.asp -e "/BBT-BEGIN/,/BBT-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/BBT-BEGIN/,/BBT-END/d"
 endif
 
 ifeq ($(TOMATO_EXPERIMENTAL),1)

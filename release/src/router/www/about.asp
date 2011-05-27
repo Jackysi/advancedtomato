@@ -113,12 +113,12 @@ Copyright (C) 2010 Keith Moyer,<br>
 <!-- VPN-END -->
 
 <b>"Shibby" features:</b><br>
-<!-- BT-BEGIN -->
-- Transmission 2.22 integration<br>
-<!-- BT-END -->
 <!-- BBT-BEGIN -->
-- GUI for Transmission<br>
+- Transmission 2.22 integration<br>
 <!-- BBT-END -->
+<!-- BT-BEGIN -->
+- GUI for Transmission<br>
+<!-- BT-END -->
 <!-- NFS-BEGIN -->
 - NFS utils integration and GUI<br>
 <!-- NFS-END -->
