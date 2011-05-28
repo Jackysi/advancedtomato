@@ -1,4 +1,4 @@
-/* $Id: upnpsoap.c,v 1.79 2011/05/18 22:22:24 nanard Exp $ */
+/* $Id: upnpsoap.c,v 1.81 2011/05/26 21:17:30 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -211,19 +211,12 @@ GetStatusInfo(struct upnphttp * h, const char * action)
 	char body[512];
 	int bodylen;
 	time_t uptime;
-	const char * status = "Connected";
+	const char * status;
 	/* ConnectionStatus possible values :
 	 * Unconfigured, Connecting, Connected, PendingDisconnect,
 	 * Disconnecting, Disconnected */
 
-	switch(get_wan_connection_status(ext_if_name)) {
-		case 0:
-			status = "Unconfigured";
-			break;
-		case 5:
-			status = "Disconnected";
-			break;
-	}
+	status = get_wan_connection_status_str(ext_if_name);
 	uptime = (time(NULL) - startup_time);
 	bodylen = snprintf(body, sizeof(body), resp,
 		action, SERVICE_TYPE_WANIPC,
@@ -309,7 +302,8 @@ AddPortMapping(struct upnphttp * h, const char * action)
 
 	struct NameValueParserData data;
 	char * int_ip, * int_port, * ext_port, * protocol, * desc;
-	char * leaseduration;
+	char * leaseduration_str;
+	unsigned int leaseduration;
 	char * r_host;
 	unsigned short iport, eport;
 
@@ -376,7 +370,7 @@ AddPortMapping(struct upnphttp * h, const char * action)
 	ext_port = GetValueFromNameValueList(&data, "NewExternalPort");
 	protocol = GetValueFromNameValueList(&data, "NewProtocol");
 	desc = GetValueFromNameValueList(&data, "NewPortMappingDescription");
-	leaseduration = GetValueFromNameValueList(&data, "NewLeaseDuration");
+	leaseduration_str = GetValueFromNameValueList(&data, "NewLeaseDuration");
 
 	if (!int_port || !ext_port || !protocol)
 	{
@@ -388,17 +382,21 @@ AddPortMapping(struct upnphttp * h, const char * action)
 	eport = (unsigned short)atoi(ext_port);
 	iport = (unsigned short)atoi(int_port);
 
-	if(leaseduration && atoi(leaseduration)) {
+	leaseduration = leaseduration_str ? atoi(leaseduration_str) : 0;
+
+#if 0
+	if(leaseduration) {
 		/* at the moment, lease duration is always infinite */
 		/* TODO : in order to be compliant with IGD v2, lease duration
 		 * support needs to be implemented */
-		syslog(LOG_INFO, "NewLeaseDuration=%s not supported, ignored. (ip=%s, desc='%s')", leaseduration, int_ip, desc);
+		syslog(LOG_INFO, "NewLeaseDuration=%u not supported, ignored. (ip=%s, desc='%s')", leaseduration, int_ip, desc);
 	}
+#endif
 
-	syslog(LOG_INFO, "%s: ext port %hu to %s:%hu protocol %s for: %s",
-			action, eport, int_ip, iport, protocol, desc);
+	syslog(LOG_INFO, "%s: ext port %hu to %s:%hu protocol %s for: %s leaseduration=%u",
+			action, eport, int_ip, iport, protocol, desc, leaseduration);
 
-	r = upnp_redirect(eport, int_ip, iport, protocol, desc);
+	r = upnp_redirect(eport, int_ip, iport, protocol, desc, leaseduration);
 
 	ClearNameValueList(&data);
 
@@ -453,6 +451,7 @@ AddAnyPortMapping(struct upnphttp * h, const char * action)
 	const char * int_ip, * int_port, * ext_port, * protocol, * desc;
 	const char * r_host;
 	unsigned short iport, eport;
+	const char * leaseduration_str;
 	unsigned int leaseduration;
 
 	struct hostent *hp; /* getbyhostname() */
@@ -467,7 +466,9 @@ AddAnyPortMapping(struct upnphttp * h, const char * action)
 	int_ip = GetValueFromNameValueList(&data, "NewInternalClient");
 	/* NewEnabled */
 	desc = GetValueFromNameValueList(&data, "NewPortMappingDescription");
-	leaseduration = atoi(GetValueFromNameValueList(&data, "NewLeaseDuration"));
+	leaseduration_str = GetValueFromNameValueList(&data, "NewLeaseDuration");
+
+	leaseduration = leaseduration_str ? atoi(leaseduration_str) : 0;
 	if(leaseduration == 0)
 		leaseduration = 604800;
 
@@ -528,7 +529,7 @@ AddAnyPortMapping(struct upnphttp * h, const char * action)
 	/* TODO : accept a different external port 
 	 * have some smart strategy to choose the port */
 	for(;;) {
-		r = upnp_redirect(eport, int_ip, iport, protocol, desc);
+		r = upnp_redirect(eport, int_ip, iport, protocol, desc, leaseduration);
 		if(r==-2 && eport < 65535) {
 			eport++;
 		} else {
@@ -579,7 +580,7 @@ GetSpecificPortMappingEntry(struct upnphttp * h, const char * action)
 	unsigned short eport, iport;
 	char int_ip[32];
 	char desc[64];
-	unsigned int lease_duration = 0;
+	unsigned int leaseduration = 0;
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
 	r_host = GetValueFromNameValueList(&data, "NewRemoteHost");
@@ -605,7 +606,8 @@ GetSpecificPortMappingEntry(struct upnphttp * h, const char * action)
 
 	r = upnp_get_redirection_infos(eport, protocol, &iport,
 	                               int_ip, sizeof(int_ip),
-	                               desc, sizeof(desc));
+	                               desc, sizeof(desc),
+	                               &leaseduration);
 
 	if(r < 0)
 	{		
@@ -618,7 +620,7 @@ GetSpecificPortMappingEntry(struct upnphttp * h, const char * action)
 		       r_host, ext_port, protocol, int_ip, (unsigned int)iport, desc);
 		bodylen = snprintf(body, sizeof(body), resp,
 				action, SERVICE_TYPE_WANIPC,
-				(unsigned int)iport, int_ip, desc, lease_duration,
+				(unsigned int)iport, int_ip, desc, leaseduration,
 				action);
 		BuildSendAndCloseSoapResp(h, body, bodylen);
 	}
@@ -754,7 +756,7 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 	const char * m_index;
 	char protocol[4], iaddr[32];
 	char desc[64];
-	unsigned int lease_duration = 0;
+	unsigned int leaseduration = 0;
 	struct NameValueParserData data;
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
@@ -773,7 +775,8 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 
 	r = upnp_get_redirection_infos_by_index(index, &eport, protocol, &iport,
                                             iaddr, sizeof(iaddr),
-	                                        desc, sizeof(desc));
+	                                        desc, sizeof(desc),
+	                                        &leaseduration);
 
 	if(r < 0)
 	{
@@ -786,7 +789,7 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 		bodylen = snprintf(body, sizeof(body), resp,
 			action, SERVICE_TYPE_WANIPC,
 			(unsigned int)eport, protocol, (unsigned int)iport, iaddr, desc,
-		    lease_duration, action);
+		    leaseduration, action);
 		BuildSendAndCloseSoapResp(h, body, bodylen);
 	}
 
@@ -833,7 +836,7 @@ GetListOfPortMappings(struct upnphttp * h, const char * action)
 	unsigned short iport;
 	char int_ip[32];
 	char desc[64];
-	unsigned int lease_duration = 0;
+	unsigned int leaseduration = 0;
 
 	struct NameValueParserData data;
 	unsigned short startport, endport;
@@ -909,12 +912,12 @@ http://www.upnp.org/schemas/gw/WANIPConnection-v2.xsd">
 		}
 		r = upnp_get_redirection_infos(port_list[i], protocol, &iport,
 		                               int_ip, sizeof(int_ip),
-		                               desc, sizeof(desc));
+		                               desc, sizeof(desc), &leaseduration);
 		if(r == 0)
 		{
 			bodylen += snprintf(body+bodylen, bodyalloc-bodylen, entry,
 			                    "", port_list[i], protocol,
-			                    iport, int_ip, desc, lease_duration);
+			                    iport, int_ip, desc, leaseduration);
 			number--;
 		}
 	}
@@ -1035,16 +1038,9 @@ QueryStateVariable(struct upnphttp * h, const char * action)
 	}
 	else if(strcmp(var_name, "ConnectionStatus") == 0)
 	{	
-		const char * status = "Connected";
+		const char * status;
 
-		switch(get_wan_connection_status(ext_if_name)) {
-		case 0:
-			status = "Unconfigured";
-			break;
-		case 5:
-			status = "Disconnected";
-			break;
-		}
+		status = get_wan_connection_status_str(ext_if_name);
 		bodylen = snprintf(body, sizeof(body), resp,
                            action, "urn:schemas-upnp-org:control-1-0",
 		                   status, action);

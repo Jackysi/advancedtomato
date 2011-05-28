@@ -1,4 +1,4 @@
-/* $Id: ipfwrdr.h,v 1.3 2011/02/20 23:43:41 nanard Exp $ */
+/* $Id: ipfwrdr.h,v 1.4 2011/05/26 22:47:59 nanard Exp $ */
 /*
  * MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -18,7 +18,8 @@ int add_redirect_rule2(
 	const char * iaddr,		// dst address (internal)
 	unsigned short iport,	// dst port (internal)
 	int proto,
-	const char * desc);
+	const char * desc,
+	unsigned int timestamp);
 
 int add_filter_rule2(
 	const char * ifname, 

@@ -1,4 +1,4 @@
-/* $Id: upnpredirect.h,v 1.20 2011/05/14 13:44:04 nanard Exp $ */
+/* $Id: upnpredirect.h,v 1.21 2011/05/26 22:28:35 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -25,14 +25,16 @@ int reload_from_lease_file(void);
 int
 upnp_redirect(unsigned short eport, 
               const char * iaddr, unsigned short iport,
-              const char * protocol, const char * desc);
+              const char * protocol, const char * desc,
+              unsigned int leaseduration);
 
 /* upnp_redirect_internal()
  * same as upnp_redirect() without any check */
 int
 upnp_redirect_internal(unsigned short eport,
                        const char * iaddr, unsigned short iport,
-                       int proto, const char * desc);
+                       int proto, const char * desc,
+                       unsigned int timestamp);
 
 /* upnp_get_redirection_infos()
  * returns : 0 on success
@@ -40,7 +42,8 @@ upnp_redirect_internal(unsigned short eport,
 int
 upnp_get_redirection_infos(unsigned short eport, const char * protocol,
                            unsigned short * iport, char * iaddr, int iaddrlen,
-                           char * desc, int desclen);
+                           char * desc, int desclen,
+                           unsigned int * leaseduration);
 
 /* upnp_get_redirection_infos_by_index()
  * returns : 0 on success
@@ -50,7 +53,8 @@ upnp_get_redirection_infos_by_index(int index,
                                     unsigned short * eport, char * protocol,
                                     unsigned short * iport, 
                                     char * iaddr, int iaddrlen,
-                                    char * desc, int desclen);
+                                    char * desc, int desclen,
+                                    unsigned int * leaseduration);
 
 /* upnp_delete_redirection()
  * returns: 0 on success
@@ -71,11 +75,13 @@ struct rule_state
 	u_int64_t bytes;
 	struct rule_state * next;
 	unsigned short eport;
-	short proto;
+	unsigned char proto;
+	unsigned char to_remove; 
 };
 
 /* return a linked list of all rules
- * or an empty list if there are not enough */
+ * or an empty list if there are not enough
+ * As a "side effect", delete rules which are expired */
 struct rule_state *
 get_upnp_rules_state_list(int max_rules_number_target);
 

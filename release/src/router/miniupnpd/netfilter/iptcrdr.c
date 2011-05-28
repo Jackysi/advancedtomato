@@ -1,4 +1,4 @@
-/* $Id: iptcrdr.c,v 1.40 2011/05/16 12:11:37 nanard Exp $ */
+/* $Id: iptcrdr.c,v 1.42 2011/05/28 09:05:50 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard
@@ -69,6 +69,7 @@ static int snprintip(char * dst, size_t size, uint32_t ip)
  * own structure to store them */
 struct rdr_desc {
 	struct rdr_desc * next;
+	unsigned int timestamp;
 	unsigned short eport;
 	short proto;
 	char str[];
@@ -79,7 +80,8 @@ static struct rdr_desc * rdr_desc_list = 0;
 
 /* add a description to the list of redirection descriptions */
 static void
-add_redirect_desc(unsigned short eport, int proto, const char * desc)
+add_redirect_desc(unsigned short eport, int proto,
+                  const char * desc, unsigned int timestamp)
 {
 	struct rdr_desc * p;
 	size_t l;
@@ -91,6 +93,7 @@ add_redirect_desc(unsigned short eport, int proto, const char * desc)
 	if(p)
 	{
 		p->next = rdr_desc_list;
+		p->timestamp = timestamp;
 		p->eport = eport;
 		p->proto = (short)proto;
 		memcpy(p->str, desc, l);
@@ -124,27 +127,32 @@ del_redirect_desc(unsigned short eport, int proto)
 /* go through the list to find the description */
 static void
 get_redirect_desc(unsigned short eport, int proto,
-                  char * desc, int desclen)
+                  char * desc, int desclen,
+                  unsigned int * timestamp)
 {
 	struct rdr_desc * p;
-	if(!desc || (desclen == 0))
-		return;
 	for(p = rdr_desc_list; p; p = p->next)
 	{
 		if(p->eport == eport && p->proto == (short)proto)
 		{
-			strncpy(desc, p->str, desclen);
+			if(desc)
+				strncpy(desc, p->str, desclen);
+			if(timestamp)
+				*timestamp = p->timestamp;
 			return;
 		}
 	}
 	/* if no description was found, return miniupnpd as default */
-	strncpy(desc, "miniupnpd", desclen);
+	if(desc)
+		strncpy(desc, "miniupnpd", desclen);
+	if(timestamp)
+		*timestamp = 0;
 }
 
 #if USE_INDEX_FROM_DESC_LIST
 static int
 get_redirect_desc_by_index(int index, unsigned short * eport, int * proto,
-                  char * desc, int desclen)
+                  char * desc, int desclen, unsigned int * timestamp)
 {
 	int i = 0;
 	struct rdr_desc * p;
@@ -157,6 +165,8 @@ get_redirect_desc_by_index(int index, unsigned short * eport, int * proto,
 			*eport = p->eport;
 			*proto = (int)p->proto;
 			strncpy(desc, p->str, desclen);
+			if(timestamp)
+				*timestamp = p->timestamp;
 			return 0;
 		}
 	}
@@ -168,11 +178,11 @@ get_redirect_desc_by_index(int index, unsigned short * eport, int * proto,
 int
 add_redirect_rule2(const char * ifname, unsigned short eport,
                    const char * iaddr, unsigned short iport, int proto,
-				   const char * desc)
+				   const char * desc, unsigned int timestamp)
 {
 	int r = addnatrule(proto, eport, iaddr, iport);
 	if(r >= 0)
-		add_redirect_desc(eport, proto, desc);
+		add_redirect_desc(eport, proto, desc, timestamp);
 	return r;
 }
 
@@ -189,7 +199,7 @@ add_filter_rule2(const char * ifname, const char * iaddr,
 int
 get_redirect_rule(const char * ifname, unsigned short eport, int proto,
                   char * iaddr, int iaddrlen, unsigned short * iport,
-                  char * desc, int desclen,
+                  char * desc, int desclen, unsigned int * timestamp,
                   u_int64_t * packets, u_int64_t * bytes)
 {
 	int r = -1;
@@ -247,7 +257,7 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 				*iport = ntohs(mr->range[0].min.all);
 				/*if(desc)
 					strncpy(desc, "miniupnpd", desclen);*/
-				get_redirect_desc(eport, proto, desc, desclen);
+				get_redirect_desc(eport, proto, desc, desclen, timestamp);
 				if(packets)
 					*packets = e->counters.pcnt;
 				if(bytes)
@@ -273,11 +283,13 @@ get_redirect_rule_by_index(int index,
                            char * ifname, unsigned short * eport,
                            char * iaddr, int iaddrlen, unsigned short * iport,
                            int * proto, char * desc, int desclen,
+                           unsigned int * timestamp,
                            u_int64_t * packets, u_int64_t * bytes)
 {
 	int r = -1;
 #if USE_INDEX_FROM_DESC_LIST
-	r = get_redirect_desc_by_index(index, eport, proto, desc, desclen);
+	r = get_redirect_desc_by_index(index, eport, proto,
+	                               desc, desclen, timestamp);
 	if (r==0)
 	{
 		r = get_redirect_rule(ifname, *eport, *proto, iaddr, iaddrlen, iport,
@@ -337,7 +349,7 @@ get_redirect_rule_by_index(int index,
 				*iport = ntohs(mr->range[0].min.all);
                 /*if(desc)
 				    strncpy(desc, "miniupnpd", desclen);*/
-				get_redirect_desc(*eport, *proto, desc, desclen);
+				get_redirect_desc(*eport, *proto, desc, desclen, timestamp);
 				if(packets)
 					*packets = e->counters.pcnt;
 				if(bytes)

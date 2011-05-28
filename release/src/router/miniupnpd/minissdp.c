@@ -1,4 +1,4 @@
-/* $Id: minissdp.c,v 1.26 2011/05/15 09:42:55 nanard Exp $ */
+/* $Id: minissdp.c,v 1.27 2011/05/23 12:39:41 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard
@@ -52,7 +52,8 @@ AddMulticastMembership(int s, in_addr_t ifaddr)
 }
 
 /* AddMulticastMembershipIPv6()
- * param s	socket (IPv6) */
+ * param s	socket (IPv6)
+ * To be improved to target specific network interfaces */
 #ifdef ENABLE_IPV6
 static int
 AddMulticastMembershipIPv6(int s)
@@ -126,7 +127,7 @@ OpenAndConfSSDPReceiveSocket(int ipv6)
 
 	if(bind(s, (struct sockaddr *)&sockname, sockname_len) < 0)
 	{
-		syslog(LOG_ERR, "bind(udp): %m");
+		syslog(LOG_ERR, "bind(udp%s): %m", ipv6 ? "6" : "");
 		close(s);
 		return -1;
 	}

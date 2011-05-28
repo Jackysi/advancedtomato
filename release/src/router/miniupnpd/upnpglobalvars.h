@@ -1,4 +1,4 @@
-/* $Id: upnpglobalvars.h,v 1.27 2011/05/15 09:00:49 nanard Exp $ */
+/* $Id: upnpglobalvars.h,v 1.29 2011/05/27 21:36:22 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -71,10 +71,15 @@ extern unsigned int num_upnpperm;
 
 #ifdef ENABLE_NATPMP
 /* NAT-PMP */
+#if 0
 extern unsigned int nextnatpmptoclean_timestamp;
 extern unsigned short nextnatpmptoclean_eport;
 extern unsigned short nextnatpmptoclean_proto;
 #endif
+#endif
+
+/* For automatic removal of expired rules (with LeaseDuration) */
+extern unsigned int nextruletoclean_timestamp;
 
 #ifdef USE_PF
 /* queue and tag for PF rules */

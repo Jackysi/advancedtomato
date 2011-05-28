@@ -1,4 +1,4 @@
-/* $Id: commonrdr.h,v 1.4 2011/02/07 11:57:56 nanard Exp $ */
+/* $Id: commonrdr.h,v 1.5 2011/05/26 21:17:15 nanard Exp $ */
 /* MiniUPnP project
  * (c) 2006-2011 Thomas Bernard
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -22,7 +22,7 @@ shutdown_redirect(void);
 int
 get_redirect_rule(const char * ifname, unsigned short eport, int proto,
                   char * iaddr, int iaddrlen, unsigned short * iport,
-                  char * desc, int desclen,
+                  char * desc, int desclen, unsigned int * timestamp,
                   u_int64_t * packets, u_int64_t * bytes);
 
 int
@@ -30,6 +30,7 @@ get_redirect_rule_by_index(int index,
                            char * ifname, unsigned short * eport,
                            char * iaddr, int iaddrlen, unsigned short * iport,
                            int * proto, char * desc, int desclen,
+                           unsigned int * timestamp,
                            u_int64_t * packets, u_int64_t * bytes);
 
 /* return an (malloc'ed) array of "external" port for which there is

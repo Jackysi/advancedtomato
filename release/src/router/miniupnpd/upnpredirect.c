@@ -1,4 +1,4 @@
-/* $Id: upnpredirect.c,v 1.53 2011/05/14 13:44:42 nanard Exp $ */
+/* $Id: upnpredirect.c,v 1.56 2011/05/27 08:25:22 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -59,7 +59,13 @@ proto_atoi(const char * protocol)
 }
 
 #ifdef ENABLE_LEASEFILE
-static int lease_file_add( unsigned short eport, const char * iaddr, unsigned short iport, int proto, const char * desc)
+static int
+lease_file_add(unsigned short eport,
+               const char * iaddr,
+               unsigned short iport,
+               int proto,
+               const char * desc,
+               unsigned int timestamp)
 {
 	FILE * fd;
 
@@ -71,14 +77,16 @@ static int lease_file_add( unsigned short eport, const char * iaddr, unsigned sh
 		return -1;
 	}
 
-	fprintf( fd, "%s:%hu:%s:%hu:%s\n",
-	         ((proto==IPPROTO_TCP)?"TCP":"UDP"), eport, iaddr, iport, desc);
+	fprintf(fd, "%s:%hu:%s:%hu:%u:%s\n",
+	        ((proto==IPPROTO_TCP)?"TCP":"UDP"), eport, iaddr, iport,
+	        timestamp, desc);
 	fclose(fd);
 	
 	return 0;
 }
 
-static int lease_file_remove( unsigned short eport, int proto)
+static int
+lease_file_remove(unsigned short eport, int proto)
 {
 	FILE* fd, *fdt;
 	int tmp;
@@ -116,19 +124,19 @@ static int lease_file_remove( unsigned short eport, int proto)
 	fdt = fdopen(tmp, "a");
 
 	buf[sizeof(buf)-1] = 0;
-	while( fgets( buf, sizeof(buf)-1, fd) != NULL) {
+	while( fgets(buf, sizeof(buf)-1, fd) != NULL) {
 		buf_size = strlen(buf);
 
-		if (buf_size < str_size || strncmp( str, buf, str_size)!=0) {
+		if (buf_size < str_size || strncmp(str, buf, str_size)!=0) {
 			fwrite(buf, buf_size, 1, fdt);
 		}
 	}
 	fclose(fdt);
 	fclose(fd);
 	
-	if (rename( tmpfilename, lease_file) < 0) {
+	if (rename(tmpfilename, lease_file) < 0) {
 		syslog(LOG_ERR, "could not rename temporary lease file to %s", lease_file);
-		remove( tmpfilename);
+		remove(tmpfilename);
 	}
 	
 	return 0;
@@ -146,6 +154,9 @@ int reload_from_lease_file()
 	char * proto;
 	char * iaddr;
 	char * desc;
+	unsigned int leaseduration;
+	unsigned int timestamp;
+	time_t current_time;
 	char line[128];
 	int r;
 
@@ -159,6 +170,7 @@ int reload_from_lease_file()
 		syslog(LOG_WARNING, "could not unlink file %s : %m", lease_file);
 	}
 
+	current_time = time(NULL);
 	while(fgets(line, sizeof(line), fd)) {
 		syslog(LOG_DEBUG, "parsing lease file line '%s'", line);
 		proto = line;
@@ -181,6 +193,13 @@ int reload_from_lease_file()
 			continue;
 		}
 		*(p++) = '\0';
+		timestamp = (unsigned int)atoi(p);
+		p = strchr(p, ':');
+		if(!p) {
+			syslog(LOG_ERR, "unrecognized data in lease file");
+			continue;
+		}
+		*(p++) = '\0';
 		desc = strchr(p, ':');
 		if(!desc) {
 			syslog(LOG_ERR, "unrecognized data in lease file");
@@ -197,13 +216,24 @@ int reload_from_lease_file()
 		while(isspace(*p) && (p > desc))
 			*(p--) = '\0';
 
-		r = upnp_redirect(eport, iaddr, iport, proto, desc);
+		if(timestamp > 0) {
+			if(timestamp <= current_time) {
+				syslog(LOG_NOTICE, "already expired lease in lease file");
+				continue;
+			} else {
+				leaseduration = current_time - timestamp;
+			}
+		} else {
+			leaseduration = 0;	/* default value */
+		}
+		r = upnp_redirect(eport, iaddr, iport, proto, desc, leaseduration);
 		if(r == -1) {
 			syslog(LOG_ERR, "Failed to redirect %hu -> %s:%hu protocol %s",
 			       eport, iaddr, iport, proto);
 		} else if(r == -2) {
 			/* Add the redirection again to the lease file */
-			lease_file_add(eport, iaddr, iport, proto_atoi(proto), desc);
+			lease_file_add(eport, iaddr, iport, proto_atoi(proto),
+			               desc, timestamp);
 		}
 	}
 	fclose(fd);
@@ -223,12 +253,15 @@ int reload_from_lease_file()
 int
 upnp_redirect(unsigned short eport, 
               const char * iaddr, unsigned short iport,
-              const char * protocol, const char * desc)
+              const char * protocol, const char * desc,
+              unsigned int leaseduration)
 {
 	int proto, r;
 	char iaddr_old[32];
 	unsigned short iport_old;
 	struct in_addr address;
+	unsigned int timestamp;
+
 	proto = proto_atoi(protocol);
 	if(inet_aton(iaddr, &address) < 0) {
 		syslog(LOG_ERR, "inet_aton(%s) : %m", iaddr);
@@ -242,12 +275,13 @@ upnp_redirect(unsigned short eport,
 		return -3;
 	}
 	r = get_redirect_rule(ext_if_name, eport, proto,
-	                      iaddr_old, sizeof(iaddr_old), &iport_old, 0, 0, 0, 0);
+	                      iaddr_old, sizeof(iaddr_old), &iport_old, 0, 0,
+	                      &timestamp, 0, 0);
 	if(r == 0) {
 		/* if existing redirect rule matches redirect request return success
 		 * xbox 360 does not keep track of the port it redirects and will
 		 * redirect another port when receiving ConflictInMappingEntry */
-		if(strcmp(iaddr,iaddr_old)==0 && iport==iport_old) {
+		if(strcmp(iaddr, iaddr_old)==0 && iport==iport_old) {
 			/* redirection allready exists */
 			syslog(LOG_INFO, "port %hu %s already redirected to %s:%hu, replacing", eport, (proto==IPPROTO_TCP)?"tcp":"udp", iaddr_old, iport_old);
 			/* remove and then add again */
@@ -261,24 +295,28 @@ upnp_redirect(unsigned short eport,
 			return -2;
 		}
 	}
+	timestamp = (leaseduration > 0) ? time(NULL) + leaseduration : 0;
 	syslog(LOG_INFO, "redirecting port %hu to %s:%hu protocol %s for: %s",
 		eport, iaddr, iport, protocol, desc);			
-	return upnp_redirect_internal(eport, iaddr, iport, proto, desc);
+	return upnp_redirect_internal(eport, iaddr, iport, proto,
+	                              desc, timestamp);
 }
 
 int
 upnp_redirect_internal(unsigned short eport,
                        const char * iaddr, unsigned short iport,
-                       int proto, const char * desc)
+                       int proto, const char * desc,
+                       unsigned int timestamp)
 {
 	/*syslog(LOG_INFO, "redirecting port %hu to %s:%hu protocol %s for: %s",
 		eport, iaddr, iport, protocol, desc);			*/
-	if(add_redirect_rule2(ext_if_name, eport, iaddr, iport, proto, desc) < 0) {
+	if(add_redirect_rule2(ext_if_name, eport, iaddr, iport, proto,
+	                      desc, timestamp) < 0) {
 		return -1;
 	}
 
 #ifdef ENABLE_LEASEFILE
-	lease_file_add( eport, iaddr, iport, proto, desc);
+	lease_file_add( eport, iaddr, iport, proto, desc, timestamp);
 #endif
 /*	syslog(LOG_INFO, "creating pass rule to %s:%hu protocol %s for: %s",
 		iaddr, iport, protocol, desc);*/
@@ -289,7 +327,13 @@ upnp_redirect_internal(unsigned short eport,
 #endif
 		return -1;
 	}
+	if(timestamp > 0) {
+		if(!nextruletoclean_timestamp || (timestamp < nextruletoclean_timestamp))
+			nextruletoclean_timestamp = timestamp;
+	}
 #ifdef ENABLE_EVENTS
+	/* the number of port mappings changed, we must
+	 * inform the subscribers */
 	upnp_event_var_change_notify(EWanIPC);
 #endif
 	return 0;
@@ -301,12 +345,24 @@ int
 upnp_get_redirection_infos(unsigned short eport, const char * protocol,
                            unsigned short * iport,
                            char * iaddr, int iaddrlen,
-                           char * desc, int desclen)
+                           char * desc, int desclen,
+                           unsigned int * leaseduration)
 {
+	int r;
+	unsigned int timestamp;
+	time_t current_time;
+
 	if(desc && (desclen > 0))
 		desc[0] = '\0';
-	return get_redirect_rule(ext_if_name, eport, proto_atoi(protocol),
-	                         iaddr, iaddrlen, iport, desc, desclen, 0, 0);
+	r = get_redirect_rule(ext_if_name, eport, proto_atoi(protocol),
+	                      iaddr, iaddrlen, iport, desc, desclen, &timestamp,
+	                      0, 0);
+	if(r == 0 && timestamp > 0 && timestamp > (current_time = time(NULL))) {
+		*leaseduration = timestamp - current_time;
+	} else {
+		*leaseduration = 0;
+	}
+	return r;
 }
 
 int
@@ -314,18 +370,26 @@ upnp_get_redirection_infos_by_index(int index,
                                     unsigned short * eport, char * protocol,
                                     unsigned short * iport, 
                                     char * iaddr, int iaddrlen,
-                                    char * desc, int desclen)
+                                    char * desc, int desclen,
+                                    unsigned int * leaseduration)
 {
 	/*char ifname[IFNAMSIZ];*/
 	int proto = 0;
+	unsigned int timestamp;
+	time_t current_time;
 
 	if(desc && (desclen > 0))
 		desc[0] = '\0';
 	if(get_redirect_rule_by_index(index, 0/*ifname*/, eport, iaddr, iaddrlen,
-	                              iport, &proto, desc, desclen, 0, 0) < 0)
+	                              iport, &proto, desc, desclen, &timestamp,
+	                              0, 0) < 0)
 		return -1;
 	else
 	{
+		current_time = time(NULL);
+		*leaseduration = (timestamp > current_time)
+		                 ? (timestamp - current_time)
+		                 : 0;
 		if(proto == IPPROTO_TCP)
 			memcpy(protocol, "TCP", 4);
 		else
@@ -369,34 +433,52 @@ upnp_get_portmapping_number_of_entries()
 	int n = 0, r = 0;
 	unsigned short eport, iport;
 	char protocol[4], iaddr[32], desc[64];
+	unsigned int leaseduration;
 	do {
 		protocol[0] = '\0'; iaddr[0] = '\0'; desc[0] = '\0';
 		r = upnp_get_redirection_infos_by_index(n, &eport, protocol, &iport,
 		                                        iaddr, sizeof(iaddr),
-		                                        desc, sizeof(desc) );
+		                                        desc, sizeof(desc),
+		                                        &leaseduration);
 		n++;
 	} while(r==0);
 	return (n-1);
 }
 
-/* functions used to remove unused rules */
+/* functions used to remove unused rules
+ * As a side effect, delete expired rules (based on LeaseDuration) */
 struct rule_state *
 get_upnp_rules_state_list(int max_rules_number_target)
 {
 	/*char ifname[IFNAMSIZ];*/
 	int proto;
 	unsigned short iport;
+	unsigned int timestamp;
 	struct rule_state * tmp;
 	struct rule_state * list = 0;
+	struct rule_state * * p;
 	int i = 0;
+	time_t current_time;
+
 	/*ifname[0] = '\0';*/
 	tmp = malloc(sizeof(struct rule_state));
 	if(!tmp)
 		return 0;
+	current_time = time(NULL);
+	nextruletoclean_timestamp = 0;
 	while(get_redirect_rule_by_index(i, /*ifname*/0, &tmp->eport, 0, 0,
-	                              &iport, &proto, 0, 0,
+	                              &iport, &proto, 0, 0, &timestamp,
 								  &tmp->packets, &tmp->bytes) >= 0)
 	{
+		tmp->to_remove = 0;
+		if(timestamp > 0) {
+			/* need to remove this port mapping ? */
+			if(timestamp <= current_time)
+				tmp->to_remove = 1;
+			else if((nextruletoclean_timestamp <= current_time)
+			       || (timestamp < nextruletoclean_timestamp))
+				nextruletoclean_timestamp = timestamp;
+		}
 		tmp->proto = (short)proto;
 		/* add tmp to list */
 		tmp->next = list;
@@ -408,6 +490,21 @@ get_upnp_rules_state_list(int max_rules_number_target)
 			break;
 	}
 	free(tmp);
+	/* remove the redirections that need to be removed */
+	for(p = &list, tmp = list; tmp; tmp = *p)
+	{
+		if(tmp->to_remove)
+		{
+			syslog(LOG_NOTICE, "remove port mapping %hu %s because it has expired",
+			       tmp->eport, (tmp->proto==IPPROTO_TCP)?"TCP":"UDP");
+			_upnp_delete_redir(tmp->eport, tmp->proto);
+			*p = tmp->next;
+			free(tmp);
+			i--;
+		} else {
+			p = &(tmp->next);
+		}
+	}
 	/* return empty list if not enough redirections */
 	if(i<=max_rules_number_target)
 		while(list)
@@ -428,12 +525,15 @@ remove_unused_rules(struct rule_state * list)
 	struct rule_state * tmp;
 	u_int64_t packets;
 	u_int64_t bytes;
+	unsigned int timestamp;
 	int n = 0;
+
 	while(list)
 	{
 		/* remove the rule if no traffic has used it */
 		if(get_redirect_rule(ifname, list->eport, list->proto,
-	                         0, 0, &iport, 0, 0, &packets, &bytes) >= 0)
+	                         0, 0, &iport, 0, 0, &timestamp,
+		                     &packets, &bytes) >= 0)
 		{
 			if(packets == list->packets && bytes == list->bytes)
 			{
@@ -710,6 +810,7 @@ return -1;
 #endif
 }
 
+#if 0
 static int
 compare_time(char * traced_time, char * action_time)
 {
@@ -762,6 +863,7 @@ compare_time(char * traced_time, char * action_time)
 	else
 		return -1;
 }
+#endif
 
 /*
  * Result:
@@ -807,11 +909,11 @@ upnp_check_pinhole_working(const char * uid, char * eaddr, char * iaddr, unsigne
 			char time[15]="", src_addr[40], dst_addr[40], proto_tmp[8];
 			int proto_int;
 			strncpy(time, buf, sizeof(time));
-			if(compare_time(time, expire_time)<0)
+			/*if(compare_time(time, expire_time)<0)
 			{
 				printf("\t\tNot corresponding time\n");
 				continue;
-			}
+			}*/
 
 			line = r + 6;
 			printf("\trule line = %d\n", atoi(line));
@@ -899,11 +1001,11 @@ upnp_check_pinhole_working(const char * uid, char * eaddr, char * iaddr, unsigne
 			char time[15], src_addr[40], dst_addr[40], proto_tmp[8];
 			int proto_int;
 			strncpy(time, buf, sizeof(time));
-			if(compare_time(time, expire_time)<0)
+			/*if(compare_time(time, expire_time)<0)
 			{
 				printf("\t\tNot corresponding time\n");
 				continue;
-			}
+			}*/
 
 			line = p + 8;
 			printf("\trule line = %d\n", atoi(line));
@@ -1031,22 +1133,26 @@ write_ruleset_details(int s)
 	unsigned short eport, iport;
 	char desc[64];
 	char iaddr[32];
+	unsigned int timestamp;
 	u_int64_t packets;
 	u_int64_t bytes;
 	int i = 0;
 	char buffer[256];
 	int n;
+
 	ifname[0] = '\0';
 	write(s, "Ruleset :\n", 10);
 	while(get_redirect_rule_by_index(i, ifname, &eport, iaddr, sizeof(iaddr),
 	                                 &iport, &proto, desc, sizeof(desc),
+	                                 &timestamp,
 	                                 &packets, &bytes) >= 0)
 	{
-		n = snprintf(buffer, sizeof(buffer), "%2d %s %s %hu->%s:%hu "
-		                                     "'%s' %" PRIu64 " %" PRIu64 "\n",
-		                                     /*"'%s' %llu %llu\n",*/
+		n = snprintf(buffer, sizeof(buffer),
+		             "%2d %s %s %hu->%s:%hu "
+		             "'%s' %u %" PRIu64 " %" PRIu64 "\n",
+		             /*"'%s' %llu %llu\n",*/
 		             i, ifname, proto==IPPROTO_TCP?"TCP":"UDP",
-		             eport, iaddr, iport, desc, packets, bytes);
+		             eport, iaddr, iport, desc, timestamp, packets, bytes);
 		write(s, buffer, n);
 		i++;
 	}

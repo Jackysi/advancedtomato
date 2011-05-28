@@ -1,4 +1,4 @@
-/* $Id: miniupnpd.c,v 1.135 2011/05/20 09:43:23 nanard Exp $ */
+/* $Id: miniupnpd.c,v 1.138 2011/05/27 21:58:12 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard
@@ -1350,7 +1350,9 @@ main(int argc, char * * argv)
 			syslog(LOG_NOTICE, "Listening for NAT-PMP traffic on port %u",
 			       NATPMP_PORT);
 		}
+#if 0
 		ScanNATPMPforExpiration();
+#endif
 	}
 #endif
 
@@ -1449,9 +1451,27 @@ main(int argc, char * * argv)
 			}
 			memcpy(&checktime, &timeofday, sizeof(struct timeval));
 		}
+		/* Remove expired port mappings, based on UPnP IGD LeaseDuration
+		 * or NAT-PMP lifetime) */
+		if(nextruletoclean_timestamp
+		  && (timeofday.tv_sec >= nextruletoclean_timestamp))
+		{
+			syslog(LOG_DEBUG, "cleaning expired Port Mappings");
+			get_upnp_rules_state_list(0);
+		}
+		if(nextruletoclean_timestamp
+		  && timeout.tv_sec >= (nextruletoclean_timestamp - timeofday.tv_sec))
+		{
+			timeout.tv_sec = nextruletoclean_timestamp - timeofday.tv_sec;
+			timeout.tv_usec = 0;
+			syslog(LOG_DEBUG, "setting timeout to %u sec",
+			       (unsigned)timeout.tv_sec);
+		}
 #ifdef ENABLE_NATPMP
+#if 0
 		/* Remove expired NAT-PMP mappings */
-		while( nextnatpmptoclean_timestamp && (timeofday.tv_sec >= nextnatpmptoclean_timestamp + startup_time))
+		while(nextnatpmptoclean_timestamp
+		     && (timeofday.tv_sec >= nextnatpmptoclean_timestamp + startup_time))
 		{
 			/*syslog(LOG_DEBUG, "cleaning expired NAT-PMP mappings");*/
 			if(CleanExpiredNATPMP() < 0) {
@@ -1459,20 +1479,15 @@ main(int argc, char * * argv)
 				break;
 			}
 		}
-		if(nextnatpmptoclean_timestamp && timeout.tv_sec >= (nextnatpmptoclean_timestamp + startup_time - timeofday.tv_sec))
+		if(nextnatpmptoclean_timestamp
+		  && timeout.tv_sec >= (nextnatpmptoclean_timestamp + startup_time - timeofday.tv_sec))
 		{
-			/*syslog(LOG_DEBUG, "setting timeout to %d sec", nextnatpmptoclean_timestamp + startup_time - timeofday.tv_sec);*/
-#ifdef ENABLE_NFQUEUE
-		if (nfqh >= 0) 
-		{
-			FD_SET(nfqh, &readset);
-			max_fd = MAX( max_fd, nfqh);
-		}
-#endif
-
+			/*syslog(LOG_DEBUG, "setting timeout to %d sec",
+			       nextnatpmptoclean_timestamp + startup_time - timeofday.tv_sec);*/
 			timeout.tv_sec = nextnatpmptoclean_timestamp + startup_time - timeofday.tv_sec;
 			timeout.tv_usec = 0;
 		}
+#endif
 #endif
 
 		/* select open sockets (SSDP, HTTP listen, and all HTTP soap sockets) */
@@ -1500,6 +1515,14 @@ main(int argc, char * * argv)
 		{
 			FD_SET(sudpv6, &readset);
 			max_fd = MAX( max_fd, sudpv6);
+		}
+#endif
+
+#ifdef ENABLE_NFQUEUE
+		if (nfqh >= 0) 
+		{
+			FD_SET(nfqh, &readset);
+			max_fd = MAX( max_fd, nfqh);
 		}
 #endif
 
