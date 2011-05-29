@@ -121,6 +121,8 @@ find_ipv6_addr(const char * ifname,
 		/* skip other interfaces if one was specified */
 		if(ifname && (0 != strcmp(ifname, ife->ifa_name)))
 			continue;
+		if(ife->ifa_addr == NULL)
+			continue;
 		if(ife->ifa_addr->sa_family == AF_INET6)
 		{
 			addr = (const struct sockaddr_in6 *)ife->ifa_addr;

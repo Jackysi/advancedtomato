@@ -107,6 +107,8 @@ static void tomato_save(const char *fname)
 {
 	unsigned short eport;
 	unsigned short iport;
+	unsigned int leaseduration;
+	unsigned int timestamp;
 	char proto[4];
 	char iaddr[32];
 	char desc[64];
@@ -119,8 +121,9 @@ static void tomato_save(const char *fname)
 	if ((t = mkstemp(tmp)) != -1) {
 		if ((f = fdopen(t, "w")) != NULL) {
 			n = 0;
-			while (upnp_get_redirection_infos_by_index(n, &eport, proto, &iport, iaddr, sizeof(iaddr), desc, sizeof(desc)) == 0) {
-				fprintf(f, "%s %u %s %u [%s]\n", proto, eport, iaddr, iport, desc);
+			while (upnp_get_redirection_infos_by_index(n, &eport, proto, &iport, iaddr, sizeof(iaddr), desc, sizeof(desc), &leaseduration) == 0) {
+				timestamp = (leaseduration > 0) ? time(NULL) + leaseduration : 0;
+				fprintf(f, "%s %u %s %u [%s] %u\n", proto, eport, iaddr, iport, desc, timestamp);
 				++n;
 			}
 			fclose(f);
@@ -139,24 +142,38 @@ static void tomato_load(void)
 	char s[256];
 	unsigned short eport;
 	unsigned short iport;
+	unsigned int leaseduration;
+	unsigned int timestamp;
+	time_t current_time;
 	char proto[4];
 	char iaddr[32];
 	char *a, *b;
 
 	if ((f = fopen("/etc/upnp/data", "r")) != NULL) {
+		current_time = time(NULL);
 		s[sizeof(s) - 1] = 0;
 		while (fgets(s, sizeof(s) - 1, f)) {
-			if (sscanf(s, "%3s %hu %31s %hu ", proto, &eport, iaddr, &iport) == 4) {
+			if (sscanf(s, "%3s %hu %31s %hu [%*s] %u", proto, &eport, iaddr, &iport, &timestamp) >= 4) {
 				if (((a = strchr(s, '[')) != NULL) && ((b = strrchr(a, ']')) != NULL)) {
+					if (timestamp > 0) {
+						if (timestamp > current_time)
+							leaseduration = current_time - timestamp;
+						else
+							continue;
+					} else {
+						leaseduration = 0;	/* default value */
+					}
 					*b = 0;
-					upnp_redirect(eport, iaddr, iport, proto, a + 1);
+					upnp_redirect(eport, iaddr, iport, proto, a + 1, leaseduration);
 				}
 			}
 		}
 		fclose(f);
 	}
 #ifdef ENABLE_NATPMP
+#if 0
 	ScanNATPMPforExpiration();
+#endif
 #endif
 	unlink("/etc/upnp/load");
 }
@@ -167,6 +184,7 @@ static void tomato_delete(void)
 	char s[128];
 	unsigned short eport;
 	unsigned short iport;
+	unsigned int leaseduration;
 	char proto[4];
 	char iaddr[32];
 	char desc[64];
@@ -179,7 +197,7 @@ static void tomato_delete(void)
 				if (proto[0] == '*') {
 					n = upnp_get_portmapping_number_of_entries();
 					while (--n >= 0) {
-						if (upnp_get_redirection_infos_by_index(n, &eport, proto, &iport, iaddr, sizeof(iaddr), desc, sizeof(desc)) == 0) {
+						if (upnp_get_redirection_infos_by_index(n, &eport, proto, &iport, iaddr, sizeof(iaddr), desc, sizeof(desc), &leaseduration) == 0) {
 							upnp_delete_redirection(eport, proto);
 						}
 					}
