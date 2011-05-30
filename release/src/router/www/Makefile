@@ -119,6 +119,20 @@ ifneq ($(TCONFIG_IPV6),y)
 	rm -f $(INSTALLDIR)/www/basic-ipv6.asp
 endif
 
+# Only include the Transmission binary path select if Transmission binaries is configured in.
+ifneq ($(TCONFIG_BBT),y)
+	sed -i $(INSTALLDIR)/www/nas-bittorrent.asp -e "/BBT-BEGIN/,/BBT-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/BBT-BEGIN/,/BBT-END/d"
+endif
+
+# Only include the Transmission pages if Transmission is configured in.
+ifneq ($(TCONFIG_BT),y)
+	rm -f $(INSTALLDIR)/www/nas-bittorrent.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/BT-BEGIN/,/BT-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/BT-BEGIN/,/BT-END/d"
+endif
+
+
 # Only include the USB and NAS pages if USB Support is configured in.
 ifneq ($(TCONFIG_USB),y)
 	rm -f $(INSTALLDIR)/www/nas-*.*
@@ -132,18 +146,7 @@ endif
 ##	test -d $(SRCBASE)/ctf/linux || 
 	sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
 
-# Only include the Transmission pages if Transmission is configured in.
-ifneq ($(TCONFIG_BT),y)
-	rm -f $(INSTALLDIR)/www/nas-bittorrent.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/BT-BEGIN/,/BT-END/d"
-	sed -i $(INSTALLDIR)/www/about.asp -e "/BT-BEGIN/,/BT-END/d"
-endif
 
-# Only include the Transmission binary path select if Transmission binaries is configured in.
-ifneq ($(TCONFIG_BBT),y)
-	sed -i $(INSTALLDIR)/www/nas-bittorrent.asp -e "/BBT-BEGIN/,/BBT-END/d"
-	sed -i $(INSTALLDIR)/www/about.asp -e "/BBT-BEGIN/,/BBT-END/d"
-endif
 
 ifeq ($(TOMATO_EXPERIMENTAL),1)
 	cd $(INSTALLDIR)/www && \
@@ -198,8 +201,8 @@ endif
 		-e "/AES-BEGIN/d"	-e "/AES-END/d" \
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
 		-e "/CTF-BEGIN/d"	-e "/CTF-END/d" \
-		-e "/BT-BEGIN/d"	-e "/BT-END/d" \
 		-e "/BBT-BEGIN/d"	-e "/BBT-END/d" \
+		-e "/BT-BEGIN/d"	-e "/BT-END/d" \
 		-e "/NFS-BEGIN/d"	-e "/NFS-END/d" \
 		-e "/NOCAT-BEGIN/d"	-e "/NOCAT_END/d"\
 		|| true; \
