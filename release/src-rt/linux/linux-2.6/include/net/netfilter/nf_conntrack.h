@@ -116,7 +116,6 @@ struct nf_conn_help {
 };
 
 #define CTF_FLAGS_CACHED	(1 << 0)	/* Indicates cached connection */
-#define CTF_FLAGS_EXCLUDED	(1 << 30)
 
 #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
 #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>

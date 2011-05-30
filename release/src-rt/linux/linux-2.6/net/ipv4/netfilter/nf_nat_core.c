@@ -104,14 +104,12 @@ hash_by_src(const struct nf_conntrack_tuple *tuple)
 }
 
 #ifdef HNDCTF
-extern int ipv4_conntrack_fastnat;
-
 bool
 ip_conntrack_is_ipc_allowed(struct sk_buff *skb, u_int32_t hooknum)
 {
 	struct net_device *dev;
 
-	if (!ipv4_conntrack_fastnat || !CTF_ENAB(kcih))
+	if (!CTF_ENAB(kcih))
 		return FALSE;
 
 	if (hooknum == NF_IP_PRE_ROUTING) {
@@ -159,7 +157,7 @@ ip_conntrack_ipct_add(struct sk_buff *skb, u_int32_t hooknum,
 	 * pre or post routing hooks.
 	 */
 	help = nfct_help(ct);
-	if ((help && help->helper) || (ct->ctf_flags & CTF_FLAGS_EXCLUDED) ||
+	if ((help && help->helper) ||
 	    ((hooknum != NF_IP_PRE_ROUTING) && (hooknum != NF_IP_POST_ROUTING)))
 		return;
 

@@ -30,7 +30,7 @@
 #define DEBUGP(format, args...)
 #endif
 
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE) || defined(HNDCTF)
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
 int ipv4_conntrack_fastnat = 0;
 EXPORT_SYMBOL_GPL(ipv4_conntrack_fastnat);
 #endif
@@ -310,7 +310,7 @@ static ctl_table ip_ct_sysctl_table[] = {
 		.extra1		= &log_invalid_proto_min,
 		.extra2		= &log_invalid_proto_max,
 	},
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE) || defined(HNDCTF)
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
 	{
 		.ctl_name	= NET_IPV4_CONNTRACK_FASTNAT,
 		.procname	= "ip_conntrack_fastnat",
