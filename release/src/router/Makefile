@@ -138,12 +138,12 @@ obj-$(TCONFIG_OPENVPN) += openvpn
 obj-$(TCONFIG_EMF) += emf
 obj-$(TCONFIG_EMF) += igs
 
-obj-$(TCONFIG_BTB) += openssl
-obj-$(TCONFIG_BTB) += libevent
-obj-$(TCONFIG_BTB) += libcurl
-obj-$(TCONFIG_BTB) += transmission
+obj-$(TCONFIG_BBT) += openssl
+obj-$(TCONFIG_BBT) += libevent
+obj-$(TCONFIG_BBT) += libcurl
+obj-$(TCONFIG_BBT) += transmission
 obj-$(TCONFIG_BT) += btgui
-obj-$(TCONFIG_BTB) += zlib
+obj-$(TCONFIG_BBT) += zlib
 
 obj-$(CONFIG_LINUX26) += hotplug2
 obj-$(CONFIG_LINUX26) += udevtrigger
@@ -154,7 +154,7 @@ else
   ifeq ($(TCONFIG_FTP_SSL),y)
     export FULL_OPENSSL := y
   else
-    ifeq ($(TCONFIG_BTB),y)
+    ifeq ($(TCONFIG_BBT),y)
       export FULL_OPENSSL := y
     else
       FULL_OPENSSL :=
