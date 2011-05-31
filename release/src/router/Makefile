@@ -139,7 +139,7 @@ else
   ifeq ($(TCONFIG_FTP_SSL),y)
     export FULL_OPENSSL := y
   else
-    ifeq ($(TCONFIG_BTB),y)
+    ifeq ($(TCONFIG_BBT),y)
       export FULL_OPENSSL := y
     else
       FULL_OPENSSL :=
