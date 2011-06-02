@@ -922,9 +922,8 @@ const defaults_t defaults[] = {
 	{ "arpbind_only",			"0"			},
 	{ "arpbind_list",			"" 			},
 
-#ifdef TCONFIG_NOCAT
-
 // NoCatSplash. !!Victek
+#ifdef TCONFIG_NOCAT
 	{ "NC_enable",		"0" 					}, 	// enable NoCatSplash
 	{ "NC_Verbosity",	"0"					},	// logging too verbose on startup!
 	{ "NC_GatewayName",	"WWW Portal" 				},
