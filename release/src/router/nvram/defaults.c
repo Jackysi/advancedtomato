@@ -926,7 +926,7 @@ const defaults_t defaults[] = {
 
 // NoCatSplash. !!Victek
 	{ "NC_enable",		"0" 					}, 	// enable NoCatSplash
-	{ "NC_Verbosity",	"0"					},	// logging verbose on startup!
+	{ "NC_Verbosity",	"0"					},	// logging too verbose on startup!
 	{ "NC_GatewayName",	"WWW Portal" 				},
         { "NC_GatewayPort",	"5280" 					},
         { "NC_GatewayMode",	"Open" 					},
@@ -937,11 +937,11 @@ const defaults_t defaults[] = {
         { "NC_IdleTimeout",	"0" 					},
         { "NC_MaxMissedARP",	"5" 					},
 	{ "NC_PeerChecktimeout", "0"					},
-        { "NC_LoginTimeout",	"3600"					},
+        { "NC_LoginTimeout",	"86400"					},
         { "NC_RenewTimeout",	"0" 					},
         { "NC_AllowedWebHosts",	""					},
-	{ NULL, NULL}
 #endif
+	{ NULL, NULL}
 
 };
 

@@ -57,6 +57,22 @@ function uploadButton()
 
 function verifyFields(focused, quiet)
 {
+	var a = E('_f_NC_enable').checked;
+
+	E('_NC_Verbosity').disabled = !a;
+	E('_NC_GatewayName').disabled = !a;
+	E('_NC_GatewayPort').disabled = !a;
+	E('_f_NC_ForcedRedirect').disabled = !a;
+	E('_NC_HomePage').disabled = !a;
+	E('_NC_DocumentRoot').disabled = !a;
+	E('_NC_LoginTimeout').disabled = !a;
+	E('_NC_IdleTimeout').disabled = !a;
+	E('_NC_MaxMissedARP').disabled = !a;
+	E('_NC_ExcludePorts').disabled = !a;
+	E('_NC_IncludePorts').disabled = !a;
+	E('_NC_AllowedWebHosts').disabled = !a;
+	E('_NC_MACWhiteList').disabled = !a;
+
 	if ( (E('_f_NC_ForcedRedirect').checked) && (!v_length('_NC_HomePage', quiet, 1, 255))) return 0;
 	if (!v_length('_NC_GatewayName', quiet, 1, 255)) return 0;	
 	if ( (E('_NC_IdleTimeout').value != '0') && (!v_range('_NC_IdleTimeout', quiet, 300))) return 0;
@@ -120,13 +136,13 @@ createFieldTable('', [
 	{ title: 'Enable',  name: 'f_NC_enable', type: 'checkbox', value: nvram.NC_enable == '1' },
 	{ title: 'Log Info Level',  name: 'NC_Verbosity', type: 'text', maxlen: 10, size: 2, value: nvram.NC_Verbosity },
 	{ title: 'Gateway Name', name: 'NC_GatewayName', type: 'text', maxlen: 255, size: 34, value: nvram.NC_GatewayName },
-	{ title: 'Gateway Port', indent: 2, name: 'NC_GatewayPort', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.NC_GatewayPort, 5280) },
+	{ title: 'Gateway Port', indent: 2, name: 'NC_GatewayPort', type: 'text', maxlen: 6, size: 10, value: fixPort(nvram.NC_GatewayPort, 5280) },
 	{ title: 'Captive Site Forwarding', name: 'f_NC_ForcedRedirect', type: 'checkbox', value: (nvram.NC_ForcedRedirect == '1') },	
 		{ title: 'Home Page', indent: 2, name: 'NC_HomePage', type: 'text', maxlen: 255, size: 34, value: nvram.NC_HomePage },
-	{ title: 'Welcome HTML Path', name: 'NC_DocumentRoot', type: 'text', maxlen: 255, size: 20, value: nvram.NC_DocumentRoot, suffix: '<span>&nbsp;/splash.html</span>' },
-	{ title: 'Login Timeout', name: 'NC_LoginTimeout', type: 'text', maxlen: 8, size: 4, value: nvram.NC_LoginTimeout },	
-	{ title: 'Max Missed ARP', name: 'NC_MaxMissedARP', type: 'text', maxlen: 10, size: 2, value: nvram.NC_MaxMissedARP },
-	{ title: 'Idle Timeout', name: 'NC_IdleTimeout', type: 'text', maxlen: 8, size: 4, value: nvram.NC_IdleTimeout },
+	{ title: 'Welcome HTML Path', name: 'NC_DocumentRoot', type: 'text', maxlen: 255, size: 34, value: nvram.NC_DocumentRoot, suffix: '<span>&nbsp;/splash.html</span>' },
+	{ title: 'Login Timeout', name: 'NC_LoginTimeout', type: 'text', maxlen: 8, size: 10, value: nvram.NC_LoginTimeout },	
+	{ title: 'Max Missed ARP', name: 'NC_MaxMissedARP', type: 'text', maxlen: 10, size: 10, value: nvram.NC_MaxMissedARP },
+	{ title: 'Idle Timeout', name: 'NC_IdleTimeout', type: 'text', maxlen: 8, size: 10, value: nvram.NC_IdleTimeout },
 	null,
 	{ title: 'Excluded Ports', name: 'NC_ExcludePorts', type: 'text', maxlen: 255, size: 34, value: nvram.NC_ExcludePorts },
 	{ title: 'Included Ports', name: 'NC_IncludePorts', type: 'text', maxlen: 255, size: 34, value: nvram.NC_IncludePorts },	
@@ -154,7 +170,7 @@ createFieldTable('', [
 <br>
 <ul>
 <li><b>Enable</b> - The router will show a Welcome banner when a client attempts to access the Internet.<br>
-<li><b>Log Info Level</b> - Verbosity level for log messages from this module, Level 0=Silent, 10=Verbose, (Default=2).<br>
+<li><b>Log Info Level</b> - Verbosity level for log messages from this module, Level 0=Silent, 10=Verbose, (Default=0).<br>
 <li><b>Gateway name</b> - The name of the gateway appearing in the Welcome banner.<br>
 <li><b>Gateway port</b> - The port number of the gateway. Default=5280.<br>
 <li><b>Captive Site Forwarding</b> - When active, a 'Home Page' will appear after you click "Agree" in the Welcome banner.<br>
