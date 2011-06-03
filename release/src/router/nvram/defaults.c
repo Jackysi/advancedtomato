@@ -39,7 +39,7 @@
 //! = see restore_main()
 
 const defaults_t defaults[] = {
-	{ "restore_defaults",	"0"				},	// Set to 0 to not restore defaults on boot
+	{ "restore_defaults",	"0"					},	// Set to 0 to not restore defaults on boot
 
 	// LAN H/W parameters
 //!	{ "lan_ifname",			""				},	// LAN interface name
@@ -49,16 +49,16 @@ const defaults_t defaults[] = {
 
 	// LAN TCP/IP parameters
 	{ "lan_dhcp",			"0"				},	// DHCP client [static|dhcp]
-	{ "lan_proto",			"dhcp"			},	// DHCP server [static|dhcp]  //Barry add 2004 09 16
-	{ "lan_ipaddr",			"192.168.1.1"	},	// LAN IP address
-	{ "lan_netmask",		"255.255.255.0"	},	// LAN netmask
+	{ "lan_proto",			"dhcp"				},	// DHCP server [static|dhcp]  //Barry add 2004 09 16
+	{ "lan_ipaddr",			"192.168.1.1"			},	// LAN IP address
+	{ "lan_netmask",		"255.255.255.0"			},	// LAN netmask
 	{ "lan_wins",			""				},	// x.x.x.x x.x.x.x ...
 	{ "lan_domain",			""				},	// LAN domain name
-	{ "lan_lease",			"86400"			},	// LAN lease time in seconds
+	{ "lan_lease",			"86400"				},	// LAN lease time in seconds
 	{ "lan_stp",			"0"				},	// LAN spanning tree protocol
 	{ "lan_route",			""				},	// Static routes (ipaddr:netmask:gateway:metric:ifname ...)
 
-	{ "lan_gateway",		"0.0.0.0"		},	// LAN Gateway
+	{ "lan_gateway",		"0.0.0.0"			},	// LAN Gateway
 	{ "wl_wds_enable",		"0"				},	// WDS Enable (0|1)
 
 	// WAN H/W parameters
@@ -66,17 +66,17 @@ const defaults_t defaults[] = {
 //!	{ "wan_ifnames",		""				},	// WAN interface names
 	{ "wan_hwname",			""				},	// WAN driver name (e.g. et1)
 	{ "wan_hwaddr",			""				},	// WAN interface MAC address
-	{ "wan_ifnameX",		NULL			},	// real wan if; see wan.c:start_wan
+	{ "wan_ifnameX",		NULL				},	// real wan if; see wan.c:start_wan
 
 	// WAN TCP/IP parameters
-	{ "wan_proto",			"dhcp"			},	// [static|dhcp|pppoe|disabled]
-	{ "wan_ipaddr",			"0.0.0.0"		},	// WAN IP address
-	{ "wan_netmask",		"0.0.0.0"		},	// WAN netmask
-	{ "wan_gateway",		"0.0.0.0"		},	// WAN gateway
-	{ "wan_gateway_get",		"0.0.0.0"		},	// default gateway for PPP
+	{ "wan_proto",			"dhcp"				},	// [static|dhcp|pppoe|disabled]
+	{ "wan_ipaddr",			"0.0.0.0"			},	// WAN IP address
+	{ "wan_netmask",		"0.0.0.0"			},	// WAN netmask
+	{ "wan_gateway",		"0.0.0.0"			},	// WAN gateway
+	{ "wan_gateway_get",		"0.0.0.0"			},	// default gateway for PPP
 	{ "wan_dns",			""				},	// x.x.x.x x.x.x.x ...
 	{ "wan_wins",			""				},	// x.x.x.x x.x.x.x ...
-	{ "wan_lease",			"86400"			},	// WAN lease time in seconds
+	{ "wan_lease",			"86400"				},	// WAN lease time in seconds
 	{ "wan_islan",			"0"				},
 
 	{ "wan_primary",		"1"				},	// Primary wan connection
@@ -84,21 +84,21 @@ const defaults_t defaults[] = {
 /* --- obsolete ---
 	// Filters
 	{ "filter_maclist",		""				},	// xx:xx:xx:xx:xx:xx ...
-	{ "filter_macmode",		"deny"			},	// "allow" only, "deny" only, or "disabled" (allow all)
+	{ "filter_macmode",		"deny"				},	// "allow" only, "deny" only, or "disabled" (allow all)
 	{ "filter_client0",		""				},	// [lan_ipaddr0-lan_ipaddr1|*]:lan_port0-lan_port1,proto,enable,day_start-day_end,sec_start-sec_end,desc
 
-	{ "filter",				"on"			},	// [on | off] Firewall Protection
+	{ "filter",			"on"				},	// [on | off] Firewall Protection
 
 	// Port forwards
 	{ "autofw_port0",		""				},	// out_proto:out_port,in_proto:in_port0-in_port1>to_port0-to_port1,enable,desc
 */
 	// DHCP server parameters
-	{ "dhcp_start",			"100"			},	//
-	{ "dhcp_num",			"50"			},	//
+	{ "dhcp_start",			"100"				},	//
+	{ "dhcp_num",			"50"				},	//
 	{ "dhcpd_startip",		"" 				},	// if empty, tomato will use dhcp_start/dchp_num for better compatibility
 	{ "dhcpd_endip",		"" 				},	// "
 	{ "dhcp_lease",			"0"				},	// LAN lease time in minutes
-	{ "dhcp_domain",		"wan"			},	// Use WAN domain name first if available (wan|lan)
+	{ "dhcp_domain",		"wan"				},	// Use WAN domain name first if available (wan|lan)
 	{ "wan_get_dns",		""				},	// DNS IP address which get by dhcpc // Add
 	{ "wan_routes",			""				},
 	{ "wan_msroutes",		""				},
@@ -111,11 +111,11 @@ const defaults_t defaults[] = {
 	{ "ppp_idletime",		"5"				},	// Dial on demand max idle time (mins)
 	{ "ppp_keepalive",		"0"				},	// Restore link automatically
 	{ "ppp_demand",			"0"				},	// Dial on demand
-	{ "ppp_redialperiod",	"30"			},	// Redial Period  (seconds)*/
-	{ "ppp_mru",			"1500"			},	// Negotiate MRU to this value
-	{ "ppp_mtu",			"1500"			},	// Negotiate MTU to the smaller of this value or the peer MRU
+	{ "ppp_redialperiod",		"30"				},	// Redial Period  (seconds)*/
+	{ "ppp_mru",			"1500"				},	// Negotiate MRU to this value
+	{ "ppp_mtu",			"1500"				},	// Negotiate MTU to the smaller of this value or the peer MRU
 	{ "ppp_service",		""				},	// PPPoE service name
-	{ "ppp_ac",				""				},	// PPPoE access concentrator name
+	{ "ppp_ac",				""			},	// PPPoE access concentrator name
 	{ "ppp_static",			"0"				},	// Enable / Disable Static IP
 	{ "ppp_static_ip",		""				},	// PPPoE Static IP
 	{ "ppp_get_ac",			""				},	// PPPoE Server ac name
@@ -160,7 +160,7 @@ const defaults_t defaults[] = {
 	{ "wl_ap_isolate",		"0"				},	// AP isolate mode
 	{ "wl_mode",			"ap"				},	// AP mode (ap|sta|wds)
 	{ "wl_lazywds",			"1"				},	// Enable "lazy" WDS mode (0|1)
-	{ "wl_wds",				""				},	// xx:xx:xx:xx:xx:xx ...
+	{ "wl_wds",			""				},	// xx:xx:xx:xx:xx:xx ...
 	{ "wl_wds_timeout",		"1"				},	// WDS link detection interval defualt 1 sec*/
 	{ "wl_wep",				"disabled"		},	// WEP data encryption (enabled|disabled)
 	{ "wl_auth",			"0"				},	// Shared key authentication optional (0) or required (1)
@@ -169,7 +169,7 @@ const defaults_t defaults[] = {
 	{ "wl_key2",			""				},	// 5/13 char ASCII or 10/26 char hex
 	{ "wl_key3",			""				},	// 5/13 char ASCII or 10/26 char hex
 	{ "wl_key4",			""				},	// 5/13 char ASCII or 10/26 char hex
-	{ "wl_channel",			"6"				},	// Channel number
+	{ "wl_channel",			"1"				},	// Channel number
 	{ "wl1_channel",		"0"				},
 	{ "wl_rate",			"0"				},	// Rate (bps, 0 for auto)
 	{ "wl_mrate",			"0"				},	// Mcast Rate (bps, 0 for auto)
@@ -178,21 +178,21 @@ const defaults_t defaults[] = {
 	{ "wl_rts",				"2347"			},	// RTS threshold
 	{ "wl_dtim",			"1"				},	// DTIM period (3.11.5)*/	// It is best value for WiFi test
 	{ "wl_bcn",				"100"			},	// Beacon interval
-	{ "wl_plcphdr",			"long"			},	// 802.11b PLCP preamble type
-	{ "wl_net_mode",		"mixed"			},	// Wireless mode (mixed|g-only|b-only|disable)
-	{ "wl_gmode",			"1"			},	// 54g mode
-	{ "wl_gmode_protection","off"				},	// 802.11g RTS/CTS protection (off|auto)
-	{ "wl_afterburner",		"off"			},	// AfterBurner
-	{ "wl_frameburst",		"off"			},	// BRCM Frambursting mode (off|on)
-	{ "wl_wme",			"auto"			},	// WME mode (auto|off|on)
-	{ "wl1_wme",			"auto"			},	// WME mode (auto|off|on)
-	{ "wl_antdiv",			"-1"			},	// Antenna Diversity (-1|0|1|3)
+	{ "wl_plcphdr",			"long"				},	// 802.11b PLCP preamble type
+	{ "wl_net_mode",		"mixed"				},	// Wireless mode (mixed|g-only|b-only|disable)
+	{ "wl_gmode",			"1"				},	// 54g mode
+	{ "wl_gmode_protection",	"off"				},	// 802.11g RTS/CTS protection (off|auto)
+	{ "wl_afterburner",		"off"				},	// AfterBurner
+	{ "wl_frameburst",		"off"				},	// BRCM Frambursting mode (off|on)
+	{ "wl_wme",			"auto"				},	// WME mode (auto|off|on)
+	{ "wl1_wme",			"auto"				},	// WME mode (auto|off|on)
+	{ "wl_antdiv",			"-1"				},	// Antenna Diversity (-1|0|1|3)
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
 	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3)    //Toastman - 0=off
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
-	{ "wl_wep_bit",			"128"			},	// WEP encryption [64 | 128] // Add
+	{ "wl_wep_bit",			"128"				},	// WEP encryption [64 | 128] // Add
 	{ "wl_wep_buf",			""				},	// save all settings for web // Add
 	{ "wl_wep_gen",			""				},	// save all settings for generate button	// Add
 	{ "wl_wep_last",		""				},	// Save last wl_wep mode	// Add
@@ -201,7 +201,7 @@ const defaults_t defaults[] = {
 	{ "wl_security_mode",		"disabled"		},	// WPA mode (disabled|radius|wpa_personal|wpa_enterprise|wep|wpa2_personal|wpa2_enterprise) for WEB	// Add
 	{ "wl_auth_mode",		"none"			},	// Network authentication mode (radius|none)
 	{ "wl_wpa_psk",			""				},	// WPA pre-shared key
-	{ "wl_wpa_gtk_rekey",	"3600"			},	// WPA GTK rekey interval	// Modify
+	{ "wl_wpa_gtk_rekey",	"3600"				},	// WPA GTK rekey interval	// Modify
 	{ "wl_radius_ipaddr",	""				},	// RADIUS server IP address
 	{ "wl_radius_key",		""				},	// RADIUS shared secret
 	{ "wl_radius_port",		"1812"			},	// RADIUS server UDP port
@@ -223,7 +223,7 @@ const defaults_t defaults[] = {
 	{ "wl_wme_ap_vo",		"3 7 1 3264 1504 off off"	},	// WME AP AC_VO paramters
 
 	{ "wl_wme_no_ack",		"off"			},	// WME No-Acknowledgmen mode
-	{ "wl_wme_apsd",		"on"			},	// WME APSD mode
+	{ "wl_wme_apsd",		"off"			},	// WME APSD mode
 	{ "wl_wme_bss_disable",		"0"			},	// WME BSS disable advertising (off|on)
 
 	/* Per AC Tx parameters */
@@ -393,7 +393,7 @@ const defaults_t defaults[] = {
 //	{ "dnsmasq_norw",		"0"				},
 
 // advanced-firewall
-//		{ "block_loopback",		"0"				},	// nat loopback
+//	{ "block_loopback",		"0"				},	// nat loopback
 	{ "nf_loopback",		"0"				},
 	{ "block_wan",			"1"				},	// block inbound icmp
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
@@ -415,9 +415,9 @@ const defaults_t defaults[] = {
 
 // advanced-wireless
 	{ "wl_txant",			"3"				},
-	{ "wl_txpwr",			"42"			},
-	{ "wl_maxassoc",		"128"			},	// Max associations driver could support
-	{ "wl_bss_maxassoc",		"128"			},
+	{ "wl_txpwr",			"42"				},
+	{ "wl_maxassoc",		"128"				},	// Max associations driver could support
+	{ "wl_bss_maxassoc",		"128"				},
 	{ "wl_distance",		""				},
 
 // forward-*
@@ -435,13 +435,13 @@ const defaults_t defaults[] = {
 	{ "upnp_secure",		"1"				},
 	{ "upnp_port",			"0"				},
 	{ "upnp_ssdp_interval",		"60"				},	// SSDP interval
-	{ "upnp_max_age",		"180"			},	// Max age
+	{ "upnp_max_age",		"180"				},	// Max age
 	{ "upnp_mnp",			"0"				},
 	{ "upnp_clean",			"1"				},	/* 0:Disable 1:Enable */
 	{ "upnp_clean_interval",	"600"				},	/* Cleaning interval in seconds */
 	{ "upnp_clean_threshold",	"20"				},	/* Threshold for cleaning unused rules */
 #if 0	// disabled for miniupnpd
-	{ "upnp_max_age",		"180"			},	// Max age
+	{ "upnp_max_age",		"180"				},	// Max age
 	{ "upnp_config",		"0"				},
 #endif
 
@@ -453,8 +453,8 @@ const defaults_t defaults[] = {
 	{ "qos_rst",			"1"				},
 	{ "qos_icmp",			"1"				},
 	{ "qos_reset",			"1"				},
-	{ "qos_obw",			"700"			},
-	{ "qos_ibw",			"16000"			},
+	{ "qos_obw",			"700"				},
+	{ "qos_ibw",			"16000"				},
 	{ "qos_orules",			"0<<-1<d<53<0<<0:10<<0<DNS>0<<-1<d<37<0<<0:10<<0<Time>0<<-1<d<123<0<<0:10<<0<Network Time (NTP)>0<<-1<d<3455<0<<0:10<<0<RSVP>0<<-1<x<9<0<<<<0<SCTP, Discard>0<<-1<x<135,2101,2103,2105<0<<<<0<RPC (Microsoft)>0<<6<x<23,992<0<<<<0<Telnet>0<<-1<d<22<0<<<<3<SSH>0<<17<x<3544<0<<<<3<Teredo port>0<<6<s<80,8080<0<<<<3<Remote Router Access>0<<6<x<3389<0<<<<3<Remote Assistance>0<<-1<a<<0<flash<<<2<Flash Video, (Youtube)>0<<-1<a<<0<httpvideo<<<2<HTTP Video, (Youtube)>0<<-1<a<<0<shoutcast<<<2<Shoutcast>0<<-1<s<6970:7170,8554<0<<<<2<Quicktime/RealAudio>0<<-1<d<1220,7070<0<<<<2<Quicktime/RealAudio>0<<6<x<6005<0<<<<2<Camfrog>0<<-1<d<1220,1234,5100,6005,6970<0<<<<-1<VLC>0<<-1<x<554,5004,5005<0<<<<2<RTP/RTSP>0<<-1<x<1755<0<<<<2<MMS (Microsoft)>0<<-1<x<1935<0<<<<2<RTMP>0<<-1<d<3478,3479,5060:5063<0<<<<1<SIP, Sipgate Stun Services>0<<-1<d<1718:1720<0<<<<1<H323>0<<-1<a<<0<skypetoskype<<<1<Skype>0<<-1<a<<0<skypeout<<<1<Skypeout>0<<-1<d<80<0<<0:512<<4<HTTP>0<<-1<d<443<0<<0:512<<4<HTTPS>0<<6<d<8080<0<<0:512<<4<HTTP Proxy / Alternate>0<<-1<d<25,587,465<0<<<<5<SMTP, Submission>0<<-1<d<110,995<0<<<<5<POP3 Mail>0<<-1<d<119,563<0<<<<5<NNTP>0<<-1<d<143,220,585,993<0<<<<5<IMAP Mail>0<<-1<a<<0<irc<<<6<IRC>0<<-1<d<1493,1502,1503,1542,1863,1963,3389,5061,5190:5193,7001<0<<<<6<Windows Live>0<<-1<d<1071:1074,1455,1638,1644,5000:5010,5050,5100,5101,5150,8000:8002<0<<<<6<Yahoo Messenger>0<<-1<d<194,1720,1730:1732,5220:5223,5298,6660:6669,22555<0<<<<6<Other Chat Services>0<<6<d<20,21,989,990<0<<<<7<FTP>0<<-1<x<6571,6891:6901<0<<<<7<WLM File/Webcam>0<<6<d<80,443,8080<0<<512:<<7<HTTP,SSL File Transfers>0<<17<x<1:65535<0<<<<-1<P2P (uTP, UDP)" },
 	{ "qos_burst0",			""				},
 	{ "qos_burst1",			""				},
@@ -485,7 +485,7 @@ const defaults_t defaults[] = {
 	{ "rruleN",				"0"				},
 	{ "rrule0",				"0|1320|300|31|||word text\n^begins-with.domain.\n.ends-with.net$\n^www.exact-domain.net$|0|example" },
 //*	{ "rrule##",			""				},
-	{ "rrulewp",			"80,8080"		},
+	{ "rrulewp",			"80,8080"			},
 
 #if TOMATO_SL
 // samba
@@ -515,12 +515,12 @@ const defaults_t defaults[] = {
 	{ "web_css",			"enlightened"			},
 	{ "web_svg",			"1"				},
 	{ "telnetd_eas",		"1"				},
-	{ "telnetd_port",		"23"			},
+	{ "telnetd_port",		"23"				},
 	{ "sshd_eas",			"0"				},
 	{ "sshd_pass",			"1"				},
-	{ "sshd_port",			"22"			},
+	{ "sshd_port",			"22"				},
 	{ "sshd_remote",		"0"				},
-	{ "sshd_rport",			"2222"			},
+	{ "sshd_rport",			"2222"				},
 	{ "sshd_authkeys",		""				},
 	{ "sshd_hostkey",		""				},
 	{ "sshd_dsskey",		""				},
@@ -528,13 +528,13 @@ const defaults_t defaults[] = {
 	{ "rmgt_sip",			""				},	// remote management: source ip address
 
 	{ "http_id",			""				},
-	{ "web_mx",				"status,bwm"	},
-	{ "web_pb",				""				},
+	{ "web_mx",			"status,bwm"			},
+	{ "web_pb",			""				},
 
 // admin-bwm
 	{ "rstats_enable",		"1"				},
 	{ "rstats_path",		""				},
-	{ "rstats_stime",		"48"			},
+	{ "rstats_stime",		"48"				},
 	{ "rstats_offset",		"1"				},
 	{ "rstats_data",		""				},
 	{ "rstats_colors",		""				},
@@ -589,17 +589,17 @@ const defaults_t defaults[] = {
 // admin-debugging
 	{ "debug_nocommit",		"0"				},
 	{ "debug_cprintf",		"0"				},
-	{ "debug_cprintf_file",	"0"				},
-//	{ "debug_keepfiles",	"0"				},
-	{ "console_loglevel",	"1"				},
+	{ "debug_cprintf_file",		"0"				},
+//	{ "debug_keepfiles",		"0"				},
+	{ "console_loglevel",		"1"				},
 	{ "t_cafree",			"1"				},
 	{ "t_hidelr",			"0"				},
 	{ "debug_clkfix",		"1"				},
 	{ "debug_ddns",			"0"				},
 
 // admin-cifs
-	{ "cifs1",				""				},
-	{ "cifs2",				""				},
+	{ "cifs1",			""				},
+	{ "cifs2",			""				},
 
 // admin-jffs2
 	{ "jffs2_on",			"0"				},

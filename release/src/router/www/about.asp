@@ -86,8 +86,6 @@ function init()
 <img src='kinaree.png' alt='Linux &amp; Tomato' id='tux'>
 </div>
 <div style='margin:30px 30px;font-size:14px;color:#555;'>
-<br>
-<br>
 <b>Tomato Firmware v<% version(1); %></b><br>
 - Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates<br>
 - Support for additional router models, dual-band and Wireless-N mode.<br>
@@ -127,8 +125,11 @@ Copyright (C) 2007-2011 Vicente Soriano<br>
 - 500 entry limit in Access Restriction rules<br>
 - Configurable QOS class names<br>
 - Client Monitor Graphs<br>
+- Revised CPU frequency selector<br>
 - Faster page refresh settings<br>
 - Fast conntrack timeout settings<br>
+- FTPput and FTPget enabled<br>
+- 16 IMQ's enabled with 24 hour graphs<br>
 - UPnP Support for vlans (if exists, loads upnpconfig.custom from JFFS)<br>
 - Comprehensive QOS rule examples set by default<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>

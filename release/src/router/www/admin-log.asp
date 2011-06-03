@@ -153,7 +153,7 @@ createFieldTable('', [
 	{ title: 'Log Internally', name: 'f_log_file', type: 'checkbox', value: nvram.log_file == 1 },
 	{ title: 'Custom Log File Path', multi: [
 		{ name: 'f_log_file_custom', type: 'checkbox', value: nvram.log_file_custom == 1, suffix: '  ' },
-		{ name: 'log_file_path', type: 'text', maxlen: 32, size: 20, value: nvram.log_file_path, suffix: ' <small>(make sure the directory exists and is writable)</small>' }
+		{ name: 'log_file_path', type: 'text', maxlen: 32, size: 34, value: nvram.log_file_path, suffix: ' <br><small>(make sure the directory exists and is writable)</small>' }
 		] },
 	{ title: 'Log To Remote System', name: 'f_log_remote', type: 'checkbox', value: nvram.log_remote == 1 },
 	{ title: 'Host or IP Address / Port', indent: 2, multi: [
@@ -169,7 +169,7 @@ createFieldTable('', [
 	{ title: 'Connection Logging' },
 		{ title: 'Inbound', indent: 2, name: 'log_in', type: 'select', options: [[0,'Disabled (recommended)'],[1,'If Blocked By Firewall'],[2,'If Allowed By Firewall'],[3,'Both']], value: nvram.log_in },
 		{ title: 'Outbound', indent: 2, name: 'log_out', type: 'select', options: [[0,'Disabled (recommended)'],[1,'If Blocked By Firewall'],[2,'If Allowed By Firewall'],[3,'Both']], value: nvram.log_out },
-		{ title: 'Limit', indent: 2, name: 'log_limit', type: 'text', maxlen: 4, size: 5, value: nvram.log_limit, suffix: ' <small>(messages per minute / 0 for unlimited)</small>' }
+		{ title: 'Limit', indent: 2, name: 'log_limit', type: 'text', maxlen: 4, size: 5, value: nvram.log_limit, suffix: ' <br><small>(messages per minute / 0 for unlimited)</small>' }
 ]);
 </script>
 </div>
