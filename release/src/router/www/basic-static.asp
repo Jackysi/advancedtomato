@@ -216,6 +216,14 @@ sg.setup = function()
 	this.resetNewEditor();
 }
 
+function verifyFields(focused, quiet)
+{
+	var j = E('_f_arpbind_enable').checked;
+	E('_f_arpbind_only').disabled = !j;
+
+	return 1;
+}
+
 function save()
 {
 	if (sg.isEditing()) return;
@@ -328,6 +336,6 @@ function init()
 </td></tr>
 </table>
 </form>
-<script type='text/javascript'>sg.setup();</script>
+<script type='text/javascript'>sg.setup();verifyFields(null, 1);</script>
 </body>
 </html>
