@@ -136,6 +136,7 @@ Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 - Fast conntrack timeout settings<br>
 - FTPput and FTPget enabled<br>
 - 16 IMQ's enabled with 24 hour graphs<br>
+- Starts with LAN DHCP off if nvram is reset<br>
 - UPnP Support for vlans (if exists, loads upnpconfig.custom from JFFS)<br>
 - Comprehensive QOS rule examples set by default<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>
