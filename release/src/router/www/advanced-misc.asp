@@ -85,7 +85,7 @@ for (i = 3; i <= 20; ++i) a.push([i, i + ' seconds']);
 createFieldTable('', [
 	{ title: 'Boot Wait Time *', name: 'wait_time', type: 'select', options: a, value: fixInt(nvram.wait_time, 3, 20, 3) },
 	{ title: 'WAN Port Speed *', name: 'wan_speed', type: 'select', options: [[0,'10Mb Full'],[1,'10Mb Half'],[2,'100Mb Full'],[3,'100Mb Half'],[4,'Auto']], value: nvram.wan_speed },
-	{ title: 'CPU Frequency **', name: 'clkfreq', type: 'select', options: [['','Default'],['188,94'],['200,100'],['216,108'],['240,120'],['250,125'],['266,133'],['400,200'],['453,226'],['480,240'],['500,250'],['532,266']], value: nvram.clkfreq },
+	{ title: 'CPU Frequency **', name: 'clkfreq', type: 'select', options: [['','Default'],['188,94'],['200,100'],['216,108'],['240,120'],['250,125'],['266,133']], value: nvram.clkfreq },
 
 	null,
 
