@@ -397,7 +397,7 @@ const defaults_t defaults[] = {
 	{ "dhcp_pass",			"1"				},	// allow DHCP responses
 	{ "ne_shlimit",			"1,3,60"			},	//shibby - enable limit connection attempts for sshd
 	{ "imq_enable",			"0"				},
-	{ "imq_numdevs",		"2"				},
+	{ "imq_numdevs",		"16"				},
 
 // advanced-routing
 	{ "routes_static",		""				},

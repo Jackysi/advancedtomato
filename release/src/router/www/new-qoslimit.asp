@@ -270,7 +270,7 @@ function init()
 
 <div id='bwlimit'>
 
-	<div class='section-title'>QoS BW Limiter</div>
+	<div class='section-title'>Bandwidth Limiter</div>
 	<div class='section'>
 		<script type='text/javascript'>
 			createFieldTable('', [
