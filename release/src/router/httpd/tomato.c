@@ -1002,7 +1002,7 @@ static const nvset_t nvset_list[] = {
 	{ "bt_maxactive",               V_RANGE(1,20)                   },
 #endif
 
-#ifdef TCONFIG_	NFS
+#ifdef TCONFIG_NFS
 	{ "nfs_enable",			V_01				},
 	{ "nfs_exports",		V_LENGTH(0, 4096)		},
 #endif

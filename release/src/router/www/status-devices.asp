@@ -23,10 +23,10 @@
 	width: 8%;
 }
 #dev-grid .co2 {
-	width: 21%;
+	width: 20%;
 }
 #dev-grid .co3 {
-	width: 12%;
+	width: 13%;
 }
 #dev-grid .co4 {
 	width: 21%;
