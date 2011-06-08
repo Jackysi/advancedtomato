@@ -1942,7 +1942,8 @@ TOP:
 		}
 		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) {
-			start_qos();
+//			start_qos();
+			start_cmon();				// cmon start also qos
 			if (nvram_match("qos_reset", "1")) f_write_string("/proc/net/clear_marks", "1", 0, 0);
 		}
 		goto CLEAR;
@@ -1952,9 +1953,10 @@ TOP:
 	if (action & A_STOP) {
 	new_qoslimit_stop();
 	}
-	stop_firewall(); start_firewall();		// always restarted
+		stop_firewall(); start_firewall();		// always restarted
 	if (action & A_START) {
-		new_qoslimit_start();
+//		new_qoslimit_start();
+		start_cmon();					//cmon start also qoslimit
 	}
 		goto CLEAR;
 	}
@@ -1962,6 +1964,15 @@ TOP:
 	if (strcmp(service, "arpbind") == 0) {
 		if (action & A_STOP) new_arpbind_stop();
 		if (action & A_START) new_arpbind_start();
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "cmon") == 0) {
+		if (action & A_STOP) { stop_cmon(); }
+
+		start_qos(); new_qoslimit_start();	// start features after firewall restart
+
+		if (action & A_START) { start_cmon(); }
 		goto CLEAR;
 	}
 

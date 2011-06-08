@@ -427,6 +427,10 @@ extern void start_nfs();
 extern void stop_nfs();
 #endif
 
+//cmon.c
+extern void stop_cmon();
+extern void start_cmon();
+
 // vpn.c
 #ifdef TCONFIG_OPENVPN
 extern void start_vpnclient(int clientNum);

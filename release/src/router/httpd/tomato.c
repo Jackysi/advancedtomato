@@ -660,6 +660,9 @@ static const nvset_t nvset_list[] = {
 	{ "emf_enable",			V_01				},
 #endif
 
+	{ "cmon_enable",		V_01				},
+	{ "cmon_users",			V_LENGTH(0, 4096)		},
+
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
 	{ "wan_speed",			V_RANGE(0, 4)		},
@@ -999,7 +1002,7 @@ static const nvset_t nvset_list[] = {
 	{ "bt_maxactive",               V_RANGE(1,20)                   },
 #endif
 
-#ifdef TCONFIG_NFS
+#ifdef TCONFIG_	NFS
 	{ "nfs_enable",			V_01				},
 	{ "nfs_exports",		V_LENGTH(0, 4096)		},
 #endif

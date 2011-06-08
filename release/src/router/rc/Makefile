@@ -49,6 +49,8 @@ ifeq ($(TCONFIG_NFS),y)
 OBJS += nfs.o
 endif
 
+OBJS += cmon.o
+
 all: rc
 
 rc: $(OBJS)
