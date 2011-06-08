@@ -639,10 +639,11 @@ endif
 ## Make the "Mega + VPN" = Mega-VPN
 o:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Mega-VPN" USB="USB" NOCAT=y BTCLIENT=y NFS=y
+	@$(MAKE) bin OPENVPN=y NTFS=y NO_JFFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Mega-VPN" USB="USB" NOCAT=y BTCLIENT=y NFS=y
 else
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y B=E BUILD_DESC="Mega-VPN" USB="USB" BTCLIENT=y NFS=y NOCAT=y
+	@$(MAKE) bin OPENVPN=y NTFS=y NO_JFFS=y BBEXTRAS=y USBEXTRAS=y B=E BUILD_DESC="Mega-VPN" USB="USB" BTCLIENT=y NFS=y NOCAT=y
 endif
+
 
 ## Make the "No USB" = Std
 s:
@@ -691,6 +692,12 @@ r2e:
 
 r2o:
 	@$(MAKE) o MIPS32=r2
+
+## Make the "All-In-One (AIO)" - only for router with more than 8MB flash!! RT-N16
+r2z:
+ifeq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" USB="USB" NOCAT=y BTCLIENT=y NFS=y
+endif
 
 r2s:
 	@$(MAKE) s MIPS32=r2
@@ -801,6 +808,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2e          MIPS Release 2 VPN"
 	@echo "r2b          MIPS Release 2 Big-VPN"
 	@echo "r2o          MIPS Release 2 Mega-VPN"
+	@echo "r2z          MIPS Release 2 AIO (for routers +8MB flash)"
 	@echo "r2v          MIPS Release 2 VPN (no usb)"
 	@echo "r2s          MIPS Release 2 Std"
 	@echo "r2i          MIPS Release 2 MiniIPv6 (for 4MB flash)"
