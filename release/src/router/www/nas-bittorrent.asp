@@ -299,8 +299,8 @@ createFieldTable('', [
 		{ name: 'f_bt_ratio_enable', type: 'checkbox', value: nvram.bt_ratio_enable == '1', suffix: '  ' },
 		{ name: 'bt_ratio', type: 'select', options: [['0.2000','0.2'],['0.5000','0.5'],['1.0000','1.0'],['1.5000','1.5'],['2.0000','2.0'],['3.0000','3.0']], value: nvram.bt_ratio } ] },
 	{ title: 'Global peer limit', name: 'bt_peer_limit_global', type: 'text', maxlen: 10, size: 7, value: nvram.bt_peer_limit_global, suffix: ' <small>(range: 10 - 500; default: 150)</small>' },
-	{ title: 'Peer limit per torrent', name: 'bt_peer_limit_per_torrent', type: 'text', maxlen: 10, size: 7, value: nvram.bt_peer_limit_per_torrent, suffix: ' <small>(range: 10 - 100; default: 30)</small>' },
-	{ title: 'Upload slots per torrent', name: 'bt_ul_slot_per_torrent', type: 'text', maxlen: 10, size: 7, value: nvram.bt_ul_slot_per_torrent, suffix: ' <small>(range: 5 - 50; default: 10)</small>' }
+	{ title: 'Peer limit per torrent', name: 'bt_peer_limit_per_torrent', type: 'text', maxlen: 10, size: 7, value: nvram.bt_peer_limit_per_torrent, suffix: ' <small>(range: 1 - 100; default: 30)</small>' },
+	{ title: 'Upload slots per torrent', name: 'bt_ul_slot_per_torrent', type: 'text', maxlen: 10, size: 7, value: nvram.bt_ul_slot_per_torrent, suffix: ' <small>(range: 1 - 50; default: 10)</small>' }
 ]);
 </script>
 </div>
@@ -309,8 +309,8 @@ createFieldTable('', [
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Enable queuing', name: 'f_bt_queue', type: 'checkbox', value: nvram.bt_queue == '1' },
-	{ title: 'Max downloads', indent: 2, name: 'bt_maxdown', type: 'text', maxlen: 32, size: 5, value: nvram.bt_maxdown, suffix: ' <small>(range: 1 - 10; default: 2)</small>' },
-	{ title: 'Max active torrents', indent: 2, name: 'bt_maxactive', type: 'text', maxlen: 32, size: 5, value: nvram.bt_maxactive, suffix: ' <small>(range: 1 - 20; default: 5)</small>' }
+	{ title: 'Max downloads', indent: 2, name: 'bt_maxdown', type: 'text', maxlen: 32, size: 5, value: nvram.bt_maxdown, suffix: ' <small>(range: 1 - 20; default: 2)</small>' },
+	{ title: 'Max active torrents', indent: 2, name: 'bt_maxactive', type: 'text', maxlen: 32, size: 5, value: nvram.bt_maxactive, suffix: ' <small>(range: 1 - 30; default: 5)</small>' }
 ]);
 </script>
 </div>
