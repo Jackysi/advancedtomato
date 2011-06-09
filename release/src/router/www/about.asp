@@ -124,6 +124,9 @@ Copyright (C) 2010 Keith Moyer,<br>
 <!-- NFS-END -->
 - Custom log file path<br>
 - Clients monitor <br>
+<!-- LINUX26-BEGIN -->
+- SD-idle tool integration for kernel 2.6<br>
+<!-- LINUX26-BEGIN -->
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
