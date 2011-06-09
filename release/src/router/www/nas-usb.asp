@@ -47,7 +47,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,usb_fs_ntfs,script_usbmount,script_usbumount,script_usbhotplug"); %>
+//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,usb_fs_ntfs,script_usbmount,script_usbumount,script_usbhotplug,idle_enable"); %>
 //	<% usbdevices(); %>
 
 list = [];
@@ -266,6 +266,7 @@ function verifyFields(focused, quiet)
 
 	E('_f_ext3').disabled = b || a;
 	E('_f_fat').disabled = b || a;
+	E('_f_idle_enable').disabled = b || a;
 /* NTFS-BEGIN */
 	E('_f_ntfs').disabled = b || a;
 /* NTFS-END */
@@ -303,6 +304,7 @@ function save()
 	fom.usb_fs_ntfs.value = E('_f_ntfs').checked ? 1 : 0;
 /* NTFS-END */
 	fom.usb_automount.value = E('_f_automount').checked ? 1 : 0;
+	fom.idle_enable.value = E('_f_idle_enable').checked ? 1 : 0;
 
 	form.submit(fom, 1);
 }
@@ -343,6 +345,7 @@ function submit_complete()
 <input type='hidden' name='usb_fs_ntfs'>
 NTFS-END -->
 <input type='hidden' name='usb_automount'>
+<input type='hidden' name='idle_enable'>
 
 <div class='section-title'>USB Support</div>
 <div class='section'>
@@ -369,6 +372,8 @@ createFieldTable('', [
 		] },
 		{ title: 'Automount', indent: 2, name: 'f_automount', type: 'checkbox',
 			suffix: ' <small>Automatically mount all partitions to sub-directories in <i>/mnt</i>.</small>', value: nvram.usb_automount == 1 },
+		{ title: 'Enable sd-idle', indent: 2, name: 'f_idle_enable', type: 'checkbox',
+			suffix: ' <small>This tool spindown each HDD when is in idle. Dont use with Flashdrive!</small>', value: nvram.idle_enable == 1 },
 	{ title: 'Run after mounting', indent: 2, name: 'script_usbmount', type: 'textarea', value: nvram.script_usbmount },
 	{ title: 'Run before unmounting', indent: 2, name: 'script_usbumount', type: 'textarea', value: nvram.script_usbumount },
 	null,

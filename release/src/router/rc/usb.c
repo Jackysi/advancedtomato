@@ -158,6 +158,10 @@ void start_usb(void)
 				);
 			}
 		}
+
+		if (nvram_get_int("idle_enable") == 1) {
+			xstart( "sd-idle" );
+		}
 	}
 }
 
@@ -223,6 +227,11 @@ void stop_usb(void)
 		modprobe_r(USB20_MOD);
 		modprobe_r(USBCORE_MOD);
 	}
+
+	if (nvram_get_int("idle_enable") == 0) {
+		killall("sd-idle", SIGTERM);
+	}
+
 }
 
 

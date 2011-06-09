@@ -613,6 +613,7 @@ const defaults_t defaults[] = {
 	{ "script_usbhotplug",		""				},
 	{ "script_usbmount",		""				},
 	{ "script_usbumount",		""				},
+	{ "idle_enable",		"0"				},
 #endif
 
 #ifdef TCONFIG_FTP
@@ -685,6 +686,9 @@ const defaults_t defaults[] = {
 	{ "nfs_enable",			"0"				},
 	{ "nfs_exports",		""				},
 #endif
+
+	{ "cmon_enable",		"0"				},
+	{ "cmon_users",			""				},
 
 #ifdef TCONFIG_OPENVPN
 // vpn

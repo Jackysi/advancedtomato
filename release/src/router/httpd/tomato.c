@@ -660,9 +660,6 @@ static const nvset_t nvset_list[] = {
 	{ "emf_enable",			V_01				},
 #endif
 
-	{ "cmon_enable",		V_01				},
-	{ "cmon_users",			V_LENGTH(0, 4096)		},
-
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
 	{ "wan_speed",			V_RANGE(0, 4)		},
@@ -877,6 +874,7 @@ static const nvset_t nvset_list[] = {
 	{ "script_usbhotplug", 		V_TEXT(0, 2048)			},
 	{ "script_usbmount", 		V_TEXT(0, 2048)			},
 	{ "script_usbumount", 		V_TEXT(0, 2048)			},
+	{ "idle_enable",		V_01				},
 #endif
 
 // nas-ftp - !!TB
@@ -987,8 +985,8 @@ static const nvset_t nvset_list[] = {
 	{ "bt_dl",                      V_RANGE(1, 999999)              },
 	{ "bt_ul",                      V_RANGE(1, 999999)              },
 	{ "bt_peer_limit_global",       V_RANGE(10, 500)                },
-	{ "bt_peer_limit_per_torrent",  V_RANGE(1, 100)                 },
-	{ "bt_ul_slot_per_torrent",     V_RANGE(1, 50)                  },
+	{ "bt_peer_limit_per_torrent",  V_RANGE(10, 100)                },
+	{ "bt_ul_slot_per_torrent",     V_RANGE(5, 50)                  },
 	{ "bt_ratio_enable",            V_01                            },
 	{ "bt_ratio",                   V_LENGTH(0, 999999)             },
 	{ "bt_dht",                     V_01                            },
@@ -998,14 +996,17 @@ static const nvset_t nvset_list[] = {
 	{ "bt_sleep",                   V_RANGE(1,60)                   },
 	{ "bt_check",                   V_01                            },
 	{ "bt_queue",                   V_01                            },
-	{ "bt_maxdown",                 V_RANGE(1,20)                   },
-	{ "bt_maxactive",               V_RANGE(1,30)                   },
+	{ "bt_maxdown",                 V_RANGE(1,10)                   },
+	{ "bt_maxactive",               V_RANGE(1,20)                   },
 #endif
 
 #ifdef TCONFIG_NFS
 	{ "nfs_enable",			V_01				},
 	{ "nfs_exports",		V_LENGTH(0, 4096)		},
 #endif
+
+	{ "cmon_enable",		V_01				},
+	{ "cmon_users",			V_LENGTH(0, 4096)		},
 
 //NotCatSplash. Victek.
 #ifdef TCONFIG_NOCAT
