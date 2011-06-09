@@ -25,7 +25,7 @@ textarea {
 }
 </style>
 <script type='text/javascript'>
-//	<% nvram("lan_ipaddr,NC_enable,NC_Verbosity,NC_GatewayName,NC_GatewayPort,NC_ForcedRedirect,NC_HomePage,NC_DocumentRoot,NC_LoginTimeout,NC_IdleTimeout,NC_MaxMissedARP,NC_ExcludePorts,NC_IncludePorts,NC_AllowedWebHosts,NC_MACWhiteList"); %>
+//	<% nvram("NC_enable,NC_Verbosity,NC_GatewayName,NC_GatewayPort,NC_ForcedRedirect,NC_HomePage,NC_DocumentRoot,NC_LoginTimeout,NC_IdleTimeout,NC_MaxMissedARP,NC_ExcludePorts,NC_IncludePorts,NC_AllowedWebHosts,NC_MACWhiteList"); %>
 function fix(name)
 {
  var i;
@@ -130,17 +130,17 @@ function init()
 <input type='hidden' name='NC_ForcedRedirect'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Enable Function',  name: 'f_NC_enable', type: 'checkbox', value: nvram.NC_enable == '1' },
-	{ title: 'Log Info Level',  name: 'NC_Verbosity', type: 'text', maxlen: 10, size: 2, value: nvram.NC_Verbosity },
+	{ title: 'Enable Function', name: 'f_NC_enable', type: 'checkbox', value: nvram.NC_enable == '1' },
 	{ title: 'Gateway Name', name: 'NC_GatewayName', type: 'text', maxlen: 255, size: 34, value: nvram.NC_GatewayName },
-	{ title: 'Gateway Port', indent: 2, name: 'NC_GatewayPort', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.NC_GatewayPort, 5280) },
 	{ title: 'Captive Site Forwarding', name: 'f_NC_ForcedRedirect', type: 'checkbox', value: (nvram.NC_ForcedRedirect == '1') },
-	{ title: 'Home Page', indent: 2, name: 'NC_HomePage', type: 'text', maxlen: 255, size: 34, value: nvram.NC_HomePage },
+	{ title: 'Home Page', name: 'NC_HomePage', type: 'text', maxlen: 255, size: 34, value: nvram.NC_HomePage },
 	{ title: 'Welcome html Path', name: 'NC_DocumentRoot', type: 'text', maxlen: 255, size: 20, value: nvram.NC_DocumentRoot, suffix: '<span>&nbsp;/splash.html</span>' },
 	{ title: 'Logged Timeout', name: 'NC_LoginTimeout', type: 'text', maxlen: 8, size: 4, value: nvram.NC_LoginTimeout },
 	{ title: 'Idle Timeout', name: 'NC_IdleTimeout', type: 'text', maxlen: 8, size: 4, value: nvram.NC_IdleTimeout },
 	{ title: 'Max Missed ARP', name: 'NC_MaxMissedARP', type: 'text', maxlen: 10, size: 2, value: nvram.NC_MaxMissedARP },
 	null,
+	{ title: 'Log Info Level', name: 'NC_Verbosity', type: 'text', maxlen: 10, size: 2, value: nvram.NC_Verbosity },
+	{ title: 'Gateway Port', name: 'NC_GatewayPort', type: 'text', maxlen: 10, size: 7, value: fixPort(nvram.NC_GatewayPort, 5280) },
 	{ title: 'Excluded Ports to be redirected', name: 'NC_ExcludePorts', type: 'text', maxlen: 255, size: 34, value: nvram.NC_ExcludePorts },
 	{ title: 'Included Ports to be redirected', name: 'NC_IncludePorts', type: 'text', maxlen: 255, size: 34, value: nvram.NC_IncludePorts },
 	{ title: 'URL Excluded off Captive Portal', name: 'NC_AllowedWebHosts', type: 'text', maxlen: 255, size: 34, value: nvram.NC_AllowedWebHosts },
@@ -163,15 +163,15 @@ createFieldTable('', [
 <b>Captive Portal. User Guide.</b><br>
 <br>
 <b>*- Enable function:</b> When you tick and save the router will show a Welcome Banner when a computer access the Internet.<br>
-<b>*- Log Info Level:</b> Messages from this module stored internally for better trace. Level 0=Silent, 10=Parrot, 2=Default.<br>
 <b>*- Gateway name:</b> The name of the Gateway appearing in the welcome banner<br>
-<b>*- Gateway Port:</b> Port to be used by the Captive Portal for page redirection. Port 1 to 65534. Default=5280.<br>
 <b>*- Captive Site Forwarding:</b> When active, the 'Home Page' (read next line) will appear after you Agree in Welcome Banner.<br>
 <b>*- Home page:</b> The URL that will appear after you Agree the Welcome Banner.<br>
 <b>*- Welcome html Path:</b> The location where the Welcome banner is located<br>
 <b>*- Logged Timeout:</b> During this period of time no Welcome banner will appear when you access to the device. Default=3600 sec.(1 Hour).<br>
 <b>*- Idle Timeout:</b> Expired time where you can't access the device again.Default value=0.<br>
 <b>*- Max Missed ARP:</b> Number of lost ARP before considering the client has leaved the connection. Default = 5<br>
+<b>*- Log Info Level:</b> Messages from this module stored internally for better trace. Level 0=Silent, 10=Parrot, 2=Default.<br>
+<b>*- Gateway Port:</b> Port to be used by the Captive Portal for page redirection. Port 1 to 65534. Default=5280.<br>
 <b>*- Excluded/Included ports to be redirected:</b> When setting any port (included or excluded) leave a blank space between each port number, i.e; 25 110 4662 4672. Use prefereable one of the two option to avoid conflicts.<br>
 <b>*- URL excluded off the portal:</b> URL that will be accessed without Welcome banner screen appearing. When you set allowed url's also leave a blank space between each url. i.e; http://www.google.com http://www.google.es<br>
 <b>*- MAC address whitelist:</b> MAC addresses excluded of the feature. Leave a blank space between each MAC Address, i.e; 11:22:33:44:55:66 11:22:33:44:55:67<br>
