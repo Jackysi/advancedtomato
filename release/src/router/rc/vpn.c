@@ -386,6 +386,11 @@ void start_vpnclient(int clientNum)
 		vpnlog(VPN_LOG_EXTRA,"Done adding cron job");
 	}
 
+#ifdef LINUX26
+	sprintf(&buffer[0], "vpn_client%d", clientNum);
+	allow_fastnat(buffer, 0);
+	try_enabling_fastnat();
+#endif
 	vpnlog(VPN_LOG_INFO,"VPN GUI client backend complete.");
 }
 
@@ -462,6 +467,11 @@ void stop_vpnclient(int clientNum)
 		vpnlog(VPN_LOG_EXTRA,"Done removing generated files.");
 	}
 
+#ifdef LINUX26
+	sprintf(&buffer[0], "vpn_client%d", clientNum);
+	allow_fastnat(buffer, 1);
+	try_enabling_fastnat();
+#endif
 	vpnlog(VPN_LOG_INFO,"VPN GUI client backend stopped.");
 }
 
@@ -909,6 +919,11 @@ void start_vpnserver(int serverNum)
 		vpnlog(VPN_LOG_EXTRA,"Done adding cron job");
 	}
 
+#ifdef LINUX26
+	sprintf(&buffer[0], "vpn_server%d", serverNum);
+	allow_fastnat(buffer, 0);
+	try_enabling_fastnat();
+#endif
 	vpnlog(VPN_LOG_INFO,"VPN GUI server backend complete.");
 }
 
@@ -985,6 +1000,11 @@ void stop_vpnserver(int serverNum)
 		vpnlog(VPN_LOG_EXTRA,"Done removing generated files.");
 	}
 
+#ifdef LINUX26
+	sprintf(&buffer[0], "vpn_server%d", serverNum);
+	allow_fastnat(buffer, 1);
+	try_enabling_fastnat();
+#endif
 	vpnlog(VPN_LOG_INFO,"VPN GUI server backend stopped.");
 }
 

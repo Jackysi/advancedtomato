@@ -770,6 +770,7 @@ ntfs-3g/Makefile:
 		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
 		$(CONFIGURE) --enable-shared=no --enable-static=no \
 		--disable-library --disable-ldconfig --disable-mount-helper --with-fuse=internal \
+		--disable-ntfsprogs --disable-crypto --without-uuid \
 		--disable-posix-acls --disable-nfconv --disable-dependency-tracking
 
 ntfs-3g: ntfs-3g/Makefile
