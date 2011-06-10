@@ -655,7 +655,7 @@ endif
 
 ## Make the "Mini: no USB, no CIFS, no Zebra" build - targeted for Netgear routers
 f:
-	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y SLIM=y B=F BUILD_DESC="Mini" USB=""
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y B=F BUILD_DESC="Mini" USB=""
 
 ifeq ($(CONFIG_LINUX26),y)
 ## Make the "No USB with IPv6, no Zebra" build - for 4MB routers
@@ -696,7 +696,7 @@ r2o:
 ## Make the "All-In-One (AIO)" - only for router with more than 8MB flash!! RT-N16
 r2z:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" USB="USB" NOCAT=y BTCLIENT=y NFS=y
+	@$(MAKE) bin MIPS32=r2 OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" USB="USB" NOCAT=y BTCLIENT=y NFS=y
 endif
 
 r2s:
