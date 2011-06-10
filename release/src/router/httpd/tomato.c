@@ -326,7 +326,8 @@ const struct mime_handler mime_handlers[] = {
 	{ "resolve.cgi",	mime_javascript,			0,	wi_generic,			wo_resolve,		1 },
 	{ "expct.cgi",		mime_html,					0,	wi_generic,			wo_expct,		1 },
 	{ "service.cgi",	NULL,						0,	wi_generic,			wo_service,		1 },
-//	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },	// see httpd.c
+//	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },
+// see httpd.c
 	{ "shutdown.cgi",	mime_html,					0,	wi_generic,			wo_shutdown,	1 },
 #ifdef TCONFIG_OPENVPN
 	{ "vpnstatus.cgi",	mime_javascript,			0,	wi_generic,			wo_vpn_status,		1 },
@@ -337,8 +338,11 @@ const struct mime_handler mime_handlers[] = {
 #ifdef BLACKHOLE
 	{ "blackhole.cgi",	NULL,						0,	wi_blackhole,		NULL,			1 },
 #endif
-//	{ "test",			mime_html,					0,	wi_generic,			wo_test,		1 },
-	{ NULL,				NULL,						0,	NULL,				NULL,			1 }
+#ifdef TCONFIG_NOCAT
+	{ "uploadsplash.cgi",		NULL,					0,	wi_uploadsplash,	wo_uploadsplash,	1 },
+	{ "ext/uploadsplash.cgi",	NULL,					0,	wi_uploadsplash,	wo_uploadsplash,	1 },
+#endif
+	{ NULL,				NULL,					0,	NULL,		NULL,			1 }
 };
 
 const aspapi_t aspapi[] = {
@@ -966,6 +970,24 @@ static const nvset_t nvset_list[] = {
 	{ "arpbind_enable",    	 	V_01                    },
 	{ "arpbind_only",       	V_01                   	},
 	{ "arpbind_list",		V_LENGTH(0, 4096)       },
+
+//NotCatSplash. Victek.
+	{ "NC_enable",			V_01				},
+	{ "NC_Verbosity",		V_RANGE(0, 10)			},
+        { "NC_GatewayName",		V_LENGTH(0, 255)		},
+        { "NC_ForcedRedirect",		V_01				},
+        { "NC_HomePage",		V_LENGTH(0, 255)		},
+        { "NC_DocumentRoot",		V_LENGTH(0, 255)		},
+        { "NC_SplashURL",		V_LENGTH(0, 255)		},
+        { "NC_LoginTimeout",		V_RANGE(0, 86400000)		},
+        { "NC_IdleTimeout",		V_RANGE(0, 86400000)		},
+	{ "NC_MaxMissedARP",		V_RANGE(0, 10)			},
+	{ "NC_PeerChecktimeout",	V_RANGE(0, 60)			},
+        { "NC_ExcludePorts",		V_LENGTH(0, 255)		},
+        { "NC_IncludePorts",		V_LENGTH(0, 255)		},
+        { "NC_AllowedWebHosts",		V_LENGTH(0, 255)		},
+        { "NC_MACWhiteList",		V_LENGTH(0, 255)		},
+	{ "NC_SplashFile",		V_LENGTH(0, 8192)		},
 
 #ifdef TCONFIG_OPENVPN
 // vpn

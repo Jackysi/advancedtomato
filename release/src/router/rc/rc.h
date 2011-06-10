@@ -445,6 +445,12 @@ extern void stop_qoslimit(void);
 extern void start_arpbind(void);
 extern void stop_arpbind(void);
 
+#ifdef TCONFIG_NOCAT
+// nocat.c 
+extern void start_nocat(); 
+extern void stop_nocat(); 
+extern void reset_nocat(); 
+#endif
 
 #endif
 
