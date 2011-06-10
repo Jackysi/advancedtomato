@@ -75,14 +75,14 @@ function init()
 <body onload='init()'>
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
-	<div class='title'>Tomato</div>
+	<div class='title'>Tomato RAF</div>
 	<div class='version'>Version <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
 <div id='ident'><% ident(); %></div>
 
-<div style='float:right;margin:140px 50px;text-align:center'>
+<div style='float:right;margin:140px 30px;text-align:center'>
 <img src='kinaree.png' alt='Linux &amp; Tomato' id='tux'>
 </div>
 <div style='margin:30px 30px;font-size:14px;color:#555;'>
@@ -117,7 +117,13 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <b>"Victek RAF" features:</b><br>
 - CPU Freq | Previous WAN IP | Additional Themes<br>
 - Static ARP Binding | QOS/Bandwidth Limiter<br>
+<!-- NOCAT-BEGIN -->
+- Captive Portal (Based on NocatSplash) <br>
+<!-- NOCAT-END -->
 Copyright (C) 2007-2011 Vicente Soriano<br>
+<!-- NOCAT-BEGIN -->
+Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
+<!-- NOCAT-END -->
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
 <b>"Toastman" Features:</b><br>

@@ -2390,6 +2390,10 @@ function navi()
 			['B/W Limiter',		'qoslimit.asp'] ] ],
 		['Access Restriction',		'restrict.asp'],
 
+/* NOCAT-BEGIN */
+		['Captive Portal',		'splashd.asp'],
+/* NOCAT-END */
+
 /* REMOVE-BEGIN
 		['Scripts',				'sc', 0, [
 			['Startup',			'startup.asp'],

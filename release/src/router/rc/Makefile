@@ -34,6 +34,9 @@ endif
 ifeq ($(TCONFIG_OPENVPN),y)
 OBJS += vpn.o
 endif
+ifeq ($(TCONFIG_NOCAT),y)
+OBJS += nocat.o
+endif
 
 ifeq ($(TOMATO_SL),1)
 #OBJS += usb.o

@@ -165,6 +165,8 @@ sub fixDyn
 	fixDynDep("wl", "libbcmcrypto.so");
 	fixDynDep("nas", "libc.so.0");
 	fixDynDep("wl", "libc.so.0");
+#Roadkill for NocatSplash
+	fixDynDep("splashd","libglib-1.2.so.0.0.10");
 }
 
 sub usersOf
