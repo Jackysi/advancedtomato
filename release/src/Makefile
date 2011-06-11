@@ -619,6 +619,16 @@ else
 	@$(MAKE) bin OPENVPN=y NTFS=y B=NC BUILD_DESC="$(VPN)" USB="USB" NOCAT=y BUILD_DESC+=" $(NC)"
 endif
 
+## Toastman
+## Make the "Mini: no USB, + NOCAT" build - for 4MB routers
+ncm:
+	@$(MAKE) bin JFFSv1=y NOCAT=y B=F BUILD_DESC="Mini-NOCAT" USB=""
+
+## Toastman
+## Make the "normal" build + NOCAT
+ncs:
+	@$(MAKE) bin NOCAT=y B=A BUILD_DESC="Std-NOCAT" USB="USB"
+
 ## Make the "No USB" build
 s:
 ifeq ($(CONFIG_LINUX26),y)
@@ -631,19 +641,34 @@ endif
 f:
 	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y SLIM=y B=F BUILD_DESC="Mini" USB=""
 
+## Make the "Tiny: no JFFS, no USB, no CIFS, no Zebra" build - targeted for cheapskate routers
+fs:
+	@$(MAKE) bin NO_CIFS=y NO_JFFS=y NO_ZEBRA=y SLIM=y B=FS BUILD_DESC="Tiny" USB=""
+
 ifeq ($(CONFIG_LINUX26),y)
+
 ## Make the "No USB with IPv6, no Zebra" build - for 4MB routers
 i:
 	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB=""
 endif
 
-## Make the "VPN witn no USB support" build
+## Make the "VPN with no USB support" build
 v:
 ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin OPENVPN=y NO_JFFS=y B=V BUILD_DESC="$(VPN)" USB=""
 else
 	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB=""
 endif
+
+## Make the "Small VPN with no USB support" build
+vs:
+ifeq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin OPENVPN=y NO_JFFS=y NO_CIFS=y B=V BUILD_DESC="SmallVPN" USB=""
+else
+	@$(MAKE) bin OPENVPN=y NO_JFFS=y NO_CIFS=y BCM57=y B=VS BUILD_DESC="SmallVPN" USB=""
+endif
+
+
 
 ## Make Mips32r2 builds
 r2m:
@@ -743,6 +768,8 @@ help:
 	@echo "d            D build (standard minus Samba server)"
 	@echo "m            M build (standard plus extra utilities and NTFS support)"
 	@echo "nc           NC build (standard plus VPN, extra utilities, NTFS support and NOCAT)"
+	@echo "ncm	    NCS build (no USB support, NOCAT)"
+	@echo "ncs	    NCS build (std + NOCAT)"
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "e            E build (standard plus VPN, extra utilities and NTFS support)"
 	@echo "i            I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
@@ -751,7 +778,9 @@ else
 endif
 	@echo "s            S build (no USB support)"
 	@echo "f            F build (no USB support minus CIFS and RIPv1/2)"
+	@echo "fs           FS build (no USB support minus JFFS, CIFS and RIPv1/2)"
 	@echo "v            V build (VPN with no USB support)"
+	@echo "vs           VS build (small VPN with no USB support)"
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2m          MIPS Release 2 M build (standard plus extras)"
 	@echo "r2nc         MIPS Release 2 NC build (standard plus VPN, extras and NOCAT)"
