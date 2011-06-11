@@ -162,9 +162,11 @@ extern void wo_bwmrestore(char *url);
 extern void asp_netdev(int argc, char **argv);
 extern void asp_bandwidth(int argc, char **argv);
 
+#ifdef TCONFIG_NOCAT
 // nocat.c
 extern void wi_uploadsplash(char *url, int len, char *boundary);
 extern void wo_uploadsplash(char *url);
+#endif
 
 #if TOMATO_SL
 // share.c

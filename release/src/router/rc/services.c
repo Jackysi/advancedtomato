@@ -1775,10 +1775,10 @@ void check_services(void)
 	_check(pid_radvd, "radvd", start_radvd);
 #endif
 
-#ifdef TCONFIG_NOCAT
-	if (nvram_get_int("NC_enable"))
-		_check(&pid_splashd, "splashd", start_splashd);
-#endif
+//	#ifdef TCONFIG_NOCAT
+//	if (nvram_get_int("NC_enable"))
+//		_check(&pid_splashd, "splashd", start_splashd);
+//	#endif
 
 }
 
