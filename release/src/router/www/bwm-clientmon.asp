@@ -84,7 +84,7 @@ cmong.setup = function()
 {
 	this.init('cmong-grid', '', 8, [
 		{ type: 'text', maxlen: 15 },
-		{ type: 'text', maxlen: 15 }
+		{ type: 'text', maxlen: 12 }
 	]);
 	this.headerSet(['Address IP', 'Username / Alias']);
 	var s = nvram.cmon_users.split('>');
