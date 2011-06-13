@@ -137,10 +137,8 @@ is_tivo_file(const char * path)
 void
 check_for_captions(const char * path, sqlite_int64 detailID)
 {
-	char * sql;
-	char * file = malloc(PATH_MAX);
-	char **result;
-	int ret, rows;
+	char *file = malloc(PATH_MAX);
+	char *id = NULL;
 
 	sprintf(file, "%s", path);
 	strip_ext(file);
@@ -148,25 +146,18 @@ check_for_captions(const char * path, sqlite_int64 detailID)
 	/* If we weren't given a detail ID, look for one. */
 	if( !detailID )
 	{
-		sql = sqlite3_mprintf("SELECT ID from DETAILS where PATH glob '%q.*'"
-		                      " and MIME glob 'video/*' limit 1", file);
-		ret = sql_get_table(db, sql, &result, &rows, NULL);
-		if( ret == SQLITE_OK )
+		id = sql_get_text_field(db, "SELECT ID from DETAILS where PATH glob '%q.*'"
+		                            " and MIME glob 'video/*' limit 1", file);
+		if( id )
 		{
-			if( rows )
-			{
-				detailID = strtoll(result[1], NULL, 10);
-				//DEBUG DPRINTF(E_DEBUG, L_METADATA, "New file %s looks like a caption file.\n", path);
-			}
-			/*else
-			{
-				DPRINTF(E_DEBUG, L_METADATA, "No file found for caption %s.\n", path);
-			}*/
-			sqlite3_free_table(result);
+			//DEBUG DPRINTF(E_DEBUG, L_METADATA, "New file %s looks like a caption file.\n", path);
+			detailID = strtoll(id, NULL, 10);
 		}
-		sqlite3_free(sql);
-		if( !detailID )
+		else
+		{
+			//DPRINTF(E_DEBUG, L_METADATA, "No file found for caption %s.\n", path);
 			goto no_source_video;
+		}
 	}
 
 	strcat(file, ".srt");
@@ -178,6 +169,8 @@ check_for_captions(const char * path, sqlite_int64 detailID)
 		             " (%lld, %Q)", detailID, file);
 	}
 no_source_video:
+	if( id )
+		sqlite3_free(id);
 	free(file);
 }
 
@@ -336,10 +329,10 @@ GetAudioMetadata(const char * path, char * name)
 		strcpy(type, "wav");
 		m.mime = strdup("audio/x-wav");
 	}
-	else if( ends_with(path, ".ogg") )
+	else if( ends_with(path, ".ogg") || ends_with(path, ".oga") )
 	{
 		strcpy(type, "ogg");
-		m.mime = strdup("application/ogg");
+		m.mime = strdup("audio/ogg");
 	}
 	else if( ends_with(path, ".pcm") )
 	{
@@ -381,7 +374,7 @@ GetAudioMetadata(const char * path, char * name)
 	if( song.title && *song.title )
 	{
 		m.title = trim(song.title);
-		if( (esc_tag = escape_tag(m.title)) )
+		if( (esc_tag = escape_tag(m.title, 0)) )
 		{
 			free_flags |= FLAG_TITLE;
 			m.title = esc_tag;
@@ -401,7 +394,7 @@ GetAudioMetadata(const char * path, char * name)
 				m.creator = strdup("Various Artists");
 				free_flags |= FLAG_CREATOR;
 			}
-			else if( (esc_tag = escape_tag(m.creator)) )
+			else if( (esc_tag = escape_tag(m.creator, 0)) )
 			{
 				m.creator = esc_tag;
 				free_flags |= FLAG_CREATOR;
@@ -422,7 +415,7 @@ GetAudioMetadata(const char * path, char * name)
 				m.artist = strdup("Various Artists");
 				free_flags |= FLAG_ARTIST;
 			}
-			else if( (esc_tag = escape_tag(m.artist)) )
+			else if( (esc_tag = escape_tag(m.artist, 0)) )
 			{
 				m.artist = esc_tag;
 				free_flags |= FLAG_ARTIST;
@@ -432,7 +425,7 @@ GetAudioMetadata(const char * path, char * name)
 	if( song.album && *song.album )
 	{
 		m.album = trim(song.album);
-		if( (esc_tag = escape_tag(m.album)) )
+		if( (esc_tag = escape_tag(m.album, 0)) )
 		{
 			free_flags |= FLAG_ALBUM;
 			m.album = esc_tag;
@@ -441,7 +434,7 @@ GetAudioMetadata(const char * path, char * name)
 	if( song.genre && *song.genre )
 	{
 		m.genre = trim(song.genre);
-		if( (esc_tag = escape_tag(m.genre)) )
+		if( (esc_tag = escape_tag(m.genre, 0)) )
 		{
 			free_flags |= FLAG_GENRE;
 			m.genre = esc_tag;
@@ -450,7 +443,7 @@ GetAudioMetadata(const char * path, char * name)
 	if( song.comment && *song.comment )
 	{
 		m.comment = trim(song.comment);
-		if( (esc_tag = escape_tag(m.comment)) )
+		if( (esc_tag = escape_tag(m.comment, 0)) )
 		{
 			free_flags |= FLAG_COMMENT;
 			m.comment = esc_tag;
@@ -506,7 +499,7 @@ GetImageMetadata(const char * path, char * name)
 	char b[1024];
 	struct stat file;
 	sqlite_int64 ret;
-	image * imsrc;
+	image_s * imsrc;
 	metadata_t m;
 	uint32_t free_flags = 0xFFFFFFFF;
 	memset(&m, '\0', sizeof(metadata_t));
@@ -646,11 +639,7 @@ GetVideoMetadata(const char * path, char * name)
 	int audio_stream = -1, video_stream = -1;
 	enum audio_profiles audio_profile = PROFILE_AUDIO_UNKNOWN;
 	tsinfo_t *ts;
-	ts_timestamp_t ts_timestamp = NONE;
 	char fourcc[4];
-	int off;
-	int duration, hours, min, sec, ms;
-	aac_object_type_t aac_type = AAC_INVALID;
 	sqlite_int64 album_art = 0;
 	char nfo[PATH_MAX], *ext;
 	struct song_metadata video;
@@ -719,6 +708,7 @@ GetVideoMetadata(const char * path, char * name)
 
 	if( ac )
 	{
+		aac_object_type_t aac_type = AAC_INVALID;
 		switch( ac->codec_id )
 		{
 			case CODEC_ID_MP3:
@@ -807,6 +797,9 @@ GetVideoMetadata(const char * path, char * name)
 	}
 	if( vc )
 	{
+		int off;
+		int duration, hours, min, sec, ms;
+		ts_timestamp_t ts_timestamp = NONE;
 		DPRINTF(E_DEBUG, L_METADATA, "Container: '%s' [%s]\n", ctx->iformat->name, basename(path));
 		asprintf(&m.resolution, "%dx%d", vc->width, vc->height);
 		if( ctx->bit_rate > 8 )
@@ -820,7 +813,8 @@ GetVideoMetadata(const char * path, char * name)
 			asprintf(&m.duration, "%d:%02d:%02d.%03d", hours, min, sec, ms);
 		}
 
-		/* NOTE: The DLNA spec only provides for ASF (WMV), TS, PS, and MP4 containers. Skip DLNA parsing for everything else. */
+		/* NOTE: The DLNA spec only provides for ASF (WMV), TS, PS, and MP4 containers.
+		 * Skip DLNA parsing for everything else. */
 		if( strcmp(ctx->iformat->name, "avi") == 0 )
 		{
 			asprintf(&m.mime, "video/x-msvideo");
@@ -864,7 +858,8 @@ GetVideoMetadata(const char * path, char * name)
 				off = sprintf(m.dlna_pn, "MPEG_");
 				if( strcmp(ctx->iformat->name, "mpegts") == 0 )
 				{
-					DPRINTF(E_DEBUG, L_METADATA, "Stream %d of %s is %s MPEG2 TS\n", video_stream, basename(path), m.resolution);
+					DPRINTF(E_DEBUG, L_METADATA, "Stream %d of %s is %s MPEG2 TS\n",
+						video_stream, basename(path), m.resolution);
 					off += sprintf(m.dlna_pn+off, "TS_");
 					if( (vc->width  >= 1280) &&
 					    (vc->height >= 720) )
@@ -881,16 +876,17 @@ GetVideoMetadata(const char * path, char * name)
 							off += sprintf(m.dlna_pn+off, "NA");
 					}
 					ts = ctx->priv_data;
-					if( ts->packet_size == 192 )
+					if( ts->packet_size == MPEG_TS_PACKET_LENGTH_DLNA )
 					{
 						if( dlna_timestamp_is_present(path) )
 							ts_timestamp = VALID;
 						else
 							ts_timestamp = EMPTY;
 					}
-					else if( ts->packet_size != 188 )
+					else if( ts->packet_size != MPEG_TS_PACKET_LENGTH )
 					{
-						DPRINTF(E_DEBUG, L_METADATA, "Invalid TS packet size [%s]\n", basename(path));
+						DPRINTF(E_DEBUG, L_METADATA, "Unsupported DLNA TS packet size [%d] (%s)\n",
+							ts->packet_size, basename(path));
 						free(m.dlna_pn);
 						m.dlna_pn = NULL;
 					}
@@ -898,7 +894,8 @@ GetVideoMetadata(const char * path, char * name)
 					{
 						case NONE:
 							asprintf(&m.mime, "video/mpeg");
-							off += sprintf(m.dlna_pn+off, "_ISO");
+							if( m.dlna_pn )
+								off += sprintf(m.dlna_pn+off, "_ISO");
 							break;
 						case VALID:
 							off += sprintf(m.dlna_pn+off, "_T");
@@ -910,7 +907,8 @@ GetVideoMetadata(const char * path, char * name)
 				}
 				else if( strcmp(ctx->iformat->name, "mpeg") == 0 )
 				{
-					DPRINTF(E_DEBUG, L_METADATA, "Stream %d of %s is %s MPEG2 PS\n", video_stream, basename(path), m.resolution);
+					DPRINTF(E_DEBUG, L_METADATA, "Stream %d of %s is %s MPEG2 PS\n",
+						video_stream, basename(path), m.resolution);
 					off += sprintf(m.dlna_pn+off, "PS_");
 					if( (vc->height == 576) ||
 					    (vc->height == 288) )
@@ -921,7 +919,8 @@ GetVideoMetadata(const char * path, char * name)
 				}
 				else
 				{
-					DPRINTF(E_DEBUG, L_METADATA, "Stream %d of %s [UNKNOWN CONTAINER] is %s MPEG2\n", video_stream, basename(path), m.resolution);
+					DPRINTF(E_DEBUG, L_METADATA, "Stream %d of %s [%s] is %s non-DLNA MPEG2\n",
+						video_stream, basename(path), ctx->iformat->name, m.resolution);
 					free(m.dlna_pn);
 					m.dlna_pn = NULL;
 				}
@@ -980,11 +979,7 @@ GetVideoMetadata(const char * path, char * name)
 							else
 							{
 								DPRINTF(E_DEBUG, L_METADATA, "Unsupported h.264 video profile! [%s, %dx%d, %dbps : %s]\n",
-									m.dlna_pn,
-									vc->width,
-									vc->height,
-									vc->bit_rate,
-									basename(path));
+									m.dlna_pn, vc->width, vc->height, vc->bit_rate, basename(path));
 								free(m.dlna_pn);
 								m.dlna_pn = NULL;
 							}
@@ -1001,8 +996,7 @@ GetVideoMetadata(const char * path, char * name)
 							else
 							{
 								DPRINTF(E_DEBUG, L_METADATA, "Unsupported h.264 HP video profile! [%dbps, %d audio : %s]\n",
-									vc->bit_rate,
-									audio_profile, basename(path));
+									vc->bit_rate, audio_profile, basename(path));
 								free(m.dlna_pn);
 								m.dlna_pn = NULL;
 							}
@@ -1032,17 +1026,26 @@ GetVideoMetadata(const char * path, char * name)
 					if( !m.dlna_pn )
 						break;
 					ts = ctx->priv_data;
-					if( ts->packet_size == 192 )
+					if( ts->packet_size == MPEG_TS_PACKET_LENGTH_DLNA )
 					{
-						if( dlna_timestamp_is_present(path) )
+						if( vc->profile == FF_PROFILE_H264_HIGH ||
+						    dlna_timestamp_is_present(path) )
 							ts_timestamp = VALID;
 						else
 							ts_timestamp = EMPTY;
 					}
+					else if( ts->packet_size != MPEG_TS_PACKET_LENGTH )
+					{
+						DPRINTF(E_DEBUG, L_METADATA, "Unsupported DLNA TS packet size [%d] (%s)\n",
+							ts->packet_size, basename(path));
+						free(m.dlna_pn);
+						m.dlna_pn = NULL;
+					}
 					switch( ts_timestamp )
 					{
 						case NONE:
-							off += sprintf(m.dlna_pn+off, "_ISO");
+							if( m.dlna_pn )
+								off += sprintf(m.dlna_pn+off, "_ISO");
 							break;
 						case VALID:
 							off += sprintf(m.dlna_pn+off, "_T");
@@ -1075,9 +1078,9 @@ GetVideoMetadata(const char * path, char * name)
 							else if( audio_profile == PROFILE_AUDIO_AAC )
 							{
 								off += sprintf(m.dlna_pn+off, "AAC_");
-								if( ctx->bit_rate < 540000 )
+								if( ctx->bit_rate < 520000 )
 								{
-									off += sprintf(m.dlna_pn+off, "540");
+									off += sprintf(m.dlna_pn+off, "520");
 								}
 								else if( ctx->bit_rate < 940000 )
 								{
@@ -1291,7 +1294,8 @@ GetVideoMetadata(const char * path, char * name)
 							off += sprintf(m.dlna_pn+off, "BASE");
 							break;
 						default:
-							DPRINTF(E_DEBUG, L_METADATA, "No DLNA profile found for WMVSPLL/0x%X file %s\n", audio_profile, basename(path));
+							DPRINTF(E_DEBUG, L_METADATA, "No DLNA profile found for WMVSPLL/0x%X file %s\n",
+								audio_profile, basename(path));
 							free(m.dlna_pn);
 							m.dlna_pn = NULL;
 							break;
@@ -1312,7 +1316,8 @@ GetVideoMetadata(const char * path, char * name)
 							off += sprintf(m.dlna_pn+off, "BASE");
 							break;
 						default:
-							DPRINTF(E_DEBUG, L_METADATA, "No DLNA profile found for WMVSPML/0x%X file %s\n", audio_profile, basename(path));
+							DPRINTF(E_DEBUG, L_METADATA, "No DLNA profile found for WMVSPML/0x%X file %s\n",
+								audio_profile, basename(path));
 							free(m.dlna_pn);
 							m.dlna_pn = NULL;
 							break;
@@ -1335,7 +1340,8 @@ GetVideoMetadata(const char * path, char * name)
 							off += sprintf(m.dlna_pn+off, "BASE");
 							break;
 						default:
-							DPRINTF(E_DEBUG, L_METADATA, "No DLNA profile found for WMVMED/0x%X file %s\n", audio_profile, basename(path));
+							DPRINTF(E_DEBUG, L_METADATA, "No DLNA profile found for WMVMED/0x%X file %s\n",
+								audio_profile, basename(path));
 							free(m.dlna_pn);
 							m.dlna_pn = NULL;
 							break;
@@ -1355,7 +1361,8 @@ GetVideoMetadata(const char * path, char * name)
 							off += sprintf(m.dlna_pn+off, "FULL");
 							break;
 						default:
-							DPRINTF(E_DEBUG, L_METADATA, "No DLNA profile found for WMVHIGH/0x%X file %s\n", audio_profile, basename(path));
+							DPRINTF(E_DEBUG, L_METADATA, "No DLNA profile found for WMVHIGH/0x%X file %s\n",
+								audio_profile, basename(path));
 							free(m.dlna_pn);
 							m.dlna_pn = NULL;
 							break;
@@ -1367,7 +1374,8 @@ GetVideoMetadata(const char * path, char * name)
 			case CODEC_ID_MSMPEG4V3:
 				asprintf(&m.mime, "video/x-msvideo");
 			default:
-				DPRINTF(E_DEBUG, L_METADATA, "Stream %d of %s is %s [type %d]\n", video_stream, basename(path), m.resolution, vc->codec_id);
+				DPRINTF(E_DEBUG, L_METADATA, "Stream %d of %s is %s [type %d]\n",
+					video_stream, basename(path), m.resolution, vc->codec_id);
 				break;
 		}
 	}
@@ -1398,19 +1406,19 @@ GetVideoMetadata(const char * path, char * name)
 		{
 			if( video.title && *video.title )
 			{
-				m.title = strdup(trim(video.title));
+				m.title = escape_tag(trim(video.title), 1);
 			}
 			if( video.genre && *video.genre )
 			{
-				m.genre = strdup(trim(video.genre));
+				m.genre = escape_tag(trim(video.genre), 1);
 			}
 			if( video.contributor[ROLE_TRACKARTIST] && *video.contributor[ROLE_TRACKARTIST] )
 			{
-				m.artist = strdup(trim(video.contributor[ROLE_TRACKARTIST]));
+				m.artist = escape_tag(trim(video.contributor[ROLE_TRACKARTIST]), 1);
 			}
 			if( video.contributor[ROLE_ALBUMARTIST] && *video.contributor[ROLE_ALBUMARTIST] )
 			{
-				m.creator = strdup(trim(video.contributor[ROLE_ALBUMARTIST]));
+				m.creator = escape_tag(trim(video.contributor[ROLE_ALBUMARTIST]), 1);
 			}
 			else
 			{
@@ -1419,6 +1427,7 @@ GetVideoMetadata(const char * path, char * name)
 			}
 		}
 	}
+	#ifndef NETGEAR
 	#if LIBAVFORMAT_VERSION_INT >= ((52<<16)+(31<<8)+0)
 	else if( strcmp(ctx->iformat->name, "mov,mp4,m4a,3gp,3g2,mj2") == 0 )
 	{
@@ -1431,16 +1440,17 @@ GetVideoMetadata(const char * path, char * name)
 			{
 				//DEBUG DPRINTF(E_DEBUG, L_METADATA, "  %-16s: %s\n", tag->key, tag->value);
 				if( strcmp(tag->key, "title") == 0 )
-					m.title = strdup(trim(tag->value));
+					m.title = escape_tag(trim(tag->value), 1);
 				else if( strcmp(tag->key, "genre") == 0 )
-					m.genre = strdup(trim(tag->value));
+					m.genre = escape_tag(trim(tag->value), 1);
 				else if( strcmp(tag->key, "artist") == 0 )
-					m.artist = strdup(trim(tag->value));
+					m.artist = escape_tag(trim(tag->value), 1);
 				else if( strcmp(tag->key, "comment") == 0 )
-					m.comment = strdup(trim(tag->value));
+					m.comment = escape_tag(trim(tag->value), 1);
 			}
 		}
 	}
+	#endif
 	#endif
 video_no_dlna:
 	av_close_input_file(ctx);
