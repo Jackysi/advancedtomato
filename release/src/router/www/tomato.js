@@ -2348,7 +2348,7 @@ function navi()
 			['Daily',			'daily.asp'],
 			['Weekly',			'weekly.asp'],
 			['Monthly',			'monthly.asp'],
-			['Client Monitor',		'clientmon.asp'] ] ],
+			['Clients Monitor',		'clientmon.asp'] ] ],
 		['Tools', 				'tools', 0, [
 			['Ping',			'ping.asp'],
 			['Trace',			'trace.asp'],

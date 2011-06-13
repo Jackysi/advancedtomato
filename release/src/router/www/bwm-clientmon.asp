@@ -139,7 +139,7 @@ function init()
 
 <div id='cmondis'>
 
-<div class='section-title'>Clientmon Settings</div>
+<div class='section-title'>Clients Monitor Settings</div>
 <div class='section'>
 	<script type='text/javascript'>
 	createFieldTable('', [
@@ -149,7 +149,7 @@ function init()
 <br>
 </div>
 
-<div class='section-title'>Userlist</div>
+<div class='section-title'>List of users</div>
 <div class='section'>
 	<table class='tomato-grid' cellspacing=1 id='cmong-grid'></table>
 	<script type='text/javascript'>cmong.setup();</script>
