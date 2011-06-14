@@ -826,7 +826,7 @@ void start_wan_done(char *wan_ifname)
 
 	start_firewall();
 	start_qos();
-	start_cmon();
+
 
 	do_static_routes(1);
 	// and routes supplied via DHCP
@@ -879,6 +879,7 @@ void start_wan_done(char *wan_ifname)
 
 	new_qoslimit_start(); //!! RAF
 	new_arpbind_start(); //!! RAF
+	start_cmon();
 
 	TRACE_PT("end\n");
 }
