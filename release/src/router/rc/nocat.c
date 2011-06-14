@@ -31,16 +31,14 @@ int build_nocat_conf( void )
 
     /*
      * settings that need to be set based on router configurations 
-     *
      * Autodetected on the device: lan_ifname & NC_Iface variable
      */
-    fprintf( fp, "InternalDevice\t%s\n", nvram_safe_get("lan_ifname"));
-    fprintf( fp, "ExternalDevice\t%s\n", nvram_safe_get("wan_iface")); 
-    fprintf( fp, "RouteOnly\t%s\n", "1" );
-
+        fprintf( fp, "InternalDevice\t%s\n", nvram_safe_get( "lan_ifname" ));
+	fprintf( fp, "ExternalDevice\t%s\n", nvram_safe_get("wan_iface"));
+	fprintf( fp, "RouteOnly\t%s\n", "1" );
     /*
-     * These are user defined, eventually via the web page 
-     */
+    *These are user defined, eventually via the web page 
+    */
     if ((p = nvram_get("NC_Verbosity")) == NULL) p = "2";
     fprintf( fp, "Verbosity\t%s\n", p );
 
@@ -132,7 +130,17 @@ void start_nocat(void)
 
     if( !nvram_match( "NC_enable", "1" ) )
 	return;
-
+/* not needed .. but this is what it's testing depending on kernel.. should be modified in /nocat/src/nocat.conf
+#ifdef LINUX26
+	syslog(LOG_INFO,"Device using K2.6\n");
+	syslog(LOG_INFO,"tested & bypassed modprobe xt_mark\n");
+	syslog(LOG_INFO,"tested & bypassed modprobe xt_mac\n");
+#else
+	syslog(LOG_INFO,"Device using K2.4\n");
+	syslog(LOG_INFO,"Tested & bypassed modprobe ipt_mark\n");
+	syslog(LOG_INFO,"Tested & bypassed modprobe ipt_mac\n");
+#endif
+*/
     build_nocat_conf();
 
 	if ((p = nvram_get("NC_DocumentRoot")) == NULL) p = "/tmp/splashd";
@@ -149,26 +157,25 @@ void start_nocat(void)
         system(cpcmd);
 	sprintf(cpcmd, "cp /www/favicon.ico  %s", iconfile);
         system(cpcmd);
-    }
-
-
-	if( !( fp = fopen( "/tmp/start_splashd.sh", "w" ) ) )
+	}
+	
+    	if( !( fp = fopen( "/tmp/start_splashd.sh", "w" ) ) )
 	{
 	perror( "/tmp/start_splashd.sh" );
 	return;
 	}
-
-//      if ( !pidof("splashd") > 0 && (fp = fopen("/tmp/var/lock/splashd.lock", "r" ) ) )
-//      {
-//      unlink( "/tmp/var/lock/splashd.lock");
-//      }
-
+	
+//	if ( !pidof("splashd") > 0 && (fp = fopen("/tmp/var/lock/splashd.lock", "r" ) ) )
+//	{
+//	unlink( "/tmp/var/lock/splashd.lock");
+//	}
+		
 	fprintf( fp, "#!/bin/sh\n" );
 	fprintf( fp, "LOGGER=logger\n");
 	fprintf( fp, "LOCK_FILE=/tmp/var/lock/splashd.lock\n");
 	fprintf( fp, "if [ -f $LOCK_FILE ]; then\n");
-	fprintf( fp, "  $LOGGER \"Captive Portal halted (0), other process starting.\" \n");
-	fprintf( fp, "  exit\n");
+	fprintf( fp, "	$LOGGER \"Captive Portal halted (0), other process starting.\" \n");
+	fprintf( fp, "	exit\n");
 	fprintf( fp, "fi\n");
 	fprintf( fp, "echo \"TOMATO_RAF\" > $LOCK_FILE\n");
 	fprintf( fp, "sleep 20\n" );
@@ -179,7 +186,6 @@ void start_nocat(void)
 	fprintf( fp, "echo 0 > /proc/sys/net/ipv4/tcp_tw_reuse\n");
 	fprintf( fp, "rm $LOCK_FILE\n");
 	fclose( fp );
-
 	chmod( "/tmp/start_splashd.sh", 0700 );
 	xstart( "/tmp/start_splashd.sh" );
 	return;
@@ -193,6 +199,10 @@ void stop_nocat( void )
 			"splashd : Captive Portal Splash daemon successfully stopped\n" );
 	killall_tk( "splashd");
 	eval( "/usr/libexec/nocat/uninitialize.fw" );
+	system( "rm /tmp/nocat.leases\n");
+	system( "rm /tmp/start_splashd.sh\n");
+	system( "rm /tmp/nocat.log\n");
+	
     }
     return;
 }
