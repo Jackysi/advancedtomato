@@ -157,33 +157,38 @@ void start_nocat(void)
         system(cpcmd);
 	sprintf(cpcmd, "cp /www/favicon.ico  %s", iconfile);
         system(cpcmd);
-    }
+	}
 	
-
-    if( !( fp = fopen( "/tmp/start_splashd.sh", "w" ) ) )
-    {
+    	if( !( fp = fopen( "/tmp/start_splashd.sh", "w" ) ) )
+	{
 	perror( "/tmp/start_splashd.sh" );
 	return;
-    }
-    fprintf( fp, "#!/bin/sh\n" );
-    fprintf( fp, "LOGGER=logger\n");
-    fprintf( fp, "LOCK_FILE=/var/splashd.lock\n");
-    fprintf( fp, "if [ -f $LOCK_FILE ]; then\n");
-    fprintf( fp, "  $LOGGER \"Start splashd exit, other process starting.\" \n");
-    fprintf( fp, "  exit\n");
-    fprintf( fp, "fi\n");
-    fprintf( fp, "echo \"SETTING\" > $LOCK_FILE\n");
-    fprintf( fp, "sleep 20\n" );
-    fprintf( fp, "$LOGGER \"splashd : splash daemon successfully started\" \n");
-    fprintf( fp, "echo 1 > /proc/sys/net/ipv4/tcp_tw_reuse\n");
-    fprintf( fp, "/usr/sbin/splashd >> /tmp/nocat.log 2>&1 &\n" );
-    fprintf( fp, "sleep 2\n" );
-    fprintf( fp, "echo 0 > /proc/sys/net/ipv4/tcp_tw_reuse\n");
-    fprintf( fp, "rm $LOCK_FILE\n");
-    fclose( fp );
-    chmod( "/tmp/start_splashd.sh", 0700 );
-    xstart( "/tmp/start_splashd.sh" );
-    return;
+	}
+	
+//	if ( !pidof("splashd") > 0 && (fp = fopen("/tmp/var/lock/splashd.lock", "r" ) ) )
+//	{
+//	unlink( "/tmp/var/lock/splashd.lock");
+//	}
+		
+	fprintf( fp, "#!/bin/sh\n" );
+	fprintf( fp, "LOGGER=logger\n");
+	fprintf( fp, "LOCK_FILE=/tmp/var/lock/splashd.lock\n");
+	fprintf( fp, "if [ -f $LOCK_FILE ]; then\n");
+	fprintf( fp, "	$LOGGER \"Captive Portal halted (0), other process starting.\" \n");
+	fprintf( fp, "	exit\n");
+	fprintf( fp, "fi\n");
+	fprintf( fp, "echo \"TOMATO_RAF\" > $LOCK_FILE\n");
+	fprintf( fp, "sleep 20\n" );
+	fprintf( fp, "$LOGGER \"splashd : Captive Portal Splash Daemon successfully started\" \n");
+	fprintf( fp, "echo 1 > /proc/sys/net/ipv4/tcp_tw_reuse\n");
+	fprintf( fp, "/usr/sbin/splashd >> /tmp/nocat.log 2>&1 &\n" );
+	fprintf( fp, "sleep 2\n" );
+	fprintf( fp, "echo 0 > /proc/sys/net/ipv4/tcp_tw_reuse\n");
+	fprintf( fp, "rm $LOCK_FILE\n");
+	fclose( fp );
+	chmod( "/tmp/start_splashd.sh", 0700 );
+	xstart( "/tmp/start_splashd.sh" );
+	return;
 }
 
 void stop_nocat( void )
@@ -191,7 +196,7 @@ void stop_nocat( void )
     if( pidof( "splashd" ) > 0 )
     {
 	syslog( LOG_INFO,
-		   "splashd : splash daemon successfully stopped\n" );
+			"splashd : Captive Portal Splash daemon successfully stopped\n" );
 	killall_tk( "splashd");
 	eval( "/usr/libexec/nocat/uninitialize.fw" );
     }
@@ -203,7 +208,7 @@ void reset_nocat( void )
     if( pidof( "splashd" ) > 0 )
     {
         syslog( LOG_INFO,
-                   "splashd : reset splashd firewall rules\n" );
+			"splashd : Reseting splashd firewall rules\n" );
         killall( "splashd", SIGUSR1);
     }
     return;
