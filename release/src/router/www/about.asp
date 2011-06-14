@@ -126,6 +126,11 @@ Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 <!-- NOCAT-END -->
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
+<b>"Teaman" Features:</b><br>
+- easy setup GUI for VLANS<br>
+Copyright (C) 2011 Augusto Bott<br>
+<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
+<br>
 <b>"Toastman" Features:</b><br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules<br>
@@ -141,11 +146,14 @@ Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 - Comprehensive QOS rule examples set by default<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>
 <br>
-<b>Development by Victek/PrinceAMD/Phykris/Shibby/Toastman</b><br>
+<br>
+<br>
+<b>Development by Victek/PrinceAMD/Phykris/Shibby/Toastman/Teaman</b><br>
 <br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
+<br>
 <br>
 Built on <% build_time(); %><br>
 <br><br>
