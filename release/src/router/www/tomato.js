@@ -2372,6 +2372,7 @@ function navi()
 			['MAC Address',		'mac.asp'],
 			['Miscellaneous',	'misc.asp'],
 			['Routing',			'routing.asp'],
+			['VLAN',			'vlan.asp'],
 			['Wireless',		'wireless.asp'] ] ],
 		['Port Forwarding', 	'forward', 0, [
 			['Basic',			'basic.asp'],
