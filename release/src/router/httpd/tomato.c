@@ -879,6 +879,7 @@ static const nvset_t nvset_list[] = {
 	{ "script_usbhotplug", 		V_TEXT(0, 2048)			},
 	{ "script_usbmount", 		V_TEXT(0, 2048)			},
 	{ "script_usbumount", 		V_TEXT(0, 2048)			},
+	{ "idle_enable",		V_01				},
 #endif
 
 // nas-ftp - !!TB
@@ -965,7 +966,7 @@ static const nvset_t nvset_list[] = {
 	{ "qosl_dudp",                    V_RANGE(0, 100)        },
 	/*qosl_ibw unused - qos_ibw shared*/
 	/*qosl_obw unused - qos_obw shared*/
-	
+
 // arpbind
 	{ "arpbind_enable",    	 	V_01                    },
 	{ "arpbind_only",       	V_01                   	},
