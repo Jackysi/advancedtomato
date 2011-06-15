@@ -59,7 +59,13 @@ obj-y += mdu
 obj-$(TCONFIG_NOCAT) += nocat
 # !!TB
 obj-$(TCONFIG_USB) += p910nd
+
+ifeq ($(CONFIG_LINUX26),y)
+obj-$(TCONFIG_USB) += sd-idle
+else
 obj-$(TCONFIG_USB) += scsi-idle
+endif
+
 obj-y += libusb10
 #obj-y += libusb
 obj-y += usbmodeswitch
@@ -1430,6 +1436,22 @@ openvpn-install: openvpn
 	$(STRIP) -s $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	chmod 0500 $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 
+
+sd-idle/stamp-h1:
+	cd sd-idle \
+	CFLAGS="-Os -Wall --host=mipsel-linux --target=mipsel-linux $(EXTRACFLAGS)" \
+	$(MAKE) -C sd-idle
+	chmod 0755 sd-idle/sd-idle
+	touch sd-idle/stamp-h1
+
+sd-idle-clean:
+	-$(MAKE) -C sd-idle clean
+	@rm -f sd-idle/stamp-h1
+
+sd-idle-install: sd-idle/stamp-h1
+	install -d $(INSTALLDIR)/sd-idle/usr/bin
+	install -D sd-idle/sd-idle $(INSTALLDIR)/sd-idle/usr/bin/sd-idle
+	$(STRIP) -s $(INSTALLDIR)/sd-idle/usr/bin/sd-idle
 
 #
 # Generic rules
