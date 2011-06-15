@@ -95,6 +95,18 @@ for iface in $InternalDevice; do
 	    $nat -o $ExternalDevice -s $net -m mark --mark $fwmark -j MASQUERADE
 	done
 
+# (Victek)Allow (i.e. forward & NAT enabled) all traffic to those on the MACWhiteList, and don't capture connections initially.  
+# NOTE: these are completely bypassed from NoCat's AUTH mechanism, and internal peers-database. 
+# Excellent for infrastructure routing or serving over an otherwise captive portal.
+# NOTE: we may want to watch out for mac/arp-spoofing attempts
+        if [ "$MACWhiteList" ]; then
+            for mac in $MACWhiteList; do
+                $redirect -s $net -m mac --mac-source $mac -j RETURN
+	        $fwd -s $net -m mac --mac-source $mac -j ACCEPT
+	        $nat      -s $net -m mac --mac-source $mac -j MASQUERADE
+	    done
+        fi
+
 	# Allow web traffic to the specified hosts, and don't capture
 	# connections intended for them.
 	#

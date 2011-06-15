@@ -199,6 +199,10 @@ void stop_nocat( void )
 			"splashd : Captive Portal Splash daemon successfully stopped\n" );
 	killall_tk( "splashd");
 	eval( "/usr/libexec/nocat/uninitialize.fw" );
+	system( "rm /tmp/nocat.leases\n");
+	system( "rm /tmp/start_splashd.sh\n");
+	system( "rm /tmp/nocat.log\n");
+	
     }
     return;
 }
