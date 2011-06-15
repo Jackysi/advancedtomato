@@ -630,6 +630,7 @@ const defaults_t defaults[] = {
 	{ "script_usbhotplug",		""				},
 	{ "script_usbmount",		""				},
 	{ "script_usbumount",		""				},
+	{ "idle_enable",		"0"				},
 #endif
 
 #ifdef TCONFIG_FTP
@@ -697,6 +698,7 @@ const defaults_t defaults[] = {
 	{ "script_shut",		""				},
 	{ "script_fire",		"#Restrict number of TCP connections per user #iptables -t nat -I PREROUTING -p tcp --syn -m iprange --src-range 192.168.1.50-192.168.1.250 -m connlimit --connlimit-above 100 -j DROP  #Restrict number of non-TCP connections per user #iptables -t nat -I PREROUTING -p ! tcp -m iprange --src-range 192.168.1.50-192.168.1.250 -m connlimit --connlimit-above 50 -j DROP  #Restrict number of simltaneous SMTP connections (from mailer viruses) #iptables -t nat -I PREROUTING -p tcp --dport 25 -m connlimit --connlimit-above 5 -j DROP"				},
 	{ "script_wanup",		""				},
+
 
 #ifdef TCONFIG_OPENVPN
 // vpn
