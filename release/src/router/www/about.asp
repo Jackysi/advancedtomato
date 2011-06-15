@@ -144,6 +144,7 @@ Copyright (C) 2011 Augusto Bott<br>
 - Starts with LAN DHCP off if nvram is reset<br>
 - UPnP Support for vlans (if exists, loads upnpconfig.custom from JFFS)<br>
 - Comprehensive QOS rule examples set by default<br>
+- Extra Themes<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>
 <br>
 <br>
