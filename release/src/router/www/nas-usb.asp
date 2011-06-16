@@ -372,11 +372,14 @@ createFieldTable('', [
 		] },
 		{ title: 'Automount', indent: 2, name: 'f_automount', type: 'checkbox',
 			suffix: ' <small>Automatically mount all partitions to sub-directories in <i>/mnt</i>.</small>', value: nvram.usb_automount == 1 },
-		{ title: 'HDD spin down', indent: 2, name: 'f_idle_enable', type: 'checkbox',
-			suffix: ' <small>Spin down each HDD when idle (not for use with Flashdrive)</small>', value: nvram.idle_enable == 1 },
 	{ title: 'Run after mounting', indent: 2, name: 'script_usbmount', type: 'textarea', value: nvram.script_usbmount },
 	{ title: 'Run before unmounting', indent: 2, name: 'script_usbumount', type: 'textarea', value: nvram.script_usbumount },
 	null,
+/* LINUX26-BEGIN */
+	{ title: 'HDD Spindown', name: 'f_idle_enable', type: 'checkbox',
+		suffix: ' <small>Spin down each HDD when idle (not for use with Flashdrive)</small>', value: nvram.idle_enable == 1 },
+	null,
+/* LINUX26-END */
 	{ title: 'Hotplug script<br><small>(called when any USB device is attached or removed)</small>', name: 'script_usbhotplug', type: 'textarea', value: nvram.script_usbhotplug },
 	null,
 	{ text: '<small>Some of the changes will take effect only after a restart.</small>' }
