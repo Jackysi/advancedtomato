@@ -1,4 +1,4 @@
-/* $Id: ifacewatcher.c,v 1.2 2011/05/20 09:57:44 nanard Exp $ */
+/* $Id: ifacewatcher.c,v 1.3 2011/06/04 16:19:51 nanard Exp $ */
 /* Project MiniUPnP
  * web : http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2011 Thomas BERNARD
@@ -68,7 +68,7 @@ ProcessInterfaceWatchNotify(int s)
 		ext_if_name_index = if_nametoindex(ext_if_name);
 	}
 	rtm = (struct rt_msghdr *)buf;
-	syslog(LOG_DEBUG, "%u rt_msg : msglen=%d version=%d type=%d", len,
+	syslog(LOG_DEBUG, "%u rt_msg : msglen=%d version=%d type=%d", (unsigned)len,
 	       rtm->rtm_msglen, rtm->rtm_version, rtm->rtm_type);	
 	switch(rtm->rtm_type) {
 	case RTM_IFINFO:	/* iface going up/down etc. */

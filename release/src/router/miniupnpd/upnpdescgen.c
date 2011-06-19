@@ -1,4 +1,4 @@
-/* $Id: upnpdescgen.c,v 1.60 2011/05/18 22:22:23 nanard Exp $ */
+/* $Id: upnpdescgen.c,v 1.63 2011/05/27 21:36:50 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -247,7 +247,6 @@ static const struct XMLElt rootDesc[] =
 	{"/controlURL", WANIPC_CONTROLURL},
 	{"/eventSubURL", WANIPC_EVENTURL},
 	{"/SCPDURL", WANIPC_PATH},
-/* TODO : add here WANIPv6FirewallControl */
 #ifdef ENABLE_6FC_SERVICE
 /* 58 */
 	{"/serviceType", "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"},
@@ -761,15 +760,21 @@ static char *
 strcat_str(char * str, int * len, int * tmplen, const char * s2)
 {
 	int s2len;
+	int newlen;
+	char * p;
+
 	s2len = (int)strlen(s2);
 	if(*tmplen <= (*len + s2len))
 	{
 		if(s2len < 256)
-			*tmplen += 256;
+			newlen = *tmplen + 256;
 		else
-			*tmplen += s2len + 1;
-		str = (char *)realloc(str, *tmplen);
-		/* TODO : handle a failure of realloc() */
+			newlen = *tmplen + s2len + 1;
+		p = (char *)realloc(str, newlen);
+		if(p == NULL) /* handle a failure of realloc() */
+			return str;
+		str = p;
+		*tmplen = newlen;
 	}
 	/*strcpy(str + *len, s2); */
 	memcpy(str + *len, s2, s2len + 1);
@@ -783,11 +788,18 @@ strcat_str(char * str, int * len, int * tmplen, const char * s2)
 static char *
 strcat_char(char * str, int * len, int * tmplen, char c)
 {
+	char * p;
+
 	if(*tmplen <= (*len + 1))
 	{
 		*tmplen += 256;
-		str = (char *)realloc(str, *tmplen);
-		/* TODO : handle a failure of realloc() */
+		p = (char *)realloc(str, *tmplen);
+		if(p == NULL) /* handle a failure of realloc() */
+		{
+			*tmplen -= 256;
+			return str;
+		}
+		str = p;
 	}
 	str[*len] = c;
 	(*len)++;
@@ -1144,6 +1156,7 @@ genEventVars(int * len, const struct serviceDesc * s, const char * servns)
 			case 0:
 				break;
 			case CONNECTIONSTATUS_MAGICALVALUE:
+				/* or get_wan_connection_status_str(ext_if_name) */
 				str = strcat_str(str, len, &tmplen,
 				   upnpallowedvalues[18 + get_wan_connection_status(ext_if_name)]);
 				break;

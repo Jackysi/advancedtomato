@@ -1,10 +1,11 @@
-/* $Id: getconnstatus.c,v 1.3 2011/05/18 22:27:35 nanard Exp $ */
+/* $Id: getconnstatus.c,v 1.4 2011/05/23 20:22:41 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2011 Thomas Bernard 
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
+#include <stdio.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include "getconnstatus.h"
@@ -36,5 +37,38 @@ get_wan_connection_status(const char * ifname)
 	 * I'm afraid it should be device specific */
 	r = getifaddr(ifname, addr, INET_ADDRSTRLEN);
 	return (r < 0) ? STATUS_DISCONNECTED : STATUS_CONNECTED;
+}
+
+/**
+ * return the same value as get_wan_connection_status()
+ * as a C string */
+const char *
+get_wan_connection_status_str(const char * ifname)
+{
+	int status;
+	const char * str = NULL;
+
+	status = get_wan_connection_status(ifname);
+	switch(status) {
+	case 0:
+		str = "Unconfigured";
+		break;
+	case 1:
+		str = "Connecting";
+		break;
+	case 2:
+		str = "Connected";
+		break;
+	case 3:
+		str = "PendingDisconnect";
+		break;
+	case 4:
+		str = "Disconnecting";
+		break;
+	case 5:
+		str = "Disconnected";
+		break;
+	}
+	return str;
 }
 

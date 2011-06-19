@@ -1,5 +1,5 @@
 #! /bin/sh
-# $Id: genconfig.sh,v 1.47 2011/05/20 09:33:06 nanard Exp $
+# $Id: genconfig.sh,v 1.49 2011/06/04 16:20:31 nanard Exp $
 # miniupnp daemon
 # http://miniupnp.free.fr or http://miniupnp.tuxfamily.org/
 # (c) 2006-2011 Thomas Bernard
@@ -240,6 +240,13 @@ esac
 echo "Configuring compilation for [$OS_NAME] [$OS_VERSION] with [$FW] firewall software."
 echo "Please edit config.h for more compilation options."
 
+# define SUPPORT_REMOTEHOST if the FW related code really supports setting
+# a RemoteHost
+if [ "$FW" = "netfilter" ] ; then
+	echo "#define SUPPORT_REMOTEHOST" >> ${CONFIGFILE}
+fi
+
+echo "" >> ${CONFIGFILE}
 echo "#define OS_NAME		\"$OS_NAME\"" >> ${CONFIGFILE}
 echo "#define OS_VERSION	\"$OS_NAME/$OS_VERSION\"" >> ${CONFIGFILE}
 echo "#define OS_URL		\"${OS_URL}\"" >> ${CONFIGFILE}
@@ -313,7 +320,8 @@ echo "#endif /* ENABLE_IPV6 */" >> ${CONFIGFILE}
 echo "#endif /* IGD_V2 */" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 
-echo "/* Experimental UPnP Events support. */" >> ${CONFIGFILE}
+echo "/* UPnP Events support. Working well enough to be enabled by default." >> ${CONFIGFILE}
+echo " * It can be disabled to save a few bytes. */" >> ${CONFIGFILE}
 echo "#define ENABLE_EVENTS" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 

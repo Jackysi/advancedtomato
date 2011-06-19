@@ -1,4 +1,4 @@
-/* $Id: getifstats.c,v 1.8 2011/05/16 16:46:06 nanard Exp $ */
+/* $Id: getifstats.c,v 1.9 2011/05/25 22:22:57 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -93,6 +93,7 @@ getifstats(const char * ifname, struct ifdata * data)
 		if(fgets(line, sizeof(line), f)) {
 			data->baudrate = 1000000*atoi(line);
 		}
+		fclose(f);
 	} else {
 		syslog(LOG_INFO, "cannot read %s file : %m", fname);
 	}

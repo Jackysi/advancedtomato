@@ -1,4 +1,4 @@
-/* $Id: minissdp.h,v 1.9 2011/05/15 09:00:48 nanard Exp $ */
+/* $Id: minissdp.h,v 1.10 2011/05/23 12:39:41 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2007 Thomas Bernard
@@ -7,7 +7,7 @@
 #ifndef __MINISSDP_H__
 #define __MINISSDP_H__
 
-/*#include "miniupnpdtypes.h"*/
+#include "miniupnpdtypes.h"
 
 int
 OpenAndConfSSDPReceiveSocket(int ipv6);
