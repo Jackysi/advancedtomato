@@ -1,7 +1,22 @@
-$Id: Changelog.txt,v 1.229 2011/05/28 09:05:49 nanard Exp $
+$Id: Changelog.txt,v 1.233 2011/06/17 22:51:50 nanard Exp $
+
+2011/06/18:
+  Remote host support for pf version
+
+2011/06/04:
+  Supporting RemoteHost (mandatory in IGD v2)
+
+2011/06/03:
+  Enabling events by default
+
+2011/06/01:
+  Fixing Timeout missing in SUBSCRIBE renewal responses
+  (thanks to Pranesh Kulkarni)
+  Added comments about changes between IGD v1 and IGD v2
 
 2011/05/28:
   Description and leaseduration kept in ipfw version of the code.
+  Fixing ipfw code after testing under Mac OS X 10.6.7 (darwin 10.7.0)
 
 2011/05/27:
   Finishing and testing LeaseDuration support under OpenBSD.

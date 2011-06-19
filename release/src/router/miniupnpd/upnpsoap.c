@@ -1,4 +1,4 @@
-/* $Id: upnpsoap.c,v 1.81 2011/05/26 21:17:30 nanard Exp $ */
+/* $Id: upnpsoap.c,v 1.85 2011/06/17 23:24:14 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -320,7 +320,10 @@ AddPortMapping(struct upnphttp * h, const char * action)
 		return;
 	}
 
+	/* IGD 2 MUST support both wildcard and specific IP address values
+	 * for RemoteHost (only the wildcard value was REQUIRED in release 1.0) */
 	r_host = GetValueFromNameValueList(&data, "NewRemoteHost");
+#ifndef SUPPORT_REMOTEHOST
 #ifdef UPNP_STRICT
 	if (r_host && (strlen(r_host) > 0) && (0 != strcmp(r_host, "*")))
 	{
@@ -328,6 +331,7 @@ AddPortMapping(struct upnphttp * h, const char * action)
 		SoapError(h, 726, "RemoteHostOnlySupportsWildcard");
 		return;
 	}
+#endif
 #endif
 
 	/* if ip not valid assume hostname and convert */
@@ -383,20 +387,23 @@ AddPortMapping(struct upnphttp * h, const char * action)
 	iport = (unsigned short)atoi(int_port);
 
 	leaseduration = leaseduration_str ? atoi(leaseduration_str) : 0;
-
-#if 0
-	if(leaseduration) {
-		/* at the moment, lease duration is always infinite */
-		/* TODO : in order to be compliant with IGD v2, lease duration
-		 * support needs to be implemented */
-		syslog(LOG_INFO, "NewLeaseDuration=%u not supported, ignored. (ip=%s, desc='%s')", leaseduration, int_ip, desc);
-	}
+#ifdef IGD_V2
+	/* PortMappingLeaseDuration can be either a value between 1 and
+	 * 604800 seconds or the zero value (for infinite lease time).
+	 * Note that an infinite lease time can be only set by out-of-band
+	 * mechanisms like WWW-administration, remote management or local
+	 * management.
+	 * If a control point uses the value 0 to indicate an infinite lease
+	 * time mapping, it is REQUIRED that gateway uses the maximum value
+	 * instead (e.g. 604800 seconds) */
+	if(leaseduration == 0 || leaseduration > 604800)
+		leaseduration = 604800;
 #endif
 
-	syslog(LOG_INFO, "%s: ext port %hu to %s:%hu protocol %s for: %s leaseduration=%u",
-			action, eport, int_ip, iport, protocol, desc, leaseduration);
+	syslog(LOG_INFO, "%s: ext port %hu to %s:%hu protocol %s for: %s leaseduration=%u rhost=%s",
+	       action, eport, int_ip, iport, protocol, desc, leaseduration, r_host);
 
-	r = upnp_redirect(eport, int_ip, iport, protocol, desc, leaseduration);
+	r = upnp_redirect(r_host, eport, int_ip, iport, protocol, desc, leaseduration);
 
 	ClearNameValueList(&data);
 
@@ -406,19 +413,20 @@ AddPortMapping(struct upnphttp * h, const char * action)
 	 * 715 - Wildcard not permited in SrcAddr
 	 * 716 - Wildcard not permited in ExtPort
 	 * 718 - ConflictInMappingEntry
-	 * 724 - SamePortValuesRequired
+	 * 724 - SamePortValuesRequired (deprecated in IGD v2)
      * 725 - OnlyPermanentLeasesSupported
              The NAT implementation only supports permanent lease times on
-             port mappings
+             port mappings (deprecated in IGD v2)
      * 726 - RemoteHostOnlySupportsWildcard
              RemoteHost must be a wildcard and cannot be a specific IP
-             address or DNS name
+             address or DNS name (deprecated in IGD v2)
      * 727 - ExternalPortOnlySupportsWildcard
              ExternalPort must be a wildcard and cannot be a specific port
-             value
+             value (deprecated in IGD v2)
      * 728 - NoPortMapsAvailable
              There are not enough free prots available to complete the mapping
-             (added in IGD v2) */
+             (added in IGD v2)
+	 * 729 - ConflictWithOtherMechanisms (added in IGD v2) */
 	switch(r)
 	{
 	case 0:	/* success */
@@ -481,6 +489,7 @@ AddAnyPortMapping(struct upnphttp * h, const char * action)
 		SoapError(h, 402, "Invalid Args");
 		return;
 	}
+#ifndef SUPPORT_REMOTEHOST
 #ifdef UPNP_STRICT
 	if (r_host && (strlen(r_host) > 0) && (0 != strcmp(r_host, "*")))
 	{
@@ -488,6 +497,7 @@ AddAnyPortMapping(struct upnphttp * h, const char * action)
 		SoapError(h, 726, "RemoteHostOnlySupportsWildcard");
 		return;
 	}
+#endif
 #endif
 
 	/* if ip not valid assume hostname and convert */
@@ -529,7 +539,7 @@ AddAnyPortMapping(struct upnphttp * h, const char * action)
 	/* TODO : accept a different external port 
 	 * have some smart strategy to choose the port */
 	for(;;) {
-		r = upnp_redirect(eport, int_ip, iport, protocol, desc, leaseduration);
+		r = upnp_redirect(r_host, eport, int_ip, iport, protocol, desc, leaseduration);
 		if(r==-2 && eport < 65535) {
 			eport++;
 		} else {
@@ -593,6 +603,7 @@ GetSpecificPortMappingEntry(struct upnphttp * h, const char * action)
 		SoapError(h, 402, "Invalid Args");
 		return;
 	}
+#ifndef SUPPORT_REMOTEHOST
 #ifdef UPNP_STRICT
 	if (r_host && (strlen(r_host) > 0) && (0 != strcmp(r_host, "*")))
 	{
@@ -601,9 +612,11 @@ GetSpecificPortMappingEntry(struct upnphttp * h, const char * action)
 		return;
 	}
 #endif
+#endif
 
 	eport = (unsigned short)atoi(ext_port);
 
+	/* add r_host ? */
 	r = upnp_get_redirection_infos(eport, protocol, &iport,
 	                               int_ip, sizeof(int_ip),
 	                               desc, sizeof(desc),
@@ -653,6 +666,7 @@ DeletePortMapping(struct upnphttp * h, const char * action)
 		SoapError(h, 402, "Invalid Args");
 		return;
 	}
+#ifndef SUPPORT_REMOTEHOST
 #ifdef UPNP_STRICT
 	if (r_host && (strlen(r_host) > 0) && (0 != strcmp(r_host, "*")))
 	{
@@ -660,6 +674,7 @@ DeletePortMapping(struct upnphttp * h, const char * action)
 		SoapError(h, 726, "RemoteHostOnlySupportsWildcard");
 		return;
 	}
+#endif
 #endif
 
 	eport = (unsigned short)atoi(ext_port);
@@ -741,7 +756,7 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 	static const char resp[] =
 		"<u:%sResponse "
 		"xmlns:u=\"%s\">"
-		"<NewRemoteHost></NewRemoteHost>"
+		"<NewRemoteHost>%s</NewRemoteHost>"
 		"<NewExternalPort>%u</NewExternalPort>"
 		"<NewProtocol>%s</NewProtocol>"
 		"<NewInternalPort>%u</NewInternalPort>"
@@ -756,6 +771,7 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 	const char * m_index;
 	char protocol[4], iaddr[32];
 	char desc[64];
+	char rhost[40];
 	unsigned int leaseduration = 0;
 	struct NameValueParserData data;
 
@@ -773,9 +789,11 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 
 	syslog(LOG_INFO, "%s: index=%d", action, index);
 
+	rhost[0] = '\0';
 	r = upnp_get_redirection_infos_by_index(index, &eport, protocol, &iport,
                                             iaddr, sizeof(iaddr),
 	                                        desc, sizeof(desc),
+	                                        rhost, sizeof(rhost),
 	                                        &leaseduration);
 
 	if(r < 0)
@@ -787,7 +805,7 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 		int bodylen;
 		char body[2048];
 		bodylen = snprintf(body, sizeof(body), resp,
-			action, SERVICE_TYPE_WANIPC,
+			action, SERVICE_TYPE_WANIPC, rhost,
 			(unsigned int)eport, protocol, (unsigned int)iport, iaddr, desc,
 		    leaseduration, action);
 		BuildSendAndCloseSoapResp(h, body, bodylen);
@@ -836,6 +854,7 @@ GetListOfPortMappings(struct upnphttp * h, const char * action)
 	unsigned short iport;
 	char int_ip[32];
 	char desc[64];
+	char rhost[64];
 	unsigned int leaseduration = 0;
 
 	struct NameValueParserData data;
@@ -913,10 +932,12 @@ http://www.upnp.org/schemas/gw/WANIPConnection-v2.xsd">
 		r = upnp_get_redirection_infos(port_list[i], protocol, &iport,
 		                               int_ip, sizeof(int_ip),
 		                               desc, sizeof(desc), &leaseduration);
+		/* TODO : rhost */
+		rhost[0] = '\0';
 		if(r == 0)
 		{
 			bodylen += snprintf(body+bodylen, bodyalloc-bodylen, entry,
-			                    "", port_list[i], protocol,
+			                    rhost, port_list[i], protocol,
 			                    iport, int_ip, desc, leaseduration);
 			number--;
 		}

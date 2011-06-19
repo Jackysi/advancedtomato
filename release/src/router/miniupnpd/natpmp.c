@@ -1,4 +1,4 @@
-/* $Id: natpmp.c,v 1.23 2011/05/27 21:36:22 nanard Exp $ */
+/* $Id: natpmp.c,v 1.24 2011/06/04 08:58:12 nanard Exp $ */
 /* MiniUPnP project
  * (c) 2007-2010 Thomas Bernard
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -189,7 +189,8 @@ void ProcessIncomingNATPMPPacket(int s)
 					while(get_redirect_rule_by_index(index, 0,
 					          &eport2, iaddr2, sizeof(iaddr2),
 							  &iport2, &proto2,
-							  desc, sizeof(desc), &timestamp, 0, 0) >= 0) {
+							  desc, sizeof(desc),
+					          0, 0, &timestamp, 0, 0) >= 0) {
 						syslog(LOG_DEBUG, "%d %d %hu->'%s':%hu '%s'",
 						       index, proto2, eport2, iaddr2, iport2, desc);
 						if(0 == strcmp(iaddr2, senderaddrstr)
@@ -252,10 +253,11 @@ void ProcessIncomingNATPMPPacket(int s)
 					snprintf(desc, sizeof(desc), "NAT-PMP %u", timestamp);
 #else
 					timestamp = time(NULL) + lifetime;
-					snprintf(desc, sizeof(desc), "NAT-PMP");
+					snprintf(desc, sizeof(desc), "NAT-PMP %hu %s",
+					         eport, (proto==IPPROTO_TCP)?"tcp":"udp");
 #endif
 					/* TODO : check return code */
-					if(upnp_redirect_internal(eport, senderaddrstr,
+					if(upnp_redirect_internal(NULL, eport, senderaddrstr,
 					                          iport, proto, desc,
 					                          timestamp) < 0) {
 						syslog(LOG_ERR, "Failed to add NAT-PMP %hu %s->%s:%hu '%s'",

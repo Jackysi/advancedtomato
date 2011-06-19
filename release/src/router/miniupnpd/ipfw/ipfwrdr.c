@@ -1,4 +1,4 @@
-/* $Id: ipfwrdr.c,v 1.7 2011/05/28 09:29:08 nanard Exp $ */
+/* $Id: ipfwrdr.c,v 1.9 2011/06/04 15:47:18 nanard Exp $ */
 /*
  * MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -72,8 +72,7 @@ struct file;
 /* init and shutdown functions */
 
 int init_redirect(void) {
-	ipfw_exec(IP_FW_INIT, NULL, 0);
-	return 0;
+	return ipfw_exec(IP_FW_INIT, NULL, 0);
 }
 
 void shutdown_redirect(void) {
@@ -156,6 +155,7 @@ get_desc_time(unsigned short eport, int proto,
 /* --- */
 int add_redirect_rule2(
 	const char * ifname,
+	const char * rhost,
 	unsigned short eport,
 	const char * iaddr,
 	unsigned short iport,
@@ -196,6 +196,7 @@ int add_redirect_rule2(
 	IP_FW_SETNDSTP(&rule, 1); // number of external ports
 	rule.fw_uar.fw_pts[0] = eport; // external port
 	rule.fw_fwd_ip.sin_port = iport; // internal port
+	/* TODO : use rhost ! */
 
 	r = ipfw_exec(IP_FW_ADD, &rule, sizeof(rule));
 	if(r >= 0)
@@ -245,7 +246,9 @@ int get_redirect_rule(
 			if (iport != NULL)
 				*iport = ptr->fw_fwd_ip.sin_port;
 			if (iaddr != NULL && iaddrlen > 0) {
-				if (inet_ntop(AF_INET, &ptr->fw_out_if.fu_via_ip, iaddr, iaddrlen) == NULL) {
+				/* looks like fw_out_if.fu_via_ip is zero */
+				//if (inet_ntop(AF_INET, &ptr->fw_out_if.fu_via_ip, iaddr, iaddrlen) == NULL) {
+				if (inet_ntop(AF_INET, &ptr->fw_fwd_ip.sin_addr, iaddr, iaddrlen) == NULL) {
 					syslog(LOG_ERR, "inet_ntop(): %m");
 					goto error;
 				}			
@@ -302,13 +305,15 @@ error:
 
 int add_filter_rule2(
 	const char * ifname, 
+	const char * rhost,
 	const char * iaddr,
 	unsigned short eport, 
 	unsigned short iport,
 	int proto, 
 	const char * desc)
 {
-	return -1;
+	//return -1;
+	return 0; /* nothing to do, always success */
 }
 
 int delete_filter_rule(
@@ -316,7 +321,8 @@ int delete_filter_rule(
 	unsigned short eport, 
 	int proto) 
 {
-	return -1;
+	//return -1;
+	return 0; /* nothing to do, always success */
 }
 
 int get_redirect_rule_by_index(
@@ -329,6 +335,8 @@ int get_redirect_rule_by_index(
 	int * proto, 
 	char * desc, 
 	int desclen,
+	char * rhost,
+	int rhostlen,
 	unsigned int * timestamp,
 	u_int64_t * packets, 
 	u_int64_t * bytes)
@@ -344,8 +352,10 @@ int get_redirect_rule_by_index(
 
 	ipfw_fetch_ruleset(&rules, &total_rules, index + 1);
 
-	if (total_rules == index + 1) {
+	if (total_rules > index) {
 		const struct ip_fw const * ptr = &rules[index];
+		if (ptr->fw_prot == 0)	// invalid rule
+			goto error;
 		if (proto != NULL)
 			*proto = ptr->fw_prot;
 		if (eport != NULL)
@@ -361,11 +371,14 @@ int get_redirect_rule_by_index(
 		if (iport != NULL)
 			*iport = ptr->fw_fwd_ip.sin_port;
 		if (iaddr != NULL && iaddrlen > 0) {
-			if (inet_ntop(AF_INET, &ptr->fw_out_if.fu_via_ip, iaddr, iaddrlen) == NULL) {
+			/* looks like fw_out_if.fu_via_ip is zero */
+			//if (inet_ntop(AF_INET, &ptr->fw_out_if.fu_via_ip, iaddr, iaddrlen) == NULL) {
+			if (inet_ntop(AF_INET, &ptr->fw_fwd_ip.sin_addr, iaddr, iaddrlen) == NULL) {
 				syslog(LOG_ERR, "inet_ntop(): %m");
 				goto error;
 			}			
 		}
+		/* TODO : get rhost */
 		ipfw_free_ruleset(&rules);
 		get_desc_time(*eport, *proto, desc, desclen, timestamp);
 		return 0;

@@ -1,4 +1,4 @@
-/* $Id: upnpredirect.h,v 1.21 2011/05/26 22:28:35 nanard Exp $ */
+/* $Id: upnpredirect.h,v 1.23 2011/06/17 22:46:52 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -7,6 +7,9 @@
 
 #ifndef __UPNPREDIRECT_H__
 #define __UPNPREDIRECT_H__
+
+/* for u_int64_t */
+#include <sys/types.h>
 
 #include "config.h"
 
@@ -23,7 +26,7 @@ int reload_from_lease_file(void);
  *          -3 permission check failed
  */
 int
-upnp_redirect(unsigned short eport, 
+upnp_redirect(const char * rhost, unsigned short eport, 
               const char * iaddr, unsigned short iport,
               const char * protocol, const char * desc,
               unsigned int leaseduration);
@@ -31,7 +34,7 @@ upnp_redirect(unsigned short eport,
 /* upnp_redirect_internal()
  * same as upnp_redirect() without any check */
 int
-upnp_redirect_internal(unsigned short eport,
+upnp_redirect_internal(const char * rhost, unsigned short eport,
                        const char * iaddr, unsigned short iport,
                        int proto, const char * desc,
                        unsigned int timestamp);
@@ -54,6 +57,7 @@ upnp_get_redirection_infos_by_index(int index,
                                     unsigned short * iport, 
                                     char * iaddr, int iaddrlen,
                                     char * desc, int desclen,
+                                    char * rhost, int rhostlen,
                                     unsigned int * leaseduration);
 
 /* upnp_delete_redirection()
