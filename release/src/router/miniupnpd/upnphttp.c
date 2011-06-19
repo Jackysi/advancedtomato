@@ -1,4 +1,4 @@
-/* $Id: upnphttp.c,v 1.59 2011/05/20 17:51:23 nanard Exp $ */
+/* $Id: upnphttp.c,v 1.60 2011/06/01 22:35:05 nanard Exp $ */
 /* Project :  miniupnp
  * Website :  http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * Author :   Thomas Bernard
@@ -344,6 +344,7 @@ with HTTP error 412 Precondition Failed. */
 			if(renewSubscription(h->req_SID, h->req_SIDLen, h->req_Timeout) < 0) {
 				BuildResp2_upnphttp(h, 412, "Precondition Failed", 0, 0);
 			} else {
+				h->respflags = FLAG_TIMEOUT;
 				BuildResp_upnphttp(h, 0, 0);
 			}
 		}

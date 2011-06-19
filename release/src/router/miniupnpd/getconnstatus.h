@@ -1,4 +1,4 @@
-/* $Id: getconnstatus.h,v 1.1 2011/05/18 22:08:24 nanard Exp $ */
+/* $Id: getconnstatus.h,v 1.2 2011/05/23 20:22:41 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2011 Thomas Bernard 
@@ -19,6 +19,12 @@
  *  5 - Disconnected */
 int
 get_wan_connection_status(const char * ifname);
+
+/**
+ * return the same value as get_wan_connection_status()
+ * as a C string */
+const char *
+get_wan_connection_status_str(const char * ifname);
 
 #endif
 

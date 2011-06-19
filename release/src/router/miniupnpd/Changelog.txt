@@ -1,4 +1,39 @@
-$Id: Changelog.txt,v 1.222 2011/05/20 17:52:07 nanard Exp $
+$Id: Changelog.txt,v 1.233 2011/06/17 22:51:50 nanard Exp $
+
+2011/06/18:
+  Remote host support for pf version
+
+2011/06/04:
+  Supporting RemoteHost (mandatory in IGD v2)
+
+2011/06/03:
+  Enabling events by default
+
+2011/06/01:
+  Fixing Timeout missing in SUBSCRIBE renewal responses
+  (thanks to Pranesh Kulkarni)
+  Added comments about changes between IGD v1 and IGD v2
+
+2011/05/28:
+  Description and leaseduration kept in ipfw version of the code.
+  Fixing ipfw code after testing under Mac OS X 10.6.7 (darwin 10.7.0)
+
+2011/05/27:
+  Finishing and testing LeaseDuration support under OpenBSD.
+  Changing NAT-PMP port mapping lifetime support to match
+  lease duration support.
+  NAT-PMP address change announce broadcasted to both port
+  5350 and 5351 to be compatible with client following the
+  version of NAT PMP specification from 2008 or earlier.
+  writepidfile() Overwrite file if already existing
+
+2011/05/26:
+  fix in linux/getifstats.c.
+  See http://miniupnp.tuxfamily.org/forum/viewtopic.php?p=2212
+  Implementation of LeaseDuration support.
+
+2011/05/23:
+  added get_wan_connection_status_str()
 
 2011/05/20:
   adding ifacewatcher thanks to Alexey Osipov

@@ -1,4 +1,4 @@
-/* $Id: upnpglobalvars.c,v 1.23 2011/05/15 09:00:49 nanard Exp $ */
+/* $Id: upnpglobalvars.c,v 1.25 2011/05/27 21:36:22 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2010 Thomas Bernard 
@@ -32,18 +32,6 @@ unsigned long upstream_bitrate = 0;
 /* startup time */
 time_t startup_time = 0;
 
-#if 0
-/* use system uptime */
-int sysuptime = 0;
-
-/* log packets flag */
-int logpackets = 0;
-
-#ifdef ENABLE_NATPMP
-int enablenatpmp = 0;
-#endif
-#endif
-
 int runtime_flags = 0;
 
 const char * pidfilename = "/var/run/miniupnpd.pid";
@@ -63,10 +51,15 @@ unsigned int num_upnpperm = 0;
 
 #ifdef ENABLE_NATPMP
 /* NAT-PMP */
+#if 0
 unsigned int nextnatpmptoclean_timestamp = 0;
 unsigned short nextnatpmptoclean_eport = 0;
 unsigned short nextnatpmptoclean_proto = 0;
 #endif
+#endif
+
+/* For automatic removal of expired rules (with LeaseDuration) */
+unsigned int nextruletoclean_timestamp = 0;
 
 #ifdef USE_PF
 const char * queue = 0;

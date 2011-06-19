@@ -1,4 +1,4 @@
-/* $Id: miniupnpd.c,v 1.135 2011/05/20 09:43:23 nanard Exp $ */
+/* $Id: miniupnpd.c,v 1.138 2011/05/27 21:58:12 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard
@@ -107,9 +107,12 @@ static void tomato_save(const char *fname)
 {
 	unsigned short eport;
 	unsigned short iport;
+	unsigned int leaseduration;
+	unsigned int timestamp;
 	char proto[4];
 	char iaddr[32];
 	char desc[64];
+	char rhost[32];
 	int n;
 	FILE *f;
 	int t;
@@ -119,8 +122,9 @@ static void tomato_save(const char *fname)
 	if ((t = mkstemp(tmp)) != -1) {
 		if ((f = fdopen(t, "w")) != NULL) {
 			n = 0;
-			while (upnp_get_redirection_infos_by_index(n, &eport, proto, &iport, iaddr, sizeof(iaddr), desc, sizeof(desc)) == 0) {
-				fprintf(f, "%s %u %s %u [%s]\n", proto, eport, iaddr, iport, desc);
+			while (upnp_get_redirection_infos_by_index(n, &eport, proto, &iport, iaddr, sizeof(iaddr), desc, sizeof(desc), rhost, sizeof(rhost), &leaseduration) == 0) {
+				timestamp = (leaseduration > 0) ? time(NULL) + leaseduration : 0;
+				fprintf(f, "%s %u %s %u [%s] %u\n", proto, eport, iaddr, iport, desc, timestamp);
 				++n;
 			}
 			fclose(f);
@@ -139,24 +143,40 @@ static void tomato_load(void)
 	char s[256];
 	unsigned short eport;
 	unsigned short iport;
+	unsigned int leaseduration;
+	unsigned int timestamp;
+	time_t current_time;
 	char proto[4];
 	char iaddr[32];
+	char *rhost;
 	char *a, *b;
 
 	if ((f = fopen("/etc/upnp/data", "r")) != NULL) {
+		current_time = time(NULL);
 		s[sizeof(s) - 1] = 0;
 		while (fgets(s, sizeof(s) - 1, f)) {
-			if (sscanf(s, "%3s %hu %31s %hu ", proto, &eport, iaddr, &iport) == 4) {
+			if (sscanf(s, "%3s %hu %31s %hu [%*s] %u", proto, &eport, iaddr, &iport, &timestamp) >= 4) {
 				if (((a = strchr(s, '[')) != NULL) && ((b = strrchr(a, ']')) != NULL)) {
+					if (timestamp > 0) {
+						if (timestamp > current_time)
+							leaseduration = current_time - timestamp;
+						else
+							continue;
+					} else {
+						leaseduration = 0;	/* default value */
+					}
 					*b = 0;
-					upnp_redirect(eport, iaddr, iport, proto, a + 1);
+					rhost = NULL;
+					upnp_redirect(rhost, eport, iaddr, iport, proto, a + 1, leaseduration);
 				}
 			}
 		}
 		fclose(f);
 	}
 #ifdef ENABLE_NATPMP
+#if 0
 	ScanNATPMPforExpiration();
+#endif
 #endif
 	unlink("/etc/upnp/load");
 }
@@ -167,9 +187,11 @@ static void tomato_delete(void)
 	char s[128];
 	unsigned short eport;
 	unsigned short iport;
+	unsigned int leaseduration;
 	char proto[4];
 	char iaddr[32];
 	char desc[64];
+	char rhost[32];
 	int n;
 
 	if ((f = fopen("/etc/upnp/delete", "r")) != NULL) {
@@ -179,7 +201,7 @@ static void tomato_delete(void)
 				if (proto[0] == '*') {
 					n = upnp_get_portmapping_number_of_entries();
 					while (--n >= 0) {
-						if (upnp_get_redirection_infos_by_index(n, &eport, proto, &iport, iaddr, sizeof(iaddr), desc, sizeof(desc)) == 0) {
+						if (upnp_get_redirection_infos_by_index(n, &eport, proto, &iport, iaddr, sizeof(iaddr), desc, sizeof(desc), rhost, sizeof(rhost), &leaseduration) == 0) {
 							upnp_delete_redirection(eport, proto);
 						}
 					}
@@ -1350,7 +1372,9 @@ main(int argc, char * * argv)
 			syslog(LOG_NOTICE, "Listening for NAT-PMP traffic on port %u",
 			       NATPMP_PORT);
 		}
+#if 0
 		ScanNATPMPforExpiration();
+#endif
 	}
 #endif
 
@@ -1449,9 +1473,27 @@ main(int argc, char * * argv)
 			}
 			memcpy(&checktime, &timeofday, sizeof(struct timeval));
 		}
+		/* Remove expired port mappings, based on UPnP IGD LeaseDuration
+		 * or NAT-PMP lifetime) */
+		if(nextruletoclean_timestamp
+		  && (timeofday.tv_sec >= nextruletoclean_timestamp))
+		{
+			syslog(LOG_DEBUG, "cleaning expired Port Mappings");
+			get_upnp_rules_state_list(0);
+		}
+		if(nextruletoclean_timestamp
+		  && timeout.tv_sec >= (nextruletoclean_timestamp - timeofday.tv_sec))
+		{
+			timeout.tv_sec = nextruletoclean_timestamp - timeofday.tv_sec;
+			timeout.tv_usec = 0;
+			syslog(LOG_DEBUG, "setting timeout to %u sec",
+			       (unsigned)timeout.tv_sec);
+		}
 #ifdef ENABLE_NATPMP
+#if 0
 		/* Remove expired NAT-PMP mappings */
-		while( nextnatpmptoclean_timestamp && (timeofday.tv_sec >= nextnatpmptoclean_timestamp + startup_time))
+		while(nextnatpmptoclean_timestamp
+		     && (timeofday.tv_sec >= nextnatpmptoclean_timestamp + startup_time))
 		{
 			/*syslog(LOG_DEBUG, "cleaning expired NAT-PMP mappings");*/
 			if(CleanExpiredNATPMP() < 0) {
@@ -1459,20 +1501,15 @@ main(int argc, char * * argv)
 				break;
 			}
 		}
-		if(nextnatpmptoclean_timestamp && timeout.tv_sec >= (nextnatpmptoclean_timestamp + startup_time - timeofday.tv_sec))
+		if(nextnatpmptoclean_timestamp
+		  && timeout.tv_sec >= (nextnatpmptoclean_timestamp + startup_time - timeofday.tv_sec))
 		{
-			/*syslog(LOG_DEBUG, "setting timeout to %d sec", nextnatpmptoclean_timestamp + startup_time - timeofday.tv_sec);*/
-#ifdef ENABLE_NFQUEUE
-		if (nfqh >= 0) 
-		{
-			FD_SET(nfqh, &readset);
-			max_fd = MAX( max_fd, nfqh);
-		}
-#endif
-
+			/*syslog(LOG_DEBUG, "setting timeout to %d sec",
+			       nextnatpmptoclean_timestamp + startup_time - timeofday.tv_sec);*/
 			timeout.tv_sec = nextnatpmptoclean_timestamp + startup_time - timeofday.tv_sec;
 			timeout.tv_usec = 0;
 		}
+#endif
 #endif
 
 		/* select open sockets (SSDP, HTTP listen, and all HTTP soap sockets) */
@@ -1500,6 +1537,14 @@ main(int argc, char * * argv)
 		{
 			FD_SET(sudpv6, &readset);
 			max_fd = MAX( max_fd, sudpv6);
+		}
+#endif
+
+#ifdef ENABLE_NFQUEUE
+		if (nfqh >= 0) 
+		{
+			FD_SET(nfqh, &readset);
+			max_fd = MAX( max_fd, nfqh);
 		}
 #endif
 

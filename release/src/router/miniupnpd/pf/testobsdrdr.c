@@ -1,4 +1,4 @@
-/* $Id: testobsdrdr.c,v 1.21 2011/02/07 12:11:28 nanard Exp $ */
+/* $Id: testobsdrdr.c,v 1.22 2011/06/04 16:45:22 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -42,14 +42,18 @@ test_index(void)
 	char ifname[16/*IFNAMSIZ*/];
 	char iaddr[32];
 	char desc[64];
+	char rhost[32];
 	unsigned short iport = 0;
 	unsigned short eport = 0;
 	int proto = 0;
+	unsigned int timestamp;
 	ifname[0] = '\0';
 	iaddr[0] = '\0';
+	rhost[0] = '\0';
 	if(get_redirect_rule_by_index(0, ifname, &eport, iaddr, sizeof(iaddr),
 	                              &iport, &proto, desc, sizeof(desc),
-                                  0, 0) < 0)
+	                              rhost, sizeof(rhost),
+                                  &timestamp, 0, 0) < 0)
 	{
 		printf("get.._by_index : no rule\n");
 	}
@@ -66,7 +70,9 @@ main(int arc, char * * argv)
 {
 	char buf[32];
 	char desc[64];
+	/*char rhost[32];*/
 	unsigned short iport;
+	unsigned int timestamp;
 	u_int64_t packets = 0;
 	u_int64_t bytes = 0;
 
@@ -78,8 +84,8 @@ main(int arc, char * * argv)
 	}
 	//add_redirect_rule("ep0", 12123, "192.168.1.23", 1234);
 	//add_redirect_rule2("ep0", 12155, "192.168.1.155", 1255, IPPROTO_TCP);
-	//add_redirect_rule2("ep0", 12123, "192.168.1.125", 1234,
-	//                   IPPROTO_UDP, "test description");
+	add_redirect_rule2("ep0", "8.8.8.8", 12123, "192.168.1.125", 1234,
+	                   IPPROTO_UDP, "test description", 0);
 	//add_redirect_rule2("em0", 12123, "127.1.2.3", 1234,
 	//                   IPPROTO_TCP, "test description tcp");
 
@@ -88,7 +94,8 @@ main(int arc, char * * argv)
 	
 
 	if(get_redirect_rule("xl1", 4662, IPPROTO_TCP,
-	                     buf, 32, &iport, desc, sizeof(desc),
+	                     buf, sizeof(buf), &iport, desc, sizeof(desc),
+	                     &timestamp,
 	                     &packets, &bytes) < 0)
 		printf("get_redirect_rule() failed\n");
 	else

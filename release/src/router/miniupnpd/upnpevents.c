@@ -1,4 +1,4 @@
-/* $Id: upnpevents.c,v 1.14 2011/05/18 22:21:19 nanard Exp $ */
+/* $Id: upnpevents.c,v 1.15 2011/06/04 08:25:27 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2008-2011 Thomas Bernard
@@ -476,7 +476,7 @@ void write_events_details(int s) {
 	write(s, "Subscribers :\n", 14);
 	for(sub = subscriberlist.lh_first; sub != NULL; sub = sub->entries.le_next) {
 		n = snprintf(buff, sizeof(buff), " %p timeout=%d seq=%u service=%d\n",
-		             sub, sub->timeout, sub->seq, sub->service);
+		             sub, (int)sub->timeout, sub->seq, sub->service);
 		write(s, buff, n);
 		n = snprintf(buff, sizeof(buff), "   notify=%p %s\n",
 		             sub->notify, sub->uuid);
