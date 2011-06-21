@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: webseed.c 12030 2011-02-24 15:33:50Z jordan $
+ * $Id: webseed.c 12390 2011-04-27 20:52:07Z jordan $
  */
 
 #include <string.h> /* strlen() */
@@ -16,10 +16,10 @@
 #include <event2/event.h>
 
 #include "transmission.h"
+#include "bandwidth.h"
 #include "cache.h"
 #include "inout.h" /* tr_ioFindFileLocation() */
 #include "list.h"
-#include "ratecontrol.h"
 #include "peer-mgr.h"
 #include "torrent.h"
 #include "utils.h"
@@ -41,7 +41,7 @@ struct tr_webseed_task
 struct tr_webseed
 {
     tr_peer              parent;
-    tr_ratecontrol       download_rate;
+    tr_bandwidth         bandwidth;
     tr_session         * session;
     tr_peer_callback   * callback;
     void               * callback_data;
@@ -50,7 +50,7 @@ struct tr_webseed
     char               * base_url;
     size_t               base_url_len;
     int                  torrent_id;
-    tr_bool              is_stopping;
+    bool                 is_stopping;
     int                  consecutive_failures;
 };
 
@@ -64,20 +64,22 @@ enum
 static void
 webseed_free( struct tr_webseed * w )
 {
-    tr_bitsetDestructor( &w->parent.have );
-    tr_free( w->parent.client );
+    tr_torrent * tor = tr_torrentFindFromId( w->session, w->torrent_id );
 
+    /* webseed destruct */
     event_free( w->timer );
-    tr_rcDestruct( &w->download_rate );
+    tr_bandwidthDestruct( &w->bandwidth );
     tr_free( w->base_url );
+
+    /* parent class destruct */
+    tr_peerDestruct( tor, &w->parent );
+
     tr_free( w );
 }
 
 /***
 ****
 ***/
-
-static const tr_peer_event blank_event = { 0, 0, 0, 0, 0, 0, 0 };
 
 static void
 publish( tr_webseed * w, tr_peer_event * e )
@@ -89,32 +91,28 @@ publish( tr_webseed * w, tr_peer_event * e )
 static void
 fire_client_got_rej( tr_torrent * tor, tr_webseed * w, tr_block_index_t block )
 {
-    tr_peer_event e = blank_event;
+    tr_peer_event e = TR_PEER_EVENT_INIT;
     e.eventType = TR_PEER_CLIENT_GOT_REJ;
-    e.pieceIndex = tr_torBlockPiece( tor, block );
-    e.offset = tor->blockSize * block - tor->info.pieceSize * e.pieceIndex;
-    e.length = tr_torBlockCountBytes( tor, block );
+    tr_torrentGetBlockLocation( tor, block, &e.pieceIndex, &e.offset, &e.length );
     publish( w, &e );
 }
 
 static void
 fire_client_got_block( tr_torrent * tor, tr_webseed * w, tr_block_index_t block )
 {
-    tr_peer_event e = blank_event;
+    tr_peer_event e = TR_PEER_EVENT_INIT;
     e.eventType = TR_PEER_CLIENT_GOT_BLOCK;
-    e.pieceIndex = tr_torBlockPiece( tor, block );
-    e.offset = tor->blockSize * block - tor->info.pieceSize * e.pieceIndex;
-    e.length = tr_torBlockCountBytes( tor, block );
+    tr_torrentGetBlockLocation( tor, block, &e.pieceIndex, &e.offset, &e.length );
     publish( w, &e );
 }
 
 static void
 fire_client_got_data( tr_webseed * w, uint32_t length )
 {
-    tr_peer_event e = blank_event;
+    tr_peer_event e = TR_PEER_EVENT_INIT;
     e.eventType = TR_PEER_CLIENT_GOT_DATA;
     e.length = length;
-    e.wasPieceData = TRUE;
+    e.wasPieceData = true;
     publish( w, &e );
 }
 
@@ -131,14 +129,14 @@ on_content_changed( struct evbuffer                * buf UNUSED,
 
     if( ( info->n_added > 0 ) && !w->is_stopping )
     {
-        tr_rcTransferred( &w->download_rate, info->n_added );
+        tr_bandwidthUsed( &w->bandwidth, TR_DOWN, info->n_added, true, tr_time_msec( ) );
         fire_client_got_data( w, info->n_added );
     }
 }
 
 static void task_request_next_chunk( struct tr_webseed_task * task );
 
-static tr_bool
+static bool
 webseed_has_tasks( const tr_webseed * w )
 {
     return w->tasks != NULL;
@@ -196,6 +194,8 @@ on_idle( tr_webseed * w )
 
 static void
 web_response_func( tr_session    * session,
+                   bool            did_connect UNUSED,
+                   bool            did_timeout UNUSED,
                    long            response_code,
                    const void    * response UNUSED,
                    size_t          response_byte_count UNUSED,
@@ -244,18 +244,18 @@ web_response_func( tr_session    * session,
     }
 }
 
-static char*
+static struct evbuffer *
 make_url( tr_webseed * w, const tr_file * file )
 {
-    struct evbuffer * out = evbuffer_new( );
+    struct evbuffer * buf = evbuffer_new( );
 
-    evbuffer_add( out, w->base_url, w->base_url_len );
+    evbuffer_add( buf, w->base_url, w->base_url_len );
 
     /* if url ends with a '/', add the torrent name */
     if( w->base_url[w->base_url_len - 1] == '/' && file->name )
-        tr_http_escape( out, file->name, strlen(file->name), FALSE );
+        tr_http_escape( buf, file->name, strlen(file->name), false );
 
-    return evbuffer_free_to_str( out );
+    return buf;
 }
 
 static void
@@ -264,8 +264,8 @@ task_request_next_chunk( struct tr_webseed_task * t )
     tr_torrent * tor = tr_torrentFindFromId( t->session, t->torrent_id );
     if( tor != NULL )
     {
-        char * url;
         char range[64];
+        struct evbuffer * url;
 
         const tr_info * inf = tr_torrentInfo( tor );
         const uint32_t remain = t->length - evbuffer_get_length( t->content );
@@ -290,21 +290,21 @@ task_request_next_chunk( struct tr_webseed_task * t )
         url = make_url( t->webseed, file );
         tr_snprintf( range, sizeof range, "%"PRIu64"-%"PRIu64,
                      file_offset, file_offset + this_pass - 1 );
-        tr_webRunWithBuffer( t->session, url, range,
-                             web_response_func, t, t->content );
-        tr_free( url );
+        tr_webRunWithBuffer( t->session, (char *) evbuffer_pullup( url, -1 ),
+                             range, NULL, web_response_func, t, t->content );
+        evbuffer_free( url );
     }
 }
 
-tr_bool
+bool
 tr_webseedGetSpeed_Bps( const tr_webseed * w, uint64_t now, int * setme_Bps )
 {
-    const tr_bool is_active = webseed_has_tasks( w );
-    *setme_Bps = is_active ? tr_rcRate_Bps( &w->download_rate, now ) : 0;
+    const bool is_active = webseed_has_tasks( w );
+    *setme_Bps = is_active ? tr_bandwidthGetPieceSpeed_Bps( &w->bandwidth, now, TR_DOWN ) : 0;
     return is_active;
 }
 
-tr_bool
+bool
 tr_webseedIsActive( const tr_webseed * w )
 {
     int Bps = 0;
@@ -324,29 +324,30 @@ webseed_timer_func( evutil_socket_t foo UNUSED, short bar UNUSED, void * vw )
 }
 
 tr_webseed*
-tr_webseedNew( struct tr_torrent * tor,
-               const char        * url,
-               tr_peer_callback  * callback,
-               void              * callback_data )
+tr_webseedNew( struct tr_torrent  * tor,
+               const char         * url,
+               tr_peer_callback   * callback,
+               void               * callback_data )
 {
     tr_webseed * w = tr_new0( tr_webseed, 1 );
     tr_peer * peer = &w->parent;
 
-    peer->peerIsChoked = TRUE;
+    /* construct parent class */
+    tr_peerConstruct( peer );
+    peer->peerIsChoked = true;
     peer->clientIsInterested = !tr_torrentIsSeed( tor );
-    tr_bitsetConstructor( &peer->have, tor->info.pieceCount );
-    tr_bitsetSetHaveAll( &peer->have );
-    peer->progress = 1.0;
     peer->client = tr_strdup( "webseed" );
+    tr_bitfieldSetHasAll( &peer->have );
+    tr_peerUpdateProgress( tor, peer );
 
     w->torrent_id = tr_torrentId( tor );
     w->session = tor->session;
-
     w->base_url_len = strlen( url );
     w->base_url = tr_strndup( url, w->base_url_len );
     w->callback = callback;
     w->callback_data = callback_data;
-    tr_rcConstruct( &w->download_rate );
+    //tr_rcConstruct( &w->download_rate );
+    tr_bandwidthConstruct( &w->bandwidth, tor->session, &tor->bandwidth );
     w->timer = evtimer_new( w->session->event_base, webseed_timer_func, w );
     tr_timerAddMsec( w->timer, TR_IDLE_TIMER_MSEC );
     return w;
@@ -358,7 +359,7 @@ tr_webseedFree( tr_webseed * w )
     if( w )
     {
         if( webseed_has_tasks( w ) )
-            w->is_stopping = TRUE;
+            w->is_stopping = true;
         else
             webseed_free( w );
     }

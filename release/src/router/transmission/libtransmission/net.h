@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: net.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: net.h 12229 2011-03-25 05:34:26Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -33,10 +33,8 @@
  #include <inttypes.h>
  #include <ws2tcpip.h>
 #else
- #include <sys/types.h>
  #include <sys/socket.h>
  #include <netinet/in.h>
- #include <arpa/inet.h>
 #endif
 
 #ifdef WIN32
@@ -55,7 +53,11 @@
  #define sockerrno errno
 #endif
 
-struct tr_session;
+/****
+*****
+*****  tr_address
+*****
+****/
 
 typedef enum tr_address_type
 {
@@ -79,32 +81,51 @@ typedef struct tr_address
 extern const tr_address tr_inaddr_any;
 extern const tr_address tr_in6addr_any;
 
-const char *tr_ntop( const tr_address * src,
-                     char * dst,
-                     int size );
-const char *tr_ntop_non_ts( const tr_address * src );
-tr_address *tr_pton( const char * src,
-                     tr_address * dst );
-int tr_compareAddresses( const tr_address * a,
-                         const tr_address * b);
+const char* tr_address_to_string( const tr_address * addr );
 
-tr_bool tr_isValidPeerAddress( const tr_address * addr, tr_port port );
+const char* tr_address_to_string_with_buf( const tr_address  * addr,
+                                           char              * buf,
+                                           size_t              buflen );
 
-static inline tr_bool tr_isAddress( const tr_address * a ) { return ( a != NULL ) && ( a->type==TR_AF_INET || a->type==TR_AF_INET6 ); }
+bool tr_address_from_string ( tr_address  * setme,
+                              const char  * string );
 
-tr_bool tr_net_hasIPv6( tr_port );
+bool tr_address_from_sockaddr_storage( tr_address                     * setme,
+                                       tr_port                        * port,
+                                       const struct sockaddr_storage  * src );
+
+int tr_address_compare( const tr_address * a,
+                        const tr_address * b );
+
+bool tr_address_is_valid_for_peers( const tr_address  * addr,
+                                    tr_port             port );
+
+static inline bool
+tr_address_is_valid( const tr_address * a )
+{
+    return ( a != NULL ) && ( a->type==TR_AF_INET || a->type==TR_AF_INET6 );
+}
 
 /***********************************************************************
  * Sockets
  **********************************************************************/
+
+struct tr_session;
+
 int  tr_netOpenPeerSocket( tr_session       * session,
                            const tr_address * addr,
                            tr_port            port,
-                           tr_bool            clientIsSeed );
+                           bool               clientIsSeed );
+
+struct UTPSocket *
+tr_netOpenPeerUTPSocket( tr_session        * session,
+                         const tr_address  * addr,
+                         tr_port             port,
+                         bool                clientIsSeed);
 
 int  tr_netBindTCP( const tr_address * addr,
                     tr_port            port,
-                    tr_bool            suppressMsgs );
+                    bool               suppressMsgs );
 
 int  tr_netAccept( tr_session * session,
                    int          bound,
@@ -122,6 +143,9 @@ void tr_netCloseSocket( int fd );
 
 void tr_netInit( void );
 
+bool tr_net_hasIPv6( tr_port );
+
+
 /**
  * @brief get a human-representable string representing the network error.
  * @param err an errno on Unix/Linux and an WSAError on win32)
@@ -134,9 +158,6 @@ const unsigned char *tr_globalIPv6( void );
 /* The QT exclusion is because something clashes whith the next include */
 #include <ws2tcpip.h>		/* socklen_t */
 
-/** @brief Missing in Windows and Mingw */
-const char *inet_ntop( int af, const void *src, char *dst, socklen_t cnt );
-int inet_pton(int af, const char *src, void *dst);
 #endif
 
 #endif /* _TR_NET_H_ */

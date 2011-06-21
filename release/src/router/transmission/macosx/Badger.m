@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Badger.m 12070 2011-03-03 03:53:30Z livings124 $
+ * $Id: Badger.m 12069 2011-03-03 03:53:21Z livings124 $
  *
  * Copyright (c) 2006-2011 Transmission authors and contributors
  *

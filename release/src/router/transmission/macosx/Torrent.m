@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Torrent.m 11787 2011-01-30 02:01:05Z livings124 $
+ * $Id: Torrent.m 12325 2011-04-05 23:03:33Z livings124 $
  *
  * Copyright (c) 2006-2011 Transmission authors and contributors
  *
@@ -60,7 +60,7 @@
 
 @end
 
-void completenessChangeCallback(tr_torrent * torrent, tr_completeness status, tr_bool wasRunning, void * torrentData)
+void completenessChangeCallback(tr_torrent * torrent, tr_completeness status, bool wasRunning, void * torrentData)
 {
     NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
     
@@ -88,8 +88,12 @@ void metadataCallback(tr_torrent * torrent, void * torrentData)
 
 int trashDataFile(const char * filename)
 {
+    NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
+    
     if (filename != NULL)
         [Torrent trashFile: [NSString stringWithUTF8String: filename]];
+    
+    [pool drain];
     return 0;
 }
 
@@ -568,15 +572,17 @@ int trashDataFile(const char * filename)
     if ([self allDownloaded] || ![fDefaults boolForKey: @"WarningRemainingSpace"])
         return YES;
     
-    NSString * downloadFolder = [self currentDirectory], * volumeName;
-    if ((volumeName = [[[NSFileManager defaultManager] componentsToDisplayForPath: downloadFolder] objectAtIndex: 0]))
+    NSString * downloadFolder = [self currentDirectory];
+    NSDictionary * systemAttributes;
+    if ((systemAttributes = [[NSFileManager defaultManager] attributesOfFileSystemForPath: downloadFolder error: NULL]))
     {
-        NSDictionary * systemAttributes = [[NSFileManager defaultManager] attributesOfFileSystemForPath: downloadFolder error: NULL];
-        uint64_t remainingSpace = [[systemAttributes objectForKey: NSFileSystemFreeSize] unsignedLongLongValue];
+        const uint64_t remainingSpace = [[systemAttributes objectForKey: NSFileSystemFreeSize] unsignedLongLongValue];
         
         //if the remaining space is greater than the size left, then there is enough space regardless of preallocation
         if (remainingSpace < [self sizeLeft] && remainingSpace < tr_torrentGetBytesLeftToAllocate(fHandle))
         {
+            NSString * volumeName = [[[NSFileManager defaultManager] componentsToDisplayForPath: downloadFolder] objectAtIndex: 0];
+            
             NSAlert * alert = [[NSAlert alloc] init];
             [alert setMessageText: [NSString stringWithFormat:
                                     NSLocalizedString(@"Not enough remaining disk space to download \"%@\" completely.",
@@ -693,7 +699,7 @@ int trashDataFile(const char * filename)
     return success;
 }
 
-- (void) removeTrackersWithIdentifiers: (NSIndexSet *) removeIdentifiers
+- (void) removeTrackers: (NSSet *) trackers
 {
     //recreate the tracker structure
     tr_tracker_info * trackerStructs = tr_new(tr_tracker_info, fInfo->trackerCount);
@@ -701,7 +707,7 @@ int trashDataFile(const char * filename)
     NSUInteger newCount = 0;
     for (NSUInteger i = 0; i < fInfo->trackerCount; i++)
     {
-        if (![removeIdentifiers containsIndex: fInfo->trackers[i].id])
+        if (![trackers containsObject: [NSString stringWithUTF8String: fInfo->trackers[i].announce]])
             trackerStructs[newCount++] = fInfo->trackers[i];
     }
     
@@ -903,7 +909,7 @@ int trashDataFile(const char * filename)
     for (int i = 0; i < totalPeers; i++)
     {
         tr_peer_stat * peer = &peers[i];
-        NSMutableDictionary * dict = [NSMutableDictionary dictionaryWithCapacity: 11];
+        NSMutableDictionary * dict = [NSMutableDictionary dictionaryWithCapacity: 12];
         
         [dict setObject: [self name] forKey: @"Name"];
         [dict setObject: [NSNumber numberWithInt: peer->from] forKey: @"From"];
@@ -912,6 +918,7 @@ int trashDataFile(const char * filename)
         [dict setObject: [NSNumber numberWithFloat: peer->progress] forKey: @"Progress"];
         [dict setObject: [NSNumber numberWithBool: peer->isSeed] forKey: @"Seed"];
         [dict setObject: [NSNumber numberWithBool: peer->isEncrypted] forKey: @"Encryption"];
+        [dict setObject: [NSNumber numberWithBool: peer->isUTP] forKey: @"uTP"];
         [dict setObject: [NSString stringWithUTF8String: peer->client] forKey: @"Client"];
         [dict setObject: [NSString stringWithUTF8String: peer->flagStr] forKey: @"Flags"];
         
@@ -1248,11 +1255,6 @@ int trashDataFile(const char * filename)
 - (NSInteger) totalPeersLTEP
 {
     return fStat->peersFrom[TR_PEER_FROM_LTEP];
-}
-
-- (NSInteger) totalPeersKnown
-{
-    return fStat->peersKnown;
 }
 
 - (NSInteger) peersSendingToUs

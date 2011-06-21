@@ -7,17 +7,16 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: trevent.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: trevent.c 12228 2011-03-25 01:41:57Z jordan $
  */
 
 #include <assert.h>
 #include <errno.h>
-#include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
 #include <signal.h>
 
+#include <event2/dns.h>
 #include <event2/event.h>
 
 #include "transmission.h"
@@ -124,10 +123,10 @@ piperead( int s, char *buf, int len )
 #define pipewrite(a,b,c) write(a,b,c)
 #endif
 
-#include <unistd.h>
+#include <unistd.h> /* read(), write(), pipe() */
 
 #include "transmission.h"
-#include "platform.h"
+#include "platform.h" /* tr_lockLock() */
 #include "trevent.h"
 #include "utils.h"
 
@@ -230,9 +229,13 @@ libeventThreadFunc( void * veh )
     signal( SIGPIPE, SIG_IGN );
 #endif
 
+    /* create the libevent bases */
     base = event_base_new( );
+
+    /* set the struct's fields */
     eh->base = base;
     eh->session->event_base = base;
+    eh->session->evdns_base = evdns_base_new( base, true );
     eh->session->events = eh;
 
     /* listen to the pipe's read fd */
@@ -275,7 +278,7 @@ tr_eventClose( tr_session * session )
 {
     assert( tr_isSession( session ) );
 
-    session->events->die = TRUE;
+    session->events->die = true;
     tr_deepLog( __FILE__, __LINE__, NULL, "closing trevent pipe" );
     tr_netCloseSocket( session->events->fds[1] );
 }
@@ -284,7 +287,7 @@ tr_eventClose( tr_session * session )
 ***
 **/
 
-tr_bool
+bool
 tr_amInEventThread( const tr_session * session )
 {
     assert( tr_isSession( session ) );

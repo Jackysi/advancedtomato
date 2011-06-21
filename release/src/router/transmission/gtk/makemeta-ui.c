@@ -7,10 +7,8 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: makemeta-ui.c 11738 2011-01-21 16:32:27Z jordan $
+ * $Id: makemeta-ui.c 12412 2011-05-02 17:58:27Z jordan $
  */
-
-#include <string.h>
 
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
@@ -19,7 +17,6 @@
 #include <libtransmission/makemeta.h>
 #include <libtransmission/utils.h> /* tr_formatter_mem_B() */
 
-#include "conf.h"
 #include "hig.h"
 #include "makemeta-ui.h"
 #include "tr-core.h"
@@ -129,7 +126,7 @@ addTorrent( MakeMetaUI * ui )
 {
     char * path;
     const tr_metainfo_builder * b = ui->builder;
-    tr_ctor * ctor = tr_ctorNew( tr_core_session( ui->core ) );
+    tr_ctor * ctor = tr_ctorNew( gtr_core_session( ui->core ) );
 
     tr_ctorSetMetainfoFromFile( ctor, ui->target );
 
@@ -137,7 +134,7 @@ addTorrent( MakeMetaUI * ui )
     tr_ctorSetDownloadDir( ctor, TR_FORCE, path );
     g_free( path );
 
-    tr_core_add_ctor( ui->core, ctor );
+    gtr_core_add_ctor( ui->core, ctor );
 }
 
 static void
@@ -298,16 +295,16 @@ updatePiecesLabel( MakeMetaUI * ui )
     {
         char buf[128];
         tr_strlsize( buf, builder->totalSize, sizeof( buf ) );
-        g_string_append_printf( gstr, gtr_ngettext( "%1$s; %2$'d File",
-                                                    "%1$s; %2$'d Files",
-                                                    builder->fileCount ),
+        g_string_append_printf( gstr, ngettext( "%1$s; %2$'d File",
+                                                "%1$s; %2$'d Files",
+                                                builder->fileCount ),
                                 buf, builder->fileCount );
         g_string_append( gstr, "; " );
 
         tr_formatter_mem_B( buf, builder->pieceSize, sizeof( buf ) );
-        g_string_append_printf( gstr, gtr_ngettext( "%1$'d Piece @ %2$s",
-                                                    "%1$'d Pieces @ %2$s",
-                                                    builder->pieceCount ),
+        g_string_append_printf( gstr, ngettext( "%1$'d Piece @ %2$s",
+                                                "%1$'d Pieces @ %2$s",
+                                                builder->pieceCount ),
                                       builder->pieceCount, buf );
     }
     g_string_append( gstr, "</i>" );

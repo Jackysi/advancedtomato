@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: conf.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: conf.c 12223 2011-03-24 21:49:42Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -24,7 +24,7 @@
 
 #include <errno.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h> /* strtol() */
 #include <string.h>
 
 #include <unistd.h>
@@ -193,8 +193,6 @@ tr_prefs_init_defaults( tr_benc * d )
     if( !str ) str = tr_getDefaultDownloadDir( );
     tr_bencDictAddStr( d, TR_PREFS_KEY_DOWNLOAD_DIR, str );
 
-    tr_bencDictAddBool( d, PREF_KEY_ASKQUIT, TRUE );
-
     tr_bencDictAddStr( d, PREF_KEY_SORT_MODE, "sort-by-name" );
     tr_bencDictAddBool( d, PREF_KEY_SORT_REVERSED, FALSE );
     tr_bencDictAddBool( d, PREF_KEY_COMPACT_VIEW, FALSE );
@@ -270,7 +268,7 @@ gtr_pref_double_set( const char * key, double value )
 gboolean
 gtr_pref_flag_get( const char * key )
 {
-    tr_bool boolVal;
+    bool boolVal;
     tr_bencDictFindBool( getPrefs( ), key, &boolVal );
     return boolVal != 0;
 }

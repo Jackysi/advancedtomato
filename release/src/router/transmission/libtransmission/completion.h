@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: completion.h 12035 2011-02-24 15:58:47Z jordan $
+ * $Id: completion.h 12262 2011-03-30 04:14:57Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -17,50 +17,34 @@
 #ifndef TR_COMPLETION_H
 #define TR_COMPLETION_H
 
-#include <assert.h>
-
 #include "transmission.h"
 #include "bitfield.h"
+#include "utils.h" /* tr_getRatio() */
 
 typedef struct tr_completion
 {
-    tr_bool  sizeWhenDoneIsDirty;
-    tr_bool  blocksWantedIsDirty;
-    tr_bool  haveValidIsDirty;
+    tr_torrent * tor;
 
-    tr_torrent *    tor;
-
-    /* do we have this block? */
-    tr_bitfield    blockBitfield;
-
-    /* do we have this piece? */
-    tr_bitfield    pieceBitfield;
-
-    /* a block is complete if and only if we have it */
-    uint16_t *  completeBlocks;
-
-    /* total number of blocks that we want downloaded
-       DON'T access this directly; it's a lazy field.
-       Used by tr_cpBlocksMissing(). */
-    tr_block_index_t    blocksWantedLazy;
-
-    /* total number of completed blocks that we want downloaded
-       DON'T access this directly; it's a lazy field.
-       Used by tr_cpBlocksMissing(). */
-    tr_block_index_t    blocksWantedCompleteLazy;
+    tr_bitfield blockBitfield;
 
     /* number of bytes we'll have when done downloading. [0..info.totalSize]
        DON'T access this directly; it's a lazy field.
        use tr_cpSizeWhenDone() instead! */
-    uint64_t    sizeWhenDoneLazy;
+    uint64_t sizeWhenDoneLazy;
+
+    /* whether or not sizeWhenDone needs to be recalculated */
+    bool sizeWhenDoneIsDirty;
 
     /* number of bytes we'll have when done downloading. [0..info.totalSize]
        DON'T access this directly; it's a lazy field.
        use tr_cpHaveValid() instead! */
-    uint64_t    haveValidLazy;
+    uint64_t haveValidLazy;
+
+    /* whether or not haveValidLazy needs to be recalculated */
+    bool haveValidIsDirty;
 
     /* number of bytes we want or have now. [0..sizeWhenDone] */
-    uint64_t    sizeNow;
+    uint64_t sizeNow;
 }
 tr_completion;
 
@@ -68,114 +52,106 @@ tr_completion;
 *** Life Cycle
 **/
 
-tr_completion * tr_cpConstruct( tr_completion *, tr_torrent * );
+void  tr_cpConstruct( tr_completion *, tr_torrent * );
 
-tr_completion * tr_cpDestruct( tr_completion * );
+void  tr_cpBlockInit( tr_completion * cp, const tr_bitfield * blocks );
+
+static inline void
+tr_cpDestruct( tr_completion * cp )
+{
+    tr_bitfieldDestruct( &cp->blockBitfield );
+}
 
 /**
 *** General
 **/
 
-tr_completeness            tr_cpGetStatus( const tr_completion * );
+double            tr_cpPercentComplete( const tr_completion * cp );
 
-uint64_t                   tr_cpHaveValid( const tr_completion * );
+double            tr_cpPercentDone( const tr_completion * cp );
 
-tr_block_index_t           tr_cpBlocksMissing( const tr_completion * );
+tr_completeness   tr_cpGetStatus( const tr_completion * );
 
-uint64_t                   tr_cpSizeWhenDone( const tr_completion * );
+uint64_t          tr_cpHaveValid( const tr_completion * );
 
-void                       tr_cpInvalidateDND( tr_completion * );
+uint64_t          tr_cpSizeWhenDone( const tr_completion * );
 
-void                       tr_cpGetAmountDone( const   tr_completion * completion,
-                                               float                 * tab,
-                                               int                     tabCount );
+void              tr_cpGetAmountDone( const   tr_completion * completion,
+                                      float                 * tab,
+                                      int                     tabCount );
 
-static inline uint64_t tr_cpHaveTotal( const tr_completion * cp )
+
+static inline uint64_t
+tr_cpHaveTotal( const tr_completion * cp )
 {
     return cp->sizeNow;
 }
 
-static inline uint64_t tr_cpLeftUntilComplete( const tr_completion * cp )
+static inline uint64_t
+tr_cpLeftUntilComplete( const tr_completion * cp )
 {
     return tr_torrentInfo(cp->tor)->totalSize - cp->sizeNow;
 }
 
-static inline uint64_t tr_cpLeftUntilDone( const tr_completion * cp )
+static inline uint64_t
+tr_cpLeftUntilDone( const tr_completion * cp )
 {
     return tr_cpSizeWhenDone( cp ) - cp->sizeNow;
 }
 
-static inline double tr_cpPercentComplete( const tr_completion * cp )
+static inline bool tr_cpHasAll( const tr_completion * cp )
 {
-    const double ratio = tr_getRatio( cp->sizeNow, tr_torrentInfo(cp->tor)->totalSize );
-    if( (int)ratio == TR_RATIO_NA )
-        return 0.0;
-    else if( (int)ratio == TR_RATIO_INF )
-        return 1.0;
-    else
-        return ratio;
+    return tr_bitfieldHasAll( &cp->blockBitfield );
 }
 
-static inline double tr_cpPercentDone( const tr_completion * cp )
+static inline bool tr_cpHasNone( const tr_completion * cp )
 {
-    const double ratio = tr_getRatio( cp->sizeNow, tr_cpSizeWhenDone( cp ) );
-    const int iratio = (int)ratio;
-    return ((iratio == TR_RATIO_NA) || (iratio == TR_RATIO_INF)) ? 0.0 : ratio;
+    return tr_bitfieldHasNone( &cp->blockBitfield );
 }
 
 /**
-*** Pieces
+***  Pieces
 **/
 
-int tr_cpMissingBlocksInPiece( const tr_completion  * cp,
-                               tr_piece_index_t       piece );
+void    tr_cpPieceAdd( tr_completion * cp, tr_piece_index_t i );
 
-tr_bool  tr_cpPieceIsComplete( const tr_completion * cp,
-                               tr_piece_index_t      piece );
+void    tr_cpPieceRem( tr_completion * cp, tr_piece_index_t i );
 
-void   tr_cpPieceAdd( tr_completion    * completion,
-                      tr_piece_index_t   piece );
+size_t  tr_cpMissingBlocksInPiece( const tr_completion *, tr_piece_index_t );
 
-void   tr_cpPieceRem( tr_completion     * completion,
-                      tr_piece_index_t   piece );
+size_t  tr_cpMissingBytesInPiece ( const tr_completion *, tr_piece_index_t );
 
-tr_bool tr_cpFileIsComplete( const tr_completion * cp, tr_file_index_t );
+static inline bool
+tr_cpPieceIsComplete( const tr_completion * cp, tr_piece_index_t i )
+{
+    return tr_cpMissingBlocksInPiece( cp, i ) == 0;
+}
 
 /**
-*** Blocks
+***  Blocks
 **/
 
-static inline tr_bool tr_cpBlockIsCompleteFast( const tr_completion * cp, tr_block_index_t block )
+void  tr_cpBlockAdd( tr_completion * cp, tr_block_index_t i );
+
+static inline bool
+tr_cpBlockIsComplete( const tr_completion * cp, tr_block_index_t i )
 {
-    return tr_bitfieldHasFast( &cp->blockBitfield, block );
+    return tr_bitfieldHas( &cp->blockBitfield, i );
 }
-
-static inline tr_bool tr_cpBlockIsComplete( const tr_completion * cp, tr_block_index_t block )
-{
-    return tr_bitfieldHas( &cp->blockBitfield, block );
-}
-
-void      tr_cpBlockAdd( tr_completion * completion,
-                         tr_block_index_t block );
-
-tr_bool   tr_cpBlockBitfieldSet( tr_completion      * completion,
-                                 struct tr_bitfield * blocks );
-
-void      tr_cpSetHaveAll( tr_completion * completion );
 
 /***
-****
+****  Misc
 ***/
 
-static inline const struct tr_bitfield * tr_cpPieceBitfield( const tr_completion * cp ) {
-    return &cp->pieceBitfield;
+bool  tr_cpFileIsComplete( const tr_completion * cp, tr_file_index_t );
+
+void* tr_cpCreatePieceBitfield( const tr_completion * cp, size_t * byte_count );
+
+static inline void
+tr_cpInvalidateDND( tr_completion * cp )
+{
+    cp->sizeWhenDoneIsDirty = true;
 }
 
-static inline const struct tr_bitfield * tr_cpBlockBitfield( const tr_completion * cp ) {
-    assert( cp );
-    assert( cp->blockBitfield.bits );
-    assert( cp->blockBitfield.bitCount );
-    return &cp->blockBitfield;
-}
 
 #endif

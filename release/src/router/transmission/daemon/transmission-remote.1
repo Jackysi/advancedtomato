@@ -57,6 +57,7 @@ and
 .Op Fl hl
 .Op Fl HL
 .Op Fl u Ar number | Fl U
+.Op Fl utp | no-utp
 .Op Fl v
 .Op Fl V
 .Op Fl w Ar download-dir
@@ -267,6 +268,10 @@ KiB/s.
 If current torrent(s) are selected this operates on them. Otherwise, it changes the global setting.
 .It Fl U Fl -no-uplimit
 Disable upload speed limits.
+.It Fl -utp
+Enable uTP for peer connections.
+.It Fl -no-utp
+Disable uTP for peer connections.
 If current torrent(s) are selected this operates on them. Otherwise, it changes the global setting.
 .It Fl v Fl -verify
 Verify the current torrent(s)
@@ -290,9 +295,11 @@ In the `status' section of the list, the following shorthand is used:
 .D1 D: Downloading from this peer
 .D1 d: We would download from this peer if they would let us
 .D1 E: Encrypted connection
+.D1 H: Peer was found through DHT
 .D1 I: Peer is an incoming connection
 .D1 K: Peer has unchoked us, but we're not interested
 .D1 O: Optimistic unchoked
+.D1 T: Peer is connected over uTP
 .D1 U: Uploading to peer
 .D1 u: We would upload to this peer if they asked
 .D1 X: Peer was discovered through Peer Exchange (PEX)

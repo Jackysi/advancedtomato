@@ -7,13 +7,12 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: clients.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: clients.c 12223 2011-03-24 21:49:42Z jordan $
  */
 
 /* thanks amc1! */
 
 #include <ctype.h> /* isprint() */
-#include <stdio.h>
 #include <stdlib.h> /* strtol() */
 #include <string.h>
 
@@ -125,7 +124,7 @@ decodeBitCometClient( char * buf, size_t buflen, const uint8_t * id )
     if( !memcmp( id, "exbc", 4 ) ) mod = "";
     else if( !memcmp( id, "FUTB", 4 )) mod = "(Solidox Mod) ";
     else if( !memcmp( id, "xUTB", 4 )) mod = "(Mod 2) ";
-    else return FALSE;
+    else return false;
 
     is_bitlord = !memcmp( id+6, "LORD", 4 );
     name = (is_bitlord) ? "BitLord " : "BitComet ";
@@ -141,7 +140,7 @@ decodeBitCometClient( char * buf, size_t buflen, const uint8_t * id )
     else
         tr_snprintf( buf, buflen, "%s%s%d.%02d", name, mod, major, minor );
 
-    return TRUE;
+    return true;
 }
 
 void

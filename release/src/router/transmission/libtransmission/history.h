@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: history.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: history.h 12328 2011-04-06 23:27:11Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -24,18 +24,26 @@
  * For example, it could count how many are bytes transferred
  * to estimate the speed over the last N seconds.
  */
-typedef struct tr_recentHistory tr_recentHistory;
 
-/**
- * @brief create a new tr_recentHistory object.
- * @param seconds how many seconds of history this object should remember
- * @param precision how precise the history should be, in seconds
- *        For a precision of 10 seconds and a history of 2 minutes, makes 12 bins.
- */
-tr_recentHistory * tr_historyNew( unsigned int seconds, unsigned int precision );
+enum
+{
+    TR_RECENT_HISTORY_PERIOD_SEC = 60
+};
 
-/** @brief destroy an existing tr_recentHistory object. */
-void tr_historyFree( tr_recentHistory * );
+
+typedef struct tr_recentHistory
+{
+    /* these are PRIVATE IMPLEMENTATION details included for composition only.
+     * Don't access these directly! */
+
+    int newest;
+
+    struct {
+        unsigned int n;
+        time_t date;
+    } slices[TR_RECENT_HISTORY_PERIOD_SEC];
+}
+tr_recentHistory;
 
 /**
  * @brief add a counter to the recent history object.

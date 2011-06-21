@@ -1,0 +1,8 @@
+prefix='/usr/local'
+exec_prefix="${prefix}"
+datadir="${prefix}/share"
+docdir="${datadir}/doc/gettext"
+ACLOCALDIR="${datadir}/aclocal"
+GETTEXTSRCDIR="${prefix}/share/gettext"
+GETTEXTSRCPODIR="${prefix}/share/gettext/po"
+EXAMPLESCONFIGDIR="${datadir}/doc/gettext/examples/config"

@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: prefs.h 11379 2010-11-02 01:24:08Z charles $
+ * $Id: prefs.h 12037 2011-02-24 18:05:00Z jordan $
  */
 
 #ifndef QTR_PREFS_H
@@ -89,7 +89,6 @@ class Prefs: public QObject
             IDLE_LIMIT_ENABLED,
             INCOMPLETE_DIR,
             INCOMPLETE_DIR_ENABLED,
-            LAZY_BITFIELD,
             MSGLEVEL,
             OPEN_FILE_LIMIT,
             PEER_LIMIT_GLOBAL,
@@ -105,6 +104,7 @@ class Prefs: public QObject
             TRASH_ORIGINAL,
             PEX_ENABLED,
             DHT_ENABLED,
+            UTP_ENABLED,
             LPD_ENABLED,
             PORT_FORWARDING,
             PREALLOCATION,

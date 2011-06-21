@@ -66,23 +66,25 @@ am__v_at_ = $(am__v_at_$(AM_DEFAULT_VERBOSITY))
 am__v_at_0 = @
 libtransmission_a_AR = $(AR) $(ARFLAGS)
 libtransmission_a_LIBADD =
-am_libtransmission_a_OBJECTS = announcer.$(OBJEXT) bandwidth.$(OBJEXT) \
-	bencode.$(OBJEXT) bitfield.$(OBJEXT) blocklist.$(OBJEXT) \
-	cache.$(OBJEXT) clients.$(OBJEXT) completion.$(OBJEXT) \
-	ConvertUTF.$(OBJEXT) crypto.$(OBJEXT) fdlimit.$(OBJEXT) \
-	handshake.$(OBJEXT) history.$(OBJEXT) inout.$(OBJEXT) \
-	json.$(OBJEXT) JSON_parser.$(OBJEXT) list.$(OBJEXT) \
-	magnet.$(OBJEXT) makemeta.$(OBJEXT) metainfo.$(OBJEXT) \
-	natpmp.$(OBJEXT) net.$(OBJEXT) peer-io.$(OBJEXT) \
-	peer-mgr.$(OBJEXT) peer-msgs.$(OBJEXT) platform.$(OBJEXT) \
-	port-forwarding.$(OBJEXT) ptrarray.$(OBJEXT) \
-	ratecontrol.$(OBJEXT) resume.$(OBJEXT) rpcimpl.$(OBJEXT) \
+am_libtransmission_a_OBJECTS = announcer.$(OBJEXT) \
+	announcer-http.$(OBJEXT) announcer-udp.$(OBJEXT) \
+	bandwidth.$(OBJEXT) bencode.$(OBJEXT) bitfield.$(OBJEXT) \
+	blocklist.$(OBJEXT) cache.$(OBJEXT) clients.$(OBJEXT) \
+	completion.$(OBJEXT) ConvertUTF.$(OBJEXT) crypto.$(OBJEXT) \
+	fdlimit.$(OBJEXT) handshake.$(OBJEXT) history.$(OBJEXT) \
+	inout.$(OBJEXT) json.$(OBJEXT) JSON_parser.$(OBJEXT) \
+	list.$(OBJEXT) magnet.$(OBJEXT) makemeta.$(OBJEXT) \
+	metainfo.$(OBJEXT) natpmp.$(OBJEXT) net.$(OBJEXT) \
+	peer-io.$(OBJEXT) peer-mgr.$(OBJEXT) peer-msgs.$(OBJEXT) \
+	platform.$(OBJEXT) port-forwarding.$(OBJEXT) \
+	ptrarray.$(OBJEXT) resume.$(OBJEXT) rpcimpl.$(OBJEXT) \
 	rpc-server.$(OBJEXT) session.$(OBJEXT) stats.$(OBJEXT) \
 	torrent.$(OBJEXT) torrent-ctor.$(OBJEXT) \
 	torrent-magnet.$(OBJEXT) tr-dht.$(OBJEXT) tr-lpd.$(OBJEXT) \
-	tr-udp.$(OBJEXT) tr-getopt.$(OBJEXT) trevent.$(OBJEXT) \
-	upnp.$(OBJEXT) utils.$(OBJEXT) verify.$(OBJEXT) web.$(OBJEXT) \
-	webseed.$(OBJEXT) wildmat.$(OBJEXT)
+	tr-udp.$(OBJEXT) tr-utp.$(OBJEXT) tr-getopt.$(OBJEXT) \
+	trevent.$(OBJEXT) upnp.$(OBJEXT) utils.$(OBJEXT) \
+	verify.$(OBJEXT) web.$(OBJEXT) webseed.$(OBJEXT) \
+	wildmat.$(OBJEXT)
 libtransmission_a_OBJECTS = $(am_libtransmission_a_OBJECTS)
 am__EXEEXT_1 = blocklist-test$(EXEEXT) bencode-test$(EXEEXT) \
 	clients-test$(EXEEXT) history-test$(EXEEXT) json-test$(EXEEXT) \
@@ -281,6 +283,8 @@ LIBNOTIFY_MINIMUM = @LIBNOTIFY_MINIMUM@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
+LIBUTP_CFLAGS = @LIBUTP_CFLAGS@
+LIBUTP_LIBS = @LIBUTP_LIBS@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -392,6 +396,7 @@ AM_CPPFLAGS = \
 
 AM_CFLAGS = \
     @DHT_CFLAGS@ \
+    @LIBUTP_CFLAGS@ \
     @LIBEVENT_CFLAGS@ \
     @LIBCURL_CFLAGS@ \
     @OPENSSL_CFLAGS@ \
@@ -401,6 +406,8 @@ AM_CFLAGS = \
 noinst_LIBRARIES = libtransmission.a
 libtransmission_a_SOURCES = \
     announcer.c \
+    announcer-http.c \
+    announcer-udp.c \
     bandwidth.c \
     bencode.c \
     bitfield.c \
@@ -428,7 +435,6 @@ libtransmission_a_SOURCES = \
     platform.c \
     port-forwarding.c \
     ptrarray.c \
-    ratecontrol.c \
     resume.c \
     rpcimpl.c \
     rpc-server.c \
@@ -440,6 +446,7 @@ libtransmission_a_SOURCES = \
     tr-dht.c \
     tr-lpd.c \
     tr-udp.c \
+    tr-utp.c \
     tr-getopt.c \
     trevent.c \
     upnp.c \
@@ -451,10 +458,10 @@ libtransmission_a_SOURCES = \
 
 noinst_HEADERS = \
     announcer.h \
+    announcer-common.h \
     bandwidth.h \
     bencode.h \
     bitfield.h \
-    bitset.h \
     blocklist.h \
     cache.h \
     clients.h \
@@ -480,7 +487,6 @@ noinst_HEADERS = \
     platform.h \
     port-forwarding.h \
     ptrarray.h \
-    ratecontrol.h \
     resume.h \
     rpcimpl.h \
     rpc-server.h \
@@ -492,6 +498,7 @@ noinst_HEADERS = \
     transmission.h \
     tr-dht.h \
     tr-udp.h \
+    tr-utp.h \
     tr-lpd.h \
     trevent.h \
     upnp.h \
@@ -510,6 +517,7 @@ apps_ldadd = \
     $(top_builddir)/third-party/libnatpmp/libnatpmp.a \
     @INTLLIBS@ \
     @DHT_LIBS@ \
+    @LIBUTP_LIBS@ \
     @LIBCURL_LIBS@ \
     @LIBEVENT_LIBS@ \
     @OPENSSL_LIBS@ \
@@ -635,6 +643,8 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ConvertUTF.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/JSON_parser.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/announcer-http.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/announcer-udp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/announcer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bandwidth.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bencode-test.Po@am__quote@
@@ -668,7 +678,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/platform.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/port-forwarding.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptrarray.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ratecontrol.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/resume.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rpc-server.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rpc-test.Po@am__quote@
@@ -683,6 +692,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-getopt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-lpd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-udp.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-utp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/trevent.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/upnp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utils-test.Po@am__quote@

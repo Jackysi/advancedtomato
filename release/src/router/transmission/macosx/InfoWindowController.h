@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoWindowController.h 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: InfoWindowController.h 11876 2011-02-12 03:53:23Z livings124 $
  *
  * Copyright (c) 2006-2011 Transmission authors and contributors
  *
@@ -48,7 +48,7 @@
     InfoOptionsViewController * fOptionsViewController;
 
     IBOutlet NSImageView * fImageView;
-    IBOutlet NSTextField * fNameField, * fBasicInfoField;
+    IBOutlet NSTextField * fNameField, * fBasicInfoField, * fNoneSelectedField;
 }
 
 - (void) setInfoForTorrents: (NSArray *) torrents;

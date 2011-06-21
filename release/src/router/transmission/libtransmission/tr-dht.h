@@ -1,16 +1,16 @@
 /*
  * Copyright (c) 2009-2010 by Juliusz Chroboczek
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -18,9 +18,9 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
- * 
- * $Id: tr-dht.h 11852 2011-02-08 04:17:33Z jordan $
- * 
+ *
+ * $Id: tr-dht.h 12204 2011-03-22 15:19:54Z jordan $
+ *
  */
 
 #ifndef __TRANSMISSION__
@@ -38,12 +38,12 @@ enum
 
 int  tr_dhtInit( tr_session * );
 void tr_dhtUninit( tr_session * );
-tr_bool tr_dhtEnabled( const tr_session * );
+bool tr_dhtEnabled( const tr_session * );
 tr_port tr_dhtPort ( tr_session * );
 int tr_dhtStatus( tr_session *, int af, int * setme_nodeCount );
 const char *tr_dhtPrintableStatus(int status);
-int tr_dhtAddNode( tr_session *, const tr_address *, tr_port, tr_bool bootstrap );
-int tr_dhtAnnounce( tr_torrent *, int af, tr_bool announce );
+int tr_dhtAddNode( tr_session *, const tr_address *, tr_port, bool bootstrap );
+void tr_dhtUpkeep( tr_session * );
 void tr_dhtCallback(unsigned char *buf, int buflen,
                     struct sockaddr *from, socklen_t fromlen,
                     void *sv);

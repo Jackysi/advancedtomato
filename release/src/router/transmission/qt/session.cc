@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: session.cc 11616 2010-12-31 19:44:51Z charles $
+ * $Id: session.cc 12360 2011-04-15 21:46:26Z jordan $
  */
 
 #include <cassert>
@@ -170,6 +170,7 @@ Session :: updatePref( int key )
         case Prefs :: TRASH_ORIGINAL:
         case Prefs :: USPEED:
         case Prefs :: USPEED_ENABLED:
+        case Prefs :: UTP_ENABLED:
             sessionSet( myPrefs.keyStr(key), myPrefs.variant(key) );
             break;
 
@@ -307,7 +308,7 @@ Session :: restart( )
 }
 
 static void
-curlConfigFunc( tr_session * session UNUSED, void * vcurl, const char * destination )
+curlConfigFunc( tr_session * session UNUSED, void * vcurl, const char * destination, void * unused UNUSED )
 {
     CURL * easy = vcurl;
     const QUrl url( destination );
@@ -360,7 +361,7 @@ Session :: start( )
         tr_bencInitDict( &settings, 0 );
         tr_sessionLoadSettings( &settings, myConfigDir.toUtf8().constData(), "qt" );
         mySession = tr_sessionInit( "qt", myConfigDir.toUtf8().constData(), true, &settings );
-        tr_sessionSetWebConfigFunc( mySession, curlConfigFunc );
+        tr_sessionSetWebConfigFunc( mySession, curlConfigFunc, NULL );
         tr_bencFree( &settings );
 
         tr_ctor * ctor = tr_ctorNew( mySession );
@@ -798,7 +799,7 @@ Session :: parseResponse( const char * json, size_t jsonLength )
                 }
 
                 case TAG_PORT_TEST: {
-                    tr_bool isOpen = 0;
+                    bool isOpen = 0;
                     if( tr_bencDictFindDict( &top, "arguments", &args ) )
                         tr_bencDictFindBool( args, "port-is-open", &isOpen );
                     emit portTested( (bool)isOpen );
@@ -916,7 +917,7 @@ Session :: updateInfo( tr_benc * d )
                 break;
             }
             case QVariant :: Bool: {
-                tr_bool val;
+                bool val;
                 if( tr_bencGetBool( b, &val ) )
                     myPrefs.set( i, (bool)val );
                 break;
@@ -934,7 +935,7 @@ Session :: updateInfo( tr_benc * d )
         }
     }
 
-    tr_bool b;
+    bool b;
     double x;
     if( tr_bencDictFindBool( d, "seedRatioLimited", &b ) )
         myPrefs.set( Prefs::RATIO_ENABLED, b ? true : false );

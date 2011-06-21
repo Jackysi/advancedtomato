@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: msgwin.c 12023 2011-02-24 14:59:13Z jordan $
+ * $Id: msgwin.c 12234 2011-03-25 17:42:47Z jordan $
  */
 
 #include <errno.h>
@@ -21,8 +21,8 @@
 
 #include "conf.h"
 #include "hig.h"
-#include "tr-core.h"
 #include "msgwin.h"
+#include "tr-core.h"
 #include "tr-prefs.h"
 #include "util.h"
 
@@ -112,12 +112,26 @@ level_combo_changed_cb( GtkComboBox * combo_box, gpointer gdata )
     const gboolean pinned_to_new = is_pinned_to_new( data );
 
     tr_setMessageLevel( level );
-    tr_core_set_pref_int( data->core, TR_PREFS_KEY_MSGLEVEL, level );
+    gtr_core_set_pref_int( data->core, TR_PREFS_KEY_MSGLEVEL, level );
     data->maxLevel = level;
     gtk_tree_model_filter_refilter( GTK_TREE_MODEL_FILTER( data->filter ) );
 
     if( pinned_to_new )
         scroll_to_bottom( data );
+}
+
+/* similar to asctime, but is utf8-clean */
+static char*
+gtr_localtime( time_t time )
+{
+    char buf[256], *eoln;
+    const struct tm tm = *localtime( &time );
+
+    g_strlcpy( buf, asctime( &tm ), sizeof( buf ) );
+    if( ( eoln = strchr( buf, '\n' ) ) )
+        *eoln = '\0';
+
+    return g_locale_to_utf8( buf, -1, NULL, NULL, NULL );
 }
 
 static void
@@ -216,23 +230,13 @@ onPauseToggled( GtkToggleToolButton * w, gpointer gdata )
 static const char*
 getForegroundColor( int msgLevel )
 {
-    const char * foreground;
-
     switch( msgLevel )
     {
-        case TR_MSG_DBG:
-            foreground = "forestgreen"; break;
-
-        case TR_MSG_INF:
-            foreground = "black"; break;
-
-        case TR_MSG_ERR:
-            foreground = "red"; break;
-
-        default:
-            g_assert_not_reached( );
+        case TR_MSG_DBG: return "forestgreen";
+        case TR_MSG_INF: return "black";
+        case TR_MSG_ERR: return "red";
+        default: g_assert_not_reached( ); return "black";
     }
-    return foreground;
 }
 
 static void
@@ -403,7 +407,7 @@ onRefresh( gpointer gdata )
         if( pinned_to_new )
             scroll_to_bottom( data );
     }
-        
+
     return TRUE;
 }
 
@@ -502,6 +506,7 @@ gtr_message_log_window_new( GtkWindow * parent, TrCore * core )
     data->filter = gtk_tree_model_filter_new( GTK_TREE_MODEL(
                                                   data->store ), NULL );
     data->sort = gtk_tree_model_sort_new_with_model( data->filter );
+    g_object_unref( data->filter );
     gtk_tree_sortable_set_sort_column_id( GTK_TREE_SORTABLE( data->sort ),
                                           COL_SEQUENCE,
                                           GTK_SORT_ASCENDING );
@@ -512,6 +517,7 @@ gtr_message_log_window_new( GtkWindow * parent, TrCore * core )
 
 
     view = gtk_tree_view_new_with_model( data->sort );
+    g_object_unref( data->sort );
     g_signal_connect( view, "button-release-event",
                       G_CALLBACK( on_tree_view_button_released ), NULL );
     data->view = GTK_TREE_VIEW( view );

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: util.h 11738 2011-01-21 16:32:27Z jordan $
+ * $Id: util.h 12412 2011-05-02 17:58:27Z jordan $
  */
 
 #ifndef GTR_UTIL_H
@@ -37,15 +37,6 @@ extern const char * speed_M_str;
 extern const char * speed_G_str;
 extern const char * speed_T_str;
 
-/* portability wrapper around g_warn_if_fail() for older versions of glib */
-#ifdef g_warn_if_fail
- #define gtr_warn_if_fail(expr) g_warn_if_fail(expr)
-#else
- #define gtr_warn_if_fail(expr) do { if G_LIKELY (expr) ; else \
-                                       g_log (G_LOG_DOMAIN, G_LOG_LEVEL_WARNING, "%s:%d func(): %s: invariant failed: %s", \
-                                              __FILE__, __LINE__, G_STRFUNC, #expr ); } while(0)
-#endif
-
 /* macro to shut up "unused parameter" warnings */
 #ifndef UNUSED
  #define UNUSED G_GNUC_UNUSED
@@ -72,19 +63,12 @@ char* tr_strlratio( char * buf, double ratio, size_t buflen );
 /* return a human-readable string for the time given in seconds. */
 char* tr_strltime( char * buf, int secs, size_t buflen );
 
-/* similar to asctime, but is utf8-clean */
-char* gtr_localtime( time_t time );
-
-
-int gtr_compare_double( const double a, const double b, int decimal_places );
-
-
 /***
 ****
 ***/
 
 /* http://www.legaltorrents.com/some/announce/url --> legaltorrents.com */
-char* gtr_get_host_from_url( const char * url );
+void gtr_get_host_from_url( char * buf, size_t buflen, const char * url );
 
 gboolean gtr_is_supported_url( const char * str );
 
@@ -145,17 +129,8 @@ gboolean gtr_widget_get_realized( GtkWidget * w );
 /* backwards-compatible wrapper around gtk_widget_set_visible() */
 void gtr_widget_set_visible( GtkWidget *, gboolean );
 
-/* backwards-compatible wrapper around gtk_cell_renderer_get_padding() */
-void gtr_cell_renderer_get_padding( GtkCellRenderer *, gint * xpad, gint * ypad );
-
 /* backwards-compatible wrapper around g_object_ref_sink() */
 gpointer gtr_object_ref_sink( gpointer object );
-
-/* backwards-compatible wrapper around g_strcmp0() */
-int gtr_strcmp0( const char * str1, const char * str2 );
-
-/* backwards-compatible wrapper around g_dngettext() */
-const gchar* gtr_ngettext( const gchar*, const gchar*, gulong );
 
 void gtr_dialog_set_content( GtkDialog * dialog, GtkWidget * content );
 

@@ -7,23 +7,42 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: list.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: list.c 12314 2011-04-05 00:59:49Z jordan $
  */
 
 #include "transmission.h"
 #include "list.h"
 #include "utils.h"
 
+static const tr_list TR_LIST_CLEAR = { NULL, NULL, NULL };
+
+static tr_list * recycled_nodes = NULL;
+
 static tr_list*
 node_alloc( void )
 {
-    return tr_new0( tr_list, 1 );
+    tr_list * ret;
+
+    if( recycled_nodes == NULL )
+        ret = tr_new( tr_list, 1 );
+    else {
+        ret = recycled_nodes;
+        recycled_nodes = recycled_nodes->next;
+    }
+
+    *ret = TR_LIST_CLEAR;
+    return ret;
 }
 
 static void
 node_free( tr_list* node )
 {
-    tr_free( node );
+    if( node != NULL )
+    {
+        *node = TR_LIST_CLEAR;
+        node->next = recycled_nodes;
+        recycled_nodes = node;
+    }
 }
 
 /***

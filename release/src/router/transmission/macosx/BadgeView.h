@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: BadgeView.h 12070 2011-03-03 03:53:30Z livings124 $
+ * $Id: BadgeView.h 12069 2011-03-03 03:53:21Z livings124 $
  *
  * Copyright (c) 2007-2011 Transmission authors and contributors
  *

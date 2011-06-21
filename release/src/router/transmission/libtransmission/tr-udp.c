@@ -21,8 +21,11 @@ THE SOFTWARE.
 
 */
 
-#include <unistd.h>
 #include <assert.h>
+#include <string.h> /* memcmp(), memcpy(), memset() */
+#include <stdlib.h> /* malloc(), free() */
+
+#include <unistd.h> /* close() */
 
 #include <event2/event.h>
 
@@ -30,15 +33,87 @@ THE SOFTWARE.
 #include "net.h"
 #include "session.h"
 #include "tr-dht.h"
+#include "tr-utp.h"
 #include "tr-udp.h"
+
+/* Since we use a single UDP socket in order to implement multiple
+   uTP sockets, try to set up huge buffers. */
+
+#define RECV_BUFFER_SIZE (4 * 1024 * 1024)
+#define SEND_BUFFER_SIZE (1 * 1024 * 1024)
+#define SMALL_BUFFER_SIZE (32 * 1024)
+
+static void
+set_socket_buffers(int fd, int large)
+{
+    int size, rbuf, sbuf, rc;
+    socklen_t rbuf_len = sizeof(rbuf), sbuf_len = sizeof(sbuf);
+
+    size = large ? RECV_BUFFER_SIZE : SMALL_BUFFER_SIZE;
+    rc = setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size));
+    if(rc < 0)
+        tr_nerr("UDP", "Failed to set receive buffer: %s",
+                tr_strerror(errno));
+
+    size = large ? SEND_BUFFER_SIZE : SMALL_BUFFER_SIZE;
+    rc = setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size));
+    if(rc < 0)
+        tr_nerr("UDP", "Failed to set send buffer: %s",
+                tr_strerror(errno));
+
+    if(large) {
+        rc = getsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rbuf, &rbuf_len);
+        if(rc < 0)
+            rbuf = 0;
+
+        rc = getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sbuf, &sbuf_len);
+        if(rc < 0)
+            sbuf = 0;
+
+        if(rbuf < RECV_BUFFER_SIZE) {
+            tr_nerr("UDP", "Failed to set receive buffer: requested %d, got %d",
+                    RECV_BUFFER_SIZE, rbuf);
+#ifdef __linux__
+            tr_ninf("UDP",
+                    "Please add the line "
+                    "\"net.core.rmem_max = %d\" to /etc/sysctl.conf",
+                    RECV_BUFFER_SIZE);
+#endif
+        }
+
+        if(sbuf < SEND_BUFFER_SIZE) {
+            tr_nerr("UDP", "Failed to set send buffer: requested %d, got %d",
+                    SEND_BUFFER_SIZE, sbuf);
+#ifdef __linux__
+            tr_ninf("UDP",
+                    "Please add the line "
+                    "\"net.core.wmem_max = %d\" to /etc/sysctl.conf",
+                    SEND_BUFFER_SIZE);
+#endif
+        }
+    }
+}
+
+void
+tr_udpSetSocketBuffers(tr_session *session)
+{
+    bool utp = tr_sessionIsUTPEnabled(session);
+    if(session->udp_socket >= 0)
+        set_socket_buffers(session->udp_socket, utp);
+    if(session->udp6_socket >= 0)
+        set_socket_buffers(session->udp6_socket, utp);
+}
+
+
+
 
 /* BEP-32 has a rather nice explanation of why we need to bind to one
    IPv6 address, if I may say so myself. */
 
 static void
-rebind_ipv6(tr_session *ss, tr_bool force)
+rebind_ipv6(tr_session *ss, bool force)
 {
-    tr_bool is_default;
+    bool is_default;
     const struct tr_address * public_addr;
     struct sockaddr_in6 sin6;
     const unsigned char *ipv6 = tr_globalIPv6();
@@ -83,13 +158,11 @@ rebind_ipv6(tr_session *ss, tr_bool force)
 
     if(ss->udp6_socket < 0) {
         ss->udp6_socket = s;
-        s = -1;
     } else {
         rc = dup2(s, ss->udp6_socket);
         if(rc < 0)
             goto fail;
         close(s);
-        s = -1;
     }
 
     if(ss->udp6_bound == NULL)
@@ -114,42 +187,47 @@ rebind_ipv6(tr_session *ss, tr_bool force)
 static void
 event_callback(int s, short type UNUSED, void *sv)
 {
-    unsigned char *buf;
-    struct sockaddr_storage from;
-    socklen_t fromlen;
     int rc;
+    socklen_t fromlen;
+    unsigned char buf[4096];
+    struct sockaddr_storage from;
+    tr_session *ss = sv;
 
     assert(tr_isSession(sv));
     assert(type == EV_READ);
 
-    buf = malloc(4096);
-    if(buf == NULL) {
-        tr_nerr("UDP", "Couldn't allocate buffer");
-        return;
-    }
-
     fromlen = sizeof(from);
     rc = recvfrom(s, buf, 4096 - 1, 0,
                   (struct sockaddr*)&from, &fromlen);
-    if(rc <= 0)
-        return;
 
-    if(buf[0] == 'd') {
-        /* DHT packet. */
-        buf[rc] = '\0';
-        tr_dhtCallback(buf, rc, (struct sockaddr*)&from, fromlen, sv);
-    } else {
-        /* Probably a UTP packet. */
-        /* Nothing yet. */
+    /* Since most packets we receive here are ÂµTP, make quick inline
+       checks for the other protocols.  The logic is as follows:
+       - all DHT packets start with 'd';
+       - all UDP tracker packets start with a 32-bit (!) "action", which
+         is between 0 and 3;
+       - the above cannot be ÂµTP packets, since these start with a 4-bit
+         version number (1). */
+    if(rc > 0) {
+        if( buf[0] == 'd' ) {
+            buf[rc] = '\0';     /* required by the DHT code */
+            tr_dhtCallback(buf, rc, (struct sockaddr*)&from, fromlen, sv);
+        } else if( rc >= 8 &&
+                   buf[0] == 0 && buf[1] == 0 && buf[2] == 0 && buf[3] <= 3 ) {
+            rc = tau_handle_message( ss, buf, rc );
+            if( !rc )
+                tr_ndbg("UDP", "Couldn't parse UDP tracker packet.");
+        } else {
+            rc = tr_utpPacket(buf, rc, (struct sockaddr*)&from, fromlen, ss);
+            if( !rc )
+                tr_ndbg("UDP", "Unexpected UDP packet");
+        }
     }
-
-    free(buf);
-}    
+}
 
 void
 tr_udpInit(tr_session *ss)
 {
-    tr_bool is_default;
+    bool is_default;
     const struct tr_address * public_addr;
     struct sockaddr_in sin;
     int rc;
@@ -188,7 +266,7 @@ tr_udpInit(tr_session *ss)
 
  ipv6:
     if(tr_globalIPv6())
-        rebind_ipv6(ss, TRUE);
+        rebind_ipv6(ss, true);
     if(ss->udp6_socket >= 0) {
         ss->udp6_event =
             event_new(ss->event_base, ss->udp6_socket, EV_READ | EV_PERSIST,
@@ -196,6 +274,8 @@ tr_udpInit(tr_session *ss)
         if(ss->udp6_event == NULL)
             tr_nerr("UDP", "Couldn't allocate IPv6 event");
     }
+
+    tr_udpSetSocketBuffers(ss);
 
     if(ss->isDHTEnabled)
         tr_dhtInit(ss);
@@ -209,8 +289,6 @@ tr_udpInit(tr_session *ss)
 void
 tr_udpUninit(tr_session *ss)
 {
-    tr_dhtUninit(ss);
-
     if(ss->udp_socket >= 0) {
         tr_netCloseSocket( ss->udp_socket );
         ss->udp_socket = -1;

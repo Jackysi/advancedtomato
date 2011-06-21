@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: port-forwarding.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: port-forwarding.h 12224 2011-03-24 22:45:04Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -18,7 +18,6 @@
 #define SHARED_H 1
 
 #include "transmission.h"
-#include "net.h"
 
 /**
  * @addtogroup port_forwarding Port Forwarding
@@ -35,11 +34,11 @@ void       tr_sharedClose( tr_session * );
 
 void       tr_sharedPortChanged( tr_session * );
 
-void       tr_sharedTraversalEnable( tr_shared *, tr_bool isEnabled );
+void       tr_sharedTraversalEnable( tr_shared *, bool isEnabled );
 
 tr_port    tr_sharedGetPeerPort( const tr_shared * s );
 
-tr_bool    tr_sharedTraversalIsEnabled( const tr_shared * s );
+bool       tr_sharedTraversalIsEnabled( const tr_shared * s );
 
 int        tr_sharedTraversalStatus( const tr_shared * );
 

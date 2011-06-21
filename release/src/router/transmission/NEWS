@@ -1,4 +1,31 @@
+=== Transmission 2.31 (2011/05/17) ===
+[http://trac.transmissionbt.com/query?milestone=2.31&group=component&order=severity All tickets closed by this release]
+==== All Platforms ====
+  * This release fixes a pair of 2.30 packaging errors.
+
+=== Transmission 2.30 (2011/05/16) ===
+[http://trac.transmissionbt.com/query?milestone=2.30&group=component&order=severity All tickets closed by this release]
+==== All Platforms ====
+  * µTP support
+  * UDP tracker support
+  * Multiscrape support
+  * Download scarcest pieces first
+  * The "lazy bitfield" feature has been superseded by the "Fast Extension" BEP6
+  * Scripts are passed the environment
+==== Mac ====
+  * An Intel Mac is now required
+  * Ability to remove all completed (finished seeding) transfers
+  * The Web Interface is published over Wide-Area Bonjour
+  * Enhanced grouping rules
+  * Interface tweaks
+==== GTK+ ====
+  * Added 256 x 256 icon by Andreas Nilsson
+  * Register as a magnet link handler in the .desktop file
+==== Web Client ====
+  * Peer and Network preferences
+
 === Transmission 2.22 (2011/03/04) ===
+[http://trac.transmissionbt.com/query?milestone=2.22&group=component&order=severity All tickets closed by this release]
 ==== All Platforms ====
   * Faster endgame
   * Fix bug where leechers might be disconnected while seeding in some situations
@@ -17,8 +44,9 @@
   * Fix bandwidth display issue
 
 === Transmission 2.21 (2011/02/08) ===
+[http://trac.transmissionbt.com/query?milestone=2.21&group=component&order=severity All tickets closed by this release]
 ==== All Platforms ====
-  * Fix compile error in the 2.20 tarball
+  * Fix compile error in the the 2.20 tarball
 ==== GTK+ ====
   * Several updated translations
 ==== Qt ====

@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: TorrentCell.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: TorrentCell.m 12329 2011-04-07 00:56:28Z livings124 $
  *
  * Copyright (c) 2006-2011 Transmission authors and contributors
  *
@@ -803,6 +803,9 @@
 
 - (NSAttributedString *) attributedStatusString: (NSString *) string
 {
+    #warning we shouldn't have to do this
+    if (!string)
+        string = @"";
     return [[[NSAttributedString alloc] initWithString: string attributes: fStatusAttributes] autorelease];
 }
 

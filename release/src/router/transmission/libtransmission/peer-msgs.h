@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-msgs.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: peer-msgs.h 12411 2011-05-01 19:10:34Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -20,9 +20,10 @@
 #include <inttypes.h>
 #include "peer-common.h"
 
-struct tr_torrent;
-struct tr_peer;
+struct tr_address;
 struct tr_bitfield;
+struct tr_peer;
+struct tr_torrent;
 
 /**
  * @addtogroup peers Peers
@@ -36,11 +37,11 @@ tr_peermsgs* tr_peerMsgsNew( struct tr_torrent    * torrent,
                              tr_peer_callback     * callback,
                              void                 * callback_data );
 
-void         tr_peerMsgsSetChoke( tr_peermsgs *, int doChoke );
+void         tr_peerMsgsSetChoke( tr_peermsgs *, bool peerIsChoked );
 
 int          tr_peerMsgsIsReadingBlock( const tr_peermsgs * msgs, tr_block_index_t block );
 
-void         tr_peerMsgsSetInterested( tr_peermsgs *, int isInterested );
+void         tr_peerMsgsSetInterested( tr_peermsgs *, bool clientIsInterested );
 
 void         tr_peerMsgsHave( tr_peermsgs * msgs,
                               uint32_t      pieceIndex );
@@ -52,11 +53,11 @@ void         tr_peerMsgsCancel( tr_peermsgs * msgs,
 
 void         tr_peerMsgsFree( tr_peermsgs* );
 
-size_t       tr_generateAllowedSet( tr_piece_index_t  * setmePieces,
-                                    size_t              desiredSetSize,
-                                    size_t              pieceCount,
-                                    const uint8_t     * infohash,
-                                    const tr_address  * addr );
+size_t       tr_generateAllowedSet( tr_piece_index_t         * setmePieces,
+                                    size_t                     desiredSetSize,
+                                    size_t                     pieceCount,
+                                    const uint8_t            * infohash,
+                                    const struct tr_address  * addr );
 
 
 /* @} */

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: favicon.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: favicon.c 12306 2011-04-04 16:54:09Z jordan $
  */
 
 #include <glib/gstdio.h> /* g_remove() */
@@ -81,7 +81,7 @@ favicon_load_from_cache( const char * host )
     return pixbuf;
 }
 
-static void favicon_web_done_cb( tr_session*, long, const void*, size_t, void* );
+static void favicon_web_done_cb( tr_session*, bool, bool, long, const void*, size_t, void* );
 
 static gboolean
 favicon_web_done_idle_cb( gpointer vfav )
@@ -111,7 +111,7 @@ favicon_web_done_idle_cb( gpointer vfav )
             fav->contents = NULL;
             fav->len = 0;
 
-            tr_webRun( fav->session, url, NULL, favicon_web_done_cb, fav );
+            tr_webRun( fav->session, url, NULL, NULL, favicon_web_done_cb, fav );
             g_free( url );
         }
     }
@@ -129,6 +129,8 @@ favicon_web_done_idle_cb( gpointer vfav )
 
 static void
 favicon_web_done_cb( tr_session    * session UNUSED,
+                     bool            did_connect UNUSED,
+                     bool            did_timeout UNUSED,
                      long            code UNUSED,
                      const void    * data,
                      size_t          len,
@@ -165,7 +167,7 @@ gtr_get_favicon( tr_session  * session,
         data->host = g_strdup( host );
         data->type = 0;
 
-        tr_webRun( session, url, NULL, favicon_web_done_cb, data );
+        tr_webRun( session, url, NULL, NULL, favicon_web_done_cb, data );
         g_free( url );
     }
 }
@@ -176,7 +178,7 @@ gtr_get_favicon_from_url( tr_session  * session,
                           GFunc         pixbuf_ready_func,
                           gpointer      pixbuf_ready_func_data )
 {
-    char * host = gtr_get_host_from_url( url );
+    char host[1024];
+    gtr_get_host_from_url( host, sizeof( host ), url );
     gtr_get_favicon( session, host, pixbuf_ready_func, pixbuf_ready_func_data );
-    g_free( host );
 }

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: stats.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: stats.c 12204 2011-03-22 15:19:54Z jordan $
  */
 
 #include "transmission.h"
@@ -29,7 +29,7 @@ struct tr_stats_handle
     tr_session_stats    single;
     tr_session_stats    old;
     time_t              startTime;
-    tr_bool             isDirty;
+    bool                isDirty;
 };
 
 static char*
@@ -48,9 +48,9 @@ static void
 loadCumulativeStats( const tr_session * session,
                      tr_session_stats * setme )
 {
-    int     loaded = FALSE;
-    char   * filename;
     tr_benc top;
+    char * filename;
+    bool loaded = false;
 
     filename = getFilename( session );
     loaded = !tr_bencLoadFile( &top, TR_FMT_JSON, filename );
@@ -134,7 +134,7 @@ tr_statsSaveDirty( tr_session * session )
         tr_session_stats cumulative = STATS_INIT;
         tr_sessionGetCumulativeStats( session, &cumulative );
         saveCumulativeStats( session, &cumulative );
-        h->isDirty = FALSE;
+        h->isDirty = false;
     }
 }
 
@@ -227,7 +227,7 @@ tr_statsAddUploaded( tr_session * session,
     if( ( s = getStats( session ) ) )
     {
         s->single.uploadedBytes += bytes;
-        s->isDirty = TRUE;
+        s->isDirty = true;
     }
 }
 
@@ -240,7 +240,7 @@ tr_statsAddDownloaded( tr_session * session,
     if( ( s = getStats( session ) ) )
     {
         s->single.downloadedBytes += bytes;
-        s->isDirty = TRUE;
+        s->isDirty = true;
     }
 }
 

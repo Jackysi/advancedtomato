@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: ptrarray.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: ptrarray.h 12204 2011-03-22 15:19:54Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -16,6 +16,8 @@
 
 #ifndef _TR_PTR_ARRAY_H_
 #define _TR_PTR_ARRAY_H_
+
+#include <assert.h>
 
 #include "transmission.h"
 
@@ -48,8 +50,15 @@ void tr_ptrArrayForeach( tr_ptrArray         * array,
 
 /** @brief Return the nth item in a tr_ptrArray
     @return the nth item in a tr_ptrArray */
-void*         tr_ptrArrayNth( tr_ptrArray   * array,
-                              int             nth );
+static inline void*
+tr_ptrArrayNth( tr_ptrArray * array, int i )
+{
+    assert( array );
+    assert( i >= 0 );
+    assert( i < array->n_items );
+
+    return array->items[i];
+}
 
 /** @brief Remove the last item from the array and return it
     @return the pointer that's been removed from the array
@@ -67,7 +76,10 @@ static inline void* tr_ptrArrayBack( tr_ptrArray * array )
 
 void tr_ptrArrayErase( tr_ptrArray * t, int begin, int end );
 
-
+static inline void tr_ptrArrayRemove( tr_ptrArray * t, int pos )
+{
+    tr_ptrArrayErase( t, pos, pos+1 );
+}
 
 /** @brief Peek at the array pointer and its size, for easy iteration */
 void** tr_ptrArrayPeek( tr_ptrArray * array, int * size );
@@ -98,7 +110,7 @@ static inline int tr_ptrArraySize( const tr_ptrArray *  a )
 
 /** @brief Return True if the array has no pointers
     @return True if the array has no pointers */
-static inline tr_bool tr_ptrArrayEmpty( const tr_ptrArray * a )
+static inline bool tr_ptrArrayEmpty( const tr_ptrArray * a )
 {
     return tr_ptrArraySize(a) == 0;
 }
@@ -106,7 +118,7 @@ static inline tr_bool tr_ptrArrayEmpty( const tr_ptrArray * a )
 int tr_ptrArrayLowerBound( const tr_ptrArray * array,
                            const void * key,
                            int compare( const void * arrayItem, const void * key ),
-                           tr_bool * exact_match );
+                           bool * exact_match );
 
 /** @brief Insert a pointer into the array at the position determined by the sort function
     @return the index of the stored pointer */

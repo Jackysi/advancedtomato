@@ -7,13 +7,13 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: metainfo.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: metainfo.c 12416 2011-05-05 03:10:51Z jordan $
  */
 
 #include <assert.h>
 #include <errno.h>
-#include <stdio.h>
-#include <string.h>
+#include <stdio.h> /* fopen(), fwrite(), fclose() */
+#include <string.h> /* strlen() */
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -26,7 +26,7 @@
 #include "bencode.h"
 #include "crypto.h" /* tr_sha1 */
 #include "metainfo.h"
-#include "platform.h"
+#include "platform.h" /* tr_getTorrentDir() */
 #include "utils.h"
 
 /***
@@ -36,22 +36,20 @@
 char*
 tr_metainfoGetBasename( const tr_info * inf )
 {
-    char *ret, *pch, *name;
+    size_t i;
+    const size_t name_len = strlen( inf->name );
+    char * ret = tr_strdup_printf( "%s.%16.16s", inf->name, inf->hashString );
 
-    name = tr_strdup( inf->name );
-    for( pch=name; pch && *pch; ++pch )
-        if( *pch == '/' )
-            *pch = '_';
+    for( i=0; i<name_len; ++i )
+        if( ret[i] == '/' )
+            ret[i] = '_';
 
-    ret = tr_strdup_printf( "%s.%16.16s", name, inf->hashString );
 
-    tr_free( name );
     return ret;
 }
 
 static char*
-getTorrentFilename( const tr_session * session,
-                    const tr_info *   inf )
+getTorrentFilename( const tr_session * session, const tr_info * inf )
 {
     char * base = tr_metainfoGetBasename( inf );
     char * filename = tr_strdup_printf( "%s" TR_PATH_DELIMITER_STR "%s.torrent",
@@ -139,25 +137,24 @@ tr_metainfoMigrate( tr_session * session,
 ****
 ***/
 
-static tr_bool
+static bool
 path_is_suspicious( const char * path )
 {
     return ( path == NULL )
         || ( strstr( path, "../" ) != NULL );
 }
 
-static tr_bool
-getfile( char ** setme, const char * root, tr_benc * path )
+static bool
+getfile( char ** setme, const char * root, tr_benc * path, struct evbuffer * buf )
 {
-    tr_bool success = FALSE;
+    bool success = false;
 
     if( tr_bencIsList( path ) )
     {
         int i;
-        char * tmp;
         const int n = tr_bencListSize( path );
-        struct evbuffer * buf = evbuffer_new( );
 
+        evbuffer_drain( buf, evbuffer_get_length( buf ) );
         evbuffer_add( buf, root, strlen( root ) );
         for( i = 0; i < n; ++i )
         {
@@ -169,18 +166,16 @@ getfile( char ** setme, const char * root, tr_benc * path )
             }
         }
 
-        tmp = evbuffer_free_to_str( buf );
-        *setme = tr_utf8clean( tmp, -1 );
-        tr_free( tmp );
+        *setme = tr_utf8clean( (char*)evbuffer_pullup( buf, -1 ), evbuffer_get_length( buf ) );
         /* fprintf( stderr, "[%s]\n", *setme ); */
-        success = TRUE;
+        success = true;
     }
 
     if( ( *setme != NULL ) && path_is_suspicious( *setme ) )
     {
         tr_free( *setme );
         *setme = NULL;
-        success = FALSE;
+        success = false;
     }
 
     return success;
@@ -196,6 +191,7 @@ parseFiles( tr_info * inf, tr_benc * files, const tr_benc * length )
     if( tr_bencIsList( files ) ) /* multi-file mode */
     {
         tr_file_index_t i;
+        struct evbuffer * buf = evbuffer_new( );
 
         inf->isMultifile = 1;
         inf->fileCount   = tr_bencListSize( files );
@@ -214,7 +210,7 @@ parseFiles( tr_info * inf, tr_benc * files, const tr_benc * length )
                 if( !tr_bencDictFindList( file, "path", &path ) )
                     return "path";
 
-            if( !getfile( &inf->files[i].name, inf->name, path ) )
+            if( !getfile( &inf->files[i].name, inf->name, path, buf ) )
                 return "path";
 
             if( !tr_bencDictFindInt( file, "length", &len ) )
@@ -223,6 +219,8 @@ parseFiles( tr_info * inf, tr_benc * files, const tr_benc * length )
             inf->files[i].length = len;
             inf->totalSize      += len;
         }
+
+        evbuffer_free( buf );
     }
     else if( tr_bencGetInt( length, &len ) ) /* single-file mode */
     {
@@ -299,24 +297,24 @@ getannounce( tr_info * inf, tr_benc * meta )
         {
             tr_benc * tier = tr_bencListChild( tiers, i );
             const int tierSize = tr_bencListSize( tier );
-            tr_bool anyAdded = FALSE;
+            bool anyAdded = false;
             for( j = 0; j < tierSize; ++j )
             {
                 if( tr_bencGetStr( tr_bencListChild( tier, j ), &str ) )
                 {
                     char * url = tr_strstrip( tr_strdup( str ) );
-                    if( tr_urlIsValidTracker( url ) )
-                    {
+                    if( !tr_urlIsValidTracker( url ) )
+                        tr_free( url );
+                    else {
                         tr_tracker_info * t = trackers + trackerCount;
                         t->tier = validTiers;
-                        t->announce = tr_strdup( url );
+                        t->announce = url;
                         t->scrape = tr_convertAnnounceToScrape( url );
                         t->id = trackerCount;
 
-                        anyAdded = TRUE;
+                        anyAdded = true;
                         ++trackerCount;
                     }
-                    tr_free( url );
                 }
             }
 
@@ -337,17 +335,17 @@ getannounce( tr_info * inf, tr_benc * meta )
       && tr_bencDictFindStr( meta, "announce", &str ) )
     {
         char * url = tr_strstrip( tr_strdup( str ) );
-        if( tr_urlIsValidTracker( url ) )
-        {
+        if( !tr_urlIsValidTracker( url ) )
+            tr_free( url );
+        else {
             trackers = tr_new0( tr_tracker_info, 1 );
             trackers[trackerCount].tier = 0;
-            trackers[trackerCount].announce = tr_strdup( url );
+            trackers[trackerCount].announce = url;
             trackers[trackerCount].scrape = tr_convertAnnounceToScrape( url );
             trackers[trackerCount].id = 0;
             trackerCount++;
             /*fprintf( stderr, "single announce: [%s]\n", url );*/
         }
-        tr_free( url );
     }
 
     inf->trackers = trackers;
@@ -372,47 +370,33 @@ geturllist( tr_info * inf,
         inf->webseeds = tr_new0( char*, n );
 
         for( i = 0; i < n; ++i )
+        {
             if( tr_bencGetStr( tr_bencListChild( urls, i ), &url ) )
-                inf->webseeds[inf->webseedCount++] = tr_strdup( url );
+            {
+                const size_t len = strlen( url );
+
+                if( tr_urlIsValid( url, len  ) )
+                    inf->webseeds[inf->webseedCount++] = tr_strndup( url, len );
+            }
+        }
     }
     else if( tr_bencDictFindStr( meta, "url-list", &url ) ) /* handle single items in webseeds */
     {
-        inf->webseedCount = 1;
-        inf->webseeds = tr_new0( char*, 1 );
-        inf->webseeds[0] = tr_strdup( url );
+        const size_t len = strlen( url );
+
+        if( tr_urlIsValid( url, len  ) )
+        {
+            inf->webseedCount = 1;
+            inf->webseeds = tr_new0( char*, 1 );
+            inf->webseeds[0] = tr_strndup( url, len );
+        }
     }
-}
-
-static int
-is_rfc2396_alnum( char ch )
-{
-    return ( '0' <= ch && ch <= '9' )
-        || ( 'A' <= ch && ch <= 'Z' )
-        || ( 'a' <= ch && ch <= 'z' )
-        || ch == '.'
-        || ch == '-'
-        || ch == '_'
-        || ch == '~';
-}
-
-static void
-escape( char * out, const uint8_t * in, size_t in_len ) /* rfc2396 */
-{
-    const uint8_t *end = in + in_len;
-
-    while( in != end )
-        if( is_rfc2396_alnum( *in ) )
-            *out++ = (char) *in++;
-        else
-            out += tr_snprintf( out, 4, "%%%02x", (unsigned int)*in++ );
-
-    *out = '\0';
 }
 
 static const char*
 tr_metainfoParseImpl( const tr_session  * session,
                       tr_info           * inf,
-                      tr_bool           * hasInfoDict,
+                      bool              * hasInfoDict,
                       int               * infoDictLength,
                       const tr_benc     * meta_in )
 {
@@ -423,8 +407,8 @@ tr_metainfoParseImpl( const tr_session  * session,
     tr_benc *       d;
     tr_benc *       infoDict = NULL;
     tr_benc *       meta = (tr_benc *) meta_in;
-    tr_bool         b;
-    tr_bool         isMagnet = FALSE;
+    bool            b;
+    bool            isMagnet = false;
 
     /* info_hash: urlencoded 20-byte SHA1 hash of the value of the info key
      * from the Metainfo file. Note that the value will be a bencoded
@@ -437,7 +421,7 @@ tr_metainfoParseImpl( const tr_session  * session,
         /* no info dictionary... is this a magnet link? */
         if( tr_bencDictFindDict( meta, "magnet-info", &d ) )
         {
-            isMagnet = TRUE;
+            isMagnet = true;
 
             /* get the info-hash */
             if( !tr_bencDictFindRaw( d, "info_hash", &raw, &raw_len ) )
@@ -446,7 +430,6 @@ tr_metainfoParseImpl( const tr_session  * session,
                 return "info_hash";
             memcpy( inf->hash, raw, raw_len );
             tr_sha1_to_hex( inf->hashString, inf->hash );
-            escape( inf->hashEscaped, inf->hash, SHA_DIGEST_LENGTH );
 
             /* maybe get the display name */
             if( tr_bencDictFindStr( d, "display-name", &str ) ) {
@@ -468,7 +451,6 @@ tr_metainfoParseImpl( const tr_session  * session,
         char * bstr = tr_bencToStr( infoDict, TR_FMT_BENC, &len );
         tr_sha1( inf->hash, bstr, len, NULL );
         tr_sha1_to_hex( inf->hashString, inf->hash );
-        escape( inf->hashEscaped, inf->hash, SHA_DIGEST_LENGTH );
 
         if( infoDictLength != NULL )
             *infoDictLength = len;
@@ -558,11 +540,11 @@ tr_metainfoParseImpl( const tr_session  * session,
     return NULL;
 }
 
-tr_bool
+bool
 tr_metainfoParse( const tr_session * session,
                   const tr_benc    * meta_in,
                   tr_info          * inf,
-                  tr_bool          * hasInfoDict,
+                  bool             * hasInfoDict,
                   int              * infoDictLength )
 {
     const char * badTag = tr_metainfoParseImpl( session,
@@ -570,7 +552,7 @@ tr_metainfoParse( const tr_session * session,
                                                 hasInfoDict,
                                                 infoDictLength,
                                                 meta_in );
-    const tr_bool success = badTag == NULL;
+    const bool success = badTag == NULL;
 
     if( badTag )
     {
@@ -612,8 +594,7 @@ tr_metainfoFree( tr_info * inf )
 }
 
 void
-tr_metainfoRemoveSaved( const tr_session * session,
-                        const tr_info *   inf )
+tr_metainfoRemoveSaved( const tr_session * session, const tr_info * inf )
 {
     char * filename;
 

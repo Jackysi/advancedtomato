@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: metainfo.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: metainfo.h 12204 2011-03-22 15:19:54Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -21,11 +21,11 @@
 
 struct tr_benc;
 
-tr_bool  tr_metainfoParse( const tr_session     * session,
-                           const struct tr_benc * benc,
-                           tr_info              * setmeInfo,
-                           tr_bool              * setmeHasInfoDict,
-                           int                  * setmeInfoDictLength );
+bool  tr_metainfoParse( const tr_session     * session,
+                        const struct tr_benc * benc,
+                        tr_info              * setmeInfo,
+                        bool                 * setmeHasInfoDict,
+                        int                  * setmeInfoDictLength );
 
 void tr_metainfoRemoveSaved( const tr_session * session,
                              const tr_info    * info );

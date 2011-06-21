@@ -7,8 +7,11 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: verify.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: verify.c 12204 2011-03-22 15:19:54Z jordan $
  */
+
+#include <string.h> /* memcmp() */
+#include <stdlib.h> /* free() */
 
 #ifdef HAVE_POSIX_FADVISE
  #define _XOPEN_SOURCE 600
@@ -35,15 +38,15 @@ enum
     MSEC_TO_SLEEP_PER_SECOND_DURING_VERIFY = 100
 };
 
-static tr_bool
-verifyTorrent( tr_torrent * tor, tr_bool * stopFlag )
+static bool
+verifyTorrent( tr_torrent * tor, bool * stopFlag )
 {
     time_t end;
     SHA_CTX sha;
     int fd = -1;
     int64_t filePos = 0;
-    tr_bool changed = 0;
-    tr_bool hadPiece = 0;
+    bool changed = 0;
+    bool hadPiece = 0;
     time_t lastSleptAt = 0;
     uint32_t piecePos = 0;
     tr_file_index_t fileIndex = 0;
@@ -105,7 +108,7 @@ verifyTorrent( tr_torrent * tor, tr_bool * stopFlag )
         if( leftInPiece == 0 )
         {
             time_t now;
-            tr_bool hasPiece;
+            bool hasPiece;
             uint8_t hash[SHA_DIGEST_LENGTH];
 
             SHA1_Final( hash, &sha );
@@ -177,7 +180,7 @@ fireCheckDone( tr_torrent * tor, tr_verify_done_cb verify_done_cb )
 static struct verify_node currentNode;
 static tr_list * verifyList = NULL;
 static tr_thread * verifyThread = NULL;
-static tr_bool stopCurrent = FALSE;
+static bool stopCurrent = false;
 
 static tr_lock*
 getVerifyLock( void )
@@ -198,7 +201,7 @@ verifyThreadFunc( void * unused UNUSED )
         struct verify_node * node;
 
         tr_lockLock( getVerifyLock( ) );
-        stopCurrent = FALSE;
+        stopCurrent = false;
         node = (struct verify_node*) verifyList ? verifyList->data : NULL;
         if( node == NULL )
         {
@@ -287,7 +290,7 @@ tr_verifyRemove( tr_torrent * tor )
 
     if( tor == currentNode.torrent )
     {
-        stopCurrent = TRUE;
+        stopCurrent = true;
         while( stopCurrent )
         {
             tr_lockUnlock( lock );
@@ -309,7 +312,7 @@ tr_verifyClose( tr_session * session UNUSED )
 {
     tr_lockLock( getVerifyLock( ) );
 
-    stopCurrent = TRUE;
+    stopCurrent = true;
     tr_list_free( &verifyList, tr_free );
 
     tr_lockUnlock( getVerifyLock( ) );

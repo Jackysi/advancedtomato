@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: platform.c 11785 2011-01-30 01:33:53Z jordan $
+ * $Id: platform.c 12204 2011-03-22 15:19:54Z jordan $
  */
 
 #ifdef WIN32
@@ -77,7 +77,7 @@ tr_getCurrentThread( void )
 #endif
 }
 
-static tr_bool
+static bool
 tr_areThreadsEqual( tr_thread_id a, tr_thread_id b )
 {
 #ifdef WIN32
@@ -98,7 +98,7 @@ struct tr_thread
 #endif
 };
 
-tr_bool
+bool
 tr_amInThread( const tr_thread * t )
 {
     return tr_areThreadsEqual( tr_getCurrentThread( ), t->thread );
@@ -377,14 +377,14 @@ moveFiles( const char * oldDir,
 static void
 migrateFiles( const tr_session * session )
 {
-    static int migrated = FALSE;
-    const tr_bool should_migrate = strstr( getOldConfigDir(), ".transmission" ) != NULL;
+    static int migrated = false;
+    const bool should_migrate = strstr( getOldConfigDir(), ".transmission" ) != NULL;
 
     if( !migrated && should_migrate )
     {
         const char * oldDir;
         const char * newDir;
-        migrated = TRUE;
+        migrated = true;
 
         oldDir = getOldTorrentsDir( );
         newDir = tr_getTorrentDir( session );
@@ -575,7 +575,7 @@ tr_getWebClientDir( const tr_session * session UNUSED )
                                                                        CFStringGetFastestEncoding( appRef ));
 
                 char * appString = tr_malloc( appLength + 1 );
-                tr_bool success = CFStringGetCString( appRef,
+                bool success = CFStringGetCString( appRef,
                                               appString,
                                               appLength + 1,
                                               CFStringGetFastestEncoding( appRef ));

@@ -141,6 +141,7 @@ obj-$(TCONFIG_EMF) += igs
 obj-$(TCONFIG_BBT) += openssl
 obj-$(TCONFIG_BBT) += libevent
 obj-$(TCONFIG_BBT) += libcurl
+obj-$(TCONFIG_BBT) += gettext
 obj-$(TCONFIG_BBT) += transmission
 obj-$(TCONFIG_BT) += btgui
 obj-$(TCONFIG_BBT) += zlib
@@ -312,6 +313,9 @@ endif
 	install $(LIBDIR)/libnsl.so.0 $(TARGETDIR)/lib/
 ifeq ($(TCONFIG_SSH),y)
 	install $(LIBDIR)/libutil.so.0 $(TARGETDIR)/lib/
+endif
+ifeq ($(TCONFIG_BBT),y)
+	install $(LIBDIR)/librt-0.9.30.1.so $(TARGETDIR)/lib/librt.so.0
 endif
 ifneq ($(TCONFIG_OPTIMIZE_SHARED_LIBS),y)
 	install $(LIBDIR)/libresolv.so.0 $(TARGETDIR)/lib/
@@ -1516,7 +1520,28 @@ libevent-install: libevent
 	install -d $(TOP)/libevent/staged
 	$(MAKE) -C libevent DESTDIR=$(TOP)/libevent/staged install
 
-transmission/stamp-h1: openssl libcurl libevent zlib
+gettext/stamp-h1:
+	cd gettext && \
+	CC=$(CC) CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+		$(CONFIGURE)
+		touch gettext/stamp-h1
+
+gettext: gettext/stamp-h1
+	@$(SEP)
+	$(MAKE) -C gettext/gettext-runtime/intl
+#only libintl.so we neeed for transmission 2.31
+
+gettext-clean:
+	-@$(MAKE) -C gettext clean
+	@rm -f gettext/stamp-h1 gettext/Makefile
+
+gettext-install: gettext
+	install -d $(INSTALLDIR)/gettext/usr/lib
+	install gettext/gettext-runtime/intl/.libs/libintl.so.3.4.3 $(INSTALLDIR)/gettext/usr/lib/libintl.so.3
+	$(STRIP) -s $(INSTALLDIR)/gettext/usr/lib/libintl.so.3
+
+transmission/stamp-h1: openssl libcurl libevent zlib gettext
 	cd transmission && CC=$(CC) AR=$(AR) LD=$(LD) STRIP='mipsel-uclibc-strip' \
 		CFLAGS="-Os -Wall -fno-delete-null-pointer-checks -funit-at-a-time \
 		--param large-function-growth=800 --param max-inline-insns-single=3000 \
@@ -1529,7 +1554,7 @@ transmission/stamp-h1: openssl libcurl libevent zlib
 		CPPFLAGS="-I$(TOP)/zlib -O3 -DTR_EMBEDDED" \
 		ac_cv_header_libintl_h=no \
 		$(CONFIGURE) --target=mipsel-linux --prefix=/usr --disable-gtk --disable-nls \
-		--enable-lightweight --enable-largefile \
+		--enable-lightweight --enable-largefile --enable-utp \
 		LIBCURL_CFLAGS="-I$(TOP)/libcurl/include" \
 		LIBCURL_LIBS="-L$(TOP)/libcurl/lib/.libs/ -lcurl" \
 		LIBEVENT_CFLAGS="-I$(TOP)/libevent/include" \
@@ -1554,7 +1579,11 @@ transmission-install: transmission
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-edit
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-daemon
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-remote
+ifeq ($(TCONFIG_TR_EXTRAS),y)
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-create
+else
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-create
+endif
 
 btgui:
 	@$(SEP)

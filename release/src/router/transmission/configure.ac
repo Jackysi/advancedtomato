@@ -3,8 +3,8 @@ dnl STATUS: "X" for prerelease beta builds,
 dnl         "Z" for unsupported trunk builds,
 dnl         "0" for stable, supported releases
 dnl these should be the only two lines you need to change
-m4_define([user_agent_prefix],[2.22])
-m4_define([peer_id_prefix],[-TR2220-])
+m4_define([user_agent_prefix],[2.31])
+m4_define([peer_id_prefix],[-TR2310-])
 
 AC_INIT([transmission],
         [user_agent_prefix],
@@ -108,7 +108,8 @@ fi
 AC_HEADER_STDC
 AC_HEADER_TIME
 
-AC_CHECK_FUNCS([iconv_open pread pwrite lrintf strlcpy daemon dirname basename strcasecmp localtime_r fallocate64 posix_fallocate memmem strsep strtold syslog valloc getpagesize posix_memalign statvfs])
+AC_CHECK_HEADERS([stdbool.h])
+AC_CHECK_FUNCS([iconv_open pread pwrite lrintf strlcpy daemon dirname basename strcasecmp localtime_r fallocate64 posix_fallocate memmem strsep strtold syslog valloc getpagesize posix_memalign statvfs htonll ntohll])
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 ACX_PTHREAD
@@ -195,16 +196,6 @@ AC_TRY_LINK([#include <stdarg.h>], [va_list ap1, ap2; va_copy(ap1, ap2);],
 ])
 
 
-dnl libevent likes to link against librt if possible
-dnl for clock_gettime() and clock_settime()
-dnl TODO(libevent2): this can probably be removed after
-dnl we switch to libevent2, since it will have PKG_CONFIG
-AC_CHECK_LIB([rt],
-             [clock_gettime],
-             [libevent_extra_libs="-lrt"],
-             [libevent_extra_libs=""])
-
-
 dnl ----------------------------------------------------------------------------
 dnl
 dnl  dht
@@ -213,6 +204,45 @@ DHT_CFLAGS="-I\$(top_srcdir)/third-party/dht"
 DHT_LIBS="\$(top_builddir)/third-party/dht/libdht.a"
 AC_SUBST(DHT_CFLAGS)
 AC_SUBST(DHT_LIBS)
+
+
+dnl ----------------------------------------------------------------------------
+dnl
+dnl  utp
+
+AC_CHECK_LIB([rt],
+             [clock_gettime],
+             [libutp_extra_libs="-lrt"],
+             [libutp_extra_libs=""])
+
+AC_MSG_CHECKING([µTP])
+build_utp="no"
+if test "x$CXX" = "x" ; then
+    have_utp="no"
+else
+    have_utp="yes"
+fi
+AC_ARG_ENABLE([utp],
+              AS_HELP_STRING([--enable-utp],[build µTP support]),
+              [want_utp=${enableval}],
+              [want_utp=${have_utp}])
+if test "x$want_utp" = "xyes" ; then
+    if test "x$have_utp" = "xyes"; then 
+        LIBUTP_CFLAGS="-I\$(top_srcdir)/third-party/"
+        LIBUTP_LIBS="\$(top_builddir)/third-party/libutp/libutp.a"
+	if test "x$libutp_extra_libs" != "x" ; then
+	   LIBUTP_LIBS="$LIBUTP_LIBS $libutp_extra_libs"
+	fi
+        AC_DEFINE([WITH_UTP],[1])
+        build_utp="yes"
+    else 
+      AC_MSG_ERROR("Unable to build uTP support -- C++ compiler not found") 
+    fi 
+fi 
+AC_SUBST(LIBUTP_CFLAGS)
+AC_SUBST(LIBUTP_LIBS)
+AM_CONDITIONAL([BUILD_UTP],[test "x$build_utp" = "xyes"])
+AC_MSG_RESULT([$build_utp])
 
 
 dnl ----------------------------------------------------------------------------
@@ -470,6 +500,7 @@ AC_CONFIG_FILES([Makefile
                  third-party/Makefile
                  third-party/miniupnp/Makefile
                  third-party/libnatpmp/Makefile
+                 third-party/libutp/Makefile
                  third-party/dht/Makefile
                  macosx/Makefile
                  gtk/Makefile
@@ -496,6 +527,7 @@ Configuration:
    Build libtransmission:                             yes
 
       * optimized for low-resource systems:           ${enable_lightweight}
+      * µTP enabled:                                  ${build_utp}
 
    Build Command-Line client:                         ${build_cli}
 

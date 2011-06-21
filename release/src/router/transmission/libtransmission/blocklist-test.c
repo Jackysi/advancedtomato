@@ -1,6 +1,4 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include "transmission.h"
 #include "blocklist.h"
 #include "net.h"
@@ -65,36 +63,36 @@ main( void )
     remove( tmpfile_txt );
     remove( tmpfile_bin );
 
-    b = _tr_blocklistNew( tmpfile_bin, TRUE );
+    b = _tr_blocklistNew( tmpfile_bin, true );
     createTestBlocklist( tmpfile_txt );
     _tr_blocklistSetContent( b, tmpfile_txt );
 
     /* now run some tests */
-    check( tr_pton( "216.16.1.143", &addr ) );
+    check( tr_address_from_string( &addr, "216.16.1.143" ) );
     check( !_tr_blocklistHasAddress( b, &addr ) );
-    check( tr_pton( "216.16.1.144", &addr ) );
+    check( tr_address_from_string( &addr, "216.16.1.144" ) );
     check( _tr_blocklistHasAddress( b, &addr ) );
-    check( tr_pton( "216.16.1.145", &addr ) );
+    check( tr_address_from_string( &addr, "216.16.1.145" ) );
     check( _tr_blocklistHasAddress( b, &addr ) );
-    check( tr_pton( "216.16.1.146", &addr ) );
+    check( tr_address_from_string( &addr, "216.16.1.146" ) );
     check( _tr_blocklistHasAddress( b, &addr ) );
-    check( tr_pton( "216.16.1.147", &addr ) );
+    check( tr_address_from_string( &addr, "216.16.1.147" ) );
     check( _tr_blocklistHasAddress( b, &addr ) );
-    check( tr_pton( "216.16.1.148", &addr ) );
+    check( tr_address_from_string( &addr, "216.16.1.148" ) );
     check( _tr_blocklistHasAddress( b, &addr ) );
-    check( tr_pton( "216.16.1.149", &addr ) );
+    check( tr_address_from_string( &addr, "216.16.1.149" ) );
     check( _tr_blocklistHasAddress( b, &addr ) );
-    check( tr_pton( "216.16.1.150", &addr ) );
+    check( tr_address_from_string( &addr, "216.16.1.150" ) );
     check( _tr_blocklistHasAddress( b, &addr ) );
-    check( tr_pton( "216.16.1.151", &addr ) );
+    check( tr_address_from_string( &addr, "216.16.1.151" ) );
     check( _tr_blocklistHasAddress( b, &addr ) );
-    check( tr_pton( "216.16.1.152", &addr ) );
+    check( tr_address_from_string( &addr, "216.16.1.152" ) );
     check( !_tr_blocklistHasAddress( b, &addr ) );
-    check( tr_pton( "216.16.1.153", &addr ) );
+    check( tr_address_from_string( &addr, "216.16.1.153" ) );
     check( !_tr_blocklistHasAddress( b, &addr ) );
-    check( tr_pton( "217.0.0.1", &addr ) );
+    check( tr_address_from_string( &addr, "217.0.0.1" ) );
     check( !_tr_blocklistHasAddress( b, &addr ) );
-    check( tr_pton( "255.0.0.1", &addr ) );
+    check( tr_address_from_string( &addr, "255.0.0.1" ) );
 
     /* cleanup */
     _tr_blocklistFree( b );

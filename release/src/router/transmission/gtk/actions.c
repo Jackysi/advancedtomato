@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: actions.c 11726 2011-01-20 20:32:28Z jordan $
+ * $Id: actions.c 12354 2011-04-12 11:13:41Z jordan $
  */
 
 #include <string.h>
@@ -40,10 +40,6 @@ action_cb( GtkAction * a, gpointer user_data )
     gtr_actions_handler( gtk_action_get_name( a ), user_data );
 }
 
-#if !GTK_CHECK_VERSION( 2, 8, 0 )
- #define GTK_STOCK_INFO GTK_STOCK_PROPERTIES
-#endif
-
 #if !GTK_CHECK_VERSION( 2, 10, 0 )
  #define GTK_STOCK_SELECT_ALL NULL
 #endif
@@ -69,7 +65,7 @@ sort_changed_cb( GtkAction            * action UNUSED,
     const int    i = gtk_radio_action_get_current_value( current );
     const char * val = sort_radio_entries[i].name;
 
-    tr_core_set_pref( myCore, key, val );
+    gtr_core_set_pref( myCore, key, val );
 }
 
 static GtkToggleActionEntry show_toggle_entries[] =
@@ -85,7 +81,7 @@ toggle_pref_cb( GtkToggleAction *  action,
     const char *   key = gtk_action_get_name( GTK_ACTION( action ) );
     const gboolean val = gtk_toggle_action_get_active( action );
 
-    tr_core_set_pref_bool( myCore, key, val );
+    gtr_core_set_pref_bool( myCore, key, val );
 }
 
 static GtkToggleActionEntry  pref_toggle_entries[] =

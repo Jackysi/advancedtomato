@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: cli.c 12054 2011-02-28 02:45:25Z livings124 $
+ * $Id: cli.c 12223 2011-03-24 21:49:42Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -22,10 +22,9 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+#include <stdio.h> /* fprintf() */
+#include <stdlib.h> /* atoi() */
+#include <string.h> /* memcmp() */
 #include <signal.h>
 
 #include <libtransmission/transmission.h>
@@ -67,8 +66,8 @@
 #define MY_CONFIG_NAME "transmission"
 #define MY_READABLE_NAME "transmission-cli"
 
-static tr_bool showVersion = FALSE;
-static tr_bool verify                = 0;
+static bool showVersion              = false;
+static bool verify                   = 0;
 static sig_atomic_t gotsig           = 0;
 static sig_atomic_t manualUpdate     = 0;
 
@@ -127,17 +126,19 @@ tr_strlratio( char * buf,
     return buf;
 }
 
-static tr_bool waitingOnWeb;
+static bool waitingOnWeb;
 
 static void
 onTorrentFileDownloaded( tr_session   * session UNUSED,
+                         bool           did_connect UNUSED,
+                         bool           did_timeout UNUSED,
                          long           response_code UNUSED,
                          const void   * response,
                          size_t         response_byte_count,
                          void         * ctor )
 {
     tr_ctorSetMetainfo( ctor, response, response_byte_count );
-    waitingOnWeb = FALSE;
+    waitingOnWeb = false;
 }
 
 static void
@@ -256,19 +257,19 @@ main( int argc, char ** argv )
         return EXIT_FAILURE;
     }
 
-    h = tr_sessionInit( "cli", configDir, FALSE, &settings );
+    h = tr_sessionInit( "cli", configDir, false, &settings );
 
     ctor = tr_ctorNew( h );
 
     fileContents = tr_loadFile( torrentPath, &fileLength );
-    tr_ctorSetPaused( ctor, TR_FORCE, FALSE );
+    tr_ctorSetPaused( ctor, TR_FORCE, false );
     if( fileContents != NULL ) {
         tr_ctorSetMetainfo( ctor, fileContents, fileLength );
     } else if( !memcmp( torrentPath, "magnet:?", 8 ) ) {
         tr_ctorSetMetainfoFromMagnetLink( ctor, torrentPath );
     } else if( !memcmp( torrentPath, "http", 4 ) ) {
-        tr_webRun( h, torrentPath, NULL, onTorrentFileDownloaded, ctor );
-        waitingOnWeb = TRUE;
+        tr_webRun( h, torrentPath, NULL, NULL, onTorrentFileDownloaded, ctor );
+        waitingOnWeb = true;
         while( waitingOnWeb ) tr_wait_msec( 1000 );
     } else {
         fprintf( stderr, "ERROR: Unrecognized torrent \"%s\".\n", torrentPath );
@@ -367,36 +368,36 @@ parseCommandLine( tr_benc * d, int argc, const char ** argv )
     {
         switch( c )
         {
-            case 'b': tr_bencDictAddBool( d, TR_PREFS_KEY_BLOCKLIST_ENABLED, TRUE );
+            case 'b': tr_bencDictAddBool( d, TR_PREFS_KEY_BLOCKLIST_ENABLED, true );
                       break;
-            case 'B': tr_bencDictAddBool( d, TR_PREFS_KEY_BLOCKLIST_ENABLED, FALSE );
+            case 'B': tr_bencDictAddBool( d, TR_PREFS_KEY_BLOCKLIST_ENABLED, false );
                       break;
             case 'd': tr_bencDictAddInt ( d, TR_PREFS_KEY_DSPEED_KBps, atoi( optarg ) );
-                      tr_bencDictAddBool( d, TR_PREFS_KEY_DSPEED_ENABLED, TRUE );
+                      tr_bencDictAddBool( d, TR_PREFS_KEY_DSPEED_ENABLED, true );
                       break;
-            case 'D': tr_bencDictAddBool( d, TR_PREFS_KEY_DSPEED_ENABLED, FALSE );
+            case 'D': tr_bencDictAddBool( d, TR_PREFS_KEY_DSPEED_ENABLED, false );
                       break;
             case 'f': tr_bencDictAddStr( d, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_FILENAME, optarg );
-                      tr_bencDictAddBool( d, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED, TRUE );
+                      tr_bencDictAddBool( d, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED, true );
                       break;
             case 'g': /* handled above */
                       break;
-            case 'm': tr_bencDictAddBool( d, TR_PREFS_KEY_PORT_FORWARDING, TRUE );
+            case 'm': tr_bencDictAddBool( d, TR_PREFS_KEY_PORT_FORWARDING, true );
                       break;
-            case 'M': tr_bencDictAddBool( d, TR_PREFS_KEY_PORT_FORWARDING, FALSE );
+            case 'M': tr_bencDictAddBool( d, TR_PREFS_KEY_PORT_FORWARDING, false );
                       break;
             case 'p': tr_bencDictAddInt( d, TR_PREFS_KEY_PEER_PORT, atoi( optarg ) );
                       break;
             case 't': tr_bencDictAddInt( d, TR_PREFS_KEY_PEER_SOCKET_TOS, atoi( optarg ) );
                       break;
             case 'u': tr_bencDictAddInt( d, TR_PREFS_KEY_USPEED_KBps, atoi( optarg ) );
-                      tr_bencDictAddBool( d, TR_PREFS_KEY_USPEED_ENABLED, TRUE );
+                      tr_bencDictAddBool( d, TR_PREFS_KEY_USPEED_ENABLED, true );
                       break;
-            case 'U': tr_bencDictAddBool( d, TR_PREFS_KEY_USPEED_ENABLED, FALSE );
+            case 'U': tr_bencDictAddBool( d, TR_PREFS_KEY_USPEED_ENABLED, false );
                       break;
-            case 'v': verify = TRUE;
+            case 'v': verify = true;
                       break;
-            case 'V': showVersion = TRUE;
+            case 'V': showVersion = true;
                       break;
             case 'w': tr_bencDictAddStr( d, TR_PREFS_KEY_DOWNLOAD_DIR, optarg );
                       break;

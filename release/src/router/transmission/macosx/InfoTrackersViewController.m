@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoTrackersViewController.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: InfoTrackersViewController.m 12325 2011-04-05 23:03:33Z livings124 $
  *
  * Copyright (c) 2010-2011 Transmission authors and contributors
  *
@@ -60,6 +60,11 @@
 
 - (void) awakeFromNib
 {
+    [[fTrackerAddRemoveControl cell] setToolTip: NSLocalizedString(@"Add a tracker", "Inspector view -> tracker buttons")
+        forSegment: TRACKER_ADD_TAG];
+    [[fTrackerAddRemoveControl cell] setToolTip: NSLocalizedString(@"Remove selected trackers", "Inspector view -> tracker buttons")
+        forSegment: TRACKER_REMOVE_TAG];
+    
     const CGFloat height = [[NSUserDefaults standardUserDefaults] floatForKey: @"InspectorContentHeightTracker"];
     if (height != 0.0)
     {
@@ -233,6 +238,8 @@
     if ([fTrackerTable editedRow] != -1)
         return;
     
+    [self updateInfo];
+    
     if ([[sender cell] tagForSegment: [sender selectedSegment]] == TRACKER_REMOVE_TAG)
         [self removeTrackers];
     else
@@ -306,14 +313,14 @@
             if (groupSelected || [selectedIndexes containsIndex: i])
             {
                 Torrent * torrent = [(TrackerNode *)object torrent];
-                NSMutableIndexSet * removeIndexSet;
-                if (!(removeIndexSet = [removeIdentifiers objectForKey: torrent]))
+                NSMutableSet * removeSet;
+                if (!(removeSet = [removeIdentifiers objectForKey: torrent]))
                 {
-                    removeIndexSet = [NSMutableIndexSet indexSet];
-                    [removeIdentifiers setObject: removeIndexSet forKey: torrent];
+                    removeSet = [NSMutableSet set];
+                    [removeIdentifiers setObject: removeSet forKey: torrent];
                 }
                 
-                [removeIndexSet addIndex: [(TrackerNode *)object identifier]];
+                [removeSet addObject: [(TrackerNode *)object fullAnnounceAddress]];
                 ++removeCount;
             }
         }
@@ -325,7 +332,10 @@
         }
     }
     
-    NSAssert(removeCount > 0, @"Trying to remove no trackers.");
+    //we might have no trackers if remove right after a failed add (race condition ftw)
+    #warning look into having a failed add apply right away, so that this can become an assert
+    if (removeCount == 0)
+        return;
     
     if ([[NSUserDefaults standardUserDefaults] boolForKey: @"WarningRemoveTrackers"])
     {
@@ -360,7 +370,7 @@
     }
     
     for (Torrent * torrent in removeIdentifiers)
-        [torrent removeTrackersWithIdentifiers: [removeIdentifiers objectForKey: torrent]];
+        [torrent removeTrackers: [removeIdentifiers objectForKey: torrent]];
     
     //reset table with either new or old value
     [fTrackers release];

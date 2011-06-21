@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: StatsWindowController.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: StatsWindowController.m 11859 2011-02-09 02:49:32Z livings124 $
  *
  * Copyright (c) 2007-2011 Transmission authors and contributors
  *
@@ -196,8 +196,8 @@ tr_session * fLib;
     if (statsAll.sessionCount == 1)
         [fNumOpenedField setStringValue: NSLocalizedString(@"1 time", "stats window -> times opened")];
     else
-        [fNumOpenedField setStringValue: [NSString stringWithFormat: NSLocalizedString(@"%llu times", "stats window -> times opened"),
-                                            statsAll.sessionCount]];
+        [fNumOpenedField setStringValue: [NSString stringWithFormat: NSLocalizedString(@"%@ times", "stats window -> times opened"),
+                                            [NSString formattedUInteger: statsAll.sessionCount]]];
 }
 
 - (void) performResetStats

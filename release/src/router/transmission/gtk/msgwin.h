@@ -7,11 +7,13 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: msgwin.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: msgwin.h 12068 2011-03-03 01:59:25Z jordan $
  */
 
 #ifndef GTR_MSGWIN_H
 #define GTR_MSGWIN_H
+
+#include "tr-core.h"
 
 GtkWidget * gtr_message_log_window_new( GtkWindow * parent, TrCore * core );
 

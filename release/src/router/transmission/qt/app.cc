@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: app.cc 12031 2011-02-24 15:36:26Z jordan $
+ * $Id: app.cc 12008 2011-02-23 02:16:16Z jordan $
  */
 
 #include <cassert>

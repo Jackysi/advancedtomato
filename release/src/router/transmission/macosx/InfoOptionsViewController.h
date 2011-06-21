@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoOptionsViewController.h 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: InfoOptionsViewController.h 11874 2011-02-12 03:13:14Z livings124 $
  *
  * Copyright (c) 2010-2011 Transmission authors and contributors
  *
@@ -34,7 +34,9 @@
     IBOutlet NSPopUpButton * fPriorityPopUp, * fRatioPopUp, * fIdlePopUp;
     IBOutlet NSButton * fUploadLimitCheck, * fDownloadLimitCheck, * fGlobalLimitCheck;
     IBOutlet NSTextField * fUploadLimitField, * fDownloadLimitField, * fRatioLimitField, * fIdleLimitField,
-                        * fUploadLimitLabel, * fDownloadLimitLabel, * fIdleLimitLabel, * fPeersConnectLabel, * fPeersConnectField;
+                        * fUploadLimitLabel, * fDownloadLimitLabel, * fIdleLimitLabel,
+                        * fRatioLimitGlobalLabel, * fIdleLimitGlobalLabel,
+                        * fPeersConnectLabel, * fPeersConnectField;
     
     NSString * fInitialString;
 }

@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: watch.c 11823 2011-02-03 17:37:53Z jordan $
+ * $Id: watch.c 12298 2011-04-02 07:46:37Z jordan $
  */
 #ifdef WITH_INOTIFY
   #include <sys/inotify.h>
@@ -20,7 +20,8 @@
 #endif
 
 #include <errno.h>
-#include <string.h> /* strstr */
+#include <string.h> /* strlen() */
+#include <stdio.h> /* perror() */
 
 #include <dirent.h> /* readdir */
 
@@ -180,10 +181,10 @@ add_file_to_list( struct evbuffer * buf, const char * filename, size_t len )
     evbuffer_add( buf, key, strlen( key ) );
     tr_free( key );
 }
-static tr_bool
+static bool
 is_file_in_list( struct evbuffer * buf, const char * filename, size_t len )
 {
-    tr_bool in_list;
+    bool in_list;
     struct evbuffer_ptr ptr;
     char * key = get_key_from_file( filename, len );
 

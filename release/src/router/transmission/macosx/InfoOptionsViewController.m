@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoOptionsViewController.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: InfoOptionsViewController.m 11875 2011-02-12 03:28:36Z livings124 $
  *
  * Copyright (c) 2010-2011 Transmission authors and contributors
  *
@@ -23,6 +23,7 @@
  *****************************************************************************/
 
 #import "InfoOptionsViewController.h"
+#import "NSStringAdditions.h"
 #import "Torrent.h"
 
 #define OPTION_POPUP_GLOBAL 0
@@ -38,6 +39,7 @@
 @interface InfoOptionsViewController (Private)
 
 - (void) setupInfo;
+- (void) setGlobalLabels;
 
 @end
 
@@ -53,8 +55,18 @@
     return self;
 }
 
+- (void) awakeFromNib
+{
+    [self setGlobalLabels];
+    
+    [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(setGlobalLabels) name: @"UpdateGlobalOptions"
+        object: nil];
+}
+
 - (void) dealloc
 {
+    [[NSNotificationCenter defaultCenter] removeObserver: self];
+    
     [fTorrents release];
     
     [super dealloc];
@@ -182,6 +194,8 @@
     else
         [fRatioLimitField setStringValue: @""];
     
+    [fRatioLimitGlobalLabel setHidden: checkRatio != TR_RATIOLIMIT_GLOBAL];
+    
     //set idle view
     if (checkIdle == TR_IDLELIMIT_SINGLE)
         index = OPTION_POPUP_LIMIT;
@@ -200,6 +214,8 @@
     else
         [fIdleLimitField setStringValue: @""];
     [fIdleLimitLabel setHidden: checkIdle != TR_IDLELIMIT_SINGLE];
+    
+    [fIdleLimitGlobalLabel setHidden: checkIdle != TR_IDLELIMIT_GLOBAL];
     
     //get priority info
     enumerator = [fTorrents objectEnumerator];
@@ -294,7 +310,7 @@
 - (void) setRatioSetting: (id) sender
 {
     NSInteger setting;
-    bool single = NO;
+    BOOL single = NO;
     switch ([sender indexOfSelectedItem])
     {
         case OPTION_POPUP_LIMIT:
@@ -321,6 +337,8 @@
         [fRatioLimitField selectText: self];
         [[[self view] window] makeKeyAndOrderFront: self];
     }
+    
+    [fRatioLimitGlobalLabel setHidden: setting != TR_RATIOLIMIT_GLOBAL];
 }
 
 - (void) setRatioLimit: (id) sender
@@ -334,7 +352,7 @@
 - (void) setIdleSetting: (id) sender
 {
     NSInteger setting;
-    bool single = NO;
+    BOOL single = NO;
     switch ([sender indexOfSelectedItem])
     {
         case OPTION_POPUP_LIMIT:
@@ -362,6 +380,8 @@
         [fIdleLimitField selectText: self];
         [[[self view] window] makeKeyAndOrderFront: self];
     }
+    
+    [fIdleLimitGlobalLabel setHidden: setting != TR_IDLELIMIT_GLOBAL];
 }
 
 - (void) setIdleLimit: (id) sender
@@ -455,12 +475,14 @@
         [fRatioPopUp selectItemAtIndex: -1];
         [fRatioLimitField setHidden: YES];
         [fRatioLimitField setStringValue: @""];
+        [fRatioLimitGlobalLabel setHidden: YES];
         
         [fIdlePopUp setEnabled: NO];
         [fIdlePopUp selectItemAtIndex: -1];
         [fIdleLimitField setHidden: YES];
         [fIdleLimitField setStringValue: @""];
         [fIdleLimitLabel setHidden: YES];
+        [fIdleLimitGlobalLabel setHidden: YES];
         
         [fPeersConnectField setEnabled: NO];
         [fPeersConnectField setStringValue: @""];
@@ -468,6 +490,26 @@
     }
     else
         [self updateOptions];
+}
+
+- (void) setGlobalLabels
+{
+    NSString * global = [[NSUserDefaults standardUserDefaults] boolForKey: @"RatioCheck"]
+        ? [NSString stringForRatio: [[NSUserDefaults standardUserDefaults] floatForKey: @"RatioLimit"]]
+        : NSLocalizedString(@"disabled", "Info options -> global setting");
+    [fRatioLimitGlobalLabel setStringValue: global];
+    
+    //idle field
+    NSString * globalIdle;
+    if ([[NSUserDefaults standardUserDefaults] boolForKey: @"IdleLimitCheck"])
+    {
+        const NSInteger globalMin = [[NSUserDefaults standardUserDefaults] integerForKey: @"IdleLimitMinutes"];
+        globalIdle = globalMin == 1 ? NSLocalizedString(@"1 minute", "Info options -> global setting")
+            : [NSString stringWithFormat: NSLocalizedString(@"%d minutes", "Info options -> global setting"), globalMin];
+    }
+    else
+        globalIdle = NSLocalizedString(@"disabled", "Info options -> global setting");
+    [fIdleLimitGlobalLabel setStringValue: globalIdle];
 }
 
 @end
