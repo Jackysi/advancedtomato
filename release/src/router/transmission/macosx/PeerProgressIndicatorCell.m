@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: PeerProgressIndicatorCell.m 12011 2011-02-23 02:39:12Z livings124 $
+ * $Id: PeerProgressIndicatorCell.m 11986 2011-02-19 19:30:24Z livings124 $
  * 
  * Copyright (c) 2007-2011 Transmission authors and contributors
  *

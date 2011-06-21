@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: utils.h 12032 2011-02-24 15:38:58Z jordan $
+ * $Id: utils.h 12211 2011-03-22 23:49:29Z jordan $
  */
 
 #ifndef TR_UTILS_H
@@ -15,9 +15,6 @@
 
 #include <inttypes.h>
 #include <stddef.h> /* size_t */
-#include <stdio.h> /* FILE* */
-#include <string.h> /* memcpy()* */
-#include <stdlib.h> /* malloc() */
 #include <time.h> /* time_t */
 
 #ifdef __cplusplus
@@ -32,14 +29,6 @@ extern "C" {
  * @addtogroup utils Utilities
  * @{
  */
-
-#ifndef FALSE
- #define FALSE 0
-#endif
-
-#ifndef TRUE
- #define TRUE 1
-#endif
 
 #ifndef UNUSED
  #ifdef __GNUC__
@@ -76,10 +65,8 @@ extern "C" {
 #endif
 
 #if __GNUC__ > 2 || ( __GNUC__ == 2 && __GNUC_MINOR__ >= 96 )
- #define TR_GNUC_PURE __attribute__ ( ( __pure__ ) )
  #define TR_GNUC_MALLOC __attribute__ ( ( __malloc__ ) )
 #else
- #define TR_GNUC_PURE
  #define TR_GNUC_MALLOC
 #endif
 
@@ -123,7 +110,7 @@ static inline tr_msg_level tr_getMessageLevel( void )
     return __tr_message_level;
 }
 
-static inline tr_bool tr_msgLoggingIsActive( tr_msg_level level )
+static inline bool tr_msgLoggingIsActive( tr_msg_level level )
 {
     return tr_getMessageLevel() >= level;
 }
@@ -189,10 +176,10 @@ void tr_msg( const char * file, int line,
 
 
 
-FILE*          tr_getLog( void );
+void* tr_getLog( void );
 
 /** @brief return true if deep logging has been enabled by the user; false otherwise */
-tr_bool tr_deepLoggingIsActive( void );
+bool tr_deepLoggingIsActive( void );
 
 void           tr_deepLog( const char * file,
                            int          line,
@@ -208,7 +195,7 @@ char* tr_getLogTimeStr( char * buf, int buflen ) TR_GNUC_NONNULL(1);
  * @brief Rich Salz's classic implementation of shell-style pattern matching for ?, \, [], and * characters.
  * @return 1 if the pattern matches, 0 if it doesn't, or -1 if an error occured
  */
-int tr_wildmat( const char * text, const char * pattern ) TR_GNUC_NONNULL(1,2);
+bool tr_wildmat( const char * text, const char * pattern ) TR_GNUC_NONNULL(1,2);
 
 /** @brief Portability wrapper for basename() that uses the system implementation if available */
 char* tr_basename( const char * path ) TR_GNUC_MALLOC;
@@ -308,12 +295,6 @@ void* tr_malloc0( size_t size );
 /** @brief Portability wrapper around free() in which `NULL' is a safe argument */
 void tr_free( void * p );
 
-static inline
-void evbuffer_ref_cleanup_tr_free( const void * data UNUSED, size_t datalen UNUSED, void * extra )
-{
-    tr_free( extra );
-}
-
 /**
  * @brief make a newly-allocated copy of a chunk of memory
  * @param src the memory to copy
@@ -365,7 +346,7 @@ int tr_lowerBound( const void * key,
                    size_t       nmemb,
                    size_t       size,
                    int       (* compar)(const void* key, const void* arrayMember),
-                   tr_bool    * exact_match ) TR_GNUC_HOT TR_GNUC_NONNULL(1,5,6);
+                   bool       * exact_match ) TR_GNUC_HOT TR_GNUC_NONNULL(1,5,6);
 
 
 /**
@@ -407,7 +388,7 @@ const char* tr_strerror( int );
 char* tr_strstrip( char * str );
 
 /** @brief Returns true if the string ends with the specified case-insensitive suffix */
-tr_bool tr_str_has_suffix( const char *str, const char *suffix );
+bool tr_str_has_suffix( const char *str, const char *suffix );
 
 
 /** @brief Portability wrapper for memmem() that uses the system implementation if available */
@@ -421,30 +402,6 @@ char* tr_strsep( char ** str, const char * delim );
 ****
 ***/
 
-typedef void ( tr_set_func )( void * element, void * userData );
-
-/**
- * @brief find the differences and commonalities in two sorted sets
- * @param a the first set
- * @param aCount the number of elements in the set 'a'
- * @param b the second set
- * @param bCount the number of elements in the set 'b'
- * @param compare the sorting method for both sets
- * @param elementSize the sizeof the element in the two sorted sets
- * @param in_a called for items in set 'a' but not set 'b'
- * @param in_b called for items in set 'b' but not set 'a'
- * @param in_both called for items that are in both sets
- * @param userData user data passed along to in_a, in_b, and in_both
- */
-void tr_set_compare( const void * a, size_t aCount,
-                     const void * b, size_t bCount,
-                     int compare( const void * a, const void * b ),
-                     size_t elementSize,
-                     tr_set_func in_a_cb,
-                     tr_set_func in_b_cb,
-                     tr_set_func in_both_cb,
-                     void * userData );
-
 int compareInt( const void * va, const void * vb );
 
 void tr_sha1_to_hex( char * out, const uint8_t * sha1 ) TR_GNUC_NONNULL(1,2);
@@ -452,13 +409,13 @@ void tr_sha1_to_hex( char * out, const uint8_t * sha1 ) TR_GNUC_NONNULL(1,2);
 void tr_hex_to_sha1( uint8_t * out, const char * hex ) TR_GNUC_NONNULL(1,2);
 
 /** @brief convenience function to determine if an address is an IP address (IPv4 or IPv6) */
-tr_bool tr_addressIsIP( const char * address );
+bool tr_addressIsIP( const char * address );
 
-/** @brief return TRUE if the url is a http or https url that Transmission understands */
-tr_bool tr_urlIsValidTracker( const char * url ) TR_GNUC_NONNULL(1);
+/** @brief return true if the url is a http or https url that Transmission understands */
+bool tr_urlIsValidTracker( const char * url ) TR_GNUC_NONNULL(1);
 
-/** @brief return TRUE if the url is a [ http, https, ftp, ftps ] url that Transmission understands */
-tr_bool tr_urlIsValid( const char * url, int url_len ) TR_GNUC_NONNULL(1);
+/** @brief return true if the url is a [ http, https, ftp, ftps ] url that Transmission understands */
+bool tr_urlIsValid( const char * url, int url_len ) TR_GNUC_NONNULL(1);
 
 /** @brief parse a URL into its component parts
     @return zero on success or an error number if an error occurred */
@@ -514,9 +471,6 @@ char* tr_strpercent( char * buf, double x, size_t buflen );
  */
 char* tr_strratio( char * buf, size_t buflen, double ratio, const char * infinity ) TR_GNUC_NONNULL(1,4);
 
-/* return a truncated double as a string */
-char* tr_strtruncd( char * buf, double x, int precision, size_t buflen );
-
 /** @brief Portability wrapper for localtime_r() that uses the system implementation if available */
 struct tm * tr_localtime_r( const time_t *_clock, struct tm *_result );
 
@@ -526,10 +480,10 @@ struct tm * tr_localtime_r( const time_t *_clock, struct tm *_result );
  * @return 0 on success; otherwise, return -1 and set errno
  */
 int tr_moveFile( const char * oldpath, const char * newpath,
-                 tr_bool * renamed ) TR_GNUC_NONNULL(1,2);
+                 bool * renamed ) TR_GNUC_NONNULL(1,2);
 
 /** @brief Test to see if the two filenames point to the same file. */
-tr_bool tr_is_same_file( const char * filename1, const char * filename2 );
+bool tr_is_same_file( const char * filename1, const char * filename2 );
 
 /** @brief convenience function to remove an item from an array */
 void tr_removeElementFromArray( void         * array,
@@ -561,6 +515,12 @@ static inline void tr_timeUpdate( time_t now ) { __tr_current_time = now; }
 
 /** @brief Portability wrapper for realpath() that uses the system implementation if available */
 char* tr_realpath( const char *path, char * resolved_path );
+
+/** @brief Portability wrapper for htonll() that uses the system implementation if available */
+uint64_t tr_htonll( uint64_t );
+
+/** @brief Portability wrapper for htonll() that uses the system implementation if available */
+uint64_t tr_ntohll( uint64_t );
 
 /***
 ****

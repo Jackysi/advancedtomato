@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: PrefsController.h 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: PrefsController.h 11968 2011-02-18 03:50:19Z livings124 $
  *
  * Copyright (c) 2005-2011 Transmission authors and contributors
  *
@@ -79,6 +79,8 @@
 
 - (NSArray *) sounds;
 - (void) setSound: (id) sender;
+
+- (void) setUTP: (id) sender;
 
 - (void) setPeersGlobal: (id) sender;
 - (void) setPeersTorrent: (id) sender;

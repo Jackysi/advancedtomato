@@ -1,0 +1,7 @@
+     ../../gettext-tools/lib/closeout.c \
+     ../../gettext-tools/lib/error.c \
+     ../../gettext-tools/lib/getopt.c \
+     ../../gettext-tools/lib/xmalloc.c \
+     ../src/envsubst.c \
+     ../src/gettext.c \
+     ../src/ngettext.c

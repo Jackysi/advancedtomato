@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: remote.c 12032 2011-02-24 15:38:58Z jordan $
+ * $Id: remote.c 12278 2011-03-31 05:06:19Z jordan $
  */
 
 #include <assert.h>
@@ -77,7 +77,7 @@ etaToString( char *  buf, size_t  buflen, int64_t eta )
     if( eta < 0 )
         tr_snprintf( buf, buflen, "Unknown" );
     else if( eta < 60 )
-        tr_snprintf( buf, buflen, "%" PRId64 "sec", eta );
+        tr_snprintf( buf, buflen, "%" PRId64 " sec", eta );
     else if( eta < ( 60 * 60 ) )
         tr_snprintf( buf, buflen, "%" PRId64 " min", eta / 60 );
     else if( eta < ( 60 * 60 * 24 ) )
@@ -172,9 +172,9 @@ strlmem( char * buf, int64_t bytes, size_t buflen )
 static char*
 strlsize( char * buf, int64_t bytes, size_t buflen )
 {
-    if( bytes < 1 )
+    if( bytes < 0 )
         tr_strlcpy( buf, "Unknown", buflen );
-    else if( !bytes )
+    else if( bytes == 0 )
         tr_strlcpy( buf, "None", buflen );
     else
         tr_formatter_size_B( buf, bytes, buflen );
@@ -243,7 +243,7 @@ static tr_option opts[] =
     { 'e', "cache",                  "Set the maximum size of the session's memory cache (in " MEM_M_STR ")", "e", 1, "<size>" },
     { 910, "encryption-required",    "Encrypt all peer connections", "er", 0, NULL },
     { 911, "encryption-preferred",   "Prefer encrypted peer connections", "ep", 0, NULL },
-    { 912, "encryption-tolerated",   "Prefer unencrypted peer connections", "et", 0, NULL }, 
+    { 912, "encryption-tolerated",   "Prefer unencrypted peer connections", "et", 0, NULL },
     { 850, "exit",                   "Tell the transmission session to shut down", NULL, 0, NULL },
     { 940, "files",                  "List the current torrent(s)' files", "f",  0, NULL },
     { 'g', "get",                    "Mark files for download", "g",  1, "<files>" },
@@ -298,6 +298,8 @@ static tr_option opts[] =
     { 985, "no-honor-session",       "Make the current torrent(s) not honor the session limits", "HL",  0, NULL },
     { 'u', "uplimit",                "Set the max upload speed in "SPEED_K_STR" for the current torrent(s) or globally", "u", 1, "<speed>" },
     { 'U', "no-uplimit",             "Disable max upload speed for the current torrent(s) or globally", "U", 0, NULL },
+    { 830, "utp",                    "Enable uTP for peer connections", NULL, 0, NULL },
+    { 831, "no-utp",                 "Disable uTP for peer connections", NULL, 0, NULL },
     { 'v', "verify",                 "Verify the current torrent(s)", "v",  0, NULL },
     { 'V', "version",                "Show version number and exit", "V", 0, NULL },
     { 'w', "download-dir",           "When adding a new torrent, set its download folder. Otherwise, set the default download folder", "w",  1, "<path>" },
@@ -380,6 +382,8 @@ getOptMode( int val )
         case 'Y': /* no-lpd */
         case 800: /* torrent-done-script */
         case 801: /* no-torrent-done-script */
+        case 830: /* utp */
+        case 831: /* no-utp */
         case 970: /* alt-speed */
         case 971: /* no-alt-speed */
         case 972: /* alt-speed-downlimit */
@@ -481,7 +485,7 @@ getOptMode( int val )
     }
 }
 
-static tr_bool debug = 0;
+static bool debug = 0;
 static char * auth = NULL;
 static char * netrc = NULL;
 static char * sessionId = NULL;
@@ -491,14 +495,16 @@ tr_getcwd( void )
 {
     char * result;
     char buf[2048];
-    *buf = '\0';
 #ifdef WIN32
     result = _getcwd( buf, sizeof( buf ) );
 #else
     result = getcwd( buf, sizeof( buf ) );
 #endif
     if( result == NULL )
+    {
         fprintf( stderr, "getcwd error: \"%s\"", tr_strerror( errno ) );
+        *buf = '\0';
+    }
     return tr_strdup( buf );
 }
 
@@ -546,11 +552,11 @@ addIdArg( tr_benc * args, const char * id )
     if( strcmp( id, "all" ) )
     {
         const char * pch;
-        tr_bool isList = strchr(id,',') || strchr(id,'-');
-        tr_bool isNum = TRUE;
+        bool isList = strchr(id,',') || strchr(id,'-');
+        bool isNum = true;
         for( pch=id; isNum && *pch; ++pch )
             if( !isdigit( *pch ) )
-                isNum = FALSE;
+                isNum = false;
         if( isNum || isList )
             tr_rpc_parse_list_str( tr_bencDictAdd( args, "ids" ), id, strlen( id ) );
         else
@@ -562,7 +568,7 @@ static void
 addTime( tr_benc * args, const char * key, const char * arg )
 {
     int time;
-    tr_bool success = FALSE;
+    bool success = false;
 
     if( arg && ( strlen( arg ) == 4 ) )
     {
@@ -574,7 +580,7 @@ addTime( tr_benc * args, const char * key, const char * arg )
         if( 0<=hour && hour<24 && 0<=min && min<60 )
         {
             time = min + ( hour * 60 );
-            success = TRUE;
+            success = true;
         }
     }
 
@@ -752,7 +758,7 @@ static char*
 getStatusString( tr_benc * t, char * buf, size_t buflen )
 {
     int64_t status;
-    tr_bool boolVal;
+    bool boolVal;
 
     if( !tr_bencDictFindInt( t, "status", &status ) )
     {
@@ -829,7 +835,7 @@ printDetails( tr_benc * top )
             char         buf[512];
             char         buf2[512];
             int64_t      i, j, k;
-            tr_bool      boolVal;
+            bool      boolVal;
             double       d;
 
             printf( "NAME\n" );
@@ -896,22 +902,6 @@ printDetails( tr_benc * top )
                 printf( "  Uploaded: %s\n", buf );
                 strlratio( buf, j, i, sizeof( buf ) );
                 printf( "  Ratio: %s\n", buf );
-            }
-            if( tr_bencDictFindInt( t, "seedRatioMode", &i))
-            {
-                switch( i ) {
-                    case TR_RATIOLIMIT_GLOBAL:
-                        printf( "  Ratio Limit: Default\n" );
-                        break;
-                    case TR_RATIOLIMIT_SINGLE:
-                        if( tr_bencDictFindReal( t, "seedRatioLimit", &d))
-                            printf( "  Ratio Limit: %.2f\n", d );
-                        break;
-                    case TR_RATIOLIMIT_UNLIMITED:
-                        printf( "  Ratio Limit: Unlimited\n" );
-                        break;
-                    default: break;
-                }
             }
             if( tr_bencDictFindInt( t, "corruptEver", &i ) )
             {
@@ -1017,6 +1007,22 @@ printDetails( tr_benc * top )
                     printf( "%s\n", tr_formatter_speed_KBps( buf, i, sizeof( buf ) ) );
                 else
                     printf( "Unlimited\n" );
+            }
+            if( tr_bencDictFindInt( t, "seedRatioMode", &i))
+            {
+                switch( i ) {
+                    case TR_RATIOLIMIT_GLOBAL:
+                        printf( "  Ratio Limit: Default\n" );
+                        break;
+                    case TR_RATIOLIMIT_SINGLE:
+                        if( tr_bencDictFindReal( t, "seedRatioLimit", &d))
+                            printf( "  Ratio Limit: %.2f\n", d );
+                        break;
+                    case TR_RATIOLIMIT_UNLIMITED:
+                        printf( "  Ratio Limit: Unlimited\n" );
+                        break;
+                    default: break;
+                }
             }
             if( tr_bencDictFindBool( t, "honorsSessionLimits", &boolVal ) )
                 printf( "  Honors Session Limits: %s\n", ( boolVal ? "Yes" : "No" ) );
@@ -1200,7 +1206,7 @@ printPortTest( tr_benc * top )
     tr_benc *args;
     if( ( tr_bencDictFindDict( top, "arguments", &args ) ) )
     {
-        tr_bool      boolVal;
+        bool      boolVal;
 
         if( tr_bencDictFindBool( args, "port-is-open", &boolVal ) )
             printf( "Port is open: %s\n", ( boolVal ? "Yes" : "No" ) );
@@ -1298,22 +1304,22 @@ printTrackersImpl( tr_benc * trackerStats )
     for( i=0; (( t = tr_bencListChild( trackerStats, i ))); ++i )
     {
         int64_t downloadCount;
-        tr_bool hasAnnounced;
-        tr_bool hasScraped;
+        bool hasAnnounced;
+        bool hasScraped;
         const char * host;
         int64_t id;
-        tr_bool isBackup;
+        bool isBackup;
         int64_t lastAnnouncePeerCount;
         const char * lastAnnounceResult;
         int64_t lastAnnounceStartTime;
-        tr_bool lastAnnounceSucceeded;
+        bool lastAnnounceSucceeded;
         int64_t lastAnnounceTime;
-        tr_bool lastAnnounceTimedOut;
+        bool lastAnnounceTimedOut;
         const char * lastScrapeResult;
-        tr_bool lastScrapeSucceeded;
+        bool lastScrapeSucceeded;
         int64_t lastScrapeStartTime;
         int64_t lastScrapeTime;
-        tr_bool lastScrapeTimedOut;
+        bool lastScrapeTimedOut;
         int64_t leecherCount;
         int64_t nextAnnounceTime;
         int64_t nextScrapeTime;
@@ -1453,7 +1459,7 @@ printSession( tr_benc * top )
     {
         int64_t i;
         char buf[64];
-        tr_bool boolVal;
+        bool boolVal;
         const char * str;
 
         printf( "VERSION\n" );
@@ -1476,6 +1482,8 @@ printSession( tr_benc * top )
             printf( "  Listenport: %" PRId64 "\n", i );
         if( tr_bencDictFindBool( args, TR_PREFS_KEY_PORT_FORWARDING, &boolVal ) )
             printf( "  Portforwarding enabled: %s\n", ( boolVal ? "Yes" : "No" ) );
+        if( tr_bencDictFindBool( args, TR_PREFS_KEY_UTP_ENABLED, &boolVal ) )
+            printf( "  uTP enabled: %s\n", ( boolVal ? "Yes" : "No" ) );
         if( tr_bencDictFindBool( args, TR_PREFS_KEY_DHT_ENABLED, &boolVal ) )
             printf( "  Distributed hash table enabled: %s\n", ( boolVal ? "Yes" : "No" ) );
         if( tr_bencDictFindBool( args, TR_PREFS_KEY_LPD_ENABLED, &boolVal ) )
@@ -1489,7 +1497,7 @@ printSession( tr_benc * top )
         printf( "\n" );
 
         {
-            tr_bool altEnabled, altTimeEnabled, upEnabled, downEnabled, seedRatioLimited;
+            bool altEnabled, altTimeEnabled, upEnabled, downEnabled, seedRatioLimited;
             int64_t altDown, altUp, altBegin, altEnd, altDay, upLimit, downLimit, peerLimit;
             double seedRatioLimit;
 
@@ -1545,7 +1553,7 @@ printSession( tr_benc * top )
                         downEnabled ? "Enabled" : "Disabled",
                         tr_formatter_speed_KBps( buf2, downLimit, sizeof( buf2 ) ),
                         altEnabled ? "Enabled" : "Disabled",
-                        tr_formatter_speed_KBps( buf2, altDown, sizeof( buf2 ) ) );
+                        tr_formatter_speed_KBps( buf3, altDown, sizeof( buf3 ) ) );
 
                 if( altTimeEnabled ) {
                     printf( "  Turtle schedule: %02d:%02d - %02d:%02d  ",
@@ -1630,11 +1638,11 @@ processResponse( const char * rpcurl, const void * response, size_t len )
     else
     {
         int64_t      tag = -1;
-        int          itag;
+      int          itag;
         const char * str;
         tr_bencDictFindInt( &top, "tag", &tag );
 
-        itag = tag;
+      itag = tag;
         switch( itag )
         {
             case TAG_SESSION:
@@ -1839,7 +1847,7 @@ processArgs( const char * rpcurl, int argc, const char ** argv )
                     break;
 
                 case 'b': /* debug */
-                    debug = TRUE;
+                    debug = true;
                     break;
 
                 case 'n': /* auth */
@@ -1906,7 +1914,7 @@ processArgs( const char * rpcurl, int argc, const char ** argv )
             fields = tr_bencDictAddList( args, "fields", 0 );
 
             if( tset != 0 ) { addIdArg( tr_bencDictFind( tset, ARGUMENTS ), id ); status |= flush( rpcurl, &tset ); }
-            
+
             switch( c )
             {
                 case 'i': tr_bencDictAddInt( top, "tag", TAG_DETAILS );
@@ -1948,21 +1956,21 @@ processArgs( const char * rpcurl, int argc, const char ** argv )
             switch( c )
             {
                 case 800: tr_bencDictAddStr( args, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_FILENAME, optarg );
-                          tr_bencDictAddBool( args, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED, TRUE );
+                          tr_bencDictAddBool( args, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED, true );
                           break;
-                case 801: tr_bencDictAddBool( args, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED, FALSE );
+                case 801: tr_bencDictAddBool( args, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED, false );
                           break;
-                case 970: tr_bencDictAddBool( args, TR_PREFS_KEY_ALT_SPEED_ENABLED, TRUE );
+                case 970: tr_bencDictAddBool( args, TR_PREFS_KEY_ALT_SPEED_ENABLED, true );
                           break;
-                case 971: tr_bencDictAddBool( args, TR_PREFS_KEY_ALT_SPEED_ENABLED, FALSE );
+                case 971: tr_bencDictAddBool( args, TR_PREFS_KEY_ALT_SPEED_ENABLED, false );
                           break;
                 case 972: tr_bencDictAddInt( args, TR_PREFS_KEY_ALT_SPEED_DOWN_KBps, numarg( optarg ) );
                           break;
                 case 973: tr_bencDictAddInt( args, TR_PREFS_KEY_ALT_SPEED_UP_KBps, numarg( optarg ) );
                           break;
-                case 974: tr_bencDictAddBool( args, TR_PREFS_KEY_ALT_SPEED_TIME_ENABLED, TRUE );
+                case 974: tr_bencDictAddBool( args, TR_PREFS_KEY_ALT_SPEED_TIME_ENABLED, true );
                           break;
-                case 975: tr_bencDictAddBool( args, TR_PREFS_KEY_ALT_SPEED_TIME_ENABLED, FALSE );
+                case 975: tr_bencDictAddBool( args, TR_PREFS_KEY_ALT_SPEED_TIME_ENABLED, false );
                           break;
                 case 976: addTime( args, TR_PREFS_KEY_ALT_SPEED_TIME_BEGIN, optarg );
                           break;
@@ -1971,9 +1979,9 @@ processArgs( const char * rpcurl, int argc, const char ** argv )
                 case 978: addDays( args, TR_PREFS_KEY_ALT_SPEED_TIME_DAY, optarg );
                           break;
                 case 'c': tr_bencDictAddStr( args, TR_PREFS_KEY_INCOMPLETE_DIR, optarg );
-                          tr_bencDictAddBool( args, TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED, TRUE );
+                          tr_bencDictAddBool( args, TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED, true );
                           break;
-                case 'C': tr_bencDictAddBool( args, TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED, FALSE );
+                case 'C': tr_bencDictAddBool( args, TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED, false );
                           break;
                 case 'e': tr_bencDictAddInt( args, TR_PREFS_KEY_MAX_CACHE_SIZE_MB, atoi(optarg) );
                           break;
@@ -1983,38 +1991,42 @@ processArgs( const char * rpcurl, int argc, const char ** argv )
                           break;
                 case 912: tr_bencDictAddStr( args, TR_PREFS_KEY_ENCRYPTION, "tolerated" );
                           break;
-                case 'm': tr_bencDictAddBool( args, TR_PREFS_KEY_PORT_FORWARDING, TRUE );
+                case 'm': tr_bencDictAddBool( args, TR_PREFS_KEY_PORT_FORWARDING, true );
                           break;
-                case 'M': tr_bencDictAddBool( args, TR_PREFS_KEY_PORT_FORWARDING, FALSE );
+                case 'M': tr_bencDictAddBool( args, TR_PREFS_KEY_PORT_FORWARDING, false );
                           break;
-                case 'o': tr_bencDictAddBool( args, TR_PREFS_KEY_DHT_ENABLED, TRUE );
+                case 'o': tr_bencDictAddBool( args, TR_PREFS_KEY_DHT_ENABLED, true );
                           break;
-                case 'O': tr_bencDictAddBool( args, TR_PREFS_KEY_DHT_ENABLED, FALSE );
+                case 'O': tr_bencDictAddBool( args, TR_PREFS_KEY_DHT_ENABLED, false );
+                          break;
+                case 830: tr_bencDictAddBool( args, TR_PREFS_KEY_UTP_ENABLED, true );
+                          break;
+                case 831: tr_bencDictAddBool( args, TR_PREFS_KEY_UTP_ENABLED, false );
                           break;
                 case 'p': tr_bencDictAddInt( args, TR_PREFS_KEY_PEER_PORT, numarg( optarg ) );
                           break;
-                case 'P': tr_bencDictAddBool( args, TR_PREFS_KEY_PEER_PORT_RANDOM_ON_START, TRUE);
+                case 'P': tr_bencDictAddBool( args, TR_PREFS_KEY_PEER_PORT_RANDOM_ON_START, true);
                           break;
-                case 'x': tr_bencDictAddBool( args, TR_PREFS_KEY_PEX_ENABLED, TRUE );
+                case 'x': tr_bencDictAddBool( args, TR_PREFS_KEY_PEX_ENABLED, true );
                           break;
-                case 'X': tr_bencDictAddBool( args, TR_PREFS_KEY_PEX_ENABLED, FALSE );
+                case 'X': tr_bencDictAddBool( args, TR_PREFS_KEY_PEX_ENABLED, false );
                           break;
-                case 'y': tr_bencDictAddBool( args, TR_PREFS_KEY_LPD_ENABLED, TRUE );
+                case 'y': tr_bencDictAddBool( args, TR_PREFS_KEY_LPD_ENABLED, true );
                           break;
-                case 'Y': tr_bencDictAddBool( args, TR_PREFS_KEY_LPD_ENABLED, FALSE );
+                case 'Y': tr_bencDictAddBool( args, TR_PREFS_KEY_LPD_ENABLED, false );
                           break;
                 case 953: tr_bencDictAddReal( args, "seedRatioLimit", atof(optarg) );
-                          tr_bencDictAddBool( args, "seedRatioLimited", TRUE );
+                          tr_bencDictAddBool( args, "seedRatioLimited", true );
                           break;
-                case 954: tr_bencDictAddBool( args, "seedRatioLimited", FALSE );
+                case 954: tr_bencDictAddBool( args, "seedRatioLimited", false );
                           break;
-                case 990: tr_bencDictAddBool( args, TR_PREFS_KEY_START, FALSE );
+                case 990: tr_bencDictAddBool( args, TR_PREFS_KEY_START, false );
                           break;
-                case 991: tr_bencDictAddBool( args, TR_PREFS_KEY_START, TRUE );
+                case 991: tr_bencDictAddBool( args, TR_PREFS_KEY_START, true );
                           break;
-                case 992: tr_bencDictAddBool( args, TR_PREFS_KEY_TRASH_ORIGINAL, TRUE );
+                case 992: tr_bencDictAddBool( args, TR_PREFS_KEY_TRASH_ORIGINAL, true );
                           break;
-                case 993: tr_bencDictAddBool( args, TR_PREFS_KEY_TRASH_ORIGINAL, FALSE );
+                case 993: tr_bencDictAddBool( args, TR_PREFS_KEY_TRASH_ORIGINAL, false );
                           break;
                 default:  assert( "unhandled value" && 0 );
                           break;
@@ -2034,29 +2046,29 @@ processArgs( const char * rpcurl, int argc, const char ** argv )
             {
                 case 'd': if( targs ) {
                               tr_bencDictAddInt( targs, "downloadLimit", numarg( optarg ) );
-                              tr_bencDictAddBool( targs, "downloadLimited", TRUE );
+                              tr_bencDictAddBool( targs, "downloadLimited", true );
                           } else {
                               tr_bencDictAddInt( sargs, TR_PREFS_KEY_DSPEED_KBps, numarg( optarg ) );
-                              tr_bencDictAddBool( sargs, TR_PREFS_KEY_DSPEED_ENABLED, TRUE );
+                              tr_bencDictAddBool( sargs, TR_PREFS_KEY_DSPEED_ENABLED, true );
                           }
                           break;
                 case 'D': if( targs )
-                              tr_bencDictAddBool( targs, "downloadLimited", FALSE );
+                              tr_bencDictAddBool( targs, "downloadLimited", false );
                           else
-                              tr_bencDictAddBool( sargs, TR_PREFS_KEY_DSPEED_ENABLED, FALSE );
+                              tr_bencDictAddBool( sargs, TR_PREFS_KEY_DSPEED_ENABLED, false );
                           break;
                 case 'u': if( targs ) {
                               tr_bencDictAddInt( targs, "uploadLimit", numarg( optarg ) );
-                              tr_bencDictAddBool( targs, "uploadLimited", TRUE );
+                              tr_bencDictAddBool( targs, "uploadLimited", true );
                           } else {
                               tr_bencDictAddInt( sargs, TR_PREFS_KEY_USPEED_KBps, numarg( optarg ) );
-                              tr_bencDictAddBool( sargs, TR_PREFS_KEY_USPEED_ENABLED, TRUE );
+                              tr_bencDictAddBool( sargs, TR_PREFS_KEY_USPEED_ENABLED, true );
                           }
                           break;
                 case 'U': if( targs )
-                              tr_bencDictAddBool( targs, "uploadLimited", FALSE );
+                              tr_bencDictAddBool( targs, "uploadLimited", false );
                           else
-                              tr_bencDictAddBool( sargs, TR_PREFS_KEY_USPEED_ENABLED, FALSE );
+                              tr_bencDictAddBool( sargs, TR_PREFS_KEY_USPEED_ENABLED, false );
                           break;
                 case 930: if( targs )
                               tr_bencDictAddInt( targs, "peer-limit", atoi(optarg) );
@@ -2082,9 +2094,9 @@ processArgs( const char * rpcurl, int argc, const char ** argv )
                           break;
                 case 952: tr_bencDictAddInt( args, "seedRatioMode", TR_RATIOLIMIT_UNLIMITED );
                           break;
-                case 984: tr_bencDictAddBool( args, "honorsSessionLimits", TRUE );
+                case 984: tr_bencDictAddBool( args, "honorsSessionLimits", true );
                           break;
-                case 985: tr_bencDictAddBool( args, "honorsSessionLimits", FALSE );
+                case 985: tr_bencDictAddBool( args, "honorsSessionLimits", false );
                           break;
                 default:  assert( "unhandled value" && 0 );
                           break;
@@ -2138,7 +2150,7 @@ processArgs( const char * rpcurl, int argc, const char ** argv )
                 tr_bencDictAddStr( top, "method", "torrent-set-location" );
                 args = tr_bencDictAddDict( top, ARGUMENTS, 3 );
                 tr_bencDictAddStr( args, "location", optarg );
-                tr_bencDictAddBool( args, "move", FALSE );
+                tr_bencDictAddBool( args, "move", false );
                 addIdArg( args, id );
                 status |= flush( rpcurl, &top );
                 break;
@@ -2158,7 +2170,7 @@ processArgs( const char * rpcurl, int argc, const char ** argv )
             case 's': /* start */
             {
                 if( tadd )
-                    tr_bencDictAddBool( tr_bencDictFind( tadd, "arguments" ), "paused", FALSE );
+                    tr_bencDictAddBool( tr_bencDictFind( tadd, "arguments" ), "paused", false );
                 else {
                     tr_benc * top = tr_new0( tr_benc, 1 );
                     tr_bencInitDict( top, 2 );
@@ -2171,7 +2183,7 @@ processArgs( const char * rpcurl, int argc, const char ** argv )
             case 'S': /* stop */
             {
                 if( tadd )
-                    tr_bencDictAddBool( tr_bencDictFind( tadd, "arguments" ), "paused", TRUE );
+                    tr_bencDictAddBool( tr_bencDictFind( tadd, "arguments" ), "paused", true );
                 else {
                     tr_benc * top = tr_new0( tr_benc, 1 );
                     tr_bencInitDict( top, 2 );
@@ -2270,7 +2282,7 @@ processArgs( const char * rpcurl, int argc, const char ** argv )
                 tr_bencDictAddStr( top, "method", "torrent-set-location" );
                 args = tr_bencDictAddDict( top, ARGUMENTS, 3 );
                 tr_bencDictAddStr( args, "location", optarg );
-                tr_bencDictAddBool( args, "move", TRUE );
+                tr_bencDictAddBool( args, "move", true );
                 addIdArg( args, id );
                 status |= flush( rpcurl, &top );
                 break;

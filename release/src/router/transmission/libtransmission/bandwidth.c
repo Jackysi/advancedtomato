@@ -7,17 +7,17 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: bandwidth.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: bandwidth.c 12427 2011-05-11 21:09:31Z jordan $
  */
 
 #include <assert.h>
 #include <limits.h>
+#include <string.h> /* memset() */
 
 #include "transmission.h"
 #include "bandwidth.h"
-#include "crypto.h"
+#include "crypto.h" /* tr_cryptoWeakRandInt() */
 #include "peer-io.h"
-#include "ptrarray.h"
 #include "utils.h"
 
 #define dbgmsg( ... ) \
@@ -33,22 +33,32 @@
 static unsigned int
 getSpeed_Bps( const struct bratecontrol * r, unsigned int interval_msec, uint64_t now )
 {
-    uint64_t       bytes = 0;
-    const uint64_t cutoff = (now?now:tr_time_msec()) - interval_msec;
-    int            i = r->newest;
+    if( !now )
+        now = tr_time_msec();
 
-    for( ;; )
+    if( now != r->cache_time )
     {
-        if( r->transfers[i].date <= cutoff )
-            break;
+        int i = r->newest;
+        uint64_t bytes = 0;
+        const uint64_t cutoff = now - interval_msec;
+        struct bratecontrol * rvolatile = (struct bratecontrol*) r;
 
-        bytes += r->transfers[i].size;
+        for( ;; )
+        {
+            if( r->transfers[i].date <= cutoff )
+                break;
 
-        if( --i == -1 ) i = HISTORY_SIZE - 1; /* circular history */
-        if( i == r->newest ) break; /* we've come all the way around */
+            bytes += r->transfers[i].size;
+
+            if( --i == -1 ) i = HISTORY_SIZE - 1; /* circular history */
+            if( i == r->newest ) break; /* we've come all the way around */
+        }
+
+        rvolatile->cache_val = (unsigned int)(( bytes * 1000u ) / interval_msec);
+        rvolatile->cache_time = now;
     }
 
-    return (unsigned int)(( bytes * 1000u ) / interval_msec);
+    return r->cache_val;
 }
 
 static void
@@ -62,6 +72,9 @@ bytesUsed( const uint64_t now, struct bratecontrol * r, size_t size )
         r->transfers[r->newest].date = now;
         r->transfers[r->newest].size = size;
     }
+
+    /* invalidate cache_val*/
+    r->cache_time = 0;
 }
 
 /******
@@ -82,19 +95,18 @@ comparePointers( const void * a, const void * b )
 ****
 ***/
 
-tr_bandwidth*
+void
 tr_bandwidthConstruct( tr_bandwidth * b, tr_session * session, tr_bandwidth * parent )
 {
     b->session = session;
     b->children = TR_PTR_ARRAY_INIT;
-    b->magicNumber = MAGIC_NUMBER;
-    b->band[TR_UP].honorParentLimits = TRUE;
-    b->band[TR_DOWN].honorParentLimits = TRUE;
+    b->magicNumber = BANDWIDTH_MAGIC_NUMBER;
+    b->band[TR_UP].honorParentLimits = true;
+    b->band[TR_DOWN].honorParentLimits = true;
     tr_bandwidthSetParent( b, parent );
-    return b;
 }
 
-tr_bandwidth*
+void
 tr_bandwidthDestruct( tr_bandwidth * b )
 {
     assert( tr_isBandwidth( b ) );
@@ -103,7 +115,6 @@ tr_bandwidthDestruct( tr_bandwidth * b )
     tr_ptrArrayDestruct( &b->children, NULL );
 
     memset( b, ~0, sizeof( tr_bandwidth ) );
-    return b;
 }
 
 /***
@@ -156,7 +167,7 @@ allocateBandwidth( tr_bandwidth  * b,
                    unsigned int    period_msec,
                    tr_ptrArray   * peer_pool )
 {
-    tr_priority_t priority;
+    const tr_priority_t priority = MAX( parent_priority, b->priority );
 
     assert( tr_isBandwidth( b ) );
     assert( tr_isDirection( dir ) );
@@ -174,8 +185,6 @@ allocateBandwidth( tr_bandwidth  * b,
                          b->band[dir].bytesLeft );
 #endif
     }
-
-    priority = MAX( parent_priority, b->priority );
 
     /* add this bandwidth's peer, if any, to the peer pool */
     if( b->peer != NULL ) {
@@ -212,9 +221,13 @@ phaseOne( tr_ptrArray * peerArray, tr_direction dir )
     n = peerCount;
     dbgmsg( "%d peers to go round-robin for %s", n, (dir==TR_UP?"upload":"download") );
     i = n ? tr_cryptoWeakRandInt( n ) : 0; /* pick a random starting point */
-    while( n > 1 )
+    while( n > 0 )
     {
-        const size_t increment = 1024;
+        /* value of 3000 bytes chosen so that when using uTP we'll send a full-size
+         * frame right away and leave enough buffered data for the next frame to go
+         * out in a timely manner. */
+        const size_t increment = 3000;
+
         const int bytesUsed = tr_peerIoFlush( peers[i], dir, increment );
 
         dbgmsg( "peer #%d of %d used %d bytes in this pass", i, n, bytesUsed );
@@ -229,7 +242,7 @@ phaseOne( tr_ptrArray * peerArray, tr_direction dir )
             --n;
         }
 
-        if( i == n )
+        if( i >= n )
             i = 0;
     }
 }
@@ -305,10 +318,11 @@ tr_bandwidthSetPeer( tr_bandwidth * b, tr_peerIo * peer )
 ****
 ***/
 
-unsigned int
-tr_bandwidthClamp( const tr_bandwidth  * b,
-                   tr_direction          dir,
-                   unsigned int          byteCount )
+static unsigned int
+bandwidthClamp( const tr_bandwidth  * b,
+                uint64_t              now,
+                tr_direction          dir,
+                unsigned int          byteCount )
 {
     assert( tr_isBandwidth( b ) );
     assert( tr_isDirection( dir ) );
@@ -316,14 +330,44 @@ tr_bandwidthClamp( const tr_bandwidth  * b,
     if( b )
     {
         if( b->band[dir].isLimited )
+        {
             byteCount = MIN( byteCount, b->band[dir].bytesLeft );
 
-        if( b->parent && b->band[dir].honorParentLimits )
-            byteCount = tr_bandwidthClamp( b->parent, dir, byteCount );
+            /* if we're getting close to exceeding the speed limit,
+             * clamp down harder on the bytes available */
+            if( byteCount > 0 )
+            {
+                double current;
+                double desired;
+                double r;
+
+                if( now == 0 )
+                    now = tr_time_msec( );
+
+                current = tr_bandwidthGetRawSpeed_Bps( b, now, TR_DOWN );
+                desired = tr_bandwidthGetDesiredSpeed_Bps( b, TR_DOWN );
+                r = desired >= 1 ? current / desired : 0;
+
+                     if( r > 1.0 ) byteCount = 0;
+                else if( r > 0.9 ) byteCount *= 0.8;
+                else if( r > 0.8 ) byteCount *= 0.9;
+            }
+        }
+
+        if( b->parent && b->band[dir].honorParentLimits && ( byteCount > 0 ) )
+            byteCount = bandwidthClamp( b->parent, now, dir, byteCount );
     }
 
     return byteCount;
 }
+unsigned int
+tr_bandwidthClamp( const tr_bandwidth  * b,
+                   tr_direction          dir,
+                   unsigned int          byteCount )
+{
+    return bandwidthClamp( b, 0, dir, byteCount );
+}
+
 
 unsigned int
 tr_bandwidthGetRawSpeed_Bps( const tr_bandwidth * b, const uint64_t now, const tr_direction dir )
@@ -347,7 +391,7 @@ void
 tr_bandwidthUsed( tr_bandwidth  * b,
                   tr_direction    dir,
                   size_t          byteCount,
-                  tr_bool         isPieceData,
+                  bool         isPieceData,
                   uint64_t        now )
 {
     struct tr_band * band;

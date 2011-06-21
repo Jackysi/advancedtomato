@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: StatusBarView.m 11625 2011-01-03 03:41:42Z livings124 $
+ * $Id: StatusBarView.m 11989 2011-02-19 21:38:38Z livings124 $
  * 
  * Copyright (c) 2006-2011 Transmission authors and contributors
  *
@@ -50,6 +50,8 @@
 
 - (void) dealloc
 {
+    [[NSNotificationCenter defaultCenter] removeObserver: self];
+    
     [fGradient release];
     [super dealloc];
 }

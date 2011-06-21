@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: webseed.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: webseed.h 12204 2011-03-22 15:19:54Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -29,12 +29,12 @@ tr_webseed* tr_webseedNew( struct tr_torrent * torrent,
 void        tr_webseedFree( tr_webseed * );
 
 /** @return true if a request is being processed, or false if idle */
-tr_bool     tr_webseedGetSpeed_Bps( const tr_webseed * w,
+bool        tr_webseedGetSpeed_Bps( const tr_webseed * w,
                                     uint64_t           now,
                                     int              * setme_Bps );
 
 /** @return true if a request is being processed, or false if idle */
-tr_bool     tr_webseedIsActive( const tr_webseed * w );
+bool        tr_webseedIsActive( const tr_webseed * w );
 
 
 #endif

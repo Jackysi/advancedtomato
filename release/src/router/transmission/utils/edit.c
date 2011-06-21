@@ -7,10 +7,12 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: edit.c 11791 2011-01-30 16:40:11Z jordan $
+ * $Id: edit.c 12225 2011-03-24 22:57:39Z jordan $
  */
 
-#include <stdio.h>
+#include <stdio.h> /* fprintf() */
+#include <string.h> /* strlen(), strstr(), strcmp() */
+#include <stdlib.h> /* EXIT_FAILURE */
 
 #include <event2/buffer.h>
 
@@ -23,7 +25,7 @@
 #define MY_NAME "transmission-edit"
 
 static int fileCount = 0;
-static tr_bool showVersion = FALSE;
+static bool showVersion = false;
 static const char ** files = NULL;
 static const char * add = NULL;
 static const char * deleteme = NULL;
@@ -63,7 +65,7 @@ parseCommandLine( int argc, const char ** argv )
                       if( c != TR_OPT_UNK ) return 1;
                       replace[1] = optarg;
                       break;
-            case 'V': showVersion = TRUE;
+            case 'V': showVersion = true;
                       break;
             case TR_OPT_UNK: files[fileCount++] = optarg; break;
             default: return 1;
@@ -73,18 +75,18 @@ parseCommandLine( int argc, const char ** argv )
     return 0;
 }
 
-static tr_bool
+static bool
 removeURL( tr_benc * metainfo, const char * url )
 {
     const char * str;
     tr_benc * announce_list;
-    tr_bool changed = FALSE;
+    bool changed = false;
 
     if( tr_bencDictFindStr( metainfo, "announce", &str ) && !strcmp( str, url ) )
     {
         printf( "\tRemoved \"%s\" from \"announce\"\n", str );
         tr_bencDictRemove( metainfo, "announce" );
-        changed = TRUE;
+        changed = true;
     }
 
     if( tr_bencDictFindList( metainfo, "announce-list", &announce_list ) )
@@ -101,7 +103,7 @@ removeURL( tr_benc * metainfo, const char * url )
                 {
                     printf( "\tRemoved \"%s\" from \"announce-list\" tier #%d\n", str, (tierIndex+1) );
                     tr_bencListRemove( tier, nodeIndex );
-                    changed = TRUE;
+                    changed = true;
                 }
                 else ++nodeIndex;
             }
@@ -161,12 +163,12 @@ replaceSubstr( const char * str, const char * in, const char * out )
     return evbuffer_free_to_str( buf );
 }
 
-static tr_bool
+static bool
 replaceURL( tr_benc * metainfo, const char * in, const char * out )
 {
     const char * str;
     tr_benc * announce_list;
-    tr_bool changed = FALSE;
+    bool changed = false;
 
     if( tr_bencDictFindStr( metainfo, "announce", &str ) && strstr( str, in ) )
     {
@@ -174,7 +176,7 @@ replaceURL( tr_benc * metainfo, const char * in, const char * out )
         printf( "\tReplaced in \"announce\": \"%s\" --> \"%s\"\n", str, newstr );
         tr_bencDictAddStr( metainfo, "announce", newstr );
         tr_free( newstr );
-        changed = TRUE;
+        changed = true;
     }
 
     if( tr_bencDictFindList( metainfo, "announce-list", &announce_list ) )
@@ -194,7 +196,7 @@ replaceURL( tr_benc * metainfo, const char * in, const char * out )
                     tr_bencFree( node );
                     tr_bencInitStr( node, newstr, -1 );
                     tr_free( newstr );
-                    changed = TRUE;
+                    changed = true;
                 }
             }
         }
@@ -203,20 +205,20 @@ replaceURL( tr_benc * metainfo, const char * in, const char * out )
     return changed;
 }
 
-static tr_bool
+static bool
 addURL( tr_benc * metainfo, const char * url )
 {
     const char * str;
     tr_benc * announce_list;
-    tr_bool changed = FALSE;
-    tr_bool match = FALSE;
+    bool changed = false;
+    bool match = false;
 
     /* maybe add it to "announce" */
     if( !tr_bencDictFindStr( metainfo, "announce", &str ) )
     {
         printf( "\tAdded \"%s\" in \"announce\"\n", url );
         tr_bencDictAddStr( metainfo, "announce", url );
-        changed = TRUE;
+        changed = true;
     }
 
     /* see if it's already in announce-list */
@@ -228,7 +230,7 @@ addURL( tr_benc * metainfo, const char * url )
             int nodeCount = 0;
             while(( node = tr_bencListChild( tier, nodeCount++ )))
                 if( tr_bencGetStr( node, &str ) && !strcmp( str, url ) )
-                    match = TRUE;
+                    match = true;
         }
     }
 
@@ -243,7 +245,7 @@ addURL( tr_benc * metainfo, const char * url )
         tier = tr_bencListAddList( announce_list, 1 );
         tr_bencListAddStr( tier, url );
         printf( "\tAdded \"%s\" to \"announce-list\" tier %zu\n", url, tr_bencListSize( announce_list ) );
-        changed = TRUE;
+        changed = true;
     }
 
     return changed;
@@ -287,7 +289,7 @@ main( int argc, char * argv[] )
     for( i=0; i<fileCount; ++i )
     {
         tr_benc top;
-        tr_bool changed = FALSE;
+        bool changed = false;
         const char * filename = files[i];
 
         printf( "%s\n", filename );

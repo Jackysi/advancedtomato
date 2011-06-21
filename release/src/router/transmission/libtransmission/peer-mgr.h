@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-mgr.h 12030 2011-02-24 15:33:50Z jordan $
+ * $Id: peer-mgr.h 12254 2011-03-29 15:23:54Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -24,9 +24,8 @@
 #endif
 
 #include "bitfield.h"
-#include "bitset.h"
 #include "history.h"
-#include "net.h"
+#include "net.h" /* tr_address */
 #include "peer-common.h" /* struct peer_request */
 
 /**
@@ -34,6 +33,7 @@
  * @{
  */
 
+struct UTPSocket;
 struct tr_peer_stat;
 struct tr_torrent;
 typedef struct tr_peerMgr tr_peerMgr;
@@ -53,9 +53,9 @@ enum
     /* true if the peer has holepunch support */
     ADDED_F_HOLEPUNCH = 8,
 
-    /* true if the peer telling us about this peer 
-     * initiated the connection (implying that it is connectible) */ 
-   ADDED_F_CONNECTABLE = 16 
+    /* true if the peer telling us about this peer
+     * initiated the connection (implying that it is connectible) */
+    ADDED_F_CONNECTABLE = 16
 };
 
 typedef struct tr_pex
@@ -67,7 +67,6 @@ typedef struct tr_pex
 tr_pex;
 
 
-struct tr_bandwidth;
 struct tr_peerIo;
 struct tr_peermsgs;
 
@@ -89,11 +88,11 @@ struct peer_atom;
  */
 typedef struct tr_peer
 {
-    tr_bool                  peerIsChoked;
-    tr_bool                  peerIsInterested;
-    tr_bool                  clientIsChoked;
-    tr_bool                  clientIsInterested;
-    tr_bool                  doPurge;
+    bool                     peerIsChoked;
+    bool                     peerIsInterested;
+    bool                     clientIsChoked;
+    bool                     clientIsInterested;
+    bool                     doPurge;
 
     /* number of bad pieces they've contributed to */
     uint8_t                  strikes;
@@ -110,8 +109,8 @@ typedef struct tr_peer
     struct tr_peerIo       * io;
     struct peer_atom       * atom;
 
-    struct tr_bitfield     * blame;
-    struct tr_bitset         have;
+    struct tr_bitfield       blame;
+    struct tr_bitfield       have;
 
     /** how complete the peer's copy of the torrent is. [0.0...1.0] */
     float                    progress;
@@ -121,20 +120,25 @@ typedef struct tr_peer
 
     time_t                   chokeChangedAt;
 
-    tr_recentHistory       * blocksSentToClient;
-    tr_recentHistory       * blocksSentToPeer;
+    tr_recentHistory         blocksSentToClient;
+    tr_recentHistory         blocksSentToPeer;
 
-    tr_recentHistory       * cancelsSentToClient;
-    tr_recentHistory       * cancelsSentToPeer;
+    tr_recentHistory         cancelsSentToClient;
+    tr_recentHistory         cancelsSentToPeer;
 
     struct tr_peermsgs     * msgs;
 }
 tr_peer;
 
-static inline tr_bool
+void tr_peerConstruct( struct tr_peer * peer );
+
+void tr_peerDestruct( tr_torrent * tor, struct tr_peer * peer );
+
+
+static inline bool
 tr_isPex( const tr_pex * pex )
 {
-    return pex && tr_isAddress( &pex->addr );
+    return pex && tr_address_is_valid( &pex->addr );
 }
 
 const tr_address * tr_peerAddress( const tr_peer * );
@@ -145,8 +149,15 @@ tr_peerMgr* tr_peerMgrNew( tr_session * );
 
 void tr_peerMgrFree( tr_peerMgr * manager );
 
-tr_bool tr_peerMgrPeerIsSeed( const tr_torrent * tor,
+bool tr_peerMgrPeerIsSeed( const tr_torrent * tor,
                               const tr_address * addr );
+
+void tr_peerMgrSetUtpSupported( tr_torrent       * tor,
+                                const tr_address * addr );
+
+void tr_peerMgrSetUtpFailed( tr_torrent *tor,
+                             const tr_address *addr,
+                             bool failed );
 
 void tr_peerMgrGetNextRequests( tr_torrent          * torrent,
                                 tr_peer             * peer,
@@ -154,16 +165,17 @@ void tr_peerMgrGetNextRequests( tr_torrent          * torrent,
                                 tr_block_index_t    * setme,
                                 int                 * numgot );
 
-tr_bool tr_peerMgrDidPeerRequest( const tr_torrent  * torrent,
-                                  const tr_peer     * peer,
-                                  tr_block_index_t    block );
+bool tr_peerMgrDidPeerRequest( const tr_torrent  * torrent,
+                               const tr_peer     * peer,
+                               tr_block_index_t    block );
 
 void tr_peerMgrRebuildRequests( tr_torrent * torrent );
 
 void tr_peerMgrAddIncoming( tr_peerMgr  * manager,
                             tr_address  * addr,
                             tr_port       port,
-                            int           socket );
+                            int           socket,
+                            struct UTPSocket *utp_socket );
 
 tr_pex * tr_peerMgrCompactToPex( const void    * compact,
                                  size_t          compactLen,
@@ -191,14 +203,10 @@ void tr_peerMgrAddPex( tr_torrent     * tor,
 
 void tr_peerMgrMarkAllAsSeeds( tr_torrent * tor );
 
-void tr_peerMgrSetBlame( tr_torrent        * tor,
-                         tr_piece_index_t    pieceIndex,
-                         int                 success );
-
 enum
 {
     TR_PEERS_CONNECTED,
-    TR_PEERS_ALL
+    TR_PEERS_INTERESTING
 };
 
 int  tr_peerMgrGetPeers( tr_torrent      * tor,
@@ -220,16 +228,14 @@ void tr_peerMgrTorrentAvailability( const tr_torrent * tor,
                                     int8_t           * tab,
                                     unsigned int       tabCount );
 
-struct tr_bitfield* tr_peerMgrGetAvailable( const tr_torrent * tor );
+uint64_t tr_peerMgrGetDesiredAvailable( const tr_torrent * tor );
 
 void tr_peerMgrOnTorrentGotMetainfo( tr_torrent * tor );
 
 void tr_peerMgrOnBlocklistChanged( tr_peerMgr * manager );
 
 void tr_peerMgrTorrentStats( tr_torrent * tor,
-                             int * setmePeersKnown,
                              int * setmePeersConnected,
-                             int * setmeSeedsConnected,
                              int * setmeWebseedsSendingToUs,
                              int * setmePeersSendingToUs,
                              int * setmePeersGettingFromUs,
@@ -237,8 +243,6 @@ void tr_peerMgrTorrentStats( tr_torrent * tor,
 
 struct tr_peer_stat* tr_peerMgrPeerStats( const tr_torrent * tor,
                                           int              * setmeCount );
-
-int tr_peerMgrGetWebseedSpeed_Bps( const tr_torrent * tor, uint64_t now );
 
 double* tr_peerMgrWebSpeeds_KBps( const tr_torrent * tor );
 

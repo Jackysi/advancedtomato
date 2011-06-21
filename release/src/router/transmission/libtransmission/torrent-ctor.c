@@ -7,25 +7,24 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: torrent-ctor.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: torrent-ctor.c 12234 2011-03-25 17:42:47Z jordan $
  */
 
 #include <errno.h> /* EINVAL */
 #include "transmission.h"
 #include "bencode.h"
 #include "magnet.h"
-#include "platform.h"
 #include "session.h" /* tr_sessionFindTorrentFile() */
 #include "torrent.h" /* tr_ctorGetSave() */
 #include "utils.h" /* tr_new0 */
 
 struct optional_args
 {
-    tr_bool         isSet_paused;
-    tr_bool         isSet_connected;
-    tr_bool         isSet_downloadDir;
+    bool            isSet_paused;
+    bool            isSet_connected;
+    bool            isSet_downloadDir;
 
-    tr_bool         isPaused;
+    bool            isPaused;
     uint16_t        peerLimit;
     char          * downloadDir;
 };
@@ -35,17 +34,18 @@ struct optional_args
 struct tr_ctor
 {
     const tr_session *      session;
-    tr_bool                 saveInOurTorrentsDir;
-    tr_bool                 doDelete;
+    bool                    saveInOurTorrentsDir;
+    bool                    doDelete;
 
     tr_priority_t           bandwidthPriority;
-    tr_bool                 isSet_metainfo;
-    tr_bool                 isSet_delete;
+    bool                    isSet_metainfo;
+    bool                    isSet_delete;
     tr_benc                 metainfo;
     char *                  sourceFile;
 
     struct optional_args    optionalArgs[2];
 
+    char                  * cookies;
     char                  * incompleteDir;
 
     tr_file_index_t       * want;
@@ -121,6 +121,7 @@ tr_ctorSetMetainfoFromMagnetLink( tr_ctor * ctor, const char * magnet_link )
         err = tr_ctorSetMetainfo( ctor, (const uint8_t*)str, len );
 
         tr_free( str );
+        tr_bencFree( &tmp );
         tr_magnetFree( magnet_info );
     }
 
@@ -226,7 +227,7 @@ void
 tr_ctorSetFilesWanted( tr_ctor                * ctor,
                        const tr_file_index_t  * files,
                        tr_file_index_t          fileCount,
-                       tr_bool                  wanted )
+                       bool                     wanted )
 {
     tr_file_index_t ** myfiles = wanted ? &ctor->want : &ctor->notWant;
     tr_file_index_t * mycount = wanted ? &ctor->wantSize : &ctor->notWantSize;
@@ -240,9 +241,9 @@ void
 tr_ctorInitTorrentWanted( const tr_ctor * ctor, tr_torrent * tor )
 {
     if( ctor->notWantSize )
-        tr_torrentInitFileDLs( tor, ctor->notWant, ctor->notWantSize, FALSE );
+        tr_torrentInitFileDLs( tor, ctor->notWant, ctor->notWantSize, false );
     if( ctor->wantSize )
-        tr_torrentInitFileDLs( tor, ctor->want, ctor->wantSize, TRUE );
+        tr_torrentInitFileDLs( tor, ctor->want, ctor->wantSize, true );
 }
 
 /***
@@ -250,16 +251,14 @@ tr_ctorInitTorrentWanted( const tr_ctor * ctor, tr_torrent * tor )
 ***/
 
 void
-tr_ctorSetDeleteSource( tr_ctor * ctor,
-                        tr_bool   deleteSource )
+tr_ctorSetDeleteSource( tr_ctor * ctor, bool deleteSource )
 {
     ctor->doDelete = deleteSource != 0;
     ctor->isSet_delete = 1;
 }
 
 int
-tr_ctorGetDeleteSource( const tr_ctor * ctor,
-                        uint8_t *       setme )
+tr_ctorGetDeleteSource( const tr_ctor * ctor, bool * setme )
 {
     int err = 0;
 
@@ -276,8 +275,7 @@ tr_ctorGetDeleteSource( const tr_ctor * ctor,
 ***/
 
 void
-tr_ctorSetSave( tr_ctor * ctor,
-                tr_bool   saveInOurTorrentsDir )
+tr_ctorSetSave( tr_ctor * ctor, bool saveInOurTorrentsDir )
 {
     ctor->saveInOurTorrentsDir = saveInOurTorrentsDir != 0;
 }
@@ -291,7 +289,7 @@ tr_ctorGetSave( const tr_ctor * ctor )
 void
 tr_ctorSetPaused( tr_ctor *   ctor,
                   tr_ctorMode mode,
-                  tr_bool     isPaused )
+                  bool        isPaused )
 {
     struct optional_args * args = &ctor->optionalArgs[mode];
 
@@ -352,9 +350,7 @@ tr_ctorGetPeerLimit( const tr_ctor * ctor,
 }
 
 int
-tr_ctorGetPaused( const tr_ctor * ctor,
-                  tr_ctorMode     mode,
-                  uint8_t *       setmeIsPaused )
+tr_ctorGetPaused( const tr_ctor * ctor, tr_ctorMode mode, bool * setmeIsPaused )
 {
     int                          err = 0;
     const struct optional_args * args = &ctor->optionalArgs[mode];
@@ -421,7 +417,7 @@ tr_ctorGetSession( const tr_ctor * ctor )
 ****
 ***/
 
-static tr_bool
+static bool
 isPriority( int i )
 {
     return (i==TR_PRI_LOW) || (i==TR_PRI_NORMAL) || (i==TR_PRI_HIGH);
@@ -458,7 +454,7 @@ tr_ctorNew( const tr_session * session )
         tr_ctorSetPeerLimit( ctor, TR_FALLBACK, session->peerLimitPerTorrent );
         tr_ctorSetDownloadDir( ctor, TR_FALLBACK, session->downloadDir );
     }
-    tr_ctorSetSave( ctor, TRUE );
+    tr_ctorSetSave( ctor, true );
     return ctor;
 }
 

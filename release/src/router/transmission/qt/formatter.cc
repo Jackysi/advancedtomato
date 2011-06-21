@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: formatter.cc 11092 2010-08-01 20:36:13Z charles $
+ * $Id: formatter.cc 12429 2011-05-12 20:21:27Z jordan $
  */
 
 #include <iostream>
@@ -92,9 +92,11 @@ Speed :: fromKBps( double KBps )
 ***/
 
 QString
-Formatter :: memToString( uint64_t bytes )
+Formatter :: memToString( int64_t bytes )
 {
-    if( !bytes )
+    if( bytes < 1 )
+        return tr( "Unknown" );
+    else if( !bytes )
         return tr( "None" );
     else {
         char buf[128];
@@ -104,9 +106,11 @@ Formatter :: memToString( uint64_t bytes )
 }
 
 QString
-Formatter :: sizeToString( uint64_t bytes )
+Formatter :: sizeToString( int64_t bytes )
 {
-    if( !bytes )
+    if( bytes < 1 )
+        return tr( "Unknown" );
+    else if( !bytes )
         return tr( "None" );
     else {
         char buf[128];

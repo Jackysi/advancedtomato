@@ -2,12 +2,15 @@ EXTRA_DIST = \
     Credits.rtf \
     AboutWindow.xib \
     BlocklistStatusWindow.xib \
+    FilterBar.xib \
     InfoFileView.xib \
     InfoPeersView.xib \
     InfoTrackersView.xib \
     InfoWindow.xib \
     MessageWindow.xib \
     StatsWindow.xib \
+    StatusBar.xib \
+    URLSheetWindow.xib \
     Defaults.plist \
     Info.plist \
     Transmission_Prefix.pch \
@@ -71,6 +74,8 @@ EXTRA_DIST = \
     FileOutlineView.m \
     FilePriorityCell.h \
     FilePriorityCell.m \
+    FilterBarController.h \
+    FilterBarController.m \
     FilterBarView.h \
     FilterBarView.m \
     FilterButton.h \
@@ -127,6 +132,8 @@ EXTRA_DIST = \
     ProgressGradients.m \
     StatsWindowController.h \
     StatsWindowController.m \
+    StatusBarController.h \
+    StatusBarController.m \
     StatusBarView.h \
     StatusBarView.m \
     ToolbarSegmentedCell.h \
@@ -144,7 +151,9 @@ EXTRA_DIST = \
     TrackerNode.h \
     TrackerNode.m \
     TrackerTableView.h \
-    TrackerTableView.m
+    TrackerTableView.m \
+    URLSheetWindowController.h \
+    URLSheetWindowController.m
 
 dist-hook:
 	rm -rf `find $(distdir)/ -type d -name .svn`

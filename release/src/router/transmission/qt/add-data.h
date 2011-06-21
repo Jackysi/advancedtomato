@@ -7,15 +7,13 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: add-data.h 11744 2011-01-21 21:51:50Z jordan $
+ * $Id: add-data.h 12212 2011-03-23 18:22:23Z jordan $
  */
 
 #ifndef ADD_DATA_H
 #define ADD_DATA_H
 
 #include <QByteArray>
-#include <QFile>
-#include <QObject>
 #include <QString>
 #include <QUrl>
 

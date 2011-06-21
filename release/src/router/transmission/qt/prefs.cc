@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: prefs.cc 11379 2010-11-02 01:24:08Z charles $
+ * $Id: prefs.cc 12214 2011-03-23 18:26:01Z jordan $
  */
 
 #include <cassert>
@@ -84,7 +84,6 @@ Prefs::PrefItem Prefs::myItems[] =
     { IDLE_LIMIT_ENABLED, TR_PREFS_KEY_IDLE_LIMIT_ENABLED, QVariant::Bool },
     { INCOMPLETE_DIR, TR_PREFS_KEY_INCOMPLETE_DIR, QVariant::String },
     { INCOMPLETE_DIR_ENABLED, TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED, QVariant::Bool },
-    { LAZY_BITFIELD, TR_PREFS_KEY_LAZY_BITFIELD, QVariant::Bool },
     { MSGLEVEL, TR_PREFS_KEY_MSGLEVEL, QVariant::Int },
     { OPEN_FILE_LIMIT, TR_PREFS_KEY_OPEN_FILE_LIMIT, QVariant::Int },
     { PEER_LIMIT_GLOBAL, TR_PREFS_KEY_PEER_LIMIT_GLOBAL, QVariant::Int },
@@ -100,6 +99,7 @@ Prefs::PrefItem Prefs::myItems[] =
     { TRASH_ORIGINAL, TR_PREFS_KEY_TRASH_ORIGINAL, QVariant::Bool },
     { PEX_ENABLED, TR_PREFS_KEY_PEX_ENABLED, QVariant::Bool },
     { DHT_ENABLED, TR_PREFS_KEY_DHT_ENABLED, QVariant::Bool },
+    { UTP_ENABLED, TR_PREFS_KEY_UTP_ENABLED, QVariant::Bool },
     { LPD_ENABLED, TR_PREFS_KEY_LPD_ENABLED, QVariant::Bool },
     { PORT_FORWARDING, TR_PREFS_KEY_PORT_FORWARDING, QVariant::Bool },
     { PREALLOCATION, TR_PREFS_KEY_PREALLOCATION, QVariant::Int },
@@ -140,7 +140,7 @@ Prefs :: Prefs( const char * configDir ):
     for( int i=0; i<PREFS_COUNT; ++i )
     {
         double d;
-        tr_bool boolVal;
+        bool boolVal;
         int64_t intVal;
         const char * str;
         tr_benc * b( tr_bencDictFind( &top, myItems[i].key ) );

@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: details.cc 11672 2011-01-13 19:12:18Z jordan $
+ * $Id: details.cc 12044 2011-02-26 14:02:27Z jordan $
  */
 
 #include <cassert>
@@ -800,6 +800,7 @@ Details :: refresh( )
                     case 'H': txt = tr( "Peer was discovered through DHT" ); break;
                     case 'X': txt = tr( "Peer was discovered through Peer Exchange (PEX)" ); break;
                     case 'I': txt = tr( "Peer is an incoming connection" ); break;
+                    case 'T': txt = tr( "Peer is connected over uTP" ); break;
                 }
                 if( !txt.isEmpty( ) )
                     codeTip += QString("%1: %2\n").arg(ch).arg(txt);

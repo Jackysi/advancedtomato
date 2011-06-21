@@ -1,5 +1,5 @@
 %define name transmission
-%define version 2.22
+%define version 2.31
 %define release 1
 
 Summary:   Transmission BitTorrent Client

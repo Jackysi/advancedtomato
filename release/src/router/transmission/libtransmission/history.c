@@ -7,36 +7,23 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: history.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: history.c 12328 2011-04-06 23:27:11Z jordan $
  */
 
 #include <assert.h>
+#include <string.h> /* memset() */
 
 #include "transmission.h"
 #include "history.h"
 #include "utils.h"
 
-struct history_slice
-{
-    unsigned int n;
-    time_t date;
-};
-
-struct tr_recentHistory
-{
-    int newest;
-    int sliceCount;
-    unsigned int precision;
-    struct history_slice * slices;
-};
-
 void
 tr_historyAdd( tr_recentHistory * h, time_t now, unsigned int n )
 {
-    if( h->slices[h->newest].date + (time_t)h->precision >= now )
+    if( h->slices[h->newest].date == now )
         h->slices[h->newest].n += n;
     else {
-        if( ++h->newest == h->sliceCount ) h->newest = 0;
+        if( ++h->newest == TR_RECENT_HISTORY_PERIOD_SEC ) h->newest = 0;
         h->slices[h->newest].date = now;
         h->slices[h->newest].n = n;
     }
@@ -56,31 +43,9 @@ tr_historyGet( const tr_recentHistory * h, time_t now, unsigned int sec )
 
         n += h->slices[i].n;
 
-        if( --i == -1 ) i = h->sliceCount - 1; /* circular history */
+        if( --i == -1 ) i = TR_RECENT_HISTORY_PERIOD_SEC - 1; /* circular history */
         if( i == h->newest ) break; /* we've come all the way around */
     }
 
     return n;
-}
-
-tr_recentHistory *
-tr_historyNew( unsigned int seconds, unsigned int precision )
-{
-    tr_recentHistory * h;
-
-    assert( precision <= seconds );
-
-    h = tr_new0( tr_recentHistory, 1 );
-    h->precision = precision;
-    h->sliceCount = seconds / precision;
-    h->slices = tr_new0( struct history_slice, h->sliceCount );
-
-    return h;
-}
-
-void
-tr_historyFree( tr_recentHistory * h )
-{
-    tr_free( h->slices );
-    tr_free( h );
 }

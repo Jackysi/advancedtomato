@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include "transmission.h"
-#include "net.h"
 #include "peer-msgs.h"
 #include "utils.h"
 
@@ -31,6 +30,7 @@
 int
 main( void )
 {
+#if 0
     uint32_t           i;
     int                test = 0;
     uint8_t            infohash[SHA_DIGEST_LENGTH];
@@ -43,7 +43,7 @@ main( void )
 
     for( i = 0; i < SHA_DIGEST_LENGTH; ++i )
         infohash[i] = 0xaa;
-    tr_pton( "80.4.4.200", &addr );
+    tr_address_from_string( &addr, "80.4.4.200" );
 
     numwant = 7;
     numgot = tr_generateAllowedSet( buf, numwant, pieceCount, infohash, &addr );
@@ -56,6 +56,7 @@ main( void )
     check( numgot == numwant );
     for( i=0; i<numgot; ++i )
         check( buf[i] == pieces[i] );
+#endif
 
     return 0;
 }

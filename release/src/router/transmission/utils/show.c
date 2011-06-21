@@ -7,10 +7,12 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: show.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: show.c 12225 2011-03-24 22:57:39Z jordan $
  */
 
-#include <stdio.h>
+#include <stdio.h> /* fprintf() */
+#include <string.h> /* strcmp(), strchr(), memcmp() */
+#include <stdlib.h> /* getenv(), qsort() */
 #include <time.h>
 
 #define CURL_DISABLE_TYPECHECK /* otherwise -Wunreachable-code goes insane */
@@ -61,8 +63,8 @@ getUsage( void )
     return "Usage: " MY_NAME " [options] <.torrent file>";
 }
 
-static tr_bool scrapeFlag = FALSE;
-static tr_bool showVersion = FALSE;
+static bool scrapeFlag = false;
+static bool showVersion = false;
 const char * filename = NULL;
 
 static int
@@ -75,8 +77,8 @@ parseCommandLine( int argc, const char ** argv )
     {
         switch( c )
         {
-            case 's': scrapeFlag = TRUE; break;
-            case 'V': showVersion = TRUE; break;
+            case 's': scrapeFlag = true; break;
+            case 'V': showVersion = true; break;
             case TR_OPT_UNK: filename = optarg; break;
             default: return 1;
         }
@@ -197,14 +199,17 @@ doScrape( const tr_info * inf )
         struct evbuffer * buf;
         const char * scrape = inf->trackers[i].scrape;
         char * url;
+        char escaped[SHA_DIGEST_LENGTH*3 + 1];
 
         if( scrape == NULL )
             continue;
 
+        tr_http_escape_sha1( escaped, inf->hash );
+
         url = tr_strdup_printf( "%s%cinfo_hash=%s",
                                 scrape,
                                 strchr( scrape, '?' ) ? '&' : '?',
-                                inf->hashEscaped );
+                                escaped );
 
         printf( "%s ... ", url );
         fflush( stdout );
@@ -232,7 +237,7 @@ doScrape( const tr_info * inf )
             {
                 tr_benc top;
                 tr_benc * files;
-                tr_bool matched = FALSE;
+                bool matched = false;
                 const char * begin = (const char*) evbuffer_pullup( buf, -1 );
                 const char * end = begin + evbuffer_get_length( buf );
 
@@ -253,7 +258,7 @@ doScrape( const tr_info * inf )
                                 tr_bencDictFindInt( val, "complete", &seeders );
                                 tr_bencDictFindInt( val, "incomplete", &leechers );
                                 printf( "%d seeders, %d leechers\n", (int)seeders, (int)leechers );
-                                matched = TRUE;
+                                matched = true;
                             }
                         }
                     }

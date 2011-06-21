@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Torrent.h 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: Torrent.h 12325 2011-04-05 23:03:33Z livings124 $
  *
  * Copyright (c) 2006-2011 Transmission authors and contributors
  *
@@ -134,7 +134,7 @@
 - (NSMutableArray *) allTrackerStats;
 - (NSArray *) allTrackersFlat; //used by GroupRules
 - (BOOL) addTrackerToNewTier: (NSString *) tracker;
-- (void) removeTrackersWithIdentifiers: (NSIndexSet *) removeIdentifiers;
+- (void) removeTrackers: (NSSet *) trackers;
 
 - (NSString *) comment;
 - (NSString *) creator;
@@ -186,7 +186,6 @@
 - (NSInteger) totalPeersDHT;
 - (NSInteger) totalPeersLocal;
 - (NSInteger) totalPeersLTEP;
-- (NSInteger) totalPeersKnown;
 
 - (NSInteger) peersSendingToUs;
 - (NSInteger) peersGettingFromUs;

@@ -199,6 +199,8 @@ LIBNOTIFY_MINIMUM = @LIBNOTIFY_MINIMUM@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
+LIBUTP_CFLAGS = @LIBUTP_CFLAGS@
+LIBUTP_LIBS = @LIBUTP_LIBS@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -319,6 +321,7 @@ transmission_cli_LDADD = \
     $(top_builddir)/third-party/libnatpmp/libnatpmp.a \
     $(top_builddir)/third-party/miniupnp/libminiupnp.a \
     @DHT_LIBS@ \
+    @LIBUTP_LIBS@ \
     @LIBEVENT_LIBS@ \
     @LIBCURL_LIBS@ \
     @OPENSSL_LIBS@ \

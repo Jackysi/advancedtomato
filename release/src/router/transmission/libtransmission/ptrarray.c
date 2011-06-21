@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: ptrarray.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: ptrarray.c 12204 2011-03-22 15:19:54Z jordan $
  */
 
 #include <assert.h>
@@ -55,17 +55,6 @@ tr_ptrArrayPeek( tr_ptrArray * t,
 {
     *size = t->n_items;
     return t->items;
-}
-
-void*
-tr_ptrArrayNth( tr_ptrArray* t,
-                int          i )
-{
-    assert( t );
-    assert( i >= 0 );
-    assert( i < t->n_items );
-
-    return t->items[i];
 }
 
 int
@@ -128,7 +117,7 @@ tr_ptrArrayLowerBound( const tr_ptrArray *                t,
                        const void *                       ptr,
                        int                 compare( const void *,
                                                     const void * ),
-                       tr_bool *                    exact_match )
+                       bool *                    exact_match )
 {
     int len = t->n_items;
     int first = 0;
@@ -146,7 +135,7 @@ tr_ptrArrayLowerBound( const tr_ptrArray *                t,
         else if( !c )
         {
             if( exact_match )
-                *exact_match = TRUE;
+                *exact_match = true;
             return middle;
             break;
         }
@@ -157,7 +146,7 @@ tr_ptrArrayLowerBound( const tr_ptrArray *                t,
     }
 
     if( exact_match )
-        *exact_match = FALSE;
+        *exact_match = false;
 
     return first;
 }
@@ -193,7 +182,7 @@ tr_ptrArrayFindSorted( tr_ptrArray * t,
                        const void *  ptr,
                        int           compare(const void*, const void*) )
 {
-    tr_bool   match;
+    bool   match;
     const int pos = tr_ptrArrayLowerBound( t, ptr, compare, &match );
 
     return match ? t->items[pos] : NULL;
@@ -205,7 +194,7 @@ tr_ptrArrayRemoveSorted( tr_ptrArray * t,
                          int           compare(const void*, const void*) )
 {
     void *    ret = NULL;
-    tr_bool   match;
+    bool   match;
     const int pos = tr_ptrArrayLowerBound( t, ptr, compare, &match );
 
     if( match )

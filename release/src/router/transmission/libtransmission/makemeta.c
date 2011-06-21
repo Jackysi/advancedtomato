@@ -7,19 +7,21 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: makemeta.c 12023 2011-02-24 14:59:13Z jordan $
+ * $Id: makemeta.c 12223 2011-03-24 21:49:42Z jordan $
  */
 
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h> /* FILE, stderr */
 #include <stdlib.h> /* qsort */
-#include <string.h> /* strcmp, strlen, strcasecmp */
+#include <string.h> /* strcmp, strlen */
 
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
+#include <unistd.h> /* read() */
 #include <dirent.h>
+
+#include <event2/util.h> /* evutil_ascii_strcasecmp() */
 
 #include "transmission.h"
 #include "crypto.h" /* tr_sha1 */
@@ -105,13 +107,12 @@ bestPieceSize( uint64_t totalSize )
 }
 
 static int
-builderFileCompare( const void * va,
-                    const void * vb )
+builderFileCompare( const void * va, const void * vb )
 {
     const tr_metainfo_builder_file * a = va;
     const tr_metainfo_builder_file * b = vb;
 
-    return strcasecmp( a->filename, b->filename );
+    return evutil_ascii_strcasecmp( a->filename, b->filename );
 }
 
 tr_metainfo_builder*
@@ -162,9 +163,7 @@ tr_metaInfoBuilderCreate( const char * topFile )
            builderFileCompare );
 
     ret->pieceSize = bestPieceSize( ret->totalSize );
-    ret->pieceCount = ret->pieceSize
-                      ? (int)( ret->totalSize / ret->pieceSize )
-                      : 0;
+    ret->pieceCount = (int)( ret->totalSize / ret->pieceSize );
     if( ret->totalSize % ret->pieceSize )
         ++ret->pieceCount;
 
@@ -382,7 +381,7 @@ tr_realMakeMetaInfo( tr_metainfo_builder * builder )
         builder->errfile[0] = '\0';
         builder->my_errno = ENOENT;
         builder->result = TR_MAKEMETA_IO_READ;
-        builder->isDone = TRUE;
+        builder->isDone = true;
     }
 
     if( !builder->result && builder->trackerCount )

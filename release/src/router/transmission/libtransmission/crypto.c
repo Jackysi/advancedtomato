@@ -7,15 +7,15 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: crypto.c 11717 2011-01-19 21:50:51Z jordan $
+ * $Id: crypto.c 12365 2011-04-17 05:22:50Z jordan $
  */
 
 #include <assert.h>
 #include <inttypes.h> /* uint8_t */
-#include <limits.h> /* for INT_MAX */
+#include <limits.h> /* INT_MAX */
 #include <stdarg.h>
-#include <stdlib.h> /* for abs() */
-#include <string.h> /* memcpy */
+#include <stdlib.h> /* abs() */
+#include <string.h> /* memcpy(), memset(), strcmp() */
 
 #include <openssl/bn.h>
 #include <openssl/dh.h>
@@ -77,20 +77,6 @@ static const uint8_t dh_P[PRIME_LEN] =
 
 static const uint8_t dh_G[] = { 2 };
 
-/** @brief Holds state information for encrypted peer communications */
-struct tr_crypto
-{
-    RC4_KEY         dec_key;
-    RC4_KEY         enc_key;
-    uint8_t         torrentHash[SHA_DIGEST_LENGTH];
-    tr_bool         isIncoming;
-    tr_bool         torrentHashIsSet;
-    tr_bool         mySecretIsSet;
-    uint8_t         myPublicKey[KEY_LEN];
-    uint8_t         mySecret[KEY_LEN];
-    DH *            dh;
-};
-
 /**
 ***
 **/
@@ -143,26 +129,21 @@ ensureKeyExists( tr_crypto * crypto)
     }
 }
 
-tr_crypto *
-tr_cryptoNew( const uint8_t * torrentHash,
-              int             isIncoming )
+void
+tr_cryptoConstruct( tr_crypto * crypto, const uint8_t * torrentHash, bool isIncoming )
 {
-    tr_crypto * crypto;
+    memset( crypto, 0, sizeof ( tr_crypto ) );
 
-    crypto = tr_new0( tr_crypto, 1 );
-    crypto->isIncoming = isIncoming ? 1 : 0;
-    tr_cryptoSetTorrentHash( crypto, torrentHash );
     crypto->dh = NULL;
-
-    return crypto;
+    crypto->isIncoming = isIncoming;
+    tr_cryptoSetTorrentHash( crypto, torrentHash );
 }
 
 void
-tr_cryptoFree( tr_crypto * crypto )
+tr_cryptoDestruct( tr_crypto * crypto )
 {
     if( crypto->dh != NULL )
         DH_free( crypto->dh );
-    tr_free( crypto );
 }
 
 /**
@@ -335,14 +316,14 @@ tr_cryptoRandInt( int upperBound )
 int
 tr_cryptoWeakRandInt( int upperBound )
 {
-    static tr_bool init = FALSE;
+    static bool init = false;
 
     assert( upperBound > 0 );
 
     if( !init )
     {
         srand( tr_time_msec( ) );
-        init = TRUE;
+        init = true;
     }
 
     return rand( ) % upperBound;
@@ -388,14 +369,14 @@ tr_ssha1( const void * plaintext )
     return tr_strdup( &buf );
 }
 
-tr_bool
+bool
 tr_ssha1_matches( const char * source, const char * pass )
 {
     char * salt;
     size_t saltlen;
     char * hashed;
     uint8_t buf[SHA_DIGEST_LENGTH];
-    tr_bool result;
+    bool result;
 
     /* extract the salt */
     saltlen = strlen( source ) - 2*SHA_DIGEST_LENGTH-1;
@@ -410,7 +391,7 @@ tr_ssha1_matches( const char * source, const char * pass )
     hashed[1+2*SHA_DIGEST_LENGTH + saltlen] = '\0';
     hashed[0] = '{';
 
-    result = strcmp( source, hashed ) == 0 ? TRUE : FALSE;
+    result = strcmp( source, hashed ) == 0 ? true : false;
 
     tr_free( hashed );
     tr_free( salt );

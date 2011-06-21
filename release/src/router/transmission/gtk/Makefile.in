@@ -69,8 +69,8 @@ am_transmission_gtk_OBJECTS = actions.$(OBJEXT) conf.$(OBJEXT) \
 	msgwin.$(OBJEXT) notify.$(OBJEXT) open-dialog.$(OBJEXT) \
 	relocate.$(OBJEXT) stats.$(OBJEXT) \
 	torrent-cell-renderer.$(OBJEXT) tr-core.$(OBJEXT) \
-	tr-icon.$(OBJEXT) tr-prefs.$(OBJEXT) tr-torrent.$(OBJEXT) \
-	tr-window.$(OBJEXT) util.$(OBJEXT) $(am__objects_1)
+	tr-icon.$(OBJEXT) tr-prefs.$(OBJEXT) tr-window.$(OBJEXT) \
+	util.$(OBJEXT) $(am__objects_1)
 transmission_gtk_OBJECTS = $(am_transmission_gtk_OBJECTS)
 transmission_gtk_DEPENDENCIES =  \
 	$(top_builddir)/libtransmission/libtransmission.a \
@@ -262,6 +262,8 @@ LIBNOTIFY_MINIMUM = @LIBNOTIFY_MINIMUM@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
+LIBUTP_CFLAGS = @LIBUTP_CFLAGS@
+LIBUTP_LIBS = @LIBUTP_LIBS@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -418,7 +420,6 @@ noinst_HEADERS = \
     tr-core-dbus.h \
     tr-icon.h \
     tr-prefs.h \
-    tr-torrent.h \
     tr-window.h \
     ui.h \
     util.h
@@ -445,7 +446,6 @@ transmission_gtk_SOURCES = \
     tr-core.c \
     tr-icon.c \
     tr-prefs.c \
-    tr-torrent.c \
     tr-window.c \
     util.c \
     $(dbus_generated_sources)
@@ -455,8 +455,8 @@ transmission_gtk_LDADD =  \
 	$(top_builddir)/libtransmission/libtransmission.a \
 	$(top_builddir)/third-party/miniupnp/libminiupnp.a \
 	$(top_builddir)/third-party/libnatpmp/libnatpmp.a \
-	@LIBCANBERRA_LIBS@ @GCONF2_LIBS@ @DHT_LIBS@ @GTK_LIBS@ \
-	@GIO_LIBS@ @LIBAPPINDICATOR_LIBS@ @LIBNOTIFY_LIBS@ \
+	@LIBCANBERRA_LIBS@ @GCONF2_LIBS@ @DHT_LIBS@ @LIBUTP_LIBS@ \
+	@GTK_LIBS@ @GIO_LIBS@ @LIBAPPINDICATOR_LIBS@ @LIBNOTIFY_LIBS@ \
 	@LIBEVENT_LIBS@ @DBUS_GLIB_LIBS@ @LIBCURL_LIBS@ @OPENSSL_LIBS@ \
 	@ZLIB_LIBS@ @PTHREAD_LIBS@ $(am__append_2)
 DESKTOP_IN_FILES = transmission-gtk.desktop.in
@@ -589,7 +589,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-core.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-icon.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-prefs.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-torrent.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tr-window.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/util.Po@am__quote@
 
@@ -1045,7 +1044,7 @@ uninstall-man: uninstall-man1
 $(srcdir)/tr-core.c: tr-core-dbus.h
 
 tr-core-dbus.h: $(srcdir)/tr-core-dbus.xml
-	$(DBUS_BINDING_TOOL) --mode=glib-server --prefix=tr_core $< > $(@F)
+	$(DBUS_BINDING_TOOL) --mode=glib-server --prefix=gtr_core $< > $(@F)
 
 @WIN32_TRUE@transmission.res: transmission.rc
 @WIN32_TRUE@	$(WINDRES) -J rc -i transmission.rc -O coff -o transmission.res

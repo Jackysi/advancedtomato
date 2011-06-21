@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: handshake.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: handshake.h 12204 2011-03-22 15:19:54Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -30,12 +30,12 @@ struct tr_peerIo;
 typedef struct tr_handshake tr_handshake;
 
 /* returns true on success, false on error */
-typedef tr_bool ( *handshakeDoneCB )( struct tr_handshake * handshake,
-                                      struct tr_peerIo *    io,
-                                      tr_bool               readAnythingFromPeer,
-                                      tr_bool               isConnected,
-                                      const uint8_t *       peerId,
-                                      void *                userData );
+typedef bool ( *handshakeDoneCB )( struct tr_handshake * handshake,
+                                   struct tr_peerIo    * io,
+                                   bool                  readAnythingFromPeer,
+                                   bool                  isConnected,
+                                   const uint8_t       * peerId,
+                                   void                * userData );
 
 /** @brief instantiate a new handshake */
 tr_handshake *         tr_handshakeNew( struct tr_peerIo * io,

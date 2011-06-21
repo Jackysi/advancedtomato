@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: upnp.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: upnp.c 12204 2011-03-22 15:19:54Z jordan $
  */
 
 #include <assert.h>
@@ -37,7 +37,7 @@ tr_upnp_state;
 
 struct tr_upnp
 {
-    tr_bool            hasDiscovered;
+    bool               hasDiscovered;
     struct UPNPUrls    urls;
     struct IGDdatas    data;
     int                port;
@@ -143,13 +143,13 @@ tr_upnpPulse( tr_upnp * handle,
         char intClient[16];
 
         tr_snprintf( portStr, sizeof( portStr ), "%d", handle->port );
-        if( UPNP_GetSpecificPortMappingEntry( handle->urls.controlURL, handle->data.first.servicetype, 
+        if( UPNP_GetSpecificPortMappingEntry( handle->urls.controlURL, handle->data.first.servicetype,
             portStr, "TCP", intClient, intPort ) != UPNPCOMMAND_SUCCESS  ||
-            UPNP_GetSpecificPortMappingEntry( handle->urls.controlURL, handle->data.first.servicetype, 
+            UPNP_GetSpecificPortMappingEntry( handle->urls.controlURL, handle->data.first.servicetype,
             portStr, "UDP", intClient, intPort ) != UPNPCOMMAND_SUCCESS )
         {
             tr_ninf( getKey( ), _( "Port %d isn't forwarded" ), handle->port );
-            handle->isMapped = FALSE;
+            handle->isMapped = false;
         }
     }
 

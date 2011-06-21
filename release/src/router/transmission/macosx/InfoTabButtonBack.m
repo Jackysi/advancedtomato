@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id$
+ * $Id: InfoTabButtonBack.m 12152 2011-03-13 14:38:49Z jordan $
  *
  * Copyright (c) 2011 Transmission authors and contributors
  *

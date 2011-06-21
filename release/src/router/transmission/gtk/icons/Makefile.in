@@ -141,6 +141,8 @@ LIBNOTIFY_MINIMUM = @LIBNOTIFY_MINIMUM@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
+LIBUTP_CFLAGS = @LIBUTP_CFLAGS@
+LIBUTP_LIBS = @LIBUTP_LIBS@
 LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
@@ -254,6 +256,7 @@ public_icons = \
 	hicolor_apps_24x24_transmission.png \
 	hicolor_apps_32x32_transmission.png \
 	hicolor_apps_48x48_transmission.png \
+	hicolor_apps_256x256_transmission.png \
 	hicolor_apps_scalable_transmission.svg \
 	$(NULL)
 
@@ -261,7 +264,11 @@ private_icons = \
 	$(NULL)
 
 noinst_DATA = \
-	hicolor_apps_16x16_transmission.svg
+	hicolor_apps_16x16_transmission.svg \
+	hicolor_apps_22x22_transmission.svg \
+	hicolor_apps_32x32_transmission.svg \
+	transmission.svg \
+	$(NULL)
 
 EXTRA_DIST = \
 	$(public_icons)		\
@@ -457,9 +464,6 @@ uninstall-am: uninstall-local
 	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
 	uninstall uninstall-am uninstall-local
 
-	hicolor_apps_22x22_transmission.svg
-	hicolor_apps_32x32_transmission.svg
-	$(NULL)
 
 update-icon-cache:
 	@-if test -z "$(DESTDIR)"; then \

@@ -7,12 +7,16 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: blocklist.c 12024 2011-02-24 15:01:26Z jordan $
+ * $Id: blocklist.c 12229 2011-03-25 05:34:26Z jordan $
  */
 
+#include <assert.h>
+#include <errno.h>
 #include <stdio.h>
-#include <stdlib.h> /* qsort(), free() */
+#include <stdlib.h> /* bsearch(), qsort() */
 #include <string.h>
+
+#include <unistd.h> /* unlink() */
 
 #ifdef WIN32
  #include <w32api.h>
@@ -28,11 +32,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <assert.h>
 
 #include "transmission.h"
-#include "platform.h"
 #include "blocklist.h"
 #include "net.h"
 #include "utils.h"
@@ -54,7 +55,7 @@ struct tr_ipv4_range
 
 struct tr_blocklist
 {
-    tr_bool                isEnabled;
+    bool                   isEnabled;
     int                    fd;
     size_t                 ruleCount;
     size_t                 byteCount;
@@ -147,7 +148,7 @@ blocklistDelete( tr_blocklist * b )
 ***/
 
 tr_blocklist *
-_tr_blocklistNew( const char * filename, tr_bool isEnabled )
+_tr_blocklistNew( const char * filename, bool isEnabled )
 {
     tr_blocklist * b;
 
@@ -196,20 +197,18 @@ _tr_blocklistIsEnabled( tr_blocklist * b )
 }
 
 void
-_tr_blocklistSetEnabled( tr_blocklist * b,
-                         int            isEnabled )
+_tr_blocklistSetEnabled( tr_blocklist * b, bool isEnabled )
 {
     b->isEnabled = isEnabled ? 1 : 0;
 }
 
 int
-_tr_blocklistHasAddress( tr_blocklist     * b,
-                         const tr_address * addr )
+_tr_blocklistHasAddress( tr_blocklist * b, const tr_address * addr )
 {
     uint32_t                     needle;
     const struct tr_ipv4_range * range;
 
-    assert( tr_isAddress( addr ) );
+    assert( tr_address_is_valid( addr ) );
 
     if( !b->isEnabled || addr->type == TR_AF_INET6 )
         return 0;
@@ -235,7 +234,7 @@ _tr_blocklistHasAddress( tr_blocklist     * b,
  * http://wiki.phoenixlabs.org/wiki/P2P_Format
  * http://en.wikipedia.org/wiki/PeerGuardian#P2P_plaintext_format
  */
-static tr_bool
+static bool
 parseLine1( const char * line, struct tr_ipv4_range * range )
 {
     char * walk;
@@ -246,32 +245,32 @@ parseLine1( const char * line, struct tr_ipv4_range * range )
 
     walk = strrchr( line, ':' );
     if( !walk )
-        return FALSE;
+        return false;
     ++walk; /* walk past the colon */
 
     if( sscanf( walk, "%d.%d.%d.%d-%d.%d.%d.%d",
                 &b[0], &b[1], &b[2], &b[3],
                 &e[0], &e[1], &e[2], &e[3] ) != 8 )
-        return FALSE;
+        return false;
 
     tr_snprintf( str, sizeof( str ), "%d.%d.%d.%d", b[0], b[1], b[2], b[3] );
-    if( tr_pton( str, &addr ) == NULL )
-        return FALSE;
+    if( !tr_address_from_string( &addr, str ) )
+        return false;
     range->begin = ntohl( addr.addr.addr4.s_addr );
 
     tr_snprintf( str, sizeof( str ), "%d.%d.%d.%d", e[0], e[1], e[2], e[3] );
-    if( tr_pton( str, &addr ) == NULL )
-        return FALSE;
+    if( !tr_address_from_string( &addr, str ) )
+        return false;
     range->end = ntohl( addr.addr.addr4.s_addr );
 
-    return TRUE;
+    return true;
 }
 
 /*
  * DAT format: "000.000.000.000 - 000.255.255.255 , 000 , invalid ip"
  * http://wiki.phoenixlabs.org/wiki/DAT_Format
  */
-static tr_bool
+static bool
 parseLine2( const char * line, struct tr_ipv4_range * range )
 {
     int unk;
@@ -284,19 +283,19 @@ parseLine2( const char * line, struct tr_ipv4_range * range )
                 &a[0], &a[1], &a[2], &a[3],
                 &b[0], &b[1], &b[2], &b[3],
                 &unk ) != 9 )
-        return FALSE;
+        return false;
 
     tr_snprintf( str, sizeof(str), "%d.%d.%d.%d", a[0], a[1], a[2], a[3] );
-    if( tr_pton( str, &addr ) == NULL )
-        return FALSE;
+    if( !tr_address_from_string( &addr, str ) )
+        return false;
     range->begin = ntohl( addr.addr.addr4.s_addr );
 
     tr_snprintf( str, sizeof(str), "%d.%d.%d.%d", b[0], b[1], b[2], b[3] );
-    if( tr_pton( str, &addr ) == NULL )
-        return FALSE;
+    if( !tr_address_from_string( &addr, str ) )
+        return false;
     range->end = ntohl( addr.addr.addr4.s_addr );
 
-    return TRUE;
+    return true;
 }
 
 static int

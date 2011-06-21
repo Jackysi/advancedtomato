@@ -7,8 +7,10 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: add-data.cc 11623 2011-01-02 23:42:46Z charles $
+ * $Id: add-data.cc 12212 2011-03-23 18:22:23Z jordan $
  */
+
+#include <QFile>
 
 #include <libtransmission/transmission.h>
 #include <libtransmission/bencode.h> // tr_base64_encode()

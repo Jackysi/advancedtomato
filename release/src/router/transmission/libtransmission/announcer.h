@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: announcer.h 11844 2011-02-07 23:09:36Z jordan $
+ * $Id: announcer.h 12237 2011-03-26 10:22:25Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -76,7 +76,7 @@ struct tr_torrent_tiers * tr_announcerAddTorrent( tr_torrent          * torrent,
                                                   tr_tracker_callback * cb,
                                                   void                * cbdata );
 
-tr_bool tr_announcerHasBacklog( const struct tr_announcer * );
+bool tr_announcerHasBacklog( const struct tr_announcer * );
 
 void tr_announcerResetTorrent( struct tr_announcer*, tr_torrent* );
 
@@ -85,7 +85,7 @@ void tr_announcerRemoveTorrent( struct tr_announcer * ,
 
 void tr_announcerChangeMyPort( tr_torrent * );
 
-tr_bool tr_announcerCanManualAnnounce( const tr_torrent * );
+bool tr_announcerCanManualAnnounce( const tr_torrent * );
 
 void tr_announcerManualAnnounce( tr_torrent * );
 
@@ -103,6 +103,17 @@ tr_tracker_stat * tr_announcerStats( const tr_torrent * torrent,
 
 void tr_announcerStatsFree( tr_tracker_stat * trackers,
                             int               trackerCount );
+
+/***
+****
+***/
+
+void tr_tracker_udp_upkeep( tr_session * session );
+
+void tr_tracker_udp_close( tr_session * session );
+
+bool tr_tracker_udp_is_idle( const tr_session * session );
+
 
 
 #endif /* _TR_ANNOUNCER_H_ */

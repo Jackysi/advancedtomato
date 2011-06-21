@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: formatter.h 11092 2010-08-01 20:36:13Z charles $
+ * $Id: formatter.h 12429 2011-05-12 20:21:27Z jordan $
  */
 
 #ifndef QTR_UNITS
@@ -32,8 +32,8 @@ class Formatter: public QObject
 
     public:
 
-        static QString memToString( uint64_t bytes );
-        static QString sizeToString( uint64_t bytes );
+        static QString memToString( int64_t bytes );
+        static QString sizeToString( int64_t bytes );
         static QString speedToString( const Speed& speed );
         static QString percentToString( double x );
         static QString ratioToString( double ratio );

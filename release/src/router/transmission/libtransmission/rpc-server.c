@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: rpc-server.c 11775 2011-01-27 03:53:02Z jordan $
+ * $Id: rpc-server.c 12391 2011-04-27 21:22:08Z jordan $
  */
 
 #include <assert.h>
@@ -15,9 +15,6 @@
 #include <string.h> /* memcpy */
 #include <limits.h> /* INT_MAX */
 
-#include <sys/types.h> /* open */
-#include <sys/stat.h>  /* open */
-#include <fcntl.h>     /* open */
 #include <unistd.h>    /* close */
 
 #ifdef HAVE_ZLIB
@@ -31,7 +28,7 @@
 
 #include "transmission.h"
 #include "bencode.h"
-#include "crypto.h"
+#include "crypto.h" /* tr_cryptoRandBuf(), tr_ssha1_matches() */
 #include "fdlimit.h"
 #include "list.h"
 #include "net.h"
@@ -55,15 +52,11 @@
 #define MY_REALM "Transmission"
 #define TR_N_ELEMENTS( ary ) ( sizeof( ary ) / sizeof( *ary ) )
 
-#ifdef WIN32
-#define strncasecmp _strnicmp
-#endif
-
 struct tr_rpc_server
 {
-    tr_bool            isEnabled;
-    tr_bool            isPasswordEnabled;
-    tr_bool            isWhitelistEnabled;
+    bool               isEnabled;
+    bool               isPasswordEnabled;
+    bool               isWhitelistEnabled;
     tr_port            port;
     char *             url;
     struct in_addr     bindAddress;
@@ -78,7 +71,7 @@ struct tr_rpc_server
     time_t             sessionIdExpiresAt;
 
 #ifdef HAVE_ZLIB
-    tr_bool            isStreamInitialized;
+    bool               isStreamInitialized;
     z_stream           stream;
 #endif
 };
@@ -214,11 +207,11 @@ handle_upload( struct evhttp_request * req,
     {
         int i;
         int n;
-        tr_bool hasSessionId = FALSE;
+        bool hasSessionId = false;
         tr_ptrArray parts = TR_PTR_ARRAY_INIT;
 
         const char * query = strchr( req->uri, '?' );
-        const tr_bool paused = query && strstr( query + 1, "paused=true" );
+        const bool paused = query && strstr( query + 1, "paused=true" );
 
         extract_parts_from_multipart( req->input_headers, req->input_buffer, &parts );
         n = tr_ptrArraySize( &parts );
@@ -251,7 +244,7 @@ handle_upload( struct evhttp_request * req,
             int body_len = p->body_len;
             tr_benc top, *args;
             tr_benc test;
-            tr_bool have_source = FALSE;
+            bool have_source = false;
             char * body = p->body;
 
             if( body_len >= 2 && !memcmp( &body[body_len - 2], "\r\n", 2 ) )
@@ -265,20 +258,19 @@ handle_upload( struct evhttp_request * req,
             if( tr_urlIsValid( body, body_len ) )
             {
                 tr_bencDictAddRaw( args, "filename", body, body_len );
-                have_source = TRUE;
+                have_source = true;
             }
             else if( !tr_bencLoad( body, body_len, &test, NULL ) )
             {
                 char * b64 = tr_base64_encode( body, body_len, NULL );
                 tr_bencDictAddStr( args, "metainfo", b64 );
                 tr_free( b64 );
-                have_source = TRUE;
+                have_source = true;
             }
 
             if( have_source )
             {
-                struct evbuffer * json = evbuffer_new( );
-                tr_bencToBuf( &top, TR_FMT_JSON, json );
+                struct evbuffer * json = tr_bencToBuf( &top, TR_FMT_JSON );
                 tr_rpc_request_exec_json( server->session,
                                           evbuffer_pullup( json, -1 ),
                                           evbuffer_get_length( json ),
@@ -356,7 +348,7 @@ add_response( struct evhttp_request * req, struct tr_rpc_server * server,
         {
             int compressionLevel;
 
-            server->isStreamInitialized = TRUE;
+            server->isStreamInitialized = true;
             server->stream.zalloc = (alloc_func) Z_NULL;
             server->stream.zfree = (free_func) Z_NULL;
             server->stream.opaque = (voidpf) Z_NULL;
@@ -418,6 +410,12 @@ add_time_header( struct evkeyvalq * headers, const char * key, time_t value )
 }
 
 static void
+evbuffer_ref_cleanup_tr_free( const void * data UNUSED, size_t datalen UNUSED, void * extra )
+{
+    tr_free( extra );
+}
+
+static void
 serve_file( struct evhttp_request * req,
             struct tr_rpc_server *  server,
             const char *            filename )
@@ -431,7 +429,7 @@ serve_file( struct evhttp_request * req,
     {
         void * file;
         size_t file_len;
-        struct evbuffer * content = evbuffer_new( );
+        struct evbuffer * content;
         const int error = errno;
 
         errno = 0;
@@ -560,28 +558,28 @@ handle_rpc( struct evhttp_request * req,
 
 }
 
-static tr_bool
+static bool
 isAddressAllowed( const tr_rpc_server * server,
                   const char *          address )
 {
     tr_list * l;
 
     if( !server->isWhitelistEnabled )
-        return TRUE;
+        return true;
 
     for( l=server->whitelist; l!=NULL; l=l->next )
         if( tr_wildmat( address, l->data ) )
-            return TRUE;
+            return true;
 
-    return FALSE;
+    return false;
 }
 
-static tr_bool
+static bool
 test_session_id( struct tr_rpc_server * server, struct evhttp_request * req )
 {
     const char * ours = get_current_session_id( server );
     const char * theirs = evhttp_find_header( req->input_headers, TR_RPC_SESSION_ID_HEADER );
-    const tr_bool success =  theirs && !strcmp( theirs, ours );
+    const bool success =  theirs && !strcmp( theirs, ours );
     return success;
 }
 
@@ -599,7 +597,7 @@ handle_request( struct evhttp_request * req, void * arg )
         evhttp_add_header( req->output_headers, "Server", MY_REALM );
 
         auth = evhttp_find_header( req->input_headers, "Authorization" );
-        if( auth && !strncasecmp( auth, "basic ", 6 ) )
+        if( auth && !evutil_ascii_strncasecmp( auth, "basic ", 6 ) )
         {
             int    plen;
             char * p = tr_base64_decode( auth + 6, 0, &plen );
@@ -690,7 +688,7 @@ startServer( void * vserver )
         addr.type = TR_AF_INET;
         addr.addr.addr4 = server->bindAddress;
         server->httpd = evhttp_new( server->session->event_base );
-        evhttp_bind_socket( server->httpd, tr_ntop_non_ts( &addr ), server->port );
+        evhttp_bind_socket( server->httpd, tr_address_to_string( &addr ), server->port );
         evhttp_set_gencb( server->httpd, handle_request, server );
 
     }
@@ -719,14 +717,14 @@ onEnabledChanged( void * vserver )
 
 void
 tr_rpcSetEnabled( tr_rpc_server * server,
-                  tr_bool         isEnabled )
+                  bool            isEnabled )
 {
     server->isEnabled = isEnabled;
 
     tr_runInEventThread( server->session, onEnabledChanged, server );
 }
 
-tr_bool
+bool
 tr_rpcIsEnabled( const tr_rpc_server * server )
 {
     return server->isEnabled;
@@ -820,12 +818,12 @@ tr_rpcGetWhitelist( const tr_rpc_server * server )
 
 void
 tr_rpcSetWhitelistEnabled( tr_rpc_server  * server,
-                           tr_bool          isEnabled )
+                           bool             isEnabled )
 {
     server->isWhitelistEnabled = isEnabled != 0;
 }
 
-tr_bool
+bool
 tr_rpcGetWhitelistEnabled( const tr_rpc_server * server )
 {
     return server->isWhitelistEnabled;
@@ -869,14 +867,13 @@ tr_rpcGetPassword( const tr_rpc_server * server )
 }
 
 void
-tr_rpcSetPasswordEnabled( tr_rpc_server * server,
-                          tr_bool          isEnabled )
+tr_rpcSetPasswordEnabled( tr_rpc_server * server, bool isEnabled )
 {
     server->isPasswordEnabled = isEnabled;
     dbgmsg( "setting 'password enabled' to %d", (int)isEnabled );
 }
 
-tr_bool
+bool
 tr_rpcIsPasswordEnabled( const tr_rpc_server * server )
 {
     return server->isPasswordEnabled;
@@ -888,7 +885,7 @@ tr_rpcGetBindAddress( const tr_rpc_server * server )
     tr_address addr;
     addr.type = TR_AF_INET;
     addr.addr.addr4 = server->bindAddress;
-    return tr_ntop_non_ts( &addr );
+    return tr_address_to_string( &addr );
 }
 
 /****
@@ -927,8 +924,8 @@ tr_rpc_server *
 tr_rpcInit( tr_session  * session, tr_benc * settings )
 {
     tr_rpc_server * s;
-    tr_bool found;
-    tr_bool boolVal;
+    bool found;
+    bool boolVal;
     int64_t i;
     const char *str;
     tr_address address;
@@ -970,7 +967,7 @@ tr_rpcInit( tr_session  * session, tr_benc * settings )
 
     found = tr_bencDictFindStr( settings, TR_PREFS_KEY_RPC_BIND_ADDRESS, &str );
     assert( found );
-    if( tr_pton( str, &address ) == NULL ) {
+    if( !tr_address_from_string( &address, str ) ) {
         tr_err( _( "%s is not a valid address" ), str );
         address = tr_inaddr_any;
     } else if( address.type != TR_AF_INET ) {

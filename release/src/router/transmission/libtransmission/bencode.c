@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: bencode.c 11838 2011-02-06 18:56:44Z jordan $
+ * $Id: bencode.c 12392 2011-04-27 21:33:52Z jordan $
  */
 
 #include <assert.h>
@@ -15,6 +15,7 @@
 #include <errno.h>
 #include <math.h> /* fabs() */
 #include <stdio.h> /* rename() */
+#include <stdlib.h> /* strtoul(), strtod(), realloc(), qsort(), mkstemp() */
 #include <string.h>
 
 #ifdef WIN32 /* tr_mkstemp() */
@@ -47,13 +48,13 @@
 ***
 **/
 
-static tr_bool
+static bool
 isContainer( const tr_benc * val )
 {
     return tr_bencIsList( val ) || tr_bencIsDict( val );
 }
 
-static tr_bool
+static bool
 isSomething( const tr_benc * val )
 {
     return isContainer( val ) || tr_bencIsInt( val )
@@ -403,7 +404,7 @@ tr_bencDictFind( tr_benc * val, const char * key )
     return i < 0 ? NULL : &val->val.l.vals[i + 1];
 }
 
-static tr_bool
+static bool
 tr_bencDictFindType( tr_benc * dict, const char * key, int type, tr_benc ** setme )
 {
     return tr_bencIsType( *setme = tr_bencDictFind( dict, key ), type );
@@ -445,11 +446,11 @@ tr_benc_warning( const char * err )
     fprintf( stderr, "warning: %s\n", err );
 }
 
-tr_bool
+bool
 tr_bencGetInt( const tr_benc * val,
                int64_t *       setme )
 {
-    tr_bool success = FALSE;
+    bool success = false;
 
     if( !success && (( success = tr_bencIsInt( val ))))
         if( setme )
@@ -464,10 +465,10 @@ tr_bencGetInt( const tr_benc * val,
     return success;
 }
 
-tr_bool
+bool
 tr_bencGetStr( const tr_benc * val, const char ** setme )
 {
-    const tr_bool success = tr_bencIsString( val );
+    const bool success = tr_bencIsString( val );
 
     if( success )
         *setme = getStr( val );
@@ -475,11 +476,24 @@ tr_bencGetStr( const tr_benc * val, const char ** setme )
     return success;
 }
 
-tr_bool
-tr_bencGetBool( const tr_benc * val, tr_bool * setme )
+bool
+tr_bencGetRaw( const tr_benc * val, const uint8_t ** setme_raw, size_t * setme_len )
+{
+    const bool success = tr_bencIsString( val );
+
+    if( success ) {
+        *setme_raw = (uint8_t*) getStr(val);
+        *setme_len = val->val.s.len;
+    }
+
+    return success;
+}
+
+bool
+tr_bencGetBool( const tr_benc * val, bool * setme )
 {
     const char * str;
-    tr_bool success = FALSE;
+    bool success = false;
 
     if(( success = tr_bencIsBool( val )))
         *setme = val->val.b;
@@ -495,10 +509,10 @@ tr_bencGetBool( const tr_benc * val, tr_bool * setme )
     return success;
 }
 
-tr_bool
+bool
 tr_bencGetReal( const tr_benc * val, double * setme )
 {
-    tr_bool success = FALSE;
+    bool success = false;
 
     if( !success && (( success = tr_bencIsReal( val ))))
         *setme = val->val.d;
@@ -526,57 +540,46 @@ tr_bencGetReal( const tr_benc * val, double * setme )
     return success;
 }
 
-tr_bool
+bool
 tr_bencDictFindInt( tr_benc * dict, const char * key, int64_t * setme )
 {
     return tr_bencGetInt( tr_bencDictFind( dict, key ), setme );
 }
 
-tr_bool
-tr_bencDictFindBool( tr_benc * dict, const char * key, tr_bool * setme )
+bool
+tr_bencDictFindBool( tr_benc * dict, const char * key, bool * setme )
 {
     return tr_bencGetBool( tr_bencDictFind( dict, key ), setme );
 }
 
-tr_bool
+bool
 tr_bencDictFindReal( tr_benc * dict, const char * key, double * setme )
 {
     return tr_bencGetReal( tr_bencDictFind( dict, key ), setme );
 }
 
-tr_bool
+bool
 tr_bencDictFindStr( tr_benc *  dict, const char *  key, const char ** setme )
 {
     return tr_bencGetStr( tr_bencDictFind( dict, key ), setme );
 }
 
-tr_bool
+bool
 tr_bencDictFindList( tr_benc * dict, const char * key, tr_benc ** setme )
 {
     return tr_bencDictFindType( dict, key, TR_TYPE_LIST, setme );
 }
 
-tr_bool
+bool
 tr_bencDictFindDict( tr_benc * dict, const char * key, tr_benc ** setme )
 {
     return tr_bencDictFindType( dict, key, TR_TYPE_DICT, setme );
 }
 
-tr_bool
-tr_bencDictFindRaw( tr_benc         * dict,
-                    const char      * key,
-                    const uint8_t  ** setme_raw,
-                    size_t          * setme_len )
+bool
+tr_bencDictFindRaw( tr_benc * dict, const char * key, const uint8_t  ** setme_raw, size_t * setme_len )
 {
-    tr_benc * child;
-    const tr_bool found = tr_bencDictFindType( dict, key, TR_TYPE_STR, &child );
-
-    if( found ) {
-        *setme_raw = (uint8_t*) getStr(child);
-        *setme_len = child->val.s.len;
-    }
-
-    return found;
+    return tr_bencGetRaw( tr_bencDictFind( dict, key ), setme_raw, setme_len );
 }
 
 /***
@@ -702,7 +705,7 @@ tr_bencListAddReal( tr_benc * list, double val )
 }
 
 tr_benc *
-tr_bencListAddBool( tr_benc * list, tr_bool val )
+tr_bencListAddBool( tr_benc * list, bool val )
 {
     tr_benc * node = tr_bencListAdd( list );
     tr_bencInitBool( node, val );
@@ -796,7 +799,7 @@ tr_bencDictAddInt( tr_benc *    dict,
 }
 
 tr_benc*
-tr_bencDictAddBool( tr_benc * dict, const char * key, tr_bool val )
+tr_bencDictAddBool( tr_benc * dict, const char * key, bool val )
 {
     tr_benc * child = dictFindOrAdd( dict, key, TR_TYPE_BOOL );
     tr_bencInitBool( child, val );
@@ -939,7 +942,7 @@ struct SaveNode
 };
 
 static void
-nodeInitDict( struct SaveNode * node, const tr_benc * val, tr_bool sort_dicts )
+nodeInitDict( struct SaveNode * node, const tr_benc * val, bool sort_dicts )
 {
     const int n = val->val.l.count;
     const int nKeys = n / 2;
@@ -1003,7 +1006,7 @@ nodeInitLeaf( struct SaveNode * node, const tr_benc * val )
 }
 
 static void
-nodeInit( struct SaveNode * node, const tr_benc * val, tr_bool sort_dicts )
+nodeInit( struct SaveNode * node, const tr_benc * val, bool sort_dicts )
 {
     static const struct SaveNode INIT_NODE = { NULL, 0, 0, 0, NULL };
     *node = INIT_NODE;
@@ -1035,7 +1038,7 @@ static void
 bencWalk( const tr_benc          * top,
           const struct WalkFuncs * walkFuncs,
           void                   * user_data,
-          tr_bool                  sort_dicts )
+          bool                     sort_dicts )
 {
     int stackSize = 0;
     int stackAlloc = 64;
@@ -1051,7 +1054,7 @@ bencWalk( const tr_benc          * top,
         if( !node->valIsVisited )
         {
             val = node->val;
-            node->valIsVisited = TRUE;
+            node->valIsVisited = true;
         }
         else if( node->childIndex < node->childCount )
         {
@@ -1222,7 +1225,7 @@ void
 tr_bencFree( tr_benc * val )
 {
     if( isSomething( val ) )
-        bencWalk( val, &freeWalkFuncs, NULL, FALSE );
+        bencWalk( val, &freeWalkFuncs, NULL, false );
 }
 
 /***
@@ -1240,7 +1243,7 @@ struct ParentState
 /** @brief Implementation helper class for tr_bencToBuffer(TR_FMT_JSON) */
 struct jsonWalk
 {
-    tr_bool doIndent;
+    bool doIndent;
     tr_list * parents;
     struct evbuffer *  out;
 };
@@ -1274,7 +1277,7 @@ jsonChildFunc( struct jsonWalk * data )
                 if( !( i % 2 ) )
                     evbuffer_add( data->out, ": ", data->doIndent ? 2 : 1 );
                 else {
-                    const tr_bool isLast = parentState->childIndex == parentState->childCount;
+                    const bool isLast = parentState->childIndex == parentState->childCount;
                     if( !isLast ) {
                         evbuffer_add( data->out, ", ", data->doIndent ? 2 : 1 );
                         jsonIndent( data );
@@ -1285,7 +1288,7 @@ jsonChildFunc( struct jsonWalk * data )
 
             case TR_TYPE_LIST:
             {
-                const tr_bool isLast = ++parentState->childIndex == parentState->childCount;
+                const bool isLast = ++parentState->childIndex == parentState->childCount;
                 if( !isLast ) {
                     evbuffer_add( data->out, ", ", data->doIndent ? 2 : 1 );
                     jsonIndent( data );
@@ -1395,11 +1398,11 @@ jsonStringFunc( const tr_benc * val, void * vdata )
                     *outwalk++ = *it;
                 else {
                     const UTF8 * tmp = it;
-                    UTF32        buf = 0;
-                    UTF32 *      u32 = &buf;
-                    ConversionResult result = ConvertUTF8toUTF32( &tmp, end, &u32, &buf + 1, 0 );
+                    UTF32        buf[1] = { 0 };
+                    UTF32 *      u32 = buf;
+                    ConversionResult result = ConvertUTF8toUTF32( &tmp, end, &u32, buf + 1, 0 );
                     if((( result==conversionOK ) || (result==targetExhausted)) && (tmp!=it)) {
-                        outwalk += tr_snprintf( outwalk, outend-outwalk, "\\u%04x", (unsigned int)buf );
+                        outwalk += tr_snprintf( outwalk, outend-outwalk, "\\u%04x", (unsigned int)buf[0] );
                         it = tmp - 1;
                     }
                 }
@@ -1443,7 +1446,7 @@ jsonContainerEndFunc( const tr_benc * val,
                       void *          vdata )
 {
     struct jsonWalk * data = vdata;
-    int               emptyContainer = FALSE;
+    int               emptyContainer = false;
 
     jsonPopParent( data );
     if( !emptyContainer )
@@ -1477,7 +1480,7 @@ tr_bencListCopy( tr_benc * target, const tr_benc * src )
     {
        if( tr_bencIsBool( val ) )
        {
-           tr_bool boolVal = 0;
+           bool boolVal = 0;
            tr_bencGetBool( val, &boolVal );
            tr_bencListAddBool( target, boolVal );
        }
@@ -1523,10 +1526,10 @@ tr_bencDictSize( const tr_benc * dict )
     return count;
 }
 
-tr_bool
+bool
 tr_bencDictChild( tr_benc * dict, size_t n, const char ** key, tr_benc ** val )
 {
-    tr_bool success = 0;
+    bool success = 0;
 
     assert( tr_bencIsDict( dict ) );
 
@@ -1560,7 +1563,7 @@ tr_bencMergeDicts( tr_benc * target, const tr_benc * source )
         {
             if( tr_bencIsBool( val ) )
             {
-                tr_bool boolVal;
+                bool boolVal;
                 tr_bencGetBool( val, &boolVal );
                 tr_bencDictAddBool( target, key, boolVal );
             }
@@ -1603,16 +1606,17 @@ tr_bencMergeDicts( tr_benc * target, const tr_benc * source )
 ****
 ***/
 
-void
-tr_bencToBuf( const tr_benc * top, tr_fmt_mode mode, struct evbuffer * buf )
+struct evbuffer *
+tr_bencToBuf( const tr_benc * top, tr_fmt_mode mode )
 {
-    evbuffer_drain( buf, evbuffer_get_length( buf ) );
+    struct evbuffer * buf = evbuffer_new( );
+
     evbuffer_expand( buf, 4096 ); /* alloc a little memory to start off with */
 
     switch( mode )
     {
         case TR_FMT_BENC:
-            bencWalk( top, &saveFuncs, buf, TRUE );
+            bencWalk( top, &saveFuncs, buf, true );
             break;
 
         case TR_FMT_JSON:
@@ -1621,23 +1625,22 @@ tr_bencToBuf( const tr_benc * top, tr_fmt_mode mode, struct evbuffer * buf )
             data.doIndent = mode==TR_FMT_JSON;
             data.out = buf;
             data.parents = NULL;
-            bencWalk( top, &jsonWalkFuncs, &data, TRUE );
+            bencWalk( top, &jsonWalkFuncs, &data, true );
             if( evbuffer_get_length( buf ) )
                 evbuffer_add_printf( buf, "\n" );
             break;
         }
     }
+
+    return buf;
 }
 
 char*
 tr_bencToStr( const tr_benc * top, tr_fmt_mode mode, int * len )
 {
-    char * ret;
-    struct evbuffer * buf = evbuffer_new( );
-    size_t n;
-    tr_bencToBuf( top, mode, buf );
-    n = evbuffer_get_length( buf );
-    ret = evbuffer_free_to_str( buf );
+    struct evbuffer * buf = tr_bencToBuf( top, mode );
+    const size_t n = evbuffer_get_length( buf );
+    char * ret = evbuffer_free_to_str( buf );
     if( len != NULL )
         *len = (int) n;
     return ret;
@@ -1680,8 +1683,10 @@ tr_bencToFile( const tr_benc * top, tr_fmt_mode mode, const char * filename )
 
         /* save the benc to a temporary file */
         {
-            char * buf = tr_bencToStr( top, mode, &nleft );
-            const char * walk = buf;
+            struct evbuffer * buf = tr_bencToBuf( top, mode );
+            const char * walk = (const char *) evbuffer_pullup( buf, -1 );
+            nleft = evbuffer_get_length( buf );
+
             while( nleft > 0 ) {
                 const int n = write( fd, walk, nleft );
                 if( n >= 0 ) {
@@ -1693,7 +1698,8 @@ tr_bencToFile( const tr_benc * top, tr_fmt_mode mode, const char * filename )
                     break;
                 }
             }
-            tr_free( buf );
+
+            evbuffer_free( buf );
         }
 
         if( nleft > 0 )
@@ -1704,7 +1710,7 @@ tr_bencToFile( const tr_benc * top, tr_fmt_mode mode, const char * filename )
         }
         else
         {
-            tr_fsync( fd );
+            //tr_fsync( fd );
             tr_close_file( fd );
 
 #ifdef WIN32

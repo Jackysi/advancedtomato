@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: platform.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: platform.h 12204 2011-03-22 15:19:54Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -73,7 +73,7 @@ tr_thread* tr_threadNew( void ( *func )(void *), void * arg );
 
 /** @brief Return nonzero if this function is being called from `thread'
     @param thread the thread being tested */
-tr_bool tr_amInThread( const tr_thread * );
+bool tr_amInThread( const tr_thread * );
 
 /***
 ****

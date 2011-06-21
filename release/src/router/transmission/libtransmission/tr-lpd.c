@@ -23,6 +23,7 @@ THE SOFTWARE.
 /* ansi */
 #include <errno.h>
 #include <stdio.h>
+#include <string.h> /* strlen(), strncpy(), strstr(), memset() */
 
 /* posix */
 #include <signal.h> /* sig_atomic_t */
@@ -47,7 +48,6 @@ THE SOFTWARE.
 
 /* libT */
 #include "transmission.h"
-#include "crypto.h"
 #include "net.h"
 #include "peer-mgr.h" /* tr_peerMgrAddPex() */
 #include "session.h"
@@ -63,10 +63,15 @@ THE SOFTWARE.
 * This module implements the Local Peer Discovery (LPD) protocol as supported by the
 * uTorrent client application. A typical LPD datagram is 119 bytes long.
 *
-* $Id: tr-lpd.c 11599 2010-12-27 19:18:17Z charles $
+* $Id: tr-lpd.c 12229 2011-03-25 05:34:26Z jordan $
 */
 
 static void event_callback( int, short, void* );
+
+enum {
+   UPKEEP_INTERVAL_SECS = 5
+};
+static struct event * upkeep_timer = NULL;
 
 static int lpd_socket; /**<separate multicast receive socket */
 static int lpd_socket2; /**<and multicast send socket */
@@ -249,6 +254,8 @@ static int lpd_extractParam( const char* const str, const char* const name, int 
 /**
 * @} */
 
+static void on_upkeep_timer( int, short, void * );
+
 /**
 * @brief Initializes Local Peer Discovery for this node
 *
@@ -291,7 +298,7 @@ int tr_lpdInit( tr_session* ss, tr_address* tr_addr UNUSED )
         memset( &lpd_mcastAddr, 0, sizeof lpd_mcastAddr );
         lpd_mcastAddr.sin_family = AF_INET;
         lpd_mcastAddr.sin_port = htons( lpd_mcastPort );
-        if( inet_pton( lpd_mcastAddr.sin_family, lpd_mcastGroup,
+        if( evutil_inet_pton( lpd_mcastAddr.sin_family, lpd_mcastGroup,
                 &lpd_mcastAddr.sin_addr ) < 0 )
             goto fail;
 
@@ -341,6 +348,9 @@ int tr_lpdInit( tr_session* ss, tr_address* tr_addr UNUSED )
     lpd_event = event_new( ss->event_base, lpd_socket, EV_READ | EV_PERSIST, event_callback, NULL );
     event_add( lpd_event, NULL );
 
+    upkeep_timer = evtimer_new( ss->event_base, on_upkeep_timer, ss );
+    tr_timerAdd( upkeep_timer, UPKEEP_INTERVAL_SECS, 0 );
+
     tr_ndbg( "LPD", "Local Peer Discovery initialised" );
 
     return 1;
@@ -370,15 +380,19 @@ void tr_lpdUninit( tr_session* ss )
     event_free( lpd_event );
     lpd_event = NULL;
 
+    evtimer_del( upkeep_timer );
+    upkeep_timer = NULL;
+
     /* just shut down, we won't remember any former nodes */
-    EVUTIL_CLOSESOCKET( lpd_socket );
-    EVUTIL_CLOSESOCKET( lpd_socket2 );
+    evutil_closesocket( lpd_socket );
+    evutil_closesocket( lpd_socket2 );
     tr_ndbg( "LPD", "Done uninitialising Local Peer Discovery" );
 
     session = NULL;
 }
 
-tr_bool tr_lpdEnabled( const tr_session* ss )
+bool
+tr_lpdEnabled( const tr_session* ss )
 {
     return ss && ( ss == session );
 }
@@ -411,13 +425,14 @@ static inline void lpd_consistencyCheck( void )
 * @brief Announce the given torrent on the local network
 *
 * @param[in] t Torrent to announce
-* @return Returns TRUE on success
+* @return Returns true on success
 *
 * Send a query for torrent t out to the LPD multicast group (or the LAN, for that
 * matter). A listening client on the same network might react by adding us to his
 * peer pool for torrent t.
 */
-tr_bool tr_lpdSendAnnounce( const tr_torrent* t )
+bool
+tr_lpdSendAnnounce( const tr_torrent* t )
 {
     size_t i;
     const char fmt[] =
@@ -432,7 +447,7 @@ tr_bool tr_lpdSendAnnounce( const tr_torrent* t )
     char query[lpd_maxDatagramLength + 1] = { };
 
     if( t == NULL )
-        return FALSE;
+        return false;
 
     /* make sure the hash string is normalized, just in case */
     for( i = 0; i < sizeof hashString; i++ )
@@ -452,12 +467,12 @@ tr_bool tr_lpdSendAnnounce( const tr_torrent* t )
             (const struct sockaddr*) &lpd_mcastAddr, sizeof lpd_mcastAddr );
 
         if( res != len )
-            return FALSE;
+            return false;
     }
 
     tr_tordbg( t, "LPD announce message away" );
 
-    return TRUE;
+    return true;
 }
 
 /**
@@ -517,7 +532,7 @@ static int tr_lpdConsiderAnnounce( tr_pex* peer, const char* const msg )
             /* we found a suitable peer, add it to the torrent */
             tr_peerMgrAddPex( tor, TR_PEER_FROM_LPD, peer, -1 );
             tr_tordbg( tor, "Learned %d local peer from LPD (%s:%u)",
-                1, inet_ntoa( peer->addr.addr.addr4 ), peerPort );
+                1, tr_address_to_string( &peer->addr ), peerPort );
 
             /* periodic reconnectPulse() deals with the rest... */
 
@@ -538,8 +553,13 @@ static int tr_lpdConsiderAnnounce( tr_pex* peer, const char* const msg )
 * the function needs to be informed of the externally employed housekeeping interval.
 * Further, by setting interval to zero (or negative) the caller may actually disable LPD
 * announces on a per-interval basis.
+*
+* FIXME: since this function's been made private and is called by a periodic timer,
+* most of the previous paragraph isn't true anymore... we weren't using that functionality
+* before. are there cases where we should? if not, should we remove the bells & whistles?
 */
-int tr_lpdAnnounceMore( const time_t now, const int interval )
+static int
+tr_lpdAnnounceMore( const time_t now, const int interval )
 {
     tr_torrent* tor = NULL;
     int announcesSent = 0;
@@ -552,17 +572,32 @@ int tr_lpdAnnounceMore( const time_t now, const int interval )
     {
         if( tr_isTorrent( tor ) )
         {
-            if( !tr_torrentAllowsLPD( tor ) || (
-                    ( tr_torrentGetActivity( tor ) != TR_STATUS_DOWNLOAD ) &&
-                    ( tr_torrentGetActivity( tor ) != TR_STATUS_SEED ) ) )
+            int announcePrio = 0;
+
+            if( !tr_torrentAllowsLPD( tor ) )
                 continue;
 
-            if( tor->lpdAnnounceAt <= now )
+            /* issue #3208: prioritize downloads before seeds */
+            switch( tr_torrentGetActivity( tor ) )
+            {
+            case TR_STATUS_DOWNLOAD:
+                announcePrio = 1;
+                break;
+            case TR_STATUS_SEED:
+                announcePrio = 2;
+                break;
+            default: /* fall through */
+                break;
+            }
+
+            if( announcePrio > 0 && tor->lpdAnnounceAt <= now )
             {
                 if( tr_lpdSendAnnounce( tor ) )
                     announcesSent++;
 
-                tor->lpdAnnounceAt = now + lpd_announceInterval;
+                tor->lpdAnnounceAt = now +
+                    lpd_announceInterval * announcePrio;
+
                 break; /* that's enough; for this interval */
             }
         }
@@ -580,6 +615,14 @@ int tr_lpdAnnounceMore( const time_t now, const int interval )
     }
 
     return announcesSent;
+}
+
+static void
+on_upkeep_timer( int foo UNUSED, short bar UNUSED, void * vsession UNUSED )
+{
+    const time_t now = tr_time( );
+    tr_lpdAnnounceMore( now, UPKEEP_INTERVAL_SECS );
+    tr_timerAdd( upkeep_timer, UPKEEP_INTERVAL_SECS, 0 );
 }
 
 /**

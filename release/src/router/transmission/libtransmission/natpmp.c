@@ -7,19 +7,21 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: natpmp.c 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: natpmp.c 12225 2011-03-24 22:57:39Z jordan $
  */
 
 #include <errno.h>
 #include <time.h>
 #include <inttypes.h>
 
+#include <event2/util.h> /* evutil_inet_ntop() */
+
 #define ENABLE_STRNATPMPERR
 #include <libnatpmp/natpmp.h>
 
 #include "transmission.h"
 #include "natpmp.h"
-#include "net.h" /* inet_ntoa() */
+#include "net.h" /* tr_netCloseSocket */
 #include "port-forwarding.h"
 #include "utils.h"
 
@@ -44,8 +46,8 @@ tr_natpmp_state;
 
 struct tr_natpmp
 {
-    tr_bool           has_discovered;
-    tr_bool           is_mapped;
+    bool              has_discovered;
+    bool              is_mapped;
 
     tr_port           public_port;
     tr_port           private_port;
@@ -112,7 +114,7 @@ setCommandTime( struct tr_natpmp * nat )
 }
 
 int
-tr_natpmpPulse( struct tr_natpmp * nat, tr_port private_port, tr_bool is_enabled, tr_port * public_port )
+tr_natpmpPulse( struct tr_natpmp * nat, tr_port private_port, bool is_enabled, tr_port * public_port )
 {
     int ret;
 
@@ -123,7 +125,7 @@ tr_natpmpPulse( struct tr_natpmp * nat, tr_port private_port, tr_bool is_enabled
         val = sendpublicaddressrequest( &nat->natpmp );
         logVal( "sendpublicaddressrequest", val );
         nat->state = val < 0 ? TR_NATPMP_ERR : TR_NATPMP_RECV_PUB;
-        nat->has_discovered = TRUE;
+        nat->has_discovered = true;
         setCommandTime( nat );
     }
 
@@ -134,8 +136,9 @@ tr_natpmpPulse( struct tr_natpmp * nat, tr_port private_port, tr_bool is_enabled
         logVal( "readnatpmpresponseorretry", val );
         if( val >= 0 )
         {
-            tr_ninf( getKey( ), _( "Found public address \"%s\"" ),
-                     inet_ntoa( response.pnu.publicaddress.addr ) );
+            char str[128];
+            evutil_inet_ntop( AF_INET, &response.pnu.publicaddress.addr, str, sizeof( str ) );
+            tr_ninf( getKey( ), _( "Found public address \"%s\"" ), str );
             nat->state = TR_NATPMP_IDLE;
         }
         else if( val != NATPMP_TRYAGAIN )
@@ -177,7 +180,7 @@ tr_natpmpPulse( struct tr_natpmp * nat, tr_port private_port, tr_bool is_enabled
                 nat->private_port = 0;
                 nat->public_port = 0;
                 nat->state = TR_NATPMP_IDLE;
-                nat->is_mapped = FALSE;
+                nat->is_mapped = false;
             }
         }
         else if( val != NATPMP_TRYAGAIN )
@@ -211,7 +214,7 @@ tr_natpmpPulse( struct tr_natpmp * nat, tr_port private_port, tr_bool is_enabled
         if( val >= 0 )
         {
             nat->state = TR_NATPMP_IDLE;
-            nat->is_mapped = TRUE;
+            nat->is_mapped = true;
             nat->renew_time = tr_time( ) + ( resp.pnu.newportmapping.lifetime / 2 );
             nat->private_port = resp.pnu.newportmapping.privateport;
             nat->public_port = resp.pnu.newportmapping.mappedpublicport;
