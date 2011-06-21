@@ -376,8 +376,8 @@ createFieldTable('', [
 	{ title: 'Run before unmounting', indent: 2, name: 'script_usbumount', type: 'textarea', value: nvram.script_usbumount },
 	null,
 /* LINUX26-BEGIN */
-	{ title: 'Enable sd-idle', name: 'f_idle_enable', type: 'checkbox',
-		suffix: ' <small>This tool spindown each HDD when is in idle. No need to use with flashdrive.</small>', value: nvram.idle_enable == 1 },
+	{ title: 'HDD Spindown', name: 'f_idle_enable', type: 'checkbox',
+		suffix: ' <small>Spin down each HDD when idle. No need to use with flashdrive.</small>', value: nvram.idle_enable == 1 },
 	null,
 /* LINUX26-END */
 	{ title: 'Hotplug script<br><small>(called when any USB device is attached or removed)</small>', name: 'script_usbhotplug', type: 'textarea', value: nvram.script_usbhotplug },
