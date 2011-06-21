@@ -283,7 +283,7 @@ switch (nvram.ms_dbdir) {
 
 createFieldTable('', [
 	{ title: 'Enable', name: 'f_ms_enable', type: 'checkbox', value: nvram.ms_enable == '1' },
-	{ title: 'Port', name: 'ms_port', type: 'text', maxlen: 5, size: 6, value: nvram.ms_port, suffix: '<small>(range: 0 - 65565; default (random) set 0)</small>' },
+	{ title: 'Port', name: 'ms_port', type: 'text', maxlen: 5, size: 6, value: nvram.ms_port, suffix: '<small>(range: 0 - 65535; default (random) set 0)</small>' },
 	{ title: 'Database Location', multi: [
 		{ name: 'f_loc', type: 'select', options: [['','RAM (Temporary)'],
 
