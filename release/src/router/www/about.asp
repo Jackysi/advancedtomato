@@ -86,7 +86,7 @@ function init()
 <!-- / / / -->
 
 <div style='float:right;margin:20px 20px;text-align:center'>
-<img src='tux.png' alt='Linux &amp; Tomato' id='tux'>
+<img src='qtopenlinksys.png' alt='Openlinksys.info' id='qt'>
 </div>
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
 Tomato Firmware <% version(1); %><br>
