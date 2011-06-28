@@ -669,12 +669,16 @@ const defaults_t defaults[] = {
 // admin-sch
 	{ "sch_rboot",			""				},
 	{ "sch_rcon",			""				},
-	{ "sch_c1",				""				},
-	{ "sch_c2",				""				},
-	{ "sch_c3",				""				},
+	{ "sch_c1",			""				},
+	{ "sch_c2",			""				},
+	{ "sch_c3",			""				},
+	{ "sch_c4",			""				},
+	{ "sch_c5",			""				},
 	{ "sch_c1_cmd",			""				},
 	{ "sch_c2_cmd",			""				},
 	{ "sch_c3_cmd",			""				},
+	{ "sch_c4_cmd",			""				},
+	{ "sch_c5_cmd",			""				},
 
 // admin-script
 	{ "script_init",		""				},

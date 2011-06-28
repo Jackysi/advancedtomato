@@ -813,12 +813,16 @@ static const nvset_t nvset_list[] = {
 // admin-sched
 	{ "sch_rboot", 			V_TEXT(0, 64)		},
 	{ "sch_rcon", 			V_TEXT(0, 64)		},
-	{ "sch_c1",				V_TEXT(0, 64)		},
+	{ "sch_c1",			V_TEXT(0, 64)		},
 	{ "sch_c1_cmd",			V_TEXT(0, 2048)		},
-	{ "sch_c2",				V_TEXT(0, 64)		},
+	{ "sch_c2",			V_TEXT(0, 64)		},
 	{ "sch_c2_cmd",			V_TEXT(0, 2048)		},
-	{ "sch_c3",				V_TEXT(0, 64)		},
+	{ "sch_c3",			V_TEXT(0, 64)		},
 	{ "sch_c3_cmd",			V_TEXT(0, 2048)		},
+	{ "sch_c4",			V_TEXT(0, 64)		},
+	{ "sch_c4_cmd",			V_TEXT(0, 2048)		},
+	{ "sch_c5",			V_TEXT(0, 64)		},
+	{ "sch_c5_cmd",			V_TEXT(0, 2048)		},
 
 // admin-scripts
 	{ "script_init", 		V_TEXT(0, 4096)		},

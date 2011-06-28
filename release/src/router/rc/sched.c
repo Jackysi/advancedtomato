@@ -128,7 +128,7 @@ int sched_main(int argc, char *argv[])
 				}
 				else if (strncmp(argv[1], "sch_c", 5) == 0) {
 					n = atoi(argv[1] + 5);
-					if ((n >= 1) && (n <= 3)) {
+					if ((n >= 1) && (n <= 5)) {
 						sched(argv[1], 1);
 
 						if (log) {
@@ -158,6 +158,8 @@ int sched_main(int argc, char *argv[])
 			sched("sch_c1", 0);
 			sched("sch_c2", 0);
 			sched("sch_c3", 0);
+			sched("sch_c4", 0);
+			sched("sch_c5", 0);
 		}
 	}
 
@@ -182,4 +184,6 @@ void stop_sched(void)
 	unsched("sch_sc1");
 	unsched("sch_sc2");
 	unsched("sch_sc3");
+	unsched("sch_sc4");
+	unsched("sch_sc5");
 }
