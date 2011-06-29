@@ -703,6 +703,7 @@ static const nvset_t nvset_list[] = {
 	{ "wan_ifnameX",		V_TEXT(0,8)			},
 	{ "lan_ifnames",		V_TEXT(0,64)			},
 	{ "manual_boot_nv",		V_01				},
+	{ "trunk_vlan_support_override",V_01				},
 
 // advanced-mac
 	{ "mac_wan",			V_LENGTH(0, 17)		},
