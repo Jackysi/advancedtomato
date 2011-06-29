@@ -106,11 +106,12 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovp
 <br><br>
 <!-- VPN-END -->
 
+<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>VLAN administration GUI</a> Copyright (C) 2011 Augusto Bott<br>
+<br><br>
+
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
-<br>
-<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>VLAN administration GUI</a> Copyright (C) 2011 Augusto Bott<br>
 <br>
 Built on <% build_time(); %><br>
 <br><br>
