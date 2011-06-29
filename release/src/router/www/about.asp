@@ -128,8 +128,7 @@ Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 <br>
 <b>"Teaman" Features:</b><br>
 - easy setup GUI for VLANS<br>
-Copyright (C) 2011 Augusto Bott<br>
-<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
+<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>VLAN administration GUI</a> Copyright (C) 2011 Augusto Bott<br>
 <br>
 <b>"Shibby" Features:</b><br>
 <!-- LINUX26-BEGIN -->
@@ -157,6 +156,7 @@ Copyright (C) 2011 Michał Rupental<br>
 <br>
 <br>
 <b>Development by Victek/PrinceAMD/Phykris/Shibby/Toastman/Teaman</b><br>
+<br>
 <br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
