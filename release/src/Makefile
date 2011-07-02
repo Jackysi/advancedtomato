@@ -675,6 +675,12 @@ else
 	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB=""
 endif
 
+## Make the "All-In-One (AIO)" MIPS1 - only for router with more than 8MB flash!! ZTE H618B
+z:
+ifeq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" USB="USB" NOCAT=y BTCLIENT=y NFS=y TR_EXTRAS=y
+endif
+
 ## Make Mips32r2 builds
 r2m:
 	@$(MAKE) m MIPS32=r2
@@ -697,11 +703,9 @@ r2e:
 r2o:
 	@$(MAKE) o MIPS32=r2
 
-## Make the "All-In-One (AIO)" - only for router with more than 8MB flash!! RT-N16
+#AIO MIPS2 for RT-N16 and E4200
 r2z:
-ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin MIPS32=r2 OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" USB="USB" NOCAT=y BTCLIENT=y NFS=y TR_EXTRAS=y
-endif
+	@$(MAKE) z MIPS32=r2
 
 r2s:
 	@$(MAKE) s MIPS32=r2
