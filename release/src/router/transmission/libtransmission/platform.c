@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: platform.c 12204 2011-03-22 15:19:54Z jordan $
+ * $Id: platform.c 12478 2011-05-30 18:17:16Z jordan $
  */
 
 #ifdef WIN32
@@ -702,7 +702,7 @@ tr_getFreeSpace( const char * path )
         : -1;
 #elif defined(HAVE_STATVFS)
     struct statvfs buf;
-    return statvfs( path, &buf ) ? -1 : (int64_t)buf.f_bavail * (int64_t)buf.f_bsize;
+    return statvfs( path, &buf ) ? -1 : (int64_t)buf.f_bavail * (int64_t)buf.f_frsize;
 #else
     #warning FIXME: not implemented
     return -1;

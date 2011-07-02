@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: PrefsController.m 12179 2011-03-17 01:06:31Z livings124 $
+ * $Id: PrefsController.m 12468 2011-05-28 01:53:37Z livings124 $
  *
  * Copyright (c) 2005-2011 Transmission authors and contributors
  *
@@ -53,7 +53,7 @@
 #define RPC_KEYCHAIN_SERVICE    "Transmission:Remote"
 #define RPC_KEYCHAIN_NAME       "Remote"
 
-#define WEBUI_URL   @"http://localhost:%d/transmission/web/"
+#define WEBUI_URL   @"http://localhost:%d/"
 
 @interface PrefsController (Private)
 

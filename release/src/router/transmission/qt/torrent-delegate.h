@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: torrent-delegate.h 11092 2010-08-01 20:36:13Z charles $
+ * $Id: torrent-delegate.h 12464 2011-05-28 00:09:15Z jordan $
  */
 
 #ifndef QTR_TORRENT_DELEGATE_H
@@ -38,6 +38,7 @@ class TorrentDelegate: public QItemDelegate
     protected:
         QSize margin( const QStyle& style ) const;
         virtual QSize sizeHint( const QStyleOptionViewItem&, const Torrent& ) const;
+        virtual void setProgressBarPercentDone( const QStyleOptionViewItem& option, const Torrent& ) const;
         virtual void drawTorrent( QPainter* painter, const QStyleOptionViewItem& option, const Torrent& ) const;
 
     public:

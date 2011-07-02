@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: prefs.cc 12214 2011-03-23 18:26:01Z jordan $
+ * $Id: prefs.cc 12518 2011-06-25 19:56:48Z jordan $
  */
 
 #include <cassert>
@@ -85,7 +85,6 @@ Prefs::PrefItem Prefs::myItems[] =
     { INCOMPLETE_DIR, TR_PREFS_KEY_INCOMPLETE_DIR, QVariant::String },
     { INCOMPLETE_DIR_ENABLED, TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED, QVariant::Bool },
     { MSGLEVEL, TR_PREFS_KEY_MSGLEVEL, QVariant::Int },
-    { OPEN_FILE_LIMIT, TR_PREFS_KEY_OPEN_FILE_LIMIT, QVariant::Int },
     { PEER_LIMIT_GLOBAL, TR_PREFS_KEY_PEER_LIMIT_GLOBAL, QVariant::Int },
     { PEER_LIMIT_TORRENT, TR_PREFS_KEY_PEER_LIMIT_TORRENT, QVariant::Int },
     { PEER_PORT, TR_PREFS_KEY_PEER_PORT, QVariant::Int },

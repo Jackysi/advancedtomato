@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: details.c 12412 2011-05-02 17:58:27Z jordan $
+ * $Id: details.c 12487 2011-06-02 20:04:23Z jordan $
  */
 
 #include <stddef.h>
@@ -1464,6 +1464,7 @@ onPeerViewQueryTooltip( GtkWidget   * widget,
         const char * pch;
         char * name = NULL;
         char * addr = NULL;
+        char * markup = NULL;
         char * flagstr = NULL;
         GString * gstr = di->gstr;
         gtk_tree_model_get( model, &iter, PEER_COL_TORRENT_NAME, &name,
@@ -1472,7 +1473,9 @@ onPeerViewQueryTooltip( GtkWidget   * widget,
                                           -1 );
 
         g_string_truncate( gstr, 0 );
-        g_string_append_printf( gstr, "<b>%s</b>\n%s\n \n", name, addr );
+        markup = g_markup_escape_text( name, -1 );
+        g_string_append_printf( gstr, "<b>%s</b>\n%s\n \n", markup, addr );
+        g_free( markup );
 
         for( pch = flagstr; pch && *pch; ++pch )
         {
@@ -1497,7 +1500,9 @@ onPeerViewQueryTooltip( GtkWidget   * widget,
         }
         if( gstr->len ) /* remove the last linefeed */
             g_string_set_size( gstr, gstr->len - 1 );
+
         gtk_tooltip_set_markup( tooltip, gstr->str );
+
         g_free( flagstr );
         g_free( addr );
         g_free( name );

@@ -51,11 +51,11 @@ utils-test.o utils-test.o: utils-test.c \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/uClibc_local_lim.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/posix2_lim.h \
   crypto.h utils.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/dh.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/e_os2.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/opensslconf.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/bio.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/crypto.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/dh.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/e_os2.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/opensslconf.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/bio.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/crypto.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/stdlib.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/types.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/endian.h \
@@ -64,13 +64,13 @@ utils-test.o utils-test.o: utils-test.c \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/select.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/sysmacros.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/alloca.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/stack.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/safestack.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/opensslv.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/ossl_typ.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/symhacks.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/bn.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/rc4.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/stack.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/safestack.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/opensslv.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/ossl_typ.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/symhacks.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/bn.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/rc4.h \
   web.h
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/math.h:
@@ -183,15 +183,15 @@ crypto.h:
 
 utils.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/dh.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/dh.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/e_os2.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/e_os2.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/opensslconf.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/opensslconf.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/bio.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/bio.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/crypto.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/crypto.h:
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/stdlib.h:
 
@@ -209,18 +209,18 @@ utils.h:
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/alloca.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/stack.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/stack.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/safestack.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/safestack.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/opensslv.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/opensslv.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/ossl_typ.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/ossl_typ.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/symhacks.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/symhacks.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/bn.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/bn.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/rc4.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/rc4.h:
 
 web.h:

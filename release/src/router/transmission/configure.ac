@@ -3,8 +3,8 @@ dnl STATUS: "X" for prerelease beta builds,
 dnl         "Z" for unsupported trunk builds,
 dnl         "0" for stable, supported releases
 dnl these should be the only two lines you need to change
-m4_define([user_agent_prefix],[2.31])
-m4_define([peer_id_prefix],[-TR2310-])
+m4_define([user_agent_prefix],[2.32])
+m4_define([peer_id_prefix],[-TR2320-])
 
 AC_INIT([transmission],
         [user_agent_prefix],
@@ -18,7 +18,7 @@ AC_CONFIG_MACRO_DIR([m4])
 
 dnl AM_CONFIG_HEADER(config.h)
 AC_CONFIG_SRCDIR(libtransmission/transmission.h)
-AM_INIT_AUTOMAKE([1.9 tar-ustar])
+AM_INIT_AUTOMAKE([1.9 tar-pax])
 AC_PROG_LIBTOOL
 
 if test m4_substr(peer_id_prefix,6,1) = "0"; then

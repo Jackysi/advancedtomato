@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: watch.c 12298 2011-04-02 07:46:37Z jordan $
+ * $Id: watch.c 12476 2011-05-30 15:28:55Z jordan $
  */
 #ifdef WITH_INOTIFY
   #include <sys/inotify.h>
@@ -76,7 +76,7 @@ watchdir_new_impl( dtr_watchdir * w )
 
     if( i < 0 )
     {
-        tr_err( "Unable to watch \"%s\": %s", w->dir, strerror( errno ) );
+        tr_err( "Unable to watch \"%s\": %s", w->dir, tr_strerror( errno ) );
     }
     else if(( odir = opendir( w->dir )))
     {

@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FileListNode.h 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: FileListNode.h 12483 2011-05-31 22:26:04Z livings124 $
  *
  * Copyright (c) 2008-2011 Transmission authors and contributors
  *
@@ -24,6 +24,8 @@
 
 #import <Cocoa/Cocoa.h>
 
+@class Torrent;
+
 @interface FileListNode : NSObject <NSCopying>
 {
     NSString * fName, * fPath;
@@ -34,13 +36,17 @@
     NSImage * fIcon;
     
     NSMutableArray * fChildren;
+    
+    Torrent * fTorrent;
 }
 
-- (id) initWithFolderName: (NSString *) name path: (NSString *) path;
-- (id) initWithFileName: (NSString *) name path: (NSString *) path size: (uint64_t) size index: (NSUInteger) index;
+- (id) initWithFolderName: (NSString *) name path: (NSString *) path torrent: (Torrent *) torrent;
+- (id) initWithFileName: (NSString *) name path: (NSString *) path size: (uint64_t) size index: (NSUInteger) index torrent: (Torrent *) torrent;
 
 - (void) insertChild: (FileListNode *) child;
 - (void) insertIndex: (NSUInteger) index withSize: (uint64_t) size;
+
+- (NSString *) description;
 
 - (BOOL) isFolder;
 - (NSString *) name;
@@ -51,5 +57,7 @@
 - (NSImage *) icon;
 
 - (NSMutableArray *) children;
+
+- (Torrent *) torrent;
 
 @end

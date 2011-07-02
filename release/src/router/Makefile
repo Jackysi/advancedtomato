@@ -141,7 +141,6 @@ obj-$(TCONFIG_EMF) += igs
 obj-$(TCONFIG_BBT) += openssl
 obj-$(TCONFIG_BBT) += libevent
 obj-$(TCONFIG_BBT) += libcurl
-obj-$(TCONFIG_BBT) += gettext
 obj-$(TCONFIG_BBT) += transmission
 obj-$(TCONFIG_BT) += btgui
 obj-$(TCONFIG_BBT) += zlib
@@ -1523,28 +1522,7 @@ libevent-install: libevent
 	install -d $(TOP)/libevent/staged
 	$(MAKE) -C libevent DESTDIR=$(TOP)/libevent/staged install
 
-gettext/stamp-h1:
-	cd gettext && \
-	CC=$(CC) CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
-		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
-		$(CONFIGURE)
-		touch gettext/stamp-h1
-
-gettext: gettext/stamp-h1
-	@$(SEP)
-	$(MAKE) -C gettext/gettext-runtime/intl
-#only libintl.so we neeed for transmission 2.31
-
-gettext-clean:
-	-@$(MAKE) -C gettext clean
-	@rm -f gettext/stamp-h1 gettext/Makefile
-
-gettext-install: gettext
-	install -d $(INSTALLDIR)/gettext/usr/lib
-	install gettext/gettext-runtime/intl/.libs/libintl.so.3.4.3 $(INSTALLDIR)/gettext/usr/lib/libintl.so.3
-	$(STRIP) -s $(INSTALLDIR)/gettext/usr/lib/libintl.so.3
-
-transmission/stamp-h1: openssl libcurl libevent zlib gettext
+transmission/stamp-h1: openssl libcurl libevent zlib
 	cd transmission && CC=$(CC) AR=$(AR) LD=$(LD) STRIP='mipsel-uclibc-strip' \
 		CFLAGS="-Os -Wall -fno-delete-null-pointer-checks -funit-at-a-time \
 		--param large-function-growth=800 --param max-inline-insns-single=3000 \

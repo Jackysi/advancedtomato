@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: bencode.c 12392 2011-04-27 21:33:52Z jordan $
+ * $Id: bencode.c 12463 2011-05-27 23:28:40Z jordan $
  */
 
 #include <assert.h>
@@ -1265,7 +1265,7 @@ jsonIndent( struct jsonWalk * data )
 static void
 jsonChildFunc( struct jsonWalk * data )
 {
-    if( data->parents )
+    if( data->parents && data->parents->data )
     {
         struct ParentState * parentState = data->parents->data;
 
@@ -1372,9 +1372,8 @@ jsonStringFunc( const tr_benc * val, void * vdata )
     struct jsonWalk * data = vdata;
     const unsigned char * it = (const unsigned char *) getStr(val);
     const unsigned char * end = it + val->val.s.len;
-    const int safeguard = 512; /* arbitrary margin for escapes and unicode */
 
-    evbuffer_reserve_space( data->out, val->val.s.len+safeguard, vec, 1 );
+    evbuffer_reserve_space( data->out, val->val.s.len * 4, vec, 1 );
     out = vec[0].iov_base;
     outend = out + vec[0].iov_len;
 

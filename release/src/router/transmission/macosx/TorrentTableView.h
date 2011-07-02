@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: TorrentTableView.h 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: TorrentTableView.h 12472 2011-05-29 15:35:36Z livings124 $
  *
  * Copyright (c) 2005-2011 Transmission authors and contributors
  *
@@ -85,8 +85,6 @@
 - (void) setQuickRatio: (id) sender;
 
 - (void) setPriority: (id) sender;
-
-- (void) checkFile: (id) sender;
 
 - (void) togglePiecesBar;
 - (CGFloat) piecesBarPercent;

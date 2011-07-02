@@ -5,8 +5,8 @@ announcer-udp.o announcer-udp.o: announcer-udp.c \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/uClibc_arch_features.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/cdefs.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/include/stddef.h \
-  /root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/buffer.h \
-  /root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/event-config.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/buffer.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/event-config.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/include/stdarg.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/types.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/types.h \
@@ -25,7 +25,7 @@ announcer-udp.o announcer-udp.o: announcer-udp.c \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/sysmacros.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/uio.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/uio.h \
-  /root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/util.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/util.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/time.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/stdint.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/wchar.h \
@@ -50,7 +50,7 @@ announcer-udp.o announcer-udp.o: announcer-udp.c \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/byteswap.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/rpc/netdb.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/netdb.h \
-  /root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/dns.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/dns.h \
   transmission.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/inttypes.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/uClibc_clk_tck.h \
@@ -58,10 +58,10 @@ announcer-udp.o announcer-udp.o: announcer-udp.c \
   announcer.h announcer-common.h session.h bandwidth.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/assert.h \
   ptrarray.h utils.h bencode.h bitfield.h crypto.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/dh.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/e_os2.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/opensslconf.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/bio.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/dh.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/e_os2.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/opensslconf.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/bio.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/stdio.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/uClibc_stdio.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/wchar.h \
@@ -73,16 +73,16 @@ announcer-udp.o announcer-udp.o: announcer-udp.c \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/sigthread.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/uClibc_pthread.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/stdio_lim.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/crypto.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/crypto.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/stdlib.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/alloca.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/stack.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/safestack.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/opensslv.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/ossl_typ.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/symhacks.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/bn.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/rc4.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/stack.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/safestack.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/opensslv.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/ossl_typ.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/symhacks.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/bn.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/rc4.h \
   peer-io.h net.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/errno.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/errno.h \
@@ -103,9 +103,9 @@ announcer-udp.o announcer-udp.o: announcer-udp.c \
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/include/stddef.h:
 
-/root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/buffer.h:
+/root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/buffer.h:
 
-/root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/event-config.h:
+/root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/event-config.h:
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/include/stdarg.h:
 
@@ -143,7 +143,7 @@ announcer-udp.o announcer-udp.o: announcer-udp.c \
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/uio.h:
 
-/root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/util.h:
+/root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/util.h:
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/time.h:
 
@@ -193,7 +193,7 @@ announcer-udp.o announcer-udp.o: announcer-udp.c \
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/netdb.h:
 
-/root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/dns.h:
+/root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/dns.h:
 
 transmission.h:
 
@@ -223,13 +223,13 @@ bitfield.h:
 
 crypto.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/dh.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/dh.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/e_os2.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/e_os2.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/opensslconf.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/opensslconf.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/bio.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/bio.h:
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/stdio.h:
 
@@ -253,25 +253,25 @@ crypto.h:
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/stdio_lim.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/crypto.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/crypto.h:
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/stdlib.h:
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/alloca.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/stack.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/stack.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/safestack.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/safestack.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/opensslv.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/opensslv.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/ossl_typ.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/ossl_typ.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/symhacks.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/symhacks.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/bn.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/bn.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/rc4.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/rc4.h:
 
 peer-io.h:
 

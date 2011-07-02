@@ -73,9 +73,9 @@ tr-lpd.o tr-lpd.o: tr-lpd.c \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/in.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/linux/version.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/byteswap.h \
-  /root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/event.h \
-  /root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/event-config.h \
-  /root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/util.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/event.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/event-config.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/util.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/netdb.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/rpc/netdb.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/netdb.h \
@@ -235,11 +235,11 @@ tr-lpd.o tr-lpd.o: tr-lpd.c \
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/byteswap.h:
 
-/root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/event.h:
+/root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/event.h:
 
-/root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/event-config.h:
+/root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/event-config.h:
 
-/root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/util.h:
+/root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/util.h:
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/netdb.h:
 

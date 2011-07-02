@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: announcer.c 12404 2011-04-30 00:08:24Z jordan $
+ * $Id: announcer.c 12517 2011-06-25 19:29:25Z jordan $
  */
 
 #include <assert.h>
@@ -101,12 +101,30 @@ compareTransfer( uint64_t a_uploaded, uint64_t a_downloaded,
     return 0;
 }
 
+/**
+ * Comparison function for tr_announce_requests.
+ *
+ * The primary key (amount of data transferred) is used to prioritize
+ * tracker announcements of active torrents. The remaining keys are
+ * used to satisfy the uniqueness requirement of a sorted tr_ptrArray.
+ */
 static int
 compareStops( const void * va, const void * vb )
 {
+    int i;
     const tr_announce_request * a = va;
     const tr_announce_request * b = vb;
-    return compareTransfer( a->up, a->down, b->up, b->down);
+
+    /* primary key: volume of data transferred. */
+    if(( i = compareTransfer( a->up, a->down, b->up, b->down)))
+        return i;
+
+    /* secondary key: the torrent's info_hash */
+    if(( i = memcmp( a->info_hash, b->info_hash, SHA_DIGEST_LENGTH )))
+        return i;
+
+    /* tertiary key: the tracker's announec url */
+    return tr_strcmp0( a->url, b->url );
 }
 
 /***
@@ -482,10 +500,7 @@ getSeedProbability( tr_tier * tier, int seeds, int leechers, int pex_count )
                                   && ( seeds + leechers < NUMWANT ) )
         return 0;
 
-    if( !seeds )
-        return 0;
-
-    if( seeds>=0 && leechers>=0 )
+    if( seeds>=0 && leechers>=0 && (seeds+leechers>0) )
         return (int8_t)((100.0*seeds)/(seeds+leechers));
 
     return -1; /* unknown */
@@ -896,6 +911,8 @@ announce_request_new( const tr_announcer  * announcer,
     return req;
 }
 
+static void announce_request_free( tr_announce_request * req );
+
 void
 tr_announcerRemoveTorrent( tr_announcer * announcer, tr_torrent * tor )
 {
@@ -911,7 +928,11 @@ tr_announcerRemoveTorrent( tr_announcer * announcer, tr_torrent * tor )
             {
                 const tr_announce_event e = TR_ANNOUNCE_EVENT_STOPPED;
                 tr_announce_request * req = announce_request_new( announcer, tor, tier, e );
-                tr_ptrArrayInsertSorted( &announcer->stops, req, compareStops );
+
+                if( tr_ptrArrayFindSorted( &announcer->stops, req, compareStops ) != NULL )
+                    announce_request_free( req );
+                else
+                    tr_ptrArrayInsertSorted( &announcer->stops, req, compareStops );
             }
         }
 
@@ -1030,7 +1051,13 @@ on_announce_done( const tr_announce_response  * response,
         }
         else if( response->errmsg )
         {
-            publishError( tier, response->errmsg );
+            /* If the torrent's only tracker returned an error, publish it.
+               Don't bother publishing if there are other trackers -- it's
+               all too common for people to load up dozens of dead trackers
+               in a torrent's metainfo... */
+            if( tier->tor->info.trackerCount < 2 )
+                publishError( tier, response->errmsg );
+
             on_announce_error( tier, response->errmsg, event );
         }
         else
@@ -1113,6 +1140,14 @@ on_announce_done( const tr_announce_response  * response,
 }
 
 static void
+announce_request_free( tr_announce_request * req )
+{
+    tr_free( req->tracker_id_str );
+    tr_free( req->url );
+    tr_free( req );
+}
+
+static void
 announce_request_delegate( tr_announcer               * announcer,
                            tr_announce_request        * request,
                            tr_announce_response_func  * callback,
@@ -1127,9 +1162,7 @@ announce_request_delegate( tr_announcer               * announcer,
     else
         tr_err( "Unsupported url: %s", request->url );
 
-    tr_free( request->tracker_id_str );
-    tr_free( request->url );
-    tr_free( request );
+    announce_request_free( request );
 }
 
 static void
@@ -1281,9 +1314,6 @@ on_scrape_done( const tr_scrape_response * response, void * vsession )
                         tracker->downloaderCount = row->downloaders;
                         tracker->consecutiveFailures = 0;
                     }
-
-                    if( tr_torrentIsPrivate( tier->tor ) && !row->downloaders )
-                        tr_peerMgrMarkAllAsSeeds( tier->tor );
                 }
             }
         }

@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FileOutlineController.m 12433 2011-05-16 02:03:27Z livings124 $
+ * $Id: FileOutlineController.m 12483 2011-05-31 22:26:04Z livings124 $
  *
  * Copyright (c) 2008-2011 Transmission authors and contributors
  *
@@ -84,7 +84,6 @@ typedef enum
 - (void) setTorrent: (Torrent *) torrent
 {
     fTorrent = torrent;
-    [fOutline setTorrent: fTorrent];
     
     [fFileList release];
     fFileList = [[fTorrent fileList] retain];

@@ -27,8 +27,8 @@ tr-udp.o tr-udp.o: tr-udp.c \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/posix_opt.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/confname.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/getopt.h \
-  /root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/event.h \
-  /root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/event-config.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/event.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/event-config.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/time.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/stdio.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/uClibc_stdio.h \
@@ -44,7 +44,7 @@ tr-udp.o tr-udp.o: tr-udp.c \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/uClibc_pthread.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/include/stdarg.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/stdio_lim.h \
-  /root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/util.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/util.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/stdint.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/netdb.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/netinet/in.h \
@@ -137,9 +137,9 @@ tr-udp.o tr-udp.o: tr-udp.c \
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/getopt.h:
 
-/root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/event.h:
+/root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/event.h:
 
-/root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/event-config.h:
+/root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/event-config.h:
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/time.h:
 
@@ -171,7 +171,7 @@ tr-udp.o tr-udp.o: tr-udp.c \
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/stdio_lim.h:
 
-/root/openwrt/tomato2.31/src-rt/router/libevent/include/event2/util.h:
+/root/openwrt/tomato.git-compile/src-rt/router/libevent/include/event2/util.h:
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/stdint.h:
 
