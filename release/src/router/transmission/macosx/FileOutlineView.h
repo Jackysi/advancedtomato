@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FileOutlineView.h 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: FileOutlineView.h 12483 2011-05-31 22:26:04Z livings124 $
  * 
  * Copyright (c) 2007-2011 Transmission authors and contributors
  *
@@ -28,15 +28,8 @@
 
 @interface FileOutlineView : NSOutlineView
 {
-    Torrent * fTorrent;
-    
-    NSGradient * fHighPriorityGradient, * fLowPriorityGradient, * fMixedPriorityGradient;
-    
     NSInteger fMouseRow;
 }
-
-- (void) setTorrent: (Torrent *) torrent;
-- (Torrent *) torrent;
 
 - (NSRect) iconRectForRow: (int) row;
 

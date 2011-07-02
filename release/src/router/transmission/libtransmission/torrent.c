@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: torrent.c 12435 2011-05-16 07:11:21Z jordan $
+ * $Id: torrent.c 12503 2011-06-19 03:31:41Z livings124 $
  */
 
 #include <signal.h> /* signal() */
@@ -1978,7 +1978,7 @@ tr_torrentRecheckCompleteness( tr_torrent * tor )
                 torrentCallScript( tor, tr_sessionGetTorrentDoneScript( tor->session ) );
         }
 
-        fireCompletenessChange( tor, wasRunning, completeness );
+        fireCompletenessChange( tor, completeness, wasRunning );
 
         tr_torrentSetDirty( tor );
     }

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: inout.c 12296 2011-04-02 07:36:34Z jordan $
+ * $Id: inout.c 12462 2011-05-27 23:26:05Z jordan $
  */
 
 #include <assert.h>
@@ -124,13 +124,6 @@ readOrWriteBytes( tr_session       * session,
                 tr_torerr( tor, "read failed for \"%s\": %s",
                            file->name, tr_strerror( err ) );
             }
-        } else if( ioMode == TR_IO_PREFETCH ) {
-            const int rc = tr_prefetch( fd, fileOffset, buflen );
-            if( rc < 0 ) {
-                /* (don't set "err" here... it's okay for prefetch to fail) */
-                tr_tordbg( tor, "prefetch failed for \"%s\": %s",
-                           file->name, tr_strerror( errno ) );
-            }
         } else if( ioMode == TR_IO_WRITE ) {
             const int rc = tr_pwrite( fd, buf, buflen, fileOffset );
             if( rc < 0 ) {
@@ -138,6 +131,8 @@ readOrWriteBytes( tr_session       * session,
                 tr_torerr( tor, "write failed for \"%s\": %s",
                            file->name, tr_strerror( err ) );
             }
+        } else if( ioMode == TR_IO_PREFETCH ) {
+            tr_prefetch( fd, fileOffset, buflen );
         } else {
             abort();
         }

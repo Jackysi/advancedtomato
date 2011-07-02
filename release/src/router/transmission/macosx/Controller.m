@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Controller.m 12348 2011-04-11 02:44:05Z livings124 $
+ * $Id: Controller.m 12522 2011-06-28 01:39:30Z livings124 $
  * 
  * Copyright (c) 2005-2011 Transmission authors and contributors
  *
@@ -386,8 +386,10 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     [fWindow setExcludedFromWindowsMenu: YES];
     
     //set table size
-    if ([fDefaults boolForKey: @"SmallView"])
+    const BOOL small = [fDefaults boolForKey: @"SmallView"];
+    if (small)
         [fTableView setRowHeight: ROW_HEIGHT_SMALL];
+    [fTableView setUsesAlternatingRowBackgroundColors: !small];
     
     //window min height
     NSSize contentMinSize = [fWindow contentMinSize];
@@ -1339,6 +1341,9 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         //let's expand all groups that have removed items - they either don't exist anymore, are already expanded, or are collapsed (rpc)
         [fTableView removeCollapsedGroup: [torrent groupValue]];
         
+        //we can't assume the window is active - RPC removal, for example
+        [fBadger removeTorrent: torrent];
+        
         [torrent closeRemoveTorrent: deleteData];
     }
     
@@ -1792,7 +1797,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
                                     iconData: nil priority: 0 isSticky: NO clickContext: clickContext];
         
         if (![fWindow isMainWindow])
-            [fBadger incrementCompleted];
+            [fBadger addCompletedTorrent: torrent];
         
         //bounce download stack
         [[NSDistributedNotificationCenter defaultCenter] postNotificationName: @"com.apple.DownloadFileFinished"
@@ -2473,8 +2478,11 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 
 - (id) outlineView: (NSOutlineView *) outlineView objectValueForTableColumn: (NSTableColumn *) tableColumn byItem: (id) item
 {
-    if ([item isKindOfClass: [Torrent class]])
+    if ([item isKindOfClass: [Torrent class]]) {
+        if (tableColumn)
+            return nil;
         return [item hashString];
+    }
     else
     {
         NSString * ident = [tableColumn identifier];
@@ -2759,6 +2767,8 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     BOOL makeSmall = ![fDefaults boolForKey: @"SmallView"];
     [fDefaults setBool: makeSmall forKey: @"SmallView"];
     
+    [fTableView setUsesAlternatingRowBackgroundColors: !makeSmall];
+    
     [fTableView setRowHeight: makeSmall ? ROW_HEIGHT_SMALL : ROW_HEIGHT_REGULAR];
     
     [fTableView noteHeightOfRowsWithIndexesChanged: [NSIndexSet indexSetWithIndexesInRange: NSMakeRange(0, [fTableView numberOfRows])]];
@@ -2891,7 +2901,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
             [fWindow setFrame: frame display: NO animate: NO];
         }
     }
-
+    
     [self updateUI];
     
     NSScrollView * scrollView = [fTableView enclosingScrollView];
@@ -2924,7 +2934,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     
     if (!show)
     {
-        [[fStatusBar view] removeFromSuperview];
+        [[fStatusBar view] removeFromSuperviewWithoutNeedingDisplay];
         [fStatusBar release];
         fStatusBar = nil;
     }
@@ -2974,6 +2984,8 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         const CGFloat originY = fStatusBar ? NSMinY([[fStatusBar view] frame]) : NSMaxY([contentView frame]);
         [[fFilterBar view] setFrameOrigin: NSMakePoint(0.0, originY)];
     }
+    else
+        [fWindow makeFirstResponder: fTableView];
     
     CGFloat heightChange = NSHeight([[fFilterBar view] frame]);
     if (!show)
@@ -3015,10 +3027,9 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     
     if (!show)
     {
-        [[fFilterBar view] removeFromSuperview];
+        [[fFilterBar view] removeFromSuperviewWithoutNeedingDisplay];
         [fFilterBar release];
         fFilterBar = nil;
-        [fWindow makeFirstResponder: fTableView];
     }
 }
 
@@ -3116,7 +3127,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 {
     ButtonToolbarItem * item = [[ButtonToolbarItem alloc] initWithItemIdentifier: ident];
     
-    NSButton * button = [[NSButton alloc] initWithFrame: NSZeroRect];
+    NSButton * button = [[NSButton alloc] init];
     [button setBezelStyle: NSTexturedRoundedBezelStyle];
     [button setStringValue: @""];
     

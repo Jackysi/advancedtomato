@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: makemeta.c 12223 2011-03-24 21:49:42Z jordan $
+ * $Id: makemeta.c 12513 2011-06-24 19:30:25Z jordan $
  */
 
 #include <assert.h>
@@ -93,16 +93,16 @@ getFiles( const char *      dir,
 static uint32_t
 bestPieceSize( uint64_t totalSize )
 {
-    const uint32_t GiB = 1073741824;
-    const uint32_t MiB = 1048576;
     const uint32_t KiB = 1024;
+    const uint32_t MiB = 1048576;
+    const uint32_t GiB = 1073741824;
 
-    if( totalSize >=   ( 2 * GiB ) ) return 2 * MiB;
-    if( totalSize >=   ( 1 * GiB ) ) return 1 * MiB;
+    if( totalSize >=   ( 2 * GiB ) ) return   2 * MiB;
+    if( totalSize >=   ( 1 * GiB ) ) return   1 * MiB;
     if( totalSize >= ( 512 * MiB ) ) return 512 * KiB;
     if( totalSize >= ( 350 * MiB ) ) return 256 * KiB;
     if( totalSize >= ( 150 * MiB ) ) return 128 * KiB;
-    if( totalSize >=  ( 50 * MiB ) ) return 64 * KiB;
+    if( totalSize >=  ( 50 * MiB ) ) return  64 * KiB;
     return 32 * KiB;  /* less than 50 meg */
 }
 

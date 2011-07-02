@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FilterBarView.m 12152 2011-03-13 14:38:49Z jordan $
+ * $Id: FilterBarView.m 12493 2011-06-09 02:15:22Z livings124 $
  * 
  * Copyright (c) 2011 Transmission authors and contributors
  *
@@ -46,6 +46,11 @@
 - (BOOL) mouseDownCanMoveWindow
 {
     return NO;
+}
+
+- (BOOL) isOpaque
+{
+    return YES;
 }
 
 - (void) drawRect: (NSRect) rect

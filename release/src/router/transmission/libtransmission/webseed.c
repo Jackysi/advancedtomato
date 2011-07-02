@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: webseed.c 12390 2011-04-27 20:52:07Z jordan $
+ * $Id: webseed.c 12471 2011-05-29 14:59:00Z jordan $
  */
 
 #include <string.h> /* strlen() */
@@ -250,6 +250,7 @@ make_url( tr_webseed * w, const tr_file * file )
     struct evbuffer * buf = evbuffer_new( );
 
     evbuffer_add( buf, w->base_url, w->base_url_len );
+    evbuffer_add( buf, "", 1 );
 
     /* if url ends with a '/', add the torrent name */
     if( w->base_url[w->base_url_len - 1] == '/' && file->name )

@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: torrent-delegate-min.cc 11097 2010-08-02 18:31:27Z charles $
+ * $Id: torrent-delegate-min.cc 12470 2011-05-29 05:05:18Z jordan $
  */
 
 #include <iostream>
@@ -162,7 +162,8 @@ TorrentDelegateMin :: drawTorrent( QPainter * painter, const QStyleOptionViewIte
     tr_snprintf( buf, sizeof( buf ), "%d%%", (int)tr_truncd( 100.0 * tor.percentDone( ), 0 ) );
     myProgressBarStyle->text = buf;
     myProgressBarStyle->textVisible = true;
-    myProgressBarStyle->progress = int(myProgressBarStyle->minimum + (((isMagnet ? tor.metadataPercentDone() : tor.percentDone()) * (myProgressBarStyle->maximum - myProgressBarStyle->minimum))));
+    myProgressBarStyle->textAlignment = Qt::AlignCenter;
+    setProgressBarPercentDone( option, tor );
     style->drawControl( QStyle::CE_ProgressBar, myProgressBarStyle, painter );
 
     painter->restore( );

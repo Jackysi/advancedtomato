@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: session.c 12435 2011-05-16 07:11:21Z jordan $
+ * $Id: session.c 12514 2011-06-24 22:39:20Z jordan $
  */
 
 #include <assert.h>
@@ -319,7 +319,6 @@ tr_sessionGetDefaultSettings( tr_benc * d )
     tr_bencDictAddStr ( d, TR_PREFS_KEY_INCOMPLETE_DIR,           tr_getDefaultDownloadDir( ) );
     tr_bencDictAddBool( d, TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED,   false );
     tr_bencDictAddInt ( d, TR_PREFS_KEY_MSGLEVEL,                 TR_MSG_INF );
-    tr_bencDictAddInt ( d, TR_PREFS_KEY_OPEN_FILE_LIMIT,          atoi( TR_DEFAULT_OPEN_FILE_LIMIT_STR ) );
     tr_bencDictAddInt ( d, TR_PREFS_KEY_PEER_LIMIT_GLOBAL,        atoi( TR_DEFAULT_PEER_LIMIT_GLOBAL_STR ) );
     tr_bencDictAddInt ( d, TR_PREFS_KEY_PEER_LIMIT_TORRENT,       atoi( TR_DEFAULT_PEER_LIMIT_TORRENT_STR ) );
     tr_bencDictAddInt ( d, TR_PREFS_KEY_PEER_PORT,                atoi( TR_DEFAULT_PEER_PORT_STR ) );
@@ -383,8 +382,7 @@ tr_sessionGetSettings( tr_session * s, struct tr_benc * d )
     tr_bencDictAddStr ( d, TR_PREFS_KEY_INCOMPLETE_DIR,           tr_sessionGetIncompleteDir( s ) );
     tr_bencDictAddBool( d, TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED,   tr_sessionIsIncompleteDirEnabled( s ) );
     tr_bencDictAddInt ( d, TR_PREFS_KEY_MSGLEVEL,                 tr_getMessageLevel( ) );
-    tr_bencDictAddInt ( d, TR_PREFS_KEY_OPEN_FILE_LIMIT,          tr_fdGetFileLimit( s ) );
-    tr_bencDictAddInt ( d, TR_PREFS_KEY_PEER_LIMIT_GLOBAL,        tr_sessionGetPeerLimit( s ) );
+    tr_bencDictAddInt ( d, TR_PREFS_KEY_PEER_LIMIT_GLOBAL,        s->peerLimit );
     tr_bencDictAddInt ( d, TR_PREFS_KEY_PEER_LIMIT_TORRENT,       s->peerLimitPerTorrent );
     tr_bencDictAddInt ( d, TR_PREFS_KEY_PEER_PORT,                tr_sessionGetPeerPort( s ) );
     tr_bencDictAddBool( d, TR_PREFS_KEY_PEER_PORT_RANDOM_ON_START, s->isPortRandom );
@@ -829,11 +827,8 @@ sessionSetImpl( void * vdata )
     if( tr_bencDictFindBool( settings, TR_PREFS_KEY_PORT_FORWARDING, &boolVal ) )
         tr_sessionSetPortForwardingEnabled( session, boolVal );
 
-    /* file and peer socket limits */
     if( tr_bencDictFindInt( settings, TR_PREFS_KEY_PEER_LIMIT_GLOBAL, &i ) )
-        tr_fdSetPeerLimit( session, i );
-    if( tr_bencDictFindInt( settings, TR_PREFS_KEY_OPEN_FILE_LIMIT, &i ) )
-        tr_fdSetFileLimit( session, i );
+        session->peerLimit = i;
 
     /**
     **/
@@ -1584,11 +1579,11 @@ tr_sessionClearAltSpeedFunc( tr_session * session )
 ***/
 
 void
-tr_sessionSetPeerLimit( tr_session * session, uint16_t maxGlobalPeers )
+tr_sessionSetPeerLimit( tr_session * session, uint16_t n )
 {
     assert( tr_isSession( session ) );
 
-    tr_fdSetPeerLimit( session, maxGlobalPeers );
+    session->peerLimit = n;
 }
 
 uint16_t
@@ -1596,7 +1591,7 @@ tr_sessionGetPeerLimit( const tr_session * session )
 {
     assert( tr_isSession( session ) );
 
-    return tr_fdGetPeerLimit( session );
+    return session->peerLimit;
 }
 
 void
@@ -1851,21 +1846,30 @@ tr_sessionClose( tr_session * session )
     tr_free( session );
 }
 
-tr_torrent **
-tr_sessionLoadTorrents( tr_session * session,
-                        tr_ctor    * ctor,
-                        int        * setmeCount )
+struct sessionLoadTorrentsData
 {
-    int           i, n = 0;
-    struct stat   sb;
-    DIR *         odir = NULL;
-    const char *  dirname = tr_getTorrentDir( session );
+    tr_session * session;
+    tr_ctor * ctor;
+    int * setmeCount;
     tr_torrent ** torrents;
-    tr_list *     l = NULL, *list = NULL;
+    bool done;
+};
 
-    assert( tr_isSession( session ) );
+static void
+sessionLoadTorrents( void * vdata )
+{
+    int i;
+    int n = 0;
+    struct stat sb;
+    DIR * odir = NULL;
+    tr_list * l = NULL;
+    tr_list * list = NULL;
+    struct sessionLoadTorrentsData * data = vdata;
+    const char * dirname = tr_getTorrentDir( data->session );
 
-    tr_ctorSetSave( ctor, false ); /* since we already have them */
+    assert( tr_isSession( data->session ) );
+
+    tr_ctorSetSave( data->ctor, false ); /* since we already have them */
 
     if( !stat( dirname, &sb )
       && S_ISDIR( sb.st_mode )
@@ -1878,8 +1882,8 @@ tr_sessionLoadTorrents( tr_session * session,
             {
                 tr_torrent * tor;
                 char * path = tr_buildPath( dirname, d->d_name, NULL );
-                tr_ctorSetMetainfoFromFile( ctor, path );
-                if(( tor = tr_torrentNew( ctor, NULL )))
+                tr_ctorSetMetainfoFromFile( data->ctor, path );
+                if(( tor = tr_torrentNew( data->ctor, NULL )))
                 {
                     tr_list_prepend( &list, tor );
                     ++n;
@@ -1890,9 +1894,9 @@ tr_sessionLoadTorrents( tr_session * session,
         closedir( odir );
     }
 
-    torrents = tr_new( tr_torrent *, n );
+    data->torrents = tr_new( tr_torrent *, n );
     for( i = 0, l = list; l != NULL; l = l->next )
-        torrents[i++] = (tr_torrent*) l->data;
+        data->torrents[i++] = (tr_torrent*) l->data;
     assert( i == n );
 
     tr_list_free( &list, NULL );
@@ -1900,9 +1904,30 @@ tr_sessionLoadTorrents( tr_session * session,
     if( n )
         tr_inf( _( "Loaded %d torrents" ), n );
 
-    if( setmeCount )
-        *setmeCount = n;
-    return torrents;
+    if( data->setmeCount )
+        *data->setmeCount = n;
+
+    data->done = true;
+}
+
+tr_torrent **
+tr_sessionLoadTorrents( tr_session * session,
+                        tr_ctor    * ctor,
+                        int        * setmeCount )
+{
+    struct sessionLoadTorrentsData data;
+
+    data.session = session;
+    data.ctor = ctor;
+    data.setmeCount = setmeCount;
+    data.torrents = NULL;
+    data.done = false;
+
+    tr_runInEventThread( session, sessionLoadTorrents, &data );
+    while( !data.done )
+        tr_wait_msec( 100 );
+
+    return data.torrents;
 }
 
 /***
@@ -2568,15 +2593,4 @@ tr_sessionSetTorrentDoneScript( tr_session * session, const char * scriptFilenam
         tr_free( session->torrentDoneScript );
         session->torrentDoneScript = tr_strdup( scriptFilename );
     }
-}
-
-/***
-****
-***/
-
-void
-tr_sessionSetWebConfigFunc( tr_session * session, void (*func)(tr_session*, void*, const char*, void* ), void * user_data )
-{
-    session->curl_easy_config_func = func;
-    session->curl_easy_config_user_data = user_data;
 }

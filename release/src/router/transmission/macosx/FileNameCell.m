@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FileNameCell.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: FileNameCell.m 12483 2011-05-31 22:26:04Z livings124 $
  * 
  * Copyright (c) 2007-2011 Transmission authors and contributors
  *
@@ -129,7 +129,7 @@
     NSColor * titleColor, * statusColor;
     if ([self backgroundStyle] == NSBackgroundStyleDark)
         titleColor = statusColor = [NSColor whiteColor];
-    else if ([[(FileOutlineView *)[self controlView] torrent] checkForFiles: [(FileListNode *)[self objectValue] indexes]] == NSOffState)
+    else if ([[(FileListNode *)[self objectValue] torrent] checkForFiles: [(FileListNode *)[self objectValue] indexes]] == NSOffState)
         titleColor = statusColor = [NSColor disabledControlTextColor];
     else
     {
@@ -207,8 +207,8 @@
 
 - (NSAttributedString *) attributedStatus
 {
-    Torrent * torrent = [(FileOutlineView *)[self controlView] torrent];
     FileListNode * node = (FileListNode *)[self objectValue];
+    Torrent * torrent = [node torrent];
     
     const CGFloat progress = [torrent fileProgress: node];
     NSString * percentString = [NSString percentString: progress longDecimals: YES];

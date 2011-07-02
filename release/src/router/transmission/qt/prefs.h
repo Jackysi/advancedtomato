@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: prefs.h 12037 2011-02-24 18:05:00Z jordan $
+ * $Id: prefs.h 12518 2011-06-25 19:56:48Z jordan $
  */
 
 #ifndef QTR_PREFS_H
@@ -90,7 +90,6 @@ class Prefs: public QObject
             INCOMPLETE_DIR,
             INCOMPLETE_DIR_ENABLED,
             MSGLEVEL,
-            OPEN_FILE_LIMIT,
             PEER_LIMIT_GLOBAL,
             PEER_LIMIT_TORRENT,
             PEER_PORT,

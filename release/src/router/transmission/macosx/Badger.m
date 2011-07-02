@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Badger.m 12069 2011-03-03 03:53:21Z livings124 $
+ * $Id: Badger.m 12505 2011-06-19 03:59:04Z livings124 $
  *
  * Copyright (c) 2006-2011 Transmission authors and contributors
  *
@@ -24,6 +24,8 @@
 
 #import "Badger.h"
 #import "BadgeView.h"
+#import "NSStringAdditions.h"
+#import "Torrent.h"
 
 @implementation Badger
 
@@ -33,11 +35,11 @@
     {
         fLib = lib;
         
-        fCompleted = 0;
-        
         BadgeView * view = [[BadgeView alloc] initWithLib: lib];
         [[NSApp dockTile] setContentView: view];
         [view release];
+        
+        fHashes = [[NSMutableSet alloc] init];
     }
     
     return self;
@@ -46,6 +48,8 @@
 - (void) dealloc
 {
     [[NSNotificationCenter defaultCenter] removeObserver: self];
+    
+    [fHashes release];
     
     [super dealloc];
 }
@@ -62,17 +66,29 @@
         [[NSApp dockTile] display];
 }
 
-- (void) incrementCompleted
+- (void) addCompletedTorrent: (Torrent *) torrent
 {
-    fCompleted++;
-    [[NSApp dockTile] setBadgeLabel: [NSString stringWithFormat: @"%d", fCompleted]];
+    [fHashes addObject: [torrent hashString]];
+    [[NSApp dockTile] setBadgeLabel: [NSString formattedUInteger: [fHashes count]]];
+}
+
+- (void) removeTorrent: (Torrent *) torrent
+{
+    if ([fHashes member: [torrent hashString]])
+    {
+        [fHashes removeObject: [torrent hashString]];
+        if ([fHashes count] > 0)
+            [[NSApp dockTile] setBadgeLabel: [NSString formattedUInteger: [fHashes count]]];
+        else
+            [[NSApp dockTile] setBadgeLabel: @""];
+    }
 }
 
 - (void) clearCompleted
 {
-    if (fCompleted != 0)
+    if ([fHashes count] > 0)
     {
-        fCompleted = 0;
+        [fHashes removeAllObjects];
         [[NSApp dockTile] setBadgeLabel: @""];
     }
 }

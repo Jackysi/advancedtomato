@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FilePriorityCell.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: FilePriorityCell.m 12483 2011-05-31 22:26:04Z livings124 $
  * 
  * Copyright (c) 2007-2011 Transmission authors and contributors
  *
@@ -28,6 +28,8 @@
 #import "NSApplicationAdditions.h"
 #import "Torrent.h"
 
+#define IMAGE_OVERLAP 3.0
+
 @implementation FilePriorityCell
 
 - (id) init
@@ -53,6 +55,13 @@
     return self;
 }
 
+- (id) copyWithZone: (NSZone *) zone
+{
+    id value = [super copyWithZone: zone];
+    [value setRepresentedObject: [self representedObject]];
+    return value;
+}
+
 - (void) setSelected: (BOOL) flag forSegment: (NSInteger) segment
 {
     [super setSelected: flag forSegment: segment];
@@ -72,9 +81,10 @@
             break;
     }
     
-    FileOutlineView * controlView = (FileOutlineView *)[self controlView];
-    Torrent * torrent = [controlView torrent];
+    Torrent * torrent = [(FileListNode *)[self representedObject] torrent];
     [torrent setFilePriority: priority forIndexes: [(FileListNode *)[self representedObject] indexes]];
+    
+    FileOutlineView * controlView = (FileOutlineView *)[self controlView];
     [controlView reloadData];
 }
 
@@ -101,8 +111,8 @@
 
 - (void) drawWithFrame: (NSRect) cellFrame inView: (NSView *) controlView
 {
-    Torrent * torrent = [(FileOutlineView *)controlView torrent];
     FileListNode * node = [self representedObject];
+    Torrent * torrent = [node torrent];
     NSSet * priorities = [torrent filePrioritiesForIndexes: [node indexes]];
     
     const NSUInteger count = [priorities count];
@@ -116,40 +126,59 @@
     }
     else
     {
-        NSImage * image;
+        NSMutableArray * images = [NSMutableArray arrayWithCapacity: MAX(count, 1)];
+        CGFloat totalWidth;
+        
         if (count == 0)
-            image = [NSImage imageNamed: @"PriorityNone.png"];
-        else if (count > 1)
-            image = [NSImage imageNamed: @"PriorityMixed.png"];
+        {
+            NSImage * image = [NSImage imageNamed: @"PriorityNone.png"];
+            [images addObject: image];
+            totalWidth = [image size].width;
+        }
         else
         {
-            switch ([[priorities anyObject] integerValue])
+            totalWidth = 0.0;
+            if ([priorities containsObject: [NSNumber numberWithInteger: TR_PRI_LOW]])
             {
-                case TR_PRI_NORMAL:
-                    image = [NSImage imageNamed: @"PriorityNormal.png"];
-                    break;
-                case TR_PRI_LOW:
-                    image = [NSImage imageNamed: @"PriorityLow.png"];
-                    break;
-                case TR_PRI_HIGH:
-                    image = [NSImage imageNamed: @"PriorityHigh.png"];
-                    break;
+                NSImage * image = [NSImage imageNamed: @"PriorityLow.png"];
+                [images addObject: image];
+                totalWidth += [image size].width;
+            }
+            if ([priorities containsObject: [NSNumber numberWithInteger: TR_PRI_NORMAL]])
+            {
+                NSImage * image = [NSImage imageNamed: @"PriorityNormal.png"];
+                [images addObject: image];
+                totalWidth += [image size].width;
+            }
+            if ([priorities containsObject: [NSNumber numberWithInteger: TR_PRI_HIGH]])
+            {
+                NSImage * image = [NSImage imageNamed: @"PriorityHigh.png"];
+                [images addObject: image];
+                totalWidth += [image size].width;
             }
         }
         
-        NSSize imageSize = [image size];
-        NSRect imageRect = NSMakeRect(NSMidX(cellFrame) - imageSize.width * 0.5, NSMidY(cellFrame) - imageSize.height * 0.5,
-                                        imageSize.width, imageSize.height);
+        if (count > 1)
+            totalWidth -= IMAGE_OVERLAP * (count-1);
         
-        if ([NSApp isOnSnowLeopardOrBetter])
-            [image drawInRect: imageRect fromRect: NSZeroRect operation: NSCompositeSourceOver fraction: 1.0
-                respectFlipped: YES hints: nil];
-        else
+        CGFloat currentWidth = floor(NSMidX(cellFrame) - totalWidth * 0.5);
+        
+        for (NSImage * image in images)
         {
-            image = [image copy];
-            [image setFlipped: YES];
-            [image drawInRect: imageRect fromRect: NSZeroRect operation: NSCompositeSourceOver fraction: 1.0];
-            [image release];
+            const NSSize imageSize = [image size];
+            NSRect imageRect = NSMakeRect(currentWidth, floor(NSMidY(cellFrame) - imageSize.height * 0.5), imageSize.width, imageSize.height);
+            
+            if ([NSApp isOnSnowLeopardOrBetter])
+                [image drawInRect: imageRect fromRect: NSZeroRect operation: NSCompositeSourceOver fraction: 1.0 respectFlipped: YES hints: nil];
+            else
+            {
+                image = [image copy];
+                [image setFlipped: YES];
+                [image drawInRect: imageRect fromRect: NSZeroRect operation: NSCompositeSourceOver fraction: 1.0];
+                [image release];
+            }
+            
+            currentWidth += imageSize.width - IMAGE_OVERLAP;
         }
     }
 }

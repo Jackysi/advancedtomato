@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: web.c 12417 2011-05-05 20:41:09Z jordan $
+ * $Id: web.c 12506 2011-06-19 18:18:48Z jordan $
  */
 
 #include <string.h> /* strlen(), strstr() */
@@ -24,7 +24,6 @@
 #include <event2/buffer.h>
 
 #include "transmission.h"
-#include "list.h"
 #include "net.h" /* tr_address */
 #include "platform.h" /* mutex */
 #include "session.h"
@@ -60,20 +59,6 @@ enum
 ****
 ***/
 
-struct tr_web
-{
-    bool curl_verbose;
-    int close_mode;
-    tr_list * tasks;
-    tr_lock * taskLock;
-    char * cookie_filename;
-};
-
-
-/***
-****
-***/
-
 struct tr_web_task
 {
     long code;
@@ -88,6 +73,7 @@ struct tr_web_task
     tr_session * session;
     tr_web_done_func * done_func;
     void * done_func_user_data;
+    struct tr_web_task * next;
 };
 
 static void
@@ -100,6 +86,19 @@ task_free( struct tr_web_task * task )
     tr_free( task->url );
     tr_free( task );
 }
+
+/***
+****
+***/
+
+struct tr_web
+{
+    bool curl_verbose;
+    int close_mode;
+    struct tr_web_task * tasks;
+    tr_lock * taskLock;
+    char * cookie_filename;
+};
 
 /***
 ****
@@ -191,9 +190,6 @@ createEasy( tr_session * s, struct tr_web * web, struct tr_web_task * task )
     if( task->range )
         curl_easy_setopt( e, CURLOPT_RANGE, task->range );
 
-    if( s->curl_easy_config_func != NULL )
-        s->curl_easy_config_func( s, e, task->url, s->curl_easy_config_user_data );
-
     return e;
 }
 
@@ -261,7 +257,8 @@ tr_webRunWithBuffer( tr_session         * session,
         task->freebuf = buffer ? NULL : task->response;
 
         tr_lockLock( web->taskLock );
-        tr_list_append( &web->tasks, task );
+        task->next = web->tasks;
+        web->tasks = task;
         tr_lockUnlock( web->taskLock );
     }
 }
@@ -337,8 +334,13 @@ tr_webThreadFunc( void * vsession )
 
         /* add tasks from the queue */
         tr_lockLock( web->taskLock );
-        while(( task = tr_list_pop_front( &web->tasks )))
+        while( web->tasks != NULL )
         {
+            /* pop the task */
+            task = web->tasks;
+            web->tasks = task->next;
+            task->next = NULL;
+
             dbgmsg( "adding task to curl: [%s]", task->url );
             curl_multi_add_handle( multi, createEasy( session, web, task ));
             /*fprintf( stderr, "adding a task.. taskCount is now %d\n", taskCount );*/
@@ -402,20 +404,13 @@ tr_webThreadFunc( void * vsession )
                 --taskCount;
             }
         }
-
-#if 0
-{
-tr_list * l;
-for( l=web->tasks; l!=NULL; l=l->next )
-    fprintf( stderr, "still pending: %s\n", ((struct tr_web_task*)l->data)->url );
-}
-fprintf( stderr, "loop is ending... web is closing\n" );
-#endif
     }
 
     /* Discard any remaining tasks.
      * This is rare, but can happen on shutdown with unresponsive trackers. */
-    while(( task = tr_list_pop_front( &web->tasks ))) {
+    while( web->tasks != NULL ) {
+        task = web->tasks;
+        web->tasks = task->next;
         dbgmsg( "Discarding task \"%s\"", task->url );
         task_free( task );
     }

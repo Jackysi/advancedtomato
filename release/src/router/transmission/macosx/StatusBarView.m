@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: StatusBarView.m 11989 2011-02-19 21:38:38Z livings124 $
+ * $Id: StatusBarView.m 12493 2011-06-09 02:15:22Z livings124 $
  * 
  * Copyright (c) 2006-2011 Transmission authors and contributors
  *
@@ -54,6 +54,16 @@
     
     [fGradient release];
     [super dealloc];
+}
+
+- (BOOL) mouseDownCanMoveWindow
+{
+    return YES;
+}
+
+- (BOOL) isOpaque
+{
+    return YES;
 }
 
 - (void) drawRect: (NSRect) rect

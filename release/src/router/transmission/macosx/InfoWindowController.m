@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoWindowController.m 12081 2011-03-04 02:58:08Z livings124 $
+ * $Id: InfoWindowController.m 12504 2011-06-19 03:52:54Z livings124 $
  *
  * Copyright (c) 2006-2011 Transmission authors and contributors
  *
@@ -342,7 +342,7 @@ typedef enum
     [self setTab: nil];
 }
 
-- (void) swipeWithEvent:(NSEvent *) event
+- (void) swipeWithEvent: (NSEvent *) event
 {
     if ([event deltaX] < 0.0)
         [self setNextTab];

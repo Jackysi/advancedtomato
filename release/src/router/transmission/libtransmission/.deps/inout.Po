@@ -28,9 +28,9 @@ inout.o inout.o: inout.c \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/sysmacros.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/alloca.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/string.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/sha.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/e_os2.h \
-  /root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/opensslconf.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/sha.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/e_os2.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/opensslconf.h \
   transmission.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/inttypes.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/stdint.h \
@@ -119,11 +119,11 @@ inout.o inout.o: inout.c \
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/string.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/sha.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/sha.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/e_os2.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/e_os2.h:
 
-/root/openwrt/tomato2.31/src-rt/router/openssl/include/openssl/opensslconf.h:
+/root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/opensslconf.h:
 
 transmission.h:
 

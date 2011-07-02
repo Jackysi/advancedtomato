@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: bandwidth.h 12280 2011-03-31 14:53:22Z jordan $
+ * $Id: bandwidth.h 12509 2011-06-19 18:34:10Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -111,6 +111,7 @@ typedef struct tr_bandwidth
     struct tr_bandwidth * parent;
     tr_priority_t priority;
     int magicNumber;
+    unsigned int uniqueKey;
     tr_session * session;
     tr_ptrArray children; /* struct tr_bandwidth */
     struct tr_peerIo * peer;

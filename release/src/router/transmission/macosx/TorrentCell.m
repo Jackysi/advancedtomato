@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: TorrentCell.m 12329 2011-04-07 00:56:28Z livings124 $
+ * $Id: TorrentCell.m 12454 2011-05-23 00:45:17Z livings124 $
  *
  * Copyright (c) 2006-2011 Transmission authors and contributors
  *
@@ -116,6 +116,13 @@
         fBarMinimalBorderColor = [[NSColor colorWithCalibratedWhite: 0.0 alpha: 0.015] retain];
     }
 	return self;
+}
+
+- (id) copyWithZone: (NSZone *) zone
+{
+    id value = [super copyWithZone: zone];
+    [value setRepresentedObject: [self representedObject]];
+    return value;
 }
 
 - (NSRect) iconRectForBounds: (NSRect) bounds
@@ -327,6 +334,7 @@
 - (void) drawInteriorWithFrame: (NSRect) cellFrame inView: (NSView *) controlView
 {
     Torrent * torrent = [self representedObject];
+    NSAssert(torrent != nil, @"can't have a TorrentCell without a Torrent");
     
     const BOOL minimal = [fDefaults boolForKey: @"SmallView"];
     
@@ -486,9 +494,9 @@
         //take line out completely when 10.6-only
         priorityImage = [NSApp isOnSnowLeopardOrBetter] ? [priorityImage retain] : [priorityImage copy];
         
-        NSRect priorityRect = NSMakeRect(NSMaxX(titleRect) + PADDING_BETWEEN_TITLE_AND_PRIORITY,
-                                        NSMidY(titleRect) - PRIORITY_ICON_HEIGHT  * 0.5,
-                                        PRIORITY_ICON_WIDTH, PRIORITY_ICON_HEIGHT);
+        const NSRect priorityRect = NSMakeRect(NSMaxX(titleRect) + PADDING_BETWEEN_TITLE_AND_PRIORITY,
+                                               NSMidY(titleRect) - PRIORITY_ICON_HEIGHT  * 0.5,
+                                               PRIORITY_ICON_WIDTH, PRIORITY_ICON_HEIGHT);
         
         [self drawImage: priorityImage inRect: priorityRect];
         [priorityImage release];
@@ -689,7 +697,7 @@
         result.size.width = NSMaxX(bounds) - NSMinX(result) - PADDING_HORIZONTAL;
     }
     
-    if ([[self representedObject] priority] != TR_PRI_NORMAL)
+    if ([(Torrent *)[self representedObject] priority] != TR_PRI_NORMAL)
     {
         result.size.width -= PRIORITY_ICON_WIDTH + PADDING_BETWEEN_TITLE_AND_PRIORITY;
         result.size.width = MIN(NSWidth(result), [string size].width); //only need to force it smaller for the priority icon
@@ -803,9 +811,6 @@
 
 - (NSAttributedString *) attributedStatusString: (NSString *) string
 {
-    #warning we shouldn't have to do this
-    if (!string)
-        string = @"";
     return [[[NSAttributedString alloc] initWithString: string attributes: fStatusAttributes] autorelease];
 }
 

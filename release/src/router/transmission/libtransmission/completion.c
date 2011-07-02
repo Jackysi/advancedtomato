@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: completion.c 12262 2011-03-30 04:14:57Z jordan $
+ * $Id: completion.c 12515 2011-06-25 13:31:25Z jordan $
  */
 
 #include "transmission.h"
@@ -214,7 +214,7 @@ tr_cpMissingBytesInPiece( const tr_completion * cp, tr_piece_index_t piece )
         size_t haveBytes = 0;
         tr_block_index_t f, l;
         tr_torGetPieceBlockRange( cp->tor, piece, &f, &l );
-        haveBytes = tr_bitfieldCountRange( &cp->blockBitfield, f, l );
+        haveBytes = tr_bitfieldCountRange( &cp->blockBitfield, f, l+1 );
         haveBytes *= cp->tor->blockSize;
         if( tr_bitfieldHas( &cp->blockBitfield, l ) )
             haveBytes += tr_torBlockCountBytes( cp->tor, l );

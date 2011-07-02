@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: session.h 12355 2011-04-13 06:18:30Z jordan $
+ * $Id: session.h 12514 2011-06-24 22:39:20Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -129,6 +129,7 @@ struct tr_session
     struct evdns_base          * evdns_base;
     struct tr_event_handle     * events;
 
+    uint16_t                     peerLimit;
     uint16_t                     peerLimitPerTorrent;
 
     int                          uploadSlotsPerTorrent;
@@ -205,9 +206,6 @@ struct tr_session
 
     struct tr_bindinfo         * public_ipv4;
     struct tr_bindinfo         * public_ipv6;
-
-    tr_web_config_func          * curl_easy_config_func;
-    void                        * curl_easy_config_user_data;
 
     uint8_t peer_id[PEER_ID_LEN+1];
 };

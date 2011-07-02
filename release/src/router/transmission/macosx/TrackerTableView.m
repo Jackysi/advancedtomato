@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: TrackerTableView.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: TrackerTableView.m 12497 2011-06-13 22:32:55Z livings124 $
  * 
  * Copyright (c) 2008-2011 Transmission authors and contributors
  *
@@ -124,77 +124,6 @@
                 : [[NSPasteboard generalPasteboard] availableTypeFromArray: [NSArray arrayWithObject: NSStringPboardType]] != nil);
     
     return YES;
-}
-
-//alternating rows - first row after group row is white
-- (void) highlightSelectionInClipRect: (NSRect) clipRect
-{
-    NSRect visibleRect = clipRect;
-    NSRange rows = [self rowsInRect: visibleRect];
-    BOOL start = YES;
-    
-    const CGFloat totalRowHeight = [self rowHeight] + [self intercellSpacing].height;
-    
-    NSRect gridRects[(NSInteger)(ceil(NSHeight(visibleRect) / totalRowHeight / 2.0)) + 1]; //add one if partial rows at top and bottom
-    NSInteger rectNum = 0;
-    
-    if (rows.length > 0)
-    {
-        //determine what the first row color should be
-        if ([[fTrackers objectAtIndex: rows.location] isKindOfClass: [TrackerNode class]] || [self editedRow] == rows.location)
-        {
-            for (NSInteger i = rows.location-1; i>=0; i--)
-            {
-                if (![[fTrackers objectAtIndex: i] isKindOfClass: [TrackerNode class]])
-                    break;
-                start = !start;
-            }
-        }
-        else
-        {
-            rows.location++;
-            rows.length--;
-        }
-        
-        NSInteger i;
-        for (i = rows.location; i < NSMaxRange(rows); i++)
-        {
-            if (![[fTrackers objectAtIndex: i] isKindOfClass: [TrackerNode class]] && [self editedRow] != i)
-            {
-                start = YES;
-                continue;
-            }
-            
-            if (!start && ![self isRowSelected: i])
-                gridRects[rectNum++] = [self rectOfRow: i];
-            
-            start = !start;
-        }
-        
-        const CGFloat newY = NSMaxY([self rectOfRow: i-1]);
-        visibleRect.size.height -= newY - visibleRect.origin.y;
-        visibleRect.origin.y = newY;
-    }
-    
-    const NSInteger numberBlankRows = ceil(visibleRect.size.height / totalRowHeight);
-    
-    //remaining visible rows continue alternating
-    visibleRect.size.height = totalRowHeight;
-    if (start)
-        visibleRect.origin.y += totalRowHeight;
-    
-    for (NSInteger i = start ? 1 : 0; i < numberBlankRows; i += 2)
-    {
-        gridRects[rectNum++] = visibleRect;
-        visibleRect.origin.y += 2.0 * totalRowHeight;
-    }
-    
-    NSAssert([[NSColor controlAlternatingRowBackgroundColors] count] >= 2, @"There should be 2 alternating row colors");
-    
-    [[[NSColor controlAlternatingRowBackgroundColors] objectAtIndex: 1] set];
-    NSRectFillList(gridRects, rectNum);
-    
-    [super highlightSelectionInClipRect: clipRect];
 }
 
 @end

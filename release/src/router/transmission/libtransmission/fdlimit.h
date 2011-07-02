@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: fdlimit.h 12397 2011-04-28 18:40:46Z jordan $
+ * $Id: fdlimit.h 12514 2011-06-24 22:39:20Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -21,12 +21,6 @@
  * @addtogroup file_io File IO
  * @{
  */
-
-void tr_fdSetFileLimit( tr_session * session, int limit );
-
-int tr_fdGetFileLimit( tr_session * session );
-
-void tr_fdSetGlobalPeerLimit( tr_session * session, int limit );
 
 /***
 ****
@@ -124,10 +118,5 @@ void     tr_fdSocketClose( tr_session * session, int s );
  * Frees resources allocated by tr_fdInit.
  **********************************************************************/
 void     tr_fdClose( tr_session * session );
-
-
-void     tr_fdSetPeerLimit( tr_session * session, int n );
-
-int      tr_fdGetPeerLimit( const tr_session * );
 
 /* @} */
