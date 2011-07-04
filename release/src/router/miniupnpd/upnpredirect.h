@@ -1,4 +1,4 @@
-/* $Id: upnpredirect.h,v 1.23 2011/06/17 22:46:52 nanard Exp $ */
+/* $Id: upnpredirect.h,v 1.24 2011/06/22 20:34:39 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -46,6 +46,7 @@ int
 upnp_get_redirection_infos(unsigned short eport, const char * protocol,
                            unsigned short * iport, char * iaddr, int iaddrlen,
                            char * desc, int desclen,
+                           char * rhost, int rhostlen,
                            unsigned int * leaseduration);
 
 /* upnp_get_redirection_infos_by_index()

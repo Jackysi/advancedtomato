@@ -1,4 +1,4 @@
-/* $Id: commonrdr.h,v 1.6 2011/06/04 08:58:12 nanard Exp $ */
+/* $Id: commonrdr.h,v 1.7 2011/06/22 20:34:39 nanard Exp $ */
 /* MiniUPnP project
  * (c) 2006-2011 Thomas Bernard
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -22,7 +22,9 @@ shutdown_redirect(void);
 int
 get_redirect_rule(const char * ifname, unsigned short eport, int proto,
                   char * iaddr, int iaddrlen, unsigned short * iport,
-                  char * desc, int desclen, unsigned int * timestamp,
+                  char * desc, int desclen,
+                  char * rhost, int rhostlen,
+                  unsigned int * timestamp,
                   u_int64_t * packets, u_int64_t * bytes);
 
 int

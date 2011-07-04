@@ -1,4 +1,4 @@
-/* $Id: testipfwrdr.c,v 1.6 2011/06/04 15:47:18 nanard Exp $ */
+/* $Id: testipfwrdr.c,v 1.7 2011/06/22 21:57:17 nanard Exp $ */
 /*
  * MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -42,8 +42,8 @@ list_port_mappings(void)
 		                              rhost, sizeof(rhost),
 		                              &timestamp, &packets, &bytes) < 0)
 			break;
-		printf("%2d - %5hu=>%15s:%5hu %d '%s' %u %" PRIu64 " %" PRIu64 "\n",
-		       i, eport, iaddr, iport, proto, desc, timestamp,
+		printf("%2d - %5hu=>%15s:%5hu %d '%s' '%s' %u %" PRIu64 " %" PRIu64 "\n",
+		       i, eport, iaddr, iport, proto, desc, rhost, timestamp,
 		       packets, bytes);
 	}
 	printf("== %d Port Mapping%s ==\n", i, (i > 1)?"s":"");
@@ -53,8 +53,9 @@ int main(int argc, char * * argv) {
 	unsigned int timestamp;
 	char desc[64];
 	char addr[16];
+	char rhost[40];
 	unsigned short iport = 0;
-	const char * rhost = "8.8.8.8";
+	const char * in_rhost = "8.8.8.8";
 
 	desc[0] = '\0';
 	addr[0] = '\0';
@@ -65,14 +66,20 @@ int main(int argc, char * * argv) {
 	}
 	list_port_mappings();
 	delete_redirect_rule(ifname, 2222, IPPROTO_TCP);
-	add_redirect_rule2(ifname, rhost, 2222,
+	delete_redirect_rule(ifname, 2223, IPPROTO_TCP);
+	add_redirect_rule2(ifname, "", 2223,
+	                   "10.1.1.17", 4445, IPPROTO_TCP,
+	                   "test miniupnpd", time(NULL) + 60);
+	add_redirect_rule2(ifname, in_rhost, 2222,
 	                   "10.1.1.16", 4444, IPPROTO_TCP,
 	                   "test miniupnpd", time(NULL) + 60);
 	get_redirect_rule(ifname, 2222, IPPROTO_TCP, addr, sizeof(addr), &iport,
-	                  desc, sizeof(desc), &timestamp, NULL, NULL);
-	printf("%s:%hu '%s' %u\n", addr, iport, desc, timestamp);
+	                  desc, sizeof(desc), rhost, sizeof(rhost),
+	                  &timestamp, NULL, NULL);
+	printf("'%s' %s:%hu '%s' %u\n", rhost, addr, iport, desc, timestamp);
 	list_port_mappings();
 	delete_redirect_rule(ifname, 2222, IPPROTO_TCP);
+	delete_redirect_rule(ifname, 2223, IPPROTO_TCP);
 	list_port_mappings();
 	shutdown_redirect();
 	return 0;

@@ -1,4 +1,4 @@
-/* $Id: upnpsoap.c,v 1.85 2011/06/17 23:24:14 nanard Exp $ */
+/* $Id: upnpsoap.c,v 1.86 2011/06/22 20:34:38 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -616,10 +616,14 @@ GetSpecificPortMappingEntry(struct upnphttp * h, const char * action)
 
 	eport = (unsigned short)atoi(ext_port);
 
-	/* add r_host ? */
+	/* TODO : add r_host as an input parameter ...
+	 * We prevent several Port Mapping with same external port
+	 * but different remoteHost to be set up, so that is not
+	 * a priority. */
 	r = upnp_get_redirection_infos(eport, protocol, &iport,
 	                               int_ip, sizeof(int_ip),
 	                               desc, sizeof(desc),
+	                               NULL, 0,
 	                               &leaseduration);
 
 	if(r < 0)
@@ -880,7 +884,7 @@ GetListOfPortMappings(struct upnphttp * h, const char * action)
 		return;
 	}
 /*
-TODO : build the PortMappingList xml document :
+build the PortMappingList xml document :
 
 <p:PortMappingList xmlns:p="urn:schemas-upnp-org:gw:WANIPConnection"
 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -929,11 +933,12 @@ http://www.upnp.org/schemas/gw/WANIPConnection-v2.xsd">
 				return;
 			}
 		}
+		rhost[0] = '\0';
 		r = upnp_get_redirection_infos(port_list[i], protocol, &iport,
 		                               int_ip, sizeof(int_ip),
-		                               desc, sizeof(desc), &leaseduration);
-		/* TODO : rhost */
-		rhost[0] = '\0';
+		                               desc, sizeof(desc),
+		                               rhost, sizeof(rhost),
+		                               &leaseduration);
 		if(r == 0)
 		{
 			bodylen += snprintf(body+bodylen, bodyalloc-bodylen, entry,
