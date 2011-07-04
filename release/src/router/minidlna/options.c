@@ -1,4 +1,4 @@
-/* $Id: options.c,v 1.14 2011/02/17 23:17:24 jmaggard Exp $ */
+/* $Id: options.c,v 1.15 2011/06/25 00:39:45 jmaggard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * author: Ryan Wagoner
@@ -59,7 +59,8 @@ static const struct {
 	{ UPNPDBDIR, "db_dir" },
 	{ UPNPLOGDIR, "log_dir" },
 	{ ENABLE_TIVO, "enable_tivo" },
-	{ ENABLE_DLNA_STRICT, "strict_dlna" }
+	{ ENABLE_DLNA_STRICT, "strict_dlna" },
+	{ ROOT_CONTAINER, "root_container" }
 };
 
 int
