@@ -1,7 +1,7 @@
 #
 # Device and Configuration Reference (UTF-8 encoding used)
 #
-# Last modified: 2011-02-26
+# Last modified: 2011-06-19
 #
 # Collection of configurations for usb_modeswitch, a mode switching
 # tool for controlling flip flop (multiple mode) USB devices
@@ -20,18 +20,21 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 
+# In order to activate a device included here you might remove the
+# comment signs (";") from the respective entry.
+#
+# It is rather recommended to copy device information to a different
+# file, to ease editing work and oversight and to avoid possible
+# conflicts by activating multiple entries.
 # There is no guarantee that this file is error-free!
 #
 # The actual entries are further down, after the command reference.
 
 
 # For custom settings:
-# Numbers can be decimal or hexadecimal, MessageContents MUST be
+# Numbers can be decimal or hexadecimal, MessageStrings MUST be
 # hexadecimal without prepended "0x". Digits 9-16 in the known
-# message strings are arbitrary; I set them to "12345678". If more
-# than one message is used for a configuration, digits 9-16 must be
-# unique for every MessageContent.
-
+# MessageStrings are arbitrary; I set them to "12345678"
 
 # What it all means (short command line flags appended):
 #
@@ -54,13 +57,12 @@
 # * TargetProductList        (file only) <comma separated hex strings>
 #
 # Like TargetProduct, but more than one possibility. Only used in automated
-# config files (in /usr/share/usb_modeswitch).
+# config files (in /etc/usb_modeswitch.d).
 #
 #
 # * TargetClass              -C <hex number>
 #
-# Some devices don't change IDs. They only switch their device class (or
-# rather the class of the first interface).
+# Some weird devices don't change IDs. They only switch the device class.
 # If the device has the target class -> no action (and vice versa)
 #
 #
@@ -86,7 +88,6 @@
 # * ReleaseDelay             -w <milliseconds>
 #
 # Waiting time after message transfers. Helps with some sensitive devices
-# by preventing any device access after sending the switching command
 #
 #
 # * ResponseEndpoint         -r <hex number>
@@ -138,21 +139,12 @@
 # it back to storage mode ...
 #
 #
-# * Configuration            -u <hex number>
-#
-# Some devices offer a "clean" way of switching by selecting a different
-# internal configuration. This is what every manufacturer should have
-# done, as it is covered by the USB specification
-#
-#
 # * Interface                -i <hex number>
+# * Configuration            -u <hex number>
 # * AltSetting               -a <hex number>
 #
 # More USB parameter to help with tricky devices and for doing lots
 # of cruel experiments ...
-# For example, the "Interface" parameter can be "abused" to detach
-# a driver from a specific interface of a composite device (combine
-# with "-d")
 #
 ## Note:
 ## AltSetting/Configuration changes and ResetUSB are executed after all
@@ -163,9 +155,8 @@
 # * InquireDevice <0|1>      -I (disables inquiry)
 #
 # The standard since 1.0.0 is to do a SCSI inquiry on the default device
-# before other actions. This gives additional info for identifying a device
+# before other actions. This might be a future way to identify a device
 # without ambiguities. If it causes trouble with your device, just disable.
-# Mostly useful for manual experiments
 #
 #
 # * CheckSuccess             -s <number>
@@ -184,21 +175,16 @@
 #
 # The binary tells the wrapper script NOT to check for and initiate
 # binding of the serial driver after switching.
-# Useful for non-modem devices (WiMAX, WLAN etc.); modem devices will
-# be bound to the serial modem driver if they are not taken care of
-# otherwise
-#
+# Mostly useful for non-modem devices
 #
 #
 # -> All other entries are just ignored <-
-
 
 # Additional command line flags:
 # 
 # Verbose output             -W
 # No output at all           -q
 # Other config file          -c <file>
-
 
 # For filling in all this information for an unknown device,
 # see instructions and links on the homepage:
@@ -567,7 +553,7 @@ NeedResponse=1
 # and others
 #
 # Many new ZTE devices use this sequence. There are
-# several ID combinations check your default
+# several ID combinations; check your default
 #
 # Contributor: Michael Khurtsiya, Amit Pundir and others
 
@@ -1727,27 +1713,16 @@ NeedResponse=1
 ########################################################
 # Royaltek Q110 - UNCONFIRMED!
 
-DefaultVendor=  0x1266
-DefaultProduct= 0x1000
+DefaultVendor= 0x1266
+DefaultProduct=0x1000
 
-TargetVendor=   0x1266
-TargetProduct=  0x1009
+TargetVendor=  0x1266
+TargetProduct= 0x1009
 
 MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
 MessageContent2="5553424387654321000000000000061b000000020000000000000000000000"
 
 NeedResponse=1
-
-
-########################################################
-# Rogers Rocket Stick (a Sony Ericsson device)
-
-DefaultVendor=  0x0fce
-DefaultProduct= 0xd103
-
-TargetClass=    0x02
-
-SonyMode=1
 
 
 ########################################################
@@ -2152,9 +2127,9 @@ MessageContent="5553424398e2c4812400000080000bff524445564348473d43440000000000"
 
 ######################################################## 
 # D-Link DWM-156 HSUPA 3.75G USB Modem 
-# F/W Ver. 1.05b01 upgr. at ftp://ftp.dlink.co.uk/dwm_3G/DWM-156/
+# F/W Ver. 1.05b01; upgr. at ftp://ftp.dlink.co.uk/dwm_3G/DWM-156/
 #
-# Contributor: Fuego
+# Contributor: Fuego 
 
 DefaultVendor= 0x07d1
 DefaultProduct=0xa800
@@ -2168,8 +2143,8 @@ MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
 ########################################################
 # Franklin Wireless U210 (Variant)
 
-DefaultVendor= 0x1fac
-DefaultProduct=0x0032
+DefaultVendor= 0x1fac 
+DefaultProduct=0x0032 
 
 Configuration=2
 
@@ -2177,15 +2152,15 @@ Configuration=2
 ####################################################### 
 # Haier CE 100 
 
-DefaultVendor= 0x201e
-DefaultProduct=0x2009
+DefaultVendor= 0x201e 
+DefaultProduct=0x2009 
 
-TargetClass=0xff
+TargetClass=0xff 
 
-MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
-MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
+MessageContent="5553424312345678000000000000061e000000000000000000000000000000" 
+MessageContent2="5553424312345679000000000000061b000000020000000000000000000000" 
 
-NeedResponse=1
+NeedResponse=1 
 
 
 #######################################################
@@ -2196,10 +2171,10 @@ DefaultProduct=0x380b
 
 TargetClass=0x02
 
-MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
-MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
+MessageContent="5553424312345678000000000000061e000000000000000000000000000000" 
+MessageContent2="5553424312345679000000000000061b000000020000000000000000000000" 
 
-NeedResponse=1
+NeedResponse=1 
 
 
 ######################################################## 
@@ -2236,7 +2211,7 @@ HuaweiMode=1
 DefaultVendor= 0x12d1 
 DefaultProduct=0x1009 
 
-TargetClass=0xff
+TargetClass=0xff 
 
 HuaweiMode=1
 
@@ -2260,13 +2235,13 @@ NeedResponse=1
 #
 # Contributor: David Vigier
 
-DefaultVendor= 0x19d2
-DefaultProduct=0x0110
+DefaultVendor= 0x19d2 
+DefaultProduct=0x0110 
 
-TargetVendor=  0x19d2
-TargetProduct= 0x0121
+TargetVendor=  0x19d2 
+TargetProduct= 0x0121 
 
-MessageContent="5553424302000000000000000000061b000000020000000000000000000000"
+MessageContent="5553424302000000000000000000061b000000020000000000000000000000" 
 
 NeedResponse=1
 
@@ -2312,3 +2287,212 @@ MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
 
 NeedResponse=1
 
+######################################################## 
+# T-Mobile NL (Huawei E352)
+#
+# Contributor: Alex Hermann
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x14fe
+
+TargetVendor=  0x12d1
+TargetProduct= 0x1506
+
+MessageContent="55534243123456780000000000000011062000000100000000000000000000"
+
+
+########################################################
+# Huawei U8220, T-Mobile Pulse (Android smartphone)
+#
+# Contributor: Mobile Stream Team
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x1030
+
+TargetVendor=  0x12d1
+TargetProduct= 0x1034
+
+MessageContent="55534243123456780600000080010a11060000000000000000000000000000"
+
+# for Android SDK
+NoDriverLoading=1
+
+
+########################################################
+# D-Link DWM-156 HSUPA 3.75G USB Modem
+#
+# Contributor: Ari Suutari
+
+DefaultVendor= 0x07d1
+DefaultProduct=0xa804
+
+TargetVendor=  0x07d1
+TargetProduct= 0x7e11
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+
+########################################################
+# Sony Ericsson MD400G (Rogers)
+#
+# Contributor: Kjartan Adolfsson
+
+DefaultVendor=  0x0fce
+DefaultProduct= 0xd103
+
+TargetClass=    0x02
+
+SonyMode=1
+
+
+########################################################
+# ZTE "ffe" devices 1 (e.g. Cricket A605)
+#
+# Contributor: Matt Eaton
+
+DefaultVendor= 0x19d2
+DefaultProduct=0xffe6
+
+TargetVendor=  0x19d2
+TargetProduct= 0xffe5
+
+MessageContent="5553424330f4cf8124000000800108df200000000000000000000000000000"
+
+
+########################################################
+# ZTE MF190
+#
+# Contributor: Eshwar Andhavarapu
+
+DefaultVendor=  0x19d2
+DefaultProduct= 0x1224
+
+TargetVendor=   0x19d2
+TargetProduct=  0x0082
+
+MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
+
+NeedResponse=1
+
+
+########################################################
+# JOA Telecom LM-700r
+
+DefaultVendor= 0x198a
+DefaultProduct=0x0003
+
+TargetVendor=  0x198a
+TargetProduct= 0x0002
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+
+########################################################
+# Huawei E173 (Viettel 3G)
+
+TargetVendor=  0x12d1
+TargetProduct= 0x14a8
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x14b5
+
+MessageContent="55534243123456780000000000000011062000000100000000000000000000"
+
+
+########################################################
+# C-motech CHU-629S (Variant)
+#
+# Contributor: "wlsloi"
+
+DefaultVendor= 0x16d8
+DefaultProduct=0x700b
+
+TargetClass=0xff
+
+MessageContent="55534243123456782400000080000dfe524445564348473d4e444953000000"
+
+
+########################################################
+# ZTE MF691 (T-Mobile Rocket 2.0)
+#
+# Contributor: Michael Fogel
+
+DefaultVendor= 0x19d2
+DefaultProduct=0x1201
+
+TargetVendor=  0x19d2
+TargetProduct= 0x1203
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+
+########################################################
+# ZTE MF192
+
+DefaultVendor= 0x19d2
+DefaultProduct=0x1216
+
+TargetVendor=  0x19d2
+TargetProduct= 0x1218
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+
+########################################################
+# ZTE MF190 (Variant)
+#
+# Contributor: Jean-Baptiste Dubois
+
+DefaultVendor= 0x19d2
+DefaultProduct=0x0149
+
+TargetVendor=  0x19d2
+TargetProduct= 0x0124
+
+MessageContent="5553424312345678000000000000061e000000000000000000000000000000"
+MessageContent2="5553424312345679000000000000061b000000020000000000000000000000"
+MessageContent3="55534243123456702000000080000c85010101180101010101000000000000"
+
+NeedResponse=1
+
+
+#######################################################
+# Visiontek 82GH 3G
+
+DefaultVendor= 0x230d
+DefaultProduct=0x0007
+
+TargetClass=0xff
+
+Configuration=3
+
+
+#######################################################
+# HP LaserJet Professional P1102
+
+DefaultVendor= 0x03f0
+DefaultProduct=0x002a
+
+TargetClass=0x07
+
+MessageContent="555342431234567800000000000006d0000000000000000000000000000000"
+
+NeedResponse=1
+
+
+#######################################################
+# Mobile Action ("Smart Cable")
+#
+# No success check, device will vanish completely
+
+DefaultVendor= 0x0df7
+DefaultProduct=0x0800
+
+TargetClass=0xff
+
+MobileActionMode=1
+
+NoDriverLoading=1
+
+#######################################################
