@@ -1286,6 +1286,7 @@ static int __xipram do_write_buffer(struct map_info *map, struct flchip *chip,
 
 	/* Write Buffer Load */
 	map_write(map, CMD(0x25), cmd_adr);
+	(void) map_read(map, cmd_adr);
 
 	chip->state = FL_WRITING_TO_BUFFER;
 
