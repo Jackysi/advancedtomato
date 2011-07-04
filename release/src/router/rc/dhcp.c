@@ -485,7 +485,7 @@ void start_dhcp6c(void)
 			"  sla-id 0;\n"
 			"  sla-len %d;\n"
 			" };\n"
-			"};\n",
+			"};\n"
 			"id-assoc na 0 { };\n",
 			wan6face,
 			nvram_safe_get("lan_ifname"),
