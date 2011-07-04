@@ -77,32 +77,37 @@ Try to read the response to a storage command from there
 if option \-n is active. Only for testing purposes; usually
 endpoints are determined from the device attributes
 .IP "\fB-d\fP \fB\-\-detach-only\fP         " 10
-Detach the storage driver as the only action. This is sufficient for some
-devices to switch successfully
-.IP "\fB-H\fP \fB\-\-huawei-mode\fP         " 10 
-Send a special control message used by older Huawei devices 
-.IP "\fB-S\fP \fB\-\-sierra-mode\fP         " 10 
-Send a special control message used by Sierra devices 
-.IP "\fB-G\fP \fB\-\-gct-mode\fP         " 10 
-Send a special control message used by GCT chipsets 
-.IP "\fB-T\fP \fB\-\-kobil-mode\fP         " 10 
-Send a special control message used by Kobil devices 
-.IP "\fB-O\fP \fB\-\-sony-mode\fP         " 10 
+Just detach the current driver. This is sufficient for some
+devices to switch successfully. Otherwise this feature can
+be used as a 'scalpel' for special cases
+.IP "\fB-H\fP \fB\-\-huawei-mode\fP         " 10
+Send a special control message used by older Huawei devices
+.IP "\fB-S\fP \fB\-\-sierra-mode\fP         " 10
+Send a special control message used by Sierra devices
+.IP "\fB-G\fP \fB\-\-gct-mode\fP         " 10
+Send a special control message used by GCT chipsets
+.IP "\fB-T\fP \fB\-\-kobil-mode\fP         " 10
+Send a special control message used by Kobil devices
+.IP "\fB-T\fP \fB\-\-sequans-mode\fP         " 10
+Send a special control message used by Sequans chipset
+.IP "\fB-T\fP \fB\-\-mobileaction-mode\fP         " 10
+Send a special control message used by the MobileAction device
+.IP "\fB-O\fP \fB\-\-sony-mode\fP         " 10
 Apply a special sequence used by Sony Ericsson devices. Implies option \-s
-.IP "\fB-R\fP \fB\-\-reset-usb\fP         " 10 
+.IP "\fB-R\fP \fB\-\-reset-usb\fP         " 10
 Send a USB reset command to the device. Can be combined with any switching
 method or stand alone. It is always done as the last step of all device
 interactions.
 Few devices need it to complete the switching; apart from that it may be
 useful during testing
-.IP "\fB-c\fP \fB\-\-config filename\fP         " 10 
+.IP "\fB-c\fP \fB\-\-config filename\fP         " 10
 Use a specific config file. If any ID or switching options are given as
 command line parameters, this option is ignored.
 In that case all mandatory parameters have to be provided on
 the command line
-.IP "\fB-Q\fP \fB\-\-quiet\fP         " 10 
+.IP "\fB-Q\fP \fB\-\-quiet\fP         " 10
 Don't show progress or error messages 
-.IP "\fB-W\fP \fB\-\-verbose\fP         " 10 
+.IP "\fB-W\fP \fB\-\-verbose\fP         " 10
 Print all settings before running and show libusb debug messages 
 .IP "\fB-D\fP \fB\-\-sysmode\fP         " 10 
 Changes the behaviour of the program slightly. A success message including the

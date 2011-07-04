@@ -1496,7 +1496,7 @@ GUI: restored ability to enter multiple hostnames (space separated) per
 device on "Static DHCP" page.
 
 Software updates: OpenSSL 1.0.0d, Busybox 1.18.5, CyaSSL 1.9.0, p910nd 0.95,
-MiniUPnPd 1.5 (20110618), usb_modeswitch 1.1.7 with data package 2011-02-27,
+MiniUPnPd 1.5 (20110623), usb_modeswitch 1.1.8 with data package 2011-06-19,
 Dnsmasq 2.57, Dropbear 0.53.1, ntfs-3g 2011.4.12, vsftpd 2.3.4, xl2tpd 1.2.8.
 
 Lots of cosmetics and optimization, some code clean-up.
@@ -1541,7 +1541,7 @@ can be disabled via nvram variable ("fastnat_disable").
 Expanded set of available extra kernel modules - included modules for
 Philips (pwc) and GSPCA-compatible USB webcam support.
 
-Software updates: MiniDLNA 1.0.20 cvs 2011-06-13, SQLite 3.7.5,
+Software updates: MiniDLNA 1.0.20.2 cvs 2011-07-01, SQLite 3.7.5,
 radvd 1.8.
 
 Samba 3 CVE-2011-0719 security fix.

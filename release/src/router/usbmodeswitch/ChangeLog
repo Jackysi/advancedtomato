@@ -2,6 +2,11 @@
 History of USB_ModeSwitch
 =========================
 
+Version 1.1.8, 2011/06/19
+    Cleaned up switchSendMessage(); added workaround for quirky devices not
+    reporting configuration setting; added non-CSW response for arbitrary
+    bulk transfers; added SequansMode and MobileActionMode; check for active
+    configuration will be skipped if bNumConfigurations is 1 (most cases)
 Version 1.1.7, 2011/02/27
     Attention: paths for runtime files and database have changed! Old places
     will be found but are deprecated; /usr/share/usb_modeswitch for database,

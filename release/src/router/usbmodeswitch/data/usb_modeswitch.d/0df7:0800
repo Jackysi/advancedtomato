@@ -1,0 +1,11 @@
+#######################################################
+# Mobile Action ("Smart Cable", will vanish)
+
+DefaultVendor= 0x0df7
+DefaultProduct=0x0800
+
+TargetClass=0xf0
+
+MobileActionMode=1
+
+NoDriverLoading=1

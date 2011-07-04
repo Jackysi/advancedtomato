@@ -1,7 +1,7 @@
 PROG        = usb_modeswitch
-VERS        = 1.1.7
+VERS        = 1.1.8
 CC          = gcc
-CFLAGS      += -Wall -DLIBUSB10
+CFLAGS      += -Wall
 LIBS        = -lusb-1.0
 RM          = /bin/rm -f
 OBJS        = usb_modeswitch.c

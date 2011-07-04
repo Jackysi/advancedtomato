@@ -1,3 +1,10 @@
+20110619:
+	Added devices: Huawei E352, Huawei U8220, Huawei E173, D-Link DWM-156
+    (Variant), Cricket A605, ZTE K3806-Z, ZTE MF190 (two Variants), ZTE MF192,
+    ZTE MF691, Visiontek 82GH 3G, C-motech CHU-629S (Variant), JOA Telecom
+    LM-700r, HP LaserJet Professional P1102, Mobile Action Cable (migrated from
+    "udev-extras"), Sequans modems (generic chipset); installing now creates
+    an additional directory /etc/usb_modeswitch.d for overriding config files
 20110227:
     Attention: path for database has changed! Use this data pack version
     with program version >= 1.1.7

@@ -1,4 +1,4 @@
-/* $Id: ipfwrdr.c,v 1.9 2011/06/04 15:47:18 nanard Exp $ */
+/* $Id: ipfwrdr.c,v 1.10 2011/06/22 21:57:17 nanard Exp $ */
 /*
  * MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -196,7 +196,10 @@ int add_redirect_rule2(
 	IP_FW_SETNDSTP(&rule, 1); // number of external ports
 	rule.fw_uar.fw_pts[0] = eport; // external port
 	rule.fw_fwd_ip.sin_port = iport; // internal port
-	/* TODO : use rhost ! */
+	if (rhost && rhost[0] != '\0') {
+		inet_aton(rhost, &rule.fw_src);
+		rule.fw_smsk.s_addr = htonl(INADDR_NONE);
+	}
 
 	r = ipfw_exec(IP_FW_ADD, &rule, sizeof(rule));
 	if(r >= 0)
@@ -216,6 +219,8 @@ int get_redirect_rule(
 	unsigned short * iport,
 	char * desc, 
 	int desclen,
+	char * rhost,
+	int rhostlen,
 	unsigned int * timestamp,
 	u_int64_t * packets,
 	u_int64_t * bytes)
@@ -249,6 +254,14 @@ int get_redirect_rule(
 				/* looks like fw_out_if.fu_via_ip is zero */
 				//if (inet_ntop(AF_INET, &ptr->fw_out_if.fu_via_ip, iaddr, iaddrlen) == NULL) {
 				if (inet_ntop(AF_INET, &ptr->fw_fwd_ip.sin_addr, iaddr, iaddrlen) == NULL) {
+					syslog(LOG_ERR, "inet_ntop(): %m");
+					goto error;
+				}			
+			}
+			if (rhost != NULL && rhostlen > 0) {
+				if (ptr->fw_src.s_addr == 0)
+					rhost[0] = '\0';
+				else if (inet_ntop(AF_INET, &ptr->fw_src.s_addr, rhost, rhostlen) == NULL) {
 					syslog(LOG_ERR, "inet_ntop(): %m");
 					goto error;
 				}			
@@ -378,7 +391,14 @@ int get_redirect_rule_by_index(
 				goto error;
 			}			
 		}
-		/* TODO : get rhost */
+		if (rhost != NULL && rhostlen > 0) {
+			if (ptr->fw_src.s_addr == 0)
+				rhost[0] = '\0';
+			else if (inet_ntop(AF_INET, &ptr->fw_src.s_addr, rhost, rhostlen) == NULL) {
+				syslog(LOG_ERR, "inet_ntop(): %m");
+				goto error;
+			}			
+		}
 		ipfw_free_ruleset(&rules);
 		get_desc_time(*eport, *proto, desc, desclen, timestamp);
 		return 0;

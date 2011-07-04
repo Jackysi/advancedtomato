@@ -1,0 +1,13 @@
+#######################################################
+# Option GlobeTrotter GX0201
+
+DefaultVendor= 0x05c6
+DefaultProduct=0x1000
+
+TargetVendor=  0x0af0
+TargetProduct= 0x6701
+
+CheckSuccess=20
+
+MessageContent="55534243123456780000000000000601000000000000000000000000000000"
+NeedResponse=1

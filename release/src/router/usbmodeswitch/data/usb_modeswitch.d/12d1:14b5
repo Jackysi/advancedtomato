@@ -1,0 +1,15 @@
+########################################################
+# Huawei E173 (Viettel 3G)
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x14b5
+
+TargetVendor=  0x12d1
+TargetProduct= 0x14a8
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x14b5
+MessageContent="55534243123456780000000000000011062000000100000000000000000000"
+
+CheckSuccess=20
+

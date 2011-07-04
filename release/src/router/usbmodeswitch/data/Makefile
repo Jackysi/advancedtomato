@@ -1,5 +1,5 @@
 PROG        = usb-modeswitch-data
-VERS        = 20110227
+VERS        = 20110619
 RM          = /bin/rm -f
 PREFIX      = $(DESTDIR)/usr
 ETCDIR      = $(DESTDIR)/etc
@@ -18,6 +18,7 @@ install-packed: files-install db-install-packed rules-reload
 
 files-install:
 	install -d $(PREFIX)/share/usb_modeswitch
+	install -d $(ETCDIR)/usb_modeswitch.d
 	install -D --mode=644 40-usb_modeswitch.rules $(RULESDIR)/40-usb_modeswitch.rules
 
 db-install:

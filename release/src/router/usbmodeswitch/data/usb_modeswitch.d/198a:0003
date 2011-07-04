@@ -1,0 +1,13 @@
+########################################################
+# JOA Telecom LM-700r
+
+DefaultVendor= 0x198a
+DefaultProduct=0x0003
+
+TargetVendor=  0x198a
+TargetProduct= 0x0002
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+CheckSuccess=20
+

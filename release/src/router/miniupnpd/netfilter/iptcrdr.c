@@ -1,4 +1,4 @@
-/* $Id: iptcrdr.c,v 1.43 2011/06/04 08:57:41 nanard Exp $ */
+/* $Id: iptcrdr.c,v 1.45 2011/06/22 20:34:39 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard
@@ -41,6 +41,11 @@
 #include <linux/netfilter/nf_nat.h>
 #endif
 #define IPTC_HANDLE		iptc_handle_t
+#endif
+
+/* IPT_ALIGN was renamed XT_ALIGN in iptables-1.4.11 */
+#ifndef IPT_ALIGN
+#define IPT_ALIGN XT_ALIGN
 #endif
 
 #include "iptcrdr.h"
@@ -211,7 +216,9 @@ add_filter_rule2(const char * ifname,
 int
 get_redirect_rule(const char * ifname, unsigned short eport, int proto,
                   char * iaddr, int iaddrlen, unsigned short * iport,
-                  char * desc, int desclen, unsigned int * timestamp,
+                  char * desc, int desclen,
+                  char * rhost, int rhostlen,
+                  unsigned int * timestamp,
                   u_int64_t * packets, u_int64_t * bytes)
 {
 	int r = -1;
@@ -272,12 +279,10 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 					*packets = e->counters.pcnt;
 				if(bytes)
 					*bytes = e->counters.bcnt;
-#if 0
 				/* rhost */
-				if(e->ip.src.s_addr) {
+				if(e->ip.src.s_addr && rhost) {
 					snprintip(rhost, rhostlen, ntohl(e->ip.src.s_addr));
 				}
-#endif
 				r = 0;
 				break;
 			}
@@ -883,7 +888,8 @@ get_portmappings_in_range(unsigned short startport, unsigned short endport,
 						array = realloc(array, sizeof(unsigned short)*capacity);
 						if(!array)
 						{
-							syslog(LOG_ERR, "get_portmappings_in_range() : realloc(%lu) error", sizeof(unsigned short)*capacity);
+							syslog(LOG_ERR, "get_portmappings_in_range() : realloc(%u) error",
+							       (unsigned)sizeof(unsigned short)*capacity);
 							*number = 0;
 							break;
 						}

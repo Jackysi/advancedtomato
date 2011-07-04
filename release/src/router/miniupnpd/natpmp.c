@@ -1,4 +1,4 @@
-/* $Id: natpmp.c,v 1.24 2011/06/04 08:58:12 nanard Exp $ */
+/* $Id: natpmp.c,v 1.25 2011/06/22 20:34:39 nanard Exp $ */
 /* MiniUPnP project
  * (c) 2007-2010 Thomas Bernard
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -228,7 +228,8 @@ void ProcessIncomingNATPMPPacket(int s)
 			} else do {
 				r = get_redirect_rule(ext_if_name, eport, proto,
 				                      iaddr_old, sizeof(iaddr_old),
-				                      &iport_old, 0, 0, &timestamp, 0, 0);
+				                      &iport_old, 0, 0, 0, 0,
+				                      &timestamp, 0, 0);
 				if(r==0) {
 					if(strcmp(senderaddrstr, iaddr_old)==0
 				       && iport==iport_old) {
