@@ -1,4 +1,11 @@
-$Id: Changelog.txt,v 1.233 2011/06/17 22:51:50 nanard Exp $
+$Id: Changelog.txt,v 1.236 2011/06/22 21:57:17 nanard Exp $
+
+2011/06/22:
+  Remote host for GetListOfPortMappings
+  Remote host support for ipfw (tested on Mac OS X)
+
+2011/06/20:
+  support for iptables-1.4.11.1
 
 2011/06/18:
   Remote host support for pf version

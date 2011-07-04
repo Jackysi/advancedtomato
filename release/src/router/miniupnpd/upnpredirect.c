@@ -1,4 +1,4 @@
-/* $Id: upnpredirect.c,v 1.59 2011/06/04 08:57:40 nanard Exp $ */
+/* $Id: upnpredirect.c,v 1.60 2011/06/22 20:34:39 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -278,6 +278,7 @@ upnp_redirect(const char * rhost, unsigned short eport,
 	}
 	r = get_redirect_rule(ext_if_name, eport, proto,
 	                      iaddr_old, sizeof(iaddr_old), &iport_old, 0, 0,
+	                      0, 0,
 	                      &timestamp, 0, 0);
 	if(r == 0) {
 		/* if existing redirect rule matches redirect request return success
@@ -349,6 +350,7 @@ upnp_get_redirection_infos(unsigned short eport, const char * protocol,
                            unsigned short * iport,
                            char * iaddr, int iaddrlen,
                            char * desc, int desclen,
+                           char * rhost, int rhostlen,
                            unsigned int * leaseduration)
 {
 	int r;
@@ -357,8 +359,11 @@ upnp_get_redirection_infos(unsigned short eport, const char * protocol,
 
 	if(desc && (desclen > 0))
 		desc[0] = '\0';
+	if(rhost && (rhostlen > 0))
+		rhost[0] = '\0';
 	r = get_redirect_rule(ext_if_name, eport, proto_atoi(protocol),
-	                      iaddr, iaddrlen, iport, desc, desclen, &timestamp,
+	                      iaddr, iaddrlen, iport, desc, desclen,
+	                      rhost, rhostlen, &timestamp,
 	                      0, 0);
 	if(r == 0 && timestamp > 0 && timestamp > (current_time = time(NULL))) {
 		*leaseduration = timestamp - current_time;
@@ -541,7 +546,7 @@ remove_unused_rules(struct rule_state * list)
 	{
 		/* remove the rule if no traffic has used it */
 		if(get_redirect_rule(ifname, list->eport, list->proto,
-	                         0, 0, &iport, 0, 0, &timestamp,
+	                         0, 0, &iport, 0, 0, 0, 0, &timestamp,
 		                     &packets, &bytes) >= 0)
 		{
 			if(packets == list->packets && bytes == list->bytes)

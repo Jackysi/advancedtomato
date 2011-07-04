@@ -1,4 +1,4 @@
-/* $Id: obsdrdr.c,v 1.66 2011/06/17 22:47:12 nanard Exp $ */
+/* $Id: obsdrdr.c,v 1.67 2011/06/22 21:20:27 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2010 Thomas Bernard 
@@ -447,7 +447,9 @@ add_filter_rule2(const char * ifname,
 int
 get_redirect_rule(const char * ifname, unsigned short eport, int proto,
                   char * iaddr, int iaddrlen, unsigned short * iport,
-                  char * desc, int desclen, unsigned int * timestamp,
+                  char * desc, int desclen,
+                  char * rhost, int rhostlen,
+                  unsigned int * timestamp,
                   u_int64_t * packets, u_int64_t * bytes)
 {
 	int i, n;
@@ -528,6 +530,18 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 			inet_ntop(AF_INET, &pr.rule.rdr.addr.v.a.addr.v4.s_addr,
 			          iaddr, iaddrlen);
 #endif
+			if(rhost && rhostlen > 0)
+			{
+				if (pr.rule.src.addr.v.a.addr.v4.s_addr == 0)
+				{
+					rhost[0] = '\0'; /* empty string */
+				}
+				else
+				{
+					inet_ntop(AF_INET, &pr.rule.src.addr.v.a.addr.v4.s_addr,
+					          rhost, rhostlen);
+				}
+			}
 			if(timestamp)
 				*timestamp = get_timestamp(eport, proto);
 			return 0;
