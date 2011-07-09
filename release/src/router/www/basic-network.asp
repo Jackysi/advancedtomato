@@ -11,19 +11,270 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Basic: Network</title>
+<title>[<% ident(); %>] Basic: Networks</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
+
+<style type='text/css'>
+#lan-grid .co1,
+#lan-grid .co2,
+#lan-grid .co3,
+#lan-grid .co4,
+#lan-grid .co5,
+#lan-grid .co6,
+#lan-grid .co7,
+#lan-grid .co8 {
+  text-align: center;
+}
+
+#lan-grid .centered {
+  text-align: center;
+}
+#lan-grid .footer {
+	text-align: right;
+}
+#lan-grid-add {
+	width: 100px;
+}
+</style>
 
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript' src='md5.js'></script>
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,wl_security_mode,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype"); %>
+
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,ppp_defgw,wl_security_mode,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype,lan_ifname,lan_stp,lan1_ifname,lan1_ipaddr,lan1_netmask,lan1_proto,lan1_stp,dhcp1_start,dhcp1_num,dhcp1_lease,lan2_ifname,lan2_ipaddr,lan2_netmask,lan2_proto,lan2_stp,dhcp2_start,dhcp2_num,dhcp2_lease,lan3_ifname,lan3_ipaddr,lan3_netmask,lan3_proto,lan3_stp,dhcp3_start,dhcp3_num,dhcp3_lease"); %>
+
+MAX_BRIDGE_ID=3;
+var lg = new TomatoGrid();
+lg.setup = function() {
+	this.init('lan-grid', '', 4, [
+	{ type: 'select', options: [[0, '0'],[1, '1'],[2, '2'],[3, '3']], prefix: '<div class="centered">', suffix: '</div>' },
+	{ type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
+	{ type: 'text', maxlen: 15, size: 17 },
+	{ type: 'text', maxlen: 15, size: 17 },
+	{ type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
+	{ multi: [ { type: 'text', maxlen: 15, size: 17}, { type: 'text', maxlen: 15, size: 17 } ] },
+	{ type: 'text', maxlen: 6, size: 8 }] );
+	this.headerSet(['Bridge', 'STP', 'IP Address', 'Netmask', 'DHCP', 'IP&nbsp;Range&nbsp;<i>(first/last)</i>', 'Lease&nbsp;Time&nbsp;<i>(mins)</i>']);
+
+	for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
+		var j = (i == 0) ? '' : i.toString();
+		if (nvram['lan' + j + '_ifname'].length > 0) {
+		lg.insertData(-1, [ i.toString(),
+						nvram['lan' + j + '_stp'],
+						nvram['lan' + j + '_ipaddr'],
+						nvram['lan' + j + '_netmask'],
+						(nvram['lan' + j + '_proto'] == 'dhcp') ? '1' : '0',
+						(nvram['dhcp' + j + '_start'] != '') ? fixIP(getNetwork(nvram['lan' + j + '_ipaddr'], nvram['lan' + j + '_netmask']) + nvram['dhcp' + j + '_start']) : '',
+						(nvram['dhcp' + j + '_start'] != '') ? parseInt(nvram['dhcp' + j + '_start']) + parseInt(nvram['dhcp' + j + '_num']) : '',
+						(nvram['dhcp' + j + '_start'] != '') ? nvram['dhcp' + j + '_lease'] : '' ] ) ;
+		}
+	}
+	lg.canDelete = false;
+	lg.sort(0);
+	elem.removeClass(lg.header.cells[lg.sortColumn], 'sortasc', 'sortdes');
+	lg.showNewEditor();
+	lg.resetNewEditor();
+
+}
+
+function getNetwork(ipaddress, netmask) {
+	return fixIP(ntoa(aton(ipaddress) & aton(netmask)));
+}
+
+lg.dataToView = function(data) {
+	return ['br' + data[0],
+	(data[1].toString() == '1') ? 'On' : '',
+	data[2],
+	data[3],
+	(data[4].toString() == '1') ? 'On' : '',
+	(((data[5] != null) && (data[5] != '')) ? (data[5] + ' - ') : '') + (((data[6] != null) && (data[6] != '')) ? data[6] : ''),
+	(((data[7] != null) && (data[7] != '')) ? data[7] : '') ];
+}
+
+lg.dataToFieldValues = function (data) {
+	return [data[0],
+	(data[1] != 0) ? 'checked' : '',
+	data[2].toString(),
+	data[3].toString(),
+	(data[4].toString() == '1') ? 'checked' : '',
+	data[5].toString(),
+//	data[6].toString(),
+	(data[6] != '') ? fixIP(getNetwork(data[2], data[3]) + parseInt(data[6])) : '',
+	data[7].toString() ];
+}
+
+lg.fieldValuesToData = function(row) {
+	var f = fields.getAll(row);
+	var g = f[6].value.split('.');
+	return [f[0].value,
+	f[1].checked ? 1 : 0,
+	f[2].value,
+	f[3].value,
+	f[4].checked ? 1 : 0,
+	f[5].value,
+//	f[6].value,
+	(g[3] != null) ? g[3] : '',
+	f[7].value ];
+}
+
+lg.resetNewEditor = function() {
+	var f = fields.getAll(this.newEditor);
+	if (f[0].selectedIndex < 0) 
+		f[0].selectedIndex=0;
+	while(this.countBridge(f[0].selectedIndex) > 0)
+		f[0].selectedIndex = (f[0].selectedIndex%(MAX_BRIDGE_ID+1))+1;
+	f[1].checked = 0;
+	f[2].value = '0.0.0.0';
+	f[3].disabled = 1;
+	f[4].checked = 0;
+	f[4].disabled = 1;
+	f[5].disabled = 1;
+	f[6].disabled = 1;
+	f[7].disabled = 1;
+	ferror.clearAll(fields.getAll(this.newEditor));
+}
+
+lg.onCancel = function() {
+	this.removeEditor();
+	this.showSource();
+	this.disableNewEditor(false);
+
+	this.resetNewEditor();
+}
+
+lg.onAdd = function() {
+	var data;
+
+	this.moving = null;
+	this.rpHide();
+
+	if (!this.verifyFields(this.newEditor, false)) return;
+
+	data = this.fieldValuesToData(this.newEditor);
+	this.insertData(-1, data);
+
+	this.disableNewEditor(false);
+	this.resetNewEditor();
+
+	this.resort();
+}
+
+lg.onOK = function() {
+	var i, data, view;
+
+	if (!this.verifyFields(this.editor, false)) return;
+
+	data = this.fieldValuesToData(this.editor);
+	view = this.dataToView(data);
+
+	this.source.setRowData(data);
+	for (i = 0; i < this.source.cells.length; ++i) {
+	this.source.cells[i].innerHTML = view[i];
+	}
+
+	this.removeEditor();
+	this.showSource();
+	this.disableNewEditor(false);
+
+	this.resetNewEditor();
+this.resort();
+}
+
+lg.onDelete = function() {
+	this.removeEditor();
+	elem.remove(this.source);
+	this.source = null;
+	this.disableNewEditor(false);
+
+	this.resetNewEditor();
+}
+
+
+lg.countElem = function(f, v) {
+	var data = this.getAllData();
+	var total = 0;
+	for (var i = 0; i < data.length; ++i) {
+		total += (data[i][f] == v) ? 1 : 0;
+	}
+	return total;
+}
+
+lg.countBridge = function (v) {
+	return this.countElem(0,v);
+}
+
+lg.verifyFields = function(row, quiet)
+{
+	var ok=1;
+	var f, s, i;
+
+	f = fields.getAll(row);
+
+	if(this.countBridge(f[0].selectedIndex) > 0) {
+		ferror.set(f[0], 'Cannot add another entry for bridge br' + f[0].selectedIndex, quiet);
+		ok = 0;
+	} else {
+		ferror.clear(f[0]);
+	}
+// valid IP address?
+	if(!v_ipz(f[2], quiet || !ok)) ok = 0;
+// if we have a proper IP defined: dhcp, netmask
+	if ((f[2].value != '') && (f[2].value != '0.0.0.0')) {
+		f[3].disabled = 0;
+		f[4].disabled = 0;
+		if(!v_netmask(f[3], quiet || !ok)) ok = 0;
+	} else {
+		f[3].value = '';
+		f[3].disabled = 1;
+		f[4].checked = 0;
+		f[4].disabled = 1;
+	}
+// dhcp enabled?
+	if( (f[4].checked) && (v_ip(f[2], 1)) && (v_netmask(f[3],1)) ) {
+		f[5].disabled = 0;
+		f[6].disabled = 0;
+		f[7].disabled = 0;
+// lease time
+		if(!v_mins(f[7], quiet || !ok, 1, 10080)) ok = 0;
+// first IP 
+		if ((aton(f[5].value) & aton(f[3].value)) != (aton(f[2].value) & aton(f[3].value))) {
+			ferror.set(f[5], 'Invalid IP address or subnet mask', quiet || !ok);
+			ok = 0;
+		} else {
+			ferror.clear(f[5]);
+		}
+// last IP
+		if ((aton(f[6].value) & aton(f[3].value)) != (aton(f[2].value) & aton(f[3].value))) {
+			ferror.set(f[6], 'Invalid IP address or subnet mask', quiet || !ok);
+			ok = 0;
+		} else {
+			ferror.clear(f[6]);
+		}
+
+		if ((aton(f[6].value) - aton(f[5].value)) < 1) {
+			ferror.set(f[6], 'Invalid final IP address', quiet || !ok);
+		} else {
+			ferror.clear(f[6]);
+		}
+
+	} else {
+		f[5].disabled = 1;
+		f[6].disabled = 1;
+		f[7].disabled = 1;
+		ferror.clear(f[5]);
+		ferror.clear(f[6]);
+		ferror.clear(f[7]);
+	}
+
+	return ok;
+}
+
 
 W('<style type=\'text/css\'>');
 for (var u = 0; u < wl_ifaces.length; ++u) {
@@ -38,13 +289,13 @@ W('</style>');
 var xob = null;
 var refresher = [];
 var nphy = features('11n');
-
+/*
 if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
 	var x = nvram.lan_ipaddr.split('.').splice(0, 3).join('.') + '.';
 	nvram.dhcpd_startip = x + nvram.dhcp_start;
 	nvram.dhcpd_endip = x + ((nvram.dhcp_start * 1) + (nvram.dhcp_num * 1) - 1);
 }
-
+*/
 var ghz = [];
 var bands = [];
 var nm_loaded = [], ch_loaded = [], max_channel = [];
@@ -375,16 +626,16 @@ function verifyFields(focused, quiet)
 		_f_wan_mtu: 1,
 		_f_wan_islan: 0,
 
-		_dhcp_lease: 1,
-		_f_dhcpd_enable: 1,
-		_dhcpd_startip: 1,
-		_dhcpd_endip: 1,
+//		_dhcp_lease: 1,
+//		_f_dhcpd_enable: 1,
+//		_dhcpd_startip: 1,
+//		_dhcpd_endip: 1,
 		_f_dns_1: 1,
 		_f_dns_2: 1,
 		_f_dns_3: 1,
 		_lan_gateway: 1,
-		_lan_ipaddr: 1,
-		_lan_netmask: 1,
+//		_lan_ipaddr: 1,
+//		_lan_netmask: 1,
 		_wan_wins: 1
 	};
 
@@ -533,7 +784,7 @@ function verifyFields(focused, quiet)
 		}
 	}
 
-	if (!E('_f_dhcpd_enable').checked) vis._dhcp_lease = 0;
+//	if (!E('_f_dhcpd_enable').checked) vis._dhcp_lease = 0;
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 		u = wl_unit(uidx);
@@ -663,15 +914,14 @@ REMOVE-END */
 		}
 	} // for each wl_iface
 
-	//
-
 	vis._ppp_passwd = vis._ppp_username;
-	vis._dhcpd_startip = vis._dhcpd_endip = vis._wan_wins = vis._dhcp_lease;
+//	vis._dhcpd_startip = vis._dhcpd_endip = vis._wan_wins = vis._dhcp_lease;
 
 	for (a in vis) {
 		b = E(a);
 		c = vis[a];
-		b.disabled = (c != 1);
+//		if (b != null)
+			b.disabled = (c != 1);
 		PR(b).style.display = c ? '' : 'none';
 	}
 
@@ -766,7 +1016,8 @@ REMOVE-END */
 		}
 
 	// IP address
-	a = ['_wan_gateway','_wan_ipaddr','_lan_ipaddr', '_dhcpd_startip', '_dhcpd_endip'];
+//	a = ['_wan_gateway','_wan_ipaddr','_lan_ipaddr', '_dhcpd_startip', '_dhcpd_endip'];
+	a = ['_wan_gateway','_wan_ipaddr'];
 	for (i = a.length - 1; i >= 0; --i)
 		if ((vis[a[i]]) && (!v_ip(a[i], quiet || !ok))) ok = 0;
 
@@ -776,13 +1027,15 @@ REMOVE-END */
 		if ((vis[a[i]]) && (!v_dns(a[i], quiet || !ok))) ok = 0;
 
 	// netmask
-	a = ['_wan_netmask','_lan_netmask'];
+//	a = ['_wan_netmask','_lan_netmask'];
+	a = ['_wan_netmask'];
 	for (i = a.length - 1; i >= 0; --i)
 		if ((vis[a[i]]) && (!v_netmask(a[i], quiet || !ok))) ok = 0;
 
 	// range
-	a = [['_ppp_idletime', 3, 1440],['_ppp_redialperiod', 1, 86400],['_f_wan_mtu', 576, 1500],
-		 ['_dhcp_lease', 1, 10080]];
+//	a = [['_ppp_idletime', 3, 1440],['_ppp_redialperiod', 1, 86400],['_f_wan_mtu', 576, 1500],
+//		 ['_dhcp_lease', 1, 10080]];
+	a = [['_ppp_idletime', 3, 1440],['_ppp_redialperiod', 1, 86400],['_f_wan_mtu', 576, 1500]];
 	for (i = a.length - 1; i >= 0; --i) {
 		v = a[i];
 		if ((vis[v[0]]) && (!v_range(v[0], quiet || !ok, v[1], v[2]))) ok = 0;
@@ -837,7 +1090,7 @@ REMOVE-END */
 			}
 		}
 	}
-
+/*
 	a = E('_dhcpd_startip');
 	b = E('_dhcpd_endip');
 	ferror.clear(a);
@@ -866,7 +1119,7 @@ REMOVE-END */
 
 		elem.setInnerHTML('dhcp_count', '(' + ((aton(b.value) - aton(a.value)) + 1) + ')');
 	}
-
+*/
 	return ok;
 }
 
@@ -877,6 +1130,9 @@ function earlyInit()
 
 function save()
 {
+	if (lg.isEditing()) return;
+	lg.resetNewEditor();
+
 	var a, b, c;
 	var i;
 	var u, uidx, wmode, sm2, wradio;
@@ -885,7 +1141,7 @@ function save()
 
 	var fom = E('_fom');
 
-	fom.lan_proto.value = fom.f_dhcpd_enable.checked ? 'dhcp' : 'static';
+//	fom.lan_proto.value = fom.f_dhcpd_enable.checked ? 'dhcp' : 'static';
 
 	fom.wan_mtu.value = fom.f_wan_mtu.value;
 	fom.wan_mtu.disabled = fom.f_wan_mtu.disabled;
@@ -1002,6 +1258,63 @@ function save()
 
 	fom.wan_dns.value = joinAddr([fom.f_dns_1.value, fom.f_dns_2.value, fom.f_dns_3.value]);
 
+// initialize/wipe out relevant fields
+	for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
+		var j = (i == 0) ? '' : i.toString();
+		fom['lan' + j + '_ifname'].value = '';
+		fom['lan' + j + '_ipaddr'].value = '';
+		fom['lan' + j + '_netmask'].value = '';
+		fom['lan' + j + '_proto'].value = '';
+		fom['lan' + j + '_stp'].value = '';
+		fom['dhcp' + j + '_start'].value = '';
+		fom['dhcp' + j + '_num'].value = '';
+		fom['dhcp' + j + '_lease'].value = '';
+		fom['dhcpd' + j + '_startip'].value = '';
+		fom['dhcpd' + j + '_endip'].value = '';
+	}
+
+	var d = lg.getAllData();
+	for (var i = 0; i < d.length; ++i) {
+		var j = (parseInt(d[i][0]) == 0) ? '' : d[i][0].toString();
+		fom['lan' + j + '_ifname'].value = 'br' + d[i][0];
+		fom['lan' + j + '_stp'].value = d[i][1];
+		fom['lan' + j + '_ipaddr'].value = d[i][2];
+		fom['lan' + j + '_netmask'].value = d[i][3];
+		fom['lan' + j + '_proto'].value = (d[i][4] != '0') ? 'dhcp' : 'static';
+		fom['dhcp' + j + '_start'].value = (d[i][4] != '0') ? aton(d[i][5]) - aton(getNetwork(d[i][2],d[i][3])) : '';
+		fom['dhcp' + j + '_num'].value = (d[i][4] != '0') ? d[i][6] - fom['dhcp' + j + '_start'].value : '';
+		fom['dhcp' + j + '_lease'].value = (d[i][4] != '0') ? d[i][7] : '';
+		fom['dhcpd' + j + '_startip'].value = (d[i][4] != '0') ? d[i][5] : '';
+		fom['dhcpd' + j + '_endip'].value = (d[i][4] != '0') ? fixIP(getNetwork(d[i][2], d[i][3]) + d[i][6]) : '';
+/*
+alert('lan' + j + '_ifname=' + fom['lan' + j + '_ifname'].value + 
+	', lan' + j + '_stp=' + fom['lan' + j + '_stp'].value + 
+	', lan' + j + '_ipaddr=' + fom['lan' + j + '_ipaddr'].value + 
+	', lan' + j + '_netmask=' + fom['lan' + j + '_netmask'].value + 
+	', lan' + j + '_proto=' + fom['lan' + j + '_proto'].value + 
+	', dhcp' + j + '_start=' + fom['dhcp' + j + '_start'].value + 
+	', dhcp' + j + '_num=' + fom['dhcp' + j + '_num'].value + 
+	', dhcp' + j + '_lease=' + fom['dhcp' + j + '_lease'].value + 
+	', dhcpd' + j + '_startip=' + fom['dhcpd' + j + '_startip'].value + 
+	', dhcpd' + j + '_endip=' + fom['dhcpd' + j + '_endip'].value);
+*/
+	}
+
+	var e = E('footer-msg');
+	var t = fixIP(fom['lan_ipaddr'].value);
+	if ((fom['lan_ifname'].value != 'br0') || (fom['lan_ipaddr'].value == '0.0.0.0') || (!t)) {
+		e.innerHTML = 'Bridge br0 must be always defined and have a valid IP address set.';
+		e.style.visibility = 'visible';
+		setTimeout(
+			function() {
+				e.innerHTML = '';
+				e.style.visibility = 'hidden';
+				}, 5000);
+		return;
+	}
+
+//	if ((nvram.lan_ipaddr != fom.lan_ipaddr.value) || (nvram.lan1_ipaddr != fom.lan1_ipaddr.value) ||
+//		(nvram.lan2_ipaddr != fom.lan2_ipaddr.value) || (nvram.lan3_ipaddr != fom.lan3_ipaddr.value)){
 	if (nvram.lan_ipaddr != fom.lan_ipaddr.value) {
 		fom._moveip.value = 1;
 		form.submit(fom);
@@ -1022,7 +1335,7 @@ function init()
 
 </head>
 <body onload='init()'>
-<form id='_fom' method='post' action='tomato.cgi'>
+<form id='_fom' method='post' action='/tomato.cgi'>
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
@@ -1034,7 +1347,7 @@ function init()
 
 <!-- / / / -->
 
-<input type='hidden' name='_nextpage' value='basic-network.asp'>
+<input type='hidden' name='_nextpage' value='basic-networks.asp'>
 <input type='hidden' name='_nextwait' value='10'>
 <input type='hidden' name='_service' value='*'>
 <input type='hidden' name='_moveip' value='0'>
@@ -1042,9 +1355,26 @@ function init()
 <input type='hidden' name='wan_mtu'>
 <input type='hidden' name='wan_islan'>
 <input type='hidden' name='pptp_dhcp'>
-<input type='hidden' name='lan_proto'>
+<input type='hidden' name='ppp_defgw'>
+<!-- <input type='hidden' name='lan_proto'> -->
 <input type='hidden' name='wan_dns'>
 
+<script type='text/javascript'>
+
+for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
+var j = (i == 0) ? '' : i.toString();
+W('<input type=\'hidden\' id=\'lan' + j + '_ifname\' name=\'lan' + j + '_ifname\'>');
+W('<input type=\'hidden\' id=\'lan' + j + '_ipaddr\' name=\'lan' + j + '_ipaddr\'>');
+W('<input type=\'hidden\' id=\'lan' + j + '_netmask\' name=\'lan' + j + '_netmask\'>');
+W('<input type=\'hidden\' id=\'lan' + j + '_proto\' name=\'lan' + j + '_proto\'>');
+W('<input type=\'hidden\' id=\'lan' + j + '_stp\' name=\'lan' + j + '_stp\'>');
+W('<input type=\'hidden\' id=\'dhcp' + j + '_start\' name=\'dhcp' + j + '_start\'>');
+W('<input type=\'hidden\' id=\'dhcp' + j + '_num\' name=\'dhcp' + j + '_num\'>');
+W('<input type=\'hidden\' id=\'dhcp' + j + '_lease\' name=\'dhcp' + j + '_lease\'>');
+W('<input type=\'hidden\' id=\'dhcpd' + j + '_startip\' name=\'dhcpd' + j + '_startip\'>');
+W('<input type=\'hidden\' id=\'dhcpd' + j + '_endip\' name=\'dhcpd' + j + '_endip\'>');
+}
+</script>
 
 <div class='section-title'>WAN / Internet</div>
 <div class='section'>
@@ -1071,33 +1401,36 @@ createFieldTable('', [
 	{ title: 'MTU', multi: [
 		{ name: 'mtu_enable', type: 'select', options: [['0', 'Default'],['1','Manual']], value: nvram.mtu_enable },
 		{ name: 'f_wan_mtu', type: 'text', maxlen: 4, size: 6, value: nvram.wan_mtu } ] },
-	{ title: 'Use WAN port for LAN', name: 'f_wan_islan', type: 'checkbox', value: (nvram.wan_islan == 1) }
+	{ title: 'Bridge WAN port to primary LAN (br0)', name: 'f_wan_islan', type: 'checkbox', value: (nvram.wan_islan == 1) }
 ]);
 </script>
 </div>
 
 <div class='section-title'>LAN</div>
 <div class='section'>
+	<table class='tomato-grid' cellspacing=1 id='lan-grid'></table>
+	<script type='text/javascript'>lg.setup();</script>
 <script type='text/javascript'>
 dns = nvram.wan_dns.split(/\s+/);
 ipp = nvram.lan_ipaddr.split('.').splice(0, 3).join('.');
 
 createFieldTable('', [
-	{ title: 'Router IP Address', name: 'lan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.lan_ipaddr },
-	{ title: 'Subnet Mask', name: 'lan_netmask', type: 'text', maxlen: 15, size: 17, value: nvram.lan_netmask },
+//	{ title: 'Router IP Address', name: 'lan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.lan_ipaddr },
+//	{ title: 'Subnet Mask', name: 'lan_netmask', type: 'text', maxlen: 15, size: 17, value: nvram.lan_netmask },
 	{ title: 'Default Gateway', name: 'lan_gateway', type: 'text', maxlen: 15, size: 17, value: nvram.lan_gateway },
 	{ title: 'Static DNS', suffix: '&nbsp; <i>(IP:port)</i>', name: 'f_dns_1', type: 'text', maxlen: 21, size: 25, value: dns[0] || '0.0.0.0' },
 	{ title: '', name: 'f_dns_2', type: 'text', maxlen: 21, size: 25, value: dns[1] || '0.0.0.0' },
 	{ title: '', name: 'f_dns_3', type: 'text', maxlen: 21, size: 25, value: dns[2] || '0.0.0.0' },
-	{ title: 'DHCP Server', name: 'f_dhcpd_enable', type: 'checkbox', value: (nvram.lan_proto == 'dhcp') },
-	{ title: 'IP Address Range', indent: 2, multi: [
-		{ name: 'dhcpd_startip', type: 'text', maxlen: 15, size: 17, value: nvram.dhcpd_startip, suffix: ' - ' },
-		{ name: 'dhcpd_endip', type: 'text', maxlen: 15, size: 17, value: nvram.dhcpd_endip, suffix: ' <i id="dhcp_count"></i>' }
-	] },
+//	{ title: 'DHCP Server', name: 'f_dhcpd_enable', type: 'checkbox', value: (nvram.lan_proto == 'dhcp') },
+//	{ title: 'IP Address Range', indent: 2, multi: [
+//		{ name: 'dhcpd_startip', type: 'text', maxlen: 15, size: 17, value: nvram.dhcpd_startip, suffix: ' - ' },
+//		{ name: 'dhcpd_endip', type: 'text', maxlen: 15, size: 17, value: nvram.dhcpd_endip, suffix: ' <i id="dhcp_count"></i>' }
+//	] },
 
-	{ title: 'Lease Time', indent: 2, name: 'dhcp_lease', type: 'text', maxlen: 6, size: 8, suffix: ' <i>(minutes)</i>',
-		value: (nvram.dhcp_lease > 0) ? nvram.dhcp_lease : 1440 },
-	{ title: 'WINS', indent: 2, name: 'wan_wins', type: 'text', maxlen: 15, size: 17, value: nvram.wan_wins }
+//	{ title: 'Lease Time', indent: 2, name: 'dhcp_lease', type: 'text', maxlen: 6, size: 8, suffix: ' <i>(minutes)</i>',
+//		value: (nvram.dhcp_lease > 0) ? nvram.dhcp_lease : 1440 },
+//	{ title: 'WINS <i>(for DHCP)</i>', indent: 2, name: 'wan_wins', type: 'text', maxlen: 15, size: 17, value: nvram.wan_wins }
+	{ title: 'WINS <i>(for DHCP)</i>', name: 'wan_wins', type: 'text', maxlen: 15, size: 17, value: nvram.wan_wins }
 ]);
 </script>
 </div>
