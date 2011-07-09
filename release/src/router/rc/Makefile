@@ -51,6 +51,10 @@ endif
 
 OBJS += cmon.o
 
+ifeq ($(TCONFIG_SNMP),y)
+OBJS += snmp.o
+endif
+
 all: rc
 
 rc: $(OBJS)

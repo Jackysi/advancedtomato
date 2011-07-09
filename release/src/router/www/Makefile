@@ -181,6 +181,13 @@ ifneq ($(TCONFIG_NFS),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/NFS-BEGIN/,/NFS-END/d"
 endif
 
+# Only include the snmp pages if SNMP is compiled in
+ifneq ($(TCONFIG_SNMP),y)
+	rm -f $(INSTALLDIR)/www/admin-snmp.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/SNMP-BEGIN/,/SNMP-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/SNMP-BEGIN/,/SNMP-END/d"
+endif
+
 
 # clean up
 	cd $(INSTALLDIR)/www && \
@@ -205,6 +212,7 @@ endif
 		-e "/BT-BEGIN/d"	-e "/BT-END/d" \
 		-e "/NFS-BEGIN/d"	-e "/NFS-END/d" \
 		-e "/NOCAT-BEGIN/d"	-e "/NOCAT_END/d"\
+		-e "/SNMP-BEGIN/d"	-e "/SNMP_END/d"\
 		|| true; \
 	done
 

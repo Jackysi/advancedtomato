@@ -131,3 +131,8 @@ config TCONFIG_TR_EXTRAS
 config TCONFIG_NFS
 	bool "  NFS Server"
 	default n
+
+config TCONFIG_SNMP
+	bool "  SNMP"
+	default n
+

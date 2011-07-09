@@ -45,6 +45,7 @@ obj-y += rp-pppoe
 obj-y += utils
 obj-y += ntpc
 obj-y += rstats
+obj-$(TCONFIG_SNMP) += snmp
 
 # !!TB - updated Broadcom Wireless driver
 obj-y += et
@@ -1677,6 +1678,31 @@ sd-idle-install: sd-idle/stamp-h1
 	install -d $(INSTALLDIR)/sd-idle/usr/bin
 	install -D sd-idle/sd-idle $(INSTALLDIR)/sd-idle/usr/bin/sd-idle
 	$(STRIP) -s $(INSTALLDIR)/sd-idle/usr/bin/sd-idle
+
+snmp/stamp-h1:
+	cd snmp && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr --with-endianness=little --enable-mini-agent --disable-debugging \
+	--disable-privacy --without-opaque-special-types --with-persistent-directory=/tmp/snmp-persist \
+	--with-default-snmp-version=3 --with-sys-contact=root --with-sys-location=Unknown --with-logfile=/dev/null \
+	--with-out-transports=UDPIPv6,TCPIPv6,AAL5PVC,IPX,TCP,Unix --enable-shared=no --enable-static --with-gnu-ld \
+	--enable-internal-md5 --with-copy-persistent-files=no --without-openssl -sysconfdir=/tmp \
+	--with-mib-modules=mibII,host,mibII/ip,mibII/tcp,mibII/udp,mibII/icmp,mibII/var_route,mibII/kernel_linux,qos,ucd_snmp \
+	--with-out-mib-modules=snmpv3mibs,agent_mips,agentx,notification,utilities,target --disable-ipv6 --with-defaults \
+	--without-efence --without-rsaref --without-kmem-usage --without-rpm --without-dmalloc
+	touch sd-idle/stamp-h1
+
+snmp: snmp/stamp-h1
+	@$(SEP)
+	$(MAKE) -C snmp
+
+snmp-clean:
+	-$(MAKE) -C snmp clean
+	@rm -f snmp/stamp-h1
+
+snmp-install: snmp
+	install -D snmp/agent/snmpd $(INSTALLDIR)/snmp/usr/sbin/snmpd
+	$(STRIP) $(INSTALLDIR)/snmp/usr/sbin/snmpd
 
 #
 # Generic rules

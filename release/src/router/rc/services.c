@@ -1814,6 +1814,10 @@ void start_services(void)
 #endif
 	restart_nas_services(1, 1);	// !!TB - Samba, FTP and Media Server
 
+#ifdef TCONFIG_SNMP
+	start_snmp();
+#endif
+
 #ifdef TCONFIG_BT
 	start_bittorrent();
 #endif
@@ -1829,6 +1833,10 @@ void stop_services(void)
 
 #ifdef TCONFIG_BT
 	stop_bittorrent();
+#endif
+
+#ifdef TCONFIG_SNMP
+	stop_snmp();
 #endif
 
 #ifdef TCONFIG_NFS
@@ -2267,6 +2275,14 @@ TOP:
 	if (strcmp(service, "nfs") == 0) {
 		if (action & A_STOP) stop_nfs();
 		if (action & A_START) start_nfs();
+		goto CLEAR;
+	}
+#endif
+
+#ifdef TCONFIG_SNMP
+	if (strcmp(service, "snmp") == 0) {
+		if (action & A_STOP) stop_snmp();
+		if (action & A_START) start_snmp();
 		goto CLEAR;
 	}
 #endif

@@ -127,6 +127,9 @@ Copyright (C) 2010 Keith Moyer,<br>
 <!-- LINUX26-BEGIN -->
 - SD-idle tool integration for kernel 2.6<br>
 <!-- LINUX26-END -->
+<!-- SNMP-BEGIN -->
+- SNMP integration and GUI<br>
+<!-- SNMP-END -->
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>

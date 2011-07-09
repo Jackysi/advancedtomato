@@ -427,6 +427,12 @@ extern void start_nfs();
 extern void stop_nfs();
 #endif
 
+// snmp.c
+#ifdef TCONFIG_SNMP
+extern void start_snmp();
+extern void stop_snmp();
+#endif
+
 //cmon.c
 extern void stop_cmon();
 extern void start_cmon();

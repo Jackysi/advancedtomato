@@ -2443,6 +2443,9 @@ REMOVE-END */
 /* NFS-BEGIN */
 			['NFS Server',		'nfs.asp'],
 /* NFS-END */
+/* SNMP-BEGIN */
+			['SNMP',		'snmp.asp'],
+/* SNMP-END */
 			['Logging',			'log.asp'],
 			['Scheduler',		'sched.asp'],
 			['Scripts',			'scripts.asp'],
