@@ -36,7 +36,7 @@
 }
 </style>
 <script type='text/javascript'>
-<% nvram ("vlan0ports,vlan1ports,vlan2ports,vlan3ports,vlan4ports,vlan5ports,vlan6ports,vlan7ports,vlan8ports,vlan9ports,vlan10ports,vlan11ports,vlan12ports,vlan13ports,vlan14ports,vlan15ports,vlan0hwname,vlan1hwname,vlan2hwname,vlan3hwname,vlan4hwname,vlan5hwname,vlan6hwname,vlan7hwname,vlan8hwname,vlan9hwname,vlan10hwname,vlan11hwname,vlan12hwname,vlan13hwname,vlan14hwname,vlan15hwname,wan_ifnameX,lan_ifnames,manual_boot_nv,boardtype,boardflags,trunk_vlan_support_override");%> 
+<% nvram ("vlan0ports,vlan1ports,vlan2ports,vlan3ports,vlan4ports,vlan5ports,vlan6ports,vlan7ports,vlan8ports,vlan9ports,vlan10ports,vlan11ports,vlan12ports,vlan13ports,vlan14ports,vlan15ports,vlan0hwname,vlan1hwname,vlan2hwname,vlan3hwname,vlan4hwname,vlan5hwname,vlan6hwname,vlan7hwname,vlan8hwname,vlan9hwname,vlan10hwname,vlan11hwname,vlan12hwname,vlan13hwname,vlan14hwname,vlan15hwname,wan_ifnameX,manual_boot_nv,boardtype,boardflags,trunk_vlan_so,lan_ifname,lan_ifnames,lan1_ifname,lan1_ifnames,lan2_ifname,lan2_ifnames,lan3_ifname,lan3_ifnames");%> 
 
 var port_vlan_supported = 0;
 var trunk_vlan_supported = 0;
@@ -98,6 +98,7 @@ switch(nvram['boardtype']) {
 
 var MAX_PORT_ID = 4;
 var MAX_VLAN_ID = 15;
+var MAX_BRIDGE_ID = 4;
 
 var COL_VID = 0;
 var COL_P0  = 1;
@@ -117,7 +118,7 @@ var SWITCH_INTERNAL_PORT=0; // set to either 5 or 8 when nvram settings are read
 var PORT_VLAN_SUPPORT_OVERRIDE=0; // option made available for experimental purposes on routers known to support port-based VLANs, but not confirmed to support 801.11q trunks
 
 function verifyFields(focused, quiet){
-  PORT_VLAN_SUPPORT_OVERRIDE=(E('_f_trunk_vlan_support_override').checked ? 1 : 0);
+  PORT_VLAN_SUPPORT_OVERRIDE=(E('_f_trunk_vlan_so').checked ? 1 : 0);
 }
 
 function save()
@@ -125,7 +126,7 @@ function save()
   if (vlg.isEditing()) return;
 
   var fom = E('_fom');
-  fom.trunk_vlan_support_override.value = (E('_f_trunk_vlan_support_override').checked ? 1 : 0);
+  fom.trunk_vlan_so.value = (E('_f_trunk_vlan_so').checked ? 1 : 0);
 // wipe out relevant fields just in case this is not the first time we try to submit
   for (var i = 0 ; i <= MAX_VLAN_ID ; i++) {
     fom['vlan' + i + 'ports'].value = '';
@@ -172,9 +173,12 @@ function save()
     fom['vlan'+d[i][COL_VID]+'hwname'].value = 'et0';
 
     fom['wan_ifnameX'].value += (d[i][COL_BRI] == '2') ? 'vlan'+d[i][0] : '';
-    fom['lan_ifnames'].value += (d[i][COL_BRI] == '1') ? 'vlan'+d[i][0] : '';
+    fom['lan_ifnames'].value += (d[i][COL_BRI] == '3') ? 'vlan'+d[i][0] : '';
     fom['lan_ifnames'].value += trailingSpace(fom['lan_ifnames'].value);
 //    alert('vlan'+d[i][0]+'ports='+fom['vlan'+d[i][0]+'ports'].value+'\nvlan'+d[i][0]+'hwname='+fom['vlan'+d[i][0]+'hwname'].value);
+    fom['lan1_ifnames'].value = (d[i][COL_BRI] == '4') ? 'vlan'+d[i][0] : '';
+    fom['lan2_ifnames'].value = (d[i][COL_BRI] == '5') ? 'vlan'+d[i][0] : '';
+    fom['lan3_ifnames'].value = (d[i][COL_BRI] == '6') ? 'vlan'+d[i][0] : '';
   }
 
   var lif = nvram['lan_ifnames'].split(' ');
@@ -207,8 +211,8 @@ function save()
     return;
   }
 
-  if(vlg.countLan() != 1) {
-    e.innerHTML = 'Cannot proceed: one and only one VID must be assigned to LAN.';
+  if(vlg.countLan(0) != 1) {
+    e.innerHTML = 'Cannot proceed: one and only one VID must be assigned to the primary LAN (br0).';
     e.style.visibility = 'visible';
     setTimeout(
       function() {
@@ -254,16 +258,24 @@ if(port_vlan_supported) { // aka if(supported_hardware) block
     { type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
     { type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
     { type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
-    { type: 'select', options: [[1, 'LAN'],[2, 'WAN'],[3, 'none']], prefix: '<div class="centered">', suffix: '</div>' }]);
+    { type: 'select', options: [[1, 'none'],[2, 'WAN'],[3, 'LAN (br0)'],[4, 'LAN1 (br1)'],[5, 'LAN2 (br2)'],[6, 'LAN3 (br3)']], prefix: '<div class="centered">', suffix: '</div>' }]);
 
     this.headerSet(['VID', 'Port 1', 'Tagged', 'Port 2', 'Tagged', 'Port 3', 'Tagged', 'Port 4', 'Tagged', 'WAN Port', 'Tagged', 'Default', 'Role']);
 
 // find out which vlans are supposed to be bridged to LAN
     var bridged = [];
-    var l = nvram['lan_ifnames'].split(' ');
-    for (var i = 0 ; i < l.length; i++) {
-      if(l[i].indexOf('vlan') != -1)
-        bridged[parseInt(l[i].replace('vlan',''))] = '1';
+
+    for (var i = 0 ; i < MAX_BRIDGE_ID ; i++) {
+      var j = (i == 0) ? '' : i.toString();
+      var l = nvram['lan' + j + '_ifnames'].split(' ');
+//      alert('lan' + j + '_ifnames=' + l);
+      for (var k = 0 ; k < l.length; k++) {
+//        alert("bridge br" + i + "=vlan" + parseInt(l[k].replace('vlan','')));
+        if(l[k].indexOf('vlan') != -1) {
+//        alert('lan' + j + '_ifname=br' + nvram['lan' + j + '_ifname'].replace('br',''));
+          bridged[parseInt(l[k].replace('vlan',''))] = (3 + parseInt(nvram['lan' + j + '_ifname'].replace('br',''))).toString();
+        }
+      }
     }
 
 // WAN port
@@ -297,7 +309,7 @@ if(port_vlan_supported) { // aka if(supported_hardware) block
             port[COL_P3N], tagged[COL_P3N],
             port[COL_P4N], tagged[COL_P4N],
             (((nvram['vlan' + i + 'ports']).indexOf('*') != -1) ? '1' : '0' ),
-            (bridged[i] != null) ? bridged[i] : '3' ]);
+            (bridged[i] != null) ? bridged[i] : '1' ]);
         }
       }
     }
@@ -332,14 +344,35 @@ if(port_vlan_supported) { // aka if(supported_hardware) block
     return this.countElem(COL_BRI,2);
   }
 
-  vlg.countLan = function()
+  vlg.countLan = function(l)
   {
-    return this.countElem(COL_BRI,1);
+    return this.countElem(COL_BRI,l+3);
   }
 
   vlg.verifyFields = function(row, quiet) {
     var valid = 1;
     var f = fields.getAll(row);
+
+    if(nvram.lan_ifname.length < 1)
+      f[COL_BRI].options[2].disabled=true;
+    else
+      f[COL_BRI].options[2].disabled=false;
+
+    if(nvram.lan1_ifname.length < 1)
+      f[COL_BRI].options[3].disabled=true;
+    else
+      f[COL_BRI].options[3].disabled=false;
+
+    if(nvram.lan2_ifname.length < 1)
+      f[COL_BRI].options[4].disabled=true;
+    else
+      f[COL_BRI].options[4].disabled=false;
+
+    if(nvram.lan3_ifname.length < 1)
+      f[COL_BRI].options[5].disabled=true;
+    else
+      f[COL_BRI].options[5].disabled=false;
+
     if(((trunk_vlan_supported) || (PORT_VLAN_SUPPORT_OVERRIDE)) && (f[COL_P0].checked == 1)) {
       f[COL_P0T].disabled=0;
     } else {
@@ -397,11 +430,13 @@ if(port_vlan_supported) { // aka if(supported_hardware) block
       ferror.clear(f[COL_BRI]);
     }
 
-    if ((this.countLan() > 0) && (f[COL_BRI].selectedIndex == 0)) {
-      ferror.set(f[COL_BRI],'One and only one VID can be used as LAN at any time', quiet);
-      valid = 0;
-    } else {
-      ferror.clear(f[COL_BRI]);
+    for(var i=0; i<4; i++) {
+      if ((this.countLan(i) > 0) && (f[COL_BRI].selectedIndex == (i+2))) {
+        ferror.set(f[COL_BRI],'One and only one VID can be used for LAN' + ((i==0) ? '' : i ) + ' (br'+i+') at any time', quiet);
+        valid = 0;
+      } else {
+        ferror.clear(f[COL_BRI]);
+      }
     }
 
     return valid;
@@ -420,7 +455,7 @@ if(port_vlan_supported) { // aka if(supported_hardware) block
     (data[COL_P4].toString() != '0') ? 'Yes' : '',
     (data[COL_P4T].toString() != '0') ? 'On' : '',
     (data[COL_VID_DEF].toString() != '0') ? '*' : '',
-    ['LAN', 'WAN', ''][data[COL_BRI] - 1]];
+    ['', 'WAN', 'LAN (br0)', 'LAN1 (br1)', 'LAN2 (br2)', 'LAN3 (br3)' ][data[COL_BRI] - 1]];
   }
 
   vlg.dataToFieldValues = function (data) {
@@ -524,6 +559,26 @@ if(port_vlan_supported) { // aka if(supported_hardware) block
 
   vlg.resetNewEditor = function() {
     var f = fields.getAll(this.newEditor);
+    if(nvram.lan_ifname.length < 1)
+      f[COL_BRI].options[2].disabled=true;
+    else
+      f[COL_BRI].options[2].disabled=false;
+
+    if(nvram.lan1_ifname.length < 1)
+      f[COL_BRI].options[3].disabled=true;
+    else
+      f[COL_BRI].options[3].disabled=false;
+
+    if(nvram.lan2_ifname.length < 1)
+      f[COL_BRI].options[4].disabled=true;
+    else
+      f[COL_BRI].options[4].disabled=false;
+
+    if(nvram.lan3_ifname.length < 1)
+      f[COL_BRI].options[5].disabled=true;
+    else
+      f[COL_BRI].options[5].disabled=false;
+
     if (f[COL_VID].selectedIndex < 0) 
       f[COL_VID].selectedIndex=0;
     while(this.countVID(f[COL_VID].selectedIndex) > 0)
@@ -546,7 +601,7 @@ if(port_vlan_supported) { // aka if(supported_hardware) block
     f[COL_VID_DEF].checked = 0;
     if (this.countDefaultVID()>0)
       f[COL_VID_DEF].disabled = 1;
-    f[COL_BRI].selectedIndex = 2;
+    f[COL_BRI].selectedIndex = 0;
     ferror.clearAll(fields.getAll(this.newEditor));
   }
 } // end of the so-called if(supported_device) block
@@ -565,7 +620,7 @@ function earlyInit()
     E('save-button').disabled = 1;
     return;
   }
-  PORT_VLAN_SUPPORT_OVERRIDE = ((nvram['trunk_vlan_support_override'] == '1') ? 1 : 0);
+  PORT_VLAN_SUPPORT_OVERRIDE = ((nvram['trunk_vlan_so'] == '1') ? 1 : 0);
 }
 
 </script>
@@ -619,9 +674,12 @@ function earlyInit()
 <input type='hidden' name='vlan14hwname'>
 <input type='hidden' name='vlan15hwname'>
 <input type='hidden' name='wan_ifnameX'>
-<input type='hidden' name='lan_ifnames'>
 <input type='hidden' name='manual_boot_nv'>
-<input type='hidden' name='trunk_vlan_support_override'>
+<input type='hidden' name='lan_ifnames'>
+<input type='hidden' name='lan1_ifnames'>
+<input type='hidden' name='lan2_ifnames'>
+<input type='hidden' name='lan3_ifnames'>
+<input type='hidden' name='trunk_vlan_so'>
 
 <div id='sesdiv' style='display:none'>
 <div class='section-title'>VLAN</div>
@@ -642,7 +700,7 @@ if(!trunk_vlan_supported)
 </script>
 </li>
 <li><b>Default</b> - VLAN ID assigned to untagged frames received by the router.</li>
-<li><b>Role</b> - Determines if this VLAN ID should be treated as WAN, part of the LAN bridge or neither (i.e. member of a 802.1q trunk, being managed manually via scripts, etc...).</li>
+<li><b>Role</b> - Determines if this VLAN ID should be treated as WAN, part of a LAN bridge or just left alone (i.e. member of a 802.1q trunk, being managed manually via scripts, etc...).</li>
 </ul>
 <small>
 <ul>
@@ -650,9 +708,9 @@ if(!trunk_vlan_supported)
 <ul>
 <li>One VID <i>must</i> be assigned to WAN.</li>
 <li>One VID <i>must</i> be selected as the default.</li>
-<li>WLAN is always/automatically bridged to LAN.</li>
+<li>WLAN is always/automatically bridged to the primary LAN (br0).</li>
 <script type='text/javascript'>
-if((trunk_vlan_supported) || (nvram.trunk_vlan_support_override == '1'))
+if((trunk_vlan_supported) || (nvram.trunk_vlan_so == '1'))
   W('<li>To prevent 802.1q compatibility issues, avoid using VID "0" as 802.1q specifies that frames with a tag of "0" do not belong to any VLAN.</li>');
 </script>
 </ul>
@@ -662,7 +720,7 @@ if((trunk_vlan_supported) || (nvram.trunk_vlan_support_override == '1'))
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-  { title: 'Enable', name: 'f_trunk_vlan_support_override', type: 'checkbox', value: nvram.trunk_vlan_support_override == '1' },
+  { title: 'Enable', name: 'f_trunk_vlan_so', type: 'checkbox', value: nvram.trunk_vlan_so == '1' },
 ]);
 </script>
 </div>

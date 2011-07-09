@@ -13,7 +13,7 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] Advanced: Routing</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
@@ -45,7 +45,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-// <% nvram("wk_mode,dr_setting,lan_stp,routes_static,dhcp_routes,lan_ifname,wan_ifname,wan_iface,emf_enable"); %>
+// <% nvram("wk_mode,dr_setting,lan_stp,routes_static,dhcp_routes,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,wan_ifname,wan_iface,emf_enable"); %>
 // <% activeroutes(); %>
 
 var ara = new TomatoGrid();
@@ -57,7 +57,7 @@ ara.setup = function() {
 	this.headerSet(['Destination', 'Gateway / Next Hop', 'Subnet Mask', 'Metric', 'Interface']);
 	for (i = 0; i < activeroutes.length; ++i) {
 		a = activeroutes[i];
-		if (a[0] == nvram.lan_ifname) a[0] += ' (LAN)';
+		if ((a[0] == nvram.lan_ifname) || (a[0] == nvram.lan1_ifname) || (a[0] == nvram.lan2_ifname) || (a[0] == nvram.lan3_ifname)) a[0] += ' (LAN)';
 			else if (a[0] == nvram.wan_iface) a[0] += ' (WAN)';
 			else if (a[0] == nvram.wan_ifname) a[0] += ' (MAN)';
 		this.insertData(-1, [a[1],a[2],a[3],a[4],a[0]]);
@@ -125,7 +125,7 @@ function save()
 	fom.dr_wan_tx.value = fom.dr_wan_rx.value = wan;
 /* ZEBRA-END */
 
-	fom.lan_stp.value = E('_f_stp').checked ? 1 : 0;
+//	fom.lan_stp.value = E('_f_stp').checked ? 1 : 0;
 	fom.dhcp_routes.value = E('_f_dhcp_routes').checked ? '1' : '0';
 	fom._service.value = (fom.dhcp_routes.value != nvram.dhcp_routes) ? 'wan-restart' : 'routing-restart';
 
@@ -172,7 +172,7 @@ function init()
 <input type='hidden' name='_service' value='routing-restart'>
 
 <input type='hidden' name='routes_static'>
-<input type='hidden' name='lan_stp'>
+<!-- <input type='hidden' name='lan_stp'> -->
 <input type='hidden' name='dhcp_routes'>
 <input type='hidden' name='emf_enable'>
 <input type='hidden' name='dr_lan_tx'>
@@ -202,7 +202,7 @@ createFieldTable('', [
 	{ title: 'Efficient Multicast Forwarding', name: 'f_emf', type: 'checkbox', value: nvram.emf_enable != '0' },
 /* EMF-END */
 	{ title: 'DHCP Routes', name: 'f_dhcp_routes', type: 'checkbox', value: nvram.dhcp_routes != '0' },
-	{ title: 'Spanning-Tree Protocol', name: 'f_stp', type: 'checkbox', value: nvram.lan_stp != '0' }
+//	{ title: 'Spanning-Tree Protocol', name: 'f_stp', type: 'checkbox', value: nvram.lan_stp != '0' }
 ]);
 </script>
 </div>

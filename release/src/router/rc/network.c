@@ -427,6 +427,9 @@ void start_lan(void)
 	int unit, subunit, sta;
 	int hwaddrset;
 	char eabuf[32];
+	char tmp[32];
+	char tmp2[32];
+	char br;
 
 	foreach_wif(1, NULL, set_wlmac);
 	check_afterburner();
@@ -435,144 +438,172 @@ void start_lan(void)
 #endif
 
 	if ((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) return;
+	for(br=0 ; br<4 ; br++) {
+		char bridge[2] = "0";
+		if (br!=0)
+			bridge[0]+=br;
+		else
+			strcpy(bridge, "");
 
-	lan_ifname = strdup(nvram_safe_get("lan_ifname"));
-	if (strncmp(lan_ifname, "br", 2) == 0) {
-		_dprintf("%s: setting up the bridge %s\n", __FUNCTION__, lan_ifname);
+//		lan_ifname = strdup(nvram_safe_get("lan_ifname"));
+		strcpy(tmp,"lan");
+		strcat(tmp,bridge);
+		strcat(tmp, "_ifname");
+		lan_ifname = strdup(nvram_safe_get(tmp));
 
-		eval("brctl", "addbr", lan_ifname);
-		eval("brctl", "setfd", lan_ifname, "0");
-		eval("brctl", "stp", lan_ifname, nvram_safe_get("lan_stp"));
+		if (strncmp(lan_ifname, "br", 2) == 0) {
+			_dprintf("%s: setting up the bridge %s\n", __FUNCTION__, lan_ifname);
+
+			eval("brctl", "addbr", lan_ifname);
+			eval("brctl", "setfd", lan_ifname, "0");
+			strcpy(tmp,"lan");
+			strcat(tmp,bridge);
+			strcat(tmp, "_stp");
+			eval("brctl", "stp", lan_ifname, nvram_safe_get(tmp));
 
 #ifdef TCONFIG_EMF
-		if (nvram_get_int("emf_enable")) {
-			eval("emf", "add", "bridge", lan_ifname);
-			eval("igs", "add", "bridge", lan_ifname);
-		}
+			if (nvram_get_int("emf_enable")) {
+				eval("emf", "add", "bridge", lan_ifname);
+				eval("igs", "add", "bridge", lan_ifname);
+			}
 #endif
 
-		inet_aton(nvram_safe_get("lan_ipaddr"), (struct in_addr *)&ip);
+			strcpy(tmp,"lan");
+			strcat(tmp,bridge);
+			strcat(tmp, "_ipaddr");
+			inet_aton(nvram_safe_get(tmp), (struct in_addr *)&ip);
 
-		hwaddrset = 0;
-		sta = 0;
-		if ((lan_ifnames = strdup(nvram_safe_get("lan_ifnames"))) != NULL) {
-			p = lan_ifnames;
-			while ((ifname = strsep(&p, " ")) != NULL) {
-				while (*ifname == ' ') ++ifname;
-				if (*ifname == 0) break;
+			hwaddrset = 0;
+			sta = 0;
 
-				unit = -1; subunit = -1;
+			strcpy(tmp,"lan");
+			strcat(tmp,bridge);
+			strcat(tmp, "_ifnames");
+			if ((lan_ifnames = strdup(nvram_safe_get(tmp))) != NULL) {
+				p = lan_ifnames;
+				while ((ifname = strsep(&p, " ")) != NULL) {
+					while (*ifname == ' ') ++ifname;
+					if (*ifname == 0) break;
 
-				// ignore disabled wl vifs
-				if (strncmp(ifname, "wl", 2) == 0 && strchr(ifname, '.')) {
-					char nv[64];
+					unit = -1; subunit = -1;
 
-					snprintf(nv, sizeof(nv) - 1, "%s_bss_enabled", ifname);
-					if (!nvram_get_int(nv))
-						continue;
-					if (get_ifname_unit(ifname, &unit, &subunit) < 0)
-						continue;
-				}
-				else
-					wl_ioctl(ifname, WLC_GET_INSTANCE, &unit, sizeof(unit));
+					// ignore disabled wl vifs
+					if (strncmp(ifname, "wl", 2) == 0 && strchr(ifname, '.')) {
+						char nv[64];
 
-				// bring up interface
-				if (ifconfig(ifname, IFUP|IFF_ALLMULTI, NULL, NULL) != 0) continue;
-
-				// set the logical bridge address to that of the first interface
-				strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
-				if ((!hwaddrset) ||
-				    (ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0 &&
-				    memcmp(ifr.ifr_hwaddr.sa_data, "\0\0\0\0\0\0", ETHER_ADDR_LEN) == 0)) {
-					strlcpy(ifr.ifr_name, ifname, IFNAMSIZ);
-					if (ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0) {
-						strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
-						ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
-						_dprintf("%s: setting MAC of %s bridge to %s\n", __FUNCTION__,
-							ifr.ifr_name, ether_etoa(ifr.ifr_hwaddr.sa_data, eabuf));
-						ioctl(sfd, SIOCSIFHWADDR, &ifr);
-						hwaddrset = 1;
+						snprintf(nv, sizeof(nv) - 1, "%s_bss_enabled", ifname);
+						if (!nvram_get_int(nv))
+							continue;
+						if (get_ifname_unit(ifname, &unit, &subunit) < 0)
+							continue;
 					}
-				}
+					else
+						wl_ioctl(ifname, WLC_GET_INSTANCE, &unit, sizeof(unit));
 
-				if (wlconf(ifname, unit, subunit) == 0) {
-					const char *mode = nvram_safe_get(wl_nvname("mode", unit, subunit));
+					// bring up interface
+					if (ifconfig(ifname, IFUP|IFF_ALLMULTI, NULL, NULL) != 0) continue;
 
-					if (strcmp(mode, "wet") == 0) {
-						// Enable host DHCP relay
-						if (nvram_get_int("dhcp_relay")) {
-							wl_iovar_set(ifname, "wet_host_mac", ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
-							wl_iovar_setint(ifname, "wet_host_ipv4", ip);
+					// set the logical bridge address to that of the first interface
+					strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
+					if ((!hwaddrset) ||
+						(ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0 &&
+						memcmp(ifr.ifr_hwaddr.sa_data, "\0\0\0\0\0\0", ETHER_ADDR_LEN) == 0)) {
+						strlcpy(ifr.ifr_name, ifname, IFNAMSIZ);
+						if (ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0) {
+							strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
+							ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
+							_dprintf("%s: setting MAC of %s bridge to %s\n", __FUNCTION__,
+								ifr.ifr_name, ether_etoa(ifr.ifr_hwaddr.sa_data, eabuf));
+							ioctl(sfd, SIOCSIFHWADDR, &ifr);
+							hwaddrset = 1;
 						}
 					}
 
-					sta |= (strcmp(mode, "sta") == 0);
-					if ((strcmp(mode, "ap") != 0) && (strcmp(mode, "wet") != 0)) continue;
-				}
-				eval("brctl", "addif", lan_ifname, ifname);
-#ifdef TCONFIG_EMF
-				if (nvram_get_int("emf_enable"))
-					eval("emf", "add", "iface", lan_ifname, ifname);
-#endif
-			}
-			
-			if ((nvram_get_int("wan_islan")) &&
-				((get_wan_proto() == WP_DISABLED) || (sta))) {
-				ifname = nvram_get("wan_ifnameX");
-				if (ifconfig(ifname, IFUP, NULL, NULL) == 0)
+					if (wlconf(ifname, unit, subunit) == 0) {
+						const char *mode = nvram_safe_get(wl_nvname("mode", unit, subunit));
+
+						if (strcmp(mode, "wet") == 0) {
+							// Enable host DHCP relay
+							if (nvram_get_int("dhcp_relay")) {
+								wl_iovar_set(ifname, "wet_host_mac", ifr.ifr_hwaddr.sa_data, ETHER_ADDR_LEN);
+								wl_iovar_setint(ifname, "wet_host_ipv4", ip);
+							}
+						}
+
+						sta |= (strcmp(mode, "sta") == 0);
+						if ((strcmp(mode, "ap") != 0) && (strcmp(mode, "wet") != 0)) continue;
+					}
 					eval("brctl", "addif", lan_ifname, ifname);
-			}
+#ifdef TCONFIG_EMF
+					if (nvram_get_int("emf_enable"))
+						eval("emf", "add", "iface", lan_ifname, ifname);
+#endif
+				}
 			
-			free(lan_ifnames);
+				if ((nvram_get_int("wan_islan")) && (br==0) &&
+					((get_wan_proto() == WP_DISABLED) || (sta))) {
+					ifname = nvram_get("wan_ifnameX");
+					if (ifconfig(ifname, IFUP, NULL, NULL) == 0)
+						eval("brctl", "addif", lan_ifname, ifname);
+				}
+			
+				free(lan_ifnames);
+			}
 		}
-	}
-	// --- this shouldn't happen ---
-	else if (*lan_ifname) {
-		ifconfig(lan_ifname, IFUP, NULL, NULL);
-		wlconf(lan_ifname, -1, -1);
-	}
-	else {
+		// --- this shouldn't happen ---
+		else if (*lan_ifname) {
+			ifconfig(lan_ifname, IFUP, NULL, NULL);
+			wlconf(lan_ifname, -1, -1);
+		}
+		else {
+			close(sfd);
+			free(lan_ifname);
+			return;
+		}
+
+		// Get current LAN hardware address
+		strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
+		if (ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0) nvram_set("lan_hwaddr", ether_etoa(ifr.ifr_hwaddr.sa_data, eabuf));
+
+		// Set initial QoS mode for LAN ports
+		set_et_qos_mode(sfd);
+
 		close(sfd);
-		free(lan_ifname);
-		return;
-	}
 
-	// Get current LAN hardware address
-	strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
-	if (ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0) nvram_set("lan_hwaddr", ether_etoa(ifr.ifr_hwaddr.sa_data, eabuf));
+		// bring up and configure LAN interface
+		strcpy(tmp,"lan");
+		strcat(tmp,bridge);
+		strcat(tmp, "_ipaddr");
+		strcpy(tmp2,"lan");
+		strcat(tmp2,bridge);
+		strcat(tmp2, "_netmask");
+		ifconfig(lan_ifname, IFUP, nvram_safe_get(tmp), nvram_safe_get(tmp2));
 
-	// Set initial QoS mode for LAN ports
-	set_et_qos_mode(sfd);
+		config_loopback();
+		do_static_routes(1);
 
-	close(sfd);
+		if(br==0)
+			set_lan_hostname(nvram_safe_get("wan_hostname"));
 
-	// bring up and configure LAN interface
-	ifconfig(lan_ifname, IFUP, nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_netmask"));
-
-	config_loopback();
-	do_static_routes(1);
-
-	set_lan_hostname(nvram_safe_get("wan_hostname"));
-
-	if (get_wan_proto() == WP_DISABLED) {
-		char *gateway = nvram_safe_get("lan_gateway") ;
-		if ((*gateway) && (strcmp(gateway, "0.0.0.0") != 0)) {
-			int tries = 5;
-			while ((route_add(lan_ifname, 0, "0.0.0.0", gateway, "0.0.0.0") != 0) && (tries-- > 0)) sleep(1);
-			_dprintf("%s: add gateway=%s tries=%d\n", __FUNCTION__, gateway, tries);
+		if ((get_wan_proto() == WP_DISABLED) && (br==0)) {
+			char *gateway = nvram_safe_get("lan_gateway") ;
+			if ((*gateway) && (strcmp(gateway, "0.0.0.0") != 0)) {
+				int tries = 5;
+				while ((route_add(lan_ifname, 0, "0.0.0.0", gateway, "0.0.0.0") != 0) && (tries-- > 0)) sleep(1);
+				_dprintf("%s: add gateway=%s tries=%d\n", __FUNCTION__, gateway, tries);
+			}
 		}
-	}
 
 #ifdef TCONFIG_IPV6
-	start_ipv6();
+		start_ipv6();
 #endif
 
 #ifdef TCONFIG_EMF
-	if (nvram_get_int("emf_enable")) start_emf(lan_ifname);
+		if (nvram_get_int("emf_enable")) start_emf(lan_ifname);
 #endif
 
-	free(lan_ifname);
-
+		free(lan_ifname);
+	}
 	_dprintf("%s %d\n", __FUNCTION__, __LINE__);
 }
 
@@ -582,35 +613,50 @@ void stop_lan(void)
 
 	char *lan_ifname;
 	char *lan_ifnames, *p, *ifname;
+	char tmp[32];
+	char br;
 
-	lan_ifname = nvram_safe_get("lan_ifname");
-	ifconfig(lan_ifname, 0, NULL, NULL);
+	for(br=0 ; br<4 ; br++) {
+		char bridge[2] = "0";
+		if (br!=0)
+			bridge[0]+=br;
+		else
+			strcpy(bridge, "");
+
+		strcpy(tmp,"lan");
+		strcat(tmp,bridge);
+		strcat(tmp, "_ifname");
+		lan_ifname = nvram_safe_get(tmp);
+		ifconfig(lan_ifname, 0, NULL, NULL);
 
 #ifdef TCONFIG_IPV6
-	stop_ipv6();
+		stop_ipv6();
 #endif
 
-	if (strncmp(lan_ifname, "br", 2) == 0) {
+		if (strncmp(lan_ifname, "br", 2) == 0) {
 #ifdef TCONFIG_EMF
-		stop_emf(lan_ifname);
+			stop_emf(lan_ifname);
 #endif
-		if ((lan_ifnames = strdup(nvram_safe_get("lan_ifnames"))) != NULL) {
-			p = lan_ifnames;
-			while ((ifname = strsep(&p, " ")) != NULL) {
-				while (*ifname == ' ') ++ifname;
-				if (*ifname == 0) break;
-				eval("wlconf", ifname, "down");
-				ifconfig(ifname, 0, NULL, NULL);
-				eval("brctl", "delif", lan_ifname, ifname);
+		strcpy(tmp,"lan");
+		strcat(tmp,bridge);
+		strcat(tmp, "_ifnames");
+			if ((lan_ifnames = strdup(nvram_safe_get(tmp))) != NULL) {
+				p = lan_ifnames;
+				while ((ifname = strsep(&p, " ")) != NULL) {
+					while (*ifname == ' ') ++ifname;
+					if (*ifname == 0) break;
+					eval("wlconf", ifname, "down");
+					ifconfig(ifname, 0, NULL, NULL);
+					eval("brctl", "delif", lan_ifname, ifname);
+				}
+				free(lan_ifnames);
 			}
-			free(lan_ifnames);
+			eval("brctl", "delbr", lan_ifname);
 		}
-		eval("brctl", "delbr", lan_ifname);
+		else if (*lan_ifname) {
+			eval("wlconf", lan_ifname, "down");
+		}
 	}
-	else if (*lan_ifname) {
-		eval("wlconf", lan_ifname, "down");
-	}
-
 	_dprintf("%s %d\n", __FUNCTION__, __LINE__);
 }
 

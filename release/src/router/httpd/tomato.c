@@ -542,12 +542,51 @@ static const nvset_t nvset_list[] = {
 	{ "lan_gateway",		V_IP				},
 	{ "wan_dns",			V_LENGTH(0, 50)		},	// ip ip ip
 	{ "lan_proto",			V_WORD				},	// static, dhcp
-	{ "dhcp_start",			V_RANGE(1, 254)		},	// remove !
-	{ "dhcp_num",			V_RANGE(1, 255)		},	// remove !
-	{ "dhcpd_startip",		V_IP				},
-	{ "dhcpd_endip",		V_IP				},
-	{ "dhcp_lease",			V_RANGE(1, 10080)	},
+	{ "dhcp_start",			V_LENGTH(0, 15)		},	// remove !
+	{ "dhcp_num",			V_LENGTH(0, 4)		},	// remove !
+	{ "dhcpd_startip",		V_LENGTH(0, 15)		},
+	{ "dhcpd_endip",		V_LENGTH(0, 15)		},
+	{ "dhcp_lease",			V_LENGTH(0, 5)		},
 	{ "wan_wins",			V_IP				},
+
+	// LAN networks
+	{ "lan_ifname",			V_LENGTH(0, 5)			},
+
+	{ "lan1_ifname",		V_LENGTH(0, 5)			},
+	{ "lan1_ifnames",		V_TEXT(0,64)			},
+	{ "lan1_ipaddr",		V_LENGTH(0, 15)			},
+	{ "lan1_netmask",		V_LENGTH(0, 15)			},
+	{ "lan1_proto",			V_LENGTH(0, 6)			},
+	{ "lan1_stp",			V_LENGTH(0, 1)			},
+	{ "dhcp1_start",		V_LENGTH(0, 15)			},
+	{ "dhcp1_num",			V_LENGTH(0, 4)			},
+	{ "dhcpd1_startip",		V_LENGTH(0, 15)			},
+	{ "dhcpd1_endip",		V_LENGTH(0, 15)			},
+	{ "dhcp1_lease",		V_LENGTH(0, 5)			},
+
+	{ "lan2_ifname",		V_LENGTH(0, 5)			},
+	{ "lan2_ifnames",		V_TEXT(0,64)			},
+	{ "lan2_ipaddr",		V_LENGTH(0, 15)			},
+	{ "lan2_netmask",		V_LENGTH(0, 15)			},
+	{ "lan2_proto",			V_LENGTH(0, 6)			},
+	{ "lan2_stp",			V_LENGTH(0, 1)			},
+	{ "dhcp2_start",		V_LENGTH(0, 15)			},
+	{ "dhcp2_num",			V_LENGTH(0, 4)			},
+	{ "dhcpd2_startip",		V_LENGTH(0, 15)			},
+	{ "dhcpd2_endip",		V_LENGTH(0, 15)			},
+	{ "dhcp2_lease",		V_LENGTH(0, 5)			},
+
+	{ "lan3_ifname",		V_LENGTH(0, 5)			},
+	{ "lan3_ifnames",		V_TEXT(0,64)			},
+	{ "lan3_ipaddr",		V_LENGTH(0, 15)			},
+	{ "lan3_netmask",		V_LENGTH(0, 15)			},
+	{ "lan3_proto",			V_LENGTH(0, 6)			},
+	{ "lan3_stp",			V_LENGTH(0, 1)			},
+	{ "dhcp3_start",		V_LENGTH(0, 15)			},
+	{ "dhcp3_num",			V_LENGTH(0, 4)			},
+	{ "dhcpd3_startip",		V_LENGTH(0, 15)			},
+	{ "dhcpd3_endip",		V_LENGTH(0, 15)			},
+	{ "dhcp3_lease",		V_LENGTH(0, 5)			},
 
 	// wireless
 	{ "wl_radio",			V_01				},
@@ -698,7 +737,7 @@ static const nvset_t nvset_list[] = {
 	{ "wan_ifnameX",		V_TEXT(0,8)			},
 	{ "lan_ifnames",		V_TEXT(0,64)			},
 	{ "manual_boot_nv",		V_01				},
-	{ "trunk_vlan_support_override",V_01				},
+	{ "trunk_vlan_so",V_01					},
 
 // advanced-mac
 	{ "mac_wan",			V_LENGTH(0, 17)		},

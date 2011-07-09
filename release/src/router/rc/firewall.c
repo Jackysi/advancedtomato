@@ -31,10 +31,16 @@
 
 wanface_list_t wanfaces;
 char lanface[IFNAMSIZ + 1];
+char lan1face[IFNAMSIZ + 1];
+char lan2face[IFNAMSIZ + 1];
+char lan3face[IFNAMSIZ + 1];
 #ifdef TCONFIG_IPV6
 char wan6face[IFNAMSIZ + 1];
 #endif
 char lan_cclass[sizeof("xxx.xxx.xxx.") + 1];
+//char lan1_cclass[sizeof("xxx.xxx.xxx.") + 1];
+//char lan2_cclass[sizeof("xxx.xxx.xxx.") + 1];
+//char lan3_cclass[sizeof("xxx.xxx.xxx.") + 1];
 
 #ifdef DEBUG_IPTFILE
 static int debug_only = 0;
@@ -480,6 +486,12 @@ static void nat_table(void)
 {
 	char lanaddr[32];
 	char lanmask[32];
+	char lan1addr[32];
+	char lan1mask[32];
+	char lan2addr[32];
+	char lan2mask[32];
+	char lan3addr[32];
+	char lan3mask[32];
 	char dst[64];
 	char src[64];
 	char t[512];
@@ -496,6 +508,13 @@ static void nat_table(void)
 	if (gateway_mode) {
 		strlcpy(lanaddr, nvram_safe_get("lan_ipaddr"), sizeof(lanaddr));
 		strlcpy(lanmask, nvram_safe_get("lan_netmask"), sizeof(lanmask));
+		strlcpy(lan1addr, nvram_safe_get("lan1_ipaddr"), sizeof(lan1addr));
+		strlcpy(lan1mask, nvram_safe_get("lan1_netmask"), sizeof(lan1mask));
+		strlcpy(lan2addr, nvram_safe_get("lan2_ipaddr"), sizeof(lan2addr));
+		strlcpy(lan2mask, nvram_safe_get("lan2_netmask"), sizeof(lan2mask));
+		strlcpy(lan3addr, nvram_safe_get("lan3_ipaddr"), sizeof(lan3addr));
+		strlcpy(lan3mask, nvram_safe_get("lan3_netmask"), sizeof(lan3mask));
+
 
 		for (i = 0; i < wanfaces.count; ++i) {
 			if (*(wanfaces.iface[i].name)) {
@@ -508,6 +527,18 @@ static void nat_table(void)
 				ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
 					wanfaces.iface[i].name,
 					lanaddr, lanmask);	// note: ipt will correct lanaddr
+				if(strcmp(lan1addr,"")!=0)
+					ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
+						wanfaces.iface[i].name,
+						lan1addr, lan1mask);
+				if(strcmp(lan2addr,"")!=0)
+					ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
+						wanfaces.iface[i].name,
+						lan2addr, lan2mask);
+				if(strcmp(lan3addr,"")!=0)
+					ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
+						wanfaces.iface[i].name,
+						lan3addr, lan3mask);
 			}
 		}
 
@@ -517,6 +548,21 @@ static void nat_table(void)
 					lanaddr, lanmask,
 					lanaddr, lanmask,
 					lanaddr);
+				if(strcmp(lan1addr,"")!=0)
+					ipt_write("-A PREROUTING -p udp -s %s/%s ! -d %s/%s --dport 53 -j DNAT --to-destination %s\n",
+						lan1addr, lan1mask,
+						lan1addr, lan1mask,
+						lan1addr);
+				if(strcmp(lan2addr,"")!=0)
+					ipt_write("-A PREROUTING -p udp -s %s/%s ! -d %s/%s --dport 53 -j DNAT --to-destination %s\n",
+						lan2addr, lan2mask,
+						lan2addr, lan2mask,
+						lan2addr);
+				if(strcmp(lan3addr,"")!=0)
+					ipt_write("-A PREROUTING -p udp -s %s/%s ! -d %s/%s --dport 53 -j DNAT --to-destination %s\n",
+						lan3addr, lan3mask,
+						lan3addr, lan3mask,
+						lan3addr);
 			}
 
 			// ICMP packets are always redirected to INPUT chains
@@ -584,6 +630,24 @@ static void nat_table(void)
 				lanaddr, lanmask,
 				lanaddr, lanmask,
 				lanaddr);
+			if (strcmp(lan1face,"")!=0)
+				ipt_write("-A POSTROUTING -o %s -s %s/%s -d %s/%s -j SNAT --to-source %s\n",
+					lan1face,
+					lan1addr, lan1mask,
+					lan1addr, lan1mask,
+					lan1addr);
+			if (strcmp(lan2face,"")!=0)
+				ipt_write("-A POSTROUTING -o %s -s %s/%s -d %s/%s -j SNAT --to-source %s\n",
+					lan2face,
+					lan2addr, lan2mask,
+					lan2addr, lan2mask,
+					lan2addr);
+			if (strcmp(lan3face,"")!=0)
+				ipt_write("-A POSTROUTING -o %s -s %s/%s -d %s/%s -j SNAT --to-source %s\n",
+					lan3face,
+					lan3addr, lan3mask,
+					lan3addr, lan3mask,
+					lan3addr);
 			break;
 		}
 	}
@@ -608,6 +672,12 @@ static void filter_input(void)
 		for (n = 0; n < wanfaces.count; ++n) {
 			if (*(wanfaces.iface[n].name)) {
 				ipt_write("-A INPUT -i %s -d %s -j DROP\n", lanface, wanfaces.iface[n].ip);
+				if (strcmp(lan1face,"")!=0)
+					ipt_write("-A INPUT -i %s -d %s -j DROP\n", lan1face, wanfaces.iface[n].ip);
+				if (strcmp(lan2face,"")!=0)
+					ipt_write("-A INPUT -i %s -d %s -j DROP\n", lan2face, wanfaces.iface[n].ip);
+				if (strcmp(lan3face,"")!=0)
+					ipt_write("-A INPUT -i %s -d %s -j DROP\n", lan3face, wanfaces.iface[n].ip);
 			}
 		}
 	}
@@ -665,9 +735,21 @@ static void filter_input(void)
 #endif
 
 	ipt_write(
-		"-A INPUT -i %s -j ACCEPT\n"
-		"-A INPUT -i lo -j ACCEPT\n",
+		"-A INPUT -i lo -j ACCEPT\n"
+		"-A INPUT -i %s -j ACCEPT\n",
 			lanface);
+	if (strcmp(lan1face,"")!=0)
+		ipt_write(
+			"-A INPUT -i %s -j ACCEPT\n",
+				lan1face);
+	if (strcmp(lan2face,"")!=0)
+		ipt_write(
+			"-A INPUT -i %s -j ACCEPT\n",
+				lan2face);
+	if (strcmp(lan3face,"")!=0)
+		ipt_write(
+			"-A INPUT -i %s -j ACCEPT\n",
+				lan3face);
 
 #ifdef TCONFIG_IPV6
 	switch (get_ipv6_service()) {
@@ -779,9 +861,23 @@ static void filter_forward(void)
 	int i;
 
 	ipt_write(
-		"-A FORWARD -i %s -o %s -j ACCEPT\n"			// accept all lan to lan
-		"-A FORWARD -m state --state INVALID -j DROP\n",	// drop if INVALID state
+		"-A FORWARD -i %s -o %s -j ACCEPT\n",			// accept all lan to lan
+//		"-A FORWARD -m state --state INVALID -j DROP\n",	// drop if INVALID state
 		lanface, lanface);
+	if (strcmp(lan1face,"")!=0)
+		ipt_write(
+			"-A FORWARD -i %s -o %s -j ACCEPT\n",
+			lan1face, lan1face);
+	if (strcmp(lan2face,"")!=0)
+		ipt_write(
+			"-A FORWARD -i %s -o %s -j ACCEPT\n",
+			lan2face, lan2face);
+	if (strcmp(lan3face,"")!=0)
+		ipt_write(
+			"-A FORWARD -i %s -o %s -j ACCEPT\n",
+			lan3face, lan3face);
+	ipt_write(
+		"-A FORWARD -m state --state INVALID -j DROP\n");		// drop if INVALID state
 
 	// clamp tcp mss to pmtu
 	clampmss();
@@ -809,6 +905,15 @@ static void filter_forward(void)
 
 	ipt_write("-A FORWARD -i %s -j %s\n",					// from lan
 		lanface, chain_out_accept);
+	if (strcmp(lan1face,"")!=0)
+		ipt_write("-A FORWARD -i %s -j %s\n",					// from lan
+			lan1face, chain_out_accept);
+	if (strcmp(lan2face,"")!=0)
+		ipt_write("-A FORWARD -i %s -j %s\n",					// from lan
+			lan2face, chain_out_accept);
+	if (strcmp(lan3face,"")!=0)
+		ipt_write("-A FORWARD -i %s -j %s\n",					// from lan
+			lan3face, chain_out_accept);
 
 	if (nvram_get_int("upnp_enable") & 3) {
 		ipt_write(":upnp - [0:0]\n");
@@ -1167,6 +1272,9 @@ int start_firewall(void)
 //	if (nvram_match("nf_drop_reset", "1")) chain_out_drop = chain_out_reject;
 
 	strlcpy(lanface, nvram_safe_get("lan_ifname"), IFNAMSIZ);
+	strlcpy(lan1face, nvram_safe_get("lan1_ifname"), IFNAMSIZ);
+	strlcpy(lan2face, nvram_safe_get("lan2_ifname"), IFNAMSIZ);
+	strlcpy(lan3face, nvram_safe_get("lan3_ifname"), IFNAMSIZ);
 
 	memcpy(&wanfaces, get_wanfaces(), sizeof(wanfaces));
 	wanface = wanfaces.iface[0].name;
@@ -1177,6 +1285,19 @@ int start_firewall(void)
 	strlcpy(s, nvram_safe_get("lan_ipaddr"), sizeof(s));
 	if ((c = strrchr(s, '.')) != NULL) *(c + 1) = 0;
 	strlcpy(lan_cclass, s, sizeof(lan_cclass));
+/*
+	strlcpy(s, nvram_safe_get("lan1_ipaddr"), sizeof(s));
+	if ((c = strrchr(s, '.')) != NULL) *(c + 1) = 0;
+	strlcpy(lan1_cclass, s, sizeof(lan1_cclass));
+
+	strlcpy(s, nvram_safe_get("lan2_ipaddr"), sizeof(s));
+	if ((c = strrchr(s, '.')) != NULL) *(c + 1) = 0;
+	strlcpy(lan2_cclass, s, sizeof(lan2_cclass));
+
+	strlcpy(s, nvram_safe_get("lan3_ipaddr"), sizeof(s));
+	if ((c = strrchr(s, '.')) != NULL) *(c + 1) = 0;
+	strlcpy(lan3_cclass, s, sizeof(lan3_cclass));
+*/
 
 	/*
 		block obviously spoofed IP addresses
