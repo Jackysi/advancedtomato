@@ -563,7 +563,11 @@ void start_lan(void)
 
 		// Get current LAN hardware address
 		strlcpy(ifr.ifr_name, lan_ifname, IFNAMSIZ);
-		if (ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0) nvram_set("lan_hwaddr", ether_etoa(ifr.ifr_hwaddr.sa_data, eabuf));
+		strcpy(tmp,"lan");
+		strcat(tmp,bridge);
+		strcat(tmp, "_hwaddr");
+//		if (ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0) nvram_set("lan_hwaddr", ether_etoa(ifr.ifr_hwaddr.sa_data, eabuf));
+		if (ioctl(sfd, SIOCGIFHWADDR, &ifr) == 0) nvram_set(tmp, ether_etoa(ifr.ifr_hwaddr.sa_data, eabuf));
 
 		// Set initial QoS mode for LAN ports
 		set_et_qos_mode(sfd);
@@ -674,8 +678,13 @@ void do_static_routes(int add)
 	p = buf;
 	while ((q = strsep(&p, ">")) != NULL) {
 		if (vstrsep(q, "<", &dest, &gateway, &mask, &metric, &ifname) != 5) continue;
-		ifname = nvram_safe_get((*ifname == 'L') ? "lan_ifname" :
-				       ((*ifname == 'W') ? "wan_iface" : "wan_ifname"));
+//		ifname = nvram_safe_get((*ifname == 'L') ? "lan_ifname" :
+//					((*ifname == 'W') ? "wan_iface" : "wan_ifname"));
+		ifname = nvram_safe_get(((strcmp(ifname,"LAN")==0) ? "lan_ifname" :
+					((strcmp(ifname,"LAN1")==0) ? "lan1_ifname" :
+					((strcmp(ifname,"LAN2")==0) ? "lan2_ifname" :
+					((strcmp(ifname,"LAN3")==0) ? "lan3_ifname" :
+					((*ifname == 'W') ? "wan_iface" : "wan_ifname"))))));
 		if (add) {
 			for (r = 3; r >= 0; --r) {
 				if (route_add(ifname, atoi(metric) + 1, dest, gateway, mask) == 0) break;

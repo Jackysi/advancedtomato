@@ -737,7 +737,7 @@ static const nvset_t nvset_list[] = {
 	{ "wan_ifnameX",		V_TEXT(0,8)			},
 	{ "lan_ifnames",		V_TEXT(0,64)			},
 	{ "manual_boot_nv",		V_01				},
-	{ "trunk_vlan_so",V_01					},
+	{ "trunk_vlan_so",		V_01				},
 
 // advanced-mac
 	{ "mac_wan",			V_LENGTH(0, 17)		},
@@ -752,6 +752,12 @@ static const nvset_t nvset_list[] = {
 	{ "dr_setting",			V_RANGE(0, 3)		},
 	{ "dr_lan_tx",			V_LENGTH(0, 32)		},
 	{ "dr_lan_rx",			V_LENGTH(0, 32)		},
+	{ "dr_lan1_tx",			V_LENGTH(0, 32)		},
+	{ "dr_lan1_rx",			V_LENGTH(0, 32)		},
+	{ "dr_lan2_tx",			V_LENGTH(0, 32)		},
+	{ "dr_lan2_rx",			V_LENGTH(0, 32)		},
+	{ "dr_lan3_tx",			V_LENGTH(0, 32)		},
+	{ "dr_lan3_rx",			V_LENGTH(0, 32)		},
 	{ "dr_wan_tx",			V_LENGTH(0, 32)		},
 	{ "dr_wan_rx",			V_LENGTH(0, 32)		},
 #endif
