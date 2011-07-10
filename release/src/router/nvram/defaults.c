@@ -61,6 +61,16 @@ const defaults_t defaults[] = {
 	{ "lan_gateway",		"0.0.0.0"			},	// LAN Gateway
 	{ "wl_wds_enable",		"0"				},	// WDS Enable (0|1)
 
+	{ "lan1_ipaddr",		""				},
+	{ "lan1_netmask",		""				},
+	{ "lan1_stp",			"0"				},
+	{ "lan2_ipaddr",		""				},
+	{ "lan2_netmask",		""				},
+	{ "lan2_stp",			"0"				},
+	{ "lan3_ipaddr",		""				},
+	{ "lan3_netmask",		""				},
+	{ "lan3_stp",			"0"				},
+
 	// WAN H/W parameters
 //!	{ "wan_ifname",			""				},	// WAN interface name
 //!	{ "wan_ifnames",		""				},	// WAN interface names
@@ -103,6 +113,21 @@ const defaults_t defaults[] = {
 	{ "wan_routes",			""				},
 	{ "wan_msroutes",		""				},
 
+	{ "dhcp1_start",			""			},
+	{ "dhcp1_num",			""			},
+	{ "dhcpd1_startip",		"" 				},
+	{ "dhcpd1_endip",		"" 				},
+	{ "dhcp1_lease",			"0"				},
+	{ "dhcp2_start",			""			},
+	{ "dhcp2_num",			""			},
+	{ "dhcpd2_startip",		"" 				},
+	{ "dhcpd2_endip",		"" 				},
+	{ "dhcp2_lease",			"0"				},
+	{ "dhcp3_start",			""			},
+	{ "dhcp3_num",			""			},
+	{ "dhcpd3_startip",		"" 				},
+	{ "dhcpd3_endip",		"" 				},
+	{ "dhcp3_lease",			"0"				},
 
 	// PPPoE parameters
 	{ "pppoe_ifname",		""				},	// PPPoE enslaved interface
@@ -409,9 +434,18 @@ const defaults_t defaults[] = {
 	{ "dr_setting",			"0"				},	// [ Disable | WAN | LAN | Both ]
 	{ "dr_lan_tx",			"0"				},	// Dynamic-Routing LAN out
 	{ "dr_lan_rx",			"0"				},	// Dynamic-Routing LAN in
+	{ "dr_lan1_tx",			"0"				},	// Dynamic-Routing LAN out
+	{ "dr_lan1_rx",			"0"				},	// Dynamic-Routing LAN in
+	{ "dr_lan2_tx",			"0"				},	// Dynamic-Routing LAN out
+	{ "dr_lan2_rx",			"0"				},	// Dynamic-Routing LAN in
+	{ "dr_lan3_tx",			"0"				},	// Dynamic-Routing LAN out
+	{ "dr_lan3_rx",			"0"				},	// Dynamic-Routing LAN in
 	{ "dr_wan_tx",			"0"				},	// Dynamic-Routing WAN out
 	{ "dr_wan_rx",			"0"				},	// Dynamic-Routing WAN in
 #endif
+
+// advanced-vlan
+	{ "trunk_vlan_so",		"0"				},	// VLAN trunk support override
 
 // advanced-wireless
 	{ "wl_txant",			"3"				},
@@ -955,6 +989,12 @@ const defaults_t if_generic[] = {
 const defaults_t if_vlan[] = {
 	{ "lan_ifname",		"br0"					},
 	{ "lan_ifnames",	"vlan0 eth1 eth2 eth3"	},
+	{ "lan1_ifname",	""					},
+	{ "lan1_ifnames",	""					},
+	{ "lan2_ifname",	""					},
+	{ "lan2_ifnames",	""					},
+	{ "lan3_ifname",	""					},
+	{ "lan3_ifnames",	""					},
 	{ "wan_ifname",		"vlan1"					},
 	{ "wan_ifnames",	"vlan1"					},
 	{ NULL, NULL }

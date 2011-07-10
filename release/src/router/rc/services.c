@@ -929,10 +929,21 @@ void start_zebra(void)
 
 	char *lan_tx = nvram_safe_get("dr_lan_tx");
 	char *lan_rx = nvram_safe_get("dr_lan_rx");
+	char *lan1_tx = nvram_safe_get("dr_lan1_tx");
+	char *lan1_rx = nvram_safe_get("dr_lan1_rx");
+	char *lan2_tx = nvram_safe_get("dr_lan2_tx");
+	char *lan2_rx = nvram_safe_get("dr_lan2_rx");
+	char *lan3_tx = nvram_safe_get("dr_lan3_tx");
+	char *lan3_rx = nvram_safe_get("dr_lan3_rx");
 	char *wan_tx = nvram_safe_get("dr_wan_tx");
 	char *wan_rx = nvram_safe_get("dr_wan_rx");
 
-	if ((*lan_tx == '0') && (*lan_rx == '0') && (*wan_tx == '0') && (*wan_rx == '0')) {
+//	if ((*lan_tx == '0') && (*lan_rx == '0') && (*wan_tx == '0') && (*wan_rx == '0')) {
+	if ((*lan_tx == '0') && (*lan_rx == '0') && 
+		(*lan1_tx == '0') && (*lan1_rx == '0') && 
+		(*lan2_tx == '0') && (*lan2_rx == '0') && 
+		(*lan3_tx == '0') && (*lan3_rx == '0') && 
+		(*wan_tx == '0') && (*wan_rx == '0')) {
 		return;
 	}
 
@@ -944,10 +955,20 @@ void start_zebra(void)
 	//
 	if ((fp = fopen("/etc/ripd.conf", "w")) != NULL) {
 		char *lan_ifname = nvram_safe_get("lan_ifname");
+		char *lan1_ifname = nvram_safe_get("lan1_ifname");
+		char *lan2_ifname = nvram_safe_get("lan2_ifname");
+		char *lan3_ifname = nvram_safe_get("lan3_ifname");
 		char *wan_ifname = nvram_safe_get("wan_ifname");
 
 		fprintf(fp, "router rip\n");
-		fprintf(fp, "network %s\n", lan_ifname);
+		if(strcmp(lan_ifname,"")!=0)
+			fprintf(fp, "network %s\n", lan_ifname);
+		if(strcmp(lan1_ifname,"")!=0)
+			fprintf(fp, "network %s\n", lan1_ifname);
+		if(strcmp(lan2_ifname,"")!=0)
+			fprintf(fp, "network %s\n", lan2_ifname);
+		if(strcmp(lan3_ifname,"")!=0)
+			fprintf(fp, "network %s\n", lan3_ifname);
 		fprintf(fp, "network %s\n", wan_ifname);
 		fprintf(fp, "redistribute connected\n");
 		//fprintf(fp, "redistribute static\n");
@@ -955,17 +976,47 @@ void start_zebra(void)
 		// 43011: modify by zg 2006.10.18 for cdrouter3.3 item 173(cdrouter_rip_30) bug
 		// fprintf(fp, "redistribute kernel\n"); // 1.11: removed, redistributes indirect -- zzz
 
-		fprintf(fp, "interface %s\n", lan_ifname);
-		if (*lan_tx != '0') fprintf(fp, "ip rip send version %s\n", lan_tx);
-		if (*lan_rx != '0') fprintf(fp, "ip rip receive version %s\n", lan_rx);
-
+		if(strcmp(lan_ifname,"")!=0) {
+			fprintf(fp, "interface %s\n", lan_ifname);
+			if (*lan_tx != '0') fprintf(fp, "ip rip send version %s\n", lan_tx);
+			if (*lan_rx != '0') fprintf(fp, "ip rip receive version %s\n", lan_rx);
+		}
+		if(strcmp(lan1_ifname,"")!=0) {
+			fprintf(fp, "interface %s\n", lan1_ifname);
+			if (*lan1_tx != '0') fprintf(fp, "ip rip send version %s\n", lan1_tx);
+			if (*lan1_rx != '0') fprintf(fp, "ip rip receive version %s\n", lan1_rx);
+		}
+		if(strcmp(lan2_ifname,"")!=0) {
+			fprintf(fp, "interface %s\n", lan2_ifname);
+			if (*lan2_tx != '0') fprintf(fp, "ip rip send version %s\n", lan2_tx);
+			if (*lan2_rx != '0') fprintf(fp, "ip rip receive version %s\n", lan2_rx);
+		}
+		if(strcmp(lan3_ifname,"")!=0) {
+		fprintf(fp, "interface %s\n", lan3_ifname);
+			if (*lan3_tx != '0') fprintf(fp, "ip rip send version %s\n", lan3_tx);
+			if (*lan3_rx != '0') fprintf(fp, "ip rip receive version %s\n", lan3_rx);
+		}
 		fprintf(fp, "interface %s\n", wan_ifname);
 		if (*wan_tx != '0') fprintf(fp, "ip rip send version %s\n", wan_tx);
 		if (*wan_rx != '0') fprintf(fp, "ip rip receive version %s\n", wan_rx);
 
 		fprintf(fp, "router rip\n");
-		if (*lan_tx == '0') fprintf(fp, "distribute-list private out %s\n", lan_ifname);
-		if (*lan_rx == '0') fprintf(fp, "distribute-list private in %s\n", lan_ifname);
+		if(strcmp(lan_ifname,"")!=0) {
+			if (*lan_tx == '0') fprintf(fp, "distribute-list private out %s\n", lan_ifname);
+			if (*lan_rx == '0') fprintf(fp, "distribute-list private in %s\n", lan_ifname);
+		}
+		if(strcmp(lan1_ifname,"")!=0) {
+			if (*lan1_tx == '0') fprintf(fp, "distribute-list private out %s\n", lan1_ifname);
+			if (*lan1_rx == '0') fprintf(fp, "distribute-list private in %s\n", lan1_ifname);
+		}
+		if(strcmp(lan2_ifname,"")!=0) {
+			if (*lan2_tx == '0') fprintf(fp, "distribute-list private out %s\n", lan2_ifname);
+			if (*lan2_rx == '0') fprintf(fp, "distribute-list private in %s\n", lan2_ifname);
+		}
+		if(strcmp(lan3_ifname,"")!=0) {
+			if (*lan3_tx == '0') fprintf(fp, "distribute-list private out %s\n", lan3_ifname);
+			if (*lan3_rx == '0') fprintf(fp, "distribute-list private in %s\n", lan3_ifname);
+		}
 		if (*wan_tx == '0') fprintf(fp, "distribute-list private out %s\n", wan_ifname);
 		if (*wan_rx == '0') fprintf(fp, "distribute-list private in %s\n", wan_ifname);
 		fprintf(fp, "access-list private deny any\n");
