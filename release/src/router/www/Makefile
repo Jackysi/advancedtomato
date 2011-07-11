@@ -193,6 +193,7 @@ ifneq ($(TCONFIG_CMON),y)
 	rm -f $(INSTALLDIR)/www/bwm-clientmon.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/CMON-BEGIN/,/CMON-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/CMON-BEGIN/,/CMON-END/d"
+	sed -i $(INSTALLDIR)/www/status-devices.asp -e "/CMON-BEGIN/,/CMON-END/d"
 endif
 
 
