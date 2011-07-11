@@ -222,7 +222,7 @@ what:
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT
-# NFS BTCLIENT BTGUI TR_EXTRAS SNMP
+# NFS BTCLIENT BTGUI TR_EXTRAS SNMP NO_CMON
 
 define RouterOptions
 	@( \
@@ -348,6 +348,10 @@ define RouterOptions
 	if [ "$(SNMP)" = "y" ]; then \
 		sed -i "/TCONFIG_SNMP/d" $(1); \
 		echo "TCONFIG_SNMP=y" >>$(1); \
+	fi; \
+	if [ "$(NO_CMON)" = "y" ]; then \
+		sed -i "/TCONFIG_CMON/d" $(1); \
+		echo "# TCONFIG_CMON is not set" >>$(1); \
 	fi; \
 	)
 endef

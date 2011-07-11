@@ -188,6 +188,13 @@ ifneq ($(TCONFIG_SNMP),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/SNMP-BEGIN/,/SNMP-END/d"
 endif
 
+# Only include the cmon pages if CMON is compiled in
+ifneq ($(TCONFIG_CMON),y)
+	rm -f $(INSTALLDIR)/www/bwm-clientmon.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/CMON-BEGIN/,/CMON-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/CMON-BEGIN/,/CMON-END/d"
+endif
+
 
 # clean up
 	cd $(INSTALLDIR)/www && \
@@ -213,6 +220,7 @@ endif
 		-e "/NFS-BEGIN/d"	-e "/NFS-END/d" \
 		-e "/NOCAT-BEGIN/d"	-e "/NOCAT_END/d"\
 		-e "/SNMP-BEGIN/d"	-e "/SNMP_END/d"\
+		-e "/CMON-BEGIN/d"	-e "/CMON_END/d"\
 		|| true; \
 	done
 

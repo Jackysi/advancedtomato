@@ -2347,8 +2347,11 @@ function navi()
 			['Last 24 Hours',	'24.asp'],
 			['Daily',			'daily.asp'],
 			['Weekly',			'weekly.asp'],
-			['Monthly',			'monthly.asp'],
-			['Clients Monitor',		'clientmon.asp'] ] ],
+			['Monthly',			'monthly.asp']
+/* CMON-BEGIN */
+			,['Clients Monitor',		'clientmon.asp']
+/* CMON-END */
+			] ],
 		['Tools', 				'tools', 0, [
 			['Ping',			'ping.asp'],
 			['Trace',			'trace.asp'],

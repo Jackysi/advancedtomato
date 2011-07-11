@@ -1018,8 +1018,10 @@ static const nvset_t nvset_list[] = {
 	{ "nfs_exports",		V_LENGTH(0, 4096)		},
 #endif
 
+#ifdef TCONFIG_CMON
 	{ "cmon_enable",		V_01				},
 	{ "cmon_users",			V_LENGTH(0, 4096)		},
+#endif
 
 //NotCatSplash. Victek.
 #ifdef TCONFIG_NOCAT

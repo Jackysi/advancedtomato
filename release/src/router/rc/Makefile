@@ -49,7 +49,9 @@ ifeq ($(TCONFIG_NFS),y)
 OBJS += nfs.o
 endif
 
+ifeq ($(TCONFIG_CMON),y)
 OBJS += cmon.o
+endif
 
 ifeq ($(TCONFIG_SNMP),y)
 OBJS += snmp.o

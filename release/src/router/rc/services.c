@@ -1950,8 +1950,11 @@ TOP:
 		}
 		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) {
-//			start_qos();
+#ifdef TCONFIG_CMON
 			start_cmon();				// cmon start also qos
+#else
+			start_qos();
+#endif
 			if (nvram_match("qos_reset", "1")) f_write_string("/proc/net/clear_marks", "1", 0, 0);
 		}
 		goto CLEAR;
@@ -1963,8 +1966,11 @@ TOP:
 	}
 		stop_firewall(); start_firewall();		// always restarted
 	if (action & A_START) {
-//		new_qoslimit_start();
+#ifdef TCONFIG_CMON
 		start_cmon();					//cmon start also qoslimit
+#else
+		new_qoslimit_start();
+#endif
 	}
 		goto CLEAR;
 	}
@@ -1975,6 +1981,7 @@ TOP:
 		goto CLEAR;
 	}
 
+#ifdef TCONFIG_CMON
 	if (strcmp(service, "cmon") == 0) {
 		if (action & A_STOP) { stop_cmon(); }
 
@@ -1983,6 +1990,7 @@ TOP:
 		if (action & A_START) { start_cmon(); }
 		goto CLEAR;
 	}
+#endif
 
 	if (strcmp(service, "upnp") == 0) {
 		if (action & A_STOP) {

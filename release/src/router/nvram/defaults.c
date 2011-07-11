@@ -700,8 +700,10 @@ const defaults_t defaults[] = {
 	{ "nfs_exports",		""				},
 #endif
 
+#ifdef TCONFIG_CMON
 	{ "cmon_enable",		"0"				},
 	{ "cmon_users",			""				},
+#endif
 
 #ifdef TCONFIG_OPENVPN
 // vpn

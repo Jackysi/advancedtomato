@@ -123,7 +123,9 @@ Copyright (C) 2010 Keith Moyer,<br>
 - NFS utils integration and GUI<br>
 <!-- NFS-END -->
 - Custom log file path<br>
+<!-- CMON-BEGIN -->
 - Clients monitor <br>
+<!-- CMON-END -->
 <!-- LINUX26-BEGIN -->
 - SD-idle tool integration for kernel 2.6<br>
 <!-- LINUX26-END -->

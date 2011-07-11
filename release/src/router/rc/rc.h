@@ -434,8 +434,10 @@ extern void stop_snmp();
 #endif
 
 //cmon.c
+#ifdef TCONFIG_CMON
 extern void stop_cmon();
 extern void start_cmon();
+#endif
 
 // vpn.c
 #ifdef TCONFIG_OPENVPN
