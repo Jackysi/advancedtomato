@@ -324,44 +324,63 @@ void start_wl(void)
 	int unit, subunit;
 	int is_client = 0;
 
-	lan_ifname = nvram_safe_get("lan_ifname");
-	if (strncmp(lan_ifname, "br", 2) == 0) {
-		if ((lan_ifnames = strdup(nvram_safe_get("lan_ifnames"))) != NULL) {
-			p = lan_ifnames;
-			while ((ifname = strsep(&p, " ")) != NULL) {
-				while (*ifname == ' ') ++ifname;
-				if (*ifname == 0) break;
+	char tmp[32];
+	char br;
 
-				unit = -1; subunit = -1;
+	for(br=0 ; br<4 ; br++) {
+		char bridge[2] = "0";
+		if (br!=0)
+			bridge[0]+=br;
+		else
+			strcpy(bridge, "");
 
-				// ignore disabled wl vifs
-				if (strncmp(ifname, "wl", 2) == 0 && strchr(ifname, '.')) {
-					char nv[40];
-					snprintf(nv, sizeof(nv) - 1, "%s_bss_enabled", ifname);
-					if (!nvram_get_int(nv))
+		strcpy(tmp,"lan");
+		strcat(tmp,bridge);
+		strcat(tmp, "_ifname");
+		lan_ifname = nvram_safe_get("tmp");
+//		lan_ifname = nvram_safe_get("lan_ifname");
+		if (strncmp(lan_ifname, "br", 2) == 0) {
+			strcpy(tmp,"lan");
+			strcat(tmp,bridge);
+			strcat(tmp, "_ifnames");
+//			if ((lan_ifnames = strdup(nvram_safe_get("lan_ifnames"))) != NULL) {
+			if ((lan_ifnames = strdup(nvram_safe_get(tmp))) != NULL) {
+				p = lan_ifnames;
+				while ((ifname = strsep(&p, " ")) != NULL) {
+					while (*ifname == ' ') ++ifname;
+					if (*ifname == 0) break;
+
+					unit = -1; subunit = -1;
+
+					// ignore disabled wl vifs
+					if (strncmp(ifname, "wl", 2) == 0 && strchr(ifname, '.')) {
+						char nv[40];
+						snprintf(nv, sizeof(nv) - 1, "%s_bss_enabled", ifname);
+						if (!nvram_get_int(nv))
+							continue;
+						if (get_ifname_unit(ifname, &unit, &subunit) < 0)
+							continue;
+					}
+					// get the instance number of the wl i/f
+					else if (wl_ioctl(ifname, WLC_GET_INSTANCE, &unit, sizeof(unit)))
 						continue;
-					if (get_ifname_unit(ifname, &unit, &subunit) < 0)
-						continue;
+
+					is_client |= wl_client(unit, subunit) && nvram_get_int(wl_nvname("radio", unit, 0));
+
+	#ifdef CONFIG_BCMWL5
+					eval("wlconf", ifname, "start"); /* start wl iface */
+	#endif	// CONFIG_BCMWL5
 				}
-				// get the instance number of the wl i/f
-				else if (wl_ioctl(ifname, WLC_GET_INSTANCE, &unit, sizeof(unit)))
-					continue;
-
-				is_client |= wl_client(unit, subunit) && nvram_get_int(wl_nvname("radio", unit, 0));
-
-#ifdef CONFIG_BCMWL5
-				eval("wlconf", ifname, "start"); /* start wl iface */
-#endif	// CONFIG_BCMWL5
+				free(lan_ifnames);
 			}
-			free(lan_ifnames);
 		}
+	#ifdef CONFIG_BCMWL5
+		else if (strcmp(lan_ifname, "")) {
+			/* specific non-bridged lan iface */
+			eval("wlconf", lan_ifname, "start");
+		}
+	#endif	// CONFIG_BCMWL5
 	}
-#ifdef CONFIG_BCMWL5
-	else if (strcmp(lan_ifname, "")) {
-		/* specific non-bridged lan iface */
-		eval("wlconf", lan_ifname, "start");
-	}
-#endif	// CONFIG_BCMWL5
 
 	killall("wldist", SIGTERM);
 	eval("wldist");
