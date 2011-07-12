@@ -85,6 +85,7 @@ void start_dnsmasq()
 	int dhcp_lease;
 	int do_dhcpd;
 	int do_dns;
+	int do_dhcpd_hosts;
 
 	TRACE_PT("begin\n");
 
@@ -153,6 +154,7 @@ void start_dnsmasq()
 	}
 
 	// dhcp
+	do_dhcpd_hosts=0;
 	char tmp[32];
 	char tmp2[32];
 	char tmp3[32];
@@ -170,6 +172,7 @@ void start_dnsmasq()
 		do_dhcpd = nvram_match(tmp, "dhcp");
 //		do_dhcpd = nvram_match("lan_proto", "dhcp");
 		if (do_dhcpd) {
+			do_dhcpd_hosts++;
 			strcpy(tmp,"lan");
 			strcat(tmp,bridge);
 			strcat(tmp, "_ipaddr");
@@ -354,10 +357,7 @@ void start_dnsmasq()
 			fprintf(hf, "%s %s\n", ip, name);
 		}
 
-		if ((do_dhcpd) && (*mac != 0) && (strcmp(mac, "00:00:00:00:00:00") != 0)) {
-			if (df)
-				fprintf(df, "%s,%s,%s\n", mac, ip, sdhcp_lease);
-			else
+		if ((do_dhcpd_hosts > 0) && (*mac != 0) && (strcmp(mac, "00:00:00:00:00:00") != 0)) {
 				fprintf(f, "dhcp-host=%s,%s,%s\n", mac, ip, sdhcp_lease);
 		}
 	}
