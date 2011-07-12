@@ -2298,13 +2298,14 @@ function navi()
 			['Static DHCP',		'static.asp'],
 			['Wireless Filter',	'wfilter.asp'] ] ],
 		['Advanced', 			'advanced', 0, [
-			['Conntrack / Netfilter',	'ctnf.asp'],
-			['DHCP / DNS',		'dhcpdns.asp'],
+			['Conntrack/Netfilter',	'ctnf.asp'],
+			['DHCP/DNS',		'dhcpdns.asp'],
 			['Firewall',		'firewall.asp'],
 			['MAC Address',		'mac.asp'],
 			['Miscellaneous',	'misc.asp'],
 			['Routing',			'routing.asp'],
 			['VLAN',			'vlan.asp'],
+			['LAN Access',			'access.asp'],
 			['Wireless',		'wireless.asp'] ] ],
 		['Port Forwarding', 	'forward', 0, [
 			['Basic',			'basic.asp'],
@@ -2313,7 +2314,7 @@ function navi()
 /* IPV6-END */
 			['DMZ',				'dmz.asp'],
 			['Triggered',		'triggered.asp'],
-			['UPnP / NAT-PMP',	'upnp.asp'] ] ],
+			['UPnP/NAT-PMP',	'upnp.asp'] ] ],
 		['QoS',					'qos', 0, [
 			['Basic Settings',	'settings.asp'],
 			['Classification',	'classify.asp'],
@@ -2354,7 +2355,7 @@ REMOVE-END */
 		['Administration',		'admin', 0, [
 			['Admin Access',	'access.asp'],
 			['Bandwidth Monitoring','bwm.asp'],
-			['Buttons / LED',	'buttons.asp'],
+			['Buttons/LED',	'buttons.asp'],
 /* CIFS-BEGIN */
 			['CIFS Client',		'cifs.asp'],
 /* CIFS-END */
