@@ -1690,7 +1690,7 @@ snmp/stamp-h1:
 	--with-mib-modules=mibII,host,mibII/ip,mibII/tcp,mibII/udp,mibII/icmp,mibII/var_route,mibII/kernel_linux,qos,ucd_snmp \
 	--with-out-mib-modules=snmpv3mibs,agent_mips,agentx,notification,utilities,target --disable-ipv6 --with-defaults \
 	--without-efence --without-rsaref --without-kmem-usage --without-rpm --without-dmalloc
-	touch sd-idle/stamp-h1
+	touch snmp/stamp-h1
 
 snmp: snmp/stamp-h1
 	@$(SEP)
