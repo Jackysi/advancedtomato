@@ -1,7 +1,7 @@
 #
 # Device and Configuration Reference (UTF-8 encoding used)
 #
-# Last modified: 2011-06-19
+# Last modified: 2011-07-14
 #
 # Collection of configurations for usb_modeswitch, a mode switching
 # tool for controlling flip flop (multiple mode) USB devices
@@ -2494,5 +2494,96 @@ TargetClass=0xff
 MobileActionMode=1
 
 NoDriverLoading=1
+
+
+########################################################
+# Vodafone/Huawei K3770
+#
+# Contributor: Alex Chiang
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x14d1
+
+TargetVendor=  0x12d1
+TargetProduct= 0x14c9
+
+MessageContent="55534243123456780000000000000011062000000100000000000000000000"
+
+
+########################################################
+# Vodafone/Huawei K3771
+#
+# Contributor: Ben Knight
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x14c4
+
+TargetVendor=  0x12d1
+TargetProduct= 0x14ca
+
+MessageContent="55534243123456780000000000000011062000000100000000000000000000"
+
+
+########################################################
+# Option iCon 461
+#
+# Contributor: Samit Basu
+
+DefaultVendor=  0x0af0
+DefaultProduct= 0x7a05
+
+TargetClass=    0xff
+
+MessageContent="55534243123456780000000000000601000000000000000000000000000000"
+
+########################################################
+# ZTE AX226 WiMax
+#
+# may be supported by the Beceem driver
+
+DefaultVendor= 0x19d2
+DefaultProduct=0xbccd
+
+TargetVendor=  0x19d2
+TargetProduct= 0x0172
+
+MessageContent="555342431234567824000000800006bc626563240000000000000000000000"
+
+NoDriverLoading=1
+
+
+########################################################
+# Huawei EC156
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x1505
+
+TargetVendor=  0x12d1
+TargetProduct= 0x140b
+
+MessageContent="55534243123456780000000000000011062000000100000000000000000000"
+
+
+########################################################
+# Longcheer SU9800
+
+DefaultVendor= 0x1c9e
+DefaultProduct=0x9800
+
+TargetClass=0xff
+
+MessageContent="55534243123456788000000080000606f50402527000000000000000000000"
+
+########################################### 
+# SpeedUp SU-8000U
+
+DefaultVendor= 0x2020
+DefaultProduct=0xf00e
+
+TargetVendor=  0x2020
+TargetProduct= 0x1005
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
 
 #######################################################

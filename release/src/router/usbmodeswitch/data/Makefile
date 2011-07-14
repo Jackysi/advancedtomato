@@ -1,5 +1,5 @@
 PROG        = usb-modeswitch-data
-VERS        = 20110619
+VERS        = 20110714
 RM          = /bin/rm -f
 PREFIX      = $(DESTDIR)/usr
 ETCDIR      = $(DESTDIR)/etc
@@ -28,7 +28,6 @@ db-install-packed:
 	cd ./usb_modeswitch.d; tar -czf ../configPack.tar.gz *
 	install --mode=644 -t $(PREFIX)/share/usb_modeswitch ./configPack.tar.gz
 	rm -f ./configPack.tar.gz
-
 
 rules-reload:
 	if [ -f $(ETCDIR)/issue ]; then \

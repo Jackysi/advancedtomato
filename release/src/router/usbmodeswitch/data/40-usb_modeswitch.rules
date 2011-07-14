@@ -1,19 +1,19 @@
-# Part of usb-modeswitch-data, version 20110619
+# Part of usb-modeswitch-data, version 20110714
 #
 # This file is intended for USB_ModeSwitch version >= 1.1.2
 # but will not break anything if used with versions >= 1.0.3
 #
 ACTION!="add", GOTO="modeswitch_rules_end"
 
-# This adds a symlink "gsmmodem[n]" to ttyUSB ports with interrupt transfer;
-# will work only with wrapper from 1.1.4 and above (otherwise ignored,
-# non-fatal)
+# This adds a symlink "gsmmodem[n]" to the lowest ttyUSB port with interrupt
+# transfer; checked against a list of known modems, or else no action
 KERNEL=="ttyUSB*", ATTRS{bNumConfigurations}=="*", PROGRAM="usb_modeswitch --symlink-name %p %s{idVendor} %s{idProduct} %E{PRODUCT}", SYMLINK="%c"
 
 SUBSYSTEM!="usb", GOTO="modeswitch_rules_end"
 
 # This adds the device ID to the "option" driver after a warm boot
-# in cases when the device is yet unknown to the driver
+# in cases when the device is yet unknown to the driver; checked
+# against a list of known modems, or else no action
 ATTR{bInterfaceClass}=="ff", ATTR{bInterfaceNumber}=="00", ATTRS{bNumConfigurations}=="*", RUN+="usb_modeswitch --driver-bind %p %s{idVendor} %s{idProduct} %E{PRODUCT}"
 
 # Most known install partitions are on interface 0, one on 5, one on 9
@@ -61,7 +61,7 @@ ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 # AVM Fritz!Wlan USB Stick N
 ATTRS{idVendor}=="057c", ATTRS{idProduct}=="84ff", RUN+="usb_modeswitch '%b/%k'"
 
-# Quirky Option devices, Prolink P2000 CDMA, Samsung SGH-Z810, Older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165, Option GlobeTrotter GX0201
+# Prolink P2000 CDMA, Samsung SGH-Z810, older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165
 ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # HSDPA USB modem from dealextreme 
@@ -174,6 +174,9 @@ ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7801", RUN+="usb_modeswitch '%b/%k'"
 
 # Option HSO device
 ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7901", RUN+="usb_modeswitch '%b/%k'"
+
+# Option iCon 461
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7a05", RUN+="usb_modeswitch '%b/%k'"
 
 # Option HSO device
 ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="8200", RUN+="usb_modeswitch '%b/%k'"
@@ -340,8 +343,17 @@ ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14b5", RUN+="usb_modeswitch '%b/%k'"
 # Vodafone (Huawei) K4605
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14c1", RUN+="usb_modeswitch '%b/%k'"
 
+# Vodafone/Huawei K3771
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14c4", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone/Huawei K3770
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14d1", RUN+="usb_modeswitch '%b/%k'"
+
 # T-Mobile NL (Huawei E352)
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14fe", RUN+="usb_modeswitch '%b/%k'"
+
+# Huawei EC156
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1505", RUN+="usb_modeswitch '%b/%k'"
 
 # Huawei K3765
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1520", RUN+="usb_modeswitch '%b/%k'"
@@ -391,7 +403,7 @@ ATTRS{idVendor}=="148f", ATTRS{idProduct}=="2578", RUN+="usb_modeswitch '%b/%k'"
 # C-motech CHU-628S
 ATTRS{idVendor}=="16d8", ATTRS{idProduct}=="6281", RUN+="usb_modeswitch '%b/%k'"
 
-# C-motech D-50 (aka "CDU-680"), C-motech D-50 (aka "CDU-680")
+# C-motech D-50 (aka "CDU-680")
 ATTRS{idVendor}=="16d8", ATTRS{idProduct}=="6803", RUN+="usb_modeswitch '%b/%k'"
 
 # C-motech CHU-629S
@@ -466,6 +478,9 @@ ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1224", RUN+="usb_modeswitch '%b/%k'"
 # ZTE devices
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="2000", RUN+="usb_modeswitch '%b/%k'"
 
+# ZTE AX226 WiMax
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="bccd", RUN+="usb_modeswitch '%b/%k'"
+
 # ZTE "ffe" devices 1 (e.g. Cricket A605)
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="ffe6", RUN+="usb_modeswitch '%b/%k'"
 
@@ -495,6 +510,9 @@ ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="6061", RUN+="usb_modeswitch '%b/%k'"
 
 # MyWave SW006 Sport Phone/Modem Combination
 ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="9200", RUN+="usb_modeswitch '%b/%k'"
+
+# Longcheer SU9800
+ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="9800", RUN+="usb_modeswitch '%b/%k'"
 
 # BSNL Capitel
 ATTRS{idVendor}=="1c9e", ATTRS{idProduct}=="9e00", RUN+="usb_modeswitch '%b/%k'"
@@ -531,6 +549,9 @@ ATTRS{idVendor}=="1fac", ATTRS{idProduct}=="0130", RUN+="usb_modeswitch '%b/%k'"
 
 # Haier CE 100 
 ATTRS{idVendor}=="201e", ATTRS{idProduct}=="2009", RUN+="usb_modeswitch '%b/%k'"
+
+# SpeedUp SU-8000U
+ATTRS{idVendor}=="2020", ATTRS{idProduct}=="f00e", RUN+="usb_modeswitch '%b/%k'"
 
 # Linktop LW272/LW273 (BSNL Teracom)
 ATTRS{idVendor}=="230d", ATTRS{idProduct}=="0001", RUN+="usb_modeswitch '%b/%k'"
