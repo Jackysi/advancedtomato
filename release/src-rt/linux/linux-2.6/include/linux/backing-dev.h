@@ -210,7 +210,6 @@ static inline int bdi_rw_congested(struct backing_dev_info *bdi)
 void clear_bdi_congested(struct backing_dev_info *bdi, int rw);
 void set_bdi_congested(struct backing_dev_info *bdi, int rw);
 long congestion_wait(int rw, long timeout);
-void congestion_end(int rw);
 
 
 static inline bool bdi_cap_writeback_dirty(struct backing_dev_info *bdi)
