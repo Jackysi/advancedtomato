@@ -12,8 +12,8 @@
 #include <getopt.h>
 #include <ctype.h>
 #include <unistd.h>
-#include <netinet/ether.h>
 #include "../include/ebtables_u.h"
+#include <netinet/ether.h>
 #include "../include/ethernetdb.h"
 #include <linux/if_ether.h>
 #include <linux/netfilter_bridge/ebt_among.h>
@@ -202,11 +202,13 @@ static struct ebt_mac_wormhash *create_wormhash(const char *arg)
 			if (read_until(&pc, ":", token, 2) < 0
 			    || token[0] == 0) {
 				ebt_print_error("MAC parse error: %.20s", anchor);
+				free(workcopy);
 				return NULL;
 			}
 			mac[i] = strtol(token, &endptr, 16);
 			if (*endptr) {
 				ebt_print_error("MAC parse error: %.20s", anchor);
+				free(workcopy);
 				return NULL;
 			}
 			pc++;
@@ -365,7 +367,7 @@ static int parse(int c, char **argv, int argc,
 		       ebt_mac_wormhash_size(wh));
 		h->match_size = EBT_ALIGN(new_size);
 		info = (struct ebt_among_info *) h->data;
-		if (c == AMONG_DST) {
+		if (c == AMONG_DST || c == AMONG_DST_F) {
 			info->wh_dst_ofs = old_size;
 		} else {
 			info->wh_src_ofs = old_size;
