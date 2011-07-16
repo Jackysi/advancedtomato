@@ -13,7 +13,7 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] Status: Overview</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
@@ -213,28 +213,64 @@ createFieldTable('', [
 <div class='section-title'>LAN</div>
 <div class='section'>
 <script type='text/javascript'>
-if (nvram.lan_proto == 'dhcp') {
-	if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
-		var x = nvram.lan_ipaddr.split('.').splice(0, 3).join('.') + '.';
-		nvram.dhcpd_startip = x + nvram.dhcp_start;
-		nvram.dhcpd_endip = x + ((nvram.dhcp_start * 1) + (nvram.dhcp_num * 1) - 1);
+
+function h_countbitsfromleft(num) {
+	if (num == 255 ){
+		return(8);
 	}
-	s = '<a href="status-devices.asp">' + nvram.dhcpd_startip + ' - ' + nvram.dhcpd_endip + '</a>';
+	var i = 0;
+	var bitpat=0xff00; 
+	while (i < 8){
+		if (num == (bitpat & 0xff)){
+			return(i);
+		}
+		bitpat=bitpat >> 1;
+		i++;
+	}
+	return(Number.NaN);
 }
-else {
-	s = 'Disabled';
+
+function numberOfBitsOnNetMask(netmask) {
+	var total = 0;
+	var t = netmask.split('.');
+	for (var i = 0; i<= 3 ; i++) {
+		total += h_countbitsfromleft(t[i]);
+	}
+	return total;
 }
+
+var s='';
+var t='';
+MAX_BRIDGE_ID=3;
+for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
+	var j = (i == 0) ? '' : i.toString();
+	if (nvram['lan' + j + '_ifname'].length > 0) {
+		if (nvram['lan' + j + '_proto'] == 'dhcp') {
+			if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
+				var x = nvram['lan' + j + '_ipaddr'].split('.').splice(0, 3).join('.') + '.';
+				nvram['dhcpd' + j + '_startip'] = x + nvram['dhcp' + j + '_start'];
+				nvram['dhcpd' + j + '_endip'] = x + ((nvram['dhcp' + j + '_start'] * 1) + (nvram['dhcp' + j + '_num'] * 1) - 1);
+			}
+			s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? ', ' : '';
+			s += '<a href="status-devices.asp">' + nvram['dhcpd' + j + '_startip'] + ' - ' + nvram['dhcpd' + j + '_endip'] + '</a> on LAN' + j + ' (br' + i + ')';
+		} else {
+			s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? ', ' : '';
+			s += 'Disabled on LAN' + j + ' (br' + i + ')';
+		}
+		t += ((t.length>0)&&(t.charAt(t.length-1) != ' ')) ? ', ' : '';
+		t += nvram['lan' + j + '_ipaddr'] + '/' + numberOfBitsOnNetMask(nvram['lan' + j + '_netmask']) + ' on LAN' + j + ' (br' + i + ')';
+	}
+}
+
 createFieldTable('', [
 	{ title: 'Router MAC Address', text: nvram.et0macaddr },
-	{ title: 'Router IP Address', text: nvram.lan_ipaddr },
-	{ title: 'Subnet Mask', text: nvram.lan_netmask },
+	{ title: 'Router IP Addresses', text: t },
 	{ title: 'Gateway', text: nvram.lan_gateway, ignore: nvram.wan_proto != 'disabled' },
 	{ title: 'DNS', rid: 'dns', text: stats.dns, ignore: nvram.wan_proto != 'disabled' },
 	{ title: 'DHCP', text: s }
 ]);
 </script>
 </div>
-
 
 <script type='text/javascript'>
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
