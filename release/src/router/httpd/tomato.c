@@ -828,7 +828,11 @@ static const nvset_t nvset_list[] = {
 	{ "upnp_max_port_int",		V_PORT				},
 	{ "upnp_min_port_ext",		V_PORT				},
 	{ "upnp_max_port_ext",		V_PORT				},
-
+	{ "upnp_lan",			V_01				},
+	{ "upnp_lan1",			V_01				},
+	{ "upnp_lan2",			V_01				},
+	{ "upnp_lan3",			V_01				},
+	
 // forward-basic
 	{ "portforward",		V_LENGTH(0, 4096)	},
 

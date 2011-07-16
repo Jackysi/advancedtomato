@@ -803,6 +803,7 @@ void start_upnp(void)
 
 				char tmp[32];
 				char tmp2[32];
+				char tmp3[32];
 				char br;
 
 				for(br=0 ; br<4 ; br++) {
@@ -818,15 +819,17 @@ void start_upnp(void)
 					strcpy(tmp2,"lan");
 					strcat(tmp2,bridge);
 					strcat(tmp2, "_netmask");
+					strcpy(tmp3,"upnp_lan");
+					strcat(tmp3,bridge);
 
 					char *lanip = nvram_safe_get(tmp);
 					char *lanmask = nvram_safe_get(tmp2);
+					char *lanlisten = nvram_safe_get(tmp3);
 
-					if(strcmp(lanip,"")!=0) {
+					if((strcmp(lanlisten,"1")==0) && (strcmp(lanip,"")!=0) && (strcmp(lanip,"0.0.0.0")!=0)) {
 						fprintf(f,
 							"listening_ip=%s/%s\n",
 							lanip, lanmask);
-
 						int ports[4];
 						if ((ports[0] = nvram_get_int("upnp_min_port_int")) > 0 &&
 							(ports[1] = nvram_get_int("upnp_max_port_int")) > 0 &&
