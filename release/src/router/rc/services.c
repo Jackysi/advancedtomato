@@ -264,16 +264,16 @@ void start_dnsmasq()
 				if ((*p) && (strcmp(p, "0.0.0.0") != 0)) nv = p;
 			}
 
-			n = nvram_get_int("dhcpd_lmax");
+//			n = nvram_get_int("dhcpd_lmax");
 			fprintf(f,
-				"dhcp-option=3,%s\n"	// gateway
-				"dhcp-lease-max=%d\n",
-				nv,
-				(n > 0) ? n : 255);
+				"dhcp-option=3,%s\n",	// gateway
+//				"dhcp-lease-max=%d\n",
+				nv);
+//				(n > 0) ? n : 255);
 
-			if (nvram_get_int("dhcpd_auth") >= 0) {
-				fprintf(f, "dhcp-authoritative\n");
-			}
+//			if (nvram_get_int("dhcpd_auth") >= 0) {
+//				fprintf(f, "dhcp-authoritative\n");
+//			}
 
 			if (((nv = nvram_get("wan_wins")) != NULL) && (*nv) && (strcmp(nv, "0.0.0.0") != 0)) {
 				fprintf(f, "dhcp-option=44,%s\n", nv);
@@ -357,6 +357,14 @@ void start_dnsmasq()
 	}
 
 	if (hf) fclose(hf);
+
+	n = nvram_get_int("dhcpd_lmax");
+	fprintf(f,
+		"dhcp-lease-max=%d\n",
+		(n > 0) ? n : 255);
+	if (nvram_get_int("dhcpd_auth") >= 0) {
+		fprintf(f, "dhcp-authoritative\n");
+	}
 
 	//
 
