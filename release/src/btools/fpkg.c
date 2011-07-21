@@ -19,6 +19,7 @@
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,12 +31,11 @@
 #include <sys/stat.h>
 #include <arpa/inet.h>
 
-
 #define ROUNDUP(n, a)	((n + (a - 1)) & ~(a - 1))
 
 #define TRX_MAGIC		0x30524448
 #define TRX_MAX_OFFSET		4
-#define TRX_MAX_LEN		((8 * 1024 * 1024) - ((256 + 128) * 1024))		// 8MB - (256K cfe + 128K cfg)
+#define TRX_MAX_LEN		((32 * 1024 * 1024) - ((256 + 128) * 1024))		// 32MB - (256K cfe + 128K cfg)
 
 typedef struct {
 	uint32_t magic;
@@ -147,6 +147,7 @@ void help(void)
 		"   0x20091006 F7D4302 (Play)\n"
 		"   0x00017116 F5D8235 v3\n"
 		"   0x12345678 QA (QA firmware)\n"
+		" Asus:           -r <id>,<v1>,<v2>,<v3>,<v4>,<output file>\n"
 		"\n"
 	);
 	exit(1);
@@ -364,6 +365,78 @@ void create_moto(const char *fname, const char *signature)
 	fclose(f);
 }
 
+#define MAX_STRING 12
+#define MAX_VER 4	
+
+typedef struct {
+	uint8_t major;
+	uint8_t minor;
+} version_t;
+
+typedef struct {
+	version_t kernel;
+	version_t fs;
+	char 	  productid[MAX_STRING];
+	version_t hw[MAX_VER*2];
+	char	  pad[32];
+} TAIL;
+
+/* usage:
+ * -r <productid>,<version>,<output file>
+ *
+ */
+int create_asus(const char *optarg)
+{
+	FILE *f;
+	char value[320];
+	char *next, *pid, *ver, *fname, *p;
+	TAIL asus_tail;
+	uint32_t len;
+	uint32_t v1, v2, v3, v4;
+
+	memset(&asus_tail, 0, sizeof(TAIL));
+
+	strncpy(value, optarg, sizeof(value));
+	next = value;
+	pid = strsep(&next, ",");
+	if(!pid) return 0;
+	
+	strncpy(&asus_tail.productid[0], pid, MAX_STRING);
+
+	ver = strsep(&next, ",");
+	if(!ver) return 0;	
+	
+	sscanf(ver, "%d.%d.%d.%d", &v1, &v2, &v3, &v4);
+	asus_tail.kernel.major = (uint8_t)v1;
+	asus_tail.kernel.minor = (uint8_t)v2;
+	asus_tail.fs.major = (uint8_t)v3;
+	asus_tail.fs.minor = (uint8_t)v4;
+
+	fname = strsep(&next, ",");
+	if(!fname) return 0;
+
+	// append version information into the latest offset
+	trx->length += sizeof(TAIL);
+	len = trx->length;
+	trx->length = ROUNDUP(len, 4096);
+
+	p = (char *)trx+trx->length-sizeof(TAIL);
+	memcpy(p, &asus_tail, sizeof(TAIL));
+
+	finalize_trx();
+
+	printf("Creating Asus %s firmware to %s\n", asus_tail.productid, fname);
+
+	if (((f = fopen(fname, "w")) == NULL) ||
+		(fwrite(trx, trx->length, 1, f) != 1)) {
+		perror(fname);
+		exit(1);
+	}
+	fclose(f);
+
+	return 1;
+}
+
 int main(int argc, char **argv)
 {
 	char s[256];
@@ -380,7 +453,7 @@ int main(int argc, char **argv)
 	trx->length = trx_header_size();
 	trx_magic = TRX_MAGIC;
 
-	while ((o = getopt(argc, argv, "v:i:a:t:l:m:b:")) != -1) {
+	while ((o = getopt(argc, argv, "v:i:a:t:l:m:b:r:")) != -1) {
 		switch (o) {
 		case 'v':
 			set_trx_version(optarg);
@@ -414,6 +487,9 @@ int main(int argc, char **argv)
 			++p;
 			if (o == 'l') create_cytan(p, s);
 				else create_moto(p, s);
+			break;
+		case 'r':	
+			create_asus(optarg);
 			break;
 		default:
 			help();
