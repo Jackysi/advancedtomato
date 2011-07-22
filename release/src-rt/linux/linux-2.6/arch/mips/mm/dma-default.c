@@ -19,6 +19,10 @@
 
 #include <dma-coherence.h>
 
+#ifdef CONFIG_HIGHMEM
+#include <linux/highmem.h>
+#endif
+
 static inline unsigned long dma_addr_to_virt(dma_addr_t dma_addr)
 {
 	unsigned long addr = plat_dma_addr_to_phys(dma_addr);
@@ -158,6 +162,34 @@ void dma_unmap_single(struct device *dev, dma_addr_t dma_addr, size_t size,
 
 EXPORT_SYMBOL(dma_unmap_single);
 
+#ifdef CONFIG_HIGHMEM
+static inline void
+dma_sync_high(struct scatterlist *sg, enum dma_data_direction direction)
+{
+	int i;
+	unsigned int nr_pages;
+	struct page * tmp_page;
+	unsigned int offset;
+	unsigned int length, length_remain;
+	unsigned long addr;
+
+	nr_pages = (sg->length + sg->offset + PAGE_SIZE - 1) >> PAGE_SHIFT;
+	length_remain = sg->length;
+
+	for (i = 0, offset = sg->offset; i < nr_pages; i++, offset = 0) {
+		tmp_page = nth_page(sg->page, i);
+
+		length = (length_remain > (PAGE_SIZE - offset))?
+			(PAGE_SIZE - offset): length_remain;
+
+		addr = (unsigned long)kmap(tmp_page);
+		__dma_sync(addr + offset, length, direction);
+		kunmap(tmp_page);
+		length_remain -= length;
+	}
+}
+#endif /* CONFIG_HIGHMEM */
+
 int dma_map_sg(struct device *dev, struct scatterlist *sg, int nents,
 	enum dma_data_direction direction)
 {
@@ -168,12 +200,21 @@ int dma_map_sg(struct device *dev, struct scatterlist *sg, int nents,
 	for (i = 0; i < nents; i++, sg++) {
 		unsigned long addr;
 
-		addr = (unsigned long) page_address(sg->page);
-		if (!plat_device_is_coherent(dev) && addr)
-			__dma_sync(addr + sg->offset, sg->length, direction);
-		sg->dma_address = plat_map_dma_mem(dev,
-				                   (void *)(addr + sg->offset),
-						   sg->length);
+#ifdef CONFIG_HIGHMEM
+		if (PageHighMem(sg->page)) {
+			dma_sync_high(sg, direction);
+			sg->dma_address = (page_to_pfn(sg->page) << PAGE_SHIFT) + sg->offset;
+		}
+		else
+#endif
+		{
+			addr = (unsigned long) page_address(sg->page);
+			if (!plat_device_is_coherent(dev) && addr)
+				__dma_sync(addr + sg->offset, sg->length, direction);
+			sg->dma_address = plat_map_dma_mem(dev,
+					                   (void *)(addr + sg->offset),
+							   sg->length);
+		}
 	}
 
 	return nents;
@@ -226,10 +267,19 @@ void dma_unmap_sg(struct device *dev, struct scatterlist *sg, int nhwentries,
 	for (i = 0; i < nhwentries; i++, sg++) {
 		if (!plat_device_is_coherent(dev) &&
 		    direction != DMA_TO_DEVICE) {
-			addr = (unsigned long) page_address(sg->page);
-			if (addr)
-				__dma_sync(addr + sg->offset, sg->length,
-				           direction);
+		    	
+#ifdef CONFIG_HIGHMEM
+			if (PageHighMem(sg->page)) {
+				dma_sync_high(sg, direction);
+			}
+			else
+#endif
+			{
+				addr = (unsigned long) page_address(sg->page);
+				if (addr)
+					__dma_sync(addr + sg->offset, sg->length,
+				        	   direction);
+			}
 		}
 		plat_unmap_dma_mem(sg->dma_address);
 	}

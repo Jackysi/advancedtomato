@@ -41,7 +41,6 @@
 #include <ctf/hndctf.h>
 
 #define NFC_CTF_ENABLED	(1 << 31)
-extern ctf_t *kcih;
 #endif /* HNDCTF */
 
 #if 0
@@ -114,7 +113,7 @@ ip_conntrack_is_ipc_allowed(struct sk_buff *skb, u_int32_t hooknum)
 	if (!ipv4_conntrack_fastnat || !CTF_ENAB(kcih))
 		return FALSE;
 
-	if (hooknum == NF_IP_PRE_ROUTING) {
+	if (hooknum == NF_IP_PRE_ROUTING || hooknum == NF_IP_POST_ROUTING) {
 		dev = skb->dev;
 		if (dev->priv_flags & IFF_802_1Q_VLAN)
 			dev = VLAN_DEV_INFO(dev)->real_dev;
@@ -151,8 +150,13 @@ ip_conntrack_ipct_add(struct sk_buff *skb, u_int32_t hooknum,
 	u_int32_t daddr;
 	struct rtable *rt;
 	struct nf_conn_help *help;
+	enum ip_conntrack_dir dir;
 
 	if ((skb == NULL) || (ct == NULL))
+		return;
+
+	/* Check CTF enabled */
+	if (!ip_conntrack_is_ipc_allowed(skb, hooknum))
 		return;
 
 	/* We only add cache entires for non-helper connections and at
@@ -168,10 +172,17 @@ ip_conntrack_ipct_add(struct sk_buff *skb, u_int32_t hooknum,
 		return;
 
 	iph = ip_hdr(skb);
-	if (((iph->protocol != IPPROTO_TCP) ||
-	    ((ct->proto.tcp.state >= TCP_CONNTRACK_FIN_WAIT) &&
-	    (ct->proto.tcp.state <= TCP_CONNTRACK_LAST_ACK))) &&
-	    (iph->protocol != IPPROTO_UDP))
+	if (iph->version != 4 ||
+	    (iph->protocol != IPPROTO_TCP && iph->protocol != IPPROTO_UDP))
+		return;
+	
+	if (iph->protocol == IPPROTO_TCP &&
+	    ct->proto.tcp.state >= TCP_CONNTRACK_FIN_WAIT &&
+	    ct->proto.tcp.state <= TCP_CONNTRACK_TIME_WAIT)
+		return;
+
+	dir = CTINFO2DIR(ci);
+	if (ct->ctf_flags & (1 << dir))
 		return;
 
 	/* Do route lookup for alias address if we are doing DNAT in this
@@ -195,9 +206,19 @@ ip_conntrack_ipct_add(struct sk_buff *skb, u_int32_t hooknum,
 	     (NUD_PERMANENT|NUD_REACHABLE|NUD_STALE|NUD_DELAY|NUD_PROBE)) == 0))
 		return;
 	
-	skb->dev = skb->dst->dev;
-
 	memset(&ipc_entry, 0, sizeof(ipc_entry));
+
+	/* Init the neighboring sender address */
+	memcpy(ipc_entry.sa.octet, eth_hdr(skb)->h_source, ETH_ALEN);
+
+	/* If the packet is received on a bridge device then save
+	 * the bridge cache entry pointer in the ip cache entry.
+	 * This will be referenced in the data path to update the
+	 * live counter of brc entry whenever a received packet
+	 * matches corresponding ipc entry matches.
+	 */
+	if ((skb->dev != NULL) && ctf_isbridge(kcih, skb->dev))
+		ipc_entry.brcp = ctf_brc_lkup(kcih, eth_hdr(skb)->h_source);
 
 	hh = skb->dst->hh;
 	if (hh != NULL) {
@@ -218,8 +239,6 @@ ip_conntrack_ipct_add(struct sk_buff *skb, u_int32_t hooknum,
 	ipc_entry.tuple.sp = tcph->source;
 	ipc_entry.tuple.dp = tcph->dest;
 
-	ipc_entry.live = 0;
-	ipc_entry.hits = 0;
 	ipc_entry.next = NULL;
 
 	/* For vlan interfaces fill the vlan id and the tag/untag actions */
@@ -236,21 +255,38 @@ ip_conntrack_ipct_add(struct sk_buff *skb, u_int32_t hooknum,
 	/* Update the manip ip and port */
 	if (manip != NULL) {
 		if (HOOK2MANIP(hooknum) == IP_NAT_MANIP_SRC) {
-			ipc_entry.nat[0].ip = manip->src.u3.ip;
-			ipc_entry.nat[0].port = manip->src.u.tcp.port;
+			ipc_entry.nat.ip = manip->src.u3.ip;
+			ipc_entry.nat.port = manip->src.u.tcp.port;
 			ipc_entry.action |= CTF_ACTION_SNAT;
 		} else {
-			ipc_entry.nat[1].ip = manip->dst.u3.ip;
-			ipc_entry.nat[1].port = manip->dst.u.tcp.port;
+			ipc_entry.nat.ip = manip->dst.u3.ip;
+			ipc_entry.nat.port = manip->dst.u.tcp.port;
 			ipc_entry.action |= CTF_ACTION_DNAT;
 		}
 	}
 
+	/* Do bridge cache lookup to determine outgoing interface
+	 * and any vlan tagging actions if needed.
+	 */
+	if (ctf_isbridge(kcih, ipc_entry.txif)) {
+		ctf_brc_t *brcp;
+
+		brcp = ctf_brc_lkup(kcih, ipc_entry.dhost.octet);
+
+		if (brcp == NULL)
+			return;
+		else {
+			ipc_entry.action |= brcp->action;
+			ipc_entry.txif = brcp->txifp;
+			ipc_entry.vid = brcp->vid;
+		}
+	}
+
 #ifdef DEBUG
-	printk("%s: Adding ipc entry for %x %x %d %d %d\n", __FUNCTION__,
-			ipc_entry.tuple.sip, ipc_entry.tuple.dip, 
-			ipc_entry.tuple.proto, ipc_entry.tuple.sp, 
-			ipc_entry.tuple.dp); 
+	printk("%s: Adding ipc entry for [%d]%u.%u.%u.%u:%u - %u.%u.%u.%u:%u\n", __FUNCTION__,
+			ipc_entry.tuple.proto, 
+			NIPQUAD(ipc_entry.tuple.sip), ntohs(ipc_entry.tuple.sp), 
+			NIPQUAD(ipc_entry.tuple.dip), ntohs(ipc_entry.tuple.dp)); 
 	printk("sa %02x:%02x:%02x:%02x:%02x:%02x\n",
 			ipc_entry.shost.octet[0], ipc_entry.shost.octet[1],
 			ipc_entry.shost.octet[2], ipc_entry.shost.octet[3],
@@ -259,18 +295,18 @@ ip_conntrack_ipct_add(struct sk_buff *skb, u_int32_t hooknum,
 			ipc_entry.dhost.octet[0], ipc_entry.dhost.octet[1],
 			ipc_entry.dhost.octet[2], ipc_entry.dhost.octet[3],
 			ipc_entry.dhost.octet[4], ipc_entry.dhost.octet[5]);
-	printk("vid: %d action %x\n", ipc_entry.vid, ipc_entry.action);
+	printk("[%d] vid: %d action %x\n", hooknum, ipc_entry.vid, ipc_entry.action);
 	if (manip != NULL)
-		printk("manip_ip: %x manip_port %x\n",
-		       ipc_entry.nat[HOOK2MANIP(hooknum)].ip,
-		       ipc_entry.nat[HOOK2MANIP(hooknum)].port);
+		printk("manip_ip: %u.%u.%u.%u manip_port %u\n",
+			NIPQUAD(ipc_entry.nat.ip), ntohs(ipc_entry.nat.port));
 	printk("txif: %s\n", ((struct net_device *)ipc_entry.txif)->name);
 #endif
 
 	ctf_ipc_add(kcih, &ipc_entry);
 
 	/* Update the attributes flag to indicate a CTF conn */
-	ct->ctf_flags |= CTF_FLAGS_CACHED;
+	ct->ctf_flags |= (CTF_FLAGS_CACHED | (1 << dir));
+
 }
 #ifdef CONFIG_BCM_NAT_MODULE
 EXPORT_SYMBOL(ip_conntrack_ipct_add);
@@ -675,9 +711,6 @@ unsigned int nf_nat_packet(struct nf_conn *ct,
 	enum ip_conntrack_dir dir = CTINFO2DIR(ctinfo);
 	unsigned long statusbit;
 	enum nf_nat_manip_type mtype = HOOK2MANIP(hooknum);
-#ifdef HNDCTF
-	bool enabled = ip_conntrack_is_ipc_allowed(skb, hooknum);
-#endif /* HNDCTF */
 
 	if (mtype == IP_NAT_MANIP_SRC)
 		statusbit = IPS_SRC_NAT;
@@ -695,15 +728,12 @@ unsigned int nf_nat_packet(struct nf_conn *ct,
 		/* We are aiming to look like inverse of other direction. */
 		nf_ct_invert_tuplepr(&target, &ct->tuplehash[!dir].tuple);
 #ifdef HNDCTF
-		if (enabled)
-			ip_conntrack_ipct_add(skb, hooknum, ct, ctinfo, &target);
+		ip_conntrack_ipct_add(skb, hooknum, ct, ctinfo, &target);
 #endif /* HNDCTF */
 		if (!manip_pkt(target.dst.protonum, skb, 0, &target, mtype))
 			return NF_DROP;
 	} else {
 #ifdef HNDCTF
-		if (enabled)
-			ip_conntrack_ipct_add(skb, hooknum, ct, ctinfo, NULL);
 #endif /* HNDCTF */
 	}
 

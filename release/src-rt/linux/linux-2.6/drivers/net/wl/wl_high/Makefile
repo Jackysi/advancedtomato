@@ -37,3 +37,7 @@ clean:
 	$(MAKE) -C $(KERNELDIR) M=`pwd` clean
 include ../wl_generic.mk
 endif
+
+ifneq ($(wildcard $(SRCBASE)/shared/zlib),)
+EXTRA_CFLAGS += -I$(src)/$(SRCBASE)/shared/zlib
+endif

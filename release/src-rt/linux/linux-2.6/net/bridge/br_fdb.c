@@ -31,8 +31,6 @@
 #include <osl.h>
 #include <ctf/hndctf.h>
 
-extern ctf_t *kcih;
-
 static void
 br_brc_init(ctf_brc_t *brc, unsigned char *ea, struct net_device *rxdev)
 {
@@ -84,7 +82,14 @@ br_brc_add(unsigned char *ea, struct net_device *rxdev)
 #endif
 
 	/* Add the bridge cache entry */
+#if 0
 	ctf_brc_add(kcih, &brc_entry);
+#else
+	if (ctf_brc_lkup(kcih, ea) == NULL)
+		ctf_brc_add(kcih, &brc_entry);
+	else
+		ctf_brc_update(kcih, &brc_entry);
+#endif
 
 	return;
 }
