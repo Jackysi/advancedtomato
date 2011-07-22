@@ -1459,7 +1459,20 @@ CONFIG_USB_IP_HOST=m
 # USB Gadget Support
 #
 # CONFIG_USB_GADGET is not set
-# CONFIG_MMC is not set
+CONFIG_MMC=m
+# CONFIG_MMC_DEBUG is not set
+# CONFIG_MMC_UNSAFE_RESUME is not set
+
+#
+# MMC/SD Card Drivers
+#
+CONFIG_MMC_BLOCK=m
+
+#
+# MMC/SD Host Controller Drivers
+#
+CONFIG_MMC_SDHCI=m
+# CONFIG_MMC_TIFM_SD is not set
 
 #
 # LED devices
