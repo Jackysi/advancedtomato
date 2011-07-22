@@ -58,7 +58,7 @@ libLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(lib_LTLIBRARIES)
 pptp_la_LIBADD =
 am_pptp_la_OBJECTS = pptp.lo pptp_callmgr.lo pptp_ctrl.lo util.lo \
-	vector.lo dirutil.lo pptp_quirks.lo orckit_quirks.lo
+	vector.lo dirutil.lo pptp_quirks.lo orckit_quirks.lo inststr.lo
 pptp_la_OBJECTS = $(am_pptp_la_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -190,10 +190,10 @@ INCLUDES = $(all_includes)
 lib_LTLIBRARIES = pptp.la
 pptp_la_LDFLAGS = -module -avoid-version
 pptp_la_SOURCES = pptp.c pptp_callmgr.c pptp_ctrl.c util.c vector.c \
-	dirutil.c pptp_quirks.c orckit_quirks.c
+	dirutil.c pptp_quirks.c orckit_quirks.c inststr.c
 
 noinst_HEADERS = pptp_callmgr.h pptp_ctrl.h util.h vector.h pptp_options.h \
-		dirutil.h pptp_quirks.h orckit_quirks.h
+		dirutil.h pptp_quirks.h orckit_quirks.h inststr.h
 
 AM_CFLAGS = -Wall
 man_MANS = pppd-pptp.8
@@ -267,6 +267,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dirutil.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/inststr.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/orckit_quirks.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pptp.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pptp_callmgr.Plo@am__quote@
