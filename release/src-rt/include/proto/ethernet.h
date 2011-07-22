@@ -1,15 +1,21 @@
 /*
  * From FreeBSD 2.2.7: Fundamental constants relating to ethernet.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: ethernet.h,v 9.45.12.3 2009/10/12 23:01:02 Exp $
+ * $Id: ethernet.h,v 9.56.18.1 2010-06-16 19:39:55 Exp $
  */
 
 #ifndef _NET_ETHERNET_H_	    /* use native BSD ethernet.h when available */
@@ -19,13 +25,9 @@
 #include "typedefs.h"
 #endif
 
-/* enable structure packing */
-#if defined(__GNUC__)
-#define	PACKED	__attribute__((packed))
-#else
-#pragma pack(1)
-#define	PACKED
-#endif
+/* This marks the start of a packed structure section. */
+#include <packed_section_start.h>
+
 
 /*
  * The number of bytes in an ethernet (MAC) address.
@@ -74,9 +76,9 @@
 #define ETHER_TYPE_8021Q	0x8100		/* 802.1Q */
 #define	ETHER_TYPE_BRCM		0x886c		/* Broadcom Corp. */
 #define	ETHER_TYPE_802_1X	0x888e		/* 802.1x */
-#ifdef BCMWPA2
 #define	ETHER_TYPE_802_1X_PREAUTH 0x88c7	/* 802.1x preauthentication */
-#endif
+#define ETHER_TYPE_WAI		0x88b4		/* WAI */
+
 
 /* Broadcom subtype follows ethertype;  First 2 bytes are reserved; Next 2 are subtype; */
 #define	ETHER_BRCM_SUBTYPE_LEN	4	/* Broadcom 4 byte subtype */
@@ -93,30 +95,31 @@
 #define	ETHER_IS_VALID_LEN(foo)	\
 	((foo) >= ETHER_MIN_LEN && (foo) <= ETHER_MAX_LEN)
 
-#define ETHER_FILL_MCAST_ADDR_FROM_IP(eaddr, mgrp_ip) \
-		eaddr[0] = 0x01;	\
-		eaddr[1] = 0x00;	\
-		eaddr[2] = 0x5e;	\
-		eaddr[5] = mgrp_ip & 0xff; mgrp_ip >>= 8; \
-		eaddr[4] = mgrp_ip & 0xff; mgrp_ip >>= 8; \
-		eaddr[3] = mgrp_ip & 0x7f
+#define ETHER_FILL_MCAST_ADDR_FROM_IP(ea, mgrp_ip) {		\
+		((uint8 *)ea)[0] = 0x01;			\
+		((uint8 *)ea)[1] = 0x00;			\
+		((uint8 *)ea)[2] = 0x5e;			\
+		((uint8 *)ea)[3] = ((mgrp_ip) >> 16) & 0x7f;	\
+		((uint8 *)ea)[4] = ((mgrp_ip) >>  8) & 0xff;	\
+		((uint8 *)ea)[5] = ((mgrp_ip) >>  0) & 0xff;	\
+}
 
 #ifndef __INCif_etherh     /* Quick and ugly hack for VxWorks */
 /*
  * Structure of a 10Mb/s Ethernet header.
  */
-struct	ether_header {
+BWL_PRE_PACKED_STRUCT struct ether_header {
 	uint8	ether_dhost[ETHER_ADDR_LEN];
 	uint8	ether_shost[ETHER_ADDR_LEN];
 	uint16	ether_type;
-} PACKED;
+} BWL_POST_PACKED_STRUCT;
 
 /*
  * Structure of a 48-bit Ethernet address.
  */
-struct	ether_addr {
+BWL_PRE_PACKED_STRUCT struct	ether_addr {
 	uint8 octet[ETHER_ADDR_LEN];
-} PACKED;
+} BWL_POST_PACKED_STRUCT;
 #endif	/* !__INCif_etherh Quick and ugly hack for VxWorks */
 
 /*
@@ -139,38 +142,33 @@ struct	ether_addr {
 
 
 /* compare two ethernet addresses - assumes the pointers can be referenced as shorts */
-#define	ether_cmp(a, b)	(!(((short*)a)[0] == ((short*)b)[0]) | \
-			 !(((short*)a)[1] == ((short*)b)[1]) | \
-			 !(((short*)a)[2] == ((short*)b)[2]))
+#define	ether_cmp(a, b)	(!(((short*)(a))[0] == ((short*)(b))[0]) | \
+			 !(((short*)(a))[1] == ((short*)(b))[1]) | \
+			 !(((short*)(a))[2] == ((short*)(b))[2]))
 
 /* copy an ethernet address - assumes the pointers can be referenced as shorts */
 #define	ether_copy(s, d) { \
-		((short*)d)[0] = ((short*)s)[0]; \
-		((short*)d)[1] = ((short*)s)[1]; \
-		((short*)d)[2] = ((short*)s)[2]; }
+		((short*)(d))[0] = ((short*)(s))[0]; \
+		((short*)(d))[1] = ((short*)(s))[1]; \
+		((short*)(d))[2] = ((short*)(s))[2]; }
 
-/*
- * Takes a pointer, returns true if a 48-bit broadcast (all ones)
- */
-#define ETHER_ISBCAST(ea) ((((uint8 *)(ea))[0] &		\
-			    ((uint8 *)(ea))[1] &		\
-			    ((uint8 *)(ea))[2] &		\
-			    ((uint8 *)(ea))[3] &		\
-			    ((uint8 *)(ea))[4] &		\
-			    ((uint8 *)(ea))[5]) == 0xff)
 
 static const struct ether_addr ether_bcast = {{255, 255, 255, 255, 255, 255}};
 static const struct ether_addr ether_null = {{0, 0, 0, 0, 0, 0}};
 
-/*
- * Takes a pointer, returns true if a 48-bit null address (all zeros)
- */
-#define ETHER_ISNULLADDR(ea) ((((uint8 *)(ea))[0] |		\
-			    ((uint8 *)(ea))[1] |		\
-			    ((uint8 *)(ea))[2] |		\
-			    ((uint8 *)(ea))[3] |		\
-			    ((uint8 *)(ea))[4] |		\
-			    ((uint8 *)(ea))[5]) == 0)
+#define ETHER_ISBCAST(ea)	((((uint8 *)(ea))[0] &		\
+	                          ((uint8 *)(ea))[1] &		\
+				  ((uint8 *)(ea))[2] &		\
+				  ((uint8 *)(ea))[3] &		\
+				  ((uint8 *)(ea))[4] &		\
+				  ((uint8 *)(ea))[5]) == 0xff)
+#define ETHER_ISNULLADDR(ea)	((((uint8 *)(ea))[0] |		\
+				  ((uint8 *)(ea))[1] |		\
+				  ((uint8 *)(ea))[2] |		\
+				  ((uint8 *)(ea))[3] |		\
+				  ((uint8 *)(ea))[4] |		\
+				  ((uint8 *)(ea))[5]) == 0)
+
 
 #define ETHER_MOVE_HDR(d, s) \
 do { \
@@ -179,9 +177,9 @@ do { \
 	*(struct ether_header *)(d) = t; \
 } while (0)
 
-#undef PACKED
-#if !defined(__GNUC__)
-#pragma pack()
-#endif
+#define  ETHER_ISUCAST(ea) ((((uint8 *)(ea))[0] & 0x01) == 0)
+
+/* This marks the end of a packed structure section. */
+#include <packed_section_end.h>
 
 #endif /* _NET_ETHERNET_H_ */

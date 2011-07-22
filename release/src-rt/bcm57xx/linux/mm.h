@@ -449,7 +449,7 @@ typedef struct _UM_PACKET {
 
 static inline void MM_SetAddr(LM_PHYSICAL_ADDRESS *paddr, dma_addr_t addr)
 {
-#if BITS_PER_LONG == 64
+#if (BITS_PER_LONG == 64)
 	paddr->High = ((unsigned long) addr) >> 32;
 	paddr->Low = ((unsigned long) addr) & 0xffffffff;
 #else
@@ -460,7 +460,7 @@ static inline void MM_SetAddr(LM_PHYSICAL_ADDRESS *paddr, dma_addr_t addr)
 
 static inline void MM_SetT3Addr(T3_64BIT_HOST_ADDR *paddr, dma_addr_t addr)
 {
-#if BITS_PER_LONG == 64
+#if (BITS_PER_LONG == 64)
 	paddr->High = ((unsigned long) addr) >> 32;
 	paddr->Low = ((unsigned long) addr) & 0xffffffff;
 #else
@@ -599,7 +599,7 @@ static inline void MM_MapTxDma(PLM_DEVICE_BLOCK pDevice,
 #define MM_GETSTATS32(_Ctr) \
 	(uint32_t) (_Ctr).Low
 
-#if BITS_PER_LONG == 64
+#if (BITS_PER_LONG == 64)
 #define MM_GETSTATS(_Ctr) (unsigned long) MM_GETSTATS64(_Ctr)
 #else
 #define MM_GETSTATS(_Ctr) (unsigned long) MM_GETSTATS32(_Ctr)

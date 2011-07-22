@@ -2,15 +2,21 @@
  * Misc utility routines for accessing chip-specific features
  * of the SiliconBackplane-based Broadcom chips.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sbutils.c,v 1.673.2.4 2008/12/03 00:11:18 Exp $
+ * $Id: sbutils.c,v 1.687 2009-11-05 01:06:56 Exp $
  */
 
 #include <typedefs.h>
@@ -22,20 +28,11 @@
 #include <hndsoc.h>
 #include <sbchipc.h>
 #include <pci_core.h>
-#include <pcie_core.h>
-#include <nicpci.h>
 #include <pcicfg.h>
 #include <sbpcmcia.h>
-#include <sbsocram.h>
-#include <bcmnvram.h>
-#include <bcmsrom.h>
-#include <hndpmu.h>
-#ifdef BCMSPI
-#include <spid.h>
-#endif /* BCMSPI */
-
 
 #include "siutils_priv.h"
+
 
 /* local prototypes */
 static uint _sb_coreidx(si_info_t *sii, uint32 sba);
@@ -141,6 +138,28 @@ sb_coreid(si_t *sih)
 	sb = REGS2SB(sii->curmap);
 
 	return ((R_SBREG(sii, &sb->sbidhigh) & SBIDH_CC_MASK) >> SBIDH_CC_SHIFT);
+}
+
+uint
+sb_intflag(si_t *sih)
+{
+	si_info_t *sii;
+	void *corereg;
+	sbconfig_t *sb;
+	uint origidx, intflag, intr_val = 0;
+
+	sii = SI_INFO(sih);
+
+	INTR_OFF(sii, intr_val);
+	origidx = si_coreidx(sih);
+	corereg = si_setcore(sih, CC_CORE_ID, 0);
+	ASSERT(corereg != NULL);
+	sb = REGS2SB(corereg);
+	intflag = R_SBREG(sii, &sb->sbflagst);
+	sb_setcoreidx(sih, origidx);
+	INTR_RESTORE(sii, intr_val);
+
+	return intflag;
 }
 
 uint
@@ -363,6 +382,9 @@ sb_corereg(si_t *sih, uint coreidx, uint regoff, uint mask, uint val)
 	ASSERT(regoff < SI_CORE_SIZE);
 	ASSERT((val & ~mask) == 0);
 
+	if (coreidx >= SI_MAXCORES)
+		return 0;
+
 	if (BUSTYPE(sii->pub.bustype) == SI_BUS) {
 		/* If internal bus, we can always get at everything */
 		fast = TRUE;
@@ -463,7 +485,7 @@ BCMATTACHFN(_sb_scan)(si_info_t *sii, uint32 sba, void *regs, uint bus, uint32 s
 	}
 	SI_MSG(("_sb_scan: scan bus 0x%08x assume %u cores\n", sbba, numcores));
 
-	/* San all cores on the bus starting from core 0.
+	/* Scan all cores on the bus starting from core 0.
 	 * Core addresses must be contiguous on each bus.
 	 */
 	for (i = 0, next = sii->numcores; i < numcores && next < SB_BUS_MAXCORES; i++, next++) {
@@ -493,7 +515,7 @@ BCMATTACHFN(_sb_scan)(si_info_t *sii, uint32 sba, void *regs, uint bus, uint32 s
 				        CID_CC_SHIFT;
 			else {
 				/* Older chips */
-				uint chip = sii->pub.chip;
+				uint chip = CHIPID(sii->pub.chip);
 
 				if (chip == BCM4306_CHIP_ID)	/* < 4306c0 */
 					numcores = 6;
@@ -1018,38 +1040,6 @@ sb_core_reset(si_t *sih, uint32 bits, uint32 resetbits)
 	OSL_DELAY(1);
 }
 
-void
-sb_core_tofixup(si_t *sih)
-{
-	si_info_t *sii;
-	sbconfig_t *sb;
-
-	sii = SI_INFO(sih);
-
-	if ((BUSTYPE(sii->pub.bustype) != PCI_BUS) || PCIE(sii) ||
-	    (PCI(sii) && (sii->pub.buscorerev >= 5)))
-		return;
-
-	ASSERT(GOODREGS(sii->curmap));
-	sb = REGS2SB(sii->curmap);
-
-	if (BUSTYPE(sii->pub.bustype) == SI_BUS) {
-		SET_SBREG(sii, &sb->sbimconfiglow,
-		          SBIMCL_RTO_MASK | SBIMCL_STO_MASK,
-		          (0x5 << SBIMCL_RTO_SHIFT) | 0x3);
-	} else {
-		if (sb_coreid(sih) == PCI_CORE_ID) {
-			SET_SBREG(sii, &sb->sbimconfiglow,
-			          SBIMCL_RTO_MASK | SBIMCL_STO_MASK,
-			          (0x3 << SBIMCL_RTO_SHIFT) | 0x2);
-		} else {
-			SET_SBREG(sii, &sb->sbimconfiglow, (SBIMCL_RTO_MASK | SBIMCL_STO_MASK), 0);
-		}
-	}
-
-	sb_commit(sih);
-}
-
 /*
  * Set the initiator timeout for the "master core".
  * The master core is defined to be the core in control
@@ -1209,7 +1199,7 @@ sb_dumpregs(si_t *sih, struct bcmstrbuf *b)
 }
 #endif	/* BCMDBG || BCMDBG_DUMP */
 
-#ifdef BCMDBG
+#if defined(BCMDBG)
 void
 sb_view(si_t *sih, bool verbose)
 {

@@ -1,36 +1,37 @@
 /*
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
- *
- * $Id: typedefs.h,v 1.85.32.8 2009/02/26 17:07:08 Exp $
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * $Id: typedefs.h,v 1.103.12.6 2010-12-21 02:38:54 Exp $
  */
 
 #ifndef _TYPEDEFS_H_
 #define _TYPEDEFS_H_
 
-/* Define 'SITE_TYPEDEFS' in the compile to include a site specific
- * typedef file "site_typedefs.h".
- *
- * If 'SITE_TYPEDEFS' is not defined, then the "Inferred Typedefs"
- * section of this file makes inferences about the compile environment
- * based on defined symbols and possibly compiler pragmas.
- *
- * Following these two sections is the "Default Typedefs"
- * section. This section is only prcessed if 'USE_TYPEDEF_DEFAULTS' is
- * defined. This section has a default set of typedefs and a few
- * proprocessor symbols (TRUE, FALSE, NULL, ...).
- */
-
 #ifdef SITE_TYPEDEFS
 
 /*
- * Site Specific Typedefs
+ * Define SITE_TYPEDEFS in the compile to include a site-specific
+ * typedef file "site_typedefs.h".
  *
+ * If SITE_TYPEDEFS is not defined, then the code section below makes
+ * inferences about the compile environment based on defined symbols and
+ * possibly compiler pragmas.
+ *
+ * Following these two sections is the Default Typedefs section.
+ * This section is only processed if USE_TYPEDEF_DEFAULTS is
+ * defined. This section has a default set of typedefs and a few
+ * preprocessor symbols (TRUE, FALSE, NULL, ...).
  */
 
 #include "site_typedefs.h"
@@ -38,12 +39,8 @@
 #else
 
 /*
- * Inferred Typedefs
- *
- */
-
-/* Infer the compile environment based on preprocessor symbols and pramas.
- * Override type definitions as needed, and include configuration dependent
+ * Infer the compile environment based on preprocessor symbols and pragmas.
+ * Override type definitions as needed, and include configuration-dependent
  * header files to define types.
  */
 
@@ -65,10 +62,11 @@
 typedef	unsigned char	bool;			/* consistent w/BOOL */
 
 #endif /* _WIN32 */
+
 #endif	/* ! __cplusplus */
 
-/* use the Windows ULONG_PTR type when compiling for 64 bit */
 #if defined(_WIN64) && !defined(EFI)
+/* use the Windows ULONG_PTR type when compiling for 64 bit */
 #include <basetsd.h>
 #define TYPEDEF_UINTPTR
 typedef ULONG_PTR uintptr;
@@ -86,13 +84,19 @@ typedef unsigned long long int uintptr;
 #define _NEED_SIZE_T_
 #endif
 
+#if defined(TARGETOS_nucleus)
+/* for 'size_t' type */
+#include <stddef.h>
+
+/* float_t types conflict with the same typedefs from the standard ANSI-C
+** math.h header file. Don't re-typedef them here.
+*/
+#define TYPEDEF_FLOAT_T
+#endif   /* TARGETOS_nucleus */
+
 #if defined(_NEED_SIZE_T_)
 typedef long unsigned int size_t;
 #endif
-
-#ifdef __DJGPP__
-typedef long unsigned int size_t;
-#endif /* __DJGPP__ */
 
 #ifdef _MSC_VER	    /* Microsoft C */
 #define TYPEDEF_INT64
@@ -102,6 +106,19 @@ typedef unsigned __int64 uint64;
 #endif
 
 #if defined(MACOSX)
+#ifdef KERNEL
+#include <libkern/version.h>
+#if VERSION_MAJOR > 10
+#define WLP2P
+#define IO80211P2P
+#define APSTA
+#define WLMCHAN
+#define WL_MULTIQUEUE
+#define WL_BSSCFG_TX_SUPR
+#define WIFI_ACT_FRAME
+#define FAST_ACTFRM_TX
+#endif
+#endif /* KERNEL */
 #define TYPEDEF_BOOL
 #endif
 
@@ -109,18 +126,25 @@ typedef unsigned __int64 uint64;
 #define TYPEDEF_ULONG
 #endif
 
+#if defined(__sparc__)
+#define TYPEDEF_ULONG
+#endif
 
-#ifdef linux
-/* If either a Linux hybrid build or the port code of a hybrid build then
- *   use the Linux header files to get some of the typedefs.  Otherwise
- *   define them entirely in this file.  We can't always define the types
- *   because you get a duplicate typedef error.  There is no way to "undefine"
- *   a typedef.  We know port code because each file defines LINUX_PORT at the top.
+
+#ifdef	linux
+/*
+ * If this is either a Linux hybrid build or the per-port code of a hybrid build
+ * then use the Linux header files to get some of the typedefs.  Otherwise, define
+ * them entirely in this file.  We can't always define the types because we get
+ * a duplicate typedef error; there is no way to "undefine" a typedef.
+ * We know when it's per-port code because each file defines LINUX_PORT at the top.
  */
 #if !defined(LINUX_HYBRID) || defined(LINUX_PORT)
 #define TYPEDEF_UINT
+#ifndef TARGETENV_android
 #define TYPEDEF_USHORT
 #define TYPEDEF_ULONG
+#endif /* TARGETENV_android */
 #ifdef __KERNEL__
 #include <linux/version.h>
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 19))
@@ -131,6 +155,7 @@ typedef unsigned __int64 uint64;
 #endif	/* linux */
 
 #if defined(__ECOS)
+#define TYPEDEF_UCHAR
 #define TYPEDEF_UINT
 #define TYPEDEF_USHORT
 #define TYPEDEF_ULONG
@@ -138,7 +163,8 @@ typedef unsigned __int64 uint64;
 #endif
 
 #if !defined(linux) && !defined(_WIN32) && !defined(_CFE_) && !defined(_MINOSL_) && \
-	!defined(__DJGPP__) && !defined(__ECOS)
+	!defined(__DJGPP__) && !defined(__ECOS) && !defined(__BOB__) && \
+	!defined(TARGETOS_nucleus)
 #define TYPEDEF_UINT
 #define TYPEDEF_USHORT
 #endif
@@ -151,7 +177,7 @@ typedef unsigned __int64 uint64;
 #endif
 
 /* ICL accepts unsigned 64 bit type only, and complains in ANSI mode
- * for singned or unsigned
+ * for signed or unsigned
  */
 #if defined(__ICL)
 
@@ -163,7 +189,8 @@ typedef unsigned __int64 uint64;
 
 #endif /* __ICL */
 
-#if !defined(_WIN32) && !defined(_CFE_) && !defined(_MINOSL_) && !defined(__DJGPP__)
+#if !defined(_WIN32) && !defined(_CFE_) && !defined(_MINOSL_) && !defined(__DJGPP__) && \
+	!defined(__BOB__) && !defined(TARGETOS_nucleus)
 
 /* pick up ushort & uint from standard types.h */
 #if defined(linux) && defined(__KERNEL__)
@@ -231,7 +258,6 @@ enum {
 
 /*
  * Default Typedefs
- *
  */
 
 #ifdef USE_TYPEDEF_DEFAULTS
@@ -353,22 +379,29 @@ typedef float64 float_t;
 #define	PTRSZ	sizeof(char*)
 #endif
 
-#ifndef INLINE
 
+/* Detect compiler type. */
 #ifdef _MSC_VER
-
-#define INLINE __inline
-
+	#define BWL_COMPILER_MICROSOFT
 #elif defined(__GNUC__)
-
-#define INLINE __inline__
-
+	#define BWL_COMPILER_GNU
+#elif defined(__CC_ARM) && __CC_ARM
+	#define BWL_COMPILER_ARMCC
 #else
-
-#define INLINE
-
+	#error "Unknown compiler!"
 #endif /* _MSC_VER */
 
+
+#ifndef INLINE
+	#if defined(BWL_COMPILER_MICROSOFT)
+		#define INLINE __inline
+	#elif defined(BWL_COMPILER_GNU)
+		#define INLINE __inline__
+	#elif defined(BWL_COMPILER_ARMCC)
+		#define INLINE	__inline
+	#else
+		#define INLINE
+	#endif /* _MSC_VER */
 #endif /* INLINE */
 
 #undef TYPEDEF_BOOL
@@ -391,10 +424,21 @@ typedef float64 float_t;
 
 #endif /* USE_TYPEDEF_DEFAULTS */
 
-/* 
+/* Suppress unused parameter warning */
+#define UNUSED_PARAMETER(x) (void)(x)
+
+/*
  * Including the bcmdefs.h here, to make sure everyone including typedefs.h
  * gets this automatically
 */
 #include <bcmdefs.h>
+/*
+ * If android target is building then include this file
+ */
+#ifndef LINUX_HYBRID
+#ifdef TARGETENV_android
+#include <bcm_android_types.h>
+#endif /* TARGETENV_android */
+#endif /* LINUX_HYBRID */
 
 #endif /* _TYPEDEFS_H_ */

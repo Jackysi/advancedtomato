@@ -1,15 +1,21 @@
 /*
  * Misc system wide definitions
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmdefs.h,v 13.43.2.12 2009/03/12 21:32:38 Exp $
+ * $Id: bcmdefs.h,v 13.69.10.2 2010-10-05 00:46:12 Exp $
  */
 
 #ifndef	_bcmdefs_h_
@@ -20,22 +26,30 @@
  * typedefs.h is included.
  */
 
+/* Use BCM_REFERENCE to suppress warnings about intentionally-unused function
+ * arguments or local variables.
+ */
+#define BCM_REFERENCE(data)	((void)data)
+
 /* Reclaiming text and data :
  * The following macros specify special linker sections that can be reclaimed
  * after a system is considered 'up'.
+ * BCMATTACHFN is also used for detach functions (it's not worth having a BCMDETACHFN,
+ * as in most cases, the attach function calls the detach function to clean up on error).
  */
-
-
 #ifdef DONGLEBUILD
 
 extern bool bcmreclaimed;
 
 #define BCMATTACHDATA(_data)	__attribute__ ((__section__ (".dataini2." #_data))) _data
-#define BCMATTACHFN(_fn)	__attribute__ ((__section__ (".textini2." #_fn))) _fn
+#define BCMATTACHFN(_fn)	__attribute__ ((__section__ (".textini2." #_fn), noinline)) _fn
+
+#define BCMPREATTACHDATA(_data)	__attribute__ ((__section__ (".dataini2." #_data))) _data
+#define BCMPREATTACHFN(_fn)	__attribute__ ((__section__ (".textini2." #_fn), noinline)) _fn
 
 #if defined(BCMRECLAIM)
 #define BCMINITDATA(_data)	__attribute__ ((__section__ (".dataini1." #_data))) _data
-#define BCMINITFN(_fn)		__attribute__ ((__section__ (".textini1." #_fn))) _fn
+#define BCMINITFN(_fn)		__attribute__ ((__section__ (".textini1." #_fn), noinline)) _fn
 #define CONST
 #else
 #define BCMINITDATA(_data)	_data
@@ -56,16 +70,37 @@ extern bool bcmreclaimed;
 
 #define BCMFASTPATH
 
+#ifdef DONGLEOVERLAYS
+#define BCMOVERLAY0DATA(_sym)	__attribute__ ((__section__ (".r0overlay." #_sym))) _sym
+#define BCMOVERLAY0FN(_fn)	__attribute__ ((__section__ (".r0overlay." #_fn))) _fn
+#define BCMOVERLAY1DATA(_sym)	__attribute__ ((__section__ (".r1overlay." #_sym))) _sym
+#define BCMOVERLAY1FN(_fn)	__attribute__ ((__section__ (".r1overlay." #_fn))) _fn
+#define BCMOVERLAYERRFN(_fn)	__attribute__ ((__section__ (".overlayerr." #_fn))) _fn
+#else
+#define BCMOVERLAY0DATA(_sym)	_sym
+#define BCMOVERLAY0FN(_fn)	_fn
+#define BCMOVERLAY1DATA(_sym)	_sym
+#define BCMOVERLAY1FN(_fn)	_fn
+#define BCMOVERLAYERRFN(_fn)	_fn
+#endif /* DONGLEOVERLAYS */
+
 #else /* DONGLEBUILD */
 
 #define bcmreclaimed 		0
 #define BCMATTACHDATA(_data)	_data
 #define BCMATTACHFN(_fn)	_fn
+#define BCMPREATTACHDATA(_data)	_data
+#define BCMPREATTACHFN(_fn)	_fn
 #define BCMINITDATA(_data)	_data
 #define BCMINITFN(_fn)		_fn
 #define BCMUNINITFN(_fn)	_fn
 #define	BCMNMIATTACHFN(_fn)	_fn
 #define	BCMNMIATTACHDATA(_data)	_data
+#define BCMOVERLAY0DATA(_sym)	_sym
+#define BCMOVERLAY0FN(_fn)	_fn
+#define BCMOVERLAY1DATA(_sym)	_sym
+#define BCMOVERLAY1FN(_fn)	_fn
+#define BCMOVERLAYERRFN(_fn)	_fn
 #define CONST	const
 #ifdef mips
 #define BCMFASTPATH		__attribute__ ((__section__(".text.fastpath")))
@@ -75,12 +110,84 @@ extern bool bcmreclaimed;
 
 #endif /* DONGLEBUILD */
 
+#if defined(BCMROMBUILD)
+typedef struct {
+	uint16 esiz;
+	uint16 cnt;
+	void *addr;
+} bcmromdat_patch_t;
+#endif
+
 /* Put some library data/code into ROM to reduce RAM requirements */
+#if defined(BCMROMBUILD)
+#include <bcmjmptbl.h>
+#define STATIC	static
+#else /* !BCMROMBUILD */
 #define BCMROMDATA(_data)	_data
+#define BCMROMDAT_NAME(_data)	_data
 #define BCMROMFN(_fn)		_fn
+#define BCMROMFN_NAME(_fn)	_fn
+#define STATIC	static
+#define BCMROMDAT_ARYSIZ(data)	ARRAYSIZE(data)
+#define BCMROMDAT_SIZEOF(data)	sizeof(data)
+#define BCMROMDAT_APATCH(data)
+#define BCMROMDAT_SPATCH(data)
+#endif /* !BCMROMBUILD */
+
+/* overlay function tagging */
+#ifdef DONGLEBUILD
+#ifdef DONGLEOVERLAYS
+/* force a func to be inline if it's only accessed by overlays and ATTACH code */
+#define OVERLAY_INLINE	__attribute__ ((always_inline))
+#define OSTATIC
+#define BCMOVERLAYDATA(_ovly, _sym) \
+	__attribute__ ((aligned(4), __section__ (".r" #_ovly "overlay." #_sym))) _sym
+#define BCMOVERLAYFN(_ovly, _fn) \
+	__attribute__ ((__section__ (".r" #_ovly "overlay." #_fn))) _fn
+#define BCMOVERLAYERRFN(_fn) \
+	__attribute__ ((__section__ (".overlayerr." #_fn))) _fn
+#define BCMROMOVERLAYDATA(_ovly, _sym)		BCMOVERLAYDATA(_ovly, _sym)
+#define BCMROMOVERLAYFN(_ovly, _fn)			BCMOVERLAYFN(_ovly, _fn)
+#define BCMATTACHOVERLAYDATA(_ovly, _sym)	BCMOVERLAYDATA(_ovly, _sym)
+#define BCMATTACHOVERLAYFN(_ovly, _fn)		BCMOVERLAYFN(_ovly, _fn)
+#define BCMINITOVERLAYDATA(_ovly, _sym)		BCMOVERLAYDATA(_ovly, _sym)
+#define BCMINITOVERLAYFN(_ovly, _fn)		BCMOVERLAYFN(_ovly, _fn)
+#define BCMUNINITOVERLAYFN(_ovly, _fn)		BCMOVERLAYFN(_ovly, _fn)
+#else
+#define OVERLAY_INLINE
+#define OSTATIC			static
+#define BCMOVERLAYDATA(_ovly, _sym)	_sym
+#define BCMOVERLAYFN(_ovly, _fn)	_fn
+#define BCMOVERLAYERRFN(_fn)	_fn
+/* revert to standard definitions for BCMATTACH* and BCMINIT* if not overlay build */
+#define BCMROMOVERLAYDATA(_ovly, _data)	BCMROMDATA(_data)
+#define BCMROMOVERLAYFN(_ovly, _fn)		BCMROMFN(_fn)
+#define BCMATTACHOVERLAYDATA(_ovly, _sym)	BCMATTACHDATA(_sym)
+#define BCMATTACHOVERLAYFN(_ovly, _fn)		BCMATTACHFN(_fn)
+#define BCMINITOVERLAYDATA(_ovly, _sym)		BCMINITDATA(_sym)
+#define BCMINITOVERLAYFN(_ovly, _fn)		BCMINITFN(_fn)
+#define BCMUNINITOVERLAYFN(_ovly, _fn)		BCMUNINITFN(_fn)
+#endif /* DONGLEOVERLAYS */
+
+#else
+
+#define OVERLAY_INLINE
+#define OSTATIC			static
+#define BCMOVERLAYDATA(_ovly, _sym)	_sym
+#define BCMOVERLAYFN(_ovly, _fn)	_fn
+#define BCMOVERLAYERRFN(_fn)	_fn
+#define BCMROMOVERLAYDATA(_ovly, _data)	BCMROMDATA(_data)
+#define BCMROMOVERLAYFN(_ovly, _fn)		BCMROMFN(_fn)
+#define BCMATTACHOVERLAYDATA(_ovly, _sym)	BCMATTACHDATA(_sym)
+#define BCMATTACHOVERLAYFN(_ovly, _fn)		BCMATTACHFN(_fn)
+#define BCMINITOVERLAYDATA(_ovly, _sym)		BCMINITDATA(_sym)
+#define BCMINITOVERLAYFN(_ovly, _fn)		BCMINITFN(_fn)
+#define BCMUNINITOVERLAYFN(_ovly, _fn)		BCMUNINITFN(_fn)
+
+#endif /* DONGLEBUILD */
 
 /* Bus types */
-#define	SI_BUS			0	/* SOC Interconnenct */
+#define	SI_BUS			0	/* SOC Interconnect */
 #define	PCI_BUS			1	/* PCI target */
 #define	PCMCIA_BUS		2	/* PCMCIA target */
 #define SDIO_BUS		3	/* SDIO target */
@@ -118,6 +225,12 @@ extern bool bcmreclaimed;
 #define CHIPID(chip)	(BCMCHIPID)
 #else
 #define CHIPID(chip)	(chip)
+#endif
+
+#ifdef BCMCHIPREV
+#define CHIPREV(rev)	(BCMCHIPREV)
+#else
+#define CHIPREV(rev)	(rev)
 #endif
 
 /* Defines for DMA Address Width - Shared between OSL and HNDDMA */
@@ -182,16 +295,23 @@ typedef struct {
 	hnddma_seg_t segs[MAX_DMA_SEGS];
 } hnddma_seg_map_t;
 
-/* packet headroom necessary to accomodate the largest header in the system, (i.e TXOFF).
+
+/* packet headroom necessary to accommodate the largest header in the system, (i.e TXOFF).
  * By doing, we avoid the need  to allocate an extra buffer for the header when bridging to WL.
  * There is a compile time check in wlc.c which ensure that this value is at least as big
  * as TXOFF. This value is used in dma_rxfill (hnddma.c).
  */
 
 #if defined(BCM_RPC_NOCOPY) || defined(BCM_RCP_TXNOCOPY)
+/* add 40 bytes to allow for extra RPC header and info  */
 #define BCMEXTRAHDROOM 220
 #else
 #define BCMEXTRAHDROOM 172
+#endif
+
+/* Packet alignment for most efficient SDIO (can change based on platform) */
+#ifndef SDALIGN
+#define SDALIGN	32
 #endif
 
 /* Headroom required for dongle-to-host communication.  Packets allocated
@@ -200,12 +320,11 @@ typedef struct {
  * be needed to get across the dongle bus to the host.  (These messages
  * don't go over the network, so room for the full WL header above would
  * be a waste.).
- */
-#ifdef BCMUSBDEV
-#define BCMDONGLEHDRSZ 0
-#else
+*/
 #define BCMDONGLEHDRSZ 12
-#endif
+#define BCMDONGLEPADSZ 16
+
+#define BCMDONGLEOVERHEAD	(BCMDONGLEHDRSZ + BCMDONGLEPADSZ)
 
 #ifdef BCMDBG
 
@@ -219,11 +338,11 @@ typedef struct {
 
 #endif /* BCMDBG */
 
-#if defined(BCMDBG_ASSERT) || defined(BCMASSERT_LOG)
+#if defined(BCMDBG_ASSERT)
 #define BCMASSERT_SUPPORT
-#endif /* BCMDBG_ASSERT || BCMASSERT_LOG */
+#endif 
 
-/* Brett's nifty macros for doing definition and get/set of bitfields
+/* Macros for doing definition and get/set of bitfields
  * Usage example, e.g. a three-bit field (bits 4-6):
  *    #define <NAME>_M	BITFIELD_MASK(3)
  *    #define <NAME>_S	4
@@ -241,7 +360,7 @@ typedef struct {
 		(((val) & (~(field ## _M << field ## _S))) | \
 		 ((unsigned)(bits) << field ## _S))
 
-/* define BCMSMALL to remove misc features for memory constrained enviroments */
+/* define BCMSMALL to remove misc features for memory-constrained environments */
 #ifdef BCMSMALL
 #undef	BCMSPACE
 #define bcmspace	FALSE	/* if (bcmspace) code is discarded */
@@ -252,27 +371,6 @@ typedef struct {
 
 /* Max. nvram variable table size */
 #define	MAXSZ_NVRAM_VARS	4096
-
-/* How the locator reduces its memory footprint without #ifdef'ing
- *
- * The locator uses the weak external symbol feature of the linker
- * plus the compiler's ability to place each function in a unique
- * text section to allow wl_locator.c to provide an alternate, typically
- * trivial, implementation for many functions.
- *
- * Many of these routines would normally be static but they must
- * be external for this technique to work.  Instead of placing these function's
- * prototypes in a module's public header file and inviting an improper public
- * usage, use the below LOCATOR_EXTERN macro in the module implementation
- * file, both on the function declaration and definition.  This will cause
- * these functions to be static in all builds except locator builds.
- *
- * This methodology also allows the optimizer to possibly discard
- * dead (static) functions in non locator builds as well as provide
- * more explicit/grep'able documentation of functions used by the
- * locator in this way.
- *
- */
 
 #define LOCATOR_EXTERN static
 

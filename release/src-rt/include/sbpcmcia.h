@@ -1,20 +1,25 @@
 /*
  * BCM43XX Sonics SiliconBackplane PCMCIA core hardware definitions.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sbpcmcia.h,v 13.31.12.9 2010/01/06 01:03:03 Exp $
+ * $Id: sbpcmcia.h,v 13.48.22.3 2011-01-28 00:42:42 Exp $
  */
 
 #ifndef	_SBPCMCIA_H
 #define	_SBPCMCIA_H
-
 
 /* All the addresses that are offsets in attribute space are divided
  * by two to account for the fact that odd bytes are invalid in
@@ -91,6 +96,7 @@
 #define	SRI_BLANK		0x04
 #define	SRI_OTP			0x80
 
+#if !defined(ESTA_POSTMOGRIFY_REMOVAL)
 /* CIS stuff */
 
 /* The CIS stops where the FCRs start */
@@ -110,10 +116,9 @@
 #define	CISTPL_END		0xff		/* End of the CIS tuple chain */
 
 /* Function identifier provides context for the function extentions tuple */
+#define CISTPL_FID_SDIO		0x0c		/* Extensions defined by SDIO spec */
 
-
-/* Function extensions for LANs */
-
+/* Function extensions for LANs (assumed for extensions other than SDIO) */
 #define	LAN_TECH		1		/* Technology type */
 #define	LAN_SPEED		2		/* Raw bit rate */
 #define	LAN_MEDIA		3		/* Transmission media */
@@ -134,47 +139,47 @@
 
 /* Subtypes of BRCM_HNBU: */
 
-#define HNBU_SROMREV		0x00		/* A byte with sromrev, 1 if not present */
-#define HNBU_CHIPID		0x01		/* Two 16bit values: PCI vendor & device id */
-#define HNBU_BOARDREV		0x02		/* One byte board revision */
-#define HNBU_PAPARMS		0x03		/* PA parameters: 8 (sromrev == 1)
-						 * or 9 (sromrev > 1) bytes
-						 */
-#define HNBU_OEM		0x04		/* Eight bytes OEM data (sromrev == 1) */
-#define HNBU_CC			0x05		/* Default country code (sromrev == 1) */
-#define	HNBU_AA			0x06		/* Antennas available */
-#define	HNBU_AG			0x07		/* Antenna gain */
-#define HNBU_BOARDFLAGS		0x08		/* board flags (2 or 4 bytes) */
-#define HNBU_LEDS		0x09		/* LED set */
-#define HNBU_CCODE		0x0a		/* Country code (2 bytes ascii + 1 byte cctl)
-						 * in rev 2
-						 */
-#define HNBU_CCKPO		0x0b		/* 2 byte cck power offsets in rev 3 */
-#define HNBU_OFDMPO		0x0c		/* 4 byte 11g ofdm power offsets in rev 3 */
-#define HNBU_GPIOTIMER		0x0d		/* 2 bytes with on/off values in rev 3 */
-#define HNBU_PAPARMS5G		0x0e		/* 5G PA params */
-#define HNBU_ANT5G		0x0f		/* 4328 5G antennas available/gain */
-#define HNBU_RDLID		0x10		/* 2 byte USB remote downloader (RDL) product Id */
-#define HNBU_RSSISMBXA2G	0x11		/* 4328 2G RSSI mid pt sel & board switch arch,
-						 * 2 bytes, rev 3.
-						 */
-#define HNBU_RSSISMBXA5G	0x12		/* 4328 5G RSSI mid pt sel & board switch arch,
-						 * 2 bytes, rev 3.
-						 */
-#define HNBU_XTALFREQ		0x13		/* 4 byte Crystal frequency in kilohertz */
-#define HNBU_TRI2G		0x14		/* 4328 2G TR isolation, 1 byte */
-#define HNBU_TRI5G		0x15		/* 4328 5G TR isolation, 3 bytes */
-#define HNBU_RXPO2G		0x16		/* 4328 2G RX power offset, 1 byte */
-#define HNBU_RXPO5G		0x17		/* 4328 5G RX power offset, 1 byte */
-#define HNBU_BOARDNUM	0x18		/* board serial number, independent of mac addr */
-#define HNBU_MACADDR	0x19		/* mac addr override for the standard CIS LAN_NID */
-#define HNBU_RDLSN		0x1a		/* 2 bytes; serial # advertised in USB descriptor */
-#define HNBU_BOARDTYPE		0x1b		/* 2 bytes; boardtype */
-#define HNBU_LEDDC		0x1c		/* 2 bytes; LED duty cycle */
-#define HNBU_HNBUCIS	0x1d		/* what follows is proprietary HNBU CIS format */
-#define HNBU_PAPARMS_SSLPNPHY 0x1e	/* SSLPNPHY PA params */
+#define HNBU_SROMREV		0x00	/* A byte with sromrev, 1 if not present */
+#define HNBU_CHIPID		0x01	/* Two 16bit values: PCI vendor & device id */
+#define HNBU_BOARDREV		0x02	/* One byte board revision */
+#define HNBU_PAPARMS		0x03	/* PA parameters: 8 (sromrev == 1)
+					 * or 9 (sromrev > 1) bytes
+					 */
+#define HNBU_OEM		0x04	/* Eight bytes OEM data (sromrev == 1) */
+#define HNBU_CC			0x05	/* Default country code (sromrev == 1) */
+#define	HNBU_AA			0x06	/* Antennas available */
+#define	HNBU_AG			0x07	/* Antenna gain */
+#define HNBU_BOARDFLAGS		0x08	/* board flags (2 or 4 bytes) */
+#define HNBU_LEDS		0x09	/* LED set */
+#define HNBU_CCODE		0x0a	/* Country code (2 bytes ascii + 1 byte cctl)
+					 * in rev 2
+					 */
+#define HNBU_CCKPO		0x0b	/* 2 byte cck power offsets in rev 3 */
+#define HNBU_OFDMPO		0x0c	/* 4 byte 11g ofdm power offsets in rev 3 */
+#define HNBU_GPIOTIMER		0x0d	/* 2 bytes with on/off values in rev 3 */
+#define HNBU_PAPARMS5G		0x0e	/* 5G PA params */
+#define HNBU_ANT5G		0x0f	/* 4328 5G antennas available/gain */
+#define HNBU_RDLID		0x10	/* 2 byte USB remote downloader (RDL) product Id */
+#define HNBU_RSSISMBXA2G	0x11	/* 4328 2G RSSI mid pt sel & board switch arch,
+					 * 2 bytes, rev 3.
+					 */
+#define HNBU_RSSISMBXA5G	0x12	/* 4328 5G RSSI mid pt sel & board switch arch,
+					 * 2 bytes, rev 3.
+					 */
+#define HNBU_XTALFREQ		0x13	/* 4 byte Crystal frequency in kilohertz */
+#define HNBU_TRI2G		0x14	/* 4328 2G TR isolation, 1 byte */
+#define HNBU_TRI5G		0x15	/* 4328 5G TR isolation, 3 bytes */
+#define HNBU_RXPO2G		0x16	/* 4328 2G RX power offset, 1 byte */
+#define HNBU_RXPO5G		0x17	/* 4328 5G RX power offset, 1 byte */
+#define HNBU_BOARDNUM		0x18	/* board serial number, independent of mac addr */
+#define HNBU_MACADDR		0x19	/* mac addr override for the standard CIS LAN_NID */
+#define HNBU_RDLSN		0x1a	/* 2 bytes; serial # advertised in USB descriptor */
+#define HNBU_BOARDTYPE		0x1b	/* 2 bytes; boardtype */
+#define HNBU_LEDDC		0x1c	/* 2 bytes; LED duty cycle */
+#define HNBU_HNBUCIS		0x1d	/* what follows is proprietary HNBU CIS format */
+#define HNBU_PAPARMS_SSLPNPHY	0x1e	/* SSLPNPHY PA params */
 #define HNBU_RSSISMBXA2G_SSLPNPHY 0x1f /* SSLPNPHY RSSI mid pt sel & board switch arch */
-#define HNBU_RDLRNDIS		0x20		/* 1 byte; 1 = RDL advertises RNDIS config */
+#define HNBU_RDLRNDIS		0x20	/* 1 byte; 1 = RDL advertises RNDIS config */
 #define HNBU_CHAINSWITCH	0x21	/* 2 byte; txchain, rxchain */
 #define HNBU_REGREV		0x22	/* 1 byte; */
 #define HNBU_FEM		0x23	/* 2 or 4 byte: 11n frontend specification */
@@ -194,17 +199,79 @@
 #define HNBU_RDLRWU		0x30	/* 1 byte; 1 = RDL advertises Remote Wake-up */
 #define HNBU_WPS		0x31	/* 1 byte; GPIO pin for WPS button */
 #define HNBU_USBFS		0x32	/* 1 byte; 1 = USB advertises FS mode only */
-#define HNBU_ELNA2G             0x33
-#define HNBU_ELNA5G             0x34
-
-#define HNBU_CCKFILTTYPE 0x36   /* CCK digital filter selection options */
+#define HNBU_BRMIN		0x33	/* 4 byte bootloader min resource mask */
+#define HNBU_BRMAX		0x34	/* 4 byte bootloader max resource mask */
+#define HNBU_PATCH		0x35	/* bootloader patch addr(2b) & data(4b) pair */
+#define HNBU_CCKFILTTYPE	0x36	/* CCK digital filter selection options */
 #define HNBU_OFDMPO5G		0x37	/* 4 * 3 = 12 byte 11a ofdm power offsets in rev 3 */
+#define HNBU_ELNA2G             0x38
+#define HNBU_ELNA5G             0x39
+#define HNBU_TEMPTHRESH 0x3A /* 2 bytes 
+					 * byte1 tempthresh
+					 * byte2 period(msb 4 bits) | hysterisis(lsb 4 bits)
+					 */
+#define HNBU_UUID 0x3B /* 16 Bytes Hex */
+
+#define HNBU_USBEPNUM		0x40	/* USB endpoint numbers */
+
+/* POWER PER RATE for SROM V9 */
+#define HNBU_CCKBW202GPO       0x41    /* 2 bytes each
+					 * CCK Power offsets for 20 MHz rates (11, 5.5, 2, 1Mbps) 
+					 * cckbw202gpo cckbw20ul2gpo
+					 */
+
+#define HNBU_LEGOFDMBW202GPO    0x42    /* 4 bytes each
+					 * OFDM power offsets for 20 MHz Legacy rates 
+					 * (54, 48, 36, 24, 18, 12, 9, 6 Mbps) 
+					 * legofdmbw202gpo  legofdmbw20ul2gpo 
+					 */
+
+#define HNBU_LEGOFDMBW205GPO   0x43    /* 4 bytes each
+					* 5G band: OFDM power offsets for 20 MHz Legacy rates 
+					* (54, 48, 36, 24, 18, 12, 9, 6 Mbps) 
+					* low subband : legofdmbw205glpo  legofdmbw20ul2glpo 
+					* mid subband :legofdmbw205gmpo  legofdmbw20ul2gmpo 
+					* high subband :legofdmbw205ghpo  legofdmbw20ul2ghpo
+					*/ 
+
+#define HNBU_MCS2GPO    0x44    /* 4 bytes each 
+				     * mcs 0-7  power-offset. LSB nibble: m0, MSB nibble: m7
+				     * mcsbw202gpo  mcsbw20ul2gpo mcsbw402gpo 
+				     */
+#define HNBU_MCS5GLPO    0x45    /* 4 bytes each 
+				     * 5G low subband mcs 0-7 power-offset.
+				     * LSB nibble: m0, MSB nibble: m7
+				     * mcsbw205glpo  mcsbw20ul5glpo mcsbw405glpo 
+				     */
+#define HNBU_MCS5GMPO    0x46    /* 4 bytes each 
+				     * 5G mid subband mcs 0-7 power-offset.
+				     * LSB nibble: m0, MSB nibble: m7
+				     * mcsbw205gmpo  mcsbw20ul5gmpo mcsbw405gmpo 
+				     */
+#define HNBU_MCS5GHPO    0x47    /* 4 bytes each 
+				     * 5G high subband mcs 0-7 power-offset.
+				     * LSB nibble: m0, MSB nibble: m7
+				     * mcsbw205ghpo  mcsbw20ul5ghpo mcsbw405ghpo 
+				     */
+#define HNBU_MCS32PO	0x48	/*  2 bytes total
+				 * mcs-32 power offset for each band/subband.
+				 * LSB nibble: 2G band, MSB nibble:
+				 * mcs322ghpo, mcs325gmpo, mcs325glpo, mcs322gpo
+				 */
+#define HNBU_LEG40DUPPO	0x49 /*  2 bytes total
+				* Additional power offset for Legacy Dup40 transmissions.
+				 * Applied in addition to legofdmbw20ulXpo, X=2g, 5gl, 5gm, or 5gh. 
+				 * LSB nibble: 2G band, MSB nibble: 5G band high subband.
+				 * leg40dup5ghpo, leg40dup5gmpo, leg40dup5glpo, leg40dup2gpo 
+				 */	
+
 #define HNBU_SROM3SWRGN		0x80	/* 78 bytes; srom rev 3 s/w region without crc8
 					 * plus extra info appended.
 					 */
 #define HNBU_RESERVED		0x81	/* Reserved for non-BRCM post-mfg additions */
 #define HNBU_CUSTOM1		0x82	/* 4 byte; For non-BRCM post-mfg additions */
 #define HNBU_CUSTOM2		0x83	/* Reserved; For non-BRCM post-mfg additions */
+#endif /* !defined(ESTA_POSTMOGRIFY_REMOVAL) */
 
 /* sbtmstatelow */
 #define SBTML_INT_ACK		0x40000		/* ack the sb interrupt */

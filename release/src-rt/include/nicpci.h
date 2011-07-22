@@ -1,15 +1,21 @@
 /*
  * BCM43XX PCI/E core sw API definitions.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: nicpci.h,v 13.3.2.5 2009/04/23 05:17:22 Exp $
+ * $Id: nicpci.h,v 13.10.12.3 2011-01-27 19:03:20 Exp $
  */
 
 #ifndef	_NICPCI_H
@@ -32,8 +38,13 @@
 #define pcicore_down(a, b)	do { } while (0)
 
 #define pcie_war_ovr_aspm_update(a, b)	do { } while (0)
+#define pcie_power_save_enable(a, b)	do { } while (0)
 
 #define pcicore_pcieserdesreg(a, b, c, d, e) (0)
+#define pcicore_pciereg(a, b, c, d, e) (0)
+#if defined(BCMDBG_DUMP)
+#define pcicore_dump_pcieregs(a, b) (0)
+#endif
 #ifdef BCMDBG
 #define pcie_lcreg(a, b, c) (0)
 #define pcicore_dump(a, b)	do { } while (0)
@@ -43,6 +54,8 @@
 #define pcicore_pmeen(a)	do { } while (0)
 #define pcicore_pmeclr(a)	do { } while (0)
 #define pcicore_pmestat(a)	(FALSE)
+#define pcie_set_request_size(pch, size) do { } while (0)
+#define pcie_get_request_size(pch) (0)
 #else
 struct sbpcieregs;
 
@@ -64,8 +77,16 @@ extern void pcicore_sleep(void *pch);
 extern void pcicore_down(void *pch, int state);
 
 extern void pcie_war_ovr_aspm_update(void *pch, uint8 aspm);
+extern void pcie_power_save_enable(void *pch, bool enable);
+
 extern uint32 pcicore_pcieserdesreg(void *pch, uint32 mdioslave, uint32 offset,
                                     uint32 mask, uint32 val);
+
+extern uint32 pcicore_pciereg(void *pch, uint32 offset, uint32 mask, uint32 val, uint type);
+
+#if defined(BCMDBG_DUMP)
+extern int pcicore_dump_pcieregs(void *pch, struct bcmstrbuf *b);
+#endif
 
 #ifdef BCMDBG
 extern void pcicore_dump(void *pch, struct bcmstrbuf *b);
@@ -75,6 +96,8 @@ extern bool pcicore_pmecap_fast(osl_t *osh);
 extern void pcicore_pmeen(void *pch);
 extern void pcicore_pmeclr(void *pch);
 extern bool pcicore_pmestat(void *pch);
+extern void pcie_set_request_size(void *pch, uint16 size);
+extern uint16 pcie_get_request_size(void *pch);
 #endif 
 
 #endif	/* _NICPCI_H */

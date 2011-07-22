@@ -1,20 +1,27 @@
 /*
  * CFE OS Independent Layer
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: cfe_osl.c,v 1.18.194.2 2009/07/14 20:29:48 Exp $
+ * $Id: cfe_osl.c,v 1.22 2009-07-10 22:43:40 Exp $
  */
 
 #include <typedefs.h>
 #include <bcmdefs.h>
 #include <osl.h>
+#include <bcmutils.h>
 
 /* Global ASSERT type */
 uint32 g_assert_type = 0;
@@ -121,9 +128,15 @@ osl_pktpull(struct lbuf *lb, uint bytes)
 }
 
 void *
-osl_dma_alloc_consistent(uint size, ulong *pap)
+osl_dma_alloc_consistent(uint size, uint16 align_bits, uint *alloced, ulong *pap)
 {
 	void *buf;
+	uint16 align = (1 << align_bits);
+
+	/* fix up the alignment requirements first */
+	if (!ISALIGNED(DMA_CONSISTENT_ALIGN, align))
+		size += align;
+	*alloced = size;
 
 	if (!(buf = KMALLOC(size, DMA_CONSISTENT_ALIGN)))
 		return NULL;

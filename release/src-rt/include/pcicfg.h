@@ -1,15 +1,21 @@
 /*
  * pcicfg.h: PCI configuration constants and structures.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: pcicfg.h,v 1.43.2.6 2009/03/11 05:27:38 Exp $
+ * $Id: pcicfg.h,v 1.50 2009-12-07 21:56:06 Exp $
  */
 
 #ifndef	_h_pcicfg_
@@ -103,29 +109,29 @@
 #define PCI_CAPPTR_PRESENT	0x0010
 
 typedef struct _pci_config_regs {
-	unsigned short	vendor;
-	unsigned short	device;
-	unsigned short	command;
-	unsigned short	status;
-	unsigned char	rev_id;
-	unsigned char	prog_if;
-	unsigned char	sub_class;
-	unsigned char	base_class;
-	unsigned char	cache_line_size;
-	unsigned char	latency_timer;
-	unsigned char	header_type;
-	unsigned char	bist;
-	unsigned long	base[PCI_BAR_MAX];
-	unsigned long	cardbus_cis;
-	unsigned short	subsys_vendor;
-	unsigned short	subsys_id;
-	unsigned long	baserom;
-	unsigned long	rsvd_a[PCR_RSVDA_MAX];
-	unsigned char	int_line;
-	unsigned char	int_pin;
-	unsigned char	min_gnt;
-	unsigned char	max_lat;
-	unsigned char	dev_dep[192];
+	uint16	vendor;
+	uint16	device;
+	uint16	command;
+	uint16	status;
+	uint8	rev_id;
+	uint8	prog_if;
+	uint8	sub_class;
+	uint8	base_class;
+	uint8	cache_line_size;
+	uint8	latency_timer;
+	uint8	header_type;
+	uint8	bist;
+	uint32	base[PCI_BAR_MAX];
+	uint32	cardbus_cis;
+	uint16	subsys_vendor;
+	uint16	subsys_id;
+	uint32	baserom;
+	uint32	rsvd_a[PCR_RSVDA_MAX];
+	uint8	int_line;
+	uint8	int_pin;
+	uint8	min_gnt;
+	uint8	max_lat;
+	uint8	dev_dep[192];
 } pci_config_regs;
 
 #define	SZPCR		(sizeof (pci_config_regs))
@@ -348,45 +354,45 @@ typedef enum {
 #define	PPB_RSVDD_MAX		8
 
 typedef struct _ppb_config_regs {
-	unsigned short	vendor;
-	unsigned short	device;
-	unsigned short	command;
-	unsigned short	status;
-	unsigned char	rev_id;
-	unsigned char	prog_if;
-	unsigned char	sub_class;
-	unsigned char	base_class;
-	unsigned char	cache_line_size;
-	unsigned char	latency_timer;
-	unsigned char	header_type;
-	unsigned char	bist;
-	unsigned long	rsvd_a[PPB_RSVDA_MAX];
-	unsigned char	prim_bus;
-	unsigned char	sec_bus;
-	unsigned char	sub_bus;
-	unsigned char	sec_lat;
-	unsigned char	io_base;
-	unsigned char	io_lim;
-	unsigned short	sec_status;
-	unsigned short	mem_base;
-	unsigned short	mem_lim;
-	unsigned short	pf_mem_base;
-	unsigned short	pf_mem_lim;
-	unsigned long	pf_mem_base_hi;
-	unsigned long	pf_mem_lim_hi;
-	unsigned short	io_base_hi;
-	unsigned short	io_lim_hi;
-	unsigned short	subsys_vendor;
-	unsigned short	subsys_id;
-	unsigned long	rsvd_b;
-	unsigned char	rsvd_c;
-	unsigned char	int_pin;
-	unsigned short	bridge_ctrl;
-	unsigned char	chip_ctrl;
-	unsigned char	diag_ctrl;
-	unsigned short	arb_ctrl;
-	unsigned long	rsvd_d[PPB_RSVDD_MAX];
-	unsigned char	dev_dep[192];
+	uint16	vendor;
+	uint16	device;
+	uint16	command;
+	uint16	status;
+	uint8	rev_id;
+	uint8	prog_if;
+	uint8	sub_class;
+	uint8	base_class;
+	uint8	cache_line_size;
+	uint8	latency_timer;
+	uint8	header_type;
+	uint8	bist;
+	uint32	rsvd_a[PPB_RSVDA_MAX];
+	uint8	prim_bus;
+	uint8	sec_bus;
+	uint8	sub_bus;
+	uint8	sec_lat;
+	uint8	io_base;
+	uint8	io_lim;
+	uint16	sec_status;
+	uint16	mem_base;
+	uint16	mem_lim;
+	uint16	pf_mem_base;
+	uint16	pf_mem_lim;
+	uint32	pf_mem_base_hi;
+	uint32	pf_mem_lim_hi;
+	uint16	io_base_hi;
+	uint16	io_lim_hi;
+	uint16	subsys_vendor;
+	uint16	subsys_id;
+	uint32	rsvd_b;
+	uint8	rsvd_c;
+	uint8	int_pin;
+	uint16	bridge_ctrl;
+	uint8	chip_ctrl;
+	uint8	diag_ctrl;
+	uint16	arb_ctrl;
+	uint32	rsvd_d[PPB_RSVDD_MAX];
+	uint8	dev_dep[192];
 } ppb_config_regs;
 
 
@@ -400,22 +406,22 @@ typedef struct _ppb_config_regs {
  * Valid for PCI and PCIE configurations
  */
 typedef struct _pciconfig_cap_msi {
-	unsigned char capID;
-	unsigned char nextptr;
-	unsigned short msgctrl;
-	unsigned int msgaddr;
+	uint8	capID;
+	uint8	nextptr;
+	uint16	msgctrl;
+	uint32	msgaddr;
 } pciconfig_cap_msi;
 
 /* Data structure to define the Power managment facility
  * Valid for PCI and PCIE configurations
  */
 typedef struct _pciconfig_cap_pwrmgmt {
-	unsigned char capID;
-	unsigned char nextptr;
-	unsigned short pme_cap;
-	unsigned short pme_sts_ctrl;
-	unsigned char pme_bridge_ext;
-	unsigned char data;
+	uint8	capID;
+	uint8	nextptr;
+	uint16	pme_cap;
+	uint16	pme_sts_ctrl;
+	uint8	pme_bridge_ext;
+	uint8	data;
 } pciconfig_cap_pwrmgmt;
 
 #define PME_CAP_PM_STATES (0x1f << 27)	/* Bits 31:27 states that can generate PME */
@@ -425,21 +431,21 @@ typedef struct _pciconfig_cap_pwrmgmt {
 
 /* Data structure to define the PCIE capability */
 typedef struct _pciconfig_cap_pcie {
-	unsigned char capID;
-	unsigned char nextptr;
-	unsigned short pcie_cap;
-	unsigned int dev_cap;
-	unsigned short dev_ctrl;
-	unsigned short dev_status;
-	unsigned int link_cap;
-	unsigned short link_ctrl;
-	unsigned short link_status;
-	unsigned int slot_cap;
-	unsigned short slot_ctrl;
-	unsigned short slot_status;
-	unsigned short root_ctrl;
-	unsigned short root_cap;
-	unsigned int root_status;
+	uint8	capID;
+	uint8	nextptr;
+	uint16	pcie_cap;
+	uint32	dev_cap;
+	uint16	dev_ctrl;
+	uint16	dev_status;
+	uint32	link_cap;
+	uint16	link_ctrl;
+	uint16	link_status;
+	uint32	slot_cap;
+	uint16	slot_ctrl;
+	uint16	slot_status;
+	uint16	root_ctrl;
+	uint16	root_cap;
+	uint32	root_status;
 } pciconfig_cap_pcie;
 
 /* PCIE Enhanced CAPABILITY DEFINES */
@@ -448,6 +454,16 @@ typedef struct _pciconfig_cap_pcie {
 #define PCIE_VC_CAPID		0x0002
 #define PCIE_DEVSNUM_CAPID	0x0003
 #define PCIE_PWRBUDGET_CAPID	0x0004
+
+/* PCIE Extended configuration */
+#define PCIE_ADV_CORR_ERR_MASK	0x114
+#define CORR_ERR_RE	(1 << 0) /* Receiver  */
+#define CORR_ERR_BT 	(1 << 6) /* Bad TLP  */
+#define CORR_ERR_BD	(1 << 7) /* Bad DLLP */
+#define CORR_ERR_RR	(1 << 8) /* REPLAY_NUM rollover */
+#define CORR_ERR_RT	(1 << 12) /* Reply timer timeout */
+#define ALL_CORR_ERRORS (CORR_ERR_RE | CORR_ERR_BT | CORR_ERR_BD | \
+			 CORR_ERR_RR | CORR_ERR_RT)
 
 /* PCIE Root Control Register bits (Host mode only) */
 #define	PCIE_RC_CORR_SERR_EN		0x0001
@@ -461,9 +477,9 @@ typedef struct _pciconfig_cap_pcie {
 
 /* Header to define the PCIE specific capabilities in the extended config space */
 typedef struct _pcie_enhanced_caphdr {
-	unsigned short capID;
-	unsigned short cap_ver : 4;
-	unsigned short next_ptr : 12;
+	uint16	capID;
+	uint16	cap_ver : 4;
+	uint16	next_ptr : 12;
 } pcie_enhanced_caphdr;
 
 
@@ -506,6 +522,9 @@ typedef struct _pcie_enhanced_caphdr {
 #define	PCI_16KB0_PCIREGS_OFFSET (8 * 1024)	/* bar0 + 8K accesses pci/pcie core registers */
 #define	PCI_16KB0_CCREGS_OFFSET	(12 * 1024)	/* bar0 + 12K accesses chipc core registers */
 #define PCI_16KBB0_WINSZ	(16 * 1024)	/* bar0 window size */
+
+/* On AI chips we have a second window to map DMP regs are mapped: */
+#define	PCI_16KB0_WIN2_OFFSET	(4 * 1024)	/* bar0 + 4K is "Window 2" */
 
 /* PCI_INT_STATUS */
 #define	PCI_SBIM_STATUS_SERR	0x4	/* backplane SBErr interrupt status */

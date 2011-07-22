@@ -1,7 +1,7 @@
 /*
  * ADMtek switch setup functions
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,9 +9,8 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: etc_adm.c,v 1.27 2008/03/28 20:10:52 Exp $
+ * $Id: etc_adm.c,v 1.27 2008-03-28 20:10:52 Exp $
  */
-
 #include <typedefs.h>
 #include <osl.h>
 #include <bcmutils.h>
