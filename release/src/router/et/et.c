@@ -1,7 +1,7 @@
 /*
  * et driver ioctl swiss army knife command.
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -28,12 +28,12 @@
 #include <stdlib.h>
 #include <etioctl.h>
 #include <proto/ethernet.h>
+#include <linux/types.h>
 
 typedef u_int64_t u64;
 typedef u_int32_t u32;
 typedef u_int16_t u16;
 typedef u_int8_t u8;
-#include <linux/types.h>
 #include <linux/sockios.h>
 #include <linux/ethtool.h>
 
@@ -166,7 +166,7 @@ main(int ac, char *av[])
 		if (ioctl(s, cmd, (caddr_t)&ifr) < 0)
 			syserr("etcphyrd");
 
-		printf("0x%04x\n", vecarg[1]);
+		printf("000x%04x\n", vecarg[1]);
 	} else if (strcmp(av[optind], "phywr") == 0) {
 		int cmd = -1;
 
@@ -196,7 +196,7 @@ main(int ac, char *av[])
 		if (ioctl(s, SIOCGETCROBORD, (caddr_t)&ifr) < 0)
 			syserr("etcrobord");
 
-		printf("0x%04x\n", vecarg[1]);
+		printf("000x%04x\n", vecarg[1]);
 	} else if (strcmp(av[optind], "robowr") == 0) {
 		if (ac != (optind + 4))
 			usage(av[0]);
@@ -208,6 +208,20 @@ main(int ac, char *av[])
 		ifr.ifr_data = (caddr_t) vecarg;
 		if (ioctl(s, SIOCSETCROBOWR, (caddr_t)&ifr) < 0)
 			syserr("etcrobowr");
+#ifdef IOV_ET_CLEAR_DUMP
+	} else if (strcmp(av[optind], "clear_dump") == 0) {
+		et_var_t var;
+
+		if ((ac > (optind + 2)))
+			usage(av[0]);
+
+		var.set = 1;
+		var.cmd = IOV_ET_CLEAR_DUMP;
+		var.buf = NULL;
+		ifr.ifr_data = (caddr_t) &var;
+		if (ioctl(s, SIOCSETGETVAR, (caddr_t)&ifr) < 0)
+			syserr("etccleardump");
+#endif
 	} else {
 #ifdef IOV_ET_POWER_SAVE_MODE
 		if (strcmp(av[optind], "switch_mode") == 0) {
@@ -271,6 +285,7 @@ usage(char *av0)
 		"\tdown\n"
 		"\tloop <0 or 1>\n"
 		"\tdump\n"
+		"\tclear_dump\n"
 		"\tmsglevel <bitvec> (error=1, trace=2, prhdr=4, prpkt=8)\n"
 		"\tpromisc <0 or 1>\n"
 		"\tqos <0 or 1>\n"
