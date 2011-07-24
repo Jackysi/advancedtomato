@@ -99,8 +99,7 @@ void start_usb(void)
 			modprobe("ledtrig-usbdev");
 			modprobe("leds-usb");
 			sprintf(param, "%d", i);
-			f_write_string("/sys/class/leds/usb-led/gpio_pin", param, 0, 0);
-			f_write_string("/sys/class/leds/usb-led/device_name", "1-1", 0, 0);
+			f_write_string("/proc/leds-usb/gpio_pin", param, 0, 0);
 		}
 #endif
 		if (nvram_get_int("usb_storage")) {
@@ -777,6 +776,26 @@ void remove_storage_main(int shutdn)
  * the unmounts.
  *******/
 
+#ifdef LINUX26
+static inline void usbled_proc(char *device, int add)
+{
+	char *p;
+	char param[32];
+
+	if (do_led(LED_USB, LED_PROBE) != 255) {
+		strncpy(param, device, sizeof(param));
+		if ((p = strchr(param, ':')) != NULL)
+			*p = 0;
+
+		/* verify if we need to ignore this device (i.e. an internal SD/MMC slot ) */
+		p = nvram_safe_get("usb_noled");
+		if (strcmp(p, param) == 0)
+			return;
+
+		f_write_string(add ? "/proc/leds-usb/add" : "/proc/leds-usb/remove", param, 0, 0);
+	}
+}
+#endif
 
 /* Plugging or removing usb device
  *
@@ -937,6 +956,9 @@ void hotplug_usb(void)
 	}
 #endif
 	else if (strncmp(interface ? : "", "8/", 2) == 0) {	/* usb storage */
+#ifdef LINUX26
+		usbled_proc(device, add);
+#endif
 		run_nvscript("script_usbhotplug", NULL, 2);
 #ifndef LINUX26
 		hotplug_usb_storage_device(host, add, (add ? EFH_HP_ADD : EFH_HP_REMOVE) | (host < 0 ? EFH_HUNKNOWN : 0));
@@ -945,6 +967,10 @@ void hotplug_usb(void)
 	else {	/* It's some other type of USB device, not storage. */
 #ifdef LINUX26
 		if (is_block) return;
+#endif
+#ifdef LINUX26
+		if (strncmp(interface ? : "", "7/", 2) == 0)	/* printer */
+			usbled_proc(device, add);
 #endif
 		/* Do nothing.  The user's hotplug script must do it all. */
 		run_nvscript("script_usbhotplug", NULL, 2);
