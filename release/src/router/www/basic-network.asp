@@ -25,19 +25,12 @@
 #lan-grid .co4,
 #lan-grid .co5,
 #lan-grid .co6,
-#lan-grid .co7,
-#lan-grid .co8 {
+#lan-grid .co7 {
   text-align: center;
 }
 
 #lan-grid .centered {
   text-align: center;
-}
-#lan-grid .footer {
-	text-align: right;
-}
-#lan-grid-add {
-	width: 100px;
 }
 </style>
 
@@ -45,10 +38,10 @@
 
 <script type='text/javascript' src='md5.js'></script>
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
+<script type='text/javascript' src='interfaces.js'></script>
 <script type='text/javascript'>
 //	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,ppp_defgw,wl_security_mode,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype,lan_ifname,lan_stp,lan1_ifname,lan1_ipaddr,lan1_netmask,lan1_proto,lan1_stp,dhcp1_start,dhcp1_num,dhcp1_lease,lan2_ifname,lan2_ipaddr,lan2_netmask,lan2_proto,lan2_stp,dhcp2_start,dhcp2_num,dhcp2_lease,lan3_ifname,lan3_ipaddr,lan3_netmask,lan3_proto,lan3_stp,dhcp3_start,dhcp3_num,dhcp3_lease"); %>
 
-MAX_BRIDGE_ID=3;
 var lg = new TomatoGrid();
 lg.setup = function() {
 	this.init('lan-grid', '', 4, [
@@ -61,17 +54,21 @@ lg.setup = function() {
 	{ type: 'text', maxlen: 6, size: 8 }] );
 	this.headerSet(['Bridge', 'STP', 'IP Address', 'Netmask', 'DHCP', 'IP&nbsp;Range&nbsp;<i>(first/last)</i>', 'Lease&nbsp;Time&nbsp;<i>(mins)</i>']);
 
+	var numBridges = 0;
 	for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
 		var j = (i == 0) ? '' : i.toString();
 		if (nvram['lan' + j + '_ifname'].length > 0) {
-		lg.insertData(-1, [ i.toString(),
-						nvram['lan' + j + '_stp'],
-						nvram['lan' + j + '_ipaddr'],
-						nvram['lan' + j + '_netmask'],
-						(nvram['lan' + j + '_proto'] == 'dhcp') ? '1' : '0',
-						(nvram['dhcp' + j + '_start'] != '') ? fixIP(getNetwork(nvram['lan' + j + '_ipaddr'], nvram['lan' + j + '_netmask']) + nvram['dhcp' + j + '_start']) : '',
-						(nvram['dhcp' + j + '_start'] != '') ? parseInt(nvram['dhcp' + j + '_start']) + parseInt(nvram['dhcp' + j + '_num']) : '',
-						(nvram['dhcp' + j + '_start'] != '') ? nvram['dhcp' + j + '_lease'] : '' ] ) ;
+			lg.insertData(-1, [ 
+				i.toString(),
+				nvram['lan' + j + '_stp'],
+				nvram['lan' + j + '_ipaddr'],
+				nvram['lan' + j + '_netmask'],
+				(nvram['lan' + j + '_proto'] == 'dhcp') ? '1' : '0',
+				(nvram['dhcp' + j + '_start'] != '') ? fixIP(getNetwork(nvram['lan' + j + '_ipaddr'], nvram['lan' + j + '_netmask']) + nvram['dhcp' + j + '_start']) : '',
+				(nvram['dhcp' + j + '_start'] != '') ? parseInt(nvram['dhcp' + j + '_start']) + parseInt(nvram['dhcp' + j + '_num']) : '',
+				(nvram['dhcp' + j + '_start'] != '') ? nvram['dhcp' + j + '_lease'] : ''
+			] ) ;
+			numBridges++;
 		}
 	}
 	lg.canDelete = false;
@@ -79,12 +76,13 @@ lg.setup = function() {
 	elem.removeClass(lg.header.cells[lg.sortColumn], 'sortasc', 'sortdes');
 	lg.showNewEditor();
 	lg.resetNewEditor();
-
 }
-
+/* REMOVE-BEGIN
+// moved to interfaces.js
 function getNetwork(ipaddress, netmask) {
 	return fixIP(ntoa(aton(ipaddress) & aton(netmask)));
 }
+REMOVE-END */
 
 lg.dataToView = function(data) {
 	return ['br' + data[0],
@@ -103,7 +101,6 @@ lg.dataToFieldValues = function (data) {
 	data[3].toString(),
 	(data[4].toString() == '1') ? 'checked' : '',
 	data[5].toString(),
-//	data[6].toString(),
 	(data[6] != '') ? fixIP(getNetwork(data[2], data[3]) + parseInt(data[6])) : '',
 	data[7].toString() ];
 }
@@ -117,20 +114,24 @@ lg.fieldValuesToData = function(row) {
 	f[3].value,
 	f[4].checked ? 1 : 0,
 	f[5].value,
-//	f[6].value,
 	(g[3] != null) ? g[3] : '',
 	f[7].value ];
 }
 
 lg.resetNewEditor = function() {
 	var f = fields.getAll(this.newEditor);
-	if (f[0].selectedIndex < 0) 
-		f[0].selectedIndex=0;
-	while(this.countBridge(f[0].selectedIndex) > 0)
-		f[0].selectedIndex = (f[0].selectedIndex%(MAX_BRIDGE_ID+1))+1;
+	f[0].selectedIndex=0;
+	var t = MAX_BRIDGE_ID;
+	while((this.countBridge(f[0].selectedIndex) > 0) && (t > 0)) {
+		f[0].selectedIndex = (f[0].selectedIndex%(MAX_BRIDGE_ID))+1;
+		t--;
+	}
+	for(var j=0; j<= MAX_BRIDGE_ID ; j++) {
+		f[0].options[j].disabled = (this.countBridge(j) > 0);
+	}
 	f[1].checked = 0;
-	f[2].value = '0.0.0.0';
-	f[3].disabled = 1;
+	f[2].value = '';
+	f[3].value = '';
 	f[4].checked = 0;
 	f[4].disabled = 1;
 	f[5].disabled = 1;
@@ -181,8 +182,8 @@ lg.onOK = function() {
 	this.showSource();
 	this.disableNewEditor(false);
 
+	this.resort();
 	this.resetNewEditor();
-this.resort();
 }
 
 lg.onDelete = function() {
@@ -193,7 +194,6 @@ lg.onDelete = function() {
 
 	this.resetNewEditor();
 }
-
 
 lg.countElem = function(f, v) {
 	var data = this.getAllData();
@@ -211,9 +211,13 @@ lg.countBridge = function (v) {
 lg.verifyFields = function(row, quiet)
 {
 	var ok=1;
-	var f, s, i;
+	var f; //, s, i;
 
 	f = fields.getAll(row);
+
+	for(var j=0; j<= MAX_BRIDGE_ID ; j++) {
+		f[0].options[j].disabled = (this.countBridge(j) > 0);
+	}
 
 	if(this.countBridge(f[0].selectedIndex) > 0) {
 		ferror.set(f[0], 'Cannot add another entry for bridge br' + f[0].selectedIndex, quiet);
@@ -221,16 +225,15 @@ lg.verifyFields = function(row, quiet)
 	} else {
 		ferror.clear(f[0]);
 	}
-// valid IP address?
-	if(!v_ipz(f[2], quiet || !ok)) ok = 0;
-// if we have a proper IP defined: dhcp, netmask
+// valid IP address? 0.0.0.0 is NOT a valid IP address for our intents/purposes!
+	if(!v_ip(f[2], quiet || !ok)) 
+		ok = 0;
+// if we have properly defined IP+netmask, dhcp
 	if ((f[2].value != '') && (f[2].value != '0.0.0.0')) {
-		f[3].disabled = 0;
 		f[4].disabled = 0;
-		if(!v_netmask(f[3], quiet || !ok)) ok = 0;
+		if(!v_netmask(f[3], quiet || !ok)) 
+			ok = 0;
 	} else {
-		f[3].value = '';
-		f[3].disabled = 1;
 		f[4].checked = 0;
 		f[4].disabled = 1;
 	}
@@ -239,28 +242,42 @@ lg.verifyFields = function(row, quiet)
 		f[5].disabled = 0;
 		f[6].disabled = 0;
 		f[7].disabled = 0;
-// lease time
-		if(!v_mins(f[7], quiet || !ok, 1, 10080)) ok = 0;
-// first IP 
-		if ((aton(f[5].value) & aton(f[3].value)) != (aton(f[2].value) & aton(f[3].value))) {
-			ferror.set(f[5], 'Invalid IP address or subnet mask', quiet || !ok);
-			ok = 0;
+// first/last IP still unset?
+		if (f[5].value == '') {
+			f[5].value = f[2].value.split('.').splice(0, 3).join('.') + '.' + '100'; // from nvram/defaults.c
+		}
+		if (f[6].value == '') {
+			f[6].value = f[2].value.split('.').splice(0, 3).join('.') + '.' + '150'; // from nvram/defaults.c
+		}
+// first IP
+		if (((aton(f[5].value) & aton(f[3].value)) != (aton(f[2].value) & aton(f[3].value))) && (f[2].value != f[5].value)) {
+			ferror.set(f[5], 'Invalid first IP address or subnet mask', quiet || !ok);
+			return 0;
 		} else {
 			ferror.clear(f[5]);
 		}
 // last IP
-		if ((aton(f[6].value) & aton(f[3].value)) != (aton(f[2].value) & aton(f[3].value))) {
-			ferror.set(f[6], 'Invalid IP address or subnet mask', quiet || !ok);
-			ok = 0;
+		if (((aton(f[6].value) & aton(f[3].value)) != (aton(f[2].value) & aton(f[3].value))) && (f[2].value != f[5].value)) {
+			ferror.set(f[6], 'Invalid last IP address or subnet mask', quiet || !ok);
+			return 0;
 		} else {
 			ferror.clear(f[6]);
 		}
-
+// validate range
 		if ((aton(f[6].value) - aton(f[5].value)) < 1) {
-			ferror.set(f[6], 'Invalid final IP address', quiet || !ok);
+			var s = 'Invalid first or last IP address';
+			ferror.set(f[5], s, quiet || !ok);
+			ferror.set(f[6], s, quiet || !ok);
+			return 0;
 		} else {
+			ferror.clear(f[5]);
 			ferror.clear(f[6]);
 		}
+// lease time
+		if (parseInt(f[7].value*1) == 0)
+			f[7].value = 1440; // from nvram/defaults.c
+		if(!v_mins(f[7], quiet || !ok, 1, 10080)) 
+			ok = 0;
 
 	} else {
 		f[5].disabled = 1;
@@ -287,13 +304,13 @@ W('</style>');
 var xob = null;
 var refresher = [];
 var nphy = features('11n');
-/*
+/* REMOVE-BEGIN
 if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
 	var x = nvram.lan_ipaddr.split('.').splice(0, 3).join('.') + '.';
 	nvram.dhcpd_startip = x + nvram.dhcp_start;
 	nvram.dhcpd_endip = x + ((nvram.dhcp_start * 1) + (nvram.dhcp_num * 1) - 1);
 }
-*/
+REMOVE-END */
 var ghz = [];
 var bands = [];
 var nm_loaded = [], ch_loaded = [], max_channel = [];
@@ -412,7 +429,7 @@ function refreshChannels(uidx)
 	bw = (e.value + '' == '' ? eval('nvram.wl'+u+'_nbw_cap') : e.value) == '0' ? '20' : '40';
 
 	refresher[uidx].onError = function(ex) { alert(ex); refresher[uidx] = null; reloadPage(); }
-	refresher[uidx].post('update.cgi', 'exec=wlchannels&arg0=' + u + '&arg1=' + (nphy ? '1' : '0') +
+	refresher[uidx].post('/update.cgi', 'exec=wlchannels&arg0=' + u + '&arg1=' + (nphy ? '1' : '0') +
 		'&arg2=' + bw + '&arg3=' + selectedBand(uidx) + '&arg4=' + sb);
 }
 
@@ -493,7 +510,7 @@ function scan()
 	}
 
 	spin(1, unit);
-	xob.post('update.cgi', 'exec=wlscan&arg0='+unit);
+	xob.post('/update.cgi', 'exec=wlscan&arg0='+unit);
 }
 
 function scanButton(u)
@@ -625,16 +642,18 @@ function verifyFields(focused, quiet)
 		_f_wan_mtu: 1,
 		_f_wan_islan: 0,
 
+/* REMOVE-BEGIN
 //		_dhcp_lease: 1,
 //		_f_dhcpd_enable: 1,
 //		_dhcpd_startip: 1,
 //		_dhcpd_endip: 1,
+//		_lan_ipaddr: 1,
+//		_lan_netmask: 1,
+REMOVE-END */
 		_f_dns_1: 1,
 		_f_dns_2: 1,
 		_f_dns_3: 1,
 		_lan_gateway: 1,
-//		_lan_ipaddr: 1,
-//		_lan_netmask: 1,
 		_wan_wins: 1
 	};
 
@@ -920,12 +939,16 @@ REMOVE-END */
 	} // for each wl_iface
 
 	vis._ppp_passwd = vis._ppp_username;
+/* REMOVE-BEGIN
 //	vis._dhcpd_startip = vis._dhcpd_endip = vis._wan_wins = vis._dhcp_lease;
+REMOVE-END */
 
 	for (a in vis) {
 		b = E(a);
 		c = vis[a];
+/* REMOVE-BEGIN
 //		if (b != null)
+REMOVE-END */
 			b.disabled = (c != 1);
 		PR(b).style.display = c ? '' : 'none';
 	}
@@ -1021,7 +1044,9 @@ REMOVE-END */
 		}
 
 	// IP address
+/* REMOVE-BEGIN
 //	a = ['_wan_gateway','_wan_ipaddr','_lan_ipaddr', '_dhcpd_startip', '_dhcpd_endip'];
+REMOVE-END */
 	a = ['_wan_gateway','_wan_ipaddr'];
 	for (i = a.length - 1; i >= 0; --i)
 		if ((vis[a[i]]) && (!v_ip(a[i], quiet || !ok))) ok = 0;
@@ -1032,14 +1057,18 @@ REMOVE-END */
 		if ((vis[a[i]]) && (!v_dns(a[i], quiet || !ok))) ok = 0;
 
 	// netmask
+/* REMOVE-BEGIN
 //	a = ['_wan_netmask','_lan_netmask'];
+REMOVE-END */
 	a = ['_wan_netmask'];
 	for (i = a.length - 1; i >= 0; --i)
 		if ((vis[a[i]]) && (!v_netmask(a[i], quiet || !ok))) ok = 0;
 
 	// range
+/* REMOVE-BEGIN
 //	a = [['_ppp_idletime', 3, 1440],['_ppp_redialperiod', 1, 86400],['_f_wan_mtu', 576, 1500],
 //		 ['_dhcp_lease', 1, 10080]];
+REMOVE-END */
 	a = [['_ppp_idletime', 3, 1440],['_ppp_redialperiod', 1, 86400],['_f_wan_mtu', 576, 1500]];
 	for (i = a.length - 1; i >= 0; --i) {
 		v = a[i];
@@ -1095,7 +1124,7 @@ REMOVE-END */
 			}
 		}
 	}
-/*
+/* REMOVE-BEGIN
 	a = E('_dhcpd_startip');
 	b = E('_dhcpd_endip');
 	ferror.clear(a);
@@ -1124,7 +1153,8 @@ REMOVE-END */
 
 		elem.setInnerHTML('dhcp_count', '(' + ((aton(b.value) - aton(a.value)) + 1) + ')');
 	}
-*/
+REMOVE-END */
+
 	return ok;
 }
 
@@ -1146,7 +1176,9 @@ function save()
 
 	var fom = E('_fom');
 
-//	fom.lan_proto.value = fom.f_dhcpd_enable.checked ? 'dhcp' : 'static';
+/* REMOVE-BEGIN
+	fom.lan_proto.value = fom.f_dhcpd_enable.checked ? 'dhcp' : 'static';
+REMOVE-END */
 
 	fom.wan_mtu.value = fom.f_wan_mtu.value;
 	fom.wan_mtu.disabled = fom.f_wan_mtu.disabled;
@@ -1292,7 +1324,8 @@ function save()
 		fom['dhcp' + j + '_lease'].value = (d[i][4] != '0') ? d[i][7] : '';
 		fom['dhcpd' + j + '_startip'].value = (d[i][4] != '0') ? d[i][5] : '';
 		fom['dhcpd' + j + '_endip'].value = (d[i][4] != '0') ? fixIP(getNetwork(d[i][2], d[i][3]) + d[i][6]) : '';
-/*
+
+/* REMOVE-BEGIN
 alert('lan' + j + '_ifname=' + fom['lan' + j + '_ifname'].value + 
 	', lan' + j + '_stp=' + fom['lan' + j + '_stp'].value + 
 	', lan' + j + '_ipaddr=' + fom['lan' + j + '_ipaddr'].value + 
@@ -1303,7 +1336,7 @@ alert('lan' + j + '_ifname=' + fom['lan' + j + '_ifname'].value +
 	', dhcp' + j + '_lease=' + fom['dhcp' + j + '_lease'].value + 
 	', dhcpd' + j + '_startip=' + fom['dhcpd' + j + '_startip'].value + 
 	', dhcpd' + j + '_endip=' + fom['dhcpd' + j + '_endip'].value);
-*/
+REMOVE-END */
 	}
 
 	var e = E('footer-msg');
@@ -1319,8 +1352,10 @@ alert('lan' + j + '_ifname=' + fom['lan' + j + '_ifname'].value +
 		return;
 	}
 
+/* REMOVE-BEGIN
 //	if ((nvram.lan_ipaddr != fom.lan_ipaddr.value) || (nvram.lan1_ipaddr != fom.lan1_ipaddr.value) ||
 //		(nvram.lan2_ipaddr != fom.lan2_ipaddr.value) || (nvram.lan3_ipaddr != fom.lan3_ipaddr.value)){
+REMOVE-END */
 	if (nvram.lan_ipaddr != fom.lan_ipaddr.value) {
 		fom._moveip.value = 1;
 		form.submit(fom);
@@ -1419,15 +1454,18 @@ createFieldTable('', [
 	<script type='text/javascript'>lg.setup();</script>
 <script type='text/javascript'>
 dns = nvram.wan_dns.split(/\s+/);
-ipp = nvram.lan_ipaddr.split('.').splice(0, 3).join('.');
+//ipp = nvram.lan_ipaddr.split('.').splice(0, 3).join('.');
 
 createFieldTable('', [
+/* REMOVE-BEGIN
 //	{ title: 'Router IP Address', name: 'lan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.lan_ipaddr },
 //	{ title: 'Subnet Mask', name: 'lan_netmask', type: 'text', maxlen: 15, size: 17, value: nvram.lan_netmask },
+REMOVE-END */
 	{ title: 'Default Gateway', name: 'lan_gateway', type: 'text', maxlen: 15, size: 17, value: nvram.lan_gateway },
 	{ title: 'Static DNS', suffix: '&nbsp; <i>(IP:port)</i>', name: 'f_dns_1', type: 'text', maxlen: 21, size: 25, value: dns[0] || '0.0.0.0' },
 	{ title: '', name: 'f_dns_2', type: 'text', maxlen: 21, size: 25, value: dns[1] || '0.0.0.0' },
 	{ title: '', name: 'f_dns_3', type: 'text', maxlen: 21, size: 25, value: dns[2] || '0.0.0.0' },
+/* REMOVE-BEGIN
 //	{ title: 'DHCP Server', name: 'f_dhcpd_enable', type: 'checkbox', value: (nvram.lan_proto == 'dhcp') },
 //	{ title: 'IP Address Range', indent: 2, multi: [
 //		{ name: 'dhcpd_startip', type: 'text', maxlen: 15, size: 17, value: nvram.dhcpd_startip, suffix: ' - ' },
@@ -1437,6 +1475,7 @@ createFieldTable('', [
 //	{ title: 'Lease Time', indent: 2, name: 'dhcp_lease', type: 'text', maxlen: 6, size: 8, suffix: ' <i>(minutes)</i>',
 //		value: (nvram.dhcp_lease > 0) ? nvram.dhcp_lease : 1440 },
 //	{ title: 'WINS <i>(for DHCP)</i>', indent: 2, name: 'wan_wins', type: 'text', maxlen: 15, size: 17, value: nvram.wan_wins }
+REMOVE-END */
 	{ title: 'WINS <i>(for DHCP)</i>', name: 'wan_wins', type: 'text', maxlen: 15, size: 17, value: nvram.wan_wins }
 ]);
 </script>
