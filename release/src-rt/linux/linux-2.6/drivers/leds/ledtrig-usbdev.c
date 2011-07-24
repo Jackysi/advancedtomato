@@ -82,11 +82,10 @@ static ssize_t usbdev_trig_name_show(struct class_device *dev,
 	return strlen(buf) + 1;
 }
 
-static ssize_t usbdev_trig_name_store(struct class_device *dev,
-				      const char *buf,
-				      size_t size)
+ssize_t usbdev_trig_set_name(struct led_classdev *led_cdev,
+			     const char *buf,
+			     size_t size)
 {
-	struct led_classdev *led_cdev = class_get_devdata(dev);
 	struct usbdev_trig_data *td = led_cdev->trigger_data;
 
 	if (size < 0 || size >= DEV_BUS_ID_SIZE)
@@ -103,11 +102,12 @@ static ssize_t usbdev_trig_name_store(struct class_device *dev,
 
 		/* check for existing device to update from */
 		usb_dev = usb_find_device_by_name(td->device_name);
-		if (usb_dev) {
-			if (td->usb_dev)
-				usb_put_dev(td->usb_dev);
 
-			td->usb_dev = usb_dev;
+		if (td->usb_dev)
+			usb_put_dev(td->usb_dev);
+		td->usb_dev = usb_dev;
+
+		if (usb_dev) {
 			td->last_urbnum = atomic_read(&usb_dev->urbnum);
 		}
 
@@ -117,6 +117,16 @@ static ssize_t usbdev_trig_name_store(struct class_device *dev,
 
 	write_unlock(&td->lock);
 	return size;
+}
+EXPORT_SYMBOL_GPL(usbdev_trig_set_name);
+
+static ssize_t usbdev_trig_name_store(struct class_device *dev,
+				      const char *buf,
+				      size_t size)
+{
+	struct led_classdev *led_cdev = class_get_devdata(dev);
+
+	return usbdev_trig_set_name(led_cdev, buf, size);
 }
 
 static CLASS_DEVICE_ATTR(device_name, 0644, usbdev_trig_name_show,
