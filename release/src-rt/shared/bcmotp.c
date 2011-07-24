@@ -17,6 +17,7 @@
 #include <osl.h>
 #include <bcmdevs.h>
 #include <bcmutils.h>
+#include <bcmnvram.h>
 #include <siutils.h>
 #include <bcmendian.h>
 #include <hndsoc.h>
@@ -318,10 +319,17 @@ BCMNMIATTACHFN(_ipxotp_init)(otpinfo_t *oi, chipcregs_t *cc)
 		(CHIPID(oi->sih->chip) == BCM43225_CHIP_ID) ||
 		(CHIPID(oi->sih->chip) == BCM43421_CHIP_ID) ||
 	0) {
-		uint32 p_bits;
-		p_bits = (ipxotp_otpr(oi, cc, oi->otpgu_base + OTPGU_P_OFF) & OTPGU_P_MSK)
-			>> OTPGU_P_SHIFT;
-		oi->status |= (p_bits << OTPS_GUP_SHIFT);
+		if (nvram_match("boardtype", "0xa4cf") && nvram_match("boardrev", "0x1102")) {
+			// dd-wrt fix:
+			// skip this code on Belkin f7d4302 - crashes 2nd radio, reason unknown
+			printk(KERN_EMERG "Belkin f7d4302\n");
+		}
+		else {
+			uint32 p_bits;
+			p_bits = (ipxotp_otpr(oi, cc, oi->otpgu_base + OTPGU_P_OFF) & OTPGU_P_MSK)
+				>> OTPGU_P_SHIFT;
+			oi->status |= (p_bits << OTPS_GUP_SHIFT);
+		}
 	}
 	OTP_DBG(("%s: status 0x%x\n", __FUNCTION__, oi->status));
 
