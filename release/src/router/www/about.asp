@@ -112,7 +112,7 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovp
 <!-- VPN-END -->
 <b>
 <!-- BT-BEGIN -->
-Transmission 2.32 integration and GUI<br>
+Transmission 2.33 integration and GUI<br>
 Copyright (C) 2007-2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <!-- BT-END -->
