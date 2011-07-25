@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-mgr.h 12254 2011-03-29 15:23:54Z jordan $
+ * $Id: peer-mgr.h 12539 2011-07-10 15:24:51Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -163,7 +163,8 @@ void tr_peerMgrGetNextRequests( tr_torrent          * torrent,
                                 tr_peer             * peer,
                                 int                   numwant,
                                 tr_block_index_t    * setme,
-                                int                 * numgot );
+                                int                 * numgot,
+                                bool                  get_intervals );
 
 bool tr_peerMgrDidPeerRequest( const tr_torrent  * torrent,
                                const tr_peer     * peer,

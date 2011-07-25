@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: StatusBarController.m 12152 2011-03-13 14:38:49Z jordan $
+ * $Id: StatusBarController.m 12534 2011-07-04 20:51:54Z livings124 $
  * 
  * Copyright (c) 2011 Transmission authors and contributors
  *
@@ -70,6 +70,7 @@ typedef enum
     [[[fStatusButton menu] itemWithTag: STATUS_TRANSFER_SESSION_TAG] setTitle: NSLocalizedString(@"Session Transfer",
         "Status Bar -> status menu")];
     
+    [[fStatusButton cell] setBackgroundStyle: NSBackgroundStyleRaised];
     [[fTotalDLField cell] setBackgroundStyle: NSBackgroundStyleRaised];
     [[fTotalULField cell] setBackgroundStyle: NSBackgroundStyleRaised];
     

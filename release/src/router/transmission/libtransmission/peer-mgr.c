@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-mgr.c 12426 2011-05-10 14:41:59Z jordan $
+ * $Id: peer-mgr.c 12539 2011-07-10 15:24:51Z jordan $
  */
 
 #include <assert.h>
@@ -1304,7 +1304,8 @@ tr_peerMgrGetNextRequests( tr_torrent           * tor,
                            tr_peer              * peer,
                            int                    numwant,
                            tr_block_index_t     * setme,
-                           int                  * numgot )
+                           int                  * numgot,
+                           bool                   get_intervals )
 {
     int i;
     int got;
@@ -1348,7 +1349,7 @@ tr_peerMgrGetNextRequests( tr_torrent           * tor,
 
             tr_torGetPieceBlockRange( tor, p->index, &first, &last );
 
-            for( b=first; b<=last && got<numwant; ++b )
+            for( b=first; b<=last && (got<numwant || (get_intervals && setme[2*got-1] == b-1)); ++b )
             {
                 int peerCount;
                 tr_peer ** peers;
@@ -1383,7 +1384,20 @@ tr_peerMgrGetNextRequests( tr_torrent           * tor,
                 }
 
                 /* update the caller's table */
-                setme[got++] = b;
+                if( !get_intervals ) {
+                    setme[got++] = b;
+                }
+                /* if intervals are requested two array entries are necessarry:
+                   one for the interval's starting block and one for its end block */
+                else if( got && setme[2 * got - 1] == b - 1 && b != first ) {
+                    /* expand the last interval */
+                    ++setme[2 * got - 1];
+                }
+                else {
+                    /* begin a new interval */
+                    setme[2 * got] = setme[2 * got + 1] = b;
+                    ++got;
+                }
 
                 /* update our own tables */
                 requestListAdd( t, b, peer );
@@ -2557,7 +2571,7 @@ peerIsSeed( const tr_peer * peer )
     return false;
 }
 
-/* count how many pieces we want that connected peers have */
+/* count how many bytes we want that connected peers have */
 uint64_t
 tr_peerMgrGetDesiredAvailable( const tr_torrent * tor )
 {
@@ -2594,6 +2608,7 @@ tr_peerMgrGetDesiredAvailable( const tr_torrent * tor )
         if( !tor->info.pieces[i].dnd && ( t->pieceReplication[i] > 0 ) )
             desiredAvailable += tr_cpMissingBytesInPiece( &t->tor->completion, i );
 
+    assert( desiredAvailable <= tor->info.totalSize );
     return desiredAvailable;
 }
 

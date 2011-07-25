@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Controller.h 12118 2011-03-10 01:36:51Z livings124 $
+ * $Id: Controller.h 12556 2011-07-18 00:48:00Z livings124 $
  *
  * Copyright (c) 2005-2011 Transmission authors and contributors
  *
@@ -237,6 +237,9 @@ typedef enum
 
 - (void) setWindowSizeToFit;
 - (NSRect) sizedWindowFrame;
+- (void) updateForAutoSize;
+- (void) setWindowMinMaxToCurrent;
+- (CGFloat) minWindowContentSizeAllowed;
 
 - (void) updateForExpandCollape;
 

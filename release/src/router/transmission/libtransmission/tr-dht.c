@@ -19,7 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * $Id: tr-dht.c 12270 2011-03-31 03:37:24Z jordan $
+ * $Id: tr-dht.c 12543 2011-07-12 12:26:24Z jordan $
  *
  */
 
@@ -345,8 +345,10 @@ tr_dhtUninit(tr_session *ss)
 
     tr_ndbg( "DHT", "Uninitializing DHT" );
 
-    event_free( dht_timer );
-    dht_timer = NULL;
+    if( dht_timer != NULL ) {
+        event_free( dht_timer );
+        dht_timer = NULL;
+    }
 
     /* Since we only save known good nodes, avoid erasing older data if we
        don't know enough nodes. */

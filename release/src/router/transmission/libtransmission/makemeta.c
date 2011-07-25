@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: makemeta.c 12513 2011-06-24 19:30:25Z jordan $
+ * $Id: makemeta.c 12545 2011-07-13 03:23:37Z jordan $
  */
 
 #include <assert.h>
@@ -29,7 +29,7 @@
 #include "session.h"
 #include "bencode.h"
 #include "makemeta.h"
-#include "platform.h" /* threads, locks, TR_PATH_MAX */
+#include "platform.h" /* threads, locks */
 #include "utils.h" /* buildpath */
 #include "version.h"
 

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: utils.c 12383 2011-04-27 16:12:17Z jordan $
+ * $Id: utils.c 12551 2011-07-17 14:15:02Z jordan $
  */
 
 #ifdef HAVE_MEMMEM
@@ -58,7 +58,7 @@
 #include "ConvertUTF.h"
 #include "list.h"
 #include "utils.h"
-#include "platform.h" /* tr_lockLock() */
+#include "platform.h" /* tr_lockLock(), TR_PATH_MAX */
 #include "version.h"
 
 
@@ -1730,7 +1730,7 @@ tr_formatter_speed_KBps( char * buf, double KBps, size_t buflen )
     double speed = KBps;
 
     if( speed <= 999.95 ) /* 0.0 KB to 999.9 KB */
-        tr_snprintf( buf, buflen, "%.2f %s", speed, speed_units.units[TR_FMT_KB].name );
+        tr_snprintf( buf, buflen, "%d %s", (int)speed, speed_units.units[TR_FMT_KB].name );
     else {
         speed /= K;
         if( speed <= 99.995 ) /* 0.98 MB to 99.99 MB */

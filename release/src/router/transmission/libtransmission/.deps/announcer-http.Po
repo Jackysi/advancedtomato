@@ -77,7 +77,14 @@ announcer-http.o announcer-http.o: announcer-http.c \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/asm/errno.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/asm-generic/errno-base.h \
   peer-mgr.h history.h peer-common.h torrent.h completion.h trevent.h \
-  web.h
+  web.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlver.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlbuild.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlrules.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/easy.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/multi.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/include/limits.h:
 
@@ -258,3 +265,17 @@ completion.h:
 trevent.h:
 
 web.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlver.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlbuild.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlrules.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/easy.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/multi.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h:

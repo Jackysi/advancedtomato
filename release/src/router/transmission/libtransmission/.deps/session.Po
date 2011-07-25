@@ -107,7 +107,14 @@ session.o session.o: session.c \
   fdlimit.h net.h list.h peer-io.h peer-mgr.h bitfield.h history.h \
   peer-common.h platform.h port-forwarding.h rpc-server.h session.h \
   stats.h torrent.h completion.h tr-dht.h tr-udp.h tr-utp.h tr-lpd.h \
-  trevent.h verify.h version.h web.h
+  trevent.h verify.h version.h web.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlver.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlbuild.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlrules.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/easy.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/multi.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/assert.h:
 
@@ -376,3 +383,17 @@ verify.h:
 version.h:
 
 web.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlver.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlbuild.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlrules.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/easy.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/multi.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h:
