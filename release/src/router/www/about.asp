@@ -106,11 +106,16 @@ Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <br>
 
 <!-- VPN-BEGIN -->
-<b>VPN integration and GUI,</b>
+<b>VPN integration and GUI,</b><br>
 Copyright (C) 2010 Keith Moyer,<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br>
 <!-- VPN-END -->
+
+<b>VLAN administration GUI</b><br>
+Copyright (C) 2011 Augusto Bott<br>
+<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>Tomato-sdhc-vlan Homepage</a><br>
+<br>
 
 <b>"Shibby" features:</b><br>
 <!-- BBT-BEGIN -->

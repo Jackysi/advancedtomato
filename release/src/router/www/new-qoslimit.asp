@@ -283,6 +283,7 @@ function init()
 		<table class='tomato-grid' id='qosg-grid'></table>
 		<div>
 			<ul>
+				<li>Attention! BW Limiter works <b>only for LAN (br0)</b>.
 				<li><b>IP Address / IP Range:</b>
 				<li>Example: 192.168.1.5 for one IP.
 				<li>Example: 192.168.1.4-7 for IP 192.168.1.4 to 192.168.1.7
