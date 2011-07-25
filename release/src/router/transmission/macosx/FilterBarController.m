@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FilterBarController.m 12348 2011-04-11 02:44:05Z livings124 $
+ * $Id: FilterBarController.m 12535 2011-07-04 21:26:23Z livings124 $
  * 
  * Copyright (c) 2011 Transmission authors and contributors
  *
@@ -55,6 +55,12 @@
     [fDownloadFilterButton setTitle: NSLocalizedString(@"Downloading", "Filter Bar -> filter button")];
     [fSeedFilterButton setTitle: NSLocalizedString(@"Seeding", "Filter Bar -> filter button")];
     [fPauseFilterButton setTitle: NSLocalizedString(@"Paused", "Filter Bar -> filter button")];
+    
+    [[fNoFilterButton cell] setBackgroundStyle: NSBackgroundStyleRaised];
+    [[fActiveFilterButton cell] setBackgroundStyle: NSBackgroundStyleRaised];
+    [[fDownloadFilterButton cell] setBackgroundStyle: NSBackgroundStyleRaised];
+    [[fSeedFilterButton cell] setBackgroundStyle: NSBackgroundStyleRaised];
+    [[fPauseFilterButton cell] setBackgroundStyle: NSBackgroundStyleRaised];
     
     [[[[fSearchField cell] searchMenuTemplate] itemWithTag: FILTER_TYPE_TAG_NAME] setTitle:
         NSLocalizedString(@"Name", "Filter Bar -> filter menu")];

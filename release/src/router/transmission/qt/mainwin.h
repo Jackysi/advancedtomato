@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: mainwin.h 11196 2010-09-06 00:19:37Z charles $
+ * $Id: mainwin.h 12557 2011-07-19 21:19:18Z jordan $
  */
 
 #ifndef MAIN_WINDOW_H
@@ -75,6 +75,8 @@ class TrMainWindow: public QMainWindow
         time_t myLastSendTime;
         time_t myLastReadTime;
         QTimer myNetworkTimer;
+        QTimer myRefreshTrayIconTimer;
+        QTimer myRefreshActionSensitivityTimer;
         QAction * myDlimitOffAction;
         QAction * myDlimitOnAction;
         QAction * myUlimitOffAction;
@@ -105,6 +107,7 @@ class TrMainWindow: public QMainWindow
         void refreshTitle( );
         void refreshStatusBar( );
         void refreshTrayIcon( );
+        void refreshTrayIconSoon( );
         void openTorrent( );
         void openURL( );
         void newTorrent( );
@@ -176,6 +179,7 @@ class TrMainWindow: public QMainWindow
         void setStatusbarVisible( bool );
         void setCompactView( bool );
         void refreshActionSensitivity( );
+        void refreshActionSensitivitySoon( );
         void wrongAuthentication( );
 
     public:

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: inout.h 12204 2011-03-22 15:19:54Z jordan $
+ * $Id: inout.h 12545 2011-07-13 03:23:37Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -34,11 +34,10 @@ int tr_ioRead( struct tr_torrent   * tor,
                uint32_t              len,
                uint8_t             * setme );
 
-int
-tr_ioPrefetch( tr_torrent       * tor,
-               tr_piece_index_t   pieceIndex,
-               uint32_t           begin,
-               uint32_t           len );
+int tr_ioPrefetch( tr_torrent       * tor,
+                   tr_piece_index_t   pieceIndex,
+                   uint32_t           begin,
+                   uint32_t           len );
 
 /**
  * Writes the block specified by the piece index, offset, and length.

@@ -4,12 +4,17 @@ case "$1" in
   addcru)
    ISCRU=`cru l | grep btinside | wc -l`
 
+   INTERVAL=`nvram get bt_check_time`
+
    BTON=`nvram get bt_enable`
    if [ "$BTON" == "1" ]; then
     BTCH=`nvram get bt_check`
     if [ "$BTCH" == "1" ]; then
      if [ "$ISCRU" == "0" ]; then
-      cru a btinside "*/5 * * * * /usr/bin/btcheck check"
+      cru a btinside "*/$INTERVAL * * * * /usr/bin/btcheck check"
+     else
+      cru d btinside
+      cru a btinside "*/$INTERVAL * * * * /usr/bin/btcheck check"
      fi
     else
      if [ "$ISCRU" == "1" ]; then

@@ -8,6 +8,7 @@ PASSWORD=`nvram get bt_password`
 PORT=`nvram get bt_port_gui`
 MAXDOWN=`nvram get bt_maxdown`
 MAXACTIVE=`nvram get bt_maxactive`
+INTERVAL=`nvram get bt_queue_time`
 
 # *************
 # Set-up variables
@@ -25,7 +26,10 @@ case "$1" in
     BTQU=`nvram get bt_queue`
     if [ "$BTQU" == "1" ]; then
      if [ "$ISCRU" == "0" ]; then
-      cru a btqueue "*/5 * * * * /usr/bin/btqueue check"
+      cru a btqueue "*/$INTERVAL * * * * /usr/bin/btqueue check"
+     else
+      cru d btqueue
+      cru a btqueue "*/$INTERVAL * * * * /usr/bin/btqueue check"
      fi
     else
      if [ "$ISCRU" == "1" ]; then

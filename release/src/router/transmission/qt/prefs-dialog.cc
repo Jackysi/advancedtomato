@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: prefs-dialog.cc 11923 2011-02-18 00:33:29Z jordan $
+ * $Id: prefs-dialog.cc 12550 2011-07-17 14:12:00Z jordan $
  */
 
 #include <cassert>
@@ -322,7 +322,7 @@ PrefsDialog :: onPortTested( bool isOpen )
 void
 PrefsDialog :: onPortTest( )
 {
-    myPortLabel->setText( tr( "Testing..." ) );
+    myPortLabel->setText( tr( "Testing TCP Port..." ) );
     myPortButton->setEnabled( false );
     myWidgets[Prefs::PEER_PORT]->setEnabled( false );
     mySession.portTest( );
@@ -352,8 +352,8 @@ PrefsDialog :: createNetworkTab( )
 
     hig->addSectionDivider( );
     hig->addSectionTitle( tr( "Limits" ) );
-    hig->addRow( tr( "Maximum peers per &torrent:" ), spinBoxNew( Prefs::PEER_LIMIT_TORRENT, 1, 300, 5 ) );
-    hig->addRow( tr( "Maximum peers &overall:" ), spinBoxNew( Prefs::PEER_LIMIT_GLOBAL, 1, 3000, 5 ) );
+    hig->addRow( tr( "Maximum peers per &torrent:" ), spinBoxNew( Prefs::PEER_LIMIT_TORRENT, 1, FD_SETSIZE, 5 ) );
+    hig->addRow( tr( "Maximum peers &overall:" ), spinBoxNew( Prefs::PEER_LIMIT_GLOBAL, 1, FD_SETSIZE, 5 ) );
 
     hig->addSectionDivider( );
     hig->addSectionTitle( tr( "Options" ) );

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: tr-prefs.c 12467 2011-05-28 01:34:07Z jordan $
+ * $Id: tr-prefs.c 12550 2011-07-17 14:12:00Z jordan $
  */
 
 #include <ctype.h> /* isspace */
@@ -1149,7 +1149,7 @@ onPortTest( GtkButton * button UNUSED, gpointer vdata )
     struct network_page_data * data = vdata;
     gtk_widget_set_sensitive( data->portButton, FALSE );
     gtk_widget_set_sensitive( data->portSpin, FALSE );
-    gtk_label_set_markup( GTK_LABEL( data->portLabel ), _( "<i>Testing...</i>" ) );
+    gtk_label_set_markup( GTK_LABEL( data->portLabel ), _( "<i>Testing TCP port...</i>" ) );
     if( !data->portTag )
         data->portTag = g_signal_connect( data->core, "port-tested", G_CALLBACK(onPortTested), data );
     gtr_core_port_test( data->core );
@@ -1200,9 +1200,9 @@ networkPage( GObject * core )
     hig_workarea_add_section_divider( t, &row );
     hig_workarea_add_section_title( t, &row, _( "Peer Limits" ) );
 
-    w = new_spin_button( TR_PREFS_KEY_PEER_LIMIT_TORRENT, core, 1, 300, 5 );
+    w = new_spin_button( TR_PREFS_KEY_PEER_LIMIT_TORRENT, core, 1, FD_SETSIZE, 5 );
     hig_workarea_add_row( t, &row, _( "Maximum peers per _torrent:" ), w, NULL );
-    w = new_spin_button( TR_PREFS_KEY_PEER_LIMIT_GLOBAL, core, 1, 3000, 5 );
+    w = new_spin_button( TR_PREFS_KEY_PEER_LIMIT_GLOBAL, core, 1, FD_SETSIZE, 5 );
     hig_workarea_add_row( t, &row, _( "Maximum peers _overall:" ), w, NULL );
 
     hig_workarea_add_section_divider( t, &row );

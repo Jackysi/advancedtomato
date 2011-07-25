@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: mainwin.cc 11744 2011-01-21 21:51:50Z jordan $
+ * $Id: mainwin.cc 12557 2011-07-19 21:19:18Z jordan $
  */
 
 #include <cassert>
@@ -90,7 +90,9 @@ TrMainWindow :: TrMainWindow( Session& session, Prefs& prefs, TorrentModel& mode
     mySpeedModeOnIcon( ":/icons/alt-limit-on.png" ),
     myLastSendTime( 0 ),
     myLastReadTime( 0 ),
-    myNetworkTimer( this )
+    myNetworkTimer( this ),
+    myRefreshTrayIconTimer( this ),
+    myRefreshActionSensitivityTimer( this )
 {
     setAcceptDrops( true );
 
@@ -189,8 +191,8 @@ TrMainWindow :: TrMainWindow( Session& session, Prefs& prefs, TorrentModel& mode
 
     connect( &myFilterModel, SIGNAL(rowsInserted(const QModelIndex&,int,int)), this, SLOT(refreshVisibleCount()));
     connect( &myFilterModel, SIGNAL(rowsRemoved(const QModelIndex&,int,int)), this, SLOT(refreshVisibleCount()));
-    connect( &myFilterModel, SIGNAL(rowsInserted(const QModelIndex&,int,int)), this, SLOT(refreshActionSensitivity()));
-    connect( &myFilterModel, SIGNAL(rowsRemoved(const QModelIndex&,int,int)), this, SLOT(refreshActionSensitivity()));
+    connect( &myFilterModel, SIGNAL(rowsInserted(const QModelIndex&,int,int)), this, SLOT(refreshActionSensitivitySoon()));
+    connect( &myFilterModel, SIGNAL(rowsRemoved(const QModelIndex&,int,int)), this, SLOT(refreshActionSensitivitySoon()));
 
     connect( ui.action_Quit, SIGNAL(triggered()), QCoreApplication::instance(), SLOT(quit()) );
 
@@ -199,10 +201,10 @@ TrMainWindow :: TrMainWindow( Session& session, Prefs& prefs, TorrentModel& mode
     connect( &myModel, SIGNAL(modelReset()), this, SLOT(onModelReset()));
     connect( &myModel, SIGNAL(rowsRemoved(const QModelIndex&,int,int)), this, SLOT(onModelReset()));
     connect( &myModel, SIGNAL(rowsInserted(const QModelIndex&,int,int)), this, SLOT(onModelReset()));
-    connect( &myModel, SIGNAL(dataChanged(const QModelIndex&,const QModelIndex&)), this, SLOT(refreshTrayIcon()));
+    connect( &myModel, SIGNAL(dataChanged(const QModelIndex&,const QModelIndex&)), this, SLOT(refreshTrayIconSoon()));
 
     ui.listView->setModel( &myFilterModel );
-    connect( ui.listView->selectionModel(), SIGNAL(selectionChanged(const QItemSelection&,const QItemSelection&)), this, SLOT(refreshActionSensitivity()));
+    connect( ui.listView->selectionModel(), SIGNAL(selectionChanged(const QItemSelection&,const QItemSelection&)), this, SLOT(refreshActionSensitivitySoon()));
 
     QActionGroup * actionGroup = new QActionGroup( this );
     actionGroup->addAction( ui.action_SortByActivity );
@@ -273,8 +275,12 @@ TrMainWindow :: TrMainWindow( Session& session, Prefs& prefs, TorrentModel& mode
         myNetworkTimer.start( 1000 );
     }
 
-    refreshActionSensitivity( );
-    refreshTrayIcon( );
+    connect( &myRefreshTrayIconTimer, SIGNAL(timeout()), this, SLOT(refreshTrayIcon()) );
+    connect( &myRefreshActionSensitivityTimer, SIGNAL(timeout()), this, SLOT(refreshActionSensitivity()) );
+
+
+    refreshActionSensitivitySoon( );
+    refreshTrayIconSoon( );
     refreshStatusBar( );
     refreshTitle( );
     refreshVisibleCount( );
@@ -316,9 +322,9 @@ TrMainWindow :: onModelReset( )
 {
     refreshTitle( );
     refreshVisibleCount( );
-    refreshActionSensitivity( );
+    refreshActionSensitivitySoon( );
     refreshStatusBar( );
-    refreshTrayIcon( );
+    refreshTrayIconSoon( );
 }
 
 /****
@@ -641,6 +647,15 @@ TrMainWindow :: refreshVisibleCount( )
 }
 
 void
+TrMainWindow :: refreshTrayIconSoon( )
+{
+    if( !myRefreshTrayIconTimer.isActive( ) )
+    {
+        myRefreshTrayIconTimer.setSingleShot( true );
+        myRefreshTrayIconTimer.start( 500 );
+    }
+}
+void
 TrMainWindow :: refreshTrayIcon( )
 {
     Speed u, d;
@@ -694,6 +709,17 @@ TrMainWindow :: refreshStatusBar( )
     myStatsLabel->setText( str );
 }
 
+
+
+void
+TrMainWindow :: refreshActionSensitivitySoon( )
+{
+    if( !myRefreshActionSensitivityTimer.isActive( ) )
+    {
+        myRefreshActionSensitivityTimer.setSingleShot( true );
+        myRefreshActionSensitivityTimer.start( 500 );
+    }
+}
 void
 TrMainWindow :: refreshActionSensitivity( )
 {
@@ -965,7 +991,7 @@ TrMainWindow :: refreshPref( int key )
             b = myPrefs.getBool( key );
             ui.action_TrayIcon->setChecked( b );
             myTrayIcon.setVisible( b );
-            refreshTrayIcon( );
+            refreshTrayIconSoon( );
             break;
 
         case Prefs::COMPACT_VIEW: {

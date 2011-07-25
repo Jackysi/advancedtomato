@@ -71,7 +71,23 @@ utils-test.o utils-test.o: utils-test.c \
   /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/symhacks.h \
   /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/bn.h \
   /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/rc4.h \
-  web.h
+  web.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlver.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlbuild.h \
+  /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/socket.h \
+  /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/uio.h \
+  /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/uio.h \
+  /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/socket.h \
+  /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/sockaddr.h \
+  /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/asm/socket.h \
+  /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/asm/sockios.h \
+  /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/asm/ioctl.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlrules.h \
+  /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/time.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/easy.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/multi.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/math.h:
 
@@ -224,3 +240,35 @@ utils.h:
 /root/openwrt/tomato.git-compile/src-rt/router/openssl/include/openssl/rc4.h:
 
 web.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlver.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlbuild.h:
+
+/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/socket.h:
+
+/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/uio.h:
+
+/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/uio.h:
+
+/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/socket.h:
+
+/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/bits/sockaddr.h:
+
+/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/asm/socket.h:
+
+/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/asm/sockios.h:
+
+/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/asm/ioctl.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlrules.h:
+
+/opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/sys/time.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/easy.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/multi.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h:

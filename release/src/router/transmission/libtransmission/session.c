@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: session.c 12514 2011-06-24 22:39:20Z jordan $
+ * $Id: session.c 12545 2011-07-13 03:23:37Z jordan $
  */
 
 #include <assert.h>
@@ -37,7 +37,7 @@
 #include "net.h"
 #include "peer-io.h"
 #include "peer-mgr.h"
-#include "platform.h" /* tr_lock */
+#include "platform.h" /* tr_lock, tr_getTorrentDir(), tr_getFreeSpace() */
 #include "port-forwarding.h"
 #include "rpc-server.h"
 #include "session.h"
@@ -1951,7 +1951,7 @@ tr_sessionIsPexEnabled( const tr_session * session )
 }
 
 bool
-tr_sessionAllowsDHT( const tr_session * session UNUSED )
+tr_sessionAllowsDHT( const tr_session * session )
 {
     return tr_sessionIsDHTEnabled( session );
 }

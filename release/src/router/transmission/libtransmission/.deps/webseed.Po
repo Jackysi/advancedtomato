@@ -75,7 +75,15 @@ webseed.o webseed.o: webseed.c \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/linux/errno.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/asm/errno.h \
   /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/asm-generic/errno-base.h \
-  peer-common.h torrent.h completion.h session.h bencode.h web.h \
+  peer-common.h torrent.h completion.h session.h bencode.h trevent.h \
+  web.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlver.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlbuild.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlrules.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/easy.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/multi.h \
+  /root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h \
   webseed.h
 
 /opt/brcm/K26/hndtools-mipsel-uclibc-4.2.4/bin/../lib/gcc/mipsel-linux-uclibc/4.2.4/../../../../mipsel-linux-uclibc/sys-include/string.h:
@@ -254,6 +262,22 @@ session.h:
 
 bencode.h:
 
+trevent.h:
+
 web.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlver.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlbuild.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curlrules.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/easy.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/multi.h:
+
+/root/openwrt/tomato.git-compile/src-rt/router/libcurl/include/curl/curl.h:
 
 webseed.h:

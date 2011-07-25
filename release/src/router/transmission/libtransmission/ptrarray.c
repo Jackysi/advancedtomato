@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: ptrarray.c 12512 2011-06-24 18:25:56Z jordan $
+ * $Id: ptrarray.c 12553 2011-07-17 14:33:20Z jordan $
  */
 
 #include <assert.h>
@@ -202,8 +202,8 @@ tr_ptrArrayLowerBound( const tr_ptrArray  * t,
 }
 
 static void
-assertSortedAndUnique( const tr_ptrArray * t,
-                    int compare(const void*, const void*) )
+assertSortedAndUnique( const tr_ptrArray * t UNUSED,
+                       int compare(const void*, const void*) UNUSED )
 {
 #if 1
     int i;

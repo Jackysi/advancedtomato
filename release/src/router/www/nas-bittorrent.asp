@@ -21,7 +21,7 @@ textarea {
 }
 </style>
 <script type='text/javascript'>
-//	<% nvram("bt_enable,bt_binary,bt_binary_custom,bt_custom,bt_port,bt_dir,bt_settings,bt_settings_custom,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_dht,bt_pex,bt_blocklist,bt_blocklist_url,bt_sleep,bt_check,bt_queue,bt_maxdown,bt_maxactive"); %>
+//	<% nvram("bt_enable,bt_binary,bt_binary_custom,bt_custom,bt_port,bt_dir,bt_settings,bt_settings_custom,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_dht,bt_pex,bt_blocklist,bt_blocklist_url,bt_sleep,bt_check,bt_check_time,bt_queue,bt_queue_time,bt_maxdown,bt_maxactive"); %>
 
 var btgui_link = '&nbsp;&nbsp;<a href="http://' + location.hostname +':<% nv('bt_port_gui'); %>" target="_blank"><i>[Click here to open Transmission GUI]</i></a>';
 
@@ -38,6 +38,7 @@ function verifyFields(focused, quiet)
 	var h = E('_f_bt_auth').checked;
 	var i = E('_f_bt_blocklist').checked;
 	var j = E('_f_bt_queue').checked;
+	var m = E('_f_bt_check').checked;
 
 	E('_bt_custom').disabled = !a;
 	E('_bt_binary').disabled = !a;
@@ -46,6 +47,7 @@ function verifyFields(focused, quiet)
 	E('_bt_sleep').disabled = !a;
 	E('_f_bt_incomplete').disabled = !a;
 	E('_f_bt_check').disabled = !a;
+	E('_bt_check_time').disabled = !a || !m;
 	E('_bt_settings').disabled = !a;
 	E('_f_bt_rpc_enable').disabled = !a;
 	E('_bt_port_gui').disabled = !a || !c;
@@ -67,6 +69,7 @@ function verifyFields(focused, quiet)
 	E('_f_bt_blocklist').disabled = !a;
 	E('_bt_blocklist_url').disabled = !a || !i;
 	E('_f_bt_queue').disabled = !a;
+	E('_bt_queue_time').disabled = !a || !j;
 	E('_bt_maxdown').disabled = !a || !j;
 	E('_bt_maxactive').disabled = !a || !j;
 
@@ -247,8 +250,9 @@ createFieldTable('', [
 			['custom','Custom'] ], value: nvram.bt_binary, suffix: ' <small>*</small> ' },
 		{ name: 'bt_binary_custom', type: 'text', maxlen: 40, size: 40, value: nvram.bt_binary_custom }
 	] },
-	{ title: 'Keep alive', indent: 2, name: 'f_bt_check', type: 'checkbox', value: nvram.bt_check == '1', suffix: ' <small>*</small>' },
-	{ title: 'Delay at startup', indent: 2, name: 'bt_sleep', type: 'text', maxlen: 5, size: 7, value: nvram.bt_sleep, suffix: ' <small>(range: 1 - 60; default: 10 seconds)</small>' },
+	{ title: 'Keep alive', name: 'f_bt_check', type: 'checkbox', value: nvram.bt_check == '1', suffix: ' <small>*</small>' },
+	{ title: 'Check alive every', indent: 2, name: 'bt_check_time', type: 'text', maxlen: 5, size: 7, value: nvram.bt_check_time, suffix: ' <small>minutes (range: 1 - 55; default: 15)</small>' },
+	{ title: 'Delay at startup', name: 'bt_sleep', type: 'text', maxlen: 5, size: 7, value: nvram.bt_sleep, suffix: ' <small>seconds (range: 1 - 60; default: 10)</small>' },
 	{ title: 'Listening port', name: 'bt_port', type: 'text', maxlen: 5, size: 7, value: nvram.bt_port, suffix: ' <small>*</small>' },
 	{ title: 'Download directory', name: 'bt_dir', type: 'text', maxlen: 40, size: 40, value: nvram.bt_dir },
 	{ title: 'Use .incomplete/', indent: 2, name: 'f_bt_incomplete', type: 'checkbox', value: nvram.bt_incomplete == '1' }
@@ -309,8 +313,9 @@ createFieldTable('', [
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Enable queuing', name: 'f_bt_queue', type: 'checkbox', value: nvram.bt_queue == '1' },
-	{ title: 'Max downloads', indent: 2, name: 'bt_maxdown', type: 'text', maxlen: 32, size: 5, value: nvram.bt_maxdown, suffix: ' <small>(range: 1 - 20; default: 2)</small>' },
-	{ title: 'Max active torrents', indent: 2, name: 'bt_maxactive', type: 'text', maxlen: 32, size: 5, value: nvram.bt_maxactive, suffix: ' <small>(range: 1 - 30; default: 5)</small>' }
+	{ title: 'Run queuing every', indent:2, name: 'bt_queue_time', type: 'text', maxlen: 5, size: 7, value: nvram.bt_queue_time, suffix: ' <small>minutes (range: 1 - 55; default: 15)</small>' },
+	{ title: 'Max downloads', indent: 2, name: 'bt_maxdown', type: 'text', maxlen: 5, size: 7, value: nvram.bt_maxdown, suffix: ' <small>(range: 1 - 20; default: 2)</small>' },
+	{ title: 'Max active torrents', indent: 2, name: 'bt_maxactive', type: 'text', maxlen: 5, size: 7, value: nvram.bt_maxactive, suffix: ' <small>(range: 1 - 30; default: 5)</small>' }
 ]);
 </script>
 </div>
