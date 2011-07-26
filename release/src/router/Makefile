@@ -1617,16 +1617,19 @@ portmap-install: portmap
 
 e2fsprogs/stamp-h1:
 	cd e2fsprogs && \
-	CFLAGS="-Os -Wall $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=$(TOP)/e2fsprogs/staged --enable-shared --enable-static
 	touch e2fsprogs/stamp-h1
 
 e2fsprogs: e2fsprogs/stamp-h1
+	@$(SEP)
+	$(MAKE) -C e2fsprogs
 
 e2fsprogs-clean:
 	-$(MAKE) -C e2fsprogs clean
 	@rm -f e2fsprogs/stamp-h1
-
-e2fsprogs-install: e2fsprogs
+	@rm -f e2fsprogs/Makefile
+	@rm -rf e2fsprogs/staged
 
 nfs-utils/stamp-h1: libevent-install e2fsprogs portmap libnfsidmap-install
 	cd nfs-utils && STRIP='mipsel-uclibc-strip' \
