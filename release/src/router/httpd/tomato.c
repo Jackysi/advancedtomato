@@ -686,6 +686,10 @@ static const nvset_t nvset_list[] = {
 // advanced-firewall
 	{ "block_wan",			V_01				},
 	{ "multicast_pass",		V_01				},
+	{ "multicast_lan",		V_01				},
+	{ "multicast_lan1",		V_01				},
+	{ "multicast_lan2",		V_01				},
+	{ "multicast_lan3",		V_01				},
 	{ "block_loopback",		V_01				},
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},

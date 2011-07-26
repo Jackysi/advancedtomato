@@ -422,6 +422,10 @@ const defaults_t defaults[] = {
 	{ "nf_loopback",		"0"				},
 	{ "block_wan",			"1"				},	// block inbound icmp
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
+	{ "multicast_lan",		"0"				},	// on LAN (br0)
+	{ "multicast_lan1",		"0"				},	// on LAN1 (br1)
+	{ "multicast_lan2",		"0"				},	// on LAN2 (br2)
+	{ "multicast_lan3",		"0"				},	// on LAN3 (br3)
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
 	{ "dhcp_pass",			"1"				},	// allow DHCP responses
 	{ "ne_shlimit",			"0,3,60"			},
