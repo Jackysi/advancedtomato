@@ -835,7 +835,7 @@ const defaults_t defaults[] = {
 	{ "bt_check",				"1"			},
 	{ "bt_check_time",			"15"			},
 	{ "bt_queue",				"0"			},
-	{ "bt_queue_time",			"15"			},
+	{ "bt_queue_time",			"5"			},
 	{ "bt_maxdown",				"2"			},
 	{ "bt_maxactive",			"5"			},
 #endif
