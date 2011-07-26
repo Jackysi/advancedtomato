@@ -892,13 +892,23 @@ void start_wan_done(char *wan_ifname)
 	// We don't need STP after wireless led is lighted		//	no idea why... toggling it if necessary	-- zzz
 	if (check_hw_type() == HW_BCM4702) {
 		eval("brctl", "stp", nvram_safe_get("lan_ifname"), "0");
-		if (nvram_match("lan_stp", "1")) eval("brctl", "stp", nvram_safe_get("lan_ifname"), "1");
-		eval("brctl", "stp", nvram_safe_get("lan1_ifname"), "0");
-		if (nvram_match("lan1_stp", "1")) eval("brctl", "stp", nvram_safe_get("lan1_ifname"), "1");
-		eval("brctl", "stp", nvram_safe_get("lan2_ifname"), "0");
-		if (nvram_match("lan2_stp", "1")) eval("brctl", "stp", nvram_safe_get("lan2_ifname"), "1");
-		eval("brctl", "stp", nvram_safe_get("lan3_ifname"), "0");
-		if (nvram_match("lan3_stp", "1")) eval("brctl", "stp", nvram_safe_get("lan3_ifname"), "1");
+		if (nvram_match("lan_stp", "1")) 
+			eval("brctl", "stp", nvram_safe_get("lan_ifname"), "1");
+		if(strcmp(nvram_safe_get("lan1_ifname"),"")!=0) {
+			eval("brctl", "stp", nvram_safe_get("lan1_ifname"), "0");
+			if (nvram_match("lan1_stp", "1")) 
+				eval("brctl", "stp", nvram_safe_get("lan1_ifname"), "1");
+		}
+		if(strcmp(nvram_safe_get("lan2_ifname"),"")!=0) {
+			eval("brctl", "stp", nvram_safe_get("lan2_ifname"), "0");
+			if (nvram_match("lan2_stp", "1")) 
+				eval("brctl", "stp", nvram_safe_get("lan2_ifname"), "1");
+		}
+		if(strcmp(nvram_safe_get("lan3_ifname"),"")!=0) {
+			eval("brctl", "stp", nvram_safe_get("lan3_ifname"), "0");
+			if (nvram_match("lan3_stp", "1")) 
+				eval("brctl", "stp", nvram_safe_get("lan3_ifname"), "1");
+		}
 	}
 
 	if (wanup)

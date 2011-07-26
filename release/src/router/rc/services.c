@@ -1042,11 +1042,32 @@ void start_igmp_proxy(void)
 			fprintf(fp,
 				"quickleave\n"
 				"phyint %s upstream\n"
-				"\taltnet %s\n"
-				"phyint %s downstream ratelimit 0\n",
+				"\taltnet %s\n",
+//				"phyint %s downstream ratelimit 0\n",
 				get_wanface(),
-				nvram_get("multicast_altnet") ? : "0.0.0.0/0",
-				nvram_safe_get("lan_ifname"));
+				nvram_get("multicast_altnet") ? : "0.0.0.0/0");
+//				nvram_safe_get("lan_ifname"));
+
+				char lanN_ifname[] = "lanXX_ifname";
+				char multicast_lanN[] = "multicast_lanXX";
+				char br;
+
+				for(br=0 ; br<4 ; br++) {
+					char bridge[2] = "0";
+					if (br!=0)
+						bridge[0]+=br;
+					else
+						strcpy(bridge, "");
+
+					sprintf(lanN_ifname, "lan%s_ifname", bridge);
+					sprintf(multicast_lanN, "multicast_lan%s", bridge);
+
+					if((strcmp(nvram_safe_get(multicast_lanN),"1")==0) && (strcmp(nvram_safe_get(lanN_ifname),"")!=0)) {
+						fprintf(fp,
+							"phyint %s downstream ratelimit 0\n",
+							nvram_safe_get(lanN_ifname));
+					}
+				}
 			fclose(fp);
 			eval("igmpproxy", "/etc/igmp.conf");
 		}
@@ -2109,6 +2130,12 @@ TOP:
 			stop_zebra();
 			do_static_routes(0);	// remove old '_saved'
 			eval("brctl", "stp", nvram_safe_get("lan_ifname"), "0");
+			if(strcmp(nvram_safe_get("lan1_ifname"),"")!=0)
+				eval("brctl", "stp", nvram_safe_get("lan1_ifname"), "0");
+			if(strcmp(nvram_safe_get("lan2_ifname"),"")!=0)
+				eval("brctl", "stp", nvram_safe_get("lan2_ifname"), "0");
+			if(strcmp(nvram_safe_get("lan3_ifname"),"")!=0)
+				eval("brctl", "stp", nvram_safe_get("lan3_ifname"), "0");
 		}
 		stop_firewall();
 		start_firewall();
@@ -2116,6 +2143,12 @@ TOP:
 			do_static_routes(1);	// add new
 			start_zebra();
 			eval("brctl", "stp", nvram_safe_get("lan_ifname"), nvram_safe_get("lan_stp"));
+			if(strcmp(nvram_safe_get("lan1_ifname"),"")!=0)
+				eval("brctl", "stp", nvram_safe_get("lan1_ifname"), nvram_safe_get("lan1_stp"));
+			if(strcmp(nvram_safe_get("lan2_ifname"),"")!=0)
+				eval("brctl", "stp", nvram_safe_get("lan2_ifname"), nvram_safe_get("lan2_stp"));
+			if(strcmp(nvram_safe_get("lan3_ifname"),"")!=0)
+				eval("brctl", "stp", nvram_safe_get("lan3_ifname"), nvram_safe_get("lan3_stp"));
 		}
 		goto CLEAR;
 	}
