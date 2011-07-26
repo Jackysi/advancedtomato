@@ -313,7 +313,7 @@ createFieldTable('', [
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Enable queuing', name: 'f_bt_queue', type: 'checkbox', value: nvram.bt_queue == '1' },
-	{ title: 'Run queuing every', indent:2, name: 'bt_queue_time', type: 'text', maxlen: 5, size: 7, value: nvram.bt_queue_time, suffix: ' <small>minutes (range: 1 - 55; default: 15)</small>' },
+	{ title: 'Run queuing every', indent: 2, name: 'bt_queue_time', type: 'text', maxlen: 5, size: 7, value: nvram.bt_queue_time, suffix: ' <small>minutes (range: 1 - 55; default: 5)</small>' },
 	{ title: 'Max downloads', indent: 2, name: 'bt_maxdown', type: 'text', maxlen: 5, size: 7, value: nvram.bt_maxdown, suffix: ' <small>(range: 1 - 20; default: 2)</small>' },
 	{ title: 'Max active torrents', indent: 2, name: 'bt_maxactive', type: 'text', maxlen: 5, size: 7, value: nvram.bt_maxactive, suffix: ' <small>(range: 1 - 30; default: 5)</small>' }
 ]);
