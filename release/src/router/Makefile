@@ -55,9 +55,17 @@ obj-y += cyassl
 obj-y += mssl
 obj-y += mdu
 
+#Roadkill
+obj-$(TCONFIG_NOCAT) += nocat
 # !!TB
 obj-$(TCONFIG_USB) += p910nd
+
+ifeq ($(CONFIG_LINUX26),y)
+obj-$(TCONFIG_USB) += sd-idle
+else
 obj-$(TCONFIG_USB) += scsi-idle
+endif
+
 obj-y += libusb10
 #obj-y += libusb
 obj-y += usbmodeswitch
@@ -1348,6 +1356,47 @@ ebtables-install: ebtables
 ebtables-clean:
 	make -C ebtables clean
 
+#Roadkill
+glib:
+	@$(SEP)
+	@cd glib && $(CONFIGURE) --prefix=/usr glib_cv_prog_cc_ansi_proto=no glib_cv_has__inline=yes glib_cv_has__inline__=yes glib_cv_hasinline=yes \
+		glib_cv_sane_realloc=yes glib_cv_va_copy=no glib_cv___va_copy=yes glib_cv_va_val_copy=yes glib_cv_rtldglobal_broken=no \
+		glib_cv_uscore=no glib_cv_func_pthread_mutex_trylock_posix=yes glib_cv_func_pthread_cond_timedwait_posix=yes glib_cv_sizeof_gmutex=24 \
+		glib_cv_byte_contents_gmutex="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0" glib_cv_sys_pthread_getspecific_posix=yes \
+		glib_cv_sys_pthread_mutex_trylock_posix=yes glib_cv_sys_pthread_cond_timedwait_posix=yes ac_cv_func_getpwuid_r=yes ac_cv_func_getpwuid_r_posix=yes
+	@$(MAKE) -C glib
+
+glib-clean:
+	$(MAKE) -C glib clean
+
+glib-install:
+	@$(MAKE) -C glib DESTDIR=$(INSTALLDIR)/glib install
+
+#Roadkill
+nocat: glib glib-install
+	@$(SEP)
+	@cd nocat && \
+	NC_CONF_PATH="/" \
+	$(CONFIGURE) --with-firewall=iptables --with-glib-prefix="$(INSTALLDIR)/glib/usr" --localstatedir=/var --sysconfdir=/etc
+	@$(MAKE) -C nocat
+
+	echo *** cleaning up glib staging after compile
+	rm -rfv $(INSTALLDIR)/glib/usr
+	echo *** integrate glib to nocat installdir
+	install -d $(INSTALLDIR)/nocat/usr/lib
+	install -D glib/.libs/libglib-1.2.so.0.0.10 $(INSTALLDIR)/nocat/usr/lib/libglib-1.2.so.0.0.10
+	cd $(INSTALLDIR)/nocat/usr/lib && ln -s libglib-1.2.so.0.0.10 libglib-1.2.so.0
+	$(STRIP) $(INSTALLDIR)/nocat/usr/lib/libglib-1.2.so.0.0.10
+
+nocat-clean:
+	$(MAKE) -C nocat clean
+
+nocat-install:
+	install -D nocat/src/splashd $(INSTALLDIR)/nocat/usr/sbin/splashd
+	$(STRIP) $(INSTALLDIR)/nocat/usr/sbin/splashd
+	mkdir -p $(INSTALLDIR)/nocat/usr/libexec/nocat
+	install -D nocat/libexec/iptables/* $(INSTALLDIR)/nocat/usr/libexec/nocat
+
 lzo/stamp-h1:
 	cd lzo && \
 	CFLAGS="-Os -Wall $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static
@@ -1387,6 +1436,22 @@ openvpn-install: openvpn
 	$(STRIP) -s $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	chmod 0500 $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 
+
+sd-idle/stamp-h1:
+	cd sd-idle \
+	CFLAGS="-Os -Wall --host=mipsel-linux --target=mipsel-linux $(EXTRACFLAGS)" \
+	$(MAKE) -C sd-idle
+	chmod 0755 sd-idle/sd-idle
+	touch sd-idle/stamp-h1
+
+sd-idle-clean:
+	-$(MAKE) -C sd-idle clean
+	@rm -f sd-idle/stamp-h1
+
+sd-idle-install: sd-idle/stamp-h1
+	install -d $(INSTALLDIR)/sd-idle/usr/bin
+	install -D sd-idle/sd-idle $(INSTALLDIR)/sd-idle/usr/bin/sd-idle
+	$(STRIP) -s $(INSTALLDIR)/sd-idle/usr/bin/sd-idle
 
 #
 # Generic rules

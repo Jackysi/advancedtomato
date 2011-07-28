@@ -326,7 +326,8 @@ const struct mime_handler mime_handlers[] = {
 	{ "resolve.cgi",	mime_javascript,			0,	wi_generic,			wo_resolve,		1 },
 	{ "expct.cgi",		mime_html,					0,	wi_generic,			wo_expct,		1 },
 	{ "service.cgi",	NULL,						0,	wi_generic,			wo_service,		1 },
-//	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },	// see httpd.c
+//	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },
+// see httpd.c
 	{ "shutdown.cgi",	mime_html,					0,	wi_generic,			wo_shutdown,	1 },
 #ifdef TCONFIG_OPENVPN
 	{ "vpnstatus.cgi",	mime_javascript,			0,	wi_generic,			wo_vpn_status,		1 },
@@ -337,8 +338,11 @@ const struct mime_handler mime_handlers[] = {
 #ifdef BLACKHOLE
 	{ "blackhole.cgi",	NULL,						0,	wi_blackhole,		NULL,			1 },
 #endif
-//	{ "test",			mime_html,					0,	wi_generic,			wo_test,		1 },
-	{ NULL,				NULL,						0,	NULL,				NULL,			1 }
+#ifdef TCONFIG_NOCAT
+	{ "uploadsplash.cgi",		NULL,					0,	wi_uploadsplash,	wo_uploadsplash,	1 },
+	{ "ext/uploadsplash.cgi",	NULL,					0,	wi_uploadsplash,	wo_uploadsplash,	1 },
+#endif
+	{ NULL,				NULL,					0,	NULL,		NULL,			1 }
 };
 
 const aspapi_t aspapi[] = {
@@ -503,7 +507,7 @@ static const nvset_t nvset_list[] = {
 	{ "ntp_kiss",			V_LENGTH(0, 255)	},
 
 // basic-static
-	{ "dhcpd_static",		V_LENGTH(0, 106*251)},	// 106 (max chars per entry) x 100 entries
+	{ "dhcpd_static",		V_LENGTH(0, 106*251)},		// 106 (max chars per entry) x "n" entries
 
 // basic-ddns
 	{ "ddnsx0",				V_LENGTH(0, 2048)	},
@@ -700,6 +704,7 @@ static const nvset_t nvset_list[] = {
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
 	{ "wan_speed",			V_RANGE(0, 4)		},
+	{ "clkfreq",                    V_NONE			},	// Toastman
 	{ "jumbo_frame_enable",		V_01			},	// Jumbo Frames support (for RT-N16/WNR3500L)
 	{ "jumbo_frame_size",		V_RANGE(1, 9720)	},
 #ifdef CONFIG_BCMWL5
@@ -860,7 +865,7 @@ static const nvset_t nvset_list[] = {
 	{ "https_lanport",		V_PORT				},
 	{ "web_wl_filter",		V_01				},
 	{ "web_css",			V_LENGTH(1, 32)		},
-	{ "web_mx",				V_LENGTH(0, 128)	},
+	{ "web_mx",			V_LENGTH(0, 128)	},
 	{ "http_wanport",		V_PORT				},
 	{ "telnetd_eas",		V_01				},
 	{ "telnetd_port",		V_PORT				},
@@ -967,6 +972,7 @@ static const nvset_t nvset_list[] = {
 	{ "script_usbhotplug", 		V_TEXT(0, 2048)			},
 	{ "script_usbmount", 		V_TEXT(0, 2048)			},
 	{ "script_usbumount", 		V_TEXT(0, 2048)			},
+	{ "idle_enable",		V_01				},
 #endif
 
 // nas-ftp - !!TB
@@ -1053,11 +1059,32 @@ static const nvset_t nvset_list[] = {
 	{ "qosl_dudp",                    V_RANGE(0, 100)        },
 	/*qosl_ibw unused - qos_ibw shared*/
 	/*qosl_obw unused - qos_obw shared*/
-	
+
 // arpbind
 	{ "arpbind_enable",    	 	V_01                    },
 	{ "arpbind_only",       	V_01                   	},
 	{ "arpbind_list",		V_LENGTH(0, 4096)       },
+
+//NotCatSplash. Victek.
+#ifdef TCONFIG_NOCAT
+	{ "NC_enable",			V_01				},
+	{ "NC_Verbosity",		V_RANGE(0, 10)			},
+        { "NC_GatewayName",		V_LENGTH(0, 255)		},
+	{ "NC_GatewayPort",		V_PORT				},
+        { "NC_ForcedRedirect",		V_01				},
+        { "NC_HomePage",		V_LENGTH(0, 255)		},
+        { "NC_DocumentRoot",		V_LENGTH(0, 255)		},
+        { "NC_SplashURL",		V_LENGTH(0, 255)		},
+        { "NC_LoginTimeout",		V_RANGE(0, 86400000)		},
+        { "NC_IdleTimeout",		V_RANGE(0, 86400000)		},
+	{ "NC_MaxMissedARP",		V_RANGE(0, 10)			},
+	{ "NC_PeerChecktimeout",	V_RANGE(0, 60)			},
+        { "NC_ExcludePorts",		V_LENGTH(0, 255)		},
+        { "NC_IncludePorts",		V_LENGTH(0, 255)		},
+        { "NC_AllowedWebHosts",		V_LENGTH(0, 255)		},
+        { "NC_MACWhiteList",		V_LENGTH(0, 255)		},
+	{ "NC_SplashFile",		V_LENGTH(0, 8192)		},
+#endif
 
 #ifdef TCONFIG_OPENVPN
 // vpn

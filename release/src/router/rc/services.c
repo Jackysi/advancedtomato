@@ -1191,6 +1191,24 @@ void stop_igmp_proxy(void)
 	killall_tk("igmpproxy");
 }
 
+#ifdef TCONFIG_NOCAT
+
+static pid_t pid_splashd = -1;
+void start_splashd(void)
+{
+	pid_splashd = -1;
+	start_nocat();
+	if (!nvram_contains_word("debug_norestart", "splashd")) {
+		pid_splashd = -2;
+	}
+}
+
+void stop_splashd(void)
+{
+	pid_splashd = -1;
+	stop_nocat();
+}
+#endif
 
 // -----------------------------------------------------------------------------
 
@@ -1903,6 +1921,12 @@ void check_services(void)
 #ifdef TCONFIG_IPV6
 	_check(pid_radvd, "radvd", start_radvd);
 #endif
+
+//	#ifdef TCONFIG_NOCAT
+//	if (nvram_get_int("NC_enable"))
+//		_check(&pid_splashd, "splashd", start_splashd);
+//	#endif
+
 }
 
 // -----------------------------------------------------------------------------
@@ -2081,7 +2105,7 @@ TOP:
 		goto CLEAR;
 	}
 
-	if (strcmp(service, "cmon") == 0) {			// TOASTMAN CLIENT MONITOR - EXPERIMENTAL
+	if (strcmp(service, "cmon") == 0) {
 		if (action & A_STOP) {
 			stop_cmon();
 		}
@@ -2447,6 +2471,14 @@ TOP:
 	if (strncmp(service, "vpnserver", 9) == 0) {
 		if (action & A_STOP) stop_vpnserver(atoi(&service[9]));
 		if (action & A_START) start_vpnserver(atoi(&service[9]));
+		goto CLEAR;
+	}
+#endif
+
+#ifdef TCONFIG_NOCAT
+	if (strcmp(service, "splashd") == 0) {
+		if (action & A_STOP) stop_splashd();
+		if (action & A_START) start_splashd();
 		goto CLEAR;
 	}
 #endif

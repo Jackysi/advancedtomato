@@ -353,11 +353,57 @@ static void print_ipv6_addrs(void)
 }
 #endif
 
+
+int get_flashsize()
+{
+/*
+# cat /proc/mtd
+dev:    size   erasesize  name
+mtd0: 00020000 00010000 "pmon"
+mtd1: 007d0000 00010000 "linux"
+*/
+	FILE *f;
+	char s[512];
+	unsigned int size;
+	char partname[16];
+	int found = 0;
+
+	if ((f = fopen("/proc/mtd", "r")) != NULL) {
+	while (fgets(s, sizeof(s), f)) {
+		if (sscanf(s, "%*s %X %*s %16s", &size, partname) != 2) continue;
+			if (strcmp(partname, "\"linux\"") == 0) {
+				found = 1;
+				break;
+			}
+		}
+		fclose(f);
+	}
+	if (found) {
+		     if ((size > 0x2000000) && (size < 0x4000000)) return 64;
+		else if ((size > 0x1000000) && (size < 0x2000000)) return 32;
+		else if ((size > 0x800000) && (size < 0x1000000)) return 16;
+		else if ((size > 0x400000) && (size < 0x800000)) return 8;
+		else if ((size > 0x200000) && (size < 0x400000)) return 4;
+		else if ((size > 0x100000) && (size < 0x200000)) return 2;
+		else return 1;
+	}
+	else {
+		return 0;
+	}
+}
+
+
 void asp_sysinfo(int argc, char **argv)
 {
 	struct sysinfo si;
 	char s[64];
 	meminfo_t mem;
+	char system_type[64];
+	char cpu_model[64];
+	char bogomips[8];
+	char cpuclk[8];
+
+	get_cpuinfo(system_type, cpu_model, bogomips, cpuclk);
 
 	web_puts("\nsysinfo = {\n");
 
@@ -378,7 +424,12 @@ void asp_sysinfo(int argc, char **argv)
 		"\ttotalswap: %ld,\n"
 		"\tfreeswap: %ld,\n"
 		"\ttotalfreeram: %ld,\n"
-		"\tprocs: %d\n",
+		"\tprocs: %d,\n"
+		"\tflashsize: %d,\n"
+		"\tsystemtype: '%s',\n"
+		"\tcpumodel: '%s',\n"
+		"\tbogomips: '%s',\n"
+		"\tcpuclk: '%s'\n",
 			si.uptime,
 			reltime(s, si.uptime),
 			si.loads[0], si.loads[1], si.loads[2],
@@ -386,7 +437,12 @@ void asp_sysinfo(int argc, char **argv)
 			mem.shared, mem.buffers, mem.cached,
 			mem.swaptotal, mem.swapfree,
 			mem.maxfreeram,
-			si.procs);
+			si.procs,
+			get_flashsize(),
+			system_type,
+			cpu_model,
+			bogomips,
+			cpuclk);
 	web_puts("};\n");
 }
 

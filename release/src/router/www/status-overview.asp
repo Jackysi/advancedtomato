@@ -97,7 +97,6 @@ function c(id, htm)
 function show()
 {
 	c('cpu', stats.cpuload);
-	c('freqcpu', stats.freqcpu); //Victek
 	c('uptime', stats.uptime);
 	c('time', stats.time);
 	c('wanip', stats.wanip);
@@ -185,13 +184,15 @@ function init()
 createFieldTable('', [
 	{ title: 'Name', text: nvram.router_name },
 	{ title: 'Model', text: nvram.t_model_name },
-	{ title: 'CPU Frequency (MHz)', rid: 'freqcpu', text: stats.freqcpu }, //Victek
+	{ title: 'Chipset', text: stats.systemtype },
+	{ title: 'CPU Freq', text: stats.cpumhz },
+	{ title: 'Flash RAM Size', text: stats.flashsize },
 	null,
 	{ title: 'Time', rid: 'time', text: stats.time },
 	{ title: 'Uptime', rid: 'uptime', text: stats.uptime },
 	{ title: 'CPU Load <small>(1 / 5 / 15 mins)</small>', rid: 'cpu', text: stats.cpuload },
 	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory },
-	{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') }
+	{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') },
 ]);
 </script>
 </div>
