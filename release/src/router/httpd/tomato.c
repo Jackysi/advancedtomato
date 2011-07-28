@@ -541,12 +541,51 @@ static const nvset_t nvset_list[] = {
 	{ "lan_gateway",		V_IP				},
 	{ "wan_dns",			V_LENGTH(0, 50)		},	// ip ip ip
 	{ "lan_proto",			V_WORD				},	// static, dhcp
-	{ "dhcp_start",			V_RANGE(1, 254)		},	// remove !
-	{ "dhcp_num",			V_RANGE(1, 255)		},	// remove !
-	{ "dhcpd_startip",		V_IP				},
-	{ "dhcpd_endip",		V_IP				},
-	{ "dhcp_lease",			V_RANGE(1, 10080)	},
+	{ "dhcp_start",			V_LENGTH(0, 15)		},	// remove !
+	{ "dhcp_num",			V_LENGTH(0, 4)		},	// remove !
+	{ "dhcpd_startip",		V_LENGTH(0, 15)		},
+	{ "dhcpd_endip",		V_LENGTH(0, 15)		},
+	{ "dhcp_lease",			V_LENGTH(0, 5)		},
 	{ "wan_wins",			V_IP				},
+
+	// LAN networks
+	{ "lan_ifname",			V_LENGTH(0, 5)			},
+
+	{ "lan1_ifname",		V_LENGTH(0, 5)			},
+	{ "lan1_ifnames",		V_TEXT(0,64)			},
+	{ "lan1_ipaddr",		V_LENGTH(0, 15)			},
+	{ "lan1_netmask",		V_LENGTH(0, 15)			},
+	{ "lan1_proto",			V_LENGTH(0, 6)			},
+	{ "lan1_stp",			V_LENGTH(0, 1)			},
+	{ "dhcp1_start",		V_LENGTH(0, 15)			},
+	{ "dhcp1_num",			V_LENGTH(0, 4)			},
+	{ "dhcpd1_startip",		V_LENGTH(0, 15)			},
+	{ "dhcpd1_endip",		V_LENGTH(0, 15)			},
+	{ "dhcp1_lease",		V_LENGTH(0, 5)			},
+
+	{ "lan2_ifname",		V_LENGTH(0, 5)			},
+	{ "lan2_ifnames",		V_TEXT(0,64)			},
+	{ "lan2_ipaddr",		V_LENGTH(0, 15)			},
+	{ "lan2_netmask",		V_LENGTH(0, 15)			},
+	{ "lan2_proto",			V_LENGTH(0, 6)			},
+	{ "lan2_stp",			V_LENGTH(0, 1)			},
+	{ "dhcp2_start",		V_LENGTH(0, 15)			},
+	{ "dhcp2_num",			V_LENGTH(0, 4)			},
+	{ "dhcpd2_startip",		V_LENGTH(0, 15)			},
+	{ "dhcpd2_endip",		V_LENGTH(0, 15)			},
+	{ "dhcp2_lease",		V_LENGTH(0, 5)			},
+
+	{ "lan3_ifname",		V_LENGTH(0, 5)			},
+	{ "lan3_ifnames",		V_TEXT(0,64)			},
+	{ "lan3_ipaddr",		V_LENGTH(0, 15)			},
+	{ "lan3_netmask",		V_LENGTH(0, 15)			},
+	{ "lan3_proto",			V_LENGTH(0, 6)			},
+	{ "lan3_stp",			V_LENGTH(0, 1)			},
+	{ "dhcp3_start",		V_LENGTH(0, 15)			},
+	{ "dhcp3_num",			V_LENGTH(0, 4)			},
+	{ "dhcpd3_startip",		V_LENGTH(0, 15)			},
+	{ "dhcpd3_endip",		V_LENGTH(0, 15)			},
+	{ "dhcp3_lease",		V_LENGTH(0, 5)			},
 
 	// wireless
 	{ "wl_radio",			V_01				},
@@ -643,6 +682,10 @@ static const nvset_t nvset_list[] = {
 // advanced-firewall
 	{ "block_wan",			V_01				},
 	{ "multicast_pass",		V_01				},
+	{ "multicast_lan",		V_01				},
+	{ "multicast_lan1",		V_01				},
+	{ "multicast_lan2",		V_01				},
+	{ "multicast_lan3",		V_01				},
 	{ "block_loopback",		V_01				},
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},
@@ -662,6 +705,43 @@ static const nvset_t nvset_list[] = {
 #ifdef CONFIG_BCMWL5
 	{ "ctf_disable",		V_01			},
 #endif
+// advanced-vlan
+	{ "vlan0ports",			V_TEXT(0,16)			},
+	{ "vlan1ports",			V_TEXT(0,16)			},
+	{ "vlan2ports",			V_TEXT(0,16)			},
+	{ "vlan3ports",			V_TEXT(0,16)			},
+	{ "vlan4ports",			V_TEXT(0,16)			},
+	{ "vlan5ports",			V_TEXT(0,16)			},
+	{ "vlan6ports",			V_TEXT(0,16)			},
+	{ "vlan7ports",			V_TEXT(0,16)			},
+	{ "vlan8ports",			V_TEXT(0,16)			},
+	{ "vlan9ports",			V_TEXT(0,16)			},
+	{ "vlan10ports",		V_TEXT(0,16)			},
+	{ "vlan11ports",		V_TEXT(0,16)			},
+	{ "vlan12ports",		V_TEXT(0,16)			},
+	{ "vlan13ports",		V_TEXT(0,16)			},
+	{ "vlan14ports",		V_TEXT(0,16)			},
+	{ "vlan15ports",		V_TEXT(0,16)			},
+	{ "vlan0hwname",		V_TEXT(0,8)			},
+	{ "vlan1hwname",		V_TEXT(0,8)			},
+	{ "vlan2hwname",		V_TEXT(0,8)			},
+	{ "vlan3hwname",		V_TEXT(0,8)			},
+	{ "vlan4hwname",		V_TEXT(0,8)			},
+	{ "vlan5hwname",		V_TEXT(0,8)			},
+	{ "vlan6hwname",		V_TEXT(0,8)			},
+	{ "vlan7hwname",		V_TEXT(0,8)			},
+	{ "vlan8hwname",		V_TEXT(0,8)			},
+	{ "vlan9hwname",		V_TEXT(0,8)			},
+	{ "vlan10hwname",		V_TEXT(0,8)			},
+	{ "vlan11hwname",		V_TEXT(0,8)			},
+	{ "vlan12hwname",		V_TEXT(0,8)			},
+	{ "vlan13hwname",		V_TEXT(0,8)			},
+	{ "vlan14hwname",		V_TEXT(0,8)			},
+	{ "vlan15hwname",		V_TEXT(0,8)			},
+	{ "wan_ifnameX",		V_TEXT(0,8)			},
+	{ "lan_ifnames",		V_TEXT(0,64)			},
+	{ "manual_boot_nv",		V_01				},
+	{ "trunk_vlan_so",		V_01				},
 
 // advanced-mac
 	{ "mac_wan",			V_LENGTH(0, 17)		},
@@ -676,9 +756,18 @@ static const nvset_t nvset_list[] = {
 	{ "dr_setting",			V_RANGE(0, 3)		},
 	{ "dr_lan_tx",			V_LENGTH(0, 32)		},
 	{ "dr_lan_rx",			V_LENGTH(0, 32)		},
+	{ "dr_lan1_tx",			V_LENGTH(0, 32)		},
+	{ "dr_lan1_rx",			V_LENGTH(0, 32)		},
+	{ "dr_lan2_tx",			V_LENGTH(0, 32)		},
+	{ "dr_lan2_rx",			V_LENGTH(0, 32)		},
+	{ "dr_lan3_tx",			V_LENGTH(0, 32)		},
+	{ "dr_lan3_rx",			V_LENGTH(0, 32)		},
 	{ "dr_wan_tx",			V_LENGTH(0, 32)		},
 	{ "dr_wan_rx",			V_LENGTH(0, 32)		},
 #endif
+
+// advanced-access
+	{ "lan_access",			V_LENGTH(0, 4096)	},
 
 // advanced-wireless
 	{ "wl_country",			V_LENGTH(0, 64)		},	// !!TB - Country code
@@ -738,7 +827,11 @@ static const nvset_t nvset_list[] = {
 	{ "upnp_max_port_int",		V_PORT				},
 	{ "upnp_min_port_ext",		V_PORT				},
 	{ "upnp_max_port_ext",		V_PORT				},
-
+	{ "upnp_lan",			V_01				},
+	{ "upnp_lan1",			V_01				},
+	{ "upnp_lan2",			V_01				},
+	{ "upnp_lan3",			V_01				},
+	
 // forward-basic
 	{ "portforward",		V_LENGTH(0, 4096)	},
 

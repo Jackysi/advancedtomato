@@ -812,6 +812,9 @@ static void add_listen_socket(const char *addr, int server_port, int do_ipv6, in
 static void setup_listeners(int do_ipv6)
 {
 	char ipaddr[INET6_ADDRSTRLEN];
+	char ipaddr1[INET6_ADDRSTRLEN];
+	char ipaddr2[INET6_ADDRSTRLEN];
+	char ipaddr3[INET6_ADDRSTRLEN];
 	IF_TCONFIG_IPV6(const char *wanaddr);
 	int wanport, p;
 	IF_TCONFIG_IPV6(int wan6port);
@@ -828,10 +831,20 @@ static void setup_listeners(int do_ipv6)
 	else
 #endif
 	strlcpy(ipaddr, nvram_safe_get("lan_ipaddr"), sizeof(ipaddr));
+	strlcpy(ipaddr1, nvram_safe_get("lan1_ipaddr"), sizeof(ipaddr));
+	strlcpy(ipaddr2, nvram_safe_get("lan2_ipaddr"), sizeof(ipaddr));
+	strlcpy(ipaddr3, nvram_safe_get("lan3_ipaddr"), sizeof(ipaddr));
 
 	if (!nvram_match("http_enable", "0")) {
 		p = nvram_get_int("http_lanport");
 		add_listen_socket(ipaddr, p, do_ipv6, 0);
+		if (strcmp(ipaddr1,"")!=0)
+			add_listen_socket(ipaddr1, p, do_ipv6, 0);
+		if (strcmp(ipaddr2,"")!=0)
+			add_listen_socket(ipaddr2, p, do_ipv6, 0);
+		if (strcmp(ipaddr3,"")!=0)
+			add_listen_socket(ipaddr3, p, do_ipv6, 0);
+
 		IF_TCONFIG_IPV6(if (do_ipv6 && wanport == p) wan6port = 0);
 	}
 
@@ -840,6 +853,13 @@ static void setup_listeners(int do_ipv6)
 		do_ssl = 1;
 		p = nvram_get_int("https_lanport");
 		add_listen_socket(ipaddr, p, do_ipv6, 1);
+		if (strcmp(ipaddr1,"")!=0)
+			add_listen_socket(ipaddr1, p, do_ipv6, 1);
+		if (strcmp(ipaddr2,"")!=0)
+			add_listen_socket(ipaddr2, p, do_ipv6, 1);
+		if (strcmp(ipaddr3,"")!=0)
+			add_listen_socket(ipaddr3, p, do_ipv6, 1);
+
 		IF_TCONFIG_IPV6(if (do_ipv6 && wanport == p) wan6port = 0);
 	}
 #endif
