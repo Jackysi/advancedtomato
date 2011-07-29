@@ -337,7 +337,7 @@ void start_wl(void)
 		strcpy(tmp,"lan");
 		strcat(tmp,bridge);
 		strcat(tmp, "_ifname");
-		lan_ifname = nvram_safe_get("tmp");
+		lan_ifname = nvram_safe_get(tmp);
 //		lan_ifname = nvram_safe_get("lan_ifname");
 		if (strncmp(lan_ifname, "br", 2) == 0) {
 			strcpy(tmp,"lan");

@@ -737,8 +737,10 @@ REMOVE-END */
 		if (wmode == 'wet') {
 			wan = 'disabled';
 			vis._wan_proto = 0;
-			vis._f_dhcpd_enable = 0;
-			vis._dhcp_lease = 0;
+/* REMOVE-BEGIN
+//			vis._f_dhcpd_enable = 0;
+//			vis._dhcp_lease = 0;
+REMOVE-END */
 		}
 
 		if ((wan == 'disabled') || (wmode == 'sta') || (wmode == 'wet')) {
