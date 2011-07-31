@@ -367,19 +367,19 @@ void start_wl(void)
 
 					is_client |= wl_client(unit, subunit) && nvram_get_int(wl_nvname("radio", unit, 0));
 
-	#ifdef CONFIG_BCMWL5
+#ifdef CONFIG_BCMWL5
 					eval("wlconf", ifname, "start"); /* start wl iface */
-	#endif	// CONFIG_BCMWL5
+#endif	// CONFIG_BCMWL5
 				}
 				free(lan_ifnames);
 			}
 		}
-	#ifdef CONFIG_BCMWL5
+#ifdef CONFIG_BCMWL5
 		else if (strcmp(lan_ifname, "")) {
 			/* specific non-bridged lan iface */
 			eval("wlconf", lan_ifname, "start");
 		}
-	#endif	// CONFIG_BCMWL5
+#endif	// CONFIG_BCMWL5
 	}
 
 	killall("wldist", SIGTERM);
