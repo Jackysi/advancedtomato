@@ -154,6 +154,13 @@ else
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/VPN-BEGIN/,/VPN-END/d"
 endif
 
+# Only include the snmp pages if SNMP is compiled in
+ifneq ($(TCONFIG_SNMP),y)
+	rm -f $(INSTALLDIR)/www/admin-snmp.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/SNMP-BEGIN/,/SNMP-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/SNMP-BEGIN/,/SNMP-END/d"
+endif
+
 
 # clean up
 	cd $(INSTALLDIR)/www && \
@@ -175,6 +182,7 @@ endif
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
 		-e "/CTF-BEGIN/d"	-e "/CTF-END/d" \
 		-e "/NOCAT-BEGIN/d"	-e "/NOCAT_END/d"\
+		-e "/SNMP-BEGIN/d"	-e "/SNMP_END/d"\
 		|| true; \
 	done
 
