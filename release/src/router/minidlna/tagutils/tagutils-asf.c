@@ -39,6 +39,29 @@ _asf_read_file_properties(FILE *fp, asf_file_properties_t *p, __u32 size)
 	return 0;
 }
 
+static void
+_pick_dlna_profile(struct song_metadata *psong, uint16_t format)
+{
+	/* DLNA Profile Name */
+	switch( le16_to_cpu(format) )
+	{
+		case WMA:
+			if( psong->max_bitrate < 193000 )
+				asprintf(&(psong->dlna_pn), "WMABASE");
+			else if( psong->max_bitrate < 385000 )
+				asprintf(&(psong->dlna_pn), "WMAFULL");
+			break;
+		case WMAPRO:
+			asprintf(&(psong->dlna_pn), "WMAPRO");
+			break;
+		case WMALSL:
+			asprintf(&(psong->dlna_pn), "WMALSL%s",
+				psong->channels > 2 ? "_MULT5" : "");
+		default:
+			break;
+	}
+}
+
 static int
 _asf_read_audio_stream(FILE *fp, struct song_metadata *psong, int size)
 {
@@ -55,24 +78,9 @@ _asf_read_audio_stream(FILE *fp, struct song_metadata *psong, int size)
 	psong->channels = le16_to_cpu(s.wfx.nChannels);
 	psong->bitrate = le32_to_cpu(s.wfx.nAvgBytesPerSec) * 8;
 	psong->samplerate = le32_to_cpu(s.wfx.nSamplesPerSec);
-	/* DLNA Profile Name */
-	switch( le16_to_cpu(s.wfx.wFormatTag) )
-	{
-		case WMAV1:
-		case WMAV2:
-			if( (psong->bitrate/1000+1) >= 385 || psong->samplerate > 48000 )
-				asprintf(&(psong->dlna_pn), "WMAPRO");
-			else if( ((psong->bitrate+1) / 1000) <= 192 )
-				asprintf(&(psong->dlna_pn), "WMABASE");
-			else
-				asprintf(&(psong->dlna_pn), "WMAFULL");
-			break;
-		case WMAPRO:
-			asprintf(&(psong->dlna_pn), "WMAPRO");
-			break;
-		default:
-			break;
-	}
+	if (!psong->max_bitrate)
+		psong->max_bitrate = psong->bitrate;
+	_pick_dlna_profile(psong, s.wfx.wFormatTag);
 
 	return 0;
 }
@@ -101,25 +109,11 @@ _asf_read_media_stream(FILE *fp, struct song_metadata *psong, __u32 size)
 		psong->channels = le16_to_cpu(wfx.nChannels);
 		psong->bitrate = le32_to_cpu(wfx.nAvgBytesPerSec) * 8;
 		psong->samplerate = le32_to_cpu(wfx.nSamplesPerSec);
-		/* DLNA Profile Name */
-		switch( le16_to_cpu(wfx.wFormatTag) )
-		{
-			case WMAV1:
-			case WMAV2:
-				if( (psong->bitrate/1000+1) >= 385 || psong->samplerate > 48000 )
-					asprintf(&(psong->dlna_pn), "WMAPRO");
-				else if( (psong->bitrate / 1000)+1 < 192 )
-					asprintf(&(psong->dlna_pn), "WMABASE");
-				else
-					asprintf(&(psong->dlna_pn), "WMAFULL");
-				break;
-			case WMAPRO:
-				asprintf(&(psong->dlna_pn), "WMAPRO");
-				break;
-			default:
-				break;
-		}
+		if (!psong->max_bitrate)
+			psong->max_bitrate = psong->bitrate;
+		_pick_dlna_profile(psong, wfx.wFormatTag);
 	}
+
 	return 0;
 }
 
@@ -280,10 +274,10 @@ _asf_load_string(FILE *fp, int type, int size, char *buf, int len)
 		case ASF_VT_QWORD:
 			if(size >= 8)
 			{
-#if __WORDSIZE == 64
-				i = snprintf(buf, len, "%ld", le64_to_cpu(*(__s64*)&data[0]));
-#else
 				wd64 = (__s64 *) &data[0];
+#if __WORDSIZE == 64
+				i = snprintf(buf, len, "%ld", le64_to_cpu(*wd64));
+#else
 				i = snprintf(buf, len, "%lld", le64_to_cpu(*wd64));
 #endif
 			}
@@ -310,9 +304,7 @@ _asf_load_picture(FILE *fp, int size, void *bm, int *bm_size)
 {
 	int i;
 	char buf[256];
-	char pic_type;
-	long pic_size;
-
+#if 0
 	//
 	// Picture type       $xx
 	// Data length	  $xx $xx $xx $xx
@@ -320,9 +312,15 @@ _asf_load_picture(FILE *fp, int size, void *bm, int *bm_size)
 	// Description        <text string> $00
 	// Picture data       <binary data>
 
+	char pic_type;
+	long pic_size;
+
 	pic_type = fget_byte(fp); size -= 1;
 	pic_size = fget_le32(fp); size -= 4;
-
+#else
+	fseek(fp, 5, SEEK_CUR);
+	size -= 5;
+#endif
 	for(i = 0; i < sizeof(buf) - 1; i++)
 	{
 		buf[i] = fget_le16(fp); size -= 2;
@@ -388,7 +386,6 @@ _get_asffileinfo(char *file, struct song_metadata *psong)
 	asf_object_t hdr;
 	asf_object_t tmp;
 	unsigned long NumObjects;
-	unsigned short Reserved;
 	unsigned short TitleLength;
 	unsigned short AuthorLength;
 	unsigned short CopyrightLength;
@@ -400,7 +397,6 @@ _get_asffileinfo(char *file, struct song_metadata *psong)
 	unsigned short ValueLength;
 	off_t pos;
 	char buf[2048];
-	int mask;
 	asf_file_properties_t FileProperties;
 
 	psong->vbr_scale = -1;
@@ -426,10 +422,9 @@ _get_asffileinfo(char *file, struct song_metadata *psong)
 		return -1;
 	}
 	NumObjects = fget_le32(fp);
-	Reserved = fget_le16(fp);
+	fseek(fp, 2, SEEK_CUR); // Reserved le16
 
 	pos = ftell(fp);
-	mask = 0;
 	while(NumObjects > 0)
 	{
 		if(sizeof(tmp) != fread(&tmp, 1, sizeof(tmp), fp))
@@ -447,6 +442,7 @@ _get_asffileinfo(char *file, struct song_metadata *psong)
 			_asf_read_file_properties(fp, &FileProperties, tmp.Size);
 			psong->song_length = le64_to_cpu(FileProperties.PlayDuration) / 10000;
 			psong->bitrate = le64_to_cpu(FileProperties.MaxBitrate);
+			psong->max_bitrate = psong->bitrate;
 		}
 		else if(IsEqualGUID(&tmp.ID, &ASF_ContentDescription))
 		{
