@@ -117,6 +117,7 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <b>"Victek RAF" features:</b><br>
 - CPU Freq | Previous WAN IP | Additional Themes<br>
 - Static ARP Binding | QOS/Bandwidth Limiter<br>
+- HFS/HFS+MAC OS x read support<br>
 <!-- NOCAT-BEGIN -->
 - Captive Portal (Based on NocatSplash) <br>
 <!-- NOCAT-END -->
