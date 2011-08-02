@@ -122,6 +122,14 @@ la.resetNewEditor = function() {
 la.verifyFields = function(row, quiet) {
 	var f = fields.getAll(row);
 
+	for (var i=0; i<= MAX_BRIDGE_ID; i++) {
+		var j = (i == 0) ? '' : i.toString();
+		if (nvram['lan' + j + '_ifname'].length < 1) {
+			f[1].options[i].disabled=true;
+			f[3].options[i].disabled=true;
+		}
+	}
+
 	if(f[1].selectedIndex == f[3].selectedIndex) {
 		var m = 'Source and Destination interfaces must be different';
 		ferror.set(f[1], m, quiet);

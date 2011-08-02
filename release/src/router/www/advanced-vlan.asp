@@ -414,6 +414,11 @@ REMOVE-END */
       f[COL_VID].options[i].disabled = (this.countVID(i) > 0);
     }
 
+    for (var i=0; i <= MAX_BRIDGE_ID; i++) {
+      var j = (i==0) ? '' : i.toString();
+        f[COL_BRI].options[i+2].disabled = (nvram['lan' + j + '_ifname'].length < 1);
+    }
+
     if(((trunk_vlan_supported) || (PORT_VLAN_SUPPORT_OVERRIDE)) && (f[COL_P0].checked == 1)) {
       f[COL_P0T].disabled=0;
     } else {
@@ -603,10 +608,7 @@ REMOVE-END */
 
     for (var i=0; i <= MAX_BRIDGE_ID; i++) {
       var j = (i==0) ? '' : i.toString();
-      if(nvram['lan' + j + '_ifname'].length < 1)
-        f[COL_BRI].options[i+2].disabled=true;
-      else
-        f[COL_BRI].options[i+2].disabled=false;
+        f[COL_BRI].options[i+2].disabled = (nvram['lan' + j + '_ifname'].length < 1);
     }
 
     f[COL_VID].selectedIndex=0;
@@ -615,9 +617,11 @@ REMOVE-END */
       f[COL_VID].selectedIndex = (f[COL_VID].selectedIndex%(MAX_VLAN_ID))+1;
       t--;
     }
+
     for(var i=0; i<= MAX_VLAN_ID ; i++) {
       f[COL_VID].options[i].disabled = (this.countVID(i) > 0);
     }
+
     f[COL_P0].checked = 0;
     f[COL_P0T].checked = 0;
     f[COL_P0T].disabled = 1;
