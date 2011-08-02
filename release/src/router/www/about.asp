@@ -137,9 +137,13 @@ Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
+Copyright (C) 2011 Augusto Bott<br>
+<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
+<br>
 <b>"Toastman" Features:</b><br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules<br>
+- Up to 80 QOS rules<br>
 - Configurable QOS class names<br>
 - Client Monitor Graphs<br>
 - Revised CPU frequency selector<br>
