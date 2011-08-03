@@ -17,7 +17,7 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] QoS: View Details</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
@@ -42,12 +42,13 @@
 
 //	<% nvram('qos_classnames,lan_ipaddr,lan1_ipaddr,lan2_ipaddr,lan3_ipaddr,lan_netmask,lan1_netmask,lan2_netmask,lan3_netmask,t_hidelr'); %>
 
-
 var Unclassified = ['Unclassified'];
 var classNames = nvram.qos_classnames.split(' ');
 var abc = Unclassified.concat(classNames);
 
 var colors = ['F08080','E6E6FA','0066CC','8FBC8F','FAFAD2','ADD8E6','9ACD32','E0FFFF','90EE90','FF9933','FFF0F5'];
+var filterip = [];
+var filteripe = [];
 
 if ((viewClass = '<% cgi_get("class"); %>') == '') {
 	viewClass = -1;
@@ -136,6 +137,7 @@ grid.sortCompare = function(a, b) {
 	var r;
 
 	switch (col) {
+	case 0:		// Proto
 	case 2:		// S port
 	case 4:		// D port
 	case 6:		// Rule #
@@ -146,7 +148,6 @@ grid.sortCompare = function(a, b) {
 	case 5:		// Class
 		r = cmpInt(da[col] ? da[col] : 10000, db[col] ? db[col] : 10000);
 		break;
-/* REMOVE-BEGIN
 	case 1:
 	case 3:
 		var a = fixIP(da[col]);
@@ -155,8 +156,6 @@ grid.sortCompare = function(a, b) {
 			r = aton(a) - aton(b);
 			break;
 		}
-		// fall
-REMOVE-END */
 	default:
 		r = cmpText(da[col], db[col]);
 		break;
@@ -255,6 +254,8 @@ ref.refresh = function(text)
 	var q = [];
 	var cursor;
 	var ip;
+
+	var fskip;
 
 	cols = [2, 3];
 
@@ -444,7 +445,20 @@ function verifyFields(focused, quiet)
 <td id='content'>
 <div id='ident'><% ident(); %></div>
 
+
 <!-- / / / -->
+
+
+<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>View Details: <span id='numtotalconn'></span></div>
+<div class='section'>
+<table id='grid' class='tomato-grid' style="float:left" cellspacing=1></table>
+
+<div id='loading'><br><b>Loading...</b></div>
+</div>
+
+
+<!-- / / / -->
+
 
 <div class='section-title'>Filters: <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
 <div class='section' id='sesdivfilters' style='display:none'>
@@ -461,16 +475,9 @@ createFieldTable('',c);
 </script>
 </div>
 
-<!-- / / / -->
-
-<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>View Details: <span id='numtotalconn'></span></div>
-<div class='section'>
-<table id='grid' class='tomato-grid' style="float:left" cellspacing=1></table>
-
-<div id='loading'><br><b>Loading...</b></div>
-</div>
 
 <!-- / / / -->
+
 
 </td></tr>
 <tr><td id='footer' colspan=2>
