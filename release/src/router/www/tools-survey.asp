@@ -297,8 +297,8 @@ function init()
 	<div id='survey-controls'>
 		<img src="spin.gif" id="refresh-spinner">
 		<script type='text/javascript'>
-		genStdTimeList('expire-time', 'Auto Expire', 0);
-		genStdTimeList('refresh-time', 'Auto Refresh', 0);
+		genStdTimeList('expire-time', 'Auto Expire', 5);
+		genStdTimeList('refresh-time', 'Auto Refresh', 5);
 		</script>
 		<input type="button" value="Refresh" onclick="ref.toggle()" id="refresh-button">
 	</div>

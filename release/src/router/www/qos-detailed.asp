@@ -481,7 +481,7 @@ createFieldTable('',c);
 
 </td></tr>
 <tr><td id='footer' colspan=2>
-	<script type='text/javascript'>genStdRefresh(1,3,'ref.toggle()');</script>
+	<script type='text/javascript'>genStdRefresh(1,1,'ref.toggle()');</script>
 </td></tr>
 </table>
 </form>
