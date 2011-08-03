@@ -40,10 +40,12 @@
 
 <script type='text/javascript'>
 
+
 //	<% nvram('qos_classnames,lan_ipaddr,lan1_ipaddr,lan2_ipaddr,lan3_ipaddr,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,wan_proto,lan_netmask,lan1_netmask,lan2_netmask,lan3_netmask'); %>
 
+
 var Unclassified = ['Unclassified'];
-var classNames = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
+var classNames = nvram.qos_classnames.split(' ');
 var abc = Unclassified.concat(classNames);
 
 var colors = ['F08080','E6E6FA','0066CC','8FBC8F','FAFAD2','ADD8E6','9ACD32','E0FFFF','90EE90','FF9933','FFF0F5'];
@@ -445,7 +447,20 @@ function verifyFields(focused, quiet)
 <td id='content'>
 <div id='ident'><% ident(); %></div>
 
+
 <!-- / / / -->
+
+
+<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>View Details: <span id='numtotalconn'></span></div>
+<div class='section'>
+<table id='grid' class='tomato-grid' style="float:left" cellspacing=1></table>
+
+<div id='loading'><br><b>Loading...</b></div>
+</div>
+
+
+<!-- / / / -->
+
 
 <div class='section-title'>Filters: <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
 <div class='section' id='sesdivfilters' style='display:none'>
@@ -462,20 +477,13 @@ createFieldTable('',c);
 </script>
 </div>
 
-<!-- / / / -->
-
-<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>View Details: <span id='numtotalconn'></span></div>
-<div class='section'>
-<table id='grid' class='tomato-grid' style="float:left" cellspacing=1></table>
-
-<div id='loading'><br><b>Loading...</b></div>
-</div>
 
 <!-- / / / -->
+
 
 </td></tr>
 <tr><td id='footer' colspan=2>
-	<script type='text/javascript'>genStdRefresh(1,3,'ref.toggle()');</script>
+	<script type='text/javascript'>genStdRefresh(1,1,'ref.toggle()');</script>
 </td></tr>
 </table>
 </form>

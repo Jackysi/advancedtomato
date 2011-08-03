@@ -661,6 +661,8 @@ const defaults_t defaults[] = {
 #ifdef TCONFIG_NTFS
 	{ "usb_fs_ntfs",		"1"				},
 #endif
+	{ "usb_fs_hfs",			"0"				}, //!Victek
+	{ "usb_fs_hfsplus",		"0"				}, //!Victek
 	{ "usb_automount",		"1"				},
 #if 0
 	{ "usb_bdflush",		"30 500 0 0 100 100 60 0 0"	},
@@ -691,6 +693,13 @@ const defaults_t defaults[] = {
 	{ "ftp_sip",			""				},	// wan ftp access: source ip address(es)
 	{ "ftp_limit",			"0,3,60"			},
 	{ "log_ftp",			"0"				},
+#endif
+
+#ifdef TCONFIG_SNMP
+	{ "snmp_enable",		"0"				},
+	{ "snmp_location",		"router"			},
+	{ "snmp_contact",		"admin@tomato"			},
+	{ "snmp_ro",			"rocommunity"			},
 #endif
 
 #ifdef TCONFIG_SAMBASRV

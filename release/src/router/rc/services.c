@@ -1961,13 +1961,25 @@ void start_services(void)
 	start_radvd();
 #endif
 	restart_nas_services(1, 1);	// !!TB - Samba, FTP and Media Server
+
+#ifdef TCONFIG_SNMP
+	start_snmp();
+#endif
+
 }
 
 void stop_services(void)
 {
 	clear_resolv();
+// restart_nas_services(1, 0);	// stop Samba, FTP and Media Server
 
-	restart_nas_services(1, 0);	// stop Samba, FTP and Media Server
+
+
+#ifdef TCONFIG_SNMP
+	stop_snmp();
+#endif
+
+
 #ifdef TCONFIG_IPV6
 	stop_radvd();
 #endif
@@ -2405,6 +2417,16 @@ TOP:
 		if (action & A_START) start_sched();
 		goto CLEAR;
 	}
+
+
+#ifdef TCONFIG_SNMP
+	if (strcmp(service, "snmp") == 0) {
+		if (action & A_STOP) stop_snmp();
+		if (action & A_START) start_snmp();
+		goto CLEAR;
+	}
+#endif
+
 
 #ifdef TCONFIG_USB
 	// !!TB - USB Support

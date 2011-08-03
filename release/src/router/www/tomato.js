@@ -2440,6 +2440,9 @@ REMOVE-END */
 			['Logging',			'log.asp'],
 			['Scheduler',		'sched.asp'],
 			['Scripts',			'scripts.asp'],
+/* SNMP-BEGIN */
+			['SNMP',		'snmp.asp'],
+/* SNMP-END */
 			['Upgrade',			'upgrade.asp'] ] ],
 		null,
 		['About',				'about.asp'],

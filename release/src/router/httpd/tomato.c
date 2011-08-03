@@ -968,6 +968,8 @@ static const nvset_t nvset_list[] = {
 #ifdef TCONFIG_NTFS
 	{ "usb_fs_ntfs",		V_01				},
 #endif
+	{ "usb_fs_hfs",			V_01				}, //!Victek
+	{ "usb_fs_hfsplus",		V_01				}, //!Victek
 	{ "usb_automount",		V_01				},
 	{ "script_usbhotplug", 		V_TEXT(0, 2048)			},
 	{ "script_usbmount", 		V_TEXT(0, 2048)			},
@@ -995,6 +997,13 @@ static const nvset_t nvset_list[] = {
 	{ "ftp_sip",			V_LENGTH(0, 512)		},
 	{ "ftp_limit",			V_TEXT(1, 50)			},
 	{ "log_ftp",			V_01				},
+#endif
+
+#ifdef TCONFIG_SNMP
+	{ "snmp_enable",		V_RANGE(0, 1)			},
+	{ "snmp_location",		V_LENGTH(0, 20)			},
+	{ "snmp_contact",		V_LENGTH(0, 20)			},
+	{ "snmp_ro",			V_LENGTH(0, 20)			},
 #endif
 
 #ifdef TCONFIG_SAMBASRV
@@ -1036,7 +1045,7 @@ static const nvset_t nvset_list[] = {
 	{ "qos_pfifo",			V_01				}, // !!TB
 	{ "qos_obw",			V_RANGE(10, 999999)	},
 	{ "qos_ibw",			V_RANGE(10, 999999)	},
-	{ "qos_orules",			V_LENGTH(0, 4096)	},
+	{ "qos_orules",			V_LENGTH(0, 8192)	},
 	{ "qos_default",		V_RANGE(0, 9)		},
 	{ "qos_irates",			V_LENGTH(0, 128)	},
 	{ "qos_orates",			V_LENGTH(0, 128)	},

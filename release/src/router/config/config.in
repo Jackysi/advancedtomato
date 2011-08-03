@@ -115,3 +115,8 @@ config TCONFIG_NTFS
 	bool "  NTFS-3g Support"
 	depends on TCONFIG_USB
 	default n
+
+config TCONFIG_SNMP
+	bool "  SNMP"
+	default n
+

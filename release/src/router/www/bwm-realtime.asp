@@ -147,6 +147,13 @@ function init()
 }
 
 
+function toggleFiltersVisibility(){
+	if(E('clientmonitor').style.display=='')
+		E('clientmonitor').style.display='none';
+	else
+		E('clientmonitor').style.display='';
+}
+
 
 function verifyFields(focused, quiet)
 {
@@ -259,10 +266,8 @@ function save()
 <br>
 <br>
 
-
-<div class='section-title'><b>Client Monitor</b></div>
-<br>
-<div class='section'>
+<div class='section-title'>Client Monitor <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
+<div class='section' id='clientmonitor' style='display:none'>
 <script type='text/javascript'>
 
 createFieldTable('', [
@@ -299,4 +304,4 @@ createFieldTable('', [
 <script type='text/javascript'>verifyFields(null, 1);</script>
 </body>
 </html>
-
+s

@@ -40,6 +40,13 @@ function oscale(rate, ceil)
 	return s + ' <small>kbit/s</small>';
 }
 
+function toggleFiltersVisibility(){
+	if(E('qosclassnames').style.display=='')
+		E('qosclassnames').style.display='none';
+	else
+		E('qosclassnames').style.display='';
+}
+
 function iscale(ceil)
 {
 	if (ceil < 1) return '';
@@ -224,11 +231,10 @@ createFieldTable('', f);
 </script>
 </div>
 
-
-
-<div class='section-title'>QOS Class Names</div>
-<div class='section'>
+<div class='section-title'>QOS Class Names <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
+<div class='section' id='qosclassnames' style='display:none'>
 <script type='text/javascript'>
+
 if ((v = nvram.qos_classnames.match(/^(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)\s+(.+)$/)) == null) {
 	v = ["-","Highest","High","Medium","Low","Lowest","A","B","C","D","E"];
 }
