@@ -9,7 +9,7 @@ install:
 	rm -rf $(INSTALLDIR)/www
 	mkdir -p $(INSTALLDIR)/www
 
-	cp *.gif *.png *.ico robots.txt $(INSTALLDIR)/www
+	cp *.gif *.png *.ico *.txt $(INSTALLDIR)/www
 
 # squish some of the files by trimming whitespace...
 
@@ -133,7 +133,11 @@ ifeq ($(TOMATO_EXPERIMENTAL),1)
 	done
 endif
 
-
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp); do \
+		sed -e "s,<script type='text/javascript' src='tomato.js'></script>,<script type='text/javascript' src='tomato.asp'></script>," $$F > $$F.tmp; \
+		mv $$F.tmp $$F; \
+	done
 
 # Only include the vpn pages if OpenVPN is compiled in
 # Remove AES ciphers from the GUI if openssl doesn't have an AES directory

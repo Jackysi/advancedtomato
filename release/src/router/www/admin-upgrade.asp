@@ -85,7 +85,7 @@ function upgrade()
 <!-- / / / -->
 
 <div id='afu-input'>
-	<div class='section-title'><% translate("Upgrade Firmware</div>
+	<div class='section-title'><% translate("Upgrade Firmware"); %></div>
 	<div class='section'>
 		<form name='form_upgrade' method='post' action='upgrade.cgi' encType='multipart/form-data'>
 		<div id='box-input'>
