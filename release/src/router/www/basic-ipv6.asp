@@ -96,6 +96,7 @@ function verifyFields(focused, quiet)
 			vis._ipv6_tun_mtu = 0;
 			break;
 		case '6to4':
+			vis._ipv6_ifname = 0;
 			vis._f_ipv6_prefix = 0;
 			vis._f_ipv6_rtr_addr_auto = 0;
 			vis._f_ipv6_rtr_addr = 0;
@@ -106,6 +107,7 @@ function verifyFields(focused, quiet)
 			vis._f_ipv6_accept_ra_lan = 0;
 			break;
 		case 'sit':
+			vis._ipv6_ifname = 0;
 			vis._ipv6_relay = 0;
 			vis._f_ipv6_accept_ra_wan = 0;
 			vis._f_ipv6_accept_ra_lan = 0;

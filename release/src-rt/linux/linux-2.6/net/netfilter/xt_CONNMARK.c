@@ -30,12 +30,7 @@ MODULE_ALIAS("ipt_CONNMARK");
 
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_CONNMARK.h>
-#include <net/netfilter/nf_conntrack.h>
 #include <net/netfilter/nf_conntrack_ecache.h>
-
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-extern int ipv4_conntrack_fastnat;
-#endif
 
 static unsigned int
 target(struct sk_buff *skb,
@@ -51,9 +46,6 @@ target(struct sk_buff *skb,
 	u_int32_t diff;
 	u_int32_t mark;
 	u_int32_t newmark;
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	struct nf_conn_nat *nat;
-#endif
 
 	ct = nf_ct_get(skb, &ctinfo);
 	if (ct) {
@@ -62,13 +54,6 @@ target(struct sk_buff *skb,
 			newmark = (ct->mark & ~markinfo->mask) | markinfo->mark;
 			if (newmark != ct->mark) {
 				ct->mark = newmark;
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-				if (ipv4_conntrack_fastnat && (nat = nfct_nat(ct)))
-					nat->info.nat_type |= BCM_FASTNAT_DENY;
-#endif
-#ifdef HNDCTF
-				ct->ctf_flags |= CTF_FLAGS_EXCLUDED;
-#endif /* HNDCTF */
 				nf_conntrack_event_cache(IPCT_MARK, skb);
 			}
 			break;
@@ -79,13 +64,6 @@ target(struct sk_buff *skb,
 			mark = skb->mark;
 			if (newmark != mark) {
 				skb->mark = newmark;
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-				if (ipv4_conntrack_fastnat && (nat = nfct_nat(ct)))
-					nat->info.nat_type |= BCM_FASTNAT_DENY;
-#endif
-#ifdef HNDCTF
-				ct->ctf_flags |= CTF_FLAGS_EXCLUDED;
-#endif /* HNDCTF */
 			}				
 			return XT_RETURN;
 		case XT_CONNMARK_SAVE:

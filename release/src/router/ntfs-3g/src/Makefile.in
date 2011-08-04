@@ -54,7 +54,8 @@ am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(rootbindir)" \
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 rootbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS) $(rootbin_PROGRAMS)
-am_lowntfs_3g_OBJECTS = lowntfs_3g-lowntfs-3g.$(OBJEXT)
+am_lowntfs_3g_OBJECTS = lowntfs_3g-lowntfs-3g.$(OBJEXT) \
+	lowntfs_3g-ntfs-3g_common.$(OBJEXT)
 lowntfs_3g_OBJECTS = $(am_lowntfs_3g_OBJECTS)
 am__DEPENDENCIES_1 =
 @FUSE_INTERNAL_FALSE@am__DEPENDENCIES_2 = $(am__DEPENDENCIES_1)
@@ -63,7 +64,8 @@ lowntfs_3g_DEPENDENCIES = $(am__DEPENDENCIES_2) \
 lowntfs_3g_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(lowntfs_3g_CFLAGS) \
 	$(CFLAGS) $(lowntfs_3g_LDFLAGS) $(LDFLAGS) -o $@
-am_ntfs_3g_OBJECTS = ntfs_3g-ntfs-3g.$(OBJEXT)
+am_ntfs_3g_OBJECTS = ntfs_3g-ntfs-3g.$(OBJEXT) \
+	ntfs_3g-ntfs-3g_common.$(OBJEXT)
 ntfs_3g_OBJECTS = $(am_ntfs_3g_OBJECTS)
 ntfs_3g_DEPENDENCIES = $(am__DEPENDENCIES_2) \
 	$(top_builddir)/libntfs-3g/libntfs-3g.la
@@ -152,6 +154,8 @@ F77 = @F77@
 FFLAGS = @FFLAGS@
 FUSE_MODULE_CFLAGS = @FUSE_MODULE_CFLAGS@
 FUSE_MODULE_LIBS = @FUSE_MODULE_LIBS@
+GNUTLS_CFLAGS = @GNUTLS_CFLAGS@
+GNUTLS_LIBS = @GNUTLS_LIBS@
 GREP = @GREP@
 INSTALL = @INSTALL@
 INSTALL_DATA = @INSTALL_DATA@
@@ -161,6 +165,9 @@ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LDCONFIG = @LDCONFIG@
 LDFLAGS = @LDFLAGS@
 LIBFUSE_LITE_LIBS = @LIBFUSE_LITE_LIBS@
+LIBGCRYPT_CFLAGS = @LIBGCRYPT_CFLAGS@
+LIBGCRYPT_CONFIG = @LIBGCRYPT_CONFIG@
+LIBGCRYPT_LIBS = @LIBGCRYPT_LIBS@
 LIBNTFS_3G_VERSION = @LIBNTFS_3G_VERSION@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
@@ -170,6 +177,8 @@ LTLIBOBJS = @LTLIBOBJS@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
+MKNTFS_CPPFLAGS = @MKNTFS_CPPFLAGS@
+MKNTFS_LIBS = @MKNTFS_LIBS@
 MV = @MV@
 NMEDIT = @NMEDIT@
 OBJEXT = @OBJEXT@
@@ -196,6 +205,8 @@ abs_top_srcdir = @abs_top_srcdir@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
 ac_ct_F77 = @ac_ct_F77@
+all_includes = @all_includes@
+all_libraries = @all_libraries@
 am__include = @am__include@
 am__leading_dot = @am__leading_dot@
 am__quote = @am__quote@
@@ -249,7 +260,7 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
-EXTRA_DIST = secaudit.h
+EXTRA_DIST = secaudit.h ntfs-3g_common.h
 MAINTAINERCLEANFILES = $(srcdir)/Makefile.in
 @FUSE_INTERNAL_FALSE@FUSE_CFLAGS = $(FUSE_MODULE_CFLAGS)
 @FUSE_INTERNAL_TRUE@FUSE_CFLAGS = -I$(top_srcdir)/include/fuse-lite
@@ -268,7 +279,7 @@ ntfs_3g_CFLAGS = \
 	$(FUSE_CFLAGS) 			\
 	-I$(top_srcdir)/include/ntfs-3g
 
-ntfs_3g_SOURCES = ntfs-3g.c
+ntfs_3g_SOURCES = ntfs-3g.c ntfs-3g_common.c
 lowntfs_3g_LDADD = $(FUSE_LIBS) $(top_builddir)/libntfs-3g/libntfs-3g.la
 @REALLYSTATIC_TRUE@lowntfs_3g_LDFLAGS = $(AM_LDFLAGS) -all-static
 lowntfs_3g_CFLAGS = \
@@ -277,7 +288,7 @@ lowntfs_3g_CFLAGS = \
 	$(FUSE_CFLAGS) 			\
 	-I$(top_srcdir)/include/ntfs-3g
 
-lowntfs_3g_SOURCES = lowntfs-3g.c
+lowntfs_3g_SOURCES = lowntfs-3g.c ntfs-3g_common.c
 ntfs_3g_probe_LDADD = $(top_builddir)/libntfs-3g/libntfs-3g.la
 ntfs_3g_usermap_LDADD = $(top_builddir)/libntfs-3g/libntfs-3g.la
 ntfs_3g_secaudit_LDADD = $(top_builddir)/libntfs-3g/libntfs-3g.la
@@ -410,7 +421,9 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lowntfs_3g-lowntfs-3g.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lowntfs_3g-ntfs-3g_common.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ntfs_3g-ntfs-3g.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ntfs_3g-ntfs-3g_common.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ntfs_3g_probe-ntfs-3g.probe.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ntfs_3g_secaudit-secaudit.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ntfs_3g_usermap-usermap.Po@am__quote@
@@ -450,6 +463,20 @@ lowntfs_3g-lowntfs-3g.obj: lowntfs-3g.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lowntfs_3g_CFLAGS) $(CFLAGS) -c -o lowntfs_3g-lowntfs-3g.obj `if test -f 'lowntfs-3g.c'; then $(CYGPATH_W) 'lowntfs-3g.c'; else $(CYGPATH_W) '$(srcdir)/lowntfs-3g.c'; fi`
 
+lowntfs_3g-ntfs-3g_common.o: ntfs-3g_common.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lowntfs_3g_CFLAGS) $(CFLAGS) -MT lowntfs_3g-ntfs-3g_common.o -MD -MP -MF $(DEPDIR)/lowntfs_3g-ntfs-3g_common.Tpo -c -o lowntfs_3g-ntfs-3g_common.o `test -f 'ntfs-3g_common.c' || echo '$(srcdir)/'`ntfs-3g_common.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/lowntfs_3g-ntfs-3g_common.Tpo $(DEPDIR)/lowntfs_3g-ntfs-3g_common.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='ntfs-3g_common.c' object='lowntfs_3g-ntfs-3g_common.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lowntfs_3g_CFLAGS) $(CFLAGS) -c -o lowntfs_3g-ntfs-3g_common.o `test -f 'ntfs-3g_common.c' || echo '$(srcdir)/'`ntfs-3g_common.c
+
+lowntfs_3g-ntfs-3g_common.obj: ntfs-3g_common.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lowntfs_3g_CFLAGS) $(CFLAGS) -MT lowntfs_3g-ntfs-3g_common.obj -MD -MP -MF $(DEPDIR)/lowntfs_3g-ntfs-3g_common.Tpo -c -o lowntfs_3g-ntfs-3g_common.obj `if test -f 'ntfs-3g_common.c'; then $(CYGPATH_W) 'ntfs-3g_common.c'; else $(CYGPATH_W) '$(srcdir)/ntfs-3g_common.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/lowntfs_3g-ntfs-3g_common.Tpo $(DEPDIR)/lowntfs_3g-ntfs-3g_common.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='ntfs-3g_common.c' object='lowntfs_3g-ntfs-3g_common.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(lowntfs_3g_CFLAGS) $(CFLAGS) -c -o lowntfs_3g-ntfs-3g_common.obj `if test -f 'ntfs-3g_common.c'; then $(CYGPATH_W) 'ntfs-3g_common.c'; else $(CYGPATH_W) '$(srcdir)/ntfs-3g_common.c'; fi`
+
 ntfs_3g-ntfs-3g.o: ntfs-3g.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntfs_3g_CFLAGS) $(CFLAGS) -MT ntfs_3g-ntfs-3g.o -MD -MP -MF $(DEPDIR)/ntfs_3g-ntfs-3g.Tpo -c -o ntfs_3g-ntfs-3g.o `test -f 'ntfs-3g.c' || echo '$(srcdir)/'`ntfs-3g.c
 @am__fastdepCC_TRUE@	mv -f $(DEPDIR)/ntfs_3g-ntfs-3g.Tpo $(DEPDIR)/ntfs_3g-ntfs-3g.Po
@@ -463,6 +490,20 @@ ntfs_3g-ntfs-3g.obj: ntfs-3g.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='ntfs-3g.c' object='ntfs_3g-ntfs-3g.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntfs_3g_CFLAGS) $(CFLAGS) -c -o ntfs_3g-ntfs-3g.obj `if test -f 'ntfs-3g.c'; then $(CYGPATH_W) 'ntfs-3g.c'; else $(CYGPATH_W) '$(srcdir)/ntfs-3g.c'; fi`
+
+ntfs_3g-ntfs-3g_common.o: ntfs-3g_common.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntfs_3g_CFLAGS) $(CFLAGS) -MT ntfs_3g-ntfs-3g_common.o -MD -MP -MF $(DEPDIR)/ntfs_3g-ntfs-3g_common.Tpo -c -o ntfs_3g-ntfs-3g_common.o `test -f 'ntfs-3g_common.c' || echo '$(srcdir)/'`ntfs-3g_common.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/ntfs_3g-ntfs-3g_common.Tpo $(DEPDIR)/ntfs_3g-ntfs-3g_common.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='ntfs-3g_common.c' object='ntfs_3g-ntfs-3g_common.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntfs_3g_CFLAGS) $(CFLAGS) -c -o ntfs_3g-ntfs-3g_common.o `test -f 'ntfs-3g_common.c' || echo '$(srcdir)/'`ntfs-3g_common.c
+
+ntfs_3g-ntfs-3g_common.obj: ntfs-3g_common.c
+@am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntfs_3g_CFLAGS) $(CFLAGS) -MT ntfs_3g-ntfs-3g_common.obj -MD -MP -MF $(DEPDIR)/ntfs_3g-ntfs-3g_common.Tpo -c -o ntfs_3g-ntfs-3g_common.obj `if test -f 'ntfs-3g_common.c'; then $(CYGPATH_W) 'ntfs-3g_common.c'; else $(CYGPATH_W) '$(srcdir)/ntfs-3g_common.c'; fi`
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/ntfs_3g-ntfs-3g_common.Tpo $(DEPDIR)/ntfs_3g-ntfs-3g_common.Po
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='ntfs-3g_common.c' object='ntfs_3g-ntfs-3g_common.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntfs_3g_CFLAGS) $(CFLAGS) -c -o ntfs_3g-ntfs-3g_common.obj `if test -f 'ntfs-3g_common.c'; then $(CYGPATH_W) 'ntfs-3g_common.c'; else $(CYGPATH_W) '$(srcdir)/ntfs-3g_common.c'; fi`
 
 ntfs_3g_probe-ntfs-3g.probe.o: ntfs-3g.probe.c
 @am__fastdepCC_TRUE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(ntfs_3g_probe_CFLAGS) $(CFLAGS) -MT ntfs_3g_probe-ntfs-3g.probe.o -MD -MP -MF $(DEPDIR)/ntfs_3g_probe-ntfs-3g.probe.Tpo -c -o ntfs_3g_probe-ntfs-3g.probe.o `test -f 'ntfs-3g.probe.c' || echo '$(srcdir)/'`ntfs-3g.probe.c

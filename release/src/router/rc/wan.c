@@ -727,17 +727,18 @@ void start_wan6_done(const char *wan_ifname)
 		start_dhcp6c();
 		break;
 	case IPV6_ANYCAST_6TO4:
-		addr4.s_addr = 0;
-		memset(&addr, 0, sizeof(addr));
-		inet_aton(get_wanip(), &addr4);
-		addr.s6_addr16[0] = htons(0x2002);
-		ipv6_mapaddr4(&addr, 16, &addr4, 0);
-		addr.s6_addr16[3] = htons(0x0001);
-		inet_ntop(AF_INET6, &addr, addr6, sizeof(addr6));
-		nvram_set("ipv6_prefix", addr6);
-		// fall through
 	case IPV6_6IN4:
 		stop_ipv6_tunnel();
+		if (service == IPV6_ANYCAST_6TO4) {
+			addr4.s_addr = 0;
+			memset(&addr, 0, sizeof(addr));
+			inet_aton(get_wanip(), &addr4);
+			addr.s6_addr16[0] = htons(0x2002);
+			ipv6_mapaddr4(&addr, 16, &addr4, 0);
+			addr.s6_addr16[3] = htons(0x0001);
+			inet_ntop(AF_INET6, &addr, addr6, sizeof(addr6));
+			nvram_set("ipv6_prefix", addr6);
+		}
 		start_ipv6_tunnel();
 		// FIXME: give it a few seconds for DAD completion
 		sleep(2);

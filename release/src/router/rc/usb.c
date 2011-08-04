@@ -624,6 +624,33 @@ int find_dev_host(const char *devpath)
 
 #endif	/* LINUX26 */
 
+int dir_is_mountpoint(const char *root, const char *dir)
+{
+	char path[256];
+	struct stat sb;
+	int thisdev;
+
+	snprintf(path, sizeof(path), "%s%s%s", root ? : "", root ? "/" : "", dir);
+
+	/* Check if this is a directory */
+	sb.st_mode = S_IFDIR;	/* failsafe */
+	stat(path, &sb);
+
+	if (S_ISDIR(sb.st_mode)) {
+
+		/* If this dir & its parent dir are on the same device, it is not a mountpoint */
+		strcat(path, "/.");
+		stat(path, &sb);
+		thisdev = sb.st_dev;
+		strcat(path, ".");
+		++sb.st_dev;	/* failsafe */
+		stat(path, &sb);
+
+		return (thisdev != sb.st_dev);
+	}
+
+	return 0;
+}
 
 /* Mount or unmount all partitions on this controller.
  * Parameter: action_add:

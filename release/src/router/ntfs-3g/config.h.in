@@ -1,10 +1,18 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Define this to 1 if you want to enable support of encrypted files in
+   libntfs and utilities. */
+#undef ENABLE_CRYPTO
+
 /* Define to 1 if debug should be enabled */
 #undef ENABLE_DEBUG
 
 /* Define to 1 if the nfconv patch should be enabled */
 #undef ENABLE_NFCONV
+
+/* Define this to 1 if you want to enable generation of DCE compliant UUIDs.
+   */
+#undef ENABLE_UUID
 
 /* Define to 1 if using internal fuse */
 #undef FUSE_INTERNAL
@@ -116,6 +124,9 @@
 
 /* Define to 1 if you have the <mntent.h> header file. */
 #undef HAVE_MNTENT_H
+
+/* Define to 1 if you have the <pwd.h> header file. */
+#undef HAVE_PWD_H
 
 /* Define to 1 if you have the `realpath' function. */
 #undef HAVE_REALPATH
@@ -339,6 +350,9 @@
 
 /* Required define if using POSIX threads */
 #undef _REENTRANT
+
+/* Define to empty if `const' does not conform to ANSI C. */
+#undef const
 
 /* Define to `__inline__' or `__inline' if that's what the C compiler
    calls it, or to nothing if 'inline' is not supported under any name.  */

@@ -401,7 +401,7 @@ static void reg_w_buf(struct gspca_dev *gspca_dev,
 	memcpy(gspca_dev->usb_buf, buffer, len);
 	usb_control_msg(gspca_dev->dev,
 			usb_sndctrlpipe(gspca_dev->dev, 0),
-			1,		/* request */
+			0,		/* request */
 			USB_DIR_OUT | USB_TYPE_VENDOR | USB_RECIP_DEVICE,
 			0,		/* value */
 			index, gspca_dev->usb_buf, len,
@@ -667,9 +667,9 @@ static int sd_init(struct gspca_dev *gspca_dev)
 	struct sd *sd = (struct sd *) gspca_dev;
 
 	if (sd->sensor == SENSOR_PAC7302)
-		reg_w_seq(gspca_dev, init_7302, sizeof init_7302);
+		reg_w_seq(gspca_dev, init_7302, sizeof(init_7302)/2);
 	else
-		reg_w_seq(gspca_dev, init_7311, sizeof init_7311);
+		reg_w_seq(gspca_dev, init_7311, sizeof(init_7311)/2);
 
 	return 0;
 }
