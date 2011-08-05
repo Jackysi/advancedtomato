@@ -130,7 +130,7 @@ function save()
 <script type='text/javascript'>
 </script>
 
-<div class='section-title'><% translate("Syslog</div>
+<div class='section-title'><% translate("Syslog"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 

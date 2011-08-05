@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Bandwidth: Monthly</title>
+<title>[<% ident(); %>] <% translate("Bandwidth"); %>: <% translate("Monthly"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -67,7 +67,7 @@ function redraw()
 	gn = 0;
 
 	grid = '<table class="bwmg" cellspacing="1">';
-	grid += makeRow('header', 'Date', 'Download', 'Upload', 'Total');
+	grid += makeRow('header', '<% translate("Date"); %>', '<% translate("Download"); %>', '<% translate("Upload"); %>', '<% translate("Total"); %>');
 
 	for (i = 0; i < monthly_history.length; ++i) {
 		h = monthly_history[i];
@@ -105,7 +105,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -113,15 +113,15 @@ function init()
 
 <!-- / / / -->
 
-<div class='section-title'>WAN Bandwidth - Monthly</div>
+<div class='section-title'><% translate("WAN Bandwidth - Monthly"); %></div>
 <div id='bwm-monthly-grid' style='float:left'></div>
 <div style="float:right;text-align:right">
-<b>Date</b> <select onchange='changeDate(this, "ym")' id='dafm'><option value=0>yyyy-mm</option><option value=1>mm-yyyy</option><option value=2>mmm yyyy</option><option value=3>mm.yyyy</option></select><br>
-<b>Scale</b> <select onchange='changeScale(this)' id='scale'><option value=0>KB</option><option value=1>MB</option><option value=2 selected>GB</option></select><br>
+<b><% translate("Date"); %></b> <select onchange='changeDate(this, "ym")' id='dafm'><option value=0>yyyy-mm</option><option value=1>mm-yyyy</option><option value=2>mmm yyyy</option><option value=3>mm.yyyy</option></select><br>
+<b><% translate("Scale"); %></b> <select onchange='changeScale(this)' id='scale'><option value=0>KB</option><option value=1>MB</option><option value=2 selected>GB</option></select><br>
 <br>
-&raquo; <a href="javascript:genData()">Data</a>
+&raquo; <a href="javascript:genData()"><% translate("Data"); %></a>
 <br>
-&raquo; <a href="admin-bwm.asp">Configure</a>
+&raquo; <a href="admin-bwm.asp"><% translate("Configure"); %></a>
 <br><br><br>
 </div>
 <br>
@@ -132,7 +132,7 @@ function init()
 
 </td></tr>
 <tr><td id='footer' colspan=2>
-<input type='button' value='Refresh' onclick='reloadPage()'>
+<input type='button' value='<% translate("Refresh"); %>' onclick='reloadPage()'>
 </td></tr>
 </table>
 </form>

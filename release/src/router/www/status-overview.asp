@@ -190,7 +190,7 @@ createFieldTable('', [
 	null,
 	{ title: '<% translate("Time"); %>', rid: 'time', text: stats.time },
 	{ title: '<% translate("Uptime"); %>', rid: 'uptime', text: stats.uptime },
-	{ title: '<% translate("CPU Load"); %> <small>(1 / 5 / 15 <% translate("mins"); %>)</small>', rid: 'cpu', text: stats.cpuload },
+	{ title: '<% translate("CPU Load"); %> <br><small>(1 / 5 / 15 <% translate("mins"); %>)</small>', rid: 'cpu', text: stats.cpuload },
 	{ title: '<% translate("Total / Free Memory"); %>', rid: 'memory', text: stats.memory },
 	{ title: '<% translate("Total / Free Swap"); %>', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') }
 ]);

@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Basic: Identification</title>
+<title>[<% ident(); %>] <% translate("Basic"); %>: <% translate("Identification"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -44,7 +44,7 @@ function save()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -56,13 +56,13 @@ function save()
 <input type='hidden' name='_service' value='*'>
 
 
-<div class='section-title'>Router Identification</div>
+<div class='section-title'><% translate("Router Identification"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Router Name', name: 'router_name', type: 'text', maxlen: 32, size: 34, value: nvram.router_name },
-	{ title: 'Hostname', name: 'wan_hostname', type: 'text', maxlen: 63, size: 34, value: nvram.wan_hostname },
-	{ title: 'Domain Name', name: 'wan_domain', type: 'text', maxlen: 32, size: 34, value: nvram.wan_domain }
+	{ title: <% translate("Router Name"); %>, name: 'router_name', type: 'text', maxlen: 32, size: 34, value: nvram.router_name },
+	{ title: <% translate("Hostname"); %>, name: 'wan_hostname', type: 'text', maxlen: 63, size: 34, value: nvram.wan_hostname },
+	{ title: <% translate("Domain Name"); %>, name: 'wan_domain', type: 'text', maxlen: 32, size: 34, value: nvram.wan_domain }
 ]);
 </script>
 </div>
@@ -72,8 +72,8 @@ createFieldTable('', [
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='reloadPage();'>
 </td></tr>
 </table>
 </form>

@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] QoS: View Details</title>
+<title>[<% ident(); %>] QoS: <% translate("View Details"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -35,7 +35,7 @@
 <script type='text/javascript'>
 //	<% nvram(''); %>	// http_id
 
-var abc = ['Unclassified', 'Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A','Class B','Class C','Class D','Class E'];
+var abc = ['<% translate("Unclassified"); %>', '<% translate("Highest"); %>', '<% translate("High"); %>', '<% translate("Medium"); %>', '<% translate("Low"); %>', '<% translate("Lowest"); %>', '<% translate("Class"); %> A','<% translate("Class"); %> B','<% translate("Class"); %> C','<% translate("Class"); %> D','<% translate("Class"); %> E'];
 var colors = ['F08080','E6E6FA','0066CC','8FBC8F','FAFAD2','ADD8E6','9ACD32','E0FFFF','90EE90','FF9933','FFF0F5'];
 
 if ((viewClass = '<% cgi_get("class"); %>') == '') {
@@ -210,7 +210,7 @@ grid.setName = function(ip, name) {
 
 grid.setup = function() {
 	this.init('grid', 'sort');
-	this.headerSet(['Proto', 'Source', 'S Port', 'Destination', 'D Port', 'Class', 'Rule', 'Bytes Out', 'Bytes In']);
+	this.headerSet(['<% translate("Proto"); %>', '<% translate("Source"); %>', '<% translate("S Port"); %>', '<% translate("Destination"); %>', '<% translate("D Port"); %>', '<% translate("Class"); %>', '<% translate("Rule"); %>', '<% translate("Bytes Out"); %>', '<% translate("Bytes In"); %>']);
 }
 
 var ref = new TomatoRefresh('update.cgi', '', 0, 'qos_detailed');
@@ -298,7 +298,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -306,11 +306,11 @@ function init()
 
 <!-- / / / -->
 
-<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>View Details</div>
+<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'><% translate("View Details"); %></div>
 <div class='section'>
 <table id='grid' class='tomato-grid' style="float:left" cellspacing=1></table>
-<input type='checkbox' id='resolve' onclick='resolveChanged()' onchange='resolveChanged()'> Automatically Resolve Addresses
-<div id='loading'><br><b>Loading...</b></div>
+<input type='checkbox' id='resolve' onclick='resolveChanged()' onchange='resolveChanged()'> <% translate("Automatically Resolve Addresses"); %>
+<div id='loading'><br><b><% translate("Loading"); %>...</b></div>
 </div>
 
 <!-- / / / -->

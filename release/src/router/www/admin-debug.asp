@@ -129,7 +129,7 @@ createFieldTable('', [
 <br>
 
 <div style='width:80%'>
-<b><% translate("Warning</b>: <% translate("The NVRAM Dump text file may contain information like wireless encryption keys and usernames/passwords for the router, ISP and DDNS. Please review &amp; edit this file before sharing it with anyone"); %>.<br>
+<b><% translate("Warning"); %></b>: <% translate("The NVRAM Dump text file may contain information like wireless encryption keys and usernames/passwords for the router, ISP and DDNS. Please review &amp; edit this file before sharing it with anyone"); %>.<br>
 </div>
 
 </div>

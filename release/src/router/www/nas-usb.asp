@@ -10,7 +10,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] NAS: USB Support</title>
+<title>[<% ident(); %>] <% translate("NAS"); %>: <% translate("USB Support"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -80,13 +80,13 @@ function umountHost(a, host)
 	}
 
 	a = E(a);
-	a.innerHTML = 'Please wait...';
+	a.innerHTML = '<% translate("Please wait..."); %>';
 
 	xob.onCompleted = function(text, xml) {
 		eval(text);
 		if (usb.length == 1) {
 			if (usb[0] != 0)
-				ferror.set(a, 'The device is busy. Please make sure no applications are using it, and try again.', 0);
+				ferror.set(a, '<% translate("The device is busy. Please make sure no applications are using it, and try again"); %>.', 0);
 		}
 		xob = null;
 		_forceRefresh();
@@ -110,13 +110,13 @@ function mountHost(a, host)
 	}
 
 	a = E(a);
-	a.innerHTML = 'Please wait...';
+	a.innerHTML = '<% translate("Please wait..."); %>';
 
 	xob.onCompleted = function(text, xml) {
 		eval(text);
 		if (usb.length == 1) {
 			if (usb[0] == 0)
-				ferror.set(a, 'Failed to mount. Verify the device is plugged in, and try again.', 0);
+				ferror.set(a, '<% translate("Failed to mount. Verify the device is plugged in, and try again"); %>.', 0);
 		}
 		xob = null;
 		_forceRefresh();
@@ -203,13 +203,13 @@ dg.populate = function()
 			s = '&nbsp<br><small>&nbsp</small>';
 		else {
 			if (xob)
-				s = ((e.is_mounted == 0) ? 'No' : 'Yes') + '<br><small>Please wait...</small>';
+				s = ((e.is_mounted == 0) ? '<% translate("No"); %>' : '<% translate("Yes"); %>') + '<br><small><% translate("Please wait"); %>...</small>';
 			else if (e.is_mounted == 0)
-				s = 'No<br><small><a href="javascript:mountHost(\'L' + i + '\',\'' + e.host + '\')" title="Mount all Partitions of Storage Device" id="L' + i + '">[ Mount ]</a></small>';
+				s = '<% translate("No"); %><br><small><a href="javascript:mountHost(\'L' + i + '\',\'' + e.host + '\')" title="<% translate("Mount all Partitions of Storage Device"); %>" id="L' + i + '">[ % translate("Mount"); %> ]</a></small>';
 			else
-				s = 'Yes<br><small><a href="javascript:umountHost(\'L' + i + '\',\'' + e.host + '\')" title="Safely Remove Storage Device" id="L' + i + '">[ Unmount ]</a></small>';
+				s = '<% translate("Yes"); %><br><small><a href="javascript:umountHost(\'L' + i + '\',\'' + e.host + '\')" title="<% translate("Safely Remove Storage Device"); %>" id="L' + i + '">[ % translate("Unmount"); %> ]</a></small>';
 		}
-		desc = (e.vendor + ' ' + e.product).trim() + '<small>'; // + (e.serial == '' ? '' : '<br>Serial No: ' + e.serial);
+		desc = (e.vendor + ' ' + e.product).trim() + '<small>'; // + (e.serial == '' ? '' : '<br><% translate("Serial No"); %>: ' + e.serial);
 		if (e.discs) {
 			for (j = 0; j <= e.discs.length - 1; ++j) {
 				d = e.discs[j];
@@ -220,9 +220,9 @@ dg.populate = function()
 						desc = desc + '<br>Partition \'' + p[0] + '\'' + (p[3] != '' ? ' ' + p[3] : '') +
 							((p[5] != 0) ? ' (' + doScaleSize(p[5], 0) + 
 							((p[1] == 1) ? ' / ' + doScaleSize(p[6], 0) + ' free' : '') +
-							')' : '') + ' is ' +
-							((p[1] != 0) ? '' : 'not ') + ((p[3] == 'swap') ? 'active' : 'mounted') +
-							((p[2] != '') ? ' on ' + p[2] : '');
+							')' : '') + ' <% translate("is"); %> ' +
+							((p[1] != 0) ? '' : 'not ') + ((p[3] == 'swap') ? '<% translate("active"); %>' : '<% translate("mounted"); %>') +
+							((p[2] != '') ? ' <% translate("on"); %> ' + p[2] : '');
 					}
 				}
 			}
@@ -237,7 +237,7 @@ dg.populate = function()
 dg.setup = function()
 {
 	this.init('dev-grid', 'sort');
-	this.headerSet(['Type', 'Host', 'Description', 'Mounted?']);
+	this.headerSet(['<% translate("Type"); %>', '<% translate("Host"); %>', '<% translate("Description"); %>', '<% translate("Mounted"); %>?']);
 	this.populate();
 	this.sort(1);
 }
@@ -319,7 +319,7 @@ function submit_complete()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -344,44 +344,44 @@ function submit_complete()
 NTFS-END -->
 <input type='hidden' name='usb_automount'>
 
-<div class='section-title'>USB Support</div>
+<div class='section-title'><% translate("USB Support"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 
 createFieldTable('', [
-	{ title: 'Core USB Support', name: 'f_usb', type: 'checkbox', value: nvram.usb_enable == 1 },
-	{ title: 'USB 2.0 Support', indent: 2, name: 'f_usb2', type: 'checkbox', value: nvram.usb_usb2 == 1 },
-	{ title: 'USB 1.1 Support', indent: 2, multi: [
+	{ title: '<% translate("Core USB Support"); %>', name: 'f_usb', type: 'checkbox', value: nvram.usb_enable == 1 },
+	{ title: '<% translate("USB 2.0 Support"); %>', indent: 2, name: 'f_usb2', type: 'checkbox', value: nvram.usb_usb2 == 1 },
+	{ title: '<% translate("USB 1.1 Support"); %>', indent: 2, multi: [
 		{ suffix: '&nbsp; OHCI &nbsp;&nbsp;&nbsp;', name: 'f_ohci', type: 'checkbox', value: nvram.usb_ohci == 1 },
 		{ suffix: '&nbsp; UHCI &nbsp;',	name: 'f_uhci', type: 'checkbox', value: nvram.usb_uhci == 1 }
 	] },
 	null,
-	{ title: 'USB Printer Support', name: 'f_print', type: 'checkbox', value: nvram.usb_printer == 1 },
-		{ title: 'Bidirectional copying', indent: 2, name: 'f_bprint', type: 'checkbox', value: nvram.usb_printer_bidirect == 1 },
+	{ title: '<% translate("USB Printer Support"); %>', name: 'f_print', type: 'checkbox', value: nvram.usb_printer == 1 },
+		{ title: '<% translate("Bidirectional copying"); %>', indent: 2, name: 'f_bprint', type: 'checkbox', value: nvram.usb_printer_bidirect == 1 },
 	null,
-	{ title: 'USB Storage Support', name: 'f_storage', type: 'checkbox', value: nvram.usb_storage == 1 },
-		{ title: 'File Systems Support', indent: 2, multi: [
+	{ title: '<% translate("USB Storage Support"); %>', name: 'f_storage', type: 'checkbox', value: nvram.usb_storage == 1 },
+		{ title: '<% translate("File Systems Support"); %>', indent: 2, multi: [
 			{ suffix: '&nbsp; Ext2 / Ext3 &nbsp;&nbsp;&nbsp;', name: 'f_ext3', type: 'checkbox', value: nvram.usb_fs_ext3 == 1 },
 /* NTFS-BEGIN */
 			{ suffix: '&nbsp; NTFS &nbsp;&nbsp;&nbsp;', name: 'f_ntfs', type: 'checkbox', value: nvram.usb_fs_ntfs == 1 },
 /* NTFS-END */
 			{ suffix: '&nbsp; FAT &nbsp;', name: 'f_fat', type: 'checkbox', value: nvram.usb_fs_fat == 1 }
 		] },
-		{ title: 'Automount', indent: 2, name: 'f_automount', type: 'checkbox',
-			suffix: ' <small>Automatically mount all partitions to sub-directories in <i>/mnt</i>.</small>', value: nvram.usb_automount == 1 },
-	{ title: 'Run after mounting', indent: 2, name: 'script_usbmount', type: 'textarea', value: nvram.script_usbmount },
-	{ title: 'Run before unmounting', indent: 2, name: 'script_usbumount', type: 'textarea', value: nvram.script_usbumount },
+		{ title: '<% translate("Automount"); %>', indent: 2, name: 'f_automount', type: 'checkbox',
+			suffix: ' <small><% translate("Automatically mount all partitions to sub-directories in"); %> <i>/mnt</i>.</small>', value: nvram.usb_automount == 1 },
+	{ title: '<% translate("Run after mounting"); %>', indent: 2, name: 'script_usbmount', type: 'textarea', value: nvram.script_usbmount },
+	{ title: '<% translate("Run before unmounting"); %>', indent: 2, name: 'script_usbumount', type: 'textarea', value: nvram.script_usbumount },
 	null,
-	{ title: 'Hotplug script<br><small>(called when any USB device is attached or removed)</small>', name: 'script_usbhotplug', type: 'textarea', value: nvram.script_usbhotplug },
+	{ title: '<% translate("Hotplug script"); %><br><small>(<% translate("called when any USB device is attached or removed"); %>)</small>', name: 'script_usbhotplug', type: 'textarea', value: nvram.script_usbhotplug },
 	null,
-	{ text: '<small>Some of the changes will take effect only after a restart.</small>' }
+	{ text: '<small><% translate("Some of the changes will take effect only after a restart"); %>.</small>' }
 ]);
 </script>
 </div>
 
 <!-- / / / -->
 
-<div class='section-title'>Attached Devices</div>
+<div class='section-title'><% translate("Attached Devices"); %></div>
 <div class='section'>
 <table id='dev-grid' class='tomato-grid' cellspacing=0></table>
 <div id='usb-controls'>
@@ -395,8 +395,8 @@ createFieldTable('', [
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='javascript:reloadPage();'>
 </td></tr>
 </table>
 </form>

@@ -47,7 +47,7 @@ endif
 # Only include the CIFS pages if CIFS is configured in.
 ifneq ($(TCONFIG_CIFS),y)
 	rm -f $(INSTALLDIR)/www/admin-cifs.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/CIFS-BEGIN/,/CIFS-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/CIFS-BEGIN/,/CIFS-END/d"
 	sed -i $(INSTALLDIR)/www/admin-bwm.asp -e "/CIFS-BEGIN/,/CIFS-END/d"
 	sed -i $(INSTALLDIR)/www/nas-media.asp -e "/CIFS-BEGIN/,/CIFS-END/d"
 endif
@@ -55,7 +55,7 @@ endif
 # Only include the JFFS pages if JFFS is configured in.
 ifneq ($(TCONFIG_JFFS2),y)
 	rm -f $(INSTALLDIR)/www/admin-jffs2.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/JFFS2-BEGIN/,/JFFS2-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/JFFS2-BEGIN/,/JFFS2-END/d"
 	sed -i $(INSTALLDIR)/www/admin-bwm.asp -e "/JFFS2-BEGIN/,/JFFS2-END/d"
 	sed -i $(INSTALLDIR)/www/admin-upgrade.asp -e "/JFFS2-BEGIN/,/JFFS2-END/d"
 	sed -i $(INSTALLDIR)/www/nas-media.asp -e "/JFFS2-BEGIN/,/JFFS2-END/d"
@@ -87,17 +87,17 @@ endif
 # Only include the FTP pages if FTP Server is configured in.
 ifneq ($(TCONFIG_FTP),y)
 	rm -f $(INSTALLDIR)/www/nas-ftp.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/FTP-BEGIN/,/FTP-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/FTP-BEGIN/,/FTP-END/d"
 endif
 # Only include the Samba pages if Samba is configured in.
 ifneq ($(TCONFIG_SAMBASRV),y)
 	rm -f $(INSTALLDIR)/www/nas-samba.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/SAMBA-BEGIN/,/SAMBA-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/SAMBA-BEGIN/,/SAMBA-END/d"
 endif
 # Only include the Media Server pages if Media Server is configured in.
 ifneq ($(TCONFIG_MEDIA_SERVER),y)
 	rm -f $(INSTALLDIR)/www/nas-media.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/MEDIA-SRV-BEGIN/,/MEDIA-SRV-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/MEDIA-SRV-BEGIN/,/MEDIA-SRV-END/d"
 endif
 
 # Only include IPv6 options if IPv6 is configured in.
@@ -114,7 +114,7 @@ endif
 # Only include the USB and NAS pages if USB Support is configured in.
 ifneq ($(TCONFIG_USB),y)
 	rm -f $(INSTALLDIR)/www/nas-*.*
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/USB-BEGIN/,/USB-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/USB-BEGIN/,/USB-END/d"
 	sed -i $(INSTALLDIR)/www/admin-buttons.asp -e "/USB-BEGIN/,/USB-END/d"
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/USB-BEGIN/,/USB-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/USB-BEGIN/,/USB-END/d"
@@ -145,7 +145,7 @@ ifeq ($(TCONFIG_OPENVPN),y)
 	test -d ../openssl/crypto/aes || sed -i $(INSTALLDIR)/www/vpn.js -e "/AES-BEGIN/,/AES-END/d"
 else
 	rm -f $(INSTALLDIR)/www/vpn*
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/VPN-BEGIN/,/VPN-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/VPN-BEGIN/,/VPN-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/VPN-BEGIN/,/VPN-END/d"
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/VPN-BEGIN/,/VPN-END/d"
 endif

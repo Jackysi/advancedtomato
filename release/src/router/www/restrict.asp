@@ -44,7 +44,7 @@ var dowNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 var og = new TomatoGrid();
 og.setup = function() {
 	this.init('res-over-grid', 'sort');
-	this.headerSet(['Description', '<% translate("Schedule']);
+	this.headerSet(['<% translate("Description"); %>', '<% translate("Schedule"); %>']);
 	var r = this.footerSet(['<input type="button" value="<% translate("Add"); %>" onclick="TGO(this).addEntry()" id="res-over-add">']);
 	r.cells[0].colSpan = 2;
 }

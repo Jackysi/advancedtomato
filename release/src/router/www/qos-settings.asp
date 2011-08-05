@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] QoS: Basic Settings</title>
+<title>[<% ident(); %>] QoS: <% translate("Basic Settings"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -26,9 +26,9 @@
 REMOVE-END */
 //	<% nvram("qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_default,qos_pfifo,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma"); %>
 
-classNames = ['Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
+classNames = ['<% translate("Highest"); %>', '<% translate("High"); %>', '<% translate("Medium"); %>', '<% translate("Low"); %>', '<% translate("Lowest"); %>', '<% translate("Class"); %> A', '<% translate("Class"); %> B', '<% translate("Class"); %> C', '<% translate("Class"); %> D', '<% translate("Class"); %> E'];
 
-pctList = [[0, 'None']];
+pctList = [[0, '<% translate("None"); %>']];
 for (i = 1; i <= 100; ++i) pctList.push([i, i + '%']);
 
 function oscale(rate, ceil)
@@ -117,7 +117,7 @@ function save()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -139,7 +139,7 @@ function save()
 <input type='hidden' name='qos_reset'>
 <input type='hidden' name='ne_vegas'>
 
-<div class='section-title'>Basic Settings</div>
+<div class='section-title'><% translate("Basic Settings"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 classList = [];
@@ -147,20 +147,20 @@ for (i = 0; i < 10; ++i) {
 	classList.push([i, classNames[i]]);
 }
 createFieldTable('', [
-	{ title: 'Enable QoS', name: 'f_qos_enable', type: 'checkbox', value: nvram.qos_enable == '1' },
-	{ title: 'Prioritize small packets with these control flags', multi: [
+	{ title: '<% translate("Enable"); %> QoS', name: 'f_qos_enable', type: 'checkbox', value: nvram.qos_enable == '1' },
+	{ title: '<% translate("Prioritize small packets with these control flags"); %>', multi: [
 		{ suffix: ' ACK &nbsp;', name: 'f_qos_ack', type: 'checkbox', value: nvram.qos_ack == '1' },
 		{ suffix: ' SYN &nbsp;', name: 'f_qos_syn', type: 'checkbox', value: nvram.qos_syn == '1' },
 		{ suffix: ' FIN &nbsp;', name: 'f_qos_fin', type: 'checkbox', value: nvram.qos_fin == '1' },
 		{ suffix: ' RST &nbsp;', name: 'f_qos_rst', type: 'checkbox', value: nvram.qos_rst == '1' }
 	] },
-	{ title: 'Prioritize ICMP', name: 'f_qos_icmp', type: 'checkbox', value: nvram.qos_icmp == '1' },
-	{ title: 'Reset class when changing settings', name: 'f_qos_reset', type: 'checkbox', value: nvram.qos_reset == '1' },
-	{ title: 'Default class', name: 'qos_default', type: 'select', options: classList, value: nvram.qos_default },
+	{ title: '<% translate("Prioritize ICMP"); %>', name: 'f_qos_icmp', type: 'checkbox', value: nvram.qos_icmp == '1' },
+	{ title: '<% translate("Reset class when changing settings"); %>', name: 'f_qos_reset', type: 'checkbox', value: nvram.qos_reset == '1' },
+	{ title: '<% translate("Default class"); %>', name: 'qos_default', type: 'select', options: classList, value: nvram.qos_default },
 /* REMOVE-BEGIN
 	!!TB - added qos_pfifo
 REMOVE-END */
-	{ title: 'Qdisc Scheduler', name: 'qos_pfifo', type: 'select', options: [['0','sfq'],['1','pfifo']], value: nvram.qos_pfifo }
+	{ title: 'Qdisc Scheduler"); %>', name: 'qos_pfifo', type: 'select', options: [['0','sfq'],['1','pfifo']], value: nvram.qos_pfifo }
 ]);
 </script>
 </div>
@@ -170,7 +170,7 @@ REMOVE-END */
 <script type='text/javascript'>
 cc = nvram.qos_orates.split(/[,-]/);
 f = [];
-f.push({ title: 'Max Bandwidth', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw });
+f.push({ title: '<% translate("Max Bandwidth"); %>', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw });
 f.push(null);
 j = 0;
 for (i = 0; i < 10; ++i) {
@@ -192,7 +192,7 @@ createFieldTable('', f);
 <script type='text/javascript'>
 rates = nvram.qos_irates.split(',');
 f = [];
-f.push({ title: 'Max Bandwidth', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw });
+f.push({ title: '<% translate("Max Bandwidth"); %>', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw });
 f.push(null);
 for (i = 0; i < 10; ++i) {
 	f.push({ title: classNames[i], multi: [
@@ -204,16 +204,16 @@ createFieldTable('', f);
 </script>
 </div>
 
-<span id='s_vegas' style='display:none'>
-<div class='section-title'>TCP Vegas <small>(network congestion control)</small></div>
+<span id='s_vegas'>
+<div class='section-title'><% translate("TCP Vegas"); %> <small>(<% translate("network congestion control"); %>)</small></div>
 <div class='section'>
 <script type='text/javascript'>
 /* move me? */
 createFieldTable('', [
-	{ title: 'Enable TCP Vegas', name: 'f_ne_vegas', type: 'checkbox', value: nvram.ne_vegas == '1' },
-	{ title: 'Alpha', name: 'ne_valpha', type: 'text', maxlen: 6, size: 8, value: nvram.ne_valpha },
-	{ title: 'Beta', name: 'ne_vbeta', type: 'text', maxlen: 6, size: 8, value: nvram.ne_vbeta },
-	{ title: 'Gamma', name: 'ne_vgamma', type: 'text', maxlen: 6, size: 8, value: nvram.ne_vgamma }
+	{ title: '<% translate("Enable TCP Vegas"); %>', name: 'f_ne_vegas', type: 'checkbox', value: nvram.ne_vegas == '1' },
+	{ title: '<% translate("Alpha"); %>', name: 'ne_valpha', type: 'text', maxlen: 6, size: 8, value: nvram.ne_valpha },
+	{ title: '<% translate("Beta"); %>', name: 'ne_vbeta', type: 'text', maxlen: 6, size: 8, value: nvram.ne_vbeta },
+	{ title: '<% translate("Gamma"); %>', name: 'ne_vgamma', type: 'text', maxlen: 6, size: 8, value: nvram.ne_vgamma }
 ]);
 </script>
 </div>
@@ -224,8 +224,8 @@ createFieldTable('', [
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='reloadPage();'>
 </td></tr>
 </table>
 </form>

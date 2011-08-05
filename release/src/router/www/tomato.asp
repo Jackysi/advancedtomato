@@ -2390,10 +2390,6 @@ function navi()
 			['<% translate("View Details"); %>',	'detailed.asp'],
 			['<% translate("Transfer Rates"); %>',	'ctrate.asp']
 			] ],
-		['<% translate("RAF Features"); %>',		'new', 0, [
-			['<% translate("MAC/IP Range BW Limit"); %>',	'qoslimit.asp'],
-			['<% translate("ARP Binding"); %>',		'arpbind.asp']
-			] ],
 		['<% translate("Access Restriction"); %>',	'restrict.asp'],
 /* REMOVE-BEGIN
 		['Scripts',				'sc', 0, [
@@ -2416,9 +2412,6 @@ REMOVE-END */
 /* MEDIA-SRV-BEGIN */
 			,['<% translate("Media Server"); %>',	'media.asp']
 /* MEDIA-SRV-END */
-/* BT-BEGIN */
-			,['<% translate("BitTorrent Client"); %>',	'bittorrent.asp']
-/* BT-END */
 			] ],
 /* USB-END */
 /* VPN-BEGIN */

@@ -67,7 +67,7 @@ function clearLog(clear)
 	}
 
 	xob.post('webmon.cgi', 'clear=' + clear);
-	E('clear' + clear).innerHTML = '<% translate("Please wait... <img src="spin.gif" style="vertical-align:top">';
+	E('clear' + clear).innerHTML = '<% translate("Please wait"); %>... <img src="spin.gif" style="vertical-align:top">';
 }
 
 function resolve()
@@ -379,7 +379,7 @@ function earlyInit()
 	</div>
 
 	<div id='webmon-searches'>
-		<div class='section-title'><% translate("Recent Web Searches</div>
+		<div class='section-title'><% translate("Recent Web Searches"); %></div>
 		<div class='section'>
 			<table id='srh-grid' class='tomato-grid' style="float:left" cellspacing=1></table>
 			&raquo; <a href="webmon_recent_searches?_http_id=<% nv(http_id) %>"><% translate("Download"); %></a>

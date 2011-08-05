@@ -447,7 +447,7 @@ function earlyInit()
 <input type='hidden' name='_service' value='restrict-restart'>
 <input type='hidden' name='rruleNN' id='_rrule' value=''>
 
-<div class='section-title'><% translate("Access Restriction</div>
+<div class='section-title'><% translate("Access Restriction"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 W('<div style="float:right"><small>'+ 'ID: ' + rruleN.pad(2) + '</small>&nbsp;</div><br>');

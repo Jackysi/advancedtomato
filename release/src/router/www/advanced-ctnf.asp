@@ -281,7 +281,7 @@ createFieldTable('', [
 <script type='text/javascript'>
 v = [];
 for (i = -5; i <= 5; ++i) {
-	v.push([i + '', i ? ((i > 0) ? '+' : '') + i : 'None']);
+	v.push([i + '', i ? ((i > 0) ? '+' : '') + i : '<% translate("None"); %>']);
 }
 v.push(['', '<% translate("Custom"); %>']);
 
