@@ -183,10 +183,6 @@ function init()
 createFieldTable('', [
 	{ title: '<% translate("Name"); %>', text: nvram.router_name },
 	{ title: '<% translate("Model"); %>', text: nvram.t_model_name },
-	{ title: '<% translate("Chipset"); %>', text: stats.systemtype },
-/* LINUX26-BEGIN */
-	{ title: '<% translate("CPU Freq"); %>', text: stats.cpumhz },
-/* LINUX26-END */
 	null,
 	{ title: '<% translate("Time"); %>', rid: 'time', text: stats.time },
 	{ title: '<% translate("Uptime"); %>', rid: 'uptime', text: stats.uptime },
