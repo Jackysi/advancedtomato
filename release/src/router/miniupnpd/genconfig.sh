@@ -1,5 +1,5 @@
 #! /bin/sh
-# $Id: genconfig.sh,v 1.41 2011/03/09 15:09:07 nanard Exp $
+# $Id: genconfig.sh,v 1.50 2011/07/25 16:03:46 nanard Exp $
 # miniupnp daemon
 # http://miniupnp.free.fr or http://miniupnp.tuxfamily.org/
 # (c) 2006-2011 Thomas Bernard
@@ -75,6 +75,7 @@ case $OS_NAME in
 		fi
 		echo "#define USE_PF 1" >> ${CONFIGFILE}
 		FW=pf
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		OS_URL=http://www.openbsd.org/
 		;;
 	FreeBSD)
@@ -104,12 +105,14 @@ case $OS_NAME in
 			FW=pf
 			echo "#define USE_PF 1" >> ${CONFIGFILE}
 		fi
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		OS_URL=http://www.freebsd.org/
 		;;
 	pfSense)
 		# we need to detect if PFRULE_INOUT_COUNTS macro is needed
 		echo "#define USE_PF 1" >> ${CONFIGFILE}
 		FW=pf
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		OS_URL=http://www.pfsense.com/
 		;;
 	NetBSD)
@@ -128,6 +131,7 @@ case $OS_NAME in
 			echo "#define USE_PF 1" >> ${CONFIGFILE}
 			FW=pf
 		fi
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		OS_URL=http://www.netbsd.org/
 		;;
 	DragonFly)
@@ -146,11 +150,12 @@ case $OS_NAME in
 			echo "#define USE_PF 1" >> ${CONFIGFILE}
 			FW=pf
 		fi
-		echo "#define USE_PF 1" >> ${CONFIGFILE}
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		OS_URL=http://www.dragonflybsd.org/
 		;;
 	SunOS)
 		echo "#define USE_IPF 1" >> ${CONFIGFILE}
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		FW=ipf
 		echo "#define LOG_PERROR 0" >> ${CONFIGFILE}
 		echo "#define SOLARIS_KSTATS 1" >> ${CONFIGFILE}
@@ -169,6 +174,12 @@ case $OS_NAME in
 			OS_VERSION=`cat /etc/debian_version`
 			OS_URL=http://www.debian.org/
 		fi
+		# same thing for Gentoo linux
+		if  [ -f /etc/gentoo-release ]; then
+			OS_NAME=Gentoo
+			OS_VERSION=`cat /etc/gentoo-release`
+			OS_URL=http://www.gentoo.org/
+		fi
 		# use lsb_release (Linux Standard Base) when available
 		LSB_RELEASE=`which lsb_release`
 		if [ 0 -eq $? ]; then
@@ -183,24 +194,39 @@ case $OS_NAME in
 					OS_URL=http://www.ubuntu.com/
 					OS_VERSION=`${LSB_RELEASE} -c -s`
 					;;
+				Gentoo)
+					OS_URL=http://www.gentoo.org/
+					;;
 			esac
 		fi
 		echo "#define USE_NETFILTER 1" >> ${CONFIGFILE}
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		FW=netfilter
 		;;
 	OpenWRT)
 		OS_URL=http://www.openwrt.org/
 		echo "#define USE_NETFILTER 1" >> ${CONFIGFILE}
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		FW=netfilter
 		;;
 	Tomato)
 		OS_NAME=UPnP
 		OS_URL=http://tomatousb.org/
 		echo "#define USE_NETFILTER 1" >> ${CONFIGFILE}
+		echo "" >> ${CONFIGFILE}
+		echo "#include <tomato_config.h>" >> ${CONFIGFILE}
+		echo "" >> ${CONFIGFILE}
+		echo "#ifdef LINUX26" >> ${CONFIGFILE}
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
+		echo "#endif" >> ${CONFIGFILE}
+		echo "#ifdef TCONFIG_IPV6" >> ${CONFIGFILE}
+		echo "#define ENABLE_IPV6" >> ${CONFIGFILE}
+		echo "#endif" >> ${CONFIGFILE}
 		FW=netfilter
 		;;
 	Darwin)
 		echo "#define USE_IPFW 1" >> ${CONFIGFILE}
+		echo "#define USE_IFACEWATCHER 1" >> ${CONFIGFILE}
 		FW=ipfw
 		OS_URL=http://developer.apple.com/macosx
 		;;
@@ -214,6 +240,13 @@ esac
 echo "Configuring compilation for [$OS_NAME] [$OS_VERSION] with [$FW] firewall software."
 echo "Please edit config.h for more compilation options."
 
+# define SUPPORT_REMOTEHOST if the FW related code really supports setting
+# a RemoteHost
+if [ \( "$FW" = "netfilter" \) -o \( "$FW" = "pf" \) -o \( "$FW" = "ipfw" \) ] ; then
+	echo "#define SUPPORT_REMOTEHOST" >> ${CONFIGFILE}
+fi
+
+echo "" >> ${CONFIGFILE}
 echo "#define OS_NAME		\"$OS_NAME\"" >> ${CONFIGFILE}
 echo "#define OS_VERSION	\"$OS_NAME/$OS_VERSION\"" >> ${CONFIGFILE}
 echo "#define OS_URL		\"${OS_URL}\"" >> ${CONFIGFILE}
@@ -268,7 +301,29 @@ echo "/*#define HAS_DUMMY_SERVICE*/" >> ${CONFIGFILE}
 echo "#define ENABLE_L3F_SERVICE" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 
-echo "/* Experimental UPnP Events support. */" >> ${CONFIGFILE}
+echo "/* Enable IP v6 support */" >> ${CONFIGFILE}
+echo "/*#define ENABLE_IPV6*/" >> ${CONFIGFILE}
+echo "" >> ${CONFIGFILE}
+
+echo "/* Enable the support of IGD v2 specification." >> ${CONFIGFILE}
+echo " * This is not fully tested yet and can cause incompatibilities with some" >> ${CONFIGFILE}
+echo " * control points, so enable with care. */" >> ${CONFIGFILE}
+echo "/*#define IGD_V2*/" >> ${CONFIGFILE}
+echo "" >> ${CONFIGFILE}
+
+echo "#ifdef IGD_V2" >> ${CONFIGFILE}
+echo "/* Enable DeviceProtection service (IGDv2) */" >> ${CONFIGFILE}
+echo "#define ENABLE_DP_SERVICE" >> ${CONFIGFILE}
+echo "" >> ${CONFIGFILE}
+echo "/* Enable WANIPv6FirewallControl service (IGDv2). needs IPv6 */" >> ${CONFIGFILE}
+echo "#ifdef ENABLE_IPV6" >> ${CONFIGFILE}
+echo "#define ENABLE_6FC_SERVICE" >> ${CONFIGFILE}
+echo "#endif /* ENABLE_IPV6 */" >> ${CONFIGFILE}
+echo "#endif /* IGD_V2 */" >> ${CONFIGFILE}
+echo "" >> ${CONFIGFILE}
+
+echo "/* UPnP Events support. Working well enough to be enabled by default." >> ${CONFIGFILE}
+echo " * It can be disabled to save a few bytes. */" >> ${CONFIGFILE}
 echo "#define ENABLE_EVENTS" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 
@@ -278,6 +333,11 @@ echo "" >> ${CONFIGFILE}
 
 echo "/* Experimental NFQUEUE support. */" >> ${CONFIGFILE}
 echo "/*#define ENABLE_NFQUEUE*/" >> ${CONFIGFILE}
+echo "" >> ${CONFIGFILE}
+
+echo "/* Enable to make MiniUPnPd more strict about UPnP conformance" >> ${CONFIGFILE}
+echo " * and the messages it receives from control points */" >> ${CONFIGFILE}
+echo "/*#define UPNP_STRICT*/" >> ${CONFIGFILE}
 echo "" >> ${CONFIGFILE}
 
 echo "#endif" >> ${CONFIGFILE}
