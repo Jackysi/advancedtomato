@@ -883,7 +883,7 @@ samba3:
 
 nvram: shared
 
-prebuilt: shared
+prebuilt: shared libbcmcrypto
 
 vlan:
 	@$(SEP)
