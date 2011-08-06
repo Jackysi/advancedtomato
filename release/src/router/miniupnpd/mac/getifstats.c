@@ -1,8 +1,8 @@
-/* $Id: getifstats.c,v 1.4 2011/05/15 09:41:58 nanard Exp $ */
+/* $Id: getifstats.c,v 1.5 2011/07/03 22:22:04 nanard Exp $ */
 /*
  * MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2009 Jarder Weyrich
+ * (c) 2009 Jardel Weyrich
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution
  */

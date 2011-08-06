@@ -1,4 +1,4 @@
-/* $Id: ipfwrdr.c,v 1.10 2011/06/22 21:57:17 nanard Exp $ */
+/* $Id: ipfwrdr.c,v 1.11 2011/07/12 19:17:05 nanard Exp $ */
 /*
  * MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -182,7 +182,7 @@ int add_redirect_rule2(
 	rule.fw_flg |= IP_FW_F_FWD; // forward action
 #ifdef USE_IFNAME_IN_RULES
 	if (ifname != NULL) {
-		strcpy(rule.fw_in_if.fu_via_if.name, ifname); // src interface
+		strlcpy(rule.fw_in_if.fu_via_if.name, ifname, IFNAMSIZ); // src interface
 		rule.fw_in_if.fu_via_if.unit = -1;
 	}
 #endif
