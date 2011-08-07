@@ -112,30 +112,19 @@ Copyright (C) 2010 Keith Moyer,<br>
 <br>
 <!-- VPN-END -->
 
-<!-- BT-BEGIN -->
-<b>Transmission 2.13 integration and GUI,</b><br>
-Copyright (C) 2011 Michał Rupental<br>
-<a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
+<b>Multilanguage integration,</b><br> 
+Copyright (C) 2011 Michał Rupental (Shibby), Vicente Soriano (Victek)<br>
+<a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a>, <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
-<!-- BT-END -->
+<b>Special thanks to our translators:</b><br>
+- Polish : <i>Shibby</i><br>
 
-<b>"Victek RAF" features:</b><br> 
-- ARP Binding<br>
-- Extended Sysinfo<br>
-- Multilanguage<br>
-Copyright (C) 2007-2011 Vicente Soriano, Michał Rupental<br>
-<a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
-
-<b>"Victek/PrinceAMD/Phykris/Shibby" features:</b><br>
-- Revised IP/MAC QOS/Bandwidth Limiter<br>
-<br>
-
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
-Built on <% build_time(); %> by Shibby, <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br><br>
+Built on <% build_time(); %>
 <br><br>
 
 <!--
