@@ -139,7 +139,7 @@ createFieldTable('', [
 	{ title: '<% translate("Security"); %>', indent: 2, name: 'f_cifs2_sec', type: 'select',
 		options: [['','<% translate("Default"); %> (NTLM)'],['ntlmi','NTLM <% translate("and packet signing"); %>'],['ntlmv2','NTLMv2'],['ntlmv2i','NTLMv2 <% translate("and packet signing"); %>'],['nontlm','<% translate("No NTLM"); %>'],['lanman','LANMAN'],['none','<% translate("None"); %>']],
 		value: b[7] },
-	{ title: '<% translate("Total / Free Size', indent: 2, text: cifs2.size ? (scaleSize(cifs2.size) + ' / ' + scaleSize(cifs2.free)) : '(<% translate("not mounted"); %>)' }
+	{ title: '<% translate("Total / Free Size"); %>', indent: 2, text: cifs2.size ? (scaleSize(cifs2.size) + ' / ' + scaleSize(cifs2.free)) : '(<% translate("not mounted"); %>)' }
 ]);
 </script>
 </div>

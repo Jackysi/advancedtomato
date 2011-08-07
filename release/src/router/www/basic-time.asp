@@ -26,7 +26,7 @@
 
 
 var ntpList = [
-	['custom', '<% translate("Custom..."); %>'],
+	['custom', '<% translate("Custom"); %>...'],
 	['', '<% translate("Default"); %>'],
 	['africa', '<% translate("Africa"); %>'],
 	['asia', '<% translate("Asia"); %>'],
@@ -202,9 +202,9 @@ http://www.timeanddate.com/library/abbreviations/timezones/au/
 REMOVE-END */
 
 createFieldTable('', [
-	{ title: 'Router Time', text: '<span id="clock"><% time(); %></span>' },
+	{ title: '<% translate("Router Time"); %>', text: '<span id="clock"><% time(); %></span>' },
 	null,
-	{ title: 'Time Zone', name: 'tm_sel', type: 'select', options: [
+	{ title: '<% translate("Time Zone"); %>', name: 'tm_sel', type: 'select', options: [
 		['custom','<% translate("Custom"); %>...'],
 		['UTC12','UTC-12:00 Kwajalein'],
 		['UTC11','UTC-11:00 Midway Island, Samoa'],
@@ -263,7 +263,7 @@ createFieldTable('', [
 	{ title: '<% translate("Auto Daylight Savings Time"); %>', indent: 2, name: 'f_tm_dst', type: 'checkbox', value: nvram.tm_dst != '0' },
 	{ title: '<% translate("Custom TZ String"); %>', indent: 2, name: 'f_tm_tz', type: 'text', maxlen: 32, size: 34, value: nvram.tm_tz || '' },
 	null,
-	{ title: '<% translate("Auto Update Time"); %>', name: 'ntp_updates', type: 'select', options: [[-1,'<% translate("Never"); %>'],[0,'<% translate("Only at startup"); %>'],[1,'<% translate("Every"); %> <% translate("hour"); %>'],[2,'<% translate("Every"); %> 2 <% translate("hour"); %>'],[4,'<% translate("Every"); %> 4 <% translate("hour"); %>'],[6,'<% translate("Every"); %> 6 <% translate("hour"); %>'],[8,'<% translate("Every"); %> 8 <% translate("hour"); %>'],[12,'<% translate("Every"); %> 12 <% translate("hour"); %>'],[24,'<% translate("Every"); %> 24 <% translate("hour"); %>']],
+	{ title: '<% translate("Auto Update Time"); %>', name: 'ntp_updates', type: 'select', options: [[-1,'<% translate("Never"); %>'],[0,'<% translate("Only at startup"); %>'],[1,'<% translate("Every hour"); %>'],[2,'<% translate("Every 2 hours"); %>'],[4,'<% translate("Every 4 hours"); %>'],[6,'<% translate("Every 6 hours"); %>'],[8,'<% translate("Every 8 hours"); %>'],[12,'<% translate("Every 12 hours"); %>'],[24,'<% translate("Every 24 hours"); %>']],
 		value: nvram.ntp_updates },
 	{ title: '<% translate("Trigger Connect On Demand"); %>', indent: 2, name: 'f_ntp_tdod', type: 'checkbox', value: nvram.ntp_tdod != '0' },
 	{ title: '<% translate("NTP Time Server"); %>', name: 'f_ntp_server', type: 'select', options: ntpList, value: ntpSel },

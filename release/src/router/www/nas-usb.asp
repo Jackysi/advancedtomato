@@ -205,9 +205,9 @@ dg.populate = function()
 			if (xob)
 				s = ((e.is_mounted == 0) ? '<% translate("No"); %>' : '<% translate("Yes"); %>') + '<br><small><% translate("Please wait"); %>...</small>';
 			else if (e.is_mounted == 0)
-				s = '<% translate("No"); %><br><small><a href="javascript:mountHost(\'L' + i + '\',\'' + e.host + '\')" title="<% translate("Mount all Partitions of Storage Device"); %>" id="L' + i + '">[ % translate("Mount"); %> ]</a></small>';
+				s = '<% translate("No"); %><br><small><a href="javascript:mountHost(\'L' + i + '\',\'' + e.host + '\')" title="<% translate("Mount all Partitions of Storage Device"); %>" id="L' + i + '">[ <% translate("Mount"); %> ]</a></small>';
 			else
-				s = '<% translate("Yes"); %><br><small><a href="javascript:umountHost(\'L' + i + '\',\'' + e.host + '\')" title="<% translate("Safely Remove Storage Device"); %>" id="L' + i + '">[ % translate("Unmount"); %> ]</a></small>';
+				s = '<% translate("Yes"); %><br><small><a href="javascript:umountHost(\'L' + i + '\',\'' + e.host + '\')" title="<% translate("Safely Remove Storage Device"); %>" id="L' + i + '">[ <% translate("Unmount"); %> ]</a></small>';
 		}
 		desc = (e.vendor + ' ' + e.product).trim() + '<small>'; // + (e.serial == '' ? '' : '<br><% translate("Serial No"); %>: ' + e.serial);
 		if (e.discs) {
@@ -219,7 +219,7 @@ dg.populate = function()
 					if (p) {
 						desc = desc + '<br>Partition \'' + p[0] + '\'' + (p[3] != '' ? ' ' + p[3] : '') +
 							((p[5] != 0) ? ' (' + doScaleSize(p[5], 0) + 
-							((p[1] == 1) ? ' / ' + doScaleSize(p[6], 0) + ' free' : '') +
+							((p[1] == 1) ? ' / ' + doScaleSize(p[6], 0) + ' <% translate("free"); %>' : '') +
 							')' : '') + ' <% translate("is"); %> ' +
 							((p[1] != 0) ? '' : 'not ') + ((p[3] == 'swap') ? '<% translate("active"); %>' : '<% translate("mounted"); %>') +
 							((p[2] != '') ? ' <% translate("on"); %> ' + p[2] : '');

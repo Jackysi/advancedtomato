@@ -194,7 +194,7 @@ function init()
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: '<% translate("Mode"); %>', name: 'wk_mode', type: 'select', options: [['gateway','Gateway'],['router','Router']], value: nvram.wk_mode },
+	{ title: '<% translate("Mode"); %>', name: 'wk_mode', type: 'select', options: [['gateway','<% translate("Gateway"); %>'],['router','<% translate("Router"); %>']], value: nvram.wk_mode },
 /* ZEBRA-BEGIN */
 	{ title: 'RIPv1 &amp; v2', name: 'dr_setting', type: 'select',	options: [[0,'<% translate("Disabled"); %>'],[1,'LAN'],[2,'WAN'],[3,'<% translate("Both"); %>']], value: nvram.dr_setting },
 /* ZEBRA-END */

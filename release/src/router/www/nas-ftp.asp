@@ -272,7 +272,7 @@ createFieldTable('', [
 ]);
 </script>
 <small>
-<br>*&nbsp;&nbsp;<% translate("When no directory is specified, /mnt is used as a root directory"); %>.
+<br>*&nbsp;&nbsp;<% translate("When no directory is specified"); %>, /mnt <% translate("is used as a root directory"); %>.
 <br>**&nbsp;<% translate("In private mode, the root directory is the directory under the 'Private Root Directory' with the name matching the name of the user"); %>.
 </small>
 </div>

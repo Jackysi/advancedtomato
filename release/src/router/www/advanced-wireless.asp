@@ -117,7 +117,7 @@ W('<input type=\'hidden\' id=\'_wl'+u+'_nmode_protection\' name=\'wl'+u+'_nmode_
 W('<div class=\'section-title\'><% translate("Wireless"); %> ');
 if (wl_ifaces.length > 1)
 	W('(' + wl_display_ifname(uidx) + ') ');
-W('Settings');
+W(' - <% translate("Settings"); %>');
 W('</div><div class=\'section\'>');
 
 at = ((nvram['wl'+u+'_security_mode'] != "wep") && (nvram['wl'+u+'_security_mode'] != "radius") && (nvram['wl'+u+'_security_mode'] != "disabled"));

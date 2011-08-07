@@ -60,9 +60,9 @@ function save()
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: <% translate("Router Name"); %>, name: 'router_name', type: 'text', maxlen: 32, size: 34, value: nvram.router_name },
-	{ title: <% translate("Hostname"); %>, name: 'wan_hostname', type: 'text', maxlen: 63, size: 34, value: nvram.wan_hostname },
-	{ title: <% translate("Domain Name"); %>, name: 'wan_domain', type: 'text', maxlen: 32, size: 34, value: nvram.wan_domain }
+	{ title: '<% translate("Router Name"); %>', name: 'router_name', type: 'text', maxlen: 32, size: 34, value: nvram.router_name },
+	{ title: '<% translate("Hostname"); %>', name: 'wan_hostname', type: 'text', maxlen: 63, size: 34, value: nvram.wan_hostname },
+	{ title: '<% translate("Domain Name"); %>', name: 'wan_domain', type: 'text', maxlen: 32, size: 34, value: nvram.wan_domain }
 ]);
 </script>
 </div>

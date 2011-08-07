@@ -36,8 +36,8 @@ if (typeof(daily_history) == 'undefined') {
 	rstats_busy = 1;
 }
 
-var weeks = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-var weeksShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+var weeks = ['<% translate("Sunday"); %>', '<% translate("Monday"); %>', '<% translate("Tuesday"); %>', '<% translate("Wednesday"); %>', '<% translate("Thursday"); %>', '<% translate("Friday"); %>', '<% translate("Saturday"); %>'];
+var weeksShort = ['<% translate("Sun"); %>', '<% translate("Mon"); %>', '<% translate("Tue"); %>', '<% translate("Wed"); %>', '<% translate("Thu"); %>', '<% translate("Fri"); %>', '<% translate("Sat"); %>'];
 var startwk = 0;
 var summary = 1;
 

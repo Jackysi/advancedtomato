@@ -39,7 +39,7 @@
 //	<% nvram(''); %>	// http_id
 //	<% nvramseq("rrules", "rrule%d", 0, 49); %>
 
-var dowNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+var dowNames = ['<% translate("Sun"); %>', '<% translate("Mon"); %>', '<% translate("Tue"); %>', '<% translate("Wed"); %>', '<% translate("Thu"); %>', '<% translate("Fri"); %>', '<% translate("Sat"); %>'];
 
 var og = new TomatoGrid();
 og.setup = function() {

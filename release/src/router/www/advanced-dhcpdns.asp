@@ -127,7 +127,7 @@ createFieldTable('', [
 	{ title: '<% translate("Use user-entered gateway if WAN is disabled"); %>', name: 'f_dhcpd_gwmode', type: 'checkbox', value: nvram.dhcpd_gwmode == '1' },
 	{ title: '<% translate("Maximum active DHCP leases"); %>', name: 'dhcpd_lmax', type: 'text', maxlen: 5, size: 8, value: nvram.dhcpd_lmax },
 	{ title: '<% translate("Static lease time"); %>', multi: [
-		{ name: 'f_dhcpd_sltsel', type: 'select', options: [[0,'<% translate("Same as normal lease time"); %>'],[-1,'"<% translate("Infinite"); %>"'],[1,'<% translate("Custom"); %>']],
+		{ name: 'f_dhcpd_sltsel', type: 'select', options: [[0,'<% translate("Same as normal lease time"); %>'],[-1,'<% translate("Infinite"); %>'],[1,'<% translate("Custom"); %>']],
 			value: (nvram.dhcpd_slt < 1) ? nvram.dhcpd_slt : 1 },
 		{ name: 'f_dhcpd_slt', type: 'text', maxlen: 5, size: 8, prefix: '<span id="_dhcpd_sltman"> ', suffix: ' <i>(<% translate("minutes"); %>)</i></span>',
 			value: (nvram.dhcpd_slt >= 1) ? nvram.dhcpd_slt : 3600 } ] },

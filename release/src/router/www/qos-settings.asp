@@ -160,12 +160,12 @@ createFieldTable('', [
 /* REMOVE-BEGIN
 	!!TB - added qos_pfifo
 REMOVE-END */
-	{ title: 'Qdisc Scheduler"); %>', name: 'qos_pfifo', type: 'select', options: [['0','sfq'],['1','pfifo']], value: nvram.qos_pfifo }
+	{ title: '<% translate("Qdisc Scheduler"); %>', name: 'qos_pfifo', type: 'select', options: [['0','sfq'],['1','pfifo']], value: nvram.qos_pfifo }
 ]);
 </script>
 </div>
 
-<div class='section-title'>Outbound Rate / Limit</div>
+<div class='section-title'><% translate("Outbound Rate / Limit"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 cc = nvram.qos_orates.split(/[,-]/);
@@ -187,7 +187,7 @@ createFieldTable('', f);
 </div>
 
 
-<div class='section-title'>Inbound Limit</div>
+<div class='section-title'><% translate("Inbound Limit"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 rates = nvram.qos_irates.split(',');

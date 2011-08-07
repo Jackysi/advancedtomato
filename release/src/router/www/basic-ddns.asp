@@ -147,9 +147,9 @@ function verifyFields(focused, quiet)
 		elem.display('last-update' + i, enabled && !op.z);
 
 		if (enabled) {
-			PR('_f_user' + i).cells[0].innerHTML = data[4] || 'Username';
-			PR('_f_pass' + i).cells[0].innerHTML = data[5] || 'Password';
-			PR('_f_host' + i).cells[0].innerHTML = data[6] || 'Hostname';
+			PR('_f_user' + i).cells[0].innerHTML = data[4] || '<% translate("Username"); %>';
+			PR('_f_pass' + i).cells[0].innerHTML = data[5] || '<% translate("Password"); %>';
+			PR('_f_host' + i).cells[0].innerHTML = data[6] || '<% translate("Hostname"); %>';
 
 			e = E('url' + i);
 			e.href = data[2];
@@ -383,7 +383,7 @@ createFieldTable('', [
 		value: a ? 'custom' : nvram.ddnsx_ip },
 	{ title: '<% translate("Custom IP address"); %>', indent: 2, name: 'f_custom_ip', type: 'text', maxlen: 15, size: 20,
 		value: a ? nvram.ddnsx_ip : '', hidden: !a },
-	{ title: '<% translate("Auto refresh every"); %>', name: 'ddnsx_refresh', type: 'text', maxlen: 8, size: 8, suffix: ' <% translate("days"); %> <small>("0 = <% translate("disable"); %>")</small>', value: fixInt(nvram.ddnsx_refresh, 0, 90, 28) }
+	{ title: '<% translate("Auto refresh every"); %>', name: 'ddnsx_refresh', type: 'text', maxlen: 8, size: 8, suffix: ' <% translate("days"); %> <small>("0 - <% translate("disable"); %>")</small>', value: fixInt(nvram.ddnsx_refresh, 0, 90, 28) }
 ]);
 </script>
 </div>

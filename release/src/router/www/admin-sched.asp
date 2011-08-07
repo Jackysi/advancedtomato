@@ -94,7 +94,7 @@ function makeSched(key, custom)
 			{ name: key + 'time', type: 'select', options: t, value: oe ? 'e' : v[2] },
 			{ name: key + 'every', type: 'text', maxlen: 10, size: 10, value: (v[2] < 0) ? -v[2] : 30,
 				prefix: ' ', suffix: ' <small id="_' + key + 'mins"><i><% translate("minutes"); %></i></small>' } ] },
-		{ title: 'Days', multi: [
+		{ title: '<% translate("Days"); %>', multi: [
 			{ name: key + 'sun', type: 'checkbox', suffix: ' <% translate("Sun"); %> &nbsp; ', value: w & 1 },
 			{ name: key + 'mon', type: 'checkbox', suffix: ' <% translate("Mon"); %> &nbsp; ', value: w & 2 },
 			{ name: key + 'tue', type: 'checkbox', suffix: ' <% translate("Tue"); %> &nbsp; ', value: w & 4 },
