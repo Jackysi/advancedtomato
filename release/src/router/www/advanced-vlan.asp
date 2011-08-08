@@ -272,9 +272,6 @@ REMOVE-END */
     return;
   }
 
-/* REMOVE-BEGIN
-  if (confirm("Network will be restarted on this router. Proceed?"))
-REMOVE-END */
   if (confirm("Router must be rebooted to proceed. Commit changes to NVRAM and reboot now?"))
     form.submit(fom, 0);
 }
@@ -421,6 +418,11 @@ REMOVE-END */
 
     if(((trunk_vlan_supported) || (PORT_VLAN_SUPPORT_OVERRIDE)) && (f[COL_P0].checked == 1)) {
       f[COL_P0T].disabled=0;
+/* REMOVE-BEGIN
+//      if((f[COL_P0T].checked==0) || (this.countElem(COL_P0,1)>0) )
+//      if(this.countElem(COL_P0,1)>0) {
+//      }
+REMOVE-END */
     } else {
       f[COL_P0T].disabled=1;
       f[COL_P0T].checked=0;
@@ -448,6 +450,47 @@ REMOVE-END */
     } else {
       f[COL_P4T].disabled=1;
       f[COL_P4T].checked=0;
+    }
+
+    if ((f[COL_P0].checked == 1) && (this.countElem(COL_P0,1)>0)) {
+      if (((this.countElem(COL_P0,1) != this.countElem(COL_P0T,1)) || (f[COL_P0T].checked==0))) {
+        ferror.set(f[COL_P0T], 'Port 1 cannot be assigned to more than one VLAN unless frames are tagged on all VLANs Port 1 is member', quiet);
+        valid=0;
+      } else {
+        ferror.clear(f[COL_P0T]);
+      }
+    }
+    if ((f[COL_P1].checked == 1) && (this.countElem(COL_P1,1)>0)) {
+      if (((this.countElem(COL_P1,1) != this.countElem(COL_P1T,1)) || (f[COL_P1T].checked==0))) {
+        ferror.set(f[COL_P1T], 'Port 2 cannot be assigned to more than one VLAN unless frames are tagged on all VLANs Port 2 is member', quiet);
+        valid=0;
+      } else {
+        ferror.clear(f[COL_P1T]);
+      }
+    }
+    if ((f[COL_P2].checked == 1) && (this.countElem(COL_P2,1)>0)) {
+      if (((this.countElem(COL_P2,1) != this.countElem(COL_P2T,1)) || (f[COL_P2T].checked==0))) {
+        ferror.set(f[COL_P2T], 'Port 3 cannot be assigned to more than one VLAN unless frames are tagged on all VLANs Port 3 is member', quiet);
+        valid=0;
+      } else {
+        ferror.clear(f[COL_P2T]);
+      }
+    }
+    if ((f[COL_P3].checked == 1) && (this.countElem(COL_P3,1)>0)) {
+      if (((this.countElem(COL_P3,1) != this.countElem(COL_P3T,1)) || (f[COL_P3T].checked==0))) {
+        ferror.set(f[COL_P3T], 'Port 4 cannot be assigned to more than one VLAN unless frames are tagged on all VLANs Port 4 is member', quiet);
+        valid=0;
+      } else {
+        ferror.clear(f[COL_P3T]);
+      }
+    }
+    if ((f[COL_P4].checked == 1) && (this.countElem(COL_P4,1)>0)) {
+      if (((this.countElem(COL_P4,1) != this.countElem(COL_P4T,1)) || (f[COL_P4T].checked==0))) {
+        ferror.set(f[COL_P4T], 'WAN port cannot be assigned to more than one VLAN unless frames are tagged on all VLANs WAN port is member', quiet);
+        valid=0;
+      } else {
+        ferror.clear(f[COL_P4T]);
+      }
     }
 
     if(this.countDefaultVID() > 0) {
