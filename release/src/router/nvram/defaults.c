@@ -623,6 +623,8 @@ const defaults_t defaults[] = {
 #ifdef TCONFIG_NTFS
 	{ "usb_fs_ntfs",		"1"				},
 #endif
+	{ "usb_fs_hfs",			"0"				}, //!Victek
+	{ "usb_fs_hfsplus",		"0"				}, //!Victek
 	{ "usb_automount",		"1"				},
 #if 0
 	{ "usb_bdflush",		"30 500 0 0 100 100 60 0 0"	},
@@ -630,6 +632,7 @@ const defaults_t defaults[] = {
 	{ "script_usbhotplug",		""				},
 	{ "script_usbmount",		""				},
 	{ "script_usbumount",		""				},
+	{ "idle_enable",		"0"				},
 #endif
 
 #ifdef TCONFIG_FTP
@@ -652,6 +655,13 @@ const defaults_t defaults[] = {
 	{ "ftp_sip",			""				},	// wan ftp access: source ip address(es)
 	{ "ftp_limit",			"0,3,60"			},
 	{ "log_ftp",			"0"				},
+#endif
+
+#ifdef TCONFIG_SNMP
+	{ "snmp_enable",		"0"				},
+	{ "snmp_location",		"router"			},
+	{ "snmp_contact",		"admin@tomato"			},
+	{ "snmp_ro",			"rocommunity"			},
 #endif
 
 #ifdef TCONFIG_SAMBASRV
@@ -697,6 +707,7 @@ const defaults_t defaults[] = {
 	{ "script_shut",		""				},
 	{ "script_fire",		"#Restrict number of TCP connections per user #iptables -t nat -I PREROUTING -p tcp --syn -m iprange --src-range 192.168.1.50-192.168.1.250 -m connlimit --connlimit-above 100 -j DROP  #Restrict number of non-TCP connections per user #iptables -t nat -I PREROUTING -p ! tcp -m iprange --src-range 192.168.1.50-192.168.1.250 -m connlimit --connlimit-above 50 -j DROP  #Restrict number of simltaneous SMTP connections (from mailer viruses) #iptables -t nat -I PREROUTING -p tcp --dport 25 -m connlimit --connlimit-above 5 -j DROP"				},
 	{ "script_wanup",		""				},
+
 
 #ifdef TCONFIG_OPENVPN
 // vpn

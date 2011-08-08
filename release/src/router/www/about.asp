@@ -75,7 +75,7 @@ function init()
 <body onload='init()'>
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
-	<div class='title'>Tomato RAF</div>
+	<div class='title'>Tomato</div>
 	<div class='version'>Version <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
@@ -104,7 +104,6 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <!-- VPN-END -->
 <br>
-<br>
 <b>This compilation by Toastman may also include:</b><br>
 <br>
 <b>"Teddy Bear" current features, notably:</b><br>
@@ -117,6 +116,7 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <b>"Victek RAF" features:</b><br>
 - CPU Freq | Previous WAN IP | Additional Themes<br>
 - Static ARP Binding | QOS/Bandwidth Limiter<br>
+- HFS/HFS+MAC OS x read support<br>
 <!-- NOCAT-BEGIN -->
 - Captive Portal (Based on NocatSplash) <br>
 <!-- NOCAT-END -->
@@ -126,9 +126,26 @@ Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 <!-- NOCAT-END -->
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
+<b>"Shibby" features:</b><br>
+- Custom log file path<br>
+<!-- LINUX26-BEGIN -->
+- SD-idle tool integration for kernel 2.6<br>
+<!-- LINUX26-END -->
+<!-- SNMP-BEGIN -->
+- SNMP integration and GUI<br>
+<!-- SNMP-END -->
+Copyright (C) 2011 Michał Rupental<br>
+<a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
+<br>
+<b>"Teaman" Features:</b><br>
+- QOS-ctrate/detailed filters<br>
+Copyright (C) 2011 Augusto Bott<br>
+<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
+<br>
 <b>"Toastman" Features:</b><br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules<br>
+- Up to 80 QOS rules<br>
 - Configurable QOS class names<br>
 - Client Monitor Graphs<br>
 - Revised CPU frequency selector<br>
@@ -139,10 +156,10 @@ Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 - Starts with LAN DHCP off if nvram is reset<br>
 - UPnP Support for vlans (if exists, loads upnpconfig.custom from JFFS)<br>
 - Comprehensive QOS rule examples set by default<br>
+- Extra Themes<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>
 <br>
-<b>Development by Victek/PrinceAMD/Phykris/Shibby/Toastman</b><br>
-<br>
+Development by Victek/PrinceAMD/Phykris/Shibby/Toastman/Teaman<br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>

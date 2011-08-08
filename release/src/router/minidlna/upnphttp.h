@@ -57,6 +57,7 @@ enum httpCommands {
 struct upnphttp {
 	int socket;
 	struct in_addr clientaddr;	/* client address */
+	int iface;
 	int state;
 	char HttpVer[16];
 	/* request */
@@ -77,11 +78,11 @@ struct upnphttp {
 	off_t req_RangeEnd;
 	long int req_chunklen;
 	uint32_t reqflags;
-	uint32_t respflags;
 	/* response */
 	char * res_buf;
 	int res_buflen;
 	int res_buf_alloclen;
+	uint32_t respflags;
 	/*int res_contentlen;*/
 	/*int res_contentoff;*/		/* header length */
 	LIST_ENTRY(upnphttp) entries;
@@ -110,7 +111,11 @@ struct upnphttp {
 #define FLAG_MIME_FLAC_FLAC     0x00800000
 #define FLAG_NO_RESIZE          0x01000000
 #define FLAG_MS_PFS		0x02000000 // Microsoft PlaysForSure client
-#define FLAG_AUDIO_ONLY		0x04000000
+#define FLAG_SAMSUNG		0x04000000
+#define FLAG_AUDIO_ONLY		0x08000000
+
+#define FLAG_FREE_OBJECT_ID	0x00000001
+#define FLAG_ROOT_CONTAINER	0x00000002
 
 /* New_upnphttp() */
 struct upnphttp *
@@ -150,6 +155,8 @@ BuildResp2_upnphttp(struct upnphttp * h, int respcode,
                     const char * body, int bodylen);
 
 /* Error messages */
+void
+Send500(struct upnphttp *);
 void
 Send501(struct upnphttp *);
 

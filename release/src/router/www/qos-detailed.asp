@@ -4,6 +4,10 @@
 	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
+	Filtering/Extensions on this QoS/Connection Details page
+	Copyright (C) 2011 Augusto Bott
+	http://code.google.com/p/tomato-sdhc-vlan/
+
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
 -->
@@ -13,10 +17,11 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] QoS: View Details</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
+
 <style type='text/css'>
 #grid .co7 {
 	width: 20px;
@@ -31,17 +36,19 @@
 
 <script type='text/javascript' src='debug.js'></script>
 <script type='text/javascript' src='protocols.js'></script>
+<script type='text/javascript' src='interfaces.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram('qos_classnames'); %>	// http_id
 
+//	<% nvram('qos_classnames,lan_ipaddr,lan1_ipaddr,lan2_ipaddr,lan3_ipaddr,lan_netmask,lan1_netmask,lan2_netmask,lan3_netmask,t_hidelr'); %>
 
 var Unclassified = ['Unclassified'];
-var classNames = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
+var classNames = nvram.qos_classnames.split(' ');
 var abc = Unclassified.concat(classNames);
 
-
 var colors = ['F08080','E6E6FA','0066CC','8FBC8F','FAFAD2','ADD8E6','9ACD32','E0FFFF','90EE90','FF9933','FFF0F5'];
+var filterip = [];
+var filteripe = [];
 
 if ((viewClass = '<% cgi_get("class"); %>') == '') {
 	viewClass = -1;
@@ -82,17 +89,19 @@ function resolve()
 }
 
 var resolveCB = 0;
+var bcastCB = 0;
+var mcastCB = 0;
 
 function resolveChanged()
 {
 	var b;
 
-	b = E('resolve').checked ? 1 : 0;
+	b = E('_f_autoresolve').checked ? 1 : 0;
 	if (b != resolveCB) {
 		resolveCB = b;
 		cookie.set('qos_resolve', b);
-		if (b) grid.resolveAll();
 	}
+	if (b) grid.resolveAll();
 }
 
 var grid = new TomatoGrid();
@@ -128,6 +137,7 @@ grid.sortCompare = function(a, b) {
 	var r;
 
 	switch (col) {
+	case 0:		// Proto
 	case 2:		// S port
 	case 4:		// D port
 	case 6:		// Rule #
@@ -138,7 +148,6 @@ grid.sortCompare = function(a, b) {
 	case 5:		// Class
 		r = cmpInt(da[col] ? da[col] : 10000, db[col] ? db[col] : 10000);
 		break;
-/* REMOVE-BEGIN
 	case 1:
 	case 3:
 		var a = fixIP(da[col]);
@@ -147,8 +156,6 @@ grid.sortCompare = function(a, b) {
 			r = aton(a) - aton(b);
 			break;
 		}
-		// fall
-REMOVE-END */
 	default:
 		r = cmpText(da[col], db[col]);
 		break;
@@ -220,11 +227,17 @@ grid.setup = function() {
 
 var ref = new TomatoRefresh('update.cgi', '', 0, 'qos_detailed');
 
+var numconntotal = 0;
+var numconnshown = 0;
+
 ref.refresh = function(text)
 {
 	var i, b, d, cols, j;
 
 	++lock;
+
+	numconntotal = 0;
+	numconnshown = 0;
 
 	try {
 		ctdump = [];
@@ -242,10 +255,66 @@ ref.refresh = function(text)
 	var cursor;
 	var ip;
 
+	var fskip;
+
 	cols = [2, 3];
 
 	for (i = 0; i < ctdump.length; ++i) {
+		fskip=0;
+		numconntotal++;
 		b = ctdump[i];
+
+		if (E('_f_excludegw').checked) {
+			if ((b[2] == nvram.lan_ipaddr) || (b[3] == nvram.lan_ipaddr) ||
+				(b[2] == nvram.lan1_ipaddr) || (b[3] == nvram.lan1_ipaddr) ||
+				(b[2] == nvram.lan2_ipaddr) || (b[3] == nvram.lan2_ipaddr) ||
+				(b[2] == nvram.lan3_ipaddr) || (b[3] == nvram.lan3_ipaddr) ||
+				(b[2] == '127.0.0.1') || (b[3] == '127.0.0.1')) {
+				continue;
+			}
+		}
+
+		if (E('_f_excludebcast').checked) {
+			if ((b[3] == getBroadcastAddress(getNetworkAddress(nvram.lan_ipaddr,nvram.lan_netmask),nvram.lan_netmask)) ||
+				(b[3] == getBroadcastAddress(getNetworkAddress(nvram.lan1_ipaddr,nvram.lan1_netmask),nvram.lan1_netmask)) ||
+				(b[3] == getBroadcastAddress(getNetworkAddress(nvram.lan2_ipaddr,nvram.lan2_netmask),nvram.lan2_netmask)) ||
+				(b[3] == getBroadcastAddress(getNetworkAddress(nvram.lan3_ipaddr,nvram.lan3_netmask),nvram.lan3_netmask)) ||
+				(b[3] == '255.255.255.255') || (b[3] == '0.0.0.0')) {
+				continue;
+			}
+		}
+
+		if (E('_f_excludemcast').checked) {
+			var mmin = 3758096384; // aton('224.0.0.0')
+			var mmax = 4026531839; // aton('239.255.255.255')
+			if (((aton(b[2]) >= mmin) && (aton(b[2]) <= mmax)) || 
+				((aton(b[3]) >= mmin) && (aton(b[3]) <= mmax))) {
+				continue;
+			}
+		}
+
+		if (filteripe.length>0) {
+			fskip = 0;
+			for (x = 0; x < filteripe.length; ++x) {
+				if ((b[2] == filteripe[x]) || (b[3] == filteripe[x])) {
+					fskip=1;
+					break;
+				}
+			}
+			if (fskip == 1) continue;
+		}
+
+		if (filterip.length>0) {
+			fskip = 1;
+			for (x = 0; x < filterip.length; ++x) {
+				if ((b[2] == filterip[x]) || (b[3] == filterip[x])) {
+					fskip=0;
+					break;
+				}
+			}
+			if (fskip == 1) continue;
+		}
+
 		for (j = cols.length-1; j >= 0; j--) {
 			ip = b[cols[j]];
 			if (cache[ip] != null) {
@@ -264,6 +333,8 @@ ref.refresh = function(text)
 				else cursor = null;
 			}
 		}
+
+		numconnshown++;
 		d = [protocols[b[0]] || b[0], b[2], b[4], b[3], b[5], b[8], b[9], b[6], b[7]];
 		var row = grid.insertData(-1, d);
 		if (cursor) row.style.cursor = cursor;
@@ -278,6 +349,10 @@ ref.refresh = function(text)
 	--lock;
 
 	if (resolveCB) resolve();
+	if (numconnshown != numconntotal)
+		E('numtotalconn').innerHTML='<small><i>(showing ' + numconnshown + ' out of ' + numconntotal + ' connections)</i></small>';
+	else
+		E('numtotalconn').innerHTML='<small><i>(' + numconntotal + ' connections)</i></small>';
 }
 
 function init()
@@ -285,10 +360,22 @@ function init()
 	var c;
 
 	if (((c = cookie.get('qos_resolve')) != null) && (c == '1')) {
-		E('resolve').checked = resolveCB = 1;
+		E('_f_autoresolve').checked = resolveCB = 1;
 	}
 
-	if (viewClass != -1) E('stitle').innerHTML = 'View Details: ' + abc[viewClass];
+	if (((c = cookie.get('qos_bcast')) != null) && (c == '1')) {
+		E('_f_excludebcast').checked = bcastCB = 1;
+	}
+
+	if (((c = cookie.get('qos_mcast')) != null) && (c == '1')) {
+		E('_f_excludemcast').checked = mcastCB = 1;
+	}
+
+	if (((c = cookie.get('qos_filters')) != null) && (c == '1')) {
+		E('sesdivfilters').style.display='';
+	}
+
+	if (viewClass != -1) E('stitle').innerHTML = 'View Details: ' + abc[viewClass] + ' <span id=\'numtotalconn\'></span>';
 	grid.setup();
 	ref.postData = 'exec=ctdump&arg0=' + viewClass;
 	ref.initPage(250);
@@ -296,6 +383,55 @@ function init()
 	if (!ref.running) ref.once = 1;
 	ref.start();
 }
+
+function dofilter() {
+	if (E('_f_filter_ip').value.length>6) {
+		filterip = E('_f_filter_ip').value.split(',');
+	} else {
+		filterip = [];
+	}
+
+	if (E('_f_filter_ipe').value.length>6) {
+		filteripe = E('_f_filter_ipe').value.split(',');
+	} else {
+		filteripe = [];
+	}
+
+	if (!ref.running) ref.once = 1;
+	ref.start();
+}
+
+function toggleFiltersVisibility(){
+	if(E('sesdivfilters').style.display=='') {
+		E('sesdivfilters').style.display='none';
+		cookie.set('qos_filters', 0);
+	} else {
+		E('sesdivfilters').style.display='';
+		cookie.set('qos_filters', 1);
+	}
+}
+
+function verifyFields(focused, quiet)
+{
+	var b;
+
+	b = E('_f_excludebcast').checked ? 1 : 0;
+	if (b != bcastCB) {
+		bcastCB = b;
+		cookie.set('qos_bcast', b);
+	}
+
+	b = E('_f_excludemcast').checked ? 1 : 0;
+	if (b != mcastCB) {
+		mcastCB = b;
+		cookie.set('qos_mcast', b);
+	}
+
+	dofilter();
+	resolveChanged();
+	return 1;
+}
+
 </script>
 </head>
 <body onload='init()'>
@@ -309,20 +445,43 @@ function init()
 <td id='content'>
 <div id='ident'><% ident(); %></div>
 
+
 <!-- / / / -->
 
-<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>View Details</div>
+
+<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>View Details: <span id='numtotalconn'></span></div>
 <div class='section'>
 <table id='grid' class='tomato-grid' style="float:left" cellspacing=1></table>
-<input type='checkbox' id='resolve' onclick='resolveChanged()' onchange='resolveChanged()'> Automatically Resolve Addresses
+
 <div id='loading'><br><b>Loading...</b></div>
 </div>
 
+
 <!-- / / / -->
+
+
+<div class='section-title'>Filters: <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
+<div class='section' id='sesdivfilters' style='display:none'>
+<script type='text/javascript'>
+var c;
+c = [];
+c.push({ title: 'Only these IPs', name: 'f_filter_ip', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(Comma separated list)</small>' });
+c.push({ title: 'Exclude these IPs', name: 'f_filter_ipe', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(Comma separated list)</small>' });
+c.push({ title: 'Exclude gateway traffic', name: 'f_excludegw', type: 'checkbox', value: ((nvram.t_hidelr) == '1' ? 1 : 0) });
+c.push({ title: 'Exclude broadcasts', name: 'f_excludebcast', type: 'checkbox' });
+c.push({ title: 'Exclude multicast', name: 'f_excludemcast', type: 'checkbox' });
+c.push({ title: 'Auto resolve addresses', name: 'f_autoresolve', type: 'checkbox' });
+createFieldTable('',c);
+</script>
+</div>
+
+
+<!-- / / / -->
+
 
 </td></tr>
 <tr><td id='footer' colspan=2>
-	<script type='text/javascript'>genStdRefresh(1,3,'ref.toggle()');</script>
+	<script type='text/javascript'>genStdRefresh(1,1,'ref.toggle()');</script>
 </td></tr>
 </table>
 </form>

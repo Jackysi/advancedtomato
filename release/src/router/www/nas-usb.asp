@@ -47,7 +47,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,usb_fs_ntfs,script_usbmount,script_usbumount,script_usbhotplug"); %>
+//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,usb_fs_ntfs,usb_fs_hfs,usb_fs_hfsplus,script_usbmount,script_usbumount,script_usbhotplug,idle_enable"); %>
 //	<% usbdevices(); %>
 
 list = [];
@@ -266,9 +266,12 @@ function verifyFields(focused, quiet)
 
 	E('_f_ext3').disabled = b || a;
 	E('_f_fat').disabled = b || a;
+	E('_f_idle_enable').disabled = b || a;
 /* NTFS-BEGIN */
 	E('_f_ntfs').disabled = b || a;
 /* NTFS-END */
+	E('_f_hfs').disabled = b || a; //!Victek
+	E('_f_hfsplus').disabled = b || a; //!Victek
 	E('_f_automount').disabled = b || a;
 	E('_f_bprint').disabled = b || !E('_f_print').checked;
 
@@ -302,7 +305,10 @@ function save()
 /* NTFS-BEGIN */
 	fom.usb_fs_ntfs.value = E('_f_ntfs').checked ? 1 : 0;
 /* NTFS-END */
+	fom.usb_fs_hfs.value = E('_f_hfs').checked ? 1 : 0; //!Victek
+	fom.usb_fs_hfsplus.value = E('_f_hfsplus').checked ? 1 : 0; //!Victek
 	fom.usb_automount.value = E('_f_automount').checked ? 1 : 0;
+	fom.idle_enable.value = E('_f_idle_enable').checked ? 1 : 0;
 
 	form.submit(fom, 1);
 }
@@ -342,7 +348,10 @@ function submit_complete()
 <!-- NTFS-BEGIN
 <input type='hidden' name='usb_fs_ntfs'>
 NTFS-END -->
+<input type='hidden' name='usb_fs_hfs'>
+<input type='hidden' name='usb_fs_hfsplus'>
 <input type='hidden' name='usb_automount'>
+<input type='hidden' name='idle_enable'>
 
 <div class='section-title'>USB Support</div>
 <div class='section'>
@@ -365,13 +374,20 @@ createFieldTable('', [
 /* NTFS-BEGIN */
 			{ suffix: '&nbsp; NTFS &nbsp;&nbsp;&nbsp;', name: 'f_ntfs', type: 'checkbox', value: nvram.usb_fs_ntfs == 1 },
 /* NTFS-END */
-			{ suffix: '&nbsp; FAT &nbsp;', name: 'f_fat', type: 'checkbox', value: nvram.usb_fs_fat == 1 }
+			{ suffix: '&nbsp; FAT &nbsp;', name: 'f_fat', type: 'checkbox', value: nvram.usb_fs_fat == 1 },
+			{ suffix: '&nbsp; HFS &nbsp;', name: 'f_hfs', type: 'checkbox', value: nvram.usb_fs_hfs == 1 },
+			{ suffix: '&nbsp; HFS+ &nbsp;', name: 'f_hfsplus', type: 'checkbox', value: nvram.usb_fs_hfsplus == 1 }
 		] },
 		{ title: 'Automount', indent: 2, name: 'f_automount', type: 'checkbox',
 			suffix: ' <small>Automatically mount all partitions to sub-directories in <i>/mnt</i>.</small>', value: nvram.usb_automount == 1 },
 	{ title: 'Run after mounting', indent: 2, name: 'script_usbmount', type: 'textarea', value: nvram.script_usbmount },
 	{ title: 'Run before unmounting', indent: 2, name: 'script_usbumount', type: 'textarea', value: nvram.script_usbumount },
 	null,
+/* LINUX26-BEGIN */
+	{ title: 'HDD Spindown', name: 'f_idle_enable', type: 'checkbox',
+		suffix: ' <small>Spin down each HDD when idle (not for use with Flashdrive)</small>', value: nvram.idle_enable == 1 },
+	null,
+/* LINUX26-END */
 	{ title: 'Hotplug script<br><small>(called when any USB device is attached or removed)</small>', name: 'script_usbhotplug', type: 'textarea', value: nvram.script_usbhotplug },
 	null,
 	{ text: '<small>Some of the changes will take effect only after a restart.</small>' }

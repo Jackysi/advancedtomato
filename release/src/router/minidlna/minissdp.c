@@ -1,4 +1,4 @@
-/* $Id: minissdp.c,v 1.15 2011/04/09 01:37:11 jmaggard Exp $ */
+/* $Id: minissdp.c,v 1.20 2011/07/11 20:01:42 jmaggard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  *
@@ -44,6 +44,7 @@
 #include "upnpreplyparse.h"
 #include "getifaddr.h"
 #include "minissdp.h"
+#include "utils.h"
 #include "log.h"
 
 /* SSDP ip/port */
@@ -223,6 +224,16 @@ static const char * const known_service_types[] =
 	0
 };
 
+static void
+_usleep(long usecs)
+{
+	struct timespec sleep_time;
+
+	sleep_time.tv_sec = 0;
+	sleep_time.tv_nsec = usecs * 1000;
+	nanosleep(&sleep_time, NULL);
+}
+
 /* not really an SSDP "announce" as it is the response
  * to a SSDP "M-SEARCH" */
 static void
@@ -282,7 +293,7 @@ SendSSDPNotifies(int s, const char * host, unsigned short port,
 	for( dup=0; dup<2; dup++ )
 	{
 		if( dup )
-			usleep(200000);
+			_usleep(200000);
 		i=0;
 		while(known_service_types[i])
 		{
@@ -347,9 +358,9 @@ ParseUPnPClient(char *location)
 	int content_len = sizeof(buf);
 	struct NameValueParserData xml;
 	int client;
-	enum client_types type = -1;
+	enum client_types type = 0;
 	uint32_t flags = 0;
-	char *model;
+	char *model, *serial;
 
 	if (strncmp(location, "http://", 7) != 0)
 		return;
@@ -432,16 +443,29 @@ close:
 	nread -= off - buf;
 	ParseNameValue(off, nread, &xml);
 	model = GetValueFromNameValueList(&xml, "modelName");
+	serial = GetValueFromNameValueList(&xml, "serialNumber");
 	if( model )
 	{
-		if (strstr(model, "Roku SoundBridge"))
+		DPRINTF(E_DEBUG, L_SSDP, "Model: %s\n", model);
+		if( strstr(model, "Roku SoundBridge") )
 		{
 			type = ERokuSoundBridge;
 			flags |= FLAG_AUDIO_ONLY;
 		}
+		else if( strcmp(model, "Samsung DTV DMR") == 0 && serial )
+		{
+			DPRINTF(E_DEBUG, L_SSDP, "Serial: %s\n", serial);
+			/* The Series B I saw was 20081224DMR.  Series A should be older than that. */
+			if( atoi(serial) > 20081200 )
+			{
+				type = ESamsungSeriesB;
+				flags |= FLAG_SAMSUNG;
+				flags |= FLAG_DLNA;
+				flags |= FLAG_NO_RESIZE;
+			}
+		}
 	}
-
-	if( type < 0 )
+	if( !type )
 		return;
 	client = SearchClientCache(dest.sin_addr, 1);
 	/* Add this client to the cache if it's not there already. */
@@ -453,7 +477,7 @@ close:
 				continue;
 			get_remote_mac(dest.sin_addr, clients[client].mac);
 			clients[client].addr = dest.sin_addr;
-			DPRINTF(E_DEBUG, L_HTTP, "Added client [%d/%s/%02X:%02X:%02X:%02X:%02X:%02X] to cache slot %d.\n",
+			DPRINTF(E_DEBUG, L_SSDP, "Added client [%d/%s/%02X:%02X:%02X:%02X:%02X:%02X] to cache slot %d.\n",
 			                         type, inet_ntoa(clients[client].addr),
 			                         clients[client].mac[0], clients[client].mac[1], clients[client].mac[2],
 			                         clients[client].mac[3], clients[client].mac[4], clients[client].mac[5], client);
@@ -476,10 +500,9 @@ ProcessSSDPRequest(int s, unsigned short port)
 	char bufr[1500];
 	socklen_t len_r;
 	struct sockaddr_in sendername;
-	int i, l;
-	int lan_addr_index = 0;
+	int i;
 	char *st = NULL, *mx = NULL, *man = NULL, *mx_end = NULL, *loc = NULL, *srv = NULL;
-	int st_len = 0, mx_len = 0, man_len = 0, mx_val = 0, loc_len = 0, srv_len = 0;
+	int man_len = 0;
 	len_r = sizeof(struct sockaddr_in);
 
 	n = recvfrom(s, bufr, sizeof(bufr)-1, 0,
@@ -493,6 +516,7 @@ ProcessSSDPRequest(int s, unsigned short port)
 
 	if(memcmp(bufr, "NOTIFY", 6) == 0)
 	{
+		int loc_len = 0, srv_len = 0;
 		//DEBUG DPRINTF(E_DEBUG, L_SSDP, "Received SSDP notify:\n%.*s", n, bufr);
 		for(i=0; i < n; i++)
 		{
@@ -521,6 +545,7 @@ ProcessSSDPRequest(int s, unsigned short port)
 				loc_len = 0;
 				while(*loc == ' ' || *loc == '\t') loc++;
 				while(loc[loc_len]!='\r' && loc[loc_len]!='\n') loc_len++;
+				loc[loc_len] = '\0';
 			}
 			else if(strncasecmp(bufr+i, "NTS:", 4) == 0)
 			{
@@ -530,19 +555,23 @@ ProcessSSDPRequest(int s, unsigned short port)
 				while(man[man_len]!='\r' && man[man_len]!='\n') man_len++;
 			}
 		}
-		if (!man || (strncmp(man, "ssdp:alive", man_len) != 0))
+		if( !loc || !srv || !man || (strncmp(man, "ssdp:alive", man_len) != 0) )
 		{
 			return;
 		}
-		loc[loc_len] = '\0';
-		if (strncmp(srv, "Allegro-Software-RomPlug", 24) == 0)
+		if( strncmp(srv, "Allegro-Software-RomPlug", 24) == 0 ||
+		    strstr(loc, "SamsungMRDesc.xml") )
 		{
 			/* Check if the client is already in cache */
 			i = SearchClientCache(sendername.sin_addr, 1);
-			if( i >= 0 && clients[i].type < EStandardDLNA150 )
+			if( i >= 0 )
 			{
-				clients[i].age = time(NULL);
-				return;
+				if( clients[i].type < EStandardDLNA150 &&
+				    clients[i].type != ESamsungSeriesA )
+				{
+					clients[i].age = time(NULL);
+					return;
+				}
 			}
 			ParseUPnPClient(loc);
 		}
@@ -550,7 +579,8 @@ ProcessSSDPRequest(int s, unsigned short port)
 	}
 	else if(memcmp(bufr, "M-SEARCH", 8) == 0)
 	{
-		//DPRINTF(E_DEBUG, L_SSDP, "Received SSDP request:\n%.*s", n, bufr);
+		int st_len = 0, mx_len = 0, mx_val = 0;
+		//DPRINTF(E_DEBUG, L_SSDP, "Received SSDP request:\n%.*s\n", n, bufr);
 		for(i=0; i < n; i++)
 		{
 			if( bufr[i] == '*' )
@@ -591,7 +621,7 @@ ProcessSSDPRequest(int s, unsigned short port)
 		/*DPRINTF(E_INFO, L_SSDP, "SSDP M-SEARCH packet received from %s:%d\n",
 	           inet_ntoa(sendername.sin_addr),
 	           ntohs(sendername.sin_port) );*/
-		if( ntohs(sendername.sin_port) <= 1024 || ntohs(sendername.sin_port) == 1900 )
+		if( GETFLAG(DLNA_STRICT_MASK) && (ntohs(sendername.sin_port) <= 1024 || ntohs(sendername.sin_port) == 1900) )
 		{
 			DPRINTF(E_INFO, L_SSDP, "WARNING: Ignoring invalid SSDP M-SEARCH from %s [bad source port %d]\n",
 			   inet_ntoa(sendername.sin_addr), ntohs(sendername.sin_port));
@@ -607,6 +637,8 @@ ProcessSSDPRequest(int s, unsigned short port)
 		}
 		else if( st && (st_len > 0) )
 		{
+			int l;
+			int lan_addr_index = 0;
 			/* find in which sub network the client is */
 			for(i = 0; i<n_lan_addr; i++)
 			{
@@ -636,7 +668,7 @@ ProcessSSDPRequest(int s, unsigned short port)
 					/* Check version number - must always be 1 currently. */
 					if( (st[st_len-2] == ':') && (atoi(st+st_len-1) != 1) )
 						break;
-					usleep(random()>>20);
+					_usleep(random()>>20);
 					SendSSDPAnnounce2(s, sendername,
 					                  i,
 					                  lan_addr[lan_addr_index].str, port);

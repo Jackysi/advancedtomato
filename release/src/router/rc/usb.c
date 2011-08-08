@@ -126,6 +126,13 @@ void start_usb(void)
 				modprobe("fat");
 				modprobe("vfat");
 			}
+			if (nvram_get_int("usb_fs_hfs")) {
+				modprobe("hfs");
+			}
+
+			if (nvram_get_int("usb_fs_hfsplus")) {
+				modprobe("hfsplus");
+			}
 		}
 
 		/* if enabled, force USB2 before USB1.1 */
@@ -158,6 +165,10 @@ void start_usb(void)
 				);
 			}
 		}
+
+		if (nvram_get_int("idle_enable") == 1) {
+			xstart( "sd-idle" );
+		}
 	}
 }
 
@@ -184,6 +195,8 @@ void stop_usb(void)
 		modprobe_r("vfat");
 		modprobe_r("fat");
 		modprobe_r("fuse");
+		modprobe_r("hfs");
+		modprobe_r("hfsplus");
 		sleep(1);
 #ifdef TCONFIG_SAMBASRV
 		modprobe_r("nls_cp437");
@@ -223,6 +236,11 @@ void stop_usb(void)
 		modprobe_r(USB20_MOD);
 		modprobe_r(USBCORE_MOD);
 	}
+
+	if (nvram_get_int("idle_enable") == 0) {
+		killall("sd-idle", SIGTERM);
+	}
+
 }
 
 
@@ -308,6 +326,15 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 #endif
 					ret = eval("ntfs-3g", "-o", options, mnt_dev, mnt_dir);
 			}
+
+			if (ret != 0 && strncmp(type, "hfs", "") == 0) {
+				ret = eval("mount", "-o", "noatime,nodev", mnt_dev, mnt_dir);
+			}
+
+			if (ret != 0 && strncmp(type, "hfsplus", "") == 0) {
+				ret = eval("mount", "-o", "noatime,nodev", mnt_dev, mnt_dir);
+			}
+
 			if (ret != 0) /* give it another try - guess fs */
 				ret = eval("mount", "-o", "noatime,nodev", mnt_dev, mnt_dir);
 

@@ -2386,6 +2386,7 @@ function navi()
 			['Classification',	'classify.asp'],
 			['View Graphs',		'graphs.asp'],
 			['View Details',	'detailed.asp'],
+			['Transfer Rates',	'ctrate.asp'],
 			['B/W Limiter',		'qoslimit.asp'] ] ],
 		['Access Restriction',		'restrict.asp'],
 
@@ -2437,6 +2438,9 @@ REMOVE-END */
 			['Logging',			'log.asp'],
 			['Scheduler',		'sched.asp'],
 			['Scripts',			'scripts.asp'],
+/* SNMP-BEGIN */
+			['SNMP',		'snmp.asp'],
+/* SNMP-END */
 			['Upgrade',			'upgrade.asp'] ] ],
 		null,
 		['About',				'about.asp'],

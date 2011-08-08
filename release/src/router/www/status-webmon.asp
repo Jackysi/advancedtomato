@@ -408,7 +408,7 @@ function earlyInit()
 		&raquo; <a href="admin-log.asp">Web Monitor Configuration</a>
 		<br><br>
 
-		<script type='text/javascript'>genStdRefresh(1,0,'ref.toggle()');</script>
+		<script type='text/javascript'>genStdRefresh(1,1,'ref.toggle()');</script>
 
 	</div>
 </div>

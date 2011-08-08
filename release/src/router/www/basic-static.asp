@@ -216,6 +216,13 @@ sg.setup = function()
 	this.resetNewEditor();
 }
 
+function toggleFiltersVisibility(){
+	if(E('staticarp').style.display=='')
+		E('staticarp').style.display='none';
+	else
+		E('staticarp').style.display='';
+}
+
 function verifyFields(focused, quiet)
 {
 	var j = E('_f_arpbind_enable').checked;
@@ -286,9 +293,9 @@ function init()
 </div>		
 
 <br>
-<div class='section-title'>Static ARP</div>
-<div class='section'>
-	<script type='text/javascript'>
+<div class='section-title'>Static ARP <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
+<div class='section' id='staticarp' style='display:none'>
+<script type='text/javascript'>
 	createFieldTable('', [
 		{ title: 'Enable static ARP', name: 'f_arpbind_enable', type: 'checkbox', value: nvram.arpbind_enable != '0' },
 		{ title: 'Restrict unlisted machines', name: 'f_arpbind_only', type: 'checkbox', value: nvram.arpbind_only != '0' }

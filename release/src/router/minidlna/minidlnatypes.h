@@ -42,6 +42,13 @@ struct lan_addr_s {
 struct runtime_vars_s {
 	int port;	/* HTTP Port */
 	int notify_interval;	/* seconds between SSDP announces */
+	char *root_container;	/* root ObjectID (instead of "0") */
+};
+
+struct string_s {
+	char *data; // ptr to start of memory area
+	int off;
+	int size;
 };
 
 enum media_types {
@@ -69,6 +76,11 @@ enum client_types {
 	ESonyBDP,
 	ESonyBravia,
 	ERokuSoundBridge,
+	EToshibaTV,
+	ELGDevice,
+	ENetgearEVA2000,
+	ESamsungSeriesA,
+	ESamsungSeriesB,
 	EStandardDLNA150 = 100
 };
 
