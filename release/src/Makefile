@@ -679,29 +679,11 @@ ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin OPENVPN=y NO_JFFS=y NO_CIFS=y B=V BUILD_DESC="SmallVPN" USB=""
 else
 	@$(MAKE) bin OPENVPN=y NO_JFFS=y NO_CIFS=y BCM57=y B=VS BUILD_DESC="SmallVPN" USB=""
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" USB="USB" NOCAT=y BTCLIENT=y NFS=y SNMP=y
 endif
 
 
 
 ## Make Mips32r2 builds
-r2m:
-	@$(MAKE) m MIPS32=r2
-
-r2nc:
-	@$(MAKE) nc MIPS32=r2
-
-r2e:
-	@$(MAKE) e MIPS32=r2
-
-r2c:
-	@$(MAKE) c MIPS32=r2
-
-r2r:
-	@$(MAKE) r MIPS32=r2
-
-r2t:
-	@$(MAKE) t MIPS32=r2
 
 r2a:
 	@$(MAKE) a MIPS32=r2
@@ -709,14 +691,17 @@ r2a:
 r2b:
 	@$(MAKE) b MIPS32=r2
 
-r2n:
-	@$(MAKE) n MIPS32=r2
+r2c:
+	@$(MAKE) c MIPS32=r2
 
-r2s:
-	@$(MAKE) s MIPS32=r2
+r2d:
+	@$(MAKE) d MIPS32=r2
 
-r2v:
-	@$(MAKE) v MIPS32=r2
+r2e:
+	@$(MAKE) e MIPS32=r2
+
+r2f:
+	@$(MAKE) f MIPS32=r2
 
 r2i:
 	@$(MAKE) i MIPS32=r2
@@ -724,26 +709,26 @@ r2i:
 r2j:
 	@$(MAKE) j MIPS32=r2
 
-r2f:
-	@$(MAKE) f MIPS32=r2
+r2m:
+	@$(MAKE) m MIPS32=r2
 
-r2d:
-	@$(MAKE) d MIPS32=r2
+r2n:
+	@$(MAKE) n MIPS32=r2
 
-n60m:
-	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=1
+r2nc:
+	@$(MAKE) nc MIPS32=r2
 
-n60nc:
-	@$(MAKE) r2nc NVRAM_SIZE=60 LINKSYS_E=1
+r2r:
+	@$(MAKE) r MIPS32=r2
 
-n60c:
-	@$(MAKE) r2c NVRAM_SIZE=60 LINKSYS_E=1
+r2s:
+	@$(MAKE) s MIPS32=r2
 
-n60r:
-	@$(MAKE) r2r NVRAM_SIZE=60 LINKSYS_E=1
+r2t:
+	@$(MAKE) t MIPS32=r2
 
-n60t:
-	@$(MAKE) r2t NVRAM_SIZE=60 LINKSYS_E=1
+r2v:
+	@$(MAKE) v MIPS32=r2
 
 n60a:
 	@$(MAKE) r2a NVRAM_SIZE=60 LINKSYS_E=1
@@ -751,17 +736,32 @@ n60a:
 n60b:
 	@$(MAKE) r2b NVRAM_SIZE=60 LINKSYS_E=1
 
+n60c:
+	@$(MAKE) r2c NVRAM_SIZE=60 LINKSYS_E=1
+
 n60e:
 	@$(MAKE) r2e NVRAM_SIZE=60 LINKSYS_E=1
+
+n60m:
+	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=1
 
 n60n:
 	@$(MAKE) r2n NVRAM_SIZE=60 LINKSYS_E=1
 
+n60nc:
+	@$(MAKE) r2nc NVRAM_SIZE=60 LINKSYS_E=1
+
 n60o:
 	@$(MAKE) r2o NVRAM_SIZE=60 LINKSYS_E=1
 
+n60r:
+	@$(MAKE) r2r NVRAM_SIZE=60 LINKSYS_E=1
+
 n60s:
 	@$(MAKE) bin MIPS32=r2 B=S USB="" NVRAM_SIZE=60 LINKSYS_E=1 BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y BUILD_DESC="Std"
+
+n60t:
+	@$(MAKE) r2t NVRAM_SIZE=60 LINKSYS_E=1
 
 n60v:
 	@$(MAKE) bin MIPS32=r2 B=V USB="" NVRAM_SIZE=60 LINKSYS_E=1 BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y OPENVPN=y BUILD_DESC="$(VPN)"
@@ -776,6 +776,7 @@ setprofile:
 	echo '#define TOMATO_BUILD_NAME "$(B)"' >> router/shared/tomato_profile.h
 	echo '#define TOMATO_BUILD_DESC "$(DESC)"' >> router/shared/tomato_profile.h
 	echo '#ifndef CONFIG_NVRAM_SIZE' >> router/shared/tomato_profile.h
+
 	echo '#define CONFIG_NVRAM_SIZE $(NVRAM_SIZE)' >> router/shared/tomato_profile.h
 	echo '#endif' >> router/shared/tomato_profile.h
 	echo '#endif' >> router/shared/tomato_profile.h
@@ -835,34 +836,25 @@ ifeq ($(CONFIG_LINUX26),y)
 else
 	@echo "e            E build (standard plus VPN and NTFS support)"
 endif
-	@echo "s            S build (no USB support)"
 	@echo "f            F build (no USB support minus CIFS and RIPv1/2)"
 	@echo "fs           FS build (no USB support minus JFFS, CIFS and RIPv1/2)"
+	@echo "s            S build (no USB support)"
 	@echo "v            V build (VPN with no USB support)"
 	@echo "vs           VS build (small VPN with no USB support)"
 ifeq ($(CONFIG_LINUX26),y)
+	@echo "r2e          MIPS Release 2 E build (standard plus VPN and extras)"
+	@echo "r2f          MIPS Release 2 F build (no USB support minus CIFS and RIPv1/2)"
+	@echo "r2i          MIPS Release 2 I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
 	@echo "r2m          MIPS Release 2 M build (standard plus extras)"
 	@echo "r2nc         MIPS Release 2 NC build (standard plus VPN, extras and NOCAT)"
-	@echo "r2e          MIPS Release 2 E build (standard plus VPN and extras)"
-	@echo "r2v          MIPS Release 2 V build (VPN with no USB support)"
 	@echo "r2s          MIPS Release 2 S build (no USB support)"
-	@echo "r2i          MIPS Release 2 I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
-	@echo "r2f          MIPS Release 2 F build (no USB support minus CIFS and RIPv1/2)"
+	@echo "r2v          MIPS Release 2 V build (VPN with no USB support)"
 	@echo "n60m         Linksys E-series build (60KB NVRAM, standard plus extras)"
-	@echo "n60nc        Linksys E-series build (60KB NVRAM, standard plus extras, plus VPN, plus NOCAT)"
 	@echo "n60e         Linksys E-series build (60KB NVRAM, standard plus VPN and extras)"
+	@echo "n60nc        Linksys E-series build (60KB NVRAM, standard plus extras, plus VPN, plus NOCAT)"
 	@echo "n60s         Linksys E-series build (60KB NVRAM, no USB support)"
 	@echo "n60v         Linksys E-series build (60KB NVRAM, VPN with no USB support)"
-	@echo "r2m          MIPS Release 2 Ext"
-	@echo "r2e          MIPS Release 2 VPN"
-	@echo "r2v          MIPS Release 2 VPN (no usb)"
-	@echo "r2s          MIPS Release 2 Std"
-	@echo "r2i          MIPS Release 2 MiniIPv6 (for 4MB flash)"
-	@echo "r2f          MIPS Release 2 Mini (for netgear)"
-	@echo "n60m         Linksys E-series build Ext"
-	@echo "n60e         Linksys E-series build VPN"
-	@echo "n60s         Linksys E-series build Std with IPv6"
-	@echo "n60v         Linksys E-series build VPN with IPv6"
+
 endif
 	@echo "..etc..      other build configs"
 	@echo "clean        -C router clean"
