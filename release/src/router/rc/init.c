@@ -404,6 +404,7 @@ static int init_vlan_ports(void)
 	case MODEL_WNR3500L:
 	case MODEL_WRT320N:
 	case MODEL_RTN16:
+	case MODEL_RTN66U:
 		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
 		dirty |= check_nv("vlan2ports", "0 8");
 		break;
@@ -963,6 +964,27 @@ static int init_nvram(void)
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");
 			nvram_set("vlan_enable", "1");
+		}
+		break;
+	case MODEL_RTN66U:
+		mfr = "Asus";
+		name = "RT-N66U";
+		features = SUP_SES | SUP_80211N | SUP_1000ET;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+		if (nvram_get_int("usb_mmc") == -1) nvram_set("usb_mmc", "0");
+#endif
+#endif
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifnames", "eth1 eth2");
+			nvram_set("landevs", "vlan1 wl0 wl1");
+			nvram_set("wandevs", "vlan2");
+#if defined(LINUX26) && defined(TCONFIG_USB)
+			nvram_set("usb_noled", "1-1.4"); /* SD/MMC Card */
+#endif
 		}
 		break;
 	case MODEL_WNR3500L:

@@ -66,7 +66,9 @@ static struct ebt_replace *translate_user2kernel(struct ebt_u_replace *u_repl)
 	new->nentries = u_repl->nentries;
 	new->num_counters = u_repl->num_counters;
 	new->counters = sparc_cast u_repl->counters;
-	chain_offsets = (unsigned int *)malloc(u_repl->num_chains * sizeof(unsigned int));
+	chain_offsets = (unsigned int *)calloc(u_repl->num_chains, sizeof(unsigned int));
+	if (!chain_offsets)
+		ebt_print_memory();
 	/* Determine size */
 	for (i = 0; i < u_repl->num_chains; i++) {
 		if (!(entries = u_repl->chains[i]))
@@ -238,9 +240,13 @@ void ebt_deliver_table(struct ebt_u_replace *u_repl)
 			goto free_repl;
 	}
 
-	ebt_print_error("The kernel doesn't support a certain ebtables"
-		    " extension, consider recompiling your kernel or insmod"
-		    " the extension");
+	ebt_print_error("Unable to update the kernel. Two possible causes:\n"
+			"1. Multiple ebtables programs were executing simultaneously. The ebtables\n"
+			"   userspace tool doesn't by default support multiple ebtables programs running\n"
+			"   concurrently. The ebtables option --concurrent or a tool like flock can be\n"
+			"   used to support concurrent scripts that update the ebtables kernel tables.\n"
+			"2. The kernel doesn't support a certain ebtables extension, consider\n"
+			"   recompiling your kernel or insmod the extension.\n");
 free_repl:
 	if (repl) {
 		free(repl->entries);
@@ -309,6 +315,8 @@ void ebt_deliver_counters(struct ebt_u_replace *u_repl)
 			if (chainnr == u_repl->num_chains)
 				break;
 		}
+		if (next == NULL)
+			ebt_print_bug("next == NULL");
 		if (cc->type == CNT_NORM) {
 			/* 'Normal' rule, meaning we didn't do anything to it
 			 * So, we just copy */
@@ -636,9 +644,9 @@ static int retrieve_from_file(char *filename, struct ebt_replace *repl,
 	   != repl->entries_size ||
 	   fseek(file, sizeof(struct ebt_replace) + repl->entries_size,
 		 SEEK_SET)
-	   || fread((char *)repl->counters, sizeof(char),
+	   || (repl->counters && fread((char *)repl->counters, sizeof(char),
 	   repl->nentries * sizeof(struct ebt_counter), file)
-	   != repl->nentries * sizeof(struct ebt_counter)) {
+	   != repl->nentries * sizeof(struct ebt_counter))) {
 		ebt_print_error("File %s is corrupt", filename);
 		free(entries);
 		repl->entries = NULL;

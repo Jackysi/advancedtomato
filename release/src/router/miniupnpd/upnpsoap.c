@@ -1,4 +1,4 @@
-/* $Id: upnpsoap.c,v 1.86 2011/06/22 20:34:38 nanard Exp $ */
+/* $Id: upnpsoap.c,v 1.87 2011/07/15 07:48:26 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -271,14 +271,14 @@ GetExternalIPAddress(struct upnphttp * h, const char * action)
 		strncpy(ext_ip_addr, "0.0.0.0", INET_ADDRSTRLEN);
 	}
 #else
-	int i;
+	struct lan_addr_s * lan_addr;
 	strncpy(ext_ip_addr, "0.0.0.0", INET_ADDRSTRLEN);
-	for(i = 0; i<n_lan_addr; i++)
+	for(lan_addr = lan_addrs.lh_first; lan_addr != NULL; lan_addr = lan_addr->list.le_next)
 	{
-		if( (h->clientaddr.s_addr & lan_addr[i].mask.s_addr)
-		   == (lan_addr[i].addr.s_addr & lan_addr[i].mask.s_addr))
+		if( (h->clientaddr.s_addr & lan_addr->mask.s_addr)
+		   == (lan_addr->addr.s_addr & lan_addr->mask.s_addr))
 		{
-			strncpy(ext_ip_addr, lan_addr[i].ext_ip_str, INET_ADDRSTRLEN);
+			strncpy(ext_ip_addr, lan_addr->ext_ip_str, INET_ADDRSTRLEN);
 			break;
 		}
 	}

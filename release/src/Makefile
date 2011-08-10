@@ -672,7 +672,7 @@ r2i:
 	@$(MAKE) i MIPS32=r2
 
 r2f:
-	@$(MAKE) f MIPS32=r2
+	@$(MAKE) f MIPS32=r2 BELKIN=y
 
 r2d:
 	@$(MAKE) d MIPS32=r2

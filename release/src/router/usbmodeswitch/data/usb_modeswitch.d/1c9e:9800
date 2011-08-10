@@ -1,0 +1,12 @@
+########################################################
+# Longcheer SU9800
+
+DefaultVendor= 0x1c9e
+DefaultProduct=0x9800
+
+TargetClass=0xff
+
+MessageContent="55534243123456788000000080000606f50402527000000000000000000000"
+
+CheckSuccess=20
+

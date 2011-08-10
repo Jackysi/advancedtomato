@@ -1,4 +1,4 @@
-/* $Id: natpmp.c,v 1.25 2011/06/22 20:34:39 nanard Exp $ */
+/* $Id: natpmp.c,v 1.26 2011/07/15 07:48:26 nanard Exp $ */
 /* MiniUPnP project
  * (c) 2007-2010 Thomas Bernard
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
@@ -89,13 +89,12 @@ static void FillPublicAddressResponse(unsigned char * resp, in_addr_t senderaddr
 		}
 	}
 #else
-	int i;
-
-	for(i = 0; i<n_lan_addr; i++) {
-		if( (senderaddr & lan_addr[i].mask.s_addr)
-		   == (lan_addr[i].addr.s_addr & lan_addr[i].mask.s_addr)) {
-			memcpy(resp+8, &lan_addr[i].ext_ip_addr,
-			       sizeof(lan_addr[i].ext_ip_addr));
+	struct lan_addr_s * lan_addr;
+	for(lan_addr = lan_addrs.lh_first; lan_addr != NULL; lan_addr = lan_addr->list.le_next) {
+		if( (senderaddr & lan_addr->mask.s_addr)
+		   == (lan_addr->addr.s_addr & lan_addr->mask.s_addr)) {
+			memcpy(resp+8, &lan_addr->ext_ip_addr,
+			       sizeof(lan_addr->ext_ip_addr));
 			break;
 		}
 	}

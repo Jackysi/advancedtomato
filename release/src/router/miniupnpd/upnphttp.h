@@ -1,4 +1,4 @@
-/* $Id: upnphttp.h,v 1.23 2011/05/13 16:34:02 nanard Exp $ */ 
+/* $Id: upnphttp.h,v 1.24 2011/06/27 11:06:00 nanard Exp $ */ 
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -55,7 +55,7 @@ struct upnphttp {
 	const char * req_SID;		/* For UNSUBSCRIBE */
 	int req_SIDLen;
 #endif
-	int respflags;
+	int respflags;				/* see FLAG_* constants below */
 	/* response */
 	char * res_buf;
 	int res_buflen;
@@ -65,9 +65,12 @@ struct upnphttp {
 	LIST_ENTRY(upnphttp) entries;
 };
 
+/* Include the "Timeout:" header in response */
 #define FLAG_TIMEOUT	0x01
+/* Include the "SID:" header in response */
 #define FLAG_SID		0x02
 
+/* If set, the Content-Type is set to text/xml, otherwise it is text/xml */
 #define FLAG_HTML		0x80
 
 /* New_upnphttp() */

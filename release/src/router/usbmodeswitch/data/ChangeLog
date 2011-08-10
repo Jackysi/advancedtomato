@@ -1,3 +1,9 @@
+20110714:
+    Added device: SpeedUp SU-8000U; corrected garbled configs for latest
+    Huawei devices
+20110705:
+    Added devices: Huawei EC156, Huawei K3770, Huawei K3771, Option iCon 461,
+    Longcheer SU9800, ZTE AX226 (WiMax)
 20110619:
 	Added devices: Huawei E352, Huawei U8220, Huawei E173, D-Link DWM-156
     (Variant), Cricket A605, ZTE K3806-Z, ZTE MF190 (two Variants), ZTE MF192,
