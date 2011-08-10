@@ -13,7 +13,7 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] About</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 <script type='text/javascript'>
 //	<% nvram(''); %>	// http_id
@@ -102,11 +102,17 @@ Copyright (C) 2008-2011 Fedor Kozhevnikov and Ray Van Tassle<br>
 <br><br>
 
 <!-- VPN-BEGIN -->
-VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
+VPN integration and GUI<br>
+Copyright (C) 2010 Keith Moyer<br>
+<a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br><br>
 <!-- VPN-END -->
 
-<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>VLAN administration GUI</a> Copyright (C) 2011 Augusto Bott<br>
+VLAN administration GUI,<br>
+Multiple LAN support integration and GUI,<br>
+Multiple/virtual SSID support (experimental).<br>
+Copyright (C) 2011 Augusto Bott<br>
+<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br><br>
 
 Based on Tomato Firmware v<% version(); %><br>

@@ -4,6 +4,10 @@
 	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
+	Tomato VLAN GUI
+	Copyright (C) 2011 Augusto Bott
+	http://code.google.com/p/tomato-sdhc-vlan/
+
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
 -->
@@ -13,7 +17,7 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] Basic: Wireless Filter</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
@@ -124,9 +128,11 @@ function save()
 	fom.macnames.value = names.join('>');
 
 	for (i = 0; i < wl_ifaces.length; ++i) {
-		u = wl_unit(i);
-		E('_wl'+u+'_macmode').value = fom.wl_macmode.value;
-		E('_wl'+u+'_maclist').value = fom.wl_maclist.value;
+		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+			u = wl_unit(i);
+			E('_wl'+u+'_macmode').value = fom.wl_macmode.value;
+			E('_wl'+u+'_maclist').value = fom.wl_maclist.value;
+		}
 	}
 
 	form.submit(fom, 1);
@@ -169,9 +175,11 @@ function init()
 
 <script type='text/javascript'>
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-	var u = wl_unit(uidx);
-	W('<input type=\'hidden\' id=\'_wl'+u+'_macmode\' name=\'wl'+u+'_macmode\'>');
-	W('<input type=\'hidden\' id=\'_wl'+u+'_maclist\' name=\'wl'+u+'_maclist\'>');
+	if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+		var u = wl_unit(uidx);
+		W('<input type=\'hidden\' id=\'_wl'+u+'_macmode\' name=\'wl'+u+'_macmode\'>');
+		W('<input type=\'hidden\' id=\'_wl'+u+'_maclist\' name=\'wl'+u+'_maclist\'>');
+	}
 }
 </script>
 

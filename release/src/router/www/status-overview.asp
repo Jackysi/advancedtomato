@@ -4,6 +4,10 @@
 	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
+	Tomato VLAN GUI
+	Copyright (C) 2011 Augusto Bott
+	http://code.google.com/p/tomato-sdhc-vlan/
+
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
 -->
@@ -15,6 +19,7 @@
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
+<script type='text/javascript' src='interfaces.js'></script>
 
 <!-- / / / -->
 
@@ -44,7 +49,10 @@ show_codi = ((nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp') || (nvr
 
 show_radio = [];
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-	show_radio.push((nvram['wl'+wl_unit(uidx)+'_radio'] == '1'));
+/* REMOVE-BEGIN
+//	show_radio.push((nvram['wl'+wl_unit(uidx)+'_radio'] == '1'));
+REMOVE-END */
+	show_radio.push((nvram['wl'+wl_fface(uidx)+'_radio'] == '1'));
 }
 
 nphy = features('11n');
@@ -213,35 +221,8 @@ createFieldTable('', [
 <div class='section-title'>LAN</div>
 <div class='section'>
 <script type='text/javascript'>
-
-function h_countbitsfromleft(num) {
-	if (num == 255 ){
-		return(8);
-	}
-	var i = 0;
-	var bitpat=0xff00; 
-	while (i < 8){
-		if (num == (bitpat & 0xff)){
-			return(i);
-		}
-		bitpat=bitpat >> 1;
-		i++;
-	}
-	return(Number.NaN);
-}
-
-function numberOfBitsOnNetMask(netmask) {
-	var total = 0;
-	var t = netmask.split('.');
-	for (var i = 0; i<= 3 ; i++) {
-		total += h_countbitsfromleft(t[i]);
-	}
-	return total;
-}
-
 var s='';
 var t='';
-MAX_BRIDGE_ID=3;
 for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
 	var j = (i == 0) ? '' : i.toString();
 	if (nvram['lan' + j + '_ifname'].length > 0) {
@@ -274,9 +255,12 @@ createFieldTable('', [
 
 <script type='text/javascript'>
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-u = wl_unit(uidx);
+/* REMOVE-BEGIN
+//u = wl_unit(uidx);
+REMOVE-END */
+u = wl_fface(uidx);
 W('<div class=\'section-title\' id=\'wl'+uidx+'-title\'>Wireless');
-if (wl_ifaces.length > 1)
+if (wl_ifaces.length > 0)
 	W(' (' + wl_display_ifname(uidx) + ')');
 W('</div>');
 W('<div class=\'section\' id=\'wl'+uidx+'-section\'>');

@@ -13,7 +13,7 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] Advanced: MAC Address</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
@@ -78,7 +78,8 @@ function findPrevMAC(mac, maxidx)
 	if (E('_f_wan_macaddr').value == mac) return 1;
 
 	for (var uidx = 0; uidx < maxidx; ++uidx) {
-		if (E('_f_wl'+wl_unit(uidx)+'_macaddr').value == mac) return 1;
+		if(wl_ifaces[uidx][0].indexOf('.') < 0) 
+			if (E('_f_wl'+wl_unit(uidx)+'_macaddr').value == mac) return 1;
 	}
 
 	return 0;
@@ -91,13 +92,15 @@ function verifyFields(focused, quiet)
 	if (!v_mac('_f_wan_macaddr', quiet)) return 0;
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		u = wl_unit(uidx);
-		a = E('_f_wl'+u+'_macaddr');
-		if (!v_mac(a, quiet)) return 0;
+		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+			u = wl_unit(uidx);
+			a = E('_f_wl'+u+'_macaddr');
+			if (!v_mac(a, quiet)) return 0;
 
-		if (findPrevMAC(a.value, uidx)) {	
-			ferror.set(a, 'Addresses must be unique', quiet);
-			return 0;
+			if (findPrevMAC(a.value, uidx)) {	
+				ferror.set(a, 'Addresses must be unique', quiet);
+				return 0;
+			}
 		}
 	}
 
@@ -115,9 +118,11 @@ function save()
 	fom.mac_wan.value = (fom._f_wan_macaddr.value == defmac('wan')) ? '' : fom._f_wan_macaddr.value;
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		u = wl_unit(uidx);
-		v = E('_f_wl'+u+'_macaddr').value;
-		E('_wl'+u+'_macaddr').value = (v == defmac('wl' + u)) ? '' : v;
+		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+			u = wl_unit(uidx);
+			v = E('_f_wl'+u+'_macaddr').value;
+			E('_wl'+u+'_macaddr').value = (v == defmac('wl' + u)) ? '' : v;
+		}
 	}
 
 	form.submit(fom, 1);
@@ -163,12 +168,14 @@ f = [
 ];
 
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-	var u = wl_unit(uidx);
-	f.push(
-	{ title: 'Wireless Interface ' + ((wl_ifaces.length > 1) ? wl_ifaces[uidx][0] : ''), indent: 1, name: 'f_wl'+u+'_macaddr', type: 'text', maxlen: 17, size: 20,
-		suffix:' <input type="button" value="Default" onclick="bdefault(\'wl'+u+'\')"> <input type="button" value="Random" onclick="brand(\'wl'+u+'\')"> <input type="button" value="Clone PC" onclick="bclone(\'wl'+u+'\')">',
-		value: nvram['wl'+u+'_macaddr'] || defmac('wl' + u) }
-	);
+	if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+		var u = wl_unit(uidx);
+		f.push(
+		{ title: 'Wireless Interface ' + ((wl_ifaces.length > 1) ? wl_ifaces[uidx][0] : ''), indent: 1, name: 'f_wl'+u+'_macaddr', type: 'text', maxlen: 17, size: 20,
+			suffix:' <input type="button" value="Default" onclick="bdefault(\'wl'+u+'\')"> <input type="button" value="Random" onclick="brand(\'wl'+u+'\')"> <input type="button" value="Clone PC" onclick="bclone(\'wl'+u+'\')">',
+			value: nvram['wl'+u+'_macaddr'] || defmac('wl' + u) }
+		);
+	}
 }
 
 createFieldTable('', f);

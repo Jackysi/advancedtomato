@@ -92,7 +92,8 @@ static int get_wl_clients(int idx, int unit, int subunit, void *param)
 
 	mlsize = sizeof(struct maclist) + (255 * sizeof(struct ether_addr));
 	if ((mlist = malloc(mlsize)) != NULL) {
-		wlif = nvram_safe_get(wl_nvname("ifname", unit, 0));
+//		wlif = nvram_safe_get(wl_nvname("ifname", unit, 0));
+		wlif = nvram_safe_get(wl_nvname("ifname", unit, subunit)); // AB multiSSID
 		cmd = WLC_GET_ASSOCLIST;
 		while (1) {
 			mlist->count = 255;

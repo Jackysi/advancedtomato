@@ -4,6 +4,10 @@
 	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
+	Tomato VLAN GUI
+	Copyright (C) 2011 Augusto Bott
+	http://code.google.com/p/tomato-sdhc-vlan/
+
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
 -->
@@ -350,20 +354,22 @@ var bands = [];
 var nm_loaded = [], ch_loaded = [], max_channel = [];
 
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-	var b;
-	b = [];
-	for (var i = 0; i < wl_bands[uidx].length; ++i) {
-		b.push([wl_bands[uidx][i] + '', (wl_bands[uidx][i] == '1') ? '5 GHz' : '2.4 GHz']);
+	if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+		var b;
+		b = [];
+		for (var i = 0; i < wl_bands[uidx].length; ++i) {
+			b.push([wl_bands[uidx][i] + '', (wl_bands[uidx][i] == '1') ? '5 GHz' : '2.4 GHz']);
+		}
+		bands.push(b);
+
+		b = [];
+		ghz.push(b);
+
+		nm_loaded.push(0);
+		ch_loaded.push(0);
+		max_channel.push(0);
+		refresher.push(null);
 	}
-	bands.push(b);
-
-	b = [];
-	ghz.push(b);
-
-	nm_loaded.push(0);
-	ch_loaded.push(0);
-	max_channel.push(0);
-	refresher.push(null);
 }
 
 function selectedBand(uidx)
@@ -644,13 +650,15 @@ function verifyFields(focused, quiet)
 	var wmode, sm2;
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		u = wl_unit(uidx);
-		if (focused == E('_f_wl'+u+'_nband')) {
-			refreshNetModes(uidx);
-			refreshChannels(uidx);
-		}
-		else if (focused == E('_f_wl'+u+'_nctrlsb') || focused == E('_wl'+u+'_nbw_cap')) {
-			refreshChannels(uidx);
+		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+			u = wl_unit(uidx);
+			if (focused == E('_f_wl'+u+'_nband')) {
+				refreshNetModes(uidx);
+				refreshChannels(uidx);
+			}
+			else if (focused == E('_f_wl'+u+'_nctrlsb') || focused == E('_wl'+u+'_nbw_cap')) {
+				refreshChannels(uidx);
+			}
 		}
 	}
 
@@ -693,58 +701,62 @@ REMOVE-END */
 
 	var wl_vis = [];
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		a = {
-		_f_wl_radio: 1,
-		_f_wl_mode: 1,
-		_f_wl_nband: (bands[uidx].length > 1) ? 1 : 0,
-		_wl_net_mode: 1,
-		_wl_ssid: 1,
-		_f_wl_bcast: 1,
-		_wl_channel: 1,
-		_wl_nbw_cap: nphy ? 1 : 0,
-		_f_wl_nctrlsb: nphy ? 1 : 0,
-		_f_wl_scan: 1,
+		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+			a = {
+			_f_wl_radio: 1,
+			_f_wl_mode: 1,
+			_f_wl_nband: (bands[uidx].length > 1) ? 1 : 0,
+			_wl_net_mode: 1,
+			_wl_ssid: 1,
+			_f_wl_bcast: 1,
+			_wl_channel: 1,
+			_wl_nbw_cap: nphy ? 1 : 0,
+			_f_wl_nctrlsb: nphy ? 1 : 0,
+			_f_wl_scan: 1,
 
-		_wl_security_mode: 1,
-		_wl_crypto: 1,
-		_wl_wpa_psk: 1,
-		_f_wl_psk_random1: 1,
-		_f_wl_psk_random2: 1,
-		_wl_wpa_gtk_rekey: 1,
-		_wl_radius_key: 1,
-		_wl_radius_ipaddr: 1,
-		_wl_radius_port: 1,
-		_wl_wep_bit: 1,
-		_wl_passphrase: 1,
-		_f_wl_wep_gen: 1,
-		_f_wl_wep_random: 1,
-		_wl_key1: 1,
-		_wl_key2: 1,
-		_wl_key3: 1,
-		_wl_key4: 1,
+			_wl_security_mode: 1,
+			_wl_crypto: 1,
+			_wl_wpa_psk: 1,
+			_f_wl_psk_random1: 1,
+			_f_wl_psk_random2: 1,
+			_wl_wpa_gtk_rekey: 1,
+			_wl_radius_key: 1,
+			_wl_radius_ipaddr: 1,
+			_wl_radius_port: 1,
+			_wl_wep_bit: 1,
+			_wl_passphrase: 1,
+			_f_wl_wep_gen: 1,
+			_f_wl_wep_random: 1,
+			_wl_key1: 1,
+			_wl_key2: 1,
+			_wl_key3: 1,
+			_wl_key4: 1,
 
-		_f_wl_lazywds: 1,
-		_f_wl_wds_0: 1
-		};
-		wl_vis.push(a);
+			_f_wl_lazywds: 1,
+			_f_wl_wds_0: 1
+			};
+			wl_vis.push(a);
+		}
 	}
 
 	var wan = E('_wan_proto').value;
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		wmode = E('_f_wl'+wl_unit(uidx)+'_mode').value;
+		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+			wmode = E('_f_wl'+wl_unit(uidx)+'_mode').value;
 
-		if (wmode == 'wet') {
-			wan = 'disabled';
-			vis._wan_proto = 0;
+			if (wmode == 'wet') {
+				wan = 'disabled';
+				vis._wan_proto = 0;
 /* REMOVE-BEGIN
-//			vis._f_dhcpd_enable = 0;
-//			vis._dhcp_lease = 0;
+//				vis._f_dhcpd_enable = 0;
+//				vis._dhcp_lease = 0;
 REMOVE-END */
-		}
+			}
 
-		if ((wan == 'disabled') || (wmode == 'sta') || (wmode == 'wet')) {
-			vis._f_wan_islan = 1;
+			if ((wan == 'disabled') || (wmode == 'sta') || (wmode == 'wet')) {
+				vis._f_wan_islan = 1;
+			}
 		}
 	}
 
@@ -849,94 +861,95 @@ REMOVE-END */
 REMOVE-END */
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		u = wl_unit(uidx);
-		wmode = E('_f_wl'+u+'_mode').value;
+		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+			u = wl_unit(uidx);
+			wmode = E('_f_wl'+u+'_mode').value;
 
-		if (!E('_f_wl'+u+'_radio').checked) {
-			for (a in wl_vis[uidx]) {
-				wl_vis[uidx][a] = 2;
+			if (!E('_f_wl'+u+'_radio').checked) {
+				for (a in wl_vis[uidx]) {
+					wl_vis[uidx][a] = 2;
+				}
+				wl_vis[uidx]._f_wl_radio = 1;
+				wl_vis[uidx]._wl_nbw_cap = nphy ? 2 : 0;
+				wl_vis[uidx]._f_wl_nband = (bands[uidx].length > 1) ? 2 : 0;
 			}
-			wl_vis[uidx]._f_wl_radio = 1;
-			wl_vis[uidx]._wl_nbw_cap = nphy ? 2 : 0;
-			wl_vis[uidx]._f_wl_nband = (bands[uidx].length > 1) ? 2 : 0;
-		}
 
-		switch (wmode) {
-		case 'apwds':
-		case 'wds':
-			break;
-		case 'wet':
-		case 'sta':
-			wl_vis[uidx]._f_wl_bcast = 0;
-			wl_vis[uidx]._wl_channel = 0;
-			wl_vis[uidx]._wl_nbw_cap = 0;
-		default:
-			wl_vis[uidx]._f_wl_lazywds = 0;
-			wl_vis[uidx]._f_wl_wds_0 = 0;
-			break;
-		}
+			switch (wmode) {
+			case 'apwds':
+			case 'wds':
+				break;
+			case 'wet':
+			case 'sta':
+				wl_vis[uidx]._f_wl_bcast = 0;
+				wl_vis[uidx]._wl_channel = 0;
+				wl_vis[uidx]._wl_nbw_cap = 0;
+			default:
+				wl_vis[uidx]._f_wl_lazywds = 0;
+				wl_vis[uidx]._f_wl_wds_0 = 0;
+				break;
+			}
 
-		sm2 = E('_wl'+u+'_security_mode').value;
-		switch (sm2) {
-		case 'disabled':
-			wl_vis[uidx]._wl_crypto = 0;
-			wl_vis[uidx]._wl_wep_bit = 0;
-			wl_vis[uidx]._wl_wpa_psk = 0;
-			wl_vis[uidx]._wl_radius_key = 0;
-			wl_vis[uidx]._wl_radius_ipaddr = 0;
-			wl_vis[uidx]._wl_wpa_gtk_rekey = 0;
-			break;
-		case 'wep':
-			wl_vis[uidx]._wl_crypto = 0;
-			wl_vis[uidx]._wl_wpa_psk = 0;
-			wl_vis[uidx]._wl_radius_key = 0;
-			wl_vis[uidx]._wl_radius_ipaddr = 0;
-			wl_vis[uidx]._wl_wpa_gtk_rekey = 0;
-			break;
-		case 'radius':
-			wl_vis[uidx]._wl_crypto = 0;
-			wl_vis[uidx]._wl_wpa_psk = 0;
-			break;
-		default:	// wpa*
-			wl_vis[uidx]._wl_wep_bit = 0;
-			if (sm2.indexOf('personal') != -1) {
+			sm2 = E('_wl'+u+'_security_mode').value;
+			switch (sm2) {
+			case 'disabled':
+				wl_vis[uidx]._wl_crypto = 0;
+				wl_vis[uidx]._wl_wep_bit = 0;
+				wl_vis[uidx]._wl_wpa_psk = 0;
 				wl_vis[uidx]._wl_radius_key = 0;
 				wl_vis[uidx]._wl_radius_ipaddr = 0;
-			}
-			else {
+				wl_vis[uidx]._wl_wpa_gtk_rekey = 0;
+				break;
+			case 'wep':
+				wl_vis[uidx]._wl_crypto = 0;
 				wl_vis[uidx]._wl_wpa_psk = 0;
-			}
-			break;
-		}
-
-		if ((E('_f_wl'+u+'_lazywds').value == 1) && (wl_vis[uidx]._f_wl_wds_0 == 1)) {
-			wl_vis[uidx]._f_wl_wds_0 = 2;
-		}
-
-		if (wl_vis[uidx]._wl_nbw_cap != 0) {
-			switch (E('_wl'+u+'_net_mode').value) {
-			case 'b-only':
-			case 'g-only':
-			case 'a-only':
-			case 'bg-mixed':
-				wl_vis[uidx]._wl_nbw_cap = 2;
-				if (E('_wl'+u+'_nbw_cap').value != '0') {
-					E('_wl'+u+'_nbw_cap').value = 0;
-					refreshChannels(uidx);
+				wl_vis[uidx]._wl_radius_key = 0;
+				wl_vis[uidx]._wl_radius_ipaddr = 0;
+				wl_vis[uidx]._wl_wpa_gtk_rekey = 0;
+				break;
+			case 'radius':
+				wl_vis[uidx]._wl_crypto = 0;
+				wl_vis[uidx]._wl_wpa_psk = 0;
+				break;
+			default:	// wpa*
+				wl_vis[uidx]._wl_wep_bit = 0;
+				if (sm2.indexOf('personal') != -1) {
+					wl_vis[uidx]._wl_radius_key = 0;
+					wl_vis[uidx]._wl_radius_ipaddr = 0;
+				}
+				else {
+					wl_vis[uidx]._wl_wpa_psk = 0;
 				}
 				break;
 			}
-			// avoid Enterprise-TKIP with 40MHz
-			if ((sm2 == 'wpa_enterprise') && (E('_wl'+u+'_crypto').value == 'tkip')) {
-				wl_vis[uidx]._wl_nbw_cap = 2;
-				if (E('_wl'+u+'_nbw_cap').value != '0') {
-					E('_wl'+u+'_nbw_cap').value = 0;
-					refreshChannels(uidx);
+
+			if ((E('_f_wl'+u+'_lazywds').value == 1) && (wl_vis[uidx]._f_wl_wds_0 == 1)) {
+				wl_vis[uidx]._f_wl_wds_0 = 2;
+			}
+
+			if (wl_vis[uidx]._wl_nbw_cap != 0) {
+				switch (E('_wl'+u+'_net_mode').value) {
+				case 'b-only':
+				case 'g-only':
+				case 'a-only':
+				case 'bg-mixed':
+					wl_vis[uidx]._wl_nbw_cap = 2;
+					if (E('_wl'+u+'_nbw_cap').value != '0') {
+						E('_wl'+u+'_nbw_cap').value = 0;
+						refreshChannels(uidx);
+					}
+					break;
+				}
+				// avoid Enterprise-TKIP with 40MHz
+				if ((sm2 == 'wpa_enterprise') && (E('_wl'+u+'_crypto').value == 'tkip')) {
+					wl_vis[uidx]._wl_nbw_cap = 2;
+					if (E('_wl'+u+'_nbw_cap').value != '0') {
+						E('_wl'+u+'_nbw_cap').value = 0;
+						refreshChannels(uidx);
+					}
 				}
 			}
-		}
 
-		wl_vis[uidx]._f_wl_nctrlsb = (E('_wl'+u+'_nbw_cap').value == 0) ? 0 : wl_vis[uidx]._wl_nbw_cap;
+			wl_vis[uidx]._f_wl_nctrlsb = (E('_wl'+u+'_nbw_cap').value == 0) ? 0 : wl_vis[uidx]._wl_nbw_cap;
 
 /* REMOVE-BEGIN
 	This is ugly...
@@ -945,34 +958,35 @@ REMOVE-END */
 	Channel list is not filtered in this case by the wl driver,
 	and includes all channels available with 20MHz channel width.
 REMOVE-END */
-		b = selectedBand(uidx);
-		if (wl_vis[uidx]._wl_channel == 1 && wl_vis[uidx]._f_wl_nctrlsb != 0 &&
-		   ((b == '2') || (wl_vis[uidx]._f_wl_nband == 0 && b == '0'))) {
-			switch (eval('nvram.wl'+u+'_net_mode')) {
-			case 'b-only':
-			case 'g-only':
-			case 'bg-mixed':
-				i = E('_wl'+u+'_channel').value * 1;
-				if (i > 0 && i < 5) {
-					E('_f_wl'+u+'_nctrlsb').value = 'lower';
-					wl_vis[uidx]._f_wl_nctrlsb = 2;
+			b = selectedBand(uidx);
+			if (wl_vis[uidx]._wl_channel == 1 && wl_vis[uidx]._f_wl_nctrlsb != 0 &&
+			   ((b == '2') || (wl_vis[uidx]._f_wl_nband == 0 && b == '0'))) {
+				switch (eval('nvram.wl'+u+'_net_mode')) {
+				case 'b-only':
+				case 'g-only':
+				case 'bg-mixed':
+					i = E('_wl'+u+'_channel').value * 1;
+					if (i > 0 && i < 5) {
+						E('_f_wl'+u+'_nctrlsb').value = 'lower';
+						wl_vis[uidx]._f_wl_nctrlsb = 2;
+					}
+					else if (i > max_channel[uidx] - 4) {
+						E('_f_wl'+u+'_nctrlsb').value = 'upper';
+						wl_vis[uidx]._f_wl_nctrlsb = 2;
+					}
+					break;
 				}
-				else if (i > max_channel[uidx] - 4) {
-					E('_f_wl'+u+'_nctrlsb').value = 'upper';
-					wl_vis[uidx]._f_wl_nctrlsb = 2;
-				}
-				break;
 			}
-		}
 
-		wl_vis[uidx]._f_wl_scan = wl_vis[uidx]._wl_channel;
-		wl_vis[uidx]._f_wl_psk_random1 = wl_vis[uidx]._wl_wpa_psk;
-		wl_vis[uidx]._f_wl_psk_random2 = wl_vis[uidx]._wl_radius_key;
-		wl_vis[uidx]._wl_radius_port = wl_vis[uidx]._wl_radius_ipaddr;
-		wl_vis[uidx]._wl_key1 = wl_vis[uidx]._wl_key2 = wl_vis[uidx]._wl_key3 = wl_vis[uidx]._wl_key4 = wl_vis[uidx]._f_wl_wep_gen = wl_vis[uidx]._f_wl_wep_random = wl_vis[uidx]._wl_passphrase = wl_vis[uidx]._wl_wep_bit;
+			wl_vis[uidx]._f_wl_scan = wl_vis[uidx]._wl_channel;
+			wl_vis[uidx]._f_wl_psk_random1 = wl_vis[uidx]._wl_wpa_psk;
+			wl_vis[uidx]._f_wl_psk_random2 = wl_vis[uidx]._wl_radius_key;
+			wl_vis[uidx]._wl_radius_port = wl_vis[uidx]._wl_radius_ipaddr;
+			wl_vis[uidx]._wl_key1 = wl_vis[uidx]._wl_key2 = wl_vis[uidx]._wl_key3 = wl_vis[uidx]._wl_key4 = wl_vis[uidx]._f_wl_wep_gen = wl_vis[uidx]._f_wl_wep_random = wl_vis[uidx]._wl_passphrase = wl_vis[uidx]._wl_wep_bit;
 
-		for (i = 1; i < 10; ++i) {
-			wl_vis[uidx]['_f_wl_wds_' + i] = wl_vis[uidx]._f_wl_wds_0;
+			for (i = 1; i < 10; ++i) {
+				wl_vis[uidx]['_f_wl_wds_' + i] = wl_vis[uidx]._f_wl_wds_0;
+			}
 		}
 	} // for each wl_iface
 
@@ -992,13 +1006,15 @@ REMOVE-END */
 	}
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		for (a in wl_vis[uidx]) {
-			i = 3;
-			if (a.substr(0, 6) == '_f_wl_') i = 5;
-			b = E(a.substr(0, i) + wl_unit(uidx) + a.substr(i, a.length));
-			c = wl_vis[uidx][a];
-			b.disabled = (c != 1);
-			PR(b).style.display = c ? '' : 'none';
+		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+			for (a in wl_vis[uidx]) {
+				i = 3;
+				if (a.substr(0, 6) == '_f_wl_') i = 5;
+				b = E(a.substr(0, i) + wl_unit(uidx) + a.substr(i, a.length));
+				c = wl_vis[uidx][a];
+				b.disabled = (c != 1);
+				PR(b).style.display = c ? '' : 'none';
+			}
 		}
 	}
 
@@ -1008,67 +1024,69 @@ REMOVE-END */
 
 	var wlclnt = 0;
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		u = wl_unit(uidx);
-		wmode = E('_f_wl'+u+'_mode').value;
-		sm2 = E('_wl'+u+'_security_mode').value;
+		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+			u = wl_unit(uidx);
+			wmode = E('_f_wl'+u+'_mode').value;
+			sm2 = E('_wl'+u+'_security_mode').value;
 
-/* REMOVE-BEGIN
-		if ((wl_vis[uidx]._f_wl_mode == 1) && (wmode != 'ap') && (sm2.substr(0, 4) == 'wpa2')) {
-			ferror.set('_wl'+u+'_security_mode', 'WPA2 is supported only in AP mode.', quiet || !ok);
-			ok = 0;
-		}
-		else ferror.clear('_wl'+u+'_security_mode');
-REMOVE-END */
-
-		// --- N standard does not support WPA+TKIP ---
-		a = E('_wl'+u+'_crypto');
-		switch (E('_wl'+u+'_net_mode').value) {
-		case 'mixed':
-		case 'n-only':
-			if (nphy && (a.value == 'tkip') && (sm2.indexOf('wpa') != -1)) {
-				ferror.set(a, 'TKIP encryption is not supported with WPA / WPA2 in N mode.', quiet || !ok);
+	/* REMOVE-BEGIN
+			if ((wl_vis[uidx]._f_wl_mode == 1) && (wmode != 'ap') && (sm2.substr(0, 4) == 'wpa2')) {
+				ferror.set('_wl'+u+'_security_mode', 'WPA2 is supported only in AP mode.', quiet || !ok);
 				ok = 0;
 			}
-			else ferror.clear(a);
-			break;
-		}
+			else ferror.clear('_wl'+u+'_security_mode');
+	REMOVE-END */
 
-		a = E('_wl'+u+'_net_mode');
-		ferror.clear(a);
-		b = E('_f_wl'+u+'_mode');
-		ferror.clear(b);
-		if ((wmode == 'sta') || (wmode == 'wet')) {
-			++wlclnt;
-			if (wlclnt > 1) {
-				ferror.set(b, 'Only one wireless interface can be configured in client mode.', quiet || !ok);
+			// --- N standard does not support WPA+TKIP ---
+			a = E('_wl'+u+'_crypto');
+			switch (E('_wl'+u+'_net_mode').value) {
+			case 'mixed':
+			case 'n-only':
+				if (nphy && (a.value == 'tkip') && (sm2.indexOf('wpa') != -1)) {
+					ferror.set(a, 'TKIP encryption is not supported with WPA / WPA2 in N mode.', quiet || !ok);
+					ok = 0;
+				}
+				else ferror.clear(a);
+				break;
+			}
+
+			a = E('_wl'+u+'_net_mode');
+			ferror.clear(a);
+			b = E('_f_wl'+u+'_mode');
+			ferror.clear(b);
+			if ((wmode == 'sta') || (wmode == 'wet')) {
+				++wlclnt;
+				if (wlclnt > 1) {
+					ferror.set(b, 'Only one wireless interface can be configured in client mode.', quiet || !ok);
+					ok = 0;
+				}
+				else if (a.value == 'n-only') {
+					ferror.set(a, 'N-only is not supported in wireless client modes, use Auto.', quiet || !ok);
+					ok = 0;
+				}
+			}
+
+			a = E('_wl'+u+'_wpa_psk');
+			ferror.clear(a);
+			if (wl_vis[uidx]._wl_wpa_psk == 1) {
+				if ((a.value.length < 8) || ((a.value.length == 64) && (a.value.search(/[^0-9A-Fa-f]/) != -1))) {
+					ferror.set('_wl'+u+'_wpa_psk', 'Invalid pre-shared key. Please enter at least 8 characters or 64 hexadecimal digits.', quiet || !ok);
+					ok = 0;
+				}
+			}
+
+			// wl channel
+			if (((wmode == 'wds') || (wmode == 'apwds')) && (wl_vis[uidx]._wl_channel == 1) && (E('_wl'+u+'_channel').value == '0')) {
+				ferror.set('_wl'+u+'_channel', 'Fixed wireless channel required in WDS mode.', quiet || !ok);
 				ok = 0;
 			}
-			else if (a.value == 'n-only') {
-				ferror.set(a, 'N-only is not supported in wireless client modes, use Auto.', quiet || !ok);
-				ok = 0;
-			}
-		}
+			else ferror.clear('_wl'+u+'_channel');
 
-		a = E('_wl'+u+'_wpa_psk');
-		ferror.clear(a);
-		if (wl_vis[uidx]._wl_wpa_psk == 1) {
-			if ((a.value.length < 8) || ((a.value.length == 64) && (a.value.search(/[^0-9A-Fa-f]/) != -1))) {
-				ferror.set('_wl'+u+'_wpa_psk', 'Invalid pre-shared key. Please enter at least 8 characters or 64 hexadecimal digits.', quiet || !ok);
-				ok = 0;
-			}
-		}
-
-		// wl channel
-		if (((wmode == 'wds') || (wmode == 'apwds')) && (wl_vis[uidx]._wl_channel == 1) && (E('_wl'+u+'_channel').value == '0')) {
-			ferror.set('_wl'+u+'_channel', 'Fixed wireless channel required in WDS mode.', quiet || !ok);
-			ok = 0;
-		}
-		else ferror.clear('_wl'+u+'_channel');
-
-		if (E('_f_wl'+u+'_mode').value == 'sta') {
-			if ((wan == 'disabled') && (E('_f_wl'+u+'_radio').checked)) {
-				ferror.set('_wan_proto', 'Wireless Client mode requires a valid WAN setting (usually DHCP).', quiet || !ok);
-				ok = 0;
+			if (E('_f_wl'+u+'_mode').value == 'sta') {
+				if ((wan == 'disabled') && (E('_f_wl'+u+'_radio').checked)) {
+					ferror.set('_wan_proto', 'Wireless Client mode requires a valid WAN setting (usually DHCP).', quiet || !ok);
+					ok = 0;
+				}
 			}
 		}
 	}
@@ -1114,51 +1132,53 @@ REMOVE-END */
 	}
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		u = wl_unit(uidx);
+		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+			u = wl_unit(uidx);
 
-		// IP address
-		a = ['_radius_ipaddr'];
-		for (i = a.length - 1; i >= 0; --i) {
-			if ((wl_vis[uidx]['_wl'+a[i]]) && (!v_ip('_wl'+u+a[i], quiet || !ok))) ok = 0;
-		}
+			// IP address
+			a = ['_radius_ipaddr'];
+			for (i = a.length - 1; i >= 0; --i) {
+				if ((wl_vis[uidx]['_wl'+a[i]]) && (!v_ip('_wl'+u+a[i], quiet || !ok))) ok = 0;
+			}
 
-		// range
-		a = [['_wpa_gtk_rekey', 60, 7200], ['_radius_port', 1, 65535]];
-		for (i = a.length - 1; i >= 0; --i) {
-			v = a[i];
-			if ((wl_vis[uidx]['_wl'+v[0]]) && (!v_range('_wl'+u+v[0], quiet || !ok, v[1], v[2]))) ok = 0;
-		}
+			// range
+			a = [['_wpa_gtk_rekey', 60, 7200], ['_radius_port', 1, 65535]];
+			for (i = a.length - 1; i >= 0; --i) {
+				v = a[i];
+				if ((wl_vis[uidx]['_wl'+v[0]]) && (!v_range('_wl'+u+v[0], quiet || !ok, v[1], v[2]))) ok = 0;
+			}
 
-		// length
-		a = [['_ssid', 1], ['_radius_key', 1]];
-		for (i = a.length - 1; i >= 0; --i) {
-			v = a[i];
-			if ((wl_vis[uidx]['_wl'+v[0]]) && (!v_length('_wl'+u+v[0], quiet || !ok, v[1], E('_wl'+u+v[0]).maxlength))) ok = 0;
-		}
+			// length
+			a = [['_ssid', 1], ['_radius_key', 1]];
+			for (i = a.length - 1; i >= 0; --i) {
+				v = a[i];
+				if ((wl_vis[uidx]['_wl'+v[0]]) && (!v_length('_wl'+u+v[0], quiet || !ok, v[1], E('_wl'+u+v[0]).maxlength))) ok = 0;
+			}
 
-		if (wl_vis[uidx]._wl_key1) {
-			a = (E('_wl'+u+'_wep_bit').value == 128) ? 26 : 10;
-			for (i = 1; i <= 4; ++i) {
-				b = E('_wl'+u+'_key' + i);
-				b.maxLength = a;
-				if ((b.value.length > 0) || (E('_f_wl'+u+'_wepidx_' + i).checked)) {
-					if (!v_wep(b, quiet || !ok)) ok = 0;
+			if (wl_vis[uidx]._wl_key1) {
+				a = (E('_wl'+u+'_wep_bit').value == 128) ? 26 : 10;
+				for (i = 1; i <= 4; ++i) {
+					b = E('_wl'+u+'_key' + i);
+					b.maxLength = a;
+					if ((b.value.length > 0) || (E('_f_wl'+u+'_wepidx_' + i).checked)) {
+						if (!v_wep(b, quiet || !ok)) ok = 0;
+					}
+					else ferror.clear(b);
 				}
-				else ferror.clear(b);
 			}
-		}
 
-		ferror.clear('_f_wl'+u+'_wds_0');
-		if (wl_vis[uidx]._f_wl_wds_0 == 1) {
-			b = 0;
-			for (i = 0; i < 10; ++i) {
-				a = E('_f_wl'+u+'_wds_' + i);
-				if (!v_macz(a, quiet || !ok)) ok = 0;
-					else if (!isMAC0(a.value)) b = 1;
-			}
-			if (!b) {
-				ferror.set('_f_wl'+u+'_wds_0', 'WDS MAC address required.', quiet || !ok);
-				ok = 0;
+			ferror.clear('_f_wl'+u+'_wds_0');
+			if (wl_vis[uidx]._f_wl_wds_0 == 1) {
+				b = 0;
+				for (i = 0; i < 10; ++i) {
+					a = E('_f_wl'+u+'_wds_' + i);
+					if (!v_macz(a, quiet || !ok)) ok = 0;
+						else if (!isMAC0(a.value)) b = 1;
+				}
+				if (!b) {
+					ferror.set('_f_wl'+u+'_wds_0', 'WDS MAC address required.', quiet || !ok);
+					ok = 0;
+				}
 			}
 		}
 	}
@@ -1218,114 +1238,116 @@ function save()
 	fom.wan_mtu.disabled = fom.f_wan_mtu.disabled;
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		u = wl_unit(uidx);
-		wmode = E('_f_wl'+u+'_mode').value;
-		sm2 = E('_wl'+u+'_security_mode').value;
-		wradio = E('_f_wl'+u+'_radio').checked;
+		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+			u = wl_unit(uidx);
+			wmode = E('_f_wl'+u+'_mode').value;
+			sm2 = E('_wl'+u+'_security_mode').value;
+			wradio = E('_f_wl'+u+'_radio').checked;
 
-		E('_wl'+u+'_nband').value = selectedBand(uidx);
+			E('_wl'+u+'_nband').value = selectedBand(uidx);
 
-		if (wmode == 'apwds') E('_wl'+u+'_mode').value = 'ap';
-		else E('_wl'+u+'_mode').value = wmode;
+			if (wmode == 'apwds') E('_wl'+u+'_mode').value = 'ap';
+			else E('_wl'+u+'_mode').value = wmode;
 
-		if (wmode == 'wet') {
-			fom.wan_proto.value = 'disabled';
-			fom.wan_proto.disabled = 0;
+			if (wmode == 'wet') {
+				fom.wan_proto.value = 'disabled';
+				fom.wan_proto.disabled = 0;
 /* REMOVE-BEGIN
 //			fom.lan_proto.value = 'static';
 REMOVE-END */
-		}
+			}
 
-		a = [];
-		for (i = 0; i < 10; ++i) a.push(E('_f_wl'+u+'_wds_' + i).value);
-		E('_wl'+u+'_wds').value = joinAddr(a);
+			a = [];
+			for (i = 0; i < 10; ++i) a.push(E('_f_wl'+u+'_wds_' + i).value);
+			E('_wl'+u+'_wds').value = joinAddr(a);
 
-		if (wmode.indexOf('wds') != -1) {
-			E('_wl'+u+'_wds_enable').value = 1;
-			E('_wl'+u+'_lazywds').value = E('_f_wl'+u+'_lazywds').value;
-			if (E('_wl'+u+'_lazywds').value == 1) E('_wl'+u+'_wds').value = '';
-		}
-		else {
-			E('_wl'+u+'_wds_enable').value = 0;
-			E('_wl'+u+'_wds').value = '';
-			E('_wl'+u+'_lazywds').value = 0;
-		}
-
-		E('_wl'+u+'_radio').value = wradio ? 1 : 0;
-		E('_wl'+u+'_auth').value = eval('nvram.wl'+u+'_auth');
-
-		e = E('_wl'+u+'_akm');
-		switch (sm2) {
-		case 'disabled':
-		case 'radius':
-		case 'wep':
-			e.value = '';
-			break;
-		default:
-			c = [];
-
-			if (sm2.indexOf('personal') != -1) {
-				if (sm2.indexOf('wpa2_') == -1) c.push('psk');
-				if (sm2.indexOf('wpa_') == -1) c.push('psk2');
+			if (wmode.indexOf('wds') != -1) {
+				E('_wl'+u+'_wds_enable').value = 1;
+				E('_wl'+u+'_lazywds').value = E('_f_wl'+u+'_lazywds').value;
+				if (E('_wl'+u+'_lazywds').value == 1) E('_wl'+u+'_wds').value = '';
 			}
 			else {
-				if (sm2.indexOf('wpa2_') == -1) c.push('wpa');
-				if (sm2.indexOf('wpa_') == -1) c.push('wpa2');
+				E('_wl'+u+'_wds_enable').value = 0;
+				E('_wl'+u+'_wds').value = '';
+				E('_wl'+u+'_lazywds').value = 0;
 			}
-			c = c.join(' ');
-			e.value = c;
-			break;
-		}
-		E('_wl'+u+'_auth_mode').value = (sm2 == 'radius') ? 'radius' : 'none';
-		E('_wl'+u+'_wep').value = ((sm2 == 'radius') || (sm2 == 'wep')) ? 'enabled': 'disabled';
 
-		if (sm2.indexOf('wpa') != -1) E('_wl'+u+'_auth').value = 0;
+			E('_wl'+u+'_radio').value = wradio ? 1 : 0;
+			E('_wl'+u+'_auth').value = eval('nvram.wl'+u+'_auth');
 
-		E('_wl'+u+'_nreqd').value = 0;
-		E('_wl'+u+'_gmode').value = 1;
-		E('_wl'+u+'_nmode').value = 0;
-		E('_wl'+u+'_nmcsidx').value = -2; // Legacy Rate
-		E('_wl'+u+'_nbw').value = 0;
-		switch (E('_wl'+u+'_net_mode').value) {
-		case 'b-only':
-			E('_wl'+u+'_gmode').value = 0;
-			break;
-		case 'g-only':
-			E('_wl'+u+'_gmode').value = 4;
-			break;
-		case 'bg-mixed':
-			break;
-		case 'a-only':
-			E('_wl'+u+'_nmcsidx').value = -1; // Auto
-			break;
-		case 'n-only':
-			if (selectedBand(uidx) == '1') { // 5 GHz
+			e = E('_wl'+u+'_akm');
+			switch (sm2) {
+			case 'disabled':
+			case 'radius':
+			case 'wep':
+				e.value = '';
+				break;
+			default:
+				c = [];
+
+				if (sm2.indexOf('personal') != -1) {
+					if (sm2.indexOf('wpa2_') == -1) c.push('psk');
+					if (sm2.indexOf('wpa_') == -1) c.push('psk2');
+				}
+				else {
+					if (sm2.indexOf('wpa2_') == -1) c.push('wpa');
+					if (sm2.indexOf('wpa_') == -1) c.push('wpa2');
+				}
+				c = c.join(' ');
+				e.value = c;
+				break;
+			}
+			E('_wl'+u+'_auth_mode').value = (sm2 == 'radius') ? 'radius' : 'none';
+			E('_wl'+u+'_wep').value = ((sm2 == 'radius') || (sm2 == 'wep')) ? 'enabled': 'disabled';
+
+			if (sm2.indexOf('wpa') != -1) E('_wl'+u+'_auth').value = 0;
+
+			E('_wl'+u+'_nreqd').value = 0;
+			E('_wl'+u+'_gmode').value = 1;
+			E('_wl'+u+'_nmode').value = 0;
+			E('_wl'+u+'_nmcsidx').value = -2; // Legacy Rate
+			E('_wl'+u+'_nbw').value = 0;
+			switch (E('_wl'+u+'_net_mode').value) {
+			case 'b-only':
+				E('_wl'+u+'_gmode').value = 0;
+				break;
+			case 'g-only':
+				E('_wl'+u+'_gmode').value = 4;
+				break;
+			case 'bg-mixed':
+				break;
+			case 'a-only':
+				E('_wl'+u+'_nmcsidx').value = -1; // Auto
+				break;
+			case 'n-only':
+				if (selectedBand(uidx) == '1') { // 5 GHz
+					E('_wl'+u+'_nmode').value = -1;
+					E('_wl'+u+'_nmcsidx').value = -1;
+				} else {
+					E('_wl'+u+'_nmode').value = 1;
+					E('_wl'+u+'_nmcsidx').value = 32;
+				}
+				E('_wl'+u+'_nreqd').value = 1;
+				break;
+			default: // Auto
 				E('_wl'+u+'_nmode').value = -1;
 				E('_wl'+u+'_nmcsidx').value = -1;
-			} else {
-				E('_wl'+u+'_nmode').value = 1;
-				E('_wl'+u+'_nmcsidx').value = 32;
+				break;
 			}
-			E('_wl'+u+'_nreqd').value = 1;
-			break;
-		default: // Auto
-			E('_wl'+u+'_nmode').value = -1;
-			E('_wl'+u+'_nmcsidx').value = -1;
-			break;
+
+			E('_wl'+u+'_nctrlsb').value = eval('nvram.wl'+u+'_nctrlsb');
+			if (E('_wl'+u+'_nmode').value != 0) {
+				E('_wl'+u+'_nctrlsb').value = E('_f_wl'+u+'_nctrlsb').value;
+				E('_wl'+u+'_nbw').value = (E('_wl'+u+'_nbw_cap').value == 0) ? 20 : 40;
+			}
+
+			E('_wl'+u+'_closed').value = E('_f_wl'+u+'_bcast').checked ? 0 : 1;
+
+			a = fields.radio.selected(eval('fom.f_wl'+u+'_wepidx'));
+			if (a) E('_wl'+u+'_key').value = a.value;
 		}
-
-		E('_wl'+u+'_nctrlsb').value = eval('nvram.wl'+u+'_nctrlsb');
-		if (E('_wl'+u+'_nmode').value != 0) {
-			E('_wl'+u+'_nctrlsb').value = E('_f_wl'+u+'_nctrlsb').value;
-			E('_wl'+u+'_nbw').value = (E('_wl'+u+'_nbw_cap').value == 0) ? 20 : 40;
-		}
-
-		E('_wl'+u+'_closed').value = E('_f_wl'+u+'_bcast').checked ? 0 : 1;
-
-		a = fields.radio.selected(eval('fom.f_wl'+u+'_wepidx'));
-		if (a) E('_wl'+u+'_key').value = a.value;
 	}
-	
+
 	fom.wan_islan.value = fom.f_wan_islan.checked ? 1 : 0;
 	fom.pptp_dhcp.value = fom.f_pptp_dhcp.checked ? 1 : 0;
 	fom.ppp_defgw.value = fom.f_pptp_dhcp.checked ? (fom.f_ppp_defgw.checked ? 1 : 0) : 1;
@@ -1420,8 +1442,10 @@ REMOVE-END */
 function init()
 {
 	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		refreshNetModes(uidx);
-		refreshChannels(uidx);
+		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+			refreshNetModes(uidx);
+			refreshChannels(uidx);
+		}
 	}
 }
 </script>
@@ -1536,99 +1560,99 @@ REMOVE-END */
 <script type='text/javascript'>
 
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+	var u = wl_unit(uidx);
 
-var u = wl_unit(uidx);
+	W('<input type=\'hidden\' id=\'_wl'+u+'_mode\' name=\'wl'+u+'_mode\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_nband\' name=\'wl'+u+'_nband\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_wds_enable\' name=\'wl'+u+'_wds_enable\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_wds\' name=\'wl'+u+'_wds\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_radio\' name=\'wl'+u+'_radio\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_closed\' name=\'wl'+u+'_closed\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_key\' name=\'wl'+u+'_key\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_gmode\' name=\'wl'+u+'_gmode\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_akm\' name=\'wl'+u+'_akm\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_auth\' name=\'wl'+u+'_auth\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_auth_mode\' name=\'wl'+u+'_auth_mode\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_wep\' name=\'wl'+u+'_wep\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_lazywds\' name=\'wl'+u+'_lazywds\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_nmode\' name=\'wl'+u+'_nmode\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_nmcsidx\' name=\'wl'+u+'_nmcsidx\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_nreqd\' name=\'wl'+u+'_nreqd\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_nctrlsb\' name=\'wl'+u+'_nctrlsb\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_nbw\' name=\'wl'+u+'_nbw\'>');
 
-W('<input type=\'hidden\' id=\'_wl'+u+'_mode\' name=\'wl'+u+'_mode\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_nband\' name=\'wl'+u+'_nband\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_wds_enable\' name=\'wl'+u+'_wds_enable\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_wds\' name=\'wl'+u+'_wds\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_radio\' name=\'wl'+u+'_radio\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_closed\' name=\'wl'+u+'_closed\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_key\' name=\'wl'+u+'_key\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_gmode\' name=\'wl'+u+'_gmode\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_akm\' name=\'wl'+u+'_akm\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_auth\' name=\'wl'+u+'_auth\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_auth_mode\' name=\'wl'+u+'_auth_mode\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_wep\' name=\'wl'+u+'_wep\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_lazywds\' name=\'wl'+u+'_lazywds\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_nmode\' name=\'wl'+u+'_nmode\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_nmcsidx\' name=\'wl'+u+'_nmcsidx\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_nreqd\' name=\'wl'+u+'_nreqd\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_nctrlsb\' name=\'wl'+u+'_nctrlsb\'>');
-W('<input type=\'hidden\' id=\'_wl'+u+'_nbw\' name=\'wl'+u+'_nbw\'>');
+	W('<div class=\'section-title\'>Wireless');
+//	if (wl_ifaces.length > 1)
+		W(' (' + wl_display_ifname(uidx) + ')');
+	W('</div>');
 
-W('<div class=\'section-title\'>Wireless');
-if (wl_ifaces.length > 1)
-	W(' (' + wl_display_ifname(uidx) + ')');
-W('</div>');
+	W('<div class=\'section\'>');
 
-W('<div class=\'section\'>');
+	f = [
+		{ title: 'Enable Wireless', name: 'f_wl'+u+'_radio', type: 'checkbox',
+			value: (eval('nvram.wl'+u+'_radio') == '1') && (eval('nvram.wl'+u+'_net_mode') != 'disabled') },
+		{ title: 'MAC Address', text: '<a href="advanced-mac.asp">' + eval('nvram.wl'+u+'_hwaddr') + '</a>' },
+		{ title: 'Wireless Mode', name: 'f_wl'+u+'_mode', type: 'select',
+			options: [['ap', 'Access Point'],['apwds', 'Access Point + WDS'],['sta', 'Wireless Client'],['wet', 'Wireless Ethernet Bridge'],['wds', 'WDS']],
+			value: ((eval('nvram.wl'+u+'_mode') == 'ap') && (eval('nvram.wl'+u+'_wds_enable') == '1')) ? 'apwds' : eval('nvram.wl'+u+'_mode') },
+		{ title: 'Radio Band', name: 'f_wl'+u+'_nband', type: 'select', options: bands[uidx],
+			value: eval('nvram.wl'+u+'_nband') || '0' == '0' ? bands[uidx][0][0] : eval('nvram.wl'+u+'_nband') },
+		{ title: 'Wireless Network Mode', name: 'wl'+u+'_net_mode', type: 'select',
+			value: (eval('nvram.wl'+u+'_net_mode') == 'disabled') ? 'mixed' : eval('nvram.wl'+u+'_net_mode'),
+			options: [], prefix: '<span id="__wl'+u+'_net_mode">', suffix: '</span>' },
+		{ title: 'SSID', name: 'wl'+u+'_ssid', type: 'text', maxlen: 32, size: 34, value: eval('nvram.wl'+u+'_ssid') },
+		{ title: 'Broadcast', indent: 2, name: 'f_wl'+u+'_bcast', type: 'checkbox', value: (eval('nvram.wl'+u+'_closed') == '0') },
+		{ title: 'Channel', name: 'wl'+u+'_channel', type: 'select', options: ghz[uidx], prefix: '<span id="__wl'+u+'_channel">', suffix: '</span> <input type="button" id="_f_wl'+u+'_scan" value="Scan" onclick="scanButton('+u+')"> <img src="spin.gif" id="spin'+u+'">',
+			value: eval('nvram.wl'+u+'_channel') },
+		{ title: 'Channel Width', name: 'wl'+u+'_nbw_cap', type: 'select', options: [['0','20 MHz'],['1','40 MHz']],
+			value: eval('nvram.wl'+u+'_nbw_cap') },
+		{ title: 'Control Sideband', name: 'f_wl'+u+'_nctrlsb', type: 'select', options: [['lower','Lower'],['upper','Upper']],
+			value: eval('nvram.wl'+u+'_nctrlsb') == 'none' ? 'lower' : eval('nvram.wl'+u+'_nctrlsb') },
+		null,
+		{ title: 'Security', name: 'wl'+u+'_security_mode', type: 'select',
+			options: [['disabled','Disabled'],['wep','WEP'],['wpa_personal','WPA Personal'],['wpa_enterprise','WPA Enterprise'],['wpa2_personal','WPA2 Personal'],['wpa2_enterprise','WPA2 Enterprise'],['wpaX_personal','WPA / WPA2 Personal'],['wpaX_enterprise','WPA / WPA2 Enterprise'],['radius','Radius']],
+			value: eval('nvram.wl'+u+'_security_mode') },
+		{ title: 'Encryption', indent: 2, name: 'wl'+u+'_crypto', type: 'select',
+			options: [['tkip','TKIP'],['aes','AES'],['tkip+aes','TKIP / AES']], value: eval('nvram.wl'+u+'_crypto') },
+		{ title: 'Shared Key', indent: 2, name: 'wl'+u+'_wpa_psk', type: 'password', maxlen: 64, size: 66, peekaboo: 1,
+			suffix: ' <input type="button" id="_f_wl'+u+'_psk_random1" value="Random" onclick="random_psk(\'_wl'+u+'_wpa_psk\')">',
+			value: eval('nvram.wl'+u+'_wpa_psk') },
+		{ title: 'Shared Key', indent: 2, name: 'wl'+u+'_radius_key', type: 'password', maxlen: 80, size: 32, peekaboo: 1,
+			suffix: ' <input type="button" id="_f_wl'+u+'_psk_random2" value="Random" onclick="random_psk(\'_wl'+u+'_radius_key\')">',
+			value: eval('nvram.wl'+u+'_radius_key') },
+		{ title: 'Group Key Renewal', indent: 2, name: 'wl'+u+'_wpa_gtk_rekey', type: 'text', maxlen: 4, size: 6, suffix: ' <i>(seconds)</i>',
+			value: eval('nvram.wl'+u+'_wpa_gtk_rekey') },
+		{ title: 'Radius Server', indent: 2, multi: [
+			{ name: 'wl'+u+'_radius_ipaddr', type: 'text', maxlen: 15, size: 17, value: eval('nvram.wl'+u+'_radius_ipaddr') },
+			{ name: 'wl'+u+'_radius_port', type: 'text', maxlen: 5, size: 7, prefix: ' : ', value: eval('nvram.wl'+u+'_radius_port') } ] },
+		{ title: 'Encryption', indent: 2, name: 'wl'+u+'_wep_bit', type: 'select', options: [['128','128-bits'],['64','64-bits']],
+			value: eval('nvram.wl'+u+'_wep_bit') },
+		{ title: 'Passphrase', indent: 2, name: 'wl'+u+'_passphrase', type: 'text', maxlen: 16, size: 20,
+			suffix: ' <input type="button" id="_f_wl'+u+'_wep_gen" value="Generate" onclick="generate_wep('+u+')"> <input type="button" id="_f_wl'+u+'_wep_random" value="Random" onclick="random_wep('+u+')">',
+			value: eval('nvram.wl'+u+'_passphrase') }
+	];
 
-f = [
-	{ title: 'Enable Wireless', name: 'f_wl'+u+'_radio', type: 'checkbox',
-		value: (eval('nvram.wl'+u+'_radio') == '1') && (eval('nvram.wl'+u+'_net_mode') != 'disabled') },
-	{ title: 'MAC Address', text: '<a href="advanced-mac.asp">' + eval('nvram.wl'+u+'_hwaddr') + '</a>' },
-	{ title: 'Wireless Mode', name: 'f_wl'+u+'_mode', type: 'select',
-		options: [['ap', 'Access Point'],['apwds', 'Access Point + WDS'],['sta', 'Wireless Client'],['wet', 'Wireless Ethernet Bridge'],['wds', 'WDS']],
-		value: ((eval('nvram.wl'+u+'_mode') == 'ap') && (eval('nvram.wl'+u+'_wds_enable') == '1')) ? 'apwds' : eval('nvram.wl'+u+'_mode') },
-	{ title: 'Radio Band', name: 'f_wl'+u+'_nband', type: 'select', options: bands[uidx],
-		value: eval('nvram.wl'+u+'_nband') || '0' == '0' ? bands[uidx][0][0] : eval('nvram.wl'+u+'_nband') },
-	{ title: 'Wireless Network Mode', name: 'wl'+u+'_net_mode', type: 'select',
-		value: (eval('nvram.wl'+u+'_net_mode') == 'disabled') ? 'mixed' : eval('nvram.wl'+u+'_net_mode'),
-		options: [], prefix: '<span id="__wl'+u+'_net_mode">', suffix: '</span>' },
-	{ title: 'SSID', name: 'wl'+u+'_ssid', type: 'text', maxlen: 32, size: 34, value: eval('nvram.wl'+u+'_ssid') },
-	{ title: 'Broadcast', indent: 2, name: 'f_wl'+u+'_bcast', type: 'checkbox', value: (eval('nvram.wl'+u+'_closed') == '0') },
-	{ title: 'Channel', name: 'wl'+u+'_channel', type: 'select', options: ghz[uidx], prefix: '<span id="__wl'+u+'_channel">', suffix: '</span> <input type="button" id="_f_wl'+u+'_scan" value="Scan" onclick="scanButton('+u+')"> <img src="spin.gif" id="spin'+u+'">',
-		value: eval('nvram.wl'+u+'_channel') },
-	{ title: 'Channel Width', name: 'wl'+u+'_nbw_cap', type: 'select', options: [['0','20 MHz'],['1','40 MHz']],
-		value: eval('nvram.wl'+u+'_nbw_cap') },
-	{ title: 'Control Sideband', name: 'f_wl'+u+'_nctrlsb', type: 'select', options: [['lower','Lower'],['upper','Upper']],
-		value: eval('nvram.wl'+u+'_nctrlsb') == 'none' ? 'lower' : eval('nvram.wl'+u+'_nctrlsb') },
-	null,
-	{ title: 'Security', name: 'wl'+u+'_security_mode', type: 'select',
-		options: [['disabled','Disabled'],['wep','WEP'],['wpa_personal','WPA Personal'],['wpa_enterprise','WPA Enterprise'],['wpa2_personal','WPA2 Personal'],['wpa2_enterprise','WPA2 Enterprise'],['wpaX_personal','WPA / WPA2 Personal'],['wpaX_enterprise','WPA / WPA2 Enterprise'],['radius','Radius']],
-		value: eval('nvram.wl'+u+'_security_mode') },
-	{ title: 'Encryption', indent: 2, name: 'wl'+u+'_crypto', type: 'select',
-		options: [['tkip','TKIP'],['aes','AES'],['tkip+aes','TKIP / AES']], value: eval('nvram.wl'+u+'_crypto') },
-	{ title: 'Shared Key', indent: 2, name: 'wl'+u+'_wpa_psk', type: 'password', maxlen: 64, size: 66, peekaboo: 1,
-		suffix: ' <input type="button" id="_f_wl'+u+'_psk_random1" value="Random" onclick="random_psk(\'_wl'+u+'_wpa_psk\')">',
-		value: eval('nvram.wl'+u+'_wpa_psk') },
-	{ title: 'Shared Key', indent: 2, name: 'wl'+u+'_radius_key', type: 'password', maxlen: 80, size: 32, peekaboo: 1,
-		suffix: ' <input type="button" id="_f_wl'+u+'_psk_random2" value="Random" onclick="random_psk(\'_wl'+u+'_radius_key\')">',
-		value: eval('nvram.wl'+u+'_radius_key') },
-	{ title: 'Group Key Renewal', indent: 2, name: 'wl'+u+'_wpa_gtk_rekey', type: 'text', maxlen: 4, size: 6, suffix: ' <i>(seconds)</i>',
-		value: eval('nvram.wl'+u+'_wpa_gtk_rekey') },
-	{ title: 'Radius Server', indent: 2, multi: [
-		{ name: 'wl'+u+'_radius_ipaddr', type: 'text', maxlen: 15, size: 17, value: eval('nvram.wl'+u+'_radius_ipaddr') },
-		{ name: 'wl'+u+'_radius_port', type: 'text', maxlen: 5, size: 7, prefix: ' : ', value: eval('nvram.wl'+u+'_radius_port') } ] },
-	{ title: 'Encryption', indent: 2, name: 'wl'+u+'_wep_bit', type: 'select', options: [['128','128-bits'],['64','64-bits']],
-		value: eval('nvram.wl'+u+'_wep_bit') },
-	{ title: 'Passphrase', indent: 2, name: 'wl'+u+'_passphrase', type: 'text', maxlen: 16, size: 20,
-		suffix: ' <input type="button" id="_f_wl'+u+'_wep_gen" value="Generate" onclick="generate_wep('+u+')"> <input type="button" id="_f_wl'+u+'_wep_random" value="Random" onclick="random_wep('+u+')">',
-		value: eval('nvram.wl'+u+'_passphrase') }
-];
+	for (i = 1; i <= 4; ++i)	{
+		f.push(
+			{ title: ('Key ' + i), indent: 2, name: ('wl'+u+'_key' + i), type: 'text', maxlen: 26, size: 34,
+				suffix: '<input type="radio" onchange="verifyFields(this,1)" onclick="verifyFields(this,1)" name="f_wl'+u+'_wepidx" id="_f_wl'+u+'_wepidx_' + i + '" value="' + i + '"' + ((eval('nvram.wl'+u+'_key') == i) ? ' checked>' : '>'),
+				value: nvram['wl'+u+'_key' + i] });
+	}
 
-for (i = 1; i <= 4; ++i)	{
-	f.push(
-		{ title: ('Key ' + i), indent: 2, name: ('wl'+u+'_key' + i), type: 'text', maxlen: 26, size: 34,
-			suffix: '<input type="radio" onchange="verifyFields(this,1)" onclick="verifyFields(this,1)" name="f_wl'+u+'_wepidx" id="_f_wl'+u+'_wepidx_' + i + '" value="' + i + '"' + ((eval('nvram.wl'+u+'_key') == i) ? ' checked>' : '>'),
-			value: nvram['wl'+u+'_key' + i] });
-}
+	f.push(null,
+		{ title: 'WDS', name: 'f_wl'+u+'_lazywds', type: 'select',
+			 options: [['0','Link With...'],['1','Automatic']], value: nvram['wl'+u+'_lazywds'] } );
+	wds = eval('nvram.wl'+u+'_wds').split(/\s+/);
+	for (i = 0; i < 10; i += 2)	{
+		f.push({ title: (i ? '' : 'MAC Address'), indent: 2, multi: [
+			{ name: 'f_wl'+u+'_wds_' + i, type: 'text', maxlen: 17, size: 20, value: wds[i] || '00:00:00:00:00:00' },
+			{ name: 'f_wl'+u+'_wds_' + (i + 1), type: 'text', maxlen: 17, size: 20, value: wds[i + 1] || '00:00:00:00:00:00' } ] } );
+	}
 
-f.push(null,
-	{ title: 'WDS', name: 'f_wl'+u+'_lazywds', type: 'select',
-		 options: [['0','Link With...'],['1','Automatic']], value: nvram['wl'+u+'_lazywds'] } );
-wds = eval('nvram.wl'+u+'_wds').split(/\s+/);
-for (i = 0; i < 10; i += 2)	{
-	f.push({ title: (i ? '' : 'MAC Address'), indent: 2, multi: [
-		{ name: 'f_wl'+u+'_wds_' + i, type: 'text', maxlen: 17, size: 20, value: wds[i] || '00:00:00:00:00:00' },
-		{ name: 'f_wl'+u+'_wds_' + (i + 1), type: 'text', maxlen: 17, size: 20, value: wds[i + 1] || '00:00:00:00:00:00' } ] } );
-}
-
-createFieldTable('', f);
-W('</div>');
-
+	createFieldTable('', f);
+	W('</div>');
+	}
 }
 // for each wlif
 </script>

@@ -3,6 +3,7 @@
 	Tomato VLAN GUI
 	Copyright (C) 2011 Augusto Bott
 	http://code.google.com/p/tomato-sdhc-vlan/
+
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
 -->
@@ -118,18 +119,23 @@ var PORT_VLAN_SUPPORT_OVERRIDE=0;
 
 function verifyFields(focused, quiet){
   PORT_VLAN_SUPPORT_OVERRIDE=(E('_f_trunk_vlan_so').checked ? 1 : 0);
-  var wlan = E('_f_bridge_wlan_to');
-  if (wl_ifaces.length < 1) {
-    wlan.disabled=true;
-  } else {
-    if(nvram.lan_ifname.length < 1)
-      wlan.options[0].disabled=true;
-    if(nvram.lan1_ifname.length < 1)
-      wlan.options[1].disabled=true;
-    if(nvram.lan2_ifname.length < 1)
-      wlan.options[2].disabled=true;
-    if(nvram.lan3_ifname.length < 1)
-      wlan.options[3].disabled=true;
+  for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+    var u = wl_fface(uidx);
+    var wlan = E('_f_bridge_wlan'+u+'_to');
+/* REMOVE-BEGIN
+//  var wlan = E('_f_bridge_wlan_to');
+//    if (wl_ifaces.length < 1) {
+//      wlan.disabled=true;
+//    } else {
+REMOVE-END */
+      if(nvram.lan_ifname.length < 1)
+        wlan.options[0].disabled=true;
+      if(nvram.lan1_ifname.length < 1)
+        wlan.options[1].disabled=true;
+      if(nvram.lan2_ifname.length < 1)
+        wlan.options[2].disabled=true;
+      if(nvram.lan3_ifname.length < 1)
+        wlan.options[3].disabled=true;
   }
 }
 
@@ -197,23 +203,27 @@ REMOVE-END */
     fom['lan3_ifnames'].value += (d[i][COL_BRI] == '6') ? 'vlan'+d[i][0] : '';
   }
 
-  var wlan = E('_f_bridge_wlan_to');
+  for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+    var wlan = E('_f_bridge_wlan'+u+'_to');
 /* REMOVE-BEGIN
+//  var u = wl_fface(uidx);
+//  var wlan = E('_f_bridge_wlan_to');
 //  alert(wlan.selectedIndex);
 REMOVE-END */
-  switch(parseInt(wlan.selectedIndex)) {
-    case 0:
-      fom['lan_ifnames'].value += ' ' + wl_ifaces[0][0];
-      break;
-    case 1:
-      fom['lan1_ifnames'].value += ' ' + wl_ifaces[0][0];
-      break;
-    case 2:
-      fom['lan2_ifnames'].value += ' ' + wl_ifaces[0][0];
-      break;
-    case 3:
-      fom['lan3_ifnames'].value += ' ' + wl_ifaces[0][0];
-      break;
+    switch(parseInt(wlan.selectedIndex)) {
+      case 0:
+        fom['lan_ifnames'].value += ' ' + wl_ifaces[uidx][0];
+        break;
+      case 1:
+        fom['lan1_ifnames'].value += ' ' + wl_ifaces[uidx][0];
+        break;
+      case 2:
+        fom['lan2_ifnames'].value += ' ' + wl_ifaces[uidx][0];
+        break;
+      case 3:
+        fom['lan3_ifnames'].value += ' ' + wl_ifaces[uidx][0];
+        break;
+    }
   }
 /* REMOVE-BEGIN
 //  var lif = nvram['lan_ifnames'].split(' ');
@@ -221,10 +231,10 @@ REMOVE-END */
 //    fom['lan_ifnames'].value += (lif[j].indexOf('vlan') != -1) ? '' : lif[j];
 //    fom['lan_ifnames'].value += trailingSpace(fom['lan_ifnames'].value);
 //  }
-//  alert('lan_ifnames=' + fom['lan_ifnames'].value);
-//  alert('lan1_ifnames=' + fom['lan1_ifnames'].value);
-//  alert('lan2_ifnames=' + fom['lan2_ifnames'].value);
-//  alert('lan3_ifnames=' + fom['lan3_ifnames'].value);
+//  alert('lan_ifnames=' + fom['lan_ifnames'].value + '\n' +
+//        'lan1_ifnames=' + fom['lan1_ifnames'].value + '\n' +
+//        'lan2_ifnames=' + fom['lan2_ifnames'].value + '\n' +
+//        'lan3_ifnames=' + fom['lan3_ifnames'].value);
 REMOVE-END */
 
 // for some models, Tomato checks for a few vital/crucial nvram settings at init time
@@ -326,7 +336,10 @@ REMOVE-END */
         // WLAN
         for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
           if(l[k].indexOf(wl_ifaces[uidx][0]) != -1) {
-            E('_f_bridge_wlan_to').selectedIndex=i;
+            E('_f_bridge_wlan'+wl_fface(uidx)+'_to').selectedIndex=i;
+/* REMOVE-BEGIN
+//          E('_f_bridge_wlan_to').selectedIndex=i;
+REMOVE-END */
           }
         }
       }
@@ -766,10 +779,27 @@ function earlyInit()
 <div class='section-title'>VLAN</div>
 <div class='section'>
   <table class='tomato-grid' cellspacing=1 id='vlan-grid'></table>
+  </div>
+  <div class='section-title'>Wireless</div>
+  <div class='section'>
   <script type='text/javascript'>
-  createFieldTable('', [
-    { title: 'Bridge WLAN to', name: 'f_bridge_wlan_to', type: 'select', options: [[0,'LAN (br0)'],[1,'LAN1  (br1)'],[2,'LAN2 (br2)'],[3,'LAN3 (br3)'],[4,'none']] }
-    ]);
+  var f = [];
+  for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+    var u = wl_fface(uidx);
+    f.push(
+/* REMOVE-BEGIN
+//      { title: ('Bridge WLAN' + uidx + ' (' + wl_ifaces[uidx][0] + ') to'), name: ('f_bridge_wlan'+u+'_to'), type: 'select', 
+REMOVE-END */
+      { title: ('Bridge ' + wl_ifaces[uidx][0] + ' to'), name: ('f_bridge_wlan'+u+'_to'), type: 'select', 
+        options: [[0,'LAN (br0)'],[1,'LAN1  (br1)'],[2,'LAN2 (br2)'],[3,'LAN3 (br3)'],[4,'none']] } );
+  }
+  createFieldTable('',f);
+/* REMOVE-BEGIN
+//W('<hr>');
+//  createFieldTable('', [
+//    { title: 'Bridge WLAN to', name: 'f_bridge_wlan_to', type: 'select', options: [[0,'LAN (br0)'],[1,'LAN1 (br1)'],[2,'LAN2 (br2)'],[3,'LAN3 (br3)'],[4,'none']] }
+//    ]);
+REMOVE-END */
   if(port_vlan_supported) vlg.setup();
   </script>
 </div>
