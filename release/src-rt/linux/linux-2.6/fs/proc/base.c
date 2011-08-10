@@ -1238,6 +1238,14 @@ static int proc_fd_info(struct inode *inode, struct dentry **dentry,
 		spin_lock(&files->file_lock);
 		file = fcheck_files(files, fd);
 		if (file) {
+			unsigned int f_flags;
+			struct fdtable *fdt;
+
+			fdt = files_fdtable(files);
+			f_flags = file->f_flags & ~O_CLOEXEC;
+			if (FD_ISSET(fd, fdt->close_on_exec))
+				f_flags |= O_CLOEXEC;
+
 			if (mnt)
 				*mnt = mntget(file->f_path.mnt);
 			if (dentry)
@@ -1247,7 +1255,7 @@ static int proc_fd_info(struct inode *inode, struct dentry **dentry,
 					 "pos:\t%lli\n"
 					 "flags:\t0%o\n",
 					 (long long) file->f_pos,
-					 file->f_flags);
+					 f_flags);
 			spin_unlock(&files->file_lock);
 			put_files_struct(files);
 			return 0;
