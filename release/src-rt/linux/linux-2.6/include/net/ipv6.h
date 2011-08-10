@@ -388,6 +388,15 @@ static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
 		 (a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0);
 }
 
+static inline void ipv6_addr_set_v4mapped(const __be32 addr,
+					  struct in6_addr *v4mapped)
+{
+	ipv6_addr_set(v4mapped,
+			0, 0,
+			htonl(0x0000FFFF),
+			addr);
+}
+
 /*
  * find the first different bit between two addresses
  * length of address must be a multiple of 32bits
