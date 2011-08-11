@@ -10,7 +10,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Restoring Defaults...</title>
+<title>[<% ident(); %>] <% translate("Restoring Defaults"); %>...</title>
 <script type='text/javascript'>
 var n = 60;
 function tick()
@@ -18,7 +18,7 @@ function tick()
 	var e = document.getElementById('continue');
 	e.value = n--;
 	if (n < 0) {
-		e.value = 'Continue';
+		e.value = '<% translate("Continue"); %>';
 		return;
 	}
 	if (n == 19) e.disabled = false;
@@ -35,8 +35,8 @@ function init()
 </script></head>
 <body style='background:#fff' onload='init()'><table style='width:100%;height:100%'>
 <tr><td style='text-align:center;vertical-align:middle;font:12px sans-serif'><form>
-Please wait while the defaults are restored... &nbsp;
+<% translate("Please wait while the defaults are restored... &nbsp;
 <input type='button' value='' style='font:12px sans-serif;width:80px;height:24px' id='continue' onclick='go()' disabled>
-<div style='width:600px;border-top:1px dashed #888;margin:5px auto;padding:5px 0;font-size:14px;' id='msg'>The router will reset its address back to 192.168.1.1. You may need to renew your computer's DHCP or reboot your computer before continuing.</div>
+<div style='width:600px;border-top:1px dashed #888;margin:5px auto;padding:5px 0;font-size:14px;' id='msg'><% translate("The router will reset its address back to 192.168.1.1. You may need to renew your computer's DHCP or reboot your computer before continuing"); %>.</div>
 </form></td></tr>
 </table></body></html>

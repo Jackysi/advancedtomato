@@ -9,7 +9,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Status: Web Usage</title>
+<title>[<% ident(); %>] <% translate("Status"); %>: <% translate("Web Usage"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -58,7 +58,7 @@ function clearLog(clear)
 	xob = new XmlHttp();
 	xob.onCompleted = function(text, xml) {
 		xob = null;
-		E('clear' + clear).innerHTML = '&raquo; <a href="javascript:clearLog(' + clear + ')">Clear</a>';
+		E('clear' + clear).innerHTML = '&raquo; <a href="javascript:clearLog(' + clear + ')"><% translate("Clear"); %></a>';
 		if (!ref.running) ref.once = 1;
 		ref.start();
 	}
@@ -67,7 +67,7 @@ function clearLog(clear)
 	}
 
 	xob.post('webmon.cgi', 'clear=' + clear);
-	E('clear' + clear).innerHTML = 'Please wait... <img src="spin.gif" style="vertical-align:top">';
+	E('clear' + clear).innerHTML = '<% translate("Please wait"); %>... <img src="spin.gif" style="vertical-align:top">';
 }
 
 function resolve()
@@ -293,7 +293,7 @@ var dg = new WMGrid();
 
 dg.setup = function() {
 	this.init('dom-grid', 'sort');
-	this.headerSet(['Last Access Time', 'IP Address', 'Domain Name']);
+	this.headerSet(['<% translate("Last Access Time"); %>', '<% translate("IP Address"); %>', '<% translate("Domain Name"); %>']);
 	this.sort(0);
 }
 
@@ -305,7 +305,7 @@ var sg = new WMGrid();
 
 sg.setup = function() {
 	this.init('srh-grid', 'sort');
-	this.headerSet(['Search Time', 'IP Address', 'Search Criteria']);
+	this.headerSet(['<% translate("Search Time"); %>', '<% translate("IP Address"); %>', '<% translate("Search Criteria"); %>']);
 	this.sort(0);
 }
 
@@ -358,7 +358,7 @@ function earlyInit()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -368,30 +368,30 @@ function earlyInit()
 
 <div id='webmon' style='display:none'>
 	<div id='webmon-domains'>
-		<div class='section-title'>Recently Visited Web Sites</div>
+		<div class='section-title'><% translate("Recently Visited Web Sites"); %></div>
 		<div class='section'>
 			<table id='dom-grid' class='tomato-grid' style="float:left" cellspacing=1></table>
-			&raquo; <a href="webmon_recent_domains?_http_id=<% nv(http_id) %>">Download</a>
+			&raquo; <a href="webmon_recent_domains?_http_id=<% nv(http_id) %>"><% translate("Download"); %></a>
 			<div style="float:right;text-align:right;margin-right:5px" id="clear1">
-				&raquo; <a href="javascript:clearLog(1)">Clear</a>
+				&raquo; <a href="javascript:clearLog(1)"><% translate("Clear"); %></a>
 			</div>
 		</div>
 	</div>
 
 	<div id='webmon-searches'>
-		<div class='section-title'>Recent Web Searches</div>
+		<div class='section-title'><% translate("Recent Web Searches"); %></div>
 		<div class='section'>
 			<table id='srh-grid' class='tomato-grid' style="float:left" cellspacing=1></table>
-			&raquo; <a href="webmon_recent_searches?_http_id=<% nv(http_id) %>">Download</a>
+			&raquo; <a href="webmon_recent_searches?_http_id=<% nv(http_id) %>"><% translate("Download"); %></a>
 			<div style="float:right;text-align:right;margin-right:5px" id="clear2">
-				&raquo; <a href="javascript:clearLog(2)">Clear</a>
+				&raquo; <a href="javascript:clearLog(2)"><% translate("Clear"); %></a>
 			</div>
 		</div>
 	</div>
 
 	<div id='webmon-controls'>
 		<div id='webmon-mc'>
-			Show up to&nbsp;
+			<% translate("Show up to"); %>&nbsp;
 			<a href='javascript:switchMaxCount(10);' id='mc10'>10,</a>
 			<a href='javascript:switchMaxCount(50);' id='mc50'>50,</a>
 			<a href='javascript:switchMaxCount(100);' id='mc100'>100,</a>
@@ -400,19 +400,19 @@ function earlyInit()
 			<a href='javascript:switchMaxCount(1000);' id='mc1000'>1000,</a>
 			<a href='javascript:switchMaxCount(2000);' id='mc2000'>2000,</a>
 			<a href='javascript:switchMaxCount(5000);' id='mc5000'>5000,</a>
-			<a href='javascript:switchMaxCount(0);' id='mc0'>All</a>&nbsp;
-			<small>available entries</small>
+			<a href='javascript:switchMaxCount(0);' id='mc0'><% translate("All"); %></a>&nbsp;
+			<small><% translate("available entries"); %></small>
 		</div>
-		&raquo; <a href="admin-log.asp">Web Monitor Configuration</a>
+		&raquo; <a href="admin-log.asp"><% translate("Web Monitor Configuration"); %></a>
 		<br><br>
 		<script type='text/javascript'>genStdRefresh(1,3,'ref.toggle()');</script>
 	</div>
 </div>
 
 <div id='wm-disabled'>
-	<b>Web Monitoring disabled.</b>
+	<b><% translate("Web Monitoring disabled"); %>.</b>
 	<br><br>
-	<a href="admin-log.asp">Enable &raquo;</a>
+	<a href="admin-log.asp"><% translate("Enable"); %> &raquo;</a>
 	<br><br>
 </div>
 

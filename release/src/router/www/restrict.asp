@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Access Restrictions</title>
+<title>[<% ident(); %>] <% translate("Access Restrictions"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -39,13 +39,13 @@
 //	<% nvram(''); %>	// http_id
 //	<% nvramseq("rrules", "rrule%d", 0, 49); %>
 
-var dowNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+var dowNames = ['<% translate("Sun"); %>', '<% translate("Mon"); %>', '<% translate("Tue"); %>', '<% translate("Wed"); %>', '<% translate("Thu"); %>', '<% translate("Fri"); %>', '<% translate("Sat"); %>'];
 
 var og = new TomatoGrid();
 og.setup = function() {
 	this.init('res-over-grid', 'sort');
-	this.headerSet(['Description', 'Schedule']);
-	var r = this.footerSet(['<input type="button" value="Add" onclick="TGO(this).addEntry()" id="res-over-add">']);
+	this.headerSet(['<% translate("Description"); %>', '<% translate("Schedule"); %>']);
+	var r = this.footerSet(['<input type="button" value="<% translate("Add"); %>" onclick="TGO(this).addEntry()" id="res-over-add">']);
 	r.cells[0].colSpan = 2;
 }
 og.populate = function() {
@@ -63,7 +63,7 @@ og.populate = function() {
 
 		var s = '';
 		if (v[3] == 0x7F) {
-			s += 'Everyday';
+			s += '<% translate("Everyday"); %>';
 		}
 		else {
 			for (var j = 0; j < 7; ++j) {
@@ -75,10 +75,10 @@ og.populate = function() {
 		}
 
 		if ((v[1] >= 0) && (v[2] >= 0)) {
-			s += '<br>' + timeString(v[1]) + ' to ' + timeString(v[2]);
-			if (v[2] <= v[1]) s += ' <small>(the following day)</small>';
+			s += '<br>' + timeString(v[1]) + ' <% translate("to"); %> ' + timeString(v[2]);
+			if (v[2] <= v[1]) s += ' <small>(<% translate("the following day"); %>)</small>';
 		}
-		if (v[0] != '1') s += '<br><i><b>Disabled</b></i>';
+		if (v[0] != '1') s += '<br><i><b><% translate("Disabled"); %></b></i>';
 		this.insertData(-1, [i, v[8], s]);
 	}
 	og.sort(0);
@@ -111,7 +111,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -123,7 +123,7 @@ function init()
 <input type='hidden' name='_commit' value='0'>
 <input type='hidden' name='rruleN' id='_rruleN' value=''>
 
-<div class='section-title'>Access Restriction Overview</div>
+<div class='section-title'><% translate("Access Restriction Overview"); %></div>
 <div class='section'>
 	<table class='tomato-grid' cellspacing=1 id='res-over-grid'></table>
 </div>

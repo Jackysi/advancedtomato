@@ -30,5 +30,7 @@ ln -sf /tmp/var/wwwext www/user
 ln -sf /www/ext/proxy.pac www/proxy.pac
 ln -sf /www/ext/proxy.pac www/wpad.dat
 
+# shibby
 mkdir -p -m 0755 nas
 mkdir -p -m 0755 bkp
+ln -sf /tmp/lang www/lang

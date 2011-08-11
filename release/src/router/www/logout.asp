@@ -14,16 +14,16 @@
 <body style='background-color:#fff;font:13px sans-serif;color:#000' onload='setTimeout("go.submit()", 1200)'>
 
 <div style='width:300px;padding:50px;background:#eee'>
-<b>Logout</b><br>
+<b><% translate("Logout"); %></b><br>
 <hr size=1><br>
-To clear the credentials cached by the browser:<br>
+<% translate("To clear the credentials cached by the browser"); %>:<br>
 <br>
 <b>Firefox, Internet Explorer, Opera, Safari</b><br>
-- Leave the password field blank.<br>
-- Click OK/Login<br>
+- <% translate("Leave the password field blank"); %>.<br>
+- <% translate("Click OK/Login"); %><br>
 <br>
 <b>Chrome</b><br>
-- Select Cancel.<br>
+- <% translate("Select Cancel"); %>.<br>
 </div>
 
 <form name='go' method='post' action='logout'>

@@ -6,7 +6,7 @@ CFLAGS += -I$(SRCBASE) -I$(SRCBASE)/include -I. -I$(TOP)/shared
 OBJS = httpd.o cgi.o tomato.o version.o 
 OBJS += misc.o dhcp.o upgrade.o traceping.o parser.o upnp.o ctnf.o
 OBJS += nvram.o log.o webio.o wl.o devlist.o ddns.o config.o bwm.o
-OBJS += blackhole.o utf8.o
+OBJS += blackhole.o utf8.o translate.o
 OBJS += cpuinfo.o
 
 ifeq ($(TCONFIG_USB),y)

@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Admin: Upgrade</title>
+<title>[<% ident(); %>] <% translate("Admin"); %>: <% translate("Upgrade"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -52,7 +52,7 @@ function upgrade()
 		alert('Expecting a ".bin" or ".trx" file.');
 		return;
 	}
-	if (!confirm('Are you sure you want to upgrade using ' + name + '?')) return;
+	if (!confirm('<% translate("Are you sure you want to upgrade using"); %> ' + name + '?')) return;
 
 	E('afu-upgrade-button').disabled = true;
 
@@ -76,7 +76,7 @@ function upgrade()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -85,26 +85,26 @@ function upgrade()
 <!-- / / / -->
 
 <div id='afu-input'>
-	<div class='section-title'>Upgrade Firmware</div>
+	<div class='section-title'><% translate("Upgrade Firmware"); %></div>
 	<div class='section'>
 		<form name='form_upgrade' method='post' action='upgrade.cgi' encType='multipart/form-data'>
 		<div id='box-input'>
-			Select the file to use:<br>
-			<input type='file' name='file' size='50' style='height:20px'> <input type='button' value='Upgrade' id='afu-upgrade-button' onclick='upgrade()' style='height:20px'>
+			<% translate("Select the file to use"); %>:<br>
+			<input type='file' name='file' size='50' style='height:20px'> <input type='button' value='<% translate("Upgrade"); %>' id='afu-upgrade-button' onclick='upgrade()' style='height:20px'>
 		</div>
 		</form>
 		<br><form name='form_reset' action='javascript:{}'>
 		<div id='reset-input'>
-			<input type='checkbox' id='f_reset'>&nbsp;&nbsp;After flashing, erase all data in NVRAM memory
+			<input type='checkbox' id='f_reset'>&nbsp;&nbsp;<% translate("After flashing, erase all data in NVRAM memory"); %>
 		</div>
 		</form>
 
 		<br>
 		<table border=0>
-		<tr><td>Current Version:</td><td>&nbsp; <% version(1); %></td></tr>
+		<tr><td><% translate("Current Version"); %>:</td><td>&nbsp; <% version(1); %></td></tr>
 		<script type='text/javascript'>
 		//	<% sysinfo(); %>
-		W('<tr><td>Free Memory:</td><td>&nbsp; ' + scaleSize(sysinfo.totalfreeram) + ' &nbsp; <small>(aprox. size that can be buffered completely in RAM)</small></td></tr>');
+		W('<tr><td><% translate("Free Memory"); %>:</td><td>&nbsp; ' + scaleSize(sysinfo.totalfreeram) + ' &nbsp; <small>(<% translate("aprox. size that can be buffered completely in RAM"); %>)</small></td></tr>');
 		</script>
 		</table>
 
@@ -113,17 +113,16 @@ function upgrade()
 
 /* JFFS2-BEGIN */
 <div class='note-disabledw' style='display:none' id='jwarn'>
-<b>Cannot upgrade if JFFS is enabled.</b><br><br>
-An upgrade may overwrite the JFFS partition currently in use. Before upgrading,
-please backup the contents of the JFFS partition, disable it, then reboot the router.<br><br><br>
-<a href='admin-jffs2.asp'>Disable &raquo;</a>
+<b><% translate("Cannot upgrade if JFFS is enabled"); %>.</b><br><br>
+<% translate("An upgrade may overwrite the JFFS partition currently in use. Before upgrading, please backup the contents of the JFFS partition, disable it, then reboot the router"); %>.<br><br><br>
+<a href='admin-jffs2.asp'><% translate("Disable"); %> &raquo;</a>
 </div>
 /* JFFS2-END */
 
 <div id='afu-progress' style='display:none;margin:auto'>
 	<img src='spin.gif' style='vertical-align:baseline'> <span id='afu-time'>0:00</span><br>
-	Please wait while the firmware is uploaded &amp; flashed.<br>
-	<b>Warning:</b> Do not interrupt this browser or the router!<br>
+	<% translate("Please wait while the firmware is uploaded &amp; flashed"); %>.<br>
+	<b><% translate("Warning"); %>:</b> <% translate("Do not interrupt this browser or the router"); %>!<br>
 </div>
 
 <!-- / / / -->

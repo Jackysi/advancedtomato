@@ -15,7 +15,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] New: IP/Range BW Limiter</title>
+<title>[<% ident(); %>] RAF: <% translate("IP/Range BW Limiter"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -44,9 +44,9 @@
 <script type='text/javascript'>
 // <% nvram("new_qoslimit_enable,qos_ibw,qos_obw,new_qoslimit_rules,lan_ipaddr,lan_netmask,qosl_enable,qosl_dlr,qosl_dlc,qosl_ulr,qosl_ulc,qosl_udp,qosl_tcp"); %>
 
-var class_prio = [['0','Highest'],['1','High'],['2','Normal'],['3','Low'],['4','Lowest']];
-var class_tcp = [['0','nolimit']];
-var class_udp = [['0','nolimit']];
+var class_prio = [['0','<% translate("Highest"); %>'],['1','<% translate("High"); %>'],['2','<% translate("Normal"); %>'],['3','<% translate("Low"); %>'],['4','<% translate("Lowest"); %>']];
+var class_tcp = [['0','<% translate("no limit"); %>']];
+var class_udp = [['0','<% translate("no limit"); %>']];
 for (var i = 1; i <= 100; ++i) {
 	class_tcp.push([i*10, i*10+'']);
 	class_udp.push([i, i + '/s']);
@@ -63,7 +63,7 @@ qosg.setup = function() {
 		{ type: 'select', options: class_prio },
 		{ type: 'select', options: class_tcp },
 		{ type: 'select', options: class_udp }]);
-	this.headerSet(['IP | IP Range | MAC Address', 'DLRate', 'DLCeil', 'ULRate', 'ULCeil', 'Priority', 'TCP Limit', 'UDP Limit']);
+	this.headerSet(['<% translate("IP | IP Range | MAC Address"); %>', '<% translate("DLRate"); %>', '<% translate("DLCeil"); %>', '<% translate("ULRate"); %>', '<% translate("ULCeil"); %>', '<% translate("Priority"); %>', '<% translate("TCP Limit"); %>', '<% translate("UDP Limit"); %>']);
 	var qoslimitrules = nvram.new_qoslimit_rules.split('>');
 	for (var i = 0; i < qoslimitrules.length; ++i) {
 		var t = qoslimitrules[i].split('<');
@@ -153,45 +153,45 @@ qosg.verifyFields = function(row, quiet)
 /*
 	if (v_ip(f[0], quiet)) {
                if(this.existIP(f[0].value)) {
-                       ferror.set(f[0], 'duplicate IP address', quiet);
+                       ferror.set(f[0], '<% translate("duplicate IP address"); %>', quiet);
 			ok = 0;
 		}
 	}
 */
 	if(v_macip(f[0], quiet, 0, nvram.lan_ipaddr, nvram.lan_netmask)) {
                if(this.existIP(f[0].value)) {
-                    ferror.set(f[0], 'duplicate IP or MAC address', quiet);
+                    ferror.set(f[0], '<% translate("duplicate IP or MAC address"); %>', quiet);
 			ok = 0;
 		}
 	}
      
 	if( this.checkRate(f[1].value)) {
-	        ferror.set(f[1], 'DLRate must between 1 and 99999', quiet);
+	        ferror.set(f[1], '<% translate("DLRate must between 1 and 99999"); %>', quiet);
 		ok = 0;
 	}
 
 	if( this.checkRate(f[2].value)) {
-		ferror.set(f[2], 'DLCeil must between 1 and 99999', quiet);
+		ferror.set(f[2], '<% translate("DLCeil must between 1 and 99999"); %>', quiet);
 		ok = 0;
 	}
 
 	if( this.checkRateCeil(f[1].value, f[2].value)) {
-               ferror.set(f[2], 'DLCeil must be greater than DLRate', quiet);
+               ferror.set(f[2], '<% translate("DLCeil must be greater than DLRate"); %>', quiet);
 		ok = 0;
 	}
 
 	if( this.checkRate(f[3].value)) {
-                ferror.set(f[3], 'ULRate must between 1 and 99999', quiet);
+                ferror.set(f[3], '<% translate("ULRate must between 1 and 99999"); %>', quiet);
 		ok = 0;
 	}
 
 	if( this.checkRate(f[4].value)) {
-                ferror.set(f[4], 'ULCeil must between 1 and 99999', quiet);
+                ferror.set(f[4], '<% translate("ULCeil must between 1 and 99999"); %>', quiet);
 		ok = 0;
 	}
 
 	if( this.checkRateCeil(f[3].value, f[4].value)) {
-                    ferror.set(f[4], 'ULCeil must be greater than ULRate', quiet);
+                    ferror.set(f[4], '<% translate("ULCeil must be greater than ULRate"); %>', quiet);
 			ok = 0;
 	}
 
@@ -251,7 +251,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -270,43 +270,43 @@ function init()
 
 <div id='bwlimit'>
 
-	<div class='section-title'>Bandwidth Limiter</div>
+	<div class='section-title'><% translate("Bandwidth Limiter"); %></div>
 	<div class='section'>
 		<script type='text/javascript'>
 			createFieldTable('', [
-			{ title: 'Enable Limiter', name: 'f_new_qoslimit_enable', type: 'checkbox', value: nvram.new_qoslimit_enable != '0' },
-			{ title: 'Max Available Download <br><small>(same as used in QoS)</small>', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw },
-			{ title: 'Max Available Upload <br><small>(same as used in QoS)</small>', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw }
+			{ title: '<% translate("Enable Limiter"); %>', name: 'f_new_qoslimit_enable', type: 'checkbox', value: nvram.new_qoslimit_enable != '0' },
+			{ title: '<% translate("Max Available Download"); %> <br><small>(<% translate("same as used in QoS"); %>)</small>', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw },
+			{ title: '<% translate("Max Available Upload"); %> <br><small>(<% translate("same as used in QoS"); %>)</small>', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw }
 			]);
 		</script>
 		<br>
 		<table class='tomato-grid' id='qosg-grid'></table>
 		<div>
 			<ul>
-				<li>Attention! BW Limiter works <b>only for LAN (br0)</b>.
-				<li><b>IP Address / IP Range:</b>
-				<li>Example: 192.168.1.5 for one IP.
-				<li>Example: 192.168.1.4-7 for IP 192.168.1.4 to 192.168.1.7
-				<li>Example: 4-7 for IP Range .4 to .7
-				<li><b>The IP Range devices will share the Bandwidth</b>
-				<li><b>MAC Address</b> Example: 00:2E:3C:6A:22:D8
+				<li><% translate("Attention! BW Limiter works"); %> <b><% translate("only for LAN"); %> (br0)</b>.
+				<li><b><% translate("IP Address / IP Range"); %>:</b>
+				<li><% translate("Example"); %>: 192.168.1.5 <% translate("for one IP"); %>.
+				<li><% translate("Example"); %>: 192.168.1.4-7 <% translate("for IP 192.168.1.4 to 192.168.1.7"); %>
+				<li><% translate("Example"); %>: 4-7 <% translate("for IP Range .4 to .7"); %>
+				<li><b><% translate("The IP Range devices will share the Bandwidth"); %></b>
+				<li><b><% translate("MAC Address"); %></b> <% translate("Example"); %>: 00:2E:3C:6A:22:D8
 			</ul>
 		</div>
 	</div>
 	
 	<br>
 
-	<div class='section-title'>Default Class rate/ceiling for unlisted MAC / IP's</div>
+	<div class='section-title'><% translate("Default Class rate/ceiling for unlisted MAC / IP's"); %></div>
 	<div class='section'>
 		<script type='text/javascript'>
 			createFieldTable('', [
-				{ title: 'Enable', name: 'f_qosl_enable', type: 'checkbox', value: nvram.qosl_enable == '1'},
-				{ title: 'Download rate', name: 'qosl_dlr', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_dlr },
-				{ title: 'Download ceil', name: 'qosl_dlc', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_dlc },
-				{ title: 'Upload rate', name: 'qosl_ulr', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_ulr },
-				{ title: 'Upload ceil', name: 'qosl_ulc', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_ulc },
-				{ title: 'TCP Limit', name: 'qosl_tcp', type: 'select', options:
-					[['0', 'no limit'],
+				{ title: '<% translate("Enable"); %>', name: 'f_qosl_enable', type: 'checkbox', value: nvram.qosl_enable == '1'},
+				{ title: '<% translate("Download rate"); %>', name: 'qosl_dlr', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_dlr },
+				{ title: '<% translate("Download ceil"); %>', name: 'qosl_dlc', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_dlc },
+				{ title: '<% translate("Upload rate"); %>', name: 'qosl_ulr', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_ulr },
+				{ title: '<% translate("Upload ceil"); %>', name: 'qosl_ulc', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_ulc },
+				{ title: '<% translate("TCP Limit"); %>', name: 'qosl_tcp', type: 'select', options:
+					[['0', '<% translate("no limit"); %>'],
 					['1', '1'],
 					['2', '2'],
 					['5', '5'],
@@ -317,8 +317,8 @@ function init()
 					['200', '200'],
 					['500', '500'],
 					['1000', '1000']], value: nvram.qosl_tcp },
-				{ title: 'UDP limit', name: 'qosl_udp', type: 'select', options:
-					[['0', 'no limit'],
+				{ title: '<% translate("UDP limit"); %>', name: 'qosl_udp', type: 'select', options:
+					[['0', '<% translate("no limit"); %>'],
 					['1', '1/s'],
 					['2', '2/s'],
 					['5', '5/s'],
@@ -330,8 +330,8 @@ function init()
 		</script>
 		<div>
 			<ul>
-				<li><b>Default Class</b> - IP / MAC's non included in the list will take the Default Rate/Ceiling setting
-				<li><b>The bandwitdh will be shared by all unlisted hosts.</b>
+				<li><b><% translate("Default Class"); %></b> - <% translate("IP / MAC's non included in the list will take the Default Rate/Ceiling setting"); %>
+				<li><b><% translate("The bandwitdh will be shared by all unlisted hosts"); %>.</b>
 			</ul>
 		</div>
 	</div>
@@ -342,8 +342,8 @@ function init()
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='reloadPage();'>
 </td></tr>
 </table>
 </form>

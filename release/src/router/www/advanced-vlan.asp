@@ -10,7 +10,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Advanced: VLAN</title>
+<title>[<% ident(); %>] <% translate("Advanced"); %>: <% translate("VLAN"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
@@ -240,7 +240,7 @@ REMOVE-END */
   var e = E('footer-msg');
 
   if(vlg.countWan() != 1) {
-    e.innerHTML = 'Cannot proceed: one VID must be assigned to WAN.';
+    e.innerHTML = '<% translate("Cannot proceed: one VID must be assigned to WAN"); %>.';
     e.style.visibility = 'visible';
     setTimeout(
       function() {
@@ -251,7 +251,7 @@ REMOVE-END */
   }
 
   if(vlg.countLan(0) != 1) {
-    e.innerHTML = 'Cannot proceed: one and only one VID must be assigned to the primary LAN (br0).';
+    e.innerHTML = '<% translate("Cannot proceed: one and only one VID must be assigned to the primary LAN"); %> (br0).';
     e.style.visibility = 'visible';
     setTimeout(
       function() {
@@ -262,7 +262,7 @@ REMOVE-END */
   }
 
   if (v.length < 1) {
-    e.innerHTML = 'Cannot proceed without setting a default VID';
+    e.innerHTML = '<% translate("Cannot proceed without setting a default VID"); %>';
     e.style.visibility = 'visible';
     setTimeout(
       function() {
@@ -275,7 +275,7 @@ REMOVE-END */
 /* REMOVE-BEGIN
   if (confirm("Network will be restarted on this router. Proceed?"))
 REMOVE-END */
-  if (confirm("Router must be rebooted to proceed. Commit changes to NVRAM and reboot now?"))
+  if (confirm("<% translate("Router must be rebooted to proceed. Commit changes to NVRAM and reboot now"); %>?"))
     form.submit(fom, 0);
 }
 
@@ -302,7 +302,7 @@ if(port_vlan_supported) { // aka if(supported_hardware) block
     { type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
     { type: 'select', options: [[1, 'none'],[2, 'WAN'],[3, 'LAN (br0)'],[4, 'LAN1 (br1)'],[5, 'LAN2 (br2)'],[6, 'LAN3 (br3)']], prefix: '<div class="centered">', suffix: '</div>' }]);
 
-    this.headerSet(['VID', 'Port 1', 'Tagged', 'Port 2', 'Tagged', 'Port 3', 'Tagged', 'Port 4', 'Tagged', 'WAN Port', 'Tagged', 'Default', 'Bridge']);
+    this.headerSet(['VID', '<% translate("Port"); %> 1', '<% translate("Tagged"); %>', '<% translate("Port"); %> 2', '<% translate("Tagged"); %>', '<% translate("Port"); %> 3', '<% translate("Tagged"); %>', '<% translate("Port"); %> 4', '<% translate("Tagged"); %>', '<% translate("WAN Port"); %>', '<% translate("Tagged"); %>', '<% translate("Default"); %>', '<% translate("Bridge"); %>']);
 
 // find out which vlans are supposed to be bridged to each LAN
     var bridged = [];
@@ -456,21 +456,21 @@ REMOVE-END */
     }
 
     if((this.countDefaultVID() > 0) && (f[COL_VID_DEF].checked ==1)) {
-      ferror.set(f[COL_VID_DEF], 'Only one VID can be selected as the default VID', quiet);
+      ferror.set(f[COL_VID_DEF], '<% translate("Only one VID can be selected as the default VID"); %>', quiet);
       valid = 0;
     } else {
       ferror.clear(f[COL_VID_DEF]);
     }
 
     if(this.countVID(f[COL_VID].selectedIndex) > 0) {
-      ferror.set(f[COL_VID], 'Cannot add more than one entry with VID ' + f[0].selectedIndex, quiet);
+      ferror.set(f[COL_VID], '<% translate("Cannot add more than one entry with VID"); %> ' + f[0].selectedIndex, quiet);
       valid = 0;
     } else {
       ferror.clear(f[COL_VID]);
     }
 
     if ((this.countWan() > 0) && (f[COL_BRI].selectedIndex == 1)) {
-      ferror.set(f[COL_BRI],'Only one VID can be used as WAN at any time', quiet);
+      ferror.set(f[COL_BRI],'<% translate("Only one VID can be used as WAN at any time"); %>', quiet);
       valid = 0;
     } else {
       ferror.clear(f[COL_BRI]);
@@ -478,7 +478,7 @@ REMOVE-END */
 
     for(var i=0; i<4; i++) {
       if ((this.countLan(i) > 0) && (f[COL_BRI].selectedIndex == (i+2))) {
-        ferror.set(f[COL_BRI],'One and only one VID can be used for LAN' + ((i==0) ? '' : i ) + ' (br'+i+') at any time', quiet);
+        ferror.set(f[COL_BRI],'<% translate("One and only one VID can be used for LAN"); %>' + ((i==0) ? '' : i ) + ' (br'+i+') <% translate("at any time"); %>', quiet);
         valid = 0;
       } else {
         ferror.clear(f[COL_BRI]);
@@ -490,16 +490,16 @@ REMOVE-END */
 
   vlg.dataToView = function(data) {
     return [data[COL_VID],
-    (data[COL_P0].toString() != '0') ? 'Yes' : '',
-    (data[COL_P0T].toString() != '0') ? 'On' : '',
-    (data[COL_P1].toString() != '0') ? 'Yes' : '',
-    (data[COL_P1T].toString() != '0') ? 'On' : '',
-    (data[COL_P2].toString() != '0') ? 'Yes' : '',
-    (data[COL_P2T].toString() != '0') ? 'On' : '',
-    (data[COL_P3].toString() != '0') ? 'Yes' : '',
-    (data[COL_P3T].toString() != '0') ? 'On' : '',
-    (data[COL_P4].toString() != '0') ? 'Yes' : '',
-    (data[COL_P4T].toString() != '0') ? 'On' : '',
+    (data[COL_P0].toString() != '0') ? '<% translate("Yes"); %>' : '',
+    (data[COL_P0T].toString() != '0') ? '<% translate("On"); %>' : '',
+    (data[COL_P1].toString() != '0') ? '<% translate("Yes"); %>' : '',
+    (data[COL_P1T].toString() != '0') ? '<% translate("On"); %>' : '',
+    (data[COL_P2].toString() != '0') ? '<% translate("Yes"); %>' : '',
+    (data[COL_P2T].toString() != '0') ? '<% translate("On"); %>' : '',
+    (data[COL_P3].toString() != '0') ? '<% translate("Yes"); %>' : '',
+    (data[COL_P3T].toString() != '0') ? '<% translate("On"); %>' : '',
+    (data[COL_P4].toString() != '0') ? '<% translate("Yes"); %>' : '',
+    (data[COL_P4T].toString() != '0') ? '<% translate("On"); %>' : '',
     (data[COL_VID_DEF].toString() != '0') ? '*' : '',
     ['', 'WAN', 'LAN (br0)', 'LAN1 (br1)', 'LAN2 (br2)', 'LAN3 (br3)' ][data[COL_BRI] - 1]];
   }
@@ -669,7 +669,7 @@ function earlyInit()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
   <div class='title'>Tomato</div>
-  <div class='version'>Version <% version(); %></div>
+  <div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -720,49 +720,49 @@ function earlyInit()
 <input type='hidden' name='trunk_vlan_so'>
 
 <div id='sesdiv' style='display:none'>
-<div class='section-title'>VLAN</div>
+<div class='section-title'><% translate("VLAN"); %></div>
 <div class='section'>
   <table class='tomato-grid' cellspacing=1 id='vlan-grid'></table>
   <script type='text/javascript'>
   createFieldTable('', [
-    { title: 'Bridge WLAN to', name: 'f_bridge_wlan_to', type: 'select', options: [[0,'LAN (br0)'],[1,'LAN1  (br1)'],[2,'LAN2 (br2)'],[3,'LAN3 (br3)'],[4,'none']] }
+    { title: '<% translate("Bridge WLAN to"); %>', name: 'f_bridge_wlan_to', type: 'select', options: [[0,'LAN (br0)'],[1,'LAN1  (br1)'],[2,'LAN2 (br2)'],[3,'LAN3 (br3)'],[4,'<% translate("none"); %>']] }
     ]);
   if(port_vlan_supported) vlg.setup();
   </script>
 </div>
 
-<div class='section-title'>Notes</div>
+<div class='section-title'><% translate("Notes"); %></div>
 <div class='section'>
 <ul>
-<li><b>VID</b> - Unique identifier of a VLAN.</li>
-<li><b>Ports 1-4 &amp; WAN</b> - Which ethernet ports on the router should be members of this VLAN.</li>
-<li><b>Tagged</b> - Enable 802.1q tagging of ethernet frames on a particular port/VLAN
+<li><b>VID</b> - <% translate("Unique identifier of a VLAN"); %>.</li>
+<li><b><% translate("Ports"); %> 1-4 &amp; WAN</b> - <% translate("Which ethernet ports on the router should be members of this VLAN"); %>.</li>
+<li><b><% translate("Tagged"); %></b> - <% translate("Enable 802.1q tagging of ethernet frames on a particular port/VLAN"); %>
 <script type='text/javascript'>
 if(!trunk_vlan_supported)
-  W(' <i>(not known to be supported on this model)</i>');
+  W(' <i>(<% translate("not known to be supported on this model"); %>)</i>');
 </script>
 </li>
-<li><b>Default</b> - VLAN ID assigned to untagged frames received by the router.</li>
-<li><b>Bridge</b> - Determines if this VLAN ID should be treated as WAN, part of a LAN bridge or just left alone (i.e. member of a 802.1q trunk, being managed manually via scripts, etc...).</li>
+<li><b><% translate("Default"); %></b> - <% translate("VLAN ID assigned to untagged frames received by the router"); %>.</li>
+<li><b><% translate("Bridge"); %></b> - <% translate("Determines if this VLAN ID should be treated as WAN, part of a LAN bridge or just left alone (i.e. member of a 802.1q trunk, being managed manually via scripts, etc"); %>...).</li>
 </ul>
 <small>
 <ul>
-<li><b>Other relevant notes/hints:</b>
+<li><b><% translate("Other relevant notes/hints"); %>:</b>
 <ul>
-<li>One VID <i>must</i> be assigned to WAN.</li>
-<li>One VID <i>must</i> be selected as the default.</li>
+<li><% translate("One VID"); %> <i><% translate("must"); %></i> <% translate("be assigned to WAN"); %>.</li>
+<li><% translate("One VID"); %> <i><% translate("must"); %></i> <% translate("be selected as the default"); %>.</li>
 <script type='text/javascript'>
 if((trunk_vlan_supported) || (nvram.trunk_vlan_so == '1'))
-  W('<li>To prevent 802.1q compatibility issues, avoid using VID "0" as 802.1q specifies that frames with a tag of "0" do not belong to any VLAN.</li>');
+  W('<li><% translate("To prevent 802.1q compatibility issues, avoid using VID '0' as 802.1q specifies that frames with a tag of '0' do not belong to any VLAN"); %>.</li>');
 </script>
 </ul>
 </ul>
 <div id='trunk_vlan_override' style='display:none'>
-<div class='section-title'>Trunk VLAN support override (experimental)</div>
+<div class='section-title'><% translate("Trunk VLAN support override (experimental)"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-  { title: 'Enable', name: 'f_trunk_vlan_so', type: 'checkbox', value: nvram.trunk_vlan_so == '1' },
+  { title: '<% translate("Enable"); %>', name: 'f_trunk_vlan_so', type: 'checkbox', value: nvram.trunk_vlan_so == '1' },
 ]);
 </script>
 </div>
@@ -773,7 +773,7 @@ createFieldTable('', [
 </div>
 <script type='text/javascript'>
 if(!port_vlan_supported) 
-  W('<i>This feature is not supported on this router.</i>');
+  W('<i><% translate("This feature is not supported on this router"); %>.</i>');
 else {
   E('sesdiv').style.display = '';
   if(!trunk_vlan_supported)
@@ -783,8 +783,8 @@ else {
 </td></tr>
 <tr><td id='footer' colspan=2>
  <span id='footer-msg'></span>
- <input type='button' value='Save' id='save-button' onclick='save()'>
- <input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
+ <input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+ <input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='javascript:reloadPage();'>
 </td></tr>
 </table>
 </form>

@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Advanced: Wireless</title>
+<title>[<% ident(); %>] <% translate("Advanced"); %>: <% translate("Wireless"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -92,7 +92,7 @@ function save()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -114,96 +114,96 @@ W('<input type=\'hidden\' id=\'_wl'+u+'_distance\' name=\'wl'+u+'_distance\'>');
 W('<input type=\'hidden\' id=\'_wl'+u+'_country\' name=\'wl'+u+'_country\'>');
 W('<input type=\'hidden\' id=\'_wl'+u+'_nmode_protection\' name=\'wl'+u+'_nmode_protection\'>');
 
-W('<div class=\'section-title\'>Wireless ');
+W('<div class=\'section-title\'><% translate("Wireless"); %> ');
 if (wl_ifaces.length > 1)
 	W('(' + wl_display_ifname(uidx) + ') ');
-W('Settings');
+W(' - <% translate("Settings"); %>');
 W('</div><div class=\'section\'>');
 
 at = ((nvram['wl'+u+'_security_mode'] != "wep") && (nvram['wl'+u+'_security_mode'] != "radius") && (nvram['wl'+u+'_security_mode'] != "disabled"));
 createFieldTable('', [
-	{ title: 'Afterburner', name: 'wl'+u+'_afterburner', type: 'select', options: [['auto','Auto'],['on','Enable'],['off','Disable *']],
+	{ title: '<% translate("Afterburner"); %>', name: 'wl'+u+'_afterburner', type: 'select', options: [['auto','<% translate("Auto"); %>'],['on','<% translate("Enable"); %>'],['off','<% translate("Disable"); %> *']],
 		value: nvram['wl'+u+'_afterburner'] },
-	{ title: 'AP Isolation', name: 'wl'+u+'_ap_isolate', type: 'select', options: [['0','Disable *'],['1','Enable']],
+	{ title: '<% translate("AP Isolation"); %>', name: 'wl'+u+'_ap_isolate', type: 'select', options: [['0','<% translate("Disable"); %> *'],['1','<% translate("Enable"); %>']],
 		value: nvram['wl'+u+'_ap_isolate'] },
-	{ title: 'Authentication Type', name: 'wl'+u+'_auth', type: 'select',
-		options: [['0','Auto *'],['1','Shared Key']], attrib: at ? 'disabled' : '',
+	{ title: '<% translate("Authentication Type"); %>', name: 'wl'+u+'_auth', type: 'select',
+		options: [['0','<% translate("Auto"); %> *'],['1','<% translate("Shared Key"); %>']], attrib: at ? 'disabled' : '',
 		value: at ? 0 : nvram['wl'+u+'_auth'] },
-	{ title: 'Basic Rate', name: 'wl'+u+'_rateset', type: 'select', options: [['default','Default *'],['12','1-2 Mbps'],['all','All']],
+	{ title: '<% translate("Basic Rate"); %>', name: 'wl'+u+'_rateset', type: 'select', options: [['default','<% translate("Default"); %> *'],['12','1-2 Mbps'],['all','<% translate("All"); %>']],
 		value: nvram['wl'+u+'_rateset'] },
-	{ title: 'Beacon Interval', name: 'wl'+u+'_bcn', type: 'text', maxlen: 5, size: 7,
-		suffix: ' <small>(range: 1 - 65535; default: 100)</small>', value: nvram['wl'+u+'_bcn'] },
-	{ title: 'CTS Protection Mode', name: 'wl'+u+'_gmode_protection', type: 'select', options: [['off','Disable *'],['auto','Auto']],
+	{ title: '<% translate("Beacon Interval"); %>', name: 'wl'+u+'_bcn', type: 'text', maxlen: 5, size: 7,
+		suffix: ' <small>(<% translate("range"); %>: 1 - 65535; <% translate("default"); %>: 100)</small>', value: nvram['wl'+u+'_bcn'] },
+	{ title: '<% translate("CTS Protection Mode"); %>', name: 'wl'+u+'_gmode_protection', type: 'select', options: [['off','<% translate("Disable"); %> *'],['auto','<% translate("Auto"); %>']],
 		value: nvram['wl'+u+'_gmode_protection'] },
-	{ title: 'Regulatory Mode', name: 'wl'+u+'_reg_mode', type: 'select',
-		options: [['off', 'Off *'],['d', '802.11d'],['h', '802.11h']],
+	{ title: '<% translate("Regulatory Mode"); %>', name: 'wl'+u+'_reg_mode', type: 'select',
+		options: [['off', '<% translate("Off"); %> *'],['d', '802.11d'],['h', '802.11h']],
 		value: nvram['wl'+u+'_reg_mode'] },
-	{ title: 'Country / Region', name: 'wl'+u+'_country_code', type: 'select',
+	{ title: '<% translate("Country / Region"); %>', name: 'wl'+u+'_country_code', type: 'select',
 		options: wl_countries, value: nvram['wl'+u+'_country_code'] },
-	{ title: 'Bluetooth Coexistence', name: 'wl'+u+'_btc_mode', type: 'select',
-		options: [['0', 'Disable *'],['1', 'Enable'],['2', 'Preemption']],
+	{ title: '<% translate("Bluetooth Coexistence"); %>', name: 'wl'+u+'_btc_mode', type: 'select',
+		options: [['0', '<% translate("Disable"); %> *'],['1', '<% translate("Enable"); %>'],['2', '<% translate("Preemption"); %>']],
 		value: nvram['wl'+u+'_btc_mode'] },
-	{ title: 'Distance / ACK Timing', name: 'f_wl'+u+'_distance', type: 'text', maxlen: 5, size: 7,
-		suffix: ' <small>meters</small>&nbsp;&nbsp;<small>(range: 0 - 99999; 0 = use default)</small>',
+	{ title: '<% translate("Distance / ACK Timing"); %>', name: 'f_wl'+u+'_distance', type: 'text', maxlen: 5, size: 7,
+		suffix: ' <small><% translate("meters"); %></small>&nbsp;&nbsp;<small>(<% translate("range"); %>: 0 - 99999; 0 =  <% translate("use default"); %>)</small>',
 			value: (nvram['wl'+u+'_distance'] == '') ? '0' : nvram['wl'+u+'_distance'] },
-	{ title: 'DTIM Interval', name: 'wl'+u+'_dtim', type: 'text', maxlen: 3, size: 5,
-		suffix: ' <small>(range: 1 - 255; default: 1)</small>', value: nvram['wl'+u+'_dtim'] },
-	{ title: 'Fragmentation Threshold', name: 'wl'+u+'_frag', type: 'text', maxlen: 4, size: 6,
-		suffix: ' <small>(range: 256 - 2346; default: 2346)</small>', value: nvram['wl'+u+'_frag'] },
-	{ title: 'Frame Burst', name: 'wl'+u+'_frameburst', type: 'select', options: [['off','Disable *'],['on','Enable']],
+	{ title: '<% translate("DTIM Interval"); %>', name: 'wl'+u+'_dtim', type: 'text', maxlen: 3, size: 5,
+		suffix: ' <small>( <% translate("range"); %>: 1 - 255;  <% translate("default"); %>: 1)</small>', value: nvram['wl'+u+'_dtim'] },
+	{ title: '<% translate("Fragmentation Threshold"); %>', name: 'wl'+u+'_frag', type: 'text', maxlen: 4, size: 6,
+		suffix: ' <small>( <% translate("range"); %>: 256 - 2346;  <% translate("default"); %>: 2346)</small>', value: nvram['wl'+u+'_frag'] },
+	{ title: '<% translate("Frame Burst"); %>', name: 'wl'+u+'_frameburst', type: 'select', options: [['off','<% translate("Disable"); %> *'],['on','<% translate("Enable"); %>']],
 		value: nvram['wl'+u+'_frameburst'] },
 	{ title: 'HP', hidden: !hp || (uidx > 0) },
-		{ title: 'Amplifier', indent: 2, name: 'wlx_hpamp' + (uidx > 0 ? uidx + '' : ''), type: 'select', options: [['0','Disable'],['1','Enable *']],
+		{ title: '<% translate("Amplifier"); %>', indent: 2, name: 'wlx_hpamp' + (uidx > 0 ? uidx + '' : ''), type: 'select', options: [['0','<% translate("Disable"); %>'],['1','<% translate("Enable"); %> *']],
 			value: nvram.wlx_hpamp != '0', hidden: !hp || (uidx > 0) },
-		{ title: 'Enhanced RX Sensitivity', indent: 2, name: 'wlx_hperx' + (uidx > 0 ? uidx + '' : ''), type: 'select', options: [['0','Disable *'],['1','Enable']],
+		{ title: '<% translate("Enhanced RX Sensitivity"); %>', indent: 2, name: 'wlx_hperx' + (uidx > 0 ? uidx + '' : ''), type: 'select', options: [['0','<% translate("Disable"); %> *'],['1','<% translate("Enable"); %>']],
 			value: nvram.wlx_hperx != '0', hidden: !hp || (uidx > 0) },
-	{ title: 'Maximum Clients', name: 'wl'+u+'_maxassoc', type: 'text', maxlen: 3, size: 5,
-		suffix: ' <small>(range: 1 - 255; default: 128)</small>', value: nvram['wl'+u+'_maxassoc'] },
-	{ title: 'Multicast Rate', name: 'wl'+u+'_mrate', type: 'select',
-		options: [['0','Auto *'],['1000000','1 Mbps'],['2000000','2 Mbps'],['5500000','5.5 Mbps'],['6000000','6 Mbps'],['9000000','9 Mbps'],['11000000','11 Mbps'],['12000000','12 Mbps'],['18000000','18 Mbps'],['24000000','24 Mbps'],['36000000','36 Mbps'],['48000000','48 Mbps'],['54000000','54 Mbps']],
+	{ title: '<% translate("Maximum Clients"); %>', name: 'wl'+u+'_maxassoc', type: 'text', maxlen: 3, size: 5,
+		suffix: ' <small>( <% translate("range"); %>: 1 - 255;  <% translate("default"); %>: 128)</small>', value: nvram['wl'+u+'_maxassoc'] },
+	{ title: '<% translate("Multicast Rate"); %>', name: 'wl'+u+'_mrate', type: 'select',
+		options: [['0','<% translate("Auto"); %> *'],['1000000','1 Mbps'],['2000000','2 Mbps'],['5500000','5.5 Mbps'],['6000000','6 Mbps'],['9000000','9 Mbps'],['11000000','11 Mbps'],['12000000','12 Mbps'],['18000000','18 Mbps'],['24000000','24 Mbps'],['36000000','36 Mbps'],['48000000','48 Mbps'],['54000000','54 Mbps']],
 		value: nvram['wl'+u+'_mrate'] },
-	{ title: 'Preamble', name: 'wl'+u+'_plcphdr', type: 'select', options: [['long','Long *'],['short','Short']],
+	{ title: '<% translate("Preamble"); %>', name: 'wl'+u+'_plcphdr', type: 'select', options: [['long','<% translate("Long"); %> *'],['short','<% translate("Short"); %>']],
 		value: nvram['wl'+u+'_plcphdr'] },
-	{ title: '802.11n Preamble', name: 'wl'+u+'_mimo_preamble', type: 'select', options: [['auto','Auto'],['mm','Mixed Mode *'],['gf','Green Field'],['gfbcm','GF-BRCM']],
+	{ title: '<% translate("802.11n Preamble"); %>', name: 'wl'+u+'_mimo_preamble', type: 'select', options: [['auto','<% translate("Auto"); %>'],['mm','<% translate("Mixed Mode"); %> *'],['gf','Green Field'],['gfbcm','GF-BRCM']],
 		value: nvram['wl'+u+'_mimo_preamble'], hidden: !nphy },
-	{ title: 'Overlapping BSS Coexistence', name: 'wl'+u+'_obss_coex', type: 'select', options: [['0','Off *'],['1','On']],
+	{ title: '<% translate("Overlapping BSS Coexistence"); %>', name: 'wl'+u+'_obss_coex', type: 'select', options: [['0','<% translate("Off"); %> *'],['1','<% translate("On"); %>']],
 		value: nvram['wl'+u+'_obss_coex'], hidden: !nphy },
-	{ title: 'RTS Threshold', name: 'wl'+u+'_rts', type: 'text', maxlen: 4, size: 6,
-		suffix: ' <small>(range: 0 - 2347; default: 2347)</small>', value: nvram['wl'+u+'_rts'] },
-	{ title: 'Receive Antenna', name: 'wl'+u+'_antdiv', type: 'select', options: [['3','Auto *'],['1','A'],['0','B']],
+	{ title: '<% translate("RTS Threshold"); %>', name: 'wl'+u+'_rts', type: 'text', maxlen: 4, size: 6,
+		suffix: ' <small>( <% translate("range"); %>: 0 - 2347;  <% translate("default"); %>: 2347)</small>', value: nvram['wl'+u+'_rts'] },
+	{ title: '<% translate("Receive Antenna"); %>', name: 'wl'+u+'_antdiv', type: 'select', options: [['3','<% translate("Auto"); %> *'],['1','A'],['0','B']],
 		value: nvram['wl'+u+'_antdiv'] },
-	{ title: 'Transmit Antenna', name: 'wl'+u+'_txant', type: 'select', options: [['3','Auto *'],['1','A'],['0','B']],
+	{ title: '<% translate("Transmit Antenna"); %>', name: 'wl'+u+'_txant', type: 'select', options: [['3','<% translate("Auto"); %> *'],['1','A'],['0','B']],
 		value: nvram['wl'+u+'_txant'] },
-	{ title: 'Transmit Power', name: 'wl'+u+'_txpwr', type: 'text', maxlen: 3, size: 5,
+	{ title: '<% translate("Transmit Power"); %>', name: 'wl'+u+'_txpwr', type: 'text', maxlen: 3, size: 5,
 		suffix: hp ?
-			' <small>mW (before amplification)</small>&nbsp;&nbsp;<small>(range: 1 - 251; default: 10)</small>' :
-			' <small>mW</small>&nbsp;&nbsp;<small>(range: 0 - 400, actual max depends on Country selected; use 0 for hardware default)</small>',
+			' <small>mW (<% translate("before amplification"); %>)</small>&nbsp;&nbsp;<small>(<% translate("range"); %>: 1 - 251; <% translate("default"); %>: 10)</small>' :
+			' <small>mW</small>&nbsp;&nbsp;<small>(<% translate("range"); %>: 0 - 400, <% translate("actual max depends on Country selected; use 0 for hardware default"); %>)</small>',
 			value: nvram['wl'+u+'_txpwr'] },
-	{ title: 'Transmission Rate', name: 'wl'+u+'_rate', type: 'select',
-		options: [['0','Auto *'],['1000000','1 Mbps'],['2000000','2 Mbps'],['5500000','5.5 Mbps'],['6000000','6 Mbps'],['9000000','9 Mbps'],['11000000','11 Mbps'],['12000000','12 Mbps'],['18000000','18 Mbps'],['24000000','24 Mbps'],['36000000','36 Mbps'],['48000000','48 Mbps'],['54000000','54 Mbps']],
+	{ title: '<% translate("Transmission Rate"); %>', name: 'wl'+u+'_rate', type: 'select',
+		options: [['0','<% translate("Auto"); %> *'],['1000000','1 Mbps'],['2000000','2 Mbps'],['5500000','5.5 Mbps'],['6000000','6 Mbps'],['9000000','9 Mbps'],['11000000','11 Mbps'],['12000000','12 Mbps'],['18000000','18 Mbps'],['24000000','24 Mbps'],['36000000','36 Mbps'],['48000000','48 Mbps'],['54000000','54 Mbps']],
 		value: nvram['wl'+u+'_rate'] },
-	{ title: 'Interference Mitigation', name: 'wl'+u+'_mitigation', type: 'select',
-		options: [['0','None'],['1','Non-WLAN'],['2','WLAN Manual'],['3','WLAN Auto *']],
+	{ title: '<% translate("Interference Mitigation"); %>', name: 'wl'+u+'_mitigation', type: 'select',
+		options: [['0','<% translate("None"); %>'],['1','<% translate("Non-WLAN"); %>'],['2','WLAN <% translate("Manual"); %>'],['3','WLAN <% translate("Auto"); %> *']],
 		value: nvram['wl'+u+'_mitigation'] },
-	{ title: 'WMM', name: 'wl'+u+'_wme', type: 'select', options: [['auto','Auto *'],['off','Disable'],['on','Enable']], value: nvram['wl'+u+'_wme'] },
-	{ title: 'No ACK', name: 'wl'+u+'_wme_no_ack', indent: 2, type: 'select', options: [['off','Disable *'],['on','Enable']],
+	{ title: 'WMM', name: 'wl'+u+'_wme', type: 'select', options: [['auto','<% translate("Auto"); %> *'],['off','<% translate("Disable"); %>'],['on','<% translate("Enable"); %>']], value: nvram['wl'+u+'_wme'] },
+	{ title: '<% translate("No ACK"); %>', name: 'wl'+u+'_wme_no_ack', indent: 2, type: 'select', options: [['off','<% translate("Disable"); %> *'],['on','<% translate("Enable"); %>']],
 		value: nvram['wl'+u+'_wme_no_ack'] },
-	{ title: 'APSD Mode', name: 'wl'+u+'_wme_apsd', indent: 2, type: 'select', options: [['off','Disable'],['on','Enable *']],
+	{ title: '<% translate("APSD Mode"); %>', name: 'wl'+u+'_wme_apsd', indent: 2, type: 'select', options: [['off','<% translate("Disable"); %>'],['on','<% translate("Enable"); %> *']],
 		value: nvram['wl'+u+'_wme_apsd'] }
 ]);
 W('</div>');
 }
 </script>
 
-<small>The default settings are indicated with the asterisk <b style='font-size: 1.5em'>*</b> symbol.</small>
+<small><% translate("The default settings are indicated with the asterisk"); %> <b style='font-size: 1.5em'>*</b> <% translate("symbol"); %>.</small>
 
 <!-- / / / -->
 
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='reloadPage();'>
 </td></tr>
 </table>
 </form>

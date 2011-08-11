@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Basic: Time</title>
+<title>[<% ident(); %>] <% translate("Basic"); %>: <% translate("Time"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -26,15 +26,15 @@
 
 
 var ntpList = [
-	['custom', 'Custom...'],
-	['', 'Default'],
-	['africa', 'Africa'],
-	['asia', 'Asia'],
-	['europe', 'Europe'],
-	['oceania', 'Oceania'],
-	['north-america', 'North America'],
-	['south-america', 'South America'],
-	['us', 'US']
+	['custom', '<% translate("Custom"); %>...'],
+	['', '<% translate("Default"); %>'],
+	['africa', '<% translate("Africa"); %>'],
+	['asia', '<% translate("Asia"); %>'],
+	['europe', '<% translate("Europe"); %>'],
+	['oceania', '<% translate("Oceania"); %>'],
+	['north-america', '<% translate("North America"); %>'],
+	['south-america', '<% translate("South America"); %>'],
+	['us', '<% translate("US"); %>']
 ];
 
 function ntpString(name)
@@ -144,7 +144,7 @@ function earlyInit()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -164,7 +164,7 @@ function earlyInit()
 <input type='hidden' name='ntp_kiss' value='' disabled>
 
 
-<div class='section-title'>Time</div>
+<div class='section-title'><% translate("Time"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 
@@ -202,10 +202,10 @@ http://www.timeanddate.com/library/abbreviations/timezones/au/
 REMOVE-END */
 
 createFieldTable('', [
-	{ title: 'Router Time', text: '<span id="clock"><% time(); %></span>' },
+	{ title: '<% translate("Router Time"); %>', text: '<span id="clock"><% time(); %></span>' },
 	null,
-	{ title: 'Time Zone', name: 'tm_sel', type: 'select', options: [
-		['custom','Custom...'],
+	{ title: '<% translate("Time Zone"); %>', name: 'tm_sel', type: 'select', options: [
+		['custom','<% translate("Custom"); %>...'],
 		['UTC12','UTC-12:00 Kwajalein'],
 		['UTC11','UTC-11:00 Midway Island, Samoa'],
 		['UTC10','UTC-10:00 Hawaii'],
@@ -231,7 +231,7 @@ createFieldTable('', [
 		['UTC0','UTC+00:00 Gambia, Liberia, Morocco'],
 		['GMT0BST,M3.5.0/2,M10.5.0/2','UTC+00:00 England'],
 		['UTC-1','UTC+01:00 Tunisia'],
-		['CET-1CEST,M3.5.0/2,M10.5.0/3','UTC+01:00 France, Germany, Italy, Poland, Spain, Sweden'],
+		['CET-1CEST,M3.5.0/2,M10.5.0/3','UTC+01:00 France, Germany, Italy, Polska, Spain, Sweden'],
 		['EET-2EEST-3,M3.5.0/3,M10.5.0/4','UTC+02:00 Estonia, Finland, Latvia, Lithuania'],
 		['UTC-2','UTC+02:00 South Africa, Israel'],
 		['STD-2DST,M3.5.0/2,M10.5.0/2','UTC+02:00 Greece, Ukraine, Romania, Turkey, Latvia'],
@@ -260,13 +260,13 @@ createFieldTable('', [
 		['UTC-12','UTC+12:00 Fiji'],
 		['NZST-12NZDT,M9.5.0/2,M4.1.0/3','UTC+12:00 New Zealand']
 	], value: nvram.tm_sel },
-	{ title: 'Auto Daylight Savings Time', indent: 2, name: 'f_tm_dst', type: 'checkbox', value: nvram.tm_dst != '0' },
-	{ title: 'Custom TZ String', indent: 2, name: 'f_tm_tz', type: 'text', maxlen: 32, size: 34, value: nvram.tm_tz || '' },
+	{ title: '<% translate("Auto Daylight Savings Time"); %>', indent: 2, name: 'f_tm_dst', type: 'checkbox', value: nvram.tm_dst != '0' },
+	{ title: '<% translate("Custom TZ String"); %>', indent: 2, name: 'f_tm_tz', type: 'text', maxlen: 32, size: 34, value: nvram.tm_tz || '' },
 	null,
-	{ title: 'Auto Update Time', name: 'ntp_updates', type: 'select', options: [[-1,'Never'],[0,'Only at startup'],[1,'Every hour'],[2,'Every 2 hours'],[4,'Every 4 hours'],[6,'Every 6 hours'],[8,'Every 8 hours'],[12,'Every 12 hours'],[24,'Every 24 hours']],
+	{ title: '<% translate("Auto Update Time"); %>', name: 'ntp_updates', type: 'select', options: [[-1,'<% translate("Never"); %>'],[0,'<% translate("Only at startup"); %>'],[1,'<% translate("Every hour"); %>'],[2,'<% translate("Every 2 hours"); %>'],[4,'<% translate("Every 4 hours"); %>'],[6,'<% translate("Every 6 hours"); %>'],[8,'<% translate("Every 8 hours"); %>'],[12,'<% translate("Every 12 hours"); %>'],[24,'<% translate("Every 24 hours"); %>']],
 		value: nvram.ntp_updates },
-	{ title: 'Trigger Connect On Demand', indent: 2, name: 'f_ntp_tdod', type: 'checkbox', value: nvram.ntp_tdod != '0' },
-	{ title: 'NTP Time Server', name: 'f_ntp_server', type: 'select', options: ntpList, value: ntpSel },
+	{ title: '<% translate("Trigger Connect On Demand"); %>', indent: 2, name: 'f_ntp_tdod', type: 'checkbox', value: nvram.ntp_tdod != '0' },
+	{ title: '<% translate("NTP Time Server"); %>', name: 'f_ntp_server', type: 'select', options: ntpList, value: ntpSel },
 	{ title: '&nbsp;', text: '<small><span id="ntp-preset">xx</span></small>', hidden: 1 },
 	{ title: '', name: 'f_ntp_1', type: 'text', maxlen: 48, size: 50, value: ntp[0] || 'pool.ntp.org', hidden: 1 },
 	{ title: '', name: 'f_ntp_2', type: 'text', maxlen: 48, size: 50, value: ntp[1] || '', hidden: 1 },
@@ -277,10 +277,10 @@ createFieldTable('', [
 <br><br>
 
 <div id='ntpkiss' style='display:none'>
-The following NTP servers have been automatically blocked by request from the server:
+'<% translate("The following NTP servers have been automatically blocked by request from the server"); %>:'
 <b id='ntpkiss-ip'></b>
 <div>
-	<input type='button' value='Clear' onclick='save(1)'>
+	<input type='button' value='<% translate("Clear"); %>' onclick='save(1)'>
 </div>
 </div>
 
@@ -289,8 +289,8 @@ The following NTP servers have been automatically blocked by request from the se
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save(0)'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save(0)'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='reloadPage();'>
 </td></tr>
 </table>
 </form>

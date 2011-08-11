@@ -10,7 +10,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Admin: SNMP</title>
+<title>[<% ident(); %>] <% translate("Admin"); %>: <% translate("SNMP"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='<% nv('web_css'); %>.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -61,12 +61,12 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 <div class='title'>Tomato</div>
-<div class='version'>Version <% version(); %></div>
+<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
 <div id='ident'><% ident(); %></div>
-<div class='section-title'>SNMP Settings</div>
+<div class='section-title'><% translate("SNMP Settings"); %></div>
 <div class='section' id='config-section'>
 <form id='_fom' method='post' action='tomato.cgi'>
 <input type='hidden' name='_nextpage' value='admin-snmp.asp'>
@@ -75,10 +75,10 @@ function init()
 
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Enable SNMP', name: 'f_snmp_enable', type: 'checkbox', value: nvram.snmp_enable == '1' },
-	{ title: 'Location', indent: 2, name: 'snmp_location', type: 'text', maxlen: 20, size: 25, value: nvram.snmp_location },
-	{ title: 'Contact', indent: 2, name: 'snmp_contact', type: 'text', maxlen: 20, size: 25, value: nvram.snmp_contact },
-	{ title: 'RO Community', indent: 2, name: 'snmp_ro', type: 'text', maxlen: 20, size: 25, value: nvram.snmp_ro }
+	{ title: '<% translate("Enable SNMP"); %>', name: 'f_snmp_enable', type: 'checkbox', value: nvram.snmp_enable == '1' },
+	{ title: '<% translate("Location"); %>', indent: 2, name: 'snmp_location', type: 'text', maxlen: 20, size: 25, value: nvram.snmp_location },
+	{ title: '<% translate("Contact"); %>', indent: 2, name: 'snmp_contact', type: 'text', maxlen: 20, size: 25, value: nvram.snmp_contact },
+	{ title: '<% translate("RO Community"); %>', indent: 2, name: 'snmp_ro', type: 'text', maxlen: 20, size: 25, value: nvram.snmp_ro }
 ]);
 </script>
 </div>
@@ -88,8 +88,8 @@ createFieldTable('', [
 <tr><td id='footer' colspan=2>
  <form>
  <span id='footer-msg'></span>
- <input type='button' value='Save' id='save-button' onclick='save()'>
- <input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
+ <input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+ <input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='javascript:reloadPage();'>
  </form>
 </div>
 </td></tr>

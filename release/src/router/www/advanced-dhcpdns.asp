@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Advanced: DHCP / DNS</title>
+<title>[<% ident(); %>] <% translate("Advanced"); %>: <% translate("DHCP / DNS"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -97,7 +97,7 @@ function save()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -116,35 +116,35 @@ function save()
 <input type='hidden' name='dns_intcpt'>
 <input type='hidden' name='dhcpc_minpkt'>
 
-<div class='section-title'>DHCP / DNS Server (LAN)</div>
+<div class='section-title'><% translate("DHCP / DNS Server"); %> (LAN)</div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Use internal DNS', name: 'f_dhcpd_dmdns', type: 'checkbox', value: nvram.dhcpd_dmdns == '1' },
-	{ title: 'Use received DNS with user-entered DNS', name: 'f_dns_addget', type: 'checkbox', value: nvram.dns_addget == '1' },
-	{ title: 'Prevent DNS-rebind attacks', name: 'f_dns_norebind', type: 'checkbox', value: nvram.dns_norebind == '1' },
-	{ title: 'Intercept DNS port<br>(UDP 53)', name: 'f_dns_intcpt', type: 'checkbox', value: nvram.dns_intcpt == '1' },
-	{ title: 'Use user-entered gateway if WAN is disabled', name: 'f_dhcpd_gwmode', type: 'checkbox', value: nvram.dhcpd_gwmode == '1' },
-	{ title: 'Maximum active DHCP leases', name: 'dhcpd_lmax', type: 'text', maxlen: 5, size: 8, value: nvram.dhcpd_lmax },
-	{ title: 'Static lease time', multi: [
-		{ name: 'f_dhcpd_sltsel', type: 'select', options: [[0,'Same as normal lease time'],[-1,'"Infinite"'],[1,'Custom']],
+	{ title: '<% translate("Use internal DNS"); %>', name: 'f_dhcpd_dmdns', type: 'checkbox', value: nvram.dhcpd_dmdns == '1' },
+	{ title: '<% translate("Use received DNS with user-entered DNS"); %>', name: 'f_dns_addget', type: 'checkbox', value: nvram.dns_addget == '1' },
+	{ title: '<% translate("Prevent DNS-rebind attacks"); %>', name: 'f_dns_norebind', type: 'checkbox', value: nvram.dns_norebind == '1' },
+	{ title: '<% translate("Intercept DNS port"); %><br>(UDP 53)', name: 'f_dns_intcpt', type: 'checkbox', value: nvram.dns_intcpt == '1' },
+	{ title: '<% translate("Use user-entered gateway if WAN is disabled"); %>', name: 'f_dhcpd_gwmode', type: 'checkbox', value: nvram.dhcpd_gwmode == '1' },
+	{ title: '<% translate("Maximum active DHCP leases"); %>', name: 'dhcpd_lmax', type: 'text', maxlen: 5, size: 8, value: nvram.dhcpd_lmax },
+	{ title: '<% translate("Static lease time"); %>', multi: [
+		{ name: 'f_dhcpd_sltsel', type: 'select', options: [[0,'<% translate("Same as normal lease time"); %>'],[-1,'<% translate("Infinite"); %>'],[1,'<% translate("Custom"); %>']],
 			value: (nvram.dhcpd_slt < 1) ? nvram.dhcpd_slt : 1 },
-		{ name: 'f_dhcpd_slt', type: 'text', maxlen: 5, size: 8, prefix: '<span id="_dhcpd_sltman"> ', suffix: ' <i>(minutes)</i></span>',
+		{ name: 'f_dhcpd_slt', type: 'text', maxlen: 5, size: 8, prefix: '<span id="_dhcpd_sltman"> ', suffix: ' <i>(<% translate("minutes"); %>)</i></span>',
 			value: (nvram.dhcpd_slt >= 1) ? nvram.dhcpd_slt : 3600 } ] },
-	{ title: '<a href="http://www.thekelleys.org.uk/" target="_new">Dnsmasq</a><br>Custom configuration', name: 'dnsmasq_custom', type: 'textarea', value: nvram.dnsmasq_custom }
+	{ title: '<a href="http://www.thekelleys.org.uk/" target="_new">Dnsmasq</a><br><% translate("Custom configuration"); %>', name: 'dnsmasq_custom', type: 'textarea', value: nvram.dnsmasq_custom }
 ]);
 </script>
 <br>
-Note: The file /etc/dnsmasq.custom is also added to the end of Dnsmasq's configuration file if it exists.
+<% translate("Note"); %>: <% translate("The file /etc/dnsmasq.custom is also added to the end of Dnsmasq's configuration file if it exists"); %>.
 </div>
 <br>
 
-<div class='section-title'>DHCP Client (WAN)</div>
+<div class='section-title'><% translate("DHCP Client"); %> (WAN)</div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'DHCPC Options', name: 'dhcpc_custom', type: 'text', maxlen: 80, size: 34, value: nvram.dhcpc_custom },
-	{ title: 'Reduce packet size', name: 'f_dhcpc_minpkt', type: 'checkbox', value: nvram.dhcpc_minpkt == '1' }
+	{ title: '<% translate("DHCPC Options"); %>', name: 'dhcpc_custom', type: 'text', maxlen: 80, size: 34, value: nvram.dhcpc_custom },
+	{ title: '<% translate("Reduce packet size"); %>', name: 'f_dhcpc_minpkt', type: 'checkbox', value: nvram.dhcpc_minpkt == '1' }
 ]);
 </script>
 </div>
@@ -155,8 +155,8 @@ createFieldTable('', [
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='javascript:reloadPage();'>
 </td></tr>
 </table>
 </form>

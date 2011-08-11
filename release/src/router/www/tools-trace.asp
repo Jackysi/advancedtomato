@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Tools: Trace</title>
+<title>[<% ident(); %>] <% translate("Tools"); %>: <% translate("Trace"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -46,7 +46,7 @@ var tracedata = '';
 var tg = new TomatoGrid();
 tg.setup = function() {
 	this.init('ttr-grid');
-	this.headerSet(['Hop', 'Address', 'Min (ms)', 'Max (ms)', 'Avg (ms)', '+/- (ms)']);
+	this.headerSet(['<% translate("Hop"); %>', '<% translate("Address"); %>', '<% translate("Min"); %> (ms)', '<% translate("Max"); %> (ms)', '<% translate("Avg"); %> (ms)', '+/- (ms)']);
 }
 tg.populate = function() {
 	var seq = 1;
@@ -122,7 +122,7 @@ function verifyFields(focused, quiet)
 	e = E('_f_addr');
 	s = e.value.trim();
 	if (!s.match(/^[\w\.-]+$/)) {
-		ferror.set(e, 'Invalid address', quiet);
+		ferror.set(e, '<% translate("Invalid address"); %>', quiet);
 		return 0;
 	}
 	ferror.clear(e);
@@ -190,7 +190,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -198,20 +198,20 @@ function init()
 
 <!-- / / / -->
 
-<div class='section-title'>Traceroute</div>
+<div class='section-title'><% translate("Traceroute"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Address', name: 'f_addr', type: 'text', maxlen: 64, size: 32, value: '', suffix: ' <input type="button" value="Trace" onclick="trace()" id="traceb">' },
-	{ title: 'Maximum Hops', name: 'f_hops', type: 'text', maxlen: 2, size: 4, value: '20' },
-	{ title: 'Maximum Wait Time', name: 'f_wait', type: 'text', maxlen: 2, size: 4, value: '3', suffix: ' <small>(seconds per hop)</small>' }
+	{ title: '<% translate("Address"); %>', name: 'f_addr', type: 'text', maxlen: 64, size: 32, value: '', suffix: ' <input type="button" value="<% translate("Trace"); %>" onclick="trace()" id="traceb">' },
+	{ title: '<% translate("Maximum Hops"); %>', name: 'f_hops', type: 'text', maxlen: 2, size: 4, value: '20' },
+	{ title: '<% translate("Maximum Wait Time"); %>', name: 'f_wait', type: 'text', maxlen: 2, size: 4, value: '3', suffix: ' <small>(<% translate("seconds per hop"); %>)</small>' }
 ]);
 </script>
 </div>
 
 <div style='visibility:hidden' id='trace-error'></div>
 
-<div style='visibility:hidden;text-align:right' id='wait'>Please wait... <img src='spin.gif' style='vertical-align:top'></div>
+<div style='visibility:hidden;text-align:right' id='wait'><% translate("Please wait"); %>... <img src='spin.gif' style='vertical-align:top'></div>
 
 <table id='ttr-grid' class='tomato-grid' cellspacing=1></table>
 

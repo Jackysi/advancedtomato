@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Edit Access Restrictions</title>
+<title>[<% ident(); %>] <% translate("Edit Access Restrictions"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -67,7 +67,7 @@ textarea {
 // {enable}|{begin_mins}|{end_mins}|{dow}|{comp[<comp]}|{rules<rules[...]>}|{http[ ...]}|{http_file}|{desc}
 //	<% rrule(); %>
 if ((rule = rrule.match(/^(\d+)\|(-?\d+)\|(-?\d+)\|(\d+)\|(.*?)\|(.*?)\|([^|]*?)\|(\d+)\|(.*)$/m)) == null) {
-	rule = ['', 1, 1380, 240, 31, '', '', '', 0, 'New Rule ' + (rruleN + 1)];
+	rule = ['', 1, 1380, 240, 31, '', '', '', 0, '<% translate("New Rule"); %> ' + (rruleN + 1)];
 }
 rule[2] *= 1;
 rule[3] *= 1;
@@ -78,10 +78,10 @@ rule[8] *= 1;
 layer7.sort();
 for (i = 0; i < layer7.length; ++i)
 	layer7[i] = [layer7[i],layer7[i]];
-layer7.unshift(['', 'Layer 7 (disabled)']);
+layer7.unshift(['', 'Layer 7 (<% translate("disabled"); %>)']);
 
 var ipp2p = [
-	[0,'IPP2P (disabled)'],[0xFFFF,'All IPP2P Filters'],[1,'AppleJuice'],[2,'Ares'],[4,'BitTorrent'],[8,'Direct Connect'],
+	[0,'IPP2P (<% translate("disabled"); %>)'],[0xFFFF,'<% translate("All IPP2P Filters"); %>'],[1,'AppleJuice'],[2,'Ares'],[4,'BitTorrent'],[8,'Direct Connect'],
 	[16,'eDonkey'],[32,'Gnutella'],[64,'Kazaa'],[128,'Mute'],[256,'SoulSeek'],[512,'Waste'],[1024,'WinMX'],[2048,'XDCC']];
 
 var dowNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -95,7 +95,7 @@ cg.verifyFields = function(row, quiet) {
 	if (v_mac(f, true)) return true;
 	if (_v_iptaddr(f, true, false, true, true)) return true;
 
-	ferror.set(f, 'Invalid MAC address or IP address/range', quiet);
+	ferror.set(f, '<% translate("Invalid MAC address or IP address/range"); %>', quiet);
 	return false;
 }
 
@@ -103,7 +103,7 @@ cg.setup = function() {
 	var a, i, count, ex;
 
 	this.init('res-comp-grid', 'sort', 140, [ { type: 'text', maxlen: 32 } ] );
-	this.headerSet(['MAC / IP Address']);
+	this.headerSet(['<% translate("MAC / IP Address"); %>']);
 	this.showNewEditor();
 	this.resetNewEditor();
 
@@ -144,7 +144,7 @@ bpg.verifyFields = function(row, quiet) {
 	if ((f[1].selectedIndex != 0) && (!v_iptport(f[2], quiet))) return 0;
 
 	if ((f[1].selectedIndex == 0) && (f[3].selectedIndex == 0) && (f[4].selectedIndex == 0) && (f[5].selectedIndex == 0)) {
-		var m = 'Please enter a specific address or port, or select an application match';
+		var m = '<% translate("Please enter a specific address or port, or select an application match"); %>';
 		ferror.set(f[3], m, 1);
 		ferror.set(f[4], m, 1);
 		ferror.set(f[5], m, 1);
@@ -235,7 +235,7 @@ bpg.enDiFields = function(row) {
 bpg.setup = function() {
 	var a, i, r, count, protos;
 
-	protos = [[-2, 'Any Protocol'],[-1,'TCP/UDP'],[6,'TCP'],[17,'UDP']];
+	protos = [[-2, '<% translate("Any Protocol"); %>'],[-1,'TCP/UDP'],[6,'TCP'],[17,'UDP']];
 	for (i = 0; i < 256; ++i) {
 		if ((i != 6) && (i != 17)) protos.push([i, protocols[i] || i]);
 	}
@@ -243,15 +243,15 @@ bpg.setup = function() {
 	this.init('res-bp-grid', 'sort', 140, [ { multi: [
 		{ type: 'select', prefix: '<div class="box1">', suffix: '</div>', options: protos },
 		{ type: 'select', prefix: '<div class="box2">', suffix: '</div>',
-			options: [['a','Any Port'],['d','Dst Port'],['s','Src Port'],['x','Src or Dst']] },
+			options: [['a','<% translate("Any Port"); %>'],['d','<% translate("Dst Port"); %>'],['s','<% translate("Src Port"); %>'],['x','<% translate("Src or Dst"); %>']] },
 		{ type: 'text', prefix: '<div class="box3">', suffix: '</div>', maxlen: 32 },
 		{ type: 'select', prefix: '<div class="box4">', suffix: '</div>', options: ipp2p },
 		{ type: 'select', prefix: '<div class="box5">', suffix: '</div>', options: layer7 },
 		{ type: 'select', prefix: '<div class="box6">', suffix: '</div>',
-			options: [[0,'Any Address'],[1,'Dst IP'],[2,'Src IP']] },
+			options: [[0,'<% translate("Any Address"); %>'],[1,'Dst IP'],[2,'Src IP']] },
 		{ type: 'text', prefix: '<div class="box7">', suffix: '</div>', maxlen: 64 }
 		] } ] );
-	this.headerSet(['Rules']);
+	this.headerSet(['<% translate("Rules"); %>']);
 	this.showNewEditor();
 	this.resetNewEditor();
 	count = 0;
@@ -312,7 +312,7 @@ function cancel()
 
 function remove()
 {
-	if (!confirm('Delete this rule?')) return;
+	if (!confirm('<% translate("Delete this rule"); %>?')) return;
 
 	E('delete-button').disabled = 1;
 
@@ -351,7 +351,7 @@ function save()
 		if (e.value != 0) {
 			a = cg.getAllData();
 			if (a.length == 0) {
-				ferror.set(e, 'No MAC or IP address was specified', 0);
+				ferror.set(e, '<% translate("No MAC or IP address was specified"); %>', 0);
 				return;
 			}
 			if (e.value == 2) a.unshift('!');
@@ -386,7 +386,7 @@ function save()
 			data.push(n);
 			
 			if (((check + n) == 0) && (data[0] == 1)) {
-				alert('Please specify what items should be blocked.');
+				alert('<% translate("Please specify what items should be blocked"); %>.');
 				return;
 			}
 		}
@@ -400,7 +400,7 @@ function save()
 	data = data.join('|');
 
 	if (data.length >= 2048) {
-		alert('This rule is too big. Please reduce by ' + (data.length - 2048) + ' characters.');
+		alert('<% translate("This rule is too big. Please reduce by"); %> ' + (data.length - 2048) + ' <% translate("characters"); %>.');
 		return;
 	}
 
@@ -435,7 +435,7 @@ function earlyInit()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version() %></div>
+	<div class='version'><% translate("Version"); %> <% version() %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -447,7 +447,7 @@ function earlyInit()
 <input type='hidden' name='_service' value='restrict-restart'>
 <input type='hidden' name='rruleNN' id='_rrule' value=''>
 
-<div class='section-title'>Access Restriction</div>
+<div class='section-title'><% translate("Access Restriction"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 W('<div style="float:right"><small>'+ 'ID: ' + rruleN.pad(2) + '</small>&nbsp;</div><br>');
@@ -455,30 +455,30 @@ tm = [];
 for (i = 0; i < 1440; i += 15) tm.push([i, timeString(i)]);
 
 createFieldTable('', [
-	{ title: 'Enabled', name: 'f_enabled', type: 'checkbox', value: rule[1] == '1' },
-	{ title: 'Description', name: 'f_desc', type: 'text', maxlen: 32, size: 35, value: rule[9] },
-	{ title: 'Schedule', multi: [
-		{ name: 'f_sched_allday', type: 'checkbox', suffix: ' All Day &nbsp; ', value: (rule[2] < 0) || (rule[3] < 0) },
-		{ name: 'f_sched_everyday', type: 'checkbox', suffix: ' Everyday', value: (rule[4] & 0x7F) == 0x7F } ] },
-	{ title: 'Time', indent: 2, multi: [
+	{ title: '<% translate("Enabled"); %>', name: 'f_enabled', type: 'checkbox', value: rule[1] == '1' },
+	{ title: '<% translate("Description"); %>', name: 'f_desc', type: 'text', maxlen: 32, size: 35, value: rule[9] },
+	{ title: '<% translate("Schedule"); %>', multi: [
+		{ name: 'f_sched_allday', type: 'checkbox', suffix: ' <% translate("All Day"); %> &nbsp; ', value: (rule[2] < 0) || (rule[3] < 0) },
+		{ name: 'f_sched_everyday', type: 'checkbox', suffix: ' <% translate("Everyday"); %>', value: (rule[4] & 0x7F) == 0x7F } ] },
+	{ title: '<% translate("Time"); %>', indent: 2, multi: [
 		{ name: 'f_sched_begin', type: 'select', options: tm, value: (rule[2] < 0) ? 0 : rule[2], suffix: ' - ' },
 		{ name: 'f_sched_end', type: 'select', options: tm, value: (rule[3] < 0) ? 0 : rule[3] } ] },
-	{ title: 'Days', indent: 2, multi: [
-		{ name: 'f_sched_sun', type: 'checkbox', suffix: ' Sun &nbsp; ', value: (rule[4] & 1) },
-		{ name: 'f_sched_mon', type: 'checkbox', suffix: ' Mon &nbsp; ', value: (rule[4] & (1 << 1)) },
-		{ name: 'f_sched_tue', type: 'checkbox', suffix: ' Tue &nbsp; ', value: (rule[4] & (1 << 2)) },
-		{ name: 'f_sched_wed', type: 'checkbox', suffix: ' Wed &nbsp; ', value: (rule[4] & (1 << 3)) },
-		{ name: 'f_sched_thu', type: 'checkbox', suffix: ' Thu &nbsp; ', value: (rule[4] & (1 << 4)) },
-		{ name: 'f_sched_fri', type: 'checkbox', suffix: ' Fri &nbsp; ', value: (rule[4] & (1 << 5)) },
-		{ name: 'f_sched_sat', type: 'checkbox', suffix: ' Sat', value: (rule[4] & (1 << 6)) } ] },
-	{ title: 'Type', name: 'f_type', id: 'rt_norm', type: 'radio', suffix: ' Normal Access Restriction', value: (rule[5] != '~') },
-	{ title: '', name: 'f_type', id: 'rt_wl', type: 'radio', suffix: ' Disable Wireless', value: (rule[5] == '~') },
-	{ title: 'Applies To', name: 'f_comp_all', type: 'select', options: [[0,'All Computers / Devices'],[1,'The Following...'],[2,'All Except...']], value: 0 },
+	{ title: '<% translate("Days"); %>', indent: 2, multi: [
+		{ name: 'f_sched_sun', type: 'checkbox', suffix: ' <% translate("Sun"); %> &nbsp; ', value: (rule[4] & 1) },
+		{ name: 'f_sched_mon', type: 'checkbox', suffix: ' <% translate("Mon"); %> &nbsp; ', value: (rule[4] & (1 << 1)) },
+		{ name: 'f_sched_tue', type: 'checkbox', suffix: ' <% translate("Tue"); %> &nbsp; ', value: (rule[4] & (1 << 2)) },
+		{ name: 'f_sched_wed', type: 'checkbox', suffix: ' <% translate("Wed"); %> &nbsp; ', value: (rule[4] & (1 << 3)) },
+		{ name: 'f_sched_thu', type: 'checkbox', suffix: ' <% translate("Thu"); %> &nbsp; ', value: (rule[4] & (1 << 4)) },
+		{ name: 'f_sched_fri', type: 'checkbox', suffix: ' <% translate("Fri"); %> &nbsp; ', value: (rule[4] & (1 << 5)) },
+		{ name: 'f_sched_sat', type: 'checkbox', suffix: ' <% translate("Sat"); %>', value: (rule[4] & (1 << 6)) } ] },
+	{ title: 'Type', name: 'f_type', id: 'rt_norm', type: 'radio', suffix: ' <% translate("Normal Access Restriction"); %>', value: (rule[5] != '~') },
+	{ title: '', name: 'f_type', id: 'rt_wl', type: 'radio', suffix: ' <% translate("Disable Wireless"); %>', value: (rule[5] == '~') },
+	{ title: '<% translate("Applies To"); %>', name: 'f_comp_all', type: 'select', options: [[0,'<% translate("All Computers / Devices"); %>'],[1,'<% translate("The Following"); %>...'],[2,'<% translate("All Except"); %>...']], value: 0 },
 	{ title: '&nbsp;', text: '<table class="tomato-grid" cellspacing=1 id="res-comp-grid"></table>' },
-	{ title: 'Blocked Resources', name: 'f_block_all', type: 'checkbox', suffix: ' Block All Internet Access', value: 0 },
-	{ title: 'Port /<br>Application', indent: 2, text: '<table class="tomato-grid" cellspacing=1 id="res-bp-grid"></table>' },
-	{ title: 'HTTP Request', indent: 2, name: 'f_block_http', type: 'textarea', value: rule[7] },
-	{ title: 'HTTP Requested Files', indent: 2, multi: [
+	{ title: '<% translate("Blocked Resources"); %>', name: 'f_block_all', type: 'checkbox', suffix: ' <% translate("Block All Internet Access"); %>', value: 0 },
+	{ title: '<% translate("Port"); %> /<br><% translate("Application"); %>', indent: 2, text: '<table class="tomato-grid" cellspacing=1 id="res-bp-grid"></table>' },
+	{ title: '<% translate("HTTP Request"); %>', indent: 2, name: 'f_block_http', type: 'textarea', value: rule[7] },
+	{ title: '<% translate("HTTP Requested Files"); %>', indent: 2, multi: [
 		{ name: 'f_activex', type: 'checkbox', suffix: ' ActiveX (ocx, cab) &nbsp;&nbsp;', value: (rule[8] & 1) },
 		{ name: 'f_flash', type: 'checkbox', suffix: ' Flash (swf) &nbsp;&nbsp;', value: (rule[8] & 2) },
 		{ name: 'f_java', type: 'checkbox', suffix: ' Java (class, jar) &nbsp;&nbsp;', value: (rule[8] & 4) } ] }
@@ -491,10 +491,10 @@ createFieldTable('', [
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Delete...' id='delete-button' onclick='remove()'>
+	<input type='button' value='<% translate("Delete"); %>...' id='delete-button' onclick='remove()'>
 	&nbsp;
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='cancel()'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='cancel()'>
 </td></tr>
 </table>
 <br><br>

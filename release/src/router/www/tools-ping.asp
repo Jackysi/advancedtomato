@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Tools: Ping</title>
+<title>[<% ident(); %>] <% translate("Tools"); %>: <% translate("Ping"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -46,7 +46,7 @@ var pingdata = '';
 var pg = new TomatoGrid();
 pg.setup = function() {
 	this.init('tp-grid');
-	this.headerSet(['Seq', 'Address', 'RX Bytes', 'TTL', 'RTT (ms)', '+/- (ms)']);
+	this.headerSet(['<% translate("Seq"); %>', '<% translate("Address"); %>', '<% translate("RX Bytes"); %>', 'TTL', 'RTT (ms)', '+/- (ms)']);
 }
 pg.populate = function()
 {
@@ -102,10 +102,10 @@ REMOVE-END */
 			resolv[RegExp.$2] = RegExp.$1;
 		}
 		else if (buf[i].match(/^(\d+) packets.+, (\d+) packets.+, (\d+%)/)) {
-			stats = '   Packets: ' + RegExp.$1 + ' transmitted, ' + RegExp.$2 + ' received, ' + RegExp.$3 + ' lost<br>';
+			stats = '   <% translate("Packets"); %>: ' + RegExp.$1 + ' <% translate("transmitted"); %>, ' + RegExp.$2 + ' <% translate("received"); %>, ' + RegExp.$3 + ' <% translate("lost"); %><br>';
 		}
 		else if (buf[i].match(/^round.+ (\d+\.\d+)\/(\d+\.\d+)\/(\d+\.\d+)/)) {
-			stats = 'Round-Trip: ' + RegExp.$1 + ' min, ' + RegExp.$2 + ' avg, ' + RegExp.$3 + ' max (ms)<br>' + stats;
+			stats = '<% translate("Round-Trip"); %>: ' + RegExp.$1 + ' <% translate("min"); %>, ' + RegExp.$2 + ' <% translate("avg"); %>, ' + RegExp.$3 + ' <% translate("max"); %> (ms)<br>' + stats;
 		}
 	}
 
@@ -123,7 +123,7 @@ function verifyFields(focused, quiet)
 	e = E('_f_addr');
 	s = e.value.trim();
 	if (!s.match(/^[\w\.-]+$/)) {
-		ferror.set(e, 'Invalid address', quiet);
+		ferror.set(e, '<% translate("Invalid address"); %>', quiet);
 		return 0;
 	}
 	ferror.clear(e);
@@ -191,7 +191,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -199,19 +199,19 @@ function init()
 
 <!-- / / / -->
 
-<div class='section-title'>Ping</div>
+<div class='section-title'><% translate("Ping"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Address', name: 'f_addr', type: 'text', maxlen: 64, size: 32, value: '',
-		suffix: ' <input type="button" value="Ping" onclick="ping()" id="pingb">' },
-	{ title: 'Ping Count', name: 'f_count', type: 'text', maxlen: 2, size: 7, value: '5' },
-	{ title: 'Packet Size', name: 'f_size', type: 'text', maxlen: 5, size: 7, value: '56', suffix: ' <small>(bytes)</small>' }
+	{ title: '<% translate("Address"); %>', name: 'f_addr', type: 'text', maxlen: 64, size: 32, value: '',
+		suffix: ' <input type="button" value="<% translate("Ping"); %>" onclick="ping()" id="pingb">' },
+	{ title: '<% translate("Ping Count"); %>', name: 'f_count', type: 'text', maxlen: 2, size: 7, value: '5' },
+	{ title: '<% translate("Packet Size"); %>', name: 'f_size', type: 'text', maxlen: 5, size: 7, value: '56', suffix: ' <small>(<% translate("bytes"); %>)</small>' }
 ]);
 </script>
 </div>
 
-<div style="visibility:hidden;text-align:right" id="wait">Please wait... <img src='spin.gif' style="vertical-align:top"></div>
+<div style="visibility:hidden;text-align:right" id="wait"><% translate("Please wait"); %>... <img src='spin.gif' style="vertical-align:top"></div>
 
 <table id='tp-grid' class='tomato-grid' cellspacing=1></table>
 <pre id='stats'></pre>

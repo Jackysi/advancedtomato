@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Forwarding: UPnP / NAT-PMP</title>
+<title>[<% ident(); %>] <% translate("Forwarding"); %>: UPnP / NAT-PMP</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
@@ -74,7 +74,7 @@ ug.rpDel = function(e) {
 
 ug.setup = function() {
 	this.init('upnp-grid', 'sort delete');
-	this.headerSet(['External', 'Internal', 'Internal Address', 'Protocol', 'Description']);
+	this.headerSet(['<% translate("External"); %>', '<% translate("Internal"); %>', '<% translate("Internal Address"); %>', '<% translate("Protocol"); %>', '<% translate("Description"); %>']);
 	ug.populate();
 }
 
@@ -90,11 +90,11 @@ ug.populate = function() {
 
 			if (!r[0]) {
 				for (j = 0; j < 5; ++j) {
-					elem.addClass(row.cells[j], 'disabled');
+					elem.addClass(row.cells[j], '<% translate("disabled"); %>');
 				}
 			}
 			for (j = 0; j < 5; ++j) {
-				row.cells[j].title = 'Click to delete';
+				row.cells[j].title = '<% translate("Click to delete"); %>';
 			}
 		}
 		this.sort(2);
@@ -104,7 +104,7 @@ ug.populate = function() {
 
 function deleteAll()
 {
-	if (!confirm('Delete all entries?')) return;
+	if (!confirm('<% translate("Delete all entries"); %>?')) return;
 	submitDelete('*', '0');
 }
 
@@ -195,7 +195,7 @@ function submit_complete()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -218,35 +218,37 @@ REMOVE-END */
 <input type='hidden' name='upnp_lan2'>
 <input type='hidden' name='upnp_lan3'>
 
-<div class='section-title'>Forwarded Ports</div>
+<div class='section-title'><% translate("Forwarded Ports"); %></div>
 <div class='section'>
 	<table id='upnp-grid' class='tomato-grid'></table>
-	<div style='width: 100%; text-align: right'><input type='button' value='Delete All' onclick='deleteAll()' id='upnp-delete-all'> <input type='button' value='Refresh' onclick='javascript:reloadPage();'></div>
+	<div style='width: 100%; text-align: right'><input type='button' value='<% translate("Delete All"); %>' onclick='deleteAll()' id='upnp-delete-all'> <input type='button' value='<% translate("Refresh"); %>' onclick='javascript:reloadPage();'></div>
 </div>
 
-<div class='section-title'>Settings</div>
+<div class='section-title'><% translate("Settings"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Enable UPnP', name: 'f_enable_upnp', type: 'checkbox', value: (nvram.upnp_enable & 1) },
-	{ title: 'Enable NAT-PMP', name: 'f_enable_natpmp', type: 'checkbox', value: (nvram.upnp_enable & 2) },
+	{ title: '<% translate("Enable"); %> UPnP', name: 'f_enable_upnp', type: 'checkbox', value: (nvram.upnp_enable & 1) },
+	{ title: '<% translate("Enable"); %> NAT-PMP', name: 'f_enable_natpmp', type: 'checkbox', value: (nvram.upnp_enable & 2) },
 /* REMOVE-BEGIN
 	!!TB - additional miniupnp settings
 REMOVE-END */
-	{ title: 'Inactive Rules Cleaning', name: 'f_upnp_clean', type: 'checkbox', value: (nvram.upnp_clean == '1') },
-	{ title: 'Cleaning Interval', indent: 2, name: 'upnp_clean_interval', type: 'text', maxlen: 5, size: 7,
-		suffix: ' <small>seconds</small>', value: nvram.upnp_clean_interval },
-	{ title: 'Cleaning Threshold', indent: 2, name: 'upnp_clean_threshold', type: 'text', maxlen: 4, size: 7,
-		suffix: ' <small>redirections</small>', value: nvram.upnp_clean_threshold },
-	{ title: 'Secure Mode', name: 'f_upnp_secure', type: 'checkbox',
-		suffix: ' <small>(when enabled, UPnP clients are allowed to add mappings only to their IP)</small>',
+	{ title: '<% translate("Inactive Rules Cleaning"); %>', name: 'f_upnp_clean', type: 'checkbox', value: (nvram.upnp_clean == '1') },
+	{ title: '<% translate("Cleaning Interval"); %>', indent: 2, name: 'upnp_clean_interval', type: 'text', maxlen: 5, size: 7,
+		suffix: ' <small><% translate("seconds"); %></small>', value: nvram.upnp_clean_interval },
+	{ title: '<% translate("Cleaning Threshold"); %>', indent: 2, name: 'upnp_clean_threshold', type: 'text', maxlen: 4, size: 7,
+		suffix: ' <small><% translate("redirections"); %></small>', value: nvram.upnp_clean_threshold },
+	{ title: '<% translate("Secure Mode"); %>', name: 'f_upnp_secure', type: 'checkbox',
+		suffix: ' <small>(<% translate("when enabled, UPnP clients are allowed to add mappings only to their IP"); %>)</small>',
 		value: (nvram.upnp_secure == '1') },
-	{ title: 'Listen on' },
+	null,
+	{ title: '<% translate("Listen on"); %>' },
 	{ title: 'LAN', indent: 2, name: 'f_upnp_lan', type: 'checkbox', value: (nvram.upnp_lan == '1') },
 	{ title: 'LAN1', indent: 2, name: 'f_upnp_lan1', type: 'checkbox', value: (nvram.upnp_lan1 == '1') },
 	{ title: 'LAN2', indent: 2, name: 'f_upnp_lan2', type: 'checkbox', value: (nvram.upnp_lan2 == '1') },
 	{ title: 'LAN3', indent: 2, name: 'f_upnp_lan3', type: 'checkbox', value: (nvram.upnp_lan3 == '1') },
-	{ title: 'Show In My Network Places',  name: 'f_upnp_mnp',  type: 'checkbox',  value: (nvram.upnp_mnp == '1')}
+	null,
+	{ title: '<% translate("Show In My Network Places"); %>',  name: 'f_upnp_mnp',  type: 'checkbox',  value: (nvram.upnp_mnp == '1') }
 ]);
 </script>
 </div>
@@ -257,8 +259,8 @@ REMOVE-END */
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='javascript:reloadPage();'>
 </td></tr>
 </table>
 </form>

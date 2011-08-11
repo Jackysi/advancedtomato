@@ -168,6 +168,10 @@ extern void wi_uploadsplash(char *url, int len, char *boundary);
 extern void wo_uploadsplash(char *url);
 #endif
 
+// translate.c
+extern void asp_translate(int argc, char **argv);
+extern void asp_jstranslate(int argc, char **argv);
+
 #if TOMATO_SL
 // share.c
 extern void asp_sharelist(int argc, char **argv);

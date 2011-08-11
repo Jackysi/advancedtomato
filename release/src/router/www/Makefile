@@ -9,11 +9,11 @@ install:
 	rm -rf $(INSTALLDIR)/www
 	mkdir -p $(INSTALLDIR)/www
 
-	cp *.gif *.png *.ico *.html robots.txt $(INSTALLDIR)/www
+	cp *.gif *.png *.ico *.html *.txt $(INSTALLDIR)/www
 
 # squish some of the files by trimming whitespace...
 
-	for F in $(wildcard *.js *.jsx); do \
+	for F in $(wildcard *.js *.jsx tomato.asp); do \
 		sed '/^\/\*\s*$$/,/\*\//! { s/^\s\+//; s/\s\+$$//; /^\/\/ --\+\s*/d; /^$$/d }' < $$F > $(INSTALLDIR)/www/$$F; \
 	done
 
@@ -47,7 +47,7 @@ endif
 # Only include the CIFS pages if CIFS is configured in.
 ifneq ($(TCONFIG_CIFS),y)
 	rm -f $(INSTALLDIR)/www/admin-cifs.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/CIFS-BEGIN/,/CIFS-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/CIFS-BEGIN/,/CIFS-END/d"
 	sed -i $(INSTALLDIR)/www/admin-bwm.asp -e "/CIFS-BEGIN/,/CIFS-END/d"
 	sed -i $(INSTALLDIR)/www/nas-media.asp -e "/CIFS-BEGIN/,/CIFS-END/d"
 endif
@@ -55,7 +55,7 @@ endif
 # Only include the JFFS pages if JFFS is configured in.
 ifneq ($(TCONFIG_JFFS2),y)
 	rm -f $(INSTALLDIR)/www/admin-jffs2.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/JFFS2-BEGIN/,/JFFS2-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/JFFS2-BEGIN/,/JFFS2-END/d"
 	sed -i $(INSTALLDIR)/www/admin-bwm.asp -e "/JFFS2-BEGIN/,/JFFS2-END/d"
 	sed -i $(INSTALLDIR)/www/admin-upgrade.asp -e "/JFFS2-BEGIN/,/JFFS2-END/d"
 	sed -i $(INSTALLDIR)/www/nas-media.asp -e "/JFFS2-BEGIN/,/JFFS2-END/d"
@@ -87,17 +87,17 @@ endif
 # Only include the FTP pages if FTP Server is configured in.
 ifneq ($(TCONFIG_FTP),y)
 	rm -f $(INSTALLDIR)/www/nas-ftp.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/FTP-BEGIN/,/FTP-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/FTP-BEGIN/,/FTP-END/d"
 endif
 # Only include the Samba pages if Samba is configured in.
 ifneq ($(TCONFIG_SAMBASRV),y)
 	rm -f $(INSTALLDIR)/www/nas-samba.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/SAMBA-BEGIN/,/SAMBA-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/SAMBA-BEGIN/,/SAMBA-END/d"
 endif
 # Only include the Media Server pages if Media Server is configured in.
 ifneq ($(TCONFIG_MEDIA_SERVER),y)
 	rm -f $(INSTALLDIR)/www/nas-media.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/MEDIA-SRV-BEGIN/,/MEDIA-SRV-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/MEDIA-SRV-BEGIN/,/MEDIA-SRV-END/d"
 endif
 
 # Victek for RAF verion
@@ -105,7 +105,7 @@ endif
 ifneq ($(TCONFIG_NOCAT),y)
 	rm -f $(INSTALLDIR)/www/new-splashd.asp
 	rm -f $(INSTALLDIR)/www/splash.html
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/NOCAT-BEGIN/,/NOCAT-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/NOCAT-BEGIN/,/NOCAT-END/d"
 endif
 
 # Only include IPv6 options if IPv6 is configured in.
@@ -128,7 +128,7 @@ endif
 # Only include the Transmission pages if Transmission is configured in.
 ifneq ($(TCONFIG_BT),y)
 	rm -f $(INSTALLDIR)/www/nas-bittorrent.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/BT-BEGIN/,/BT-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/BT-BEGIN/,/BT-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/BT-BEGIN/,/BT-END/d"
 endif
 
@@ -136,7 +136,7 @@ endif
 # Only include the USB and NAS pages if USB Support is configured in.
 ifneq ($(TCONFIG_USB),y)
 	rm -f $(INSTALLDIR)/www/nas-*.*
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/USB-BEGIN/,/USB-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/USB-BEGIN/,/USB-END/d"
 	sed -i $(INSTALLDIR)/www/admin-buttons.asp -e "/USB-BEGIN/,/USB-END/d"
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/USB-BEGIN/,/USB-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/USB-BEGIN/,/USB-END/d"
@@ -148,20 +148,25 @@ endif
 
 
 
-ifeq ($(TOMATO_EXPERIMENTAL),1)
-	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp); do \
-		sed -e "s,<div class='title'>Tomato</div>,<div class='title'>Tomato <small><i>(beta)</i></small></div>," $$F > $$F.tmp; \
-		mv $$F.tmp $$F; \
-	done
-endif
+#ifeq ($(TOMATO_EXPERIMENTAL),1)
+#	cd $(INSTALLDIR)/www && \
+#	for F in $(wildcard *.asp); do \
+#		sed -e "s,<div class='title'>Tomato</div>,<div class='title'>Tomato <small><i>(beta)</i></small></div>," $$F > $$F.tmp; \
+#		mv $$F.tmp $$F; \
+#	done
+#endif
 
 	cd $(INSTALLDIR)/www && \
 	for F in $(wildcard *.asp); do \
-		sed -e "s,<div class='version'>Version <% version(); %></div>,<div class='version'>Version <% version(); %> RAF by shibby</div>," $$F > $$F.tmp; \
+		sed -e "s,<div class='version'><% translate("Version"); %> <% version(); %></div>,<div class='version'><% translate("Version"); %> <% version(); %> RAF by shibby</div>," $$F > $$F.tmp; \
 		mv $$F.tmp $$F; \
 	done
 
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp); do \
+		sed -e "s,<script type='text/javascript' src='tomato.js'></script>,<script type='text/javascript' src='tomato.asp'></script>," $$F > $$F.tmp; \
+		mv $$F.tmp $$F; \
+	done
 
 # Only include the vpn pages if OpenVPN is compiled in
 # Remove AES ciphers from the GUI if openssl doesn't have an AES directory
@@ -169,7 +174,7 @@ ifeq ($(TCONFIG_OPENVPN),y)
 	test -d ../openssl/crypto/aes || sed -i $(INSTALLDIR)/www/vpn.js -e "/AES-BEGIN/,/AES-END/d"
 else
 	rm -f $(INSTALLDIR)/www/vpn*
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/VPN-BEGIN/,/VPN-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/VPN-BEGIN/,/VPN-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/VPN-BEGIN/,/VPN-END/d"
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/VPN-BEGIN/,/VPN-END/d"
 endif
@@ -177,21 +182,21 @@ endif
 # Only include the nfs pages if NFS is compiled in
 ifneq ($(TCONFIG_NFS),y)
 	rm -f $(INSTALLDIR)/www/admin-nfs.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/NFS-BEGIN/,/NFS-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/NFS-BEGIN/,/NFS-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/NFS-BEGIN/,/NFS-END/d"
 endif
 
 # Only include the snmp pages if SNMP is compiled in
 ifneq ($(TCONFIG_SNMP),y)
 	rm -f $(INSTALLDIR)/www/admin-snmp.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/SNMP-BEGIN/,/SNMP-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/SNMP-BEGIN/,/SNMP-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/SNMP-BEGIN/,/SNMP-END/d"
 endif
 
 # Only include the cmon pages if CMON is compiled in
 ifneq ($(TCONFIG_CMON),y)
 	rm -f $(INSTALLDIR)/www/bwm-clientmon.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/CMON-BEGIN/,/CMON-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/CMON-BEGIN/,/CMON-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/CMON-BEGIN/,/CMON-END/d"
 	sed -i $(INSTALLDIR)/www/status-devices.asp -e "/CMON-BEGIN/,/CMON-END/d"
 endif
@@ -234,6 +239,6 @@ endif
 	chmod 0644 $(INSTALLDIR)/www/*
 
 # remove C-style comments from java files. All "control" comments have been processed by now.
-	for F in $(wildcard *.js *.jsx); do \
+	for F in $(wildcard *.js *.jsx tomato.asp); do \
 		[ -f $(INSTALLDIR)/www/$$F ] && $(TOP)/www/remcoms2.sh $(INSTALLDIR)/www/$$F c; \
 	done

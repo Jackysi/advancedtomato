@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Admin: Logging</title>
+<title>[<% ident(); %>] <% translate("Admin"); %>: <% translate("Logging"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -114,7 +114,7 @@ function save()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -136,7 +136,7 @@ function save()
 <script type='text/javascript'>
 </script>
 
-<div class='section-title'>Syslog</div>
+<div class='section-title'><% translate("Syslog"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 
@@ -150,41 +150,41 @@ if (nvram.log_mark >= 120) nvram.log_mark = 120;
 REMOVE-END */
 
 createFieldTable('', [
-	{ title: 'Log Internally', name: 'f_log_file', type: 'checkbox', value: nvram.log_file == 1 },
-	{ title: 'Custom Log File Path', multi: [
+	{ title: '<% translate("Log Internally"); %>', name: 'f_log_file', type: 'checkbox', value: nvram.log_file == 1 },
+	{ title: '<% translate("Custom Log File Path"); %>', multi: [
 		{ name: 'f_log_file_custom', type: 'checkbox', value: nvram.log_file_custom == 1, suffix: '  ' },
-		{ name: 'log_file_path', type: 'text', maxlen: 32, size: 20, value: nvram.log_file_path, suffix: ' <small>(make sure the directory exists and is writable)</small>' }
+		{ name: 'log_file_path', type: 'text', maxlen: 32, size: 20, value: nvram.log_file_path, suffix: ' <small>(<% translate("make sure the directory exists and is writable"); %>)</small>' }
 		] },
-	{ title: 'Log To Remote System', name: 'f_log_remote', type: 'checkbox', value: nvram.log_remote == 1 },
-	{ title: 'Host or IP Address / Port', indent: 2, multi: [
+	{ title: '<% translate("Log To Remote System"); %>', name: 'f_log_remote', type: 'checkbox', value: nvram.log_remote == 1 },
+	{ title: '<% translate("Host or IP Address / Port"); %>', indent: 2, multi: [
 		{ name: 'log_remoteip', type: 'text', maxlen: 15, size: 17, value: nvram.log_remoteip, suffix: ':' },
 		{ name: 'log_remoteport', type: 'text', maxlen: 5, size: 7, value: nvram.log_remoteport } ]},
-	{ title: 'Generate Marker', name: 'log_mark', type: 'select', options: [[0,'Disabled'],[30,'Every 30 Minutes'],[60,'Every 1 Hour'],[120,'Every 2 Hours'],[360,'Every 6 Hours'],[720,'Every 12 Hours'],[1440,'Every 1 Day'],[10080,'Every 7 Days']], value: nvram.log_mark },
-	{ title: 'Events Logged', text: '<small>(some of the changes will take effect after a restart)</small>' },
-		{ title: 'Access Restriction', indent: 2, name: 'f_log_acre', type: 'checkbox', value: (nvram.log_events.indexOf('acre') != -1) },
-		{ title: 'Cron', indent: 2, name: 'f_log_crond', type: 'checkbox', value: (nvram.log_events.indexOf('crond') != -1) },
-		{ title: 'DHCP Client', indent: 2, name: 'f_log_dhcpc', type: 'checkbox', value: (nvram.log_events.indexOf('dhcpc') != -1) },
-		{ title: 'NTP', indent: 2, name: 'f_log_ntp', type: 'checkbox', value: (nvram.log_events.indexOf('ntp') != -1) },
-		{ title: 'Scheduler', indent: 2, name: 'f_log_sched', type: 'checkbox', value: (nvram.log_events.indexOf('sched') != -1) },
-	{ title: 'Connection Logging' },
-		{ title: 'Inbound', indent: 2, name: 'log_in', type: 'select', options: [[0,'Disabled (recommended)'],[1,'If Blocked By Firewall'],[2,'If Allowed By Firewall'],[3,'Both']], value: nvram.log_in },
-		{ title: 'Outbound', indent: 2, name: 'log_out', type: 'select', options: [[0,'Disabled (recommended)'],[1,'If Blocked By Firewall'],[2,'If Allowed By Firewall'],[3,'Both']], value: nvram.log_out },
-		{ title: 'Limit', indent: 2, name: 'log_limit', type: 'text', maxlen: 4, size: 5, value: nvram.log_limit, suffix: ' <small>(messages per minute / 0 for unlimited)</small>' }
+	{ title: '<% translate("Generate Marker"); %>', name: 'log_mark', type: 'select', options: [[0,'<% translate("Disabled"); %>'],[30,'<% translate("Every 30 Minutes"); %>'],[60,'<% translate("Every 1 Hour"); %>'],[120,'<% translate("Every 2 Hours"); %>'],[360,'<% translate("Every 6 Hours"); %>'],[720,'<% translate("Every 12 Hours"); %>'],[1440,'<% translate("Every 1 Day"); %>'],[10080,'<% translate("Every 7 Days"); %>']], value: nvram.log_mark },
+	{ title: '<% translate("Events Logged"); %>', text: '<small>(<% translate("some of the changes will take effect after a restart"); %>)</small>' },
+		{ title: '<% translate("Access Restriction"); %>', indent: 2, name: 'f_log_acre', type: 'checkbox', value: (nvram.log_events.indexOf('acre') != -1) },
+		{ title: '<% translate("Cron"); %>', indent: 2, name: 'f_log_crond', type: 'checkbox', value: (nvram.log_events.indexOf('crond') != -1) },
+		{ title: '<% translate("DHCP Client"); %>', indent: 2, name: 'f_log_dhcpc', type: 'checkbox', value: (nvram.log_events.indexOf('dhcpc') != -1) },
+		{ title: '<% translate("NTP"); %>', indent: 2, name: 'f_log_ntp', type: 'checkbox', value: (nvram.log_events.indexOf('ntp') != -1) },
+		{ title: '<% translate("Scheduler"); %>', indent: 2, name: 'f_log_sched', type: 'checkbox', value: (nvram.log_events.indexOf('sched') != -1) },
+	{ title: '<% translate("Connection Logging"); %>' },
+		{ title: '<% translate("Inbound"); %>', indent: 2, name: 'log_in', type: 'select', options: [[0,'<% translate("Disabled"); %> (<% translate("recommended"); %>)'],[1,'<% translate("If Blocked By Firewall"); %>'],[2,'<% translate("If Allowed By Firewall"); %>'],[3,'<% translate("Both"); %>']], value: nvram.log_in },
+		{ title: '<% translate("Outbound"); %>', indent: 2, name: 'log_out', type: 'select', options: [[0,'<% translate("Disabled"); %> (<% translate("recommended"); %>)'],[1,'<% translate("If Blocked By Firewall"); %>'],[2,'<% translate("If Allowed By Firewall"); %>'],[3,'<% translate("Both"); %>']], value: nvram.log_out },
+		{ title: '<% translate("Limit"); %>', indent: 2, name: 'log_limit', type: 'text', maxlen: 4, size: 5, value: nvram.log_limit, suffix: ' <small>(<% translate("messages per minute / 0 for unlimited"); %>)</small>' }
 ]);
 </script>
 </div>
 
-<div class='section-title'>Web Monitor</div>
+<div class='section-title'><% translate("Web Monitor"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Monitor Web Usage', name: 'f_log_wm', type: 'checkbox', value: nvram.log_wm == 1 },
-	{ title: 'Monitor', name: 'log_wmtype', type: 'select', options: [[0,'All Computers / Devices'],[1,'The Following...'],[2,'All Except...']], value: nvram.log_wmtype },
-		{ title: 'IP Address(es)', indent: 2,  name: 'f_log_wmip', type: 'text', maxlen: 512, size: 64, value: nvram.log_wmip,
-		  suffix: '<br><small>(ex: "1.1.1.1", "1.1.1.0/24" or "1.1.1.1 - 2.2.2.2")</small>' },
-	{ title: 'Number of Entries to remember' },
-		{ title: 'Domains', indent: 2,  name: 'log_wmdmax', type: 'text', maxlen: 4, size: 6, value: nvram.log_wmdmax, suffix: ' <small>(0 to disable)</small>' },
-		{ title: 'Searches', indent: 2, name: 'log_wmsmax', type: 'text', maxlen: 4, size: 6, value: nvram.log_wmsmax, suffix: ' <small>(0 to disable)</small>' }
+	{ title: '<% translate("Monitor Web Usage"); %>', name: 'f_log_wm', type: 'checkbox', value: nvram.log_wm == 1 },
+	{ title: '<% translate("Monitor"); %>', name: 'log_wmtype', type: 'select', options: [[0,'<% translate("All Computers / Devices"); %>'],[1,'<% translate("The Following"); %>...'],[2,'<% translate("All Except"); %>...']], value: nvram.log_wmtype },
+		{ title: '<% translate("IP Address(es)"); %>', indent: 2,  name: 'f_log_wmip', type: 'text', maxlen: 512, size: 64, value: nvram.log_wmip,
+		  suffix: '<br><small>(<% translate("ex"); %>: "1.1.1.1", "1.1.1.0/24" or "1.1.1.1 - 2.2.2.2")</small>' },
+	{ title: '<% translate("Number of Entries to remember"); %>' },
+		{ title: '<% translate("Domains"); %>', indent: 2,  name: 'log_wmdmax', type: 'text', maxlen: 4, size: 6, value: nvram.log_wmdmax, suffix: ' <small>(0 <% translate("to disable"); %>)</small>' },
+		{ title: '<% translate("Searches"); %>', indent: 2, name: 'log_wmsmax', type: 'text', maxlen: 4, size: 6, value: nvram.log_wmsmax, suffix: ' <small>(0 <% translate("to disable"); %>)</small>' }
 ]);
 </script>
 </div>
@@ -194,8 +194,8 @@ createFieldTable('', [
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='javascript:reloadPage();'>
 </td></tr>
 </table>
 </form>

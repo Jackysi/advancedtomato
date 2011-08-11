@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Bandwidth: Daily</title>
+<title>[<% ident(); %>] <% translate("Bandwidth"); %>: <% translate("Daily"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -87,7 +87,7 @@ function redraw()
 	gn = 0;
 
 	grid = '<table class="bwmg" cellspacing="1">';
-	grid += makeRow('header', 'Date', 'Download', 'Upload', 'Total');
+	grid += makeRow('header', '<% translate("Date"); %>', '<% translate("Download"); %>', '<% translate("Upload"); %>', '<% translate("Total"); %>');
 
 	for (i = 0; i < daily_history.length; ++i) {
 		h = daily_history[i];
@@ -132,7 +132,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -140,28 +140,28 @@ function init()
 
 <!-- / / / -->
 
-<div class='section-title'>WAN Bandwidth - Daily</div>
+<div class='section-title'><% translate("WAN Bandwidth - Daily"); %></div>
 <div id='bwm-daily-grid' style='float:left'></div>
 <div style="float:right;text-align:right">
 
 
 <table class='tomato-grid' style='width:150px'>
-<tr class='header'><td colspan=2 style='text-align:center'>Last 30 Days<br><span style='font-weight:normal' id='last-dates'></span></td></tr>
-<tr class='even'><td>Down</td><td id='last-dn'>-</td></tr>
-<tr class='odd'><td>Up</td><td id='last-up'>-</td></tr>
-<tr class='footer'><td>Total</td><td id='last-total'>-</td></tr>
+<tr class='header'><td colspan=2 style='text-align:center'><% translate("Last 30 Days"); %><br><span style='font-weight:normal' id='last-dates'></span></td></tr>
+<tr class='even'><td><% translate("Down"); %></td><td id='last-dn'>-</td></tr>
+<tr class='odd'><td><% translate("Up"); %></td><td id='last-up'>-</td></tr>
+<tr class='footer'><td><% translate("Total"); %></td><td id='last-total'>-</td></tr>
 </table>
 
 <br>
 <hr size=1>
 <br>
 
-<b>Date</b> <select onchange='changeDate(this, "ymd")' id='dafm'><option value=0>yyyy-mm-dd</option><option value=1>mm-dd-yyyy</option><option value=2>mmm dd, yyyy</option><option value=3>dd.mm.yyyy</option></select><br>
-<b>Scale</b> <select onchange='changeScale(this)' id='scale'><option value=0>KB</option><option value=1>MB</option><option value=2 selected>GB</option></select><br>
+<b><% translate("Date"); %></b> <select onchange='changeDate(this, "ymd")' id='dafm'><option value=0>yyyy-mm-dd</option><option value=1>mm-dd-yyyy</option><option value=2>mmm dd, yyyy</option><option value=3>dd.mm.yyyy</option></select><br>
+<b><% translate("Scale"); %></b> <select onchange='changeScale(this)' id='scale'><option value=0>KB</option><option value=1>MB</option><option value=2 selected>GB</option></select><br>
 <br>
-&raquo; <a href="javascript:genData()">Data</a>
+&raquo; <a href="javascript:genData()"><% translate("Data"); %></a>
 <br>
-&raquo; <a href="admin-bwm.asp">Configure</a>
+&raquo; <a href="admin-bwm.asp"><% translate("Configure"); %></a>
 <br><br><br>
 </div>
 <br>
@@ -172,7 +172,7 @@ function init()
 
 </td></tr>
 <tr><td id='footer' colspan=2>
-<input type='button' value='Refresh' onclick='reloadPage()'>
+<input type='button' value='<% translate("Refresh"); %>' onclick='reloadPage()'>
 </td></tr>
 </table>
 </form>

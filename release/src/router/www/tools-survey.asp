@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Tools: Wireless Survey</title>
+<title>[<% ident(); %>] <% translate("Tools"); %>: <% translate("Wireless Survey"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -206,12 +206,12 @@ sg.populate = function()
 		seen = e.lastSeen.toWHMS();
 		if (useAjax()) {
 			m = Math.floor(((new Date()).getTime() - e.firstSeen.getTime()) / 60000);
-			if (m <= 10) seen += '<br> <b><small>NEW (' + -m + 'm)</small></b>';
+			if (m <= 10) seen += '<br> <b><small><% translate("NEW"); %> (' + -m + 'm)</small></b>';
 		}
 
 		mac = e.bssid;
 		if (mac.match(/^(..):(..):(..)/))
-			mac = '<a href="http://standards.ieee.org/cgi-bin/ouisearch?' + RegExp.$1 + '-' + RegExp.$2 + '-' + RegExp.$3 + '" target="_new" title="OUI search">' + mac + '</a>';
+			mac = '<a href="http://standards.ieee.org/cgi-bin/ouisearch?' + RegExp.$1 + '-' + RegExp.$2 + '-' + RegExp.$3 + '" target="_new" title="<% translate("OUI search"); %>">' + mac + '</a>';
 
 		sg.insert(-1, e, [
 			'<small>' + seen + '</small>',
@@ -226,10 +226,10 @@ sg.populate = function()
 	}
 
 	s = '';
-	if (useAjax()) s = added + ' added, ' + removed + ' removed, ';
-	s += entries.length + ' total.';
+	if (useAjax()) s = added + ' <% translate("added"); %>, ' + removed + ' <% translate("removed"); %>, ';
+	s += entries.length + ' <% translate("total"); %>.';
 
-	s += '<br><br><small>Last updated: ' + (new Date()).toWHMS() + '</small>';
+	s += '<br><br><small><% translate("Last updated"); %>: ' + (new Date()).toWHMS() + '</small>';
 	setMsg(s);
 
 	wlscandata = [];
@@ -237,7 +237,7 @@ sg.populate = function()
 
 sg.setup = function() {
 	this.init('survey-grid', 'sort');
-	this.headerSet(['Last Seen', 'SSID', 'BSSID', 'RSSI &nbsp; &nbsp; ', 'Noise &nbsp; &nbsp; ', 'Quality', 'Ch', 'Capabilities', 'Rates']);
+	this.headerSet(['<% translate("Last Seen"); %>', 'SSID', 'BSSID', 'RSSI &nbsp; &nbsp; ', '<% translate("Noise"); %> &nbsp; &nbsp; ', '<% translate("Quality"); %>', '<% translate("Ch"); %>', '<% translate("Capabilities"); %>', '<% translate("Rates"); %>']);
 	this.populate();
 	this.sort(0);
 }
@@ -282,7 +282,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -290,23 +290,23 @@ function init()
 
 <!-- / / / -->
 
-<div class='section-title'>Wireless Site Survey</div>
+<div class='section-title'><% translate("Wireless Site Survey"); %></div>
 <div class='section'>
 	<table id='survey-grid' class='tomato-grid' cellspacing=0></table>
 	<div id='survey-msg'></div>
 	<div id='survey-controls'>
 		<img src="spin.gif" id="refresh-spinner">
 		<script type='text/javascript'>
-		genStdTimeList('expire-time', 'Auto Expire', 0);
-		genStdTimeList('refresh-time', 'Auto Refresh', 0);
+		genStdTimeList('expire-time', '<% translate("Auto Expire"); %>', 0);
+		genStdTimeList('refresh-time', '<% translate("Auto Refresh"); %>', 0);
 		</script>
-		<input type="button" value="Refresh" onclick="ref.toggle()" id="refresh-button">
+		<input type="button" value="<% translate("Refresh"); %>" onclick="ref.toggle()" id="refresh-button">
 	</div>
 
 	<br><br><br><br>
 	<script type='text/javascript'>
 	if ('<% wlclient(); %>' == '0') {
-		document.write('<small>Warning: Wireless connections to this router may be disrupted while using this tool.</small>');
+		document.write('<small><% translate("Warning: Wireless connections to this router may be disrupted while using this tool"); %>.</small>');
 	}
 	</script>
 </div>

@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Basic: Networks</title>
+<title>[<% ident(); %>] <% translate("Basic"); %>: <% translate("Network"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
@@ -52,7 +52,7 @@ lg.setup = function() {
 	{ type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
 	{ multi: [ { type: 'text', maxlen: 15, size: 17}, { type: 'text', maxlen: 15, size: 17 } ] },
 	{ type: 'text', maxlen: 6, size: 8 }] );
-	this.headerSet(['Bridge', 'STP', 'IP Address', 'Netmask', 'DHCP', 'IP&nbsp;Range&nbsp;<i>(first/last)</i>', 'Lease&nbsp;Time&nbsp;<i>(mins)</i>']);
+	this.headerSet(['<% translate("Bridge"); %>', '<% translate("STP"); %>', '<% translate("IP Address"); %>', '<% translate("Netmask"); %>', '<% translate("DHCP"); %>', '<% translate("IP Range"); %> <i>(<% translate("first/last"); %>)</i>', '<% translate("Lease Time"); %> <i>(<% translate("mins"); %>)</i>']);
 
 	var numBridges = 0;
 	for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
@@ -385,19 +385,19 @@ function refreshNetModes(uidx)
 	if (uidx >= wl_ifaces.length) return;
 	var u = wl_unit(uidx);
 
-	var m = [['mixed','Auto']];
+	var m = [['mixed','<% translate("Auto"); %>']];
 	if (selectedBand(uidx) == '1') {
-		m.push(['a-only','A Only']);
+		m.push(['a-only','<% translate("A Only"); %>']);
 		if (nphy) {
-			m.push(['n-only','N Only']);
+			m.push(['n-only','<% translate("N Only"); %>']);
 		}
 	}
 	else {
-		m.push(['b-only','B Only']);
-		m.push(['g-only','G Only']);
+		m.push(['b-only','<% translate("B Only"); %>']);
+		m.push(['g-only','<% translate("G Only"); %>']);
 		if (nphy) {
-			m.push(['bg-mixed','B/G Mixed']);
-			m.push(['n-only','N Only']);
+			m.push(['bg-mixed','<% translate("B/G Mixed"); %>']);
+			m.push(['n-only','<% translate("N Only"); %>']);
 		}
 	}
 
@@ -432,7 +432,7 @@ function refreshChannels(uidx)
 			max_channel[uidx] = 0;
 			for (i = 0; i < wl_channels.length; ++i) {
 				ghz[uidx].push([wl_channels[i][0] + '',
-					(wl_channels[i][0]) ? ((wl_channels[i][1]) ? wl_channels[i][0] + ' - ' + (wl_channels[i][1] / 1000.0).toFixed(3) + ' GHz' : wl_channels[i][0] + '') : 'Auto']);
+					(wl_channels[i][0]) ? ((wl_channels[i][1]) ? wl_channels[i][0] + ' - ' + (wl_channels[i][1] / 1000.0).toFixed(3) + ' GHz' : wl_channels[i][0] + '') : '<% translate("Auto"); %>']);
 				max_channel[uidx] = wl_channels[i][0] * 1;
 			}
 
@@ -473,8 +473,8 @@ function spin(x, unit)
 		E('_f_wl'+wl_unit(u)+'_scan').disabled = x;
 	}
 	var e = E('_f_wl'+unit+'_scan');
-	if (x) e.value = 'Scan ' + (wscan.tries + 1);
-		else e.value = 'Scan';
+	if (x) e.value = '<% translate("Scan"); %> ' + (wscan.tries + 1);
+		else e.value = '<% translate("Scan"); %>';
 	E('spin'+unit).style.visibility = x ? 'visible' : 'hidden';
 }
 
@@ -520,7 +520,7 @@ function scan()
 			for (i = 1; i < ghz[uidx].length; ++i) {
 				var s = ghz[uidx][i][1];
 				var u = wscan.inuse[ghz[uidx][i][0]];
-				if (u) s += ' (' + u.count + ' AP' + (u.count == 1 ? '' : 's') + ' / strongest: "' + escapeHTML(ellipsis(u.ssid, 15)) + '" ' + u.rssi + ' dBm)';
+				if (u) s += ' (' + u.count + ' AP' + (u.count == 1 ? '' : 's') + ' / <% translate("strongest"); %>: "' + escapeHTML(ellipsis(u.ssid, 15)) + '" ' + u.rssi + ' dBm)';
 				e.options[i].innerHTML = s;
 			}
 			e.style.width = '400px';
@@ -603,7 +603,7 @@ function v_wep(e, quiet)
 	else {
 		s = s.toUpperCase().replace(/[^0-9A-F]/g, '');
 		if (s.length != e.maxLength) {
-			ferror.set(e, 'Invalid WEP key. Expecting ' + e.maxLength + ' hex or ' + (e.maxLength >> 1) + ' ASCII characters.', quiet);
+			ferror.set(e, '<% translate("Invalid WEP key. Expecting"); %> ' + e.maxLength + ' <% translate("hex or"); %> ' + (e.maxLength >> 1) + ' <% translate("ASCII characters"); %>.', quiet);
 			return 0;
 		}
 	}
@@ -1019,7 +1019,7 @@ REMOVE-END */
 		case 'mixed':
 		case 'n-only':
 			if (nphy && (a.value == 'tkip') && (sm2.indexOf('wpa') != -1)) {
-				ferror.set(a, 'TKIP encryption is not supported with WPA / WPA2 in N mode.', quiet || !ok);
+				ferror.set(a, '<% translate("TKIP encryption is not supported with WPA / WPA2 in N mode"); %>.', quiet || !ok);
 				ok = 0;
 			}
 			else ferror.clear(a);
@@ -1033,11 +1033,11 @@ REMOVE-END */
 		if ((wmode == 'sta') || (wmode == 'wet')) {
 			++wlclnt;
 			if (wlclnt > 1) {
-				ferror.set(b, 'Only one wireless interface can be configured in client mode.', quiet || !ok);
+				ferror.set(b, '<% translate("Only one wireless interface can be configured in client mode"); %>.', quiet || !ok);
 				ok = 0;
 			}
 			else if (a.value == 'n-only') {
-				ferror.set(a, 'N-only is not supported in wireless client modes, use Auto.', quiet || !ok);
+				ferror.set(a, '<% translate("N-only is not supported in wireless client modes, use Auto"); %>.', quiet || !ok);
 				ok = 0;
 			}
 		}
@@ -1046,21 +1046,21 @@ REMOVE-END */
 		ferror.clear(a);
 		if (wl_vis[uidx]._wl_wpa_psk == 1) {
 			if ((a.value.length < 8) || ((a.value.length == 64) && (a.value.search(/[^0-9A-Fa-f]/) != -1))) {
-				ferror.set('_wl'+u+'_wpa_psk', 'Invalid pre-shared key. Please enter at least 8 characters or 64 hexadecimal digits.', quiet || !ok);
+				ferror.set('_wl'+u+'_wpa_psk', '<% translate("Invalid pre-shared key. Please enter at least 8 characters or 64 hexadecimal digits"); %>.', quiet || !ok);
 				ok = 0;
 			}
 		}
 
 		// wl channel
 		if (((wmode == 'wds') || (wmode == 'apwds')) && (wl_vis[uidx]._wl_channel == 1) && (E('_wl'+u+'_channel').value == '0')) {
-			ferror.set('_wl'+u+'_channel', 'Fixed wireless channel required in WDS mode.', quiet || !ok);
+			ferror.set('_wl'+u+'_channel', '<% translate("Fixed wireless channel required in WDS mode"); %>.', quiet || !ok);
 			ok = 0;
 		}
 		else ferror.clear('_wl'+u+'_channel');
 
 		if (E('_f_wl'+u+'_mode').value == 'sta') {
 			if ((wan == 'disabled') && (E('_f_wl'+u+'_radio').checked)) {
-				ferror.set('_wan_proto', 'Wireless Client mode requires a valid WAN setting (usually DHCP).', quiet || !ok);
+				ferror.set('_wan_proto', '<% translate("Wireless Client mode requires a valid WAN setting (usually DHCP)"); %>.', quiet || !ok);
 				ok = 0;
 			}
 		}
@@ -1150,7 +1150,7 @@ REMOVE-END */
 					else if (!isMAC0(a.value)) b = 1;
 			}
 			if (!b) {
-				ferror.set('_f_wl'+u+'_wds_0', 'WDS MAC address required.', quiet || !ok);
+				ferror.set('_f_wl'+u+'_wds_0', '<% translate("WDS MAC address required"); %>.', quiet || !ok);
 				ok = 0;
 			}
 		}
@@ -1164,7 +1164,7 @@ REMOVE-END */
 	if ((vis._dhcp_lease) && (!a._error_msg) && (!b._error_msg)) {
 		c = aton(E('_lan_netmask').value);
 		d = aton(E('_lan_ipaddr').value) & c;
-		e = 'Invalid IP address or subnet mask';
+		e = '<% translate("Invalid IP address or subnet mask"); %>';
 		if ((aton(a.value) & c) != d) {
 			ferror.set(a, e, quiet || !ok);
 			ok = 0;
@@ -1424,7 +1424,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -1459,32 +1459,32 @@ W('<input type=\'hidden\' id=\'dhcpd' + j + '_endip\' name=\'dhcpd' + j + '_endi
 }
 </script>
 
-<div class='section-title'>WAN / Internet</div>
+<div class='section-title'><% translate("WAN / Internet"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Type', name: 'wan_proto', type: 'select', options: [['dhcp','DHCP'],['pppoe','PPPoE'],['static','Static'],['pptp','PPTP'],['l2tp','L2TP'],['disabled','Disabled']],
+	{ title: '<% translate("Type"); %>', name: 'wan_proto', type: 'select', options: [['dhcp','DHCP'],['pppoe','PPPoE'],['static','<% translate("Static"); %>'],['pptp','PPTP'],['l2tp','L2TP'],['disabled','<% translate("Disabled"); %>']],
 		value: nvram.wan_proto },
-	{ title: 'Username', name: 'ppp_username', type: 'text', maxlen: 60, size: 64, value: nvram.ppp_username },
-	{ title: 'Password', name: 'ppp_passwd', type: 'password', maxlen: 60, size: 64, peekaboo: 1, value: nvram.ppp_passwd },
-	{ title: 'Service Name', name: 'ppp_service', type: 'text', maxlen: 50, size: 64, value: nvram.ppp_service },
-	{ title: 'L2TP Server', name: 'l2tp_server_ip', type: 'text', maxlen: 128, size: 64, value: nvram.l2tp_server_ip },
-	{ title: 'Use DHCP', name: 'f_pptp_dhcp', type: 'checkbox', value: (nvram.pptp_dhcp == 1) },
-	{ title: 'IP Address', name: 'wan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.wan_ipaddr },
-	{ title: 'Subnet Mask', name: 'wan_netmask', type: 'text', maxlen: 15, size: 17, value: nvram.wan_netmask },
-	{ title: 'Gateway', name: 'wan_gateway', type: 'text', maxlen: 15, size: 17, value: nvram.wan_gateway },
-	{ title: 'PPTP Gateway', name: 'pptp_server_ip', type: 'text', maxlen: 128, size: 64, value: nvram.pptp_server_ip },
-	{ title: 'Options', name: 'ppp_custom', type: 'text', maxlen: 256, size: 64, value: nvram.ppp_custom },
-	{ title: 'Connect Mode', name: 'ppp_demand', type: 'select', options: [['1', 'Connect On Demand'],['0', 'Keep Alive']],
+	{ title: '<% translate("Username"); %>', name: 'ppp_username', type: 'text', maxlen: 60, size: 64, value: nvram.ppp_username },
+	{ title: '<% translate("Password"); %>', name: 'ppp_passwd', type: 'password', maxlen: 60, size: 64, peekaboo: 1, value: nvram.ppp_passwd },
+	{ title: '<% translate("Service Name"); %>', name: 'ppp_service', type: 'text', maxlen: 50, size: 64, value: nvram.ppp_service },
+	{ title: '<% translate("L2TP Server"); %>', name: 'l2tp_server_ip', type: 'text', maxlen: 128, size: 64, value: nvram.l2tp_server_ip },
+	{ title: '<% translate("Use DHCP"); %>', name: 'f_pptp_dhcp', type: 'checkbox', value: (nvram.pptp_dhcp == 1) },
+	{ title: '<% translate("IP Address"); %>', name: 'wan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.wan_ipaddr },
+	{ title: '<% translate("Subnet Mask"); %>', name: 'wan_netmask', type: 'text', maxlen: 15, size: 17, value: nvram.wan_netmask },
+	{ title: '<% translate("Gateway"); %>', name: 'wan_gateway', type: 'text', maxlen: 15, size: 17, value: nvram.wan_gateway },
+	{ title: '<% translate("PPTP Gateway"); %>', name: 'pptp_server_ip', type: 'text', maxlen: 128, size: 64, value: nvram.pptp_server_ip },
+	{ title: '<% translate("Options"); %>', name: 'ppp_custom', type: 'text', maxlen: 256, size: 64, value: nvram.ppp_custom },
+	{ title: '<% translate("Connect Mode"); %>', name: 'ppp_demand', type: 'select', options: [['1', '<% translate("Connect On Demand"); %>'],['0', '<% translate("Keep Alive"); %>']],
 		value: nvram.ppp_demand },
-	{ title: 'Max Idle Time', indent: 2, name: 'ppp_idletime', type: 'text', maxlen: 5, size: 7, suffix: ' <i>(minutes)</i>',
+	{ title: '<% translate("Max Idle Time"); %>', indent: 2, name: 'ppp_idletime', type: 'text', maxlen: 5, size: 7, suffix: ' <i>(<% translate("minutes"); %>)</i>',
 		value: nvram.ppp_idletime },
-	{ title: 'Check Interval', indent: 2, name: 'ppp_redialperiod', type: 'text', maxlen: 5, size: 7, suffix: ' <i>(seconds)</i>',
+	{ title: '<% translate("Check Interval"); %>', indent: 2, name: 'ppp_redialperiod', type: 'text', maxlen: 5, size: 7, suffix: ' <i>(<% translate("seconds"); %>)</i>',
 		value: nvram.ppp_redialperiod },
 	{ title: 'MTU', multi: [
-		{ name: 'mtu_enable', type: 'select', options: [['0', 'Default'],['1','Manual']], value: nvram.mtu_enable },
+		{ name: 'mtu_enable', type: 'select', options: [['0', '<% translate("Default"); %>'],['1','<% translate("Manual"); %>']], value: nvram.mtu_enable },
 		{ name: 'f_wan_mtu', type: 'text', maxlen: 4, size: 6, value: nvram.wan_mtu } ] },
-	{ title: 'Bridge WAN port to primary LAN (br0)', name: 'f_wan_islan', type: 'checkbox', value: (nvram.wan_islan == 1) }
+	{ title: '<% translate("Bridge WAN port to primary LAN"); %> (br0)', name: 'f_wan_islan', type: 'checkbox', value: (nvram.wan_islan == 1) }
 ]);
 </script>
 </div>
@@ -1502,8 +1502,8 @@ createFieldTable('', [
 //	{ title: 'Router IP Address', name: 'lan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.lan_ipaddr },
 //	{ title: 'Subnet Mask', name: 'lan_netmask', type: 'text', maxlen: 15, size: 17, value: nvram.lan_netmask },
 REMOVE-END */
-	{ title: 'Default Gateway', name: 'lan_gateway', type: 'text', maxlen: 15, size: 17, value: nvram.lan_gateway },
-	{ title: 'Static DNS', suffix: '&nbsp; <i>(IP:port)</i>', name: 'f_dns_1', type: 'text', maxlen: 21, size: 25, value: dns[0] || '0.0.0.0' },
+	{ title: '<% translate("Default Gateway"); %>', name: 'lan_gateway', type: 'text', maxlen: 15, size: 17, value: nvram.lan_gateway },
+	{ title: '<% translate("Static DNS"); %>', suffix: '&nbsp; <i>(IP:port)</i>', name: 'f_dns_1', type: 'text', maxlen: 21, size: 25, value: dns[0] || '0.0.0.0' },
 	{ title: '', name: 'f_dns_2', type: 'text', maxlen: 21, size: 25, value: dns[1] || '0.0.0.0' },
 	{ title: '', name: 'f_dns_3', type: 'text', maxlen: 21, size: 25, value: dns[2] || '0.0.0.0' },
 /* REMOVE-BEGIN
@@ -1517,7 +1517,7 @@ REMOVE-END */
 //		value: (nvram.dhcp_lease > 0) ? nvram.dhcp_lease : 1440 },
 //	{ title: 'WINS <i>(for DHCP)</i>', indent: 2, name: 'wan_wins', type: 'text', maxlen: 15, size: 17, value: nvram.wan_wins }
 REMOVE-END */
-	{ title: 'WINS <i>(for DHCP)</i>', name: 'wan_wins', type: 'text', maxlen: 15, size: 17, value: nvram.wan_wins }
+	{ title: '<% translate("WINS"); %> <i>(<% translate("for DHCP"); %>)</i>', name: 'wan_wins', type: 'text', maxlen: 15, size: 17, value: nvram.wan_wins }
 ]);
 </script>
 </div>
@@ -1547,7 +1547,7 @@ W('<input type=\'hidden\' id=\'_wl'+u+'_nreqd\' name=\'wl'+u+'_nreqd\'>');
 W('<input type=\'hidden\' id=\'_wl'+u+'_nctrlsb\' name=\'wl'+u+'_nctrlsb\'>');
 W('<input type=\'hidden\' id=\'_wl'+u+'_nbw\' name=\'wl'+u+'_nbw\'>');
 
-W('<div class=\'section-title\'>Wireless');
+W('<div class=\'section-title\'><% translate("Wireless"); %>');
 if (wl_ifaces.length > 1)
 	W(' (' + wl_display_ifname(uidx) + ')');
 W('</div>');
@@ -1555,62 +1555,62 @@ W('</div>');
 W('<div class=\'section\'>');
 
 f = [
-	{ title: 'Enable Wireless', name: 'f_wl'+u+'_radio', type: 'checkbox',
+	{ title: '<% translate("Enable Wireless"); %>', name: 'f_wl'+u+'_radio', type: 'checkbox',
 		value: (eval('nvram.wl'+u+'_radio') == '1') && (eval('nvram.wl'+u+'_net_mode') != 'disabled') },
-	{ title: 'MAC Address', text: '<a href="advanced-mac.asp">' + eval('nvram.wl'+u+'_hwaddr') + '</a>' },
-	{ title: 'Wireless Mode', name: 'f_wl'+u+'_mode', type: 'select',
-		options: [['ap', 'Access Point'],['apwds', 'Access Point + WDS'],['sta', 'Wireless Client'],['wet', 'Wireless Ethernet Bridge'],['wds', 'WDS']],
+	{ title: '<% translate("MAC Address"); %>', text: '<a href="advanced-mac.asp">' + eval('nvram.wl'+u+'_hwaddr') + '</a>' },
+	{ title: '<% translate("Wireless Mode"); %>', name: 'f_wl'+u+'_mode', type: 'select',
+		options: [['ap', '<% translate("Access Point"); %>'],['apwds', '<% translate("Access Point + WDS"); %>'],['sta', '<% translate("Wireless Client"); %>'],['wet', '<% translate("Wireless Ethernet Bridge"); %>'],['wds', 'WDS']],
 		value: ((eval('nvram.wl'+u+'_mode') == 'ap') && (eval('nvram.wl'+u+'_wds_enable') == '1')) ? 'apwds' : eval('nvram.wl'+u+'_mode') },
-	{ title: 'Radio Band', name: 'f_wl'+u+'_nband', type: 'select', options: bands[uidx],
+	{ title: '<% translate("Radio Band"); %>', name: 'f_wl'+u+'_nband', type: 'select', options: bands[uidx],
 		value: eval('nvram.wl'+u+'_nband') || '0' == '0' ? bands[uidx][0][0] : eval('nvram.wl'+u+'_nband') },
-	{ title: 'Wireless Network Mode', name: 'wl'+u+'_net_mode', type: 'select',
+	{ title: '<% translate("Wireless Network Mode"); %>', name: 'wl'+u+'_net_mode', type: 'select',
 		value: (eval('nvram.wl'+u+'_net_mode') == 'disabled') ? 'mixed' : eval('nvram.wl'+u+'_net_mode'),
 		options: [], prefix: '<span id="__wl'+u+'_net_mode">', suffix: '</span>' },
-	{ title: 'SSID', name: 'wl'+u+'_ssid', type: 'text', maxlen: 32, size: 34, value: eval('nvram.wl'+u+'_ssid') },
-	{ title: 'Broadcast', indent: 2, name: 'f_wl'+u+'_bcast', type: 'checkbox', value: (eval('nvram.wl'+u+'_closed') == '0') },
-	{ title: 'Channel', name: 'wl'+u+'_channel', type: 'select', options: ghz[uidx], prefix: '<span id="__wl'+u+'_channel">', suffix: '</span> <input type="button" id="_f_wl'+u+'_scan" value="Scan" onclick="scanButton('+u+')"> <img src="spin.gif" id="spin'+u+'">',
+	{ title: '<% translate("SSID"); %>', name: 'wl'+u+'_ssid', type: 'text', maxlen: 32, size: 34, value: eval('nvram.wl'+u+'_ssid') },
+	{ title: '<% translate("Broadcast"); %>', indent: 2, name: 'f_wl'+u+'_bcast', type: 'checkbox', value: (eval('nvram.wl'+u+'_closed') == '0') },
+	{ title: '<% translate("Channel"); %>', name: 'wl'+u+'_channel', type: 'select', options: ghz[uidx], prefix: '<span id="__wl'+u+'_channel">', suffix: '</span> <input type="button" id="_f_wl'+u+'_scan" value="<% translate("Scan"); %>" onclick="scanButton('+u+')"> <img src="spin.gif" id="spin'+u+'">',
 		value: eval('nvram.wl'+u+'_channel') },
-	{ title: 'Channel Width', name: 'wl'+u+'_nbw_cap', type: 'select', options: [['0','20 MHz'],['1','40 MHz']],
+	{ title: '<% translate("Channel Width"); %>', name: 'wl'+u+'_nbw_cap', type: 'select', options: [['0','20 MHz'],['1','40 MHz']],
 		value: eval('nvram.wl'+u+'_nbw_cap') },
-	{ title: 'Control Sideband', name: 'f_wl'+u+'_nctrlsb', type: 'select', options: [['lower','Lower'],['upper','Upper']],
+	{ title: '<% translate("Control Sideband"); %>', name: 'f_wl'+u+'_nctrlsb', type: 'select', options: [['lower','<% translate("Lower"); %>'],['upper','<% translate("Upper"); %>']],
 		value: eval('nvram.wl'+u+'_nctrlsb') == 'none' ? 'lower' : eval('nvram.wl'+u+'_nctrlsb') },
 	null,
-	{ title: 'Security', name: 'wl'+u+'_security_mode', type: 'select',
-		options: [['disabled','Disabled'],['wep','WEP'],['wpa_personal','WPA Personal'],['wpa_enterprise','WPA Enterprise'],['wpa2_personal','WPA2 Personal'],['wpa2_enterprise','WPA2 Enterprise'],['wpaX_personal','WPA / WPA2 Personal'],['wpaX_enterprise','WPA / WPA2 Enterprise'],['radius','Radius']],
+	{ title: '<% translate("Security"); %>', name: 'wl'+u+'_security_mode', type: 'select',
+		options: [['disabled','<% translate("Disabled"); %>'],['wep','WEP'],['wpa_personal','WPA Personal'],['wpa_enterprise','WPA Enterprise'],['wpa2_personal','WPA2 Personal'],['wpa2_enterprise','WPA2 Enterprise'],['wpaX_personal','WPA / WPA2 Personal'],['wpaX_enterprise','WPA / WPA2 Enterprise'],['radius','Radius']],
 		value: eval('nvram.wl'+u+'_security_mode') },
-	{ title: 'Encryption', indent: 2, name: 'wl'+u+'_crypto', type: 'select',
+	{ title: '<% translate("Encryption"); %>', indent: 2, name: 'wl'+u+'_crypto', type: 'select',
 		options: [['tkip','TKIP'],['aes','AES'],['tkip+aes','TKIP / AES']], value: eval('nvram.wl'+u+'_crypto') },
-	{ title: 'Shared Key', indent: 2, name: 'wl'+u+'_wpa_psk', type: 'password', maxlen: 64, size: 66, peekaboo: 1,
-		suffix: ' <input type="button" id="_f_wl'+u+'_psk_random1" value="Random" onclick="random_psk(\'_wl'+u+'_wpa_psk\')">',
+	{ title: '<% translate("Shared Key"); %>', indent: 2, name: 'wl'+u+'_wpa_psk', type: 'password', maxlen: 64, size: 66, peekaboo: 1,
+		suffix: ' <input type="button" id="_f_wl'+u+'_psk_random1" value="<% translate("Random"); %>" onclick="random_psk(\'_wl'+u+'_wpa_psk\')">',
 		value: eval('nvram.wl'+u+'_wpa_psk') },
-	{ title: 'Shared Key', indent: 2, name: 'wl'+u+'_radius_key', type: 'password', maxlen: 80, size: 32, peekaboo: 1,
-		suffix: ' <input type="button" id="_f_wl'+u+'_psk_random2" value="Random" onclick="random_psk(\'_wl'+u+'_radius_key\')">',
+	{ title: '<% translate("Shared Key"); %>', indent: 2, name: 'wl'+u+'_radius_key', type: 'password', maxlen: 80, size: 32, peekaboo: 1,
+		suffix: ' <input type="button" id="_f_wl'+u+'_psk_random2" value="<% translate("Random"); %>" onclick="random_psk(\'_wl'+u+'_radius_key\')">',
 		value: eval('nvram.wl'+u+'_radius_key') },
-	{ title: 'Group Key Renewal', indent: 2, name: 'wl'+u+'_wpa_gtk_rekey', type: 'text', maxlen: 4, size: 6, suffix: ' <i>(seconds)</i>',
+	{ title: '<% translate("Group Key Renewal"); %>', indent: 2, name: 'wl'+u+'_wpa_gtk_rekey', type: 'text', maxlen: 4, size: 6, suffix: ' <i>(<% translate("seconds"); %>)</i>',
 		value: eval('nvram.wl'+u+'_wpa_gtk_rekey') },
-	{ title: 'Radius Server', indent: 2, multi: [
+	{ title: '<% translate("Radius Server"); %>', indent: 2, multi: [
 		{ name: 'wl'+u+'_radius_ipaddr', type: 'text', maxlen: 15, size: 17, value: eval('nvram.wl'+u+'_radius_ipaddr') },
 		{ name: 'wl'+u+'_radius_port', type: 'text', maxlen: 5, size: 7, prefix: ' : ', value: eval('nvram.wl'+u+'_radius_port') } ] },
-	{ title: 'Encryption', indent: 2, name: 'wl'+u+'_wep_bit', type: 'select', options: [['128','128-bits'],['64','64-bits']],
+	{ title: '<% translate("Encryption"); %>', indent: 2, name: 'wl'+u+'_wep_bit', type: 'select', options: [['128','128-bits'],['64','64-bits']],
 		value: eval('nvram.wl'+u+'_wep_bit') },
-	{ title: 'Passphrase', indent: 2, name: 'wl'+u+'_passphrase', type: 'text', maxlen: 16, size: 20,
-		suffix: ' <input type="button" id="_f_wl'+u+'_wep_gen" value="Generate" onclick="generate_wep('+u+')"> <input type="button" id="_f_wl'+u+'_wep_random" value="Random" onclick="random_wep('+u+')">',
+	{ title: '<% translate("Passphrase"); %>', indent: 2, name: 'wl'+u+'_passphrase', type: 'text', maxlen: 16, size: 20,
+		suffix: ' <input type="button" id="_f_wl'+u+'_wep_gen" value="Generate" onclick="generate_wep('+u+')"> <input type="button" id="_f_wl'+u+'_wep_random" value="<% translate("Random"); %>" onclick="random_wep('+u+')">',
 		value: eval('nvram.wl'+u+'_passphrase') }
 ];
 
 for (i = 1; i <= 4; ++i)	{
 	f.push(
-		{ title: ('Key ' + i), indent: 2, name: ('wl'+u+'_key' + i), type: 'text', maxlen: 26, size: 34,
+		{ title: ('<% translate("Key"); %> ' + i), indent: 2, name: ('wl'+u+'_key' + i), type: 'text', maxlen: 26, size: 34,
 			suffix: '<input type="radio" onchange="verifyFields(this,1)" onclick="verifyFields(this,1)" name="f_wl'+u+'_wepidx" id="_f_wl'+u+'_wepidx_' + i + '" value="' + i + '"' + ((eval('nvram.wl'+u+'_key') == i) ? ' checked>' : '>'),
 			value: nvram['wl'+u+'_key' + i] });
 }
 
 f.push(null,
 	{ title: 'WDS', name: 'f_wl'+u+'_lazywds', type: 'select',
-		 options: [['0','Link With...'],['1','Automatic']], value: nvram['wl'+u+'_lazywds'] } );
+		 options: [['0','<% translate("Link With"); %>...'],['1','<% translate("Automatic"); %>']], value: nvram['wl'+u+'_lazywds'] } );
 wds = eval('nvram.wl'+u+'_wds').split(/\s+/);
 for (i = 0; i < 10; i += 2)	{
-	f.push({ title: (i ? '' : 'MAC Address'), indent: 2, multi: [
+	f.push({ title: (i ? '' : '<% translate("MAC Address"); %>'), indent: 2, multi: [
 		{ name: 'f_wl'+u+'_wds_' + i, type: 'text', maxlen: 17, size: 20, value: wds[i] || '00:00:00:00:00:00' },
 		{ name: 'f_wl'+u+'_wds_' + (i + 1), type: 'text', maxlen: 17, size: 20, value: wds[i + 1] || '00:00:00:00:00:00' } ] } );
 }
@@ -1628,8 +1628,8 @@ W('</div>');
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='reloadPage();'>
 </td></tr>
 </table>
 </form>

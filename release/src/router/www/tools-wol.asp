@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Tools: WOL</title>
+<title>[<% ident(); %>] <% translate("Tools"); %>: <% translate("WOL"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -50,7 +50,7 @@ textarea {
 var wg = new TomatoGrid();
 wg.setup = function() {
 	this.init('wol-grid', 'sort');
-	this.headerSet(['MAC Address', 'IP Address', 'Status', 'Name']);
+	this.headerSet(['<% translate("MAC Address"); %>', '<% translate("IP Address"); %>', '<% translate("Status"); %>', '<% translate("Name"); %>']);
 	this.sort(3);
 }
 wg.populate = function()
@@ -77,7 +77,7 @@ wg.populate = function()
 		var active = '-';
 		for (j = 0; j < arplist.length; ++j) {
 			if ((arplist[j][2] == nvram.lan_ifname) && (t[0] == arplist[j][1])) {
-				active = 'Active (In ARP)';
+				active = '<% translate("Active"); %> (<% translate("In ARP"); %>)';
 				arplist[j][1] = '!';
 				break;
 			}
@@ -85,16 +85,16 @@ wg.populate = function()
 		if (t.length == 3) {
 			r = this.insertData(-1, [t[0], (t[1].indexOf('.') != -1) ? t[1] : ('<% lipp(); %>.' + t[1]), active, t[2]]);
 			for (j = 0; j < 4; ++j)
-				r.cells[j].title = 'Click to wake up';
+				r.cells[j].title = '<% translate("Click to wake up"); %>';
 		}
 	}
 
 	// show anything else in ARP that is awake
 	for (i = 0; i < arplist.length; ++i) {
 		if ((arplist[i][2] != nvram.lan_ifname) || (arplist[i][1].length != 17)) continue;
-		r = this.insertData(-1, [arplist[i][1], arplist[i][0], 'Active (In ARP)', '']);
+		r = this.insertData(-1, [arplist[i][1], arplist[i][0], '<% translate("Active"); %> (<% translate("In ARP"); %>)', '']);
 		for (j = 0; j < 4; ++j)
-			r.cells[j].title = 'Click to wake up';
+			r.cells[j].title = '<% translate("Click to wake up"); %>';
 	}
 
 	this.resort(2);
@@ -158,7 +158,7 @@ function refresh()
 function refreshClick()
 {
 	running ^= 1;
-	E('refreshb').value = running ? 'Stop' : 'Refresh';
+	E('refreshb').value = running ? '<% translate("Stop"); %>' : '<% translate("Refresh"); %>';
 	E('spin').style.visibility = running ? 'visible' : 'hidden';
 	if (running) refresh();
 }
@@ -175,7 +175,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -187,20 +187,20 @@ function init()
 <input type='hidden' name='_nextwait' value='1'>
 <input type='hidden' name='mac' value='' id='_mac'>
 
-<div class='section-title'>Wake On LAN</div>
+<div class='section-title'><% translate("Wake On LAN"); %></div>
 <div class='section'>
 	<table id='wol-grid' class='tomato-grid' cellspacing=1></table>
-	<div style='float:right'><img src='spin.gif' id='spin' style='vertical-align:middle;visibility:hidden'> &nbsp; <input type='button' value='Refresh' onclick='refreshClick()' id='refreshb'></div>
+	<div style='float:right'><img src='spin.gif' id='spin' style='vertical-align:middle;visibility:hidden'> &nbsp; <input type='button' value='<% translate("Refresh"); %>' onclick='refreshClick()' id='refreshb'></div>
 </div>
 <div id='msg' style='visibility:hidden;background:#ffffa0;margin:auto;width:50%;text-align:center;padding:2px;border:1px solid #fee'></div>
 <div class='section-title'></div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'MAC Address List', name: 'f_mac', type: 'textarea', value: cookie.get('wakemac') || '' },
+	{ title: '<% translate("MAC Address List"); %>', name: 'f_mac', type: 'textarea', value: cookie.get('wakemac') || '' },
 ]);
 </script>
-<div style='float:right'><input type='button' value='Wake Up' onclick='wake(null)' id='save-button'></div>
+<div style='float:right'><input type='button' value='<% translate("Wake Up"); %>' onclick='wake(null)' id='save-button'></div>
 </div>
 
 <!-- / / / -->

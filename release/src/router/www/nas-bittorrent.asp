@@ -10,7 +10,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Nas: BitTorrent Client</title>
+<title>[<% ident(); %>] <% translate("NAS"); %>: <% translate("BitTorrent Client"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='<% nv('web_css'); %>.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -23,7 +23,7 @@ textarea {
 <script type='text/javascript'>
 //	<% nvram("bt_enable,bt_binary,bt_binary_custom,bt_custom,bt_port,bt_dir,bt_settings,bt_settings_custom,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_dht,bt_pex,bt_blocklist,bt_blocklist_url,bt_sleep,bt_check,bt_check_time,bt_queue,bt_queue_time,bt_maxdown,bt_maxactive"); %>
 
-var btgui_link = '&nbsp;&nbsp;<a href="http://' + location.hostname +':<% nv('bt_port_gui'); %>" target="_blank"><i>[Click here to open Transmission GUI]</i></a>';
+var btgui_link = '&nbsp;&nbsp;<a href="http://' + location.hostname +':<% nv('bt_port_gui'); %>" target="_blank"><i>[<% translate("Click here to open Transmission GUI"); %>]</i></a>';
 
 function verifyFields(focused, quiet)
 {
@@ -83,95 +83,95 @@ function verifyFields(focused, quiet)
 
 	s = E('_bt_custom');
 	if (s.value.search(/"rpc-enable":/) == 0)  {
-		ferror.set(s, 'Cannot set "rpc-enable" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "rpc-enable" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"peer-port":/) == 0)  {
-		ferror.set(s, 'Cannot set "peer-port" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "peer-port" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"speed-limit-down-enabled":/) == 0)  {
-		ferror.set(s, 'Cannot set "speed-limit-down-enabled" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "speed-limit-down-enabled" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"speed-limit-up-enabled":/) == 0)  {
-		ferror.set(s, 'Cannot set "speed-limit-up-enabled" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "speed-limit-up-enabled" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"speed-limit-down":/) == 0)  {
-		ferror.set(s, 'Cannot set "speed-limit-down" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "speed-limit-down" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"speed-limit-up":/) == 0)  {
-		ferror.set(s, 'Cannot set "speed-limit-up" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "speed-limit-up" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"rpc-port":/) == 0)  {
-		ferror.set(s, 'Cannot set "rpc-port" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "rpc-port" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"rpc-whitelist-enabled":/) == 0)  {
-		ferror.set(s, 'Cannot set "rpc-whitelist-enabled" option here. Whitelist is always disabled', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "rpc-whitelist-enabled" option here. Whitelist is always disabled', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"rpc-username":/) == 0)  {
-		ferror.set(s, 'Cannot set "rpc-username" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "rpc-username" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"rpc-password":/) == 0)  {
-		ferror.set(s, 'Cannot set "rpc-password" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "rpc-password" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"download-dir":/) == 0)  {
-		ferror.set(s, 'Cannot set "download-dir" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "download-dir" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"incomplete-dir-enabled":/) == 0)  {
-		ferror.set(s, 'Cannot set "incomplete-dir-enabled" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "incomplete-dir-enabled" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"incomplete-dir":/) == 0)  {
-		ferror.set(s, 'Cannot set "incomplete-dir" option here. If incomplete dir is enabled, all incomplete files will be downloaded to "/download_dir/.incomplete" directory.', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "incomplete-dir" <% translate("option here. If incomplete dir is enabled, all incomplete files will be downloaded to"); %> "/download_dir/.incomplete" <% translate("directory"); %>.', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"peer-limit-global":/) == 0)  {
-		ferror.set(s, 'Cannot set "peer-limit-global" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "peer-limit-global" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"peer-limit-per-torrent":/) == 0)  {
-		ferror.set(s, 'Cannot set "peer-limit-per-torrent" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "peer-limit-per-torrent" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"upload-slots-per-torrent":/) == 0)  {
-		ferror.set(s, 'Cannot set "upload-slots-per-torrent" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "upload-slots-per-torrent" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"dht-enabled":/) == 0)  {
-		ferror.set(s, 'Cannot set "dht-enabled" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "dht-enabled" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"pex-enabled":/) == 0)  {
-		ferror.set(s, 'Cannot set "pex-enabled" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "pex-enabled" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"ratio-limit-enabled":/) == 0)  {
-		ferror.set(s, 'Cannot set "ratio-limit-enabled" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "ratio-limit-enabled" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"ratio-limit":/) == 0)  {
-		ferror.set(s, 'Cannot set "ratio-limit" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "ratio-limit" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"rpc-authentication-required":/) == 0)  {
-		ferror.set(s, 'Cannot set "rpc-authentication-required" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "rpc-authentication-required" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"blocklist-enabled":/) == 0)  {
-		ferror.set(s, 'Cannot set "blocklist-enabled" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "blocklist-enabled" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	if (s.value.search(/"blocklist-url":/) == 0)  {
-		ferror.set(s, 'Cannot set "blocklist-url" option here. You can set it in Tomato GUI', quiet);
+		ferror.set(s, '<% translate("Cannot set"); %> "blocklist-url" <% translate("option here. You can set it in Tomato GUI"); %>', quiet);
 		ok = 0; }
 
 	return ok;
@@ -214,12 +214,12 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 <div class='title'>Tomato</div>
-<div class='version'>Version <% version(); %></div>
+<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
 <div id='ident'><% ident(); %></div>
-<div class='section-title'>Basic Settings</div>
+<div class='section-title'><% translate("Basic Settings"); %></div>
 <div class='section' id='config-section'>
 <form id='_fom' method='post' action='tomato.cgi'>
 <input type='hidden' name='_nextpage' value='nas-bittorrent.asp'>
@@ -240,116 +240,116 @@ function init()
 
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Enable torrent client', name: 'f_bt_enable', type: 'checkbox', value: nvram.bt_enable == '1', suffix: ' <small>*</small>' },
-	{ title: 'Transmission binary path', multi: [
+	{ title: '<% translate("Enable torrent client"); %>', name: 'f_bt_enable', type: 'checkbox', value: nvram.bt_enable == '1', suffix: ' <small>*</small>' },
+	{ title: '<% translate("Transmission binary path"); %>', multi: [
 		{ name: 'bt_binary', type: 'select', options: [
 /* BBT-BEGIN */
-			['internal','Internal (/usr/bin)'],
+			['internal','<% translate("Internal"); %> (/usr/bin)'],
 /* BBT-END */
-			['optware','Optware (/opt/bin)'],
-			['custom','Custom'] ], value: nvram.bt_binary, suffix: ' <small>*</small> ' },
+			['optware','<% translate("Optware"); %> (/opt/bin)'],
+			['custom','<% translate("Custom"); %>'] ], value: nvram.bt_binary, suffix: ' <small>*</small> ' },
 		{ name: 'bt_binary_custom', type: 'text', maxlen: 40, size: 40, value: nvram.bt_binary_custom }
 	] },
-	{ title: 'Keep alive', name: 'f_bt_check', type: 'checkbox', value: nvram.bt_check == '1', suffix: ' <small>*</small>' },
-	{ title: 'Check alive every', indent: 2, name: 'bt_check_time', type: 'text', maxlen: 5, size: 7, value: nvram.bt_check_time, suffix: ' <small>minutes (range: 1 - 55; default: 15)</small>' },
-	{ title: 'Delay at startup', name: 'bt_sleep', type: 'text', maxlen: 5, size: 7, value: nvram.bt_sleep, suffix: ' <small>seconds (range: 1 - 60; default: 10)</small>' },
-	{ title: 'Listening port', name: 'bt_port', type: 'text', maxlen: 5, size: 7, value: nvram.bt_port, suffix: ' <small>*</small>' },
-	{ title: 'Download directory', name: 'bt_dir', type: 'text', maxlen: 40, size: 40, value: nvram.bt_dir },
-	{ title: 'Use .incomplete/', indent: 2, name: 'f_bt_incomplete', type: 'checkbox', value: nvram.bt_incomplete == '1' }
+	{ title: '<% translate("Keep alive"); %>', name: 'f_bt_check', type: 'checkbox', value: nvram.bt_check == '1', suffix: ' <small>*</small>' },
+	{ title: '<% translate("Check alive every"); %>', indent: 2, name: 'bt_check_time', type: 'text', maxlen: 5, size: 7, value: nvram.bt_check_time, suffix: ' <small><% translate("minutes"); %> (<% translate("range"); %>: 1 - 55; <% translate("default"); %>: 15)</small>' },
+	{ title: '<% translate("Delay at startup"); %>', name: 'bt_sleep', type: 'text', maxlen: 5, size: 7, value: nvram.bt_sleep, suffix: ' <small><% translate("seconds"); %> (<% translate("range"); %>: 1 - 60; <% translate("default"); %>: 10)</small>' },
+	{ title: '<% translate("Listening port"); %>', name: 'bt_port', type: 'text', maxlen: 5, size: 7, value: nvram.bt_port, suffix: ' <small>*</small>' },
+	{ title: '<% translate("Download directory"); %>', name: 'bt_dir', type: 'text', maxlen: 40, size: 40, value: nvram.bt_dir },
+	{ title: '<% translate("Use"); %> .incomplete/', indent: 2, name: 'f_bt_incomplete', type: 'checkbox', value: nvram.bt_incomplete == '1' }
 ]);
 </script>
 </div>
 <div>
 	<ul>
-		<li><b>Enable torrent client</b> - Attention! - If your router has only 32MB RAM, you have to use swap.
-		<li><b>Transmission binary path</b> Path to directory with transmission-daemon etc.
-		<li><b>Keep alive</b> - If enabled, transmission daemon will be checked every 5min and run after crash.
-		<li><b>Listening port</b> - Port for torrent client. Make sure port is not in use.
+		<li><b><% translate("Enable torrent client"); %></b> - <% translate("Attention! - If your router has only 32MB RAM, you have to use swap"); %>.
+		<li><b><% translate("Transmission binary path"); %></b> <% translate("Path to directory with transmission-daemon etc"); %>.
+		<li><b><% translate("Keep alive"); %></b> - <% translate("If enabled, transmission daemon will be checked every 5min and run after crash"); %>.
+		<li><b><% translate("Listening port"); %></b> - <% translate("Port for torrent client. Make sure port is not in use"); %>.
 	</ul>
 <br><br>
 </div>
-<div class='section-title'>Remote Access<script>W(btgui_link);</script></div>
+<div class='section-title'><% translate("Remote Access"); %><script>W(btgui_link);</script></div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Enable GUI', name: 'f_bt_rpc_enable', type: 'checkbox', value: nvram.bt_rpc_enable == '1' },
-	{ title: 'Listening GUI port', indent: 2, name: 'bt_port_gui', type: 'text', maxlen: 32, size: 5, value: nvram.bt_port_gui, suffix: ' <small>*</small>' },
-	{ title: 'Authentication required', name: 'f_bt_auth', type: 'checkbox', value: nvram.bt_auth == '1', suffix: ' <small>*</small>' },
-	{ title: 'Username', indent: 2, name: 'bt_login', type: 'text', maxlen: 32, size: 15, value: nvram.bt_login },
-	{ title: 'Password', indent: 2, name: 'bt_password', type: 'password', maxlen: 32, size: 15, value: nvram.bt_password },
-	{ title: 'Allow remote access', name: 'f_bt_rpc_wan', type: 'checkbox', value: nvram.bt_rpc_wan == '1', suffix: ' <small>*</small>' }
+	{ title: '<% translate("Enable GUI"); %>', name: 'f_bt_rpc_enable', type: 'checkbox', value: nvram.bt_rpc_enable == '1' },
+	{ title: '<% translate("Listening GUI port"); %>', indent: 2, name: 'bt_port_gui', type: 'text', maxlen: 32, size: 5, value: nvram.bt_port_gui, suffix: ' <small>*</small>' },
+	{ title: '<% translate("Authentication required"); %>', name: 'f_bt_auth', type: 'checkbox', value: nvram.bt_auth == '1', suffix: ' <small>*</small>' },
+	{ title: '<% translate("Username"); %>', indent: 2, name: 'bt_login', type: 'text', maxlen: 32, size: 15, value: nvram.bt_login },
+	{ title: '<% translate("Password"); %>', indent: 2, name: 'bt_password', type: 'password', maxlen: 32, size: 15, value: nvram.bt_password },
+	{ title: '<% translate("Allow remote access"); %>', name: 'f_bt_rpc_wan', type: 'checkbox', value: nvram.bt_rpc_wan == '1', suffix: ' <small>*</small>' }
 ]);
 </script>
 </div>
 <div>
 	<ul>
-		<li><b>Listening GUI port</b> - Port for Transmission GUI. Make sure port is not in use.
-		<li><b>Authentication required</b> - Authentication is <b><i>highly recomended</i></b>.
-		<li><b>Allow remote access</b> - This option will open Transmission GUI port from WAN site and allow use GUI from the internet.
+		<li><b><% translate("Listening GUI port"); %></b> - <% translate("Port for Transmission GUI. Make sure port is not in use"); %>.
+		<li><b><% translate("Authentication required"); %></b> - <% translate("Authentication is"); %> <b><i><% translate("highly recomended"); %></i></b>.
+		<li><b><% translate("Allow remote access"); %></b> - <% translate("This option will open Transmission GUI port from WAN site and allow use GUI from the internet"); %>.
 	</ul>
 <br><br>
 </div>
-<div class='section-title'>Limits</div>
+<div class='section-title'><% translate("Limits"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Download limit', multi: [
+	{ title: '<% translate("Download limit"); %>', multi: [
 		{ name: 'f_bt_dl_enable', type: 'checkbox', value: nvram.bt_dl_enable == '1', suffix: '  ' },
 		{ name: 'bt_dl', type: 'text', maxlen: 10, size: 7, value: nvram.bt_dl, suffix: ' <small>kB/s</small>' } ] },
-	{ title: 'Upload limit', multi: [
+	{ title: '<% translate("Upload limit"); %>', multi: [
 		{ name: 'f_bt_ul_enable', type: 'checkbox', value: nvram.bt_ul_enable == '1', suffix: '  ' },
 		{ name: 'bt_ul', type: 'text', maxlen: 10, size: 7, value: nvram.bt_ul, suffix: ' <small>kB/s</small>' } ] },
-	{ title: 'Ratio limit', multi: [
+	{ title: '<% translate("Ratio limit"); %>', multi: [
 		{ name: 'f_bt_ratio_enable', type: 'checkbox', value: nvram.bt_ratio_enable == '1', suffix: '  ' },
 		{ name: 'bt_ratio', type: 'select', options: [['0.1000','0.1'],['0.2000','0.2'],['0.5000','0.5'],['1.0000','1.0'],['1.5000','1.5'],['2.0000','2.0'],['2.5000','2.5'],['3.0000','3.0']], value: nvram.bt_ratio } ] },
-	{ title: 'Global peer limit', name: 'bt_peer_limit_global', type: 'text', maxlen: 10, size: 7, value: nvram.bt_peer_limit_global, suffix: ' <small>(range: 10 - 1000; default: 150)</small>' },
-	{ title: 'Peer limit per torrent', name: 'bt_peer_limit_per_torrent', type: 'text', maxlen: 10, size: 7, value: nvram.bt_peer_limit_per_torrent, suffix: ' <small>(range: 1 - 200; default: 30)</small>' },
-	{ title: 'Upload slots per torrent', name: 'bt_ul_slot_per_torrent', type: 'text', maxlen: 10, size: 7, value: nvram.bt_ul_slot_per_torrent, suffix: ' <small>(range: 1 - 50; default: 10)</small>' }
+	{ title: '<% translate("Global peer limit"); %>', name: 'bt_peer_limit_global', type: 'text', maxlen: 10, size: 7, value: nvram.bt_peer_limit_global, suffix: ' <small>(<% translate("range"); %>: 10 - 1000; <% translate("default"); %>: 150)</small>' },
+	{ title: '<% translate("Peer limit per torrent"); %>', name: 'bt_peer_limit_per_torrent', type: 'text', maxlen: 10, size: 7, value: nvram.bt_peer_limit_per_torrent, suffix: ' <small>(<% translate("range"); %>: 1 - 200; <% translate("default"); %>: 30)</small>' },
+	{ title: '<% translate("Upload slots per torrent"); %>', name: 'bt_ul_slot_per_torrent', type: 'text', maxlen: 10, size: 7, value: nvram.bt_ul_slot_per_torrent, suffix: ' <small>(<% translate("range"); %>: 1 - 50; <% translate("default"); %>: 10)</small>' }
 ]);
 </script>
 </div>
-<div class='section-title'>Queue torrents</div>
+<div class='section-title'><% translate("Queue torrents"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Enable queuing', name: 'f_bt_queue', type: 'checkbox', value: nvram.bt_queue == '1' },
-	{ title: 'Run queuing every', indent: 2, name: 'bt_queue_time', type: 'text', maxlen: 5, size: 7, value: nvram.bt_queue_time, suffix: ' <small>minutes (range: 1 - 55; default: 5)</small>' },
-	{ title: 'Max downloads', indent: 2, name: 'bt_maxdown', type: 'text', maxlen: 5, size: 7, value: nvram.bt_maxdown, suffix: ' <small>(range: 1 - 20; default: 2)</small>' },
-	{ title: 'Max active torrents', indent: 2, name: 'bt_maxactive', type: 'text', maxlen: 5, size: 7, value: nvram.bt_maxactive, suffix: ' <small>(range: 1 - 30; default: 5)</small>' }
+	{ title: '<% translate("Enable queuing"); %>', name: 'f_bt_queue', type: 'checkbox', value: nvram.bt_queue == '1' },
+	{ title: '<% translate("Run queuing every"); %>', indent: 2, name: 'bt_queue_time', type: 'text', maxlen: 5, size: 7, value: nvram.bt_queue_time, suffix: ' <small><% translate("minutes"); %> (<% translate("range"); %>: 1 - 55; <% translate("default"); %>: 5)</small>' },
+	{ title: '<% translate("Max downloads"); %>', indent: 2, name: 'bt_maxdown', type: 'text', maxlen: 5, size: 7, value: nvram.bt_maxdown, suffix: ' <small>(<% translate("range"); %>: 1 - 20; <% translate("default"); %>: 2)</small>' },
+	{ title: '<% translate("Max active torrents"); %>', indent: 2, name: 'bt_maxactive', type: 'text', maxlen: 5, size: 7, value: nvram.bt_maxactive, suffix: ' <small>(<% translate("range"); %>: 1 - 30; <% translate("default"); %>: 5)</small>' }
 ]);
 </script>
 </div>
 <div>
 	<ul>
-		<li><b>Max downloads</b> - This is the maximum number of torrents that you would like to have in queue for downloading.
-		<li><b>Max active torrents</b> - This is the maximum number of active torrents in your list.
+		<li><b><% translate("Max downloads"); %></b> - <% translate("This is the maximum number of torrents that you would like to have in queue for downloading"); %>.
+		<li><b><% translate("Max active torrents"); %></b> - <% translate("This is the maximum number of active torrents in your list"); %>.
 	</ul>
 <br><br>
 </div>
-<div class='section-title'>Advanced Settings</div>
+<div class='section-title'><% translate("Advanced Settings"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Save settings location', multi: [
+	{ title: '<% translate("Save settings location"); %>', multi: [
 		{ name: 'bt_settings', type: 'select', options: [
-			['down_dir','In the Download directory (Recommended)'],
+			['down_dir','<% translate("In the Download directory (Recommended)"); %>'],
 /* JFFS2-BEGIN */
 			['/jffs','JFFS2'],
 /* JFFS2-END */
 /* CIFS-BEGIN */
 			['/cifs1','CIFS 1'],['/cifs2','CIFS 2'],
 /* CIFS-END */
-			['/tmp','RAM (Temporary)'], ['custom','Custom'] ], value: nvram.bt_settings, suffix: ' ' },
+			['/tmp','RAM (<% translate("Temporary"); %>)'], ['custom','<% translate("Custom"); %>'] ], value: nvram.bt_settings, suffix: ' ' },
 		{ name: 'bt_settings_custom', type: 'text', maxlen: 40, size: 40, value: nvram.bt_settings_custom }
 		] },
-	{ title: 'DHT enable', name: 'f_bt_dht', type: 'checkbox', value: nvram.bt_dht == '1' },
-	{ title: 'PEX enable', name: 'f_bt_pex', type: 'checkbox', value: nvram.bt_pex == '1' },
-	{ title: 'Blocklist', multi: [
+	{ title: '<% translate("DHT enable"); %>', name: 'f_bt_dht', type: 'checkbox', value: nvram.bt_dht == '1' },
+	{ title: '<% translate("PEX enable"); %>', name: 'f_bt_pex', type: 'checkbox', value: nvram.bt_pex == '1' },
+	{ title: '<% translate("Blocklist"); %>', multi: [
 		{ name: 'f_bt_blocklist', type: 'checkbox', value: nvram.bt_blocklist == '1', suffix: '  ' },
 		{ name: 'bt_blocklist_url', type: 'text', maxlen: 80, size: 80, value: nvram.bt_blocklist_url }
 		] },
 	null,
-	{ title: '<a href="https://trac.transmissionbt.com/wiki/EditConfigFiles" target="_new">Transmission</a><br>Custom configuration', name: 'bt_custom', type: 'textarea', value: nvram.bt_custom }
+	{ title: '<a href="https://trac.transmissionbt.com/wiki/EditConfigFiles" target="_new">Transmission</a><br><% translate("Custom configuration"); %>', name: 'bt_custom', type: 'textarea', value: nvram.bt_custom }
 ]);
 </script>
 </div>
@@ -359,8 +359,8 @@ createFieldTable('', [
 <tr><td id='footer' colspan=2>
  <form>
  <span id='footer-msg'></span>
- <input type='button' value='Save' id='save-button' onclick='save()'>
- <input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
+ <input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+ <input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='javascript:reloadPage();'>
  </form>
 </div>
 </td></tr>

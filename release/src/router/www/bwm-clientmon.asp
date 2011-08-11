@@ -10,7 +10,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Bandwidth: Clientmon Settings</title>
+<title>[<% ident(); %>] <% translate("Bandwidth"); %>: <% translate("Clientmon Settings"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -86,7 +86,7 @@ cmong.setup = function()
 		{ type: 'text', maxlen: 15 },
 		{ type: 'text', maxlen: 12 }
 	]);
-	this.headerSet(['Address IP', 'Username / Alias']);
+	this.headerSet(['<% translate("Address IP"); %>', '<% translate("Username / Alias"); %>']);
 	var s = nvram.cmon_users.split('>');
 	for (var i = 0; i < s.length; ++i) {
 		var t = s[i].split('<');
@@ -124,7 +124,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -139,30 +139,30 @@ function init()
 
 <div id='cmondis'>
 
-<div class='section-title'>Clients Monitor Settings</div>
+<div class='section-title'><% translate("Clients Monitor Settings"); %></div>
 <div class='section'>
 	<script type='text/javascript'>
 	createFieldTable('', [
-		{ title: 'Enable Client Monitor', name: 'f_cmon_enable', type: 'checkbox', value: nvram.cmon_enable != '0' }
+		{ title: '<% translate("Enable Client Monitor"); %>', name: 'f_cmon_enable', type: 'checkbox', value: nvram.cmon_enable != '0' }
 	]);
 	</script>
 <br>
 </div>
 
-<div class='section-title'>List of users</div>
+<div class='section-title'><% translate("List of users"); %></div>
 <div class='section'>
 	<table class='tomato-grid' cellspacing=1 id='cmong-grid'></table>
 	<script type='text/javascript'>cmong.setup();</script>
 <br>
 	<ul>
-	<li>Make sure you have set a sufficient number of IMQ devices!!
-	<li>For each user you need <b>two</b> IMQ devices.
-	<li>Dont use "spaces" in Username field.
-	<li>Maximum number of users on the list is 8.
-	<li>Results can be viewed in Real-Time graph.
+	<li><% translate("Make sure you have set a sufficient number of IMQ devices"); %>!!
+	<li><% translate("For each user you need two IMQ devices"); %>.
+	<li><% translate("Dont use 'spaces' in Username field"); %>.
+	<li><% translate("Maximum number of users on the list is 8"); %>.
+	<li><% translate("Results can be viewed in Real-Time graph"); %>.
 	</ul>
 <br>
-	<b>Example:</b> If you have three users on the list you have to previously set IMQ numdevs = 6 or more
+	<b><% translate("Example"); %>:</b> <% translate("If you have three users on the list you have to previously set IMQ numdevs 6 or more"); %>
 </div>
 
 
@@ -170,9 +170,9 @@ function init()
 <!-- / / / -->
 
 <div class='note-cmon' style='display:none' id='imqwarn'>
-	<b>IMQ is disabled !!</b><br><br>
-	You have to enable IMQ modules<br>
-	<a href='advanced-firewall.asp'>Enable &raquo;</a>
+	<b><% translate("IMQ is disabled"); %> !!</b><br><br>
+	<% translate("You have to enable IMQ modules"); %><br>
+	<a href='advanced-firewall.asp'><% translate("Enable"); %> &raquo;</a>
 </div>
 
 </td></tr>
@@ -180,8 +180,8 @@ function init()
 <div id='savebtn'>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='reloadPage();'>
 </td></tr>
 </div>
 </table>

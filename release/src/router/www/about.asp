@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] About</title>
+<title>[<% ident(); %>] <% translate("About"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -77,7 +77,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -158,6 +158,14 @@ Copyright (C) 2007-2011 Ofer Chen & Vicente Soriano<br>
 - Revised IP/MAC QOS/Bandwidth Limiter<br>
 <br>
 
+<b>Multilanguage integration,</b><br> 
+Copyright (C) 2011 Michał Rupental (Shibby), Vicente Soriano (Victek)<br>
+<a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a>, <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
+<br>
+<b>Special thanks to our translators:</b><br>
+- Polish : <i>Shibby</i><br>
+
+<br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>

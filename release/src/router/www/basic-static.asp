@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Basic: Static DHCP</title>
+<title>[<% ident(); %>] <% translate("Basic"); %>: <% translate("Static DHCP"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -119,7 +119,7 @@ sg.verifyFields = function(row, quiet)
 	}
 	for (i = 0; i < 2; ++i) {
 		if (this.existMAC(f[i].value)) {
-			ferror.set(f[i], 'Duplicate MAC address', quiet);
+			ferror.set(f[i], '<% translate("Duplicate MAC address"); %>', quiet);
 			return 0;
 		}
 	}	
@@ -127,14 +127,14 @@ sg.verifyFields = function(row, quiet)
 	if (f[2].value.indexOf('.') == -1) {
 		s = parseInt(f[2].value, 10)
 		if (isNaN(s) || (s <= 0) || (s >= 255)) {
-			ferror.set(f[2], 'Invalid IP address', quiet);
+			ferror.set(f[2], '<% translate("Invalid IP address"); %>', quiet);
 			return 0;
 		}
 		f[2].value = ipp + s;
 	}
 
 	if ((!isMAC0(f[0].value)) && (this.inStatic(f[2].value))) {
-		ferror.set(f[2], 'Duplicate IP address', quiet);
+		ferror.set(f[2], '<% translate("Duplicate IP address"); %>', quiet);
 		return 0;
 	}
 
@@ -143,14 +143,14 @@ sg.verifyFields = function(row, quiet)
 	s = f[3].value;
 	if (s.length > 0) {
 		if (this.existName(s)) {
-			ferror.set(f[3], 'Duplicate name.', quiet);
+			ferror.set(f[3], '<% translate("Duplicate name"); %>.', quiet);
 			return 0;
 		}
 	}
 
 	if (isMAC0(f[0].value)) {
 		if (s == '') {
-			s = 'Both MAC address and name fields must not be empty.';
+			s = '<% translate("Both MAC address and name fields must not be empty"); %>.';
 			ferror.set(f[0], s, 1);
 			ferror.set(f[3], s, quiet);
 			return 0;
@@ -201,7 +201,7 @@ sg.setup = function()
 		{ type: 'text', maxlen: 15 },
 		{ type: 'text', maxlen: 63 } ] );
 
-	this.headerSet(['MAC Address', 'IP Address', 'Hostname']);
+	this.headerSet(['<% translate("MAC Address"); %>', '<% translate("IP Address"); %>', '<% translate("Hostname"); %>']);
 	var s = nvram.dhcpd_static.split('>');
 	for (var i = 0; i < s.length; ++i) {
 		var t = s[i].split('<');
@@ -257,7 +257,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -268,40 +268,38 @@ function init()
 <input type='hidden' name='_nextpage' value='basic-static.asp'>
 <input type='hidden' name='_service' value='dhcpd-restart,arpbind-restart'>
 <input type='hidden' name='dhcpd_static'>
-
 <input type='hidden' name='new_arpbind_enable'>
 <input type='hidden' name='new_arpbind_only'>
-
-<div class='section-title'>Static DHCP</div>
+<div class='section-title'><% translate("Static DHCP"); %></div>
 <div class='section'>
 	<table class='tomato-grid' id='bs-grid'></table>
 </div>
 
 <small>
-<div>* To specify multiple hostnames per device, separate them with spaces.</div>
+<div><% translate("To specify multiple hostnames per device, separate them with spaces"); %>.</div>
 </small>
 <br>
 <br>
-<div class='section-title'>Static ARP</div>
+<div class='section-title'><% translate("Static ARP"); %></div>
 <div class='section'>
 	<script type='text/javascript'>
 	createFieldTable('', [
-		{ title: 'Enable static ARP', name: 'f_new_arpbind_enable', type: 'checkbox', value: nvram.new_arpbind_enable != '0' },
-		{ title: 'Restrict unlisted machines', name: 'f_new_arpbind_only', type: 'checkbox', value: nvram.new_arpbind_only != '0' }
+		{ title: '<% translate("Enable static ARP"); %>', name: 'f_new_arpbind_enable', type: 'checkbox', value: nvram.new_arpbind_enable != '0' },
+		{ title: '<% translate("Restrict unlisted machines"); %>', name: 'f_new_arpbind_only', type: 'checkbox', value: nvram.new_arpbind_only != '0' }
 	]);
 	</script>
 </div>
 <small>
-<div>* Static ARP only works if there's one MAC address per IP. You can't enter two MAC addresses in the above table.</small></div>
+<div>* <% translate("Static ARP only works if there's one MAC address per IP. You can't enter two MAC addresses in the above table"); %>.</small></div>
 <br>
 <br>
-<div>When using <b>"Restrict unlisted machines"</b>:</div>
+<div><% translate("When using"); %> <b>"<% translate("Restrict unlisted machines"); %>"</b>:</div>
 <br>
 <small>
-<div>* DHCP should issue a "range" with only 1 IP address, preferably the administrator's IP - e.g. 192.168.1.100-100.</div><br>
-<div>* You <b>MUST</b> enter your own (administrator) IP and MAC into the table, or you may be locked out of the router.</div><br>
-<div>* You must add the IP/MAC address of all your access point(s) to the table.</div><br>
-<div>* All listed IP's will now show as "active" in the WOL table.</div>
+<div>* <% translate("DHCP should issue a 'range' with only 1 IP address, preferably the administrator's IP"); %> - <% translate("ex"); %> 192.168.1.100-100.</div><br>
+<div>* <% translate("You MUST enter your own (administrator) IP and MAC into the table, or you may be locked out of the router"); %>.</div><br>
+<div>* <% translate("You must add the IP/MAC address of all your access point(s) to the table"); %>.</div><br>
+<div>* <% translate("All listed IP's will now show as 'active' in the WOL table"); %>.</div>
 </small></div>
 
 <!-- / / / -->
@@ -309,8 +307,8 @@ function init()
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='javascript:reloadPage();'>
 </td></tr>
 </table>
 </form>

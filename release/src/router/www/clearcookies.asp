@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Clear Cookies</title>
+<title>[<% ident(); %>] <% translate("Clear Cookies"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -20,7 +20,7 @@
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -39,7 +39,7 @@ for (i = 0; i < c.length; ++i) {
 		cookie.unset(RegExp.$1);
 	}
 }
-if (b.length == 0) b.push('<li>no cookie found');
+if (b.length == 0) b.push('<li><% translate("no cookie found"); %>');
 W('<ul>' + b.join('') + '</ul>');
 </script>
 

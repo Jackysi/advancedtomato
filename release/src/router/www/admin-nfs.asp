@@ -10,7 +10,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Admin: NFS Server</title>
+<title>[<% ident(); %>] <% translate("Admin"); %>: <% translate("NFS Server"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -48,9 +48,9 @@
 
 //	<% nvram("nfs_enable,nfs_exports"); %>
 
-var access = [['rw', 'Read/Write'], ['ro', 'Read only']];
-var sync = [['sync', 'Yes'], ['async', 'No']];
-var subtree = [['subtree_check', 'Yes'], ['no_subtree_check', 'No']];
+var access = [['rw', '<% translate("Read/Write"); %>'], ['ro', '<% translate("Read only"); %>']];
+var sync = [['sync', '<% translate("Yes"); %>'], ['async', '<% translate("No"); %>']];
+var subtree = [['subtree_check', '<% translate("Yes"); %>'], ['no_subtree_check', '<% translate("No"); %>']];
 
 var nfsg = new TomatoGrid();
 
@@ -97,7 +97,7 @@ nfsg.setup = function()
 		{ type: 'select', options: subtree },
 		{ type: 'text', maxlen: 50 }
 	]);
-	this.headerSet(['Directory', 'IP Address/Subnet', 'Access', 'Sync', 'Subtree Check', 'Other Options']);
+	this.headerSet(['<% translate("Directory"); %>', '<% translate("IP Address/Subnet"); %>', '<% translate("Access"); %>', '<% translate("Sync"); %>', '<% translate("Subtree Check"); %>', '<% translate("Other Options"); %>']);
 	var s = nvram.nfs_exports.split('>');
 	for (var i = 0; i < s.length; ++i) {
 		var t = s[i].split('<');
@@ -135,7 +135,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -149,33 +149,33 @@ function init()
 <input type='hidden' name='nfs_enable'>
 <input type='hidden' name='nfs_exports'>
 
-<div class='section-title'>NFS Server</div>
+<div class='section-title'><% translate("NFS Server"); %></div>
 <div class='section'>
 	<script type='text/javascript'>
 	createFieldTable('', [
-		{ title: 'Enable NFS Server', name: 'f_nfs_enable', type: 'checkbox', value: nvram.nfs_enable != '0' }
+		{ title: '<% translate("Enable NFS Server"); %>', name: 'f_nfs_enable', type: 'checkbox', value: nvram.nfs_enable != '0' }
 	]);
 	</script>
 <br>
 
-<div class='section-title'>Exports</div>
+<div class='section-title'><% translate("Exports"); %></div>
 <div class='section'>
 	<table class='tomato-grid' cellspacing=1 id='nfsg-grid'></table>
 	<script type='text/javascript'>nfsg.setup();</script>
 <br>
 	<ul>
-	<li>More information about NFS configuration you can find on <a href="http://nfs.sourceforge.net/nfs-howto/" target="_blanc"><b>http://nfs.sourceforge.net</b></a>.
+	<li><% translate("More information about NFS configuration you can find on"); %> <a href="http://nfs.sourceforge.net/nfs-howto/" target="_blanc"><b>http://nfs.sourceforge.net</b></a>.
 	</ul>
 <br>
 </div>
 
 </div>
 
-<div class='section-title'>NFS Client</div>
+<div class='section-title'><% translate("NFS Client"); %></div>
 <div class='section'>
 <br>
 	<ul>
-	<li>If you want mount a NFS share from other NFS Server, you can use mount.nfs tool via telnet/ssh.
+	<li><% translate("If you want mount a NFS share from other NFS Server, you can use mount.nfs tool via telnet/ssh"); %>.
 	</ul>
 </div>
 
@@ -184,8 +184,8 @@ function init()
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='reloadPage();'>
 </td></tr>
 </table>
 </form>

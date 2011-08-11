@@ -10,7 +10,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] NAS: File Sharing</title>
+<title>[<% ident(); %>] NAS: <% translate("File Sharing"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -68,7 +68,7 @@ ssg.sortCompare = function(a, b) {
 }
 
 ssg.dataToView = function(data) {
-	return [data[0], data[1], data[2], ['Read Only', 'Read / Write'][data[3]], ['No', 'Yes'][data[4]]];
+	return [data[0], data[1], data[2], ['<% translate("Read Only"); %>', '<% translate("Read / Write"); %>'][data[3]], ['<% translate("No"); %>', '<% translate("Yes"); %>'][data[4]]];
 }
 
 ssg.fieldValuesToData = function(row) {
@@ -85,22 +85,22 @@ ssg.verifyFields = function(row, quiet)
 	s = f[0].value.trim().replace(/\s+/g, ' ');
 	if (s.length > 0) {
 		if (s.search(/^[ a-zA-Z0-9_\-\$]+$/) == -1) {
-			ferror.set(f[0], 'Invalid share name. Only characters "$ A-Z 0-9 - _" and spaces are allowed.', quiet);
+			ferror.set(f[0], '<% translate("Invalid share name. Only characters"); %> "$ A-Z 0-9 - _" <% translate("and spaces are allowed"); %>.', quiet);
 			return 0;
 		}
 		if (this.existName(s)) {
-			ferror.set(f[0], 'Duplicate share name.', quiet);
+			ferror.set(f[0], '<% translate("Duplicate share name"); %>.', quiet);
 			return 0;
 		}
 		f[0].value = s;
 	}
 	else {
-		ferror.set(f[0], 'Empty share name is not allowed.', quiet);
+		ferror.set(f[0], '<% translate("Empty share name is not allowed"); %>.', quiet);
 		return 0;
 	}
 
-	if (!v_nodelim(f[1], quiet, 'Directory', 1) || !v_path(f[1], quiet, 1)) return 0;
-	if (!v_nodelim(f[2], quiet, 'Description', 1)) return 0;
+	if (!v_nodelim(f[1], quiet, '<% translate("Directory"); %>', 1) || !v_path(f[1], quiet, 1)) return 0;
+	if (!v_nodelim(f[2], quiet, '<% translate("Description"); %>', 1)) return 0;
 
 	return 1;
 }
@@ -125,10 +125,10 @@ ssg.setup = function()
 		{ type: 'text', maxlen: 32 },
 		{ type: 'text', maxlen: 256 },
 		{ type: 'text', maxlen: 64 },
-		{ type: 'select', options: [[0, 'Read Only'],[1, 'Read / Write']] },
-		{ type: 'select', options: [[0, 'No'],[1, 'Yes']] }
+		{ type: 'select', options: [[0, '<% translate("Read Only"); %>'],[1, '<% translate("Read / Write"); %>']] },
+		{ type: 'select', options: [[0, '<% translate("No"); %>'],[1, '<% translate("Yes"); %>']] }
 	]);
-	this.headerSet(['Share Name', 'Directory', 'Description', 'Access Level', 'Hidden']);
+	this.headerSet(['<% translate("Share Name"); %>', '<% translate("Directory"); %>', '<% translate("Description"); %>', '<% translate("Access Level"); %>', '<% translate("Hidden"); %>']);
 
 	var s = nvram.smbd_shares.split('>');
 	for (var i = 0; i < s.length; ++i) {
@@ -166,7 +166,7 @@ function verifyFields(focused, quiet)
 
 		b = E('_smbd_user');
 		if (b.value == 'root') {
-			ferror.set(b, 'User Name \"root\" is not allowed.', quiet);
+			ferror.set(b, '<% translate("User Name \"root\" is not allowed."); %>', quiet);
 			return 0;
 		}
 		ferror.clear(b);
@@ -202,7 +202,7 @@ function save()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -217,47 +217,47 @@ function save()
 <input type='hidden' name='smbd_wins'>
 <input type='hidden' name='smbd_shares'>
 
-<div class='section-title'>Samba File Sharing</div>
+<div class='section-title'><% translate("Samba File Sharing"); %></div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Enable File Sharing', name: 'smbd_enable', type: 'select',
-		options: [['0', 'No'],['1', 'Yes, no Authentication'],['2', 'Yes, Authentication required']],
+	{ title: '<% translate("Enable File Sharing"); %>', name: 'smbd_enable', type: 'select',
+		options: [['0', '<% translate("No"); %>'],['1', '<% translate("Yes, no Authentication"); %>'],['2', '<% translate("Yes, Authentication required"); %>']],
 		value: nvram.smbd_enable },
-	{ title: 'User Name', indent: 2, name: 'smbd_user', type: 'text', maxlen: 50, size: 32,
+	{ title: '<% translate("User Name"); %>', indent: 2, name: 'smbd_user', type: 'text', maxlen: 50, size: 32,
 		value: nvram.smbd_user },
-	{ title: 'Password', indent: 2, name: 'smbd_passwd', type: 'password', maxlen: 50, size: 32, peekaboo: 1,
+	{ title: '<% translate("Password"); %>', indent: 2, name: 'smbd_passwd', type: 'password', maxlen: 50, size: 32, peekaboo: 1,
 		value: nvram.smbd_passwd },
 	null,
-	{ title: 'Workgroup Name', name: 'smbd_wgroup', type: 'text', maxlen: 20, size: 32,
+	{ title: '<% translate("Workgroup Name"); %>', name: 'smbd_wgroup', type: 'text', maxlen: 20, size: 32,
 		value: nvram.smbd_wgroup },
-	{ title: 'Client Codepage', name: 'smbd_cpage', type: 'select',
-		options: [['', 'Unspecified'],['437', '437 (United States, Canada)'],['850', '850 (Western Europe)'],['852', '852 (Central / Eastern Europe)'],['866', '866 (Cyrillic / Russian)']
+	{ title: '<% translate("Client Codepage"); %>', name: 'smbd_cpage', type: 'select',
+		options: [['', '<% translate("Unspecified"); %>'],['437', '437 (<% translate("United States, Canada"); %>)'],['850', '850 (<% translate("Western Europe"); %>)'],['852', '852 (<% translate("Central / Eastern Europe"); %>)'],['866', '866 (<% translate("Cyrillic / Russian"); %>)']
 /* LINUX26-BEGIN */
-		,['932', '932 (Japanese)'],['936', '936 (Simplified Chinese)'],['949', '949 (Korean)'],['950', '950 (Traditional Chinese / Big5)']
+		,['932', '932 (<% translate("Japanese"); %>)'],['936', '936 (<% translate("Simplified Chinese"); %>)'],['949', '949 (<% translate("Korean"); %>)'],['950', '950 (<% translate("Traditional Chinese / Big"); %>)']
 /* LINUX26-END */
 		],
-		suffix: ' <small> (start cmd.exe and type chcp to see the current code page)</small>',
+		suffix: ' <small> (<% translate("start cmd.exe and type chcp to see the current code page"); %>)</small>',
 		value: nvram.smbd_cpage },
-	{ title: 'Samba<br>Custom Configuration', name: 'smbd_custom', type: 'textarea', value: nvram.smbd_custom },
-	{ title: 'Auto-share all USB Partitions', name: 'smbd_autoshare', type: 'select',
-		options: [['0', 'Disabled'],['1', 'Read Only'],['2', 'Read / Write'],['3', 'Hidden Read / Write']],
+	{ title: 'Samba<br><% translate("Custom Configuration"); %>', name: 'smbd_custom', type: 'textarea', value: nvram.smbd_custom },
+	{ title: '<% translate("Auto-share all USB Partitions"); %>', name: 'smbd_autoshare', type: 'select',
+		options: [['0', '<% translate("Disabled"); %>'],['1', '<% translate("Read Only"); %>'],['2', '<%translate("Read / Write"); %>'],['3', '<% translate("Hidden Read / Write"); %>']],
 		value: nvram.smbd_autoshare },
 	{ title: 'Options', multi: [
-		{ suffix: '&nbsp; Master Browser &nbsp;&nbsp;&nbsp;', name: 'f_smbd_master', type: 'checkbox', value: nvram.smbd_master == 1 },
-		{ suffix: '&nbsp; WINS Server &nbsp;',	name: 'f_smbd_wins', type: 'checkbox', value: (nvram.smbd_wins == 1) && (nvram.wan_wins == '' || nvram.wan_wins == '0.0.0.0') }
+		{ suffix: '&nbsp; <% translate("Master Browser"); %> &nbsp;&nbsp;&nbsp;', name: 'f_smbd_master', type: 'checkbox', value: nvram.smbd_master == 1 },
+		{ suffix: '&nbsp; <% translate("WINS Server"); %> &nbsp;',	name: 'f_smbd_wins', type: 'checkbox', value: (nvram.smbd_wins == 1) && (nvram.wan_wins == '' || nvram.wan_wins == '0.0.0.0') }
 	] }
 ]);
 </script>
 </div>
 <br>
 
-<div class='section-title'>Additional Shares List</div>
+<div class='section-title'><% translate("Network Shares List"); %></div>
 <div class='section'>
 	<table class='tomato-grid' cellspacing=1 id='ss-grid'></table>
 	<script type='text/javascript'>ssg.setup();</script>
 <br>
-<small>When no shares are specified and auto-sharing is disabled, <i>/mnt</i> directory is shared in Read Only mode.</small>
+<small><% translate("When no shares are specified"); %>, <i>/mnt</i> <% translate("directory is shared in Read Only mode"); %>.</small>
 </div>
 
 <!-- / / / -->
@@ -265,8 +265,8 @@ createFieldTable('', [
 </td></tr>
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
-	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
+	<input type='button' value='<% translate("Save"); %>' id='save-button' onclick='save()'>
+	<input type='button' value='<% translate("Cancel"); %>' id='cancel-button' onclick='javascript:reloadPage();'>
 </td></tr>
 </table>
 </form>

@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] QoS: View Per-Connection Transfer Rates</title>
+<title>[<% ident(); %>] QoS: <% translate("View Per-Connection Transfer Rates"); %></title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
@@ -206,7 +206,7 @@ grid.setName = function(ip, name) {
 
 grid.setup = function() {
 	this.init('grid', 'sort');
-	this.headerSet(['Proto', 'Source', 'S Port', 'Destination', 'D Port', 'UL Rate', 'DL Rate']);
+	this.headerSet(['<% translate("Proto"); %>', '<% translate("Source"); %>', '<% translate("S Port"); %>', '<% translate("Destination"); %>', '<% translate("D Port"); %>', '<% translate("UL Rate"); %>', '<% translate("DL Rate"); %>']);
 }
 
 var ref = new TomatoRefresh('/update.cgi', '', 0, 'qos_ctrate');
@@ -364,7 +364,7 @@ function verifyFields(focused, quiet)
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -372,27 +372,27 @@ function verifyFields(focused, quiet)
 
 <!-- / / / -->
 
-<div class='section-title'>Filters <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
+<div class='section-title'><% translate("Filters"); %> <small><i><a href='javascript:toggleFiltersVisibility();'>(<% translate("Toggle Visibility"); %>)</a></i></small></div>
 <div class='section' id='sesdivfilters' style='display:none'>
 <script type='text/javascript'>
 var c;
 c = [];
-c.push({ title: 'Only these IPs', name: 'f_filter_ip', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(Comma separated list)</small>' });
-c.push({ title: 'Exclude these IPs', name: 'f_filter_ipe', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(Comma separated list)</small>' });
-c.push({ title: 'Exclude gateway traffic', name: 'f_excludegw', type: 'checkbox', value: 1 });
+c.push({ title: '<% translate("Only these IPs"); %>', name: 'f_filter_ip', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(<% translate("Comma separated list"); %>)</small>' });
+c.push({ title: '<% translate("Exclude these IPs"); %>', name: 'f_filter_ipe', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(<% translate("Comma separated list"); %>)</small>' });
+c.push({ title: '<% translate("Exclude gateway traffic"); %>', name: 'f_excludegw', type: 'checkbox', value: 1 });
 createFieldTable('',c);
 </script>
 </div>
 </div>
 
-<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>Transfer Rates</div>
+<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'><% translate("Transfer Rates"); %></div>
 <div class='section'>
 <table id='grid' class='tomato-grid' style="float:left" cellspacing=1></table>
-<input type='checkbox' id='resolve' onclick='resolveChanged()' onchange='resolveChanged()'> Automatically Resolve Addresses
+<input type='checkbox' id='resolve' onclick='resolveChanged()' onchange='resolveChanged()'> <% translate("Automatically Resolve Addresses"); %>
 &nbsp;&nbsp;&nbsp;
-<input type='checkbox' id='thres' onclick='thresChanged()' onchange='thresChanged()'> Hide Inactive Connections
+<input type='checkbox' id='thres' onclick='thresChanged()' onchange='thresChanged()'> <% translate("Hide Inactive Connections"); %>
 
-<div id='loading'><br><b>Loading...</b></div>
+<div id='loading'><br><b><% translate("Loading"); %>...</b></div>
 </div>
 
 <!-- / / / -->
