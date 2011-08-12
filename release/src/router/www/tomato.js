@@ -2000,7 +2000,7 @@ function navi()
 			['Identification',	'ident.asp'],
 			['Time',			'time.asp'],
 			['DDNS',			'ddns.asp'],
-			['DHCP/Bandwidth',	'static.asp'],
+			['DHCP/ARP/BW',	'static.asp'],
 			['Wireless Filter',	'wfilter.asp'] ] ],
 		['Advanced', 			'advanced', 0, [
 			['Conntrack/Netfilter',	'ctnf.asp'],

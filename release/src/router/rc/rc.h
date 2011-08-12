@@ -208,6 +208,10 @@ extern void create_test_iptfile(void);
 extern void start_bwclimon(void);
 extern void stop_bwclimon(void);
 
+// arpbind.c
+extern void start_arpbind(void);
+extern void stop_arpbind(void);
+
 // forward.c
 extern void ipt_forward(ipt_table_t table);
 extern void ipt_triggered(ipt_table_t table);

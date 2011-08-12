@@ -103,6 +103,7 @@ Copyright (C) 2006-2010 Jonathan Zarate<br>
 Teaman enhancements included in this build:
 <ul>
 <li>Real-time bandwidth monitoring of LAN clients</li>
+<li>Static ARP binding</li>
 </ul>
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>

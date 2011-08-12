@@ -15,7 +15,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Basic: Static DHCP &amp; Bandwidth Monitoring of LAN Clients</title>
+<title>[<% ident(); %>] Basic: Static DHCP/ARP &amp; Bandwidth Monitoring of LAN Clients</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
@@ -27,9 +27,13 @@
 	text-align: center;
 }
 #bs-grid .co2 {
-	width: 120px;
+	width: 80px;
+	text-align: center;
 }
 #bs-grid .co3 {
+	width: 120px;
+}
+#bs-grid .co4 {
 	width: 80px;
 	text-align: center;
 }
@@ -42,7 +46,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("lan_ipaddr,lan_netmask,dhcpd_static,dhcpd_startip,bwm_client"); %>
+//	<% nvram("lan_ipaddr,lan_netmask,dhcpd_static,dhcpd_startip,bwm_client,dhcpd_static_only,arpbind_static"); %>
 
 if (nvram.lan_ipaddr.match(/^(\d+\.\d+\.\d+)\.(\d+)$/)) ipp = RegExp.$1 + '.';
 	else ipp = '?.?.?.';
@@ -77,27 +81,30 @@ sg.dataToView = function(data) {
 	var s = (data[0] == '00:00:00:00:00:00') ? '' : data[0];
 	if (!isMAC0(data[1])) s += '<br>' + data[1];
 	v.push((s == '') ? '<center><small><i>(unset)</i></small></center>' : s);
-	v.push(escapeHTML('' + data[2]));
-	v.push((data[3].toString() != '0') ? 'Enabled' : '');
-	v.push(escapeHTML('' + data[4]));
+	v.push((data[2].toString() != '0') ? 'Enabled' : '');
+	v.push(escapeHTML('' + data[3]));
+	v.push((data[4].toString() != '0') ? 'Enabled' : '');
+	v.push(escapeHTML('' + data[5]));
 	return v;
 }
 
 sg.dataToFieldValues = function (data) {
 	return ([data[0],
 			data[1],
-			data[2],
-			(data[3].toString() != '0') ? 'checked' : '',
-			data[4]]);
+			(data[2].toString() != '0') ? 'checked' : '',
+			data[3],
+			(data[4].toString() != '0') ? 'checked' : '',
+			data[5]]);
 }
 
 sg.fieldValuesToData = function(row) {
 	var f = fields.getAll(row);
 	return ([f[0].value,
 			f[1].value,
-			f[2].value,
-			f[3].checked ? '1' : '0',
-			f[4].value]);
+			f[2].checked ? '1' : '0',
+			f[3].value,
+			f[4].checked ? '1' : '0',
+			f[5].value]);
 }
 
 sg.sortCompare = function(a, b) {
@@ -109,15 +116,19 @@ sg.sortCompare = function(a, b) {
 		r = cmpText(da[0], db[0]);
 		break;
 	case 1:
-		r = cmpIP(da[2], db[2]);
+		r = cmpInt(da[2], db[2]);
 		break;
 	case 2:
-		r = cmpInt(da[3], db[3]);
+		r = cmpIP(da[3], db[3]);
+		break;
+	case 3:
+		r = cmpInt(da[4], db[4]);
 		break;
 	}
-	if (r == 0) r = cmpText(da[4], db[4]);
+	if (r == 0) r = cmpText(da[5], db[5]);
 	return this.sortAscending ? r : -r;
 }
+
 
 sg.verifyFields = function(row, quiet) {
 	var f, s, i;
@@ -139,6 +150,16 @@ sg.verifyFields = function(row, quiet) {
 		f[0].value = s;
 	}
 
+/* REMOVE-BEGIN
+	if(f[2].checked) {
+//		f[1].value = '00:00:00:00:00:00';
+		f[1].disabled = true;
+	} else {
+		f[1].disabled = false;
+	}
+REMOVE-END */
+	f[1].disabled = f[2].checked;
+
 	for (i = 0; i < 2; ++i) {
 		if (this.existMAC(f[i].value)) {
 			ferror.set(f[i], 'Duplicate MAC address', quiet);
@@ -147,27 +168,27 @@ sg.verifyFields = function(row, quiet) {
 	}	
 
 	if (f[2].value.indexOf('.') == -1) {
-		s = parseInt(f[2].value, 10)
+		s = parseInt(f[3].value, 10)
 		if (isNaN(s) || (s <= 0) || (s >= 255)) {
-			ferror.set(f[2], 'Invalid IP address', quiet);
+			ferror.set(f[3], 'Invalid IP address', quiet);
 			return 0;
 		}
 		f[2].value = ipp + s;
 	}
 
 	if ((!isMAC0(f[0].value)) && (this.inStatic(f[3].value))) {
-		ferror.set(f[2], 'Duplicate IP address', quiet);
+		ferror.set(f[3], 'Duplicate IP address', quiet);
 		return 0;
 	}
 
-	s = f[4].value.trim().replace(/\s+/g, ' ');
+	s = f[5].value.trim().replace(/\s+/g, ' ');
 	if (s.length > 0) {
 		if (s.search(/^[.a-zA-Z0-9_\- ]+$/) == -1) {
-			ferror.set(f[4], 'Invalid hostname. Only characters "A-Z 0-9 . - _" are allowed.', quiet);
+			ferror.set(f[5], 'Invalid hostname. Only characters "A-Z 0-9 . - _" are allowed.', quiet);
 			return 0;
 		}
 		if (this.existName(s)) {
-			ferror.set(f[4], 'Duplicate hostname.', quiet);
+			ferror.set(f[5], 'Duplicate hostname.', quiet);
 			return 0;
 		}
 		f[4].value = s;
@@ -177,12 +198,19 @@ sg.verifyFields = function(row, quiet) {
 		if (s == '') {
 			s = 'Both MAC address and name fields must not be empty.';
 			ferror.set(f[0], s, 1);
-			ferror.set(f[4], s, quiet);
+			ferror.set(f[5], s, quiet);
 			return 0;
 		} else {
 			ferror.clear(f[0]);
-			ferror.clear(f[4]);
+			ferror.clear(f[5]);
 		}
+	}
+
+	if (((f[0].value == '00:00:00:00:00:00') || (f[1].value == '00:00:00:00:00:00')) && (f[0].value == f[1].value)) {
+		f[2].disabled=1;
+		f[2].checked=0;
+	} else {
+		f[2].disabled=0;
 	}
 
 	return 1;
@@ -201,14 +229,15 @@ sg.resetNewEditor = function() {
 			f[0].value = c[0];
 			f[1].value = '00:00:00:00:00:00';
 			f[2].value = c[1];
-			f[4].value = c[2];
+			f[5].value = c[2];
 			return;
 		}
 	}
 
 	f[0].value = '00:00:00:00:00:00';
 	f[1].value = '00:00:00:00:00:00';
-	f[4].value = '';
+	f[2].disabled = 1;
+	f[5].value = '';
 
 	n = 10;
 	do {
@@ -225,16 +254,19 @@ sg.resetNewEditor = function() {
 sg.setup = function() {
 	this.init('bs-grid', 'sort', 140, [
 		{ multi: [ { type: 'text', maxlen: 17 }, { type: 'text', maxlen: 17 } ] },
+		{ type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
 		{ type: 'text', maxlen: 15 },
 		{ type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
 		{ type: 'text', maxlen: 50 } ] );
 
-	this.headerSet(['MAC Address', 'IP Address', 'BW Mon', 'Hostname' ]);
+	this.headerSet(['MAC Address', 'Bound to', 'IP Address', 'BW Mon', 'Hostname' ]);
 
 	var s = nvram.dhcpd_static.split('>');
 	var bwr = nvram.bwm_client.split('>');
+	var asr = nvram.arpbind_static.split('>');
 	for (var i = 0; i < s.length; ++i) {
 		var bwe = '0';
+		var ase = '0';
 		var t = s[i].split('<');
 		if (t.length == 3) {
 			var d = t[0].split(',');
@@ -246,12 +278,18 @@ sg.setup = function() {
 					bwe = '1';
 			}
 
-			this.insertData(-1, [ d[0], (d.length >= 2) ? d[1] : '00:00:00:00:00:00',
+			for (var k = 0; k < asr.length; ++k) {
+				var asl = asr[k].split('<');
+				if ((asl.length == 2) && (asl[1] == d))
+					ase = '1';
+			}
+
+			this.insertData(-1, [ d[0], (d.length >= 2) ? d[1] : '00:00:00:00:00:00', ase,
 				ip, bwe, t[2] ]);
 		}
 	}
 
-	this.sort(3);
+	this.sort(4);
 	this.showNewEditor();
 	this.resetNewEditor();
 }
@@ -261,6 +299,7 @@ function save() {
 
 	var data = sg.getAllData();
 	var sdhcp = '';
+	var sarp = '';
 	var bwm = '';
 	var i;
 
@@ -268,36 +307,45 @@ function save() {
 		var d = data[i];
 		sdhcp += d[0];
 		if (!isMAC0(d[1])) sdhcp += ',' + d[1];
-		sdhcp += '<' + d[2] + '<' + d[4] + '>';
+		sdhcp += '<' + d[3] + '<' + d[5] + '>';
 
-		if (d[3].toString() == '1') bwm += d[2] + '<' + d[4].split(' ').splice(0,1) + '>';
+		if (d[2] == '1') sarp += d[3] + '<' + d[0] + '>';
+		if (d[4] == '1') bwm += d[3] + '<' + d[5].split(' ').splice(0,1) + '>';
 	}
 
 	var fom = E('_fom');
-	fom.dhcpd_static.value = sdhcp;
 	fom.bwm_client.value = bwm;
-
+	fom.dhcpd_static.value = sdhcp;
+	fom.dhcpd_static_only.value = E('_f_dhcpd_static_only').checked ? '1' : '0';
+	fom.arpbind_static.value = sarp;
 	form.submit(fom, 1);
 }
 
 function init() {
 	var c;
 	if (((c = cookie.get('basic_static_notes_vis')) != null) && (c == '1')) {
-		E('sesdivnotes').style.display='';
+		toggleVisibility("notes");
+	}
+	if (((c = cookie.get('basic_static_options_vis')) != null) && (c == '1')) {
+		toggleVisibility("options");
 	}
 	sg.recolor();
 }
 
-function toggleNotesVisibility(){
-	if(E('sesdivnotes').style.display=='') {
-		E('sesdivnotes').style.display='none';
-		E('sesdivnotesshowhide').innerHTML='(Click here to show)';
-		cookie.set('basic_static_notes_vis', 0);
+function toggleVisibility(whichone) {
+	if(E('sesdiv' + whichone).style.display=='') {
+		E('sesdiv' + whichone).style.display='none';
+		E('sesdiv' + whichone + 'showhide').innerHTML='(Click here to show)';
+		cookie.set('basic_static_' + whichone + '_vis', 0);
 	} else {
-		E('sesdivnotes').style.display='';
-		E('sesdivnotesshowhide').innerHTML='(Click here to hide)';
-		cookie.set('basic_static_notes_vis', 1);
+		E('sesdiv' + whichone).style.display='';
+		E('sesdiv' + whichone + 'showhide').innerHTML='(Click here to hide)';
+		cookie.set('basic_static_' + whichone + '_vis', 1);
 	}
+}
+
+function verifyFields(focused, quiet) {
+	return 1;
 }
 
 </script>
@@ -316,31 +364,50 @@ function toggleNotesVisibility(){
 <!-- / / / -->
 
 <input type='hidden' name='_nextpage' value='basic-static.asp'>
-<input type='hidden' name='_service' value='dhcpd-restart,bwclimon-restart'>
+<input type='hidden' name='_service' value='dhcpd-restart,bwclimon-restart,arpbind-restart'>
 
-<input type='hidden' name='dhcpd_static'>
 <input type='hidden' name='bwm_client'>
+<input type='hidden' name='dhcpd_static'>
+<input type='hidden' name='dhcpd_static_only'>
+<input type='hidden' name='arpbind_static'>
 
-<div class='section-title'>Static DHCP &amp; Bandwidth Monitoring of LAN Clients</div>
+<div class='section-title'>Static DHCP/ARP &amp; Bandwidth Monitoring of LAN Clients</div>
 <div class='section'>
 	<table class='tomato-grid' id='bs-grid'></table>
 </div>
 
 <!-- / / / -->
 
-<div class='section-title'>Notes <small><i><a href='javascript:toggleNotesVisibility();'><span id='sesdivnotesshowhide'>(Click here to show)</span></a></i></small></div>
+<div class='section-title'>Options <small><i><a href='javascript:toggleVisibility("options");'><span id='sesdivoptionsshowhide'>(Click here to show)</span></a></i></small></div>
+<div class='section' id='sesdivoptions' style='display:none'>
+<script type='text/javascript'>
+createFieldTable('', [
+{ title: 'Ignore DHCP requests from unknown devices', name: 'f_dhcpd_static_only', type: 'checkbox', value: nvram.dhcpd_static_only == '1' }
+]);
+</script>
+</div>
+
+<!-- / / / -->
+
+<div class='section-title'>Notes <small><i><a href='javascript:toggleVisibility("notes");'><span id='sesdivnotesshowhide'>(Click here to show)</span></a></i></small></div>
 <div class='section' id='sesdivnotes' style='display:none'>
 <ul>
 <li><b>MAC Address</b> - Unique identifier associated to a network interface on this particular device.</li>
+<li><b>Bound to</b> - Enforce static ARP binding of this particular IP/MAC address pair.</li>
 <li><b>IP Address</b> - Network address assigned to this device on the local network.</li>
 <li><b>BW Mon</b> - Monitor volume of network traffic from/to this IP address that goes through the router.</li>
 <li><b>Hostname</b> - Human-readable nickname/label assigned to this device on the network.</li>
+</ul>
+<ul>
+<li><b>Ignore DHCP requests (...)</b> - Unlisted MAC addresses won't be able to obtain an IP address through DHCP.</li>
 </ul>
 <small>
 <ul>
 <li><b>Other relevant notes/hints:</b>
 <ul>
 <li>To specify multiple hostnames for a device, separate them with spaces.</li>
+<li>To enable/enforce static ARP binding for a particular device, it must have only one MAC associated with that particular IP address (i.e. you can't have two MAC addresses linked to the same hostname/device in the table above).</li>
+<li>When ARP binding is enabled for a particular MAC/IP address pair, that device will always be shown as "active" in the <a href="tools-wol.asp">Wake On LAN</a> table.</li>
 </ul>
 </ul>
 </small>

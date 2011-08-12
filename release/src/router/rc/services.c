@@ -122,10 +122,13 @@ void start_dnsmasq()
 		}
 	}
 
-	
 	// dhcp
 	do_dhcpd = nvram_match("lan_proto", "dhcp");
 	if (do_dhcpd) {
+		if (nvram_get_int("dhcpd_static_only")) {
+			fprintf(f, "dhcp-ignore=tag:!known\n");
+		}
+
 		dhcp_lease = nvram_get_int("dhcp_lease");
 		if (dhcp_lease <= 0) dhcp_lease = 1440;
 
@@ -794,6 +797,12 @@ TOP:
 		goto CLEAR;
 	}
 
+	if (strcmp(service, "arpbind") == 0) {
+		if (action & A_STOP) stop_arpbind();
+		if (action & A_START) start_arpbind();
+		goto CLEAR;
+	}
+
 	if (strcmp(service, "restrict") == 0) {
 		if (action & A_STOP) {
 			stop_firewall();
@@ -1005,12 +1014,14 @@ TOP:
 	if (strcmp(service, "net") == 0) {
 		if (action & A_STOP) {
 			stop_wan();
+			stop_arpbind();
 			stop_lan();
 			stop_vlan();
 		}
 		if (action & A_START) {
 			start_vlan();
 			start_lan();
+			start_arpbind();
 			start_wan(BOOT);
 		}
 		goto CLEAR;
