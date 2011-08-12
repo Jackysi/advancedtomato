@@ -128,7 +128,7 @@ function save()
 	fom.macnames.value = names.join('>');
 
 	for (i = 0; i < wl_ifaces.length; ++i) {
-		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+		if(wl_ifaces[i][0].indexOf('.') < 0) {
 			u = wl_unit(i);
 			E('_wl'+u+'_macmode').value = fom.wl_macmode.value;
 			E('_wl'+u+'_maclist').value = fom.wl_maclist.value;
