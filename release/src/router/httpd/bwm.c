@@ -138,6 +138,35 @@ void asp_netdev(int argc, char **argv)
 	web_puts("};\n");
 }
 
+void asp_climon(int argc, char **argv) {
+	FILE *ti;
+	FILE *to;
+
+	char bi[512];
+	char bo[512];
+
+	char ip[64];
+	unsigned long rx, tx;
+
+	char comma;
+
+	web_puts("\n\nclimon={");
+	if ((to = popen("iptables -vnxL traffic_out", "r")) != NULL) {
+		if ((ti = popen("iptables -vnxL traffic_in", "r")) != NULL) {
+		comma = ' ';
+		while ((fgets(bi, sizeof(bi), ti)) && (fgets(bo, sizeof(bo), to))) {
+			if( (sscanf(bi, "%*s %lu %*s %*s %*s %*s %*s %s", &rx, ip)!=2) ||
+				(sscanf(bo, "%*s %lu %*s %*s %*s %*s %*s %*s", &tx)!=1) ) continue;
+				web_printf("%c'%s':{rx:0x%lx,tx:0x%lx}", comma, ip, rx, tx);
+				comma = ',';
+			}
+		}
+		pclose(ti);
+	}
+	pclose(to);
+	web_puts("};\n");
+}
+
 void asp_bandwidth(int argc, char **argv)
 {
 	char *name;

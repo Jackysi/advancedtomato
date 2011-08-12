@@ -774,6 +774,8 @@ int start_firewall(void)
 
 	run_nvscript("script_fire", NULL, 1);
 
+	start_bwclimon();
+
 	simple_unlock("firewall");
 	return 0;
 }

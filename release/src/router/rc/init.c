@@ -780,7 +780,8 @@ static void sysinit(void)
 	static const char *mkd[] = {
 		"/tmp/etc", "/tmp/var", "/tmp/home", "/tmp/mnt",
 		"/var/log", "/var/run", "/var/tmp", "/var/lib", "/var/lib/misc",
-		"/var/spool", "/var/spool/cron", "/var/spool/cron/crontabs", NULL
+		"/var/spool", "/var/spool/cron", "/var/spool/cron/crontabs",
+		"/tmp/var/wwwext", NULL
 	};
 	umask(0);
 	for (i = 0; mkd[i]; ++i) {
@@ -933,6 +934,7 @@ int init_main(int argc, char *argv[])
 
 			start_vlan();
 			start_lan();
+			start_bwclimon();
 			start_wan(BOOT);
 			start_services();
 
