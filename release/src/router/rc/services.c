@@ -1921,6 +1921,18 @@ TOP:
 		goto CLEAR;
 	}
 
+	if (strcmp(service, "bwclimon") == 0) {
+		if (action & A_STOP) stop_bwclimon();
+		if (action & A_START) start_bwclimon();
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "arpbind") == 0) {
+		if (action & A_STOP) stop_arpbind();
+		if (action & A_START) start_arpbind();
+		goto CLEAR;
+	}
+
 	if (strcmp(service, "restrict") == 0) {
 		if (action & A_STOP) {
 			stop_firewall();
@@ -2185,12 +2197,14 @@ TOP:
 			stop_dnsmasq();
 			stop_nas();
 			stop_wan();
+			stop_arpbind();
 			stop_lan();
 			stop_vlan();
 		}
 		if (action & A_START) {
 			start_vlan();
 			start_lan();
+			start_arpbind();
 			start_wan(BOOT);
 			start_nas();
 			start_dnsmasq();

@@ -366,11 +366,11 @@ function init()
 		E('_f_excludemcast').checked = mcastCB = 1;
 	}
 
-	if (((c = cookie.get('qos_filters')) != null) && (c == '1')) {
-		E('sesdivfilters').style.display='';
+	if (((c = cookie.get('qos_details_filters_vis')) != null) && (c == '1')) {
+		toggleVisibility("filters");
 	}
 
-	if (viewClass != -1) E('stitle').innerHTML = 'View Details: ' + abc[viewClass] + ' <span id=\'numtotalconn\'></span>';
+	if (viewClass != -1) E('stitle').innerHTML = 'Details: ' + abc[viewClass] + ' <span id=\'numtotalconn\'></span>';
 	grid.setup();
 	ref.postData = 'exec=ctdump&arg0=' + viewClass;
 	ref.initPage(250);
@@ -396,13 +396,15 @@ function dofilter() {
 	ref.start();
 }
 
-function toggleFiltersVisibility(){
-	if(E('sesdivfilters').style.display=='') {
-		E('sesdivfilters').style.display='none';
-		cookie.set('qos_filters', 0);
+function toggleVisibility(whichone) {
+	if(E('sesdiv' + whichone).style.display=='') {
+		E('sesdiv' + whichone).style.display='none';
+		E('sesdiv' + whichone + 'showhide').innerHTML='(Click here to show)';
+		cookie.set('qos_details_' + whichone + '_vis', 0);
 	} else {
-		E('sesdivfilters').style.display='';
-		cookie.set('qos_filters', 1);
+		E('sesdiv' + whichone).style.display='';
+		E('sesdiv' + whichone + 'showhide').innerHTML='(Click here to hide)';
+		cookie.set('qos_details_' + whichone + '_vis', 1);
 	}
 }
 
@@ -442,7 +444,7 @@ function verifyFields(focused, quiet)
 
 <!-- / / / -->
 
-<div class='section-title'>Filters: <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
+<div class='section-title'>Filters <small><i><a href='javascript:toggleVisibility("filters");'><span id='sesdivfiltersshowhide'>(Click here to show)</span></a></i></small></div>
 <div class='section' id='sesdivfilters' style='display:none'>
 <script type='text/javascript'>
 var c;
@@ -459,7 +461,7 @@ createFieldTable('',c);
 
 <!-- / / / -->
 
-<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>View Details: <span id='numtotalconn'></span></div>
+<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>Details <span id='numtotalconn'></span></div>
 <div class='section'>
 <table id='grid' class='tomato-grid' style="float:left" cellspacing=1></table>
 
@@ -470,7 +472,7 @@ createFieldTable('',c);
 
 </td></tr>
 <tr><td id='footer' colspan=2>
-	<script type='text/javascript'>genStdRefresh(1,10,'ref.toggle()');</script>
+	<script type='text/javascript'>genStdRefresh(1,1,'ref.toggle()');</script>
 </td></tr>
 </table>
 </form>

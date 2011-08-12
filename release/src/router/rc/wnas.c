@@ -73,14 +73,22 @@ static int nas_starter(int idx, int unit, int subunit, void *param) {
 			else
 				snprintf(unit_str, sizeof(unit_str), "%d", unit);
 
-			if(strstr(nvram_safe_get("lan_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL)
+			if(strstr(nvram_safe_get("lan_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL) {
 				xstart("/usr/sbin/nas.sh", unit_str, nvram_safe_get("lan_ifname"));
-			if(strstr(nvram_safe_get("lan1_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL)
+				sleep(1);
+			}
+			if(strstr(nvram_safe_get("lan1_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL) {
 				xstart("/usr/sbin/nas.sh", unit_str, nvram_safe_get("lan1_ifname"));
-			if(strstr(nvram_safe_get("lan2_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL)
+				sleep(1);
+			}
+			if(strstr(nvram_safe_get("lan2_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL) {
 				xstart("/usr/sbin/nas.sh", unit_str, nvram_safe_get("lan2_ifname"));
-			if(strstr(nvram_safe_get("lan3_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL)
+				sleep(1);
+			}
+			if(strstr(nvram_safe_get("lan3_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL) {
 				xstart("/usr/sbin/nas.sh", unit_str, nvram_safe_get("lan3_ifname"));
+				sleep(1);
+			}
 		}
 	}
 	return 0;

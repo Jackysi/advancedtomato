@@ -4,6 +4,10 @@
 	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
+	Enhancements by Teaman
+	Copyright (C) 2011 Augusto Bott
+	http://code.google.com/p/tomato-sdhc-vlan/
+
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
 -->
@@ -110,15 +114,22 @@ Copyright (C) 2010 Keith Moyer<br>
 
 VLAN administration GUI,<br>
 Multiple LAN support integration and GUI,<br>
-Multiple/virtual SSID support (experimental).<br>
+Multiple/virtual SSID support (experimental),<br>
+Real-time bandwidth monitoring of LAN clients,<br>
+Static ARP binding.<br>
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br><br>
+
+<!-- / / / -->
 
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
+
+<!-- / / / -->
+
 Built on <% build_time(); %><br>
 <br><br>
 
