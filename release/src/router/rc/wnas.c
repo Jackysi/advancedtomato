@@ -64,6 +64,11 @@ int wds_enable(void)
 	return foreach_wif(1, NULL, is_wds);
 }
 
+int wl_security_on(void)
+{
+	return foreach_wif(1, NULL, security_on);
+}
+
 static int nas_starter(int idx, int unit, int subunit, void *param) {
 	char unit_str[] = "000000";
 	if(nvram_get_int(wl_nvname("bss_enabled", unit, subunit))) {

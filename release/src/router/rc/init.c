@@ -1452,6 +1452,11 @@ int init_main(int argc, char *argv[])
 				stop_nas();
 				start_nas();
 			}
+#else
+			if (wl_security_on()) {
+				stop_nas();
+				start_nas();
+			}
 #endif
 
 			syslog(LOG_INFO, "%s: Tomato %s", nvram_safe_get("t_model_name"), tomato_version);

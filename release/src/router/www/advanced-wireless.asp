@@ -32,7 +32,8 @@ nphy = features('11n');
 function verifyFields(focused, quiet)
 {
 	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+//		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+		if (wl_sunit(uidx)<0) {
 			var u = wl_unit(uidx);
 
 			if (!v_range('_f_wl'+u+'_distance', quiet, 0, 99999)) return 0;
@@ -62,7 +63,7 @@ function save()
 	fom = E('_fom');
 
 	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+		if (wl_sunit(uidx)<0) {
 			var u = wl_unit(uidx);
 
 			n = E('_f_wl'+u+'_distance').value * 1;
@@ -112,7 +113,7 @@ function save()
 <script type='text/javascript'>
 
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+if (wl_sunit(uidx)<0) {
 	var u = wl_unit(uidx);
 
 	W('<input type=\'hidden\' id=\'_wl'+u+'_distance\' name=\'wl'+u+'_distance\'>');
