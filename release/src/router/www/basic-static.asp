@@ -150,14 +150,6 @@ sg.verifyFields = function(row, quiet) {
 		f[0].value = s;
 	}
 
-/* REMOVE-BEGIN
-	if(f[2].checked) {
-//		f[1].value = '00:00:00:00:00:00';
-		f[1].disabled = true;
-	} else {
-		f[1].disabled = false;
-	}
-REMOVE-END */
 	f[1].disabled = f[2].checked;
 
 	for (i = 0; i < 2; ++i) {
@@ -228,7 +220,7 @@ sg.resetNewEditor = function() {
 		if (c.length == 3) {
 			f[0].value = c[0];
 			f[1].value = '00:00:00:00:00:00';
-			f[2].value = c[1];
+			f[3].value = c[1];
 			f[5].value = c[2];
 			return;
 		}
