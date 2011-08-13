@@ -353,7 +353,8 @@ var bands = [];
 var nm_loaded = [], ch_loaded = [], max_channel = [];
 
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-	if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+//	if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+	if (wl_sunit(uidx)<0) {
 		var b;
 		b = [];
 		for (var i = 0; i < wl_bands[uidx].length; ++i) {
@@ -649,7 +650,8 @@ function verifyFields(focused, quiet)
 	var wmode, sm2;
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+//		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+		if (wl_sunit(uidx)<0) {
 			u = wl_unit(uidx);
 			if (focused == E('_f_wl'+u+'_nband')) {
 				refreshNetModes(uidx);
@@ -700,7 +702,8 @@ REMOVE-END */
 
 	var wl_vis = [];
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+//		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+		if (wl_sunit(uidx)<0) {
 			a = {
 			_f_wl_radio: 1,
 			_f_wl_mode: 1,
@@ -741,7 +744,8 @@ REMOVE-END */
 	var wan = E('_wan_proto').value;
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+//		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+		if (wl_sunit(uidx)<0) {
 			wmode = E('_f_wl'+wl_unit(uidx)+'_mode').value;
 
 			if (wmode == 'wet') {
@@ -860,7 +864,8 @@ REMOVE-END */
 REMOVE-END */
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+//		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+		if (wl_sunit(uidx)<0) {
 			u = wl_unit(uidx);
 			wmode = E('_f_wl'+u+'_mode').value;
 
@@ -1023,7 +1028,8 @@ REMOVE-END */
 
 	var wlclnt = 0;
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+//		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+		if (wl_sunit(uidx)<0) {
 			u = wl_unit(uidx);
 			wmode = E('_f_wl'+u+'_mode').value;
 			sm2 = E('_wl'+u+'_security_mode').value;
@@ -1131,7 +1137,8 @@ REMOVE-END */
 	}
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+//		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+		if (wl_sunit(uidx)<0) {
 			u = wl_unit(uidx);
 
 			// IP address
@@ -1237,7 +1244,8 @@ function save()
 	fom.wan_mtu.disabled = fom.f_wan_mtu.disabled;
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+//		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+		if (wl_sunit(uidx)<0) {
 			u = wl_unit(uidx);
 			wmode = E('_f_wl'+u+'_mode').value;
 			sm2 = E('_wl'+u+'_security_mode').value;
@@ -1441,7 +1449,8 @@ REMOVE-END */
 function init()
 {
 	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+//		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+		if (wl_sunit(uidx)<0) {
 			refreshNetModes(uidx);
 			refreshChannels(uidx);
 		}
@@ -1559,7 +1568,8 @@ REMOVE-END */
 <script type='text/javascript'>
 
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+//if(wl_ifaces[uidx][0].indexOf('.') < 0) {
+if (wl_sunit(uidx)<0) {
 	var u = wl_unit(uidx);
 
 	W('<input type=\'hidden\' id=\'_wl'+u+'_mode\' name=\'wl'+u+'_mode\'>');

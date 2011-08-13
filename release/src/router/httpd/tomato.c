@@ -746,6 +746,7 @@ static const nvset_t nvset_list[] = {
 // advanced-mac
 	{ "mac_wan",			V_LENGTH(0, 17)		},
 	{ "wl_macaddr",			V_LENGTH(0, 17)		},
+	{ "wl_hwaddr",			V_LENGTH(0, 17)		},
 
 // advanced-routing
 	{ "routes_static",		V_LENGTH(0, 2048)	},
