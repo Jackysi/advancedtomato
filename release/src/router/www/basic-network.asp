@@ -85,10 +85,10 @@ lg.setup = function() {
 
 lg.dataToView = function(data) {
 	return ['br' + data[0],
-	(data[1].toString() == '1') ? '<small><i>Enabled</i></small>' : '<small><i>Disabled</i></small>',
+	(data[1].toString() == '1') ? '<small><i><% translate("Enabled"); %></i></small>' : '<small><i><% translate("Disabled"); %></i></small>',
 	data[2],
 	data[3],
-	(data[4].toString() == '1') ? '<small><i>Enabled</i></small>' : '<small><i>Disabled</i></small>',
+	(data[4].toString() == '1') ? '<small><i><% translate("Enabled"); %></i></small>' : '<small><i><% translate("Disabled"); %></i></small>',
 	(((data[5] != null) && (data[5] != '')) ? (data[5] + ' - ') : '') + (((data[6] != null) && (data[6] != '')) ? data[6] : ''),
 	(((data[7] != null) && (data[7] != '')) ? data[7] : '') ];
 }

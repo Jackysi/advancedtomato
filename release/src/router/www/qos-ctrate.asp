@@ -342,9 +342,9 @@ ref.refresh = function(text)
 	if (resolveCB) resolve();
 
 	if (numconnshown != numconntotal)
-		E('numtotalconn').innerHTML='<small><i>(showing ' + numconnshown + ' out of ' + numconntotal + ' connections)</i></small>';
+		E('numtotalconn').innerHTML='<small><i>(<% translate("showing"); %> ' + numconnshown + ' <% translate("out of"); %> ' + numconntotal + ' <% translate("connections"); %>)</i></small>';
 	else
-		E('numtotalconn').innerHTML='<small><i>(' + numconntotal + ' connections)</i></small>';
+		E('numtotalconn').innerHTML='<small><i>(' + numconntotal + ' <% translate("connections"); %>)</i></small>';
 }
 
 function init()

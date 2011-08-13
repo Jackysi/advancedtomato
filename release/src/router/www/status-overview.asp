@@ -267,13 +267,13 @@ for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
 				nvram['dhcpd' + j + '_endip'] = x + ((nvram['dhcp' + j + '_start'] * 1) + (nvram['dhcp' + j + '_num'] * 1) - 1);
 			}
 			s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? ', ' : '';
-			s += '<a href="status-devices.asp">' + nvram['dhcpd' + j + '_startip'] + ' - ' + nvram['dhcpd' + j + '_endip'] + '</a> on LAN' + j + ' (br' + i + ')';
+			s += '<a href="status-devices.asp">' + nvram['dhcpd' + j + '_startip'] + ' - ' + nvram['dhcpd' + j + '_endip'] + '</a> <% translate("on LAN"); %>' + j + ' (br' + i + ')';
 		} else {
 			s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? ', ' : '';
-			s += 'Disabled on LAN' + j + ' (br' + i + ')';
+			s += '<% translate("Disabled on LAN"); %>' + j + ' (br' + i + ')';
 		}
 		t += ((t.length>0)&&(t.charAt(t.length-1) != ' ')) ? ', ' : '';
-		t += nvram['lan' + j + '_ipaddr'] + '/' + numberOfBitsOnNetMask(nvram['lan' + j + '_netmask']) + ' on LAN' + j + ' (br' + i + ')';
+		t += nvram['lan' + j + '_ipaddr'] + '/' + numberOfBitsOnNetMask(nvram['lan' + j + '_netmask']) + ' <% translate("on LAN"); %>' + j + ' (br' + i + ')';
 	}
 }
 
