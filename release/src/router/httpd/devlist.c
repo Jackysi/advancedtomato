@@ -211,7 +211,7 @@ void asp_devlist(int argc, char **argv)
 	char *host;
 
 	web_puts("dhcpd_lease = [");
-	if (nvram_match("lan_proto", "dhcp")) {
+	if ((nvram_match("lan_proto", "dhcp")) || (nvram_match("lan1_proto", "dhcp")) || (nvram_match("lan2_proto", "dhcp")) || (nvram_match("lan3_proto", "dhcp")) ) {
 		f_write("/var/tmp/dhcp/leases.!", NULL, 0, 0, 0666);
 
 		// dump the leases to a file
