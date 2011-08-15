@@ -684,6 +684,13 @@ const defaults_t defaults[] = {
 	{ "log_ftp",			"0"				},
 #endif
 
+#ifdef TCONFIG_SNMP
+	{ "snmp_enable",		"0"				},
+	{ "snmp_location",		"router"			},
+	{ "snmp_contact",		"admin@tomato"			},
+	{ "snmp_ro",			"rocommunity"			},
+#endif
+
 #ifdef TCONFIG_SAMBASRV
 // nas-samba - !!TB
 	{ "smbd_enable",		"0"				},

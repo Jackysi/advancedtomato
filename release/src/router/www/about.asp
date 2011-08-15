@@ -4,10 +4,6 @@
 	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
-	Enhancements by Teaman
-	Copyright (C) 2011 Augusto Bott
-	http://code.google.com/p/tomato-sdhc-vlan/
-
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
 -->
@@ -94,13 +90,17 @@ function init()
 </div>
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
 Tomato Firmware v<% version(1); %><br>
-
+<br>
+Linux kernel 2.4.37.11 and Broadcom Wireless Driver 4.150.10.29 updates<br>
+Support for additional router models and Wireless-N mode<br>
 <!-- USB-BEGIN -->
-<br>USB support integration and GUI,<br>
+USB support integration and GUI<br>
 <!-- USB-END -->
-Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates,<br>
-support for additional router models and Wireless-N mode.<br>
-Copyright (C) 2008-2011 Fedor Kozhevnikov and Ray Van Tassle<br>
+<!-- IPV6-BEGIN -->
+IPv6 support<br>
+<!-- IPV6-END -->
+
+Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <!-- / / / -->
 <br><br>
@@ -129,6 +129,13 @@ Copyright (C) 2009-2010 Tomasz Słodkowicz<br>
 <!-- SDHC-END -->
 
 <!-- / / / -->
+
+<!-- SNMP-BEGIN -->
+SNMP integration and GUI<br>
+Copyright (C) 2011 Michał Rupental<br>
+<a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
+<br><br>
+<!-- SNMP-END -->
 
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>

@@ -1006,6 +1006,13 @@ static const nvset_t nvset_list[] = {
 	{ "log_ftp",			V_01				},
 #endif
 
+#ifdef TCONFIG_SNMP
+	{ "snmp_enable",		V_RANGE(0, 1)			},
+	{ "snmp_location",		V_LENGTH(0, 20)			},
+	{ "snmp_contact",		V_LENGTH(0, 20)			},
+	{ "snmp_ro",			V_LENGTH(0, 20)			},
+#endif
+
 #ifdef TCONFIG_SAMBASRV
 // nas-samba - !!TB
 	{ "smbd_enable",		V_RANGE(0, 2)			},
