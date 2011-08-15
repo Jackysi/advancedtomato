@@ -77,6 +77,10 @@ config TCONFIG_USB
 	bool "USB Support"
 	default y
 
+config TCONFIG_SDHC
+	bool "SDHC/MMC Support"
+	default y
+
 config TCONFIG_MEDIA_SERVER
 	bool "Media Server (MiniDLNA)"
 	depends on TCONFIG_USB

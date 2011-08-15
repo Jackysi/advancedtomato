@@ -2365,6 +2365,9 @@ REMOVE-END */
 /* JFFS2-BEGIN */
 			['JFFS',			'jffs2.asp'],
 /* JFFS2-END */
+/* SDHC-BEGIN */
+			['SDHC/MMC',		'sdhc.asp'],
+/* SDHC-END */
 			['Logging',			'log.asp'],
 			['Scheduler',		'sched.asp'],
 			['Scripts',			'scripts.asp'],

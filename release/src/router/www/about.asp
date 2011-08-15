@@ -112,14 +112,21 @@ Copyright (C) 2010 Keith Moyer<br>
 <br><br>
 <!-- VPN-END -->
 
-VLAN administration GUI,<br>
-Multiple LAN support integration and GUI,<br>
-Multiple/virtual SSID support (experimental),<br>
-Real-time bandwidth monitoring of LAN clients,<br>
-Static ARP binding.<br>
+VLAN administration GUI<br>
+Multiple LAN support integration and GUI<br>
+Multiple/virtual SSID support (experimental)<br>
+Real-time bandwidth monitoring of LAN clients<br>
+Static ARP binding<br>
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br><br>
+
+<!-- SDHC-BEGIN -->
+SDHC integration and GUI<br>
+Copyright (C) 2009-2010 Tomasz Słodkowicz<br>
+<a href='http://gemini.net.pl/~slodki/tomato-sdhc.html' target='_new'>http://gemini.net.pl/~slodki/tomato-sdhc.html</a><br>
+<br><br>
+<!-- SDHC-END -->
 
 <!-- / / / -->
 

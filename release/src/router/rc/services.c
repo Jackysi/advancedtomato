@@ -325,8 +325,6 @@ void start_dnsmasq()
 		fprintf(f, "dhcp-authoritative\n");
 	}
 
-	//
-
 #ifdef TCONFIG_OPENVPN
 	write_vpn_dnsmasq_config(f);
 #endif
@@ -334,8 +332,6 @@ void start_dnsmasq()
 	fprintf(f, "%s\n\n", nvram_safe_get("dnsmasq_custom"));
 
 	fappend(f, "/etc/dnsmasq.custom");
-
-	//
 
 	fclose(f);
 
@@ -1814,6 +1810,9 @@ void start_services(void)
 	}
 
 //	start_syslog();
+#ifdef TCONFIG_SDHC
+	start_mmc();
+#endif
 	start_nas();
 	start_zebra();
 	start_dnsmasq();
@@ -1851,6 +1850,9 @@ void stop_services(void)
 	stop_dnsmasq();
 	stop_zebra();
 	stop_nas();
+#ifdef TCONFIG_SDHC
+	stop_mmc();
+#endif
 //	stop_syslog();
 }
 
@@ -2099,6 +2101,9 @@ TOP:
 			stop_smbd();
 #endif
 			restart_nas_services(1, 0);	// stop Samba, FTP and Media Server
+#ifdef TCONFIG_SDHC
+			stop_mmc();
+#endif
 			stop_jffs2();
 //			stop_cifs();
 			stop_zebra();
@@ -2127,6 +2132,14 @@ TOP:
 	if (strncmp(service, "jffs", 4) == 0) {
 		if (action & A_STOP) stop_jffs2();
 		if (action & A_START) start_jffs2();
+		goto CLEAR;
+	}
+#endif
+
+#ifdef TCONFIG_SDHC
+	if (strcmp(service, "mmc") == 0) {
+		if (action & A_STOP) stop_mmc();
+		if (action & A_START) start_mmc();
 		goto CLEAR;
 	}
 #endif

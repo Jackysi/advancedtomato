@@ -390,6 +390,9 @@ const aspapi_t aspapi[] = {
 #ifdef TCONFIG_USB
 	{ "usbdevices",			asp_usbdevices	},	//!!TB - USB Support
 #endif
+#ifdef TCONFIG_SDHC
+	{ "mmcid",			asp_mmcid		},
+#endif
 	{ "css",				asp_css				},
 	{ NULL,					NULL				}
 };
@@ -944,6 +947,21 @@ static const nvset_t nvset_list[] = {
 	{ "jffs2_on",			V_01				},
 	{ "jffs2_exec",			V_LENGTH(0, 64)		},
 	{ "jffs2_format",		V_01				},
+
+// admin-sdhc
+#ifdef TCONFIG_SDHC
+	{ "mmc_on",			V_01				},
+	{ "mmc_cs",			V_RANGE(1, 7)			},	// GPIO pin
+	{ "mmc_clk",			V_RANGE(1, 7)			},	// GPIO pin
+	{ "mmc_din",			V_RANGE(1, 7)			},	// GPIO pin
+	{ "mmc_dout",			V_RANGE(1, 7)			},	// GPIO pin
+	{ "mmc_fs_partition",		V_RANGE(1, 4)			},	// partition number in partition table
+	{ "mmc_fs_type",		V_LENGTH(4, 4)			},	// ext2, ext3, vfat
+	{ "mmc_exec_premount",		V_LENGTH(0, 128)			},
+	{ "mmc_exec_postmount",		V_LENGTH(0, 128)			},
+	{ "mmc_exec_preumount",		V_LENGTH(0, 128)			},
+	{ "mmc_exec_postumount",		V_LENGTH(0, 128)			},
+#endif
 
 // nas-usb - !!TB
 #ifdef TCONFIG_USB

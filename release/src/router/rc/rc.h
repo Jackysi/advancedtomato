@@ -318,6 +318,12 @@ static inline void start_jffs2(void) { };
 static inline void stop_jffs2(void) { };
 #endif
 
+// mmc.c
+#ifdef TCONFIG_SDHC
+extern void start_mmc(void);
+extern void stop_mmc(void);
+#endif
+
 // ddns.c
 #ifdef TCONFIG_DDNS
 extern void start_ddns(void);

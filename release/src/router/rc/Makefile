@@ -17,6 +17,9 @@ OBJS += buttons.o restrict.o gpio.o sched.o
 OBJS += bwclimon.o arpbind.o
 #	heartbeat.o
 
+ifeq ($(TCONFIG_SDHC),y)
+OBJS += mmc.o
+endif
 ifeq ($(TCONFIG_USB),y)
 OBJS += usb.o
 endif

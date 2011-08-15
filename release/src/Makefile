@@ -44,6 +44,7 @@ ND = "K26"
 else
 ND = "ND"
 endif
+SDHC ?= "n"
 
 -include tomato_profile.mak
 
@@ -119,8 +120,6 @@ ifneq ($(NOVERSION),1)
 endif
 endif
 
-
-
 clean:
 	@touch router/.config
 	@rm -f router/config_[a-z]
@@ -195,6 +194,7 @@ what:
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM
+# SDHC
 
 define RouterOptions
 	@( \
@@ -240,6 +240,10 @@ define RouterOptions
 	else \
 		sed -i "/TCONFIG_USB=y/d" $(1); \
 		echo "# TCONFIG_USB is not set" >>$(1); \
+	fi; \
+	if [ "$(SDHC)" = "y" ]; then \
+		sed -i "/TCONFIG_SDHC/d" $(1); \
+		echo "TCONFIG_SDHC=y" >>$(1); \
 	fi; \
 	if [ "$(NO_SAMBA)" = "y" ]; then \
 		sed -i "/TCONFIG_SAMBASRV/d" $(1); \
@@ -426,10 +430,12 @@ define KernelConfig
 		echo "CONFIG_CPU_MIPSR2=y" >>$(1); \
 	fi; \
 	if [ "$(USB)" = "" ]; then \
-		sed -i "/CONFIG_MSDOS_PARTITION/d" $(1); \
-		echo "# CONFIG_MSDOS_PARTITION is not set" >>$(1); \
-		sed -i "/CONFIG_EFI_PARTITION/d" $(1); \
-		echo "# CONFIG_EFI_PARTITION is not set" >>$(1); \
+		if [ "$(SDHC)" = "n" ]; then \
+			sed -i "/CONFIG_MSDOS_PARTITION/d" $(1); \
+			echo "# CONFIG_MSDOS_PARTITION is not set" >>$(1); \
+			sed -i "/CONFIG_EFI_PARTITION/d" $(1); \
+			echo "# CONFIG_EFI_PARTITION is not set" >>$(1); \
+		fi; \
 	fi; \
 	if [ "$(IPV6SUPP)" = "y" ]; then \
 		sed -i "/CONFIG_IPV6 is not set/d" $(1); \
@@ -521,27 +527,27 @@ endif
 	$(call KernelConfig, $(LINUXDIR)/config_$(lowercase_B))
 	$(call BusyboxOptions, router/busybox/config_$(lowercase_B))
 
-	@$(MAKE) setprofile N=$(TPROFILE) B=$(B) DESC="$(BUILD_DESC)" USB="$(USB)"
+	@$(MAKE) setprofile N=$(TPROFILE) B=$(B) DESC="$(BUILD_DESC)" USB="$(USB)" SDHC="$(SDHC)"
 	@$(MAKE) all
 
 ## Make the "normal" build
 a:
-	@$(MAKE) bin B=A BUILD_DESC="Std" USB="USB"
+	@$(MAKE) bin B=A BUILD_DESC="Std" USB="USB" SDHC="$(SDHC)"
 
 ## Make the "normal but without SSH" build
 b:
-	@$(MAKE) bin NO_SSH=y B=B BUILD_DESC="No SSH" USB="USB"
+	@$(MAKE) bin NO_SSH=y B=B BUILD_DESC="No SSH" USB="USB" SDHC="$(SDHC)"
 
 ## Make the "normal but without CIFS" build
 c:
-	@$(MAKE) bin NO_CIFS=y B=C BUILD_DESC="No CIFS" USB="USB"
+	@$(MAKE) bin NO_CIFS=y B=C BUILD_DESC="No CIFS" USB="USB" SDHC="$(SDHC)"
 
 ## Make the "normal but without SAMBA" (Lite) build
 d:
 ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin NO_SAMBA=y SLIM=y NO_CIFS=y NO_JFFS=y NO_ZEBRA=y B=D BUILD_DESC="Lite" USB="USB"
 else
-	@$(MAKE) bin NO_SAMBA=y SLIM=y B=D BUILD_DESC="Lite" USB="USB"
+	@$(MAKE) bin NO_SAMBA=y SLIM=y B=D BUILD_DESC="Lite" USB="USB" SDHC="$(SDHC)"
 endif
 
 ## Make the "normal (with NTFS support) + VPN" build
@@ -549,7 +555,7 @@ e:
 ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB"
 else
-	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB"
+	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB" SDHC="$(SDHC)"
 endif
 
 ## Make the "normal with Extras and NTFS" build
@@ -557,7 +563,7 @@ m:
 ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB"
 else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB"
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB" SDHC="$(SDHC)"
 endif
 
 ## Make the "No USB" build
@@ -565,7 +571,7 @@ s:
 ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB=""
 else
-	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB=""
+	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB="" SDHC="$(SDHC)"
 endif
 
 ifeq ($(CONFIG_LINUX26),y)
@@ -592,7 +598,7 @@ v:
 ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin OPENVPN=y NO_JFFS=y B=V BUILD_DESC="$(VPN)" USB=""
 else
-	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB=""
+	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB="" SDHC="$(SDHC)"
 endif
 
 ## Make Mips32r2 builds (K26 only)

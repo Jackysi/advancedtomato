@@ -61,6 +61,12 @@ ifneq ($(TCONFIG_JFFS2),y)
 	sed -i $(INSTALLDIR)/www/nas-media.asp -e "/JFFS2-BEGIN/,/JFFS2-END/d"
 endif
 
+# Only include the SDHC/MMC page if SDHC is configured in.
+ifneq ($(TCONFIG_SDHC),y)
+	rm -f $(INSTALLDIR)/www/admin-sdhc.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/SDHC-BEGIN/,/SDHC-END/d"
+endif
+
 # Only include the Zebra options if Zebra is configured in.
 ifneq ($(TCONFIG_ZEBRA),y)
 	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/ZEBRA-BEGIN/,/ZEBRA-END/d"
@@ -120,7 +126,6 @@ endif
 # Only include CTF option if CTF module exists
 	test -d $(SRCBASE)/ctf/linux || sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
 
-
 ifeq ($(TOMATO_EXPERIMENTAL),1)
 	cd $(INSTALLDIR)/www && \
 	for F in $(wildcard *.asp); do \
@@ -128,8 +133,6 @@ ifeq ($(TOMATO_EXPERIMENTAL),1)
 		mv $$F.tmp $$F; \
 	done
 endif
-
-
 
 # Only include the vpn pages if OpenVPN is compiled in
 # Remove AES ciphers from the GUI if openssl doesn't have an AES directory
