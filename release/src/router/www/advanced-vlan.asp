@@ -204,9 +204,9 @@ REMOVE-END */
   }
 
   for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+    var u = wl_fface(uidx);
     var wlan = E('_f_bridge_wlan'+u+'_to');
 /* REMOVE-BEGIN
-//  var u = wl_fface(uidx);
 //  var wlan = E('_f_bridge_wlan_to');
 //  alert(wlan.selectedIndex);
 REMOVE-END */
