@@ -260,6 +260,18 @@ lg.verifyFields = function(row, quiet) {
 				ferror.clear(f[3]);
 			}
 		}
+		if(f[2].value == getNetworkAddress(f[2].value, f[3].value)) {
+			var s = 'Invalid IP address or subnet mask (the address of the network cannot be used)';
+			ferror.set(f[2], s, quiet);
+			ferror.set(f[3], s, quiet);
+			return 0;
+		} else 
+		if(f[2].value == getBroadcastAddress(getNetworkAddress(f[2].value, f[3].value), f[3].value)) {
+			var s = 'Invalid IP address or subnet mask (the broadcast address cannot be used)';
+			ferror.set(f[2], s, quiet);
+			ferror.set(f[3], s, quiet);
+			return 0;
+		} else
 		if (this.countOverlappingNetworks(f[2].value) > 0) {
 			var s = 'Invalid IP address or subnet mask (conflicts/overlaps with another LAN bridge)';
 			ferror.set(f[2], s, quiet);
@@ -279,14 +291,35 @@ lg.verifyFields = function(row, quiet) {
 		f[6].disabled = 0;
 		f[7].disabled = 0;
 // first/last IP still unset?
-// TODO: proper calculation of first IP available on a particular subnet
 		if (f[5].value == '') {
-			f[5].value = f[2].value.split('.').splice(0, 3).join('.') + '.' + '100'; // from nvram/defaults.c
+			var l;
+			var m = aton(f[2].value) & aton(f[3].value);
+			var o = (m) ^ (~ aton(f[3].value))
+			var n = o - m;
+			do {
+				if (--n < 0) {
+					f[5].value = '';
+					return;
+				}
+				m++;
+			} while (((l = fixIP(ntoa(m), 1)) == null) || (l == f[2].value) );
+			f[5].value = l;
 		}
 		if (f[6].value == '') {
-			f[6].value = f[2].value.split('.').splice(0, 3).join('.') + '.' + '149'; // from nvram/defaults.c
+			var l;
+			var m = aton(f[2].value) & aton(f[3].value);
+			var o = (m) ^ (~ aton(f[3].value));
+			var n = o - m;
+			do {
+				if (--n < 0) {
+					f[6].value = '';
+					return;
+				}
+				o--;
+			} while (((l = fixIP(ntoa(o), 1)) == null) || (l == f[2].value) );
+			f[6].value = l;
 		}
-// first IP
+// first IP valid?
 		if ((getNetworkAddress(f[5].value, f[3].value) != getNetworkAddress(f[2].value, f[3].value)) ||
 			(f[5].value == getBroadcastAddress(getNetworkAddress(f[2].value, f[3].value), f[3].value)) ||
 			(f[5].value == getNetworkAddress(f[2].value, f[3].value)) ||
@@ -296,7 +329,7 @@ lg.verifyFields = function(row, quiet) {
 		} else {
 			ferror.clear(f[5]);
 		}
-// last IP
+// last IP valid?
 		if ((getNetworkAddress(f[6].value, f[3].value) != getNetworkAddress(f[2].value, f[3].value)) ||
 			(f[6].value == getBroadcastAddress(getNetworkAddress(f[2].value, f[3].value), f[3].value)) ||
 			(f[6].value == getNetworkAddress(f[2].value, f[3].value)) ||
@@ -306,22 +339,17 @@ lg.verifyFields = function(row, quiet) {
 		} else {
 			ferror.clear(f[6]);
 		}
-// validate range
-		if ((aton(f[6].value) - aton(f[5].value)) < 1) {
-			var s = 'Invalid first or last IP address';
-			ferror.set(f[5], s, quiet || !ok);
-			ferror.set(f[6], s, quiet || !ok);
-			return 0;
-		} else {
-			ferror.clear(f[5]);
-			ferror.clear(f[6]);
+// validate range, swap first/last IP if needed
+		if (aton(f[6].value) < aton(f[5].value)) {
+			var t = f[5].value;
+			f[5].value = f[6].value;
+			f[6].value = t;
 		}
 // lease time
 		if (parseInt(f[7].value*1) == 0)
 			f[7].value = 1440; // from nvram/defaults.c
 		if(!v_mins(f[7], quiet || !ok, 1, 10080)) 
 			ok = 0;
-
 	} else {
 		f[5].disabled = 1;
 		f[6].disabled = 1;
@@ -330,7 +358,6 @@ lg.verifyFields = function(row, quiet) {
 		ferror.clear(f[6]);
 		ferror.clear(f[7]);
 	}
-
 	return ok;
 }
 
@@ -862,7 +889,6 @@ REMOVE-END */
 /* REMOVE-BEGIN
 //	if (!E('_f_dhcpd_enable').checked) vis._dhcp_lease = 0;
 REMOVE-END */
-
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 //		if(wl_ifaces[uidx][0].indexOf('.') < 0) {
 		if (wl_sunit(uidx)<0) {
@@ -1538,8 +1564,9 @@ createFieldTable('', [
 	<script type='text/javascript'>lg.setup();</script>
 <script type='text/javascript'>
 dns = nvram.wan_dns.split(/\s+/);
+/* REMOVE-BEGIN
 //ipp = nvram.lan_ipaddr.split('.').splice(0, 3).join('.');
-
+REMOVE-END */
 createFieldTable('', [
 /* REMOVE-BEGIN
 //	{ title: 'Router IP Address', name: 'lan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.lan_ipaddr },
@@ -1665,7 +1692,6 @@ if (wl_sunit(uidx)<0) {
 }
 // for each wlif
 </script>
-
 
 <!-- / / / -->
 
