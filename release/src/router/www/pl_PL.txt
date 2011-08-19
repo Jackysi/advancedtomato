@@ -1307,3 +1307,4 @@ Ignore inactive connections=Ignoruj nieaktywne połączenia
 showing=wyświetlono
 out of=spośród
 connections=połączeń
+Please wait while the defaults are restored=Proszę czekać dopóki domyślne ustawienia nie zostaną przywrócone
