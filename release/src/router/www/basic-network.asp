@@ -232,7 +232,7 @@ lg.verifyFields = function(row, quiet) {
 	}
 
 	if(this.countBridge(f[0].selectedIndex) > 0) {
-		ferror.set(f[0], 'Cannot add another entry for bridge br' + f[0].selectedIndex, quiet);
+		ferror.set(f[0], '<% translate("Cannot add another entry for bridge"); %> br' + f[0].selectedIndex, quiet);
 		ok = 0;
 	} else {
 		ferror.clear(f[0]);
@@ -250,26 +250,26 @@ lg.verifyFields = function(row, quiet) {
 		} else {
 // must be class C or smaller network
 			if (numberOfBitsOnNetMask(f[3].value) < 24) {
-				ferror.set(f[3], 'Netmask must have at least 24 bits set (255.255.255.0)', quiet);
+				ferror.set(f[3], '<% translate("Netmask must have at least 24 bits set"); %> (255.255.255.0)', quiet);
 				return 0;
 			} else {
 				ferror.clear(f[3]);
 			}
 		}
 		if(f[2].value == getNetworkAddress(f[2].value, f[3].value)) {
-			var s = 'Invalid IP address or subnet mask (the address of the network cannot be used)';
+			var s = '<% translate("Invalid IP address or subnet mask (the address of the network cannot be used)"); %>';
 			ferror.set(f[2], s, quiet);
 			ferror.set(f[3], s, quiet);
 			return 0;
 		} else 
 		if(f[2].value == getBroadcastAddress(getNetworkAddress(f[2].value, f[3].value), f[3].value)) {
-			var s = 'Invalid IP address or subnet mask (the broadcast address cannot be used)';
+			var s = '<% translate("Invalid IP address or subnet mask (the broadcast address cannot be used)"); %>';
 			ferror.set(f[2], s, quiet);
 			ferror.set(f[3], s, quiet);
 			return 0;
 		} else
 		if (this.countOverlappingNetworks(f[2].value) > 0) {
-			var s = 'Invalid IP address or subnet mask (conflicts/overlaps with another LAN bridge)';
+			var s = '<% translate("Invalid IP address or subnet mask (conflicts/overlaps with another LAN bridge)"); %>';
 			ferror.set(f[2], s, quiet);
 			ferror.set(f[3], s, quiet);
 			return 0;
@@ -320,7 +320,7 @@ lg.verifyFields = function(row, quiet) {
 			(f[5].value == getBroadcastAddress(getNetworkAddress(f[2].value, f[3].value), f[3].value)) ||
 			(f[5].value == getNetworkAddress(f[2].value, f[3].value)) ||
 			(f[2].value == f[5].value)) {
-			ferror.set(f[5], 'Invalid first IP address or subnet mask', quiet || !ok);
+			ferror.set(f[5], '<% translate("Invalid first IP address or subnet mask"); %>', quiet || !ok);
 			return 0;
 		} else {
 			ferror.clear(f[5]);
@@ -330,7 +330,7 @@ lg.verifyFields = function(row, quiet) {
 			(f[6].value == getBroadcastAddress(getNetworkAddress(f[2].value, f[3].value), f[3].value)) ||
 			(f[6].value == getNetworkAddress(f[2].value, f[3].value)) ||
 			(f[2].value == f[6].value)) {
-			ferror.set(f[6], 'Invalid last IP address or subnet mask', quiet || !ok);
+			ferror.set(f[6], '<% translate("Invalid last IP address or subnet mask"); %>', quiet || !ok);
 			return 0;
 		} else {
 			ferror.clear(f[6]);
