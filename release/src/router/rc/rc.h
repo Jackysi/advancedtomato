@@ -276,6 +276,10 @@ extern void create_test_iptfile(void);
 extern void start_bwclimon(void);
 extern void stop_bwclimon(void);
 
+// account.c
+extern void start_account(void);
+extern void stop_account(void);
+
 // arpbind.c
 extern void start_arpbind(void);
 extern void stop_arpbind(void);

@@ -267,7 +267,10 @@ function initCommon(defAvg, defDrawMode, defDrawColor)
 	drawMode = fixInt(cookie.get(cprefix + 'draw'), 0, 1, defDrawMode);
 	showDraw();
 
-	var c = nvram.rstats_colors.split(',');
+	if (nvram['rstats_colors'] != null)
+		var c = nvram.rstats_colors.split(',');
+	else
+		var c = nvram.cstats_colors.split(',');
 	while (c.length >= 3) {
 		c[0] = escapeHTML(c[0]);
 		colors.push(c.splice(0, 3));
@@ -300,13 +303,53 @@ function initCommon(defAvg, defDrawMode, defDrawColor)
 }
 
 function populateCache() {
-	var s = nvram.bwm_client.split('>');
-	for (var i = 0; i < s.length; ++i) {
-		var t = s[i].split('<');
-		if (t.length == 2) {
-			if (t[1] != '')
-				hostnamecache[t[0]] = t[1].split(' ').splice(0,1);
+	var s;
+
+	if (nvram['dhcpd_static'] != null ) {
+		s = nvram.dhcpd_static.split('>');
+		for (var i = 0; i < s.length; ++i) {
+			var t = s[i].split('<');
+			if (t.length == 3) {
+				if (t[2] != '')
+					hostnamecache[t[1]] = t[2].split(' ').splice(0,1);
+			}
 		}
+	}
+
+/* REMOVE-BEGIN
+	if (nvram['bwm_client'] != null ) {
+		s = nvram.bwm_client.split('>');
+		for (var i = 0; i < s.length; ++i) {
+			var t = s[i].split('<');
+			if (t.length == 2) {
+				if (t[1] != '')
+					hostnamecache[t[0]] = t[1].split(' ').splice(0,1);
+			}
+		}
+	}
+REMOVE-END */
+
+	if (dhcpd_lease != null ) {
+		for (var j=0; i<dhcpd_lease.length; ++j) {
+			s = dhcpd_lease[j].split('>');
+			for (var i = 0; i < s.length; ++i) {
+				var t = s[i].split('<');
+				if (t.length == 4) {
+					if (t[0] != '')
+						hostnamecache[t[1]] = t[0].split(' ').splice(0,1);
+				}
+			}
+		}
+	}
+
+	for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
+		var j = (i == 0) ? '' : i.toString();
+		if (nvram['lan' + j + '_ipaddr'] != null)
+			if (nvram['lan' + j + '_netmask'] != null)
+				if (nvram['lan' + j + '_ipaddr'] != '')
+					if (nvram['lan' + j + '_netmask'] != '') {
+						hostnamecache[getNetworkAddress(nvram['lan' + j + '_ipaddr'], nvram['lan' + j + '_netmask'])] = 'LAN' + j;
+					}
 	}
 }
 

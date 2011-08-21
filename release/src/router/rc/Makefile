@@ -15,6 +15,7 @@ OBJS += firewall.o ppp.o telssh.o wnas.o
 OBJS += listen.o redial.o led.o qos.o forward.o misc.o mtd.o
 OBJS += buttons.o restrict.o gpio.o sched.o
 OBJS += bwclimon.o arpbind.o
+OBJS += account.o
 #	heartbeat.o
 
 ifeq ($(TCONFIG_USB),y)

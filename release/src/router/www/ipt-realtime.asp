@@ -42,11 +42,14 @@ ul.tabs a,
 
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript' src='bwm-common.js'></script>
+<script type='text/javascript' src='interfaces.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,rstats_colors,bwm_client"); %>
+//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,cstats_colors,dhcpd_static,lan_ipaddr,lan_netmask,lan1_ipaddr,lan1_netmask,lan2_ipaddr,lan2_netmask,lan3_ipaddr,lan3_netmask"); %>
 
-var cprefix = 'bwcm_r';
+//	<% devlist(); %>
+
+var cprefix = 'ipt_r';
 var updateInt = 2;
 var updateDiv = updateInt;
 var updateMaxL = 300;
@@ -57,7 +60,7 @@ var avgMode = 0;
 var wdog = null;
 var wdogWarn = null;
 
-var ref = new TomatoRefresh('update.cgi', 'exec=climon', updateInt);
+var ref = new TomatoRefresh('update.cgi', 'exec=iptmon', updateInt);
 
 ref.stop = function() {
 	this.timer.start(1000);
@@ -70,7 +73,7 @@ ref.refresh = function(text) {
 
 	++updating;
 	try {
-		climon = null;
+		iptmon = null;
 		eval(text);
 
 		n = (new Date()).getTime();
@@ -83,8 +86,8 @@ ref.refresh = function(text) {
 			this.timeExpect = n + 1000*updateInt;
 		}
 
-		for (i in climon) {
-			c = climon[i];
+		for (i in iptmon) {
+			c = iptmon[i];
 			if ((p = prev[i]) != null) {
 				h = speed_history[i];
 
@@ -127,9 +130,6 @@ function watchdogReset() {
 }
 
 function init() {
-	if (nvram.bwm_client.length > 0) {
-		E('sesdiv').style.display = '';
-
 		populateCache();
 
 		speed_history = [];
@@ -140,7 +140,6 @@ function init() {
 		watchdogReset();
 
 		ref.start();
-	}
 }
 </script>
 
@@ -157,14 +156,7 @@ function init() {
 <div id='ident'><% ident(); %></div>
 
 <!-- / / / -->
-<script type='text/javascript'>
-if (nvram.bwm_client.length < 1) {
-	W('<i>You need to <a href="basic-static.asp">configure</a> which LAN clients/devices should be monitored before coming back to this page.</i>');
-}
-</script>
-<div id='sesdiv' style='display:none'>
-
-<div id='rstats'>
+<div id='cstats'>
 	<div id='tab-area'></div>
 
 	<script type='text/javascript'>
@@ -185,7 +177,7 @@ if (nvram.bwm_client.length < 1) {
 			<a href='javascript:switchAvg(8)' id='avg8'>8x</a><br>
 		Max:&nbsp;
 			<a href='javascript:switchScale(0)' id='scale0'>Uniform</a>,
-			<a href='javascript:switchScale(1)' id='scale1'>Per Client</a><br>
+			<a href='javascript:switchScale(1)' id='scale1'>Per Address</a><br>
 		Display:&nbsp;
 			<a href='javascript:switchDraw(0)' id='draw0'>Solid</a>,
 			<a href='javascript:switchDraw(1)' id='draw1'>Line</a><br>
@@ -193,7 +185,7 @@ if (nvram.bwm_client.length < 1) {
 		<small><a href='javascript:switchColor(1)' id='drawrev'>[reverse]</a></small><br>
 
 		<br><br>
-		&nbsp; &raquo; <a href="basic-static.asp">Configure</a>
+		&nbsp; &raquo; <a href="admin-iptraffic.asp">Configure</a>
 	</div>
 
 	<br><br>
@@ -233,7 +225,6 @@ if (nvram.bwm_client.length < 1) {
 	<span id='dtime'></span>
 	<img src='spin.gif' id='refresh-spinner' onclick='javascript:debugTime=1'>
 
-</div>
 </td></tr>
 </table>
 </form>

@@ -354,6 +354,14 @@ function init()
 {
 	var c;
 
+	if ((c = cookie.get('qos_filterip')) != null) {
+		cookie.set('qos_filterip', '', 0);
+		if (c.length>6) {
+			E('_f_filter_ip').value = c;
+			filterip = c.split(',');
+		}
+	}
+
 	if (((c = cookie.get('qos_resolve')) != null) && (c == '1')) {
 		E('_f_autoresolve').checked = resolveCB = 1;
 	}
@@ -452,8 +460,8 @@ c = [];
 c.push({ title: 'Only these IPs', name: 'f_filter_ip', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(Comma separated list)</small>' });
 c.push({ title: 'Exclude these IPs', name: 'f_filter_ipe', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(Comma separated list)</small>' });
 c.push({ title: 'Exclude gateway traffic', name: 'f_excludegw', type: 'checkbox', value: ((nvram.t_hidelr) == '1' ? 1 : 0) });
-c.push({ title: 'Exclude broadcasts', name: 'f_excludebcast', type: 'checkbox' });
-c.push({ title: 'Exclude multicast', name: 'f_excludemcast', type: 'checkbox' });
+c.push({ title: 'Exclude IPv4 broadcast', name: 'f_excludebcast', type: 'checkbox' });
+c.push({ title: 'Exclude IPv4 multicast', name: 'f_excludemcast', type: 'checkbox' });
 c.push({ title: 'Auto resolve addresses', name: 'f_autoresolve', type: 'checkbox' });
 createFieldTable('',c);
 </script>
