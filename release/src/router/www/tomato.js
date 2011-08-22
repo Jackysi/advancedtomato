@@ -2343,8 +2343,9 @@ function navi()
 			['Web Usage',		'webmon.asp'],
 			['Logs',			'log.asp'] ] ],
 		['Bandwidth', 			'bwm', 0, [
-			['Realtime /Client Monitor',		'realtime.asp'],
+			['Real-Time',		'realtime.asp'],
 			['Last 24 Hours',	'24.asp'],
+			['Client Monitor',	'client.asp'],
 			['Daily',			'daily.asp'],
 			['Weekly',			'weekly.asp'],
 			['Monthly',			'monthly.asp'] ] ],
@@ -2363,10 +2364,10 @@ function navi()
 			['Identification',	'ident.asp'],
 			['Time',			'time.asp'],
 			['DDNS',			'ddns.asp'],
-			['Static DHCP/ARP',		'static.asp'],
+			['DHCP/ARP/BW',	'static.asp'],
 			['Wireless Filter',	'wfilter.asp'] ] ],
 		['Advanced', 			'advanced', 0, [
-			['Conntrack /Netfilter',	'ctnf.asp'],
+			['Conntrack/Netfilter',	'ctnf.asp'],
 			['DHCP/DNS',		'dhcpdns.asp'],
 			['Firewall',		'firewall.asp'],
 			['MAC Address',		'mac.asp'],

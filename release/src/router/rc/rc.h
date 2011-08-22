@@ -232,11 +232,13 @@ extern void stop_ipv6(void);
 #ifdef TCONFIG_USB
 extern void start_usb(void);
 extern void stop_usb(void);
+extern int dir_is_mountpoint(const char *root, const char *dir);
 extern void hotplug_usb(void);
 extern void remove_storage_main(int shutdn);
 #else
 #define start_usb(args...) do { } while(0)
 #define stop_usb(args...) do { } while(0)
+#define dir_is_mountpoint(args...) (0)
 #define hotplug_usb(args...) do { } while(0)
 #define remove_storage_main(args...) do { } while(0)
 #endif
@@ -285,6 +287,18 @@ extern int stop_firewall(void);
 #ifdef DEBUG_IPTFILE
 extern void create_test_iptfile(void);
 #endif
+#ifdef LINUX26
+extern void allow_fastnat(const char *service, int allow);
+extern void try_enabling_fastnat(void);
+#endif
+
+// bwclimon.c
+extern void start_bwclimon(void);
+extern void stop_bwclimon(void);
+
+// arpbind.c
+extern void start_arpbind(void);
+extern void stop_arpbind(void);
 
 // forward.c
 extern void ipt_forward(ipt_table_t table);
@@ -302,10 +316,6 @@ extern void sched_restrictions(void);
 extern void ipt_qos(void);
 extern void start_qos(void);
 extern void stop_qos(void);
-
-// cmon.c
-extern void start_cmon(void);
-extern void stop_cmon(void);
 
 // cifs.c
 #ifdef TCONFIG_CIFS
@@ -418,10 +428,6 @@ extern void stop_smbd(void);
 extern void start_snmp();
 extern void stop_snmp();
 #endif
-
-//cmon.c
-extern void stop_cmon();
-extern void start_cmon();
 
 // vpn.c
 #ifdef TCONFIG_OPENVPN
