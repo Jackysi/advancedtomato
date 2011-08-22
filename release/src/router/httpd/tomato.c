@@ -509,7 +509,7 @@ static const nvset_t nvset_list[] = {
 
 // basic-static
 	{ "dhcpd_static",		V_LENGTH(0, 106*251)},		// 106 (max chars per entry) x "n" entries
-	{ "bwm_client",			V_LENGTH(0, 2048)	},
+	{ "bwm_client",			V_LENGTH(0, 4096)	},
 	{ "dhcpd_static_only",		V_01				},
 	{ "arpbind_static",		V_LENGTH(0, 34*251)},	// 34 (max chars per entry) x n entries
 
