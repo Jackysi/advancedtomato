@@ -1313,3 +1313,5 @@ Invalid IP address or subnet mask (the broadcast address cannot be used)=Niepraw
 Invalid IP address or subnet mask (conflicts/overlaps with another LAN bridge)=Nieprawidłowy adres IP lub maska podsieci (konflikt/pokrycie z innym interfejsem LAN)
 Invalid first IP address or subnet mask=Błędny pierwszy adres IP lub maska podsieci
 Invalid last IP address or subnet mask=błędny ostatni adres IP lub maska podsieci
+IP Range=Zakres IP
+first/last=pierwszy/ostatni

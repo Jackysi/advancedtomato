@@ -196,7 +196,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'><% translate("Version <% version(); %></div>
+	<div class='version'><% translate("Version"); %> <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content'>
@@ -266,7 +266,7 @@ createFieldTable('', [
 	.gz &nbsp;
 	<input type='button' name='f_backup_button' id='backup-button' onclick='backupButton()' value='<% translate("Backup"); %>'>
 	</form>
-	<a href='' id='backup-link'><% translate("Link</a>
+	<a href='' id='backup-link'><% translate("Link"); %></a>
 </div>
 <br>
 
