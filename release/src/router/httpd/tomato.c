@@ -284,6 +284,9 @@ const struct mime_handler mime_handlers[] = {
 	{ "bwm/*.gz",			NULL,					0,	wi_generic,			wo_bwmbackup,	1 },
 	{ "bwm/restore.cgi",	NULL,					0,	wi_bwmrestore,		wo_bwmrestore,	1 },
 
+	{ "ipt/*.gz",			NULL,					0,	wi_generic,			wo_iptbackup,	1 },
+	{ "ipt/restore.cgi",	NULL,					0,	wi_iptrestore,		wo_iptrestore,	1 },
+
 	{ "logs/view.cgi",	NULL,						0,	wi_generic,			wo_viewlog,		1 },
 	{ "logs/*.txt",		NULL,						0,	wi_generic,			wo_syslog,		1 },
 	{ "webmon_**",		NULL,						0,	wi_generic,			wo_syslog,		1 },
@@ -353,7 +356,7 @@ const aspapi_t aspapi[] = {
 	{ "ctrate",				asp_ctrate			},
 	{ "ddnsx",				asp_ddnsx			},
 	{ "devlist",			asp_devlist			},
-	{ "webmon",			asp_webmon			},
+	{ "webmon",				asp_webmon			},
 	{ "dhcpc_time",			asp_dhcpc_time		},
 	{ "dns",				asp_dns				},
 	{ "ident",				asp_ident			},
@@ -362,6 +365,11 @@ const aspapi_t aspapi[] = {
 	{ "link_uptime",		asp_link_uptime		},
 	{ "lipp",				asp_lipp			},
 	{ "netdev",				asp_netdev			},
+
+	{ "iptraffic",			asp_iptraffic		},
+	{ "iptmon",				asp_iptmon			},
+	{ "ipt_bandwidth",		asp_ipt_bandwidth	},
+
 	{ "notice",				asp_notice			},
 	{ "nv",					asp_nv				},
 	{ "nvram",				asp_nvram 			},
@@ -876,6 +884,15 @@ static const nvset_t nvset_list[] = {
 	{ "rstats_exclude",		V_LENGTH(0, 64)		},
 	{ "rstats_sshut",		V_01				},
 	{ "rstats_bak",			V_01				},
+
+// admin-ipt
+	{ "cstats_enable",		V_01				},
+	{ "cstats_path",		V_LENGTH(0, 48)		},
+	{ "cstats_stime",		V_RANGE(1, 168)		},
+	{ "cstats_offset",		V_RANGE(1, 31)		},
+	{ "cstats_exclude",		V_LENGTH(0, 64)		},
+	{ "cstats_sshut",		V_01				},
+	{ "cstats_bak",			V_01				},
 
 // admin-buttons
 	{ "sesx_led",			V_RANGE(0, 255)		},	// amber, white, aoss

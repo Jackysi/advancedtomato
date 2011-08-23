@@ -92,21 +92,27 @@ function init()
 Tomato Firmware v<% version(1); %><br>
 
 <!-- USB-BEGIN -->
-<br>USB support integration and GUI,<br>
+<br>USB support integration and GUI<br>
 <!-- USB-END -->
-Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates,<br>
-support for additional router models and Wireless-N mode.<br>
+Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates<br>
+Support for additional router models and Wireless-N mode<br>
 Copyright (C) 2008-2011 Fedor Kozhevnikov and Ray Van Tassle<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <!-- / / / -->
 <br><br>
 
 <!-- VPN-BEGIN -->
-VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
+VPN integration and GUI<br>
+Copyright (C) 2010 Keith Moyer<br>
+<a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br><br>
 <!-- VPN-END -->
 
-<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>VLAN administration GUI</a> Copyright (C) 2011 Augusto Bott<br>
+VLAN administration GUI<br>
+Multiple LAN support integration and GUI<br>
+Real-time bandwidth monitoring of LAN clients<br>
+Copyright (C) 2011 Augusto Bott<br>
+<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br><br>
 
 Based on Tomato Firmware v<% version(); %><br>

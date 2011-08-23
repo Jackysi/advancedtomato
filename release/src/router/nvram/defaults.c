@@ -561,6 +561,17 @@ const defaults_t defaults[] = {
 	{ "rstats_sshut",		"1"				},
 	{ "rstats_bak",			"0"				},
 
+// admin-ipt
+	{ "cstats_enable",		"1"				},
+	{ "cstats_path",		""				},
+	{ "cstats_stime",		"48"			},
+	{ "cstats_offset",		"1"				},
+	{ "cstats_data",		""				},
+	{ "cstats_colors",		""				},
+	{ "cstats_exclude",		""				},
+	{ "cstats_sshut",		"1"				},
+	{ "cstats_bak",			"0"				},
+
 // advanced-buttons
 	{ "sesx_led",			"0"				},
 	{ "sesx_b0",			"1"				},

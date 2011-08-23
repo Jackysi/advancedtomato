@@ -2280,6 +2280,11 @@ function navi()
 			['Daily',			'daily.asp'],
 			['Weekly',			'weekly.asp'],
 			['Monthly',			'monthly.asp'] ] ],
+		['IP Traffic', 			'ipt', 0, [
+			['Real-Time',		'realtime.asp'],
+			['Last 24 Hours',	'24.asp'],
+			['Details',			'details.asp'],
+			['History',			'history.asp'] ] ],
 		['Tools', 				'tools', 0, [
 			['Ping',			'ping.asp'],
 			['Trace',			'trace.asp'],
@@ -2355,6 +2360,7 @@ REMOVE-END */
 		['Administration',		'admin', 0, [
 			['Admin Access',	'access.asp'],
 			['Bandwidth Monitoring','bwm.asp'],
+			['IP Traffic Monitoring','iptraffic.asp'],
 			['Buttons/LED',	'buttons.asp'],
 /* CIFS-BEGIN */
 			['CIFS Client',		'cifs.asp'],

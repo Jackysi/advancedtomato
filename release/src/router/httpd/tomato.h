@@ -162,6 +162,15 @@ extern void wo_bwmrestore(char *url);
 extern void asp_netdev(int argc, char **argv);
 extern void asp_bandwidth(int argc, char **argv);
 
+extern void wo_iptbackup(char *url);
+extern void wi_iptrestore(char *url, int len, char *boundary);
+extern void wo_iptrestore(char *url);
+
+extern void asp_ipt_bandwidth(int argc, char **argv);
+extern void asp_iptmon(int argc, char **argv);
+extern void asp_climon(int argc, char **argv);
+extern void asp_iptraffic(int argc, char **argv);
+
 
 #if TOMATO_SL
 // share.c
