@@ -285,7 +285,7 @@ var m = [
 	{ title: '<% translate("Allow Wireless Access"); %>', name: 'f_http_wireless', type: 'checkbox', value:  nvram.web_wl_filter == 0 },
 	null,
 	{ title: '<% translate("Language"); %>', name: 'web_lang', type: 'select',
-		options: [['en_EN','English'],['pl_PL','Polski'],['custom','<% translate("Custom"); %>']], value: nvram.web_lang },
+		options: [['en_EN','English'],['pl_PL','Polski'],['zh_CN','Chinese (simplified)'],['custom','<% translate("Custom"); %>']], value: nvram.web_lang },
 	null,
 	{ title: '<% translate("Color Scheme"); %>', name: 'web_css', type: 'select',
 		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],['asus','Asus RT-N16'],['usbred','USB Red'],['usbblue','USB Blue'],['ext/custom','<% translate("Custom"); %> (ext/custom.css)']], value: nvram.web_css },

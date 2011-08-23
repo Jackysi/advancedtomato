@@ -158,7 +158,7 @@ endif
 
 	cd $(INSTALLDIR)/www && \
 	for F in $(wildcard *.asp); do \
-		sed -e "s,<div class='version'><% translate("Version"); %> <% version(); %></div>,<div class='version'><% translate("Version"); %> <% version(); %> RAF by shibby</div>," $$F > $$F.tmp; \
+		sed -e "s,<div class='version'><% translate(\"Version\"); %> <% version(); %></div>,<div class='version'><% translate(\"Version\"); %> <% version(); %> Multilanguage by Shibby</div>," $$F > $$F.tmp; \
 		mv $$F.tmp $$F; \
 	done
 
@@ -193,15 +193,6 @@ ifneq ($(TCONFIG_SNMP),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/SNMP-BEGIN/,/SNMP-END/d"
 endif
 
-# Only include the cmon pages if CMON is compiled in
-ifneq ($(TCONFIG_CMON),y)
-	rm -f $(INSTALLDIR)/www/bwm-clientmon.asp
-	sed -i $(INSTALLDIR)/www/tomato.asp -e "/CMON-BEGIN/,/CMON-END/d"
-	sed -i $(INSTALLDIR)/www/about.asp -e "/CMON-BEGIN/,/CMON-END/d"
-	sed -i $(INSTALLDIR)/www/status-devices.asp -e "/CMON-BEGIN/,/CMON-END/d"
-endif
-
-
 # clean up
 	cd $(INSTALLDIR)/www && \
 	for F in $(wildcard *.asp *.js *.jsx *.html); do \
@@ -226,7 +217,6 @@ endif
 		-e "/NFS-BEGIN/d"	-e "/NFS-END/d" \
 		-e "/NOCAT-BEGIN/d"	-e "/NOCAT_END/d"\
 		-e "/SNMP-BEGIN/d"	-e "/SNMP_END/d"\
-		-e "/CMON-BEGIN/d"	-e "/CMON_END/d"\
 		|| true; \
 	done
 

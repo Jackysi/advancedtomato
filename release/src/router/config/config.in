@@ -135,8 +135,3 @@ config TCONFIG_NFS
 config TCONFIG_SNMP
 	bool "  SNMP"
 	default n
-
-config TCONFIG_CMON
-	bool "  Clients Monitor"
-	default y
-

@@ -89,7 +89,7 @@ function init()
 <img src='qtopenlinksys.png' alt='Openlinksys.info' id='qt'>
 </div>
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
-Tomato Firmware <% version(1); %><br>
+Tomato Firmware <% version(1); %> Multilanguage<br>
 
 <!-- USB-BEGIN -->
 <br>USB support integration and GUI,<br>
@@ -112,11 +112,6 @@ Copyright (C) 2010 Keith Moyer,<br>
 <br>
 <!-- VPN-END -->
 
-<b>VLAN administration GUI</b><br>
-Copyright (C) 2011 Augusto Bott<br>
-<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>Tomato-sdhc-vlan Homepage</a><br>
-<br>
-
 <b>"Shibby" features:</b><br>
 <!-- BBT-BEGIN -->
 - Transmission 2.33 integration<br>
@@ -128,9 +123,6 @@ Copyright (C) 2011 Augusto Bott<br>
 - NFS utils integration and GUI<br>
 <!-- NFS-END -->
 - Custom log file path<br>
-<!-- CMON-BEGIN -->
-- Clients monitor <br>
-<!-- CMON-END -->
 <!-- LINUX26-BEGIN -->
 - SD-idle tool integration for kernel 2.6<br>
 <!-- LINUX26-END -->
@@ -141,7 +133,7 @@ Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
 
-<b>"Victek" features:</b><br> 
+<b>"Victek" features:</b><br>
 - Extended Sysinfo<br>
 <!-- NOCAT-BEGIN -->
 - Captive Portal. (Based in NocatSplash)<br>
@@ -150,20 +142,25 @@ Copyright (C) 2007-2011 Ofer Chen & Vicente Soriano<br>
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
 
-<b>"Victek/Toastman" features:</b><br>
-- Static ARP<br>
+<b>"Teaman" features:</b><br>
+- VLAN administration GUI<br>
+- Realtime bandwidth monitoring of LAN clients<br>
+- Revised Static ARP binding<br>
+Copyright (C) 2011 Augusto Bott<br>
+<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>Tomato-sdhc-vlan Homepage</a><br>
 <br>
 
 <b>"Victek/PrinceAMD/Phykris/Shibby" features:</b><br>
 - Revised IP/MAC QOS/Bandwidth Limiter<br>
 <br>
 
-<b>Multilanguage integration,</b><br> 
+<b>Multilanguage integration,</b><br>
 Copyright (C) 2011 Michał Rupental (Shibby), Vicente Soriano (Victek)<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a>, <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
 <b>Special thanks to our translators:</b><br>
-- Polish : <i>Shibby</i><br>
+- Polish: <i>Shibby</i><br>
+- Chinese (simplified): <i>Pupie</i><br>
 
 <br>
 Based on Tomato Firmware v<% version(); %><br>

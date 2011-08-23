@@ -27,6 +27,7 @@ var colors = [
 	['Green &amp; Blue', '#118811', '#6495ed'], ['Blue &amp; Orange', '#003EBA', '#FF9000'],
 	['Blue &amp; Red', '#003EDD', '#CC4040'], ['Blue', '#22f', '#225'], ['Gray', '#000', '#999'],
 	['Red &amp; Black', '#d00', '#000']];
+var hostnamecache = [];
 
 function xpsb(byt)
 {
@@ -212,11 +213,22 @@ function loadData()
 			if (h.tx_max > xx_max) xx_max = h.tx_max;
 
 			t = i;
-			
-			if (wl_ifidx(i) >= 0) {
+
+			if (hostnamecache[i] != null) {
+				t = hostnamecache[i] + ' <small>(' + i + ')</small>';
+			}
+			else if (wl_ifidx(i) >= 0) {
 				t = 'WL <small>(' + i + ')</small>';
 			}
-
+			
+			if (i == 'imq1')	{
+				t = 'Lim. OUT <small>(' + i + ')</small>';
+			}
+			
+			if (i == 'imq2')	{
+				t = 'Lim. IN <small>(' + i + ')</small>';
+			}
+			
 			else if ((nvram.wan_proto == 'pptp') || (nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp')) {
 				if (nvram.wan_iface == i) t = 'WAN <small>(' + i + ')</small>';
 				else if (nvram.wan_ifname == i && nvram.wan_proto != 'pppoe') t = 'MAN <small>(' + i + ')</small>';
@@ -299,3 +311,15 @@ function initCommon(defAvg, defDrawMode, defDrawColor)
 	initData();
 	E('refresh-spinner').style.visibility = 'hidden';
 }
+
+function populateCache() {
+	var s = nvram.bwm_client.split('>');
+	for (var i = 0; i < s.length; ++i) {
+		var t = s[i].split('<');
+		if (t.length == 2) {
+			if (t[1] != '')
+				hostnamecache[t[0]] = t[1].split(' ').splice(0,1);
+		}
+	}
+}
+

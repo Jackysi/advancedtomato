@@ -2339,90 +2339,80 @@ function myName()
 function navi()
 {
 	var menu = [
-		['<% translate("Status"); %>', 				'status', 0, [
+		['<% translate("Status"); %>', 			'status', 0, [
 			['<% translate("Overview"); %>',		'overview.asp'],
 			['<% translate("Device List"); %>',		'devices.asp'],
 			['<% translate("Web Usage"); %>',		'webmon.asp'],
 			['<% translate("Logs"); %>',			'log.asp'] ] ],
-		['<% translate("Bandwidth"); %>', 			'bwm', 0, [
+		['<% translate("Bandwidth"); %>', 		'bwm', 0, [
 			['<% translate("Real-Time"); %>',		'realtime.asp'],
-			['<% translate("Last 24 Hours"); %>',	'24.asp'],
+			['<% translate("Last 24 Hours"); %>',		'24.asp'],
+			['<% translate("Client Monitor"); %>',		'client.asp'],
 			['<% translate("Daily"); %>',			'daily.asp'],
 			['<% translate("Weekly"); %>',			'weekly.asp'],
 			['<% translate("Monthly"); %>',			'monthly.asp']
-/* CMON-BEGIN */
-			,['<% translate("Clients Monitor"); %>',		'clientmon.asp']
-/* CMON-END */
 			] ],
-		['<% translate("Tools"); %>', 				'tools', 0, [
+		['<% translate("Tools"); %>', 			'tools', 0, [
 			['<% translate("Ping"); %>',			'ping.asp'],
 			['<% translate("Trace"); %>',			'trace.asp'],
 			['<% translate("System"); %>',			'shell.asp'],
-			['<% translate("Wireless Survey"); %>',	'survey.asp'],
-			['<% translate("WOL"); %>',				'wol.asp'] ] ],
+			['<% translate("Wireless Survey"); %>',		'survey.asp'],
+			['<% translate("WOL"); %>',			'wol.asp'] ] ],
 		null,
-		['<% translate("Basic"); %>', 				'basic', 0, [
+		['<% translate("Basic"); %>', 			'basic', 0, [
 			['<% translate("Network"); %>',			'network.asp'],
 /* IPV6-BEGIN */
-			['IPv6',			'ipv6.asp'],
+			['IPv6',					'ipv6.asp'],
 /* IPV6-END */
-			['<% translate("Identification"); %>',	'ident.asp'],
+			['<% translate("Identification"); %>',		'ident.asp'],
 			['<% translate("Time"); %>',			'time.asp'],
 			['<% translate("DDNS"); %>',			'ddns.asp'],
-			['<% translate("Static DHCP"); %>',		'static.asp'],
-			['<% translate("Wireless Filter"); %>',	'wfilter.asp'] ] ],
-		['<% translate("Advanced"); %>', 			'advanced', 0, [
+			['<% translate("DHCP/ARP/BW"); %>',		'static.asp'],
+			['<% translate("Wireless Filter"); %>',		'wfilter.asp'] ] ],
+		['<% translate("Advanced"); %>', 		'advanced', 0, [
 			['<% translate("Conntrack / Netfilter"); %>',	'ctnf.asp'],
 			['<% translate("DHCP / DNS"); %>',		'dhcpdns.asp'],
 			['<% translate("Firewall"); %>',		'firewall.asp'],
 			['<% translate("MAC Address"); %>',		'mac.asp'],
-			['<% translate("Miscellaneous"); %>',	'misc.asp'],
+			['<% translate("Miscellaneous"); %>',		'misc.asp'],
 			['<% translate("Routing"); %>',			'routing.asp'],
 			['<% translate("VLAN"); %>',			'vlan.asp'],
-			['<% translate("LAN Access"); %>',			'access.asp'],
+			['<% translate("LAN Access"); %>',		'access.asp'],
 			['<% translate("Wireless"); %>',		'wireless.asp'] ] ],
 		['<% translate("Port Forwarding"); %>', 	'forward', 0, [
 			['<% translate("Basic"); %>',			'basic.asp'],
 /* IPV6-BEGIN */
 			['<% translate("Basic"); %> IPv6',		'basic-ipv6.asp'],
 /* IPV6-END */
-			['DMZ',				'dmz.asp'],
+			['DMZ',					'dmz.asp'],
 			['<% translate("Triggered"); %>',		'triggered.asp'],
-			['<% translate("UPnP / NAT-PMP"); %>',	'upnp.asp'] ] ],
-		['QoS',					'qos', 0, [
-			['<% translate("Basic Settings"); %>',	'settings.asp'],
-			['<% translate("Classification"); %>',	'classify.asp'],
+			['<% translate("UPnP / NAT-PMP"); %>',		'upnp.asp'] ] ],
+		['QoS',						'qos', 0, [
+			['<% translate("Basic Settings"); %>',		'settings.asp'],
+			['<% translate("Classification"); %>',		'classify.asp'],
 			['<% translate("View Graphs"); %>',		'graphs.asp'],
-			['<% translate("View Details"); %>',	'detailed.asp'],
-			['<% translate("Transfer Rates"); %>',	'ctrate.asp']
+			['<% translate("View Details"); %>',		'detailed.asp'],
+			['<% translate("Transfer Rates"); %>',		'ctrate.asp']
 			] ],
 		['<% translate("RAF Features"); %>',		'new', 0, [
 /* NOCAT-BEGIN */
-			['<% translate("Captive Portal"); %>',	'splashd.asp'],
+			['<% translate("Captive Portal"); %>',		'splashd.asp'],
 /* NOCAT-END */
-			['<% translate("BW Limit"); %>',	'qoslimit.asp']
+			['<% translate("BW Limit"); %>',		'qoslimit.asp']
 			] ],
 		['<% translate("Access Restriction"); %>',	'restrict.asp'],
-/* REMOVE-BEGIN
-		['Scripts',				'sc', 0, [
-			['Startup',			'startup.asp'],
-			['Shutdown',		'shutdown.asp'],
-			['Firewall',		'firewall.asp'],
-			['WAN Up',			'wanup.asp']
-			] ],
-REMOVE-END */
 /* USB-BEGIN */
 // ---- !!TB - USB, FTP, Samba, Media Server
-		['<% translate("USB and NAS"); %>',			'nas', 0, [
+		['<% translate("USB and NAS"); %>',		'nas', 0, [
 			['<% translate("USB Support"); %>',		'usb.asp']
 /* FTP-BEGIN */
 			,['<% translate("FTP Server"); %>',		'ftp.asp']
 /* FTP-END */
 /* SAMBA-BEGIN */
-			,['<% translate("File Sharing"); %>',	'samba.asp']
+			,['<% translate("File Sharing"); %>',		'samba.asp']
 /* SAMBA-END */
 /* MEDIA-SRV-BEGIN */
-			,['<% translate("Media Server"); %>',	'media.asp']
+			,['<% translate("Media Server"); %>',		'media.asp']
 /* MEDIA-SRV-END */
 /* BT-BEGIN */
 			,['<% translate("BitTorrent Client"); %>',	'bittorrent.asp']
@@ -2436,13 +2426,13 @@ REMOVE-END */
 /* VPN-END */
 		null,
 		['<% translate("Administration"); %>',		'admin', 0, [
-			['<% translate("Admin Access"); %>',	'access.asp'],
-			['<% translate("Bandwidth Monitoring"); %>','bwm.asp'],
-			['<% translate("Buttons / LED"); %>',	'buttons.asp'],
+			['<% translate("Admin Access"); %>',		'access.asp'],
+			['<% translate("Bandwidth Monitoring"); %>',	'bwm.asp'],
+			['<% translate("Buttons / LED"); %>',		'buttons.asp'],
 /* CIFS-BEGIN */
 			['<% translate("CIFS Client"); %>',		'cifs.asp'],
 /* CIFS-END */
-			['<% translate("Configuration"); %>',	'config.asp'],
+			['<% translate("Configuration"); %>',		'config.asp'],
 			['<% translate("Debugging"); %>',		'debug.asp'],
 /* JFFS2-BEGIN */
 			['<% translate("JFFS"); %>',			'jffs2.asp'],
@@ -2451,17 +2441,17 @@ REMOVE-END */
 			['<% translate("NFS Server"); %>',		'nfs.asp'],
 /* NFS-END */
 /* SNMP-BEGIN */
-			['<% translate("SNMP"); %>',		'snmp.asp'],
+			['<% translate("SNMP"); %>',			'snmp.asp'],
 /* SNMP-END */
 			['<% translate("Logging"); %>',			'log.asp'],
 			['<% translate("Scheduler"); %>',		'sched.asp'],
 			['<% translate("Scripts"); %>',			'scripts.asp'],
 			['<% translate("Upgrade"); %>',			'upgrade.asp'] ] ],
 		null,
-		['<% translate("About"); %>',				'about.asp'],
-		['<% translate("Reboot"); %>...',			'javascript:reboot()'],
-		['<% translate("Shutdown"); %>...',			'javascript:shutdown()'],
-		['<% translate("Logout"); %>',				'javascript:logout()']
+		['<% translate("About"); %>',			'about.asp'],
+		['<% translate("Reboot"); %>...',		'javascript:reboot()'],
+		['<% translate("Shutdown"); %>...',		'javascript:shutdown()'],
+		['<% translate("Logout"); %>',			'javascript:logout()']
 	];
 	var name, base;
 	var i, j;

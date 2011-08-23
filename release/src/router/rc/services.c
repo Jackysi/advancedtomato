@@ -171,6 +171,9 @@ void start_dnsmasq()
 		sprintf(lanN_ipaddr, "lan%s_ipaddr", bridge);
 		do_dhcpd = nvram_match(lanN_proto, "dhcp");
 		if (do_dhcpd) {
+			if (nvram_get_int("dhcpd_static_only")) {
+				fprintf(f, "dhcp-ignore=tag:!known\n");
+			}
 			do_dhcpd_hosts++;
 
 			router_ip = nvram_safe_get(lanN_ipaddr);
@@ -2077,11 +2080,7 @@ TOP:
 		}
 		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) {
-#ifdef TCONFIG_CMON
-			start_cmon();				// cmon start also qos
-#else
 			start_qos();
-#endif
 			if (nvram_match("qos_reset", "1")) f_write_string("/proc/net/clear_marks", "1", 0, 0);
 		}
 		goto CLEAR;
@@ -2089,35 +2088,26 @@ TOP:
 
 	if (strcmp(service, "qoslimit") == 0) {
 	if (action & A_STOP) {
-	new_qoslimit_stop();
+		new_qoslimit_stop();
 	}
 		stop_firewall(); start_firewall();		// always restarted
 	if (action & A_START) {
-#ifdef TCONFIG_CMON
-		start_cmon();					//cmon start also qoslimit
-#else
 		new_qoslimit_start();
-#endif
 	}
 		goto CLEAR;
 	}
 
 	if (strcmp(service, "arpbind") == 0) {
-		if (action & A_STOP) new_arpbind_stop();
-		if (action & A_START) new_arpbind_start();
+		if (action & A_STOP) stop_arpbind();
+		if (action & A_START) start_arpbind();
 		goto CLEAR;
 	}
 
-#ifdef TCONFIG_CMON
-	if (strcmp(service, "cmon") == 0) {
-		if (action & A_STOP) { stop_cmon(); }
-
-		start_qos(); new_qoslimit_start();	// start features after firewall restart
-
-		if (action & A_START) { start_cmon(); }
+	if (strcmp(service, "bwclimon") == 0) {
+		if (action & A_STOP) stop_bwclimon();
+		if (action & A_START) start_bwclimon();
 		goto CLEAR;
 	}
-#endif
 
 	if (strcmp(service, "upnp") == 0) {
 		if (action & A_STOP) {
@@ -2355,12 +2345,14 @@ TOP:
 			stop_dnsmasq();
 			stop_nas();
 			stop_wan();
+			stop_arpbind();
 			stop_lan();
 			stop_vlan();
 		}
 		if (action & A_START) {
 			start_vlan();
 			start_lan();
+			start_arpbind();
 			start_wan(BOOT);
 			start_nas();
 			start_dnsmasq();

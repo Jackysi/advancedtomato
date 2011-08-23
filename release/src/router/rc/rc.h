@@ -433,12 +433,6 @@ extern void start_snmp();
 extern void stop_snmp();
 #endif
 
-//cmon.c
-#ifdef TCONFIG_CMON
-extern void stop_cmon();
-extern void start_cmon();
-#endif
-
 // vpn.c
 #ifdef TCONFIG_OPENVPN
 extern void start_vpnclient(int clientNum);
@@ -468,9 +462,13 @@ extern void ipt_qoslimit(int chain);
 extern void new_qoslimit_start(void);
 extern void new_qoslimit_stop(void);
 
-// new_arpbind.c
-extern void new_arpbind_start(void);
-extern void new_arpbind_stop(void);
+// bwclimon.c
+extern void start_bwclimon(void);
+extern void stop_bwclimon(void);
+
+// arpbind.c
+extern void start_arpbind(void);
+extern void stop_arpbind(void);
 
 #ifdef TCONFIG_NOCAT
 // nocat.c 

@@ -739,11 +739,6 @@ const defaults_t defaults[] = {
 	{ "nfs_exports",		""				},
 #endif
 
-#ifdef TCONFIG_CMON
-	{ "cmon_enable",		"0"				},
-	{ "cmon_users",			""				},
-#endif
-
 #ifdef TCONFIG_OPENVPN
 // vpn
 	{ "vpn_debug",            "0"             },
@@ -1018,10 +1013,6 @@ const defaults_t defaults[] = {
 	{ "qosl_ulc",				""			},
 	{ "qosl_dlr",				""			},
 	{ "qosl_ulr",				""			},
-
-// new_arpbind
-	{ "new_arpbind_enable",			"0"			},
-	{ "new_arpbind_only",			"0"			},
 
 // NoCatSplash. !!Victek
 #ifdef TCONFIG_NOCAT

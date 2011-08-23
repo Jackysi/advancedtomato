@@ -221,7 +221,7 @@ dg.populate = function()
 							((p[5] != 0) ? ' (' + doScaleSize(p[5], 0) + 
 							((p[1] == 1) ? ' / ' + doScaleSize(p[6], 0) + ' <% translate("free"); %>' : '') +
 							')' : '') + ' <% translate("is"); %> ' +
-							((p[1] != 0) ? '' : 'not ') + ((p[3] == 'swap') ? '<% translate("active"); %>' : '<% translate("mounted"); %>') +
+							((p[1] != 0) ? '' : '<% translate("not"); %> ') + ((p[3] == 'swap') ? '<% translate("active"); %>' : '<% translate("mounted"); %>') +
 							((p[2] != '') ? ' <% translate("on"); %> ' + p[2] : '');
 					}
 				}

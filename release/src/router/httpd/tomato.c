@@ -366,6 +366,7 @@ const aspapi_t aspapi[] = {
 	{ "link_uptime",		asp_link_uptime		},
 	{ "lipp",				asp_lipp			},
 	{ "netdev",				asp_netdev			},
+	{ "climon",				asp_climon			},
 	{ "notice",				asp_notice			},
 	{ "nv",					asp_nv				},
 	{ "nvram",				asp_nvram 			},
@@ -509,7 +510,10 @@ static const nvset_t nvset_list[] = {
 	{ "ntp_kiss",			V_LENGTH(0, 255)	},
 
 // basic-static
-	{ "dhcpd_static",		V_LENGTH(0, 106*251)},	// 106 (max chars per entry) x 250 entries
+	{ "dhcpd_static",		V_LENGTH(0, 106*251)	},	// 106 (max chars per entry) x 250 entries
+	{ "bwm_client",			V_LENGTH(0, 2048)	},
+	{ "dhcpd_static_only",		V_01			},
+	{ "arpbind_static",		V_LENGTH(0, 34*251)	},	// 34 (max chars per entry) x n entries
 
 // basic-ddns
 	{ "ddnsx0",				V_LENGTH(0, 2048)	},
@@ -1068,10 +1072,6 @@ static const nvset_t nvset_list[] = {
 	{ "qosl_udp",                    V_RANGE(0, 100)        },
 	
 
-// new_arpbind - static-arp
-	{ "new_arpbind_enable",          V_01                    },
-	{ "new_arpbind_only",            V_01                    },
-
 #ifdef TCONFIG_BT
 // nas-transmission
 	{ "bt_enable",                  V_01                            },
@@ -1116,12 +1116,7 @@ static const nvset_t nvset_list[] = {
 	{ "nfs_exports",		V_LENGTH(0, 4096)		},
 #endif
 
-#ifdef TCONFIG_CMON
-	{ "cmon_enable",		V_01				},
-	{ "cmon_users",			V_LENGTH(0, 4096)		},
-#endif
-
-//NotCatSplash. Victek.
+//NoCatSplash. Victek.
 #ifdef TCONFIG_NOCAT
 	{ "NC_enable",			V_01				},
 	{ "NC_Verbosity",		V_RANGE(0, 10)			},

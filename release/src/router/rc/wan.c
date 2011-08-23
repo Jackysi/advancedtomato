@@ -894,10 +894,6 @@ void start_wan_done(char *wan_ifname)
 	unlink(wan_connecting);
 
 	new_qoslimit_start(); //!! RAF
-	new_arpbind_start(); //!! RAF
-#ifdef TCONFIG_CMON
-	start_cmon();
-#endif
 
 	TRACE_PT("end\n");
 }
@@ -909,15 +905,11 @@ void stop_wan(void)
 	
 	TRACE_PT("begin\n");
 
-	new_arpbind_stop(); //!! RAF
 	new_qoslimit_stop(); //!! RAF
 
 	stop_qos();
 	stop_upnp();	//!!TB - moved from stop_services()
 	stop_firewall();
-#ifdef TCONFIG_CMON
-	stop_cmon();
-#endif
 	stop_igmp_proxy();
 	stop_ntpc();
 

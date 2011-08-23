@@ -33,4 +33,3 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_NFS is not set
 # TCONFIG_NOCAT is not set
 # TCONFIG_SNMP is not set
-TCONFIG_CMON=y

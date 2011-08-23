@@ -1321,7 +1321,7 @@ static void sysinit(void)
 
 //languages
 eval("cp", "/www/pl_PL.txt", "/tmp/lang/pl_PL.txt"); //shibby
-
+eval("cp", "/www/zh_CN.txt", "/tmp/lang/zh_CN.txt"); //shibby
 
 #ifdef TCONFIG_SAMBASRV
 	if ((d = opendir("/usr/codepages")) != NULL) {
@@ -1517,6 +1517,8 @@ int init_main(int argc, char *argv[])
 			create_passwd();
 			start_vlan();
 			start_lan();
+			start_arpbind();
+			start_bwclimon();
 			start_wan(BOOT);
 			start_services();
 			start_wl();

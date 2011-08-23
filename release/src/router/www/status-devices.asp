@@ -154,15 +154,6 @@ function addbwlimit(n)
 	location.href = 'new-qoslimit.asp';
 }
 
-/* CMON-BEGIN */
-function addcmon(n)
-{
-	var e = list[n];
-	cookie.set('addcmon', [e.ip, e.name.split(',')[0]].join(','), 1);
-	location.href = 'bwm-clientmon.asp';
-}
-/* CMON-END */
-
 var ref = new TomatoRefresh('update.cgi', 'exec=devlist', 0, 'status_devices_refresh');
 
 ref.refresh = function(text)
@@ -287,9 +278,6 @@ dg.populate = function()
 			b += '<br><small>' +
 				'<a href="http://standards.ieee.org/cgi-bin/ouisearch?' + RegExp.$1 + '-' + RegExp.$2 + '-' + RegExp.$3 + '" target="_new" title="<% translate("OUI Search"); %>">[<% translate("oui"); %>]</a> ' +
 				'<a href="javascript:addStatic(' + i + ')" title="<% translate("Static Lease"); %>...">[<% translate("static"); %>]</a> ' +
-/* CMON-BEGIN */
-				'<a href="javascript:addcmon(' + i + ')" title="<% translate("Client Monitor"); %>">[<% translate("cmon"); %>]</a> ' +
-/* CMON-END */
 				'<a href="javascript:addbwlimit(' + i + ')" title="<% translate("BW Limiter"); %>">[<% translate("bwlimit"); %>]</a>';
 
 			if (e.rssi != '') {

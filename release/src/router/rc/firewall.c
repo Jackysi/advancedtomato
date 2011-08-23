@@ -1612,6 +1612,9 @@ if (nvram_match("imq_enable", "1")) {
 	allow_fastnat("firewall", can_enable_fastnat);
 	try_enabling_fastnat();
 #endif
+
+	start_bwclimon();
+
 	simple_unlock("firewall");
 	return 0;
 }
