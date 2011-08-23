@@ -1298,7 +1298,6 @@ static void filter_table(void)
 	ip46t_write("COMMIT\n");
 }
 
-
 // -----------------------------------------------------------------------------
 
 int start_firewall(void)
@@ -1569,6 +1568,8 @@ int start_firewall(void)
 	run_vpn_firewall_scripts();
 #endif
 	run_nvscript("script_fire", NULL, 1);
+
+	start_account();
 
 	simple_unlock("firewall");
 	return 0;

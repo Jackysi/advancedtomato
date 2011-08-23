@@ -1256,6 +1256,27 @@ static void start_rstats(int new)
 	}
 }
 
+static void stop_cstats(void)
+{
+	int n;
+	int pid;
+
+	n = 60;
+	while ((n-- > 0) && ((pid = pidof("cstats")) > 0)) {
+		if (kill(pid, SIGTERM) != 0) break;
+		sleep(1);
+	}
+}
+
+static void start_cstats(int new)
+{
+	if (nvram_match("cstats_enable", "1")) {
+		stop_cstats();
+		if (new) xstart("cstats", "--new");
+			else xstart("cstats");
+	}
+}
+
 // -----------------------------------------------------------------------------
 
 // !!TB - FTP Server
@@ -1951,6 +1972,8 @@ void start_services(void)
 	start_cron();
 //	start_upnp();
 	start_rstats(0);
+	start_account();
+	start_cstats(0);
 	start_sched();
 #ifdef TCONFIG_IPV6
 	/* note: starting radvd here might be too early in case of
@@ -1985,6 +2008,7 @@ void stop_services(void)
 #endif
 	stop_sched();
 	stop_rstats();
+	stop_cstats();
 //	stop_upnp();
 	stop_cron();
 	stop_httpd();
@@ -2080,6 +2104,12 @@ TOP:
 				}
 			}
 		}
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "account") == 0) {
+		if (action & A_STOP) stop_account();
+		if (action & A_START) start_account();
 		goto CLEAR;
 	}
 
@@ -2275,6 +2305,7 @@ TOP:
 			stop_upnp();
 //			stop_dhcpc();
 			killall("rstats", SIGTERM);
+			killall("cstats", SIGTERM);
 			killall("buttons", SIGTERM);
 			stop_syslog();
 			remove_storage_main(1);	// !!TB - USB Support
@@ -2409,6 +2440,18 @@ TOP:
 	if (strcmp(service, "rstatsnew") == 0) {
 		if (action & A_STOP) stop_rstats();
 		if (action & A_START) start_rstats(1);
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "cstats") == 0) {
+		if (action & A_STOP) stop_cstats();
+		if (action & A_START) start_cstats(0);
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "cstatsnew") == 0) {
+		if (action & A_STOP) stop_cstats();
+		if (action & A_START) start_cstats(1);
 		goto CLEAR;
 	}
 

@@ -289,6 +289,11 @@ extern void create_test_iptfile(void);
 // forward.c
 extern void ipt_forward(ipt_table_t table);
 extern void ipt_triggered(ipt_table_t table);
+
+// account.c
+extern void start_account(void);
+extern void stop_account(void);
+
 #ifdef TCONFIG_IPV6
 extern void ip6t_forward(void);
 #endif

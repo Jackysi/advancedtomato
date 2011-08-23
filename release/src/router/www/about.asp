@@ -138,8 +138,9 @@ Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
 <b>"Teaman" Features:</b><br>
-- VLAN setup GUI<br>
 - QOS-detailed & ctrate filters<br>
+- VLAN administration GUI,<br>
+- Multiple LAN support integration and GUI,<br>
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br>
