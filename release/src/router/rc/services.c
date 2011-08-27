@@ -147,6 +147,10 @@ void start_dnsmasq()
 		}
 	}
 
+	if (nvram_get_int("dhcpd_static_only")) {
+		fprintf(f, "dhcp-ignore=tag:!known\n");
+	}
+
 	// dhcp
 	do_dhcpd_hosts=0;
 	char lanN_proto[] = "lanXX_proto";
