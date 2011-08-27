@@ -42,6 +42,7 @@
 
 //	#ifdef DEBUG_NOISY
 //	#define _dprintf(args...)	cprintf(args)
+//	#define _dprintf(args...)	printf(args)
 //	#else
 //	#define _dprintf(args...)	do { } while (0)
 //	#endif
@@ -521,6 +522,7 @@ static void save_datajs(FILE *f, int mode)
 			p = history.dailyp[i];
 			max = MAX_NDAILY;
 		}
+
 		else {
 			data = history.monthly[i];
 			p = history.monthlyp[i];
@@ -745,7 +747,6 @@ static void calc(void)
 				bump(history.daily[i], &history.dailyp[i], MAX_NDAILY,
 					(tms->tm_year << 16) | ((uint32_t)tms->tm_mon << 8) | tms->tm_mday, counter);
 
-
 //				_dprintf("%s: calling bump i=%d %s total #%d history.monthlyp=%d\n", __FUNCTION__, i, ipaddr, history.howmany, history.monthlyp);
 				n = nvram_get_int("cstats_offset");
 				if ((n < 1) || (n > 31)) n = 1;
@@ -777,6 +778,18 @@ static void calc(void)
 		}
 	}
 
+	for (i = 0; i < history.howmany; ++i) {
+		if ((find_word(exclude, history.ipaddr[i]))) {
+			--history.howmany;
+			_dprintf("%s: #%d removing %s >  excluded\n", __FUNCTION__, i, history.ipaddr[i]);
+			memcpy(history.ipaddr[i], history.ipaddr[i+1], (history.howmany - i) * sizeof(history.ipaddr[0]));
+			memcpy(history.daily[i], history.daily[i+1], (history.howmany - i) * sizeof(history.daily[0]));
+			history.dailyp[i] = history.dailyp[i+1];
+			memcpy(history.monthly[i], history.monthly[i+1], (history.howmany - i) * sizeof(history.monthly[0]));
+			history.monthlyp[i] = history.monthlyp[i+1];
+		}
+	}
+
 	// todo: total > user
 	if (uptime >= save_utime) {
 		save(0);
@@ -785,9 +798,7 @@ static void calc(void)
 	}
 }
 
-
-static void sig_handler(int sig)
-{
+static void sig_handler(int sig) {
 	switch (sig) {
 	case SIGTERM:
 	case SIGINT:
@@ -805,8 +816,7 @@ static void sig_handler(int sig)
 	}
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 	struct sigaction sa;
 	long z;
 	int new;

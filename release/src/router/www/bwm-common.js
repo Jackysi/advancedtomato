@@ -213,7 +213,9 @@ function loadData()
 				t = hostnamecache[i] + ' <small>(' + i + ')</small>';
 			}
 			else if (wl_ifidx(i) >= 0) {
+/* REMOVE-BEGIN
 //			else if (i == nvram.wl_ifname) {
+REMOVE-END */
 				t = 'WL <small>(' + i + ')</small>';
 			}
 			else if ((nvram.wan_proto == 'pptp') || (nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp')) {
@@ -269,7 +271,7 @@ function initCommon(defAvg, defDrawMode, defDrawColor)
 
 	if (nvram['rstats_colors'] != null)
 		var c = nvram.rstats_colors.split(',');
-	else
+	else if (nvram['cstats_colors'] != null)
 		var c = nvram.cstats_colors.split(',');
 	while (c.length >= 3) {
 		c[0] = escapeHTML(c[0]);
@@ -329,7 +331,10 @@ function populateCache() {
 	}
 REMOVE-END */
 
-	if (dhcpd_lease != null ) {
+/* REMOVE-BEGIN
+//	if (dhcpd_lease != null ) {
+REMOVE-END */
+	if (typeof(dhcpd_lease) != 'undefined') {
 		for (var j=0; i<dhcpd_lease.length; ++j) {
 			s = dhcpd_lease[j].split('>');
 			for (var i = 0; i < s.length; ++i) {
