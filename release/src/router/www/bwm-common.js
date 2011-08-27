@@ -313,13 +313,31 @@ function initCommon(defAvg, defDrawMode, defDrawColor)
 }
 
 function populateCache() {
-	var s = nvram.bwm_client.split('>');
-	for (var i = 0; i < s.length; ++i) {
-		var t = s[i].split('<');
-		if (t.length == 2) {
-			if (t[1] != '')
-				hostnamecache[t[0]] = t[1].split(' ').splice(0,1);
+	var s;
+
+	if (nvram['dhcpd_static'] != null ) {
+		s = nvram.dhcpd_static.split('>');
+		for (var i = 0; i < s.length; ++i) {
+			var t = s[i].split('<');
+			if ((t.length == 3) || (t.length == 4)) {
+				if (t[2] != '')
+					hostnamecache[t[1]] = t[2].split(' ').splice(0,1);
+			}
 		}
 	}
+
+	if (typeof(dhcpd_lease) != 'undefined') {
+		for (var j=0; i<dhcpd_lease.length; ++j) {
+			s = dhcpd_lease[j].split('>');
+			for (var i = 0; i < s.length; ++i) {
+				var t = s[i].split('<');
+				if (t.length == 4) {
+					if (t[0] != '')
+						hostnamecache[t[1]] = t[0].split(' ').splice(0,1);
+				}
+			}
+		}
+	}
+
 }
 

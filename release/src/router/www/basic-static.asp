@@ -262,31 +262,49 @@ sg.setup = function() {
 	this.headerSet(['MAC Address', 'Bound to', 'IP Address', 'BW Mon', 'Hostname' ]);
 
 	var s = nvram.dhcpd_static.split('>');
-	var bwr = nvram.bwm_client.split('>');
 	var asr = nvram.arpbind_static.split('>');
+
+	var bwr;
+	if (nvram.bwm_client.indexOf('>') > 0) {
+		bwr = nvram.bwm_client.split('>');
+	} else {
+		bwr = nvram.bwm_client.split(',');
+	}
+
 	for (var i = 0; i < s.length; ++i) {
 		var bwe = '0';
 		var ase = '0';
 		var t = s[i].split('<');
-		if (t.length == 3) {
-			var d = t[0].split(',');
-			var ip = (t[1].indexOf('.') == -1) ? (ipp + t[1]) : t[1];
+		if (t.length < 3)
+			continue;
+		var ip = (t[1].indexOf('.') == -1) ? (ipp + t[1]) : t[1];
+		var d = t[0].split(',');
 
+		if (t.length == 3) {
 			for (var j = 0; j < bwr.length; ++j) {
 				var bwl = bwr[j].split('<');
 				if ((bwl.length == 2) && (bwl[0] == ip))
 					bwe = '1';
 			}
-
 			for (var k = 0; k < asr.length; ++k) {
 				var asl = asr[k].split('<');
 				if ((asl.length == 2) && (asl[1] == d))
 					ase = '1';
 			}
-
-			this.insertData(-1, [ d[0], (d.length >= 2) ? d[1] : '00:00:00:00:00:00', ase,
-				ip, bwe, t[2] ]);
 		}
+
+		if (t.length == 4) {
+			for (var j = 0; j < bwr.length; ++j) {
+				if (ip == bwr[j]) {
+					bwe = '1';
+					break;
+				}
+			}
+			ase = t[3].toString();
+		}
+
+		this.insertData(-1, [ d[0], (d.length >= 2) ? d[1] : '00:00:00:00:00:00', ase, ip, bwe, t[2] ]);
+
 	}
 
 	this.sort(4);
@@ -299,7 +317,6 @@ function save() {
 
 	var data = sg.getAllData();
 	var sdhcp = '';
-	var sarp = '';
 	var bwm = '';
 	var i;
 
@@ -307,17 +324,16 @@ function save() {
 		var d = data[i];
 		sdhcp += d[0];
 		if (!isMAC0(d[1])) sdhcp += ',' + d[1];
-		sdhcp += '<' + d[3] + '<' + d[5] + '>';
+		sdhcp += '<' + d[3] + '<' + d[5] + '<' + d[2] + '>';
 
-		if (d[2] == '1') sarp += d[3] + '<' + d[0] + '>';
-		if (d[4] == '1') bwm += d[3] + '<' + d[5].split(' ').splice(0,1) + '>';
+		if (d[4] == '1') bwm += ((bwm.length > 0) ? ',' : '') + d[3];
 	}
 
 	var fom = E('_fom');
 	fom.bwm_client.value = bwm;
 	fom.dhcpd_static.value = sdhcp;
 	fom.dhcpd_static_only.value = E('_f_dhcpd_static_only').checked ? '1' : '0';
-	fom.arpbind_static.value = sarp;
+
 	form.submit(fom, 1);
 }
 

@@ -44,7 +44,9 @@ ul.tabs a,
 <script type='text/javascript' src='bwm-common.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,rstats_colors,bwm_client"); %>
+//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,rstats_colors,bwm_client,dhcpd_static"); %>
+
+//	<% devlist(); %>
 
 var cprefix = 'bwcm_r';
 var updateInt = 2;
