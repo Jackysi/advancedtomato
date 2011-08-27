@@ -55,8 +55,6 @@ ul.tabs a,
 
 //	<% devlist(); %>
 
-//<% sysinfo(); %>
-
 var cprefix = 'ipt_24';
 var updateInt = 120;
 var updateDiv = updateInt;
@@ -245,9 +243,6 @@ REMOVE-END */
 <script type='text/javascript'>
 if (nvram.cstats_enable != '1') {
 	W('<div class="note-disabled">IP Traffic monitoring disabled.</b><br><br><a href="admin-iptraffic.asp">Enable &raquo;</a><div>');
-	E('cstats').style.display = 'none';
-} else if (sysinfo.uptime < 300) {
-	W('<div class="note-disabledw">No data to show just yet.<br>Try reloading after a few minutes.<div>');
 	E('cstats').style.display = 'none';
 }else {
 	W('<div class="note-warning" style="display:none" id="rbusy">The cstats program is not responding or is busy. Try reloading after a few seconds.</div>');
