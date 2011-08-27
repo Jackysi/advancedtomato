@@ -387,6 +387,7 @@ function verifyFields(focused, quiet) {
 
 <!-- / / / -->
 
+<div id='cstats'>
 <div class='section-title'>IP Traffic Daily History</div>
 <div class='section'>
 <table id='daily-grid' class='tomato-grid' cellspacing=0 style='height:auto'></table>
@@ -412,6 +413,7 @@ createFieldTable('',c);
 &raquo; <a href="javascript:genData()">Data</a>
 <br>
 &raquo; <a href="admin-iptraffic.asp">Configure</a>
+</div>
 </div>
 </div>
 

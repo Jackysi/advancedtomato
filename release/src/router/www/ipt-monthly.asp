@@ -352,7 +352,7 @@ function verifyFields(focused, quiet) {
 	scale = E('_f_scale').value * 1;
 	cookie.set('ipt_history_scale', E('_f_scale').value, 2);
 
-	cookie.set('ipt_history_subnet', (E('_f_subnet').checked ? '1' : '0'), 1);
+//	cookie.set('ipt_history_subnet', (E('_f_subnet').checked ? '1' : '0'), 1);
 
 	cookie.set('ipt_history_hostnames', (E('_f_hostnames').checked ? '1' : '0'), 1);
 
@@ -387,6 +387,7 @@ function verifyFields(focused, quiet) {
 
 <!-- / / / -->
 
+<div id='cstats'>
 <div class='section-title'>IP Traffic Monthly History</div>
 <div class='section'>
 <table id='monthly-grid' class='tomato-grid' cellspacing=0 style='height:auto'></table>
@@ -412,6 +413,7 @@ createFieldTable('',c);
 &raquo; <a href="javascript:genData()">Data</a>
 <br>
 &raquo; <a href="admin-iptraffic.asp">Configure</a>
+</div>
 </div>
 </div>
 
