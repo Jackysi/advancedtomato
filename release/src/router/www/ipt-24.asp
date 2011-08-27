@@ -46,6 +46,7 @@ ul.tabs a,
 
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript' src='bwm-common.js'></script>
+<script type='text/javascript' src='bwm-hist.js'></script>
 <script type='text/javascript' src='interfaces.js'></script>
 
 <script type='text/javascript'>
@@ -53,6 +54,8 @@ ul.tabs a,
 //	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,cstats_enable,cstats_colors,dhcpd_static,lan_ipaddr,lan_netmask,lan1_ipaddr,lan1_netmask,lan2_ipaddr,lan2_netmask,lan3_ipaddr,lan3_netmask"); %>
 
 //	<% devlist(); %>
+
+//<% sysinfo(); %>
 
 var cprefix = 'ipt_24';
 var updateInt = 120;
@@ -63,15 +66,13 @@ var hours = 24;
 var lastHours = 0;
 var debugTime = 0;
 
-function showHours()
-{
+function showHours() {
 	if (hours == lastHours) return;
 	showSelectedOption('hr', lastHours, hours);
 	lastHours = hours;
 }
 
-function switchHours(h)
-{
+function switchHours(h) {
 	if ((!svgReady) || (updating)) return;
 
 	hours = h;
@@ -83,8 +84,7 @@ function switchHours(h)
 
 var ref = new TomatoRefresh('update.cgi', 'exec=ipt_bandwidth&arg0=speed');
 
-ref.refresh = function(text)
-{
+ref.refresh = function(text) {
 	++updating;
 	try {
 		this.refreshTime = 1500;
@@ -96,33 +96,33 @@ ref.refresh = function(text)
 				cstats_busy = 0;
 			}
 			this.refreshTime = (fixInt(speed_history._next, 1, 120, 60) + 2) * 1000;
-		}
-		catch (ex) {
+		} catch (ex) {
 			speed_history = {};
+			cstats_busy = 1;
+			E('rbusy').style.display = '';
 		}
-		if (debugTime) E('dtime').innerHTML = (new Date()) + ' ' + (this.refreshTime / 1000);
+		if (debugTime) E('dtime').innerHTML = (ymdText(new Date())) + ' ' + (this.refreshTime / 1000);
 		loadData();
 	}
 	catch (ex) {
+/* REMOVE-BEGIN
 //		alert('ex=' + ex);
+REMOVE-END */
 	}
 	--updating;
 }
 
-ref.showState = function()
-{
+ref.showState = function() {
 	E('refresh-button').value = this.running ? 'Stop' : 'Start';
 }
 
-ref.toggleX = function()
-{
+ref.toggleX = function() {
 	this.toggle();
 	this.showState();
 	cookie.set(cprefix + 'refresh', this.running ? 1 : 0);
 }
 
-ref.initX = function()
-{
+ref.initX = function() {
 	var a;
 
 	a = fixInt(cookie.get(cprefix + 'refresh'), 0, 1, 1);
@@ -132,15 +132,16 @@ ref.initX = function()
 	}
 }
 
-function init()
-{
+function init() {
 	if (nvram.cstats_enable != '1') return;
 
 	try {
 	//	<% ipt_bandwidth("speed"); %>
 	}
 	catch (ex) {
-		speed_history = {};
+/* REMOVE-BEGIN
+//		speed_history = {};
+REMOVE-END */
 	}
 	cstats_busy = 0;
 	if (typeof(speed_history) == 'undefined') {
@@ -245,8 +246,10 @@ function init()
 if (nvram.cstats_enable != '1') {
 	W('<div class="note-disabled">IP Traffic monitoring disabled.</b><br><br><a href="admin-iptraffic.asp">Enable &raquo;</a><div>');
 	E('cstats').style.display = 'none';
-}
-else {
+} else if (sysinfo.uptime < 300) {
+	W('<div class="note-disabledw">No data to show just yet.<br>Try reloading after a few minutes.<div>');
+	E('cstats').style.display = 'none';
+}else {
 	W('<div class="note-warning" style="display:none" id="rbusy">The cstats program is not responding or is busy. Try reloading after a few seconds.</div>');
 }
 </script>

@@ -2284,9 +2284,9 @@ function navi()
 		['IP Traffic', 			'ipt', 0, [
 			['Real-Time',		'realtime.asp'],
 			['Last 24 Hours',	'24.asp'],
-			['Details',			'details.asp'],
-			['History',			'history.asp'] ] ],
-
+			['Transfer Rates',	'details.asp'],
+			['Daily',			'daily.asp'],
+			['Monthly',			'monthly.asp'] ] ],
 		['Tools', 				'tools', 0, [
 			['Ping',			'ping.asp'],
 			['Trace',			'trace.asp'],

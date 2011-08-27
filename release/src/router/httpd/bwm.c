@@ -184,7 +184,7 @@ void wo_bwmrestore(char *url)
 void wo_iptrestore(char *url)
 {
 	if (rboot) {
-		redirect("/ipt-history.asp");
+		redirect("/ipt-daily.asp");
 	}
 	else {
 		parse_asp("error.asp");
@@ -356,11 +356,14 @@ void asp_iptraffic(int argc, char **argv) {
 	unsigned long tp_icmp, rp_icmp;
 	unsigned long ct_tcp, ct_udp;
 
-#if defined(TCONFIG_IPV6) && defined(LINUX26)
-	const char conntrack[] = "/proc/net/nf_conntrack";
-#else
+
+// needs extra tweaks in the code before this works as it should
+// so we'll stick to IPv4-only for now...
+// #if defined(TCONFIG_IPV6) && defined(LINUX26)
+//	const char conntrack[] = "/proc/net/nf_conntrack";
+// #else
 	const char conntrack[] = "/proc/net/ip_conntrack";
-#endif
+// #endif
 
 	if ((b = fopen(conntrack, "r")) == NULL) return;
 
