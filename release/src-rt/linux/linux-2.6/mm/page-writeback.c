@@ -770,6 +770,7 @@ int write_cache_pages(struct address_space *mapping,
 	pgoff_t uninitialized_var(writeback_index);
 	pgoff_t index;
 	pgoff_t end;		/* Inclusive */
+	pgoff_t done_index;
 	int cycled;
 	int range_whole = 0;
 
@@ -795,6 +796,7 @@ int write_cache_pages(struct address_space *mapping,
 		cycled = 1; /* ignore range_cyclic tests */
 	}
 retry:
+	done_index = index;
 	while (!done && (index <= end) &&
 	       (nr_pages = pagevec_lookup_tag(&pvec, mapping, &index,
 					      PAGECACHE_TAG_DIRTY,
@@ -803,6 +805,8 @@ retry:
 
 		for (i = 0; i < nr_pages; i++) {
 			struct page *page = pvec.pages[i];
+
+			done_index = page->index + 1;
 
 			/*
 			 * At this point we hold neither mapping->tree_lock nor
@@ -838,13 +842,29 @@ retry:
 			}
 
 			ret = (*writepage)(page, wbc, data);
+			if (unlikely(ret)) {
+				if (ret == AOP_WRITEPAGE_ACTIVATE) {
+					unlock_page(page);
+					ret = 0;
+				} else {
+					/*
+					 * done_index is set past this page,
+					 * so media errors will not choke
+					 * background writeout for the entire
+					 * file. This has consequences for
+					 * range_cyclic semantics (ie. it may
+					 * not be suitable for data integrity
+					 * writeout).
+					 */
+					done = 1;
+					break;
+				}
+ 			}
 
-			if (unlikely(ret == AOP_WRITEPAGE_ACTIVATE)) {
-				unlock_page(page);
-				ret = 0;
+			if (wbc->sync_mode == WB_SYNC_NONE) {
+				if (--wbc->nr_to_write <= 0)
+					done = 1;
 			}
-			if (ret || (--(wbc->nr_to_write) <= 0))
-				done = 1;
 			if (wbc->nonblocking && bdi_write_congested(bdi)) {
 				wbc->encountered_congestion = 1;
 				done = 1;
@@ -865,7 +885,7 @@ retry:
 		goto retry;
 	}
 	if (wbc->range_cyclic || (range_whole && wbc->nr_to_write > 0))
-		mapping->writeback_index = index;
+		mapping->writeback_index = done_index;
 	return ret;
 }
 EXPORT_SYMBOL(write_cache_pages);
