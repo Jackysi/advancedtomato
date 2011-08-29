@@ -274,7 +274,7 @@ free_metadata(metadata_t * m, uint32_t flags)
 }
 
 sqlite_int64
-GetFolderMetadata(const char * name, const char * path, const char * artist, const char * genre, const char * album_art)
+GetFolderMetadata(const char * name, const char * path, const char * artist, const char * genre, sqlite3_int64 album_art)
 {
 	int ret;
 
@@ -282,8 +282,7 @@ GetFolderMetadata(const char * name, const char * path, const char * artist, con
 	                   " (TITLE, PATH, CREATOR, ARTIST, GENRE, ALBUM_ART) "
 	                   "VALUES"
 	                   " ('%q', %Q, %Q, %Q, %Q, %lld);",
-	                   name, path, artist, artist, genre,
-	                   album_art ? strtoll(album_art, NULL, 10) : 0);
+	                   name, path, artist, artist, genre, album_art);
 	if( ret != SQLITE_OK )
 		ret = 0;
 	else
@@ -593,19 +592,22 @@ no_exifdata:
 	if( image_get_jpeg_resolution(path, &width, &height) != 0 || !width || !height )
 	{
 		infile = fopen(path, "r");
-		cinfo.err = jpeg_std_error(&jerr);
-		jerr.error_exit = libjpeg_error_handler;
-		jpeg_create_decompress(&cinfo);
-		if( setjmp(setjmp_buffer) )
-			goto error;
-		jpeg_stdio_src(&cinfo, infile);
-		jpeg_read_header(&cinfo, TRUE);
-		jpeg_start_decompress(&cinfo);
-		width = cinfo.output_width;
-		height = cinfo.output_height;
-		error:
-		jpeg_destroy_decompress(&cinfo);
-		fclose(infile);
+		if( infile )
+		{
+			cinfo.err = jpeg_std_error(&jerr);
+			jerr.error_exit = libjpeg_error_handler;
+			jpeg_create_decompress(&cinfo);
+			if( setjmp(setjmp_buffer) )
+				goto error;
+			jpeg_stdio_src(&cinfo, infile);
+			jpeg_read_header(&cinfo, TRUE);
+			jpeg_start_decompress(&cinfo);
+			width = cinfo.output_width;
+			height = cinfo.output_height;
+			error:
+			jpeg_destroy_decompress(&cinfo);
+			fclose(infile);
+		}
 	}
 	//DEBUG DPRINTF(E_DEBUG, L_METADATA, " * resolution: %dx%d\n", width, height);
 
