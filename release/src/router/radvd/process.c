@@ -1,5 +1,5 @@
 /*
- *   $Id: process.c,v 1.26 2011/04/04 14:24:58 reubenhwk Exp $
+ *   $Id: process.c,v 1.26.2.3 2011/08/22 12:30:47 reubenhwk Exp $
  *
  *   Authors:
  *    Pedro Roque		<roque@di.fc.ul.pt>
@@ -132,12 +132,12 @@ process(struct Interface *ifacel, unsigned char *msg, int len,
 
 	if (icmph->icmp6_type == ND_ROUTER_SOLICIT)
 	{
-		dlog(LOG_DEBUG, 3, "received RS from %s", addr_str);
+		dlog(LOG_DEBUG, 2, "received RS from %s", addr_str);
 		process_rs(iface, msg, len, addr);
 	}
 	else if (icmph->icmp6_type == ND_ROUTER_ADVERT)
 	{
-		dlog(LOG_DEBUG, 3, "received RA from %s", addr_str);
+		dlog(LOG_DEBUG, 2, "received RA from %s", addr_str);
 		process_ra(iface, msg, len, addr);
 	}
 }
@@ -194,13 +194,12 @@ process_rs(struct Interface *iface, unsigned char *msg, int len,
 	delay = MAX_RA_DELAY_TIME * rand() / (RAND_MAX +1.0);
 
 	if (iface->UnicastOnly) {
-		dlog(LOG_DEBUG, 3, "random mdelay for %s: %g seconds.", iface->Name, delay/1000.0);
+		dlog(LOG_DEBUG, 5, "random mdelay for %s: %g seconds.", iface->Name, delay/1000.0);
 		mdelay(delay);
 		send_ra_forall(iface, &addr->sin6_addr);
 	}
 	else if ( timevaldiff(&tv, &iface->last_multicast) / 1000.0 < iface->MinDelayBetweenRAs ) {
 		/* last RA was sent only a few moments ago, don't send another immediately. */
-		dlog(LOG_DEBUG, 3, "random mdelay for %s: %g seconds.", iface->Name, delay/1000.0);
 		next = iface->MinDelayBetweenRAs - (tv.tv_sec + tv.tv_usec / 1000000.0) + (iface->last_multicast.tv_sec + iface->last_multicast.tv_usec / 1000000.0) + delay/1000.0;
 		iface->next_multicast = next_timeval(next);
 	}

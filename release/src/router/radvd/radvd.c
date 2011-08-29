@@ -1,5 +1,5 @@
 /*
- *   $Id: radvd.c,v 1.61 2011/05/04 17:22:57 reubenhwk Exp $
+ *   $Id: radvd.c,v 1.61.2.1 2011/08/22 12:28:46 reubenhwk Exp $
  *
  *   Authors:
  *    Pedro Roque		<roque@di.fc.ul.pt>
@@ -397,7 +397,7 @@ void main_loop(void)
 			}
 		}
 
-		dlog(LOG_DEBUG, 3, "polling for %g seconds.", timeout/1000.0);
+		dlog(LOG_DEBUG, 5, "polling for %g seconds.", timeout/1000.0);
 
 		rc = poll(fds, sizeof(fds)/sizeof(fds[0]), timeout);
 
