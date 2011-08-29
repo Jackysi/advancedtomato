@@ -247,7 +247,7 @@ static struct ebt_mac_wormhash *create_wormhash(const char *arg)
 				ebt_print_error("IP parse error: %.20s", anchor);
 				return NULL;
 			}
-			if (*(uint32_t*)ip == 0) {
+			if (ip[0] == 0 && ip[1] == 0 && ip[2] == 0 && ip[3] == 0) {
 				ebt_print_error("Illegal IP 0.0.0.0");
 				return NULL;
 			}
@@ -258,7 +258,7 @@ static struct ebt_mac_wormhash *create_wormhash(const char *arg)
 
 		/* we have collected MAC and IP, so we add an entry */
 		memcpy(((char *) workcopy->pool[nmacs].cmp) + 2, mac, 6);
-		workcopy->pool[nmacs].ip = *(const uint32_t *) ip;
+		memcpy(&(workcopy->pool[nmacs].ip), ip, 4);
 		nmacs++;
 
 		/* re-allocate memory if needed */
@@ -313,8 +313,8 @@ static int parse(int c, char **argv, int argc,
 	struct ebt_mac_wormhash *wh;
 	struct ebt_entry_match *h;
 	int new_size;
-	long flen;
-	int fd;
+	long flen = 0;
+	int fd = -1;
 
 	switch (c) {
 	case AMONG_DST_F:
