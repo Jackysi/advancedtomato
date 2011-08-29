@@ -385,6 +385,8 @@ define BusyboxOptions
 		echo "CONFIG_NICE=y" >>$(1); \
 		sed -i "/CONFIG_SETCONSOLE/d" $(1); \
 		echo "CONFIG_SETCONSOLE=y" >>$(1); \
+		sed -i "/CONFIG_SEQ/d" $(1); \
+		echo "CONFIG_SEQ=y" >>$(1); \
 	fi; \
 	if [ "$(USB)" = "USB" ]; then \
 		if [ "$(USBEXTRAS)" = "y" ]; then \
