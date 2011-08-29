@@ -1,5 +1,5 @@
 PROG        = usb_modeswitch
-VERS        = 1.1.8
+VERS        = 1.1.9
 CC          = gcc
 CFLAGS      += -Wall
 LIBS        = -lusb-1.0

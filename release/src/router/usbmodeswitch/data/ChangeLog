@@ -1,3 +1,7 @@
+20110805:
+    Added devices: Vodafone/Huawei K4510 & K4511, Vodafone/ZTE K3770-Z,
+    K3772-Z and K4510-Z (thanks to Andrew Bird); five Option HSO modems;
+    Cisco Valet AM10 (use with program version >= 1.1.9)
 20110714:
     Added device: SpeedUp SU-8000U; corrected garbled configs for latest
     Huawei devices
