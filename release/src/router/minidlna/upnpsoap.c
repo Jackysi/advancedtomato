@@ -188,6 +188,7 @@ GetSearchCapabilities(struct upnphttp * h, const char * action)
 		"<u:%sResponse xmlns:u=\"%s\">"
 		"<SearchCaps>"
 		  "dc:creator,"
+		  "dc:date,"
 		  "dc:title,"
 		  "upnp:album,"
 		  "upnp:actor,"
@@ -344,6 +345,9 @@ mime_to_ext(const char * mime, char * buf)
 #define FILTER_UPNP_GENRE                        0x00040000
 #define FILTER_UPNP_ORIGINALTRACKNUMBER          0x00080000
 #define FILTER_UPNP_SEARCHCLASS                  0x00100000
+#define FILTER_SEC                               0x00200000
+#define FILTER_SEC_CAPTION_INFO                  0x00400000
+#define FILTER_SEC_CAPTION_INFO_EX               0x00800000
 
 static u_int32_t
 set_filter_flags(char * filter, struct upnphttp *h)
@@ -466,6 +470,16 @@ set_filter_flags(char * filter, struct upnphttp *h)
 		{
 			flags |= FILTER_RES;
 			flags |= FILTER_RES_SIZE;
+		}
+		else if( strcmp(item, "sec:CaptionInfo") == 0)
+		{
+			flags |= FILTER_SEC;
+			flags |= FILTER_SEC_CAPTION_INFO;
+		}
+		else if( strcmp(item, "sec:CaptionInfoEx") == 0)
+		{
+			flags |= FILTER_SEC;
+			flags |= FILTER_SEC_CAPTION_INFO_EX;
 		}
 		item = strtok_r(NULL, ",", &saveptr);
 	}
@@ -591,7 +605,10 @@ add_res(char *size, char *duration, char *bitrate, char *sampleFrequency,
 		strcatf(args->str, "duration=\"%s\" ", duration);
 	}
 	if( bitrate && (args->filter & FILTER_RES_BITRATE) ) {
-		strcatf(args->str, "bitrate=\"%s\" ", bitrate);
+		int br = atoi(bitrate);
+		if(args->flags & FLAG_MS_PFS)
+			br /= 8;
+		strcatf(args->str, "bitrate=\"%d\" ", br);
 	}
 	if( sampleFrequency && (args->filter & FILTER_RES_SAMPLEFREQUENCY) ) {
 		strcatf(args->str, "sampleFrequency=\"%s\" ", sampleFrequency);
@@ -723,6 +740,13 @@ callback(void *args, int argc, char **argv, char **azColName)
 					strcpy(mime+6, "flac");
 				}
 			}
+			else if( strcmp(mime+6, "x-wav") == 0 )
+			{
+				if( passed_args->flags & FLAG_MIME_WAV_WAV )
+				{
+					strcpy(mime+6, "wav");
+				}
+			}
 		}
 
 		ret = strcatf(str, "&lt;item id=\"%s\" parentID=\"%s\" restricted=\"1\"", id, parent);
@@ -741,6 +765,11 @@ callback(void *args, int argc, char **argv, char **azColName)
 		}
 		if( date && (passed_args->filter & FILTER_DC_DATE) ) {
 			ret = strcatf(str, "&lt;dc:date&gt;%s&lt;/dc:date&gt;", date);
+		}
+		if( (passed_args->flags & FLAG_SAMSUNG) && (passed_args->filter & FILTER_SEC_CAPTION_INFO_EX) ) {
+			/* Get bookmark */
+			ret = strcatf(str, "&lt;sec:dcmInfo&gt;CREATIONDATE=0,FOLDER=%s,BM=%d&lt;/sec:dcmInfo&gt;",
+			              title, sql_get_int_field(db, "SELECT SEC from BOOKMARKS where ID = '%s'", detailID));
 		}
 		if( artist ) {
 			if( (*mime == 'v') && (passed_args->filter & FILTER_UPNP_ACTOR) ) {
@@ -964,22 +993,28 @@ BrowseContentDirectory(struct upnphttp * h, const char * action)
 			"<Result>"
 			"&lt;DIDL-Lite"
 			CONTENT_DIRECTORY_SCHEMAS;
-	char *zErrMsg = 0;
+	char *zErrMsg = NULL;
 	char *sql, *ptr;
-	int ret;
 	struct Response args;
 	struct string_s str;
 	int totalMatches;
+	int ret;
+	char *ObjectID, *Filter, *BrowseFlag, *SortCriteria;
+	char *orderBy = NULL;
 	struct NameValueParserData data;
-
-	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
-	char * ObjectID = GetValueFromNameValueList(&data, "ObjectID");
-	char * Filter = GetValueFromNameValueList(&data, "Filter");
-	char * BrowseFlag = GetValueFromNameValueList(&data, "BrowseFlag");
-	char * SortCriteria = GetValueFromNameValueList(&data, "SortCriteria");
-	char * orderBy = NULL;
 	int RequestedCount = 0;
 	int StartingIndex = 0;
+
+	memset(&args, 0, sizeof(args));
+	memset(&str, 0, sizeof(str));
+
+	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
+
+	ObjectID = GetValueFromNameValueList(&data, "ObjectID");
+	Filter = GetValueFromNameValueList(&data, "Filter");
+	BrowseFlag = GetValueFromNameValueList(&data, "BrowseFlag");
+	SortCriteria = GetValueFromNameValueList(&data, "SortCriteria");
+
 	if( (ptr = GetValueFromNameValueList(&data, "RequestedCount")) )
 		RequestedCount = atoi(ptr);
 	if( !RequestedCount )
@@ -996,8 +1031,6 @@ BrowseContentDirectory(struct upnphttp * h, const char * action)
 		SoapError(h, 701, "No such object error");
 		goto browse_error;
 	}
-	memset(&args, 0, sizeof(args));
-	memset(&str, 0, sizeof(str));
 
 	str.data = malloc(DEFAULT_RESP_SIZE);
 	str.size = DEFAULT_RESP_SIZE;
@@ -1152,25 +1185,29 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 			"<Result>"
 			"&lt;DIDL-Lite"
 			CONTENT_DIRECTORY_SCHEMAS;
-	char *zErrMsg = 0;
+	char *zErrMsg = NULL;
 	char *sql, *ptr;
-	char **result;
 	struct Response args;
 	struct string_s str;
-	int totalMatches = 0;
+	int totalMatches;
 	int ret;
-
-	struct NameValueParserData data;
-	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
-	char * ContainerID = GetValueFromNameValueList(&data, "ContainerID");
-	char * Filter = GetValueFromNameValueList(&data, "Filter");
-	char * SearchCriteria = GetValueFromNameValueList(&data, "SearchCriteria");
-	char * SortCriteria = GetValueFromNameValueList(&data, "SortCriteria");
-	char * newSearchCriteria = NULL;
-	char * orderBy = NULL;
+	char *ContainerID, *Filter, *SearchCriteria, *SortCriteria;
+	char *newSearchCriteria = NULL, *orderBy = NULL;
 	char groupBy[] = "group by DETAIL_ID";
+	struct NameValueParserData data;
 	int RequestedCount = 0;
 	int StartingIndex = 0;
+
+	memset(&args, 0, sizeof(args));
+	memset(&str, 0, sizeof(str));
+
+	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
+
+	ContainerID = GetValueFromNameValueList(&data, "ContainerID");
+	Filter = GetValueFromNameValueList(&data, "Filter");
+	SearchCriteria = GetValueFromNameValueList(&data, "SearchCriteria");
+	SortCriteria = GetValueFromNameValueList(&data, "SortCriteria");
+
 	if( (ptr = GetValueFromNameValueList(&data, "RequestedCount")) )
 		RequestedCount = atoi(ptr);
 	if( !RequestedCount )
@@ -1185,8 +1222,6 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 			goto search_error;
 		}
 	}
-	memset(&args, 0, sizeof(args));
-	memset(&str, 0, sizeof(str));
 
 	str.data = malloc(DEFAULT_RESP_SIZE);
 	str.size = DEFAULT_RESP_SIZE;
@@ -1257,10 +1292,13 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 	{
 		SearchCriteria = modifyString(SearchCriteria, "&quot;", "\"", 0);
 		SearchCriteria = modifyString(SearchCriteria, "&apos;", "'", 0);
+		SearchCriteria = modifyString(SearchCriteria, "&lt;", "<", 0);
+		SearchCriteria = modifyString(SearchCriteria, "&gt;", ">", 0);
 		SearchCriteria = modifyString(SearchCriteria, "\\\"", "\"\"", 0);
 		SearchCriteria = modifyString(SearchCriteria, "object.", "", 0);
 		SearchCriteria = modifyString(SearchCriteria, "derivedfrom", "like", 1);
 		SearchCriteria = modifyString(SearchCriteria, "contains", "like", 2);
+		SearchCriteria = modifyString(SearchCriteria, "dc:date", "d.DATE", 0);
 		SearchCriteria = modifyString(SearchCriteria, "dc:title", "d.TITLE", 0);
 		SearchCriteria = modifyString(SearchCriteria, "dc:creator", "d.CREATOR", 0);
 		SearchCriteria = modifyString(SearchCriteria, "upnp:class", "o.CLASS", 0);
@@ -1295,22 +1333,14 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 	}
 	DPRINTF(E_DEBUG, L_HTTP, "Translated SearchCriteria: %s\n", SearchCriteria);
 
-	sql = sqlite3_mprintf("SELECT (select count(distinct DETAIL_ID)"
-	                      " from OBJECTS o left join DETAILS d on (o.DETAIL_ID = d.ID)"
-	                      " where (OBJECT_ID glob '%s$*') and (%s))"
-	                      " + "
-	                      "(select count(*) from OBJECTS o left join DETAILS d on (o.DETAIL_ID = d.ID)"
-	                      " where (OBJECT_ID = '%s') and (%s))",
-	                      ContainerID, SearchCriteria, ContainerID, SearchCriteria);
-	//DEBUG DPRINTF(E_DEBUG, L_HTTP, "Count SQL: %s\n", sql);
-	ret = sql_get_table(db, sql, &result, NULL, NULL);
-	sqlite3_free(sql);
-	if( ret == SQLITE_OK )
-	{
-		totalMatches = atoi(result[1]);
-		sqlite3_free_table(result);
-	}
-	else
+	totalMatches = sql_get_int_field(db, "SELECT (select count(distinct DETAIL_ID)"
+	                                     " from OBJECTS o left join DETAILS d on (o.DETAIL_ID = d.ID)"
+	                                     " where (OBJECT_ID glob '%s$*') and (%s))"
+	                                     " + "
+	                                     "(select count(*) from OBJECTS o left join DETAILS d on (o.DETAIL_ID = d.ID)"
+	                                     " where (OBJECT_ID = '%s') and (%s))",
+	                                     ContainerID, SearchCriteria, ContainerID, SearchCriteria);
+	if( totalMatches < 0 )
 	{
 		/* Must be invalid SQL, so most likely bad or unhandled search criteria. */
 		SoapError(h, 708, "Unsupported or invalid search criteria");
@@ -1440,7 +1470,37 @@ SamsungGetFeatureList(struct upnphttp * h, const char * action)
 		"&lt;/Feature&gt;"
 		"</FeatureList></u:X_GetFeatureListResponse>";
 
-	BuildSendAndCloseSoapResp(h, resp, sizeof(resp));
+	BuildSendAndCloseSoapResp(h, resp, sizeof(resp)-1);
+}
+
+static void
+SamsungSetBookmark(struct upnphttp * h, const char * action)
+{
+	static const char resp[] =
+	    "<u:X_SetBookmarkResponse"
+	    " xmlns:u=\"urn:schemas-upnp-org:service:ContentDirectory:1\">"
+	    "</u:X_SetBookmarkResponse>";
+
+	struct NameValueParserData data;
+	char *ObjectID, *PosSecond;
+	int ret;
+
+	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
+	ObjectID = GetValueFromNameValueList(&data, "ObjectID");
+	PosSecond = GetValueFromNameValueList(&data, "PosSecond");
+	if( ObjectID && PosSecond )
+	{
+		ret = sql_exec(db, "INSERT OR REPLACE into BOOKMARKS"
+		                   " VALUES "
+		                   "((select DETAIL_ID from OBJECTS where OBJECT_ID = '%s'), %s)", ObjectID, PosSecond);
+		if( ret != SQLITE_OK )
+			DPRINTF(E_WARN, L_METADATA, "Error setting bookmark %s on ObjectID='%s'\n", PosSecond, ObjectID);
+		BuildSendAndCloseSoapResp(h, resp, sizeof(resp)-1);
+	}
+	else
+		SoapError(h, 402, "Invalid Args");
+
+	ClearNameValueList(&data);	
 }
 
 static const struct 
@@ -1462,6 +1522,7 @@ soapMethods[] =
 	{ "IsAuthorized", IsAuthorizedValidated},
 	{ "IsValidated", IsAuthorizedValidated},
 	{ "X_GetFeatureList", SamsungGetFeatureList},
+	{ "X_SetBookmark", SamsungSetBookmark},
 	{ 0, 0 }
 };
 

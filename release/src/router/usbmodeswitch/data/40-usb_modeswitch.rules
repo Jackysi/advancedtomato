@@ -1,4 +1,4 @@
-# Part of usb-modeswitch-data, version 20110714
+# Part of usb-modeswitch-data, version 20110805
 #
 # This file is intended for USB_ModeSwitch version >= 1.1.2
 # but will not break anything if used with versions >= 1.0.3
@@ -43,7 +43,7 @@ ATTRS{idVendor}=="0421", ATTRS{idProduct}=="0622", RUN+="usb_modeswitch '%b/%k'"
 # Nokia CS-18
 ATTRS{idVendor}=="0421", ATTRS{idProduct}=="0627", RUN+="usb_modeswitch '%b/%k'"
 
-# Vodafone MD950 (Wisue Technology), Vodafone MD950 (Wisue Technology), Philips (?)
+# Vodafone MD950 (Wisue Technology), Philips (?)
 ATTRS{idVendor}=="0471", ATTRS{idProduct}=="1210", RUN+="usb_modeswitch '%b/%k'"
 
 # Philips TalkTalk (NXP Semiconductors "Dragonfly")
@@ -61,7 +61,7 @@ ATTRS{idVendor}=="04e8", ATTRS{idProduct}=="f000", RUN+="usb_modeswitch '%b/%k'"
 # AVM Fritz!Wlan USB Stick N
 ATTRS{idVendor}=="057c", ATTRS{idProduct}=="84ff", RUN+="usb_modeswitch '%b/%k'"
 
-# Prolink P2000 CDMA, Samsung SGH-Z810, older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165
+# Prolink P2000 CDMA, Samsung SGH-Z810, Older Option devices, Vertex Wireless 100 Series, AnyDATA devices, Bless UC165
 ATTRS{idVendor}=="05c6", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # HSDPA USB modem from dealextreme 
@@ -175,6 +175,9 @@ ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7801", RUN+="usb_modeswitch '%b/%k'"
 # Option HSO device
 ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7901", RUN+="usb_modeswitch '%b/%k'"
 
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7a01", RUN+="usb_modeswitch '%b/%k'"
+
 # Option iCon 461
 ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="7a05", RUN+="usb_modeswitch '%b/%k'"
 
@@ -195,6 +198,18 @@ ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="8304", RUN+="usb_modeswitch '%b/%k'"
 
 # Option HSO device
 ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="8400", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="8600", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="8800", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="8900", RUN+="usb_modeswitch '%b/%k'"
+
+# Option HSO device
+ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="9000", RUN+="usb_modeswitch '%b/%k'"
 
 # Option HSO device
 ATTRS{idVendor}=="0af0", ATTRS{idProduct}=="c031", RUN+="usb_modeswitch '%b/%k'"
@@ -340,11 +355,17 @@ ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14ad", RUN+="usb_modeswitch '%b/%k'"
 # Huawei E173 (Viettel 3G)
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14b5", RUN+="usb_modeswitch '%b/%k'"
 
+# Vodafone (Huawei) K4511
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14b7", RUN+="usb_modeswitch '%b/%k'"
+
 # Vodafone (Huawei) K4605
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14c1", RUN+="usb_modeswitch '%b/%k'"
 
 # Vodafone/Huawei K3771
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14c4", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone (Huawei) K4510
+ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14c5", RUN+="usb_modeswitch '%b/%k'"
 
 # Vodafone/Huawei K3770
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14d1", RUN+="usb_modeswitch '%b/%k'"
@@ -378,6 +399,9 @@ ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="1da1", RUN+="usb_modeswitch '%b/%k'"
 
 # Huawei BM358 WiMAX
 ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="380b", RUN+="usb_modeswitch '%b/%k'"
+
+# Cisco AM10 "Valet Connector"
+ATTRS{idVendor}=="1307", ATTRS{idProduct}=="1169", RUN+="usb_modeswitch '%b/%k'"
 
 # Novatel Wireless devices
 ATTRS{idVendor}=="1410", ATTRS{idProduct}=="5010", RUN+="usb_modeswitch '%b/%k'"
@@ -466,6 +490,15 @@ ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1009", RUN+="usb_modeswitch '%b/%k'"
 # Vodafone (ZTE) K3806-Z
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1013", RUN+="usb_modeswitch '%b/%k'"
 
+# Vodafone (ZTE) K4510-Z
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1171", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone (ZTE) K3770-Z
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1175", RUN+="usb_modeswitch '%b/%k'"
+
+# Vodafone (ZTE) K3772-Z
+ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1179", RUN+="usb_modeswitch '%b/%k'"
+
 # ZTE MF691 (T-Mobile Rocket 2.0)
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="1201", RUN+="usb_modeswitch '%b/%k'"
 
@@ -490,7 +523,7 @@ ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="fff5", RUN+="usb_modeswitch '%b/%k'"
 # ZTE "fff" devices 2
 ATTRS{idVendor}=="19d2", ATTRS{idProduct}=="fff6", RUN+="usb_modeswitch '%b/%k'"
 
-# BandRich BandLuxe C100, C120, C170, C270
+# BandRich BandLuxe C100, C120, C170, C270, C3xx
 ATTRS{idVendor}=="1a8d", ATTRS{idProduct}=="1000", RUN+="usb_modeswitch '%b/%k'"
 
 # Hummer DTM5731 

@@ -1,4 +1,10 @@
 20110710
+	Changelog for v2.0.10-2
+	* enable compiler optimizations (-O3)
+	* small changes to remove the compiler warnings due to optimization being
+	  turned on (thanks to Peter Volkov)
+	* respect LDFLAGS in Makefiles (Peter Volkov)
+20110710
 	Changelog for v2.0.10-1
 	* fix --among-dst-file, which translated to --among-src
 	  (reported by Thierry Watelet)
