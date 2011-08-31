@@ -541,7 +541,7 @@ int do_command(int argc, char *argv[], int exec_style,
 	char *buffer;
 	int c, i;
 	int zerochain = -1; /* Needed for the -Z option (we can have -Z <this> -L <that>) */
-	int chcounter; /* Needed for -C */
+	int chcounter = 0; /* Needed for -C */
 	int policy = 0;
 	int rule_nr = 0;
 	int rule_nr_end = 0;

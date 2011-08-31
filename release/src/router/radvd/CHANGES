@@ -1,3 +1,6 @@
+19/08/2011	uClibc has no ifaddrs.h patch by Lonnie
+		slight changes to debugging output when receiving ra's and rs's
+
 14/05/2011	Version 1.8 release
 
 10/05/2011	removed AdvRDNSSPreference and AdvRDNSSOpen from the manpages

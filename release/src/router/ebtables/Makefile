@@ -1,7 +1,7 @@
 # ebtables Makefile
 
 PROGNAME:=ebtables
-PROGRELEASE:=1
+PROGRELEASE:=2
 PROGVERSION_:=2.0.10
 PROGVERSION:=$(PROGVERSION_)-$(PROGRELEASE)
 PROGDATE:=July\ 2011
@@ -18,7 +18,7 @@ SYSCONFIGDIR:=/etc/sysconfig
 DESTDIR:=
 
 CFLAGS:=-Wall -Wunused -Werror
-CFLAGS_SH_LIB:=-fPIC
+CFLAGS_SH_LIB:=-fPIC -O3
 CC:=gcc
 
 ifeq ($(shell uname -m),sparc64)
@@ -136,7 +136,7 @@ static: extensions/ebt_*.c extensions/ebtable_*.c ebtables.c communication.c ebt
 	printf "extern void %s();\n" _t_$${arg}_init >> include/ebtables_u.h ; \
 	done ; \
 	printf "\n\tpseudomain(argc, argv);\n\treturn 0;\n}\n" >> ebtables-standalone.c ;\
-	$(CC) $(CFLAGS) $(PROGSPECS) -o $@ $^ -I$(KERNEL_INCLUDES) -Iinclude ; \
+	$(CC) $(CFLAGS) $(LDFLAGS) $(PROGSPECS) -o $@ $^ -I$(KERNEL_INCLUDES) -Iinclude ; \
 	for arg in $(EXT_FUNC) \
 	; do \
 	sed "s/ .*_init/ _init/" extensions/ebt_$${arg}.c > extensions/ebt_$${arg}.c_ ; \

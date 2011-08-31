@@ -122,19 +122,5 @@ struct ethhdr {
 	__be16		h_proto;		/* packet type ID field	*/
 } __attribute__((packed));
 
-#ifdef __KERNEL__
-#include <linux/skbuff.h>
-
-static inline struct ethhdr *eth_hdr(const struct sk_buff *skb)
-{
-	return (struct ethhdr *)skb_mac_header(skb);
-}
-
-int eth_header_parse(const struct sk_buff *skb, unsigned char *haddr);
-
-int mac_pton(const char *s, u8 *mac);
-extern ssize_t sysfs_format_mac(char *buf, const unsigned char *addr, int len);
-
-#endif
 
 #endif	/* _LINUX_IF_ETHER_H */

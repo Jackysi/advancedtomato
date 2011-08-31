@@ -1,6 +1,6 @@
 /*
   Mode switching tool for controlling flip flop (multiple device) USB gear
-  Version 1.1.8, 2011/06/19
+  Version 1.1.9, 2011/08/05
 
   Copyright (C) 2007 - 2011 Josua Dietze (mail to "usb_admin" at the domain
   from the README; please do not post the complete address to the Internet!
@@ -43,7 +43,7 @@
 
 /* Recommended tab size: 4 */
 
-#define VERSION "1.1.8"
+#define VERSION "1.1.9"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,8 +56,8 @@
 
 #include "usb_modeswitch.h"
 
-#undef LIBUSB_HAS_DETACH_KERNEL_DRIVER_NP
-#undef LIBUSB_HAS_GET_DRIVER_NP
+#define LIBUSB_HAS_DETACH_KERNEL_DRIVER_NP
+#define LIBUSB_HAS_GET_DRIVER_NP
 
 #define USB_ENDPOINT_IN		LIBUSB_ENDPOINT_IN
 #define USB_ENDPOINT_OUT		LIBUSB_ENDPOINT_OUT
@@ -173,6 +173,17 @@ int usb_interrupt_write(libusb_device_handle *handle, int ep, char *bytes,
 	return usb_interrupt_io(handle, ep, bytes, size, timeout);
 }
 
+int usb_get_driver_np(struct libusb_device_handle *dev, int interface,
+char *name, unsigned int namelen)
+{
+	int r = libusb_kernel_driver_active(dev, interface);
+	if (r == 1) {
+		/* libusb-1.0 doesn't expose driver name, so fill in a dummy value */
+		snprintf(name, namelen, "dummy");
+		return 0;
+	} else return r;
+}
+
 #define LINE_DIM 1024
 #define BUF_SIZE 4096
 #define DESCR_MAX 129
@@ -194,7 +205,8 @@ int targetDeviceCount=0;
 int devnum=-1, busnum=-1;
 int ret;
 
-char DetachStorageOnly=0, HuaweiMode=0, SierraMode=0, SonyMode=0, GCTMode=0, KobilMode=0, SequansMode=0, MobileActionMode=0;
+char DetachStorageOnly=0, HuaweiMode=0, SierraMode=0, SonyMode=0, GCTMode=0, KobilMode=0;
+char SequansMode=0, MobileActionMode=0, CiscoMode=0;
 char verbose=0, show_progress=1, ResetUSB=0, CheckSuccess=0, config_read=0;
 char NeedResponse=0, NoDriverLoading=0, InquireDevice=1, sysmode=0;
 
@@ -233,6 +245,7 @@ static struct option long_options[] = {
 	{"gct-mode",			no_argument, 0, 'G'},
 	{"sequans-mode",		no_argument, 0, 'N'},
 	{"mobileaction-mode",	no_argument, 0, 'A'},
+	{"cisco-mode",	        no_argument, 0, 'L'},
 	{"need-response",		no_argument, 0, 'n'},
 	{"reset-usb",			no_argument, 0, 'R'},
 	{"config-file",			required_argument, 0, 'c'},
@@ -265,6 +278,7 @@ void readConfigFile(const char *configFilename)
 	ParseParamBool(configFilename, KobilMode);
 	ParseParamBool(configFilename, SequansMode);
 	ParseParamBool(configFilename, MobileActionMode);
+	ParseParamBool(configFilename, CiscoMode);
 	ParseParamBool(configFilename, NoDriverLoading);
 	ParseParamHex(configFilename, MessageEndpoint);
 	ParseParamString(configFilename, MessageContent);
@@ -321,6 +335,7 @@ void printConfig()
 	printf ("KobilMode=%i\n",		(int)KobilMode);
 	printf ("SequansMode=%i\n",		(int)SequansMode);
 	printf ("MobileActionMode=%i\n",	(int)MobileActionMode);
+	printf ("CiscoMode=%i\n",			(int)CiscoMode);
 	if ( MessageEndpoint )
 		printf ("MessageEndpoint=0x%02x\n",	MessageEndpoint);
 	else
@@ -368,7 +383,7 @@ int readArguments(int argc, char **argv)
 
 	while (1)
 	{
-		c = getopt_long (argc, argv, "heWQDndHSOGTNARIv:p:V:P:C:m:M:2:3:w:r:c:i:u:a:s:",
+		c = getopt_long (argc, argv, "heWQDndHSOGTNALRIv:p:V:P:C:m:M:2:3:w:r:c:i:u:a:s:",
 						long_options, &option_index);
 
 		/* Detect the end of the options. */
@@ -398,6 +413,7 @@ int readArguments(int argc, char **argv)
 			case 'T': KobilMode = 1; break;
 			case 'N': SequansMode = 1; break;
 			case 'A': MobileActionMode = 1; break;
+			case 'L': CiscoMode = 1; break;
 			case 'c': readConfigFile(optarg); break;
 			case 'W': verbose = 1; show_progress = 1; count--; break;
 			case 'Q': show_progress = 0; verbose = 0; count--; break;
@@ -553,7 +569,7 @@ int main(int argc, char **argv)
 		}
 
 	/* Check or get endpoints */
-	if (strlen(MessageContent) || InquireDevice) {
+	if (strlen(MessageContent) || InquireDevice || CiscoMode) {
 		if (!MessageEndpoint)
 			MessageEndpoint = find_first_bulk_output_endpoint(dev);
 		if (!MessageEndpoint) {
@@ -596,7 +612,8 @@ int main(int argc, char **argv)
 	}
 
 	/* Some scenarios are exclusive, so check for unwanted combinations */
- 	specialMode = DetachStorageOnly + HuaweiMode + SierraMode + SonyMode + KobilMode + SequansMode + MobileActionMode;
+ 	specialMode = DetachStorageOnly + HuaweiMode + SierraMode + SonyMode + KobilMode
+		+ SequansMode + MobileActionMode + CiscoMode;
 	if ( specialMode > 1 ) {
 		SHOW_PROGRESS("Invalid mode combination. Check your configuration. Aborting.\n\n");
 		exit(1);
@@ -644,6 +661,10 @@ int main(int argc, char **argv)
 	}
 	if(MobileActionMode) {
 		switchActionMode();
+	}
+	if(CiscoMode) {
+		detachDriver();
+		switchCiscoMode();
 	}
 	if (SonyMode) {
 		if (CheckSuccess)
@@ -888,7 +909,7 @@ int switchSendMessage ()
 //	if (MessageContent2[0] != '\0' || MessageContent3[0] != '\0')
 //		NeedResponse = 1;
 
-	SHOW_PROGRESS("Setting up communication with interface %d ...\n", Interface);
+	SHOW_PROGRESS("Setting up communication with interface %d\n", Interface);
 	if (InquireDevice != 2) {
 		ret = usb_claim_interface(devh, Interface);
 		if (ret != 0) {
@@ -1188,9 +1209,61 @@ int switchSequansMode() {
 	return 1;
 }
 
+int switchCiscoMode() {
+	int ret, i;
+	char* msg[11];
 
-/* Detach driver either as the main action or as preparation for other
- * switching methods
+	SHOW_PROGRESS("Preparing for sending Cisco message sequence\n");
+
+	msg[0] = "55534243f83bcd810002000080000afd000000030000000100000000000000";
+	msg[1] = "55534243984300820002000080000afd000000070000000100000000000000";
+	msg[2] = "55534243984300820000000000000afd000100071000000000000000000000";
+	msg[3] = "55534243984300820002000080000afd000200230000000100000000000000";
+	msg[4] = "55534243984300820000000000000afd000300238200000000000000000000";
+	msg[5] = "55534243984300820002000080000afd000200260000000100000000000000";
+	msg[6] = "55534243984300820000000000000afd00030026c800000000000000000000";
+	msg[7] = "55534243d84c04820002000080000afd000010730000000100000000000000";
+	msg[8] = "55534243d84c04820002000080000afd000200240000000100000000000000";
+	msg[9] = "55534243d84c04820000000000000afd000300241300000000000000000000";
+	msg[10] = "55534243d84c04820000000000000afd000110732400000000000000000000";
+
+	SHOW_PROGRESS("Setting up communication with interface %d\n", Interface);
+	ret = usb_claim_interface(devh, Interface);
+	if (ret != 0) {
+		SHOW_PROGRESS(" Could not claim interface (error %d). Skipping message sending\n", ret);
+		return 0;
+	}
+//	usb_clear_halt(devh, MessageEndpoint);
+	if (show_progress)
+		fflush(stdout);
+
+	for (i=0; i<11; i++) {
+		if ( sendMessage(msg[i], i+1) )
+			goto skip;
+
+		SHOW_PROGRESS("Reading the response (CSW) to bulk message %d ...\n",i+1);
+		ret = read_bulk(ResponseEndpoint, ByteString, 13);
+		if (ret < 0)
+			goto skip;
+	}
+
+	if (ReleaseDelay) {
+		SHOW_PROGRESS("Blocking the interface for %d ms before releasing ...\n", ReleaseDelay);
+		usleep(ReleaseDelay*1000);
+	}
+	ret = usb_release_interface(devh, Interface);
+	if (ret)
+		goto skip;
+	return 1;
+
+skip:
+	SHOW_PROGRESS("Device returned error, skipping any further commands\n");
+	usb_close(devh);
+	devh = 0;
+	return 2;
+}
+
+/* Detach driver
  */
 int detachDriver()
 {
@@ -1259,6 +1332,15 @@ int checkSuccess()
 	SHOW_PROGRESS("\nChecking for mode switch (max. %d times, once per second) ...\n", CheckSuccess);
 	sleep(1);
 
+	/* If target parameters are given, don't check for vanished device
+	 * Changed for Cisco AM10 where a new device is added while the install
+	 * storage device stays active
+	 */
+	if ((TargetVendor || TargetClass) && devh) {
+		usb_close(devh);
+		devh = 0;
+	}
+
 	/* if target ID is not given but target class is, assign default as target;
 	 * it will be needed for sysmode output
 	 */
@@ -1267,7 +1349,9 @@ int checkSuccess()
 		TargetProduct = DefaultProduct;
 	}
 
-	if (devh) // devh is 0 if device vanished during command transmission
+	/* devh is 0 if device vanished during command transmission or if target params were given
+	 */
+	if (devh)
 		for (i=0; i < CheckSuccess; i++) {
 
 			/* Test if default device still can be accessed; positive result does
@@ -1279,8 +1363,6 @@ int checkSuccess()
 			usb_release_interface(devh, Interface);
 			if (ret < 0) {
 				SHOW_PROGRESS(" Original device can't be accessed anymore. Good.\n");
-				if (i == CheckSuccess-1)
-					SHOW_PROGRESS(" If you want target checking, increase 'CheckSuccess' value.\n");
 				usb_close(devh);
 				devh = 0;
 				break;
@@ -1290,7 +1372,6 @@ int checkSuccess()
 			} else
 				sleep(1);
 		}
-
 
 	if ( TargetVendor && (TargetProduct > -1 || TargetProductList[0] != '\0') ) {
 
@@ -1386,7 +1467,7 @@ int read_bulk(int endpoint, char *buffer, int length)
 		if (ret == -19) {
 			SHOW_PROGRESS(" Device seems to have vanished after reading. Good.\n");
 		} else
-			SHOW_PROGRESS(" Response reading got error %d, can probably be ignored\n", ret);
+			SHOW_PROGRESS(" Response reading got error %d\n", ret);
 	return ret;
 
 }
@@ -1551,8 +1632,8 @@ struct libusb_device* search_devices( int *numFound, int vendor, int product, ch
 					if (busnum != -1)
 						if (libusb_get_device_address(dev) < devnum || libusb_get_bus_number(dev) != busnum) {
 							if (verbose)
-								printf ("   busnum/devnum indicates an unrelated device\n");
-							right_dev = NULL;
+								printf ("   warning: busnum/devnum indicates an unrelated device\n");
+							//right_dev = NULL;
 						}
 				}
 	}
@@ -1743,7 +1824,7 @@ void printVersion()
 	char* version = VERSION;
 	printf("\n * usb_modeswitch: handle USB devices with multiple modes\n");
 	printf(" * Version %s (C) Josua Dietze 2011\n", version);
-	printf(" * Based on libusb10 (1.0.1 and above)\n\n");
+	printf(" * Based on libusb0 (0.1.12 and above)\n\n");
 	printf(" ! PLEASE REPORT NEW CONFIGURATIONS !\n\n");
 }
 
@@ -1770,6 +1851,7 @@ void printHelp()
 	printf (" -N, --sequans-mode            apply a special procedure\n");
 	printf (" -A, --mobileaction-mode       apply a special procedure\n");
 	printf (" -T, --kobil-mode              apply a special procedure\n");
+	printf (" -L, --cisco-mode              apply a special procedure\n");
 	printf (" -R, --reset-usb               reset the device after all other actions\n");
 	printf (" -Q, --quiet                   don't show progress or error messages\n");
 	printf (" -W, --verbose                 print all settings and debug output\n");

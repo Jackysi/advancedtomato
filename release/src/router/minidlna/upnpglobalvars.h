@@ -56,7 +56,7 @@
 
 #include <sqlite3.h>
 
-#define MINIDLNA_VERSION "1.0.21"
+#define MINIDLNA_VERSION "1.0.22"
 
 #ifdef NETGEAR
 # define SERVER_NAME "ReadyDLNA"
@@ -66,7 +66,7 @@
 
 #define CLIENT_CACHE_SLOTS 20
 #define USE_FORK 1
-#define DB_VERSION 5
+#define DB_VERSION 6
 
 #ifdef ENABLE_NLS
 #define _(string) gettext(string)
@@ -210,6 +210,8 @@ extern char pnpx_hwid[];
 #define MAX_LAN_ADDR (4)
 extern int n_lan_addr;
 extern struct lan_addr_s lan_addr[];
+
+extern const char * minissdpdsocketpath;
 
 /* UPnP-A/V [DLNA] */
 extern sqlite3 *db;

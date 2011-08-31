@@ -9,7 +9,7 @@
 # the mode switching program with the matching parameter
 # file from /usr/share/usb_modeswitch
 #
-# Part of usb-modeswitch-1.1.8 package
+# Part of usb-modeswitch-1.1.9 package
 # (C) Josua Dietze 2009, 2010, 2011
 
 
@@ -241,7 +241,7 @@ if $scsiNeeded {
 	Log "Waiting 3 secs. after SCSI device was added"
 	after 3000
 } else {
-	after 500
+#	after 500
 }
 
 # If SCSI tree in sysfs was not identified, try and get the values
@@ -296,13 +296,14 @@ foreach configuration $configList {
 		} else {
 			set report [exec $bindir/usb_modeswitch -I -Q -D -c $settings(tmpConfig) $configParam 2>/dev/null]
 		}
-		Log "\nVerbose debug output of usb_modeswitch and libusb follows\n(Note that some USB errors are expected in the process)"
+		Log "\nVerbose debug output of usb_modeswitch and libusb follows"
+		Log "(Note that some USB errors are expected in the process)"
 		Log "--------------------------------"
 		Log $report
 		Log "--------------------------------"
 		Log "(end of usb_modeswitch output)\n"
 		if [regexp {/var/lib/usb_modeswitch} $settings(tmpConfig)] {
-			file delete  $settings(tmpConfig)
+			file delete $settings(tmpConfig)
 		}
 		break
 	} else {
@@ -327,7 +328,16 @@ if {![file isdirectory $devdir]} {
 if {![file exists $devdir/idProduct]} {
 	after 1000
 }
-ReadUSBAttrs $devdir
+
+set ifdir "[file tail $devdir]:1.0"
+ReadUSBAttrs $devdir $ifdir
+
+if {$usb($ifdir/bInterfaceClass) != "" && [regexp {ok:} $report]} {
+	if {$usb($ifdir/bInterfaceClass) == "02"} {
+		set report "ok:"
+		Log " Found CDC ACM device, skip driver checking"
+	}
+}
 
 # If target ID given, driver shall be loaded
 if [regexp -nocase {ok:[0-9a-f]{4}:[0-9a-f]{4}|ok:no_data} $report] {
@@ -404,8 +414,8 @@ if [regexp {ok:$} $report] {
 }
 
 # In newer kernels there is a switch to avoid the use of a device
-# reset (e.g. from usb-storage) which would likely switch back
-# a mode-switching device
+# reset (e.g. from usb-storage) which would possibly switch back
+# a mode-switching device to initial mode
 if [regexp {ok:} $report] {
 	Log "Checking for AVOID_RESET_QUIRK attribute"
 	if [file exists $devdir/avoid_reset_quirk] {
@@ -446,12 +456,15 @@ foreach attr {vendor model rev} {
 # end of proc {ReadSCSIAttrs}
 
 
-proc {ReadUSBAttrs} {dir} {
+proc {ReadUSBAttrs} {dir args} {
 
 global usb
-Log "USB dir exists: $dir"
 
-foreach attr {idVendor idProduct manufacturer product serial bNumConfigurations} {
+set attrList {idVendor idProduct manufacturer product serial bNumConfigurations}
+if {$args != ""} {
+	lappend attrList "$args/bInterfaceClass"
+}
+foreach attr $attrList {
 	if [file exists $dir/$attr] {
 		set rc [open $dir/$attr r]
 		set usb($attr) [read -nonewline $rc]
@@ -807,6 +820,7 @@ while {$i < 50} {
 if {$i < 50} {
 	Log "Trying to add ID to driver \"$config(driverModule)\""
 	catch {exec logger -p syslog.notice "usb_modeswitch: adding device ID $vid:$pid to driver \"$config(driverModule)\"" 2>/dev/null}
+	catch {exec logger -p syslog.notice "usb_modeswitch: please report the device ID to the Linux USB developers!" 2>/dev/null}
 	if [catch {exec echo "$vid $pid" >$idfile} err] {
 		Log "Error adding ID to driver: $err"
 	} else {

@@ -293,7 +293,7 @@ void ebt_deliver_counters(struct ebt_u_replace *u_repl)
 	socklen_t optlen;
 	struct ebt_replace repl;
 	struct ebt_cntchanges *cc = u_repl->cc->next, *cc2;
-	struct ebt_u_entries *entries;
+	struct ebt_u_entries *entries = NULL;
 	struct ebt_u_entry *next = NULL;
 	int i, chainnr = 0;
 
@@ -708,8 +708,8 @@ int ebt_get_table(struct ebt_u_replace *u_repl, int init)
 {
 	int i, j, k, hook;
 	struct ebt_replace repl;
-	struct ebt_u_entry *u_e;
-	struct ebt_cntchanges *new_cc, *cc;
+	struct ebt_u_entry *u_e = NULL;
+	struct ebt_cntchanges *new_cc = NULL, *cc;
 
 	strcpy(repl.name, u_repl->name);
 	if (u_repl->filename != NULL) {

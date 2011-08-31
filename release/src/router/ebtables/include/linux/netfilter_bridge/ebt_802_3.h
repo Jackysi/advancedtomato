@@ -51,14 +51,6 @@ struct ebt_802_3_hdr {
 	} llc;
 };
 
-#ifdef __KERNEL__
-#include <linux/skbuff.h>
-
-static inline struct ebt_802_3_hdr *ebt_802_3_hdr(const struct sk_buff *skb)
-{
-	return (struct ebt_802_3_hdr *)skb_mac_header(skb);
-}
-#endif
 
 struct ebt_802_3_info {
 	__u8  sap;

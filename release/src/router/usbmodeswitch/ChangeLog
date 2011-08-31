@@ -2,6 +2,10 @@
 History of USB_ModeSwitch
 =========================
 
+Version 1.1.9, 2011/08/05
+    Added CiscoMode for Valet device; additional checking for CDC ACM device
+    to prevent erroneous driver loading after switching; no more post-switch
+    check for access to initial device if target parameters are given
 Version 1.1.8, 2011/06/19
     Cleaned up switchSendMessage(); added workaround for quirky devices not
     reporting configuration setting; added non-CSW response for arbitrary
