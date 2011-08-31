@@ -121,7 +121,7 @@ ref.refresh = function(text)
 	showData();
 	if (svgReady == 1) {
 		updateCD(nfmarks, abc);
-		updateBD(qrates. abc);
+		updateBD(qrates, abc);
 	}
 }
 
