@@ -40,7 +40,7 @@ bgmo = {'disabled':'-','mixed':'Auto','b-only':'<% translate("B Only"); %>','g-o
 
 <script type='text/javascript'>
 show_dhcpc = ((nvram.wan_proto == 'dhcp') || (((nvram.wan_proto == 'l2tp') || (nvram.wan_proto == 'pptp')) && (nvram.pptp_dhcp == '1')));
-show_codi = ((nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp') || (nvram.wan_proto == 'pptp'));
+show_codi = ((nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp') || (nvram.wan_proto == 'pptp') || (nvram.wan_proto == 'ppp3g'));
 
 show_radio = [];
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
@@ -201,7 +201,7 @@ createFieldTable('', [
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: '<% translate("MAC Address"); %>', text: nvram.wan_hwaddr },
-	{ title: '<% translate("Connection Type"); %>', text: { 'dhcp':'DHCP', 'static':'<% translate("Static IP"); %>', 'pppoe':'PPPoE', 'pptp':'PPTP', 'l2tp':'L2TP' }[nvram.wan_proto] || '-' },
+	{ title: '<% translate("Connection Type"); %>', text: { 'dhcp':'DHCP', 'static':'<% translate("Static IP"); %>', 'pppoe':'PPPoE', 'pptp':'PPTP', 'l2tp':'L2TP', 'ppp3g':'Modem 3G' }[nvram.wan_proto] || '-' },
 	{ title: '<% translate("IP Address"); %>', rid: 'wanip', text: stats.wanip },
 	{ title: '<% translate("Subnet Mask"); %>', rid: 'wannetmask', text: stats.wannetmask },
 	{ title: '<% translate("Gateway"); %>', rid: 'wangateway', text: stats.wangateway },

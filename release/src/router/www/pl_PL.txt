@@ -1332,3 +1332,6 @@ which LAN clients/devices should be monitored before coming back to this page=, 
 Per Client=Na klienta
 minute window=minutowe okno
 second interval=sekund interwał
+USB 3G Modem support=Obsługa modemów 3G USB
+Before disconnecting 3G Modem from USB port, remember to uncheck box=Zanim odłączysz modem 3G z portu USB, pamiętaj by odznaczyć tą opcję
+3G Modem=Modem 3G

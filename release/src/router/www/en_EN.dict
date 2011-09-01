@@ -1261,3 +1261,6 @@ which LAN clients/devices should be monitored before coming back to this page=
 Per Client=
 minute window=
 second interval=
+USB 3G Modem support=
+Before disconnecting 3G Modem from USB port, remember to uncheck box=
+3G Modem=

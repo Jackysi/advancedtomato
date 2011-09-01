@@ -52,7 +52,7 @@ int redial_main(int argc, char **argv)
 	int proto;
 
 	proto = get_wan_proto();
-	if (proto == WP_PPPOE || proto == WP_PPTP || proto == WP_L2TP) {
+	if (proto == WP_PPPOE || proto == WP_PPP3G || proto == WP_PPTP || proto == WP_L2TP) {
 		if (nvram_get_int("ppp_demand") != 0) return 0;
 	}
 
@@ -73,7 +73,7 @@ int redial_main(int argc, char **argv)
 
 #if 0
 		long ut;
-		if ((count < 3) && (get_wan_proto() == WP_PPPOE)) {
+		if ((count < 3) && ((get_wan_proto() == WP_PPPOE) || (get_wan_proto() == WP_PPP3G)) {
 			if (f_read("/var/lib/misc/pppoe-disc", &ut, sizeof(ut)) == sizeof(ut)) {
 				ut = (get_uptime() - ut);
 				if (ut <= 15) {

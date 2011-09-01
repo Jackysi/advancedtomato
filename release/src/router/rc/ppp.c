@@ -69,6 +69,7 @@ int ipup_main(int argc, char **argv)
 
 		switch (get_wan_proto()) {
 		case WP_PPPOE:
+		case WP_PPP3G:
 			nvram_set("wan_ipaddr_buf", nvram_safe_get("wan_ipaddr"));		// store last ip address
 			nvram_set("wan_ipaddr", value);
 			nvram_set("wan_netmask", "255.255.255.255");

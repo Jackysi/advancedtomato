@@ -47,7 +47,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,usb_fs_ntfs,usb_fs_hfs,usb_fs_hfsplus,script_usbmount,script_usbumount,script_usbhotplug,idle_enable"); %>
+//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,usb_fs_ntfs,usb_fs_hfs,usb_fs_hfsplus,script_usbmount,script_usbumount,script_usbhotplug,idle_enable,usb_3g"); %>
 //	<% usbdevices(); %>
 
 list = [];
@@ -269,6 +269,7 @@ function verifyFields(focused, quiet)
 /* LINUX26-BEGIN */
 	E('_f_idle_enable').disabled = b || a;
 /* LINUX26-END */
+	E('_f_usb_3g').disabled = b || a;
 /* NTFS-BEGIN */
 	E('_f_ntfs').disabled = b || a;
 /* NTFS-END */
@@ -313,6 +314,7 @@ function save()
 /* LINUX26-BEGIN */
 	fom.idle_enable.value = E('_f_idle_enable').checked ? 1 : 0;
 /* LINUX26-END */
+	fom.usb_3g.value = E('_f_usb_3g').checked ? 1 : 0;
 
 	form.submit(fom, 1);
 }
@@ -358,6 +360,7 @@ NTFS-END -->
 /* LINUX26-BEGIN */
 <input type='hidden' name='idle_enable'>
 /* LINUX26-END */
+<input type='hidden' name='usb_3g'>
 
 <div class='section-title'><% translate("USB Support"); %></div>
 <div class='section'>
@@ -392,6 +395,9 @@ createFieldTable('', [
 /* LINUX26-BEGIN */
 	{ title: '<% translate("HDD Spindown"); %>', name: 'f_idle_enable', type: 'checkbox',
 		suffix: ' <small><% translate("Spin down each HDD when idle. No need to use with flashdrive"); %>.</small>', value: nvram.idle_enable == 1 },
+	null,
+	{ title: '<% translate("USB 3G Modem support"); %>', name: 'f_usb_3g', type: 'checkbox',
+		suffix: ' <small><% translate("Before disconnecting 3G Modem from USB port, remember to uncheck box"); %>.</small>', value: nvram.usb_3g == 1 },
 	null,
 /* LINUX26-END */
 	{ title: '<% translate("Hotplug script"); %><br><small>(<% translate("called when any USB device is attached or removed"); %>)</small>', name: 'script_usbhotplug', type: 'textarea', value: nvram.script_usbhotplug },

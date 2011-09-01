@@ -125,6 +125,9 @@ Copyright (C) 2010 Keith Moyer,<br>
 - Custom log file path<br>
 <!-- LINUX26-BEGIN -->
 - SD-idle tool integration for kernel 2.6<br>
+<!-- USB-BEGIN -->
+- 3G Modem support (big thanks for @LDevil)<br>
+<!-- USB-END -->
 <!-- LINUX26-END -->
 <!-- SNMP-BEGIN -->
 - SNMP integration and GUI<br>

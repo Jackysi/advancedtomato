@@ -544,7 +544,10 @@ static const nvset_t nvset_list[] = {
 	{ "mtu_enable",			V_01				},
 	{ "wan_mtu",			V_RANGE(576, 1500)	},
 	{ "wan_islan",			V_01				},
-
+	// 3G MODEM
+	{ "modem_pin",			V_LENGTH(0,6)	},
+	{ "modem_init",			V_LENGTH(0,25)	},
+	{ "modem_apn",			V_LENGTH(0,25)	},
 	// LAN
 	{ "lan_ipaddr",			V_IP				},
 	{ "lan_netmask",		V_IP				},
@@ -981,6 +984,8 @@ static const nvset_t nvset_list[] = {
 	{ "script_usbmount", 		V_TEXT(0, 2048)			},
 	{ "script_usbumount", 		V_TEXT(0, 2048)			},
 	{ "idle_enable",		V_01				},
+	{ "usb_3g",			V_01				},
+	{ "usb_3g_know",		V_LENGTH(0, 256)		},
 #endif
 
 // nas-ftp - !!TB

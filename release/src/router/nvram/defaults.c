@@ -128,6 +128,10 @@ const defaults_t defaults[] = {
 	{ "dhcpd3_startip",		"" 				},
 	{ "dhcpd3_endip",		"" 				},
 	{ "dhcp3_lease",			"0"				},
+	//3G parameters
+	{ "modem_pin",			""			},
+	{ "modem_init",			"*99#"			},
+	{ "modem_apn",			"internet"		},
 
 	// PPPoE parameters
 	{ "pppoe_ifname",		""				},	// PPPoE enslaved interface
@@ -136,7 +140,7 @@ const defaults_t defaults[] = {
 	{ "ppp_idletime",		"5"				},	// Dial on demand max idle time (mins)
 	{ "ppp_keepalive",		"0"				},	// Restore link automatically
 	{ "ppp_demand",			"0"				},	// Dial on demand
-	{ "ppp_redialperiod",	"30"			},	// Redial Period  (seconds)*/
+	{ "ppp_redialperiod",		"10"			},	// Redial Period  (seconds)*/
 	{ "ppp_mru",			"1500"			},	// Negotiate MRU to this value
 	{ "ppp_mtu",			"1500"			},	// Negotiate MTU to the smaller of this value or the peer MRU
 	{ "ppp_service",		""				},	// PPPoE service name
@@ -655,6 +659,8 @@ const defaults_t defaults[] = {
 	{ "script_usbmount",		""				},
 	{ "script_usbumount",		""				},
 	{ "idle_enable",		"0"				},
+	{ "usb_3g",			"1"				},
+	{ "usb_3g_know",		""				},
 #endif
 
 #ifdef TCONFIG_FTP

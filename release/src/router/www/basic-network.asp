@@ -40,7 +40,7 @@
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript' src='interfaces.js'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,ppp_defgw,wl_security_mode,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype,lan_ifname,lan_stp,lan1_ifname,lan1_ipaddr,lan1_netmask,lan1_proto,lan1_stp,dhcp1_start,dhcp1_num,dhcp1_lease,dhcpd1_startip,dhcpd1_endip,lan2_ifname,lan2_ipaddr,lan2_netmask,lan2_proto,lan2_stp,dhcp2_start,dhcp2_num,dhcp2_lease,dhcpd2_startip,dhcpd2_endip,lan3_ifname,lan3_ipaddr,lan3_netmask,lan3_proto,lan3_stp,dhcp3_start,dhcp3_num,dhcp3_lease,dhcpd3_startip,dhcpd3_endip"); %>
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,ppp_defgw,wl_security_mode,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype,lan_ifname,lan_stp,lan1_ifname,lan1_ipaddr,lan1_netmask,lan1_proto,lan1_stp,dhcp1_start,dhcp1_num,dhcp1_lease,dhcpd1_startip,dhcpd1_endip,lan2_ifname,lan2_ipaddr,lan2_netmask,lan2_proto,lan2_stp,dhcp2_start,dhcp2_num,dhcp2_lease,dhcpd2_startip,dhcpd2_endip,lan3_ifname,lan3_ipaddr,lan3_netmask,lan3_proto,lan3_stp,dhcp3_start,dhcp3_num,dhcp3_lease,dhcpd3_startip,dhcpd3_endip,modem_pin,modem_init,modem_apn"); %>
 
 var lg = new TomatoGrid();
 lg.setup = function() {
@@ -713,7 +713,10 @@ REMOVE-END */
 		_f_dns_2: 1,
 		_f_dns_3: 1,
 		_lan_gateway: 1,
-		_wan_wins: 1
+		_wan_wins: 1,
+		_modem_pin: 1,
+		_modem_init: 1,
+		_modem_apn: 1
 	};
 
 	var wl_vis = [];
@@ -787,6 +790,9 @@ REMOVE-END */
 		vis._ppp_demand = 0;
 		vis._mtu_enable = 0;
 		vis._f_wan_mtu = 0;
+		vis._modem_pin = 0;
+		vis._modem_init = 0;
+		vis._modem_apn = 0;
 		break;
 	case 'dhcp':
 		vis._l2tp_server_ip = 0;
@@ -801,8 +807,27 @@ REMOVE-END */
 		vis._wan_netmask = 0;
 
 		vis._lan_gateway = 0;
+		vis._modem_pin = 0;
+		vis._modem_init = 0;
+		vis._modem_apn = 0;
 		break;
 	case 'pppoe':
+		vis._l2tp_server_ip = 0;
+		vis._pptp_server_ip = 0;
+		vis._f_pptp_dhcp = 0;
+		vis._wan_gateway = 0;
+		vis._wan_ipaddr = 0;
+		vis._wan_netmask = 0;
+
+		vis._lan_gateway = 0;
+		vis._modem_pin = 0;
+		vis._modem_init = 0;
+		vis._modem_apn = 0;
+		break;
+	case 'ppp3g':
+		vis._ppp_service = 0;
+		vis._ppp_username = 0;
+		vis._ppp_custom = 0;
 		vis._l2tp_server_ip = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
@@ -822,6 +847,9 @@ REMOVE-END */
 		vis._f_pptp_dhcp = 0;
 
 		vis._lan_gateway = 0;
+		vis._modem_pin = 0;
+		vis._modem_init = 0;
+		vis._modem_apn = 0;
 		break;
 	case 'pptp':
 		vis._l2tp_server_ip = 0;
@@ -830,6 +858,9 @@ REMOVE-END */
 		vis._wan_ipaddr = (!E('_f_pptp_dhcp').checked);
 
 		vis._lan_gateway = 0;
+		vis._modem_pin = 0;
+		vis._modem_init = 0;
+		vis._modem_apn = 0;
 		break;
 	case 'l2tp':
 		vis._pptp_server_ip = 0;
@@ -838,6 +869,9 @@ REMOVE-END */
 		vis._wan_ipaddr = (!E('_f_pptp_dhcp').checked);
 
 		vis._lan_gateway = 0;
+		vis._modem_pin = 0;
+		vis._modem_init = 0;
+		vis._modem_apn = 0;
 		break;
 	}
 
@@ -1488,7 +1522,13 @@ W('<input type=\'hidden\' id=\'dhcpd' + j + '_endip\' name=\'dhcpd' + j + '_endi
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: '<% translate("Type"); %>', name: 'wan_proto', type: 'select', options: [['dhcp','DHCP'],['pppoe','PPPoE'],['static','<% translate("Static"); %>'],['pptp','PPTP'],['l2tp','L2TP'],['disabled','<% translate("Disabled"); %>']],
+	{ title: '<% translate("Type"); %>', name: 'wan_proto', type: 'select', options: [['dhcp','DHCP'],['pppoe','PPPoE'],['static','<% translate("Static"); %>'],['pptp','PPTP'],['l2tp','L2TP'],
+/* LINUX26-BEGIN */
+/* USB-BEGIN */
+		['ppp3g','3G Modem'],
+/* USB-END */
+/* LINUX26-END */
+		['disabled','<% translate("Disabled"); %>']],
 		value: nvram.wan_proto },
 	{ title: '<% translate("Username"); %>', name: 'ppp_username', type: 'text', maxlen: 60, size: 64, value: nvram.ppp_username },
 	{ title: '<% translate("Password"); %>', name: 'ppp_passwd', type: 'password', maxlen: 60, size: 64, peekaboo: 1, value: nvram.ppp_passwd },
@@ -1500,6 +1540,9 @@ createFieldTable('', [
 	{ title: '<% translate("Gateway"); %>', name: 'wan_gateway', type: 'text', maxlen: 15, size: 17, value: nvram.wan_gateway },
 	{ title: '<% translate("PPTP Gateway"); %>', name: 'pptp_server_ip', type: 'text', maxlen: 128, size: 64, value: nvram.pptp_server_ip },
 	{ title: '<% translate("Options"); %>', name: 'ppp_custom', type: 'text', maxlen: 256, size: 64, value: nvram.ppp_custom },
+	{ title: '<% translate("PIN Code"); %>', name: 'modem_pin', type: 'text', maxlen: 6, size: 8, value: nvram.modem_pin },
+	{ title: '<% translate("Modem init string"); %>', name: 'modem_init', type: 'text', maxlen: 25, size: 32, value: nvram.modem_init },
+	{ title: '<% translate("AP Point"); %>', name: 'modem_apn', type: 'text', maxlen: 25, size: 32, value: nvram.modem_apn },
 	{ title: '<% translate("Connect Mode"); %>', name: 'ppp_demand', type: 'select', options: [['1', '<% translate("Connect On Demand"); %>'],['0', '<% translate("Keep Alive"); %>']],
 		value: nvram.ppp_demand },
 	{ title: '<% translate("Max Idle Time"); %>', indent: 2, name: 'ppp_idletime', type: 'text', maxlen: 5, size: 7, suffix: ' <i>(<% translate("minutes"); %>)</i>',
@@ -1511,6 +1554,7 @@ createFieldTable('', [
 		{ name: 'f_wan_mtu', type: 'text', maxlen: 4, size: 6, value: nvram.wan_mtu } ] },
 	{ title: '<% translate("Bridge WAN port to primary LAN"); %> (br0)', name: 'f_wan_islan', type: 'checkbox', value: (nvram.wan_islan == 1) }
 ]);
+
 </script>
 </div>
 
