@@ -268,8 +268,8 @@ function verifyFields(focused, quiet)
 	E('_f_fat').disabled = b || a;
 /* LINUX26-BEGIN */
 	E('_f_idle_enable').disabled = b || a;
-/* LINUX26-END */
 	E('_f_usb_3g').disabled = b || a;
+/* LINUX26-END */
 /* NTFS-BEGIN */
 	E('_f_ntfs').disabled = b || a;
 /* NTFS-END */
@@ -313,8 +313,8 @@ function save()
 	fom.usb_automount.value = E('_f_automount').checked ? 1 : 0;
 /* LINUX26-BEGIN */
 	fom.idle_enable.value = E('_f_idle_enable').checked ? 1 : 0;
-/* LINUX26-END */
 	fom.usb_3g.value = E('_f_usb_3g').checked ? 1 : 0;
+/* LINUX26-END */
 
 	form.submit(fom, 1);
 }
@@ -359,8 +359,8 @@ NTFS-END -->
 <input type='hidden' name='usb_automount'>
 /* LINUX26-BEGIN */
 <input type='hidden' name='idle_enable'>
-/* LINUX26-END */
 <input type='hidden' name='usb_3g'>
+/* LINUX26-END */
 
 <div class='section-title'><% translate("USB Support"); %></div>
 <div class='section'>

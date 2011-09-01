@@ -165,7 +165,7 @@ void start_usb(void)
 				);
 			}
 		}
-
+#ifdef LINUX26
 		if (nvram_get_int("idle_enable") == 1) {
 			xstart( "sd-idle" );
 		}
@@ -173,6 +173,7 @@ void start_usb(void)
 		if (nvram_match( "usb_3g", "0") ) {
 			modprobe_r("usbserial");
 		}
+#endif
 	}
 }
 
