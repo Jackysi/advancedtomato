@@ -208,13 +208,13 @@ db_upgrade(sqlite3 *db)
 
 	db_vers = sql_get_int_field(db, "PRAGMA user_version");
 
-        if (db_vers == DB_VERSION)
-                return 0;
-        if (db_vers < 1)
+	if (db_vers == DB_VERSION)
+		return 0;
+	if (db_vers < 1)
 		return -1;
-        if (db_vers < 5)
+	if (db_vers < 5)
 		return 5;
-        if (db_vers < 6)
+	if (db_vers < 6)
 	{
 		DPRINTF(E_WARN, L_DB_SQL, "Updating DB version to v%d.\n", DB_VERSION);
 		ret = sql_exec(db, "CREATE TABLE BOOKMARKS ("
@@ -223,7 +223,7 @@ db_upgrade(sqlite3 *db)
 		if( ret != SQLITE_OK )
 			return 6;
 	}
-        sql_exec(db, "PRAGMA user_version = %d", DB_VERSION);
+	sql_exec(db, "PRAGMA user_version = %d", DB_VERSION);
 
 	return 0;
 }
