@@ -1438,6 +1438,7 @@ int init_main(int argc, char *argv[])
 			create_passwd();
 			start_vlan();
 			start_lan();
+			start_arpbind();
 			start_wan(BOOT);
 			start_services();
 			start_wl();
