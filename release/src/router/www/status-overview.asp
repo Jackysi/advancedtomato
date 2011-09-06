@@ -201,7 +201,7 @@ createFieldTable('', [
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: '<% translate("MAC Address"); %>', text: nvram.wan_hwaddr },
-	{ title: '<% translate("Connection Type"); %>', text: { 'dhcp':'DHCP', 'static':'<% translate("Static IP"); %>', 'pppoe':'PPPoE', 'pptp':'PPTP', 'l2tp':'L2TP', 'ppp3g':'Modem 3G' }[nvram.wan_proto] || '-' },
+	{ title: '<% translate("Connection Type"); %>', text: { 'dhcp':'DHCP', 'static':'<% translate("Static IP"); %>', 'pppoe':'PPPoE', 'pptp':'PPTP', 'l2tp':'L2TP', 'ppp3g':'<% translate("3G Modem"); %>' }[nvram.wan_proto] || '-' },
 	{ title: '<% translate("IP Address"); %>', rid: 'wanip', text: stats.wanip },
 	{ title: '<% translate("Subnet Mask"); %>', rid: 'wannetmask', text: stats.wannetmask },
 	{ title: '<% translate("Gateway"); %>', rid: 'wangateway', text: stats.wangateway },

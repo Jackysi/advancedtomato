@@ -1335,3 +1335,7 @@ second interval=sekund interwał
 USB 3G Modem support=Obsługa modemów 3G USB
 Before disconnecting 3G Modem from USB port, remember to uncheck box=Zanim odłączysz modem 3G z portu USB, pamiętaj by odznaczyć tą opcję
 3G Modem=Modem 3G
+Modem device=Urządzenie modemu
+PIN Code=Kod PIN
+Modem init string=Numer inicjujący
+APN=APN

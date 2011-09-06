@@ -546,6 +546,7 @@ static const nvset_t nvset_list[] = {
 	{ "wan_islan",			V_01				},
 	// 3G MODEM
 	{ "modem_pin",			V_LENGTH(0,6)	},
+	{ "modem_dev",			V_LENGTH(0,8)	},
 	{ "modem_init",			V_LENGTH(0,25)	},
 	{ "modem_apn",			V_LENGTH(0,25)	},
 	// LAN

@@ -130,6 +130,7 @@ const defaults_t defaults[] = {
 	{ "dhcp3_lease",			"0"				},
 	//3G parameters
 	{ "modem_pin",			""			},
+	{ "modem_dev",			"USB0"			},
 	{ "modem_init",			"*99#"			},
 	{ "modem_apn",			"internet"		},
 

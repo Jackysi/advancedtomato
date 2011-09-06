@@ -171,6 +171,7 @@ void start_usb(void)
 		}
 
 		if (nvram_match( "usb_3g", "0") ) {
+			modprobe_r("option");
 			modprobe_r("usbserial");
 		}
 #endif
@@ -247,6 +248,7 @@ void stop_usb(void)
 		killall("sd-idle", SIGTERM);
 	}
 
+	modprobe_r("option");
 	modprobe_r("usbserial");
 #endif
 }

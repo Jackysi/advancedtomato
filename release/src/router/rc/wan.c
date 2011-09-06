@@ -103,7 +103,7 @@ static int config_pppd(int wan_proto, int num)
 #ifdef TCONFIG_USB
 	if (nvram_match("wan_proto", "ppp3g") ) {
 		fprintf(fp,
-			"/dev/ttyUSB0\n"
+			"/dev/%s\n"
 			"921600\n"
 			"connect \"/usr/sbin/chat -V -t 60 -f %s\"\n"
 			"noipdefault\n"
@@ -111,6 +111,7 @@ static int config_pppd(int wan_proto, int num)
 			"crtscts\n"
 			"modem\n"
 			"ipcp-accept-local\n",
+			nvram_safe_get("modem_dev"),
 			ppp3g_chatfile);
 	} else {
 #endif

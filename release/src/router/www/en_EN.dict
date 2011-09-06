@@ -1264,3 +1264,7 @@ second interval=
 USB 3G Modem support=
 Before disconnecting 3G Modem from USB port, remember to uncheck box=
 3G Modem=
+Modem device=
+PIN Code=
+Modem init string=
+APN=
