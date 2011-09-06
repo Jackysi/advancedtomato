@@ -315,6 +315,10 @@ void start_dnsmasq()
 
 		name = e + 1;
 
+		if ((e = strchr(name, '<')) != NULL) {
+			*e = 0;
+		}
+
 		if ((hf) && (*name != 0)) {
 			fprintf(hf, "%s %s\n", ip, name);
 		}
