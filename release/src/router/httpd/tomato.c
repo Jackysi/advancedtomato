@@ -508,10 +508,10 @@ static const nvset_t nvset_list[] = {
 	{ "ntp_kiss",			V_LENGTH(0, 255)	},
 
 // basic-static
-	{ "dhcpd_static",		V_LENGTH(0, 106*251)},		// 106 (max chars per entry) x "n" entries
 	{ "bwm_client",			V_LENGTH(0, 4096)	},
-	{ "dhcpd_static_only",		V_01				},
-	{ "arpbind_static",		V_LENGTH(0, 34*251)},	// 34 (max chars per entry) x n entries
+	{ "dhcpd_static",		V_LENGTH(0, 108*141)	},	// 106 (max chars per entry) x 140 entries
+	{ "dhcpd_static_only",		V_01			},
+	{ "arpbind_static",		V_LENGTH(0, 34*141)	},	// 34 (max chars per entry) x 140 entries
 
 // basic-ddns
 	{ "ddnsx0",				V_LENGTH(0, 2048)	},
