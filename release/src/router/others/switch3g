@@ -1,5 +1,9 @@
 #!/bin/sh
 
+#
+# Copyright (C) 2011 shibby
+#
+
 #trying option module first
 modprobe option
 sleep 2
