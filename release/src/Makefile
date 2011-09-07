@@ -375,10 +375,6 @@ define BusyboxOptions
 		echo "CONFIG_SENDMAIL=y" >>$(1); \
 		sed -i "/CONFIG_FEATURE_SORT_BIG/d" $(1); \
 		echo "CONFIG_FEATURE_SORT_BIG=y" >>$(1); \
-		sed -i "/CONFIG_FTPPUT/d" $(1); \
-		echo "CONFIG_FTPPUT=y" >>$(1); \
-		sed -i "/CONFIG_FTPGET/d" $(1); \
-		echo "CONFIG_FTPGET=y" >>$(1); \
 		sed -i "/CONFIG_CLEAR/d" $(1); \
 		echo "CONFIG_CLEAR=y" >>$(1); \
 		sed -i "/CONFIG_NICE/d" $(1); \
@@ -387,6 +383,8 @@ define BusyboxOptions
 		echo "CONFIG_SETCONSOLE=y" >>$(1); \
 		sed -i "/CONFIG_SEQ/d" $(1); \
 		echo "CONFIG_SEQ=y" >>$(1); \
+		sed -i "/CONFIG_STTY/d" $(1); \
+		echo "CONFIG_STTY=y" >>$(1); \
 	fi; \
 	if [ "$(USB)" = "USB" ]; then \
 		if [ "$(USBEXTRAS)" = "y" ]; then \
