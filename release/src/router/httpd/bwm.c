@@ -424,7 +424,7 @@ void asp_iptraffic(int argc, char **argv) {
 					if (strncmp(sb, "udp", 3) == 0) ct_udp++;
 				}
 				web_printf("%c['%s', %lu, %lu, %lu, %lu, %lu, %lu, %lu, %lu, %lu, %lu]", 
-							comma, ip, tx_bytes, rx_bytes, tp_tcp, rp_tcp, tp_udp, rp_udp, tp_icmp, rp_icmp, ct_tcp, ct_udp);
+							comma, ip, rx_bytes, tx_bytes, rp_tcp, tp_tcp, rp_udp, tp_udp, rp_icmp, tp_icmp, ct_tcp, ct_udp);
 				comma = ',';
 			}
 		}

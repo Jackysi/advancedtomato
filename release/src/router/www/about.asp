@@ -91,7 +91,7 @@ function init()
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
 Tomato Firmware v<% version(1); %><br>
 <br>
-Linux kernel 2.4.37.11 and Broadcom Wireless Driver 4.150.10.29 updates<br>
+Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates<br>
 Support for additional router models and Wireless-N mode<br>
 <!-- USB-BEGIN -->
 USB support integration and GUI<br>
@@ -99,17 +99,16 @@ USB support integration and GUI<br>
 <!-- IPV6-BEGIN -->
 IPv6 support<br>
 <!-- IPV6-END -->
-
-Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
+Copyright (C) 2008-2011 Fedor Kozhevnikov and Ray Van Tassle<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <!-- / / / -->
-<br><br>
+<br>
 
 <!-- VPN-BEGIN -->
 VPN integration and GUI<br>
 Copyright (C) 2010 Keith Moyer<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
-<br><br>
+<br>
 <!-- VPN-END -->
 
 VLAN administration GUI<br>
@@ -119,7 +118,7 @@ Real-time bandwidth monitoring of LAN clients<br>
 Static ARP binding<br>
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
-<br><br>
+<br>
 
 <!-- / / / -->
 
@@ -127,7 +126,7 @@ Copyright (C) 2011 Augusto Bott<br>
 SNMP integration and GUI<br>
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
-<br><br>
+<br>
 <!-- SNMP-END -->
 
 Based on Tomato Firmware v<% version(); %><br>

@@ -411,6 +411,7 @@ const defaults_t defaults[] = {
 	{ "dhcpc_custom",		""				},
 	{ "dns_norebind",		"1"				},
 	{ "dnsmasq_custom",		""				},
+	{ "dhcpd_static_only",	"0"				},
 //	{ "dnsmasq_norw",		"0"				},
 
 // advanced-firewall
@@ -569,6 +570,7 @@ const defaults_t defaults[] = {
 	{ "cstats_data",		""				},
 	{ "cstats_colors",		""				},
 	{ "cstats_exclude",		""				},
+	{ "cstats_include",		"192.168.1.0"	},
 	{ "cstats_sshut",		"1"				},
 	{ "cstats_bak",			"0"				},
 
