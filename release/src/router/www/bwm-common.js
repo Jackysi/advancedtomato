@@ -27,7 +27,7 @@ var colors = [
 	['Green &amp; Blue', '#118811', '#6495ed'], ['Blue &amp; Orange', '#003EBA', '#FF9000'],
 	['Blue &amp; Red', '#003EDD', '#CC4040'], ['Blue', '#22f', '#225'], ['Gray', '#000', '#999'],
 	['Red &amp; Black', '#d00', '#000']];
-var hostnamecache = [];
+//var hostnamecache = [];
 
 function xpsb(byt)
 {
@@ -184,6 +184,10 @@ function loadData()
 				continue;
 			}
 
+			if (typeof(h.hide) != 'undefined') {
+				if (h.hide == 1) continue;
+			}
+
 			if (updateReTotal) {
 				h.rx_total = h.rx_max = 0;
 				h.tx_total = h.tx_max = 0;
@@ -209,7 +213,7 @@ function loadData()
 			if (h.tx_max > xx_max) xx_max = h.tx_max;
 
 			t = i;
-			if (hostnamecache[i] != null) {
+			if ((typeof(hostnamecache) != 'undefined') && (hostnamecache[i] != null)) {
 				t = hostnamecache[i] + ' <small>(' + i + ')</small>';
 			}
 			else if (wl_ifidx(i) >= 0) {
