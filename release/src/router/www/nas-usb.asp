@@ -266,7 +266,11 @@ function verifyFields(focused, quiet)
 
 	E('_f_ext3').disabled = b || a;
 	E('_f_fat').disabled = b || a;
+
+ /* LINUX26-BEGIN */
 	E('_f_idle_enable').disabled = b || a;
+/* LINUX26-END */
+
 /* NTFS-BEGIN */
 	E('_f_ntfs').disabled = b || a;
 /* NTFS-END */
@@ -308,7 +312,9 @@ function save()
 	fom.usb_fs_hfs.value = E('_f_hfs').checked ? 1 : 0; //!Victek
 	fom.usb_fs_hfsplus.value = E('_f_hfsplus').checked ? 1 : 0; //!Victek
 	fom.usb_automount.value = E('_f_automount').checked ? 1 : 0;
+ /* LINUX26-BEGIN */
 	fom.idle_enable.value = E('_f_idle_enable').checked ? 1 : 0;
+/* LINUX26-END */
 
 	form.submit(fom, 1);
 }
@@ -351,7 +357,9 @@ NTFS-END -->
 <input type='hidden' name='usb_fs_hfs'>
 <input type='hidden' name='usb_fs_hfsplus'>
 <input type='hidden' name='usb_automount'>
+ /* LINUX26-BEGIN */
 <input type='hidden' name='idle_enable'>
+/* LINUX26-END */
 
 <div class='section-title'>USB Support</div>
 <div class='section'>

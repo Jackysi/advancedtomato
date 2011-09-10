@@ -166,9 +166,12 @@ void start_usb(void)
 			}
 		}
 
+#ifdef LINUX26
 		if (nvram_get_int("idle_enable") == 1) {
 			xstart( "sd-idle" );
 		}
+#endif
+
 	}
 }
 
