@@ -340,10 +340,6 @@ const defaults_t defaults[] = {
 	{ "wl_macmode",			"disabled"		},
 	{ "macnames",			""			},
 
-// bwm-realtime
-	{ "cmon_enable",		"0"			},
-	{ "cmon_ipaddr",		"0.0.0.0"		},
-
 // advanced-ctnf
 	{ "ct_tcp_timeout",		"0 1800 30 20 20 20 10 20 20 0"				},
 	{ "ct_udp_timeout",		"30 180"				},

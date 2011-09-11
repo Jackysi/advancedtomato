@@ -292,6 +292,14 @@ extern void allow_fastnat(const char *service, int allow);
 extern void try_enabling_fastnat(void);
 #endif
 
+// bwclimon.c
+extern void start_bwclimon(void);
+extern void stop_bwclimon(void);
+
+// arpbind.c
+extern void start_arpbind(void);
+extern void stop_arpbind(void);
+
 // forward.c
 extern void ipt_forward(ipt_table_t table);
 extern void ipt_triggered(ipt_table_t table);
@@ -308,10 +316,6 @@ extern void sched_restrictions(void);
 extern void ipt_qos(void);
 extern void start_qos(void);
 extern void stop_qos(void);
-
-// cmon.c
-extern void start_cmon(void);
-extern void stop_cmon(void);
 
 // cifs.c
 #ifdef TCONFIG_CIFS
@@ -424,10 +428,6 @@ extern void stop_smbd(void);
 extern void start_snmp();
 extern void stop_snmp();
 #endif
-
-//cmon.c
-extern void stop_cmon();
-extern void start_cmon();
 
 // vpn.c
 #ifdef TCONFIG_OPENVPN

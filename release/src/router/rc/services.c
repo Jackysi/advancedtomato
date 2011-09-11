@@ -155,6 +155,10 @@ void start_dnsmasq()
 	// dhcp
 	do_dhcpd = nvram_match("lan_proto", "dhcp");
 	if (do_dhcpd) {
+		if (nvram_get_int("dhcpd_static_only")) {
+			fprintf(f, "dhcp-ignore=tag:!known\n");
+		}
+
 		dhcp_lease = nvram_get_int("dhcp_lease");
 		if (dhcp_lease <= 0) dhcp_lease = 1440;
 
@@ -246,17 +250,27 @@ void start_dnsmasq()
 			fprintf(hf, "%s %s-wan\n", p, nv);
 	}
 
+
 	mkdir_if_none(dmdhcp);
 	snprintf(buf, sizeof(buf), "%s/dhcp-hosts", dmdhcp);
 	df = fopen(buf, "w");
 
+
+	// PREVIOUS/OLD FORMAT:
+
 	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 53 w/ delim
 	// 00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 85 w/ delim
 	// 00:aa:bb:cc:dd:ee,00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 106 w/ delim
+
+	// NEW FORMAT (+static ARP binding after hostname):
+	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 55 w/ delim
+	// 00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 87 w/ delim
+	// 00:aa:bb:cc:dd:ee,00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 108 w/ delim
+
 	p = nvram_safe_get("dhcpd_static");
 	while ((e = strchr(p, '>')) != NULL) {
 		n = (e - p);
-		if (n > 105) {
+		if (n > 107) {
 			p = e + 1;
 			continue;
 		}
@@ -283,6 +297,10 @@ void start_dnsmasq()
 		}
 
 		name = e + 1;
+
+		if ((e = strchr(name, '<')) != NULL) {
+			*e = 0;
+		}
 
 		if ((hf) && (*name != 0)) {
 			fprintf(hf, "%s %s\n", ip, name);
@@ -1915,16 +1933,26 @@ TOP:
 		goto CLEAR;
 	}
 
+	if (strcmp(service, "bwclimon") == 0) {
+		if (action & A_STOP) stop_bwclimon();
+		if (action & A_START) start_bwclimon();
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "arpbind") == 0) {
+		if (action & A_STOP) stop_arpbind();
+		if (action & A_START) start_arpbind();
+		goto CLEAR;
+	}
+
 	if (strcmp(service, "restrict") == 0) {
 		if (action & A_STOP) {
 			stop_firewall();
-			start_cmon();
 		}
 		if (action & A_START) {
 			i = nvram_get_int("rrules_radio");	// -1 = not used, 0 = enabled by rule, 1 = disabled by rule
 
 			start_firewall();
-			start_cmon();
 
 			// if radio was disabled by access restriction, but no rule is handling it now, enable it
 			if (i == 1) {
@@ -1939,12 +1967,10 @@ TOP:
 	if (strcmp(service, "qos") == 0) {
 		if (action & A_STOP) {
 			stop_qos();
-			start_cmon();
 		}
 		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) {
 			start_qos();
-			start_cmon();
 			if (nvram_match("qos_reset", "1")) f_write_string("/proc/net/clear_marks", "1", 0, 0);
 		}
 		goto CLEAR;
@@ -1953,13 +1979,10 @@ TOP:
 	if (strcmp(service, "qoslimit") == 0) {
 		if (action & A_STOP) {
 			stop_qoslimit();
-			start_cmon();
 		}
 		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) {
 			start_qoslimit();
-			start_cmon();
-
 		}
 		goto CLEAR;
 	}
@@ -1970,25 +1993,13 @@ TOP:
 		goto CLEAR;
 	}
 
-	if (strcmp(service, "cmon") == 0) {
-		if (action & A_STOP) {
-			stop_cmon();
-		}
-		if (action & A_START) {	
- 			start_cmon();
-		}
-		goto CLEAR;
-	}
-
 	if (strcmp(service, "upnp") == 0) {
 		if (action & A_STOP) {
 			stop_upnp();
- 			start_cmon();
 		}
 		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) {
 			start_upnp();
- 			start_cmon();
 		}
 		goto CLEAR;
 	}
@@ -2076,17 +2087,14 @@ TOP:
 	if (strcmp(service, "logging") == 0) {
 		if (action & A_STOP) {
 			stop_syslog();
-			start_cmon();
 		}
 		if (action & A_START) {
 			start_syslog();
-			start_cmon();
 		}
 		if (!user) {
 			// always restarted except from "service" command
 			stop_cron(); start_cron();
 			stop_firewall(); start_firewall();
-			start_cmon();
 		}
 		goto CLEAR;
 	}
@@ -2209,12 +2217,14 @@ TOP:
 			stop_dnsmasq();
 			stop_nas();
 			stop_wan();
+			stop_arpbind();
 			stop_lan();
 			stop_vlan();
 		}
 		if (action & A_START) {
 			start_vlan();
 			start_lan();
+			start_arpbind();
 			start_wan(BOOT);
 			start_nas();
 			start_dnsmasq();

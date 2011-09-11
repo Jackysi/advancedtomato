@@ -4,6 +4,10 @@
 	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
+	Enhancements by Teaman
+	Copyright (C) 2011 Augusto Bott
+	http://code.google.com/p/tomato-sdhc-vlan/
+
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
 -->
@@ -13,7 +17,7 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] About</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 <script type='text/javascript'>
 //	<% nvram(''); %>	// http_id
@@ -114,8 +118,7 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <br>
 <b>"Victek RAF" features:</b><br>
-- CPU Freq | Previous WAN IP | Additional Themes<br>
-- Static ARP Binding | QOS/Bandwidth Limiter<br>
+- CPU Freq | Previous WAN IP<br>
 - HFS/HFS+MAC OS x read support<br>
 <!-- NOCAT-BEGIN -->
 - Captive Portal (Based on NocatSplash) <br>
@@ -138,7 +141,9 @@ Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
 <b>"Teaman" Features:</b><br>
-- QOS-ctrate/detailed filters<br>
+- QOS-detailed & ctrate filters<br>
+- Realtime bandwidth monitoring of LAN clients<br>
+- Static ARP binding<br>
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br>
@@ -146,23 +151,18 @@ Copyright (C) 2011 Augusto Bott<br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules<br>
 - Up to 80 QOS rules<br>
+- IMQ based QOS/Bandwidth Limiter<br>
 - Configurable QOS class names<br>
-- Client Monitor Graphs<br>
-- Revised CPU frequency selector<br>
-- Faster page refresh settings<br>
-- Fast conntrack timeout settings<br>
-- FTPput and FTPget enabled<br>
-- 16 IMQ's enabled with 24 hour graphs<br>
-- Starts with LAN DHCP off if nvram is reset<br>
-- UPnP Support for vlans (if exists, loads upnpconfig.custom from JFFS)<br>
 - Comprehensive QOS rule examples set by default<br>
 - Extra Themes<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>
 <br>
 Development by Victek/PrinceAMD/Phykris/Shibby/Toastman/Teaman<br>
+<br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
+<br>
 <br>
 Built on <% build_time(); %><br>
 <br><br>

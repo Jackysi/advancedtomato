@@ -11,9 +11,9 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Bandwidth: Last 24 Hours</title>
+<title>[<% ident(); %>] Bandwidth: Real-Time Client Monitor</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
@@ -30,6 +30,12 @@
 	float: right;
 	visibility: hidden;
 }
+ul.tabs a,
+#tabs a {
+	width: 140px;
+	height: 12px;
+	font-size: 9px;
+}
 </style>
 
 <script type='text/javascript' src='debug.js'></script>
@@ -38,110 +44,105 @@
 <script type='text/javascript' src='bwm-common.js'></script>
 
 <script type='text/javascript'>
+//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,rstats_colors,bwm_client,dhcpd_static"); %>
 
-//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,rstats_enable,rstats_colors"); %>
+//	<% devlist(); %>
 
-var cprefix = 'bw_24';
-var updateInt = 120;
+var cprefix = 'bwcm_r';
+var updateInt = 2;
 var updateDiv = updateInt;
-var updateMaxL = 720;
+var updateMaxL = 300;
 var updateReTotal = 1;
-var hours = 24;
-var lastHours = 0;
+var prev = [];
 var debugTime = 0;
+var avgMode = 0;
+var wdog = null;
+var wdogWarn = null;
 
-function showHours()
-{
-	if (hours == lastHours) return;
-	showSelectedOption('hr', lastHours, hours);
-	lastHours = hours;
+var ref = new TomatoRefresh('update.cgi', 'exec=climon', updateInt);
+
+ref.stop = function() {
+	this.timer.start(1000);
 }
 
-function switchHours(h)
-{
-	if ((!svgReady) || (updating)) return;
+ref.refresh = function(text) {
+	var c, i, h, n, j, k, l;
 
-	hours = h;
-	updateMaxL = (720 / 24) * hours;
-	showHours();
-	loadData();
-	cookie.set(cprefix + 'hrs', hours);
-}
+	watchdogReset();
 
-var ref = new TomatoRefresh('update.cgi', 'exec=bandwidth&arg0=speed');
-
-ref.refresh = function(text)
-{
 	++updating;
 	try {
-		this.refreshTime = 1500;
-		speed_history = {};
-		try {
-			eval(text);
-			if (rstats_busy) {
-				E('rbusy').style.display = 'none';
-				rstats_busy = 0;
+		climon = null;
+		eval(text);
+
+		n = (new Date()).getTime();
+		if (this.timeExpect) {
+			if (debugTime) E('dtime').innerHTML = (this.timeExpect - n) + ' ' + ((this.timeExpect + 1000*updateInt) - n);
+			this.timeExpect += 1000*updateInt;
+			this.refreshTime = MAX(this.timeExpect - n, 500);
+		}
+		else {
+			this.timeExpect = n + 1000*updateInt;
+		}
+
+		for (i in climon) {
+			c = climon[i];
+			if ((p = prev[i]) != null) {
+				h = speed_history[i];
+
+				h.rx.splice(0, 1);
+				h.rx.push((c.rx < p.rx) ? (c.rx + (0xFFFFFFFF - p.rx)) : (c.rx - p.rx));
+
+				h.tx.splice(0, 1);
+				h.tx.push((c.tx < p.tx) ? (c.tx + (0xFFFFFFFF - p.tx)) : (c.tx - p.tx));
 			}
-			this.refreshTime = (fixInt(speed_history._next, 1, 120, 60) + 2) * 1000;
+			else if (!speed_history[i]) {
+				speed_history[i] = {};
+				h = speed_history[i];
+				h.rx = [];
+				h.tx = [];
+				for (j = 300; j > 0; --j) {
+					h.rx.push(0);
+					h.tx.push(0);
+				}
+				h.count = 0;
+			}
+			prev[i] = c;
 		}
-		catch (ex) {
-			speed_history = {};
-		}
-		if (debugTime) E('dtime').innerHTML = (new Date()) + ' ' + (this.refreshTime / 1000);
 		loadData();
 	}
 	catch (ex) {
-//		alert('ex=' + ex);
 	}
 	--updating;
 }
 
-ref.showState = function()
-{
-	E('refresh-button').value = this.running ? 'Stop' : 'Start';
+function watchdog() {
+	watchdogReset();
+	ref.stop();
+	wdogWarn.style.display = '';
 }
 
-ref.toggleX = function()
-{
-	this.toggle();
-	this.showState();
-	cookie.set(cprefix + 'refresh', this.running ? 1 : 0);
+function watchdogReset() {
+	if (wdog) clearTimeout(wdog)
+	wdog = setTimeout(watchdog, 5000*updateInt);
+	wdogWarn.style.display = 'none';
 }
 
-ref.initX = function()
-{
-	var a;
+function init() {
+	if (nvram.bwm_client.length > 0) {
+		E('sesdiv').style.display = '';
 
-	a = fixInt(cookie.get(cprefix + 'refresh'), 0, 1, 1);
-	if (a) {
-		ref.refreshTime = 100;
-		ref.toggleX();
+		populateCache();
+
+		speed_history = [];
+
+		initCommon(2, 1, 1);
+
+		wdogWarn = E('warnwd');
+		watchdogReset();
+
+		ref.start();
 	}
-}
-
-function init()
-{
-	if (nvram.rstats_enable != '1') return;
-
-	try {
-	//	<% bandwidth("speed"); %>
-	}
-	catch (ex) {
-		speed_history = {};
-	}
-	rstats_busy = 0;
-	if (typeof(speed_history) == 'undefined') {
-		speed_history = {};
-		rstats_busy = 1;
-		E('rbusy').style.display = '';
-	}
-
-	hours = fixInt(cookie.get(cprefix + 'hrs'), 1, 24, 24);
-	updateMaxL = (720 / 24) * hours;
-	showHours();
-
-	initCommon(1, 0, 0);
-	ref.initX();
 }
 </script>
 
@@ -158,28 +159,26 @@ function init()
 <div id='ident'><% ident(); %></div>
 
 <!-- / / / -->
+<script type='text/javascript'>
+if (nvram.bwm_client.length < 1) {
+	W('<i>You need to <a href="basic-static.asp">configure</a> which LAN clients/devices should be monitored before coming back to this page.</i>');
+}
+</script>
+<div id='sesdiv' style='display:none'>
 
 <div id='rstats'>
 	<div id='tab-area'></div>
 
 	<script type='text/javascript'>
-	if ((nvram.web_svg != '0') && (nvram.rstats_enable == '1')) {
+	if (nvram.web_svg != '0') {
 		// without a div, Opera 9 moves svgdoc several pixels outside of <embed> (?)
 		W("<div style='border-top:1px solid #f0f0f0;border-bottom:1px solid #f0f0f0;visibility:hidden;padding:0;margin:0' id='graph'><embed src='bwm-graph.svg?<% version(); %>' style='width:760px;height:300px;margin:0;padding:0' type='image/svg+xml' pluginspage='http://www.adobe.com/svg/viewer/install/'></embed></div>");
 	}
 	</script>
 
 	<div id='bwm-controls'>
-		<small>(2 minute interval)</small><br>
+		<small>(<script type='text/javascript'>W(5*updateInt);</script> minute window, <script type='text/javascript'>W(updateInt);</script> second interval)</small><br>
 		<br>
-		Hours:&nbsp;
-			<a href='javascript:switchHours(1);' id='hr1'>1</a>,
-			<a href='javascript:switchHours(2);' id='hr2'>2</a>,
-			<a href='javascript:switchHours(4);' id='hr4'>4</a>,
-			<a href='javascript:switchHours(6);' id='hr6'>6</a>,
-			<a href='javascript:switchHours(12);' id='hr12'>12</a>,
-			<a href='javascript:switchHours(18);' id='hr18'>18</a>,
-			<a href='javascript:switchHours(24);' id='hr24'>24</a><br>
 		Avg:&nbsp;
 			<a href='javascript:switchAvg(1)' id='avg1'>Off</a>,
 			<a href='javascript:switchAvg(2)' id='avg2'>2x</a>,
@@ -188,14 +187,15 @@ function init()
 			<a href='javascript:switchAvg(8)' id='avg8'>8x</a><br>
 		Max:&nbsp;
 			<a href='javascript:switchScale(0)' id='scale0'>Uniform</a>,
-			<a href='javascript:switchScale(1)' id='scale1'>Per IF</a><br>
+			<a href='javascript:switchScale(1)' id='scale1'>Per Client</a><br>
 		Display:&nbsp;
 			<a href='javascript:switchDraw(0)' id='draw0'>Solid</a>,
 			<a href='javascript:switchDraw(1)' id='draw1'>Line</a><br>
 		Color:&nbsp; <a href='javascript:switchColor()' id='drawcolor'>-</a><br>
 		<small><a href='javascript:switchColor(1)' id='drawrev'>[reverse]</a></small><br>
+
 		<br><br>
-		&nbsp; &raquo; <a href="admin-bwm.asp">Configure</a>
+		&nbsp; &raquo; <a href="basic-static.asp">Configure</a>
 	</div>
 
 	<br><br>
@@ -225,25 +225,17 @@ function init()
 	</table>
 </div>
 <br>
-
-
-<script type='text/javascript'>
-if (nvram.rstats_enable != '1') {
-	W('<div class="note-disabled">Bandwidth monitoring disabled.</b><br><br><a href="admin-bwm.asp">Enable &raquo;</a><div>');
-	E('rstats').style.display = 'none';
-}
-else {
-	W('<div class="note-warning" style="display:none" id="rbusy">The rstats program is not responding or is busy. Try reloading after a few seconds.</div>');
-}
-</script>
+<br>
 
 <!-- / / / -->
 
 </td></tr>
 <tr><td id='footer' colspan=2>
+	<span id='warnwd' style='display:none'>Warning: 10 second timeout, restarting...&nbsp;</span>
 	<span id='dtime'></span>
-	<img src='spin.gif' id='refresh-spinner' onclick='debugTime=1'>
-	<input type='button' value='Refresh' id='refresh-button' onclick='ref.toggleX()'>
+	<img src='spin.gif' id='refresh-spinner' onclick='javascript:debugTime=1'>
+
+</div>
 </td></tr>
 </table>
 </form>

@@ -346,7 +346,7 @@ help_out(struct sk_buff *skb, unsigned char *rb_ptr, unsigned int datalen,
 
 		if (expinfo.pbtype == pb_range) {
 			DEBUGP("Changing expectation mask to handle multiple ports\n");
-			exp->mask.src.u.udp.port  = 0xfffe;
+            		exp->mask.dst.u.udp.port  = 0xfffe;
 		}
 
 		DEBUGP("expect_related %u.%u.%u.%u:%u-%u.%u.%u.%u:%u\n",

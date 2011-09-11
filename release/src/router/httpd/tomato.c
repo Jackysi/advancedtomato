@@ -366,6 +366,7 @@ const aspapi_t aspapi[] = {
 	{ "link_uptime",		asp_link_uptime		},
 	{ "lipp",				asp_lipp			},
 	{ "netdev",				asp_netdev			},
+	{ "climon",				asp_climon			},
 	{ "notice",				asp_notice			},
 	{ "nv",					asp_nv				},
 	{ "nvram",				asp_nvram 			},
@@ -507,7 +508,10 @@ static const nvset_t nvset_list[] = {
 	{ "ntp_kiss",			V_LENGTH(0, 255)	},
 
 // basic-static
-	{ "dhcpd_static",		V_LENGTH(0, 106*251)},		// 106 (max chars per entry) x "n" entries
+	{ "bwm_client",			V_LENGTH(0, 4096)	},
+	{ "dhcpd_static",		V_LENGTH(0, 108*141)	},	// 106 (max chars per entry) x 140 entries
+	{ "dhcpd_static_only",		V_01			},
+	{ "arpbind_static",		V_LENGTH(0, 34*141)	},	// 34 (max chars per entry) x 140 entries
 
 // basic-ddns
 	{ "ddnsx0",				V_LENGTH(0, 2048)	},
@@ -723,12 +727,6 @@ static const nvset_t nvset_list[] = {
 	{ "dmz_enable",			V_01				},
 	{ "dmz_ipaddr",			V_LENGTH(0, 15)		},
 	{ "dmz_sip",			V_LENGTH(0, 512)	},
-
-
-// bwm-client monitor
-	{ "cmon_enable",		V_01				},
-	{ "cmon_ipaddr",		V_IP				},
-	
 
 // forward-upnp
 	{ "upnp_enable",		V_NUM				},
@@ -976,12 +974,7 @@ static const nvset_t nvset_list[] = {
 	/*qosl_ibw unused - qos_ibw shared*/
 	/*qosl_obw unused - qos_obw shared*/
 
-// arpbind
-	{ "arpbind_enable",    	 	V_01                    },
-	{ "arpbind_only",       	V_01                   	},
-	{ "arpbind_list",		V_LENGTH(0, 4096)       },
-
-//NotCatSplash. Victek.
+//NoCatSplash. Victek.
 #ifdef TCONFIG_NOCAT
 	{ "NC_enable",			V_01				},
 	{ "NC_Verbosity",		V_RANGE(0, 10)			},

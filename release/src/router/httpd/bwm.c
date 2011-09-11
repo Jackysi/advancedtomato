@@ -149,10 +149,6 @@ void asp_netdev(int argc, char **argv)
 				web_printf("%c'%s':{rx:0x0,tx:0x%lx}", comma, ifname, rx, tx);
 			else if (!strcmp(ifname, "imq2"))
 				web_printf("%c'%s':{rx:0x%lx,tx:0x0}", comma, ifname, rx, tx);
-			else if (!strcmp(ifname, "imq3"))
-				web_printf("%c'%s':{rx:0x0,tx:0x%lx}", comma, ifname, rx, tx);
-			else if (!strcmp(ifname, "imq4"))
-				web_printf("%c'%s':{rx:0x%lx,tx:0x0}", comma, ifname, rx, tx);
 			else
 				web_printf("%c'%s':{rx:0x%lx,tx:0x%lx}", comma, ifname, rx, tx);
 				
@@ -162,6 +158,35 @@ void asp_netdev(int argc, char **argv)
 		if (sfd >= 0) close(sfd);
 		fclose(f);
 	}
+	web_puts("};\n");
+}
+
+void asp_climon(int argc, char **argv) {
+	FILE *ti;
+	FILE *to;
+
+	char bi[512];
+	char bo[512];
+
+	char ip[64];
+	unsigned long rx, tx;
+
+	char comma;
+
+	web_puts("\n\nclimon={");
+	if ((to = popen("iptables -vnxL traffic_out", "r")) != NULL) {
+		if ((ti = popen("iptables -vnxL traffic_in", "r")) != NULL) {
+		comma = ' ';
+		while ((fgets(bi, sizeof(bi), ti)) && (fgets(bo, sizeof(bo), to))) {
+			if( (sscanf(bi, "%*s %lu %*s %*s %*s %*s %*s %s", &rx, ip)!=2) ||
+				(sscanf(bo, "%*s %lu %*s %*s %*s %*s %*s %*s", &tx)!=1) ) continue;
+				web_printf("%c'%s':{rx:0x%lx,tx:0x%lx}", comma, ip, rx, tx);
+				comma = ',';
+			}
+		}
+		pclose(ti);
+	}
+	pclose(to);
 	web_puts("};\n");
 }
 

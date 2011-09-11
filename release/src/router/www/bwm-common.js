@@ -27,6 +27,7 @@ var colors = [
 	['Green &amp; Blue', '#118811', '#6495ed'], ['Blue &amp; Orange', '#003EBA', '#FF9000'],
 	['Blue &amp; Red', '#003EDD', '#CC4040'], ['Blue', '#22f', '#225'], ['Gray', '#000', '#999'],
 	['Red &amp; Black', '#d00', '#000']];
+var hostnamecache = [];
 
 function xpsb(byt)
 {
@@ -212,8 +213,11 @@ function loadData()
 			if (h.tx_max > xx_max) xx_max = h.tx_max;
 
 			t = i;
-			
-			if (wl_ifidx(i) >= 0) {
+
+			if (hostnamecache[i] != null) {
+				t = hostnamecache[i] + ' <small>(' + i + ')</small>';
+			}
+			else if (wl_ifidx(i) >= 0) {
 				t = 'WL <small>(' + i + ')</small>';
 			}
 			
@@ -223,14 +227,6 @@ function loadData()
 			
 			if (i == 'imq2')	{
 				t = 'Lim. IN <small>(' + i + ')</small>';
-			}
-			
-			if (i == 'imq3')	{
-				t = 'Mon. OUT <small>(' + i + ')</small>';
-			}
-			
-			if (i == 'imq4')	{
-				t = 'Mon. IN <small>(' + i + ')</small>';
 			}
 			
 			else if ((nvram.wan_proto == 'pptp') || (nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp')) {
@@ -315,3 +311,33 @@ function initCommon(defAvg, defDrawMode, defDrawColor)
 	initData();
 	E('refresh-spinner').style.visibility = 'hidden';
 }
+
+function populateCache() {
+	var s;
+
+	if (nvram['dhcpd_static'] != null ) {
+		s = nvram.dhcpd_static.split('>');
+		for (var i = 0; i < s.length; ++i) {
+			var t = s[i].split('<');
+			if ((t.length == 3) || (t.length == 4)) {
+				if (t[2] != '')
+					hostnamecache[t[1]] = t[2].split(' ').splice(0,1);
+			}
+		}
+	}
+
+	if (typeof(dhcpd_lease) != 'undefined') {
+		for (var j=0; i<dhcpd_lease.length; ++j) {
+			s = dhcpd_lease[j].split('>');
+			for (var i = 0; i < s.length; ++i) {
+				var t = s[i].split('<');
+				if (t.length == 4) {
+					if (t[0] != '')
+						hostnamecache[t[1]] = t[0].split(' ').splice(0,1);
+				}
+			}
+		}
+	}
+
+}
+

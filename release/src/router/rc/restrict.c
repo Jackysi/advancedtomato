@@ -11,14 +11,16 @@
 
 #define MAX_NRULES	50
 
+
 static inline void unsched_restrictions(void)
+
 {
-	eval("cru", "d", "rcheck");
+	system("cru d rcheck");
 }
 
-inline void sched_restrictions(void)
+void sched_restrictions(void)
 {
-	eval("rcheck");
+	system("rcheck");
 }
 
 static int in_sched(int now_mins, int now_dow, int sched_begin, int sched_end, int sched_dow)
@@ -79,9 +81,11 @@ int rcheck_main(int argc, char *argv[])
 #ifdef TCONFIG_IPV6
 	int r6;
 #endif
+
 #ifdef LINUX26
 	int ipt_active;
 #endif
+
 
 	if (!nvram_contains_word("log_events", "acre")) {
 		setlogmask(LOG_MASK(LOG_EMERG));	// can't set to 0
@@ -179,7 +183,7 @@ int rcheck_main(int argc, char *argv[])
 
 	if (count > 0) {
 		if ((argc != 2) || (strcmp(argv[1], "--cron") != 0)) {
-			eval("cru", "a", "rcheck", "*/15 * * * * rcheck --cron");
+			system("cru a rcheck '*/15 * * * * rcheck --cron'");
 		}
 	}
 	else {
@@ -203,10 +207,6 @@ int rcheck_main(int argc, char *argv[])
 #endif
 	}
 
-#ifdef LINUX26
-	allow_fastnat("restrictions", (ipt_active == 0));
-	try_enabling_fastnat();
-#endif
 	simple_unlock("restrictions");
 	return 0;
 }
