@@ -133,6 +133,7 @@ function init()
 
 	ref.start();
 }
+
 </script>
 
 </head>
@@ -214,9 +215,9 @@ function init()
 
 </td></tr>
 <tr><td id='footer' colspan=2>
-<span id='warnwd' style='display:none'>Warning: 10 second session timeout, restarting...&nbsp;</span>
-<span id='dtime'></span>
-<img src='spin.gif' id='refresh-spinner' onclick='javascript:debugTime=1'>
+	<span id='warnwd' style='display:none'>Warning: 10 second timeout, restarting...&nbsp;</span>
+	<span id='dtime'></span>
+	<img src='spin.gif' id='refresh-spinner' onclick='javascript:debugTime=1'>
 </td></tr>
 </table>
 </form>

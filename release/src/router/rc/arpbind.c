@@ -1,3 +1,10 @@
+/*
+
+  Tomato Firmware
+  Copyright (C) 2006-2008 Jonathan Zarate
+
+*/
+
 #include "rc.h"
 
 void start_arpbind(void) {
@@ -43,4 +50,5 @@ void stop_arpbind(void) {
 	}
 
 }
+
 

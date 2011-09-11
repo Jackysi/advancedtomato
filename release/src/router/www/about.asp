@@ -113,8 +113,10 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <b>"Teddy Bear" current features, notably:</b><br>
 - USB Support, Samba, FTP, Media Servers<br>
 - Web Monitor, Per-connection transfer rates<br>
-- Byte counter, QOS rule ID added to QOS/Details<br>
+- Byte counter, QOS rule ID<br>
+<!-- IPV6-BEGIN -->
 - Additional ipv6 support in GUI, QOS, Conntrack<br>
+<!-- IPV6-END -->
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <br>
 <b>"Victek RAF" features:</b><br>
@@ -132,7 +134,7 @@ Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 <b>"Shibby" features:</b><br>
 - Custom log file path<br>
 <!-- LINUX26-BEGIN -->
-- SD-idle tool integration for kernel 2.6<br>
+- SD-idle tool integration<br>
 <!-- LINUX26-END -->
 <!-- SNMP-BEGIN -->
 - SNMP integration and GUI<br>
@@ -142,8 +144,9 @@ Copyright (C) 2011 Michał Rupental<br>
 <br>
 <b>"Teaman" Features:</b><br>
 - QOS-detailed & ctrate filters<br>
-- Realtime bandwidth monitoring of LAN clients<br>
 - Static ARP binding<br>
+- Real-time & logged bandwidth monitoring of LAN clients<br>
+- Multiple LAN support integration and GUI,<br>
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br>
@@ -153,19 +156,19 @@ Copyright (C) 2011 Augusto Bott<br>
 - Up to 80 QOS rules<br>
 - IMQ based QOS/Bandwidth Limiter<br>
 - Configurable QOS class names<br>
+- CPU frequency selector<br>
+- Starts with LAN DHCP off if nvram is reset<br>
 - Comprehensive QOS rule examples set by default<br>
 - Extra Themes<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>
 <br>
-Development by Victek/PrinceAMD/Phykris/Shibby/Toastman/Teaman<br>
+Built on <% build_time(); %><br>
+<br>
 <br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
-<br>
-Built on <% build_time(); %><br>
-<br><br>
 
 <!--
 
