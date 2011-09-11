@@ -2343,7 +2343,7 @@ function navi()
 			['Web Usage',		'webmon.asp'],
 			['Logs',			'log.asp'] ] ],
 		['Bandwidth', 			'bwm', 0, [
-			['Realtime /Client Monitor',		'realtime.asp'],
+			['Real-Time',		'realtime.asp'],
 			['Last 24 Hours',	'24.asp'],
 			['Daily',			'daily.asp'],
 			['Weekly',			'weekly.asp'],
@@ -2351,8 +2351,9 @@ function navi()
 		['IP Traffic', 			'ipt', 0, [
 			['Real-Time',		'realtime.asp'],
 			['Last 24 Hours',	'24.asp'],
-			['Details',			'details.asp'],
-			['History',			'history.asp'] ] ],
+			['Transfer Rates',	'details.asp'],
+			['Daily',			'daily.asp'],
+			['Monthly',			'monthly.asp'] ] ],
 		['Tools', 				'tools', 0, [
 			['Ping',			'ping.asp'],
 			['Trace',			'trace.asp'],
@@ -2368,7 +2369,7 @@ function navi()
 			['Identification',	'ident.asp'],
 			['Time',			'time.asp'],
 			['DDNS',			'ddns.asp'],
-			['Static DHCP/ARP',		'static.asp'],
+			['Static DHCP/ARP',	'static.asp'],
 			['Wireless Filter',	'wfilter.asp'] ] ],
 		['Advanced', 			'advanced', 0, [
 			['Conntrack /Netfilter',	'ctnf.asp'],

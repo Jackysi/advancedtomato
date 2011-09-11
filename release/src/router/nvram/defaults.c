@@ -365,10 +365,6 @@ const defaults_t defaults[] = {
 	{ "wl_macmode",			"disabled"		},
 	{ "macnames",			""			},
 
-// bwm-realtime
-	{ "cmon_enable",		"0"			},
-	{ "cmon_ipaddr",		"0.0.0.0"		},
-
 // advanced-ctnf
 	{ "ct_tcp_timeout",		"0 1800 30 20 20 20 10 20 20 0"				},
 	{ "ct_udp_timeout",		"30 180"				},
@@ -415,6 +411,7 @@ const defaults_t defaults[] = {
 	{ "dhcpc_custom",		""				},
 	{ "dns_norebind",		"1"				},
 	{ "dnsmasq_custom",		""				},
+	{ "dhcpd_static_only",	"0"				},
 //	{ "dnsmasq_norw",		"0"				},
 
 // advanced-firewall
@@ -583,11 +580,12 @@ const defaults_t defaults[] = {
 // admin-ipt
 	{ "cstats_enable",		"1"				},
 	{ "cstats_path",		""				},
-	{ "cstats_stime",		"48"			},
+	{ "cstats_stime",		"48"				},
 	{ "cstats_offset",		"1"				},
 	{ "cstats_data",		""				},
 	{ "cstats_colors",		""				},
 	{ "cstats_exclude",		""				},
+	{ "cstats_include",		"192.168.1.0"			},
 	{ "cstats_sshut",		"1"				},
 	{ "cstats_bak",			"0"				},
 

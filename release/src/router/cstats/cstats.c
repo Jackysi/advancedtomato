@@ -42,6 +42,7 @@
 
 //	#ifdef DEBUG_NOISY
 //	#define _dprintf(args...)	cprintf(args)
+//	#define _dprintf(args...)	printf(args)
 //	#else
 //	#define _dprintf(args...)	do { } while (0)
 //	#endif
@@ -521,6 +522,7 @@ static void save_datajs(FILE *f, int mode)
 			p = history.dailyp[i];
 			max = MAX_NDAILY;
 		}
+
 		else {
 			data = history.monthly[i];
 			p = history.monthlyp[i];
@@ -605,9 +607,11 @@ static void calc(void)
 	long tick;
 	int n;
 	char *exclude;
+	char *include;
 
 	now = time(0);
 	exclude = nvram_safe_get("cstats_exclude");
+	include = nvram_safe_get("cstats_include");
 
 	_dprintf("%s: cstats_exclude='%s'\n", __FUNCTION__, exclude);
 
@@ -619,6 +623,9 @@ static void calc(void)
 	char name[] = "/proc/net/ipt_account/lanX";
 
 	for(br=0 ; br<=3 ; br++) {
+
+		char wholenetstatsline = 1;
+
 		char bridge[2] = "0";
 		if (br!=0)
 			bridge[0]+=br;
@@ -630,13 +637,17 @@ static void calc(void)
 		if ((f = fopen(name, "r")) == NULL) continue;
 
 //		_dprintf("%s: file %s opened\n", __FUNCTION__, name);
+//		if (!wholenetstatsline)
+//			fgets(buf, sizeof(buf), f); // network
+
 		while (fgets(buf, sizeof(buf), f)) {
 //		_dprintf("%s: read\n", __FUNCTION__);
 			if(sscanf(buf, 
 				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dest = %lu %*u %*u %*u %*u packets_dest = %*u %*u %*u %*u %*u time = %*u",
 				ip, &rx, &tx) != 3 ) continue;
 //			_dprintf("%s: %s tx=%lu rx=%lu\n", __FUNCTION__, ip, tx, rx);
-			if ((tx < 1) || (rx < 1)) continue;
+
+//			if ((tx < 1) || (rx < 1)) continue;
 
 			counter[0] = rx;
 			counter[1] = tx;
@@ -644,7 +655,10 @@ static void calc(void)
 
 //			_dprintf("%s: %s tx=%lu rx=%lu\n", __FUNCTION__, ipaddr, tx, rx);
 
-			if (find_word(exclude, ipaddr)) continue;
+			if (find_word(exclude, ipaddr)) {
+				wholenetstatsline = 0;
+				continue;
+			}
 
 //			if ((counter[0] < 1) || (counter[1] < 1)) continue;
 
@@ -663,96 +677,101 @@ static void calc(void)
 		if (sscanf(p + 1, "%lu%*u%*u%*u%*u%*u%*u%*u%lu", &counter[0], &counter[1]) != 2) continue;
 */
 
-			sp = speed;
-			for (i = speed_count; i > 0; --i) {
-				if (strcmp(sp->ipaddr, ipaddr) == 0) break;
-				++sp;
-			}
-			if (i == 0) {
-				if (speed_count >= MAX_SPEED_IP) continue;
+//			if (find_word(include, ip)) {
+			if ((find_word(include, ip)) || (wholenetstatsline == 1)) {
 
-				_dprintf("%s: add %s as #%d\n", __FUNCTION__, ipaddr, speed_count);
+				wholenetstatsline = 0;
 
-				i = speed_count++;
-				sp = &speed[i];
-				memset(sp, 0, sizeof(*sp));
-				strcpy(sp->ipaddr, ipaddr);
-				sp->sync = 1;
-				sp->utime = uptime;
-			}
-			if (sp->sync) {
-				_dprintf("%s: sync %s\n", __FUNCTION__, ipaddr);
-				sp->sync = -1;
-
-				memcpy(sp->last, counter, sizeof(sp->last));
-				memset(counter, 0, sizeof(counter));
-			}
-			else {
-				sp->sync = -1;
-
-				tick = uptime - sp->utime;
-				n = tick / INTERVAL;
-				if (n < 1) {
-					_dprintf("%s: %s is a little early... %lu < %d\n", __FUNCTION__, ipaddr, tick, INTERVAL);
-					continue;
-				}
-
-				sp->utime += (n * INTERVAL);
-				_dprintf("%s: %s n=%d tick=%lu\n", __FUNCTION__, ipaddr, n, tick);
-
-				for (i = 0; i < MAX_COUNTER; ++i) {
-					c = counter[i];
-					sc = sp->last[i];
-					if (c < sc) {
-						diff = (0xFFFFFFFF - sc) + c;
-						if (diff > MAX_ROLLOVER) diff = 0;
-					}
-					else {
-						 diff = c - sc;
-					}
-					sp->last[i] = c;
-					counter[i] = diff;
-				}
-
-				for (j = 0; j < n; ++j) {
-					sp->tail = (sp->tail + 1) % MAX_NSPEED;
-					for (i = 0; i < MAX_COUNTER; ++i) {
-						sp->speed[sp->tail][i] = counter[i] / n;
-					}
-				}
-			}
-
-			// todo: split, delay
-
-			if (now > Y2K) {	/* Skip this if the time&date is not set yet */
-
-				for (i = history.howmany; i > 0; --i) {
-//					_dprintf("%s: i=%d '%s' '%s'\n", __FUNCTION__, i, history.ipaddr[i], ipaddr);
-					if (strcmp(history.ipaddr[i], ipaddr) == 0) break;
+				sp = speed;
+				for (i = speed_count; i > 0; --i) {
+					if (strcmp(sp->ipaddr, ipaddr) == 0) break;
+					++sp;
 				}
 				if (i == 0) {
-					if (history.howmany >= MAX_SPEED_IP) continue;
-					if (strcmp(history.ipaddr[i], ipaddr) != 0) {
-						strncpy(history.ipaddr[history.howmany], ipaddr, INET_ADDRSTRLEN);
-						_dprintf("%s: history add %s/%s as #%d\n", __FUNCTION__, ipaddr, history.ipaddr[history.howmany], history.howmany);
-						i=history.howmany;
-						history.howmany++;
+					if (speed_count >= MAX_SPEED_IP) continue;
+
+					_dprintf("%s: add %s as #%d\n", __FUNCTION__, ipaddr, speed_count);
+
+					i = speed_count++;
+					sp = &speed[i];
+					memset(sp, 0, sizeof(*sp));
+					strcpy(sp->ipaddr, ipaddr);
+					sp->sync = 1;
+					sp->utime = uptime;
+				}
+				if (sp->sync) {
+					_dprintf("%s: sync %s\n", __FUNCTION__, ipaddr);
+					sp->sync = -1;
+
+					memcpy(sp->last, counter, sizeof(sp->last));
+					memset(counter, 0, sizeof(counter));
+				}
+				else {
+					sp->sync = -1;
+
+					tick = uptime - sp->utime;
+					n = tick / INTERVAL;
+					if (n < 1) {
+						_dprintf("%s: %s is a little early... %lu < %d\n", __FUNCTION__, ipaddr, tick, INTERVAL);
+						continue;
+					}
+
+					sp->utime += (n * INTERVAL);
+					_dprintf("%s: %s n=%d tick=%lu\n", __FUNCTION__, ipaddr, n, tick);
+
+					for (i = 0; i < MAX_COUNTER; ++i) {
+						c = counter[i];
+						sc = sp->last[i];
+						if (c < sc) {
+							diff = (0xFFFFFFFF - sc) + c;
+							if (diff > MAX_ROLLOVER) diff = 0;
+						}
+						else {
+							 diff = c - sc;
+						}
+						sp->last[i] = c;
+						counter[i] = diff;
+					}
+
+					for (j = 0; j < n; ++j) {
+						sp->tail = (sp->tail + 1) % MAX_NSPEED;
+						for (i = 0; i < MAX_COUNTER; ++i) {
+							sp->speed[sp->tail][i] = counter[i] / n;
+						}
 					}
 				}
 
-//				_dprintf("%s: calling bump i=%d %s total #%d history.dailyp[i]=%d\n", __FUNCTION__, i, ipaddr, history.howmany, history.dailyp[i]);
-				tms = localtime(&now);
-				bump(history.daily[i], &history.dailyp[i], MAX_NDAILY,
-					(tms->tm_year << 16) | ((uint32_t)tms->tm_mon << 8) | tms->tm_mday, counter);
+				// todo: split, delay
 
+				if (now > Y2K) {	/* Skip this if the time&date is not set yet */
 
-//				_dprintf("%s: calling bump i=%d %s total #%d history.monthlyp=%d\n", __FUNCTION__, i, ipaddr, history.howmany, history.monthlyp);
-				n = nvram_get_int("cstats_offset");
-				if ((n < 1) || (n > 31)) n = 1;
-				mon = now + ((1 - n) * (60 * 60 * 24));
-				tms = localtime(&mon);
-				bump(history.monthly[i], &history.monthlyp[i], MAX_NMONTHLY,
-					(tms->tm_year << 16) | ((uint32_t)tms->tm_mon << 8), counter);
+					for (i = history.howmany; i > 0; --i) {
+	//					_dprintf("%s: i=%d '%s' '%s'\n", __FUNCTION__, i, history.ipaddr[i], ipaddr);
+						if (strcmp(history.ipaddr[i], ipaddr) == 0) break;
+					}
+					if (i == 0) {
+						if (history.howmany >= MAX_SPEED_IP) continue;
+						if (strcmp(history.ipaddr[i], ipaddr) != 0) {
+							strncpy(history.ipaddr[history.howmany], ipaddr, INET_ADDRSTRLEN);
+							_dprintf("%s: history add %s/%s as #%d\n", __FUNCTION__, ipaddr, history.ipaddr[history.howmany], history.howmany);
+							i=history.howmany;
+							history.howmany++;
+						}
+					}
+
+	//				_dprintf("%s: calling bump i=%d %s total #%d history.dailyp[i]=%d\n", __FUNCTION__, i, ipaddr, history.howmany, history.dailyp[i]);
+					tms = localtime(&now);
+					bump(history.daily[i], &history.dailyp[i], MAX_NDAILY,
+						(tms->tm_year << 16) | ((uint32_t)tms->tm_mon << 8) | tms->tm_mday, counter);
+
+	//				_dprintf("%s: calling bump i=%d %s total #%d history.monthlyp=%d\n", __FUNCTION__, i, ipaddr, history.howmany, history.monthlyp);
+					n = nvram_get_int("cstats_offset");
+					if ((n < 1) || (n > 31)) n = 1;
+					mon = now + ((1 - n) * (60 * 60 * 24));
+					tms = localtime(&mon);
+					bump(history.monthly[i], &history.monthlyp[i], MAX_NMONTHLY,
+						(tms->tm_year << 16) | ((uint32_t)tms->tm_mon << 8), counter);
+				}
 			}
 		}
 		fclose(f);
@@ -777,6 +796,18 @@ static void calc(void)
 		}
 	}
 
+	for (i = 0; i < history.howmany; ++i) {
+		if ((find_word(exclude, history.ipaddr[i]))) {
+			--history.howmany;
+			_dprintf("%s: #%d removing %s >  excluded\n", __FUNCTION__, i, history.ipaddr[i]);
+			memcpy(history.ipaddr[i], history.ipaddr[i+1], (history.howmany - i) * sizeof(history.ipaddr[0]));
+			memcpy(history.daily[i], history.daily[i+1], (history.howmany - i) * sizeof(history.daily[0]));
+			history.dailyp[i] = history.dailyp[i+1];
+			memcpy(history.monthly[i], history.monthly[i+1], (history.howmany - i) * sizeof(history.monthly[0]));
+			history.monthlyp[i] = history.monthlyp[i+1];
+		}
+	}
+
 	// todo: total > user
 	if (uptime >= save_utime) {
 		save(0);
@@ -785,9 +816,7 @@ static void calc(void)
 	}
 }
 
-
-static void sig_handler(int sig)
-{
+static void sig_handler(int sig) {
 	switch (sig) {
 	case SIGTERM:
 	case SIGINT:
@@ -805,8 +834,7 @@ static void sig_handler(int sig)
 	}
 }
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 	struct sigaction sa;
 	long z;
 	int new;

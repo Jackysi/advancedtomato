@@ -185,7 +185,7 @@ void wo_bwmrestore(char *url)
 void wo_iptrestore(char *url)
 {
 	if (rboot) {
-		redirect("/ipt-history.asp");
+		redirect("/ipt-daily.asp");
 	}
 	else {
 		parse_asp("error.asp");
@@ -236,10 +236,6 @@ void asp_netdev(int argc, char **argv)
 				web_printf("%c'%s':{rx:0x0,tx:0x%lx}", comma, ifname, rx, tx);
 			else if (!strcmp(ifname, "imq2"))
 				web_printf("%c'%s':{rx:0x%lx,tx:0x0}", comma, ifname, rx, tx);
-			else if (!strcmp(ifname, "imq3"))
-				web_printf("%c'%s':{rx:0x0,tx:0x%lx}", comma, ifname, rx, tx);
-			else if (!strcmp(ifname, "imq4"))
-				web_printf("%c'%s':{rx:0x%lx,tx:0x0}", comma, ifname, rx, tx);
 			else
 				web_printf("%c'%s':{rx:0x%lx,tx:0x%lx}", comma, ifname, rx, tx);
 				
@@ -257,10 +253,15 @@ void asp_iptmon(int argc, char **argv) {
 	char comma;
 	char sa[256];
 	FILE *a;
+	char *exclude;
+	char *include;
 
 	char ip[INET6_ADDRSTRLEN];
 
 	unsigned long tx, rx;
+
+	exclude = nvram_safe_get("cstats_exclude");
+	include = nvram_safe_get("cstats_include");
 
 	char br;
 	char name[] = "/proc/net/ipt_account/lanX";
@@ -269,6 +270,9 @@ void asp_iptmon(int argc, char **argv) {
 	comma = ' ';
 
 	for(br=0 ; br<=3 ; br++) {
+
+		char wholenetstatsline = 1;
+
 		char bridge[2] = "0";
 		if (br!=0)
 			bridge[0]+=br;
@@ -279,15 +283,26 @@ void asp_iptmon(int argc, char **argv) {
 
 		if ((a = fopen(name, "r")) == NULL) continue;
 
-//		fgets(sa, sizeof(sa), a); // network
+		if (!wholenetstatsline)
+			fgets(sa, sizeof(sa), a); // network
+
 		while (fgets(sa, sizeof(sa), a)) {
 			if(sscanf(sa, 
 				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dest = %lu %*u %*u %*u %*u packets_dest = %*u %*u %*u %*u %*u time = %*u",
 				ip, &tx, &rx) != 3 ) continue;
-			if ((tx > 0) || (rx > 0)) {
+
+			if (find_word(exclude, ip)) {
+				wholenetstatsline = 0;
+				continue;
+			}
+
+			if ((find_word(include, ip)) || (wholenetstatsline == 1)) {
+//			if ((tx > 0) || (rx > 0) || (wholenetstatsline == 1)) {
+//			if ((tx > 0) || (rx > 0)) {
 				web_printf("%c'%s':{rx:0x%lx,tx:0x%lx}", comma, ip, rx, tx);
 				comma = ',';
 			}
+			wholenetstatsline = 0;
 		}
 		fclose(a);
 	}
@@ -348,17 +363,23 @@ void asp_iptraffic(int argc, char **argv) {
 	char *p;
 	char ip[INET6_ADDRSTRLEN];
 
+	char *exclude;
+
 	unsigned long tx_bytes, rx_bytes;
 	unsigned long tp_tcp, rp_tcp;
 	unsigned long tp_udp, rp_udp;
 	unsigned long tp_icmp, rp_icmp;
 	unsigned long ct_tcp, ct_udp;
 
-#if defined(TCONFIG_IPV6) && defined(LINUX26)
-	const char conntrack[] = "/proc/net/nf_conntrack";
-#else
+	exclude = nvram_safe_get("cstats_exclude");
+
+// needs extra tweaks in the code before this works as it should
+// so we'll stick to IPv4-only for now...
+// #if defined(TCONFIG_IPV6) && defined(LINUX26)
+//	const char conntrack[] = "/proc/net/nf_conntrack";
+// #else
 	const char conntrack[] = "/proc/net/ip_conntrack";
-#endif
+// #endif
 
 	if ((b = fopen(conntrack, "r")) == NULL) return;
 
@@ -384,7 +405,10 @@ void asp_iptraffic(int argc, char **argv) {
 			if(sscanf(sa, 
 				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %lu %lu %lu %*u bytes_dest = %lu %*u %*u %*u %*u packets_dest = %*u %lu %lu %lu %*u time = %*u",
 				ip, &tx_bytes, &tp_tcp, &tp_udp, &tp_icmp, &rx_bytes, &rp_tcp, &rp_udp, &rp_icmp) != 9 ) continue;
-			if ((tx_bytes > 0) || (rx_bytes > 0)) {
+
+			if (find_word(exclude, ip)) continue ;
+
+			if ((tx_bytes > 0) || (rx_bytes > 0)){
 				rewind(b);
 				ct_tcp = 0;
 				ct_udp = 0;
@@ -394,7 +418,8 @@ void asp_iptraffic(int argc, char **argv) {
 					if (strncmp(sb, "udp", 3) == 0) ct_udp++;
 				}
 				web_printf("%c['%s', %lu, %lu, %lu, %lu, %lu, %lu, %lu, %lu, %lu, %lu]", 
-							comma, ip, tx_bytes, rx_bytes, tp_tcp, rp_tcp, tp_udp, rp_udp, tp_icmp, rp_icmp, ct_tcp, ct_udp);
+
+							comma, ip, rx_bytes, tx_bytes, rp_tcp, tp_tcp, rp_udp, tp_udp, rp_icmp, tp_icmp, ct_tcp, ct_udp);
 				comma = ',';
 			}
 		}

@@ -109,8 +109,8 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <b>"Teddy Bear" current features, notably:</b><br>
 - USB Support, Samba, FTP, Media Servers<br>
 - Web Monitor, Per-connection transfer rates<br>
-- Byte counter, QOS rule ID added to QOS/Details<br>
-- Additional ipv6 support in GUI, QOS, Conntrack<br>
+- Byte counter, QOS rule ID<br>
+- Additional ipv6 support in GUI, QOS, Conntrack for K2.6 builds<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <br>
 <b>"Victek RAF" features:</b><br>
@@ -139,7 +139,7 @@ Copyright (C) 2011 Michał Rupental<br>
 <br>
 <b>"Teaman" Features:</b><br>
 - QOS-detailed & ctrate filters<br>
-- VLAN administration GUI,<br>
+- Real-time & logged bandwidth monitoring of LAN clients<br>
 - Multiple LAN support integration and GUI,<br>
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
@@ -150,13 +150,8 @@ Copyright (C) 2011 Augusto Bott<br>
 - Maximum number of QOS rules increased to 80<br>
 - Configurable QOS class names<br>
 - Client Monitor Graphs<br>
-- Revised CPU frequency selector<br>
-- Faster page refresh settings<br>
-- Fast conntrack timeout settings<br>
-- FTPput and FTPget enabled<br>
-- 16 IMQ's enabled with 24 hour graphs<br>
+- CPU frequency selector<br>
 - Starts with LAN DHCP off if nvram is reset<br>
-- UPnP Support for vlans (if exists, loads upnpconfig.custom from JFFS)<br>
 - Comprehensive QOS rule examples set by default<br>
 - Extra Themes<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>

@@ -74,6 +74,8 @@ var difftimestamp;
 var avgiptraffic = [];
 var lastiptraffic = iptraffic;
 
+hostnamecache = [];
+
 var ref = new TomatoRefresh('update.cgi', '', 0, 'ipt_details');
 ref.refresh = function(text) {
 
@@ -197,11 +199,15 @@ grid.populate = function() {
 				h = hostnamecache[b[0]] + ((b[0].indexOf(':') != -1) ? '<br>' : ' ') + '<small>(' + b[0] + ')</small>';
 			}
 		}
-		h = h + '<br><small>';
-		h = h + '<a href="javascript:viewQosDetail(' + i + ')" title="View QoS Details">[QoS Details]</a>';
-		h = h + '<a href="javascript:viewQosCTrates(' + i + ')" title="View Transfer Rates per Connection">[QoS CTrates]</a>';
-		h = h + '<a href="javascript:viewIptHistory(' + i + ')" title="View IP Traffic History">[IPTraffic]</a>';
-		h = h + '</small>';
+
+		if (E('_f_shortcuts').checked) {
+			h = h + '<br><small>';
+			h = h + '<a href="javascript:viewQosDetail(' + i + ')" title="View QoS Details">[qosdetails]</a>';
+			h = h + '<a href="javascript:viewQosCTrates(' + i + ')" title="View transfer rates per connection">[qosrates]</a>';
+			h = h + '<a href="javascript:viewIptHistory(' + i + ')" title="View IP Traffic History">[history]</a>';
+			h = h + '<a href="javascript:addExcludeList(' + i + ')" title="Filter out this address">[hide]</a>';
+			h = h + '</small>';
+		}
 
 		d = [h,
 			rescale((b[1]/1024).toFixed(2)).toString(),
@@ -227,8 +233,6 @@ grid.populate = function() {
 		udpi.toFixed(0).toString() + '/' + udpo.toFixed(0).toString(),
 		icmpi.toFixed(0).toString() + '/' + icmpo.toFixed(0).toString(),
 		tcpconn.toString(), udpconn.toString() ]);
-//	if (E('_f_hostnames').checked)
-//		grid.setNames();
 }
 
 function popupWindow(v) {
@@ -247,21 +251,18 @@ function viewQosCTrates(n) {
 
 function viewIptHistory(n) {
 	cookie.set('ipt_filterip', [avgiptraffic[n][0]], 1);
-	popupWindow('ipt-history.asp');
+	popupWindow('ipt-daily.asp');
 }
 
-grid.setNames = function() {
-	var i, row, data;
-
-	for (i = this.tb.rows.length - 2; i > 0; --i) {
-		row = this.tb.rows[i];
-		data = row.getRowData();
-		if(hostnamecache[data[0]] != null) {
-			data[0] = hostnamecache[data[0]] + ((data[0].indexOf(':') != -1) ? '<br>' : ' ') + '<small>(' + data[0] + ')</small>';
-			row.setRowData(data);
-			row.cells[0].innerHTML = data[0];
+function addExcludeList(n) {
+	if (E('_f_filter_ipe').value.length<6) {
+		E('_f_filter_ipe').value = avgiptraffic[n][0];
+	} else {
+		if (E('_f_filter_ipe').value.indexOf(avgiptraffic[n][0]) < 0) {
+			E('_f_filter_ipe').value = E('_f_filter_ipe').value + ',' + avgiptraffic[n][0];
 		}
 	}
+	dofilter();
 }
 
 grid.dataToView = function(data) {
@@ -281,7 +282,6 @@ grid.setup = function() {
 }
 
 function init() {
-
 	if ((c = cookie.get('ipt_filterip')) != null) {
 		cookie.set('ipt_filterip', '', 0);
 		if (c.length>6) {
@@ -300,6 +300,8 @@ function init() {
 	E('_f_onlyactive').checked = (((c = cookie.get('ipt_details_onlyactive')) != null) && (c == '1'));
 
 	E('_f_hostnames').checked = (((c = cookie.get('ipt_details_hostnames')) != null) && (c == '1'));
+
+	E('_f_shortcuts').checked = (((c = cookie.get('ipt_details_shortcuts')) != null) && (c == '1'));
 
 	populateCache();
 	grid.setup();
@@ -341,6 +343,8 @@ function verifyFields(focused, quiet) {
 	cookie.set('ipt_details_onlyactive', (E('_f_onlyactive').checked ? '1' : '0'), 1);
 
 	cookie.set('ipt_details_hostnames', (E('_f_hostnames').checked ? '1' : '0'), 1);
+
+	cookie.set('ipt_details_shortcuts', (E('_f_shortcuts').checked ? '1' : '0'), 1);
 
 	dofilter();
 	return 1;
@@ -390,9 +394,10 @@ var c;
 c = [];
 c.push({ title: 'Only these IPs', name: 'f_filter_ip', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(Comma separated list)</small>' });
 c.push({ title: 'Exclude these IPs', name: 'f_filter_ipe', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(Comma separated list)</small>' });
+c.push({ title: 'Scale', name: 'f_scale', type: 'select', options: [['0', 'KB'], ['1', 'MB'], ['2', 'GB']] });
 c.push({ title: 'Ignore inactive hosts', name: 'f_onlyactive', type: 'checkbox' });
 c.push({ title: 'Show hostnames', name: 'f_hostnames', type: 'checkbox' });
-c.push({ title: 'Scale', name: 'f_scale', type: 'select', options: [['0', 'KB'], ['1', 'MB'], ['2', 'GB']] });
+c.push({ title: 'Show shortcuts', name: 'f_shortcuts', type: 'checkbox' });
 createFieldTable('',c);
 </script>
 <div style="float:right;text-align:right">

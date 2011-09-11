@@ -294,6 +294,10 @@ extern void ipt_triggered(ipt_table_t table);
 extern void start_account(void);
 extern void stop_account(void);
 
+// arpbind.c
+extern void start_arpbind(void);
+extern void stop_arpbind(void);
+
 #ifdef TCONFIG_IPV6
 extern void ip6t_forward(void);
 #endif
@@ -307,10 +311,6 @@ extern void sched_restrictions(void);
 extern void ipt_qos(void);
 extern void start_qos(void);
 extern void stop_qos(void);
-
-// cmon.c
-extern void start_cmon(void);
-extern void stop_cmon(void);
 
 // cifs.c
 #ifdef TCONFIG_CIFS
@@ -423,10 +423,6 @@ extern void stop_smbd(void);
 extern void start_snmp();
 extern void stop_snmp();
 #endif
-
-//cmon.c
-extern void stop_cmon();
-extern void start_cmon();
 
 // vpn.c
 #ifdef TCONFIG_OPENVPN

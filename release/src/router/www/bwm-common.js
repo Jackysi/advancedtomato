@@ -27,7 +27,8 @@ var colors = [
 	['Green &amp; Blue', '#118811', '#6495ed'], ['Blue &amp; Orange', '#003EBA', '#FF9000'],
 	['Blue &amp; Red', '#003EDD', '#CC4040'], ['Blue', '#22f', '#225'], ['Gray', '#000', '#999'],
 	['Red &amp; Black', '#d00', '#000']];
-var hostnamecache = [];
+
+//var hostnamecache = [];
 
 function xpsb(byt)
 {
@@ -188,6 +189,10 @@ function loadData()
 				continue;
 			}
 
+			if (typeof(h.hide) != 'undefined') {
+				if (h.hide == 1) continue;
+			}
+
 			if (updateReTotal) {
 				h.rx_total = h.rx_max = 0;
 				h.tx_total = h.tx_max = 0;
@@ -213,11 +218,13 @@ function loadData()
 			if (h.tx_max > xx_max) xx_max = h.tx_max;
 
 			t = i;
-			if (hostnamecache[i] != null) {
+			if ((typeof(hostnamecache) != 'undefined') && (hostnamecache[i] != null)) {
 				t = hostnamecache[i] + ' <small>(' + i + ')</small>';
 			}
 			else if (wl_ifidx(i) >= 0) {
+/* REMOVE-BEGIN
 //			else if (i == nvram.wl_ifname) {
+REMOVE-END */
 				t = 'WL <small>(' + i + ')</small>';
 			}
 			
@@ -227,14 +234,6 @@ function loadData()
 			
 			if (i == 'imq2')	{
 				t = 'Lim. IN <small>(' + i + ')</small>';
-			}
-			
-			if (i == 'imq3')	{
-				t = 'Mon. OUT <small>(' + i + ')</small>';
-			}
-			
-			if (i == 'imq4')	{
-				t = 'Mon. IN <small>(' + i + ')</small>';
 			}
 			
 			else if ((nvram.wan_proto == 'pptp') || (nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp')) {
@@ -290,7 +289,7 @@ function initCommon(defAvg, defDrawMode, defDrawColor)
 
 	if (nvram['rstats_colors'] != null)
 		var c = nvram.rstats_colors.split(',');
-	else
+	else if (nvram['cstats_colors'] != null)
 		var c = nvram.cstats_colors.split(',');
 	while (c.length >= 3) {
 		c[0] = escapeHTML(c[0]);
@@ -330,7 +329,7 @@ function populateCache() {
 		s = nvram.dhcpd_static.split('>');
 		for (var i = 0; i < s.length; ++i) {
 			var t = s[i].split('<');
-			if (t.length == 3) {
+			if ((t.length == 3) || (t.length == 4)) {
 				if (t[2] != '')
 					hostnamecache[t[1]] = t[2].split(' ').splice(0,1);
 			}
@@ -350,7 +349,10 @@ function populateCache() {
 	}
 REMOVE-END */
 
-	if (dhcpd_lease != null ) {
+/* REMOVE-BEGIN
+//	if (dhcpd_lease != null ) {
+REMOVE-END */
+	if (typeof(dhcpd_lease) != 'undefined') {
 		for (var j=0; i<dhcpd_lease.length; ++j) {
 			s = dhcpd_lease[j].split('>');
 			for (var i = 0; i < s.length; ++i) {

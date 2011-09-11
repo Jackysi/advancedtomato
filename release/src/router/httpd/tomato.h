@@ -177,7 +177,6 @@ extern void wi_uploadsplash(char *url, int len, char *boundary);
 extern void wo_uploadsplash(char *url);
 #endif
 
-
 #if TOMATO_SL
 // share.c
 extern void asp_sharelist(int argc, char **argv);

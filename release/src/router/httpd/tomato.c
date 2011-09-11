@@ -689,6 +689,7 @@ static const nvset_t nvset_list[] = {
 	{ "dhcpc_custom",		V_LENGTH(0, 80)			},
 	{ "dns_norebind",		V_01				},
 	{ "dnsmasq_custom",		V_TEXT(0, 2048)		},
+	{ "dhcpd_static_only",	V_01				},
 //	{ "dnsmasq_norw",		V_01				},
 
 // advanced-firewall
@@ -901,7 +902,8 @@ static const nvset_t nvset_list[] = {
 	{ "cstats_path",		V_LENGTH(0, 48)		},
 	{ "cstats_stime",		V_RANGE(1, 168)		},
 	{ "cstats_offset",		V_RANGE(1, 31)		},
-	{ "cstats_exclude",		V_LENGTH(0, 64)		},
+	{ "cstats_exclude",		V_LENGTH(0, 512)	},
+	{ "cstats_include",		V_LENGTH(0, 2048)	},
 	{ "cstats_sshut",		V_01				},
 	{ "cstats_bak",			V_01				},
 
