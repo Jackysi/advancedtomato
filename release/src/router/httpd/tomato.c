@@ -986,7 +986,6 @@ static const nvset_t nvset_list[] = {
 	{ "script_usbumount", 		V_TEXT(0, 2048)			},
 	{ "idle_enable",		V_01				},
 	{ "usb_3g",			V_01				},
-	{ "usb_3g_know",		V_LENGTH(0, 256)		},
 #endif
 
 // nas-ftp - !!TB

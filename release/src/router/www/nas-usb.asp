@@ -397,7 +397,7 @@ createFieldTable('', [
 		suffix: ' <small><% translate("Spin down each HDD when idle. No need to use with flashdrive"); %>.</small>', value: nvram.idle_enable == 1 },
 	null,
 	{ title: '<% translate("USB 3G Modem support"); %>', name: 'f_usb_3g', type: 'checkbox',
-		suffix: ' <small><% translate("Before disconnecting 3G Modem from USB port, remember to uncheck box"); %>.</small>', value: nvram.usb_3g == 1 },
+		suffix: ' <small><% translate("Before disconnecting 3G Modem from USB port, remember to uncheck box. If modem used usbserial module, you have to reboot router before unplug modem"); %>.</small>', value: nvram.usb_3g == 1 },
 	null,
 /* LINUX26-END */
 	{ title: '<% translate("Hotplug script"); %><br><small>(<% translate("called when any USB device is attached or removed"); %>)</small>', name: 'script_usbhotplug', type: 'textarea', value: nvram.script_usbhotplug },

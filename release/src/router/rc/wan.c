@@ -104,7 +104,7 @@ static int config_pppd(int wan_proto, int num)
 	if (nvram_match("wan_proto", "ppp3g") ) {
 		fprintf(fp,
 			"/dev/%s\n"
-			"921600\n"
+			"460800\n"
 			"connect \"/usr/sbin/chat -V -t 60 -f %s\"\n"
 			"noipdefault\n"
 			"lock\n"
@@ -113,6 +113,9 @@ static int config_pppd(int wan_proto, int num)
 			"ipcp-accept-local\n",
 			nvram_safe_get("modem_dev"),
 			ppp3g_chatfile);
+
+		if (strlen(nvram_get("ppp_username")) >0 )
+			fprintf(fp, "user '%s'\n", nvram_get("ppp_username"));
 	} else {
 #endif
 #endif
@@ -220,7 +223,14 @@ static int config_pppd(int wan_proto, int num)
 			);
 		fclose(cfp);
 
+
 		if (nvram_match("usb_3g", "1")) {
+			// clear old gateway
+			if (strlen(nvram_get("wan_gateway")) >0 ) {
+				nvram_set("wan_gateway", "");
+			}
+
+			// detect 3G Modem
 			xstart("switch3g");
 		}
 		break;
@@ -840,7 +850,7 @@ void start_wan6_done(const char *wan_ifname)
 
 //	ppp_demand: 0=keep alive, 1=connect on demand (run 'listen')
 //	wan_ifname: vlan1
-//	wan_iface:	ppp# (PPPOE, PPTP, L2TP), vlan1 (DHCP, HB, Static)
+//	wan_iface:	ppp# (PPPOE, PPP3G, PPTP, L2TP), vlan1 (DHCP, HB, Static)
 
 void start_wan_done(char *wan_ifname)
 {
@@ -917,7 +927,6 @@ void start_wan_done(char *wan_ifname)
 
 	start_firewall();
 	start_qos();
-
 
 	do_static_routes(1);
 	// and routes supplied via DHCP

@@ -661,7 +661,6 @@ const defaults_t defaults[] = {
 	{ "script_usbumount",		""				},
 	{ "idle_enable",		"0"				},
 	{ "usb_3g",			"1"				},
-	{ "usb_3g_know",		""				},
 #endif
 
 #ifdef TCONFIG_FTP
