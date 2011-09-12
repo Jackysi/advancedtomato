@@ -193,6 +193,13 @@ ifneq ($(TCONFIG_SNMP),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/SNMP-BEGIN/,/SNMP-END/d"
 endif
 
+# Only include the mmc pages if SDHC is compiled in
+ifneq ($(TCONFIG_SDHC),y)
+	rm -f $(INSTALLDIR)/www/admin-sdhc.asp
+	sed -i $(INSTALLDIR)/www/tomato.asp -e "/SDHC-BEGIN/,/SDHC-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/SDHC-BEGIN/,/SDHC-END/d"
+endif
+
 # clean up
 	cd $(INSTALLDIR)/www && \
 	for F in $(wildcard *.asp *.js *.jsx *.html); do \
@@ -215,8 +222,9 @@ endif
 		-e "/BBT-BEGIN/d"	-e "/BBT-END/d" \
 		-e "/BT-BEGIN/d"	-e "/BT-END/d" \
 		-e "/NFS-BEGIN/d"	-e "/NFS-END/d" \
-		-e "/NOCAT-BEGIN/d"	-e "/NOCAT_END/d"\
-		-e "/SNMP-BEGIN/d"	-e "/SNMP_END/d"\
+		-e "/NOCAT-BEGIN/d"	-e "/NOCAT-END/d"\
+		-e "/SNMP-BEGIN/d"	-e "/SNMP-END/d"\
+		-e "/SDHC-BEGIN/d"	-e "/SDHC-END/d"\
 		|| true; \
 	done
 

@@ -470,6 +470,12 @@ extern void stop_bwclimon(void);
 extern void start_arpbind(void);
 extern void stop_arpbind(void);
 
+// mmc.c
+#ifdef TCONFIG_SDHC
+extern void start_mmc(void);
+extern void stop_mmc(void);
+#endif
+
 #ifdef TCONFIG_NOCAT
 // nocat.c 
 extern void start_nocat(); 

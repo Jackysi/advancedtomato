@@ -2432,6 +2432,9 @@ function navi()
 /* CIFS-BEGIN */
 			['<% translate("CIFS Client"); %>',		'cifs.asp'],
 /* CIFS-END */
+/* SDHC-BEGIN */
+			['<% translate("SDHC/MMC"); %>',		'sdhc.asp'],
+/* SDHC-END */
 			['<% translate("Configuration"); %>',		'config.asp'],
 			['<% translate("Debugging"); %>',		'debug.asp'],
 /* JFFS2-BEGIN */

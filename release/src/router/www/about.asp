@@ -153,7 +153,15 @@ Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>Tomato-sdhc-vlan Homepage</a><br>
 <br>
 
-<b>"Victek/PrinceAMD/Phykris/Shibby" features:</b><br>
+<!-- SDHC-BEGIN -->
+<b>"Slodki" feature:</b><br>
+- SDHC integration and GUI<br>
+Copyright (C) 2009 Tomasz Słodkowicz<br>
+<a href='http://gemini.net.pl/~slodki/tomato-sdhc.html' target='_new'>tomato-sdhc</a><br>
+<br>
+<!-- SDHC-END -->
+
+<b>"Victek/PrinceAMD/Phykris/Shibby" feature:</b><br>
 - Revised IP/MAC QOS/Bandwidth Limiter<br>
 <br>
 
