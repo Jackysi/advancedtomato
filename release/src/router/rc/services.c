@@ -2300,11 +2300,13 @@ TOP:
 		goto CLEAR;
 	}
 
+#ifdef TCONFIG_SDHC
 	if (strcmp(service, "mmc") == 0) {
 		if (action & A_STOP) stop_mmc();
 		if (action & A_START) start_mmc();
 		goto CLEAR;
 	}
+#endif
 
 	if (strcmp(service, "routing") == 0) {
 		if (action & A_STOP) {
