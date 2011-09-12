@@ -649,8 +649,8 @@ static void calc(void)
 
 //			if ((tx < 1) || (rx < 1)) continue;
 
-			counter[0] = rx;
-			counter[1] = tx;
+			counter[0] = tx;
+			counter[1] = rx;
 			ipaddr=ip;
 
 //			_dprintf("%s: %s tx=%lu rx=%lu\n", __FUNCTION__, ipaddr, tx, rx);
