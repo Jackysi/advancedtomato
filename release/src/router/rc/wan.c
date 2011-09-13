@@ -199,7 +199,7 @@ static int config_pppd(int wan_proto, int num)
 			"ABORT \"BUSY\"\n"
 			"REPORT CONNECT\n"
 			"\"\" \"AT\"\n");
-			
+/* moved to switch3g script
 		if (strlen(nvram_get("modem_pin")) >0 ) {
 			fprintf(cfp, 
 				"TIMEOUT 60\n"
@@ -207,7 +207,7 @@ static int config_pppd(int wan_proto, int num)
 				"TIMEOUT 10\n",
 				nvram_get("modem_pin"));
 		}
-		
+*/
 		fprintf(cfp,
 			"OK \"AT&FE0V1X1&D2&C1S0=0\"\n"
 			"OK \"AT\"\n"
