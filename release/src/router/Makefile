@@ -46,6 +46,7 @@ obj-y += utils
 obj-y += ntpc
 obj-y += rstats
 obj-$(TCONFIG_SNMP) += snmp
+obj-y += cstats
 
 ifeq ($(TCONFIG_SDHC),y)
 obj-y += mmc

@@ -1238,7 +1238,6 @@ static void filter_table(void)
 	ip46t_write("COMMIT\n");
 }
 
-
 // -----------------------------------------------------------------------------
 
 int start_firewall(void)
@@ -1489,7 +1488,8 @@ int start_firewall(void)
 #endif
 	run_nvscript("script_fire", NULL, 1);
 
-	start_bwclimon();
+//	start_bwclimon();
+	start_account();
 
 	simple_unlock("firewall");
 	return 0;

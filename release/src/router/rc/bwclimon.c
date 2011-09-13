@@ -11,6 +11,7 @@ void start_bwclimon(void) {
 // clear rules first
 	stop_bwclimon();
 
+//iptables -I FORWARD 1 -m account --aaddr 192.168.254.0/24 --aname lan
 	eval("iptables", "-N", "traffic_in");
 	eval("iptables", "-N", "traffic_out");
 	eval("iptables", "-I", "FORWARD", "1", "-j", "traffic_in");

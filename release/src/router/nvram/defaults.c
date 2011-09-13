@@ -411,6 +411,7 @@ const defaults_t defaults[] = {
 	{ "dhcpc_custom",		""				},
 	{ "dns_norebind",		"1"				},
 	{ "dnsmasq_custom",		""				},
+	{ "dhcpd_static_only",	"0"				},
 //	{ "dnsmasq_norw",		"0"				},
 
 // advanced-firewall
@@ -560,6 +561,18 @@ const defaults_t defaults[] = {
 	{ "rstats_exclude",		""				},
 	{ "rstats_sshut",		"1"				},
 	{ "rstats_bak",			"0"				},
+
+// admin-ipt
+	{ "cstats_enable",		"1"				},
+	{ "cstats_path",		""				},
+	{ "cstats_stime",		"48"			},
+	{ "cstats_offset",		"1"				},
+	{ "cstats_data",		""				},
+	{ "cstats_colors",		""				},
+	{ "cstats_exclude",		""				},
+	{ "cstats_include",		"192.168.1.0"	},
+	{ "cstats_sshut",		"1"				},
+	{ "cstats_bak",			"0"				},
 
 // advanced-buttons
 	{ "sesx_led",			"0"				},
