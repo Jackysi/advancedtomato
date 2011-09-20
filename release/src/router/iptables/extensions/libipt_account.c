@@ -206,8 +206,10 @@ static void init(struct ipt_entry_match *match,
   /* set default table name to DEFAULT */
   strncpy(info->name, "DEFAULT", IPT_ACCOUNT_NAME_LEN);
   info->shortlisting = 0;
+#ifdef LINUX26
   info->table = NULL;
-  
+#endif
+
 }
 
 /* Function parses match's arguments */
