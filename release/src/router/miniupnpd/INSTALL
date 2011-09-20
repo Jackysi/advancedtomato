@@ -1,5 +1,5 @@
 MiniUPnP project.
-(c) 2006-2009 Thomas Bernard
+(c) 2006-2011 Thomas Bernard
 Homepage : http://miniupnp.free.fr/
 Mirror: http://miniupnp.tuxfamily.org/
 
@@ -43,6 +43,11 @@ Installation steps are allmost the same as with pf.
 
 *Solaris users would be interested in reading informations from :
 http://blogs.sun.com/avalon/category/IPFilter
+
+============================= Mac OS X/ipfw ===============================
+
+- use 'bsdmake' or 'make -f Makefile.macosx' to build
+
 
 ============================ Linux/netfilter ==============================
 To Build and install :

@@ -56,6 +56,7 @@ int get_ipv6_service(void)
 	const char *names[] = {	// order must be synced with def at shared.h
 		"native",	// IPV6_NATIVE
 		"native-pd",	// IPV6_NATIVE_DHCP
+		"6to4",		// IPV6_ANYCAST_6TO4
 		"sit",		// IPV6_6IN4
 		"other",	// IPV6_MANUAL
 		NULL
@@ -313,21 +314,20 @@ const wanface_list_t *get_wanfaces(void)
 {
 	static wanface_list_t wanfaces;
 	char *ip, *iface;
-	int defgw, proto;
+	int proto;
 
 	wanfaces.count = 0;
 
 	switch ((proto = get_wan_proto())) {
 		case WP_PPTP:
 		case WP_L2TP:
-			defgw = nvram_get_int("ppp_defgw");
 			while (wanfaces.count < 2) {
-				if ((defgw && wanfaces.count == 0) || (!defgw && wanfaces.count == 1)) {
+				if (wanfaces.count == 0) {
 					ip = nvram_safe_get("ppp_get_ip");
 					iface = nvram_safe_get("wan_iface");
 					if (!(*iface)) iface = "ppp+";
 				}
-				else /* if ((!defgw && wanfaces.count == 0) || (defgw && wanfaces.count == 1)) */ {
+				else /* if (wanfaces.count == 1) */ {
 					ip = nvram_safe_get("wan_ipaddr");
 					if ((!(*ip) || strcmp(ip, "0.0.0.0") == 0) && (wanfaces.count > 0))
 						iface = "";
@@ -368,6 +368,10 @@ const char *get_wan6face(void)
 	case IPV6_NATIVE:
 	case IPV6_NATIVE_DHCP:
 		return get_wanface();
+	case IPV6_ANYCAST_6TO4:
+		return "v6to4";
+	case IPV6_6IN4:
+		return "v6in4";
 	}
 	return nvram_safe_get("ipv6_ifname");
 }
@@ -380,10 +384,10 @@ const char *get_wanip(void)
 	return (*get_wanfaces()).iface[0].ip;
 }
 
-const char *getifaddr(char *ifname, int family)
+const char *getifaddr(char *ifname, int family, int linklocal)
 {
 	static char buf[INET6_ADDRSTRLEN];
-	void *addr;
+	void *addr = NULL;
 	struct ifaddrs *ifap, *ifa;
 
 	if (getifaddrs(&ifap) != 0) {
@@ -397,23 +401,24 @@ const char *getifaddr(char *ifname, int family)
 		    (ifa->ifa_addr->sa_family != family))
 			continue;
 
+#ifdef TCONFIG_IPV6
 		if (ifa->ifa_addr->sa_family == AF_INET6) {
 			struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
-			if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr))
+			if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr) ^ linklocal)
 				continue;
 			addr = (void *)&(s6->sin6_addr);
 		}
-		else {
+		else
+#endif
+		{
 			struct sockaddr_in *s = (struct sockaddr_in *)(ifa->ifa_addr);
 			addr = (void *)&(s->sin_addr);
 		}
 
-		if (inet_ntop(ifa->ifa_addr->sa_family, addr, buf, sizeof(buf)) != NULL) {
+		if ((addr) && inet_ntop(ifa->ifa_addr->sa_family, addr, buf, sizeof(buf)) != NULL) {
 			freeifaddrs(ifap);
 			return buf;
 		}
-		else
-			_dprintf("%s: inet_ntop failed\n", ifa->ifa_name);
 	}
 
 	freeifaddrs(ifap);

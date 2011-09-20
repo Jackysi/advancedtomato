@@ -96,6 +96,8 @@
 
 #ifndef NO_MAIN_DRIVER
     const char* caCert   = "../../certs/ca-cert.pem";
+    const char* eccCert  = "../../certs/server-ecc.pem";
+    const char* eccKey   = "../../certs/ecc-key.pem";
     const char* svrCert  = "../../certs/server-cert.pem";
     const char* svrKey   = "../../certs/server-key.pem";
     const char* cliCert  = "../../certs/client-cert.pem";
@@ -104,6 +106,8 @@
     const char* ntruKey  = "../../certs/ntru-key.raw";
 #else
     static const char* caCert   = "../certs/ca-cert.pem";
+    static const char* eccCert  = "../certs/server-ecc.pem";
+    static const char* eccKey   = "../certs/ecc-key.pem";
     static const char* svrCert  = "../certs/server-cert.pem";
     static const char* svrKey   = "../certs/server-key.pem";
     static const char* cliCert  = "../certs/client-cert.pem";

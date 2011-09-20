@@ -1,4 +1,4 @@
-/* $Id: upnpdescgen.c,v 1.52 2011/01/02 09:25:50 nanard Exp $ */
+/* $Id: upnpdescgen.c,v 1.53 2011/03/03 17:27:18 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -18,6 +18,21 @@
 #include "miniupnpdpath.h"
 #include "upnpglobalvars.h"
 #include "upnpdescstrings.h"
+
+#ifdef IGD_V2
+/* IGD v2 */
+#define DEVICE_TYPE_IGD     "urn:schemas-upnp-org:device:InternetGatewayDevice:2"
+#define DEVICE_TYPE_WAN     "urn:schemas-upnp-org:device:WANDevice:2"
+#define DEVICE_TYPE_WANC    "urn:schemas-upnp-org:device:WANConnectionDevice:2"
+#define SERVICE_TYPE_WANIPC "urn:schemas-upnp-org:service:WANIPConnection:2"
+#define ENABLE_DP_SERVICE
+#else
+/* IGD v1 */
+#define DEVICE_TYPE_IGD     "urn:schemas-upnp-org:device:InternetGatewayDevice:1"
+#define DEVICE_TYPE_WAN     "urn:schemas-upnp-org:device:WANDevice:1"
+#define DEVICE_TYPE_WANC    "urn:schemas-upnp-org:device:WANConnectionDevice:1"
+#define SERVICE_TYPE_WANIPC "urn:schemas-upnp-org:service:WANIPConnection:1"
+#endif
 
 static const char * const upnptypes[] =
 {
@@ -61,6 +76,16 @@ static const char * const upnpallowedvalues[] =
 	"Disconnected",
 	0,
 	"ERROR_NONE",	/* 25 */
+/* Optionals values :
+ * ERROR_COMMAND_ABORTED
+ * ERROR_NOT_ENABLED_FOR_INTERNET
+ * ERROR_USER_DISCONNECT
+ * ERROR_ISP_DISCONNECT
+ * ERROR_IDLE_DISCONNECT
+ * ERROR_FORCED_DISCONNECT
+ * ERROR_NO_CARRIER
+ * ERROR_IP_CONFIGURATION
+ * ERROR_UNKNOWN */
 	0,
 	"",		/* 27 */
 	0
@@ -83,7 +108,7 @@ static const struct XMLElt rootDesc[] =
 /* 0 */
 	{root_device, INITHELPER(1,2)},
 	{"specVersion", INITHELPER(3,2)},
-#if defined(ENABLE_L3F_SERVICE) || defined(HAS_DUMMY_SERVICE)
+#if defined(ENABLE_L3F_SERVICE) || defined(HAS_DUMMY_SERVICE) || defined(ENABLE_DP_SERVICE)
 	{"device", INITHELPER(5,13)},
 #else
 	{"device", INITHELPER(5,12)},
@@ -91,8 +116,8 @@ static const struct XMLElt rootDesc[] =
 	{"/major", "1"},
 	{"/minor", "0"},
 /* 5 */
-	{"/deviceType", "urn:schemas-upnp-org:device:InternetGatewayDevice:1"},
-	/* urn:schemas-upnp-org:device:InternetGatewayDevice:2 for v2 */
+	{"/deviceType", DEVICE_TYPE_IGD},
+		/* urn:schemas-upnp-org:device:InternetGatewayDevice:1 or 2 */
 	{"/friendlyName", ROOTDEV_FRIENDLYNAME},	/* required */
 	{"/manufacturer", ROOTDEV_MANUFACTURER},		/* required */
 /* 8 */
@@ -103,8 +128,13 @@ static const struct XMLElt rootDesc[] =
 	{"/modelURL", ROOTDEV_MODELURL},
 	{"/serialNumber", serialnumber},
 	{"/UDN", uuidvalue},	/* required */
-#if defined(ENABLE_L3F_SERVICE) || defined(HAS_DUMMY_SERVICE)
+	/* see if /UPC is needed. */
+#if defined(ENABLE_L3F_SERVICE) || defined(HAS_DUMMY_SERVICE) || defined(ENABLE_DP_SERVICE)
+#ifdef ENABLE_DP_SERVICE
+	{"serviceList", INITHELPER(57,2)},
+#else
 	{"serviceList", INITHELPER(57,1)},
+#endif
 	{"deviceList", INITHELPER(18,1)},
 	{"/presentationURL", presentationurl},	/* recommended */
 #else
@@ -115,8 +145,8 @@ static const struct XMLElt rootDesc[] =
 /* 18 */
 	{"device", INITHELPER(19,13)},
 /* 19 */
-	{"/deviceType", "urn:schemas-upnp-org:device:WANDevice:1"}, /* required */
-	/* urn:schemas-upnp-org:device:WANDevice:2 for v2 */
+	{"/deviceType", DEVICE_TYPE_WAN}, /* required */
+		/* urn:schemas-upnp-org:device:WANDevice:1 or 2 */
 	{"/friendlyName", WANDEV_FRIENDLYNAME},
 	{"/manufacturer", WANDEV_MANUFACTURER},
 	{"/manufacturerURL", WANDEV_MANUFACTURERURL},
@@ -143,8 +173,8 @@ static const struct XMLElt rootDesc[] =
 /* 38 */
 	{"device", INITHELPER(39,12)},
 /* 39 */
-	{"/deviceType", "urn:schemas-upnp-org:device:WANConnectionDevice:1"},
-	/* urn:schemas-upnp-org:device:WANConnectionDevice:2 for v2 */
+	{"/deviceType", DEVICE_TYPE_WANC},
+		/* urn:schemas-upnp-org:device:WANConnectionDevice:1 or 2 */
 	{"/friendlyName", WANCDEV_FRIENDLYNAME},
 	{"/manufacturer", WANCDEV_MANUFACTURER},
 	{"/manufacturerURL", WANCDEV_MANUFACTURERURL},
@@ -159,17 +189,17 @@ static const struct XMLElt rootDesc[] =
 /* 51 */
 	{"service", INITHELPER(52,5)},
 /* 52 */
-	{"/serviceType", "urn:schemas-upnp-org:service:WANIPConnection:1"},
-	/* urn:schemas-upnp-org:service:WANIPConnection:2 for v2 */
-	/* {"/serviceId", "urn:upnp-org:serviceId:WANIPConnection"}, */
+	{"/serviceType", SERVICE_TYPE_WANIPC},
+		/* urn:schemas-upnp-org:service:WANIPConnection:2 for v2 */
 	{"/serviceId", "urn:upnp-org:serviceId:WANIPConn1"},
 	{"/controlURL", WANIPC_CONTROLURL},
 	{"/eventSubURL", WANIPC_EVENTURL},
 	{"/SCPDURL", WANIPC_PATH},
 /* 57 */
 #ifdef HAS_DUMMY_SERVICE
-	{"service", INITHELPER(58,5)},
-/* 58 */
+	{"service", INITHELPER(59,5)},
+	{"service", INITHELPER(64,5)},
+/* 59 */
 	{"/serviceType", "urn:schemas-dummy-com:service:Dummy:1"},
 	{"/serviceId", "urn:dummy-com:serviceId:dummy1"},
 	{"/controlURL", "/dummy"},
@@ -177,18 +207,28 @@ static const struct XMLElt rootDesc[] =
 	{"/SCPDURL", DUMMY_PATH},
 #endif
 #ifdef ENABLE_L3F_SERVICE
-	{"service", INITHELPER(58,5)},
-/* 58 */
+	{"service", INITHELPER(59,5)},
+	{"service", INITHELPER(64,5)},
+/* 59 */
 	{"/serviceType", "urn:schemas-upnp-org:service:Layer3Forwarding:1"},
 	{"/serviceId", "urn:upnp-org:serviceId:Layer3Forwarding1"},
 	{"/controlURL", L3F_CONTROLURL}, /* The Layer3Forwarding service is only */
 	{"/eventSubURL", L3F_EVENTURL}, /* recommended, not mandatory */
 	{"/SCPDURL", L3F_PATH},
 #endif
-/* TODO : add for InternetDatewayDevice v2 :
-serviceType : urn:schemas-upnp-org:service:DeviceProtection:1
-serviceId : urn:upnp-org:serviceId:DeviceProtection1
-*/
+#ifdef ENABLE_DP_SERVICE
+/* InternetGatewayDevice v2 : 
+ * it is RECOMMEDED that DeviceProtection service is implemented and applied.
+ * If DeviceProtection is not implemented and applied, it is RECOMMENDED
+ * that control points are able to access only actions and parameters defined
+ * as Public role. */
+/* 64 */
+	{"/serviceType", "urn:schemas-upnp-org:service:DeviceProtection:1"},
+	{"/serviceId", "urn:upnp-org:serviceId:DeviceProtection1"},
+	{"/controlURL", DP_CONTROLURL},
+	{"/eventSubURL", DP_EVENTURL},
+	{"/SCPDURL", DP_PATH},
+#endif
 	{0, 0}
 };
 
@@ -202,16 +242,52 @@ static struct XMLElt scpdWANIPCn[] =
 */
 static const struct argument AddPortMappingArgs[] =
 {
-	{1, 11},
-	{1, 12},
-	{1, 14},
-	{1, 13},
-	{1, 15},
-	{1, 9},
-	{1, 16},
-	{1, 10},
+	{1, 11},	/* RemoteHost */
+	{1, 12},	/* ExternalPort */
+	{1, 14},	/* PortMappingProtocol */
+	{1, 13},	/* InternalPort */
+	{1, 15},	/* InternalClient */
+	{1, 9},		/* PortMappingEnabled */
+	{1, 16},	/* PortMappingDescription */
+	{1, 10},	/* PortMappingLeaseDuration */
 	{0, 0}
 };
+
+#ifdef IGD_V2
+static const struct argument AddAnyPortMappingArgs[] =
+{
+	{1, 11},	/* RemoteHost */
+	{1, 12},	/* ExternalPort */
+	{1, 14},	/* PortMappingProtocol */
+	{1, 13},	/* InternalPort */
+	{1, 15},	/* InternalClient */
+	{1, 9},		/* PortMappingEnabled */
+	{1, 16},	/* PortMappingDescription */
+	{1, 10},	/* PortMappingLeaseDuration */
+	{2, 12},	/* NewReservedPort / ExternalPort */
+	{0, 0}
+};
+
+static const struct argument DeletePortMappingRangeArgs[] =
+{
+	{1, 12},	/* NewStartPort / ExternalPort */
+	{1, 12},	/* NewEndPort / ExternalPort */
+	{1, 14},	/* NewProtocol / PortMappingProtocol */
+	{1, 18},	/* NewManage / A_ARG_TYPE_Manage */
+	{0, 0}
+};
+
+static const struct argument GetListOfPortMappingsArgs[] =
+{
+	{1, 12},	/* NewStartPort / ExternalPort */
+	{1, 12},	/* NewEndPort / ExternalPort */
+	{1, 14},	/* NewProtocol / PortMappingProtocol */
+	{1, 18},	/* NewManage / A_ARG_TYPE_Manage */
+	{1, 8},		/* NewNumberOfPorts / PortMappingNumberOfEntries */
+	{2, 19},	/* NewPortListing / A_ARG_TYPE_PortListing */
+	{0, 0}
+};
+#endif
 
 static const struct argument GetExternalIPAddressArgs[] =
 {
@@ -296,12 +372,11 @@ static const struct action WANIPCnActions[] =
 	{"GetGenericPortMappingEntry", GetGenericPortMappingEntryArgs}, /* R */
 	{"GetSpecificPortMappingEntry", GetSpecificPortMappingEntryArgs}, /* R */
 /* added in v2 UPnP-gw-WANIPConnection-v2-Service.pdf */
-/*
-SetConnectionType
-AddAnyPortMapping
-DeletePortMappingRange
-GetListOfPortMappings
-*/
+#ifdef IGD_V2
+	{"AddAnyPortMapping", AddAnyPortMappingArgs},
+	{"DeletePortMappingRange", DeletePortMappingRangeArgs},
+	{"GetListOfPortMappings", GetListOfPortMappingsArgs},
+#endif
 	{0, 0}
 };
 /* R=Required, O=Optional */
@@ -333,19 +408,31 @@ static const struct stateVar WANIPCnVars[] =
 	{"ExternalIPAddress", 0|0x80, 0, 0, 254}, /* required. Default : empty string */
 	{"PortMappingNumberOfEntries", 2|0x80, 0, 0, 253}, /* required >= 0 */
 	{"PortMappingEnabled", 1, 0}, /* Required */
+/* 10 */
 	{"PortMappingLeaseDuration", 3, 0}, /* required */
+	/* TODO : for IGD v2 : 
+	 * <stateVariable sendEvents="no">
+	 *   <name>PortMappingLeaseDuration</name>
+	 *   <dataType>ui4</dataType>
+	 *   <defaultValue>Vendor-defined</defaultValue>
+	 *   <allowedValueRange>
+	 *      <minimum>0</minimum>
+	 *      <maximum>604800</maximum>
+	 *   </allowedValueRange>
+	 * </stateVariable> */
 	{"RemoteHost", 0, 0},   /* required. Default : empty string */
 	{"ExternalPort", 2, 0}, /* required */
 	{"InternalPort", 2, 0}, /* required */
+	/* TODO : add <allowedValueRange> for IGD v2 */
 	{"PortMappingProtocol", 0, 0, 11}, /* required allowedValues: TCP/UDP */
 	{"InternalClient", 0, 0}, /* required */
 	{"PortMappingDescription", 0, 0}, /* required default: empty string */
 /* added in v2 UPnP-gw-WANIPConnection-v2-Service.pdf */
-/*
-SystemUpdateID
-A_ARG_TYPE_Manage
-A_ARG_TYPE_PortListing
-*/
+#ifdef IGD_V2
+	{"SystemUpdateID", 3, 0},
+	{"A_ARG_TYPE_Manage", 1, 0},
+	{"A_ARG_TYPE_PortListing", 0, 0},
+#endif
 	{0, 0}
 };
 
@@ -640,10 +727,31 @@ genServiceDesc(int * len, const struct serviceDesc * s)
 				p = vars[args[j].relatedVar].name;
 				if(0 == memcmp(p, "PortMapping", 11)
 				   && 0 != memcmp(p + 11, "Description", 11)) {
-					if(0 == memcmp(p + 11, "NumberOfEntries", 15))
+					if(0 == memcmp(p + 11, "NumberOfEntries", 15)) {
+						/* PortMappingNumberOfEntries */
+#ifdef IGD_V2
+						if(0 == memcmp(acts[i].name, "GetListOfPortMappings", 22)) {
+							str = strcat_str(str, len, &tmplen, "NumberOfPorts");
+						} else {
+							str = strcat_str(str, len, &tmplen, "PortMappingIndex");
+						}
+#else
 						str = strcat_str(str, len, &tmplen, "PortMappingIndex");
-					else
+#endif
+					} else {
+						/* PortMappingEnabled
+						 * PortMappingLeaseDuration
+						 * PortMappingProtocol */
 						str = strcat_str(str, len, &tmplen, p + 11);
+					}
+#ifdef IGD_V2
+				} else if(0 == memcmp(p, "A_ARG_TYPE_", 11)) {
+					str = strcat_str(str, len, &tmplen, p + 11);
+				} else if(0 == memcmp(p, "ExternalPort", 13)
+				          && args[j].dir == 2
+				          && 0 == memcmp(acts[i].name, "AddAnyPortMapping", 18)) {
+					str = strcat_str(str, len, &tmplen, "ReservedPort");
+#endif
 				} else {
 					str = strcat_str(str, len, &tmplen, p);
 				}
@@ -804,7 +912,7 @@ getVarsWANIPCn(int * l)
 {
 	return genEventVars(l,
                         &scpdWANIPCn,
-	                    "urn:schemas-upnp-org:service:WANIPConnection:1");
+	                    SERVICE_TYPE_WANIPC);
 }
 
 char *

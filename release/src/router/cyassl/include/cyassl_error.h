@@ -1,6 +1,6 @@
 /* cyassl_error.h
  *
- * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -81,6 +81,12 @@ enum CyaSSL_ErrorCodes {
     NTRU_DRBG_ERROR        = -247,            /* NTRU drbg error  */
     NTRU_ENCRYPT_ERROR     = -248,            /* NTRU encrypt error  */
     NTRU_DECRYPT_ERROR     = -249,            /* NTRU decrypt error  */
+    ECC_CURVETYPE_ERROR    = -250,            /* Bad ECC Curve Type */
+    ECC_CURVE_ERROR        = -251,            /* Bad ECC Curve */
+    ECC_PEERKEY_ERROR      = -252,            /* Bad Peer ECC Key */
+    ECC_MAKEKEY_ERROR      = -253,            /* Bad Make ECC Key */
+    ECC_EXPORT_ERROR       = -254,            /* Bad ECC Export Key */
+    ECC_SHARED_ERROR       = -255,            /* Bad ECC Shared Secret */
     /* add strings to SetErrorString !!!!! */
 
     /* begin negotiation parameter errors */

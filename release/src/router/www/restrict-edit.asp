@@ -93,7 +93,8 @@ var cg = new TomatoGrid();
 cg.verifyFields = function(row, quiet) {
 	var f = fields.getAll(row)[0];
 	if (v_mac(f, true)) return true;
-	if (v_iptip(f, true)) return true;
+	if (_v_iptaddr(f, true, false, true, true)) return true;
+
 	ferror.set(f, 'Invalid MAC address or IP address/range', quiet);
 	return false;
 }
@@ -101,7 +102,7 @@ cg.verifyFields = function(row, quiet) {
 cg.setup = function() {
 	var a, i, count, ex;
 
-	this.init('res-comp-grid', 'sort', 140, [ { type: 'text', maxlen: 32 } ] );
+	this.init('res-comp-grid', 'sort', 500, [ { type: 'text', maxlen: 32 } ] );
 	this.headerSet(['MAC / IP Address']);
 	this.showNewEditor();
 	this.resetNewEditor();
@@ -139,7 +140,7 @@ bpg.verifyFields = function(row, quiet) {
 	ferror.clearAll(f);
 	this.enDiFields(row);
 
-	if ((f[5].selectedIndex != 0) && ((!v_length(f[6], quiet, 1)) || (!v_iptaddr(f[6], quiet)))) return 0;
+	if ((f[5].selectedIndex != 0) && ((!v_length(f[6], quiet, 1)) || (!_v_iptaddr(f[6], quiet, false, true, true)))) return 0;
 	if ((f[1].selectedIndex != 0) && (!v_iptport(f[2], quiet))) return 0;
 
 	if ((f[1].selectedIndex == 0) && (f[3].selectedIndex == 0) && (f[4].selectedIndex == 0) && (f[5].selectedIndex == 0)) {
@@ -239,7 +240,7 @@ bpg.setup = function() {
 		if ((i != 6) && (i != 17)) protos.push([i, protocols[i] || i]);
 	}
 
-	this.init('res-bp-grid', 'sort', 140, [ { multi: [
+	this.init('res-bp-grid', 'sort', 500, [ { multi: [
 		{ type: 'select', prefix: '<div class="box1">', suffix: '</div>', options: protos },
 		{ type: 'select', prefix: '<div class="box2">', suffix: '</div>',
 			options: [['a','Any Port'],['d','Dst Port'],['s','Src Port'],['x','Src or Dst']] },
@@ -398,8 +399,8 @@ function save()
 	data.push(E('_f_desc').value);
 	data = data.join('|');
 
-	if (data.length >= 2048) {
-		alert('This rule is too big. Please reduce by ' + (data.length - 2048) + ' characters.');
+	if (data.length >= 8192) {
+		alert('This rule is too big. Please reduce by ' + (data.length - 8192) + ' characters.');
 		return;
 	}
 

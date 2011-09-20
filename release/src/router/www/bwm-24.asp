@@ -226,6 +226,7 @@ function init()
 </div>
 <br>
 
+
 <script type='text/javascript'>
 if (nvram.rstats_enable != '1') {
 	W('<div class="note-disabled">Bandwidth monitoring disabled.</b><br><br><a href="admin-bwm.asp">Enable &raquo;</a><div>');

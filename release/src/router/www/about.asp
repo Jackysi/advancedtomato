@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2010 Jonathan Zarate
+	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
@@ -70,7 +70,6 @@ function init()
 	}
 }
 </script>
-<!-- / / / -->
 
 </head>
 <body onload='init()'>
@@ -83,59 +82,87 @@ function init()
 <td id='content'>
 <div id='ident'><% ident(); %></div>
 
-<!-- / / / -->
-
-<div style='float:right;margin:20px 20px;text-align:center'>
-<img src='tux.png' alt='Linux &amp; Tomato' id='tux'>
+<div style='float:right;margin:140px 30px;text-align:center'>
+<img src='kinaree.png' alt='Linux &amp; Tomato' id='tux'>
 </div>
-<div style='margin:20px 20px;font-size:14px;color:#555;'>
-Tomato Firmware v<% version(1); %><br>
-<br>
-Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates<br>
-Support for additional router models and Wireless-N mode<br>
+<div style='margin:30px 30px;font-size:14px;color:#555;'>
+<b>Tomato Firmware v<% version(1); %></b><br>
+- Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates<br>
+- Support for additional router models, dual-band and Wireless-N mode.<br>
 <!-- USB-BEGIN -->
-USB support integration and GUI<br>
+- USB support integration and GUI,
 <!-- USB-END -->
 <!-- IPV6-BEGIN -->
-IPv6 support<br>
+IPv6 support,
 <!-- IPV6-END -->
-Copyright (C) 2008-2011 Fedor Kozhevnikov and Ray Van Tassle<br>
+<br>
+Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
-<!-- / / / -->
 <br>
-
 <!-- VPN-BEGIN -->
-VPN integration and GUI<br>
-Copyright (C) 2010 Keith Moyer<br>
+VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
-<br>
 <!-- VPN-END -->
-
-VLAN administration GUI<br>
-Multiple LAN support integration and GUI<br>
-Multiple/virtual SSID support (experimental)<br>
-Real-time bandwidth monitoring of LAN clients<br>
-Static ARP binding<br>
-Copyright (C) 2011 Augusto Bott<br>
-<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br>
-
-<!-- / / / -->
-
+<b>This particular compilation/brew by Toastman/Teaman may also include:</b><br>
+<br>
+<b>"Teddy Bear" current features, notably:</b><br>
+- USB Support, Samba, FTP, Media Servers<br>
+- Web Monitor, Per-connection transfer rates<br>
+- Byte counter, QOS rule ID added to QOS/Details<br>
+- Additional ipv6 support in GUI, QOS, Conntrack<br>
+<a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
+<br>
+<b>"Victek RAF" features:</b><br>
+- CPU Freq | Previous WAN IP<br>
+- HFS/HFS+MAC OS x read support<br>
+<!-- NOCAT-BEGIN -->
+- Captive Portal (Based on NocatSplash) <br>
+<!-- NOCAT-END -->
+Copyright (C) 2007-2011 Vicente Soriano<br>
+<!-- NOCAT-BEGIN -->
+Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
+<!-- NOCAT-END -->
+<a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
+<br>
+<b>"Shibby" features:</b><br>
+- Custom log file path<br>
+<!-- LINUX26-BEGIN -->
+- SD-idle tool integration for kernel 2.6<br>
+<!-- LINUX26-END -->
 <!-- SNMP-BEGIN -->
-SNMP integration and GUI<br>
+- SNMP integration and GUI<br>
+<!-- SNMP-END -->
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
-<!-- SNMP-END -->
-
+<b>"Teaman" Features:</b><br>
+- QOS-detailed & ctrate filters<br>
+- Realtime bandwidth monitoring of LAN clients<br>
+- Static ARP binding<br>
+- VLAN administration GUI<br>
+- Multiple LAN support integration and GUI<br>
+- Multiple/virtual SSID support (experimental)<br>
+Copyright (C) 2011 Augusto Bott<br>
+<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
+<br>
+<b>"Toastman" Features:</b><br>
+- 250 entry limit in Static DHCP  & Wireless Filter<br>
+- 500 entry limit in Access Restriction rules<br>
+- Up to 80 QOS rules<br>
+- IMQ based QOS/Bandwidth Limiter<br>
+- Configurable QOS class names<br>
+- Comprehensive QOS rule examples set by default<br>
+- Extra Themes<br>
+<a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>
+<br>
+Development by Victek/PrinceAMD/Phykris/Shibby/Toastman/Teaman<br>
+<br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
-
-<!-- / / / -->
-
+<br>
 Built on <% build_time(); %><br>
 <br><br>
 
@@ -160,7 +187,7 @@ suggestions and contributed to this project. ^ _ ^</b><br>
 </div>
 
 </div>
-<!-- / / / -->
+
 
 </td></tr>
 	<tr><td id='footer' colspan=2>&nbsp;</td></tr>

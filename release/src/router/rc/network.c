@@ -64,13 +64,11 @@ typedef u_int8_t u8;
 #ifndef WL_BSS_INFO_VERSION
 #error WL_BSS_INFO_VERSION
 #endif
-#if WL_BSS_INFO_VERSION == 108
+#if WL_BSS_INFO_VERSION >= 108
 #include <etioctl.h>
 #else
 #include <etsockio.h>
 #endif
-
-#define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
 
 static void set_lan_hostname(const char *wan_hostname)
 {
@@ -143,7 +141,7 @@ static int wlconf(char *ifname, int unit, int subunit)
 			eval("wl", "-i", ifname, "antdiv", nvram_safe_get(wl_nvname("antdiv", unit, 0)));
 			eval("wl", "-i", ifname, "txant", nvram_safe_get(wl_nvname("txant", unit, 0)));
 			eval("wl", "-i", ifname, "txpwr1", "-o", "-m", nvram_get_int(wl_nvname("txpwr", unit, 0)) ? nvram_safe_get(wl_nvname("txpwr", unit, 0)) : "-1");
-			eval("wl", "-i", ifname, "interference", nvram_safe_get(wl_nvname("interfmode", unit, 0)));
+			eval("wl", "-i", ifname, "interference", nvram_safe_get(wl_nvname("mitigation", unit, 0)));
 		}
 
 		if (wl_client(unit, subunit)) {
@@ -709,12 +707,12 @@ void do_static_routes(int add)
 					((*ifname == 'W') ? "wan_iface" : "wan_ifname"))))));
 		if (add) {
 			for (r = 3; r >= 0; --r) {
-				if (route_add(ifname, atoi(metric) + 1, dest, gateway, mask) == 0) break;
+				if (route_add(ifname, atoi(metric), dest, gateway, mask) == 0) break;
 				sleep(1);
 			}
 		}
 		else {
-			route_del(ifname, atoi(metric) + 1, dest, gateway, mask);
+			route_del(ifname, atoi(metric), dest, gateway, mask);
 		}
 	}
 	free(buf);

@@ -108,6 +108,13 @@ function deleteAll()
 	submitDelete('*', '0');
 }
 
+function toggleFiltersVisibility(){
+	if(E('upnpsettings').style.display=='')
+		E('upnpsettings').style.display='none';
+	else
+		E('upnpsettings').style.display='';
+}
+
 function verifyFields(focused, quiet)
 {
 /* REMOVE-BEGIN
@@ -224,8 +231,8 @@ REMOVE-END */
 	<div style='width: 100%; text-align: right'><input type='button' value='Delete All' onclick='deleteAll()' id='upnp-delete-all'> <input type='button' value='Refresh' onclick='javascript:reloadPage();'></div>
 </div>
 
-<div class='section-title'>Settings</div>
-<div class='section'>
+<div class='section-title'>Settings <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
+<div class='section' id='upnpsettings' style='display:none'>
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Enable UPnP', name: 'f_enable_upnp', type: 'checkbox', value: (nvram.upnp_enable & 1) },

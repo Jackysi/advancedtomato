@@ -33,7 +33,6 @@
 </style>
 
 <script type='text/javascript' src='debug.js'></script>
-
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript' src='bwm-common.js'></script>
 
@@ -138,7 +137,7 @@ function init()
 
 </head>
 <body onload='init()'>
-<form>
+<form id='_fom' method='post' action='tomato.cgi'>
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
@@ -215,11 +214,12 @@ function init()
 
 </td></tr>
 <tr><td id='footer' colspan=2>
-	<span id='warnwd' style='display:none'>Warning: 10 second timeout, restarting...&nbsp;</span>
-	<span id='dtime'></span>
-	<img src='spin.gif' id='refresh-spinner' onclick='javascript:debugTime=1'>
+<span id='warnwd' style='display:none'>Warning: 10 second session timeout, restarting...&nbsp;</span>
+<span id='dtime'></span>
+<img src='spin.gif' id='refresh-spinner' onclick='javascript:debugTime=1'>
 </td></tr>
 </table>
 </form>
 </body>
 </html>
+

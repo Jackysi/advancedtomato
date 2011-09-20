@@ -280,7 +280,7 @@ ref.refresh = function(text)
 		if (E('_f_excludemcast').checked) {
 			var mmin = 3758096384; // aton('224.0.0.0') == 3758096384
 			var mmax = 4026531839; // aton('239.255.255.255') == 4026531839
-			if (((aton(b[1]) >= mmin) && (aton(b[1]) <= mmax)) ||
+			if (((aton(b[1]) >= mmin) && (aton(b[1]) <= mmax)) || 
 				((aton(b[2]) >= mmin) && (aton(b[2]) <= mmax))) {
 				continue;
 			}
@@ -516,3 +516,4 @@ createFieldTable('',c);
 </form>
 </body>
 </html>
+

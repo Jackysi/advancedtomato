@@ -1,6 +1,6 @@
 /* integer.h
  *
- * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -33,7 +33,7 @@
 /* may optionally use fast math instead, not yet supported on all platforms and
    may not be faster on all
 */
-#include "types.h"
+#include "types.h"       /* will set MP_xxBIT if not default */
 #ifdef USE_FAST_MATH
     #include "tfm.h"
 #else
@@ -42,7 +42,6 @@
     #include <limits.h>
 #endif
 
-#include "types.h"       /* will set MP_xxBIT if not default */
 #include "mpi_class.h"
 
 #ifndef MIN
@@ -304,6 +303,11 @@ int  mp_reduce_2k_setup(mp_int *a, mp_digit *d);
 /* added */
 int mp_init_multi(mp_int* a, mp_int* b, mp_int* c, mp_int* d, mp_int* e,
                   mp_int* f);
+
+#ifdef HAVE_ECC
+    int mp_sqrmod(mp_int* a, mp_int* b, mp_int* c);
+    int mp_read_radix(mp_int* a, const char* str, int radix);
+#endif
 
 #ifdef CYASSL_KEY_GEN
     int mp_prime_is_prime (mp_int * a, int t, int *result);

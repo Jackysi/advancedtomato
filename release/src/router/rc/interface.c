@@ -37,9 +37,7 @@
 
 #include "rc.h"
 
-#define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
-
-int ifconfig(const char *name, int flags, const char *addr, const char *netmask)
+int _ifconfig(const char *name, int flags, const char *addr, const char *netmask, const char *dstaddr)
 {
 	int s;
 	struct ifreq ifr;
@@ -82,6 +80,15 @@ int ifconfig(const char *name, int flags, const char *addr, const char *netmask)
 			goto ERROR;
 	}
 
+	/* Set dst or P-t-P IP address */
+	if (dstaddr) {
+		inet_aton(dstaddr, &in_addr);
+		sin_addr(&ifr.ifr_dstaddr).s_addr = in_addr.s_addr;
+		ifr.ifr_dstaddr.sa_family = AF_INET;
+		if (ioctl(s, SIOCSIFDSTADDR, &ifr) < 0)
+			goto ERROR;
+	}
+
 	close(s);
 	return 0;
 
@@ -89,7 +96,7 @@ int ifconfig(const char *name, int flags, const char *addr, const char *netmask)
 	close(s);
 	perror(name);
 	return errno;
-}	
+}
 
 static int route_manip(int cmd, char *name, int metric, char *dst, char *gateway, char *genmask)
 {
@@ -136,12 +143,14 @@ static int route_manip(int cmd, char *name, int metric, char *dst, char *gateway
 
 int route_add(char *name, int metric, char *dst, char *gateway, char *genmask)
 {
-	return route_manip(SIOCADDRT, name, metric, dst, gateway, genmask);
+	return route_manip(SIOCADDRT, name, metric + 1, dst, gateway, genmask);
 }
 
-int route_del(char *name, int metric, char *dst, char *gateway, char *genmask)
+void route_del(char *name, int metric, char *dst, char *gateway, char *genmask)
 {
-	return route_manip(SIOCDELRT, name, metric, dst, gateway, genmask);
+	while (route_manip(SIOCDELRT, name, metric + 1, dst, gateway, genmask) == 0) {
+		//
+	}
 }
 
 /* configure loopback interface */
@@ -153,6 +162,35 @@ void config_loopback(void)
 	/* Add to routing table */
 	route_add("lo", 0, "127.0.0.0", "0.0.0.0", "255.0.0.0");
 }
+
+#ifdef TCONFIG_IPV6
+int ipv6_mapaddr4(struct in6_addr *addr6, int ip6len, struct in_addr *addr4, int ip4mask)
+{
+	int i = ip6len >> 5;
+	int m = ip6len & 0x1f;
+	int ret = ip6len + 32 - ip4mask;
+	u_int32_t addr = 0;
+	u_int32_t mask = 0xffffffffUL << ip4mask;
+
+	if (ip6len > 128 || ip4mask > 32 || ret > 128)
+		return 0;
+	if (ip4mask == 32)
+		return ret;
+
+	if (addr4)
+		addr = ntohl(addr4->s_addr) << ip4mask;
+
+	addr6->s6_addr32[i] &= ~htonl(mask >> m);
+	addr6->s6_addr32[i] |= htonl(addr >> m);
+	if (m) {
+		i++;
+		addr6->s6_addr32[i] &= ~htonl(mask << (32 - m));
+		addr6->s6_addr32[i] |= htonl(addr << (32 - m));
+	}
+
+	return ret;
+}
+#endif
 
 /* configure/start vlan interface(s) based on nvram settings */
 int start_vlan(void)

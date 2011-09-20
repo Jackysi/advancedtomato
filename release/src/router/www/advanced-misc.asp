@@ -22,7 +22,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("t_features,wait_time,wan_speed,jumbo_frame_enable,jumbo_frame_size,ctf_disable"); %>
+//	<% nvram("t_features,wait_time,wan_speed,clkfreq,jumbo_frame_enable,jumbo_frame_size,ctf_disable"); %>
 
 et1000 = features('1000et');
 
@@ -85,20 +85,37 @@ for (i = 3; i <= 20; ++i) a.push([i, i + ' seconds']);
 createFieldTable('', [
 	{ title: 'Boot Wait Time *', name: 'wait_time', type: 'select', options: a, value: fixInt(nvram.wait_time, 3, 20, 3) },
 	{ title: 'WAN Port Speed *', name: 'wan_speed', type: 'select', options: [[0,'10Mb Full'],[1,'10Mb Half'],[2,'100Mb Full'],[3,'100Mb Half'],[4,'Auto']], value: nvram.wan_speed },
+	{ title: 'CPU Frequency **', name: 'clkfreq', type: 'select', options: [['','Default'],['188,94'],['200,100'],['216,108'],['240,120'],['250,125'],['266,133'],['300,150'],['354,177'],['400,200'],['453,226'],['480,240'],['500,250'],['532,266']], value: nvram.clkfreq },
+
 	null,
+
 /* CTF-BEGIN */
 	{ title: 'CTF (Cut-Through Forwarding)', name: 'f_ctf_disable', type: 'checkbox', value: nvram.ctf_disable != '1' },
 	null,
 /* CTF-END */
+
 	{ title: 'Enable Jumbo Frames *', name: 'f_jumbo_frame_enable', type: 'checkbox', value: nvram.jumbo_frame_enable != '0', hidden: !et1000 },
 	{ title: 'Jumbo Frame Size *', name: 'jumbo_frame_size', type: 'text', maxlen: 4, size: 6, value: fixInt(nvram.jumbo_frame_size, 1, 9720, 2000),
 		suffix: ' <small>Bytes (range: 1 - 9720; default: 2000)</small>', hidden: !et1000 }
+
 ]);
 </script>
 <br>
-<small>* Not all models support these options.</small>
-</div>
 
+<div>
+	<ul>
+	<br>
+	<br>
+	<small>
+	*  Not all models support these options<br>
+	** Please make sure to set your CPU clock frequency before use<br>
+	** You must reboot the router for the new CPU clock frequency to take effect<br>
+	<br>
+	<br>
+	<b>Please check to make sure your router can support these changes before you commit them</b><br>
+	</small>
+	</ul>
+</div>
 
 
 <!-- / / / -->

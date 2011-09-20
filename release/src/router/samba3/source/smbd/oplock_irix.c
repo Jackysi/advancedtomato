@@ -247,6 +247,7 @@ static BOOL irix_oplock_msg_waiting(fd_set *fds)
 	 * we need to ignore any signals. */
 
 	FD_ZERO(&myfds);
+	/* We check oplock_pipe_read is in the correct range below. */
 	FD_SET(oplock_pipe_read, &myfds);
 
 	to = timeval_set(0, 0);
@@ -269,6 +270,11 @@ struct kernel_oplocks *irix_init_kernel_oplocks(void)
 	if(pipe(pfd) != 0) {
 		DEBUG(0,("setup_kernel_oplock_pipe: Unable to create pipe. "
 			 "Error was %s\n", strerror(errno) ));
+		return False;
+	}
+
+	if (pfd[0] < 0 || pfd[0] >= FD_SETSIZE) {
+		DEBUG(0,("setup_kernel_oplock_pipe: fd out of range.\n"));
 		return False;
 	}
 

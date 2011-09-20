@@ -45,8 +45,6 @@
 #include <mntent.h>
 #include <dirent.h>
 
-#define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
-
 // Pop an alarm to recheck pids in 500 msec.
 static const struct itimerval pop_tv = { {0,0}, {0, 500 * 1000} };
 
@@ -55,7 +53,8 @@ static const struct itimerval zombie_tv = { {0,0}, {307, 0} };
 
 // -----------------------------------------------------------------------------
 
-static const char dmhosts[] = "/etc/hosts.dnsmasq";
+static const char dmhosts[] = "/etc/dnsmasq/hosts";
+static const char dmdhcp[] = "/etc/dnsmasq/dhcp";
 static const char dmresolv[] = "/etc/resolv.dnsmasq";
 
 static pid_t pid_dnsmasq = -1;
@@ -79,7 +78,7 @@ void start_dnsmasq()
 	char *p;
 	int ipn;
 	char ipbuf[32];
-	FILE *hf;
+	FILE *hf, *df;
 	int dhcp_start;
 	int dhcp_count;
 	int dhcp_lease;
@@ -115,10 +114,11 @@ void start_dnsmasq()
 		else n = 4096;
 	fprintf(f,
 		"resolv-file=%s\n"		// the real stuff is here
-		"addn-hosts=%s\n"		// "
+		"addn-hosts=%s\n"		// directory with additional hosts files
+		"dhcp-hostsfile=%s\n"		// directory with dhcp hosts files
 		"expand-hosts\n"		// expand hostnames in hosts file
 		"min-port=%u\n", 		// min port used for random src port
-		dmresolv, dmhosts, n);
+		dmresolv, dmhosts, dmdhcp, n);
 	do_dns = nvram_match("dhcpd_dmdns", "1");
 
 	// DNS rebinding protection, will discard upstream RFC1918 responses
@@ -261,7 +261,9 @@ void start_dnsmasq()
 	}
 	// write static lease entries & create hosts file
 
-	if ((hf = fopen(dmhosts, "w")) != NULL) {
+	mkdir_if_none(dmhosts);
+	snprintf(buf, sizeof(buf), "%s/hosts", dmhosts);
+	if ((hf = fopen(buf, "w")) != NULL) {
 		if (((nv = nvram_get("wan_hostname")) != NULL) && (*nv))
 			fprintf(hf, "%s %s\n", router_ip, nv);
 #ifdef TCONFIG_SAMBASRV
@@ -276,20 +278,27 @@ void start_dnsmasq()
 			fprintf(hf, "%s %s-wan\n", p, nv);
 	}
 
-	// PREVIOUS/OLD FORMAT:
-	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 73 w/ delim
-	// 00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 85 w/ delim
-	// 00:aa:bb:cc:dd:ee,00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 103 w/ delim
 
-	// NEW FORMAT (+static ARP binding flag after hostname):
-	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 75 w/ delim
+	mkdir_if_none(dmdhcp);
+	snprintf(buf, sizeof(buf), "%s/dhcp-hosts", dmdhcp);
+	df = fopen(buf, "w");
+
+
+	// PREVIOUS/OLD FORMAT:
+
+	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 53 w/ delim
+	// 00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 85 w/ delim
+	// 00:aa:bb:cc:dd:ee,00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 106 w/ delim
+
+	// NEW FORMAT (+static ARP binding after hostname):
+	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 55 w/ delim
 	// 00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 87 w/ delim
-	// 00:aa:bb:cc:dd:ee,00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 105 w/ delim
+	// 00:aa:bb:cc:dd:ee,00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 108 w/ delim
 
 	p = nvram_safe_get("dhcpd_static");
 	while ((e = strchr(p, '>')) != NULL) {
 		n = (e - p);
-		if (n > 104) {
+		if (n > 107) {
 			p = e + 1;
 			continue;
 		}
@@ -326,10 +335,14 @@ void start_dnsmasq()
 		}
 
 		if ((do_dhcpd_hosts > 0) && (*mac != 0) && (strcmp(mac, "00:00:00:00:00:00") != 0)) {
-			fprintf(f, "dhcp-host=%s,%s,%s\n", mac, ip, sdhcp_lease);
+			if (df)
+				fprintf(df, "%s,%s,%s\n", mac, ip, sdhcp_lease);
+			else
+				fprintf(f, "dhcp-host=%s,%s,%s\n", mac, ip, sdhcp_lease);
 		}
 	}
 
+	if (df) fclose(df);
 	if (hf) fclose(hf);
 
 	n = nvram_get_int("dhcpd_lmax");
@@ -396,7 +409,7 @@ void clear_resolv(void)
 }
 
 #ifdef TCONFIG_IPV6
-static int write_ipv6_dns_servers(FILE *f, const char *prefix, char *dns)
+static int write_ipv6_dns_servers(FILE *f, const char *prefix, char *dns, const char *suffix, int once)
 {
 	char p[INET6_ADDRSTRLEN + 1], *next = NULL;
 	struct in6_addr addr;
@@ -405,7 +418,7 @@ static int write_ipv6_dns_servers(FILE *f, const char *prefix, char *dns)
 	foreach(p, dns, next) {
 		// verify that this is a valid IPv6 address
 		if (inet_pton(AF_INET6, p, &addr) == 1) {
-			fprintf(f, "%s%s\n", prefix, p);
+			fprintf(f, "%s%s%s", (once && cnt) ? "" : prefix, p, suffix);
 			++cnt;
 		}
 	}
@@ -426,8 +439,8 @@ void dns_to_resolv(void)
 		// Check for VPN DNS entries
 		if (!write_vpn_resolv(f)) {
 #ifdef TCONFIG_IPV6
-			if (write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_dns")) == 0 || nvram_get_int("dns_addget"))
-				write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_get_dns"));
+			if (write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_dns"), "\n", 0) == 0 || nvram_get_int("dns_addget"))
+				write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_get_dns"), "\n", 0);
 #endif
 			dns = get_dns();	// static buffer
 			if (dns->count == 0) {
@@ -459,50 +472,99 @@ void dns_to_resolv(void)
 
 void start_httpd(void)
 {
+	if (getpid() != 1) {
+		start_service("httpd");
+		return;
+	}
+
 	stop_httpd();
 	chdir("/www");
-	xstart("httpd");
+	eval("httpd");
 	chdir("/");
 }
 
 void stop_httpd(void)
 {
+	if (getpid() != 1) {
+		stop_service("httpd");
+		return;
+	}
+
 	killall_tk("httpd");
 }
 
 // -----------------------------------------------------------------------------
 #ifdef TCONFIG_IPV6
 
-void start_ipv6_sit_tunnel(void)
+static void add_ip6_lanaddr(void)
 {
-	char *tun_dev = nvram_safe_get("ipv6_ifname");
 	char ip[INET6_ADDRSTRLEN + 4];
-	const char *wanip;
+	const char *p;
 
-	if (get_ipv6_service() == IPV6_6IN4) {
-		modprobe("sit");
-		snprintf(ip, sizeof(ip), "%s/%d",
-			nvram_safe_get("ipv6_tun_addr"),
-			nvram_get_int("ipv6_tun_addrlen") ? : 64);
-		wanip = get_wanip();
-
-		eval("ip", "tunnel", "add", tun_dev, "mode", "sit",
-			"remote", nvram_safe_get("ipv6_tun_v4end"),
-			"local", (char *)wanip,
-			"ttl", nvram_safe_get("ipv6_tun_ttl"));
-		if (nvram_get_int("ipv6_tun_mtu") > 0)
-			eval("ip", "link", "set", tun_dev, "mtu", nvram_safe_get("ipv6_tun_mtu"), "up");
-		else
-			eval("ip", "link", "set", tun_dev, "up");
-		eval("ip", "addr", "add", ip, "dev", tun_dev);
-		eval("ip", "route", "add", "::/0", "dev", tun_dev);
+	p = ipv6_router_address(NULL);
+	if (*p) {
+		snprintf(ip, sizeof(ip), "%s/%d", p, nvram_get_int("ipv6_prefix_length") ? : 64);
+		eval("ip", "-6", "addr", "add", ip, "dev", nvram_safe_get("lan_ifname"));
 	}
 }
 
-void stop_ipv6_sit_tunnel(void)
+void start_ipv6_tunnel(void)
 {
-	char *tun_dev = nvram_safe_get("ipv6_ifname");
-	eval("ip", "tunnel", "del", tun_dev);
+	char ip[INET6_ADDRSTRLEN + 4];
+	struct in_addr addr4;
+	struct in6_addr addr;
+	const char *wanip, *mtu, *tun_dev;
+	int service;
+
+	service = get_ipv6_service();
+	tun_dev = get_wan6face();
+	wanip = get_wanip();
+	mtu = (nvram_get_int("ipv6_tun_mtu") > 0) ? nvram_safe_get("ipv6_tun_mtu") : "1480";
+	modprobe("sit");
+
+	if (service == IPV6_ANYCAST_6TO4)
+		snprintf(ip, sizeof(ip), "192.88.99.%d", nvram_get_int("ipv6_relay"));
+	else
+		strlcpy(ip, (char *)nvram_safe_get("ipv6_tun_v4end"), sizeof(ip));
+	eval("ip", "tunnel", "add", (char *)tun_dev, "mode", "sit",
+		"remote", ip,
+		"local", (char *)wanip,
+		"ttl", nvram_safe_get("ipv6_tun_ttl"));
+
+	eval("ip", "link", "set", (char *)tun_dev, "mtu", (char *)mtu, "up");
+	nvram_set("ipv6_ifname", (char *)tun_dev);
+
+	if (service == IPV6_ANYCAST_6TO4) {
+		add_ip6_lanaddr();
+		addr4.s_addr = 0;
+		memset(&addr, 0, sizeof(addr));
+		inet_aton(wanip, &addr4);
+		addr.s6_addr16[0] = htons(0x2002);
+		ipv6_mapaddr4(&addr, 16, &addr4, 0);
+		addr.s6_addr16[7] = htons(0x0001);
+		inet_ntop(AF_INET6, &addr, ip, sizeof(ip));
+		strncat(ip, "/16", sizeof(ip));
+	}
+	else {
+		snprintf(ip, sizeof(ip), "%s/%d",
+			nvram_safe_get("ipv6_tun_addr"),
+			nvram_get_int("ipv6_tun_addrlen") ? : 64);
+	}
+	eval("ip", "addr", "add", ip, "dev", (char *)tun_dev);
+	eval("ip", "route", "add", "::/0", "dev", (char *)tun_dev);
+
+	// (re)start radvd
+	if (service == IPV6_ANYCAST_6TO4)
+		start_radvd();
+}
+
+void stop_ipv6_tunnel(void)
+{
+	eval("ip", "tunnel", "del", (char *)get_wan6face());
+	if (get_ipv6_service() == IPV6_ANYCAST_6TO4) {
+		// get rid of old IPv6 address from lan iface
+		eval("ip", "-6", "addr", "flush", "dev", nvram_safe_get("lan_ifname"), "scope", "global");
+	}
 	modprobe_r("sit");
 }
 
@@ -511,10 +573,10 @@ static pid_t pid_radvd = -1;
 void start_radvd(void)
 {
 	FILE *f;
-	char *prefix, *ip;
-	int do_dns;
+	char *prefix, *ip, *mtu;
+	int do_dns, do_6to4;
 	char *argv[] = { "radvd", NULL, NULL, NULL };
-	int pid, argc;
+	int pid, argc, service, cnt;
 
 	if (getpid() != 1) {
 		start_service("radvd");
@@ -523,14 +585,21 @@ void start_radvd(void)
 
 	stop_radvd();
 
-	if (ipv6_enabled() && nvram_match("ipv6_radvd", "1")) {
+	if (ipv6_enabled() && nvram_get_int("ipv6_radvd")) {
+		service = get_ipv6_service();
+		do_6to4 = (service == IPV6_ANYCAST_6TO4);
+		mtu = NULL;
 
-		switch (get_ipv6_service()) {
+		switch (service) {
 		case IPV6_NATIVE_DHCP:
 			prefix = "::";
 			break;
+		case IPV6_ANYCAST_6TO4:
+		case IPV6_6IN4:
+			mtu = (nvram_get_int("ipv6_tun_mtu") > 0) ? nvram_safe_get("ipv6_tun_mtu") : "1480";
+			// fall through
 		default:
-			prefix = nvram_safe_get("ipv6_prefix");
+			prefix = do_6to4 ? "0:0:0:1::" : nvram_safe_get("ipv6_prefix");
 			break;
 		}
 		if (!(*prefix)) prefix = "::";
@@ -544,19 +613,39 @@ void start_radvd(void)
 		fprintf(f,
 			"interface %s\n"
 			"{\n"
+			" IgnoreIfMissing on;\n"
 			" AdvSendAdvert on;\n"
 			" MaxRtrAdvInterval 60;\n"
 			" AdvHomeAgentFlag off;\n"
 			" AdvManagedFlag off;\n"
+			"%s%s%s"
 			" prefix %s/64 \n"
 			" {\n"
 			"  AdvOnLink on;\n"
 			"  AdvAutonomous on;\n"
-			" };\n"
-			" %s%s%s\n"
-			"};\n",
-			nvram_safe_get("lan_ifname"), prefix,
-			do_dns ? "RDNSS " : "", do_dns ? ip : "", do_dns ? " { };" : "");
+			"%s"
+			"%s%s%s"
+			" };\n",
+			nvram_safe_get("lan_ifname"),
+			mtu ? " AdvLinkMTU " : "", mtu ? : "", mtu ? ";\n" : "",
+			prefix,
+			do_6to4 ? "  AdvValidLifetime 300;\n  AdvPreferredLifetime 120;\n" : "",
+		        do_6to4 ? "  Base6to4Interface " : "",
+		        do_6to4 ? get_wanface() : "",
+		        do_6to4 ? ";\n" : "");
+
+		if (do_dns) {
+			fprintf(f, " RDNSS %s {};\n", ip);
+		}
+		else {
+			cnt = write_ipv6_dns_servers(f, " RDNSS ", nvram_safe_get("ipv6_dns"), " ", 1);
+			if (cnt == 0 || nvram_get_int("dns_addget"))
+				cnt += write_ipv6_dns_servers(f, (cnt) ? "" : " RDNSS ", nvram_safe_get("ipv6_get_dns"), " ", 1);
+			if (cnt) fprintf(f, "{};\n");
+		}
+
+		fprintf(f,
+			"};\n");	// close "interface" section
 		fclose(f);
 
 		// Start radvd
@@ -587,8 +676,6 @@ void stop_radvd(void)
 
 void start_ipv6(void)
 {
-	char *p;
-	char ip[INET6_ADDRSTRLEN + 4];
 	int service;
 
 	service = get_ipv6_service();
@@ -599,23 +686,24 @@ void start_ipv6(void)
 	case IPV6_NATIVE:
 	case IPV6_6IN4:
 	case IPV6_MANUAL:
-		p = (char *)ipv6_router_address(NULL);
-		if (*p) {
-			snprintf(ip, sizeof(ip), "%s/%d", p, nvram_get_int("ipv6_prefix_length") ? : 64);
-			eval("ip", "-6", "addr", "add", ip, "dev", nvram_safe_get("lan_ifname"));
-		}
+		add_ip6_lanaddr();
+		break;
+	case IPV6_NATIVE_DHCP:
+	case IPV6_ANYCAST_6TO4:
+		nvram_set("ipv6_rtr_addr", "");
+		nvram_set("ipv6_prefix", "");
 		break;
 	}
 
 	if (service != IPV6_DISABLED) {
-		if ((nvram_get_int("ipv6_accept_ra") & 2) != 0)
+		if ((nvram_get_int("ipv6_accept_ra") & 2) != 0 && !nvram_get_int("ipv6_radvd"))
 			accept_ra(nvram_safe_get("lan_ifname"));
 	}
 }
 
 void stop_ipv6(void)
 {
-	stop_ipv6_sit_tunnel();
+	stop_ipv6_tunnel();
 	stop_dhcp6c();
 	eval("ip", "-6", "addr", "flush", "scope", "global");
 }
@@ -739,6 +827,7 @@ void start_upnp(void)
 					}
 				}
 
+				fappend(f, "/jffs/upnpconfig.custom");
 				fappend(f, "/etc/upnp/config.custom");
 				fprintf(f, "\ndeny 0-65535 0.0.0.0/0 0-65535\n");
 				fclose(f);
@@ -952,6 +1041,7 @@ void start_syslog(void)
 	char s[64];
 	char cfg[256];
 	char *rot_siz = "50";
+	char *log_file_path;
 
 	argv[0] = "syslogd";
 	argc = 1;
@@ -967,6 +1057,20 @@ void start_syslog(void)
 
 	if (nvram_match("log_file", "1")) {
 		argv[argc++] = "-L";
+
+		// log to custom path - shibby
+		if (nvram_match("log_file_custom", "1")) {
+			log_file_path = nvram_safe_get("log_file_path");
+			argv[argc++] = "-s";
+			argv[argc++] = "5000";
+			argv[argc++] = "-b";
+			argv[argc++] = "5";
+			argv[argc++] = "-O";
+			argv[argc++] = log_file_path;
+			remove("/var/log/messages");
+			symlink(log_file_path, "/var/log/messages");
+		}
+		else
 
 		/* Read options:    rotate_size(kb)    num_backups    logfilename.
 		 * Ignore these settings and use defaults if the logfile cannot be written to.
@@ -995,8 +1099,12 @@ void start_syslog(void)
 			}
 		}
 
+		if (nvram_match("log_file_custom", "0")) {
 		argv[argc++] = "-s";
 		argv[argc++] = rot_siz;
+		remove("/var/log/messages");
+		}
+
 
 		if (isdigit(*b_opt)) {
 			argv[argc++] = "-b";
@@ -1022,11 +1130,11 @@ void start_syslog(void)
 				sprintf(rem, "0 */%d * * *", n / 60);
 			else
 				sprintf(rem, "0 0 */%d * *", n / (60 * 24));
-			sprintf(s, "cru a syslogdmark \"%s logger -p syslog.info -- -- MARK --\"", rem);
-			system(s);
+			sprintf(s, "%s logger -p syslog.info -- -- MARK --", rem);
+			eval("cru", "a", "syslogdmark", s);
 		}
 		else {
-			system("cru d syslogdmark");
+			eval("cru", "d", "syslogdmark");
 		}
 	}
 }
@@ -1101,6 +1209,24 @@ void stop_igmp_proxy(void)
 	killall_tk("igmpproxy");
 }
 
+#ifdef TCONFIG_NOCAT
+
+static pid_t pid_splashd = -1;
+void start_splashd(void)
+{
+	pid_splashd = -1;
+	start_nocat();
+	if (!nvram_contains_word("debug_norestart", "splashd")) {
+		pid_splashd = -2;
+	}
+}
+
+void stop_splashd(void)
+{
+	pid_splashd = -1;
+	stop_nocat();
+}
+#endif
 
 // -----------------------------------------------------------------------------
 
@@ -1688,7 +1814,7 @@ static void start_media_server(void)
 					"presentation_url=http%s://%s:%s/nas-media.asp\n"
 					"inotify=yes\n"
 					"notify_interval=600\n"
-					"album_art_names=Cover.jpg/cover.jpg/Thumb.jpg/thumb.jpg\n"
+					"album_art_names=Cover.jpg/cover.jpg/AlbumArtSmall.jpg/albumartsmall.jpg/AlbumArt.jpg/albumart.jpg/Album.jpg/album.jpg/Folder.jpg/folder.jpg/Thumb.jpg/thumb.jpg\n"
 					"\n",
 					nvram_safe_get("lan_ifname"),
 					(port < 0) || (port >= 0xffff) ? 0 : port,
@@ -1834,6 +1960,12 @@ void check_services(void)
 #ifdef TCONFIG_IPV6
 	_check(pid_radvd, "radvd", start_radvd);
 #endif
+
+//	#ifdef TCONFIG_NOCAT
+//	if (nvram_get_int("NC_enable"))
+//		_check(&pid_splashd, "splashd", start_splashd);
+//	#endif
+
 }
 
 // -----------------------------------------------------------------------------
@@ -1863,9 +1995,9 @@ void start_services(void)
 	start_sched();
 #ifdef TCONFIG_IPV6
 	/* note: starting radvd here might be too early in case of
-	 * DHCPv6 because we won't have received a prefix and so it
-	 * will disable advertisements, but the SIGHUP sent from
-	 * dhcp6c-state will restart them.
+	 * DHCPv6 or 6to4 because we won't have received a prefix and
+	 * so it will disable advertisements. To restart them, we have
+	 * to send radvd a SIGHUP, or restart it.
 	 */
 	start_radvd();
 #endif
@@ -2030,6 +2162,23 @@ TOP:
 			start_qos();
 			if (nvram_match("qos_reset", "1")) f_write_string("/proc/net/clear_marks", "1", 0, 0);
 		}
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "qoslimit") == 0) {
+		if (action & A_STOP) {
+			stop_qoslimit();
+		}
+		stop_firewall(); start_firewall();		// always restarted
+		if (action & A_START) {
+			start_qoslimit();
+		}
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "arpbind") == 0) {
+		if (action & A_STOP) stop_arpbind();
+		if (action & A_START) stop_arpbind();
 		goto CLEAR;
 	}
 
@@ -2260,6 +2409,9 @@ TOP:
 
 	if (strcmp(service, "net") == 0) {
 		if (action & A_STOP) {
+#ifdef TCONFIG_USB
+			stop_nas_services();
+#endif
 #ifdef TCONFIG_IPV6
 			stop_radvd();
 #endif
@@ -2283,6 +2435,9 @@ TOP:
 			start_radvd();
 #endif
 			start_wl();
+#ifdef TCONFIG_USB
+			start_nas_services();
+#endif
 		}
 		goto CLEAR;
 	}
@@ -2403,6 +2558,14 @@ TOP:
 	if (strncmp(service, "vpnserver", 9) == 0) {
 		if (action & A_STOP) stop_vpnserver(atoi(&service[9]));
 		if (action & A_START) start_vpnserver(atoi(&service[9]));
+		goto CLEAR;
+	}
+#endif
+
+#ifdef TCONFIG_NOCAT
+	if (strcmp(service, "splashd") == 0) {
+		if (action & A_STOP) stop_splashd();
+		if (action & A_START) start_splashd();
 		goto CLEAR;
 	}
 #endif

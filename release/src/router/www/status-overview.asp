@@ -109,12 +109,22 @@ function show()
 	c('uptime', stats.uptime);
 	c('time', stats.time);
 	c('wanip', stats.wanip);
+	c('wanprebuf',stats.wanprebuf); //Victek
 	c('wannetmask', stats.wannetmask);
 	c('wangateway', stats.wangateway);
 	c('dns', stats.dns);
 	c('memory', stats.memory);
 	c('swap', stats.swap);
 	elem.display('swap', stats.swap != '');
+
+/* IPV6-BEGIN */
+	c('ip6_wan', stats.ip6_wan);
+	elem.display('ip6_wan', stats.ip6_wan != '');
+	c('ip6_lan', stats.ip6_lan);
+	elem.display('ip6_lan', stats.ip6_lan != '');
+	c('ip6_lan_ll', stats.ip6_lan_ll);
+	elem.display('ip6_lan_ll', stats.ip6_lan_ll != '');
+/* IPV6-END */
 
 	c('wanstatus', stats.wanstatus);
 	c('wanuptime', stats.wanuptime);
@@ -186,12 +196,15 @@ function init()
 createFieldTable('', [
 	{ title: 'Name', text: nvram.router_name },
 	{ title: 'Model', text: nvram.t_model_name },
+	{ title: 'Chipset', text: stats.systemtype },
+	{ title: 'CPU Freq', text: stats.cpumhz },
+	{ title: 'Flash RAM Size', text: stats.flashsize },
 	null,
 	{ title: 'Time', rid: 'time', text: stats.time },
 	{ title: 'Uptime', rid: 'uptime', text: stats.uptime },
 	{ title: 'CPU Load <small>(1 / 5 / 15 mins)</small>', rid: 'cpu', text: stats.cpuload },
 	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory },
-	{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') }
+	{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') },
 ]);
 </script>
 </div>
@@ -203,8 +216,12 @@ createFieldTable('', [
 	{ title: 'MAC Address', text: nvram.wan_hwaddr },
 	{ title: 'Connection Type', text: { 'dhcp':'DHCP', 'static':'Static IP', 'pppoe':'PPPoE', 'pptp':'PPTP', 'l2tp':'L2TP' }[nvram.wan_proto] || '-' },
 	{ title: 'IP Address', rid: 'wanip', text: stats.wanip },
+	{ title: 'Previous WAN IP', rid: 'wanprebuf',text:stats.wanprebuf }, //Victek
 	{ title: 'Subnet Mask', rid: 'wannetmask', text: stats.wannetmask },
 	{ title: 'Gateway', rid: 'wangateway', text: stats.wangateway },
+/* IPV6-BEGIN */
+	{ title: 'IPv6 Address', rid: 'ip6_wan', text: stats.ip6_wan, hidden: (stats.ip6_wan == '') },
+/* IPV6-END */
 	{ title: 'DNS', rid: 'dns', text: stats.dns },
 	{ title: 'MTU', text: nvram.wan_run_mtu },
 	null,
@@ -251,6 +268,10 @@ createFieldTable('', [
 	{ title: 'Router MAC Address', text: nvram.et0macaddr },
 	{ title: 'Router IP Addresses', text: t },
 	{ title: 'Gateway', text: nvram.lan_gateway, ignore: nvram.wan_proto != 'disabled' },
+/* IPV6-BEGIN */
+	{ title: 'Router IPv6 Address', rid: 'ip6_lan', text: stats.ip6_lan, hidden: (stats.ip6_lan == '') },
+	{ title: 'IPv6 Link-local Address', rid: 'ip6_lan_ll', text: stats.ip6_lan_ll, hidden: (stats.ip6_lan_ll == '') },
+/* IPV6-END */
 	{ title: 'DNS', rid: 'dns', text: stats.dns, ignore: nvram.wan_proto != 'disabled' },
 	{ title: 'DHCP', text: s }
 ]);

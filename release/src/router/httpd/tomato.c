@@ -329,7 +329,8 @@ const struct mime_handler mime_handlers[] = {
 	{ "resolve.cgi",	mime_javascript,			0,	wi_generic,			wo_resolve,		1 },
 	{ "expct.cgi",		mime_html,					0,	wi_generic,			wo_expct,		1 },
 	{ "service.cgi",	NULL,						0,	wi_generic,			wo_service,		1 },
-//	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },	// see httpd.c
+//	{ "logout.cgi",		NULL,	   		 			0,	wi_generic,			wo_logout,		0 },
+// see httpd.c
 	{ "shutdown.cgi",	mime_html,					0,	wi_generic,			wo_shutdown,	1 },
 #ifdef TCONFIG_OPENVPN
 	{ "vpnstatus.cgi",	mime_javascript,			0,	wi_generic,			wo_vpn_status,		1 },
@@ -340,8 +341,11 @@ const struct mime_handler mime_handlers[] = {
 #ifdef BLACKHOLE
 	{ "blackhole.cgi",	NULL,						0,	wi_blackhole,		NULL,			1 },
 #endif
-//	{ "test",			mime_html,					0,	wi_generic,			wo_test,		1 },
-	{ NULL,				NULL,						0,	NULL,				NULL,			1 }
+#ifdef TCONFIG_NOCAT
+	{ "uploadsplash.cgi",		NULL,					0,	wi_uploadsplash,	wo_uploadsplash,	1 },
+	{ "ext/uploadsplash.cgi",	NULL,					0,	wi_uploadsplash,	wo_uploadsplash,	1 },
+#endif
+	{ NULL,				NULL,					0,	NULL,		NULL,			1 }
 };
 
 const aspapi_t aspapi[] = {
@@ -492,7 +496,7 @@ typedef struct {
 #define V_NUM				VT_RANGE,	{ .l = 0 },		{ .l = 0x7FFFFFFF }
 #define	V_TEMP				VT_TEMP,	{ }, 			{ }
 #ifdef TCONFIG_IPV6
-#define V_IPV6				VT_IPV6,	{ },			{ }
+#define V_IPV6(required)		VT_IPV6,	{ .i = required },	{ }
 #endif
 
 static const nvset_t nvset_list[] = {
@@ -512,10 +516,10 @@ static const nvset_t nvset_list[] = {
 	{ "ntp_kiss",			V_LENGTH(0, 255)	},
 
 // basic-static
-//	{ "bwm_client",			V_LENGTH(0, 2048)	},
-	{ "dhcpd_static",		V_LENGTH(0, 106*141)},	// 106 (max chars per entry) x 140 entries
-	{ "dhcpd_static_only",	V_01				},
-	{ "arpbind_static",		V_LENGTH(0, 34*141)},	// 34 (max chars per entry) x 140 entries
+	{ "bwm_client",			V_LENGTH(0, 4096)	},
+	{ "dhcpd_static",		V_LENGTH(0, 108*141)	},	// 106 (max chars per entry) x 140 entries
+	{ "dhcpd_static_only",		V_01			},
+	{ "arpbind_static",		V_LENGTH(0, 34*141)	},	// 34 (max chars per entry) x 140 entries
 
 // basic-ddns
 	{ "ddnsx0",				V_LENGTH(0, 2048)	},
@@ -536,7 +540,6 @@ static const nvset_t nvset_list[] = {
 	{ "l2tp_server_ip",		V_LENGTH(0, 128)		},
 	{ "pptp_server_ip",		V_LENGTH(0, 128)		},
 	{ "pptp_dhcp",			V_01				},
-	{ "ppp_defgw",			V_01				},
 	{ "ppp_username",		V_LENGTH(0, 60)		},
 	{ "ppp_passwd",			V_LENGTH(0, 60)		},
 	{ "ppp_service",		V_LENGTH(0, 50)		},
@@ -642,16 +645,17 @@ static const nvset_t nvset_list[] = {
 
 #ifdef TCONFIG_IPV6
 // basic-ipv6
-	{ "ipv6_service",		V_LENGTH(0, 16)			},	// '', native, native-pd, sit, other
-	{ "ipv6_prefix",		V_IPV6				},
+	{ "ipv6_service",		V_LENGTH(0, 16)			},	// '', native, native-pd, 6to4, sit, other
+	{ "ipv6_prefix",		V_IPV6(0)			},
 	{ "ipv6_prefix_length",		V_RANGE(3, 127)			},
-	{ "ipv6_rtr_addr",		V_LENGTH(0, 40)			},
+	{ "ipv6_rtr_addr",		V_IPV6(0)			},
 	{ "ipv6_radvd",			V_01				},
 	{ "ipv6_accept_ra",		V_NUM				},
-	{ "ipv6_tun_addr",		V_IPV6				},
+	{ "ipv6_tun_addr",		V_IPV6(1)			},
 	{ "ipv6_tun_addrlen",		V_RANGE(3, 127)			},
 	{ "ipv6_ifname",		V_LENGTH(0, 8)			},
 	{ "ipv6_tun_v4end",		V_IP				},
+	{ "ipv6_relay",			V_RANGE(1, 254)			},
 	{ "ipv6_tun_mtu",		V_NUM				},	// Tunnel MTU
 	{ "ipv6_tun_ttl",		V_NUM				},	// Tunnel TTL
 	{ "ipv6_dns",			V_LENGTH(0, 40*3)		},	// ip6 ip6 ip6
@@ -659,8 +663,8 @@ static const nvset_t nvset_list[] = {
 
 // basic-wfilter
 	{ "wl_macmode",			V_NONE				},	// allow, deny, disabled
-	{ "wl_maclist",			V_LENGTH(0, 18*201)	},	// 18 x 200		(11:22:33:44:55:66 ...)
-	{ "macnames",			V_LENGTH(0, 62*201)	},	// 62 (12+1+48+1) x 50	(112233445566<..>)		todo: re-use -- zzz
+	{ "wl_maclist",			V_LENGTH(0, 18*251)	},	// 18 x 250		(11:22:33:44:55:66 ...)
+	{ "macnames",			V_LENGTH(0, 62*251)	},	// 62 (12+1+48+1) x 50	(112233445566<..>)		todo: re-use -- zzz
 
 // advanced-ctnf
 	{ "ct_max",			V_NUM			},
@@ -713,6 +717,7 @@ static const nvset_t nvset_list[] = {
 // advanced-misc
 	{ "wait_time",			V_RANGE(3, 20)		},
 	{ "wan_speed",			V_RANGE(0, 4)		},
+	{ "clkfreq",                    V_NONE			},	// Toastman
 	{ "jumbo_frame_enable",		V_01			},	// Jumbo Frames support (for RT-N16/WNR3500L)
 	{ "jumbo_frame_size",		V_RANGE(1, 9720)	},
 #ifdef CONFIG_BCMWL5
@@ -811,7 +816,7 @@ static const nvset_t nvset_list[] = {
 	{ "wlx_hpamp",			V_01				},
 	{ "wlx_hperx",			V_01				},
 	{ "wl_reg_mode",		V_LENGTH(1, 3)			},	// !!TB - Regulatory: off, h, d
-	{ "wl_interfmode",		V_RANGE(0, 3)			},	// Interference Mitigation Mode (0|1|2|3)
+	{ "wl_mitigation",		V_RANGE(0, 3)			},	// Interference Mitigation Mode (0|1|2|3)
 
 	{ "wl_nmode_protection",	V_WORD,				},	// off, auto
 	{ "wl_nmcsidx",			V_RANGE(-2, 32),	},	// -2 - 32
@@ -853,8 +858,8 @@ static const nvset_t nvset_list[] = {
 
 
 // access restriction
-	{ "rruleN",				V_RANGE(0, 49)		},
-//	{ "rrule##",			V_LENGTH(0, 2048)	},	// in save_variables()
+	{ "rruleN",				V_RANGE(0, 99)		},
+//	{ "rrule##",			V_LENGTH(0, 16384)	},	// in save_variables()
 
 // admin-access
 	{ "http_enable",		V_01				},
@@ -868,7 +873,7 @@ static const nvset_t nvset_list[] = {
 	{ "https_lanport",		V_PORT				},
 	{ "web_wl_filter",		V_01				},
 	{ "web_css",			V_LENGTH(1, 32)		},
-	{ "web_mx",				V_LENGTH(0, 128)	},
+	{ "web_mx",			V_LENGTH(0, 128)	},
 	{ "http_wanport",		V_PORT				},
 	{ "telnetd_eas",		V_01				},
 	{ "telnetd_port",		V_PORT				},
@@ -942,6 +947,8 @@ static const nvset_t nvset_list[] = {
 	{ "log_remoteip",		V_LENGTH(0, 512)		},
 	{ "log_remoteport",		V_PORT				},
 	{ "log_file",			V_01				},
+	{ "log_file_custom",		V_01				},
+	{ "log_file_path",		V_TEXT(0, 4096)			},
 	{ "log_limit",			V_RANGE(0, 2400)	},
 	{ "log_in",				V_RANGE(0, 3)		},
 	{ "log_out",			V_RANGE(0, 3)		},
@@ -979,10 +986,13 @@ static const nvset_t nvset_list[] = {
 #ifdef TCONFIG_NTFS
 	{ "usb_fs_ntfs",		V_01				},
 #endif
+	{ "usb_fs_hfs",			V_01				}, //!Victek
+	{ "usb_fs_hfsplus",		V_01				}, //!Victek
 	{ "usb_automount",		V_01				},
 	{ "script_usbhotplug", 		V_TEXT(0, 2048)			},
 	{ "script_usbmount", 		V_TEXT(0, 2048)			},
 	{ "script_usbumount", 		V_TEXT(0, 2048)			},
+	{ "idle_enable",		V_01				},
 #endif
 
 // nas-ftp - !!TB
@@ -1041,8 +1051,9 @@ static const nvset_t nvset_list[] = {
 	{ "ms_sas",			V_01				},
 #endif
 
-//	qos
+// qos
 	{ "qos_enable",			V_01				},
+	{ "qos_pfifo",			V_01				},
 	{ "qos_ack",			V_01				},
 	{ "qos_syn",			V_01				},
 	{ "qos_fin",			V_01				},
@@ -1052,15 +1063,50 @@ static const nvset_t nvset_list[] = {
 	{ "qos_pfifo",			V_01				}, // !!TB
 	{ "qos_obw",			V_RANGE(10, 999999)	},
 	{ "qos_ibw",			V_RANGE(10, 999999)	},
-	{ "qos_orules",			V_LENGTH(0, 4096)	},
+	{ "qos_orules",			V_LENGTH(0, 8192)	},
 	{ "qos_default",		V_RANGE(0, 9)		},
 	{ "qos_irates",			V_LENGTH(0, 128)	},
 	{ "qos_orates",			V_LENGTH(0, 128)	},
+	{ "qos_classnames",		V_LENGTH(10, 128)		}, // !!TOASTMAN
 
 	{ "ne_vegas",			V_01				},
 	{ "ne_valpha",			V_NUM				},
 	{ "ne_vbeta",			V_NUM				},
 	{ "ne_vgamma",			V_NUM				},
+
+// qos-bw-limiter
+	{ "qosl_enable",        	 V_01                   },
+	{ "qosl_rules",          	  V_LENGTH(0, 4096)      },
+	{ "qosl_denable",                 V_01                   },					
+	{ "qosl_dulr",                    V_RANGE(0, 999999)     },
+	{ "qosl_dulc",                    V_RANGE(0, 999999)     },
+	{ "qosl_ddlr",                    V_RANGE(0, 999999)     },
+	{ "qosl_ddlc",                    V_RANGE(0, 999999)     },	
+	{ "qosl_dtcp",                    V_RANGE(0, 1000)       },
+	{ "qosl_dudp",                    V_RANGE(0, 100)        },
+	/*qosl_ibw unused - qos_ibw shared*/
+	/*qosl_obw unused - qos_obw shared*/
+
+//NoCatSplash. Victek.
+#ifdef TCONFIG_NOCAT
+	{ "NC_enable",			V_01				},
+	{ "NC_Verbosity",		V_RANGE(0, 10)			},
+        { "NC_GatewayName",		V_LENGTH(0, 255)		},
+	{ "NC_GatewayPort",		V_PORT				},
+        { "NC_ForcedRedirect",		V_01				},
+        { "NC_HomePage",		V_LENGTH(0, 255)		},
+        { "NC_DocumentRoot",		V_LENGTH(0, 255)		},
+        { "NC_SplashURL",		V_LENGTH(0, 255)		},
+        { "NC_LoginTimeout",		V_RANGE(0, 86400000)		},
+        { "NC_IdleTimeout",		V_RANGE(0, 86400000)		},
+	{ "NC_MaxMissedARP",		V_RANGE(0, 10)			},
+	{ "NC_PeerChecktimeout",	V_RANGE(0, 60)			},
+        { "NC_ExcludePorts",		V_LENGTH(0, 255)		},
+        { "NC_IncludePorts",		V_LENGTH(0, 255)		},
+        { "NC_AllowedWebHosts",		V_LENGTH(0, 255)		},
+        { "NC_MACWhiteList",		V_LENGTH(0, 255)		},
+	{ "NC_SplashFile",		V_LENGTH(0, 8192)		},
+#endif
 
 #ifdef TCONFIG_OPENVPN
 // vpn
@@ -1180,6 +1226,8 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client2_key",      V_NONE              },
 #endif // vpn
 
+
+
 /*
 ppp_static			0/1
 ppp_static_ip		IP
@@ -1257,7 +1305,9 @@ static int webcgi_nvram_set(const nvset_t *v, const char *name, int write)
 		break;
 #ifdef TCONFIG_IPV6
 	case VT_IPV6:
-		if (inet_pton(AF_INET6, p, &addr) != 1) ok = 0;
+		if (strlen(p) > 0 || v->va.i) {
+			if (inet_pton(AF_INET6, p, &addr) != 1) ok = 0;
+		}
 		break;
 #endif
 	default:
@@ -1352,7 +1402,7 @@ static int save_variables(int write)
 	for (n = 0; n < 50; ++n) {
 		sprintf(s, "rrule%d", n);
 		if ((p = webcgi_get(s)) != NULL) {
-	        	if (strlen(p) > 2048) {
+	        	if (strlen(p) > 8192) {				//Toastman
 				sprintf(s, msgf, s);
 				resmsg_set(s);
 				return 0;

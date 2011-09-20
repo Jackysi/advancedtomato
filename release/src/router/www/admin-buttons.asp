@@ -85,7 +85,7 @@ function earlyInit()
 <input type='hidden' name='sesx_led' value='0'>
 
 <div id='sesdiv' style='display:none'>
-<div class='section-title'>SES/AOSS Button</div>
+<div class='section-title'>SES/WPS/AOSS Button</div>
 <div class='section'>
 <script type='text/javascript'>
 a = [[0,'Do Nothing'],[1,'Toggle Wireless'],[2,'Reboot'],[3,'Shutdown'],

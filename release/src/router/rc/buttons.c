@@ -160,6 +160,15 @@ int buttons_main(int argc, char *argv[])
 		ses_mask = 1 << 0;
 		ses_led = LED_AOSS;
 		break;
+	case MODEL_F7D3301:
+	case MODEL_F7D3302:
+	case MODEL_F7D4301:
+	case MODEL_F7D4302:
+	case MODEL_F5D8235v3:
+		reset_mask = 1 << 6;
+		ses_mask = 1 << 8;
+		ses_led = LED_AOSS;
+		break;
 	case MODEL_WRT160Nv3:
 		reset_mask = 1 << 6;
 		ses_mask = 1 << 5;
@@ -173,6 +182,11 @@ int buttons_main(int argc, char *argv[])
 		reset_mask = 1 << 6;
 		ses_mask = 1 << 4;
 		ses_led = LED_AMBER;
+		break;
+	case MODEL_E4200:
+		reset_mask = 1 << 6;
+		ses_mask = 1 << 4;
+		ses_led = LED_WHITE;
 		break;
 #endif
 	case MODEL_WRT160Nv1:

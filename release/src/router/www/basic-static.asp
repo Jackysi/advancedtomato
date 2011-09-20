@@ -15,7 +15,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Basic: Static DHCP/ARP</title>
+<title>[<% ident(); %>] Basic: Static DHCP/ARP &amp; Bandwidth Monitoring of LAN Clients</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
@@ -360,7 +360,7 @@ function verifyFields(focused, quiet) {
 <input type='hidden' name='dhcpd_static_only'>
 <input type='hidden' name='cstats_include'>
 
-<div class='section-title'>Static DHCP/ARP</div>
+<div class='section-title'>Static DHCP/ARP &amp; Bandwidth Monitoring of LAN Clients</div>
 <div class='section'>
 	<table class='tomato-grid' id='bs-grid'></table>
 </div>

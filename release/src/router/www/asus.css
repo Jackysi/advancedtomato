@@ -1,0 +1,51 @@
+a {
+color: #004584;
+}
+a:hover {
+background: #007B00;
+color: #fff;
+}
+input[type='button']:hover {
+background: #007B00;
+color: #fff;
+}
+#header {
+	background: #404040;
+	padding: 0px 0px 0px 0px;
+	border-bottom: 0px dotted #ddd;
+}
+#header .title {
+	background-image: url("asus.png");
+	font: 0px sans-serif;
+	height: 153px;
+	width: 898px;
+}
+#header .version {
+	font: 16px sans-serif;
+	font-weight: bold;
+	margin-top: -20px;
+	padding-right: 5px;
+	text-align: right;
+}
+#navi a {
+color: #004584;
+}
+#navi a:hover {
+background: #007B00;
+color: #fff;
+}
+#tabs a.active {
+background: #003D73;
+color: #fff;
+}
+#tabs a:hover {
+background: #007B00;
+color: #fff;
+}
+.tomato-grid .odd:hover,
+.tomato-grid .even:hover {
+background: #C4E2FF;
+}
+.tomato-grid a {
+color: #004584;
+}

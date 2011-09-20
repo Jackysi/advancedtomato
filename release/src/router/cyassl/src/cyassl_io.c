@@ -1,6 +1,6 @@
 /* cyassl_io.c
  *
- * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -28,7 +28,7 @@
 #include "cyassl_int.h"
 
 /* if user writes own I/O callbacks they can define CYASSL_USER_IO to remove
-   automatic setting of defualt I/O functions EmbedSend() and EmbedReceive()
+   automatic setting of default I/O functions EmbedSend() and EmbedReceive()
    but they'll still nedd SetCallback xxx() at end of file 
 */
 #ifndef CYASSL_USER_IO

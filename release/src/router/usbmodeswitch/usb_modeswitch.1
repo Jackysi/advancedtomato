@@ -3,7 +3,7 @@
 usb_modeswitch - switch mode of "multi-state" USB devices 
 .SH "SYNOPSIS" 
 .PP 
-\fBusb_modeswitch\fR [\fB-hvpVPmM23rdHn\fP]  [\fB-c \fIfilename\fP]
+\fBusb_modeswitch\fR [\fB\-hvpVPmM23rdHn\fP]  [\fB\-c \fIfilename\fP]
 .SH "DESCRIPTION" 
 .PP 
 Several new USB devices have their proprietary Windows drivers onboard,
@@ -43,7 +43,7 @@ respective model (product ID) chosen by the vendor
 Product ID to look for (mandatory). 
 .IP "\fB-V\fP \fB\-\-target-vendor NUM\fP         " 10 
 Target vendor ID. When given will be searched for and detected initially
-for information purposes. If success checking (option -s) is active, 
+for information purposes. If success checking (option \-s) is active,
 providing target IDs (vendor/product) or target class is recommended
 .IP "\fB-P\fP \fB\-\-target-product NUM\fP         " 10 
 Target product ID 
@@ -74,7 +74,7 @@ are disappearing right away. When sending multiple mass storage commands
 with \fB\-2\fR and \fB\-3\fR, this may need to be set to avoid transfer errors
 .IP "\fB-r\fP \fB\-\-response-endpoint NUM\fP         " 10 
 Try to read the response to a storage command from there
-if option -n is active. Only for testing purposes; usually
+if option \-n is active. Only for testing purposes; usually
 endpoints are determined from the device attributes
 .IP "\fB-d\fP \fB\-\-detach-only\fP         " 10
 Detach the storage driver as the only action. This is sufficient for some
@@ -88,7 +88,7 @@ Send a special control message used by GCT chipsets
 .IP "\fB-T\fP \fB\-\-kobil-mode\fP         " 10 
 Send a special control message used by Kobil devices 
 .IP "\fB-O\fP \fB\-\-sony-mode\fP         " 10 
-Apply a special sequence used by Sony Ericsson devices. Implies option -s 
+Apply a special sequence used by Sony Ericsson devices. Implies option \-s
 .IP "\fB-R\fP \fB\-\-reset-usb\fP         " 10 
 Send a USB reset command to the device. Can be combined with any switching
 method or stand alone. It is always done as the last step of all device

@@ -1,6 +1,6 @@
 /* tfm.h
  *
- * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -347,7 +347,7 @@ typedef struct {
 void fp_set(fp_int *a, fp_digit b);
 
 /* copy from a to b */
-#define fp_copy(a, b)  (void)(((a) != (b)) && XMEMCPY((b), (a), sizeof(fp_int)))
+#define fp_copy(a, b)  (void)(((a) != (b)) ? (XMEMCPY((b), (a), sizeof(fp_int))) : (void)0)
 #define fp_init_copy(a, b) fp_copy(b, a)
 
 /* clamp digits */
@@ -634,11 +634,27 @@ int  mp_unsigned_bin_size(mp_int * a);
 int  mp_read_unsigned_bin (mp_int * a, const unsigned char *b, int c);
 int  mp_to_unsigned_bin (mp_int * a, unsigned char *b);
 
+#ifdef HAVE_ECC
+    int mp_sqrmod(mp_int* a, mp_int* b, mp_int* c);
+    int mp_montgomery_calc_normalization(mp_int *a, mp_int *b);
+    int mp_read_radix(mp_int* a, const char* str, int radix);
+    int mp_iszero(mp_int* a);
+    int mp_set(fp_int *a, fp_digit b);
+    int mp_sqr(fp_int *A, fp_int *B);
+    int mp_montgomery_reduce(fp_int *a, fp_int *m, fp_digit mp);
+    int mp_montgomery_setup(fp_int *a, fp_digit *rho);
+    int mp_isodd(mp_int* a);
+    int mp_div_2(fp_int * a, fp_int * b);
+#endif
+
+#if defined(HAVE_ECC) || defined(CYASSL_KEY_GEN)
+    int  mp_copy(fp_int* a, fp_int* b);
+#endif
+
 #ifdef CYASSL_KEY_GEN
 int  mp_set_int(fp_int *a, fp_digit b);
 int  mp_gcd(fp_int *a, fp_int *b, fp_int *c);
 int  mp_lcm(fp_int *a, fp_int *b, fp_int *c);
-int  mp_copy(fp_int* a, fp_int* b);
 int  mp_sub_d(fp_int *a, fp_digit b, fp_int *c);
 int  mp_prime_is_prime(mp_int* a, int t, int* result);
 #endif /* CYASSL_KEY_GEN */

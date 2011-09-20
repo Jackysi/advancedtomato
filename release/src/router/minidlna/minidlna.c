@@ -194,23 +194,25 @@ parselanaddr(struct lan_addr_s * lan_addr, const char * str)
 	lan_addr->str[n] = '\0';
 	if(!inet_aton(lan_addr->str, &lan_addr->addr))
 	{
-		DPRINTF(E_OFF, L_GENERAL, "Error parsing address/mask: %s\n", str);
+		DPRINTF(E_OFF, L_GENERAL, "Error parsing address: %s\n", str);
 		return -1;
 	}
 	lan_addr->mask.s_addr = htonl(nbits ? (0xffffffff << (32 - nbits)) : 0);
 	return 0;
 }
 
-void
+static void
 getfriendlyname(char * buf, int len)
 {
 	char * dot = NULL;
 	char * hn = calloc(1, 256);
+	int off;
+
 	if( gethostname(hn, 256) == 0 )
 	{
 		strncpy(buf, hn, len-1);
 		buf[len] = '\0';
-		dot = index(buf, '.');
+		dot = strchr(buf, '.');
 		if( dot )
 			*dot = '\0';
 	}
@@ -219,13 +221,75 @@ getfriendlyname(char * buf, int len)
 		strcpy(buf, "Unknown");
 	}
 	free(hn);
-	strcat(buf, ": ");
-	#ifdef READYNAS
-	strncat(buf, "ReadyNAS", len-strlen(buf)-1);
-	#else
+
+	off = strlen(buf);
+	off += snprintf(buf+off, len-off, ": ");
+#ifdef READYNAS
+	FILE * info;
+	char ibuf[64], *key, *val;
+	snprintf(buf+off, len-off, "ReadyNAS");
+	info = fopen("/proc/sys/dev/boot/info", "r");
+	if( !info )
+		return;
+	while( (val = fgets(ibuf, 64, info)) != NULL )
+	{
+		key = strsep(&val, ": \t");
+		val = trim(val);
+		if( strcmp(key, "model") == 0 )
+		{
+			snprintf(buf+off, len-off, "%s", val);
+			key = strchr(val, ' ');
+			if( key )
+			{
+				strncpy(modelnumber, key+1, MODELNUMBER_MAX_LEN);
+				modelnumber[MODELNUMBER_MAX_LEN-1] = '\0';
+				*key = '\0';
+			}
+			snprintf(modelname, MODELNAME_MAX_LEN,
+				"Windows Media Connect compatible (%s)", val);
+		}
+		else if( strcmp(key, "serial") == 0 )
+		{
+			strncpy(serialnumber, val, SERIALNUMBER_MAX_LEN);
+			serialnumber[SERIALNUMBER_MAX_LEN-1] = '\0';
+			if( serialnumber[0] == '\0' )
+			{
+				char mac_str[13];
+				if( getsyshwaddr(mac_str, sizeof(mac_str)) == 0 )
+					strcpy(serialnumber, mac_str);
+				else
+					strcpy(serialnumber, "0");
+			}
+			break;
+		}
+	}
+	fclose(info);
+	memcpy(pnpx_hwid+4, "01F2", 4);
+	if( strcmp(modelnumber, "NVX") == 0 )
+		memcpy(pnpx_hwid+17, "0101", 4);
+	else if( strcmp(modelnumber, "Pro") == 0 ||
+	         strcmp(modelnumber, "Pro 6") == 0 ||
+	         strncmp(modelnumber, "Ultra 6", 7) == 0 )
+		memcpy(pnpx_hwid+17, "0102", 4);
+	else if( strcmp(modelnumber, "Pro 2") == 0 ||
+	         strncmp(modelnumber, "Ultra 2", 7) == 0 )
+		memcpy(pnpx_hwid+17, "0103", 4);
+	else if( strcmp(modelnumber, "Pro 4") == 0 ||
+	         strncmp(modelnumber, "Ultra 4", 7) == 0 )
+		memcpy(pnpx_hwid+17, "0104", 4);
+	else if( strcmp(modelnumber+1, "100") == 0 )
+		memcpy(pnpx_hwid+17, "0105", 4);
+	else if( strcmp(modelnumber+1, "200") == 0 )
+		memcpy(pnpx_hwid+17, "0106", 4);
+	/* 0107 = Stora */
+	else if( strcmp(modelnumber, "Duo v2") == 0 )
+		memcpy(pnpx_hwid+17, "0108", 4);
+	else if( strcmp(modelnumber, "NV+ v2") == 0 )
+		memcpy(pnpx_hwid+17, "0109", 4);
+#else
 	char * logname;
 	logname = getenv("LOGNAME");
-#if 1 // Disable for static linking
+#ifndef STATIC // Disable for static linking
 	if( !logname )
 	{
 		struct passwd * pwent;
@@ -234,11 +298,11 @@ getfriendlyname(char * buf, int len)
 			logname = pwent->pw_name;
 	}
 #endif
-	strncat(buf, logname?logname:"Unknown", len-strlen(buf)-1);
-	#endif
+	snprintf(buf+off, len-off, "%s", logname?logname:"Unknown");
+#endif
 }
 
-int
+static int
 open_db(void)
 {
 	char path[PATH_MAX];
@@ -289,7 +353,7 @@ init(int argc, char * * argv)
 	enum media_types type;
 	char * path;
 	char real_path[PATH_MAX];
-	char ext_ip_addr[INET_ADDRSTRLEN] = {'\0'};
+	char ip_addr[INET_ADDRSTRLEN + 3] = {'\0'};
 
 	/* first check if "-f" option is used */
 	for(i=2; i<argc; i++)
@@ -315,6 +379,7 @@ init(int argc, char * * argv)
 	
 	runtime_vars.port = -1;
 	runtime_vars.notify_interval = 895;	/* seconds between SSDP announces */
+	runtime_vars.root_container = NULL;
 
 	/* read options file first since
 	 * command line arguments have final say */
@@ -331,13 +396,25 @@ init(int argc, char * * argv)
 			switch(ary_options[i].id)
 			{
 			case UPNPIFNAME:
-				if(getifaddr(ary_options[i].value, ext_ip_addr, INET_ADDRSTRLEN) >= 0)
+				for( string = ary_options[i].value; (word = strtok(string, ",")); string = NULL )
 				{
-					if( *ext_ip_addr && parselanaddr(&lan_addr[n_lan_addr], ext_ip_addr) == 0 )
-						n_lan_addr++;
+					if(n_lan_addr < MAX_LAN_ADDR)
+					{
+						if(getifaddr(word, ip_addr, sizeof(ip_addr)) >= 0)
+						{
+							if( *ip_addr && parselanaddr(&lan_addr[n_lan_addr], ip_addr) == 0 )
+								if(n_lan_addr < MAX_LAN_ADDR)
+									n_lan_addr++;
+						}
+						else
+							fprintf(stderr, "Interface %s not found, ignoring.\n", word);
+					}
+					else
+					{
+						fprintf(stderr, "Too many listening ips (max: %d), ignoring %s\n",
+				    		    MAX_LAN_ADDR, word);
+					}
 				}
-				else
-					fprintf(stderr, "Interface %s not found, ignoring.\n", ary_options[i].value);
 				break;
 			case UPNPLISTENING_IP:
 				if(n_lan_addr < MAX_LAN_ADDR)
@@ -365,6 +442,10 @@ init(int argc, char * * argv)
 				strncpy(serialnumber, ary_options[i].value, SERIALNUMBER_MAX_LEN);
 				serialnumber[SERIALNUMBER_MAX_LEN-1] = '\0';
 				break;				
+			case UPNPMODEL_NAME:
+				strncpy(modelname, ary_options[i].value, MODELNAME_MAX_LEN);
+				modelname[MODELNAME_MAX_LEN-1] = '\0';
+				break;
 			case UPNPMODEL_NUMBER:
 				strncpy(modelnumber, ary_options[i].value, MODELNUMBER_MAX_LEN);
 				modelnumber[MODELNUMBER_MAX_LEN-1] = '\0';
@@ -423,7 +504,8 @@ init(int argc, char * * argv)
 				}
 				break;
 			case UPNPALBUMART_NAMES:
-				for( string = ary_options[i].value; (word = strtok(string, "/")); string = NULL ) {
+				for( string = ary_options[i].value; (word = strtok(string, "/")); string = NULL )
+				{
 					struct album_art_name_s * this_name = calloc(1, sizeof(struct album_art_name_s));
 					int len = strlen(word);
 					if( word[len-1] == '*' )
@@ -481,12 +563,49 @@ init(int argc, char * * argv)
 				if( (strcmp(ary_options[i].value, "yes") == 0) || atoi(ary_options[i].value) )
 					SETFLAG(DLNA_STRICT_MASK);
 				break;
+			case ROOT_CONTAINER:
+				switch( ary_options[i].value[0] )
+				{
+				case '.':
+					runtime_vars.root_container = NULL;
+					break;
+				case 'B':
+				case 'b':
+					runtime_vars.root_container = BROWSEDIR_ID;
+					break;
+				case 'M':
+				case 'm':
+					runtime_vars.root_container = MUSIC_ID;
+					break;
+				case 'V':
+				case 'v':
+					runtime_vars.root_container = VIDEO_ID;
+					break;
+				case 'P':
+				case 'p':
+					runtime_vars.root_container = IMAGE_ID;
+					break;
+				default:
+					fprintf(stderr, "Invalid root container! [%s]\n",
+						ary_options[i].value);
+					break;
+				}
+				break;
 			default:
 				fprintf(stderr, "Unknown option in file %s\n",
 				        optionsfile);
 			}
 		}
 	}
+	if( log_path[0] == '\0' )
+	{
+		if( db_path[0] == '\0' )
+			strncpy(log_path, DEFAULT_LOG_PATH, PATH_MAX);
+		else
+			strncpy(log_path, db_path, PATH_MAX);
+	}
+	if( db_path[0] == '\0' )
+		strncpy(db_path, DEFAULT_DB_PATH, PATH_MAX);
 
 	/* command line arguments processing */
 	for(i=1; i<argc; i++)
@@ -581,7 +700,7 @@ init(int argc, char * * argv)
 				int address_already_there = 0;
 				int j;
 				i++;
-				if( getifaddr(argv[i], ext_ip_addr, INET_ADDRSTRLEN) < 0 )
+				if( getifaddr(argv[i], ip_addr, sizeof(ip_addr)) < 0 )
 				{
 					fprintf(stderr, "Network interface '%s' not found.\n",
 						argv[i]);
@@ -590,7 +709,7 @@ init(int argc, char * * argv)
 				for(j=0; j<n_lan_addr; j++)
 				{
 					struct lan_addr_s tmpaddr;
-					parselanaddr(&tmpaddr, ext_ip_addr);
+					parselanaddr(&tmpaddr, ip_addr);
 					if(0 == strcmp(lan_addr[j].str, tmpaddr.str))
 						address_already_there = 1;
 				}
@@ -598,7 +717,7 @@ init(int argc, char * * argv)
 					break;
 				if(n_lan_addr < MAX_LAN_ADDR)
 				{
-					if(parselanaddr(&lan_addr[n_lan_addr], ext_ip_addr) == 0)
+					if(parselanaddr(&lan_addr[n_lan_addr], ip_addr) == 0)
 						n_lan_addr++;
 				}
 				else
@@ -617,7 +736,7 @@ init(int argc, char * * argv)
 			runtime_vars.port = -1; // triggers help display
 			break;
 		case 'R':
-			snprintf(real_path, sizeof(real_path), "rm -rf %s/*", db_path);
+			snprintf(real_path, sizeof(real_path), "rm -rf %s/files.db %s/art_cache", db_path, db_path);
 			system(real_path);
 			break;
 		case 'V':
@@ -631,13 +750,13 @@ init(int argc, char * * argv)
 	/* If no IP was specified, try to detect one */
 	if( n_lan_addr < 1 )
 	{
-		if( (getsysaddr(ext_ip_addr, INET_ADDRSTRLEN) < 0) &&
-		    (getifaddr("eth0", ext_ip_addr, INET_ADDRSTRLEN) < 0) &&
-		    (getifaddr("eth1", ext_ip_addr, INET_ADDRSTRLEN) < 0) )
+		if( (getsysaddr(ip_addr, sizeof(ip_addr)) < 0) &&
+		    (getifaddr("eth0", ip_addr, sizeof(ip_addr)) < 0) &&
+		    (getifaddr("eth1", ip_addr, sizeof(ip_addr)) < 0) )
 		{
 			DPRINTF(E_OFF, L_GENERAL, "No IP address automatically detected!\n");
 		}
-		if( *ext_ip_addr && parselanaddr(&lan_addr[n_lan_addr], ext_ip_addr) == 0 )
+		if( *ip_addr && parselanaddr(&lan_addr[n_lan_addr], ip_addr) == 0 )
 		{
 			n_lan_addr++;
 		}
@@ -709,7 +828,7 @@ init(int argc, char * * argv)
 		         "http://%s/admin/", lan_addr[0].str);
 #else
 		snprintf(presentationurl, PRESENTATIONURL_MAX_LEN,
-		         "http://%s/", lan_addr[0].str);
+		         "http://%s:%d/", lan_addr[0].str);
 #endif
 	}
 
@@ -748,7 +867,8 @@ main(int argc, char * * argv)
 	struct upnphttp * next;
 	fd_set readset;	/* for select() */
 	fd_set writeset;
-	struct timeval timeout, timeofday, lastnotifytime = {0, 0}, lastupdatetime = {0, 0};
+	struct timeval timeout, timeofday, lastnotifytime = {0, 0};
+	time_t lastupdatetime = 0;
 	int max_fd = -1;
 	int last_changecnt = 0;
 	short int new_db = 0;
@@ -766,6 +886,7 @@ main(int argc, char * * argv)
 #ifdef ENABLE_NLS
 	setlocale(LC_MESSAGES, "");
 	setlocale(LC_CTYPE, "en_US.utf8");
+	DPRINTF(E_DEBUG, L_GENERAL, "Using locale dir %s\n", bindtextdomain("minidlna", getenv("TEXTDOMAINDIR")));
 	textdomain("minidlna");
 #endif
 
@@ -773,10 +894,10 @@ main(int argc, char * * argv)
 		return 1;
 
 #ifdef READYNAS
-	DPRINTF(E_WARN, L_GENERAL, "Starting ReadyDLNA version " MINIDLNA_VERSION ".\n");
+	DPRINTF(E_WARN, L_GENERAL, "Starting " SERVER_NAME " version " MINIDLNA_VERSION ".\n");
 	unlink("/ramfs/.upnp-av_scan");
 #else
-	DPRINTF(E_WARN, L_GENERAL, "Starting MiniDLNA version " MINIDLNA_VERSION " [SQLite %s].\n", sqlite3_libversion());
+	DPRINTF(E_WARN, L_GENERAL, "Starting " SERVER_NAME " version " MINIDLNA_VERSION " [SQLite %s].\n", sqlite3_libversion());
 	unlink("/var/notice/dlna");
 	if( !sqlite3_threadsafe() )
 	{
@@ -980,7 +1101,10 @@ main(int argc, char * * argv)
 		if( scanning )
 		{
 			if( !scanner_pid || kill(scanner_pid, 0) )
+			{
 				scanning = 0;
+				updateID++;
+			}
 		}
 
 		/* select open sockets (SSDP, HTTP listen, and all HTTP soap sockets) */
@@ -989,33 +1113,38 @@ main(int argc, char * * argv)
 		if (sudp >= 0) 
 		{
 			FD_SET(sudp, &readset);
-			max_fd = MAX( max_fd, sudp);
+			max_fd = MAX(max_fd, sudp);
 		}
 		
 		if (shttpl >= 0) 
 		{
 			FD_SET(shttpl, &readset);
-			max_fd = MAX( max_fd, shttpl);
+			max_fd = MAX(max_fd, shttpl);
 		}
-
+#ifdef TIVO_SUPPORT
+		if (sbeacon >= 0) 
+		{
+			FD_SET(sbeacon, &readset);
+			max_fd = MAX(max_fd, sbeacon);
+		}
+#endif
 		i = 0;	/* active HTTP connections count */
 		for(e = upnphttphead.lh_first; e != NULL; e = e->entries.le_next)
 		{
 			if((e->socket >= 0) && (e->state <= 2))
 			{
 				FD_SET(e->socket, &readset);
-				max_fd = MAX( max_fd, e->socket);
+				max_fd = MAX(max_fd, e->socket);
 				i++;
 			}
 		}
-		/* for debug */
 #ifdef DEBUG
+		/* for debug */
 		if(i > 1)
 		{
 			DPRINTF(E_DEBUG, L_GENERAL, "%d active incoming HTTP connections\n", i);
 		}
 #endif
-
 		FD_ZERO(&writeset);
 		upnpevents_selectfds(&readset, &writeset, &max_fd);
 
@@ -1032,16 +1161,23 @@ main(int argc, char * * argv)
 			/*DPRINTF(E_DEBUG, L_GENERAL, "Received UDP Packet\n");*/
 			ProcessSSDPRequest(sudp, (unsigned short)runtime_vars.port);
 		}
+#ifdef TIVO_SUPPORT
+		if(sbeacon >= 0 && FD_ISSET(sbeacon, &readset))
+		{
+			/*DPRINTF(E_DEBUG, L_GENERAL, "Received UDP Packet\n");*/
+			ProcessTiVoBeacon(sbeacon);
+		}
+#endif
 		/* increment SystemUpdateID if the content database has changed,
 		 * and if there is an active HTTP connection, at most once every 2 seconds */
-		if( i && (time(NULL) >= (lastupdatetime.tv_sec + 2)) )
+		if( i && (timeofday.tv_sec >= (lastupdatetime + 2)) )
 		{
-			if( sqlite3_total_changes(db) != last_changecnt )
+			if( scanning || sqlite3_total_changes(db) != last_changecnt )
 			{
 				updateID++;
 				last_changecnt = sqlite3_total_changes(db);
 				upnp_event_var_change_notify(EContentDirectory);
-				memcpy(&lastupdatetime, &timeofday, sizeof(struct timeval));
+				lastupdatetime = timeofday.tv_sec;
 			}
 		}
 		/* process active HTTP connections */
@@ -1072,7 +1208,7 @@ main(int argc, char * * argv)
 					inet_ntoa(clientname.sin_addr),
 					ntohs(clientname.sin_port) );
 				/*if (fcntl(shttp, F_SETFL, O_NONBLOCK) < 0) {
-					DPRINTF(E_ERROR, L_GENERAL, "fcntl F_SETFL, O_NONBLOCK");
+					DPRINTF(E_ERROR, L_GENERAL, "fcntl F_SETFL, O_NONBLOCK\n");
 				}*/
 				/* Create a new upnphttp object and add it to
 				 * the active upnphttp object list */

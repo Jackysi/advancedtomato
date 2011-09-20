@@ -151,6 +151,12 @@ function addWF(n)
 	location.href = 'basic-wfilter.asp';
 }
 
+function addqoslimit(n)
+{
+	var e = list[n];
+	cookie.set('addqoslimit', [e.ip, e.name.split(',')[0]].join(','), 1);
+	location.href = 'qos-qoslimit.asp';
+}
 
 var ref = new TomatoRefresh('update.cgi', 'exec=devlist', 0, 'status_devices_refresh');
 
@@ -276,7 +282,8 @@ dg.populate = function()
 		if (e.mac.match(/^(..):(..):(..)/)) {
 			b += '<br><small>' +
 				'<a href="http://standards.ieee.org/cgi-bin/ouisearch?' + RegExp.$1 + '-' + RegExp.$2 + '-' + RegExp.$3 + '" target="_new" title="OUI Search">[oui]</a> ' +
-				'<a href="javascript:addStatic(' + i + ')" title="Static Lease...">[static]</a>';
+				'<a href="javascript:addStatic(' + i + ')" title="Static Lease...">[static]</a>' +
+				'<a href="javascript:addqoslimit(' + i + ')" title="QoS BW Limiter">[qoslimit]</a>';
 
 			if (e.rssi != '') {
 				b += ' <a href="javascript:addWF(' + i + ')" title="Wireless Filter...">[wfilter]</a>';

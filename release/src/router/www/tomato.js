@@ -407,9 +407,13 @@ function v_mins(e, quiet, min, max)
 	return 0;
 }
 
-function v_macip(e, quiet, bok, ipp)
+function v_macip(e, quiet, bok, lan_ipaddr, lan_netmask)
 {
 	var s, a, b, c, d, i;
+	var ipp, temp;
+
+	temp = lan_ipaddr.split('.');
+	ipp = temp[0]+'.'+temp[1]+'.'+temp[2]+'.';
 
 	if ((e = E(e)) == null) return 0;
 	s = e.value.replace(/\s+/g, '');
@@ -424,41 +428,51 @@ function v_macip(e, quiet, bok, ipp)
 				return false;
 			}
 		}
-        else e.value = a;
+		else e.value = a;
 		ferror.clear(e);
 		return true;
 	}
 
 	a = s.split('-');
+    
 	if (a.length > 2) {
 		ferror.set(e, 'Invalid IP address range', quiet);
 		return false;
 	}
-	c = 0;
+	
+	if (a[0].match(/^\d+$/)){
+		a[0]=ipp+a[0];
+		if ((a.length == 2) && (a[1].match(/^\d+$/)))
+			a[1]=ipp+a[1];
+	}
+	else{
+		if ((a.length == 2) && (a[1].match(/^\d+$/))){
+			temp=a[0].split('.');
+			a[1]=temp[0]+'.'+temp[1]+'.'+temp[2]+'.'+a[1];
+		}
+	}
 	for (i = 0; i < a.length; ++i) {
-		b = a[i];
-		if (b.match(/^\d+$/)) b = ipp + b;
-
+		b = a[i];    
 		b = fixIP(b);
 		if (!b) {
 			ferror.set(e, 'Invalid IP address', quiet);
 			return false;
 		}
 
-		if (b.indexOf(ipp) != 0) {
+		if ((aton(b) & aton(lan_netmask))!=(aton(lan_ipaddr) & aton(lan_netmask))) {
 			ferror.set(e, 'IP address outside of LAN', quiet);
 			return false;
 		}
 
 		d = (b.split('.'))[3];
-		if (d <= c) {
+		if (parseInt(d) <= parseInt(c)) {
 			ferror.set(e, 'Invalid IP address range', quiet);
 			return false;
 		}
 
 		a[i] = c = d;
 	}
-	e.value = ipp + a.join('-');
+	e.value = b.split('.')[0] + '.' + b.split('.')[1] + '.' + b.split('.')[2] + '.' + a.join('-');
 	return true;
 }
 
@@ -567,7 +581,7 @@ function _v_iptip(e, ip, quiet)
 		a = fixIP(RegExp.$1);
 		b = fixIP(RegExp.$2);
 		if ((a == null) || (b == null)) {
-			ferror.set(e, 'Invalid IP address range - ' + oip, quiet);
+			ferror.set(e, oip + ' - invalid IP address range', quiet);
 			return null;
 		}
 		ferror.clear(e);
@@ -588,13 +602,13 @@ function _v_iptip(e, ip, quiet)
 		if (isNaN(ma)) {
 			ma = fixIP(b);
 			if ((ma == null) || (!_v_netmask(ma))) {
-				ferror.set(e, 'Invalid netmask - ' + oip, quiet);
+				ferror.set(e, oip + ' - invalid netmask', quiet);
 				return null;
 			}
 		}
 		else {
 			if ((ma < 0) || (ma > 32)) {
-				ferror.set(e, 'Invalid netmask - ' + oip, quiet);
+				ferror.set(e, oip + ' - invalid netmask', quiet);
 				return null;
 			}
 		}
@@ -602,7 +616,7 @@ function _v_iptip(e, ip, quiet)
 
 	ip = fixIP(ip);
 	if (!ip) {
-		ferror.set(e, 'Invalid IP address - ' + oip, quiet);
+		ferror.set(e, oip + ' - invalid IP address', quiet);
 		return null;
 	}
 
@@ -641,9 +655,9 @@ function _v_domain(e, dom, quiet)
 
 	s = dom.replace(/\s+/g, ' ').trim();
 	if (s.length > 0) {
-		if ((s.search(/^[a-zA-Z0-9][.a-zA-Z0-9_\- ]+$/) == -1) ||
-		    (s.search(/\-$/) >= 0)) {
-			ferror.set(e, "Invalid name. Only characters \"A-Z 0-9 . - _\" are allowed.", quiet);
+		s = _v_hostname(e, s, 1, 1, 7, '.', true);
+		if (s == null) {
+			ferror.set(e, "Invalid name. Only characters \"A-Z 0-9 . -\" are allowed.", quiet);
 			return null;
 		}
 	}
@@ -707,12 +721,31 @@ function CompressIPv6Address(ip)
 	ip = ExpandIPv6Address(ip);
 	if (!ip) return null;
 	
-	if (ip.match(/(?:^00)|(?:^fe[8-9a-b])|(?:^ff)/)) return null; // not valid routable unicast address
+	// if (ip.match(/(?:^00)|(?:^fe[8-9a-b])|(?:^ff)/)) return null; // not valid routable unicast address
 
 	ip = ip.replace(/(^|:)0{1,3}/g, '$1');
 	ip = ip.replace(/(:0)+$/, '::');
-	ip = ip.replace(/(:0){2,}(:[a-f0-9]{1,4})$/, ':$2');
-	return ip;	
+	ip = ip.replace(/(?:(?:^|:)0){2,}(?!.*(?:::|(?::0){3,}))/, ':');
+	return ip;
+}
+
+function ZeroIPv6PrefixBits(ip, prefix_length)
+{
+	var b, c, m, n;
+	ip = ExpandIPv6Address(ip);
+	ip = ip.replace(/:/g,'');
+	n = Math.floor(prefix_length/4);
+	m = 32 - Math.ceil(prefix_length/4);
+	b = prefix_length % 4;
+	if (b != 0) 
+		c = (parseInt(ip.charAt(n), 16) & (0xf << 4-b)).toString(16);
+	else
+		c = '';
+	
+	ip = ip.substring(0, n) + c + Array((m%4)+1).join('0') + (m>=4 ? '::' : '');
+	ip = ip.replace(/([a-f0-9]{4})(?=[a-f0-9])/g,'$1:');
+	ip = ip.replace(/(^|:)0{1,3}/g, '$1');
+	return ip;
 }
 
 function ipv6ton(ip)
@@ -737,10 +770,12 @@ function _v_ipv6_addr(e, ip, ipt, quiet)
 
 	// ip range
 	if ((ipt) && ip.match(/^(.*)-(.*)$/)) {
-		a = CompressIPv6Address(RegExp.$1);
-		b = CompressIPv6Address(RegExp.$2);
+		a = RegExp.$1;
+		b = RegExp.$2;
+		a = CompressIPv6Address(a);
+		b = CompressIPv6Address(b);
 		if ((a == null) || (b == null)) {
-			ferror.set(e, 'Invalid IPv6 address range - ' + oip, quiet);
+			ferror.set(e, oip + ' - invalid IPv6 address range', quiet);
 			return null;
 		}
 		ferror.clear(e);
@@ -748,10 +783,28 @@ function _v_ipv6_addr(e, ip, ipt, quiet)
 		if (ipv6ton(a) > ipv6ton(b)) return b + '-' + a;
 		return a + '-' + b;
 	}
+	
+	if ((ipt) && ip.match(/^([A-Fa-f0-9:]+)\/(\d+)$/)) {
+		a = RegExp.$1;
+		b = parseInt(RegExp.$2, 10);
+		a = ExpandIPv6Address(a);
+		if ((a == null) || (b == null)) {
+			ferror.set(e, oip + ' - invalid IPv6 address', quiet);
+			return null;
+		}
+		if (b < 0 || b > 128) {
+			ferror.set(e, oip + ' - invalid CIDR notation on IPv6 address', quiet);
+			return null;
+		}
+		ferror.clear(e);
+
+		ip = ZeroIPv6PrefixBits(a, b);
+		return ip + '/' + b.toString(10);
+	}
 
 	ip = CompressIPv6Address(oip);
 	if (!ip) {
-		ferror.set(e, 'Invalid IPv6 address - ' + oip, quiet);
+		ferror.set(e, oip + ' - invalid IPv6 address', quiet);
 		return null;
 	}
 
@@ -1012,45 +1065,60 @@ function v_iptaddr(e, quiet, multi)
 	return _v_iptaddr(e, quiet, multi, 1, 0);
 }
 
-function v_hostname(e, quiet, multi, delim)
+function _v_hostname(e, h, quiet, required, multi, delim, cidr)
 {
 	var s;
 	var v, i;
+	var re;
 
-	if ((e = E(e)) == null) return 0;
-	v = (typeof(delim) == 'undefined') ? e.value.split(/\s+/) : e.value.split(delim);
+	v = (typeof(delim) == 'undefined') ? h.split(/\s+/) : h.split(delim);
 
 	if (multi) {
 		if (v.length > multi) {
 			ferror.set(e, 'Too many hostnames.', quiet);
-			return 0;
+			return null;
 		}
 	}
 	else {
 		if (v.length > 1) {
 			ferror.set(e, 'Invalid hostname.', quiet);
-			return 0;
+			return null;
 		}
 	}
 
+	re = /^[a-zA-Z0-9](([a-zA-Z0-9\-]{0,61})[a-zA-Z0-9]){0,1}$/;
+
 	for (i = 0; i < v.length; ++i) {
-		s = v[i].replace(/\s+/g, '_');
+		s = v[i].replace(/_+/g, '-').replace(/\s+/g, '-');
 		if (s.length > 0) {
-			if (s.length > 63) {
-				ferror.set(e, 'Hostname length should not exceed 63 characters.', quiet);
-				return 0;
+			if (cidr && i == v.length-1)
+				re = /^[a-zA-Z0-9](([a-zA-Z0-9\-]{0,61})[a-zA-Z0-9]){0,1}(\/\d{1,3})?$/;
+			if (s.search(re) == -1 || s.search(/^\d+$/) != -1) {
+				ferror.set(e, 'Invalid hostname. Only "A-Z 0-9" and "-" in the middle are allowed (up to 63 characters).', quiet);
+				return null;
 			}
-			if ((s.search(/^[a-zA-Z0-9][a-zA-Z0-9_\-]+$/) == -1) ||
-			    (s.search(/\-$/) >= 0)) {
-				ferror.set(e, 'Invalid hostname. Only characters "A-Z 0-9 _" and "-" in the middle are allowed.', quiet);
-				return 0;
-			}
+		} else if (required) {
+			ferror.set(e, 'Invalid hostname.', quiet);
+			return null;
 		}
 		v[i] = s;
 	}
-	e.value = v.join(' ');
 
 	ferror.clear(e);
+	return v.join((typeof(delim) == 'undefined') ? ' ' : delim);
+}
+
+function v_hostname(e, quiet, multi, delim)
+{
+	var v;
+
+	if ((e = E(e)) == null) return 0;
+
+	v = _v_hostname(e, e.value, quiet, 0, multi, delim, false);
+
+	if (v == null) return 0;
+
+	e.value = v;
 	return 1;
 }
 
@@ -1162,7 +1230,7 @@ TomatoGrid.prototype = {
 		this.editor = null;
 		this.canSort = options.indexOf('sort') != -1;
 		this.canMove = options.indexOf('move') != -1;
-		this.maxAdd = maxAdd || 140;
+		this.maxAdd = maxAdd || 500;
 		this.canEdit = (editorFields != null);
 		this.canDelete = this.canEdit || (options.indexOf('delete') != -1);
 		this.editorFields = editorFields;
@@ -2036,7 +2104,7 @@ TomatoRefresh.prototype = {
 function genStdTimeList(id, zero, min)
 {
 	var b = [];
-	var t = [3,4,5,10,15,30,60,120,180,240,300,10*60,15*60,20*60,30*60];
+	var t = [0.5,1,2,3,4,5,10,15,30,60,120,180,240,300,10*60,15*60,20*60,30*60];
 	var i, v;
 
 	if (min >= 0) {
@@ -2277,6 +2345,9 @@ function navi()
 		['Bandwidth', 			'bwm', 0, [
 			['Real-Time',		'realtime.asp'],
 			['Last 24 Hours',	'24.asp'],
+/* REMOVE-BEGIN
+			['Client Monitor',	'client.asp'],
+REMOVE-END */
 			['Daily',			'daily.asp'],
 			['Weekly',			'weekly.asp'],
 			['Monthly',			'monthly.asp'] ] ],
@@ -2301,7 +2372,7 @@ function navi()
 			['Identification',	'ident.asp'],
 			['Time',			'time.asp'],
 			['DDNS',			'ddns.asp'],
-			['Static DHCP/ARP',	'static.asp'],
+			['DHCP/ARP/BW',		'static.asp'],
 			['Wireless Filter',	'wfilter.asp'] ] ],
 		['Advanced', 			'advanced', 0, [
 			['Conntrack/Netfilter',	'ctnf.asp'],
@@ -2318,7 +2389,7 @@ function navi()
 /* IPV6-BEGIN */
 			['Basic IPv6',		'basic-ipv6.asp'],
 /* IPV6-END */
-			['DMZ',				'dmz.asp'],
+			['DMZ',			'dmz.asp'],
 			['Triggered',		'triggered.asp'],
 			['UPnP/NAT-PMP',	'upnp.asp'] ] ],
 		['QoS',					'qos', 0, [
@@ -2326,9 +2397,14 @@ function navi()
 			['Classification',	'classify.asp'],
 			['View Graphs',		'graphs.asp'],
 			['View Details',	'detailed.asp'],
-			['Transfer Rates',	'ctrate.asp']
-			] ],
-		['Access Restriction',	'restrict.asp'],
+			['Transfer Rates',	'ctrate.asp'],
+			['B/W Limiter',		'qoslimit.asp'] ] ],
+		['Access Restriction',		'restrict.asp'],
+
+/* NOCAT-BEGIN */
+		['Captive Portal',		'splashd.asp'],
+/* NOCAT-END */
+
 /* REMOVE-BEGIN
 		['Scripts',				'sc', 0, [
 			['Startup',			'startup.asp'],

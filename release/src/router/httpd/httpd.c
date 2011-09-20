@@ -2,7 +2,7 @@
 
 	micro_httpd/mini_httpd
 
-	Copyright © 1999,2000 by Jef Poskanzer <jef@acme.com>.
+	Copyright ï¿½ 1999,2000 by Jef Poskanzer <jef@acme.com>.
 	All rights reserved.
 
 	Redistribution and use in source and binary forms, with or without
@@ -74,13 +74,15 @@
 #include "../mssl/mssl.h"
 int do_ssl;
 
+#define HTTP_MAX_LISTENERS 8
+
 typedef struct {
 	int count;
 	fd_set lfdset;
 	struct {
 		int listenfd;
 		int ssl;
-	} listener[8];
+	} listener[HTTP_MAX_LISTENERS];
 } listeners_t;
 static listeners_t listeners;
 static int maxfd = -1;
@@ -738,17 +740,20 @@ static void add_listen_socket(const char *addr, int server_port, int do_ipv6, in
 {
 	int listenfd, n;
 	struct sockaddr_storage sai_stor;
+
 #ifdef TCONFIG_IPV6
 	sa_family_t HTTPD_FAMILY = do_ipv6 ? AF_INET6 : AF_INET;
 #else
 #define HTTPD_FAMILY AF_INET
 #endif
 
+	if (listeners.count >= HTTP_MAX_LISTENERS) {
+		syslog(LOG_ERR, "number of listeners exceeded the max allowed (%d)", HTTP_MAX_LISTENERS);
+		return;
+	}
+
 	if (server_port <= 0) {
-#ifdef TCONFIG_HTTPS
-		if (do_ssl) server_port = 443;
-		else
-#endif
+		IF_TCONFIG_HTTPS(if (do_ssl) server_port = 443; else)
 		server_port = 80;
 	}
 
@@ -782,7 +787,7 @@ static void add_listen_socket(const char *addr, int server_port, int do_ipv6, in
 	}
 
 	if (bind(listenfd, (struct sockaddr *)&sai_stor, sizeof(sai_stor)) < 0) {
-		syslog(LOG_ERR, "bind: %m");
+		syslog(LOG_ERR, "bind: [%s]:%d: %m", (addr && *addr) ? addr : (IF_TCONFIG_IPV6(do_ipv6 ? "::" :) ""), server_port);
 		close(listenfd);
 		return;
 	}
@@ -806,21 +811,29 @@ static void add_listen_socket(const char *addr, int server_port, int do_ipv6, in
 
 static void setup_listeners(int do_ipv6)
 {
-	const char *ipaddr;
-	const char *ipaddr1;
-	const char *ipaddr2;
-	const char *ipaddr3;
+	char ipaddr[INET6_ADDRSTRLEN];
+	char ipaddr1[INET6_ADDRSTRLEN];
+	char ipaddr2[INET6_ADDRSTRLEN];
+	char ipaddr3[INET6_ADDRSTRLEN];
+	IF_TCONFIG_IPV6(const char *wanaddr);
 	int wanport, p;
+	IF_TCONFIG_IPV6(int wan6port);
 
 	wanport = nvram_get_int("http_wanport");
 #ifdef TCONFIG_IPV6
-	if (do_ipv6) ipaddr = NULL;
+	wan6port = wanport;
+	if (do_ipv6) {
+		// get the configured routable IPv6 address from the lan iface.
+		// add_listen_socket() will fall back to in6addr_any
+		// if NULL or empty address is returned
+		strlcpy(ipaddr, getifaddr(nvram_safe_get("lan_ifname"), AF_INET6, 0) ? : "", sizeof(ipaddr));
+	}
 	else
 #endif
-	ipaddr = nvram_safe_get("lan_ipaddr");
-	ipaddr1 = nvram_safe_get("lan1_ipaddr");
-	ipaddr2 = nvram_safe_get("lan2_ipaddr");
-	ipaddr3 = nvram_safe_get("lan3_ipaddr");
+	strlcpy(ipaddr, nvram_safe_get("lan_ipaddr"), sizeof(ipaddr));
+	strlcpy(ipaddr1, nvram_safe_get("lan1_ipaddr"), sizeof(ipaddr1));
+	strlcpy(ipaddr2, nvram_safe_get("lan2_ipaddr"), sizeof(ipaddr2));
+	strlcpy(ipaddr3, nvram_safe_get("lan3_ipaddr"), sizeof(ipaddr3));
 
 	if (!nvram_match("http_enable", "0")) {
 		p = nvram_get_int("http_lanport");
@@ -831,9 +844,7 @@ static void setup_listeners(int do_ipv6)
 			add_listen_socket(ipaddr2, p, do_ipv6, 0);
 		if (strcmp(ipaddr3,"")!=0)
 			add_listen_socket(ipaddr3, p, do_ipv6, 0);
-#ifdef TCONFIG_IPV6
-		if (do_ipv6 && wanport == p) wanport = 0;
-#endif
+		IF_TCONFIG_IPV6(if (do_ipv6 && wanport == p) wan6port = 0);
 	}
 
 #ifdef TCONFIG_HTTPS
@@ -848,31 +859,37 @@ static void setup_listeners(int do_ipv6)
 		if (strcmp(ipaddr3,"")!=0)
 			add_listen_socket(ipaddr3, p, do_ipv6, 1);
 
-#ifdef TCONFIG_IPV6
-		if (do_ipv6 && wanport == p) wanport = 0;
-#endif
+		IF_TCONFIG_IPV6(if (do_ipv6 && wanport == p) wan6port = 0);
 	}
 #endif
 
 	if ((wanport) && nvram_match("wk_mode","gateway") && nvram_match("remote_management", "1") && check_wanup()) {
-#ifdef TCONFIG_HTTPS
-		if (nvram_match("remote_mgt_https", "1")) do_ssl = 1;
-#endif
+		IF_TCONFIG_HTTPS(if (nvram_match("remote_mgt_https", "1")) do_ssl = 1);
 #ifdef TCONFIG_IPV6
 		if (do_ipv6) {
-			add_listen_socket(NULL, wanport, 1, nvram_match("remote_mgt_https", "1"));
+			if (*ipaddr && wan6port) {
+				add_listen_socket(ipaddr, wan6port, 1, nvram_match("remote_mgt_https", "1"));
+			}
+			if (*ipaddr || wan6port) {
+				// get the IPv6 address from wan iface
+				wanaddr = getifaddr((char *)get_wan6face(), AF_INET6, 0);
+				if (wanaddr && *wanaddr && strcmp(wanaddr, ipaddr) != 0) {
+					add_listen_socket(wanaddr, wanport, 1, nvram_match("remote_mgt_https", "1"));
+				}
+			}
 		} else
 #endif
 		{
 			int i;
+			char *ip;
 			wanface_list_t wanfaces;
 
 			memcpy(&wanfaces, get_wanfaces(), sizeof(wanfaces));
 			for (i = 0; i < wanfaces.count; ++i) {
-				ipaddr = wanfaces.iface[i].ip;
-				if (!(*ipaddr) || strcmp(ipaddr, "0.0.0.0") == 0)
+				ip = wanfaces.iface[i].ip;
+				if (!(*ip) || strcmp(ip, "0.0.0.0") == 0)
 					continue;
-				add_listen_socket(ipaddr, wanport, 0, nvram_match("remote_mgt_https", "1"));
+				add_listen_socket(ip, wanport, 0, nvram_match("remote_mgt_https", "1"));
 			}
 		}
 	}
@@ -898,8 +915,22 @@ int main(int argc, char **argv)
 	fd_set rfdset;
 	int i, n;
 	struct sockaddr_storage sai;
+	char bind[128];
+	char *port = NULL;
+#ifdef TCONFIG_IPV6
+	int ip6 = 0;
+#else
+#define ip6 0
+#endif
 
-	while ((c = getopt(argc, argv, "hd")) != -1) {
+	openlog("httpd", LOG_PID, LOG_DAEMON);
+
+	do_ssl = 0;
+	listeners.count = 0;
+	FD_ZERO(&listeners.lfdset);
+	memset(bind, 0, sizeof(bind));
+
+	while ((c = getopt(argc, argv, "hdp:s:")) != -1) {
 		switch (c) {
 		case 'h':
 			printf(
@@ -910,27 +941,39 @@ int main(int argc, char **argv)
 		case 'd':
 			debug = 1;
 			break;
+		case 'p':
+		case 's':
+			// [addr:]port
+			if ((port = strrchr(optarg, ':')) != NULL) {
+				if ((optarg[0] == '[') && (port > optarg) && (port[-1] == ']'))
+					memcpy(bind, optarg + 1, MIN(sizeof(bind), (int)(port - optarg) - 2));
+				else
+					memcpy(bind, optarg, MIN(sizeof(bind), (int)(port - optarg)));
+				port++;
+			}
+			else {
+				port = optarg;
+			}
+
+			IF_TCONFIG_HTTPS(if (c == 's') do_ssl = 1);
+			IF_TCONFIG_IPV6(ip6 = (*bind && strchr(bind, ':')));
+			add_listen_socket(bind, atoi(port), ip6, (c == 's'));
+
+			memset(bind, 0, sizeof(bind));
+			break;
 		}
 	}
 
-	openlog("httpd", LOG_PID, LOG_DAEMON);
-
-	do_ssl = 0;
-	listeners.count = 0;
-	FD_ZERO(&listeners.lfdset);
 	setup_listeners(0);
-#ifdef TCONFIG_IPV6
-	if (ipv6_enabled()) setup_listeners(1);
-#endif
+	IF_TCONFIG_IPV6(if (ipv6_enabled()) setup_listeners(1));
+
 	if (listeners.count == 0) {
 		syslog(LOG_ERR, "can't bind to any address");
 		return 1;
 	}
 	_dprintf("%s: initialized %d listener(s)\n", __FUNCTION__, listeners.count);
 
-#ifdef TCONFIG_HTTPS
-	if (do_ssl) start_ssl();
-#endif
+	IF_TCONFIG_HTTPS(if (do_ssl) start_ssl());
 
 	init_id();
 
@@ -985,9 +1028,6 @@ int main(int argc, char **argv)
 				_dprintf("accept: %m");
 				continue;
 			}
-#ifdef TCONFIG_HTTPS
-			do_ssl = listeners.listener[i].ssl;
-#endif
 			_dprintf("%s: connfd = accept(listener=%d) = %d\n", __FUNCTION__, listeners.listener[i].listenfd, connfd);
 
 			if (!wait_action_idle(10)) {
@@ -996,6 +1036,7 @@ int main(int argc, char **argv)
 			}
 
 			if (fork() == 0) {
+				IF_TCONFIG_HTTPS(do_ssl = listeners.listener[i].ssl);
 				close_listen_sockets();
 				webcgi_init(NULL);
 

@@ -23,10 +23,10 @@ void ipt_qos(void)
 	char *ipp2p, *layer7;
 	char *bcount;
 	char *dscp;
+	char *desc;
 	int class_num;
 	int proto_num;
-	int ipv4_ok;
-	int ipv6_ok;
+	int v4v6_ok;
 	int i;
 	char sport[192];
 	char saddr[192];
@@ -97,15 +97,17 @@ void ipt_qos(void)
 		*/
 
 		if ((p = strsep(&g, ">")) == NULL) break;
-		i = vstrsep(p, "<", &addr_type, &addr, &proto, &port_type, &port, &ipp2p, &layer7, &bcount, &dscp, &class_prio, &p);
+		i = vstrsep(p, "<", &addr_type, &addr, &proto, &port_type, &port, &ipp2p, &layer7, &bcount, &dscp, &class_prio, &desc);
 		rule_num++;
 		if (i == 10) {
 			// fixup < v1.28.XX55
+			desc = class_prio;
 			class_prio = dscp;
 			dscp = "";
 		}
 		else if (i == 9) {
 			// fixup < v0.08		// !!! temp
+			desc = class_prio;
 			class_prio = bcount;
 			bcount = "";
 			dscp = "";
@@ -122,38 +124,18 @@ void ipt_qos(void)
 			inuse |= i;
 		}
 		
+		v4v6_ok = IPT_V4;
 #ifdef TCONFIG_IPV6
-		ipv6_ok = ipv6_enabled();
-#else
-		ipv6_ok = 0;
+		if (ipv6_enabled())
+			v4v6_ok |= IPT_V6;
 #endif
-		ipv4_ok = 1;
 		class_flag = gum;
 
-		// mac or ip address
-		if ((*addr_type == '1') || (*addr_type == '2')) {	// match ip
-			if (!ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src", AF_INET, "QoS", p)) {
-				ipv4_ok = 0;
-			}
-#ifdef TCONFIG_IPV6
-			if (ipv6_ok && !ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src", AF_INET6, "QoS", p)) {
-				ipv6_ok = 0;
-			}
-#endif
-			if (!ipv4_ok && !ipv6_ok) continue;
-		}
-		else if (*addr_type == '3') {						// match mac
-			sprintf(saddr, "-m mac --mac-source %s", addr);	// (-m mac modified, returns !match in OUTPUT)
-		}
-		else {
-			saddr[0] = 0;
-		}
-
 		//
-		if (ipt_ipp2p(ipp2p, app)) ipv6_ok = 0;
+		if (ipt_ipp2p(ipp2p, app)) v4v6_ok &= ~IPT_V6;
 		else ipt_layer7(layer7, app);
 		if (app[0]) {
-			ipv6_ok = 0; // temp: l7 not working either!
+			v4v6_ok &= ~IPT_V6; // temp: l7 not working either!
 			class_flag = 0x100;
 			// IPP2P and L7 rules may need more than one packet before matching
 			// so port-based rules that come after them in the list can't be sticky
@@ -165,10 +147,24 @@ void ipt_qos(void)
 		// dscp
 		if (ipt_dscp(dscp, s)) {
 #ifndef LINUX26
-			ipv6_ok = 0; // dscp ipv6 match is not present in K2.4
+			v4v6_ok &= ~IPT_V6; // dscp ipv6 match is not present in K2.4
 #endif
 			strcat(end, s);
 		}
+
+		// mac or ip address
+		if ((*addr_type == '1') || (*addr_type == '2')) {	// match ip
+			v4v6_ok &= ipt_addr(saddr, sizeof(saddr), addr, (*addr_type == '1') ? "dst" : "src", 
+				v4v6_ok, (v4v6_ok==IPT_V4), "QoS", desc);
+			if (!v4v6_ok) continue;
+		}
+		else if (*addr_type == '3') {						// match mac
+			sprintf(saddr, "-m mac --mac-source %s", addr);	// (-m mac modified, returns !match in OUTPUT)
+		}
+		else {
+			saddr[0] = 0;
+		}
+
 
 		// -m connbytes --connbytes x:y --connbytes-dir both --connbytes-mode bytes
 		if (*bcount) {
@@ -186,7 +182,6 @@ void ipt_qos(void)
 						if (!sizegroup) {
 							// Create table of connbytes sizes, pass appropriate connections there
 							// and only continue processing them if mark was wiped
-							// FIX: if the current rule isn't ipv6_ok ?
 							ip46t_write(
 								":QOSSIZE - [0:0]\n"
 								"-I QOSO 3 -m connmark ! --mark 0/0xff000 -j QOSSIZE\n"
@@ -195,7 +190,7 @@ void ipt_qos(void)
 					 	if (max != prev_max && sizegroup<255) {
 							class_flag = ++sizegroup << 12;
 							prev_max = max;
-							ip46t_flagged_write(ipv4_ok, ipv6_ok,
+							ip46t_flagged_write(v4v6_ok,
 								"-A QOSSIZE -m connmark --mark 0x%x/0xff000"
 								" -m connbytes --connbytes-mode bytes --connbytes-dir both --connbytes %lu: -j CONNMARK --set-return 0x00000/0xFF\n",
 									(sizegroup << 12), (max * 1024));
@@ -234,15 +229,15 @@ void ipt_qos(void)
 				else {
 					sport[0] = 0;
 				}
-				if (proto_num != 6) ip46t_flagged_write(ipv4_ok, ipv6_ok, "-A %s -p %s %s %s %s", chain, "udp", sport, saddr, end);
-				if (proto_num != 17) ip46t_flagged_write(ipv4_ok, ipv6_ok, "-A %s -p %s %s %s %s", chain, "tcp", sport, saddr, end);
+				if (proto_num != 6) ip46t_flagged_write(v4v6_ok, "-A %s -p %s %s %s %s", chain, "udp", sport, saddr, end);
+				if (proto_num != 17) ip46t_flagged_write(v4v6_ok, "-A %s -p %s %s %s %s", chain, "tcp", sport, saddr, end);
 			}
 			else {
-				ip46t_flagged_write(ipv4_ok, ipv6_ok, "-A %s -p %d %s %s", chain, proto_num, saddr, end);
+				ip46t_flagged_write(v4v6_ok, "-A %s -p %d %s %s", chain, proto_num, saddr, end);
 			}
 		}
 		else {	// any protocol
-			ip46t_flagged_write(ipv4_ok, ipv6_ok, "-A %s %s %s", chain, saddr, end);
+			ip46t_flagged_write(v4v6_ok, "-A %s %s %s", chain, saddr, end);
 		}
 
 	}

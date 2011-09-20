@@ -9,6 +9,7 @@
 
 #include "ls.h"
 #include "access.h"
+#include "defs.h"
 #include "str.h"
 #include "strlist.h"
 #include "sysstr.h"
@@ -118,7 +119,9 @@ vsf_ls_populate_dir_list(struct mystr_list* p_list,
     /* If we have an ls option which is a filter, apply it */
     if (!str_isempty(p_filter_str))
     {
-      if (!vsf_filename_passes_filter(&s_next_filename_str, p_filter_str))
+      unsigned int iters = 0;
+      if (!vsf_filename_passes_filter(&s_next_filename_str, p_filter_str,
+                                      &iters))
       {
         continue;
       }
@@ -217,7 +220,8 @@ vsf_ls_populate_dir_list(struct mystr_list* p_list,
 
 int
 vsf_filename_passes_filter(const struct mystr* p_filename_str,
-                           const struct mystr* p_filter_str)
+                           const struct mystr* p_filter_str,
+                           unsigned int* iters)
 {
   /* A simple routine to match a filename against a pattern.
    * This routine is used instead of e.g. fnmatch(3), because we should be
@@ -244,12 +248,13 @@ vsf_filename_passes_filter(const struct mystr* p_filename_str,
   str_copy(&filter_remain_str, p_filter_str);
   str_copy(&name_remain_str, p_filename_str);
 
-  while (!str_isempty(&filter_remain_str))
+  while (!str_isempty(&filter_remain_str) && *iters < VSFTP_MATCHITERS_MAX)
   {
     static struct mystr s_match_needed_str;
     /* Locate next special token */
     struct str_locate_result locate_result =
       str_locate_chars(&filter_remain_str, "*?{");
+    (*iters)++;
     /* Isolate text leading up to token (if any) - needs to be matched */
     if (locate_result.found)
     {
@@ -313,7 +318,8 @@ vsf_filename_passes_filter(const struct mystr* p_filename_str,
         {
           str_copy(&new_filter_str, &brace_list_str);
           str_append_str(&new_filter_str, &filter_remain_str);
-          if (vsf_filename_passes_filter(&name_remain_str, &new_filter_str))
+          if (vsf_filename_passes_filter(&name_remain_str, &new_filter_str,
+                                         iters))
           {
             ret = 1;
             goto out;
@@ -349,6 +355,9 @@ vsf_filename_passes_filter(const struct mystr* p_filename_str,
   }
   /* OK, a match */
   ret = 1;
+  if (*iters == VSFTP_MATCHITERS_MAX) {
+    ret = 0;
+  }
 out:
   str_free(&filter_remain_str);
   str_free(&name_remain_str);

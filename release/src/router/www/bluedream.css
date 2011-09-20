@@ -1,0 +1,172 @@
+/*
+Theme for Tomato GUI
+Created by Piotr Sikorski (Slig)
+This CSS file CAN be: modified, used to create another theme.
+Any graphic files from this theme CAN NOT be used anywhere else
+apart from this theme even with this CSS file if it was modified
+without author permission.
+*/
+body {
+	background: #555555;
+	background-image: url(bg_niebieskie.gif);
+	background-position: top center;
+	background-repeat: repeat-y;
+}
+.section-title {
+	font-size: 14px;
+	font-style: italic;
+	color: #405080;
+	margin: 0 0 10px 0;
+	padding: 0px 5px 0px 17px;
+	padding-bottom: 4px;
+	border-bottom: 1px dotted #71BCBF;
+	background-image: url(arrow2.gif);
+	background-position: 3px 4px;
+	background-repeat: no-repeat;
+}
+#header .title {
+	font: 25px sans-serif;
+	color: #fff;
+	font-weight: bold;
+	text-align: left;
+}
+#header .version {
+	font: 10px sans-serif;
+	color: #eee;
+	font-weight: bold;
+	font-style: italic;
+	text-align: left;
+}
+a {
+	color: #405080;
+}
+a:hover {
+	background: #71BCBF;
+	color: #fff;
+}
+input[type='button'] {
+	border: 1px solid #ccc;
+	height: 18px;
+}
+input[type='button']:hover {
+	background: #3D77BF;
+	color: #fff;
+}
+#footer-msg {
+	color: #fff;
+	background: #3D77BF;
+	visibility: hidden;
+}
+select,
+textarea,
+input[type='text'],
+input[type='password'] {
+	padding: 0;
+	margin: 1px;
+	background: #f5f5ff;
+	border: 1px solid #ccc;
+}
+#header {
+	background: #3D77BF;
+	background-image: url(net4.png);
+	background-position: 0px 0px;
+	background-repeat: no-repeat;
+	padding: 5px 10px 5px 10px;
+	border: 1px solid #999;
+}
+#navi {
+	padding: 1px 0;
+	border-right: 1px dotted #3D77BF;
+}
+#navi a.indent1 {
+	margin-top: 5px;
+	background-image: url(button.png);
+	background-position: top center;
+	background-repeat: no-repeat;
+}
+#navi a.indent1:hover {
+	margin-top: 5px;
+	color: #71BCBF;
+	background-image: url(button.png);
+	background-position: top center;
+	background-repeat: no-repeat;
+}
+#navi a.indent2 {
+	background-image: url(arrow.gif);
+	background-position: 7px 7px;
+	background-repeat: no-repeat;
+}
+#navi a.indent2:hover {
+	background-image: url(arrow.gif);
+	background-position: 7px 7px;
+	background-repeat: no-repeat;
+}
+#navi a {
+	color: #405080;
+	background: #f5f5ff;
+}
+#navi a:hover {
+	background: #f5f5ff;
+	color: #71BCBF;
+}
+#tabs a {
+	background: #f5f5ff;
+}
+#tabs a.active {
+	background: #3D77BF;
+	color: #fff;
+}
+#tabs a:hover {
+	background: #71BCBF;
+	color: #fff;
+}
+.tomato-grid .header {
+	background: #E0E0E9;
+	cursor: pointer;
+}
+.tomato-grid .odd {
+	background: #F5F5FF;
+}
+.tomato-grid .odd:hover,
+.tomato-grid .even:hover {
+	background: #71BCBF;
+	color: #fff;
+}
+.tomato-grid tr:hover a {
+	background: #71BCBF;
+	color: #ffc;
+}
+.tomato-grid tr:hover a:hover {
+	background: #71BCBF;
+	color: #eee;
+}
+.tomato-grid a {
+	color: #405080;
+}
+.tomato-grid .sortasc {
+background-image: url(arrow2_up.gif);
+background-position: 98% 50%;
+background-repeat: no-repeat;
+}
+.tomato-grid .sortdes {
+background-image: url(arrow2_down.gif);
+background-position: 98% 60%;
+background-repeat: no-repeat;
+}
+#footer {
+	height: 1px;
+	border-top: 1px dotted #3D77BF;
+	text-align: right;
+	padding: 4px;
+	background: #f5f5ff;
+	background-image: url(ftext2.png);
+	background-position: left 50%;
+	background-repeat: no-repeat;
+}
+#ident {
+	color: #fff;
+	text-align: right;
+	padding-right: 5px;
+	font-size: 1px;
+	height: 0px;
+}

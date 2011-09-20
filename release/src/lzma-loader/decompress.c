@@ -123,8 +123,25 @@ void entry(unsigned long icache_size, unsigned long icache_lsize,
 	callback.Read = read_byte;
 
 	/* look for trx header, 32-bit data access */
-	for (data = ((unsigned char *) KSEG1ADDR(BCM4710_FLASH));
-		((struct trx_header *)data)->magic != TRX_MAGIC; data += 65536);
+	data = ((unsigned char *) KSEG1ADDR(BCM4710_FLASH));
+	while (1) {
+		if ( ((struct trx_header *)data)->magic == TRX_MAGIC
+#ifdef TRX_MAGIC_F7D3301
+		  || ((struct trx_header *)data)->magic == TRX_MAGIC_F7D3301
+#endif
+#ifdef TRX_MAGIC_F7D3302
+		  || ((struct trx_header *)data)->magic == TRX_MAGIC_F7D3302
+#endif
+#ifdef TRX_MAGIC_F7D4302
+		  || ((struct trx_header *)data)->magic == TRX_MAGIC_F7D4302
+#endif
+#ifdef TRX_MAGIC_F5D8235V3
+		  || ((struct trx_header *)data)->magic == TRX_MAGIC_F5D8235V3
+#endif
+		  )
+			break;
+		data += 65536;
+	}
 	
 	/* compressed kernel is in the partition 1 */
 	data += ((struct trx_header *)data)->offsets[1];

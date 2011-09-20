@@ -249,6 +249,12 @@ static int winbind_named_pipe_sock(const char *dir)
 
 		switch (errno) {
 			case EINPROGRESS:
+
+				if (fd < 0 || fd >= FD_SETSIZE) {
+					errno = EBADF;
+					goto error_out;
+				}
+
 				FD_ZERO(&w_fds);
 				FD_SET(fd, &w_fds);
 				tv.tv_sec = CONNECT_TIMEOUT - wait_time;
@@ -378,7 +384,13 @@ int write_sock(void *buffer, int count, int recursing, int need_priv)
 	while(nwritten < count) {
 		struct timeval tv;
 		fd_set r_fds;
-		
+
+		if (winbindd_fd < 0 || winbindd_fd >= FD_SETSIZE) {
+			errno = EBADF;
+			close_sock();
+			return -1;
+		}
+
 		/* Catch pipe close on other end by checking if a read()
 		   call would not block by calling select(). */
 
@@ -430,7 +442,8 @@ static int read_sock(void *buffer, int count)
 	int nread = 0;
 	int total_time = 0, selret;
 
-	if (winbindd_fd == -1) {
+	if (winbindd_fd < 0 || winbindd_fd >= FD_SETSIZE) {
+		errno = EBADF;
 		return -1;
 	}
 

@@ -182,6 +182,10 @@ function loadData()
 				delete speed_history[i];
 				continue;
 			}
+			if ((h.rx_total == 0) && (h.tx_total == 0) && (h.up == 0)) {
+				delete speed_history[i];
+				continue;
+			}
 
 			if (typeof(h.hide) != 'undefined') {
 				if (h.hide == 1) continue;
@@ -221,6 +225,15 @@ function loadData()
 REMOVE-END */
 				t = 'WL <small>(' + i + ')</small>';
 			}
+			
+			if (i == 'imq1')	{
+				t = 'Lim. OUT <small>(' + i + ')</small>';
+			}
+			
+			if (i == 'imq2')	{
+				t = 'Lim. IN <small>(' + i + ')</small>';
+			}
+			
 			else if ((nvram.wan_proto == 'pptp') || (nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp')) {
 				if (nvram.wan_iface == i) t = 'WAN <small>(' + i + ')</small>';
 				else if (nvram.wan_ifname == i && nvram.wan_proto != 'pppoe') t = 'MAN <small>(' + i + ')</small>';

@@ -37,7 +37,7 @@
 
 <script type='text/javascript'>
 //	<% nvram(''); %>	// http_id
-//	<% nvramseq("rrules", "rrule%d", 0, 49); %>
+//	<% nvramseq("rrules", "rrule%d", 0, 99); %>
 
 var dowNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -91,7 +91,7 @@ og.onClick = function(cell) {
 	form.submit('_fom');
 }
 og.addEntry = function() {
-	for (var i = 0; i < 140; ++i) {
+	for (var i = 0; i < 500; ++i) {
 		if ((rrules[i] == null) || (rrules[i] == '')) {
 			E('_rruleN').value = i;
 			form.submit('_fom');
@@ -130,6 +130,8 @@ function init()
 
 <br>
 <script type='text/javascript'>show_notice1('<% notice("iptables"); %>');</script>
+<br>
+<script type='text/javascript'>show_notice1('<% notice("ip6tables"); %>');</script>
 
 <!-- / / / -->
 

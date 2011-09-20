@@ -534,6 +534,7 @@ void FAST_FUNC bb_displayroutes(int noresolve, int netstatfmt)
 			printf("%-6d %-2d %7d %s\n", metric, ref, use, devname);
 		}
 	}
+	fclose(fp);
 }
 
 #if ENABLE_FEATURE_IPV6
@@ -622,6 +623,7 @@ static void INET6_displayroutes(void)
 			}
 		} while (1);
 	}
+	fclose(fp);
 }
 
 #endif

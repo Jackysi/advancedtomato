@@ -17,6 +17,7 @@ OBJS += buttons.o restrict.o gpio.o sched.o
 OBJS += bwclimon.o
 OBJS += account.o
 OBJS += arpbind.o
+OBJS += qoslimit.o
 #	heartbeat.o
 
 ifeq ($(TCONFIG_USB),y)
@@ -33,6 +34,9 @@ OBJS += jffs2.o
 endif
 ifeq ($(TCONFIG_OPENVPN),y)
 OBJS += vpn.o
+endif
+ifeq ($(TCONFIG_NOCAT),y)
+OBJS += nocat.o
 endif
 
 ifeq ($(TOMATO_SL),1)

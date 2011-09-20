@@ -61,13 +61,12 @@
 
 #include "config.h"
 #include "upnpglobalvars.h"
+#include "utils.h"
 #include "upnphttp.h"
 #include "upnpsoap.h"
 #include "upnpreplyparse.h"
 #include "getifaddr.h"
-
 #include "scanner.h"
-#include "utils.h"
 #include "sql.h"
 #include "log.h"
 
@@ -347,14 +346,14 @@ mime_to_ext(const char * mime, char * buf)
 #define FILTER_UPNP_SEARCHCLASS                  0x00100000
 
 static u_int32_t
-set_filter_flags(char * filter, enum client_types client)
+set_filter_flags(char * filter, struct upnphttp *h)
 {
 	char *item, *saveptr = NULL;
 	u_int32_t flags = 0;
 
 	if( !filter || (strlen(filter) <= 1) )
 		return 0xFFFFFFFF;
-	if( client == ESamsungTV )
+	if( h->reqflags & FLAG_SAMSUNG )
 		flags |= FILTER_DLNA_NAMESPACE;
 	item = strtok_r(filter, ",", &saveptr);
 	while( item != NULL )
@@ -394,7 +393,7 @@ set_filter_flags(char * filter, enum client_types client)
 		else if( strcmp(item, "upnp:albumArtURI") == 0 )
 		{
 			flags |= FILTER_UPNP_ALBUMARTURI;
-			if( client == ESamsungTV )
+			if( h->reqflags & FLAG_SAMSUNG )
 				flags |= FILTER_UPNP_ALBUMARTURI_DLNA_PROFILEID;
 		}
 		else if( strcmp(item, "upnp:albumArtURI@dlna:profileID") == 0 )
@@ -551,23 +550,18 @@ parse_sort_criteria(char * sortCriteria, int * error)
 	return order;
 }
 
-static void add_resized_res(int srcw, int srch, int reqw, int reqh, char *dlna_pn, char *detailID, struct Response *passed_args)
+inline static void
+add_resized_res(int srcw, int srch, int reqw, int reqh, char *dlna_pn,
+                char *detailID, struct Response *args)
 {
-	int ret;
 	int dstw = reqw;
 	int dsth = reqh;
-	char str_buf[256];
 
-
-	if( passed_args->flags & FLAG_NO_RESIZE )
-	{
+	if( args->flags & FLAG_NO_RESIZE )
 		return;
-	}
 
-	ret = sprintf(str_buf, "&lt;res ");
-	memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-	passed_args->size += ret;
-	if( passed_args->filter & FILTER_RES_RESOLUTION )
+	strcatf(args->str, "&lt;res ");
+	if( args->filter & FILTER_RES_RESOLUTION )
 	{
 		dstw = reqw;
 		dsth = ((((reqw<<10)/srcw)*srch)>>10);
@@ -575,23 +569,51 @@ static void add_resized_res(int srcw, int srch, int reqw, int reqh, char *dlna_p
 			dsth = reqh;
 			dstw = (((reqh<<10)/srch) * srcw>>10);
 		}
-		ret = sprintf(str_buf, "resolution=\"%dx%d\" ", dstw, dsth);
-		memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-		passed_args->size += ret;
+		strcatf(args->str, "resolution=\"%dx%d\" ", dstw, dsth);
 	}
-	ret = sprintf(str_buf, "protocolInfo=\"http-get:*:image/jpeg:DLNA.ORG_PN=%s;DLNA.ORG_CI=1\"&gt;"
-	                       "http://%s:%d/Resized/%s.jpg?width=%d,height=%d"
-	                       "&lt;/res&gt;",
-	                       dlna_pn, lan_addr[0].str, runtime_vars.port,
-	                       detailID, dstw, dsth);
-	memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-	passed_args->size += ret;
+	strcatf(args->str, "protocolInfo=\"http-get:*:image/jpeg:DLNA.ORG_PN=%s;DLNA.ORG_CI=1\"&gt;"
+	                          "http://%s:%d/Resized/%s.jpg?width=%d,height=%d"
+	                          "&lt;/res&gt;",
+	                          dlna_pn, lan_addr[args->iface].str, runtime_vars.port,
+	                          detailID, dstw, dsth);
 }
 
-#define SELECT_COLUMNS "SELECT o.OBJECT_ID, o.PARENT_ID, o.REF_ID, o.DETAIL_ID, o.CLASS," \
-                       " d.SIZE, d.TITLE, d.DURATION, d.BITRATE, d.SAMPLERATE, d.ARTIST," \
-                       " d.ALBUM, d.GENRE, d.COMMENT, d.CHANNELS, d.TRACK, d.DATE, d.RESOLUTION," \
-                       " d.THUMBNAIL, d.CREATOR, d.DLNA_PN, d.MIME, d.ALBUM_ART, d.DISC "
+inline static void
+add_res(char *size, char *duration, char *bitrate, char *sampleFrequency,
+        char *nrAudioChannels, char *resolution, char *dlna_pn, char *mime,
+        char *detailID, char *ext, struct Response *args)
+{
+	strcatf(args->str, "&lt;res ");
+	if( size && (args->filter & FILTER_RES_SIZE) ) {
+		strcatf(args->str, "size=\"%s\" ", size);
+	}
+	if( duration && (args->filter & FILTER_RES_DURATION) ) {
+		strcatf(args->str, "duration=\"%s\" ", duration);
+	}
+	if( bitrate && (args->filter & FILTER_RES_BITRATE) ) {
+		strcatf(args->str, "bitrate=\"%s\" ", bitrate);
+	}
+	if( sampleFrequency && (args->filter & FILTER_RES_SAMPLEFREQUENCY) ) {
+		strcatf(args->str, "sampleFrequency=\"%s\" ", sampleFrequency);
+	}
+	if( nrAudioChannels && (args->filter & FILTER_RES_NRAUDIOCHANNELS) ) {
+		strcatf(args->str, "nrAudioChannels=\"%s\" ", nrAudioChannels);
+	}
+	if( resolution && (args->filter & FILTER_RES_RESOLUTION) ) {
+		strcatf(args->str, "resolution=\"%s\" ", resolution);
+	}
+	strcatf(args->str, "protocolInfo=\"http-get:*:%s:%s\"&gt;"
+	                          "http://%s:%d/MediaItems/%s.%s"
+	                          "&lt;/res&gt;",
+	                          mime, dlna_pn, lan_addr[args->iface].str,
+	                          runtime_vars.port, detailID, ext);
+}
+
+#define COLUMNS "o.REF_ID, o.DETAIL_ID, o.CLASS," \
+                " d.SIZE, d.TITLE, d.DURATION, d.BITRATE, d.SAMPLERATE, d.ARTIST," \
+                " d.ALBUM, d.GENRE, d.COMMENT, d.CHANNELS, d.TRACK, d.DATE, d.RESOLUTION," \
+                " d.THUMBNAIL, d.CREATOR, d.DLNA_PN, d.MIME, d.ALBUM_ART, d.DISC "
+#define SELECT_COLUMNS "SELECT o.OBJECT_ID, o.PARENT_ID, " COLUMNS
 
 static int
 callback(void *args, int argc, char **argv, char **azColName)
@@ -603,21 +625,22 @@ callback(void *args, int argc, char **argv, char **azColName)
 	     *tn = argv[18], *creator = argv[19], *dlna_pn = argv[20], *mime = argv[21], *album_art = argv[22];
 	char dlna_buf[96];
 	char ext[5];
-	char str_buf[512];
-	int children, ret = 0;
+	struct string_s *str = passed_args->str;
+	int ret = 0;
 
-	/* Make sure we have at least 4KB left of allocated memory to finish the response. */
-	if( passed_args->size > (passed_args->alloced - 4096) )
+	/* Make sure we have at least 8KB left of allocated memory to finish the response. */
+	if( str->off > (str->size - 8192) )
 	{
 #if MAX_RESPONSE_SIZE > 0
-		if( (passed_args->alloced+1048576) <= MAX_RESPONSE_SIZE )
+		if( (str->size+DEFAULT_RESP_SIZE) <= MAX_RESPONSE_SIZE )
 		{
 #endif
-			passed_args->resp = realloc(passed_args->resp, (passed_args->alloced+1048576));
-			if( passed_args->resp )
+			str->data = realloc(str->data, (str->size+DEFAULT_RESP_SIZE));
+			if( str->data )
 			{
-				passed_args->alloced += 1048576;
-				DPRINTF(E_DEBUG, L_HTTP, "HUGE RESPONSE ALERT: UPnP SOAP response had to be enlarged to %d. [%d results so far]\n", passed_args->alloced, passed_args->returned);
+				str->size += DEFAULT_RESP_SIZE;
+				DPRINTF(E_DEBUG, L_HTTP, "UPnP SOAP response enlarged to %d. [%d results so far]\n",
+					str->size, passed_args->returned);
 			}
 			else
 			{
@@ -642,6 +665,9 @@ callback(void *args, int argc, char **argv, char **azColName)
 	else
 		strcpy(dlna_buf, "*");
 
+	if( runtime_vars.root_container && strcmp(parent, runtime_vars.root_container) == 0 )
+		parent = "0";
+
 	if( strncmp(class, "item", 4) == 0 )
 	{
 		/* We may need special handling for certain MIME types */
@@ -664,6 +690,14 @@ callback(void *args, int argc, char **argv, char **azColName)
 					strcpy(mime+6, "avi");
 				}
 			}
+			else if( passed_args->client == EFreeBox && dlna_pn )
+			{
+				if( strncmp(dlna_pn, "AVC_TS", 6) == 0 ||
+				    strncmp(dlna_pn, "MPEG_TS", 7) == 0 )
+				{
+					strcpy(mime+6, "mp2t");
+				}
+			}
 			if( !(passed_args->flags & FLAG_DLNA) )
 			{
 				if( strcmp(mime+6, "vnd.dlna.mpeg-tts") == 0 )
@@ -672,25 +706,12 @@ callback(void *args, int argc, char **argv, char **azColName)
 				}
 			}
 			/* From what I read, Samsung TV's expect a [wrong] MIME type of x-mkv. */
-			if( passed_args->client == ESamsungTV )
+			if( passed_args->flags & FLAG_SAMSUNG )
 			{
 				if( strcmp(mime+6, "x-matroska") == 0 )
 				{
 					strcpy(mime+8, "mkv");
 				}
-			}
-			else if( passed_args->client == ESonyBDP || passed_args->client == ESonyBravia )
-			{
-				if( passed_args->client == ESonyBDP &&
-				    (strcmp(mime+6, "x-matroska") == 0 ||
-				     strcmp(mime+6, "mpeg") == 0) )
-				{
-					strcpy(mime+6, "divx");
-				}
-				/* BRAVIA KDL-##*X### series TVs do natively support AVC/AC3 in TS, but
-				   require profile to be renamed (applies to _T and _ISO variants also) */
-				modifyString(dlna_pn, "AVC_TS_MP_SD_AC3", "AVC_TS_HD_50_AC3", 0);
-				modifyString(dlna_pn, "AVC_TS_MP_HD_AC3", "AVC_TS_HD_50_AC3", 0);
 			}
 		}
 		else if( *mime == 'a' )
@@ -704,168 +725,89 @@ callback(void *args, int argc, char **argv, char **azColName)
 			}
 		}
 
-		ret = snprintf(str_buf, 512, "&lt;item id=\"%s\" parentID=\"%s\" restricted=\"1\"", id, parent);
-		memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-		passed_args->size += ret;
+		ret = strcatf(str, "&lt;item id=\"%s\" parentID=\"%s\" restricted=\"1\"", id, parent);
 		if( refID && (passed_args->filter & FILTER_REFID) ) {
-			ret = sprintf(str_buf, " refID=\"%s\"", refID);
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			ret = strcatf(str, " refID=\"%s\"", refID);
 		}
-		ret = snprintf(str_buf, 512, "&gt;"
-		                             "&lt;dc:title&gt;%s&lt;/dc:title&gt;"
-		                             "&lt;upnp:class&gt;object.%s&lt;/upnp:class&gt;",
-		                             title, class);
-		memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-		passed_args->size += ret;
+		ret = strcatf(str, "&gt;"
+		                   "&lt;dc:title&gt;%s&lt;/dc:title&gt;"
+		                   "&lt;upnp:class&gt;object.%s&lt;/upnp:class&gt;",
+		                   title, class);
 		if( comment && (passed_args->filter & FILTER_DC_DESCRIPTION) ) {
-			ret = snprintf(str_buf, 512, "&lt;dc:description&gt;%.384s&lt;/dc:description&gt;", comment);
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			ret = strcatf(str, "&lt;dc:description&gt;%.384s&lt;/dc:description&gt;", comment);
 		}
 		if( creator && (passed_args->filter & FILTER_DC_CREATOR) ) {
-			ret = snprintf(str_buf, 512, "&lt;dc:creator&gt;%s&lt;/dc:creator&gt;", creator);
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			ret = strcatf(str, "&lt;dc:creator&gt;%s&lt;/dc:creator&gt;", creator);
 		}
 		if( date && (passed_args->filter & FILTER_DC_DATE) ) {
-			ret = snprintf(str_buf, 512, "&lt;dc:date&gt;%s&lt;/dc:date&gt;", date);
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			ret = strcatf(str, "&lt;dc:date&gt;%s&lt;/dc:date&gt;", date);
 		}
 		if( artist ) {
-			if( (*mime == 'a') && (passed_args->filter & FILTER_UPNP_ARTIST) ) {
-				ret = snprintf(str_buf, 512, "&lt;upnp:artist&gt;%s&lt;/upnp:artist&gt;", artist);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
+			if( (*mime == 'v') && (passed_args->filter & FILTER_UPNP_ACTOR) ) {
+				ret = strcatf(str, "&lt;upnp:actor&gt;%s&lt;/upnp:actor&gt;", artist);
 			}
-			else if( (*mime == 'v') && (passed_args->filter & FILTER_UPNP_ACTOR) ) {
-				ret = snprintf(str_buf, 512, "&lt;upnp:actor&gt;%s&lt;/upnp:actor&gt;", artist);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
+			if( passed_args->filter & FILTER_UPNP_ARTIST ) {
+				ret = strcatf(str, "&lt;upnp:artist&gt;%s&lt;/upnp:artist&gt;", artist);
 			}
-			ret = snprintf(str_buf, 512, "&lt;upnp:artist&gt;%s&lt;/upnp:artist&gt;", artist);
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
 		}
 		if( album && (passed_args->filter & FILTER_UPNP_ALBUM) ) {
-			ret = snprintf(str_buf, 512, "&lt;upnp:album&gt;%s&lt;/upnp:album&gt;", album);
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			ret = strcatf(str, "&lt;upnp:album&gt;%s&lt;/upnp:album&gt;", album);
 		}
 		if( genre && (passed_args->filter & FILTER_UPNP_GENRE) ) {
-			ret = snprintf(str_buf, 512, "&lt;upnp:genre&gt;%s&lt;/upnp:genre&gt;", genre);
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			ret = strcatf(str, "&lt;upnp:genre&gt;%s&lt;/upnp:genre&gt;", genre);
 		}
 		if( strncmp(id, MUSIC_PLIST_ID, strlen(MUSIC_PLIST_ID)) == 0 ) {
 			track = strrchr(id, '$')+1;
 		}
 		if( track && atoi(track) && (passed_args->filter & FILTER_UPNP_ORIGINALTRACKNUMBER) ) {
-			ret = sprintf(str_buf, "&lt;upnp:originalTrackNumber&gt;%s&lt;/upnp:originalTrackNumber&gt;", track);
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			ret = strcatf(str, "&lt;upnp:originalTrackNumber&gt;%s&lt;/upnp:originalTrackNumber&gt;", track);
 		}
 		if( album_art && atoi(album_art) )
 		{
 			/* Video and audio album art is handled differently */
 			if( *mime == 'v' && (passed_args->filter & FILTER_RES) && !(passed_args->flags & FLAG_MS_PFS) ) {
-				ret = sprintf(str_buf, "&lt;res protocolInfo=\"http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_TN\"&gt;"
-				                       "http://%s:%d/AlbumArt/%s-%s.jpg"
-				                       "&lt;/res&gt;",
-				                       lan_addr[0].str, runtime_vars.port, album_art, detailID);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
+				ret = strcatf(str, "&lt;res protocolInfo=\"http-get:*:image/jpeg:DLNA.ORG_PN=JPEG_TN\"&gt;"
+				                   "http://%s:%d/AlbumArt/%s-%s.jpg"
+				                   "&lt;/res&gt;",
+				                   lan_addr[passed_args->iface].str, runtime_vars.port, album_art, detailID);
 			} else if( passed_args->filter & FILTER_UPNP_ALBUMARTURI ) {
-				ret = sprintf(str_buf, "&lt;upnp:albumArtURI");
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
+				ret = strcatf(str, "&lt;upnp:albumArtURI");
 				if( passed_args->filter & FILTER_UPNP_ALBUMARTURI_DLNA_PROFILEID ) {
-					ret = sprintf(str_buf, " dlna:profileID=\"%s\" xmlns:dlna=\"urn:schemas-dlna-org:metadata-1-0/\"", "JPEG_TN");
-					memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-					passed_args->size += ret;
+					ret = strcatf(str, " dlna:profileID=\"JPEG_TN\" xmlns:dlna=\"urn:schemas-dlna-org:metadata-1-0/\"");
 				}
-				ret = sprintf(str_buf, "&gt;http://%s:%d/AlbumArt/%s-%s.jpg&lt;/upnp:albumArtURI&gt;",
-						 lan_addr[0].str, runtime_vars.port, album_art, detailID);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
+				ret = strcatf(str, "&gt;http://%s:%d/AlbumArt/%s-%s.jpg&lt;/upnp:albumArtURI&gt;",
+				                   lan_addr[passed_args->iface].str, runtime_vars.port, album_art, detailID);
 			}
 		}
-#ifdef PFS_HACK
 		if( (passed_args->flags & FLAG_MS_PFS) && *mime == 'i' ) {
-			ret = snprintf(str_buf, 512, "&lt;upnp:album&gt;%s&lt;/upnp:album&gt;", "[No Keywords]");
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			if( passed_args->client == EMediaRoom && !album )
+				ret = strcatf(str, "&lt;upnp:album&gt;%s&lt;/upnp:album&gt;", "[No Keywords]");
 
-			if( tn && atoi(tn) ) {
-				ret = snprintf(str_buf, 512, "&lt;upnp:albumArtURI&gt;"
-				                             "http://%s:%d/Thumbnails/%s.jpg"
-			        	                     "&lt;/upnp:albumArtURI&gt;",
-			                	             lan_addr[0].str, runtime_vars.port, detailID);
+			/* EVA2000 doesn't seem to handle embedded thumbnails */
+			if( passed_args->client != ENetgearEVA2000 && tn && atoi(tn) ) {
+				ret = strcatf(str, "&lt;upnp:albumArtURI&gt;"
+				                   "http://%s:%d/Thumbnails/%s.jpg"
+			        	           "&lt;/upnp:albumArtURI&gt;",
+			                	   lan_addr[passed_args->iface].str, runtime_vars.port, detailID);
 			} else {
-				ret = snprintf(str_buf, 512, "&lt;upnp:albumArtURI&gt;"
-				                             "http://%s:%d/Resized/%s.jpg?width=160,height=160"
-			        	                     "&lt;/upnp:albumArtURI&gt;",
-			                	             lan_addr[0].str, runtime_vars.port, detailID);
+				ret = strcatf(str, "&lt;upnp:albumArtURI&gt;"
+				                   "http://%s:%d/Resized/%s.jpg?width=160,height=160"
+			        	           "&lt;/upnp:albumArtURI&gt;",
+			                	   lan_addr[passed_args->iface].str, runtime_vars.port, detailID);
 			}
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
 		}
-#endif
 		if( passed_args->filter & FILTER_RES ) {
 			mime_to_ext(mime, ext);
 			if( (passed_args->client == EFreeBox) && tn && atoi(tn) ) {
-				ret = sprintf(str_buf, "&lt;res protocolInfo=\"http-get:*:%s:%s\"&gt;"
-				                       "http://%s:%d/Thumbnails/%s.jpg"
-				                       "&lt;/res&gt;",
-				                       mime, "DLNA.ORG_PN=JPEG_TN", lan_addr[0].str, runtime_vars.port, detailID);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
+				ret = strcatf(str, "&lt;res protocolInfo=\"http-get:*:%s:%s\"&gt;"
+				                   "http://%s:%d/Thumbnails/%s.jpg"
+				                   "&lt;/res&gt;",
+				                   mime, "DLNA.ORG_PN=JPEG_TN", lan_addr[passed_args->iface].str,
+				                   runtime_vars.port, detailID);
 			}
-			ret = sprintf(str_buf, "&lt;res ");
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
-			if( size && (passed_args->filter & FILTER_RES_SIZE) ) {
-				ret = sprintf(str_buf, "size=\"%s\" ", size);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
-			}
-			if( duration && (passed_args->filter & FILTER_RES_DURATION) ) {
-				ret = sprintf(str_buf, "duration=\"%s\" ", duration);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
-			}
-			if( bitrate && (passed_args->filter & FILTER_RES_BITRATE) ) {
-				if( passed_args->flags & FLAG_MS_PFS )
-					ret = sprintf(str_buf, "bitrate=\"%d\" ", atoi(bitrate)/1024);
-				else
-					ret = sprintf(str_buf, "bitrate=\"%s\" ", bitrate);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
-			}
-			if( sampleFrequency && (passed_args->filter & FILTER_RES_SAMPLEFREQUENCY) ) {
-				ret = sprintf(str_buf, "sampleFrequency=\"%s\" ", sampleFrequency);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
-			}
-			if( nrAudioChannels && (passed_args->filter & FILTER_RES_NRAUDIOCHANNELS) ) {
-				ret = sprintf(str_buf, "nrAudioChannels=\"%s\" ", nrAudioChannels);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
-			}
-			if( resolution && (passed_args->filter & FILTER_RES_RESOLUTION) ) {
-				ret = sprintf(str_buf, "resolution=\"%s\" ", resolution);
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
-			}
-			ret = sprintf(str_buf, "protocolInfo=\"http-get:*:%s:%s\"&gt;"
-			                       "http://%s:%d/MediaItems/%s.%s"
-			                       "&lt;/res&gt;",
-			                       mime, dlna_buf, lan_addr[0].str, runtime_vars.port, detailID, ext);
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
+			        resolution, dlna_buf, mime, detailID, ext, passed_args);
 			if( (*mime == 'i') && (passed_args->client != EFreeBox) ) {
-#if 1 //JPEG_RESIZE
 				int srcw = atoi(strsep(&resolution, "x"));
 				int srch = atoi(resolution);
 				if( !dlna_pn ) {
@@ -874,84 +816,141 @@ callback(void *args, int argc, char **argv, char **azColName)
 				if( !dlna_pn || !strncmp(dlna_pn, "JPEG_L", 6) || !strncmp(dlna_pn, "JPEG_M", 6) ) {
 					add_resized_res(srcw, srch, 640, 480, "JPEG_SM", detailID, passed_args);
 				}
-#endif
 				if( tn && atoi(tn) ) {
-					ret = sprintf(str_buf, "&lt;res protocolInfo=\"http-get:*:%s:%s\"&gt;"
-					                       "http://%s:%d/Thumbnails/%s.jpg"
-					                       "&lt;/res&gt;",
-					                       mime, "DLNA.ORG_PN=JPEG_TN", lan_addr[0].str, runtime_vars.port, detailID);
-					memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-					passed_args->size += ret;
+					ret = strcatf(str, "&lt;res protocolInfo=\"http-get:*:%s:%s\"&gt;"
+					                   "http://%s:%d/Thumbnails/%s.jpg"
+					                   "&lt;/res&gt;",
+					                   mime, "DLNA.ORG_PN=JPEG_TN", lan_addr[passed_args->iface].str,
+					                   runtime_vars.port, detailID);
+				}
+			}
+			else if( *mime == 'v' ) {
+				switch( passed_args->client ) {
+				case EToshibaTV:
+					if( dlna_pn &&
+					    (strncmp(dlna_pn, "MPEG_TS_HD_NA", 13) == 0 ||
+					     strncmp(dlna_pn, "MPEG_TS_SD_NA", 13) == 0 ||
+					     strncmp(dlna_pn, "AVC_TS_MP_HD_AC3", 16) == 0 ||
+					     strncmp(dlna_pn, "AVC_TS_HP_HD_AC3", 16) == 0))
+					{
+						sprintf(dlna_buf, "DLNA.ORG_PN=MPEG_PS_NTSC;DLNA.ORG_OP=01;DLNA.ORG_CI=0");
+						add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
+						        resolution, dlna_buf, mime, detailID, ext, passed_args);
+					}
+					break;
+				case ESonyBDP:
+					if( dlna_pn &&
+					    (strncmp(dlna_pn, "AVC_TS", 6) == 0 ||
+					     strncmp(dlna_pn, "MPEG_TS", 7) == 0) )
+					{
+						if( strncmp(dlna_pn, "MPEG_TS_SD_NA", 13) != 0 )
+						{
+							sprintf(dlna_buf, "DLNA.ORG_PN=MPEG_TS_SD_NA;DLNA.ORG_OP=01;DLNA.ORG_CI=0");
+							add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
+							        resolution, dlna_buf, mime, detailID, ext, passed_args);
+						}
+						if( strncmp(dlna_pn, "MPEG_TS_SD_EU", 13) != 0 )
+						{
+							sprintf(dlna_buf, "DLNA.ORG_PN=MPEG_TS_SD_EU;DLNA.ORG_OP=01;DLNA.ORG_CI=0");
+							add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
+							        resolution, dlna_buf, mime, detailID, ext, passed_args);
+						}
+					}
+					else if( (dlna_pn &&
+					          (strncmp(dlna_pn, "AVC_MP4", 7) == 0 ||
+					           strncmp(dlna_pn, "MPEG4_P2_MP4", 12) == 0)) ||
+					         strcmp(mime+6, "x-matroska") == 0 ||
+					         strcmp(mime+6, "x-msvideo") == 0 ||
+					         strcmp(mime+6, "mpeg") == 0 )
+					{
+						strcpy(mime+6, "avi");
+						if( !dlna_pn || strncmp(dlna_pn, "MPEG_PS_NTSC", 12) != 0 )
+						{
+							sprintf(dlna_buf, "DLNA.ORG_PN=MPEG_PS_NTSC;DLNA.ORG_OP=01;DLNA.ORG_CI=0");
+							add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
+						        	resolution, dlna_buf, mime, detailID, ext, passed_args);
+						}
+						if( !dlna_pn || strncmp(dlna_pn, "MPEG_PS_PAL", 11) != 0 )
+						{
+							sprintf(dlna_buf, "DLNA.ORG_PN=MPEG_PS_PAL;DLNA.ORG_OP=01;DLNA.ORG_CI=0");
+							add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
+						        	resolution, dlna_buf, mime, detailID, ext, passed_args);
+						}
+					}
+					break;
+				case ESonyBravia:
+					/* BRAVIA KDL-##*X### series TVs do natively support AVC/AC3 in TS, but
+					   require profile to be renamed (applies to _T and _ISO variants also) */
+					if( dlna_pn &&
+					    (strncmp(dlna_pn, "AVC_TS_MP_SD_AC3", 16) == 0 ||
+					     strncmp(dlna_pn, "AVC_TS_MP_HD_AC3", 16) == 0 ||
+					     strncmp(dlna_pn, "AVC_TS_HP_HD_AC3", 16) == 0))
+					{
+						sprintf(dlna_buf, "DLNA.ORG_PN=AVC_TS_HD_50_AC3;DLNA.ORG_OP=01;DLNA.ORG_CI=0");
+						add_res(size, duration, bitrate, sampleFrequency, nrAudioChannels,
+						        resolution, dlna_buf, mime, detailID, ext, passed_args);
+					}
+					break;
+				case ELGDevice:
+					if( sql_get_int_field(db, "SELECT ID from CAPTIONS where ID = '%s'", detailID) > 0 )
+					{
+						ret = strcatf(str, "&lt;res protocolInfo=\"http-get:*:text/srt:*\"&gt;"
+						                     "http://%s:%d/Captions/%s.srt"
+						                   "&lt;/res&gt;",
+						                   lan_addr[passed_args->iface].str, runtime_vars.port, detailID);
+					}
+					break;
+				default:
+					break;
 				}
 			}
 		}
-		ret = sprintf(str_buf, "&lt;/item&gt;");
+		ret = strcatf(str, "&lt;/item&gt;");
 	}
 	else if( strncmp(class, "container", 9) == 0 )
 	{
-		ret = sprintf(str_buf, "&lt;container id=\"%s\" parentID=\"%s\" restricted=\"1\" ", id, parent);
-		memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-		passed_args->size += ret;
+		ret = strcatf(str, "&lt;container id=\"%s\" parentID=\"%s\" restricted=\"1\" ", id, parent);
 		if( passed_args->filter & FILTER_CHILDCOUNT )
 		{
+			int children;
 			ret = sql_get_int_field(db, "SELECT count(*) from OBJECTS where PARENT_ID = '%s';", id);
 			children = (ret > 0) ? ret : 0;
-			ret = sprintf(str_buf, "childCount=\"%d\"", children);
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			ret = strcatf(str, "childCount=\"%d\"", children);
 		}
 		/* If the client calls for BrowseMetadata on root, we have to include our "upnp:searchClass"'s, unless they're filtered out */
 		if( (passed_args->requested == 1) && (strcmp(id, "0") == 0) )
 		{
 			if( passed_args->filter & FILTER_UPNP_SEARCHCLASS )
 			{
-				ret = sprintf(str_buf, "&gt;"
-				                       "&lt;upnp:searchClass includeDerived=\"1\"&gt;object.item.audioItem&lt;/upnp:searchClass&gt;"
-				                       "&lt;upnp:searchClass includeDerived=\"1\"&gt;object.item.imageItem&lt;/upnp:searchClass&gt;"
-				                       "&lt;upnp:searchClass includeDerived=\"1\"&gt;object.item.videoItem&lt;/upnp:searchClass");
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
+				ret = strcatf(str, "&gt;"
+				                   "&lt;upnp:searchClass includeDerived=\"1\"&gt;object.item.audioItem&lt;/upnp:searchClass&gt;"
+				                   "&lt;upnp:searchClass includeDerived=\"1\"&gt;object.item.imageItem&lt;/upnp:searchClass&gt;"
+				                   "&lt;upnp:searchClass includeDerived=\"1\"&gt;object.item.videoItem&lt;/upnp:searchClass");
 			}
 		}
-		ret = snprintf(str_buf, 512, "&gt;"
-		                             "&lt;dc:title&gt;%s&lt;/dc:title&gt;"
-		                             "&lt;upnp:class&gt;object.%s&lt;/upnp:class&gt;",
-		                             title, class);
-		memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-		passed_args->size += ret;
+		ret = strcatf(str, "&gt;"
+		                   "&lt;dc:title&gt;%s&lt;/dc:title&gt;"
+		                   "&lt;upnp:class&gt;object.%s&lt;/upnp:class&gt;",
+		                   title, class);
 		if( creator && (passed_args->filter & FILTER_DC_CREATOR) ) {
-			ret = snprintf(str_buf, 512, "&lt;dc:creator&gt;%s&lt;/dc:creator&gt;", creator);
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			ret = strcatf(str, "&lt;dc:creator&gt;%s&lt;/dc:creator&gt;", creator);
 		}
 		if( genre && (passed_args->filter & FILTER_UPNP_GENRE) ) {
-			ret = snprintf(str_buf, 512, "&lt;upnp:genre&gt;%s&lt;/upnp:genre&gt;", genre);
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			ret = strcatf(str, "&lt;upnp:genre&gt;%s&lt;/upnp:genre&gt;", genre);
 		}
 		if( artist && (passed_args->filter & FILTER_UPNP_ARTIST) ) {
-			ret = snprintf(str_buf, 512, "&lt;upnp:artist&gt;%s&lt;/upnp:artist&gt;", artist);
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			ret = strcatf(str, "&lt;upnp:artist&gt;%s&lt;/upnp:artist&gt;", artist);
 		}
 		if( album_art && atoi(album_art) && (passed_args->filter & FILTER_UPNP_ALBUMARTURI) ) {
-			ret = sprintf(str_buf, "&lt;upnp:albumArtURI ");
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			ret = strcatf(str, "&lt;upnp:albumArtURI ");
 			if( passed_args->filter & FILTER_UPNP_ALBUMARTURI_DLNA_PROFILEID ) {
-				ret = sprintf(str_buf, "dlna:profileID=\"%s\" xmlns:dlna=\"urn:schemas-dlna-org:metadata-1-0/\"", "JPEG_TN");
-				memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-				passed_args->size += ret;
+				ret = strcatf(str, "dlna:profileID=\"JPEG_TN\" xmlns:dlna=\"urn:schemas-dlna-org:metadata-1-0/\"");
 			}
-			ret = sprintf(str_buf, "&gt;http://%s:%d/AlbumArt/%s-%s.jpg&lt;/upnp:albumArtURI&gt;",
-					 lan_addr[0].str, runtime_vars.port, album_art, detailID);
-			memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-			passed_args->size += ret;
+			ret = strcatf(str, "&gt;http://%s:%d/AlbumArt/%s-%s.jpg&lt;/upnp:albumArtURI&gt;",
+			                   lan_addr[passed_args->iface].str, runtime_vars.port, album_art, detailID);
 		}
-		ret = sprintf(str_buf, "&lt;/container&gt;");
+		ret = strcatf(str, "&lt;/container&gt;");
 	}
-	memcpy(passed_args->resp+passed_args->size, &str_buf, ret+1);
-	passed_args->size += ret;
 
 	return 0;
 }
@@ -965,19 +964,16 @@ BrowseContentDirectory(struct upnphttp * h, const char * action)
 			"<Result>"
 			"&lt;DIDL-Lite"
 			CONTENT_DIRECTORY_SCHEMAS;
-
-	char *resp = malloc(1048576);
-	char str_buf[512];
 	char *zErrMsg = 0;
 	char *sql, *ptr;
 	int ret;
 	struct Response args;
+	struct string_s str;
 	int totalMatches;
 	struct NameValueParserData data;
-	*resp = '\0';
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
-	char * ObjectId = GetValueFromNameValueList(&data, "ObjectID");
+	char * ObjectID = GetValueFromNameValueList(&data, "ObjectID");
 	char * Filter = GetValueFromNameValueList(&data, "Filter");
 	char * BrowseFlag = GetValueFromNameValueList(&data, "BrowseFlag");
 	char * SortCriteria = GetValueFromNameValueList(&data, "SortCriteria");
@@ -993,54 +989,46 @@ BrowseContentDirectory(struct upnphttp * h, const char * action)
 	if( !BrowseFlag || (strcmp(BrowseFlag, "BrowseDirectChildren") && strcmp(BrowseFlag, "BrowseMetadata")) )
 	{
 		SoapError(h, 402, "Invalid Args");
-		if( h->reqflags & FLAG_MS_PFS )
-			ObjectId = sqlite3_malloc(1);
 		goto browse_error;
 	}
-	if( !ObjectId && !(ObjectId = GetValueFromNameValueList(&data, "ContainerID")) )
+	if( !ObjectID && !(ObjectID = GetValueFromNameValueList(&data, "ContainerID")) )
 	{
 		SoapError(h, 701, "No such object error");
-		if( h->reqflags & FLAG_MS_PFS )
-			ObjectId = sqlite3_malloc(1);
 		goto browse_error;
 	}
 	memset(&args, 0, sizeof(args));
+	memset(&str, 0, sizeof(str));
 
-	args.alloced = 1048576;
-	args.resp = resp;
-	args.size = sprintf(resp, "%s", resp0);
+	str.data = malloc(DEFAULT_RESP_SIZE);
+	str.size = DEFAULT_RESP_SIZE;
+	str.off = sprintf(str.data, "%s", resp0);
 	/* See if we need to include DLNA namespace reference */
-	args.filter = set_filter_flags(Filter, h->req_client);
+	args.iface = h->iface;
+	args.filter = set_filter_flags(Filter, h);
 	if( args.filter & FILTER_DLNA_NAMESPACE )
 	{
-		ret = sprintf(str_buf, DLNA_NAMESPACE);
-		memcpy(resp+args.size, &str_buf, ret+1);
-		args.size += ret;
+		ret = strcatf(&str, DLNA_NAMESPACE);
 	}
-	ret = sprintf(str_buf, "&gt;\n");
-	memcpy(resp+args.size, &str_buf, ret+1);
-	args.size += ret;
+	strcatf(&str, "&gt;\n");
 
 	args.returned = 0;
 	args.requested = RequestedCount;
 	args.client = h->req_client;
 	args.flags = h->reqflags;
-	if( h->reqflags & FLAG_MS_PFS )
+	args.str = &str;
+	if( args.flags & FLAG_MS_PFS )
 	{
-		if( strchr(ObjectId, '$') || (strcmp(ObjectId, "0") == 0) )
-		{
-			ObjectId = sqlite3_mprintf("%s", ObjectId);
-		}
-		else
+		if( !strchr(ObjectID, '$') && (strcmp(ObjectID, "0") != 0) )
 		{
 			ptr = sql_get_text_field(db, "SELECT OBJECT_ID from OBJECTS"
 			                             " where OBJECT_ID in "
 			                             "('"MUSIC_ID"$%s', '"VIDEO_ID"$%s', '"IMAGE_ID"$%s')",
-			                             ObjectId, ObjectId, ObjectId);
+			                             ObjectID, ObjectID, ObjectID);
 			if( ptr )
-				ObjectId = ptr;
-			else
-				ObjectId = sqlite3_mprintf("%s", ObjectId);
+			{
+				ObjectID = ptr;
+				args.flags |= FLAG_FREE_OBJECT_ID;
+			}
 		}
 	}
 	DPRINTF(E_DEBUG, L_HTTP, "Browsing ContentDirectory:\n"
@@ -1050,22 +1038,40 @@ BrowseContentDirectory(struct upnphttp * h, const char * action)
 	                         " * BrowseFlag: %s\n"
 	                         " * Filter: %s\n"
 	                         " * SortCriteria: %s\n",
-				ObjectId, RequestedCount, StartingIndex,
+				ObjectID, RequestedCount, StartingIndex,
 	                        BrowseFlag, Filter, SortCriteria);
+
+	if( strcmp(ObjectID, "0") == 0 )
+	{
+		args.flags |= FLAG_ROOT_CONTAINER;
+		if( runtime_vars.root_container )
+		{
+			if( (args.flags & FLAG_AUDIO_ONLY) && (strcmp(runtime_vars.root_container, BROWSEDIR_ID) == 0) )
+				ObjectID = MUSIC_DIR_ID;
+			else
+				ObjectID = runtime_vars.root_container;
+		}
+		else
+		{
+			if( args.flags & FLAG_AUDIO_ONLY )
+				ObjectID = MUSIC_ID;
+		}
+	}
 
 	if( strcmp(BrowseFlag+6, "Metadata") == 0 )
 	{
 		args.requested = 1;
-		sql = sqlite3_mprintf( SELECT_COLUMNS
+		sql = sqlite3_mprintf("SELECT %s, " COLUMNS
 		                      "from OBJECTS o left join DETAILS d on (d.ID = o.DETAIL_ID)"
-		                      " where OBJECT_ID = '%s';"
-		                      , ObjectId);
+	        	              " where OBJECT_ID = '%s';",
+		                      (args.flags & FLAG_ROOT_CONTAINER) ? "0, -1" : "o.OBJECT_ID, o.PARENT_ID",
+		                      ObjectID);
 		ret = sqlite3_exec(db, sql, callback, (void *) &args, &zErrMsg);
 		totalMatches = args.returned;
 	}
 	else
 	{
-		ret = sql_get_int_field(db, "SELECT count(*) from OBJECTS where PARENT_ID = '%s'", ObjectId);
+		ret = sql_get_int_field(db, "SELECT count(*) from OBJECTS where PARENT_ID = '%s'", ObjectID);
 		totalMatches = (ret > 0) ? ret : 0;
 		ret = 0;
 		if( SortCriteria )
@@ -1077,12 +1083,19 @@ BrowseContentDirectory(struct upnphttp * h, const char * action)
 		}
 		else
 		{
-			if( strncmp(ObjectId, MUSIC_PLIST_ID, strlen(MUSIC_PLIST_ID)) == 0 )
+			if( strncmp(ObjectID, MUSIC_PLIST_ID, strlen(MUSIC_PLIST_ID)) == 0 )
 			{
-				if( strcmp(ObjectId, MUSIC_PLIST_ID) == 0 )
+				if( strcmp(ObjectID, MUSIC_PLIST_ID) == 0 )
 					asprintf(&orderBy, "order by d.TITLE");
 				else
 					asprintf(&orderBy, "order by length(OBJECT_ID), OBJECT_ID");
+			}
+			else if( args.client == ERokuSoundBridge )
+			{
+#ifdef __sparc__
+				if( totalMatches < 10000 )
+#endif
+				asprintf(&orderBy, "order by o.CLASS, d.DISC, d.TRACK, d.TITLE");
 			}
 		}
 		/* If it's a DLNA client, return an error for bad sort criteria */
@@ -1095,7 +1108,7 @@ BrowseContentDirectory(struct upnphttp * h, const char * action)
 		sql = sqlite3_mprintf( SELECT_COLUMNS
 		                      "from OBJECTS o left join DETAILS d on (d.ID = o.DETAIL_ID)"
 				      " where PARENT_ID = '%s' %s limit %d, %d;",
-				      ObjectId, orderBy, StartingIndex, RequestedCount);
+				      ObjectID, orderBy, StartingIndex, RequestedCount);
 		DPRINTF(E_DEBUG, L_HTTP, "Browse SQL: %s\n", sql);
 		ret = sqlite3_exec(db, sql, callback, (void *) &args, &zErrMsg);
 	}
@@ -1108,31 +1121,26 @@ BrowseContentDirectory(struct upnphttp * h, const char * action)
 	/* Does the object even exist? */
 	if( !totalMatches )
 	{
-		ret = sql_get_int_field(db, "SELECT count(*) from OBJECTS where OBJECT_ID = '%s'", ObjectId);
+		ret = sql_get_int_field(db, "SELECT count(*) from OBJECTS where OBJECT_ID = '%s'", ObjectID);
 		if( ret <= 0 )
 		{
 			SoapError(h, 701, "No such object error");
 			goto browse_error;
 		}
 	}
-	ret = snprintf(str_buf, sizeof(str_buf), "&lt;/DIDL-Lite&gt;</Result>\n"
-	                                         "<NumberReturned>%u</NumberReturned>\n"
-	                                         "<TotalMatches>%u</TotalMatches>\n"
-	                                         "<UpdateID>%u</UpdateID>"
-	                                         "</u:BrowseResponse>",
-	                                         args.returned, totalMatches, updateID);
-	memcpy(resp+args.size, &str_buf, ret+1);
-	args.size += ret;
-	BuildSendAndCloseSoapResp(h, resp, args.size);
+	ret = strcatf(&str, "&lt;/DIDL-Lite&gt;</Result>\n"
+	                    "<NumberReturned>%u</NumberReturned>\n"
+	                    "<TotalMatches>%u</TotalMatches>\n"
+	                    "<UpdateID>%u</UpdateID>"
+	                    "</u:BrowseResponse>",
+	                    args.returned, totalMatches, updateID);
+	BuildSendAndCloseSoapResp(h, str.data, str.off);
 browse_error:
 	ClearNameValueList(&data);
-	if( orderBy )
-		free(orderBy);
-	free(resp);
-	if( h->reqflags & FLAG_MS_PFS )
-	{
-		sqlite3_free(ObjectId);
-	}
+	if( args.flags & FLAG_FREE_OBJECT_ID )
+		sqlite3_free(ObjectID);
+	free(orderBy);
+	free(str.data);
 }
 
 static void
@@ -1144,16 +1152,13 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 			"<Result>"
 			"&lt;DIDL-Lite"
 			CONTENT_DIRECTORY_SCHEMAS;
-
-	char *resp = malloc(1048576);
 	char *zErrMsg = 0;
 	char *sql, *ptr;
 	char **result;
-	char str_buf[4096];
-	int ret;
 	struct Response args;
+	struct string_s str;
 	int totalMatches = 0;
-	*resp = '\0';
+	int ret;
 
 	struct NameValueParserData data;
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
@@ -1177,48 +1182,42 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 		if( !(ContainerID = GetValueFromNameValueList(&data, "ObjectID")) )
 		{
 			SoapError(h, 701, "No such object error");
-			if( h->reqflags & FLAG_MS_PFS )
-				ContainerID = sqlite3_malloc(1);
 			goto search_error;
 		}
 	}
 	memset(&args, 0, sizeof(args));
+	memset(&str, 0, sizeof(str));
 
-	args.alloced = 1048576;
-	args.resp = resp;
-	args.size = sprintf(resp, "%s", resp0);
+	str.data = malloc(DEFAULT_RESP_SIZE);
+	str.size = DEFAULT_RESP_SIZE;
+	str.off = sprintf(str.data, "%s", resp0);
 	/* See if we need to include DLNA namespace reference */
-	args.filter = set_filter_flags(Filter, h->req_client);
+	args.iface = h->iface;
+	args.filter = set_filter_flags(Filter, h);
 	if( args.filter & FILTER_DLNA_NAMESPACE )
 	{
-		ret = sprintf(str_buf, DLNA_NAMESPACE);
-		memcpy(resp+args.size, &str_buf, ret+1);
-		args.size += ret;
+		ret = strcatf(&str, DLNA_NAMESPACE);
 	}
-	ret = sprintf(str_buf, "&gt;\n");
-	memcpy(resp+args.size, &str_buf, ret+1);
-	args.size += ret;
+	strcatf(&str, "&gt;\n");
 
 	args.returned = 0;
 	args.requested = RequestedCount;
 	args.client = h->req_client;
 	args.flags = h->reqflags;
-	if( h->reqflags & FLAG_MS_PFS )
+	args.str = &str;
+	if( args.flags & FLAG_MS_PFS )
 	{
-		if( strchr(ContainerID, '$') || (strcmp(ContainerID, "0") == 0) )
-		{
-			ContainerID = sqlite3_mprintf("%s", ContainerID);
-		}
-		else
+		if( !strchr(ContainerID, '$') && (strcmp(ContainerID, "0") != 0) )
 		{
 			ptr = sql_get_text_field(db, "SELECT OBJECT_ID from OBJECTS"
 			                             " where OBJECT_ID in "
 			                             "('"MUSIC_ID"$%s', '"VIDEO_ID"$%s', '"IMAGE_ID"$%s')",
 			                             ContainerID, ContainerID, ContainerID);
 			if( ptr )
+			{
 				ContainerID = ptr;
-			else
-				ContainerID = sqlite3_mprintf("%s", ContainerID);
+				args.flags |= FLAG_FREE_OBJECT_ID;
+			}
 		}
 		#if 0 // Looks like the 360 already does this
 		/* Sort by track number for some containers */
@@ -1251,13 +1250,14 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 		groupBy[0] = '\0';
 	if( !SearchCriteria )
 	{
-		asprintf(&newSearchCriteria, "1 = 1");
+		newSearchCriteria = strdup("1 = 1");
 		SearchCriteria = newSearchCriteria;
 	}
 	else
 	{
 		SearchCriteria = modifyString(SearchCriteria, "&quot;", "\"", 0);
 		SearchCriteria = modifyString(SearchCriteria, "&apos;", "'", 0);
+		SearchCriteria = modifyString(SearchCriteria, "\\\"", "\"\"", 0);
 		SearchCriteria = modifyString(SearchCriteria, "object.", "", 0);
 		SearchCriteria = modifyString(SearchCriteria, "derivedfrom", "like", 1);
 		SearchCriteria = modifyString(SearchCriteria, "contains", "like", 2);
@@ -1273,16 +1273,14 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 		SearchCriteria = modifyString(SearchCriteria, "@refID", "REF_ID", 0);
 		if( strstr(SearchCriteria, "@id") )
 		{
-			newSearchCriteria = modifyString(strdup(SearchCriteria), "@id", "OBJECT_ID", 0);
-			SearchCriteria = newSearchCriteria;
+			newSearchCriteria = strdup(SearchCriteria);
+			SearchCriteria = newSearchCriteria = modifyString(newSearchCriteria, "@id", "OBJECT_ID", 0);
 		}
 		if( strstr(SearchCriteria, "res is ") )
 		{
-			if( newSearchCriteria )
-				newSearchCriteria = modifyString(newSearchCriteria, "res is ", "MIME is ", 0);
-			else
-				newSearchCriteria = modifyString(strdup(SearchCriteria), "res is ", "MIME is ", 0);
-			SearchCriteria = newSearchCriteria;
+			if( !newSearchCriteria )
+				newSearchCriteria = strdup(SearchCriteria);
+			SearchCriteria = newSearchCriteria = modifyString(newSearchCriteria, "res is ", "MIME is ", 0);
 		}
 		#if 0 // Does 360 need this?
 		if( strstr(SearchCriteria, "&amp;") )
@@ -1297,14 +1295,16 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 	}
 	DPRINTF(E_DEBUG, L_HTTP, "Translated SearchCriteria: %s\n", SearchCriteria);
 
-	sprintf(str_buf, "SELECT (select count(distinct DETAIL_ID) from OBJECTS o left join DETAILS d on (o.DETAIL_ID = d.ID)"
-	                 " where (OBJECT_ID glob '%s$*') and (%s))"
-	                 " + "
-	                 "(select count(*) from OBJECTS o left join DETAILS d on (o.DETAIL_ID = d.ID)"
-	                 " where (OBJECT_ID = '%s') and (%s))",
-	                 ContainerID, SearchCriteria, ContainerID, SearchCriteria);
+	sql = sqlite3_mprintf("SELECT (select count(distinct DETAIL_ID)"
+	                      " from OBJECTS o left join DETAILS d on (o.DETAIL_ID = d.ID)"
+	                      " where (OBJECT_ID glob '%s$*') and (%s))"
+	                      " + "
+	                      "(select count(*) from OBJECTS o left join DETAILS d on (o.DETAIL_ID = d.ID)"
+	                      " where (OBJECT_ID = '%s') and (%s))",
+	                      ContainerID, SearchCriteria, ContainerID, SearchCriteria);
 	//DEBUG DPRINTF(E_DEBUG, L_HTTP, "Count SQL: %s\n", sql);
-	ret = sql_get_table(db, str_buf, &result, NULL, NULL);
+	ret = sql_get_table(db, sql, &result, NULL, NULL);
+	sqlite3_free(sql);
 	if( ret == SQLITE_OK )
 	{
 		totalMatches = atoi(result[1]);
@@ -1358,27 +1358,20 @@ SearchContentDirectory(struct upnphttp * h, const char * action)
 		sqlite3_free(zErrMsg);
 	}
 	sqlite3_free(sql);
-	strcat(resp, str_buf);
-	ret = snprintf(str_buf, sizeof(str_buf), "&lt;/DIDL-Lite&gt;</Result>\n"
-	                                         "<NumberReturned>%u</NumberReturned>\n"
-	                                         "<TotalMatches>%u</TotalMatches>\n"
-	                                         "<UpdateID>%u</UpdateID>"
-	                                         "</u:SearchResponse>",
-	                                         args.returned, totalMatches, updateID);
-	memcpy(resp+args.size, &str_buf, ret+1);
-	args.size += ret;
-	BuildSendAndCloseSoapResp(h, resp, args.size);
+	ret = strcatf(&str, "&lt;/DIDL-Lite&gt;</Result>\n"
+	                    "<NumberReturned>%u</NumberReturned>\n"
+	                    "<TotalMatches>%u</TotalMatches>\n"
+	                    "<UpdateID>%u</UpdateID>"
+	                    "</u:SearchResponse>",
+	                    args.returned, totalMatches, updateID);
+	BuildSendAndCloseSoapResp(h, str.data, str.off);
 search_error:
 	ClearNameValueList(&data);
-	if( orderBy )
-		free(orderBy);
-	if( newSearchCriteria )
-		free(newSearchCriteria);
-	free(resp);
-	if( h->reqflags & FLAG_MS_PFS )
-	{
+	if( args.flags & FLAG_FREE_OBJECT_ID )
 		sqlite3_free(ContainerID);
-	}
+	free(orderBy);
+	free(newSearchCriteria);
+	free(str.data);
 }
 
 /*
@@ -1430,6 +1423,26 @@ QueryStateVariable(struct upnphttp * h, const char * action)
 	ClearNameValueList(&data);	
 }
 
+static void
+SamsungGetFeatureList(struct upnphttp * h, const char * action)
+{
+	static const char resp[] =
+		"<u:X_GetFeatureListResponse xmlns:u=\"urn:schemas-upnp-org:service:ContentDirectory:1\">"
+		"<FeatureList>"
+		"<?xml version=\"1.0\" encoding=\"utf-8\"?>\r\n"
+		"&lt;Features xmlns=\"urn:schemas-upnp-org:av:avs\""
+		" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\""
+		" xsi:schemaLocation=\"urn:schemas-upnp-org:av:avs http://www.upnp.org/schemas/av/avs.xsd\"&gt;"
+		"&lt;Feature name=\"samsung.com_BASICVIEW\" version=\"1\"&gt;"
+		 "&lt;container id=\"1\" type=\"object.item.audioItem\"/&gt;"
+		 "&lt;container id=\"2\" type=\"object.item.videoItem\"/&gt;"
+		 "&lt;container id=\"3\" type=\"object.item.imageItem\"/&gt;"
+		"&lt;/Feature&gt;"
+		"</FeatureList></u:X_GetFeatureListResponse>";
+
+	BuildSendAndCloseSoapResp(h, resp, sizeof(resp));
+}
+
 static const struct 
 {
 	const char * methodName; 
@@ -1448,6 +1461,7 @@ soapMethods[] =
 	{ "GetCurrentConnectionInfo", GetCurrentConnectionInfo},
 	{ "IsAuthorized", IsAuthorizedValidated},
 	{ "IsValidated", IsAuthorizedValidated},
+	{ "X_GetFeatureList", SamsungGetFeatureList},
 	{ 0, 0 }
 };
 
@@ -1455,14 +1469,14 @@ void
 ExecuteSoapAction(struct upnphttp * h, const char * action, int n)
 {
 	char * p;
-	char * p2;
-	int i, len, methodlen;
 
-	i = 0;
 	p = strchr(action, '#');
-
 	if(p)
 	{
+		int i = 0;
+		int len;
+		int methodlen;
+		char * p2;
 		p++;
 		p2 = strchr(p, '"');
 		if(p2)

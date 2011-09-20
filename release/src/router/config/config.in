@@ -77,6 +77,10 @@ config TCONFIG_USB
 	bool "USB Support"
 	default y
 
+config TCONFIG_NOCAT
+	bool "NoCat Splash"
+	default n
+
 config TCONFIG_MEDIA_SERVER
 	bool "Media Server (MiniDLNA)"
 	depends on TCONFIG_USB
