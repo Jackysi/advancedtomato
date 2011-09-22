@@ -2373,6 +2373,7 @@ function navi()
 			['Miscellaneous',	'misc.asp'],
 			['Routing',			'routing.asp'],
 			['VLAN',			'vlan.asp'],
+			['LAN Access',			'access.asp'],
 			['Wireless',		'wireless.asp'] ] ],
 		['Port Forwarding', 	'forward', 0, [
 			['Basic',			'basic.asp'],
@@ -2426,7 +2427,7 @@ REMOVE-END */
 		['Administration',		'admin', 0, [
 			['Admin Access',	'access.asp'],
 			['Bandwidth Monitoring','bwm.asp'],
-			['Buttons / LED',	'buttons.asp'],
+			['Buttons/LED',	'buttons.asp'],
 /* CIFS-BEGIN */
 			['CIFS Client',		'cifs.asp'],
 /* CIFS-END */

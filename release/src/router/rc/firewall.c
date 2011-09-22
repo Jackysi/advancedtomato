@@ -38,13 +38,7 @@ char lan3face[IFNAMSIZ + 1];
 #ifdef TCONFIG_IPV6
 char wan6face[IFNAMSIZ + 1];
 #endif
-
-
 char lan_cclass[sizeof("xxx.xxx.xxx.") + 1];
-//char lan1_cclass[sizeof("xxx.xxx.xxx.") + 1];
-//char lan2_cclass[sizeof("xxx.xxx.xxx.") + 1];
-//char lan3_cclass[sizeof("xxx.xxx.xxx.") + 1];
-
 #ifdef LINUX26
 static int can_enable_fastnat;
 #endif
@@ -973,22 +967,20 @@ static void filter_forward(void)
 
 	ip46t_write(
 		"-A FORWARD -i %s -o %s -j ACCEPT\n",			// accept all lan to lan
-//		"-A FORWARD -m state --state INVALID -j DROP\n",	// drop if INVALID state
-
 		lanface, lanface);
 	if (strcmp(lan1face,"")!=0)
-		ipt_write(
+		ip46t_write(
 			"-A FORWARD -i %s -o %s -j ACCEPT\n",
 			lan1face, lan1face);
 	if (strcmp(lan2face,"")!=0)
-		ipt_write(
+		ip46t_write(
 			"-A FORWARD -i %s -o %s -j ACCEPT\n",
 			lan2face, lan2face);
 	if (strcmp(lan3face,"")!=0)
-		ipt_write(
+		ip46t_write(
 			"-A FORWARD -i %s -o %s -j ACCEPT\n",
 			lan3face, lan3face);
-	ipt_write(
+	ip46t_write(
 		"-A FORWARD -m state --state INVALID -j DROP\n");		// drop if INVALID state
 
 	// IPv4 only ?
@@ -1043,17 +1035,52 @@ static void filter_forward(void)
 		}
 	}
 
-	ip46t_write("-A FORWARD -i %s -j %s\n",					// from lan
-		lanface, chain_out_accept);
-	if (strcmp(lan1face,"")!=0)
-		ipt_write("-A FORWARD -i %s -j %s\n",					// from lan
-			lan1face, chain_out_accept);
-	if (strcmp(lan2face,"")!=0)
-		ipt_write("-A FORWARD -i %s -j %s\n",					// from lan
-			lan2face, chain_out_accept);
-	if (strcmp(lan3face,"")!=0)
-		ipt_write("-A FORWARD -i %s -j %s\n",					// from lan
-			lan3face, chain_out_accept);
+	for (i = 0; i < wanfaces.count; ++i) {
+		if (*(wanfaces.iface[i].name)) {
+			ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lanface, wanfaces.iface[i].name, chain_out_accept);
+			if (strcmp(lan1face,"")!=0)
+				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan1face, wanfaces.iface[i].name, chain_out_accept);
+			if (strcmp(lan2face,"")!=0)
+				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan2face, wanfaces.iface[i].name, chain_out_accept);
+			if (strcmp(lan3face,"")!=0)
+				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan3face, wanfaces.iface[i].name, chain_out_accept);
+		}
+	}
+
+	const char *d, *sbr, *saddr, *dbr, *daddr, *desc;
+	char *nv, *nvp, *b;
+	int n;
+	nvp = nv = strdup(nvram_safe_get("lan_access"));
+	if (nv) {
+		while ((b = strsep(&nvp, ">")) != NULL) {
+			/*
+				1<0<1.2.3.4<1<5.6.7.8<30,45-50<desc
+
+				1 = enabled
+				0 = src bridge
+				1.2.3.4 = src addr
+				1 = dst bridge
+				5.6.7.8 = dst addr
+				desc = desc
+			*/
+			n = vstrsep(b, "<", &d, &sbr, &saddr, &dbr, &daddr, &desc);
+			if (*d != '1')
+				continue;
+			if (!ipt_addr(src, sizeof(src), saddr, "src", IPT_V4|IPT_V6, 1, "LAN access IPv4", desc))
+				continue;
+			if (!ipt_addr(dst, sizeof(dst), daddr, "dst", IPT_V4|IPT_V6, 1, "LAN access IPv4", desc))
+				continue;
+
+			ip46t_write("-A FORWARD -i %s%s -o %s%s %s %s -j ACCEPT\n",
+				"br",
+				sbr,
+				"br",
+				dbr,
+				src,
+				dst);
+		}
+	}
+	free(nv);
 
 	// IPv4 only
 	if (nvram_get_int("upnp_enable") & 3) {
