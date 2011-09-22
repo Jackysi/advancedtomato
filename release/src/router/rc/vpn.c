@@ -28,7 +28,7 @@
 #define CLIENT_IF_START 10
 #define SERVER_IF_START 20
 
-#define BUF_SIZE 128
+#define BUF_SIZE 256
 #define IF_SIZE 8
 
 static int waitfor(const char *name)
