@@ -4,6 +4,10 @@
 	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
+	Filtering/Extensions on this QoS/Transfer Rates page
+	Copyright (C) 2011 Augusto Bott
+	http://code.google.com/p/tomato-sdhc-vlan/
+
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
 -->
@@ -29,9 +33,10 @@
 
 <script type='text/javascript' src='debug.js'></script>
 <script type='text/javascript' src='protocols.js'></script>
+<script type='text/javascript' src='interfaces.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram('lan_ipaddr,lan1_ipaddr,lan2_ipaddr,lan3_ipaddr,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,wan_proto,lan_netmask,lan1_netmask,lan2_netmask,lan3_netmask'); %>
+//	<% nvram('lan_ipaddr,lan1_ipaddr,lan2_ipaddr,lan3_ipaddr,lan_netmask,lan1_netmask,lan2_netmask,lan3_netmask,t_hidelr'); %>
 var filterip = [];
 var filteripe = [];
 
@@ -69,17 +74,19 @@ function resolve()
 }
 
 var resolveCB = 0;
+var bcastCB = 0;
+var mcastCB = 0;
 
 function resolveChanged()
 {
 	var b;
 
-	b = E('resolve').checked ? 1 : 0;
+	b = E('_f_autoresolve').checked ? 1 : 0;
 	if (b != resolveCB) {
 		resolveCB = b;
 		cookie.set('qos_ctr_resolve', b);
-		if (b) grid.resolveAll();
 	}
+	if (b) grid.resolveAll();
 }
 
 var thres = 0;
@@ -88,7 +95,7 @@ function thresChanged()
 {
 	var a, b;
 
-	b = E('thres').checked ? fixInt('<% cgi_get("thres"); %>', 100, 10000000, 100) : 0;
+	b = E('_f_excludebythreshold').checked ? fixInt('<% cgi_get("thres"); %>', 100, 10000000, 100) : 0;
 	if (b != thres) {
 		thres = b;
 		cookie.set('qos_ctr_thres', b);
@@ -209,13 +216,19 @@ grid.setup = function() {
 	this.headerSet(['Proto', 'Source', 'S Port', 'Destination', 'D Port', 'UL Rate', 'DL Rate']);
 }
 
-var ref = new TomatoRefresh('/update.cgi', '', 0, 'qos_ctrate');
+var ref = new TomatoRefresh('update.cgi', '', 0, 'qos_ctrate');
+
+var numconntotal = 0;
+var numconnshown = 0;
 
 ref.refresh = function(text)
 {
 	var i, b, d, cols, j;
 
 	++lock;
+
+	numconntotal = 0;
+	numconnshown = 0;
 
 	try {
 		ctrate = [];
@@ -238,17 +251,38 @@ ref.refresh = function(text)
 	cols = [1, 2];
 
 	for (i = 0; i < ctrate.length; ++i) {
-		b = ctrate[i];
 		fskip=0;
+		numconntotal++;
+		b = ctrate[i];
+
 		if (E('_f_excludegw').checked) {
 			if ((b[1] == nvram.lan_ipaddr) || (b[2] == nvram.lan_ipaddr) ||
 				(b[1] == nvram.lan1_ipaddr) || (b[2] == nvram.lan1_ipaddr) ||
 				(b[1] == nvram.lan2_ipaddr) || (b[2] == nvram.lan2_ipaddr) ||
-				(b[1] == nvram.lan3_ipaddr) || (b[2] == nvram.lan3_ipaddr) ) {
-				fskip=1;
+				(b[1] == nvram.lan3_ipaddr) || (b[2] == nvram.lan3_ipaddr) ||
+				(b[1] == '127.0.0.1') || (b[2] == '127.0.0.1') ) {
+				continue;
 			}
 		}
-		if (fskip == 1) continue;
+
+		if (E('_f_excludebcast').checked) {
+			if ((b[2] == getBroadcastAddress(getNetworkAddress(nvram.lan_ipaddr,nvram.lan_netmask),nvram.lan_netmask)) ||
+				(b[2] == getBroadcastAddress(getNetworkAddress(nvram.lan1_ipaddr,nvram.lan1_netmask),nvram.lan1_netmask)) ||
+				(b[2] == getBroadcastAddress(getNetworkAddress(nvram.lan2_ipaddr,nvram.lan2_netmask),nvram.lan2_netmask)) ||
+				(b[2] == getBroadcastAddress(getNetworkAddress(nvram.lan3_ipaddr,nvram.lan3_netmask),nvram.lan3_netmask)) ||
+				(b[2] == '255.255.255.255') || (b[2] == '0.0.0.0') ) {
+				continue;
+			}
+		}
+
+		if (E('_f_excludemcast').checked) {
+			var mmin = 3758096384; // aton('224.0.0.0') == 3758096384
+			var mmax = 4026531839; // aton('239.255.255.255') == 4026531839
+			if (((aton(b[1]) >= mmin) && (aton(b[1]) <= mmax)) || 
+				((aton(b[2]) >= mmin) && (aton(b[2]) <= mmax))) {
+				continue;
+			}
+		}
 
 		if (filteripe.length>0) {
 			fskip = 0;
@@ -258,8 +292,8 @@ ref.refresh = function(text)
 					break;
 				}
 			}
+			if (fskip == 1) continue;
 		}
-		if (fskip == 1) continue;
 
 		if (filterip.length>0) {
 			fskip = 1;
@@ -269,8 +303,8 @@ ref.refresh = function(text)
 					break;
 				}
 			}
+			if (fskip == 1) continue;
 		}
-		if (fskip == 1) continue;
 
 		for (j = cols.length-1; j >= 0; j--) {
 			ip = b[cols[j]];
@@ -290,6 +324,8 @@ ref.refresh = function(text)
 				else cursor = null;
 			}
 		}
+
+		numconnshown++;
 		d = [protocols[b[0]] || b[0], b[1], b[3], b[2], b[4], b[5], b[6]];
 		var row = grid.insertData(-1, d);
 		if (cursor) row.style.cursor = cursor;
@@ -304,6 +340,11 @@ ref.refresh = function(text)
 	--lock;
 
 	if (resolveCB) resolve();
+
+	if (numconnshown != numconntotal)
+		E('numtotalconn').innerHTML='<small><i>(showing ' + numconnshown + ' out of ' + numconntotal + ' connections)</i></small>';
+	else
+		E('numtotalconn').innerHTML='<small><i>(' + numconntotal + ' connections)</i></small>';
 }
 
 function init()
@@ -311,14 +352,26 @@ function init()
 	var c;
 
 	if (((c = cookie.get('qos_ctr_resolve')) != null) && (c == '1')) {
-		E('resolve').checked = resolveCB = 1;
+		E('_f_autoresolve').checked = resolveCB = 1;
+	}
+
+	if (((c = cookie.get('qos_ctr_bcast')) != null) && (c == '1')) {
+		E('_f_excludebcast').checked = bcastCB = 1;
+	}
+
+	if (((c = cookie.get('qos_ctr_mcast')) != null) && (c == '1')) {
+		E('_f_excludemcast').checked = mcastCB = 1;
+	}
+
+	if (((c = cookie.get('qos_ctr_filters')) != null) && (c == '1')) {
+		E('sesdivfilters').style.display='';
 	}
 
 	if ((thres = cookie.get('qos_ctr_thres')) == null || isNaN(thres *= 1)) {
 		thres = 0;
 	}
-	E('thres').checked = (thres != 0);
 
+	E('_f_excludebythreshold').checked = (thres != 0);
 	grid.setup();
 	ref.postData = 'exec=ctrate&arg0=' + readDelay + '&arg1=' + thres;
 	ref.initPage(250);
@@ -345,14 +398,33 @@ function dofilter() {
 }
 
 function toggleFiltersVisibility(){
-	if(E('sesdivfilters').style.display=='')
+	if(E('sesdivfilters').style.display=='') {
 		E('sesdivfilters').style.display='none';
-	else
+		cookie.set('qos_ctr_filters', 0);
+	} else {
 		E('sesdivfilters').style.display='';
+		cookie.set('qos_ctr_filters', 1);
+	}
 }
 
 function verifyFields(focused, quiet)
 {
+	var b;
+
+	b = E('_f_excludebcast').checked ? 1 : 0;
+	if (b != bcastCB) {
+		bcastCB = b;
+		cookie.set('qos_ctr_bcast', b);
+	}
+
+	b = E('_f_excludemcast').checked ? 1 : 0;
+	if (b != mcastCB) {
+		mcastCB = b;
+		cookie.set('qos_ctr_mcast', b);
+	}
+
+	thresChanged();
+	resolveChanged();
 	dofilter();
 	return 1;
 }
@@ -372,25 +444,27 @@ function verifyFields(focused, quiet)
 
 <!-- / / / -->
 
-<div class='section-title'>Filters <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
+<div class='section-title'>Filters: <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
 <div class='section' id='sesdivfilters' style='display:none'>
 <script type='text/javascript'>
 var c;
 c = [];
 c.push({ title: 'Only these IPs', name: 'f_filter_ip', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(Comma separated list)</small>' });
 c.push({ title: 'Exclude these IPs', name: 'f_filter_ipe', size: 50, maxlen: 255, type: 'text', suffix: ' <small>(Comma separated list)</small>' });
-c.push({ title: 'Exclude gateway traffic', name: 'f_excludegw', type: 'checkbox', value: 1 });
+c.push({ title: 'Exclude gateway traffic', name: 'f_excludegw', type: 'checkbox', value: ((nvram.t_hidelr) == '1' ? 1 : 0) });
+c.push({ title: 'Exclude broadcasts', name: 'f_excludebcast', type: 'checkbox' });
+c.push({ title: 'Exclude multicast', name: 'f_excludemcast', type: 'checkbox' });
+c.push({ title: 'Ignore inactive connections', name: 'f_excludebythreshold', type: 'checkbox' });
+c.push({ title: 'Auto resolve addresses', name: 'f_autoresolve', type: 'checkbox' });
 createFieldTable('',c);
 </script>
 </div>
-</div>
 
-<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>Transfer Rates</div>
+<!-- / / / -->
+
+<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>Transfer Rates: <span id='numtotalconn'></span></div>
 <div class='section'>
 <table id='grid' class='tomato-grid' style="float:left" cellspacing=1></table>
-<input type='checkbox' id='resolve' onclick='resolveChanged()' onchange='resolveChanged()'> Automatically Resolve Addresses
-&nbsp;&nbsp;&nbsp;
-<input type='checkbox' id='thres' onclick='thresChanged()' onchange='thresChanged()'> Hide Inactive Connections
 
 <div id='loading'><br><b>Loading...</b></div>
 </div>
