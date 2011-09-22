@@ -4,6 +4,10 @@
 	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
+	Enhancements by Teaman
+	Copyright (C) 2011 Augusto Bott
+	http://code.google.com/p/tomato-sdhc-vlan/
+
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
 -->
@@ -13,7 +17,7 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] About</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 <script type='text/javascript'>
 //	<% nvram(''); %>	// http_id
@@ -104,60 +108,58 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <!-- VPN-END -->
 <br>
-<br>
 <b>This compilation by Toastman may also include:</b><br>
 <br>
 <b>"Teddy Bear" current features, notably:</b><br>
 - USB Support, Samba, FTP, Media Servers<br>
 - Web Monitor, Per-connection transfer rates<br>
-- Byte counter, QOS rule ID added to QOS/Details<br>
+- Byte counter, QOS rule ID<br>
+<!-- IPV6-BEGIN -->
 - Additional ipv6 support in GUI, QOS, Conntrack<br>
+<!-- IPV6-END -->
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <br>
 <b>"Victek RAF" features:</b><br>
-- CPU Freq | Previous WAN IP | Additional Themes<br>
-- Static ARP Binding | QOS/Bandwidth Limiter<br>
+- CPU Freq | Previous WAN IP<br>
 <!-- NOCAT-BEGIN -->
-- Captive Portal (Based on NocatSplash) <br>
+- Captive Portal (Based in NocatSplash)<br>
+Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 <!-- NOCAT-END -->
-Copyright (C) 2007-2011 Vicente Soriano<br>
-<!-- NOCAT-BEGIN -->
-Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
-<!-- NOCAT-END -->
+Tomato RAF. Copyright (C) 2007-2011 Vicente Soriano. <br>
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
+<b>"Shibby" features:</b><br>
+- Custom log file path<br>
+<!-- SNMP-BEGIN -->
+- SNMP integration and GUI<br>
+<!-- SNMP-END -->
+Copyright (C) 2011 Michał Rupental<br>
+<a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
+<br>
 <b>"Teaman" Features:</b><br>
-- easy setup GUI for VLANS<br>
+- QOS-detailed & ctrate filters<br>
+- Multiple LAN support integration and GUI,<br>
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br>
 <b>"Toastman" Features:</b><br>
+- CPU frequency selector<br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules<br>
+- Client Monitor<br>
+- Static ARP<br>
+- Up to 80 QOS rules<br>
 - Configurable QOS class names<br>
-- Client Monitor Graphs<br>
-- Revised CPU frequency selector<br>
-- Faster page refresh settings<br>
-- Fast conntrack timeout settings<br>
-- FTPput and FTPget enabled<br>
-- 16 IMQ's enabled with 24 hour graphs<br>
-- Starts with LAN DHCP off if nvram is reset<br>
-- UPnP Support for vlans (if exists, loads upnpconfig.custom from JFFS)<br>
 - Comprehensive QOS rule examples set by default<br>
-- Extra Themes<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>
 <br>
+Built on <% build_time(); %><br>
 <br>
-<br>
-<b>Development by Victek/PrinceAMD/Phykris/Shibby/Toastman/Teaman</b><br>
 <br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
-<br>
-Built on <% build_time(); %><br>
-<br><br>
 
 <!--
 
