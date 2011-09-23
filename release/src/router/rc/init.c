@@ -1262,6 +1262,7 @@ static void sysinit(void)
 	struct dirent *de;
 	char s[256];
 	char t[256];
+	int model;
 
 	mount("proc", "/proc", "proc", 0, NULL);
 	mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
@@ -1367,6 +1368,17 @@ static void sysinit(void)
 		signal(fatalsigs[i], handle_fatalsigs);
 	}
 	signal(SIGCHLD, handle_reap);
+
+	switch (model = get_model()) {
+	case MODEL_WR850GV1:
+	case MODEL_WR850GV2:
+		// need to cleanup some variables...
+		if ((nvram_get("t_model") == NULL) && (nvram_get("MyFirmwareVersion") != NULL)) {
+			nvram_unset("MyFirmwareVersion");
+			nvram_set("restore_defaults", "1");
+		}
+		break;
+	}
 
 #ifdef CONFIG_BCMWL5
 	// ctf must be loaded prior to any other modules
@@ -1513,7 +1525,7 @@ int init_main(int argc, char *argv[])
 			start_vlan();
 			start_lan();
 			start_arpbind();
-			start_bwclimon();
+//			start_bwclimon();
 			start_wan(BOOT);
 			start_services();
 			start_wl();
@@ -1523,6 +1535,11 @@ int init_main(int argc, char *argv[])
 				/* Restart NAS one more time - for some reason without
 				 * this the new driver doesn't always bring WDS up.
 				 */
+				stop_nas();
+				start_nas();
+			}
+#else
+			if (wl_security_on()) {
 				stop_nas();
 				start_nas();
 			}

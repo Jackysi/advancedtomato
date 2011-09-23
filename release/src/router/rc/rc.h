@@ -245,6 +245,7 @@ extern void remove_storage_main(int shutdn);
 
 // wnas.c
 extern int wds_enable(void);
+extern int wl_security_on(void);
 extern void start_nas(void);
 extern void stop_nas(void);
 extern void notify_nas(const char *ifname);
@@ -300,9 +301,30 @@ extern void stop_bwclimon(void);
 extern void start_arpbind(void);
 extern void stop_arpbind(void);
 
+// bwclimon.c
+extern void start_bwclimon(void);
+extern void stop_bwclimon(void);
+
+// account.c
+extern void start_account(void);
+extern void stop_account(void);
+
+// arpbind.c
+extern void start_arpbind(void);
+extern void stop_arpbind(void);
+
 // forward.c
 extern void ipt_forward(ipt_table_t table);
 extern void ipt_triggered(ipt_table_t table);
+
+// account.c
+extern void start_account(void);
+extern void stop_account(void);
+
+// arpbind.c
+extern void start_arpbind(void);
+extern void stop_arpbind(void);
+
 #ifdef TCONFIG_IPV6
 extern void ip6t_forward(void);
 #endif
@@ -428,6 +450,10 @@ extern void stop_smbd(void);
 extern void start_snmp();
 extern void stop_snmp();
 #endif
+
+//cmon.c
+extern void stop_cmon();
+extern void start_cmon();
 
 // vpn.c
 #ifdef TCONFIG_OPENVPN

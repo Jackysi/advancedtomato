@@ -13,7 +13,7 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] Forwarding: UPnP / NAT-PMP</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 
 <!-- / / / -->
@@ -40,7 +40,7 @@
 /* REMOVE-BEGIN
 	!!TB - additional miniupnp settings
 REMOVE-END */
-//	<% nvram("upnp_enable,upnp_mnp,upnp_clean,upnp_secure,upnp_clean_interval,upnp_clean_threshold"); %>
+//	<% nvram("upnp_enable,upnp_mnp,upnp_clean,upnp_secure,upnp_clean_interval,upnp_clean_threshold,upnp_lan,upnp_lan1,upnp_lan2,upnp_lan3,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,"); %>
 
 // <% upnpinfo(); %>
 
@@ -140,6 +140,19 @@ REMOVE-END */
 		ferror.clear(E('_upnp_clean_threshold'));
 	}
 
+	E('_f_upnp_lan').disabled = ((nvram.lan_ifname.length < 1) || !((enable != 0) && (bc != 0)));
+	if (E('_f_upnp_lan').disabled)
+		E('_f_upnp_lan').checked = false;
+	E('_f_upnp_lan1').disabled = ((nvram.lan1_ifname.length < 1) || !((enable != 0) && (bc != 0)));
+	if (E('_f_upnp_lan1').disabled)
+		E('_f_upnp_lan1').checked = false;
+	E('_f_upnp_lan2').disabled = ((nvram.lan2_ifname.length < 1) || !((enable != 0) && (bc != 0)));
+	if (E('_f_upnp_lan2').disabled)
+		E('_f_upnp_lan2').checked = false;
+	E('_f_upnp_lan3').disabled = ((nvram.lan3_ifname.length < 1) || !((enable != 0) && (bc != 0)));
+	if (E('_f_upnp_lan3').disabled)
+		E('_f_upnp_lan3').checked = false;
+
 	return 1;
 }
 
@@ -162,6 +175,10 @@ REMOVE-END */
 	fom.upnp_clean.value = E('_f_upnp_clean').checked ? 1 : 0;
 	fom.upnp_secure.value = E('_f_upnp_secure').checked ? 1 : 0;
 
+	fom.upnp_lan.value = E('_f_upnp_lan').checked ? 1 : 0;
+	fom.upnp_lan1.value = E('_f_upnp_lan1').checked ? 1 : 0;
+	fom.upnp_lan2.value = E('_f_upnp_lan2').checked ? 1 : 0;
+	fom.upnp_lan3.value = E('_f_upnp_lan3').checked ? 1 : 0;
 	form.submit(fom, 0);
 }
 
@@ -203,6 +220,10 @@ REMOVE-END */
 <input type='hidden' name='upnp_mnp'>
 <input type='hidden' name='upnp_clean'>
 <input type='hidden' name='upnp_secure'>
+<input type='hidden' name='upnp_lan'>
+<input type='hidden' name='upnp_lan1'>
+<input type='hidden' name='upnp_lan2'>
+<input type='hidden' name='upnp_lan3'>
 
 <div class='section-title'>Forwarded Ports</div>
 <div class='section'>
@@ -227,8 +248,12 @@ REMOVE-END */
 	{ title: 'Secure Mode', name: 'f_upnp_secure', type: 'checkbox',
 		suffix: ' <small>(when enabled, UPnP clients are allowed to add mappings only to their IP)</small>',
 		value: (nvram.upnp_secure == '1') },
-	null,
-	{ title: 'Show In My Network Places',  name: 'f_upnp_mnp',  type: 'checkbox',  value: (nvram.upnp_mnp == '1') }
+	{ title: 'Listen on' },
+	{ title: 'LAN', indent: 2, name: 'f_upnp_lan', type: 'checkbox', value: (nvram.upnp_lan == '1') },
+	{ title: 'LAN1', indent: 2, name: 'f_upnp_lan1', type: 'checkbox', value: (nvram.upnp_lan1 == '1') },
+	{ title: 'LAN2', indent: 2, name: 'f_upnp_lan2', type: 'checkbox', value: (nvram.upnp_lan2 == '1') },
+	{ title: 'LAN3', indent: 2, name: 'f_upnp_lan3', type: 'checkbox', value: (nvram.upnp_lan3 == '1') },
+	{ title: 'Show In My Network Places',  name: 'f_upnp_mnp',  type: 'checkbox',  value: (nvram.upnp_mnp == '1')}
 ]);
 </script>
 </div>

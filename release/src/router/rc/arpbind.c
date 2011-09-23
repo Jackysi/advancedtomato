@@ -7,6 +7,7 @@ void start_arpbind(void) {
 	const char *name, *bind;
 
 	nvp = nv = strdup(nvram_safe_get("dhcpd_static"));
+
 	if (!nv) return;
 
 // clear arp table first

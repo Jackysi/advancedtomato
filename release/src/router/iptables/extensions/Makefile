@@ -18,6 +18,7 @@ PF_EXT_SLIB+=IMQ ipp2p
 ifeq ($(CONFIG_LINUX26),y)
 PF_EXT_SLIB+=hashlimit NFQUEUE NOTRACK
 endif
+PF_EXT_SLIB+=account
 
 ifeq ($(DO_IPV6), 1)
 PF6_EXT_SLIB:=connmark icmp6 length limit mac mark multiport standard state rt hl web

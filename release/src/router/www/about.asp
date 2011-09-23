@@ -4,10 +4,6 @@
 	Copyright (C) 2006-2009 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
-	Enhancements by Teaman
-	Copyright (C) 2011 Augusto Bott
-	http://code.google.com/p/tomato-sdhc-vlan/
-
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
 -->
@@ -108,7 +104,7 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <!-- VPN-END -->
 <br>
-<b>This compilation by Toastman may also include:</b><br>
+<b>This particular compilation/brew by Toastman/Teaman may also include:</b><br>
 <br>
 <b>"Teddy Bear" current features, notably:</b><br>
 - USB Support, Samba, FTP, Media Servers<br>
@@ -144,6 +140,9 @@ Copyright (C) 2011 Michał Rupental<br>
 - QOS-detailed & ctrate filters<br>
 - Realtime bandwidth monitoring of LAN clients<br>
 - Static ARP binding<br>
+- VLAN administration GUI<br>
+- Multiple LAN support integration and GUI<br>
+- Multiple/virtual SSID support (experimental)<br>
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br>

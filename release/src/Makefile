@@ -44,6 +44,7 @@ ND = "K26"
 else
 ND = "ND"
 endif
+SNMP ?= "n"
 
 ifeq ($(NVRAM_SIZE),)
 NVRAM_SIZE = 0
@@ -604,9 +605,9 @@ endif
 ## Make the "Ext + VPN" = VPN
 e:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)"
 else
-	@$(MAKE) bin OPENVPN=y BBEXTRAS=y USBEXTRAS=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP=y
+	@$(MAKE) bin OPENVPN=y BBEXTRAS=y USBEXTRAS=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)"
 endif
 
 ## Make the "Mini: no USB, no CIFS, no Zebra" build - targeted for Netgear routers
@@ -633,16 +634,16 @@ endif
 ## Make the "normal with Extras and NTFS + IPv6" = Ext
 m:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB" SNMP=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB" SNMP="$(SNMP)"
 else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB" SNMP=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB" SNMP="$(SNMP)"
 endif
 
 ## Roadkill
 ## Make the "normal (with NTFS support) + VPN + NOCAT" build
 nc:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=NC BUILD_DESC="$(VPN)" USB="USB" SNMP=y NOCAT=y BUILD_DESC+="-$(NC)"
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=NC BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)" NOCAT=y BUILD_DESC+="-$(NC)"
 else
 	@$(MAKE) bin OPENVPN=y NTFS=y B=NC BUILD_DESC="$(VPN)" USB="USB" NOCAT=y BUILD_DESC+=" $(NC)"
 endif
@@ -660,17 +661,17 @@ ncs:
 ## Make the "No USB" = Std
 s:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB="" SNMP=y
+	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB="" SNMP="$(SNMP)"
 else
-	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB="" SNMP=y
+	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB="" SNMP="$(SNMP)"
 endif
 
 ## Make the "VPN with no USB support"
 v:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NO_JFFS=y B=V BUILD_DESC="$(VPN)" USB=""
+	@$(MAKE) bin OPENVPN=y NO_JFFS=y B=V BUILD_DESC="$(VPN)" USB="" SNMP="$(SNMP)"
 else
-	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB=""
+	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB="" SNMP="$(SNMP)"
 endif
 
 ## Make the "Small VPN with no USB support" build

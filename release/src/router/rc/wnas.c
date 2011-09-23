@@ -64,6 +64,41 @@ int wds_enable(void)
 	return foreach_wif(1, NULL, is_wds);
 }
 
+int wl_security_on(void)
+{
+	return foreach_wif(1, NULL, security_on);
+}
+
+static int nas_starter(int idx, int unit, int subunit, void *param) {
+	char unit_str[] = "000000";
+	if(nvram_get_int(wl_nvname("bss_enabled", unit, subunit))) {
+		if (nvram_match(wl_nvname("mode", unit, subunit), "ap")) {
+			if (subunit > 0)
+				snprintf(unit_str, sizeof(unit_str), "%d.%d", unit, subunit);
+			else
+				snprintf(unit_str, sizeof(unit_str), "%d", unit);
+
+			if(strstr(nvram_safe_get("lan_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL) {
+				xstart("/usr/sbin/nas.sh", unit_str, nvram_safe_get("lan_ifname"));
+				sleep(1);
+			}
+			if(strstr(nvram_safe_get("lan1_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL) {
+				xstart("/usr/sbin/nas.sh", unit_str, nvram_safe_get("lan1_ifname"));
+				sleep(1);
+			}
+			if(strstr(nvram_safe_get("lan2_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL) {
+				xstart("/usr/sbin/nas.sh", unit_str, nvram_safe_get("lan2_ifname"));
+				sleep(1);
+			}
+			if(strstr(nvram_safe_get("lan3_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL) {
+				xstart("/usr/sbin/nas.sh", unit_str, nvram_safe_get("lan3_ifname"));
+				sleep(1);
+			}
+		}
+	}
+	return 0;
+}
+
 void start_nas(void)
 {
 	if (!foreach_wif(1, NULL, security_on)) {
@@ -87,7 +122,19 @@ void start_nas(void)
 	mode_t m;
 
 	m = umask(0077);
-	xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan");
+	if(nvram_get_int("nas_alternate")) {
+		foreach_wif(1, NULL, nas_starter);
+	} else {
+		if(strstr(nvram_safe_get("lan_ifnames"),nvram_safe_get("wl0_ifname")) != NULL)
+			xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan");
+		if(strstr(nvram_safe_get("lan1_ifnames"),nvram_safe_get("wl0_ifname")) != NULL)
+			xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan1");
+		if(strstr(nvram_safe_get("lan2_ifnames"),nvram_safe_get("wl0_ifname")) != NULL)
+			xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan2");
+		if(strstr(nvram_safe_get("lan3_ifnames"),nvram_safe_get("wl0_ifname")) != NULL)
+			xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan3");
+	}
+
 	if (foreach_wif(1, NULL, is_sta))
 		xstart("nas", "/etc/nas.wan.conf", "/var/run/nas.wan.pid", "wan");
 	umask(m);
