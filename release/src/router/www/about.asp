@@ -95,7 +95,6 @@ function init()
 <!-- IPV6-BEGIN -->
 IPv6 support,
 <!-- IPV6-END -->
-<br>
 Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <br>
@@ -104,13 +103,10 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <!-- VPN-END -->
 <br>
-<b>This particular compilation/brew by Toastman/Teaman may also include:</b><br>
+This compilation may also include:<br>
 <br>
 <b>"Teddy Bear" current features, notably:</b><br>
 - USB Support, Samba, FTP, Media Servers<br>
-- Web Monitor, Per-connection transfer rates<br>
-- Byte counter, QOS rule ID added to QOS/Details<br>
-- Additional ipv6 support in GUI, QOS, Conntrack<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <br>
 <b>"Victek RAF" features:</b><br>
@@ -147,13 +143,12 @@ Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br>
 <b>"Toastman" Features:</b><br>
+- CPU clock frequency slection<br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules<br>
-- Up to 80 QOS rules<br>
 - IMQ based QOS/Bandwidth Limiter<br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>
-- Extra Themes<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>
 <br>
 Development by Victek/PrinceAMD/Phykris/Shibby/Toastman/Teaman<br>
