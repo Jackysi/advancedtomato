@@ -40,7 +40,7 @@
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript' src='interfaces.js'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,wl_security_mode,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype,lan_ifname,lan_stp,lan1_ifname,lan1_ipaddr,lan1_netmask,lan1_proto,lan1_stp,dhcp1_start,dhcp1_num,dhcp1_lease,lan2_ifname,lan2_ipaddr,lan2_netmask,lan2_proto,lan2_stp,dhcp2_start,dhcp2_num,dhcp2_lease,lan3_ifname,lan3_ipaddr,lan3_netmask,lan3_proto,lan3_stp,dhcp3_start,dhcp3_num,dhcp3_lease"); %>
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,wl_security_mode,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype,lan_ifname,lan_stp,lan1_ifname,lan1_ipaddr,lan1_netmask,lan1_proto,lan1_stp,dhcp1_start,dhcp1_num,dhcp1_lease,dhcpd1_startip,dhcpd1_endip,lan2_ifname,lan2_ipaddr,lan2_netmask,lan2_proto,lan2_stp,dhcp2_start,dhcp2_num,dhcp2_lease,dhcpd2_startip,dhcpd2_endip,lan3_ifname,lan3_ipaddr,lan3_netmask,lan3_proto,lan3_stp,dhcp3_start,dhcp3_num,dhcp3_lease,dhcpd3_startip,dhcpd3_endip"); %>
 
 var lg = new TomatoGrid();
 lg.setup = function() {
@@ -58,6 +58,11 @@ lg.setup = function() {
 	for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
 		var j = (i == 0) ? '' : i.toString();
 		if (nvram['lan' + j + '_ifname'].length > 0) {
+			if ((!fixIP(nvram['dhcpd' + j + '_startip'])) || (!fixIP(nvram['dhcpd' + j + '_endip']))) {
+				var x = nvram['lan' + j + '_ipaddr'].split('.').splice(0, 3).join('.') + '.';
+				nvram['dhcpd' + j + '_startip'] = x + nvram['dhcp' + j + '_start'];
+				nvram['dhcpd' + j + '_endip'] = x + ((nvram['dhcp' + j + '_start'] * 1) + (nvram['dhcp' + j + '_num'] * 1) - 1);
+			}
 			lg.insertData(-1, [ 
 				i.toString(),
 				nvram['lan' + j + '_stp'],
@@ -80,10 +85,10 @@ lg.setup = function() {
 
 lg.dataToView = function(data) {
 	return ['br' + data[0],
-	(data[1].toString() == '1') ? 'On' : '',
+	(data[1].toString() == '1') ? '<small><i>Enabled</i></small>' : '<small><i>Disabled</i></small>',
 	data[2],
 	data[3],
-	(data[4].toString() == '1') ? 'On' : '',
+	(data[4].toString() == '1') ? '<small><i>Enabled</i></small>' : '<small><i>Disabled</i></small>',
 	(((data[5] != null) && (data[5] != '')) ? (data[5] + ' - ') : '') + (((data[6] != null) && (data[6] != '')) ? data[6] : ''),
 	(((data[7] != null) && (data[7] != '')) ? data[7] : '') ];
 }
@@ -251,6 +256,18 @@ lg.verifyFields = function(row, quiet) {
 				ferror.clear(f[3]);
 			}
 		}
+		if(f[2].value == getNetworkAddress(f[2].value, f[3].value)) {
+			var s = 'Invalid IP address or subnet mask (the address of the network cannot be used)';
+			ferror.set(f[2], s, quiet);
+			ferror.set(f[3], s, quiet);
+			return 0;
+		} else 
+		if(f[2].value == getBroadcastAddress(getNetworkAddress(f[2].value, f[3].value), f[3].value)) {
+			var s = 'Invalid IP address or subnet mask (the broadcast address cannot be used)';
+			ferror.set(f[2], s, quiet);
+			ferror.set(f[3], s, quiet);
+			return 0;
+		} else
 		if (this.countOverlappingNetworks(f[2].value) > 0) {
 			var s = 'Invalid IP address or subnet mask (conflicts/overlaps with another LAN bridge)';
 			ferror.set(f[2], s, quiet);
@@ -270,14 +287,35 @@ lg.verifyFields = function(row, quiet) {
 		f[6].disabled = 0;
 		f[7].disabled = 0;
 // first/last IP still unset?
-// TODO: proper calculation of first IP available on a particular subnet
 		if (f[5].value == '') {
-			f[5].value = f[2].value.split('.').splice(0, 3).join('.') + '.' + '100'; // from nvram/defaults.c
+			var l;
+			var m = aton(f[2].value) & aton(f[3].value);
+			var o = (m) ^ (~ aton(f[3].value))
+			var n = o - m;
+			do {
+				if (--n < 0) {
+					f[5].value = '';
+					return;
+				}
+				m++;
+			} while (((l = fixIP(ntoa(m), 1)) == null) || (l == f[2].value) );
+			f[5].value = l;
 		}
 		if (f[6].value == '') {
-			f[6].value = f[2].value.split('.').splice(0, 3).join('.') + '.' + '149'; // from nvram/defaults.c
+			var l;
+			var m = aton(f[2].value) & aton(f[3].value);
+			var o = (m) ^ (~ aton(f[3].value));
+			var n = o - m;
+			do {
+				if (--n < 0) {
+					f[6].value = '';
+					return;
+				}
+				o--;
+			} while (((l = fixIP(ntoa(o), 1)) == null) || (l == f[2].value) );
+			f[6].value = l;
 		}
-// first IP
+// first IP valid?
 		if ((getNetworkAddress(f[5].value, f[3].value) != getNetworkAddress(f[2].value, f[3].value)) ||
 			(f[5].value == getBroadcastAddress(getNetworkAddress(f[2].value, f[3].value), f[3].value)) ||
 			(f[5].value == getNetworkAddress(f[2].value, f[3].value)) ||
@@ -287,7 +325,7 @@ lg.verifyFields = function(row, quiet) {
 		} else {
 			ferror.clear(f[5]);
 		}
-// last IP
+// last IP valid?
 		if ((getNetworkAddress(f[6].value, f[3].value) != getNetworkAddress(f[2].value, f[3].value)) ||
 			(f[6].value == getBroadcastAddress(getNetworkAddress(f[2].value, f[3].value), f[3].value)) ||
 			(f[6].value == getNetworkAddress(f[2].value, f[3].value)) ||
@@ -297,22 +335,17 @@ lg.verifyFields = function(row, quiet) {
 		} else {
 			ferror.clear(f[6]);
 		}
-// validate range
-		if ((aton(f[6].value) - aton(f[5].value)) < 1) {
-			var s = 'Invalid first or last IP address';
-			ferror.set(f[5], s, quiet || !ok);
-			ferror.set(f[6], s, quiet || !ok);
-			return 0;
-		} else {
-			ferror.clear(f[5]);
-			ferror.clear(f[6]);
+// validate range, swap first/last IP if needed
+		if (aton(f[6].value) < aton(f[5].value)) {
+			var t = f[5].value;
+			f[5].value = f[6].value;
+			f[6].value = t;
 		}
 // lease time
 		if (parseInt(f[7].value*1) == 0)
 			f[7].value = 1440; // from nvram/defaults.c
 		if(!v_mins(f[7], quiet || !ok, 1, 10080)) 
 			ok = 0;
-
 	} else {
 		f[5].disabled = 1;
 		f[6].disabled = 1;
@@ -321,7 +354,6 @@ lg.verifyFields = function(row, quiet) {
 		ferror.clear(f[6]);
 		ferror.clear(f[7]);
 	}
-
 	return ok;
 }
 
@@ -338,13 +370,7 @@ W('</style>');
 var xob = null;
 var refresher = [];
 var nphy = features('11n');
-/* REMOVE-BEGIN
-if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
-	var x = nvram.lan_ipaddr.split('.').splice(0, 3).join('.') + '.';
-	nvram.dhcpd_startip = x + nvram.dhcp_start;
-	nvram.dhcpd_endip = x + ((nvram.dhcp_start * 1) + (nvram.dhcp_num * 1) - 1);
-}
-REMOVE-END */
+
 var ghz = [];
 var bands = [];
 var nm_loaded = [], ch_loaded = [], max_channel = [];
@@ -840,7 +866,6 @@ REMOVE-END */
 /* REMOVE-BEGIN
 //	if (!E('_f_dhcpd_enable').checked) vis._dhcp_lease = 0;
 REMOVE-END */
-
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 		u = wl_unit(uidx);
 		wmode = E('_f_wl'+u+'_mode').value;
@@ -1495,8 +1520,9 @@ createFieldTable('', [
 	<script type='text/javascript'>lg.setup();</script>
 <script type='text/javascript'>
 dns = nvram.wan_dns.split(/\s+/);
+/* REMOVE-BEGIN
 //ipp = nvram.lan_ipaddr.split('.').splice(0, 3).join('.');
-
+REMOVE-END */
 createFieldTable('', [
 /* REMOVE-BEGIN
 //	{ title: 'Router IP Address', name: 'lan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.lan_ipaddr },
@@ -1621,7 +1647,6 @@ W('</div>');
 }
 // for each wlif
 </script>
-
 
 <!-- / / / -->
 
