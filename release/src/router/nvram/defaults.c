@@ -103,31 +103,31 @@ const defaults_t defaults[] = {
 	{ "autofw_port0",		""				},	// out_proto:out_port,in_proto:in_port0-in_port1>to_port0-to_port1,enable,desc
 */
 	// DHCP server parameters
-	{ "dhcp_start",			"2"			},	//
-	{ "dhcp_num",			"50"			},	//
+	{ "dhcp_start",			"2"				},	//
+	{ "dhcp_num",			"50"				},	//
 	{ "dhcpd_startip",		"" 				},	// if empty, tomato will use dhcp_start/dchp_num for better compatibility
 	{ "dhcpd_endip",		"" 				},	// "
-	{ "dhcp_lease",			"0"				},	// LAN lease time in minutes
-	{ "dhcp_domain",		"wan"			},	// Use WAN domain name first if available (wan|lan)
+	{ "dhcp_lease",			"1440"				},	// LAN lease time in minutes
+	{ "dhcp_domain",		"wan"				},	// Use WAN domain name first if available (wan|lan)
 	{ "wan_get_dns",		""				},	// DNS IP address which get by dhcpc // Add
 	{ "wan_routes",			""				},
 	{ "wan_msroutes",		""				},
 
-	{ "dhcp1_start",			""			},
-	{ "dhcp1_num",			""			},
+	{ "dhcp1_start",		""				},
+	{ "dhcp1_num",			""				},
 	{ "dhcpd1_startip",		"" 				},
 	{ "dhcpd1_endip",		"" 				},
-	{ "dhcp1_lease",			"0"				},
-	{ "dhcp2_start",			""			},
-	{ "dhcp2_num",			""			},
+	{ "dhcp1_lease",		"1440"				},
+	{ "dhcp2_start",		""				},
+	{ "dhcp2_num",			""				},
 	{ "dhcpd2_startip",		"" 				},
 	{ "dhcpd2_endip",		"" 				},
-	{ "dhcp2_lease",			"0"				},
-	{ "dhcp3_start",			""			},
-	{ "dhcp3_num",			""			},
+	{ "dhcp2_lease",		"1440"				},
+	{ "dhcp3_start",		""				},
+	{ "dhcp3_num",			""				},
 	{ "dhcpd3_startip",		"" 				},
 	{ "dhcpd3_endip",		"" 				},
-	{ "dhcp3_lease",			"0"				},
+	{ "dhcp3_lease",		"1440"				},
 
 	// PPPoE parameters
 	{ "pppoe_ifname",		""				},	// PPPoE enslaved interface
