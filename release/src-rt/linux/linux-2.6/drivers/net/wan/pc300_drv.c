@@ -3455,7 +3455,7 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 	if ((err = pci_enable_device(pdev)) < 0)
 		return err;
 
-	card = kmalloc(sizeof(pc300_t), GFP_KERNEL);
+	card = kzalloc(sizeof(pc300_t), GFP_KERNEL);
 	if (card == NULL) {
 		printk("PC300 found at RAM 0x%016llx, "
 		       "but could not allocate card structure.\n",
@@ -3463,7 +3463,6 @@ cpc_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
 		err = -ENOMEM;
 		goto err_disable_dev;
 	}
-	memset(card, 0, sizeof(pc300_t));
 
 	err = -ENODEV;
 

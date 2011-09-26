@@ -143,7 +143,7 @@ Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br>
 <b>"Toastman" Features:</b><br>
-- CPU clock frequency slection<br>
+- CPU clock frequency selection<br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules<br>
 - IMQ based QOS/Bandwidth Limiter<br>

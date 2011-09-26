@@ -8,7 +8,7 @@
 # KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
 # SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
 # FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
-# $Id: wl.mk,v 1.210.2.85 2010/02/25 19:48:59 Exp $
+# $Id: wl.mk,v 1.210.2.83 2009/12/09 04:43:42 Exp $
 
 
 # debug/internal
@@ -452,12 +452,6 @@ ifeq ($(WMF), 1)
 endif 
 #endif
 
-#ifdef MCAST_REGEN
-ifeq ($(MCAST_REGEN), 1)
-	WLFLAGS += -DMCAST_REGEN
-endif 
-#endif
-
 #ifdef WLOVERTHRUSTER
 ifeq ($(WLOVERTHRUSTER), 1)
 	WLFLAGS += -DWLOVERTHRUSTER
@@ -848,14 +842,6 @@ ifeq ($(BCMSROM),1)
 endif
 #endif
 
-#ifdef BCMOTP
-ifeq ($(BCMOTP),1)
-	WLFILES_SRC_LO += src/shared/bcmotp.c
-	WLFLAGS += -DBCMNVRAMR
-endif
-#endif
-
-
 #ifdef SIUTILS
 ifeq ($(SIUTILS),1)
 	WLFILES_SRC_LO += src/shared/siutils.c
@@ -1011,6 +997,13 @@ ifeq ($(WLDIAG),1)
 endif
 #endif
 
+#ifdef BCMDBG
+ifneq ($(BCMDBG),1)
+	ifeq ($(WLTINYDUMP),1)
+		WLFLAGS += -DWLTINYDUMP
+	endif
+endif
+#endif
 
 #ifdef BCMQT
 ifeq ($(BCMQT),1)

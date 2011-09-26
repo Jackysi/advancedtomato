@@ -146,6 +146,9 @@ ipt_cone_target(struct sk_buff *skb,
 	if (hooknum != NF_IP_PRE_ROUTING)
 		return XT_CONTINUE;
 
+	if (nat->info.nat_type & NFC_IP_CONE_NAT_ALTERED)
+		return NF_ACCEPT;
+
 	/* Get cone dst */
 	cone = find_appropriate_cone(tuple);
 	if (cone == NULL)

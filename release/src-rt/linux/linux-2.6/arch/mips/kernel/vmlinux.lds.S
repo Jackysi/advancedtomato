@@ -85,6 +85,10 @@ SECTIONS
   . = ALIGN(1 << CONFIG_MIPS_L1_CACHE_SHIFT);
   .data.cacheline_aligned : { *(.data.cacheline_aligned) }
 
+  /* rarely changed data like cpu maps */
+  . = ALIGN(1 << CONFIG_MIPS_L1_CACHE_SHIFT);
+  .data.read_mostly : { *(.data.read_mostly) }
+
   _edata =  .;			/* End of data section */
 
   /* will be freed after init */

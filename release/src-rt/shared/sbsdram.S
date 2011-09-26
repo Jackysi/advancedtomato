@@ -45,9 +45,29 @@
 /* Debug macro - write a number to a chipc reg - use it with caution,
  *  it changes k0 and k1 registers.
  */
+#ifdef	BCMDBG
+
+#define	FLADDR_OFF	4
+#define	FLDATA_OFF	8
+
+#define TRACEINIT(x) \
+	li	k0,KSEG1ADDR(0x18000040); \
+	li	k1,x; \
+	sw	k1,FLADDR_OFF(k0)
+	
+#define TRACE(x) \
+	li	k1,x; \
+	sw	k1,FLADDR_OFF(k0)
+
+#define TRACE2(x) \
+	li	k1,x; \
+	sw	k1,FLDATA_OFF(k0)
+
+#else
 #define TRACEINIT(x)
 #define TRACE(x)
 #define TRACE2(x)
+#endif	/* BCMDBG */
 
 /*
  * Register usage within this file:

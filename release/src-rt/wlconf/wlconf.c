@@ -1235,6 +1235,9 @@ wlconf(char *name)
 
 		val = atoi(nvram_safe_get(strcat_r(prefix, "radio_pwrsave_on_time", tmp)));
 		WL_BSSIOVAR_SETINT(name, "radio_pwrsave_on_time", bsscfg->idx, val);
+
+		val = atoi(nvram_safe_get(strcat_r(prefix, "radio_pwrsave_level", tmp)));
+		WL_BSSIOVAR_SETINT(name, "radio_pwrsave_level", bsscfg->idx, val);
 	}
 
 	/* Set up the country code */
@@ -1396,7 +1399,7 @@ wlconf(char *name)
 	/* Set channel before setting gmode or rateset */
 	/* Manual Channel Selection - when channel # is not 0 */
 	val = atoi(nvram_safe_get(strcat_r(prefix, "channel", tmp)));
-	if (val && phytype != PHY_TYPE_N && phytype != PHY_TYPE_SSN) {
+	if (val && !WLCONF_PHYTYPE_11N(phytype)) {
 		WL_SETINT(name, WLC_SET_CHANNEL, val);
 		if (ret) {
 			/* Use current channel (card may have changed) */
@@ -1845,7 +1848,7 @@ wlconf(char *name)
 		int channel = atoi(nvram_safe_get(strcat_r(prefix, "channel", tmp)));
 
 		if (obss_coex || channel == 0) {
-			if (phytype == PHY_TYPE_N || phytype == PHY_TYPE_SSN) {
+			if (WLCONF_PHYTYPE_11N(phytype)) {
 				chanspec_t chanspec;
 				int pref_chspec;
 

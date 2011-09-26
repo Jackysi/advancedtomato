@@ -189,7 +189,7 @@ static struct vm_operations_struct shmem_vm_ops;
 
 static struct backing_dev_info shmem_backing_dev_info  __read_mostly = {
 	.ra_pages	= 0,	/* No readahead */
-	.capabilities	= BDI_CAP_NO_ACCT_DIRTY | BDI_CAP_NO_WRITEBACK,
+	.capabilities	= BDI_CAP_NO_ACCT_AND_WRITEBACK,
 	.unplug_io_fn	= default_unplug_io_fn,
 };
 
@@ -2457,6 +2457,10 @@ static int __init init_tmpfs(void)
 {
 	int error;
 
+	error = bdi_init(&shmem_backing_dev_info);
+	if (error)
+		goto out4;
+
 	error = init_inodecache();
 	if (error)
 		goto out3;
@@ -2481,6 +2485,8 @@ out1:
 out2:
 	destroy_inodecache();
 out3:
+	bdi_destroy(&shmem_backing_dev_info);
+out4:
 	shm_mnt = ERR_PTR(error);
 	return error;
 }

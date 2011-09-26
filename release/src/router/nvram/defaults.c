@@ -49,7 +49,7 @@ const defaults_t defaults[] = {
 
 	// LAN TCP/IP parameters
 	{ "lan_dhcp",			"0"				},	// DHCP client [static|dhcp]
-//	{ "lan_proto",			"dhcp"				},	// DHCP server [static|dhcp]  //start with no dhcp if nvram corrupted
+	{ "lan_proto",			"static"			},	// DHCP server [static|dhcp]  // Toastman - start with no dhcp if nvram corrupted
 	{ "lan_ipaddr",			"192.168.1.1"			},	// LAN IP address
 	{ "lan_netmask",		"255.255.255.0"			},	// LAN netmask
 	{ "lan_wins",			""				},	// x.x.x.x x.x.x.x ...
@@ -146,6 +146,7 @@ const defaults_t defaults[] = {
 	{ "ppp_get_ac",			""				},	// PPPoE Server ac name
 	{ "ppp_get_srv",		""				},	// PPPoE Server service name
 	{ "ppp_custom",			""				},	// PPPD additional options
+	{ "ppp_mlppp",			"0"				},	// PPPoE single line MLPPP
 
 	{ "pppoe_lei",			""				},
 	{ "pppoe_lef",			""				},
@@ -215,7 +216,7 @@ const defaults_t defaults[] = {
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
-	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3)    //Toastman - 0=off
+	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3)
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"				},	// WEP encryption [64 | 128] // Add
 	{ "wl_wep_buf",			""				},	// save all settings for web // Add
@@ -376,11 +377,7 @@ const defaults_t defaults[] = {
 	{ "nf_sip",			"1"				},
 	{ "ct_hashsize",		"2048"				},
 #endif
-#ifdef LINUX26
-	{ "nf_rtsp",			"0"				},
-#else
 	{ "nf_rtsp",			"1"				},
-#endif
 	{ "nf_pptp",			"1"				},
 	{ "nf_h323",			"1"				},
 	{ "nf_ftp",			"1"				},
@@ -409,9 +406,9 @@ const defaults_t defaults[] = {
 	{ "dns_intcpt",			"0"				},
 	{ "dhcpc_minpkt",		"1"				},
 	{ "dhcpc_custom",		""				},
-	{ "dns_norebind",		"1"				},
-	{ "dnsmasq_custom",		""				},
-	{ "dhcpd_static_only",	"0"				},
+	{ "dns_norebind",		"0"				},
+	{ "dnsmasq_custom",		""				},	// Toastman - default rebind=off
+	{ "dhcpd_static_only",		"0"				},
 //	{ "dnsmasq_norw",		"0"				},
 
 // advanced-firewall
@@ -658,6 +655,9 @@ const defaults_t defaults[] = {
 	{ "usb_uhci",			"0"				},
 	{ "usb_ohci",			"0"				},
 	{ "usb_usb2",			"1"				},
+#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+	{ "usb_mmc",			"-1"				},
+#endif
 	{ "usb_irq_thresh",		"0"				},
 	{ "usb_storage",		"1"				},
 	{ "usb_printer",		"1"				},

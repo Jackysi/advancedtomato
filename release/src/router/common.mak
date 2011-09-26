@@ -1,10 +1,16 @@
 ifeq ($(SRCBASE),)
 	# ..../src/router/
 	# (directory of the last (this) makefile)
-	export TOP := $(shell cd $(dir $(word $(words $(MAKEFILE_LIST)),$(MAKEFILE_LIST))) && pwd -P)
+	# src or src-rt, regardless of symlink for router directory.
+	export TOP := $(shell cd $(dir $(lastword $(MAKEFILE_LIST))) && pwd -P)
+	export TOP := $(PWD)/$(notdir $(TOP))
 
 	# ..../src/
 	export SRCBASE := $(shell (cd $(TOP)/.. && pwd -P))
+
+	ifneq ("" , "$(filter-out src_ src-rt_ , $(notdir $(SRCBASE))_)")
+		$(error ERROR: Build must be done from release/src or release/src-rt directory)
+	endif
 else
 	export TOP := $(SRCBASE)/router
 endif
@@ -31,6 +37,8 @@ export RANLIB := $(CROSS_COMPILE)ranlib
 export STRIP := $(CROSS_COMPILE)strip -R .note -R .comment
 export SIZE := $(CROSS_COMPILE)size
 
+include $(SRCBASE)/target.mak
+
 # Determine kernel version
 kver=$(subst ",,$(word 3, $(shell grep "UTS_RELEASE" $(LINUXDIR)/include/linux/$(1))))
 
@@ -38,8 +46,6 @@ LINUX_KERNEL=$(call kver,version.h)
 ifeq ($(LINUX_KERNEL),)
 LINUX_KERNEL=$(call kver,utsrelease.h)
 endif
-
-include $(SRCBASE)/target.mak
 
 export LIBDIR := $(TOOLCHAIN)/lib
 export USRLIBDIR := $(TOOLCHAIN)/usr/lib

@@ -67,9 +67,9 @@ typedef ctf_ipc_t * (*ctf_ipc_lkup_t)(ctf_t *ci, uint32 sip, uint32 dip, uint8 p
 typedef int32 (*ctf_enable_t)(ctf_t *ci, void *dev, bool enable);
 typedef int32 (*ctf_dev_register_t)(ctf_t *ci, void *dev, bool br);
 typedef void (*ctf_dev_unregister_t)(ctf_t *ci, void *dev);
-#if defined(BCMDBG_DUMP)
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 typedef void (*ctf_dump_t)(ctf_t *ci, struct bcmstrbuf *b);
-#endif 
+#endif /* BCMDBG || BCMDBG_DUMP */
 
 typedef struct ctf_fn {
 	ctf_detach_t		detach;
@@ -88,9 +88,9 @@ typedef struct ctf_fn {
 	ctf_dev_unregister_t	dev_unregister;
 	ctf_detach_cb_t		detach_cb;
 	void			*detach_cb_arg;
-#if defined(BCMDBG_DUMP)
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 	ctf_dump_t		dump;
-#endif 
+#endif /* BCMDBG || BCMDBG_DUMP */
 } ctf_fn_t;
 
 struct ctf_pub {

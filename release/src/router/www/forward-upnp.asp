@@ -84,7 +84,7 @@ ug.populate = function() {
 	if (nvram.upnp_enable != 0) {
 		var data = mupnp_data.split('\n');
 		for (i = 0; i < data.length; ++i) {
-			r = data[i].match(/^(UDP|TCP)\s+(\d+)\s+(.+?)\s+(\d+)\s+\[(.*)\]$/);
+			r = data[i].match(/^(UDP|TCP)\s+(\d+)\s+(.+?)\s+(\d+)\s+\[(.*)\](.*)$/);
 			if (r == null) continue;
 			row = this.insertData(-1, [r[2], r[4], r[3], r[1], r[5]]);
 

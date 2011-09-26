@@ -471,10 +471,11 @@ static int __init init(void)
 {
 	printk("nf_nat_rtsp v" IP_NF_RTSP_VERSION " loading\n");
 
-	BUG_ON(rcu_dereference(nf_nat_rtsp_hook) != NULL);
-
+	BUG_ON(rcu_dereference(nf_nat_rtsp_hook));
 	rcu_assign_pointer(nf_nat_rtsp_hook, help);
-	rcu_assign_pointer(nf_nat_rtsp_hook_expectfn, &expected);
+
+	BUG_ON(rcu_dereference(nf_nat_rtsp_hook_expectfn));
+	rcu_assign_pointer(nf_nat_rtsp_hook_expectfn, expected);
 
 	if (stunaddr != NULL)
 		extip = in_aton(stunaddr);

@@ -30,9 +30,17 @@
 #include <hndpmu.h>
 
 /* debug/trace */
+#ifdef BCMDBG_ERR
+#define	HNDMIPS_ERROR(args)	printf args
+#else
 #define	HNDMIPS_ERROR(args)
+#endif	/* BCMDBG_ERR */
 
+#ifdef BCMDBG
+#define	HNDMIPS_MSG(args)	printf args
+#else
 #define	HNDMIPS_MSG(args)
+#endif	/* BCMDBG */
 #define	HNDMIPS_NONE(args)
 
 /* sbipsflag register format, indexed by irq. */

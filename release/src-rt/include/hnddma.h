@@ -168,7 +168,7 @@ extern hnddma_t * dma_attach(osl_t *osh, char *name, si_t *sih, void *dmaregstx,
 #define dma_ctrlflags(di, mask, flags)  ((di)->di_fn.ctrlflags((di), (mask), (flags)))
 #define dma_txpending(di)		((di)->di_fn.txpending(di))
 #define dma_txcommitted(di)		((di)->di_fn.txcommitted(di))
-#if defined(BCMDBG_DUMP)
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 #define dma_dump(di, buf, dumpring)	((di)->di_fn.dump(di, buf, dumpring))
 #define dma_dumptx(di, buf, dumpring)	((di)->di_fn.dumptx(di, buf, dumpring))
 #define dma_dumprx(di, buf, dumpring)	((di)->di_fn.dumprx(di, buf, dumpring))
