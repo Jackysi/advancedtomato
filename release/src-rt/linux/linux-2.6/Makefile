@@ -541,8 +541,17 @@ CFLAGS	+= $(call cc-option,-fno-strict-overflow)
 # revert to pre-gcc-4.4 behaviour of .eh_frame
 CFLAGS	+= $(call cc-option,-fno-dwarf2-cfi-asm)
 
-ifdef CONFIG_BCM_CTF
-CFLAGS += -DHNDCTF -DCTFPOOL
+ifneq ($(CONFIG_BCM_CTF),)
+CFLAGS += -DHNDCTF
+ifneq ($(CONFIG_WL_USBAP),)
+CFLAGS += -DCTFPOOL_SPINLOCK
+else
+CFLAGS += -DCTFPOOL -DCTFMAP
+endif
+endif
+
+ifdef CONFIG_PLC
+CFLAGS += -DPLC
 endif
 
 # Default kernel image to build when no specific target is given.

@@ -59,6 +59,14 @@ source "net/ipv4/Kconfig"
 source "net/ipv6/Kconfig"
 source "net/netlabel/Kconfig"
 
+config	INET_GRO
+	bool "TCP/IP Generic Receive Offload"
+	default n
+
+config	INET_GSO
+	bool "TCP/IP Generic Segmentation Offload"
+	default n
+
 endif # if INET
 
 config NETWORK_SECMARK

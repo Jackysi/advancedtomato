@@ -1,15 +1,21 @@
 /*
  * Broadcom AMBA Interconnect definitions.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: aidmp.h,v 13.2 2008/03/28 19:02:00 Exp $
+ * $Id: aidmp.h,v 13.4 2009-09-03 04:21:25 Exp $
  */
 
 #ifndef	_AIDMP_H
@@ -20,7 +26,7 @@
 #define	MFGID_BRCM		0x4bf
 #define	MFGID_MIPS		0x4a7
 
-/* Componnent Classes */
+/* Component Classes */
 #define	CC_SIM			0
 #define	CC_EROM			1
 #define	CC_CORESIGHT		9
@@ -178,7 +184,7 @@ typedef volatile struct _aidmp {
 	uint32	errlogflags;	/* 0x91c */
 	uint32	PAD[56];
 	uint32	intstatus;	/* 0xa00 */
-	uint32	PAD[127];
+	uint32	PAD[255];
 	uint32	config;		/* 0xe00 */
 	uint32	PAD[63];
 	uint32	itcr;		/* 0xf00 */
@@ -290,14 +296,32 @@ typedef volatile struct _aidmp {
 #define	AI_OOBDEXTWIDTH		0x360
 #define	AI_OOBDINWIDTH		0x364
 #define	AI_OOBDOUTWIDTH		0x368
+
+#if	defined(IL_BIGENDIAN) && defined(BCMHND74K)
+/* Selective swapped defines for those registers we need in
+ * big-endian code.
+ */
+#define	AI_IOCTRLSET		0x404
+#define	AI_IOCTRLCLEAR		0x400
+#define	AI_IOCTRL		0x40c
+#define	AI_IOSTATUS		0x504
+#define	AI_RESETCTRL		0x804
+#define	AI_RESETSTATUS		0x800
+
+#else	/* !IL_BIGENDIAN || !BCMHND74K */
+
 #define	AI_IOCTRLSET		0x400
 #define	AI_IOCTRLCLEAR		0x404
 #define	AI_IOCTRL		0x408
 #define	AI_IOSTATUS		0x500
-#define	AI_IOCTRLWIDTH		0x700
-#define	AI_IOSTATUSWIDTH	0x704
 #define	AI_RESETCTRL		0x800
 #define	AI_RESETSTATUS		0x804
+
+#endif	/* IL_BIGENDIAN && BCMHND74K */
+
+#define	AI_IOCTRLWIDTH		0x700
+#define	AI_IOSTATUSWIDTH	0x704
+
 #define	AI_RESETREADID		0x808
 #define	AI_RESETWRITEID		0x80c
 #define	AI_ERRLOGCTRL		0xa00
@@ -351,5 +375,9 @@ typedef volatile struct _aidmp {
 #define	AICFG_TO		0x00000004
 #define	AICFG_ERRL		0x00000002
 #define	AICFG_RST		0x00000001
+
+/* bit defines for AI_OOBSELOUTB74 reg */
+#define OOB_SEL_OUTEN_B_5	15
+#define OOB_SEL_OUTEN_B_6	23
 
 #endif	/* _AIDMP_H */

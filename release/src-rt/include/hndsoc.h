@@ -1,15 +1,21 @@
 /*
  * Broadcom HND chip & on-chip-interconnect-related definitions.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: hndsoc.h,v 13.3.2.5 2009/06/18 12:19:28 Exp $
+ * $Id: hndsoc.h,v 13.11.12.1 2010-11-16 21:14:20 Exp $
  */
 
 #ifndef	_HNDSOC_H
@@ -30,8 +36,13 @@
 #define	SI_SDRAM_SWAPPED	0x10000000	/* Byteswapped Physical SDRAM */
 #define SI_SDRAM_R2		0x80000000	/* Region 2 for sdram (512 MB) */
 
+#ifdef SI_ENUM_BASE_VARIABLE
+#define SI_ENUM_BASE		(sii->pub.si_enum_base)
+#else
 #define SI_ENUM_BASE    	0x18000000	/* Enumeration space base */
-#define SI_WRAP_BASE            0x18100000      /* Wrapper space base */
+#endif /* SI_ENUM_BASE_VARIABLE */
+
+#define SI_WRAP_BASE    	0x18100000	/* Wrapper space base */
 #define SI_CORE_SIZE    	0x1000		/* each core gets 4Kbytes for registers */
 #define	SI_MAXCORES		16		/* Max cores (this is arbitrary, for software
 						 * convenience and could be changed if we
@@ -107,7 +118,7 @@
 #define	SSNPHY_CORE_ID		0x828		/* 802.11n single-stream phy core */
 #define	SDIOD_CORE_ID		0x829		/* SDIO device core */
 #define	ARMCM3_CORE_ID		0x82a		/* ARM Cortex M3 core */
-#define	QNPHY_CORE_ID		0x82b		/* 802.11n 4x4 phy core */
+#define	HTPHY_CORE_ID		0x82b		/* 802.11n 4x4 phy core */
 #define	MIPS74K_CORE_ID		0x82c		/* mips 74k core */
 #define	GMAC_CORE_ID		0x82d		/* Gigabit MAC core */
 #define	DMEMC_CORE_ID		0x82e		/* DDR1/2 memory controller core */
@@ -118,10 +129,28 @@
 #define	SPIH_CORE_ID		0x833		/* SPI host core */
 #define	I2S_CORE_ID		0x834		/* I2S core */
 #define	DMEMS_CORE_ID		0x835		/* SDR/DDR1 memory controller core */
+#define	DEF_SHIM_COMP		0x837		/* SHIM component in ubus/6362 */
 #define OOB_ROUTER_CORE_ID	0x367		/* OOB router core ID */
 #define	DEF_AI_COMP		0xfff		/* Default component, in ai chips it maps all
 						 * unused address ranges
 						 */
+
+#define CC_4706_CORE_ID		0x500		/* chipcommon core */
+#define SOCRAM_4706_CORE_ID	0x50e		/* internal memory core */
+#define GMAC_COMMON_4706_CORE_ID	0x5dc		/* Gigabit MAC core */
+#define GMAC_4706_CORE_ID	0x52d		/* Gigabit MAC core */
+#define AMEMC_CORE_ID		0x52e		/* DDR1/2 memory controller core */
+#define ALTA_CORE_ID		0x534		/* I2S core */
+#define DDR23_PHY_CORE_ID	0x5dd
+
+#define SI_PCI1_MEM     0x40000000  /* Host Mode sb2pcitranslation0 (64 MB) */
+#define SI_PCI1_CFG     0x44000000  /* Host Mode sb2pcitranslation1 (64 MB) */
+#define SI_PCIE1_DMA_H32		0xc0000000	/* PCIE Client Mode sb2pcitranslation2
+						 * (2 ZettaBytes), high 32 bits
+						 */
+#define CC_4706B0_CORE_REV	0x8000001f		/* chipcommon core */
+#define SOCRAM_4706B0_CORE_REV	0x80000005		/* internal memory core */
+#define GMAC_4706B0_CORE_REV	0x80000000		/* Gigabit MAC core */
 
 /* There are TWO constants on all HND chips: SI_ENUM_BASE above,
  * and chipcommon being the first core:
@@ -131,6 +160,7 @@
 /* SOC Interconnect types (aka chip types) */
 #define	SOCI_SB			0
 #define	SOCI_AI			1
+#define	SOCI_UBUS		2
 
 /* Common core control flags */
 #define	SICF_BIST_EN		0x8000
@@ -187,6 +217,6 @@
 #define	BISZ_DATAEND_IDX	4		/*	4: data end */
 #define	BISZ_BSSST_IDX		5		/*	5: bss start */
 #define	BISZ_BSSEND_IDX		6		/*	6: bss end */
-#define BISZ_SIZE		7		/* descriptor size in 32-bit intergers */
+#define BISZ_SIZE		7		/* descriptor size in 32-bit integers */
 
 #endif /* _HNDSOC_H */

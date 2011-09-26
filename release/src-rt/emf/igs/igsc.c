@@ -5,7 +5,7 @@
  * update the multicast forwarding database. This file contains the
  * common code routines of IGS module.
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -13,7 +13,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: igsc.c,v 1.4 2008/11/19 01:36:25 Exp $
+ * $Id: igsc.c 247842 2011-03-22 02:10:23Z jihuac $
  */
 
 #include <typedefs.h>
@@ -263,6 +263,50 @@ igsc_rtlist_clear(igsc_info_t *igsc_info)
 	return;
 }
 
+#ifdef SUPPORT_IGMP_V3
+/* Add Joining Member or Update joined member */
+static int32 igsc_update_join_member(igsc_info_t *igsc_info, void *ifp, uint32 dest_ip, uint32 mcast_ip, uint32 mh_ip)
+{
+	int32 ret = FAILURE;
+
+	if (igsc_is_reserved(dest_ip)) 	{
+		IGSC_STATS_INCR(igsc_info, igmp_not_handled);
+		IGS_DEBUG("Reserved multicast address %x frame\n",
+		          dest_ip);
+		return ((ret == SUCCESS) ? EMF_FORWARD : EMF_FLOOD);
+	}
+	/* When a host membership report is received add/refresh the entry for the host. */
+	IGS_DEBUG("Join mcast_addr=%x\n", mcast_ip);
+	IGSC_STATS_INCR(igsc_info, igmp_v2reports);
+
+/* SUPPORT_IGMP_V3 Added */
+	if ( (ret = igsc_sdb_member_add(igsc_info, ifp, IPV4_MCADDR_ALLHOSTS, mh_ip)) == SUCCESS )
+		ret = igsc_sdb_member_add(igsc_info, ifp, mcast_ip, mh_ip);
+	return ((ret == SUCCESS) ? EMF_FORWARD : EMF_FLOOD);
+}
+
+/* Remove leave members*/
+static int32 igsc_update_leave_member(igsc_info_t *igsc_info, void *ifp, uint32 mcast_ip, uint32 mh_ip)
+{
+	int32 ret = FAILURE;
+
+
+	IGSC_STATS_INCR(igsc_info, igmp_leaves);
+	IGS_DEBUG("Leave mcast_addr=%x\n", mcast_ip);
+
+/* SUPPORT_IGMP_V3 Added */
+	if ( (ret = igsc_sdb_member_del(igsc_info, ifp, IPV4_MCADDR_ALLHOSTS, mh_ip))==SUCCESS)
+		ret = igsc_sdb_member_del(igsc_info, ifp, mcast_ip, mh_ip);
+
+	if (ret != SUCCESS)
+		IGS_WARN("Deleting unknown member with grp %x host %x if %p",
+		         igmpv3g->mcast_addr, mh_ip, ifp);
+		return ((ret == SUCCESS) ? EMF_FORWARD : EMF_FLOOD);
+}
+#endif
+
+
+
 /*
  * Description: This function is called by EMFL when an IGMP frame
  *              is received. Based on the IGMP packet type it either
@@ -283,6 +327,11 @@ igsc_input(emfc_snooper_t *s, void *ifp, uint8 *iph, uint8 *igmph, bool from_rp)
 	int32 ret = FAILURE;
 	igsc_info_t *igsc_info;
 	uint32 mgrp_ip, mh_ip, dest_ip;
+#ifdef SUPPORT_IGMP_V3
+	uint16 grp_num=0, offset;
+	igmpv3_report_t *igmpv3h;
+	igmpv3_group_t  *igmpv3g;
+#endif	
 
 	ASSERT(s != NULL);
 
@@ -294,15 +343,30 @@ igsc_input(emfc_snooper_t *s, void *ifp, uint8 *iph, uint8 *igmph, bool from_rp)
 	{
 		IGS_DEBUG("Ignoring IGMP frame from router port\n");
 		IGSC_STATS_INCR(igsc_info, igmp_not_handled);
+#ifdef SUPPORT_IGMP_V3
+                /* Convert Query to Unicast */
+                if (igmph[IGMPV2_TYPE_OFFSET]==IGMPV2_HOST_MEMBERSHIP_QUERY){
+                        return (EMF_CONVERT_QUERY);
+                }
+                else
+#endif
 		return (EMF_FLOOD);
 	}
 
 	mgrp_ip = ntoh32(*((uint32 *)(igmph + IGMPV2_GRP_ADDR_OFFSET)));
 	mh_ip = ntoh32(*((uint32 *)(iph + IPV4_SRC_IP_OFFSET)));
+#ifdef SUPPORT_IGMP_V3
+        dest_ip = ntoh32(*((uint32 *)(iph + IPV4_DEST_IP_OFFSET)));
+#endif
 
 	switch (igmph[IGMPV2_TYPE_OFFSET])
 	{
 		case IGMPV2_HOST_NEW_MEMBERSHIP_REPORT:
+#ifdef SUPPORT_IGMP_V3
+                        /* Move report to function igsc_update_join_member() */
+                        ret = igsc_update_join_member(igsc_info, ifp, dest_ip, mgrp_ip, mh_ip);
+                        return ret;
+#else
 			/* Ignore frames received with reserved addresses */
 			dest_ip = ntoh32(*((uint32 *)(iph + IPV4_DEST_IP_OFFSET)));
 			if (igsc_is_reserved(dest_ip))
@@ -320,8 +384,13 @@ igsc_input(emfc_snooper_t *s, void *ifp, uint8 *iph, uint8 *igmph, bool from_rp)
 			ret = igsc_sdb_member_add(igsc_info, ifp, mgrp_ip, mh_ip);
 
 			return ((ret == SUCCESS) ? EMF_FORWARD : EMF_FLOOD);
-
+#endif
 		case IGMPV2_LEAVE_GROUP_MESSAGE:
+#ifdef SUPPORT_IGMP_V3
+                        ret = igsc_update_leave_member(igsc_info, ifp, mgrp_ip, mh_ip);
+                        /* Move Leave to function igsc_update_leave_member() */
+#else
+
 			/* Remove group entry for the host when a leave message is 
 			 * received.
 			 */
@@ -331,6 +400,7 @@ igsc_input(emfc_snooper_t *s, void *ifp, uint8 *iph, uint8 *igmph, bool from_rp)
 			if (ret != SUCCESS)
 				IGS_WARN("Deleting unknown member with grp %x host %x if %p",
 				         mgrp_ip, mh_ip, ifp);
+#endif
 			break;
 
 		case IGMPV2_HOST_MEMBERSHIP_REPORT:
@@ -348,6 +418,44 @@ igsc_input(emfc_snooper_t *s, void *ifp, uint8 *iph, uint8 *igmph, bool from_rp)
 				igsc_rtlist_add(igsc_info, ifp, mh_ip);
 			}
 			break;
+#ifdef SUPPORT_IGMP_V3
+                case IGMPV3_HOST_MEMBERSHIP_REPORT:
+                        igmpv3h = (igmpv3_report_t *)igmph;
+                        igmpv3g =(igmpv3_group_t*)(igmpv3h+1);
+
+                        for ( grp_num=0; grp_num<igmpv3h->group_num; grp_num++ ) {
+
+                                switch (igmpv3g->type) {
+                                        case IGMPV3_MODE_IS_EXCLUDE:
+                                        case IGMPV3_ALLOW_NEW_SOURCES:
+                                        case IGMPV3_BLOCK_OLD_SOURCES:
+                                        case IGMPV3_CHANGE_TO_EXCLUDE:
+                                                /* Join */
+                                                IGS_DEBUG("Join mcast_addr=%x\n",
+                                                        igmpv3g->mcast_addr);
+                                                ret = igsc_update_join_member(igsc_info, ifp,
+                                                                dest_ip, igmpv3g->mcast_addr, mh_ip);
+                                                break;
+                                        case IGMPV3_CHANGE_TO_INCLUDE:
+                                        case IGMPV3_MODE_IS_INCLUDE:
+                                                /* Leave */
+                                                IGS_DEBUG("Leave mcast_addr=%x, src_num=%x\n",
+                                                                igmpv3g->mcast_addr, igmpv3g->src_num);
+                                                if ( igmpv3g->src_num == 0 )
+                                                        ret = igsc_update_leave_member(igsc_info, ifp,
+                                                                        igmpv3g->mcast_addr, mh_ip);
+                                                else
+                                                        ret = igsc_update_join_member(igsc_info, ifp,
+                                                                        dest_ip, igmpv3g->mcast_addr, mh_ip);
+                                                break;
+					default:
+						break;
+				}
+				offset=sizeof(igmpv3_group_t)+igmpv3g->src_num*IGMPV3_SRC_ADDR_LEN+igmpv3g->aux_len;
+				igmpv3g=(igmpv3_group_t*)(((unsigned char *)igmpv3g)+offset);
+			}
+			break;
+#endif
 
 		default:
 			IGS_WARN("IGMP type %d not handled\n", igmph[IGMPV2_TYPE_OFFSET]);

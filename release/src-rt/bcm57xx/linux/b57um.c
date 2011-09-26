@@ -2285,10 +2285,10 @@ bcm5700_start_xmit(struct sk_buff *skb, struct net_device *dev)
 #ifdef BCM_TSO
 	LM_UINT32 mss = 0 ;
 	uint16_t ip_tcp_len, tcp_opt_len, tcp_seg_flags;
+#endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22)
 	struct tcphdr *th;
 	struct iphdr *iph;
-#endif
 #endif
 
 	if ((pDevice->LinkStatus == LM_STATUS_LINK_DOWN) ||
@@ -5774,7 +5774,7 @@ MM_IndicateRxPackets(PLM_DEVICE_BLOCK pDevice)
 
 #ifdef HNDCTF
 		if (CTF_ENAB(pUmDevice->cih)) {
-			if (ctf_forward(pUmDevice->cih, skb) != BCME_ERROR) {
+			if (ctf_forward(pUmDevice->cih, skb, skb->dev) != BCME_ERROR) {
 				pUmDevice->dev->last_rx = jiffies;
 				pUmDevice->stats.rx_bytes += skb->len;
 				goto drop_rx;

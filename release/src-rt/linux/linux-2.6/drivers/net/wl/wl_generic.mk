@@ -25,6 +25,9 @@ ifeq ($(REBUILD_WL_MODULE),1)
     
     # define OS flag to pick up wl osl file from wl.mk
     WLLX=1
+    ifdef CONFIG_PLC
+    PLC=1
+    endif
     include $(WLCFGDIR)/$(WLCONFFILE)
     include $(WLCFGDIR)/wl.mk
     
@@ -58,9 +61,15 @@ ifeq ($(REBUILD_WL_MODULE),1)
 		 $(addprefix $(SRCBASE)/bcmsdio/sys/, $(patsubst %.c,%.o,$(file)))))
     
     # need -I. to pick up wlconf.h in build directory
-    
-    EXTRA_CFLAGS += -DDMA $(WL_DFLAGS) -O2 -I$(src) -I$(src)/.. -I$(src)/$(SRCBASE)/wl/linux \
-		    -I$(src)/$(SRCBASE)/wl/sys -finline-limit=2048 -Werror
+   
+    EXTRA_CFLAGS    += -DWL_ALL_PASSIVE
+ 
+    EXTRA_CFLAGS += -DDMA $(WL_DFLAGS) -I$(src) -I$(src)/.. -I$(src)/$(SRCBASE)/wl/linux \
+		    -I$(src)/$(SRCBASE)/wl/sys -Werror
+
+    ifneq ("$(CONFIG_CC_OPTIMIZE_FOR_SIZE)","y")
+         EXTRA_CFLAGS += -finline-limit=2048
+    endif
     
     # If the PHY_HAL flag is defined we look in directory wl/phy for the
     # phy source files.
@@ -85,6 +94,10 @@ else # SRCBASE/wl/sys doesn't exist
     prebuilt := wl_$(wl_suffix).o
     $(TARGET)-objs := $(SRCBASE)/wl/linux/$(prebuilt)
 
+    ifeq ("$(CONFIG_WL_USBAP)","y")
+        wl_high-objs := $(SRCBASE)/wl/linux/wl_high.o
+        obj-m += wl_high.o
+    endif
 endif
 
 obj-$(CONFIG_WL) := $(TARGET).o

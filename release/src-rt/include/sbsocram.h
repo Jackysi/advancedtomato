@@ -1,15 +1,21 @@
 /*
  * BCM47XX Sonics SiliconBackplane embedded ram core
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sbsocram.h,v 13.9.96.1 2009/06/18 12:19:28 Exp $
+ * $Id: sbsocram.h,v 13.15.20.2 2010-03-06 03:54:16 Exp $
  */
 
 #ifndef	_SBSOCRAM_H
@@ -28,11 +34,31 @@
 typedef volatile struct sbsocramregs {
 	uint32	coreinfo;
 	uint32	bwalloc;
-	uint32	PAD;
+	uint32	extracoreinfo;
 	uint32	biststat;
 	uint32	bankidx;
 	uint32	standbyctrl;
-	uint32	PAD[116];
+
+	uint32	errlogstatus;	/* rev 6 */
+	uint32	errlogaddr;	/* rev 6 */
+	/* used for patching rev 3 & 5 */
+	uint32	cambankidx;
+	uint32	cambankstandbyctrl;
+	uint32	cambankpatchctrl;
+	uint32	cambankpatchtblbaseaddr;
+	uint32	cambankcmdreg;
+	uint32	cambankdatareg;
+	uint32	cambankmaskreg;
+	uint32	PAD[1];
+	uint32	bankinfo;	/* corev 8 */
+	uint32	PAD[15];
+	uint32	extmemconfig;
+	uint32	extmemparitycsr;
+	uint32	extmemparityerrdata;
+	uint32	extmemparityerrcnt;
+	uint32	extmemwrctrlandsize;
+	uint32	PAD[84];
+	uint32	workaround;
 	uint32	pwrctl;		/* corerev >= 2 */
 } sbsocramregs_t;
 
@@ -47,10 +73,15 @@ typedef volatile struct sbsocramregs {
 #define SR_PWRCTL		0x1e8
 
 /* Coreinfo register */
-#define	SRCI_PT_MASK		0x00030000
+#define	SRCI_PT_MASK		0x00070000	/* corerev >= 6; port type[18:16] */
 #define	SRCI_PT_SHIFT		16
 /* port types : SRCI_PT_<processorPT>_<backplanePT> */
+#define SRCI_PT_OCP_OCP		0
+#define SRCI_PT_AXI_OCP		1
+#define SRCI_PT_ARM7AHB_OCP	2
 #define SRCI_PT_CM3AHB_OCP	3
+#define SRCI_PT_AXI_AXI		4
+#define SRCI_PT_AHB_AXI		5
 /* corerev >= 3 */
 #define SRCI_LSS_MASK		0x00f00000
 #define SRCI_LSS_SHIFT		20
@@ -94,5 +125,56 @@ typedef volatile struct sbsocramregs {
 #define SRPC_STBYOVRVAL_SHIFT	3
 #define SRPC_STBYOVR_MASK	0x00000007
 #define SRPC_STBYOVR_SHIFT	0
+
+/* Extra core capability register */
+#define SRECC_NUM_BANKS_MASK   0x000000F0
+#define SRECC_NUM_BANKS_SHIFT  4
+#define SRECC_BANKSIZE_MASK    0x0000000F
+#define SRECC_BANKSIZE_SHIFT   0
+
+#define SRECC_BANKSIZE(value)	 (1 << (value))
+
+/* CAM bank patch control */
+#define SRCBPC_PATCHENABLE 0x80000000
+
+#define SRP_ADDRESS   0x0001FFFC
+#define SRP_VALID     0x8000
+
+/* CAM bank command reg */
+#define SRCMD_WRITE  0x00020000
+#define SRCMD_READ   0x00010000
+#define SRCMD_DONE   0x80000000
+
+#define SRCMD_DONE_DLY	1000
+
+/* bankidx and bankinfo reg defines corerev >= 8 */
+#define SOCRAM_BANKINFO_SZMASK		0x3f
+#define SOCRAM_BANKIDX_ROM_MASK		0x100
+
+#define SOCRAM_BANKIDX_MEMTYPE_SHIFT	8
+/* socram bankinfo memtype */
+#define SOCRAM_MEMTYPE_RAM		0
+#define SOCRAM_MEMTYPE_R0M		1
+#define SOCRAM_MEMTYPE_DEVRAM		2
+
+#define	SOCRAM_BANKINFO_REG		0x40
+#define	SOCRAM_BANKIDX_REG		0x10
+#define	SOCRAM_BANKINFO_STDBY_MASK	0x400
+#define	SOCRAM_BANKINFO_STDBY_TIMER	0x800
+
+/* bankinfo rev >= 10 */
+#define SOCRAM_BANKINFO_DEVRAMSEL_SHIFT	13
+#define SOCRAM_BANKINFO_DEVRAMSEL_MASK	0x2000
+#define SOCRAM_BANKINFO_DEVRAMPRO_SHIFT	14
+#define SOCRAM_BANKINFO_DEVRAMPRO_MASK	0x4000
+
+/* extracoreinfo register */
+#define SOCRAM_DEVRAMBANK_MASK		0xF000
+#define SOCRAM_DEVRAMBANK_SHIFT		12
+
+/* bank info to calculate bank size */
+#define	SOCRAM_BANKINFO_SZBASE		8192
+#define SOCRAM_BANKSIZE_SHIFT		13	/* SOCRAM_BANKINFO_SZBASE */
+
 
 #endif	/* _SBSOCRAM_H */

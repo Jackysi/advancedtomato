@@ -2,15 +2,21 @@
  * Generic Broadcom Home Networking Division (HND) DMA engine HW interface
  * This supports the following chips: BCM42xx, 44xx, 47xx .
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sbhnddma.h,v 13.12.2.5 2009/01/21 17:48:36 Exp $
+ * $Id: sbhnddma.h,v 13.20.12.3 2011-01-27 19:03:20 Exp $
  */
 
 #ifndef	_sbhnddma_h_
@@ -57,8 +63,10 @@ typedef volatile struct {
 /*
  * Each descriptor ring must be 4096byte aligned, and fit within a single 4096byte page.
  */
-#define	D32MAXRINGSZ	4096
-#define	D32RINGALIGN	4096
+#define	D32RINGALIGN_BITS	12
+#define	D32MAXRINGSZ		(1 << D32RINGALIGN_BITS)
+#define	D32RINGALIGN		(1 << D32RINGALIGN_BITS)
+
 #define	D32MAXDD	(D32MAXRINGSZ / sizeof (dma32dd_t))
 
 /* transmit channel control */
@@ -190,8 +198,10 @@ typedef volatile struct {
 /*
  * Each descriptor ring must be 8kB aligned, and fit within a contiguous 8kB physical addresss.
  */
-#define	D64MAXRINGSZ	8192
-#define	D64RINGALIGN	8192
+#define D64RINGALIGN_BITS	13
+#define	D64MAXRINGSZ		(1 << D64RINGALIGN_BITS)
+#define	D64RINGALIGN		(1 << D64RINGALIGN_BITS)
+
 #define	D64MAXDD	(D64MAXRINGSZ / sizeof (dma64dd_t))
 
 /* transmit channel control */
@@ -241,6 +251,9 @@ typedef volatile struct {
 #define DMA_CTRL_PEN		(1 << 0)	/* partity enable */
 #define DMA_CTRL_ROC		(1 << 1)	/* rx overflow continue */
 #define DMA_CTRL_RXMULTI	(1 << 2)	/* allow rx scatter to multiple descriptors */
+#define DMA_CTRL_UNFRAMED	(1 << 3)	/* Unframed Rx/Tx data */
+#define DMA_CTRL_USB_BOUNDRY4KB_WAR (1 << 4)
+#define DMA_CTRL_DMA_AVOIDANCE_WAR (1 << 5)	/* DMA avoidance WAR for 4331 */
 
 /* receive descriptor table pointer */
 #define	D64_RP_LD_MASK		0x00000fff	/* last valid descriptor */

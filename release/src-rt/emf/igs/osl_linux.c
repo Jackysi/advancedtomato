@@ -2,7 +2,7 @@
  * Timer functions used by EMFL. These Functions can be moved to
  * shared/linux_osl.c, include/linux_osl.h
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,7 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: osl_linux.c,v 1.3 2008/11/19 01:36:25 Exp $
+ * $Id: osl_linux.c 241182 2011-02-17 21:50:03Z gmo $
  */
 
 #include <typedefs.h>
@@ -39,6 +39,11 @@ osl_timer(ulong data)
 	} else {
 		t->set = FALSE;
 		t->fn(t->arg);
+#ifdef BCMDBG
+		if (t->name) {
+			MFREE(NULL, t->name, strlen(t->name) + 1);
+		}
+#endif
 		MFREE(NULL, t, sizeof(osl_timer_t));
 	}
 
@@ -62,6 +67,11 @@ osl_timer_init(const char *name, void (*fn)(void *arg), void *arg)
 	t->arg = arg;
 	t->timer.data = (ulong)t;
 	t->timer.function = osl_timer;
+#ifdef BCMDBG
+	if ((t->name = MALLOC(NULL, strlen(name) + 1)) != NULL) {
+		strcpy(t->name, name);
+	}
+#endif
 
 	init_timer(&t->timer);
 
@@ -118,6 +128,11 @@ osl_timer_del(osl_timer_t *t)
 			printk(KERN_INFO "osl_timer_del: Failed to delete timer\n");
 			return (FALSE);
 		}
+#ifdef BCMDBG
+		if (t->name) {
+			MFREE(NULL, t->name, strlen(t->name) + 1);
+		}
+#endif
 		MFREE(NULL, t, sizeof(osl_timer_t));
 	}
 

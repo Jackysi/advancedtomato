@@ -1,7 +1,7 @@
 /*
  * ADMtek switch setup functions
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: etc_adm.h,v 1.11 2008/03/04 22:16:42 Exp $
+ * $Id: etc_adm.h,v 1.11 2008-03-04 22:16:42 Exp $
  */
 
 #ifndef _adm_h_

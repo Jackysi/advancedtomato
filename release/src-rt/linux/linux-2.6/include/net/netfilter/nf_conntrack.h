@@ -115,8 +115,12 @@ struct nf_conn_help {
 	u8 expecting[NF_CT_MAX_EXPECT_CLASSES];
 };
 
-#define CTF_FLAGS_CACHED	(1 << 0)	/* Indicates cached connection */
+#ifdef HNDCTF
+#define CTF_FLAGS_CACHED	(1 << 31)	/* Indicates cached connection */
 #define CTF_FLAGS_EXCLUDED	(1 << 30)
+#define CTF_FLAGS_REPLY_CACHED	(1 << 1)
+#define CTF_FLAGS_ORG_CACHED	(1 << 0)
+#endif
 
 #include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
 #include <net/netfilter/ipv6/nf_conntrack_ipv6.h>

@@ -89,6 +89,30 @@ EXPORT_SYMBOL(ctf_attach_fn);
 
 /* Kernel command line */
 extern char arcs_cmdline[CL_SIZE];
+static int lanports_enable = 0;
+static int wombo_reset = GPIO_PIN_NOTDEFINED;
+
+static void
+bcm947xx_reboot_handler(void)
+{
+	if (lanports_enable) {
+		uint lp = 1 << lanports_enable;
+
+		si_gpioout(sih, lp, 0, GPIO_DRV_PRIORITY);
+		si_gpioouten(sih, lp, lp, GPIO_DRV_PRIORITY);
+		bcm_mdelay(1);
+	}
+
+	/* gpio 0 is also valid wombo_reset */
+	if (wombo_reset != GPIO_PIN_NOTDEFINED) {
+		int reset = 1 << wombo_reset;
+
+		si_gpioout(sih, reset, 0, GPIO_DRV_PRIORITY);
+		si_gpioouten(sih, reset, reset, GPIO_DRV_PRIORITY);
+		bcm_mdelay(10);
+	}
+}
+
 
 void
 bcm947xx_machine_restart(char *command)
@@ -97,6 +121,7 @@ bcm947xx_machine_restart(char *command)
 
 	/* Set the watchdog timer to reset immediately */
 	local_irq_disable();
+	bcm947xx_reboot_handler();
 	hnd_cpu_reset(sih);
 }
 
@@ -108,6 +133,7 @@ bcm947xx_machine_halt(void)
 	/* Disable interrupts and watchdog and spin forever */
 	local_irq_disable();
 	si_watchdog(sih, 0);
+	bcm947xx_reboot_handler();
 	while (1);
 }
 
@@ -185,6 +211,24 @@ brcm_setup(void)
 	if (value && strlen(value) && strncmp(value, "empty", 5))
 		strncpy(arcs_cmdline, value, sizeof(arcs_cmdline));
 
+	if ((lanports_enable = getgpiopin(NULL, "lanports_enable", GPIO_PIN_NOTDEFINED)) ==
+		GPIO_PIN_NOTDEFINED)
+		lanports_enable = 0;
+
+	/* wombo reset */
+	if ((wombo_reset = getgpiopin(NULL, "wombo_reset", GPIO_PIN_NOTDEFINED)) !=
+	    GPIO_PIN_NOTDEFINED) {
+		int reset = 1 << wombo_reset;
+
+		printk("wombo_reset set to gpio %d\n", wombo_reset);
+
+		si_gpioout(sih, reset, 0, GPIO_DRV_PRIORITY);
+		si_gpioouten(sih, reset, reset, GPIO_DRV_PRIORITY);
+		bcm_mdelay(10);
+
+		si_gpioout(sih, reset, reset, GPIO_DRV_PRIORITY);
+		bcm_mdelay(20);
+	}
 
 	/* Generic setup */
 	_machine_restart = bcm947xx_machine_restart;

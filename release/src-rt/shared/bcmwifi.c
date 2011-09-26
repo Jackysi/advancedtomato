@@ -3,14 +3,20 @@
  * Contents are wifi-specific, used by any kernel or app-level
  * software that might want wifi things as it grows.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
- * the contents of this file may not be disclosed to third parties, copied
- * or duplicated in any form, in whole or in part, without the prior
- * written permission of Broadcom Corporation.
- * $Id: bcmwifi.c,v 1.22.4.1 2009/03/13 18:25:48 Exp $
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * $Id: bcmwifi.c,v 1.31 2009-09-21 16:10:13 Exp $
  */
 
 #include <typedefs.h>
@@ -30,8 +36,8 @@
 #endif /* BCMDRIVER */
 #include <bcmwifi.h>
 
-#if defined(WIN32) && defined(BCMDLL)
-#include <bcmstdlib.h>		/* For wl/exe/GNUmakefile.brcm_wlu */
+#if defined(WIN32) && (defined(BCMDLL) || defined(WLMDLL))
+#include <bcmstdlib.h> 	/* For wl/exe/GNUmakefile.brcm_wlu and GNUmakefile.wlm_dll */
 #endif
 
 /* Chanspec ASCII representation:
@@ -102,7 +108,7 @@ wf_chspec_ntoa(chanspec_t chspec, char *buf)
 chanspec_t
 wf_chspec_aton(char *a)
 {
-	char *endp;
+	char *endp = NULL;
 	uint channel, band, bw, ctl_sb;
 	char c;
 
@@ -221,6 +227,29 @@ wf_chspec_ctlchan(chanspec_t chspec)
 	return ctl_chan;
 }
 
+chanspec_t
+wf_chspec_ctlchspec(chanspec_t chspec)
+{
+	chanspec_t ctl_chspec = 0;
+	uint8 channel;
+
+	ASSERT(!wf_chspec_malformed(chspec));
+
+	/* Is there a sideband ? */
+	if (CHSPEC_CTL_SB(chspec) == WL_CHANSPEC_CTL_SB_NONE) {
+		return chspec;
+	} else {
+		if (CHSPEC_CTL_SB(chspec) == WL_CHANSPEC_CTL_SB_UPPER) {
+			channel = UPPER_20_SB(CHSPEC_CHANNEL(chspec));
+		} else {
+			channel = LOWER_20_SB(CHSPEC_CHANNEL(chspec));
+		}
+		ctl_chspec = channel | WL_CHANSPEC_BW_20 | WL_CHANSPEC_CTL_SB_NONE;
+		ctl_chspec |= CHSPEC_BAND(chspec);
+	}
+	return ctl_chspec;
+}
+
 /*
  * Return the channel number for a given frequency and base frequency.
  * The returned channel number is relative to the given base frequency.
@@ -284,10 +313,10 @@ wf_mhz2channel(uint freq, uint start_factor)
  *
  * The valid channel range is [1, 14] in the 2.4 GHz band and [0, 200] otherwise.
  * The base frequency is specified as (start_factor * 500 kHz).
- * Constants WF_CHAN_FACTOR_2_4_G, WF_CHAN_FACTOR_5_G are defined for
- * 2.4 GHz and 5 GHz bands.
+ * Constants WF_CHAN_FACTOR_2_4_G, WF_CHAN_FACTOR_4_G, and WF_CHAN_FACTOR_5_G
+ * are defined for 2.4 GHz, 4 GHz, and 5 GHz bands.
  * The channel range of [1, 14] is only checked for a start_factor of
- * WF_CHAN_FACTOR_2_4_G (4814).
+ * WF_CHAN_FACTOR_2_4_G (4814 = 2407 * 2).
  * Odd start_factors produce channels on .5 MHz boundaries, in which case
  * the answer is rounded down to an integral MHz.
  * -1 is returned for an out of range channel.
@@ -300,9 +329,9 @@ wf_channel2mhz(uint ch, uint start_factor)
 	int freq;
 
 	if ((start_factor == WF_CHAN_FACTOR_2_4_G && (ch < 1 || ch > 14)) ||
-	    (ch <= 200))
+	    (ch > 200))
 		freq = -1;
-	if ((start_factor == WF_CHAN_FACTOR_2_4_G) && (ch == 14))
+	else if ((start_factor == WF_CHAN_FACTOR_2_4_G) && (ch == 14))
 		freq = 2484;
 	else
 		freq = ch * 5 + start_factor / 2;

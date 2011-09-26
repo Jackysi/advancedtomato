@@ -1,27 +1,32 @@
 /*
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  * Fundamental constants relating to IP Protocol
  *
- * $Id: bcmip.h,v 9.16.124.1 2009/11/11 18:20:09 Exp $
+ * $Id: bcmip.h,v 9.19 2009-11-10 20:08:33 Exp $
  */
 
 #ifndef _bcmip_h_
 #define _bcmip_h_
 
-/* enable structure packing */
-#if defined(__GNUC__)
-#define	PACKED	__attribute__((packed))
-#else
-#pragma pack(1)
-#define	PACKED
+#ifndef _TYPEDEFS_H_
+#include <typedefs.h>
 #endif
+
+/* This marks the start of a packed structure section. */
+#include <packed_section_start.h>
 
 
 /* IPV4 and IPV6 common */
@@ -86,11 +91,11 @@
 #define IPV4_ADDR_STR_LEN	16	/* Max IP address length in string format */
 
 /* IPV4 packet formats */
-struct ipv4_addr {
+BWL_PRE_PACKED_STRUCT struct ipv4_addr {
 	uint8	addr[IPV4_ADDR_LEN];
-} PACKED;
+} BWL_POST_PACKED_STRUCT;
 
-struct ipv4_hdr {
+BWL_PRE_PACKED_STRUCT struct ipv4_hdr {
 	uint8	version_ihl;		/* Version and Internet Header Length */
 	uint8	tos;			/* Type Of Service */
 	uint16	tot_len;		/* Number of bytes in packet (max 65535) */
@@ -101,7 +106,7 @@ struct ipv4_hdr {
 	uint16	hdr_chksum;		/* IP header checksum */
 	uint8	src_ip[IPV4_ADDR_LEN];	/* Source IP Address */
 	uint8	dst_ip[IPV4_ADDR_LEN];	/* Destination IP Address */
-} PACKED;
+} BWL_POST_PACKED_STRUCT;
 
 /* IPV6 field offsets */
 #define IPV6_PAYLOAD_LEN_OFFSET	4	/* payload length offset */
@@ -136,9 +141,7 @@ struct ipv4_hdr {
 	(IP_VER(ip_body) == IP_VER_4 ? IPV4_TOS(ip_body) : \
 	 IP_VER(ip_body) == IP_VER_6 ? IPV6_TRAFFIC_CLASS(ip_body) : 0)
 
-#undef PACKED
-#if !defined(__GNUC__)
-#pragma pack()
-#endif
+/* This marks the end of a packed structure section. */
+#include <packed_section_end.h>
 
 #endif	/* _bcmip_h_ */

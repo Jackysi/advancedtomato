@@ -1,14 +1,14 @@
 /*
  * gmacdefs - Broadcom gmac (Unimac) specific definitions
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
  * the contents of this file may not be disclosed to third parties, copied
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
- * $Id: gmac_core.h,v 13.1.4.2 2009/09/01 20:11:00 Exp $
+ * $Id: gmac_core.h,v 13.4 2009-03-13 22:43:20 Exp $
  */
 
 #ifndef	_gmac_core_h_
@@ -259,5 +259,12 @@ typedef volatile struct _gmacregs {
 /* mac addr low */
 #define	ML_LO_MASK		0xffff
 #define	ML_LO_SHIFT		0
+
+/* Core specific control flags */
+#define SICF_SWCLKE		0x0004
+#define SICF_SWRST		0x0008
+
+/* Core specific status flags */
+#define SISF_SW_ATTACHED	0x0800
 
 #endif	/* _gmac_core_h_ */

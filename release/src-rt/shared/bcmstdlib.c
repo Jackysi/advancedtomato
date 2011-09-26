@@ -1,15 +1,21 @@
 /*
  * stdlib support routines for self-contained images.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmstdlib.c,v 1.42.12.7 2008/07/11 21:35:59 Exp $
+ * $Id: bcmstdlib.c,v 1.51.20.1 2010-03-23 01:20:17 Exp $
  */
 
 /*
@@ -45,6 +51,10 @@
 #include <bcmstdlib.h>
 #ifndef BCMSTDLIB_WIN32_APP
 #include <bcmutils.h>
+#endif
+
+#ifdef MSGTRACE
+#include <msgtrace.h>
 #endif
 
 #ifdef BCMSTDLIB_WIN32_APP
@@ -295,6 +305,28 @@ BCMROMFN(snprintf)(char *buf, size_t bufsize, const char *fmt, ...)
 
 #ifndef BCMSTDLIB_SNPRINTF_ONLY
 
+
+int
+BCMROMFN(vsprintf)(char *buf, const char *fmt, va_list ap)
+{
+	return (vsnprintf(buf, INT_MAX, fmt, ap));
+}
+
+
+int
+BCMROMFN(sprintf)(char *buf, const char *fmt, ...)
+{
+	va_list ap;
+	int count;
+
+	va_start(ap, fmt);
+	count = vsprintf(buf, fmt, ap);
+	va_end(ap);
+
+	return count;
+}
+
+
 void *
 BCMROMFN(memmove)(void *dest, const void *src, size_t n)
 {
@@ -322,29 +354,6 @@ BCMROMFN(memmove)(void *dest, const void *src, size_t n)
 
 	return dest;
 }
-
-
-
-int
-BCMROMFN(vsprintf)(char *buf, const char *fmt, va_list ap)
-{
-	return (vsnprintf(buf, INT_MAX, fmt, ap));
-}
-
-
-int
-BCMROMFN(sprintf)(char *buf, const char *fmt, ...)
-{
-	va_list ap;
-	int count;
-
-	va_start(ap, fmt);
-	count = vsprintf(buf, fmt, ap);
-	va_end(ap);
-
-	return count;
-}
-
 
 #ifndef EFI
 int
@@ -697,10 +706,16 @@ printf(const char *fmt, ...)
 #endif
 	}
 
+#ifdef MSGTRACE
+	msgtrace_put(buffer, count);
+#endif
+
 	return count;
 }
 #endif /* printf */
 
+
+#if !defined(_WIN32) && !defined(_CFE_) && !defined(EFI)
 int
 fputs(const char *s, FILE *stream /* UNUSED */)
 {
@@ -740,4 +755,5 @@ rand(void)
 	seed = t;
 	return t;
 }
+#endif 
 #endif /* BCMSTDLIB_SNPRINTF_ONLY */

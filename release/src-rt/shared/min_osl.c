@@ -2,15 +2,21 @@
  * Initialization and support routines for self-booting compressed
  * image.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: min_osl.c,v 1.22.2.3 2009/07/14 20:29:48 Exp $
+ * $Id: min_osl.c,v 1.28 2009-07-10 22:43:40 Exp $
  */
 
 #include <typedefs.h>
@@ -30,7 +36,7 @@ uint32 g_assert_type = 0;
 /* Cache support */
 
 /* Cache and line sizes */
-static uint icache_size, ic_lsize, dcache_size, dc_lsize;
+uint __icache_size, __ic_lsize, __dcache_size, __dc_lsize;
 
 static void
 _change_cachability(uint32 cm)
@@ -62,12 +68,12 @@ caches_on(void)
 	config1 = MFC0(C0_CONFIG, 1);
 
 	icache_probe(config1, &size, &lsize);
-	icache_size = size;
-	ic_lsize = lsize;
+	__icache_size = size;
+	__ic_lsize = lsize;
 
 	dcache_probe(config1, &size, &lsize);
-	dcache_size = size;
-	dc_lsize = lsize;
+	__dcache_size = size;
+	__dc_lsize = lsize;
 
 	/* If caches are not in the default state then
 	 * presume that caches are already init'd
@@ -82,17 +88,17 @@ caches_on(void)
 	if (((tmp & CID_PKG_MASK) >> CID_PKG_SHIFT) != HDLSIM_PKG_ID) {
 		/* init icache */
 		start = KSEG0ADDR(caches_on) & 0xff800000;
-		end = (start + icache_size);
+		end = (start + __icache_size);
 		MTC0(C0_TAGLO, 0, 0);
 		MTC0(C0_TAGHI, 0, 0);
 		while (start < end) {
 			cache_op(start, Index_Store_Tag_I);
-			start += ic_lsize;
+			start += __ic_lsize;
 		}
 
 		/* init dcache */
 		start = KSEG0ADDR(caches_on) & 0xff800000;
-		end = (start + dcache_size);
+		end = (start + __dcache_size);
 		if (r2) {
 			/* mips32r2 has the data tags in select 2 */
 			MTC0(C0_TAGLO, 2, 0);
@@ -103,7 +109,7 @@ caches_on(void)
 		}
 		while (start < end) {
 			cache_op(start, Index_Store_Tag_D);
-			start += dc_lsize;
+			start += __dc_lsize;
 		}
 	}
 
@@ -119,11 +125,11 @@ blast_dcache(void)
 	uint32 start, end;
 
 	start = KSEG0ADDR(blast_dcache) & 0xff800000;
-	end = start + dcache_size;
+	end = start + __dcache_size;
 
 	while (start < end) {
 		cache_op(start, Index_Writeback_Inv_D);
-		start += dc_lsize;
+		start += __dc_lsize;
 	}
 }
 
@@ -133,11 +139,11 @@ blast_icache(void)
 	uint32 start, end;
 
 	start = KSEG0ADDR(blast_icache) & 0xff800000;
-	end = start + icache_size;
+	end = start + __icache_size;
 
 	while (start < end) {
 		cache_op(start, Index_Invalidate_I);
-		start += ic_lsize;
+		start += __ic_lsize;
 	}
 }
 #endif	/* mips */
@@ -245,13 +251,21 @@ free(void *where)
 	return 0;
 }
 
-/* microsecond delay */
+/* get processor cycle count */
 
 #if defined(mips)
 #define	get_cycle_count	get_c0_count
 #elif defined(__arm__) || defined(__thumb__) || defined(__thumb2__)
 #define	get_cycle_count	get_arm_cyclecount
 #endif
+
+uint32
+osl_getcycles(void)
+{
+	return get_cycle_count();
+}
+
+/* microsecond delay */
 
 /* Default to 125 MHz */
 static uint32 cpu_clock = 125000000;

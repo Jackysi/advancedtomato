@@ -27,7 +27,6 @@
 
 #ifdef HNDCTF
 #include <ctf/hndctf.h>
-extern ctf_t *kcih;
 #endif /* HNDCTF */
 
 /*
@@ -222,6 +221,9 @@ static struct net_device *new_bridge_dev(const char *name)
 	br->ageing_time = 300 * HZ;
 	INIT_LIST_HEAD(&br->age_list);
 
+#ifdef CONFIG_INET_GSO
+	br->feature_mask |= NETIF_F_GSO;
+#endif /* CONFIG_INET_GSO */
 	br_stp_timer_init(br);
 
 	return dev;
@@ -291,6 +293,10 @@ int br_add_bridge(const char *name)
 	dev = new_bridge_dev(name);
 	if (!dev)
 		return -ENOMEM;
+		
+#ifdef CONFIG_INET_GSO
+	dev->features |= NETIF_F_GSO;
+#endif /* CONFIG_INET_GSO */
 
 	rtnl_lock();
 	if (strchr(dev->name, '%')) {
