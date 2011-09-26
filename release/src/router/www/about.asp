@@ -133,6 +133,9 @@ Copyright (C) 2011 Augusto Bott<br>
 <!-- CMON-END -->
 <!-- LINUX26-BEGIN -->
 - SD-idle tool integration for kernel 2.6<br>
+<!-- USB-BEGIN -->
+- 3G Modem support (big thanks for @LDevil)<br>
+<!-- USB-END -->
 <!-- LINUX26-END -->
 <!-- SNMP-BEGIN -->
 - SNMP integration and GUI<br>

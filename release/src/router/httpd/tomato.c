@@ -552,6 +552,14 @@ static const nvset_t nvset_list[] = {
 	{ "dhcp_lease",			V_LENGTH(0, 5)		},
 	{ "wan_wins",			V_IP				},
 
+#ifdef TCONFIG_USB
+	// 3G MODEM
+	{ "modem_pin",			V_LENGTH(0,6)			},
+	{ "modem_dev",			V_LENGTH(0,8)			},
+	{ "modem_init",			V_LENGTH(0,25)			},
+	{ "modem_apn",			V_LENGTH(0,25)			},
+#endif
+
 	// LAN networks
 	{ "lan_ifname",			V_LENGTH(0, 5)			},
 
@@ -974,6 +982,7 @@ static const nvset_t nvset_list[] = {
 	{ "script_usbmount", 		V_TEXT(0, 2048)			},
 	{ "script_usbumount", 		V_TEXT(0, 2048)			},
 	{ "idle_enable",		V_01				},
+	{ "usb_3g",			V_01				},
 #endif
 
 // nas-ftp - !!TB
