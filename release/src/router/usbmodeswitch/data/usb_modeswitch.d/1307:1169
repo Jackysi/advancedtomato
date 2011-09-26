@@ -1,0 +1,14 @@
+########################################################
+# Cisco AM10 "Valet Connector"
+
+DefaultVendor= 0x1307
+DefaultProduct=0x1169
+
+TargetVendor=  0x13b1
+TargetProduct= 0x0031
+
+CiscoMode=1
+NoDriverLoading=1
+
+CheckSuccess=20
+

@@ -1,11 +1,11 @@
 ########################################################
-# Huawei, newer modems
+# Vodafone (Huawei) K4510
 
 DefaultVendor= 0x12d1
-DefaultProduct=0x1446
+DefaultProduct=0x14c5
 
 TargetVendor=  0x12d1
-TargetProductList="1001,1406,140b,140c,1412,141b,1433,14ac,1506"
+TargetProduct= 0x14cb
 
 CheckSuccess=20
 

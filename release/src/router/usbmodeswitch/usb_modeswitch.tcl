@@ -9,7 +9,7 @@
 # the mode switching program with the matching parameter
 # file from /usr/share/usb_modeswitch
 #
-# Part of usb-modeswitch-1.1.7 package
+# Part of usb-modeswitch-1.1.9 package
 # (C) Josua Dietze 2009, 2010, 2011
 
 
@@ -46,14 +46,12 @@ if {[lindex $argv 0] == "--symlink-name"} {
 }
 
 set settings(dbdir)	/usr/share/usb_modeswitch
-if {![file exists $settings(dbdir)]} {
-	# Old place available?
-	set settings(dbdir)	/etc/usb_modeswitch.d
-	if {![file exists $settings(dbdir)]} {
-		set device "noname"
-		Log "Error: no config database found in /usr/share or /etc. Exiting"
-		SafeExit
-	}
+set settings(dbdir_etc)	/etc/usb_modeswitch.d
+
+if {![file exists $settings(dbdir)] && ![file exists $settings(dbdir_etc)]} {
+	set device "noname"
+	Log "Error: no config database found in /usr/share or /etc. Exiting"
+	SafeExit
 }
 set bindir /usr/sbin
 
@@ -71,7 +69,7 @@ if [string length [lindex $argList 1]] {
 	set device "noname"
 }
 
-Log "raw args from udev: $argv\n\n$loginit"
+Log "Raw args from udev: $argv\n\n$loginit"
 
 if {$device == "noname"} {
 	Log "No data from udev. Exiting"
@@ -146,11 +144,18 @@ if $noswitching {
 	SafeExit
 }
 
+if {$usb(bNumConfigurations) == "1"} {
+	set configParam "-u -1"
+	Log "bNumConfigurations is 1 - don't check for active configuration"
+} else {
+	set configParam ""
+}
+
 # Check if there is more than one config file for this USB ID,
-# which would point to a possible ambiguity. If so, check if
+# which would make an attribute test necessary. If so, check if
 # SCSI values are needed
 
-set configList [ConfigGet list $usb(idVendor):$usb(idProduct)]
+set configList [ConfigGet conflist $usb(idVendor):$usb(idProduct)]
 
 if {[llength $configList] == 0} {
 	Log "Aargh! Config file missing for $usb(idVendor):$usb(idProduct)! Exiting"
@@ -236,7 +241,7 @@ if $scsiNeeded {
 	Log "Waiting 3 secs. after SCSI device was added"
 	after 3000
 } else {
-	after 500
+#	after 500
 }
 
 # If SCSI tree in sysfs was not identified, try and get the values
@@ -260,20 +265,20 @@ if {$scsiNeeded && $scsi(vendor)==""} {
 # Time to check for a matching config file.
 # Matching itself is done by MatchDevice
 #
-# Sorting the configuration file names reverse so that
+# The configuration file names are sorted reverse so that
 # the ones with matching additions are tried first; the
 # common configs without match attributes are used at the
 # end and provide a fallback
 
 set report {}
-foreach configuration [lsort -decreasing $configList] {
+foreach configuration $configList {
 
 	# skipping installer leftovers
 	if [regexp {\.(dpkg|rpm)} $configuration] {continue}
 
 	Log "checking config: $configuration"
 	if [MatchDevice $configuration] {
-		ParseDeviceConfig [ConfigGet config $configuration]
+		ParseDeviceConfig [ConfigGet conffile $configuration]
 		set devList1 [ListSerialDevs]
 		if {$config(waitBefore) == ""} {
 			Log "! matched, now switching"
@@ -287,17 +292,18 @@ foreach configuration [lsort -decreasing $configList] {
 		# Now we are actually switching
 		if $logging {
 			Log " (running command: $bindir/usb_modeswitch -I -W -c $settings(tmpConfig))"
-			set report [exec $bindir/usb_modeswitch -I -W -D -c $settings(tmpConfig) 2>@ stdout]
+			set report [exec $bindir/usb_modeswitch -I -W -D -c $settings(tmpConfig) $configParam 2>@ stdout]
 		} else {
-			set report [exec $bindir/usb_modeswitch -I -Q -D -c $settings(tmpConfig) 2>/dev/null]
+			set report [exec $bindir/usb_modeswitch -I -Q -D -c $settings(tmpConfig) $configParam 2>/dev/null]
 		}
-		Log "\nVerbose debug output of usb_modeswitch and libusb follows\n(Note that some USB errors are expected in the process)"
+		Log "\nVerbose debug output of usb_modeswitch and libusb follows"
+		Log "(Note that some USB errors are expected in the process)"
 		Log "--------------------------------"
 		Log $report
 		Log "--------------------------------"
 		Log "(end of usb_modeswitch output)\n"
-		if [regexp {/tmp/} $settings(tmpConfig)] {
-			file delete  $settings(tmpConfig)
+		if [regexp {/var/lib/usb_modeswitch} $settings(tmpConfig)] {
+			file delete $settings(tmpConfig)
 		}
 		break
 	} else {
@@ -322,7 +328,16 @@ if {![file isdirectory $devdir]} {
 if {![file exists $devdir/idProduct]} {
 	after 1000
 }
-ReadUSBAttrs $devdir
+
+set ifdir "[file tail $devdir]:1.0"
+ReadUSBAttrs $devdir $ifdir
+
+if {$usb($ifdir/bInterfaceClass) != "" && [regexp {ok:} $report]} {
+	if {$usb($ifdir/bInterfaceClass) == "02"} {
+		set report "ok:"
+		Log " Found CDC ACM device, skip driver checking"
+	}
+}
 
 # If target ID given, driver shall be loaded
 if [regexp -nocase {ok:[0-9a-f]{4}:[0-9a-f]{4}|ok:no_data} $report] {
@@ -399,8 +414,8 @@ if [regexp {ok:$} $report] {
 }
 
 # In newer kernels there is a switch to avoid the use of a device
-# reset (e.g. from usb-storage) which would likely switch back
-# a mode-switching device
+# reset (e.g. from usb-storage) which would possibly switch back
+# a mode-switching device to initial mode
 if [regexp {ok:} $report] {
 	Log "Checking for AVOID_RESET_QUIRK attribute"
 	if [file exists $devdir/avoid_reset_quirk] {
@@ -441,12 +456,15 @@ foreach attr {vendor model rev} {
 # end of proc {ReadSCSIAttrs}
 
 
-proc {ReadUSBAttrs} {dir} {
+proc {ReadUSBAttrs} {dir args} {
 
 global usb
-Log "USB dir exists: $dir"
 
-foreach attr {idVendor idProduct manufacturer product serial} {
+set attrList {idVendor idProduct manufacturer product serial bNumConfigurations}
+if {$args != ""} {
+	lappend attrList "$args/bInterfaceClass"
+}
+foreach attr $attrList {
 	if [file exists $dir/$attr] {
 		set rc [open $dir/$attr r]
 		set usb($attr) [read -nonewline $rc]
@@ -478,8 +496,8 @@ foreach teststring $stringList {
 	set blankstring ""
 	regsub -all {_} $matchstring { } blankstring
 	Log "matching $match($id)"
-	Log "  match string1: $matchstring"
-	Log "  match string2: $blankstring"
+	Log "  match string1 (exact):  $matchstring"
+	Log "  match string2 (blanks): $blankstring"
 	Log " device string: [set $match($id)]"
 	if {!([string match *$matchstring* [set $match($id)]] || [string match *$blankstring* [set $match($id)]])} {
 		return 0
@@ -559,29 +577,42 @@ global settings
 
 switch $command {
 
-	list {
+	conflist {
+		# Unpackaged configs first; sorting is essential for priority
+		set configList [lsort -decreasing [glob -nocomplain $settings(dbdir_etc)/$config*]]
+		set configList [concat $configList [lsort -decreasing [glob -nocomplain $settings(dbdir)/$config*]]]
 		if [file exists $settings(dbdir)/configPack.tar.gz] {
 			Log "Found packed config collection $settings(dbdir)/configPack.tar.gz"
-			if [catch {set configList [exec tar -tzf $settings(dbdir)/configPack.tar.gz 2>/dev/null]} err] {
+			if [catch {set packedList [exec tar -tzf $settings(dbdir)/configPack.tar.gz 2>/dev/null]} err] {
 				Log "Error: problem opening config package; tar returned\n $err"
 				return {}
 			}
-			set configList [split $configList \n]
-			set configList [lsearch -glob -all -inline $configList $config*]
-		} else {
-			set configList [glob -nocomplain $settings(dbdir)/$config*]
+			set packedList [split $packedList \n]
+			set packedConfigList [lsort -decreasing [lsearch -glob -all -inline $packedList $config*]]
+			# Now add packaged configs with a mark, again sorted for priority
+			foreach packedConfig $packedConfigList {
+				lappend configList "pack/$packedConfig"
+			}
 		}
 
 		return $configList
 	}
-	config {
-		if [file exists $settings(dbdir)/configPack.tar.gz] {
-			set settings(tmpConfig) /tmp/usb_modeswitch.current_cfg
+	conffile {
+		if [regexp {^pack/} $config] {
+			set config [regsub {pack/} $config {}]
+			set settings(tmpConfig) /var/lib/usb_modeswitch/current_cfg
 			Log "Extracting config $config from collection $settings(dbdir)/configPack.tar.gz"
 			set wc [open $settings(tmpConfig) w]
 			puts -nonewline $wc [exec tar -xzOf $settings(dbdir)/configPack.tar.gz $config 2>/dev/null]
 			close $wc
 		} else {
+			if [regexp [list $settings(dbdir_etc)] $config] {
+				Log "Using config file from override folder $settings(dbdir_etc)"
+				set syslog_text "usb_modeswitch: using overriding config file $config; make sure this is intended"
+				catch {exec logger -p syslog.notice $syslog_text 2>/dev/null}
+				set syslog_text "usb_modeswitch: please report any new or corrected settings; otherwise, check for outdated files"
+				catch {exec logger -p syslog.notice $syslog_text 2>/dev/null}
+			}
 			set settings(tmpConfig) $config
 		}
 		return $settings(tmpConfig)
@@ -789,6 +820,7 @@ while {$i < 50} {
 if {$i < 50} {
 	Log "Trying to add ID to driver \"$config(driverModule)\""
 	catch {exec logger -p syslog.notice "usb_modeswitch: adding device ID $vid:$pid to driver \"$config(driverModule)\"" 2>/dev/null}
+	catch {exec logger -p syslog.notice "usb_modeswitch: please report the device ID to the Linux USB developers!" 2>/dev/null}
 	if [catch {exec echo "$vid $pid" >$idfile} err] {
 		Log "Error adding ID to driver: $err"
 	} else {
