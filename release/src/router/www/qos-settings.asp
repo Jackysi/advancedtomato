@@ -28,8 +28,11 @@ REMOVE-END */
 
 var classNames = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
 
-pctList = [[0, 'None']];
-for (i = 1; i <= 100; ++i) pctList.push([i, i + '%']);
+pctListin = [[0, 'No Limit']];
+for (i = 1; i <= 100; ++i) pctListin.push([i, i + '%']);
+
+pctListout = [[0, '0']];
+for (i = 1; i <= 100; ++i) pctListout.push([i, i + '%']);
 
 function oscale(rate, ceil)
 {
@@ -196,15 +199,15 @@ REMOVE-END */
 <script type='text/javascript'>
 cc = nvram.qos_orates.split(/[,-]/);
 f = [];
-f.push({ title: 'Max Bandwidth Limit', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_obw });
+f.push({ title: 'Max Bandwidth Limit', name: 'qos_obw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s   (Set to measured bandwidth less 15-30%)</small>', value: nvram.qos_obw });
 f.push(null);
 j = 0;
 for (i = 0; i < 10; ++i) {
 	x = cc[j++] || 1;
 	y = cc[j++] || 1;
 	f.push({ title: classNames[i], multi: [
-			{ name: 'f_orate_' + i, type: 'select', options: pctList, value: x, suffix: ' ' },
-			{ name:	'f_oceil_' + i, type: 'select', options: pctList, value: y },
+			{ name: 'f_orate_' + i, type: 'select', options: pctListout, value: x, suffix: ' ' },
+			{ name:	'f_oceil_' + i, type: 'select', options: pctListout, value: y },
 			{ type: 'custom', custom: ' &nbsp; <span id="_okbps_' + i + '"></span>' } ]
 	});
 }
@@ -219,11 +222,11 @@ createFieldTable('', f);
 <script type='text/javascript'>
 rates = nvram.qos_irates.split(',');
 f = [];
-f.push({ title: 'Max Available Bandwidth <small>(this is NOT an overall limit!)</small>', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qos_ibw });
+f.push({ title: 'Max Available Bandwidth <small>(this is NOT an overall limit!)</small>', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s   (Set to measured bandwidth less 15-30%)</small>', value: nvram.qos_ibw });
 f.push(null);
 for (i = 0; i < 10; ++i) {
 	f.push({ title: classNames[i], multi: [
-			{ name:	'f_iceil_' + i, type: 'select', options: pctList, value: rates[i] },
+			{ name:	'f_iceil_' + i, type: 'select', options: pctListin, value: rates[i] },
 			{ custom: ' &nbsp; <span id="_ikbps_' + i + '"></span>' } ]
 	});
 }
