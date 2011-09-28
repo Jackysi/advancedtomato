@@ -165,11 +165,10 @@ void start_usb(void)
 				);
 			}
 		}
-#ifdef LINUX26
+
 		if (nvram_get_int("idle_enable") == 1) {
 			xstart( "sd-idle" );
 		}
-#endif
 	}
 }
 
@@ -248,20 +247,14 @@ void stop_usb(void)
 			modprobe_r("sierra");
 			modprobe_r("usbserial");
 		}
-
 		if (nvram_match("3g_module", "option") ) {
 			modprobe_r("option");
 			modprobe_r("usbserial");
 		}
-/*
 		// shibby
 		// when modem use usbserial module and we will try remove module, module will crash
-		// the only solution at the moment is reboot router
+		// the only solution at the moment is rebbot router
 		// FIX THIS
-		if (nvram_match("3g_module", "usbserial") ) {
-			modprobe_r("usbserial");
-		}
-*/
 	}
 #endif
 

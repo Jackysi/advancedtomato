@@ -222,7 +222,7 @@ what:
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT
-# NFS BTCLIENT BTGUI TR_EXTRAS SNMP NO_CMON
+# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC
 
 define RouterOptions
 	@( \
@@ -349,9 +349,9 @@ define RouterOptions
 		sed -i "/TCONFIG_SNMP/d" $(1); \
 		echo "TCONFIG_SNMP=y" >>$(1); \
 	fi; \
-	if [ "$(NO_CMON)" = "y" ]; then \
-		sed -i "/TCONFIG_CMON/d" $(1); \
-		echo "# TCONFIG_CMON is not set" >>$(1); \
+	if [ "$(SDHC)" = "y" ]; then \
+		sed -i "/TCONFIG_SDHC/d" $(1); \
+		echo "TCONFIG_SDHC=y" >>$(1); \
 	fi; \
 	)
 endef
@@ -605,7 +605,7 @@ m:
 ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB" SNMP=y
 else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB" SNMP=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB"
 endif
 
 ## Make the "Ext + VPN" = VPN
@@ -613,7 +613,7 @@ e:
 ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP=y
 else
-	@$(MAKE) bin OPENVPN=y BBEXTRAS=y USBEXTRAS=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP=y
+	@$(MAKE) bin OPENVPN=y BBEXTRAS=y USBEXTRAS=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB"
 endif
 
 ## Make the "Ext + BTGUI" = BTgui
@@ -621,7 +621,7 @@ c:
 ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="BTgui" USB="USB" BTGUI=y SNMP=y
 else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="BTgui" USB="USB" BTGUI=y SNMP=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="BTgui" USB="USB" BTGUI=y
 endif
 
 ## Make the "Ext + BT" = BT
@@ -659,25 +659,25 @@ endif
 ## Make the "Big + BT + NFS" = Mega
 n:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Mega" USB="USB" NFS=y BTCLIENT=y SNMP=y NO_JFFS=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Mega" USB="USB" BTCLIENT=y NOCAT=y SNMP=y NO_JFFS=y
 else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=E BUILD_DESC="Mega" USB="USB" BTCLIENT=y NFS=y SNMP=y NO_JFFS=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=E BUILD_DESC="Mega" USB="USB" BTCLIENT=y SNMP=y NOCAT=y NO_JFFS=y
 endif
 
 ## Make the "Big + VPN + BT + NOCAT - NFS" = Mega-VPN
 o:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Mega-VPN" USB="USB" NOCAT=y BTCLIENT=y SNMP=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Mega-VPN" USB="USB" NOCAT=y BTCLIENT=y SNMP=y NO_JFFS=y NO_CIFS=y
 else
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y B=E BUILD_DESC="Mega-VPN" USB="USB" BTCLIENT=y NOCAT=y SNMP=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y B=E BUILD_DESC="Mega-VPN" USB="USB" BTCLIENT=y NOCAT=y SNMP=y NO_JFFS=y NO_CIFS=y
 endif
 
 ## Make the "No USB" = Std
 s:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB="" SNMP=y
+	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB=""
 else
-	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB="" SNMP=y
+	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB=""
 endif
 
 ## Make the "Mini: no USB, no CIFS, no Zebra" build - targeted for Netgear routers
@@ -848,8 +848,8 @@ setprofile:
 help:
 	@echo "m            Ext - (standard plus extra utilities and NTFS support)"
 	@echo "c            BTgui - (Ext plus BT gui)"
-	@echo "t            BT - (Ext plus BT Client)"
-	@echo "c            BT-VPN - (BT plus VPN)"
+	@echo "r            BT - (Ext plus BT Client)"
+	@echo "t            BT-VPN - (BT plus VPN)"
 	@echo "a            Big - (Ext plus NOCAT plus NFS plus BT gui)"
 	@echo "n            Mega - (Big + BT Client minus NOCAT)"
 	@echo "e            VPN - (standard plus VPN, extra utilities and NTFS support)"

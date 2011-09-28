@@ -349,7 +349,11 @@ help_out(struct sk_buff *skb, unsigned char *rb_ptr, unsigned int datalen,
 
 		if (expinfo.pbtype == pb_range) {
 			DEBUGP("Changing expectation mask to handle multiple ports\n");
+<<<<<<< HEAD:release/src-rt/linux/linux-2.6/net/netfilter/nf_conntrack_rtsp.c
 			//exp->mask.src.u.udp.port  = 0xfffe;
+=======
+			exp->mask.dst.u.udp.port  = 0xfffe;
+>>>>>>> 2d436b113f0728d16a68ac78d4763aebe2bf5504:release/src-rt/linux/linux-2.6/net/netfilter/nf_conntrack_rtsp.c
 		}
 
 		DEBUGP("expect_related %u.%u.%u.%u:%u-%u.%u.%u.%u:%u\n",
