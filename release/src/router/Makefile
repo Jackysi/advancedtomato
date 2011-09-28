@@ -45,6 +45,7 @@ obj-y += rp-pppoe
 obj-y += utils
 obj-y += ntpc
 obj-y += rstats
+obj-y += cstats
 obj-$(TCONFIG_SNMP) += snmp
 
 # !!TB - updated Broadcom Wireless driver

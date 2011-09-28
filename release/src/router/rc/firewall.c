@@ -1608,6 +1608,8 @@ if (nvram_match("imq_enable", "1")) {
 #endif
 	run_nvscript("script_fire", NULL, 1);
 
+	start_account();
+
 #ifdef LINUX26
 	allow_fastnat("firewall", can_enable_fastnat);
 	try_enabling_fastnat();

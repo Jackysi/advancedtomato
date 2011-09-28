@@ -147,6 +147,10 @@ void start_dnsmasq()
 		}
 	}
 
+	if (nvram_get_int("dhcpd_static_only")) {
+		fprintf(f, "dhcp-ignore=tag:!known\n");
+	}
+
 	// dhcp
 	do_dhcpd_hosts=0;
 	char lanN_proto[] = "lanXX_proto";
@@ -278,13 +282,20 @@ void start_dnsmasq()
 	snprintf(buf, sizeof(buf), "%s/dhcp-hosts", dmdhcp);
 	df = fopen(buf, "w");
 
+	// PREVIOUS/OLD FORMAT:
 	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 53 w/ delim
 	// 00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 85 w/ delim
 	// 00:aa:bb:cc:dd:ee,00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 106 w/ delim
+
+	// NEW FORMAT (+static ARP binding after hostname):
+	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 55 w/ delim
+	// 00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 87 w/ delim
+	// 00:aa:bb:cc:dd:ee,00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 108 w/ delim
+
 	p = nvram_safe_get("dhcpd_static");
 	while ((e = strchr(p, '>')) != NULL) {
 		n = (e - p);
-		if (n > 105) {
+		if (n > 107) {
 			p = e + 1;
 			continue;
 		}
@@ -311,6 +322,10 @@ void start_dnsmasq()
 		}
 
 		name = e + 1;
+
+		if ((e = strchr(name, '<')) != NULL) {
+			*e = 0;
+		}
 
 		if ((hf) && (*name != 0)) {
 			fprintf(hf, "%s %s\n", ip, name);
@@ -1253,6 +1268,27 @@ static void start_rstats(int new)
 	}
 }
 
+static void stop_cstats(void)
+{
+	int n;
+	int pid;
+
+	n = 60;
+	while ((n-- > 0) && ((pid = pidof("cstats")) > 0)) {
+		if (kill(pid, SIGTERM) != 0) break;
+		sleep(1);
+	}
+}
+
+static void start_cstats(int new)
+{
+	if (nvram_match("cstats_enable", "1")) {
+		stop_cstats();
+		if (new) xstart("cstats", "--new");
+			else xstart("cstats");
+	}
+}
+
 // -----------------------------------------------------------------------------
 
 // !!TB - FTP Server
@@ -1931,6 +1967,8 @@ void start_services(void)
 	start_cron();
 //	start_upnp();
 	start_rstats(0);
+	start_account();
+	start_cstats(0);
 	start_sched();
 #ifdef TCONFIG_IPV6
 	/* note: starting radvd here might be too early in case of
@@ -1976,6 +2014,7 @@ void stop_services(void)
 #endif
 	stop_sched();
 	stop_rstats();
+	stop_cstats();
 //	stop_upnp();
 	stop_cron();
 	stop_httpd();
@@ -2072,17 +2111,19 @@ TOP:
 		goto CLEAR;
 	}
 
+	if (strcmp(service, "account") == 0) {
+		if (action & A_STOP) stop_account();
+		if (action & A_START) start_account();
+		goto CLEAR;
+	}
+
 	if (strcmp(service, "qos") == 0) {
 		if (action & A_STOP) {
 			stop_qos();
 		}
 		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) {
-#ifdef TCONFIG_CMON
-			start_cmon();				// cmon start also qos
-#else
 			start_qos();
-#endif
 			if (nvram_match("qos_reset", "1")) f_write_string("/proc/net/clear_marks", "1", 0, 0);
 		}
 		goto CLEAR;
@@ -2094,31 +2135,16 @@ TOP:
 	}
 		stop_firewall(); start_firewall();		// always restarted
 	if (action & A_START) {
-#ifdef TCONFIG_CMON
-		start_cmon();					//cmon start also qoslimit
-#else
 		new_qoslimit_start();
-#endif
 	}
 		goto CLEAR;
 	}
 
 	if (strcmp(service, "arpbind") == 0) {
-		if (action & A_STOP) new_arpbind_stop();
-		if (action & A_START) new_arpbind_start();
+		if (action & A_STOP) stop_arpbind();
+		if (action & A_START) start_arpbind();
 		goto CLEAR;
 	}
-
-#ifdef TCONFIG_CMON
-	if (strcmp(service, "cmon") == 0) {
-		if (action & A_STOP) { stop_cmon(); }
-
-		start_qos(); new_qoslimit_start();	// start features after firewall restart
-
-		if (action & A_START) { start_cmon(); }
-		goto CLEAR;
-	}
-#endif
 
 	if (strcmp(service, "upnp") == 0) {
 		if (action & A_STOP) {
@@ -2263,6 +2289,7 @@ TOP:
 			stop_upnp();
 //			stop_dhcpc();
 			killall("rstats", SIGTERM);
+			killall("cstats", SIGTERM);
 			killall("buttons", SIGTERM);
 			stop_syslog();
 			remove_storage_main(1);	// !!TB - USB Support
@@ -2356,12 +2383,14 @@ TOP:
 			stop_dnsmasq();
 			stop_nas();
 			stop_wan();
+			stop_arpbind();
 			stop_lan();
 			stop_vlan();
 		}
 		if (action & A_START) {
 			start_vlan();
 			start_lan();
+			start_arpbind();
 			start_wan(BOOT);
 			start_nas();
 			start_dnsmasq();
@@ -2397,6 +2426,18 @@ TOP:
 	if (strcmp(service, "rstatsnew") == 0) {
 		if (action & A_STOP) stop_rstats();
 		if (action & A_START) start_rstats(1);
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "cstats") == 0) {
+		if (action & A_STOP) stop_cstats();
+		if (action & A_START) start_cstats(0);
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "cstatsnew") == 0) {
+		if (action & A_STOP) stop_cstats();
+		if (action & A_START) start_cstats(1);
 		goto CLEAR;
 	}
 

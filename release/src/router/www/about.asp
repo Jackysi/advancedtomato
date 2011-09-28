@@ -89,7 +89,7 @@ function init()
 <img src='tux.png' alt='Linux &amp; Tomato' id='tux'>
 </div>
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
-Tomato Firmware <% version(1); %><br>
+<b>Tomato Firmware <% version(1); %></b><br>
 
 <!-- USB-BEGIN -->
 <br>USB support integration and GUI,<br>
@@ -112,11 +112,6 @@ Copyright (C) 2010 Keith Moyer,<br>
 <br>
 <!-- VPN-END -->
 
-<b>VLAN administration GUI</b><br>
-Copyright (C) 2011 Augusto Bott<br>
-<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>Tomato-sdhc-vlan Homepage</a><br>
-<br>
-
 <b>"Shibby" features:</b><br>
 <!-- BBT-BEGIN -->
 - Transmission 2.33 integration<br>
@@ -128,9 +123,6 @@ Copyright (C) 2011 Augusto Bott<br>
 - NFS utils integration and GUI<br>
 <!-- NFS-END -->
 - Custom log file path<br>
-<!-- CMON-BEGIN -->
-- Clients monitor <br>
-<!-- CMON-END -->
 <!-- LINUX26-BEGIN -->
 - SD-idle tool integration for kernel 2.6<br>
 <!-- USB-BEGIN -->
@@ -144,7 +136,7 @@ Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
 
-<b>"Victek" features:</b><br> 
+<b>"Victek" features:</b><br>
 - Extended Sysinfo<br>
 <!-- NOCAT-BEGIN -->
 - Captive Portal. (Based in NocatSplash)<br>
@@ -153,14 +145,21 @@ Copyright (C) 2007-2011 Ofer Chen & Vicente Soriano<br>
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
 
-<b>"Victek/Toastman" features:</b><br>
-- Static ARP<br>
+<b>"Teaman" features:</b><br>
+- QOS-detailed & ctrate filters<br>
+- Realtime bandwidth monitoring of LAN clients<br>
+- Static ARP binding<br>
+- VLAN administration GUI<br>
+- Multiple LAN support integration and GUI<br>
+Copyright (C) 2011 Augusto Bott<br>
+<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>Tomato-sdhc-vlan Homepage</a><br>
 <br>
 
-<b>"Victek/PrinceAMD/Phykris/Shibby" features:</b><br>
+<b>"Victek/PrinceAMD/Phykris/Shibby" feature:</b><br>
 - Revised IP/MAC QOS/Bandwidth Limiter<br>
 <br>
 
+<br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>

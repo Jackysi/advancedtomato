@@ -63,7 +63,7 @@ wg.populate = function()
 	var q = nvram.dhcpd_static.split('>');
 	for (i = 0; i < q.length; ++i) {
 		var e = q[i].split('<');
-		if (e.length == 3) {
+		if ((e.length == 3) || (e.length == 4)) {
 			var m = e[0].split(',');
 			for (j = 0; j < m.length; ++j) {
 				s.push([m[j], e[1], e[2]]);

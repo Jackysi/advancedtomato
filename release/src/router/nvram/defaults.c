@@ -366,7 +366,7 @@ const defaults_t defaults[] = {
 
 // basic-static
 	{ "dhcpd_static",		""				},
-
+	{ "dhcpd_static_only",		"0"				},
 // basic-wfilter
 	{ "wl_maclist",			""			},	// xx:xx:xx:xx:xx:xx ...
 	{ "wl_macmode",			"disabled"		},
@@ -417,6 +417,7 @@ const defaults_t defaults[] = {
 	{ "dhcpc_custom",		""				},
 	{ "dns_norebind",		"1"				},
 	{ "dnsmasq_custom",		""				},
+	{ "dnsmasq_static_only",	"0"				},
 //	{ "dnsmasq_norw",		"0"				},
 
 // advanced-firewall
@@ -568,6 +569,18 @@ const defaults_t defaults[] = {
 	{ "rstats_exclude",		""				},
 	{ "rstats_sshut",		"1"				},
 	{ "rstats_bak",			"0"				},
+
+// admin-ipt
+	{ "cstats_enable",		"1"				},
+	{ "cstats_path",		""				},
+	{ "cstats_stime",		"48"				},
+	{ "cstats_offset",		"1"				},
+	{ "cstats_data",		""				},
+	{ "cstats_colors",		""				},
+	{ "cstats_exclude",		""				},
+	{ "cstats_include",		"192.168.1.0"			},
+	{ "cstats_sshut",		"1"				},
+	{ "cstats_bak",			"0"				},
 
 // advanced-buttons
 	{ "sesx_led",			"0"				},
@@ -743,11 +756,6 @@ const defaults_t defaults[] = {
 #ifdef TCONFIG_NFS
 	{ "nfs_enable",			"0"				},
 	{ "nfs_exports",		""				},
-#endif
-
-#ifdef TCONFIG_CMON
-	{ "cmon_enable",		"0"				},
-	{ "cmon_users",			""				},
 #endif
 
 #ifdef TCONFIG_OPENVPN
@@ -1024,10 +1032,6 @@ const defaults_t defaults[] = {
 	{ "qosl_ulc",				""			},
 	{ "qosl_dlr",				""			},
 	{ "qosl_ulr",				""			},
-
-// new_arpbind
-	{ "new_arpbind_enable",			"0"			},
-	{ "new_arpbind_only",			"0"			},
 
 // NoCatSplash. !!Victek
 #ifdef TCONFIG_NOCAT
