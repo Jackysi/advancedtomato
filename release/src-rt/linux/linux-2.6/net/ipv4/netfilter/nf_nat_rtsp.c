@@ -175,11 +175,7 @@ rtsp_mangle_tran(enum ip_conntrack_info ctinfo,
             t->dst.u.udp.port = htons(loport);
             if (nf_conntrack_expect_related(exp) == 0)
             {
-<<<<<<< HEAD:release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_nat_rtsp.c
                 hiport = loport + 1; //~exp->mask.src.u.udp.port;
-=======
-                hiport = loport + ~exp->mask.dst.u.udp.port;
->>>>>>> 2d436b113f0728d16a68ac78d4763aebe2bf5504:release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_nat_rtsp.c
                 DEBUGP("using ports %hu-%hu\n", loport, hiport);
                 break;
             }
