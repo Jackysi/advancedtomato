@@ -370,7 +370,6 @@ const aspapi_t aspapi[] = {
 	{ "lipp",				asp_lipp			},
 	{ "netdev",				asp_netdev			},
 
-	{ "climon",				asp_climon			},
 	{ "iptraffic",			asp_iptraffic		},
 	{ "iptmon",				asp_iptmon			},
 	{ "ipt_bandwidth",		asp_ipt_bandwidth	},
