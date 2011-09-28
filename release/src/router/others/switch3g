@@ -47,7 +47,7 @@ else
 
     if [ "$SEARCH" == "1" ]; then
         logger 3G MODEM FOUND - $SWITCH - Switching ...
-        usb_modeswitch -Q -c /etc/usb_modeswitch.d/$SWITCH
+        /usr/sbin/usb_modeswitch -Q -c /etc/usb_modeswitch.d/$SWITCH
 
         TEST1=`cat /etc/usb_modeswitch.d/$SWITCH | grep "TargetVendor" | cut -d "=" -f2 | wc -l`
         if [ "$TEST1" == "1" ]; then
