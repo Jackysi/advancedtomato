@@ -981,6 +981,7 @@ static const nvset_t nvset_list[] = {
 	{ "jffs2_exec",			V_LENGTH(0, 64)		},
 	{ "jffs2_format",		V_01				},
 
+#ifdef TCONFIG_SDHC
 // admin-sdhc
 	{ "mmc_on",			V_01				},
 	{ "mmc_cs",			V_RANGE(1, 7)			},	// GPIO pin
