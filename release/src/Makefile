@@ -704,6 +704,12 @@ else
 	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB=""
 endif
 
+## Make the "VPN with SD-MOD and no USB support" - Only k24
+w:
+ifneq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="SD-VPN" USB="" SDHC=y
+endif
+
 ## Make the "All-In-One (AIO)" MIPS1 - only for router with more than 8MB flash!! ZTE H618B
 z:
 ifeq ($(CONFIG_LINUX26),y)
@@ -861,6 +867,7 @@ endif
 	@echo "s            Std - (no USB support)"
 	@echo "f            Mini - (no USB support minus CIFS and RIPv1/2)"
 	@echo "v            VPN (no usb) - (VPN with no USB support)"
+	@echo "w            SD-VPN (no usb) - (VPN with SD-MOD and no USB support)"
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2m          MIPS Release 2 Ext"
 	@echo "r2c          MIPS Release 2 BTgui"

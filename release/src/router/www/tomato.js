@@ -2445,6 +2445,9 @@ REMOVE-END */
 /* CIFS-BEGIN */
 			['CIFS Client',		'cifs.asp'],
 /* CIFS-END */
+/* SDHC-BEGIN */
+			['SDHC/MMC',		'sdhc.asp'],
+/* SDHC-END */
 			['Configuration',	'config.asp'],
 			['Debugging',		'debug.asp'],
 /* JFFS2-BEGIN */

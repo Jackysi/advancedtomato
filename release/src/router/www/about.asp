@@ -162,6 +162,14 @@ Copyright (C) 2011 Toastman<br>
 <a href='http://www.linksysinfo.org/index.php?threads/using-qos-tutorial-and-discussion.28349/' target='_new'>Using QoS - Tutorial and discussion</a><br>
 <br>
 
+<!-- SDHC-BEGIN -->
+<b>"Slodki" feature:</b><br>
+- SDHC integration and GUI<br>
+Copyright (C) 2009 Tomasz Słodkowicz<br>
+<a href='http://gemini.net.pl/~slodki/tomato-sdhc.html' target='_new'>tomato-sdhc</a><br>
+<br>
+<!-- SDHC-END -->
+
 <b>"Victek/PrinceAMD/Phykris/Shibby" feature:</b><br>
 - Revised IP/MAC Bandwidth Limiter<br>
 <br>

@@ -1961,6 +1961,9 @@ void start_services(void)
 //	start_syslog();
 	start_nas();
 	start_zebra();
+#ifdef TCONFIG_SDHC
+	start_mmc();
+#endif
 	start_dnsmasq();
 	start_cifs();
 	start_httpd();
@@ -2018,6 +2021,9 @@ void stop_services(void)
 //	stop_upnp();
 	stop_cron();
 	stop_httpd();
+#ifdef TCONFIG_SDHC
+	stop_mmc();
+#endif
 	stop_cifs();
 	stop_dnsmasq();
 	stop_zebra();
@@ -2319,6 +2325,14 @@ TOP:
 		if (action & A_START) start_zebra();
 		goto CLEAR;
 	}
+
+#ifdef TCONFIG_SDHC
+	if (strcmp(service, "mmc") == 0) {
+		if (action & A_STOP) stop_mmc();
+		if (action & A_START) start_mmc();
+		goto CLEAR;
+	}
+#endif
 
 	if (strcmp(service, "routing") == 0) {
 		if (action & A_STOP) {

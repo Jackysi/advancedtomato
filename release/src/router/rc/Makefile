@@ -53,6 +53,10 @@ ifeq ($(TCONFIG_SNMP),y)
 OBJS += snmp.o
 endif
 
+ifeq ($(TCONFIG_SDHC),y)
+OBJS += mmc.o
+endif
+
 all: rc
 
 rc: $(OBJS)
