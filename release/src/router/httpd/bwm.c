@@ -273,7 +273,8 @@ void asp_iptmon(int argc, char **argv) {
 				continue;
 			}
 
-			if ((find_word(include, ip)) || (wholenetstatsline == 1)) {
+			if (((find_word(include, ip)) || (wholenetstatsline == 1)) || ((nvram_get_int("cstats_all")) && ((rx > 0) || (tx > 0)) )) {
+//			if ((find_word(include, ip)) || (wholenetstatsline == 1)) {
 //			if ((tx > 0) || (rx > 0) || (wholenetstatsline == 1)) {
 //			if ((tx > 0) || (rx > 0)) {
 				web_printf("%c'%s':{rx:0x%lx,tx:0x%lx}", comma, ip, rx, tx);
