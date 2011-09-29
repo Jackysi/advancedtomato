@@ -28,7 +28,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("cstats_enable,cstats_path,cstats_stime,cstats_offset,cstats_exclude,cstats_include,cstats_sshut,et0macaddr,cifs1,cifs2,jffs2_on,cstats_bak"); %>
+//	<% nvram("cstats_enable,cstats_path,cstats_stime,cstats_offset,cstats_exclude,cstats_include,cstats_sshut,et0macaddr,cifs1,cifs2,jffs2_on,cstats_bak,cstats_all"); %>
 
 function fix(name)
 {
@@ -91,17 +91,27 @@ function verifyFields(focused, quiet)
 	var path;
 	var eLoc, eUser, eTime, eOfs;
 	var bak;
+	var eInc, eExc, eAll, eBak;
 
 	eLoc = E('_f_loc');
 	eUser = E('_f_user');
 	eTime = E('_cstats_stime');
 	eOfs = E('_cstats_offset');
 
+	eInc = E('_cstats_include');
+	eExc = E('_cstats_exclude');
+	eAll = E('_f_all');
+	eBak = E('_f_bak');
+
 	b = !E('_f_cstats_enable').checked;
 	eLoc.disabled = b;
 	eUser.disabled = b;
 	eTime.disabled = b;
 	eOfs.disabled = b;
+	eInc.disabled = b;
+	eExc.disabled = b;
+	eAll.disabled = b;
+	eBak.disabled = b;
 	E('_f_new').disabled = b;
 	E('_f_sshut').disabled = b;
 	E('backup-button').disabled = b;
@@ -112,6 +122,8 @@ function verifyFields(focused, quiet)
 	ferror.clear(eUser);
 	ferror.clear(eOfs);
 	if (b) return 1;
+
+	eInc.disabled = eAll.checked;
 
 	path = getPath();
 	E('newmsg').style.visibility = ((nvram.cstats_path != path) && (path != '*nvram') && (path != '')) ? 'visible' : 'hidden';
@@ -180,6 +192,7 @@ function save()
 	fom.cstats_enable.value = en ? 1 : 0;
 	fom.cstats_sshut.value = E('_f_sshut').checked ? 1 : 0;
 	fom.cstats_bak.value = E('_f_bak').checked ? 1 : 0;
+	fom.cstats_all.value = E('_f_all').checked ? 1 : 0;
 
 	e = E('_cstats_exclude');
 	e.value = e.value.replace(/\s+/g, ',').replace(/,+/g, ',');
@@ -224,6 +237,7 @@ function init()
 <input type='hidden' name='cstats_path'>
 <input type='hidden' name='cstats_sshut'>
 <input type='hidden' name='cstats_bak'>
+<input type='hidden' name='cstats_all'>
 
 <script type='text/javascript'>
 switch (nvram.cstats_path) {
@@ -257,7 +271,8 @@ REMOVE-END */
 	{ title: 'Create Backups', indent: 2, name: 'f_bak', type: 'checkbox', value: nvram.cstats_bak == '1' },
 	{ title: 'First Day Of The Month', name: 'cstats_offset', type: 'text', value: nvram.cstats_offset, maxlen: 2, size: 4 },
 	{ title: 'Excluded IPs', name: 'cstats_exclude', type: 'text', value: nvram.cstats_exclude, maxlen: 512, size: 50, suffix: '&nbsp;<small>(comma separated list)</small>' },
-	{ title: 'Included IPs', name: 'cstats_include', type: 'text', value: nvram.cstats_include, maxlen: 2048, size: 50, suffix: '&nbsp;<small>(comma separated list)</small>' }
+	{ title: 'Included IPs', name: 'cstats_include', type: 'text', value: nvram.cstats_include, maxlen: 2048, size: 50, suffix: '&nbsp;<small>(comma separated list)</small>' },
+	{ title: 'Enable Auto-Discovery', name: 'f_all', type: 'checkbox', value: nvram.cstats_all == '1', suffix: '&nbsp;<small>(automatically include new IPs in monitoring as soon as any traffic is detected)</small>' }
 ]);
 </script>
 </form>
