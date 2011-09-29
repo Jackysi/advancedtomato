@@ -155,8 +155,15 @@ Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>Tomato-sdhc-vlan Homepage</a><br>
 <br>
 
+<b>"Toastman" features:</b><br>
+- Configurable QOS class names<br>
+- Comprehensive QOS rule examples set by default<br>
+Copyright (C) 2011 Toastman<br>
+<a href='http://www.linksysinfo.org/index.php?threads/using-qos-tutorial-and-discussion.28349/' target='_new'>Using QoS - Tutorial and discussion</a><br>
+<br>
+
 <b>"Victek/PrinceAMD/Phykris/Shibby" feature:</b><br>
-- Revised IP/MAC QOS/Bandwidth Limiter<br>
+- Revised IP/MAC Bandwidth Limiter<br>
 <br>
 
 <br>

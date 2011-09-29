@@ -44,12 +44,16 @@
 </style>
 
 <script type='text/javascript'>
-// <% nvram("web_svg,qos_enable"); %>
+// <% nvram("qos_classnames,web_svg,qos_enable"); %>
 
 //<% qrate(); %>
 
 var svgReady = 0;
-var abc = ['Unclassified', 'Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
+
+var Unclassified = ['Unclassified'];
+var classNames = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
+var abc = Unclassified.concat(classNames);
+
 var colors = [
 	'c6e2ff',
 	'b0c4de',
@@ -237,7 +241,7 @@ if (nvram.qos_enable != '1') {
 
 </td></tr>
 <tr><td id='footer' colspan=2>
-	<script type='text/javascript'>genStdRefresh(1,0,'ref.toggle()');</script>
+	<script type='text/javascript'>genStdRefresh(1,1,'ref.toggle()');</script>
 </td></tr>
 </table>
 </form>

@@ -496,14 +496,15 @@ const defaults_t defaults[] = {
 	{ "qos_rst",			"1"				},
 	{ "qos_icmp",			"0"				},
 	{ "qos_reset",			"1"				},
-	{ "qos_obw",			"230"			},
-	{ "qos_ibw",			"1000"			},
-	{ "qos_orules",			"0<<6<d<80,443<0<<0:512<1<WWW>0<<6<d<80,443<0<<512:<3<WWW (512K+)>0<<-1<d<53<0<<0:2<0<DNS>0<<-1<d<53<0<<2:<4<DNS (2K+)" },
+	{ "qos_obw",			"230"				},
+	{ "qos_ibw",			"1000"				},
+	{ "qos_orules",			"0<<-1<d<53<0<<0:10<<0<DNS>0<<-1<d<37<0<<0:10<<0<Time>0<<-1<d<123<0<<0:10<<0<Network Time (NTP)>0<<-1<d<3455<0<<0:10<<0<RSVP>0<<-1<x<9<0<<<<0<SCTP, Discard>0<<-1<x<135,2101,2103,2105<0<<<<0<RPC (Microsoft)>0<<6<x<23,992<0<<<<0<Telnet>0<<-1<d<22<0<<<<3<SSH>0<<17<x<3544<0<<<<3<Teredo port>0<<6<s<80,8080<0<<<<3<Remote Router Access>0<<6<x<3389<0<<<<3<Remote Assistance>0<<-1<a<<0<flash<<<2<Flash Video, (Youtube)>0<<-1<a<<0<httpvideo<<<2<HTTP Video, (Youtube)>0<<-1<a<<0<shoutcast<<<2<Shoutcast>0<<-1<s<6970:7170,8554<0<<<<2<Quicktime/RealAudio>0<<-1<d<1220,7070<0<<<<2<Quicktime/RealAudio>0<<6<x<6005<0<<<<2<Camfrog>0<<-1<d<1220,1234,5100,6005,6970<0<<<<-1<VLC>0<<-1<x<554,5004,5005<0<<<<2<RTP/RTSP>0<<-1<x<1755<0<<<<2<MMS (Microsoft)>0<<-1<x<1935<0<<<<2<RTMP>0<<-1<d<3478,3479,5060:5063<0<<<<1<SIP, Sipgate Stun Services>0<<-1<d<1718:1720<0<<<<1<H323>0<<-1<a<<0<skypetoskype<<<1<Skype>0<<-1<a<<0<skypeout<<<1<Skypeout>0<<-1<d<80<0<<0:512<<4<HTTP>0<<-1<d<443<0<<0:512<<4<HTTPS>0<<6<d<8080<0<<0:512<<4<HTTP Proxy / Alternate>0<<-1<d<25,587,465<0<<<<5<SMTP, Submission>0<<-1<d<110,995<0<<<<5<POP3 Mail>0<<-1<d<119,563<0<<<<5<NNTP>0<<-1<d<143,220,585,993<0<<<<5<IMAP Mail>0<<-1<a<<0<irc<<<6<IRC>0<<-1<d<1493,1502,1503,1542,1863,1963,3389,5061,5190:5193,7001<0<<<<6<Windows Live>0<<-1<d<1071:1074,1455,1638,1644,5000:5010,5050,5100,5101,5150,8000:8002<0<<<<6<Yahoo Messenger>0<<-1<d<194,1720,1730:1732,5220:5223,5298,6660:6669,22555<0<<<<6<Other Chat Services>0<<6<d<20,21,989,990<0<<<<7<FTP>0<<-1<x<6571,6891:6901<0<<<<7<WLM File/Webcam>0<<6<d<80,443,8080<0<<512:<<7<HTTP,SSL File Transfers>0<<17<x<1:65535<0<<<<-1<P2P (uTP, UDP)"	},
 	{ "qos_burst0",			""				},
 	{ "qos_burst1",			""				},
-
-	{ "qos_default",		"4"				},
-	{ "qos_orates",			"80-100,10-100,5-100,3-100,2-95,1-50,1-40,1-30,1-20,1-10"	},
+	{ "qos_default",		"8"				},
+	{ "qos_orates",			"5-20,5-20,5-25,5-70,20-100,5-80,5-80,5-80,5-50,0-0"	},
+	{ "qos_irates",			"10,60,60,70,0,60,60,80,30,1"	},
+	{ "qos_classnames",		"Service VOIP/Game Media Remote WWW Mail Messenger Download P2P/Bulk Crawl"	},
 
 	{ "ne_vegas",			"0"				},	// TCP Vegas
 	{ "ne_valpha",			"2"				},	// "
