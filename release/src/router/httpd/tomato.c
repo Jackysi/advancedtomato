@@ -901,6 +901,7 @@ static const nvset_t nvset_list[] = {
 	{ "cstats_offset",		V_RANGE(1, 31)		},
 	{ "cstats_exclude",		V_LENGTH(0, 512)	},
 	{ "cstats_include",		V_LENGTH(0, 2048)	},
+	{ "cstats_all",			V_01				},
 	{ "cstats_sshut",		V_01				},
 	{ "cstats_bak",			V_01				},
 
