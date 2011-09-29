@@ -191,7 +191,7 @@ endif
 # Only include the mmc pages if SDHC is compiled in
 ifneq ($(TCONFIG_SDHC),y)
 	rm -f $(INSTALLDIR)/www/admin-sdhc.asp
-	sed -i $(INSTALLDIR)/www/tomato.asp -e "/SDHC-BEGIN/,/SDHC-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/SDHC-BEGIN/,/SDHC-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/SDHC-BEGIN/,/SDHC-END/d"
 endif
 
