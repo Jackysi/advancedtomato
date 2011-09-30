@@ -151,16 +151,16 @@ REMOVE-END */
 
 createFieldTable('', [
 	{ title: 'Log Internally', name: 'f_log_file', type: 'checkbox', value: nvram.log_file == 1 },
-	{ title: 'Custom Log File Path', multi: [
+	{ title: 'Custom Path & Filename', multi: [
 		{ name: 'f_log_file_custom', type: 'checkbox', value: nvram.log_file_custom == 1, suffix: '  ' },
-		{ name: 'log_file_path', type: 'text', maxlen: 32, size: 34, value: nvram.log_file_path, suffix: ' <br><small>(make sure the directory exists and is writable)</small>' }
+		{ name: 'log_file_path', type: 'text', maxlen: 32, size: 34, value: nvram.log_file_path, suffix: ' <br><small>(e.g. /tmp/mnt/USBFLASH/logs - please make sure the directory exists and is writable)</small>' }
 		] },
 	{ title: 'Log To Remote System', name: 'f_log_remote', type: 'checkbox', value: nvram.log_remote == 1 },
 	{ title: 'Host or IP Address / Port', indent: 2, multi: [
 		{ name: 'log_remoteip', type: 'text', maxlen: 15, size: 17, value: nvram.log_remoteip, suffix: ':' },
 		{ name: 'log_remoteport', type: 'text', maxlen: 5, size: 7, value: nvram.log_remoteport } ]},
 	{ title: 'Generate Marker', name: 'log_mark', type: 'select', options: [[0,'Disabled'],[30,'Every 30 Minutes'],[60,'Every 1 Hour'],[120,'Every 2 Hours'],[360,'Every 6 Hours'],[720,'Every 12 Hours'],[1440,'Every 1 Day'],[10080,'Every 7 Days']], value: nvram.log_mark },
-	{ title: 'Events Logged', text: '<small>(some of the changes will take effect after a restart)</small>' },
+	{ title: 'Events Logged', text: '<small>(some of the changes will take effect only after a restart)</small>' },
 		{ title: 'Access Restriction', indent: 2, name: 'f_log_acre', type: 'checkbox', value: (nvram.log_events.indexOf('acre') != -1) },
 		{ title: 'Cron', indent: 2, name: 'f_log_crond', type: 'checkbox', value: (nvram.log_events.indexOf('crond') != -1) },
 		{ title: 'DHCP Client', indent: 2, name: 'f_log_dhcpc', type: 'checkbox', value: (nvram.log_events.indexOf('dhcpc') != -1) },
