@@ -38,11 +38,13 @@ include ./target.mak
 # But if you don't give anything for "V1", it'll get a default from tomato_version.
 V1 ?= "--def"
 VPN ?= "VPN"
+NC ?="NOCAT"
 ifeq ($(CONFIG_LINUX26),y)
 ND = "K26"
 else
 ND = "ND"
 endif
+
 
 ifeq ($(NVRAM_SIZE),)
 NVRAM_SIZE = 0
@@ -243,7 +245,8 @@ what:
 # USB ("USB"|"")
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
-# SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM
+# SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT
+# SNMP
 
 define RouterOptions
 	@( \
@@ -334,6 +337,10 @@ define RouterOptions
 		sed -i "/TCONFIG_IPV6/d" $(1); \
 		echo "TCONFIG_IPV6=y" >>$(1); \
 	fi; \
+	if [ "$(NOCAT)" = "y" ]; then \
+		sed -i "/TCONFIG_NOCAT/d" $(1); \
+		echo "TCONFIG_NOCAT=y" >>$(1); \
+	fi; \
 	if [ "$(OPENVPN)" = "y" ]; then \
 		sed -i "/TCONFIG_LZO/d" $(1); \
 		echo "TCONFIG_LZO=y" >>$(1); \
@@ -343,6 +350,10 @@ define RouterOptions
 			sed -i "/TCONFIG_FTP_SSL/d" $(1); \
 			echo "TCONFIG_FTP_SSL=y" >>$(1); \
 		fi; \
+	fi; \
+	if [ "$(SNMP)" = "y" ]; then \
+		sed -i "/TCONFIG_SNMP/d" $(1); \
+		echo "TCONFIG_SNMP=y" >>$(1); \
 	fi; \
 	)
 endef
@@ -595,7 +606,7 @@ endif
 
 ## Make the "normal" build
 a:
-	@$(MAKE) bin B=A BUILD_DESC="Std" USB="USB"
+	@$(MAKE) bin B=A BUILD_DESC="Std" USB="USB" SNMP="$(SNMP)
 
 ## Make the "normal but without SSH" build
 b:
@@ -616,9 +627,9 @@ endif
 ## Make the "normal (with NTFS support) + VPN" build
 e:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)"
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP=y
 else
-	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)"
+	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP=y
 endif
 
 ## Make the "Mini: no USB, no CIFS, no Zebra" build - targeted for Netgear routers
@@ -631,28 +642,28 @@ fs:
 ifeq ($(CONFIG_LINUX26),y)
 ## Make the "No USB with IPv6, no Zebra" build - for 4MB routers
 i:
-	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y B=I BUILD_DESC="MiniIPv6" USB=""
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB=""
 endif
 
 ifeq ($(CONFIG_LINUX26),y)
 ## Make the "No USB with IPv6, no Zebra, with VPN" build - for 4MB routers
 j:
-	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_XXTP=y SLIM=y NO_SAMBA=y NO_ZEBRA=y OPENVPN=y NO_LIBOPT=y B=I BUILD_DESC="MiniIPv6-VPN" USB=""
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_XXTP=y SLIM=y NO_SAMBA=y NO_ZEBRA=y IPV6SUPP=y OPENVPN=y NO_LIBOPT=y B=I BUILD_DESC="MiniIPv6-VPN" USB=""
 endif
 
 ## Make the "normal with Extras and NTFS" build
 m:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y B=M BUILD_DESC="Ext" USB="USB" SNMP="$(SNMP)"
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y SNMP=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB" 
 else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB" SNMP="$(SNMP)"
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y SNMP=y B=M BUILD_DESC="Ext" USB="USB"
 endif
 
 ## Roadkill
 ## Make the "normal (with NTFS support) + VPN + NOCAT" build
 nc:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y B=NC BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)" NOCAT=y BUILD_DESC+="-$(NC)"
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=NC BUILD_DESC="$(VPN)" USB="USB" SNMP=y NOCAT=y BUILD_DESC+="-$(NC)"
 else
 	@$(MAKE) bin OPENVPN=y NTFS=y B=NC BUILD_DESC="$(VPN)" USB="USB" NOCAT=y BUILD_DESC+=" $(NC)"
 endif
@@ -670,17 +681,17 @@ ncs:
 ## Make the "No USB" build
 s:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB="" SNMP="$(SNMP)"
+	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB="" SNMP=y
 else
-	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB="" SNMP="$(SNMP)"
+	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB="" SNMP=y
 endif
 
 ## Make the "VPN witn no USB support" build
 v:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NO_JFFS=y B=V BUILD_DESC="$(VPN)" USB="" SNMP="$(SNMP)"
+	@$(MAKE) bin OPENVPN=y NO_JFFS=y B=V BUILD_DESC="$(VPN)" USB="" SNMP=y
 else
-	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB="" SNMP="$(SNMP)"
+	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB="" SNMP=y
 endif
 
 ## Make the "Small VPN with no USB support" build
@@ -738,15 +749,6 @@ r2t:
 r2v:
 	@$(MAKE) v MIPS32=r2
 
-r2i:
-	@$(MAKE) i MIPS32=r2
-
-r2f:
-	@$(MAKE) f MIPS32=r2 BELKIN=y
-
-r2d:
-	@$(MAKE) d MIPS32=r2
-
 n60a:
 	@$(MAKE) r2a NVRAM_SIZE=60 LINKSYS_E=1
 
@@ -775,13 +777,13 @@ n60r:
 	@$(MAKE) r2r NVRAM_SIZE=60 LINKSYS_E=1
 
 n60s:
-	@$(MAKE) bin MIPS32=r2 B=S USB="" NVRAM_SIZE=60 LINKSYS_E=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y BUILD_DESC="Std"
+	@$(MAKE) bin MIPS32=r2 B=S USB="" NVRAM_SIZE=60 LINKSYS_E=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y BUILD_DESC="Std"
 
 60t:
 	@$(MAKE) r2t NVRAM_SIZE=60 LINKSYS_E=1
 
 n60v:
-	@$(MAKE) bin MIPS32=r2 B=V USB="" NVRAM_SIZE=60 LINKSYS_E=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y OPENVPN=y BUILD_DESC="$(VPN)"
+	@$(MAKE) bin MIPS32=r2 B=V USB="" NVRAM_SIZE=60 LINKSYS_E=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y OPENVPN=y BUILD_DESC="$(VPN)"
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -858,6 +860,7 @@ endif
 	@echo "vs           VS build (small VPN with no USB support)"
 
 ifeq ($(CONFIG_LINUX26),y)
+	@echo "r2a          MIPS Release 2 A build (standard)"
 	@echo "r2e          MIPS Release 2 E build (standard plus VPN SNMP NTFS and extras)"
 	@echo "r2f          MIPS Release 2 F build (no USB support minus CIFS and RIPv1/2)"
 	@echo "r2i          MIPS Release 2 I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
