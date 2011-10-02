@@ -971,7 +971,8 @@ int usb_serial_probe(struct usb_interface *interface,
 			dev_err(&interface->dev, "No free urbs available\n");
 			goto probe_error;
 		}
-		buffer_size = le16_to_cpu(endpoint->wMaxPacketSize);
+		buffer_size = le16_to_cpu((endpoint->wMaxPacketSize > maxSize) ?
+			endpoint->wMaxPacketSize : maxSize);
 		port->bulk_out_size = buffer_size;
 		port->bulk_out_endpointAddress = endpoint->bEndpointAddress;
 		port->bulk_out_buffer = kmalloc (buffer_size, GFP_KERNEL);
@@ -1385,5 +1386,5 @@ MODULE_LICENSE("GPL");
 
 module_param(debug, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(debug, "Debug enabled or not");
-module_param(maxSize, ushort,0);
-MODULE_PARM_DESC(maxSize,"User specified USB endpoint size");
+module_param(maxSize, ushort, 0);
+MODULE_PARM_DESC(maxSize, "User specified USB endpoint size");

@@ -108,7 +108,8 @@ createFieldTable('', [
 	<br>
 	<small>
 	*  Not all models support these options<br>
-	** You must reboot the router for the new clock frequency to take effect
+	** Please make sure to set your CPU clock frequency before use<br>
+	** You must reboot the router for the new CPU clock frequency to take effect<br>
 	<br>
 	<br>
 	<b>Please check to make sure your router can support these changes before you commit them</b><br>

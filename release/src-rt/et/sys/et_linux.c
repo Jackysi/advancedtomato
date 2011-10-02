@@ -138,6 +138,9 @@ static int et_poll(struct net_device *dev, int *budget);
 static void et_dpc(ulong data);
 #endif /* NAPI_POLL */
 static void et_sendup(et_info_t *et, struct sk_buff *skb);
+#ifdef BCMDBG
+static void et_dumpet(et_info_t *et, struct bcmstrbuf *b);
+#endif /* BCMDBG */
 #if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
 static void et_poll_controller(struct net_device *dev);
 #endif
@@ -164,6 +167,10 @@ static struct pci_device_id et_id_table[] __devinitdata = {
 };
 MODULE_DEVICE_TABLE(pci, et_id_table);
 
+#if defined(BCMDBG)
+static uint32 msglevel = 0xdeadbeef;
+module_param(msglevel, uint, 0644);
+#endif /* defined(BCMDBG) */
 
 #ifdef HNDCTF
 static void
@@ -428,6 +435,17 @@ static struct pci_driver et_pci_driver = {
 static int __init
 et_module_init(void)
 {
+#if defined(BCMDBG)
+	if (msglevel != 0xdeadbeef)
+		et_msg_level = msglevel;
+	else {
+		char *var = getvar(NULL, "et_msglevel");
+		if (var)
+			et_msg_level = bcm_strtoul(var, NULL, 0);
+	}
+
+	printf("%s: msglevel set to 0x%x\n", __FUNCTION__, et_msg_level);
+#endif /* defined(BCMDBG) */
 
 	return pci_module_init(&et_pci_driver);
 }
@@ -1459,13 +1477,26 @@ et_dump(et_info_t *et, struct bcmstrbuf *b)
 		__DATE__, __TIME__, EPI_VERSION_STR);
 
 #ifdef HNDCTF
-#if defined(BCMDBG_DUMP)
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 	ctf_dump(et->cih, b);
-#endif 
+#endif /* BCMDBG || BCMDBG_DUMP */
 #endif /* HNDCTF */
 
+#ifdef BCMDBG
+	et_dumpet(et, b);
+	etc_dump(et->etc, b);
+#endif /* BCMDBG */
 }
 
+#ifdef BCMDBG
+static void
+et_dumpet(et_info_t *et, struct bcmstrbuf *b)
+{
+	bcm_bprintf(b, "et %p dev %p name %s tbusy %d txq[0].qlen %d malloced %d\n",
+		et, et->dev, et->dev->name, (uint)netif_queue_stopped(et->dev), et->txq[0].qlen,
+		MALLOCED(et->osh));
+}
+#endif	/* BCMDBG */
 
 void
 et_link_up(et_info_t *et)

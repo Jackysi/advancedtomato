@@ -3030,7 +3030,7 @@ int dev_ioctl(unsigned int cmd, void __user *arg)
 			/* Set the per device memory buffer space.
 			 * Not applicable in our case */
 		case SIOCSIFLINK:
-			return -EINVAL;
+			return -ENOTTY;
 
 		/*
 		 *	Unknown or private ioctl.
@@ -3051,7 +3051,7 @@ int dev_ioctl(unsigned int cmd, void __user *arg)
 			/* Take care of Wireless Extensions */
 			if (cmd >= SIOCIWFIRST && cmd <= SIOCIWLAST)
 				return wext_handle_ioctl(&ifr, cmd, arg);
-			return -EINVAL;
+			return -ENOTTY;
 	}
 }
 

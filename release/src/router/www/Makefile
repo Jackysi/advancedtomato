@@ -78,6 +78,7 @@ ifneq ($(TCONFIG_USB_EXTRAS),y)
 	rm -f $(INSTALLDIR)/www/tomatousb.png
 	rm -f $(INSTALLDIR)/www/tomatousb_bg.png
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/THEMES-BEGIN/,/THEMES-END/d"
+	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/EXTRAS-BEGIN/,/EXTRAS-END/d"
 endif
 
 # Only include NTFS settings if NTFS support is configured in.
@@ -117,6 +118,10 @@ ifneq ($(TCONFIG_IPV6),y)
 		|| true; \
 	done
 	rm -f $(INSTALLDIR)/www/basic-ipv6.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/IPV6-BEGIN/,/IPV6-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/IPV6-BEGIN/,/IPV6-END/d"
+	sed -i $(INSTALLDIR)/www/admin-debug.asp -e "/IPV6-BEGIN/,/IPV6-END/d"
+	sed -i $(INSTALLDIR)/www/advanced-dhcpdns.asp -e "/IPV6-BEGIN/,/IPV6-END/d"
 endif
 
 # Only include the USB and NAS pages if USB Support is configured in.
@@ -154,6 +159,13 @@ else
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/VPN-BEGIN/,/VPN-END/d"
 endif
 
+# Only include the snmp pages if SNMP is compiled in
+ifneq ($(TCONFIG_SNMP),y)
+	rm -f $(INSTALLDIR)/www/admin-snmp.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/SNMP-BEGIN/,/SNMP-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/SNMP-BEGIN/,/SNMP-END/d"
+endif
+
 
 # clean up
 	cd $(INSTALLDIR)/www && \
@@ -161,6 +173,7 @@ endif
 		[ -f $(INSTALLDIR)/www/$$F ] && sed -i $$F \
 		-e "/LINUX26-BEGIN/d"	-e "/LINUX26-END/d" \
 		-e "/USB-BEGIN/d"	-e "/USB-END/d" \
+		-e "/EXTRAS-BEGIN/d"	-e "/EXTRAS-END/d" \
 		-e "/NTFS-BEGIN/d"	-e "/NTFS-END/d" \
 		-e "/SAMBA-BEGIN/d"	-e "/SAMBA-END/d" \
 		-e "/FTP-BEGIN/d"	-e "/FTP-END/d" \
@@ -175,6 +188,7 @@ endif
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
 		-e "/CTF-BEGIN/d"	-e "/CTF-END/d" \
 		-e "/NOCAT-BEGIN/d"	-e "/NOCAT_END/d"\
+		-e "/SNMP-BEGIN/d"	-e "/SNMP_END/d"\
 		|| true; \
 	done
 

@@ -23,6 +23,9 @@
 #define	PACKED
 #endif
 
+#ifdef BCMDBG
+extern const char *aci_names[];
+#endif /* BCMDBG */
 
 /* WME Traffic Specification (TSPEC) element */
 #define WME_TSPEC_HDR_LEN           2           /* WME TSPEC header length */

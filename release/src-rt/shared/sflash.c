@@ -22,7 +22,11 @@
 #include <bcmdevs.h>
 #include <sflash.h>
 
+#ifdef BCMDBG
+#define	SFL_MSG(args)	printf args
+#else
 #define	SFL_MSG(args)
+#endif	/* BCMDBG */
 
 bool sflash_uncached = FALSE;
 

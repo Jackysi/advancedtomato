@@ -432,15 +432,29 @@ void asp_ctrate(int argc, char **argv)
 	if ((a = fopen(name, "r")) == NULL) return;
 	if ((b = tmpfile()) == NULL) return;
 
+#ifdef LINUX26
 	size_t count;
 	char *buffer;
 
-	buffer=(char *)malloc(1024);
+	if ((buffer=(char *)malloc(1024)) == NULL) {
+// can't allocate memory? clean-up and exit
+		web_puts("];\n");
+		fclose(a);
+		fclose(b);
+		return;
+	}
 
 	while (!feof(a)) {
 		count = fread(buffer, 1, 1024, a);
 		fwrite(buffer, 1, count, b);
 	}
+// release/deallocate buffer
+	free(buffer);
+#else
+	while (fgets(sa, sizeof(sa), a)) {
+		fputs(sa,b);
+	}
+#endif
 
 	rewind(b);
 	rewind(a);

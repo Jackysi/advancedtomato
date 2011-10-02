@@ -16,12 +16,12 @@
 
 # To rebuild everything and all configurations:
 #  make distclean
-#  make V1=whatever V2=sub-whatever VPN=vpn3.6 a b c d m nc
+#  make V1=whatever V2=sub-whatever VPN=vpn3.6 a b c d m
 # The 1st "whatever" would be the build number, the sub-whatever would
 #	be the update to the version.
 #
 # Example:
-# make V1=8516 V2="-jffs.1" a b c d m s nc
+# make V1=8516 V2="-jffs.1" a b c d m s
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -44,6 +44,7 @@ ND = "K26"
 else
 ND = "ND"
 endif
+
 
 ifeq ($(NVRAM_SIZE),)
 NVRAM_SIZE = 0
@@ -99,39 +100,61 @@ all: tomato_ver
 
 	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx
 	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
-ifeq ($(LINKSYS_E),1)
+ifeq ($(WRT54),y)
+ifneq ($(MIPS32),r2)
+	@rm -f image/tomato-WRT54*$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-WRTSL54*$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-WR850G$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+endif
+endif
+ifeq ($(LINKSYS_E),y)
 	@rm -f image/tomato-E??00$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+endif
+ifeq ($(BELKIN),y)
+ifneq ($(NVRAM_SIZE),60)
+	@rm -f image/tomato-F7D????$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-F5D8235v3$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+endif
 endif
 	@echo "" >>fpkg.log
 	@echo "***********************" `date` "************************" >>fpkg.log
 	@cat router/shared/tomato_version >>fpkg.log
 	@echo "" >>fpkg.log
 	@cat router/target.info >>fpkg.log
-ifeq ($(wildcard include/bcm20xx.h),)
+ifeq ($(WRT54),y)
+ifneq ($(MIPS32),r2)
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-t image/tomato.trx \
-		-l W54G,image/WRT54G_WRT54GL.bin \
-		-l W54S,image/WRT54GS.bin \
-		-l W54s,image/WRT54GSv4.bin \
-		-l W54U,image/WRTSL54GS.bin \
-		-m 0x10577050,image/WR850G.bin \
+		-l W54G,image/tomato-WRT54G_WRT54GL$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+		-l W54S,image/tomato-WRT54GS$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+		-l W54s,image/tomato-WRT54GSv4$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+		-l W54U,image/tomato-WRTSL54GS$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+		-m 0x10577050,image/tomato-WR850G$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
 		| tee -a fpkg.log
-else
-ifeq ($(LINKSYS_E),1)
-	# Linksys E-series build plus generic TRX image
+endif
+endif
+ifeq ($(LINKSYS_E),y)
+	# Linksys E-series images
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-t image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
 		-l 4200,image/tomato-E4200$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		-l 61XN,image/tomato-E3000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		-l 32XN,image/tomato-E2000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		| tee -a fpkg.log
-else
+endif
+ifeq ($(BELKIN),y)
+ifneq ($(NVRAM_SIZE),60)
+	# Create Belkin images
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-b 0x20100322,image/tomato-F7D3301$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-b 0x20090928,image/tomato-F7D3302$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-b 0x20091006,image/tomato-F7D4302$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-b 0x00017116,image/tomato-F5D8235v3$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		| tee -a fpkg.log
+endif
+endif
 	# Create generic TRX image
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
 		-t image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
 		| tee -a fpkg.log
-endif
-endif
 
 	@cp fpkg.log image/fpkg-$(V1)$(mips_rev)$(beta)$(V2).log
 	@echo ""
@@ -223,6 +246,7 @@ what:
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT
+# SNMP
 
 define RouterOptions
 	@( \
@@ -327,6 +351,10 @@ define RouterOptions
 			echo "TCONFIG_FTP_SSL=y" >>$(1); \
 		fi; \
 	fi; \
+	if [ "$(SNMP)" = "y" ]; then \
+		sed -i "/TCONFIG_SNMP/d" $(1); \
+		echo "TCONFIG_SNMP=y" >>$(1); \
+	fi; \
 	)
 endef
 
@@ -363,6 +391,8 @@ define BusyboxOptions
 		echo "CONFIG_NICE=y" >>$(1); \
 		sed -i "/CONFIG_SETCONSOLE/d" $(1); \
 		echo "CONFIG_SETCONSOLE=y" >>$(1); \
+		sed -i "/CONFIG_MKFIFO/d" $(1); \
+		echo "CONFIG_MKFIFO=y" >>$(1); \
 	fi; \
 	if [ "$(USB)" = "USB" ]; then \
 		if [ "$(USBEXTRAS)" = "y" ]; then \
@@ -576,7 +606,7 @@ endif
 
 ## Make the "normal" build
 a:
-	@$(MAKE) bin B=A BUILD_DESC="Std" USB="USB"
+	@$(MAKE) bin B=A BUILD_DESC="Std" USB="USB" SNMP="$(SNMP)
 
 ## Make the "normal but without SSH" build
 b:
@@ -597,24 +627,43 @@ endif
 ## Make the "normal (with NTFS support) + VPN" build
 e:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB"
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP=y
 else
-	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB"
+	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP=y
+endif
+
+## Make the "Mini: no USB, no CIFS, no Zebra" build - targeted for Netgear routers
+f:
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y SLIM=y B=F BUILD_DESC="Mini" USB=""
+
+fs:
+	@$(MAKE) bin NO_CIFS=y NO_JFFS=y NO_ZEBRA=y SLIM=y B=FS BUILD_DESC="Tiny" USB=""
+
+ifeq ($(CONFIG_LINUX26),y)
+## Make the "No USB with IPv6, no Zebra" build - for 4MB routers
+i:
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB=""
+endif
+
+ifeq ($(CONFIG_LINUX26),y)
+## Make the "No USB with IPv6, no Zebra, with VPN" build - for 4MB routers
+j:
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_XXTP=y SLIM=y NO_SAMBA=y NO_ZEBRA=y IPV6SUPP=y OPENVPN=y NO_LIBOPT=y B=I BUILD_DESC="MiniIPv6-VPN" USB=""
 endif
 
 ## Make the "normal with Extras and NTFS" build
 m:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB"
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y SNMP=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB" 
 else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB"
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y SNMP=y B=M BUILD_DESC="Ext" USB="USB"
 endif
 
 ## Roadkill
 ## Make the "normal (with NTFS support) + VPN + NOCAT" build
 nc:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=NC BUILD_DESC="$(VPN)" USB="USB" NOCAT=y BUILD_DESC+="-$(NC)"
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=NC BUILD_DESC="$(VPN)" USB="USB" SNMP=y NOCAT=y BUILD_DESC+="-$(NC)"
 else
 	@$(MAKE) bin OPENVPN=y NTFS=y B=NC BUILD_DESC="$(VPN)" USB="USB" NOCAT=y BUILD_DESC+=" $(NC)"
 endif
@@ -632,32 +681,17 @@ ncs:
 ## Make the "No USB" build
 s:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB=""
+	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB="" SNMP=y
 else
-	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB=""
+	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB="" SNMP=y
 endif
 
-## Make the "Mini: no USB, no CIFS, no Zebra" build - targeted for Netgear routers
-f:
-	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y SLIM=y B=F BUILD_DESC="Mini" USB=""
-
-## Make the "Tiny: no JFFS, no USB, no CIFS, no Zebra" build - targeted for cheapskate routers
-fs:
-	@$(MAKE) bin NO_CIFS=y NO_JFFS=y NO_ZEBRA=y SLIM=y B=FS BUILD_DESC="Tiny" USB=""
-
-ifeq ($(CONFIG_LINUX26),y)
-
-## Make the "No USB with IPv6, no Zebra" build - for 4MB routers
-i:
-	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB=""
-endif
-
-## Make the "VPN with no USB support" build
+## Make the "VPN witn no USB support" build
 v:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NO_JFFS=y B=V BUILD_DESC="$(VPN)" USB=""
+	@$(MAKE) bin OPENVPN=y NO_JFFS=y B=V BUILD_DESC="$(VPN)" USB="" SNMP=y
 else
-	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB=""
+	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB="" SNMP=y
 endif
 
 ## Make the "Small VPN with no USB support" build
@@ -668,47 +702,88 @@ else
 	@$(MAKE) bin OPENVPN=y NO_JFFS=y NO_CIFS=y BCM57=y B=VS BUILD_DESC="SmallVPN" USB=""
 endif
 
-
-
 ## Make Mips32r2 builds
-r2m:
-	@$(MAKE) m MIPS32=r2
 
-r2nc:
-	@$(MAKE) nc MIPS32=r2
+r2a:
+	@$(MAKE) a MIPS32=r2
 
-r2e:
-	@$(MAKE) e MIPS32=r2
+r2b:
+	@$(MAKE) b MIPS32=r2
 
-r2s:
-	@$(MAKE) s MIPS32=r2
-
-r2v:
-	@$(MAKE) v MIPS32=r2
-
-r2i:
-	@$(MAKE) i MIPS32=r2
-
-r2f:
-	@$(MAKE) f MIPS32=r2
+r2c:
+	@$(MAKE) c MIPS32=r2
 
 r2d:
 	@$(MAKE) d MIPS32=r2
 
-n60m:
-	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=1
+r2e:
+	@$(MAKE) e MIPS32=r2
 
-n60nc:
-	@$(MAKE) r2nc NVRAM_SIZE=60 LINKSYS_E=1
+r2f:
+	@$(MAKE) f MIPS32=r2
+
+r2i:
+	@$(MAKE) i MIPS32=r2
+
+r2j:
+	@$(MAKE) j MIPS32=r2
+
+r2m:
+	@$(MAKE) m MIPS32=r2
+
+r2n:
+	@$(MAKE) n MIPS32=r2
+
+r2nc:
+	@$(MAKE) nc MIPS32=r2
+
+r2r:
+	@$(MAKE) r MIPS32=r2
+
+r2s:
+	@$(MAKE) s MIPS32=r2
+
+r2t:
+	@$(MAKE) t MIPS32=r2
+
+r2v:
+	@$(MAKE) v MIPS32=r2
+
+n60a:
+	@$(MAKE) r2a NVRAM_SIZE=60 LINKSYS_E=1
+
+n60b:
+	@$(MAKE) r2b NVRAM_SIZE=60 LINKSYS_E=1
+
+n60c:
+	@$(MAKE) r2c NVRAM_SIZE=60 LINKSYS_E=1
 
 n60e:
 	@$(MAKE) r2e NVRAM_SIZE=60 LINKSYS_E=1
 
+n60m:
+	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=y
+
+n60n:
+	@$(MAKE) r2n NVRAM_SIZE=60 LINKSYS_E=1
+
+n60nc:
+	@$(MAKE) r2nc NVRAM_SIZE=60 LINKSYS_E=1
+
+n60o:
+	@$(MAKE) r2o NVRAM_SIZE=60 LINKSYS_E=1
+
+n60r:
+	@$(MAKE) r2r NVRAM_SIZE=60 LINKSYS_E=1
+
 n60s:
-	@$(MAKE) bin MIPS32=r2 B=S USB="" NVRAM_SIZE=60 LINKSYS_E=1 BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y BUILD_DESC="Std"
+	@$(MAKE) bin MIPS32=r2 B=S USB="" NVRAM_SIZE=60 LINKSYS_E=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y BUILD_DESC="Std"
+
+60t:
+	@$(MAKE) r2t NVRAM_SIZE=60 LINKSYS_E=1
 
 n60v:
-	@$(MAKE) bin MIPS32=r2 B=V USB="" NVRAM_SIZE=60 LINKSYS_E=1 BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y OPENVPN=y BUILD_DESC="$(VPN)"
+	@$(MAKE) bin MIPS32=r2 B=V USB="" NVRAM_SIZE=60 LINKSYS_E=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y OPENVPN=y BUILD_DESC="$(VPN)"
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -770,29 +845,33 @@ help:
 	@echo "nc           NC build (standard plus VPN, extra utilities, NTFS support and NOCAT)"
 	@echo "ncm	    NCS build (no USB support, NOCAT)"
 	@echo "ncs	    NCS build (std + NOCAT)"
+	@echo "m            Ext - (standard plus extra utilities SNMP and NTFS support)"
+
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "e            E build (standard plus VPN, extra utilities and NTFS support)"
 	@echo "i            I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
 else
-	@echo "e            E build (standard plus VPN and NTFS support)"
+	@echo "e            E build (standard plus VPN and NTFS support + SNMP)"
 endif
-	@echo "s            S build (no USB support)"
 	@echo "f            F build (no USB support minus CIFS and RIPv1/2)"
 	@echo "fs           FS build (no USB support minus JFFS, CIFS and RIPv1/2)"
+	@echo "s            S build (no USB support) + SNMP"
 	@echo "v            V build (VPN with no USB support)"
 	@echo "vs           VS build (small VPN with no USB support)"
+
 ifeq ($(CONFIG_LINUX26),y)
+	@echo "r2a          MIPS Release 2 A build (standard)"
+	@echo "r2e          MIPS Release 2 E build (standard plus VPN SNMP NTFS and extras)"
+	@echo "r2f          MIPS Release 2 F build (no USB support minus CIFS and RIPv1/2)"
+	@echo "r2i          MIPS Release 2 I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
 	@echo "r2m          MIPS Release 2 M build (standard plus extras)"
 	@echo "r2nc         MIPS Release 2 NC build (standard plus VPN, extras and NOCAT)"
-	@echo "r2e          MIPS Release 2 E build (standard plus VPN and extras)"
-	@echo "r2v          MIPS Release 2 V build (VPN with no USB support)"
 	@echo "r2s          MIPS Release 2 S build (no USB support)"
-	@echo "r2i          MIPS Release 2 I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
-	@echo "r2f          MIPS Release 2 F build (no USB support minus CIFS and RIPv1/2)"
-	@echo "n60m         Linksys E-series build (60KB NVRAM, standard plus extras)"
-	@echo "n60nc        Linksys E-series build (60KB NVRAM, standard plus extras, plus VPN, plus NOCAT)"
+	@echo "r2v          MIPS Release 2 V build (VPN with no USB support)"
+	@echo "n60m         Linksys E-series build (60KB NVRAM, standard plus SNMP + extras)"
 	@echo "n60e         Linksys E-series build (60KB NVRAM, standard plus VPN and extras)"
-	@echo "n60s         Linksys E-series build (60KB NVRAM, no USB support)"
+	@echo "n60nc        Linksys E-series build (60KB NVRAM, standard plus extras, plus SNMP, plus VPN, plus NOCAT)"
+	@echo "n60s         Linksys E-series build (60KB NVRAM, SNMP, no USB support)"
 	@echo "n60v         Linksys E-series build (60KB NVRAM, VPN with no USB support)"
 endif
 	@echo "..etc..      other build configs"
@@ -804,4 +883,6 @@ endif
 	@echo "prepk        -C Linux oldconfig dep"
 	
 .PHONY: all clean distclean cleanimage cleantools cleankernel prepk what setprofile help
-.PHONY: a b c d m nc Makefile allversions tomato_profile.mak
+.PHONY: a b c d m Makefile allversions tomato_profile.mak
+
+

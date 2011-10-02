@@ -632,7 +632,7 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 		   NET_XMIT_SUCCESS) {
 		sch->qstats.drops++;
 		cl->qstats.drops++;
-		return NET_XMIT_DROP;
+		return ret;
 	} else {
 		cl->bstats.packets++;
 		cl->bstats.bytes += skb->len;
@@ -648,14 +648,14 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch)
 /* TODO: requeuing packet charges it to policers again !! */
 static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
 {
+	int ret;
 	struct htb_sched *q = qdisc_priv(sch);
-	int ret = NET_XMIT_SUCCESS;
 	struct htb_class *cl = htb_classify(skb, sch, &ret);
 	struct sk_buff *tskb;
 
-	if (cl == HTB_DIRECT || !cl) {
+	if (cl == HTB_DIRECT) {
 		/* enqueue to helper queue */
-		if (q->direct_queue.qlen < q->direct_qlen && cl) {
+		if (q->direct_queue.qlen < q->direct_qlen) {
 			__skb_queue_head(&q->direct_queue, skb);
 		} else {
 			__skb_queue_head(&q->direct_queue, skb);
@@ -664,11 +664,18 @@ static int htb_requeue(struct sk_buff *skb, struct Qdisc *sch)
 			sch->qstats.drops++;
 			return NET_XMIT_CN;
 		}
+#ifdef CONFIG_NET_CLS_ACT
+	} else if (!cl) {
+		if (ret == NET_XMIT_BYPASS)
+			sch->qstats.drops++;
+		kfree_skb(skb);
+		return ret;
+#endif
 	} else if (cl->un.leaf.q->ops->requeue(skb, cl->un.leaf.q) !=
 		   NET_XMIT_SUCCESS) {
 		sch->qstats.drops++;
 		cl->qstats.drops++;
-		return NET_XMIT_DROP;
+		return ret;
 	} else
 		htb_activate(q, cl);
 
@@ -1251,11 +1258,15 @@ static inline int htb_parent_last_child(struct htb_class *cl)
 	return 1;
 }
 
-static void htb_parent_to_leaf(struct htb_class *cl, struct Qdisc *new_q)
+static void htb_parent_to_leaf(struct htb_sched *q, struct htb_class *cl,
+			       struct Qdisc *new_q)
 {
 	struct htb_class *parent = cl->parent;
 
 	BUG_TRAP(!cl->level && cl->un.leaf.q && !cl->prio_activity);
+
+	if (parent->cmode != HTB_CAN_SEND)
+		htb_safe_rb_erase(&parent->pq_node, q->wait_pq + parent->level);
 
 	parent->level = 0;
 	memset(&parent->un.inner, 0, sizeof(parent->un.inner));
@@ -1356,7 +1367,7 @@ static int htb_delete(struct Qdisc *sch, unsigned long arg)
 		htb_deactivate(q, cl);
 
 	if (last_child)
-		htb_parent_to_leaf(cl, new_q);
+		htb_parent_to_leaf(q, cl, new_q);
 
 	if (--cl->refcnt == 0)
 		htb_destroy_class(sch, cl);

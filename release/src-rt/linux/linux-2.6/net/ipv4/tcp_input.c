@@ -2109,7 +2109,7 @@ static void tcp_mtup_probe_failed(struct sock *sk)
 	icsk->icsk_mtup.probe_size = 0;
 }
 
-static void tcp_mtup_probe_success(struct sock *sk, struct sk_buff *skb)
+static void tcp_mtup_probe_success(struct sock *sk)
 {
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct inet_connection_sock *icsk = inet_csk(sk);
@@ -2483,13 +2483,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, __s32 *seq_rtt_p)
 			tp->retrans_stamp = 0;
 		}
 
-		/* MTU probing checks */
-		if (icsk->icsk_mtup.probe_size) {
-			if (!after(tp->mtu_probe.probe_seq_end, TCP_SKB_CB(skb)->end_seq)) {
-				tcp_mtup_probe_success(sk, skb);
-			}
-		}
-
 		if (sacked) {
 			if (sacked & TCPCB_RETRANS) {
 				if (sacked & TCPCB_SACKED_RETRANS)
@@ -2524,6 +2517,11 @@ static int tcp_clean_rtx_queue(struct sock *sk, __s32 *seq_rtt_p)
 		u32 pkts_acked = prior_packets - tp->packets_out;
 		const struct tcp_congestion_ops *ca_ops
 			= inet_csk(sk)->icsk_ca_ops;
+
+		if (unlikely(icsk->icsk_mtup.probe_size &&
+			     !after(tp->mtu_probe.probe_seq_end, tp->snd_una))) {
+			tcp_mtup_probe_success(sk);
+		}
 
 		tcp_ack_update_rtt(sk, acked, seq_rtt);
 		tcp_ack_packets_out(sk);
@@ -3041,7 +3039,8 @@ static inline void tcp_replace_ts_recent(struct tcp_sock *tp, u32 seq)
 		 * Not only, also it occurs for expired timestamps.
 		 */
 
-		if (tcp_paws_check(&tp->rx_opt, 0))
+		if ((s32)(tp->rx_opt.rcv_tsval - tp->rx_opt.ts_recent) >= 0 ||
+		   get_seconds() >= tp->rx_opt.ts_recent_stamp + TCP_PAWS_24DAYS)
 			tcp_store_ts_recent(tp);
 	}
 }
@@ -3092,9 +3091,9 @@ static int tcp_disordered_ack(const struct sock *sk, const struct sk_buff *skb)
 static inline int tcp_paws_discard(const struct sock *sk, const struct sk_buff *skb)
 {
 	const struct tcp_sock *tp = tcp_sk(sk);
-
-	return !tcp_paws_check(&tp->rx_opt, TCP_PAWS_WINDOW) &&
-	       !tcp_disordered_ack(sk, skb);
+	return ((s32)(tp->rx_opt.ts_recent - tp->rx_opt.rcv_tsval) > TCP_PAWS_WINDOW &&
+		get_seconds() < tp->rx_opt.ts_recent_stamp + TCP_PAWS_24DAYS &&
+		!tcp_disordered_ack(sk, skb));
 }
 
 /* Check segment sequence number for validity.
@@ -4620,8 +4619,7 @@ discard:
 	}
 
 	/* PAWS check. */
-	if (tp->rx_opt.ts_recent_stamp && tp->rx_opt.saw_tstamp &&
-	    tcp_paws_reject(&tp->rx_opt, 0))
+	if (tp->rx_opt.ts_recent_stamp && tp->rx_opt.saw_tstamp && tcp_paws_check(&tp->rx_opt, 0))
 		goto discard_and_undo;
 
 	if (th->syn) {

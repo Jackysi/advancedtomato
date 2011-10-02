@@ -420,11 +420,15 @@ void start_l2tp(void)
 		"redial = yes\n"
 		"max redials = 32767\n"
 		"redial timeout = %d\n"
-		"ppp debug = %s\n",
+		"tunnel rws = 8\n"
+		"ppp debug = %s\n"
+		"%s\n",
 		nvram_safe_get("l2tp_server_ip"),
 		ppp_optfile,
 		demand ? 30 : (nvram_get_int("ppp_redialperiod") ? : 30),
-		nvram_get_int("debug_ppp") ? "yes" : "no");
+		nvram_get_int("debug_ppp") ? "yes" : "no",
+		nvram_safe_get("xl2tpd_custom"));
+	fappend(fp, "/etc/xl2tpd.custom");
 	fclose(fp);
 
 	enable_ip_forward();
@@ -857,7 +861,6 @@ void start_wan_done(char *wan_ifname)
 
 	stop_upnp();
 	start_upnp();
-	start_cmon();
 
 	// restart httpd
 	start_httpd();
@@ -872,7 +875,23 @@ void start_wan_done(char *wan_ifname)
 	// We don't need STP after wireless led is lighted		//	no idea why... toggling it if necessary	-- zzz
 	if (check_hw_type() == HW_BCM4702) {
 		eval("brctl", "stp", nvram_safe_get("lan_ifname"), "0");
-		if (nvram_match("lan_stp", "1")) eval("brctl", "stp", nvram_safe_get("lan_ifname"), "1");
+		if (nvram_match("lan_stp", "1")) 
+			eval("brctl", "stp", nvram_safe_get("lan_ifname"), "1");
+		if(strcmp(nvram_safe_get("lan1_ifname"),"")!=0) {
+			eval("brctl", "stp", nvram_safe_get("lan1_ifname"), "0");
+			if (nvram_match("lan1_stp", "1")) 
+				eval("brctl", "stp", nvram_safe_get("lan1_ifname"), "1");
+		}
+		if(strcmp(nvram_safe_get("lan2_ifname"),"")!=0) {
+			eval("brctl", "stp", nvram_safe_get("lan2_ifname"), "0");
+			if (nvram_match("lan2_stp", "1")) 
+				eval("brctl", "stp", nvram_safe_get("lan2_ifname"), "1");
+		}
+		if(strcmp(nvram_safe_get("lan3_ifname"),"")!=0) {
+			eval("brctl", "stp", nvram_safe_get("lan3_ifname"), "0");
+			if (nvram_match("lan3_stp", "1")) 
+				eval("brctl", "stp", nvram_safe_get("lan3_ifname"), "1");
+		}
 	}
 
 	if (wanup)

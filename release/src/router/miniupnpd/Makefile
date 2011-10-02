@@ -1,11 +1,18 @@
-# $Id: Makefile,v 1.54 2011/02/20 23:39:43 nanard Exp $
+# $Id: Makefile,v 1.59 2011/05/26 22:47:32 nanard Exp $
 # MiniUPnP project
-# http://miniupnp.free.fr/
+# http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
 # Author: Thomas Bernard
-# This Makefile should work for *BSD and SunOS/Solaris
-# Linux users, please use Makefile.linux
-CFLAGS ?= -Wall -Os
-#CFLAGS = -Wall -O -g -DDEBUG
+#
+# Makefile for miniupnpd (MiniUPnP daemon)
+#
+# This Makefile should work for *BSD and SunOS/Solaris.
+# On Mac OS X, use "bsdmake" to build.
+# This Makefile is NOT compatible with GNU Make.
+# Linux users, please use Makefile.linux :
+#  make -f Makefile.linux
+
+CFLAGS = -pipe -Wall -Os
+#CFLAGS = -pipe -Wall -O -g -DDEBUG
 CC ?= gcc
 RM = rm -f
 MV = mv
@@ -59,10 +66,10 @@ CFLAGS += -m64 -mcmodel=medlow
 STDOBJS = miniupnpd.o upnphttp.o upnpdescgen.o upnpsoap.o \
           upnpredirect.o getifaddr.o daemonize.o upnpglobalvars.o \
           options.o upnppermissions.o minissdp.o natpmp.o \
-          upnpevents.o
-BSDOBJS = bsd/getifstats.o
-SUNOSOBJS = solaris/getifstats.o
-MACOBJS = mac/getifstats.o
+          upnpevents.o upnputils.o getconnstatus.o
+BSDOBJS = bsd/getifstats.o bsd/ifacewatcher.o
+SUNOSOBJS = solaris/getifstats.o bsd/ifacewatcher.o
+MACOBJS = mac/getifstats.o bsd/ifacewatcher.o
 PFOBJS = pf/obsdrdr.o
 IPFOBJS = ipf/ipfrdr.o
 IPFWOBJS = ipfw/ipfwrdr.o
@@ -119,7 +126,7 @@ clean:
 	testupnpdescgen.o \
 	$(MISCOBJS) config.h testgetifstats.o testupnppermissions.o \
 	miniupnpdctl.o testgetifaddr.o \
-	$(PFOBJS) $(IPFOBJS)
+	$(PFOBJS) $(IPFOBJS) $(IPFWOBJS)
 
 install:	miniupnpd genuuid
 	$(STRIP) miniupnpd
@@ -143,7 +150,7 @@ UUID != if which uuidgen 2>&1 > /dev/null; then \
 
 genuuid:
 	$(MV) miniupnpd.conf miniupnpd.conf.before
-	sed -e "s/^uuid=[-0-9a-f]*/uuid=$(UUID)/" miniupnpd.conf.before > miniupnpd.conf
+	sed -e "s/^uuid=[-0-9a-fA-F]*/uuid=$(UUID)/" miniupnpd.conf.before > miniupnpd.conf
 	$(RM) miniupnpd.conf.before
 
 depend:	config.h

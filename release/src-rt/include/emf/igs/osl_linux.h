@@ -64,6 +64,9 @@ typedef struct osl_timer {
 	uint   ms;
 	bool   periodic;
 	bool   set;
+#ifdef BCMDBG
+	char    *name;          /* Desription of the timer */
+#endif
 } osl_timer_t;
 
 extern osl_timer_t *osl_timer_init(const char *name, void (*fn)(void *arg), void *arg);

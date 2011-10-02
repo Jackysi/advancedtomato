@@ -47,7 +47,8 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,usb_fs_ntfs,script_usbmount,script_usbumount,script_usbhotplug,idle_enable"); %>
+//	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_mmc,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,usb_fs_ntfs,usb_fs_hfs,usb_fs_hfsplus,script_usbmount,script_usbumount,script_usbhotplug,idle_enable"); %>
+
 //	<% usbdevices(); %>
 
 list = [];
@@ -264,12 +265,25 @@ function verifyFields(focused, quiet)
 	E('_f_print').disabled = b;
 	E('_f_storage').disabled = b;
 
+/* LINUX26-BEGIN */
+/* EXTRAS-BEGIN */
+	E('_f_mmc').disabled = a || b || nvram.usb_mmc == -1;
+	elem.display(PR('_f_mmc'), nvram.usb_mmc != -1);
+/* EXTRAS-END */
+/* LINUX26-END */
+
 	E('_f_ext3').disabled = b || a;
 	E('_f_fat').disabled = b || a;
+
+ /* LINUX26-BEGIN */
 	E('_f_idle_enable').disabled = b || a;
+/* LINUX26-END */
+
 /* NTFS-BEGIN */
 	E('_f_ntfs').disabled = b || a;
 /* NTFS-END */
+	E('_f_hfs').disabled = b || a; //!Victek
+	E('_f_hfsplus').disabled = b || a; //!Victek
 	E('_f_automount').disabled = b || a;
 	E('_f_bprint').disabled = b || !E('_f_print').checked;
 
@@ -298,13 +312,24 @@ function save()
 	fom.usb_storage.value = E('_f_storage').checked ? 1 : 0;
 	fom.usb_printer.value = E('_f_print').checked ? 1 : 0;
 	fom.usb_printer_bidirect.value = E('_f_bprint').checked ? 1 : 0;
+
+/* LINUX26-BEGIN */
+/* EXTRAS-BEGIN */
+	fom.usb_mmc.value = nvram.usb_mmc == -1 ? -1 : (E('_f_mmc').checked ? 1 : 0);
+/* EXTRAS-END */
+/* LINUX26-END */
+
 	fom.usb_fs_ext3.value = E('_f_ext3').checked ? 1 : 0;
 	fom.usb_fs_fat.value = E('_f_fat').checked ? 1 : 0;
 /* NTFS-BEGIN */
 	fom.usb_fs_ntfs.value = E('_f_ntfs').checked ? 1 : 0;
 /* NTFS-END */
+	fom.usb_fs_hfs.value = E('_f_hfs').checked ? 1 : 0; //!Victek
+	fom.usb_fs_hfsplus.value = E('_f_hfsplus').checked ? 1 : 0; //!Victek
 	fom.usb_automount.value = E('_f_automount').checked ? 1 : 0;
+ /* LINUX26-BEGIN */
 	fom.idle_enable.value = E('_f_idle_enable').checked ? 1 : 0;
+/* LINUX26-END */
 
 	form.submit(fom, 1);
 }
@@ -336,6 +361,7 @@ function submit_complete()
 <input type='hidden' name='usb_uhci'>
 <input type='hidden' name='usb_ohci'>
 <input type='hidden' name='usb_usb2'>
+<input type='hidden' name='usb_mmc'>
 <input type='hidden' name='usb_storage'>
 <input type='hidden' name='usb_printer'>
 <input type='hidden' name='usb_printer_bidirect'>
@@ -344,8 +370,12 @@ function submit_complete()
 <!-- NTFS-BEGIN
 <input type='hidden' name='usb_fs_ntfs'>
 NTFS-END -->
+<input type='hidden' name='usb_fs_hfs'>
+<input type='hidden' name='usb_fs_hfsplus'>
 <input type='hidden' name='usb_automount'>
+ /* LINUX26-BEGIN */
 <input type='hidden' name='idle_enable'>
+/* LINUX26-END */
 
 <div class='section-title'>USB Support</div>
 <div class='section'>
@@ -368,8 +398,15 @@ createFieldTable('', [
 /* NTFS-BEGIN */
 			{ suffix: '&nbsp; NTFS &nbsp;&nbsp;&nbsp;', name: 'f_ntfs', type: 'checkbox', value: nvram.usb_fs_ntfs == 1 },
 /* NTFS-END */
-			{ suffix: '&nbsp; FAT &nbsp;', name: 'f_fat', type: 'checkbox', value: nvram.usb_fs_fat == 1 }
+			{ suffix: '&nbsp; FAT &nbsp;', name: 'f_fat', type: 'checkbox', value: nvram.usb_fs_fat == 1 },
+			{ suffix: '&nbsp; HFS &nbsp;', name: 'f_hfs', type: 'checkbox', value: nvram.usb_fs_hfs == 1 },
+			{ suffix: '&nbsp; HFS+ &nbsp;', name: 'f_hfsplus', type: 'checkbox', value: nvram.usb_fs_hfsplus == 1 }
 		] },
+/* LINUX26-BEGIN */
+/* EXTRAS-BEGIN */
+		{ title: 'SD/MMC Card Support', indent: 2, name: 'f_mmc', type: 'checkbox', value: nvram.usb_mmc == 1 },
+/* EXTRAS-END */
+/* LINUX26-END */
 		{ title: 'Automount', indent: 2, name: 'f_automount', type: 'checkbox',
 			suffix: ' <small>Automatically mount all partitions to sub-directories in <i>/mnt</i>.</small>', value: nvram.usb_automount == 1 },
 	{ title: 'Run after mounting', indent: 2, name: 'script_usbmount', type: 'textarea', value: nvram.script_usbmount },

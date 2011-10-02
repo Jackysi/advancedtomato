@@ -1,0 +1,14 @@
+########################################################
+# ZTE AX226 WiMax
+
+DefaultVendor= 0x19d2
+DefaultProduct=0xbccd
+
+TargetVendor=  0x19d2
+TargetProduct= 0x0172
+
+MessageContent="555342431234567824000000800006bc626563240000000000000000000000"
+NoDriverLoading=1
+
+CheckSuccess=20
+

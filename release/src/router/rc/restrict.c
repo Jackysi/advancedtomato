@@ -11,19 +11,15 @@
 
 #define MAX_NRULES	50
 
-#ifdef LINUX26
-extern void enable_fastnat(int enable);
-extern int fastnat_enabled(void);
-#endif
-
 static inline void unsched_restrictions(void)
+
 {
-	eval("cru", "d", "rcheck");
+	system("cru d rcheck");
 }
 
-inline void sched_restrictions(void)
+void sched_restrictions(void)
 {
-	eval("rcheck");
+	system("rcheck");
 }
 
 static int in_sched(int now_mins, int now_dow, int sched_begin, int sched_end, int sched_dow)
@@ -84,8 +80,9 @@ int rcheck_main(int argc, char *argv[])
 #ifdef TCONFIG_IPV6
 	int r6;
 #endif
+
 #ifdef LINUX26
-	int fastnat;
+	int ipt_active;
 #endif
 
 	if (!nvram_contains_word("log_events", "acre")) {
@@ -108,8 +105,9 @@ int rcheck_main(int argc, char *argv[])
 		now_mins = (tms->tm_hour * 60) + tms->tm_min;
 	}
 
+
 #ifdef LINUX26
-	fastnat = fastnat_enabled() && (nvram_get_int("fastnat_disable") == 0);
+	ipt_active = 0;
 #endif
 
 	activated = strtoull(nvram_safe_get("rrules_activated"), NULL, 16);
@@ -131,6 +129,11 @@ int rcheck_main(int argc, char *argv[])
 			insch = in_sched(now_mins, now_dow, sched_begin, sched_end, sched_dow);
 		}
 
+#ifdef LINUX26
+		if ((insch) && (comp != '~'))
+			++ipt_active;
+#endif
+
 		n = 1 << nrule;
 		if ((insch) == ((activated & n) != 0)) {
 			continue;
@@ -149,9 +152,6 @@ int rcheck_main(int argc, char *argv[])
 				// ignore error above (if any)
 
 				r = eval("iptables", "-A", "restrict", "-j", buf);
-#ifdef LINUX26
-				if (r == 0) fastnat = 0;
-#endif
 			}
 
 #ifdef TCONFIG_IPV6
@@ -182,7 +182,7 @@ int rcheck_main(int argc, char *argv[])
 
 	if (count > 0) {
 		if ((argc != 2) || (strcmp(argv[1], "--cron") != 0)) {
-			eval("cru", "a", "rcheck", "*/15 * * * * rcheck --cron");
+			system("cru a rcheck '*/15 * * * * rcheck --cron'");
 		}
 	}
 	else {
@@ -206,9 +206,12 @@ int rcheck_main(int argc, char *argv[])
 #endif
 	}
 
+
 #ifdef LINUX26
-	enable_fastnat(fastnat);
+	allow_fastnat("restrictions", (ipt_active == 0));
+	try_enabling_fastnat();
 #endif
+
 	simple_unlock("restrictions");
 	return 0;
 }

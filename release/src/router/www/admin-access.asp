@@ -38,7 +38,7 @@ sdup = parseInt('<% psup("dropbear"); %>');
 shlimit = nvram.ne_shlimit.split(',');
 if (shlimit.length != 3) shlimit = [0,3,60];
 
-var xmenus = [['Status', 'status'], ['Bandwidth', 'bwm'], ['Tools', 'tools'], ['Basic', 'basic'],
+var xmenus = [['Status', 'status'], ['Bandwidth', 'bwm'], ['IP Traffic', 'ipt'], ['Tools', 'tools'], ['Basic', 'basic'],
 	['Advanced', 'advanced'], ['Port Forwarding', 'forward'], ['QoS', 'qos'],
 /* USB-BEGIN */
 	['USB and NAS', 'nas'],
@@ -285,11 +285,8 @@ var m = [
 	{ title: 'Allow Wireless Access', name: 'f_http_wireless', type: 'checkbox', value:  nvram.web_wl_filter == 0 },
 	null,
 	{ title: 'Color Scheme', name: 'web_css', type: 'select',
-		options: [['red','Tomato'],['asus','Asustek'],['asus_red','Asus Red'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['bluedream','Bluedream'],['brownlight','Brownlight'],['buffalo','Buffalo'],['brown','Brown'],['cisco','Cisco'],['cyan','Cyan'],['enlightened','Enlightened'],['flame','Flame'],['linksys','Linksys'],['olive','Olive'],['purple','Purple'],['pumpkin','Pumpkin'],['tijuana','Tijuana'],
+		options: [['red','Tomato'],['asus','Asustek'],['black','Black'],['blue','Blue'],['bluedream','Bluedream'],['brownlight','Brownlight'],['brown','Brown'],['cisco','Cisco'],['cyan','Cyan'],['enlightened','Enlightened'],['linksys','Linksys'],['olive','Olive'],
 
-/* THEMES-BEGIN */
-		['usbred','USB Red'],['usbblue','USB Blue'],
-/* THEMES-END */
 		['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css },
 	{ title: 'Open Menus' }
 ];

@@ -4105,6 +4105,53 @@ static int netdev_ethtool_ioctl(struct net_device *dev, void *useraddr)
 #include <linux/iobuf.h>
 #endif
 
+#ifdef	BCMDBG
+STATIC void
+b57_dump(struct net_device *dev, struct bcmstrbuf *b)
+{
+	PUM_DEVICE_BLOCK pUmDevice = (PUM_DEVICE_BLOCK)dev->priv;
+	PLM_DEVICE_BLOCK pDevice = (PLM_DEVICE_BLOCK) pUmDevice;
+	struct net_device_stats *st;
+	char macaddr[32];
+
+        bcm_bprintf(b, "b57%d: %s %s version %s\n", pUmDevice->index,
+	            __DATE__, __TIME__, EPI_VERSION_STR);
+
+        bcm_bprintf(b, "dev 0x%x pdev 0x%x unit %d msglevel %d flags 0x%x boardflags 0x%x\n",
+	            (uint)dev, (uint)pDevice, pUmDevice->index, b57_msg_level,
+	            pDevice->Flags, pUmDevice->boardflags);
+        bcm_bprintf(b, "speed/duplex %d/%s promisc 0x%x loopbk %d advertise 0x%x\n",
+	            pDevice->LineSpeed,
+	            (pDevice->DuplexMode == LM_DUPLEX_MODE_FULL) ? "full" : "half",
+	            pDevice->ReceiveMask & LM_PROMISCUOUS_MODE,
+	            pDevice->LoopBackMode,
+	            pDevice->advertising);
+        bcm_bprintf(b, "allmulti %d qos %d phyaddr %d linkstat %d\n",
+	            pDevice->ReceiveMask & LM_ACCEPT_ALL_MULTICAST, pUmDevice->qos,
+	            pDevice->PhyAddr, pDevice->LinkStatus);
+	bcm_bprintf(b, "vendor 0x%x device 0x%x rev %d subsys vendor 0x%x subsys id 0x%x\n",
+	            pDevice->PciVendorId, pDevice->PciDeviceId, pDevice->PciRevId,
+	            pDevice->SubsystemVendorId, pDevice->SubsystemId);
+	bcm_bprintf(b, "MAC addr %s\n", bcm_ether_ntoa((struct ether_addr *)&pDevice->NodeAddress,
+	                                               macaddr));
+
+	if ((st = bcm5700_get_stats(dev)) != NULL) {
+		bcm_bprintf(b, "txframe %d txbyte %d txerror %d rxframe %d rxbyte %d rxerror %d\n",
+		            st->tx_packets, st->tx_bytes, st->tx_errors,
+		            st->rx_packets, st->rx_bytes, st->rx_errors);
+		bcm_bprintf(b, "multicast %d collisions %d tx_abort %d tx_carrier %d\n",
+		            st->multicast, st->collisions, st->tx_aborted_errors,
+		            st->tx_carrier_errors);
+		bcm_bprintf(b, "rx_length %d rx_over %d rx_frame %d rx_crc %d\n",
+		            st->rx_length_errors, st->rx_over_errors, st->rx_frame_errors,
+		            st->rx_crc_errors);
+	}
+	if (pDevice->Flags & ROBO_SWITCH_FLAG)
+		robo_dump_regs(pUmDevice->robo, b);
+
+	bcm_bprintf(b, "\n");
+}
+#endif	/* BCMDBG */
 
 /* Provide ioctl() calls to examine the MII xcvr state. */
 STATIC int bcm5700_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
@@ -4310,6 +4357,13 @@ STATIC int bcm5700_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 
 		if (b57_msg_level & 0x10000)
 			bcmdumplog(buf, 4096);
+#ifdef BCMDBG
+		else {
+			struct bcmstrbuf b;
+			bcm_binit(&b, buf, 4096);
+			b57_dump(dev, &b);
+		}
+#endif /* BCMDBG */
 		value = mm_copy_to_user(rq->ifr_data, buf, 4096);
 
 		MFREE(SI_OSH, buf, 4096);
