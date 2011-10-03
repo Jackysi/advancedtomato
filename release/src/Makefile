@@ -720,7 +720,7 @@ r2e:
 	@$(MAKE) e MIPS32=r2
 
 r2f:
-	@$(MAKE) f MIPS32=r2
+	@$(MAKE) f MIPS32=r2 BELKIN=y
 
 r2i:
 	@$(MAKE) i MIPS32=r2
