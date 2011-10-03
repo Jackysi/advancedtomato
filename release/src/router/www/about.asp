@@ -95,7 +95,7 @@ function init()
 <!-- IPV6-BEGIN -->
 IPv6 support,
 <!-- IPV6-END -->
-Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
+<br>Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <br>
 <!-- VPN-BEGIN -->
