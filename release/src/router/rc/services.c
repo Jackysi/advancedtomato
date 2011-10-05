@@ -2013,7 +2013,6 @@ void stop_services(void)
 #endif
 	stop_sched();
 	stop_rstats();
-	start_account();
 	stop_cstats();
 //	stop_upnp();
 	stop_cron();
