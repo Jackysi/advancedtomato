@@ -1970,7 +1970,6 @@ void start_services(void)
 	start_cron();
 //	start_upnp();
 	start_rstats(0);
-	start_account();
 	start_cstats(0);
 	start_sched();
 #ifdef TCONFIG_IPV6
