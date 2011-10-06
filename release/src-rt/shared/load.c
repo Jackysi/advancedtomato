@@ -2,15 +2,21 @@
  * Initialization and support routines for self-booting
  * compressed image.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: load.c,v 1.19.2.1 2009/02/11 10:07:28 Exp $
+ * $Id: load.c,v 1.24.10.1 2010-10-13 04:00:32 Exp $
  */
 
 #include <typedefs.h>
@@ -21,21 +27,18 @@
 #include <hndsoc.h>
 #include <siutils.h>
 #include <sbchipc.h>
-#include <hndmips.h>
-#include <sbmemc.h>
-#include <bcmsrom.h>
+#include <bcmnvram.h>
+#ifdef NFLASH_SUPPORT
+#include <nflash.h>
+#endif
 
 void c_main(unsigned long ra);
-
-static si_t *sih;
-static chipcregs_t *cc;
-
 
 extern unsigned char text_start[], text_end[];
 extern unsigned char data_start[], data_end[];
 extern char bss_start[], bss_end[];
 
-#define INBUFSIZ 4096	/* Buffer size */
+#define INBUFSIZ 4096		/* Buffer size */
 #define WSIZE 0x8000    	/* window size--must be a power of two, and */
 				/*  at least 32K for zip's deflate method */
 
@@ -48,19 +51,14 @@ static ulong inptr;		/* index of next byte to be processed in inbuf */
 static uchar *outbuf;		/* output buffer */
 static ulong bytes_out;		/* valid bytes in outbuf */
 
-static ulong inoff;		/* offset of input data */
+static uint32 *inbase;		/* input data from flash */
 
 #if !defined(USE_LZMA)
 static int
 fill_inbuf(void)
 {
-	int bytes;
-
-	for (insize = 0; insize < INBUFSIZ; insize += bytes, inoff += bytes) {
-		*((uint32 *) &inbuf[insize]) = *((uint32 *) KSEG1ADDR(SI_FLASH1 + inoff));
-		bytes = sizeof(uint32);
-	}
-
+	for (insize = 0; insize < INBUFSIZ; insize += sizeof(uint32), inbase++)
+		*((uint32 *)&inbuf[insize]) = *inbase;
 	inptr = 1;
 
 	return inbuf[0];
@@ -242,19 +240,54 @@ extern char input_data[];
 extern int input_len;
 
 static void
-load(void)
+load(si_t *sih)
 {
-	int ret = 0;
-	uint32 *inbase;
+	int inoff, ret = 0;
+#ifdef NFLASH_SUPPORT
+	chipcregs_t *cc;
+	struct nflash *nfl_info;
+	uchar *copy_buf, *nand_ptr;
+	int copy_len, offset, len;
+#endif
 
 	/* Offset from beginning of flash */
 #ifdef	CONFIG_XIP
 	inoff = ((ulong)text_end - (ulong)text_start) + ((ulong)input_data - (ulong)data_start);
 #else
-	inoff = (ulong) input_data - (ulong) text_start;
+	inoff = (ulong)input_data - (ulong)text_start;
 #endif /* CONFIG_XIP */
-	inbase = (uint32 *) KSEG1ADDR(SI_FLASH1 + inoff);
-	outbuf = (uchar *) LOADADDR;
+#ifdef NFLASH_SUPPORT
+	if ((sih->ccrev == 38) && ((sih->chipst & (1 << 4)) != 0)) {
+		cc = (chipcregs_t *)si_setcoreidx(sih, SI_CC_IDX);
+		nfl_info = nflash_init(sih, cc);
+		if (nfl_info) {
+			nand_ptr = OSL_CACHED(SI_FLASH1);
+			/* 512KB of buffer ahead of LOADADDR */
+			copy_buf = (unsigned char *)(LOADADDR - 0x80000);
+			inbase = (uint32 *)(copy_buf + inoff);
+			copy_len = inoff + input_len;
+			offset = 0;
+			while (copy_len > 0) {
+				if (nflash_checkbadb(sih, cc, offset) != 0) {
+					offset += nfl_info->blocksize;
+					continue;
+				}
+				len = (copy_len < nfl_info->blocksize)?
+					copy_len: nfl_info->blocksize;
+				memcpy(copy_buf, nand_ptr + offset, len);
+				copy_len -= len;
+				offset += len;
+				copy_buf += len;
+			}
+		}
+	} else
+#endif /* NFLASH_SUPPORT */
+	if (sih->ccrev == 12)
+		inbase = OSL_UNCACHED(SI_FLASH2 + inoff);
+	else
+		inbase = OSL_CACHED(SI_FLASH2 + inoff);
+
+	outbuf = (uchar *)LOADADDR;
 	bytes_out = 0;
 	inbuf = malloc(INBUFSIZ);	/* input buffer */
 
@@ -285,13 +318,84 @@ load(void)
 		printf("done\n");
 }
 
+static void
+set_sflash_div(si_t *sih)
+{
+	uint idx;
+	chipcregs_t *cc;
+	struct nvram_header *nvh = NULL;
+	uintptr flbase;
+	uint32 fltype, off, clkdiv, bpclock, sflmaxclk, sfldiv;
+
+	/* Check for sflash */
+	idx = si_coreidx(sih);
+	cc = si_setcoreidx(sih, SI_CC_IDX);
+	ASSERT(cc);
+
+#ifdef NFLASH_SUPPORT
+	if ((sih->ccrev == 38) && ((sih->chipst & (1 << 4)) != 0))
+		goto out;
+#endif /* NFLASH_SUPPORT */
+	fltype = sih->cccaps & CC_CAP_FLASH_MASK;
+	if ((fltype != SFLASH_ST) && (fltype != SFLASH_AT))
+		goto out;
+
+	flbase = (uintptr)OSL_UNCACHED((void *)SI_FLASH2);
+	off = FLASH_MIN;
+	while (off <= 16 * 1024 * 1024) {
+		nvh = (struct nvram_header *)(flbase + off - NVRAM_SPACE);
+		if (R_REG(osh, &nvh->magic) == NVRAM_MAGIC)
+			break;
+		off <<= 1;
+		nvh = NULL;
+	};
+
+	if (nvh == NULL) {
+		nvh = (struct nvram_header *)(flbase + 1024);
+		if (R_REG(osh, &nvh->magic) != NVRAM_MAGIC) {
+			goto out;
+		}
+	}
+
+	sflmaxclk = R_REG(osh, &nvh->crc_ver_init) >> 16;
+	if ((sflmaxclk == 0xffff) || (sflmaxclk == 0x0419))
+		goto out;
+
+	sflmaxclk &= 0xf;
+	if (sflmaxclk == 0)
+		goto out;
+
+	bpclock = si_clock(sih);
+	sflmaxclk *= 10000000;
+	for (sfldiv = 2; sfldiv < 16; sfldiv += 2) {
+		if ((bpclock / sfldiv) < sflmaxclk)
+			break;
+	}
+	if (sfldiv > 14)
+		sfldiv = 14;
+
+	clkdiv = R_REG(osh, &cc->clkdiv);
+	if (((clkdiv & CLKD_SFLASH) >> CLKD_SFLASH_SHIFT) != sfldiv) {
+		clkdiv = (clkdiv & ~CLKD_SFLASH) | (sfldiv << CLKD_SFLASH_SHIFT);
+		W_REG(osh, &cc->clkdiv, clkdiv);
+	}
+
+out:
+	si_setcoreidx(sih, idx);
+	return;
+}
+
 void
 c_main(unsigned long ra)
 {
+	si_t *sih;
+
 	BCMDBG_TRACE(0x4c4400);
 
 #ifndef CFG_UNCACHED
-	/* Initialize and turn caches on */
+	/* Discover cache configuration and if not already on,
+	 * initialize and turn them on.
+	 */
 	caches_on();
 #endif /* CFG_UNCACHED */
 
@@ -302,21 +406,25 @@ c_main(unsigned long ra)
 
 	BCMDBG_TRACE(0x4c4402);
 
-	cc = si_setcoreidx(sih, SI_CC_IDX);
+	/* Only do this for newer chips, since the SB ones did not have
+	 * space in the nvram header for the sflash divider.
+	 */
+	if (sih->socitype == SOCI_AI)
+		set_sflash_div(sih);
 
 	BCMDBG_TRACE(0x4c4403);
 
 	/* Load binary */
-	load();
+	load(sih);
 
-	BCMDBG_TRACE(0x4c4405);
+	BCMDBG_TRACE(0x4c4404);
 
 	/* Flush all caches */
 	blast_dcache();
 	blast_icache();
 
-	BCMDBG_TRACE(0x4c4406);
+	BCMDBG_TRACE(0x4c4405);
 
 	/* Jump to load address */
-	((void (*)(void)) LOADADDR)();
+	((void (*)(void))LOADADDR)();
 }

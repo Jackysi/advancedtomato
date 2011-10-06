@@ -1,27 +1,32 @@
 /*
  * 802.1Q VLAN protocol definitions
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: vlan.h,v 9.4.130.1 2009/10/12 23:01:02 Exp $
+ * $Id: vlan.h,v 9.7 2009-03-13 01:11:50 Exp $
  */
 
 #ifndef _vlan_h_
 #define _vlan_h_
 
-/* enable structure packing */
-#if defined(__GNUC__)
-#define	PACKED	__attribute__((packed))
-#else
-#pragma pack(1)
-#define	PACKED
+#ifndef _TYPEDEFS_H_
+#include <typedefs.h>
 #endif
+
+/* This marks the start of a packed structure section. */
+#include <packed_section_start.h>
 
 #define VLAN_VID_MASK		0xfff	/* low 12 bits are vlan id */
 #define	VLAN_CFI_SHIFT		12	/* canonical format indicator bit */
@@ -44,10 +49,9 @@ struct ethervlan_header {
 
 #define	ETHERVLAN_HDR_LEN	(ETHER_HDR_LEN + VLAN_TAG_LEN)
 
-#undef PACKED
-#if !defined(__GNUC__)
-#pragma pack()
-#endif
+
+/* This marks the end of a packed structure section. */
+#include <packed_section_end.h>
 
 #define ETHERVLAN_MOVE_HDR(d, s) \
 do { \

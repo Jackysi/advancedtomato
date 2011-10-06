@@ -1,15 +1,21 @@
 /*
  * Broadcom Ethernettype  protocol definitions
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmeth.h,v 9.9.12.4 2009/03/11 05:27:38 Exp $
+ * $Id: bcmeth.h,v 9.12 2009-12-29 19:57:18 Exp $
  */
 
 /*
@@ -19,13 +25,12 @@
 #ifndef _BCMETH_H_
 #define _BCMETH_H_
 
-/* enable structure packing */
-#if defined(__GNUC__)
-#define	PACKED	__attribute__((packed))
-#else
-#pragma pack(1)
-#define	PACKED
+#ifndef _TYPEDEFS_H_
+#include <typedefs.h>
 #endif
+
+/* This marks the start of a packed structure section. */
+#include <packed_section_start.h>
 
 #ifndef LINUX_POSTMOGRIFY_REMOVAL
 /* ETHER_TYPE_BRCM is defined in ethernet.h */
@@ -86,7 +91,7 @@
 #endif /* LINUX_POSTMOGRIFY_REMOVAL */
 
 /* These fields are stored in network order */
-typedef  struct bcmeth_hdr
+typedef BWL_PRE_PACKED_STRUCT struct bcmeth_hdr
 {
 	uint16	subtype;	/* Vendor specific..32769 */
 	uint16	length;
@@ -94,11 +99,10 @@ typedef  struct bcmeth_hdr
 	uint8	oui[3];		/* Broadcom OUI */
 	/* user specific Data */
 	uint16	usr_subtype;
-} PACKED bcmeth_hdr_t;
+} BWL_POST_PACKED_STRUCT bcmeth_hdr_t;
 
-#undef PACKED
-#if !defined(__GNUC__)
-#pragma pack()
-#endif
+
+/* This marks the end of a packed structure section. */
+#include <packed_section_end.h>
 
 #endif	/*  _BCMETH_H_ */

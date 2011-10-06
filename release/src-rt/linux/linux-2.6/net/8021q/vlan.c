@@ -35,6 +35,9 @@
 #include <linux/if_vlan.h>
 #include "vlan.h"
 #include "vlanproc.h"
+#ifdef HNDCTF
+#include <ctf/hndctf.h>
+#endif /* HNDCTF */
 
 #define DRV_VERSION "1.8"
 
@@ -282,6 +285,9 @@ static int unregister_vlan_dev(struct net_device *real_dev,
 			vlan_group_set_device(grp, vlan_id, NULL);
 			synchronize_net();
 
+#ifdef HNDCTF
+			(void)ctf_dev_vlan_delete(kcih, real_dev, vlan_id);
+#endif /* HNDCTF */
 
 			/* Caller unregisters (and if necessary, puts)
 			 * VLAN device, but we get rid of the reference to
@@ -579,6 +585,10 @@ static int register_vlan_device(struct net_device *real_dev,
 	err = register_vlan_dev(new_dev);
 	if (err < 0)
 		goto out_free_newdev;
+
+#ifdef HNDCTF
+	(void)ctf_dev_vlan_add(kcih, real_dev, VLAN_ID, new_dev);
+#endif /* HNDCTF */
 
 	/* Account for reference in struct vlan_dev_info */
 	dev_hold(real_dev);

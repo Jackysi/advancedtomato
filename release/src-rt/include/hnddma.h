@@ -2,20 +2,30 @@
  * Generic Broadcom Home Networking Division (HND) DMA engine SW interface
  * This supports the following chips: BCM42xx, 44xx, 47xx .
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
- * $Id: hnddma.h,v 13.74.2.5 2009/01/22 23:53:47 Exp $
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ *
+ * $Id: hnddma.h,v 13.82.12.4 2011-01-27 19:03:20 Exp $
  */
 
 #ifndef	_hnddma_h_
 #define	_hnddma_h_
 
+#ifndef _hnddma_pub_
+#define _hnddma_pub_
 typedef const struct hnddma_pub hnddma_t;
+#endif /* _hnddma_pub_ */
 
 /* range param for dma_getnexttxp() and dma_txreclaim */
 typedef enum txd_range {
@@ -36,7 +46,15 @@ typedef void (*di_txsuspend_t)(hnddma_t *dmah);
 typedef void (*di_txresume_t)(hnddma_t *dmah);
 typedef bool (*di_txsuspended_t)(hnddma_t *dmah);
 typedef bool (*di_txsuspendedidle_t)(hnddma_t *dmah);
+#ifdef WL_MULTIQUEUE
+typedef void (*di_txflush_t)(hnddma_t *dmah);
+typedef void (*di_txflush_clear_t)(hnddma_t *dmah);
+#endif /* WL_MULTIQUEUE */
 typedef int (*di_txfast_t)(hnddma_t *dmah, void *p, bool commit);
+#if !defined(_CFE_)
+typedef int (*di_txunframed_t)(hnddma_t *dmah, void *p, uint len, bool commit);
+typedef void* (*di_getpos_t)(hnddma_t *di, bool direction);
+#endif /* !_CFE_ */
 typedef void (*di_fifoloopbackenable_t)(hnddma_t *dmah);
 typedef bool  (*di_txstopped_t)(hnddma_t *dmah);
 typedef bool  (*di_rxstopped_t)(hnddma_t *dmah);
@@ -64,6 +82,7 @@ typedef char* (*di_dumprx_t)(hnddma_t *dmah, struct bcmstrbuf *b, bool dumpring)
 typedef uint (*di_rxactive_t)(hnddma_t *dmah);
 typedef uint (*di_txpending_t)(hnddma_t *dmah);
 typedef uint (*di_txcommitted_t)(hnddma_t *dmah);
+typedef uint (*di_avoidancecnt_t)(hnddma_t *dmah);
 
 /* dma opsvec */
 typedef struct di_fcn_s {
@@ -75,7 +94,15 @@ typedef struct di_fcn_s {
 	di_txresume_t           txresume;
 	di_txsuspended_t        txsuspended;
 	di_txsuspendedidle_t    txsuspendedidle;
+#ifdef WL_MULTIQUEUE
+	di_txflush_t            txflush;
+	di_txflush_clear_t      txflush_clear;
+#endif /* WL_MULTIQUEUE */
 	di_txfast_t             txfast;
+#if !defined(_CFE_)
+	di_txunframed_t         txunframed;
+	di_getpos_t             getpos;
+#endif /* _CFE_ */
 	di_txstopped_t		txstopped;
 	di_txreclaim_t          txreclaim;
 	di_getnexttxp_t         getnexttxp;
@@ -108,6 +135,7 @@ typedef struct di_fcn_s {
 	di_rxactive_t		rxactive;
 	di_txpending_t		txpending;
 	di_txcommitted_t	txcommitted;
+	di_avoidancecnt_t	avoidancecnt;
 	uint			endnum;
 } di_fcn_t;
 
@@ -116,7 +144,7 @@ typedef struct di_fcn_s {
  */
 /* export structure */
 struct hnddma_pub {
-	di_fcn_t	di_fn;		/* DMA function pointers */
+	const di_fcn_t	*di_fn;		/* DMA function pointers */
 	uint		txavail;	/* # free tx descriptors */
 	uint		dmactrlflags;	/* dma control flags */
 
@@ -125,54 +153,119 @@ struct hnddma_pub {
 	uint		rxnobuf;	/* rx out of dma descriptors */
 	/* tx error counters */
 	uint		txnobuf;	/* tx out of dma descriptors */
+	uint		txnodesc;	/* tx out of dma descriptors running count */
 };
 
 
 extern hnddma_t * dma_attach(osl_t *osh, char *name, si_t *sih, void *dmaregstx, void *dmaregsrx,
 	uint ntxd, uint nrxd, uint rxbufsize, int rxextheadroom, uint nrxpost,
 	uint rxoffset, uint *msg_level);
-#define dma_detach(di)			((di)->di_fn.detach(di))
-#define dma_txreset(di)			((di)->di_fn.txreset(di))
-#define dma_rxreset(di)			((di)->di_fn.rxreset(di))
-#define dma_rxidle(di)			((di)->di_fn.rxidle(di))
-#define dma_txinit(di)                  ((di)->di_fn.txinit(di))
-#define dma_txenabled(di)               ((di)->di_fn.txenabled(di))
-#define dma_rxinit(di)                  ((di)->di_fn.rxinit(di))
-#define dma_txsuspend(di)               ((di)->di_fn.txsuspend(di))
-#define dma_txresume(di)                ((di)->di_fn.txresume(di))
-#define dma_txsuspended(di)             ((di)->di_fn.txsuspended(di))
-#define dma_txsuspendedidle(di)         ((di)->di_fn.txsuspendedidle(di))
-#define dma_txfast(di, p, commit)	((di)->di_fn.txfast(di, p, commit))
-#define dma_fifoloopbackenable(di)      ((di)->di_fn.fifoloopbackenable(di))
-#define dma_txstopped(di)               ((di)->di_fn.txstopped(di))
-#define dma_rxstopped(di)               ((di)->di_fn.rxstopped(di))
-#define dma_rxenable(di)                ((di)->di_fn.rxenable(di))
-#define dma_rxenabled(di)               ((di)->di_fn.rxenabled(di))
-#define dma_rx(di)                      ((di)->di_fn.rx(di))
-#define dma_rxfill(di)                  ((di)->di_fn.rxfill(di))
-#define dma_txreclaim(di, range)	((di)->di_fn.txreclaim(di, range))
-#define dma_rxreclaim(di)               ((di)->di_fn.rxreclaim(di))
-#define dma_getvar(di, name)		((di)->di_fn.d_getvar(di, name))
-#define dma_getnexttxp(di, range)	((di)->di_fn.getnexttxp(di, range))
-#define dma_getnextrxp(di, forceall)    ((di)->di_fn.getnextrxp(di, forceall))
-#define dma_peeknexttxp(di)             ((di)->di_fn.peeknexttxp(di))
-#define dma_peeknextrxp(di)             ((di)->di_fn.peeknextrxp(di))
-#define dma_rxparam_get(di, off, bufs)	((di)->di_fn.rxparam_get(di, off, bufs))
+#ifdef BCMDMA32
 
-#define dma_txblock(di)                 ((di)->di_fn.txblock(di))
-#define dma_txunblock(di)               ((di)->di_fn.txunblock(di))
-#define dma_txactive(di)                ((di)->di_fn.txactive(di))
-#define dma_rxactive(di)                ((di)->di_fn.rxactive(di))
-#define dma_txrotate(di)                ((di)->di_fn.txrotate(di))
-#define dma_counterreset(di)            ((di)->di_fn.counterreset(di))
-#define dma_ctrlflags(di, mask, flags)  ((di)->di_fn.ctrlflags((di), (mask), (flags)))
-#define dma_txpending(di)		((di)->di_fn.txpending(di))
-#define dma_txcommitted(di)		((di)->di_fn.txcommitted(di))
+#define dma_detach(di)			((di)->di_fn->detach(di))
+#define dma_txreset(di)			((di)->di_fn->txreset(di))
+#define dma_rxreset(di)			((di)->di_fn->rxreset(di))
+#define dma_rxidle(di)			((di)->di_fn->rxidle(di))
+#define dma_txinit(di)                  ((di)->di_fn->txinit(di))
+#define dma_txenabled(di)               ((di)->di_fn->txenabled(di))
+#define dma_rxinit(di)                  ((di)->di_fn->rxinit(di))
+#define dma_txsuspend(di)               ((di)->di_fn->txsuspend(di))
+#define dma_txresume(di)                ((di)->di_fn->txresume(di))
+#define dma_txsuspended(di)             ((di)->di_fn->txsuspended(di))
+#define dma_txsuspendedidle(di)         ((di)->di_fn->txsuspendedidle(di))
+#ifdef WL_MULTIQUEUE
+#define dma_txflush(di)                 ((di)->di_fn->txflush(di))
+#define dma_txflush_clear(di)           ((di)->di_fn->txflush_clear(di))
+#endif /* WL_MULTIQUEUE */
+#define dma_txfast(di, p, commit)	((di)->di_fn->txfast(di, p, commit))
+#define dma_fifoloopbackenable(di)      ((di)->di_fn->fifoloopbackenable(di))
+#define dma_txstopped(di)               ((di)->di_fn->txstopped(di))
+#define dma_rxstopped(di)               ((di)->di_fn->rxstopped(di))
+#define dma_rxenable(di)                ((di)->di_fn->rxenable(di))
+#define dma_rxenabled(di)               ((di)->di_fn->rxenabled(di))
+#define dma_rx(di)                      ((di)->di_fn->rx(di))
+#define dma_rxfill(di)                  ((di)->di_fn->rxfill(di))
+#define dma_txreclaim(di, range)	((di)->di_fn->txreclaim(di, range))
+#define dma_rxreclaim(di)               ((di)->di_fn->rxreclaim(di))
+#define dma_getvar(di, name)		((di)->di_fn->d_getvar(di, name))
+#define dma_getnexttxp(di, range)	((di)->di_fn->getnexttxp(di, range))
+#define dma_getnextrxp(di, forceall)    ((di)->di_fn->getnextrxp(di, forceall))
+#define dma_peeknexttxp(di)             ((di)->di_fn->peeknexttxp(di))
+#define dma_peeknextrxp(di)             ((di)->di_fn->peeknextrxp(di))
+#define dma_rxparam_get(di, off, bufs)	((di)->di_fn->rxparam_get(di, off, bufs))
+
+#define dma_txblock(di)                 ((di)->di_fn->txblock(di))
+#define dma_txunblock(di)               ((di)->di_fn->txunblock(di))
+#define dma_txactive(di)                ((di)->di_fn->txactive(di))
+#define dma_rxactive(di)                ((di)->di_fn->rxactive(di))
+#define dma_txrotate(di)                ((di)->di_fn->txrotate(di))
+#define dma_counterreset(di)            ((di)->di_fn->counterreset(di))
+#define dma_ctrlflags(di, mask, flags)  ((di)->di_fn->ctrlflags((di), (mask), (flags)))
+#define dma_txpending(di)		((di)->di_fn->txpending(di))
+#define dma_txcommitted(di)		((di)->di_fn->txcommitted(di))
 #if defined(BCMDBG) || defined(BCMDBG_DUMP)
-#define dma_dump(di, buf, dumpring)	((di)->di_fn.dump(di, buf, dumpring))
-#define dma_dumptx(di, buf, dumpring)	((di)->di_fn.dumptx(di, buf, dumpring))
-#define dma_dumprx(di, buf, dumpring)	((di)->di_fn.dumprx(di, buf, dumpring))
+#define dma_dump(di, buf, dumpring)	((di)->di_fn->dump(di, buf, dumpring))
+#define dma_dumptx(di, buf, dumpring)	((di)->di_fn->dumptx(di, buf, dumpring))
+#define dma_dumprx(di, buf, dumpring)	((di)->di_fn->dumprx(di, buf, dumpring))
+#endif /* defined(BCMDBG) || defined(BCMDBG_DUMP) */
+#define dma_avoidance_cnt(di)		((di)->di_fn->avoidancecnt(di))
+
+#else /* BCMDMA32 */
+extern const di_fcn_t dma64proc;
+
+#define dma_detach(di)			(dma64proc.detach(di))
+#define dma_txreset(di)			(dma64proc.txreset(di))
+#define dma_rxreset(di)			(dma64proc.rxreset(di))
+#define dma_rxidle(di)			(dma64proc.rxidle(di))
+#define dma_txinit(di)                  (dma64proc.txinit(di))
+#define dma_txenabled(di)               (dma64proc.txenabled(di))
+#define dma_rxinit(di)                  (dma64proc.rxinit(di))
+#define dma_txsuspend(di)               (dma64proc.txsuspend(di))
+#define dma_txresume(di)                (dma64proc.txresume(di))
+#define dma_txsuspended(di)             (dma64proc.txsuspended(di))
+#define dma_txsuspendedidle(di)         (dma64proc.txsuspendedidle(di))
+#ifdef WL_MULTIQUEUE
+#define dma_txflush(di)                 (dma64proc.txflush(di))
+#define dma_txflush_clear(di)           (dma64proc.txflush_clear(di))
+#endif /* WL_MULTIQUEUE */
+#define dma_txfast(di, p, commit)	(dma64proc.txfast(di, p, commit))
+#if !defined(_CFE_)
+#define dma_txunframed(di, p, l, commit)(dma64proc.txunframed(di, p, l, commit))
+#define dma_getpos(di, dir)		(dma64proc.getpos(di, dir))
+#endif /* !_CFE_ */
+#define dma_fifoloopbackenable(di)      (dma64proc.fifoloopbackenable(di))
+#define dma_txstopped(di)               (dma64proc.txstopped(di))
+#define dma_rxstopped(di)               (dma64proc.rxstopped(di))
+#define dma_rxenable(di)                (dma64proc.rxenable(di))
+#define dma_rxenabled(di)               (dma64proc.rxenabled(di))
+#define dma_rx(di)                      (dma64proc.rx(di))
+#define dma_rxfill(di)                  (dma64proc.rxfill(di))
+#define dma_txreclaim(di, range)	(dma64proc.txreclaim(di, range))
+#define dma_rxreclaim(di)               (dma64proc.rxreclaim(di))
+#define dma_getvar(di, name)		(dma64proc.d_getvar(di, name))
+#define dma_getnexttxp(di, range)	(dma64proc.getnexttxp(di, range))
+#define dma_getnextrxp(di, forceall)    (dma64proc.getnextrxp(di, forceall))
+#define dma_peeknexttxp(di)             (dma64proc.peeknexttxp(di))
+#define dma_peeknextrxp(di)             (dma64proc.peeknextrxp(di))
+#define dma_rxparam_get(di, off, bufs)	(dma64proc.rxparam_get(di, off, bufs))
+
+#define dma_txblock(di)                 (dma64proc.txblock(di))
+#define dma_txunblock(di)               (dma64proc.txunblock(di))
+#define dma_txactive(di)                (dma64proc.txactive(di))
+#define dma_rxactive(di)                (dma64proc.rxactive(di))
+#define dma_txrotate(di)                (dma64proc.txrotate(di))
+#define dma_counterreset(di)            (dma64proc.counterreset(di))
+#define dma_ctrlflags(di, mask, flags)  (dma64proc.ctrlflags((di), (mask), (flags)))
+#define dma_txpending(di)		(dma64proc.txpending(di))
+#define dma_txcommitted(di)		(dma64proc.txcommitted(di))
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
+#define dma_dump(di, buf, dumpring)	(dma64proc.dump(di, buf, dumpring))
+#define dma_dumptx(di, buf, dumpring)	(dma64proc.dumptx(di, buf, dumpring))
+#define dma_dumprx(di, buf, dumpring)	(dma64proc.dumprx(di, buf, dumpring))
 #endif
+#define dma_avoidance_cnt(di)		(dma64proc.avoidancecnt(di))
+
+#endif /* BCMDMA32 */
 
 /* return addresswidth allowed
  * This needs to be done after SB attach but before dma attach.

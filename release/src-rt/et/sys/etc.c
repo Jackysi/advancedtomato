@@ -3,14 +3,14 @@
  * Broadcom Home Networking Division 10/100 Mbit/s Ethernet
  * Device Driver.
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
  * the contents of this file may not be disclosed to third parties, copied
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
- * $Id: etc.c,v 1.105.2.5 2009/07/17 23:40:42 Exp $
+ * $Id: etc.c,v 1.119.2.2 2010-07-01 23:25:01 Exp $
  */
 
 #include <typedefs.h>
@@ -73,12 +73,14 @@ uint32 priq_selector[] = {
 struct chops*
 etc_chipmatch(uint vendor, uint device)
 {
+#if !defined(_CFE_) || defined(CFG_ETC47XX)
 	{
 		extern struct chops bcm47xx_et_chops;
 
 		if (bcm47xx_et_chops.id(vendor, device))
 			return (&bcm47xx_et_chops);
 	}
+#endif
 
 #ifdef CFG_GMAC
 	{
@@ -219,17 +221,17 @@ int
 etc_iovar(etc_info_t *etc, uint cmd, uint set, void *arg)
 {
 	int error;
-#ifdef ETROBO
+#if defined(ETROBO) && !defined(_CFE_)
 	int i;
 	uint *vecarg;
 	robo_info_t *robo = etc->robo;
-#endif
+#endif /* ETROBO && _CFE_ */
 
 	error = 0;
 	ET_TRACE(("et%d: etc_iovar: cmd 0x%x\n", etc->unit, cmd));
 
 	switch (cmd) {
-#ifdef ETROBO
+#if defined(ETROBO) && !defined(_CFE_)
 		case IOV_ET_POWER_SAVE_MODE:
 			vecarg = (uint *)arg;
 			if (set)
@@ -250,7 +252,18 @@ etc_iovar(etc_info_t *etc, uint cmd, uint set, void *arg)
 				}
 			}
 			break;
-#endif /* ETROBO */
+#endif /* ETROBO && !_CFE_ */
+#ifdef BCMDBG
+		case IOV_ET_CLEAR_DUMP:
+			if (set) {
+				uint size = ((char *)(&etc->rxbadlen) - (char *)(&etc->txframe));
+
+				bzero((char *)&etc->txframe, size + sizeof(etc->rxbadlen));
+				(*etc->chops->dumpmib)(etc->ch, NULL, TRUE);
+				error = 0;
+			}
+			break;
+#endif /* BCMDBG */
 
 		default:
 			error = -1;
@@ -442,37 +455,36 @@ etc_watchdog(etc_info_t *etc)
 {
 	uint16 status;
 	uint16 lpa;
-#ifdef ETROBO
+#if defined(ETROBO) && !defined(_CFE_)
 	robo_info_t *robo = (robo_info_t *)etc->robo;
 	static uint32 sleep_timer = PWRSAVE_SLEEP_TIME, wake_timer;
-#endif
+#endif /* ETROBO && !_CFE_ */
 
 	etc->now++;
 
-#ifdef ETROBO
-	/* Every PWRSAVE_WAKE_TIME sec the phys are put into the normal
-	 * mode and link status is checked after PWRSAVE_SLEEP_TIME sec
-	 * to see if any of the links is up. If any of the links is up
-	 * then that port is taken out of the manual power save mode
+#if defined(ETROBO) && !defined(_CFE_)
+	/* Every PWRSAVE_WAKE_TIME sec the phys that are in manual mode 
+	 * is taken out of that mode and link status is checked after
+	 * PWRSAVE_SLEEP_TIME sec to see if any of the links is up
+	 * to take that port is taken out of the manual power save mode
 	 */
-	if (robo && (robo->pwrsave_mode_manual | robo->pwrsave_mode_auto)) {
-		if (etc->now == sleep_timer) {
-			robo_power_save_toggle(robo, 0);
-			wake_timer = sleep_timer + PWRSAVE_WAKE_TIME;
-		} else if (etc->now == wake_timer) {
-			robo_power_save_mode_update(robo, FALSE);
-			robo_power_save_toggle(robo, 1);
-			sleep_timer = wake_timer + PWRSAVE_SLEEP_TIME;
+	if (robo) {
+		if (ROBO_IS_PWRSAVE_MANUAL(robo)) {
+			if (etc->now == sleep_timer) {
+				robo_power_save_toggle(robo, FALSE);
+				wake_timer = sleep_timer + PWRSAVE_WAKE_TIME;
+			} else if (etc->now == wake_timer) {
+				robo_power_save_toggle(robo, TRUE);
+				sleep_timer = wake_timer + PWRSAVE_SLEEP_TIME;
+			}
 		}
 
-		/* Check the link status. if the link goes down put the
-		 * corresponding phy in power save mode (auto, manual or
-		 * both). if link comes up put the phy in normal mode.
-		 */
-		if (etc->now == PWRSAVE_WAKE_TIME)
-			robo_power_save_mode_update(robo, TRUE);
+		/* Apply the auto configuration from the nvram variable in the beginning */
+		if ((etc->now == PWRSAVE_WAKE_TIME) && ROBO_IS_PWRSAVE_AUTO(robo)) {
+			robo_power_save_mode_update(robo);
+		}
 	}
-#endif /* ETROBO */
+#endif /* ETROBO && !_CFE_ */
 
 	/* no local phy registers */
 	if (etc->phyaddr == EPHY_NOREG) {
@@ -592,6 +604,86 @@ etc_qos(etc_info_t *etc, uint on)
 	et_init(etc->et, ET_INIT_DEF_OPTIONS);
 }
 
+/* WAR: BCM53115 switch is not retaining the tag while forwarding
+ * the vlan/priority tagged frames even when tag status preserve
+ * is enabled. This problem can be only worked around by doing
+ * double tagging for priority tagged frames. This will trick the
+ * switch in to just removing the outer tag on the egress. Inner
+ * tag remains which contains the prio.
+ */
+#ifdef ETROBO
+void *
+etc_bcm53115_war(etc_info_t *etc, void *p)
+{
+	struct ethervlan_header *evh;
+	uint16 vlan_tag;
+	int vlan_prio;
+	uint8 *data = PKTDATA(etc->osh, p);
+	uint8 *ip_body = data + sizeof(struct ethervlan_header);
+
+	evh = (struct ethervlan_header *)data;
+	/* No additional TAG added if IPTOS has priority != 0 */
+	if ((evh->vlan_type != hton16(ETHER_TYPE_8021Q)) ||
+	    (IP_TOS46(ip_body) & IPV4_TOS_PREC_MASK))
+		return (p);
+
+	vlan_tag = evh->vlan_tag;
+	vlan_prio = vlan_tag & hton16(VLAN_PRI_MASK << VLAN_PRI_SHIFT);
+
+	/* No need to do anything for priority 0 */
+	if (vlan_prio == 0)
+		return (p);
+
+	/* If the packet is shared or there is not enough headroom
+	 * then allocate new header buffer and link the original
+	 * buffer to it.
+	 */
+	if ((PKTHEADROOM(etc->osh, p) < VLAN_TAG_LEN) || PKTSHARED(p)) {
+		void *pkt;
+		uint16 ether_type;
+
+		if ((pkt = PKTGET(etc->osh, VLAN_TAG_LEN +
+		                  ETHERVLAN_HDR_LEN, TRUE)) == NULL) {
+			ET_ERROR(("et%d: PKTGET of size %d failed during expand head\n",
+			          etc->unit, VLAN_TAG_LEN + ETHERVLAN_HDR_LEN));
+			return (NULL);
+		}
+
+		/* Assign priority of original frame */
+		PKTSETPRIO(pkt, ntoh16(vlan_prio) >> VLAN_PRI_SHIFT);
+
+		ether_type = evh->ether_type;
+
+		/* Copy the vlan header to the first buffer */
+		memcpy(PKTDATA(etc->osh, pkt), data, ETHERVLAN_HDR_LEN);
+		PKTPULL(etc->osh, p, ETHERVLAN_HDR_LEN);
+
+		/* Align the pointer to initialize the inner vlan tag and type
+		 * fields.
+		 */
+		evh = (struct ethervlan_header *)(PKTDATA(etc->osh, pkt) + VLAN_TAG_LEN);
+		evh->vlan_tag = vlan_tag;
+		evh->ether_type = ether_type;
+
+		/* Chain the original buffer to new header buffer */
+		PKTSETNEXT(etc->osh, pkt, p);
+
+		p = pkt;
+	} else {
+		data = PKTPUSH(etc->osh, p, VLAN_TAG_LEN);
+		ETHERVLAN_MOVE_HDR(data, data + VLAN_TAG_LEN);
+		evh = (struct ethervlan_header *)(data + VLAN_TAG_LEN);
+	}
+
+	evh->vlan_type = hton16(ETHER_TYPE_8021Q);
+
+	/* Clear the vlan id in the inner tag */
+	evh->vlan_tag &= ~(hton16(VLAN_VID_MASK));
+
+	return (p);
+}
+#endif /* ETROBO */
+
 #ifdef BCMDBG
 void
 etc_dump(etc_info_t *etc, struct bcmstrbuf *b)
@@ -644,7 +736,7 @@ etc_dumpetc(etc_info_t *etc, struct bcmstrbuf *b)
 
 	/* transmit & receive stat counters */
 	/* hardware mib pkt and octet counters wrap too quickly to be useful */
-	(*etc->chops->dumpmib)(etc->ch, b);
+	(*etc->chops->dumpmib)(etc->ch, b, FALSE);
 
 	bcm_bprintf(b, "txnobuf %d reset %d dmade %d dmada %d dmape %d\n",
 	               etc->txnobuf, etc->reset, etc->dmade, etc->dmada, etc->dmape);

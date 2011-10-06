@@ -335,6 +335,46 @@ static ssize_t store_flush(struct device *d,
 }
 static DEVICE_ATTR(flush, S_IWUSR, NULL, store_flush);
 
+#ifdef CONFIG_INET_GSO
+static ssize_t show_gso(struct device *d,
+			   struct device_attribute *attr,
+			   const char *buf, size_t len)
+{
+	struct net_bridge *br = to_bridge(d);
+	struct net_device *gso_dev = br->dev;
+
+	if ((br->feature_mask & NETIF_F_GSO) && (gso_dev->features & NETIF_F_GSO))
+		printk("%s: gso on\n", br->dev->name);
+	else
+		printk("%s: gso off\n", br->dev->name);
+	return len;
+}
+
+static ssize_t store_gso(struct device *d,
+				struct device_attribute *attr,
+				const char *buf, size_t len)
+{
+	struct net_bridge *br = to_bridge(d);
+	struct net_device *gso_dev = br->dev;
+
+	if (!strncmp(buf, "on", 2)) {
+		br->feature_mask |= NETIF_F_GSO;
+		gso_dev->features |= NETIF_F_GSO;
+		printk("%s: gso on\n", br->dev->name);
+	}
+	else if (!strncmp(buf, "off", 3)) {
+		br->feature_mask &= ~NETIF_F_GSO;
+		gso_dev->features &= ~NETIF_F_GSO;		
+		printk("%s: gso off\n", br->dev->name);
+	}
+	else
+		printk("%s: invalid argument\n", br->dev->name);
+	
+	return len;
+}
+static DEVICE_ATTR(gso, S_IRUGO | S_IWUSR, show_gso, store_gso);
+#endif /* CONFIG_INET_GSO */
+
 static struct attribute *bridge_attrs[] = {
 	&dev_attr_forward_delay.attr,
 	&dev_attr_hello_time.attr,
@@ -354,6 +394,9 @@ static struct attribute *bridge_attrs[] = {
 	&dev_attr_gc_timer.attr,
 	&dev_attr_group_addr.attr,
 	&dev_attr_flush.attr,
+#ifdef CONFIG_INET_GSO
+	&dev_attr_gso.attr,
+#endif /* CONFIG_INET_GSO */
 	NULL
 };
 

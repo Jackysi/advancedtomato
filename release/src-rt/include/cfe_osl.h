@@ -1,7 +1,7 @@
 /*
  * CFE boot loader OS Abstraction Layer.
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: cfe_osl.h,v 1.49.2.6 2009/11/04 01:17:49 Exp $
+ * $Id: cfe_osl.h,v 1.60.12.1 2010-05-23 18:14:46 Exp $
  */
 
 #ifndef _cfe_osl_h_
@@ -101,6 +101,7 @@ extern void osl_assert(char *exp, char *file, int line);
 
 /* bcopy, bcmp, and bzero */
 #define bcmp(b1, b2, len)	lib_memcmp((b1), (b2), (len))
+#define	memmove(dest, src, n)	lib_memcpy((dest), (src), (n))
 
 struct osl_info {
 	void *pdev;
@@ -133,6 +134,7 @@ extern void osl_detach(osl_t *osh);
 #define OSL_CACHED(a)		(a)
 #endif
 
+
 #ifdef __mips__
 #define OSL_PREF_RANGE_LD(va, sz) prefetch_range_PREF_LOAD_RETAINED(va, sz)
 #define OSL_PREF_RANGE_ST(va, sz) prefetch_range_PREF_STORE_RETAINED(va, sz)
@@ -162,11 +164,11 @@ extern int osl_busprobe(uint32 *val, uint32 addr);
 
 /* allocate/free shared (dma-able) consistent (uncached) memory */
 #define	DMA_CONSISTENT_ALIGN	4096		/* 4k alignment */
-#define	DMA_ALLOC_CONSISTENT(osh, size, pap, dmah) \
-	osl_dma_alloc_consistent((size), (pap))
+#define	DMA_ALLOC_CONSISTENT(osh, size, align, tot, pap, dmah) \
+	osl_dma_alloc_consistent((size), (align), (tot), (pap))
 #define	DMA_FREE_CONSISTENT(osh, va, size, pa, dmah) \
 	osl_dma_free_consistent((void*)(va))
-extern void *osl_dma_alloc_consistent(uint size, ulong *pap);
+extern void *osl_dma_alloc_consistent(uint size, uint16 align_bits, uint *alloced, ulong *pap);
 extern void osl_dma_free_consistent(void *va);
 
 /* map/unmap direction */
@@ -232,6 +234,8 @@ struct lbuf {
 #define	PKTTONATIVE(lb, buffer)		osl_pkt_tonative((lb), (buffer))
 #define PKTSHARED(lb)                   (0)
 #define PKTALLOCED(osh)			(0)
+#define PKTSETPOOL(osh, lb, x, y)	do {} while (0)
+#define PKTPOOL(osh, lb)		FALSE
 #define PKTLIST_DUMP(osh, buf)
 
 extern void osl_pkt_frmnative(iocb_buffer_t *buffer, struct lbuf *lb);

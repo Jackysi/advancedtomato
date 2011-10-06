@@ -1,41 +1,51 @@
 /*
  * Driver O/S-independent utility routines
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
- *
- * $Id: bcmutils.c,v 1.218.2.19 2009/11/11 18:22:21 Exp $
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ * $Id: bcmutils.c,v 1.278.2.15 2011-01-27 19:03:19 Exp $
  */
 
 #include <typedefs.h>
 #include <bcmdefs.h>
 #include <stdarg.h>
-#include <bcmutils.h>
 #ifdef BCMDRIVER
 #include <osl.h>
+#include <bcmutils.h>
 #include <siutils.h>
 #include <bcmnvram.h>
 #else
 #include <stdio.h>
 #include <string.h>
+/* This case for external supplicant use */
+#if defined(BCMEXTSUP)
+#include <bcm_osl.h>
+#endif
+
+#include <bcmutils.h>
 #endif /* BCMDRIVER */
-#if defined(_WIN32) || defined(NDIS) || defined(__vxworks) || defined(_CFE_) || \
-	defined(EFI)
+#if defined(_WIN32) || defined(NDIS) || defined(__vxworks) || defined(_CFE_)
 /* debatable */
 #include <bcmstdlib.h>
-#endif 
+#endif
 #include <bcmendian.h>
 #include <bcmdevs.h>
 #include <proto/ethernet.h>
 #include <proto/vlan.h>
 #include <proto/bcmip.h>
 #include <proto/802.1d.h>
-
+#include <proto/802.11.h>
 #ifdef BCMPERFSTATS
 #include <bcmperf.h>
 #endif
@@ -46,6 +56,462 @@
 static char *nvram_vars = NULL;
 static int vars_len = -1;
 #endif /* WLC_LOW */
+
+int
+pktpool_init(osl_t *osh, pktpool_t *pktp, int *pplen, int plen, bool istx)
+{
+	int i, err = BCME_OK;
+	void *p;
+	int pktplen;
+
+	ASSERT(pktp != NULL);
+	ASSERT(osh != NULL);
+	ASSERT(pplen != NULL);
+
+	pktplen = *pplen;
+
+	bzero(pktp, sizeof(pktpool_t));
+	pktp->inited = TRUE;
+	pktp->istx = istx ? TRUE : FALSE;
+	pktp->plen = (uint16)plen;
+	*pplen = 0;
+
+	pktp->maxlen = PKTPOOL_LEN_MAX;
+	if (pktplen > pktp->maxlen)
+		pktplen = pktp->maxlen;
+
+	for (i = 0; i < pktplen; i++) {
+		p = PKTGET(osh, plen, pktp->istx);
+		if (p == NULL) {
+			/* Not able to allocate all requested pkts
+			 * so just return what was actually allocated
+			 * We can add to the pool later
+			 */
+			if (pktp->w == 0)
+				err = BCME_NOMEM;
+
+			goto exit;
+		}
+
+		PKTSETPOOL(osh, p, TRUE, pktp);
+		pktp->q[i] = p;
+		pktp->w++;
+		pktp->len++;
+#ifdef BCMDBG_POOL
+		pktp->dbg_q[pktp->dbg_qlen++].p = p;
+#endif
+	}
+
+exit:
+	*pplen = pktp->w;
+	pktp->len++; /* Add one for end */
+	return err;
+}
+
+int
+pktpool_deinit(osl_t *osh, pktpool_t *pktp)
+{
+	int i;
+	int cnt;
+
+	ASSERT(osh != NULL);
+	ASSERT(pktp != NULL);
+
+	cnt = pktp->len;
+	for (i = 0; i < cnt; i++) {
+		if (pktp->q[i] != NULL) {
+			PKTSETPOOL(osh, pktp->q[i], FALSE, NULL);
+			PKTFREE(osh, pktp->q[i], pktp->istx);
+			pktp->q[i] = NULL;
+			pktp->len--;
+		}
+#ifdef BCMDBG_POOL
+		if (pktp->dbg_q[i].p != NULL)
+			pktp->dbg_q[i].p = NULL;
+#endif
+	}
+	pktp->inited = FALSE;
+
+	/* Are there still pending pkts? */
+	ASSERT(pktpool_len(pktp) == 0);
+
+	return 0;
+}
+
+int
+pktpool_fill(osl_t *osh, pktpool_t *pktp, bool minimal)
+{
+	void *p;
+	int err = 0;
+	int len, psize, maxlen;
+
+	ASSERT(pktpool_plen(pktp) != 0);
+
+	maxlen = pktpool_maxlen(pktp);
+	psize = minimal ? (maxlen >> 2) : maxlen;
+	len = pktpool_len(pktp);
+	for (; len < psize; len++) {
+		p = PKTGET(osh, pktpool_plen(pktp), FALSE);
+		if (p == NULL) {
+			err = BCME_NOMEM;
+			break;
+		}
+
+		if (pktpool_add(pktp, p) != BCME_OK) {
+			PKTFREE(osh, p, FALSE);
+			err = BCME_ERROR;
+			break;
+		}
+	}
+
+	return err;
+}
+
+uint16
+pktpool_avail(pktpool_t *pktp)
+{
+	if (pktp->w == pktp->r)
+		return 0;
+
+	return (pktp->w > pktp->r) ? (pktp->w - pktp->r) : ((pktp->len) - (pktp->r - pktp->w));
+}
+
+static void *
+pktpool_deq(pktpool_t *pktp)
+{
+	void *p;
+
+	if (pktp->r == pktp->w)
+		return NULL;
+
+	p = pktp->q[pktp->r];
+	ASSERT(p != NULL);
+
+	pktp->q[pktp->r++] = NULL;
+	pktp->r %= (pktp->len);
+
+	return p;
+}
+
+static void
+pktpool_enq(pktpool_t *pktp, void *p)
+{
+	uint16 next;
+
+	ASSERT(p != NULL);
+
+	next = (pktp->w + 1) % (pktp->len);
+	if (next == pktp->r) {
+		/* Should not happen; otherwise pkt leak */
+		ASSERT(0);
+		return;
+	}
+
+	ASSERT(pktp->q[pktp->w] == NULL);
+
+#ifdef BCMDBG_ASSERT
+	if (pktpool_avail(pktp)) {
+		int prev = (pktp->w == 0) ? (pktp->len - 1) : (pktp->w - 1);
+		ASSERT(pktp->q[prev] != p);
+	}
+#endif
+	pktp->q[pktp->w] = p;
+	pktp->w = next;
+}
+
+int
+pktpool_avail_register(pktpool_t *pktp, pktpool_cb_t cb, void *arg)
+{
+	int i;
+
+	ASSERT(cb != NULL);
+
+	i = pktp->cbcnt;
+	if (i == PKTPOOL_CB_MAX)
+		return BCME_ERROR;
+
+	ASSERT(pktp->cbs[i].cb == NULL);
+	pktp->cbs[i].cb = cb;
+	pktp->cbs[i].arg = arg;
+	pktp->cbcnt++;
+
+	return 0;
+}
+
+int
+pktpool_empty_register(pktpool_t *pktp, pktpool_cb_t cb, void *arg)
+{
+	int i;
+
+	ASSERT(cb != NULL);
+
+	i = pktp->ecbcnt;
+	if (i == PKTPOOL_CB_MAX)
+		return BCME_ERROR;
+
+	ASSERT(pktp->ecbs[i].cb == NULL);
+	pktp->ecbs[i].cb = cb;
+	pktp->ecbs[i].arg = arg;
+	pktp->ecbcnt++;
+
+	return 0;
+}
+
+static int
+pktpool_empty_notify(pktpool_t *pktp)
+{
+	int i;
+
+	pktp->empty = TRUE;
+	for (i = 0; i < pktp->ecbcnt; i++) {
+		ASSERT(pktp->ecbs[i].cb != NULL);
+		pktp->ecbs[i].cb(pktp, pktp->ecbs[i].arg);
+	}
+	pktp->empty = FALSE;
+
+	return 0;
+}
+
+#ifdef BCMDBG_POOL
+int
+pktpool_dbg_register(pktpool_t *pktp, pktpool_cb_t cb, void *arg)
+{
+	int i;
+
+	ASSERT(cb);
+
+	i = pktp->dbg_cbcnt;
+	if (i == PKTPOOL_CB_MAX)
+		return BCME_ERROR;
+
+	ASSERT(pktp->dbg_cbs[i].cb == NULL);
+	pktp->dbg_cbs[i].cb = cb;
+	pktp->dbg_cbs[i].arg = arg;
+	pktp->dbg_cbcnt++;
+
+	return 0;
+}
+
+int pktpool_dbg_notify(pktpool_t *pktp);
+
+int
+pktpool_dbg_notify(pktpool_t *pktp)
+{
+	int i;
+
+	for (i = 0; i < pktp->dbg_cbcnt; i++) {
+		ASSERT(pktp->dbg_cbs[i].cb);
+		pktp->dbg_cbs[i].cb(pktp, pktp->dbg_cbs[i].arg);
+	}
+
+	return 0;
+}
+
+int
+pktpool_dbg_dump(pktpool_t *pktp)
+{
+	int i;
+
+	printf("pool len=%d maxlen=%d\n",  pktp->dbg_qlen, pktp->maxlen);
+	for (i = 0; i < pktp->dbg_qlen; i++) {
+		ASSERT(pktp->dbg_q[i].p);
+		printf("%d, p: 0x%x dur:%lu us state:%d\n", i,
+			pktp->dbg_q[i].p, pktp->dbg_q[i].dur/100, PKTPOOLSTATE(pktp->dbg_q[i].p));
+	}
+
+	return 0;
+}
+
+int
+pktpool_stats_dump(pktpool_t *pktp, pktpool_stats_t *stats)
+{
+	int i;
+	int state;
+
+	bzero(stats, sizeof(pktpool_stats_t));
+	for (i = 0; i < pktp->dbg_qlen; i++) {
+		ASSERT(pktp->dbg_q[i].p != NULL);
+
+		state = PKTPOOLSTATE(pktp->dbg_q[i].p);
+		switch (state) {
+			case POOL_TXENQ:
+				stats->enq++; break;
+			case POOL_TXDH:
+				stats->txdh++; break;
+			case POOL_TXD11:
+				stats->txd11++; break;
+			case POOL_RXDH:
+				stats->rxdh++; break;
+			case POOL_RXD11:
+				stats->rxd11++; break;
+			case POOL_RXFILL:
+				stats->rxfill++; break;
+			case POOL_IDLE:
+				stats->idle++; break;
+		}
+	}
+
+	return 0;
+}
+
+int
+pktpool_start_trigger(pktpool_t *pktp, void *p)
+{
+	uint32 cycles, i;
+
+	if (!PKTPOOL(NULL, p))
+		return 0;
+
+	OSL_GETCYCLES(cycles);
+
+	for (i = 0; i < pktp->dbg_qlen; i++) {
+		ASSERT(pktp->dbg_q[i].p != NULL);
+
+		if (pktp->dbg_q[i].p == p) {
+			pktp->dbg_q[i].cycles = cycles;
+			break;
+		}
+	}
+
+	return 0;
+}
+
+int pktpool_stop_trigger(pktpool_t *pktp, void *p);
+int
+pktpool_stop_trigger(pktpool_t *pktp, void *p)
+{
+	uint32 cycles, i;
+
+	if (!PKTPOOL(NULL, p))
+		return 0;
+
+	OSL_GETCYCLES(cycles);
+
+	for (i = 0; i < pktp->dbg_qlen; i++) {
+		ASSERT(pktp->dbg_q[i].p != NULL);
+
+		if (pktp->dbg_q[i].p == p) {
+			if (pktp->dbg_q[i].cycles == 0)
+				break;
+
+			if (cycles >= pktp->dbg_q[i].cycles)
+				pktp->dbg_q[i].dur = cycles - pktp->dbg_q[i].cycles;
+			else
+				pktp->dbg_q[i].dur =
+					(((uint32)-1) - pktp->dbg_q[i].cycles) + cycles + 1;
+
+			pktp->dbg_q[i].cycles = 0;
+			break;
+		}
+	}
+
+	return 0;
+}
+#endif /* BCMDBG_POOL */
+
+static int
+pktpool_avail_notify(pktpool_t *pktp)
+{
+	int i, k, idx;
+	int avail;
+
+	k = pktp->cbcnt - 1;
+	for (i = 0; i < pktp->cbcnt; i++) {
+		avail = pktpool_avail(pktp);
+
+		if (avail) {
+			if (pktp->cbtoggle)
+				idx = i;
+			else
+				idx = k--;
+
+			ASSERT(pktp->cbs[idx].cb != NULL);
+			pktp->cbs[idx].cb(pktp, pktp->cbs[idx].arg);
+		}
+	}
+
+	/* Alternate between filling from head or tail
+	 */
+	pktp->cbtoggle ^= 1;
+
+	return 0;
+}
+
+void *
+pktpool_get(pktpool_t *pktp)
+{
+	void *p;
+
+	p = pktpool_deq(pktp);
+
+	if (p == NULL) {
+		/* Notify and try to reclaim tx pkts */
+		if (pktp->ecbcnt)
+			pktpool_empty_notify(pktp);
+
+		p = pktpool_deq(pktp);
+	}
+
+	return p;
+}
+
+void
+pktpool_free(pktpool_t *pktp, void *p)
+{
+	ASSERT(p != NULL);
+
+#ifdef BCMDBG_POOL
+	/* pktpool_stop_trigger(pktp, p); */
+#endif
+
+	pktpool_enq(pktp, p);
+
+	if (pktp->cbcnt) {
+		if (pktp->empty == FALSE)
+			pktpool_avail_notify(pktp);
+	}
+}
+
+int
+pktpool_add(pktpool_t *pktp, void *p)
+{
+	ASSERT(p != NULL);
+
+	if (pktpool_len(pktp) == pktp->maxlen)
+		return BCME_RANGE;
+
+	ASSERT(pktpool_plen(pktp) == PKTLEN(NULL, p)); /* pkts in pool have same length */
+	PKTSETPOOL(NULL, p, TRUE, pktp);
+
+	pktp->len++;
+	if (pktp->r > pktp->w) {
+		/* Add to tail */
+		ASSERT(pktp->q[pktp->len - 1] == NULL);
+		pktp->q[pktp->len - 1] = p;
+	} else
+		pktpool_enq(pktp, p);
+
+#ifdef BCMDBG_POOL
+	pktp->dbg_q[pktp->dbg_qlen++].p = p;
+#endif
+
+	return 0;
+}
+
+int
+pktpool_setmaxlen(pktpool_t *pktp, uint16 maxlen)
+{
+	if (maxlen > PKTPOOL_LEN_MAX)
+		maxlen = PKTPOOL_LEN_MAX;
+
+	/* if pool is already beyond maxlen, then just cap it
+	 * since we currently do not reduce the pool len
+	 * already allocated
+	 */
+	pktp->maxlen = (pktpool_len(pktp) > maxlen) ? pktpool_len(pktp) : maxlen;
+
+	return pktp->maxlen;
+}
 
 /* copy a pkt buffer chain into a buffer */
 uint
@@ -133,7 +599,7 @@ pkt2pktcopy(osl_t *osh, void *p1, uint offs1, void *p2, uint offs2, int maxlen)
 
 
 /* return total length of buffer chain */
-uint
+uint BCMFASTPATH
 pkttotlen(osl_t *osh, void *p)
 {
 	uint total;
@@ -155,13 +621,40 @@ pktlast(osl_t *osh, void *p)
 }
 
 /* count segments of a chained packet */
-uint
+uint BCMFASTPATH
 pktsegcnt(osl_t *osh, void *p)
 {
 	uint cnt;
 
 	for (cnt = 0; p; p = PKTNEXT(osh, p))
 		cnt++;
+
+	return cnt;
+}
+
+
+/* count segments of a chained packet */
+uint BCMFASTPATH
+pktsegcnt_war(osl_t *osh, void *p)
+{
+	uint cnt;
+	uint8 *pktdata;
+	uint len, remain, align64;
+
+	for (cnt = 0; p; p = PKTNEXT(osh, p)) {
+		cnt++;
+		len = PKTLEN(osh, p);
+		if (len > 128) {
+			pktdata = (uint8 *)PKTDATA(osh, p);	/* starting address of data */
+			align64 = (uint)((uintptr)pktdata & 0x3f);	/* aligned to 64B */
+			align64 = (64 - align64) & 0x3f;
+			len -= align64;		/* bytes from aligned 64B to end */
+			/* if aligned to 128B, check for MOD 128 between 1 to 4B */
+			remain = len % 128;
+			if (remain > 0 && remain <= 4)
+				cnt++;		/* add extra seg */
+		}
+	}
 
 	return cnt;
 }
@@ -282,24 +775,36 @@ pktq_pdeq_tail(struct pktq *pq, int prec)
 	return p;
 }
 
-void BCMFASTPATH
-pktq_pflush(osl_t *osh, struct pktq *pq, int prec, bool dir)
+void
+pktq_pflush(osl_t *osh, struct pktq *pq, int prec, bool dir, ifpkt_cb_t fn, int arg)
 {
 	struct pktq_prec *q;
-	void *p;
+	void *p, *prev = NULL;
 
 	q = &pq->q[prec];
 	p = q->head;
 	while (p) {
-		q->head = PKTLINK(p);
-		PKTSETLINK(p, NULL);
-		PKTFREE(osh, p, dir);
-		q->len--;
-		pq->len--;
-		p = q->head;
+		if (fn == NULL || (*fn)(p, arg)) {
+			bool head = (p == q->head);
+			if (head)
+				q->head = PKTLINK(p);
+			else
+				PKTSETLINK(prev, PKTLINK(p));
+			PKTSETLINK(p, NULL);
+			PKTFREE(osh, p, dir);
+			q->len--;
+			pq->len--;
+			p = (head ? q->head : PKTLINK(prev));
+		} else {
+			prev = p;
+			p = PKTLINK(p);
+		}
 	}
-	ASSERT(q->len == 0);
-	q->tail = NULL;
+
+	if (q->head == NULL) {
+		ASSERT(q->len == 0);
+		q->tail = NULL;
+	}
 }
 
 bool BCMFASTPATH
@@ -349,8 +854,34 @@ pktq_init(struct pktq *pq, int num_prec, int max_len)
 
 	pq->max = (uint16)max_len;
 
-	for (prec = 0; prec < num_prec; prec++)
+	pq->threshold = (uint16)max_len;
+
+	for (prec = 0; prec < num_prec; prec++) {
 		pq->q[prec].max = pq->max;
+		pq->q[prec].threshold = pq->max;
+	}
+}
+
+void
+pktq_init_threshold(struct pktq *pq, int num_prec, int max_len, int threshold)
+{
+	int prec;
+
+	ASSERT(num_prec > 0 && num_prec <= PKTQ_MAX_PREC);
+
+	/* pq is variable size; only zero out what's requested */
+	bzero(pq, OFFSETOF(struct pktq, q) + (sizeof(struct pktq_prec) * num_prec));
+
+	pq->num_prec = (uint16)num_prec;
+
+	pq->max = (uint16)max_len;
+
+	pq->threshold = (uint16)threshold;
+
+	for (prec = 0; prec < num_prec; prec++) {
+		pq->q[prec].max = pq->max;
+		pq->q[prec].threshold = pq->threshold;
+	}
 }
 
 void * BCMFASTPATH
@@ -426,7 +957,7 @@ pktq_deq_tail(struct pktq *pq, int *prec_out)
 	return p;
 }
 
-void * BCMFASTPATH
+void *
 pktq_peek(struct pktq *pq, int *prec_out)
 {
 	int prec;
@@ -443,7 +974,7 @@ pktq_peek(struct pktq *pq, int *prec_out)
 	return (pq->q[prec].head);
 }
 
-void * BCMFASTPATH
+void *
 pktq_peek_tail(struct pktq *pq, int *prec_out)
 {
 	int prec;
@@ -461,17 +992,26 @@ pktq_peek_tail(struct pktq *pq, int *prec_out)
 	return (pq->q[prec].tail);
 }
 
-void BCMFASTPATH
-pktq_flush(osl_t *osh, struct pktq *pq, bool dir)
+void
+pktq_flush(osl_t *osh, struct pktq *pq, bool dir, ifpkt_cb_t fn, int arg)
 {
 	int prec;
+
+	/* Optimize flush, if pktq len = 0, just return.
+	 * pktq len of 0 means pktq's prec q's are all empty.
+	 */
+	if (pq->len == 0) {
+		return;
+	}
+
 	for (prec = 0; prec < pq->num_prec; prec++)
-		pktq_pflush(osh, pq, prec, dir);
-	ASSERT(pq->len == 0);
+		pktq_pflush(osh, pq, prec, dir, fn, arg);
+	if (fn == NULL)
+		ASSERT(pq->len == 0);
 }
 
 /* Return sum of lengths of a specific set of precedences */
-int BCMFASTPATH
+int
 pktq_mlen(struct pktq *pq, uint prec_bmp)
 {
 	int prec, len;
@@ -485,6 +1025,35 @@ pktq_mlen(struct pktq *pq, uint prec_bmp)
 	return len;
 }
 
+/* Priority peek from a specific set of precedences */
+void * BCMFASTPATH
+pktq_mpeek(struct pktq *pq, uint prec_bmp, int *prec_out)
+{
+	struct pktq_prec *q;
+	void *p;
+	int prec;
+
+	if (pq->len == 0)
+	{
+		return NULL;
+	}
+	while ((prec = pq->hi_prec) > 0 && pq->q[prec].head == NULL)
+		pq->hi_prec--;
+
+	while ((prec_bmp & (1 << prec)) == 0 || pq->q[prec].head == NULL)
+		if (prec-- == 0)
+			return NULL;
+
+	q = &pq->q[prec];
+
+	if ((p = q->head) == NULL)
+		return NULL;
+
+	if (prec_out)
+		*prec_out = prec;
+
+	return p;
+}
 /* Priority dequeue from a specific set of precedences */
 void * BCMFASTPATH
 pktq_mdeq(struct pktq *pq, uint prec_bmp, int *prec_out)
@@ -524,8 +1093,12 @@ pktq_mdeq(struct pktq *pq, uint prec_bmp, int *prec_out)
 }
 #endif /* BCMDRIVER */
 
-
+#if defined(BCMROMBUILD)
+const unsigned char BCMROMDATA(bcm_ctype)[] = {
+#else
 const unsigned char bcm_ctype[] = {
+#endif
+
 	_BCM_C,_BCM_C,_BCM_C,_BCM_C,_BCM_C,_BCM_C,_BCM_C,_BCM_C,			/* 0-7 */
 	_BCM_C, _BCM_C|_BCM_S, _BCM_C|_BCM_S, _BCM_C|_BCM_S, _BCM_C|_BCM_S, _BCM_C|_BCM_S, _BCM_C,
 	_BCM_C,	/* 8-15 */
@@ -601,13 +1174,13 @@ BCMROMFN(bcm_strtoul)(char *cp, char **endp, uint base)
 		result = result*base + value;
 		/* Detected overflow */
 		if (result < last_result && !minus)
-			return ((unsigned long) -1);
+			return (ulong)-1;
 		last_result = result;
 		cp++;
 	}
 
 	if (minus)
-		result = (ulong)(result * -1);
+		result = (ulong)(-(long)result);
 
 	if (endp)
 		*endp = (char *)cp;
@@ -668,6 +1241,159 @@ BCMROMFN(bcmstrncat)(char *dest, const char *src, uint size)
 	return (dest);
 }
 
+
+/****************************************************************************
+* Function:   bcmstrtok
+*
+* Purpose:
+*  Tokenizes a string. This function is conceptually similiar to ANSI C strtok(),
+*  but allows strToken() to be used by different strings or callers at the same
+*  time. Each call modifies '*string' by substituting a NULL character for the
+*  first delimiter that is encountered, and updates 'string' to point to the char
+*  after the delimiter. Leading delimiters are skipped.
+*
+* Parameters:
+*  string      (mod) Ptr to string ptr, updated by token.
+*  delimiters  (in)  Set of delimiter characters.
+*  tokdelim    (out) Character that delimits the returned token. (May
+*                    be set to NULL if token delimiter is not required).
+*
+* Returns:  Pointer to the next token found. NULL when no more tokens are found.
+*****************************************************************************
+*/
+char *
+bcmstrtok(char **string, const char *delimiters, char *tokdelim)
+{
+	unsigned char *str;
+	unsigned long map[8];
+	int count;
+	char *nextoken;
+
+	if (tokdelim != NULL) {
+		/* Prime the token delimiter */
+		*tokdelim = '\0';
+	}
+
+	/* Clear control map */
+	for (count = 0; count < 8; count++) {
+		map[count] = 0;
+	}
+
+	/* Set bits in delimiter table */
+	do {
+		map[*delimiters >> 5] |= (1 << (*delimiters & 31));
+	}
+	while (*delimiters++);
+
+	str = (unsigned char*)*string;
+
+	/* Find beginning of token (skip over leading delimiters). Note that
+	 * there is no token iff this loop sets str to point to the terminal
+	 * null (*str == '\0')
+	 */
+	while (((map[*str >> 5] & (1 << (*str & 31))) && *str) || (*str == ' ')) {
+		str++;
+	}
+
+	nextoken = (char*)str;
+
+	/* Find the end of the token. If it is not the end of the string,
+	 * put a null there.
+	 */
+	for (; *str; str++) {
+		if (map[*str >> 5] & (1 << (*str & 31))) {
+			if (tokdelim != NULL) {
+				*tokdelim = *str;
+			}
+
+			*str++ = '\0';
+			break;
+		}
+	}
+
+	*string = (char*)str;
+
+	/* Determine if a token has been found. */
+	if (nextoken == (char *) str) {
+		return NULL;
+	}
+	else {
+		return nextoken;
+	}
+}
+
+
+#define xToLower(C) \
+	((C >= 'A' && C <= 'Z') ? (char)((int)C - (int)'A' + (int)'a') : C)
+
+
+/****************************************************************************
+* Function:   bcmstricmp
+*
+* Purpose:    Compare to strings case insensitively.
+*
+* Parameters: s1 (in) First string to compare.
+*             s2 (in) Second string to compare.
+*
+* Returns:    Return 0 if the two strings are equal, -1 if t1 < t2 and 1 if
+*             t1 > t2, when ignoring case sensitivity.
+*****************************************************************************
+*/
+int
+bcmstricmp(const char *s1, const char *s2)
+{
+	char dc, sc;
+
+	while (*s2 && *s1) {
+		dc = xToLower(*s1);
+		sc = xToLower(*s2);
+		if (dc < sc) return -1;
+		if (dc > sc) return 1;
+		s1++;
+		s2++;
+	}
+
+	if (*s1 && !*s2) return 1;
+	if (!*s1 && *s2) return -1;
+	return 0;
+}
+
+
+/****************************************************************************
+* Function:   bcmstrnicmp
+*
+* Purpose:    Compare to strings case insensitively, upto a max of 'cnt'
+*             characters.
+*
+* Parameters: s1  (in) First string to compare.
+*             s2  (in) Second string to compare.
+*             cnt (in) Max characters to compare.
+*
+* Returns:    Return 0 if the two strings are equal, -1 if t1 < t2 and 1 if
+*             t1 > t2, when ignoring case sensitivity.
+*****************************************************************************
+*/
+int
+bcmstrnicmp(const char* s1, const char* s2, int cnt)
+{
+	char dc, sc;
+
+	while (*s2 && *s1 && cnt) {
+		dc = xToLower(*s1);
+		sc = xToLower(*s2);
+		if (dc < sc) return -1;
+		if (dc > sc) return 1;
+		s1++;
+		s2++;
+		cnt--;
+	}
+
+	if (!cnt) return 0;
+	if (*s1 && !*s2) return 1;
+	if (!*s1 && *s2) return -1;
+	return 0;
+}
+
 /* parse a xx:xx:xx:xx:xx:xx format ethernet address */
 int
 BCMROMFN(bcm_ether_atoe)(char *p, struct ether_addr *ea)
@@ -683,18 +1409,14 @@ BCMROMFN(bcm_ether_atoe)(char *p, struct ether_addr *ea)
 	return (i == 6);
 }
 
+
 #if defined(CONFIG_USBRNDIS_RETAIL) || defined(NDIS_MINIPORT_DRIVER)
 /* registry routine buffer preparation utility functions:
  * parameter order is like strncpy, but returns count
  * of bytes copied. Minimum bytes copied is null char(1)/wchar(2)
  */
 ulong
-wchar2ascii(
-	char *abuf,
-	ushort *wbuf,
-	ushort wbuflen,
-	ulong abuflen
-)
+wchar2ascii(char *abuf, ushort *wbuf, ushort wbuflen, ulong abuflen)
 {
 	ulong copyct = 1;
 	ushort i;
@@ -800,6 +1522,62 @@ getintvar(char *vars, const char *name)
 #endif	/* _MINOSL_ */
 }
 
+int
+getintvararray(char *vars, const char *name, int indx)
+{
+#ifdef	_MINOSL_
+	return 0;
+#else
+	char *buf, *endp;
+	int i = 0;
+	int val = 0;
+
+	if ((buf = getvar(vars, name)) == NULL) {
+		return (0);
+	}
+
+	/* table values are always separated by "," or " " */
+	while (*buf != '\0') {
+		val = bcm_strtoul(buf, &endp, 0);
+		if (i == indx) {
+			return val;
+		}
+		buf = endp;
+		/* delimiter is ',' */
+		if (*buf == ',')
+			buf++;
+		i++;
+	}
+	return 0;
+#endif	/* _MINOSL_ */
+}
+
+int
+getintvararraysize(char *vars, const char *name)
+{
+#ifdef	_MINOSL_
+	return 0;
+#else
+	char *buf, *endp;
+	int count = 0;
+	int val = 0;
+
+	if ((buf = getvar(vars, name)) == NULL) {
+		return (0);
+	}
+
+	/* table values are always separated by "," or " " */
+	while (*buf != '\0') {
+		val = bcm_strtoul(buf, &endp, 0);
+		buf = endp;
+		/* delimiter is ',' */
+		if (*buf == ',')
+			buf++;
+		count++;
+	}
+	return count;
+#endif	/* _MINOSL_ */
+}
 
 /* Search for token in comma separated token-string */
 static int
@@ -854,7 +1632,6 @@ getgpiopin(char *vars, char *pin_name, uint def_pin)
 	}
 	return def_pin;
 }
-
 
 #if defined(BCMPERFSTATS) || defined(BCMTSTAMPEDLOGS)
 
@@ -932,7 +1709,7 @@ bcmstats(char *fmt)
 void
 bcmdumplog(char *buf, int size)
 {
-	char *limit, *line;
+	char *limit;
 	int j = 0;
 	int num;
 
@@ -949,10 +1726,9 @@ bcmdumplog(char *buf, int size)
 	for (j = 0; j < num && (buf < limit); readi = (readi + 1) % LOGSIZE, j++) {
 		if (logtab[readi].fmt == NULL)
 		    continue;
-		line = buf;
 		buf += snprintf(buf, (limit - buf), "%d\t", logtab[readi].cycles);
-		buf += snprintf(buf, (limit - buf), logtab[readi].fmt,
-		                logtab[readi].a1, logtab[readi].a2);
+		buf += snprintf(buf, (limit - buf), logtab[readi].fmt, logtab[readi].a1,
+		                logtab[readi].a2);
 		buf += snprintf(buf, (limit - buf), "\n");
 	}
 
@@ -1049,7 +1825,7 @@ bcmprinttslogs(void)
 }
 #endif	/* BCMTSTAMPEDLOGS */
 
-#ifdef BCMDBG
+#if defined(BCMDBG) || defined(DHD_DEBUG)
 /* pretty hex print a pkt buffer chain */
 void
 prpkt(const char *msg, osl_t *osh, void *p0)
@@ -1062,7 +1838,7 @@ prpkt(const char *msg, osl_t *osh, void *p0)
 	for (p = p0; p; p = PKTNEXT(osh, p))
 		prhex(NULL, PKTDATA(osh, p), PKTLEN(osh, p));
 }
-#endif	/* BCMDBG */
+#endif	/* BCMDBG || DHD_DEBUG */
 
 /* Takes an Ethernet frame and sets out-of-bound PKTPRIO.
  * Also updates the inplace vlan tag if requested.
@@ -1130,8 +1906,9 @@ pktsetprio(void *pkt, bool update_vtag)
 	return (rc | priority);
 }
 
-static char bcm_undeferrstr[BCME_STRLEN];
+#ifndef BCM_BOOTLOADER
 
+static char bcm_undeferrstr[32];
 static const char *bcmerrorstrtable[] = BCMERRSTRINGTABLE;
 
 /* Convert the error codes into related error strings  */
@@ -1142,7 +1919,7 @@ bcmerrorstr(int bcmerror)
 	ASSERT(ABS(BCME_LAST) == (ARRAYSIZE(bcmerrorstrtable) - 1));
 
 	if (bcmerror > 0 || bcmerror < BCME_LAST) {
-		snprintf(bcm_undeferrstr, BCME_STRLEN, "Undefined error %d", bcmerror);
+		snprintf(bcm_undeferrstr, sizeof(bcm_undeferrstr), "Undefined error %d", bcmerror);
 		return bcm_undeferrstr;
 	}
 
@@ -1150,6 +1927,8 @@ bcmerrorstr(int bcmerror)
 
 	return bcmerrorstrtable[-bcmerror];
 }
+
+#endif /* !BCM_BOOTLOADER */
 
 #ifdef WLC_LOW
 static void
@@ -1240,18 +2019,36 @@ exit:
 #ifdef BCMDBG_PKT       /* pkt logging for debugging */
 /* Add a packet to the pktlist */
 void
-pktlist_add(pktlist_info_t *pktlist, void *pkt)
+pktlist_add(pktlist_info_t *pktlist, void *pkt, int line, char *file)
 {
-	uint i;
+	uint16 i;
+	char* basename;
+#ifdef BCMDBG_PTRACE
+	uint16 *idx = PKTLIST_IDX(pkt);
+#endif /* BCMDBG_PTRACE */
+
 	ASSERT(pktlist->count < PKTLIST_SIZE);
 
 	/* Verify the packet is not already part of the list */
 	for (i = 0; i < pktlist->count; i++) {
-		if (pktlist->list[i] == pkt)
+		if (pktlist->list[i].pkt == pkt)
 			ASSERT(0);
 	}
-	pktlist->list[pktlist->count] = pkt;
+	pktlist->list[pktlist->count].pkt = pkt;
+	pktlist->list[pktlist->count].line = line;
+
+	basename = strrchr(file, '/');
+	if (basename)
+		basename++;
+	else
+		basename = file;
+	pktlist->list[pktlist->count].file = basename;
+#ifdef BCMDBG_PTRACE
+	*idx = pktlist->count;
+	bzero((void *) pktlist->list[pktlist->count].pkt_trace, PKTTRACE_MAX_BYTES);
+#endif /* BCMDBG_PTRACE */
 	pktlist->count++;
+
 	return;
 }
 
@@ -1259,26 +2056,53 @@ pktlist_add(pktlist_info_t *pktlist, void *pkt)
 void
 pktlist_remove(pktlist_info_t *pktlist, void *pkt)
 {
-	uint i;
-	uint num = pktlist->count;
+	uint16 i;
+	uint16 num = pktlist->count;
+#ifdef BCMDBG_PTRACE
+	uint16 *idx = PKTLIST_IDX(pkt);
+
+	ASSERT((*idx) < pktlist->count);
+#endif /* BCMDBG_PTRACE */
 
 	/* find the index where pkt exists */
 	for (i = 0; i < num; i++)
 	{
 		/* check for the existence of pkt in the list */
-		if (pktlist->list[i] == pkt)
+		if (pktlist->list[i].pkt == pkt)
 		{
+#ifdef BCMDBG_PTRACE
+			ASSERT((*idx) == i);
+#endif /* BCMDBG_PTRACE */
 			/* replace with the last element */
-			pktlist->list[i] = pktlist->list[num-1];
+			pktlist->list[i].pkt = pktlist->list[num-1].pkt;
+			pktlist->list[i].line = pktlist->list[num-1].line;
+			pktlist->list[i].file = pktlist->list[num-1].file;
+#ifdef BCMDBG_PTRACE
+			memcpy(pktlist->list[i].pkt_trace, pktlist->list[num-1].pkt_trace,
+				PKTTRACE_MAX_BYTES);
+			idx = PKTLIST_IDX(pktlist->list[i].pkt);
+			*idx = i;
+#endif /* BCMDBG_PTRACE */
 			pktlist->count--;
 			return;
 		}
 	}
-
-	printf("%s: pktlist %p count %d pkt %p\n", __FUNCTION__,
-		pktlist, pktlist->count, pkt);
 	ASSERT(0);
 }
+
+#ifdef BCMDBG_PTRACE
+void
+pktlist_trace(pktlist_info_t *pktlist, void *pkt, uint16 bit)
+{
+	uint16 *idx = PKTLIST_IDX(pkt);
+
+	ASSERT(((*idx) < pktlist->count) && (bit < PKTTRACE_MAX_BITS));
+	ASSERT(pktlist->list[(*idx)].pkt == pkt);
+
+	pktlist->list[(*idx)].pkt_trace[bit/NBBY] |= (1 << ((bit)%NBBY));
+
+}
+#endif /* BCMDBG_PTRACE */
 
 /* Dump the pktlist (and the contents of each packet if 'data'
  * is set). 'buf' should be large enough
@@ -1287,28 +2111,73 @@ pktlist_remove(pktlist_info_t *pktlist, void *pkt)
 char *
 pktlist_dump(pktlist_info_t *pktlist, char *buf)
 {
-	char *obuf;
-	uint i;
+	char *obuf = buf;
+	uint16 i;
 
-	obuf = buf;
-
-	buf += sprintf(buf, "Packet list dump:\n");
+	if (buf != NULL)
+		buf += sprintf(buf, "Packet list dump:\n");
+	else
+		printf("Packet list dump:\n");
 
 	for (i = 0; i < (pktlist->count); i++) {
-		buf += sprintf(buf, "0x%p\t", pktlist->list[i]);
+		if (buf != NULL)
+			buf += sprintf(buf, "Pkt_addr: 0x%p Line: %d File: %s\t",
+				pktlist->list[i].pkt, pktlist->list[i].line,
+				pktlist->list[i].file);
+		else
+			printf("Pkt_addr: 0x%p Line: %d File: %s\t", pktlist->list[i].pkt,
+				pktlist->list[i].line, pktlist->list[i].file);
 
-#ifdef NOTDEF     /* Remove this ifdef to print pkttag and pktdata */
-		if (PKTTAG(pktlist->list[i])) {
-			/* Print pkttag */
-			buf += sprintf(buf, "Pkttag(in hex): ");
-			buf += bcm_format_hex(buf, PKTTAG(pktlist->list[i]), OSL_PKTTAG_SZ);
+/* #ifdef NOTDEF  Remove this ifdef to print pkttag and pktdata */
+		if (buf != NULL) {
+			if (PKTTAG(pktlist->list[i].pkt)) {
+				/* Print pkttag */
+				buf += sprintf(buf, "Pkttag(in hex): ");
+				buf += bcm_format_hex(buf, PKTTAG(pktlist->list[i].pkt),
+					OSL_PKTTAG_SZ);
+			}
+			buf += sprintf(buf, "Pktdata(in hex): ");
+			buf += bcm_format_hex(buf, PKTDATA(NULL, pktlist->list[i].pkt),
+			                      PKTLEN(NULL, pktlist->list[i].pkt));
+		} else {
+			void *pkt = pktlist->list[i].pkt, *npkt;
+
+			printf("Pkt[%d] Dump:\n", i);
+			while (pkt) {
+				int hroom, pktlen;
+				char *src;
+#ifdef BCMDBG_PTRACE
+				uint16 *idx = PKTLIST_IDX(pkt);
+
+				ASSERT((*idx) < pktlist->count);
+				prhex("Pkt Trace (in hex):", pktlist->list[(*idx)].pkt_trace,
+					PKTTRACE_MAX_BYTES);
+#endif /* BCMDBG_PTRACE */
+				npkt = (void *)PKTNEXT(NULL, pkt);
+				PKTSETNEXT(NULL, pkt, NULL);
+
+				src = (char *)(PKTTAG(pkt));
+				pktlen = PKTLEN(NULL, pkt);
+				hroom = PKTHEADROOM(NULL, pkt);
+
+				printf("Pkttag_addr: %p\n", src);
+				if (src)
+					prhex("Pkttag(in hex): ", src, OSL_PKTTAG_SZ);
+				src = (char *) (PKTDATA(NULL, pkt));
+				printf("Pkthead_addr: %p len: %d\n", src - hroom, hroom);
+				prhex("Pkt headroom content(in hex): ", src - hroom, hroom);
+				printf("Pktdata_addr: %p len: %d\n", src, pktlen);
+				prhex("Pktdata(in hex): ", src, pktlen);
+
+				pkt = npkt;
+			}
 		}
-		buf += sprintf(buf, "Pktdata(in hex): ");
-		buf += bcm_format_hex(buf, PKTDATA(NULL, pktlist->list[i]),
-			PKTLEN(NULL, pktlist->list[i]));
-#endif /* NOTDEF */
+/* #endif  NOTDEF */
 
-		buf += sprintf(buf, "\n");
+		if (buf != NULL)
+			buf += sprintf(buf, "\n");
+		else
+			printf("\n");
 	}
 	return obuf;
 }
@@ -1600,33 +2469,37 @@ static const uint32 crc32_table[256] = {
     0xB40BBE37, 0xC30C8EA1, 0x5A05DF1B, 0x2D02EF8D
 };
 
+/*
+ * crc input is CRC32_INIT_VALUE for a fresh start, or previous return value if
+ * accumulating over multiple pieces.
+ */
 uint32
-BCMROMFN(hndcrc32)(
-    uint8 *pdata,  /* pointer to array of data to process */
-    uint   nbytes, /* number of input data bytes to process */
-    uint32 crc     /* either CRC32_INIT_VALUE or previous return value */
-)
+BCMROMFN(hndcrc32)(uint8 *pdata, uint nbytes, uint32 crc)
 {
 	uint8 *pend;
 #ifdef __mips__
 	uint8 tmp[4];
 	ulong *tptr = (ulong *)tmp;
 
-	/* in case the beginning of the buffer isn't aligned */
-	pend = (uint8 *)((uint)(pdata + 3) & 0xfffffffc);
-	nbytes -= (pend - pdata);
-	while (pdata < pend)
-		CRC_INNER_LOOP(32, crc, *pdata++);
+	if (nbytes > 3) {
+		/* in case the beginning of the buffer isn't aligned */
+		pend = (uint8 *)((uint)(pdata + 3) & ~0x3);
+		nbytes -= (pend - pdata);
+		while (pdata < pend)
+			CRC_INNER_LOOP(32, crc, *pdata++);
+	}
 
-	/* handle bulk of data as 32-bit words */
-	pend = pdata + (nbytes & 0xfffffffc);
-	while (pdata < pend) {
-		*tptr = *(ulong *)pdata;
-		pdata += sizeof(ulong *);
-		CRC_INNER_LOOP(32, crc, tmp[0]);
-		CRC_INNER_LOOP(32, crc, tmp[1]);
-		CRC_INNER_LOOP(32, crc, tmp[2]);
-		CRC_INNER_LOOP(32, crc, tmp[3]);
+	if (nbytes > 3) {
+		/* handle bulk of data as 32-bit words */
+		pend = pdata + (nbytes & ~0x3);
+		while (pdata < pend) {
+			*tptr = *(ulong *)pdata;
+			pdata += sizeof(ulong *);
+			CRC_INNER_LOOP(32, crc, tmp[0]);
+			CRC_INNER_LOOP(32, crc, tmp[1]);
+			CRC_INNER_LOOP(32, crc, tmp[2]);
+			CRC_INNER_LOOP(32, crc, tmp[3]);
+		}
 	}
 
 	/* 1-3 bytes at end of buffer */
@@ -1698,7 +2571,7 @@ BCMROMFN(bcm_next_tlv)(bcm_tlv_t *elt, int *buflen)
 	/* advance to next elt */
 	len = elt->len;
 	elt = (bcm_tlv_t*)(elt->data + len);
-	*buflen -= (2 + len);
+	*buflen -= (TLV_HDR_LEN + len);
 
 	/* validate next elt */
 	if (!bcm_valid_tlv(elt, *buflen))
@@ -1722,15 +2595,16 @@ BCMROMFN(bcm_parse_tlvs)(void *buf, int buflen, uint key)
 	totlen = buflen;
 
 	/* find tagged parameter */
-	while (totlen >= 2) {
+	while (totlen >= TLV_HDR_LEN) {
 		int len = elt->len;
 
 		/* validate remaining totlen */
-		if ((elt->id == key) && (totlen >= (len + 2)))
+		if ((elt->id == key) &&
+		    (totlen >= (len + TLV_HDR_LEN)))
 			return (elt);
 
-		elt = (bcm_tlv_t*)((uint8*)elt + (len + 2));
-		totlen -= (len + 2);
+		elt = (bcm_tlv_t*)((uint8*)elt + (len + TLV_HDR_LEN));
+		totlen -= (len + TLV_HDR_LEN);
 	}
 
 	return NULL;
@@ -1752,7 +2626,7 @@ BCMROMFN(bcm_parse_ordered_tlvs)(void *buf, int buflen, uint key)
 	totlen = buflen;
 
 	/* find tagged parameter */
-	while (totlen >= 2) {
+	while (totlen >= TLV_HDR_LEN) {
 		uint id = elt->id;
 		int len = elt->len;
 
@@ -1761,17 +2635,19 @@ BCMROMFN(bcm_parse_ordered_tlvs)(void *buf, int buflen, uint key)
 			return (NULL);
 
 		/* validate remaining totlen */
-		if ((id == key) && (totlen >= (len + 2)))
+		if ((id == key) &&
+		    (totlen >= (len + TLV_HDR_LEN)))
 			return (elt);
 
-		elt = (bcm_tlv_t*)((uint8*)elt + (len + 2));
-		totlen -= (len + 2);
+		elt = (bcm_tlv_t*)((uint8*)elt + (len + TLV_HDR_LEN));
+		totlen -= (len + TLV_HDR_LEN);
 	}
 	return NULL;
 }
 
 #if defined(BCMDBG) || defined(BCMDBG_ERR) || defined(WLMSG_PRHDRS) || \
-	defined(WLMSG_PRPKT) || defined(WLMSG_ASSOC) || defined(BCMDBG_DUMP)
+	defined(WLMSG_PRPKT) || defined(WLMSG_ASSOC) || defined(BCMDBG_DUMP) || \
+	defined(DHD_DEBUG)
 int
 bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len)
 {
@@ -1786,34 +2662,39 @@ bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len)
 		return 0;
 
 	buf[0] = '\0';
-	len -= 1;
 
 	for (i = 0; flags != 0; i++) {
 		bit = bd[i].bit;
 		name = bd[i].name;
-		if (bit == 0 && flags) {
+		if (bit == 0 && flags != 0) {
 			/* print any unnamed bits */
 			snprintf(hexstr, 16, "0x%X", flags);
 			name = hexstr;
 			flags = 0;	/* exit loop */
 		} else if ((flags & bit) == 0)
 			continue;
+		flags &= ~bit;
 		nlen = strlen(name);
 		slen += nlen;
-		if (len < slen)
+		/* count btwn flag space */
+		if (flags != 0)
+			slen += 1;
+		/* need NULL char as well */
+		if (len <= slen)
 			break;
-		if (p != buf) p += snprintf(p, 2, " "); /* btwn flag space */
+		/* copy NULL char but don't count it */
 		strncpy(p, name, nlen + 1);
-		p += (nlen + 1);
-		flags &= ~bit;
+		p += nlen;
+		/* copy btwn flag space and NULL char */
+		if (flags != 0)
+			p += snprintf(p, 2, " ");
 		len -= slen;
-		slen = 1;	/* account for btwn flag space */
 	}
 
 	/* indicate the str was too short */
 	if (flags != 0) {
-		if (len == 0)
-			p--;	/* overwrite last char */
+		if (len < 2)
+			p -= 2 - len;	/* overwrite last char */
 		p += snprintf(p, 2, ">");
 	}
 
@@ -1834,6 +2715,7 @@ bcm_format_hex(char *str, const void *bytes, int len)
 	}
 	return (int)(p - str);
 }
+#endif /* BCMDBG || WLMSG_PRHDRS || WLMSG_PRPKT || WLMSG_ASSOC || BCMDBG_DUMP || DHD_DEBUG */
 
 /* pretty hex print a contiguous buffer */
 void
@@ -1871,7 +2753,30 @@ prhex(const char *msg, uchar *buf, uint nbytes)
 	if (p != line)
 		printf("%s\n", line);
 }
-#endif /* BCMDBG || WLMSG_PRHDRS || WLMSG_PRPKT || WLMSG_ASSOC || BCMDBG_DUMP */
+
+static const char *crypto_algo_names[] = {
+	"NONE",
+	"WEP1",
+	"TKIP",
+	"WEP128",
+	"AES_CCM",
+	"AES_OCB_MSDU",
+	"AES_OCB_MPDU",
+	"NALG"
+	"UNDEF",
+	"UNDEF",
+	"UNDEF",
+#ifdef BCMWAPI_WPI
+	"WAPI",
+#endif /* BCMWAPI_WPI */
+	"UNDEF"
+};
+
+const char *
+bcm_crypto_algo_name(uint algo)
+{
+	return (algo < ARRAYSIZE(crypto_algo_names)) ? crypto_algo_names[algo] : "ERR";
+}
 
 #ifdef BCMDBG
 void
@@ -1982,7 +2887,6 @@ bcm_mkiovar(char *name, char *data, uint datalen, char *buf, uint buflen)
 	return len;
 }
 
-
 /* Quarter dBm units to mW
  * Table starts at QDBM_OFFSET, so the first entry is mW for qdBm=153
  * Table is offset so the last entry is largest mW value that fits in
@@ -2084,7 +2988,6 @@ BCMROMFN(bcm_bitcount)(uint8 *bitmap, uint length)
 	return bitcount;
 }
 
-
 #ifdef BCMDRIVER
 
 /* Initialization of bcmstrbuf structure */
@@ -2103,13 +3006,17 @@ bcm_bprintf(struct bcmstrbuf *b, const char *fmt, ...)
 	int r;
 
 	va_start(ap, fmt);
+
 	r = vsnprintf(b->buf, b->size, fmt, ap);
 
 	/* Non Ansi C99 compliant returns -1,
 	 * Ansi compliant return r >= b->size,
 	 * bcmstdlib returns 0, handle all
 	 */
-	if ((r == -1) || (r >= (int)b->size) || (r == 0)) {
+	/* r == 0 is also the case when strlen(fmt) is zero.
+	 * typically the case when "" is passed as argument.
+	 */
+	if ((r == -1) || (r >= (int)b->size)) {
 		b->size = 0;
 	} else {
 		b->size -= r;
@@ -2119,6 +3026,19 @@ bcm_bprintf(struct bcmstrbuf *b, const char *fmt, ...)
 	va_end(ap);
 
 	return r;
+}
+
+void
+bcm_bprhex(struct bcmstrbuf *b, const char *msg, bool newline, uint8 *buf, int len)
+{
+	int i;
+
+	if (msg != NULL && msg[0] != '\0')
+		bcm_bprintf(b, "%s", msg);
+	for (i = 0; i < len; i ++)
+		bcm_bprintf(b, "%02X", buf[i]);
+	if (newline)
+		bcm_bprintf(b, "\n");
 }
 
 void
@@ -2163,5 +3083,35 @@ bcm_print_bytes(char *name, const uchar *data, int len)
 	}
 	printf("\n");
 }
+#if defined(WLTINYDUMP) || defined(BCMDBG) || defined(WLMSG_INFORM) || \
+	defined(WLMSG_ASSOC) || defined(WLMSG_PRPKT) || defined(WLMSG_WSEC)
+#define SSID_FMT_BUF_LEN	((4 * DOT11_MAX_SSID_LEN) + 1)
+
+int
+bcm_format_ssid(char* buf, const uchar ssid[], uint ssid_len)
+{
+	uint i, c;
+	char *p = buf;
+	char *endp = buf + SSID_FMT_BUF_LEN;
+
+	if (ssid_len > DOT11_MAX_SSID_LEN) ssid_len = DOT11_MAX_SSID_LEN;
+
+	for (i = 0; i < ssid_len; i++) {
+		c = (uint)ssid[i];
+		if (c == '\\') {
+			*p++ = '\\';
+			*p++ = '\\';
+		} else if (bcm_isprint((uchar)c)) {
+			*p++ = (char)c;
+		} else {
+			p += snprintf(p, (endp - p), "\\x%02X", c);
+		}
+	}
+	*p = '\0';
+	ASSERT(p < endp);
+
+	return (int)(p - buf);
+}
+#endif /* WLTINYDUMP || BCMDBG || WLMSG_INFORM || WLMSG_ASSOC || WLMSG_PRPKT */
 
 #endif /* BCMDRIVER */

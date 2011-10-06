@@ -57,4 +57,13 @@ CONFIG_WL_CONF := $(CONFIG_WL_$(WL_SUFFIX))
 wl_suffix := $(shell echo "$(WL_SUFFIX)" | tr A-Z a-z)
 
 
+# For PREBUILD and postbuild w/WLSRC, compile variants in subdirs
+# Subdir names use lowercase versions of the variant suffixes
+wlsubdirs := $(addprefix wl_,$(foreach v,$(VLIST),$(shell echo "$(v)/" | tr A-Z a-z)))
+
+
+#subdir-y += $(wlsubdirs)
+#subdir-m += $(wlsubdirs)
+
+
 include $(src)/wl_generic.mk

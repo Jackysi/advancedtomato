@@ -1,15 +1,21 @@
 /*
  * Fundamental types and constants relating to WPA
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: wpa.h,v 1.16.198.1 2009/08/10 07:58:32 Exp $
+ * $Id: wpa.h,v 1.19.24.2 2010-10-07 19:28:22 Exp $
  */
 
 #ifndef _proto_wpa_h_
@@ -18,13 +24,9 @@
 #include <typedefs.h>
 #include <proto/ethernet.h>
 
-/* enable structure packing */
-#if defined(__GNUC__)
-#define	PACKED	__attribute__((packed))
-#else
-#pragma pack(1)
-#define	PACKED
-#endif
+
+/* This marks the start of a packed structure section. */
+#include <packed_section_start.h>
 
 /* Reason Codes */
 
@@ -46,63 +48,59 @@
 #define WPA2_PMKID_LEN	16
 
 /* WPA IE fixed portion */
-typedef struct
+typedef BWL_PRE_PACKED_STRUCT struct
 {
 	uint8 tag;	/* TAG */
 	uint8 length;	/* TAG length */
 	uint8 oui[3];	/* IE OUI */
 	uint8 oui_type;	/* OUI type */
-	struct {
+	BWL_PRE_PACKED_STRUCT struct {
 		uint8 low;
 		uint8 high;
-	} PACKED version;	/* IE version */
-} PACKED wpa_ie_fixed_t;
+	} BWL_POST_PACKED_STRUCT version;	/* IE version */
+} BWL_POST_PACKED_STRUCT wpa_ie_fixed_t;
 #define WPA_IE_OUITYPE_LEN	4
 #define WPA_IE_FIXED_LEN	8
 #define WPA_IE_TAG_FIXED_LEN	6
 
-#ifdef BCMWPA2
-typedef struct {
+typedef BWL_PRE_PACKED_STRUCT struct {
 	uint8 tag;	/* TAG */
 	uint8 length;	/* TAG length */
-	struct {
+	BWL_PRE_PACKED_STRUCT struct {
 		uint8 low;
 		uint8 high;
-	} PACKED version;	/* IE version */
-} PACKED wpa_rsn_ie_fixed_t;
+	} BWL_POST_PACKED_STRUCT version;	/* IE version */
+} BWL_POST_PACKED_STRUCT wpa_rsn_ie_fixed_t;
 #define WPA_RSN_IE_FIXED_LEN	4
 #define WPA_RSN_IE_TAG_FIXED_LEN	2
 typedef uint8 wpa_pmkid_t[WPA2_PMKID_LEN];
-#endif
 
 /* WPA suite/multicast suite */
-typedef struct
+typedef BWL_PRE_PACKED_STRUCT struct
 {
 	uint8 oui[3];
 	uint8 type;
-} PACKED wpa_suite_t, wpa_suite_mcast_t;
+} BWL_POST_PACKED_STRUCT wpa_suite_t, wpa_suite_mcast_t;
 #define WPA_SUITE_LEN	4
 
 /* WPA unicast suite list/key management suite list */
-typedef struct
+typedef BWL_PRE_PACKED_STRUCT struct
 {
-	struct {
+	BWL_PRE_PACKED_STRUCT struct {
 		uint8 low;
 		uint8 high;
-	} PACKED count;
+	} BWL_POST_PACKED_STRUCT count;
 	wpa_suite_t list[1];
-} PACKED wpa_suite_ucast_t, wpa_suite_auth_key_mgmt_t;
+} BWL_POST_PACKED_STRUCT wpa_suite_ucast_t, wpa_suite_auth_key_mgmt_t;
 #define WPA_IE_SUITE_COUNT_LEN	2
-#ifdef BCMWPA2
-typedef struct
+typedef BWL_PRE_PACKED_STRUCT struct
 {
-	struct {
+	BWL_PRE_PACKED_STRUCT struct {
 		uint8 low;
 		uint8 high;
-	} PACKED count;
+	} BWL_POST_PACKED_STRUCT count;
 	wpa_pmkid_t list[1];
-} PACKED wpa_pmkid_list_t;
-#endif
+} BWL_POST_PACKED_STRUCT wpa_pmkid_list_t;
 
 /* WPA cipher suites */
 #define WPA_CIPHER_NONE		0	/* None */
@@ -111,6 +109,7 @@ typedef struct
 #define WPA_CIPHER_AES_OCB	3	/* AES (OCB) */
 #define WPA_CIPHER_AES_CCM	4	/* AES (CCM) */
 #define WPA_CIPHER_WEP_104	5	/* WEP (104-bit) */
+#define WPA_CIPHER_BIP		6	/* WEP (104-bit) */
 
 
 #define IS_WPA_CIPHER(cipher)	((cipher) == WPA_CIPHER_NONE || \
@@ -138,6 +137,10 @@ typedef struct
 #define RSN_CAP_2_REPLAY_CNTRS		1
 #define RSN_CAP_4_REPLAY_CNTRS		2
 #define RSN_CAP_16_REPLAY_CNTRS		3
+#ifdef MFP
+#define RSN_CAP_MFPR			0x0040
+#define RSN_CAP_MFPC			0x0080
+#endif
 
 /* WPA capabilities defined in 802.11i */
 #define WPA_CAP_4_REPLAY_CNTRS		RSN_CAP_4_REPLAY_CNTRS
@@ -150,10 +153,10 @@ typedef struct
 
 #define	WPA_CAP_WPA2_PREAUTH		RSN_CAP_PREAUTH
 
+#define WPA2_PMKID_COUNT_LEN	2
 
-#undef PACKED
-#if !defined(__GNUC__)
-#pragma pack()
-#endif
+
+/* This marks the end of a packed structure section. */
+#include <packed_section_end.h>
 
 #endif /* _proto_wpa_h_ */

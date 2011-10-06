@@ -1,15 +1,21 @@
 /*
  * BCM43XX PCIE core hardware definitions.
  *
- * Copyright (C) 2009, Broadcom Corporation
- * All Rights Reserved.
+ * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
  * 
- * THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
- * KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
- * SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
- * FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+ * SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+ * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: pcie_core.h,v 13.3.2.3 2009/02/20 02:00:00 Exp $
+ * $Id: pcie_core.h,v 13.7.108.2 2010-05-24 06:41:20 Exp $
  */
 #ifndef	_PCIE_CORE_H
 #define	_PCIE_CORE_H
@@ -73,7 +79,7 @@ typedef struct sbpcieregs {
 	uint32 clkreqenctrl;	/* >= rev 6, Clkreq rdma control : 0x138 */
 	uint32 PAD[177];
 	uint32 pciecfg[4][64];	/* 0x400 - 0x7FF, PCIE Cfg Space */
-	uint16 sprom[36];	/* SPROM shadow Area */
+	uint16 sprom[64];	/* SPROM shadow Area */
 } sbpcieregs_t;
 
 /* PCI control */
@@ -242,6 +248,14 @@ typedef struct sbpcieregs {
 #define MDIO_DEV_SERDESID	0x831
 #define MDIO_DEV_RXCTRL0	0x840
 
+
+/* XgxsBlk1_A Register Offsets */
+#define BLK1_PWR_MGMT0		0x16
+#define BLK1_PWR_MGMT1		0x17
+#define BLK1_PWR_MGMT2		0x18
+#define BLK1_PWR_MGMT3		0x19
+#define BLK1_PWR_MGMT4		0x1A
+
 /* serdes regs (rev < 10) */
 #define MDIODATA_DEV_PLL       		0x1d	/* SERDES PLL Dev */
 #define MDIODATA_DEV_TX        		0x1e	/* SERDES TX Dev */
@@ -285,6 +299,14 @@ typedef struct sbpcieregs {
 #define PCIE_CAP_LCREG_ASPML0s		0x01	/* ASPM L0s in linkctrl */
 #define PCIE_CAP_LCREG_ASPML1		0x02	/* ASPM L1 in linkctrl */
 #define PCIE_CLKREQ_ENAB		0x100	/* CLKREQ Enab in linkctrl */
+
+/* Devcontrol reg offset in PCIE Cap */
+#define PCIE_CAP_DEVCTRL_OFFSET		8	/* devctrl offset in pcie cap */
+#define PCIE_CAP_DEVCTRL_MRRS_MASK	0x7000	/* Max read request size mask */
+#define PCIE_CAP_DEVCTRL_MRRS_SHIFT	12	/* Max read request size shift */
+#define PCIE_CAP_DEVCTRL_MRRS_128B	0	/* 128 Byte */
+#define PCIE_CAP_DEVCTRL_MRRS_256B	1	/* 256 Byte */
+#define PCIE_CAP_DEVCTRL_MRRS_512B	2	/* 512 Byte */
 
 #define PCIE_ASPM_ENAB			3	/* ASPM L0s & L1 in linkctrl */
 #define PCIE_ASPM_L1_ENAB		2	/* ASPM L0s & L1 in linkctrl */

@@ -1034,6 +1034,11 @@ new_segment:
 			if (skb->len < max || (flags & MSG_OOB))
 				continue;
 
+#ifdef CONFIG_INET_GSO 
+			if (iov->iov_len > PAGE_SIZE)
+				continue;
+#endif /* CONFIG_INET_GSO */
+
 			if (forced_push(tp)) {
 				tcp_mark_push(tp, skb);
 				__tcp_push_pending_frames(sk, mss_now, TCP_NAGLE_PUSH);

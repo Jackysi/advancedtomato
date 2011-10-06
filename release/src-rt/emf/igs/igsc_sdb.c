@@ -2,7 +2,7 @@
  * This file contains the common code routines to access/update the
  * IGMP Snooping database.
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,7 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: igsc_sdb.c,v 1.4 2008/11/19 01:36:25 Exp $
+ * $Id: igsc_sdb.c 241182 2011-02-17 21:50:03Z gmo $
  */
 #include <typedefs.h>
 #include <bcmdefs.h>
@@ -161,8 +161,6 @@ igsc_sdb_group_find(igsc_info_t *igsc_info, uint32 mgrp_ip)
 
 	hash = IGSDB_MGRP_HASH(mgrp_ip);
 
-	OSL_LOCK(igsc_info->sdb_lock);
-
 	for (ptr = igsc_info->mgrp_sdb[hash].next;
 	     ptr != &igsc_info->mgrp_sdb[hash]; ptr = ptr->next)
 	{
@@ -171,8 +169,6 @@ igsc_sdb_group_find(igsc_info_t *igsc_info, uint32 mgrp_ip)
 		/* Compare group address */
 		if (mgrp_ip == mgrp->mgrp_ip)
 		{
-			OSL_UNLOCK(igsc_info->sdb_lock);
-
 			IGS_IGSDB("Multicast Group entry %d.%d.%d.%d found\n",
 			          (mgrp_ip >> 24), ((mgrp_ip >> 16) & 0xff),
 			          ((mgrp_ip >> 8) & 0xff), (mgrp_ip & 0xff));
@@ -180,8 +176,6 @@ igsc_sdb_group_find(igsc_info_t *igsc_info, uint32 mgrp_ip)
 			return (mgrp);
 		}
 	}
-
-	OSL_UNLOCK(igsc_info->sdb_lock);
 
 	return (NULL);
 }
@@ -289,6 +283,31 @@ igsc_sdb_member_find(igsc_info_t *igsc_info, uint32 mgrp_ip,
 
 	return (NULL);
 }
+#ifdef MEDIAROOM_IGMP_WAR
+/* MSFT MediaRoom clients are aware of the entire group. If one client sends out a membership
+report and the other clients see it, the other clients will not send out separate membership
+reports. This causes us to age out perfectly good streaming clients and causes packet loss.
+WAR this by updating the timer for entire group */
+
+static void
+update_all_timers_in_group(igsc_info_t *igsc_info, igsc_mgrp_t *mgrp,
+                       uint32 mh_ip, void *ifp)
+{
+	igsc_mh_t *mh;
+	clist_head_t *ptr;
+
+	for (ptr = mgrp->mh_head.next;
+	     ptr != &mgrp->mh_head; ptr = ptr->next)
+	{
+		mh = clist_entry(ptr, igsc_mh_t, mh_list);
+		IGS_IGSDB("Refreshing timer for group %x and host %x\n",
+					                         mh->mh_mgrp->mgrp_ip, mh->mh_ip);
+		osl_timer_update(mh->mgrp_timer, igsc_info->grp_mem_intv, FALSE);
+	}
+
+	return;
+}
+#endif //MEDIAROOM_IGMP_WAR
 
 /*
  * Description: This function is called by IGMP Snooper when it wants
@@ -367,8 +386,13 @@ igsc_sdb_member_add(igsc_info_t *igsc_info, void *ifp, uint32 mgrp_ip,
 		if (mh != NULL)
 		{
 			OSL_UNLOCK(igsc_info->sdb_lock);
+#ifdef MEDIAROOM_IGMP_WAR
+			/* Refresh the group interval timer for all group members */
+			update_all_timers_in_group(igsc_info, mgrp,mh_ip, ifp);
+#else
 			/* Refresh the group interval timer for this group */
 			osl_timer_update(mh->mgrp_timer, igsc_info->grp_mem_intv, FALSE);
+#endif
 			return (SUCCESS);
 		}
 	}
@@ -671,8 +695,13 @@ igsc_sdb_interface_del(igsc_info_t *igsc_info, void *ifp)
 			{
 				mh = clist_entry(ptr2, igsc_mh_t, mh_list);
 
+				if (mh->mh_mi->mi_ifp != ifp) {
+					tmp2  = ptr2->next;
+					continue;
+				}
+
 				/* Delete the interface entry if no stream is going on it */
-				if (mh->mh_mi->mi_ifp == ifp)
+				if (--mh->mh_mi->mi_ref == 0)
 				{
 					IGS_IGSDB("Deleting interface entry %p\n", mh->mh_mi);
 
@@ -692,17 +721,17 @@ igsc_sdb_interface_del(igsc_info_t *igsc_info, void *ifp)
 				MFREE(igsc_info->osh, mh, sizeof(igsc_mh_t));
 			}
 
-			/* If the member being deleted is last node in the host list, 
-	 		 * delete the group entry also.
-	 		 */
+			/* If the member being deleted is last node in the host list,
+			 * delete the group entry also.
+			 */
 			tmp1 = ptr1->next;
 			if (clist_empty(&mgrp->mh_head))
 			{
 				IGS_IGSDB("Deleting group entry of %d.%d.%d.%d too\n",
-		          		(mgrp->mgrp_ip >> 24),
-		          		((mgrp->mgrp_ip >> 16) & 0xff),
-		          		((mgrp->mgrp_ip >> 8) & 0xff),
-		          		(mgrp->mgrp_ip & 0xff));
+					(mgrp->mgrp_ip >> 24),
+					((mgrp->mgrp_ip >> 16) & 0xff),
+					((mgrp->mgrp_ip >> 8) & 0xff),
+					(mgrp->mgrp_ip & 0xff));
 
 				clist_delete(ptr1);
 				MFREE(igsc_info->osh, mgrp, sizeof(igsc_mgrp_t));

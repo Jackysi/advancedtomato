@@ -82,6 +82,14 @@ void __init add_memory_region(phys_t start, phys_t size, long type)
 	int x = boot_mem_map.nr_map;
 	struct boot_mem_map_entry *prev = boot_mem_map.map + x - 1;
 
+	/* A temp solution for ASUS RT-N66U, will be removed later */
+#if 0
+	if(start>=0x08000000) {
+		printk("Skip to use high memory\n");
+		return;
+	}
+#endif
+
 	/* Sanity check */
 	if (start + size < start) {
 		printk("Trying to add an invalid memory region, skipped\n");

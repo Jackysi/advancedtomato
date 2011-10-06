@@ -61,10 +61,36 @@ config WL_USE_STA_ONCHIP_G
 	bool "Config file for STA 1chipG variant"
 config WL_USE_APSTA_ONCHIP_G
 	bool "Config file for APSTA 1chipG variant"
-config WL_USE_HIGH
-	bool "Config file for high/bmac split variant"
 endchoice
+config WL_USBAP
+	bool "USB/HSIC Wireless Access Point support"
+#if defined(WLSRC) || defined(PREBUILD)
+config WL_AP 
+	string "Config file for basic AP variant"
+	default "wlconfig_lx_router_ap"
+config WL_AP_SDSTD
+	string "Config file for basic AP sdstd variant"
+	default "wlconfig_lx_router_ap_sdstd"
+config WL_STA 
+	string "Config file for basic STA variant"
+	default "wlconfig_lx_router_sta"
+config WL_APSTA 
+	string "Config file for basic APSTA variant"
+	default "wlconfig_lx_router_apsta"
+config WL_AP_ONCHIP_G 
+	string "Config file for AP 1chipG variant"
+	default "wlconfig_lx_router_ap_1chipG"
+config WL_STA_ONCHIP_G 
+	string "Config file for STA 1chipG variant"
+	default "wlconfig_lx_router_sta_1chipG"
+config WL_HIGH 
+	string "Config file for high/bmac split variant"
+	default "wlconfig_lx_router_high"
+#endif
 config EMF
 	tristate "Efficient Multicast Forwarding & IGMP Snooping Layers"
 	depends on NETFILTER
+config PLC
+	bool "Broadcom PLC network failover support"
+	depends on ET && WL
 endmenu
