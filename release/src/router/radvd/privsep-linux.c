@@ -1,5 +1,5 @@
 /*
- *   $Id: privsep-linux.c,v 1.5 2010/12/14 11:58:21 psavola Exp $
+ *   $Id: privsep-linux.c,v 1.6 2011/02/28 10:53:07 reubenhwk Exp $
  *
  *   Authors:
  *    Jim Paris			<jim@jtan.com>
@@ -52,9 +52,13 @@ privsep_read_loop(void)
 		ret = readn(pfd, &cmd, sizeof(cmd));
 		if (ret <= 0) {
 			/* Error or EOF, give up */
+			if (ret < 0) {
+				flog(LOG_ERR, "Exiting, privsep_read_loop had readn error: %s\n",
+				     strerror(errno));
+			} else {
+				flog(LOG_ERR, "Exiting, privsep_read_loop had readn return 0 bytes\n");
+			}
 			close(pfd);
-			flog(LOG_ERR, "Exiting, privsep_read_loop had readn error: %s\n",
-			     strerror(errno));
 			_exit(0);
 		}
 		if (ret != sizeof(cmd)) {

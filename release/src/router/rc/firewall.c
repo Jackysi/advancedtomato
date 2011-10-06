@@ -854,16 +854,13 @@ static void filter_input(void)
 // clamp TCP MSS to PMTU of WAN interface (IPv4 only?)
 static void clampmss(void)
 {
-#if 1
 	ipt_write("-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
-#else
-	int rmtu = nvram_get_int("wan_run_mtu");
-	ipt_write("-A FORWARD -p tcp --tcp-flags SYN,RST SYN -m tcpmss --mss %d: -j TCPMSS ", rmtu - 39);
-	if (rmtu < 576) {
-		ipt_write("--clamp-mss-to-pmtu\n");
-	}
-	else {
-		ipt_write("--set-mss %d\n", rmtu - 40);
+#ifdef TCONFIG_IPV6
+	switch (get_ipv6_service()) {
+	case IPV6_ANYCAST_6TO4:
+	case IPV6_6IN4:
+		ip6t_write("-A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu\n");
+		break;
 	}
 #endif
 }
@@ -1448,9 +1445,7 @@ int start_firewall(void)
 	allow_fastnat("firewall", can_enable_fastnat);
 	try_enabling_fastnat();
 #endif
-
 	start_bwclimon();
-
 	simple_unlock("firewall");
 	return 0;
 }

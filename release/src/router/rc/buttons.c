@@ -150,6 +150,10 @@ int buttons_main(int argc, char *argv[])
 		reset_mask = 1 << 6;
 		ses_mask = 1 << 8;
 		break;
+	case MODEL_RTN66U:
+		reset_mask = 1 << 9;
+		ses_mask = 1 << 4;
+		break;
 	case MODEL_WNR3500L:
 		reset_mask = 1 << 4;
 		ses_mask = 1 << 6;

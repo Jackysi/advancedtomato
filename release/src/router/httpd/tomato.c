@@ -539,6 +539,7 @@ static const nvset_t nvset_list[] = {
 	{ "ppp_custom",			V_LENGTH(0, 256)		},
 	{ "ppp_idletime",		V_RANGE(0, 1440)	},
 	{ "ppp_redialperiod",	V_RANGE(1, 86400)	},
+	{ "ppp_mlppp",			V_01				},
 	{ "mtu_enable",			V_01				},
 	{ "wan_mtu",			V_RANGE(576, 1500)	},
 	{ "wan_islan",			V_01				},
@@ -864,6 +865,9 @@ static const nvset_t nvset_list[] = {
 	{ "usb_uhci",			V_RANGE(-1, 1)			},	// -1 - disabled, 0 - off, 1 - on
 	{ "usb_ohci",			V_RANGE(-1, 1)			},
 	{ "usb_usb2",			V_RANGE(-1, 1)			},
+#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+	{ "usb_mmc",			V_RANGE(-1, 1)			},
+#endif
 	{ "usb_irq_thresh",		V_RANGE(0, 6)			},
 	{ "usb_storage",		V_01				},
 	{ "usb_printer",		V_01				},

@@ -1435,7 +1435,7 @@ Fixed: firmware upgrades via HTTPS not working.
 Fixed: "multiport" match not working with port ranges.
 
 
-build 55 - TBA
+build 56 - TBA
 ---------------------
 
 PPPoE: replaced outdated pppoecd client daemon from old Linksys GPL with
@@ -1463,8 +1463,8 @@ Fixed: DHCP release not working when using "Release" button in the GUI.
 
 Changed some nvram defaults to more sane values.
 
-Clear conntrack entries on WAN-Up - this may fix inability of some SIP
-devices to register after restart of the router.
+Clear conntrack entries on WAN-Up - this should fix some SIP devices not
+being able to register after restart of the router.
 
 Hostnames specified for firewall rules (port forwarding, QoS, source IP
 restrictions, access restrictions, web monitor, etc) are now validated upon
@@ -1483,7 +1483,9 @@ listening http(s) ports are not the same.
 FTP server in VPN builds now includes SSL support (manual configuration
 only via "Vsftpd Custom Configuration" field in the GUI).
 
-Added support for ZoneEdit DDNS updates via HTTPS.
+DDNS: added support for miniDNS, and for ZoneEdit DDNS updates via HTTPS,
+modified HE.net IPv6 Tunnel Broker IPv4 endpoint address updater to conform
+to the new HE.net interface.
 
 Enabled support for scripts in Dnsmasq in all builds.
 
@@ -1493,17 +1495,17 @@ WAN IPv4 address in iptables rules.
 GUI: restored ability to enter multiple hostnames (space separated) per
 device on "Static DHCP" page.
 
-Software updates: OpenSSL 1.0.0d, Busybox 1.18.3, CyaSSL 1.9.0, p910nd 0.95,
-MiniUPnPd 1.5 (20110302), usb_modeswitch 1.1.7 with data package 2011-02-27,
-Dnsmasq 2.57, Dropbear 0.53.1, ntfs-3g 2011.1.15, vsftpd 2.3.4.
+Software updates: OpenSSL 1.0.0d, Busybox 1.18.5, CyaSSL 1.9.0, p910nd 0.95,
+MiniUPnPd 1.5 (20110623), usb_modeswitch 1.1.8 with data package 2011-06-19,
+Dnsmasq 2.57, Dropbear 0.53.1, ntfs-3g 2011.4.12, vsftpd 2.3.4, xl2tpd 1.2.8.
 
 Lots of cosmetics and optimization, some code clean-up.
 
 * Kernel 2.6-based builds only:
 
 IPv6 support with GUI, including configuration options for native IPv6
-(static or via DHCPv6-PD), static 6in4 tunnel, or manual. Enabled most of
-the internal services for IPv6.
+(static or via DHCPv6-PD), 6to4 tunnel, static 6in4 tunnel, or manual.
+Enabled most of the internal services for IPv6.
 
 Stateful IPv6 firewall, with GUI configuration page for opening ports in the
 IPv6 firewall, added ip6tables matches and targets.
@@ -1516,17 +1518,31 @@ drives.
 
 Fixed: router crashes after enabling IPv6 support.
 
-Fixed: SIP conntrack module corrupting SIP message headers.
+Fixed: SIP helper module corrupting SIP message headers. Backported
+improved SIP conntrack and NAT helper from upstream 2.6 kernel.
 
 Fixed: ping6 doesn't get responses from Apple OS X and iOS systems.
 
 Support for Belkin F7D3301/F7D3302/F7D4301/F7D4302/F5D8235v3 routers.
 
-Added support for USB led on E3000, WRT610Nv2, DIR-320, H-618B routers.
+Added support for USB LED.
 
 Various optimizations backports and fixes from upstream 2.6 kernel.
 
-Software updates: MiniDLNA 1.0.19 cvs 2011-03-02, SQLite 3.7.5, radvd 1.7.
+Replaced Broadcom wireless driver by version 5.10.142.0 (used 5.10.147.0 in
+previous builds 53 and 54). This version seems to have better support for
+certain radio chips (used in Belkin routers), and fixes 5GHz wireless
+survey.
+
+Re-enabled Broadcom "fast NAT" module. It is automatically disabled when
+either QoS, web monitor, or access restrictions are activated. Additionaly
+can be disabled via nvram variable ("fastnat_disable").
+
+Expanded set of available extra kernel modules - included modules for
+Philips (pwc) and GSPCA-compatible USB webcam support.
+
+Software updates: MiniDLNA 1.0.20.2 cvs 2011-07-01, SQLite 3.7.5,
+radvd 1.8.
 
 Samba 3 CVE-2011-0719 security fix.
 

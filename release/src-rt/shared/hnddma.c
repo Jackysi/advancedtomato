@@ -26,14 +26,26 @@
 #include <hnddma.h>
 
 /* debug/trace */
+#ifdef BCMDBG
+#define	DMA_ERROR(args) if (!(*di->msg_level & 1)); else printf args
+#define	DMA_TRACE(args) if (!(*di->msg_level & 2)); else printf args
+#elif defined(BCMDBG_ERR)
+#define	DMA_ERROR(args) if (!(*di->msg_level & 1)); else printf args
+#define DMA_TRACE(args)
+#else
 #define	DMA_ERROR(args)
 #define	DMA_TRACE(args)
+#endif
 
 #define	DMA_NONE(args)
 
 /* default dma message level (if input msg_level pointer is null in dma_attach()) */
 static uint dma_msg_level =
+#ifdef BCMDBG_ERR
+	1;
+#else
 	0;
+#endif
 
 #define	MAXNAMEL	8		/* 8 char names */
 
@@ -239,7 +251,7 @@ static bool _dma64_addrext(osl_t *osh, dma64regs_t *dma64regs) { return FALSE; }
 
 #endif	/* BCMDMA64 */
 
-#if defined(BCMDBG_DUMP)
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 static void dma32_dumpring(dma_info_t *di, struct bcmstrbuf *b, dma32dd_t *ring, uint start,
                             uint end, uint max_num);
 static void dma32_dump(dma_info_t *di, struct bcmstrbuf *b, bool dumpring);
@@ -291,7 +303,7 @@ static di_fcn_t dma64proc = {
 	(di_counterreset_t)_dma_counterreset,
 	(di_ctrlflags_t)_dma_ctrlflags,
 
-#if defined(BCMDBG_DUMP)
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 	(di_dump_t)dma64_dump,
 	(di_dumptx_t)dma64_dumptx,
 	(di_dumprx_t)dma64_dumprx,
@@ -343,7 +355,7 @@ static di_fcn_t dma32proc = {
 	(di_counterreset_t)_dma_counterreset,
 	(di_ctrlflags_t)_dma_ctrlflags,
 
-#if defined(BCMDBG_DUMP)
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 	(di_dump_t)dma32_dump,
 	(di_dumptx_t)dma32_dumptx,
 	(di_dumprx_t)dma32_dumprx,
@@ -369,6 +381,9 @@ dma_attach(osl_t *osh, char *name, si_t *sih, void *dmaregstx, void *dmaregsrx,
 
 	/* allocate private info structure */
 	if ((di = MALLOC(osh, sizeof (dma_info_t))) == NULL) {
+#ifdef BCMDBG
+		printf("dma_attach: out of memory, malloced %d bytes\n", MALLOCED(osh));
+#endif
 		return (NULL);
 	}
 	bzero((char *)di, sizeof(dma_info_t));
@@ -943,6 +958,19 @@ next_frame:
 			resid -= di->rxbufsize;
 		}
 
+#ifdef BCMDBG
+		if (resid > 0) {
+			uint cur;
+			ASSERT(p == NULL);
+			cur = (DMA64_ENAB(di)) ?
+				B2I(R_REG(di->osh, &di->d64rxregs->status0) & D64_RS0_CD_MASK,
+				dma64dd_t) :
+				B2I(R_REG(di->osh, &di->d32rxregs->status) & RS_CD_MASK,
+				dma32dd_t);
+			DMA_ERROR(("_dma_rx, rxin %d rxout %d, hw_curr %d\n",
+				di->rxin, di->rxout, cur));
+		}
+#endif
 
 		if ((di->hnddma.dmactrlflags & DMA_CTRL_RXMULTI) == 0) {
 			DMA_ERROR(("%s: dma_rx: bad frame length (%d)\n", di->name, len));
@@ -1268,7 +1296,7 @@ dma_txpioloopback(osl_t *osh, dma32regs_t *regs)
 	OR_REG(osh, &regs->control, XC_LE);
 }
 
-#if defined(BCMDBG_DUMP)
+#if defined(BCMDBG) || defined(BCMDBG_DUMP)
 static void
 dma32_dumpring(dma_info_t *di, struct bcmstrbuf *b, dma32dd_t *ring, uint start, uint end,
                uint max_num)
@@ -1393,7 +1421,7 @@ dma64_dump(dma_info_t *di, struct bcmstrbuf *b, bool dumpring)
 	dma64_dumprx(di, b, dumpring);
 }
 
-#endif	
+#endif	/* BCMDBG || BCMDBG_DUMP */
 
 
 /* 32 bits DMA functions */
@@ -1458,7 +1486,7 @@ dma32_txsuspended(dma_info_t *di)
 	return (di->ntxd == 0) || ((R_REG(di->osh, &di->d32txregs->control) & XC_SE) == XC_SE);
 }
 
-static void
+static void BCMFASTPATH
 dma32_txreclaim(dma_info_t *di, txd_range_t range)
 {
 	void *p;
@@ -1629,7 +1657,7 @@ dma32_txsuspendedidle(dma_info_t *di)
  * WARNING: call must check the return value for error.
  *   the error(toss frames) could be fatal and cause many subsequent hard to debug problems
  */
-static int
+static int BCMFASTPATH
 dma32_txfast(dma_info_t *di, void *p0, bool commit)
 {
 	void *p, *next;
@@ -1752,7 +1780,7 @@ outoftxd:
  * If range is HNDDMA_RANGE_ALL, reclaim all txd(s) posted to the ring and
  * return associated packet regardless of the value of hardware pointers.
  */
-static void *
+static void * BCMFASTPATH
 dma32_getnexttxp(dma_info_t *di, txd_range_t range)
 {
 	uint start, end, i;
@@ -1830,7 +1858,7 @@ bogus:
 	return (NULL);
 }
 
-static void *
+static void * BCMFASTPATH
 dma32_getnextrxp(dma_info_t *di, bool forceall)
 {
 	uint i, curr;

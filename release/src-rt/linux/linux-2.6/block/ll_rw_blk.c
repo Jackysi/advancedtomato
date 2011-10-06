@@ -1803,6 +1803,7 @@ static void blk_release_queue(struct kobject *kobj)
 
 	blk_trace_shutdown(q);
 
+	bdi_destroy(&q->backing_dev_info);
 	kmem_cache_free(requestq_cachep, q);
 }
 
@@ -1856,20 +1857,26 @@ static struct kobj_type queue_ktype;
 request_queue_t *blk_alloc_queue_node(gfp_t gfp_mask, int node_id)
 {
 	request_queue_t *q;
+	int err;
 
-	q = kmem_cache_alloc_node(requestq_cachep, gfp_mask, node_id);
+	q = kmem_cache_alloc_node(requestq_cachep,
+				gfp_mask | __GFP_ZERO, node_id);
 	if (!q)
 		return NULL;
 
-	memset(q, 0, sizeof(*q));
+	q->backing_dev_info.unplug_io_fn = blk_backing_dev_unplug;
+	q->backing_dev_info.unplug_io_data = q;
+	err = bdi_init(&q->backing_dev_info);
+	if (err) {
+		kmem_cache_free(requestq_cachep, q);
+		return NULL;
+	}
+
 	init_timer(&q->unplug_timer);
 
 	snprintf(q->kobj.name, KOBJ_NAME_LEN, "%s", "queue");
 	q->kobj.ktype = &queue_ktype;
 	kobject_init(&q->kobj);
-
-	q->backing_dev_info.unplug_io_fn = blk_backing_dev_unplug;
-	q->backing_dev_info.unplug_io_data = q;
 
 	mutex_init(&q->sysfs_lock);
 

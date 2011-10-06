@@ -454,7 +454,7 @@ void start_dhcp6c(void)
 	FILE *f;
 	int prefix_len;
 	char *wan6face;
-	char *argv[] = { "dhcp6c", NULL, NULL, NULL };
+	char *argv[] = { "dhcp6c", "-T", "LL", NULL, NULL, NULL };
 	int argc;
 
 	TRACE_PT("begin\n");
@@ -481,23 +481,19 @@ void start_dhcp6c(void)
 			" script \"/sbin/dhcp6c-state\";\n"
 			"};\n"
 			"id-assoc pd 0 {\n"
-			" prefix-interface lo {\n"
+			" prefix-interface %s {\n"
 			"  sla-id 0;\n"
 			"  sla-len %d;\n"
 			" };\n"
-			" prefix-interface %s {\n"
-			"  sla-id 1;\n"
-			"  sla-len %d;\n"
-			" };\n"
-			"};\n",
+			"};\n"
+			"id-assoc na 0 { };\n",
 			wan6face,
-			prefix_len,
 			nvram_safe_get("lan_ifname"),
 			prefix_len);
 		fclose(f);
 	}
 
-	argc = 1;
+	argc = 3;
 	if (nvram_get_int("debug_ipv6"))
 		argv[argc++] = "-D";
 	argv[argc++] = wan6face;

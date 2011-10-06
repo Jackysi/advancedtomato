@@ -5,7 +5,7 @@ DefaultVendor= 0x1c9e
 DefaultProduct=0xf000
 
 TargetVendor=  0x1c9e
-TargetProductList="9000,9603,9605"
+TargetProductList="9000,9603,9605,9607"
 
 CheckSuccess=20
 

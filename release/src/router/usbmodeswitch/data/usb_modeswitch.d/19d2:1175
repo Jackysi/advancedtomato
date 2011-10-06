@@ -1,0 +1,19 @@
+########################################################
+# Vodafone (ZTE) K3770-Z
+#
+# Note:
+#      This device has multiple USB profiles. Depending upon how it is flipped
+#      from storage mode to modem mode determines its final PID and the packages
+#      shown on its ISO CD image.
+
+DefaultVendor= 0x19d2
+DefaultProduct=0x1175
+
+TargetVendor=  0x19d2
+TargetProduct= 0x1177
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+NeedResponse=1
+
+CheckSuccess=20

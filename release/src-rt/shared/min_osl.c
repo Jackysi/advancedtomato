@@ -153,7 +153,11 @@ struct serial_struct {
 
 static struct serial_struct min_uart;
 
+#ifdef	BCMDBG
+#define LOG_BUF_LEN	(16 * 1024)
+#else
 #define LOG_BUF_LEN	(1024)
+#endif
 #define LOG_BUF_MASK	(LOG_BUF_LEN-1)
 static unsigned long log_idx;
 static char log_buf[LOG_BUF_LEN];

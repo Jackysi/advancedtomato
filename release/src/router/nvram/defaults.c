@@ -121,6 +121,7 @@ const defaults_t defaults[] = {
 	{ "ppp_get_ac",			""				},	// PPPoE Server ac name
 	{ "ppp_get_srv",		""				},	// PPPoE Server service name
 	{ "ppp_custom",			""				},	// PPPD additional options
+	{ "ppp_mlppp",			"0"				},	// PPPoE single line MLPPP
 
 	{ "pppoe_lei",			""				},
 	{ "pppoe_lef",			""				},
@@ -190,7 +191,7 @@ const defaults_t defaults[] = {
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
-	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3)    //Toastman - 0=off
+	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3|4)    //Toastman - 0=off
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"				},	// WEP encryption [64 | 128] // Add
 	{ "wl_wep_buf",			""				},	// save all settings for web // Add
@@ -607,6 +608,9 @@ const defaults_t defaults[] = {
 	{ "usb_uhci",			"0"				},
 	{ "usb_ohci",			"0"				},
 	{ "usb_usb2",			"1"				},
+#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+	{ "usb_mmc",			"-1"				},
+#endif
 	{ "usb_irq_thresh",		"0"				},
 	{ "usb_storage",		"1"				},
 	{ "usb_printer",		"1"				},

@@ -591,6 +591,9 @@ init(int argc, char * * argv)
 					break;
 				}
 				break;
+			case UPNPMINISSDPDSOCKET:
+				minissdpdsocketpath = ary_options[i].value;
+				break;
 			default:
 				fprintf(stderr, "Unknown option in file %s\n",
 				        optionsfile);
@@ -828,7 +831,7 @@ init(int argc, char * * argv)
 		         "http://%s/admin/", lan_addr[0].str);
 #else
 		snprintf(presentationurl, PRESENTATIONURL_MAX_LEN,
-		         "http://%s:%d/", lan_addr[0].str);
+		         "http://%s/", lan_addr[0].str);
 #endif
 	}
 
@@ -871,7 +874,6 @@ main(int argc, char * * argv)
 	time_t lastupdatetime = 0;
 	int max_fd = -1;
 	int last_changecnt = 0;
-	short int new_db = 0;
 	pid_t scanner_pid = 0;
 	pthread_t inotify_thread = 0;
 	struct media_dir_s *media_path, *last_path;
@@ -912,14 +914,14 @@ main(int argc, char * * argv)
 #endif
 	LIST_INIT(&upnphttphead);
 
-	new_db = open_db();
-	if( !new_db )
+	if( open_db() == 0 )
 	{
 		updateID = sql_get_int_field(db, "SELECT UPDATE_ID from SETTINGS");
 	}
-	if( sql_get_int_field(db, "pragma user_version") != DB_VERSION )
+	i = db_upgrade(db);
+	if( i != 0 )
 	{
-		if( new_db )
+		if( i < 0 )
 		{
 			DPRINTF(E_WARN, L_GENERAL, "Creating new database...\n");
 		}
@@ -978,7 +980,11 @@ main(int argc, char * * argv)
 	sudp = OpenAndConfSSDPReceiveSocket(n_lan_addr, lan_addr);
 	if(sudp < 0)
 	{
-		DPRINTF(E_FATAL, L_GENERAL, "Failed to open socket for receiving SSDP. EXITING\n");
+		DPRINTF(E_INFO, L_GENERAL, "Failed to open socket for receiving SSDP. Trying to use MiniSSDPd\n");
+		if(SubmitServicesToMiniSSDPD(lan_addr[0].str, runtime_vars.port) < 0) {
+			DPRINTF(E_FATAL, L_GENERAL, "Failed to connect to MiniSSDPd. EXITING");
+			return 1;
+		}
 	}
 	/* open socket for HTTP connections. Listen on the 1st LAN address */
 	shttpl = OpenAndConfHTTPSocket((runtime_vars.port > 0) ? runtime_vars.port : 0);

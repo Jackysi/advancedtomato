@@ -18,6 +18,7 @@
  */
 
 #include <linux/slab.h>
+#include <linux/kthread.h>
 
 #include "usbip_common.h"
 #include "vhci.h"
@@ -289,9 +290,8 @@ static int vhci_hub_control(struct usb_hcd *hcd, u16 typeReq, u16 wValue,
 
 	/* store old status and compare now and old later */
 	if (usbip_dbg_flag_vhci_rh) {
-		int i = 0;
-		for (i = 0; i < VHCI_NPORTS; i++)
-			prev_port_status[i] = dum->port_status[i];
+		memcpy(prev_port_status, dum->port_status,
+			sizeof(prev_port_status));
 	}
 
 	switch (typeReq) {
@@ -874,7 +874,12 @@ static void vhci_shutdown_connection(struct usbip_device *ud)
 		ud->tcp_socket->ops->shutdown(ud->tcp_socket, SEND_SHUTDOWN|RCV_SHUTDOWN);
 	}
 
-	usbip_stop_threads(&vdev->ud);
+	/* kill threads related to this sdev, if v.c. exists */
+	if (vdev->ud.tcp_rx && !task_is_dead(vdev->ud.tcp_rx))
+		kthread_stop(vdev->ud.tcp_rx);
+	if (vdev->ud.tcp_tx && !task_is_dead(vdev->ud.tcp_tx))
+		kthread_stop(vdev->ud.tcp_tx);
+
 	usbip_uinfo("stop threads\n");
 
 	/* active connection is closed */
@@ -944,9 +949,6 @@ static void vhci_device_unusable(struct usbip_device *ud)
 static void vhci_device_init(struct vhci_device *vdev)
 {
 	memset(vdev, 0, sizeof(*vdev));
-
-	usbip_task_init(&vdev->ud.tcp_rx, "vhci_rx", vhci_rx_loop);
-	usbip_task_init(&vdev->ud.tcp_tx, "vhci_tx", vhci_tx_loop);
 
 	vdev->ud.side   = USBIP_VHCI;
 	vdev->ud.status = VDEV_ST_NULL;
@@ -1135,7 +1137,7 @@ static int vhci_hcd_probe(struct platform_device *pdev)
 		usbip_uerr("create hcd failed\n");
 		return -ENOMEM;
 	}
-
+	hcd->has_tt = 1;
 
 	/* this is private data for vhci_hcd */
 	the_controller = hcd_to_vhci(hcd);

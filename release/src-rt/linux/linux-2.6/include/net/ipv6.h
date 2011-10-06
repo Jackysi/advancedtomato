@@ -300,12 +300,10 @@ static inline int
 ipv6_masked_addr_cmp(const struct in6_addr *a1, const struct in6_addr *m,
 		     const struct in6_addr *a2)
 {
-	unsigned int i;
-
-	for (i = 0; i < 4; i++)
-		if ((a1->s6_addr32[i] ^ a2->s6_addr32[i]) & m->s6_addr32[i])
-			return 1;
-	return 0;
+	return (!!(((a1->s6_addr32[0] ^ a2->s6_addr32[0]) & m->s6_addr32[0]) |
+		   ((a1->s6_addr32[1] ^ a2->s6_addr32[1]) & m->s6_addr32[1]) |
+		   ((a1->s6_addr32[2] ^ a2->s6_addr32[2]) & m->s6_addr32[2]) |
+		   ((a1->s6_addr32[3] ^ a2->s6_addr32[3]) & m->s6_addr32[3])));
 }
 
 static inline void ipv6_addr_copy(struct in6_addr *a1, const struct in6_addr *a2)
@@ -340,10 +338,10 @@ static inline void ipv6_addr_set(struct in6_addr *addr,
 static inline int ipv6_addr_equal(const struct in6_addr *a1,
 				  const struct in6_addr *a2)
 {
-	return (a1->s6_addr32[0] == a2->s6_addr32[0] &&
-		a1->s6_addr32[1] == a2->s6_addr32[1] &&
-		a1->s6_addr32[2] == a2->s6_addr32[2] &&
-		a1->s6_addr32[3] == a2->s6_addr32[3]);
+	return (((a1->s6_addr32[0] ^ a2->s6_addr32[0]) |
+		 (a1->s6_addr32[1] ^ a2->s6_addr32[1]) |
+		 (a1->s6_addr32[2] ^ a2->s6_addr32[2]) |
+		 (a1->s6_addr32[3] ^ a2->s6_addr32[3])) == 0);
 }
 
 static inline int __ipv6_prefix_equal(const __be32 *a1, const __be32 *a2,
@@ -378,10 +376,25 @@ static inline int ipv6_addr_any(const struct in6_addr *a)
 		 a->s6_addr32[2] | a->s6_addr32[3] ) == 0); 
 }
 
+static inline int ipv6_addr_loopback(const struct in6_addr *a)
+{
+	return ((a->s6_addr32[0] | a->s6_addr32[1] |
+		 a->s6_addr32[2] | (a->s6_addr32[3] ^ htonl(1))) == 0);
+}
+
 static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
 {
-	return ((a->s6_addr32[0] | a->s6_addr32[1]) == 0 &&
-		 a->s6_addr32[2] == htonl(0x0000ffff));
+	return ((a->s6_addr32[0] | a->s6_addr32[1] |
+		 (a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0);
+}
+
+static inline void ipv6_addr_set_v4mapped(const __be32 addr,
+					  struct in6_addr *v4mapped)
+{
+	ipv6_addr_set(v4mapped,
+			0, 0,
+			htonl(0x0000FFFF),
+			addr);
 }
 
 /*
@@ -398,7 +411,7 @@ static inline int __ipv6_addr_diff(const void *token1, const void *token2, int a
 	for (i = 0; i < addrlen; i++) {
 		__be32 xb = a1[i] ^ a2[i];
 		if (xb)
-			return i * 32 + 32 - fls(ntohl(xb));
+			return i * 32 + 31 - __fls(ntohl(xb));
 	}
 
 	/*

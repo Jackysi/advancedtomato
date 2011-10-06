@@ -21,8 +21,8 @@ mode internally, the storage device vanishes (in most cases), and a new device
 
 In the beginning, nothing of this was documented in any form and there was
 hardly any Linux support available.
-On the good side, most of the known devices work out of the box in all modes
-with the available Linux modules like "usb-storage" or serial USB drivers.
+On the good side, most of the known devices are working out of the box in all
+modes with the available Linux modules like "usb-storage" or serial USB drivers.
 That leaves only the problem of the mode-switching from storage to whatever
 the thing is supposed to do.
 
@@ -74,20 +74,17 @@ Install the data package as well and you are set already; if your device is
 known, you should be able to just plug it and use it. If it doesn't work -
 we will find out why not.
 
-For manual use just run "make". Work with the command line interface or
-with a setup file. You can use any file and give its path with the "-c"
-parameter.
+For manual use just run "usb_modeswitch" (as root). Work with the command
+line interface or with a setup file. You can use any file and give its path
+with the "-c" parameter.
 The file named "device_reference.txt" that you can find in this package is
 a device and configuration reference containing most known devices; you can
 use it as a base to create your own configuration file.
-It's heavily commented and should tell you what to do.
+It's heavily commented and should tell you what to do. It also contains a
+thorough explanation of all the parameters.
 
-Run "usb_modeswitch -h" to list the command line parameters. If any of them
-except -W and -q are used, the default config file in /etc is NOT read.
+Run "usb_modeswitch -h" to list the command line parameters.
 See also the provided man page.
-
-To run the program use it from the source folder or put it somewhere into your
-path (preferably "/sbin" or "/usr/sbin").
 
 Note: manual use is intended for testing and analyzing !
 
@@ -99,10 +96,14 @@ The location is:
 /lib/udev/rules.d/40-usb_modeswitch.rules
 
 Then add your new setup file to the folder
-"/etc/usb_modeswitch.d". And don't forget to report your success !!
+"/usr/share/usb_modeswitch". And don't forget to report your success !!
+
+Again, mind that the rules file and the config folder are installed by
+the usb_modeswitch data package.
+
 
 ##########
-Important: libusb programs - like this tool - need to be run as root!
+Important: libusb programs - like this tool - want to be run as root!
 ##########
 
 
@@ -121,7 +122,7 @@ Contribute
 USB_ModeSwitch comes quite handy for experimenting with your own hardware if
 not supported yet. You could try this approach:
 
-Note the device's Vendor and Product ID from /proc/bus/usb/devices (or from the
+Note the device's vendor and product ID from /proc/bus/usb/devices (or from the
 output of lsusb); the assigned driver is usually "usb-storage". Then try spying
 on the USB communication to the device with the same ID inside M$ Windoze. I
 recommend this tool:
@@ -195,4 +196,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2011-02-24, Josua Dietze
+Last revised: 2011-02-25, Josua Dietze
