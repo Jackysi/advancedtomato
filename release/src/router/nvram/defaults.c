@@ -576,10 +576,10 @@ const defaults_t defaults[] = {
 	{ "cstats_path",		""				},
 	{ "cstats_stime",		"48"				},
 	{ "cstats_offset",		"1"				},
-	{ "cstats_data",		""				},
 	{ "cstats_colors",		""				},
 	{ "cstats_exclude",		""				},
-	{ "cstats_include",		"192.168.1.0"			},
+	{ "cstats_include",		""				},
+	{ "cstats_all",			"1"				},
 	{ "cstats_sshut",		"1"				},
 	{ "cstats_bak",			"0"				},
 
