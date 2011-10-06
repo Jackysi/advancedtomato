@@ -1039,16 +1039,15 @@ static void filter_forward(void)
 		}
 	}
 
-//IPv4 forward LAN->WAN accept
 	for (i = 0; i < wanfaces.count; ++i) {
 		if (*(wanfaces.iface[i].name)) {
-			ipt_write("-A FORWARD -i %s -o %s -j %s\n", lanface, wanfaces.iface[i].name, chain_out_accept);
+			ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lanface, wanfaces.iface[i].name, chain_out_accept);
 			if (strcmp(lan1face,"")!=0)
-				ipt_write("-A FORWARD -i %s -o %s -j %s\n", lan1face, wanfaces.iface[i].name, chain_out_accept);
+				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan1face, wanfaces.iface[i].name, chain_out_accept);
 			if (strcmp(lan2face,"")!=0)
-				ipt_write("-A FORWARD -i %s -o %s -j %s\n", lan2face, wanfaces.iface[i].name, chain_out_accept);
+				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan2face, wanfaces.iface[i].name, chain_out_accept);
 			if (strcmp(lan3face,"")!=0)
-				ipt_write("-A FORWARD -i %s -o %s -j %s\n", lan3face, wanfaces.iface[i].name, chain_out_accept);
+				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan3face, wanfaces.iface[i].name, chain_out_accept);
 		}
 	}
 
