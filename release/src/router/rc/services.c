@@ -1978,7 +1978,6 @@ void start_services(void)
 	start_cron();
 //	start_upnp();
 	start_rstats(0);
-	start_account();
 	start_cstats(0);
 	start_sched();
 #ifdef TCONFIG_IPV6
@@ -2092,18 +2091,6 @@ TOP:
 		goto CLEAR;
 	}
 
-	if (strcmp(service, "account") == 0) {
-		if (action & A_STOP) stop_account();
-		if (action & A_START) start_account();
-		goto CLEAR;
-	}
-
-	if (strcmp(service, "arpbind") == 0) {
-		if (action & A_STOP) stop_arpbind();
-		if (action & A_START) start_arpbind();
-		goto CLEAR;
-	}
-
 	if (strcmp(service, "restrict") == 0) {
 		if (action & A_STOP) {
 			stop_firewall();
@@ -2126,12 +2113,6 @@ TOP:
 	if (strcmp(service, "account") == 0) {
 		if (action & A_STOP) stop_account();
 		if (action & A_START) start_account();
-		goto CLEAR;
-	}
-
-	if (strcmp(service, "arpbind") == 0) {
-		if (action & A_STOP) stop_arpbind();
-		if (action & A_START) start_arpbind();
 		goto CLEAR;
 	}
 
