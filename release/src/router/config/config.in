@@ -139,3 +139,7 @@ config TCONFIG_SNMP
 config TCONFIG_SDHC
 	bool "  SDHC/MMC mod for WRT54G/GL"
 	default n
+
+config TCONFIG_HFS
+	bool "  HFS/HFS+ filesystem support "
+	default n

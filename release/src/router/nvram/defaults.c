@@ -664,8 +664,9 @@ const defaults_t defaults[] = {
 #ifdef TCONFIG_NTFS
 	{ "usb_fs_ntfs",		"1"				},
 #endif
+#ifdef TCONFIG_HFS
 	{ "usb_fs_hfs",			"0"				}, //!Victek
-	{ "usb_fs_hfsplus",		"0"				}, //!Victek
+#endif
 	{ "usb_automount",		"1"				},
 #if 0
 	{ "usb_bdflush",		"30 500 0 0 100 100 60 0 0"	},

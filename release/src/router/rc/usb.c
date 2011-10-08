@@ -126,13 +126,12 @@ void start_usb(void)
 				modprobe("fat");
 				modprobe("vfat");
 			}
+#ifdef TCONFIG_HFS
 			if (nvram_get_int("usb_fs_hfs")) {
 				modprobe("hfs");
-			}
-
-			if (nvram_get_int("usb_fs_hfsplus")) {
 				modprobe("hfsplus");
 			}
+#endif
 		}
 
 		/* if enabled, force USB2 before USB1.1 */
@@ -196,8 +195,10 @@ void stop_usb(void)
 		modprobe_r("vfat");
 		modprobe_r("fat");
 		modprobe_r("fuse");
+#ifdef TCONFIG_SAMBASRV
 		modprobe_r("hfs");
 		modprobe_r("hfsplus");
+#endif
 		sleep(1);
 #ifdef TCONFIG_SAMBASRV
 		modprobe_r("nls_cp437");
@@ -351,6 +352,7 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 					ret = eval("ntfs-3g", "-o", options, mnt_dev, mnt_dir);
 			}
 
+#ifdef TCONFIG_HFS
 			if (ret != 0 && strncmp(type, "hfs", "") == 0) {
 				ret = eval("mount", "-o", "noatime,nodev", mnt_dev, mnt_dir);
 			}
@@ -358,6 +360,7 @@ int mount_r(char *mnt_dev, char *mnt_dir, char *type)
 			if (ret != 0 && strncmp(type, "hfsplus", "") == 0) {
 				ret = eval("mount", "-o", "noatime,nodev", mnt_dev, mnt_dir);
 			}
+#endif
 
 			if (ret != 0) /* give it another try - guess fs */
 				ret = eval("mount", "-o", "noatime,nodev", mnt_dev, mnt_dir);

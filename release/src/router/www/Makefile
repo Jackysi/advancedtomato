@@ -109,6 +109,12 @@ ifneq ($(TCONFIG_NOCAT),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/NOCAT-BEGIN/,/NOCAT-END/d"
 endif
 
+# Only include HFS/HFS+ option and pages when configured.
+ifneq ($(TCONFIG_HFS),y)
+	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/HFS-BEGIN/,/HFS-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/HFS-BEGIN/,/HFS-END/d"
+endif
+
 # Only include IPv6 options if IPv6 is configured in.
 ifneq ($(TCONFIG_IPV6),y)
 	cd $(INSTALLDIR)/www && \
@@ -221,6 +227,7 @@ endif
 		-e "/NOCAT-BEGIN/d"	-e "/NOCAT-END/d"\
 		-e "/SNMP-BEGIN/d"	-e "/SNMP-END/d"\
 		-e "/SDHC-BEGIN/d"	-e "/SDHC-END/d"\
+		-e "/HFS-BEGIN/d"	-e "/HFS-END/d"\
 		|| true; \
 	done
 

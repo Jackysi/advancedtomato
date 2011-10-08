@@ -222,7 +222,7 @@ what:
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT
-# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC
+# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS
 
 define RouterOptions
 	@( \
@@ -352,6 +352,10 @@ define RouterOptions
 	if [ "$(SDHC)" = "y" ]; then \
 		sed -i "/TCONFIG_SDHC/d" $(1); \
 		echo "TCONFIG_SDHC=y" >>$(1); \
+	fi; \
+	if [ "$(HFS)" = "y" ]; then \
+		sed -i "/TCONFIG_HFS/d" $(1); \
+		echo "TCONFIG_HFS=y" >>$(1); \
 	fi; \
 	)
 endef

@@ -34,3 +34,4 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_NOCAT is not set
 # TCONFIG_SNMP is not set
 # TCONFIG_SDHC is not set
+# TCONFIG_HFS is not set

@@ -141,6 +141,9 @@ Copyright (C) 2011 Michał Rupental<br>
 <!-- NOCAT-BEGIN -->
 - Captive Portal. (Based in NocatSplash)<br>
 <!-- NOCAT-END -->
+<!-- HFS-BEGIN -->
+- HFS / HFS+ filesystem integration<br>
+<!-- HFS-END -->
 Copyright (C) 2007-2011 Ofer Chen & Vicente Soriano<br>
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
