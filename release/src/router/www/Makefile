@@ -106,6 +106,7 @@ ifneq ($(TCONFIG_NOCAT),y)
 	rm -f $(INSTALLDIR)/www/new-splashd.asp
 	rm -f $(INSTALLDIR)/www/splash.html
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/NOCAT-BEGIN/,/NOCAT-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/NOCAT-BEGIN/,/NOCAT-END/d"
 endif
 
 # Only include IPv6 options if IPv6 is configured in.
