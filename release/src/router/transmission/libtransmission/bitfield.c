@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: bitfield.c 12554 2011-07-17 14:34:33Z jordan $
+ * $Id: bitfield.c 12932 2011-09-28 16:07:35Z jordan $
  */
 
 #include <assert.h>
@@ -170,43 +170,44 @@ tr_bitfieldGetRaw( const tr_bitfield * b, size_t * byte_count )
 
     assert( b->bit_count > 0 );
 
-    if( b->alloc_count )
+    if( b->alloc_count ) {
+        assert( b->alloc_count <= n );
         memcpy( bits, b->bits, b->alloc_count );
-    else if( tr_bitfieldHasAll( b ) )
+    } else if( tr_bitfieldHasAll( b ) ) {
         set_all_true( bits, b->bit_count );
+    }
 
     *byte_count = n;
     return bits;
 }
 
 static void
-tr_bitfieldEnsureBitsAlloced( tr_bitfield * b, size_t nth )
+tr_bitfieldEnsureBitsAlloced( tr_bitfield * b, size_t n )
 {
     size_t bytes_needed;
     const bool has_all = tr_bitfieldHasAll( b );
 
-    assert( tr_bitfieldIsValid( b ) );
-
     if( has_all )
-        bytes_needed = get_bytes_needed( MAX( nth, b->true_count ) + 1 );
+        bytes_needed = get_bytes_needed( MAX( n, b->true_count ) );
     else
-        bytes_needed = get_bytes_needed( nth + 1 );
+        bytes_needed = get_bytes_needed( n );
 
     if( b->alloc_count < bytes_needed )
     {
-#ifndef NDEBUG
-        const size_t old_count = countArray( b );
-#endif
         b->bits = tr_renew( uint8_t, b->bits, bytes_needed );
         memset( b->bits + b->alloc_count, 0, bytes_needed - b->alloc_count );
         b->alloc_count = bytes_needed;
-        assert( old_count == countArray( b ) );
 
         if( has_all )
             set_all_true( b->bits, b->true_count );
     }
+}
 
-    assert( tr_bitfieldIsValid( b ) );
+static void
+tr_bitfieldEnsureNthBitAlloced( tr_bitfield * b, size_t nth )
+{
+    /* count is zero-based, so we need to allocate nth+1 bits before setting the nth */
+    tr_bitfieldEnsureBitsAlloced( b, nth + 1 );
 }
 
 static void
@@ -287,17 +288,52 @@ tr_bitfieldSetFromBitfield( tr_bitfield * b, const tr_bitfield * src )
     else if( tr_bitfieldHasNone( src ) )
         tr_bitfieldSetHasNone( b );
     else
-        tr_bitfieldSetRaw( b, src->bits, src->alloc_count );
+        tr_bitfieldSetRaw( b, src->bits, src->alloc_count, true );
 }
 
 void
-tr_bitfieldSetRaw( tr_bitfield * b, const void * bits, size_t byte_count )
+tr_bitfieldSetRaw( tr_bitfield * b, const void * bits, size_t byte_count, bool bounded )
 {
     tr_bitfieldFreeArray( b );
     b->true_count = 0;
+
+    if( bounded )
+        byte_count = MIN( byte_count, get_bytes_needed( b->bit_count ) );
+
     b->bits = tr_memdup( bits, byte_count );
     b->alloc_count = byte_count;
+
+    if( bounded ) {
+        /* ensure the excess bits are set to '0' */
+        const int excess_bit_count = byte_count*8 - b->bit_count;
+        assert( excess_bit_count >= 0 );
+        assert( excess_bit_count <= 7 );
+        if( excess_bit_count )
+            b->bits[b->alloc_count-1] &= ((0xff) << excess_bit_count);
+    }
+
     tr_bitfieldRebuildTrueCount( b );
+}
+
+void
+tr_bitfieldSetFromFlags( tr_bitfield * b, const bool * flags, size_t n )
+{
+    size_t i;
+    size_t trueCount = 0;
+
+    tr_bitfieldFreeArray( b );
+    tr_bitfieldEnsureBitsAlloced( b, n );
+
+    for( i=0; i<n; ++i )
+    {
+        if( flags[i] )
+        {
+            ++trueCount;
+            b->bits[i >> 3u] |= ( 0x80 >> ( i & 7u ) );
+        }
+    }
+
+    tr_bitfieldSetTrueCount( b, trueCount );
 }
 
 void
@@ -305,7 +341,7 @@ tr_bitfieldAdd( tr_bitfield * b, size_t nth )
 {
     if( !tr_bitfieldHas( b, nth ) )
     {
-        tr_bitfieldEnsureBitsAlloced( b, nth );
+        tr_bitfieldEnsureNthBitAlloced( b, nth );
         b->bits[nth >> 3u] |= ( 0x80 >> ( nth & 7u ) );
         tr_bitfieldIncTrueCount( b, 1 );
     }
@@ -331,7 +367,7 @@ tr_bitfieldAddRange( tr_bitfield * b, size_t begin, size_t end )
     eb = end >> 3;
     em = 0xff << ( 7 - ( end & 7 ) );
 
-    tr_bitfieldEnsureBitsAlloced( b, end );
+    tr_bitfieldEnsureNthBitAlloced( b, end );
     if( sb == eb )
     {
         b->bits[sb] |= ( sm & em );
@@ -354,7 +390,7 @@ tr_bitfieldRem( tr_bitfield * b, size_t nth )
 
     if( !tr_bitfieldHas( b, nth ) )
     {
-        tr_bitfieldEnsureBitsAlloced( b, nth );
+        tr_bitfieldEnsureNthBitAlloced( b, nth );
         b->bits[nth >> 3u] &= ( 0xff7f >> ( nth & 7u ) );
         tr_bitfieldIncTrueCount( b, -1 );
     }
@@ -381,7 +417,7 @@ tr_bitfieldRemRange( tr_bitfield * b, size_t begin, size_t end )
     eb = end >> 3;
     em = ~( 0xff << ( 7 - ( end & 7 ) ) );
 
-    tr_bitfieldEnsureBitsAlloced( b, end );
+    tr_bitfieldEnsureNthBitAlloced( b, end );
     if( sb == eb )
     {
         b->bits[sb] &= ( sm | em );

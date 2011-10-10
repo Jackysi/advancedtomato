@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: actions.c 12354 2011-04-12 11:13:41Z jordan $
+ * $Id: actions.c 12639 2011-08-07 18:41:13Z jordan $
  */
 
 #include <string.h>
@@ -40,20 +40,17 @@ action_cb( GtkAction * a, gpointer user_data )
     gtr_actions_handler( gtk_action_get_name( a ), user_data );
 }
 
-#if !GTK_CHECK_VERSION( 2, 10, 0 )
- #define GTK_STOCK_SELECT_ALL NULL
-#endif
-
 static GtkRadioActionEntry sort_radio_entries[] =
 {
     { "sort-by-activity",  NULL, N_( "Sort by _Activity" ),  NULL, NULL, 0 },
     { "sort-by-name",      NULL, N_( "Sort by _Name" ),      NULL, NULL, 1 },
     { "sort-by-progress",  NULL, N_( "Sort by _Progress" ),  NULL, NULL, 2 },
-    { "sort-by-ratio",     NULL, N_( "Sort by Rati_o" ),     NULL, NULL, 3 },
-    { "sort-by-state",     NULL, N_( "Sort by Stat_e" ),     NULL, NULL, 4 },
-    { "sort-by-age",       NULL, N_( "Sort by A_ge" ),       NULL, NULL, 5 },
-    { "sort-by-time-left", NULL, N_( "Sort by Time _Left" ), NULL, NULL, 6 },
-    { "sort-by-size",      NULL, N_( "Sort by Si_ze" ),      NULL, NULL, 7 }
+    { "sort-by-queue",     NULL, N_( "Sort by _Queue" ),     NULL, NULL, 3 },
+    { "sort-by-ratio",     NULL, N_( "Sort by Rati_o" ),     NULL, NULL, 4 },
+    { "sort-by-state",     NULL, N_( "Sort by Stat_e" ),     NULL, NULL, 5 },
+    { "sort-by-age",       NULL, N_( "Sort by A_ge" ),       NULL, NULL, 6 },
+    { "sort-by-time-left", NULL, N_( "Sort by Time _Left" ), NULL, NULL, 7 },
+    { "sort-by-size",      NULL, N_( "Sort by Si_ze" ),      NULL, NULL, 8 }
 };
 
 static void
@@ -100,17 +97,19 @@ static GtkActionEntry entries[] =
     { "torrent-menu", NULL, N_( "_Torrent" ), NULL, NULL, NULL  },
     { "view-menu", NULL, N_( "_View" ), NULL, NULL, NULL  },
     { "sort-menu", NULL, N_( "_Sort Torrents By" ), NULL, NULL, NULL },
+    { "queue-menu", NULL, N_( "_Queue" ), NULL, NULL, NULL },
     { "edit-menu", NULL, N_( "_Edit" ), NULL, NULL, NULL },
     { "help-menu", NULL, N_( "_Help" ), NULL, NULL, NULL },
     { "copy-magnet-link-to-clipboard",  GTK_STOCK_COPY, N_("Copy _Magnet Link to Clipboard" ), "", NULL,  G_CALLBACK( action_cb ) },
     { "open-torrent-from-url",  GTK_STOCK_OPEN, N_("Open _URL..." ), "<control>U", N_( "Open URL..." ),  G_CALLBACK( action_cb ) },
     { "open-torrent-toolbar",  GTK_STOCK_OPEN, NULL, NULL, N_( "Open a torrent" ),  G_CALLBACK( action_cb ) },
     { "open-torrent-menu", GTK_STOCK_OPEN, NULL, NULL, N_( "Open a torrent" ), G_CALLBACK( action_cb ) },
-    { "start-torrent", GTK_STOCK_MEDIA_PLAY, N_( "_Start" ), "<control>S", N_( "Start torrent" ), G_CALLBACK( action_cb ) },
+    { "torrent-start", GTK_STOCK_MEDIA_PLAY, N_( "_Start" ), "<control>S", N_( "Start torrent" ), G_CALLBACK( action_cb ) },
+    { "torrent-start-now", GTK_STOCK_MEDIA_PLAY, N_( "Start _Now" ), "<shift><control>S", N_( "Start torrent now" ), G_CALLBACK( action_cb ) },
     { "show-stats", NULL, N_( "_Statistics" ), NULL, NULL, G_CALLBACK( action_cb ) },
     { "donate", NULL, N_( "_Donate" ), NULL, NULL, G_CALLBACK( action_cb ) },
-    { "verify-torrent", NULL, N_( "_Verify Local Data" ), "<control>V", NULL, G_CALLBACK( action_cb ) },
-    { "pause-torrent", GTK_STOCK_MEDIA_PAUSE, N_( "_Pause" ), "<control>P", N_( "Pause torrent" ), G_CALLBACK( action_cb ) },
+    { "torrent-verify", NULL, N_( "_Verify Local Data" ), "<control>V", NULL, G_CALLBACK( action_cb ) },
+    { "torrent-stop", GTK_STOCK_MEDIA_PAUSE, N_( "_Pause" ), "<control>P", N_( "Pause torrent" ), G_CALLBACK( action_cb ) },
     { "pause-all-torrents", GTK_STOCK_MEDIA_PAUSE, N_( "_Pause All" ), NULL, N_( "Pause all torrents" ), G_CALLBACK( action_cb ) },
     { "start-all-torrents", GTK_STOCK_MEDIA_PLAY, N_( "_Start All" ), NULL, N_( "Start all torrents" ), G_CALLBACK( action_cb ) },
     { "relocate-torrent", NULL, N_("Set _Location..." ), NULL, NULL, G_CALLBACK( action_cb ) },
@@ -125,7 +124,12 @@ static GtkActionEntry entries[] =
     { "open-torrent-folder",  GTK_STOCK_OPEN, N_( "Open Fold_er" ), "<control>E", NULL, G_CALLBACK( action_cb ) },
     { "show-about-dialog", GTK_STOCK_ABOUT, NULL, NULL, NULL, G_CALLBACK( action_cb ) },
     { "help", GTK_STOCK_HELP, N_( "_Contents" ), "F1", NULL, G_CALLBACK( action_cb ) },
-    { "update-tracker", GTK_STOCK_NETWORK, N_( "Ask Tracker for _More Peers" ), NULL, NULL, G_CALLBACK( action_cb ) },
+    { "torrent-reannounce", GTK_STOCK_NETWORK, N_( "Ask Tracker for _More Peers" ), NULL, NULL, G_CALLBACK( action_cb ) },
+    { "queue-move-top", GTK_STOCK_GOTO_TOP, N_( "Move to _Top" ), NULL, NULL, G_CALLBACK( action_cb ) },
+    { "queue-move-up", GTK_STOCK_GO_UP, N_( "Move _Up" ), NULL, NULL, G_CALLBACK( action_cb ) },
+    { "queue-move-down", GTK_STOCK_GO_DOWN, N_( "Move _Down" ), NULL, NULL, G_CALLBACK( action_cb ) },
+    { "queue-move-bottom", GTK_STOCK_GOTO_BOTTOM, N_( "Move to _Bottom" ), NULL, NULL, G_CALLBACK( action_cb ) },
+    { "present-main-window", NULL, N_( "Present Main Window" ), NULL, NULL, G_CALLBACK( action_cb ) }
 };
 
 typedef struct

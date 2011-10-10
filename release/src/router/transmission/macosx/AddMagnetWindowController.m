@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: AddMagnetWindowController.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: AddMagnetWindowController.m 12612 2011-08-02 12:43:26Z livings124 $
  *
  * Copyright (c) 2010-2011 Transmission authors and contributors
  *
@@ -199,8 +199,10 @@
 
 - (void) confirmAdd
 {
-    [fTorrent setWaitToStart: [fStartCheck state] == NSOnState];
     [fTorrent setGroupValue: fGroupValue];
+    
+    if ([fStartCheck state] == NSOnState)
+        [fTorrent startTransfer];
     
     [self close];
     [fController askOpenMagnetConfirmed: self add: YES]; //ensure last, since it releases this controller

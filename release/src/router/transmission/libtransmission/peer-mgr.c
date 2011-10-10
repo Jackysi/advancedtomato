@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-mgr.c 12539 2011-07-10 15:24:51Z jordan $
+ * $Id: peer-mgr.c 12920 2011-09-26 22:48:50Z jordan $
  */
 
 #include <assert.h>
@@ -401,7 +401,7 @@ getPeer( Torrent * torrent, struct peer_atom * atom )
     if( peer == NULL )
     {
         peer = peerNew( atom );
-        tr_bitfieldConstruct( &peer->have, torrent->tor->blockCount );
+        tr_bitfieldConstruct( &peer->have, torrent->tor->info.pieceCount );
         tr_bitfieldConstruct( &peer->blame, torrent->tor->blockCount );
         tr_ptrArrayInsertSorted( &torrent->peers, peer, peerCompare );
     }
@@ -530,12 +530,15 @@ torrentNew( tr_peerMgr * manager, tr_torrent * tor )
     return t;
 }
 
+static void ensureMgrTimersExist( struct tr_peerMgr * m );
+
 tr_peerMgr*
 tr_peerMgrNew( tr_session * session )
 {
     tr_peerMgr * m = tr_new0( tr_peerMgr, 1 );
     m->session = session;
     m->incomingHandshakes = TR_PTR_ARRAY_INIT;
+    ensureMgrTimersExist( m );
     return m;
 }
 
@@ -2257,20 +2260,6 @@ tr_pexCompare( const void * va, const void * vb )
     return 0;
 }
 
-#if 0
-static int
-peerPrefersCrypto( const tr_peer * peer )
-{
-    if( peer->encryption_preference == ENCRYPTION_PREFERENCE_YES )
-        return true;
-
-    if( peer->encryption_preference == ENCRYPTION_PREFERENCE_NO )
-        return false;
-
-    return tr_peerIoIsEncrypted( peer->io );
-}
-#endif
-
 /* better goes first */
 static int
 compareAtomsByUsefulness( const void * va, const void *vb )
@@ -2786,7 +2775,7 @@ tr_peerMgrClearInterest( tr_torrent * tor )
 /* does this peer have any pieces that we want? */
 static bool
 isPeerInteresting( const tr_torrent  * const tor,
-                   const tr_bitfield * const interesting_pieces,
+                   const bool        * const piece_is_interesting,
                    const tr_peer     * const peer )
 {
     tr_piece_index_t i, n;
@@ -2799,7 +2788,7 @@ isPeerInteresting( const tr_torrent  * const tor,
         return true;
 
     for( i=0, n=tor->info.pieceCount; i<n; ++i )
-        if( tr_bitfieldHas( interesting_pieces, i ) && tr_bitfieldHas( &peer->have, i ) )
+        if( piece_is_interesting[i] && tr_bitfieldHas( &peer->have, i ) )
             return true;
 
     return false;
@@ -2920,22 +2909,21 @@ rechokeDownloads( Torrent * t )
 
     if( peerCount > 0 )
     {
+        bool * piece_is_interesting;
         const tr_torrent * const tor = t->tor;
         const int n = tor->info.pieceCount;
-        tr_bitfield interesting_pieces = TR_BITFIELD_INIT;
 
         /* build a bitfield of interesting pieces... */
-        tr_bitfieldConstruct( &interesting_pieces, n );
+        piece_is_interesting = tr_new( bool, n );
         for( i=0; i<n; i++ )
-            if( !tor->info.pieces[i].dnd && !tr_cpPieceIsComplete( &tor->completion, i ) )
-                tr_bitfieldAdd( &interesting_pieces, i );
+            piece_is_interesting[i] = !tor->info.pieces[i].dnd && !tr_cpPieceIsComplete( &tor->completion, i );
 
         /* decide WHICH peers to be interested in (based on their cancel-to-block ratio) */
         for( i=0; i<peerCount; ++i )
         {
             tr_peer * peer = tr_ptrArrayNth( &t->peers, i );
 
-            if( !isPeerInteresting( t->tor, &interesting_pieces, peer ) )
+            if( !isPeerInteresting( t->tor, piece_is_interesting, peer ) )
             {
                 tr_peerMsgsSetInterested( peer->msgs, false );
             }
@@ -2967,7 +2955,7 @@ rechokeDownloads( Torrent * t )
 
         }
 
-        tr_bitfieldDestruct( &interesting_pieces );
+        tr_free( piece_is_interesting );
     }
 
     /* now that we know which & how many peers to be interested in... update the peer interest */
@@ -3558,22 +3546,44 @@ pumpAllPeers( tr_peerMgr * mgr )
 }
 
 static void
+queuePulse( tr_session * session, tr_direction dir )
+{
+    assert( tr_isSession( session ) );
+    assert( tr_isDirection( dir ) );
+
+    if( tr_sessionGetQueueEnabled( session, dir ) )
+    {
+        int i;
+        const int n = tr_sessionCountQueueFreeSlots( session, dir );
+        for( i=0; i<n; i++ ) {
+            tr_torrent * tor = tr_sessionGetNextQueuedTorrent( session, dir );
+            if( tor != NULL ) {
+                tr_torrentStartNow( tor );
+                if( tor->queue_started_callback != NULL )
+                    (*tor->queue_started_callback)( tor, tor->queue_started_user_data );
+            }
+        }
+    }
+}
+
+static void
 bandwidthPulse( int foo UNUSED, short bar UNUSED, void * vmgr )
 {
     tr_torrent * tor;
     tr_peerMgr * mgr = vmgr;
+    tr_session * session = mgr->session;
     managerLock( mgr );
 
     /* FIXME: this next line probably isn't necessary... */
     pumpAllPeers( mgr );
 
     /* allocate bandwidth to the peers */
-    tr_bandwidthAllocate( &mgr->session->bandwidth, TR_UP, BANDWIDTH_PERIOD_MSEC );
-    tr_bandwidthAllocate( &mgr->session->bandwidth, TR_DOWN, BANDWIDTH_PERIOD_MSEC );
+    tr_bandwidthAllocate( &session->bandwidth, TR_UP, BANDWIDTH_PERIOD_MSEC );
+    tr_bandwidthAllocate( &session->bandwidth, TR_DOWN, BANDWIDTH_PERIOD_MSEC );
 
     /* torrent upkeep */
     tor = NULL;
-    while(( tor = tr_torrentNext( mgr->session, tor )))
+    while(( tor = tr_torrentNext( session, tor )))
     {
         /* possibly stop torrents that have seeded enough */
         tr_torrentCheckSeedLimit( tor );
@@ -3589,6 +3599,10 @@ bandwidthPulse( int foo UNUSED, short bar UNUSED, void * vmgr )
         if( tor->isStopping )
             tr_torrentStop( tor );
     }
+
+    /* pump the queues */
+    queuePulse( session, TR_UP );
+    queuePulse( session, TR_DOWN );
 
     reconnectPulse( 0, 0, mgr );
 

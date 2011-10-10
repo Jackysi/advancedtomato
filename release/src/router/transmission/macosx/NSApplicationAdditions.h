@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: NSApplicationAdditions.h 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: NSApplicationAdditions.h 12570 2011-07-21 02:35:03Z livings124 $
  *
  * Copyright (c) 2009-2011 Transmission authors and contributors
  *
@@ -24,9 +24,11 @@
 
 #define QLPreviewPanelSL NSClassFromString(@"QLPreviewPanel")
 #define NSRunningApplicationSL NSClassFromString(@"NSRunningApplication")
+#define NSPopoverLion NSClassFromString(@"NSPopover")
 
 @interface NSApplication (NSApplicationAdditions)
 
 - (BOOL) isOnSnowLeopardOrBetter;
+- (BOOL) isOnLionOrBetter;
 
 @end

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: util.c 12412 2011-05-02 17:58:27Z jordan $
+ * $Id: util.c 12682 2011-08-13 22:58:49Z jordan $
  */
 
 #include <ctype.h> /* isxdigit() */
@@ -15,26 +15,19 @@
 #include <stdarg.h>
 #include <string.h> /* strchr(), strrchr(), strlen(), strncmp(), strstr() */
 
-#include <sys/types.h> /* for gtr_lockfile()'s open() */
-#include <sys/stat.h> /* for gtr_lockfile()'s open() */
-#include <fcntl.h> /* for gtr_lockfile()'s open() */
-
 #include <gtk/gtk.h>
 #include <glib/gi18n.h>
 #include <glib/gstdio.h> /* g_unlink() */
-#ifdef HAVE_GIO
- #include <gio/gio.h> /* g_file_trash() */
-#endif
-#ifdef HAVE_DBUS_GLIB
- #include <dbus/dbus-glib.h>
-#endif
+#include <gio/gio.h> /* g_file_trash() */
 
 #include <libtransmission/transmission.h> /* TR_RATIO_NA, TR_RATIO_INF */
 #include <libtransmission/utils.h> /* tr_strratio() */
 #include <libtransmission/web.h> /* tr_webResponseStr() */
 #include <libtransmission/version.h> /* SHORT_VERSION_STRING */
 
+#include "conf.h"
 #include "hig.h"
+#include "tr-prefs.h"
 #include "util.h"
 
 /***
@@ -58,54 +51,6 @@ const char * speed_K_str = N_("KiB/s");
 const char * speed_M_str = N_("MiB/s");
 const char * speed_G_str = N_("GiB/s");
 const char * speed_T_str = N_("TiB/s");
-
-/***
-****
-***/
-
-gtr_lockfile_state_t
-gtr_lockfile( const char * filename )
-{
-    gtr_lockfile_state_t ret;
-
-#ifdef WIN32
-
-    HANDLE file = CreateFile( filename,
-                              GENERIC_READ | GENERIC_WRITE,
-                              FILE_SHARE_READ | FILE_SHARE_WRITE,
-                              NULL,
-                              OPEN_ALWAYS,
-                              FILE_ATTRIBUTE_NORMAL,
-                              NULL );
-    if( file == INVALID_HANDLE_VALUE )
-        ret = GTR_LOCKFILE_EOPEN;
-    else if( !LockFile( file, 0, 0, 1, 1 ) )
-        ret = GTR_LOCKFILE_ELOCK;
-    else
-        ret = GTR_LOCKFILE_SUCCESS;
-
-#else
-
-    int fd = open( filename, O_RDWR | O_CREAT, 0666 );
-    if( fd < 0 )
-        ret = GTR_LOCKFILE_EOPEN;
-    else {
-        struct flock lk;
-        memset( &lk, 0,  sizeof( lk ) );
-        lk.l_start = 0;
-        lk.l_len = 0;
-        lk.l_type = F_WRLCK;
-        lk.l_whence = SEEK_SET;
-        if( -1 == fcntl( fd, F_SETLK, &lk ) )
-            ret = GTR_LOCKFILE_ELOCK;
-        else
-            ret = GTR_LOCKFILE_SUCCESS;
-    }
-
-#endif
-
-    return ret;
-}
 
 /***
 ****
@@ -139,7 +84,7 @@ char*
 tr_strlsize( char * buf, guint64 bytes, size_t buflen )
 {
     if( !bytes )
-        g_strlcpy( buf, Q_( "size|None" ), buflen );
+        g_strlcpy( buf, Q_( "None" ), buflen );
     else
         tr_formatter_size_B( buf, bytes, buflen );
 
@@ -194,16 +139,6 @@ tr_strltime( char * buf, int seconds, size_t buflen )
     return buf;
 }
 
-int
-gtr_mkdir_with_parents( const char * path, int mode )
-{
-#if GLIB_CHECK_VERSION( 2, 8, 0 )
-    return !g_mkdir_with_parents( path, mode );
-#else
-    return !tr_mkdirp( path, mode );
-#endif
-}
-
 /* pattern-matching text; ie, legaltorrents.com */
 void
 gtr_get_host_from_url( char * buf, size_t buflen, const char * url )
@@ -232,7 +167,7 @@ gtr_get_host_from_url( char * buf, size_t buflen, const char * url )
     }
 }
 
-gboolean
+static gboolean
 gtr_is_supported_url( const char * str )
 {
     return !strncmp( str, "ftp://", 6 )
@@ -361,41 +296,31 @@ on_tree_view_button_released( GtkWidget *      view,
     return FALSE;
 }
 
-gpointer
-gtr_object_ref_sink( gpointer object )
-{
-#if GLIB_CHECK_VERSION( 2, 10, 0 )
-    g_object_ref_sink( object );
-#else
-    g_object_ref( object );
-    gtk_object_sink( GTK_OBJECT( object ) );
-#endif
-    return object;
-}
-
 int
 gtr_file_trash_or_remove( const char * filename )
 {
-    if( filename && g_file_test( filename, G_FILE_TEST_EXISTS ) )
-    {
-        gboolean trashed = FALSE;
-#ifdef HAVE_GIO
-        GError * err = NULL;
-        GFile *  file = g_file_new_for_path( filename );
-        trashed = g_file_trash( file, NULL, &err );
-        if( err )
-            g_message( "Unable to trash file \"%s\": %s", filename, err->message );
-        g_clear_error( &err );
-        g_object_unref( G_OBJECT( file ) );
-#endif
+    gboolean trashed = FALSE;
+    GFile * file = g_file_new_for_path( filename );
 
-        if( !trashed && g_remove( filename ) )
-        {
-            const int err = errno;
-            g_message( "Unable to remove file \"%s\": %s", filename, g_strerror( err ) );
+    if( gtr_pref_flag_get( PREF_KEY_TRASH_CAN_ENABLED ) ) {
+        GError * err = NULL;
+        trashed = g_file_trash( file, NULL, &err );
+        if( err ) {
+            g_message( "Unable to trash file \"%s\": %s", filename, err->message );
+            g_clear_error( &err );
         }
     }
 
+    if( !trashed ) {
+        GError * err = NULL;
+        trashed = g_file_delete( file, NULL, &err );
+        if( err ) {
+            g_message( "Unable to delete file \"%s\": %s", filename, err->message );
+            g_clear_error( &err );
+        }
+    }
+
+    g_object_unref( G_OBJECT( file ) );
     return 0;
 }
 
@@ -420,11 +345,10 @@ gtr_open_file( const char * path )
 {
     char * uri = NULL;
 
-#ifdef HAVE_GIO
     GFile * file = g_file_new_for_path( path );
     uri = g_file_get_uri( file );
     g_object_unref( G_OBJECT( file ) );
-#else
+
     if( g_path_is_absolute( path ) )
         uri = g_strdup_printf( "file://%s", path );
     else {
@@ -432,7 +356,6 @@ gtr_open_file( const char * path )
         uri = g_strdup_printf( "file://%s/%s", cwd, path );
         g_free( cwd );
     }
-#endif
 
     gtr_open_uri( uri );
     g_free( uri );
@@ -445,15 +368,11 @@ gtr_open_uri( const char * uri )
     {
         gboolean opened = FALSE;
 
-#if GTK_CHECK_VERSION(2,14,0)
         if( !opened )
             opened = gtk_show_uri( NULL, uri, GDK_CURRENT_TIME, NULL );
-#endif
 
-#ifdef HAVE_GIO
         if( !opened )
             opened = g_app_info_launch_default_for_uri( uri, NULL, NULL );
-#endif
 
         if( !opened ) {
             char * argv[] = { (char*)"xdg-open", (char*)uri, NULL };
@@ -464,95 +383,6 @@ gtr_open_uri( const char * uri )
         if( !opened )
             g_message( "Unable to open \"%s\"", uri );
     }
-}
-
-#define VALUE_SERVICE_NAME        "com.transmissionbt.Transmission"
-#define VALUE_SERVICE_OBJECT_PATH "/com/transmissionbt/Transmission"
-#define VALUE_SERVICE_INTERFACE   "com.transmissionbt.Transmission"
-
-gboolean
-gtr_dbus_add_torrent( const char * filename )
-{
-    /* FIXME: why is this static? */
-    static gboolean handled = FALSE;
-
-#ifdef HAVE_DBUS_GLIB
-    char * payload;
-    gsize file_length;
-    char * file_contents = NULL;
-
-    /* If it's a file, load its contents and send them over the wire...
-     * it might be a temporary file that's going to disappear. */
-    if( g_file_get_contents( filename, &file_contents, &file_length, NULL ) )
-        payload = tr_base64_encode( file_contents, file_length, NULL );
-    else if( gtr_is_supported_url( filename ) || gtr_is_magnet_link( filename ) )
-        payload = tr_strdup( filename );
-    else
-        payload = NULL;
-
-    if( payload != NULL )
-    {
-        GError * err = NULL;
-        DBusGConnection * conn;
-        DBusGProxy * proxy = NULL;
-
-        if(( conn = dbus_g_bus_get( DBUS_BUS_SESSION, &err )))
-            proxy = dbus_g_proxy_new_for_name (conn, VALUE_SERVICE_NAME,
-                                                     VALUE_SERVICE_OBJECT_PATH,
-                                                     VALUE_SERVICE_INTERFACE );
-        else if( err )
-           g_message( "err: %s", err->message );
-
-        if( proxy )
-            dbus_g_proxy_call( proxy, "AddMetainfo", &err,
-                               G_TYPE_STRING, payload,
-                               G_TYPE_INVALID,
-                               G_TYPE_BOOLEAN, &handled,
-                               G_TYPE_INVALID );
-        if( err )
-           g_message( "err: %s", err->message );
-
-        if( proxy )
-            g_object_unref( proxy );
-        if( conn )
-            dbus_g_connection_unref( conn );
-
-        tr_free( payload );
-    }
-
-    g_free( file_contents );
-
-#endif
-    return handled;
-}
-
-gboolean
-gtr_dbus_present_window( void )
-{
-    static gboolean   success = FALSE;
-
-#ifdef HAVE_DBUS_GLIB
-    DBusGProxy *      proxy = NULL;
-    GError *          err = NULL;
-    DBusGConnection * conn;
-    if( ( conn = dbus_g_bus_get( DBUS_BUS_SESSION, &err ) ) )
-        proxy = dbus_g_proxy_new_for_name ( conn, VALUE_SERVICE_NAME,
-                                            VALUE_SERVICE_OBJECT_PATH,
-                                            VALUE_SERVICE_INTERFACE );
-    else if( err )
-        g_message( "err: %s", err->message );
-    if( proxy )
-        dbus_g_proxy_call( proxy, "PresentWindow", &err,
-                           G_TYPE_INVALID,
-                           G_TYPE_BOOLEAN, &success,
-                           G_TYPE_INVALID );
-    if( err )
-        g_message( "err: %s", err->message );
-
-    g_object_unref( proxy );
-    dbus_g_connection_unref( conn );
-#endif
-    return success;
 }
 
 /***
@@ -644,39 +474,6 @@ gtr_priority_combo_new( void )
 ***/
 
 void
-gtr_widget_set_tooltip_text( GtkWidget * w, const char * tip )
-{
-#if GTK_CHECK_VERSION( 2,12,0 )
-    gtk_widget_set_tooltip_text( w, tip );
-#else
-    static GtkTooltips * tips = NULL;
-    if( tips == NULL )
-        tips = gtk_tooltips_new( );
-    gtk_tooltips_set_tip( tips, w, tip, NULL );
-#endif
-}
-
-GdkWindow*
-gtr_widget_get_window( GtkWidget * w )
-{
-#if GTK_CHECK_VERSION( 2,14,0 )
-    return gtk_widget_get_window( w );
-#else
-    return w->window;
-#endif
-}
-
-gboolean
-gtr_widget_get_realized( GtkWidget * w )
-{
-#if GTK_CHECK_VERSION( 2,20,0 )
-    return gtk_widget_get_realized( w );
-#else
-    return GTK_WIDGET_REALIZED( w ) != 0;
-#endif
-}
-
-void
 gtr_widget_set_visible( GtkWidget * w, gboolean b )
 {
     /* toggle the transient children, too */
@@ -694,30 +491,13 @@ gtr_widget_set_visible( GtkWidget * w, gboolean b )
         g_list_free( windows );
     }
 
-#if GTK_CHECK_VERSION( 2,18,0 )
     gtk_widget_set_visible( w, b );
-#else
-    if( b )
-        gtk_widget_show( w );
-    else
-        gtk_widget_hide( w );
-#endif
-}
-
-static GtkWidget*
-gtr_dialog_get_content_area( GtkDialog * dialog )
-{
-#if GTK_CHECK_VERSION( 2,14,0 )
-    return gtk_dialog_get_content_area( dialog );
-#else
-    return dialog->vbox;
-#endif
 }
 
 void
 gtr_dialog_set_content( GtkDialog * dialog, GtkWidget * content )
 {
-    GtkWidget * vbox = gtr_dialog_get_content_area( dialog );
+    GtkWidget * vbox = gtk_dialog_get_content_area( dialog );
     gtk_box_pack_start( GTK_BOX( vbox ), content, TRUE, TRUE, 0 );
     gtk_widget_show_all( content );
 }
@@ -725,79 +505,6 @@ gtr_dialog_set_content( GtkDialog * dialog, GtkWidget * content )
 /***
 ****
 ***/
-
-#if !GTK_CHECK_VERSION( 2,12,0 )
-struct gtr_func_data
-{
-    GSourceFunc function;
-    gpointer data;
-};
-
-static void
-gtr_func_data_free( gpointer data )
-{
-#if GTK_CHECK_VERSION( 2,10,0 )
-    g_slice_free( struct gtr_func_data, data );
-#else
-    g_free( data );
-#endif
-}
-
-static struct gtr_func_data *
-gtr_func_data_new( GSourceFunc function, gpointer data )
-{
-#if GTK_CHECK_VERSION( 2,10,0 )
-    struct gtr_func_data * d = g_slice_new( struct gtr_func_data );
-#else
-    struct gtr_func_data * d = g_new( struct gtr_func_data, 1 );
-#endif
-    d->function = function;
-    d->data = data;
-    return d;
-}
-
-static gboolean
-gtr_thread_func( gpointer data )
-{
-    gboolean more;
-    struct gtr_func_data * idle_data = data;
-
-    gdk_threads_enter( );
-    more = idle_data->function( idle_data->data );
-    gdk_threads_leave( );
-
-    return more;
-}
-#endif
-
-guint
-gtr_idle_add( GSourceFunc function, gpointer data )
-{
-#if GTK_CHECK_VERSION( 2,12,0 )
-    return gdk_threads_add_idle( function, data );
-#else
-    return g_idle_add_full( G_PRIORITY_DEFAULT,
-                            gtr_thread_func,
-                            gtr_func_data_new( function, data ),
-                            gtr_func_data_free );
-#endif
-}
-
-guint
-gtr_timeout_add_seconds( guint seconds, GSourceFunc function, gpointer data )
-{
-#if GTK_CHECK_VERSION( 2,14,0 )
-    return gdk_threads_add_timeout_seconds( seconds, function, data );
-#elif GTK_CHECK_VERSION( 2,12,0 )
-    return gdk_threads_add_timeout( seconds*1000, function, data );
-#else
-    return g_timeout_add_full( G_PRIORITY_DEFAULT,
-                               seconds * 1000,
-                               gtr_thread_func,
-                               gtr_func_data_new( function, data ),
-                               gtr_func_data_free );
-#endif
-}
 
 void
 gtr_http_failure_dialog( GtkWidget * parent, const char * url, long response_code )

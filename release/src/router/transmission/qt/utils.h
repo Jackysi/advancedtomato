@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: utils.h 11623 2011-01-02 23:42:46Z charles $
+ * $Id: utils.h 12697 2011-08-20 05:19:27Z jordan $
  */
 
 #ifndef QTR_UTILS
@@ -40,7 +40,7 @@ class Utils: public QObject
         /// URLs
         ///
 
-        static bool isMagnetLink( const QString& s ) { return s.startsWith( "magnet:?" ); }
+        static bool isMagnetLink( const QString& s ) { return s.startsWith( QString::fromAscii( "magnet:?" ) ); }
 
         static bool isHexHashcode( const QString& s )
         {
@@ -49,9 +49,13 @@ class Utils: public QObject
             return true;
         }
 
-        static bool isURL( const QString& s ) { return s.startsWith( "http://" )
-                                                    || s.startsWith( "https://" )
-                                                    || s.startsWith( "ftp://" ); }
+        static bool isUriWithSupportedScheme( const QString& s )
+        {
+            static const QString ftp = QString::fromAscii( "ftp://" );
+            static const QString http = QString::fromAscii( "http://" );
+            static const QString https = QString::fromAscii( "https://" );
+            return s.startsWith(http) || s.startsWith(https) || s.startsWith(ftp);
+        }
 
 };
 

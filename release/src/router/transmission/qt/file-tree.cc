@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: file-tree.cc 11522 2010-12-12 16:43:19Z charles $
+ * $Id: file-tree.cc 12697 2011-08-20 05:19:27Z jordan $
  */
 
 #include <cassert>
@@ -420,7 +420,7 @@ FileTreeModel :: addFile( int                   index,
 {
     FileTreeItem * i( rootItem );
 
-    foreach( QString token, filename.split( "/" ) )
+    foreach( QString token, filename.split( QChar::fromAscii('/') ) )
     {
         FileTreeItem * child( i->child( token ) );
         if( !child )

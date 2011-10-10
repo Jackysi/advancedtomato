@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: watchdir.cc 11092 2010-08-01 20:36:13Z charles $
+ * $Id: watchdir.cc 12697 2011-08-20 05:19:27Z jordan $
  */
 
 #include <iostream>
@@ -52,7 +52,7 @@ WatchDir :: metainfoTest( const QString& filename ) const
     const int err = tr_torrentParse( ctor, &inf );
     if( err )
         ret = ERROR;
-    else if( myModel.hasTorrent( inf.hashString ) )
+    else if( myModel.hasTorrent( QString::fromAscii( inf.hashString ) ) )
         ret = DUPLICATE;
     else
         ret = OK;
@@ -106,8 +106,9 @@ WatchDir :: watcherActivated( const QString& path )
 
     // try to add any new files which end in .torrent
     const QSet<QString> newFiles( files - myWatchDirFiles );
+    const QString torrentSuffix = QString::fromAscii( ".torrent" );
     foreach( QString name, newFiles ) {
-        if( name.endsWith( ".torrent", Qt::CaseInsensitive ) ) {
+        if( name.endsWith( torrentSuffix, Qt::CaseInsensitive ) ) {
             const QString filename = dir.absoluteFilePath( name );
             switch( metainfoTest( filename ) ) {
                 case OK:

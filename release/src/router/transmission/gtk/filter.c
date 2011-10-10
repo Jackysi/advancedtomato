@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: filter.c 12399 2011-04-29 20:22:11Z jordan $
+ * $Id: filter.c 12872 2011-09-14 17:22:54Z jordan $
  */
 
 #include <stdlib.h> /* qsort() */
@@ -22,7 +22,7 @@
 #include "filter.h"
 #include "hig.h" /* GUI_PAD */
 #include "tr-core.h" /* MC_TORRENT */
-#include "util.h" /* gtr_idle_add() */
+#include "util.h" /* gtr_get_host_from_url() */
 
 static GQuark DIRTY_KEY = 0;
 static GQuark SESSION_KEY = 0;
@@ -378,7 +378,7 @@ category_model_update_idle( gpointer category_model )
     {
         GSourceFunc func = (GSourceFunc) category_filter_model_update;
         g_object_set_qdata( o, DIRTY_KEY, GINT_TO_POINTER(1) );
-        gtr_idle_add( func, category_model );
+        gdk_threads_add_idle( func, category_model );
     }
 }
 
@@ -581,7 +581,6 @@ enum
     ACTIVITY_FILTER_ACTIVE,
     ACTIVITY_FILTER_PAUSED,
     ACTIVITY_FILTER_FINISHED,
-    ACTIVITY_FILTER_QUEUED,
     ACTIVITY_FILTER_VERIFYING,
     ACTIVITY_FILTER_ERROR,
     ACTIVITY_FILTER_SEPARATOR
@@ -612,10 +611,12 @@ test_torrent_activity( tr_torrent * tor, int type )
     switch( type )
     {
         case ACTIVITY_FILTER_DOWNLOADING:
-            return st->activity == TR_STATUS_DOWNLOAD;
+            return ( st->activity == TR_STATUS_DOWNLOAD )
+                || ( st->activity == TR_STATUS_DOWNLOAD_WAIT );
 
         case ACTIVITY_FILTER_SEEDING:
-            return st->activity == TR_STATUS_SEED;
+            return ( st->activity == TR_STATUS_SEED )
+                || ( st->activity == TR_STATUS_SEED_WAIT );
 
         case ACTIVITY_FILTER_ACTIVE:
             return ( st->peersSendingToUs > 0 )
@@ -629,11 +630,9 @@ test_torrent_activity( tr_torrent * tor, int type )
         case ACTIVITY_FILTER_FINISHED:
             return st->finished == TRUE;
 
-        case ACTIVITY_FILTER_QUEUED:
-            return st->activity == TR_STATUS_CHECK_WAIT;
-
         case ACTIVITY_FILTER_VERIFYING:
-            return ( st->activity == TR_STATUS_CHECK ) || ( st->activity == TR_STATUS_CHECK_WAIT );
+            return ( st->activity == TR_STATUS_CHECK )
+                || ( st->activity == TR_STATUS_CHECK_WAIT );
 
         case ACTIVITY_FILTER_ERROR:
             return st->error != 0;
@@ -700,7 +699,6 @@ activity_filter_model_new( GtkTreeModel * tmodel )
         { ACTIVITY_FILTER_SEEDING, N_( "Seeding" ), GTK_STOCK_GO_UP },
         { ACTIVITY_FILTER_PAUSED, N_( "Paused" ), GTK_STOCK_MEDIA_PAUSE },
         { ACTIVITY_FILTER_FINISHED, N_( "Finished" ), NULL },
-        { ACTIVITY_FILTER_QUEUED, N_( "Queued" ), NULL },
         { ACTIVITY_FILTER_VERIFYING, N_( "Verifying" ), GTK_STOCK_REFRESH },
         { ACTIVITY_FILTER_ERROR, N_( "Error" ), GTK_STOCK_DIALOG_ERROR }
     };
@@ -752,7 +750,7 @@ activity_model_update_idle( gpointer activity_model )
     {
         GSourceFunc func = (GSourceFunc) activity_filter_model_update;
         g_object_set_qdata( o, DIRTY_KEY, GINT_TO_POINTER(1) );
-        gtr_idle_add( func, activity_model );
+        gdk_threads_add_idle( func, activity_model );
     }
 }
 
@@ -841,6 +839,14 @@ testText( const tr_torrent * tor, const char * key )
         tr_file_index_t i;
         const tr_info * inf = tr_torrentInfo( tor );
 
+        /* test the torrent name... */
+        {
+            char * pch = g_utf8_casefold( tr_torrentName( tor ), -1 );
+            ret = !key || strstr( pch, key ) != NULL;
+            g_free( pch );
+        }
+
+        /* test the files... */
         for( i=0; i<inf->fileCount && !ret; ++i )
         {
             char * pch = g_utf8_casefold( inf->files[i].name, -1 );
@@ -1004,21 +1010,10 @@ gtr_filter_bar_new( tr_session * session, GtkTreeModel * tmodel, GtkTreeModel **
     gtk_box_pack_start( GTK_BOX( h ), w, FALSE, FALSE, 0 );
 
     /* add the entry field */
-#if GTK_CHECK_VERSION( 2,16,0 )
     s = gtk_entry_new( );
     gtk_entry_set_icon_from_stock( GTK_ENTRY( s ), GTK_ENTRY_ICON_SECONDARY, GTK_STOCK_CLEAR );
     g_signal_connect( s, "icon-release", G_CALLBACK( entry_clear ), NULL );
     gtk_box_pack_start( GTK_BOX( h ), s, TRUE, TRUE, 0 );
-#else
-    s = gtk_entry_new( );
-    gtk_box_pack_start( GTK_BOX( h ), s, TRUE, TRUE, 0 );
-    w = gtk_button_new( );
-    gtk_button_set_relief( GTK_BUTTON( w ), GTK_RELIEF_NONE );
-    l = gtk_image_new_from_stock( GTK_STOCK_CLEAR, GTK_ICON_SIZE_MENU );
-    gtk_button_set_image( GTK_BUTTON( w ), l );
-    gtk_box_pack_start( GTK_BOX( h ), w, FALSE, FALSE, 0 );
-    g_signal_connect_swapped( w, "clicked", G_CALLBACK( entry_clear ), s );
-#endif
 
     g_signal_connect( s, "changed", G_CALLBACK( filter_entry_changed ), data->filter_model );
     selection_changed_cb( NULL, data );

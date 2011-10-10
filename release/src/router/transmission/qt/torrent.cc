@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: torrent.cc 12214 2011-03-23 18:26:01Z jordan $
+ * $Id: torrent.cc 12697 2011-08-20 05:19:27Z jordan $
  */
 
 #include <cassert>
@@ -102,12 +102,14 @@ Torrent :: myProperties[] =
     { HASH_STRING, "hashString", QVariant::String, INFO },
     { IS_FINISHED, "isFinished", QVariant::Bool, STAT },
     { IS_PRIVATE, "isPrivate", QVariant::Bool, INFO },
+    { IS_STALLED, "isStalled", QVariant::Bool, STAT },
     { COMMENT, "comment", QVariant::String, INFO },
     { CREATOR, "creator", QVariant::String, INFO },
     { MANUAL_ANNOUNCE_TIME, "manualAnnounceTime", QVariant::DateTime, STAT_EXTRA },
     { PEERS, "peers", TrTypes::PeerList, STAT_EXTRA },
     { TORRENT_FILE, "torrentFile", QVariant::String, STAT_EXTRA },
-    { BANDWIDTH_PRIORITY, "bandwidthPriority", QVariant::Int, STAT_EXTRA }
+    { BANDWIDTH_PRIORITY, "bandwidthPriority", QVariant::Int, STAT_EXTRA },
+    { QUEUE_POSITION, "queuePosition", QVariant::Int, STAT },
 };
 
 Torrent :: KeyList
@@ -454,6 +456,8 @@ void
 Torrent :: update( tr_benc * d )
 {
     bool changed = false;
+    const bool was_seed = isSeed( );
+    const uint64_t old_verified_size = haveVerified( );
 
     for( int  i=0; i<PROPERTY_COUNT; ++i )
     {
@@ -560,7 +564,7 @@ Torrent :: update( tr_benc * d )
         tr_benc * child;
         while(( child = tr_bencListChild( trackers, i++ ))) {
             if( tr_bencDictFindStr( child, "announce", &str )) {
-                dynamic_cast<MyApp*>(QApplication::instance())->favicons.add( QUrl(str) );
+                dynamic_cast<MyApp*>(QApplication::instance())->favicons.add( QUrl(QString::fromUtf8(str)) );
                 list.append( QString::fromUtf8( str ) );
             }
         }
@@ -601,7 +605,7 @@ Torrent :: update( tr_benc * d )
             if( tr_bencDictFindInt( child, "lastAnnouncePeerCount", &i ) )
                 trackerStat.lastAnnouncePeerCount = i;
             if( tr_bencDictFindStr( child, "lastAnnounceResult", &str ) )
-                trackerStat.lastAnnounceResult = str;
+                trackerStat.lastAnnounceResult = QString::fromUtf8(str);
             if( tr_bencDictFindInt( child, "lastAnnounceStartTime", &i ) )
                 trackerStat.lastAnnounceStartTime = i;
             if( tr_bencDictFindBool( child, "lastAnnounceSucceeded", &b ) )
@@ -687,6 +691,9 @@ Torrent :: update( tr_benc * d )
 
     if( changed )
         emit torrentChanged( id( ) );
+
+    if( !was_seed && isSeed() && (old_verified_size>0) )
+        emit torrentCompleted( id( ) );
 }
 
 QString
@@ -696,11 +703,13 @@ Torrent :: activityString( ) const
 
     switch( getActivity( ) )
     {
-        case TR_STATUS_CHECK_WAIT: str = tr( "Waiting to verify local data" ); break;
-        case TR_STATUS_CHECK:      str = tr( "Verifying local data" ); break;
-        case TR_STATUS_DOWNLOAD:   str = tr( "Downloading" ); break;
-        case TR_STATUS_SEED:       str = tr( "Seeding" ); break;
-        case TR_STATUS_STOPPED:    str = isFinished() ? tr( "Finished" ): tr( "Paused" ); break;
+        case TR_STATUS_STOPPED:       str = isFinished() ? tr( "Finished" ): tr( "Paused" ); break;
+        case TR_STATUS_CHECK_WAIT:    str = tr( "Queued for verification" ); break;
+        case TR_STATUS_CHECK:         str = tr( "Verifying local data" ); break;
+        case TR_STATUS_DOWNLOAD_WAIT: str = tr( "Queued for download" ); break;
+        case TR_STATUS_DOWNLOAD:      str = tr( "Downloading" ); break;
+        case TR_STATUS_SEED_WAIT:     str = tr( "Queued for seeding" ); break;
+        case TR_STATUS_SEED:          str = tr( "Seeding" ); break;
     }
 
     return str;

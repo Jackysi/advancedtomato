@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: AddWindowController.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: AddWindowController.m 12689 2011-08-16 02:33:18Z livings124 $
  *
  * Copyright (c) 2008-2011 Transmission authors and contributors
  *
@@ -274,25 +274,28 @@
     {
         const BOOL waiting = [fTorrent isCheckingWaiting];
         [fVerifyIndicator setIndeterminate: waiting];
-        if (!waiting)
+        if (waiting)
+            [fVerifyIndicator startAnimation: self];
+        else
             [fVerifyIndicator setDoubleValue: [fTorrent checkingProgress]];
-        
-        [fVerifyIndicator startAnimation: self];
     }
-    else
+    else {
+        [fVerifyIndicator setIndeterminate: YES]; //we want to hide when stopped, which only applies when indeterminate
         [fVerifyIndicator stopAnimation: self];
+    }
 }
 
 - (void) confirmAdd
 {
     [fTimer invalidate];
     fTimer = nil;
-    
-    [fTorrent setWaitToStart: [fStartCheck state] == NSOnState];
     [fTorrent setGroupValue: fGroupValue];
     
     if (fTorrentFile && [fDeleteCheck state] == NSOnState)
         [Torrent trashFile: fTorrentFile];
+    
+    if ([fStartCheck state] == NSOnState)
+        [fTorrent startTransfer];
     
     [fFileController setTorrent: nil]; //avoid a crash when window tries to update
     

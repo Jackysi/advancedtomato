@@ -21,14 +21,13 @@ textarea {
 }
 </style>
 <script type='text/javascript'>
-//	<% nvram("bt_enable,bt_binary,bt_binary_custom,bt_custom,bt_port,bt_dir,bt_settings,bt_settings_custom,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_dht,bt_pex,bt_blocklist,bt_blocklist_url,bt_sleep,bt_check,bt_check_time,bt_queue,bt_queue_time,bt_maxdown,bt_maxactive"); %>
+//	<% nvram("bt_enable,bt_binary,bt_binary_custom,bt_custom,bt_port,bt_dir,bt_settings,bt_settings_custom,bt_incomplete,bt_rpc_enable,bt_rpc_wan,bt_auth,bt_login,bt_password,bt_port_gui,bt_dl_enable,bt_dl,bt_ul_enable,bt_ul,bt_peer_limit_global,bt_peer_limit_per_torrent,bt_ul_slot_per_torrent,bt_ratio_enable,bt_ratio,bt_ratio_idle_enable,bt_ratio_idle,bt_dht,bt_pex,bt_lpd,bt_utp,bt_blocklist,bt_blocklist_url,bt_sleep,bt_check,bt_check_time,bt_dl_queue_enable,bt_dl_queue_size,bt_ul_queue_enable,bt_ul_queue_size,"); %>
 
 var btgui_link = '&nbsp;&nbsp;<a href="http://' + location.hostname +':<% nv('bt_port_gui'); %>" target="_blank"><i>[Click here to open Transmission GUI]</i></a>';
 
 function verifyFields(focused, quiet)
 {
 	var ok = 1;
-	var s;
 
 	var a = E('_f_bt_enable').checked;
 	var c = E('_f_bt_rpc_enable').checked;
@@ -37,8 +36,10 @@ function verifyFields(focused, quiet)
 	var g = E('_f_bt_ratio_enable').checked;
 	var h = E('_f_bt_auth').checked;
 	var i = E('_f_bt_blocklist').checked;
-	var j = E('_f_bt_queue').checked;
+	var k = E('_f_bt_dl_queue_enable').checked;
+	var l = E('_f_bt_ul_queue_enable').checked;
 	var m = E('_f_bt_check').checked;
+	var n = E('_f_bt_ratio_idle_enable').checked;
 
 	E('_bt_custom').disabled = !a;
 	E('_bt_binary').disabled = !a;
@@ -64,24 +65,28 @@ function verifyFields(focused, quiet)
 	E('_bt_ul_slot_per_torrent').disabled = !a;
 	E('_f_bt_ratio_enable').disabled = !a;
 	E('_bt_ratio').disabled = !a || !g;
+	E('_f_bt_ratio_idle_enable').disabled = !a;
+	E('_bt_ratio_idle').disabled = !a || !n;
 	E('_f_bt_dht').disabled = !a;
 	E('_f_bt_pex').disabled = !a;
+	E('_f_bt_lpd').disabled = !a;
+	E('_f_bt_utp').disabled = !a;
 	E('_f_bt_blocklist').disabled = !a;
 	E('_bt_blocklist_url').disabled = !a || !i;
-	E('_f_bt_queue').disabled = !a;
-	E('_bt_queue_time').disabled = !a || !j;
-	E('_bt_maxdown').disabled = !a || !j;
-	E('_bt_maxactive').disabled = !a || !j;
+	E('_f_bt_dl_queue_enable').disabled = !a;
+	E('_bt_dl_queue_size').disabled = !a || !k;
+	E('_f_bt_ul_queue_enable').disabled = !a;
+	E('_bt_ul_queue_size').disabled = !a || !l;
 
-	var k = (E('_bt_settings').value == 'custom');
-	elem.display('_bt_settings_custom', k && a);
+	var o = (E('_bt_settings').value == 'custom');
+	elem.display('_bt_settings_custom', o && a);
 
-	var l = (E('_bt_binary').value == 'custom');
-	elem.display('_bt_binary_custom', l && a);
+	var p = (E('_bt_binary').value == 'custom');
+	elem.display('_bt_binary_custom', p && a);
 
 	if (!v_length('_bt_custom', quiet, 0, 2048)) ok = 0;
 
-	s = E('_bt_custom');
+	var s = E('_bt_custom');
 	if (s.value.search(/"rpc-enable":/) == 0)  {
 		ferror.set(s, 'Cannot set "rpc-enable" option here. You can set it in Tomato GUI', quiet);
 		ok = 0; }
@@ -154,6 +159,14 @@ function verifyFields(focused, quiet)
 		ferror.set(s, 'Cannot set "pex-enabled" option here. You can set it in Tomato GUI', quiet);
 		ok = 0; }
 
+	if (s.value.search(/"lpd-enabled":/) == 0)  {
+		ferror.set(s, 'Cannot set "lpd-enabled" option here. You can set it in Tomato GUI', quiet);
+		ok = 0; }
+
+	if (s.value.search(/"utp-enabled":/) == 0)  {
+		ferror.set(s, 'Cannot set "utp-enabled" option here. You can set it in Tomato GUI', quiet);
+		ok = 0; }
+
 	if (s.value.search(/"ratio-limit-enabled":/) == 0)  {
 		ferror.set(s, 'Cannot set "ratio-limit-enabled" option here. You can set it in Tomato GUI', quiet);
 		ok = 0; }
@@ -174,6 +187,30 @@ function verifyFields(focused, quiet)
 		ferror.set(s, 'Cannot set "blocklist-url" option here. You can set it in Tomato GUI', quiet);
 		ok = 0; }
 
+	if (s.value.search(/"download-queue-enabled":/) == 0)  {
+		ferror.set(s, 'Cannot set "download-queue-enabled" option here. You can set it in Tomato GUI', quiet);
+		ok = 0; }
+
+	if (s.value.search(/"download-queue-size":/) == 0)  {
+		ferror.set(s, 'Cannot set "download-queue-size" option here. You can set it in Tomato GUI', quiet);
+		ok = 0; }
+
+	if (s.value.search(/"seed-queue-enabled":/) == 0)  {
+		ferror.set(s, 'Cannot set "seed-queue-enabled" option here. You can set it in Tomato GUI', quiet);
+		ok = 0; }
+
+	if (s.value.search(/"seed-queue-size":/) == 0)  {
+		ferror.set(s, 'Cannot set "seed-queue-size" option here. You can set it in Tomato GUI', quiet);
+		ok = 0; }
+
+	if (s.value.search(/"idle-seeding-limit-enabled":/) == 0)  {
+		ferror.set(s, 'Cannot set "idle-seeding-limit-enabled" option here. You can set it in Tomato GUI', quiet);
+		ok = 0; }
+
+	if (s.value.search(/"idle-seeding-limit":/) == 0)  {
+		ferror.set(s, 'Cannot set "idle-seeding-limit" option here. You can set it in Tomato GUI', quiet);
+		ok = 0; }
+
 	return ok;
 }
 
@@ -190,10 +227,14 @@ function save()
   fom.bt_dl_enable.value = E('_f_bt_dl_enable').checked ? 1 : 0;
   fom.bt_ul_enable.value = E('_f_bt_ul_enable').checked ? 1 : 0;
   fom.bt_ratio_enable.value = E('_f_bt_ratio_enable').checked ? 1 : 0;
+  fom.bt_ratio_idle_enable.value = E('_f_bt_ratio_idle_enable').checked ? 1 : 0;
   fom.bt_dht.value = E('_f_bt_dht').checked ? 1 : 0;
   fom.bt_pex.value = E('_f_bt_pex').checked ? 1 : 0;
+  fom.bt_lpd.value = E('_f_bt_lpd').checked ? 1 : 0;
+  fom.bt_utp.value = E('_f_bt_utp').checked ? 1 : 0;
   fom.bt_blocklist.value = E('_f_bt_blocklist').checked ? 1 : 0;
-  fom.bt_queue.value = E('_f_bt_queue').checked ? 1 : 0;
+  fom.bt_dl_queue_enable.value = E('_f_bt_dl_queue_enable').checked ? 1 : 0;
+  fom.bt_ul_queue_enable.value = E('_f_bt_ul_queue_enable').checked ? 1 : 0;
 
   if (fom.bt_enable.value == 0) {
   	fom._service.value = 'bittorrent-stop';
@@ -234,9 +275,13 @@ function init()
 <input type='hidden' name='bt_ul_enable'>
 <input type='hidden' name='bt_blocklist'>
 <input type='hidden' name='bt_ratio_enable'>
+<input type='hidden' name='bt_ratio_idle_enable'>
 <input type='hidden' name='bt_dht'>
 <input type='hidden' name='bt_pex'>
-<input type='hidden' name='bt_queue'>
+<input type='hidden' name='bt_lpd'>
+<input type='hidden' name='bt_utp'>
+<input type='hidden' name='bt_dl_queue_enable'>
+<input type='hidden' name='bt_ul_queue_enable'>
 
 <script type='text/javascript'>
 createFieldTable('', [
@@ -258,15 +303,12 @@ createFieldTable('', [
 	{ title: 'Use .incomplete/', indent: 2, name: 'f_bt_incomplete', type: 'checkbox', value: nvram.bt_incomplete == '1' }
 ]);
 </script>
-</div>
-<div>
 	<ul>
 		<li><b>Enable torrent client</b> - Attention! - If your router has only 32MB RAM, you have to use swap.
 		<li><b>Transmission binary path</b> Path to directory with transmission-daemon etc.
-		<li><b>Keep alive</b> - If enabled, transmission daemon will be checked every 5min and run after crash.
+		<li><b>Keep alive</b> - If enabled, transmission daemon will be checked every specified time and run after crash.
 		<li><b>Listening port</b> - Port for torrent client. Make sure port is not in use.
 	</ul>
-<br><br>
 </div>
 <div class='section-title'>Remote Access<script>W(btgui_link);</script></div>
 <div class='section'>
@@ -280,14 +322,11 @@ createFieldTable('', [
 	{ title: 'Allow remote access', name: 'f_bt_rpc_wan', type: 'checkbox', value: nvram.bt_rpc_wan == '1', suffix: ' <small>*</small>' }
 ]);
 </script>
-</div>
-<div>
 	<ul>
 		<li><b>Listening GUI port</b> - Port for Transmission GUI. Make sure port is not in use.
 		<li><b>Authentication required</b> - Authentication is <b><i>highly recomended</i></b>.
 		<li><b>Allow remote access</b> - This option will open Transmission GUI port from WAN site and allow use GUI from the internet.
 	</ul>
-<br><br>
 </div>
 <div class='section-title'>Limits</div>
 <div class='section'>
@@ -299,9 +338,12 @@ createFieldTable('', [
 	{ title: 'Upload limit', multi: [
 		{ name: 'f_bt_ul_enable', type: 'checkbox', value: nvram.bt_ul_enable == '1', suffix: '  ' },
 		{ name: 'bt_ul', type: 'text', maxlen: 10, size: 7, value: nvram.bt_ul, suffix: ' <small>kB/s</small>' } ] },
-	{ title: 'Ratio limit', multi: [
+	{ title: 'Stop seeding at ratio', multi: [
 		{ name: 'f_bt_ratio_enable', type: 'checkbox', value: nvram.bt_ratio_enable == '1', suffix: '  ' },
 		{ name: 'bt_ratio', type: 'select', options: [['0.1000','0.1'],['0.2000','0.2'],['0.5000','0.5'],['1.0000','1.0'],['1.5000','1.5'],['2.0000','2.0'],['2.5000','2.5'],['3.0000','3.0']], value: nvram.bt_ratio } ] },
+	{ title: 'Stop seeding if idle for', multi: [
+		{ name: 'f_bt_ratio_idle_enable', type: 'checkbox', value: nvram.bt_ratio_idle_enable == '1', suffix: '  ' },
+		{ name: 'bt_ratio_idle', type: 'text', maxlen: 10, size: 7, value: nvram.bt_ratio_idle, suffix: ' <small>minutes (range: 1 - 55; default: 30)</small>' } ] },
 	{ title: 'Global peer limit', name: 'bt_peer_limit_global', type: 'text', maxlen: 10, size: 7, value: nvram.bt_peer_limit_global, suffix: ' <small>(range: 10 - 1000; default: 150)</small>' },
 	{ title: 'Peer limit per torrent', name: 'bt_peer_limit_per_torrent', type: 'text', maxlen: 10, size: 7, value: nvram.bt_peer_limit_per_torrent, suffix: ' <small>(range: 1 - 200; default: 30)</small>' },
 	{ title: 'Upload slots per torrent', name: 'bt_ul_slot_per_torrent', type: 'text', maxlen: 10, size: 7, value: nvram.bt_ul_slot_per_torrent, suffix: ' <small>(range: 1 - 50; default: 10)</small>' }
@@ -312,24 +354,31 @@ createFieldTable('', [
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
-	{ title: 'Enable queuing', name: 'f_bt_queue', type: 'checkbox', value: nvram.bt_queue == '1' },
-	{ title: 'Run queuing every', indent: 2, name: 'bt_queue_time', type: 'text', maxlen: 5, size: 7, value: nvram.bt_queue_time, suffix: ' <small>minutes (range: 1 - 55; default: 5)</small>' },
-	{ title: 'Max downloads', indent: 2, name: 'bt_maxdown', type: 'text', maxlen: 5, size: 7, value: nvram.bt_maxdown, suffix: ' <small>(range: 1 - 20; default: 2)</small>' },
-	{ title: 'Max active torrents', indent: 2, name: 'bt_maxactive', type: 'text', maxlen: 5, size: 7, value: nvram.bt_maxactive, suffix: ' <small>(range: 1 - 30; default: 5)</small>' }
+	{ title: 'Downloads queuing', multi: [
+		{ name: 'f_bt_dl_queue_enable', type: 'checkbox', value: nvram.bt_dl_queue_enable == '1', suffix: '  ' },
+		{ name: 'bt_dl_queue_size', type: 'text', maxlen: 5, size: 7, value: nvram.bt_dl_queue_size, suffix: ' <small>(range: 1 - 30; default: 5) *</small>' }
+		] },
+	{ title: 'Seeds queuing', multi: [
+		{ name: 'f_bt_ul_queue_enable', type: 'checkbox', value: nvram.bt_ul_queue_enable == '1', suffix: '  ' },
+		{ name: 'bt_ul_queue_size', type: 'text', maxlen: 5, size: 7, value: nvram.bt_ul_queue_size, suffix: ' <small>(range: 1 - 30; default: 5) *</small>' }
+		] }
 ]);
 </script>
-</div>
-<div>
 	<ul>
-		<li><b>Max downloads</b> - This is the maximum number of torrents that you would like to have in queue for downloading.
-		<li><b>Max active torrents</b> - This is the maximum number of active torrents in your list.
+		<li><b>Downloads queuing</b> - If true, limit how many torrents can be downloaded at once
+		<li><b>Seeds queuing</b> - If true, limit how many torrents can be uploaded at once
 	</ul>
-<br><br>
 </div>
 <div class='section-title'>Advanced Settings</div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
+	{ title: 'Find more peers using', multi: [
+		{ suffix: '&nbsp; DHT &nbsp;&nbsp;&nbsp;', name: 'f_bt_dht', type: 'checkbox', value: nvram.bt_dht == '1' },
+		{ suffix: '&nbsp; PEX &nbsp;&nbsp;&nbsp;', name: 'f_bt_pex', type: 'checkbox', value: nvram.bt_pex == '1' },
+		{ suffix: '&nbsp; LPD &nbsp;&nbsp;&nbsp;', name: 'f_bt_lpd', type: 'checkbox', value: nvram.bt_lpd == '1' },
+		{ suffix: '&nbsp; uTP &nbsp;&nbsp;&nbsp;', name: 'f_bt_utp', type: 'checkbox', value: nvram.bt_utp == '1' }
+		] },
 	{ title: 'Save settings location', multi: [
 		{ name: 'bt_settings', type: 'select', options: [
 			['down_dir','In the Download directory (Recommended)'],
@@ -342,8 +391,6 @@ createFieldTable('', [
 			['/tmp','RAM (Temporary)'], ['custom','Custom'] ], value: nvram.bt_settings, suffix: ' ' },
 		{ name: 'bt_settings_custom', type: 'text', maxlen: 40, size: 40, value: nvram.bt_settings_custom }
 		] },
-	{ title: 'DHT enable', name: 'f_bt_dht', type: 'checkbox', value: nvram.bt_dht == '1' },
-	{ title: 'PEX enable', name: 'f_bt_pex', type: 'checkbox', value: nvram.bt_pex == '1' },
 	{ title: 'Blocklist', multi: [
 		{ name: 'f_bt_blocklist', type: 'checkbox', value: nvram.bt_blocklist == '1', suffix: '  ' },
 		{ name: 'bt_blocklist_url', type: 'text', maxlen: 80, size: 80, value: nvram.bt_blocklist_url }

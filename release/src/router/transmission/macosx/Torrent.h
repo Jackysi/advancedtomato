@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Torrent.h 12325 2011-04-05 23:03:33Z livings124 $
+ * $Id: Torrent.h 12773 2011-08-28 00:07:30Z livings124 $
  *
  * Copyright (c) 2006-2011 Transmission authors and contributors
  *
@@ -47,8 +47,6 @@
     NSIndexSet * fPreviousFinishedIndexes;
     NSDate * fPreviousFinishedIndexesDate;
     
-    BOOL fWaitToStart, fStalled;
-    
     NSInteger fGroupValue;
     
     BOOL fResumeOnWake;
@@ -73,14 +71,19 @@
 - (void) getAvailability: (int8_t *) tab size: (NSInteger) size;
 - (void) getAmountFinished: (float *) tab size: (NSInteger) size;
 - (NSIndexSet *) previousFinishedPieces;
--(void) setPreviousFinishedPieces: (NSIndexSet *) indexes;
+- (void) setPreviousFinishedPieces: (NSIndexSet *) indexes;
 
 - (void) update;
 
+- (void) startTransferIgnoringQueue: (BOOL) ignoreQueue;
+- (void) startTransferNoQueue;
 - (void) startTransfer;
 - (void) stopTransfer;
 - (void) sleep;
 - (void) wakeUp;
+
+- (NSInteger) queuePosition;
+- (void) setQueuePosition: (NSUInteger) index;
 
 - (void) manualAnnounce;
 - (BOOL) canManualAnnounce;
@@ -112,7 +115,6 @@
 - (void) setMaxPeerConnect: (uint16_t) count;
 - (uint16_t) maxPeerConnect;
 
-- (void) setWaitToStart: (BOOL) wait;
 - (BOOL) waitingToStart;
 
 - (tr_priority_t) priority;

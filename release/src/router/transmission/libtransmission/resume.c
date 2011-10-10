@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: resume.c 12291 2011-04-01 03:13:44Z jordan $
+ * $Id: resume.c 12921 2011-09-26 22:50:42Z jordan $
  */
 
 #include <unistd.h> /* unlink */
@@ -591,7 +591,7 @@ loadProgress( tr_benc * dict, tr_torrent * tor )
             else if( ( buflen == 4 ) && !memcmp( buf, "none", 4 ) )
                 tr_bitfieldSetHasNone( &blocks );
             else
-                tr_bitfieldSetRaw( &blocks, buf, buflen );
+                tr_bitfieldSetRaw( &blocks, buf, buflen, true );
         }
         else if( tr_bencDictFindStr( prog, KEY_PROGRESS_HAVE, &str ) )
         {
@@ -602,7 +602,7 @@ loadProgress( tr_benc * dict, tr_torrent * tor )
         }
         else if( tr_bencDictFindRaw( prog, KEY_PROGRESS_BITFIELD, &raw, &rawlen ) )
         {
-            tr_bitfieldSetRaw( &blocks, raw, rawlen );
+            tr_bitfieldSetRaw( &blocks, raw, rawlen, true );
         }
         else err = "Couldn't find 'pieces' or 'have' or 'bitfield'";
 

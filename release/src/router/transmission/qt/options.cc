@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: options.cc 11720 2011-01-20 19:48:13Z jordan $
+ * $Id: options.cc 12697 2011-08-20 05:19:27Z jordan $
  */
 
 #include <cstdio>
@@ -97,13 +97,13 @@ Options :: Options( Session& session, const Prefs& prefs, const AddData& addme, 
     const QPixmap filePixmap = fileIcon.pixmap( iconSize );
 
     QPushButton * p;
-    int width = fontMetrics.size( 0, "This is a pretty long torrent filename indeed.torrent" ).width( );
+    int width = fontMetrics.size( 0, QString::fromAscii( "This is a pretty long torrent filename indeed.torrent" ) ).width( );
     QLabel * l = new QLabel( tr( "&Torrent file:" ) );
     layout->addWidget( l, row, 0, Qt::AlignLeft );
     p = myFileButton =  new QPushButton;
     p->setIcon( filePixmap );
     p->setMinimumWidth( width );
-    p->setStyleSheet( "text-align: left; padding-left: 5; padding-right: 5" );
+    p->setStyleSheet( QString::fromAscii( "text-align: left; padding-left: 5; padding-right: 5" ) );
     p->installEventFilter( this );
 
     layout->addWidget( p, row, 1 );

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: rpc-server.c 12552 2011-07-17 14:32:51Z jordan $
+ * $Id: rpc-server.c 12930 2011-09-27 22:34:52Z livings124 $
  */
 
 #include <assert.h>
@@ -628,9 +628,7 @@ handle_request( struct evhttp_request * req, void * arg )
         }
         else if( strncmp( req->uri, server->url, strlen( server->url ) ) )
         {
-            const char * protocol = "http";
-            const char * host = evhttp_find_header( req->input_headers, "Host" );
-            char * location = tr_strdup_printf( "%s://%s%sweb/", protocol, host, server->url );
+            char * location = tr_strdup_printf( "%sweb/", server->url );
             evhttp_add_header( req->output_headers, "Location", location );
             send_simple_response( req, HTTP_MOVEPERM, NULL );
             tr_free( location );

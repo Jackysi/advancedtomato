@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: tr-core.h 12321 2011-04-05 17:00:38Z jordan $
+ * $Id: tr-core.h 12676 2011-08-13 14:19:40Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -25,23 +25,21 @@
 #ifndef GTR_CORE_H
 #define GTR_CORE_H
 
-#include <glib-object.h>
 #include <gtk/gtk.h>
 
 #include <libtransmission/transmission.h>
 #include <libtransmission/bencode.h>
 
-#define TR_CORE_TYPE ( gtr_core_get_type() )
-#define TR_CORE(o) G_TYPE_CHECK_INSTANCE_CAST((o), TR_CORE_TYPE, TrCore)
-#define TR_IS_CORE(o) G_TYPE_CHECK_INSTANCE_TYPE((o), TR_CORE_TYPE )
-#define TR_CORE_CLASS(k) G_TYPE_CHECK_CLASS_CAST((k), TR_CORE_TYPE, TrCoreClass)
-#define TR_IS_CORE_CLASS(k) G_TYPE_CHECK_CLASS_TYPE((k), TR_CORE_TYPE )
-#define TR_CORE_GET_CLASS(o) G_TYPE_INSTANCE_GET_CLASS((o), TR_CORE_TYPE, TrCoreClass)
+G_BEGIN_DECLS
+
+#define TR_CORE_TYPE (tr_core_get_type ())
+#define TR_CORE(o)   (G_TYPE_CHECK_INSTANCE_CAST ((o), TR_CORE_TYPE, TrCore))
 
 typedef struct _TrCore
 {
     GObject parent;
 
+    /*< private >*/
     struct TrCorePrivate  * priv;
 }
 TrCore;
@@ -67,7 +65,7 @@ typedef struct _TrCoreClass
 }
 TrCoreClass;
 
-GType          gtr_core_get_type( void );
+GType          tr_core_get_type (void) G_GNUC_CONST;
 
 TrCore *       gtr_core_new( tr_session * );
 
@@ -106,24 +104,14 @@ void gtr_core_load( TrCore * self, gboolean forcepaused );
  * May pop up dialogs for each torrent if that preference is enabled.
  * May trigger one or more "error" signals with TR_CORE_ERR_ADD_TORRENT
  */
-void gtr_core_add_list( TrCore *    self,
-                        GSList *    torrentFiles,
-                        gboolean    do_start,
-                        gboolean    do_prompt,
-                        gboolean    do_notify );
-
-void gtr_core_add_list_defaults( TrCore    * core,
-                                 GSList    * torrentFiles,
-                                 gboolean    do_notify );
-
-/** @brief Add a torrent. */
-gboolean gtr_core_add_metainfo( TrCore      * core,
-                                const char  * base64_metainfo,
-                                gboolean    * setme_success,
-                                GError     ** err );
+void gtr_core_add_files( TrCore     * core,
+                         GSList     * files,
+                         gboolean     do_start,
+                         gboolean     do_prompt,
+                         gboolean     do_notify );
 
 /** @brief Add a torrent from a URL */
-void gtr_core_add_from_url( TrCore * core, const char * url );
+bool gtr_core_add_from_url( TrCore * core, const char * url );
 
 /** @brief Add a torrent.
     @param ctor this function assumes ownership of the ctor */
@@ -131,9 +119,6 @@ void gtr_core_add_ctor( TrCore * core, tr_ctor * ctor );
 
 /** Add a torrent. */
 void gtr_core_add_torrent( TrCore*, tr_torrent*, gboolean do_notify );
-
-/** Present the main window */
-gboolean gtr_core_present_window( TrCore*, gboolean * setme_success, GError ** err );
 
 /**
  * Notifies listeners that torrents have been added.
@@ -193,6 +178,7 @@ enum
     MC_ACTIVITY,
     MC_FINISHED,
     MC_PRIORITY,
+    MC_QUEUE_POSITION,
     MC_TRACKERS,
 
     /* tr_stat.error
@@ -205,5 +191,8 @@ enum
 
     MC_ROW_COUNT
 };
+
+G_END_DECLS
+
 
 #endif /* GTR_CORE_H */

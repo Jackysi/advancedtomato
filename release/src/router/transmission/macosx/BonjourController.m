@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: BonjourController.m 11860 2011-02-09 03:06:05Z livings124 $
+ * $Id: BonjourController.m 12596 2011-07-26 22:46:33Z livings124 $
  *
  * Copyright (c) 2008-2011 Transmission authors and contributors
  *
@@ -44,7 +44,7 @@ BonjourController * fDefaultController = nil;
 {
     [self stop];
     
-    NSString * serviceName = [NSString stringWithFormat: @"Transmission Web Interface (%@)", NSUserName()];
+    NSString * serviceName = [NSString stringWithFormat: @"Transmission Web Interface (%@ - %@)", NSUserName(), [[NSHost currentHost] localizedName]];
     
     fService = [[NSNetService alloc] initWithDomain: @"" type: @"_http._tcp." name: serviceName port: port];
     [fService setDelegate: self];

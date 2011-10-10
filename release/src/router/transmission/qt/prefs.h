@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: prefs.h 12518 2011-06-25 19:56:48Z jordan $
+ * $Id: prefs.h 12607 2011-08-01 22:24:24Z jordan $
  */
 
 #ifndef QTR_PREFS_H
@@ -84,6 +84,8 @@ class Prefs: public QObject
             DSPEED,
             DSPEED_ENABLED,
             DOWNLOAD_DIR,
+            DOWNLOAD_QUEUE_ENABLED,
+            DOWNLOAD_QUEUE_SIZE,
             ENCRYPTION,
             IDLE_LIMIT,
             IDLE_LIMIT_ENABLED,
@@ -96,6 +98,7 @@ class Prefs: public QObject
             PEER_PORT_RANDOM_ON_START,
             PEER_PORT_RANDOM_LOW,
             PEER_PORT_RANDOM_HIGH,
+            QUEUE_STALLED_MINUTES,
             SCRIPT_TORRENT_DONE_ENABLED,
             SCRIPT_TORRENT_DONE_FILENAME,
             SOCKET_TOS,

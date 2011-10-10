@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: makemeta-ui.c 12412 2011-05-02 17:58:27Z jordan $
+ * $Id: makemeta-ui.c 12679 2011-08-13 21:08:53Z jordan $
  */
 
 #include <glib/gi18n.h>
@@ -190,7 +190,7 @@ makeProgressDialog( GtkWidget * parent, MakeMetaUI * ui )
     ui->progress_bar = w;
     gtk_box_pack_start( GTK_BOX( v ), w, FALSE, FALSE, 0 );
 
-    ui->progress_tag = gtr_timeout_add_seconds( SECONDARY_WINDOW_REFRESH_INTERVAL_SECONDS, onProgressDialogRefresh, ui );
+    ui->progress_tag = gdk_threads_add_timeout_seconds( SECONDARY_WINDOW_REFRESH_INTERVAL_SECONDS, onProgressDialogRefresh, ui );
     g_object_weak_ref( G_OBJECT( d ), onProgressDialogDestroyed, ui );
     onProgressDialogRefresh( ui );
 
@@ -367,13 +367,7 @@ onFileToggled( GtkToggleButton * tb, gpointer data )
 static const char *
 getDefaultSavePath( void )
 {
-    const char * path;
-#if GLIB_CHECK_VERSION( 2,14,0 )
-    path = g_get_user_special_dir( G_USER_DIRECTORY_DESKTOP );
-#else
-    path = g_get_home_dir( );
-#endif
-    return path;
+    return g_get_user_special_dir( G_USER_DIRECTORY_DESKTOP );
 }
 
 static void
@@ -420,10 +414,10 @@ on_drag_data_received( GtkWidget         * widget           UNUSED,
 GtkWidget*
 gtr_torrent_creation_dialog_new( GtkWindow  * parent, TrCore * core )
 {
-    int row = 0;
     const char * str;
     GtkWidget * d, *t, *w, *l, *fr, *sw, *v;
     GSList * slist;
+    guint row = 0;
     MakeMetaUI * ui = g_new0 ( MakeMetaUI, 1 );
 
     ui->core = core;

@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: torrent.h 11446 2010-12-01 05:41:58Z charles $
+ * $Id: torrent.h 12611 2011-08-02 03:59:54Z jordan $
  */
 
 #ifndef QTR_TORRENT_H
@@ -166,12 +166,14 @@ class Torrent: public QObject
             HASH_STRING,
             IS_FINISHED,
             IS_PRIVATE,
+            IS_STALLED,
             COMMENT,
             CREATOR,
             MANUAL_ANNOUNCE_TIME,
             PEERS,
             TORRENT_FILE,
             BANDWIDTH_PRIORITY,
+            QUEUE_POSITION,
 
             PROPERTY_COUNT
         };
@@ -182,6 +184,7 @@ class Torrent: public QObject
 
     signals:
         void torrentChanged( int id );
+        void torrentCompleted( int id );
 
     private:
 
@@ -303,6 +306,8 @@ class Torrent: public QObject
         QStringList trackers() const { return myValues[TRACKERS].value<QStringList>(); }
         PeerList peers( ) const{ return myValues[PEERS].value<PeerList>(); }
         const FileList& files( ) const { return myFiles; }
+        int queuePosition( ) const { return getInt( QUEUE_POSITION ); }
+        bool isStalled( ) const { return getBool( IS_STALLED ); }
 
     public:
         QString activityString( ) const;
@@ -312,8 +317,11 @@ class Torrent: public QObject
         bool isWaitingToVerify( ) const { return getActivity( ) == TR_STATUS_CHECK_WAIT; }
         bool isVerifying( ) const { return getActivity( ) == TR_STATUS_CHECK; }
         bool isDownloading( ) const { return getActivity( ) == TR_STATUS_DOWNLOAD; }
+        bool isWaitingToDownload( ) const { return getActivity( ) == TR_STATUS_DOWNLOAD_WAIT; }
         bool isSeeding( ) const { return getActivity( ) == TR_STATUS_SEED; }
+        bool isWaitingToSeed( ) const { return getActivity( ) == TR_STATUS_SEED_WAIT; }
         bool isReadyToTransfer( ) const { return getActivity()==TR_STATUS_DOWNLOAD || getActivity()==TR_STATUS_SEED; }
+        bool isQueued( ) const { return isWaitingToDownload() || isWaitingToSeed(); }
         void notifyComplete( ) const;
 
     public:

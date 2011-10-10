@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: details.cc 12044 2011-02-26 14:02:27Z jordan $
+ * $Id: details.cc 12698 2011-08-20 05:45:11Z jordan $
  */
 
 #include <cassert>
@@ -771,9 +771,9 @@ Details :: refresh( )
                 static const QIcon myEncryptionIcon( ":/icons/encrypted.png" );
                 static const QIcon myEmptyIcon;
                 item = new PeerItem( peer );
-                item->setTextAlignment( COL_UP, Qt::AlignRight );
-                item->setTextAlignment( COL_DOWN, Qt::AlignRight );
-                item->setTextAlignment( COL_PERCENT, Qt::AlignRight );
+                item->setTextAlignment( COL_UP, Qt::AlignRight|Qt::AlignVCenter );
+                item->setTextAlignment( COL_DOWN, Qt::AlignRight|Qt::AlignVCenter );
+                item->setTextAlignment( COL_PERCENT, Qt::AlignRight|Qt::AlignVCenter );
                 item->setIcon( COL_LOCK, peer.isEncrypted ? myEncryptionIcon : myEmptyIcon );
                 item->setToolTip( COL_LOCK, peer.isEncrypted ? tr( "Encrypted connection" ) : "" );
                 item->setText( COL_ADDRESS, peer.address );

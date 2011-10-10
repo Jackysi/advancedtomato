@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: torrent.h 12296 2011-04-02 07:36:34Z jordan $
+ * $Id: torrent.h 12617 2011-08-03 23:40:51Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -222,6 +222,8 @@ struct tr_torrent
     int                        secondsDownloading;
     int                        secondsSeeding;
 
+    int                        queuePosition;
+
     tr_torrent_metadata_func  * metadata_func;
     void                      * metadata_func_user_data;
 
@@ -234,11 +236,15 @@ struct tr_torrent
     tr_torrent_idle_limit_hit_func  * idle_limit_hit_func;
     void                            * idle_limit_hit_func_user_data;
 
+    void * queue_started_user_data;
+    void ( * queue_started_callback )( tr_torrent *, void * queue_started_user_data );
+
     bool                       isRunning;
     bool                       isStopping;
     bool                       isDeleting;
     bool                       startAfterVerify;
     bool                       isDirty;
+    bool                       isQueued;
 
     bool                       infoDictOffsetIsCached;
 
@@ -426,5 +432,18 @@ time_t tr_torrentGetFileMTime( const tr_torrent * tor, tr_file_index_t i );
 
 uint64_t tr_torrentGetCurrentSizeOnDisk( const tr_torrent * tor );
 
+bool tr_torrentIsStalled( const tr_torrent * tor );
+
+static inline bool
+tr_torrentIsQueued( const tr_torrent * tor )
+{
+    return tor->isQueued;
+}
+
+static inline tr_direction
+tr_torrentGetQueueDirection( const tr_torrent * tor )
+{
+    return tr_torrentIsSeed( tor ) ? TR_UP : TR_DOWN;
+}
 
 #endif

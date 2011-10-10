@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: NSApplicationAdditions.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: NSApplicationAdditions.m 12570 2011-07-21 02:35:03Z livings124 $
  *
  * Copyright (c) 2009-2011 Transmission authors and contributors
  *
@@ -29,6 +29,11 @@
 - (BOOL) isOnSnowLeopardOrBetter
 {
 	return floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_5;
+}
+
+- (BOOL) isOnLionOrBetter
+{
+	return floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6;
 }
 
 @end

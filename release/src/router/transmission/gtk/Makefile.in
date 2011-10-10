@@ -40,9 +40,6 @@ bin_PROGRAMS = transmission-gtk$(EXEEXT)
 @WIN32_TRUE@am__append_1 = \
 @WIN32_TRUE@	transmission.res
 
-@WIN32_TRUE@am__append_2 = \
-@WIN32_TRUE@	transmission.res
-
 subdir = gtk
 DIST_COMMON = $(dist_man_MANS) $(noinst_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
@@ -61,7 +58,6 @@ CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(man1dir)" \
 	"$(DESTDIR)$(Productivitydir)" "$(DESTDIR)$(icondir)"
 PROGRAMS = $(bin_PROGRAMS)
-am__objects_1 =
 am_transmission_gtk_OBJECTS = actions.$(OBJEXT) conf.$(OBJEXT) \
 	details.$(OBJEXT) dialogs.$(OBJEXT) favicon.$(OBJEXT) \
 	file-list.$(OBJEXT) filter.$(OBJEXT) hig.$(OBJEXT) \
@@ -70,13 +66,13 @@ am_transmission_gtk_OBJECTS = actions.$(OBJEXT) conf.$(OBJEXT) \
 	relocate.$(OBJEXT) stats.$(OBJEXT) \
 	torrent-cell-renderer.$(OBJEXT) tr-core.$(OBJEXT) \
 	tr-icon.$(OBJEXT) tr-prefs.$(OBJEXT) tr-window.$(OBJEXT) \
-	util.$(OBJEXT) $(am__objects_1)
+	util.$(OBJEXT)
 transmission_gtk_OBJECTS = $(am_transmission_gtk_OBJECTS)
 transmission_gtk_DEPENDENCIES =  \
 	$(top_builddir)/libtransmission/libtransmission.a \
 	$(top_builddir)/third-party/miniupnp/libminiupnp.a \
 	$(top_builddir)/third-party/libnatpmp/libnatpmp.a \
-	$(am__append_2)
+	$(am__append_1)
 AM_V_lt = $(am__v_lt_$(V))
 am__v_lt_ = $(am__v_lt_$(AM_DEFAULT_VERBOSITY))
 am__v_lt_0 = --silent
@@ -188,7 +184,6 @@ AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
-CANBERRA_MINIMUM = @CANBERRA_MINIMUM@
 CATALOGS = @CATALOGS@
 CATOBJEXT = @CATOBJEXT@
 CC = @CC@
@@ -203,14 +198,11 @@ CXXDEPMODE = @CXXDEPMODE@
 CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DATADIRNAME = @DATADIRNAME@
-DBUS_BINDING_TOOL = @DBUS_BINDING_TOOL@
-DBUS_GLIB_CFLAGS = @DBUS_GLIB_CFLAGS@
-DBUS_GLIB_LIBS = @DBUS_GLIB_LIBS@
-DBUS_GLIB_MINIMUM = @DBUS_GLIB_MINIMUM@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DHT_CFLAGS = @DHT_CFLAGS@
 DHT_LIBS = @DHT_LIBS@
+DLLTOOL = @DLLTOOL@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
@@ -220,8 +212,6 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GETTEXT_PACKAGE = @GETTEXT_PACKAGE@
-GIO_CFLAGS = @GIO_CFLAGS@
-GIO_LIBS = @GIO_LIBS@
 GIO_MINIMUM = @GIO_MINIMUM@
 GLIB_MINIMUM = @GLIB_MINIMUM@
 GMOFILES = @GMOFILES@
@@ -246,16 +236,11 @@ LDFLAGS = @LDFLAGS@
 LIBAPPINDICATOR_CFLAGS = @LIBAPPINDICATOR_CFLAGS@
 LIBAPPINDICATOR_LIBS = @LIBAPPINDICATOR_LIBS@
 LIBAPPINDICATOR_MINIMUM = @LIBAPPINDICATOR_MINIMUM@
-LIBCANBERRA_CFLAGS = @LIBCANBERRA_CFLAGS@
-LIBCANBERRA_LIBS = @LIBCANBERRA_LIBS@
 LIBCURL_CFLAGS = @LIBCURL_CFLAGS@
 LIBCURL_LIBS = @LIBCURL_LIBS@
 LIBEVENT_CFLAGS = @LIBEVENT_CFLAGS@
 LIBEVENT_LIBS = @LIBEVENT_LIBS@
 LIBEVENT_MINIUM = @LIBEVENT_MINIUM@
-LIBNOTIFY_CFLAGS = @LIBNOTIFY_CFLAGS@
-LIBNOTIFY_LIBS = @LIBNOTIFY_LIBS@
-LIBNOTIFY_MINIMUM = @LIBNOTIFY_MINIMUM@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
@@ -265,6 +250,7 @@ LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
+MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
 MKINSTALLDIRS = @MKINSTALLDIRS@
 MSGFMT = @MSGFMT@
@@ -312,6 +298,7 @@ abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
+ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
 ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
@@ -346,7 +333,6 @@ libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
 localstatedir = @localstatedir@
-lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
@@ -376,12 +362,8 @@ AM_CPPFLAGS = \
 AM_CFLAGS = \
     @LIBAPPINDICATOR_CFLAGS@ \
     @LIBEVENT_CFLAGS@ \
-    @LIBCANBERRA_CFLAGS@ \
     @GTK_CFLAGS@ \
     @LIBCURL_CFLAGS@ \
-    @GIO_CFLAGS@ \
-    @LIBNOTIFY_CFLAGS@ \
-    @DBUS_GLIB_CFLAGS@ \
     @OPENSSL_CFLAGS@ \
     @ZLIB_CFLAGS@ \
     @PTHREAD_CFLAGS@
@@ -413,14 +395,12 @@ noinst_HEADERS = \
     stats.h \
     torrent-cell-renderer.h \
     tr-core.h \
-    tr-core-dbus.h \
     tr-icon.h \
     tr-prefs.h \
     tr-window.h \
     ui.h \
     util.h
 
-dbus_generated_sources = tr-core-dbus.h
 transmission_gtk_SOURCES = \
     actions.c \
     conf.c \
@@ -443,18 +423,16 @@ transmission_gtk_SOURCES = \
     tr-icon.c \
     tr-prefs.c \
     tr-window.c \
-    util.c \
-    $(dbus_generated_sources)
+    util.c
 
 dist_man_MANS = transmission-gtk.1
 transmission_gtk_LDADD =  \
 	$(top_builddir)/libtransmission/libtransmission.a \
 	$(top_builddir)/third-party/miniupnp/libminiupnp.a \
-	$(top_builddir)/third-party/libnatpmp/libnatpmp.a \
-	@LIBCANBERRA_LIBS@ @DHT_LIBS@ @LIBUTP_LIBS@ @GTK_LIBS@ \
-	@GIO_LIBS@ @LIBAPPINDICATOR_LIBS@ @LIBNOTIFY_LIBS@ \
-	@LIBEVENT_LIBS@ @DBUS_GLIB_LIBS@ @LIBCURL_LIBS@ @OPENSSL_LIBS@ \
-	@ZLIB_LIBS@ @PTHREAD_LIBS@ $(am__append_2)
+	$(top_builddir)/third-party/libnatpmp/libnatpmp.a @DHT_LIBS@ \
+	@LIBUTP_LIBS@ @GTK_LIBS@ @LIBAPPINDICATOR_LIBS@ \
+	@LIBEVENT_LIBS@ @LIBCURL_LIBS@ @OPENSSL_LIBS@ @ZLIB_LIBS@ \
+	@PTHREAD_LIBS@ $(am__append_1)
 DESKTOP_IN_FILES = transmission-gtk.desktop.in
 DESKTOP_FILES = $(DESKTOP_IN_FILES:.desktop.in=.desktop)
 Productivitydir = $(datadir)/applications
@@ -463,16 +441,16 @@ icon_DATA = transmission.png
 icondir = $(datadir)/pixmaps
 EXTRA_DIST = \
     $(DESKTOP_IN_FILES) \
-    marshal.list \
-    tr-core-dbus.xml \
     transmission.png
 
 DISTCLEANFILES = \
     transmission-gtk.desktop
 
-CLEANFILES = $(dbus_generated_sources) $(am__append_1)
 @WIN32_TRUE@BUILT_SOURCES = \
 @WIN32_TRUE@	setransmission.res
+
+@WIN32_TRUE@CLEANFILES = \
+@WIN32_TRUE@	transmission.res
 
 @WIN32_TRUE@transmission_gtk_LDFLAGS = \
 @WIN32_TRUE@	-mwindows
@@ -1036,11 +1014,6 @@ uninstall-man: uninstall-man1
 	uninstall-man uninstall-man1
 
 @INTLTOOL_DESKTOP_RULE@
-
-$(srcdir)/tr-core.c: tr-core-dbus.h
-
-tr-core-dbus.h: $(srcdir)/tr-core-dbus.xml
-	$(DBUS_BINDING_TOOL) --mode=glib-server --prefix=gtr_core $< > $(@F)
 
 @WIN32_TRUE@transmission.res: transmission.rc
 @WIN32_TRUE@	$(WINDRES) -J rc -i transmission.rc -O coff -o transmission.res

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: torrent.c 12540 2011-07-10 17:34:03Z jordan $
+ * $Id: torrent.c 12931 2011-09-28 16:06:19Z jordan $
  */
 
 #include <signal.h> /* signal() */
@@ -517,9 +517,6 @@ onTrackerResponse( tr_torrent * tor, const tr_tracker_event * event, void * unus
             for( i = 0; i < event->pexCount; ++i )
                 tr_peerMgrAddPex( tor, TR_PEER_FROM_TRACKER, &event->pex[i], seedProbability );
 
-            if( allAreSeeds && tr_torrentIsPrivate( tor ) )
-                tr_peerMgrMarkAllAsSeeds( tor );
-
             break;
         }
 
@@ -669,7 +666,7 @@ tr_torrentInitFilePieces( tr_torrent * tor )
     tr_free( firstFiles );
 }
 
-static void torrentStart( tr_torrent * tor );
+static void torrentStart( tr_torrent * tor, bool bypass_queue );
 
 /**
  * Decide on a block size. Constraints:
@@ -802,6 +799,7 @@ torrentInit( tr_torrent * tor, const tr_ctor * ctor )
     tor->session   = session;
     tor->uniqueId = nextUniqueId++;
     tor->magicNumber = TORRENT_MAGIC_NUMBER;
+    tor->queuePosition = session->torrentCount;
 
     tr_peerIdInit( tor->peer_id );
 
@@ -869,7 +867,7 @@ torrentInit( tr_torrent * tor, const tr_ctor * ctor )
     }
 
     /* add the torrent to tr_session.torrentList */
-    ++session->torrentCount;
+    session->torrentCount++;
     if( session->torrentList == NULL )
         session->torrentList = tor;
     else {
@@ -905,7 +903,7 @@ torrentInit( tr_torrent * tor, const tr_ctor * ctor )
     }
     else if( doStart )
     {
-        torrentStart( tor );
+        tr_torrentStart( tor );
     }
 
     tr_sessionUnlock( session );
@@ -1089,24 +1087,61 @@ tr_torrentSetVerifyState( tr_torrent * tor, tr_verify_state state )
     tor->anyDate = tr_time( );
 }
 
-tr_torrent_activity
-tr_torrentGetActivity( tr_torrent * tor )
+static tr_torrent_activity
+torrentGetActivity( const tr_torrent * tor )
 {
+    const bool is_seed = tr_torrentIsSeed( tor );
     assert( tr_isTorrent( tor ) );
-
-    tr_torrentRecheckCompleteness( tor );
 
     if( tor->verifyState == TR_VERIFY_NOW )
         return TR_STATUS_CHECK;
+
     if( tor->verifyState == TR_VERIFY_WAIT )
         return TR_STATUS_CHECK_WAIT;
-    if( !tor->isRunning )
-        return TR_STATUS_STOPPED;
-    if( tor->completeness == TR_LEECH )
-        return TR_STATUS_DOWNLOAD;
 
-    return TR_STATUS_SEED;
+    if( tor->isRunning )
+        return is_seed ? TR_STATUS_SEED : TR_STATUS_DOWNLOAD;
+
+    if( tr_torrentIsQueued( tor ) ) {
+        if( is_seed && tr_sessionGetQueueEnabled( tor->session, TR_UP ) )
+            return TR_STATUS_SEED_WAIT;
+        if( !is_seed && tr_sessionGetQueueEnabled( tor->session, TR_DOWN ) )
+            return TR_STATUS_DOWNLOAD_WAIT;
+    }
+
+    return TR_STATUS_STOPPED;
 }
+
+tr_torrent_activity
+tr_torrentGetActivity( tr_torrent * tor )
+{
+    /* FIXME: is this call still needed? */
+    tr_torrentRecheckCompleteness( tor );
+
+    return torrentGetActivity( tor );
+}
+
+static time_t
+torrentGetIdleSecs( const tr_torrent * tor )
+{
+    int idle_secs;
+    const tr_torrent_activity activity = torrentGetActivity( tor );
+
+    if ((activity == TR_STATUS_DOWNLOAD || activity == TR_STATUS_SEED) && tor->startDate != 0)
+        idle_secs = difftime(tr_time(), MAX(tor->startDate, tor->activityDate));
+    else
+        idle_secs = -1;
+
+    return idle_secs;
+}
+
+bool
+tr_torrentIsStalled( const tr_torrent * tor )
+{
+    return tr_sessionGetQueueStalledEnabled( tor->session )
+        && ( torrentGetIdleSecs( tor ) > ( tr_sessionGetQueueStalledMinutes( tor->session ) * 60 ) );
+}
+
 
 static double
 getVerifyProgress( const tr_torrent * tor )
@@ -1145,6 +1180,8 @@ tr_torrentStat( tr_torrent * tor )
     s->id = tor->uniqueId;
     s->activity = tr_torrentGetActivity( tor );
     s->error = tor->error;
+    s->queuePosition = tor->queuePosition;
+    s->isStalled = tr_torrentIsStalled( tor );
     tr_strlcpy( s->errorString, tor->errorString, sizeof( s->errorString ) );
 
     s->manualAnnounceTime = tr_announcerNextManualAnnounce( tor );
@@ -1175,11 +1212,7 @@ tr_torrentStat( tr_torrent * tor )
     s->startDate           = tor->startDate;
     s->secondsSeeding      = tor->secondsSeeding;
     s->secondsDownloading  = tor->secondsDownloading;
-
-    if ((s->activity == TR_STATUS_DOWNLOAD || s->activity == TR_STATUS_SEED) && s->startDate != 0)
-        s->idleSecs = difftime(tr_time(), MAX(s->startDate, s->activityDate));
-    else
-        s->idleSecs = -1;
+    s->idleSecs            = torrentGetIdleSecs( tor );
 
     s->corruptEver      = tor->corruptCur    + tor->corruptPrev;
     s->downloadedEver   = tor->downloadedCur + tor->downloadedPrev;
@@ -1461,12 +1494,17 @@ tr_torrentSetHasPiece( tr_torrent *     tor,
 ****
 ***/
 
+#ifndef NDEBUG
+static bool queueIsSequenced( tr_session * );
+#endif
+
 static void
 freeTorrent( tr_torrent * tor )
 {
     tr_torrent * t;
     tr_session *  session = tor->session;
     tr_info *    inf = &tor->info;
+    const time_t now = tr_time( );
 
     assert( !tor->isRunning );
 
@@ -1474,9 +1512,9 @@ freeTorrent( tr_torrent * tor )
 
     tr_peerMgrRemoveTorrent( tor );
 
-    tr_cpDestruct( &tor->completion );
-
     tr_announcerRemoveTorrent( session->announcer, tor );
+
+    tr_cpDestruct( &tor->completion );
 
     tr_free( tor->downloadDir );
     tr_free( tor->incompleteDir );
@@ -1490,12 +1528,24 @@ freeTorrent( tr_torrent * tor )
         }
     }
 
+    /* decrement the torrent count */
     assert( session->torrentCount >= 1 );
     session->torrentCount--;
+
+    /* resequence the queue positions */
+    t = NULL;
+    while(( t = tr_torrentNext( session, t ))) {
+        if( t->queuePosition > tor->queuePosition ) {
+            t->queuePosition--;
+            t->anyDate = now;
+        }
+    }
+    assert( queueIsSequenced( session ) );
 
     tr_bandwidthDestruct( &tor->bandwidth );
 
     tr_metainfoFree( inf );
+    memset( tor, ~0, sizeof( tr_torrent ) );
     tr_free( tor );
 
     tr_sessionUnlock( session );
@@ -1504,6 +1554,8 @@ freeTorrent( tr_torrent * tor )
 /**
 ***  Start/Stop Callback
 **/
+
+static void torrentSetQueued( tr_torrent * tor, bool queued );
 
 static void
 torrentStartImpl( void * vtor )
@@ -1516,6 +1568,7 @@ torrentStartImpl( void * vtor )
     tr_sessionLock( tor->session );
 
     tr_torrentRecheckCompleteness( tor );
+    torrentSetQueued( tor, false );
 
     now = tr_time( );
     tor->isRunning = true;
@@ -1556,23 +1609,49 @@ tr_torrentGetCurrentSizeOnDisk( const tr_torrent * tor )
     return byte_count;
 }
 
-static void
-torrentStart( tr_torrent * tor )
+static bool
+torrentShouldQueue( const tr_torrent * tor )
 {
-    /* already running... */
-    if( tor->isRunning )
-        return;
+    const tr_direction dir = tr_torrentGetQueueDirection( tor );
+
+    return tr_sessionCountQueueFreeSlots( tor->session, dir ) == 0;
+}
+
+static void
+torrentStart( tr_torrent * tor, bool bypass_queue )
+{
+    switch( torrentGetActivity( tor ) )
+    {
+        case TR_STATUS_SEED:
+        case TR_STATUS_DOWNLOAD:
+            return; /* already started */
+            break;
+
+        case TR_STATUS_SEED_WAIT:
+        case TR_STATUS_DOWNLOAD_WAIT:
+            if( !bypass_queue )
+                return; /* already queued */
+            break;
+
+        case TR_STATUS_CHECK:
+        case TR_STATUS_CHECK_WAIT:
+            /* verifying right now... wait until that's done so
+             * we'll know what completeness to use/announce */
+            tor->startAfterVerify = true;
+            return;
+            break;
+
+        case TR_STATUS_STOPPED:
+            if( !bypass_queue && torrentShouldQueue( tor ) ) {
+                torrentSetQueued( tor, true );
+                return;
+            }
+            break;
+    }
 
     /* don't allow the torrent to be started if the files disappeared */
     if( setLocalErrorIfFilesDisappeared( tor ) )
         return;
-
-    /* verifying right now... wait until that's done so
-     * we'll know what completeness to use/announce */
-    if( tor->verifyState != TR_VERIFY_NONE ) {
-        tor->startAfterVerify = true;
-        return;
-    }
 
     /* otherwise, start it now... */
     tr_sessionLock( tor->session );
@@ -1600,7 +1679,14 @@ void
 tr_torrentStart( tr_torrent * tor )
 {
     if( tr_isTorrent( tor ) )
-        torrentStart( tor );
+        torrentStart( tor, false );
+}
+
+void
+tr_torrentStartNow( tr_torrent * tor )
+{
+    if( tr_isTorrent( tor ) )
+        torrentStart( tor, true );
 }
 
 static void
@@ -1613,7 +1699,7 @@ torrentRecheckDoneImpl( void * vtor )
 
     if( tor->startAfterVerify ) {
         tor->startAfterVerify = false;
-        torrentStart( tor );
+        torrentStart( tor, false );
     }
 }
 
@@ -1681,6 +1767,7 @@ stopTorrent( void * vtor )
     tr_torrentLock( tor );
 
     tr_verifyRemove( tor );
+    torrentSetQueued( tor, false );
     tr_peerMgrStopTorrent( tor );
     tr_announcerTorrentStopped( tor );
     tr_cacheFlushTorrent( tor->session->cache, tor );
@@ -2593,192 +2680,203 @@ tr_torrentGetBytesLeftToAllocate( const tr_torrent * tor )
 *****  Removing the torrent's local data
 ****/
 
-static int
-vstrcmp( const void * a, const void * b )
-{
-    return strcmp( a, b );
-}
-
-static int
-compareLongestFirst( const void * a, const void * b )
-{
-    const size_t alen = strlen( a );
-    const size_t blen = strlen( b );
-
-    if( alen != blen )
-        return alen > blen ? -1 : 1;
-
-    return vstrcmp( a, b );
-}
-
-static void
-addDirtyFile( const char  * root,
-              const char  * filename,
-              tr_ptrArray * dirtyFolders )
-{
-    char * dir = tr_dirname( filename );
-
-    /* add the parent folders to dirtyFolders until we reach the root or a known-dirty */
-    while (     ( dir != NULL )
-             && ( strlen( root ) <= strlen( dir ) )
-             && ( tr_ptrArrayFindSorted( dirtyFolders, dir, vstrcmp ) == NULL ) )
-    {
-        char * tmp;
-        tr_ptrArrayInsertSorted( dirtyFolders, tr_strdup( dir ), vstrcmp );
-
-        tmp = tr_dirname( dir );
-        tr_free( dir );
-        dir = tmp;
-    }
-
-    tr_free( dir );
-}
-
 static bool
-isSystemFile( const char * base )
+isJunkFile( const char * base )
 {
     int i;
-    static const char * stockFiles[] = { ".DS_Store", "desktop.ini", "Thumbs.db" };
-    static const int stockFileCount = sizeof(stockFiles) / sizeof(stockFiles[0]);
+    static const char * files[] = { ".DS_Store", "desktop.ini", "Thumbs.db" };
+    static const int file_count = sizeof(files) / sizeof(files[0]);
 
-    for( i=0; i<stockFileCount; ++i )
-        if( !strcmp( base, stockFiles[i] ) )
+    for( i=0; i<file_count; ++i )
+        if( !strcmp( base, files[i] ) )
             return true;
 
+#ifdef SYS_DARWIN
     /* check for resource forks. <http://support.apple.com/kb/TA20578> */
     if( !memcmp( base, "._", 2 ) )
         return true;
+#endif
 
     return false;
 }
 
 static void
-deleteLocalFile( const tr_torrent * tor, const char * filename, tr_fileFunc fileFunc )
+removeEmptyFoldersAndJunkFiles( const char * folder )
 {
-    struct stat sb;
-
-    /* add safeguards for (1) making sure the file exists and
-       (2) that we haven't somehow walked up past the torrent's top directory... */
-    if( !stat( filename, &sb ) )
-        if( !tr_is_same_file( tor->currentDir, filename ) )
-            fileFunc( filename );
+    DIR * odir;
+    if(( odir = opendir( folder ))) {
+        struct dirent * d;
+        while(( d = readdir( odir ))) {
+            if( strcmp( d->d_name, "." ) && strcmp( d->d_name, ".." ) ) {
+                struct stat sb;
+                char * filename = tr_buildPath( folder, d->d_name, NULL );
+                if( !stat( filename, &sb ) && S_ISDIR( sb.st_mode ) )
+                    removeEmptyFoldersAndJunkFiles( filename );
+                else if( isJunkFile( d->d_name ) )
+                    remove( filename );
+                tr_free( filename );
+            }
+        }
+        remove( folder );
+        closedir( odir );
+    }
 }
 
+static bool fileExists( const char * filename, time_t * optional_mtime );
+
+/**
+ * This convoluted code does something (seemingly) simple:
+ * remove the torrent's local files.
+ *
+ * Fun complications:
+ * 1. Try to preserve the directory hierarchy in the recycle bin.
+ * 2. If there are nontorrent files, don't delete them...
+ * 3. ...unless the other files are "junk", such as .DS_Store
+ */
 static void
-walkLocalData( const tr_torrent * tor,
-               const char       * root,
-               const char       * dir,
-               const char       * base,
-               tr_ptrArray      * torrentFiles,
-               tr_ptrArray      * folders,
-               tr_ptrArray      * dirtyFolders,
-               tr_fileFunc        fileFunc )
+deleteLocalData( tr_torrent * tor, tr_fileFunc func )
 {
-    struct stat sb;
-    char * buf = tr_buildPath( dir, base, NULL );
-    int i = stat( buf, &sb );
+    int i, n;
+    tr_file_index_t f;
+    char * base;
+    DIR * odir;
+    char * tmpdir = NULL;
+    tr_ptrArray files = TR_PTR_ARRAY_INIT;
+    tr_ptrArray folders = TR_PTR_ARRAY_INIT;
+    const void * const vstrcmp = strcmp;
+    const char * const top = tor->currentDir;
 
-    if( !i )
+    /* if it's a magnet link, there's nothing to move... */
+    if( !tr_torrentHasMetadata( tor ) )
+        return;
+
+    /***
+    ****  Move the local data to a new tmpdir
+    ***/
+
+    base = tr_strdup_printf( "%s__XXXXXX", tr_torrentName( tor ) );
+    tmpdir = tr_buildPath( top, base, NULL );
+    mkdtemp( tmpdir );
+    tr_free( base );
+
+    for( f=0; f<tor->info.fileCount; ++f )
     {
-        DIR * odir = NULL;
-
-        if( S_ISDIR( sb.st_mode ) && ( ( odir = opendir ( buf ) ) ) )
-        {
-            struct dirent *d;
-            tr_ptrArrayInsertSorted( folders, tr_strdup( buf ), vstrcmp );
-            for( d = readdir( odir ); d != NULL; d = readdir( odir ) )
-                if( d->d_name && strcmp( d->d_name, "." ) && strcmp( d->d_name, ".." ) )
-                    walkLocalData( tor, root, buf, d->d_name, torrentFiles, folders, dirtyFolders, fileFunc );
-            closedir( odir );
+        char * filename = tr_buildPath( top, tor->info.files[f].name, NULL );
+        if( !fileExists( filename, NULL ) ) {
+                char * partial = tr_torrentBuildPartial( tor, f );
+                tr_free( filename );
+                filename = tr_buildPath( top, partial, NULL );
+                tr_free( partial );
+                if( !fileExists( filename, NULL ) ) {
+                        tr_free( filename );
+                        filename = NULL;
+                }
         }
-        else if( S_ISREG( sb.st_mode ) && ( sb.st_size > 0 ) )
+
+        if( filename != NULL )
         {
-            if( isSystemFile( base ) )
-                deleteLocalFile( tor, buf, fileFunc );
-            else {
-                 const char * sub = buf + strlen( tor->currentDir ) + strlen( TR_PATH_DELIMITER_STR );
-                const bool isTorrentFile = tr_ptrArrayFindSorted( torrentFiles, sub, vstrcmp ) != NULL;
-                if( !isTorrentFile )
-                    addDirtyFile( root, buf, dirtyFolders );
+            char * target = tr_buildPath( tmpdir, tor->info.files[f].name, NULL );
+            char * target_dir = tr_dirname( target );
+            tr_mkdirp( target_dir, 0777 );
+            rename( filename, target );
+            tr_ptrArrayAppend( &files, target );
+            tr_free( target_dir );
+            tr_free( filename );
+        }
+    }
+
+    /***
+    ****  Remove tmpdir.
+    ****
+    ****  Try deleting the top-level files & folders to preserve
+    ****  the directory hierarchy in the recycle bin.
+    ****  If case that fails -- for example, rmdir() doesn't
+    ****  delete nonempty folders -- go from the bottom up too.
+    ***/
+
+    /* try deleting the local data's top-level files & folders */
+    if(( odir = opendir( tmpdir )))
+    {
+        struct dirent * d;
+        while(( d = readdir( odir )))
+        {
+            if( strcmp( d->d_name, "." ) && strcmp( d->d_name, ".." ) )
+            {
+                char * file = tr_buildPath( tmpdir, d->d_name, NULL );
+                func( file );
+                tr_free( file );
+            }
+        }
+        closedir( odir );
+    }
+
+    /* go from the bottom up */
+    for( i=0, n=tr_ptrArraySize(&files); i<n; ++i )
+    {
+        char * walk = tr_strdup( tr_ptrArrayNth( &files, i ) );
+        while( fileExists( walk, NULL ) && !tr_is_same_file( tmpdir, walk ) )
+        {
+            char * tmp = tr_dirname( walk );
+            func( walk );
+            tr_free( walk );
+            walk = tmp;
+        }
+        tr_free( walk );
+    }
+
+    /***
+    ****  The local data has been removed.
+    ****  What's left in top are empty folders, junk, and user-generated files.
+    ****  Remove the first two categories and leave the third.
+    ***/
+
+    /* build a list of 'top's child directories that belong to this torrent */
+    for( f=0; f<tor->info.fileCount; ++f )
+    {
+        char * dir;
+        char * filename;
+
+        /* get the directory that this file goes in... */
+        filename = tr_buildPath( top, tor->info.files[f].name, NULL );
+        dir = tr_dirname( filename );
+        tr_free( filename );
+        if( !tr_is_same_file( top, dir ) && strcmp( top, dir ) ) {
+            for( ;; ) {
+                char * parent = tr_dirname( dir );
+                if( tr_is_same_file( top, parent ) || !strcmp( top, parent ) ) {
+                    if( tr_ptrArrayFindSorted( &folders, dir, vstrcmp ) == NULL ) {
+                        tr_ptrArrayInsertSorted( &folders, tr_strdup( dir ), vstrcmp );
+                    }
+                    break;
+                }
+                tr_free( dir );
+                dir = parent;
             }
         }
     }
-
-    tr_free( buf );
-}
-
-static void
-deleteLocalData( tr_torrent * tor, tr_fileFunc fileFunc )
-{
-    int i, n;
-    char ** s;
-    tr_file_index_t f;
-    tr_ptrArray torrentFiles = TR_PTR_ARRAY_INIT;
-    tr_ptrArray folders      = TR_PTR_ARRAY_INIT;
-    tr_ptrArray dirtyFolders = TR_PTR_ARRAY_INIT; /* dirty == contains non-torrent files */
-
-    const char * firstFile = tor->info.files[0].name;
-    const char * cpch = strchr( firstFile, TR_PATH_DELIMITER );
-    char * tmp = cpch ? tr_strndup( firstFile, cpch - firstFile ) : NULL;
-    char * root = tr_buildPath( tor->currentDir, tmp, NULL );
-
-    for( f=0; f<tor->info.fileCount; ++f ) {
-        tr_ptrArrayInsertSorted( &torrentFiles, tr_strdup( tor->info.files[f].name ), vstrcmp );
-        tr_ptrArrayInsertSorted( &torrentFiles, tr_torrentBuildPartial( tor, f ), vstrcmp );
-    }
-
-    /* build the set of folders and dirtyFolders */
-    walkLocalData( tor, root, root, NULL, &torrentFiles, &folders, &dirtyFolders, fileFunc );
-
-    /* try to remove entire folders first, so that the recycle bin will be tidy */
-    s = (char**) tr_ptrArrayPeek( &folders, &n );
-    for( i=0; i<n; ++i )
-        if( tr_ptrArrayFindSorted( &dirtyFolders, s[i], vstrcmp ) == NULL )
-            deleteLocalFile( tor, s[i], fileFunc );
-
-    /* now blow away any remaining torrent files, such as torrent files in dirty folders */
-    for( i=0, n=tr_ptrArraySize( &torrentFiles ); i<n; ++i ) {
-        char * path = tr_buildPath( tor->currentDir, tr_ptrArrayNth( &torrentFiles, i ), NULL );
-        deleteLocalFile( tor, path, fileFunc );
-        tr_free( path );
-    }
-
-    /* Now clean out the directories left empty from the previous step.
-     * Work from deepest to shallowest s.t. lower folders
-     * won't prevent the upper folders from being deleted */
-    {
-        tr_ptrArray cleanFolders = TR_PTR_ARRAY_INIT;
-        s = (char**) tr_ptrArrayPeek( &folders, &n );
-        for( i=0; i<n; ++i )
-            if( tr_ptrArrayFindSorted( &dirtyFolders, s[i], vstrcmp ) == NULL )
-                tr_ptrArrayInsertSorted( &cleanFolders, s[i], compareLongestFirst );
-        s = (char**) tr_ptrArrayPeek( &cleanFolders, &n );
-        for( i=0; i<n; ++i )
-            deleteLocalFile( tor, s[i], fileFunc );
-        tr_ptrArrayDestruct( &cleanFolders, NULL );
-    }
+    for( i=0, n=tr_ptrArraySize(&folders); i<n; ++i )
+        removeEmptyFoldersAndJunkFiles( tr_ptrArrayNth( &folders, i ) );
 
     /* cleanup */
-    tr_ptrArrayDestruct( &dirtyFolders, tr_free );
+    rmdir( tmpdir );
+    tr_free( tmpdir );
     tr_ptrArrayDestruct( &folders, tr_free );
-    tr_ptrArrayDestruct( &torrentFiles, tr_free );
-    tr_free( root );
-    tr_free( tmp );
+    tr_ptrArrayDestruct( &files, tr_free );
 }
 
 static void
-tr_torrentDeleteLocalData( tr_torrent * tor, tr_fileFunc fileFunc )
+tr_torrentDeleteLocalData( tr_torrent * tor, tr_fileFunc func )
 {
     assert( tr_isTorrent( tor ) );
 
-    if( fileFunc == NULL )
-        fileFunc = remove;
+    if( func == NULL )
+        func = remove;
 
     /* close all the files because we're about to delete them */
     tr_cacheFlushTorrent( tor->session->cache, tor );
     tr_fdTorrentClose( tor->session, tor->uniqueId );
 
-    deleteLocalData( tor, fileFunc );
+    deleteLocalData( tor, func );
 }
 
 /***
@@ -3078,3 +3176,164 @@ tr_torrentBuildPartial( const tr_torrent * tor, tr_file_index_t fileNum )
 {
     return tr_strdup_printf( "%s.part", tor->info.files[fileNum].name );
 }
+
+/***
+****
+***/
+
+static int
+compareTorrentByQueuePosition( const void * va, const void * vb )
+{
+    const tr_torrent * a = * (const tr_torrent **) va;
+    const tr_torrent * b = * (const tr_torrent **) vb;
+
+    return a->queuePosition - b->queuePosition;
+}
+
+#ifndef NDEBUG
+static bool
+queueIsSequenced( tr_session * session )
+{
+    int i ;
+    int n ;
+    bool is_sequenced = true;
+    tr_torrent * tor;
+    tr_torrent ** tmp = tr_new( tr_torrent *, session->torrentCount );
+
+    /* get all the torrents */
+    n = 0;
+    tor = NULL;
+    while(( tor = tr_torrentNext( session, tor )))
+        tmp[n++] = tor;
+
+    /* sort them by position */
+    qsort( tmp, n, sizeof( tr_torrent * ), compareTorrentByQueuePosition );
+
+#if 0
+    fprintf( stderr, "%s", "queue: " );
+    for( i=0; i<n; ++i )
+        fprintf( stderr, "%d ", tmp[i]->queuePosition );
+    fputc( '\n', stderr );
+#endif
+
+    /* test them */
+    for( i=0; is_sequenced && i<n; ++i )
+        if( tmp[i]->queuePosition != i )
+            is_sequenced = false;
+
+    tr_free( tmp );
+    return is_sequenced;
+}
+#endif
+
+int
+tr_torrentGetQueuePosition( const tr_torrent * tor )
+{
+    return tor->queuePosition;
+}
+
+void
+tr_torrentSetQueuePosition( tr_torrent * tor, int pos )
+{
+    int back = -1;
+    tr_torrent * walk;
+    const int old_pos = tor->queuePosition;
+    const time_t now = tr_time( );
+
+    if( pos < 0 )
+        pos = 0;
+
+    tor->queuePosition = -1;
+
+    walk = NULL;
+    while(( walk = tr_torrentNext( tor->session, walk )))
+    {
+        if( old_pos < pos ) {
+            if( ( old_pos <= walk->queuePosition ) && ( walk->queuePosition <= pos ) ) {
+                walk->queuePosition--;
+                walk->anyDate = now;
+            }
+        }
+
+        if( old_pos > pos ) {
+            if( ( pos <= walk->queuePosition ) && ( walk->queuePosition < old_pos ) ) {
+                walk->queuePosition++;
+                walk->anyDate = now;
+            }
+        }
+
+        if( back < walk->queuePosition )
+            back = walk->queuePosition;
+    }
+
+    tor->queuePosition = MIN( pos, (back+1) );
+    tor->anyDate = now;
+
+    assert( queueIsSequenced( tor->session ) );
+}
+
+void
+tr_torrentsQueueMoveTop( tr_torrent ** torrents_in, int n )
+{
+    int i;
+    tr_torrent ** torrents = tr_memdup( torrents_in, sizeof( tr_torrent * ) * n );
+    qsort( torrents, n, sizeof( tr_torrent * ), compareTorrentByQueuePosition );
+    for( i=n-1; i>=0; --i )
+        tr_torrentSetQueuePosition( torrents[i], 0 );
+    tr_free( torrents );
+}
+
+void
+tr_torrentsQueueMoveUp( tr_torrent ** torrents_in, int n )
+{
+    int i;
+    tr_torrent ** torrents = tr_memdup( torrents_in, sizeof( tr_torrent * ) * n );
+    qsort( torrents, n, sizeof( tr_torrent * ), compareTorrentByQueuePosition );
+    for( i=0; i<n; ++i )
+        tr_torrentSetQueuePosition( torrents[i], torrents[i]->queuePosition - 1 );
+    tr_free( torrents );
+}
+
+void
+tr_torrentsQueueMoveDown( tr_torrent ** torrents_in, int n )
+{
+    int i;
+    tr_torrent ** torrents = tr_memdup( torrents_in, sizeof( tr_torrent * ) * n );
+    qsort( torrents, n, sizeof( tr_torrent * ), compareTorrentByQueuePosition );
+    for( i=n-1; i>=0; --i )
+        tr_torrentSetQueuePosition( torrents[i], torrents[i]->queuePosition + 1 );
+    tr_free( torrents );
+}
+
+void
+tr_torrentsQueueMoveBottom( tr_torrent ** torrents_in, int n )
+{
+    int i;
+    tr_torrent ** torrents = tr_memdup( torrents_in, sizeof( tr_torrent * ) * n );
+    qsort( torrents, n, sizeof( tr_torrent * ), compareTorrentByQueuePosition );
+    for( i=0; i<n; ++i )
+        tr_torrentSetQueuePosition( torrents[i], INT_MAX );
+    tr_free( torrents );
+}
+
+static void
+torrentSetQueued( tr_torrent * tor, bool queued )
+{
+    assert( tr_isTorrent( tor ) );
+    assert( tr_isBool( queued ) );
+
+    if( tr_torrentIsQueued( tor ) != queued )
+    {
+        tor->isQueued = queued;
+        tor->anyDate = tr_time( );
+    }
+}
+
+void
+tr_torrentSetQueueStartCallback( tr_torrent * torrent, void (*callback)( tr_torrent *, void * ), void * user_data )
+{
+    torrent->queue_started_callback = callback;
+    torrent->queue_started_user_data = user_data;
+}
+
+

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: tr-icon.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: tr-icon.h 12648 2011-08-08 16:02:37Z jordan $
  */
 
 #ifndef GTR_ICON_H
@@ -15,10 +15,6 @@
 
 #include <gtk/gtk.h>
 #include "tr-core.h"
-
-#if GTK_CHECK_VERSION( 2,10,0 )
- #define STATUS_ICON_SUPPORTED
-#endif
 
 gpointer  gtr_icon_new      ( TrCore * core );
 void      gtr_icon_refresh  ( gpointer );

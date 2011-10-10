@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FilterBarController.h 12152 2011-03-13 14:38:49Z jordan $
+ * $Id: FilterBarController.h 12897 2011-09-19 00:48:30Z livings124 $
  * 
  * Copyright (c) 2011 Transmission authors and contributors
  *
@@ -55,7 +55,7 @@
 - (void) setSearchType: (id) sender;
 - (void) setGroupFilter: (id) sender;
 
-- (NSString *) searchString;
+- (NSArray *) searchStrings;
 - (void) focusSearchField;
 
 - (void) setCountAll: (NSUInteger) all active: (NSUInteger) active downloading: (NSUInteger) downloading

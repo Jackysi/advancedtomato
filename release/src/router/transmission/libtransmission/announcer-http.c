@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: announcer-http.c 12391 2011-04-27 21:22:08Z jordan $
+ * $Id: announcer-http.c 12914 2011-09-25 21:48:34Z jordan $
  */
 
 #include <limits.h> /* USHRT_MAX */
@@ -211,9 +211,17 @@ on_announce_done( tr_session   * session,
 
         if( getenv( "TR_CURL_VERBOSE" ) != NULL )
         {
-            struct evbuffer * buf = tr_bencToBuf( &benc, TR_FMT_JSON );
-            fprintf( stderr, "Announce response:\n< %s\n", evbuffer_pullup( buf, -1 ) );
-            tr_free( buf );
+            if( !benc_loaded )
+                fprintf( stderr, "%s", "Announce response was not in benc format\n" );
+            else {
+                int i, len;
+                char * str = tr_bencToStr( &benc, TR_FMT_JSON, &len );
+                fprintf( stderr, "%s", "Announce response:\n< " );
+                for( i=0; i<len; ++i )
+                    fputc( str[i], stderr );
+                fputc( '\n', stderr );
+                tr_free( str );
+            }
         }
 
         if( benc_loaded && tr_bencIsDict( &benc ) )
@@ -349,15 +357,33 @@ on_scrape_done( tr_session   * session,
         tr_benc top;
         int64_t intVal;
         tr_benc * files;
+        tr_benc * flags;
         const char * str;
         const int benc_loaded = !tr_bencLoad( msg, msglen, &top, NULL );
+        
+        if( getenv( "TR_CURL_VERBOSE" ) != NULL )
+        {
+            if( !benc_loaded )
+                fprintf( stderr, "%s", "Scrape response was not in benc format\n" );
+            else {
+                int i, len;
+                char * str = tr_bencToStr( &top, TR_FMT_JSON, &len );
+                fprintf( stderr, "%s", "Scrape response:\n< " );
+                for( i=0; i<len; ++i )
+                    fputc( str[i], stderr );
+                fputc( '\n', stderr );
+                tr_free( str );
+            }
+        }
+        
         if( benc_loaded )
         {
             if( tr_bencDictFindStr( &top, "failure reason", &str ) )
                 response->errmsg = tr_strdup( str );
 
-            if( tr_bencDictFindInt( &top, "min_request_interval", &intVal ) )
-                response->min_request_interval = intVal;
+            if( tr_bencDictFindDict( &top, "flags", &flags ) )
+                if( tr_bencDictFindInt( flags, "min_request_interval", &intVal ) )
+                    response->min_request_interval = intVal;
 
             if( tr_bencDictFindDict( &top, "files", &files ) )
             {

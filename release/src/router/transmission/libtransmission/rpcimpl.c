@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: rpcimpl.c 12521 2011-06-26 17:05:17Z jordan $
+ * $Id: rpcimpl.c 12919 2011-09-26 20:49:26Z jordan $
  */
 
 #include <assert.h>
@@ -35,7 +35,7 @@
 #include "version.h"
 #include "web.h"
 
-#define RPC_VERSION     13
+#define RPC_VERSION     14
 #define RPC_VERSION_MIN 1
 
 #define RECENTLY_ACTIVE_SECONDS 60
@@ -186,6 +186,71 @@ getTorrents( tr_session * session,
     return torrents;
 }
 
+static void
+notifyBatchQueueChange( tr_session * session, tr_torrent ** torrents, int n )
+{
+    int i;
+    for( i=0; i<n; ++i )
+        notify( session, TR_RPC_TORRENT_CHANGED, torrents[i] );
+    notify( session, TR_RPC_SESSION_QUEUE_POSITIONS_CHANGED, NULL );
+}
+
+static const char*
+queueMoveTop( tr_session               * session,
+              tr_benc                  * args_in,
+              tr_benc                  * args_out UNUSED,
+              struct tr_rpc_idle_data  * idle_data UNUSED )
+{
+    int n;
+    tr_torrent ** torrents = getTorrents( session, args_in, &n );
+    tr_torrentsQueueMoveTop( torrents, n );
+    notifyBatchQueueChange( session, torrents, n );
+    tr_free( torrents );
+    return NULL;
+}
+
+static const char*
+queueMoveUp( tr_session               * session,
+             tr_benc                  * args_in,
+             tr_benc                  * args_out UNUSED,
+             struct tr_rpc_idle_data  * idle_data UNUSED )
+{
+    int n;
+    tr_torrent ** torrents = getTorrents( session, args_in, &n );
+    tr_torrentsQueueMoveUp( torrents, n );
+    notifyBatchQueueChange( session, torrents, n );
+    tr_free( torrents );
+    return NULL;
+}
+
+static const char*
+queueMoveDown( tr_session               * session,
+               tr_benc                  * args_in,
+               tr_benc                  * args_out UNUSED,
+               struct tr_rpc_idle_data  * idle_data UNUSED )
+{
+    int n;
+    tr_torrent ** torrents = getTorrents( session, args_in, &n );
+    tr_torrentsQueueMoveDown( torrents, n );
+    notifyBatchQueueChange( session, torrents, n );
+    tr_free( torrents );
+    return NULL;
+}
+
+static const char*
+queueMoveBottom( tr_session               * session,
+                 tr_benc                  * args_in,
+                 tr_benc                  * args_out UNUSED,
+                 struct tr_rpc_idle_data  * idle_data UNUSED )
+{
+    int n;
+    tr_torrent ** torrents = getTorrents( session, args_in, &n );
+    tr_torrentsQueueMoveBottom( torrents, n );
+    notifyBatchQueueChange( session, torrents, n );
+    tr_free( torrents );
+    return NULL;
+}
+
 static const char*
 torrentStart( tr_session               * session,
               tr_benc                  * args_in,
@@ -211,6 +276,30 @@ torrentStart( tr_session               * session,
 }
 
 static const char*
+torrentStartNow( tr_session               * session,
+                 tr_benc                  * args_in,
+                 tr_benc                  * args_out UNUSED,
+                 struct tr_rpc_idle_data  * idle_data UNUSED )
+{
+    int           i, torrentCount;
+    tr_torrent ** torrents = getTorrents( session, args_in, &torrentCount );
+
+    assert( idle_data == NULL );
+
+    for( i = 0; i < torrentCount; ++i )
+    {
+        tr_torrent * tor = torrents[i];
+        if( !tor->isRunning )
+        {
+            tr_torrentStartNow( tor );
+            notify( session, TR_RPC_TORRENT_STARTED, tor );
+        }
+    }
+    tr_free( torrents );
+    return NULL;
+}
+
+static const char*
 torrentStop( tr_session               * session,
              tr_benc                  * args_in,
              tr_benc                  * args_out UNUSED,
@@ -225,7 +314,7 @@ torrentStop( tr_session               * session,
     {
         tr_torrent * tor = torrents[i];
 
-        if( tor->isRunning )
+        if( tor->isRunning || tr_torrentIsQueued( tor ) )
         {
             tor->isStopping = true;
             notify( session, TR_RPC_TORRENT_STOPPED, tor );
@@ -521,6 +610,8 @@ addField( const tr_torrent * const tor,
         tr_bencDictAddBool( d, key, st->finished );
     else if( tr_streq( key, keylen, "isPrivate" ) )
         tr_bencDictAddBool( d, key, tr_torrentIsPrivate( tor ) );
+    else if( tr_streq( key, keylen, "isStalled" ) )
+        tr_bencDictAddBool( d, key, st->isStalled );
     else if( tr_streq( key, keylen, "leftUntilDone" ) )
         tr_bencDictAddInt( d, key, st->leftUntilDone );
     else if( tr_streq( key, keylen, "manualAnnounceTime" ) )
@@ -551,6 +642,7 @@ addField( const tr_torrent * const tor,
         tr_bencDictAddInt( tmp, "fromCache",    f[TR_PEER_FROM_RESUME] );
         tr_bencDictAddInt( tmp, "fromDht",      f[TR_PEER_FROM_DHT] );
         tr_bencDictAddInt( tmp, "fromIncoming", f[TR_PEER_FROM_INCOMING] );
+        tr_bencDictAddInt( tmp, "fromLpd",      f[TR_PEER_FROM_LPD] );
         tr_bencDictAddInt( tmp, "fromLtep",     f[TR_PEER_FROM_LTEP] );
         tr_bencDictAddInt( tmp, "fromPex",      f[TR_PEER_FROM_PEX] );
         tr_bencDictAddInt( tmp, "fromTracker",  f[TR_PEER_FROM_TRACKER] );
@@ -578,6 +670,8 @@ addField( const tr_torrent * const tor,
         for( i = 0; i < inf->fileCount; ++i )
             tr_bencListAddInt( p, inf->files[i].priority );
     }
+    else if( tr_streq( key, keylen, "queuePosition" ) )
+        tr_bencDictAddInt( d, key, st->queuePosition );
     else if( tr_streq( key, keylen, "rateDownload" ) )
         tr_bencDictAddInt( d, key, toSpeedBytes( st->pieceDownloadSpeed_KBps ) );
     else if( tr_streq( key, keylen, "rateUpload" ) )
@@ -1017,6 +1111,8 @@ torrentSet( tr_session               * session,
             tr_torrentSetRatioLimit( tor, d );
         if( tr_bencDictFindInt( args_in, "seedRatioMode", &tmp ) )
             tr_torrentSetRatioMode( tor, tmp );
+        if( tr_bencDictFindInt( args_in, "queuePosition", &tmp ) )
+            tr_torrentSetQueuePosition( tor, tmp );
         if( !errmsg && tr_bencDictFindList( args_in, "trackerAdd", &trackers ) )
             errmsg = addTrackerUrls( tor, trackers );
         if( !errmsg && tr_bencDictFindList( args_in, "trackerRemove", &trackers ) )
@@ -1465,6 +1561,14 @@ sessionSet( tr_session               * session,
         tr_blocklistSetURL( session, str );
     if( tr_bencDictFindStr( args_in, TR_PREFS_KEY_DOWNLOAD_DIR, &str ) )
         tr_sessionSetDownloadDir( session, str );
+    if( tr_bencDictFindInt( args_in, TR_PREFS_KEY_QUEUE_STALLED_MINUTES, &i ) )
+        tr_sessionSetQueueStalledMinutes( session, i );
+    if( tr_bencDictFindBool( args_in, TR_PREFS_KEY_QUEUE_STALLED_ENABLED, &boolVal ) )
+        tr_sessionSetQueueStalledEnabled( session, boolVal );
+    if( tr_bencDictFindInt( args_in, TR_PREFS_KEY_DOWNLOAD_QUEUE_SIZE, &i ) )
+        tr_sessionSetQueueSize( session, TR_DOWN, i );
+    if( tr_bencDictFindBool( args_in, TR_PREFS_KEY_DOWNLOAD_QUEUE_ENABLED, &boolVal ) )
+        tr_sessionSetQueueEnabled ( session, TR_DOWN, boolVal );
     if( tr_bencDictFindStr( args_in, TR_PREFS_KEY_INCOMPLETE_DIR, &str ) )
         tr_sessionSetIncompleteDir( session, str );
     if( tr_bencDictFindBool( args_in, TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED, &boolVal ) )
@@ -1499,6 +1603,10 @@ sessionSet( tr_session               * session,
         tr_sessionSetIdleLimited( session, boolVal );
     if( tr_bencDictFindBool( args_in, TR_PREFS_KEY_START, &boolVal ) )
         tr_sessionSetPaused( session, !boolVal );
+    if( tr_bencDictFindBool( args_in, TR_PREFS_KEY_SEED_QUEUE_ENABLED, &boolVal ) )
+        tr_sessionSetQueueEnabled ( session, TR_UP, boolVal );
+    if( tr_bencDictFindInt( args_in, TR_PREFS_KEY_SEED_QUEUE_SIZE, &i ) )
+        tr_sessionSetQueueSize( session, TR_UP, i );
     if( tr_bencDictFindStr( args_in, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_FILENAME, &str ) )
         tr_sessionSetTorrentDoneScript( session, str );
     if( tr_bencDictFindBool( args_in, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED, &boolVal ) )
@@ -1597,6 +1705,8 @@ sessionGet( tr_session               * s,
     tr_bencDictAddInt ( d, "blocklist-size", tr_blocklistGetRuleCount( s ) );
     tr_bencDictAddStr ( d, "config-dir", tr_sessionGetConfigDir( s ) );
     tr_bencDictAddStr ( d, TR_PREFS_KEY_DOWNLOAD_DIR, tr_sessionGetDownloadDir( s ) );
+    tr_bencDictAddBool( d, TR_PREFS_KEY_DOWNLOAD_QUEUE_ENABLED, tr_sessionGetQueueEnabled( s, TR_DOWN ) );
+    tr_bencDictAddInt ( d, TR_PREFS_KEY_DOWNLOAD_QUEUE_SIZE, tr_sessionGetQueueSize( s, TR_DOWN ) );
     tr_bencDictAddInt ( d, "download-dir-free-space",  tr_sessionGetDownloadDirFreeSpace( s ) );
     tr_bencDictAddInt ( d, TR_PREFS_KEY_PEER_LIMIT_GLOBAL, tr_sessionGetPeerLimit( s ) );
     tr_bencDictAddInt ( d, TR_PREFS_KEY_PEER_LIMIT_TORRENT, tr_sessionGetPeerLimitPerTorrent( s ) );
@@ -1616,6 +1726,8 @@ sessionGet( tr_session               * s,
     tr_bencDictAddBool( d, "seedRatioLimited", tr_sessionIsRatioLimited( s ) );
     tr_bencDictAddInt ( d, TR_PREFS_KEY_IDLE_LIMIT, tr_sessionGetIdleLimit( s ) );
     tr_bencDictAddBool( d, TR_PREFS_KEY_IDLE_LIMIT_ENABLED, tr_sessionIsIdleLimited( s ) );
+    tr_bencDictAddBool( d, TR_PREFS_KEY_SEED_QUEUE_ENABLED, tr_sessionGetQueueEnabled( s, TR_UP ) );
+    tr_bencDictAddInt ( d, TR_PREFS_KEY_SEED_QUEUE_SIZE, tr_sessionGetQueueSize( s, TR_UP ) );
     tr_bencDictAddBool( d, TR_PREFS_KEY_START, !tr_sessionGetPaused( s ) );
     tr_bencDictAddBool( d, TR_PREFS_KEY_TRASH_ORIGINAL, tr_sessionGetDeleteSource( s ) );
     tr_bencDictAddInt ( d, TR_PREFS_KEY_USPEED_KBps, tr_sessionGetSpeedLimit_KBps( s, TR_UP ) );
@@ -1624,6 +1736,8 @@ sessionGet( tr_session               * s,
     tr_bencDictAddBool( d, TR_PREFS_KEY_DSPEED_ENABLED, tr_sessionIsSpeedLimited( s, TR_DOWN ) );
     tr_bencDictAddStr ( d, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_FILENAME, tr_sessionGetTorrentDoneScript( s ) );
     tr_bencDictAddBool( d, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED, tr_sessionIsTorrentDoneScriptEnabled( s ) );
+    tr_bencDictAddInt ( d, TR_PREFS_KEY_QUEUE_STALLED_MINUTES, tr_sessionGetQueueStalledMinutes( s ) );
+    tr_bencDictAddBool( d, TR_PREFS_KEY_QUEUE_STALLED_ENABLED, tr_sessionGetQueueStalledEnabled( s ) );
     tr_formatter_get_units( tr_bencDictAddDict( d, "units", 0 ) );
     tr_bencDictAddStr ( d, "version", LONG_VERSION_STRING );
     switch( tr_sessionGetEncryption( s ) ) {
@@ -1676,9 +1790,14 @@ methods[] =
     { "torrent-set",           true,  torrentSet          },
     { "torrent-set-location",  true,  torrentSetLocation  },
     { "torrent-start",         true,  torrentStart        },
+    { "torrent-start-now",     true,  torrentStartNow     },
     { "torrent-stop",          true,  torrentStop         },
     { "torrent-verify",        true,  torrentVerify       },
-    { "torrent-reannounce",    true,  torrentReannounce   }
+    { "torrent-reannounce",    true,  torrentReannounce   },
+    { "queue-move-top",        true,  queueMoveTop        },
+    { "queue-move-up",         true,  queueMoveUp         },
+    { "queue-move-down",       true,  queueMoveDown       },
+    { "queue-move-bottom",     true,  queueMoveBottom     }
 };
 
 static void

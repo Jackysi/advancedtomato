@@ -7,13 +7,12 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: torrent-cell-renderer.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: torrent-cell-renderer.h 12658 2011-08-09 05:47:24Z jordan $
  */
 
 #ifndef GTR_TORRENT_CELL_RENDERER_H
 #define GTR_TORRENT_CELL_RENDERER_H
 
-#include <glib-object.h>
 #include <gtk/gtk.h>
 
 #define TORRENT_CELL_RENDERER_TYPE ( torrent_cell_renderer_get_type( ) )
@@ -29,16 +28,18 @@ typedef struct TorrentCellRendererClass TorrentCellRendererClass;
 
 struct TorrentCellRenderer
 {
-    GtkCellRenderer                      parent;
-    struct TorrentCellRendererPrivate *  priv;
+    GtkCellRenderer parent;
+
+    /*< private >*/
+    struct TorrentCellRendererPrivate * priv;
 };
 
 struct TorrentCellRendererClass
 {
-    GtkCellRendererClass    parent;
+    GtkCellRendererClass parent;
 };
 
-GType             torrent_cell_renderer_get_type( void );
+GType torrent_cell_renderer_get_type( void ) G_GNUC_CONST;
 
 GtkCellRenderer * torrent_cell_renderer_new( void );
 

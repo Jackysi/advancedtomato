@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: platform.c 12478 2011-05-30 18:17:16Z jordan $
+ * $Id: platform.c 12684 2011-08-15 00:10:06Z livings124 $
  */
 
 #ifdef WIN32
@@ -571,14 +571,10 @@ tr_getWebClientDir( const tr_session * session UNUSED )
                 CFURLRef appURL = CFBundleCopyBundleURL( CFBundleGetMainBundle( ) );
                 CFStringRef appRef = CFURLCopyFileSystemPath( appURL,
                                                               kCFURLPOSIXPathStyle );
-                CFIndex appLength = CFStringGetMaximumSizeForEncoding( CFStringGetLength(appRef),
-                                                                       CFStringGetFastestEncoding( appRef ));
+                const CFIndex appStringLength = CFStringGetMaximumSizeOfFileSystemRepresentation(appRef);
 
-                char * appString = tr_malloc( appLength + 1 );
-                bool success = CFStringGetCString( appRef,
-                                              appString,
-                                              appLength + 1,
-                                              CFStringGetFastestEncoding( appRef ));
+                char * appString = tr_malloc( appStringLength );
+                const bool success = CFStringGetFileSystemRepresentation( appRef, appString, appStringLength );
                 assert( success );
 
                 CFRelease( appURL );

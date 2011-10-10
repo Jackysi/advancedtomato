@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: tr-icon.c 12318 2011-04-05 16:16:06Z jordan $
+ * $Id: tr-icon.c 12648 2011-08-08 16:02:37Z jordan $
  */
 
 #include <glib/gi18n.h>
@@ -30,11 +30,6 @@ get_core_quark( void )
 }
 
 #define ICON_NAME "transmission"
-
-#ifndef STATUS_ICON_SUPPORTED
-gpointer gtr_icon_new( TrCore * core UNUSED ) { return NULL; }
-void gtr_icon_refresh( gpointer vicon UNUSED ) { }
-#else
 
 #ifdef HAVE_LIBAPPINDICATOR
 void
@@ -113,11 +108,7 @@ gtr_icon_refresh( gpointer vicon )
      * %4$s: current download limit, if any */
     g_snprintf( tip, sizeof( tip ), _( "Transmission\nUp: %1$s %2$s\nDown: %3$s %4$s" ), up, upLimit, down, downLimit );
 
-#if GTK_CHECK_VERSION( 2,16,0 )
     gtk_status_icon_set_tooltip_text( GTK_STATUS_ICON( icon ), tip );
-#else
-    gtk_status_icon_set_tooltip( GTK_STATUS_ICON( icon ), tip );
-#endif
 }
 #endif
 
@@ -142,10 +133,10 @@ getIconName( void )
     return icon_name;
 }
 
-#ifdef HAVE_LIBAPPINDICATOR
 gpointer
 gtr_icon_new( TrCore * core)
 {
+#ifdef HAVE_LIBAPPINDICATOR
     GtkWidget * w;
     const char * icon_name = getIconName( );
     AppIndicator * indicator = app_indicator_new( ICON_NAME, icon_name, APP_INDICATOR_CATEGORY_SYSTEM_SERVICES );
@@ -154,19 +145,12 @@ gtr_icon_new( TrCore * core)
     app_indicator_set_menu( indicator, GTK_MENU ( w ) );
     g_object_set_qdata( G_OBJECT( indicator ), get_core_quark( ), core );
     return indicator;
-}
 #else
-gpointer
-gtr_icon_new( TrCore * core )
-{
     const char * icon_name = getIconName( );
     GtkStatusIcon * icon = gtk_status_icon_new_from_icon_name( icon_name );
     g_signal_connect( icon, "activate", G_CALLBACK( activated ), NULL );
     g_signal_connect( icon, "popup-menu", G_CALLBACK( popup ), NULL );
     g_object_set_qdata( G_OBJECT( icon ), get_core_quark( ), core );
     return icon;
+#endif
 }
-
-#endif
-
-#endif

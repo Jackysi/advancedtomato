@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoPeersViewController.h 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: InfoPeersViewController.h 12686 2011-08-15 00:30:29Z livings124 $
  *
  * Copyright (c) 2010-2011 Transmission authors and contributors
  *
@@ -25,7 +25,7 @@
 #import <Cocoa/Cocoa.h>
 #import "InfoViewController.h"
 
-@interface InfoPeersViewController : NSViewController <InfoViewController>
+@interface InfoPeersViewController : NSViewController <InfoViewController, NSAnimationDelegate>
 {
     NSArray * fTorrents;
     

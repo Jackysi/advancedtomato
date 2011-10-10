@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: conf.c 12223 2011-03-24 21:49:42Z jordan $
+ * $Id: conf.c 12682 2011-08-13 22:58:49Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -44,93 +44,11 @@
 #define MY_READABLE_NAME "transmission-gtk"
 
 static char * gl_confdir = NULL;
-static char * gl_lockpath = NULL;
 
-/* errstr may be NULL, this might be called before GTK is initialized */
-gboolean
-cf_init( const char * configDir, char ** errstr )
+void
+gtr_pref_init( const char * config_dir )
 {
-    if( errstr != NULL )
-        *errstr = NULL;
-
-    gl_confdir = g_strdup( configDir );
-
-    if( gtr_mkdir_with_parents( gl_confdir, 0755 ) )
-        return TRUE;
-
-    if( errstr != NULL )
-        *errstr = g_strdup_printf( _( "Couldn't create \"%1$s\": %2$s" ),
-                                  gl_confdir, g_strerror( errno ) );
-
-    return FALSE;
-}
-
-/***
-****
-****  Lockfile
-****
-***/
-
-/* errstr may be NULL, this might be called before GTK is initialized */
-static gboolean
-lockfile( const char * filename, gtr_lockfile_state_t * tr_state, char ** errstr )
-{
-    const gtr_lockfile_state_t state = gtr_lockfile( filename );
-    const gboolean success = state == GTR_LOCKFILE_SUCCESS;
-
-    if( errstr ) switch( state )
-        {
-            case GTR_LOCKFILE_EOPEN:
-                *errstr =
-                    g_strdup_printf( _( "Couldn't open \"%1$s\": %2$s" ),
-                                    filename, g_strerror( errno ) );
-                break;
-
-            case GTR_LOCKFILE_ELOCK:
-                *errstr = g_strdup_printf( _( "%s is already running." ),
-                                          g_get_application_name( ) );
-                break;
-
-            case GTR_LOCKFILE_SUCCESS:
-                *errstr = NULL;
-                break;
-        }
-
-    if( tr_state != NULL )
-        *tr_state = state;
-
-    return success;
-}
-
-static char*
-getLockFilename( void )
-{
-    g_assert( gl_confdir != NULL );
-    return g_build_filename( gl_confdir, "lock", NULL );
-}
-
-static void
-cf_removelocks( void )
-{
-    if( gl_lockpath )
-    {
-        g_unlink( gl_lockpath );
-        g_free( gl_lockpath );
-    }
-}
-
-/* errstr may be NULL, this might be called before GTK is initialized */
-gboolean
-cf_lock( gtr_lockfile_state_t * tr_state, char ** errstr )
-{
-    char *         path = getLockFilename( );
-    const gboolean didLock = lockfile( path, tr_state, errstr );
-
-    if( didLock )
-        gl_lockpath = g_strdup( path );
-    g_atexit( cf_removelocks );
-    g_free( path );
-    return didLock;
+    gl_confdir = g_strdup( config_dir );
 }
 
 /***
@@ -152,31 +70,35 @@ tr_prefs_init_defaults( tr_benc * d )
 
     cf_check_older_configs( );
 
-#ifdef HAVE_GIO
     str = NULL;
     if( !str ) str = g_get_user_special_dir( G_USER_DIRECTORY_DOWNLOAD );
     if( !str ) str = g_get_user_special_dir( G_USER_DIRECTORY_DESKTOP );
     if( !str ) str = tr_getDefaultDownloadDir( );
-    tr_bencDictAddStr( d, PREF_KEY_DIR_WATCH, str );
+    tr_bencDictAddStr ( d, PREF_KEY_DIR_WATCH, str );
     tr_bencDictAddBool( d, PREF_KEY_DIR_WATCH_ENABLED, FALSE );
-#endif
 
     tr_bencDictAddBool( d, PREF_KEY_USER_HAS_GIVEN_INFORMED_CONSENT, FALSE );
     tr_bencDictAddBool( d, PREF_KEY_INHIBIT_HIBERNATION, FALSE );
     tr_bencDictAddBool( d, PREF_KEY_BLOCKLIST_UPDATES_ENABLED, TRUE );
 
-    tr_bencDictAddStr( d, PREF_KEY_OPEN_DIALOG_FOLDER, g_get_home_dir( ) );
+    tr_bencDictAddStr ( d, PREF_KEY_OPEN_DIALOG_FOLDER, g_get_home_dir( ) );
 
     tr_bencDictAddBool( d, PREF_KEY_TOOLBAR, TRUE );
     tr_bencDictAddBool( d, PREF_KEY_FILTERBAR, TRUE );
     tr_bencDictAddBool( d, PREF_KEY_STATUSBAR, TRUE );
+    tr_bencDictAddBool( d, PREF_KEY_TRASH_CAN_ENABLED, TRUE );
     tr_bencDictAddBool( d, PREF_KEY_SHOW_TRAY_ICON, FALSE );
-    tr_bencDictAddBool( d, PREF_KEY_PLAY_DOWNLOAD_COMPLETE_SOUND, TRUE );
-    tr_bencDictAddBool( d, PREF_KEY_SHOW_DESKTOP_NOTIFICATION, TRUE );
     tr_bencDictAddBool( d, PREF_KEY_SHOW_MORE_TRACKER_INFO, FALSE );
     tr_bencDictAddBool( d, PREF_KEY_SHOW_MORE_PEER_INFO, FALSE );
     tr_bencDictAddBool( d, PREF_KEY_SHOW_BACKUP_TRACKERS, FALSE );
-    tr_bencDictAddStr( d, PREF_KEY_STATUSBAR_STATS, "total-ratio" );
+    tr_bencDictAddStr ( d, PREF_KEY_STATUSBAR_STATS, "total-ratio" );
+
+    tr_bencDictAddStr ( d, PREF_KEY_TORRENT_ADDED_NOTIFICATION_COMMAND, "notify-send -c transfer -i transmission '%s' '%s'" );
+    tr_bencDictAddBool( d, PREF_KEY_TORRENT_ADDED_NOTIFICATION_ENABLED, true );
+    tr_bencDictAddStr ( d, PREF_KEY_TORRENT_COMPLETE_NOTIFICATION_COMMAND, "notify-send -c transfer.complete -i transmission '%s' '%s'" );
+    tr_bencDictAddBool( d, PREF_KEY_TORRENT_COMPLETE_NOTIFICATION_ENABLED, true );
+    tr_bencDictAddStr ( d, PREF_KEY_TORRENT_COMPLETE_SOUND_COMMAND, "canberra-gtk-play -i complete-download -d 'transmission torrent downloaded'" );
+    tr_bencDictAddBool( d, PREF_KEY_TORRENT_COMPLETE_SOUND_ENABLED, true );
 
     tr_bencDictAddBool( d, PREF_KEY_OPTIONS_PROMPT, TRUE );
 
@@ -186,11 +108,7 @@ tr_prefs_init_defaults( tr_benc * d )
     tr_bencDictAddInt( d, PREF_KEY_MAIN_WINDOW_X, 50 );
     tr_bencDictAddInt( d, PREF_KEY_MAIN_WINDOW_Y, 50 );
 
-    str = NULL;
-#if GLIB_CHECK_VERSION( 2, 14, 0 )
-    if( !str ) str = g_get_user_special_dir( G_USER_DIRECTORY_DOWNLOAD );
-#endif
-    if( !str ) str = tr_getDefaultDownloadDir( );
+    str = g_get_user_special_dir( G_USER_DIRECTORY_DOWNLOAD );
     tr_bencDictAddStr( d, TR_PREFS_KEY_DOWNLOAD_DIR, str );
 
     tr_bencDictAddStr( d, PREF_KEY_SORT_MODE, "sort-by-name" );

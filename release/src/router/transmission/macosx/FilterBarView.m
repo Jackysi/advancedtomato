@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FilterBarView.m 12493 2011-06-09 02:15:22Z livings124 $
+ * $Id: FilterBarView.m 12864 2011-09-14 03:31:34Z livings124 $
  * 
  * Copyright (c) 2011 Transmission authors and contributors
  *
@@ -80,9 +80,13 @@
         rect.size.height -= 1.0;
     }
     
-    NSRectFillListWithColors(gridRects, colorRects, count);
+    if (!NSIsEmptyRect(rect))
+    {
+        const NSRect gradientRect = NSMakeRect(NSMinX(rect), 1.0, NSWidth(rect), NSHeight([self bounds]) - 1.0 - 1.0); //proper gradient requires the full height of the bar
+        [fGradient drawInRect: gradientRect angle: 270.0];
+    }
     
-    [fGradient drawInRect: rect angle: 270.0];
+    NSRectFillListWithColors(gridRects, colorRects, count);
 }
 
 @end

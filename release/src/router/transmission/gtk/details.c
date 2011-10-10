@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: details.c 12487 2011-06-02 20:04:23Z jordan $
+ * $Id: details.c 12679 2011-08-13 21:08:53Z jordan $
  */
 
 #include <stddef.h>
@@ -51,17 +51,17 @@ struct DetailsImpl
     GtkWidget * idle_spin;
     GtkWidget * max_peers_spin;
 
-    guint honor_limits_check_tag;
-    guint up_limited_check_tag;
-    guint down_limited_check_tag;
-    guint down_limit_spin_tag;
-    guint up_limit_spin_tag;
-    guint bandwidth_combo_tag;
-    guint ratio_combo_tag;
-    guint ratio_spin_tag;
-    guint idle_combo_tag;
-    guint idle_spin_tag;
-    guint max_peers_spin_tag;
+    gulong honor_limits_check_tag;
+    gulong up_limited_check_tag;
+    gulong down_limited_check_tag;
+    gulong down_limit_spin_tag;
+    gulong up_limit_spin_tag;
+    gulong bandwidth_combo_tag;
+    gulong ratio_combo_tag;
+    gulong ratio_spin_tag;
+    gulong idle_combo_tag;
+    gulong idle_spin_tag;
+    gulong max_peers_spin_tag;
 
     GtkWidget * size_lb;
     GtkWidget * state_lb;
@@ -130,7 +130,7 @@ getTorrents( struct DetailsImpl * d, int * setmeCount )
 ****/
 
 static void
-set_togglebutton_if_different( GtkWidget * w, guint tag, gboolean value )
+set_togglebutton_if_different( GtkWidget * w, gulong tag, gboolean value )
 {
     GtkToggleButton * toggle = GTK_TOGGLE_BUTTON( w );
     const gboolean currentValue = gtk_toggle_button_get_active( toggle );
@@ -143,7 +143,7 @@ set_togglebutton_if_different( GtkWidget * w, guint tag, gboolean value )
 }
 
 static void
-set_int_spin_if_different( GtkWidget * w, guint tag, int value )
+set_int_spin_if_different( GtkWidget * w, gulong tag, int value )
 {
     GtkSpinButton * spin = GTK_SPIN_BUTTON( w );
     const int currentValue = gtk_spin_button_get_value_as_int( spin );
@@ -156,7 +156,7 @@ set_int_spin_if_different( GtkWidget * w, guint tag, int value )
 }
 
 static void
-set_double_spin_if_different( GtkWidget * w, guint tag, double value )
+set_double_spin_if_different( GtkWidget * w, gulong tag, double value )
 {
     GtkSpinButton * spin = GTK_SPIN_BUTTON( w );
     const double currentValue = gtk_spin_button_get_value( spin );
@@ -169,7 +169,7 @@ set_double_spin_if_different( GtkWidget * w, guint tag, double value )
 }
 
 static void
-unset_combo( GtkWidget * w, guint tag )
+unset_combo( GtkWidget * w, gulong tag )
 {
     GtkComboBox * combobox = GTK_COMBO_BOX( w );
 
@@ -468,8 +468,8 @@ idle_combo_new( void )
 static GtkWidget*
 options_page_new( struct DetailsImpl * d )
 {
-    guint tag;
-    int row;
+    guint row;
+    gulong tag;
     char buf[128];
     GtkWidget *t, *w, *tb, *h;
 
@@ -557,11 +557,13 @@ activityString( int activity, bool finished )
 {
     switch( activity )
     {
-        case TR_STATUS_CHECK_WAIT: return _( "Waiting to verify local data" );
-        case TR_STATUS_CHECK:      return _( "Verifying local data" );
-        case TR_STATUS_DOWNLOAD:   return _( "Downloading" );
-        case TR_STATUS_SEED:       return _( "Seeding" );
-        case TR_STATUS_STOPPED:    return finished ? _( "Finished" ) : _( "Paused" );
+        case TR_STATUS_CHECK_WAIT:    return _( "Queued for verification" );
+        case TR_STATUS_CHECK:         return _( "Verifying local data" );
+        case TR_STATUS_DOWNLOAD_WAIT: return _( "Queued for download" );
+        case TR_STATUS_DOWNLOAD:      return _( "Downloading" );
+        case TR_STATUS_SEED_WAIT:     return _( "Queued for seeding" );
+        case TR_STATUS_SEED:          return _( "Seeding" );
+        case TR_STATUS_STOPPED:       return finished ? _( "Finished" ) : _( "Paused" );
     }
 
     return "";
@@ -923,7 +925,7 @@ refreshInfo( struct DetailsImpl * di, tr_torrent ** torrents, int n )
 static GtkWidget*
 info_page_new( struct DetailsImpl * di )
 {
-    int row = 0;
+    guint row = 0;
     GtkTextBuffer * b;
     GtkWidget *l, *w, *fr, *sw;
     GtkWidget *t = hig_workarea_create( );
@@ -1443,7 +1445,6 @@ refreshPeers( struct DetailsImpl * di, tr_torrent ** torrents, int n )
     refreshWebseedList( di, torrents, n );
 }
 
-#if GTK_CHECK_VERSION( 2,12,0 )
 static gboolean
 onPeerViewQueryTooltip( GtkWidget   * widget,
                         gint          x,
@@ -1511,7 +1512,6 @@ onPeerViewQueryTooltip( GtkWidget   * widget,
 
     return show_tip;
 }
-#endif
 
 static void
 setPeerViewColumns( GtkTreeView * peer_view )
@@ -1708,24 +1708,15 @@ peer_page_new( struct DetailsImpl * di )
     gtk_tree_sortable_set_sort_column_id( GTK_TREE_SORTABLE( m ),
                                           PEER_COL_PROGRESS,
                                           GTK_SORT_DESCENDING );
-#if GTK_CHECK_VERSION( 2,12,0 )
     v = GTK_WIDGET( g_object_new( GTK_TYPE_TREE_VIEW,
                                   "model",  m,
                                   "rules-hint", TRUE,
                                   "has-tooltip", TRUE,
                                   NULL ) );
-#else
-    v = GTK_WIDGET( g_object_new( GTK_TYPE_TREE_VIEW,
-                                  "model",  m,
-                                  "rules-hint", TRUE,
-                                  NULL ) );
-#endif
     di->peer_view = v;
 
-#if GTK_CHECK_VERSION( 2,12,0 )
     g_signal_connect( v, "query-tooltip",
                       G_CALLBACK( onPeerViewQueryTooltip ), di );
-#endif
     g_object_unref( store );
     g_signal_connect( v, "button-release-event",
                       G_CALLBACK( on_tree_view_button_released ), NULL );
@@ -2199,7 +2190,7 @@ on_edit_trackers( GtkButton * button, gpointer data )
 
     if( tor != NULL )
     {
-        int row;
+        guint row;
         GtkWidget *w, *d, *fr, *t, *l, *sw;
         GtkWindow * win = GTK_WINDOW( gtk_widget_get_toplevel( GTK_WIDGET( button ) ) );
         GString * gstr = di->gstr; /* buffer for temporary strings */
@@ -2310,7 +2301,7 @@ on_tracker_list_add_button_clicked( GtkButton * button UNUSED, gpointer gdi )
 
     if( tor != NULL )
     {
-        int row;
+        guint row;
         GtkWidget * e;
         GtkWidget * t;
         GtkWidget * w;
@@ -2573,8 +2564,8 @@ gtr_torrent_details_dialog_new( GtkWindow * parent, TrCore * core )
     gtk_notebook_append_page( GTK_NOTEBOOK( n ), w, l );
 
     gtr_dialog_set_content( GTK_DIALOG( d ), n );
-    di->periodic_refresh_tag = gtr_timeout_add_seconds( SECONDARY_WINDOW_REFRESH_INTERVAL_SECONDS,
-                                                        periodic_refresh, di );
+    di->periodic_refresh_tag = gdk_threads_add_timeout_seconds( SECONDARY_WINDOW_REFRESH_INTERVAL_SECONDS,
+                                                                periodic_refresh, di );
     return d;
 }
 

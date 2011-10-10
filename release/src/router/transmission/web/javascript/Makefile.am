@@ -3,11 +3,14 @@ datadir = ${datarootdir}/${PACKAGE_NAME}/${subdir}
 dist_data_DATA = \
   common.js \
   dialog.js \
+  file-row.js \
   formatter.js \
-  menu.js \
+  inspector.js \
+  prefs-dialog.js \
+  remote.js \
   torrent.js \
-  transmission.js \
-  transmission.remote.js
+  torrent-row.js \
+  transmission.js
 
 SUBDIRS = \
   jquery

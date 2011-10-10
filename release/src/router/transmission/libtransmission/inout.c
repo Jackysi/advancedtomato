@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: inout.c 12462 2011-05-27 23:26:05Z jordan $
+ * $Id: inout.c 12582 2011-07-25 17:48:14Z jordan $
  */
 
 #include <assert.h>
@@ -92,7 +92,7 @@ readOrWriteBytes( tr_session       * session,
                                ? TR_PREALLOCATE_NONE
                                : tor->session->preallocationMode;
             if((( fd = tr_fdFileCheckout( session, tor->uniqueId, fileIndex,
-                                          base, filename, doWrite,
+                                          filename, doWrite,
                                           prealloc, file->length ))) < 0 )
             {
                 err = errno;

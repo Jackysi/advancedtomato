@@ -1,9 +1,9 @@
 /**
-***  This file Copyright (C) Mnemosyne LLC
-***
-***  This code is licensed under the GPL version 2.
-***  For more details, see http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
-**/
+ * Copyright © Mnemosyne LLC
+ *
+ * This file is licensed under the GPLv2.
+ * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+ */
 
 Transmission.fmt = (function()
 {
@@ -30,8 +30,9 @@ Transmission.fmt = (function()
 
 	return {
 
-		updateUnits: function( u )
+		updateUnits: function(u)
 		{
+/*
 			speed_K     = u['speed-bytes'];
 			speed_K_str = u['speed-units'][0];
 			speed_M_str = u['speed-units'][1];
@@ -49,30 +50,30 @@ Transmission.fmt = (function()
 			mem_M_str = u['memory-units'][1];
 			mem_G_str = u['memory-units'][2];
 			mem_T_str = u['memory-units'][3];
+*/
 		},
 
 		/*
 		 *   Format a percentage to a string
 		 */
-		percentString: function( x ) {
-			if( x < 10.0 )
-				return x.toTruncFixed( 2 );
-			else if( x < 100.0 )
-				return x.toTruncFixed( 1 );
+		percentString: function(x) {
+			if (x < 10.0)
+				return x.toTruncFixed(2);
+			else if (x < 100.0)
+				return x.toTruncFixed(1);
 			else
-				return x.toTruncFixed( 0 );
+				return x.toTruncFixed(0);
 		},
 
 		/*
 		 *   Format a ratio to a string
 		 */
-		ratioString: function( x ) {
-			if( x ==  -1 )
+		ratioString: function(x) {
+			if (x === -1)
 				return "None";
-			else if( x == -2 )
+			if (x === -2)
 				return '&infin;';
-			else
-				return this.percentString( x );
+			return this.percentString(x);
 		},
 
 		/**
@@ -80,32 +81,32 @@ Transmission.fmt = (function()
 		 * @param {Number} bytes the filesize in bytes
 		 * @return {String} human-readable string
 		 */
-		mem: function( bytes )
+		mem: function(bytes)
 		{
-			if( bytes < mem_K )
+			if (bytes < mem_K)
 				return [ bytes, mem_B_str ].join(' ');
 
 			var convertedSize;
 			var unit;
 
-			if( bytes < Math.pow( mem_K, 2 ) )
+			if (bytes < Math.pow(mem_K, 2))
 			{
 				convertedSize = bytes / mem_K;
 				unit = mem_K_str;
 			}
-			else if( bytes < Math.pow( mem_K, 3 ) )
+			else if (bytes < Math.pow(mem_K, 3))
 			{
-				convertedSize = bytes / Math.pow( mem_K, 2 );
+				convertedSize = bytes / Math.pow(mem_K, 2);
 				unit = mem_M_str;
 			}
-			else if( bytes < Math.pow( mem_K, 4 ) )
+			else if (bytes < Math.pow(mem_K, 4))
 			{
-				convertedSize = bytes / Math.pow( mem_K, 3 );
+				convertedSize = bytes / Math.pow(mem_K, 3);
 				unit = mem_G_str;
 			}
 			else
 			{
-				convertedSize = bytes / Math.pow( mem_K, 4 );
+				convertedSize = bytes / Math.pow(mem_K, 4);
 				unit = mem_T_str;
 			}
 
@@ -119,32 +120,32 @@ Transmission.fmt = (function()
 		 * @param {Number} bytes the filesize in bytes
 		 * @return {String} human-readable string
 		 */
-		size: function( bytes )
+		size: function(bytes)
 		{
-			if( bytes < size_K )
+			if (bytes < size_K)
 				return [ bytes, size_B_str ].join(' ');
 
 			var convertedSize;
 			var unit;
 
-			if( bytes < Math.pow( size_K, 2 ) )
+			if (bytes < Math.pow(size_K, 2))
 			{
 				convertedSize = bytes / size_K;
 				unit = size_K_str;
 			}
-			else if( bytes < Math.pow( size_K, 3 ) )
+			else if (bytes < Math.pow(size_K, 3))
 			{
-				convertedSize = bytes / Math.pow( size_K, 2 );
+				convertedSize = bytes / Math.pow(size_K, 2);
 				unit = size_M_str;
 			}
-			else if( bytes < Math.pow( size_K, 4 ) )
+			else if (bytes < Math.pow(size_K, 4))
 			{
-				convertedSize = bytes / Math.pow( size_K, 3 );
+				convertedSize = bytes / Math.pow(size_K, 3);
 				unit = size_G_str;
 			}
 			else
 			{
-				convertedSize = bytes / Math.pow( size_K, 4 );
+				convertedSize = bytes / Math.pow(size_K, 4);
 				unit = size_T_str;
 			}
 
@@ -153,22 +154,22 @@ Transmission.fmt = (function()
 			                              : [ convertedSize.toTruncFixed(1), unit ].join(' ');
 		},
 
-		speedBps: function( Bps )
+		speedBps: function(Bps)
 		{
-			return this.speed( this.toKBps( Bps ) );
+			return this.speed(this.toKBps(Bps));
 		},
 
-		toKBps: function( Bps )
+		toKBps: function(Bps)
 		{
-			return Math.floor( Bps / speed_K );
+			return Math.floor(Bps / speed_K);
 		},
 
-		speed: function( KBps )
+		speed: function(KBps)
 		{
 			var speed = KBps;
 
-			if (speed <= 999.95) // 0 KBps to 999.9 K
-				return [ speed.toTruncFixed(1), speed_K_str ].join(' ');
+			if (speed <= 999.95) // 0 KBps to 999 K
+				return [ speed.toTruncFixed(0), speed_K_str ].join(' ');
 
 			speed /= speed_K;
 
@@ -182,35 +183,38 @@ Transmission.fmt = (function()
 			return [ speed.toTruncFixed(2), speed_G_str ].join(' ');
 		},
 
-		timeInterval: function( seconds )
+		timeInterval: function(seconds)
 		{
-			var result;
-			var days = Math.floor(seconds / 86400);
-			var hours = Math.floor((seconds % 86400) / 3600);
-			var minutes = Math.floor((seconds % 3600) / 60);
-			var seconds = Math.floor((seconds % 3600) % 60);
+			var days    = Math.floor (seconds / 86400),
+			    hours   = Math.floor ((seconds % 86400) / 3600),
+			    minutes = Math.floor ((seconds % 3600) / 60),
+			    seconds = Math.floor (seconds % 60),
+			    d = days    + ' ' + (days    > 1 ? 'days'    : 'day'),
+			    h = hours   + ' ' + (hours   > 1 ? 'hours'   : 'hour'),
+			    m = minutes + ' ' + (minutes > 1 ? 'minutes' : 'minute'),
+			    s = seconds + ' ' + (seconds > 1 ? 'seconds' : 'second');
 
-			if (days > 0 && hours == 0)
-				result = [ days, 'days' ];
-			else if (days > 0 && hours > 0)
-				result = [ days, 'days', hours, 'hr' ];
-			else if (hours > 0 && minutes == 0)
-				result = [ hours, 'hr' ];
-			else if (hours > 0 && minutes > 0)
-				result = [ hours,'hr', minutes, 'min' ];
-			else if (minutes > 0 && seconds == 0)
-				result = [ minutes, 'min' ];
-			else if (minutes > 0 && seconds > 0)
-				result = [ minutes, 'min', seconds, 'seconds' ];
-			else
-				result = [ seconds, 'seconds' ];
-
-			return result.join(' ');
+			if (days) {
+				if (days >= 4 || !hours)
+					return d;
+				return d + ', ' + h;
+			}
+			if (hours) {
+				if (hours >= 4 || !minutes)
+					return h;
+				return h + ', ' + m;
+			}
+			if (minutes) {
+				if (minutes >= 4 || !seconds)
+					return m;
+				return m + ', ' + s;
+			}
+			return s;
 		},
 
-		timestamp: function( seconds )
+		timestamp: function(seconds)
 		{
-			if( !seconds )
+			if (!seconds)
 				return 'N/A';
 
 			var myDate = new Date(seconds*1000);
@@ -219,15 +223,15 @@ Transmission.fmt = (function()
 			var date = "";
 			var time = "";
 
-			var sameYear = now.getFullYear() == myDate.getFullYear();
-			var sameMonth = now.getMonth() == myDate.getMonth();
+			var sameYear = now.getFullYear() === myDate.getFullYear();
+			var sameMonth = now.getMonth() === myDate.getMonth();
 
 			var dateDiff = now.getDate() - myDate.getDate();
-			if(sameYear && sameMonth && Math.abs(dateDiff) <= 1){
-				if(dateDiff == 0){
+			if (sameYear && sameMonth && Math.abs(dateDiff) <= 1){
+				if (dateDiff === 0){
 					date = "Today";
 				}
-				else if(dateDiff == 1){
+				else if (dateDiff === 1){
 					date = "Yesterday";
 				}
 				else{
@@ -240,22 +244,22 @@ Transmission.fmt = (function()
 
 			var hours = myDate.getHours();
 			var period = "AM";
-			if(hours > 12){
+			if (hours > 12){
 				hours = hours - 12;
 				period = "PM";
 			}
-			if(hours == 0){
+			if (hours === 0){
 				hours = 12;
 			}
-			if(hours < 10){
+			if (hours < 10){
 				hours = "0" + hours;
 			}
 			var minutes = myDate.getMinutes();
-			if(minutes < 10){
+			if (minutes < 10){
 				minutes = "0" + minutes;
 			}
 			var seconds = myDate.getSeconds();
-				if(seconds < 10){
+				if (seconds < 10){
 					seconds = "0" + seconds;
 			}
 
@@ -264,9 +268,40 @@ Transmission.fmt = (function()
 			return [date, time, period].join(' ');
 		},
 
-		plural: function( i, word )
+		plural: function(i, word)
 		{
 			return [ i, ' ', word, (word==1?'':'s') ].join('');
-		}
+		},
+
+		peerStatus: function( flagStr ) 
+		{ 
+			var formattedFlags = []; 
+			for (var i=0, flag; flag=flagStr[i]; ++i)
+			{
+				var explanation = null;
+				switch (flag)
+				{
+					case "O": explanation = "Optimistic unchoke"; break;
+					case "D": explanation = "Downloading from this peer"; break;
+					case "d": explanation = "We would download from this peer if they'd let us"; break;
+					case "U": explanation = "Uploading to peer"; break;
+					case "u": explanation = "We would upload to this peer if they'd ask"; break;
+					case "K": explanation = "Peer has unchoked us, but we're not interested"; break;
+					case "?": explanation = "We unchoked this peer, but they're not interested"; break;
+					case "E": explanation = "Encrypted Connection"; break;
+					case "H": explanation = "Peer was discovered through Distributed Hash Table (DHT)"; break;
+					case "X": explanation = "Peer was discovered through Peer Exchange (PEX)"; break;
+					case "I": explanation = "Peer is an incoming connection"; break;
+					case "T": explanation = "Peer is connected via uTP"; break;
+				}
+
+				if (!explanation) { 
+					formattedFlags.push(flag); 
+				} else { 
+					formattedFlags.push("<span title=\"" + flag + ': ' + explanation + "\">" + flag + "</span>"); 
+				} 
+			} 
+			return formattedFlags.join(''); 
+		},
 	}
 })();

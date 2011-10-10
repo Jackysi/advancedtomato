@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: tr-window.c 12412 2011-05-02 17:58:27Z jordan $
+ * $Id: tr-window.c 12856 2011-09-12 06:11:04Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -105,6 +105,25 @@ view_row_activated( GtkTreeView       * tree_view UNUSED,
     gtr_action_activate( "show-torrent-properties" );
 }
 
+static gboolean
+tree_view_search_equal_func( GtkTreeModel * model,
+                             gint           column UNUSED,
+                             const gchar  * key,
+                             GtkTreeIter  * iter,
+                             gpointer       search_data UNUSED )
+{
+    gboolean match;
+    char * lower;
+    const char * name = NULL;
+
+    lower = g_strstrip( g_utf8_strdown( key, -1 ) );
+    gtk_tree_model_get( model, iter, MC_NAME_COLLATED, &name, -1 );
+    match = strstr( name, lower ) != NULL;
+    g_free( lower );
+
+    return !match;
+}
+
 static GtkWidget*
 makeview( PrivateData * p )
 {
@@ -112,12 +131,18 @@ makeview( PrivateData * p )
     GtkTreeViewColumn * col;
     GtkTreeSelection *  sel;
     GtkCellRenderer *   r;
+    GtkTreeView * tree_view;
 
     view = gtk_tree_view_new( );
-    gtk_tree_view_set_headers_visible( GTK_TREE_VIEW( view ), FALSE );
-    gtk_tree_view_set_fixed_height_mode( GTK_TREE_VIEW( view ), TRUE );
+    tree_view = GTK_TREE_VIEW( view );
+    gtk_tree_view_set_search_column( tree_view, MC_NAME_COLLATED );
+    gtk_tree_view_set_search_equal_func( tree_view,
+                                         tree_view_search_equal_func,
+                                         NULL, NULL );
+    gtk_tree_view_set_headers_visible( tree_view, FALSE );
+    gtk_tree_view_set_fixed_height_mode( tree_view, TRUE );
 
-    p->selection = gtk_tree_view_get_selection( GTK_TREE_VIEW( view ) );
+    p->selection = gtk_tree_view_get_selection( tree_view );
 
     p->column = col = GTK_TREE_VIEW_COLUMN (g_object_new (GTK_TYPE_TREE_VIEW_COLUMN,
         "title", _("Torrent"),
@@ -131,11 +156,11 @@ makeview( PrivateData * p )
     gtk_tree_view_column_add_attribute( col, r, "piece-upload-speed", MC_SPEED_UP );
     gtk_tree_view_column_add_attribute( col, r, "piece-download-speed", MC_SPEED_DOWN );
 
-    gtk_tree_view_append_column( GTK_TREE_VIEW( view ), col );
+    gtk_tree_view_append_column( tree_view, col );
     g_object_set( r, "xpad", GUI_PAD_SMALL, "ypad", GUI_PAD_SMALL, NULL );
 
-    gtk_tree_view_set_rules_hint( GTK_TREE_VIEW( view ), TRUE );
-    sel = gtk_tree_view_get_selection( GTK_TREE_VIEW( view ) );
+    gtk_tree_view_set_rules_hint( tree_view, TRUE );
+    sel = gtk_tree_view_get_selection( tree_view );
     gtk_tree_selection_set_mode( GTK_TREE_SELECTION( sel ),
                                  GTK_SELECTION_MULTIPLE );
 
@@ -150,7 +175,7 @@ makeview( PrivateData * p )
                       G_CALLBACK( view_row_activated ), NULL );
 
 
-    gtk_tree_view_set_model( GTK_TREE_VIEW( view ), p->filter_model );
+    gtk_tree_view_set_model( tree_view, p->filter_model );
     g_object_unref( p->filter_model );
 
     return view;
@@ -171,7 +196,11 @@ prefsChanged( TrCore * core UNUSED,
         /* since the cell size has changed, we need gtktreeview to revalidate
          * its fixed-height mode values. Unfortunately there's not an API call
          * for that, but it *does* revalidate when it thinks the style's been tweaked */
+#if GTK_CHECK_VERSION( 3,0,0 )
+        g_signal_emit_by_name( p->view, "style-updated", NULL, NULL );
+#else
         g_signal_emit_by_name( p->view, "style-set", NULL, NULL );
+#endif
     }
     else if( !strcmp( key, PREF_KEY_STATUSBAR ) )
     {
@@ -263,7 +292,7 @@ syncAltSpeedButton( PrivateData * p )
     gtk_toggle_button_set_active( GTK_TOGGLE_BUTTON( w ), b );
     gtk_image_set_from_stock( GTK_IMAGE( p->alt_speed_image ), stock, -1 );
     gtk_button_set_alignment( GTK_BUTTON( w ), 0.5, 0.5 );
-    gtr_widget_set_tooltip_text( w, str );
+    gtk_widget_set_tooltip_text( w, str );
 
     g_free( str );
 }
@@ -279,8 +308,6 @@ alt_speed_toggled_cb( GtkToggleButton * button, gpointer vprivate )
 /***
 ****  FILTER
 ***/
-
-#if GTK_CHECK_VERSION( 2, 12, 0 )
 
 static void
 findMaxAnnounceTime( GtkTreeModel *      model,
@@ -330,8 +357,6 @@ onAskTrackerQueryTooltip( GtkWidget *            widget UNUSED,
     }
 }
 
-#endif
-
 static gboolean
 onAltSpeedToggledIdle( gpointer vp )
 {
@@ -345,7 +370,7 @@ onAltSpeedToggledIdle( gpointer vp )
 static void
 onAltSpeedToggled( tr_session * s UNUSED, bool isEnabled UNUSED, bool byUser UNUSED, void * p )
 {
-    gtr_idle_add( onAltSpeedToggledIdle, p );
+    gdk_threads_add_idle( onAltSpeedToggledIdle, p );
 }
 
 /***
@@ -592,11 +617,8 @@ gtr_window_new( GtkUIManager * ui_mgr, TrCore * core )
 
     /* main menu */
     mainmenu = gtr_action_get_widget( "/main-window-menu" );
-    w = gtr_action_get_widget( "/main-window-menu/torrent-menu/update-tracker" );
-#if GTK_CHECK_VERSION( 2, 12, 0 )
-    g_signal_connect( w, "query-tooltip",
-                      G_CALLBACK( onAskTrackerQueryTooltip ), p );
-#endif
+    w = gtr_action_get_widget( "/main-window-menu/torrent-menu/torrent-reannounce" );
+    g_signal_connect( w, "query-tooltip", G_CALLBACK( onAskTrackerQueryTooltip ), p );
 
     /* toolbar */
     toolbar = p->toolbar = gtr_action_get_widget( "/main-window-toolbar" );
@@ -635,7 +657,7 @@ gtr_window_new( GtkUIManager * ui_mgr, TrCore * core )
 
         w = gtk_button_new( );
         gtk_container_add( GTK_CONTAINER( w ), gtk_image_new_from_stock( "utilities", -1 ) );
-        gtr_widget_set_tooltip_text( w, _( "Options" ) );
+        gtk_widget_set_tooltip_text( w, _( "Options" ) );
         gtk_box_pack_start( GTK_BOX( h ), w, 0, 0, 0 );
         gtk_button_set_relief( GTK_BUTTON( w ), GTK_RELIEF_NONE );
         p->options_menu = createOptionsMenu( p );
@@ -676,7 +698,7 @@ gtr_window_new( GtkUIManager * ui_mgr, TrCore * core )
 
         hbox = gtk_hbox_new( FALSE, GUI_PAD );
             w = gtk_button_new( );
-            gtr_widget_set_tooltip_text( w, _( "Statistics" ) );
+            gtk_widget_set_tooltip_text( w, _( "Statistics" ) );
             gtk_container_add( GTK_CONTAINER( w ), gtk_image_new_from_stock( "ratio", -1 ) );
             gtk_button_set_relief( GTK_BUTTON( w ), GTK_RELIEF_NONE );
             g_signal_connect( w, "clicked", G_CALLBACK( onYinYangReleased ), p );
@@ -785,7 +807,7 @@ updateStats( PrivateData * p )
            %1$s is the size of the data we've downloaded
            %2$s is the size of the data we've uploaded */
         g_snprintf( buf, sizeof( buf ), Q_(
-                        "size|Down: %1$s, Up: %2$s" ), down, up );
+                        "Down: %1$s, Up: %2$s" ), down, up );
     }
     else if( !strcmp( pch, "total-transfer" ) )
     {
@@ -860,16 +882,16 @@ gtr_window_get_selection( TrWindow * w )
 void
 gtr_window_set_busy( TrWindow * w, gboolean isBusy )
 {
-    if( w && gtr_widget_get_realized( GTK_WIDGET( w ) ) )
+    if( w && gtk_widget_get_realized( GTK_WIDGET( w ) ) )
     {
         GdkDisplay * display = gtk_widget_get_display( GTK_WIDGET( w ) );
         GdkCursor * cursor = isBusy ? gdk_cursor_new_for_display( display, GDK_WATCH ) : NULL;
 
-        gdk_window_set_cursor( gtr_widget_get_window( GTK_WIDGET( w ) ), cursor );
+        gdk_window_set_cursor( gtk_widget_get_window( GTK_WIDGET( w ) ), cursor );
         gdk_display_flush( display );
 
         if( cursor ) {
-#if GTK_CHECK_VERSION(3,0,0)
+#if GTK_CHECK_VERSION( 3,0,0 )
             g_object_unref( cursor );
 #else
             gdk_cursor_unref( cursor );

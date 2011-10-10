@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: file-list.c 12356 2011-04-13 22:00:55Z jordan $
+ * $Id: file-list.c 12654 2011-08-08 17:06:46Z jordan $
  */
 
 #include <stddef.h>
@@ -446,7 +446,6 @@ buildTree( GNode * node, gpointer gdata )
 
     tr_strlsize( size_str, child_data->length, sizeof size_str );
 
-#if GTK_CHECK_VERSION(2,10,0)
     gtk_tree_store_insert_with_values( build->store, &child_iter, build->iter, INT_MAX,
                                        FC_INDEX, child_data->index,
                                        FC_LABEL, child_data->name,
@@ -456,18 +455,6 @@ buildTree( GNode * node, gpointer gdata )
                                        FC_PRIORITY, priority,
                                        FC_ENABLED, enabled,
                                        -1 );
-#else
-    gtk_tree_store_append( build->store, &child_iter, build->iter );
-    gtk_tree_store_set( build->store, &child_iter,
-                        FC_INDEX, child_data->index,
-                        FC_LABEL, child_data->name,
-                        FC_SIZE, child_data->length,
-                        FC_SIZE_STR, size_str,
-                        FC_ICON, icon,
-                        FC_PRIORITY, priority,
-                        FC_ENABLED, enabled,
-                        -1 );
-#endif
 
     if( !isLeaf )
     {
@@ -575,7 +562,7 @@ gtr_file_list_set_torrent( GtkWidget * w, int torrentId )
         }
 
         refresh( data );
-        data->timeout_tag = gtr_timeout_add_seconds( SECONDARY_WINDOW_REFRESH_INTERVAL_SECONDS, refreshModel, data );
+        data->timeout_tag = gdk_threads_add_timeout_seconds( SECONDARY_WINDOW_REFRESH_INTERVAL_SECONDS, refreshModel, data );
     }
 
     gtk_tree_view_set_model( GTK_TREE_VIEW( data->view ), data->model );

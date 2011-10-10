@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: session.h 11616 2010-12-31 19:44:51Z charles $
+ * $Id: session.h 12607 2011-08-01 22:24:24Z jordan $
  */
 
 #ifndef TR_APP_SESSION_H
@@ -105,6 +105,11 @@ class Session: public QObject
     public slots:
         void pauseTorrents( const QSet<int>& torrentIds = QSet<int>() );
         void startTorrents( const QSet<int>& torrentIds = QSet<int>() );
+        void startTorrentsNow( const QSet<int>& torrentIds = QSet<int>() );
+        void queueMoveTop( const QSet<int>& torrentIds = QSet<int>() );
+        void queueMoveUp( const QSet<int>& torrentIds = QSet<int>() );
+        void queueMoveDown( const QSet<int>& torrentIds = QSet<int>() );
+        void queueMoveBottom( const QSet<int>& torrentIds = QSet<int>() );
         void refreshSessionInfo( );
         void refreshSessionStats( );
         void refreshActiveTorrents( );

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: favicon.c 12306 2011-04-04 16:54:09Z jordan $
+ * $Id: favicon.c 12655 2011-08-08 17:10:55Z jordan $
  */
 
 #include <glib/gstdio.h> /* g_remove() */
@@ -17,7 +17,7 @@
 #include <libtransmission/web.h> /* tr_webRun() */
 
 #include "favicon.h"
-#include "util.h" /* gtr_mkdir_with_parents(), gtr_idle_add() */
+#include "util.h" /* gtr_get_host_from_url() */
 
 #define IMAGE_TYPES 4
 static const char * image_types[IMAGE_TYPES] = { "ico", "png", "gif", "jpg" };
@@ -50,7 +50,7 @@ favicon_get_cache_dir( void )
                                 "transmission",
                                 "favicons",
                                 NULL );
-        gtr_mkdir_with_parents( dir, 0777 );
+        g_mkdir_with_parents( dir, 0777 );
     }
 
     return dir;
@@ -140,7 +140,7 @@ favicon_web_done_cb( tr_session    * session UNUSED,
     fav->contents = g_memdup( data, len );
     fav->len = len;
 
-    gtr_idle_add( favicon_web_done_idle_cb, fav );
+    gdk_threads_add_idle( favicon_web_done_idle_cb, fav );
 }
 
 void

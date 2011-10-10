@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: session.h 12514 2011-06-24 22:39:20Z jordan $
+ * $Id: session.h 12640 2011-08-07 19:24:33Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -107,8 +107,14 @@ struct tr_session
     bool                         isIncompleteDirEnabled;
     bool                         pauseAddedTorrent;
     bool                         deleteSourceTorrent;
+    bool                         scrapePausedTorrents;
 
     tr_benc                      removedTorrents;
+
+    bool                         stalledEnabled;
+    bool                         queueEnabled[2];
+    int                          queueSize[2];
+    int                          queueStalledMinutes;
 
     int                          umask;
 
@@ -306,5 +312,11 @@ void tr_sessionSetAltSpeed_Bps  ( tr_session *, tr_direction, int Bps );
 bool  tr_sessionGetActiveSpeedLimit_Bps( const tr_session  * session,
                                          tr_direction        dir,
                                          int               * setme );
+
+tr_torrent * tr_sessionGetNextQueuedSeed( tr_session * session );
+tr_torrent * tr_sessionGetNextQueuedTorrent( tr_session * session, tr_direction );
+
+int tr_sessionCountQueueFreeSlots( tr_session * session, tr_direction );
+
 
 #endif

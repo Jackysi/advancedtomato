@@ -68,6 +68,11 @@
 		A2012AE20D77151D0056FD71 /* YingYangGroupTemplate.png in Resources */ = {isa = PBXBuildFile; fileRef = A2012AE10D77151D0056FD71 /* YingYangGroupTemplate.png */; };
 		A20152640D1C1BE70081714F /* PinTemplate.png in Resources */ = {isa = PBXBuildFile; fileRef = A20152630D1C1BE70081714F /* PinTemplate.png */; };
 		A201527E0D1C270F0081714F /* torrent-ctor.c in Sources */ = {isa = PBXBuildFile; fileRef = A20152790D1C26EB0081714F /* torrent-ctor.c */; };
+		A20162C913DE48BF00E15488 /* receivedata.c in Sources */ = {isa = PBXBuildFile; fileRef = A20162C713DE48BF00E15488 /* receivedata.c */; };
+		A20162CA13DE48BF00E15488 /* receivedata.h in Headers */ = {isa = PBXBuildFile; fileRef = A20162C813DE48BF00E15488 /* receivedata.h */; };
+		A20162CD13DE497000E15488 /* portlistingparse.c in Sources */ = {isa = PBXBuildFile; fileRef = A20162CB13DE497000E15488 /* portlistingparse.c */; };
+		A20162CE13DE497000E15488 /* portlistingparse.h in Headers */ = {isa = PBXBuildFile; fileRef = A20162CC13DE497000E15488 /* portlistingparse.h */; };
+		A20162D013DE49E500E15488 /* miniupnpctypes.h in Headers */ = {isa = PBXBuildFile; fileRef = A20162CF13DE49E500E15488 /* miniupnpctypes.h */; };
 		A2074F4C12BEA8CE00F70985 /* buffer.c in Sources */ = {isa = PBXBuildFile; fileRef = A2074F4B12BEA8CE00F70985 /* buffer.c */; };
 		A2074F5912BEA8E000F70985 /* bufferevent_filter.c in Sources */ = {isa = PBXBuildFile; fileRef = A2074F5012BEA8E000F70985 /* bufferevent_filter.c */; };
 		A2074F5A12BEA8E000F70985 /* bufferevent_openssl.c in Sources */ = {isa = PBXBuildFile; fileRef = A2074F5112BEA8E000F70985 /* bufferevent_openssl.c */; };
@@ -117,6 +122,7 @@
 		A21F15AD11729A9F00CF5A9C /* AddMagnetWindow.xib in Resources */ = {isa = PBXBuildFile; fileRef = A21F1538117299F100CF5A9C /* AddMagnetWindow.xib */; };
 		A21FBBAB0EDA78C300BC3C51 /* bandwidth.h in Headers */ = {isa = PBXBuildFile; fileRef = A21FBBA90EDA78C300BC3C51 /* bandwidth.h */; };
 		A21FBBAC0EDA78C300BC3C51 /* bandwidth.c in Sources */ = {isa = PBXBuildFile; fileRef = A21FBBAA0EDA78C300BC3C51 /* bandwidth.c */; };
+		A220AF7B13D7CC460035C512 /* GlobalOptionsPopover.xib in Resources */ = {isa = PBXBuildFile; fileRef = A220AF7913D7CC460035C512 /* GlobalOptionsPopover.xib */; };
 		A220EC5B118C8A060022B4BE /* tr-lpd.c in Sources */ = {isa = PBXBuildFile; fileRef = A220EC59118C8A060022B4BE /* tr-lpd.c */; };
 		A220EC5C118C8A060022B4BE /* tr-lpd.h in Headers */ = {isa = PBXBuildFile; fileRef = A220EC5A118C8A060022B4BE /* tr-lpd.h */; };
 		A22180980D148A71007D09ED /* GroupsPrefsController.m in Sources */ = {isa = PBXBuildFile; fileRef = A22180970D148A71007D09ED /* GroupsPrefsController.m */; };
@@ -128,6 +134,7 @@
 		A22A8D560AEEAFA5007E9CB9 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A22A8D540AEEAFA5007E9CB9 /* Localizable.strings */; };
 		A22B00B2116A9E9F003315FC /* connecthostport.h in Headers */ = {isa = PBXBuildFile; fileRef = A22B00AF116A9E90003315FC /* connecthostport.h */; };
 		A22B00B3116A9EA4003315FC /* connecthostport.c in Sources */ = {isa = PBXBuildFile; fileRef = A22B00AE116A9E90003315FC /* connecthostport.c */; };
+		A22BAE281388040500FB022F /* NSMutableArrayAdditions.m in Sources */ = {isa = PBXBuildFile; fileRef = A22BAE271388040500FB022F /* NSMutableArrayAdditions.m */; };
 		A22CFB820FB66EF30009BD3E /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A22CFB810FB66EF30009BD3E /* Carbon.framework */; };
 		A22CFCA80FC24ED80009BD3E /* tr-dht.c in Sources */ = {isa = PBXBuildFile; fileRef = A22CFCA60FC24ED80009BD3E /* tr-dht.c */; };
 		A22CFCA90FC24ED80009BD3E /* tr-dht.h in Headers */ = {isa = PBXBuildFile; fileRef = A22CFCA70FC24ED80009BD3E /* tr-dht.h */; };
@@ -215,6 +222,7 @@
 		A28F4F770E085BDC003A3882 /* ColorTextField.m in Sources */ = {isa = PBXBuildFile; fileRef = A28F4F760E085BDC003A3882 /* ColorTextField.m */; };
 		A292A6E80DFB45FC004B9C0A /* webseed.c in Sources */ = {isa = PBXBuildFile; fileRef = A292A6E50DFB45EC004B9C0A /* webseed.c */; };
 		A29576030D11D63C0093B167 /* Creator.xib in Resources */ = {isa = PBXBuildFile; fileRef = A29576010D11D63C0093B167 /* Creator.xib */; };
+		A2966E8713DAF74C007B52DF /* GlobalOptionsPopoverViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = A2966E8613DAF74C007B52DF /* GlobalOptionsPopoverViewController.m */; };
 		A296EF3B11E560A7004A2781 /* libiconv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = A296EF3411E5605E004A2781 /* libiconv.dylib */; };
 		A296EF3C11E560BD004A2781 /* libiconv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = A296EF3411E5605E004A2781 /* libiconv.dylib */; };
 		A296EF3D11E560C3004A2781 /* libiconv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = A296EF3411E5605E004A2781 /* libiconv.dylib */; };
@@ -228,6 +236,7 @@
 		A29DF8BA0DB2544C00D04E5A /* resume.h in Headers */ = {isa = PBXBuildFile; fileRef = A29DF8B70DB2544C00D04E5A /* resume.h */; };
 		A29DF8BB0DB2544C00D04E5A /* torrent.h in Headers */ = {isa = PBXBuildFile; fileRef = A29DF8B80DB2544C00D04E5A /* torrent.h */; };
 		A29DF8BE0DB2545F00D04E5A /* verify.h in Headers */ = {isa = PBXBuildFile; fileRef = A2D22A110D65EED100007D5F /* verify.h */; };
+		A29E653613F1603100048D71 /* evutil_rand.c in Sources */ = {isa = PBXBuildFile; fileRef = A29E653513F1603100048D71 /* evutil_rand.c */; };
 		A29EBE710DC06068006CEE80 /* libcurl.4.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = A29EBE700DC06068006CEE80 /* libcurl.4.dylib */; };
 		A2A1CB7A0BF29D5500AE959F /* PeerProgressIndicatorCell.m in Sources */ = {isa = PBXBuildFile; fileRef = A2A1CB780BF29D5500AE959F /* PeerProgressIndicatorCell.m */; };
 		A2A3065C0AAD24A80049E2AC /* UKFileWatcher.m in Sources */ = {isa = PBXBuildFile; fileRef = A2A306540AAD24A80049E2AC /* UKFileWatcher.m */; };
@@ -241,11 +250,9 @@
 		A2A4EA0E0DE106EB000CE197 /* ConvertUTF.c in Sources */ = {isa = PBXBuildFile; fileRef = A2A4EA0A0DE106E8000CE197 /* ConvertUTF.c */; };
 		A2A4EA0F0DE106EE000CE197 /* ConvertUTF.h in Headers */ = {isa = PBXBuildFile; fileRef = A2A4EA0B0DE106E8000CE197 /* ConvertUTF.h */; };
 		A2A6321B0CD9751700E3DA60 /* BadgeView.m in Sources */ = {isa = PBXBuildFile; fileRef = A2A6321A0CD9751700E3DA60 /* BadgeView.m */; };
-		A2A7ACE91389E9FC00657A7C /* NSMutableArrayAdditions.m in Sources */ = {isa = PBXBuildFile; fileRef = A2A7ACE81389E9FC00657A7C /* NSMutableArrayAdditions.m */; };
 		A2AA579D0ADFCAB400CA59F6 /* PiecesView.m in Sources */ = {isa = PBXBuildFile; fileRef = A2AA579B0ADFCAB400CA59F6 /* PiecesView.m */; };
 		A2AA9BE1132CAC8E00FA131E /* announcer-udp.c in Sources */ = {isa = PBXBuildFile; fileRef = A2AA9BE0132CAC8D00FA131E /* announcer-udp.c */; };
 		A2AA9BE3132CAE2000FA131E /* evdns.c in Sources */ = {isa = PBXBuildFile; fileRef = A2AA9BE2132CAE2000FA131E /* evdns.c */; };
-		A2AA9BE5132CB19C00FA131E /* evutil_rand.c in Sources */ = {isa = PBXBuildFile; fileRef = A2AA9BE4132CB19C00FA131E /* evutil_rand.c */; };
 		A2AAB65C0DE0CF6200E04DDA /* rpc-server.c in Sources */ = {isa = PBXBuildFile; fileRef = A2AAB6580DE0CF6200E04DDA /* rpc-server.c */; };
 		A2AAB65D0DE0CF6200E04DDA /* rpcimpl.h in Headers */ = {isa = PBXBuildFile; fileRef = A2AAB6590DE0CF6200E04DDA /* rpcimpl.h */; };
 		A2AAB65E0DE0CF6200E04DDA /* rpc-server.h in Headers */ = {isa = PBXBuildFile; fileRef = A2AAB65A0DE0CF6200E04DDA /* rpc-server.h */; };
@@ -523,6 +530,11 @@
 		A2012AE10D77151D0056FD71 /* YingYangGroupTemplate.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = YingYangGroupTemplate.png; path = macosx/Images/YingYangGroupTemplate.png; sourceTree = "<group>"; };
 		A20152630D1C1BE70081714F /* PinTemplate.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = PinTemplate.png; path = macosx/Images/PinTemplate.png; sourceTree = "<group>"; };
 		A20152790D1C26EB0081714F /* torrent-ctor.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "torrent-ctor.c"; path = "libtransmission/torrent-ctor.c"; sourceTree = "<group>"; };
+		A20162C713DE48BF00E15488 /* receivedata.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = receivedata.c; path = "third-party/miniupnp/receivedata.c"; sourceTree = "<group>"; };
+		A20162C813DE48BF00E15488 /* receivedata.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = receivedata.h; path = "third-party/miniupnp/receivedata.h"; sourceTree = "<group>"; };
+		A20162CB13DE497000E15488 /* portlistingparse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = portlistingparse.c; path = "third-party/miniupnp/portlistingparse.c"; sourceTree = "<group>"; };
+		A20162CC13DE497000E15488 /* portlistingparse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = portlistingparse.h; path = "third-party/miniupnp/portlistingparse.h"; sourceTree = "<group>"; };
+		A20162CF13DE49E500E15488 /* miniupnpctypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = miniupnpctypes.h; path = "third-party/miniupnp/miniupnpctypes.h"; sourceTree = "<group>"; };
 		A202FF5B0DDA9275009938FF /* it */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = it; path = macosx/it.lproj/AddWindow.xib; sourceTree = "<group>"; };
 		A202FF5C0DDA9275009938FF /* it */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = it; path = macosx/it.lproj/Creator.xib; sourceTree = "<group>"; };
 		A202FF5D0DDA9275009938FF /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = macosx/it.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -565,7 +577,7 @@
 		A209EBD81142F52B002B02D1 /* InfoFileView.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = InfoFileView.xib; path = macosx/InfoFileView.xib; sourceTree = "<group>"; };
 		A209EBF71142FEEE002B02D1 /* InfoOptionsViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = InfoOptionsViewController.h; path = macosx/InfoOptionsViewController.h; sourceTree = "<group>"; };
 		A209EBF81142FEEE002B02D1 /* InfoOptionsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = InfoOptionsViewController.m; path = macosx/InfoOptionsViewController.m; sourceTree = "<group>"; };
-		A209EC13114301C6002B02D1 /* en */ = {isa = PBXFileReference; explicitFileType = file.xib; name = en; path = macosx/en.lproj/InfoOptionsView.xib; sourceTree = "<group>"; };
+		A209EC13114301C6002B02D1 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = macosx/en.lproj/InfoOptionsView.xib; sourceTree = "<group>"; };
 		A209ECA1114319C3002B02D1 /* InfoWindow.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = InfoWindow.xib; path = macosx/InfoWindow.xib; sourceTree = "<group>"; };
 		A209EE5A1144B51E002B02D1 /* history.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = history.c; path = libtransmission/history.c; sourceTree = "<group>"; };
 		A209EE5B1144B51E002B02D1 /* history.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = history.h; path = libtransmission/history.h; sourceTree = "<group>"; };
@@ -590,6 +602,7 @@
 		A21F15AB11729A8B00CF5A9C /* AddMagnetWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AddMagnetWindowController.h; path = macosx/AddMagnetWindowController.h; sourceTree = "<group>"; };
 		A21FBBA90EDA78C300BC3C51 /* bandwidth.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = bandwidth.h; path = libtransmission/bandwidth.h; sourceTree = "<group>"; };
 		A21FBBAA0EDA78C300BC3C51 /* bandwidth.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bandwidth.c; path = libtransmission/bandwidth.c; sourceTree = "<group>"; };
+		A220AF7A13D7CC460035C512 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = macosx/en.lproj/GlobalOptionsPopover.xib; sourceTree = "<group>"; };
 		A220EC59118C8A060022B4BE /* tr-lpd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "tr-lpd.c"; path = "libtransmission/tr-lpd.c"; sourceTree = "<group>"; };
 		A220EC5A118C8A060022B4BE /* tr-lpd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "tr-lpd.h"; path = "libtransmission/tr-lpd.h"; sourceTree = "<group>"; };
 		A220EE6611A8382C0022B4BE /* de */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = de; path = macosx/de.lproj/AddMagnetWindow.xib; sourceTree = "<group>"; };
@@ -625,6 +638,8 @@
 		A2265F400B5EF5F40093DDA5 /* FileNameCell.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = FileNameCell.m; path = macosx/FileNameCell.m; sourceTree = "<group>"; };
 		A22B00AE116A9E90003315FC /* connecthostport.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = connecthostport.c; path = "third-party/miniupnp/connecthostport.c"; sourceTree = "<group>"; };
 		A22B00AF116A9E90003315FC /* connecthostport.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = connecthostport.h; path = "third-party/miniupnp/connecthostport.h"; sourceTree = "<group>"; };
+		A22BAE261388040500FB022F /* NSMutableArrayAdditions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = NSMutableArrayAdditions.h; path = macosx/NSMutableArrayAdditions.h; sourceTree = "<group>"; };
+		A22BAE271388040500FB022F /* NSMutableArrayAdditions.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = NSMutableArrayAdditions.m; path = macosx/NSMutableArrayAdditions.m; sourceTree = "<group>"; };
 		A22CF7AC0FA3505F0009BD3E /* it */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = it; path = macosx/it.lproj/GroupRules.xib; sourceTree = "<group>"; };
 		A22CF7B90FA352740009BD3E /* fr */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = fr; path = macosx/fr.lproj/GroupRules.xib; sourceTree = "<group>"; };
 		A22CF7C90FA5D3F90009BD3E /* es */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = es; path = macosx/es.lproj/GroupRules.xib; sourceTree = "<group>"; };
@@ -749,7 +764,9 @@
 		A2725D5C0DE7507C003445E7 /* TrackerTableView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = TrackerTableView.m; path = macosx/TrackerTableView.m; sourceTree = "<group>"; };
 		A27476FF0CC38EE6003CC76D /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = macosx/es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		A27477010CC38EE6003CC76D /* es */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = es; path = macosx/es.lproj/Localizable.strings; sourceTree = "<group>"; };
+		A2768AAE140DCB6A00F82413 /* pt */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = pt; path = macosx/pt.lproj/GlobalOptionsPopover.xib; sourceTree = "<group>"; };
 		A277DA090C693D9C00DA2CD4 /* ActionOn.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = ActionOn.png; path = macosx/Images/ActionOn.png; sourceTree = "<group>"; };
+		A2794147140B3E1E00554E76 /* zh_CN */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = zh_CN; path = macosx/zh_CN.lproj/GlobalOptionsPopover.xib; sourceTree = "<group>"; };
 		A279E3D011C3BDC300D48B1F /* nl */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = nl; path = macosx/nl.lproj/AddMagnetWindow.xib; sourceTree = "<group>"; };
 		A279E3D111C3BDC300D48B1F /* nl */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = nl; path = macosx/nl.lproj/InfoActivityView.xib; sourceTree = "<group>"; };
 		A279E3D211C3BDC300D48B1F /* nl */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = nl; path = macosx/nl.lproj/InfoGeneralView.xib; sourceTree = "<group>"; };
@@ -781,6 +798,14 @@
 		A292A6E40DFB45E5004B9C0A /* peer-common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "peer-common.h"; path = "libtransmission/peer-common.h"; sourceTree = "<group>"; };
 		A292A6E50DFB45EC004B9C0A /* webseed.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = webseed.c; path = libtransmission/webseed.c; sourceTree = "<group>"; };
 		A292A6E60DFB45EC004B9C0A /* webseed.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = webseed.h; path = libtransmission/webseed.h; sourceTree = "<group>"; };
+		A292C9E01413BA5F00EF710F /* es */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = es; path = macosx/es.lproj/GlobalOptionsPopover.xib; sourceTree = "<group>"; };
+		A292C9E2141593DA00EF710F /* de */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = de; path = macosx/de.lproj/GlobalOptionsPopover.xib; sourceTree = "<group>"; };
+		A292C9E414163AE500EF710F /* it */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = it; path = macosx/it.lproj/GlobalOptionsPopover.xib; sourceTree = "<group>"; };
+		A29443271419746A0016143A /* ru */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = ru; path = macosx/ru.lproj/GlobalOptionsPopover.xib; sourceTree = "<group>"; };
+		A294432E141B23CD0016143A /* pt_PT */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = pt_PT; path = macosx/pt_PT.lproj/GlobalOptionsPopover.xib; sourceTree = "<group>"; };
+		A2963CFD1423F2BB00C497B5 /* fr */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = fr; path = macosx/fr.lproj/GlobalOptionsPopover.xib; sourceTree = "<group>"; };
+		A2966E8513DAF74C007B52DF /* GlobalOptionsPopoverViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = GlobalOptionsPopoverViewController.h; path = macosx/GlobalOptionsPopoverViewController.h; sourceTree = "<group>"; };
+		A2966E8613DAF74C007B52DF /* GlobalOptionsPopoverViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = GlobalOptionsPopoverViewController.m; path = macosx/GlobalOptionsPopoverViewController.m; sourceTree = "<group>"; };
 		A296EF3411E5605E004A2781 /* libiconv.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libiconv.dylib; path = usr/lib/libiconv.dylib; sourceTree = SDKROOT; };
 		A29AF4F60D01BADC00D097EC /* DownArrowTemplate.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = DownArrowTemplate.png; path = macosx/Images/DownArrowTemplate.png; sourceTree = "<group>"; };
 		A29AF4F80D01BAEB00D097EC /* UpArrowTemplate.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = UpArrowTemplate.png; path = macosx/Images/UpArrowTemplate.png; sourceTree = "<group>"; };
@@ -791,9 +816,11 @@
 		A29DF8B60DB2544C00D04E5A /* resume.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = resume.c; path = libtransmission/resume.c; sourceTree = "<group>"; };
 		A29DF8B70DB2544C00D04E5A /* resume.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = resume.h; path = libtransmission/resume.h; sourceTree = "<group>"; };
 		A29DF8B80DB2544C00D04E5A /* torrent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = torrent.h; path = libtransmission/torrent.h; sourceTree = "<group>"; };
+		A29E653513F1603100048D71 /* evutil_rand.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = evutil_rand.c; path = "third-party/libevent/evutil_rand.c"; sourceTree = "<group>"; };
 		A29EBE520DC01FC9006CEE80 /* web.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = web.c; path = libtransmission/web.c; sourceTree = "<group>"; };
 		A29EBE530DC01FC9006CEE80 /* web.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = web.h; path = libtransmission/web.h; sourceTree = "<group>"; };
 		A29EBE700DC06068006CEE80 /* libcurl.4.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcurl.4.dylib; path = "third-party/curl/lib/libcurl.4.dylib"; sourceTree = "<group>"; };
+		A2A1C81D142EC032008C17BF /* nl */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = nl; path = macosx/nl.lproj/GlobalOptionsPopover.xib; sourceTree = "<group>"; };
 		A2A1CB770BF29D5500AE959F /* PeerProgressIndicatorCell.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PeerProgressIndicatorCell.h; path = macosx/PeerProgressIndicatorCell.h; sourceTree = "<group>"; };
 		A2A1CB780BF29D5500AE959F /* PeerProgressIndicatorCell.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = PeerProgressIndicatorCell.m; path = macosx/PeerProgressIndicatorCell.m; sourceTree = "<group>"; };
 		A2A306530AAD24A80049E2AC /* UKFileWatcher.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = UKFileWatcher.h; path = macosx/UKKQueue/UKFileWatcher.h; sourceTree = "<group>"; };
@@ -810,13 +837,10 @@
 		A2A4EA0B0DE106E8000CE197 /* ConvertUTF.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ConvertUTF.h; path = libtransmission/ConvertUTF.h; sourceTree = "<group>"; };
 		A2A632190CD9751700E3DA60 /* BadgeView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = BadgeView.h; path = macosx/BadgeView.h; sourceTree = "<group>"; };
 		A2A6321A0CD9751700E3DA60 /* BadgeView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = BadgeView.m; path = macosx/BadgeView.m; sourceTree = "<group>"; };
-		A2A7ACE71389E9FC00657A7C /* NSMutableArrayAdditions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = NSMutableArrayAdditions.h; path = macosx/NSMutableArrayAdditions.h; sourceTree = "<group>"; };
-		A2A7ACE81389E9FC00657A7C /* NSMutableArrayAdditions.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = NSMutableArrayAdditions.m; path = macosx/NSMutableArrayAdditions.m; sourceTree = "<group>"; };
 		A2AA579A0ADFCAB400CA59F6 /* PiecesView.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PiecesView.h; path = macosx/PiecesView.h; sourceTree = "<group>"; };
 		A2AA579B0ADFCAB400CA59F6 /* PiecesView.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = PiecesView.m; path = macosx/PiecesView.m; sourceTree = "<group>"; };
 		A2AA9BE0132CAC8D00FA131E /* announcer-udp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "announcer-udp.c"; path = "libtransmission/announcer-udp.c"; sourceTree = "<group>"; };
 		A2AA9BE2132CAE2000FA131E /* evdns.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = evdns.c; path = "third-party/libevent/evdns.c"; sourceTree = "<group>"; };
-		A2AA9BE4132CB19C00FA131E /* evutil_rand.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = evutil_rand.c; path = "third-party/libevent/evutil_rand.c"; sourceTree = "<group>"; };
 		A2AAB6580DE0CF6200E04DDA /* rpc-server.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "rpc-server.c"; path = "libtransmission/rpc-server.c"; sourceTree = "<group>"; };
 		A2AAB6590DE0CF6200E04DDA /* rpcimpl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = rpcimpl.h; path = libtransmission/rpcimpl.h; sourceTree = "<group>"; };
 		A2AAB65A0DE0CF6200E04DDA /* rpc-server.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "rpc-server.h"; path = "libtransmission/rpc-server.h"; sourceTree = "<group>"; };
@@ -1079,8 +1103,6 @@
 		080E96DDFE201D6D7F000001 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				A21A9BE0106D86A800F1C3C1 /* TrackerNode.h */,
-				A21A9BE1106D86A800F1C3C1 /* TrackerNode.m */,
 				32CA4F630368D1EE00C91783 /* Transmission_Prefix.pch */,
 				29B97316FDCFA39411CA2CEA /* main.m */,
 				4DF0C5AA0899190500DD8943 /* Controller.h */,
@@ -1093,6 +1115,8 @@
 				4D364D9F091FBB2C00377D12 /* TorrentTableView.m */,
 				4DCCBB3D09C3D71100D3CABF /* TorrentCell.h */,
 				4DCCBB3C09C3D71100D3CABF /* TorrentCell.m */,
+				A21A9BE0106D86A800F1C3C1 /* TrackerNode.h */,
+				A21A9BE1106D86A800F1C3C1 /* TrackerNode.m */,
 				A2725B6C0DE5C4F5003445E7 /* FileListNode.h */,
 				A2725B6D0DE5C4F5003445E7 /* FileListNode.m */,
 				A28F4F750E085BDC003A3882 /* ColorTextField.h */,
@@ -1119,6 +1143,8 @@
 				A2085DDA0C53BC74000BC3B7 /* AboutWindowController.m */,
 				A2F7CF5D13035FFD0016FF10 /* URLSheetWindowController.h */,
 				A2F7CF5E13035FFD0016FF10 /* URLSheetWindowController.m */,
+				A2966E8513DAF74C007B52DF /* GlobalOptionsPopoverViewController.h */,
+				A2966E8613DAF74C007B52DF /* GlobalOptionsPopoverViewController.m */,
 				A234D0D40C79FB6000A82373 /* Additions */,
 				E1B6FBF80C0D719B0015FE4D /* Info Window */,
 				A26AF2220D2DA42800FF7140 /* File Outline View */,
@@ -1226,6 +1252,7 @@
 				A209EBA61142EAF3002B02D1 /* InfoPeersView.xib */,
 				A209EBD81142F52B002B02D1 /* InfoFileView.xib */,
 				A209EC11114301C6002B02D1 /* InfoOptionsView.xib */,
+				A220AF7913D7CC460035C512 /* GlobalOptionsPopover.xib */,
 				A20B6FA40C4D97840034AB1D /* PriorityNone.png */,
 				A20B6FAD0C4D9B040034AB1D /* PriorityNormal.png */,
 				A20B6F6A0C4D842B0034AB1D /* PriorityLow.png */,
@@ -1477,8 +1504,8 @@
 				4DE5CC9C0980656F00BE280E /* NSStringAdditions.m */,
 				A29D84021049C25600D1987A /* NSApplicationAdditions.h */,
 				A29D84031049C25600D1987A /* NSApplicationAdditions.m */,
-				A2A7ACE71389E9FC00657A7C /* NSMutableArrayAdditions.h */,
-				A2A7ACE81389E9FC00657A7C /* NSMutableArrayAdditions.m */,
+				A22BAE261388040500FB022F /* NSMutableArrayAdditions.h */,
+				A22BAE271388040500FB022F /* NSMutableArrayAdditions.m */,
 			);
 			name = Additions;
 			sourceTree = "<group>";
@@ -1526,6 +1553,8 @@
 				BE1183660CE160D50002D0F3 /* upnpreplyparse.c */,
 				BE1183670CE160D50002D0F3 /* upnpcommands.c */,
 				BE1183680CE160D50002D0F3 /* miniupnpc.c */,
+				A20162CB13DE497000E15488 /* portlistingparse.c */,
+				A20162C713DE48BF00E15488 /* receivedata.c */,
 				BE11834D0CE160C50002D0F3 /* bsdqueue.h */,
 				A22B00AF116A9E90003315FC /* connecthostport.h */,
 				BE11834E0CE160C50002D0F3 /* declspec.h */,
@@ -1534,11 +1563,14 @@
 				BE1183510CE160C50002D0F3 /* miniwget.h */,
 				BE1183520CE160C50002D0F3 /* minisoap.h */,
 				A2F8CD420F3D0F4A00DB356A /* miniupnpcstrings.h */,
+				A20162CF13DE49E500E15488 /* miniupnpctypes.h */,
 				BE1183530CE160C50002D0F3 /* upnpreplyparse.h */,
 				BE1183540CE160C50002D0F3 /* upnpcommands.h */,
 				BE1183550CE160C50002D0F3 /* miniupnpc.h */,
 				BE1183560CE160C50002D0F3 /* minissdpc.h */,
 				A25485390EB66CBB004539DA /* codelength.h */,
+				A20162CC13DE497000E15488 /* portlistingparse.h */,
+				A20162C813DE48BF00E15488 /* receivedata.h */,
 			);
 			name = libminiupnp;
 			sourceTree = "<group>";
@@ -1558,7 +1590,7 @@
 				A2074F8412BEAA6600F70985 /* evmap.c */,
 				A2074F9812BEAAAF00F70985 /* evthread.c */,
 				A2074FA212BEAAC600F70985 /* evutil.c */,
-				A2AA9BE4132CB19C00FA131E /* evutil_rand.c */,
+				A29E653513F1603100048D71 /* evutil_rand.c */,
 				A2074FAA12BEAAFF00F70985 /* http.c */,
 				A2074FBE12BEAB9A00F70985 /* kqueue.c */,
 				A2074FB612BEAB1E00F70985 /* listener.c */,
@@ -1765,6 +1797,9 @@
 				A254853C0EB66CD4004539DA /* codelength.h in Headers */,
 				A2F8CD430F3D0F4A00DB356A /* miniupnpcstrings.h in Headers */,
 				A22B00B2116A9E9F003315FC /* connecthostport.h in Headers */,
+				A20162CA13DE48BF00E15488 /* receivedata.h in Headers */,
+				A20162CE13DE497000E15488 /* portlistingparse.h in Headers */,
+				A20162D013DE49E500E15488 /* miniupnpctypes.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1966,6 +2001,7 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 0410;
 				ORGANIZATIONNAME = "The Transmission Project";
 			};
 			buildConfigurationList = 4DF0C59A089918A300DD8943 /* Build configuration list for PBXProject "Transmission" */;
@@ -2115,6 +2151,7 @@
 				A2E57AC61310831400A7DAB1 /* StatusBar.xib in Resources */,
 				A2E57B9C13109DC200A7DAB1 /* FilterBar.xib in Resources */,
 				A23D5DA71320570800E422BA /* CleanupTemplate.png in Resources */,
+				A220AF7B13D7CC460035C512 /* GlobalOptionsPopover.xib in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2309,7 +2346,8 @@
 				A2F7CF5F13035FFD0016FF10 /* URLSheetWindowController.m in Sources */,
 				A2E57ABB1310822C00A7DAB1 /* StatusBarController.m in Sources */,
 				A2E57BA713109E6B00A7DAB1 /* FilterBarController.m in Sources */,
-				A2A7ACE91389E9FC00657A7C /* NSMutableArrayAdditions.m in Sources */,
+				A22BAE281388040500FB022F /* NSMutableArrayAdditions.m in Sources */,
+				A2966E8713DAF74C007B52DF /* GlobalOptionsPopoverViewController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2343,6 +2381,8 @@
 				BE11836F0CE160D50002D0F3 /* upnpcommands.c in Sources */,
 				BE1183700CE160D50002D0F3 /* miniupnpc.c in Sources */,
 				A22B00B3116A9EA4003315FC /* connecthostport.c in Sources */,
+				A20162C913DE48BF00E15488 /* receivedata.c in Sources */,
+				A20162CD13DE497000E15488 /* portlistingparse.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2369,7 +2409,7 @@
 				A207503712BEADA200F70985 /* poll.c in Sources */,
 				A20750B812BEB66900F70985 /* bufferevent_ratelim.c in Sources */,
 				A2AA9BE3132CAE2000FA131E /* evdns.c in Sources */,
-				A2AA9BE5132CB19C00FA131E /* evutil_rand.c in Sources */,
+				A29E653613F1603100048D71 /* evutil_rand.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2541,6 +2581,23 @@
 				A279E40711C8369100D48B1F /* zh_CN */,
 			);
 			name = AddMagnetWindow.xib;
+			sourceTree = "<group>";
+		};
+		A220AF7913D7CC460035C512 /* GlobalOptionsPopover.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				A220AF7A13D7CC460035C512 /* en */,
+				A2794147140B3E1E00554E76 /* zh_CN */,
+				A2768AAE140DCB6A00F82413 /* pt */,
+				A292C9E01413BA5F00EF710F /* es */,
+				A292C9E2141593DA00EF710F /* de */,
+				A292C9E414163AE500EF710F /* it */,
+				A29443271419746A0016143A /* ru */,
+				A294432E141B23CD0016143A /* pt_PT */,
+				A2963CFD1423F2BB00C497B5 /* fr */,
+				A2A1C81D142EC032008C17BF /* nl */,
+			);
+			name = GlobalOptionsPopover.xib;
 			sourceTree = "<group>";
 		};
 		A22A8D540AEEAFA5007E9CB9 /* Localizable.strings */ = {
@@ -2735,7 +2792,6 @@
 				DEBUG_INFORMATION_FORMAT = stabs;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_ENABLE_PASCAL_STRINGS = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_INCREASE_PRECOMPILED_HEADER_SHARING = YES;
@@ -2763,7 +2819,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = macosx10.6;
+				SDKROOT = macosx10.7;
 				STRIP_INSTALLED_PRODUCT = NO;
 			};
 			name = Debug;
@@ -2771,7 +2827,6 @@
 		3C7A118E0D0B2EB800B5701F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				OTHER_CFLAGS = "-DENABLE_STRNATPMPERR";
 				PRODUCT_NAME = natpmp;
 			};
@@ -2780,7 +2835,6 @@
 		3C7A118F0D0B2EB800B5701F /* Release - Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				OTHER_CFLAGS = "-DENABLE_STRNATPMPERR";
 				PRODUCT_NAME = natpmp;
 			};
@@ -2789,7 +2843,6 @@
 		3C7A11900D0B2EB800B5701F /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				OTHER_CFLAGS = "-DENABLE_STRNATPMPERR";
 				PRODUCT_NAME = natpmp;
 			};
@@ -2890,14 +2943,13 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				OTHER_CFLAGS = "-DNDEBUG";
-				SDKROOT = macosx10.6;
+				SDKROOT = macosx10.7;
 			};
 			name = Release;
 		};
 		A22CFCBB0FC24F720009BD3E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				PRODUCT_NAME = dht;
 			};
 			name = Debug;
@@ -2905,7 +2957,6 @@
 		A22CFCBC0FC24F720009BD3E /* Release - Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				PRODUCT_NAME = dht;
 			};
 			name = "Release - Debug";
@@ -2913,7 +2964,6 @@
 		A22CFCBD0FC24F720009BD3E /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = dht;
 			};
 			name = Release;
@@ -2953,7 +3003,7 @@
 					"third-party/openssl/lib",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 10.5;
-				SDKROOT = macosx10.6;
+				SDKROOT = macosx10.7;
 				STRIP_INSTALLED_PRODUCT = NO;
 			};
 			name = "Release - Debug";
@@ -3055,7 +3105,6 @@
 		A2E384CF130DFB1D001F501B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					POSIX,
 					MACOSX,
@@ -3067,7 +3116,6 @@
 		A2E384D0130DFB1D001F501B /* Release - Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					POSIX,
 					MACOSX,
@@ -3079,7 +3127,6 @@
 		A2E384D1130DFB1D001F501B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					POSIX,
 					MACOSX,
@@ -3092,7 +3139,6 @@
 		BE1183490CE160960002D0F3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = miniupnp;
 			};
 			name = Release;
@@ -3100,7 +3146,6 @@
 		BE11834A0CE160960002D0F3 /* Release - Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				PRODUCT_NAME = miniupnp;
 			};
 			name = "Release - Debug";
@@ -3108,7 +3153,6 @@
 		BE11834B0CE160960002D0F3 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				PRODUCT_NAME = miniupnp;
 			};
 			name = Debug;

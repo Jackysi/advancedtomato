@@ -13,12 +13,11 @@ html {
 
 body {
 	font: 62.5% "lucida grande", Tahoma, Verdana, Arial, Helvetica, sans-serif; /* Resets 1em to 10px */
-	color: #222 !important;
+	color: #222;/* !important; */
 	background: #FFF;
 	text-align: center;
 	margin: 0 0 30px;
 	overflow: hidden;
-	z-index: 1;
 }
 
 img {
@@ -27,151 +26,108 @@ img {
 
 a {
 	outline: 0;
-	-moz-outline: none;
 }
 
-/*--------------------------------------
- *
- * T O P   M E N U
- *
- *--------------------------------------*/
+#toolbar,
+#statusbar,
+.torrent_footer {
+	background-color: #B9B9B9; /* fallback color if gradients are not supported */
+	background-image: -webkit-gradient(linear, left top, left bottom, from(#C9C9C9), to(#A7A7A7)); 
+	background-image: -webkit-linear-gradient(top, #C9C9C9, #A7A7A7); 
+	background-image:    -moz-linear-gradient(top, #C9C9C9, #A7A7A7); 
+	background-image:     -ms-linear-gradient(top, #C9C9C9, #A7A7A7); 
+	background-image:      -o-linear-gradient(top, #C9C9C9, #A7A7A7); 
+	background-image:         linear-gradient(top, #C9C9C9, #A7A7A7); /* standard, but currently unimplemented */
+}
 
-div.torrent_global_menu {
+/***
+****
+****  ABOUT DIALOG
+****
+***/
+
+#about-dialog > * {
+	text-align: center;
+}
+#about-dialog > #about-title {
+	font-size: 1.3em;
+	font-weight: bold;
+}
+
+/***
+****
+****  TOOLBAR
+****
+***/
+
+#toolbar {
 	width: 100%;
 	height: 75px;
 	margin: 0;
-	background: transparent url('../images/graphics/chrome.png') left top repeat-x;
-	position: fixed;
-	left: 0;
-	right: 0;
-	top: 0;
-	border-bottom: 1px solid #888;
-	z-index: 3;
+	border: 1px outset #AEBBCB;
 	overflow: hidden;
 	-moz-user-select: none;
 	-webkit-user-select: none;
 }
 
-div.torrent_global_menu h1 {
-	height: inherit;
-	width: 205px;
-	text-indent: -9000px !important;
-	padding: 0;
-	margin: 0 0 0 5px;
-}
-
-div.torrent_global_menu ul {
+#toolbar ul {
 	height: 50px;
 	margin: 0;
 	padding: 0 7px;
 	text-align: center;
 }
 
-div.torrent_global_menu ul li {
+#toolbar ul li {
 	list-style-type: none;
 	list-style-image: none;
 	float: left;
-	padding: 0;
 	margin: 13px 0 0 0;
-	vertical-align: middle;
 	height: 50px;
-}
-
-div.torrent_global_menu ul li#filter,
-div.torrent_global_menu ul li#inspector {
-	float: right;
-}
-
-div.torrent_global_menu ul li > div {
-	color: #000;
-	font-size: 1.1em;
-	text-decoration: none;
 	padding: 0 8px;
-	display: block;
-	margin: 0;
-	text-shadow: 0 1px 0 #ccc;
-	min-width: 32px;
 	cursor: pointer;
 }
 
-div.torrent_global_menu ul li div.toolbar_image {
+#toolbar #inspector {
+	float: right;
+}
+
+#toolbar ul li > div {
+	text-shadow: 0 1px 0 #ccc;
+	min-width: 32px;
+}
+
+#toolbar ul li div.toolbar_image {
 	width: 32px;
 	height: 32px;
 	margin: 0 auto 5px;
 	background-image: url('../images/buttons/toolbar_buttons.png');
 }
 
-li#open div div.toolbar_image, li#open.disabled div:active div.toolbar_image {
-	background-position: left 0;
-}
+/* toolbar images */
+li#open            div        div.toolbar_image { background-position: left     0px; }
+li#open            div:active div.toolbar_image { background-position: right    0px; }
+li#remove          div        div.toolbar_image { background-position: left   -32px; }
+li#remove          div:active div.toolbar_image { background-position: right  -32px; }
+li#resume_selected div        div.toolbar_image { background-position: left   -96px; }
+li#resume_selected div:active div.toolbar_image { background-position: right  -96px; }
+li#pause_selected  div        div.toolbar_image { background-position: left   -64px; }
+li#pause_selected  div:active div.toolbar_image { background-position: right  -64px; }
+li#pause_all       div        div.toolbar_image { background-position: left  -128px; }
+li#pause_all       div:active div.toolbar_image { background-position: right -128px; }
+li#resume_all      div        div.toolbar_image { background-position: left  -160px; }
+li#resume_all      div:active div.toolbar_image { background-position: right -160px; }
+li#filter          div        div.toolbar_image { background-position: left  -192px; }
+li#filter          div:active div.toolbar_image { background-position: right -192px; }
+li#inspector       div        div.toolbar_image { background-position: left  -224px; }
+li#inspector       div:active div.toolbar_image { background-position: right -224px; }
 
-li#open div:active div.toolbar_image {
-	background-position: right 0;
-}
-
-li#remove div div.toolbar_image, li#remove.disabled div:active div.toolbar_image {
-	background-position: left -32px;
-}
-
-li#remove div:active div.toolbar_image {
-	background-position: right -32px;
-}
-
-li#resume_selected div div.toolbar_image, li#resume_selected.disabled div:active div.toolbar_image {
-	background-position: left -96px;
-}
-
-li#resume_selected div:active div.toolbar_image {
-	background-position: right -96px;
-}
-
-li#pause_selected div div.toolbar_image, li#pause_selected.disabled div:active div.toolbar_image {
-	background-position: left -64px;
-}
-
-li#pause_selected div:active div.toolbar_image {
-	background-position: right -64px;
-}
-
-li#pause_all div div.toolbar_image, li#pause_all.disabled div:active div.toolbar_image {
-	background-position: left -128px;
-}
-
-li#pause_all div:active div.toolbar_image {
-	background-position: right -128px;
-}
-
-li#resume_all div div.toolbar_image, li#resume_all.disabled div:active div.toolbar_image {
-	background-position: left -160px;
-}
-
-li#resume_all div:active div.toolbar_image {
-	background-position: right -160px;
-}
-
-li#filter div div.toolbar_image, li#filter.disabled div:active div.toolbar_image {
-	background-position: left -192px;
-}
-
-li#filter div:active div.toolbar_image {
-	background-position: right -192px;
-}
-
-li#inspector div div.toolbar_image, li#inspector.disabled div:active div.toolbar_image {
-	background-position: left -224px;
-}
-
-li#inspector div:active div.toolbar_image {
-	background-position: right -224px;
-}
-
-div.torrent_global_menu ul li.disabled > div {
+#toolbar ul li.disabled > div {
 	text-shadow: 0 1px 0 #fff;
 	opacity: 0.25;
 	cursor: default;
 }
 
-div.torrent_global_menu ul li.divider {
+#toolbar ul li.divider {
 	width: 0;
 	border-right: 1px dotted black;
 	opacity: 0.2;
@@ -179,149 +135,53 @@ div.torrent_global_menu ul li.divider {
 	height: 49px;
 }
 
-/*--------------------------------------
- *
- * G L O B A L   D E T A I L S
- *
- *--------------------------------------*/
+/***
+****
+****  STATUSBAR
+****
+***/
 
-div.torrent_global_details {
-	width: 100%;
-	height: 20px;
-	margin: 0;
-	background: #ddd url('../images/graphics/filter_bar.png') repeat-x left -51px;
-	font-size: 1.1em;
-	font-weight: normal;
-	border-bottom: 1px solid #888;
-	position: fixed;
-	left: 0;
-	right: 0;
-	top: 76px;
-	z-index: 2;
-	color: #000;
-	text-shadow: 0 1px 0 #f4f4f4;
-}
-
-div.torrent_global_details div {
-	padding: 0 10px 1px 10px;
-	margin: 3px 0 0 0;
-}
-
-div.torrent_global_details div#torrent_global_transfer {
-	clear: left;
-	float: left;
-}
-
-div.torrent_global_details div#torrent_global_upload,
-div.torrent_global_details div#torrent_global_download {
-	float: right;
-	padding-left: 13px;
-}
-
-div.torrent_global_details div#torrent_global_upload {
-	background: url('../images/graphics/transfer_arrows.png') left -12px no-repeat;
-}
-
-div.torrent_global_details div#torrent_global_download {
-	background: url('../images/graphics/transfer_arrows.png') left 2px no-repeat;
-}
-
-/*--------------------------------------
- *
- * T O R R E N T   F I L T E R   B A R
- *
- *--------------------------------------*/
-
-div#torrent_filter_bar {
-	margin: 0;
+#statusbar {
+	border: 1px outset #AEBBCB;
 	height: 24px;
-	background: #ddd url('../images/graphics/filter_bar.png') repeat-x bottom left;
-	border-bottom: 1px solid #888;
-	position: fixed;
-	left: 0;
-	right: 0px;
-	top: 97px;
-	z-index: 2;
-	display: none;
+	width: 100%;
 	overflow: hidden;
+	position: relative;
 }
 
-div#torrent_filter_bar ul {
-	height: 17px;
-	margin: 0;
-	padding: 0;
+#statusbar #speed-info {
+	margin-top: 5px;
+	margin-left: 45%;
 	text-align: left;
-	display: inline;
 }
 
-div#torrent_filter_bar ul li {
-	list-style-type: none;
-	list-style-image: none;
+#statusbar #filter-button {
 	float: left;
-	padding: 0;
-	margin: 4px 0 0 5px;
-	vertical-align: middle;
-	height: 17px;
+	text-shadow: 0 1px 0 #ccc;
+	margin: 5px 8px;
+	-moz-user-select: none;
+	-webkit-user-select: none;
+}
+#statusbar #filter-button:hover {
+	cursor: pointer;
+}
+#statusbar #filter-button .filter-selection {
+	text-decoration: underline;
 }
 
-div#torrent_filter_bar ul li a {
-	font-size: 1.2em;
-	color: #222;
-	text-shadow: 0 1px 0 #fff;
-	text-decoration: none;
-	font-weight: bold;
-	padding: 0 7px 0 0;
-	margin: 0 0 0 7px;
-	height: 17px;
-	display: block;
-	cursor: default;
-}
 
-div#torrent_filter_bar ul li.selected, div#torrent_filter_bar ul li.selected a, div#torrent_filter_bar ul li:hover, div#torrent_filter_bar ul li:hover a, div#torrent_filter_bar ul li:active, div#torrent_filter_bar ul li:active a {
-	background-image: url('../images/graphics/filter_bar.png');
-	background-repeat: no-repeat;
-	text-shadow: 0 1px 0 #444;
-	color: #fff !important;
-}
-
-div#torrent_filter_bar ul li:hover {
-	background-position: left -17px;
-}
-
-div#torrent_filter_bar ul li:hover a {
-	background-position: right -17px;
-}
-
-div#torrent_filter_bar ul li:active {
-	background-position: left -34px;
-}
-
-div#torrent_filter_bar ul li:active a {
-	background-position: right -34px;
-}
-
-div#torrent_filter_bar ul li.selected {
-	background-position: left top;
-}
-
-div#torrent_filter_bar ul li.selected a {
-	background-position: right top;
-}
-
-div#torrent_filter_bar input#torrent_search {
+#statusbar input#torrent_search {
+	float: right;
 	height: 15px;
 	width: 100px;
 	border: solid 0 #fff;
-	padding: 0 2px;
+	padding: 2px;
 	margin: 4px 5px 0 0;
-	position:absolute;
-	right: 0px;
-	top: 0px;
 	border-radius: 10px;
 }
 /* Safari-look filter input for Firefox */
 @-moz-document url-prefix() {
-	div#torrent_filter_bar input#torrent_search {
+	div#statusbar input#torrent_search {
 		background: #FFF url('../images/graphics/filter_icon.png') top left no-repeat;
 		border: 1px solid #5D80A1;
 		margin-top: 3px;
@@ -334,26 +194,90 @@ div#torrent_filter_bar input#torrent_search {
 	}
 }
 
-div#torrent_filter_bar input#torrent_search.blur {
+#statusbar input#torrent_search.blur {
 	color: #999;
 }
 
-/*--------------------------------------
- *
- * T O R R E N T   C O N T A I N E R
- *
- *--------------------------------------*/
+/***
+****
+****  FILTER POPUP
+****
+***/
+
+#filter-popup .count {
+        padding-left: 3px;
+}
+#filter-popup {
+        color: #222;/* !important; */
+        background: #FFF;
+        z-index: 100;
+}
+
+#filter-popup #filter-by-state .row .filter-img {
+        display: none;
+}
+div#filter-popup #filter-by-state .row .filter-name {
+        left: 0px;
+}
+#filter-popup .row {
+	text-align: left;
+	cursor: pointer;
+	margin: 8px 2px;
+	position: relative;
+	height: 18px;
+	-moz-user-select: none;
+	-webkit-user-select: none;
+}
+div#filter-popup .row .filter-img {
+        border: none;
+        width: 16px;
+        height: 16px;
+        position: absolute;
+        left: 0px;
+}
+#filter-popup .row .filter-name {
+        position: absolute;
+        left: 20px;
+}
+#filter-popup .row .count {
+        float: right;
+        color: #aaa;
+}
+#filter-popup li {
+        text-align: left
+}
+#filter-popup .row:hover,
+#filter-popup .row.selected {
+        font-weight: bold;
+}
+#filter-popup #filter-by-state {
+        float: left;
+        width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+}
+#filter-popup #filter-by-tracker {
+        float: right;
+        width: 130px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+}
+
+/***
+****
+****  TORRENT CONTAINER
+****
+***/
 
 div#torrent_container {
 	position: fixed;
-	top: 97px;
+	top: 102px;
 	bottom: 22px;
 	right: 0px;
 	left: 0px;
 	padding: 0px;
 	margin: 0px;
 	overflow: auto;
-	z-index: 1;
 }
 
 ul.torrent_list {
@@ -361,26 +285,16 @@ ul.torrent_list {
 	margin: 0;
 	padding: 0;
 	text-align: left;
-	z-index: 1;
-	cursor: default;
-}
-
-ul.torrent_list li {
-	list-style-type: none;
-	list-style-image: none;
-	clear: both;
-	display: block;
-	vertical-align: middle;
-	-moz-user-select: none;
-	-webkit-user-select: none;
-	overflow: hidden;
+	cursor: pointer;
 }
 
 ul.torrent_list li.torrent {
 	border-bottom: 1px solid #ccc;
 	padding: 4px 30px 5px 10px; /* Make space for buttons on the right */
-	margin: 0 !important;
 	color: #666;
+}
+ul.torrent_list li.torrent.compact {
+	padding: 4px;
 }
 
 ul.torrent_list li.torrent a img {
@@ -404,24 +318,26 @@ ul.torrent_list li.torrent div.torrent_name {
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	color: #222;
+	margin-top: 2px;
 	margin-bottom: 2px;
 }
 
 ul.torrent_list li.torrent div.torrent_name.compact {
-	float: left;
-	z-index: 1;
-	position: absolute;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+	font-size: 1.0em;
+	font-weight: normal;
+}
+
+ul.torrent_list li.torrent div.torrent_name.paused {
+	font-weight: normal;
+	color: #777;
 }
 
 ul.torrent_list li.torrent.selected div.torrent_name {
 	color: #fff;
 }
 
-ul.torrent_list li.torrent div.torrent_progress_details,
-ul.torrent_list li.torrent div.torrent_peer_details {
+ul.torrent_list div.torrent_progress_details,
+ul.torrent_list div.torrent_peer_details {
 	clear: left;
 	font-size: 1em;
 	overflow: hidden;
@@ -442,132 +358,178 @@ ul.torrent_list li.torrent.selected div.torrent_peer_details.error {
 	color: #FFF;
 }
 
-ul.torrent_list li.torrent div.torrent_progress_details.compact,
-ul.torrent_list li.torrent div.torrent_peer_details.compact {
-	padding-top: 3px;
-	float: left;
-}
-ul.torrent_list li.torrent div.torrent_progress_details.compact {
-	float: right;
-}
 
-ul.torrent_list li.torrent div.torrent_progress_bar_container.compact {
-	position: absolute;
-	left: 5px;
-	right: 35px;
-	opacity:0.4;
-}
+/**
+ * Progressbar
+ *
+ * Each progressbar has three elemens: a parent container and two children,
+ * complete and incomplete.
+ *
+ * The only thing needed to set the progressbar percentage is to set
+ * the complete child's width as a percentage. This is because incomplete
+ * is pinned to the full width and height of the parent, and complete
+ * is pinned to the left side of the parent and has a higher z-index.
+ *
+ * The progressbar has different colors depending on its state, so there
+ * are five 'decorator' classNames: paused, queued, magnet, leeching, seeding.
+ */
 
-ul.torrent_list li.torrent div.torrent_progress_bar {
+ul.torrent_list div.torrent_progress_bar_container {
 	height: 10px;
-	margin: 3px 0;
-	float: left;
-	line-height: 1px;
-	font-size: 1px;
-	width: 100%;
+	position: relative;
+}
+ul.torrent_list div.torrent_progress_bar_container.compact {
+	width: 50px;
+	position: absolute;
+	right: 10px;
+	margin-top: 2px;
+	/*float: right;*/
+}
+ul.torrent_list div.torrent_peer_details.compact {
+	margin-top: 2px;
+	margin-right: 65px; /* leave room on the right for the progressbar */
+	float: right; /* pins it next to progressbar & forces torrent_name to ellipsize when it bumps up against this div */
+}
+ul.torrent_list div.torrent_progress_bar_container.full {
+	margin-top: 2px;
+	margin-bottom: 5px;
+}
+ul.torrent_list div.torrent_progress_bar {
+	height: 100%;
+	position: absolute;
+	top: 0px;
+	left: 0px;
 	background-image: url('../images/progress/progress.png');
 	background-repeat: repeat-x;
-	background-color: transparent;
+	border: 1px solid #888;
+}
+ul.torrent_list div.torrent_progress_bar.complete {
+	z-index: 2;
+}
+ul.torrent_list div.torrent_progress_bar.incomplete {
+	z-index: 1;
+	width: 100%;
+}
+ul.torrent_list div.torrent_progress_bar.complete.paused {
+        background-position: left -30px;
+        border-color: #989898;
+}
+ul.torrent_list div.torrent_progress_bar.incomplete.paused {
+        background-position: left -20px;
+        border-color: #CFCFCF;
+}
+ul.torrent_list div.torrent_progress_bar.complete.magnet {
+        background-position: left -20px;
+        border-color: #CFCFCF;
+}
+ul.torrent_list div.torrent_progress_bar.incomplete.magnet {
+        background-position: left -50px;
+        border-color: #D47778;
+}
+ul.torrent_list div.torrent_progress_bar.complete.leeching {
+        background-position: left 0px;
+        border-color: #3D9DEA;
+}
+ul.torrent_list div.torrent_progress_bar.complete.leeching.queued {
+        background-position: left -70px;
+        border-color: #889CA5;
+}
+ul.torrent_list div.torrent_progress_bar.incomplete.leeching {
+        background-position: left -20px;
+        border-color: #CFCFCF;
+}
+ul.torrent_list div.torrent_progress_bar.incomplete.leeching.queued {
+        background-position: left -80px;
+        border-color: #C4C4C4;
+}
+ul.torrent_list div.torrent_progress_bar.complete.seeding {
+        background-position: left -40px;
+        border-color: #269E30;
+}
+ul.torrent_list div.torrent_progress_bar.complete.seeding.queued {
+        background-position: left -60px;
+        border-color: #8A998D;
+}
+ul.torrent_list div.torrent_progress_bar.incomplete.seeding {
+        background-position: left -10px;
+        border-color: #29AD35;
 }
 
-ul.torrent_list li.torrent div.torrent_progress_bar.complete {
-	background-position: left -10px;
-	border: 1px solid #29AD35;
-}
-ul.torrent_list li.torrent div.torrent_progress_bar.complete.seeding {
-	background-position: left -40px;
-	border: 1px solid #269e30;
-	border-right: none;
-}
+/****
+*****  START / STOP BUTTON
+****/
 
-ul.torrent_list li.torrent div.torrent_progress_bar.in_progress {
-	background-position: left 0px;
-	border: 1px solid #3F79EE;
-	border-right: none;
-}
-
-ul.torrent_list li.torrent div.torrent_progress_bar.incomplete.compact {
-	background: none;
-	border: none;
-}
-
-ul.torrent_list li.torrent div.torrent_progress_bar.incomplete {
-	margin-right: -10px;
-	background-position: left -20px;
-	border: 1px solid #C8CACD;
-	border-left: none;
-}
-
-ul.torrent_list li.torrent div.torrent_progress_bar.incomplete.seeding {
-	background-position: left -10px;
-	border: 1px solid #29AD35;
-}
-
-ul.torrent_list li.torrent div.torrent_progress_bar.incomplete_stopped {
-	background-position: left -30px;
-	border: 1px solid #939393;
-	border-right: none;
-}
-
-ul.torrent_list li.torrent div.torrent_progress_bar.complete_stopped {
-	background-position: left -30px;
-	border: 1px solid #939393;
-}
-
-ul.torrent_list li.torrent div.torrent_progress_bar.empty {
-	border-color: #c8cacd;
-}
-
-ul.torrent_list li.torrent div.torrent_progress_bar.incomplete.meta {
-	background-position: left -50px;
-	border: 1px solid #cc6068;
-}
-
-ul.torrent_list li.torrent div.torrent_progress_bar.in_progress.meta {
-	background-position: left -20px;
-	border-color: #c8cacd;
-}
-
-ul.torrent_list li.torrent div.torrent_progress_bar.in_progress.meta.empty {
-	border: 0 none;
-}
-
-li.torrent a div {
+li.torrent a {
 	float: right;
 	position: relative;
 	right: -22px;
-	top: -16px;
+	top: 1px;
+}
+li.torrent a div {
 	background: url('../images/buttons/torrent_buttons.png');
 	height: 14px;
 	width: 14px;
 }
-
-li.torrent a div.compact {
-	top: 0px;
-}
-
 li.torrent a div.torrent_pause {
 	background-position: left top;
 }
-
 li.torrent a:hover div.torrent_pause {
 	background-position: left center;
 }
-
 li.torrent a:active div.torrent_pause {
 	background-position: left bottom;
 }
-
 li.torrent a div.torrent_resume {
 	background-position: center top;
 }
-
 li.torrent a:hover div.torrent_resume {
 	background-position: center center;
 }
-
 li.torrent a:active div.torrent_resume {
 	background-position: center bottom;
+}
+
+/***
+****
+****  PREFERENCES
+****
+***/
+
+#prefs-dialog.ui-tabs .ui-tabs-panel {
+	padding: 0px;
+	-moz-user-select: none;
+	-webkit-user-select: none;
+}
+.prefs-section {
+	margin: 10px;
+	text-align: left;
+}
+.prefs-section > * {
+	padding-top: 8px;
+	padding-left: 8px;
+}
+.prefs-section .title {
+	font-weight: bold;
+	padding-left: 0px;
+}
+.prefs-section .row .key {
+	float: left;
+	padding-top: 3px;
+}
+.prefs-section .row .key > * {
+	margin-left: 0px;
+}
+.prefs-section .row .value {
+	margin-left: 150px;
+}
+.prefs-section .row .value > * {
+	width: 100%;
+}
+.prefs-section .checkbox-row > input {
+	margin: 0px;
+}
+.prefs-section .checkbox-row > label {
+	margin-left: 5px;
 }
 
 /*--------------------------------------
@@ -578,13 +540,13 @@ li.torrent a:active div.torrent_resume {
 
 div#torrent_inspector {
 	position: fixed;
-	top: 97px;
+	top: 102px;
 	bottom: 22px;
 	right: 0px;
 	width: 570px;
 	background-color: #ddd;
 	border-left: 1px solid #888;
-	z-index: 2;
+	z-index: 5;
 	text-align: left;
 	overflow: auto;
 }
@@ -594,7 +556,7 @@ div#torrent_inspector #torrent_inspector_name {
 }
 div#torrent_inspector #torrent_inspector_size {
 	font-size: 1.2em;
-	margin: 3;
+	margin: 3px;
 	display: block;
 	padding-top: 2px;
 }
@@ -699,7 +661,7 @@ div#inspector_tabs {
 	width: 100px; /* this + the next 380 == inspector_container_with */
 }
 .inspector_row > div {
-	display: table-cell;
+	word-wrap: break-word;
 	padding-top: 10px;
 	width: 380px; /* inspector_container_width==480 - inspector_label_width==100 */
 }
@@ -840,10 +802,10 @@ div.tracker_host {
 	cursor: default;
 	overflow: hidden;
 }
-#inspector_file_list #select_all_button_container {
-	margin: 0;
+#inspector_tab_files_container #select_all_button_container {
+	width: 100%;
 }
-#inspector_file_list ul li.select_all_button {
+#inspector_tab_files_container .select_all_button {
 	background: transparent url(../images/buttons/tab_backgrounds.png) repeat-x scroll left -6px;
 	border: 1px solid #888888;
 	cursor: pointer;
@@ -853,7 +815,7 @@ div.tracker_host {
 	padding: 2px 5px;
 }
 
-ul.inspector_torrent_file_list {
+#inspector_file_list {
 	width: 100%;
 	margin: 0  0 0 0;
 	padding-bottom: 10px;
@@ -952,85 +914,86 @@ li.inspector_torrent_file_list_entry.complete div.file_priority_control {
 	cursor: default;
 }
 
-/*--------------------------------------
- *
- * T O R R E N T   F O O T E R
- *
- *--------------------------------------*/
+
+/****
+*****
+*****  MAIN WINDOW FOOTER
+*****
+****/
 
 div.torrent_footer {
-	width: 100%;
 	height: 22px;
-	margin: 0;
-	padding: 0;
 	border-top: 1px solid #555;
-	background: #aaa url('../images/graphics/chrome.png') left bottom repeat-x;
-	position: fixed;
-	left: 0px;
-	right: 0px;
 	bottom: 0;
+	position: fixed;
+	width: 100%;
 	z-index: 3;
-	color: #000;
-	text-shadow: 0 1px 0 #ccc;
+}
+
+div.torrent_footer > * {
+	position: relative;
+	float: left;
+	margin: 2px 4px;
+}
+div.torrent_footer > *,
+div.torrent_footer ul#settings_menu li#button {
+	height: 18px;
+	width: 32px;
+	cursor: pointer;
+	-moz-user-select: none;
+	-webkit-user-select: none;
 }
 
 div.torrent_footer ul#settings_menu li#button {
-	height: 22px;
-	width: 32px !important;
-	background: transparent url('../images/graphics/chrome.png') left -75px no-repeat;
-	margin: 0 0 0 3px;
+	background: transparent url('../images/graphics/chrome.png') left top no-repeat;
 	padding: 0;
-	float: left;
 	position: relative;
-	-moz-user-select: none;
-	-webkit-user-select: none;
 }
-
+div.torrent_footer ul#settings_menu li#button:hover,
 div.torrent_footer ul#settings_menu li#button:active {
-	/background: transparent url('../images/graphics/chrome.png') -32px -75px no-repeat;
+	background-position: -32px top;
 }
 
-div.torrent_footer ul#settings_menu li#button:hover {
-	/background: transparent url('../images/graphics/chrome.png') -32px -75px no-repeat;
+#turtle-button {
+	background: transparent url('../images/graphics/chrome.png') left -18px no-repeat;
+}
+#turtle-button:hover,
+#turtle-button:active {
+	background-position: -32px -18px;
+}
+#turtle-button.enabled {
+	background-position: left -36px;
+}
+#turtle-button.enabled:hover,
+#turtle-button.enabled:active {
+	background-position: -32px -36px;
 }
 
-div.torrent_footer div#disk_space_container {
-	float: right;
-	font-size: 1.1em;
-	line-height: 22px;
-	vertical-align: middle;
-	margin: 0 20px 0 0;
-	padding: 0px;
+#compact-button {
+	background: transparent url('../images/graphics/chrome.png') left -54px no-repeat;
+}
+#compact-button:hover,
+#compact-button:active {
+	background-position: -32px -54px;
+}
+#compact-button.enabled {
+	background-position: left -72px;
+}
+#compact-button.enabled:hover,
+#compact-button.enabled:active {
+	background-position: -32px -72px;
 }
 
-div.torrent_footer div#turtle_button {
-	height: 22px;
-	width: 32px !important;
-	margin: 0 0 0 38px;
-	padding: 0;
-	-moz-user-select: none;
-	-webkit-user-select: none;
-}
-
-.turtleEnabled {
-	background: transparent url('../images/graphics/chrome.png') left -119px no-repeat;
-}
-.turtleEnabled:active {
-	background: transparent url('../images/graphics/chrome.png') -32px -119px no-repeat;
-}
-.turtleDisabled {
-	background: transparent url('../images/graphics/chrome.png') left -97px no-repeat;
-}
-.turtleDisabled:active {
-	background: transparent url('../images/graphics/chrome.png') -32px -97px no-repeat;
+#prefs-button {
+	display: none;
 }
 
 
-/*--------------------------------------
- *
- * D I A L O G S
- *
- *--------------------------------------*/
+/****
+*****
+*****  DIALOGS
+*****
+****/
 
 div.dialog_container {
 	position: absolute;
@@ -1047,13 +1010,11 @@ div.dialog_container {
 div.dialog_container div.dialog_window {
 	background-color: #eee;
 	margin: 0 auto;
-	filter: alpha(opacity=95);
-	-moz-opacity: .95;
 	opacity: .95;
 	border-top: none;
 	text-align: left;
 	width: 420px;
-	z-index: 4;
+	z-index: 10;
 	overflow: hidden;
 	position: relative;
 	-webkit-box-shadow: 0 3px 6px rgba(0,0,0,0.7);
@@ -1063,18 +1024,7 @@ div.dialog_container div.dialog_window {
 	div.dialog_container div.dialog_window {
 		top: 0;
 		margin-top: 71px;
-		z-index: 2
 	}
-}
-
-div#prefs_container div.dialog_window {
-	width: 410px;
-	padding: 0 15px;
-}
-
-div#stats_container div.dialog_window {
-	width: 255px;
-	padding: 0 15px;
 }
 
 div.dialog_container div.dialog_window img {
@@ -1165,222 +1115,29 @@ iframe#torrent_upload_frame {
 	margin: 0;
 }
 
-div#prefs_container label {
-	display: block;
-	margin: 0 0 0 2px;
-}
-
-div#prefs_container label.category {
-	clear: both;
-	font-size: 1.2em;
-}
-
-div#prefs_container label.item {
-	font-size: 11px !important;
-	margin: 0 5px 0 20px;
-	float: left;
-}
-
-div#prefs_container label.suffix {
-	margin: 0 5px 0 10px;
-	float: left;
-}
-
-div#prefs_container div.formdiv.checkbox label.item {
-	margin: 0 5px 0 2px;
-}
-
-div#prefs_container div.limit_total label.item {
-	width: 102px;
-}
-
-div#prefs_container div.limit_turtle label.item {
-	width: 120px;
-}
-
-div#prefs_container div.preference input[type=checkbox] {
-	float: left;
-	margin-left: 20px;
-	margin-top: 9px;
-}
-@-moz-document url-prefix() {
-	div#prefs_container div.preference input[type=checkbox] {
-		margin-top: 8px;
-	}
-}
-
-div#prefs_container div.preference input[type=text] {
-	width: 50px;
-	padding: 0px !important;
-	height: 18px;
-	margin-top: 2px;
-}
-
-div#prefs_container div.preference input {
-	float: left;
-}
-
-div#prefs_container div.block_url input {
-	width: 256px !important;
-}
-
-div#prefs_container div.download_location input {
-	width: 256px !important;
-}
-div#prefs_container div.download_location .checkbox input {
-	width: auto !important;
-}
-
-div#prefs_container div.formdiv {
-	clear: both;
-	line-height: 30px;
-}
-
-div#prefs_container a {
-	clear: left;
-	margin: 10px 5px 10px 7px;
-}
-
-div#prefs_container h2.dialog_heading {
-	display: none;
-}
-
-div#prefs_container div#prefs_tabs {
-	clear: both;
-}
-
-div#prefs_container div#prefs_tabs ul {
-	margin: 0;
-	padding: 0 0 0 10px;
-}
-div#prefs_container div#prefs_tabs ul li {
-	display: block;
-	float: left;
-	font-size: 1.2em;
-	color: #323232;
-	text-align: center;
-	padding: 2px 20px;
-	border-left: 1px solid #787878;
-	border-right: 1px solid #787878;
-	border-top: 1px solid #787878;
-	margin-bottom: -1px;
-}
-.prefs_tab_disabled {
-	background: #C0C8D6 url('../images/graphics/filter_bar.png') bottom repeat-x;
-	border-bottom: 1px solid #787878;
-}
-.prefs_tab_enabled {
-	background: none;
-	border-bottom: 1px solid #efefef;
-}
-div#stats_container h2.dialog_heading {
-	display: none;
-}
-div#stats_container div#stats_error {
-	display: none;
-	width: 395px;
-	margin: 6px auto 6px auto;
-	padding: 3px 0 3px 0;
-	border: 2px solid #cc3333;
-	color: #cc3333;
-	font-size: 1.2em;
-	vertical-align: middle;
-	text-align: center;
-	height: 20px;
-	line-height: 20px;
-	background-color: #FFEFEF;
-}
-.stats_info_container {
-	clear: both;
-	padding: 0px 7px 0px 7px;
-}
-.stats_group {
-	display: table;
-	margin: 5px 0px 0px 0px;
-	padding: 5px 0px 0px 0px;
-	width: 100%;
-}
-.stats_row {
-	display: table-row;
-}
-.stats_row > div {
-	padding-top: 4px;
-}
-div#stats_container label.category {
-	clear: both;
-	font-size: 1.2em;
-	margin: 5px 0px;
-}
-div#stats_container div.item {
-	font-size: 11px !important;
-	margin: 0 5px 0 20px;
-	float: left;
-	width: 100px;
-}
-div#stats_container div.item2 {
-	font-size: 11px !important;
-	margin: 0 5px 0 20px;
-	float: left;
-}
-div#stats_container a {
-	clear: left;
-	margin: 10px 5px 10px 7px;
-}
-
-div.dialog_container div#prefs_tabs ul li.prefs_tab_disabled:hover,
-div.dialog_container div#prefs_tabs ul li.prefs_tab_disabled:active {
-	background: none;
-}
-div#prefs_container div#prefs_tabs div.prefs_tab {
-	border-top: 1px solid #787878;
-	clear: both;
-	padding: 7px;
-}
-
-div#prefs_container div#pref_error {
-	display: none;
-	width: 395px;
-	margin: 6px auto 6px auto;
-	padding: 3px 0 3px 0;
-	border: 2px solid #cc3333;
-	color: #cc3333;
-	font-size: 1.2em;
-	vertical-align: middle;
-	text-align: center;
-	height: 20px;
-	line-height: 20px;
-	background-color: #FFEFEF;
-}
-
-#transmission_version{
-	position: absolute;
-	bottom: 10px;
-	left:   10px;
-	color:  #999;
-}
-
-/*--------------------------------------
- *
- * T R A N S   M E N U
- *
- *--------------------------------------*/
+/****
+*****
+*****  POPUP MENU
+*****
+****/
 
 .trans_menu {
 	margin: 0;
 	padding: 0;
-	cursor: default;
 }
 
-.trans_menu, .trans_menu ul {
+.trans_menu,
+.trans_menu ul {
 	list-style: none;
 }
 
 .trans_menu ul {
+	/* place it right above the button */
+	position: relative;
+	bottom: 18px;
+
 	min-width: 210px;
-	background-color: #fff;
-	filter: alpha(opacity=98);
-	-moz-opacity: .98;
-	opacity: .98;
+	background-color: white;
 	padding: 5px 0;
 	text-align: left;
 	list-style: none;
@@ -1396,11 +1153,10 @@ div#prefs_container div#pref_error {
 	min-width: 175px;
 }
 
-.trans_menu li {
+.trans_menu > * li {
 	margin: 0;
-	padding: 0 10px 2px 20px !important;
+	padding: 3px 10px 3px 20px !important;
 	color: #000;
-	font-size: 14px;
 	cursor: default;
 	text-indent: auto !important;
 	width: inherit;
@@ -1413,7 +1169,8 @@ div#prefs_container div#pref_error {
 	text-shadow: none;
 }
 
-.trans_menu li.separator, .trans_menu li.separator.hover {
+.trans_menu li.separator,
+.trans_menu li.separator.hover {
 	border-top: 1px solid #ddd;
 	margin: 5px 0;
 	padding: 0px;
@@ -1422,19 +1179,14 @@ div#prefs_container div#pref_error {
 
 .trans_menu li span.arrow {
 	float: right;
-	margin: 3px 0 0;
-	font-size: 11px;
-	color: #333;
-	text-shadow: none;
 }
 
 .trans_menu li.hover li.hover span.arrow, .trans_menu li.hover li.hover li.hover span.selected {
-	color: #fff;
+	color: white;
 }
 
 .trans_menu span.selected {
 	margin: 0 3px 0 -15px;
-	font-size: 14px;
 	color: #666;
 	float: left;
 }
@@ -1451,19 +1203,9 @@ div#prefs_container div#pref_error {
 	margin: 0;
 }
 
-.trans_menu li.main {
-	float: left;
-	padding: 0 !important;
-	width: 30px !important;
-}
-
 .trans_menu li.main li {
 	z-index: 2;
 	min-width: 78px;
-}
-
-.trans_menu li.main.active {
-	background: transparent url('../images/graphics/chrome.png') right -75px no-repeat !important;
 }
 
 .trans_menu a {

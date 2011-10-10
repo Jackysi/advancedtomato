@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: StatusBarController.h 12152 2011-03-13 14:38:49Z jordan $
+ * $Id: StatusBarController.h 12685 2011-08-15 00:17:18Z livings124 $
  * 
  * Copyright (c) 2011 Transmission authors and contributors
  *
@@ -33,6 +33,8 @@
     IBOutlet NSImageView * fTotalDLImageView;
     
     tr_session * fLib;
+    
+    CGFloat fPreviousDownloadRate, fPreviousUploadRate;
 }
 
 - (id) initWithLib: (tr_session *) lib;

@@ -92,12 +92,7 @@ char addrbuf[65];
 char addrbuf2[65];
 #define addrfmt(x, s) x.fmt(s, sizeof(s))
 
-#ifdef __GNUC__
- #define PACKED_ATTRIBUTE __attribute__((__packed__))
-#else
- #define PACKED_ATTRIBUTE
- #pragma pack(push,1)
-#endif
+#pragma pack(push,1)
 
 struct PACKED_ATTRIBUTE PackedSockAddr {
 
@@ -120,7 +115,7 @@ struct PACKED_ATTRIBUTE PackedSockAddr {
 
 	byte get_family() const
 	{
-		return (IN6_IS_ADDR_V4MAPPED((in6_addr*)_sin6) != 0) ? AF_INET : AF_INET6;
+		return (IN6_IS_ADDR_V4MAPPED(&_in._in6addr) != 0) ? AF_INET : AF_INET6;
 	}
 
 	bool operator==(const PackedSockAddr& rhs) const
@@ -285,9 +280,7 @@ struct PACKED_ATTRIBUTE PacketFormatExtensionsV1 {
 	byte extensions[8];
 };
 
-#ifndef __GNUC__
- #pragma pack(pop)
-#endif
+#pragma pack(pop)
 
 enum {
 	ST_DATA = 0,		// Data packet.

@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: PrefsController.m 12468 2011-05-28 01:53:37Z livings124 $
+ * $Id: PrefsController.m 12693 2011-08-17 01:49:55Z livings124 $
  *
  * Copyright (c) 2005-2011 Transmission authors and contributors
  *
@@ -222,6 +222,15 @@ tr_session * fHandle;
     
     [self updateBlocklistButton];
     [self updateBlocklistFields];
+    
+    [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(updateLimitFields)
+                                                 name: @"UpdateSpeedLimitValuesOutsidePrefs" object: nil];
+    
+    [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(updateRatioStopField)
+                                                 name: @"UpdateRatioStopValueOutsidePrefs" object: nil];
+    
+    [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(updateLimitStopField)
+                                                 name: @"UpdateIdleStopValueOutsidePrefs" object: nil];
     
     [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(updateBlocklistFields)
         name: @"BlocklistUpdated" object: nil];
@@ -603,6 +612,9 @@ tr_session * fHandle;
     tr_sessionSetRatioLimited(fHandle, [fDefaults boolForKey: @"RatioCheck"]);
     tr_sessionSetRatioLimit(fHandle, [fDefaults floatForKey: @"RatioLimit"]);
     
+    //reload main table for seeding progress
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateUI" object: nil];
+    
     //reload global settings in inspector
     [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateGlobalOptions" object: nil];
 }
@@ -618,6 +630,11 @@ tr_session * fHandle;
 {
     if (fHasLoaded)
         [fRatioStopField setFloatValue: [fDefaults floatForKey: @"RatioLimit"]];
+}
+
+- (void) updateRatioStopFieldOld
+{
+    [self updateRatioStopField];
     
     [self applyRatioSetting: nil];
 }
@@ -626,6 +643,9 @@ tr_session * fHandle;
 {
     tr_sessionSetIdleLimited(fHandle, [fDefaults boolForKey: @"IdleLimitCheck"]);
     tr_sessionSetIdleLimit(fHandle, [fDefaults integerForKey: @"IdleLimitMinutes"]);
+    
+    //reload main table for remaining seeding time
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateUI" object: nil];
     
     //reload global settings in inspector
     [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateGlobalOptions" object: nil];
@@ -636,6 +656,12 @@ tr_session * fHandle;
     [fDefaults setInteger: [sender integerValue] forKey: @"IdleLimitMinutes"];
     
     [self applyIdleStopSetting: nil];
+}
+
+- (void) updateLimitStopField
+{
+    if (fHasLoaded)
+        [fIdleStopField setIntegerValue: [fDefaults integerForKey: @"IdleLimitMinutes"]];
 }
 
 - (void) updateLimitFields
@@ -742,24 +768,40 @@ tr_session * fHandle;
 
 - (void) setQueue: (id) sender
 {
+    //let's just do both - easier that way
+    tr_sessionSetQueueEnabled(fHandle, TR_DOWN, [fDefaults boolForKey: @"Queue"]);
+    tr_sessionSetQueueEnabled(fHandle, TR_UP, [fDefaults boolForKey: @"QueueSeed"]);
+    
+    //handle if any transfers switch from queued to paused
     [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self];
 }
 
 - (void) setQueueNumber: (id) sender
 {
-    [fDefaults setInteger: [sender intValue] forKey: sender == fQueueDownloadField ? @"QueueDownloadNumber" : @"QueueSeedNumber"];
-    [self setQueue: nil];
+    const NSInteger number = [sender intValue];
+    const BOOL seed = sender == fQueueSeedField;
+    
+    [fDefaults setInteger: number forKey: seed ? @"QueueSeedNumber" : @"QueueDownloadNumber"];
+    
+    tr_sessionSetQueueSize(fHandle, seed ? TR_UP : TR_DOWN, number);
 }
 
 - (void) setStalled: (id) sender
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self];
+    tr_sessionSetQueueStalledEnabled(fHandle, [fDefaults boolForKey: @"CheckStalled"]);
+    
+    //reload main table for stalled status
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateUI" object: nil];
 }
 
 - (void) setStalledMinutes: (id) sender
 {
-    [fDefaults setInteger: [sender intValue] forKey: @"StalledMinutes"];
-    [self setStalled: nil];
+    const NSInteger min = [sender intValue];
+    [fDefaults setInteger: min forKey: @"StalledMinutes"];
+    tr_sessionSetQueueStalledMinutes(fHandle, min);
+    
+    //reload main table for stalled status
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateUI" object: self];
 }
 
 - (void) setDownloadLocation: (id) sender
@@ -1194,12 +1236,31 @@ tr_session * fHandle;
     const float ratioLimit = tr_sessionGetRatioLimit(fHandle);
     [fDefaults setFloat: ratioLimit forKey: @"RatioLimit"];
     
-    //Idle seed limit
+    //idle seed limit
     const BOOL idleLimited = tr_sessionIsIdleLimited(fHandle);
     [fDefaults setBool: idleLimited forKey: @"IdleLimitCheck"];
     
     const NSUInteger idleLimitMin = tr_sessionGetIdleLimit(fHandle);
     [fDefaults setInteger: idleLimitMin forKey: @"IdleLimitMinutes"];
+    
+    //queue
+    const BOOL downloadQueue = tr_sessionGetQueueEnabled(fHandle, TR_DOWN);
+    [fDefaults setBool: downloadQueue forKey: @"Queue"];
+    
+    const int downloadQueueNum = tr_sessionGetQueueSize(fHandle, TR_DOWN);
+    [fDefaults setInteger: downloadQueueNum forKey: @"QueueDownloadNumber"];
+    
+    const BOOL seedQueue = tr_sessionGetQueueEnabled(fHandle, TR_UP);
+    [fDefaults setBool: seedQueue forKey: @"QueueSeed"];
+    
+    const int seedQueueNum = tr_sessionGetQueueSize(fHandle, TR_UP);
+    [fDefaults setInteger: seedQueueNum forKey: @"QueueSeedNumber"];
+    
+    const BOOL checkStalled = tr_sessionGetQueueStalledEnabled(fHandle);
+    [fDefaults setBool: checkStalled forKey: @"CheckStalled"];
+    
+    const int stalledMinutes = tr_sessionGetQueueStalledMinutes(fHandle);
+    [fDefaults setInteger: stalledMinutes forKey: @"StalledMinutes"];
     
     //done script
     const BOOL doneScriptEnabled = tr_sessionIsTorrentDoneScriptEnabled(fHandle);
@@ -1253,6 +1314,13 @@ tr_session * fHandle;
         
         //idle limit enabled handled by bindings
         [fIdleStopField setIntegerValue: idleLimitMin];
+        
+        //queues enabled handled by bindings
+        [fQueueDownloadField setIntValue: downloadQueueNum];
+        [fQueueSeedField setIntValue: seedQueueNum];
+        
+        //check stalled handled by bindings
+        [fStalledField setIntValue: stalledMinutes];
     }
     
     [[NSNotificationCenter defaultCenter] postNotificationName: @"SpeedLimitUpdate" object: nil];

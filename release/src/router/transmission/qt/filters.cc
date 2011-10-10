@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: filters.cc 11196 2010-09-06 00:19:37Z charles $
+ * $Id: filters.cc 12611 2011-08-02 03:59:54Z jordan $
  */
 
 #include "filters.h"
@@ -20,7 +20,6 @@ const QString FilterMode::names[NUM_MODES] =
     "show-seeding",
     "show-paused",
     "show-finished",
-    "show-queued",
     "show-verifying",
     "show-error",
 };
@@ -40,6 +39,7 @@ const QString SortMode::names[NUM_MODES] = {
     "sort-by-eta",
     "sort-by-name",
     "sort-by-progress",
+    "sort-by-queue"
     "sort-by-ratio",
     "sort-by-size",
     "sort-by-state",

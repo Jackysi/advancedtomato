@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: prefs-dialog.cc 12550 2011-07-17 14:12:00Z jordan $
+ * $Id: prefs-dialog.cc 12697 2011-08-20 05:19:27Z jordan $
  */
 
 #include <cassert>
@@ -134,7 +134,7 @@ PrefsDialog :: timeEditNew( int key )
 {
     const int minutes( myPrefs.getInt( key ) );
     QTimeEdit * e = new QTimeEdit( );
-    e->setDisplayFormat( "hh:mm" );
+    e->setDisplayFormat( QString::fromAscii( "hh:mm" ) );
     e->setProperty( PREF_KEY, key );
     e->setTime( QTime().addSecs( minutes * 60 ) );
     myWidgets.insert( key, e );
@@ -232,11 +232,11 @@ PrefsDialog :: createSpeedTab( )
     QHBoxLayout * h = new QHBoxLayout;
     h->setSpacing( HIG :: PAD );
     QLabel * label = new QLabel;
-    label->setPixmap( QPixmap( ":/icons/alt-limit-off.png" ) );
+    label->setPixmap( QPixmap( QString::fromAscii( ":/icons/alt-limit-off.png" ) ) );
     label->setAlignment( Qt::AlignLeft|Qt::AlignVCenter );
     h->addWidget( label );
     label = new QLabel( tr( "Temporary Speed Limits" ) );
-    label->setStyleSheet( "font: bold" );
+    label->setStyleSheet( QString::fromAscii( "font: bold" ) );
     label->setAlignment( Qt::AlignLeft|Qt::AlignVCenter );
     h->addWidget( label );
     hig->addSectionTitle( h );
@@ -346,7 +346,7 @@ PrefsDialog :: createNetworkTab( )
     connect( &mySession, SIGNAL(portTested(bool)), this, SLOT(onPortTested(bool)));
 
     hig->addRow( tr( "&Port for incoming connections:" ), s );
-    hig->addRow( "", h, 0 );
+    hig->addRow( QString(), h, 0 );
     hig->addWideControl( checkBoxNew( tr( "Pick a &random port every time Transmission is started" ), Prefs :: PEER_PORT_RANDOM_ON_START ) );
     hig->addWideControl( checkBoxNew( tr( "Use UPnP or NAT-PMP port &forwarding from my router" ), Prefs::PORT_FORWARDING ) );
 
@@ -396,7 +396,7 @@ void
 PrefsDialog :: onUpdateBlocklistClicked( )
 {
     myBlocklistDialog = new QMessageBox( QMessageBox::Information,
-                                         "",
+                                         QString(),
                                          tr( "<b>Update Blocklist</b><p>Getting new blocklist..." ),
                                          QMessageBox::Close,
                                          this );
@@ -426,7 +426,7 @@ PrefsDialog :: createPrivacyTab( )
     myBlockWidgets << e;
     hig->addRow( l, e );
 
-    l = myBlocklistLabel = new QLabel( "" );
+    l = myBlocklistLabel = new QLabel( );
     myBlockWidgets << l;
     w = new QPushButton( tr( "&Update" ) );
     connect( w, SIGNAL(clicked(bool)), this, SLOT(onUpdateBlocklistClicked()));
@@ -532,43 +532,16 @@ PrefsDialog :: createTorrentsTab( )
     HIG * hig = new HIG( this );
     hig->addSectionTitle( tr( "Adding" ) );
 
-        l = checkBoxNew( tr( "Automatically &add torrents from:" ), Prefs::DIR_WATCH_ENABLED );
-        QPushButton * b = myWatchButton = new QPushButton;
-        b->setIcon( folderPixmap );
-        b->setStyleSheet( "text-align: left; padding-left: 5; padding-right: 5" );
-        connect( b, SIGNAL(clicked(bool)), this, SLOT(onWatchClicked(void)) );
-        hig->addRow( l, b );
-        enableBuddyWhenChecked( qobject_cast<QCheckBox*>(l), b );
-
         hig->addWideControl( checkBoxNew( tr( "Show &options dialog" ), Prefs::OPTIONS_PROMPT ) );
         hig->addWideControl( checkBoxNew( tr( "&Start when added" ), Prefs::START ) );
         hig->addWideControl( checkBoxNew( tr( "Mo&ve .torrent file to the trash" ), Prefs::TRASH_ORIGINAL ) );
 
-    hig->addSectionDivider( );
-    hig->addSectionTitle( tr( "Downloading" ) );
-
-        hig->addWideControl( checkBoxNew( tr( "Append \".&part\" to incomplete files' names" ), Prefs::RENAME_PARTIAL_FILES ) );
-
-        b = myDestinationButton = new QPushButton;
+        l = checkBoxNew( tr( "Automatically &add torrents from:" ), Prefs::DIR_WATCH_ENABLED );
+        QPushButton * b = myWatchButton = new QPushButton;
         b->setIcon( folderPixmap );
-        b->setStyleSheet( "text-align: left; padding-left: 5; padding-right: 5" );
-        connect( b, SIGNAL(clicked(bool)), this, SLOT(onDestinationClicked(void)) );
-        hig->addRow( tr( "Save to &Location:" ), b );
-
-        l = myIncompleteCheckbox = checkBoxNew( tr( "Keep &incomplete files in:" ), Prefs::INCOMPLETE_DIR_ENABLED );
-        b = myIncompleteButton = new QPushButton;
-        b->setIcon( folderPixmap );
-        b->setStyleSheet( "text-align: left; padding-left: 5; padding-right: 5" );
-        connect( b, SIGNAL(clicked(bool)), this, SLOT(onIncompleteClicked(void)) );
-        hig->addRow( myIncompleteCheckbox, b );
-        enableBuddyWhenChecked( qobject_cast<QCheckBox*>(l), b );
-
-        l = myTorrentDoneScriptCheckbox = checkBoxNew( tr( "Call scrip&t when torrent is completed:" ), Prefs::SCRIPT_TORRENT_DONE_ENABLED );
-        b = myTorrentDoneScriptButton = new QPushButton;
-        b->setIcon( filePixmap );
-        b->setStyleSheet( "text-align: left; padding-left: 5; padding-right: 5" );
-        connect( b, SIGNAL(clicked(bool)), this, SLOT(onScriptClicked(void)) );
-        hig->addRow( myTorrentDoneScriptCheckbox, b );
+        b->setStyleSheet( QString::fromAscii( "text-align: left; padding-left: 5; padding-right: 5" ) );
+        connect( b, SIGNAL(clicked(bool)), this, SLOT(onWatchClicked(void)) );
+        hig->addRow( l, b );
         enableBuddyWhenChecked( qobject_cast<QCheckBox*>(l), b );
 
     hig->addSectionDivider( );
@@ -583,6 +556,57 @@ PrefsDialog :: createTorrentsTab( )
         r = spinBoxNew( Prefs::IDLE_LIMIT, 1, INT_MAX, 5 );
         hig->addRow( l, r );
         enableBuddyWhenChecked( qobject_cast<QCheckBox*>(l), r );
+
+    hig->finish( );
+    return hig;
+}
+
+QWidget *
+PrefsDialog :: createDownloadTab( )
+{
+    const int iconSize( style( )->pixelMetric( QStyle :: PM_SmallIconSize ) );
+    const QFileIconProvider iconProvider;
+    const QIcon folderIcon = iconProvider.icon( QFileIconProvider::Folder );
+    const QPixmap folderPixmap = folderIcon.pixmap( iconSize );
+    const QIcon fileIcon = iconProvider.icon( QFileIconProvider::File );
+    const QPixmap filePixmap = fileIcon.pixmap( iconSize );
+
+    QWidget *l;
+    HIG * hig = new HIG( this );
+    hig->addSectionTitle( tr( "Location" ) );
+
+        QPushButton * b = myDestinationButton = new QPushButton;
+        b->setIcon( folderPixmap );
+        b->setStyleSheet( QString::fromAscii( "text-align: left; padding-left: 5; padding-right: 5" ) );
+        connect( b, SIGNAL(clicked(bool)), this, SLOT(onDestinationClicked(void)) );
+        hig->addRow( tr( "Save to &Location:" ), b );
+
+    hig->addSectionDivider( );
+    hig->addSectionTitle( tr( "Queue" ) );
+    
+        hig->addRow( tr( "Maximum active &downloads:" ), spinBoxNew( Prefs::DOWNLOAD_QUEUE_SIZE, 1, INT_MAX, 1 ) );
+        hig->addRow( tr( "Downloads sharing data in the last N minutes are &active:" ), spinBoxNew( Prefs::QUEUE_STALLED_MINUTES, 1, INT_MAX, 10 ) );
+
+    hig->addSectionDivider( );
+    hig->addSectionTitle( tr( "Incomplete" ) );
+
+        hig->addWideControl( checkBoxNew( tr( "Append \".&part\" to incomplete files' names" ), Prefs::RENAME_PARTIAL_FILES ) );
+
+        l = myIncompleteCheckbox = checkBoxNew( tr( "Keep &incomplete files in:" ), Prefs::INCOMPLETE_DIR_ENABLED );
+        b = myIncompleteButton = new QPushButton;
+        b->setIcon( folderPixmap );
+        b->setStyleSheet( QString::fromAscii( "text-align: left; padding-left: 5; padding-right: 5" ) );
+        connect( b, SIGNAL(clicked(bool)), this, SLOT(onIncompleteClicked(void)) );
+        hig->addRow( myIncompleteCheckbox, b );
+        enableBuddyWhenChecked( qobject_cast<QCheckBox*>(l), b );
+
+        l = myTorrentDoneScriptCheckbox = checkBoxNew( tr( "Call scrip&t when torrent is completed:" ), Prefs::SCRIPT_TORRENT_DONE_ENABLED );
+        b = myTorrentDoneScriptButton = new QPushButton;
+        b->setIcon( filePixmap );
+        b->setStyleSheet( QString::fromAscii( "text-align: left; padding-left: 5; padding-right: 5" ) );
+        connect( b, SIGNAL(clicked(bool)), this, SLOT(onScriptClicked(void)) );
+        hig->addRow( myTorrentDoneScriptCheckbox, b );
+        enableBuddyWhenChecked( qobject_cast<QCheckBox*>(l), b );
 
     hig->finish( );
     return hig;
@@ -603,6 +627,7 @@ PrefsDialog :: PrefsDialog( Session& session, Prefs& prefs, QWidget * parent ):
 
     QTabWidget * t = new QTabWidget( this );
     t->addTab( createTorrentsTab( ),     tr( "Torrents" ) );
+    t->addTab( createDownloadTab( ),     tr( "Download" ) );
     t->addTab( createSpeedTab( ),        tr( "Speed" ) );
     t->addTab( createPrivacyTab( ),      tr( "Privacy" ) );
     t->addTab( createNetworkTab( ),      tr( "Network" ) );

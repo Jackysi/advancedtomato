@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: app.h 11437 2010-11-25 03:00:25Z charles $
+ * $Id: app.h 12595 2011-07-26 02:56:30Z jordan $
  */
 
 #ifndef QTR_APP_H
@@ -61,6 +61,7 @@ class MyApp: public QApplication
         void refreshPref( int key );
         void refreshTorrents( );
         void onTorrentsAdded( QSet<int> );
+        void onTorrentCompleted( int );
         void onNewTorrentChanged( int );
 
     public slots:

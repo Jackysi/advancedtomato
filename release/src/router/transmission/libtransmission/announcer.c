@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: announcer.c 12517 2011-06-25 19:29:25Z jordan $
+ * $Id: announcer.c 12683 2011-08-14 14:45:54Z jordan $
  */
 
 #include <assert.h>
@@ -313,16 +313,24 @@ typedef struct tr_tier
 tr_tier;
 
 static time_t
-get_next_scrape_time( int interval )
+get_next_scrape_time( const tr_session * session, const tr_tier * tier, int interval )
 {
     time_t ret;
     const time_t now = tr_time( );
 
+    /* Maybe don't scrape paused torrents */
+    if( !tier->isRunning && !session->scrapePausedTorrents )
+        ret = 0;
+
     /* Add the interval, and then increment to the nearest 10th second.
      * The latter step is to increase the odds of several torrents coming
      * due at the same time to improve multiscrape. */
-    ret = now + interval;
-    while( ret % 10 ) ++ret;
+    else {
+        ret = now + interval;
+        while( ret % 10 )
+            ++ret;
+    }
+
     return ret;
 }
 
@@ -338,7 +346,7 @@ tierConstruct( tr_tier * tier, tr_torrent * tor )
     tier->scrapeIntervalSec = DEFAULT_SCRAPE_INTERVAL_SEC;
     tier->announceIntervalSec = DEFAULT_ANNOUNCE_INTERVAL_SEC;
     tier->announceMinIntervalSec = DEFAULT_ANNOUNCE_MIN_INTERVAL_SEC;
-    tier->scrapeAt = get_next_scrape_time( tr_cryptoWeakRandInt( 180 ) );
+    tier->scrapeAt = get_next_scrape_time( tor->session, tier, tr_cryptoWeakRandInt( 180 ) );
     tier->tor = tor;
 }
 
@@ -1064,6 +1072,7 @@ on_announce_done( const tr_announce_response  * response,
         {
             int i;
             const char * str;
+            bool got_scrape_info = false;
             const bool isStopped = event == TR_ANNOUNCE_EVENT_STOPPED;
 
             publishErrorClear( tier );
@@ -1071,9 +1080,20 @@ on_announce_done( const tr_announce_response  * response,
             if(( tracker = tier->currentTracker ))
             {
                 tracker->consecutiveFailures = 0;
-                tracker->seederCount = response->seeders;
-                tracker->leecherCount = response->leechers;
-                tracker->downloadCount = response->downloads;
+
+                /* if the tracker included scrape fields in its announce response,
+                   then a separate scrape isn't needed */
+
+                got_scrape_info = response->seeders
+                               || response->leechers
+                               || response->downloads;
+
+                if( got_scrape_info )
+                {
+                    tracker->seederCount = response->seeders;
+                    tracker->leecherCount = response->leechers;
+                    tracker->downloadCount = response->downloads;
+                }
 
                 if(( str = response->tracker_id_str ))
                 {
@@ -1109,9 +1129,21 @@ on_announce_done( const tr_announce_response  * response,
                             sizeof( tier->lastAnnounceStr ) );
 
             tier->isRunning = data->isRunningOnSuccess;
-            tier->scrapeAt = get_next_scrape_time( tier->scrapeIntervalSec );
-            tier->lastScrapeTime = now;
-            tier->lastScrapeSucceeded = true;
+
+            if( got_scrape_info )
+            {
+                tr_tordbg( tier->tor, "Announce response contained scrape info; "
+                                      "rescheduling next scrape to %d seconds from now.",
+                                      tier->scrapeIntervalSec );
+                tier->scrapeAt = get_next_scrape_time( announcer->session, tier, tier->scrapeIntervalSec );
+                tier->lastScrapeTime = now;
+                tier->lastScrapeSucceeded = true;
+            }
+            else if( tier->lastScrapeTime + tier->scrapeIntervalSec <= now )
+            {
+                tier->scrapeAt = get_next_scrape_time( announcer->session, tier, 0 );
+            }
+
             tier->lastAnnounceSucceeded = true;
             tier->lastAnnouncePeerCount = response->pex_count
                                         + response->pex6_count;
@@ -1201,7 +1233,7 @@ tierAnnounce( tr_announcer * announcer, tr_tier * tier )
 ***/
 
 static void
-on_scrape_error( tr_tier * tier, const char * errmsg )
+on_scrape_error( tr_session * session, tr_tier * tier, const char * errmsg )
 {
     int interval;
 
@@ -1222,7 +1254,7 @@ on_scrape_error( tr_tier * tier, const char * errmsg )
     dbgmsg( tier, "Retrying scrape in %zu seconds.", (size_t)interval );
     tr_torinf( tier->tor, "Retrying scrape in %zu seconds.", (size_t)interval );
     tier->lastScrapeSucceeded = false;
-    tier->scrapeAt = get_next_scrape_time( interval );
+    tier->scrapeAt = get_next_scrape_time( session, tier, interval );
 }
 
 static tr_tier *
@@ -1285,15 +1317,15 @@ on_scrape_done( const tr_scrape_response * response, void * vsession )
 
                 if( !response->did_connect )
                 {
-                    on_scrape_error( tier, _( "Could not connect to tracker" ) );
+                    on_scrape_error( session, tier, _( "Could not connect to tracker" ) );
 		}
                 else if( response->did_timeout )
                 {
-                    on_scrape_error( tier, _( "Tracker did not respond" ) );
+                    on_scrape_error( session, tier, _( "Tracker did not respond" ) );
                 }
                 else if( response->errmsg )
                 {
-                    on_scrape_error( tier, response->errmsg );
+                    on_scrape_error( session, tier, response->errmsg );
                 }
                 else
                 {
@@ -1302,7 +1334,7 @@ on_scrape_done( const tr_scrape_response * response, void * vsession )
                     tier->lastScrapeSucceeded = true;
                     tier->scrapeIntervalSec = MAX( DEFAULT_SCRAPE_INTERVAL_SEC,
                                                    response->min_request_interval );
-                    tier->scrapeAt = get_next_scrape_time( tier->scrapeIntervalSec );
+                    tier->scrapeAt = get_next_scrape_time( session, tier, tier->scrapeIntervalSec );
                     tr_tordbg( tier->tor, "Scrape successful. Rescraping in %d seconds.",
                                tier->scrapeIntervalSec );
 

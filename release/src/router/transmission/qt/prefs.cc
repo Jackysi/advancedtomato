@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: prefs.cc 12518 2011-06-25 19:56:48Z jordan $
+ * $Id: prefs.cc 12607 2011-08-01 22:24:24Z jordan $
  */
 
 #include <cassert>
@@ -79,6 +79,8 @@ Prefs::PrefItem Prefs::myItems[] =
     { DSPEED, TR_PREFS_KEY_DSPEED_KBps, QVariant::Int },
     { DSPEED_ENABLED, TR_PREFS_KEY_DSPEED_ENABLED, QVariant::Bool },
     { DOWNLOAD_DIR, TR_PREFS_KEY_DOWNLOAD_DIR, QVariant::String },
+    { DOWNLOAD_QUEUE_ENABLED, TR_PREFS_KEY_DOWNLOAD_QUEUE_ENABLED, QVariant::Bool },
+    { DOWNLOAD_QUEUE_SIZE, TR_PREFS_KEY_DOWNLOAD_QUEUE_SIZE, QVariant::Int },
     { ENCRYPTION, TR_PREFS_KEY_ENCRYPTION, QVariant::Int },
     { IDLE_LIMIT, TR_PREFS_KEY_IDLE_LIMIT, QVariant::Int },
     { IDLE_LIMIT_ENABLED, TR_PREFS_KEY_IDLE_LIMIT_ENABLED, QVariant::Bool },
@@ -91,6 +93,7 @@ Prefs::PrefItem Prefs::myItems[] =
     { PEER_PORT_RANDOM_ON_START, TR_PREFS_KEY_PEER_PORT_RANDOM_ON_START, QVariant::Bool },
     { PEER_PORT_RANDOM_LOW, TR_PREFS_KEY_PEER_PORT_RANDOM_LOW, QVariant::Int },
     { PEER_PORT_RANDOM_HIGH, TR_PREFS_KEY_PEER_PORT_RANDOM_HIGH, QVariant::Int },
+    { QUEUE_STALLED_MINUTES, TR_PREFS_KEY_QUEUE_STALLED_MINUTES, QVariant::Int },
     { SCRIPT_TORRENT_DONE_ENABLED, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED, QVariant::Bool },
     { SCRIPT_TORRENT_DONE_FILENAME, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_FILENAME, QVariant::String },
     { SOCKET_TOS, TR_PREFS_KEY_PEER_SOCKET_TOS, QVariant::Int },

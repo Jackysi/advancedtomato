@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: torrent-filter.cc 11519 2010-12-12 16:07:04Z charles $
+ * $Id: torrent-filter.cc 12653 2011-08-08 16:58:29Z jordan $
  */
 
 #include <iostream>
@@ -85,12 +85,11 @@ TorrentFilter :: lessThan( const QModelIndex& left, const QModelIndex& right ) c
 
     switch( myPrefs.get<SortMode>(Prefs::SORT_MODE).mode() )
     {
+        case SortMode :: SORT_BY_QUEUE:
+            if( !val ) val = -compare( a->queuePosition(), b->queuePosition() );
+            break;
         case SortMode :: SORT_BY_SIZE:
             if( !val ) val = compare( a->sizeWhenDone(), b->sizeWhenDone() );
-            break;
-        case SortMode :: SORT_BY_ACTIVITY:
-            if( !val ) val = compare( a->downloadSpeed() + a->uploadSpeed(), b->downloadSpeed() + b->uploadSpeed() );
-            if( !val ) val = compare( a->uploadedEver(), b->uploadedEver() );
             break;
         case SortMode :: SORT_BY_AGE:
             val = compare( a->dateAdded().toTime_t(), b->dateAdded().toTime_t() );
@@ -98,14 +97,19 @@ TorrentFilter :: lessThan( const QModelIndex& left, const QModelIndex& right ) c
         case SortMode :: SORT_BY_ID:
             if( !val ) val = compare( a->id(), b->id() );
             break;
+        case SortMode :: SORT_BY_ACTIVITY:
+            if( !val ) val = compare( a->downloadSpeed() + a->uploadSpeed(), b->downloadSpeed() + b->uploadSpeed() );
+            if( !val ) val = compare( a->uploadedEver(), b->uploadedEver() );
+            // fall through
         case SortMode :: SORT_BY_STATE:
             if( !val ) val = compare( a->hasError(), b->hasError() );
             if( !val ) val = compare( a->getActivity(), b->getActivity() );
+            if( !val ) val = -compare( a->queuePosition(), b->queuePosition() );
             // fall through
         case SortMode :: SORT_BY_PROGRESS:
             if( !val ) val = compare( a->percentComplete(), b->percentComplete() );
             if( !val ) val = a->compareSeedRatio( *b );
-            // fall through
+            if( !val ) val = -compare( a->queuePosition(), b->queuePosition() );
         case SortMode :: SORT_BY_RATIO:
             if( !val ) val = a->compareRatio( *b );
             break;
@@ -144,19 +148,16 @@ TorrentFilter :: activityFilterAcceptsTorrent( const Torrent * tor, const Filter
             accepts = tor->peersWeAreUploadingTo( ) > 0 || tor->peersWeAreDownloadingFrom( ) > 0 || tor->isVerifying( );
             break;
         case FilterMode::SHOW_DOWNLOADING:
-            accepts = tor->isDownloading( );
+            accepts = tor->isDownloading( ) || tor->isWaitingToDownload( );
             break;
         case FilterMode::SHOW_SEEDING:
-            accepts = tor->isSeeding( );
+            accepts = tor->isSeeding( ) || tor->isWaitingToSeed( );
             break;
         case FilterMode::SHOW_PAUSED:
             accepts = tor->isPaused( );
             break;
         case FilterMode::SHOW_FINISHED:
             accepts = tor->isFinished( );
-            break;
-        case FilterMode::SHOW_QUEUED:
-            accepts = tor->isWaitingToVerify( );
             break;
         case FilterMode::SHOW_VERIFYING:
             accepts = tor->isVerifying( ) || tor->isWaitingToVerify( );
@@ -194,21 +195,6 @@ TorrentFilter :: filterAcceptsRow( int sourceRow, const QModelIndex& sourceParen
         if( !text.isEmpty( ) )
             accepts = tor->name().contains( text, Qt::CaseInsensitive );
     }
-
-#if 0
-    if( accepts && !myText.isEmpty( ) ) switch( myTextMode )
-    {
-        case FILTER_BY_NAME:
-            accepts = tor->name().contains( myText, Qt::CaseInsensitive );
-            break;
-        case FILTER_BY_FILES:
-            accepts = tor->hasFileSubstring( myText );
-            break;
-        case FILTER_BY_TRACKER:
-            accepts = tor->hasTrackerSubstring( myText );
-            break;
-    }
-#endif
 
     return accepts;
 }

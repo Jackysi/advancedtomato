@@ -1,3 +1,44 @@
+=== Transmission 2.41 (2011/10/08) ===
+[http://trac.transmissionbt.com/query?milestone=2.41&group=component&order=severity All tickets closed by this release]
+==== Mac ====
+  * Fix crasher on 10.5 Leopard
+
+=== Transmission 2.40 (2011/10/05) ===
+[http://trac.transmissionbt.com/query?milestone=2.40&group=component&order=severity All tickets closed by this release]
+==== All Platforms ====
+  * Torrent queuing
+  * Improved webseed support
+  * Fix crash when removing a magnetized transfer
+  * Fix adding transfers over RPC when a subfolder does not exist
+  * Other minor fixes
+==== Mac ====
+  * Lion: Use popovers for the global and per-torrent action menus
+  * Lion: Animations in the inspector's file list and the message window
+  * Support sorting transfers by size
+  * No longer keep track of recently opened torrent files
+  * Apply group locations when adding transfers through the web client/RPC
+  * Minor interface tweaks and behavior adjustments
+==== GTK+ ====
+  * Add GTK+ 3 support
+  * Make popup notification and system sounds system-configurable
+  * Add a settings option to hard-delete files instead of using the recycle bin
+  * Raise the minimum library requirements for GTK+ to 2.22 and glib to 2.28
+==== Qt ====
+  * Add popup notification for finished torrents
+  * Fix non-UTF-8 display issue in the "New Torrent" dialog
+==== Daemon ====
+  * SSL support in transmission-remote
+==== Web Client ====
+  * Speed improvements
+  * Add filtering by tracker
+  * Allow preference changes on mobile devices
+  * Allow compact view on mobile devices
+  * Stop ratio functionality
+  * Compact view interface improvements
+==== Utils ====
+  * Fix transmission-edit bug when adding a tracker to a single-tracker torrent
+  * Fix transmission-create bug when specifying a directory with a leading "./"
+
 === Transmission 2.33 (2011/07/20) ===
 [http://trac.transmissionbt.com/query?milestone=2.33&group=component&order=severity All tickets closed by this release]
 ==== All Platforms ====
@@ -114,7 +155,7 @@
 ==== GTK+ ====
   * Add "Add" and "Remove" buttons to the tracker list
   * Add filesize column to the files list
-  * Several minor bugfixes and interface improvements
+  * Several minor bug fixes and interface improvements
 ==== Qt ====
   * Accept info_hash values in the "Add url..." dialog
 ==== Daemon ====

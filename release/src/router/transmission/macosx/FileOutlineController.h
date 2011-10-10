@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FileOutlineController.h 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: FileOutlineController.h 12599 2011-07-30 00:11:29Z livings124 $
  *
  * Copyright (c) 2008-2011 Transmission authors and contributors
  *
@@ -30,11 +30,13 @@
 @interface FileOutlineController : NSObject
 {
     Torrent * fTorrent;
-    NSArray * fFileList;
+    NSMutableArray * fFileList;
     
     IBOutlet FileOutlineView * fOutline;
     
     NSString * fFilterText;
+    
+    NSRecursiveLock * fLock;
 }
 
 - (FileOutlineView *) outlineView;

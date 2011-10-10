@@ -63,7 +63,8 @@ libminiupnp_a_LIBADD =
 am_libminiupnp_a_OBJECTS = connecthostport.$(OBJEXT) \
 	igd_desc_parse.$(OBJEXT) minisoap.$(OBJEXT) \
 	minissdpc.$(OBJEXT) miniupnpc.$(OBJEXT) miniwget.$(OBJEXT) \
-	minixml.$(OBJEXT) upnpcommands.$(OBJEXT) \
+	minixml.$(OBJEXT) portlistingparse.$(OBJEXT) \
+	receivedata.$(OBJEXT) upnpcommands.$(OBJEXT) \
 	upnpreplyparse.$(OBJEXT)
 libminiupnp_a_OBJECTS = $(am_libminiupnp_a_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@
@@ -107,7 +108,6 @@ AUTOCONF = @AUTOCONF@
 AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
-CANBERRA_MINIMUM = @CANBERRA_MINIMUM@
 CATALOGS = @CATALOGS@
 CATOBJEXT = @CATOBJEXT@
 CC = @CC@
@@ -122,14 +122,11 @@ CXXDEPMODE = @CXXDEPMODE@
 CXXFLAGS = @CXXFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DATADIRNAME = @DATADIRNAME@
-DBUS_BINDING_TOOL = @DBUS_BINDING_TOOL@
-DBUS_GLIB_CFLAGS = @DBUS_GLIB_CFLAGS@
-DBUS_GLIB_LIBS = @DBUS_GLIB_LIBS@
-DBUS_GLIB_MINIMUM = @DBUS_GLIB_MINIMUM@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DHT_CFLAGS = @DHT_CFLAGS@
 DHT_LIBS = @DHT_LIBS@
+DLLTOOL = @DLLTOOL@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
@@ -139,8 +136,6 @@ EGREP = @EGREP@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GETTEXT_PACKAGE = @GETTEXT_PACKAGE@
-GIO_CFLAGS = @GIO_CFLAGS@
-GIO_LIBS = @GIO_LIBS@
 GIO_MINIMUM = @GIO_MINIMUM@
 GLIB_MINIMUM = @GLIB_MINIMUM@
 GMOFILES = @GMOFILES@
@@ -165,16 +160,11 @@ LDFLAGS = @LDFLAGS@
 LIBAPPINDICATOR_CFLAGS = @LIBAPPINDICATOR_CFLAGS@
 LIBAPPINDICATOR_LIBS = @LIBAPPINDICATOR_LIBS@
 LIBAPPINDICATOR_MINIMUM = @LIBAPPINDICATOR_MINIMUM@
-LIBCANBERRA_CFLAGS = @LIBCANBERRA_CFLAGS@
-LIBCANBERRA_LIBS = @LIBCANBERRA_LIBS@
 LIBCURL_CFLAGS = @LIBCURL_CFLAGS@
 LIBCURL_LIBS = @LIBCURL_LIBS@
 LIBEVENT_CFLAGS = @LIBEVENT_CFLAGS@
 LIBEVENT_LIBS = @LIBEVENT_LIBS@
 LIBEVENT_MINIUM = @LIBEVENT_MINIUM@
-LIBNOTIFY_CFLAGS = @LIBNOTIFY_CFLAGS@
-LIBNOTIFY_LIBS = @LIBNOTIFY_LIBS@
-LIBNOTIFY_MINIMUM = @LIBNOTIFY_MINIMUM@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBTOOL = @LIBTOOL@
@@ -184,6 +174,7 @@ LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
+MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
 MKINSTALLDIRS = @MKINSTALLDIRS@
 MSGFMT = @MSGFMT@
@@ -231,6 +222,7 @@ abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
+ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
 ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
@@ -265,7 +257,6 @@ libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
 localstatedir = @localstatedir@
-lt_ECHO = @lt_ECHO@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
@@ -292,6 +283,8 @@ libminiupnp_a_SOURCES = \
     miniupnpc.c \
     miniwget.c \
     minixml.c \
+    portlistingparse.c \
+    receivedata.c \
     upnpcommands.c \
     upnpreplyparse.c
 
@@ -304,8 +297,11 @@ noinst_HEADERS = \
     minisoap.h \
     minissdpc.h \
     miniupnpc.h \
+    miniupnpctypes.h \
     miniwget.h \
     minixml.h \
+    portlistingparse.h \
+    receivedata.h \
     upnpcommands.h \
     upnpreplyparse.h
 
@@ -375,6 +371,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/miniupnpc.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/miniwget.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/minixml.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/portlistingparse.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/receivedata.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/upnpcommands.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/upnpreplyparse.Po@am__quote@
 

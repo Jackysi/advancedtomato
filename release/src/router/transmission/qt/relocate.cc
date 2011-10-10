@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: relocate.cc 11092 2010-08-01 20:36:13Z charles $
+ * $Id: relocate.cc 12697 2011-08-20 05:19:27Z jordan $
  */
 
 #include <QApplication>
@@ -84,7 +84,7 @@ RelocateDialog :: RelocateDialog( Session& session, TorrentModel& model, const Q
             if( mySession.isServer() )
                 myPath = QDir::homePath( );
             else
-                myPath = QString( "/" );
+                myPath = QDir::rootPath( );
         }
     }
 

@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: mainwin.h 12557 2011-07-19 21:19:18Z jordan $
+ * $Id: mainwin.h 12611 2011-08-02 03:59:54Z jordan $
  */
 
 #ifndef MAIN_WINDOW_H
@@ -138,6 +138,7 @@ class TrMainWindow: public QMainWindow
         void onSortByETAToggled      ( bool );
         void onSortByNameToggled     ( bool );
         void onSortByProgressToggled ( bool );
+        void onSortByQueueToggled    ( bool );
         void onSortByRatioToggled    ( bool );
         void onSortBySizeToggled     ( bool );
         void onSortByStateToggled    ( bool );
@@ -161,11 +162,16 @@ class TrMainWindow: public QMainWindow
     public slots:
         void startAll( );
         void startSelected( );
+        void startSelectedNow( );
         void pauseAll( );
         void pauseSelected( );
         void removeSelected( );
         void deleteSelected( );
         void verifySelected( );
+        void queueMoveTop( );
+        void queueMoveUp( );
+        void queueMoveDown( );
+        void queueMoveBottom( );
         void reannounceSelected( );
         void addTorrent( const QString& filename );
         void onNetworkTimer( );
@@ -187,6 +193,7 @@ class TrMainWindow: public QMainWindow
         virtual ~TrMainWindow( );
 
     protected:
+        virtual void contextMenuEvent( QContextMenuEvent * );
         virtual void dragEnterEvent( QDragEnterEvent * );
         virtual void dropEvent( QDropEvent * );
 };

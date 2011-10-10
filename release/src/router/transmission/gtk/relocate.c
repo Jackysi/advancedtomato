@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: relocate.c 12204 2011-03-22 15:19:54Z jordan $
+ * $Id: relocate.c 12679 2011-08-13 21:08:53Z jordan $
  */
 
 #include <libtransmission/transmission.h>
@@ -134,7 +134,7 @@ onResponse( GtkDialog * dialog, int response, gpointer unused UNUSED )
         data->message_dialog = w;
         data->done = TR_LOC_DONE;
         onTimer( data );
-        gtr_timeout_add_seconds( 1, onTimer, data );
+        gdk_threads_add_timeout_seconds( 1, onTimer, data );
     }
     else
     {
@@ -147,7 +147,7 @@ gtr_relocate_dialog_new( GtkWindow * parent,
                          TrCore    * core,
                          GSList    * torrent_ids )
 {
-    int row;
+    guint row;
     GtkWidget * w;
     GtkWidget * d;
     GtkWidget * t;

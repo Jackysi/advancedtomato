@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Controller.m 12556 2011-07-18 00:48:00Z livings124 $
+ * $Id: Controller.m 12925 2011-09-27 01:49:09Z livings124 $
  * 
  * Copyright (c) 2005-2011 Transmission authors and contributors
  *
@@ -40,6 +40,7 @@
 #import "AddWindowController.h"
 #import "AddMagnetWindowController.h"
 #import "MessageWindowController.h"
+#import "GlobalOptionsPopoverViewController.h"
 #import "ButtonToolbarItem.h"
 #import "GroupToolbarItem.h"
 #import "ToolbarSegmentedCell.h"
@@ -123,9 +124,6 @@ typedef enum
 #define FILTER_BAR_HEIGHT   23.0
 
 #define UPDATE_UI_SECONDS   1.0
-
-#define DOCK_SEEDING_TAG        101
-#define DOCK_DOWNLOADING_TAG    102
 
 #define TRANSFER_PLIST  @"/Library/Application Support/Transmission/Transfers.plist"
 
@@ -247,6 +245,9 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
             [fDefaults setBool: NO forKey: @"CheckDownload"];
         }
         
+        //upgrading from versions < 2.40: clear recent items
+        [[NSDocumentController sharedDocumentController] clearRecentDocuments: nil];
+        
         tr_benc settings;
         tr_bencInitDict(&settings, 41);
         tr_sessionGetDefaultSettings(&settings);
@@ -282,6 +283,8 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_DHT_ENABLED, [fDefaults boolForKey: @"DHTGlobal"]);
         tr_bencDictAddStr(&settings, TR_PREFS_KEY_DOWNLOAD_DIR, [[[fDefaults stringForKey: @"DownloadFolder"]
                                                                     stringByExpandingTildeInPath] UTF8String]);
+        tr_bencDictAddBool(&settings, TR_PREFS_KEY_DOWNLOAD_QUEUE_ENABLED, [fDefaults boolForKey: @"Queue"]);
+        tr_bencDictAddInt(&settings, TR_PREFS_KEY_DOWNLOAD_QUEUE_SIZE, [fDefaults integerForKey: @"QueueDownloadNumber"]);
         tr_bencDictAddInt(&settings, TR_PREFS_KEY_IDLE_LIMIT, [fDefaults integerForKey: @"IdleLimitMinutes"]);
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_IDLE_LIMIT_ENABLED, [fDefaults boolForKey: @"IdleLimitCheck"]);
         tr_bencDictAddStr(&settings, TR_PREFS_KEY_INCOMPLETE_DIR, [[[fDefaults stringForKey: @"IncompleteDownloadFolder"]
@@ -303,6 +306,8 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_PEX_ENABLED, [fDefaults boolForKey: @"PEXGlobal"]);
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_PORT_FORWARDING, [fDefaults boolForKey: @"NatTraversal"]);
+        tr_bencDictAddBool(&settings, TR_PREFS_KEY_QUEUE_STALLED_ENABLED, [fDefaults boolForKey: @"CheckStalled"]);
+        tr_bencDictAddInt(&settings, TR_PREFS_KEY_QUEUE_STALLED_MINUTES, [fDefaults integerForKey: @"StalledMinutes"]);
         tr_bencDictAddReal(&settings, TR_PREFS_KEY_RATIO, [fDefaults floatForKey: @"RatioLimit"]);
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_RATIO_ENABLED, [fDefaults boolForKey: @"RatioCheck"]);
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_RENAME_PARTIAL_FILES, [fDefaults boolForKey: @"RenamePartialFiles"]);
@@ -311,6 +316,8 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         tr_bencDictAddInt(&settings, TR_PREFS_KEY_RPC_PORT, [fDefaults integerForKey: @"RPCPort"]);
         tr_bencDictAddStr(&settings, TR_PREFS_KEY_RPC_USERNAME,  [[fDefaults stringForKey: @"RPCUsername"] UTF8String]);
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_RPC_WHITELIST_ENABLED,  [fDefaults boolForKey: @"RPCUseWhitelist"]);
+        tr_bencDictAddBool(&settings, TR_PREFS_KEY_SEED_QUEUE_ENABLED, [fDefaults boolForKey: @"QueueSeed"]);
+        tr_bencDictAddInt(&settings, TR_PREFS_KEY_SEED_QUEUE_SIZE, [fDefaults integerForKey: @"QueueSeedNumber"]);
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_START, [fDefaults boolForKey: @"AutoStartDownload"]);
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED, [fDefaults boolForKey: @"DoneScriptEnabled"]);
         tr_bencDictAddStr(&settings, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_FILENAME, [[fDefaults stringForKey: @"DoneScriptPath"] UTF8String]);
@@ -352,6 +359,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         fPrefsController = [[PrefsController alloc] init];
         
         fQuitting = NO;
+        fGlobalPopoverShown = NO;
         fSoundPlaying = NO;
         
         tr_sessionSetAltSpeedFunc(fLib, altSpeedToggledCallback, self);
@@ -441,15 +449,26 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     
     if (history)
     {
+        NSMutableArray * waitToStartTorrents = [NSMutableArray arrayWithCapacity: (([history count] > 0 && !fPauseOnLaunch) ? [history count]-1 : 0)]; //theoretical max without doing a lot of work
+        
         for (NSDictionary * historyItem in history)
         {
             Torrent * torrent;
             if ((torrent = [[Torrent alloc] initWithHistory: historyItem lib: fLib forcePause: fPauseOnLaunch]))
             {
                 [fTorrents addObject: torrent];
+                
+                NSNumber * waitToStart;
+                if (!fPauseOnLaunch && (waitToStart = [historyItem objectForKey: @"WaitToStart"]) && [waitToStart boolValue])
+                    [waitToStartTorrents addObject: torrent];
+                
                 [torrent release];
             }
         }
+        
+        //now that all are loaded, let's set those in the queue to waiting
+        for (Torrent * torrent in waitToStartTorrents)
+            [torrent startTransfer];
     }
     
     fBadger = [[Badger alloc] initWithLib: fLib];
@@ -485,7 +504,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     [nc addObserver: fWindow selector: @selector(makeKeyWindow)
                     name: @"MakeWindowKey" object: nil];
     
-    [nc addObserver: self selector: @selector(updateTorrentsInQueue)
+    [nc addObserver: self selector: @selector(fullUpdateUI)
                     name: @"UpdateQueue" object: nil];
     
     [nc addObserver: self selector: @selector(applyFilter)
@@ -866,9 +885,6 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         if (type == ADD_CREATED)
             [torrent resetCache];
         
-        //add it to the "File -> Open Recent" menu
-        [[NSDocumentController sharedDocumentController] noteNewRecentDocumentURL: [NSURL fileURLWithPath: torrentPath]];
-        
         //show the add window or add directly
         if (showWindow || !location)
         {
@@ -879,7 +895,8 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         }
         else
         {
-            [torrent setWaitToStart: [fDefaults boolForKey: @"AutoStartDownload"]];
+            if ([fDefaults boolForKey: @"AutoStartDownload"])
+                [torrent startTransfer];
             
             [torrent update];
             [fTorrents addObject: torrent];
@@ -887,7 +904,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         }
     }
 
-    [self updateTorrentsInQueue];
+    [self fullUpdateUI];
 }
 
 - (void) askOpenConfirmed: (AddWindowController *) addController add: (BOOL) add
@@ -897,11 +914,13 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     
     if (add)
     {
+        [torrent setQueuePosition: [fTorrents count]];
+        
         [torrent update];
         [fTorrents addObject: torrent];
         [torrent release];
         
-        [self updateTorrentsInQueue];
+        [self fullUpdateUI];
     }
     else
     {
@@ -948,14 +967,15 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     }
     else
     {
-        [torrent setWaitToStart: [fDefaults boolForKey: @"AutoStartDownload"]];
+        if ([fDefaults boolForKey: @"AutoStartDownload"])
+            [torrent startTransfer];
         
         [torrent update];
         [fTorrents addObject: torrent];
         [torrent release];
     }
 
-    [self updateTorrentsInQueue];
+    [self fullUpdateUI];
 }
 
 - (void) askOpenMagnetConfirmed: (AddMagnetWindowController *) addController add: (BOOL) add
@@ -965,11 +985,13 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     
     if (add)
     {
+        [torrent setQueuePosition: [fTorrents count]];
+        
         [torrent update];
         [fTorrents addObject: torrent];
         [torrent release];
         
-        [self updateTorrentsInQueue];
+        [self fullUpdateUI];
     }
     else
     {
@@ -1173,9 +1195,9 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 - (void) resumeTorrents: (NSArray *) torrents
 {
     for (Torrent * torrent in torrents)
-        [torrent setWaitToStart: YES];
+        [torrent startTransfer];
     
-    [self updateTorrentsInQueue];
+    [self fullUpdateUI];
 }
 
 - (void) resumeSelectedTorrentsNoWait:  (id) sender
@@ -1188,7 +1210,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     NSMutableArray * torrents = [NSMutableArray arrayWithCapacity: [fTorrents count]];
     
     for (Torrent * torrent in fTorrents)
-        if (![torrent isActive] && [torrent waitingToStart])
+        if ([torrent waitingToStart])
             [torrents addObject: torrent];
     
     [self resumeTorrentsNoWait: torrents];
@@ -1198,15 +1220,9 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 {
     //iterate through instead of all at once to ensure no conflicts
     for (Torrent * torrent in torrents)
-    {
-        tr_inf( "restarting a torrent in resumeTorrentsNoWait" );
-        [torrent startTransfer];
-    }
+        [torrent startTransferNoQueue];
     
-    [self updateUI];
-    [self applyFilter];
-    [[fWindow toolbar] validateVisibleItems];
-    [self updateTorrentHistory];
+    [self fullUpdateUI];
 }
 
 - (void) stopSelectedTorrents: (id) sender
@@ -1223,14 +1239,13 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 {
     //don't want any of these starting then stopping
     for (Torrent * torrent in torrents)
-        [torrent setWaitToStart: NO];
-
-    [torrents makeObjectsPerformSelector: @selector(stopTransfer)];
+         if ([torrent waitingToStart])
+             [torrent stopTransfer];
     
-    [self updateUI];
-    [self applyFilter];
-    [[fWindow toolbar] validateVisibleItems];
-    [self updateTorrentHistory];
+    for (Torrent * torrent in torrents)
+        [torrent stopTransfer];
+    
+    [self fullUpdateUI];
 }
 
 - (void) removeTorrents: (NSArray *) torrents deleteData: (BOOL) deleteData
@@ -1324,11 +1339,12 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     
     //don't want any of these starting then stopping
     for (Torrent * torrent in torrents)
-        [torrent setWaitToStart: NO];
+        if ([torrent waitingToStart])
+            [torrent stopTransfer];
     
     [fTorrents removeObjectsInArray: torrents];
     
-    //if not removed from displayed torrents, updateTorrentsInQueue might cause a crash
+    //if not removed from displayed torrents, fullUpdateUI might cause a crash
     if ([fDisplayedTorrents count] > 0)
     {
         if ([[fDisplayedTorrents objectAtIndex: 0] isKindOfClass: [TorrentGroup class]])
@@ -1356,7 +1372,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     
     [fTableView selectValues: selectedValues];
     
-    [self updateTorrentsInQueue];
+    [self fullUpdateUI];
 }
 
 - (void) removeNoDelete: (id) sender
@@ -1411,7 +1427,10 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
             [fDefaults setBool: NO forKey: @"WarningRemoveCompleted"];
         
         if (returnCode != NSAlertFirstButtonReturn)
+        {
+            [torrents release];
             return;
+        }
     }
     
     [self confirmRemoveTorrents: torrents deleteData: NO];
@@ -1649,13 +1668,13 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 
 - (void) updateUI
 {
-    [fTorrents makeObjectsPerformSelector: @selector(update)];
-    
-    //pull the upload and download speeds - most consistent by using current stats
     CGFloat dlRate = 0.0, ulRate = 0.0;
     BOOL completed = NO;
     for (Torrent * torrent in fTorrents)
     {
+        [torrent update];
+        
+        //pull the upload and download speeds - most consistent by using current stats
         dlRate += [torrent downloadRate];
         ulRate += [torrent uploadRate];
         
@@ -1682,6 +1701,15 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     [fBadger updateBadgeWithDownload: dlRate upload: ulRate];
 }
 
+#warning can this be removed or refined?
+- (void) fullUpdateUI
+{
+    [self updateUI];
+    [self applyFilter];
+    [[fWindow toolbar] validateVisibleItems];
+    [self updateTorrentHistory];
+}
+
 - (void) setBottomCountText: (BOOL) filtering
 {
     NSString * totalTorrentsString;
@@ -1703,74 +1731,6 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     }
     
     [fTotalTorrentsField setStringValue: totalTorrentsString];
-}
-
-- (void) updateTorrentsInQueue
-{
-    NSUInteger desiredDownloadActive = [fDefaults boolForKey: @"Queue"] ? [self numToStartFromQueue: YES] : NSUIntegerMax,
-                desiredSeedActive = [fDefaults boolForKey: @"QueueSeed"] ? [self numToStartFromQueue: NO] : NSUIntegerMax;
-    
-    for (Torrent * torrent in fTorrents)
-    {
-        if (desiredDownloadActive == 0 && desiredSeedActive == 0)
-            break;
-        
-        if (![torrent isActive] && ![torrent isChecking] && [torrent waitingToStart])
-        {
-            if (![torrent allDownloaded])
-            {
-                if (desiredDownloadActive > 0)
-                {
-                    tr_inf( "restarting download torrent in mac queue" );
-                    [torrent startTransfer];
-                    if ([torrent isActive])
-                        --desiredDownloadActive;
-                    [torrent update];
-                }
-            }
-            else
-            {
-                if (desiredSeedActive > 0)
-                {
-                    tr_inf( "restarting seed torrent in mac queue" );
-                    [torrent startTransfer];
-                    if ([torrent isActive])
-                        --desiredSeedActive;
-                    [torrent update];
-                }
-            }
-        }
-    }
-    
-    [self updateUI];
-    [self applyFilter];
-    [[fWindow toolbar] validateVisibleItems];
-    [self updateTorrentHistory];
-}
-
-- (NSUInteger) numToStartFromQueue: (BOOL) downloadQueue
-{
-    if (![fDefaults boolForKey: downloadQueue ? @"Queue" : @"QueueSeed"])
-        return 0;
-    
-    NSUInteger desired = [fDefaults integerForKey: downloadQueue ? @"QueueDownloadNumber" : @"QueueSeedNumber"];
-        
-    for (Torrent * torrent in fTorrents)
-    {
-        if (desired == 0)
-            break;
-        
-        if ([torrent isChecking])
-            --desired;
-        else if ([torrent isActive] && ![torrent isStalled] && ![torrent isError])
-        {
-            if ([torrent allDownloaded] != downloadQueue)
-                --desired;
-        }
-        else;
-    }
-    
-    return desired;
 }
 
 - (void) torrentFinishedDownloading: (NSNotification *) notification
@@ -1806,34 +1766,22 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         //bounce download stack
         [[NSDistributedNotificationCenter defaultCenter] postNotificationName: @"com.apple.DownloadFileFinished"
             object: [torrent dataLocation]];
-        
-        if ([torrent isActive] && [fDefaults boolForKey: @"QueueSeed"] && [self numToStartFromQueue: NO] == 0)
-        {
-            [torrent stopTransfer];
-            [torrent setWaitToStart: YES];
-        }
     }
     
-    [self updateTorrentsInQueue];
+    [self fullUpdateUI];
 }
 
+#warning remove?
 - (void) torrentRestartedDownloading: (NSNotification *) notification
 {
-    Torrent * torrent = [notification object];
-    if ([torrent isActive] && [fDefaults boolForKey: @"Queue"] && [self numToStartFromQueue: YES] == 0)
-    {
-        [torrent stopTransfer];
-        [torrent setWaitToStart: YES];
-    }
-    
-    [self updateTorrentsInQueue];
+    [self fullUpdateUI];
 }
 
 - (void) torrentFinishedSeeding: (NSNotification *) notification
 {
     Torrent * torrent = [notification object];
     
-    [self updateTorrentsInQueue];
+    [self fullUpdateUI];
     
     if ([[fTableView selectedTorrents] containsObject: torrent])
     {
@@ -2052,10 +2000,10 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     const NSInteger groupFilterValue = [fDefaults integerForKey: @"FilterGroup"];
     const BOOL filterGroup = groupFilterValue != GROUP_FILTER_ALL_TAG;
     
-    NSString * searchString = [fFilterBar searchString];
-    if (searchString && [searchString isEqualToString: @""])
-        searchString = nil;
-    const BOOL filterTracker = searchString && [[fDefaults stringForKey: @"FilterSearchType"] isEqualToString: FILTER_TYPE_TRACKER];
+    NSArray * searchStrings = [fFilterBar searchStrings];
+    if (searchStrings && [searchStrings count] == 0)
+        searchStrings = nil;
+    const BOOL filterTracker = searchStrings && [[fDefaults stringForKey: @"FilterSearchType"] isEqualToString: FILTER_TYPE_TRACKER];
     
     NSMutableArray * allTorrents = [NSMutableArray arrayWithCapacity: [fTorrents count]];
     
@@ -2095,30 +2043,45 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
                 continue;
         
         //check text field
-        if (searchString)
+        if (searchStrings)
         {
+            BOOL removeTextField = NO;
             if (filterTracker)
             {
-                BOOL removeTextField = YES;
-                for (NSString * tracker in [torrent allTrackersFlat])
+                NSArray * trackers = [torrent allTrackersFlat];
+                
+                //to count, we need each string in atleast 1 tracker
+                for (NSString * searchString in searchStrings)
                 {
-                    if ([tracker rangeOfString: searchString options:
-                            (NSCaseInsensitiveSearch | NSDiacriticInsensitiveSearch)].location != NSNotFound)
+                    BOOL found = NO;
+                    for (NSString * tracker in trackers)
                     {
-                        removeTextField = NO;
+                        if ([tracker rangeOfString: searchString options:
+                             (NSCaseInsensitiveSearch | NSDiacriticInsensitiveSearch)].location != NSNotFound)
+                        {
+                            found = YES;
+                            break;
+                        }
+                    }
+                    if (!found)
+                    {
+                        removeTextField = YES;
                         break;
                     }
                 }
-                
-                if (removeTextField)
-                    continue;
             }
             else
             {
-                if ([[torrent name] rangeOfString: searchString options:
-                        (NSCaseInsensitiveSearch | NSDiacriticInsensitiveSearch)].location == NSNotFound)
-                    continue;
+                for (NSString * searchString in searchStrings)
+                    if ([[torrent name] rangeOfString: searchString options: (NSCaseInsensitiveSearch | NSDiacriticInsensitiveSearch)].location == NSNotFound)
+                    {
+                        removeTextField = YES;
+                        break;
+                    }
             }
+            
+            if (removeTextField)
+                continue;
         }
         
         [allTorrents addObject: torrent];
@@ -2204,7 +2167,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     [fTableView selectValues: selectedValues];
     [self resetInfo]; //if group is already selected, but the torrents in it change
     
-    [self setBottomCountText: groupRows || filterStatus || filterGroup || searchString];
+    [self setBottomCountText: groupRows || filterStatus || filterGroup || searchStrings];
     
     [self setWindowSizeToFit];
 }
@@ -2212,6 +2175,55 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 - (void) switchFilter: (id) sender
 {
     [fFilterBar switchFilter: sender == fNextFilterItem];
+}
+
+- (IBAction) showGlobalPopover: (id) sender
+{
+    if ([NSApp isOnLionOrBetter])
+    {
+        if (fGlobalPopoverShown)
+            return;
+        
+        NSPopover * popover = [[NSPopoverLion alloc] init];
+        [popover setBehavior: NSPopoverBehaviorTransient];
+        GlobalOptionsPopoverViewController * viewController = [[GlobalOptionsPopoverViewController alloc] initWithHandle: [PrefsController handle]];
+        [popover setContentViewController: viewController];
+        [popover setDelegate: self];
+        
+        [popover showRelativeToRect: [sender frame] ofView: sender preferredEdge: NSMaxYEdge];
+        
+        [viewController release];
+        [popover release];
+    }
+    else
+    {
+        //place menu below button
+        NSRect rect = [sender frame];
+        NSPoint location = rect.origin;
+        location.y += NSHeight(rect) + 5.0;
+        
+        if ([NSApp isOnSnowLeopardOrBetter])
+            [fActionMenu popUpMenuPositioningItem: nil atLocation: location inView: sender];
+        else
+        {
+            NSEvent * newEvent = [NSEvent mouseEventWithType: NSLeftMouseDown location: location
+                                               modifierFlags: NSLeftMouseDownMask timestamp: GetCurrentEventTime() windowNumber: [fWindow windowNumber]
+                                                     context: nil eventNumber: 1 clickCount: 1 pressure: 1];
+             
+            [NSMenu popUpContextMenu: fActionMenu withEvent: newEvent forView: sender];
+        }
+    }
+}
+
+//don't show multiple popovers when clicking the gear button repeatedly
+- (void) popoverWillShow: (NSNotification *) notification
+{
+    fGlobalPopoverShown = YES;
+}
+
+- (void) popoverWillClose: (NSNotification *) notification
+{
+    fGlobalPopoverShown = NO;
 }
 
 - (void) menuNeedsUpdate: (NSMenu *) menu
@@ -2346,7 +2358,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     [fDefaults setBool: YES forKey: @"RatioCheck"];
     [fDefaults setFloat: [[sender representedObject] floatValue] forKey: @"RatioLimit"];
     
-    [fPrefsController updateRatioStopField];
+    [fPrefsController updateRatioStopFieldOld];
 }
 
 - (void) sound: (NSSound *) sound didFinishPlaying: (BOOL) finishedPlaying
@@ -2649,6 +2661,8 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
             //insert objects at new location
             NSUInteger insertIndex = topTorrent ? [fTorrents indexOfObject: topTorrent] + 1 : 0;
             NSIndexSet * insertIndexes = [NSIndexSet indexSetWithIndexesInRange: NSMakeRange(insertIndex, [movingTorrents count])];
+            for (Torrent * torrent in movingTorrents)
+                [torrent setQueuePosition: insertIndex++];
             [fTorrents insertObjects: movingTorrents atIndexes: insertIndexes];
         }
         
@@ -2784,7 +2798,11 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     
     [fTableView setRowHeight: makeSmall ? ROW_HEIGHT_SMALL : ROW_HEIGHT_REGULAR];
     
+    if ([NSApp isOnLionOrBetter])
+        [fTableView beginUpdates];
     [fTableView noteHeightOfRowsWithIndexesChanged: [NSIndexSet indexSetWithIndexesInRange: NSMakeRange(0, [fTableView numberOfRows])]];
+    if ([NSApp isOnLionOrBetter])
+        [fTableView endUpdates];
     
     //resize for larger min height if not set to auto size
     if (![fDefaults boolForKey: @"AutoSize"])
@@ -3426,7 +3444,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     if ([ident isEqualToString: TOOLBAR_RESUME_ALL])
     {
         for (Torrent * torrent in fTorrents)
-            if (![torrent isActive] && ![torrent waitingToStart])
+            if (![torrent isActive] && ![torrent waitingToStart] && ![torrent isFinishedSeeding])
                 return YES;
         return NO;
     }
@@ -3557,6 +3575,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         return [fWindow isVisible];
     }
     
+    #warning remove when menu is removed
     if (action == @selector(toggleStatusString:))
     {
         if ([fDefaults boolForKey: @"SmallView"])
@@ -3725,7 +3744,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
             return NO;
     
         for (Torrent * torrent in fTorrents)
-            if (![torrent isActive] && [torrent waitingToStart])
+            if ([torrent waitingToStart])
                 return YES;
         return NO;
     }
@@ -3884,6 +3903,9 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 
 - (NSMenu *) applicationDockMenu: (NSApplication *) sender
 {
+    if (fQuitting)
+        return nil;
+    
     NSInteger seeding = 0, downloading = 0;
     for (Torrent * torrent in fTorrents)
     {
@@ -3894,59 +3916,29 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         else;
     }
     
-    NSMenuItem * seedingItem = [fDockMenu itemWithTag: DOCK_SEEDING_TAG],
-            * downloadingItem = [fDockMenu itemWithTag: DOCK_DOWNLOADING_TAG];
-    
-    BOOL hasSeparator = seedingItem || downloadingItem;
+    NSMenu * menu = [[NSMenu alloc] init];
     
     if (seeding > 0)
     {
         NSString * title = [NSString stringWithFormat: NSLocalizedString(@"%d Seeding", "Dock item - Seeding"), seeding];
-        if (!seedingItem)
-        {
-            seedingItem = [[[NSMenuItem alloc] initWithTitle: title action: nil keyEquivalent: @""] autorelease];
-            [seedingItem setTag: DOCK_SEEDING_TAG];
-            [fDockMenu insertItem: seedingItem atIndex: 0];
-        }
-        else
-            [seedingItem setTitle: title];
-    }
-    else
-    {
-        if (seedingItem)
-            [fDockMenu removeItem: seedingItem];
+        [menu addItemWithTitle: title action: nil keyEquivalent: @""];
     }
     
     if (downloading > 0)
     {
         NSString * title = [NSString stringWithFormat: NSLocalizedString(@"%d Downloading", "Dock item - Downloading"), downloading];
-        if (!downloadingItem)
-        {
-            downloadingItem = [[[NSMenuItem alloc] initWithTitle: title action: nil keyEquivalent: @""] autorelease];
-            [downloadingItem setTag: DOCK_DOWNLOADING_TAG];
-            [fDockMenu insertItem: downloadingItem atIndex: seeding > 0 ? 1 : 0];
-        }
-        else
-            [downloadingItem setTitle: title];
-    }
-    else
-    {
-        if (downloadingItem)
-            [fDockMenu removeItem: downloadingItem];
+        [menu addItemWithTitle: title action: nil keyEquivalent: @""];
     }
     
     if (seeding > 0 || downloading > 0)
-    {
-        if (!hasSeparator)
-            [fDockMenu insertItem: [NSMenuItem separatorItem] atIndex: (seeding > 0 && downloading > 0) ? 2 : 1];
-    }
-    else
-    {
-        if (hasSeparator)
-            [fDockMenu removeItemAtIndex: 0];
-    }
+        [menu addItem: [NSMenuItem separatorItem]];
     
-    return fDockMenu;
+    [menu addItemWithTitle: NSLocalizedString(@"Pause All", "Dock item") action: @selector(stopAllTorrents:) keyEquivalent: @""];
+    [menu addItemWithTitle: NSLocalizedString(@"Resume All", "Dock item") action: @selector(resumeAllTorrents:) keyEquivalent: @""];
+    [menu addItem: [NSMenuItem separatorItem]];
+    [menu addItemWithTitle: NSLocalizedString(@"Speed Limit", "Dock item") action: @selector(toggleSpeedLimit:) keyEquivalent: @""];
+    
+    return [menu autorelease];
 }
 
 - (NSRect) windowWillUseStandardFrame: (NSWindow *) window defaultFrame: (NSRect) defaultFrame
@@ -4165,6 +4157,10 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
             [self performSelectorOnMainThread: @selector(rpcMovedTorrent:) withObject: torrent waitUntilDone: NO];
             break;
         
+        case TR_RPC_SESSION_QUEUE_POSITIONS_CHANGED:
+            [self performSelectorOnMainThread: @selector(rpcUpdateQueue) withObject: nil waitUntilDone: NO];
+            break;
+        
         case TR_RPC_SESSION_CHANGED:
             [fPrefsController performSelectorOnMainThread: @selector(rpcUpdatePrefs) withObject: nil waitUntilDone: NO];
             break;
@@ -4193,11 +4189,18 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     
     Torrent * torrent = [[Torrent alloc] initWithTorrentStruct: torrentStruct location: location lib: fLib];
     
+    //change the location if the group calls for it (this has to wait until after the torrent is created)
+    if ([[GroupsController groups] usesCustomDownloadLocationForIndex: [torrent groupValue]])
+    {
+        location = [[GroupsController groups] customDownloadLocationForIndex: [torrent groupValue]];
+        [torrent changeDownloadFolderBeforeUsing: location];
+    }
+    
     [torrent update];
     [fTorrents addObject: torrent];
     [torrent release];
     
-    [self updateTorrentsInQueue];
+    [self fullUpdateUI];
 }
 
 - (void) rpcRemoveTorrent: (Torrent *) torrent
@@ -4244,6 +4247,24 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         [fInfoController updateInfoStats];
     
     [torrent release];
+}
+
+- (void) rpcUpdateQueue
+{
+    for (Torrent * torrent in fTorrents)
+        [torrent update];
+    
+    NSArray * selectedValues = [fTableView selectedValues];
+    
+    NSSortDescriptor * descriptor = [[NSSortDescriptor alloc] initWithKey: @"queuePosition" ascending: YES];
+    NSArray * descriptors = [NSArray arrayWithObject: descriptor];
+    [descriptor release];
+    
+    [fTorrents sortUsingDescriptors: descriptors];
+    
+    [self fullUpdateUI];
+    
+    [fTableView selectValues: selectedValues];
 }
 
 @end

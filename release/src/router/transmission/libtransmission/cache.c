@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: cache.c 12204 2011-03-22 15:19:54Z jordan $
+ * $Id: cache.c 12653 2011-08-08 16:58:29Z jordan $
  */
 
 #include <stdlib.h> /* qsort() */
@@ -171,8 +171,6 @@ flushContiguous( tr_cache * cache, int pos, int n )
     const tr_piece_index_t piece = b->piece;
     const uint32_t offset        = b->offset;
 
-//fprintf( stderr, "flushing %d contiguous blocks [%d-%d) from cache to disk\n", n, pos, n+pos );
-
     for( i=pos; i<pos+n; ++i ) {
         b = blocks[i];
         evbuffer_copyout( b->evbuf, walk, b->length );
@@ -181,13 +179,6 @@ flushContiguous( tr_cache * cache, int pos, int n )
         tr_free( b );
     }
     tr_ptrArrayErase( &cache->blocks, pos, pos+n );
-
-#if 0
-    tr_tordbg( tor, "Writing to disk piece %d, offset %d, len %d", (int)piece, (int)offset, (int)(walk-buf) );
-    tr_ndbg( MY_NAME, "Removing %d blocks from cache, rank: %d - %d left", n, rank, tr_ptrArraySize(&cache->blocks) );
-    fprintf( stderr, "%s - Writing to disk piece %d, offset %d, len %d\n", tr_torrentName(tor), (int)piece, (int)offset, (int)(walk-buf) );
-    fprintf( stderr, "%s - Removing %d blocks from cache; %d left\n", MY_NAME, n, tr_ptrArraySize(&cache->blocks) );
-#endif
 
     err = tr_ioWrite( tor, piece, offset, walk-buf, buf );
     tr_free( buf );

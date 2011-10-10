@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: PrefsController.h 11968 2011-02-18 03:50:19Z livings124 $
+ * $Id: PrefsController.h 12686 2011-08-15 00:30:29Z livings124 $
  *
  * Copyright (c) 2005-2011 Transmission authors and contributors
  *
@@ -27,7 +27,7 @@
 
 @class PortChecker;
 
-@interface PrefsController : NSWindowController
+@interface PrefsController : NSWindowController <NSToolbarDelegate>
 {
     NSUserDefaults * fDefaults;
     BOOL fHasLoaded;
@@ -125,9 +125,11 @@
 - (void) applyRatioSetting: (id) sender;
 - (void) setRatioStop: (id) sender;
 - (void) updateRatioStopField;
+- (void) updateRatioStopFieldOld;
 
 - (void) applyIdleStopSetting: (id) sender;
 - (void) setIdleStop: (id) sender;
+- (void) updateLimitStopField;
 
 - (void) applySpeedSettings: (id) sender;
 - (void) applyAltSpeedSettings;

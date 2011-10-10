@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-msgs.c 12555 2011-07-17 18:11:34Z jordan $
+ * $Id: peer-msgs.c 12921 2011-09-26 22:50:42Z jordan $
  */
 
 #include <assert.h>
@@ -787,7 +787,7 @@ tr_peerMsgsCancel( tr_peermsgs * msgs, tr_block_index_t block )
 static void
 sendLtepHandshake( tr_peermsgs * msgs )
 {
-    tr_benc val, *m;
+    tr_benc val;
     bool allow_pex;
     bool allow_metadata_xfer;
     struct evbuffer * payload;
@@ -825,11 +825,13 @@ sendLtepHandshake( tr_peermsgs * msgs )
     tr_bencDictAddInt( &val, "reqq", REQQ );
     tr_bencDictAddInt( &val, "upload_only", tr_torrentIsSeed( msgs->torrent ) );
     tr_bencDictAddStr( &val, "v", TR_NAME " " USERAGENT_PREFIX );
-    m  = tr_bencDictAddDict( &val, "m", 2 );
-    if( allow_metadata_xfer )
-        tr_bencDictAddInt( m, "ut_metadata", UT_METADATA_ID );
-    if( allow_pex )
-        tr_bencDictAddInt( m, "ut_pex", UT_PEX_ID );
+    if( allow_metadata_xfer || allow_pex ) {
+        tr_benc * m  = tr_bencDictAddDict( &val, "m", 2 );
+        if( allow_metadata_xfer )
+            tr_bencDictAddInt( m, "ut_metadata", UT_METADATA_ID );
+        if( allow_pex )
+            tr_bencDictAddInt( m, "ut_pex", UT_PEX_ID );
+    }
 
     payload = tr_bencToBuf( &val, TR_FMT_BENC );
 
@@ -1412,7 +1414,7 @@ readBtMessage( tr_peermsgs * msgs, struct evbuffer * inbuf, size_t inlen )
             uint8_t * tmp = tr_new( uint8_t, msglen );
             dbgmsg( msgs, "got a bitfield" );
             tr_peerIoReadBytes( msgs->peer->io, inbuf, tmp, msglen );
-            tr_bitfieldSetRaw( &msgs->peer->have, tmp, msglen );
+            tr_bitfieldSetRaw( &msgs->peer->have, tmp, msglen, tr_torrentHasMetadata( msgs->torrent ) );
             fireClientGotBitfield( msgs, &msgs->peer->have );
             updatePeerProgress( msgs );
             tr_free( tmp );

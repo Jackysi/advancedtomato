@@ -25,6 +25,12 @@ void start_bittorrent(void)
     char *pl;
     char *pm;
     char *pn;
+    char *po;
+    char *pp;
+    char *pr;
+    char *ps;
+    char *pt;
+    char *pu;
 
 // make sure its really stop
     stop_bittorrent();
@@ -48,6 +54,11 @@ void start_bittorrent(void)
     if (nvram_match( "bt_binary", "internal" ) ) { pn = "/usr/bin"; }
         else if (nvram_match( "bt_binary", "optware" ) ) { pn = "/opt/bin"; }
         else { pn = nvram_safe_get( "bt_binary_custom" ); }
+    if (nvram_match( "bt_lpd", "1") ) { po = "true"; } else { po = "false"; }
+    if (nvram_match( "bt_utp", "1") ) { pp = "true"; } else { pp = "false"; }
+    if (nvram_match( "bt_ratio_idle_enable", "1") ) { pr = "true"; } else { pr = "false"; }
+    if (nvram_match( "bt_dl_queue_enable", "1") ) { pt = "true"; } else { pt = "false"; }
+    if (nvram_match( "bt_ul_queue_enable", "1") ) { pu = "true"; } else { pu = "false"; }
 
 
     //writing data to file
@@ -77,10 +88,18 @@ void start_bittorrent(void)
     fprintf( fp, "\"upload-slots-per-torrent\": %s, \n", nvram_safe_get( "bt_ul_slot_per_torrent" ) );
     fprintf( fp, "\"dht-enabled\": %s, \n", pi );
     fprintf( fp, "\"pex-enabled\": %s, \n", pj );
+    fprintf( fp, "\"lpd-enabled\": %s, \n", po );
+    fprintf( fp, "\"utp-enabled\": %s, \n", pp );
     fprintf( fp, "\"ratio-limit-enabled\": %s, \n", ph );
     fprintf( fp, "\"ratio-limit\": %s, \n", nvram_safe_get( "bt_ratio" ) );
+    fprintf( fp, "\"idle-seeding-limit-enabled\": %s, \n", pr );
+    fprintf( fp, "\"idle-seeding-limit\": %s, \n", nvram_safe_get( "bt_ratio_idle" ) );
     fprintf( fp, "\"blocklist-enabled\": %s, \n", pm );
     fprintf( fp, "\"blocklist-url\": \"%s\", \n", nvram_safe_get( "bt_blocklist_url" ) );
+    fprintf( fp, "\"download-queue-enabled\": %s, \n", pt );
+    fprintf( fp, "\"download-queue-size\": %s, \n", nvram_safe_get( "bt_dl_queue_size" ) );
+    fprintf( fp, "\"seed-queue-enabled\": %s, \n", pu );
+    fprintf( fp, "\"seed-queue-size\": %s, \n", nvram_safe_get( "bt_ul_queue_size" ) );
     fprintf( fp, "%s\n", nvram_safe_get("bt_custom"));
     fprintf( fp, "\"rpc-authentication-required\": %s \n", pl );
     fprintf( fp, "}\n");
@@ -126,7 +145,6 @@ void start_bittorrent(void)
     }
 
     fprintf( fp, "/usr/bin/btcheck addcru\n");
-    fprintf( fp, "/usr/bin/btqueue addcru\n");
 
     fclose( fp );
 
@@ -153,7 +171,6 @@ void stop_bittorrent(void)
     fprintf( fp, "logger \"Transmission daemon successfully stoped\" \n");
     fprintf( fp, "sleep 2\n");
     fprintf( fp, "/usr/bin/btcheck addcru\n");
-    fprintf( fp, "/usr/bin/btqueue addcru\n");
 
     fclose( fp );
     chmod( "/tmp/stop_transmission.sh", 0755 );

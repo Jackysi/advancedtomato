@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: torrent-delegate.cc 12464 2011-05-28 00:09:15Z jordan $
+ * $Id: torrent-delegate.cc 12827 2011-09-01 22:49:35Z jordan $
  */
 
 #include <iostream>
@@ -178,6 +178,8 @@ TorrentDelegate :: shortTransferString( const Torrent& tor ) const
         str = tr( "%1 %2" ).arg(downArrow).arg(downStr);
     else if( haveUp )
         str = tr( "%1 %2" ).arg(upArrow).arg(upStr);
+    else if( tor.isStalled( ) )
+        str = tr( "Stalled" );
     else if( tor.hasMetadata( ) )
         str = tr( "Idle" );
 
@@ -224,6 +226,8 @@ TorrentDelegate :: statusString( const Torrent& tor ) const
         case TR_STATUS_STOPPED:
         case TR_STATUS_CHECK_WAIT:
         case TR_STATUS_CHECK:
+        case TR_STATUS_DOWNLOAD_WAIT:
+        case TR_STATUS_SEED_WAIT:
             str = shortStatusString( tor );
             break;
 
@@ -242,7 +246,7 @@ TorrentDelegate :: statusString( const Torrent& tor ) const
             break;
 
         default:
-            str = "Error";
+            str = tr( "Error" );
             break;
     }
 
@@ -326,7 +330,6 @@ TorrentDelegate :: setProgressBarPercentDone( const QStyleOptionViewItem& option
         const double invertedRatio = 1. - seedRateRatio;
         const int scaledProgress = invertedRatio * (myProgressBarStyle->maximum - myProgressBarStyle->minimum);
         myProgressBarStyle->progress = myProgressBarStyle->minimum + scaledProgress;
-        myProgressBarStyle->direction = (option.direction == Qt::RightToLeft ? Qt::LeftToRight : Qt::RightToLeft);
     }
     else
     {

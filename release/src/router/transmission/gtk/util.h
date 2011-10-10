@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: util.h 12412 2011-05-02 17:58:27Z jordan $
+ * $Id: util.h 12656 2011-08-09 02:30:31Z jordan $
  */
 
 #ifndef GTR_UTIL_H
@@ -70,25 +70,9 @@ char* tr_strltime( char * buf, int secs, size_t buflen );
 /* http://www.legaltorrents.com/some/announce/url --> legaltorrents.com */
 void gtr_get_host_from_url( char * buf, size_t buflen, const char * url );
 
-gboolean gtr_is_supported_url( const char * str );
-
 gboolean gtr_is_magnet_link( const char * str );
 
 gboolean gtr_is_hex_hashcode( const char * str );
-
-/***
-****
-***/
-
-typedef enum
-{
-    GTR_LOCKFILE_SUCCESS = 0,
-    GTR_LOCKFILE_EOPEN,
-    GTR_LOCKFILE_ELOCK
-}
-gtr_lockfile_state_t;
-
-gtr_lockfile_state_t gtr_lockfile( const char * filename );
 
 /***
 ****
@@ -98,39 +82,14 @@ void        gtr_open_uri( const char * uri );
 
 void        gtr_open_file( const char * path );
 
-gboolean    gtr_dbus_add_torrent( const char * filename );
-
-gboolean    gtr_dbus_present_window( void );
-
 const char* gtr_get_help_uri( void );
 
 /***
 ****
 ***/
 
-/* backwards-compatible wrapper around g_mkdir_with_parents() */
-int gtr_mkdir_with_parents( const char *name, int mode );
-
-/* backwards-compatible wrapper around gdk_threads_add_timeout_seconds() */
-guint gtr_timeout_add_seconds( guint seconds, GSourceFunc func, gpointer data );
-
-/* backwards-compatible wrapper around gdk_threads_add_idle() */
-guint gtr_idle_add( GSourceFunc  func, gpointer data );
-
-/* backwards-compatible wrapper around gtk_widget_set_tooltip_text() */
-void gtr_widget_set_tooltip_text( GtkWidget * w, const char * tip );
-
-/* backwards-compatible wrapper around gtk_widget_get_window() */
-GdkWindow* gtr_widget_get_window( GtkWidget * w );
-
-/* backwards-compatible wrapper around gtk_widget_get_realized() */
-gboolean gtr_widget_get_realized( GtkWidget * w );
-
 /* backwards-compatible wrapper around gtk_widget_set_visible() */
 void gtr_widget_set_visible( GtkWidget *, gboolean );
-
-/* backwards-compatible wrapper around g_object_ref_sink() */
-gpointer gtr_object_ref_sink( gpointer object );
 
 void gtr_dialog_set_content( GtkDialog * dialog, GtkWidget * content );
 

@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: prefs-dialog.h 11452 2010-12-04 00:19:52Z charles $
+ * $Id: prefs-dialog.h 12607 2011-08-01 22:24:24Z jordan $
  */
 
 #ifndef PREFS_DIALOG_H
@@ -78,6 +78,7 @@ class PrefsDialog: public QDialog
         void setPref( int key, const QVariant& v );
         bool isAllowed( int key ) const;
         QWidget * createTorrentsTab( );
+        QWidget * createDownloadTab( );
         QWidget * createSpeedTab( );
         QWidget * createPrivacyTab( );
         QWidget * createNetworkTab( );

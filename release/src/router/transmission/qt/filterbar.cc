@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: filterbar.cc 12549 2011-07-15 02:17:33Z jordan $
+ * $Id: filterbar.cc 12607 2011-08-01 22:24:24Z jordan $
  */
 
 #include <QString>
@@ -245,10 +245,6 @@ FilterBar :: createActivityCombo( )
 
     row = new QStandardItem( blankIcon, tr( "Finished" ) );
     row->setData( FilterMode::SHOW_FINISHED, ActivityRole );
-    model->appendRow( row );
-
-    row = new QStandardItem( blankIcon, tr( "Queued" ) );
-    row->setData( FilterMode::SHOW_QUEUED, ActivityRole );
     model->appendRow( row );
 
     row = new QStandardItem( QIcon::fromTheme( "view-refresh", blankIcon ), tr( "Verifying" ) );

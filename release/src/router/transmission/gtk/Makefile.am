@@ -15,12 +15,8 @@ AM_CPPFLAGS = \
 AM_CFLAGS = \
     @LIBAPPINDICATOR_CFLAGS@ \
     @LIBEVENT_CFLAGS@ \
-    @LIBCANBERRA_CFLAGS@ \
     @GTK_CFLAGS@ \
     @LIBCURL_CFLAGS@ \
-    @GIO_CFLAGS@ \
-    @LIBNOTIFY_CFLAGS@ \
-    @DBUS_GLIB_CFLAGS@ \
     @OPENSSL_CFLAGS@ \
     @ZLIB_CFLAGS@ \
     @PTHREAD_CFLAGS@
@@ -52,7 +48,6 @@ noinst_HEADERS = \
     stats.h \
     torrent-cell-renderer.h \
     tr-core.h \
-    tr-core-dbus.h \
     tr-icon.h \
     tr-prefs.h \
     tr-window.h \
@@ -60,8 +55,6 @@ noinst_HEADERS = \
     util.h
 
 bin_PROGRAMS = transmission-gtk
-
-dbus_generated_sources = tr-core-dbus.h
 
 transmission_gtk_SOURCES = \
     actions.c \
@@ -85,8 +78,7 @@ transmission_gtk_SOURCES = \
     tr-icon.c \
     tr-prefs.c \
     tr-window.c \
-    util.c \
-    $(dbus_generated_sources)
+    util.c
 
 dist_man_MANS = transmission-gtk.1
 
@@ -94,15 +86,11 @@ transmission_gtk_LDADD = \
     $(top_builddir)/libtransmission/libtransmission.a \
     $(top_builddir)/third-party/miniupnp/libminiupnp.a \
     $(top_builddir)/third-party/libnatpmp/libnatpmp.a \
-    @LIBCANBERRA_LIBS@ \
     @DHT_LIBS@ \
     @LIBUTP_LIBS@ \
     @GTK_LIBS@ \
-    @GIO_LIBS@ \
     @LIBAPPINDICATOR_LIBS@ \
-    @LIBNOTIFY_LIBS@ \
     @LIBEVENT_LIBS@ \
-    @DBUS_GLIB_LIBS@ \
     @LIBCURL_LIBS@ \
     @OPENSSL_LIBS@ \
     @ZLIB_LIBS@ \
@@ -120,19 +108,10 @@ icondir = $(datadir)/pixmaps
 
 EXTRA_DIST = \
     $(DESKTOP_IN_FILES) \
-    marshal.list \
-    tr-core-dbus.xml \
     transmission.png
 
 DISTCLEANFILES = \
     transmission-gtk.desktop
-
-CLEANFILES = $(dbus_generated_sources)
-
-$(srcdir)/tr-core.c: tr-core-dbus.h
-
-tr-core-dbus.h: $(srcdir)/tr-core-dbus.xml
-	$(DBUS_BINDING_TOOL) --mode=glib-server --prefix=gtr_core $< > $(@F)
 
 if WIN32
 
@@ -142,7 +121,7 @@ transmission.res: transmission.rc
 BUILT_SOURCES = \
 	setransmission.res
 
-CLEANFILES += \
+CLEANFILES = \
 	transmission.res
 
 transmission_gtk_LDADD += \
