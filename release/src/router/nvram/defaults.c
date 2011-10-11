@@ -938,6 +938,7 @@ const defaults_t defaults[] = {
 	{ "bt_dl_queue_size",			"5"			},
 	{ "bt_ul_queue_enable",			"0"			},
 	{ "bt_ul_queue_size",			"5"			},
+	{ "bt_message",				"2"			},
 #endif
 
 #if 0

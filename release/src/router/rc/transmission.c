@@ -100,6 +100,7 @@ void start_bittorrent(void)
     fprintf( fp, "\"download-queue-size\": %s, \n", nvram_safe_get( "bt_dl_queue_size" ) );
     fprintf( fp, "\"seed-queue-enabled\": %s, \n", pu );
     fprintf( fp, "\"seed-queue-size\": %s, \n", nvram_safe_get( "bt_ul_queue_size" ) );
+    fprintf( fp, "\"message-level\": %s, \n", nvram_safe_get( "bt_message" ) );
     fprintf( fp, "%s\n", nvram_safe_get("bt_custom"));
     fprintf( fp, "\"rpc-authentication-required\": %s \n", pl );
     fprintf( fp, "}\n");
