@@ -1558,18 +1558,15 @@ transmission-clean:
 transmission-install: transmission
 	$(MAKE) -C transmission DESTDIR=$(INSTALLDIR)/transmission install-strip
 	@rm -rf $(INSTALLDIR)/transmission/usr/share/man
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-cli
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-show
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-edit
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-daemon
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-remote
 ifeq ($(TCONFIG_TR_EXTRAS),y)
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-create
-	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-cli
-	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-show
-	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-edit
 else
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-create
-	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-cli
-	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-show
-	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-edit
 endif
 
 btgui:
