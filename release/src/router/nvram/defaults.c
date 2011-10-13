@@ -281,7 +281,7 @@ const defaults_t defaults[] = {
 	{ "wl_radio_pwrsave_pps",	"10"			},	// Packets per second threshold for power save
 	{ "wl_radio_pwrsave_on_time",	"50"			},	// Radio on time for power save
 	// misc
-	{ "wl_wmf_bss_enable",		"0"			},	// WMF Enable/Disable
+	{ "wl_wmf_bss_enable",		"0"			},	// Wireless Multicast Forwarding Enable/Disable
 	{ "wl_rifs_advert",		"auto"			},	// RIFS mode advertisement
 	{ "wl_stbc_tx",			"auto"			},	// Default STBC TX setting
 	{ "wl_mcast_regen_bss_enable",	"1"			},	// MCAST REGEN Enable/Disable

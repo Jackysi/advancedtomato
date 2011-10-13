@@ -723,6 +723,7 @@ static const nvset_t nvset_list[] = {
 	{ "wl_nmode_protection",	V_WORD,				},	// off, auto
 	{ "wl_nmcsidx",			V_RANGE(-2, 32),	},	// -2 - 32
 	{ "wl_obss_coex",		V_01			},
+	{ "wl_wmf_bss_enable",		V_01				},	// Toastman
 
 // forward-dmz
 	{ "dmz_enable",			V_01				},
