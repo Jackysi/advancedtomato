@@ -245,7 +245,7 @@ createFieldTable('', [
 		value: nvram.smbd_autoshare },
 	{ title: 'Options', multi: [
 		{ suffix: '&nbsp; Master Browser &nbsp;&nbsp;&nbsp;', name: 'f_smbd_master', type: 'checkbox', value: nvram.smbd_master == 1 },
-		{ suffix: '&nbsp; WINS Server &nbsp;',	name: 'f_smbd_wins', type: 'checkbox', value: (nvram.smbd_wins == 1) && (nvram.wan_wins == '' || nvram.wan_wins == '0.0.0.0') }
+		{ suffix: '&nbsp; WINS Server (if not defined on Basic/Network page) &nbsp;',	name: 'f_smbd_wins', type: 'checkbox', value: (nvram.smbd_wins == 1) && (nvram.wan_wins == '' || nvram.wan_wins == '0.0.0.0') }
 	] }
 ]);
 </script>
