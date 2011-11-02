@@ -128,11 +128,13 @@ ifneq ($(TCONFIG_VLAN),y)
 	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 	sed -i $(INSTALLDIR)/www/forward-upnp.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/status-devices.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 	sed -i $(INSTALLDIR)/www/status-overview.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 else
 	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/ NOVLAN-BEGIN/,/ NOVLAN-END/d"
 	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/ NOVLAN-BEGIN/,/ NOVLAN-END/d"
+	sed -i $(INSTALLDIR)/www/status-devices.asp -e "/ NOVLAN-BEGIN/,/ NOVLAN-END/d"
 	sed -i $(INSTALLDIR)/www/status-overview.asp -e "/ NOVLAN-BEGIN/,/ NOVLAN-END/d"
 endif
 
@@ -176,6 +178,7 @@ endif
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
 		-e "/CTF-BEGIN/d"	-e "/CTF-END/d" \
 		-e "/ VLAN-BEGIN/d"	-e "/ VLAN-END/d" \
+		-e "/ NOVLAN-BEGIN/d"	-e "/ NOVLAN-END/d" \
 		|| true; \
 	done
 
