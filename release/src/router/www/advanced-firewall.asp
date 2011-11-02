@@ -30,6 +30,7 @@
 
 function verifyFields(focused, quiet)
 {
+/* VLAN-BEGIN */
 	var enable_mcast = E('_f_multicast').checked;
 	E('_f_multicast_lan').disabled = ((!enable_mcast) || (nvram.lan_ifname.length < 1));
 	E('_f_multicast_lan1').disabled = ((!enable_mcast) || (nvram.lan1_ifname.length < 1));
@@ -43,6 +44,7 @@ function verifyFields(focused, quiet)
 		E('_f_multicast_lan2').checked = false;
 	if(nvram.lan3_ifname.length < 1)
 		E('_f_multicast_lan3').checked = false;
+/* VLAN-END */
 	return 1;
 }
 
@@ -56,10 +58,12 @@ function save()
 	fom.block_wan.value = E('_f_icmp').checked ? 0 : 1;
 	fom.ne_syncookies.value = E('_f_syncookies').checked ? 1 : 0;
 	fom.multicast_pass.value = E('_f_multicast').checked ? 1 : 0;
+/* VLAN-BEGIN */
 	fom.multicast_lan.value = E('_f_multicast_lan').checked ? 1 : 0;
 	fom.multicast_lan1.value = E('_f_multicast_lan1').checked ? 1 : 0;
 	fom.multicast_lan2.value = E('_f_multicast_lan2').checked ? 1 : 0;
 	fom.multicast_lan3.value = E('_f_multicast_lan3').checked ? 1 : 0;
+/* VLAN-END */
 	form.submit(fom, 1);
 }
 </script>
@@ -84,10 +88,12 @@ function save()
 <input type='hidden' name='block_wan'>
 <input type='hidden' name='ne_syncookies'>
 <input type='hidden' name='multicast_pass'>
+/* VLAN-BEGIN */
 <input type='hidden' name='multicast_lan'>
 <input type='hidden' name='multicast_lan1'>
 <input type='hidden' name='multicast_lan2'>
 <input type='hidden' name='multicast_lan3'>
+/* VLAN-END */
 
 <div class='section-title'>Firewall</div>
 <div class='section'>
@@ -97,10 +103,12 @@ createFieldTable('', [
 	{ title: 'NAT loopback', name: 'nf_loopback', type: 'select', options: [[0,'All'],[1,'Forwarded Only'],[2,'Disabled']], value: fixInt(nvram.nf_loopback, 0, 2, 1) },
 	{ title: 'Enable SYN cookies', name: 'f_syncookies', type: 'checkbox', value: nvram.ne_syncookies != '0' },
 	{ title: 'Allow multicast', name: 'f_multicast', type: 'checkbox', value: nvram.multicast_pass == '1' },
+/* VLAN-BEGIN */
 	{ title: 'LAN', indent: 2, name: 'f_multicast_lan', type: 'checkbox', value: (nvram.multicast_lan == '1') },
 	{ title: 'LAN1', indent: 2, name: 'f_multicast_lan1', type: 'checkbox', value: (nvram.multicast_lan1 == '1') },
 	{ title: 'LAN2', indent: 2, name: 'f_multicast_lan2', type: 'checkbox', value: (nvram.multicast_lan2 == '1') },
 	{ title: 'LAN3', indent: 2, name: 'f_multicast_lan3', type: 'checkbox', value: (nvram.multicast_lan3 == '1') },
+/* VLAN-END */
 ]);
 </script>
 </div>

@@ -214,6 +214,7 @@ createFieldTable('', [
 <div class='section'>
 <script type='text/javascript'>
 
+/* VLAN-BEGIN */
 function h_countbitsfromleft(num) {
 	if (num == 255 ){
 		return(8);
@@ -269,6 +270,30 @@ createFieldTable('', [
 	{ title: 'DNS', rid: 'dns', text: stats.dns, ignore: nvram.wan_proto != 'disabled' },
 	{ title: 'DHCP', text: s }
 ]);
+/* VLAN-END */
+
+/* NOVLAN-BEGIN */
+if (nvram.lan_proto == 'dhcp') {
+	if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
+		var x = nvram.lan_ipaddr.split('.').splice(0, 3).join('.') + '.';
+		nvram.dhcpd_startip = x + nvram.dhcp_start;
+		nvram.dhcpd_endip = x + ((nvram.dhcp_start * 1) + (nvram.dhcp_num * 1) - 1);
+	}
+	s = '<a href="status-devices.asp">' + nvram.dhcpd_startip + ' - ' + nvram.dhcpd_endip + '</a>';
+}
+else {
+	s = 'Disabled';
+}
+createFieldTable('', [
+	{ title: 'Router MAC Address', text: nvram.et0macaddr },
+	{ title: 'Router IP Address', text: nvram.lan_ipaddr },
+	{ title: 'Subnet Mask', text: nvram.lan_netmask },
+	{ title: 'Gateway', text: nvram.lan_gateway, ignore: nvram.wan_proto != 'disabled' },
+	{ title: 'DNS', rid: 'dns', text: stats.dns, ignore: nvram.wan_proto != 'disabled' },
+	{ title: 'DHCP', text: s }
+]);
+/* NOVLAN-END */
+
 </script>
 </div>
 
