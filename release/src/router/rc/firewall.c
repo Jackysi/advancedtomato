@@ -1490,6 +1490,7 @@ int start_firewall(void)
 
 //	start_bwclimon();
 	start_account();
+	start_arpbind();
 
 	simple_unlock("firewall");
 	return 0;
