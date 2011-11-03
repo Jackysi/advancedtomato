@@ -256,6 +256,10 @@ dg.populate = function()
 		}
 		if (j < 0) continue;
 
+		if (e.ip == '') {
+			e.ip = a[1];
+		}
+
 		if (e.name == '') {
 			e.name = a[2];
 		}
@@ -294,6 +298,8 @@ dg.populate = function()
 		else {
 			e.qual = -1;
 		}
+
+		if (e.ip=='') e.ip='<i><small><center>? ? ?</center></small></i>';
 
 		this.insert(-1, e, [
 			e.ifname, b, (e.ip == '-') ? '' : e.ip, e.name,
