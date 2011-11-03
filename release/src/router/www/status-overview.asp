@@ -316,7 +316,11 @@ createFieldTable('', [
 	{ title: 'Wireless Mode', text: wmode },
 	{ title: 'Wireless Network Mode', text: bgmo[nvram['wl'+u+'_net_mode']] },
 	{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? '<b>Disabled</b>' : 'Enabled' },
+/* REMOVE-BEGIN */
+//	{ title: 'SSID', text: (nvram['wl'+u+'_ssid'] + ' <small><i>' + ((nvram['wl'+u+'_mode'] != 'ap') ? '' : ((nvram['wl'+u+'_closed'] == 0) ? '(Broadcast Enabled)' : '(Broadcast Disabled)')) + '</i></small>') },
+/* REMOVE-END */
 	{ title: 'SSID', text: nvram['wl'+u+'_ssid'] },
+	{ title: 'Broadcast', text: (nvram['wl'+u+'_closed'] == 0) ? 'Enabled' : '<b>Disabled</b>', ignore: (nvram['wl'+u+'_mode'] != 'ap') },
 	{ title: 'Security', text: sec },
 	{ title: 'Channel', rid: 'channel'+uidx, text: stats.channel[uidx] },
 	{ title: 'Channel Width', rid: 'nbw'+uidx, text: wlstats[uidx].nbw, ignore: !nphy },
