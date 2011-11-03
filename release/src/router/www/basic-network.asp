@@ -830,7 +830,6 @@ REMOVE-END */
 		break;
 	case 'ppp3g':
 		vis._ppp_service = 0;
-		vis._ppp_username = 0;
 		vis._ppp_custom = 0;
 		vis._l2tp_server_ip = 0;
 		vis._pptp_server_ip = 0;
