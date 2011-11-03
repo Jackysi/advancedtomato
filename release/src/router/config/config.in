@@ -113,6 +113,10 @@ config TCONFIG_NTFS
 	default n
 
 config TCONFIG_SNMP
-	bool "  SNMP"
+	bool "SNMP"
+	default n
+
+config TCONFIG_VLAN
+	bool "VLAN GUI"
 	default n
 

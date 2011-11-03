@@ -111,9 +111,11 @@ Copyright (C) 2010 Keith Moyer<br>
 <br>
 <!-- VPN-END -->
 
+<!-- VLAN-BEGIN -->
 VLAN administration GUI<br>
 Multiple LAN support integration and GUI<br>
 Multiple/virtual SSID support (experimental)<br>
+<!-- VLAN-END -->
 Real-time bandwidth monitoring of LAN clients<br>
 Static ARP binding<br>
 Copyright (C) 2011 Augusto Bott<br>

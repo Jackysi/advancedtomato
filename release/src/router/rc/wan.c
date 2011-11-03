@@ -894,6 +894,7 @@ void start_wan_done(char *wan_ifname)
 		eval("brctl", "stp", nvram_safe_get("lan_ifname"), "0");
 		if (nvram_match("lan_stp", "1")) 
 			eval("brctl", "stp", nvram_safe_get("lan_ifname"), "1");
+#ifdef TCONFIG_VLAN
 		if(strcmp(nvram_safe_get("lan1_ifname"),"")!=0) {
 			eval("brctl", "stp", nvram_safe_get("lan1_ifname"), "0");
 			if (nvram_match("lan1_stp", "1")) 
@@ -909,6 +910,7 @@ void start_wan_done(char *wan_ifname)
 			if (nvram_match("lan3_stp", "1")) 
 				eval("brctl", "stp", nvram_safe_get("lan3_ifname"), "1");
 		}
+#endif
 	}
 
 	if (wanup)

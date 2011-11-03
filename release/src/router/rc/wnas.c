@@ -121,6 +121,8 @@ void start_nas(void)
 	mode_t m;
 
 	m = umask(0077);
+
+#ifdef TCONFIG_VLAN
 	if(nvram_get_int("nas_alternate")) {
 		foreach_wif(1, NULL, nas_starter);
 	} else {
@@ -133,6 +135,10 @@ void start_nas(void)
 		if(strstr(nvram_safe_get("lan3_ifnames"),nvram_safe_get("wl0_ifname")) != NULL)
 			xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan3");
 	}
+#else
+	if(strstr(nvram_safe_get("lan_ifnames"),nvram_safe_get("wl0_ifname")) != NULL)
+		xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan");
+#endif
 
 	if (foreach_wif(1, NULL, is_sta))
 		xstart("nas", "/etc/nas.wan.conf", "/var/run/nas.wan.pid", "wan");

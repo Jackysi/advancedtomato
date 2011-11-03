@@ -45,6 +45,7 @@ else
 ND = "ND"
 endif
 SNMP ?= "n"
+VLAN ?= "n"
 
 -include tomato_profile.mak
 
@@ -197,6 +198,7 @@ what:
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM
 # SNMP
+# VLAN
 
 define RouterOptions
 	@( \
@@ -300,6 +302,10 @@ define RouterOptions
 	if [ "$(SNMP)" = "y" ]; then \
 		sed -i "/TCONFIG_SNMP/d" $(1); \
 		echo "TCONFIG_SNMP=y" >>$(1); \
+	fi; \
+	if [ "$(VLAN)" = "y" ]; then \
+		sed -i "/TCONFIG_VLAN/d" $(1); \
+		echo "TCONFIG_VLAN=y" >>$(1); \
 	fi; \
 	)
 endef
@@ -530,34 +536,33 @@ endif
 	@$(MAKE) setprofile N=$(TPROFILE) B=$(B) DESC="$(BUILD_DESC)" USB="$(USB)"
 	@$(MAKE) all
 
-
 ## Make the "normal" build
 a:
-	@$(MAKE) bin B=A BUILD_DESC="Std" USB="USB"
+	@$(MAKE) bin B=A BUILD_DESC="Std" USB="USB" VLAN="$(VLAN)" SNMP="$(SNMP)"
 
 ## Make the "normal but without SSH" build
 b:
-	@$(MAKE) bin NO_SSH=y B=B BUILD_DESC="No SSH" USB="USB"
+	@$(MAKE) bin NO_SSH=y B=B BUILD_DESC="No SSH" USB="USB" VLAN="$(VLAN)" SNMP="$(SNMP)"
 
 ## Make the "normal but without CIFS" build
 c:
-	@$(MAKE) bin NO_CIFS=y B=C BUILD_DESC="No CIFS" USB="USB"
+	@$(MAKE) bin NO_CIFS=y B=C BUILD_DESC="No CIFS" USB="USB" VLAN="$(VLAN)" SNMP="$(SNMP)"
 
 ## Make the "normal but without SAMBA" (Lite) build
 d:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NO_SAMBA=y SLIM=y NO_CIFS=y NO_JFFS=y NO_ZEBRA=y B=D BUILD_DESC="Lite" USB="USB"
+	@$(MAKE) bin NO_SAMBA=y SLIM=y NO_CIFS=y NO_JFFS=y NO_ZEBRA=y B=D BUILD_DESC="Lite" USB="USB" VLAN="$(VLAN)" SNMP="$(SNMP)"
 else
-	@$(MAKE) bin NO_SAMBA=y SLIM=y B=D BUILD_DESC="Lite" USB="USB"
+	@$(MAKE) bin NO_SAMBA=y SLIM=y B=D BUILD_DESC="Lite" USB="USB" VLAN="$(VLAN)" SNMP="$(SNMP)"
 endif
 
-## Make the "Ext + VPN" = VPN
+## Make the "normal (with NTFS support) + VPN" build
 e:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)"
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)" VLAN="$(VLAN)"
 else
 #	@$(MAKE) bin OPENVPN=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB"
-	@$(MAKE) bin OPENVPN=y BBEXTRAS=y USBEXTRAS=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)"
+	@$(MAKE) bin OPENVPN=y BBEXTRAS=y USBEXTRAS=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)" VLAN="$(VLAN)"
 endif
 
 ## Make the "Mini: no USB, no CIFS, no Zebra" build - targeted for Netgear routers
@@ -584,34 +589,34 @@ endif
 ## Make the "normal with Extras and NTFS + IPv6" = Ext
 m:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB" SNMP="$(SNMP)"
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB" SNMP="$(SNMP)" VLAN="$(VLAN)"
 else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB" SNMP="$(SNMP)"
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB" SNMP="$(SNMP)" VLAN="$(VLAN)"
 endif
 
 ## Make the "No USB" = Std
 s:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB="" SNMP="$(SNMP)"
+	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB="" SNMP="$(SNMP)" VLAN="$(VLAN)"
 else
-	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB="" SNMP="$(SNMP)"
+	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB="" SNMP="$(SNMP)" VLAN="$(VLAN)"
 endif
 
 ifeq ($(CONFIG_LINUX26),y)
 ## Make the "No USB with Extras" build (K26 only, for 8MB flash)
 t:
-	@$(MAKE) bin B=S USB="" BBEXTRAS=y EBTABLES=y NO_LIBOPT=y $(if $(filter r2, $(MIPS32)),,BCM57=y) IPV6SUPP=y BUILD_DESC="Std"
+	@$(MAKE) bin B=S USB="" BBEXTRAS=y EBTABLES=y NO_LIBOPT=y $(if $(filter r2, $(MIPS32)),,BCM57=y) IPV6SUPP=y BUILD_DESC="Std" VLAN="$(VLAN)"
 ## Make the "No USB with OpenVPN and Extras" build (K26 only, for 8MB flash)
 u:
-	@$(MAKE) bin B=V USB="" BBEXTRAS=y EBTABLES=y NO_LIBOPT=y $(if $(filter r2, $(MIPS32)),,BCM57=y) IPV6SUPP=y OPENVPN=y BUILD_DESC="$(VPN)"
+	@$(MAKE) bin B=V USB="" BBEXTRAS=y EBTABLES=y NO_LIBOPT=y $(if $(filter r2, $(MIPS32)),,BCM57=y) IPV6SUPP=y OPENVPN=y BUILD_DESC="$(VPN)" VLAN="$(VLAN)"
 endif
 
 ## Make the "VPN witn no USB support" build
 v:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NO_JFFS=y B=V BUILD_DESC="$(VPN)" USB="" SNMP="$(SNMP)"
+	@$(MAKE) bin OPENVPN=y NO_JFFS=y B=V BUILD_DESC="$(VPN)" USB="" SNMP="$(SNMP)" VLAN="$(VLAN)"
 else
-	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB="" SNMP="$(SNMP)"
+	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB="" SNMP="$(SNMP)" VLAN="$(VLAN)"
 endif
 
 ## Make Mips32r2 builds (K26 only)
@@ -701,7 +706,6 @@ libc: cleanlibc
 #	@$(MAKE) -C ../../tools-src/uClibc install
 
 help:
-
 	@echo "a            A build (standard)"
 	@echo "b            B build (standard minus SSH)"
 	@echo "c            C build (standard minus CIFS)"
