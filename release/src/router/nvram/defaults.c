@@ -182,8 +182,8 @@ const defaults_t defaults[] = {
 	{ "wl_corerev",			""				},	// Current core revision
 	{ "wl_phytypes",		""				},	// List of supported wireless bands (e.g. "ga")
 	{ "wl_radioids",		""				},	// List of radio IDs
-	{ "wl_ssid",			"Tomato.RAF24"		},	// Service set ID (network name)
-	{ "wl1_ssid",			"Tomato.RAF50"		},
+	{ "wl_ssid",			"Tomato24"		},	// Service set ID (network name)
+	{ "wl1_ssid",			"Tomato50"		},
 	{ "wl_country_code",		""		},		// Country (default obtained from driver)
 	{ "wl_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl1_radio",			"1"				},	// Enable (1) or disable (0) radio
@@ -350,7 +350,7 @@ const defaults_t defaults[] = {
 	{ "ddnsx_refresh",		"28"			},
 
 // basic-ident
-	{ "router_name",		"tomatoRAF"		},
+	{ "router_name",		"TomatoUSB"		},
 	{ "wan_hostname",		"unknown"		},
 	{ "wan_domain",			""				},
 
@@ -1057,7 +1057,7 @@ const defaults_t defaults[] = {
 #ifdef TCONFIG_NOCAT
 	{ "NC_enable",				"0"			}, // enable NoCatSplash
 	{ "NC_Verbosity",			"2"			},
-	{ "NC_GatewayName",			"Tomato RAF Portal"	},
+	{ "NC_GatewayName",			"Tomato Captive Portal"	},
 	{ "NC_GatewayPort",			"5280"			},
 	{ "NC_GatewayMode",			"Open"			},
 	{ "NC_DocumentRoot",			"/tmp/splashd"		},

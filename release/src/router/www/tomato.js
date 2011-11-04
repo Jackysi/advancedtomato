@@ -2398,12 +2398,10 @@ function navi()
 			['View Details',	'detailed.asp'],
 			['Transfer Rates',	'ctrate.asp']
 			] ],
-		['RAF Features',		'new', 0, [
+		['Bandwidth Limiter',	'new-qoslimit.asp'],
 /* NOCAT-BEGIN */
-			['Captive Portal',	'splashd.asp'],
+		['Captive Portal',	'new-splashd.asp'],
 /* NOCAT-END */
-			['MAC/IP BW Limit',	'qoslimit.asp']
-			] ],
 		['Access Restriction',	'restrict.asp'],
 /* REMOVE-BEGIN
 		['Scripts',				'sc', 0, [
