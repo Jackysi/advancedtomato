@@ -549,6 +549,7 @@ static const nvset_t nvset_list[] = {
 	{ "dhcp_lease",			V_LENGTH(0, 5)		},
 	{ "wan_wins",			V_IP				},
 
+#ifdef TCONFIG_VLAN
 	// LAN networks
 	{ "lan_ifname",			V_LENGTH(0, 5)			},
 
@@ -587,6 +588,7 @@ static const nvset_t nvset_list[] = {
 	{ "dhcpd3_startip",		V_LENGTH(0, 15)			},
 	{ "dhcpd3_endip",		V_LENGTH(0, 15)			},
 	{ "dhcp3_lease",		V_LENGTH(0, 5)			},
+#endif
 
 	// wireless
 	{ "wl_radio",			V_01				},
@@ -682,10 +684,12 @@ static const nvset_t nvset_list[] = {
 // advanced-firewall
 	{ "block_wan",			V_01				},
 	{ "multicast_pass",		V_01				},
+#ifdef TCONFIG_VLAN
 	{ "multicast_lan",		V_01				},
 	{ "multicast_lan1",		V_01				},
 	{ "multicast_lan2",		V_01				},
 	{ "multicast_lan3",		V_01				},
+#endif
 	{ "block_loopback",		V_01				},
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},
@@ -705,6 +709,8 @@ static const nvset_t nvset_list[] = {
 #ifdef CONFIG_BCMWL5
 	{ "ctf_disable",		V_01			},
 #endif
+
+#ifdef TCONFIG_VLAN
 // advanced-vlan
 	{ "vlan0ports",			V_TEXT(0,16)			},
 	{ "vlan1ports",			V_TEXT(0,16)			},
@@ -742,6 +748,7 @@ static const nvset_t nvset_list[] = {
 	{ "lan_ifnames",		V_TEXT(0,64)			},
 	{ "manual_boot_nv",		V_01				},
 	{ "trunk_vlan_so",		V_01				},
+#endif
 
 // advanced-mac
 	{ "mac_wan",			V_LENGTH(0, 17)		},
@@ -757,18 +764,22 @@ static const nvset_t nvset_list[] = {
 	{ "dr_setting",			V_RANGE(0, 3)		},
 	{ "dr_lan_tx",			V_LENGTH(0, 32)		},
 	{ "dr_lan_rx",			V_LENGTH(0, 32)		},
+#ifdef TCONFIG_VLAN
 	{ "dr_lan1_tx",			V_LENGTH(0, 32)		},
 	{ "dr_lan1_rx",			V_LENGTH(0, 32)		},
 	{ "dr_lan2_tx",			V_LENGTH(0, 32)		},
 	{ "dr_lan2_rx",			V_LENGTH(0, 32)		},
 	{ "dr_lan3_tx",			V_LENGTH(0, 32)		},
 	{ "dr_lan3_rx",			V_LENGTH(0, 32)		},
+#endif
 	{ "dr_wan_tx",			V_LENGTH(0, 32)		},
 	{ "dr_wan_rx",			V_LENGTH(0, 32)		},
 #endif
 
+#ifdef TCONFIG_VLAN
 // advanced-access
 	{ "lan_access",			V_LENGTH(0, 4096)	},
+#endif
 
 // advanced-wireless
 	{ "wl_country",			V_LENGTH(0, 64)		},	// !!TB - Country code
@@ -822,11 +833,13 @@ static const nvset_t nvset_list[] = {
 	{ "upnp_max_port_int",		V_PORT				},
 	{ "upnp_min_port_ext",		V_PORT				},
 	{ "upnp_max_port_ext",		V_PORT				},
+#ifdef TCONFIG_VLAN
 	{ "upnp_lan",			V_01				},
 	{ "upnp_lan1",			V_01				},
 	{ "upnp_lan2",			V_01				},
 	{ "upnp_lan3",			V_01				},
-	
+#endif
+
 // forward-basic
 	{ "portforward",		V_LENGTH(0, 4096)	},
 

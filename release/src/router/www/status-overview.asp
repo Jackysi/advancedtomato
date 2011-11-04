@@ -83,7 +83,7 @@ function wlenable(uidx, n)
 	form.submitHidden('wlradio.cgi', { enable: '' + n, _nextpage: 'status-overview.asp', _nextwait: n ? 6 : 3, _wl_unit: wl_unit(uidx) });
 }
 
-var ref = new TomatoRefresh('/status-data.jsx', '', 0, 'status_overview_refresh');
+var ref = new TomatoRefresh('status-data.jsx', '', 0, 'status_overview_refresh');
 
 ref.refresh = function(text)
 {
@@ -225,6 +225,8 @@ createFieldTable('', [
 <div class='section-title'>LAN</div>
 <div class='section'>
 <script type='text/javascript'>
+
+/* VLAN-BEGIN */
 var s='';
 var t='';
 for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
@@ -254,6 +256,30 @@ createFieldTable('', [
 	{ title: 'DNS', rid: 'dns', text: stats.dns, ignore: nvram.wan_proto != 'disabled' },
 	{ title: 'DHCP', text: s }
 ]);
+/* VLAN-END */
+
+/* NOVLAN-BEGIN */
+if (nvram.lan_proto == 'dhcp') {
+	if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
+		var x = nvram.lan_ipaddr.split('.').splice(0, 3).join('.') + '.';
+		nvram.dhcpd_startip = x + nvram.dhcp_start;
+		nvram.dhcpd_endip = x + ((nvram.dhcp_start * 1) + (nvram.dhcp_num * 1) - 1);
+	}
+	s = '<a href="status-devices.asp">' + nvram.dhcpd_startip + ' - ' + nvram.dhcpd_endip + '</a>';
+}
+else {
+	s = 'Disabled';
+}
+createFieldTable('', [
+	{ title: 'Router MAC Address', text: nvram.et0macaddr },
+	{ title: 'Router IP Address', text: nvram.lan_ipaddr },
+	{ title: 'Subnet Mask', text: nvram.lan_netmask },
+	{ title: 'Gateway', text: nvram.lan_gateway, ignore: nvram.wan_proto != 'disabled' },
+	{ title: 'DNS', rid: 'dns', text: stats.dns, ignore: nvram.wan_proto != 'disabled' },
+	{ title: 'DHCP', text: s }
+]);
+/* NOVLAN-END */
+
 </script>
 </div>
 
@@ -279,7 +305,11 @@ REMOVE-END */
 		{ title: 'Wireless Mode', text: wmode },
 		{ title: 'Wireless Network Mode', text: bgmo[nvram['wl'+u+'_net_mode']], ignore: (wl_sunit(uidx)>=0) },
 		{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? '<b>Disabled</b>' : 'Enabled', ignore: (wl_sunit(uidx)>=0) },
+/* REMOVE-BEGIN */
+//	{ title: 'SSID', text: (nvram['wl'+u+'_ssid'] + ' <small><i>' + ((nvram['wl'+u+'_mode'] != 'ap') ? '' : ((nvram['wl'+u+'_closed'] == 0) ? '(Broadcast Enabled)' : '(Broadcast Disabled)')) + '</i></small>') },
+/* REMOVE-END */
 		{ title: 'SSID', text: nvram['wl'+u+'_ssid'] },
+		{ title: 'Broadcast', text: (nvram['wl'+u+'_closed'] == 0) ? 'Enabled' : '<b>Disabled</b>', ignore: (nvram['wl'+u+'_mode'] != 'ap') },
 		{ title: 'Security', text: sec },
 		{ title: 'Channel', rid: 'channel'+uidx, text: stats.channel[uidx], ignore: (wl_sunit(uidx)>=0) },
 		{ title: 'Channel Width', rid: 'nbw'+uidx, text: wlstats[uidx].nbw, ignore: !nphy },
