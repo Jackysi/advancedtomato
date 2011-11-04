@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: util.h 12656 2011-08-09 02:30:31Z jordan $
+ * $Id: util.h 12997 2011-10-20 00:37:39Z jordan $
  */
 
 #ifndef GTR_UTIL_H
@@ -87,6 +87,12 @@ const char* gtr_get_help_uri( void );
 /***
 ****
 ***/
+
+/* backwards-compatible wrapper around gtk_hbox_new() */
+GtkWidget* gtr_hbox_new( gboolean homogenous, gint spacing );
+
+/* backwards-compatible wrapper around gtk_vbox_new() */
+GtkWidget* gtr_vbox_new( gboolean homogenous, gint spacing );
 
 /* backwards-compatible wrapper around gtk_widget_set_visible() */
 void gtr_widget_set_visible( GtkWidget *, gboolean );

@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: tr-core.c 12680 2011-08-13 22:24:31Z jordan $
+ * $Id: tr-core.c 12998 2011-10-20 00:40:32Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -1401,9 +1401,10 @@ gtr_inhibit_hibernation( guint * cookie )
                                             NULL, G_DBUS_CALL_FLAGS_NONE,
                                             1000, NULL, &err );
 
-    *cookie = g_variant_get_uint32( g_variant_get_child_value( response, 0 ) );
+    if( response != NULL )
+        *cookie = g_variant_get_uint32( g_variant_get_child_value( response, 0 ) );
 
-    success = err == NULL;
+    success = ( response != NULL ) && ( err == NULL );
 
     /* logging */
     if( success )
@@ -1414,8 +1415,11 @@ gtr_inhibit_hibernation( guint * cookie )
     }
 
     /* cleanup */
-    g_variant_unref( response );
-    g_object_unref( connection );
+    if( response != NULL )
+        g_variant_unref( response );
+    if( connection != NULL )
+        g_object_unref( connection );
+
     return success;
 }
 

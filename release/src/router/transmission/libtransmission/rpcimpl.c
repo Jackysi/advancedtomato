@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: rpcimpl.c 12919 2011-09-26 20:49:26Z jordan $
+ * $Id: rpcimpl.c 13001 2011-10-20 00:58:58Z jordan $
  */
 
 #include <assert.h>
@@ -982,7 +982,7 @@ replaceTrackers( tr_torrent * tor, tr_benc * urls )
 
         if(    tr_bencGetInt( pair[0], &pos )
             && tr_bencGetStr( pair[1], &newval )
-            && tr_urlIsValid( newval, -1 )
+            && tr_urlIsValidTracker( newval )
             && pos < n
             && pos >= 0 )
         {

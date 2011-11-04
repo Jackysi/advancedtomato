@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: filter.c 12872 2011-09-14 17:22:54Z jordan $
+ * $Id: filter.c 12997 2011-10-20 00:37:39Z jordan $
  */
 
 #include <stdlib.h> /* qsort() */
@@ -984,7 +984,7 @@ gtr_filter_bar_new( tr_session * session, GtkTreeModel * tmodel, GtkTreeModel **
     g_signal_connect( data->activity, "changed", G_CALLBACK( selection_changed_cb ), data );
 
 
-    h = gtk_hbox_new( FALSE, GUI_PAD_SMALL );
+    h = gtr_hbox_new( FALSE, GUI_PAD_SMALL );
 
     /* add the activity combobox */
     str = _( "_Show:" );

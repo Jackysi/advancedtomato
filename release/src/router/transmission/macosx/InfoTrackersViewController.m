@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoTrackersViewController.m 12325 2011-04-05 23:03:33Z livings124 $
+ * $Id: InfoTrackersViewController.m 12979 2011-10-12 03:40:54Z livings124 $
  *
  * Copyright (c) 2010-2011 Transmission authors and contributors
  *
@@ -186,6 +186,11 @@
         return TRACKER_GROUP_SEPARATOR_HEIGHT;
     else
         return [tableView rowHeight];
+}
+
+- (BOOL)tableView:(NSTableView *)aTableView shouldEditTableColumn:(NSTableColumn *)aTableColumn row:(NSInteger)rowIndex
+{
+    return NO;
 }
 
 - (void) tableViewSelectionDidChange: (NSNotification *) notification

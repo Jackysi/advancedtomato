@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: makemeta-ui.c 12679 2011-08-13 21:08:53Z jordan $
+ * $Id: makemeta-ui.c 12997 2011-10-20 00:37:39Z jordan $
  */
 
 #include <glib/gi18n.h>
@@ -177,7 +177,7 @@ makeProgressDialog( GtkWidget * parent, MakeMetaUI * ui )
     fr = gtk_frame_new( NULL );
     gtk_container_set_border_width( GTK_CONTAINER( fr ), GUI_PAD_BIG );
     gtk_frame_set_shadow_type( GTK_FRAME( fr ), GTK_SHADOW_NONE );
-    v = gtk_vbox_new( TRUE, GUI_PAD );
+    v = gtr_vbox_new( TRUE, GUI_PAD );
     gtk_container_add( GTK_CONTAINER( fr ), v );
 
     l = gtk_label_new( _( "Creating torrent..." ) );
@@ -473,7 +473,7 @@ gtr_torrent_creation_dialog_new( GtkWindow  * parent, TrCore * core )
     hig_workarea_add_section_title ( t, &row, _( "Properties" ) );
 
         str = _( "_Trackers:" );
-        v = gtk_vbox_new( FALSE, GUI_PAD_SMALL );
+        v = gtr_vbox_new( FALSE, GUI_PAD_SMALL );
         ui->announce_text_buffer = gtk_text_buffer_new( NULL );
         w = gtk_text_view_new_with_buffer( ui->announce_text_buffer );
         gtk_widget_set_size_request( w, -1, 80 );

@@ -1536,7 +1536,7 @@ transmission/stamp-h1: openssl libcurl libevent zlib
 		-Wextra -Wdeclaration-after-statement -Winit-self" \
 		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
 		CPPFLAGS="-I$(TOP)/zlib -O3 -DTR_EMBEDDED" \
-		ac_cv_header_libintl_h=no \
+		ac_cv_header_libintl_h=no HAVE_CXX=yes \
 		$(CONFIGURE) --target=mipsel-linux --prefix=/usr --disable-gtk --disable-nls \
 		--enable-lightweight --enable-largefile --enable-utp \
 		LIBCURL_CFLAGS="-I$(TOP)/libcurl/include" \

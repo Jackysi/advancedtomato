@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: util.c 12682 2011-08-13 22:58:49Z jordan $
+ * $Id: util.c 12999 2011-10-20 00:46:26Z jordan $
  */
 
 #include <ctype.h> /* isxdigit() */
@@ -473,6 +473,28 @@ gtr_priority_combo_new( void )
 ****
 ***/
 
+GtkWidget*
+gtr_hbox_new( gboolean homogenous UNUSED, gint spacing )
+{
+#if GTK_CHECK_VERSION( 3,2,0 )
+    return gtk_box_new( GTK_ORIENTATION_HORIZONTAL, spacing );
+#else
+    return gtk_hbox_new( homogenous, spacing );
+#endif
+}
+
+GtkWidget*
+gtr_vbox_new( gboolean homogenous UNUSED, gint spacing )
+{
+#if GTK_CHECK_VERSION( 3,2,0 )
+    return gtk_box_new( GTK_ORIENTATION_VERTICAL, spacing );
+#else
+    return gtk_vbox_new( homogenous, spacing );
+#endif
+}
+
+#define GTR_CHILD_HIDDEN "gtr-child-hidden"
+
 void
 gtr_widget_set_visible( GtkWidget * w, gboolean b )
 {
@@ -484,9 +506,25 @@ gtr_widget_set_visible( GtkWidget * w, gboolean b )
         GtkWindow * window = GTK_WINDOW( w );
 
         for( l=windows; l!=NULL; l=l->next )
-            if( GTK_IS_WINDOW( l->data ) )
-                if( gtk_window_get_transient_for( GTK_WINDOW( l->data ) ) == window )
-                    gtr_widget_set_visible( GTK_WIDGET( l->data ), b );
+        {
+            if( !GTK_IS_WINDOW( l->data ) )
+                continue;
+            if( gtk_window_get_transient_for( GTK_WINDOW( l->data ) ) != window )
+                continue;
+            if( gtk_widget_get_visible( GTK_WIDGET( l->data ) ) == b )
+                continue;
+
+            if( b && g_object_get_data( G_OBJECT( l->data ), GTR_CHILD_HIDDEN ) != NULL )
+            {
+                g_object_steal_data( G_OBJECT( l->data ), GTR_CHILD_HIDDEN );
+                gtr_widget_set_visible( GTK_WIDGET( l->data ), TRUE );
+            }
+            else if( !b )
+            {
+                g_object_set_data( G_OBJECT( l->data ), GTR_CHILD_HIDDEN, GINT_TO_POINTER( 1 ) );
+                gtr_widget_set_visible( GTK_WIDGET( l->data ), FALSE );
+            }
+        }
 
         g_list_free( windows );
     }

@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FileOutlineController.m 12950 2011-10-08 21:30:56Z livings124 $
+ * $Id: FileOutlineController.m 12994 2011-10-19 01:56:06Z livings124 $
  *
  * Copyright (c) 2008-2011 Transmission authors and contributors
  *
@@ -105,8 +105,8 @@ typedef enum
     /*while (![fLock tryLock])
         tr_wait_msec(100);*/
     
-    [fOutline deselectAll: nil];
     [fOutline reloadData];
+    [fOutline deselectAll: nil];
     
     [fLock unlock];
 }
