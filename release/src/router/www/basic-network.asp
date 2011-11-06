@@ -790,14 +790,14 @@ function verifyFields(focused, quiet)
 		if (wl_sunit(uidx)<0) {
 			wmode = E('_f_wl'+wl_unit(uidx)+'_mode').value;
 
-		if (wmode == 'wet') {
-			wan = 'disabled';
-			vis._wan_proto = 0;
+			if (wmode == 'wet') {
+				wan = 'disabled';
+				vis._wan_proto = 0;
 /* NOVLAN-BEGIN */
-			vis._f_dhcpd_enable = 0;
-			vis._dhcp_lease = 0;
+				vis._f_dhcpd_enable = 0;
+				vis._dhcp_lease = 0;
 /* NOVLAN-END */
-		}
+			}
 
 			if ((wan == 'disabled') || (wmode == 'sta') || (wmode == 'wet')) {
 				vis._f_wan_islan = 1;
@@ -1311,11 +1311,11 @@ function save()
 			if (wmode == 'apwds') E('_wl'+u+'_mode').value = 'ap';
 			else E('_wl'+u+'_mode').value = wmode;
 
-		if (wmode == 'wet') {
-			fom.wan_proto.value = 'disabled';
-			fom.wan_proto.disabled = 0;
+			if (wmode == 'wet') {
+				fom.wan_proto.value = 'disabled';
+				fom.wan_proto.disabled = 0;
 /* NOVLAN-BEGIN */
-			fom.lan_proto.value = 'static';
+				fom.lan_proto.value = 'static';
 /* NOVLAN-END */
 /* VLAN-BEGIN */
 // TODO - what's required ? integrate with tomatogrid?

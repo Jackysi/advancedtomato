@@ -64,13 +64,16 @@ int wds_enable(void)
 	return foreach_wif(1, NULL, is_wds);
 }
 
-int wl_security_on(void)
-{
+#ifdef TCONFIG_VLAN
+int wl_security_on(void) {
 	return foreach_wif(1, NULL, security_on);
 }
 
 static int nas_starter(int idx, int unit, int subunit, void *param) {
 	char unit_str[] = "000000";
+	char lanN_ifname[] = "lanXX_ifname";
+	char lanN_ifnames[] = "lanXX_ifnames";
+	char br;
 	if(nvram_get_int(wl_nvname("bss_enabled", unit, subunit))) {
 		if (nvram_match(wl_nvname("mode", unit, subunit), "ap")) {
 			if (subunit > 0)
@@ -78,26 +81,30 @@ static int nas_starter(int idx, int unit, int subunit, void *param) {
 			else
 				snprintf(unit_str, sizeof(unit_str), "%d", unit);
 
-			if(strstr(nvram_safe_get("lan_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL) {
-				xstart("/usr/sbin/nas.sh", unit_str, nvram_safe_get("lan_ifname"));
-				sleep(1);
+			for(br=0 ; br<=3 ; br++) {
+				char bridge[2] = "0";
+				if (br!=0)
+					bridge[0]+=br;
+				else
+					strcpy(bridge, "");
+
+				snprintf(lanN_ifname, sizeof(lanN_ifname), "lan%s_ifname", bridge);
+				snprintf(lanN_ifnames, sizeof(lanN_ifnames), "lan%s_ifnames", bridge);
+
+				if(strstr(nvram_safe_get(lanN_ifnames),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL) {
+					xstart("/usr/sbin/nas.sh", unit_str, nvram_safe_get(lanN_ifname));
+					sleep(1);
+				}
 			}
-			if(strstr(nvram_safe_get("lan1_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL) {
-				xstart("/usr/sbin/nas.sh", unit_str, nvram_safe_get("lan1_ifname"));
-				sleep(1);
-			}
-			if(strstr(nvram_safe_get("lan2_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL) {
-				xstart("/usr/sbin/nas.sh", unit_str, nvram_safe_get("lan2_ifname"));
-				sleep(1);
-			}
-			if(strstr(nvram_safe_get("lan3_ifnames"),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL) {
-				xstart("/usr/sbin/nas.sh", unit_str, nvram_safe_get("lan3_ifname"));
-				sleep(1);
-			}
+		}
+		if(is_sta(idx, unit, subunit, NULL)) {
+			xstart("nas", "/etc/nas.wan.conf", "/var/run/nas.wan.pid", "wan");
+			sleep(1);
 		}
 	}
 	return 0;
 }
+#endif /* TCONFIG_VLAN */
 
 void start_nas(void)
 {
@@ -134,14 +141,15 @@ void start_nas(void)
 			xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan2");
 		if(strstr(nvram_safe_get("lan3_ifnames"),nvram_safe_get("wl0_ifname")) != NULL)
 			xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan3");
-	}
-#else
-	if(strstr(nvram_safe_get("lan_ifnames"),nvram_safe_get("wl0_ifname")) != NULL)
-		xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan");
-#endif
 
+		if (foreach_wif(1, NULL, is_sta))
+			xstart("nas", "/etc/nas.wan.conf", "/var/run/nas.wan.pid", "wan");
+	}
+#else /* TCONFIG_VLAN */
+	xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan");
 	if (foreach_wif(1, NULL, is_sta))
 		xstart("nas", "/etc/nas.wan.conf", "/var/run/nas.wan.pid", "wan");
+#endif /* TCONFIG_VLAN */
 	umask(m);
 #endif /* CONFIG_BCMWL5 */
 
