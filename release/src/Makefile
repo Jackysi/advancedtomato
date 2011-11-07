@@ -569,6 +569,13 @@ else
 	@$(MAKE) bin OPENVPN=y BBEXTRAS=y USBEXTRAS=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)" VLAN="$(VLAN)" SDHC="$(SDHC)"
 endif
 
+## Make the "normal (without NTFS support) + VPN" build (K24 only)
+en:
+ifneq ($(CONFIG_LINUX26),y)
+#	@$(MAKE) bin OPENVPN=y NTFS=n BBEXTRAS=y USBEXTRAS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)" VLAN="$(VLAN)" SDHC="$(SDHC)"
+	@$(MAKE) bin OPENVPN=y NTFS=n USBEXTRAS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)" VLAN="$(VLAN)" SDHC="$(SDHC)"
+endif
+
 ## Make the "Mini: no USB, no CIFS, no Zebra" build - targeted for Netgear routers
 f:
 	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y SLIM=y B=F BUILD_DESC="Mini" USB=""
@@ -723,6 +730,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "i            I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
 else
 	@echo "e            E build (standard plus VPN and NTFS support)"
+	@echo "en           E build (standard plus VPN and no NTFS support)"
 endif
 	@echo "s            S build (no USB support)"
 	@echo "f            F build (no USB support minus CIFS and RIPv1/2)"
