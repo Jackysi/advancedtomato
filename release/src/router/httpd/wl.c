@@ -413,8 +413,10 @@ static int print_wlstats(int idx, int unit, int subunit, void *param)
 
 void asp_wlstats(int argc, char **argv)
 {
+	int include_vifs = (argc > 0) ? atoi(argv[0]) : 0;
+
 	web_puts("\nwlstats = [");
-	foreach_wif(0, NULL, print_wlstats);
+	foreach_wif(include_vifs, NULL, print_wlstats); // AB multiSSID
 	web_puts("];\n");
 }
 
@@ -596,8 +598,10 @@ static int print_wlbands(int idx, int unit, int subunit, void *param)
 
 void asp_wlbands(int argc, char **argv)
 {
+	int include_vifs = (argc > 0) ? atoi(argv[0]) : 0;
+
 	web_puts("\nwl_bands = [");
-	foreach_wif(0, NULL, print_wlbands);
+	foreach_wif(include_vifs, NULL, print_wlbands); // AB multiSSID
 	web_puts(" ];\n");
 }
 
@@ -617,7 +621,9 @@ static int print_wif(int idx, int unit, int subunit, void *param)
 		nvram_safe_get(wl_nvname("ifname", unit, subunit)),
 		unit_str, unit, subunit, ssidj,
 		// assume the slave inteface MAC address is the same as the primary interface
-		nvram_safe_get(wl_nvname("hwaddr", unit, 0))
+//		nvram_safe_get(wl_nvname("hwaddr", unit, 0))
+//		// virtual inteface MAC address
+		nvram_safe_get(wl_nvname("hwaddr", unit, subunit)) // AB multiSSID
 	);
 	free(ssidj);
 

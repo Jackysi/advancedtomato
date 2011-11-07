@@ -46,6 +46,7 @@ obj-y += utils
 obj-y += ntpc
 obj-y += rstats
 obj-$(TCONFIG_SNMP) += snmp
+obj-y += cstats
 
 # !!TB - updated Broadcom Wireless driver
 obj-y += et
@@ -1439,7 +1440,6 @@ openvpn-install: openvpn
 	install -D openvpn/openvpn $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	$(STRIP) -s $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	chmod 0500 $(INSTALLDIR)/openvpn/usr/sbin/openvpn
-
 
 sd-idle/stamp-h1:
 	cd sd-idle \
