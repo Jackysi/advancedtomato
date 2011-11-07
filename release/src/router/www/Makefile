@@ -127,6 +127,25 @@ endif
 # Only include CTF option if CTF module exists
 	test -d $(SRCBASE)/ctf/linux || sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
 
+# Only include VLAN-GUI pages if VLAN-GUI is configured in.
+ifneq ($(TCONFIG_VLAN),y)
+	rm -f $(INSTALLDIR)/www/advanced-vlan.asp
+	rm -f $(INSTALLDIR)/www/advanced-access.asp
+	sed -i $(INSTALLDIR)/www/about.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/advanced-firewall.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/forward-upnp.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/status-devices.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/status-overview.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+else
+	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/ NOVLAN-BEGIN/,/ NOVLAN-END/d"
+	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/ NOVLAN-BEGIN/,/ NOVLAN-END/d"
+	sed -i $(INSTALLDIR)/www/status-devices.asp -e "/ NOVLAN-BEGIN/,/ NOVLAN-END/d"
+	sed -i $(INSTALLDIR)/www/status-overview.asp -e "/ NOVLAN-BEGIN/,/ NOVLAN-END/d"
+endif
+
 ifeq ($(TOMATO_EXPERIMENTAL),1)
 	cd $(INSTALLDIR)/www && \
 	for F in $(wildcard *.asp); do \
@@ -174,6 +193,8 @@ endif
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
 		-e "/CTF-BEGIN/d"	-e "/CTF-END/d" \
 		-e "/SNMP-BEGIN/d"	-e "/SNMP_END/d"\
+		-e "/ VLAN-BEGIN/d"	-e "/ VLAN-END/d" \
+		-e "/ NOVLAN-BEGIN/d"	-e "/ NOVLAN-END/d" \
 		|| true; \
 	done
 
