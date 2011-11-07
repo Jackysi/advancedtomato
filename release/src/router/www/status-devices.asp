@@ -223,7 +223,12 @@ dg.populate = function()
 		e = get(a[2], a[1]);
 		e.lease = '<small><a href="javascript:deleteLease(\'L' + i + '\',\'' + a[1] + '\')" title="Delete Lease" id="L' + i + '">' + a[3] + '</a></small>';
 		e.name = a[0];
+/* NOVLAN-BEGIN */
 		e.ifname = nvram.lan_ifname;
+/* NOVLAN-END */
+/* VLAN-BEGIN */
+		e.ifname = '';
+/* VLAN-END */
 	}
 
 	for (i = wldev.length - 1; i >= 0; --i) {
@@ -261,6 +266,10 @@ dg.populate = function()
 			if ((e = find(c[j], a[1])) != null) break;
 		}
 		if (j < 0) continue;
+
+		if (e.ip == '') {
+			e.ip = a[1];
+		}
 
 		if (e.name == '') {
 			e.name = a[2];
@@ -301,6 +310,8 @@ dg.populate = function()
 		else {
 			e.qual = -1;
 		}
+
+		if (e.ip=='') e.ip='<i><small><center>? ? ?</center></small></i>';
 
 		this.insert(-1, e, [
 			e.ifname, b, (e.ip == '-') ? '' : e.ip, e.name,

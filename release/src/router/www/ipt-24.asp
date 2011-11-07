@@ -259,6 +259,9 @@ function verifyFields(focused, quiet) {
 			if (!ref.running) {
 				ref.once = 1;
 				ref.start();
+			} else {
+				ref.stop();
+				ref.start();
 			}
 		}
 	}
