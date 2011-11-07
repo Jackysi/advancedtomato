@@ -613,6 +613,14 @@ static void nat_table(void)
 
 		for (i = 0; i < wanfaces.count; ++i) {
 			if (*(wanfaces.iface[i].name)) {
+				// chain_wan_prerouting
+				if (wanup) {
+					ipt_write("-A PREROUTING -d %s -j %s\n",
+						wanfaces.iface[i].ip, chain_wan_prerouting);
+				}
+
+
+
 				// Drop incoming packets which destination IP address is to our LAN side directly
 				ipt_write("-A PREROUTING -i %s -d %s/%s -j DROP\n",
 					wanfaces.iface[i].name,
@@ -987,7 +995,7 @@ static void filter_forward(void)
 			"-A FORWARD -i %s -o %s -j ACCEPT\n",
 			lan3face, lan3face);
 #endif
-	ipt_write(
+	ip46t_write(
 		"-A FORWARD -m state --state INVALID -j DROP\n");	// drop if INVALID state
 
 	// clamp tcp mss to pmtu
@@ -1358,69 +1366,6 @@ static void filter6_input(void)
 	// default policy: DROP
 }
 
-static void filter6_forward(void)
-{
-	int n;
-	
-	ip6t_write(
-		"-A FORWARD -m rt --rt-type 0 -j DROP\n"
-		"-A FORWARD -i %s -o %s -j ACCEPT\n"			// accept all lan to lan
-		/*"-A FORWARD -m state --state INVALID -j DROP\n"*/,	// drop if INVALID state
-		lanface, lanface);
-
-	// Filter out invalid WAN->WAN connections
-	if (*wan6face)
-		ip6t_write("-A FORWARD -o %s ! -i %s -j %s\n", wan6face, lanface, chain_in_drop);
-
-#ifdef LINUX26
-	modprobe("xt_length");
-	ip6t_write("-A FORWARD -p ipv6-nonxt -m length --length 40 -j ACCEPT\n");
-#endif
-
-	// clamp tcp mss to pmtu TODO?
-	// clampmss();
-
-	// TODO: support l7, access restrictions on ipv6?
-/*
-	if (wanup) {
-		ipt_restrictions();
-		ipt_layer7_inbound();
-	}
-*/
-#ifdef LINUX26
-	ipt_webmon(1);
-#endif
-
-	ip6t_write(
-		":wanin - [0:0]\n"
-		":wanout - [0:0]\n"
-		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
-
-	if (*wan6face) {
-		ip6t_write(
-			"-A FORWARD -i %s -j wanin\n"				// generic from wan
-			"-A FORWARD -o %s -j wanout\n",				// generic to wan
-			wan6face, wan6face);
-	}
-
-	ip6t_write(
-		"-A FORWARD -i %s -j %s\n",					// from lan
-		lanface, chain_out_accept);
-
-	// ICMPv6 rules
-	const int allowed_icmpv6[6] = { 1, 2, 3, 4, 128, 129 };
-	for (n = 0; n < sizeof(allowed_icmpv6)/sizeof(int); n++) {
-		ip6t_write("-A FORWARD -p ipv6-icmp --icmpv6-type %i -j %s\n", allowed_icmpv6[n], chain_in_accept);
-	}
-
-	if (wanup) {
-		//ipt_triggered(IPT_TABLE_FILTER);
-		ip6t_forward();
-	}
-
-	// default policy: DROP
-}
-
 #endif
 
 static void filter_table(void)
@@ -1442,9 +1387,6 @@ static void filter_table(void)
 	if ((gateway_mode) || (nvram_match("wk_mode_x", "1"))) {
 		ip46t_write(":FORWARD DROP [0:0]\n");
 		filter_forward();
-#ifdef TCONFIG_IPV6
-		filter6_forward();
-#endif
 	}
 	else {
 		ip46t_write(":FORWARD ACCEPT [0:0]\n");
