@@ -890,37 +890,9 @@ static void filter_forward(void)
 			"-A FORWARD -i %s -o %s -j ACCEPT\n",
 			lan3face, lan3face);
 #endif
-	ipt_write(
-		"-A FORWARD -m state --state INVALID -j DROP\n");		// drop if INVALID state
-
-	// clamp tcp mss to pmtu
-	clampmss();
-
-	if (wanup) {
-		ipt_restrictions();
-		ipt_layer7_inbound();
-	}
-
-	ipt_webmon(0);
-
-	ipt_write(
-		":wanin - [0:0]\n"
-		":wanout - [0:0]\n"
-		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
-
-	for (i = 0; i < wanfaces.count; ++i) {
-		if (*(wanfaces.iface[i].name)) {
-			ipt_write(
-				"-A FORWARD -i %s -j wanin\n"			// generic from wan
-				"-A FORWARD -o %s -j wanout\n",			// generic to wan
-				wanfaces.iface[i].name, wanfaces.iface[i].name);
-		}
-	}
 
 #ifdef TCONFIG_VLAN
-
 	char lanAccess[17] = "0000000000000000";
-
 	const char *d, *sbr, *saddr, *dbr, *daddr, *desc;
 	char *nv, *nvp, *b;
 	int n;
@@ -991,7 +963,49 @@ static void filter_forward(void)
 								nvram_safe_get(lanN_ifname2));
 				}
 			}
-		ipt_write("-A FORWARD -i %s -j %s\n", nvram_safe_get(lanN_ifname), chain_out_accept);
+//		ipt_write("-A FORWARD -i %s -j %s\n", nvram_safe_get(lanN_ifname), chain_out_accept);
+		}
+	}
+#endif
+
+	ipt_write(
+		"-A FORWARD -m state --state INVALID -j DROP\n");		// drop if INVALID state
+
+	// clamp tcp mss to pmtu
+	clampmss();
+
+	if (wanup) {
+		ipt_restrictions();
+		ipt_layer7_inbound();
+	}
+
+	ipt_webmon(0);
+
+	ipt_write(
+		":wanin - [0:0]\n"
+		":wanout - [0:0]\n"
+		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
+
+	for (i = 0; i < wanfaces.count; ++i) {
+		if (*(wanfaces.iface[i].name)) {
+			ipt_write(
+				"-A FORWARD -i %s -j wanin\n"			// generic from wan
+				"-A FORWARD -o %s -j wanout\n",			// generic to wan
+				wanfaces.iface[i].name, wanfaces.iface[i].name);
+		}
+	}
+
+#ifdef TCONFIG_VLAN
+	for(br=0 ; br<=3 ; br++) {
+		char bridge[2] = "0";
+		if (br!=0)
+			bridge[0]+=br;
+		else
+			strcpy(bridge, "");
+
+		sprintf(lanN_ifname, "lan%s_ifname", bridge);
+		if (strncmp(nvram_safe_get(lanN_ifname), "br", 2) == 0) {
+			ipt_write("-A FORWARD -i %s -j %s\n", nvram_safe_get(lanN_ifname), chain_out_accept);
 		}
 	}
 #else
