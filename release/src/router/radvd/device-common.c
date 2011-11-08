@@ -1,5 +1,5 @@
 /*
- *   $Id: device-common.c,v 1.11 2010/12/14 11:58:21 psavola Exp $
+ *   $Id: device-common.c,v 1.12 2011/02/06 03:41:38 reubenhwk Exp $
  *
  *   Authors:
  *    Lars Fenneberg		<lf@elemental.net>
@@ -19,7 +19,7 @@
 #include "defaults.h"
 
 int
-check_device(int sock, struct Interface *iface)
+check_device(struct Interface *iface)
 {
 	struct ifreq	ifr;
 

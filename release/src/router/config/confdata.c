@@ -272,14 +272,21 @@ int conf_write(const char *name)
 				case no:
 					fprintf(out, "# %s is not set\n", sym->name);
 					fprintf(out_h, "#undef %s\n", sym->name);
+					fprintf(out_h, "  #define IF_%s(...)\n", sym->name);
+					fprintf(out_h, "  #define IF_NOT_%s(...) __VA_ARGS__\n", sym->name);
 					break;
 				case mod:
 					fprintf(out, "%s=m\n", sym->name);
 					fprintf(out_h, "#define %s__MODULE 1\n", sym->name);
+					fprintf(out_h, "  #define IF_%s__MODULE(...) __VA_ARGS__\n", sym->name);
+					fprintf(out_h, "  #define IF_%s(...) __VA_ARGS__\n", sym->name);
+					fprintf(out_h, "  #define IF_NOT_%s(...)\n", sym->name);
 					break;
 				case yes:
 					fprintf(out, "%s=y\n", sym->name);
 					fprintf(out_h, "#define %s 1\n", sym->name);
+					fprintf(out_h, "  #define IF_%s(...) __VA_ARGS__\n", sym->name);
+					fprintf(out_h, "  #define IF_NOT_%s(...)\n", sym->name);
 					break;
 				}
 				break;

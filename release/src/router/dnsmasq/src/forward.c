@@ -207,10 +207,10 @@ static unsigned int search_servers(time_t now, struct all_addr **addrpp,
 	  }
       }
   
-  if (flags == 0 && !(qtype & F_NSRR) && 
+  if (flags == 0 && !(qtype & F_QUERY) && 
       option_bool(OPT_NODOTS_LOCAL) && !strchr(qdomain, '.') && namelen != 0)
-    /* don't forward simple names, make exception for NS queries and empty name. */
-    flags = F_NXDOMAIN;
+    /* don't forward A or AAAA queries for simple names, except the empty name */
+    flags = F_NOERR;
   
   if (flags == F_NXDOMAIN && check_for_local_domain(qdomain, now))
     flags = F_NOERR;
@@ -234,7 +234,7 @@ static unsigned int search_servers(time_t now, struct all_addr **addrpp,
 
 static int forward_query(int udpfd, union mysockaddr *udpaddr,
 			 struct all_addr *dst_addr, unsigned int dst_iface,
-			 HEADER *header, size_t plen, time_t now, struct frec *forward)
+			 struct dns_header *header, size_t plen, time_t now, struct frec *forward)
 {
   char *domain = NULL;
   int type = 0, norebind = 0;
@@ -243,10 +243,10 @@ static int forward_query(int udpfd, union mysockaddr *udpaddr,
   unsigned int flags = 0;
   unsigned int gotname = extract_request(header, plen, daemon->namebuff, NULL);
   struct server *start = NULL;
-    
+  
   /* RFC 4035: sect 4.6 para 2 */
-  header->ad = 0;
-
+  header->hb4 &= ~HB4_AD;
+  
   /* may be no servers available. */
   if (!daemon->servers)
     forward = NULL;
@@ -286,7 +286,7 @@ static int forward_query(int udpfd, union mysockaddr *udpaddr,
 	  forward->forwardall = 0;
 	  if (norebind)
 	    forward->flags |= FREC_NOREBIND;
-	  if (header->cd)
+	  if (header->hb4 & HB4_CD)
 	    forward->flags |= FREC_CHECKING_DISABLED;
 
 	  header->id = htons(forward->new_id);
@@ -366,6 +366,16 @@ static int forward_query(int udpfd, union mysockaddr *udpaddr,
 		      daemon->rfd_save = forward->rfd4;
 		      fd = forward->rfd4->fd;
 		    }
+
+#ifdef HAVE_CONNTRACK
+		  /* Copy connection mark of incoming query to outgoing connection. */
+		  if (option_bool(OPT_CONNTRACK))
+		    {
+		      unsigned int mark;
+		      if (get_incoming_mark(udpaddr, dst_addr, 0, &mark))
+			setsockopt(fd, SOL_SOCKET, SO_MARK, &mark, sizeof(unsigned int));
+		    }
+#endif
 		}
 	      
 	      if (sendto(fd, (char *)header, plen, 0,
@@ -425,7 +435,7 @@ static int forward_query(int udpfd, union mysockaddr *udpaddr,
   return 0;
 }
 
-static size_t process_reply(HEADER *header, time_t now, 
+static size_t process_reply(struct dns_header *header, time_t now, 
 			    struct server *server, size_t n, int check_rebind, int checking_disabled)
 {
   unsigned char *pheader, *sizep;
@@ -448,13 +458,13 @@ static size_t process_reply(HEADER *header, time_t now,
 
   /* RFC 4035 sect 4.6 para 3 */
   if (!is_sign && !option_bool(OPT_DNSSEC))
-    header->ad = 0;
+     header->hb4 &= ~HB4_AD;
 
-  if (header->opcode != QUERY || (header->rcode != NOERROR && header->rcode != NXDOMAIN))
+  if (OPCODE(header) != QUERY || (RCODE(header) != NOERROR && RCODE(header) != NXDOMAIN))
     return n;
   
   /* Complain loudly if the upstream server is non-recursive. */
-  if (!header->ra && header->rcode == NOERROR && ntohs(header->ancount) == 0 &&
+  if (!(header->hb4 & HB4_RA) && RCODE(header) == NOERROR && ntohs(header->ancount) == 0 &&
       server && !(server->flags & SERV_WARNED_RECURSIVE))
     {
       prettyprint_addr(&server->addr, daemon->namebuff);
@@ -463,16 +473,16 @@ static size_t process_reply(HEADER *header, time_t now,
 	server->flags |= SERV_WARNED_RECURSIVE;
     }  
     
-  if (daemon->bogus_addr && header->rcode != NXDOMAIN &&
+  if (daemon->bogus_addr && RCODE(header) != NXDOMAIN &&
       check_for_bogus_wildcard(header, n, daemon->namebuff, daemon->bogus_addr, now))
     {
       munged = 1;
-      header->rcode = NXDOMAIN;
-      header->aa = 0;
+      SET_RCODE(header, NXDOMAIN);
+      header->hb3 &= ~HB3_AA;
     }
   else 
     {
-      if (header->rcode == NXDOMAIN && 
+      if (RCODE(header) == NXDOMAIN && 
 	  extract_request(header, n, daemon->namebuff, NULL) &&
 	  check_for_local_domain(daemon->namebuff, now))
 	{
@@ -480,8 +490,8 @@ static size_t process_reply(HEADER *header, time_t now,
 	     an unknown type) and the answer is NXDOMAIN, convert that to NODATA,
 	     since we know that the domain exists, even if upstream doesn't */
 	  munged = 1;
-	  header->aa = 1;
-	  header->rcode = NOERROR;
+	  header->hb3 |= HB3_AA;
+	  SET_RCODE(header, NOERROR);
 	}
       
       if (extract_addresses(header, n, daemon->namebuff, now, is_sign, check_rebind, checking_disabled))
@@ -512,7 +522,7 @@ void reply_query(int fd, int family, time_t now)
 {
   /* packet from peer server, extract data for cache, and send to
      original requester */
-  HEADER *header;
+  struct dns_header *header;
   union mysockaddr serveraddr;
   struct frec *forward;
   socklen_t addrlen = sizeof(serveraddr);
@@ -536,16 +546,16 @@ void reply_query(int fd, int family, time_t now)
 	sockaddr_isequal(&server->addr, &serveraddr))
       break;
    
-  header = (HEADER *)daemon->packet;
+  header = (struct dns_header *)daemon->packet;
   
   if (!server ||
-      n < (int)sizeof(HEADER) || !header->qr ||
+      n < (int)sizeof(struct dns_header) || !(header->hb3 & HB3_QR) ||
       !(forward = lookup_frec(ntohs(header->id), questions_crc(header, n, daemon->namebuff))))
     return;
    
   server = forward->sentto;
   
-  if ((header->rcode == SERVFAIL || header->rcode == REFUSED) &&
+  if ((RCODE(header) == SERVFAIL || RCODE(header) == REFUSED) &&
       !option_bool(OPT_ORDER) &&
       forward->forwardall == 0)
     /* for broken servers, attempt to send to another one. */
@@ -563,8 +573,7 @@ void reply_query(int fd, int family, time_t now)
 	  header->arcount = htons(0);
 	  if ((nn = resize_packet(header, (size_t)n, pheader, plen)))
 	    {
-	      header->qr = 0;
-	      header->tc = 0;
+	      header->hb3 &= ~(HB3_QR | HB3_TC);
 	      forward_query(-1, NULL, NULL, 0, header, nn, now, forward);
 	      return;
 	    }
@@ -573,7 +582,7 @@ void reply_query(int fd, int family, time_t now)
   
   if ((forward->sentto->flags & SERV_TYPE) == 0)
     {
-      if (header->rcode == SERVFAIL || header->rcode == REFUSED)
+      if (RCODE(header) == SERVFAIL || RCODE(header) == REFUSED)
 	server = NULL;
       else
 	{
@@ -597,7 +606,7 @@ void reply_query(int fd, int family, time_t now)
      had replies from all to avoid filling the forwarding table when
      everything is broken */
   if (forward->forwardall == 0 || --forward->forwardall == 1 || 
-      (header->rcode != REFUSED && header->rcode != SERVFAIL))
+      (RCODE(header) != REFUSED && RCODE(header) != SERVFAIL))
     {
       int check_rebind = !(forward->flags & FREC_NOREBIND);
 
@@ -607,7 +616,7 @@ void reply_query(int fd, int family, time_t now)
       if ((nn = process_reply(header, now, server, (size_t)n, check_rebind, forward->flags & FREC_CHECKING_DISABLED)))
 	{
 	  header->id = htons(forward->orig_id);
-	  header->ra = 1; /* recursion if available */
+	  header->hb4 |= HB4_RA; /* recursion if available */
 	  send_from(forward->fd, option_bool(OPT_NOWILD), daemon->packet, nn, 
 		    &forward->source, &forward->dest, forward->iface);
 	}
@@ -618,7 +627,7 @@ void reply_query(int fd, int family, time_t now)
 
 void receive_query(struct listener *listen, time_t now)
 {
-  HEADER *header = (HEADER *)daemon->packet;
+  struct dns_header *header = (struct dns_header *)daemon->packet;
   union mysockaddr source_addr;
   unsigned short type;
   struct all_addr dst_addr;
@@ -673,9 +682,9 @@ void receive_query(struct listener *listen, time_t now)
   if ((n = recvmsg(listen->fd, &msg, 0)) == -1)
     return;
   
-  if (n < (int)sizeof(HEADER) || 
+  if (n < (int)sizeof(struct dns_header) || 
       (msg.msg_flags & MSG_TRUNC) ||
-      header->qr)
+      (header->hb3 & HB3_QR))
     return;
   
   source_addr.sa.sa_family = listen->family;
@@ -798,7 +807,7 @@ void receive_query(struct listener *listen, time_t now)
    about resources for debug mode, when the fork is suppressed: that's
    done by the caller. */
 unsigned char *tcp_request(int confd, time_t now,
-			   struct in_addr local_addr, struct in_addr netmask)
+			   union mysockaddr *local_addr, struct in_addr netmask)
 {
   size_t size = 0;
   int norebind = 0;
@@ -808,9 +817,15 @@ unsigned char *tcp_request(int confd, time_t now,
   unsigned char c1, c2;
   /* Max TCP packet + slop */
   unsigned char *packet = whine_malloc(65536 + MAXDNAME + RRFIXEDSZ);
-  HEADER *header;
+  struct dns_header *header;
   struct server *last_server;
+  struct in_addr dst_addr_4;
+  union mysockaddr peer_addr;
+  socklen_t peer_len = sizeof(union mysockaddr);
   
+  if (getpeername(confd, (struct sockaddr *)&peer_addr, &peer_len) == -1)
+    return packet;
+
   while (1)
     {
       if (!packet ||
@@ -819,42 +834,41 @@ unsigned char *tcp_request(int confd, time_t now,
 	  !read_write(confd, packet, size, 1))
        	return packet; 
   
-      if (size < (int)sizeof(HEADER))
+      if (size < (int)sizeof(struct dns_header))
 	continue;
       
-      header = (HEADER *)packet;
+      header = (struct dns_header *)packet;
 
       /* save state of "cd" flag in query */
-      checking_disabled = header->cd;
+      checking_disabled = header->hb4 & HB4_CD;
        
       /* RFC 4035: sect 4.6 para 2 */
-      header->ad = 0;
+      header->hb4 &= ~HB4_AD;
       
       if ((gotname = extract_request(header, (unsigned int)size, daemon->namebuff, &qtype)))
 	{
-	  union mysockaddr peer_addr;
-	  socklen_t peer_len = sizeof(union mysockaddr);
+	  char types[20];
 	  
-	  if (getpeername(confd, (struct sockaddr *)&peer_addr, &peer_len) != -1)
-	    {
-	      char types[20];
-
-	      querystr(types, qtype);
-
-	      if (peer_addr.sa.sa_family == AF_INET) 
-		log_query(F_QUERY | F_IPV4 | F_FORWARD, daemon->namebuff, 
-			  (struct all_addr *)&peer_addr.in.sin_addr, types);
+	  querystr(types, qtype);
+	  
+	  if (peer_addr.sa.sa_family == AF_INET) 
+	    log_query(F_QUERY | F_IPV4 | F_FORWARD, daemon->namebuff, 
+		      (struct all_addr *)&peer_addr.in.sin_addr, types);
 #ifdef HAVE_IPV6
-	      else
-		log_query(F_QUERY | F_IPV6 | F_FORWARD, daemon->namebuff, 
-			  (struct all_addr *)&peer_addr.in6.sin6_addr, types);
+	  else
+	    log_query(F_QUERY | F_IPV6 | F_FORWARD, daemon->namebuff, 
+		      (struct all_addr *)&peer_addr.in6.sin6_addr, types);
 #endif
-	    }
 	}
+      
+      if (local_addr->sa.sa_family == AF_INET)
+	dst_addr_4 = local_addr->in.sin_addr;
+      else
+	dst_addr_4.s_addr = 0;
       
       /* m > 0 if answered from cache */
       m = answer_request(header, ((char *) header) + 65536, (unsigned int)size, 
-			 local_addr, netmask, now);
+			 dst_addr_4, netmask, now);
 
       /* Do this by steam now we're not in the select() loop */
       check_log_writer(NULL); 
@@ -867,14 +881,8 @@ unsigned char *tcp_request(int confd, time_t now,
 	  char *domain = NULL;
 	   
 	  if (option_bool(OPT_ADD_MAC))
-	    {
-	      union mysockaddr peer_addr;
-	      socklen_t peer_len = sizeof(union mysockaddr);
-	      
-	      if (getpeername(confd, (struct sockaddr *)&peer_addr, &peer_len) != -1)
-		size = add_mac(header, size, ((char *) header) + 65536, &peer_addr);
-	    }
-      
+	    size = add_mac(header, size, ((char *) header) + 65536, &peer_addr);
+	          
 	  if (gotname)
 	    flags = search_servers(now, &addrp, gotname, daemon->namebuff, &type, &domain, &norebind);
 	  
@@ -908,18 +916,38 @@ unsigned char *tcp_request(int confd, time_t now,
 		  if (type != (last_server->flags & SERV_TYPE) ||
 		      (type == SERV_HAS_DOMAIN && !hostname_isequal(domain, last_server->domain)))
 		    continue;
-		  
-		  if ((last_server->tcpfd == -1) &&
-		      (last_server->tcpfd = socket(last_server->addr.sa.sa_family, SOCK_STREAM, 0)) != -1 &&
-		      (!local_bind(last_server->tcpfd,  &last_server->source_addr, last_server->interface, 1) ||
-		       connect(last_server->tcpfd, &last_server->addr.sa, sa_len(&last_server->addr)) == -1))
+
+		  if (last_server->tcpfd == -1)
 		    {
-		      close(last_server->tcpfd);
-		      last_server->tcpfd = -1;
+		      if ((last_server->tcpfd = socket(last_server->addr.sa.sa_family, SOCK_STREAM, 0)) == -1)
+			continue;
+		      
+		      if ((!local_bind(last_server->tcpfd,  &last_server->source_addr, last_server->interface, 1) ||
+			   connect(last_server->tcpfd, &last_server->addr.sa, sa_len(&last_server->addr)) == -1))
+			{
+			  close(last_server->tcpfd);
+			  last_server->tcpfd = -1;
+			  continue;
+			}
+
+#ifdef HAVE_CONNTRACK
+		      /* Copy connection mark of incoming query to outgoing connection. */
+		      if (option_bool(OPT_CONNTRACK))
+			{
+			  unsigned int mark;
+			  struct all_addr local;
+#ifdef HAVE_IPV6		      
+			  if (local_addr->sa.sa_family == AF_INET6)
+			    local.addr.addr6 = local_addr->in6.sin6_addr;
+			  else
+#endif
+			    local.addr.addr4 = local_addr->in.sin_addr;
+			  
+			  if (get_incoming_mark(&peer_addr, &local, 1, &mark))
+			    setsockopt(last_server->tcpfd, SOL_SOCKET, SO_MARK, &mark, sizeof(unsigned int));
+			}
+#endif	
 		    }
-		  
-		  if (last_server->tcpfd == -1)	
-		    continue;
 
 		  c1 = size >> 8;
 		  c2 = size;

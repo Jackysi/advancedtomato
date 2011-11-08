@@ -25,11 +25,14 @@ Tasks initiated by the rules file:
 
 - adding symlink "gsmmodem" to appropriate connection port (out of 2-5
   ports provided by some devices); this is only a help for handling and
-  NOT needed for switching to work
+  NOT needed for switching to work.
+  This action will be done for known modems only (at least switched once
+  on this system)
 
-- reloading the driver after warm boot when the device is still in modem
-  state and the device ID is not yet known to the driver; this is not
-  needed if the device is plugged during normal system operation
+- loading and binding the "option" driver if the device arrives in modem
+  state (not CDC/ACM!) and the device ID is not yet known to the driver.
+  This action will be done for known modems only (at least switched once
+  on this system)
 
 
 Explanation about config file names:
@@ -93,8 +96,20 @@ Notes about specific devices:
 
 - 1266:1000 (Royaltek Q110): switching method very likely but unconfirmed
 
-- 1a8d:1000 (BandLuxe): now just one config for all devices; please report
-  any problems
+- 1a8d:1000 (BandLuxe): now just one config for all devices; the new parameter
+  "ReleaseDelay" will improve ambiguous behaviour on older systems
+
+- Some WiMAX and LTE devices are included since 20101222; for most of these
+  there are no working Linux drivers available yet. Efforts are underway.
+  Stand by or search for "staging drivers".
+
+- 05c6:2000 (unnamed HSDPA modem from "dealextreme"): unusually long switching
+  time, even with MS Windoze - 30 to 40 seconds. Don't be alarmed.
+
+- 0471:1210 (Philips chipset): had to be split after variants with different
+  targets and behaviour appeared. This is not properly tested yet, please
+  report problems.
+
 
 Legal
 =====
@@ -115,4 +130,4 @@ Or find it as the file COPYING in this folder.
 
 
 
-Last revised: 2010-11-28, Josua Dietze
+Last revised: 2011-07-14, Josua Dietze

@@ -1,0 +1,13 @@
+########################################################
+# ZTE MF192
+
+DefaultVendor= 0x19d2
+DefaultProduct=0x1216
+
+TargetVendor=  0x19d2
+TargetProduct= 0x1218
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+CheckSuccess=20
+

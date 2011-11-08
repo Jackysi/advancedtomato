@@ -90,16 +90,18 @@ function init()
 </div>
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
 Tomato Firmware v<% version(1); %><br>
+
 <br>
-Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates<br>
-Support for additional router models and Wireless-N mode<br>
 <!-- USB-BEGIN -->
-USB support integration and GUI<br>
+USB support integration and GUI
 <!-- USB-END -->
 <!-- IPV6-BEGIN -->
-IPv6 support<br>
+IPv6 support
 <!-- IPV6-END -->
-Copyright (C) 2008-2011 Fedor Kozhevnikov and Ray Van Tassle<br>
+<br>
+Linux kernel <% version(2); %> and Broadcom Wireless Driver <% version(3); %> updates<br>
+Support for additional router models, dual-band and Wireless-N mode<br>
+Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <!-- / / / -->
 <br>

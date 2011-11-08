@@ -1,3 +1,30 @@
+20110805:
+    Added devices: Vodafone/Huawei K4510 & K4511, Vodafone/ZTE K3770-Z,
+    K3772-Z and K4510-Z (thanks to Andrew Bird); five Option HSO modems;
+    Cisco Valet AM10 (use with program version >= 1.1.9)
+20110714:
+    Added device: SpeedUp SU-8000U; corrected garbled configs for latest
+    Huawei devices
+20110705:
+    Added devices: Huawei EC156, Huawei K3770, Huawei K3771, Option iCon 461,
+    Longcheer SU9800, ZTE AX226 (WiMax)
+20110619:
+	Added devices: Huawei E352, Huawei U8220, Huawei E173, D-Link DWM-156
+    (Variant), Cricket A605, ZTE K3806-Z, ZTE MF190 (two Variants), ZTE MF192,
+    ZTE MF691, Visiontek 82GH 3G, C-motech CHU-629S (Variant), JOA Telecom
+    LM-700r, HP LaserJet Professional P1102, Mobile Action Cable (migrated from
+    "udev-extras"), Sequans modems (generic chipset); installing now creates
+    an additional directory /etc/usb_modeswitch.d for overriding config files
+20110227:
+    Attention: path for database has changed! Use this data pack version
+    with program version >= 1.1.7
+    added devices: Prolink P2000, D-Link DWM-156 HSUPA, MediaTek WiMAX,
+    Huawei V725, Huawei E352, Huawei ET8282, Huawei BM358 WiMAX, ZTE MF637
+    (variant for Orange France), Vibe 3G, Onda MW836UP-K, Franklin U210
+    (variant), Haier CE 100, Exiss Mobile E-190, unnamed Philips modem,
+    unnamed HSDPA modem from "dealextreme";
+    added target product IDs for ZTE and Huawei; corrected typos in Sierra
+    configuration (thanks to "Cezary")
 20101222:
     added C-motech CHU-628S; added MediaTek Wimax USB Card; changed
     BandLuxe configuration (new parameter ReleaseDelay) to make it work on

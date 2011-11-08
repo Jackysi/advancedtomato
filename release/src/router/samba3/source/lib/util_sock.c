@@ -452,6 +452,12 @@ ssize_t read_socket_with_timeout(int fd,char *buf,size_t mincnt,size_t maxcnt,un
 	timeout.tv_usec = (long)(1000 * (time_out % 1000));
 	
 	for (nread=0; nread < mincnt; ) {      
+		if (fd < 0 || fd >= FD_SETSIZE) {
+			errno = EBADF;
+			smb_read_error = READ_ERROR;
+			return -1;
+		}
+
 		FD_ZERO(&fds);
 		FD_SET(fd,&fds);
 		
@@ -944,7 +950,7 @@ BOOL open_any_socket_out(struct sockaddr_in *addrs, int num_addrs,
 
 	for (i=0; i<num_addrs; i++) {
 		sockets[i] = socket(PF_INET, SOCK_STREAM, 0);
-		if (sockets[i] < 0)
+		if (sockets[i] < 0 || sockets[i] >= FD_SETSIZE)
 			goto done;
 		set_blocking(sockets[i], False);
 	}
@@ -992,8 +998,10 @@ BOOL open_any_socket_out(struct sockaddr_in *addrs, int num_addrs,
 	FD_ZERO(&r_fds);
 
 	for (i=0; i<num_addrs; i++) {
-		if (sockets[i] == -1)
+		if (sockets[i] < 0 || sockets[i] >= FD_SETSIZE) {
+			/* This cannot happen - ignore if so. */
 			continue;
+		}
 		FD_SET(sockets[i], &wr_fds);
 		FD_SET(sockets[i], &r_fds);
 		if (sockets[i]>maxfd)
@@ -1012,9 +1020,9 @@ BOOL open_any_socket_out(struct sockaddr_in *addrs, int num_addrs,
 		goto next_round;
 
 	for (i=0; i<num_addrs; i++) {
-
-		if (sockets[i] == -1)
+		if (sockets[i] < 0 || sockets[i] >= FD_SETSIZE) {
 			continue;
+		}
 
 		/* Stevens, Network Programming says that if there's a
 		 * successful connect, the socket is only writable. Upon an

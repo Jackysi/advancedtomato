@@ -56,6 +56,10 @@ const struct dhcp_optflag dhcp_optflags[] = {
 	{ OPTION_STATIC_ROUTES        | OPTION_REQ, 0x79 }, /* DHCP_STATIC_ROUTES */
 	{ OPTION_IP | OPTION_LIST     | OPTION_REQ, 0x21 }, /* DHCP_ROUTES        */
 	{ OPTION_STATIC_ROUTES        | OPTION_REQ, 0xf9 }, /* DHCP_MS_STATIC_ROUTES */
+#if ENABLE_FEATURE_UDHCP_RFC5969
+	{ OPTION_6RD                              , 0xd4 }, /* DHCP_6RD           */
+	{ OPTION_6RD                              , 0x96 }, /* DHCP_COMCAST_6RD   */
+#endif
 	{ OPTION_STRING                           , 0xfc }, /* DHCP_WPAD          */
 
 	/* Options below have no match in dhcp_option_strings[],
@@ -119,6 +123,10 @@ const char dhcp_option_strings[] ALIGN1 =
 	"staticroutes" "\0"/* DHCP_STATIC_ROUTES  */
 	"routes" "\0"      /* DHCP_ROUTES         */
 	"msstaticroutes""\0"/* DHCP_MS_STATIC_ROUTES */
+#if ENABLE_FEATURE_UDHCP_RFC5969
+	"6rd" "\0"         /* DHCP_6RD            */
+	"comcast6rd" "\0"  /* DHCP_COMCAST_6RD    */
+#endif
 	"wpad" "\0"        /* DHCP_WPAD           */
 	;
 
@@ -146,6 +154,9 @@ const uint8_t dhcp_option_lengths[] ALIGN1 = {
 	[OPTION_S32] =     4,
 	/* Just like OPTION_STRING, we use minimum length here */
 	[OPTION_STATIC_ROUTES] = 5,
+#if ENABLE_FEATURE_UDHCP_RFC5969
+	[OPTION_6RD] =    22,
+#endif
 };
 
 

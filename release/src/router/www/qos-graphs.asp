@@ -120,8 +120,8 @@ ref.refresh = function(text)
 
 	showData();
 	if (svgReady == 1) {
-		updateCD(nfmarks);
-		updateBD(qrates);
+		updateCD(nfmarks, abc);
+		updateBD(qrates, abc);
 	}
 }
 
@@ -145,8 +145,8 @@ function checkSVG()
 
 	if (i < 0) {
 		svgReady = 1;
-		updateCD(nfmarks);
-		updateBD(qrates);
+		updateCD(nfmarks, abc);
+		updateBD(qrates, abc);
 	}
 	else if (--svgReady > -5) {
 		setTimeout(checkSVG, 500);

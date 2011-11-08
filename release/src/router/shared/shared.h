@@ -52,8 +52,9 @@ extern const char *tomato_shortver;
 #define	IPV6_DISABLED		0
 #define	IPV6_NATIVE		1
 #define	IPV6_NATIVE_DHCP	2
-#define	IPV6_6IN4		3
-#define	IPV6_MANUAL		4
+#define	IPV6_ANYCAST_6TO4	3
+#define	IPV6_6IN4		4
+#define	IPV6_MANUAL		5
 #endif
 
 enum {
@@ -108,7 +109,7 @@ extern const char *get_wanip(void);
 #ifdef TCONFIG_IPV6
 extern const char *get_wan6face(void);
 #endif
-extern const char *getifaddr(char *ifname, int family);
+extern const char *getifaddr(char *ifname, int family, int linklocal);
 extern long get_uptime(void);
 extern char *wl_nvname(const char *nv, int unit, int subunit);
 extern int get_radio(int unit);
@@ -187,13 +188,20 @@ enum {
 	MODEL_RTN10,
 	MODEL_RTN12,
 	MODEL_RTN16,
+	MODEL_RTN66U,
 	MODEL_WNR3500L,
 	MODEL_WNR2000v2,
+	MODEL_F7D3301,
+	MODEL_F7D3302,
+	MODEL_F7D4301,
+	MODEL_F7D4302,
+	MODEL_F5D8235v3,
 	MODEL_WRT160Nv1,
 	MODEL_WRT160Nv3,
 	MODEL_WRT320N,
 	MODEL_WRT610Nv2,
 	MODEL_WRT310Nv1,
+	MODEL_E4200,
 	MODEL_MN700,
 	MODEL_WRH54G,
 	MODEL_WHRG125,
@@ -228,6 +236,7 @@ enum {
 	HW_BCM4717,
 	HW_BCM5365,
 	HW_BCM4785,
+	HW_BCM4706,
 	HW_UNKNOWN
 };
 

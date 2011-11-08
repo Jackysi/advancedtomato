@@ -1,5 +1,5 @@
 /*
- *   $Id: interface.c,v 1.22 2010/12/14 11:58:21 psavola Exp $
+ *   $Id: interface.c,v 1.27 2011/04/28 15:08:40 reubenhwk Exp $
  *
  *   Authors:
  *    Lars Fenneberg		<lf@elemental.net>
@@ -22,6 +22,8 @@ void
 iface_init_defaults(struct Interface *iface)
 {
 	memset(iface, 0, sizeof(struct Interface));
+
+	iface->cease_adv	  = 0;
 
 	iface->HasFailed	  = 0;
 	iface->IgnoreIfMissing	  = DFLT_IgnoreIfMissing;
@@ -55,8 +57,13 @@ prefix_init_defaults(struct AdvPrefix *prefix)
 	prefix->AdvRouterAddr = DFLT_AdvRouterAddr;
 	prefix->AdvValidLifetime = DFLT_AdvValidLifetime;
 	prefix->AdvPreferredLifetime = DFLT_AdvPreferredLifetime;
+	prefix->DeprecatePrefixFlag = DFLT_DeprecatePrefixFlag;
+	prefix->DecrementLifetimesFlag = DFLT_DecrementLifetimesFlag;
 	prefix->if6to4[0] = 0;
 	prefix->enabled = 1;
+
+	prefix->curr_validlft = prefix->AdvValidLifetime;
+	prefix->curr_preferredlft = prefix->AdvPreferredLifetime;
 }
 
 void
@@ -66,6 +73,7 @@ route_init_defaults(struct AdvRoute *route, struct Interface *iface)
 
 	route->AdvRouteLifetime = DFLT_AdvRouteLifetime(iface);
 	route->AdvRoutePreference = DFLT_AdvRoutePreference;
+	route->RemoveRouteFlag = DFLT_RemoveRouteFlag;
 }
 
 void
@@ -75,6 +83,7 @@ rdnss_init_defaults(struct AdvRDNSS *rdnss, struct Interface *iface)
 
 	rdnss->AdvRDNSSLifetime = DFLT_AdvRDNSSLifetime(iface);
 	rdnss->AdvRDNSSNumber = 0;
+	rdnss->FlushRDNSSFlag = DFLT_FlushRDNSSFlag;
 }
 
 void
@@ -83,6 +92,7 @@ dnssl_init_defaults(struct AdvDNSSL *dnssl, struct Interface *iface)
 	memset(dnssl, 0, sizeof(struct AdvDNSSL));
 
 	dnssl->AdvDNSSLLifetime = DFLT_AdvDNSSLLifetime(iface);
+	dnssl->FlushDNSSLFlag = DFLT_FlushDNSSLFlag;
 }
 
 int

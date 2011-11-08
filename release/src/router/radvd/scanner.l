@@ -1,5 +1,5 @@
 /*
- *   $Id: scanner.l,v 1.20 2010/12/14 11:58:21 psavola Exp $
+ *   $Id: scanner.l,v 1.29 2011/05/07 02:09:40 reubenhwk Exp $
  *
  *   Authors:
  *    Pedro Roque		<roque@di.fc.ul.pt>
@@ -13,13 +13,14 @@
  *   may request it from <pekkas@netcore.fi>.
  *
  */
-%option noyywrap
+
+%option nounput noinput noyywrap
 
 %{
 #include <string.h>
 #include "config.h"
 #include "includes.h"
-#include "radvd.h"
+#include "log.h"
 #include "gram.h"
 
 extern char *conf_file;
@@ -39,7 +40,7 @@ addr2		{hexdigit}{1,4}(":"{hexdigit}{1,4})*"::"
 addr3		({hexdigit}{1,4}":"){7}{hexdigit}{1,4}
 addr		({addr1}|{addr2}|{addr3}|"::")
 whitespace	([ \t])+
-string		([a-zA-Z0-9`~!@#$%\^&*()_\-+=:\[\]<>,\.?\\])+
+string		[a-zA-Z0-9`~!@#$%\^&*()_\-+=:\[\]<>,\.?\\]+
 %%
 
 #.*$			{/* ignore comments */}
@@ -71,6 +72,8 @@ AdvOnLink		{ return T_AdvOnLink; }
 AdvAutonomous		{ return T_AdvAutonomous; }
 AdvValidLifetime	{ return T_AdvValidLifetime; }
 AdvPreferredLifetime	{ return T_AdvPreferredLifetime; }
+DeprecatePrefix		{ return T_DeprecatePrefix; }
+DecrementLifetimes	{ return T_DecrementLifetimes; }
 
 AdvRouterAddr		{ return T_AdvRouterAddr; }
 AdvHomeAgentFlag	{ return T_AdvHomeAgentFlag; }
@@ -78,6 +81,7 @@ AdvIntervalOpt		{ return T_AdvIntervalOpt; }
 AdvHomeAgentInfo	{ return T_AdvHomeAgentInfo; }
 UnicastOnly		{ return T_UnicastOnly; }
 
+Base6Interface		{ return T_Base6Interface; }
 Base6to4Interface	{ return T_Base6to4Interface; }
 
 HomeAgentPreference	{ return T_HomeAgentPreference; }
@@ -85,12 +89,15 @@ HomeAgentLifetime	{ return T_HomeAgentLifetime; }
 
 AdvRoutePreference	{ return T_AdvRoutePreference; }
 AdvRouteLifetime	{ return T_AdvRouteLifetime; }
+RemoveRoute		{ return T_RemoveRoute; }
 
 AdvRDNSSPreference 	{ return T_AdvRDNSSPreference; }
 AdvRDNSSOpen		{ return T_AdvRDNSSOpenFlag; }
 AdvRDNSSLifetime	{ return T_AdvRDNSSLifetime; }
+FlushRDNSS		{ return T_FlushRDNSS; }
 
 AdvDNSSLLifetime	{ return T_AdvDNSSLLifetime; }
+FlushDNSSL		{ return T_FlushDNSSL; }
 
 MinDelayBetweenRAs      { return T_MinDelayBetweenRAs; }
 

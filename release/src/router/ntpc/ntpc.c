@@ -214,7 +214,7 @@ static int ntpsync_main(int argc, char **argv)
 	if (argc == 2) {
 		if (strcmp(argv[1], "--cron") == 0) {		// try for a few minutes
 			if (nu <= 0) {
-				system("cru d ntpsync");
+				eval("cru", "d", "ntpsync");
 				return 0;
 			}
 			mode = CRON;
@@ -278,19 +278,19 @@ static int ntpsync_main(int argc, char **argv)
 							if ((nu > 0) && ((tms = localtime(&tt)) != NULL)) {
 
 								// add some randomness to make the servers happier / avoid the xx:00 rush
-								sprintf(s, "cru a ntpsync \"%d ", (tms->tm_min + 20 + (rand() % 20)) % 60);
+								sprintf(s, "%d ", (tms->tm_min + 20 + (rand() % 20)) % 60);
 
 								// schedule every nu hours
 								for (i = 0; i < 24; ++i) {
 									if ((i % nu) == 0) sprintf(s + strlen(s), "%s%d", i ? "," : "", (i + tms->tm_hour + 1)  % 24);
 								}
-								strcat(s, " * * * ntpsync --cron\"");
-								system(s);
+								strcat(s, " * * * ntpsync --cron");
+								eval("cru", "a", "ntpsync", s);
 							}
 						}
 
 						// make sure access restriction is ok
-						system("rcheck");
+						eval("rcheck");
 						_dprintf("[ntpsync] %ld exit\n", get_uptime());
 						return 0;
 					case 2:

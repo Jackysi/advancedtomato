@@ -1,4 +1,3 @@
-/* $Id: options.c,v 1.13 2010/11/11 23:48:13 jmaggard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * author: Ryan Wagoner
@@ -50,6 +49,7 @@ static const struct {
 	{ UPNPSYSTEM_UPTIME, "system_uptime" },
 	{ UPNPUUID, "uuid"},
 	{ UPNPSERIAL, "serial"},
+	{ UPNPMODEL_NAME, "model_name"},
 	{ UPNPMODEL_NUMBER, "model_number"},
 	{ UPNPFRIENDLYNAME, "friendly_name"},
 	{ UPNPMEDIADIR, "media_dir"},
@@ -57,8 +57,10 @@ static const struct {
 	{ UPNPINOTIFY, "inotify" },
 	{ UPNPDBDIR, "db_dir" },
 	{ UPNPLOGDIR, "log_dir" },
+	{ UPNPMINISSDPDSOCKET, "minissdpdsocket"},
 	{ ENABLE_TIVO, "enable_tivo" },
-	{ ENABLE_DLNA_STRICT, "strict_dlna" }
+	{ ENABLE_DLNA_STRICT, "strict_dlna" },
+	{ ROOT_CONTAINER, "root_container" }
 };
 
 int

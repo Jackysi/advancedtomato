@@ -134,6 +134,7 @@ static struct option original_opts[] = {
 	{ "line-numbers", 0, 0, '0' },
 	{ "modprobe", 1, 0, 'M' },
 	{ "set-counters", 1, 0, 'c' },
+	{ "goto", 1, 0, 'g' },
 	{ 0 }
 };
 
@@ -378,6 +379,10 @@ exit_printhelp(struct ip6tables_rule_match *matches)
 "				network interface name ([+] for wildcard)\n"
 "  --jump	-j target\n"
 "				target for rule (may load target extension)\n"
+#ifdef IP6T_F_GOTO
+"  --goto	-g chain\n"
+"				jump to chain with no return\n"
+#endif
 "  --match	-m match\n"
 "				extended match (may load extension)\n"
 "  --numeric	-n		numeric output of addresses and ports\n"
@@ -545,38 +550,37 @@ static struct in6_addr *
 host_to_addr(const char *name, unsigned int *naddr)
 {
 	struct addrinfo hints;
-        struct addrinfo *res;
-        static struct in6_addr *addr;
+	struct addrinfo *res;
+	struct addrinfo *p;
+	struct in6_addr *addr;
 	int err;
+	unsigned int i;
 
 	memset(&hints, 0, sizeof(hints));
-        hints.ai_flags=AI_CANONNAME;
-        hints.ai_family=AF_INET6;
-        hints.ai_socktype=SOCK_RAW;
-        hints.ai_protocol=41;
-        hints.ai_next=NULL;
+	hints.ai_flags=AI_CANONNAME;
+	hints.ai_family=AF_INET6;
+	hints.ai_socktype=SOCK_RAW;
 
 	*naddr = 0;
-        if ( (err=getaddrinfo(name, NULL, &hints, &res)) != 0 ){
+	if ( (err=getaddrinfo(name, NULL, &hints, &res)) != 0 ){
 #ifdef DEBUG
-                fprintf(stderr,"Name2IP: %s\n",gai_strerror(err)); 
+		fprintf(stderr,"Name2IP: %s\n",gai_strerror(err)); 
 #endif
-                return (struct in6_addr *) NULL;
-        } else {
-		if (res->ai_family != AF_INET6 ||
-		    res->ai_addrlen != sizeof(struct sockaddr_in6))
-			return (struct in6_addr *) NULL;
-
+		return (struct in6_addr *) NULL;
+	} else {
+		/* Find length of address-chain */
+		for(p = res; p != NULL; p = p->ai_next)
+			(*naddr)++;
 #ifdef DEBUG
-                fprintf(stderr, "resolved: len=%d  %s ", res->ai_addrlen, 
-                    addr_to_numeric(&(((struct sockaddr_in6 *)res->ai_addr)->sin6_addr)));
+		fprintf(stderr, "resolved: len=%d  %s ", res->ai_addrlen, 
+		    addr_to_numeric(&(((struct sockaddr_in6 *)res->ai_addr)->sin6_addr)));
 #endif
-		/* Get the first element of the address-chain */
-		addr = fw_calloc(1, sizeof(struct in6_addr));
-		in6addrcpy(addr, (struct in6_addr *)
-			&((struct sockaddr_in6 *)res->ai_addr)->sin6_addr);
+		addr = fw_calloc(*naddr, sizeof(struct in6_addr));
+		i = 0;
+		for(p = res; p != NULL; p = p->ai_next)
+			in6addrcpy(&(addr[i++]), (struct in6_addr *)
+				&((struct sockaddr_in6 *)p->ai_addr)->sin6_addr);
 		freeaddrinfo(res);
-		*naddr = 1;
 		return addr;
 	}
 
@@ -734,8 +738,7 @@ parse_hostnetworkmask(const char *name, struct in6_addr **addrpp,
 		j++;
 		for (k = 0; k < j - 1; k++) {
 			if (IN6_ARE_ADDR_EQUAL(&addrp[k], &addrp[j - 1])) {
-				(*naddrs)--;
-				j--;
+				in6addrcpy( &addrp[--j], &addrp[--(*naddrs)] );
 				break;
 			}
 		}
@@ -868,6 +871,9 @@ parse_protocol(const char *s)
 			for (i = 0;
 			     i < sizeof(chain_protos)/sizeof(struct pprot);
 			     i++) {
+				if (chain_protos[i].name == NULL)
+					continue;
+
 				if (strcmp(s, chain_protos[i].name) == 0) {
 					proto = chain_protos[i].num;
 					break;
@@ -1090,6 +1096,9 @@ merge_options(struct option *oldopts, const struct option *newopts,
 {
 	unsigned int num_old, num_new, i;
 	struct option *merge;
+
+	if (newopts == NULL)
+		return oldopts;
 
 	for (num_old = 0; oldopts[num_old].name; num_old++);
 	for (num_new = 0; newopts[num_new].name; num_new++);
@@ -1427,18 +1436,23 @@ print_firewall(const struct ip6t_entry *fw,
 	fputc(fw->ipv6.invflags & IP6T_INV_DSTIP ? '!' : ' ', stdout);
 	if (!memcmp(&fw->ipv6.dmsk, &in6addr_any, sizeof in6addr_any)
 	    && !(format & FMT_NUMERIC))
-		printf(FMT("%-19s","-> %s"), "anywhere");
+		printf(FMT("%-19s ","-> %s"), "anywhere");
 	else {
 		if (format & FMT_NUMERIC)
 			sprintf(buf, "%s", addr_to_numeric(&(fw->ipv6.dst)));
 		else
 			sprintf(buf, "%s", addr_to_anyname(&(fw->ipv6.dst)));
 		strcat(buf, mask_to_numeric(&(fw->ipv6.dmsk)));
-		printf(FMT("%-19s","-> %s"), buf);
+		printf(FMT("%-19s ","-> %s"), buf);
 	}
 
 	if (format & FMT_NOTABLE)
 		fputs("  ", stdout);
+
+#ifdef IP6T_F_GOTO
+	if(fw->ipv6.flags & IP6T_F_GOTO)
+		printf("[goto] ");
+#endif
 
 	IP6T_MATCH_ITERATE(fw, print_match, &fw->ipv6, format & FMT_NUMERIC);
 
@@ -1535,7 +1549,8 @@ insert_entry(const ip6t_chainlabel chain,
 }
 
 static unsigned char *
-make_delete_mask(struct ip6t_entry *fw, struct ip6tables_rule_match *matches)
+make_delete_mask(struct ip6t_entry *fw, struct ip6tables_rule_match *matches,
+		 const struct ip6tables_target *target)
 {
 	/* Establish mask for comparison */
 	unsigned int size;
@@ -1548,7 +1563,7 @@ make_delete_mask(struct ip6t_entry *fw, struct ip6tables_rule_match *matches)
 
 	mask = fw_calloc(1, size
 			 + IP6T_ALIGN(sizeof(struct ip6t_entry_target))
-			 + ip6tables_targets->size);
+			 + target->size);
 
 	memset(mask, 0xFF, sizeof(struct ip6t_entry));
 	mptr = mask + sizeof(struct ip6t_entry);
@@ -1562,7 +1577,7 @@ make_delete_mask(struct ip6t_entry *fw, struct ip6tables_rule_match *matches)
 
 	memset(mptr, 0xFF, 
 	       IP6T_ALIGN(sizeof(struct ip6t_entry_target))
-	       + ip6tables_targets->userspacesize);
+	       + target->userspacesize);
 
 	return mask;
 }
@@ -1576,13 +1591,14 @@ delete_entry(const ip6t_chainlabel chain,
 	     const struct in6_addr daddrs[],
 	     int verbose,
 	     ip6tc_handle_t *handle,
-	     struct ip6tables_rule_match *matches)
+	     struct ip6tables_rule_match *matches,
+	     const struct ip6tables_target *target)
 {
 	unsigned int i, j;
 	int ret = 1;
 	unsigned char *mask;
 
-	mask = make_delete_mask(fw, matches);
+	mask = make_delete_mask(fw, matches, target);
 	for (i = 0; i < nsaddrs; i++) {
 		fw->ipv6.src = saddrs[i];
 		for (j = 0; j < ndaddrs; j++) {
@@ -1884,6 +1900,7 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 	const char *jumpto = "";
 	char *protocol = NULL;
 	int proto_used = 0;
+	unsigned long long cnt;
 
 	memset(&fw, 0, sizeof(fw));
 
@@ -1906,7 +1923,7 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 	opterr = 0;
 
 	while ((c = getopt_long(argc, argv,
-	   "-A:D:R:I:L::M:F::Z::N:X::E:P:Vh::o:p:s:d:j:i:bvnt:m:xc:",
+	   "-A:D:R:I:L::M:F::Z::N:X::E:P:Vh::o:p:s:d:j:i:bvnt:m:xc:g:",
 					   opts, NULL)) != -1) {
 		switch (c) {
 			/*
@@ -2081,6 +2098,15 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 			dhostnetworkmask = argv[optind-1];
 			break;
 
+#ifdef IP6T_F_GOTO
+		case 'g':
+			set_option(&options, OPT_JUMP, &fw.ipv6.invflags,
+				   invert);
+			fw.ipv6.flags |= IP6T_F_GOTO;
+			jumpto = parse_target(optarg);
+			break;
+#endif
+
 		case 'j':
 			set_option(&options, OPT_JUMP, &fw.ipv6.invflags,
 				   invert);
@@ -2099,7 +2125,12 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 				strcpy(target->t->u.user.name, jumpto);
 				if (target->init != NULL)
 					target->init(target->t, &fw.nfcache);
-				opts = merge_options(opts, target->extra_opts, &target->option_offset);
+				opts = merge_options(opts,
+						     target->extra_opts,
+						     &target->option_offset);
+				if (opts == NULL)
+					exit_error(OTHER_PROBLEM,
+						   "can't alloc memory!");
 			}
 			break;
 
@@ -2160,7 +2191,7 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 			if (invert)
 				exit_error(PARAMETER_PROBLEM,
 					   "unexpected ! flag before --table");
-			*table = argv[optind-1];
+			*table = optarg;
 			break;
 
 		case 'x':
@@ -2198,16 +2229,18 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 					"-%c requires packet and byte counter",
 					opt2char(OPT_COUNTERS));
 
-			if (sscanf(pcnt, "%llu", (unsigned long long *)&fw.counters.pcnt) != 1)
+			if (sscanf(pcnt, "%llu", (unsigned long long *)&cnt) != 1)
 				exit_error(PARAMETER_PROBLEM,
 					"-%c packet counter not numeric",
 					opt2char(OPT_COUNTERS));
+			fw.counters.pcnt = cnt;
 
-			if (sscanf(bcnt, "%llu", (unsigned long long *)&fw.counters.bcnt) != 1)
+			if (sscanf(bcnt, "%llu", (unsigned long long *)&cnt) != 1)
 				exit_error(PARAMETER_PROBLEM,
 					"-%c byte counter not numeric",
 					opt2char(OPT_COUNTERS));
-			
+			fw.counters.bcnt = cnt;
+
 			break;
 
 
@@ -2225,13 +2258,19 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 			exit_tryhelp(2);
 
 		default:
-			if (!target
-			    || !(target->parse(c - target->option_offset,
+			if (target == NULL || target->parse == NULL ||
+			    c < target->option_offset ||
+			    c >= target->option_offset + OPTION_OFFSET ||
+			    !(target->parse(c - target->option_offset,
 					       argv, invert,
 					       &target->tflags,
 					       &fw, &target->t))) {
 				for (matchp = matches; matchp; matchp = matchp->next) {
-					if (matchp->completed) 
+					if (matchp->completed ||
+					    matchp->match->parse == NULL)
+						continue;
+					if (c < matchp->match->option_offset ||
+					    c >= matchp->match->option_offset + OPTION_OFFSET)
 						continue;
 					if (matchp->match->parse(c - matchp->match->option_offset,
 						     argv, invert,
@@ -2301,8 +2340,7 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 
 				if (!m)
 					exit_error(PARAMETER_PROBLEM,
-						   "Unknown arg `%s'",
-						   argv[optind-1]);
+						   "Unknown arg `%s'", optarg);
 			}
 		}
 		invert = FALSE;
@@ -2427,6 +2465,11 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 			 * We cannot know if the plugin is corrupt, non
 			 * existant OR if the user just misspelled a
 			 * chain. */
+#ifdef IP6T_F_GOTO
+			if (fw.ipv6.flags & IP6T_F_GOTO)
+				exit_error(PARAMETER_PROBLEM,
+					   "goto '%s' is not a chain\n", jumpto);
+#endif
 			find_target(jumpto, LOAD_MUST_SUCCEED);
 		} else {
 			e = generate_entry(&fw, matches, target->t);
@@ -2445,7 +2488,7 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 		ret = delete_entry(chain, e,
 				   nsaddrs, saddrs, ndaddrs, daddrs,
 				   options&OPT_VERBOSE,
-				   handle, matches);
+				   handle, matches, target);
 		break;
 	case CMD_DELETE_NUM:
 		ret = ip6tc_delete_num_entry(chain, rulenum - 1, handle);
@@ -2513,12 +2556,8 @@ int do_command6(int argc, char *argv[], char **table, ip6tc_handle_t *handle)
 		e = NULL;
 	}
 
-	for (c = 0; c < nsaddrs; c++)
-		free(&saddrs[c]);
-
-	for (c = 0; c < ndaddrs; c++)
-		free(&daddrs[c]);
-
+	free(saddrs);
+	free(daddrs);
 	free_opts(1);
 
 	return ret;

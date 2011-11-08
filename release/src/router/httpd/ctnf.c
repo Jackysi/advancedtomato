@@ -85,6 +85,22 @@ void asp_ctcount(int argc, char **argv)
 	unsigned long mask;
 
 	if (argc != 1) return;
+
+#if defined(TCONFIG_IPV6) && defined(LINUX26)
+	char src[INET6_ADDRSTRLEN];
+	char dst[INET6_ADDRSTRLEN];
+	struct in6_addr rip6;
+	struct in6_addr lan6;
+	struct in6_addr in6;
+	int lan6_prefix_len;
+
+	lan6_prefix_len = nvram_get_int("ipv6_prefix_length");
+	if (ipv6_enabled()) {
+		inet_pton(AF_INET6, nvram_safe_get("ipv6_prefix"), &lan6);
+		ipv6_router_address(&rip6);
+	}
+#endif
+
 	mode = atoi(argv[0]);
 
 	memset(count, 0, sizeof(count));
@@ -125,6 +141,16 @@ void asp_ctcount(int argc, char **argv)
 			}
 			else if (strncmp(s, "ipv6", 4) == 0) {
 				t = s + 12;
+
+				if (rip != 0) {
+					if ((p = strstr(t + 14, "src=")) == NULL) continue;
+					if (sscanf(p, "src=%s dst=%s", src, dst) != 2) continue;
+
+					if (inet_pton(AF_INET6, src, &in6) <= 0) continue;
+					inet_ntop(AF_INET6, &in6, src, sizeof(src));
+
+					if (!IP6_PREFIX_NOT_MATCH(lan6, in6, lan6_prefix_len)) continue;
+				}
 			}
 			else {
 				continue; // another proto family?!
@@ -298,13 +324,13 @@ add bytes out/in to table
 #if defined(TCONFIG_IPV6) && defined(LINUX26)
 			case 10:
 				if (inet_pton(AF_INET6, src, &in6) <= 0) continue;
-				inet_ntop(AF_INET6, &in6, src, sizeof src);
+				inet_ntop(AF_INET6, &in6, src, sizeof(src));
 
 				if (IP6_PREFIX_NOT_MATCH(lan6, in6, lan6_prefix_len))
 					dir_reply = 1;
 
 				if (inet_pton(AF_INET6, dst, &in6) <= 0) continue;
-				inet_ntop(AF_INET6, &in6, dst, sizeof dst);
+				inet_ntop(AF_INET6, &in6, dst, sizeof(dst));
 				
 				if (dir_reply == 0 && rip != 0 && (IN6_ARE_ADDR_EQUAL(&rip6, &in6)))
 					continue;
@@ -462,13 +488,13 @@ void asp_ctrate(int argc, char **argv)
 #if defined(TCONFIG_IPV6) && defined(LINUX26)
 			case 10:
 				if (inet_pton(AF_INET6, a_src, &in6) <= 0) continue;
-				inet_ntop(AF_INET6, &in6, a_src, sizeof a_src);
+				inet_ntop(AF_INET6, &in6, a_src, sizeof(a_src));
 
 				if (IP6_PREFIX_NOT_MATCH(lan6, in6, lan6_prefix_len))
 					dir_reply = 1;
 
 				if (inet_pton(AF_INET6, a_dst, &in6) <= 0) continue;
-				inet_ntop(AF_INET6, &in6, a_dst, sizeof a_dst);
+				inet_ntop(AF_INET6, &in6, a_dst, sizeof(a_dst));
 
 				if (dir_reply == 0 && rip != 0 && (IN6_ARE_ADDR_EQUAL(&rip6, &in6)))
 					continue;

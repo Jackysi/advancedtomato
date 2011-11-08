@@ -107,9 +107,6 @@ static int deconfig(char *ifname)
 {
 	TRACE_PT("begin\n");
 
-	int wan_proto;
-
-	wan_proto = get_wan_proto();
 	ifconfig(ifname, IFUP, "0.0.0.0", NULL);
 
 	if (using_dhcpc()) {
@@ -121,14 +118,13 @@ static int deconfig(char *ifname)
 	nvram_set("wan_routes2", "");
 	expires(0);
 
-	if (wan_proto == WP_DHCP) {
+	if (get_wan_proto() == WP_DHCP) {
 		nvram_set("wan_netmask", "0.0.0.0");
 		nvram_set("wan_gateway_get", "0.0.0.0");
 		nvram_set("wan_get_dns", "");
 	}
 
-	//	int i = 10;
-	//	while ((route_del(ifname, 0, NULL, NULL, NULL) == 0) && (i-- > 0)) { }
+	//	route_del(ifname, 0, NULL, NULL, NULL);
 
 	TRACE_PT("end\n");
 	return 0;
@@ -251,6 +247,7 @@ static int bound(char *ifname, int renew)
 	TRACE_PT("wan_routes1=%s\n", nvram_safe_get("wan_routes1"));
 	TRACE_PT("wan_routes2=%s\n", nvram_safe_get("wan_routes2"));
 
+	ifconfig(ifname, IFUP, "0.0.0.0", NULL);
 	ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), netmask);
 
 	if (wan_proto != WP_DHCP) {
@@ -423,7 +420,7 @@ int dhcp6c_state_main(int argc, char **argv)
 
 	if (!wait_action_idle(10)) return 1;
 
-	nvram_set("ipv6_rtr_addr", getifaddr(nvram_safe_get("lan_ifname"), AF_INET6));
+	nvram_set("ipv6_rtr_addr", getifaddr(nvram_safe_get("lan_ifname"), AF_INET6, 0));
 
 	// extract prefix from configured IPv6 address
 	if (inet_pton(AF_INET6, nvram_safe_get("ipv6_rtr_addr"), &addr) > 0) {
@@ -443,8 +440,9 @@ int dhcp6c_state_main(int argc, char **argv)
 		start_dnsmasq();	// (re)start
 	}
 
-	// notify radvd of possible change
-	killall("radvd", SIGHUP);
+	// (re)start radvd and httpd
+	start_radvd();
+	start_httpd();
 
 	TRACE_PT("ipv6_get_dns=%s\n", nvram_safe_get("ipv6_get_dns"));
 	TRACE_PT("end\n");
@@ -456,7 +454,7 @@ void start_dhcp6c(void)
 	FILE *f;
 	int prefix_len;
 	char *wan6face;
-	char *argv[] = { "dhcp6c", NULL, NULL, NULL };
+	char *argv[] = { "dhcp6c", "-T", "LL", NULL, NULL, NULL };
 	int argc;
 
 	TRACE_PT("begin\n");
@@ -483,23 +481,19 @@ void start_dhcp6c(void)
 			" script \"/sbin/dhcp6c-state\";\n"
 			"};\n"
 			"id-assoc pd 0 {\n"
-			" prefix-interface lo {\n"
+			" prefix-interface %s {\n"
 			"  sla-id 0;\n"
 			"  sla-len %d;\n"
 			" };\n"
-			" prefix-interface %s {\n"
-			"  sla-id 1;\n"
-			"  sla-len %d;\n"
-			" };\n"
-			"};\n",
+			"};\n"
+			"id-assoc na 0 { };\n",
 			wan6face,
-			prefix_len,
 			nvram_safe_get("lan_ifname"),
 			prefix_len);
 		fclose(f);
 	}
 
-	argc = 1;
+	argc = 3;
 	if (nvram_get_int("debug_ipv6"))
 		argv[argc++] = "-D";
 	argv[argc++] = wan6face;
