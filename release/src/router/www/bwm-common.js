@@ -335,18 +335,10 @@ function populateCache() {
 	}
 REMOVE-END */
 
-/* REMOVE-BEGIN
-//	if (dhcpd_lease != null ) {
-REMOVE-END */
 	if (typeof(dhcpd_lease) != 'undefined') {
-		for (var j=0; i<dhcpd_lease.length; ++j) {
-			s = dhcpd_lease[j].split('>');
-			for (var i = 0; i < s.length; ++i) {
-				var t = s[i].split('<');
-				if (t.length == 4) {
-					if (t[0] != '')
-						hostnamecache[t[1]] = t[0].split(' ').splice(0,1);
-				}
+		for (var j=0; j<dhcpd_lease.length; ++j) {
+			if (dhcpd_lease[j][0] != '') {
+				hostnamecache[dhcpd_lease[j][1]] = dhcpd_lease[j][0].split(' ').splice(0,1);
 			}
 		}
 	}
