@@ -286,6 +286,11 @@ static int check_nv(const char *name, const char *value)
 	return 0;
 }
 
+static inline int invalid_mac(const char *mac)
+{
+	return (!mac || !(*mac) || strncasecmp(mac, "00:90:4c", 8) == 0);
+}
+
 static int find_sercom_mac_addr(void)
 {
 	FILE *fp;
@@ -299,7 +304,7 @@ static int find_sercom_mac_addr(void)
 		sprintf(s, "%02X:%02X:%02X:%02X:%02X:%02X",
 			m[0], m[1], m[2], m[3], m[4], m[5]);
 		nvram_set("et0macaddr", s);
-		return (strncasecmp(s, "00:90:4c", 8) != 0);
+		return !invalid_mac(s);
 	}
 	return 0;
 }
@@ -399,6 +404,7 @@ static int init_vlan_ports(void)
 	case MODEL_WNR3500L:
 	case MODEL_WRT320N:
 	case MODEL_RTN16:
+	case MODEL_RTN66U:
 		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
 		dirty |= check_nv("vlan2ports", "0 8");
 		break;
@@ -414,8 +420,23 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan1ports", "4 5");
 		break;
 	case MODEL_WRT610Nv2:
+	case MODEL_F5D8235v3:
 		dirty |= check_nv("vlan1ports", "1 2 3 4 8*");
 		dirty |= check_nv("vlan2ports", "0 8");
+		break;
+	case MODEL_F7D3301:
+	case MODEL_F7D4301:
+		dirty |= check_nv("vlan1ports", "3 2 1 0 8*");
+		dirty |= check_nv("vlan2ports", "4 8");
+		break;
+	case MODEL_F7D3302:
+	case MODEL_F7D4302:
+		dirty |= check_nv("vlan1ports", "0 1 2 3 5*");
+		dirty |= check_nv("vlan2ports", "4 5");
+		break;
+	case MODEL_E4200:
+		dirty |= check_nv("vlan1ports", "0 1 2 3 8*");
+		dirty |= check_nv("vlan2ports", "4 8");
 		break;
 	case MODEL_WRT160Nv3:
 		if (nvram_match("vlan1ports", "1 2 3 4 5*")) {
@@ -441,7 +462,7 @@ static void check_bootnv(void)
 	char mac[18];
 
 	model = get_model();
-	dirty = 0;
+	dirty = check_nv("wl0_leddc", "0x640000") | check_nv("wl1_leddc", "0x640000");
 
 	switch (model) {
 	case MODEL_WTR54GS:
@@ -451,9 +472,17 @@ static void check_bootnv(void)
 	case MODEL_WBRG54:
 		dirty |= check_nv("wl0gpio0", "130");
 		break;
+	case MODEL_WR850GV1:
+	case MODEL_WR850GV2:
+		// need to cleanup some variables...
+		if ((nvram_get("t_model") == NULL) && (nvram_get("MyFirmwareVersion") != NULL)) {
+			nvram_unset("MyFirmwareVersion");
+			nvram_set("restore_defaults", "1");
+		}
+		break;
 	case MODEL_WL500W:
 		/* fix WL500W mac adresses for WAN port */
-		if (strncasecmp(nvram_safe_get("et1macaddr"), "00:90:4c", 8) == 0) {
+		if (invalid_mac(nvram_get("et1macaddr"))) {
 			strcpy(mac, nvram_safe_get("et0macaddr"));
 			inc_mac(mac, 1);
 			dirty |= check_nv("et1macaddr", mac);
@@ -490,7 +519,7 @@ static void check_bootnv(void)
 		dirty |= check_nv("wl0gpio2", "0");
 		dirty |= check_nv("wl0gpio3", "0");
 	case MODEL_WL1600GL:
-		if (strncasecmp(nvram_safe_get("et0macaddr"), "00:90:4c", 8) == 0) {
+		if (invalid_mac(nvram_get("et0macaddr"))) {
 			dirty |= find_sercom_mac_addr();
 		}
 		break;
@@ -518,12 +547,34 @@ static void check_bootnv(void)
 		break;
 	case MODEL_WRT610Nv2:
 		dirty |= check_nv("vlan2hwname", "et0");
-		dirty |= check_nv("wl1_leddc", "0x640000");
 		dirty |= check_nv("pci/1/1/ledbh2", "8");
 		dirty |= check_nv("sb/1/ledbh1", "8");
-		if (strncasecmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0) {
+		if (invalid_mac(nvram_get("pci/1/1/macaddr"))) {
 			strcpy(mac, nvram_safe_get("et0macaddr"));
 			inc_mac(mac, 3);
+			dirty |= check_nv("pci/1/1/macaddr", mac);
+		}
+		break;
+	case MODEL_F7D3301:
+	case MODEL_F7D3302:
+	case MODEL_F7D4301:
+	case MODEL_F7D4302:
+	case MODEL_F5D8235v3:
+		if (nvram_match("sb/1/macaddr", nvram_safe_get("et0macaddr"))) {
+			strcpy(mac, nvram_safe_get("et0macaddr"));
+			inc_mac(mac, 2);
+			dirty |= check_nv("sb/1/macaddr", mac);
+			inc_mac(mac, 1);
+			dirty |= check_nv("pci/1/1/macaddr", mac);
+		}
+	case MODEL_E4200:
+		dirty |= check_nv("vlan2hwname", "et0");
+		if (invalid_mac(nvram_get("pci/1/1/macaddr")) == 0 ||
+		    invalid_mac(nvram_get("sb/1/macaddr"))) {
+			strcpy(mac, nvram_safe_get("et0macaddr"));
+			inc_mac(mac, 2);
+			dirty |= check_nv("sb/1/macaddr", mac);
+			inc_mac(mac, 1);
 			dirty |= check_nv("pci/1/1/macaddr", mac);
 		}
 		break;
@@ -610,7 +661,6 @@ static void check_bootnv(void)
 
 	} // switch (model)
 
-	dirty |= check_nv("wl0_leddc", "0x640000");
 	dirty |= init_vlan_ports();
 
 	if (dirty) {
@@ -916,6 +966,27 @@ static int init_nvram(void)
 			nvram_set("vlan_enable", "1");
 		}
 		break;
+	case MODEL_RTN66U:
+		mfr = "Asus";
+		name = "RT-N66U";
+		features = SUP_SES | SUP_80211N | SUP_1000ET;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+		if (nvram_get_int("usb_mmc") == -1) nvram_set("usb_mmc", "0");
+#endif
+#endif
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifnames", "eth1 eth2");
+			nvram_set("landevs", "vlan1 wl0 wl1");
+			nvram_set("wandevs", "vlan2");
+#if defined(LINUX26) && defined(TCONFIG_USB)
+			nvram_set("usb_noled", "1-1.4"); /* SD/MMC Card */
+#endif
+		}
+		break;
 	case MODEL_WNR3500L:
 		mfr = "Netgear";
 		name = "WNR3500L/U/v2";
@@ -935,6 +1006,40 @@ static int init_nvram(void)
 			nvram_set("lan_ifnames", "vlan0 eth1");
 			nvram_set("wan_ifnameX", "vlan1");
 			nvram_set("wl_ifname", "eth1");
+		}
+		break;
+	case MODEL_F7D3301:
+	case MODEL_F7D3302:
+	case MODEL_F7D4301:
+	case MODEL_F7D4302:
+	case MODEL_F5D8235v3:
+		mfr = "Belkin";
+		features = SUP_SES | SUP_80211N;
+		switch (model) {
+		case MODEL_F7D3301:
+			name = "Share Max N300 (F7D3301/F7D7301) v1";
+			break;
+		case MODEL_F7D3302:
+			name = "Share N300 (F7D3302/F7D7302) v1";
+			break;
+		case MODEL_F7D4301:
+			name = "Play Max / N600 HD (F7D4301/F7D8301) v1";
+			break;
+		case MODEL_F7D4302:
+			name = "Play N600 (F7D4302/F7D8302) v1";
+			break;
+		case MODEL_F5D8235v3:
+			name = "N F5D8235-4 v3";
+			break;
+		}
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("landevs", "vlan1 wl0 wl1");
+			nvram_set("wandevs", "vlan2");
 		}
 		break;
 	case MODEL_WRT160Nv3:
@@ -964,6 +1069,19 @@ static int init_nvram(void)
 		mfr = "Linksys";
 		name = nvram_match("boot_hw_model", "E300") ? "E3000" : "WRT610N v2";
 		features = SUP_SES | SUP_80211N | SUP_WHAM_LED | SUP_1000ET;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+		}
+		break;
+	case MODEL_E4200:
+		mfr = "Linksys";
+		name = "E4200 v1";
+		features = SUP_SES | SUP_80211N | SUP_1000ET;
 #ifdef TCONFIG_USB
 		nvram_set("usb_uhci", "-1");
 #endif
@@ -1092,7 +1210,7 @@ static int init_nvram(void)
 	//nvram_set("wl_country_code", "JP");
 	nvram_set("wan_get_dns", "");
 	nvram_set("wan_get_domain", "");
-	nvram_set("pppoe_pid0", "");
+	nvram_set("ppp_get_ip", "");
 	nvram_set("action_service", "");
 	nvram_set("jffs2_format", "0");
 	nvram_set("rrules_radio", "-1");
@@ -1181,7 +1299,6 @@ static void sysinit(void)
 	struct dirent *de;
 	char s[256];
 	char t[256];
-	int model;
 
 	mount("proc", "/proc", "proc", 0, NULL);
 	mount("tmpfs", "/tmp", "tmpfs", 0, NULL);
@@ -1193,6 +1310,9 @@ static void sysinit(void)
 	mount("sysfs", "/sys", "sysfs", MS_MGC_VAL, NULL);
 	mkdir("/dev/shm", 0777);
 	mkdir("/dev/pts", 0777);
+	mknod("/dev/pts/ptmx", S_IRWXU|S_IFCHR, makedev(5, 2));
+	mknod("/dev/pts/0", S_IRWXU|S_IFCHR, makedev(136, 0));
+	mknod("/dev/pts/1", S_IRWXU|S_IFCHR, makedev(136, 1));
 	mount("devpts", "/dev/pts", "devpts", MS_MGC_VAL, NULL);
 #endif
 
@@ -1284,21 +1404,15 @@ static void sysinit(void)
 	}
 	signal(SIGCHLD, handle_reap);
 
-	switch (model = get_model()) {
-	case MODEL_WR850GV1:
-	case MODEL_WR850GV2:
-		// need to cleanup some variables...
-		if ((nvram_get("t_model") == NULL) && (nvram_get("MyFirmwareVersion") != NULL)) {
-			nvram_unset("MyFirmwareVersion");
-			nvram_set("restore_defaults", "1");
-		}
-		break;
-	}
-
 #ifdef CONFIG_BCMWL5
 	// ctf must be loaded prior to any other modules
 	if (nvram_invmatch("ctf_disable", "1"))
 		modprobe("ctf");
+#endif
+
+#ifdef TCONFIG_EMF
+	modprobe("emf");
+	modprobe("igs");
 #endif
 
 	switch (hardware = check_hw_type()) {
@@ -1310,15 +1424,11 @@ static void sysinit(void)
 		break;
 	}
 
-#ifdef TCONFIG_EMF
-	modprobe("emf");
-	modprobe("igs");
-#endif
 	modprobe("wl");
 
 	config_loopback();
 
-	system("nvram defaults --initcheck");
+	eval("nvram", "defaults", "--initcheck");
 	init_nvram();
 
 	// set the packet size

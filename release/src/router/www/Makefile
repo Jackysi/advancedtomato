@@ -84,6 +84,7 @@ ifneq ($(TCONFIG_USB_EXTRAS),y)
 	rm -f $(INSTALLDIR)/www/tomatousb.png
 	rm -f $(INSTALLDIR)/www/tomatousb_bg.png
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/THEMES-BEGIN/,/THEMES-END/d"
+	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/EXTRAS-BEGIN/,/EXTRAS-END/d"
 endif
 
 # Only include NTFS settings if NTFS support is configured in.
@@ -108,6 +109,12 @@ endif
 
 # Only include IPv6 options if IPv6 is configured in.
 ifneq ($(TCONFIG_IPV6),y)
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp *.js *.jsx); do \
+		[ -f $(INSTALLDIR)/www/$$F ] && sed -i $$F \
+		-e "/IPV6-BEGIN/,/IPV6-END/d" \
+		|| true; \
+	done
 	rm -f $(INSTALLDIR)/www/basic-ipv6.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/IPV6-BEGIN/,/IPV6-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/IPV6-BEGIN/,/IPV6-END/d"
@@ -125,7 +132,8 @@ ifneq ($(TCONFIG_USB),y)
 endif
 
 # Only include CTF option if CTF module exists
-	test -d $(SRCBASE)/ctf/linux || sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
+##	test -d $(SRCBASE)/ctf/linux || 
+	sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
 
 # Only include VLAN-GUI pages if VLAN-GUI is configured in.
 ifneq ($(TCONFIG_VLAN),y)
@@ -175,10 +183,11 @@ endif
 
 # clean up
 	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp *.js); do \
+	for F in $(wildcard *.asp *.js *.jsx); do \
 		[ -f $(INSTALLDIR)/www/$$F ] && sed -i $$F \
 		-e "/LINUX26-BEGIN/d"	-e "/LINUX26-END/d" \
 		-e "/USB-BEGIN/d"	-e "/USB-END/d" \
+		-e "/EXTRAS-BEGIN/d"	-e "/EXTRAS-END/d" \
 		-e "/NTFS-BEGIN/d"	-e "/NTFS-END/d" \
 		-e "/SAMBA-BEGIN/d"	-e "/SAMBA-END/d" \
 		-e "/FTP-BEGIN/d"	-e "/FTP-END/d" \

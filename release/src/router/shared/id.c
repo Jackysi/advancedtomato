@@ -11,6 +11,7 @@
 
 #include <bcmnvram.h>
 #include <bcmdevs.h>
+#include <trxhdr.h>
 #include "shared.h"
 
 /*
@@ -32,6 +33,7 @@ WRT160Nv1           BCM4704_BCM5325F_EWC  0x0472       42        0x11      0x001
 WRT160Nv3, M10      BCM4716               0x04cd       42        0x1700                boot_hw_model=WRT160N boot_hw_ver=3.0 (M10: boot_hw_model=M10 boot_hw_ver=1.0)
 WRT320N/E2000       BCM4717               0x04ef       42/66     0x1304/0x1305/0x1307  boardflags: 0x0040F10 / 0x00000602 (??)
 WRT610Nv2/E3000     BCM4718               0x04cf       42/??     ??                    boot_hw_model=WRT610N/E300
+E4200               BCM4718               0xf52c       42        0x1101                boot_hw_model=E4200
 
 WHR-G54S            BCM5352E              0x467        00        0x13      0x2758      melco_id=30182
 WHR-HP-G54S         BCM5352E              0x467        00        0x13      0x2758      melco_id=30189
@@ -64,9 +66,14 @@ Ovislink WL1600GL		HW_BCM5354G           0x048E        8        0x11
 RT-N16				BCM4718               0x04cf       45        0x1218    0x0310      hardware_version=RT-N16-00-07-01-00 regulation_domain=0X10US sdram_init=0x419
 RT-N12				BCM4716               0x04cd       45        0x1201    0x????
 RT-N10				BCM5356               0x04ec       45        0x1402    0x????
+RT-N66U				BCM4706               0xf5b2       00        0x1100    0x0110
 
 WNR3500L			BCM4718               0x04cf       3500      0x1213|02 0x0710|0x1710
 WNR2000v2			BCM4716B0             0xe4cd       1         0x1700
+
+F7D4301 v1			BCM4718               0xd4cf       12345     0x1204
+F7D3301/F7D3302/F7D4302 v1	BCM4718               0xa4cf       12345     0x1102
+F5D8235-4 v3			BCM4718               0xa4cf       12345     0x1100
 
 WL-550gE			BCM5352E              0x0467       45        0x10      0x0758      hardware_version=WL550gE-01-05-01-00 sdram_init=0x2000
 
@@ -141,7 +148,12 @@ int check_hw_type(void)
 	case 0x04ef:
 		return HW_BCM4717;
 	case 0x04cf:
+	case 0xa4cf:
+	case 0xd4cf:
+	case 0xf52c:
 		return HW_BCM4718;
+	case 0xf5b2:
+		return HW_BCM4706;
 #endif
 	}
 
@@ -229,7 +241,35 @@ int get_model(void)
 	if (hw == HW_BCM4718) {
 		if (nvram_match("boot_hw_model", "WRT610N") ||
 		    nvram_match("boot_hw_model", "E300"))
-		return MODEL_WRT610Nv2;
+			return MODEL_WRT610Nv2;
+		if (nvram_match("boot_hw_model", "E4200"))
+			return MODEL_E4200;
+		switch (strtoul(nvram_safe_get("boardtype"), NULL, 0)) {
+		case 0xd4cf:
+			if (nvram_match("boardrev", "0x1204")) return MODEL_F7D4301;
+			break;
+		case 0xa4cf:
+			if (nvram_match("boardrev", "0x1100")) return MODEL_F5D8235v3;
+			if (nvram_match("boardrev", "0x1102")) {
+				FILE *fp;
+				unsigned char s[18];
+				uint32 sig = TRX_MAGIC;
+				sprintf(s, MTD_DEV(%dro), 1);
+				if ((fp = fopen(s, "rb"))) {
+					fread(&sig, sizeof(sig), 1, fp);
+					fclose(fp);
+				}
+				switch (sig) {
+				case TRX_MAGIC_F7D3301:
+					return MODEL_F7D3301;
+				case TRX_MAGIC_F7D3302:
+					return MODEL_F7D3302;
+				default:
+					return MODEL_F7D4302;
+				}
+			}
+			break;
+		}
 	}
 #endif
 
@@ -307,6 +347,9 @@ int get_model(void)
 		switch (hw) {
 		case HW_BCM5354G:
 			if (nvram_match("boardrev", "0x35")) return MODEL_DIR320;
+			break;
+		case HW_BCM4706:
+			if (nvram_match("boardrev", "0x1100")) return MODEL_RTN66U;
 			break;
 		}
 		break;

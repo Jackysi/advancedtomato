@@ -86,20 +86,32 @@ typedef enum { IPT_TABLE_NAT, IPT_TABLE_FILTER, IPT_TABLE_MANGLE } ipt_table_t;
 
 #define IFUP (IFF_UP | IFF_RUNNING | IFF_BROADCAST | IFF_MULTICAST)
 
+#define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
+#define sin6_addr(s) (((struct sockaddr_in6 *)(s))->sin6_addr)
+
+#define IPT_V4	0x01
+#define IPT_V6	0x02
+#define IPT_ANY_AF	(IPT_V4 | IPT_V6)
+#define IPT_AF_IS_EMPTY(f)	((f & IPT_ANY_AF) == 0)
+
 // init.c
 extern int init_main(int argc, char *argv[]);
 extern int reboothalt_main(int argc, char *argv[]);
 extern int console_main(int argc, char *argv[]);
 
 // interface.c
-extern int ifconfig(const char *ifname, int flags, const char *addr, const char *netmask);
+extern int _ifconfig(const char *name, int flags, const char *addr, const char *netmask, const char *dstaddr);
+#define ifconfig(name, flags, addr, netmask) _ifconfig(name, flags, addr, netmask, NULL)
 extern int route_add(char *name, int metric, char *dst, char *gateway, char *genmask);
-extern int route_del(char *name, int metric, char *dst, char *gateway, char *genmask);
+extern void route_del(char *name, int metric, char *dst, char *gateway, char *genmask);
 extern void config_loopback(void);
 extern int start_vlan(void);
 extern int stop_vlan(void);
 extern int config_vlan(void);
 extern void config_loopback(void);
+#ifdef TCONFIG_IPV6
+extern int ipv6_mapaddr4(struct in6_addr *addr6, int ip6len, struct in_addr *addr4, int ip4mask);
+#endif
 
 // listen.c
 extern int listen_main(int argc, char **argv);
@@ -207,8 +219,8 @@ extern void start_hotplug2();
 extern void stop_hotplug2(void);
 #endif
 #ifdef TCONFIG_IPV6
-extern void start_ipv6_sit_tunnel(void);
-extern void stop_ipv6_sit_tunnel(void);
+extern void start_ipv6_tunnel(void);
+extern void stop_ipv6_tunnel(void);
 extern void start_radvd(void);
 extern void stop_radvd(void);
 extern void start_ipv6(void);
@@ -220,11 +232,13 @@ extern void stop_ipv6(void);
 #ifdef TCONFIG_USB
 extern void start_usb(void);
 extern void stop_usb(void);
+extern int dir_is_mountpoint(const char *root, const char *dir);
 extern void hotplug_usb(void);
 extern void remove_storage_main(int shutdn);
 #else
 #define start_usb(args...) do { } while(0)
 #define stop_usb(args...) do { } while(0)
+#define dir_is_mountpoint(args...) (0)
 #define hotplug_usb(args...) do { } while(0)
 #define remove_storage_main(args...) do { } while(0)
 #endif
@@ -254,14 +268,17 @@ extern void ipt_write(const char *format, ...);
 extern void ip6t_write(const char *format, ...);
 #if defined(TCONFIG_IPV6) && defined(LINUX26)
 #define ip46t_write(args...) do { ipt_write(args); ip6t_write(args); } while(0)
-#define ip46t_flagged_write(do_ip4t, do_ip6t, args...) do { if (do_ip4t) ipt_write(args); if (do_ip6t) ip6t_write(args); } while(0)
+//#define ip46t_flagged_write(do_ip4t, do_ip6t, args...) do { if (do_ip4t) ipt_write(args); if (do_ip6t) ip6t_write(args); } while(0)
+#define ip46t_flagged_write(do_ip46t, args...) do { if (do_ip46t & IPT_V4) ipt_write(args); if (do_ip46t & IPT_V6) ip6t_write(args); } while(0)
 #define ip46t_cond_write(do_ip6t, args...) do { if (do_ip6t) ip6t_write(args); else ipt_write(args); } while(0)
 #else
 #define ip46t_write ipt_write
-#define ip46t_flagged_write(do_ip4t, do_ip6t, args...) do { if (do_ip4t) ipt_write(args); } while(0)
+//#define ip46t_flagged_write(do_ip4t, do_ip6t, args...) do { if (do_ip4t) ipt_write(args); } while(0)
+#define ip46t_flagged_write(do_ip46t, args...) do { if (do_ip46t & IPT_V4) ipt_write(args); } while(0)
 #define ip46t_cond_write(do_ip6t, args...) ipt_write(args)
 #endif
-extern int ipt_addr(char *addr, int maxlen, const char *s, const char *dir, int family, const char *categ, const char *name);
+extern void ipt_log_unresolved(const char *addr, const char *addrtype, const char *categ, const char *name);
+extern int ipt_addr(char *addr, int maxlen, const char *s, const char *dir, int af, int strict, const char *categ, const char *name);
 extern int ipt_dscp(const char *v, char *opt);
 extern int ipt_ipp2p(const char *v, char *opt);
 extern int ipt_layer7(const char *v, char *opt);
@@ -270,6 +287,10 @@ extern int start_firewall(void);
 extern int stop_firewall(void);
 #ifdef DEBUG_IPTFILE
 extern void create_test_iptfile(void);
+#endif
+#ifdef LINUX26
+extern void allow_fastnat(const char *service, int allow);
+extern void try_enabling_fastnat(void);
 #endif
 
 // bwclimon.c
@@ -348,7 +369,8 @@ extern int _xstart(const char *cmd, ...);
 extern void run_nvscript(const char *nv, const char *arg1, int wtime);
 extern void run_userfile (char *folder, char *extension, const char *arg1, int wtime);
 extern void setup_conntrack(void);
-extern struct sockaddr_storage *host_to_addr(const char *name, sa_family_t family);
+extern int host_addr_info(const char *name, int af, struct sockaddr_storage *buf);
+extern int host_addrtypes(const char *name, int af);
 extern void inc_mac(char *mac, int plus);
 extern void set_mac(const char *ifname, const char *nvname, int plus);
 extern const char *default_wanif(void);

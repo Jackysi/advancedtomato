@@ -1,6 +1,6 @@
 /* integer.c
  *
- * Copyright (C) 2006-2009 Sawtooth Consulting Ltd.
+ * Copyright (C) 2006-2011 Sawtooth Consulting Ltd.
  *
  * This file is part of CyaSSL.
  *
@@ -24,6 +24,8 @@
  * http://math.libtomcrypt.com
  */
 
+
+#include "os_settings.h"     /* in case user set USE_FAST_MATH there */
 
 #ifndef USE_FAST_MATH
 
@@ -3589,9 +3591,7 @@ int fast_s_mp_mul_high_digs (mp_int * a, mp_int * b, mp_int * c, int digs)
 }
 
 
-#ifdef CYASSL_KEY_GEN
-
-int mp_cnt_lsb(mp_int *a);
+#if defined(CYASSL_KEY_GEN) || defined(HAVE_ECC)
 
 /* c = a * a (mod b) */
 int mp_sqrmod (mp_int * a, mp_int * b, mp_int * c)
@@ -3613,8 +3613,10 @@ int mp_sqrmod (mp_int * a, mp_int * b, mp_int * c)
 }
 
 
+int mp_sub_d (mp_int* a, mp_digit b, mp_int* c);
+
 /* single digit addition */
-int mp_add_d (mp_int * a, mp_digit b, mp_int * c)
+int mp_add_d (mp_int* a, mp_digit b, mp_int* c)
 {
   int     res, ix, oldused;
   mp_digit *tmpa, *tmpc, mu;
@@ -3773,6 +3775,12 @@ int mp_sub_d (mp_int * a, mp_digit b, mp_int * c)
   return MP_OKAY;
 }
 
+#endif /* CYASSL_KEY_GEN || HAVE_ECC */
+
+
+#ifdef CYASSL_KEY_GEN
+
+int mp_cnt_lsb(mp_int *a);
 
 static int s_is_power_of_two(mp_digit b, int *p)
 {
@@ -4273,8 +4281,79 @@ int mp_set_int (mp_int * a, unsigned long b)
   return MP_OKAY;
 }
 
-
 #endif /* CYASSL_KEY_GEN */
+
+
+#ifdef HAVE_ECC
+
+/* chars used in radix conversions */
+const char *mp_s_rmap = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+/";
+
+/* read a string [ASCII] in a given radix */
+int mp_read_radix (mp_int * a, const char *str, int radix)
+{
+  int     y, res, neg;
+  char    ch;
+
+  /* zero the digit bignum */
+  mp_zero(a);
+
+  /* make sure the radix is ok */
+  if (radix < 2 || radix > 64) {
+    return MP_VAL;
+  }
+
+  /* if the leading digit is a 
+   * minus set the sign to negative. 
+   */
+  if (*str == '-') {
+    ++str;
+    neg = MP_NEG;
+  } else {
+    neg = MP_ZPOS;
+  }
+
+  /* set the integer to the default of zero */
+  mp_zero (a);
+  
+  /* process each digit of the string */
+  while (*str) {
+    /* if the radix < 36 the conversion is case insensitive
+     * this allows numbers like 1AB and 1ab to represent the same  value
+     * [e.g. in hex]
+     */
+    ch = (char) ((radix < 36) ? XTOUPPER(*str) : *str);
+    for (y = 0; y < 64; y++) {
+      if (ch == mp_s_rmap[y]) {
+         break;
+      }
+    }
+
+    /* if the char was found in the map 
+     * and is less than the given radix add it
+     * to the number, otherwise exit the loop. 
+     */
+    if (y < radix) {
+      if ((res = mp_mul_d (a, (mp_digit) radix, a)) != MP_OKAY) {
+         return res;
+      }
+      if ((res = mp_add_d (a, (mp_digit) y, a)) != MP_OKAY) {
+         return res;
+      }
+    } else {
+      break;
+    }
+    ++str;
+  }
+  
+  /* set the sign only if a != 0 */
+  if (mp_iszero(a) != 1) {
+     a->sign = neg;
+  }
+  return MP_OKAY;
+}
+
+#endif /* HAVE_ECC */
 
 #endif /* USE_FAST_MATH */
 

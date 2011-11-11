@@ -1,0 +1,14 @@
+########################################################
+# Onda MW836UP-K
+
+DefaultVendor= 0x1ee8
+DefaultProduct=0x0040
+
+TargetVendor=  0x1ee8
+TargetProduct= 0x003e
+
+MessageContent="555342431234567800000000000010ff000000000000000000000000000000"
+NeedResponse=1
+
+CheckSuccess=20
+

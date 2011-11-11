@@ -23,6 +23,10 @@
 #include <netdb.h>
 #include <net/route.h>
 
+#ifdef TCONFIG_IPV6
+#include <ifaddrs.h>
+#endif
+
 #include <wlioctl.h>
 #include <wlutils.h>
 
@@ -158,7 +162,7 @@ void asp_lanip(int argc, char **argv)
 		strcpy(s, nv);
 		if ((p = strrchr(s, '.')) != NULL) {
 			*p = 0;
-            web_puts((mode == '1') ? s : (mode == '2') ? (p + 1) : nv);
+			web_puts((mode == '1') ? s : (mode == '2') ? (p + 1) : nv);
 		}
 	}
 }
@@ -302,6 +306,53 @@ static int get_memory(meminfo_t *m)
 	return 1;
 }
 
+#ifdef TCONFIG_IPV6
+#define IP6ADDR_MAX_CNT	3	// wan, lan, lan-ll
+static void print_ipv6_addrs(void)
+{
+	char buf[INET6_ADDRSTRLEN];
+	int found;
+	char *addrtype;
+	struct ifaddrs *ifap, *ifa;
+	struct sockaddr_in6 *s6;
+
+	if (!ipv6_enabled() || (getifaddrs(&ifap) != 0))
+		return;
+
+	found = 0;
+	for (ifa = ifap; ifa; ifa = ifa->ifa_next) {
+		if ((ifa->ifa_addr == NULL) || (ifa->ifa_addr->sa_family != AF_INET6))
+			continue;
+
+		s6 = (struct sockaddr_in6 *)(ifa->ifa_addr);
+
+		if (strncmp(ifa->ifa_name, nvram_safe_get("lan_ifname"), IFNAMSIZ) == 0) {
+			if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr))
+				addrtype = "lan_ll";
+			else
+				addrtype = "lan";
+		}
+		else if (strncmp(ifa->ifa_name, get_wan6face(), IFNAMSIZ) == 0) {
+			if (!IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr))
+				addrtype = "wan";
+			else
+				continue;
+		}
+		else
+			continue;
+
+		if (inet_ntop(ifa->ifa_addr->sa_family, &(s6->sin6_addr), buf, sizeof(buf)) != NULL) {
+			web_printf("\tip6_%s: '%s',\n",
+				addrtype, buf);
+			if (++found >= IP6ADDR_MAX_CNT)
+				break;
+		}
+	}
+
+	freeifaddrs(ifap);
+}
+#endif
+
 void asp_sysinfo(int argc, char **argv)
 {
 	struct sysinfo si;
@@ -309,6 +360,10 @@ void asp_sysinfo(int argc, char **argv)
 	meminfo_t mem;
 
 	web_puts("\nsysinfo = {\n");
+
+#ifdef TCONFIG_IPV6
+	print_ipv6_addrs();
+#endif
 	sysinfo(&si);
 	get_memory(&mem);
 	web_printf(

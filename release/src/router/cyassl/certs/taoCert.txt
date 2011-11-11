@@ -73,3 +73,14 @@ openssl pkcs8 -nocrypt -topk8 -in server-key.pem -out server-keyPkcs8.pem
 
 openssl pkcs8 -nocrypt -in server-keyPkcs8.pem -out server-key.pem
 
+
+**** ECC ******
+
+1) make a key
+
+    to see types available do
+        openssl ecparam -list_curves
+
+    make a new key
+        openssl ecparam -genkey -text -name secp256r1 -out ecc-key.pem
+

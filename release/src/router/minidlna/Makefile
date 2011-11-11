@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.29 2010/10/27 00:40:47 jmaggard Exp $
+# $Id: Makefile,v 1.31 2011/04/21 08:50:44 jmaggard Exp $
 # MiniDLNA project
 # http://sourceforge.net/projects/minidlna/
 # (c) 2008-2009 Justin Maggard
@@ -30,8 +30,10 @@ CFLAGS += -L$(TOP)/zlib -L$(TOP)/sqlite/.libs -L$(TOP)/jpeg -L$(TOP)/libvorbis/l
 	-L$(TOP)/ffmpeg/libavutil -L$(TOP)/ffmpeg/libavcodec -L$(TOP)/ffmpeg/libavformat \
 	-L$(TOP)/libid3tag/.libs
 LDFLAGS += -static
+CFLAGS += -DSTATIC
 endif
 
+#STATIC_LINKING: CFLAGS += -DSTATIC
 #STATIC_LINKING: LDFLAGS = -static
 #CC = gcc
 RM = rm -f
@@ -145,7 +147,7 @@ inotify.o: inotify.h playlist.h
 image_utils.o: image_utils.h
 tivo_utils.o: config.h tivo_utils.h
 tivo_beacon.o: config.h tivo_beacon.h tivo_utils.h
-tivo_commands.o: config.h tivo_commands.h tivo_utils.h
+tivo_commands.o: config.h tivo_commands.h tivo_utils.h utils.h
 utils.o: utils.h
 sql.o: sql.h
 log.o: log.h

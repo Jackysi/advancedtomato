@@ -197,9 +197,12 @@ int do_led(int which, int mode)
 #ifdef CONFIG_BCMWL5
 	static int wnr3500[]	= { 255, 255,     2,  255,  255,   -1,  255,  255	};
 	static int wnr2000v2[]	= { 255, 255,   255,  255,  255,   -7,  255,  255	};
+	static int f7d[]	= { 255, 255,   255,  255,   12,   13,  255,   14	};
 	static int wrt160nv3[]	= { 255,   1,     4,    2,  255,  255,  255,  255	};
 	static int wrt320n[]	= { 255,   2,     3,    4,  255,  255,  255,  255	};
 	static int wrt610nv2[]	= { 255,   5,     3,    0,  255,  255,  255,   -7	};
+	static int e4200[]	= { 255,   5,    -3,  255,  255,  255,  255,  255	};
+	static int rtn66u[]	= { 255, -12,   255,  255,  255,  255,  255,   15	};
 #endif
 
 	char s[16];
@@ -306,6 +309,9 @@ int do_led(int which, int mode)
 		if (which != LED_DIAG) return ret;
 		b = -1;	// power light
 		break;
+	case MODEL_RTN66U:
+		b = rtn66u[which];
+		break;
 	case MODEL_WNR3500L:
 		if (which == LED_DIAG) {
 			// power led gpio: 0x03 - green, 0x07 - amber
@@ -322,6 +328,18 @@ int do_led(int which, int mode)
 		} else
 			b = wnr2000v2[which];
 		break;
+	case MODEL_F7D3301:
+	case MODEL_F7D3302:
+	case MODEL_F7D4301:
+	case MODEL_F7D4302:
+	case MODEL_F5D8235v3:
+		if (which == LED_DIAG) {
+			// power led gpio: 10 - green, 11 - red
+			b = (mode) ? 11 : -10;
+			c = (mode) ? -10 : 11;
+		} else
+			b = f7d[which];
+		break;
 	case MODEL_WRT160Nv3:
 		b = wrt160nv3[which];
 		break;
@@ -330,6 +348,9 @@ int do_led(int which, int mode)
 		break;
 	case MODEL_WRT610Nv2:
 		b = wrt610nv2[which];
+		break;
+	case MODEL_E4200:
+		b = e4200[which];
 		break;
 #endif
 /*

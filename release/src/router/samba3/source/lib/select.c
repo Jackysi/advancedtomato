@@ -61,6 +61,11 @@ int sys_select(int maxfd, fd_set *readfds, fd_set *writefds, fd_set *errorfds, s
 	if (initialised != sys_getpid()) {
 		pipe(select_pipe);
 
+		if (select_pipe[0] < 0 || select_pipe[0] >= FD_SETSIZE) {
+			errno = EBADF;
+			return -1;
+		}
+
 		/*
 		 * These next two lines seem to fix a bug with the Linux
 		 * 2.0.x kernel (and probably other UNIXes as well) where

@@ -52,6 +52,7 @@
 
 #include "config.h"
 #include "upnpglobalvars.h"
+#include "upnpdescstrings.h"
 
 /* LAN address */
 /*const char * listen_addr = 0;*/
@@ -65,9 +66,12 @@ int runtime_flags = INOTIFY_MASK;
 const char * pidfilename = "/var/run/minidlna.pid";
 
 char uuidvalue[] = "uuid:00000000-0000-0000-0000-000000000000";
+char modelname[MODELNAME_MAX_LEN] = ROOTDEV_MODELNAME;
+char modelnumber[MODELNUMBER_MAX_LEN] = MINIDLNA_VERSION;
 char serialnumber[SERIALNUMBER_MAX_LEN] = "00000000";
-
-char modelnumber[MODELNUMBER_MAX_LEN] = "1";
+#if PNPX
+char pnpx_hwid[] = "VEN_0000&amp;DEV_0000&amp;REV_01 VEN_0033&amp;DEV_0001&amp;REV_01";
+#endif
 
 /* presentation url :
  * http://nnn.nnn.nnn.nnn:ppppp/  => max 30 bytes including terminating 0 */
@@ -76,15 +80,18 @@ char presentationurl[PRESENTATIONURL_MAX_LEN];
 int n_lan_addr = 0;
 struct lan_addr_s lan_addr[MAX_LAN_ADDR];
 
+/* Path of the Unix socket used to communicate with MiniSSDPd */
+const char * minissdpdsocketpath = "/var/run/minissdpd.sock";
+
 /* UPnP-A/V [DLNA] */
 sqlite3 * db;
 char dlna_no_conv[] = "DLNA.ORG_OP=01;DLNA.ORG_CI=0";
 char friendly_name[FRIENDLYNAME_MAX_LEN];
-char db_path[PATH_MAX] = DEFAULT_DB_PATH;
-char log_path[PATH_MAX] = DEFAULT_LOG_PATH;
+char db_path[PATH_MAX] = {'\0'};
+char log_path[PATH_MAX] = {'\0'};
 struct media_dir_s * media_dirs = NULL;
 struct album_art_name_s * album_art_names = NULL;
 struct client_cache_s clients[CLIENT_CACHE_SLOTS];
 short int scanning = 0;
 volatile short int quitting = 0;
-volatile __u32 updateID = 0;
+volatile uint32_t updateID = 0;

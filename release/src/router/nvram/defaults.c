@@ -150,13 +150,14 @@ const defaults_t defaults[] = {
 	{ "ppp_get_ac",			""				},	// PPPoE Server ac name
 	{ "ppp_get_srv",		""				},	// PPPoE Server service name
 	{ "ppp_custom",			""				},	// PPPD additional options
+	{ "ppp_mlppp",			"0"				},	// PPPoE single line MLPPP
 
 	{ "pppoe_lei",			""				},
 	{ "pppoe_lef",			""				},
 
 #ifdef TCONFIG_IPV6
 	// IPv6 parameters
-	{ "ipv6_service",		""				},	// [''|native|native-pd|sit|other]
+	{ "ipv6_service",		""				},	// [''|native|native-pd|6to4|sit|other]
 	{ "ipv6_prefix",		""				},	// The global-scope IPv6 prefix to route/advertise
 	{ "ipv6_prefix_length",		"64"				},	// The bit length of the prefix. Used by dhcp6c. For radvd, /64 is always assumed.
 	{ "ipv6_rtr_addr",		""				},	// defaults to $ipv6_prefix::1
@@ -164,6 +165,7 @@ const defaults_t defaults[] = {
 	{ "ipv6_accept_ra",		"0"				},	// Accept RA on WAN and/or LAN interfaces
 	{ "ipv6_ifname",		"six0"				},	// The interface facing the rest of the IPv6 world
 	{ "ipv6_tun_v4end",		"0.0.0.0"			},	// Foreign IPv4 endpoint of SIT tunnel
+	{ "ipv6_relay",			"1"				},	// Foreign IPv4 endpoint host of SIT tunnel 192.88.99.?
 	{ "ipv6_tun_addr",		""				},	// IPv6 address to assign to local tunnel endpoint
 	{ "ipv6_tun_addrlen",		"64"				},	// CIDR prefix length for tunnel's IPv6 address	
 	{ "ipv6_tun_mtu",		"0"				},	// Tunnel MTU, 0 for default
@@ -218,7 +220,7 @@ const defaults_t defaults[] = {
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
-	{ "wl_interfmode",		"3"				},	// Interference Mitigation Mode (0|1|2|3)
+	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3)
 
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"			},	// WEP encryption [64 | 128] // Add
@@ -318,7 +320,6 @@ const defaults_t defaults[] = {
 	{ "pptp_server_ip",		""				},	// as same as WAN gateway
 	{ "ppp_get_ip",			""				},	// IP Address assigned by PPTP/L2TP server
 	{ "pptp_dhcp",			"1"				},
-	{ "ppp_defgw",			"1"				},	// use default gateway on remote network
 
 	// for firewall
 	{ "mtu_enable",			"0"				},	// WAN MTU [1|0]
@@ -662,6 +663,9 @@ const defaults_t defaults[] = {
 	{ "usb_uhci",			"0"				},
 	{ "usb_ohci",			"0"				},
 	{ "usb_usb2",			"1"				},
+#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+	{ "usb_mmc",			"-1"				},
+#endif
 	{ "usb_irq_thresh",		"0"				},
 	{ "usb_storage",		"1"				},
 	{ "usb_printer",		"1"				},

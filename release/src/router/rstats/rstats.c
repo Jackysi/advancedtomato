@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <sys/sysinfo.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <stdint.h>
 #include <syslog.h>
 
@@ -462,19 +463,36 @@ static void save_speedjs(long next)
 	uint64_t tmax;
 	unsigned long n;
 	char c;
+	int up;
+	int sfd;
+	struct ifreq ifr;
 
 	if ((f = fopen("/var/tmp/rstats-speed.js", "w")) == NULL) return;
 
 	_dprintf("%s: speed_count = %d\n", __FUNCTION__, speed_count);
 
+	if ((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
+		_dprintf("[%s %d]: error opening socket %m\n", __FUNCTION__, __LINE__);
+	}
+
 	fprintf(f, "\nspeed_history = {\n");
 
 	for (i = 0; i < speed_count; ++i) {
 		sp = &speed[i];
-		fprintf(f, "%s'%s': {\n", i ? " },\n" : "", sp->ifname);
+
+		up = 0;
+		if (sfd >= 0) {
+			strcpy(ifr.ifr_name, sp->ifname);
+			if (ioctl(sfd, SIOCGIFFLAGS, &ifr) == 0)
+				up = (ifr.ifr_flags & IFF_UP);
+		}
+
+		fprintf(f, "%s'%s': { up: %d", i ? " },\n" : "", sp->ifname, up);
+
 		for (j = 0; j < MAX_COUNTER; ++j) {
 			total = tmax = 0;
-			fprintf(f, "%sx: [", j ? ",\n t" : " r");
+			c = j ? 't' : 'r';
+			fprintf(f, ",\n %cx: [", c);
 			p = sp->tail;
 			for (k = 0; k < MAX_NSPEED; ++k) {
 				p = (p + 1) % MAX_NSPEED;
@@ -485,12 +503,13 @@ static void save_speedjs(long next)
 			}
 			fprintf(f, "],\n");
 
-			c = j ? 't' : 'r';
 			fprintf(f, " %cx_avg: %llu,\n %cx_max: %llu,\n %cx_total: %llu",
 				c, total / MAX_NSPEED, c, tmax, c, total);
 		}
 	}
 	fprintf(f, "%s_next: %ld};\n", speed_count ? "},\n" : "", ((next >= 1) ? next : 1));
+
+	if (sfd >= 0) close(sfd);
 	fclose(f);
 
 	rename("/var/tmp/rstats-speed.js", "/var/spool/rstats-speed.js");

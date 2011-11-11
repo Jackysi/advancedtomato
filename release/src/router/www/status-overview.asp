@@ -116,6 +116,15 @@ function show()
 	c('swap', stats.swap);
 	elem.display('swap', stats.swap != '');
 
+/* IPV6-BEGIN */
+	c('ip6_wan', stats.ip6_wan);
+	elem.display('ip6_wan', stats.ip6_wan != '');
+	c('ip6_lan', stats.ip6_lan);
+	elem.display('ip6_lan', stats.ip6_lan != '');
+	c('ip6_lan_ll', stats.ip6_lan_ll);
+	elem.display('ip6_lan_ll', stats.ip6_lan_ll != '');
+/* IPV6-END */
+
 	c('wanstatus', stats.wanstatus);
 	c('wanuptime', stats.wanuptime);
 	if (show_dhcpc) c('wanlease', stats.wanlease);
@@ -205,6 +214,9 @@ createFieldTable('', [
 	{ title: 'IP Address', rid: 'wanip', text: stats.wanip },
 	{ title: 'Subnet Mask', rid: 'wannetmask', text: stats.wannetmask },
 	{ title: 'Gateway', rid: 'wangateway', text: stats.wangateway },
+/* IPV6-BEGIN */
+	{ title: 'IPv6 Address', rid: 'ip6_wan', text: stats.ip6_wan, hidden: (stats.ip6_wan == '') },
+/* IPV6-END */
 	{ title: 'DNS', rid: 'dns', text: stats.dns },
 	{ title: 'MTU', text: nvram.wan_run_mtu },
 	null,
@@ -275,6 +287,10 @@ createFieldTable('', [
 	{ title: 'Router IP Address', text: nvram.lan_ipaddr },
 	{ title: 'Subnet Mask', text: nvram.lan_netmask },
 	{ title: 'Gateway', text: nvram.lan_gateway, ignore: nvram.wan_proto != 'disabled' },
+/* IPV6-BEGIN */
+	{ title: 'Router IPv6 Address', rid: 'ip6_lan', text: stats.ip6_lan, hidden: (stats.ip6_lan == '') },
+	{ title: 'IPv6 Link-local Address', rid: 'ip6_lan_ll', text: stats.ip6_lan_ll, hidden: (stats.ip6_lan_ll == '') },
+/* IPV6-END */
 	{ title: 'DNS', rid: 'dns', text: stats.dns, ignore: nvram.wan_proto != 'disabled' },
 	{ title: 'DHCP', text: s }
 ]);

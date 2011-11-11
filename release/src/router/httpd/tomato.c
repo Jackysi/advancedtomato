@@ -495,7 +495,7 @@ typedef struct {
 #define V_NUM				VT_RANGE,	{ .l = 0 },		{ .l = 0x7FFFFFFF }
 #define	V_TEMP				VT_TEMP,	{ }, 			{ }
 #ifdef TCONFIG_IPV6
-#define V_IPV6				VT_IPV6,	{ },			{ }
+#define V_IPV6(required)		VT_IPV6,	{ .i = required },	{ }
 #endif
 
 static const nvset_t nvset_list[] = {
@@ -539,7 +539,6 @@ static const nvset_t nvset_list[] = {
 	{ "l2tp_server_ip",		V_LENGTH(0, 128)		},
 	{ "pptp_server_ip",		V_LENGTH(0, 128)		},
 	{ "pptp_dhcp",			V_01				},
-	{ "ppp_defgw",			V_01				},
 	{ "ppp_username",		V_LENGTH(0, 60)		},
 	{ "ppp_passwd",			V_LENGTH(0, 60)		},
 	{ "ppp_service",		V_LENGTH(0, 50)		},
@@ -547,6 +546,7 @@ static const nvset_t nvset_list[] = {
 	{ "ppp_custom",			V_LENGTH(0, 256)		},
 	{ "ppp_idletime",		V_RANGE(0, 1440)	},
 	{ "ppp_redialperiod",	V_RANGE(1, 86400)	},
+	{ "ppp_mlppp",			V_01				},
 	{ "mtu_enable",			V_01				},
 	{ "wan_mtu",			V_RANGE(576, 1500)	},
 	{ "wan_islan",			V_01				},
@@ -647,16 +647,17 @@ static const nvset_t nvset_list[] = {
 
 #ifdef TCONFIG_IPV6
 // basic-ipv6
-	{ "ipv6_service",		V_LENGTH(0, 16)			},	// '', native, native-pd, sit, other
-	{ "ipv6_prefix",		V_IPV6				},
+	{ "ipv6_service",		V_LENGTH(0, 16)			},	// '', native, native-pd, 6to4, sit, other
+	{ "ipv6_prefix",		V_IPV6(0)			},
 	{ "ipv6_prefix_length",		V_RANGE(3, 127)			},
-	{ "ipv6_rtr_addr",		V_LENGTH(0, 40)			},
+	{ "ipv6_rtr_addr",		V_IPV6(0)			},
 	{ "ipv6_radvd",			V_01				},
 	{ "ipv6_accept_ra",		V_NUM				},
-	{ "ipv6_tun_addr",		V_IPV6				},
+	{ "ipv6_tun_addr",		V_IPV6(1)			},
 	{ "ipv6_tun_addrlen",		V_RANGE(3, 127)			},
 	{ "ipv6_ifname",		V_LENGTH(0, 8)			},
 	{ "ipv6_tun_v4end",		V_IP				},
+	{ "ipv6_relay",			V_RANGE(1, 254)			},
 	{ "ipv6_tun_mtu",		V_NUM				},	// Tunnel MTU
 	{ "ipv6_tun_ttl",		V_NUM				},	// Tunnel TTL
 	{ "ipv6_dns",			V_LENGTH(0, 40*3)		},	// ip6 ip6 ip6
@@ -825,7 +826,7 @@ static const nvset_t nvset_list[] = {
 	{ "wlx_hpamp",			V_01				},
 	{ "wlx_hperx",			V_01				},
 	{ "wl_reg_mode",		V_LENGTH(1, 3)			},	// !!TB - Regulatory: off, h, d
-	{ "wl_interfmode",		V_RANGE(0, 3)			},	// Interference Mitigation Mode (0|1|2|3)
+	{ "wl_mitigation",		V_RANGE(0, 3)			},	// Interference Mitigation Mode (0|1|2|3)
 
 	{ "wl_nmode_protection",	V_WORD,				},	// off, auto
 	{ "wl_nmcsidx",			V_RANGE(-2, 32),	},	// -2 - 32
@@ -1002,6 +1003,9 @@ static const nvset_t nvset_list[] = {
 	{ "usb_uhci",			V_RANGE(-1, 1)			},	// -1 - disabled, 0 - off, 1 - on
 	{ "usb_ohci",			V_RANGE(-1, 1)			},
 	{ "usb_usb2",			V_RANGE(-1, 1)			},
+#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+	{ "usb_mmc",			V_RANGE(-1, 1)			},
+#endif
 	{ "usb_irq_thresh",		V_RANGE(0, 6)			},
 	{ "usb_storage",		V_01				},
 	{ "usb_printer",		V_01				},
@@ -1289,7 +1293,9 @@ static int webcgi_nvram_set(const nvset_t *v, const char *name, int write)
 		break;
 #ifdef TCONFIG_IPV6
 	case VT_IPV6:
-		if (inet_pton(AF_INET6, p, &addr) != 1) ok = 0;
+		if (strlen(p) > 0 || v->va.i) {
+			if (inet_pton(AF_INET6, p, &addr) != 1) ok = 0;
+		}
 		break;
 #endif
 	default:

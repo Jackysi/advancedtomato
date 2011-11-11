@@ -16,7 +16,6 @@
 
 # To rebuild everything and all configurations:
 #  make distclean
-#  make libc (usually doesn't need to be done ???)
 #  make V1=whatever V2=sub-whatever VPN=vpn3.6 a b c d m
 # The 1st "whatever" would be the build number, the sub-whatever would
 #	be the update to the version.
@@ -47,6 +46,10 @@ endif
 SDHC ?= "n"
 SNMP ?= "n"
 VLAN ?= "n"
+
+ifeq ($(NVRAM_SIZE),)
+NVRAM_SIZE = 0
+endif
 
 -include tomato_profile.mak
 
@@ -80,7 +83,6 @@ tomato_ver:
 ifeq ($(TOMATO_BUILD),)
 
 all:
-	$(MAKE) libc
 	$(MAKE) a
 
 else
@@ -97,18 +99,62 @@ all: tomato_ver
 	@$(MAKE) -C router install
 	@$(MAKE) -C btools
 
-	@rm -f image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx
-	@rm -f image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx
+	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+ifeq ($(WRT54),y)
+ifneq ($(MIPS32),r2)
+	@rm -f image/tomato-WRT54*$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-WRTSL54*$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-WR850G$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+endif
+endif
+ifeq ($(LINKSYS_E),y)
+	@rm -f image/tomato-E??00$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+endif
+ifeq ($(BELKIN),y)
+ifneq ($(NVRAM_SIZE),60)
+	@rm -f image/tomato-F7D????$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-F5D8235v3$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+endif
+endif
 	@echo "" >>fpkg.log
 	@echo "***********************" `date` "************************" >>fpkg.log
 	@cat router/shared/tomato_version >>fpkg.log
 	@echo "" >>fpkg.log
 	@cat router/target.info >>fpkg.log
-
-	# Create generic BIN/TRX images
+ifeq ($(WRT54),y)
+ifneq ($(MIPS32),r2)
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-t image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
-		-l W54G,image/tomato-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l W54G,image/tomato-WRT54G_WRT54GL$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l W54S,image/tomato-WRT54GS$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l W54s,image/tomato-WRT54GSv4$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l W54U,image/tomato-WRTSL54GS$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-m 0x10577050,image/tomato-WR850G$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		| tee -a fpkg.log
+endif
+endif
+ifeq ($(LINKSYS_E),y)
+	# Linksys E-series images
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-l 4200,image/tomato-E4200$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l 61XN,image/tomato-E3000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l 32XN,image/tomato-E2000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		| tee -a fpkg.log
+endif
+ifeq ($(BELKIN),y)
+ifneq ($(NVRAM_SIZE),60)
+	# Create Belkin images
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-b 0x20100322,image/tomato-F7D3301$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-b 0x20090928,image/tomato-F7D3302$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-b 0x20091006,image/tomato-F7D4302$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-b 0x00017116,image/tomato-F5D8235v3$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		| tee -a fpkg.log
+endif
+endif
+	# Create generic TRX image
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-t image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
 		| tee -a fpkg.log
 
 	@cp fpkg.log image/fpkg-$(V1)$(mips_rev)$(beta)$(V2).log
@@ -150,7 +196,7 @@ kernel:
 	@$(MAKE) -C router kernel
 	@ls -l $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/zImage
 
-distclean: clean cleanimage cleankernel cleantools cleanlibc
+distclean: clean cleanimage cleankernel cleantools
 ifneq ($(INSIDE_MAK),1)
 	@$(MAKE) -C router $@ INSIDE_MAK=1
 endif
@@ -172,7 +218,10 @@ prepk:
 		rm -f config_current ; \
 		ln -s config_base config_current ; \
 		cp -f config_current .config
-	$(MAKE) -C $(LINUXDIR) oldconfig dep
+	$(MAKE) -C $(LINUXDIR) oldconfig
+ifneq ($(CONFIG_LINUX26),y)
+	$(MAKE) -C $(LINUXDIR) dep
+endif
 
 what:
 	@echo ""
@@ -323,6 +372,8 @@ define BusyboxOptions
 		echo "# CONFIG_FEATURE_DEVFS is not set" >>$(1); \
 		sed -i "/CONFIG_MKNOD/d" $(1); \
 		echo "CONFIG_MKNOD=y" >>$(1); \
+		sed -i "/CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE/d" $(1); \
+		echo "CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE=512" >>$(1); \
 	fi; \
 	if [ "$(NO_CIFS)" = "y" ]; then \
 		sed -i "/CONFIG_FEATURE_MOUNT_CIFS/d" $(1); \
@@ -335,14 +386,16 @@ define BusyboxOptions
 		echo "CONFIG_FEATURE_SORT_BIG=y" >>$(1); \
 		sed -i "/CONFIG_FTPPUT/d" $(1); \
 		echo "CONFIG_FTPPUT=y" >>$(1); \
+		sed -i "/CONFIG_FTPGET/d" $(1); \
+		echo "CONFIG_FTPGET=y" >>$(1); \
 		sed -i "/CONFIG_CLEAR/d" $(1); \
 		echo "CONFIG_CLEAR=y" >>$(1); \
+		sed -i "/CONFIG_NICE/d" $(1); \
+		echo "CONFIG_NICE=y" >>$(1); \
 		sed -i "/CONFIG_SETCONSOLE/d" $(1); \
 		echo "CONFIG_SETCONSOLE=y" >>$(1); \
-		if [ "$(CONFIG_LINUX26)" = "y" ]; then \
-			sed -i "/CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE/d" $(1); \
-			echo "CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE=512" >>$(1); \
-		fi; \
+		sed -i "/CONFIG_MKFIFO/d" $(1); \
+		echo "CONFIG_MKFIFO=y" >>$(1); \
 	fi; \
 	if [ "$(USB)" = "USB" ]; then \
 		if [ "$(USBEXTRAS)" = "y" ]; then \
@@ -388,6 +441,10 @@ define BusyboxOptions
 		echo "# CONFIG_BLKID is not set" >>$(1); \
 		sed -i "/CONFIG_SWAPONOFF/d" $(1); \
 		echo "# CONFIG_SWAPONOFF is not set" >>$(1); \
+		sed -i "/CONFIG_CHROOT/d" $(1); \
+		echo "# CONFIG_CHROOT is not set" >>$(1); \
+		sed -i "/CONFIG_PIVOT_ROOT/d" $(1); \
+		echo "# CONFIG_PIVOT_ROOT is not set" >>$(1); \
 		sed -i "/CONFIG_TRUE/d" $(1); \
 		echo "# CONFIG_TRUE is not set" >>$(1); \
 	fi; \
@@ -398,6 +455,10 @@ define BusyboxOptions
 		echo "CONFIG_PING6=y" >>$(1); \
 		sed -i "/CONFIG_TRACEROUTE6/d" $(1); \
 		echo "CONFIG_TRACEROUTE6=y" >>$(1); \
+		if [ "$(CONFIG_LINUX26)" = "y" ]; then \
+			sed -i "/CONFIG_FEATURE_UDHCP_RFC5969/d" $(1); \
+			echo "CONFIG_FEATURE_UDHCP_RFC5969=y" >>$(1); \
+		fi; \
 	fi; \
 	if [ "$(SLIM)" = "y" ]; then \
 		sed -i "/CONFIG_AWK/d" $(1); \
@@ -414,6 +475,8 @@ define BusyboxOptions
 		echo "# CONFIG_ARPING is not set" >>$(1); \
 		sed -i "/CONFIG_FEATURE_LS_COLOR/d" $(1); \
 		echo "# CONFIG_FEATURE_LS_COLOR is not set" >>$(1); \
+		sed -i "/CONFIG_CHOWN/d" $(1); \
+		echo "# CONFIG_CHOWN is not set" >>$(1); \
 	else \
 		sed -i "/CONFIG_FEATURE_LS_COLOR/d" $(1); \
 		echo "CONFIG_FEATURE_LS_COLOR=y" >>$(1); \
@@ -425,6 +488,8 @@ endef
 
 define KernelConfig
 	@( \
+	sed -i "/CONFIG_NVRAM_SIZE/d" $(1); \
+	echo "CONFIG_NVRAM_SIZE="$(NVRAM_SIZE) >>$(1); \
 	sed -i "/CONFIG_CC_OPTIMIZE_FOR_SIZE/d" $(1); \
 	if [ "$(KERN_SIZE_OPT)" = "y" ]; then \
 		echo "CONFIG_CC_OPTIMIZE_FOR_SIZE=y" >>$(1); \
@@ -471,10 +536,16 @@ define KernelConfig
 			echo "CONFIG_IPV6_ROUTER_PREF=y" >>$(1); \
 			sed -i "/CONFIG_IPV6_SIT/d" $(1); \
 			echo "CONFIG_IPV6_SIT=m" >>$(1); \
+			sed -i "/CONFIG_IPV6_SIT_6RD/d" $(1); \
+			echo "CONFIG_IPV6_SIT_6RD=y" >>$(1); \
 			sed -i "/CONFIG_IPV6_MULTIPLE_TABLES/d" $(1); \
 			echo "CONFIG_IPV6_MULTIPLE_TABLES=y" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_RAW/d" $(1); \
 			echo "CONFIG_IP6_NF_RAW=m" >>$(1); \
+			sed -i "/CONFIG_IPV6_OPTIMISTIC_DAD/d" $(1); \
+			echo "CONFIG_IPV6_OPTIMISTIC_DAD=y" >>$(1); \
+			sed -i "/CONFIG_IPV6_MROUTE/d" $(1); \
+			echo "CONFIG_IPV6_MROUTE=y" >>$(1); \
 			sed -i "/CONFIG_IP6_NF_TARGET_ROUTE/d" $(1); \
 			echo "CONFIG_IP6_NF_TARGET_ROUTE=m" >>$(1); \
 		else \
@@ -633,8 +704,7 @@ else
 	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB="" SNMP="$(SNMP)" VLAN="$(VLAN)" SDHC="$(SDHC)"
 endif
 
-## Make Mips32r2 builds (K26 only)
-ifeq ($(CONFIG_LINUX26),y)
+## Make Mips32r2 builds
 r2m:
 	@$(MAKE) m MIPS32=r2
 
@@ -651,17 +721,22 @@ r2i:
 	@$(MAKE) i MIPS32=r2
 
 r2f:
-	@$(MAKE) f MIPS32=r2
+	@$(MAKE) f MIPS32=r2 BELKIN=y
 
 r2d:
 	@$(MAKE) d MIPS32=r2
 
-r2t:
-	@$(MAKE) t MIPS32=r2
+n60m:
+	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=y
 
-r2u:
-	@$(MAKE) u MIPS32=r2
-endif
+n60e:
+	@$(MAKE) r2e NVRAM_SIZE=60 LINKSYS_E=y
+
+n60s:
+	@$(MAKE) bin MIPS32=r2 B=S USB="" NVRAM_SIZE=60 LINKSYS_E=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y BUILD_DESC="Std"
+
+n60v:
+	@$(MAKE) bin MIPS32=r2 B=V USB="" NVRAM_SIZE=60 LINKSYS_E=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y OPENVPN=y BUILD_DESC="$(VPN)"
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -672,6 +747,9 @@ setprofile:
 	echo '#define TOMATO_PROFILE_NAME "$(N)"' >> router/shared/tomato_profile.h
 	echo '#define TOMATO_BUILD_NAME "$(B)"' >> router/shared/tomato_profile.h
 	echo '#define TOMATO_BUILD_DESC "$(DESC)"' >> router/shared/tomato_profile.h
+	echo '#ifndef CONFIG_NVRAM_SIZE' >> router/shared/tomato_profile.h
+	echo '#define CONFIG_NVRAM_SIZE $(NVRAM_SIZE)' >> router/shared/tomato_profile.h
+	echo '#endif' >> router/shared/tomato_profile.h
 	echo '#endif' >> router/shared/tomato_profile.h
 
 	echo 'TOMATO_$(N) = 1' > tomato_profile.mak
@@ -686,8 +764,7 @@ setprofile:
 	echo 'TOMATO_PROFILE_U = $(uppercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_BUILD_USB = "$(USB)"' >> tomato_profile.mak
 
-	echo 'export EXTRACFLAGS := $(EXTRA_CFLAGS) -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32' >> tomato_profile.mak
-
+	echo 'export EXTRACFLAGS := $(EXTRA_CFLAGS) -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32 $(if $(filter $(NVRAM_SIZE),0),,-DCONFIG_NVRAM_SIZE=$(NVRAM_SIZE))' >> tomato_profile.mak
 
 # Note that changes to variables in tomato_profile.mak don't
 # get propogated to this invocation of make!
@@ -711,13 +788,6 @@ setprofile:
 		cp config_current .config
 
 	@$(MAKE) -C router oldconfig
-
-cleanlibc:
-#	@$(MAKE) -C ../../tools-src/uClibc clean
-
-libc: cleanlibc
-#	@$(MAKE) -C ../../tools-src/uClibc
-#	@$(MAKE) -C ../../tools-src/uClibc install
 
 help:
 	@echo "a            A build (standard)"
@@ -746,8 +816,10 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2s          MIPS Release 2 S build (no USB support)"
 	@echo "r2i          MIPS Release 2 I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
 	@echo "r2f          MIPS Release 2 F build (no USB support minus CIFS and RIPv1/2)"
-	@echo "r2t          MIPS Release 2 T build (no USB support with extra utilities)"
-	@echo "r2u          MIPS Release 2 U build (no USB support with VPN and extra utilities)"
+	@echo "n60m         Linksys E-series build (60KB NVRAM, standard plus extras)"
+	@echo "n60e         Linksys E-series build (60KB NVRAM, standard plus VPN and extras)"
+	@echo "n60s         Linksys E-series build (60KB NVRAM, no USB support)"
+	@echo "n60v         Linksys E-series build (60KB NVRAM, VPN with no USB support)"
 endif
 	@echo "..etc..      other build configs"
 	@echo "clean        -C router clean"
@@ -756,7 +828,6 @@ endif
 	@echo "cleankernel  -C Linux distclean (but preserves .config)"
 	@echo "distclean    distclean of Linux & busybox (but preserve .configs)"
 	@echo "prepk        -C Linux oldconfig dep"
-	@echo "libc         -C uClibc clean, all, install"
 	
-.PHONY: all clean distclean cleanimage cleantools cleankernel prepk what setprofile libc help
+.PHONY: all clean distclean cleanimage cleantools cleankernel prepk what setprofile help
 .PHONY: a b c d m Makefile allversions tomato_profile.mak

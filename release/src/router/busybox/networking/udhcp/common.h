@@ -94,6 +94,9 @@ enum {
 	OPTION_DNS_STRING,  /* RFC1035 compressed domain name list */
 	OPTION_SIP_SERVERS,
 #endif
+#if ENABLE_FEATURE_UDHCP_RFC5969
+	OPTION_6RD,
+#endif
 
 	OPTION_TYPE_MASK = 0x0f,
 	/* Client requests this option by default */
@@ -148,6 +151,8 @@ enum {
 //#define DHCP_SIP_SERVERS      0x78 /* RFC 3361. flag byte, then: 0: domain names, 1: IP addrs */
 //#define DHCP_STATIC_ROUTES    0x79 /* RFC 3442. (mask,ip,router) tuples */
 //#define DHCP_MS_STATIC_ROUTES 0xf9 /* Microsoft's pre-RFC 3442 code for 0x79? */
+//#define DHCP_6RD              0xd4 /* RFC 5969 6RD option */
+//#define DHCP_COMCAST_6RD      0x96 /* Comcast ISP RFC 5969 compatible 6RD option */
 //#define DHCP_WPAD             0xfc /* MSIE's Web Proxy Autodiscovery Protocol */
 #define DHCP_END                0xff
 

@@ -38,6 +38,68 @@
 /* struct client_config_t client_config is in bb_common_bufsiz1 */
 
 
+#if ENABLE_LONG_OPTS
+static const char udhcpc_longopts[] ALIGN1 =
+	"clientid-none\0"  No_argument       "C"
+	"vendorclass\0"    Required_argument "V"
+	"hostname\0"       Required_argument "H"
+	"fqdn\0"           Required_argument "F"
+	"interface\0"      Required_argument "i"
+	"now\0"            No_argument       "n"
+	"pidfile\0"        Required_argument "p"
+	"quit\0"           No_argument       "q"
+	"release\0"        No_argument       "R"
+	"request\0"        Required_argument "r"
+	"script\0"         Required_argument "s"
+	"timeout\0"        Required_argument "T"
+	"version\0"        No_argument       "v"
+	"retries\0"        Required_argument "t"
+	"tryagain\0"       Required_argument "A"
+	"syslog\0"         No_argument       "S"
+	"request-option\0" Required_argument "O"
+	"no-default-options\0" No_argument   "o"
+	"foreground\0"     No_argument       "f"
+	"background\0"     No_argument       "b"
+	"broadcast\0"      No_argument       "B"
+	IF_FEATURE_UDHCPC_ARPING("arping\0"	No_argument       "a")
+	IF_FEATURE_UDHCP_PORT("client-port\0"	Required_argument "P")
+	;
+#endif
+/* Must match getopt32 option string order */
+enum {
+	OPT_C = 1 << 0,
+	OPT_V = 1 << 1,
+	OPT_H = 1 << 2,
+	OPT_h = 1 << 3,
+	OPT_F = 1 << 4,
+	OPT_i = 1 << 5,
+	OPT_n = 1 << 6,
+	OPT_p = 1 << 7,
+	OPT_q = 1 << 8,
+	OPT_R = 1 << 9,
+	OPT_r = 1 << 10,
+	OPT_s = 1 << 11,
+	OPT_T = 1 << 12,
+	OPT_t = 1 << 13,
+	OPT_S = 1 << 14,
+	OPT_A = 1 << 15,
+	OPT_O = 1 << 16,
+	OPT_o = 1 << 17,
+	OPT_x = 1 << 18,
+	OPT_f = 1 << 19,
+	OPT_B = 1 << 20,
+	OPT_m = 1 << 21,	// zzz
+/* The rest has variable bit positions, need to be clever */
+	OPTBIT_LAST = 21,
+	USE_FOR_MMU(             OPTBIT_b,)
+	IF_FEATURE_UDHCPC_ARPING(OPTBIT_a,)
+	IF_FEATURE_UDHCP_PORT(   OPTBIT_P,)
+	USE_FOR_MMU(             OPT_b = 1 << OPTBIT_b,)
+	IF_FEATURE_UDHCPC_ARPING(OPT_a = 1 << OPTBIT_a,)
+	IF_FEATURE_UDHCP_PORT(   OPT_P = 1 << OPTBIT_P,)
+};
+
+
 /*** Script execution code ***/
 
 /* get a rough idea of how long an option will be (rounding up...) */
@@ -45,6 +107,9 @@ static const uint8_t len_of_option_as_string[] = {
 	[OPTION_IP              ] = sizeof("255.255.255.255 "),
 	[OPTION_IP_PAIR         ] = sizeof("255.255.255.255 ") * 2,
 	[OPTION_STATIC_ROUTES   ] = sizeof("255.255.255.255/32 255.255.255.255 "),
+#if ENABLE_FEATURE_UDHCP_RFC5969
+	[OPTION_6RD             ] = sizeof("32 128 FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF 255.255.255.255 "),
+#endif
 	[OPTION_STRING          ] = 1,
 #if ENABLE_FEATURE_UDHCP_RFC3397
 	[OPTION_DNS_STRING      ] = 1, /* unused */
@@ -67,6 +132,25 @@ static int sprint_nip(char *dest, const char *pre, const uint8_t *ip)
 {
 	return sprintf(dest, "%s%u.%u.%u.%u", pre, ip[0], ip[1], ip[2], ip[3]);
 }
+
+#if ENABLE_FEATURE_UDHCP_RFC5969
+static int sprint_nip6(char *dest, const char *pre, const uint8_t *ip)
+{
+	int len = 0;
+	int off;
+	uint16_t word;
+
+	len += sprintf(dest, "%s", pre);
+
+	for (off = 0; off < 16; off += 2)
+	{
+		move_from_unaligned16(word, &ip[off]);
+		len += sprintf(dest+len, "%s%04X", off ? ":" : "", htons(word));
+	}
+
+	return len;
+}
+#endif
 
 /* really simple implementation, just count the bits */
 static int mton(uint32_t mask)
@@ -215,6 +299,71 @@ static NOINLINE char *xmalloc_optname_optval(uint8_t *option, const struct dhcp_
 			}
 			return ret;
 #endif
+#if ENABLE_FEATURE_UDHCP_RFC5969
+		case OPTION_6RD:
+			/* Option binary format:
+			 *  0                   1                   2                   3
+			 *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+			 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			 *  |  OPTION_6RD   | option-length |  IPv4MaskLen  |  6rdPrefixLen |
+			 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			 *  |                                                               |
+			 *  |                           6rdPrefix                           |
+			 *  |                          (16 octets)                          |
+			 *  |                                                               |
+			 *  |                                                               |
+			 *  |                                                               |
+			 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			 *  |                     6rdBRIPv4Address(es)                      |
+			 *  .                                                               .
+			 *  .                                                               .
+			 *  .                                                               .
+			 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+			 *
+			 * We convert it to a string "IPv4MaskLen 6rdPrefixLen 6rdPrefix 6rdBRIPv4Address"
+			 */
+
+			/* Sanity check: ensure that our length is at least 22 bytes, that
+			 * IPv4MaskLen is <= 32, 6rdPrefixLen <= 128 and that the sum of
+			 * (32 - IPv4MaskLen) + 6rdPrefixLen is less than or equal to 128.
+			 * If any of these requirements is not fulfilled, return with empty
+			 * value.
+			 */
+			if ((len >= 22) && (*option <= 32) && (*(option+1) <= 128) &&
+			    (((32 - *option) + *(option+1)) <= 128))
+			{
+				/* IPv4MaskLen */
+				dest += sprintf(dest, "%u ", *option++);
+				len--;
+
+				/* 6rdPrefixLen */
+				dest += sprintf(dest, "%u ", *option++);
+				len--;
+
+				/* 6rdPrefix */
+				dest += sprint_nip6(dest, "", option);
+				option += 16;
+				len -= 16;
+
+				/* 6rdBRIPv4Addresses */
+				while (len >= 4)
+				{
+					dest += sprint_nip(dest, " ", option);
+					option += 4;
+					len -= 4;
+
+					/* the code to determine the option size fails to work with
+					 * lengths that are not a multiple of the minimum length,
+					 * adding all advertised 6rdBRIPv4Addresses here would
+					 * overflow the destination buffer, therefore skip the rest
+					 * for now
+					 */
+					break;
+				}
+			}
+
+			return ret;
+#endif
 		} /* switch */
 		option += optlen;
 		len -= optlen;
@@ -346,10 +495,18 @@ static ALWAYS_INLINE uint32_t random_xid(void)
 /* Initialize the packet with the proper defaults */
 static void init_packet(struct dhcp_packet *packet, char type)
 {
+	uint16_t secs;
+
 	/* Fill in: op, htype, hlen, cookie fields; message type option: */
 	udhcp_init_header(packet, type);
 
 	packet->xid = random_xid();
+
+	client_config.last_secs = monotonic_sec();
+	if (client_config.first_secs == 0)
+		client_config.first_secs = client_config.last_secs;
+	secs = client_config.last_secs - client_config.first_secs;
+	packet->secs = htons(secs);
 
 	memcpy(packet->chaddr, client_config.client_mac, 6);
 	if (client_config.clientid)
@@ -393,6 +550,10 @@ static void add_client_options(struct dhcp_packet *packet)
 		udhcp_add_binary_option(packet, client_config.hostname);
 	if (client_config.fqdn)
 		udhcp_add_binary_option(packet, client_config.fqdn);
+
+	/* Request broadcast replies if we have no IP addr */
+	if ((option_mask32 & OPT_B) && packet->ciaddr == 0)
+		packet->flags |= htons(BROADCAST_FLAG);
 
 	/* Add -x options if any */
 	{
@@ -719,22 +880,25 @@ static int udhcp_raw_socket(int ifindex)
 	 *
 	 * TODO: make conditional?
 	 */
-#define SERVER_AND_CLIENT_PORTS  ((67 << 16) + 68)
 	static const struct sock_filter filter_instr[] = {
-		/* check for udp */
+		/* load 9th byte (protocol) */
 		BPF_STMT(BPF_LD|BPF_B|BPF_ABS, 9),
-		BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, IPPROTO_UDP, 2, 0),     /* L5, L1, is UDP? */
-		/* ugly check for arp on ethernet-like and IPv4 */
-		BPF_STMT(BPF_LD|BPF_W|BPF_ABS, 2),                      /* L1: */
-		BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, 0x08000604, 3, 4),      /* L3, L4 */
-		/* skip IP header */
-		BPF_STMT(BPF_LDX|BPF_B|BPF_MSH, 0),                     /* L5: */
-		/* check udp source and destination ports */
-		BPF_STMT(BPF_LD|BPF_W|BPF_IND, 0),
-		BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, SERVER_AND_CLIENT_PORTS, 0, 1),	/* L3, L4 */
-		/* returns */
-		BPF_STMT(BPF_RET|BPF_K, 0x0fffffff ),                   /* L3: pass */
-		BPF_STMT(BPF_RET|BPF_K, 0),                             /* L4: reject */
+		/* jump to L1 if it is IPPROTO_UDP, else to L4 */
+		BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, IPPROTO_UDP, 0, 6),
+		/* L1: load halfword from offset 6 (flags and frag offset) */
+		BPF_STMT(BPF_LD|BPF_H|BPF_ABS, 6),
+		/* jump to L4 if any bits in frag offset field are set, else to L2 */
+		BPF_JUMP(BPF_JMP|BPF_JSET|BPF_K, 0x1fff, 4, 0),
+		/* L2: skip IP header (load index reg with header len) */
+		BPF_STMT(BPF_LDX|BPF_B|BPF_MSH, 0),
+		/* load udp destination port from halfword[header_len + 2] */
+		BPF_STMT(BPF_LD|BPF_H|BPF_IND, 2),
+		/* jump to L3 if udp dport is CLIENT_PORT, else to L4 */
+		BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, 68, 0, 1),
+		/* L3: accept packet */
+		BPF_STMT(BPF_RET|BPF_K, 0xffffffff),
+		/* L4: discard packet */
+		BPF_STMT(BPF_RET|BPF_K, 0),
 	};
 	static const struct sock_fprog filter_prog = {
 		.len = sizeof(filter_instr) / sizeof(filter_instr[0]),
@@ -747,18 +911,19 @@ static int udhcp_raw_socket(int ifindex)
 	fd = xsocket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_IP));
 	log1("Got raw socket fd %d", fd); //log2?
 
-	if (SERVER_PORT == 67 && CLIENT_PORT == 68) {
-		/* Use only if standard ports are in use */
+	sock.sll_family = AF_PACKET;
+	sock.sll_protocol = htons(ETH_P_IP);
+	sock.sll_ifindex = ifindex;
+	xbind(fd, (struct sockaddr *) &sock, sizeof(sock));
+
+	if (CLIENT_PORT == 68) {
+		/* Use only if standard port is in use */
 		/* Ignoring error (kernel may lack support for this) */
 		if (setsockopt(fd, SOL_SOCKET, SO_ATTACH_FILTER, &filter_prog,
 				sizeof(filter_prog)) >= 0)
 			log1("Attached filter to raw socket fd %d", fd); // log?
 	}
 
-	sock.sll_family = AF_PACKET;
-	sock.sll_protocol = htons(ETH_P_IP);
-	sock.sll_ifindex = ifindex;
-	xbind(fd, (struct sockaddr *) &sock, sizeof(sock));
 	log1("Created raw socket");
 
 	return fd;
@@ -784,6 +949,7 @@ static void change_listen_mode(int new_mode)
 	/* else LISTEN_NONE: sockfd stays closed */
 }
 
+/* Called only on SIGUSR1 */
 static void perform_renew(void)
 {
 	bb_info_msg("Performing a DHCP renew");
@@ -853,13 +1019,14 @@ static void client_background(void)
 //usage:# define IF_UDHCP_VERBOSE(...)
 //usage:#endif
 //usage:#define udhcpc_trivial_usage
-//usage:       "[-fbnq"IF_UDHCP_VERBOSE("v")"oCR] [-i IFACE] [-r IP] [-s PROG] [-p PIDFILE]\n"
+//usage:       "[-fbnq"IF_UDHCP_VERBOSE("v")"oCRB] [-i IFACE] [-r IP] [-s PROG] [-p PIDFILE]\n"
 //usage:       "	[-H HOSTNAME] [-V VENDOR] [-x OPT:VAL]... [-O OPT]..." IF_FEATURE_UDHCP_PORT(" [-P N]")
 //usage:#define udhcpc_full_usage "\n"
 //usage:	IF_LONG_OPTS(
 //usage:     "\n	-i,--interface IFACE	Interface to use (default eth0)"
 //usage:     "\n	-p,--pidfile FILE	Create pidfile"
 //usage:     "\n	-s,--script PROG	Run PROG at DHCP events (default "CONFIG_UDHCPC_DEFAULT_SCRIPT")"
+//usage:     "\n	-B,--broadcast		Request broadcast replies"
 //usage:     "\n	-t,--retries N		Send up to N discover packets"
 //usage:     "\n	-T,--timeout N		Pause between packets (default 3 seconds)"
 //usage:     "\n	-A,--tryagain N		Wait N seconds after failure (default 20)"
@@ -897,6 +1064,7 @@ static void client_background(void)
 //usage:     "\n	-i IFACE	Interface to use (default eth0)"
 //usage:     "\n	-p FILE		Create pidfile"
 //usage:     "\n	-s PROG		Run PROG at DHCP events (default "CONFIG_UDHCPC_DEFAULT_SCRIPT")"
+//usage:     "\n	-B		Request broadcast replies"
 //usage:     "\n	-t N		Send up to N discover packets"
 //usage:     "\n	-T N		Pause between packets (default 3 seconds)"
 //usage:     "\n	-A N		Wait N seconds (default 20) after failure"
@@ -961,64 +1129,6 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 	struct dhcp_packet packet;
 	fd_set rfds;
 
-#if ENABLE_LONG_OPTS
-	static const char udhcpc_longopts[] ALIGN1 =
-		"clientid-none\0"  No_argument       "C"
-		"vendorclass\0"    Required_argument "V"
-		"hostname\0"       Required_argument "H"
-		"fqdn\0"           Required_argument "F"
-		"interface\0"      Required_argument "i"
-		"now\0"            No_argument       "n"
-		"pidfile\0"        Required_argument "p"
-		"quit\0"           No_argument       "q"
-		"release\0"        No_argument       "R"
-		"request\0"        Required_argument "r"
-		"script\0"         Required_argument "s"
-		"timeout\0"        Required_argument "T"
-		"version\0"        No_argument       "v"
-		"retries\0"        Required_argument "t"
-		"tryagain\0"       Required_argument "A"
-		"syslog\0"         No_argument       "S"
-		"request-option\0" Required_argument "O"
-		"no-default-options\0" No_argument   "o"
-		"foreground\0"     No_argument       "f"
-		"background\0"     No_argument       "b"
-		IF_FEATURE_UDHCPC_ARPING("arping\0"	No_argument       "a")
-		IF_FEATURE_UDHCP_PORT("client-port\0"	Required_argument "P")
-		;
-#endif
-	enum {
-		OPT_C = 1 << 0,
-		OPT_V = 1 << 1,
-		OPT_H = 1 << 2,
-		OPT_h = 1 << 3,
-		OPT_F = 1 << 4,
-		OPT_i = 1 << 5,
-		OPT_n = 1 << 6,
-		OPT_p = 1 << 7,
-		OPT_q = 1 << 8,
-		OPT_R = 1 << 9,
-		OPT_r = 1 << 10,
-		OPT_s = 1 << 11,
-		OPT_T = 1 << 12,
-		OPT_t = 1 << 13,
-		OPT_S = 1 << 14,
-		OPT_A = 1 << 15,
-		OPT_O = 1 << 16,
-		OPT_o = 1 << 17,
-		OPT_x = 1 << 18,
-		OPT_f = 1 << 19,
-		OPT_m = 1 << 20,	// zzz
-/* The rest has variable bit positions, need to be clever */
-		OPTBIT_LAST = 20,
-		USE_FOR_MMU(             OPTBIT_b,)
-		IF_FEATURE_UDHCPC_ARPING(OPTBIT_a,)
-		IF_FEATURE_UDHCP_PORT(   OPTBIT_P,)
-		USE_FOR_MMU(             OPT_b = 1 << OPTBIT_b,)
-		IF_FEATURE_UDHCPC_ARPING(OPT_a = 1 << OPTBIT_a,)
-		IF_FEATURE_UDHCP_PORT(   OPT_P = 1 << OPTBIT_P,)
-	};
-
 	/* Default options */
 	IF_FEATURE_UDHCP_PORT(SERVER_PORT = 67;)
 	IF_FEATURE_UDHCP_PORT(CLIENT_PORT = 68;)
@@ -1034,7 +1144,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 #endif
 		;
 	IF_LONG_OPTS(applet_long_options = udhcpc_longopts;)
-	opt = getopt32(argv, "CV:H:h:F:i:np:qRr:s:T:t:SA:O:ox:f"
+	opt = getopt32(argv, "CV:H:h:F:i:np:qRr:s:T:t:SA:O:ox:fB"
 		"m"	// zzz
 		USE_FOR_MMU("b")
 		IF_FEATURE_UDHCPC_ARPING("a")
@@ -1257,6 +1367,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 			case BOUND:
 				/* 1/2 lease passed, enter renewing state */
 				state = RENEWING;
+				client_config.first_secs = 0; /* make secs field count from 0 */
 				change_listen_mode(LISTEN_RAW);	// was: LISTEN_KERNEL -- zzz
 				log1("Entering renew state");
 				/* fall right through */
@@ -1296,6 +1407,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				bb_info_msg("Lease lost, entering init state");
 				udhcp_run_script(NULL, "deconfig");
 				state = INIT_SELECTING;
+				client_config.first_secs = 0; /* make secs field count from 0 */
 				/*timeout = 0; - already is */
 				packet_num = 0;
 				continue;
@@ -1312,6 +1424,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 		/* note: udhcp_sp_read checks FD_ISSET before reading */
 		switch (udhcp_sp_read(&rfds)) {
 		case SIGUSR1:
+			client_config.first_secs = 0; /* make secs field count from 0 */
 			perform_renew();
 			if (state == RENEW_REQUESTED)
 				goto case_RENEW_REQUESTED;
@@ -1443,6 +1556,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 							udhcp_run_script(NULL, "deconfig");
 						change_listen_mode(LISTEN_RAW);
 						state = INIT_SELECTING;
+						client_config.first_secs = 0; /* make secs field count from 0 */
 						requested_ip = 0;
 						timeout = tryagain_timeout;
 						packet_num = 0;
@@ -1490,6 +1604,7 @@ int udhcpc_main(int argc UNUSED_PARAM, char **argv)
 				change_listen_mode(LISTEN_RAW);
 				sleep(3); /* avoid excessive network traffic */
 				state = INIT_SELECTING;
+				client_config.first_secs = 0; /* make secs field count from 0 */
 				requested_ip = 0;
 				timeout = 0;
 				packet_num = 0;

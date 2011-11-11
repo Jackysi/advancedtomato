@@ -20,31 +20,18 @@
 #include <typedefs.h>
 #include <bcmdefs.h>
 
-#define ROUNDUP_P2(n, a)	((n + (a - 1)) & ~(a - 1))
-
 struct nvram_header {
 	uint32 magic;
 	uint32 len;
 	uint32 crc_ver_init;	/* 0:7 crc, 8:15 ver, 16:31 sdram_init */
-				/* as in:    IIIIVVCC */
 	uint32 config_refresh;	/* 0:15 sdram_config, 16:31 sdram_refresh */
 	uint32 config_ncdl;	/* ncdl values for memc */
 };
 
-/* Used by app, CFE, etc. */
 struct nvram_tuple {
 	char *name;
 	char *value;
 	struct nvram_tuple *next;
-};
-
-/* Used by kernel NVRAM internals. */
-struct nvram_dbitem {
-	struct nvram_dbitem *next;
-	char *value;
-	uint16 hsh;
-	uint16 prio;
-	char name[0];
 };
 
 /*
@@ -169,29 +156,18 @@ uint8 nvram_calc_crc(struct nvram_header * nvh);
 #define NVRAM_SOFTWARE_VERSION	"1"
 
 #define NVRAM_MAGIC		0x48534C46	/* 'FLSH' */
-#define NVRAM_OFLOW_MAGIC	0x464c5348	/* 'HSLF' */
 #define NVRAM_CLEAR_MAGIC	0x0
 #define NVRAM_INVALID_MAGIC	0xFFFFFFFF
 #define NVRAM_VERSION		1
 #define NVRAM_HEADER_SIZE	20
+#if CONFIG_NVRAM_SIZE
+#define NVRAM_SPACE		CONFIG_NVRAM_SIZE * 0x0400
+#else
 #define NVRAM_SPACE		0x8000
+#endif
 
-/* The size of the buffer for storing item values.
- * This can be smaller than the nvram area, because it has no names.
- * But each value is on a 4-byte boundary, so average of 2 wasted
- * bytes per item.  Replaced values also occupy space.  We have to
- * garbage collect when it gets full.
- *
- * This is for "nvram_buf", which is statically allocated.
- * early_nvram_*() copies the nvram data to this buffer.  So it *must*
- * be at least 60KB for E3000 routers that have 60KB nvram.
- */
-#define NVRAM_VAL_SIZE		(64 * 1024)
-
-#define NVRAM_32K 0x8000	/* Sorry, 32kB is pretty much baked in. */
-
-#define NVRAM_MAX_VALUE_LEN 255	/* Not true! */
-#define NVRAM_MAX_PARAM_LEN 64		/* Not true! */
+#define NVRAM_MAX_VALUE_LEN 255
+#define NVRAM_MAX_PARAM_LEN 64
 
 #define NVRAM_CRC_START_POSITION	9 /* magic, len, crc8 to be skipped */
 #define NVRAM_CRC_VER_MASK	0xffffff00 /* for crc_ver_init */

@@ -1,0 +1,13 @@
+########################################### 
+# SpeedUp SU-8000U
+
+DefaultVendor= 0x2020
+DefaultProduct=0xf00e
+
+TargetVendor=  0x2020
+TargetProductList="1005,1008"
+
+MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
+
+CheckSuccess=20
+

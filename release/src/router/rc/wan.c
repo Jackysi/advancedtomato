@@ -42,8 +42,6 @@
 #include <time.h>
 #include <bcmdevs.h>
 
-#define sin_addr(s) (((struct sockaddr_in *)(s))->sin_addr)
-
 static const char ppp_linkfile[] = "/tmp/ppp/link";
 static const char ppp_optfile[]  = "/tmp/ppp/options";
 
@@ -115,8 +113,8 @@ static int config_pppd(int wan_proto, int num)
 		"%s",			// Debug
 		num,
 		nvram_safe_get("ppp_username"),
-		nvram_get_int("pppoe_lei") ? : 30,
-		nvram_get_int("pppoe_lef") ? : 6,
+		nvram_get_int("pppoe_lei") ? : 10,
+		nvram_get_int("pppoe_lef") ? : 5,
 		nvram_get_int("debug_ppp") ? "debug\n" : "");
 
 	if (wan_proto != WP_L2TP) {
@@ -151,6 +149,9 @@ static int config_pppd(int wan_proto, int num)
 		}
 		if (((p = nvram_get("ppp_ac")) != NULL) && (*p)) {
 			fprintf(fp, "rp_pppoe_ac '%s'\n", p);
+		}
+		if (nvram_match("ppp_mlppp", "1")) {
+			fprintf(fp, "mp\n");
 		}
 		break;
 	case WP_L2TP:
@@ -249,12 +250,6 @@ void start_pptp(int mode)
 	if (config_pppd(WP_PPTP, 0) != 0)
 		return;
 
-	if (!using_dhcpc()) {
-		// Bring up  WAN interface
-		ifconfig(nvram_safe_get("wan_ifname"), IFUP,
-			nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
-	}
-
 	run_pppd();
 
 	TRACE_PT("end\n");
@@ -264,15 +259,17 @@ void start_pptp(int mode)
 
 void preset_wan(char *ifname, char *gw, char *netmask)
 {
-	int i = 0;
-	int metric = nvram_get_int("ppp_defgw") ? 2 : 0;
+	int i;
 
 	/* Delete all default routes */
-	while ((route_del(ifname, metric, NULL, NULL, NULL) == 0) || (i++ < 10));
+	route_del(ifname, 0, NULL, NULL, NULL);
+
+	/* try adding a route to gateway first */
+	route_add(ifname, 0, gw, NULL, "255.255.255.255");
 
 	/* Set default route to gateway if specified */
 	i = 5;
-	while ((route_add(ifname, metric, "0.0.0.0", gw, "0.0.0.0") == 1) && (i--)) {
+	while ((route_add(ifname, 1, "0.0.0.0", gw, "0.0.0.0") == 1) && (i--)) {
 		sleep(1);
 	}
 	_dprintf("set default gateway=%s n=%d\n", gw, i);
@@ -282,7 +279,7 @@ void preset_wan(char *ifname, char *gw, char *netmask)
 	in_addr_t mask = inet_addr(netmask);
 	foreach(word, nvram_safe_get("wan_get_dns"), next) {
 		if ((inet_addr(word) & mask) != (inet_addr(nvram_safe_get("wan_ipaddr")) & mask))
-			route_add(ifname, metric, word, gw, "255.255.255.255");
+			route_add(ifname, 0, word, gw, "255.255.255.255");
 	}
 
 	dns_to_resolv();
@@ -426,11 +423,15 @@ void start_l2tp(void)
 		"redial = yes\n"
 		"max redials = 32767\n"
 		"redial timeout = %d\n"
-		"ppp debug = %s\n",
+		"tunnel rws = 8\n"
+		"ppp debug = %s\n"
+		"%s\n",
 		nvram_safe_get("l2tp_server_ip"),
 		ppp_optfile,
 		demand ? 30 : (nvram_get_int("ppp_redialperiod") ? : 30),
-		nvram_get_int("debug_ppp") ? "yes" : "no");
+		nvram_get_int("debug_ppp") ? "yes" : "no",
+		nvram_safe_get("xl2tpd_custom"));
+	fappend(fp, "/etc/xl2tpd.custom");
 	fclose(fp);
 
 	enable_ip_forward();
@@ -514,8 +515,10 @@ static void _do_wan_routes(char *ifname, char *nvname, int metric, int add)
 		gateway = strsep(&tmp, " ");
 
 		if (gateway && *gateway) {
-			if (add) route_add(ifname, metric + 1, ipaddr, gateway, netmask);
-			else route_del(ifname, metric + 1, ipaddr, gateway, netmask);
+			if (add)
+				route_add(ifname, metric, ipaddr, gateway, netmask);
+			else
+				route_del(ifname, metric, ipaddr, gateway, netmask);
 		}
 	}
 	free(routes);
@@ -560,7 +563,7 @@ void start_wan(int mode)
 	TRACE_PT("begin\n");
 
 	f_write(wan_connecting, NULL, 0, 0, 0);
-	
+
 	//
 
 	if (!foreach_wif(1, &p, is_sta)) {
@@ -582,9 +585,9 @@ void start_wan(int mode)
 		nvram_set("wan_proto", "disabled");
 		syslog(LOG_INFO, "No WAN");
 	}
-	
+
 	//
-	
+
 	wan_proto = get_wan_proto();
 
 	// set the default gateway for WAN interface
@@ -599,7 +602,7 @@ void start_wan(int mode)
 		perror("socket");
 		return;
 	}
-	
+
 	// MTU
 
 	switch (wan_proto) {
@@ -630,7 +633,7 @@ void start_wan(int mode)
 /*	if (wan_proto == WP_PPTP) {
 		mtu += 40;
 	} */	// commented out; checkme -- zzz
-	
+
 	if (wan_proto != WP_PPTP && wan_proto != WP_L2TP && wan_proto != WP_PPPOE) {
 		// Don't set the MTU on the port for PPP connections, it will be set on the link instead
 		ifr.ifr_mtu =  mtu;
@@ -639,9 +642,11 @@ void start_wan(int mode)
 	}
 
 	//
-	
+
 	ifconfig(wan_ifname, IFUP, NULL, NULL);
-	
+
+	start_firewall();
+
 	set_host_domain_name();
 
 	switch (wan_proto) {
@@ -656,7 +661,9 @@ void start_wan(int mode)
 			start_dhcpc();
 		}
 		else if (wan_proto != WP_DHCP) {
+			ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
 			ifconfig(wan_ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
+
 			p = nvram_safe_get("wan_gateway");
 			if ((*p != 0) && (strcmp(p, "0.0.0.0") != 0))
 				preset_wan(wan_ifname, p, nvram_safe_get("wan_netmask"));
@@ -674,12 +681,12 @@ void start_wan(int mode)
 	default:	// static
 		nvram_set("wan_iface", wan_ifname);
 		ifconfig(wan_ifname, IFUP, nvram_safe_get("wan_ipaddr"), nvram_safe_get("wan_netmask"));
-		
+
 		int r = 10;
 		while ((!check_wanup()) && (r-- > 0)) {
 			sleep(1);
 		}
-		
+
 		start_wan_done(wan_ifname);
 		break;
 	}
@@ -706,26 +713,43 @@ void start_wan(int mode)
 #ifdef TCONFIG_IPV6
 void start_wan6_done(const char *wan_ifname)
 {
-	int service;
+	struct in_addr addr4;
+	struct in6_addr addr;
+	static char addr6[INET6_ADDRSTRLEN];
 
-	switch ((service = get_ipv6_service())) {
+	int service = get_ipv6_service();
+
+	if (service != IPV6_DISABLED) {
+		if ((nvram_get_int("ipv6_accept_ra") & 1) != 0)
+			accept_ra(wan_ifname);
+	}
+
+	switch (service) {
 	case IPV6_NATIVE:
-		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname);
+		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname, "metric", "2048");
 		break;
 	case IPV6_NATIVE_DHCP:
 		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname);
 		stop_dhcp6c();
 		start_dhcp6c();
 		break;
+	case IPV6_ANYCAST_6TO4:
 	case IPV6_6IN4:
-		stop_ipv6_sit_tunnel();
-		start_ipv6_sit_tunnel();
+		stop_ipv6_tunnel();
+		if (service == IPV6_ANYCAST_6TO4) {
+			addr4.s_addr = 0;
+			memset(&addr, 0, sizeof(addr));
+			inet_aton(get_wanip(), &addr4);
+			addr.s6_addr16[0] = htons(0x2002);
+			ipv6_mapaddr4(&addr, 16, &addr4, 0);
+			addr.s6_addr16[3] = htons(0x0001);
+			inet_ntop(AF_INET6, &addr, addr6, sizeof(addr6));
+			nvram_set("ipv6_prefix", addr6);
+		}
+		start_ipv6_tunnel();
+		// FIXME: give it a few seconds for DAD completion
+		sleep(2);
 		break;
-	}
-
-	if (service != IPV6_DISABLED) {
-		if ((nvram_get_int("ipv6_accept_ra") & 1) != 0)
-			accept_ra(wan_ifname);
 	}
 }
 #endif
@@ -741,71 +765,34 @@ void start_wan_done(char *wan_ifname)
 	char *gw;
 	struct sysinfo si;
 	int wanup;
-	int metric;
-		
+
 	TRACE_PT("begin wan_ifname=%s\n", wan_ifname);
-	
+
 	sysinfo(&si);
 	f_write("/var/lib/misc/wantime", &si.uptime, sizeof(si.uptime), 0, 0);
-	
+
 	proto = get_wan_proto();
 
-#if 0
-	if (using_dhcpc()) {
-		while (route_del(nvram_safe_get("wan_ifname"), 0, NULL, NULL, NULL) == 0) {
-			//
-		}
-	}
-#endif
-
 	// delete all default routes
-	while (route_del(wan_ifname, 0, NULL, NULL, NULL) == 0) {
-		//
-	}
+	route_del(wan_ifname, 0, NULL, NULL, NULL);
 
 	if (proto != WP_DISABLED) {
 		// set default route to gateway if specified
 		gw = wan_gateway();
+#if 0
 		if (proto == WP_PPTP && !using_dhcpc()) {
-			// For PPTP protocol, we must use ppp_get_ip as gateway, not pptp_server_ip (??)
+			// For PPTP protocol, we must use ppp_get_ip as gateway, not pptp_server_ip (why ??)
 			if (*gw == 0 || strcmp(gw, "0.0.0.0") == 0) gw = nvram_safe_get("ppp_get_ip");
 		}
+#endif
 		if ((*gw != 0) && (strcmp(gw, "0.0.0.0") != 0)) {
 			if (proto == WP_DHCP || proto == WP_STATIC) {
 				// possibly gateway is over the bridge, try adding a route to gateway first
 				route_add(wan_ifname, 0, gw, NULL, "255.255.255.255");
 			}
 
-			metric = 0;
-			if (proto == WP_PPTP || proto == WP_L2TP) {
-				if (nvram_get_int("ppp_defgw") || !using_dhcpc())
-					metric = 0;
-				else {
-					metric = 2;
-
-					// we are not using default gateway on remote network,
-					// add route to the vpn subnet
-					char *netmask = nvram_safe_get("wan_netmask");
-					struct in_addr net, mask;
-					if (strcmp(netmask, "0.0.0.0") == 0 || !inet_aton(netmask, &mask)) {
-						netmask = "255.255.255.0";
-						inet_aton(netmask, &mask);
-					}
-					if (inet_aton(gw, &net)) {
-						net.s_addr &= mask.s_addr;
-						route_add(wan_ifname, 0, inet_ntoa(net), gw, netmask);
-
-						// add routes to dns servers
-						char word[100], *next;
-						foreach(word, nvram_safe_get("wan_get_dns"), next) {
-							route_add(wan_ifname, 0, word, gw, "255.255.255.255");
-						}
-					}
-				}
-			}
-
 			n = 5;
-			while ((route_add(wan_ifname, metric, "0.0.0.0", gw, "0.0.0.0") == 1) && (n--)) {
+			while ((route_add(wan_ifname, 0, "0.0.0.0", gw, "0.0.0.0") == 1) && (n--)) {
 				sleep(1);
 			}
 			_dprintf("set default gateway=%s n=%d\n", gw, n);
@@ -872,22 +859,18 @@ void start_wan_done(char *wan_ifname)
 	start_wan6_done(get_wan6face());
 #endif
 
-	// restart httpd
-	stop_httpd();
-	start_httpd();
-
 	stop_upnp();
 	start_upnp();
+
+	// restart httpd
+	start_httpd();
 
 	if (wanup) {
 		SET_LED(GOT_IP);
 		notice_set("wan", "");
-		
+
 		run_nvscript("script_wanup", NULL, 0);
 	}
-
-	// flush conntrack entries
-	f_write_string("/proc/net/conntrack_clear", "1", 0, 0);
 
 	// We don't need STP after wireless led is lighted		//	no idea why... toggling it if necessary	-- zzz
 	if (check_hw_type() == HW_BCM4702) {
@@ -935,7 +918,7 @@ void stop_wan(void)
 	stop_ntpc();
 
 #ifdef TCONFIG_IPV6
-	stop_ipv6_sit_tunnel();
+	stop_ipv6_tunnel();
 	stop_dhcp6c();
 	nvram_set("ipv6_get_dns", "");
 #endif

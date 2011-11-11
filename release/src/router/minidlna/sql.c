@@ -20,6 +20,7 @@
 #include <unistd.h>
 
 #include "sql.h"
+#include "upnpglobalvars.h"
 #include "log.h"
 
 int
@@ -124,7 +125,7 @@ sql_get_int_field(sqlite3 *db, const char *fmt, ...)
 }
 
 char *
-sql_get_text_field(void *db, const char *fmt, ...)
+sql_get_text_field(sqlite3 *db, const char *fmt, ...)
 {
 	va_list         ap;
 	int             counter, result, len;
@@ -136,7 +137,7 @@ sql_get_text_field(void *db, const char *fmt, ...)
 
 	if (db == NULL)
 	{
-		DPRINTF(E_WARN, L_DB_SQL, "%s: db is NULL", __func__);
+		DPRINTF(E_WARN, L_DB_SQL, "db is NULL\n");
 		return NULL;
 	}
 
@@ -182,7 +183,7 @@ sql_get_text_field(void *db, const char *fmt, ...)
 			len = sqlite3_column_bytes(stmt, 0);
 			if ((str = sqlite3_malloc(len + 1)) == NULL)
 			{
-				DPRINTF(E_ERROR, L_DB_SQL, "malloc failed");
+				DPRINTF(E_ERROR, L_DB_SQL, "malloc failed\n");
 				break;
 			}
 
@@ -190,11 +191,39 @@ sql_get_text_field(void *db, const char *fmt, ...)
 			break;
 
 		default:
-			DPRINTF(E_WARN, L_DB_SQL, "%s: step failed: %s", __func__, sqlite3_errmsg(db));
+			DPRINTF(E_WARN, L_DB_SQL, "SQL step failed: %s\n", sqlite3_errmsg(db));
 			str = NULL;
 			break;
 	}
 
 	sqlite3_finalize(stmt);
 	return str;
+}
+
+int
+db_upgrade(sqlite3 *db)
+{
+	int db_vers;
+	int ret;
+
+	db_vers = sql_get_int_field(db, "PRAGMA user_version");
+
+	if (db_vers == DB_VERSION)
+		return 0;
+	if (db_vers < 1)
+		return -1;
+	if (db_vers < 5)
+		return 5;
+	if (db_vers < 6)
+	{
+		DPRINTF(E_WARN, L_DB_SQL, "Updating DB version to v%d.\n", DB_VERSION);
+		ret = sql_exec(db, "CREATE TABLE BOOKMARKS ("
+		                        "ID INTEGER PRIMARY KEY, "
+					"SEC INTEGER)");
+		if( ret != SQLITE_OK )
+			return 6;
+	}
+	sql_exec(db, "PRAGMA user_version = %d", DB_VERSION);
+
+	return 0;
 }

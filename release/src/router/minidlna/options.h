@@ -43,6 +43,7 @@ enum upnpconfigoptions {
 	UPNPSYSTEM_UPTIME,		/* system_uptime */
 	UPNPUUID,			/* uuid */
 	UPNPSERIAL,			/* serial */
+	UPNPMODEL_NAME,			/* model_name */
 	UPNPMODEL_NUMBER,		/* model_number */
 	UPNPFRIENDLYNAME,		/* how the system should show up to DLNA clients */
 	UPNPMEDIADIR,			/* directory to search for UPnP-A/V content */
@@ -50,8 +51,10 @@ enum upnpconfigoptions {
 	UPNPINOTIFY,			/* enable inotify on the media directories */
 	UPNPDBDIR,			/* base directory to store the database and album art cache */
 	UPNPLOGDIR,			/* base directory to store the log file */
+	UPNPMINISSDPDSOCKET,		/* minissdpdsocket */
 	ENABLE_TIVO,			/* enable support for streaming images and music to TiVo */
-	ENABLE_DLNA_STRICT		/* strictly adhere to DLNA specs */
+	ENABLE_DLNA_STRICT,		/* strictly adhere to DLNA specs */
+	ROOT_CONTAINER			/* root ObjectID (instead of "0") */
 };
 
 /* readoptionsfile()

@@ -1,8 +1,8 @@
 #!/bin/sh
-# part of usb_modeswitch 1.1.6
+# part of usb_modeswitch 1.1.9
 device_in()
 {
-	if [ ! -e /etc/usb_modeswitch.d/$1 ]; then
+	if [ ! -e /var/lib/usb_modeswitch/$1 ]; then
 		return 0
 	fi
 	while read line
@@ -10,26 +10,32 @@ device_in()
 		if [ $(expr "$line" : "$2:$3") != 0 ]; then
 			return 1
 		fi
-	done </etc/usb_modeswitch.d/$1
+	done </var/lib/usb_modeswitch/$1
 	if [ $(expr "$line" : "$2:$3") != 0 ]; then
 		return 1
 	fi
 	return 0
 }
 
-p_id=$4
-if [ -z $p_id ]; then
-	prod=$5
-	if [ -z $prod ]; then
-		prod=$3
+if [ $(expr "$1" : "--.*") ]; then
+	p_id=$4
+	if [ -z $p_id ]; then
+		prod=$5
+		if [ -z $prod ]; then
+			prod=$3
+		fi
+		prod=${prod%/*}
+		v_id=0x${prod%/*}
+		p_id=0x${prod#*/}
+		if [ "$v_id" = "0x" ]; then
+			v_id="0"
+			p_id="0"
+		fi
+		v_id="$(printf %04x $(($v_id)))"
+		p_id="$(printf %04x $(($p_id)))"
+	else
+		v_id=$3
 	fi
-	prod=${prod%/*}
-	v_id=0x${prod%/*}
-	v_id=$(printf %04x $(($v_id)) )
-	p_id=0x${prod#*/}
-	p_id=$(printf %04x $(($p_id)) )
-else
-	v_id=$3
 fi
 case "$1" in
 	--driver-bind)
@@ -49,7 +55,7 @@ case "$1" in
 				echo "$v_id $p_id" > $id_attr
 			else
 				/sbin/modprobe -r usbserial
-				/sbin/modprobe usbserial vendor=0x$v_id product=0x$p_id
+				/sbin/modprobe usbserial "vendor=0x$v_id" "product=0x$p_id"
 			fi
 		fi
 		) &
@@ -65,6 +71,7 @@ case "$1" in
 		exit 0
 		;;
 esac
+exec 1<&- 2<&- 5<&- 7<&-
 (
 count=120
 while [ $count != 0 ]; do
@@ -77,3 +84,4 @@ while [ $count != 0 ]; do
 	fi
 done
 ) &
+exit 0

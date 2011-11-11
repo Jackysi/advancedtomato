@@ -1,5 +1,5 @@
 .\"
-.\"   $Id: radvd.conf.5.man,v 1.33 2011/01/05 08:19:23 psavola Exp $
+.\"   $Id: radvd.conf.5.man,v 1.41 2011/05/10 21:55:10 reubenhwk Exp $
 .\"
 .\"   Authors:
 .\"    Lars Fenneberg		<lf@elemental.net>
@@ -53,7 +53,7 @@ extensions.
 Special prefix "::/64" is also supported on systems that implement getifaddrs()
 (on other systems, configuration activation fails and radvd exits).
 When configured, radvd
-picks one non-link-local prefix assigned to the interface and starts advertising
+picks all non-link-local prefix assigned to the interface and starts advertising
 it.  This may be applicable in non-6to4 scenarios where the upstream prefix might
 change.  This option is incompatible with Base6to4Interface option.
 AdvRouterAddr option is always enabled when this configuration is used.
@@ -124,7 +124,7 @@ Current versions of radvd automatically try to re-enable interfaces.
 Enabling IgnoreIfMissing also quenches certain warnings in log messages
 relating to missing interfaces.
 
-Default: off
+Default: on
 
 .TP
 .BR AdvSendAdvert " " on | off
@@ -423,6 +423,34 @@ Note: RFC4861's suggested default value is significantly longer: 7 days.
 Default: 14400 seconds (4 hours)
 
 .TP
+.BR DeprecatePrefix " " on | off
+
+Upon shutdown, this option will cause radvd to deprecate the prefix by announcing it in the radvd shutdown RA with a zero preferred lifetime and a valid lifetime slightly greater than 2 hours. This will encourage end-nodes using this prefix to deprecate any associated addresses immediately. Note that this option should only be used when only one router is announcing the prefix onto the link, otherwise end-nodes will deprecate associated addresses despite the prefix still being valid for preferred use.
+
+See RFC4862, section 5.5.3., "Router Advertisement Processing", part (e).
+
+Default: off
+
+.TP
+.BR DecrementLifetimes " " on | off
+
+This option causes radvd to decrement the values of the preferred and valid lifetimes for the prefix over time. The lifetimes are decremented by the number of seconds since the last RA. If radvd receives a SIGUSR1 signal, it will reset the values of the preferred and valid lifetimes back to the initial values used by radvd when it started. If radvd never receives a SIGUSR1 signal, it will continue to decrement the lifetimes until the preferred lifetime reaches zero. After a final RA with a zero value preferred lifetime, radvd will cease to announce the prefix. If a SIGUSR1 signal then causes the lifetimes to be reset, the prefix will then re-appear in the RAs.
+
+This option is intended to be used in conjunction with a DHCPv6 client that is using the Identity Association for Prefix Delegation (IA_PD) option to acquire a prefix from a Delegating Router for use by a Requesting Router. In this scenario, the prefix(es) from within the delegated prefix that are announced by radvd would age in parallel with and at the same rate as the delegated prefix, and expire at approximately the same time, if the delegated prefix's life isn't extended.
+
+See RFC3633, "IPv6 Prefix Options for Dynamic Host Configuration Protocol (DHCP) version 6".
+
+Default: off
+
+.TP
+.BR "Base6Interface " name 
+
+If this options is specified, this prefix will be combined with the
+IPv6 address of the interface specified by
+.B name.  
+The resulting prefix length will be 64.
+
+.TP
 .BR "Base6to4Interface " name 
 
 If this option is specified, this prefix will be combined with the
@@ -478,26 +506,27 @@ The preference associated with the default router, as either "low",
 
 Default: medium
 
+.TP
+.BR RemoveRoute " " on | off 
+
+Upon shutdown, announce this route with a zero second lifetime. This should cause the route to be immediately removed from the receiving end-nodes' route table.
+
+Default: on
+
 .SH RDNSS SPECIFIC OPTIONS
 
 .TP
-.BR "AdvRDNSSPreference " integer;
-.TP
-.BR "AdvRDNSSOpen " on | off;
-
-These features were present in the draft specification but were removed
-from RFC5006. They are still accepted in the configuration but
-ignored.
-
-.TP
-.BR "AdvRDNSSLifetime " seconds | infinity;
-The maximum duration how long the RDNSS entries are used for name resolution. A value of 0 means the nameserver should no longer be used.
-The maximum duration how long the RDNSS entries are used for name resolution. A value of 0 means the nameserver should no longer be used.
-The value, if not 0, must be at least MaxRtrAdvInterval.  To ensure stale
-RDNSS info gets removed in a timely fashion, this should not be greater than
-2*MaxRtrAdvInterval.
+.BR "AdvRDNSSLifetime " seconds | infinity
+The maximum duration how long the RDNSS entries are used for name resolution. A value of 0 means the nameserver must no longer be used. The value, if not 0, must be at least MaxRtrAdvInterval.  To ensure stale RDNSS info gets removed in a timely fashion, this should not be greater than 2*MaxRtrAdvInterval.
 
 Default: 2*MaxRtrAdvInterval
+
+.TP
+.BR FlushRDNSS " " on | off
+
+Upon shutdown, announce the RDNSS entries with a zero second lifetime. This should cause the RDNSS addresses to be immediately removed from the end-nodes' list of Recursive DNS Servers.
+
+Default: on
 
 .SH DNSSL SPECIFIC OPTIONS
 
@@ -510,6 +539,13 @@ DNSSL info gets removed in a timely fashion, this should not be greater than
 2*MaxRtrAdvInterval.
 
 Default: 2*MaxRtrAdvInterval
+
+.TP
+.BR FlushDNSSL " " on | off
+
+Upon shutdown, announce the DNSSL entries with a zero second lifetime. This should cause the DNSSL entries to be immediately removed from the end-nodes' DNS search list.
+
+Default: on
 
 .SH EXAMPLES
 

@@ -4,10 +4,6 @@
 	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
-	Tomato VLAN GUI
-	Copyright (C) 2011 Augusto Bott
-	http://code.google.com/p/tomato-sdhc-vlan/
-
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
 -->
@@ -49,7 +45,7 @@
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript' src='interfaces.js'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,ppp_defgw,wl_security_mode,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype,lan_ifname,lan_stp,lan1_ifname,lan1_ipaddr,lan1_netmask,lan1_proto,lan1_stp,dhcp1_start,dhcp1_num,dhcp1_lease,dhcpd1_startip,dhcpd1_endip,lan2_ifname,lan2_ipaddr,lan2_netmask,lan2_proto,lan2_stp,dhcp2_start,dhcp2_num,dhcp2_lease,dhcpd2_startip,dhcpd2_endip,lan3_ifname,lan3_ipaddr,lan3_netmask,lan3_proto,lan3_stp,dhcp3_start,dhcp3_num,dhcp3_lease,dhcpd3_startip,dhcpd3_endip"); %>
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,wl_security_mode,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype,lan_ifname,lan_stp,lan1_ifname,lan1_ipaddr,lan1_netmask,lan1_proto,lan1_stp,dhcp1_start,dhcp1_num,dhcp1_lease,dhcpd1_startip,dhcpd1_endip,lan2_ifname,lan2_ipaddr,lan2_netmask,lan2_proto,lan2_stp,dhcp2_start,dhcp2_num,dhcp2_lease,dhcpd2_startip,dhcpd2_endip,lan3_ifname,lan3_ipaddr,lan3_netmask,lan3_proto,lan3_stp,dhcp3_start,dhcp3_num,dhcp3_lease,dhcpd3_startip,dhcpd3_endip,ppp_mlppp"); %>
 
 /* VLAN-BEGIN */
 var lg = new TomatoGrid();
@@ -719,13 +715,13 @@ function verifyFields(focused, quiet)
 		_wan_gateway: 1,
 		_pptp_server_ip: 1,
 		_f_pptp_dhcp: 1,
-		_f_ppp_defgw: 1,
 		_ppp_demand: 1,
 		_ppp_idletime: 1,
 		_ppp_redialperiod: 1,
 		_mtu_enable: 1,
 		_f_wan_mtu: 1,
 		_f_wan_islan: 0,
+		_f_ppp_mlppp: 1,
 
 /* NOVLAN-BEGIN */
 		_dhcp_lease: 1,
@@ -816,10 +812,10 @@ function verifyFields(focused, quiet)
 		vis._wan_gateway = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
-		vis._f_ppp_defgw = 0;
 		vis._ppp_demand = 0;
 		vis._mtu_enable = 0;
 		vis._f_wan_mtu = 0;
+		vis._f_ppp_mlppp = 0;
 		break;
 	case 'dhcp':
 		vis._l2tp_server_ip = 0;
@@ -829,10 +825,10 @@ function verifyFields(focused, quiet)
 		vis._ppp_custom = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
-		vis._f_ppp_defgw = 0;
 		vis._wan_gateway = 0;
 		vis._wan_ipaddr = 0;
 		vis._wan_netmask = 0;
+		vis._f_ppp_mlppp = 0;
 
 		vis._lan_gateway = 0;
 		break;
@@ -840,7 +836,6 @@ function verifyFields(focused, quiet)
 		vis._l2tp_server_ip = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
-		vis._f_ppp_defgw = 0;
 		vis._wan_gateway = 0;
 		vis._wan_ipaddr = 0;
 		vis._wan_netmask = 0;
@@ -855,7 +850,7 @@ function verifyFields(focused, quiet)
 		vis._ppp_custom = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
-		vis._f_ppp_defgw = 0;
+		vis._f_ppp_mlppp = 0;
 
 		vis._lan_gateway = 0;
 		break;
@@ -864,7 +859,6 @@ function verifyFields(focused, quiet)
 		vis._ppp_service = 0;
 		vis._wan_gateway = (!E('_f_pptp_dhcp').checked);
 		vis._wan_ipaddr = (!E('_f_pptp_dhcp').checked);
-		vis._f_ppp_defgw = (E('_f_pptp_dhcp').checked);
 
 		vis._lan_gateway = 0;
 		break;
@@ -873,7 +867,6 @@ function verifyFields(focused, quiet)
 		vis._ppp_service = 0;
 		vis._wan_gateway = (!E('_f_pptp_dhcp').checked);
 		vis._wan_ipaddr = (!E('_f_pptp_dhcp').checked);
-		vis._f_ppp_defgw = (E('_f_pptp_dhcp').checked);
 
 		vis._lan_gateway = 0;
 		break;
@@ -1415,7 +1408,6 @@ function save()
 
 	fom.wan_islan.value = fom.f_wan_islan.checked ? 1 : 0;
 	fom.pptp_dhcp.value = fom.f_pptp_dhcp.checked ? 1 : 0;
-	fom.ppp_defgw.value = fom.f_pptp_dhcp.checked ? (fom.f_ppp_defgw.checked ? 1 : 0) : 1;
 
 	fom.wan_dns.value = joinAddr([fom.f_dns_1.value, fom.f_dns_2.value, fom.f_dns_3.value]);
 
@@ -1497,6 +1489,9 @@ REMOVE-END */
 //	if ((nvram.lan_ipaddr != fom.lan_ipaddr.value) || (nvram.lan1_ipaddr != fom.lan1_ipaddr.value) ||
 //		(nvram.lan2_ipaddr != fom.lan2_ipaddr.value) || (nvram.lan3_ipaddr != fom.lan3_ipaddr.value)){
 REMOVE-END */
+
+	fom.ppp_mlppp.value = fom.f_ppp_mlppp.checked ? 1 : 0;
+
 	if (nvram.lan_ipaddr != fom.lan_ipaddr.value) {
 		fom._moveip.value = 1;
 		form.submit(fom);
@@ -1540,11 +1535,11 @@ function init()
 <input type='hidden' name='wan_mtu'>
 <input type='hidden' name='wan_islan'>
 <input type='hidden' name='pptp_dhcp'>
-<input type='hidden' name='ppp_defgw'>
 <!-- NOVLAN-BEGIN -->
 <input type='hidden' name='lan_proto'>
 <!-- NOVLAN-END -->
 <input type='hidden' name='wan_dns'>
+<input type='hidden' name='ppp_mlppp'>
 
 <!-- VLAN-BEGIN -->
 <script type='text/javascript'>
@@ -1576,7 +1571,6 @@ createFieldTable('', [
 	{ title: 'Service Name', name: 'ppp_service', type: 'text', maxlen: 50, size: 64, value: nvram.ppp_service },
 	{ title: 'L2TP Server', name: 'l2tp_server_ip', type: 'text', maxlen: 128, size: 64, value: nvram.l2tp_server_ip },
 	{ title: 'Use DHCP', name: 'f_pptp_dhcp', type: 'checkbox', value: (nvram.pptp_dhcp == 1) },
-	{ title: 'Use Default Gateway on Remote Network', name: 'f_ppp_defgw', type: 'checkbox', value: (nvram.ppp_defgw == 1) },
 	{ title: 'IP Address', name: 'wan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.wan_ipaddr },
 	{ title: 'Subnet Mask', name: 'wan_netmask', type: 'text', maxlen: 15, size: 17, value: nvram.wan_netmask },
 	{ title: 'Gateway', name: 'wan_gateway', type: 'text', maxlen: 15, size: 17, value: nvram.wan_gateway },
@@ -1591,6 +1585,7 @@ createFieldTable('', [
 	{ title: 'MTU', multi: [
 		{ name: 'mtu_enable', type: 'select', options: [['0', 'Default'],['1','Manual']], value: nvram.mtu_enable },
 		{ name: 'f_wan_mtu', type: 'text', maxlen: 4, size: 6, value: nvram.wan_mtu } ] },
+	{ title: 'Single Line MLPPP', name: 'f_ppp_mlppp', type: 'checkbox', value: (nvram.ppp_mlppp == 1) },
 /* NOVLAN-BEGIN */
 	{ title: 'Use WAN port for LAN', name: 'f_wan_islan', type: 'checkbox', value: (nvram.wan_islan == 1) }
 /* NOVLAN-END */

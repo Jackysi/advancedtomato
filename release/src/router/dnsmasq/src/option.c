@@ -110,6 +110,8 @@ struct myoption {
 #define LOPT_LOC_REBND 299
 #define LOPT_ADD_MAC   300
 #define LOPT_DNSSEC    301
+#define LOPT_INCR_ADDR 302
+#define LOPT_CONNTRACK 303
 
 #define LOPT_QUIET_DHCP 400
 
@@ -227,6 +229,8 @@ static const struct myoption opts[] =
     { "rebind-localhost-ok", 0, 0,  LOPT_LOC_REBND },
     { "add-mac", 0, 0, LOPT_ADD_MAC },
     { "proxy-dnssec", 0, 0, LOPT_DNSSEC },
+    { "dhcp-sequential-ip", 0, 0,  LOPT_INCR_ADDR },
+    { "conntrack", 0, 0, LOPT_CONNTRACK },
     { "quiet-dhcp", 0, 0, LOPT_QUIET_DHCP },
     { NULL, 0, 0, 0 }
   };
@@ -348,8 +352,10 @@ static struct {
   { LOPT_PXE_PROMT, ARG_DUP, "<prompt>,[<timeout>]", gettext_noop("Prompt to send to PXE clients."), NULL },
   { LOPT_PXE_SERV, ARG_DUP, "<service>", gettext_noop("Boot service for PXE menu."), NULL },
   { LOPT_TEST, 0, NULL, gettext_noop("Check configuration syntax."), NULL },
-  { LOPT_ADD_MAC, OPT_ADD_MAC, NULL, gettext_noop("Add requestor's MAC address to forwarded DNS queries"), NULL },
-  { LOPT_DNSSEC, OPT_DNSSEC, NULL, gettext_noop("Proxy DNSSEC validation results from upstream nameservers"), NULL },
+  { LOPT_ADD_MAC, OPT_ADD_MAC, NULL, gettext_noop("Add requestor's MAC address to forwarded DNS queries."), NULL },
+  { LOPT_DNSSEC, OPT_DNSSEC, NULL, gettext_noop("Proxy DNSSEC validation results from upstream nameservers."), NULL },
+  { LOPT_INCR_ADDR, OPT_CONSEC_ADDR, NULL, gettext_noop("Attempt to allocate sequential IP addresses to DHCP clients."), NULL },
+  { LOPT_CONNTRACK, OPT_CONNTRACK, NULL, gettext_noop("Copy connection-track mark from queries to upstream connections."), NULL },
   { LOPT_QUIET_DHCP, OPT_QUIET_DHCP, NULL, gettext_noop("Do not log DHCP packets."), NULL },
   { 0, 0, NULL, NULL, NULL }
 }; 
@@ -910,7 +916,8 @@ static char *parse_dhcp_opt(char *arg, int flags)
 	  new->val = op = opt_malloc((5 * addrs) + 1);
 	  new->flags |= DHOPT_ADDR;
 
-	  if (!(new->flags & (DHOPT_ENCAPSULATE | DHOPT_VENDOR | DHOPT_RFC3925)) && new->opt == 120)
+	  if (!(new->flags & (DHOPT_ENCAPSULATE | DHOPT_VENDOR | DHOPT_RFC3925)) && 
+	      new->opt == OPTION_SIP_SERVER)
 	    {
 	      *(op++) = 1; /* RFC 3361 "enc byte" */
 	      new->flags &= ~DHOPT_ADDR;
@@ -947,13 +954,14 @@ static char *parse_dhcp_opt(char *arg, int flags)
       else if (is_string)
 	{
 	  /* text arg */
-	  if ((new->opt == 119 || new->opt == 120) && !(new->flags & (DHOPT_ENCAPSULATE | DHOPT_VENDOR | DHOPT_RFC3925)))
+	  if ((new->opt == OPTION_DOMAIN_SEARCH || new->opt == OPTION_SIP_SERVER) &&
+	      !(new->flags & (DHOPT_ENCAPSULATE | DHOPT_VENDOR | DHOPT_RFC3925)))
 	    {
 	      /* dns search, RFC 3397, or SIP, RFC 3361 */
 	      unsigned char *q, *r, *tail;
 	      unsigned char *p, *m = NULL, *newp;
 	      size_t newlen, len = 0;
-	      int header_size = (new->opt == 119) ? 0 : 1;
+	      int header_size = (new->opt == OPTION_DOMAIN_SEARCH) ? 0 : 1;
 	      
 	      arg = comma;
 	      comma = split(arg);
@@ -1015,7 +1023,7 @@ static char *parse_dhcp_opt(char *arg, int flags)
 		}
       
 	      /* RFC 3361, enc byte is zero for names */
-	      if (new->opt == 120)
+	      if (new->opt == OPTION_SIP_SERVER)
 		m[0] = 0;
 	      new->len = (int) len + header_size;
 	      new->val = m;
@@ -1205,6 +1213,9 @@ static char *one_opt(int option, char *arg, char *gen_prob, int command_line)
 	daemon->log_file = opt_string_alloc(arg);
       else
 	{	  
+#ifdef __ANDROID__
+	  problem = _("setting log facility is not possible under Android");
+#else
 	  for (i = 0; facilitynames[i].c_name; i++)
 	    if (hostname_isequal((char *)facilitynames[i].c_name, arg))
 	      break;
@@ -1212,7 +1223,8 @@ static char *one_opt(int option, char *arg, char *gen_prob, int command_line)
 	  if (facilitynames[i].c_name)
 	    daemon->log_fac = facilitynames[i].c_val;
 	  else
-	    problem = "bad log facility";
+	    problem = _("bad log facility");
+#endif
 	}
       break;
       
@@ -1588,6 +1600,10 @@ static char *one_opt(int option, char *arg, char *gen_prob, int command_line)
 	  {
 	    int source_port = 0, serv_port = NAMESERVER_PORT;
 	    char *portno, *source;
+#ifdef HAVE_IPV6
+	    int scope_index = 0;
+	    char *scope_id;
+#endif
 	    
 	    if ((source = split_chr(arg, '@')) && /* is there a source. */
 		(portno = split_chr(source, '#')) &&
@@ -1598,6 +1614,10 @@ static char *one_opt(int option, char *arg, char *gen_prob, int command_line)
 		!atoi_check16(portno, &serv_port))
 	      problem = _("bad port");
 	    
+#ifdef HAVE_IPV6
+	    scope_id = split_chr(arg, '%');
+#endif
+
 	    if ((newlist->addr.in.sin_addr.s_addr = inet_addr(arg)) != (in_addr_t) -1)
 	      {
 		newlist->addr.in.sin_port = htons(serv_port);	
@@ -1625,16 +1645,22 @@ static char *one_opt(int option, char *arg, char *gen_prob, int command_line)
 #ifdef HAVE_IPV6
 	    else if (inet_pton(AF_INET6, arg, &newlist->addr.in6.sin6_addr) > 0)
 	      {
+		if (scope_id && (scope_index = if_nametoindex(scope_id)) == 0)
+		  problem = _("bad interface name");
+		
 		newlist->addr.in6.sin6_port = htons(serv_port);
+		newlist->addr.in6.sin6_scope_id = scope_index;
 		newlist->source_addr.in6.sin6_port = htons(source_port);
+		newlist->source_addr.in6.sin6_scope_id = 0;
 		newlist->addr.sa.sa_family = newlist->source_addr.sa.sa_family = AF_INET6;
+		newlist->addr.in6.sin6_flowinfo = newlist->source_addr.in6.sin6_flowinfo = 0;
 #ifdef HAVE_SOCKADDR_SA_LEN
 		newlist->addr.in6.sin6_len = newlist->source_addr.in6.sin6_len = sizeof(newlist->addr.in6);
 #endif
 		if (source)
 		  {
-		     newlist->flags |= SERV_HAS_SOURCE;
-		     if (inet_pton(AF_INET6, source, &newlist->source_addr.in6.sin6_addr) == 0)
+		    newlist->flags |= SERV_HAS_SOURCE;
+		    if (inet_pton(AF_INET6, source, &newlist->source_addr.in6.sin6_addr) == 0)
 		      {
 #if defined(SO_BINDTODEVICE)
 			newlist->source_addr.in6.sin6_addr = in6addr_any; 
@@ -1650,7 +1676,6 @@ static char *one_opt(int option, char *arg, char *gen_prob, int command_line)
 #endif
 	    else
 	      option = '?'; /* error */
-	    
 	  }
 	
 	serv = newlist;
@@ -1840,6 +1865,7 @@ static char *one_opt(int option, char *arg, char *gen_prob, int command_line)
 	new->netmask.s_addr = 0;
 	new->broadcast.s_addr = 0;
 	new->router.s_addr = 0;
+	new->local.s_addr = 0;
 	new->netid.net = NULL;
 	new->filter = NULL;
 	new->flags = 0;
@@ -2035,7 +2061,9 @@ static char *one_opt(int option, char *arg, char *gen_prob, int command_line)
 		  strcpy(newtag->net, arg+4);
 		  unhide_metas(newtag->net);
 		}
-	      else 
+	      else if (strstr(arg, "tag:") == arg)
+		problem = _("cannot match tags in --dhcp-host");
+	      else
 		{
 		  struct hwaddr_config *newhw = opt_malloc(sizeof(struct hwaddr_config));
 		  if ((newhw->hwaddr_len = parse_hex(a[j], newhw->hwaddr, DHCP_CHADDR_MAX, 
@@ -2084,7 +2112,7 @@ static char *one_opt(int option, char *arg, char *gen_prob, int command_line)
 		}
 	      
 	      for (cp = a[j]; *cp; cp++)
-		if (!isdigit((int)*cp) && *cp != ' ')
+		if (!isdigit((unsigned char)*cp) && *cp != ' ')
 		  break;
 	      
 	      if (*cp)
@@ -2216,7 +2244,7 @@ static char *one_opt(int option, char *arg, char *gen_prob, int command_line)
 	  option = '?';
 	else 
 	  {
-	    char *dhcp_file, *dhcp_sname = NULL;
+	    char *dhcp_file, *dhcp_sname = NULL, *tftp_sname = NULL;
 	    struct in_addr dhcp_next_server;
 	    comma = split(arg);
 	    dhcp_file = opt_string_alloc(arg);
@@ -2229,8 +2257,17 @@ static char *one_opt(int option, char *arg, char *gen_prob, int command_line)
 		if (comma)
 		  {
 		    unhide_metas(comma);
-		    if ((dhcp_next_server.s_addr = inet_addr(comma)) == (in_addr_t)-1)
-		      option = '?';
+		    if ((dhcp_next_server.s_addr = inet_addr(comma)) == (in_addr_t)-1) {
+
+		      /*
+		       * The user may have specified the tftp hostname here.
+		       * save it so that it can be resolved/looked up during
+		       * actual dhcp_reply().
+		       */	
+
+		      tftp_sname = opt_string_alloc(comma);
+		      dhcp_next_server.s_addr = 0;
+		    }
 		  }
 	      }
 	    if (option != '?')
@@ -2238,6 +2275,7 @@ static char *one_opt(int option, char *arg, char *gen_prob, int command_line)
 		struct dhcp_boot *new = opt_malloc(sizeof(struct dhcp_boot));
 		new->file = dhcp_file;
 		new->sname = dhcp_sname;
+		new->tftp_sname = tftp_sname;
 		new->next_server = dhcp_next_server;
 		new->netid = id;
 		new->next = daemon->boot_config;
@@ -2402,14 +2440,14 @@ static char *one_opt(int option, char *arg, char *gen_prob, int command_line)
 	  option = '?';
 	else
 	  {
-	    char *p;
+	    unsigned char *p;
 	    int dig = 0;
 	    struct dhcp_vendor *new = opt_malloc(sizeof(struct dhcp_vendor));
 	    new->netid.net = opt_string_alloc(set_prefix(arg));
 	    /* check for hex string - must digits may include : must not have nothing else, 
 	       only allowed for agent-options. */
-	    for (p = comma; *p; p++)
-	      if (isxdigit((int)*p))
+	    for (p = (unsigned char *)comma; *p; p++)
+	      if (isxdigit(*p))
 		dig = 1;
 	      else if (*p != ':')
 		break;
@@ -3229,8 +3267,13 @@ void read_opts(int argc, char **argv, char *compile_opts)
       
       if (option == -1)
 	{
-	  if (optind < argc)
-	    die(_("junk found in command line"), NULL, EC_BADCONF);
+	  for (; optind < argc; optind++)
+	    {
+	      unsigned char *c = (unsigned char *)argv[optind];
+	      for (; *c != 0; c++)
+		if (!isspace(*c))
+		  die(_("junk found in command line"), NULL, EC_BADCONF);
+	    }
 	  break;
 	}
 

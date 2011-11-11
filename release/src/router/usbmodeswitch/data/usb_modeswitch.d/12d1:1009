@@ -1,0 +1,13 @@
+######################################################## 
+# Huawei V725 Phone (aka Vodafone 725)
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x1009
+
+TargetClass=0xff
+
+ 
+HuaweiMode=1
+
+CheckSuccess=20
+
