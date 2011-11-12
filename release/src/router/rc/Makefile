@@ -14,8 +14,10 @@ OBJS := rc.o init.o interface.o network.o wan.o services.o dhcp.o
 OBJS += firewall.o ppp.o telssh.o wnas.o
 OBJS += listen.o redial.o led.o qos.o forward.o misc.o mtd.o
 OBJS += buttons.o restrict.o gpio.o sched.o
-OBJS += qoslimit.o arpbind.o
 OBJS += bwclimon.o
+OBJS += account.o
+OBJS += arpbind.o
+OBJS += qoslimit.o
 #	heartbeat.o
 
 ifeq ($(TCONFIG_USB),y)

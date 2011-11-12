@@ -61,6 +61,18 @@ const defaults_t defaults[] = {
 	{ "lan_gateway",		"0.0.0.0"			},	// LAN Gateway
 	{ "wl_wds_enable",		"0"				},	// WDS Enable (0|1)
 
+#ifdef TCONFIG_VLAN
+	{ "lan1_ipaddr",		""				},
+	{ "lan1_netmask",		""				},
+	{ "lan1_stp",			"0"				},
+	{ "lan2_ipaddr",		""				},
+	{ "lan2_netmask",		""				},
+	{ "lan2_stp",			"0"				},
+	{ "lan3_ipaddr",		""				},
+	{ "lan3_netmask",		""				},
+	{ "lan3_stp",			"0"				},
+#endif
+
 	// WAN H/W parameters
 //!	{ "wan_ifname",			""				},	// WAN interface name
 //!	{ "wan_ifnames",		""				},	// WAN interface names
@@ -103,6 +115,23 @@ const defaults_t defaults[] = {
 	{ "wan_routes",			""				},
 	{ "wan_msroutes",		""				},
 
+#ifdef TCONFIG_VLAN
+	{ "dhcp1_start",			""			},
+	{ "dhcp1_num",			""			},
+	{ "dhcpd1_startip",		"" 				},
+	{ "dhcpd1_endip",		"" 				},
+	{ "dhcp1_lease",			"0"				},
+	{ "dhcp2_start",			""			},
+	{ "dhcp2_num",			""			},
+	{ "dhcpd2_startip",		"" 				},
+	{ "dhcpd2_endip",		"" 				},
+	{ "dhcp2_lease",			"0"				},
+	{ "dhcp3_start",			""			},
+	{ "dhcp3_num",			""			},
+	{ "dhcpd3_startip",		"" 				},
+	{ "dhcpd3_endip",		"" 				},
+	{ "dhcp3_lease",			"0"				},
+#endif
 
 	// PPPoE parameters
 	{ "pppoe_ifname",		""				},	// PPPoE enslaved interface
@@ -387,6 +416,7 @@ const defaults_t defaults[] = {
 	{ "dhcpc_custom",		""				},
 	{ "dns_norebind",		"1"				},
 	{ "dnsmasq_custom",		""				},
+	{ "dhcpd_static_only",	"0"				},
 //	{ "dnsmasq_norw",		"0"				},
 
 // advanced-firewall
@@ -394,6 +424,12 @@ const defaults_t defaults[] = {
 	{ "nf_loopback",		"0"				},
 	{ "block_wan",			"1"				},	// block inbound icmp
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
+#ifdef TCONFIG_VLAN
+	{ "multicast_lan",		"0"				},	// on LAN (br0)
+	{ "multicast_lan1",		"0"				},	// on LAN1 (br1)
+	{ "multicast_lan2",		"0"				},	// on LAN2 (br2)
+	{ "multicast_lan3",		"0"				},	// on LAN3 (br3)
+#endif
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
 	{ "dhcp_pass",			"1"				},	// allow DHCP responses
 	{ "ne_shlimit",			"0,3,60"			},
@@ -406,9 +442,20 @@ const defaults_t defaults[] = {
 	{ "dr_setting",			"0"				},	// [ Disable | WAN | LAN | Both ]
 	{ "dr_lan_tx",			"0"				},	// Dynamic-Routing LAN out
 	{ "dr_lan_rx",			"0"				},	// Dynamic-Routing LAN in
+#ifdef TCONFIG_VLAN
+	{ "dr_lan1_tx",			"0"				},	// Dynamic-Routing LAN out
+	{ "dr_lan1_rx",			"0"				},	// Dynamic-Routing LAN in
+	{ "dr_lan2_tx",			"0"				},	// Dynamic-Routing LAN out
+	{ "dr_lan2_rx",			"0"				},	// Dynamic-Routing LAN in
+	{ "dr_lan3_tx",			"0"				},	// Dynamic-Routing LAN out
+	{ "dr_lan3_rx",			"0"				},	// Dynamic-Routing LAN in
+#endif
 	{ "dr_wan_tx",			"0"				},	// Dynamic-Routing WAN out
 	{ "dr_wan_rx",			"0"				},	// Dynamic-Routing WAN in
 #endif
+
+// advanced-vlan
+	{ "trunk_vlan_so",		"0"				},	// VLAN trunk support override
 
 // advanced-wireless
 	{ "wl_txant",			"3"				},
@@ -538,6 +585,18 @@ const defaults_t defaults[] = {
 	{ "rstats_exclude",		""				},
 	{ "rstats_sshut",		"1"				},
 	{ "rstats_bak",			"0"				},
+
+// admin-ipt
+	{ "cstats_enable",		"1"				},
+	{ "cstats_path",		""				},
+	{ "cstats_stime",		"48"			},
+	{ "cstats_offset",		"1"				},
+	{ "cstats_colors",		""				},
+	{ "cstats_exclude",		""				},
+	{ "cstats_include",		""				},
+	{ "cstats_all",			"1"				},
+	{ "cstats_sshut",		"1"				},
+	{ "cstats_bak",			"0"				},
 
 // advanced-buttons
 	{ "sesx_led",			"0"				},
@@ -966,6 +1025,14 @@ const defaults_t if_generic[] = {
 const defaults_t if_vlan[] = {
 	{ "lan_ifname",		"br0"					},
 	{ "lan_ifnames",	"vlan0 eth1 eth2 eth3"	},
+#ifdef TCONFIG_VLAN
+	{ "lan1_ifname",	""					},
+	{ "lan1_ifnames",	""					},
+	{ "lan2_ifname",	""					},
+	{ "lan2_ifnames",	""					},
+	{ "lan3_ifname",	""					},
+	{ "lan3_ifnames",	""					},
+#endif
 	{ "wan_ifname",		"vlan1"					},
 	{ "wan_ifnames",	"vlan1"					},
 	{ NULL, NULL }

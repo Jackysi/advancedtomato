@@ -1,12 +1,8 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
-
-	Enhancements by Teaman
-	Copyright (C) 2011 Augusto Bott
-	http://code.google.com/p/tomato-sdhc-vlan/
 
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
@@ -75,6 +71,8 @@ function init()
 }
 </script>
 
+<!-- / / / -->
+
 </head>
 <body onload='init()'>
 <table id='container' cellspacing=0>
@@ -108,12 +106,11 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <!-- VPN-END -->
 <br>
-<b>This compilation by Toastman may also include:</b><br>
+<b>This compilation may also include:</b><br>
 <br>
 <b>"Teddy Bear" current features, notably:</b><br>
 - USB Support, Samba, FTP, Media Servers<br>
 - Web Monitor, Per-connection transfer rates<br>
-- Byte counter, QOS rule ID added to QOS/Details<br>
 - Additional ipv6 support in GUI, QOS, Conntrack<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <br>
@@ -141,9 +138,13 @@ Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
 <b>"Teaman" Features:</b><br>
-- QOS-detailed & ctrate filters<br>
-- Realtime bandwidth monitoring of LAN clients<br>
+- QOS-detailed & ctrate improved filters<br>
+- Per-IP bandwidth monitoring of LAN clients [cstats v2]<br>
 - Static ARP binding<br>
+<!-- VLAN-BEGIN -->
+- Multiple LAN support integration and GUI<br>
+- Multiple/virtual SSID support (experimental)<br>
+<!-- VLAN-END -->
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br>

@@ -92,7 +92,8 @@ static int get_wl_clients(int idx, int unit, int subunit, void *param)
 
 	mlsize = sizeof(struct maclist) + (255 * sizeof(struct ether_addr));
 	if ((mlist = malloc(mlsize)) != NULL) {
-		wlif = nvram_safe_get(wl_nvname("ifname", unit, 0));
+//		wlif = nvram_safe_get(wl_nvname("ifname", unit, 0));
+		wlif = nvram_safe_get(wl_nvname("ifname", unit, subunit)); // AB multiSSID
 		cmd = WLC_GET_ASSOCLIST;
 		while (1) {
 			mlist->count = 255;
@@ -210,7 +211,11 @@ void asp_devlist(int argc, char **argv)
 	char *host;
 
 	web_puts("dhcpd_lease = [");
+#ifdef TCONFIG_VLAN
+	if ((nvram_match("lan_proto", "dhcp")) || (nvram_match("lan1_proto", "dhcp")) || (nvram_match("lan2_proto", "dhcp")) || (nvram_match("lan3_proto", "dhcp")) ) {
+#else
 	if (nvram_match("lan_proto", "dhcp")) {
+#endif
 		f_write("/var/tmp/dhcp/leases.!", NULL, 0, 0, 0666);
 
 		// dump the leases to a file
