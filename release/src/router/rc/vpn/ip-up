@@ -12,6 +12,7 @@ case "$6" in
   if [ "$(/bin/nvram get pptp_client_nat)" = "1" ]; then
       /usr/sbin/iptables --table nat --append POSTROUTING --out-interface $1 --jump MASQUERADE
   fi
+  /sbin/service dnsmasq restart
   ;;
  *)
 esac

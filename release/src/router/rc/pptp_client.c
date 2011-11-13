@@ -8,6 +8,12 @@
 #define BUF_SIZE 128
 #define IF_SIZE 8
 
+// Line number as text string
+#define __LINE_T__ __LINE_T_(__LINE__)
+#define __LINE_T_(x) __LINE_T(x)
+#define __LINE_T(x) # x
+
+#define vpnlog(x...) syslog(LOG_DEBUG, __LINE_T__ ": " x)
 
 void start_pptp_client(void)
 {
@@ -30,6 +36,9 @@ void start_pptp_client(void)
     unlink("/etc/vpn/ip-vpn");
     unlink("/etc/vpn/options.vpn");
     unlink("/etc/vpn");
+    unlink("/tmp/ppp");
+    mkdir("/tmp/ppp",0700);
+    mkdir("/etc/vpn",0700);
     mkdir("/etc/vpn",0700);
     ok |= symlink("/rom/etc/vpn/ip-down", "/etc/vpn/ip-down");
     ok |= symlink("/rom/etc/vpn/ip-up", "/etc/vpn/ip-up");
@@ -60,8 +69,8 @@ void start_pptp_client(void)
         // Accept default route
         if (nvram_get_int("pptp_client_dfltroute"))
             fprintf(fd,"defaultroute\n");
-        i = nvram_get_int("pptp_client_peerdns"); //-1 or 0: enable, 1 disable
-        if (i != 1)
+        i = nvram_get_int("pptp_client_peerdns"); //0: disable, 1 enable
+        if (i > 0)
             fprintf(fd,"usepeerdns\n");
         fprintf(fd,"idle 0\n"
             "ip-up-script /etc/vpn/ip-up\n"
@@ -143,14 +152,42 @@ void start_pptp_client(void)
 void stop_pptp_client(void)
 {
     int argc;
-    char *argv[7];
+    char *argv[8];
     char buffer[BUF_SIZE];
 
     killall("pptpclient", SIGTERM);
 
-    sprintf(buffer, "rm -rf /etc/vpn/pptpclient /etc/vpn/ip-down /etc/vpn/ip-up /etc/vpn/options.vpn");
+    sprintf(buffer, "rm -rf /etc/vpn/pptpclient /etc/vpn/ip-down /etc/vpn/ip-up /etc/vpn/options.vpn /tmp/ppp/resolv.conf");
     for (argv[argc=0] = strtok(&buffer[0], " "); argv[argc] != NULL; argv[++argc] = strtok(NULL, " "));
     _eval(argv, NULL, 0, NULL);
 
     rmdir("/etc/vpn");
+    rmdir("/tmp/ppp");
+}
+
+int write_pptpvpn_resolv(FILE* f)
+{
+    FILE *dnsf;
+    int usepeer;
+    char ch;
+  
+    if ((usepeer = nvram_get_int("pptp_client_peerdns")) <= 0)
+    {
+        vpnlog("pptp peerdns disabled");
+        return 0;
+    }
+    dnsf = fopen("/tmp/ppp/resolv.conf", "r");
+    if (dnsf == NULL)
+    {
+        vpnlog("/tmp/ppp/resolv.conf can't be opened");
+        return 0;
+    }
+    while( !feof(dnsf) )
+    {
+        ch = fgetc(dnsf);
+	fputc(ch==EOF?'\n':ch, f);
+    }
+    fclose(dnsf);
+
+    return (usepeer == 2) ? 1 : 0;
 }
