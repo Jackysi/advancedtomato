@@ -1335,7 +1335,7 @@ wl_ap_ip
 wl_ap_ssid
 */
 	{ "pptp_client_enable",   V_01                  },
-	{ "pptp_client_peerdns",  V_01                  },
+	{ "pptp_client_peerdns",  V_RANGE(0,2)          },
 	{ "pptp_client_mtuenable",V_01                  },
 	{ "pptp_client_mtu",      V_RANGE(576, 1500)	},
 	{ "pptp_client_mruenable",V_01                  },
