@@ -353,11 +353,41 @@ static void print_ipv6_addrs(void)
 }
 #endif
 
+void asp_jiffies(int argc, char **argv)
+{
+	char sa[64];
+	FILE *a;
+	char *e = NULL;
+	char *f= NULL;
+
+	const char procstat[] = "/proc/stat";
+	if ((a = fopen(procstat, "r")) != NULL) {
+		fgets(sa, sizeof(sa), a);
+
+		e = sa;
+
+		if ((e = strchr(sa, ' ')) != NULL) e = e + 2;
+
+		if ((f = strchr(sa, 10)) != NULL) *f = 0;
+
+		web_printf("\njiffies = [ '");
+		web_printf("%s", e);
+		web_puts("' ];\n");
+		fclose(a);
+	}
+}
+
 void asp_sysinfo(int argc, char **argv)
 {
 	struct sysinfo si;
 	char s[64];
 	meminfo_t mem;
+
+	char sa[64];
+	FILE *a;
+	char *e = NULL;
+	char *f= NULL;
+	const char procstat[] = "/proc/stat";
 
 	web_puts("\nsysinfo = {\n");
 
@@ -378,7 +408,7 @@ void asp_sysinfo(int argc, char **argv)
 		"\ttotalswap: %ld,\n"
 		"\tfreeswap: %ld,\n"
 		"\ttotalfreeram: %ld,\n"
-		"\tprocs: %d\n",
+		"\tprocs: %d",
 			si.uptime,
 			reltime(s, si.uptime),
 			si.loads[0], si.loads[1], si.loads[2],
@@ -387,6 +417,20 @@ void asp_sysinfo(int argc, char **argv)
 			mem.swaptotal, mem.swapfree,
 			mem.maxfreeram,
 			si.procs);
+
+	if ((a = fopen(procstat, "r")) != NULL) {
+		fgets(sa, sizeof(sa), a);
+		e = sa;
+		if ((e = strchr(sa, ' ')) != NULL) e = e + 2;
+		if ((f = strchr(sa, 10)) != NULL) *f = 0;
+		web_printf(",\n\tjiffies: '");
+		web_printf("%s", e);
+		web_puts("'\n");
+		fclose(a);
+	} else {
+		web_puts("\n");
+	}
+
 	web_puts("};\n");
 }
 
