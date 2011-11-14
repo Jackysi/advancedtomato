@@ -2345,9 +2345,17 @@ function navi()
 		['Bandwidth', 			'bwm', 0, [
 			['Real-Time',		'realtime.asp'],
 			['Last 24 Hours',	'24.asp'],
+/* REMOVE-BEGIN
 			['Client Monitor',	'client.asp'],
+REMOVE-END */
 			['Daily',			'daily.asp'],
 			['Weekly',			'weekly.asp'],
+			['Monthly',			'monthly.asp'] ] ],
+		['IP Traffic', 			'ipt', 0, [
+			['Real-Time',		'realtime.asp'],
+			['Last 24 Hours',	'24.asp'],
+			['Transfer Rates',	'details.asp'],
+			['Daily',			'daily.asp'],
 			['Monthly',			'monthly.asp'] ] ],
 		['Tools', 				'tools', 0, [
 			['Ping',			'ping.asp'],
@@ -2364,7 +2372,7 @@ function navi()
 			['Identification',	'ident.asp'],
 			['Time',			'time.asp'],
 			['DDNS',			'ddns.asp'],
-			['DHCP/ARP/BW',	'static.asp'],
+			['DHCP/ARP/BW',		'static.asp'],
 			['Wireless Filter',	'wfilter.asp'] ] ],
 		['Advanced', 			'advanced', 0, [
 			['Conntrack/Netfilter',	'ctnf.asp'],
@@ -2373,6 +2381,10 @@ function navi()
 			['MAC Address',		'mac.asp'],
 			['Miscellaneous',	'misc.asp'],
 			['Routing',			'routing.asp'],
+/* VLAN-BEGIN */
+			['VLAN',			'vlan.asp'],
+			['LAN Access',			'access.asp'],
+/* VLAN-END */
 			['Wireless',		'wireless.asp'] ] ],
 		['Port Forwarding', 	'forward', 0, [
 			['Basic',			'basic.asp'],
@@ -2427,7 +2439,8 @@ REMOVE-END */
 		['Administration',		'admin', 0, [
 			['Admin Access',	'access.asp'],
 			['Bandwidth Monitoring','bwm.asp'],
-			['Buttons / LED',	'buttons.asp'],
+			['IP Traffic Monitoring','iptraffic.asp'],
+			['Buttons/LED',	'buttons.asp'],
 /* CIFS-BEGIN */
 			['CIFS Client',		'cifs.asp'],
 /* CIFS-END */

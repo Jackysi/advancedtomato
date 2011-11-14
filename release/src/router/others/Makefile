@@ -22,6 +22,9 @@ endif
 # system info
 	install -m 0700 sysinfo $(INSTALLDIR)/usr/sbin
 
+# nas starter # AB multiSSID
+	install -m 0700 nas.sh $(INSTALLDIR)/usr/sbin
+
 # keep winscp happy
 #	install -m 0700 groups $(INSTALLDIR)/usr/bin
 
