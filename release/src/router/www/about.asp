@@ -155,7 +155,7 @@ Copyright (C) 2011 Augusto Bott<br>
 - IMQ based QOS/Bandwidth Limiter<br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>
-- GPT hard disk support from Yaniv Hamo<br>
+- GPT support for HDD by Yaniv Hamo<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>
 <br>
 Development by Victek/PrinceAMD/Phykris/Shibby/Toastman/Teaman<br>

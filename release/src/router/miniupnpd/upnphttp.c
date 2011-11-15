@@ -16,6 +16,7 @@
 #include <arpa/inet.h>
 #include <syslog.h>
 #include <ctype.h>
+#include <errno.h>
 #include "config.h"
 #include "upnphttp.h"
 #include "upnpdescgen.h"
@@ -179,7 +180,6 @@ Send404(struct upnphttp * h)
 	BuildResp2_upnphttp(h, 404, "Not Found",
 	                    body404, sizeof(body404) - 1);
 	SendResp_upnphttp(h);
-	CloseSocket_upnphttp(h);
 }
 
 /* very minimalistic 501 error message */
@@ -209,7 +209,6 @@ Send501(struct upnphttp * h)
 	BuildResp2_upnphttp(h, 501, "Not Implemented",
 	                    body501, sizeof(body501) - 1);
 	SendResp_upnphttp(h);
-	CloseSocket_upnphttp(h);
 }
 
 static const char *
@@ -239,7 +238,6 @@ sendDummyDesc(struct upnphttp * h)
 		"</scpd>\r\n";
 	BuildResp_upnphttp(h, xml_desc, sizeof(xml_desc)-1);
 	SendResp_upnphttp(h);
-	CloseSocket_upnphttp(h);
 }
 #endif
 
@@ -264,7 +262,6 @@ sendXMLdesc(struct upnphttp * h, char * (f)(int *))
 		BuildResp_upnphttp(h, desc, len);
 	}
 	SendResp_upnphttp(h);
-	CloseSocket_upnphttp(h);
 	free(desc);
 }
 
@@ -293,7 +290,6 @@ ProcessHTTPPOST_upnphttp(struct upnphttp * h)
 			BuildResp2_upnphttp(h, 400, "Bad Request",
 			                    err400str, sizeof(err400str) - 1);
 			SendResp_upnphttp(h);
-			CloseSocket_upnphttp(h);
 		}
 	}
 	else
@@ -382,7 +378,6 @@ ProcessHTTPSubscribe_upnphttp(struct upnphttp * h, const char * path)
 		 * the publisher must respond with HTTP error 412 Precondition Failed*/
 		BuildResp2_upnphttp(h, 412, "Precondition Failed", 0, 0);
 		SendResp_upnphttp(h);
-		CloseSocket_upnphttp(h);
 	} else {
 	/* - add to the subscriber list
 	 * - respond HTTP/x.x 200 OK 
@@ -421,7 +416,6 @@ with HTTP error 412 Precondition Failed. */
 			}
 		}
 		SendResp_upnphttp(h);
-		CloseSocket_upnphttp(h);
 	}
 }
 
@@ -437,7 +431,6 @@ ProcessHTTPUnSubscribe_upnphttp(struct upnphttp * h, const char * path)
 		BuildResp_upnphttp(h, 0, 0);
 	}
 	SendResp_upnphttp(h);
-	CloseSocket_upnphttp(h);
 }
 #endif
 
@@ -732,6 +725,8 @@ SendResp_upnphttp(struct upnphttp * h)
 		if(n<0)
 		{
 			syslog(LOG_ERR, "send(res_buf): %m");
+			if (errno != EINTR)
+				break;
 		}
 		else if(n == 0)
 		{
@@ -745,5 +740,8 @@ SendResp_upnphttp(struct upnphttp * h)
 			len -= n;
 		}
 	}
+	CloseSocket_upnphttp(h);
 }
+
+
 
