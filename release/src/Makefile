@@ -711,6 +711,14 @@ else
 	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB=""  SNMP=y VLAN="$(VLAN)"
 endif
 
+## Make the "Small VPN with no USB support" build
+vs:
+ifeq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin OPENVPN=y NO_JFFS=y NO_CIFS=y B=V BUILD_DESC="SmallVPN" USB=""
+else
+	@$(MAKE) bin OPENVPN=y NO_JFFS=y NO_CIFS=y BCM57=y B=VS BUILD_DESC="SmallVPN" USB=""
+endif
+
 ## Make Mips32r2 builds
 
 r2a:
@@ -758,6 +766,9 @@ r2t:
 r2v:
 	@$(MAKE) v MIPS32=r2
 
+r2vs:
+	@$(MAKE) vs MIPS32=r2
+
 n60a:
 	@$(MAKE) r2a NVRAM_SIZE=60 LINKSYS_E=y
 
@@ -786,13 +797,13 @@ n60r:
 	@$(MAKE) r2r NVRAM_SIZE=60 LINKSYS_E=y
 
 n60s:
-	@$(MAKE) bin MIPS32=r2 B=S USB="" NVRAM_SIZE=60 LINKSYS_E=1 BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y BUILD_DESC="Std"
+	@$(MAKE) bin MIPS32=r2 B=S USB="" NVRAM_SIZE=60 LINKSYS_E=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y BUILD_DESC="Std"
 
 n60t:
 	@$(MAKE) r2t NVRAM_SIZE=60 LINKSYS_E=y
 
 n60v:
-	@$(MAKE) bin MIPS32=r2 B=V USB="" NVRAM_SIZE=60 LINKSYS_E=1 BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y OPENVPN=y BUILD_DESC="$(VPN)"
+	@$(MAKE) bin MIPS32=r2 B=V USB="" NVRAM_SIZE=60 LINKSYS_E=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y OPENVPN=y BUILD_DESC="$(VPN)"
 
 
 setprofile:
@@ -879,6 +890,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2nc         MIPS Release 2 NC build (standard plus VPN, extras and NOCAT)"
 	@echo "r2s          MIPS Release 2 S build (no USB support)"
 	@echo "r2v          MIPS Release 2 V build (VPN with no USB support)"
+	@echo "r2v          MIPS Release 2 V build (Small VPN with no USB support)"
 	@echo "n60m         Linksys E-series build (60KB NVRAM, standard plus extras)"
 	@echo "n60e         Linksys E-series build (60KB NVRAM, standard plus VPN and extras)"
 	@echo "n60nc        Linksys E-series build (60KB NVRAM, standard plus extras, plus VPN, plus NOCAT)"
