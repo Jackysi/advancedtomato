@@ -437,7 +437,7 @@ void dns_to_resolv(void)
 	m = umask(022);	// 077 from pppoecd
 	if ((f = fopen(dmresolv, "w")) != NULL) {
 		// Check for VPN DNS entries
-		if (!write_vpn_resolv(f)) {
+		if (!write_pptpvpn_resolv(f) && !write_vpn_resolv(f)) {
 #ifdef TCONFIG_IPV6
 			if (write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_dns"), "\n", 0) == 0 || nvram_get_int("dns_addget"))
 				write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_get_dns"), "\n", 0);
@@ -2566,6 +2566,20 @@ TOP:
 		if (action & A_START) start_splashd();
 		goto CLEAR;
 	}
+#endif
+
+#ifdef TCONFIG_PPTP
+ 	if (strcmp(service, "pptpclient") == 0) {
+ 		if (action & A_STOP) stop_pptp_client();
+ 		if (action & A_START) start_pptp_client();
+		if (action & (A_START | A_STOP))
+		{
+			stop_dnsmasq();
+			dns_to_resolv();
+			start_dnsmasq();
+		}
+ 		goto CLEAR;
+ 	}
 #endif
 
 CLEAR:

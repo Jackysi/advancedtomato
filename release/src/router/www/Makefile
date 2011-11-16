@@ -168,11 +168,16 @@ endif
 # Remove AES ciphers from the GUI if openssl doesn't have an AES directory
 ifeq ($(TCONFIG_OPENVPN),y)
 	test -d ../openssl/crypto/aes || sed -i $(INSTALLDIR)/www/vpn.js -e "/AES-BEGIN/,/AES-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/PPTP-BEGIN/,/PPTP-END/d"
 else
-	rm -f $(INSTALLDIR)/www/vpn*
+	rm -f $(INSTALLDIR)/www/vpn-{client,server}.asp $(INSTALLDIR)/www/vpn.js
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/OPENVPN-BEGIN/,/OPENVPN-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/OPENVPN-BEGIN/,/OPENVPN-END/d"
+ifneq ($(TCONFIG_PPTP),y)
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/VPN-BEGIN/,/VPN-END/d"
-	sed -i $(INSTALLDIR)/www/about.asp -e "/VPN-BEGIN/,/VPN-END/d"
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/VPN-BEGIN/,/VPN-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/VPN-BEGIN/,/VPN-END/d"
+endif
 endif
 
 # Only include the snmp pages if SNMP is compiled in
@@ -182,6 +187,11 @@ ifneq ($(TCONFIG_SNMP),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/SNMP-BEGIN/,/SNMP-END/d"
 endif
 
+ifneq ($(TCONFIG_PPTP),y)
+	rm -f $(INSTALLDIR)/www/vpn-pptp.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/PPTP-BEGIN/,/PPTP-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/PPTP-BEGIN/,/PPTP-END/d"
+endif
 
 # clean up
 	cd $(INSTALLDIR)/www && \

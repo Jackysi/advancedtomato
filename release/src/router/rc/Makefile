@@ -17,6 +17,8 @@ OBJS += buttons.o restrict.o gpio.o sched.o
 OBJS += account.o
 OBJS += arpbind.o
 OBJS += qoslimit.o
+OBJS += pptp_client.o
+
 #	heartbeat.o
 
 ifeq ($(TCONFIG_USB),y)

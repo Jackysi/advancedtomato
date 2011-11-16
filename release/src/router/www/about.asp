@@ -102,9 +102,10 @@ Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <br>
 <!-- VPN-BEGIN -->
-VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
+OpenVPN integration and GUI<br>
+Copyright (C) 2010 Keith Moyer<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
-<!-- VPN-END -->
+<br>
 <br>
 <b>This compilation may also include:</b><br>
 <br>
@@ -136,6 +137,15 @@ Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 <!-- SNMP-END -->
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
+<br>
+
+<b>"JYAvenard" Features:</b><br>
+<!-- PPTP-BEGIN -->
+- PPTP VPN client integration and GUI<br>
+<!-- PPTP-END -->
+- OpenVPN username/password only authentication<br>
+Copyright (C) 2010-2011 Jean-Yves Avenard<br>
+<a href='mailto:jean-yves@avenard.org'>jean-yves@avenard.org</a><br>
 <br>
 <b>"Teaman" Features:</b><br>
 - QOS-detailed & ctrate improved filters<br>

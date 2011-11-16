@@ -401,6 +401,14 @@ extern int sched_main(int argc, char *argv[]);
 extern void start_sched(void);
 extern void stop_sched(void);
 
+// snmpd.c
+extern void start_snmpd(void);
+extern void stop_snmpd(void);
+
+// pptp_client.c
+extern void start_pptp_client(void);
+extern void stop_pptp_client(void);
+
 //nvram
 extern int nvram_file2nvram(const char *name, const char *filename);
 extern int nvram_nvram2file(const char *name, const char *filename);
