@@ -248,9 +248,9 @@ lg.verifyFields = function(row, quiet) {
 		if(!v_netmask(f[3], quiet || !ok)) {
 			return 0;
 		} else {
-// must be class C or smaller network
-			if (numberOfBitsOnNetMask(f[3].value) < 24) {
-				ferror.set(f[3], 'Netmask must have at least 24 bits set (255.255.255.0)', quiet);
+// must be class B or smaller network
+			if (numberOfBitsOnNetMask(f[3].value) < 16) {
+				ferror.set(f[3], 'Netmask must have at least 16 bits set (255.255.0.0)', quiet);
 				return 0;
 			} else {
 				ferror.clear(f[3]);
