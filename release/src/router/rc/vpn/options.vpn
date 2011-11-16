@@ -1,0 +1,15 @@
+lock
+noauth
+nodetach
+refuse-eap
+lcp-echo-failure 3
+lcp-echo-interval 2
+persist
+usepeerdns
+idle 0
+ip-up-script /etc/vpn/ip-up
+ip-down-script /etc/vpn/ip-down
+ipparam kelokepptpd
+
+mtu 1450
+mru 1450
