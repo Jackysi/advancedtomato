@@ -936,6 +936,7 @@ void stop_wan(void)
 	stop_pppoe();
 	stop_ppp();
 	stop_dhcpc();
+	stop_vpn_eas();
 	if (nvram_get_int("pptp_client_enable"))
 		stop_pptp_client();
 	clear_resolv();
