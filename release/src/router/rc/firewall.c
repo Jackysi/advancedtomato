@@ -1039,28 +1039,7 @@ static void filter_forward(void)
 		}
 	}
 
-	for (i = 0; i < wanfaces.count; ++i) {
-		if (*(wanfaces.iface[i].name)) {
-			ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lanface, wanfaces.iface[i].name, chain_out_accept);
-			if (strcmp(lan1face,"")!=0)
-				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan1face, wanfaces.iface[i].name, chain_out_accept);
-			if (strcmp(lan2face,"")!=0)
-				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan2face, wanfaces.iface[i].name, chain_out_accept);
-			if (strcmp(lan3face,"")!=0)
-				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan3face, wanfaces.iface[i].name, chain_out_accept);
-		}
-	}
-
-#ifdef TCONFIG_IPV6
-//IPv6 forward LAN->WAN accept
-	ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lanface, wan6face, chain_out_accept);
-	if (strcmp(lan1face,"")!=0)
-		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan1face, wan6face, chain_out_accept);
-	if (strcmp(lan2face,"")!=0)
-		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan2face, wan6face, chain_out_accept);
-	if (strcmp(lan3face,"")!=0)
-		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan3face, wan6face, chain_out_accept);
-#endif
+	char lanAccess[17] = "0000000000000000";
 
 	const char *d, *sbr, *saddr, *dbr, *daddr, *desc;
 	char *nv, *nvp, *b;
@@ -1093,9 +1072,75 @@ static void filter_forward(void)
 				dbr,
 				src,
 				dst);
+
+			if ((strcmp(src,"")==0) && (strcmp(dst,"")==0))
+				lanAccess[((*sbr-48)+(*dbr-48)*4)] = '1';
+
 		}
 	}
 	free(nv);
+
+	char lanN_ifname[] = "lanXX_ifname";
+	char br;
+	for(br=0 ; br<=3 ; br++) {
+		char bridge[2] = "0";
+		if (br!=0)
+			bridge[0]+=br;
+		else
+			strcpy(bridge, "");
+
+		sprintf(lanN_ifname, "lan%s_ifname", bridge);
+		if (strncmp(nvram_safe_get(lanN_ifname), "br", 2) == 0) {
+			char lanN_ifname2[] = "lanXX_ifname";
+			char br2;
+			for(br2=0 ; br2<=3 ; br2++) {
+				if (br==br2) continue;
+
+				if (lanAccess[((br)+(br2)*4)] == '1') continue;
+
+				char bridge2[2] = "0";
+				if (br2!=0)
+					bridge2[0]+=br2;
+				else
+					strcpy(bridge2, "");
+
+				sprintf(lanN_ifname2, "lan%s_ifname", bridge2);
+				if (strncmp(nvram_safe_get(lanN_ifname2), "br", 2) == 0) {
+					ipt_write("-A FORWARD -i %s -o %s -j DROP\n",
+						nvram_safe_get(lanN_ifname),
+						nvram_safe_get(lanN_ifname2));
+				}
+			}
+		ip46t_write("-A FORWARD -i %s -j %s\n", nvram_safe_get(lanN_ifname), chain_out_accept);
+		}
+	}
+
+/* shibby - unused ?!?
+
+	for (i = 0; i < wanfaces.count; ++i) {
+		if (*(wanfaces.iface[i].name)) {
+			ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lanface, wanfaces.iface[i].name, chain_out_accept);
+			if (strcmp(lan1face,"")!=0)
+				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan1face, wanfaces.iface[i].name, chain_out_accept);
+			if (strcmp(lan2face,"")!=0)
+				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan2face, wanfaces.iface[i].name, chain_out_accept);
+			if (strcmp(lan3face,"")!=0)
+				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan3face, wanfaces.iface[i].name, chain_out_accept);
+		}
+	}
+
+#ifdef TCONFIG_IPV6
+//IPv6 forward LAN->WAN accept
+	ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lanface, wan6face, chain_out_accept);
+	if (strcmp(lan1face,"")!=0)
+		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan1face, wan6face, chain_out_accept);
+	if (strcmp(lan2face,"")!=0)
+		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan2face, wan6face, chain_out_accept);
+	if (strcmp(lan3face,"")!=0)
+		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan3face, wan6face, chain_out_accept);
+#endif
+
+shibby */
 
 	// IPv4 only
 	if (nvram_get_int("upnp_enable") & 3) {
