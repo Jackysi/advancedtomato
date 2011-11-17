@@ -1103,13 +1103,11 @@ shibby */
 	}
 
 	//IPv6
-	for (i = 0; i < wan6faces.count; ++i) {
-		if (*(wan6faces.iface[i].name)) {
-			ip6t_write(
-				"-A FORWARD -i %s -j wanin\n"				// generic from wan
-				"-A FORWARD -o %s -j wanout\n",				// generic to wan
-				wan6face.iface[i].name, wan6face.iface[i].name);
-		}
+	if (*wan6face) {
+		ip6t_write(
+			"-A FORWARD -i %s -j wanin\n"				// generic from wan
+			"-A FORWARD -o %s -j wanout\n",				// generic to wan
+			wan6face, wan6face);
 	}
 #endif
 
