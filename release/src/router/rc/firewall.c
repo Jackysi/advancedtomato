@@ -1141,6 +1141,19 @@ static void filter_forward(void)
 //	ipt_write("-A FORWARD -i %s -j %s\n", lanface, chain_out_accept);
 // #endif
 
+#ifdef TCONFIG_IPV6
+//IPv6 forward LAN->WAN accept
+	ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lanface, wan6face, chain_out_accept);
+#ifdef TCONFIG_VLAN
+	if (strcmp(lan1face,"")!=0)
+		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan1face, wan6face, chain_out_accept);
+	if (strcmp(lan2face,"")!=0)
+		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan2face, wan6face, chain_out_accept);
+	if (strcmp(lan3face,"")!=0)
+		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan3face, wan6face, chain_out_accept);
+#endif
+#endif
+
 	if (nvram_get_int("upnp_enable") & 3) {
 		ipt_write(":upnp - [0:0]\n");
 		for (i = 0; i < wanfaces.count; ++i) {
