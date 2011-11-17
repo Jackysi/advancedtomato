@@ -144,7 +144,6 @@ else
   endif
 endif
 
-obj-$(TCONFIG_SNMP) += snmp
 obj-y += wanuptime
 
 obj-clean := $(foreach obj, $(obj-y) $(obj-n) $(obj-), $(obj)-clean)
@@ -1356,22 +1355,6 @@ wanuptime-clean:
 wanuptime-install:
 	install -D wanuptime/wanuptime $(INSTALLDIR)/wanuptime/usr/sbin/wanuptime
 	$(STRIP) $(INSTALLDIR)/wanuptime/usr/sbin/wanuptime
-
-snmp: snmp/include/net-snmp/net-snmp-config.h
-	@$(SEP)
-	@$(MAKE) -C snmp 
-
-snmp/include/net-snmp/net-snmp-config.h:
-	cd snmp && /bin/sh ./conf.sh
-	$(MAKE) -C snmp clean
-
-snmp-clean:
-	$(MAKE) -C snmp clean
-	rm -f $(INSTALLDIR)/etc/snmp
-
-snmp-install:
-	install -D snmp/agent/snmpd $(INSTALLDIR)/snmp/usr/sbin/snmpd
-	$(STRIP) $(INSTALLDIR)/snmp/usr/sbin/snmpd
 
 ebtables: dummy
 	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) \
