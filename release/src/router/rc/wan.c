@@ -183,6 +183,10 @@ static int config_pppd(int wan_proto, int num)
 		if (((p = nvram_get("ppp_ac")) != NULL) && (*p)) {
 			fprintf(fp, "rp_pppoe_ac '%s'\n", p);
 		}
+		if (nvram_match("ppp_mlppp", "1")) {
+			fprintf(fp, "mp\n");
+		}
+
 		break;
 #ifdef LINUX26
 #ifdef TCONFIG_USB

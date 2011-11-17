@@ -152,6 +152,7 @@ const defaults_t defaults[] = {
 	{ "ppp_get_ac",			""				},	// PPPoE Server ac name
 	{ "ppp_get_srv",		""				},	// PPPoE Server service name
 	{ "ppp_custom",			""				},	// PPPD additional options
+	{ "ppp_mlppp",			"0"				},	// PPPoE single line MLPPP
 
 	{ "pppoe_lei",			""				},
 	{ "pppoe_lef",			""				},
