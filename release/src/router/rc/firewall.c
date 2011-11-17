@@ -1102,14 +1102,18 @@ shibby */
 		ip6t_write("-A FORWARD -p ipv6-icmp --icmpv6-type %i -j %s\n", allowed_icmpv6[i], chain_in_accept);
 	}
 
-	if (*wan6face) {
-		ip6t_write(
-			"-A FORWARD -i %s -j wanin\n"				// generic from wan
-			"-A FORWARD -o %s -j wanout\n",				// generic to wan
-			wan6face, wan6face);
+	//IPv6
+	for (i = 0; i < wan6faces.count; ++i) {
+		if (*(wan6faces.iface[i].name)) {
+			ip6t_write(
+				"-A FORWARD -i %s -j wanin\n"				// generic from wan
+				"-A FORWARD -o %s -j wanout\n",				// generic to wan
+				wan6face.iface[i].name, wan6face.iface[i].name);
+		}
 	}
 #endif
 
+	//IPv4
 	for (i = 0; i < wanfaces.count; ++i) {
 		if (*(wanfaces.iface[i].name)) {
 			ipt_write(
