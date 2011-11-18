@@ -1217,6 +1217,12 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client1_ca",       V_NONE              },
 	{ "vpn_client1_crt",      V_NONE              },
 	{ "vpn_client1_key",      V_NONE              },
+	{ "vpn_client1_userauth", V_01                },
+	{ "vpn_client1_username", V_TEXT(0,50)        },
+	{ "vpn_client1_password", V_TEXT(0,50)        },
+	{ "vpn_client1_useronly", V_01                },
+	{ "vpn_client1_tlsremote",V_01                },
+	{ "vpn_client1_cn",       V_NONE              },
 	{ "vpn_client2_poll",     V_RANGE(0, 1440)    },
 	{ "vpn_client2_if",       V_TEXT(3, 3)        },  // tap, tun
 	{ "vpn_client2_bridge",   V_01                },
@@ -1242,6 +1248,12 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client2_ca",       V_NONE              },
 	{ "vpn_client2_crt",      V_NONE              },
 	{ "vpn_client2_key",      V_NONE              },
+	{ "vpn_client2_userauth", V_01                },
+	{ "vpn_client2_username", V_TEXT(0,50)        },
+	{ "vpn_client2_password", V_TEXT(0,50)        },
+	{ "vpn_client2_useronly", V_01                },
+	{ "vpn_client2_tlsremote",V_01                },
+	{ "vpn_client2_cn",       V_NONE              },
 #endif // vpn
 
 
