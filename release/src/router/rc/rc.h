@@ -401,6 +401,19 @@ extern int sched_main(int argc, char *argv[]);
 extern void start_sched(void);
 extern void stop_sched(void);
 
+// snmpd.c
+extern void start_snmpd(void);
+extern void stop_snmpd(void);
+
+#ifdef TCONFIG_USERPPTP
+// pptp_client.c
+extern void start_pptp_client(void);
+extern void stop_pptp_client(void);
+extern int write_pptpvpn_resolv(FILE*);
+#else
+#define write_pptpvpn_resolv(f) (0)
+#endif
+
 //nvram
 extern int nvram_file2nvram(const char *name, const char *filename);
 extern int nvram_nvram2file(const char *name, const char *filename);
@@ -438,6 +451,7 @@ extern void stop_vpnclient(int clientNum);
 extern void start_vpnserver(int serverNum);
 extern void stop_vpnserver(int serverNum);
 extern void start_vpn_eas();
+extern void stop_vpn_eas();
 extern void run_vpn_firewall_scripts();
 extern void write_vpn_dnsmasq_config(FILE*);
 extern int write_vpn_resolv(FILE*);
@@ -451,6 +465,7 @@ static inline void run_vpn_firewall_scripts() {}
 static inline void write_vpn_dnsmasq_config(FILE*) {}
 */
 static inline void start_vpn_eas() { }
+static inline void stop_vpn_eas() { }
 #define write_vpn_resolv(f) (0)
 #endif
 

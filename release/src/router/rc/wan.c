@@ -902,6 +902,11 @@ void start_wan_done(char *wan_ifname)
 	if (wanup)
 		start_vpn_eas();
 
+#ifdef TCONFIG_USERPPTP
+	if (wanup && nvram_get_int("pptp_client_enable"))
+		start_pptp_client();
+#endif
+
 	unlink(wan_connecting);
 
 	TRACE_PT("end\n");
@@ -933,6 +938,11 @@ void stop_wan(void)
 	stop_pppoe();
 	stop_ppp();
 	stop_dhcpc();
+	stop_vpn_eas();
+#ifdef TCONFIG_USERPPTP
+	if (nvram_get_int("pptp_client_enable"))
+		stop_pptp_client();
+#endif
 	clear_resolv();
 	nvram_set("wan_get_dns", "");
 

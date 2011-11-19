@@ -124,3 +124,6 @@ config TCONFIG_VLAN
 	bool "VLAN GUI"
 	default n
 
+config TCONFIG_USERPPTP
+	bool "User PPTP"
+	default n

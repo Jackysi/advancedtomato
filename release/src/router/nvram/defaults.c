@@ -887,6 +887,23 @@ const defaults_t defaults[] = {
 	{ "vpn_client2_crt",      ""              },
 	{ "vpn_client2_key",      ""              },
 #endif	// vpn
+#ifdef TCONFIG_PPTP
+	{ "pptp_client_enable",   "0"             },
+	{ "pptp_client_peerdns",  "0"             },
+	{ "pptp_client_mtuenable","0"             },
+	{ "pptp_client_mtu",      "1450"          },
+	{ "pptp_client_mruenable","0"             },
+	{ "pptp_client_mru",      "1450"          },
+	{ "pptp_client_nat",      "0"             },
+	{ "pptp_client_srvip",    ""              },
+	{ "pptp_client_srvsub",   "10.0.0.0"      },
+	{ "pptp_client_srvsubmsk","255.0.0.0"     },
+	{ "pptp_client_username", ""              },
+	{ "pptp_client_passwd",   ""              },
+	{ "pptp_client_crypt",    "0"             },
+	{ "pptp_client_custom",   ""              },
+	{ "pptp_client_dfltroute","0"             },
+#endif
 
 #if 0
 // safe to remove?

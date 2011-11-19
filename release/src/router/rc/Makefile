@@ -43,9 +43,12 @@ ifeq ($(TOMATO_SL),1)
 OBJS += samba.o
 endif
 
-
 ifeq ($(TCONFIG_SNMP),y)
 OBJS += snmp.o
+endif
+
+ifeq ($(TCONFIG_USERPPTP),y)
+OBJS += pptp_client.o
 endif
 
 all: rc

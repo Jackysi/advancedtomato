@@ -117,8 +117,6 @@ MEDIA_SERVER_STATIC=y
 
 obj-y += miniupnpd
 #	obj-y += upnp
-
-
 #
 # configurable packages
 #
@@ -146,10 +144,10 @@ else
   endif
 endif
 
+obj-y += wanuptime
+
 obj-clean := $(foreach obj, $(obj-y) $(obj-n) $(obj-), $(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
-
-
 
 #
 # Basic rules
@@ -452,6 +450,12 @@ endif
 ifeq ($(TCONFIG_L7PAT),y)
 	@cd layer7 && ./squish.sh
 	cp layer7/squished/*.pat $(TARGETDIR)/rom/etc/l7-protocols
+endif
+
+ifeq ($(TCONFIG_USERPPTP),y)
+	@mkdir -p $(TARGETDIR)/rom/etc/vpn
+	cp rc/vpn/* $(TARGETDIR)/rom/etc/vpn
+	chmod +x $(TARGETDIR)/rom/etc/vpn/*
 endif
 
 	busybox/examples/depmod.pl -k $(LINUXDIR)/vmlinux -b $(TARGETDIR)/lib/modules/*/
@@ -1341,6 +1345,16 @@ igs:
 igs-install: igs
 	$(MAKE) -C $(SRCBASE)/emf/igsconf INSTALLDIR=$(INSTALLDIR) install
 
+wanuptime: nvram shared
+	@$(SEP)
+	@$(MAKE) -C wanuptime
+
+wanuptime-clean:
+	$(MAKE) -C wanuptime clean
+
+wanuptime-install:
+	install -D wanuptime/wanuptime $(INSTALLDIR)/wanuptime/usr/sbin/wanuptime
+	$(STRIP) $(INSTALLDIR)/wanuptime/usr/sbin/wanuptime
 
 ebtables: dummy
 	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) \
