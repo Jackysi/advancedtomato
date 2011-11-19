@@ -405,13 +405,13 @@ extern void stop_sched(void);
 extern void start_snmpd(void);
 extern void stop_snmpd(void);
 
-#ifdef TCONFIG_PPTP
+#ifdef TCONFIG_USERPPTP
 // pptp_client.c
 extern void start_pptp_client(void);
 extern void stop_pptp_client(void);
 extern int write_pptpvpn_resolv(FILE*);
 #else
-#define write_vpn_resolv(f) (0)
+#define write_pptpvpn_resolv(f) (0)
 #endif
 
 //nvram
