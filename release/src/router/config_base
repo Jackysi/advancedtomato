@@ -30,3 +30,4 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_NOCAT is not set
 # TCONFIG_SNMP is not set
 # TCONFIG_VLAN is not set
+# TCONFIG_USERPPTP is not set

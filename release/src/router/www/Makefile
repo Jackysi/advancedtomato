@@ -168,16 +168,22 @@ endif
 # Remove AES ciphers from the GUI if openssl doesn't have an AES directory
 ifeq ($(TCONFIG_OPENVPN),y)
 	test -d ../openssl/crypto/aes || sed -i $(INSTALLDIR)/www/vpn.js -e "/AES-BEGIN/,/AES-END/d"
-	sed -i $(INSTALLDIR)/www/about.asp -e "/PPTP-BEGIN/,/PPTP-END/d"
 else
 	rm -f $(INSTALLDIR)/www/vpn-{client,server}.asp $(INSTALLDIR)/www/vpn.js
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/OPENVPN-BEGIN/,/OPENVPN-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/OPENVPN-BEGIN/,/OPENVPN-END/d"
-ifneq ($(TCONFIG_PPTP),y)
+ifneq ($(TCONFIG_USERPPTP),y)
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/VPN-BEGIN/,/VPN-END/d"
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/VPN-BEGIN/,/VPN-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/VPN-BEGIN/,/VPN-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/JYAVENARD-BEGIN/,/JYAVENARD-END/d"
 endif
+endif
+
+ifneq ($(TCONFIG_USERPPTP),y)
+	rm -f $(INSTALLDIR)/www/vpn-pptp.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/USERPPTP-BEGIN/,/USERPPTP-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/USERPPTP-BEGIN/,/USERPPTP-END/d"
 endif
 
 # Only include the snmp pages if SNMP is compiled in
@@ -185,12 +191,6 @@ ifneq ($(TCONFIG_SNMP),y)
 	rm -f $(INSTALLDIR)/www/admin-snmp.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/SNMP-BEGIN/,/SNMP-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/SNMP-BEGIN/,/SNMP-END/d"
-endif
-
-ifneq ($(TCONFIG_PPTP),y)
-	rm -f $(INSTALLDIR)/www/vpn-pptp.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/PPTP-BEGIN/,/PPTP-END/d"
-	sed -i $(INSTALLDIR)/www/about.asp -e "/PPTP-BEGIN/,/PPTP-END/d"
 endif
 
 # clean up

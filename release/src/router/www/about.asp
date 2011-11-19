@@ -101,14 +101,14 @@ IPv6 support,
 Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <br>
-<!-- VPN-BEGIN -->
-OpenVPN integration and GUI<br>
+<b>This compilation may also include:</b><br>
+<br>
+<!-- OPENVPN-BEGIN -->
+<b>OpenVPN integration and GUI</b><br>
 Copyright (C) 2010 Keith Moyer<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br>
-<br>
-<b>This compilation may also include:</b><br>
-<br>
+<!-- OPENVPN-END -->
 <b>"Teddy Bear" current features, notably:</b><br>
 - USB Support, Samba, FTP, Media Servers<br>
 - Web Monitor, Per-connection transfer rates<br>
@@ -139,14 +139,19 @@ Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
 
+<!-- JYAVENARD-BEGIN -->
 <b>"JYAvenard" Features:</b><br>
-<!-- PPTP-BEGIN -->
+<!-- OPENVPN-BEGIN -->
+- OpenVPN enhancements &amp; username/password only authentication<br>
+<!-- OPENVPN-END -->
+<!-- USERPPTP-BEGIN -->
 - PPTP VPN client integration and GUI<br>
-<!-- PPTP-END -->
-- OpenVPN username/password only authentication<br>
+<!-- USERPPTP-END -->
 Copyright (C) 2010-2011 Jean-Yves Avenard<br>
 <a href='mailto:jean-yves@avenard.org'>jean-yves@avenard.org</a><br>
 <br>
+<!-- JYAVENARD-END -->
+
 <b>"Teaman" Features:</b><br>
 - QOS-detailed & ctrate improved filters<br>
 - Per-IP bandwidth monitoring of LAN clients [cstats v2]<br>
