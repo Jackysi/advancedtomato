@@ -44,8 +44,17 @@ function defmac(which)
 	if (which == 'wan')
 		return et0plus(1);
 	else {	// wlX
-		var u = which.substr(2, which.length) * 1;
-		return et0plus(2 + u);
+/* REMOVE-BEGIN */
+// trying to mimic the behaviour of static int set_wlmac(int idx, int unit, int subunit, void *param) in router/rc/network.c when we have wlX or wlX.X
+/* REMOVE-END */
+		var u, s, t, v;
+		u = which.substr(2, which.length) * 1;
+		s = parseInt(u.toString().substr(u.toString().indexOf(".") + 1, u.toString().length) * 1);
+		u = parseInt(u.toString().substr(0, u.toString().indexOf(".") - 1) * 1);
+		t = et0plus(2 + u + ((s > 0) ? (u * 0x10 + s) : 0)).split(':');
+		v = (parseInt(t[0], 16) + ((s > 0) ? (u * 0x10 + 2) : 0) ) & 0xFF;
+		t[0] = v.hex(2);
+		return t.join(':');
 	}
 }
 
