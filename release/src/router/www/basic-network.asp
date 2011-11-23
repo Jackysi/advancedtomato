@@ -59,9 +59,11 @@ lg.setup = function() {
 		var j = (i == 0) ? '' : i.toString();
 		if (nvram['lan' + j + '_ifname'].length > 0) {
 			if ((!fixIP(nvram['dhcpd' + j + '_startip'])) || (!fixIP(nvram['dhcpd' + j + '_endip']))) {
-				var x = nvram['lan' + j + '_ipaddr'].split('.').splice(0, 3).join('.') + '.';
-				nvram['dhcpd' + j + '_startip'] = x + nvram['dhcp' + j + '_start'];
-				nvram['dhcpd' + j + '_endip'] = x + ((nvram['dhcp' + j + '_start'] * 1) + (nvram['dhcp' + j + '_num'] * 1) - 1);
+				if ((fixIP(nvram['lan' + j + '_ipaddr'])) && (fixIP(nvram['lan' + j + '_netmask'])) && (nvram['dhcp' + j + '_start'] != '')) {
+					var n = getNetworkAddress(nvram['lan' + j + '_ipaddr'], nvram['lan' + j + '_netmask']);
+					nvram['dhcpd' + j + '_startip'] = getAddress(('0.0.0.' + nvram['dhcp' + j + '_start'] * 1), n);
+					nvram['dhcpd' + j + '_endip'] = getAddress(('0.0.0.' + ((nvram['dhcp' + j + '_start'] * 1) + (nvram['dhcp' + j + '_num'] *1) - 1)), n);
+				}
 			}
 			lg.insertData(-1, [ 
 				i.toString(),
@@ -69,8 +71,8 @@ lg.setup = function() {
 				nvram['lan' + j + '_ipaddr'],
 				nvram['lan' + j + '_netmask'],
 				(nvram['lan' + j + '_proto'] == 'dhcp') ? '1' : '0',
-				(nvram['dhcp' + j + '_start'] != '') ? fixIP(getNetworkAddress(nvram['lan' + j + '_ipaddr'], nvram['lan' + j + '_netmask']).split('.').splice(0, 3).join('.') + '.' + nvram['dhcp' + j + '_start']) : '',
-				(nvram['dhcp' + j + '_start'] != '') ? parseInt(nvram['dhcp' + j + '_start']) + parseInt(nvram['dhcp' + j + '_num']) - 1 : '',
+				nvram['dhcpd' + j + '_startip'],
+				nvram['dhcpd' + j + '_endip'],
 				(nvram['dhcp' + j + '_start'] != '') ? nvram['dhcp' + j + '_lease'] : ''
 			] ) ;
 			numBridges++;
@@ -89,7 +91,7 @@ lg.dataToView = function(data) {
 	data[2],
 	data[3],
 	(data[4].toString() == '1') ? '<small><i>Enabled</i></small>' : '<small><i>Disabled</i></small>',
-	(((data[5] != null) && (data[5] != '')) ? (data[5] + ' - ') : '') + (((data[6] != null) && (data[6] != '')) ? data[6] : ''),
+	(data[5].toString() + ((numberOfBitsOnNetMask(data[3])>=24) ? (' - ' + data[6].split('.').splice(3, 1).toString()) : ('<br>' + data[6].toString()) )),
 	(((data[7] != null) && (data[7] != '')) ? data[7] : '') ];
 }
 
@@ -100,20 +102,19 @@ lg.dataToFieldValues = function (data) {
 	data[3].toString(),
 	(data[4].toString() == '1') ? 'checked' : '',
 	data[5].toString(),
-	(data[6] != '') ? fixIP(getNetworkAddress(data[2], data[3]).split('.').splice(0, 3).join('.') + '.' + parseInt(data[6])) : '',
+	data[6].toString(),
 	data[7].toString() ];
 }
 
 lg.fieldValuesToData = function(row) {
 	var f = fields.getAll(row);
-	var g = f[6].value.split('.');
 	return [f[0].value,
 	f[1].checked ? 1 : 0,
 	f[2].value,
 	f[3].value,
 	f[4].checked ? 1 : 0,
 	f[5].value,
-	(g[3] != null) ? g[3] : '',
+	f[6].value,
 	f[7].value ];
 }
 
@@ -1435,24 +1436,23 @@ REMOVE-END */
 		fom['lan' + j + '_netmask'].value = d[i][3];
 		fom['lan' + j + '_proto'].value = (d[i][4] != '0') ? 'dhcp' : 'static';
 		fom['dhcp' + j + '_start'].value = (d[i][4] != '0') ? (d[i][5]).split('.').splice(3, 1) : '';
-		fom['dhcp' + j + '_num'].value = (d[i][4] != '0') ? d[i][6] - fom['dhcp' + j + '_start'].value + 1 : '';
+		fom['dhcp' + j + '_num'].value = (d[i][4] != '0') ? d[i][6].split('.').splice(3, 1) - (d[i][5]).split('.').splice(3, 1) + 1 : ''; // presuming /24 subnet (legacy)
 		fom['dhcp' + j + '_lease'].value = (d[i][4] != '0') ? d[i][7] : '';
 		fom['dhcpd' + j + '_startip'].value = (d[i][4] != '0') ? d[i][5] : '';
-		fom['dhcpd' + j + '_endip'].value = (d[i][4] != '0') ? fixIP(getNetworkAddress(d[i][2], d[i][3]).split('.').splice(0, 3).join('.') + '.' + parseInt(d[i][6])) : '';
+		fom['dhcpd' + j + '_endip'].value = (d[i][4] != '0') ? d[i][6] : '';
 
-/* REMOVE-BEGIN
-alert('lan' + j + '_ifname=' + fom['lan' + j + '_ifname'].value + 
-	', lan' + j + '_stp=' + fom['lan' + j + '_stp'].value + 
-	', lan' + j + '_ipaddr=' + fom['lan' + j + '_ipaddr'].value + 
-	', lan' + j + '_netmask=' + fom['lan' + j + '_netmask'].value + 
-	', lan' + j + '_proto=' + fom['lan' + j + '_proto'].value + 
-	', dhcp' + j + '_start=' + fom['dhcp' + j + '_start'].value + 
-	', dhcp' + j + '_num=' + fom['dhcp' + j + '_num'].value + 
-	', dhcp' + j + '_lease=' + fom['dhcp' + j + '_lease'].value + 
-	', dhcpd' + j + '_startip=' + fom['dhcpd' + j + '_startip'].value + 
-	', dhcpd' + j + '_endip=' + fom['dhcpd' + j + '_endip'].value);
-// fixIP(getNetworkAddress(data[2], data[3]).split('.').splice(0, 3).join('.') + '.' + parseInt(data[6]))
-REMOVE-END */
+/* REMOVE-BEGIN */
+alert('lan' + j + '_ifname=' + fom['lan' + j + '_ifname'].value + '\n' +
+	'lan' + j + '_stp=' + fom['lan' + j + '_stp'].value + '\n' +
+	'lan' + j + '_ipaddr=' + fom['lan' + j + '_ipaddr'].value + '\n' +
+	'lan' + j + '_netmask=' + fom['lan' + j + '_netmask'].value + '\n' +
+	'lan' + j + '_proto=' + fom['lan' + j + '_proto'].value + '\n' +
+	'dhcp' + j + '_start=' + fom['dhcp' + j + '_start'].value + '\n' +
+	'dhcp' + j + '_num=' + fom['dhcp' + j + '_num'].value + '\n' +
+	'dhcp' + j + '_lease=' + fom['dhcp' + j + '_lease'].value + '\n' +
+	'dhcpd' + j + '_startip=' + fom['dhcpd' + j + '_startip'].value + '\n' +
+	'dhcpd' + j + '_endip=' + fom['dhcpd' + j + '_endip'].value);
+/* REMOVE-END */
 	}
 
 	var e = E('footer-msg');
