@@ -35,3 +35,7 @@ function getBroadcastAddress(network, netmask) {
 	return fixIP(ntoa(aton(network) ^ (~ aton(netmask))));
 }
 
+function getAddress(ipaddress, network) {
+	return fixIP(ntoa( (aton(network)) + (aton(ipaddress)) ));
+}
+
