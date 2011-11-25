@@ -164,7 +164,7 @@ static void set_sock_priority(int sock) {
 	/* set the TOS bit for either ipv4 or ipv6 */
 #ifdef IPTOS_LOWDELAY
 	val = IPTOS_LOWDELAY;
-#ifdef IPPROTO_IPV6
+#if defined(IPPROTO_IPV6) && defined(TCONFIG_IPV6)
 	setsockopt(sock, IPPROTO_IPV6, IPV6_TCLASS, (void*)&val, sizeof(val));
 #endif
 	setsockopt(sock, IPPROTO_IP, IP_TOS, (void*)&val, sizeof(val));
