@@ -116,7 +116,7 @@ static void ask_to_confirm(unsigned char* keyblob, unsigned int keybloblen) {
 
 	char* fp = NULL;
 	FILE *tty = NULL;
-	int response = 'z';
+	char response = 'z';
 
 	fp = sign_key_fingerprint(keyblob, keybloblen);
 	if (cli_opts.always_accept_key) {

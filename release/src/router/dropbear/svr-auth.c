@@ -211,9 +211,7 @@ out:
 static int checkusername(unsigned char *username, unsigned int userlen) {
 
 	char* listshell = NULL;
-#if 0	// shell check
 	char* usershell = NULL;
-#endif
 	TRACE(("enter checkusername"))
 	if (userlen > MAX_USERNAME_LEN) {
 		return DROPBEAR_FAILURE;
@@ -251,18 +249,8 @@ static int checkusername(unsigned char *username, unsigned int userlen) {
 		return DROPBEAR_FAILURE;
 	}
 
-	/* check for an empty password */
-	if (ses.authstate.pw_passwd[0] == '\0') {
-		TRACE(("leave checkusername: empty pword"))
-		dropbear_log(LOG_WARNING, "User '%s' has blank password, rejected",
-				ses.authstate.pw_name);
-		send_msg_userauth_failure(0, 1);
-		return DROPBEAR_FAILURE;
-	}
-
 	TRACE(("shell is %s", ses.authstate.pw_shell))
 
-#if 0	// shell check
 	/* check that the shell is set */
 	usershell = ses.authstate.pw_shell;
 	if (usershell[0] == '\0') {
@@ -288,7 +276,6 @@ static int checkusername(unsigned char *username, unsigned int userlen) {
 				ses.authstate.pw_name);
 	send_msg_userauth_failure(0, 1);
 	return DROPBEAR_FAILURE;
-#endif	// shell check
 	
 goodshell:
 	endusershell();

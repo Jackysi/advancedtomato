@@ -38,7 +38,7 @@
  * Both of these flags can be defined at once, don't compile without at least
  * one of them. */
 #define NON_INETD_MODE
-/*#define INETD_MODE*/
+#define INETD_MODE
 
 /* Setting this disables the fast exptmod bignum code. It saves ~5kB, but is
  * perhaps 20% slower for pubkey operations (it is probably worth experimenting
@@ -49,10 +49,10 @@
 several kB in binary size however will make the symmetrical ciphers and hashes
 slower, perhaps by 50%. Recommended for small systems that aren't doing
 much traffic. */
-#define DROPBEAR_SMALL_CODE
+/*#define DROPBEAR_SMALL_CODE*/
 
 /* Enable X11 Forwarding - server only */
-/*#define ENABLE_X11FWD*/
+#define ENABLE_X11FWD
 
 /* Enable TCP Fowarding */
 /* 'Local' is "-L" style (client listening port forwarded via server)
@@ -89,8 +89,8 @@ much traffic. */
 #define DROPBEAR_AES256
 /* Compiling in Blowfish will add ~6kB to runtime heap memory usage */
 /*#define DROPBEAR_BLOWFISH*/
-/*#define DROPBEAR_TWOFISH256*/
-/*#define DROPBEAR_TWOFISH128*/
+#define DROPBEAR_TWOFISH256
+#define DROPBEAR_TWOFISH128
 
 /* Enable "Counter Mode" for ciphers. This is more secure than normal
  * CBC mode against certain attacks. This adds around 1kB to binary 
@@ -144,7 +144,7 @@ much traffic. */
 #endif
 
 /* Whether to do reverse DNS lookups. */
-/*#define DO_HOST_LOOKUP*/
+#define DO_HOST_LOOKUP
 
 /* Whether to print the message of the day (MOTD). This doesn't add much code
  * size */
@@ -158,10 +158,11 @@ much traffic. */
 /* Authentication Types - at least one required.
    RFC Draft requires pubkey auth, and recommends password */
 
-/* Note: PAM auth is quite simple, and only works for PAM modules which just do
+/* Note: PAM auth is quite simple and only works for PAM modules which just do
  * a simple "Login: " "Password: " (you can edit the strings in svr-authpam.c).
- * It's useful for systems like OS X where standard password crypts don't work,
- * but there's an interface via a PAM module - don't bother using it otherwise.
+ * It's useful for systems like OS X where standard password crypts don't work
+ * but there's an interface via a PAM module. It won't work for more complex
+ * PAM challenge/response.
  * You can't enable both PASSWORD and PAM. */
 
 #define ENABLE_SVR_PASSWORD_AUTH
@@ -175,6 +176,12 @@ much traffic. */
 #define ENABLE_SVR_PUBKEY_OPTIONS
 #endif
 
+/* Define this to allow logging in to accounts that have no password specified.
+ * Public key logins are allowed for blank-password accounts regardless of this
+ * setting.  PAM is not affected by this setting, it uses the normal pam.d
+ * settings ('nullok' option) */
+/* #define ALLOW_BLANK_PASSWORD */
+
 #define ENABLE_CLI_PASSWORD_AUTH
 #define ENABLE_CLI_PUBKEY_AUTH
 #define ENABLE_CLI_INTERACT_AUTH
@@ -185,7 +192,7 @@ much traffic. */
  * note that it will be provided for all "hidden" client-interactive
  * style prompts - if you want something more sophisticated, use 
  * SSH_ASKPASS instead. Comment out this var to remove this functionality.*/
-/*#define DROPBEAR_PASSWORD_ENV "DROPBEAR_PASSWORD"*/
+#define DROPBEAR_PASSWORD_ENV "DROPBEAR_PASSWORD"
 
 /* Define this (as well as ENABLE_CLI_PASSWORD_AUTH) to allow the use of
  * a helper program for the ssh client. The helper program should be
@@ -236,14 +243,14 @@ much traffic. */
 /* The command to invoke for xauth when using X11 forwarding.
  * "-q" for quiet */
 #ifndef XAUTH_COMMAND
-#define XAUTH_COMMAND "/opt/X11R6/bin/xauth -q"
+#define XAUTH_COMMAND "/usr/bin/X11/xauth -q"
 #endif
 
 /* if you want to enable running an sftp server (such as the one included with
  * OpenSSH), set the path below. If the path isn't defined, sftp will not
  * be enabled */
 #ifndef SFTPSERVER_PATH
-#define SFTPSERVER_PATH "/opt/libexec/sftp-server"
+#define SFTPSERVER_PATH "/usr/libexec/sftp-server"
 #endif
 
 /* This is used by the scp binary when used as a client binary. If you're
@@ -263,7 +270,7 @@ much traffic. */
    chosen for a 100mbit ethernet network. The value can be altered at
    runtime with the -W argument. */
 #ifndef DEFAULT_RECV_WINDOW
-#define DEFAULT_RECV_WINDOW 12288
+#define DEFAULT_RECV_WINDOW 24576
 #endif
 /* Maximum size of a received SSH data packet - this _MUST_ be >= 32768
    in order to interoperate with other implementations */
@@ -285,7 +292,7 @@ be overridden at runtime with -I. 0 disables idle timeouts */
 #define DEFAULT_IDLE_TIMEOUT 0
 
 /* The default path. This will often get replaced by the shell */
-#define DEFAULT_PATH "/bin:/usr/bin:/sbin:/usr/sbin:/opt/bin:/opt/sbin"
+#define DEFAULT_PATH "/usr/bin:/bin"
 
 /* Some other defines (that mostly should be left alone) are defined
  * in sysoptions.h */
