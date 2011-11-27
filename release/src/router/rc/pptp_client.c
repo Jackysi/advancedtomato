@@ -66,9 +66,6 @@ void start_pptp_client(void)
             "persist\n"
             "plugin pptp.so\n"
             "pptp_server %s\n", nvram_safe_get("pptp_client_srvip"));
-        // Accept default route
-        if (nvram_get_int("pptp_client_dfltroute"))
-            fprintf(fd,"defaultroute\n");
         i = nvram_get_int("pptp_client_peerdns"); //0: disable, 1 enable
         if (i > 0)
             fprintf(fd,"usepeerdns\n");
@@ -136,6 +133,9 @@ void start_pptp_client(void)
     }
     if (ok)
     {
+        // force route to PPTP server via WAN
+        eval("route", "add", nvram_safe_get("pptp_client_srvip"), "gw", wan_gateway(),
+	     "dev", nvram_safe_get("wan_iface"));
         sprintf(buffer, "/etc/vpn/pptpclient file /etc/vpn/options.vpn");
         for (argv[argc=0] = strtok(&buffer[0], " "); argv[argc] != NULL; argv[++argc] = strtok(NULL, " "));
         if ( _eval(argv, NULL, 0, NULL) )
@@ -163,6 +163,12 @@ void stop_pptp_client(void)
 
     rmdir("/etc/vpn");
     rmdir("/tmp/ppp");
+}
+
+void clear_pptp_route(void)
+{
+    // remove route to PPTP server
+    eval("route", "del", nvram_safe_get("pptp_client_srvip"), "dev", nvram_safe_get("wan_iface"));
 }
 
 int write_pptpvpn_resolv(FILE* f)
