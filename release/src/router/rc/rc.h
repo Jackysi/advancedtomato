@@ -142,6 +142,7 @@ extern void start_l2tp(void);
 extern void stop_l2tp(void);
 extern void start_wan(int mode);
 extern void start_wan_done(char *ifname);
+extern char *wan_gateway(void);
 #ifdef TCONFIG_IPV6
 extern void start_wan6_done(const char *wan_ifname);
 #endif
@@ -416,6 +417,7 @@ extern void stop_snmpd(void);
 extern void start_pptp_client(void);
 extern void stop_pptp_client(void);
 extern int write_pptpvpn_resolv(FILE*);
+extern void clear_pptp_route(void);
 #else
 #define write_vpn_resolv(f) (0)
 #endif
