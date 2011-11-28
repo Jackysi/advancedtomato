@@ -1,9 +1,16 @@
 #!/bin/sh
+DEFAULTROUTE=$(/bin/nvram get pptp_client_dfltroute)
 REMOTESUB=$(/bin/nvram get pptp_client_srvsub)
 REMOTENET=$(/bin/nvram get pptp_client_srvsubmsk)
 case "$6" in
  kelokepptpd)
-  /sbin/route del -net $REMOTESUB netmask $REMOTENET dev $1
+  if [ $DEFAULTROUTE -eq 1 ]; then
+    REMOTESUB="0.0.0.0"
+    REMOTENET="0.0.0.0"
+    /sbin/route del default dev $1
+  else
+    /sbin/route del -net $REMOTESUB netmask $REMOTENET dev $1
+  fi
   /usr/sbin/iptables -D OUTPUT --source 0.0.0.0/0.0.0.0 --destination $REMOTESUB/$REMOTENET --jump ACCEPT --out-interface $1
   /usr/sbin/iptables -D INPUT --source $REMOTESUB/$REMOTENET --destination 0.0.0.0/0.0.0.0 --jump ACCEPT --in-interface $1
   /usr/sbin/iptables -D FORWARD --source 0.0.0.0/0.0.0.0 --destination $REMOTESUB/$REMOTENET --jump ACCEPT --out-interface $1
