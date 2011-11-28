@@ -2577,6 +2577,8 @@ TOP:
 			stop_dnsmasq();
 			dns_to_resolv();
 			start_dnsmasq();
+			if ((action & A_START) == 0)
+				clear_pptp_route();
 		}
  		goto CLEAR;
  	}
