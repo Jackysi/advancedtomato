@@ -47,6 +47,8 @@ function verifyFields(focused, quiet)
 {
     var ret = 1;
 
+	elem.display(PR('_pptp_client_srvsub'), PR('_pptp_client_srvsubmsk'), !E('_f_pptp_client_dfltroute').checked);
+
 	var f = E('_pptp_client_mtuenable').value == '0';
 	if (f) {
 		E('_pptp_client_mtu').value = '1450';
@@ -60,10 +62,10 @@ function verifyFields(focused, quiet)
 
 	if (!v_range('_pptp_client_mtu', quiet, 576, 1500)) ret = 0;
 	if (!v_range('_pptp_client_mru', quiet, 576, 1500)) ret = 0;
-	if (!v_ip('_pptp_client_srrvip', true) && !v_domain('_pptp_client_srvip', true)) { ferror.set(E('_pptp_client_srvip'), "Invalid server address.", quiet); ret = 0; }
-	if (!v_ip('_pptp_client_srvsub', true)) { ferror.set(E('_pptp_client_srvsub'), "Invalid subnet address.", quiet); ret = 0; }
-	if (!v_ip('_pptp_client_srvsubmsk', true)) { ferror.set(E('_pptp_client_srvsubmsk'), "Invalid netmask address.", quiet); ret = 0; }
-
+	if (!v_ip('_pptp_client_srvip', true) && !v_domain('_pptp_client_srvip', true)) { ferror.set(E('_pptp_client_srvip'), "Invalid server address.", quiet); ret = 0; }
+	if (!E('_f_pptp_client_dfltroute').checked && !v_ip('_pptp_client_srvsub', true)) { ferror.set(E('_pptp_client_srvsub'), "Invalid subnet address.", quiet); ret = 0; }
+	if (!E('_f_pptp_client_dfltroute').checked && !v_ip('_pptp_client_srvsubmsk', true)) { ferror.set(E('_pptp_client_srvsubmsk'), "Invalid netmask address.", quiet); ret = 0; }
+	
     changed |= ret;
 	return ret;
 }
@@ -127,12 +129,12 @@ createFieldTable('', [
 	{ title: 'Encryption', name: 'pptp_client_crypt', type: 'select', value: nvram.pptp_client_crypt,
         options: [['0', 'Auto'],['1', 'None'],['2','Maximum (128 bit only)'],['3','Required (128 or 40 bit)']] },
 	{ title: 'Stateless MPPE connection', name: 'f_pptp_client_stateless', type: 'checkbox', value: nvram.pptp_client_stateless != 0 },
-	{ title: 'Redirect Internet traffic', name: 'f_pptp_client_dfltroute', type: 'checkbox', value: nvram.pptp_client_dfltroute != 0 },
 	{ title: 'Accept DNS configuration', name: 'pptp_client_peerdns', type: 'select', options: [[0, 'Disabled'],[1, 'Yes'],[2, 'Exclusive']], value: nvram.pptp_client_peerdns },
-	{ title: 'Create NAT on tunnel', name: 'f_pptp_client_nat', type: 'checkbox', value: nvram.pptp_client_nat != 0 },
+	{ title: 'Redirect Internet traffic', name: 'f_pptp_client_dfltroute', type: 'checkbox', value: nvram.pptp_client_dfltroute != 0 },
     { title: 'Remote subnet / netmask', multi: [
         { name: 'pptp_client_srvsub', type: 'text', maxlen: 15, size: 17, value: nvram.pptp_client_srvsub },
         { name: 'pptp_client_srvsubmsk', type: 'text', maxlen: 15, size: 17, prefix: ' /&nbsp', value: nvram.pptp_client_srvsubmsk } ] },
+	{ title: 'Create NAT on tunnel', name: 'f_pptp_client_nat', type: 'checkbox', value: nvram.pptp_client_nat != 0 },
 	{ title: 'MTU', multi: [
 		{ name: 'pptp_client_mtuenable', type: 'select', options: [['0', 'Default'],['1','Manual']], value: nvram.pptp_client_mtuenable },
 		{ name: 'pptp_client_mtu', type: 'text', maxlen: 4, size: 6, value: nvram.pptp_client_mtu } ] },
