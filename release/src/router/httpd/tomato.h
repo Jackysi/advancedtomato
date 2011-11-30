@@ -169,7 +169,6 @@ extern void wo_iptrestore(char *url);
 
 extern void asp_ipt_bandwidth(int argc, char **argv);
 extern void asp_iptmon(int argc, char **argv);
-extern void asp_climon(int argc, char **argv);
 extern void asp_iptraffic(int argc, char **argv);
 
 

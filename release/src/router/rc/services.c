@@ -2087,12 +2087,6 @@ TOP:
 		goto CLEAR;
 	}
 
-	if (strcmp(service, "bwclimon") == 0) {
-		if (action & A_STOP) stop_bwclimon();
-		if (action & A_START) start_bwclimon();
-		goto CLEAR;
-	}
-
 	if (strcmp(service, "account") == 0) {
 		if (action & A_STOP) stop_account();
 		if (action & A_START) start_account();

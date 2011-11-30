@@ -1666,7 +1666,6 @@ int start_firewall(void)
 #endif
 	run_nvscript("script_fire", NULL, 1);
 
-//	start_bwclimon();
 	start_account();
 	start_arpbind();
 
