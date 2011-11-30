@@ -117,7 +117,7 @@ extern int capget(cap_user_header_t header, cap_user_data_t data);
 #define LINUX_CAPABILITY_VERSION_2  0x20071026
 #define LINUX_CAPABILITY_VERSION_3  0x20080522
 
-#include <linux/prctl.h>
+#include <sys/prctl.h>
 #elif defined(HAVE_SOLARIS_NETWORK)
 #include <priv.h>
 #endif
@@ -364,7 +364,7 @@ struct server {
 struct irec {
   union mysockaddr addr;
   struct in_addr netmask; /* only valid for IPv4 */
-  int tftp_ok, mtu;
+  int tftp_ok, mtu, done, dad;
   char *name;
   struct irec *next;
 };
@@ -830,8 +830,9 @@ void pre_allocate_sfds(void);
 int reload_servers(char *fname);
 void check_servers(void);
 int enumerate_interfaces();
-struct listener *create_wildcard_listeners(void);
-struct listener *create_bound_listeners(void);
+void create_wildcard_listeners(void);
+void create_bound_listeners(int die);
+int is_dad_listeners(void);
 int iface_check(int family, struct all_addr *addr, char *name, int *indexp);
 int fix_fd(int fd);
 struct in_addr get_ifaddr(char *intr);
