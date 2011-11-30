@@ -597,7 +597,7 @@ osl_pcmcia_write_attr(osl_t *osh, uint offset, void *buf, int size)
  */
 static
 #endif
-void * BCMFASTPATH
+void *
 osl_malloc(osl_t *osh, uint size)
 {
 	void *addr;
@@ -626,7 +626,7 @@ osl_malloc(osl_t *osh, uint size)
  */
 static
 #endif
-void BCMFASTPATH
+void
 osl_mfree(osl_t *osh, void *addr, uint size)
 {
 	if (osh) {

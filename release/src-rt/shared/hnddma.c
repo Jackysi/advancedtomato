@@ -1486,7 +1486,7 @@ dma32_txsuspended(dma_info_t *di)
 	return (di->ntxd == 0) || ((R_REG(di->osh, &di->d32txregs->control) & XC_SE) == XC_SE);
 }
 
-static void BCMFASTPATH
+static void
 dma32_txreclaim(dma_info_t *di, txd_range_t range)
 {
 	void *p;
@@ -1657,7 +1657,7 @@ dma32_txsuspendedidle(dma_info_t *di)
  * WARNING: call must check the return value for error.
  *   the error(toss frames) could be fatal and cause many subsequent hard to debug problems
  */
-static int BCMFASTPATH
+static int
 dma32_txfast(dma_info_t *di, void *p0, bool commit)
 {
 	void *p, *next;
@@ -1780,7 +1780,7 @@ outoftxd:
  * If range is HNDDMA_RANGE_ALL, reclaim all txd(s) posted to the ring and
  * return associated packet regardless of the value of hardware pointers.
  */
-static void * BCMFASTPATH
+static void *
 dma32_getnexttxp(dma_info_t *di, txd_range_t range)
 {
 	uint start, end, i;
@@ -1858,7 +1858,7 @@ bogus:
 	return (NULL);
 }
 
-static void * BCMFASTPATH
+static void *
 dma32_getnextrxp(dma_info_t *di, bool forceall)
 {
 	uint i, curr;

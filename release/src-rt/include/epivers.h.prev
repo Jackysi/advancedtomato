@@ -18,19 +18,19 @@
 
 #define	EPI_MINOR_VERSION	10
 
-#define	EPI_RC_NUMBER		142
+#define	EPI_RC_NUMBER		147
 
 #define	EPI_INCREMENTAL_NUMBER	0
 
 #define	EPI_BUILD_NUMBER	0
 
-#define	EPI_VERSION		5, 10, 142, 0
+#define	EPI_VERSION		5, 10, 147, 0
 
-#define	EPI_VERSION_NUM		0x050a8e00
+#define	EPI_VERSION_NUM		0x050a9300
 
 #define EPI_VERSION_DEV		5.10.0
 
 /* Driver Version String, ASCII, 32 chars max */
-#define	EPI_VERSION_STR		"5.10.142.0"
+#define	EPI_VERSION_STR		"5.10.147.0"
 
 #endif /* _epivers_h_ */

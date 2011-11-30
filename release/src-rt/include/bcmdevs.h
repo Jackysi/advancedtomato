@@ -206,9 +206,7 @@
 #define	BFL_BTC2WIRE		0x00000001  /* Board implements old 2wire Bluetooth coexistence */
 #define	BFL_PACTRL		0x00000002  /* Board has gpio 9 controlling the PA */
 #define	BFL_AIRLINEMODE		0x00000004  /* Board implements gpio 13 radio disable indication */
-#define	BFL_ADCDIV		0x00000008  /* Board has the rssi ADC divider */
 #define	BFL_ENETROBO		0x00000010  /* Board has robo switch or core */
-#define	BFL_NOPLLDOWN		0x00000020  /* Not ok to power down the chip pll and oscillator */
 #define	BFL_CCKHIPWR		0x00000040  /* Can do high-power CCK transmission */
 #define	BFL_ENETADM		0x00000080  /* Board has ADMtek switch */
 #define	BFL_ENETVLAN		0x00000100  /* Board has VLAN capability */
