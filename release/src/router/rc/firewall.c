@@ -924,7 +924,7 @@ static void filter_input(void)
 #endif
 
 	// IGMP query from WAN interface
-	if (nvram_match("multicast_pass", "1")) {
+	if ((nvram_match("multicast_pass", "1")) || (nvram_match("udpxy_enable", "1"))) {
 		ipt_write("-A INPUT -p igmp -d 224.0.0.0/4 -j ACCEPT\n");
 		ipt_write("-A INPUT -p udp -d 224.0.0.0/4 ! --dport 1900 -j ACCEPT\n");
 	}
@@ -1163,7 +1163,7 @@ static void filter_forward(void)
 	}
 
 	if (wanup) {
-		if (nvram_match("multicast_pass", "1")) {
+		if ((nvram_match("multicast_pass", "1")) || (nvram_match("udpxy_enable", "1"))) {
 			ipt_write("-A wanin -p udp -d 224.0.0.0/4 -j %s\n", chain_in_accept);
 		}
 		ipt_triggered(IPT_TABLE_FILTER);
@@ -1516,7 +1516,7 @@ int start_firewall(void)
 	*/
 	c = nvram_get("wan_ifname");
 	/* mcast needs rp filter to be turned off only for non default iface */
-	if (!(nvram_match("multicast_pass", "1")) || strcmp(wanface, c) == 0) c = NULL;
+	if (!(nvram_match("multicast_pass", "1")) || !(nvram_match("udpxy_enable", "1")) || strcmp(wanface, c) == 0) c = NULL;
 
 	if ((dir = opendir("/proc/sys/net/ipv4/conf")) != NULL) {
 		while ((dirent = readdir(dir)) != NULL) {
