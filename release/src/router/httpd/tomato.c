@@ -708,6 +708,10 @@ static const nvset_t nvset_list[] = {
 	{ "multicast_lan2",		V_01				},
 	{ "multicast_lan3",		V_01				},
 #endif
+	{ "udpxy_enable",		V_01				},
+	{ "udpxy_stats",		V_01				},
+	{ "udpxy_clients",		V_RANGE(1, 5000)	},
+	{ "udpxy_port",			V_RANGE(0, 65535)	},
 	{ "block_loopback",		V_01				},
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},

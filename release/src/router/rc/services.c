@@ -1208,6 +1208,21 @@ void stop_igmp_proxy(void)
 	killall_tk("igmpproxy");
 }
 
+// -----------------------------------------------------------------------------
+
+void start_udpxy(void)
+{
+	if (nvram_match("udpxy_enable", "1")) {
+		if (get_wan_proto() == WP_DISABLED)
+			return;
+		eval("udpxy", (nvram_get_int("udpxy_stats") ? "-S" : ""), "-p", nvram_safe_get("udpxy_port"), "-c", nvram_safe_get("udpxy_clients"), "-m", nvram_safe_get("wan_ifname") );
+	}
+}
+
+void stop_udpxy(void)
+{
+	killall_tk("udpxy");
+}
 
 // -----------------------------------------------------------------------------
 
@@ -2064,10 +2079,12 @@ TOP:
 		if (action & A_STOP) {
 			stop_firewall();
 			stop_igmp_proxy();
+			stop_udpxy();
 		}
 		if (action & A_START) {
 			start_firewall();
 			start_igmp_proxy();
+			start_udpxy();
 		}
 		goto CLEAR;
 	}

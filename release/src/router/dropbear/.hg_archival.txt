@@ -1,0 +1,5 @@
+repo: d7da3b1e15401eb234ec866d5eac992fc4cd5878
+node: 3f12086c2ef2b9ffe36a822fdb3ff647fcec1831
+branch: default
+latesttag: DROPBEAR_0.53.1
+latesttagdistance: 29
