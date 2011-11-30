@@ -19,14 +19,7 @@ WLCONF_H := wlconf.h
 WLCONF_O := wlconf.o
 
 WL_PARTIAL_REBUILD := 0
-
-CONFIG_WL_AP := "wlconfig_lx_router_ap"
-CONFIG_WL_APSTA := "wlconfig_lx_router_apsta"
-CONFIG_WL_STA := "wlconfig_lx_router_sta"
-CONFIG_WL_AP_SDSTD := "wlconfig_lx_router_ap_sdstd"
-CONFIG_WL_AP_ONCHIP_G := "wlconfig_lx_router_ap_1chipG"
-CONFIG_WL_STA_ONCHIP_G := "wlconfig_lx_router_sta_1chipG"
-CONFIG_WL_HIGH := "wlconfig_lx_router_high"
+CONFIG_WL_APSTA := wlconfig_lx_shared
 
 # Generate list of supported variants
 VLIST_BASE := AP STA APSTA
