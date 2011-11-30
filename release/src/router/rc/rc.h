@@ -192,6 +192,8 @@ extern void start_syslog(void);
 extern void stop_syslog(void);
 extern void start_igmp_proxy(void);
 extern void stop_igmp_proxy(void);
+extern void start_udpxy(void);
+extern void stop_udpxy(void);
 extern void start_httpd(void);
 extern void stop_httpd(void);
 extern void clear_resolv(void);
