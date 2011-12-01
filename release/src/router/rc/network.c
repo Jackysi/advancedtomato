@@ -719,6 +719,20 @@ void do_static_routes(int add)
 		}
 	}
 	free(buf);
+
+	char *modem_ipaddr;
+	if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") )
+		&& (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0") ) {
+		char ip[16];
+		char *end = rindex(modem_ipaddr,'.')+1;
+		unsigned char c = atoi(end);
+		char *iface = nvram_safe_get("wan_ifname");
+
+		sprintf(ip, "%.*s%hhu", end-modem_ipaddr, modem_ipaddr, (unsigned char)(c^1^((c&2)^((c&1)<<1))) );
+		eval("ip", "addr", add ?"add":"del", ip, "peer", modem_ipaddr, "dev", iface);
+	}
+
+
 }
 
 void hotplug_net(void)
