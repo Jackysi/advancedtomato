@@ -1747,13 +1747,11 @@ int pppol2tp_connect(struct socket *sock, struct sockaddr *uservaddr,
 
 	/* Allocate and initialize a new session context.
 	 */
-	session = kmalloc(sizeof(struct pppol2tp_session), GFP_KERNEL);
+	session = kzalloc(sizeof(struct pppol2tp_session), GFP_KERNEL);
 	if (session == NULL) {
 		error = -ENOMEM;
 		goto end;
 	}
-
-	memset(session, 0, sizeof(struct pppol2tp_session));
 
 	skb_queue_head_init(&session->reorder_q);
 
@@ -2691,3 +2689,5 @@ MODULE_AUTHOR("Martijn van Oosterhout <kleptog@svana.org>");
 MODULE_DESCRIPTION("PPP over L2TP over UDP");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(PPPOL2TP_DRV_VERSION);
+
+
