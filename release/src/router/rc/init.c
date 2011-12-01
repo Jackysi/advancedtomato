@@ -1575,10 +1575,12 @@ int init_main(int argc, char *argv[])
 				start_nas();
 			}
 #else
+#ifdef TCONFIG_VLAN
 			if (wl_security_on()) {
 				stop_nas();
 				start_nas();
 			}
+#endif /* TCONFIG_VLAN */
 #endif
 
 			syslog(LOG_INFO, "%s: Tomato %s", nvram_safe_get("t_model_name"), tomato_version);
