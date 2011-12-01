@@ -356,6 +356,9 @@ int do_led(int which, int mode)
 	case MODEL_RTN10U:
 		b = rtn10u[which];
 		break;
+	case MODEL_RTN12B1:
+		b = rtn12b1[which];
+		break;
 #endif
 /*
 	case MODEL_RT390W:
