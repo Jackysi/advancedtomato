@@ -365,12 +365,9 @@ const aspapi_t aspapi[] = {
 	{ "link_uptime",		asp_link_uptime		},
 	{ "lipp",				asp_lipp			},
 	{ "netdev",				asp_netdev			},
-
-	{ "climon",				asp_climon			},
 	{ "iptraffic",			asp_iptraffic		},
 	{ "iptmon",				asp_iptmon			},
 	{ "ipt_bandwidth",		asp_ipt_bandwidth	},
-
 	{ "notice",				asp_notice			},
 	{ "nv",					asp_nv				},
 	{ "nvram",				asp_nvram 			},
@@ -516,7 +513,6 @@ static const nvset_t nvset_list[] = {
 	{ "ntp_kiss",			V_LENGTH(0, 255)	},
 
 // basic-static
-//	{ "bwm_client",			V_LENGTH(0, 2048)	},
 	{ "dhcpd_static",		V_LENGTH(0, 106*141)},	// 106 (max chars per entry) x 140 entries
 	{ "dhcpd_static_only",	V_01				},
 	{ "arpbind_static",		V_LENGTH(0, 34*141)},	// 34 (max chars per entry) x 140 entries
@@ -551,6 +547,7 @@ static const nvset_t nvset_list[] = {
 	{ "mtu_enable",			V_01				},
 	{ "wan_mtu",			V_RANGE(576, 1500)	},
 	{ "wan_islan",			V_01				},
+	{ "modem_ipaddr",		V_IP				},
 
 	// LAN
 	{ "lan_ipaddr",			V_IP				},

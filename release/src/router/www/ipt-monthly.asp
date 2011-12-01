@@ -241,6 +241,25 @@ dg.dataToView = function(data) {
 	return(data);
 }
 
+dg.sortCompare = function(a, b) {
+	var col = this.sortColumn;
+	var da = a.getRowData();
+	var db = b.getRowData();
+	var r = 0;
+	switch (col) {
+	case 0:	// Date
+	case 1:	// Hostname
+		r = cmpText(da[col], db[col]);
+		break;
+	case 2:	// Download
+	case 3:	// Upload
+	case 4:	// Total
+		r = cmpFloat(parseFloat(da[col].replace(",","")), parseFloat(db[col].replace(",","")));
+		break;
+	}
+	return this.sortAscending ? r : -r;
+}
+
 function init_filter_dates() {
 	var dates = [];
 	if (monthly_history.length > 0) {
