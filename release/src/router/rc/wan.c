@@ -419,6 +419,7 @@ void start_l2tp(void)
 		"port = 1701\n"
 		"[lac l2tp]\n"
 		"lns = %s\n"
+		"tx bps = 100000000\n"
 		"pppoptfile = %s\n"
 		"redial = yes\n"
 		"max redials = 32767\n"
