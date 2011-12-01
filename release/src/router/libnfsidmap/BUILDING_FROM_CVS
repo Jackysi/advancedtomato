@@ -1,0 +1,8 @@
+# We distribute tarballs with configure files and so on, but try to keep
+# automatically generated files out of CVS.  So if you check out a CVS tree
+# you will need to do:
+
+libtoolize -c
+autoreconf -vi
+./configure
+make

@@ -87,7 +87,15 @@ void start_nas(void)
 	mode_t m;
 
 	m = umask(0077);
-	xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan");
+	if(strstr(nvram_safe_get("lan_ifnames"),nvram_safe_get("wl0_ifname")) != NULL)
+		xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan");
+	if(strstr(nvram_safe_get("lan1_ifnames"),nvram_safe_get("wl0_ifname")) != NULL)
+		xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan1");
+	if(strstr(nvram_safe_get("lan2_ifnames"),nvram_safe_get("wl0_ifname")) != NULL)
+		xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan2");
+	if(strstr(nvram_safe_get("lan3_ifnames"),nvram_safe_get("wl0_ifname")) != NULL)
+		xstart("nas", "/etc/nas.conf", "/var/run/nas.pid", "lan3");
+
 	if (foreach_wif(1, NULL, is_sta))
 		xstart("nas", "/etc/nas.wan.conf", "/var/run/nas.wan.pid", "wan");
 	umask(m);

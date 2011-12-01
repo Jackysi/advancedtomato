@@ -32,7 +32,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("sch_rboot,sch_rcon,sch_c1,sch_c1_cmd,sch_c2,sch_c2_cmd,sch_c3,sch_c3_cmd"); %>
+//	<% nvram("sch_rboot,sch_rcon,sch_c1,sch_c1_cmd,sch_c2,sch_c2_cmd,sch_c3,sch_c3_cmd,sch_c4,sch_c4_cmd,sch_c5,sch_c5_cmd"); %>
 
 var dowNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 var dowLow = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -238,7 +238,7 @@ function init()
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
 	<div class='title'>Tomato</div>
-	<div class='version'>Version <% version() %></div>
+	<div class='version'>Version <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
 <td id='content' style='visibility:hidden'>
@@ -253,6 +253,8 @@ function init()
 <input type='hidden' name='sch_c1' value=''>
 <input type='hidden' name='sch_c2' value=''>
 <input type='hidden' name='sch_c3' value=''>
+<input type='hidden' name='sch_c4' value=''>
+<input type='hidden' name='sch_c5' value=''>
 
 <div class='section-title'>Reboot</div>
 <div class='section'>
@@ -286,6 +288,20 @@ makeSched('c2', 1);
 <div class='section'>
 <script type='text/javascript'>
 makeSched('c3', 1);
+</script>
+</div>
+
+<div class='section-title'>Custom 4</div>
+<div class='section'>
+<script type='text/javascript'>
+makeSched('c4', 1);
+</script>
+</div>
+
+<div class='section-title'>Custom 5</div>
+<div class='section'>
+<script type='text/javascript'>
+makeSched('c5', 1);
 </script>
 </div>
 

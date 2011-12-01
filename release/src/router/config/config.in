@@ -77,6 +77,10 @@ config TCONFIG_USB
 	bool "USB Support"
 	default y
 
+config TCONFIG_NOCAT
+	bool "NoCat Splash"
+	default n
+
 config TCONFIG_MEDIA_SERVER
 	bool "Media Server (MiniDLNA)"
 	depends on TCONFIG_USB
@@ -110,4 +114,32 @@ config TCONFIG_USB_EXTRAS
 config TCONFIG_NTFS
 	bool "  NTFS-3g Support"
 	depends on TCONFIG_USB
+	default n
+
+config TCONFIG_BT
+	bool "  Bittorrent client gui only"
+	default n
+
+config TCONFIG_BBT
+	bool "  Bittorrent client binaries only"
+	default n
+
+config TCONFIG_TR_EXTRAS
+	bool "  Transmission extra tools"
+	default n
+
+config TCONFIG_NFS
+	bool "  NFS Server"
+	default n
+
+config TCONFIG_SNMP
+	bool "  SNMP"
+	default n
+
+config TCONFIG_SDHC
+	bool "  SDHC/MMC mod for WRT54G/GL"
+	default n
+
+config TCONFIG_HFS
+	bool "  HFS/HFS+ filesystem support "
 	default n

@@ -155,7 +155,15 @@ sub fixDyn
 	fixDynDep("pppd", "rp-pppoe.so");
 
 	fixDynDep("libcrypto.so.1.0.0", "libssl.so.1.0.0");
-	
+
+#shibby
+	fixDynDep("transmission-daemon", "libevent-2.0.so.5");
+	fixDynDep("transmission-daemon", "libcurl.so.4.2.0");
+	fixDynDep("transmission-remote", "libevent-2.0.so.5");
+	fixDynDep("transmission-remote", "libcurl.so.4.2.0");
+	fixDynDep("transmission-create", "libevent-2.0.so.5");
+	fixDynDep("transmission-create", "libcurl.so.4.2.0");
+
 #	fixDynDep("libbcm.so", "libshared.so");
 #	fixDynDep("libbcm.so", "libc.so.0");
 
@@ -165,6 +173,9 @@ sub fixDyn
 	fixDynDep("wl", "libbcmcrypto.so");
 	fixDynDep("nas", "libc.so.0");
 	fixDynDep("wl", "libc.so.0");
+
+#Roadkill for NocatSplash
+	fixDynDep("splashd","libglib-1.2.so.0.0.10");
 }
 
 sub usersOf
@@ -458,6 +469,10 @@ genSO("${root}/usr/lib/liblzo2.so.2", "${router}/lzo/src/.libs/liblzo2.a");
 #	genSO("${root}/usr/lib/libusb-0.1.so.4", "${router}/libusb/libusb/.libs/libusb.a", "", "-L${router}/libusb10/libusb/.libs");
 
 genSO("${root}/usr/lib/libbcmcrypto.so", "${router}/libbcmcrypto/libbcmcrypto.a");
+
+#shibby
+genSO("${root}/usr/lib/libcurl.so.4.2.0", "${router}/libcurl/lib/.libs/libcurl.a", "", "-L${router}/zlib");
+genSO("${root}/usr/lib/libevent-2.0.so.5", "${router}/libevent/.libs/libevent.a");
 
 print "\n";
 

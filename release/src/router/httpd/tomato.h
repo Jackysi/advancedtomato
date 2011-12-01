@@ -76,6 +76,9 @@ extern void wo_vpn_status(char *url);
 extern void asp_sysinfo(int argc, char **argv);
 extern void asp_statfs(int argc, char **argv);
 extern void asp_notice(int argc, char **argv);
+#ifdef TCONFIG_SDHC
+extern void asp_mmcid(int argc, char **argv);
+#endif
 extern void wo_wakeup(char *url);
 extern void asp_dns(int argc, char **argv);
 extern void wo_resolve(char *url);
@@ -162,6 +165,20 @@ extern void wo_bwmrestore(char *url);
 extern void asp_netdev(int argc, char **argv);
 extern void asp_bandwidth(int argc, char **argv);
 
+extern void wo_iptbackup(char *url);
+extern void wi_iptrestore(char *url, int len, char *boundary);
+extern void wo_iptrestore(char *url);
+
+extern void asp_ipt_bandwidth(int argc, char **argv);
+extern void asp_climon(int argc, char **argv);
+extern void asp_iptmon(int argc, char **argv);
+extern void asp_iptraffic(int argc, char **argv);
+
+#ifdef TCONFIG_NOCAT
+// nocat.c
+extern void wi_uploadsplash(char *url, int len, char *boundary);
+extern void wo_uploadsplash(char *url);
+#endif
 
 #if TOMATO_SL
 // share.c

@@ -309,7 +309,8 @@ intervening space) by either an integer or the keyword "infinite". */
 					h->reqflags |= FLAG_DLNA;
 					h->reqflags |= FLAG_NO_RESIZE;
 				}
-				else if(strncmp(p, "SamsungWiselinkPro", 18)==0)
+				else if(strncmp(p, "SamsungWiselinkPro", 18)==0 ||
+					strncmp(p, "SEC_HHP_TV", 10)==0)
 				{
 					h->req_client = ESamsungSeriesA;
 					h->reqflags |= FLAG_SAMSUNG;

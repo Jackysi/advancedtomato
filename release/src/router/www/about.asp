@@ -89,11 +89,10 @@ function init()
 <img src='tux.png' alt='Linux &amp; Tomato' id='tux'>
 </div>
 <div style='margin:20px 20px;font-size:14px;color:#555;'>
-Tomato Firmware v<% version(1); %><br>
+<b>Tomato Firmware <% version(1); %></b><br>
 
-<br>
 <!-- USB-BEGIN -->
-USB support integration and GUI,
+<br>USB support integration and GUI,<br>
 <!-- USB-END -->
 <!-- IPV6-BEGIN -->
 IPv6 support,
@@ -104,18 +103,86 @@ support for additional router models, dual-band and Wireless-N mode.<br>
 Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <!-- / / / -->
-<br><br>
+<br>
 
 <!-- VPN-BEGIN -->
-VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
-<br><br>
+<b>VPN integration and GUI,</b><br>
+Copyright (C) 2010 Keith Moyer,<br>
+<a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
+<br>
 <!-- VPN-END -->
 
+<b>"Shibby" features:</b><br>
+<!-- BBT-BEGIN -->
+- Transmission 2.42 integration<br>
+<!-- BBT-END -->
+<!-- BT-BEGIN -->
+- GUI for Transmission<br>
+<!-- BT-END -->
+<!-- NFS-BEGIN -->
+- NFS utils integration and GUI<br>
+<!-- NFS-END -->
+- Custom log file path<br>
+<!-- LINUX26-BEGIN -->
+- SD-idle tool integration for kernel 2.6<br>
+<!-- USB-BEGIN -->
+- 3G Modem support (big thanks for @LDevil)<br>
+<!-- USB-END -->
+<!-- LINUX26-END -->
+<!-- SNMP-BEGIN -->
+- SNMP integration and GUI<br>
+<!-- SNMP-END -->
+Copyright (C) 2011 Michał Rupental<br>
+<a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
+<br>
+
+<b>"Victek" features:</b><br>
+- Extended Sysinfo<br>
+<!-- NOCAT-BEGIN -->
+- Captive Portal. (Based in NocatSplash)<br>
+<!-- NOCAT-END -->
+<!-- HFS-BEGIN -->
+- HFS / HFS+ filesystem integration<br>
+<!-- HFS-END -->
+Copyright (C) 2007-2011 Ofer Chen & Vicente Soriano<br>
+<a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
+<br>
+
+<b>"Teaman" features:</b><br>
+- QOS-detailed & ctrate filters<br>
+- Realtime bandwidth monitoring of LAN clients<br>
+- Static ARP binding<br>
+- VLAN administration GUI<br>
+- Multiple LAN support integration and GUI<br>
+Copyright (C) 2011 Augusto Bott<br>
+<a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>Tomato-sdhc-vlan Homepage</a><br>
+<br>
+
+<b>"Toastman" features:</b><br>
+- Configurable QOS class names<br>
+- Comprehensive QOS rule examples set by default<br>
+Copyright (C) 2011 Toastman<br>
+<a href='http://www.linksysinfo.org/index.php?threads/using-qos-tutorial-and-discussion.28349/' target='_new'>Using QoS - Tutorial and discussion</a><br>
+<br>
+
+<!-- SDHC-BEGIN -->
+<b>"Slodki" feature:</b><br>
+- SDHC integration and GUI<br>
+Copyright (C) 2009 Tomasz Słodkowicz<br>
+<a href='http://gemini.net.pl/~slodki/tomato-sdhc.html' target='_new'>tomato-sdhc</a><br>
+<br>
+<!-- SDHC-END -->
+
+<b>"Victek/PrinceAMD/Phykris/Shibby" feature:</b><br>
+- Revised IP/MAC Bandwidth Limiter<br>
+<br>
+
+<br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
-Built on <% build_time(); %><br>
+Built on <% build_time(); %> by Shibby, <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br><br>
 <br><br>
 
 <!--

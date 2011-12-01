@@ -118,6 +118,7 @@ function verifyFields(focused, quiet)
 
 	eLoc.disabled = (a == 0);
 	eUser.disabled = (a == 0);
+	E('_ms_port').disabled = (a == 0);
 	E('_f_ms_sas').disabled = (a == 0);
 	E('_f_ms_rescan').disabled = (a == 0);
 	E('_f_ms_tivo').disabled = (a == 0);
@@ -282,8 +283,10 @@ switch (nvram.ms_dbdir) {
 
 createFieldTable('', [
 	{ title: 'Enable', name: 'f_ms_enable', type: 'checkbox', value: nvram.ms_enable == '1' },
+	{ title: 'Port', name: 'ms_port', type: 'text', maxlen: 5, size: 6, value: nvram.ms_port, suffix: '<small>(range: 0 - 65535; default (random) set 0)</small>' },
 	{ title: 'Database Location', multi: [
 		{ name: 'f_loc', type: 'select', options: [['','RAM (Temporary)'],
+
 /* JFFS2-BEGIN */
 			['/jffs/dlna','JFFS'],
 /* JFFS2-END */

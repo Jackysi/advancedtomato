@@ -42,6 +42,7 @@ extern spinlock_t bcm947xx_sih_lock;
 #define WATCHDOG_MIN	3000	/* milliseconds */
 extern int panic_timeout;
 static int watchdog = 0;
+extern int bcm947xx_cpu_clk;
 
 #ifndef	CONFIG_HWSIM
 static u8 *mcr = NULL;
@@ -70,6 +71,7 @@ bcm947xx_time_init(void)
 	bcm_chipname(sih->chip, cn, 8);
 	printk("CPU: BCM%s rev %d pkg %d at %d MHz\n", cn, sih->chiprev, sih->chippkg,
 	       (hz + 500000) / 1000000);
+	bcm947xx_cpu_clk = (hz + 500000) / 1000000;
 
 	/* Set MIPS counter frequency for fixed_rate_gettimeoffset() */
 	if (sih->chip == BCM5354_CHIP_ID &&

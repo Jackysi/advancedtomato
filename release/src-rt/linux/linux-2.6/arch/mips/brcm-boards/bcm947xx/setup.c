@@ -72,6 +72,10 @@ spinlock_t bcm947xx_sih_lock = SPIN_LOCK_UNLOCKED;
 EXPORT_SYMBOL(bcm947xx_sih);
 EXPORT_SYMBOL(bcm947xx_sih_lock);
 
+/* CPU freq */
+int bcm947xx_cpu_clk;
+EXPORT_SYMBOL(bcm947xx_cpu_clk);
+
 /* Convenience */
 #define sih bcm947xx_sih
 #define sih_lock bcm947xx_sih_lock

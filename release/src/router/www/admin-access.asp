@@ -38,8 +38,8 @@ sdup = parseInt('<% psup("dropbear"); %>');
 shlimit = nvram.ne_shlimit.split(',');
 if (shlimit.length != 3) shlimit = [0,3,60];
 
-var xmenus = [['Status', 'status'], ['Bandwidth', 'bwm'], ['Tools', 'tools'], ['Basic', 'basic'],
-	['Advanced', 'advanced'], ['Port Forwarding', 'forward'], ['QoS', 'qos'],
+var xmenus = [['Status', 'status'], ['Bandwidth', 'bwm'], ['IP Traffic', 'ipt'], ['Tools', 'tools'], ['Basic', 'basic'],
+	['Advanced', 'advanced'], ['Port Forwarding', 'forward'], ['QoS', 'qos'], ['RAF Features', 'new'],
 /* USB-BEGIN */
 	['USB and NAS', 'nas'],
 /* USB-END */
@@ -285,11 +285,7 @@ var m = [
 	{ title: 'Allow Wireless Access', name: 'f_http_wireless', type: 'checkbox', value:  nvram.web_wl_filter == 0 },
 	null,
 	{ title: 'Color Scheme', name: 'web_css', type: 'select',
-		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],
-/* THEMES-BEGIN */
-		['usbred','USB Red'],['usbblue','USB Blue'],
-/* THEMES-END */
-		['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css },
+		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],['asus','Asus RT-N16'],['usbred','USB Red'],['usbblue','USB Blue'],['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css },
 	{ title: 'Open Menus' }
 ];
 

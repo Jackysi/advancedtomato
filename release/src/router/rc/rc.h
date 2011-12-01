@@ -415,6 +415,24 @@ extern void start_smbd(void);
 extern void stop_smbd(void);
 #endif
 
+// transmission.c
+#ifdef TCONFIG_BT
+extern void start_bittorrent();
+extern void stop_bittorrent();
+#endif
+
+// nfs.c
+#ifdef TCONFIG_NFS
+extern void start_nfs();
+extern void stop_nfs();
+#endif
+
+// snmp.c
+#ifdef TCONFIG_SNMP
+extern void start_snmp();
+extern void stop_snmp();
+#endif
+
 // vpn.c
 #ifdef TCONFIG_OPENVPN
 extern void start_vpnclient(int clientNum);
@@ -438,4 +456,32 @@ static inline void start_vpn_eas() { }
 #define write_vpn_resolv(f) (0)
 #endif
 
+// account.c
+extern void start_account(void);
+extern void stop_account(void);
+
+// new_qoslimit.c
+extern void ipt_qoslimit(int chain);
+extern void new_qoslimit_start(void);
+extern void new_qoslimit_stop(void);
+
+// arpbind.c
+extern void start_arpbind(void);
+extern void stop_arpbind(void);
+
+// mmc.c
+#ifdef TCONFIG_SDHC
+extern void start_mmc(void);
+extern void stop_mmc(void);
 #endif
+
+#ifdef TCONFIG_NOCAT
+// nocat.c 
+extern void start_nocat(); 
+extern void stop_nocat(); 
+extern void reset_nocat(); 
+#endif
+
+#endif
+
+

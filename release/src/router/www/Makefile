@@ -9,7 +9,7 @@ install:
 	rm -rf $(INSTALLDIR)/www
 	mkdir -p $(INSTALLDIR)/www
 
-	cp *.gif *.png *.ico robots.txt $(INSTALLDIR)/www
+	cp *.gif *.png *.ico *.html robots.txt $(INSTALLDIR)/www
 
 # squish some of the files by trimming whitespace...
 
@@ -73,11 +73,11 @@ endif
 
 # Only include extra themes if USB Extras are configured in.
 ifneq ($(TCONFIG_USB_EXTRAS),y)
-	rm -f $(INSTALLDIR)/www/usbred.css
-	rm -f $(INSTALLDIR)/www/usbblue.css
-	rm -f $(INSTALLDIR)/www/tomatousb.png
-	rm -f $(INSTALLDIR)/www/tomatousb_bg.png
-	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/THEMES-BEGIN/,/THEMES-END/d"
+#	rm -f $(INSTALLDIR)/www/usbred.css
+#	rm -f $(INSTALLDIR)/www/usbblue.css
+#	rm -f $(INSTALLDIR)/www/tomatousb.png
+#	rm -f $(INSTALLDIR)/www/tomatousb_bg.png
+#	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/THEMES-BEGIN/,/THEMES-END/d"
 	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/EXTRAS-BEGIN/,/EXTRAS-END/d"
 endif
 
@@ -101,6 +101,21 @@ ifneq ($(TCONFIG_MEDIA_SERVER),y)
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/MEDIA-SRV-BEGIN/,/MEDIA-SRV-END/d"
 endif
 
+# Victek for RAF verion
+# Only include Captive Portal menu option and pages when configured.
+ifneq ($(TCONFIG_NOCAT),y)
+	rm -f $(INSTALLDIR)/www/new-splashd.asp
+	rm -f $(INSTALLDIR)/www/splash.html
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/NOCAT-BEGIN/,/NOCAT-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/NOCAT-BEGIN/,/NOCAT-END/d"
+endif
+
+# Only include HFS/HFS+ option and pages when configured.
+ifneq ($(TCONFIG_HFS),y)
+	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/HFS-BEGIN/,/HFS-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/HFS-BEGIN/,/HFS-END/d"
+endif
+
 # Only include IPv6 options if IPv6 is configured in.
 ifneq ($(TCONFIG_IPV6),y)
 	cd $(INSTALLDIR)/www && \
@@ -111,6 +126,20 @@ ifneq ($(TCONFIG_IPV6),y)
 	done
 	rm -f $(INSTALLDIR)/www/basic-ipv6.asp
 endif
+
+# Only include the Transmission binary path select if Transmission binaries is configured in.
+ifneq ($(TCONFIG_BBT),y)
+	sed -i $(INSTALLDIR)/www/nas-bittorrent.asp -e "/BBT-BEGIN/,/BBT-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/BBT-BEGIN/,/BBT-END/d"
+endif
+
+# Only include the Transmission pages if Transmission is configured in.
+ifneq ($(TCONFIG_BT),y)
+	rm -f $(INSTALLDIR)/www/nas-bittorrent.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/BT-BEGIN/,/BT-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/BT-BEGIN/,/BT-END/d"
+endif
+
 
 # Only include the USB and NAS pages if USB Support is configured in.
 ifneq ($(TCONFIG_USB),y)
@@ -126,6 +155,7 @@ endif
 	sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
 
 
+
 ifeq ($(TOMATO_EXPERIMENTAL),1)
 	cd $(INSTALLDIR)/www && \
 	for F in $(wildcard *.asp); do \
@@ -134,6 +164,11 @@ ifeq ($(TOMATO_EXPERIMENTAL),1)
 	done
 endif
 
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp); do \
+		sed -e "s,<div class='version'>Version <% version(); %></div>,<div class='version'>Version <% version(); %> by shibby</div>," $$F > $$F.tmp; \
+		mv $$F.tmp $$F; \
+	done
 
 
 # Only include the vpn pages if OpenVPN is compiled in
@@ -147,10 +182,30 @@ else
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/VPN-BEGIN/,/VPN-END/d"
 endif
 
+# Only include the nfs pages if NFS is compiled in
+ifneq ($(TCONFIG_NFS),y)
+	rm -f $(INSTALLDIR)/www/admin-nfs.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/NFS-BEGIN/,/NFS-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/NFS-BEGIN/,/NFS-END/d"
+endif
+
+# Only include the snmp pages if SNMP is compiled in
+ifneq ($(TCONFIG_SNMP),y)
+	rm -f $(INSTALLDIR)/www/admin-snmp.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/SNMP-BEGIN/,/SNMP-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/SNMP-BEGIN/,/SNMP-END/d"
+endif
+
+# Only include the mmc pages if SDHC is compiled in
+ifneq ($(TCONFIG_SDHC),y)
+	rm -f $(INSTALLDIR)/www/admin-sdhc.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/SDHC-BEGIN/,/SDHC-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/SDHC-BEGIN/,/SDHC-END/d"
+endif
 
 # clean up
 	cd $(INSTALLDIR)/www && \
-	for F in $(wildcard *.asp *.js *.jsx); do \
+	for F in $(wildcard *.asp *.js *.jsx *.html); do \
 		[ -f $(INSTALLDIR)/www/$$F ] && sed -i $$F \
 		-e "/LINUX26-BEGIN/d"	-e "/LINUX26-END/d" \
 		-e "/USB-BEGIN/d"	-e "/USB-END/d" \
@@ -168,6 +223,13 @@ endif
 		-e "/AES-BEGIN/d"	-e "/AES-END/d" \
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
 		-e "/CTF-BEGIN/d"	-e "/CTF-END/d" \
+		-e "/BBT-BEGIN/d"	-e "/BBT-END/d" \
+		-e "/BT-BEGIN/d"	-e "/BT-END/d" \
+		-e "/NFS-BEGIN/d"	-e "/NFS-END/d" \
+		-e "/NOCAT-BEGIN/d"	-e "/NOCAT-END/d"\
+		-e "/SNMP-BEGIN/d"	-e "/SNMP-END/d"\
+		-e "/SDHC-BEGIN/d"	-e "/SDHC-END/d"\
+		-e "/HFS-BEGIN/d"	-e "/HFS-END/d"\
 		|| true; \
 	done
 

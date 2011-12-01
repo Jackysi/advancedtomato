@@ -14,6 +14,7 @@
 
 #include <linux/netfilter/x_tables.h>
 #include <linux/netfilter/xt_MARK.h>
+
 #ifdef  HNDCTF
 #include <net/netfilter/nf_conntrack.h>
 #endif
@@ -24,6 +25,10 @@ MODULE_DESCRIPTION("ip[6]tables MARK modification module");
 MODULE_ALIAS("ipt_MARK");
 MODULE_ALIAS("ip6t_MARK");
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+extern int ipv4_conntrack_fastnat;
+#endif
+
 static unsigned int
 target_v0(struct sk_buff *skb,
 	  const struct net_device *in,
@@ -32,9 +37,21 @@ target_v0(struct sk_buff *skb,
 	  const struct xt_target *target,
 	  const void *targinfo)
 {
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	struct nf_conn *ct;
+	struct nf_conn_nat *nat;
+	enum ip_conntrack_info ctinfo;
+#endif
+
 	const struct xt_mark_target_info *markinfo = targinfo;
 
 	skb->mark = markinfo->mark;
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	if (ipv4_conntrack_fastnat) {
+		nat = (ct = nf_ct_get(skb, &ctinfo)) ? nfct_nat(ct) : NULL;
+		if (nat) nat->info.nat_type |= BCM_FASTNAT_DENY;
+	}
+#endif
 	return XT_CONTINUE;
 }
 
@@ -46,6 +63,12 @@ target_v1(struct sk_buff *skb,
 	  const struct xt_target *target,
 	  const void *targinfo)
 {
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	struct nf_conn *ct;
+	struct nf_conn_nat *nat;
+	enum ip_conntrack_info ctinfo;
+#endif
+
 	const struct xt_mark_target_info_v1 *markinfo = targinfo;
 	int mark = 0;
 

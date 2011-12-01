@@ -1322,6 +1322,7 @@ static void sysinit(void)
 
 	static const char *mkd[] = {
 		"/tmp/etc", "/tmp/var", "/tmp/home", "/tmp/mnt",
+		"/tmp/splashd", //!!Victek
 		"/tmp/share", "/var/webmon", // !!TB
 		"/var/log", "/var/run", "/var/tmp", "/var/lib", "/var/lib/misc",
 		"/var/spool", "/var/spool/cron", "/var/spool/cron/crontabs",
@@ -1548,6 +1549,7 @@ int init_main(int argc, char *argv[])
 			create_passwd();
 			start_vlan();
 			start_lan();
+			start_arpbind();
 			start_wan(BOOT);
 			start_services();
 			start_wl();

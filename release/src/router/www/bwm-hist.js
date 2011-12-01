@@ -26,6 +26,17 @@ function makeRow(rclass, rtitle, dl, ul, total)
 		'</tr>';
 }
 
+function makeRowIP(rclass, rtitle, ip, dl, ul, total)
+{
+	return '<tr class="' + rclass + '">' +
+		'<td class="rtitle">' + rtitle + '</td>' +
+		'<td class="ip">' + ip + '</td>' +
+		'<td class="dl">' + dl + '</td>' +
+		'<td class="ul">' + ul + '</td>' +
+		'<td class="total">' + total + '</td>' +
+		'</tr>';
+}
+
 function cmpHist(a, b)
 {
 	a = parseInt(a[0], 0);
@@ -43,6 +54,17 @@ function checkRstats()
 	}
 	else if (rstats_busy) {
 		W('<div class="note-warning">The rstats program is not responding or is busy. Try reloading after a few seconds.</div>');
+	}
+}
+
+function checkCstats()
+{
+	if (nvram.cstats_enable != '1') {
+		W('<div class="note-disabled">IP Traffic monitoring disabled.</b><br><br><a href="admin-iptraffic.asp">Enable &raquo;</a></div>');
+		E('cstats').style.display = 'none';
+	}
+	else if (cstats_busy) {
+		W('<div class="note-warning">The cstats program is not responding or is busy. Try reloading after a few seconds.</div>');
 	}
 }
 
@@ -81,6 +103,19 @@ function ymdText(yr, mo, da)
 		return da.pad(2) + '.' + (mo + 1).pad(2) + '.' + yr;
 	}
 	return yr + '-' + (mo + 1).pad(2) + '-' + da.pad(2);
+}
+
+function ymText(yr, mo)
+{
+	switch (dateFormat) {
+	case 1:
+		return (mo + 1).pad(2) + '-' + yr;
+	case 2:
+		return months[mo] + ', ' + yr;
+	case 3:
+		return (mo + 1).pad(2) + '.' + yr;
+	}
+	return yr + '-' + (mo + 1).pad(2);
 }
 
 function changeDate(e, c)

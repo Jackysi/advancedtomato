@@ -1,0 +1,2822 @@
+# Lithuanian translation for transmission.
+# Copyright (C) 2008, 2009 Free Software Foundation, Inc.
+# This file is distributed under the same license as the transmission package.
+# Žygimantas Beručka <zygis@gnome.org>, 2008-2009, 2010.
+msgid ""
+msgstr ""
+"Project-Id-Version: HEAD\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2011-01-27 14:52-0600\n"
+"PO-Revision-Date: 2010-09-16 20:35+0000\n"
+"Last-Translator: Gintautas Miliauskas <gintautas@miliauskas.lt>\n"
+"Language-Team: Lithuanian <gnome-lt@lists.akl.lt>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"(n%100<10 || n%100>=20) ? 1 : 2;\n"
+"X-Launchpad-Export-Date: 2011-05-16 23:56+0000\n"
+"X-Generator: Launchpad (build 13045)\n"
+"Language: lt\n"
+
+#: ../gtk/actions.c:53
+msgid "Sort by _Activity"
+msgstr "Rikiuoti pagal _aktyvumą"
+
+#: ../gtk/actions.c:54
+msgid "Sort by _Name"
+msgstr "Rikiuoti pagal _vardą"
+
+#: ../gtk/actions.c:55
+msgid "Sort by _Progress"
+msgstr "Rikiuoti pagal _eigą"
+
+#: ../gtk/actions.c:56
+msgid "Sort by Rati_o"
+msgstr "Rikiuoti pagal _santykį"
+
+#: ../gtk/actions.c:57
+msgid "Sort by Stat_e"
+msgstr "Rikiuoti pagal _būseną"
+
+#: ../gtk/actions.c:58
+msgid "Sort by A_ge"
+msgstr "Rikiuoti pagal _senumą"
+
+#: ../gtk/actions.c:59
+msgid "Sort by Time _Left"
+msgstr "Rikiuoti pagal _likusį laiką"
+
+#: ../gtk/actions.c:60
+msgid "Sort by Si_ze"
+msgstr "Rikiuoti pagal _dydį"
+
+#: ../gtk/actions.c:77
+msgid "_Show Transmission"
+msgstr "Rodyti „Transmission“"
+
+#: ../gtk/actions.c:78
+msgid "Message _Log"
+msgstr "Pranešimų _žurnalas"
+
+#: ../gtk/actions.c:93
+msgid "Enable Alternative Speed _Limits"
+msgstr ""
+
+#: ../gtk/actions.c:94
+msgid "_Compact View"
+msgstr "_Glaustas rodinys"
+
+#: ../gtk/actions.c:95
+msgid "Re_verse Sort Order"
+msgstr "_Atvirkštinė rikiavimo tvarka"
+
+#: ../gtk/actions.c:96
+msgid "_Filterbar"
+msgstr "_Filtro juosta"
+
+#: ../gtk/actions.c:97
+msgid "_Statusbar"
+msgstr "_Būsenos juosta"
+
+#: ../gtk/actions.c:98
+msgid "_Toolbar"
+msgstr "_Įrankinė"
+
+#: ../gtk/actions.c:103
+msgid "_File"
+msgstr "_Failas"
+
+#: ../gtk/actions.c:104
+msgid "_Torrent"
+msgstr "_Torentas"
+
+#: ../gtk/actions.c:105
+msgid "_View"
+msgstr "_Rodymas"
+
+#: ../gtk/actions.c:106
+msgid "_Sort Torrents By"
+msgstr "_Rikiuoti torentus pagal"
+
+#: ../gtk/actions.c:107 ../gtk/details.c:2428
+msgid "_Edit"
+msgstr "_Taisymas"
+
+#: ../gtk/actions.c:108
+msgid "_Help"
+msgstr "_Pagalba"
+
+#: ../gtk/actions.c:109
+msgid "Copy _Magnet Link to Clipboard"
+msgstr "Kopijuoti _magnet nuorodą į atmintinę"
+
+#: ../gtk/actions.c:110
+msgid "Open _URL..."
+msgstr ""
+
+#: ../gtk/actions.c:110
+msgid "Open URL..."
+msgstr ""
+
+#: ../gtk/actions.c:111 ../gtk/actions.c:112
+msgid "Open a torrent"
+msgstr "Atvertu torentą"
+
+#: ../gtk/actions.c:113
+msgid "_Start"
+msgstr "_Paleisti"
+
+#: ../gtk/actions.c:113
+msgid "Start torrent"
+msgstr "Paleisti torentą"
+
+#: ../gtk/actions.c:114
+msgid "_Statistics"
+msgstr "_Statistika"
+
+#: ../gtk/actions.c:115
+msgid "_Donate"
+msgstr "_Paaukoti"
+
+#: ../gtk/actions.c:116
+msgid "_Verify Local Data"
+msgstr "_Patikrinti turimus duomenis"
+
+#: ../gtk/actions.c:117
+msgid "_Pause"
+msgstr "_Pristabdyti"
+
+#: ../gtk/actions.c:117
+msgid "Pause torrent"
+msgstr "Pristabdyti torentą"
+
+#: ../gtk/actions.c:118
+msgid "_Pause All"
+msgstr "_Pristabdyti visus"
+
+#: ../gtk/actions.c:118
+msgid "Pause all torrents"
+msgstr "Pristabdyti visus torentus"
+
+#: ../gtk/actions.c:119
+msgid "_Start All"
+msgstr "_Paleisti visus"
+
+#: ../gtk/actions.c:119
+msgid "Start all torrents"
+msgstr "Paleisti visus torentus"
+
+#: ../gtk/actions.c:120
+msgid "Set _Location..."
+msgstr ""
+
+#: ../gtk/actions.c:121
+msgid "Remove torrent"
+msgstr "Pašalinti torentą"
+
+#: ../gtk/actions.c:122
+msgid "_Delete Files and Remove"
+msgstr "_Ištrinti failus ir pašalinti"
+
+#: ../gtk/actions.c:123
+msgid "_New..."
+msgstr "_Naujas..."
+
+#: ../gtk/actions.c:123
+msgid "Create a torrent"
+msgstr "Sukurti torentą"
+
+#: ../gtk/actions.c:124
+msgid "_Quit"
+msgstr "Iš_eiti"
+
+#: ../gtk/actions.c:125
+msgid "Select _All"
+msgstr "Pasirinkti _visus"
+
+#: ../gtk/actions.c:126
+msgid "Dese_lect All"
+msgstr "Nepasirinkti _jokio"
+
+#: ../gtk/actions.c:128
+msgid "Torrent properties"
+msgstr "Torento savybės"
+
+#: ../gtk/actions.c:129
+msgid "Open Fold_er"
+msgstr ""
+
+#: ../gtk/actions.c:131
+msgid "_Contents"
+msgstr "_Turinys"
+
+#: ../gtk/actions.c:132
+msgid "Ask Tracker for _More Peers"
+msgstr "Paprašyti sekiklio _daugiau siuntėjų"
+
+#: ../gtk/conf.c:62 ../libtransmission/fdlimit.c:355
+#: ../libtransmission/metainfo.c:114 ../libtransmission/utils.c:614
+#: ../libtransmission/utils.c:625
+#, c-format
+msgid "Couldn't create \"%1$s\": %2$s"
+msgstr "Nepavyko sukurti „%1$s“: %2$s"
+
+#: ../gtk/conf.c:85 ../libtransmission/fdlimit.c:376
+#, c-format
+msgid "Couldn't open \"%1$s\": %2$s"
+msgstr "Nepavyko atverti „%1$s“: %2$s"
+
+#: ../gtk/conf.c:90
+#, c-format
+msgid "%s is already running."
+msgstr "%s jau veikia."
+
+#: ../gtk/conf.c:403 ../gtk/conf.c:408
+#, c-format
+msgid "Importing \"%s\""
+msgstr "Importuojama „%s“"
+
+#: ../gtk/details.c:455 ../gtk/details.c:467
+msgid "Use global settings"
+msgstr ""
+
+#: ../gtk/details.c:456
+msgid "Seed regardless of ratio"
+msgstr ""
+
+#: ../gtk/details.c:457
+msgid "Stop seeding at ratio:"
+msgstr ""
+
+#: ../gtk/details.c:468
+msgid "Seed regardless of activity"
+msgstr ""
+
+#: ../gtk/details.c:469
+msgid "Stop seeding if idle for N minutes:"
+msgstr ""
+
+#: ../gtk/details.c:485 ../gtk/tr-prefs.c:1258
+msgid "Speed"
+msgstr "Sparta"
+
+#: ../gtk/details.c:487
+msgid "Honor global _limits"
+msgstr "Paisyti visuotinių _apribojimų"
+
+#: ../gtk/details.c:492
+#, c-format
+msgid "Limit _download speed (%s):"
+msgstr ""
+
+#: ../gtk/details.c:505
+#, c-format
+msgid "Limit _upload speed (%s):"
+msgstr ""
+
+#: ../gtk/details.c:518 ../gtk/open-dialog.c:355
+msgid "Torrent _priority:"
+msgstr "Torento _pirmenybė:"
+
+#: ../gtk/details.c:522
+msgid "Seeding Limits"
+msgstr ""
+
+#: ../gtk/details.c:532
+msgid "_Ratio:"
+msgstr ""
+
+#: ../gtk/details.c:541
+msgid "_Idle:"
+msgstr ""
+
+#: ../gtk/details.c:544
+msgid "Peer Connections"
+msgstr "Siuntėjų ryšiai"
+
+#: ../gtk/details.c:547
+msgid "_Maximum peers:"
+msgstr "_Daugiausia galimų siuntėjų:"
+
+#: ../gtk/details.c:567 ../gtk/torrent-cell-renderer.c:212
+msgid "Waiting to verify local data"
+msgstr "Ruošiamasi patikrinti vietinius duomenis"
+
+#: ../gtk/details.c:568
+msgid "Verifying local data"
+msgstr "Tikrinami vietiniai duomenys"
+
+#: ../gtk/details.c:569 ../gtk/filter.c:715 ../gtk/tr-prefs.c:295
+msgid "Downloading"
+msgstr "Atsiunčiama"
+
+#: ../gtk/details.c:570 ../gtk/filter.c:716 ../gtk/tr-prefs.c:319
+msgid "Seeding"
+msgstr "Skleidžiama"
+
+#: ../gtk/details.c:571 ../gtk/filter.c:718 ../gtk/torrent-cell-renderer.c:206
+msgid "Finished"
+msgstr "Baigta"
+
+#: ../gtk/details.c:571 ../gtk/filter.c:717 ../gtk/torrent-cell-renderer.c:208
+msgid "Paused"
+msgstr "Pristabdytas"
+
+#: ../gtk/details.c:604
+msgid "N/A"
+msgstr ""
+
+#: ../gtk/details.c:616 ../gtk/file-list.c:621
+msgid "Mixed"
+msgstr "Maišyta"
+
+#: ../gtk/details.c:617
+msgid "No Torrents Selected"
+msgstr ""
+
+#: ../gtk/details.c:639
+msgid "Private to this tracker -- DHT and PEX disabled"
+msgstr "Atskiras šiam sekikliui – išjungta DHT ir PEX"
+
+#: ../gtk/details.c:641
+msgid "Public torrent"
+msgstr "Viešas torentas"
+
+#: ../gtk/details.c:664
+#, c-format
+msgid "Created by %1$s"
+msgstr "Sukūrė %1$s"
+
+#: ../gtk/details.c:666
+#, c-format
+msgid "Created on %1$s"
+msgstr "Sukurta %1$s"
+
+#: ../gtk/details.c:668
+#, c-format
+msgid "Created by %1$s on %2$s"
+msgstr "Sukūrė %1$s %2$s"
+
+#: ../gtk/details.c:754
+msgid "Unknown"
+msgstr "Nežinoma"
+
+#: ../gtk/details.c:825
+#, c-format
+msgid "%1$s (%2$s%%)"
+msgstr ""
+
+#: ../gtk/details.c:827
+#, c-format
+msgid "%1$s (%2$s%% of %3$s%% Available)"
+msgstr ""
+
+#: ../gtk/details.c:829
+#, c-format
+msgid "%1$s (%2$s%% of %3$s%% Available); %4$s Unverified"
+msgstr ""
+
+#: ../gtk/details.c:848
+#, c-format
+msgid "%1$s (+%2$s corrupt)"
+msgstr "%1$s (+%2$s sugadinta)"
+
+#: ../gtk/details.c:870
+#, c-format
+msgid "%s (Ratio: %s)"
+msgstr ""
+
+#: ../gtk/details.c:898
+msgid "No errors"
+msgstr ""
+
+#: ../gtk/details.c:911
+msgid "Never"
+msgstr ""
+
+#: ../gtk/details.c:915
+msgid "Active now"
+msgstr "Dabar aktyvus"
+
+#: ../gtk/details.c:919
+#, c-format
+msgid "%1$s ago"
+msgstr "prieš %1$s"
+
+#: ../gtk/details.c:938
+msgid "Activity"
+msgstr "Aktyvumas"
+
+#: ../gtk/details.c:943
+msgid "Torrent size:"
+msgstr "Torento dydis:"
+
+#: ../gtk/details.c:948
+msgid "Have:"
+msgstr "Turima:"
+
+#: ../gtk/details.c:953 ../gtk/stats.c:167 ../gtk/stats.c:184
+msgid "Downloaded:"
+msgstr "Atsiųsta:"
+
+#: ../gtk/details.c:958 ../gtk/stats.c:164 ../gtk/stats.c:181
+msgid "Uploaded:"
+msgstr "Išsiųsta:"
+
+#: ../gtk/details.c:963
+msgid "State:"
+msgstr "Būsena:"
+
+#: ../gtk/details.c:968
+msgid "Running time:"
+msgstr "Veikimo laikas:"
+
+#: ../gtk/details.c:973
+msgid "Remaining time:"
+msgstr "Likęs laikas:"
+
+#: ../gtk/details.c:978
+msgid "Last activity:"
+msgstr "Paskutinė veikla:"
+
+#: ../gtk/details.c:984
+msgid "Error:"
+msgstr "Klaida:"
+
+#: ../gtk/details.c:989
+msgid "Details"
+msgstr "Išsamiau"
+
+#: ../gtk/details.c:995
+msgid "Location:"
+msgstr "Vieta:"
+
+#: ../gtk/details.c:1002
+msgid "Hash:"
+msgstr "Maiša:"
+
+#: ../gtk/details.c:1008
+msgid "Privacy:"
+msgstr "Privatumas:"
+
+#: ../gtk/details.c:1015
+msgid "Origin:"
+msgstr "Kilmė:"
+
+#: ../gtk/details.c:1032
+msgid "Comment:"
+msgstr "Komentaras:"
+
+#: ../gtk/details.c:1064
+msgid "Webseeds"
+msgstr "Skleidėjai"
+
+#: ../gtk/details.c:1066 ../gtk/details.c:1118
+msgid "Down"
+msgstr "Ats"
+
+#: ../gtk/details.c:1116
+msgid "Address"
+msgstr "Adresas"
+
+#: ../gtk/details.c:1120
+msgid "Up"
+msgstr "Išs"
+
+#: ../gtk/details.c:1121
+msgid "Client"
+msgstr "Klientas"
+
+#: ../gtk/details.c:1122
+msgid "%"
+msgstr "%"
+
+#: ../gtk/details.c:1124
+msgid "Up Reqs"
+msgstr "Išs. užklausos"
+
+#: ../gtk/details.c:1126
+msgid "Dn Reqs"
+msgstr "Ats. užklausos"
+
+#: ../gtk/details.c:1128
+msgid "Dn Blocks"
+msgstr "Ats. blokai"
+
+#: ../gtk/details.c:1130
+msgid "Up Blocks"
+msgstr "Išs. blokai"
+
+#: ../gtk/details.c:1132
+msgid "We Cancelled"
+msgstr "Mes atšaukėme"
+
+#: ../gtk/details.c:1134
+msgid "They Cancelled"
+msgstr "Jie atšaukė"
+
+#: ../gtk/details.c:1135
+msgid "Flags"
+msgstr ""
+
+#: ../gtk/details.c:1475
+msgid "Optimistic unchoke"
+msgstr "Optimistinis atlaisvinimas"
+
+#: ../gtk/details.c:1476
+msgid "Downloading from this peer"
+msgstr "Atsiunčiama iš šio siuntėjo"
+
+#: ../gtk/details.c:1477
+msgid "We would download from this peer if they would let us"
+msgstr "Atsisiųstume iš šio siuntėjo, jei šis mums leistų"
+
+#: ../gtk/details.c:1478
+msgid "Uploading to peer"
+msgstr "Išsiunčiama siuntėjui"
+
+#: ../gtk/details.c:1479
+msgid "We would upload to this peer if they asked"
+msgstr "Siųstume šiam siuntėjui, jei jis paprašytų"
+
+#: ../gtk/details.c:1480
+msgid "Peer has unchoked us, but we're not interested"
+msgstr "Siuntėjas mus atlaisvino, tačiau tai mūsų nedomina"
+
+#: ../gtk/details.c:1481
+msgid "We unchoked this peer, but they're not interested"
+msgstr "Mes atlaisvinome šį siuntėją, tačiau tai jo nedomina"
+
+#: ../gtk/details.c:1482
+msgid "Encrypted connection"
+msgstr "Šifruota jungtis"
+
+#: ../gtk/details.c:1483
+msgid "Peer was found through Peer Exchange (PEX)"
+msgstr ""
+
+#: ../gtk/details.c:1484
+msgid "Peer was found through DHT"
+msgstr ""
+
+#: ../gtk/details.c:1485
+msgid "Peer is an incoming connection"
+msgstr "Siuntėjas yra mūsų gaunamas ryšys"
+
+#: ../gtk/details.c:1737 ../gtk/details.c:2443
+msgid "Show _more details"
+msgstr "Rodyti _išsamesnę informaciją"
+
+#: ../gtk/details.c:1813
+#, c-format
+msgid "Got a list of %1$s%2$'d peers%3$s %4$s ago"
+msgstr "Prieš %3$s %4$s gautas %1$s%2$'d siuntėjų sąrašas"
+
+#: ../gtk/details.c:1817
+#, c-format
+msgid "Peer list request %1$stimed out%2$s %3$s ago; will retry"
+msgstr ""
+"Prieš %2$s %3$s baigėsi siuntėjų sąrašo užklausos %1$slaukimo laikas; bus "
+"bandoma dar kartą"
+
+#: ../gtk/details.c:1820
+#, c-format
+msgid "Got an error %1$s\"%2$s\"%3$s %4$s ago"
+msgstr "Prieš %3$s %4$s gauta klaida %1$s„%2$s“"
+
+#: ../gtk/details.c:1828
+msgid "No updates scheduled"
+msgstr "Nėra suplanuotų atnaujinimų"
+
+#: ../gtk/details.c:1833
+#, c-format
+msgid "Asking for more peers in %s"
+msgstr "Už %s bus paprašyta daugiau siuntėjų"
+
+#: ../gtk/details.c:1837
+msgid "Queued to ask for more peers"
+msgstr "Suplanuota paprašyti daugiau siuntėjų"
+
+#: ../gtk/details.c:1842
+#, c-format
+msgid "Asking for more peers now... <small>%s</small>"
+msgstr "Dabar prašoma daugiau siuntėjų... <small>%s</small>"
+
+#: ../gtk/details.c:1852
+#, c-format
+msgid "Tracker had %s%'d seeders and %'d leechers%s %s ago"
+msgstr ""
+"Prie sekiklio buvo prisijungę %s%'d skleidėjų ir %'d atsisiuntėjų prieš %s %s"
+
+#: ../gtk/details.c:1856
+#, c-format
+msgid "Got a scrape error \"%s%s%s\" %s ago"
+msgstr "Prieš %4$s gauta valymo klaida „%1$s%2$s%3$s“"
+
+#: ../gtk/details.c:1866
+#, c-format
+msgid "Asking for peer counts in %s"
+msgstr "Bus užklausta siuntėjų skaičiaus po %s"
+
+#: ../gtk/details.c:1870
+msgid "Queued to ask for peer counts"
+msgstr "Suplanuota užklausti siuntėjų skaičiaus"
+
+#: ../gtk/details.c:1875
+#, c-format
+msgid "Asking for peer counts now... <small>%s</small>"
+msgstr "Dabar užklausiama siuntėjų skaičiaus... <small>%s</small>"
+
+#: ../gtk/details.c:2137
+msgid "List contains invalid URLs"
+msgstr "Sąraše yra netinkamų URL"
+
+#: ../gtk/details.c:2142
+msgid "Please correct the errors and try again."
+msgstr ""
+
+#: ../gtk/details.c:2192
+#, c-format
+msgid "%s - Edit Trackers"
+msgstr ""
+
+#: ../gtk/details.c:2203
+msgid "Tracker Announce URLs"
+msgstr "Sekiklio pranešimo URL"
+
+#: ../gtk/details.c:2206 ../gtk/makemeta-ui.c:499
+msgid ""
+"To add a backup URL, add it on the line after the primary URL.\n"
+"To add another primary URL, add it after a blank line."
+msgstr ""
+"Norėdami pridėti atsarginį URL, pridėkite jį eilutėje po pirminiu URL.\n"
+"Norėdami pridėti dar vieną pirminį URL, pridėkite į po tuščios eilutės."
+
+#: ../gtk/details.c:2302
+#, c-format
+msgid "%s - Add Tracker"
+msgstr ""
+
+#: ../gtk/details.c:2317
+msgid "Tracker"
+msgstr "Sekiklis"
+
+#: ../gtk/details.c:2323
+msgid "_Announce URL:"
+msgstr ""
+
+#: ../gtk/details.c:2399 ../gtk/details.c:2531 ../gtk/filter.c:316
+msgid "Trackers"
+msgstr "Sekikliai"
+
+#: ../gtk/details.c:2423
+msgid "_Add"
+msgstr ""
+
+#: ../gtk/details.c:2434
+msgid "_Remove"
+msgstr ""
+
+#: ../gtk/details.c:2450
+msgid "Show _backup trackers"
+msgstr "Rodyti _atsarginius sekiklius"
+
+#: ../gtk/details.c:2523 ../gtk/msgwin.c:415
+msgid "Information"
+msgstr "Informacija"
+
+#: ../gtk/details.c:2527
+msgid "Peers"
+msgstr "Siuntėjai"
+
+#: ../gtk/details.c:2536
+msgid "File listing not available for combined torrent properties"
+msgstr "Peržiūrint apjungtas torentų savybes parodyti failų sąrašo negalima"
+
+#: ../gtk/details.c:2540 ../gtk/makemeta-ui.c:446
+msgid "Files"
+msgstr "Failai"
+
+#: ../gtk/details.c:2544 ../gtk/tr-prefs.c:1218 ../gtk/tr-window.c:645
+msgid "Options"
+msgstr "Parinktys"
+
+#: ../gtk/details.c:2569
+#, c-format
+msgid "%s Properties"
+msgstr "%s savybės"
+
+#: ../gtk/details.c:2580
+#, c-format
+msgid "%'d Torrent Properties"
+msgstr "%'d torento savybės"
+
+#: ../gtk/dialogs.c:89
+msgid "<big><b>Quit Transmission?</b></big>"
+msgstr "<big><b>Išjungti programą Transmission?</b></big>"
+
+#: ../gtk/dialogs.c:101
+msgid "_Don't ask me again"
+msgstr "_Daugiau nebeklausti"
+
+#: ../gtk/file-list.c:618 ../gtk/filter.c:341 ../gtk/util.c:693
+msgid "High"
+msgstr "Didelis"
+
+#: ../gtk/file-list.c:619 ../gtk/filter.c:345 ../gtk/util.c:694
+msgid "Normal"
+msgstr "Normalus"
+
+#: ../gtk/file-list.c:620 ../gtk/filter.c:349 ../gtk/util.c:695
+msgid "Low"
+msgstr "Mažas"
+
+#: ../gtk/file-list.c:730
+msgid "Set Priority High"
+msgstr ""
+
+#: ../gtk/file-list.c:737
+msgid "Set Priority Normal"
+msgstr ""
+
+#: ../gtk/file-list.c:744
+msgid "Set Priority Low"
+msgstr ""
+
+#. add "enabled" column
+#: ../gtk/file-list.c:754 ../gtk/file-list.c:995
+msgid "Download"
+msgstr "Atsisiųsti"
+
+#: ../gtk/file-list.c:761
+msgid "Do Not Download"
+msgstr ""
+
+#: ../gtk/file-list.c:952 ../gtk/msgwin.c:291
+msgid "Name"
+msgstr "Vardas"
+
+#. add "size" column
+#: ../gtk/file-list.c:967
+msgid "Size"
+msgstr ""
+
+#. add "progress" column
+#: ../gtk/file-list.c:982
+msgid "Have"
+msgstr ""
+
+#. add priority column
+#: ../gtk/file-list.c:1011 ../gtk/filter.c:336
+msgid "Priority"
+msgstr "Prioritetas"
+
+#: ../gtk/filter.c:308 ../gtk/filter.c:712
+msgid "All"
+msgstr "Visi"
+
+#: ../gtk/filter.c:322 ../gtk/tr-prefs.c:526 ../gtk/tr-prefs.c:1261
+msgid "Privacy"
+msgstr "Privatumas"
+
+#: ../gtk/filter.c:327
+msgid "Public"
+msgstr "Viešas"
+
+#: ../gtk/filter.c:331
+msgid "Private"
+msgstr "Asmeninis"
+
+#: ../gtk/filter.c:714
+msgid "Active"
+msgstr "Aktyvūs"
+
+#: ../gtk/filter.c:719
+msgid "Queued"
+msgstr "Eilėje"
+
+#: ../gtk/filter.c:720
+msgid "Verifying"
+msgstr "Tikrinama"
+
+#: ../gtk/filter.c:721 ../gtk/msgwin.c:414
+msgid "Error"
+msgstr "Klaida"
+
+#. add the activity combobox
+#: ../gtk/filter.c:959
+msgid "_Show:"
+msgstr "_Rodyti:"
+
+#: ../gtk/main.c:440
+#, c-format
+msgid ""
+"Got signal %d; trying to shut down cleanly. Do it again if it gets stuck."
+msgstr ""
+
+#: ../gtk/main.c:723
+msgid "Start with all torrents paused"
+msgstr "Paleisti pristabdžius visus torentus"
+
+#: ../gtk/main.c:725
+msgid "Show version number and exit"
+msgstr "Parodyti versijos numerį ir baigti"
+
+#: ../gtk/main.c:729
+msgid "Start minimized in notification area"
+msgstr "Paleisti sumažintą pranešimų srityje"
+
+#: ../gtk/main.c:732
+msgid "Where to look for configuration files"
+msgstr "Kur ieškoti konfigūracijos failų"
+
+#: ../gtk/main.c:741 ../gtk/transmission-gtk.desktop.in.h:3
+msgid "Transmission"
+msgstr "Transmission"
+
+#: ../gtk/main.c:751
+msgid "[torrent files or urls]"
+msgstr "[torentų failai arba URL]"
+
+#: ../gtk/main.c:814
+msgid ""
+"Transmission is already running, but is not responding. To start a new "
+"session, you must first close the existing Transmission process."
+msgstr ""
+
+#: ../gtk/main.c:876
+msgid "Transmission cannot be started."
+msgstr "Nepavyko paleisti Transmission."
+
+#: ../gtk/main.c:952
+msgid ""
+"Transmission is a file-sharing program. When you run a torrent, its data "
+"will be made available to others by means of upload. You and you alone are "
+"fully responsible for exercising proper judgement and abiding by your local "
+"laws."
+msgstr ""
+
+#: ../gtk/main.c:954
+msgid "I _Accept"
+msgstr "Aš _sutinku"
+
+#: ../gtk/main.c:1185
+msgid "<b>Closing Connections</b>"
+msgstr "<b>Užveriamos jungtys</b>"
+
+#: ../gtk/main.c:1189
+msgid "Sending upload/download totals to tracker..."
+msgstr "Siunčiamos išsiuntimo / atsiuntimo sumos sekikliui..."
+
+#: ../gtk/main.c:1194
+msgid "_Quit Now"
+msgstr "_Išjungti dabar"
+
+#: ../gtk/main.c:1547
+msgid "A fast and easy BitTorrent client"
+msgstr "Spartus ir lengvas naudoti BitTorrent klientas"
+
+#: ../gtk/main.c:1548
+msgid "Copyright (c) The Transmission Project"
+msgstr ""
+
+#. Translators: translate "translator-credits" as your name
+#. to have it appear in the credits in the "About"
+#. dialog
+#: ../gtk/main.c:1554
+msgid "translator-credits"
+msgstr ""
+"Žygimantas Beručka\n"
+"\n"
+"Launchpad Contributions:\n"
+"  Adomas Jackevičius Bosanova https://launchpad.net/~adomas-bosanova\n"
+"  Mantas Kriaučiūnas https://launchpad.net/~mantas\n"
+"  Rimas Kudelis https://launchpad.net/~rq\n"
+"  Vitalijus Valantiejus https://launchpad.net/~vitalijusv\n"
+"  Vytautas https://launchpad.net/~vytautasjc\n"
+"  zolookas https://launchpad.net/~zolookas\n"
+"  Žygimantas Beručka https://launchpad.net/~zygis"
+
+#: ../gtk/makemeta-ui.c:78
+#, c-format
+msgid "Creating \"%s\""
+msgstr "Kuriamas „%s“"
+
+#: ../gtk/makemeta-ui.c:80
+#, c-format
+msgid "Created \"%s\"!"
+msgstr "Sukurtas „%s“!"
+
+#: ../gtk/makemeta-ui.c:82
+#, c-format
+msgid "Error: invalid announce URL \"%s\""
+msgstr "Klaida: netinkamas pranešimo URL „%s“"
+
+#: ../gtk/makemeta-ui.c:84
+#, c-format
+msgid "Cancelled"
+msgstr "Atšaukta"
+
+#: ../gtk/makemeta-ui.c:86
+#, c-format
+msgid "Error reading \"%s\": %s"
+msgstr "Klaida skaitant „%s“: %s"
+
+#: ../gtk/makemeta-ui.c:88
+#, c-format
+msgid "Error writing \"%s\": %s"
+msgstr "Klaida rašant „%s“: %s"
+
+#. how much data we've scanned through to generate checksums
+#: ../gtk/makemeta-ui.c:105
+#, c-format
+msgid "Scanned %s"
+msgstr "Nuskaityta %s"
+
+#: ../gtk/makemeta-ui.c:170 ../gtk/makemeta-ui.c:434
+msgid "New Torrent"
+msgstr "Naujas torentas"
+
+#: ../gtk/makemeta-ui.c:186
+msgid "Creating torrent..."
+msgstr "Kuriamas torentas..."
+
+#: ../gtk/makemeta-ui.c:295
+msgid "No source selected"
+msgstr "Nepasirinktas šaltinis"
+
+#: ../gtk/makemeta-ui.c:448
+msgid "Sa_ve to:"
+msgstr "Į_rašyti į:"
+
+#: ../gtk/makemeta-ui.c:454
+msgid "Source F_older:"
+msgstr "Šaltinio _aplankas:"
+
+#: ../gtk/makemeta-ui.c:466
+msgid "Source _File:"
+msgstr "Šaltinio _failas:"
+
+#: ../gtk/makemeta-ui.c:478
+msgid "<i>No source selected</i>"
+msgstr "<i>Nepasirinktas šaltinis</i>"
+
+#: ../gtk/makemeta-ui.c:482
+msgid "Properties"
+msgstr "Savybės"
+
+#: ../gtk/makemeta-ui.c:484
+msgid "_Trackers:"
+msgstr "_Sekikliai:"
+
+#: ../gtk/makemeta-ui.c:506
+msgid "Co_mment:"
+msgstr "Ko_mentaras:"
+
+#: ../gtk/makemeta-ui.c:515
+msgid "_Private torrent"
+msgstr "_Asmeninis torentas"
+
+#: ../gtk/msgwin.c:130
+#, c-format
+msgid "Couldn't save \"%s\""
+msgstr "Nepavyko išsaugoti „%s“"
+
+#: ../gtk/msgwin.c:181
+msgid "Save Log"
+msgstr "Išsaugoti žurnalą"
+
+#: ../gtk/msgwin.c:287
+msgid "Time"
+msgstr "Laikas"
+
+#: ../gtk/msgwin.c:295
+msgid "Message"
+msgstr "Pranešimas"
+
+#: ../gtk/msgwin.c:416
+msgid "Debug"
+msgstr "Derinimas"
+
+#: ../gtk/msgwin.c:442
+msgid "Message Log"
+msgstr "Pranešimų žurnalas"
+
+#: ../gtk/msgwin.c:475
+msgid "Level"
+msgstr "Lygmuo"
+
+#: ../gtk/notify.c:121
+msgid "Download complete"
+msgstr "Atsiųsta"
+
+#: ../gtk/notify.c:131
+msgid "Torrent Complete"
+msgstr "Torentas baigtas"
+
+#: ../gtk/notify.c:144
+msgid "Open File"
+msgstr "Atverti failą"
+
+#: ../gtk/notify.c:149
+msgid "Open Folder"
+msgstr "Atverti aplanką"
+
+#: ../gtk/notify.c:163
+msgid "Torrent Added"
+msgstr "Torentas pridėtas"
+
+#: ../gtk/open-dialog.c:243
+msgid "Torrent files"
+msgstr "Torrent failai"
+
+#: ../gtk/open-dialog.c:248
+msgid "All files"
+msgstr "Visi failai"
+
+#. make the dialog
+#: ../gtk/open-dialog.c:275
+msgid "Torrent Options"
+msgstr "Torento parinktys"
+
+#: ../gtk/open-dialog.c:297 ../gtk/tr-prefs.c:280
+msgid "Mo_ve .torrent file to the trash"
+msgstr "_Perkelti .torrent failą į šiukšlinę"
+
+#: ../gtk/open-dialog.c:299 ../gtk/tr-prefs.c:272
+msgid "_Start when added"
+msgstr "_Pradėti pridėjus"
+
+#: ../gtk/open-dialog.c:314
+msgid "_Torrent file:"
+msgstr "_Torrent failas:"
+
+#: ../gtk/open-dialog.c:318
+msgid "Select Source File"
+msgstr "Pasirinkite šaltinio failą"
+
+#: ../gtk/open-dialog.c:329
+msgid "_Destination folder:"
+msgstr "_Paskirties aplankas:"
+
+#: ../gtk/open-dialog.c:333
+msgid "Select Destination Folder"
+msgstr "Pasirinkite paskirties aplanką"
+
+#: ../gtk/open-dialog.c:428
+msgid "Open a Torrent"
+msgstr "Atverti torentą"
+
+#: ../gtk/open-dialog.c:444 ../gtk/tr-prefs.c:276
+msgid "Show _options dialog"
+msgstr "Rodyti _parinkčių langą"
+
+#: ../gtk/open-dialog.c:499
+msgid "Open URL"
+msgstr ""
+
+#: ../gtk/open-dialog.c:512
+msgid "Open torrent from URL"
+msgstr ""
+
+#: ../gtk/open-dialog.c:517
+msgid "_URL"
+msgstr "_URL"
+
+#: ../gtk/relocate.c:64
+#, c-format
+msgid "Moving \"%s\""
+msgstr "Perkeliamas „%s“"
+
+#: ../gtk/relocate.c:86
+msgid "Couldn't move torrent"
+msgstr "Nepavyko perkelti torento"
+
+#: ../gtk/relocate.c:127
+msgid "This may take a moment..."
+msgstr "Tai gali kiek užtrukti..."
+
+#: ../gtk/relocate.c:158 ../gtk/relocate.c:178
+msgid "Set Torrent Location"
+msgstr "Nustatyti torento vietą"
+
+#: ../gtk/relocate.c:174
+msgid "Location"
+msgstr "Vieta"
+
+#: ../gtk/relocate.c:181
+msgid "Torrent _location:"
+msgstr "Torento _vieta:"
+
+#: ../gtk/relocate.c:182
+msgid "_Move from the current folder"
+msgstr "_Perkelti iš dabartinio aplanko"
+
+#: ../gtk/relocate.c:185
+msgid "Local data is _already there"
+msgstr "Vietiniai duomenys yra _jau ten"
+
+#: ../gtk/stats.c:107
+msgid "Reset your statistics?"
+msgstr "Atstatyti jūsų statistiką į pradinę būseną?"
+
+#: ../gtk/stats.c:108
+msgid ""
+"These statistics are for your information only. Resetting them doesn't "
+"affect the statistics logged by your BitTorrent trackers."
+msgstr ""
+
+#: ../gtk/stats.c:119 ../gtk/stats.c:149
+msgid "_Reset"
+msgstr "_Atstatyti"
+
+#: ../gtk/stats.c:146 ../gtk/tr-window.c:686
+msgid "Statistics"
+msgstr "Statistika"
+
+#: ../gtk/stats.c:161
+msgid "Current Session"
+msgstr "Dabartinis seansas"
+
+#: ../gtk/stats.c:170 ../gtk/stats.c:187
+msgid "Ratio:"
+msgstr "Santykis:"
+
+#: ../gtk/stats.c:173 ../gtk/stats.c:190
+msgid "Duration:"
+msgstr "Trukmė:"
+
+#: ../gtk/stats.c:175
+msgid "Total"
+msgstr "Iš viso"
+
+#: ../gtk/stats.c:176
+#, c-format
+msgid "Started %'d time"
+msgstr ""
+
+#. %1$s is how much we've got,
+#. %2$s is how much we'll have when done,
+#. %3$s%% is a percentage of the two
+#: ../gtk/torrent-cell-renderer.c:63
+#, c-format
+msgid "%1$s of %2$s (%3$s%%)"
+msgstr ""
+
+#. %1$s is how much we've got,
+#. %2$s is the torrent's total size,
+#. %3$s%% is a percentage of the two,
+#. %4$s is how much we've uploaded,
+#. %5$s is our upload-to-download ratio,
+#. %6$s is the ratio we want to reach before we stop uploading
+#: ../gtk/torrent-cell-renderer.c:79
+#, c-format
+msgid "%1$s of %2$s (%3$s%%), uploaded %4$s (Ratio: %5$s Goal: %6$s)"
+msgstr ""
+
+#. %1$s is how much we've got,
+#. %2$s is the torrent's total size,
+#. %3$s%% is a percentage of the two,
+#. %4$s is how much we've uploaded,
+#. %5$s is our upload-to-download ratio
+#: ../gtk/torrent-cell-renderer.c:95
+#, c-format
+msgid "%1$s of %2$s (%3$s%%), uploaded %4$s (Ratio: %5$s)"
+msgstr ""
+
+#. %1$s is the torrent's total size,
+#. %2$s is how much we've uploaded,
+#. %3$s is our upload-to-download ratio,
+#. %4$s is the ratio we want to reach before we stop uploading
+#: ../gtk/torrent-cell-renderer.c:112
+#, c-format
+msgid "%1$s, uploaded %2$s (Ratio: %3$s Goal: %4$s)"
+msgstr "%1$s, išsiųsta %2$s (Santykis: %3$s Tikslas: %4$s)"
+
+#. %1$s is the torrent's total size,
+#. %2$s is how much we've uploaded,
+#. %3$s is our upload-to-download ratio
+#: ../gtk/torrent-cell-renderer.c:124
+#, c-format
+msgid "%1$s, uploaded %2$s (Ratio: %3$s)"
+msgstr "%1$s, išsiųsta %2$s (santykis: %3$s)"
+
+#: ../gtk/torrent-cell-renderer.c:139
+msgid "Remaining time unknown"
+msgstr "Likęs laikas nežinomas"
+
+#. time remaining
+#: ../gtk/torrent-cell-renderer.c:145
+#, c-format
+msgid "%s remaining"
+msgstr "liko %s"
+
+#. 1==down arrow, 2==down speed, 3==up arrow, 4==down speed
+#: ../gtk/torrent-cell-renderer.c:174
+#, c-format
+msgid "%1$s %2$s, %3$s %4$s"
+msgstr "%1$s %2$s, %3$s %4$s"
+
+#. bandwidth speed + unicode arrow
+#: ../gtk/torrent-cell-renderer.c:179 ../gtk/torrent-cell-renderer.c:183
+#, c-format
+msgid "%1$s %2$s"
+msgstr "%1$s %2$s"
+
+#. the torrent isn't uploading or downloading
+#: ../gtk/torrent-cell-renderer.c:187 ../gtk/tr-icon.c:66
+msgid "Idle"
+msgstr "Laisvas"
+
+#: ../gtk/torrent-cell-renderer.c:217
+#, c-format
+msgid "Verifying local data (%.1f%% tested)"
+msgstr "Tikrinami vietiniai duomenys (patikrinta %.1f%%)"
+
+#: ../gtk/torrent-cell-renderer.c:228
+#, c-format
+msgid "Ratio %s"
+msgstr "Santykis: %s"
+
+#: ../gtk/torrent-cell-renderer.c:257
+#, c-format
+msgid "Tracker gave a warning: \"%s\""
+msgstr "Sekiklis atsiuntė perspėjimą: „%s“"
+
+#: ../gtk/torrent-cell-renderer.c:258
+#, c-format
+msgid "Tracker gave an error: \"%s\""
+msgstr "Sekiklis pranešė apie klaidą: „%s“"
+
+#: ../gtk/torrent-cell-renderer.c:259
+#, c-format
+msgid "Error: %s"
+msgstr "Klaida: %s"
+
+#: ../gtk/transmission-gtk.desktop.in.h:1
+msgid "BitTorrent Client"
+msgstr "BitTorrent klientas"
+
+#: ../gtk/transmission-gtk.desktop.in.h:2
+msgid "Download and share files over BitTorrent"
+msgstr "Atsiųskite ir dalinkitės failais internetu per BitTorrent"
+
+#: ../gtk/transmission-gtk.desktop.in.h:4
+msgid "Transmission BitTorrent Client"
+msgstr "Transmission – „BitTorrent“ klientas"
+
+#: ../gtk/tr-core.c:1422
+msgid "Transmission Bittorrent Client"
+msgstr "BitTorrent klientas Transmission"
+
+#: ../gtk/tr-core.c:1423
+msgid "BitTorrent Activity"
+msgstr "BitTorrent aktyvumas"
+
+#: ../gtk/tr-core.c:1436
+msgid "Disallowing desktop hibernation"
+msgstr "Neleidžiamas darbo aplinkos hibernavimas"
+
+#: ../gtk/tr-core.c:1439
+#, c-format
+msgid "Couldn't disable desktop hibernation: %s"
+msgstr "Nepavyko išjungti darbo aplinkos hibernavimo: %s"
+
+#: ../gtk/tr-core.c:1463
+msgid "Allowing desktop hibernation"
+msgstr "Leidžiamas darbo aplinkos hibernavimas"
+
+#: ../gtk/tr-icon.c:83 ../gtk/tr-icon.c:99
+#, c-format
+msgid "(Limit: %s)"
+msgstr "(Riba: %s)"
+
+#. %1$s: current upload speed
+#. * %2$s: current upload limit, if any
+#. * %3$s: current download speed
+#. * %4$s: current download limit, if any
+#: ../gtk/tr-icon.c:106
+#, c-format
+msgid ""
+"Transmission\n"
+"Up: %1$s %2$s\n"
+"Down: %3$s %4$s"
+msgstr ""
+"Transmission\n"
+"Išs.: %1$s %2$s\n"
+"Ats.: %3$s %4$s"
+
+#: ../gtk/tr-prefs.c:270
+msgid "Adding"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:285
+msgid "Automatically _add torrents from:"
+msgstr "Automatiškai _pridėti torentus iš:"
+
+#: ../gtk/tr-prefs.c:297
+msgid "Append \"._part\" to incomplete files' names"
+msgstr "Nebaigtų failų varduose pridėti plėtinį „._part“"
+
+#: ../gtk/tr-prefs.c:302
+msgid "Save to _Location:"
+msgstr "Išsaugoti _vietoje:"
+
+#: ../gtk/tr-prefs.c:304
+msgid "Keep _incomplete torrents in:"
+msgstr "Saugoti _nebaigtus torentus:"
+
+#: ../gtk/tr-prefs.c:311
+msgid "Call scrip_t when torrent is completed:"
+msgstr "Baigus siųsti torentą, vykdyti s_cenarijų:"
+
+#: ../gtk/tr-prefs.c:321
+msgid "Stop seeding at _ratio:"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:328
+msgid "Stop seeding if idle for _N minutes:"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:352 ../gtk/tr-prefs.c:1267
+msgid "Desktop"
+msgstr "Darbastalis"
+
+#: ../gtk/tr-prefs.c:354
+msgid "Inhibit _hibernation when torrents are active"
+msgstr "Uždrausti _hibernavimą, kuomet yra aktyvių torentų"
+
+#: ../gtk/tr-prefs.c:358
+msgid "Show Transmission icon in the _notification area"
+msgstr "Rodyti Transmission piktogramą _pranešimų srityje"
+
+#: ../gtk/tr-prefs.c:362
+msgid "Show _popup notifications"
+msgstr "Rodyti _iškeliamus pranešimus"
+
+#: ../gtk/tr-prefs.c:367
+msgid "Play _sound when downloads are complete"
+msgstr "Sugroti _garsą, kai baigiama atsiųsti"
+
+#: ../gtk/tr-prefs.c:434
+msgid "<b>Update succeeded!</b>"
+msgstr "<b>Sėkmingai atnaujinta!</b>"
+
+#: ../gtk/tr-prefs.c:434
+msgid "<b>Unable to update.</b>"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:449
+msgid "Update Blocklist"
+msgstr "Atnaujinti blokavimo sąrašą"
+
+#: ../gtk/tr-prefs.c:451
+msgid "Getting new blocklist..."
+msgstr "Gaunamas naujas blokavimo sąrašas..."
+
+#: ../gtk/tr-prefs.c:470
+msgid "Allow encryption"
+msgstr "Leisti šifravimą"
+
+#: ../gtk/tr-prefs.c:471
+msgid "Prefer encryption"
+msgstr "Pirmenybė šifravimui"
+
+#: ../gtk/tr-prefs.c:472
+msgid "Require encryption"
+msgstr "Reikalingas šifravimas"
+
+#: ../gtk/tr-prefs.c:496
+msgid "Blocklist"
+msgstr "Blokavimo sąrašas"
+
+#: ../gtk/tr-prefs.c:498
+msgid "Enable _blocklist:"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:512
+msgid "_Update"
+msgstr "At_naujinti"
+
+#: ../gtk/tr-prefs.c:520
+msgid "Enable _automatic updates"
+msgstr "Įjungti _automatinius atnaujinimus"
+
+#: ../gtk/tr-prefs.c:528
+msgid "_Encryption mode:"
+msgstr "Ši_fravimo būdas:"
+
+#: ../gtk/tr-prefs.c:532
+msgid "Use PE_X to find more peers"
+msgstr "Naudoti PE_X papildomiems siuntėjams rasti"
+
+#: ../gtk/tr-prefs.c:534
+msgid ""
+"PEX is a tool for exchanging peer lists with the peers you're connected to."
+msgstr ""
+"PEX – tai priemonė, skirta apsikeisti siuntėjų sąrašais su siuntėjais, prie "
+"kurių esate prisijungę."
+
+#: ../gtk/tr-prefs.c:538
+msgid "Use _DHT to find more peers"
+msgstr "Naudoti _DHT papildomiems siuntėjams rasti"
+
+#: ../gtk/tr-prefs.c:540
+msgid "DHT is a tool for finding peers without a tracker."
+msgstr "DHT – tai priemonė, skirta siuntėjams be sekiklio rasti."
+
+#: ../gtk/tr-prefs.c:544
+msgid "Use _Local Peer Discovery to find more peers"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:546
+msgid "LPD is a tool for finding peers on your local network."
+msgstr "VSA – tai priemonė, skirta siuntėjams jūsų vietiniame tinkle rasti."
+
+#: ../gtk/tr-prefs.c:765
+msgid "Web Client"
+msgstr "Žiniatinklio klientas"
+
+#. "enabled" checkbutton
+#: ../gtk/tr-prefs.c:768
+msgid "_Enable web client"
+msgstr "Įj_ungti žiniatinklio klientą"
+
+#: ../gtk/tr-prefs.c:774
+msgid "_Open web client"
+msgstr "_Atverti žiniatinklio klientą"
+
+#: ../gtk/tr-prefs.c:783
+msgid "HTTP _port:"
+msgstr ""
+
+#. require authentication
+#: ../gtk/tr-prefs.c:787
+msgid "Use _authentication"
+msgstr "Naudoti _tapatybės nustatymą"
+
+#. username
+#: ../gtk/tr-prefs.c:795
+msgid "_Username:"
+msgstr "_Naudotojo vardas:"
+
+#. password
+#: ../gtk/tr-prefs.c:802
+msgid "Pass_word:"
+msgstr "_Slaptažodis:"
+
+#. require authentication
+#: ../gtk/tr-prefs.c:810
+msgid "Only allow these IP a_ddresses to connect:"
+msgstr "Leisti prisijungti tik šiems IP a_dresams:"
+
+#: ../gtk/tr-prefs.c:835
+msgid "IP addresses may use wildcards, such as 192.168.*.*"
+msgstr "IP adrese galima naudoti kaitos simbolius, pvz., 192.168.*.*"
+
+#: ../gtk/tr-prefs.c:857
+msgid "Addresses:"
+msgstr "Adresai:"
+
+#: ../gtk/tr-prefs.c:975
+msgid "Every Day"
+msgstr "Kasdien"
+
+#: ../gtk/tr-prefs.c:976
+msgid "Weekdays"
+msgstr "Šiokiadieniai"
+
+#: ../gtk/tr-prefs.c:977
+msgid "Weekends"
+msgstr "Savaitgaliai"
+
+#: ../gtk/tr-prefs.c:978
+msgid "Sunday"
+msgstr "Sekmadienis"
+
+#: ../gtk/tr-prefs.c:979
+msgid "Monday"
+msgstr "Pirmadienis"
+
+#: ../gtk/tr-prefs.c:980
+msgid "Tuesday"
+msgstr "Antradienis"
+
+#: ../gtk/tr-prefs.c:981
+msgid "Wednesday"
+msgstr "Trečiadienis"
+
+#: ../gtk/tr-prefs.c:982
+msgid "Thursday"
+msgstr "Ketvirtadienis"
+
+#: ../gtk/tr-prefs.c:983
+msgid "Friday"
+msgstr "Penktadienis"
+
+#: ../gtk/tr-prefs.c:984
+msgid "Saturday"
+msgstr "Šeštadienis"
+
+#: ../gtk/tr-prefs.c:1015
+msgid "Speed Limits"
+msgstr "Greičio apribojimai"
+
+#: ../gtk/tr-prefs.c:1017
+#, c-format
+msgid "_Upload (%s):"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:1024
+#, c-format
+msgid "_Download (%s):"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:1035
+msgid "Alternative Speed Limits"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:1042
+msgid "Override normal speed limits manually or at scheduled times"
+msgstr ""
+"Panaikinti normalius spartos ribojimus rankiniu būdu ar suplanuotu metu"
+
+#: ../gtk/tr-prefs.c:1049
+#, c-format
+msgid "U_pload (%s):"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:1053
+#, c-format
+msgid "Do_wnload (%s):"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:1057
+msgid "_Scheduled times:"
+msgstr "_Suplanuotas laikas:"
+
+#: ../gtk/tr-prefs.c:1062
+msgid " _to "
+msgstr " _iki "
+
+#: ../gtk/tr-prefs.c:1073
+msgid "_On days:"
+msgstr "_Dienomis:"
+
+#: ../gtk/tr-prefs.c:1107 ../gtk/tr-prefs.c:1191
+msgid "Status unknown"
+msgstr "Nežinoma būsena"
+
+#: ../gtk/tr-prefs.c:1129
+msgid "Port is <b>open</b>"
+msgstr "Prievadas yra <b>atviras</b>"
+
+#: ../gtk/tr-prefs.c:1129
+msgid "Port is <b>closed</b>"
+msgstr "Prievadas yra <b>užvertas</b>"
+
+#: ../gtk/tr-prefs.c:1143
+msgid "<i>Testing...</i>"
+msgstr "<i>Tikrinama...</i>"
+
+#: ../gtk/tr-prefs.c:1184
+msgid "Listening Port"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:1186
+msgid "_Port used for incoming connections:"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:1194
+msgid "Te_st Port"
+msgstr "_Tikrinti prievadą"
+
+#: ../gtk/tr-prefs.c:1201
+msgid "Pick a _random port every time Transmission is started"
+msgstr "Pasirinkti _atsitiktinį prievadą kaskart paleidus Transmission"
+
+#: ../gtk/tr-prefs.c:1205
+msgid "Use UPnP or NAT-PMP port _forwarding from my router"
+msgstr ""
+"Naudototi UPnP arba NAT-PMP prievadų _persiuntimą mano maršrutizatoriuje"
+
+#: ../gtk/tr-prefs.c:1210
+msgid "Peer Limits"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:1213
+msgid "Maximum peers per _torrent:"
+msgstr "Daugiausiai galimų vieno _torento siuntėjų:"
+
+#: ../gtk/tr-prefs.c:1215
+msgid "Maximum peers _overall:"
+msgstr "Daugiausiai galimų _siuntėjų iš viso:"
+
+#: ../gtk/tr-prefs.c:1220
+msgid "Edit GNOME Proxy Settings"
+msgstr ""
+
+#: ../gtk/tr-prefs.c:1241
+msgid "Transmission Preferences"
+msgstr "Transmission nustatymai"
+
+#: ../gtk/tr-prefs.c:1255
+msgid "Torrents"
+msgstr "Torentai"
+
+#: ../gtk/tr-prefs.c:1264
+msgid "Network"
+msgstr "Tinklas"
+
+#: ../gtk/tr-prefs.c:1270
+msgid "Web"
+msgstr "Žiniatinklis"
+
+#: ../gtk/tr-window.c:130
+msgid "Torrent"
+msgstr "Torentas"
+
+#: ../gtk/tr-window.c:233
+msgid "Total Ratio"
+msgstr "Visas santykis"
+
+#: ../gtk/tr-window.c:234
+msgid "Session Ratio"
+msgstr "Seanso santykis"
+
+#: ../gtk/tr-window.c:235
+msgid "Total Transfer"
+msgstr "Visas siuntimas"
+
+#: ../gtk/tr-window.c:236
+msgid "Session Transfer"
+msgstr "Seanso siuntimas"
+
+#: ../gtk/tr-window.c:265
+#, c-format
+msgid ""
+"Click to disable Alternative Speed Limits\n"
+"(%1$s down, %2$s up)"
+msgstr ""
+
+#: ../gtk/tr-window.c:266
+#, c-format
+msgid ""
+"Click to enable Alternative Speed Limits\n"
+"(%1$s down, %2$s up)"
+msgstr ""
+
+#: ../gtk/tr-window.c:333
+#, c-format
+msgid "Tracker will allow requests in %s"
+msgstr "Sekiklis leis užklausas už %s"
+
+#: ../gtk/tr-window.c:404
+msgid "Unlimited"
+msgstr "Be ribojimų"
+
+#: ../gtk/tr-window.c:471
+msgid "Seed Forever"
+msgstr "Skleisti nuolatos"
+
+#: ../gtk/tr-window.c:509
+msgid "Limit Download Speed"
+msgstr "Apriboti atsiuntimo greitį"
+
+#: ../gtk/tr-window.c:513
+msgid "Limit Upload Speed"
+msgstr "Apriboti išsiuntimo greitį"
+
+#: ../gtk/tr-window.c:520
+msgid "Stop Seeding at Ratio"
+msgstr "Nebeskleisti esant santykiui"
+
+#: ../gtk/tr-window.c:554
+#, c-format
+msgid "Stop at Ratio (%s)"
+msgstr "Nebeskleisti esant santykiui (%s)"
+
+#: ../gtk/tr-window.c:784 ../gtk/tr-window.c:812
+#, c-format
+msgid "Ratio: %s"
+msgstr "Santykis: %s"
+
+#: ../gtk/tr-window.c:795 ../gtk/tr-window.c:806
+#, c-format
+msgid "size|Down: %1$s, Up: %2$s"
+msgstr "Ats.: %1$s, Išs.: %2$s"
+
+#: ../gtk/util.c:49 ../gtk/util.c:55
+msgid "KiB"
+msgstr ""
+
+#: ../gtk/util.c:50 ../gtk/util.c:56
+msgid "MiB"
+msgstr ""
+
+#: ../gtk/util.c:51 ../gtk/util.c:57
+msgid "GiB"
+msgstr ""
+
+#: ../gtk/util.c:52 ../gtk/util.c:58
+msgid "TiB"
+msgstr ""
+
+#: ../gtk/util.c:61
+msgid "KiB/s"
+msgstr ""
+
+#: ../gtk/util.c:62
+msgid "MiB/s"
+msgstr ""
+
+#: ../gtk/util.c:63
+msgid "GiB/s"
+msgstr ""
+
+#: ../gtk/util.c:64
+msgid "TiB/s"
+msgstr ""
+
+#: ../gtk/util.c:160
+msgid "size|None"
+msgstr ""
+
+#: ../gtk/util.c:323
+#, c-format
+msgid "The torrent file \"%s\" contains invalid data."
+msgstr "Torento faile „%s“ yra netinkamų duomenų."
+
+#: ../gtk/util.c:324
+#, c-format
+msgid "The torrent file \"%s\" is already in use."
+msgstr "Torento failas „%s“ jau naudojamas."
+
+#: ../gtk/util.c:325
+#, c-format
+msgid "The torrent file \"%s\" encountered an unknown error."
+msgstr "Torento faile „%s“ yra nežinoma klaida."
+
+#: ../gtk/util.c:333
+msgid "Error opening torrent"
+msgstr "Klaida atveriant torentą"
+
+#: ../gtk/util.c:878
+#, c-format
+msgid "Error opening \"%s\""
+msgstr ""
+
+#: ../gtk/util.c:881
+#, c-format
+msgid "Server returned \"%1$ld %2$s\""
+msgstr ""
+
+#: ../gtk/util.c:901
+msgid "Unrecognized URL"
+msgstr "Neatpažintas URL"
+
+#: ../gtk/util.c:903
+#, c-format
+msgid "Transmission doesn't know how to use \"%s\""
+msgstr "Transmission nežinoma, kaip naudoti „%s“"
+
+#: ../gtk/util.c:908
+#, c-format
+msgid ""
+"This magnet link appears to be intended for something other than BitTorrent. "
+"BitTorrent magnet links have a section containing \"%s\"."
+msgstr ""
+
+#. did caller give us an uninitialized val?
+#: ../libtransmission/bencode.c:1107
+msgid "Invalid metadata"
+msgstr "Netinkami metaduomenys"
+
+#: ../libtransmission/bencode.c:1705 ../libtransmission/bencode.c:1741
+#, c-format
+msgid "Couldn't save temporary file \"%1$s\": %2$s"
+msgstr "Nepavyko įrašyti laikino failo „%1$s“: %2$s"
+
+#: ../libtransmission/bencode.c:1721
+#, c-format
+msgid "Saved \"%s\""
+msgstr "Įrašyta „%s“"
+
+#: ../libtransmission/bencode.c:1726 ../libtransmission/bencode.c:1733
+#: ../libtransmission/blocklist.c:363
+#, c-format
+msgid "Couldn't save file \"%1$s\": %2$s"
+msgstr "Nepavyko išsaugoti failo „%1$s“: %2$s"
+
+#: ../libtransmission/blocklist.c:85 ../libtransmission/blocklist.c:318
+#: ../libtransmission/utils.c:494
+#, c-format
+msgid "Couldn't read \"%1$s\": %2$s"
+msgstr "Nepavyko perskaityti „%1$s“: %2$s"
+
+#: ../libtransmission/blocklist.c:114
+#, c-format
+msgid "Blocklist \"%s\" contains %zu entries"
+msgstr ""
+
+#. don't try to display the actual lines - it causes issues
+#: ../libtransmission/blocklist.c:357
+#, c-format
+msgid "blocklist skipped invalid address at line %d"
+msgstr "blokavimo sąraše praleistas netinkamas adresas eilutėje %d"
+
+#: ../libtransmission/blocklist.c:373
+#, c-format
+msgid "Blocklist \"%s\" updated with %d entries"
+msgstr ""
+
+#: ../libtransmission/fdlimit.c:593
+#, c-format
+msgid "Couldn't create socket: %s"
+msgstr "Nepavyko sukurti lizdo: %s"
+
+#: ../libtransmission/makemeta.c:61
+#, c-format
+msgid "Torrent Creator is skipping file \"%s\": %s"
+msgstr "Torentų kurtuvė praleidžia failą „%s“: %s"
+
+#: ../libtransmission/metainfo.c:577
+#, c-format
+msgid "Invalid metadata entry \"%s\""
+msgstr "Netinkamas metaduomenų įrašas „%s“"
+
+#: ../libtransmission/natpmp.c:30
+msgid "Port Forwarding (NAT-PMP)"
+msgstr "Prievado persiuntimsa (NAT-PMP)"
+
+#: ../libtransmission/natpmp.c:70
+#, c-format
+msgid "%s succeeded (%d)"
+msgstr "%s pavyko (%d)"
+
+#: ../libtransmission/natpmp.c:137
+#, c-format
+msgid "Found public address \"%s\""
+msgstr "Rastas viešas adresas „%s“"
+
+#: ../libtransmission/natpmp.c:173
+#, c-format
+msgid "no longer forwarding port %d"
+msgstr "nebepersiunčiamas prievadas %d"
+
+#: ../libtransmission/natpmp.c:218
+#, c-format
+msgid "Port %d forwarded successfully"
+msgstr "Prievadas %d persiųstas sėkmingai"
+
+#: ../libtransmission/net.c:323
+#, c-format
+msgid "Couldn't set source address %s on %d: %s"
+msgstr "Nepavyko %2$d nustatyti šaltinio adreso %1$s: %3$s"
+
+#: ../libtransmission/net.c:339
+#, c-format
+msgid "Couldn't connect socket %d to %s, port %d (errno %d - %s)"
+msgstr "Nepavyko prijungti lizdo %d prie %s, prievadas %d (errno %d – %s)"
+
+#: ../libtransmission/net.c:397
+msgid "Is another copy of Transmission already running?"
+msgstr "Ar šiuo metu yra paleista dar viena Transmission kopija?"
+
+#: ../libtransmission/net.c:402
+#, c-format
+msgid "Couldn't bind port %d on %s: %s"
+msgstr "Nepavyko %2$s susieti prievado %1$d: %3$s"
+
+#: ../libtransmission/net.c:404
+#, c-format
+msgid "Couldn't bind port %d on %s: %s (%s)"
+msgstr "Nepavyko %2$s susieti prievado %1$d: %3$s (%4$s)"
+
+#: ../libtransmission/peer-msgs.c:1913
+#, c-format
+msgid "Please Verify Local Data! Piece #%zu is corrupt."
+msgstr ""
+
+#: ../libtransmission/port-forwarding.c:33
+msgid "Port Forwarding"
+msgstr "Prievado persiuntimas"
+
+#: ../libtransmission/port-forwarding.c:60
+msgid "Starting"
+msgstr "Pradedama"
+
+#: ../libtransmission/port-forwarding.c:61
+msgid "Forwarded"
+msgstr "Persiųsta"
+
+#: ../libtransmission/port-forwarding.c:62
+msgid "Stopping"
+msgstr "Stabdoma"
+
+#: ../libtransmission/port-forwarding.c:63
+msgid "Not forwarded"
+msgstr "Nepersiųsta"
+
+#: ../libtransmission/port-forwarding.c:93 ../libtransmission/torrent.c:2004
+#, c-format
+msgid "State changed from \"%1$s\" to \"%2$s\""
+msgstr "Būsena patiko iš „%1$s“ į „%2$s“"
+
+#: ../libtransmission/port-forwarding.c:183
+msgid "Stopped"
+msgstr "Sustabdyta"
+
+#. first %s is the application name
+#. second %s is the version number
+#: ../libtransmission/session.c:705
+#, c-format
+msgid "%s %s started"
+msgstr "%s %s paleista"
+
+#: ../libtransmission/session.c:1898
+#, c-format
+msgid "Loaded %d torrents"
+msgstr "Įkelti %d torentai"
+
+#: ../libtransmission/torrent.c:515
+#, c-format
+msgid "Tracker warning: \"%s\""
+msgstr "Sekiklio perspėjimas: „%s“"
+
+#: ../libtransmission/torrent.c:522
+#, c-format
+msgid "Tracker error: \"%s\""
+msgstr "Sekiklio klaida: „%s“"
+
+#: ../libtransmission/torrent.c:776
+msgid ""
+"No data found! Ensure your drives are connected or use \"Set Location\". To "
+"re-download, remove the torrent and re-add it."
+msgstr ""
+
+#: ../libtransmission/torrent.c:1635
+msgid "Restarted manually -- disabling its seed ratio"
+msgstr ""
+
+#: ../libtransmission/torrent.c:1781
+msgid "Removing torrent"
+msgstr "Šalinamas torentas"
+
+#: ../libtransmission/torrent.c:1865
+msgid "Done"
+msgstr "Atlikta"
+
+#: ../libtransmission/torrent.c:1868
+msgid "Complete"
+msgstr "Baigta"
+
+#: ../libtransmission/torrent.c:1871
+msgid "Incomplete"
+msgstr "Nebaigta"
+
+#: ../libtransmission/upnp.c:26
+msgid "Port Forwarding (UPnP)"
+msgstr "Prievado persiuntimas (UPnP)"
+
+#: ../libtransmission/upnp.c:112
+#, c-format
+msgid "Found Internet Gateway Device \"%s\""
+msgstr "Rastas interneto šliuzo įrenginys „%s“"
+
+#: ../libtransmission/upnp.c:115
+#, c-format
+msgid "Local Address is \"%s\""
+msgstr "Vietinis adresas yra „%s“"
+
+#: ../libtransmission/upnp.c:151
+#, c-format
+msgid "Port %d isn't forwarded"
+msgstr "Prievadas %d nepersiunčiamas"
+
+#: ../libtransmission/upnp.c:168
+#, c-format
+msgid "Stopping port forwarding through \"%s\", service \"%s\""
+msgstr "Stabdomas prievado persiuntimas per „%s“, paslauga „%s“"
+
+#: ../libtransmission/upnp.c:219
+#, c-format
+msgid ""
+"Port forwarding through \"%s\", service \"%s\". (local address: %s:%d)"
+msgstr ""
+
+#: ../libtransmission/upnp.c:224
+msgid "Port forwarding successful!"
+msgstr "Prievadas sėkmingai persiųstas!"
+
+#: ../libtransmission/utils.c:508
+msgid "Not a regular file"
+msgstr "Nėra įprastas failas"
+
+#: ../libtransmission/utils.c:526
+msgid "Memory allocation failed"
+msgstr "Nepavyko paskirstyti atmintinės"
+
+#. Node exists but isn't a folder
+#: ../libtransmission/utils.c:624
+#, c-format
+msgid "File \"%s\" is in the way"
+msgstr "Failas „%s“ trukdo"
+
+#: ../libtransmission/utils.c:1511
+msgid "None"
+msgstr "Nėra"
+
+#: ../libtransmission/verify.c:215
+msgid "Verifying torrent"
+msgstr "Tikrinamas torrentas"
+
+#: ../libtransmission/verify.c:257
+msgid "Queued for verification"
+msgstr "Eilėje patikrinimui"
+
+#~ msgid "Sort by _State"
+#~ msgstr "Rikiuoti pagal _būseną"
+
+#~ msgid "Sort by _Tracker"
+#~ msgstr "Rikiuoti pagal _sekiklį"
+
+#~ msgid "_Main Window"
+#~ msgstr "_Pagrindinis langas"
+
+#~ msgid "_Reverse Sort Order"
+#~ msgstr "_Atvirkščia rikiavimo tvarka"
+
+#~ msgid "Status"
+#~ msgstr "Būsena"
+
+#~ msgid "<b>Leechers:</b>"
+#~ msgstr "<b>Atsisiuntėjai:</b>"
+
+#~ msgid "Pieces:"
+#~ msgstr "Dalys:"
+
+#~ msgid "Private to this tracker -- PEX disabled"
+#~ msgstr "Asmeninis šiam sekikliui – PEX išjungta"
+
+#~ msgid "Origins"
+#~ msgstr "Šaltinis"
+
+#~ msgid "Creator:"
+#~ msgstr "Kūrėjas:"
+
+#~ msgid "Date:"
+#~ msgstr "Data:"
+
+#~ msgid "Torrent file:"
+#~ msgstr "Torento failas:"
+
+#~ msgid "Transfer"
+#~ msgstr "Siuntimas"
+
+#~ msgid "Failed DL:"
+#~ msgstr "Nepavyko ats.:"
+
+#~ msgid "Dates"
+#~ msgstr "Datos"
+
+#~ msgid "Started at:"
+#~ msgstr "Pradėta:"
+
+#~ msgid "Last activity at:"
+#~ msgstr "Paskutinis aktyvumas:"
+
+#~ msgid "Limit _upload speed (KB/s):"
+#~ msgstr "Riboti _išsiuntimo greitį (KB/s):"
+
+#~ msgid "Scrape"
+#~ msgstr "Valymas"
+
+#~ msgid "Last scrape at:"
+#~ msgstr "Paskutinis valymas:"
+
+#~ msgid "Tracker responded:"
+#~ msgstr "Sekiklis atsakė:"
+
+#~ msgid "Announce"
+#~ msgstr "Pranešti"
+
+#~ msgid "Tracker:"
+#~ msgstr "Sekiklis:"
+
+#~ msgid "Last announce at:"
+#~ msgstr "Paskutinis pranešimas:"
+
+#~ msgid "Next announce in:"
+#~ msgstr "Kitas pranešimas:"
+
+#~ msgid "Manual announce allowed in:"
+#~ msgstr "Rankinis pranešimas leidžiamas po:"
+
+#~ msgid "Remove torrent?"
+#~ msgid_plural "Remove torrents?"
+#~ msgstr[0] "Pašalinti torentą?"
+#~ msgstr[1] "Pašalinti torentus?"
+#~ msgstr[2] "Pašalinti torentus?"
+
+#~ msgid "Delete this torrent's downloaded files?"
+#~ msgid_plural "Delete these torrents' downloaded files?"
+#~ msgstr[0] "Ištrinti šio torento atsiųstą failą?"
+#~ msgstr[1] "Ištrinti šio torento atsiųstus failus?"
+#~ msgstr[2] "Ištrinti šio torento atsiųstus failus?"
+
+#~ msgid "Start minimized in system tray"
+#~ msgstr "Paleisti sumažinus pranešimų skydelyje"
+
+#~ msgid "[torrent files]"
+#~ msgstr "[torrent failai]"
+
+#~ msgid "Torrent creation cancelled"
+#~ msgstr "Torento kūrimas atšauktas"
+
+#, c-format
+#~ msgid "<i>%1$s; %2$'d File</i>"
+#~ msgid_plural "<i>%1$s; %2$'d Files</i>"
+#~ msgstr[0] "<i>%1$s; %2$'d failas</i>"
+#~ msgstr[1] "<i>%1$s; %2$'d failai</i>"
+#~ msgstr[2] "<i>%1$s; %2$'d failų</i>"
+
+#~ msgid "Commen_t:"
+#~ msgstr "_Komentaras:"
+
+#~ msgid "Display _options dialog"
+#~ msgstr "Parodyti _parinkčių dialogą"
+
+#, c-format
+#~ msgid "%1$s of %2$s (%3$.2f%%)"
+#~ msgstr "%1$s iš %2$s (%3$.2f%%)"
+
+#, c-format
+#~ msgid "%1$s of %2$s (%3$.2f%%), uploaded %4$s (Ratio: %5$s)"
+#~ msgstr "%1$s iš %2$s (%3$.2f%%), išsiųsta %4$s (santykis: %5$s)"
+
+#, c-format
+#~ msgid "speed|Down: %1$s, Up: %2$s"
+#~ msgstr "Ats.: %1$s, Išs.: %2$s"
+
+#, c-format
+#~ msgid "Down: %s"
+#~ msgstr "Ats.: %s"
+
+#, c-format
+#~ msgid "Up: %s"
+#~ msgstr "Išs.: %s"
+
+#, c-format
+#~ msgid "Downloading from %1$'d of %2$'d connected peer"
+#~ msgid_plural "Downloading from %1$'d of %2$'d connected peers"
+#~ msgstr[0] "Atsiunčiama iš %1$'d iš %2$'d prisijungusio siuntėjo"
+#~ msgstr[1] "Atsiunčiama iš %1$'d iš %2$'d prisijungusių siuntėjų"
+#~ msgstr[2] "Atsiunčiama iš %1$'d iš %2$'d prisijungusių siuntėjų"
+
+#, c-format
+#~ msgid "Seeding to %1$'d of %2$'d connected peer"
+#~ msgid_plural "Seeding to %1$'d of %2$'d connected peers"
+#~ msgstr[0] "Siunčiama %1$'d iš %2$'d prisijungusio siuntėjo"
+#~ msgstr[1] "Siunčiama %1$'d iš %2$'d prisijungusių siuntėjų"
+#~ msgstr[2] "Siunčiama %1$'d iš %2$'d prisijungusių siuntėjų"
+
+#, c-format
+#~ msgid ""
+#~ "%1$'d Seeding, %2$'d Downloading\n"
+#~ "Down: %3$s, Up: %4$s"
+#~ msgstr ""
+#~ "%1$'d išsiunčiama, %2$'d atsiunčiama\n"
+#~ "Ats.: %3$s, Išs.: %4$s"
+
+#~ msgid "Mo_ve source files to Trash"
+#~ msgstr "_Perkelti šaltinių failus į šiukšlinę"
+
+#~ msgid "Use peer e_xchange"
+#~ msgstr "Naudoti siuntėjų _mainus"
+
+#~ msgid "Limits"
+#~ msgstr "Apribojimai"
+
+#, c-format
+#~ msgid "Waiting to verify local data (%.1f%% tested)"
+#~ msgstr "Ruošiamasi patikrinti vietinius duomenis (patikrinta %.1f%%)"
+
+#~ msgid "A_ll"
+#~ msgstr "_Visi"
+
+#~ msgid "_Active"
+#~ msgstr "_Aktyvūs"
+
+#~ msgid "_Downloading"
+#~ msgstr "At_siunčiami"
+
+#~ msgid "_Seeding"
+#~ msgstr "Išsi_unčiami"
+
+#~ msgid "_Paused"
+#~ msgstr "Prista_bdyti"
+
+#, c-format
+#~ msgid "%1$'d of %2$'d Torrent"
+#~ msgid_plural "%1$'d of %2$'d Torrents"
+#~ msgstr[0] "%1$'d iš %2$'d torento"
+#~ msgstr[1] "%1$'d iš %2$'d torentų"
+#~ msgstr[2] "%1$'d iš %2$'d torentų"
+
+#, c-format
+#~ msgid "%'d Torrent"
+#~ msgid_plural "%'d Torrents"
+#~ msgstr[0] "%'d torentas"
+#~ msgstr[1] "%'d torentai"
+#~ msgstr[2] "%'d torentų"
+
+#, c-format
+#~ msgid "%'u byte"
+#~ msgid_plural "%'u bytes"
+#~ msgstr[0] "%'u baitas"
+#~ msgstr[1] "%'u baitai"
+#~ msgstr[2] "%'u baitų"
+
+#, c-format
+#~ msgid "%'.1f KB"
+#~ msgstr "%'.1f KB"
+
+#, c-format
+#~ msgid "%'.1f MB"
+#~ msgstr "%'.1f MB"
+
+#, c-format
+#~ msgid "%'.1f GB"
+#~ msgstr "%'.1f GB"
+
+#, c-format
+#~ msgid "%'.1f KB/s"
+#~ msgstr "%'.1f KB/s"
+
+#, c-format
+#~ msgid "%'.2f MB/s"
+#~ msgstr "%'.2f MB/s"
+
+#, c-format
+#~ msgid "%'.1f MB/s"
+#~ msgstr "%'.1f MB/s"
+
+#, c-format
+#~ msgid "%'.2f GB/s"
+#~ msgstr "%'.2f GB/s"
+
+#, c-format
+#~ msgid "%'d second"
+#~ msgid_plural "%'d seconds"
+#~ msgstr[0] "%'d sekundė"
+#~ msgstr[1] "%'d sekundės"
+#~ msgstr[2] "%'d sekundžių"
+
+#, c-format
+#~ msgid "%'d minute"
+#~ msgid_plural "%'d minutes"
+#~ msgstr[0] "%'d minutė"
+#~ msgstr[1] "%'d minutės"
+#~ msgstr[2] "%'d minučių"
+
+#, c-format
+#~ msgid "%'d hour"
+#~ msgid_plural "%'d hours"
+#~ msgstr[0] "%'d valanda"
+#~ msgstr[1] "%'d valandos"
+#~ msgstr[2] "%'d valandų"
+
+#, c-format
+#~ msgid "%'d day"
+#~ msgid_plural "%'d days"
+#~ msgstr[0] "%'d diena"
+#~ msgstr[1] "%'d dienos"
+#~ msgstr[2] "%'d dienų"
+
+#, c-format
+#~ msgid ""
+#~ "Port forwarding through \"%s\", service \"%s\".  (local address: %s:%d)"
+#~ msgstr ""
+#~ "Prievado persiuntimas per „%s“, paslauga „%s“. (Vietinis adresas: %s:%d)"
+
+#~ msgid "_Minimal View"
+#~ msgstr "_Mažiausias rodymas"
+
+#~ msgid "Add a torrent"
+#~ msgstr "Pridėti torentą"
+
+#~ msgid "_Add..."
+#~ msgstr "_Pridėti..."
+
+#~ msgid "_Open Folder"
+#~ msgstr "_Atverti aplanką"
+
+#~ msgid "<b>Seeders:</b>"
+#~ msgstr "<b>Skleidėjai:</b>"
+
+#~ msgid "Progress:"
+#~ msgstr "Eiga:"
+
+#~ msgid "Invalid URL"
+#~ msgstr "Netinkamas URL"
+
+#~ msgid "Choose File"
+#~ msgstr "Pasirinkite failą"
+
+#~ msgid "Choose Directory"
+#~ msgstr "Pasirinkite aplanką"
+
+#~ msgid "Source"
+#~ msgstr "Šaltinis"
+
+#~ msgid "F_older"
+#~ msgstr "_Aplankas"
+
+#~ msgid "Adding Torrents"
+#~ msgstr "Pridedami torentai"
+
+#~ msgid "Sort by _Ratio"
+#~ msgstr "Rikiuoti pagal _koeficientą"
+
+#~ msgid "_Move source file to Trash"
+#~ msgstr "_Perkelti šaltinio failą į šiukšlinę"
+
+#~ msgid "Add a Torrent"
+#~ msgstr "Pridėti torentą"
+
+#~ msgid "Peer was discovered through Peer Exchange (PEX)"
+#~ msgstr "Siuntėjas aptiktas naudojant siuntėjų mainus (PEX)"
+
+#~ msgid "<b>Times Completed:</b>"
+#~ msgstr "<b>Kartų baigta:</b>"
+
+#, c-format
+#~ msgid "%'d Piece"
+#~ msgid_plural "%'d Pieces"
+#~ msgstr[0] "%'d dalis"
+#~ msgstr[1] "%'d dalys"
+#~ msgstr[2] "%'d dalių"
+
+#, c-format
+#~ msgid "%1$s @ %2$s"
+#~ msgstr "%1$s @ %2$s"
+
+#, c-format
+#~ msgid "%.1f%%"
+#~ msgstr "%.1f%%"
+
+#~ msgid "In progress"
+#~ msgstr "Eigoje"
+
+#~ msgid "Now"
+#~ msgstr "Dabar"
+
+#~ msgid "Couldn't add corrupt torrent"
+#~ msgid_plural "Couldn't add corrupt torrents"
+#~ msgstr[0] "Nepavyko pridėti sugadinto torento"
+#~ msgstr[1] "Nepavyko pridėti sugadintų torentų"
+#~ msgstr[2] "Nepavyko pridėti sugadintų torentų"
+
+#~ msgid "Couldn't add duplicate torrent"
+#~ msgid_plural "Couldn't add duplicate torrents"
+#~ msgstr[0] "Nepavyko pridėti sudvigubinto torento"
+#~ msgstr[1] "Nepavyko pridėti sudvigubintų torentų"
+#~ msgstr[2] "Nepavyko pridėti sudvigubintų torentų"
+
+#~ msgid "Torrent created!"
+#~ msgstr "Torentas sukurtas!"
+
+#, c-format
+#~ msgid "Torrent creation failed: %s"
+#~ msgstr "Nepavyko sukurti torento: %s"
+
+#~ msgid "<b>E_xtras</b>"
+#~ msgstr "<b>Papil_doma</b>"
+
+#~ msgid "Tier"
+#~ msgstr "Sujungėjas"
+
+#~ msgid "Announce URL"
+#~ msgstr "Pranešimo URL"
+
+#~ msgid "Web Interface"
+#~ msgstr "Žiniatinklio sąsaja"
+
+#~ msgid "_Enable web interface"
+#~ msgstr "Įj_ungti žiniatinklio sąsają"
+
+#~ msgid "_Require username"
+#~ msgstr "_Reikalingas naudotojo vardas"
+
+#~ msgid "Tracker Proxy"
+#~ msgstr "Sekiklio tarpinis serveris"
+
+#~ msgid "Connect to tracker via a pro_xy"
+#~ msgstr "Prisijungti prie sekiklio per _tarpinį serverį"
+
+#~ msgid "Proxy _server:"
+#~ msgstr "Tarpinis _serveris:"
+
+#~ msgid "Proxy _port:"
+#~ msgstr "Tarpinio serverio _prievadas:"
+
+#~ msgid "Proxy _type:"
+#~ msgstr "Tarpinio serverio _tipas:"
+
+#~ msgid "_Authentication is required"
+#~ msgstr "_Reikia patvirtinti tapatybę"
+
+#, c-format
+#~ msgid "Blocklist \"%1$s\" updated with %2$'d entries"
+#~ msgstr "Blokavimo sąrašas „%1$s“ papildytas %2$'d įrašais"
+
+#~ msgid "Couldn't read resume file"
+#~ msgstr "Nepavyko perskaityti tęsties failo"
+
+#, c-format
+#~ msgid "Got %d peers from tracker"
+#~ msgstr "Iš sekiklio gauta %d siuntėjų"
+
+#, c-format
+#~ msgid "%1$s (%2$s verified)"
+#~ msgstr "%1$s (%2$s patikrinta)"
+
+#~ msgid "File \"%s\" is already open"
+#~ msgstr "Failas „%s“ jau atvertas"
+
+#~ msgid "Limit u_pload speed (KB/s):"
+#~ msgstr "Riboti iš_siuntimo greitį (KB/s):"
+
+#~ msgid "File"
+#~ msgstr "Failas"
+
+#~ msgid "Limit do_wnload speed (KB/s):"
+#~ msgstr "Riboti at_siuntimo greitį (KB/s):"
+
+#~ msgid "Click to disable Temporary Speed Limits"
+#~ msgstr "Spustedami čia išjungsite laikinus greičio apribojimus"
+
+#~ msgid "Click to enable Temporary Speed Limits"
+#~ msgstr "Spustedami čia įjungsite laikinus greičio apribojimus"
+
+#~ msgid "Limit _download speed (KB/s):"
+#~ msgstr "Riboti _atsiuntimo greitį (KB/s):"
+
+#~ msgid "Sort by T_racker"
+#~ msgstr "Rikiuoti pagal _sekiklį"
+
+#~ msgid "Temporary  Speed _Limits"
+#~ msgstr "Laikini spartos _apribojimai"
+
+#~ msgid "Set _Location"
+#~ msgstr "Nustatyti _vietą"
+
+#~ msgid "Seed-Until Ratio"
+#~ msgstr "„Skleisti iki“ santykis"
+
+#~ msgid "Use _global settings"
+#~ msgstr "Naudoti _visuotinius parametrus"
+
+#~ msgid "Seed _regardless of ratio"
+#~ msgstr "Skleisti _nepaisant santykio"
+
+#~ msgid "_Seed torrent until its ratio reaches:"
+#~ msgstr "_Skleisti torentą iki bus pasiektas santykis:"
+
+#, c-format
+#~ msgid "%1$s (%2$'d piece @ %3$s)"
+#~ msgid_plural "%1$s (%2$'d pieces @ %3$s)"
+#~ msgstr[0] "%1$s (%2$'d dalis @ %3$s)"
+#~ msgstr[1] "%1$s (%2$'d dalys @ %3$s)"
+#~ msgstr[2] "%1$s (%2$'d dalių @ %3$s)"
+
+#, c-format
+#~ msgid "%1$s (%2$'d piece)"
+#~ msgid_plural "%1$s (%2$'d pieces)"
+#~ msgstr[0] "%1$s (%2$'d dalis)"
+#~ msgstr[1] "%1$s (%2$'d dalys)"
+#~ msgstr[2] "%1$s (%2$'d dalių)"
+
+#, c-format
+#~ msgid "%1$s (%2$.1f%%); %3$s Unverified"
+#~ msgstr "%1$s(%2$.1f%%); %3$s nepatikrinta"
+
+#, c-format
+#~ msgid "%1$s (%2$.1f%%)"
+#~ msgstr "%1$s (%2$.1f%%)"
+
+#~ msgid "Peer was discovered through DHT"
+#~ msgstr "Siuntėjas aptiktas per DHT"
+
+#~ msgid "None sent"
+#~ msgstr "Nieko neišsiųsta"
+
+#~ msgid "Next scrape in:"
+#~ msgstr "Kitas valymas už:"
+
+#~ msgid "This torrent has not finished downloading."
+#~ msgid_plural "These torrents have not finished downloading."
+#~ msgstr[0] "Šis torentas dar neatsiųstas."
+#~ msgstr[1] "Šie torentai dar neatsiųsti."
+#~ msgstr[2] "Šie torentai dar neatsiųsti."
+
+#~ msgid "This torrent is connected to peers."
+#~ msgid_plural "These torrents are connected to peers."
+#~ msgstr[0] "Šis torentas prisijungęs prie siuntėjų."
+#~ msgstr[1] "Šie torentai prisijungęs prie siuntėjų."
+#~ msgstr[2] "Šie torentai prisijungęs prie siuntėjų."
+
+#~ msgid "One of these torrents is connected to peers."
+#~ msgid_plural "Some of these torrents are connected to peers."
+#~ msgstr[0] "Vienas šių torentų prisijungęs prie siuntėjų."
+#~ msgstr[1] "Kai kurie šių torentų prisijungę prie siuntėjų."
+#~ msgstr[2] "Kai kurie šių torentų prisijungę prie siuntėjų."
+
+#~ msgid "One of these torrents has not finished downloading."
+#~ msgid_plural "Some of these torrents have not finished downloading."
+#~ msgstr[0] "Vienas šių torentų dar neatsiųstas."
+#~ msgstr[1] "Kai kurie šių torentų dar neatsiųsti."
+#~ msgstr[2] "Kai kurie šių torentų dar neatsiųsti."
+
+#~ msgid "Progress"
+#~ msgstr "Pažanga"
+
+#~ msgid "Copyright 2005-2009 The Transmission Project"
+#~ msgstr "Autoriaus teisės priklauso Transmission projektui © 2005-2009"
+
+#~ msgid "Show Transmission in the system _tray"
+#~ msgstr "Rodyti Transmission sistemos _skydelyje"
+
+#~ msgid "Show popup _notifications"
+#~ msgstr "Rodyti iškeliamus _pranešimus"
+
+#, c-format
+#~ msgid "Enable _blocklist (contains %'d rule)"
+#~ msgid_plural "Enable _blocklist (contains %'d rules)"
+#~ msgstr[0] "Įjungti _blokavimo sąrašą (jame yra %'d taisyklė)"
+#~ msgstr[1] "Įjungti _blokavimo sąrašą (jame yra %'d taisyklės)"
+#~ msgstr[2] "Įjungti _blokavimo sąrašą (jame yra %'d taisyklių)"
+
+#, c-format
+#~ msgid "Blocklist now has %'d rule."
+#~ msgid_plural "Blocklist now has %'d rules."
+#~ msgstr[0] "Blokavimo sąraše dabar yra %'d taisyklė."
+#~ msgstr[1] "Blokavimo sąraše dabar yra %'d taisyklės."
+#~ msgstr[2] "Blokavimo sąraše dabar yra %'d taisyklių."
+
+#~ msgid "Listening _port:"
+#~ msgstr "Klausomasi _prievado:"
+
+#~ msgid "Temporary Speed Limits"
+#~ msgstr "Laikini spartos ribojimai"
+
+#~ msgid "Incoming Peers"
+#~ msgstr "Atsiunčiantys siuntėjai"
+
+#~ msgid "_Port for incoming connections:"
+#~ msgstr "_Prievadas gaunamiems ryšiams:"
+
+#~ msgid "Proxy"
+#~ msgstr "Tarpinis serveris"
+
+#, c-format
+#~ msgid "%1$s remaining"
+#~ msgstr "liko %1$s"
+
+#, c-format
+#~ msgid ""
+#~ "Click to disable Temporary Speed Limits\n"
+#~ "(%1$s down, %2$s up)"
+#~ msgstr ""
+#~ "Spustelėdami čia išjungsite laikinus greičio apribojimus\n"
+#~ "(ats. %1$s, išs. %2$s)"
+
+#, c-format
+#~ msgid ""
+#~ "Click to enable Temporary Speed Limits\n"
+#~ "(%1$s down, %2$s up)"
+#~ msgstr ""
+#~ "Spustelėdami čia įjungsite laikinus greičio apribojimus\n"
+#~ "(ats. %1$s, išs. %2$s)"
+
+#, c-format
+#~ msgid "Blocklist \"%s\" contains %'zu entries"
+#~ msgstr "Blokavimo sąraše „%s“ yra %'zu įrašai"
+
+#, c-format
+#~ msgid "Couldn't create \"%1$s\": \"%2$s\" is not a folder"
+#~ msgstr "Nepavyko sukurti „%1$s“: „%2$s“ nėra aplankas"
+
+#, c-format
+#~ msgid "Preallocated file \"%s\""
+#~ msgstr "Iš anksto rezervuotas failas „%s“"
+
+#~ msgid "Sort by _ETA"
+#~ msgstr "Rikiuoti pagal _likusį laiką"
+
+#, c-format
+#~ msgid "%1$s (%2$s verified, %3$s unverified)"
+#~ msgstr "%1$s (%2$s patikrinta, %3$s nepatikrinta)"
+
+#~ msgid "Plaintext preferred"
+#~ msgstr "Pageidautinas grynasis tekstas"
+
+#~ msgid "Encryption preferred"
+#~ msgstr "Pageidautinas šifravimas"
+
+#~ msgid "Encryption required"
+#~ msgstr "Reikalingas šifravimas"
+
+#~ msgid " _and "
+#~ msgstr " _ir "
+
+#, c-format
+#~ msgid "Couldn't create \"%1$s\": parent folder \"%2$s\" does not exist"
+#~ msgstr "Nepavyko sukurti „%1$s“: motininis aplankas „%2$s“ neegzistuoja"
+
+#~ msgid "Add URL..."
+#~ msgstr "Pridėti URL..."
+
+#~ msgid "Add _URL..."
+#~ msgstr "Pridėti _URL..."
+
+#, c-format
+#~ msgid "%1$.1f%%"
+#~ msgstr "%1$.1f%%"
+
+#~ msgid "Enable Temporary Speed _Limits"
+#~ msgstr "Įjungti laikiną spartos _ribojimą"
+
+#~ msgid "_Add File..."
+#~ msgstr "_Pridėti failą..."
+
+#~ msgid "Add URL"
+#~ msgstr "Pridėti URL"
+
+#~ msgid "Add torrent from URL"
+#~ msgstr "Pridėti torentą iš URL"
+
+#~ msgid "Limit _download speed (KiB/s):"
+#~ msgstr "Riboti _atsiuntimo greitį (KiB/s):"
+
+#~ msgid "Limit _upload speed (KiB/s):"
+#~ msgstr "Riboti _išsiuntimo greitį (KiB/s):"
+
+#~ msgid "Availability:"
+#~ msgstr "Prieinamumas:"
+
+#~ msgid "Edit Trackers"
+#~ msgstr "Taisyti sekiklius"
+
+#~ msgid "_Edit Trackers"
+#~ msgstr "_Taisyti sekiklius"
+
+#~ msgid ""
+#~ "Once removed, continuing the transfer will require the torrent file or "
+#~ "magnet link."
+#~ msgid_plural ""
+#~ "Once removed, continuing the transfers will require the torrent files or "
+#~ "magnet links."
+#~ msgstr[0] ""
+#~ "Jeigu pašalinsite, norint tęsti siuntimą jums prireiks torento failo arba "
+#~ "magnetinės nuorodos."
+#~ msgstr[1] ""
+#~ "Jeigu pašalinsite, norint tęsti siuntimą jums prireiks torentų failų arba "
+#~ "magnetinių nuorodų."
+#~ msgstr[2] ""
+#~ "Jeigu pašalinsite, norint tęsti siuntimą jums prireiks torentų failų arba "
+#~ "magnetinių nuorodų."
+
+#, c-format
+#~ msgid ""
+#~ "Got signal %d; trying to shut down cleanly.  Do it again if it gets stuck."
+#~ msgstr ""
+#~ "Gautas signalas %d. Bandoma tvarkingai išjungti. Bandykite dar kartą, jei "
+#~ "užstrigs."
+
+#~ msgid ""
+#~ "Transmission is already running, but is not responding.  To start a new "
+#~ "session, you must first close the existing Transmission process."
+#~ msgstr ""
+#~ "Transmission jau veikia, tačiau neatsako. Norėdami paleisti naują seansą, iš "
+#~ "pradžių išjunkite esamą Transmission procesą."
+
+#~ msgid ""
+#~ "Transmission is a file-sharing program.  When you run a torrent, its data "
+#~ "will be made available to others by means of upload.  You and you alone are "
+#~ "fully responsible for exercising proper judgement and abiding by your local "
+#~ "laws."
+#~ msgstr ""
+#~ "Transmission – tai dalijimosi failais programa. Kai paleidžiate torentą, "
+#~ "kiti gali atsisiųsti juo platinamus duomenis. Atminkite, kad jūs ir tiktai "
+#~ "jūs esate atsakingi už savo sprendimus ir jūsų šalies įstatymų laikymąsi."
+
+#, c-format
+#~ msgid "%1$s; %2$'d File"
+#~ msgid_plural "%1$s; %2$'d Files"
+#~ msgstr[0] "%1$s; %2$'d failas"
+#~ msgstr[1] "%1$s; %2$'d failai"
+#~ msgstr[2] "%1$s; %2$'d failų"
+
+#, c-format
+#~ msgid "%1$'d Piece @ %2$s"
+#~ msgid_plural "%1$'d Pieces @ %2$s"
+#~ msgstr[0] "%1$'d dalis @ %2$s"
+#~ msgstr[1] "%1$'d dalys @ %2$s"
+#~ msgstr[2] "%1$'d dalių @ %2$s"
+
+#~ msgid ""
+#~ "These statistics are for your information only.  Resetting them doesn't "
+#~ "affect the statistics logged by your BitTorrent trackers."
+#~ msgstr ""
+#~ "Ši statistinė informacija yra tik informaciniais tikslais. Jeigu ją "
+#~ "atstatysite į pradinę būseną, tai neturės įtakos BitTorrent sekiklių "
+#~ "renkamai statistinei informacijai."
+
+#, c-format
+#~ msgid "%1$s of %2$s (%3$.2f%%), uploaded %4$s (Ratio: %5$s Goal: %6$s)"
+#~ msgstr ""
+#~ "%1$s iš %2$s (%3$.2f%%), išsiųsta %4$s (santykis: %5$s tikslas: %6$s)"
+
+#, c-format
+#~ msgid "Downloading metadata from %1$'d peer (%2$d%% done)"
+#~ msgid_plural "Downloading metadata from %1$'d peers (%2$d%% done)"
+#~ msgstr[0] "Atsiunčiama metaduomenų iš %1$'d sekiklio (baigta %2$d%%)"
+#~ msgstr[1] "Atsiunčiama metaduomenų iš %1$'d sekiklių (baigta %2$d%%)"
+#~ msgstr[2] "Atsiunčiama metaduomenų iš %1$'d sekiklių (baigta %2$d%%)"
+
+#~ msgid "Use Local Peer Discovery to find more peers"
+#~ msgstr ""
+#~ "Naudoti vietinių siuntėjų aptikimo metodą papildomiems siuntėjams rasti"
+
+#~ msgid "Limit do_wnload speed (KiB/s):"
+#~ msgstr "Riboti at_siuntimo greitį (KiB/s):"
+
+#~ msgid "Limit u_pload speed (KiB/s):"
+#~ msgstr "Riboti iš_siuntimo greitį (KiB/s):"
+
+#~ msgid "Pick a _random port on startup"
+#~ msgstr "Paleidus programą, pasirinkti _atsitiktinį prievadą"
+
+#~ msgid "999.9 KiB/s"
+#~ msgstr "999.9 KiB/s"
+
+#, c-format
+#~ msgid "%'.1f KiB"
+#~ msgstr "%'.1f KiB"
+
+#, c-format
+#~ msgid "%'.1f MiB"
+#~ msgstr "%'.1f MiB"
+
+#, c-format
+#~ msgid "%'.1f GiB"
+#~ msgstr "%'.1f GiB"
+
+#, c-format
+#~ msgid "%'.1f KiB/s"
+#~ msgstr "%'.1f KiB/s"
+
+#, c-format
+#~ msgid "%'.2f MiB/s"
+#~ msgstr "%'.2f MiB/s"
+
+#, c-format
+#~ msgid "%'.1f MiB/s"
+#~ msgstr "%'.1f MiB/s"
+
+#, c-format
+#~ msgid "%'.2f GiB/s"
+#~ msgstr "%'.2f GiB/s"
+
+#, c-format
+#~ msgid ""
+#~ "This magnet link appears to be intended for something other than BitTorrent. "
+#~ " BitTorrent magnet links have a section containing \"%s\"."
+#~ msgstr ""
+#~ "Atrodo, kad ši magnetinė nuoroda yra skirta ne BitTorrent. BitTorrent "
+#~ "magnetinės nuorodos pasižymi sekcija, kurioje yra „%s“."
+
+#~ msgid "Local Peer Discovery disabled"
+#~ msgstr "Vietinių siuntėjų aptikimas išjungtas"
+
+#~ msgid "Local Peer Discovery active"
+#~ msgstr "Vietinių siuntėjų aptikimas įjungtas"
+
+#~ msgid ""
+#~ "No data found!  Reconnect any disconnected drives, use \"Set Location\", or "
+#~ "restart the torrent to re-download."
+#~ msgstr ""
+#~ "Nerasta duomenų! Prijunkite bet kokius atjungtus diskus, pasinaudokite "
+#~ "komanda „Nustatyti vietą“ arba paleiskite torentą iš naujo, kad "
+#~ "atsisiųstumėte iš naujo."
+
+#~ msgid ""
+#~ "Can't find local data.  Try \"Set Location\" to find it, or restart the "
+#~ "torrent to re-download."
+#~ msgstr ""
+#~ "Nepavyko rasti vietinių duomenų. Pabandykite juos rasti pasinaudodami "
+#~ "komanda „Nustatyti vietą“ arba paleiskite torentą iš naujo, kad dar kartą "
+#~ "juos atsiųstumėte."

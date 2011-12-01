@@ -1,0 +1,59 @@
+#!/bin/sh
+
+STATUS=`nvram get nfs_enable`
+if [ "$STATUS" == "0" ]; then
+
+    logger Stoping NFS Server ...
+
+    /usr/bin/killall portmap 2>/dev/null
+
+    /usr/bin/killall statd 2>/dev/null
+
+    /usr/bin/killall nfsd 2>/dev/null
+
+    /usr/bin/killall mountd 2>/dev/null
+
+    logger NFS Server stoped ...
+else
+
+    logger Starting NFS Server ...
+
+    if [ ! -d /var/lib/nfs ]; then
+        mkdir -p /var/lib/nfs
+        touch /var/lib/nfs/etab
+        touch /var/lib/nfs/rmtab
+    fi
+
+
+    if [ -z "`pidof portmap`" ]; then
+        logger - portmap on
+        portmap
+    fi
+
+    sleep 1
+
+    if [ -z "`pidof statd`" ]; then
+        logger statd on
+        statd
+    fi
+
+    sleep 2
+
+    logger - exportfs on
+    exportfs -r
+
+    if [ -z "`pidof nfsd`" ]; then
+        logger - nfsd on
+        nfsd
+    fi
+
+    sleep 1
+
+    if [ -z "`pidof mountd`" ]; then
+        logger - mountd on
+        mountd
+    fi
+
+    logger NFS Server Started ...
+
+fi

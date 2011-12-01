@@ -14,6 +14,7 @@ OBJS := rc.o init.o interface.o network.o wan.o services.o dhcp.o
 OBJS += firewall.o ppp.o telssh.o wnas.o
 OBJS += listen.o redial.o led.o qos.o forward.o misc.o mtd.o
 OBJS += buttons.o restrict.o gpio.o sched.o
+OBJS += account.o new_qoslimit.o arpbind.o
 #	heartbeat.o
 
 ifeq ($(TCONFIG_USB),y)
@@ -31,12 +32,30 @@ endif
 ifeq ($(TCONFIG_OPENVPN),y)
 OBJS += vpn.o
 endif
+ifeq ($(TCONFIG_NOCAT),y)
+OBJS += nocat.o
+endif
 
 ifeq ($(TOMATO_SL),1)
 #OBJS += usb.o
 OBJS += samba.o
 endif
 
+ifeq ($(TCONFIG_BT),y)
+OBJS += transmission.o
+endif
+
+ifeq ($(TCONFIG_NFS),y)
+OBJS += nfs.o
+endif
+
+ifeq ($(TCONFIG_SNMP),y)
+OBJS += snmp.o
+endif
+
+ifeq ($(TCONFIG_SDHC),y)
+OBJS += mmc.o
+endif
 
 all: rc
 

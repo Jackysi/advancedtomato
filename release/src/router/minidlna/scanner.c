@@ -87,6 +87,7 @@ wait_for_mount(const char * path)
 	return r;
 }
 
+
 sqlite_int64
 get_next_available_id(const char * table, const char * parentID)
 {

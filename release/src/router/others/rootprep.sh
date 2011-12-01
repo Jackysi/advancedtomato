@@ -12,7 +12,7 @@ mkdir -p -m 0755 cifs2
 mkdir -p -m 0755 opt
 
 # !!TB
-mkdir -p -m 0755 mmc
+#mkdir -p -m 0755 mmc
 mkdir -p -m 0755 usr/local
 ln -sf /tmp/share usr/share
 ln -sf /tmp/share usr/local/share
@@ -29,3 +29,7 @@ ln -sf /tmp/var/wwwext www/ext
 ln -sf /tmp/var/wwwext www/user
 ln -sf /www/ext/proxy.pac www/proxy.pac
 ln -sf /www/ext/proxy.pac www/wpad.dat
+
+# shibby
+mkdir -p -m 0755 nas
+mkdir -p -m 0755 bkp

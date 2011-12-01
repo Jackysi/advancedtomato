@@ -107,9 +107,11 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("qos_enable,qos_orules"); %>
+//	<% nvram("qos_classnames,qos_enable,qos_orules"); %>
 
-var abc = ['Highest', 'High', 'Medium', 'Low', 'Lowest', 'A','B','C','D','E'];
+
+var abc = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
+
 
 var ipp2p = [
 	[0,'IPP2P (disabled)'],[0xFFF,'All IPP2P filters'],[1,'AppleJuice'],[2,'Ares'],[4,'BitTorrent'],[8,'Direct Connect'],
@@ -334,7 +336,7 @@ qosg.setup = function() {
 	}
 
 	// what a mess...
-	this.init('qg', 'move', 50, [
+	this.init('qg', 'move', 80, [
 		{ multi: [
 			{ type: 'select', options: [[0,'Any Address'],[1,'Dst IP'],[2,'Src IP'],[3,'Src MAC']],
 				prefix: '<div class="x1a">', suffix: '</div>' },

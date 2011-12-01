@@ -407,9 +407,13 @@ function v_mins(e, quiet, min, max)
 	return 0;
 }
 
-function v_macip(e, quiet, bok, ipp)
+function v_macip(e, quiet, bok, lan_ipaddr, lan_netmask)
 {
 	var s, a, b, c, d, i;
+	var ipp, temp;
+
+	temp = lan_ipaddr.split('.');
+	ipp = temp[0]+'.'+temp[1]+'.'+temp[2]+'.';
 
 	if ((e = E(e)) == null) return 0;
 	s = e.value.replace(/\s+/g, '');
@@ -424,41 +428,51 @@ function v_macip(e, quiet, bok, ipp)
 				return false;
 			}
 		}
-        else e.value = a;
+		else e.value = a;
 		ferror.clear(e);
 		return true;
 	}
 
 	a = s.split('-');
+    
 	if (a.length > 2) {
 		ferror.set(e, 'Invalid IP address range', quiet);
 		return false;
 	}
-	c = 0;
+	
+	if (a[0].match(/^\d+$/)){
+		a[0]=ipp+a[0];
+		if ((a.length == 2) && (a[1].match(/^\d+$/)))
+			a[1]=ipp+a[1];
+	}
+	else{
+		if ((a.length == 2) && (a[1].match(/^\d+$/))){
+			temp=a[0].split('.');
+			a[1]=temp[0]+'.'+temp[1]+'.'+temp[2]+'.'+a[1];
+		}
+	}
 	for (i = 0; i < a.length; ++i) {
-		b = a[i];
-		if (b.match(/^\d+$/)) b = ipp + b;
-
+		b = a[i];    
 		b = fixIP(b);
 		if (!b) {
 			ferror.set(e, 'Invalid IP address', quiet);
 			return false;
 		}
 
-		if (b.indexOf(ipp) != 0) {
+		if ((aton(b) & aton(lan_netmask))!=(aton(lan_ipaddr) & aton(lan_netmask))) {
 			ferror.set(e, 'IP address outside of LAN', quiet);
 			return false;
 		}
 
 		d = (b.split('.'))[3];
-		if (d <= c) {
+		if (parseInt(d) <= parseInt(c)) {
 			ferror.set(e, 'Invalid IP address range', quiet);
 			return false;
 		}
 
 		a[i] = c = d;
 	}
-	e.value = ipp + a.join('-');
+	e.value = b.split('.')[0] + '.' + b.split('.')[1] + '.' + b.split('.')[2] + '.' + a.join('-');
 	return true;
 }
 
@@ -1216,7 +1230,7 @@ TomatoGrid.prototype = {
 		this.editor = null;
 		this.canSort = options.indexOf('sort') != -1;
 		this.canMove = options.indexOf('move') != -1;
-		this.maxAdd = maxAdd || 140;
+		this.maxAdd = maxAdd || 500;
 		this.canEdit = (editorFields != null);
 		this.canDelete = this.canEdit || (options.indexOf('delete') != -1);
 		this.editorFields = editorFields;
@@ -2333,7 +2347,15 @@ function navi()
 			['Last 24 Hours',	'24.asp'],
 			['Daily',			'daily.asp'],
 			['Weekly',			'weekly.asp'],
-			['Monthly',			'monthly.asp'] ] ],
+			['Monthly',			'monthly.asp']
+			] ],
+		['IP Traffic',			'ipt', 0, [
+			['Real-Time',			'realtime.asp'],
+			['Last 24 Hours',		'24.asp'],
+			['Transfer Rates',		'details.asp'],
+			['Daily',			'daily.asp'],
+			['Monthly',			'monthly.asp']
+			] ],
 		['Tools', 				'tools', 0, [
 			['Ping',			'ping.asp'],
 			['Trace',			'trace.asp'],
@@ -2349,15 +2371,17 @@ function navi()
 			['Identification',	'ident.asp'],
 			['Time',			'time.asp'],
 			['DDNS',			'ddns.asp'],
-			['Static DHCP',		'static.asp'],
+			['Static DHCP/ARP/IPT',		'static.asp'],
 			['Wireless Filter',	'wfilter.asp'] ] ],
 		['Advanced', 			'advanced', 0, [
-			['Conntrack / Netfilter',	'ctnf.asp'],
-			['DHCP / DNS',		'dhcpdns.asp'],
+			['Conntrack/Netfilter',	'ctnf.asp'],
+			['DHCP/DNS',		'dhcpdns.asp'],
 			['Firewall',		'firewall.asp'],
 			['MAC Address',		'mac.asp'],
 			['Miscellaneous',	'misc.asp'],
 			['Routing',			'routing.asp'],
+			['VLAN',			'vlan.asp'],
+			['LAN Access',			'access.asp'],
 			['Wireless',		'wireless.asp'] ] ],
 		['Port Forwarding', 	'forward', 0, [
 			['Basic',			'basic.asp'],
@@ -2366,7 +2390,7 @@ function navi()
 /* IPV6-END */
 			['DMZ',				'dmz.asp'],
 			['Triggered',		'triggered.asp'],
-			['UPnP / NAT-PMP',	'upnp.asp'] ] ],
+			['UPnP/NAT-PMP',	'upnp.asp'] ] ],
 		['QoS',					'qos', 0, [
 			['Basic Settings',	'settings.asp'],
 			['Classification',	'classify.asp'],
@@ -2374,6 +2398,10 @@ function navi()
 			['View Details',	'detailed.asp'],
 			['Transfer Rates',	'ctrate.asp']
 			] ],
+		['Bandwidth Limiter',	'new-qoslimit.asp'],
+/* NOCAT-BEGIN */
+		['Captive Portal',	'new-splashd.asp'],
+/* NOCAT-END */
 		['Access Restriction',	'restrict.asp'],
 /* REMOVE-BEGIN
 		['Scripts',				'sc', 0, [
@@ -2396,6 +2424,9 @@ REMOVE-END */
 /* MEDIA-SRV-BEGIN */
 			,['Media Server',	'media.asp']
 /* MEDIA-SRV-END */
+/* BT-BEGIN */
+			,['BitTorrent Client',	'bittorrent.asp']
+/* BT-END */
 			] ],
 /* USB-END */
 /* VPN-BEGIN */
@@ -2407,15 +2438,25 @@ REMOVE-END */
 		['Administration',		'admin', 0, [
 			['Admin Access',	'access.asp'],
 			['Bandwidth Monitoring','bwm.asp'],
-			['Buttons / LED',	'buttons.asp'],
+			['IP Traffic Monitoring','iptraffic.asp'],
+			['Buttons/LED',	'buttons.asp'],
 /* CIFS-BEGIN */
 			['CIFS Client',		'cifs.asp'],
 /* CIFS-END */
+/* SDHC-BEGIN */
+			['SDHC/MMC',		'sdhc.asp'],
+/* SDHC-END */
 			['Configuration',	'config.asp'],
 			['Debugging',		'debug.asp'],
 /* JFFS2-BEGIN */
 			['JFFS',			'jffs2.asp'],
 /* JFFS2-END */
+/* NFS-BEGIN */
+			['NFS Server',		'nfs.asp'],
+/* NFS-END */
+/* SNMP-BEGIN */
+			['SNMP',		'snmp.asp'],
+/* SNMP-END */
 			['Logging',			'log.asp'],
 			['Scheduler',		'sched.asp'],
 			['Scripts',			'scripts.asp'],

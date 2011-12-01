@@ -45,6 +45,9 @@ obj-y += rp-pppoe
 obj-y += utils
 obj-y += ntpc
 obj-y += rstats
+obj-y += cstats
+obj-$(TCONFIG_SNMP) += snmp
+obj-$(TCONFIG_SDHC) += mmc
 
 # !!TB - updated Broadcom Wireless driver
 obj-y += et
@@ -55,9 +58,24 @@ obj-y += cyassl
 obj-y += mssl
 obj-y += mdu
 
+obj-$(TCONFIG_NFS) += portmap
+obj-$(TCONFIG_NFS) += e2fsprogs
+obj-$(TCONFIG_NFS) += libevent
+obj-$(TCONFIG_NFS) += libnfsidmap
+obj-$(TCONFIG_NFS) += nfs-utils
+
+#Roadkill
+obj-$(TCONFIG_NOCAT) += nocat
+
 # !!TB
 obj-$(TCONFIG_USB) += p910nd
+
+ifeq ($(CONFIG_LINUX26),y)
+obj-$(TCONFIG_USB) += sd-idle
+else
 obj-$(TCONFIG_USB) += scsi-idle
+endif
+
 obj-y += libusb10
 #obj-y += libusb
 obj-y += usbmodeswitch
@@ -123,6 +141,13 @@ obj-$(TCONFIG_OPENVPN) += openvpn
 obj-$(TCONFIG_EMF) += emf
 obj-$(TCONFIG_EMF) += igs
 
+obj-$(TCONFIG_BBT) += openssl
+obj-$(TCONFIG_BBT) += libevent
+obj-$(TCONFIG_BBT) += libcurl
+obj-$(TCONFIG_BBT) += transmission
+obj-$(TCONFIG_BT) += btgui
+obj-$(TCONFIG_BBT) += zlib
+
 obj-$(CONFIG_LINUX26) += hotplug2
 obj-$(CONFIG_LINUX26) += udevtrigger
 
@@ -132,7 +157,11 @@ else
   ifeq ($(TCONFIG_FTP_SSL),y)
     export FULL_OPENSSL := y
   else
-    FULL_OPENSSL :=
+    ifeq ($(TCONFIG_BBT),y)
+      export FULL_OPENSSL := y
+    else
+      FULL_OPENSSL :=
+    endif
   endif
 endif
 
@@ -225,6 +254,7 @@ endif
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv ntfs/* . && rm -rf ntfs || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv smbfs/* . && rm -rf smbfs || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv reiserfs/* . && rm -rf reiserfs || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv hfs/* . && rm -rf hfs || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv hfsplus/* . && rm -rf hfsplus || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv lockd/* . && rm -rf lockd || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/fs && mv nfsd/* . && rm -rf nfsd || true
@@ -290,6 +320,9 @@ endif
 ifeq ($(TCONFIG_SSH),y)
 	install $(LIBDIR)/libutil.so.0 $(TARGETDIR)/lib/
 endif
+ifeq ($(TCONFIG_BBT),y)
+	install $(LIBDIR)/librt-0.9.30.1.so $(TARGETDIR)/lib/librt.so.0
+endif
 ifneq ($(TCONFIG_OPTIMIZE_SHARED_LIBS),y)
 	install $(LIBDIR)/libresolv.so.0 $(TARGETDIR)/lib/
 	$(STRIP) $(TARGETDIR)/lib/*.so.0
@@ -321,13 +354,12 @@ endif
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ntfs.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/smbfs.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/reiserfs.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/hfsplus.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/jfs.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nfs.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/nfsd.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/lockd.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/exportfs.*o $(PLATFORMDIR)/extras/ || true
-	@mv $(TARGETDIR)/lib/modules/*/kernel/net/sunrpc.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_NFS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nfs.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_NFS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nfsd.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_NFS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/lockd.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_NFS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/exportfs.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_NFS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/net/sunrpc.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/auth_rpcgss.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/rpcsec_gss_krb5.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/xfs.*o $(PLATFORMDIR)/extras/ || true
@@ -384,18 +416,21 @@ endif
 	$(if $(NEED_EX_NLS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nls_euc-kr.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(NEED_EX_NLS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nls_big5.*o $(PLATFORMDIR)/extras/ || true
 
-	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nls_*.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,$(if $(TCONFIG_SDHC),@cp -f,@mv)) $(TARGETDIR)/lib/modules/*/kernel/fs/nls_*.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/*.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/scsi/*.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/leds/*.*o $(PLATFORMDIR)/extras/ || true
-	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/ext2.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,$(if $(TCONFIG_SDHC),@cp -f,@mv)) $(TARGETDIR)/lib/modules/*/kernel/fs/ext2.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/ext3.*o $(PLATFORMDIR)/extras/ || true
-	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/jbd.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,$(if $(TCONFIG_SDHC),@cp -f,@mv)) $(TARGETDIR)/lib/modules/*/kernel/fs/jbd.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/mbcache.*o $(PLATFORMDIR)/extras/ || true
-	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/fat.*o $(PLATFORMDIR)/extras/ || true
-	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/vfat.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,$(if $(TCONFIG_SDHC),@cp -f,@mv)) $(TARGETDIR)/lib/modules/*/kernel/fs/fat.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_USB),@cp -f,$(if $(TCONFIG_SDHC),@cp -f,@mv)) $(TARGETDIR)/lib/modules/*/kernel/fs/vfat.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/msdos.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(TCONFIG_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/fuse.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_HFS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/hfs.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(TCONFIG_HFS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/hfsplus.*o $(PLATFORMDIR)/extras/ || true
+
 ifneq ($(TCONFIG_USB),y)
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/usb || true
 	@rm -rf $(TARGETDIR)/lib/modules/*/kernel/drivers/scsi || true
@@ -1232,6 +1267,11 @@ ifneq ($(MEDIA_SERVER_STATIC),y)
 	install -D zlib/libz.so.1 $(INSTALLDIR)/zlib/usr/lib/
 	$(STRIP) $(INSTALLDIR)/zlib/usr/lib/libz.so.1
 endif
+ifeq ($(TCONFIG_BT),y)
+	install -d $(INSTALLDIR)/zlib/usr/lib
+	install -D zlib/libz.so.1 $(INSTALLDIR)/zlib/usr/lib/
+	$(STRIP) $(INSTALLDIR)/zlib/usr/lib/libz.so.1
+endif
 
 libid3tag/stamp-h1: zlib
 	cd libid3tag && \
@@ -1355,6 +1395,47 @@ ebtables-install: ebtables
 ebtables-clean:
 	make -C ebtables clean
 
+#Roadkill
+glib:
+	@$(SEP)
+	@cd glib && $(CONFIGURE) --prefix=/usr glib_cv_prog_cc_ansi_proto=no glib_cv_has__inline=yes glib_cv_has__inline__=yes glib_cv_hasinline=yes \
+		glib_cv_sane_realloc=yes glib_cv_va_copy=no glib_cv___va_copy=yes glib_cv_va_val_copy=yes glib_cv_rtldglobal_broken=no \
+		glib_cv_uscore=no glib_cv_func_pthread_mutex_trylock_posix=yes glib_cv_func_pthread_cond_timedwait_posix=yes glib_cv_sizeof_gmutex=24 \
+		glib_cv_byte_contents_gmutex="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0" glib_cv_sys_pthread_getspecific_posix=yes \
+		glib_cv_sys_pthread_mutex_trylock_posix=yes glib_cv_sys_pthread_cond_timedwait_posix=yes ac_cv_func_getpwuid_r=yes ac_cv_func_getpwuid_r_posix=yes
+	@$(MAKE) -C glib
+
+glib-clean:
+	$(MAKE) -C glib clean
+
+glib-install:
+	@$(MAKE) -C glib DESTDIR=$(INSTALLDIR)/glib install
+
+#Roadkill
+nocat: glib glib-install
+	@$(SEP)
+	@cd nocat && \
+	NC_CONF_PATH="/" \
+	$(CONFIGURE) --with-firewall=iptables --with-glib-prefix="$(INSTALLDIR)/glib/usr" --localstatedir=/var --sysconfdir=/etc
+	@$(MAKE) -C nocat
+
+	echo *** cleaning up glib staging after compile
+	rm -rfv $(INSTALLDIR)/glib/usr
+	echo *** integrate glib to nocat installdir
+	install -d $(INSTALLDIR)/nocat/usr/lib
+	install -D glib/.libs/libglib-1.2.so.0.0.10 $(INSTALLDIR)/nocat/usr/lib/libglib-1.2.so.0.0.10
+	cd $(INSTALLDIR)/nocat/usr/lib && ln -s libglib-1.2.so.0.0.10 libglib-1.2.so.0
+	$(STRIP) $(INSTALLDIR)/nocat/usr/lib/libglib-1.2.so.0.0.10
+
+nocat-clean:
+	$(MAKE) -C nocat clean
+
+nocat-install:
+	install -D nocat/src/splashd $(INSTALLDIR)/nocat/usr/sbin/splashd
+	$(STRIP) $(INSTALLDIR)/nocat/usr/sbin/splashd
+	mkdir -p $(INSTALLDIR)/nocat/usr/libexec/nocat
+	install -D nocat/libexec/iptables/* $(INSTALLDIR)/nocat/usr/libexec/nocat
+
 lzo/stamp-h1:
 	cd lzo && \
 	CFLAGS="-Os -Wall -fPIC $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static
@@ -1394,6 +1475,244 @@ openvpn-install: openvpn
 	$(STRIP) -s $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	chmod 0500 $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 
+#shibby
+libcurl/stamp-h1: zlib openssl
+	cd libcurl && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		CPPFLAGS="-I$(TOP)/zlib" \
+		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+		$(CONFIGURE) --prefix=/usr --disable-thread --enable-shared --enable-static \
+		--enable-ares --enable-cookies --enable-crypto-auth --enable-nonblocking \
+		--enable-file --enable-ftp --enable-http --enable-ipv6 --enable-tftp \
+		--disable-nls --disable-ares --disable-dict --disable-debug --disable-gopher \
+		--disable-ldap --disable-manual --disable-telnet --disable-verbose \
+		--with-random="/dev/urandom" --with-ssl="$(TOP)/openssl" \
+		--without-gnutls --without-krb4 --without-libidn \
+		--with-linux-headers=$(LINUXDIR)/include \
+		OPENSSL_CFLAGS="-I$(TOP)/openssl/include" \
+		OPENSSL_LIBS="-L$(TOP)/openssl -lcrypto -lssl"
+		touch libcurl/stamp-h1
+
+libcurl: libcurl/stamp-h1
+	@$(MAKE) -C libcurl
+
+libcurl-clean:
+	-@$(MAKE) -C libcurl clean
+	@rm -f libcurl/stamp-h1 libcurl/Makefile
+
+libcurl-install: libcurl
+	install -d $(INSTALLDIR)/libcurl/usr/lib
+	install -D libcurl/lib/.libs/libcurl.so.4.2.0 $(INSTALLDIR)/libcurl/usr/lib/libcurl.so.4.2.0
+	$(STRIP) -s $(INSTALLDIR)/libcurl/usr/lib/libcurl.so.4.2.0
+	cd $(INSTALLDIR)/libcurl/usr/lib/ && \
+		ln -sf libcurl.so.4.2.0 libcurl.so.4 && \
+		ln -sf libcurl.so.4.2.0 libcurl.so
+
+libevent/stamp-h1:
+	cd libevent && CC=$(CC) \
+		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+		$(CONFIGURE)
+		touch libevent/stamp-h1
+
+libevent: libevent/stamp-h1
+	@$(SEP)
+	$(MAKE) -C libevent
+
+libevent-clean:
+	-@$(MAKE) -C libevent clean
+	@rm -f libevent/stamp-h1 libevent/Makefile
+	@rm -rf libevent/staged
+
+libevent-install: libevent
+	install -d $(INSTALLDIR)/libevent/usr/lib
+	install libevent/.libs/libevent-2.0.so.5.1.0 $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5
+	$(STRIP) -s $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5
+	install -d $(TOP)/libevent/staged
+	$(MAKE) -C libevent DESTDIR=$(TOP)/libevent/staged install
+
+transmission/stamp-h1: openssl libcurl libevent zlib
+	cd transmission && CC=$(CC) AR=$(AR) LD=$(LD) STRIP='mipsel-uclibc-strip' \
+		CFLAGS="-Os -Wall -fno-delete-null-pointer-checks -funit-at-a-time \
+		--param large-function-growth=800 --param max-inline-insns-single=3000 \
+		-ffunction-sections -fdata-sections \
+		-O2 -O0 -std=gnu99 -ggdb3 -W -Wpointer-arith -Wformat-security -Wcast-align -Wundef \
+		-Wcast-align -Wstrict-prototypes -Wmissing-declarations -Wmissing-format-attribute \
+		-Wredundant-decls -Wnested-externs -Wunused-parameter -Wwrite-strings -Winline -Wfloat-equal \
+		-Wextra -Wdeclaration-after-statement -Winit-self" \
+		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+		CPPFLAGS="-I$(TOP)/zlib -O3 -DTR_EMBEDDED" \
+		ac_cv_header_libintl_h=no HAVE_CXX=yes \
+		$(CONFIGURE) --target=mipsel-linux --prefix=/usr --disable-gtk --disable-nls \
+		--enable-lightweight --enable-largefile --enable-utp \
+		LIBCURL_CFLAGS="-I$(TOP)/libcurl/include" \
+		LIBCURL_LIBS="-L$(TOP)/libcurl/lib/.libs/ -lcurl" \
+		LIBEVENT_CFLAGS="-I$(TOP)/libevent/include" \
+		LIBEVENT_LIBS="-L$(TOP)/libevent/.libs -levent" \
+		OPENSSL_CFLAGS="-I$(TOP)/openssl/include" \
+		OPENSSL_LIBS="-L$(TOP)/openssl -lcrypto -lssl"
+		touch transmission/stamp-h1
+
+transmission: transmission/stamp-h1
+	@$(SEP)
+	$(MAKE) -C transmission
+
+transmission-clean:
+	-@$(MAKE) -C transmission clean
+	@rm -f transmission/stamp-h1 transmission/Makefile
+
+transmission-install: transmission
+	$(MAKE) -C transmission DESTDIR=$(INSTALLDIR)/transmission install-strip
+	@rm -rf $(INSTALLDIR)/transmission/usr/share/man
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-cli
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-show
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-edit
+	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-daemon
+	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-remote
+ifeq ($(TCONFIG_TR_EXTRAS),y)
+	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-create
+else
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-create
+endif
+
+btgui:
+	@$(SEP)
+
+btgui-install: btgui
+	install -d $(INSTALLDIR)/btgui/usr/bin
+	install -D transmission/btcheck $(INSTALLDIR)/btgui/usr/bin/btcheck
+
+libnfsidmap/stamp-h1:
+	cd libnfsidmap && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	ac_cv_func_malloc_0_nonnull=yes \
+	ac_cv_func_realloc_0_nonnull=yes \
+	$(CONFIGURE) --prefix=/usr --enable-shared --enable-static
+	touch libnfsidmap/stamp-h1
+
+libnfsidmap: libnfsidmap/stamp-h1
+	@$(SEP)
+	$(MAKE) -C libnfsidmap
+
+libnfsidmap-clean:
+	-$(MAKE) -C libnfsidmap clean
+	@rm -f libnfsidmap/stamp-h1
+	@rm -rf libnfsidmap/staged
+
+libnfsidmap-install: libnfsidmap
+	install -d $(TOP)/libnfsidmap/staged
+	$(MAKE) -C libnfsidmap DESTDIR=$(TOP)/libnfsidmap/staged install
+
+portmap/stamp-h1:
+	cd portmap \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	$(MAKE) -C portmap CC=$(CC) AR=$(AR) LD=$(LD) RANLIB=$(RANLIB) RPCUSER="nobody"
+	touch portmap/stamp-h1
+
+portmap: portmap/stamp-h1
+	@$(SEP)
+	$(MAKE) -C portmap
+
+portmap-clean:
+	-$(MAKE) -C portmap clean
+	@rm -f portmap/stamp-h1
+
+portmap-install: portmap
+	install -d $(INSTALLDIR)/portmap/usr/sbin
+	install -D portmap/portmap $(INSTALLDIR)/portmap/usr/sbin/portmap
+	$(STRIP) -s $(INSTALLDIR)/portmap/usr/sbin/portmap
+
+e2fsprogs/stamp-h1:
+	cd e2fsprogs && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=$(TOP)/e2fsprogs/staged --enable-shared --enable-static
+	touch e2fsprogs/stamp-h1
+
+e2fsprogs: e2fsprogs/stamp-h1
+	@$(SEP)
+	$(MAKE) -C e2fsprogs
+
+e2fsprogs-clean:
+	-$(MAKE) -C e2fsprogs clean
+	@rm -f e2fsprogs/stamp-h1
+	@rm -f e2fsprogs/Makefile
+	@rm -rf e2fsprogs/staged
+
+nfs-utils/stamp-h1: libevent-install e2fsprogs portmap libnfsidmap-install
+	cd nfs-utils && STRIP='mipsel-uclibc-strip' \
+	CFLAGS="-Os -Wall -fno-delete-null-pointer-checks -funit-at-a-time \
+	-I$(TOP)/libevent/staged/usr/local/include -I$(TOP)/e2fsprogs/lib \
+	-I$(TOP)/libnfsidmap/staged/usr/include -ffunction-sections -fdata-sections" \
+	LDFLAGS="-L$(TOP)/libevent/staged/usr/local/lib -L$(TOP)/e2fsprogs/lib \
+	-L$(TOP)/libnfsidmap/staged/usr/lib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+	ac_cv_func_malloc_0_nonnull=yes \
+	ac_cv_func_realloc_0_nonnull=yes \
+	$(CONFIGURE) --disable-gss --without-tcp-wrappers --enable-static --enable-shared \
+	--enable-nfsv4 --enable-nfsv3
+	touch nfs-utils/stamp-h1
+
+nfs-utils: nfs-utils/stamp-h1
+
+nfs-utils-clean:
+	-$(MAKE) -C nfs-utils clean
+	@rm -f nfs-utils/stamp-h1
+
+nfs-utils-install: nfs-utils
+	install -d $(INSTALLDIR)/nfs-utils/usr/sbin
+	install -D nfs-utils/utils/mount/mount.nfs $(INSTALLDIR)/nfs-utils/usr/sbin/mount.nfs
+	install -D nfs-utils/utils/nfsd/nfsd $(INSTALLDIR)/nfs-utils/usr/sbin/nfsd
+	install -D nfs-utils/utils/showmount/showmount $(INSTALLDIR)/nfs-utils/usr/sbin/showmount
+	install -D nfs-utils/utils/exportfs/exportfs $(INSTALLDIR)/nfs-utils/usr/sbin/exportfs
+	install -D nfs-utils/utils/statd/statd $(INSTALLDIR)/nfs-utils/usr/sbin/statd
+	install -D nfs-utils/utils/mountd/mountd $(INSTALLDIR)/nfs-utils/usr/sbin/mountd
+	install -D nfs-utils/nfs.rc $(INSTALLDIR)/nfs-utils/usr/sbin/nfs.rc
+	$(STRIP) -s $(INSTALLDIR)/nfs-utils/usr/sbin/mount.nfs
+	$(STRIP) -s $(INSTALLDIR)/nfs-utils/usr/sbin/nfsd
+	$(STRIP) -s $(INSTALLDIR)/nfs-utils/usr/sbin/showmount
+	$(STRIP) -s $(INSTALLDIR)/nfs-utils/usr/sbin/exportfs
+	$(STRIP) -s $(INSTALLDIR)/nfs-utils/usr/sbin/statd
+	$(STRIP) -s $(INSTALLDIR)/nfs-utils/usr/sbin/mountd
+
+sd-idle/stamp-h1:
+	cd sd-idle \
+	CFLAGS="-Os -Wall --host=mipsel-linux --target=mipsel-linux $(EXTRACFLAGS)" \
+	$(MAKE) -C sd-idle
+	chmod 0755 sd-idle/sd-idle
+	touch sd-idle/stamp-h1
+
+sd-idle-clean:
+	-$(MAKE) -C sd-idle clean
+	@rm -f sd-idle/stamp-h1
+
+sd-idle-install: sd-idle/stamp-h1
+	install -d $(INSTALLDIR)/sd-idle/usr/bin
+	install -D sd-idle/sd-idle $(INSTALLDIR)/sd-idle/usr/bin/sd-idle
+	$(STRIP) -s $(INSTALLDIR)/sd-idle/usr/bin/sd-idle
+
+snmp/stamp-h1:
+	cd snmp && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr --with-endianness=little --enable-mini-agent --disable-debugging \
+	--disable-privacy --without-opaque-special-types --with-persistent-directory=/tmp/snmp-persist \
+	--with-default-snmp-version=3 --with-sys-contact=root --with-sys-location=Unknown --with-logfile=/dev/null \
+	--with-out-transports=UDPIPv6,TCPIPv6,AAL5PVC,IPX,TCP,Unix --enable-shared=no --enable-static --with-gnu-ld \
+	--enable-internal-md5 --with-copy-persistent-files=no --without-openssl -sysconfdir=/tmp \
+	--with-mib-modules=mibII,host,mibII/ip,mibII/tcp,mibII/udp,mibII/icmp,mibII/var_route,mibII/kernel_linux,qos,ucd_snmp \
+	--with-out-mib-modules=snmpv3mibs,agent_mips,agentx,notification,utilities,target --disable-ipv6 --with-defaults \
+	--without-efence --without-rsaref --without-kmem-usage --without-rpm --without-dmalloc
+	touch snmp/stamp-h1
+
+snmp: snmp/stamp-h1
+	@$(SEP)
+	$(MAKE) -C snmp
+
+snmp-clean:
+	-$(MAKE) -C snmp clean
+	@rm -f snmp/stamp-h1
+
+snmp-install: snmp
+	install -D snmp/agent/snmpd $(INSTALLDIR)/snmp/usr/sbin/snmpd
+	$(STRIP) $(INSTALLDIR)/snmp/usr/sbin/snmpd
 
 #
 # Generic rules

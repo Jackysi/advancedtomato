@@ -831,7 +831,7 @@ init(int argc, char * * argv)
 		         "http://%s/admin/", lan_addr[0].str);
 #else
 		snprintf(presentationurl, PRESENTATIONURL_MAX_LEN,
-		         "http://%s/", lan_addr[0].str);
+		         "http://%s:%d/", lan_addr[0].str);
 #endif
 	}
 
