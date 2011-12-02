@@ -357,7 +357,6 @@ lg.verifyFields = function(row, quiet) {
 	}
 	return ok;
 }
->>>>>>> origin/tomato-shibby:release/src/router/www/basic-network.asp
 
 W('<style type=\'text/css\'>');
 for (var u = 0; u < wl_ifaces.length; ++u) {
