@@ -203,6 +203,7 @@ int do_led(int which, int mode)
 	static int wrt610nv2[]	= { 255,   5,     3,    0,  255,  255,  255,   -7	};
 	static int e4200[]	= { 255,   5,    -3,  255,  255,  255,  255,  255	};
 	static int rtn10u[]	= { 255, 255,   255,  255,  255,   -7,  255,    8	};
+	static int rtn12b1[]	= {  -5, 255,   255,  255,  255,  255,  255,  225	};
 	static int rtn66u[]	= { 255, -12,   255,  255,  255,  255,  255,   15	};
 #endif
 
