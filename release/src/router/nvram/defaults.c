@@ -567,7 +567,7 @@ const defaults_t defaults[] = {
 	{ "cstats_path",		""				},
 	{ "cstats_stime",		"48"			},
 	{ "cstats_offset",		"1"				},
-	{ "cstats_colors",		""				},
+	{ "cstats_labels",		"0"				},
 	{ "cstats_exclude",		""				},
 	{ "cstats_include",		""				},
 	{ "cstats_all",			"1"				},
