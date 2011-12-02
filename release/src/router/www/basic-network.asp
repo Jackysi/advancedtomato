@@ -1267,7 +1267,6 @@ REMOVE-END */
 
 /* REMOVE-BEGIN */
 /* TODO: same validation for builds with VLAN-GUI enabled */
-/* REMOVE-END */
 	ferror.clear('_modem_ipaddr');
 	a = E('_modem_ipaddr');
 	b = E('_lan_ipaddr');
@@ -1279,6 +1278,7 @@ REMOVE-END */
 				ok = 0;
 			}
 	}
+/* REMOVE-END */
 
 	return ok;
 }
