@@ -550,6 +550,7 @@ static const nvset_t nvset_list[] = {
 	{ "mtu_enable",			V_01				},
 	{ "wan_mtu",			V_RANGE(576, 1500)	},
 	{ "wan_islan",			V_01				},
+	{ "modem_ipaddr",		V_IP				},
 
 	// LAN
 	{ "lan_ipaddr",			V_IP				},
