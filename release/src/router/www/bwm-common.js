@@ -215,9 +215,16 @@ function loadData()
 			if (h.rx_max > xx_max) xx_max = h.rx_max;
 			if (h.tx_max > xx_max) xx_max = h.tx_max;
 
-			t = i;
+			t = i;									// by default, show only the IP address (or IF name)
 			if ((typeof(hostnamecache) != 'undefined') && (hostnamecache[i] != null)) {
-				t = hostnamecache[i] + ' <small>(' + i + ')</small>';
+				if (nvram['cstats_labels'] != null ) {
+					if (nvram['cstats_labels'] == '1') {    // if known, show only the hostname
+						t = hostnamecache[i];
+					}
+					if (nvram['cstats_labels'] == '0') {    // show hostname and IP
+						t = hostnamecache[i] + ' <small>(' + i + ')</small>';
+					}
+				}
 			}
 			else if (wl_ifidx(i) >= 0) {
 /* REMOVE-BEGIN
