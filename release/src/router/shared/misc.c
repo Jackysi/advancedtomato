@@ -186,7 +186,13 @@ int check_wanup(void)
 	struct ifreq ifr;
 
 	proto = get_wan_proto();
-	if (proto == WP_DISABLED) return 0;
+	if (proto == WP_DISABLED)
+	{
+		if (nvram_match("boardrev", "0x11")) { // Ovislink 1600GL - led "connected" off
+			led(LED_WHITE,LED_OFF);
+		}
+		 return 0;
+	}
 
 	if ((proto == WP_PPTP) || (proto == WP_L2TP) || (proto == WP_PPPOE) || (proto == WP_PPP3G)) {
 		if (f_read_string("/tmp/ppp/link", buf1, sizeof(buf1)) > 0) {
@@ -226,6 +232,9 @@ int check_wanup(void)
 			up = 0;
 			_x_dprintf("%s: !IFF_UP\n", __FUNCTION__);
 		}
+	}
+	if (nvram_match("boardrev", "0x11")) { // Ovislink 1600GL - led "connected" on
+		led(LED_WHITE,up);
 	}
 
 	return up;
