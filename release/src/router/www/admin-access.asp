@@ -39,7 +39,7 @@ shlimit = nvram.ne_shlimit.split(',');
 if (shlimit.length != 3) shlimit = [0,3,60];
 
 var xmenus = [['Status', 'status'], ['Bandwidth', 'bwm'], ['IP Traffic', 'ipt'], ['Tools', 'tools'], ['Basic', 'basic'],
-	['Advanced', 'advanced'], ['Port Forwarding', 'forward'], ['QoS', 'qos'], ['RAF Features', 'new'],
+	['Advanced', 'advanced'], ['Port Forwarding', 'forward'], ['QoS', 'qos'],
 /* USB-BEGIN */
 	['USB and NAS', 'nas'],
 /* USB-END */
