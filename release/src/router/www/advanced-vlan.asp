@@ -95,6 +95,13 @@ switch(nvram['boardtype']) {
     COL_P3N = '1';
     COL_P4N = '0';
     break;
+  case '0xf52c':  // E4200
+    COL_P0N = '0';
+    COL_P1N = '1';
+    COL_P2N = '2';
+    COL_P3N = '3';
+    COL_P4N = '4';
+    break;
 // should work on WRT54G v2/v3, WRT54GS v1/v2 and others
   default:
     COL_P0N = '1';
