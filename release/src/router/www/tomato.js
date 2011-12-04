@@ -2354,6 +2354,7 @@ REMOVE-END */
 		['IP Traffic', 			'ipt', 0, [
 			['Real-Time',		'realtime.asp'],
 			['Last 24 Hours',	'24.asp'],
+			['View Graphs',		'graphs.asp'],
 			['Transfer Rates',	'details.asp'],
 			['Daily',			'daily.asp'],
 			['Monthly',			'monthly.asp'] ] ],

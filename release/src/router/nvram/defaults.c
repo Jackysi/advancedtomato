@@ -431,6 +431,10 @@ const defaults_t defaults[] = {
 	{ "multicast_lan2",		"0"				},	// on LAN2 (br2)
 	{ "multicast_lan3",		"0"				},	// on LAN3 (br3)
 #endif
+	{ "udpxy_enable",		"0"				},
+	{ "udpxy_stats",		"0"				},
+	{ "udpxy_clients",		"3"				},
+	{ "udpxy_port",			"4022"			},
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
 	{ "dhcp_pass",			"1"				},	// allow DHCP responses
 	{ "ne_shlimit",			"0,3,60"			},

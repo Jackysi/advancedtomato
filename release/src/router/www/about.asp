@@ -155,7 +155,10 @@ Copyright (C) 2010-2011 Jean-Yves Avenard<br>
 <b>"Teaman" Features:</b><br>
 - QOS-detailed & ctrate improved filters<br>
 - Per-IP bandwidth monitoring of LAN clients [cstats v2]<br>
+- IPTraffic conn/BW ratios graphs<br>
 - Static ARP binding<br>
+- CPU % usage<br>  
+- Udpxy v1.0-Chipmunk-build 21<br>
 <!-- VLAN-BEGIN -->
 - Multiple LAN support integration and GUI<br>
 - Multiple/virtual SSID support (experimental)<br>

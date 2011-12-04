@@ -47,6 +47,7 @@ obj-y += ntpc
 obj-y += rstats
 obj-$(TCONFIG_SNMP) += snmp
 obj-y += cstats
+obj-y += udpxy
 
 # !!TB - updated Broadcom Wireless driver
 obj-y += et

@@ -39,6 +39,7 @@ ul.tabs a,
 	width: 140px;
 	height: 12px;
 	font-size: 9px;
+	font-weight:bold;
 }
 </style>
 
@@ -224,6 +225,25 @@ REMOVE-END */
 	initCommon(1, 0, 0);
 
 	verifyFields(null,1);
+
+	var theRules = document.styleSheets[2].cssRules;
+	switch (nvram['cstats_labels']) {
+		case '1':		// show hostnames only
+			theRules[theRules.length-1].style.cssText = 'width: 140px; font-weight:bold;';
+/* REMOVE-BEGIN */
+//			document.styleSheets[2].deleteRule(theRules.length - 1);
+/* REMOVE-END */
+			break;
+		case '2':		// show IPs only
+			theRules[theRules.length-1].style.cssText = 'width: 140px; font-weight:bold;';
+			break;
+		case '0':		// show hostnames + IPs
+		default:
+/* REMOVE-BEGIN */
+//			theRules[theRules.length-1].style.cssText = 'width: 140px; height: 12px; font-size: 9px;';
+/* REMOVE-END */
+			break;
+	}
 
 	ref.initX();
 }
