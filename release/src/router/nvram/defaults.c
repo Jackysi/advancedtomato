@@ -90,6 +90,7 @@ const defaults_t defaults[] = {
 	{ "wan_wins",			""				},	// x.x.x.x x.x.x.x ...
 	{ "wan_lease",			"86400"				},	// WAN lease time in seconds
 	{ "wan_islan",			"0"				},
+	{ "modem_ipaddr",		"0.0.0.0"		},	// modem IP address (i.e. PPPoE bridged modem)
 
 	{ "wan_primary",		"1"				},	// Primary wan connection
 	{ "wan_unit",			"0"				},	// Last configured connection
@@ -334,7 +335,7 @@ const defaults_t defaults[] = {
 	{ "btn_override",		""				},
 	{ "btn_reset",			""				},
 	{ "env_path",			""				},
-	{ "manual_boot_nv",		"1"				},
+	{ "manual_boot_nv",		"0"				},
 //	{ "wlx_hpamp",			""				},
 //	{ "wlx_hperx",			""				},	//	see init.c
 	{ "t_fix1",				""				},
@@ -591,7 +592,7 @@ const defaults_t defaults[] = {
 	{ "cstats_path",		""				},
 	{ "cstats_stime",		"48"			},
 	{ "cstats_offset",		"1"				},
-	{ "cstats_colors",		""				},
+	{ "cstats_labels",		"0"				},
 	{ "cstats_exclude",		""				},
 	{ "cstats_include",		""				},
 	{ "cstats_all",			"1"				},
