@@ -47,7 +47,6 @@ textarea {
 
 <script type='text/javascript'>
 
-<<<<<<< HEAD:release/src/router/www/nas-usb.asp
 //	<% nvram("usb_enable,usb_uhci,usb_ohci,usb_usb2,usb_mmc,usb_storage,usb_printer,usb_printer_bidirect,usb_automount,usb_fs_ext3,usb_fs_fat,usb_fs_ntfs,usb_fs_hfs,script_usbmount,script_usbumount,script_usbhotplug,idle_enable,usb_3g"); %>
 //	<% usbdevices(); %>
 
