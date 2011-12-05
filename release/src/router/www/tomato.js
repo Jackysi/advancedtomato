@@ -2379,8 +2379,6 @@ function navi()
 			['MAC Address',		'mac.asp'],
 			['Miscellaneous',	'misc.asp'],
 			['Routing',			'routing.asp'],
-			['VLAN',			'vlan.asp'],
-			['LAN Access',			'access.asp'],
 /* VLAN-BEGIN */
 			['VLAN',			'vlan.asp'],
 			['LAN Access',			'access.asp'],
