@@ -514,7 +514,6 @@ static const nvset_t nvset_list[] = {
 	{ "ntp_kiss",			V_LENGTH(0, 255)	},
 
 // basic-static
-
 //	{ "bwm_client",			V_LENGTH(0, 2048)	},
 	{ "dhcpd_static",		V_LENGTH(0, 106*251)},	// 106 (max chars per entry) x 140 entries
 	{ "dhcpd_static_only",	V_01				},
@@ -550,6 +549,7 @@ static const nvset_t nvset_list[] = {
 	{ "mtu_enable",			V_01				},
 	{ "wan_mtu",			V_RANGE(576, 1500)	},
 	{ "wan_islan",			V_01				},
+	{ "modem_ipaddr",		V_IP				},
 
 	// LAN
 	{ "lan_ipaddr",			V_IP				},
@@ -710,6 +710,10 @@ static const nvset_t nvset_list[] = {
 	{ "multicast_lan2",		V_01				},
 	{ "multicast_lan3",		V_01				},
 #endif
+	{ "udpxy_enable",		V_01				},
+	{ "udpxy_stats",		V_01				},
+	{ "udpxy_clients",		V_RANGE(1, 5000)	},
+	{ "udpxy_port",			V_RANGE(0, 65535)	},
 	{ "block_loopback",		V_01				},
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},
@@ -963,6 +967,7 @@ static const nvset_t nvset_list[] = {
 	{ "cstats_path",		V_LENGTH(0, 48)		},
 	{ "cstats_stime",		V_RANGE(1, 168)		},
 	{ "cstats_offset",		V_RANGE(1, 31)		},
+	{ "cstats_labels",		V_RANGE(0, 2)		},
 	{ "cstats_exclude",		V_LENGTH(0, 512)	},
 	{ "cstats_include",		V_LENGTH(0, 2048)	},
 	{ "cstats_all",			V_01				},

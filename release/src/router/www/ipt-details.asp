@@ -235,6 +235,39 @@ grid.populate = function() {
 		tcpconn.toString(), udpconn.toString() ]);
 }
 
+grid.sortCompare = function(a, b) {
+	var col = this.sortColumn;
+	var da = a.getRowData();
+	var db = b.getRowData();
+	var r = 0;
+
+	switch (col) {
+	case 0:	// host
+		r = cmpText(da[col], db[col]);
+		break;
+	case 1:	// Download
+	case 2:	// Upload
+		r = cmpFloat(da[col], db[col]);
+		break;
+	case 3:	// TCP pkts
+		r = cmpInt(da[3]+da[4], db[3]+db[4]);
+		break;
+	case 4:	// UDP pkts
+		r = cmpInt(da[5]+da[6], db[5]+db[6]);
+		break;
+	case 5:	// ICMP pkts
+		r = cmpInt(da[7]+da[8], db[7]+db[8]);
+		break;
+	case 6:	// TCP connections
+		r = cmpInt(da[9], db[9]);
+		break;
+	case 7:	// UDP connections
+		r = cmpInt(da[10], db[10]);
+		break;
+	}
+	return this.sortAscending ? r : -r;
+}
+
 function popupWindow(v) {
 	window.open(v, '', 'width=1000,height=600,toolbar=no,menubar=no,scrollbars=yes,resizable=yes');
 }
@@ -282,6 +315,14 @@ grid.setup = function() {
 }
 
 function init() {
+
+	if ((c = '<% cgi_get("ipt_filterip"); %>') != '') {
+		if (c.length>6) {
+			E('_f_filter_ip').value = c;
+			filterip = c.split(',');
+		}
+	}
+
 	if ((c = cookie.get('ipt_filterip')) != null) {
 		cookie.set('ipt_filterip', '', 0);
 		if (c.length>6) {

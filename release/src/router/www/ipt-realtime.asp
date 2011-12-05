@@ -45,7 +45,7 @@ ul.tabs a,
 <script type='text/javascript' src='interfaces.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,cstats_colors,dhcpd_static,lan_ipaddr,lan_netmask,lan1_ipaddr,lan1_netmask,lan2_ipaddr,lan2_netmask,lan3_ipaddr,lan3_netmask"); %>
+//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,cstats_colors,dhcpd_static,lan_ipaddr,lan_netmask,lan1_ipaddr,lan1_netmask,lan2_ipaddr,lan2_netmask,lan3_ipaddr,lan3_netmask,cstats_labels"); %>
 
 //	<% devlist(); %>
 
@@ -188,6 +188,25 @@ function init() {
 	}
 
 	verifyFields(null,1);
+
+	var theRules = document.styleSheets[2].cssRules;
+	switch (nvram['cstats_labels']) {
+		case '1':		// show hostnames only
+			theRules[theRules.length-1].style.cssText = 'width: 140px;';
+/* REMOVE-BEGIN */
+//			document.styleSheets[2].deleteRule(theRules.length - 1);
+/* REMOVE-END */
+			break;
+		case '2':		// show IPs only
+			theRules[theRules.length-1].style.cssText = 'width: 140px;';
+			break;
+		case '0':		// show hostnames + IPs
+		default:
+/* REMOVE-BEGIN */
+//			theRules[theRules.length-1].style.cssText = 'width: 140px; height: 12px; font-size: 9px;';
+/* REMOVE-END */
+			break;
+	}
 
 	ref.start();
 }
