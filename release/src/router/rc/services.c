@@ -311,7 +311,11 @@ void start_dnsmasq()
 		}
 
 		if ((do_dhcpd_hosts > 0) && (*mac != 0) && (strcmp(mac, "00:00:00:00:00:00") != 0)) {
-			fprintf(f, "dhcp-host=%s,%s,%s\n", mac, ip, sdhcp_lease);
+			if (nvram_get_int("dhcpd_slt") == 0) {
+				fprintf(f, "dhcp-host=%s,%s\n", mac, ip);
+			} else {
+				fprintf(f, "dhcp-host=%s,%s,%s\n", mac, ip, sdhcp_lease);
+			}
 		}
 	}
 
