@@ -51,6 +51,9 @@ static int iNumNonAutoPrintServices = 0;
 #define DISABLE_USER_FLAG "disable_user_flag"
 #define ENABLE_USER_FLAG "enable_user_flag"
 #define RHOST "remote_host"
+#define XSRF_TOKEN "xsrf"
+#define XSRF_TIME "xsrf_time"
+#define XSRF_TIMEOUT 300
 
 
 /****************************************************************************
@@ -123,6 +126,76 @@ static char *make_parm_name(const char *label)
 	*p = '\0';
 	return parmname;
 }
+
+void get_xsrf_token(const char *username, const char *pass,
+		    const char *formname, time_t xsrf_time, char token_str[33])
+{
+	struct MD5Context md5_ctx;
+	uint8_t token[16];
+	int i;
+
+	token_str[0] = '\0';
+	ZERO_STRUCT(md5_ctx);
+	MD5Init(&md5_ctx);
+
+	MD5Update(&md5_ctx, (uint8_t *)formname, strlen(formname));
+	MD5Update(&md5_ctx, (uint8_t *)&xsrf_time, sizeof(time_t));
+	if (username != NULL) {
+		MD5Update(&md5_ctx, (uint8_t *)username, strlen(username));
+	}
+	if (pass != NULL) {
+		MD5Update(&md5_ctx, (uint8_t *)pass, strlen(pass));
+	}
+
+	MD5Final(token, &md5_ctx);
+
+	for(i = 0; i < sizeof(token); i++) {
+		char tmp[3];
+
+		snprintf(tmp, sizeof(tmp), "%02x", token[i]);
+		strncat(token_str, tmp, sizeof(tmp));
+	}
+}
+
+void print_xsrf_token(const char *username, const char *pass,
+		      const char *formname)
+{
+	char token[33];
+	time_t xsrf_time = time(NULL);
+
+	get_xsrf_token(username, pass, formname, xsrf_time, token);
+	printf("<input type=\"hidden\" name=\"%s\" value=\"%s\">\n",
+	       XSRF_TOKEN, token);
+	printf("<input type=\"hidden\" name=\"%s\" value=\"%lld\">\n",
+	       XSRF_TIME, (long long int)xsrf_time);
+}
+
+BOOL verify_xsrf_token(const char *formname)
+{
+	char expected[33];
+	const char *username = cgi_user_name();
+	const char *pass = cgi_user_pass();
+	const char *token = cgi_variable_nonull(XSRF_TOKEN);
+	const char *time_str = cgi_variable_nonull(XSRF_TIME);
+	time_t xsrf_time = 0;
+	time_t now = time(NULL);
+
+	if (sizeof(time_t) == sizeof(int)) {
+		xsrf_time = atoi(time_str);
+	} else if (sizeof(time_t) == sizeof(long)) {
+		xsrf_time = atol(time_str);
+	} else if (sizeof(time_t) == sizeof(long long)) {
+		xsrf_time = atoll(time_str);
+	}
+
+	if (abs(now - xsrf_time) > XSRF_TIMEOUT) {
+		return false;
+	}
+
+	get_xsrf_token(username, pass, formname, xsrf_time, expected);
+	return (strncmp(expected, token, sizeof(expected)) == 0);
+}
+
 
 /****************************************************************************
   include a lump of html in a page 
@@ -593,13 +666,20 @@ static void welcome_page(void)
 static void viewconfig_page(void)
 {
 	int full_view=0;
+	const char form_name[] = "viewconfig";
+
+	if (!verify_xsrf_token(form_name)) {
+		goto output_page;
+	}
 
 	if (cgi_variable("full_view")) {
 		full_view = 1;
 	}
 
+output_page:
 	printf("<H2>%s</H2>\n", _("Current Config"));
 	printf("<form method=post>\n");
+	print_xsrf_token(cgi_user_name(), cgi_user_pass(), form_name);
 
 	if (full_view) {
 		printf("<input type=submit name=\"normal_view\" value=\"%s\">\n", _("Normal View"));
@@ -619,18 +699,25 @@ static void viewconfig_page(void)
 static void wizard_params_page(void)
 {
 	unsigned int parm_filter = FLAG_WIZARD;
+	const char form_name[] = "wizard_params";
 
 	/* Here we first set and commit all the parameters that were selected
  	   in the previous screen. */
 
 	printf("<H2>%s</H2>\n", _("Wizard Parameter Edit Page"));
 
+	if (!verify_xsrf_token(form_name)) {
+		goto output_page;
+	}
+
 	if (cgi_variable("Commit")) {
 		commit_parameters(GLOBAL_SECTION_SNUM);
 		save_reload(0);
 	}
 
+output_page:
 	printf("<form name=\"swatform\" method=post action=wizard_params>\n");
+	print_xsrf_token(cgi_user_name(), cgi_user_pass(), form_name);
 
 	if (have_write_access) {
 		printf("<input type=submit name=\"Commit\" value=\"Commit Changes\">\n");
@@ -666,6 +753,11 @@ static void wizard_page(void)
 	int have_home = -1;
 	int HomeExpo = 0;
 	int SerType = 0;
+	const char form_name[] = "wizard";
+
+	if (!verify_xsrf_token(form_name)) {
+		goto output_page;
+	}
 
 	if (cgi_variable("Rewrite")) {
 		(void) rewritecfg_file();
@@ -758,10 +850,12 @@ static void wizard_page(void)
 		winstype = 3;
 
 	role = lp_server_role();
-	
+
+output_page:
 	/* Here we go ... */
 	printf("<H2>%s</H2>\n", _("Samba Configuration Wizard"));
 	printf("<form method=post action=wizard>\n");
+	print_xsrf_token(cgi_user_name(), cgi_user_pass(), form_name);
 
 	if (have_write_access) {
 		printf("%s\n", _("The \"Rewrite smb.conf file\" button will clear the smb.conf file of all default values and of comments."));
@@ -830,8 +924,13 @@ static void globals_page(void)
 {
 	unsigned int parm_filter = FLAG_BASIC;
 	int mode = 0;
+	const char form_name[] = "globals";
 
 	printf("<H2>%s</H2>\n", _("Global Parameters"));
+
+	if (!verify_xsrf_token(form_name)) {
+		goto output_page;
+	}
 
 	if (cgi_variable("Commit")) {
 		commit_parameters(GLOBAL_SECTION_SNUM);
@@ -845,7 +944,9 @@ static void globals_page(void)
 	if ( cgi_variable("AdvMode"))
 		mode = 1;
 
+output_page:
 	printf("<form name=\"swatform\" method=post action=globals>\n");
+	print_xsrf_token(cgi_user_name(), cgi_user_pass(), form_name);
 
 	ViewModeBoxes( mode );
 	switch ( mode ) {
@@ -884,11 +985,16 @@ static void shares_page(void)
 	int i;
 	int mode = 0;
 	unsigned int parm_filter = FLAG_BASIC;
+	const char form_name[] = "shares";
+
+	printf("<H2>%s</H2>\n", _("Share Parameters"));
+
+	if (!verify_xsrf_token(form_name)) {
+		goto output_page;
+	}
 
 	if (share)
 		snum = lp_servicenumber(share);
-
-	printf("<H2>%s</H2>\n", _("Share Parameters"));
 
 	if (cgi_variable("Commit") && snum >= 0) {
 		commit_parameters(snum);
@@ -910,16 +1016,18 @@ static void shares_page(void)
 		snum = lp_servicenumber(share);
 	}
 
-	printf("<FORM name=\"swatform\" method=post>\n");
-
-	printf("<table>\n");
-
 	if ( cgi_variable("ViewMode") )
 		mode = atoi(cgi_variable_nonull("ViewMode"));
 	if ( cgi_variable("BasicMode"))
 		mode = 0;
 	if ( cgi_variable("AdvMode"))
 		mode = 1;
+
+output_page:
+	printf("<FORM name=\"swatform\" method=post>\n");
+	print_xsrf_token(cgi_user_name(), cgi_user_pass(), form_name);
+
+	printf("<table>\n");
 
 	ViewModeBoxes( mode );
 	switch ( mode ) {
@@ -1098,11 +1206,9 @@ static void chg_passwd(void)
 	if(cgi_variable(CHG_S_PASSWD_FLAG)) {
 		printf("<p>");
 		if (rslt == True) {
-			printf(_(" The passwd for '%s' has been changed."), cgi_variable_nonull(SWAT_USER));
-			printf("\n");
+			printf("%s\n", _(" The passwd has been changed."));
 		} else {
-			printf(_(" The passwd for '%s' has NOT been changed."), cgi_variable_nonull(SWAT_USER));
-			printf("\n");
+			printf("%s\n", _(" The passwd has NOT been changed."));
 		}
 	}
 	
@@ -1115,20 +1221,15 @@ static void chg_passwd(void)
 static void passwd_page(void)
 {
 	const char *new_name = cgi_user_name();
-
-	/* 
-	 * After the first time through here be nice. If the user
-	 * changed the User box text to another users name, remember it.
-	 */
-	if (cgi_variable(SWAT_USER)) {
-		new_name = cgi_variable_nonull(SWAT_USER);
-	} 
+	const char passwd_form[] = "passwd";
+	const char rpasswd_form[] = "rpasswd";
 
 	if (!new_name) new_name = "";
 
 	printf("<H2>%s</H2>\n", _("Server Password Management"));
 
 	printf("<FORM name=\"swatform\" method=post>\n");
+	print_xsrf_token(cgi_user_name(), cgi_user_pass(), passwd_form);
 
 	printf("<table>\n");
 
@@ -1168,14 +1269,16 @@ static void passwd_page(void)
 	 * Do some work if change, add, disable or enable was
 	 * requested. It could be this is the first time through this
 	 * code, so there isn't anything to do.  */
-	if ((cgi_variable(CHG_S_PASSWD_FLAG)) || (cgi_variable(ADD_USER_FLAG)) || (cgi_variable(DELETE_USER_FLAG)) ||
-	    (cgi_variable(DISABLE_USER_FLAG)) || (cgi_variable(ENABLE_USER_FLAG))) {
+	if (verify_xsrf_token(passwd_form) &&
+	   ((cgi_variable(CHG_S_PASSWD_FLAG)) || (cgi_variable(ADD_USER_FLAG)) || (cgi_variable(DELETE_USER_FLAG)) ||
+	    (cgi_variable(DISABLE_USER_FLAG)) || (cgi_variable(ENABLE_USER_FLAG)))) {
 		chg_passwd();		
 	}
 
 	printf("<H2>%s</H2>\n", _("Client/Server Password Management"));
 
 	printf("<FORM name=\"swatform\" method=post>\n");
+	print_xsrf_token(cgi_user_name(), cgi_user_pass(), rpasswd_form);
 
 	printf("<table>\n");
 
@@ -1208,7 +1311,7 @@ static void passwd_page(void)
 	 * password somewhere other than the server. It could be this
 	 * is the first time through this code, so there isn't
 	 * anything to do.  */
-	if (cgi_variable(CHG_R_PASSWD_FLAG)) {
+	if (verify_xsrf_token(passwd_form) && cgi_variable(CHG_R_PASSWD_FLAG)) {
 		chg_passwd();		
 	}
 
@@ -1225,17 +1328,14 @@ static void printers_page(void)
 	int i;
 	int mode = 0;
 	unsigned int parm_filter = FLAG_BASIC;
+	const char form_name[] = "printers";
+
+	if (!verify_xsrf_token(form_name)) {
+		goto output_page;
+	}
 
 	if (share)
 		snum = lp_servicenumber(share);
-
-        printf("<H2>%s</H2>\n", _("Printer Parameters"));
- 
-        printf("<H3>%s</H3>\n", _("Important Note:"));
-        printf(_("Printer names marked with [*] in the Choose Printer drop-down box "));
-        printf(_("are autoloaded printers from "));
-        printf("<A HREF=\"/swat/help/smb.conf.5.html#printcapname\" target=\"docs\">%s</A>\n", _("Printcap Name"));
-        printf("%s\n", _("Attempting to delete these printers from SWAT will have no effect."));
 
 	if (cgi_variable("Commit") && snum >= 0) {
 		commit_parameters(snum);
@@ -1262,14 +1362,25 @@ static void printers_page(void)
 		snum = lp_servicenumber(share);
 	}
 
-	printf("<FORM name=\"swatform\" method=post>\n");
-
 	if ( cgi_variable("ViewMode") )
 		mode = atoi(cgi_variable_nonull("ViewMode"));
         if ( cgi_variable("BasicMode"))
                 mode = 0;
         if ( cgi_variable("AdvMode"))
                 mode = 1;
+
+output_page:
+        printf("<H2>%s</H2>\n", _("Printer Parameters"));
+
+        printf("<H3>%s</H3>\n", _("Important Note:"));
+        printf("%s",_("Printer names marked with [*] in the Choose Printer drop-down box "));
+        printf("%s",_("are autoloaded printers from "));
+        printf("<A HREF=\"/swat/help/smb.conf.5.html#printcapname\" target=\"docs\">%s</A>\n", _("Printcap Name"));
+        printf("%s\n", _("Attempting to delete these printers from SWAT will have no effect."));
+
+
+	printf("<FORM name=\"swatform\" method=post>\n");
+	print_xsrf_token(cgi_user_name(), cgi_user_pass(), form_name);
 
 	ViewModeBoxes( mode );
 	switch ( mode ) {

@@ -45,6 +45,8 @@ obj-y += rp-pppoe
 obj-y += utils
 obj-y += ntpc
 obj-y += rstats
+obj-$(TCONFIG_SNMP) += snmp
+obj-y += cstats
 
 # !!TB - updated Broadcom Wireless driver
 obj-y += et
@@ -248,6 +250,9 @@ endif
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv class/* . && rm -rf class || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv misc/* . && rm -rf misc || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/usb && mv usbip/* . && rm -rf usbip || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/mmc && mv core/* . && rm -rf core || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/mmc && mv card/* . && rm -rf card || true
+	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/mmc && mv host/* . && rm -rf host || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/hid && mv usbhid/* . && rm -rf usbhid || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/input && mv joystick/* . && rm -rf joystick || true
 	cd $(TARGETDIR)/lib/modules/*/kernel/drivers/input && mv keyboard/* . && rm -rf keyboard || true
@@ -339,6 +344,8 @@ endif
 	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/*acm.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/ftdi_sio.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/pl2303.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/mmc/*.*o $(PLATFORMDIR)/extras/ || true
+	$(if $(NEED_EX_USB),@ls,@rm -rf) $(TARGETDIR)/lib/modules/*/kernel/drivers/mmc || true
 
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/usbip*.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/usb/usbkbd.*o $(PLATFORMDIR)/extras/ || true
@@ -580,7 +587,7 @@ matrixssl-clean:
 
 cyassl/stamp-h1:
 	@cd cyassl && CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) \
-	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -fPIC -ffunction-sections -fdata-sections \
 	-DNO_MD4 -DNO_AES -DNO_ERROR_STRINGS -DNO_HC128 -DNO_RABBIT -DNO_PSK -DNO_DSA -DNO_DH -DNO_PWDBASED" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
 	PTHREAD_LIBS="-lpthread" \
@@ -742,7 +749,7 @@ miniupnpd: iptables miniupnpd-config
 	@$(SEP)
 	$(MAKE) -C miniupnpd miniupnpd -f Makefile.linux \
 	TARGET_OPENWRT="not really" CC=$(CC) \
-	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include" \
+	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include -I$(TOP)/shared" \
 	LDFLAGS="-L$(TOP)/iptables -liptc" LIBS=""
 
 miniupnpd-clean:
@@ -885,7 +892,7 @@ samba3:
 
 nvram: shared
 
-prebuilt: shared
+prebuilt: shared libbcmcrypto
 
 vlan:
 	@$(SEP)
@@ -1148,7 +1155,7 @@ endif
 flac/stamp-h1: libogg
 	cd flac && \
 	CFLAGS="-Os $(EXTRACFLAGS) -fPIC -ffunction-sections -fdata-sections" \
-	CPPFLAGS="-I$(TOP)/libogg/include" \
+	CPPFLAGS="-I$(TOP)/libogg/include -I$(LINUXDIR)/include" \
 	LDFLAGS="-L$(TOP)/libogg/src/.libs -fPIC -ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	$(CONFIGURE) --enable-shared --enable-static --prefix='' --disable-rpath \
 		--disable-doxygen-docs --disable-xmms-plugin --disable-cpplibs \
@@ -1330,6 +1337,7 @@ igs-install: igs
 ebtables: dummy
 	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) \
 	CFLAGS="-Os $(EXTRACFLAGS) -DEBT_MIN_ALIGN=4 -Wall -Wunused" \
+	LOCKFILE="/var/lock/ebtables" LOCKDIR="/var/lock" \
 	BINDIR="/usr/sbin" LIBDIR="/usr/lib/ebtables" KERNEL_INCLUDES=$(LINUXDIR)/include $(if $(TCONFIG_IPV6),DO_IPV6=1,)
 
 ebtables-install: ebtables
@@ -1394,7 +1402,7 @@ nocat-install:
 
 lzo/stamp-h1:
 	cd lzo && \
-	CFLAGS="-Os -Wall $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static
+	CFLAGS="-Os -Wall -fPIC $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static
 	touch lzo/stamp-h1
 
 lzo: lzo/stamp-h1
@@ -1431,6 +1439,30 @@ openvpn-install: openvpn
 	$(STRIP) -s $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	chmod 0500 $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 
+snmp/stamp-h1:
+	cd snmp && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	$(CONFIGURE) --prefix=/usr --with-endianness=little --enable-mini-agent --disable-debugging \
+	--disable-privacy --without-opaque-special-types --with-persistent-directory=/tmp/snmp-persist \
+	--with-default-snmp-version=3 --with-sys-contact=root --with-sys-location=Unknown --with-logfile=/dev/null \
+	--with-out-transports=UDPIPv6,TCPIPv6,AAL5PVC,IPX,TCP,Unix --enable-shared=no --enable-static --with-gnu-ld \
+	--enable-internal-md5 --with-copy-persistent-files=no --without-openssl -sysconfdir=/tmp \
+	--with-mib-modules=mibII,host,mibII/ip,mibII/tcp,mibII/udp,mibII/icmp,mibII/var_route,mibII/kernel_linux,qos,ucd_snmp \
+	--with-out-mib-modules=snmpv3mibs,agent_mips,agentx,notification,utilities,target --disable-ipv6 --with-defaults \
+	--without-efence --without-rsaref --without-kmem-usage --without-rpm --without-dmalloc
+	touch snmp/stamp-h1
+
+snmp: snmp/stamp-h1
+	@$(SEP)
+	$(MAKE) -C snmp
+
+snmp-clean:
+	-$(MAKE) -C snmp clean
+	@rm -f snmp/stamp-h1
+
+snmp-install: snmp
+	install -D snmp/agent/snmpd $(INSTALLDIR)/snmp/usr/sbin/snmpd
+	$(STRIP) $(INSTALLDIR)/snmp/usr/sbin/snmpd
 
 #
 # Generic rules

@@ -1,12 +1,8 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato GUI
-	Copyright (C) 2006-2009 Jonathan Zarate
+	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
-
-	Enhancements by Teaman
-	Copyright (C) 2011 Augusto Bott
-	http://code.google.com/p/tomato-sdhc-vlan/
 
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
@@ -75,6 +71,8 @@ function init()
 }
 </script>
 
+<!-- / / / -->
+
 </head>
 <body onload='init()'>
 <table id='container' cellspacing=0>
@@ -103,63 +101,90 @@ IPv6 support,
 Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <br>
-<!-- VPN-BEGIN -->
-VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
+<b>This compilation may also include:</b><br>
+<br>
+<!-- OPENVPN-BEGIN -->
+<b>OpenVPN integration and GUI</b><br>
+Copyright (C) 2010 Keith Moyer<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
-<!-- VPN-END -->
 <br>
-<b>This compilation by Toastman may also include:</b><br>
-<br>
+<!-- OPENVPN-END -->
 <b>"Teddy Bear" current features, notably:</b><br>
 - USB Support, Samba, FTP, Media Servers<br>
 - Web Monitor, Per-connection transfer rates<br>
-- Byte counter, QOS rule ID<br>
-<!-- IPV6-BEGIN -->
 - Additional ipv6 support in GUI, QOS, Conntrack<br>
-<!-- IPV6-END -->
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <br>
 <b>"Victek RAF" features:</b><br>
 - CPU Freq | Previous WAN IP<br>
+- HFS/HFS+MAC OS x read support<br>
 <!-- NOCAT-BEGIN -->
-- Captive Portal (Based in NocatSplash)<br>
-Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
+- Captive Portal (Based on NocatSplash) <br>
 <!-- NOCAT-END -->
-Tomato RAF. Copyright (C) 2007-2011 Vicente Soriano. <br>
+Copyright (C) 2007-2011 Vicente Soriano<br>
+<!-- NOCAT-BEGIN -->
+Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
+<!-- NOCAT-END -->
 <a href='http://victek.is-a-geek.com' target='_new'>http://victek.is-a-geek.com</a><br>
 <br>
 <b>"Shibby" features:</b><br>
 - Custom log file path<br>
+<!-- LINUX26-BEGIN -->
+- SD-idle tool integration for kernel 2.6<br>
+<!-- LINUX26-END -->
 <!-- SNMP-BEGIN -->
 - SNMP integration and GUI<br>
 <!-- SNMP-END -->
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
+
+<!-- JYAVENARD-BEGIN -->
+<b>"JYAvenard" Features:</b><br>
+<!-- OPENVPN-BEGIN -->
+- OpenVPN enhancements &amp; username/password only authentication<br>
+<!-- OPENVPN-END -->
+<!-- USERPPTP-BEGIN -->
+- PPTP VPN client integration and GUI<br>
+<!-- USERPPTP-END -->
+Copyright (C) 2010-2011 Jean-Yves Avenard<br>
+<a href='mailto:jean-yves@avenard.org'>jean-yves@avenard.org</a><br>
+<br>
+<!-- JYAVENARD-END -->
+
 <b>"Teaman" Features:</b><br>
-- QOS-detailed & ctrate filters<br>
-- Multiple LAN support integration and GUI,<br>
+- QOS-detailed & ctrate improved filters<br>
+- Per-IP bandwidth monitoring of LAN clients [cstats v2]<br>
+- IPTraffic conn/BW ratios graphs<br>
+- Static ARP binding<br>
+- CPU % usage<br>  
+- Udpxy v1.0-Chipmunk-build 21<br>
+<!-- VLAN-BEGIN -->
+- Multiple LAN support integration and GUI<br>
+- Multiple/virtual SSID support (experimental)<br>
+<!-- VLAN-END -->
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br>
 <b>"Toastman" Features:</b><br>
-- CPU frequency selector<br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules<br>
-- Client Monitor<br>
-- Static ARP<br>
 - Up to 80 QOS rules<br>
+- IMQ based QOS/Bandwidth Limiter<br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>
+- GPT support for HDD by Yaniv Hamo<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>
 <br>
-Built on <% build_time(); %><br>
-<br>
+Development by Victek/PrinceAMD/Phykris/Shibby/Toastman/Teaman<br>
 <br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
+<br>
+Built on <% build_time(); %><br>
+<br><br>
 
 <!--
 

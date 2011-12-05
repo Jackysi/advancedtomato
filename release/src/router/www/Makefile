@@ -78,6 +78,7 @@ ifneq ($(TCONFIG_USB_EXTRAS),y)
 	rm -f $(INSTALLDIR)/www/tomatousb.png
 	rm -f $(INSTALLDIR)/www/tomatousb_bg.png
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/THEMES-BEGIN/,/THEMES-END/d"
+	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/EXTRAS-BEGIN/,/EXTRAS-END/d"
 endif
 
 # Only include NTFS settings if NTFS support is configured in.
@@ -117,6 +118,10 @@ ifneq ($(TCONFIG_IPV6),y)
 		|| true; \
 	done
 	rm -f $(INSTALLDIR)/www/basic-ipv6.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/IPV6-BEGIN/,/IPV6-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/IPV6-BEGIN/,/IPV6-END/d"
+	sed -i $(INSTALLDIR)/www/admin-debug.asp -e "/IPV6-BEGIN/,/IPV6-END/d"
+	sed -i $(INSTALLDIR)/www/advanced-dhcpdns.asp -e "/IPV6-BEGIN/,/IPV6-END/d"
 endif
 
 # Only include the USB and NAS pages if USB Support is configured in.
@@ -132,6 +137,24 @@ endif
 ##	test -d $(SRCBASE)/ctf/linux || 
 	sed -i $(INSTALLDIR)/www/advanced-misc.asp -e "/CTF-BEGIN/,/CTF-END/d"
 
+# Only include VLAN-GUI pages if VLAN-GUI is configured in.
+ifneq ($(TCONFIG_VLAN),y)
+	rm -f $(INSTALLDIR)/www/advanced-vlan.asp
+	rm -f $(INSTALLDIR)/www/advanced-access.asp
+	sed -i $(INSTALLDIR)/www/about.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/advanced-firewall.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/forward-upnp.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/status-devices.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/status-overview.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+else
+	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/ NOVLAN-BEGIN/,/ NOVLAN-END/d"
+	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/ NOVLAN-BEGIN/,/ NOVLAN-END/d"
+	sed -i $(INSTALLDIR)/www/status-devices.asp -e "/ NOVLAN-BEGIN/,/ NOVLAN-END/d"
+	sed -i $(INSTALLDIR)/www/status-overview.asp -e "/ NOVLAN-BEGIN/,/ NOVLAN-END/d"
+endif
 
 ifeq ($(TOMATO_EXPERIMENTAL),1)
 	cd $(INSTALLDIR)/www && \
@@ -140,8 +163,6 @@ ifeq ($(TOMATO_EXPERIMENTAL),1)
 		mv $$F.tmp $$F; \
 	done
 endif
-
-
 
 # Only include the vpn pages if OpenVPN is compiled in
 # Remove AES ciphers from the GUI if openssl doesn't have an AES directory
@@ -154,6 +175,13 @@ else
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/VPN-BEGIN/,/VPN-END/d"
 endif
 
+# Only include the snmp pages if SNMP is compiled in
+ifneq ($(TCONFIG_SNMP),y)
+	rm -f $(INSTALLDIR)/www/admin-snmp.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/SNMP-BEGIN/,/SNMP-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/SNMP-BEGIN/,/SNMP-END/d"
+endif
+
 
 # clean up
 	cd $(INSTALLDIR)/www && \
@@ -161,6 +189,7 @@ endif
 		[ -f $(INSTALLDIR)/www/$$F ] && sed -i $$F \
 		-e "/LINUX26-BEGIN/d"	-e "/LINUX26-END/d" \
 		-e "/USB-BEGIN/d"	-e "/USB-END/d" \
+		-e "/EXTRAS-BEGIN/d"	-e "/EXTRAS-END/d" \
 		-e "/NTFS-BEGIN/d"	-e "/NTFS-END/d" \
 		-e "/SAMBA-BEGIN/d"	-e "/SAMBA-END/d" \
 		-e "/FTP-BEGIN/d"	-e "/FTP-END/d" \
@@ -175,6 +204,8 @@ endif
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
 		-e "/CTF-BEGIN/d"	-e "/CTF-END/d" \
 		-e "/NOCAT-BEGIN/d"	-e "/NOCAT_END/d"\
+		-e "/SNMP-BEGIN/d"	-e "/SNMP_END/d"\
+		-e "/ VLAN-BEGIN/d"	-e "/ VLAN-END/d" \
 		|| true; \
 	done
 

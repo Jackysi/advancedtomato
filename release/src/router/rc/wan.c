@@ -150,6 +150,9 @@ static int config_pppd(int wan_proto, int num)
 		if (((p = nvram_get("ppp_ac")) != NULL) && (*p)) {
 			fprintf(fp, "rp_pppoe_ac '%s'\n", p);
 		}
+		if (nvram_match("ppp_mlppp", "1")) {
+			fprintf(fp, "mp\n");
+		}
 		break;
 	case WP_L2TP:
 		fprintf(fp, "nomppe nomppc\n");
@@ -420,11 +423,15 @@ void start_l2tp(void)
 		"redial = yes\n"
 		"max redials = 32767\n"
 		"redial timeout = %d\n"
-		"ppp debug = %s\n",
+		"tunnel rws = 8\n"
+		"ppp debug = %s\n"
+		"%s\n",
 		nvram_safe_get("l2tp_server_ip"),
 		ppp_optfile,
 		demand ? 30 : (nvram_get_int("ppp_redialperiod") ? : 30),
-		nvram_get_int("debug_ppp") ? "yes" : "no");
+		nvram_get_int("debug_ppp") ? "yes" : "no",
+		nvram_safe_get("xl2tpd_custom"));
+	fappend(fp, "/etc/xl2tpd.custom");
 	fclose(fp);
 
 	enable_ip_forward();
@@ -874,6 +881,7 @@ void start_wan_done(char *wan_ifname)
 		eval("brctl", "stp", nvram_safe_get("lan_ifname"), "0");
 		if (nvram_match("lan_stp", "1")) 
 			eval("brctl", "stp", nvram_safe_get("lan_ifname"), "1");
+#ifdef TCONFIG_VLAN
 		if(strcmp(nvram_safe_get("lan1_ifname"),"")!=0) {
 			eval("brctl", "stp", nvram_safe_get("lan1_ifname"), "0");
 			if (nvram_match("lan1_stp", "1")) 
@@ -889,6 +897,7 @@ void start_wan_done(char *wan_ifname)
 			if (nvram_match("lan3_stp", "1")) 
 				eval("brctl", "stp", nvram_safe_get("lan3_ifname"), "1");
 		}
+#endif
 	}
 
 	if (wanup)

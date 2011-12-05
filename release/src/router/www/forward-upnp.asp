@@ -84,7 +84,7 @@ ug.populate = function() {
 	if (nvram.upnp_enable != 0) {
 		var data = mupnp_data.split('\n');
 		for (i = 0; i < data.length; ++i) {
-			r = data[i].match(/^(UDP|TCP)\s+(\d+)\s+(.+?)\s+(\d+)\s+\[(.*)\]$/);
+			r = data[i].match(/^(UDP|TCP)\s+(\d+)\s+(.+?)\s+(\d+)\s+\[(.*)\](.*)$/);
 			if (r == null) continue;
 			row = this.insertData(-1, [r[2], r[4], r[3], r[1], r[5]]);
 
@@ -133,6 +133,7 @@ REMOVE-END */
 		ferror.clear(E('_upnp_clean_threshold'));
 	}
 
+/* VLAN-BEGIN */
 	E('_f_upnp_lan').disabled = ((nvram.lan_ifname.length < 1) || !((enable != 0) && (bc != 0)));
 	if (E('_f_upnp_lan').disabled)
 		E('_f_upnp_lan').checked = false;
@@ -145,7 +146,7 @@ REMOVE-END */
 	E('_f_upnp_lan3').disabled = ((nvram.lan3_ifname.length < 1) || !((enable != 0) && (bc != 0)));
 	if (E('_f_upnp_lan3').disabled)
 		E('_f_upnp_lan3').checked = false;
-
+/* VLAN-END */
 	return 1;
 }
 
@@ -168,10 +169,12 @@ REMOVE-END */
 	fom.upnp_clean.value = E('_f_upnp_clean').checked ? 1 : 0;
 	fom.upnp_secure.value = E('_f_upnp_secure').checked ? 1 : 0;
 
+/* VLAN-BEGIN */
 	fom.upnp_lan.value = E('_f_upnp_lan').checked ? 1 : 0;
 	fom.upnp_lan1.value = E('_f_upnp_lan1').checked ? 1 : 0;
 	fom.upnp_lan2.value = E('_f_upnp_lan2').checked ? 1 : 0;
 	fom.upnp_lan3.value = E('_f_upnp_lan3').checked ? 1 : 0;
+/* VLAN-END */
 	form.submit(fom, 0);
 }
 
@@ -213,10 +216,12 @@ REMOVE-END */
 <input type='hidden' name='upnp_mnp'>
 <input type='hidden' name='upnp_clean'>
 <input type='hidden' name='upnp_secure'>
+<!-- VLAN-BEGIN -->
 <input type='hidden' name='upnp_lan'>
 <input type='hidden' name='upnp_lan1'>
 <input type='hidden' name='upnp_lan2'>
 <input type='hidden' name='upnp_lan3'>
+<!-- VLAN-END -->
 
 <div class='section-title'>Forwarded Ports</div>
 <div class='section'>
@@ -241,11 +246,13 @@ REMOVE-END */
 	{ title: 'Secure Mode', name: 'f_upnp_secure', type: 'checkbox',
 		suffix: ' <small>(when enabled, UPnP clients are allowed to add mappings only to their IP)</small>',
 		value: (nvram.upnp_secure == '1') },
+/* VLAN-BEGIN */
 	{ title: 'Listen on' },
 	{ title: 'LAN', indent: 2, name: 'f_upnp_lan', type: 'checkbox', value: (nvram.upnp_lan == '1') },
 	{ title: 'LAN1', indent: 2, name: 'f_upnp_lan1', type: 'checkbox', value: (nvram.upnp_lan1 == '1') },
 	{ title: 'LAN2', indent: 2, name: 'f_upnp_lan2', type: 'checkbox', value: (nvram.upnp_lan2 == '1') },
 	{ title: 'LAN3', indent: 2, name: 'f_upnp_lan3', type: 'checkbox', value: (nvram.upnp_lan3 == '1') },
+/* VLAN-END */
 	{ title: 'Show In My Network Places',  name: 'f_upnp_mnp',  type: 'checkbox',  value: (nvram.upnp_mnp == '1')}
 ]);
 </script>

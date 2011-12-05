@@ -61,6 +61,7 @@ const defaults_t defaults[] = {
 	{ "lan_gateway",		"0.0.0.0"			},	// LAN Gateway
 	{ "wl_wds_enable",		"0"				},	// WDS Enable (0|1)
 
+#ifdef TCONFIG_VLAN
 	{ "lan1_ipaddr",		""				},
 	{ "lan1_netmask",		""				},
 	{ "lan1_stp",			"0"				},
@@ -70,6 +71,7 @@ const defaults_t defaults[] = {
 	{ "lan3_ipaddr",		""				},
 	{ "lan3_netmask",		""				},
 	{ "lan3_stp",			"0"				},
+#endif
 
 	// WAN H/W parameters
 //!	{ "wan_ifname",			""				},	// WAN interface name
@@ -113,6 +115,7 @@ const defaults_t defaults[] = {
 	{ "wan_routes",			""				},
 	{ "wan_msroutes",		""				},
 
+#ifdef TCONFIG_VLAN
 	{ "dhcp1_start",			""			},
 	{ "dhcp1_num",			""			},
 	{ "dhcpd1_startip",		"" 				},
@@ -128,6 +131,7 @@ const defaults_t defaults[] = {
 	{ "dhcpd3_startip",		"" 				},
 	{ "dhcpd3_endip",		"" 				},
 	{ "dhcp3_lease",			"0"				},
+#endif
 
 	// PPPoE parameters
 	{ "pppoe_ifname",		""				},	// PPPoE enslaved interface
@@ -146,6 +150,7 @@ const defaults_t defaults[] = {
 	{ "ppp_get_ac",			""				},	// PPPoE Server ac name
 	{ "ppp_get_srv",		""				},	// PPPoE Server service name
 	{ "ppp_custom",			""				},	// PPPD additional options
+	{ "ppp_mlppp",			"0"				},	// PPPoE single line MLPPP
 
 	{ "pppoe_lei",			""				},
 	{ "pppoe_lef",			""				},
@@ -215,7 +220,7 @@ const defaults_t defaults[] = {
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
-	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3)    //Toastman - 0=off
+	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3)
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"				},	// WEP encryption [64 | 128] // Add
 	{ "wl_wep_buf",			""				},	// save all settings for web // Add
@@ -415,6 +420,7 @@ const defaults_t defaults[] = {
 	{ "dhcpc_custom",		""				},
 	{ "dns_norebind",		"1"				},
 	{ "dnsmasq_custom",		""				},
+	{ "dhcpd_static_only",	"0"				},
 //	{ "dnsmasq_norw",		"0"				},
 
 // advanced-firewall
@@ -422,10 +428,13 @@ const defaults_t defaults[] = {
 	{ "nf_loopback",		"0"				},
 	{ "block_wan",			"1"				},	// block inbound icmp
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
+
+#ifdef TCONFIG_VLAN
 	{ "multicast_lan",		"0"				},	// on LAN (br0)
 	{ "multicast_lan1",		"0"				},	// on LAN1 (br1)
 	{ "multicast_lan2",		"0"				},	// on LAN2 (br2)
 	{ "multicast_lan3",		"0"				},	// on LAN3 (br3)
+#endif
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
 	{ "dhcp_pass",			"1"				},	// allow DHCP responses
 	{ "ne_shlimit",			"0,3,60"			},
@@ -438,12 +447,15 @@ const defaults_t defaults[] = {
 	{ "dr_setting",			"0"				},	// [ Disable | WAN | LAN | Both ]
 	{ "dr_lan_tx",			"0"				},	// Dynamic-Routing LAN out
 	{ "dr_lan_rx",			"0"				},	// Dynamic-Routing LAN in
+
+#ifdef TCONFIG_VLAN
 	{ "dr_lan1_tx",			"0"				},	// Dynamic-Routing LAN out
 	{ "dr_lan1_rx",			"0"				},	// Dynamic-Routing LAN in
 	{ "dr_lan2_tx",			"0"				},	// Dynamic-Routing LAN out
 	{ "dr_lan2_rx",			"0"				},	// Dynamic-Routing LAN in
 	{ "dr_lan3_tx",			"0"				},	// Dynamic-Routing LAN out
 	{ "dr_lan3_rx",			"0"				},	// Dynamic-Routing LAN in
+#endif
 	{ "dr_wan_tx",			"0"				},	// Dynamic-Routing WAN out
 	{ "dr_wan_rx",			"0"				},	// Dynamic-Routing WAN in
 #endif
@@ -580,6 +592,18 @@ const defaults_t defaults[] = {
 	{ "rstats_sshut",		"1"				},
 	{ "rstats_bak",			"0"				},
 
+// admin-ipt
+	{ "cstats_enable",		"1"				},
+	{ "cstats_path",		""				},
+	{ "cstats_stime",		"48"			},
+	{ "cstats_offset",		"1"				},
+	{ "cstats_colors",		""				},
+	{ "cstats_exclude",		""				},
+	{ "cstats_include",		""				},
+	{ "cstats_all",			"1"				},
+	{ "cstats_sshut",		"1"				},
+	{ "cstats_bak",			"0"				},
+
 // advanced-buttons
 	{ "sesx_led",			"0"				},
 	{ "sesx_b0",			"1"				},
@@ -649,6 +673,9 @@ const defaults_t defaults[] = {
 	{ "usb_uhci",			"0"				},
 	{ "usb_ohci",			"0"				},
 	{ "usb_usb2",			"1"				},
+#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+	{ "usb_mmc",			"-1"				},
+#endif
 	{ "usb_irq_thresh",		"0"				},
 	{ "usb_storage",		"1"				},
 	{ "usb_printer",		"1"				},
@@ -690,6 +717,13 @@ const defaults_t defaults[] = {
 	{ "ftp_sip",			""				},	// wan ftp access: source ip address(es)
 	{ "ftp_limit",			"0,3,60"			},
 	{ "log_ftp",			"0"				},
+#endif
+
+#ifdef TCONFIG_SNMP
+	{ "snmp_enable",		"0"				},
+	{ "snmp_location",		"router"			},
+	{ "snmp_contact",		"admin@tomato"			},
+	{ "snmp_ro",			"rocommunity"			},
 #endif
 
 #ifdef TCONFIG_SAMBASRV
@@ -993,12 +1027,16 @@ const defaults_t if_generic[] = {
 const defaults_t if_vlan[] = {
 	{ "lan_ifname",		"br0"					},
 	{ "lan_ifnames",	"vlan0 eth1 eth2 eth3"	},
+
+#ifdef TCONFIG_VLAN
 	{ "lan1_ifname",	""					},
 	{ "lan1_ifnames",	""					},
 	{ "lan2_ifname",	""					},
 	{ "lan2_ifnames",	""					},
 	{ "lan3_ifname",	""					},
 	{ "lan3_ifnames",	""					},
+#endif
+
 	{ "wan_ifname",		"vlan1"					},
 	{ "wan_ifnames",	"vlan1"					},
 	{ NULL, NULL }

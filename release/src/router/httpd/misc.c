@@ -392,6 +392,29 @@ mtd1: 007d0000 00010000 "linux"
 	}
 }
 
+void asp_jiffies(int argc, char **argv)
+{
+	char sa[64];
+	FILE *a;
+	char *e = NULL;
+	char *f= NULL;
+
+	const char procstat[] = "/proc/stat";
+	if ((a = fopen(procstat, "r")) != NULL) {
+		fgets(sa, sizeof(sa), a);
+
+		e = sa;
+
+		if ((e = strchr(sa, ' ')) != NULL) e = e + 2;
+
+		if ((f = strchr(sa, 10)) != NULL) *f = 0;
+
+		web_printf("\njiffies = [ '");
+		web_printf("%s", e);
+		web_puts("' ];\n");
+		fclose(a);
+	}
+}
 
 void asp_sysinfo(int argc, char **argv)
 {
@@ -404,6 +427,12 @@ void asp_sysinfo(int argc, char **argv)
 	char cpuclk[8];
 
 	get_cpuinfo(system_type, cpu_model, bogomips, cpuclk);
+
+	char sa[64];
+	FILE *a;
+	char *e = NULL;
+	char *f= NULL;
+	const char procstat[] = "/proc/stat";
 
 	web_puts("\nsysinfo = {\n");
 
@@ -429,7 +458,7 @@ void asp_sysinfo(int argc, char **argv)
 		"\tsystemtype: '%s',\n"
 		"\tcpumodel: '%s',\n"
 		"\tbogomips: '%s',\n"
-		"\tcpuclk: '%s'\n",
+		"\tcpuclk: '%s'",
 			si.uptime,
 			reltime(s, si.uptime),
 			si.loads[0], si.loads[1], si.loads[2],
@@ -443,6 +472,20 @@ void asp_sysinfo(int argc, char **argv)
 			cpu_model,
 			bogomips,
 			cpuclk);
+
+	if ((a = fopen(procstat, "r")) != NULL) {
+		fgets(sa, sizeof(sa), a);
+		e = sa;
+		if ((e = strchr(sa, ' ')) != NULL) e = e + 2;
+		if ((f = strchr(sa, 10)) != NULL) *f = 0;
+		web_printf(",\n\tjiffies: '");
+		web_printf("%s", e);
+		web_puts("'\n");
+		fclose(a);
+	} else {
+		web_puts("\n");
+	}
+
 	web_puts("};\n");
 }
 

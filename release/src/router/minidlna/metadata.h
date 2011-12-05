@@ -42,11 +42,6 @@ typedef struct metadata_s {
 	char *dlna_pn;
 } metadata_t;
 
-typedef struct tsinfo_s {
-	int x;
-	int packet_size;
-} tsinfo_t;
-
 typedef enum {
   AAC_INVALID   =  0,
   AAC_MAIN      =  1, /* AAC Main */
@@ -93,7 +88,7 @@ void
 check_for_captions(const char * path, sqlite_int64 detailID);
 
 sqlite_int64
-GetFolderMetadata(const char * name, const char * path, const char * artist, const char * genre, const char * album_art);
+GetFolderMetadata(const char * name, const char * path, const char * artist, const char * genre, sqlite3_int64 album_art);
 
 sqlite_int64
 GetAudioMetadata(const char * path, char * name);

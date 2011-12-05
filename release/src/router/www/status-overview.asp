@@ -4,6 +4,10 @@
 	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
+	Tomato VLAN GUI
+	Copyright (C) 2011 Augusto Bott
+	http://code.google.com/p/tomato-sdhc-vlan/
+
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
 -->
@@ -15,6 +19,7 @@
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
+<script type='text/javascript' src='interfaces.js'></script>
 
 <!-- / / / -->
 
@@ -33,6 +38,10 @@ wmo = {'ap':'Access Point','sta':'Wireless Client','wet':'Wireless Ethernet Brid
 auth = {'disabled':'-','wep':'WEP','wpa_personal':'WPA Personal (PSK)','wpa_enterprise':'WPA Enterprise','wpa2_personal':'WPA2 Personal (PSK)','wpa2_enterprise':'WPA2 Enterprise','wpaX_personal':'WPA / WPA2 Personal','wpaX_enterprise':'WPA / WPA2 Enterprise','radius':'Radius'};
 enc = {'tkip':'TKIP','aes':'AES','tkip+aes':'TKIP / AES'};
 bgmo = {'disabled':'-','mixed':'Auto','b-only':'B Only','g-only':'G Only','bg-mixed':'B/G Mixed','lrs':'LRS','n-only':'N Only'};
+
+lastjiffiestotal = 0;
+lastjiffiesidle = 0;
+lastjiffiesusage = 100;
 </script>
 
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
@@ -44,7 +53,11 @@ show_codi = ((nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp') || (nvr
 
 show_radio = [];
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-	show_radio.push((nvram['wl'+wl_unit(uidx)+'_radio'] == '1'));
+/* REMOVE-BEGIN
+//	show_radio.push((nvram['wl'+wl_unit(uidx)+'_radio'] == '1'));
+REMOVE-END */
+	if (wl_sunit(uidx)<0)
+		show_radio.push((nvram['wl'+wl_fface(uidx)+'_radio'] == '1'));
 }
 
 nphy = features('11n');
@@ -97,6 +110,7 @@ function c(id, htm)
 function show()
 {
 	c('cpu', stats.cpuload);
+	c('cpupercent', stats.cpupercent);
 	c('uptime', stats.uptime);
 	c('time', stats.time);
 	c('wanip', stats.wanip);
@@ -126,23 +140,25 @@ function show()
 	}
 
 	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		c('radio'+uidx, wlstats[uidx].radio ? 'Enabled' : '<b>Disabled</b>');
-		c('rate'+uidx, wlstats[uidx].rate);
-		if (show_radio[uidx]) {
-			E('b_wl'+uidx+'_enable').disabled = wlstats[uidx].radio;
-			E('b_wl'+uidx+'_disable').disabled = !wlstats[uidx].radio;
-		}
-		c('channel'+uidx, stats.channel[uidx]);
-		if (nphy) {
-			c('nbw'+uidx, wlstats[uidx].nbw);
-		}
-		c('interference'+uidx, stats.interference[uidx]);
-		elem.display('interference'+uidx, stats.interference[uidx] != '');
+		if (wl_sunit(uidx)<0) {
+			c('radio'+uidx, wlstats[uidx].radio ? 'Enabled' : '<b>Disabled</b>');
+			c('rate'+uidx, wlstats[uidx].rate);
+			if (show_radio[uidx]) {
+				E('b_wl'+uidx+'_enable').disabled = wlstats[uidx].radio;
+				E('b_wl'+uidx+'_disable').disabled = !wlstats[uidx].radio;
+			}
+			c('channel'+uidx, stats.channel[uidx]);
+			if (nphy) {
+				c('nbw'+uidx, wlstats[uidx].nbw);
+			}
+			c('interference'+uidx, stats.interference[uidx]);
+			elem.display('interference'+uidx, stats.interference[uidx] != '');
 
-		if (wlstats[uidx].client) {
-			c('rssi'+uidx, wlstats[uidx].rssi || '');
-			c('noise'+uidx, wlstats[uidx].noise || '');
-			c('qual'+uidx, stats.qual[uidx] || '');
+			if (wlstats[uidx].client) {
+				c('rssi'+uidx, wlstats[uidx].rssi || '');
+				c('noise'+uidx, wlstats[uidx].noise || '');
+				c('qual'+uidx, stats.qual[uidx] || '');
+			}
 		}
 	}
 }
@@ -153,7 +169,8 @@ function earlyInit()
 	elem.display('b_connect', 'b_disconnect', show_codi);
 	elem.display('wan-title', 'wan-section', nvram.wan_proto != 'disabled');
 	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		elem.display('b_wl'+uidx+'_enable', 'b_wl'+uidx+'_disable', show_radio[uidx]);
+		if (wl_sunit(uidx)<0)
+			elem.display('b_wl'+uidx+'_enable', 'b_wl'+uidx+'_disable', show_radio[uidx]);
 	}
 	show();
 }
@@ -191,6 +208,7 @@ createFieldTable('', [
 	{ title: 'Time', rid: 'time', text: stats.time },
 	{ title: 'Uptime', rid: 'uptime', text: stats.uptime },
 	{ title: 'CPU Load <small>(1 / 5 / 15 mins)</small>', rid: 'cpu', text: stats.cpuload },
+	{ title: 'CPU Usage', rid: 'cpupercent', text: stats.cpupercent },
 	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory },
 	{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') },
 ]);
@@ -231,18 +249,44 @@ createFieldTable('', [
 <div class='section'>
 <script type='text/javascript'>
 
-function h_countbitsfromleft(num) {
-	if (num == 255 ){
-		return(8);
-	}
-	var i = 0;
-	var bitpat=0xff00; 
-	while (i < 8){
-		if (num == (bitpat & 0xff)){
-			return(i);
+/* VLAN-BEGIN */
+var s='';
+var t='';
+for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
+	var j = (i == 0) ? '' : i.toString();
+	if (nvram['lan' + j + '_ifname'].length > 0) {
+		if (nvram['lan' + j + '_proto'] == 'dhcp') {
+			if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
+				var x = nvram['lan' + j + '_ipaddr'].split('.').splice(0, 3).join('.') + '.';
+				nvram['dhcpd' + j + '_startip'] = x + nvram['dhcp' + j + '_start'];
+				nvram['dhcpd' + j + '_endip'] = x + ((nvram['dhcp' + j + '_start'] * 1) + (nvram['dhcp' + j + '_num'] * 1) - 1);
+			}
+			s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? ', ' : '';
+			s += '<a href="status-devices.asp">' + nvram['dhcpd' + j + '_startip'] + ' - ' + nvram['dhcpd' + j + '_endip'] + '</a> on LAN' + j + ' (br' + i + ')';
+		} else {
+			s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? ', ' : '';
+			s += 'Disabled on LAN' + j + ' (br' + i + ')';
 		}
-		bitpat=bitpat >> 1;
-		i++;
+		t += ((t.length>0)&&(t.charAt(t.length-1) != ' ')) ? ', ' : '';
+		t += nvram['lan' + j + '_ipaddr'] + '/' + numberOfBitsOnNetMask(nvram['lan' + j + '_netmask']) + ' on LAN' + j + ' (br' + i + ')';
+	}
+}
+
+createFieldTable('', [
+	{ title: 'Router MAC Address', text: nvram.et0macaddr },
+	{ title: 'Router IP Addresses', text: t },
+	{ title: 'Gateway', text: nvram.lan_gateway, ignore: nvram.wan_proto != 'disabled' },
+	{ title: 'DNS', rid: 'dns', text: stats.dns, ignore: nvram.wan_proto != 'disabled' },
+	{ title: 'DHCP', text: s }
+]);
+/* VLAN-END */
+
+/* NOVLAN-BEGIN */
+if (nvram.lan_proto == 'dhcp') {
+	if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
+		var x = nvram.lan_ipaddr.split('.').splice(0, 3).join('.') + '.';
+		nvram.dhcpd_startip = x + nvram.dhcp_start;
+		nvram.dhcpd_endip = x + ((nvram.dhcp_start * 1) + (nvram.dhcp_num * 1) - 1);
 	}
 	return(Number.NaN);
 }
@@ -290,42 +334,51 @@ createFieldTable('', [
 	{ title: 'DNS', rid: 'dns', text: stats.dns, ignore: nvram.wan_proto != 'disabled' },
 	{ title: 'DHCP', text: s }
 ]);
+/* NOVLAN-END */
+
 </script>
 </div>
 
 <script type='text/javascript'>
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-u = wl_unit(uidx);
-W('<div class=\'section-title\' id=\'wl'+uidx+'-title\'>Wireless');
-if (wl_ifaces.length > 1)
-	W(' (' + wl_display_ifname(uidx) + ')');
-W('</div>');
-W('<div class=\'section\' id=\'wl'+uidx+'-section\'>');
-sec = auth[nvram['wl'+u+'_security_mode']] + '';
-if (sec.indexOf('WPA') != -1) sec += ' + ' + enc[nvram['wl'+u+'_crypto']];
+/* REMOVE-BEGIN
+//	u = wl_unit(uidx);
+REMOVE-END */
+	u = wl_fface(uidx);
+	W('<div class=\'section-title\' id=\'wl'+uidx+'-title\'>Wireless');
+	if (wl_ifaces.length > 0)
+		W(' (' + wl_display_ifname(uidx) + ')');
+	W('</div>');
+	W('<div class=\'section\' id=\'wl'+uidx+'-section\'>');
+	sec = auth[nvram['wl'+u+'_security_mode']] + '';
+	if (sec.indexOf('WPA') != -1) sec += ' + ' + enc[nvram['wl'+u+'_crypto']];
 
-wmode = wmo[nvram['wl'+u+'_mode']] + '';
-if ((nvram['wl'+u+'_mode'] == 'ap') && (nvram['wl'+u+'_wds_enable'] * 1)) wmode += ' + WDS';
+	wmode = wmo[nvram['wl'+u+'_mode']] + '';
+	if ((nvram['wl'+u+'_mode'] == 'ap') && (nvram['wl'+u+'_wds_enable'] * 1)) wmode += ' + WDS';
 
-createFieldTable('', [
-	{ title: 'MAC Address', text: nvram['wl'+u+'_hwaddr'] },
-	{ title: 'Wireless Mode', text: wmode },
-	{ title: 'Wireless Network Mode', text: bgmo[nvram['wl'+u+'_net_mode']] },
-	{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? '<b>Disabled</b>' : 'Enabled' },
-	{ title: 'SSID', text: nvram['wl'+u+'_ssid'] },
-	{ title: 'Security', text: sec },
-	{ title: 'Channel', rid: 'channel'+uidx, text: stats.channel[uidx] },
-	{ title: 'Channel Width', rid: 'nbw'+uidx, text: wlstats[uidx].nbw, ignore: !nphy },
-	{ title: 'Interference Level', rid: 'interference'+uidx, text: stats.interference[uidx], hidden: (stats.interference[uidx] == '') },
-	{ title: 'Rate', rid: 'rate'+uidx, text: wlstats[uidx].rate },
-	{ title: 'RSSI', rid: 'rssi'+uidx, text: wlstats[uidx].rssi || '', ignore: !wlstats[uidx].client },
-	{ title: 'Noise', rid: 'noise'+uidx, text: wlstats[uidx].noise || '', ignore: !wlstats[uidx].client },
-	{ title: 'Signal Quality', rid: 'qual'+uidx, text: stats.qual[uidx] || '', ignore: !wlstats[uidx].client }
-]);
+	createFieldTable('', [
+		{ title: 'MAC Address', text: nvram['wl'+u+'_hwaddr'] },
+		{ title: 'Wireless Mode', text: wmode },
+		{ title: 'Wireless Network Mode', text: bgmo[nvram['wl'+u+'_net_mode']], ignore: (wl_sunit(uidx)>=0) },
+		{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? '<b>Disabled</b>' : 'Enabled', ignore: (wl_sunit(uidx)>=0) },
+/* REMOVE-BEGIN */
+//	{ title: 'SSID', text: (nvram['wl'+u+'_ssid'] + ' <small><i>' + ((nvram['wl'+u+'_mode'] != 'ap') ? '' : ((nvram['wl'+u+'_closed'] == 0) ? '(Broadcast Enabled)' : '(Broadcast Disabled)')) + '</i></small>') },
+/* REMOVE-END */
+		{ title: 'SSID', text: nvram['wl'+u+'_ssid'] },
+		{ title: 'Broadcast', text: (nvram['wl'+u+'_closed'] == 0) ? 'Enabled' : '<b>Disabled</b>', ignore: (nvram['wl'+u+'_mode'] != 'ap') },
+		{ title: 'Security', text: sec },
+		{ title: 'Channel', rid: 'channel'+uidx, text: stats.channel[uidx], ignore: (wl_sunit(uidx)>=0) },
+		{ title: 'Channel Width', rid: 'nbw'+uidx, text: wlstats[uidx].nbw, ignore: ((!nphy) || (wl_sunit(uidx)>=0)) },
+		{ title: 'Interference Level', rid: 'interference'+uidx, text: stats.interference[uidx], hidden: ((stats.interference[uidx] == '') || (wl_sunit(uidx)>=0)) },
+		{ title: 'Rate', rid: 'rate'+uidx, text: wlstats[uidx].rate, ignore: (wl_sunit(uidx)>=0) },
+		{ title: 'RSSI', rid: 'rssi'+uidx, text: wlstats[uidx].rssi || '', ignore: ((!wlstats[uidx].client) || (wl_sunit(uidx)>=0)) },
+		{ title: 'Noise', rid: 'noise'+uidx, text: wlstats[uidx].noise || '', ignore: ((!wlstats[uidx].client) || (wl_sunit(uidx)>=0)) },
+		{ title: 'Signal Quality', rid: 'qual'+uidx, text: stats.qual[uidx] || '', ignore: ((!wlstats[uidx].client) || (wl_sunit(uidx)>=0)) }
+	]);
 
-W('<input type=\'button\' class=\'controls\' onclick=\'wlenable('+uidx+', 1)\' id=\'b_wl'+uidx+'_enable\' value=\'Enable\' style=\'display:none\'>');
-W('<input type=\'button\' class=\'controls\' onclick=\'wlenable('+uidx+', 0)\' id=\'b_wl'+uidx+'_disable\' value=\'Disable\' style=\'display:none\'>');
-W('</div>');
+	W('<input type=\'button\' class=\'controls\' onclick=\'wlenable('+uidx+', 1)\' id=\'b_wl'+uidx+'_enable\' value=\'Enable\' style=\'display:none\'>');
+	W('<input type=\'button\' class=\'controls\' onclick=\'wlenable('+uidx+', 0)\' id=\'b_wl'+uidx+'_disable\' value=\'Disable\' style=\'display:none\'>');
+	W('</div>');
 }
 </script>
 

@@ -1,4 +1,4 @@
-/* $Id: iptcrdr.c,v 1.39 2011/03/09 15:27:42 nanard Exp $ */
+/* $Id: iptcrdr.c,v 1.45 2011/06/22 20:34:39 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard
@@ -20,6 +20,15 @@
 
 #if IPTABLES_143
 /* IPTABLES API version >= 1.4.3 */
+
+/* added in order to compile on gentoo :
+ * http://miniupnp.tuxfamily.org/forum/viewtopic.php?p=2183 */
+#define BUILD_BUG_ON_ZERO(e) (sizeof(struct { int:-!!(e); }))
+#define __must_be_array(a) \
+	BUILD_BUG_ON_ZERO(__builtin_types_compatible_p(typeof(a), typeof(&a[0])))
+#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
+#define LIST_POISON2  ((void *) 0x00200200 )
+
 #include <net/netfilter/nf_nat.h>
 #define ip_nat_multi_range	nf_nat_multi_range
 #define ip_nat_range		nf_nat_range
@@ -34,8 +43,23 @@
 #define IPTC_HANDLE		iptc_handle_t
 #endif
 
+/* IPT_ALIGN was renamed XT_ALIGN in iptables-1.4.11 */
+#ifndef IPT_ALIGN
+#define IPT_ALIGN XT_ALIGN
+#endif
+
 #include "iptcrdr.h"
 #include "../upnpglobalvars.h"
+
+/* local functions declarations */
+static int
+addnatrule(int proto, unsigned short eport,
+           const char * iaddr, unsigned short iport,
+           const char * rhost);
+
+static int
+add_filter_rule(int proto, const char * rhost,
+                const char * iaddr, unsigned short iport);
 
 /* dummy init and shutdown functions */
 int init_redirect(void)
@@ -60,6 +84,7 @@ static int snprintip(char * dst, size_t size, uint32_t ip)
  * own structure to store them */
 struct rdr_desc {
 	struct rdr_desc * next;
+	unsigned int timestamp;
 	unsigned short eport;
 	short proto;
 	char str[];
@@ -70,7 +95,8 @@ static struct rdr_desc * rdr_desc_list = 0;
 
 /* add a description to the list of redirection descriptions */
 static void
-add_redirect_desc(unsigned short eport, int proto, const char * desc)
+add_redirect_desc(unsigned short eport, int proto,
+                  const char * desc, unsigned int timestamp)
 {
 	struct rdr_desc * p;
 	size_t l;
@@ -82,6 +108,7 @@ add_redirect_desc(unsigned short eport, int proto, const char * desc)
 	if(p)
 	{
 		p->next = rdr_desc_list;
+		p->timestamp = timestamp;
 		p->eport = eport;
 		p->proto = (short)proto;
 		memcpy(p->str, desc, l);
@@ -115,27 +142,32 @@ del_redirect_desc(unsigned short eport, int proto)
 /* go through the list to find the description */
 static void
 get_redirect_desc(unsigned short eport, int proto,
-                  char * desc, int desclen)
+                  char * desc, int desclen,
+                  unsigned int * timestamp)
 {
 	struct rdr_desc * p;
-	if(!desc || (desclen == 0))
-		return;
 	for(p = rdr_desc_list; p; p = p->next)
 	{
 		if(p->eport == eport && p->proto == (short)proto)
 		{
-			strncpy(desc, p->str, desclen);
+			if(desc)
+				strncpy(desc, p->str, desclen);
+			if(timestamp)
+				*timestamp = p->timestamp;
 			return;
 		}
 	}
 	/* if no description was found, return miniupnpd as default */
-	strncpy(desc, "miniupnpd", desclen);
+	if(desc)
+		strncpy(desc, "miniupnpd", desclen);
+	if(timestamp)
+		*timestamp = 0;
 }
 
 #if USE_INDEX_FROM_DESC_LIST
 static int
 get_redirect_desc_by_index(int index, unsigned short * eport, int * proto,
-                  char * desc, int desclen)
+                  char * desc, int desclen, unsigned int * timestamp)
 {
 	int i = 0;
 	struct rdr_desc * p;
@@ -148,6 +180,8 @@ get_redirect_desc_by_index(int index, unsigned short * eport, int * proto,
 			*eport = p->eport;
 			*proto = (int)p->proto;
 			strncpy(desc, p->str, desclen);
+			if(timestamp)
+				*timestamp = p->timestamp;
 			return 0;
 		}
 	}
@@ -157,22 +191,24 @@ get_redirect_desc_by_index(int index, unsigned short * eport, int * proto,
 
 /* add_redirect_rule2() */
 int
-add_redirect_rule2(const char * ifname, unsigned short eport,
+add_redirect_rule2(const char * ifname,
+                   const char * rhost, unsigned short eport,
                    const char * iaddr, unsigned short iport, int proto,
-				   const char * desc)
+				   const char * desc, unsigned int timestamp)
 {
-	int r = addnatrule(proto, eport, iaddr, iport);
+	int r = addnatrule(proto, eport, iaddr, iport, rhost);
 	if(r >= 0)
-		add_redirect_desc(eport, proto, desc);
+		add_redirect_desc(eport, proto, desc, timestamp);
 	return r;
 }
 
 int
-add_filter_rule2(const char * ifname, const char * iaddr,
+add_filter_rule2(const char * ifname,
+                 const char * rhost, const char * iaddr,
                  unsigned short eport, unsigned short iport,
                  int proto, const char * desc)
 {
-	return add_filter_rule(proto, iaddr, iport);
+	return add_filter_rule(proto, rhost, iaddr, iport);
 }
 
 /* get_redirect_rule() 
@@ -181,6 +217,8 @@ int
 get_redirect_rule(const char * ifname, unsigned short eport, int proto,
                   char * iaddr, int iaddrlen, unsigned short * iport,
                   char * desc, int desclen,
+                  char * rhost, int rhostlen,
+                  unsigned int * timestamp,
                   u_int64_t * packets, u_int64_t * bytes)
 {
 	int r = -1;
@@ -236,13 +274,15 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 				mr = (const struct ip_nat_multi_range *)&target->data[0];
 				snprintip(iaddr, iaddrlen, ntohl(mr->range[0].min_ip));
 				*iport = ntohs(mr->range[0].min.all);
-				/*if(desc)
-					strncpy(desc, "miniupnpd", desclen);*/
-				get_redirect_desc(eport, proto, desc, desclen);
+				get_redirect_desc(eport, proto, desc, desclen, timestamp);
 				if(packets)
 					*packets = e->counters.pcnt;
 				if(bytes)
 					*bytes = e->counters.bcnt;
+				/* rhost */
+				if(e->ip.src.s_addr && rhost) {
+					snprintip(rhost, rhostlen, ntohl(e->ip.src.s_addr));
+				}
 				r = 0;
 				break;
 			}
@@ -264,11 +304,14 @@ get_redirect_rule_by_index(int index,
                            char * ifname, unsigned short * eport,
                            char * iaddr, int iaddrlen, unsigned short * iport,
                            int * proto, char * desc, int desclen,
+                           char * rhost, int rhostlen,
+                           unsigned int * timestamp,
                            u_int64_t * packets, u_int64_t * bytes)
 {
 	int r = -1;
 #if USE_INDEX_FROM_DESC_LIST
-	r = get_redirect_desc_by_index(index, eport, proto, desc, desclen);
+	r = get_redirect_desc_by_index(index, eport, proto,
+	                               desc, desclen, timestamp);
 	if (r==0)
 	{
 		r = get_redirect_rule(ifname, *eport, *proto, iaddr, iaddrlen, iport,
@@ -326,13 +369,19 @@ get_redirect_rule_by_index(int index,
 				mr = (const struct ip_nat_multi_range *)&target->data[0];
 				snprintip(iaddr, iaddrlen, ntohl(mr->range[0].min_ip));
 				*iport = ntohs(mr->range[0].min.all);
-                /*if(desc)
-				    strncpy(desc, "miniupnpd", desclen);*/
-				get_redirect_desc(*eport, *proto, desc, desclen);
+				get_redirect_desc(*eport, *proto, desc, desclen, timestamp);
 				if(packets)
 					*packets = e->counters.pcnt;
 				if(bytes)
 					*bytes = e->counters.bcnt;
+				/* rhost */
+				if(rhost && rhostlen > 0) {
+					if(e->ip.src.s_addr) {
+						snprintip(rhost, rhostlen, ntohl(e->ip.src.s_addr));
+					} else {
+						rhost[0] = '\0';
+					}
+				}
 				r = 0;
 				break;
 			}
@@ -532,7 +581,7 @@ get_tcp_match(unsigned short dport)
 	       + IPT_ALIGN(sizeof(struct ipt_tcp));
 	match = calloc(1, size);
 	match->u.match_size = size;
-	strncpy(match->u.user.name, "tcp", IPT_FUNCTION_MAXNAMELEN);
+	strncpy(match->u.user.name, "tcp", sizeof(match->u.user.name));
 	tcpinfo = (struct ipt_tcp *)match->data;
 	tcpinfo->spts[0] = 0;		/* all source ports */
 	tcpinfo->spts[1] = 0xFFFF;
@@ -551,7 +600,7 @@ get_udp_match(unsigned short dport)
 	       + IPT_ALIGN(sizeof(struct ipt_udp));
 	match = calloc(1, size);
 	match->u.match_size = size;
-	strncpy(match->u.user.name, "udp", IPT_FUNCTION_MAXNAMELEN);
+	strncpy(match->u.user.name, "udp", sizeof(match->u.user.name));
 	udpinfo = (struct ipt_udp *)match->data;
 	udpinfo->spts[0] = 0;		/* all source ports */
 	udpinfo->spts[1] = 0xFFFF;
@@ -572,7 +621,7 @@ get_dnat_target(const char * daddr, unsigned short dport)
 	       + IPT_ALIGN(sizeof(struct ip_nat_multi_range));
 	target = calloc(1, size);
 	target->u.target_size = size;
-	strncpy(target->u.user.name, "DNAT", IPT_FUNCTION_MAXNAMELEN);
+	strncpy(target->u.user.name, "DNAT", sizeof(target->u.user.name));
 	/* one ip_nat_range already included in ip_nat_multi_range */
 	mr = (struct ip_nat_multi_range *)&target->data[0];
 	mr->rangesize = 1;
@@ -657,9 +706,10 @@ iptc_init_verify_and_append(const char * table,
 /* add nat rule 
  * iptables -t nat -A MINIUPNPD -p proto --dport eport -j DNAT --to iaddr:iport
  * */
-int
+static int
 addnatrule(int proto, unsigned short eport,
-           const char * iaddr, unsigned short iport)
+           const char * iaddr, unsigned short iport,
+           const char * rhost)
 {
 	int r = 0;
 	struct ipt_entry * e;
@@ -689,6 +739,12 @@ addnatrule(int proto, unsigned short eport,
 	e->next_offset = sizeof(struct ipt_entry)
 	                 + match->u.match_size
 					 + target->u.target_size;
+	/* remote host */
+	if(rhost && (rhost[0] != '\0') && (0 != strcmp(rhost, "*")))
+	{
+		e->ip.src.s_addr = inet_addr(rhost);
+		e->ip.smsk.s_addr = INADDR_NONE;
+	}
 	
 	r = iptc_init_verify_and_append("nat", miniupnpd_nat_chain, e, "addnatrule()");
 	free(target);
@@ -706,14 +762,15 @@ get_accept_target(void)
 	       + IPT_ALIGN(sizeof(int));
 	target = calloc(1, size);
 	target->u.user.target_size = size;
-	strncpy(target->u.user.name, "ACCEPT", IPT_FUNCTION_MAXNAMELEN);
+	strncpy(target->u.user.name, "ACCEPT", sizeof(target->u.user.name));
 	return target;
 }
 
 /* add_filter_rule()
  * */
-int
-add_filter_rule(int proto, const char * iaddr, unsigned short iport)
+static int
+add_filter_rule(int proto, const char * rhost,
+                const char * iaddr, unsigned short iport)
 {
 	int r = 0;
 	struct ipt_entry * e;
@@ -745,6 +802,12 @@ add_filter_rule(int proto, const char * iaddr, unsigned short iport)
 	e->next_offset = sizeof(struct ipt_entry)
 	                 + match->u.match_size
 					 + target->u.target_size;
+	/* remote host */
+	if(rhost && (rhost[0] != '\0') && (0 != strcmp(rhost, "*")))
+	{
+		e->ip.src.s_addr = inet_addr(rhost);
+		e->ip.smsk.s_addr = INADDR_NONE;
+	}
 	
 	r = iptc_init_verify_and_append("filter", miniupnpd_forward_chain, e, "add_filter_rule()");
 	free(target);
@@ -825,7 +888,8 @@ get_portmappings_in_range(unsigned short startport, unsigned short endport,
 						array = realloc(array, sizeof(unsigned short)*capacity);
 						if(!array)
 						{
-							syslog(LOG_ERR, "get_portmappings_in_range() : realloc(%lu) error", sizeof(unsigned short)*capacity);
+							syslog(LOG_ERR, "get_portmappings_in_range() : realloc(%u) error",
+							       (unsigned)sizeof(unsigned short)*capacity);
 							*number = 0;
 							break;
 						}

@@ -284,6 +284,9 @@ const struct mime_handler mime_handlers[] = {
 	{ "bwm/*.gz",			NULL,					0,	wi_generic,			wo_bwmbackup,	1 },
 	{ "bwm/restore.cgi",	NULL,					0,	wi_bwmrestore,		wo_bwmrestore,	1 },
 
+	{ "ipt/*.gz",			NULL,					0,	wi_generic,			wo_iptbackup,	1 },
+	{ "ipt/restore.cgi",	NULL,					0,	wi_iptrestore,		wo_iptrestore,	1 },
+
 	{ "logs/view.cgi",	NULL,						0,	wi_generic,			wo_viewlog,		1 },
 	{ "logs/*.txt",		NULL,						0,	wi_generic,			wo_syslog,		1 },
 	{ "webmon_**",		NULL,						0,	wi_generic,			wo_syslog,		1 },
@@ -357,7 +360,7 @@ const aspapi_t aspapi[] = {
 	{ "ctrate",				asp_ctrate			},
 	{ "ddnsx",				asp_ddnsx			},
 	{ "devlist",			asp_devlist			},
-	{ "webmon",			asp_webmon			},
+	{ "webmon",				asp_webmon			},
 	{ "dhcpc_time",			asp_dhcpc_time		},
 	{ "dns",				asp_dns				},
 	{ "ident",				asp_ident			},
@@ -366,6 +369,12 @@ const aspapi_t aspapi[] = {
 	{ "link_uptime",		asp_link_uptime		},
 	{ "lipp",				asp_lipp			},
 	{ "netdev",				asp_netdev			},
+
+	{ "climon",				asp_climon			},
+	{ "iptraffic",			asp_iptraffic		},
+	{ "iptmon",				asp_iptmon			},
+	{ "ipt_bandwidth",		asp_ipt_bandwidth	},
+
 	{ "notice",				asp_notice			},
 	{ "nv",					asp_nv				},
 	{ "nvram",				asp_nvram 			},
@@ -377,12 +386,13 @@ const aspapi_t aspapi[] = {
 	{ "rrule",				asp_rrule			},
 	{ "statfs",				asp_statfs			},
 	{ "sysinfo",			asp_sysinfo			},
+	{ "jiffies",			asp_jiffies			},
 	{ "time",				asp_time			},
 	{ "upnpinfo",			asp_upnpinfo		},
 	{ "version",			asp_version			},
 	{ "wanstatus",			asp_wanstatus		},
 	{ "wanup",				asp_wanup			},
-	{ "wlstats",			asp_wlstats		},
+	{ "wlstats",			asp_wlstats			},
 	{ "wlclient",			asp_wlclient		},
 	{ "wlnoise",			asp_wlnoise			},
 	{ "wlscan",				asp_wlscan			},
@@ -507,7 +517,11 @@ static const nvset_t nvset_list[] = {
 	{ "ntp_kiss",			V_LENGTH(0, 255)	},
 
 // basic-static
-	{ "dhcpd_static",		V_LENGTH(0, 106*251)},		// 106 (max chars per entry) x "n" entries
+
+//	{ "bwm_client",			V_LENGTH(0, 2048)	},
+	{ "dhcpd_static",		V_LENGTH(0, 106*251)},	// 106 (max chars per entry) x 140 entries
+	{ "dhcpd_static_only",	V_01				},
+	{ "arpbind_static",		V_LENGTH(0, 34*251)},	// 34 (max chars per entry) x 140 entries
 
 // basic-ddns
 	{ "ddnsx0",				V_LENGTH(0, 2048)	},
@@ -535,6 +549,7 @@ static const nvset_t nvset_list[] = {
 	{ "ppp_custom",			V_LENGTH(0, 256)		},
 	{ "ppp_idletime",		V_RANGE(0, 1440)	},
 	{ "ppp_redialperiod",	V_RANGE(1, 86400)	},
+	{ "ppp_mlppp",			V_01				},
 	{ "mtu_enable",			V_01				},
 	{ "wan_mtu",			V_RANGE(576, 1500)	},
 	{ "wan_islan",			V_01				},
@@ -552,6 +567,8 @@ static const nvset_t nvset_list[] = {
 	{ "dhcp_lease",			V_LENGTH(0, 5)		},
 	{ "wan_wins",			V_IP				},
 
+
+#ifdef TCONFIG_VLAN
 	// LAN networks
 	{ "lan_ifname",			V_LENGTH(0, 5)			},
 
@@ -590,6 +607,8 @@ static const nvset_t nvset_list[] = {
 	{ "dhcpd3_startip",		V_LENGTH(0, 15)			},
 	{ "dhcpd3_endip",		V_LENGTH(0, 15)			},
 	{ "dhcp3_lease",		V_LENGTH(0, 5)			},
+#endif
+
 
 	// wireless
 	{ "wl_radio",			V_01				},
@@ -681,15 +700,19 @@ static const nvset_t nvset_list[] = {
 	{ "dhcpc_custom",		V_LENGTH(0, 80)			},
 	{ "dns_norebind",		V_01				},
 	{ "dnsmasq_custom",		V_TEXT(0, 2048)		},
+	{ "dhcpd_static_only",	V_01				},
 //	{ "dnsmasq_norw",		V_01				},
 
 // advanced-firewall
 	{ "block_wan",			V_01				},
 	{ "multicast_pass",		V_01				},
+
+#ifdef TCONFIG_VLAN
 	{ "multicast_lan",		V_01				},
 	{ "multicast_lan1",		V_01				},
 	{ "multicast_lan2",		V_01				},
 	{ "multicast_lan3",		V_01				},
+#endif
 	{ "block_loopback",		V_01				},
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},
@@ -748,9 +771,50 @@ static const nvset_t nvset_list[] = {
 	{ "manual_boot_nv",		V_01				},
 	{ "trunk_vlan_so",		V_01				},
 
+#ifdef TCONFIG_VLAN
+// advanced-vlan
+	{ "vlan0ports",			V_TEXT(0,16)			},
+	{ "vlan1ports",			V_TEXT(0,16)			},
+	{ "vlan2ports",			V_TEXT(0,16)			},
+	{ "vlan3ports",			V_TEXT(0,16)			},
+	{ "vlan4ports",			V_TEXT(0,16)			},
+	{ "vlan5ports",			V_TEXT(0,16)			},
+	{ "vlan6ports",			V_TEXT(0,16)			},
+	{ "vlan7ports",			V_TEXT(0,16)			},
+	{ "vlan8ports",			V_TEXT(0,16)			},
+	{ "vlan9ports",			V_TEXT(0,16)			},
+	{ "vlan10ports",		V_TEXT(0,16)			},
+	{ "vlan11ports",		V_TEXT(0,16)			},
+	{ "vlan12ports",		V_TEXT(0,16)			},
+	{ "vlan13ports",		V_TEXT(0,16)			},
+	{ "vlan14ports",		V_TEXT(0,16)			},
+	{ "vlan15ports",		V_TEXT(0,16)			},
+	{ "vlan0hwname",		V_TEXT(0,8)			},
+	{ "vlan1hwname",		V_TEXT(0,8)			},
+	{ "vlan2hwname",		V_TEXT(0,8)			},
+	{ "vlan3hwname",		V_TEXT(0,8)			},
+	{ "vlan4hwname",		V_TEXT(0,8)			},
+	{ "vlan5hwname",		V_TEXT(0,8)			},
+	{ "vlan6hwname",		V_TEXT(0,8)			},
+	{ "vlan7hwname",		V_TEXT(0,8)			},
+	{ "vlan8hwname",		V_TEXT(0,8)			},
+	{ "vlan9hwname",		V_TEXT(0,8)			},
+	{ "vlan10hwname",		V_TEXT(0,8)			},
+	{ "vlan11hwname",		V_TEXT(0,8)			},
+	{ "vlan12hwname",		V_TEXT(0,8)			},
+	{ "vlan13hwname",		V_TEXT(0,8)			},
+	{ "vlan14hwname",		V_TEXT(0,8)			},
+	{ "vlan15hwname",		V_TEXT(0,8)			},
+	{ "wan_ifnameX",		V_TEXT(0,8)			},
+	{ "lan_ifnames",		V_TEXT(0,64)			},
+	{ "manual_boot_nv",		V_01				},
+	{ "trunk_vlan_so",		V_01				},
+#endif
+
 // advanced-mac
 	{ "mac_wan",			V_LENGTH(0, 17)		},
 	{ "wl_macaddr",			V_LENGTH(0, 17)		},
+	{ "wl_hwaddr",			V_LENGTH(0, 17)		},
 
 // advanced-routing
 	{ "routes_static",		V_LENGTH(0, 2048)	},
@@ -761,18 +825,24 @@ static const nvset_t nvset_list[] = {
 	{ "dr_setting",			V_RANGE(0, 3)		},
 	{ "dr_lan_tx",			V_LENGTH(0, 32)		},
 	{ "dr_lan_rx",			V_LENGTH(0, 32)		},
+
+#ifdef TCONFIG_VLAN
 	{ "dr_lan1_tx",			V_LENGTH(0, 32)		},
 	{ "dr_lan1_rx",			V_LENGTH(0, 32)		},
 	{ "dr_lan2_tx",			V_LENGTH(0, 32)		},
 	{ "dr_lan2_rx",			V_LENGTH(0, 32)		},
 	{ "dr_lan3_tx",			V_LENGTH(0, 32)		},
 	{ "dr_lan3_rx",			V_LENGTH(0, 32)		},
+#endif
 	{ "dr_wan_tx",			V_LENGTH(0, 32)		},
 	{ "dr_wan_rx",			V_LENGTH(0, 32)		},
 #endif
 
+
+#ifdef TCONFIG_VLAN
 // advanced-access
 	{ "lan_access",			V_LENGTH(0, 4096)	},
+#endif
 
 // advanced-wireless
 	{ "wl_country",			V_LENGTH(0, 64)		},	// !!TB - Country code
@@ -832,11 +902,14 @@ static const nvset_t nvset_list[] = {
 	{ "upnp_max_port_int",		V_PORT				},
 	{ "upnp_min_port_ext",		V_PORT				},
 	{ "upnp_max_port_ext",		V_PORT				},
+
+#ifdef TCONFIG_VLAN
 	{ "upnp_lan",			V_01				},
 	{ "upnp_lan1",			V_01				},
 	{ "upnp_lan2",			V_01				},
 	{ "upnp_lan3",			V_01				},
-	
+#endif
+
 // forward-basic
 	{ "portforward",		V_LENGTH(0, 4096)	},
 
@@ -887,6 +960,17 @@ static const nvset_t nvset_list[] = {
 	{ "rstats_exclude",		V_LENGTH(0, 64)		},
 	{ "rstats_sshut",		V_01				},
 	{ "rstats_bak",			V_01				},
+
+// admin-ipt
+	{ "cstats_enable",		V_01				},
+	{ "cstats_path",		V_LENGTH(0, 48)		},
+	{ "cstats_stime",		V_RANGE(1, 168)		},
+	{ "cstats_offset",		V_RANGE(1, 31)		},
+	{ "cstats_exclude",		V_LENGTH(0, 512)	},
+	{ "cstats_include",		V_LENGTH(0, 2048)	},
+	{ "cstats_all",			V_01				},
+	{ "cstats_sshut",		V_01				},
+	{ "cstats_bak",			V_01				},
 
 // admin-buttons
 	{ "sesx_led",			V_RANGE(0, 255)		},	// amber, white, aoss
@@ -959,6 +1043,9 @@ static const nvset_t nvset_list[] = {
 	{ "usb_uhci",			V_RANGE(-1, 1)			},	// -1 - disabled, 0 - off, 1 - on
 	{ "usb_ohci",			V_RANGE(-1, 1)			},
 	{ "usb_usb2",			V_RANGE(-1, 1)			},
+#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+	{ "usb_mmc",			V_RANGE(-1, 1)			},
+#endif
 	{ "usb_irq_thresh",		V_RANGE(0, 6)			},
 	{ "usb_storage",		V_01				},
 	{ "usb_printer",		V_01				},
@@ -994,6 +1081,13 @@ static const nvset_t nvset_list[] = {
 	{ "ftp_sip",			V_LENGTH(0, 512)		},
 	{ "ftp_limit",			V_TEXT(1, 50)			},
 	{ "log_ftp",			V_01				},
+#endif
+
+#ifdef TCONFIG_SNMP
+	{ "snmp_enable",		V_RANGE(0, 1)			},
+	{ "snmp_location",		V_LENGTH(0, 20)			},
+	{ "snmp_contact",		V_LENGTH(0, 20)			},
+	{ "snmp_ro",			V_LENGTH(0, 20)			},
 #endif
 
 #ifdef TCONFIG_SAMBASRV
