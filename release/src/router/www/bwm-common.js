@@ -342,19 +342,6 @@ function populateCache() {
 		}
 	}
 
-/* REMOVE-BEGIN
-	if (nvram['bwm_client'] != null ) {
-		s = nvram.bwm_client.split('>');
-		for (var i = 0; i < s.length; ++i) {
-			var t = s[i].split('<');
-			if (t.length == 2) {
-				if (t[1] != '')
-					hostnamecache[t[0]] = t[1].split(' ').splice(0,1);
-			}
-		}
-	}
-REMOVE-END */
-
 	if (typeof(dhcpd_lease) != 'undefined') {
 		for (var j=0; j<dhcpd_lease.length; ++j) {
 			if (dhcpd_lease[j][0] != '') {

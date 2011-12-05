@@ -2115,12 +2115,6 @@ TOP:
 		goto CLEAR;
 	}
 
-	if (strcmp(service, "bwclimon") == 0) {
-		if (action & A_STOP) stop_bwclimon();
-		if (action & A_START) start_bwclimon();
-		goto CLEAR;
-	}
-
 	if (strcmp(service, "account") == 0) {
 		if (action & A_STOP) stop_account();
 		if (action & A_START) start_account();
@@ -2136,13 +2130,11 @@ TOP:
 	if (strcmp(service, "restrict") == 0) {
 		if (action & A_STOP) {
 			stop_firewall();
-			start_cmon();
 		}
 		if (action & A_START) {
 			i = nvram_get_int("rrules_radio");	// -1 = not used, 0 = enabled by rule, 1 = disabled by rule
 
 			start_firewall();
-			start_cmon();
 
 			// if radio was disabled by access restriction, but no rule is handling it now, enable it
 			if (i == 1) {
@@ -2157,12 +2149,10 @@ TOP:
 	if (strcmp(service, "qos") == 0) {
 		if (action & A_STOP) {
 			stop_qos();
-			start_cmon();
 		}
 		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) {
 			start_qos();
-			start_cmon();
 			if (nvram_match("qos_reset", "1")) f_write_string("/proc/net/clear_marks", "1", 0, 0);
 		}
 		goto CLEAR;
@@ -2171,12 +2161,10 @@ TOP:
 	if (strcmp(service, "qoslimit") == 0) {
 		if (action & A_STOP) {
 			stop_qoslimit();
-			start_cmon();
 		}
 		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) {
 			start_qoslimit();
-			start_cmon();
 
 		}
 		goto CLEAR;
@@ -2188,25 +2176,13 @@ TOP:
 		goto CLEAR;
 	}
 
-	if (strcmp(service, "cmon") == 0) {
-		if (action & A_STOP) {
-			stop_cmon();
-		}
-		if (action & A_START) {	
- 			start_cmon();
-		}
-		goto CLEAR;
-	}
-
 	if (strcmp(service, "upnp") == 0) {
 		if (action & A_STOP) {
 			stop_upnp();
- 			start_cmon();
 		}
 		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) {
 			start_upnp();
- 			start_cmon();
 		}
 		goto CLEAR;
 	}
@@ -2294,17 +2270,14 @@ TOP:
 	if (strcmp(service, "logging") == 0) {
 		if (action & A_STOP) {
 			stop_syslog();
-			start_cmon();
 		}
 		if (action & A_START) {
 			start_syslog();
-			start_cmon();
 		}
 		if (!user) {
 			// always restarted except from "service" command
 			stop_cron(); start_cron();
 			stop_firewall(); start_firewall();
-			start_cmon();
 		}
 		goto CLEAR;
 	}

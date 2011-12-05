@@ -809,7 +809,6 @@ static void add_listen_socket(const char *addr, int server_port, int do_ipv6, in
 	}
 }
 
-
 static void setup_listeners(int do_ipv6)
 {
 	char ipaddr[INET6_ADDRSTRLEN];
@@ -852,17 +851,6 @@ static void setup_listeners(int do_ipv6)
 			add_listen_socket(ipaddr3, p, do_ipv6, 0);
 #endif
 		IF_TCONFIG_IPV6(if (do_ipv6 && wanport == p) wan6port = 0);
-
-		if (strcmp(ipaddr1,"")!=0)
-			add_listen_socket(ipaddr1, p, do_ipv6, 0);
-		if (strcmp(ipaddr2,"")!=0)
-			add_listen_socket(ipaddr2, p, do_ipv6, 0);
-		if (strcmp(ipaddr3,"")!=0)
-			add_listen_socket(ipaddr3, p, do_ipv6, 0);
-#ifdef TCONFIG_IPV6
-		if (do_ipv6 && wanport == p) wanport = 0;
-#endif
-
 	}
 
 #ifdef TCONFIG_HTTPS
@@ -870,7 +858,6 @@ static void setup_listeners(int do_ipv6)
 		do_ssl = 1;
 		p = nvram_get_int("https_lanport");
 		add_listen_socket(ipaddr, p, do_ipv6, 1);
-
 #ifdef TCONFIG_VLAN
 		if (strcmp(ipaddr1,"")!=0)
 			add_listen_socket(ipaddr1, p, do_ipv6, 1);
@@ -880,18 +867,6 @@ static void setup_listeners(int do_ipv6)
 			add_listen_socket(ipaddr3, p, do_ipv6, 1);
 #endif
 		IF_TCONFIG_IPV6(if (do_ipv6 && wanport == p) wan6port = 0);
-
-		if (strcmp(ipaddr1,"")!=0)
-			add_listen_socket(ipaddr1, p, do_ipv6, 1);
-		if (strcmp(ipaddr2,"")!=0)
-			add_listen_socket(ipaddr2, p, do_ipv6, 1);
-		if (strcmp(ipaddr3,"")!=0)
-			add_listen_socket(ipaddr3, p, do_ipv6, 1);
-
-#ifdef TCONFIG_IPV6
-		if (do_ipv6 && wanport == p) wanport = 0;
-#endif
-
 	}
 #endif
 
@@ -1099,3 +1074,5 @@ int main(int argc, char **argv)
 	close_listen_sockets();
 	return 0;
 }
+
+

@@ -369,12 +369,9 @@ const aspapi_t aspapi[] = {
 	{ "link_uptime",		asp_link_uptime		},
 	{ "lipp",				asp_lipp			},
 	{ "netdev",				asp_netdev			},
-
-	{ "climon",				asp_climon			},
 	{ "iptraffic",			asp_iptraffic		},
 	{ "iptmon",				asp_iptmon			},
 	{ "ipt_bandwidth",		asp_ipt_bandwidth	},
-
 	{ "notice",				asp_notice			},
 	{ "nv",					asp_nv				},
 	{ "nvram",				asp_nvram 			},

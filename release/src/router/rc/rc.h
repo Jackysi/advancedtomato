@@ -293,10 +293,6 @@ extern void allow_fastnat(const char *service, int allow);
 extern void try_enabling_fastnat(void);
 #endif
 
-// bwclimon.c
-extern void start_bwclimon(void);
-extern void stop_bwclimon(void);
-
 // account.c
 extern void start_account(void);
 extern void stop_account(void);
