@@ -996,65 +996,7 @@ static void filter_forward(void)
 		ip46t_write(
 			"-A FORWARD -i %s -o %s -j ACCEPT\n",
 			lan3face, lan3face);
-#endif
 
-/*
-	ip46t_write(
-		"-A FORWARD -m state --state INVALID -j DROP\n");	// drop if INVALID state
-
-	// clamp tcp mss to pmtu
-	clampmss();
-
-	if (wanup) {
-		ipt_restrictions();
-
-		ipt_layer7_inbound();
-	}
-
-	ipt_webmon();
-
-	ip46t_write(
-		":wanin - [0:0]\n"
-		":wanout - [0:0]\n"
-		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
-
-#ifdef TCONFIG_IPV6
-	// Filter out invalid WAN->WAN connections
-	if (*wan6face)
-		ip6t_write("-A FORWARD -o %s ! -i %s -j %s\n", wan6face, lanface, chain_in_drop);
-
-#ifdef LINUX26
-	modprobe("xt_length");
-	ip6t_write("-A FORWARD -p ipv6-nonxt -m length --length 40 -j ACCEPT\n");
-#endif
-
-	// ICMPv6 rules
-	for (i = 0; i < sizeof(allowed_icmpv6)/sizeof(int); ++i) {
-		ip6t_write("-A FORWARD -p ipv6-icmp --icmpv6-type %i -j %s\n", allowed_icmpv6[i], chain_in_accept);
-	}
-
-	if (*wan6face) {
-		ip6t_write(
-			"-A FORWARD -i %s -j wanin\n"				// generic from wan
-			"-A FORWARD -o %s -j wanout\n",				// generic to wan
-			wan6face, wan6face);
-	}
-#endif
-
-	for (i = 0; i < wanfaces.count; ++i) {
-		if (*(wanfaces.iface[i].name)) {
-			ipt_write(
-				"-A FORWARD -i %s -j wanin\n"			// generic from wan
-				"-A FORWARD -o %s -j wanout\n",			// generic to wan
-				wanfaces.iface[i].name, wanfaces.iface[i].name);
-		}
-	}
-
-
-
-*/
-
-#ifdef TCONFIG_VLAN
 	char lanAccess[17] = "0000000000000000";
 	const char *d, *sbr, *saddr, *dbr, *daddr, *desc;
 	char *nv, *nvp, *b;
@@ -1094,7 +1036,28 @@ static void filter_forward(void)
 		}
 	}
 	free(nv);
+#endif
 
+	ip46t_write(
+		"-A FORWARD -m state --state INVALID -j DROP\n");	// drop if INVALID state
+
+	// clamp tcp mss to pmtu
+	clampmss();
+
+	if (wanup) {
+		ipt_restrictions();
+
+		ipt_layer7_inbound();
+	}
+
+	ipt_webmon();
+
+	ip46t_write(
+		":wanin - [0:0]\n"
+		":wanout - [0:0]\n"
+		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
+
+#ifdef TCONFIG_VLAN
 	char lanN_ifname[] = "lanXX_ifname";
 	char br;
 	for(br=0 ; br<=3 ; br++) {
@@ -1130,25 +1093,6 @@ static void filter_forward(void)
 		}
 	}
 #endif
-
-	ip46t_write(
-		"-A FORWARD -m state --state INVALID -j DROP\n");	// drop if INVALID state
-
-	// clamp tcp mss to pmtu
-	clampmss();
-
-	if (wanup) {
-		ipt_restrictions();
-
-		ipt_layer7_inbound();
-	}
-
-	ipt_webmon();
-
-	ip46t_write(
-		":wanin - [0:0]\n"
-		":wanout - [0:0]\n"
-		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
 
 #ifdef TCONFIG_IPV6
 	// Filter out invalid WAN->WAN connections
