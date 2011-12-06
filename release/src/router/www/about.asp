@@ -143,8 +143,8 @@ Copyright (C) 2011 Michał Rupental<br>
 <b>"JYAvenard" Features:</b><br>
 <!-- OPENVPN-BEGIN -->
 - OpenVPN enhancements &amp; username/password only authentication<br>
-- PPTP VPN client integration and GUI<br>
 <!-- OPENVPN-END -->
+- PPTP VPN client integration and GUI<br>
 Copyright (C) 2010-2011 Jean-Yves Avenard<br>
 <a href='mailto:jean-yves@avenard.org'>jean-yves@avenard.org</a><br>
 <br>
