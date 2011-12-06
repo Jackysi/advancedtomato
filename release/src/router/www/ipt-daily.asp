@@ -57,6 +57,7 @@ if (typeof(daily_history) == 'undefined') {
 
 var filterip = [];
 var filteripe = [];
+var filteripe_before = [];
 var dateFormat = -1;
 var scale = -1;
 
@@ -304,8 +305,7 @@ function init() {
 
 	populateCache();
 
-	if ((c = cookie.get('ipt_filterip')) != null) {
-		cookie.set('ipt_filterip', '', 0);
+	if ((c = '<% cgi_get("ipt_filterip"); %>') != '') {
 		if (c.length>6) {
 			E('_f_begin_date').value = 0;
 			E('_f_end_date').value = 0;
@@ -313,6 +313,25 @@ function init() {
 			filterip = c.split(',');
 		}
 	}
+
+	if ((c = cookie.get('ipt_filterip')) != null) {
+		cookie.set('ipt_filterip', '', 0);
+		if (c.length>6) {
+			E('_f_begin_date').value = 0;
+			E('_f_end_date').value = 0;
+			E('_f_filter_ip').value = E('_f_filter_ip').value + ((E('_f_filter_ip').value.length > 0) ? ',' : '') + c;
+			filterip.push(c.split(','));
+		}
+	}
+
+	if ((c = cookie.get('ipt_addr_hidden')) != null) {
+		if (c.length>6) {
+			E('_f_filter_ipe').value = c;
+			filteripe = c.split(',');
+		}
+	}
+
+	filteripe_before = filteripe;
 
 	dateFormat = fixInt(cookie.get('ipt_history_dafm'), 0, 3, 0);
 	E('_f_dafm').value = dateFormat;
@@ -350,16 +369,35 @@ function toggleVisibility(whichone) {
 }
 
 function dofilter() {
-	if (E('_f_filter_ip').value.length>6) {
+	var i;
+
+	if (E('_f_filter_ip').value.length>0) {
 		filterip = E('_f_filter_ip').value.split(',');
+		for (i = 0; i < filterip.length; ++i) {
+			if ((filterip[i] = fixIP(filterip[i])) == null) {
+				filterip.splice(i,1);
+			}
+		}
+		E('_f_filter_ip').value = (filterip.length > 0) ? filterip.join(',') : '';
 	} else {
 		filterip = [];
 	}
 
-	if (E('_f_filter_ipe').value.length>6) {
+	if (E('_f_filter_ipe').value.length>0) {
 		filteripe = E('_f_filter_ipe').value.split(',');
+		for (i = 0; i < filteripe.length; ++i) {
+			if ((filteripe[i] = fixIP(filteripe[i])) == null) {
+				filteripe.splice(i,1);
+			}
+		}
+		E('_f_filter_ipe').value = (filteripe.length > 0) ? filteripe.join(',') : '';
 	} else {
 		filteripe = [];
+	}
+
+	if (filteripe_before != filteripe) {
+		cookie.set('ipt_addr_hidden', (filteripe.length > 0) ? filteripe.join(',') : '', 1);
+		filteripe_before = filteripe;
 	}
 
 	redraw();
