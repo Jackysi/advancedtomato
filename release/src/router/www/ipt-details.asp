@@ -67,6 +67,7 @@ var lock = 0;
 
 var filterip = [];
 var filteripe = [];
+var filteripe_before = [];
 
 var prevtimestamp = new Date().getTime();
 var thistimestamp;
@@ -315,7 +316,6 @@ grid.setup = function() {
 }
 
 function init() {
-
 	if ((c = '<% cgi_get("ipt_filterip"); %>') != '') {
 		if (c.length>6) {
 			E('_f_filter_ip').value = c;
@@ -326,14 +326,24 @@ function init() {
 	if ((c = cookie.get('ipt_filterip')) != null) {
 		cookie.set('ipt_filterip', '', 0);
 		if (c.length>6) {
-			E('_f_filter_ip').value = c;
-			filterip = c.split(',');
+			E('_f_filter_ip').value = E('_f_filter_ip').value + ((E('_f_filter_ip').value.length > 0) ? ',' : '') + c;
+			filterip.push(c.split(','));
 		}
 	}
+
+	if ((c = cookie.get('ipt_addr_hidden')) != null) {
+		if (c.length>6) {
+			E('_f_filter_ipe').value = c;
+			filteripe = c.split(',');
+		}
+	}
+
+	filteripe_before = filteripe;
 
 	if (((c = cookie.get('ipt_details_options_vis')) != null) && (c == '1')) {
 		toggleVisibility("options");
 	}
+
 	scale = fixInt(cookie.get('ipt_details_scale'), 0, 2, 0);
 
 	E('_f_scale').value = scale;
@@ -362,16 +372,35 @@ function getArrayPosByElement(haystack, needle, index) {
 }
 
 function dofilter() {
-	if (E('_f_filter_ip').value.length>6) {
+	var i;
+
+	if (E('_f_filter_ip').value.length>0) {
 		filterip = E('_f_filter_ip').value.split(',');
+		for (i = 0; i < filterip.length; ++i) {
+			if ((filterip[i] = fixIP(filterip[i])) == null) {
+				filterip.splice(i,1);
+			}
+		}
+		E('_f_filter_ip').value = (filterip.length > 0) ? filterip.join(',') : '';
 	} else {
 		filterip = [];
 	}
 
-	if (E('_f_filter_ipe').value.length>6) {
+	if (E('_f_filter_ipe').value.length>0) {
 		filteripe = E('_f_filter_ipe').value.split(',');
+		for (i = 0; i < filteripe.length; ++i) {
+			if ((filteripe[i] = fixIP(filteripe[i])) == null) {
+				filteripe.splice(i,1);
+			}
+		}
+		E('_f_filter_ipe').value = (filteripe.length > 0) ? filteripe.join(',') : '';
 	} else {
 		filteripe = [];
+	}
+
+	if (filteripe_before != filteripe) {
+		cookie.set('ipt_addr_hidden', (filteripe.length > 0) ? filteripe.join(',') : '', 1);
+		filteripe_before = filteripe;
 	}
 
 	grid.populate();
