@@ -332,10 +332,13 @@ void start_dnsmasq()
 		}
 
 		if ((do_dhcpd_hosts > 0) && (*mac != 0) && (strcmp(mac, "00:00:00:00:00:00") != 0)) {
+			buf[0] = 0;
+			if (nvram_get_int("dhcpd_slt") != 0)
+				sprintf(buf, ",%s", sdhcp_lease);
 			if (df)
-				fprintf(df, "%s,%s,%s\n", mac, ip, sdhcp_lease);
+				fprintf(df, "%s,%s%s\n", mac, ip, buf);
 			else
-				fprintf(f, "dhcp-host=%s,%s,%s\n", mac, ip, sdhcp_lease);
+				fprintf(f, "dhcp-host=%s,%s%s\n", mac, ip, buf);
 		}
 	}
 
