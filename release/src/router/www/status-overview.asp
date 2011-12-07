@@ -134,6 +134,7 @@ function show()
 			c('noise'+uidx, wlstats[uidx].noise || '');
 			c('qual'+uidx, stats.qual[uidx] || '');
 		}
+		c('ifstatus'+uidx, wlstats[uidx].ifstatus || '');
 	}
 }
 
@@ -315,6 +316,7 @@ createFieldTable('', [
 	{ title: 'MAC Address', text: nvram['wl'+u+'_hwaddr'] },
 	{ title: 'Wireless Mode', text: wmode },
 	{ title: 'Wireless Network Mode', text: bgmo[nvram['wl'+u+'_net_mode']] },
+	{ title: 'Interface Status', rid: 'ifstatus'+uidx, text: wlstats[uidx].ifstatus },
 	{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? '<b>Disabled</b>' : 'Enabled' },
 /* REMOVE-BEGIN */
 //	{ title: 'SSID', text: (nvram['wl'+u+'_ssid'] + ' <small><i>' + ((nvram['wl'+u+'_mode'] != 'ap') ? '' : ((nvram['wl'+u+'_closed'] == 0) ? '(Broadcast Enabled)' : '(Broadcast Disabled)')) + '</i></small>') },
