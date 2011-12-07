@@ -806,7 +806,7 @@ function earlyInit()
 //      { title: ('Bridge WLAN' + uidx + ' (' + wl_ifaces[uidx][0] + ') to'), name: ('f_bridge_wlan'+u+'_to'), type: 'select', 
 REMOVE-END */
       { title: ('Bridge ' + wl_ifaces[uidx][0] + ' to'), name: ('f_bridge_wlan'+u+'_to'), type: 'select', 
-        options: [[0,'LAN (br0)'],[1,'LAN1  (br1)'],[2,'LAN2 (br2)'],[3,'LAN3 (br3)'],[4,'none']] } );
+        options: [[0,'LAN (br0)'],[1,'LAN1  (br1)'],[2,'LAN2 (br2)'],[3,'LAN3 (br3)'],[4,'none']], value: 4 } );
   }
   createFieldTable('',f);
 /* REMOVE-BEGIN

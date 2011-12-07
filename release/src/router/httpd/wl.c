@@ -9,6 +9,7 @@
 
 #include <ctype.h>
 #include <wlutils.h>
+#include <sys/ioctl.h>
 
 #ifndef WL_BSS_INFO_VERSION
 #error WL_BSS_INFO_VERSION
@@ -611,15 +612,29 @@ static int print_wif(int idx, int unit, int subunit, void *param)
 	else
 		snprintf(unit_str, sizeof(unit_str), "%d", unit);
 
+	int up = 0;
+	int sfd;
+	struct ifreq ifr;
+
+	if ((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) {
+		_dprintf("[%s %d]: error opening socket %m\n", __FUNCTION__, __LINE__);
+	}
+
+	if (sfd >= 0) {
+		strcpy(ifr.ifr_name, nvram_safe_get(wl_nvname("ifname", unit, subunit)));
+		if (ioctl(sfd, SIOCGIFFLAGS, &ifr) == 0)
+			up = (ifr.ifr_flags & IFF_UP);
+	}
+
 	// [ifname, unitstr, unit, subunit, ssid, hwaddr]
 	ssidj = js_string(nvram_safe_get(wl_nvname("ssid", unit, subunit)));
-	web_printf("%c['%s','%s',%d,%d,'%s','%s']", (idx == 0) ? ' ' : ',',
+	web_printf("%c['%s','%s',%d,%d,'%s','%s',%d]", (idx == 0) ? ' ' : ',',
 		nvram_safe_get(wl_nvname("ifname", unit, subunit)),
 		unit_str, unit, subunit, ssidj,
 		// assume the slave inteface MAC address is the same as the primary interface
 //		nvram_safe_get(wl_nvname("hwaddr", unit, 0))
 //		// virtual inteface MAC address
-		nvram_safe_get(wl_nvname("hwaddr", unit, subunit)) // AB multiSSID
+		nvram_safe_get(wl_nvname("hwaddr", unit, subunit)), up // AB multiSSID
 	);
 	free(ssidj);
 
