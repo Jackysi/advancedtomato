@@ -315,14 +315,6 @@ grid.setup = function() {
 }
 
 function init() {
-
-	if ((c = '<% cgi_get("ipt_filterip"); %>') != '') {
-		if (c.length>6) {
-			E('_f_filter_ip').value = c;
-			filterip = c.split(',');
-		}
-	}
-
 	if ((c = cookie.get('ipt_filterip')) != null) {
 		cookie.set('ipt_filterip', '', 0);
 		if (c.length>6) {
