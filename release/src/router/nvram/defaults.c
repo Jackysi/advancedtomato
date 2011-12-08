@@ -398,7 +398,6 @@ const defaults_t defaults[] = {
 // advanced-misc
 	{ "boot_wait",			"on"				},
 	{ "wait_time",			"5"				},
-	{ "clkfreq",			""				},
 	{ "wan_speed",			"4"				},	// 0=10 Mb Full, 1=10 Mb Half, 2=100 Mb Full, 3=100 Mb Half, 4=Auto
 	{ "jumbo_frame_enable",		"0"				},	// Jumbo Frames support (for RT-N16/WNR3500L)
 	{ "jumbo_frame_size",		"2000"				},
