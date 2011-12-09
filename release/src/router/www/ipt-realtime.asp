@@ -50,7 +50,7 @@ ul.tabs a,
 
 //	<% devlist(); %>
 
-var cprefix = 'ipt_r';
+var cprefix = 'ipt_';
 var updateInt = 2;
 var updateDiv = updateInt;
 var updateMaxL = 300;
