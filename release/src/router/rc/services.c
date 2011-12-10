@@ -1060,6 +1060,7 @@ void start_syslog(void)
 	char s[64];
 	char cfg[256];
 	char *rot_siz = "50";
+	char *rot_keep = "1";
 	char *log_file_path;
 
 	argv[0] = "syslogd";
@@ -1077,17 +1078,24 @@ void start_syslog(void)
 	if (nvram_match("log_file", "1")) {
 		argv[argc++] = "-L";
 
+		if (strcmp(nvram_safe_get("log_file_size"), "") != 0) {
+			rot_siz = nvram_safe_get("log_file_size");
+		}
+		if (nvram_get_int("log_file_size") > 0) {
+			rot_keep = nvram_safe_get("log_file_keep");
+		}
+
 		// log to custom path - shibby
 		if (nvram_match("log_file_custom", "1")) {
 			log_file_path = nvram_safe_get("log_file_path");
 			argv[argc++] = "-s";
-			argv[argc++] = "5000";
-			argv[argc++] = "-b";
-			argv[argc++] = "5";
+			argv[argc++] = rot_siz;
 			argv[argc++] = "-O";
 			argv[argc++] = log_file_path;
-			remove("/var/log/messages");
-			symlink(log_file_path, "/var/log/messages");
+			if (strcmp(nvram_safe_get("log_file_path"), "/var/log/messages") != 0) {
+				remove("/var/log/messages");
+				symlink(log_file_path, "/var/log/messages");
+			}
 		}
 		else
 
@@ -1124,10 +1132,13 @@ void start_syslog(void)
 			remove("/var/log/messages");
 		}
 
-
 		if (isdigit(*b_opt)) {
 			argv[argc++] = "-b";
 			argv[argc++] = b_opt;
+		} else
+		if (nvram_get_int("log_file_size") > 0) {
+			argv[argc++] = "-b";
+			argv[argc++] = rot_keep;
 		}
 	}
 

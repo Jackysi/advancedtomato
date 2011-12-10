@@ -962,6 +962,8 @@ static const nvset_t nvset_list[] = {
 	{ "log_file",			V_01				},
 	{ "log_file_custom",		V_01				},
 	{ "log_file_path",		V_TEXT(0, 4096)			},
+	{ "log_file_size",		V_RANGE(0, 99999)	},
+	{ "log_file_keep",		V_RANGE(0, 99)		},
 	{ "log_limit",			V_RANGE(0, 2400)	},
 	{ "log_in",				V_RANGE(0, 3)		},
 	{ "log_out",			V_RANGE(0, 3)		},
