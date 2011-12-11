@@ -436,6 +436,7 @@ const defaults_t defaults[] = {
 	{ "udpxy_clients",		"3"				},
 	{ "udpxy_port",			"4022"			},
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
+	{ "ne_snat",			"0"				},	// use SNAT instead of MASQUERADE
 	{ "dhcp_pass",			"1"				},	// allow DHCP responses
 	{ "ne_shlimit",			"0,3,60"			},
 
