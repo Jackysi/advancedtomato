@@ -712,6 +712,7 @@ static const nvset_t nvset_list[] = {
 	{ "block_loopback",		V_01				},
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},
+	{ "ne_snat",			V_01				},
 	{ "dhcp_pass",			V_01				},
 #ifdef TCONFIG_EMF
 	{ "emf_entry",			V_NONE				},
@@ -963,6 +964,10 @@ static const nvset_t nvset_list[] = {
 	{ "log_remoteip",		V_LENGTH(0, 512)		},
 	{ "log_remoteport",		V_PORT				},
 	{ "log_file",			V_01				},
+	{ "log_file_custom",		V_01				},
+	{ "log_file_path",		V_TEXT(0, 4096)			},
+	{ "log_file_size",		V_RANGE(0, 99999)	},
+	{ "log_file_keep",		V_RANGE(0, 99)		},
 	{ "log_limit",			V_RANGE(0, 2400)	},
 	{ "log_in",				V_RANGE(0, 3)		},
 	{ "log_out",			V_RANGE(0, 3)		},

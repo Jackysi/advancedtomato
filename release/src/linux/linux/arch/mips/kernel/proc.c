@@ -16,6 +16,7 @@
 #include <asm/watch.h>
 
 unsigned int vced_count, vcei_count;
+extern int bcm947xx_cpu_clk; //Tomato RAF features
 
 #ifndef CONFIG_CPU_HAS_LLSC
 unsigned long ll_ops, sc_ops;
@@ -116,6 +117,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	seq_printf(m, "BogoMIPS\t\t: %lu.%02lu\n",
 	              loops_per_jiffy / (500000/HZ),
 	              (loops_per_jiffy / (5000/HZ)) % 100);
+	seq_printf(m, "cpu MHz   \t\t: %d\n", bcm947xx_cpu_clk); //Tomato RAF features
 	seq_printf(m, "wait instruction\t: %s\n", cpu_wait ? "yes" : "no");
 	seq_printf(m, "microsecond timers\t: %s\n",
 	              cpu_has_counter ? "yes" : "no");

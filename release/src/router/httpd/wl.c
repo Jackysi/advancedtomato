@@ -650,10 +650,11 @@ static int print_wif(int idx, int unit, int subunit, void *param)
 	if (sfd >= 0) {
 		strcpy(ifr.ifr_name, nvram_safe_get(wl_nvname("ifname", unit, subunit)));
 		if (ioctl(sfd, SIOCGIFFLAGS, &ifr) == 0)
-			up = (ifr.ifr_flags & IFF_UP);
+			if (ifr.ifr_flags & (IFF_UP | IFF_RUNNING))
+				up = 1;
 	}
 
-	// [ifname, unitstr, unit, subunit, ssid, hwaddr]
+	// [ifname, unitstr, unit, subunit, ssid, hwaddr, up]
 	ssidj = js_string(nvram_safe_get(wl_nvname("ssid", unit, subunit)));
 	web_printf("%c['%s','%s',%d,%d,'%s','%s',%d]", (idx == 0) ? ' ' : ',',
 		nvram_safe_get(wl_nvname("ifname", unit, subunit)),
@@ -664,6 +665,7 @@ static int print_wif(int idx, int unit, int subunit, void *param)
 		nvram_safe_get(wl_nvname("hwaddr", unit, subunit)), up // AB multiSSID
 	);
 	free(ssidj);
+	if (sfd >= 0) close(sfd);
 
 	return 0;
 }

@@ -26,7 +26,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("block_wan,nf_loopback,ne_syncookies,multicast_pass,multicast_lan,multicast_lan1,multicast_lan2,multicast_lan3,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,udpxy_enable,udpxy_stats,udpxy_clients,udpxy_port"); %>
+//	<% nvram("block_wan,nf_loopback,ne_syncookies,multicast_pass,multicast_lan,multicast_lan1,multicast_lan2,multicast_lan3,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,udpxy_enable,udpxy_stats,udpxy_clients,udpxy_port,ne_snat"); %>
 
 function verifyFields(focused, quiet)
 {
@@ -111,9 +111,30 @@ function save()
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Respond to ICMP ping', name: 'f_icmp', type: 'checkbox', value: nvram.block_wan == '0' },
+	{ title: 'Enable SYN cookies', name: 'f_syncookies', type: 'checkbox', value: nvram.ne_syncookies != '0' }
+]);
+</script>
+</div>
+
+<!-- / / / -->
+
+<div class='section-title'>NAT</div>
+<div class='section'>
+<script type='text/javascript'>
+createFieldTable('', [
 	{ title: 'NAT loopback', name: 'nf_loopback', type: 'select', options: [[0,'All'],[1,'Forwarded Only'],[2,'Disabled']], value: fixInt(nvram.nf_loopback, 0, 2, 1) },
-	{ title: 'Enable SYN cookies', name: 'f_syncookies', type: 'checkbox', value: nvram.ne_syncookies != '0' },
-	{ title: 'Allow multicast', name: 'f_multicast', type: 'checkbox', suffix: ' <i><small>(Igmpproxy)</small></i>', value: nvram.multicast_pass == '1' },
+	{ title: 'NAT target', name: 'ne_snat', type: 'select', options: [[0,'MASQUERADE'],[1,'SNAT']], value: nvram.ne_snat }
+]);
+</script>
+</div>
+
+<!-- / / / -->
+
+<div class='section-title'>Multicast</div>
+<div class='section'>
+<script type='text/javascript'>
+createFieldTable('', [
+	{ title: 'Enable IGMPproxy', name: 'f_multicast', type: 'checkbox', value: nvram.multicast_pass == '1' },
 /* VLAN-BEGIN */
 	{ title: 'LAN', indent: 2, name: 'f_multicast_lan', type: 'checkbox', value: (nvram.multicast_lan == '1') },
 	{ title: 'LAN1', indent: 2, name: 'f_multicast_lan1', type: 'checkbox', value: (nvram.multicast_lan1 == '1') },
@@ -123,7 +144,7 @@ createFieldTable('', [
 	{ title: 'Enable Udpxy', name: 'f_udpxy_enable', type: 'checkbox', value: (nvram.udpxy_enable == '1') },
 	{ title: 'Enable client statistics', indent: 2, name: 'f_udpxy_stats', type: 'checkbox', value: (nvram.udpxy_stats == '1') },
 	{ title: 'Max clients', indent: 2, name: 'f_udpxy_clients', type: 'text', maxlen: 4, size: 6, value: fixInt(nvram.udpxy_clients || 3, 1, 5000, 3) },
-	{ title: 'Udpxy port', indent: 2, name: 'f_udpxy_port', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.udpxy_port, 4022) },
+	{ title: 'Udpxy port', indent: 2, name: 'f_udpxy_port', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.udpxy_port, 4022) }
 ]);
 </script>
 </div>

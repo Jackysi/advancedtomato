@@ -22,7 +22,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("log_remote,log_remoteip,log_remoteport,log_file,log_limit,log_in,log_out,log_mark,log_events,log_wm,log_wmtype,log_wmip,log_wmdmax,log_wmsmax"); %>
+//	<% nvram("log_remote,log_remoteip,log_remoteport,log_file,log_file_custom,log_file_path,log_limit,log_in,log_out,log_mark,log_events,log_wm,log_wmtype,log_wmip,log_wmdmax,log_wmsmax,log_file_size,log_file_keep"); %>
 
 function verifyFields(focused, quiet)
 {
@@ -30,6 +30,7 @@ function verifyFields(focused, quiet)
 
 	a = E('_f_log_file').checked;
 	b = E('_f_log_remote').checked;
+	c = E('_f_log_file_custom').checked;
 
 	a = !(a || b);
 	E('_log_in').disabled = a;
@@ -46,6 +47,9 @@ function verifyFields(focused, quiet)
 	E('_log_remoteip').disabled = !b;
 	E('_log_remoteport').disabled = !b;
 
+	E('_f_log_file_custom').disabled = !E('_f_log_file').checked;
+	E('_log_file_path').disabled = !c || !E('_f_log_file').checked;
+
 	if (!a) {
 		if (!v_range('_log_limit', quiet, 0, 2400)) return 0;
 		if (!v_range('_log_mark', quiet, 0, 99999)) return 0;
@@ -57,6 +61,20 @@ function verifyFields(focused, quiet)
 			}
 			if (!v_port('_log_remoteport', quiet)) return 0;
 		}
+	}
+
+	if (E('_f_log_file').checked) {
+		E('_log_file_size').disabled = 0;
+		if (!v_range('_log_file_size', quiet, 0, 99999)) return 0;
+		if (parseInt(E('_log_file_size').value) > 0) {
+			E('_log_file_keep').disabled = 0;
+			if (!v_range('_log_file_keep', quiet, 0, 99)) return 0;
+		} else {
+			E('_log_file_keep').disabled = 1;
+		}
+	} else {
+		E('_log_file_size').disabled = 1;
+		E('_log_file_keep').disabled = 1;
 	}
 
 	a = E('_f_log_wm').checked;
@@ -87,6 +105,7 @@ function save()
 	fom = E('_fom');
 	fom.log_remote.value = E('_f_log_remote').checked ? 1 : 0;
 	fom.log_file.value = E('_f_log_file').checked ? 1 : 0;
+	fom.log_file_custom.value = E('_f_log_file_custom').checked ? 1 : 0;
 
 	a = [];
 	if (E('_f_log_acre').checked) a.push('acre');
@@ -122,6 +141,7 @@ function save()
 
 <input type='hidden' name='log_remote'>
 <input type='hidden' name='log_file'>
+<input type='hidden' name='log_file_custom'>
 <input type='hidden' name='log_events'>
 
 <input type='hidden' name='log_wm'>
@@ -145,6 +165,12 @@ REMOVE-END */
 
 createFieldTable('', [
 	{ title: 'Log Internally', name: 'f_log_file', type: 'checkbox', value: nvram.log_file == 1 },
+	{ title: 'Max size before rotate', name: 'log_file_size', type: 'text', maxlen: 5, size: 6, value: nvram.log_file_size || 50, suffix: ' <small>KB</small>' },
+	{ title: 'Number of rotated logs to keep', name: 'log_file_keep', type: 'text', maxlen: 2, size: 3, value: nvram.log_file_keep || 1 },
+	{ title: 'Custom Log File Path', multi: [
+		{ name: 'f_log_file_custom', type: 'checkbox', value: nvram.log_file_custom == 1, suffix: '  ' },
+		{ name: 'log_file_path', type: 'text', maxlen: 32, size: 20, value: nvram.log_file_path, suffix: ' <small>(make sure the directory exists and is writable)</small>' }
+		] },
 	{ title: 'Log To Remote System', name: 'f_log_remote', type: 'checkbox', value: nvram.log_remote == 1 },
 	{ title: 'Host or IP Address / Port', indent: 2, multi: [
 		{ name: 'log_remoteip', type: 'text', maxlen: 15, size: 17, value: nvram.log_remoteip, suffix: ':' },
