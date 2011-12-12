@@ -57,11 +57,11 @@
 #define MAX_FMT 100
 
 static void generic_dropbear_exit(int exitcode, const char* format, 
-		va_list param);
+		va_list param) ATTRIB_NORETURN;
 static void generic_dropbear_log(int priority, const char* format, 
 		va_list param);
 
-void (*_dropbear_exit)(int exitcode, const char* format, va_list param) 
+void (*_dropbear_exit)(int exitcode, const char* format, va_list param) ATTRIB_NORETURN
 						= generic_dropbear_exit;
 void (*_dropbear_log)(int priority, const char* format, va_list param)
 						= generic_dropbear_log;
@@ -256,6 +256,16 @@ int dropbear_listen(const char* address, const char* port,
 		linger.l_linger = 5;
 		setsockopt(sock, SOL_SOCKET, SO_LINGER, (void*)&linger, sizeof(linger));
 
+#ifdef IPV6_V6ONLY
+		if (res->ai_family == AF_INET6) {
+			int on = 1;
+			if (setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, 
+						&on, sizeof(on)) == -1) {
+				dropbear_log(LOG_WARNING, "Couldn't set IPV6_V6ONLY");
+			}
+		}
+#endif
+
 		set_sock_priority(sock);
 
 		if (bind(sock, res->ai_addr, res->ai_addrlen) < 0) {
@@ -313,6 +323,7 @@ int connect_unix(const char* path) {
 	}
 	if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
 		TRACE(("Failed to connect to '%s' socket", path))
+		m_close(fd);
 		return -1;
 	}
 	return fd;
