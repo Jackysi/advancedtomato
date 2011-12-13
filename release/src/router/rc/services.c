@@ -1315,10 +1315,10 @@ static void stop_rstats(void)
 	int n;
 	int pid;
 
-	n = 60;
+	n = 20;
 	while ((n-- > 0) && ((pid = pidof("rstats")) > 0)) {
 		if (kill(pid, SIGTERM) != 0) break;
-		sleep(1);
+		sleep(3);
 	}
 }
 
@@ -1336,10 +1336,10 @@ static void stop_cstats(void)
 	int n;
 	int pid;
 
-	n = 60;
+	n = 20;
 	while ((n-- > 0) && ((pid = pidof("cstats")) > 0)) {
 		if (kill(pid, SIGTERM) != 0) break;
-		sleep(1);
+		sleep(3);
 	}
 }
 
