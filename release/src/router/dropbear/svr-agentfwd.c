@@ -50,7 +50,10 @@ static void agentaccept(struct Listener * listener, int sock);
 /* Handles client requests to start agent forwarding, sets up listening socket.
  * Returns DROPBEAR_SUCCESS or DROPBEAR_FAILURE */
 int svr_agentreq(struct ChanSess * chansess) {
-	int fd = -1;
+
+	int fd;
+
+	TRACE(("enter svr_agentreq"))
 
 	if (!svr_pubkey_allows_agentfwd()) {
 		return DROPBEAR_FAILURE;
@@ -88,9 +91,10 @@ int svr_agentreq(struct ChanSess * chansess) {
 	}
 
 	return DROPBEAR_SUCCESS;
+	TRACE(("success"))
 
 fail:
-	m_close(fd);
+	TRACE(("fail"))
 	/* cleanup */
 	svr_agentcleanup(chansess);
 

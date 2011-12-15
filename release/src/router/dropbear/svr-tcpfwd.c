@@ -211,11 +211,12 @@ static int svr_remotetcpreq() {
 	tcpinfo->tcp_type = forwarded;
 
 	if (!opts.listen_fwd_all || (strcmp(bindaddr, "localhost") == 0) ) {
-        // NULL means "localhost only"
-		m_free(bindaddr);
-		bindaddr = NULL;
+		// NULL means "localhost only"
+    		tcpinfo->listenaddr = NULL;
 	}
-	tcpinfo->listenaddr = bindaddr;
+	else {
+		tcpinfo->listenaddr = bindaddr;
+	}
 
 	ret = listen_tcpfwd(tcpinfo);
 

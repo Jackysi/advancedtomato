@@ -668,9 +668,24 @@ static int print_wif(int idx, int unit, int subunit, void *param)
 		// assume the slave inteface MAC address is the same as the primary interface
 //		nvram_safe_get(wl_nvname("hwaddr", unit, 0))
 //		// virtual inteface MAC address
-		nvram_safe_get(wl_nvname("hwaddr", unit, subunit)) // AB multiSSID
+		nvram_safe_get(wl_nvname("hwaddr", unit, subunit)), up // AB multiSSID
 	);
 	free(ssidj);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 	return 0;
 }

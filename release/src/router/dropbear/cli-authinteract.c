@@ -131,7 +131,6 @@ void recv_msg_userauth_info_request() {
 		response_len = strlen(response);
 		buf_putstring(ses.writepayload, response, response_len);
 		m_burn(response, response_len);
-		m_free(prompt);
 		m_free(response);
 	}
 
