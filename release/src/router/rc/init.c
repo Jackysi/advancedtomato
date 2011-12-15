@@ -1466,6 +1466,9 @@ int init_main(int argc, char *argv[])
 	int state, i;
 	sigset_t sigset;
 
+// AB - failsafe?
+	nvram_unset("debug_rc_svc");
+
 	sysinit();
 
 	sigemptyset(&sigset);
