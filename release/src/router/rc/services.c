@@ -1131,20 +1131,37 @@ static void stop_rstats(void)
 {
 	int n;
 	int pid;
+	int pidz;
+	int ppidz;
+	int w = 0;
 
-	n = 20;
+	n = 60;
 	while ((n-- > 0) && ((pid = pidof("rstats")) > 0)) {
-		if (kill(pid, SIGTERM) != 0) break;
-		sleep(3);
+		w = 1;
+		pidz = pidof("gzip");
+		ppidz = ppid(ppid(pidz));
+		if ((pidz > 0) && (pid == ppidz)) {
+			syslog(LOG_DEBUG, "rstats(PID %d) shutting down, waiting for gzip(PID %d, PPID %d) to complete.\n", pid, pidz, ppidz);
+		} else {
+			kill(pid, SIGTERM);
+		}
+		sleep(1);
 	}
+	if ((w == 1) && (n > 0))
+		syslog(LOG_DEBUG, "rstats stopped.\n");
 }
 
 static void start_rstats(int new)
 {
 	if (nvram_match("rstats_enable", "1")) {
 		stop_rstats();
-		if (new) xstart("rstats", "--new");
-			else xstart("rstats");
+		if (new) {
+			syslog(LOG_DEBUG, "starting rstats (new datafile).\n");
+			xstart("rstats", "--new");
+		} else {
+			syslog(LOG_DEBUG, "starting rstats.\n");
+			xstart("rstats");
+		}
 	}
 }
 
@@ -1153,25 +1170,36 @@ static void stop_cstats(void)
 	int n;
 	int pid;
 	int pidz;
+	int ppidz;
+	int w = 0;
 
 	n = 60;
 	while ((n-- > 0) && ((pid = pidof("cstats")) > 0)) {
+		w = 1;
 		pidz = pidof("gzip");
-		if ((pidz > 0)) {
-			syslog(LOG_DEBUG, "cstats(PID %d) shutting down, waiting for gzip(PID %d) to finish.\n", pid, pidz);
+		ppidz = ppid(ppid(pidz));
+		if ((pidz > 0) && (pid == ppidz)) {
+			syslog(LOG_DEBUG, "cstats(PID %d) shutting down, waiting for gzip(PID %d, PPID %d) to complete.\n", pid, pidz, ppidz);
 		} else {
-			if (kill(pid, SIGTERM) != 0) break;
+			kill(pid, SIGTERM);
 		}
 		sleep(1);
 	}
+	if ((w == 1) && (n > 0))
+		syslog(LOG_DEBUG, "cstats stopped.\n");
 }
 
 static void start_cstats(int new)
 {
 	if (nvram_match("cstats_enable", "1")) {
 		stop_cstats();
-		if (new) xstart("cstats", "--new");
-			else xstart("cstats");
+		if (new) {
+			syslog(LOG_DEBUG, "starting cstats (new datafile).\n");
+			xstart("cstats", "--new");
+		} else {
+			syslog(LOG_DEBUG, "starting cstats.\n");
+			xstart("cstats");
+		}
 	}
 }
 
