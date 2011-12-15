@@ -2400,7 +2400,13 @@ static void do_service(const char *name, const char *action, int user)
 
 	snprintf(s, sizeof(s), "%s-%s%s", name, action, (user ? "-c" : ""));
 	nvram_set("action_service", s);
-	kill(1, SIGUSR1);
+
+	if (nvram_match("debug_rc_svc", "1")) {
+		nvram_unset("debug_rc_svc");
+		exec_service();
+	} else {
+		kill(1, SIGUSR1);
+	}
 
 	n = 150;
 	while (nvram_match("action_service", s)) {
