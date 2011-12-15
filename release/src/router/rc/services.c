@@ -1328,7 +1328,7 @@ static void start_ftpd(void)
 	FILE *fp, *f;
 	char *buf;
 	char *p, *q;
-	char *user, *pass, *rights;
+	char *user, *pass, *rights, *root_dir;
 
 	if (getpid() != 1) {
 		start_service("ftpd");
@@ -1454,7 +1454,7 @@ static void start_ftpd(void)
 	if ((buf = strdup(nvram_safe_get("ftp_users"))) != NULL)
 	{
 		/*
-		username<password<rights
+		username<password<rights[<root_dir>]
 		rights:
 			Read/Write
 			Read Only
@@ -1463,8 +1463,12 @@ static void start_ftpd(void)
 		*/
 		p = buf;
 		while ((q = strsep(&p, ">")) != NULL) {
-			if (vstrsep(q, "<", &user, &pass, &rights) != 3) continue;
+			i = vstrsep(q, "<", &user, &pass, &rights, &root_dir);
+			if (i < 3 || i > 4) continue;
 			if (!user || !pass) continue;
+
+			if (i == 3 || !root_dir || !(*root_dir))
+				root_dir = nvram_safe_get("ftp_pubroot");
 
 			/* directory */
 			if (strncmp(rights, "Private", 7) == 0)
@@ -1473,7 +1477,7 @@ static void start_ftpd(void)
 				mkdir_if_none(tmp);
 			}
 			else
-				sprintf(tmp, "%s", nvram_storage_path("ftp_pubroot"));
+				sprintf(tmp, "%s", get_full_storage_path(root_dir));
 
 			fprintf(fp, "%s:%s:0:0:%s:%s:/sbin/nologin\n",
 				user, crypt(pass, "$1$"), user, tmp);
