@@ -1152,11 +1152,17 @@ static void stop_cstats(void)
 {
 	int n;
 	int pid;
+	int pidz;
 
-	n = 20;
+	n = 60;
 	while ((n-- > 0) && ((pid = pidof("cstats")) > 0)) {
-		if (kill(pid, SIGTERM) != 0) break;
-		sleep(3);
+		pidz = pidof("gzip");
+		if ((pidz > 0)) {
+			syslog(LOG_DEBUG, "cstats(PID %d) shutting down, waiting for gzip(PID %d) to finish.\n", pid, pidz);
+		} else {
+			if (kill(pid, SIGTERM) != 0) break;
+		}
+		sleep(1);
 	}
 }
 
