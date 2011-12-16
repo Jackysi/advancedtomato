@@ -311,8 +311,6 @@ dg.populate = function()
 			e.qual = -1;
 		}
 
-		if (e.ip=='') e.ip='<i><small><center>? ? ?</center></small></i>';
-
 		this.insert(-1, e, [
 			e.ifname, b, (e.ip == '-') ? '' : e.ip, e.name,
 			(e.rssi != 0) ? e.rssi + ' <small>dBm</small>' : '',
