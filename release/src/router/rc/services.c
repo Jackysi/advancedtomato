@@ -1139,9 +1139,10 @@ static void stop_rstats(void)
 	while ((n-- > 0) && ((pid = pidof("rstats")) > 0)) {
 		w = 1;
 		pidz = pidof("gzip");
+		if (pidz < 1) pidz = pidof("cp");
 		ppidz = ppid(ppid(pidz));
 		if ((pidz > 0) && (pid == ppidz)) {
-			syslog(LOG_DEBUG, "rstats(PID %d) shutting down, waiting for gzip(PID %d, PPID %d) to complete.\n", pid, pidz, ppidz);
+			syslog(LOG_DEBUG, "rstats(PID %d) shutting down, waiting for helper process to complete(PID %d, PPID %d).\n", pid, pidz, ppidz);
 		} else {
 			kill(pid, SIGTERM);
 		}
@@ -1177,9 +1178,10 @@ static void stop_cstats(void)
 	while ((n-- > 0) && ((pid = pidof("cstats")) > 0)) {
 		w = 1;
 		pidz = pidof("gzip");
+		if (pidz < 1) pidz = pidof("cp");
 		ppidz = ppid(ppid(pidz));
 		if ((pidz > 0) && (pid == ppidz)) {
-			syslog(LOG_DEBUG, "cstats(PID %d) shutting down, waiting for gzip(PID %d, PPID %d) to complete.\n", pid, pidz, ppidz);
+			syslog(LOG_DEBUG, "cstats(PID %d) shutting down, waiting for helper process to complete(PID %d, PPID %d).\n", pid, pidz, ppidz);
 		} else {
 			kill(pid, SIGTERM);
 		}
