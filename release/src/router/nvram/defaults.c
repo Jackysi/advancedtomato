@@ -663,8 +663,11 @@ const defaults_t defaults[] = {
 	{ "mmc_dout",			"4"				},
 	{ "mmc_fs_partition",		"1"				},
 	{ "mmc_fs_type",		"ext2"				},
-	{ "mmc_exec_mount",		""				},
-	{ "mmc_exec_umount",		""				},
+	{ "mmc_mountpoint",		"/mmc"				},
+	{ "mmc_exec_premount",		""				},
+	{ "mmc_exec_postmount",		""				},
+	{ "mmc_exec_preumount",		""				},
+	{ "mmc_exec_postumount",		""				},
 #endif
 
 #ifdef TCONFIG_USB

@@ -999,6 +999,7 @@ static const nvset_t nvset_list[] = {
 	{ "mmc_dout",			V_RANGE(1, 7)			},	// GPIO pin
 	{ "mmc_fs_partition",		V_RANGE(1, 4)			},	// partition number in partition table
 	{ "mmc_fs_type",		V_LENGTH(4, 4)			},	// ext2, ext3, vfat
+	{ "mmc_mountpoint",		V_LENGTH(0, 64)			},
 	{ "mmc_exec_premount",		V_LENGTH(0, 128)			},
 	{ "mmc_exec_postmount",		V_LENGTH(0, 128)			},
 	{ "mmc_exec_preumount",		V_LENGTH(0, 128)			},

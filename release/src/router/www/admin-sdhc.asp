@@ -23,7 +23,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("mmc_on,mmc_fs_partition,mmc_fs_type,mmc_exec_premount,mmc_exec_postmount,mmc_exec_preumount,mmc_exec_postumount,mmc_cs,mmc_clk,mmc_din,mmc_dout"); %>
+//	<% nvram("mmc_on,mmc_fs_partition,mmc_fs_type,mmc_exec_premount,mmc_exec_postmount,mmc_exec_preumount,mmc_exec_postumount,mmc_cs,mmc_clk,mmc_din,mmc_dout,mmc_mountpoint"); %>
 
 var mmc_once_enabled=nvram.mmc_on;
 
@@ -62,6 +62,11 @@ function verifyFields(focused, quiet)
 	E('_f_mmc_dout').disabled = b || c;
 	E('_f_mmc_fs_partition').disabled = b;
 	E('_f_mmc_fs_type').disabled = b;
+
+	E('_f_mmc_mountpoint').disabled = b;
+	ferror.clear('_f_mmc_mountpoint');
+	if (!v_path(E('_f_mmc_mountpoint'), quiet, 1)) return 0;
+
 	E('_f_mmc_exec_premount').disabled = b;
 	E('_f_mmc_exec_postmount').disabled = b;
 	E('_f_mmc_exec_preumount').disabled = b;
@@ -80,6 +85,7 @@ function verifyFields(focused, quiet)
 	ferror.clear('_f_mmc_clk');
 	ferror.clear('_f_mmc_din');
 	ferror.clear('_f_mmc_dout');
+
 	if (!c) {
 	if (!cmpInt(cs,cl)) {
 		ferror.set('_f_mmc_cs', 'GPIO must be unique', quiet);
@@ -129,7 +135,7 @@ function save()
 
 	fom.mmc_fs_partition.value = fom.f_mmc_fs_partition.value;
 	fom.mmc_fs_type.value = fom.f_mmc_fs_type.value;
-
+	fom.mmc_mountpoint.value = fom.f_mmc_mountpoint.value;
 	fom.mmc_exec_premount.value = fom.f_mmc_exec_premount.value;
 	fom.mmc_exec_postmount.value = fom.f_mmc_exec_postmount.value;
 	fom.mmc_exec_preumount.value = fom.f_mmc_exec_preumount.value;
@@ -170,6 +176,7 @@ function submit_complete()
 <input type='hidden' name='mmc_dout'>
 <input type='hidden' name='mmc_fs_partition'>
 <input type='hidden' name='mmc_fs_type'>
+<input type='hidden' name='mmc_mountpoint'>
 <input type='hidden' name='mmc_exec_premount'>
 <input type='hidden' name='mmc_exec_postmount'>
 <input type='hidden' name='mmc_exec_preumount'>
@@ -181,8 +188,10 @@ function submit_complete()
 // <% statfs("/mmc", "mmc"); %>
 // <% mmcid(); %>
 mmcon = (nvram.mmc_on == 1);
+
 createFieldTable('', [
 	{ title: 'Enable', name: 'f_mmc_on', type: 'checkbox', value: mmcon },
+	null,
 	{ text: 'GPIO pins configuration' },
 	{ title: 'Router model', indent: 2, name: 'f_mmc_model', type: 'select', options: [[1,'custom'],[2,'WRT54G up to v3.1'],[3,'WRT54G v4.0 and later'],[4,'WRT54GL']], value: 1 },
 	{ title: 'Chip select (CS)', indent: 2, name: 'f_mmc_cs', type: 'select', options: [[1,1],[2,2],[3,3],[4,4],[5,5],[6,6],[7,7]], value: nvram.mmc_cs },
@@ -193,6 +202,7 @@ createFieldTable('', [
 	{ text: 'Partition mounting' },
 	{ title: 'Partition number', indent: 2, name: 'f_mmc_fs_partition', type: 'select', options: [[1,1],[2,2],[3,3],[4,4]], value: nvram.mmc_fs_partition },
 	{ title: 'Filesystem', indent: 2, name: 'f_mmc_fs_type', type: 'select', options: [['ext2','ext2'],['ext3','ext3'],['vfat','vfat']], value: nvram.mmc_fs_type },
+	{ title: 'Mountpoint', indent: 2, name: 'f_mmc_mountpoint', type: 'text', maxlen: 64, size: 34, value: nvram.mmc_mountpoint || '/mmc' },
 	{ title: 'Execute before mount', indent: 2, name: 'f_mmc_exec_premount', type: 'text', maxlen: 128, size: 34, value: nvram.mmc_exec_premount },
 	{ title: 'Execute after mount', indent: 2, name: 'f_mmc_exec_postmount', type: 'text', maxlen: 128, size: 34, value: nvram.mmc_exec_postmount },
 	{ title: 'Execute before umount', indent: 2, name: 'f_mmc_exec_preumount', type: 'text', maxlen: 128, size: 34, value: nvram.mmc_exec_preumount },

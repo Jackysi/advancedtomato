@@ -14,14 +14,16 @@ static void error(const char *message)
 {
 	char s[512];
 
-	snprintf(s, sizeof(s), "Error %s SDHC/MMC. Check the logs to see if they contain more details about this error.", message);
+	snprintf(s, sizeof(s), "Error %s SDHC/MMC. Check the logs to see if they contain more details about this error.\n", message);
 	notice_set("mmc", s);
+//	syslog(LOG_INFO, "[MMC] %s", s);
 }
 
 void start_mmc(void)
 {
 	char s[32];
 	char p[4][10];
+	char *mp;
 	const char *mmc_cs;
 	const char *mmc_cl;
 	const char *mmc_di;
@@ -35,6 +37,12 @@ void start_mmc(void)
 		notice_set("mmc", "");
 		return;
 	}
+
+	mp = nvram_safe_get("mmc_mountpoint");
+	if (*mp == 0)
+		mp = "/mmc";
+
+//	syslog(LOG_DEBUG, "[MMC] mmc_mountpoint=%s\n", mp);
 
 	if (((mmc_cs = nvram_get("mmc_cs")) != NULL) && (*mmc_cs != 0) &&
 	    ((mmc_cl = nvram_get("mmc_clk")) != NULL) && (*mmc_cl != 0) &&
@@ -68,7 +76,8 @@ void start_mmc(void)
 			return;
 		}
 		snprintf(s, sizeof(s), "/dev/mmc/disc0/part%s", mmc_part_number);
-		if (mount(s, "/mmc", mmc_fs_type, MS_NOATIME|MS_NODIRATIME, "") != 0) {
+//		if (mount(s, "/mmc", mmc_fs_type, MS_NOATIME|MS_NODIRATIME, "") != 0) {
+		if (mount(s, mp, mmc_fs_type, MS_NOATIME|MS_NODIRATIME, "") != 0) {
 			modprobe_r(mmc_fs_type);
 			modprobe_r("mmc");
 			error("mounting");
@@ -76,19 +85,21 @@ void start_mmc(void)
 		}
 		if (((mmc_exec_postmount = nvram_get("mmc_exec_postmount")) != NULL) && (*mmc_exec_postmount != 0)) {
 //			syslog(LOG_INFO, "notice[%s]: %s", "mmc", "Executing POST-mount command");
-			chdir("/mmc");
+//			chdir("/mmc");
+			chdir(mp);
 			xstart(mmc_exec_postmount);
 			chdir("/");
 		}
 	}
 
-	notice_set("mmc", "");
+	notice_set("mmc", "Mounted on %s\n", mp);
 }
 
 void stop_mmc(void)
 {
 	const char *mmc_exec_preumount;
 	const char *mmc_exec_postumount;
+	char *mp;
 
 	if (!wait_action_idle(10)) return;
 
@@ -97,9 +108,16 @@ void stop_mmc(void)
 		return;
 	}
 
+	mp = nvram_safe_get("mmc_mountpoint");
+	if (*mp == 0)
+		mp = "/mmc";
+
+//	syslog(LOG_DEBUG, "[MMC] mmc_mountpoint=%s\n", mp);
+
 //	eval(nvram_safe_get("mmc_exec_umount"));
 	if (((mmc_exec_preumount = nvram_get("mmc_exec_preumount")) != NULL) && (*mmc_exec_preumount != 0)) {
-		chdir("/mmc");
+//		chdir("/mmc");
+		chdir(mp);
 		eval(mmc_exec_preumount);
 		chdir("/");
 	}
@@ -107,7 +125,8 @@ void stop_mmc(void)
 //	notice_set("mmc", "");
 	eval("/bin/sync");
 
-	if (umount ("/mmc") != 0) {
+//	if (umount ("/mmc") != 0) {
+	if (umount (mp) != 0) {
 		error("unmounting");
 		return;
 	} else {

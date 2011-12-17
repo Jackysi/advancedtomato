@@ -688,6 +688,12 @@ void asp_statfs(int argc, char **argv)
 
 	if (argc != 2) return;
 
+#ifdef TCONFIG_SDHC
+	if ((strncmp(argv[1], "mmc", 4) == 0) && (strcmp(nvram_safe_get("mmc_mountpoint"), "") != 0)) {
+		argv[0] = nvram_safe_get("mmc_mountpoint");
+	}
+#endif
+
 	// used for /cifs/, /jffs/... if it returns squashfs type, assume it's not mounted
 	if ((statfs(argv[0], &sf) != 0) || (sf.f_type == 0x73717368)) {
 		mnt = 0;
