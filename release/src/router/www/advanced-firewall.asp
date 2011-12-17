@@ -44,6 +44,12 @@ function verifyFields(focused, quiet)
 		E('_f_multicast_lan2').checked = false;
 	if(nvram.lan3_ifname.length < 1)
 		E('_f_multicast_lan3').checked = false;
+	if ((enable_mcast) && (!E('_f_multicast_lan').checked) && (!E('_f_multicast_lan1').checked) && (!E('_f_multicast_lan2').checked) && (!E('_f_multicast_lan3').checked)) {
+		ferror.set('_f_multicast', 'IGMPproxy must be enabled in least one LAN bridge', quiet);
+		return 0;
+	} else {
+		ferror.clear('_f_multicast');
+	}
 /* VLAN-END */
 	return 1;
 }

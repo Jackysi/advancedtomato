@@ -145,6 +145,16 @@ REMOVE-END */
 	E('_f_upnp_lan3').disabled = ((nvram.lan3_ifname.length < 1) || !((enable != 0) && (bc != 0)));
 	if (E('_f_upnp_lan3').disabled)
 		E('_f_upnp_lan3').checked = false;
+	if ((enable) && (!E('_f_upnp_lan').checked) && (!E('_f_upnp_lan1').checked) && (!E('_f_upnp_lan2').checked) && (!E('_f_upnp_lan3').checked)) {
+		if (E('_f_enable_natpmp').checked)
+			ferror.set('_f_enable_natpmp', 'NAT-PMP must be enabled in least one LAN bridge', quiet);
+		if (E('_f_enable_upnp').checked)
+			ferror.set('_f_enable_upnp', 'UPnP must be enabled in least one LAN bridge', quiet);
+		return 0;
+	} else {
+		ferror.clear('_f_enable_natpmp');
+		ferror.clear('_f_enable_upnp');
+	}
 /* VLAN-END */
 	return 1;
 }
