@@ -435,6 +435,7 @@ const defaults_t defaults[] = {
 	{ "udpxy_clients",		"3"				},
 	{ "udpxy_port",			"4022"			},
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
+	{ "ne_snat",			"0"				},	// use SNAT instead of MASQUERADE
 	{ "dhcp_pass",			"1"				},	// allow DHCP responses
 	{ "ne_shlimit",			"0,3,60"			},
 
@@ -631,8 +632,10 @@ const defaults_t defaults[] = {
 	{ "log_remoteip",		""				},
 	{ "log_remoteport",		"514"				},
 	{ "log_file",			"1"				},
-	{ "log_file_custom",		"0"				},
+	{ "log_file_custom",	"0"					},
 	{ "log_file_path",		"/var/log/messages"		},
+	{ "log_file_size",		"50"				},
+	{ "log_file_keep",		"1"				},
 	{ "log_limit",			"60"				},
 	{ "log_in",			"0"				},
 	{ "log_out",			"0"				},

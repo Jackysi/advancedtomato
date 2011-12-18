@@ -1064,6 +1064,7 @@ void start_syslog(void)
 	char s[64];
 	char cfg[256];
 	char *rot_siz = "50";
+	char *rot_keep = "1";
 	char *log_file_path;
 
 	argv[0] = "syslogd";
@@ -1081,17 +1082,24 @@ void start_syslog(void)
 	if (nvram_match("log_file", "1")) {
 		argv[argc++] = "-L";
 
+		if (strcmp(nvram_safe_get("log_file_size"), "") != 0) {
+			rot_siz = nvram_safe_get("log_file_size");
+		}
+		if (nvram_get_int("log_file_size") > 0) {
+			rot_keep = nvram_safe_get("log_file_keep");
+		}
+
 		// log to custom path - shibby
 		if (nvram_match("log_file_custom", "1")) {
 			log_file_path = nvram_safe_get("log_file_path");
 			argv[argc++] = "-s";
-			argv[argc++] = "5000";
-			argv[argc++] = "-b";
-			argv[argc++] = "5";
+			argv[argc++] = rot_siz;
 			argv[argc++] = "-O";
 			argv[argc++] = log_file_path;
-			remove("/var/log/messages");
-			symlink(log_file_path, "/var/log/messages");
+			if (strcmp(nvram_safe_get("log_file_path"), "/var/log/messages") != 0) {
+				remove("/var/log/messages");
+				symlink(log_file_path, "/var/log/messages");
+			}
 		}
 		else
 
@@ -1128,10 +1136,13 @@ void start_syslog(void)
 		remove("/var/log/messages");
 		}
 
-
 		if (isdigit(*b_opt)) {
 			argv[argc++] = "-b";
 			argv[argc++] = b_opt;
+		} else
+		if (nvram_get_int("log_file_size") > 0) {
+			argv[argc++] = "-b";
+			argv[argc++] = rot_keep;
 		}
 	}
 
@@ -1304,20 +1315,38 @@ static void stop_rstats(void)
 {
 	int n;
 	int pid;
+	int pidz;
+	int ppidz;
+	int w = 0;
 
 	n = 60;
 	while ((n-- > 0) && ((pid = pidof("rstats")) > 0)) {
-		if (kill(pid, SIGTERM) != 0) break;
+		w = 1;
+		pidz = pidof("gzip");
+		if (pidz < 1) pidz = pidof("cp");
+		ppidz = ppid(ppid(pidz));
+		if ((pidz > 0) && (pid == ppidz)) {
+			syslog(LOG_DEBUG, "rstats(PID %d) shutting down, waiting for helper process to complete(PID %d, PPID %d).\n", pid, pidz, ppidz);
+		} else {
+			kill(pid, SIGTERM);
+		}
 		sleep(1);
 	}
+	if ((w == 1) && (n > 0))
+		syslog(LOG_DEBUG, "rstats stopped.\n");
 }
 
 static void start_rstats(int new)
 {
 	if (nvram_match("rstats_enable", "1")) {
 		stop_rstats();
-		if (new) xstart("rstats", "--new");
-			else xstart("rstats");
+		if (new) {
+			syslog(LOG_DEBUG, "starting rstats (new datafile).\n");
+			xstart("rstats", "--new");
+		} else {
+			syslog(LOG_DEBUG, "starting rstats.\n");
+			xstart("rstats");
+		}
 	}
 }
 
@@ -1325,20 +1354,38 @@ static void stop_cstats(void)
 {
 	int n;
 	int pid;
+	int pidz;
+	int ppidz;
+	int w = 0;
 
 	n = 60;
 	while ((n-- > 0) && ((pid = pidof("cstats")) > 0)) {
-		if (kill(pid, SIGTERM) != 0) break;
+		w = 1;
+		pidz = pidof("gzip");
+		if (pidz < 1) pidz = pidof("cp");
+		ppidz = ppid(ppid(pidz));
+		if ((pidz > 0) && (pid == ppidz)) {
+			syslog(LOG_DEBUG, "cstats(PID %d) shutting down, waiting for helper process to complete(PID %d, PPID %d).\n", pid, pidz, ppidz);
+		} else {
+			kill(pid, SIGTERM);
+		}
 		sleep(1);
 	}
+	if ((w == 1) && (n > 0))
+		syslog(LOG_DEBUG, "cstats stopped.\n");
 }
 
 static void start_cstats(int new)
 {
 	if (nvram_match("cstats_enable", "1")) {
 		stop_cstats();
-		if (new) xstart("cstats", "--new");
-			else xstart("cstats");
+		if (new) {
+			syslog(LOG_DEBUG, "starting cstats (new datafile).\n");
+			xstart("cstats", "--new");
+		} else {
+			syslog(LOG_DEBUG, "starting cstats.\n");
+			xstart("cstats");
+		}
 	}
 }
 
@@ -2635,7 +2682,13 @@ static void do_service(const char *name, const char *action, int user)
 
 	snprintf(s, sizeof(s), "%s-%s%s", name, action, (user ? "-c" : ""));
 	nvram_set("action_service", s);
-	kill(1, SIGUSR1);
+
+	if (nvram_match("debug_rc_svc", "1")) {
+		nvram_unset("debug_rc_svc");
+		exec_service();
+	} else {
+		kill(1, SIGUSR1);
+	}
 
 	n = 150;
 	while (nvram_match("action_service", s)) {

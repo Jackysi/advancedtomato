@@ -296,8 +296,7 @@ static char * sign_key_md5_fingerprint(unsigned char* keyblob,
 	/* skip the size int of the string - this is a bit messy */
 	md5_process(&hs, keyblob, keybloblen);
 
-	if (md5_done(&hs, hash) != CRYPT_OK)
-		return NULL;
+	md5_done(&hs, hash);
 
 	/* "md5 hexfingerprinthere\0", each hex digit is "AB:" etc */
 	buflen = 4 + 3*MD5_HASH_SIZE;

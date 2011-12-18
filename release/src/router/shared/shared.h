@@ -259,6 +259,7 @@ extern int supports(unsigned long attr);
 extern char *psname(int pid, char *buffer, int maxlen);
 extern int pidof(const char *name);
 extern int killall(const char *name, int sig);
+extern int ppid(int pid);
 
 
 // files.c
