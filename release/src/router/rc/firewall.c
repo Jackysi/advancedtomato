@@ -1442,7 +1442,6 @@ int start_firewall(void)
 	simple_lock("firewall");
 	simple_lock("restrictions");
 
-	wanproto = get_wan_proto();
 	wanup = check_wanup();
 
 	f_write_string("/proc/sys/net/ipv4/tcp_syncookies", nvram_get_int("ne_syncookies") ? "1" : "0", 0, 0);
