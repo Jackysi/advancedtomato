@@ -421,18 +421,19 @@ void asp_sysinfo(int argc, char **argv)
 	struct sysinfo si;
 	char s[64];
 	meminfo_t mem;
-	char system_type[64];
-	char cpu_model[64];
-	char bogomips[8];
-	char cpuclk[8];
-
-	get_cpuinfo(system_type, cpu_model, bogomips, cpuclk);
 
 	char sa[64];
 	FILE *a;
 	char *e = NULL;
 	char *f= NULL;
 	const char procstat[] = "/proc/stat";
+
+	char system_type[64];
+	char cpu_model[64];
+	char bogomips[8];
+	char cpuclk[8];
+
+	get_cpuinfo(system_type, cpu_model, bogomips, cpuclk);
 
 	web_puts("\nsysinfo = {\n");
 
