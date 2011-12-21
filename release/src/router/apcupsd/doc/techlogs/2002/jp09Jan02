@@ -1,0 +1,42 @@
+From: Jim Pennino <jimp@specsol.com>
+To: apcupsd-devel@apcupsd.org
+Subject: [Apcupsd-devel] HP-UX bug
+
+I'm setting up some HP workstations running HP-UX 10.20 with apcupsd and found a 
+minor bug. This probably applies to HP-UX 11 also, but I don't have access to an 
+11 machine at the moment to double check.
+
+In apc_struct.h there are several declarations (from grep):
+
+apc_struct.h:    char configfile[FILENAME_MAX];   /* config filename */
+apc_struct.h:    char statfile[FILENAME_MAX];     /* status filename */
+apc_struct.h:    char eventfile[FILENAME_MAX];    /* temp events file */
+apc_struct.h:    char master_name[FILENAME_MAX];  /**/
+apc_struct.h:    char lockpath[FILENAME_MAX];     /* BSC, made static -RF */
+
+The problem is under HP-UX 10, FILENAME_MAX is defined as 14, i.e. the file name 
+part of a file path, while most other systems define it as the complete file 
+path including name. E.g. on Solaris it is 1024.
+
+This causes some really bizarre things to happen when you try to run the code 
+because the code where the definitions are used does not check for overrun of 
+the defined length. For example:
+
+apcconfig.c:    strcpy(ups->configfile, cfgfile);
+apcconfig.c:    strcpy(ups->lockpath, LOCK_DEFAULT);
+apcconfig.c:    strcat(ups->lockpath, APC_LOCK_PREFIX);
+
+Needless to say /var/spool/locks/LCK..tty0p0 doesn't fit too well into 14 
+characters...
+
+On HP-UX, I fixed this (the definition part, not the check for overrun part) by 
+simply changing FILENAME_MAX to PATH_MAX.
+
+This probably has other implications for ansi/POSIX/whatever systems that may or 
+may not have a PATH_MAX but will leave the answer to that question to someone 
+more familiar with the standards.
+
+Jim Pennino
+
+=======
+KES: Applied a quickie patch to this in my kes09Jan02 submission

@@ -1,0 +1,13 @@
+"/var/log/apcupsd.log" {
+       rotate 7
+       daily
+       compress
+       missingok
+}
+
+"/var/log/apcupsd.events" {
+       rotate 7
+       daily
+       compress
+       missingok
+}

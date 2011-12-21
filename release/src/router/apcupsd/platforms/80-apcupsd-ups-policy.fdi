@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Disable hald-addon-hid-ups for any APC UPS so Apcupsd can own the device -->
+<deviceinfo version="0.2">
+  <device>
+    <match key="info.addons" contains="hald-addon-hid-ups">
+      <match key="@info.parent:info.bus" string="usb">
+        <match key="@info.parent:usb.vendor_id" int="1309">
+          <match key="@info.parent:usb.product_id" int="2">
+            <remove key="info.addons" type="strlist">hald-addon-hid-ups</remove>
+          </match>
+        </match>
+      </match> 
+    </match> 
+  </device>
+</deviceinfo>
+

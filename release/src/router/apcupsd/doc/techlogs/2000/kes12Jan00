@@ -1,0 +1,85 @@
+         Technical notes on my code submission of 12 Jan 00
+                        Kern Sibbald
+
+General:
+- Brian Daniels reported that the master/slave code does not
+  properly shutdown the slave. Due to the fact that in 3.7.0,
+  the slave code calls do_action(), which was not the case
+  in 3.6.2, additional variables needed to be passed from the
+  master to the slave (or major changes to apcaction.c were
+  needed, which I ruled out at this stage). Consequently,
+  the network structure needed to be changed. The original
+  implementation, while it worked, did not lead to easy 
+  modification. Consequently, I made a major rewrite of the 
+  code. Additional coding should be done as noted in my
+  todo list as well as the source code of apcnet.c, but it will wait
+  until after 3.7.0 is released.        
+
+  Note, there are very few changes to the "core" part of apcupsd, so
+  the chances of new bugs are minimal. Of course, the chances of needing
+  additional work on the master/slave code is far from minimal given
+  the extent of the changes.
+
+Changes submitted this submission:
+- Throughout the code, I changed the names of local variables to
+  correspond to the global names. This reduces the chances of an
+  error in purely mechanical coding.
+- apcaction.c, I implemented the send_slaves_urg flag to indicate
+  that the slaves should be immediately notified. This consisted
+  of setting the flag for an urgent condition (e.g. on batteries)
+  and clearing it when off of batteries.
+- apcnet.c -- this was a major rewrite at the same time keeping
+  the major logic flow.
+
+  I added an error state to the SLAVEINFO packet as well as
+  an error count. The former allows printing an error message only
+  once per error rather than once every 10 seconds. The latter, in
+  future code, will permit us to DOWN any connection with excessive
+  errors.  I also set the string length of usermagic[] to the correct
+  size rathr than MAXSTRING thus reducing a fair amount of wasted
+  memory.
+
+  I modified the state variable remote_state. The new states are 
+  described at the top of the file. There is a lot less interaction
+  of the states between the master and the slave now.  The only
+  case where the slave needs to act on the state of the master is
+  in the case of an initial connection or a reconnection.
+
+  In the old code, the master always sent a packet to the slave and
+  waited for the slave to repond. However, this was really only necessary
+  during the connection phase. Consequently, in the new code, the slave
+  responds to the master only on a connection or reconnection.
+
+  write_struct_net(), read_struct_net(), reconnect_slave(), and               
+  the contents of prepare_master() are all gone.     
+
+  Previously, during initialization, apcupsd would block for a very
+  long period of time waiting for the slaves to come up (5 minutes
+  per slave, if I am not mistaken). The new code does not block for 
+  either the master or the slaves. It simply logs whether or not
+  the connection was successful and continues trying at the interval
+  defined by the user NETTIME.
+
+  Also, during an urgent situation as noted above, NETTIME is ignored
+  by the master and instead, it sends updates once a second. 
+- I increased the time a master waits from 15 to 30 seconds
+  before issuing a powerkill. This gives a bit more time to
+  the slaves to properly shutdown.
+- apcstatus.c: in response to complaints about too much output from
+  André, I have reordered the STATUS output so that the items that
+  I consider the most important are grouped toward the beginning.
+  This was a pure reordering of the code, no functional change was
+  made.
+- apcupsd.c: I improved the netslave powerkill and prepare_slave()
+  error messages now that I understand what was being done.
+  I pass the slave pid so that if the slave process exits so does
+  apcupsd. I changed the process names so that they more correctly
+  reflect what is being done in the process rather than who they
+  are talking to.
+- During testing, I noticed that I introduced a harmless bug in 
+  apccontrol for all the machines. The cancel of the shutdown should
+  only be done if the powerfail file was created.  Fixed.
+- I eliminated a lot of old out of date stuff in apc_defines.h that
+  had to do with master/slaves.
+- Updates to the structures in SLAVEINFO, and NETDATA.
+- Updated the manual to reflect the changes.

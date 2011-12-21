@@ -1,0 +1,97 @@
+         Technical notes on my code submission of 18 Dec 99
+                        Kern Sibbald
+
+General:
+- I added pretty strict checking for strings to prevent
+  buffer overflows. For everything read in from the
+  config file, I ensure that the string is properly
+  terminated.  For things read from the UPS, I use
+  a strncpy(). Consequently, under the worst conditions,
+  the string may not be properly terminated. However,
+  this is preferable to overwriting memory.
+- I corrected some problems with the EPROM configuration
+  code.  Please note, this is still likely to be a problem
+  area. I will document this more in the manual.
+- Made exec()s non-blocking.
+- Continue running if a network process dies.
+
+Changes submitted this submission:
+- Added a new SIZE field for the match_str routine
+  in apcconfig.c to prevent the user from putting a long
+  string in his configuration file and overwritting memory.
+- Added a OUTPUTVOLTS configuration directive so that the
+  user may configure the output voltage (when on batteries).
+- Added a BATTDATE configuration directive to allow the user
+  to be able to set the EPROM battery date.
+- Corrected the overflows detected by the Solaris compiler and
+  reported by Carl (changed -1 to 0) in the configuration in
+  two places.
+- Added a new capabilities code CI_CYCLE_EPROM.
+- Added code to allow non-blocking exec()s.
+- Added  code to keep apcupsd from dying
+  if the network process dies.
+- Corrected the typo in apcoptd that prevented the -n option
+  from working.
+- Corrected a bug reported by Kasper (I think) where on a reboot,
+  your machine would hang if apcupsd could not establish serial
+  port communications. This could be rather nasty in some cases.
+- Reworked the killpower code to eliminate unnecessary sleep()s
+  and to eliminate the error messages unless they are absolutely
+  necessary. I also added the time before the power off to
+  the messages if it is available (UPS shut off grace delay).
+- Totally rewrote from scratch the EPROM configuration code
+  in apcsetup.c. With a bit of testing, it should be significantly
+  more robust than the old code, and it is also a lot less code.
+- Renamed UPS_GARBAGE to UPS_EPROM_CHANGE, which more accurately
+  describes what the character represents.
+- Added better print output in apcupsd.c for the configuration
+  options and removed some unneeded code.
+- Cleaned up the ***FIXME*** error messages.
+- Removed some code that can never be executed at the end of apcupsd
+  main.
+- Additional testing documentation.
+- More cleanup and documentation of apcupsd.conf
+- Added a few new STATUS files send to me to the examples directory.
+- Added an onbattery shell script that emails root on each
+  power failure detected (if placed in the /etc/apcupsd directory).
+- Changed NomOutputVoltage from double to int.  Because of
+  limitations of the configuration code, it MUST be int.
+- I made the modifications suggested by Carl to my makediff script
+  and added it to the doc/developers directory.
+      
+                Kern's ToDo List
+
+To do:
+- Complete documentation
+- Expand Last UPS Self Test field in cgi program
+- Automatic conversion of old apcupsd.config files
+  to the new format?
+- Move more control files to /etc/apcupsd
+- Move EVENTS file truncation code to main process.
+- Setuid of network processes to "nobody".
+
+
+Wish list:
+- Add remaining time before TIMEOUT to STATUS output.
+- Add more commands (individual variables) to apcnetd
+- Accumulate time on batteries and number of transfers
+  to batteries. Perhaps save history in file so that the
+  info can be recovered if apcupsd restarts.
+- Fix apcupsd so that it respawns the server if it
+  dies (limit number of times). This will avoid the
+  possibility that someone can bring down our apcupsd
+  by connecting via Internet (denial of service attack,
+  or exploit possible buffer overflow).
+- Make apcaccess use the network code as an option.
+- Remember date and time when apcupsd started.
+- Eliminate rest of character command codes using new
+  capabilities code in apcsetup.c (for setup stuff).
+- Eliminate the rest of the printfs().
+- Eliminate as many error_aborts as possible in making
+  new events.
+- Possibly retab new cgi/net server code
+- Apparently during self test, apcupsd thinks that the
+  power was lost. Distinguish this condition!
+- Check out apmd and see if we should interface to it.
+
+Done:

@@ -1,0 +1,3 @@
+Thanks to Zach Welch we've got Gentoo Linux platform support.
+Please, if you plan to build the package with ebuild, edit it to
+reflect the current gentoo and apcupsd status (no need for patches).

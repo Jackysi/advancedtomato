@@ -1,0 +1,522 @@
+
+             Release Notes for Apcupsd 3.14.x
+
+Apcupsd 3.14.x is the latest STABLE release, containing many bug fixes and
+new features over the previous 3.12.x stable series. Users of all previous
+versions are encouraged to upgrade.
+
+IF YOU USE THE OLD STYLE MASTER/SLAVE NETWORKING MODE, BE SURE TO READ THE
+3.14.0 RELEASE NOTES BELOW.
+
+
+3.14.10 -- 13 September 2011         (Maintenance Release)
+
+BUG FIXES
+
+  * Fix missing status and spurrious incorrect status on newer BackUPS CS
+    models using USB interface.
+
+  * USB compatibility fixes for Mac OS X Lion
+
+  * USB driver support for newer Microlink models on Mac OS X Lion and Windows
+
+  * Ignore transitions to battery due to calibration (possible if user
+    initiates calibration, then exits apctest and starts apcupsd before 
+    calibration completes.
+
+  * Fix truncation of long UPS model names such as "Smart-UPS RT 5000 XL"
+
+  * Fix MODEL vs. APCMODEL confusion. Remove APCMODEL and rename old MODEL
+    aka 'mode' to DRIVER.
+
+
+3.14.9 -- 22 July 2011               (Maintenance Release)
+
+NEW FEATURES
+
+  * SNMP enhancements:
+    - Autodetection of MIB and community if they are not specified in
+      apcupsd.conf
+    - Support for RFC1628 MIB
+    - Support for MGE MIB (Contributed by	Lars Taeuber <taeuber@bbaw.de>)
+
+  * Windows USB support for 64-bit platforms
+
+  * USB support for latest APC models such as SMT* and SMX* series
+    - No support for Microlink, but basic USB interface should be
+      detected and provide status now.
+
+  * When using the generic USB driver (Windows, OS X, newer FreeBSD)
+    DEVICE string in apcupsd.conf can be set as serial number of UPS
+    to monitor. This is useful in order to "lock" apcupsd to a specific
+    UPS if you have more than one connected to the server.
+
+  * Ed Dondlinger's Windows email scripts are included in the Win32
+    install package now. Documentation includes information on how
+    to hook them in.
+
+BUG FIXES
+
+  * general: Rework signal handling to eliminate crashes and hangs.
+
+  * general: Fix issue of overwriting pid file even when we failed
+    to acquire the lock file
+
+  * snmp: Add workaround for FreeBSD libsupc++.a issue (FreeBSD PR 
+    #99702) This will allow snmplite driver to compile/link on 
+    FreeBSD 5.x.
+
+  * usb: Automatically use generic_usb driver on FreeBSD 8.0 and 
+    newer. FreeBSD USB API was changed in 8.0, so from now on we will 
+    use libusb.
+
+  * usb: Add support for DALARM
+  
+  * usb: Fix BATTV and MANDATE on certain newer APC models
+
+  * win32: Honor INSTDIR specified on command line via /D
+
+  * win32: When running uninstaller in silent mode, always remove 
+    config and events files without prompting.
+
+  * win32: When logging events, convert LOG_CRIT to a WARNING rather
+	 than an ERROR since apcupsd uses it for power events which aren't
+	 really daemon errors.
+
+
+3.14.8 -- 16 January 2010            (Maintenance Release)
+
+NEW FEATURES
+
+  * Mac OS X version of apctray (apcagent) for monitoring apcupsd instances.
+    Same feature set as apctray on Windows (monitor multiple instances,
+    get detailed status and events logs). Popup notifications delivered via 
+    Growl, if available.
+
+  * Major update to win32 version of apctray. Includes many visual and 
+    usability improvements to match OS X version.
+
+  * apctest now supports battery calibration and self-test interval control
+    on USB models. Many thanks to James Belleau <james@belleau.net> for
+    contributing these features.
+
+  * New SNMP driver that does not require libsnmp.so, thus eliminating
+    issues with not finding the library during shutdown when /usr has
+    been unmounted. The new driver is the default for 'UPSTYPE snmp'.
+    The old driver is still available as "UPSTYPE netsnmp" if needed.
+
+BUG FIXES
+
+   * Add missing NOMINV, NOMOUTV, and NOMPOWER to net clients
+   
+   * Fix missing WALL in apccontrol (debian bug #546019)
+     http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=546019
+
+   * Change all time/date strings to simplified ISO format: 
+     "YYYY-MM-DD HH:MM:SS +/-UTC"
+
+   * Fix battery voltage readout on "Back-UPS 500 FW: 6.3.I USB FW: c1"
+
+   * Remove obsolete image files from source tree
+
+   * Fix issues with popup.exe running when it shouldn't and sometimes
+     hanging and/or generating an "Interactive Services Dialog Detected"
+     error.
+
+   * Use /kill switch from the installer to shut down running instances
+     of apcupsd and apctray. This will provide more reliable termination
+     on Vista/Win7.
+     
+   * Update apctest to use 'Q' to exit any menu instead of a number that
+     is always changing. Contributed by James Belleau <jpbelleau@gmail.com>
+
+   * apctest: 	Fix compiler warnings. Contributed by 
+     Andy O'Shaughnessy <andrewjoshaughnessy@gmail.com>
+
+
+3.14.7 -- 31 July 2009               (Maintenance Release)
+
+NEW FEATURES
+
+  * Multimon CGI programs are included with the Windows binary package
+
+BUG FIXES
+
+  * Windows COM ports above COM9 now work without user needing to manually
+    add \\.\ UNC prefix in apcupsd.conf
+
+  * Fix configure script not noticing when C++ compiler is missing
+
+  * Fix for battery date (BATTDAT) displaying invalid values on USB models
+
+  * Fix version reporting in cgi and examples
+
+  * Misc documentation fixes for typos, etc.
+
+
+3.14.6 -- 16 May 2009                (Maintenance Release)
+
+NEW FEATURES
+
+  * Major updates to the User Manual. Rewritten battery maintenance section 
+    courtesy of Trevor Roydhouse <trev@sentry.org>. Many other updates
+    including the SmartUPS protocol and OS support sections. Furthermore,
+    the manual is now formatted in reStructuredText
+    (http://docutils.sourceforge.net/rst.html) and as a result is very 
+    easy to update. (The only down side is the multi-page HTML version is 
+    no longer available; the HTML version is all on a single page.)
+
+  * New manpages for apcupsd, apcupsd.conf, apctest, apcaccess, and 
+    apccontrol. Many thanks to Trevor Roydhouse <trev@sentry.org> for the
+    hard work!
+
+  * Support for QNX. Tested on QNX 6.3.2. Contributed by Mikhail
+    Gruzdev <michail.gruzdev@gmail.com>
+
+  * Add support for turning the UPS off completely. This complements 
+    existing hibernate (aka killpower) functionality. Turn-off is 
+    implemented for apcsmart and USB drivers, subject to support for the 
+    relevant commands in the UPS itself. Contributed by Keith Campbell 
+    <campbell@econnectix.com>.
+
+BUG FIXES
+
+  * apcsmart: Deadlock fixes during comms failures. Contributed by Keith 
+    Campbell <campbell@econnectix.com>
+
+  * linux-usb: Fix out-of-bounds array access. Contributed by David Fries 
+    <david@fries.net>
+
+  * Fix build with gcc-4.4. Contributed by Michal Hlavinka <mhlavink@redhat.com>
+  
+  * apcsmart: Fix crash during process shutdown (SIGTERM). Contributed by 
+    Andrey Sharandakov <ash.ashway@gmail.com>
+
+  * Several other minor fixes and improvements. See ChangeLog for details.
+
+
+3.14.5 -- 26 October 2008            (Maintenance Release)
+
+BUG FIXES
+
+  * docs: Document the /refresh switch for apctray.
+
+  * apctest: Do not create pid file. There is little reason for it
+    since apctest is a command-line tool, not a daemon. Plus nothing
+    ever deletes the file so it interferes with apcupsd operation.
+
+  * gapcmon: Network connect timeout fix.
+
+  * Fix a few unsafe uses of sprintf and strcat.
+
+  * Makefile: Fix cgi build on OpenBSD. libgd on OpenBSD requires X_LIBS 
+    for libfreetype and libfontconfig.
+
+  * gapcmon: Iconify fixes for KDE
+
+  * Fix LOWBATT glitch handling bug that could cause us to act on a 
+    LOWBATT signal immediately instead of waiting for the debounce time.
+
+  * apctray: Improve multiple instance behavior for /add, /del, and
+    /kill on modern platforms (Win2K and newer).
+
+  * Support shutting down apcupsd instances running in other sessions
+    (such as terminal services or remote desktop sessions).
+
+  * Makefile: 'make install' fixes for first install on RedHat/SuSE.
+
+  * docs: PCNET minimum password length is 15 chars, default username 
+    is 'apc', no known way to change the username.
+
+  * Makefile: Fix dependency build errors on Darwin and other platforms.
+    ('echo -n' is not portable; use 'tr' to strip newline instead)
+
+  * RPMs: Automatically restart apcupsd when upgrading
+
+
+3.14.4 -- 18 May 2008                (Maintenance Release)
+
+MAJOR CHANGES
+
+  * Build system rewrite: All Makefiles have been rewritten from scratch.
+    Improvements include reliable dependencies, support for parallel make,
+    elimination of Makefile.in -> Makefile conversion, consistent use of
+    DESTDIR during 'make install', and pretty-printed output during builds.
+    
+    NEW BUILD SYSTEM NOTES
+      - GNU make is required. The configure script checks for this and tells
+        you how to invokve it (on some platforms it is 'gmake' instead of 
+        'make').
+      - Output during build is pretty-printed by default. To see more details,
+        use 'make VERBOSE=1' for output similar to the old build system. For
+        even more verbosity, use 'make VERBOSE=2'.
+      - Parallel builds work well. If you have a multiprocessor (or multicore)
+        system, try 'make -j<number-of-processors>' for the fastest possible
+        build.
+
+  * Built-in version of libgd for multimon cgi has been removed. The version
+    previously included in apcupsd was old and likely had security issues.
+    It is safer to use libgd from the target system. Therefore, your system
+    must provide libgd if you choose to build cgi now. Generally this is 
+    easy to achieve by installing a vendor-supplied package.
+
+  * Removal of NLS support: The NLS code was terribly bit-rotted with many
+    non-internationalized messages and almost every translated message was
+    incorrect. At this point the maintenance burden of keeping NLS support
+    building was deemed too high considering the small benefit it was able 
+    to provide.
+
+  * Powerflute has been disabled. It has been broken for the last several 
+    releases because it relied on an untrushworthy source of UPS status
+    (rawupsstats) which was itself removed. Powerflute could be converted to
+    use the standard NIS status mechanism and its source code remains in
+    the tree in case someone has the desire to contribute this code.
+
+NEW FEATURES
+
+  * Add POLLTIME directive to control UPS polling interval. This directive
+    specifies the number of seconds to delay between polling the UPS for
+    status. Previously, NETTIME allowed this to be adjusted for network
+    connections only (snmp, pcnet, nis-net). POLLTIME configures the delay
+    for all connection types. NETTIME is accepted as a synonym for 
+    compatibility with old config files.
+
+BUG FIXES
+
+  * gapcmon: Corrected the use of NOMPOWER and the calc of current usage
+    amount. Thanks to James Scott Jr <skoona@verizon.net>.
+
+  * Add a heuristic to fix up incorrect NOMINV or NOMOUTV. Some UPSes
+    (RS 500) report decivolts instead of volts. Reported by Kirill S.
+    Bychkov <yason@linklevel.net>.
+
+  * Various build fixes on Solaris and OpenSolaris. Thanks to James Dean
+    <jgmdean@gmail.com> for loaning me an ssh login on his OpenSolaris box.
+
+  * Fix hal policy file syntax. For some reason this blatantly	incorrect 
+    file actually works on RHEL5 (hal-0.5.8). Thanks to Andrew Telford 
+    <a.telford@ieee.org> for correcting it.
+
+  * Fix gapcmon build on OpenBSD.
+
+  * Fix BSD USB driver build.
+
+  * Fix default NIS port on Debian. Debian is now using the standard NIS 
+    port, 3551.  Contributed by imacat <imacat@mail.imacat.idv.tw>
+
+
+3.14.3 -- 20 January 2008            (Maintenance Release)
+
+NEW FEATURES
+
+  * A HAL policy file is automatically installed on Linux systems to disable
+    the hald-addon-hid-ups module which conflicts with apcupsd's control of
+    USB UPSes. The file is automatically removed when apcupsd is uninstalled.
+
+BUG FIXES
+
+  * Add support for Nominal Power (aka Configured Active Power) reading.  
+    Credit to Lars Randers <lars@nstec.dk> for most of the code.
+
+  * Add units to NOMINV, NOMOUTV, and NOMBATTV stats.
+
+  * Eliminate "warning: deprecated conversion from string constant to
+    'char*'" warnings emitted from gcc-4.2.1 (earlier versions with
+    -Wwrite-strings). Contributed by Steve Yarmie <tribhuvanji@gmail.com>.
+
+  * Fix killpower and eeprom settings bug on USB models introduced when 
+    INPUT reports were prioritized over FEATURE reports.
+
+  * Fix bugs that could cause NIS-net driver to get stuck waiting for
+    comms to be restored instead of shutting down.
+
+
+3.14.2 -- 15 September 2007          (Maintenance Release)
+
+NEW FEATURES
+
+  * Tray icon support on Vista. Vista does not allow background services
+    to interact with the user's desktop, so winapcupsd's built-in tray
+    icon did not work.
+
+  * Tray icon is now a standalone application "apctray" which is capable of
+    monitoring multiple Apcupsd instances via Apcupsd's NIS. Any Apcupsd
+    running NIS can be monitored. By default the icon monitors a single
+    apcupsd at 127.0.0.1:3551. See command line options below for adding
+    additional monitors.
+
+  * Tray icon can be installed individually (disable other packages in the
+    installer) for users who want to use the icon only.
+
+  * Apctray command line options:
+
+       apctray.exe
+          - No parameters: Start any instances listed in registry. If no
+          instances in reg, start a default instance monitoring the local
+          machine (127.0.0.1:3551).
+
+       apctray.exe /host foo /port 3551 /add
+          - Add a monitor for the given host and port.
+
+       apctray.exe /host foo /port 3551 /del
+          - Remove the given monitor.
+
+       apctray.exe /del
+          - Remove all monitors.
+
+       apctray.exe /install
+          - Configure apctray to start automatically.
+
+       apctray.exe /remove
+          - Do not start automatically.
+
+       apctray.exe /kill
+          - Shut down apctray
+
+BUG FIXES
+
+  * The win32 portions of winapcupsd have been almost entirely rewritten. 
+    The code is cleaner (mostly) and lots of unused baggage has been removed.
+
+  * USB fix for BackUPS LCD series. This fix carries a risk of breaking other
+    models, but test results are positive so far.
+  
+  * Fix linux-usb device detection bug when multiple hiddev nodes are
+    present.  Fixes Fedora Bugzilla #245864:
+    <https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=245864>
+  
+  * Fix SNMP port selection when using SNMP driver
+
+  * Add workaround for broken BackUPS Pro model that returns certain
+    reports encoded in ASCII. Based on a patch from David Fries
+    <David@Fries.net>.
+
+  * apcsmart: Wait 20 seconds before declaring COMMLOST. This is necessary
+    when using a smart serial cable on an UPS with an SNMP monitoring card
+    installed. The SNMP card appears to disrupt serial comms for several 
+    seconds when interesting events are in progress.
+
+  * Documentation updates: Fix up udev info for modern Linux distros.
+    Update Windows section for apctray.
+
+  * Don't leak unnecessary descriptors to child when execing apccontrol.
+
+  * Fix bug with multi-threaded net_open() calls. net_open() was using
+    a global buffer for the destination address. Yikes! Bug manifestied
+    itself in apctray with multiple monitors occasionally (and
+    timing-dependently) pointing to the wrong UPS.
+
+  * Correct multimon.conf humidity monitoring.  Problem fixed by
+    Patrick Frei.  Reference:
+    https://bugzilla.novell.com/show_bug.cgi?id=199834
+
+  * Fix race between attach_ups() and detach_ups() which could result
+    in the UPSINFO structure being freed prematurely. Thanks to James
+    Abbott <j.abbott@imperial.ac.uk> for running many tests to help me
+    find this bug.
+
+  * Remove dependency on libc++ (again). Must use gcc as linker when
+    using libsupc++ since g++ automatically links against full libc++.
+
+
+3.14.1 -- 04 May 2007           (Maintenance Release)
+
+NEW FEATURES
+
+  * MacOS X GUI installer
+
+  * PCNET driver supports remote shutdown request from UPS web interface
+
+BUG FIXES
+
+  * (win32) Detect when balloon tips have been disabled via a group policy
+      and fall back on the standard popup message box.
+
+  * (win32) Fix typo: "%sbindir\%popup" -> "%sbindir%\popup" in apccontrol.bat
+      Discovered by Stefan.Hegnauer@elektrobit.com.
+
+  * (all) Fix potential NIS client lockup when server disappears. Many thanks
+      to Jan Ceuleers <jan.ceuleers@computer.org> for reporting the problem
+      and gathering data to track down the cause.
+
+  * (apctest) Fix link error after configuring with --disable-apcsmart.
+
+  * (doc) Document how to force ugen binding on NetBSD 4.x.
+      Contributed by Curt Sampson <cjs@starling-software.com>.
+
+  * (apctest) Fix crash when displaying EEPROM values more than once.
+      Contributed by Ivaylo Haratcherev <I.J.Haratcherev@tudelft.nl>.
+
+  * Increase self-test timeout to 40 seconds to accomodate the RS 800.
+      Contributed by Lars Randers <lars@nstec.dk>.
+
+  * (linux-usb) Rewrite device opening logic to be more reliable. See 
+      ChangeLog for details.
+
+  * (apcupsd) Do not attempt to cancel shutdowns.
+
+
+3.14.0 -- 09 February 2007      (Feature Release)
+
+NEW FEATURES
+
+  * USB support for 3 new platforms:
+
+  	- Windows (Win98SE, WinME, Win2000, Win2003 Server, WinXP)
+  	- Mac OS X (Darwin)
+  	- Solaris 10 (x86 and SPARC)
+
+        Please see the Apcupsd manual for details on USB configuration for the
+        new platforms.
+
+  * Native Windows port
+  
+       The winapcupsd port has been completely rewritten to use native
+       Win32 libraries (based on MinGW32). It no longer relies on a Cygwin
+       translation layer, thus improving compatibility and performance.
+
+  * PowerChute Network Shutdown driver
+  
+       Apcupsd now supports the PowerChute Network Shutdown protocol (PCNET)
+       offered by the AP9617 family of smart slot modules. This protocol is
+       much lighter-weight than SNMP and offers better security. Please see 
+       the Apcupsd manual for details on PCNET configuration.
+
+  * GAPCMON GUI monitoring tool
+  
+       Apcupsd is now packaged with the GAPCMON GUI monitoring application
+       thanks to James Scott, Jr. This is a Gnome/GTK based application which
+       integrates into most desktop panels (not just Gnome). It monitors one or
+       more Apcupsd instances using Apcupsd's NIS networking server. The status
+       of each UPS is shown with a icon similar to the Win32 tray icon in 
+       winapcupsd. Enable building of gapcmon at compile time via 
+       --enable-gapcmon or install the apcupsd-gapcmon RPM.
+
+  * Unreliable MASTER/SLAVE networking mode is removed
+  
+       Yes, this is a feature. The old MASTER/SLAVE mode for shutting down
+       multiple servers from one UPS has historically been unreliable and prone
+       to loss of communications or lockups. Apcupsd has long had a replacement
+       networking mode using the NIS server (NIS stands for Network Information
+       Server, and has nothing to do with Sun's NIS/YP protocol). The NIS net
+       mode is very reliable and has none of the lockup bugs that have plagued 
+       MASTER/SLAVE mode.
+       
+       In 3.14.x, MASTER/SLAVE mode has been removed and the associated 
+       configuration directives are now obsolete. Please see the Apcupsd manual
+       for a very simple NIS networking configuration to replace MASTER/SLAVE.
+
+   * New configuration directives to set paths at runtime
+
+       Several new (optional) configuration directives have been added to 
+       allow overriding compiled-in paths at runtime. The directives are:
+
+          - SCRIPTDIR (sets location of apccontrol and event scripts)
+          - PWRFAILDIR (sets location where powerfail file will be written)
+          - NOLOGINDIR (set location where nologin file will be written)
+
+       These directives can be used to rearrange the Apcupsd installation
+       after compiling, or to run multiple Apcupsd instances on the
+       same machine without compiling separate copies.
+
+       See the Apcupsd manual for details on these new directives.

@@ -1,0 +1,38 @@
+             Technical notes on version 3.8.2Beta13
+                        21 June 2001
+                        Kern Sibbald
+
+General:
+- Fixed bug in creation of PWRFAIL file. Thanks to
+  José for his excellent testing efforts.
+- Cleaned up configuration of PWRFAILDIR in 
+  distribution files.
+- Fixed installation of multimon.css
+- Implemented localtime_r() for Win32 systems.
+
+Changes submitted this submission:
+- Due to inconsistencies in the way filenames
+  were constructed, the powerfail path required
+  a trailing slash. Without the slash, the path
+  and the filename were run together, as was
+  the default case.  This is now fixed.
+  This bug (since approximately Beta8) prevented
+  the UPS power from being shutoff.
+- If the powerfail file or nologin file cannot
+  be created, a log message is generated with
+  the reason (e.g. read-only filesystem).
+- Cleaned up some PTHREADS flags on the FreeBSD
+  system as suggested by Neil.
+- Noticed that a number of installation scripts 
+  did not get modified to handle the powerfail
+  file configuration. (HPUX, Sun, unknown, Alpha,
+  Debian, OpenBSD, RedHat, Slackware, SuSe)
+- Corrected the bug in the installation of the
+  multimon.css file. It should now install corrrectly
+  on all systems.
+- Added _THREAD_SAFE and _REENTRANT flags to compiles 
+  for threaded version (thanks Neil).
+- Added code to implement localtime_r() on Win32 systems
+  since it does not exist in libc.
+
+

@@ -1,0 +1,103 @@
+From dranch@trinnet.net Sat Jan 19 19:23:04 2002
+Return-Path: <dranch@trinnet.net>
+Received: from trinity3.trinnet.net (w140.z064220150.sjc-ca.dsl.cnc.net
+        [64.220.150.140]) by matou.sibbald.com (8.11.6/8.11.6) with ESMTP id
+        g0JIN0a23790 for <kern@sibbald.com>; Sat, 19 Jan 2002 19:23:04 +0100
+Received: from dellster.trinnet.net (dellster.trinnet.net [192.168.0.4]) by
+        trinity3.trinnet.net (8.11.6/8.11.0) with ESMTP id g0JIMoQ19901 for
+        <kern@sibbald.com>; Sat, 19 Jan 2002 10:22:54 -0800
+Message-Id: <4.3.2.7.0.20020119100203.03c8bf00@trinity3.trinnet.net>
+X-Sender: dranch@trinity3.trinnet.net
+X-Mailer: QUALCOMM Windows Eudora Version 4.3.2
+Date: Sat, 19 Jan 2002 10:14:40 -0800
+To: kern@sibbald.com
+From: David Ranch <dranch@trinnet.net>
+Subject: Quick graphing question with APCUPSd
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="=-yC9rWE1hjHgNHKs6bWrA"
+X-Evolution-Source: imap://kern@lmatou/
+
+
+--=-yC9rWE1hjHgNHKs6bWrA
+Content-Type: text/plain; charset=us-ascii; FORMAT=flowed
+Content-Transfer-Encoding: 8bit
+
+
+Hey Kern,
+
+One of my TrinityOS users sent me this graph.  Overall,
+I have NO idea how the Utility ramped up the voltage
+like that (bizzar) and I've asked for more info.
+
+Anyway, the graph is pretty cool though something is
+really bothering me.  Where is the "UPS LOAD" line?
+It isn't the "magenta" line as that is the BattV line.
+(I'm working on moving the graph key to some other spot
+on the graph).
+
+Here is some of the data I'm getting from that 700VA
+SmartUPS using APCUPSd:
+
+--
+Jan 18 08:59:40 vesta last message repeated 2 times
+Jan 18 08:59:46 vesta apcupsd[605]: 
+123.5,124.8,124.1,27.74,60.00,100.0,36.0,,,124.1
+Jan 18 08:59:53 vesta apcupsd[605]: 
+123.5,124.1,123.5,27.74,60.00,100.0,36.0,,,123.5
+Jan 18 08:59:59 vesta apcupsd[605]: 
+122.2,124.1,124.1,27.74,60.00,100.0,36.0,,,124.1
+Jan 18 09:00:06 vesta apcupsd[605]: 
+123.5,124.1,124.1,27.74,60.00,100.0,36.0,,,124.1
+Jan 18 09:00:12 vesta apcupsd[605]: 
+123.5,124.1,124.1,27.06,60.00,100.0,36.0,,,124.1
+Jan 18 09:00:17 vesta apcupsd[605]: Power failure.
+Jan 18 09:00:19 vesta apcupsd[605]: 
+008.4,124.1,119.6,26.66,60.00,99.0,36.0,,,013.0
+Jan 18 09:00:20 vesta apcupsd[605]: Running on UPS batteries.
+Jan 18 09:00:21 vesta apcupsd[605]: 
+008.4,013.6,119.6,26.52,60.00,98.0,36.0,,,013.0
+Jan 18 09:00:24 vesta apcupsd[605]: 
+008.4,013.6,119.6,26.39,60.00,97.0,36.0,,,012.3
+Jan 18 09:00:26 vesta apcupsd[605]: 
+008.4,013.6,119.6,26.25,60.00,95.0,36.0,,,013.0
+Jan 18 09:00:29 vesta apcupsd[605]: 
+008.4,013.6,119.6,26.12,60.00,95.0,36.0,,,012.3
+--
+
+(sorry for the line wrap (if any))
+ From this, I gather the data is:
+
+IN  IN   OUT  BATT  OUT  Batt  UPS   IN V.
+LOW HIGH  V    V     Hz  Char  Temp   now
+
+
+But at home, I still use Powerchute on a SmartUPS 1400
+and I get:
+
+--
+01/18/02,07:53:29,120.9,122.8,121.5,54.55,60.00,039.0,037.3,     ,
+01/18/02,07:53:39,120.9,122.2,121.5,54.55,60.00,039.0,037.3,     ,
+01/18/02,07:53:49,120.9,122.2,121.5,54.55,60.00,037.9,037.3,     ,
+--
+
+IN  IN   OUT  BATT  OUT  UPS  UPS
+LOW HIGH  V    V     Hz  Load Temp
+
+
+How can I get "UPS load" out of the 700VA unit?  Is this
+a firmware issue on the 700?  Is there a set of commands
+I can use to possibly configure the UPS to give me this
+output or at least confirm that it cannot give me these
+details?
+
+
+Ps.  At the top of the APCUPSd log, you can see that SYSLOG
+      surpressed a duplicate line.  Do you know if there is
+      a way to disable this?  Overall, it obviously won't
+      change the graph output but it might be a good thing
+      to tell my users about.
+
+--David
+
+-----------------
+This was a bug. It is fixed in 3.9.8.

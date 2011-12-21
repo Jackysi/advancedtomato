@@ -1,0 +1,137 @@
+#!@SCRIPTSHELL@
+#
+#    Safe apccontrol for testing.
+#
+#  This apccontrol can be used for testing without fear
+#  that it will bring your system down
+#     @configure_input@
+#
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+APCUPSD=@sbindir@/apcupsd
+SHUTDOWN=@SHUTDOWN@
+SCRIPTDIR=@sysconfdir@
+
+#
+case "$1" in
+        killpower)
+                wall <<EOF
+apccontrol: ${APCUPSD} --killpower would have been.
+
+EOF
+        ;;
+        commfailure)
+                wall <<EOF
+apccontrol: Communications with UPS lost.
+
+EOF
+        ;;
+        commok)
+                wall <<EOF
+apccontrol: Communciations with UPS restored.
+
+EOF
+        ;;
+        powerout)
+                wall <<EOF
+apccontrol: Warning power loss detected.
+
+EOF
+        ;;
+        onbattery)
+                wall <<EOF
+apccontrol: Power failure. Running on UPS batteries.
+
+EOF
+        ;;
+        offbattery)
+                wall <<EOF
+apccontrol: Off battery. Mains returned.
+
+EOF
+        ;;
+        failing)
+                wall <<EOF
+apccontrol: UPS battery power exhaused. Doing shutdown.
+
+EOF
+        ;;
+        timeout)
+                wall <<EOF
+apccontrol: UPS battery runtime limit exceeded. Doing shutdown.
+
+EOF
+        ;;
+        loadlimit)
+                wall <<EOF
+apccontrol: UPS battery discharge limit reached. Doing shutdown.
+
+EOF
+        ;;
+        runlimit)
+                wall <<EOF
+apccontrol: UPS battery runtime percent reached. Doing shutdown.
+
+EOF
+        ;;
+        doreboot)
+                wall <EOF
+apccontrol: ${SHUTDOWN} for reboot would have been called.
+
+EOF
+        ;;
+        doshutdown)
+                wall <<EOF
+apccontrol: ${SHUTDOWN} for halt would have been called.
+
+EOF
+        ;;
+        mainsback)
+                wall <<EOF
+apccontrol: Power has returned...
+
+EOF
+        ;;
+        annoyme)
+                wall <<EOF
+apccontrol: Power problems please logoff.
+
+EOF
+        ;;
+        emergency)
+                wall <<EOF
+apccontrol: ${SHUTDOWN} for emergency halt would have been called.
+
+EOF
+        ;;
+        changeme)
+                wall <<EOF
+apccontrol: Emergency! UPS batteries have failed.
+
+Change them NOW !
+EOF
+        ;;
+        remotedown)
+                wall <<EOF
+apccontrol: ${SHUTDOWN} for remote halt would have been called.
+
+EOF
+        ;;
+        startselftest)
+                wall <<EOF
+apccontrol: start self test would have been called.
+
+EOF
+        ;;
+        endselftest)
+                wall <<EOF
+apccontrol: end self test would have been called.
+
+EOF
+        ;;
+        *)      echo "Usage: ${0##*/} command"
+                echo "       warning: this script is intended to be launched by"
+                echo "       apcupsd and should never be launched by users."
+                exit 1
+        ;;
+esac

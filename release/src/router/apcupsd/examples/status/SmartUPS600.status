@@ -1,0 +1,49 @@
+APC      : 001,048,1088
+DATE     : Fri Dec 03 16:49:24 EST 1999
+HOSTNAME : infarc
+RELEASE  : 3.7.0-beta-1
+CABLE    : APC Cable 940-0024C
+MODEL    : APC Smart-UPS 600
+UPSMODE  : Stand Alone
+UPSNAME  : SU600   
+LINEV    : 122.1 Volts
+MAXLINEV : 123.3 Volts
+MINLINEV : 122.1 Volts
+LINEFREQ : 60.0 Hz
+OUTPUTV  : 122.1 Volts
+LOADPCT  :  32.7 Percent Load Capacity
+BATTV    : 26.6 Volts
+BCHARGE  : 095.0 Percent
+MBATTCHG : 15 Percent
+TIMELEFT :  19.0 Minutes
+MINTIMEL : 3 Minutes
+SENSE    : Medium
+DWAKE    : 000 Seconds
+DSHUTD   : 020 Seconds
+LOTRANS  : 106.0 Volts
+HITRANS  : 129.0 Volts
+RETPCT   : 010.0 Percent
+STATFLAG : 0x08 Status Flag
+STATUS   : ONLINE 
+ITEMP    : 34.6 C Internal
+ALARMDEL : Low Battery
+LASTXFER : Unacceptable Utility Voltage Change
+SELFTEST : NO
+STESTI   : 336
+DLOWBATT : 05 Minutes
+DIPSW    : 0x00 Dip Switch
+REG1     : N/A
+REG2     : N/A
+REG3     : 0x00 Register 3
+MANDATE  : 03/30/95
+SERIALNO : 13035861
+BATTDATE : 05/05/98
+NOMOUTV  : 115.0
+NOMBATTV :  24.0
+HUMIDITY : N/A
+AMBTEMP  : N/A
+EXTBATTS : N/A
+BADBATTS : N/A
+FIRMWARE : N/A
+APCMODEL : 6TD
+END APC  : Fri Dec 03 16:49:25 EST 1999

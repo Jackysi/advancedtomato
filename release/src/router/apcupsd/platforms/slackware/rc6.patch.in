@@ -1,0 +1,56 @@
+--- rc.6.orig   Sat Sep 11 14:38:33 1999
++++ rc.6        Sun Feb 27 13:22:11 2000
+@@ -84,11 +84,31 @@
+   # This never hurts:
+   sync
+ 
++  # This block was from the original Slackware distribution:
+   # See if this is a powerfail situation.
+-  if [ -x /sbin/genpowerd ]; then
+- # See if this is a powerfail situation:
+-   if grep FAIL /etc/upsstatus 1> /dev/null 2> /dev/null ; then
+- # Signal UPS to shut off the inverter:
+-     /sbin/genpowerd -k /dev/UPS apc-linux
+-     if [ ! $? = 0 ]; then
+-       echo
+-       echo "There was an error signaling the UPS."
+-       echo "Perhaps you need to edit /etc/rc.d/rc.6 to configure"
+-       echo "the serial line and UPS type."
+-         # Wasting 15 seconds of precious power:
+-       sleep 15
+-     fi
+-   fi
++  # if [ -x /sbin/genpowerd ]; then
++  #  # See if this is a powerfail situation:
++  #  if grep FAIL /etc/upsstatus 1> /dev/null 2> /dev/null ; then
++  #  # Signal UPS to shut off the inverter:
++  #    /sbin/genpowerd -k /dev/UPS apc-linux
++  #    if [ ! $? = 0 ]; then
++  #      echo
++  #      echo "There was an error signaling the UPS."
++  #      echo "Perhaps you need to edit /etc/rc.d/rc.6 to configure"
++  #      echo "the serial line and UPS type."
++  #  # Wasting 15 seconds of precious power:
++  #      sleep 15
++  #    fi
++  #  fi
++  # fi
++
++  # This block was added in by the apcupsd installation process.  This
++  # will cause the UPS to kill the power supply after a configurable number
++  # of seconds (see the apcupsd.conf file).  This is important for situations
++  # where the mains power comes back before the UPS batteries are completely
++  # dead.
++  if [ -f @PWRFAILDIR@/powerfail ]; then
++    echo
++    echo "apcupsd will now power off the UPS"
++    echo
++    @sysconfdir@/apccontrol killpower
++    echo
++    echo "Please ensure that the UPS has powered off before rebooting."
++    echo "Otherwise, the UPS may cut the power during the reboot."
++    echo
++    halt -f -p         # power down the system if the hardware is capable
+   fi
+ 
+   # Now halt (poweroff with APM kernels) or reboot.

@@ -1,0 +1,46 @@
+#include "template.inc" name=Apcupsd
+
+<h1>Email Lists</h1>
+<b>apcupsd</b> has two email lists which are described below with
+links to subscribe, unsubscribe, or modify your account. You must
+be subscribed to send email to these lists.
+
+<h2>apcupsd-announce</h2>
+The <b>apcupsd-announce</b> list is a low volume list for those
+users who wish to be notified when there are important events
+(important bugs, new releases, ...).  We recommend that all
+users subscribe to this list. Do so by following the instructions at
+<a href="http://lists.sourceforge.net/lists/listinfo/apcupsd-announce">
+http://lists.sourceforge.net/lists/listinfo/apcupsd-announce</a>.
+The same link can be used to modify your preferences or unsubscribe
+as long as you have your password.
+ 
+      
+<p>It is also possible to get email notification whenever a new package
+is released on SourceForge. This is accomplished by going to
+the <a href="http://sourceforge.net/projects/apcupsd">Apcupsd SourceForge
+Project</a> page and clicking on the little letter or mail icon 
+<img src="mail16d.png"> under the heading <b>Monitor</b> in the
+row corresponding to the package you want to monitor.
+
+<h2>apcupsd-users</h2> 
+The <b>apcupsd-users</b> list is the general forum to ask questions
+about Apcupsd or respond to questions from other users.  The volume on
+this list is generally light, but can vary.  All users are encouraged
+to subscribe and to participate. <b>To elimate list SPAM, anyone
+wishing to send a message to this list must be subscribed</b>, which
+you can do by following the instructions at
+<a href="http://lists.sourceforge.net/lists/listinfo/apcupsd-users">
+http://lists.sourceforge.net/lists/listinfo/apcupsd-users</a>
+The same link can be used to modify your preferences or unsubscribe
+as long as you have your password.
+
+<h2>apcupsd-commits</h2> 
+The <b>apcupsd-commits</b> list is a READ-ONLY list to which you
+may subscribe to receive diffs of CVS commits. Please do not send
+emails to this list. You may subscribe by following the instructions at
+<a href="http://lists.sourceforge.net/lists/listinfo/apcupsd-commits">
+http://lists.sourceforge.net/lists/listinfo/apcupsd-commits</a>
+The same link can be used to modify your preferences or unsubscribe
+as long as you have your password.
+

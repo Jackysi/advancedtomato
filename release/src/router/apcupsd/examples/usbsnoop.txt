@@ -1,0 +1,147 @@
+From: "Adam Kropelin" <akropel1@rochester.rr.com>
+To: "Kern Sibbald" <kern@sibbald.com>
+Cc: "Apcupsd-users" <apcupsd-users@lists.sourceforge.net>
+Subject: Reading a usbsnoop trace
+Date: Mon, 23 Aug 2004 21:51:50 -0400
+
+Some users have had good luck using the 'usbsnoop' tool 
+(http://benoit.papillault.free.fr/usbsnoop/index.php) to capture USB traces 
+of PowerChute on Windows. The output from usbsnoop is a text file containing 
+a transcript of all the USB communication with a particular device. The 
+format is a bit wonky, but it generally contains enough information to see 
+how PowerChute sets various UPS parameters and how the UPS responds.
+
+The traces consist of a series of request/response pairs (called "URBs" in 
+USB lingo). First a request from the host to the device and then a response 
+from the device to the host. The request URB is always sent first and is 
+followed by the response. Note that more than one request may be outstanding 
+at a time so the response is not always the very next URB in the trace, 
+although it usually is. The URB number can be used to match responses with 
+requests.
+
+Here is an example URB, number 108:
+
+[4945 ms] UsbSnoop - DispatchAny(f7c08610) : IRP_MJ_INTERNAL_DEVICE_CONTROL
+[4945 ms] UsbSnoop - MyDispatchInternalIOCTL(f7c09e80) : fdo=8602b460, 
+Irp=85e84cb0, IRQL=0
+[4945 ms]  >>>  URB 108 going down  >>>
+-- URB_FUNCTION_CLASS_INTERFACE:
+  TransferFlags          = 00000001 (USBD_TRANSFER_DIRECTION_IN, 
+~USBD_SHORT_TRANSFER_OK)
+  TransferBufferLength = 00000005
+  TransferBuffer       = f7f1efd0
+  TransferBufferMDL    = 00000000
+  UrbLink                 = 00000000
+  RequestTypeReservedBits = 00000022
+  Request                 = 00000001
+  Value                   = 00000323
+  Index                   = 00000000
+[4950 ms] UsbSnoop - MyInternalIOCTLCompletion(f7c09db0) : fido=863b9030, 
+Irp=85e84cb0, Context=86001650, IRQL=2
+[4950 ms]  <<<  URB 108 coming back  <<<
+-- URB_FUNCTION_CONTROL_TRANSFER:
+  PipeHandle           = 86109ac8
+  TransferFlags        = 0000000b (USBD_TRANSFER_DIRECTION_IN, 
+USBD_SHORT_TRANSFER_OK)
+  TransferBufferLength = 00000003
+  TransferBuffer       = f7f1efd0
+  TransferBufferMDL    = 860ba270
+    00000000: 23 7f 00
+  UrbLink              = 00000000
+  SetupPacket          =
+    00000000: a1 01 23 03 00 00 05 00
+
+usbsnoop uses the term "going down" to refer to the host->device request and 
+"coming back" to refer to the device->host response. The request and 
+response are both timestamped with an offset in msec since usbsnoop started 
+up.
+
+Several lines can be safely ignored. Lines starting with a timestamp and 
+"UsbSnoop - ..." generally contain Windows-specific usbsnoop debugging info 
+and are of no use to us. Also, PipeHandle, TransferBuffer, 
+TransferBufferMDL, UrbLink, and SetupPacket fields are not particularly 
+useful, either.
+
+Also, keep in mind that usbsnoop will not display fields that it considers 
+"uninteresting" and it will display additional fields sometimes if it thinks 
+they are interesting. For example, some packets will not show the 
+RequestTypeReservedBits field if the bits are set to indicate a standard USB 
+transaction. This fluctuation of displayed fields can be really aggravating 
+since it makes comparison and trend-spotting harder.
+
+The URBs can be of different transfer types and often the request and 
+response are not the same type. I'm going to vastly over-simplify and talk 
+about what we care about for apcupsd. Generally speaking, all the 
+interesting data for apcupsd is in one of two pairs. Either 
+URB_FUNCTION_CLASS_INTERFACE (request) -> URB_FUNCTION_CONTROL_TRANSFER 
+(response) or URB_FUNCTION_BULK_OR_INTERRUPT_TRANSFER (both request & 
+response) URBs. The CONTROL_TRANSFERs are when a specific data item is read 
+from or written to the UPS by the host. The INTERRUPT_TRANSFERs are when the 
+UPS spontaneously sends the host some information. Note that even 
+INTERRUPT_TRANSFERs have both a request and a response; the request is 
+basically empty and the response comes back filled in.
+
+CONTROL_TRANSFER:
+The CONTROL_TRANSFER URBs begin with a CLASS_INTERFACE request in which the 
+host identifies what report it wants to access from the ups. The reports 
+consist of a one byte tag which identifies the report in question and a 
+multi-byte (generally 1, 2, or 3 byte) data section. For us, the 
+CLASS_INTERFACE transfers of interest have RequestTypeReservedBits=00000022 
+(this indicates a class-specific command and all UPS commands are specific 
+to the HID class) and have a Request=00000001 (read) or Request=0000000a 
+(write). The example above shows a read request. The actual report tag 
+number is the last byte in the Value line (0x23 in the example above). Down 
+in the response packet the line after "TransferBufferMDL" contains the data 
+sent back by the UPS: "23 7f 00". The 0x23 is the report tag again and 
+0x007f is the value (little endian). From hid-ups we can look up report 0x23 
+(decimal 35):
+
+FeatureReport 35
+  Field 0, app UPS, phys Output
+    Usage 0, HighVoltageTransfer = XYZ Volts
+
+So we can see that in the example packet the UPS is reporting a 
+HighVoltageTransfer of 127 V (0x007f). Note that the report tags differ 
+between UPS models so you need to look at hid-ups output for the same basic 
+model as you're tracing.
+
+A write looks about the same except the request packet says 
+"Request=0000000a" and the data line containing the report tag and value is 
+in the request packet instead of the response packet.
+
+INTERRUPT_TRANSFER:
+Interrupt transfers in our case are all reads. You can basically ignore the 
+request part of the URB because it contains no useful data. The response 
+will have a data line just like a CONTROL_TRANSFER response and you can 
+decode the report tag and value from that.
+
+THE EASY WAY:
+Ok, so now that I've dragged you through the hard way I'll tell you how to 
+cheat. I wrote a tool that parses the trace and produces output showing one 
+URB per line and clearly stating the report tag, value, and whether it's a 
+read or a write. It also suppresses all reads that don't show a change in 
+state, so the trace isn't cluttered with repetitive reads of the same value. 
+The output looks like this:
+
+[0001 s] 00058    READ 0x23   007f (127)
+[0001 s] 00060    READ 0x24   006a (106)
+[0001 s] 00052 *  READ 0x1c     00 (0)
+[0002 s] 00061    READ 0x40   0000 (0)
+[0002 s] 00063    READ 0x41   0000 (0)
+
+The columns are: timestamp (in seconds), URB number (so you can correlate it 
+to the full trace), READ/WRITE, report tag, and value in hex and (decimal). 
+A * between the URB number and transaction type indicates an interrupt 
+transfer as opposed to polling.
+
+I've attached the code for the parsing tool "snoopdecode". It reads from 
+stdin and writes to stdout so you can do things like "cat mytrace.log | 
+snoopdecode | grep 0x23" and watch how a particular value changed over time. 
+Builds with plain old 'gcc -o snoopdecode snoopdecode.c'. It leaks memory. 
+It has no error checking. There are probably more than a few snoop traces 
+that will crash it terribly. But it's still easier than reading snoop output 
+by hand.
+
+Hope this was useful; Feel free to ask questions...
+
+--Adam

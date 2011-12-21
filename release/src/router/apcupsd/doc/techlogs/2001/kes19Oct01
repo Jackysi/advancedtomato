@@ -1,0 +1,35 @@
+             Technical notes on version 3.9.6 
+                       19 October 2001
+                        Kern Sibbald
+
+General:
+- Many improvements and enhancements to the manual.
+- Generated PDF version of the manual that can be found
+  in <src>/doc/manual/apcupsd.pdf
+- Tested Smart UPS, USB UPS, and Dumb UPS successfully.
+- Implement a smtp program to permit email messages
+  from WinNT/Win2000 machines.
+
+Changes submitted this submission:
+- Corrected a bug in multimon reported by a user that
+  prevented display of Temperature in Farenheit.
+- Added code for APC Smart-UPS 370Ci as provided
+  by a user (slightly modified).
+- Modified the dumb driver to work correctly. This
+  code needs additional testing/checking as I did
+  not have the time for a full audit.
+- Added a few changes to the new net driver that
+  interfaces to an NIS server. Much work remains to
+  be done to get it working properly. For the moment,
+  it is in Riccardo's hands.
+- Added the build date to apcupsd.conf.in
+- Created a simple program in the examples directory
+  called upsapm.c, which returns the string as expected
+  by the kernel for an APM device. The format of the string
+  is the same a found in /proc/apm.  This program allows
+  the user to run the Battery applet and have it report
+  the status of his UPS.
+- Wrote an smtp program that allows sending of email
+  messages. This program will work in a service context on
+  WinNT and Win2000 machines, as well as everywhere else.
+- Updated the win32 examples to use the smtp program.

@@ -1,0 +1,42 @@
+Apcupsd-3.10.9 Release Notes
+
+**************************************************
+*This rpm release contains some important changes*
+**************************************************
+
+The platform designator (rh7, rh8, rh9) has been
+REMOVED from the package names as this was creating
+some problems. Hence, you CAN NOT upgrade existing
+installations with these packages (rpm -U).
+
+To upgrade:
+1. Backup your configuration files (/etc/apcupsd/apcupsd.conf)
+"just to be safe."
+2. Uninstall the old apcupsd package, ie.
+rpm -e apcupsd-usb-rh9
+If you are not sure what package name is installed do
+rpm -qa | grep apcupsd
+3. Install the new package with rpm -i
+
+In addition, the spec file has been reworked to include a
+platform configuration section at the beginning of the file.
+To rebuild the SRPM, first install using rpm -i then edit
+/usr/src/redhat/SPECS/apcupsd.spec (or whatever directory
+structure your platform uses) to set platform options and
+select whether to build usb support. You may also pass the
+defines on the command line as in the past. You only need to
+specify the platform for RH7.x builds.
+
+*************************
+*Future Platform Support*
+*************************
+
+RedHat 9 and perhaps 8 will continue to be supported for the
+forseeable future. Whitebox Enterprise Linux support is
+added with this release as I intend to migrate my server
+(currently RH8) to that platform. I may also continue to provide 
+RH8 packages by setting up a box for that purpose.
+
+There is no intent to provide Fedora Core packages as neither
+one of us wishes to get on that upgrade treadmill, however I
+expect the SRPM will continue to build on that platform for some time.

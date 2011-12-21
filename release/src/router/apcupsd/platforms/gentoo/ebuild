@@ -1,0 +1,135 @@
+# Copyright 1999-2002 Gentoo Technologies, Inc.
+# Distributed under the terms of the GNU General Public License, v2 or later
+# $Header: /cvsroot/apcupsd/apcupsd/platforms/gentoo/ebuild,v 1.3 2004/04/01 20:32:22 wrking Exp $
+
+S=${WORKDIR}/${P}
+DESCRIPTION="APC UPS daemon with integrated tcp/ip remote shutdown (*ALPHA*)"
+SRC_URI="http://www.sibbald.com/apcupsd/development/${P}.tar.gz \
+	http://www.sibbald.com/apcupsd/contrib/gd1.2.tar.gz"
+HOMEPAGE="http://www.sibbald.com/apcupsd/"
+KEYWORDS="x86"
+SLOT="0"
+LICENSE="GPL-2"
+ 
+DEPEND="virtual/glibc
+	net-mail/ssmtp
+	sys-libs/ncurses"
+ 
+XPIDDIR=/var/run
+XLOGDIR=/var/log
+XLOCKDIR=/var/lock
+XSYSCONFDIR=/etc/apcupsd
+XPWRFAILDIR=${XSYSCONFDIR}
+
+src_unpack() {
+	unpack ${A}
+
+	cp -a ${WORKDIR}/gd1.2 ${S}/src/
+	cp -a ${S} ${S}-orig
+	ln -s /usr/portage/sys-apps/apcupsd/files ${WORKDIR}/files
+
+	cd ${S}
+	patch -p1 < ${FILESDIR}/${P}-gentoo.patch
+}
+
+src_compile() {
+	# patch touches configure.in, so we must regenerate configure
+	WANT_AUTOCONF_2_5=1 autoconf/autoregen.sh
+	APCUPSD_MAIL=/usr/sbin/ssmtp ./configure \
+		--prefix=/usr \
+		--sbindir=/usr/sbin \
+		--sysconfdir=${XSYSCONFDIR} \
+		--with-pwrfail-dir=${XPWRFAILDIR} \
+		--with-lock-dir=${XLOCKDIR} \
+		--with-pid-dir=${XPIDDIR} \
+		--with-log-dir=${XLOGDIR} \
+		--with-distname=gentoo \
+		--with-upstype=usb \
+		--with-upscable=usb \
+		--with-serial-dev=/dev/usb/hid/hiddev[0-9] \
+		--with-net-port=6666 \
+		--with-nis-port=7000 \
+		--enable-usb \
+		--enable-net \
+		--enable-powerflute \
+		--enable-pthreads \
+		--with-cgi-bin=/home/httpd/apcupsd \
+		--enable-cgi \
+		|| die   
+	make || die
+}
+ 
+src_install () {
+	GEN2DD=${D}
+	make DESTDIR=${GEN2DD%*/} install
+
+	# fixup smtp scripts for ssmtp compatibility
+	echo "Editing mail scripts for ssmtp compatibility..."
+	cd ${D}etc/apcupsd/
+	patch -p1 < ${FILESDIR}/${P}-ssmtp.patch
+
+	echo "Installing full documentation into /usr/share/doc/${P}..."
+	cd ${S}/doc
+	dodoc README.*
+	docinto developers_manual
+	dodoc developers_manual/*
+	docinto logo
+	dodoc logo/*
+	docinto manual
+	dodoc manual/*
+	docinto old_documents
+	dodoc old_documents/*
+	docinto vim
+	dodoc vim/*
+}
+
+
+stop_apcupsd() {
+	echo "Stopping old apcupsd daemon..."
+	/etc/init.d/apcupsd stop
+}
+
+XAPCPID=${XPIDDIR}/apcupsd.pid
+
+pkg_preinst() {
+	if test -f $XAPCPID -a -d /proc/`cat $XAPCPID`; then
+		stop_apcupsd
+		touch /etc/apcupsd/.wasrunning
+	elif ! test -f /etc/apcupsd/apcupsd.conf; then
+		mkdir -p /etc/apcupsd
+		touch /etc/apcupsd/.newinstall
+	fi
+}
+
+pkg_postinst() {
+	if test -f /etc/apcupsd/.wasrunning; then
+		echo "Restarting new apcupsd daemon..."
+		/etc/init.d/apcupsd start
+		rm -f /etc/apcupsd/.wasrunning
+	elif test -f /etc/apcupsd/.newinstall; then
+		echo "Adding to standard runlevels..."
+		rc-update add apcupsd boot default nonetwork single
+		rm -f /etc/apcupsd/.newinstall
+		echo "Edit ${SYSCONFDIR}/apcupsd.conf for your UPS."
+	fi
+}
+
+pkg_prerm() {
+	if test -f $XAPCPID -a -d /proc/`cat $XAPCPID`; then
+		stop_apcupsd
+	fi
+}
+
+pkg_postrm() {
+	# if all packages instances are unmerged, daemon will go missing
+	if ! test -x /usr/sbin/apcupsd -o -x /sbin/apcupsd; then
+		# so then clean up the config files to avoid a messy /etc
+		echo "Removing apcupsd from all runlevels..."
+		rc-update del apcupsd
+		echo "Removing apcupsd configuration files..."
+		rm -rf /etc/apcupsd
+		rm -f /etc/init.d/apcupsd
+		rm -f /etc/init.d/halt	# we installed it, but still...
+	fi
+}
+

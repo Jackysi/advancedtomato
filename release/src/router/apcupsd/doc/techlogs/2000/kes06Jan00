@@ -1,0 +1,124 @@
+         Technical notes on my code submission of 06 Jan 00
+                        Kern Sibbald
+
+General:
+- I worked on porting apcupsd to Windows under CYGWIN.
+  This was a very good exercise since the Windows CYGWIN
+  environment is much closer to BSD than Linux, thus I was
+  able to resolve a large number of portability issues.
+- In making apcupsd run on Windows, I discovered that the
+  serial port handeler was terminating on a carriage return.
+  However, the UPS protocol is to send characters such as:
+  SM\r\n. Thus, there was an unread newline character always
+  sitting in the read queue. This generally caused apcupsd
+  to loop more times than necessary through the getline() routine.
+- I turned on the -Wall compiler option and found a lot of
+  warning messages, which I eliminated.
+- Modified the network information server code to return
+  EOF and error status better than before. This reduces the
+  number of zombies.
+- Added additional info to error messages: shared memory,
+  serial port lock code. This will significantly reduce our
+  "error" or problem reports and aid users in getting apcupsd
+  to run.
+- Created a new directory distributions/win32 to hold Windows
+  specific code. For the moment, this is mostly unfinished or
+  test stuff.
+
+Changes submitted this submission:
+- Added apcwinipc. to the list of files in Makefile.in. It
+  Is used to simulate shared memory on Windows.
+- To make the server code work correctly, I had to remove a
+  global and pass it as an argument to output_status and
+  stat_close(). This necessitated some minor changes to a
+  number of files.
+- Eliminated a number of unused variable definitions.
+- Added additional code to reap zombies on BSD systems.
+- Added quite a bit of additional information in case of
+  errors. For example, in the shared memory, I added the
+  errno, and in the serial port locking code, I added the
+  name of the file as well as the full error message.     
+- I had lots of problems with zombies on CYGWIN, mainly
+  because there seems to be a timing bug in their socket
+  code where the server can hang on a read() when the 
+  client has closed the socket. To get around this, I managed
+  all the child processes, give them 20 seconds to do their
+  work, then on the next server request, send any laggards
+  a SIGTERM signal.
+- In apcnetlib.c, I more carefully return the EOF status, which
+  was occassionally getting lost if only a partial buffer arrived.
+  I also made it aware that the read() request could be interrupted
+  by a child termination.       
+- Removed an error_abort from apcreports.c making it a log_event 
+  in the case of a buffer overflow.
+- The serial port was opened O_APPEND. I removed this flag. I used
+  the TIMER_SERIAL define in setting up the read() timeout value.
+- Reap children as described above in apcnetd.c and apcserver.c
+  Lots of new error checking in those two files. No change in logic.
+- On CYGWIN, the select() mechanism does not work very reliably, and
+  consumes about 10% of my 400MHz cpu with 5 second waits! In looking
+  at the code carefully, I now see no reason to have the select()
+  as the read() already has a 5 second wait. On CYGWIN, I eliminate
+  the select(), dropping the CPU usage from 10% to about 0.3% and
+  simplifying the code. It is my opinion that this same change should
+  be made on all platforms, but for the moment, I have turned off the
+  select() only for CYGWIN.
+- Corrected the error with interpretation of \r and \n in getline().
+- I enhanced the UPSlinkCheck() subroutine to eliminate false serial
+  port loss of communications. This was necessary on CYGWIN because of
+  the \r \n problem. However, the changes I made, make UPSlinkCheck
+  much more robust, so I have left them.
+- Corrected a number of problems in cgi lib where external subroutines
+  did not have the prototype. Also, the code had lone % in several
+  print statements, which I converted to %%.
+- Updated the hpux/apccontrol.sh.in program so it should now work on
+  the HP. Thanks to · Tom Schroll.
+- As usual, a number of documentation updates.
+- Cleaned up a number of subroutine prototypes in apc_extern.h.
+
+                Kern's ToDo List
+
+To do:
+- Automatic conversion of old apcupsd.config files
+  to the new format?
+- Setuid of network processes to "nobody".
+- Add credits to manual. Update testers names, ...
+- Check time delays in shutdown especially for
+  master/slaves.
+- Look at Vladimir's code.
+- Update make clean to remove distributions/*/apccontrol.sh
+- Set appropriate permissions on files in /etc/apcupsd during
+  make install.
+- Finish the rpm spec file.
+
+
+Wish list:
+- Add remaining time before TIMEOUT to STATUS output.
+- Add more commands (individual variables) to apcnetd
+- Accumulate time on batteries and number of transfers
+  to batteries. Perhaps save history in file so that the
+  info can be recovered if apcupsd restarts.
+- Fix apcupsd so that it respawns the server if it
+  dies (limit number of times). This will avoid the
+  possibility that someone can bring down our apcupsd
+  by connecting via Internet (denial of service attack,
+  or exploit possible buffer overflow).
+- Make apcaccess use the network code as an option.
+- Remember date and time when apcupsd started.
+- Eliminate rest of character command codes using new
+  capabilities code in apcsetup.c (for setup stuff).
+- Eliminate the rest of the printfs().
+- Eliminate as many error_aborts as possible in making
+  new events.
+- Possibly retab new cgi/net server code
+- Apparently during self test, apcupsd thinks that the
+  power was lost. Distinguish this condition!
+- Check out apmd and see if we should interface to it.
+- Pass second argument to apccontrol indicating if
+  we are master/slave and other info.
+- STATUS file should be opened with open() rather
+  than fopen(). Some small changes required. 
+
+Done:
+- Check if we should do detach_ipc() in apcserver.c
+- Expand Last UPS Self Test field in cgi program

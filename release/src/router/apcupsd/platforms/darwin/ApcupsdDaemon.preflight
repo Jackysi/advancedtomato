@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# Preserve apcupsd.conf, if it already exists (upgrade)
+if [ -f /etc/apcupsd/apcupsd.conf ] ; then
+	cp -p /etc/apcupsd/apcupsd.conf /etc/apcupsd/apcupsd.conf.SAVE
+fi

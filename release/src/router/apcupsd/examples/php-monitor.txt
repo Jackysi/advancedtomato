@@ -1,0 +1,63 @@
+From rob@killerbob.ca Tue Apr 26 14:27:01 2005
+Date: Tue, 26 Apr 2005 08:27:01 -0400
+From: Rob Kroll <rob@killerbob.ca>
+To: Gerry Kroll <g.kroll@keldine.ca>
+CC: Kern Sibbald <kern@sibbald.com>,
+ gkroll@killerbob.ca,
+ Adam Kropelin <akropel1@rochester.rr.com>
+Subject: Re: apcupsd
+
+And here it is again, with a logic fix and some handling for events I 
+hadn't tested yet. (behaviour when the battery dies completely)
+
+Thanks, again,
+-RK
+
+Gerry Kroll wrote:
+
+> Kern:
+> Sorry, here's the file again.
+>
+> The attachment is now a ZIP file, apcupsd_rk.zip containing index.php.
+>
+> I hope that's satisfactory.
+>
+> Regards,
+> Gerry Kroll (canajun2eh) for
+> Rob Kroll.
+>
+> Kern Sibbald wrote:
+>
+>> Hello Rob,
+>>
+>> Thanks for your thanks. :-)
+>>
+>> This looks like a really nice contribution.  Could you resend me your 
+>> file, but as an attachment? -- that will avoid lines getting messed 
+>> up due to wrapping by browsers.
+>>
+>> On Tuesday 26 April 2005 03:33, Rob Kroll wrote:
+>>  
+>>
+>>> Hi, Kern,
+>>>
+>>> I'd like to start by thanking you for the work you and your team have
+>>> put into this project. It's an excellent piece of software, and I'm 
+>>> glad
+>>> that I was able to find it.
+>>>
+>>> That said, I've written a php script that parses the apcupsd.events and
+>>> apcupsd.status files, and displays the most important information for
+>>> the user. I thought you folks might like to include it with the
+>>> distribution, as it allows for web-based monitoring of the UPS status.
+>>>
+>>> I've attached the file to this e-mail.
+>>>
+>>>
+>>> Thanks again,
+>>> -RK
+>>>   
+>>
+
+Included file is in apcupsd-source/examples/index.php
+

@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# This shell script if placed in /etc/apcupsd
+# will be called by /etc/apcupsd/apccontrol when apcupsd
+# detects that the battery should be replaced.
+# We send an email message to root to notify him.
+#
+SYSADMIN=root
+APCUPSD_MAIL="@APCUPSD_MAIL@"
+
+HOSTNAME=`hostname`
+MSG="$HOSTNAME UPS battery needs changing NOW."
+#
+(
+   echo "Subject: $MSG"
+   echo " "
+   echo "$MSG"
+   echo " "
+   @sbindir@/apcaccess status
+) | $APCUPSD_MAIL -s "$MSG" $SYSADMIN
+exit 0

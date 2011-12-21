@@ -1,0 +1,30 @@
+             Technical notes on version 3.9.6 
+                      26 September 2001
+                        Kern Sibbald
+
+General:
+- Pulled in the latest copy of the manual, which should
+  significantly reduce support requests because I put
+  the Models, Cables, and OSes supported into the index.
+
+Changes submitted this submission:
+- Changed the name of drivers/apcdrivers.c to drivers.c
+  (no changes to drivers.c), also changed a few of the
+  defines in the Makefile.   
+- Added code to the apcsmart driver to set the RTS bit
+  on the 0095 cables for the BackUPS Pro models. This
+  enables Smart mode on those UPSes. It seems a bit odd
+  to be using ioctl() for Smart models, but that is apparently
+  what is needed.
+- Removed the code in dumb_close() that reset the port
+  parameters to conform 3.8.x code. This prevents unexpected
+  power off conditions.
+- Added new code to dumb_close() that clears the kill_power
+  bit. This will prevent the serial port from possibly triggering
+  a power kill later.
+- Corrected an error message (flagged as incorrect by Riccardo) in
+  dumbsetup.c.
+              
+Note, I have compiled and reviewed my changes, but they need
+testing, which I will do when I receive the merge that Riccardo
+has prepared.

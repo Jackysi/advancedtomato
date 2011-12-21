@@ -1,0 +1,107 @@
+[Version]
+Signature = "$Windows NT$"
+Class = Battery
+ClassGuid={72631e54-78a4-11d0-bcf7-00aa00b7b32a}
+Provider = %ProviderName%
+DriverVer = 01/10/2010,1.0.0.0
+
+; ================== Class section ==================
+[ClassInstall32]
+Addreg=MyDeviceClassReg
+
+[MyDeviceClassReg]
+HKR,,,0,%ClassName%
+HKR,,Icon,,-1
+
+; ========== Manufacturer/Models sections ===========
+[Manufacturer]
+%ProviderName% = Apcupsd_WinUSB,NTx86,NTamd64,NTia64
+
+[Apcupsd_WinUSB.NTx86]
+; Normal APC UPSes use PID 0x0002
+%USB\MyDevice.DeviceDesc% =ApcupsdUSBDriver, USB\VID_051d&PID_0002
+; APC9620 Legacy Communications Card uses PID 0x0003, as does the SMT1500
+%USB\MyDevice.DeviceDesc% =ApcupsdUSBDriver, USB\VID_051d&PID_0003
+; Early production and prototype units of AP9620 erroneously have
+; 0x0001 or 0xffff
+%USB\MyDevice.DeviceDesc% =ApcupsdUSBDriver, USB\VID_051d&PID_0001
+%USB\MyDevice.DeviceDesc% =ApcupsdUSBDriver, USB\VID_051d&PID_ffff
+; An SMX750 appears to use PID 5 even though its twin (the SMT1500 above) 
+; uses PID 3. Argh.
+%USB\MyDevice.DeviceDesc% =ApcupsdUSBDriver, USB\VID_051d&PID_0005
+
+[Apcupsd_WinUSB.NTamd64]
+; Normal APC UPSes use PID 0x0002
+%USB\MyDevice.DeviceDesc% =ApcupsdUSBDriver, USB\VID_051d&PID_0002
+; APC9620 Legacy Communications Card uses PID 0x0003, as does the SMT1500
+%USB\MyDevice.DeviceDesc% =ApcupsdUSBDriver, USB\VID_051d&PID_0003
+; Early production and prototype units of AP9620 erroneously have
+; 0x0001 or 0xffff
+%USB\MyDevice.DeviceDesc% =ApcupsdUSBDriver, USB\VID_051d&PID_0001
+%USB\MyDevice.DeviceDesc% =ApcupsdUSBDriver, USB\VID_051d&PID_ffff
+; An SMX750 appears to use PID 5 even though its twin (the SMT1500 above) 
+; uses PID 3. Argh.
+%USB\MyDevice.DeviceDesc% =ApcupsdUSBDriver, USB\VID_051d&PID_0005
+
+; =================== Installation ===================
+[ApcupsdUSBDriver]
+Include=winusb.inf
+Needs=WINUSB.NT
+
+[ApcupsdUSBDriver.Services]
+Include=winusb.inf
+AddService=WinUSB,0x00000002,WinUSB_ServiceInstall
+
+[WinUSB_ServiceInstall]
+DisplayName     = %WinUSB_SvcDesc%
+ServiceType     = 1
+StartType       = 3
+ErrorControl    = 1
+ServiceBinary   = %12%\WinUSB.sys
+
+[ApcupsdUSBDriver.Wdf]
+KmdfService=WINUSB, WinApcupsdUSBDriver
+
+[WinApcupsdUSBDriver]
+KmdfLibraryVersion=1.9
+
+[ApcupsdUSBDriver.HW]
+AddReg=Dev_AddReg
+
+[Dev_AddReg]
+HKR,,DeviceInterfaceGUIDs,0x10000,"{8c534620-f7e6-11de-8a39-0800200c9a66}"
+
+[ApcupsdUSBDriver.CoInstallers]
+AddReg=CoInstallers_AddReg
+CopyFiles=CoInstallers_CopyFiles
+
+[CoInstallers_AddReg]
+HKR,,CoInstallers32,0x00010000,"WdfCoInstaller01009.dll,WdfCoInstaller","WinUSBCoInstaller2.dll"
+
+[CoInstallers_CopyFiles]
+WinUSBCoInstaller2.dll
+WdfCoInstaller01009.dll
+
+[DestinationDirs]
+CoInstallers_CopyFiles=11
+
+; ================= Source Media Section =====================
+[SourceDisksNames]
+1 = %DISK_NAME%,,,\i386
+2 = %DISK_NAME%,,,\amd64
+
+[SourceDisksFiles.x86]
+WinUSBCoInstaller2.dll=1
+WdfCoInstaller01009.dll=1
+
+[SourceDisksFiles.amd64]
+WinUSBCoInstaller2.dll=2
+WdfCoInstaller01009.dll=2
+
+; =================== Strings ===================
+[Strings]
+ProviderName="Apcupsd (www.apcupsd.org)"
+USB\MyDevice.DeviceDesc="American Power Conversion USB UPS (Apcupsd)"
+WinUSB_SvcDesc="WinUSB"
+DISK_NAME="Apcupsd Driver Folder"
+ClassName="Battery"

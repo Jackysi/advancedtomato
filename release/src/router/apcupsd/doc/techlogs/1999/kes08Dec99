@@ -1,0 +1,208 @@
+         Technical notes on my code submission of 8 Dec 99
+                        Kern Sibbald
+
+General:
+- Please delete apccontrol.sh and apccontrol.sh.in from the
+  scripts directory.
+- Please delete apcnetlib.c from the cgi directory.
+- With Carl Erhorn's help, we got apcupsd running on
+  Solaris, and we believe that we have resolved the
+  problems for the HP-UX as well.
+- New html manual in doc/manual.  It still needs more
+  work, but a lot of the sections are pretty well 
+  documented.
+- I added new directories for the Sun and HP-UX named
+  distributions/sun and distributions/hpux.  They
+  contain skeletions of the necessary files.
+- I added automatic detection of the Sun and HP systems 
+  to the configure script.
+- Due to the differences in the shutdown procedures
+  (calls to shutdown) between the Solaris operating
+  system and Linux, I had to move apccontrol.sh.in
+  from the scripts directory to each of the machine
+  dependent files (distributions/redhat, ...).
+- Because of the problems with Solaris, I eliminated
+  the action process by combining it with the serial
+  port process.                          
+- I corrected the CGI programs to properly recognize 
+  different battery voltages (12, 24, and 48). I did
+  the same for the line voltages (100, 120, 220).
+
+Changes submitted this submission:
+- I corrected the compile and link flags in Makefile.in
+  for the Sun as suggested by Carl.
+- I modified the installation part of Makefile.in to
+  pull apccontrol.sh from the appropriate distributions
+  subdirectory. This way, apccontrol.sh can be adapted for
+  the different operating systems.
+- Removed an old le[] from apcaccess and aligned some
+  code.
+- Modified apcupsd.c apcserial.c and apcaction.c so that
+  the previous action process is eliminated and instead
+  the action code is called immediately after the wait
+  on the serial port. This eliminates a system incompatibility
+  that arose because of the handling of alarm(), and it
+  ensures that any actions are attended to immediately 
+  when they occur. In addition, in future releases, this
+  will permit sending of commands to the UPS as there
+  is now only a single process reading the serial port
+  and taking action.
+- In writing the documentation, I realized that some of
+  the names of the new configuration directives that I 
+  created are misleading. Consequently, I changed
+
+    NETSTATUS  ->  NETSERVER
+    STATUSPORT ->  SERVERPORT
+    EVENTFILE  ->  EVENTSFILE
+
+  For this update, I left the old names in, but in a few
+  weeks, I will remove them.
+- In order to make the STATUS code work for older style
+  UPSes, I had to move the "flags" variable into the shared
+  memory buffer. This was cleanup of the STATUS code that
+  I had forgotten to do.
+- During truncating of the temporary EVENTS file, I forgot
+  to rewind() the file after truncating it. This caused the
+  subsequent write back of the old data to be lost.
+- I changed the name "sun" to "apcsun" in apcipc.c to avoid
+  problems with the Sun compiler as reported by Carl.
+- The file locking code that detected stale lock files was
+  not working correctly because it didn't take into account
+  the fact that the lock file was created by the parent of
+  the current process. This was observed by Carl and had
+  previously gone undetected because the details of these
+  failures were never logged until my last submission.
+- In apclog.c, I was writing all events to the temporary
+  events file, but I should have excluded LOG_INFO, which
+  is the DATA logging.  Bug observed by Carl.
+- Carl noted a problem in apcnet.c pointed out by his compiler,
+  when I looked at the code, I realized that it apparently could
+  never work since it did a read and lock of the shared memory
+  area then entered an infinite loop from which it would never
+  exit. This had the effect of locking out all other processes
+  from reading the shared memory area. I restructure the
+  code.  I also eliminate the alarm() and replaced it by a
+  sleep().
+- Corrected several casts that caused compiler warnings on
+  Solaris and added INADDR_NONE in apcnetlib.c for Solaris.
+- Carl reported that apcupsd.log was always created. This was
+  because vestiges of the old data logging remained in the 
+  code. I removed them.
+- In testing the shutdown code again, I found it did not send
+  the correct commands to the UPS for turning off the power.
+  Consequently, I reworked the logic a bit and made it
+  correctly detect all UPS responses as well as send the
+  correct codes.
+- In my testing, I noticed that if I disconnected the serial port
+  cable, it took more than 2 minutes for apcupsd to complain.
+  The problem turned out to be the smart_poll() was not so smart
+  after all in that it ignored the error return status. I modified
+  the code to immediately call UPSlinkCheck() if it got an error.
+  This means that loss of serial port communications is detected
+  within 6 seconds and reported within 12 seconds. It also means
+  that only one bad data value is returned if the serial port
+  is disconnect.  Previously, all data values after that point
+  were incorrectly reported.
+- I moved the flow documentation from the bottom of apcupsd
+  to the top.
+- I wrote new code to put apcupsd in daemon mode. This was added
+  to apcupsd.c at the end as subroutine daemon_start(). Although
+  the code is a good deal more complicated than the original code,
+  in principal, it now completely detaches from the control 
+  terminal for all operating systems.
+- I modified the cgi code to use the apcnetlib code in the
+  main source directory.
+- The search string for the output voltage in upsfetch.c was
+  incorrect causing the output voltage bar graph not to display.
+- I optimized upsimage.c reducing the volume of code significantly
+  by moving it to subroutines.         
+- I made the changed necessary to configure.in so that it will run
+  correctly on a Solaris system. These changes were provided by
+  Carl.
+- I added sun and hpux to the system recognized by configure.
+- The apccontrol script always executed any user script as well
+  as executing the default behavior. I modified the code so that
+  if the user script is executed and it returns a 99 as a return
+  code, the default action will not be executed.
+- In the RedHat version of the apcupsd, I removed the killpower
+  option as it is not used, and it is rather dangerous.
+- I noticed that on a full shutdown, the system would sometimes 
+  automatically reboot (I'm not sure exactly why). As a consequence,
+  I modified the RedHat halt scripts to wait two days after a
+  power kill and then to exit.
+- Updated the RedHat and SuSe apccontrol.sh.in script to have many
+  of the changes necessary for running on the Sun. These are minor
+  script changes that will make it easier for other systems to
+  take our scripts and modify them for their use.
+- Eliminated the /sbin/powersc from the unknown directory and
+  replaced it with a call to apccontrol.
+- Deleted apcstatus.man from the doc directory.
+- Added a new doc/manual directory containing the new html documentation.
+  Lots of new files.
+- Updated apcupsd.conf to have the new configuration directive
+  names and added more documentation for the TIMEOUT directive.
+- Added example STATUS output files to the examples directory.
+  It would be nice to have a STATUS output example for nearly each
+  UPS type.
+- Updated examples/apcupsd.master.conf and slave.conf.
+- Added a safe.apccontrol to the examples directory for testing.
+  See the Testing section of the new manual for details.
+- Added startapcupsd and stopapcupsd examples to the examples directory.
+- Added the necessary changed to apc_config.h for the Sun compler --
+  thanks Carl.
+
+                Kern's ToDo List
+
+To do:
+- Complete documentation
+- Add and test a bunch of events that email a message.
+- Check and double check killpwr changes (one pass made).
+- Fix the *** fixme ***s in apcupsd.c and apcconfig.c
+- Expand Last UPS Self Test field in cgi program
+- Automatic conversion of old apcupsd.config files
+  to the new format?
+- Produce a RPM for RedHat
+
+
+Wish list:
+- Add remaining time before TIMEOUT to STATUS output.
+- Add more commands (individual variables) to apcnetd
+- Accumulate time on batteries and number of transfers
+  to batteries. Perhaps save history in file so that the
+  info can be recovered if apcupsd restarts.
+- Fix apcupsd so that it respawns the server if it
+  dies (limit number of times). This will avoid the
+  possibility that someone can bring down our apcupsd
+  by connecting via Internet (denial of service attack,
+  or exploit possible buffer overflow).
+- Make apcaccess use the network code as an option.
+- Remember date and time when apcupsd started.
+- Eliminate rest of character command codes using new
+  capabilities code in apcsetup.c (for setup stuff).
+- Eliminate the rest of the printfs().
+- Eliminate as many error_aborts as possible in making
+  new events.
+- Possibly retab new cgi/net server code
+- Apparently during self test, apcupsd thinks that the
+  power was lost. Distinguish this condition!
+- Check out apmd and see if we should interface to it.
+
+Done:
+- Integrated changes for Solaris provided by Carl.
+- Add TIMEOUT to STATUS output.
+- Document TIMEOUT in apcupsd.conf
+- Inhibit DATA records from being written to the
+  events file.
+- Fix the battery voltage display in the cgi to handle
+  battery voltages of 12 and 48 volts as well as 
+  24 volts.
+- Document the new configuration options.   
+- Document installation.                            
+- Update apcupsd.man and apcnetd.man, and create
+  new sgml documentation for EVENTS, DATA, LOGGING,
+  and STATUS output as well as documenting the
+  network "programming" interface.
+- Document the CGI programs (partially).
+- Document log_event for developers -- especially
+  the LOG_ values.
+  See info in developers/apcupsd.logging

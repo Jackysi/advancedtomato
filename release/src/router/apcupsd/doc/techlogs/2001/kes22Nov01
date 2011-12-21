@@ -1,0 +1,41 @@
+             Technical notes on version 3.9.8 
+                      22 November 2001
+                        Kern Sibbald
+
+General:
+- Pulled in the latest copy of the manual.
+- Applied the changes as submitted by Carl Erhorn for
+  Solaris. Most I pulled from Riccardo's integration
+  into 3.9.7.
+- Updated the version and date.
+
+Changes submitted this submission:
+- Applied a casting fix to apcnisd.c reported by the SCO user.
+- Added NETWORK_UPS to the case statements in apctest,     
+  apcreports, and apcstatus. This was the principal problem
+  with the NIS network driver.
+- Made some small updates to the Solaris configure.in changes
+  so that sbindir is correctly set.
+- Created an SCO subdirectory in distributions. This is just
+  the very beginning please don't look at the code yet.
+- In manual separated the Shutdown documentation into a separate
+  chapter for people who are porting.
+- Made a quick pass through the new network driver. Most everything
+  was done. Here are the minor changes I made:
+  - sorted the translation list to make it easier to find the entries
+  - Added the remotedown flag so that the slave will be shutdown when
+    the master goes down.
+  - Added a few more debug messages which could be removed now.
+  - Optimized fill_status_buffer() so that it does it at most once
+    a second.
+  - Used atof() on most of the input because even though they are
+    stored as integers, they are passed over the net as decimal numbers.
+  - used strtol() to get the status word, which is actually in hex.
+  - Deleted a number of variables that should be locally set rather
+    than pulled from the master.
+- Fixed a bug in apcipc.c (non-fatal) found by the compiler on the SCO.
+
+We need to think about the proper way to set CABLE and UPSMODE in the
+status output for a new network driver. I think we should probably just
+force them to something reasonable rather than take what the master
+publishes.  To be decided.

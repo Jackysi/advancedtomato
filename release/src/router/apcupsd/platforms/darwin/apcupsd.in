@@ -1,0 +1,56 @@
+#!/bin/sh
+#
+# apcupsd      This shell script takes care of starting and stopping
+#	       the apcupsd UPS monitoring daemon.
+#
+# Written by Adam Kropelin <akropel1@rochester.rr.com>
+# Based on work by Ingo Nowak <nowak@koellernowak.de>
+
+. /etc/rc.common
+
+APCPID=@PIDDIR@/apcupsd.pid
+APCLOCK=@PIDDIR@/apcupsd.lock
+
+StartService()
+{
+	ConsoleMessage "Starting UPS monitoring"
+	rm -f @PWRFAILDIR@/powerfail
+	rm -f @nologdir@/nologin
+	@sbindir@/apcupsd -f @sysconfdir@/apcupsd.conf || exit 0
+	touch $APCLOCK
+}
+
+StopService()
+{
+	ConsoleMessage "Shutting down UPS monitoring"
+	if [ -f ${APCPID} ]; then
+		kill `cat ${APCPID}` || exit 0
+		rm -f ${APCPID}
+	fi
+	rm -f $APCLOCK
+}
+
+RestartService()
+{
+	StopService
+	sleep 15
+	StartService
+}
+
+# Typically we'd just use RunService from /etc/rc.common here, but rumor
+# has it Mac OS 10.1.x and earlier do not have that function so we'll
+# implement it ourselves.
+case $1 in
+	start)
+		StartService
+	;;
+	stop)
+		StopService
+	;;
+	restart)
+		RestartService
+	;;
+	*)
+		echo "$0: unknown argument: $1"
+	;;
+esac

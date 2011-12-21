@@ -1,0 +1,9 @@
+#!/bin/sh -e
+
+if [ "$1" = "purge" ] ; then
+    update-rc.d apcupsd remove >/dev/null
+    rm -f /etc/apcupsd/apcupsd.conf
+    rm -f /etc/apcupsd/apcupsd.status
+    rm -f /etc/apcupsd/apcupsd.events
+    rm -f /etc/apcupsd
+fi

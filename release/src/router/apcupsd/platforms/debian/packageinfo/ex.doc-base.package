@@ -1,0 +1,22 @@
+Document: apcupsd
+Title: Debian apcupsd Manual
+Author: <insert document author here>
+Abstract: This manual describes what apcupsd is
+ and how it can be used to
+ manage online manuals on Debian systems.
+Section: unknown
+
+Format: debiandoc-sgml
+Files: /usr/share/doc/apcupsd/apcupsd.sgml.gz
+
+Format: postscript
+Files: /usr/share/doc/apcupsd/apcupsd.ps.gz
+
+Format: text
+Files: /usr/share/doc/apcupsd/apcupsd.text.gz
+
+Format: HTML
+Index: /usr/share/doc/apcupsd/html/index.html
+Files: /usr/share/doc/apcupsd/html/*.html
+
+  

@@ -1,0 +1,9 @@
+             Technical notes on version 3.8.3 
+                      24 November 2001
+                        Kern Sibbald
+
+General:
+- Applied the patch supplied by Marcus Redivo for supporting
+  the Engarde Secure Linux version (very similar to RedHat).
+
+Changes submitted this submission:

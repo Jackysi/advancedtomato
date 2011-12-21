@@ -1,0 +1,38 @@
+
+#include "template.inc" name=bugs
+
+<h1>Bug Reporting</h1>
+<p>
+Before reporting a bug, you should probably check
+the Source Forge tracking lists described below to
+see if the bug is already reported and if a patch exists.
+<p>
+To report a bug, send an email to the 
+<a href="mailto:apcupsd-users at lists.sourceforge.net">
+apcupsd-users at lists.sourceforge.net</a> email list.
+The previous address was modified to prevent easy use by spammers. To use it,
+you must replace the <b>at</b> with an @ symbol. 
+<p>I (Kern) get a number of &quot;off-list&quot; emails sent
+directly to me. Please always copy the appropriate list, if you
+do not copy the list, I may not answer, or I may answer by copying
+the list. If you <em>really</em> have something confidential,
+please clearly indicate it.
+<p>
+
+<h2>Information Needed</h2>
+For us to respond to a bug report, we normally need the following
+as the minimum information:
+<ul>
+<li>Your operating system</li>
+<li>The model and UPS cable you are using</li>
+<li>The version of apcupsd you are using</li>
+<li>A clear description of the problem</li>
+</ul>
+The first three of these items can be fulfilled by sending
+us a copy of your <b>config.out</b> file, which is in the
+main <b>apcupsd</b> source directory after you have done
+your <b>./configure</b>.
+<p>In addition, we will sometimes need a copy of your apcupsd
+configuration file. If you
+think it is a configuration problem, please don't hesitate
+to send it preferably as an attachment.

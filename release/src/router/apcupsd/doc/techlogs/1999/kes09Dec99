@@ -1,0 +1,25 @@
+         Technical notes on my code submission of 9 Dec 99
+                        Kern Sibbald
+
+General:
+- I added some more documentation and corrrected some
+  of the previous stuff.
+- Bug fix in upsimage.c, see below.
+
+Changes submitted this submission:
+- Kaspar Klingholz is having similar problems to those
+  experienced on the Sun and HP. When he applied some
+  of the partial fixes I sent to Carl, the program
+  ran but did not register EVENTS.  Since Riccardo
+  still was on vacation, I requested him to take
+  the latest source from my Web site and report the
+  results.
+  He also reported a divide by zero problem in upsimage.c
+  when the runtime goes to zero (you exhaust your batteries).
+  I corrected it here.
+- Added some new documentation and corrected some
+  previous stuff.
+- I've succeeded in building RPMs (source and binary),
+  but will wait for awhile before making them available.
+- I deleted apcnetd.man from the doc directory. It is
+  out of date and not really needed given the new manual.

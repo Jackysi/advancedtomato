@@ -1,0 +1,304 @@
+.\" manual page [] for apctest version 3.14.6
+.Dd January 10, 2009
+.Dt APCTEST 8
+.Os apctest v3.14.6
+.Sh NAME
+.Nm apctest
+.Nd apcupsd(8) test program
+.Sh SYNOPSIS
+.Nm
+.Sh DESCRIPTION
+.Nm
+is a program that enables the running of certain low-level tests to 
+check the operation of the attached simple signalling American Power
+Conversion Corp (APC) UPS and to check that your 
+.Xr apcupsd 8
+configuration is correctly setup and can establish communication with 
+the UPS.
+.Pp
+For an APC UPS operating in APC smart protocol mode,
+.Nm
+enables the reading and programming of the values of the UPS EEPROM 
+configuration variables as well and the performing of a battery 
+runtime calibration. It also  provides a simple TTY chat mode which 
+allows direct interaction with the UPS via the APC smart protocol. 
+For details of this protocol and the available commands, refer to the 
+detailed "APC Smart Protocol" section in the apcupsd manual.
+.Pp
+IMPORTANT: Before running
+.Nm
+.Pp
+.Bl -bullet
+.It
+Check that the UPSCABLE, UPSTYPE and DEVICE configuration directives in the
+.Xr apcupsd.conf 5
+configuration file have been set appropriately; and
+.It
+Shutdown apcupsd if it is running. You cannot run both
+.Xr apcupsd
+and
+.Nm
+at the same time.
+.El
+.Pp
+When run,
+.Nm
+displays a menu of options which are different depending on 
+whether the UPS is connected to a USB port or to 
+a serial port. For a serial port connection, there are two
+different menus depending on whether the UPS is operating in 
+APC smart protocol mode or simple signalling mode - this also depends on 
+which cable is used to connect to the UPS. If a simple signalling 
+cable is used to connect to a Smart-UPS, the UPS will only be able 
+to operate in simple signalling mode.
+.Pp
+.Nm 
+saves a transcript of the session to the file 
+.Pa apctest.out 
+in the directory from which the program was called. Its content is 
+useful for debugging purposes.
+.Sh USB PORT
+When using a UPS connected to a USB port (eg Back-UPS RS 1500), 
+the following menu options will appear:
+.Ss Option 1)  Test kill UPS power
+Performs a power down of the UPS into hibernate mode.
+.Ss Option 2)  Perform self-test
+Performs an immediate self-test (switches to battery power to do so).
+.Ss Option 3)  Read last self-test result
+Displays the last self-test result.
+.Ss Option 4)  View/Change battery date
+Displays the current battery replacement date and optionally allows you
+to change it - useful when the battery 
+is replaced so that you can accurately keep track of its age.
+.Ss Option 5)  View manufacturing date
+Displays the date the UPS was manufactured.
+.Ss Option 6)  View/Change alarm behavior
+Sets the delay period before the UPS starts sounding its alarm 
+when the utility power is lost.
+.Ss Option 7)  View/Change sensitivity
+Changes how sensitive the UPS is to the utility power quality and 
+voltage fluctuations - (H)igh, (M)edium or (L)ow. The higher the 
+sensitivity, the faster the UPS will switch to battery power or 
+activate SmartBoost/SmartTrim (features that avoid using battery power
+provided the under/over voltage is within 12% of nominal). 
+This setting should normally be set to High unless the UPS switches 
+to battery power frequently, in which case a less sensitive setting 
+will preserve UPS batteries... if the connected equipment can tolerate
+the power quality.
+.Ss Option 8)  View/Change low transfer voltage
+Sets the low voltage level at which the UPS switches to battery or 
+activates SmartBoost.
+.Ss Option 9)  View/Change high transfer voltage
+Sets the high voltage level at which the UPS switches to battery or 
+activates SmartTrim.
+.Ss Option 10) Perform battery calibration
+This performs a battery runtime calibration. This can only
+be performed if your battery is charged to 100% of capacity. 
+The runtime calibration discharges the UPS battery to 
+approximately 25% of capacity. The exact percentage depends on 
+the UPS model.
+.Pp
+The advantage of doing this calibration is that the UPS will
+recalibrate the remaining runtime counter that it maintains
+and therefore report a more accurate estimated runtime.
+As batteries age, they tend to hold less charge, so the UPS's
+internal runtime counter may not be accurate after several
+years. 
+.Pp
+It is recommended that battery runtime calibration be performed
+annually. Performing it too often shortens the lifetime of the
+UPS batteries. 
+.Ss Option 11) Test Alarm
+This option will cause the UPS alarm beeper to sound for several seconds.
+.Ss Option 12) View/Change self-test interval
+This option allows you to change the time interval between automatic UPS
+self-tests.
+.Ss Option Q) Quit
+Exits from the program.
+.Sh SERIAL PORT (SMART PROTOCOL MODE)
+When using a UPS operating in APC smart protocol mode (eg a Smart-UPS)
+the following menu options will appear:
+.Ss Option 1)  Query the UPS for all known values
+Selecting this option probes the UPS for all EEPROM configuration
+variable values known 
+to
+.Nm
+and displays them in rather raw format. This output 
+can be useful for providing technical support if you are having 
+problems with the behaviour of the UPS or 
+.Xr apcupsd 8 . 
+.Ss Option 2)  Perform a Battery Runtime Calibration
+This performs a battery runtime calibration. This can only
+be performed if your battery is charged to 100% of capacity. 
+The runtime calibration discharges the UPS battery to 
+approximately 25% of capacity. The exact percentage depends on 
+the UPS model.
+.Nm
+can optionally abort the calibration if it detects that the 
+battery charge is below 10%. 
+.Pp
+The advantage of doing this calibration is that the UPS will
+recalibrate the remaining runtime counter that it maintains
+and therefore report a more accurate estimated runtime.
+As batteries age, they tend to hold less charge, so the UPS's
+internal runtime counter may not be accurate after several
+years. 
+.Pp
+It is recommended that battery runtime calibration be performed
+annually. Performing it too often shortens the lifetime of the
+UPS batteries. 
+.Ss Option 3)  Abort Battery Calibration 
+This option aborts an in progress battery runtime calibration.
+.Pp
+.Ss Option 4)  Monitor Battery Calibration progress 
+Allows restarting of the monitoring of a battery runtime calibration. 
+.Ss Option 5)  Program EEPROM
+Allows the programming of the values of a Smart-UPS's EEPROM
+configuration variables.  
+.Pp
+Choosing this option presents a sub-menu of programming 
+options which are detailed below.
+.Bl -hang
+.It Option 1)  Print EEPROM values
+.Pp
+Prints the value of all EEPROM configuration variables known to
+.Nm .
+.It Option 2)  Change Battery date
+.Pp
+Changes the battery date - useful when the battery 
+is replaced so that you can accurately keep track of its age.
+.It Option 3)  Change UPS name
+.Pp
+Changes the UPS name - use no more than 8 characters to name the UPS.
+.It Option 4)  Change sensitivity
+.Pp
+Changes how sensitive the UPS is to the utility power quality and 
+voltage fluctuations - (H)igh, (M)edium or (L)ow. The higher the 
+sensitivity, the faster the UPS will switch to battery power or 
+activate SmartBoost/SmartTrim (features that avoid using battery power
+provided the under/over voltage is within 12% of nominal). 
+This setting should normally be set to High unless the UPS switches 
+to battery power frequently, in which case a less sensitive setting 
+will preserve UPS batteries... if the connected equipment can tolerate
+the power quality.
+.It Option 5)  Change alarm delay
+.Pp
+Changes the delay period before the UPS starts sounding its alarm
+when the utility power is lost.
+.It Option 6)  Change low battery warning delay
+.Pp
+Changes the remaining runtime minutes at which the UPS will send the 
+low battery signal. When the UPS internally calculates that the specified 
+number of minutes remains before battery power will be exhausted, it sends 
+the low battery warning.
+.It Option 7)  Change wakeup delay
+.Pp
+Changes the delay before the UPS restores power to connected equipment
+when the utility power returns after shutting down in hibernate mode.
+.It Option 8)  Change shutdown delay
+.Pp
+Changes the delay for which the UPS waits before shutting off
+power to the connected equipment after being commanded to power
+down in hibernate mode.
+.It Option 9)  Change low transfer voltage
+.Pp
+Changes the low voltage level at which the UPS switches to battery or 
+activates SmartBoost.
+.It Option 10) Change high transfer voltage
+.Pp
+Changes the high voltage level at which the UPS switches to battery or 
+activates SmartTrim.
+.It Option 11) Change battery return threshold percent
+.Pp
+Changes the battery charge percentage required after power down in 
+hibernate mode before to the UPS will restore power to connected 
+equipment on the return of utility power.
+.It Option 12) Change output voltage when on batteries
+.Pp
+Changes the nominal voltage output when the UPS is running on battery 
+power.
+.It Option 13) Change the self test interval
+.Pp
+Changes or disables the automatic self-test interval. 
+.It Option 14) Set EEPROM with configuration file values
+.Pp
+This option allows the bulk programming of the EEPROM configuration variables
+from the values contained in the 
+.Pa /etc/apcupsd.conf
+configuration file.  Refer to the "APCTEST EEPROM CONFIGURATION DIRECTIVES"
+section of the man page for
+.Xr apcupsd.conf 5
+.It Option 15) Quit
+.Pp
+This option exits back to the previous (main) menu.
+.El
+.Ss Option 6) Enter TTY mode communicating with UPS 
+This option allows direct interaction with the attached UPS
+using the APC smart protocol commands. 
+.Pp
+WARNING: Take special care what commands you enter because
+it is possible to cause the UPS to suddenly shutdown or, in the 
+worst case, modify the UPS in such a way as to permanently disable 
+it. Do NOT experiment with unknown or unsupported commands. Caveat
+Utilitor!
+.Ss Option 7) Quit
+Exits from the program.
+.Sh SERIAL PORT (SIMPLE SIGNALLING MODE)
+When using an APC UPS operating in simple signalling mode
+the following menu options will appear:
+.Ss Option 1) Test 1 - normal mode
+The test result depends on the model of UPS and type of cable being 
+used. Refer to the "Using apctest on Serial-Line UPSses" section
+in the apcupsd manual for details.
+.Ss Option 2) Test 2 - no cable
+The test result depends on the model of UPS and type of cable being 
+used. Refer to the "Using apctest on Serial-Line UPSses" section
+in the apcupsd manual for details.
+.Ss Option 3) Test 3 - no power 
+The test result depends on the model of UPS and type of cable being 
+used. Refer to the "Using apctest on Serial-Line UPSses" section
+in the apcupsd manual for details.
+.Ss Option 4) Test 4 - low battery (requires Test 3 first)
+The test result depends on the model of UPS and type of cable being 
+used. Refer to the "Using apctest on Serial-Line UPSses" section
+in the apcupsd manual for details.
+.Ss Option 5) Test 5 - battery exhausted
+The test result depends on the model of UPS and type of cable being 
+used. Refer to the "Using apctest on Serial-Line UPSses" section
+in the apcupsd manual for details.
+.Ss Option 6) Test 6 - kill UPS power
+The test result depends on the model of UPS and type of cable being 
+used. Refer to the "Using apctest on Serial-Line UPSses" section
+in the apcupsd manual for details.
+.Ss Option 7) Test 7 - run tests 1 through 5
+This option has 
+.Nm
+guess which cable should be used with the attached UPS. 
+.Ss Option 9) Quit
+Exits from the program.
+.Sh FILES
+.Pa /etc/apcupsd/apcupsd.conf 
+default configuration file
+.Pp
+.Pa apctest.out
+transcript of the 
+.Nm
+session
+.Sh SEE ALSO
+.Xr apcupsd.conf 5 , 
+.Xr apcupsd 8 .
+.Pp
+The HTML apcupsd manual installed on your system or available online at
+http://www.apcupsd.org/
+.Sh AUTHORS
+.Ss This page
+.An Trevor Roydhouse (current)
+.An Robert Huff
+.Ss Software
+.An Adam Kropelin (current Project Manager and Code Maintainer)
+.An Kern Sibbald (former Project Manager and Code Maintainer)
+.An Riccardo Facchetti (former Project Manager and Code Maintainer)
+.An Andre M. Hedrick (Project Founder and former Code Maintainer)
+.Ss Contributors
+An enormous number of users who have devoted their time and energy to
+this project -- thanks.

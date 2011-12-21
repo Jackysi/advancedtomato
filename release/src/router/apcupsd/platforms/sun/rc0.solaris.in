@@ -1,0 +1,12 @@
+#see if this is a powerfail situation
+if [ -f @PWRFAILDIR@/powerfail ]; then
+        echo 
+        echo "APCUPSD will power off the UPS"
+        echo
+        @sysconfdir@/apccontrol killpower
+        echo
+        echo "Please ensure that the UPS has powered off before rebooting"
+        echo "Otherwise, the UPS may cut the power during the reboot!!!"
+        echo
+        exit 0
+fi

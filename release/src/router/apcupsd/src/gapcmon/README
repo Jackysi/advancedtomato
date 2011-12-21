@@ -1,0 +1,151 @@
+GAPCMON (a.k.a gapcmon, and gpanel_apcmon)
+
+	A Gtk2/GLib2 GUI application used to monitor UPS devices controlled
+by the APCUPSD package.  The program uses the NIS interface from apcupsd to
+collect event and status information for display to the end-user.  Because of
+this great (NIS) interface, this program can be executed on any OS supported machine
+and use the network socket interface to connect back to apcupsd.  Of course
+apcupsd must be compiled with NIS support (i.e. ./configure --enable-nis ).
+
+	One program is included for your use in this package; gapcmon is a 
+regular gtk+ application.
+
+
+FEATURES: 
+    * FreeDesktop.org Spec for Notification Area Icons.
+    * Unlimited support for multiple UPSs.
+    * Historical Graph of five data points are charted.  A total of 40 points
+      are maintained on the graph. The data points are LINEV, BATTV, BCHARGE,
+      LOADPCT, and TIMELEFT.
+    * Clicking an notification icon will cause the information window for that
+      monitor to become visible or be hidden, if its already visible.
+    * Monitor tooltips are available when hovering the mouse over the icon, and 
+      contain a quick summary of the ups status.
+    * Icons are dynamically added or removed when enabled in preferences.
+    * Icon changes to reflect the operational condition of the UPS.
+		- where state is (online, onbattery, charging, not communicating, no cable)
+	* right click popup menu with "JumpTo" window and "Quit" window menu choices.
+    * Chart support popup tooltip for data point under the mouse pointer, showing
+      dataseries name, color, time, and value.
+    * Configuration of the tcpi/ip hostname, tcp port number, and whether that
+      monitor is current enabled is provided via a central Preferences page.
+	* background thread for all network io to keep user interface responsive.
+
+	
+  { the monitor information window }
+	* notebook layout with four tabs:
+		- History
+			* Historical Line Graph tracking VAC, battery charge, batt voltage, 
+			  ups load, and time remaining.  Data collection for this chart is
+			  ten times the regular refresh time in seconds, and displays 40
+			  collection cycles on screen. 
+		- Information
+			* more detailed view of apcupsd current state and ups current state
+		- Events
+			* current apcupsd events as reported by apcaccess
+		- Status
+			* current apcupsd status  as reported by apcaccess		
+    	- refresh button, and quit button:  
+			* refresh button causes and immediate refresh of all data values
+			* quit button closes the application, or hides the window for monitors
+
+  { the monitor information window }
+	* notebook layout with four tabs:
+		- Active Monitors List
+			* Status icon, state text, brief summary of active UPS monitor.
+		- Preferences
+			* configuration page allows user to specify the hostname, port, and 
+			  refresh interval in seconds of the server/workstation running 
+			  apcupsd with NIS configured.
+		- Graph Properties
+			* Alloww user to choose the color of each data series used in the
+ 			  History graph on monitor windows.
+		- Glossary
+			* Quick help text
+		- About 
+			* Program version and information panel
+
+REQUIREMENTS:
+
+	Gtk2/Glib-2.4 runtime support. 
+	APCUPSD installed and configured to NIS support.
+		{ get at http://apcupsd.sourceforge.net  }
+
+	* the following packages may need to be installed to build program and
+	  for runtime of binaries on some platforms.
+
+	gapcmon			{gtk version 2.4 is minimum package level required}
+		glib-devel  
+		gtk-devel
+		gconf2
+						 		
+
+DISTRIBUTION METHOD:
+
+	Source RPM	gapcmon-{version}-{release}.src.rpm
+	Binary RPM	gapcmon-{version}-{release}.i686.rpm
+	Source tar	gapcmon-{version}.tar.bz2
+	Debian Package	gapcmon-{version}.deb  (sometimes available)
+
+INSTALL INFO:
+	Configure Source with 
+	for gapcmon : 
+			'# ./configure --prefix=/usr '
+    		
+	Then compile with 'make clean all', then 'sudo make install'
+	Binary RPM install with this command 'rpm -ivh gapcmon-{version}-{release}.i686.rpm'
+
+	Both methods result in '/usr/bin/gapcmon' 
+	being installed according to your system defaults for prefix.  
+	Note: the configure step requires the parm 'prefix=/usr'.
+
+
+INSTRUCTIONS: 
+
+  gapcmon -- Gtk Application
+    
+    1. look in gnome menus for the "Applications" group, then select "APCUPSD monitor"
+    	- or enter '# gapcmon' on the command line.
+	2. To configure.
+		- select preferences choice,
+		- enter hostname and port, choose refresh interval in seconds.
+		- be sure to click or unclick enable to activate the selection.
+
+KNOWN BUGS:
+ NONE: ...
+
+MAILING LIST:
+
+ http://sourceforge.net/projects/apcupsd,   choose the 'users mailing list' apcupsd-users-request@lists.sourceforge.net
+ http://sourceforge.net/projects/gapcmon,   choose the 'Help Forum'
+
+
+WEB SITE:
+
+ http://www.apcupsd.com/  or  http://gapcmon.sourceforge.net/  
+
+
+CVS CHECKOUT:
+
+ See sourceforge.net project page for cvs info and checkout module "gapcmon"
+
+REPORTING BUGS:
+
+ Please report bugs and feature requests to 
+ "James Scott Jr"<skoona@users.sourceforge.net>
+ or use the HELP Forums on SourceForge for this project.
+
+ I also respond to apcupsd-users-request@lists.sourceforge.net, list.
+ 
+
+ACKNOWLEDGMENTS & CONTRIBUTORS
+
+ Thanks goes to project team creating and 
+ maintaining APCUPSD.
+ 
+ Thanks is also due to Wesley Terrell for maintaining
+ the Debian packages.
+
+ Thanks to Jason Hale for maintaining the FreeBSD packages
+ and two key patches; transparency support of KDE for
+ systray icons, and sockaddr_in include guidance.

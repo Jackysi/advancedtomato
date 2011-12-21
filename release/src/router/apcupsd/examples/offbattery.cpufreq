@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# This shell script if placed in /etc/apcupsd will be
+# called by /etc/apcupsd/apccontrol when the UPS goes
+# back on to the mains after a power failure.
+#
+# We scale the CPU clock frequency to maximum and
+# send an email message to root to notify him.
+#
+# NOTE: Assumes Linux-2.6.x kernel with CPUFREQ 
+# support for your chipset. 
+SYSADMIN=root
+APCUPSD_MAIL="/bin/mail"
+
+# Iterate over all CPUs, enabling the userspace governor
+# and programming the current clock speed to the maximum.
+# This is redundant on hyperthread siblings, but it
+# doesn't hurt anything and it keeps the code simple.
+for CPU in /sys/devices/system/cpu/cpu*/cpufreq ; do
+	echo -n userspace > $CPU/scaling_governor
+	cat $CPU/scaling_max_freq > $CPU/scaling_setspeed
+done
+
+# Send an email to root
+HOSTNAME=`hostname`
+MSG="$HOSTNAME Power has returned"
+#
+(
+   echo "Subject: $MSG"
+   echo " "
+   echo "$MSG"
+   echo " "
+   for CPU in `ls -1 /sys/devices/system/cpu` ; do
+      echo -n "$CPU freq scaled to "
+      cat /sys/devices/system/cpu/$CPU/cpufreq/scaling_setspeed | tr -d '\n'
+      echo " MHz"
+   done
+   echo " "
+   /sbin/apcaccess status
+) | $APCUPSD_MAIL -s "$MSG" $SYSADMIN
+exit 0
+

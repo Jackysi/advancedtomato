@@ -1,0 +1,44 @@
+             Technical notes on version 3.10.7
+                      08 November 2003
+                        Kern Sibbald
+
+General:
+
+Changes submitted this submission:
+08Nov03
+- Do automatic UPS detection in the USB code if no device is specified
+  or if the specified device cannot be opened.
+- Include patch provided by Howard Wilkinson, but put the new apcnet.c
+  in apcnet.c.new until I have a chance to examine it in detail.
+
+  His notes:
+  I attach a complete rewrite of the Master side of the mast/slave code
+  to support asynchronous connections to slaves.  I needed to do this as
+  our network has a number of machines that tend to be powered off for
+  long periods and the connect() calls were hanging around for more than
+  nettime.
+  I also, added a small patch for a new command line flag
+  '-P|--pid-file' so that I can easily run multiple daemons on one
+   machine.  I needed this as I have a machine that acts as a multiple
+   master while getting its power from another UPS managed by another
+   machine.
+
+07Nov03
+- Lib wrappers was not building correctly on FreeBSD due to the 
+  library -lnls, so I copied over the Bacula code for configure.
+  Thanks to Lars Köller for reporting this and for his patches.
+- Attempt to get mkinstalldirs called by an absolute path rather
+  than relative.
+- Apply Lars' fixes to platforms/Makefile.in and platforms/etc/Makefile.in
+  Install scripts with $(INSTALL_SCRIPT) instead of $(INSTALL_PROGRAM)
+- Close all file descriptors except stdin/out/err.
+- If there are no stdin/out/err (Windows), then create them and point them
+  to /dev/null.  This prevents the serial port from suddenly getting
+  debug output sent to it -- chaos.
+- It seems that since the beginning of 3.10.x, the APCSMART_UPS never
+  reported the proper status. This is because it was not in the case
+  statement. Incredible since it is now the "standard" driver! Thanks
+  to the user that brought this to my attention.
+- Fix a segfault in linux-usb.c due to reference one beyond the command
+  table. This happens only on newer USB UPSes. Thanks to the user who
+  pointed this out.

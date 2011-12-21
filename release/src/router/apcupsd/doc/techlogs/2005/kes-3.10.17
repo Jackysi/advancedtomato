@@ -1,0 +1,29 @@
+             Technical notes on version 3.10.17
+                        Kern Sibbald
+
+General:
+17Mar05
+- Move docbook directory to old_documents
+- Modify Win32 Makefile to pull apcupsd.html from texi directory.
+  It was still using the old docbook directory.
+03Mar05
+- Commit kernstodo
+24Feb05
+- Added an anonymous patch to powerflute.c and to the slack-apcupsd.in file.
+09Jan05
+- Add Whitebox to detected systems.
+24Dec04
+- Minor tweak to RedHat spec.in
+- Apply Carl Lindberg <lindberg@clindberg.org>'s patch
+  for apcaction.c to fix the network management card
+  shutdown.
+28Nov04
+- Fix typo in targets.mak that prevents uninstall from working.
+13Nov04
+- Change name of thread_terminate to apc_thread_terminate to avoid
+  conflict on AIX.
+- Put configure found SHUTDOWN in apccontrol.in
+06Nov04
+- Figured out how to scale the pdf images, so re-did them.
+- Some minor updates to the manual, particularly the title
+  page.

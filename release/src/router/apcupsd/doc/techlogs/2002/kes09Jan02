@@ -1,0 +1,19 @@
+             Technical notes on version 3.9.8 
+                      08 January 2002
+                        Kern Sibbald
+
+General:
+- Integrated the OpenServer patch sent to me by Riccardo,
+  who had integrated the submission by Kamal.
+- Integrated Kamal's enhancement of his previous work
+  to truncate the events file.
+
+
+Changes submitted this submission:
+- Based on a user input (Jim Pennino), I added a patch
+  that ensures that if FILENAME_MAX is less than 50
+  it is set to 256. On HP it is 14, and we use it for
+  our maximum pathname length.
+- Modified a few apccontrol.sh.in files in the distribution
+  directory to be stamped with the apcupsd version number.
+

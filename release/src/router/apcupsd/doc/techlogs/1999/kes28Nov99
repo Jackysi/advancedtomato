@@ -1,0 +1,152 @@
+         Technical notes on my code submission of 28 Nov 99
+                        Kern Sibbald
+
+General:
+- Mostly documentation and cleanup of problems
+  found in testing.
+- Fixed some important bugs in power fail shutdown.
+- I added two new events "commfailure" and "commok".
+- Again some tabbing differences.  The good news is that
+  I've completed about half of the work to make my editor
+  more compatible.
+
+Changes submitted this submission:
+- I added two new events "commfailure" and "commok".  This
+  was done when rewritting the UPSlinkCheck code.  The code
+  is now much simpler (at least I think so).  It attempts to
+  get a valid response from the UPS by sending a Y command
+  and receiving a SM. If not, it logs the failure once every
+  10 minutes, waits one second (actually a total of six
+  seconds) and then tries again.  This continues until it
+  establishes contact.
+  The old code that restarted apcupsd after 100 tries has
+  been eliminated.
+- I tested the full shutdown conditions and found a number
+  of minor problems.  This prompted me to rewrite the
+  shutdown code in apcaction to put it all in a single
+  subroutine as it was being done slightly differently in
+  different places.  Now all shutdowns are done in
+  do_shutdown().
+- I fixed logging of the fact that users are requested to
+  logoff to occur only once.
+- If for some reason, apcupsd continued to run after the
+  requested shutdown, it would send additional shutdown
+  commands.  Now, only a single shutdown will be issued.
+- I moved the code to prohibit user logins to a subroutine.
+- As a result of the above modifications, you will find
+  the code in apcaction.c much easier to read since many
+  more of the details are done (the same way) in a subroutine.
+- I restructured the order of the configuration variables in
+  apcconfig.c.  This is to help distinguish networking,
+  shutdown parameters, and EPROM parameters.
+- I ressurrected SELFTEST as I am planning to add it as one
+  of the values that apcupsd can set in the EPROM.
+- I removed what I think are the last vestiges of the old
+  http code from the configuration and from apc_struct.h
+- I changed the default of annoy to 5 minutes (previously
+  one minute), and set the annoydelay to one minute.  I personally
+  found this much more reasonable during my long mulitude of
+  power failure tests.
+- I added a new UPS code that returns the number of bad external
+  battery packs.
+- I increased the number of events from 5 to 10 that are sent
+  as EVENTS information.   
+- I experienced a number of problems acquiring the serial port
+  lock file. Consequently, I added detailed logs to all the
+  error conditions. This should allow us to MUCH more easily
+  diagnose these kinds of problems. In fact, it helped me
+  eliminate a bug with killpower.  
+- I added a new command line option "-t" and long form 
+  "--term-on-powerfail", which causes apcupsd to terminate
+  on a powerfail condition rather than hanging around 
+  waiting for the SIGTERM signal. I'm a little uncertain
+  whether or not we want to keep this option. If you don't
+  like it, tell me and I will remove it.
+- I put the options in the usage display in alphabetic order.
+  This made it easier to document them.
+- Simplified the initial code that establishes contact with
+  the UPS (17 lines reduced to 6 lines).
+- Added more log messages for display when apcupsd does a
+  killpower. These messages tell the user to power off the
+  UPS. I did this because during my testing, I noticed that
+  the UPS power never shutoff -- possibly a bug. One time,
+  I rebooted my computer and during the reboot, the UPS
+  shutdown -- NOT GOOD for my hard disk.
+- I fixed the server (apcserver.c) so that it never error_aborts.
+  It simply waits in a loop periodically logging the problem
+  until it goes a way.
+- Poll the ups for the number of bad batteries.
+- As mentioned above, simplified the code that does the UPSlinkCheck
+  (21 lines of code => 11 lines of code) at the same time increasing
+  the functionality.  
+  NOTE: This is very important code for apcupsd. Please help me
+  check it in reading it.
+- Added a human readable form of the STATFLAG to the status output.
+  The new variable is named STATUS and gives the status of the
+  UPS.
+- Corrected the way the last transfer status and selftest
+  status are displayed.
+- Changed configure.in to display more visibly the machine 
+  and version that it found. This is important to verify for
+  proper installation.
+- Enhanced the instructions for the users after installation
+  of the RedHat version.
+- I changed the logic of the code placed in the halt file.
+  In my opinion, it was buggy because it would cause apcupsd
+  to be reexecuted after a powerfail if the UPS power did
+  not shut off and subsequently the user pressed ctl-alt-del,
+  which his is very likely to do (at least I did it). Please
+  look at the new code in /distributions/redhat/halt-6.1
+- I have started to bring the documentation up to date
+  with the changes made (apcupsd.man). Much more work to
+  be done here.
+- I've added additional documentation and restructured the
+  order in apcupsd.conf
+- I made the default configuration file /etc/apcupsd/apcupsd.conf
+- more documentation in apc_struct.h
+- Fixed killpower in apccontrol.sh.in, added the new commfailure
+  and commok. I also added a bit of text to the shutdown commands.
+  Finally, instead of attempting to cancel the shutdown by
+  calling init, I call shutdown with the -c option. I'm not 100%
+  sure this is correct.
+
+
+                Kern's ToDo List
+
+To do:
+- Apparently during self test, apcupsd thinks that the
+  power was lost. Distinguish this condition!
+- Add and test a bunch of events that email a message.
+- Documentation.
+- Automatic conversion of old apcupsd.config files
+  to the new format?
+- Check and double check killpwr changes (one pass made).
+- Expand Last UPS Self Test field in cgi program
+- Produce a RPM for RedHat
+- Check out apmd and see if we should interface to it.
+
+Wish list:
+- Add more commands (individual variables) to apcnetd
+- Accumulate time on batteries and number of transfers
+  to batteries. Perhaps save history in file so that the
+  info can be recovered if apcupsd restarts.
+- Fix apcupsd so that it respawns the server if it
+  dies (limit number of times). This will avoid the
+  possibility that someone can bring down our apcupsd
+  by connecting via Internet (denial of service attack,
+  or exploit possible buffer overflow).
+- Make apcaccess use the network code as an option.
+- Remember date and time when apcupsd started.
+- Eliminate rest of character command codes using new
+  capabilities code in apcsetup.c (for setup stuff).
+- Eliminate the rest of the printfs().
+- Eliminate as many error_aborts as possible in making
+  new events.
+- Possibly retab new cgi/net server code
+
+Done:
+- Eliminate all error_aborts in apcnetd (especially apcserver.c)
+- Create new line for status bits but in English
+- Enhance documentation of apcupsd.conf
+- Audit apcconfig.c
+

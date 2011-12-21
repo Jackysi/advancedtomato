@@ -1,0 +1,18 @@
+             Technical notes on version 3.10.2
+                       08 November 2001
+                        Kern Sibbald
+
+General:
+- New cable design for BackUPS CS models to run it
+  in Smart serial mode.
+- Corrected a major bug in the smart and net code where the
+  status word was getting clobbered.
+
+Changes submitted this submission:
+- A few days ago, slither_man sent me an email with some 
+  information on how to run a BackUPS CS in smart mode with
+  a serial cable.  He found the information by assuming that
+  the UPS supported Smart mode and through trial and error.
+  Well, it works!!!!!!! Amazing!!!! Thanks slither_man.
+- Documentation for new CUSTOM-RJ54 cable that can be constructed
+  from the end of an ethernet cable and a DB9F connector.

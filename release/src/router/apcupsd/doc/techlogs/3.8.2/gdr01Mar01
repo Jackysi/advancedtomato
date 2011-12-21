@@ -1,0 +1,33 @@
+From:        Devin Reade [SMTP:gdr@gno.org]
+Sent:        Thursday, 01 March 2001 8:02 AM
+To:          kern@sibbald.com
+Cc:          'Neil Darlow'; Riccardo Facchetti (E-mail)
+Subject:     Re: [Apcupsd-devel] A Master/Slave Bug?
+
+ << File: diff-apcupsd-3.8.txt >> Kern Sibbald wrote:
+
+> I have posted an update to 3.8.1 that should
+> fix the problem of zombies on BSD type systems
+> as well as the problem of restarting the master
+> causing a spurious Replace Battery message.
+
+Thanks, Kern.  I've tested it with a Linux RH 6.2 master and
+an OpenBSD 2.7 slave.  Your 25 Feb snapshot fixes both issues.
+Thanks for your efforts.
+
+I have also attached a minor patch relative to your 25 Feb
+snapshot.  It addresses the following issues:
+
+   - elimination of an unnecessary lock file for OpenBSD
+   - change of lockfile path for OpenBSD
+   - allow for some Makefiles to not exist during 
+   - recursive makes (platform independent)
+   - cleaned up restart code for OpenBSD
+
+FWIW, since I have (new)BackupsPro UPSes, I didn't use the exact
+test you mentioned (unplugging the serial cable), but rather
+killed the master, waited a bit, then restarted it.  This shows
+the problem with 3.8.1, and shows it fixed with the 25 Feb patch.
+
+Devin
+

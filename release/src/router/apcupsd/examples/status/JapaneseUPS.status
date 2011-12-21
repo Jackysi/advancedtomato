@@ -1,0 +1,51 @@
+APC      : 001,050,1103
+DATE     : Mon Sep 11 13:51:14 JST 2000
+HOSTNAME : master
+RELEASE  : 3.7.2
+CABLE    : Custom Cable Smart
+MODEL    : APC Smart-UPS 1250
+UPSMODE  : Net Master
+SHARE    : NetworkUPS
+UPSNAME  : UPS_IDEN
+STATUS   : ONLINE 
+LINEV    : 098.5 Volts
+LOADPCT  :  20.8 Percent Load Capacity
+BCHARGE  : 100.0 Percent
+TIMELEFT :  70.0 Minutes
+MBATTCHG : 5 Percent
+MINTIMEL : 3 Minutes
+MAXTIME  : 300 Seconds
+MAXLINEV : 098.5 Volts
+MINLINEV : 097.9 Volts
+OUTPUTV  : 098.5 Volts
+SENSE    : High
+DWAKE    : 000 Seconds
+DSHUTD   : 020 Seconds
+DLOWBATT : 02 Minutes
+LOTRANS  : 085.0 Volts
+HITRANS  : 112.0 Volts
+RETPCT   : 090.0 Percent
+ITEMP    : 49.0 C Internal
+ALARMDEL : 30 seconds
+BATTV    : 27.7 Volts
+LINEFREQ : 50.0 Hz
+LASTXFER : High line voltage
+SELFTEST : NO
+STESTI   : 336
+STATFLAG : 0x08 Status Flag
+DIPSW    : 0x00 Dip Switch
+REG1     : N/A
+REG2     : N/A
+REG3     : 0x00 Register 3
+MANDATE  : 11/14/94
+SERIALNO : 01234567
+BATTDATE : 10/24/95
+NOMOUTV  : 100
+NOMBATTV :  24.0
+HUMIDITY : N/A
+AMBTEMP  : N/A
+EXTBATTS : N/A
+BADBATTS : N/A
+FIRMWARE : N/A
+APCMODEL : 8VA
+END APC  : Mon Sep 11 13:51:16 JST 2000

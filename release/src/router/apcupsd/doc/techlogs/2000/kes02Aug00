@@ -1,0 +1,19 @@
+         Technical notes on my code submission of 02 Aug 00
+                        Kern Sibbald
+
+General:
+- Submission of code to make apcupsd compile under CYGWIN
+  and run on Windows 98 and Windows NT (possibly Win95).
+
+Changes submitted this submission:
+- I removed the directory distributions/win32
+- I added a new directory under the source directory named win32
+  that contains all the Win32 code.
+- I moved much of the configure code into a new autoconf directory
+- I updated the configure.in code to integrate the Win32 builds 
+  correctly. This required a few changes to the Makefile.in file 
+  as well.
+- Updated the HTML manual to have the beginnings of documentation
+  of the Windows code. There is much to be done here.
+
+

@@ -1,0 +1,15 @@
+             Technical notes on version 3.8.2 Official Release
+                        3 July 2001
+                        Kern Sibbald
+
+General:
+- Additional documentation.
+- Bug fix provided by Riccardo.
+- Update script for making RPMs.
+- Please remember that apcnetd has been renamed to
+  apcnisd 
+- Tweaked the pthreads flags for FreeBSD
+- Added Linux From Scratch hint file to unknown distribution.
+- Fixed Makefile in lib to use CFLAGS.
+
+Changes submitted this submission:

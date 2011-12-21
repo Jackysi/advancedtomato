@@ -1,0 +1,7 @@
+Welcome to the Apcupsd installer. You will be guided through the steps necessary to install this software.
+
+If you are installing for the first time, at the end of the install procedure an editor will be opened with the apcupsd configuration file, apcupsd.conf. Please edit the file as described in the apcupsd manual (http://www.apcupsd.org/manual) and save your changes before rebooting.
+
+If you are upgrading from an existing installation, your apcupsd.conf file will be preserved and a new default file will be provided as apcupsd.conf.new. In most cases you can continue to use your existing configuration file unmodified, but please check the release notes and/or compare against apcupsd.conf.new to catch any required changes.
+
+If you encounter any problems with the installation or operation of Apcupsd, please join the apcupsd-users mailing list (http://www.apcupsd.org/lists.html) and post any questions there.

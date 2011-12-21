@@ -1,0 +1,52 @@
+#! /bin/sh
+#
+# apcupsd      This shell script takes care of starting and stopping
+#	       the apcupsd UPS monitoring daemon.
+#
+# chkconfig: 2345 20 99
+# description: apcupsd monitors power and takes action if necessary
+#
+#  Update October 7th, 2001 - CPE
+#
+APCPID=@PIDDIR@/apcupsd.pid
+DISTVER="@DISTVER@"
+POWERFAILDIR=@PWRFAILDIR@
+LOCKDIR=@LOCKDIR@
+SBINDIR=@sbindir@
+
+return=" Done."
+
+
+case "$1" in
+    start)
+	rm -f ${POWERFAILDIR}/powerfail
+	echo "Starting apcupsd power management ...\c"
+	${SBINDIR}/apcupsd || return="	Failed."
+	touch ${LOCKDIR}/apcupsd
+	echo "$return"
+    ;;
+    stop)
+	echo "Stopping apcupsd power management ...\c"
+	if [ -f ${APCPID} ]; then
+		THEPID=`cat ${APCPID}`
+		kill ${THEPID} || return=" Failed."
+		rm -f ${APCPID}
+	else
+		return=" Failed."
+	fi
+	rm -f ${LOCKDIR}/apcupsd
+	echo "$return"
+    ;;
+    restart)
+       $0 stop
+       $0 start
+    ;;
+    status)
+       ${SBINDIR}/apcaccess status
+    ;;
+    *)
+    echo "Usage: $0 {start|stop|restart|status}"
+    exit 1
+esac
+
+exit 0

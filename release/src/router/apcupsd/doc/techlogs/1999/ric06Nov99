@@ -1,0 +1,54 @@
+= Using getopt_long() for command line parameter parsing =
+				Riccardo Facchetti
+
+- Preface
+
+This work is inteded to slim down apcupsd startup routine and to clean up the
+old parameter parsing code.
+
+- Implementation
+
+The command line options of apcupsd are of 2 types:
+
+. Parameters that need to be used alone
+. Parameters that can be used in conjunction of other parameters
+
+The first kind are all parameters that in one way or another interact with the
+UPS, reprogramming it or shutting it down. Two parameters of this kind can not
+be present at the same time in the command line for obvious reasons.
+
+The second kind are all parameters that can be used in conjunction with any
+other parameter so that for example we can update the "battery changed" date,
+reading the UPS configuration from a special config file while having debug
+messages enabled.
+
+For parsing the command line I have decided to use getopt_long(). This
+function, present in the getopt(3) package, is very interesting because can
+handle both short and long versions of command line switches (e.g. we can shut
+down the ups passing the `-k' argument or the `--killpower' argument).
+The getopt(3) package have another advantage over a self-written one: it is
+already present in the `porting' library of apcupsd. In linux environment we
+don't use the porting version of getopt(3) because standard libc already
+contain this package. In environment where getopt(3) is not present we use the
+porting version that have the same functionality of the standard linux
+version.
+
+Another advantage of getopt(3) package is that it is quite easy to add new
+switches.
+
+- Results
+
+The code is clean, readable and small. The apcupsd startup function have
+gained lot of readability.
+
+- Hints
+
+apcoptd.c source is tailored on apcupsd executable. If someone want to add
+getopt(3) functionality to other apcupsd programs, the apcoptd.c can be used
+as a good example on how to implement the command line parsing. Every program
+that need to use getopt(3) need its tailored apcopt<x>.c file: the apcopd.c
+code can not be reused as-is.
+I could have made it more general to share most of the code in the libapcups.a
+but the work (thinkering+coding) would have been a lot more and I don't think
+the advantages of sharing few Kb of code justify losing so much time on such a
+basic functionality.

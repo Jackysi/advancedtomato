@@ -1,0 +1,6 @@
+#!/bin/sh
+#
+# Dumb script to save Kern from typing too much
+#
+cp -fp ../baculafd/Debug/bacula-fd.exe /bacula/bin
+ls -l ../baculafd/Debug/bacula-fd.exe

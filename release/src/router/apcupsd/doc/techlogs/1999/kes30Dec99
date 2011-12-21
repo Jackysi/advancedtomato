@@ -1,0 +1,129 @@
+         Technical notes on my code submission of 30 Dec 99
+                        Kern Sibbald
+
+General:
+- PLEASE NOTE: the default installation directories have been
+  changed. Please "make uninstall" with your old configuration
+  before installing the new release.
+- Documentation.
+- Clean up configure for Solaris.
+
+Changes submitted this submission:
+- Did a lot of updates to the manual. At this point,
+  I will wait for comments before doing additional
+  documentation.
+- I fixed configure.in and Makefile.in so that the
+  CFLAGS and LDFLAGS can be passed to configure
+  as in the documentation -- i.e. CFLAGS=-g ./configure ...
+- I modified sysconfdir so that it is /etc/apcupsd
+  by default.  The user can change it as an option
+  on the ./configure.
+- I moved the definition of APCCONTROL into a header
+  file as is the case with ACPCONFDIR.
+- In the makefile, I moved the cgi install in front
+  of the main install. The advantage is that the install
+  finishes with the main messages desired.    
+- Added a new define "HAVE_CYGWIN" to the header files.
+- Merged in Andre's copyright changes. This touched
+  virtually ever file.
+- Applied fixes to compiler complaints reported by Carl
+  (apcconfig.c, apcnetlib.c, apcserver.c).
+- Replace the const on shortoptions with static because of
+  a GNU compiler warning.
+- Added a call to cfsetospeed() to apcserial.c on HAVE_CYGWIN
+  ifdefs. This is needed to set the serial port baud rate
+  to 2400 baud. This statement is probably needed by some
+  of the other ports such as the HP (and SGI if we do one).
+- I removed all the old UPS command documentation from apcsmart.c
+  Some of it was out of date and wrong. In any case, every thing
+  that I removed is now in doc/manual/upsbible.html.
+- apcupsd.c #ifdefed out the check for super user for CYGWIN
+  and ifdefed off the daemon_start() code.
+- apcwinipc.c is a new file used to simulate the shared memory
+  functions on Windows. It is a bare bones implementation
+  that addresses only our current use of the functions.
+  All the semaphore functions are currently void.
+  This file is #ifdefed for CYGWIN.
+- Makefile.in sysconfdir is now the full path (default
+  /etc/apcupsd).  Pass CFLAGS and LDFLAGS from configure.
+- Same changes in the cti directory.
+- configure.in.  I added some new functionality -- the default
+  sysconfdir is /etc/apcupsd, our PATH is now concatenated to
+  the user's PATH. This permits having compilers in wierd places.
+  The sbindir is now default /sbin.  Had to split up some of
+  the tests for headers that are not present on CYGWIN. 
+  Recognize the CYGWIN system. configure now prints out
+  a configurations summary at the end. This is very helpful
+  for knowing where things are going to go.                   
+- Removed unused files (powerstatus, powerpid, ...) from all
+  the distribution makefiles. I also removed all tests for
+  whether or not the shutdown is being done twice. I prefer
+  that it is done twice rather than having the possiblity that
+  it is not done at all because some old file is left laying
+  around.
+- I implemented an awk script that automatically inserts the
+  necessary powerfail statements in the halt script.  It needs
+  a bit more work to more properly detect error conditions.
+- Updated my makediff file to remove more files that should
+  not be compared.
+- Lots of manual updates.
+- I added a mainsback script to examples which is the complement of
+  onbatteries.
+
+
+
+
+
+
+
+
+                Kern's ToDo List
+
+To do:
+- Expand Last UPS Self Test field in cgi program
+- Automatic conversion of old apcupsd.config files
+  to the new format?
+- Setuid of network processes to "nobody".
+- Add credits to manual. Update testers names, ...
+- Check time delays in shutdown especially for
+  master/slaves.
+- Look at Vladimir's code.
+- Update make clean to remove distributions/*/apccontrol.sh
+- Set appropriate permissions on files in /etc/apcupsd during
+  make install.
+- Check if we should do detach_ipc() in apcserver.c
+
+
+Wish list:
+- Add remaining time before TIMEOUT to STATUS output.
+- Add more commands (individual variables) to apcnetd
+- Accumulate time on batteries and number of transfers
+  to batteries. Perhaps save history in file so that the
+  info can be recovered if apcupsd restarts.
+- Fix apcupsd so that it respawns the server if it
+  dies (limit number of times). This will avoid the
+  possibility that someone can bring down our apcupsd
+  by connecting via Internet (denial of service attack,
+  or exploit possible buffer overflow).
+- Make apcaccess use the network code as an option.
+- Remember date and time when apcupsd started.
+- Eliminate rest of character command codes using new
+  capabilities code in apcsetup.c (for setup stuff).
+- Eliminate the rest of the printfs().
+- Eliminate as many error_aborts as possible in making
+  new events.
+- Possibly retab new cgi/net server code
+- Apparently during self test, apcupsd thinks that the
+  power was lost. Distinguish this condition!
+- Check out apmd and see if we should interface to it.
+- Pass second argument to apccontrol indicating if
+  we are master/slave and other info.
+- STATUS file should be opened with open() rather
+  than fopen(). Some small changes required. 
+
+Done:
+- Added compliler cleanups reported by Carl.
+- Move more control files to /etc/apcupsd
+- Complete documentation
+
+

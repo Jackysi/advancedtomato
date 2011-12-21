@@ -1,0 +1,44 @@
+#ifndef IDC_STATIC
+#define IDC_STATIC (-1)
+#endif
+
+#define IDI_ONLINE                              101
+#define IDI_ONBATT                              102
+#define IDI_CHARGING                            103
+#define IDR_TRAYMENU                            104
+#define IDI_COMMLOST                            105
+#define IDD_ABOUT                               201
+#define IDD_STATUS                              202
+#define IDD_EVENTS                              203
+#define IDD_CONFIG                              205
+#define IDC_WWW1                                1000
+#define IDC_WWW2                                1001
+#define IDC_COPYRIGHT1                          1002
+#define IDC_COPYRIGHT2                          1003
+#define IDC_COPYRIGHT3                          1004
+#define IDC_STATUSGRID                          1004
+#define IDC_BATTERY                             1005
+#define IDC_STATUS                              1006
+#define IDC_RUNTIME                             1007
+#define IDC_LOAD                                1008
+#define IDC_WWW                                 1022
+#define IDC_COPYRIGHT                           1023
+#define IDC_TRADEMARK                           1036
+#define IDI_APCUPSD                             40000
+#define IDM_CONFIG                              40000
+#define IDM_ADD                                 40001
+#define IDM_EXIT                                40002
+#define IDM_REMOVE                              40003
+#define IDM_ABOUT                               40004
+#define IDM_STATUS                              40005
+#define IDM_REMOVEALL                           40006
+#define IDM_EVENTS                              40007
+#define IDM_AUTOSTART                           40008
+#define IDM_NAME                                40009
+#define IDM_HOST                                40010
+#define IDC_HOSTNAME                            40020
+#define IDC_PORT                                40021
+#define IDC_REFRESH                             40022
+#define IDC_POPUPS                              40023
+#define IDC_VERSION                             40024
+#define IDC_LIST                                40025

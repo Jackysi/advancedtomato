@@ -1,0 +1,11 @@
+             Technical notes on version 3.9.9 
+                        16 May 2002
+                        Kern Sibbald
+
+General:
+
+Changes submitted this submission:
+- Removed hid-ups from the default files built in the
+  examples directory because it only builds on Linux machines.
+- Tweaked src/win32/winmain.cpp to ensure that the main thread
+  is signaled to shutdown if the main Windows loop stops.

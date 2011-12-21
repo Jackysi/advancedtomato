@@ -1,0 +1,17 @@
+The SNMP driver depends on the "netsnmp" package.
+
+The ability to communicate with an SNMP UPS is
+defined by the management MIBs that this driver knows.
+
+To translate a MIB file into C source code, use the
+program 'smidump -f netsnmp'.
+
+MIBS supported
+
+    APC's PowerNet MIB version 3.3.0.
+        powernet-mib-mgr.c
+        powernet-mib.h
+
+    IETF's RFC-1628 MIB
+        ups-mib-mgr.c
+        ups-mib.h

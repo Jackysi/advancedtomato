@@ -1,0 +1,21 @@
+
+This package was first debianized by Leon Breedt <ljb@debian.org> on
+Sun, 23 May 1999 20:47:12 +0200.
+
+Additional changes made by root <fgp@phlo.org> March 2001
+
+More changes made by Gordon Morehouse <nphyre@evernex.com> April 2001
+
+This package is now maintained by Martin Mitchell <martin@debian.org>.
+
+It was downloaded from http://ftp.oasi.gpa.it/pub/apcupsd/stable.
+An alternative download site is http://www.sibbald.com/apcupsd.
+
+Upstream Author(s): 
+    Riccardo Facchetti <riccardo@master.oasi.gpa.it>
+    Andre M. Hedrick <hedrick@astro.dyer.vanderbilt.edu>
+    Kern Sibbald <kern@sibbald.com>
+    and others.
+
+Apcupsd is placed under the GNU General Public License, a copy of which may
+be found in /usr/share/common-licenses/GPL.

@@ -1,0 +1,17 @@
+         Technical notes on my code submission of 17 Jan 00
+                        Kern Sibbald
+
+General:
+- Config/make fixes
+
+Changes submitted this submission:
+- I removed some of the CYGWIN tests since they were not
+  working correctly. Unfortunately, I do not have the
+  time to fix it now. 
+- I fixed the problems I introduced in eliminating the make -C
+  for the cgi directory.
+- Please note I believe these problems exist for some of the 
+  other subdirectories, and I was not able to find the time
+  to fix them.
+- I added the local host as the default in etc/hosts.conf and
+  added a little more documentation.
