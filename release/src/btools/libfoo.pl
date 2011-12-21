@@ -423,8 +423,8 @@ if ((!-d $root) || (!-d $uclibc) || (!-d $router)) {
 	exit(1);
 }
 
-open(LOG, ">libfoo.debug");
-#open(LOG, ">/dev/null");
+#open(LOG, ">libfoo.debug");
+open(LOG, ">/dev/null");
 
 print "Loading...\r";
 load($root);
