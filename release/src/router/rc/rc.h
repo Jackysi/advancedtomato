@@ -433,6 +433,12 @@ extern void start_snmp();
 extern void stop_snmp();
 #endif
 
+// apcupsd.c
+#ifdef TCONFIG_UPS
+extern void start_ups();
+extern void stop_ups();
+#endif
+
 // vpn.c
 #ifdef TCONFIG_OPENVPN
 extern void start_vpnclient(int clientNum);

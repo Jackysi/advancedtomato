@@ -189,7 +189,8 @@ endef
 # Install a program file, given mode, src, and dest
 define INSTPROG
    @$(ECHO) "  COPY " $(2) =\> $(DESTDIR)$(3)
-   $(V)$(INSTALL_PROGRAM) $(STRIP) -m $(1) $(2) $(DESTDIR)$(3)
+#   $(V)$(INSTALL_PROGRAM) $(STRIP) -m $(1) $(2) $(DESTDIR)$(3)
+   $(V)$(INSTALL_PROGRAM) -m $(1) $(2) $(DESTDIR)$(3)
 endef
 
 # Install a data file, given mode, src, and dest

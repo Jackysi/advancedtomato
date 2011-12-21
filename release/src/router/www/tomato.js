@@ -2425,6 +2425,9 @@ REMOVE-END */
 /* MEDIA-SRV-BEGIN */
 			,['Media Server',	'media.asp']
 /* MEDIA-SRV-END */
+/* UPS-BEGIN */
+			,['UPS Monitor',	'ups.asp']
+/* UPS-END */
 /* BT-BEGIN */
 			,['BitTorrent Client',	'bittorrent.asp']
 /* BT-END */

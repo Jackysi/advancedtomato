@@ -57,6 +57,10 @@ ifeq ($(TCONFIG_SDHC),y)
 OBJS += mmc.o
 endif
 
+ifeq ($(TCONFIG_UPS),y)
+OBJS += ups.o
+endif
+
 all: rc
 
 rc: $(OBJS)

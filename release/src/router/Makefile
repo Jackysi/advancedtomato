@@ -70,6 +70,8 @@ obj-$(TCONFIG_NOCAT) += nocat
 # !!TB
 obj-$(TCONFIG_USB) += p910nd
 
+obj-$(TCONFIG_UPS) += apcupsd
+
 ifeq ($(CONFIG_LINUX26),y)
 obj-$(TCONFIG_USB) += sd-idle
 else
@@ -1707,6 +1709,30 @@ snmp-clean:
 snmp-install: snmp
 	install -D snmp/agent/snmpd $(INSTALLDIR)/snmp/usr/sbin/snmpd
 	$(STRIP) $(INSTALLDIR)/snmp/usr/sbin/snmpd
+
+apcupsd/stamp-h1:
+	cd apcupsd && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	$(MAKE) configure && \
+	LDFLAGS="-L$(TOOLCHAIN)/lib -ffunction-sections -fdata-sections" \
+	$(CONFIGURE) --prefix=/usr --without-x --enable-shared --enable-static --enable-usb --disable-pcnet --enable-cgi \
+		--disable-lgd --enable-net --enable-powerflute --sysconfdir=/usr/local/apcupsd --bindir=/bin \
+		--disable-dumb --disable-snmp --disable-net-snmp --with-cgi-bin=/www/apcupsd --with-serial-dev= \
+	touch apcupsd/stamp-h1
+
+apcupsd: apcupsd/stamp-h1
+	$(MAKE) -C apcupsd
+
+apcupsd-clean:
+	-$(MAKE) -C apcupsd clean
+	@rm -f apcupsd/stamp-h1
+	@rm -f apcupsd/config*
+
+apcupsd-install: apcupsd
+	$(MAKE) -C apcupsd DESTDIR=$(INSTALLDIR)/apcupsd install
+	@rm -rf $(INSTALLDIR)/apcupsd/sbin/apctest
+	@rm -rf $(INSTALLDIR)/apcupsd/www/apcupsd/ups*.cgi
+	$(STRIP) $(INSTALLDIR)/apcupsd/sbin/*
+	$(STRIP) $(INSTALLDIR)/apcupsd/www/apcupsd/*
 
 #
 # Generic rules

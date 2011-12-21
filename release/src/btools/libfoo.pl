@@ -164,6 +164,13 @@ sub fixDyn
 	fixDynDep("transmission-create", "libevent-2.0.so.5");
 	fixDynDep("transmission-create", "libcurl.so.4.2.0");
 
+	fixDynDep("tomatodata.cgi", "libc.so.0");
+	fixDynDep("tomatoups.cgi", "libc.so.0");
+	fixDynDep("apcupsd", "libc.so.0");
+	fixDynDep("apcupsd", "libgcc_s.so.1");
+	fixDynDep("apcaccess", "libc.so.0");
+	fixDynDep("smtp", "libc.so.0");
+
 #	fixDynDep("libbcm.so", "libshared.so");
 #	fixDynDep("libbcm.so", "libc.so.0");
 
@@ -416,8 +423,8 @@ if ((!-d $root) || (!-d $uclibc) || (!-d $router)) {
 	exit(1);
 }
 
-#open(LOG, ">libfoo.debug");
-open(LOG, ">/dev/null");
+open(LOG, ">libfoo.debug");
+#open(LOG, ">/dev/null");
 
 print "Loading...\r";
 load($root);

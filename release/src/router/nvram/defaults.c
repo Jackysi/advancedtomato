@@ -775,6 +775,10 @@ const defaults_t defaults[] = {
 	{ "nfs_exports",		""				},
 #endif
 
+#ifdef TCONFIG_UPS
+	{ "ups_enable",			"0"				},
+#endif
+
 #ifdef TCONFIG_OPENVPN
 // vpn
 	{ "vpn_debug",            "0"             },

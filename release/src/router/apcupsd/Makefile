@@ -1,6 +1,7 @@
 topdir:=.
 
-SUBDIRS=src platforms doc
+SUBDIRS=src platforms
+#doc
 include autoconf/targets.mak
 
 # Force platforms/ to build after src/

@@ -43,13 +43,13 @@ dnl
 dnl Create a new path statement starting with what the user has and
 dnl adding directories we might need.  
 dnl
-PATH=$PATH:/bin:/sbin:/etc:/usr/bin:/usr/bin/X11:/usr/sbin:/usr/local/bin:/usr/local/sbin
-export PATH
+#PATH=$PATH:/bin:/sbin:/etc:/usr/bin:/usr/bin/X11:/usr/sbin:/usr/local/bin:/usr/local/sbin
+#export PATH
 
 
 dnl Interesting things are often in /usr/local
-CPPFLAGS="${CPPFLAGS} -I/usr/local/include"
-LDFLAGS="${LDFLAGS} -L/usr/local/lib64 -L/usr/local/lib"
+CPPFLAGS="${CPPFLAGS}"
+LDFLAGS="${LDFLAGS}"
 
 if test $HAVE_UNAME=yes -a x`uname -s` = xSunOS
 then
@@ -121,9 +121,10 @@ else
 fi
 
 dnl Default linker is g++
-if test x$LD = x ; then
+#shibby
+#if test x$LD = x ; then
    LD="$CC"
-fi
+#fi
 
 AC_SUBST(DEBUG)
 AC_SUBST(CFLAGS)
@@ -161,6 +162,8 @@ then
    AC_MSG_WARN([mail program not found !])
    APCUPSD_MAIL=mail
 fi
+dnl Arrmo, force APCUPSD_MAIL (mail command)
+APCUPSD_MAIL="sendmail -S server.home -f root"
 
 AC_REQ_PATH_PROGS(WALL, wall)
 AC_REQ_PATH_PROGS(SCRIPTSHELL, sh bash)
@@ -224,7 +227,7 @@ AC_TRY_LINK(
 )
 
 AC_FUNC_STRFTIME     dnl check for strftime.
-AC_FUNC_SETPGRP      dnl check for BSD setpgrp.
+dnl AC_FUNC_SETPGRP      dnl check for BSD setpgrp.
 
 # Under sysV68, socket and friends are provided by the C library.
 # -linet does not provide socket, but causes multiple definition
@@ -446,6 +449,7 @@ ENABLE_CGI="no"
 CGI=
 GD_LIBS=
 SYS_GD_FOUND=no
+SKIP_GDHDR_CHECK=no
 AC_ARG_ENABLE(cgi,
    [AC_HELP_STRING([--enable-cgi], [Compile CGI programs])],
    [ if test "$enableval" = "yes"
@@ -453,15 +457,29 @@ AC_ARG_ENABLE(cgi,
         ENABLE_CGI="yes"
         CGI=cgi
 
+        dnl Check for GD Library check disable (disable called = "no")
+        AC_ARG_ENABLE(lgd,
+           [AC_HELP_STRING([--disable-lgd], [Disable GD Library])],
+           [ if test "$enableval" = "no"
+           then
+            AC_MSG_RESULT([Disabled GD Library (and associated checks).])
+            SKIP_GDHDR_CHECK=yes
+            SYS_GD_FOUND=yes
+           fi
+        ])
+
         dnl
         dnl First search for system library that defines gdImagePng
-        AC_CHECK_LIB(gd, gdImagePng,
-           [ AC_MSG_RESULT([using PNG file format (/usr/lib).])
-             AC_DEFINE(SYS_IMGFMT_PNG)
-             GD_LIBS="-lgd"
-             SYS_GD_FOUND=yes ],
-           [],
-           [${X_LIBS}])
+        if test "${SYS_GD_FOUND}" = "no"
+        then
+            AC_CHECK_LIB(gd, gdImagePng,
+               [ AC_MSG_RESULT([using PNG file format (/usr/lib).])
+                 AC_DEFINE(SYS_IMGFMT_PNG)
+                 GD_LIBS="-lgd"
+                 SYS_GD_FOUND=yes ],
+               [],
+               [${X_LIBS}])
+        fi
 
         dnl
         dnl Second search for system library that defines gdImageGif
@@ -517,17 +535,22 @@ AC_ARG_ENABLE(cgi,
                          Alternatively you can disable the CGI support.])
         fi
 
-        AC_CHECK_HEADER(gd.h, [ GDHEAD= ],
-           [ AC_CHECK_HEADER(gd/gd.h, [ GDHEAD="gd/" ],
-              [ AC_CHECK_HEADER(gd2/gd.h, [ GDHEAD="gd2/" ],
-                 [ AC_MSG_ERROR([Found system GD library but no header file.
-                                 Please find the file gd.h in your system
-                                 include directories and report its location
-                                 to apcupsd-users@lists.sourceforge.net]) ])
-              ])
-           ])
+        if test "${SKIP_GDHDR_CHECK}" = "no"
+        then
+            AC_CHECK_HEADER(gd.h, [ GDHEAD= ],
+               [ AC_CHECK_HEADER(gd/gd.h, [ GDHEAD="gd/" ],
+                  [ AC_CHECK_HEADER(gd2/gd.h, [ GDHEAD="gd2/" ],
+                     [ AC_MSG_ERROR([Found system GD library but no header file.
+                                     Please find the file gd.h in your system
+                                     include directories and report its location
+                                     to apcupsd-users@lists.sourceforge.net]) ])
+                  ])
+               ])
 
-         AC_SUBST(GDHEAD)
+             AC_SUBST(GDHEAD)
+        else
+            AC_MSG_RESULT([Not using GD Library - no check performed for header files.])
+        fi
     fi
 ])
 
@@ -1062,10 +1085,10 @@ dnl  command line options will apply.
 dnl  
 
 # Define the default UPS
-UPSTYPE=apcsmart
+UPSTYPE=usb
 
 # Define the default Cable
-UPSCABLE=smart
+UPSCABLE=usb
 
 # set the default nologin directory
 nologdir=/etc
@@ -1449,6 +1472,7 @@ Configuration on `date`:
   enable-nis:                 ${NISSRV_ENABLED}
   with-nisip:                 ${NISIP}
   enable-cgi:                 ${ENABLE_CGI}
+  disable-lgd:                ${SKIP_GDHDR_CHECK}
   with-cgi-bin:               ${CGIBIN}
   with-libwrap:               ${with_libwrap}
   enable-pthreads:            ${with_pthreads}

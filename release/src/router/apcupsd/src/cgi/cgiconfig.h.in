@@ -64,9 +64,9 @@ extern "C" {
 #if defined(SYS_IMGFMT_PNG) || defined(SYS_IMGFMT_GIF)
 #include <@GDHEAD@gd.h>
 #include <@GDHEAD@gdfontl.h>
-#else
+/*#else
 #include "gd.h"
-#include "gdfontl.h"
+#include "gdfontl.h"*/
 #endif
 
 }

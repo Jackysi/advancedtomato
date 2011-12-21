@@ -23,7 +23,8 @@ smtp_obj        := $(call SRC2OBJ,$(smtp_srcs))
 SRCS = $(common_srcs) $(apcupsd_srcs) $(apcaccess_srcs) \
        $(apctest_srcs) $(smtp_srcs) 
 
-all-targets: apcupsd apcaccess apctest smtp 
+all-targets: apcupsd apcaccess smtp
+#apctest
 
 apcupsd: $(common_obj) $(apcupsd_obj) $(APCDRVLIBS) $(APCLIBS)
 	$(LINK) $(DRVLIBS)
@@ -43,13 +44,13 @@ all-uninstall: uninstall-base
 install-base:
 	$(call MKDIR,$(sbindir))
 	$(call INSTPROG,700,apcupsd,$(sbindir)/apcupsd)
-	$(call INSTPROG,700,apctest,$(sbindir)/apctest)
+#	$(call INSTPROG,700,apctest,$(sbindir)/apctest)
 	$(call INSTPROG,755,apcaccess,$(sbindir)/apcaccess)
 	$(call INSTPROG,755,smtp,$(sbindir)/smtp)
 
 uninstall-base:
 	$(call UNINST,$(sbindir)/apcupsd)
-	$(call UNINST,$(sbindir)/apctest)
+#	$(call UNINST,$(sbindir)/apctest)
 	$(call UNINST,$(sbindir)/apcaccess)
 	$(call UNINST,$(sbindir)/smtp)
 

@@ -2,7 +2,8 @@
 
 topdir:=..
 
-SUBDIRS = etc $(DISTDIR)
+SUBDIRS = etc bin
+#$(DISTDIR)
 include $(topdir)/autoconf/targets.mak
 
 all-install: install-platform

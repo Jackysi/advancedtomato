@@ -222,7 +222,7 @@ what:
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT
-# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS
+# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS
 
 define RouterOptions
 	@( \
@@ -356,6 +356,10 @@ define RouterOptions
 	if [ "$(HFS)" = "y" ]; then \
 		sed -i "/TCONFIG_HFS/d" $(1); \
 		echo "TCONFIG_HFS=y" >>$(1); \
+	fi; \
+	if [ "$(UPS)" = "y" ]; then \
+		sed -i "/TCONFIG_UPS/d" $(1); \
+		echo "TCONFIG_UPS=y" >>$(1); \
 	fi; \
 	)
 endef
@@ -500,6 +504,20 @@ define KernelConfig
 		echo "CONFIG_CPU_MIPS32_R2=y" >>$(1); \
 		sed -i "/CONFIG_CPU_MIPSR1/d" $(1); \
 		echo "CONFIG_CPU_MIPSR2=y" >>$(1); \
+	fi; \
+	if [ "$(UPS)" = "y" ]; then \
+		sed -i "/CONFIG_INPUT=m/d" $(1); \
+		echo "CONFIG_INPUT=y" >>$(1); \
+		sed -i "/CONFIG_USB=m/d" $(1); \
+		echo "CONFIG_USB=y" >>$(1); \
+		sed -i "/CONFIG_HID=m/d" $(1); \
+		echo "CONFIG_HID=y" >>$(1); \
+		sed -i "/CONFIG_USB_HID=m/d" $(1); \
+		echo "CONFIG_USB_HID=y" >>$(1); \
+		sed -i "/CONFIG_USB_HIDDEV=m/d" $(1); \
+		echo "CONFIG_USB_HIDDEV=y" >>$(1); \
+		sed -i "/CONFIG_USB_DEVICEFS=m/d" $(1); \
+		echo "CONFIG_USB_DEVICEFS=y" >>$(1); \
 	fi; \
 	if [ "$(USB)" = "" ]; then \
 		sed -i "/CONFIG_EFI_PARTITION/d" $(1); \

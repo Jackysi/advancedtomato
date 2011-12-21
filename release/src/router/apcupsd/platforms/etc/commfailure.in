@@ -5,17 +5,16 @@
 # loses contact with the UPS (i.e. the serial connection is not responding).
 # We send an email message to root to notify him.
 #
-SYSADMIN=root
-APCUPSD_MAIL="@APCUPSD_MAIL@"
+source /etc/apcemail.conf
 
 HOSTNAME=`hostname`
 MSG="$HOSTNAME Communications with UPS lost"
 #
 (
    echo "Subject: $MSG"
-   echo " "
+   echo
    echo "$MSG"
-   echo " "
+   echo
    @sbindir@/apcaccess status
-) | $APCUPSD_MAIL -s "$MSG" $SYSADMIN
+) | $APCUPSD_MAIL $SYSADMIN
 exit 0
