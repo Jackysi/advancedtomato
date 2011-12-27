@@ -41,7 +41,7 @@ void stop_arpbind(void) {
 	char ipaddr[48] = "";
 
 	if ((f = fopen("/proc/net/arp", "r")) != NULL) {
-//		fgets(buf, sizeof(buf), f);	// header
+		fgets(buf, sizeof(buf), f);	// header - 1st line should be indeed ignored
 		while (fgets(buf, sizeof(buf), f)) {
 			if (sscanf(buf, "%s %*s %*s %*s %*s %*s", ipaddr) != 1) continue;
 			eval ("arp", "-d", (char *)ipaddr);
