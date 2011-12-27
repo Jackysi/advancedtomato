@@ -515,9 +515,10 @@ static const nvset_t nvset_list[] = {
 
 // basic-static
 	{ "bwm_client",			V_LENGTH(0, 4096)	},
-	{ "dhcpd_static",		V_LENGTH(0, 108*141)	},	// 108 (max chars per entry) x 140 entries
-	{ "dhcpd_static_only",		V_01			},
-	{ "arpbind_static",		V_LENGTH(0, 34*141)	},	// 34 (max chars per entry) x 140 entries
+	{ "dhcpd_static",		V_LENGTH(0, 106*251)},	// 106 (max chars per entry) x 250 entries
+	{ "dhcpd_static_only",	V_01				},
+	{ "arpbind_static",		V_LENGTH(0, 34*251)},	// 34 (max chars per entry) x 250 entries
+	{ "arpbind_listed",		V_01				}, // AB - Enable static ARP for all devices on list
 
 // basic-ddns
 	{ "ddnsx0",				V_LENGTH(0, 2048)	},
