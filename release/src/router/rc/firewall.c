@@ -752,6 +752,11 @@ static void nat_table(void)
 		}
 #endif
 
+		char *modem_ipaddr;
+		if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") )
+		     && (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0") )
+			ipt_write("-A POSTROUTING -o %s -d %s -j MASQUERADE\n", nvram_safe_get("wan_ifname"), modem_ipaddr);
+
 		for (i = 0; i < wanfaces.count; ++i) {
 			if (*(wanfaces.iface[i].name)) {
 				if ((!wanup) || (nvram_get_int("ne_snat") != 1))
@@ -760,11 +765,6 @@ static void nat_table(void)
 					ipt_write("-A POSTROUTING %s -o %s -j SNAT --to-source %s\n", p, wanfaces.iface[i].name, wanfaces.iface[i].ip);
 			}
 		}
-
-		char *modem_ipaddr;
-		if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") )
-		     && (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0") )
-			ipt_write("-A POSTROUTING -o %s -d %s -j MASQUERADE\n", nvram_safe_get("wan_ifname"), modem_ipaddr);
 
 		switch (nvram_get_int("nf_loopback")) {
 		case 1:		// 1 = forwarded-only
