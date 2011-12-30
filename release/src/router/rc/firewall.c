@@ -1013,6 +1013,8 @@ static void filter_forward(void)
 	char *p, *c;
 	int i;
 
+	ipt_account();
+
 #ifdef TCONFIG_IPV6
 	ip6t_write(
 		"-A FORWARD -m rt --rt-type 0 -j DROP\n");
@@ -1259,8 +1261,6 @@ static void filter_log(void)
 	else {
 		limit[0] = 0;
 	}
-
-	ipt_account();
 
 #ifdef TCONFIG_IPV6
 	modprobe("ip6t_LOG");
