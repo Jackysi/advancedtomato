@@ -895,6 +895,8 @@ static void filter_forward(void)
 	char *p, *c;
 	int i;
 
+	ipt_account();
+
 	ipt_write(
 		"-A FORWARD -i %s -o %s -j ACCEPT\n",			// accept all lan to lan
 		lanface, lanface);
@@ -1029,8 +1031,6 @@ static void filter_log(void)
 	else {
 		limit[0] = 0;
 	}
-
-	ipt_account();
 
 #ifdef TCONFIG_IPV6
 	modprobe("ip6t_LOG");
