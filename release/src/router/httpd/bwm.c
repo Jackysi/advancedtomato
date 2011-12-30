@@ -265,7 +265,7 @@ void asp_iptmon(int argc, char **argv) {
 
 		while (fgets(sa, sizeof(sa), a)) {
 			if(sscanf(sa, 
-				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dest = %lu %*u %*u %*u %*u packets_dest = %*u %*u %*u %*u %*u time = %*u",
+				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dst = %lu %*u %*u %*u %*u packets_dst = %*u %*u %*u %*u %*u time = %*u",
 				ip, &tx, &rx) != 3 ) continue;
 
 			if (find_word(exclude, ip)) {
@@ -381,7 +381,7 @@ void asp_iptraffic(int argc, char **argv) {
 		fgets(sa, sizeof(sa), a); // network
 		while (fgets(sa, sizeof(sa), a)) {
 			if(sscanf(sa, 
-				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %lu %lu %lu %*u bytes_dest = %lu %*u %*u %*u %*u packets_dest = %*u %lu %lu %lu %*u time = %*u",
+				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %lu %lu %lu %*u bytes_dst = %lu %*u %*u %*u %*u packets_dst = %*u %lu %lu %lu %*u time = %*u",
 				ip, &tx_bytes, &tp_tcp, &tp_udp, &tp_icmp, &rx_bytes, &rp_tcp, &rp_udp, &rp_icmp) != 9 ) continue;
 
 			if (find_word(exclude, ip)) continue ;
