@@ -1,10 +1,8 @@
-/* 
- * accounting match (ipt_account.c)
- * (C) 2003,2004 by Piotr Gasidlo (quaker@barbara.eu.org)
+/* Copyright (c) 2004-2006 Piotr 'QuakeR' Gasidlo <quaker@barbara.eu.org>
  *
- * Version: 0.1.7
- *
- * This software is distributed under the terms of GNU GPL
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #ifndef _IPT_ACCOUNT_H_
@@ -12,15 +10,15 @@
 
 #define IPT_ACCOUNT_NAME_LEN 64
 
-#define IPT_ACCOUNT_NAME "ipt_account"
-#define IPT_ACCOUNT_VERSION  "0.1.7"
+struct t_ipt_account_table;
 
 struct t_ipt_account_info {
-	char name[IPT_ACCOUNT_NAME_LEN];
-	u_int32_t network;
-	u_int32_t netmask;
+	char name[IPT_ACCOUNT_NAME_LEN + 1];
+	u_int32_t network, netmask;
 	int shortlisting:1;
+	/* pointer to the table for fast matching */
+	struct t_ipt_account_table *table;
 };
 
-#endif
+#endif /* _IPT_ACCOUNT_H */
 

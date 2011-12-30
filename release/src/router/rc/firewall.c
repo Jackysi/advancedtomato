@@ -417,6 +417,44 @@ int ipt_layer7(const char *v, char *opt)
 	return 1;
 }
 
+// -----------------------------------------------------------------------------
+
+static void ipt_account(void) {
+	struct in_addr ipaddr, netmask, network;
+	char lanN_ifname[] = "lanXX_ifname";
+	char lanN_ipaddr[] = "lanXX_ipaddr";
+	char lanN_netmask[] = "lanXX_netmask";
+	char lanN[] = "lanXX";
+	char netaddrnetmask[] = "255.255.255.255/255.255.255.255 ";
+	char br;
+
+	for(br=0 ; br<=3 ; br++) {
+		char bridge[2] = "0";
+		if (br!=0)
+			bridge[0]+=br;
+		else
+			strcpy(bridge, "");
+
+		sprintf(lanN_ifname, "lan%s_ifname", bridge);
+
+		if (strcmp(nvram_safe_get(lanN_ifname), "")!=0) {
+
+			sprintf(lanN_ipaddr, "lan%s_ipaddr", bridge);
+			sprintf(lanN_netmask, "lan%s_netmask", bridge);
+			sprintf(lanN, "lan%s", bridge);
+
+			inet_aton(nvram_safe_get(lanN_ipaddr), &ipaddr);
+			inet_aton(nvram_safe_get(lanN_netmask), &netmask);
+
+			// bitwise AND of ip and netmask gives the network
+			network.s_addr = ipaddr.s_addr & netmask.s_addr;
+
+			sprintf(netaddrnetmask, "%s/%s", inet_ntoa(network), nvram_safe_get(lanN_netmask));
+
+			ipt_write("-A FORWARD -m account --aaddr %s --aname %s\n", netaddrnetmask, lanN);
+		}
+	}
+}
 
 // -----------------------------------------------------------------------------
 
@@ -1206,6 +1244,8 @@ static void filter_log(void)
 		limit[0] = 0;
 	}
 
+	ipt_account();
+
 #ifdef TCONFIG_IPV6
 	modprobe("ip6t_LOG");
 #endif
@@ -1671,7 +1711,6 @@ int start_firewall(void)
 #endif
 	run_nvscript("script_fire", NULL, 1);
 
-	start_account();
 	start_arpbind();
 
 #ifdef LINUX26
