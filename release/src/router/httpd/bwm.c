@@ -359,7 +359,20 @@ void asp_iptraffic(int argc, char **argv) {
 	const char conntrack[] = "/proc/net/ip_conntrack";
 // #endif
 
-	if ((b = fopen(conntrack, "r")) == NULL) return;
+	if ((a = fopen(conntrack, "r")) == NULL)
+		return;
+	if ((b = tmpfile()) == NULL) {
+		fclose(a);
+		return;
+	}
+
+	ctvbuf(a);	// if possible, read in one go
+
+	while (fgets(sa, sizeof(sa), a)) {
+		fputs(sa,b);
+	}
+
+	fclose(a);
 
 	char br;
 	char name[] = "/proc/net/ipt_account/lanX";
@@ -402,6 +415,7 @@ void asp_iptraffic(int argc, char **argv) {
 		}
 		fclose(a);
 	}
+	fclose(b);
 	web_puts("];\n");
 }
 
