@@ -23,8 +23,7 @@
 #define IP6_PREFIX_NOT_MATCH( a, b, bits ) (memcmp(&a.s6_addr[0], &b.s6_addr[0], bits/8) != 0 || ( bits % 8 && (a.s6_addr[bits/8] ^ b.s6_addr[bits/8]) >> (8-(bits % 8)) ))
 
 
-static void ctvbuf(FILE *f)
-{
+void ctvbuf(FILE *f) {
 	int n;
 	struct sysinfo si;
 //	meminfo_t mem;
