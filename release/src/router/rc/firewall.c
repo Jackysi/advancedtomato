@@ -417,6 +417,44 @@ int ipt_layer7(const char *v, char *opt)
 	return 1;
 }
 
+// -----------------------------------------------------------------------------
+
+static void ipt_account(void) {
+	struct in_addr ipaddr, netmask, network;
+	char lanN_ifname[] = "lanXX_ifname";
+	char lanN_ipaddr[] = "lanXX_ipaddr";
+	char lanN_netmask[] = "lanXX_netmask";
+	char lanN[] = "lanXX";
+	char netaddrnetmask[] = "255.255.255.255/255.255.255.255 ";
+	char br;
+
+	for(br=0 ; br<=3 ; br++) {
+		char bridge[2] = "0";
+		if (br!=0)
+			bridge[0]+=br;
+		else
+			strcpy(bridge, "");
+
+		sprintf(lanN_ifname, "lan%s_ifname", bridge);
+
+		if (strcmp(nvram_safe_get(lanN_ifname), "")!=0) {
+
+			sprintf(lanN_ipaddr, "lan%s_ipaddr", bridge);
+			sprintf(lanN_netmask, "lan%s_netmask", bridge);
+			sprintf(lanN, "lan%s", bridge);
+
+			inet_aton(nvram_safe_get(lanN_ipaddr), &ipaddr);
+			inet_aton(nvram_safe_get(lanN_netmask), &netmask);
+
+			// bitwise AND of ip and netmask gives the network
+			network.s_addr = ipaddr.s_addr & netmask.s_addr;
+
+			sprintf(netaddrnetmask, "%s/%s", inet_ntoa(network), nvram_safe_get(lanN_netmask));
+
+			ipt_write("-A FORWARD -m account --aaddr %s --aname %s\n", netaddrnetmask, lanN);
+		}
+	}
+}
 
 // -----------------------------------------------------------------------------
 
@@ -708,6 +746,11 @@ static void nat_table(void)
 		}
 #endif
 
+		char *modem_ipaddr;
+		if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") )
+		     && (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0") )
+			ipt_write("-A POSTROUTING -o %s -d %s -j MASQUERADE\n", nvram_safe_get("wan_ifname"), modem_ipaddr);
+
 		for (i = 0; i < wanfaces.count; ++i) {
 			if (*(wanfaces.iface[i].name)) {
 				if ((!wanup) || (nvram_get_int("ne_snat") != 1))
@@ -716,11 +759,6 @@ static void nat_table(void)
 					ipt_write("-A POSTROUTING %s -o %s -j SNAT --to-source %s\n", p, wanfaces.iface[i].name, wanfaces.iface[i].ip);
 			}
 		}
-
-		char *modem_ipaddr;
-		if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") )
-		     && (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0") )
-			ipt_write("-A POSTROUTING -o %s -d %s -j MASQUERADE\n", nvram_safe_get("wan_ifname"), modem_ipaddr);
 
 		switch (nvram_get_int("nf_loopback")) {
 		case 1:		// 1 = forwarded-only
@@ -969,6 +1007,8 @@ static void filter_forward(void)
 	char *p, *c;
 	int i;
 
+	ipt_account();
+		
 #ifdef TCONFIG_IPV6
 	ip6t_write(
 		"-A FORWARD -m rt --rt-type 0 -j DROP\n");
@@ -1671,7 +1711,6 @@ int start_firewall(void)
 #endif
 	run_nvscript("script_fire", NULL, 1);
 
-	start_account();
 	start_arpbind();
 
 #ifdef LINUX26

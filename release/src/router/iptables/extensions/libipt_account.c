@@ -1,10 +1,11 @@
-/* 
+/* Copyright (c) 2004-2006 Piotr 'QuakeR' Gasid³o <quaker@barbara.eu.org>
  * accounting match helper (libipt_account.c)
- * (C) 2003,2004 by Piotr Gasid³o (quaker@barbara.eu.org)
  *
- * Version: 0.1.6
+ * Version: 0.1.20
  *
- * This software is distributed under the terms of GNU GPL
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 
 #include <stdio.h>
@@ -172,6 +173,7 @@ static void init(struct ipt_entry_match *match,
 	/* set default table name to DEFAULT */
 	strncpy(info->name, "DEFAULT", IPT_ACCOUNT_NAME_LEN);
 	info->shortlisting = 0;
+	info->table = NULL;
 	
 }
 
@@ -197,9 +199,10 @@ static int parse(int c, char **argv,
 			
 		/* --aname */
 		case 202:
-			if (strlen(optarg) < IPT_ACCOUNT_NAME_LEN)
+			if (strlen(optarg) < IPT_ACCOUNT_NAME_LEN) {
 				strncpy(info->name, optarg, IPT_ACCOUNT_NAME_LEN);
-			else
+				info->name[IPT_ACCOUNT_NAME_LEN] = '\0';
+			}	else
 				exit_error(PARAMETER_PROBLEM, "account: Too long table name");			
 			break;	
 		/* --ashort */
