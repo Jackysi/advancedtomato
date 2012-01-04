@@ -420,6 +420,7 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan1ports", "0 5");
 		break;
 	case MODEL_RTN12:
+	case MODEL_RTN12B1:
 		dirty |= check_nv("vlan0ports", "3 2 1 0 5*");
 		dirty |= check_nv("vlan1ports", "4 5");
 		break;
@@ -963,6 +964,16 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "RT-N12";
 		features = SUP_SES | SUP_BRAU | SUP_80211N;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan0 eth1");
+			nvram_set("wan_ifnameX", "vlan1");
+			nvram_set("wl_ifname", "eth1");
+		}
+		break;
+	case MODEL_RTN12B1:
+		mfr = "Asus";
+		name = "RT-N12 B1";
+		features = SUP_80211N;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan0 eth1");
 			nvram_set("wan_ifnameX", "vlan1");
