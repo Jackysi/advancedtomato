@@ -170,6 +170,8 @@ Copyright (C) 2011 Augusto Bott<br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules<br>
 - Up to 80 QOS rules<br>
+- Incoming Class Bandwidth pie chart by Tiomo<br>
+- IMQ based QOS Ingress by Tiomo<br>
 - IMQ based QOS/Bandwidth Limiter<br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>
