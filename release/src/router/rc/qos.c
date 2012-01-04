@@ -9,6 +9,9 @@
 
 #include <sys/stat.h>
 
+static const char *qosfn = "/etc/qos";
+static const char *qosImqDeviceNumberString = "0";
+static const char *qosImqDeviceString = "imq0";
 
 // in mangle table
 void ipt_qos(void)
@@ -187,7 +190,7 @@ void ipt_qos(void)
 								"-I QOSO 3 -m connmark ! --mark 0/0xff000 -j QOSSIZE\n"
 								"-I QOSO 4 -m connmark ! --mark 0/0xff000 -j RETURN\n");
 						}
-					 	if (max != prev_max && sizegroup<255) {
+						if (max != prev_max && sizegroup<255) {
 							class_flag = ++sizegroup << 12;
 							prev_max = max;
 							ip46t_flagged_write(v4v6_ok,
@@ -271,24 +274,33 @@ void ipt_qos(void)
 
 
 	g = buf = strdup(nvram_safe_get("qos_irates"));
-	for (i = 0; i < 10; ++i) {
+	
+	for (i = 0; i < 10; ++i) 
+	{
 		if ((!g) || ((p = strsep(&g, ",")) == NULL)) continue;
 		if ((inuse & (1 << i)) == 0) continue;
-		if (atoi(p) > 0) {
+		
+		unsigned int rate;
+		unsigned int ceil;
+		
+		// check if we've got a percentage definition in the form of "rate-ceiling"
+		// and that rate > 1
+		if ((sscanf(p, "%u-%u", &rate, &ceil) == 2) && (rate >= 1))
+		{		
 			ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", qface);
+			ipt_write("-A PREROUTING -i %s -p tcp -j IMQ --todev %s\n", qface, qosImqDeviceNumberString);
 #ifdef TCONFIG_IPV6
 			if (*wan6face)
+			{
 				ip6t_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", wan6face);
+				ip6t_write("-A PREROUTING -i %s -p tcp -j IMQ --todev %s\n", wan6face, qosImqDeviceNumberString);
+			}
 #endif
 			break;
 		}
 	}
 	free(buf);
 }
-
-
-
-static const char *qosfn = "/etc/qos";
 
 static unsigned calc(unsigned bw, unsigned pct)
 {
@@ -303,8 +315,10 @@ void start_qos(void)
 	unsigned int rate;
 	unsigned int ceil;
 	unsigned int bw;
+	unsigned int incomingBandwidthInKilobitsPerSecond;
 	unsigned int mtu;
 	unsigned int r2q;
+	unsigned int qosDefaultClassId;
 	FILE *f;
 	int x;
 	int inuse;
@@ -313,7 +327,9 @@ void start_qos(void)
 	char burst_root[32];
 	char burst_leaf[32];
 
-
+	qosDefaultClassId = (nvram_get_int("qos_default") + 1) * 10;
+	incomingBandwidthInKilobitsPerSecond = strtoul(nvram_safe_get("qos_ibw"), NULL, 10);
+	
 	// move me?
 	x = nvram_get_int("ne_vegas");
 #ifdef LINUX26
@@ -362,20 +378,25 @@ void start_qos(void)
 
 	fprintf(f,
 		"#!/bin/sh\n"
-		"I=%s\n"
-		"TQA=\"tc qdisc add dev $I\"\n"
-		"TCA=\"tc class add dev $I\"\n"
-		"TFA=\"tc filter add dev $I\"\n"
+		"WAN_DEV=%s\n"
+		"IMQ_DEV=%s\n"
+		"TQA=\"tc qdisc add dev $WAN_DEV\"\n"
+		"TCA=\"tc class add dev $WAN_DEV\"\n"
+		"TFA=\"tc filter add dev $WAN_DEV\"\n"
+		"TQA_IMQ=\"tc qdisc add dev $IMQ_DEV\"\n"
+		"TCA_IMQ=\"tc class add dev $IMQ_DEV\"\n"
+		"TFA_IMQ=\"tc filter add dev $IMQ_DEV\"\n"
 		"Q=\"%s\"\n"
 		"\n"
 		"case \"$1\" in\n"
 		"start)\n"
-		"\ttc qdisc del dev $I root 2>/dev/null\n"
+		"\ttc qdisc del dev $WAN_DEV root 2>/dev/null\n"
 		"\t$TQA root handle 1: htb default %u r2q %u\n"
 		"\t$TCA parent 1: classid 1:1 htb rate %ukbit ceil %ukbit %s\n",
 			get_wanface(),
+			qosImqDeviceString,
 			nvram_get_int("qos_pfifo") ? "pfifo limit 256" : "sfq perturb 10",
-			(nvram_get_int("qos_default") + 1) * 10, r2q,
+			qosDefaultClassId, r2q,
 			bw, bw, burst_root);
 
 	inuse = nvram_get_int("qos_inuse");
@@ -386,6 +407,7 @@ void start_qos(void)
 
 		if ((inuse & (1 << i)) == 0) continue;
 
+		// check if we've got a percentage definition in the form of "rate-ceiling"
 		if ((sscanf(p, "%u-%u", &rate, &ceil) != 2) || (rate < 1)) continue;	// 0=off
 
 		if (ceil > 0) sprintf(s, "ceil %ukbit ", calc(bw, ceil));
@@ -555,53 +577,128 @@ void start_qos(void)
 		fputs("\n\t$TFA parent 1: prio 13 protocol ip u32 match ip protocol 1 0xff flowid 1:10\n", f);
 	}
 
-	// ingress
-
+	////
+	//// INCOMING TRAFFIC SHAPING
+	////
+	
 	first = 1;
-	bw = strtoul(nvram_safe_get("qos_ibw"), NULL, 10);
+	
 	g = buf = strdup(nvram_safe_get("qos_irates"));
-	for (i = 0; i < 10; ++i) {
-		if ((!g) || ((p = strsep(&g, ",")) == NULL)) break;
+	
+	for (i = 0; i < 10; ++i)
+	{	
+		if ((!g) || ((p = strsep(&g, ",")) == NULL))
+		{
+			break;
+		}
+		
+		if ((inuse & (1 << i)) == 0)
+		{
+			continue;
+		}
 
-		if ((inuse & (1 << i)) == 0) continue;
+		// check if we've got a percentage definition in the form of "rate-ceiling"
+		if ((sscanf(p, "%u-%u", &rate, &ceil) != 2) || (rate < 1))
+		{
+			continue;	// 0=off
+		}
+		
+		// class ID
+		unsigned int classid = ((unsigned int)i + 1) * 10;
+		
+		// priority
+		unsigned int priority = (unsigned int)i + 1;
+		
+		// rate in kb/s
+		unsigned int rateInKilobitsPerSecond =
+			calc(incomingBandwidthInKilobitsPerSecond, rate);
+		
+		// ceiling in kb/s
+		unsigned int ceilingInKilobitsPerSecond =
+			calc(incomingBandwidthInKilobitsPerSecond, ceil);
 
-		if ((rate = atoi(p)) < 1) continue;	// 0 = off
+		// burst rate (2% of the classes' rate) - don't know if we should use this
+		unsigned int burstRateInBitsPerSecond =
+			(rateInKilobitsPerSecond * 1000) / 50;
 
-		if (first) {
+		r2q = 10;
+		if ((incomingBandwidthInKilobitsPerSecond * 1000) / (8 * r2q) < mtu) 
+		{
+			r2q = (incomingBandwidthInKilobitsPerSecond * 1000) / (8 * mtu);
+			if (r2q < 1) r2q = 1;
+		} 
+		else if ((incomingBandwidthInKilobitsPerSecond * 1000) / (8 * r2q) > 60000) 
+		{
+			r2q = (incomingBandwidthInKilobitsPerSecond * 1000) / (8 * 60000) + 1;
+		}
+
+		if (first) 
+		{
 			first = 0;
 			fprintf(f,
 				"\n"
-				"\ttc qdisc del dev $I ingress 2>/dev/null\n"
-				"\t$TQA handle ffff: ingress\n");
+				"\tip link set $IMQ_DEV up\n"
+				"\ttc qdisc del dev $IMQ_DEV 2>/dev/null\n"
+				"\t$TQA_IMQ handle 1: root htb default %u r2q %u\n"
+				"\t$TCA_IMQ parent 1: classid 1:1 htb rate %ukbit ceil %ukbit\n",
+				qosDefaultClassId, r2q,
+				incomingBandwidthInKilobitsPerSecond,
+				incomingBandwidthInKilobitsPerSecond);
 		}
+		
+		fprintf(
+			f,
+			"\n"
+			"\t# class id %u: rate %ukbit ceil %ukbit\n",
+			classid, rateInKilobitsPerSecond, ceilingInKilobitsPerSecond);
 
-		// rate in kb/s
-		unsigned int u = calc(bw, rate);
+		fprintf(
+			f,
+			"\t$TCA_IMQ parent 1:1 classid 1:%u htb rate %ukbit ceil %ukbit prio %u quantum %u\n",
+			classid, rateInKilobitsPerSecond, ceilingInKilobitsPerSecond, priority, mtu);
 
-		// burst rate
-		unsigned int v = u / 25;
-		if (v < 50) v = 50;
-//		const unsigned int v = 200;
+		fprintf(
+			f,
+			"\t$TQA_IMQ parent 1:%u handle %u: $Q\n",
+			classid, classid);
 
-		x = i + 1;
-		fprintf(f,
-			"# ingress %d: %u%%\n"
-			"\t$TFA parent ffff: prio %d protocol ip handle %d fw police rate %ukbit burst %ukbit drop flowid ffff:%d\n",
-				i, rate,
-				x, x, u, v, x);
+		fprintf(
+			f,
+			"\t$TFA_IMQ parent 1: prio %u protocol ip handle %u fw flowid 1:%u \n",           
+			classid, priority, classid);
 	}
+
 	free(buf);
+
+	//// write commands which adds rule to forward traffic to IMQ device
+	fputs(
+		"\n"
+		"\t# set up the IMQ device (otherwise this won't work) to limit the incoming data\n"
+		"\tip link set $IMQ_DEV up\n",
+		f);
 
 	fputs(
 		"\t;;\n"
 		"stop)\n"
-		"\ttc qdisc del dev $I root 2>/dev/null\n"
-		"\ttc qdisc del dev $I ingress 2>/dev/null\n"
+		"\tip link set $IMQ_DEV down\n"
+		"\ttc qdisc del dev $WAN_DEV root 2>/dev/null\n"
+		"\ttc qdisc del dev $IMQ_DEV root 2>/dev/null\n"
 		"\t;;\n"
 		"*)\n"
-		"\ttc -s -d qdisc ls dev $I\n"
+		"\techo \"...\"\n"
+		"\techo \"... OUTGOING QDISCS AND CLASSES FOR $WAN_DEV\"\n"
+		"\techo \"...\"\n"
+		"\ttc -s -d qdisc ls dev $WAN_DEV\n"
 		"\techo\n"
-		"\ttc -s -d class ls dev $I\n"
+		"\ttc -s -d class ls dev $WAN_DEV\n"
+		"\techo\n"
+		"\techo \"...\"\n"
+		"\techo \"... INCOMING QDISCS AND CLASSES FOR $WAN_DEV (routed through $IMQ_DEV)\"\n"
+		"\techo \"...\"\n"
+		"\ttc -s -d qdisc ls dev $IMQ_DEV\n"
+		"\techo\n"
+		"\ttc -s -d class ls dev $IMQ_DEV\n"
+		"\techo\n"
 		"esac\n",
 		f);
 
@@ -623,10 +720,10 @@ void stop_qos(void)
 /*
 
 PREROUTING (mn) ----> x ----> FORWARD (f) ----> + ----> POSTROUTING (n)
-           QD         |                         ^
-                      |                         |
-                      v                         |
-                    INPUT (f)                 OUTPUT (mnf)
+		   QD         |                         ^
+					  |                         |
+					  v                         |
+					INPUT (f)                 OUTPUT (mnf)
 
 
 */
