@@ -194,6 +194,12 @@ Copyright (C) 2011 Toastman<br>
 <a href='http://www.linksysinfo.org/index.php?threads/using-qos-tutorial-and-discussion.28349/' target='_new'>Using QoS - Tutorial and discussion</a><br>
 <br>
 
+<b>"Tiomo" Features:</b><br>
+- IMQ based QOS Ingress<br>
+- Incoming Class Bandwidth pie chart<br>
+Copyright (C) 2012 Tiomo<br>
+<br>
+
 <!-- SDHC-BEGIN -->
 <b>"Slodki" feature:</b><br>
 - SDHC integration and GUI<br>
