@@ -168,15 +168,15 @@ Copyright (C) 2011 Augusto Bott<br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules<br>
 - Up to 80 QOS rules<br>
-- Incoming Class Bandwidth pie chart by Tiomo<br>
 - IMQ based QOS Ingress by Tiomo<br>
+- Incoming Class Bandwidth pie chart by Tiomo<br>
 - IMQ based QOS/Bandwidth Limiter<br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>
 - GPT support for HDD by Yaniv Hamo<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>
 <br>
-Development by Victek/PrinceAMD/Phykris/Shibby/Toastman/Teaman<br>
+Development by Victek/PrinceAMD/Phykris/Shibby/Toastman/Teaman/Tiomo<br>
 <br>
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
