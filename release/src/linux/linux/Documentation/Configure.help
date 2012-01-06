@@ -2868,6 +2868,18 @@ CONFIG_IP_NF_IPTABLES
   If you want to compile it as a module, say M here and read
   <file:Documentation/modules.txt>.  If unsure, say `N'.
 
+account match support
+CONFIG_IP_NF_MATCH_ACCOUNT
+  This match is used for gathering traffic statistics for particular
+  netblock.
+
+  Short options are available by using 'iptables -m account -h'
+  Official Website: <http://www.barbara.eu.org/~quaker/ipt_account/>
+  Official Website: <http://code.google.com/p/ipt-account/>
+
+  If you want to compile it as a module, say M here and read
+  Documentation/modules.txt.  If unsure, say `N'.
+
 recent match support
 CONFIG_IP_NF_MATCH_RECENT
   This match is used for creating one or many lists of recently

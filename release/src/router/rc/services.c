@@ -2187,18 +2187,6 @@ TOP:
 		goto CLEAR;
 	}
 
-	if (strcmp(service, "account") == 0) {
-		if (action & A_STOP) stop_account();
-		if (action & A_START) start_account();
-		goto CLEAR;
-	}
-
-	if (strcmp(service, "arpbind") == 0) {
-		if (action & A_STOP) stop_arpbind();
-		if (action & A_START) start_arpbind();
-		goto CLEAR;
-	}
-
 	if (strcmp(service, "restrict") == 0) {
 		if (action & A_STOP) {
 			stop_firewall();
@@ -2215,6 +2203,12 @@ TOP:
 				}
 			}
 		}
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "arpbind") == 0) {
+		if (action & A_STOP) stop_arpbind();
+		if (action & A_START) start_arpbind();
 		goto CLEAR;
 	}
 
@@ -2238,12 +2232,6 @@ TOP:
 		if (action & A_START) {
 			start_qoslimit();
 		}
-		goto CLEAR;
-	}
-
-	if (strcmp(service, "arpbind") == 0) {
-		if (action & A_STOP) stop_arpbind();
-		if (action & A_START) stop_arpbind();
 		goto CLEAR;
 	}
 
