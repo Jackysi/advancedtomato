@@ -164,6 +164,11 @@ Copyright (C) 2010-2011 Jean-Yves Avenard<br>
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br>
+<b>"Tiomo" Features:</b><br>
+- IMQ based QOS Ingress<br>
+- Incoming Class Bandwidth pie chart<br>
+Copyright (C) 2012 Tiomo<br>
+<br>
 <b>"Toastman" Features:</b><br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules<br>
