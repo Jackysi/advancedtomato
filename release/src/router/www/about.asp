@@ -166,21 +166,22 @@ Copyright (C) 2010-2011 Jean-Yves Avenard<br>
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br>
+<b>"Tiomo" Features:</b><br>
+- IMQ based QOS Ingress<br>
+- Incoming Class Bandwidth pie chart<br>
+Copyright (C) 2012 Tiomo<br>
+<br>
 <b>"Toastman" Features:</b><br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules<br>
 - Up to 80 QOS rules<br>
-- Incoming Class Bandwidth pie chart by Tiomo<br>
-- IMQ based QOS Ingress by Tiomo<br>
 - IMQ based QOS/Bandwidth Limiter<br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>
 - GPT support for HDD by Yaniv Hamo<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>
 <br>
-Development by Victek/PrinceAMD/Phykris/Shibby/Toastman/Teaman<br>
-<br>
-Based on Tomato Firmware v<% version(); %><br>
+<b>Based on Tomato Firmware v<% version(); %></b><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>
