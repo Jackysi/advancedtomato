@@ -1312,20 +1312,22 @@ void stop_ntpc(void)
 
 static void stop_rstats(void)
 {
-	int n;
+	int n, m;
 	int pid;
 	int pidz;
 	int ppidz;
 	int w = 0;
 
 	n = 60;
+	m = 15;
 	while ((n-- > 0) && ((pid = pidof("rstats")) > 0)) {
 		w = 1;
 		pidz = pidof("gzip");
 		if (pidz < 1) pidz = pidof("cp");
 		ppidz = ppid(ppid(pidz));
-		if ((pidz > 0) && (pid == ppidz)) {
+		if ((m > 0) && (pidz > 0) && (pid == ppidz)) {
 			syslog(LOG_DEBUG, "rstats(PID %d) shutting down, waiting for helper process to complete(PID %d, PPID %d).\n", pid, pidz, ppidz);
+			--m;
 		} else {
 			kill(pid, SIGTERM);
 		}
@@ -1351,20 +1353,22 @@ static void start_rstats(int new)
 
 static void stop_cstats(void)
 {
-	int n;
+	int n, m;
 	int pid;
 	int pidz;
 	int ppidz;
 	int w = 0;
 
 	n = 60;
+	m = 15;
 	while ((n-- > 0) && ((pid = pidof("cstats")) > 0)) {
 		w = 1;
 		pidz = pidof("gzip");
 		if (pidz < 1) pidz = pidof("cp");
 		ppidz = ppid(ppid(pidz));
-		if ((pidz > 0) && (pid == ppidz)) {
+		if ((m > 0) && (pidz > 0) && (pid == ppidz)) {
 			syslog(LOG_DEBUG, "cstats(PID %d) shutting down, waiting for helper process to complete(PID %d, PPID %d).\n", pid, pidz, ppidz);
+			--m;
 		} else {
 			kill(pid, SIGTERM);
 		}
