@@ -1328,6 +1328,7 @@ static void start_ftpd(void)
 	FILE *fp, *f;
 	char *buf;
 	char *p, *q;
+	int i;
 	char *user, *pass, *rights, *root_dir;
 
 	if (getpid() != 1) {
