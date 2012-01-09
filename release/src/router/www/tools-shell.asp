@@ -32,6 +32,18 @@ textarea {
 var cmdresult = '';
 var cmd = null;
 
+
+
+
+var ref = new TomatoRefresh('update.cgi', '', 0, 'tools-shell_refresh');
+
+ref.refresh = function(text)
+{
+	execute();
+}
+
+
+
 function verifyFields(focused, quiet)
 {
 	return 1;
@@ -85,7 +97,24 @@ function init()
 {
 	var s;
 	if ((s = cookie.get('shellcmd')) != null) E('_f_cmd').value = unescape(s);
+
+	if (((s = cookie.get('tools_shell_notes_vis')) != null) && (s == '1')) {
+		toggleVisibility("notes");
+	}
 }
+
+function toggleVisibility(whichone) {
+	if (E('sesdiv_' + whichone).style.display == '') {
+		E('sesdiv_' + whichone).style.display = 'none';
+		E('sesdiv_' + whichone + '_showhide').innerHTML = '(Click here to show)';
+		cookie.set('status_overview_' + whichone + '_vis', 0);
+	} else {
+		E('sesdiv_' + whichone).style.display='';
+		E('sesdiv_' + whichone + '_showhide').innerHTML = '(Click here to hide)';
+		cookie.set('status_overview_' + whichone + '_vis', 1);
+	}
+}
+
 </script>
 
 </head>
@@ -111,7 +140,18 @@ createFieldTable('', [
 ]);
 </script>
 <div style='float:left'><input type='button' value='Execute' onclick='execute()' id='execb'></div>
+<script type='text/javascript'>genStdRefresh(1,1,'ref.toggle()');</script>
 </div>
+
+<div class='section-title'>Notes <small><i><a href='javascript:toggleVisibility("notes");'><span id='sesdiv_notes_showhide'>(Click here to show)</span></a></i></small></div>
+<div class='section' id='sesdiv_notes' style='display:none'>
+
+<div>
+	<ul>
+		<li><b>TIP</b> - Use the command "nvram export --set" or "nvram export --set | grep qos" to cut and paste configuration
+	</ul>
+</div>
+
 
 <div style="visibility:hidden;text-align:right" id="wait">Please wait... <img src='spin.gif' style="vertical-align:top"></div>
 <pre id='result'></pre>

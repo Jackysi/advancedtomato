@@ -332,35 +332,6 @@ if (nvram.web_svg != '0') {
 
 <!-- / / / -->
 
-<div class="section-title">Bandwidth Distribution (Inbound)</div>
-<div class="section">
-<table border=0 width="100%"><tr><td>
-	<table style="width:250px">
-	<tr><td class='color' style="height:1em"></td><td class='title' style="width:45px">&nbsp;</td><td class='thead count'>kbit/s</td><td class='thead count'>KB/s</td><td class='pct'>&nbsp;</td></tr>
-<script type='text/javascript'>
-for (i = 0; i < 11; ++i) {
-	W('<tr style="cursor:pointer" onclick="mClick(' + i + ')">' +
-		'<td class="color" style="background:#' + colors[i] + '" onclick="mClick(' + i + ')">&nbsp;</td>' +
-		'<td class="title" style="width:45px"><a href="ipt-details.asp?ipt_filterip=' + abc[i] + '">' + abc[i] + '</a></td>' +
-		'<td id="bcnt' + i + '" class="count" style="width:60px"></td>' +
-		'<td id="bcntx' + i + '" class="count" style="width:50px"></td>' +
-		'<td id="bpct' + i + '" class="pct"></td></tr>');
-}
-</script>
-	<tr><td>&nbsp;</td><td class="total">Total</a></td><td id="bcnt-total" class="total count"></td><td id="bcntx-total" class="total count"></td><td class="total pct">100%</td></tr>
-	</table>
-</td><td style="margin-right:150px">
-<script type='text/javascript'>
-if (nvram.web_svg != '0') {
-	W('<embed src="ipt-graph.svg?n=1&v=<% version(); %>" style="width:310px;height:310px;margin:0;padding:0" id="svg1" type="image/svg+xml" pluginspage="http://www.adobe.com/svg/viewer/install/"></embed>');
-}
-</script>
-</td></tr>
-</table>
-</div>
-
-<!-- / / / -->
-
 <div class="section-title">Bandwidth Distribution (Outbound)</div>
 <div class="section">
 <table border=0 width="100%"><tr><td>
@@ -382,6 +353,35 @@ for (i = 0; i < 11; ++i) {
 <script type='text/javascript'>
 if (nvram.web_svg != '0') {
 	W('<embed src="ipt-graph.svg?n=2&v=<% version(); %>" style="width:310px;height:310px;margin:0;padding:0" id="svg2" type="image/svg+xml" pluginspage="http://www.adobe.com/svg/viewer/install/"></embed>');
+}
+</script>
+</td></tr>
+</table>
+</div>
+
+<!-- / / / -->
+
+<div class="section-title">Bandwidth Distribution (Inbound)</div>
+<div class="section">
+<table border=0 width="100%"><tr><td>
+	<table style="width:250px">
+	<tr><td class='color' style="height:1em"></td><td class='title' style="width:45px">&nbsp;</td><td class='thead count'>kbit/s</td><td class='thead count'>KB/s</td><td class='pct'>&nbsp;</td></tr>
+<script type='text/javascript'>
+for (i = 0; i < 11; ++i) {
+	W('<tr style="cursor:pointer" onclick="mClick(' + i + ')">' +
+		'<td class="color" style="background:#' + colors[i] + '" onclick="mClick(' + i + ')">&nbsp;</td>' +
+		'<td class="title" style="width:45px"><a href="ipt-details.asp?ipt_filterip=' + abc[i] + '">' + abc[i] + '</a></td>' +
+		'<td id="bcnt' + i + '" class="count" style="width:60px"></td>' +
+		'<td id="bcntx' + i + '" class="count" style="width:50px"></td>' +
+		'<td id="bpct' + i + '" class="pct"></td></tr>');
+}
+</script>
+	<tr><td>&nbsp;</td><td class="total">Total</a></td><td id="bcnt-total" class="total count"></td><td id="bcntx-total" class="total count"></td><td class="total pct">100%</td></tr>
+	</table>
+</td><td style="margin-right:150px">
+<script type='text/javascript'>
+if (nvram.web_svg != '0') {
+	W('<embed src="ipt-graph.svg?n=1&v=<% version(); %>" style="width:310px;height:310px;margin:0;padding:0" id="svg1" type="image/svg+xml" pluginspage="http://www.adobe.com/svg/viewer/install/"></embed>');
 }
 </script>
 </td></tr>

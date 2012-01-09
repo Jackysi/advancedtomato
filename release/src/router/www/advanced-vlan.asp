@@ -721,7 +721,22 @@ function init()
   if(port_vlan_supported) {
     vlg.recolor();
     vlg.resetNewEditor();
+    var c;
+	if (((c = cookie.get('advanced_vlan_notes_vis')) != null) && (c == '1')) toggleVisibility("notes");
+	if (((c = cookie.get('advanced_vlan_wireless_vis')) != null) && (c == '1')) toggleVisibility("wireless");
   }
+}
+
+function toggleVisibility(whichone) {
+	if (E('sesdiv_' + whichone).style.display == '') {
+		E('sesdiv_' + whichone).style.display = 'none';
+		E('sesdiv_' + whichone + '_showhide').innerHTML = '(Click here to show)';
+		cookie.set('advanced_vlan_' + whichone + '_vis', 0);
+	} else {
+		E('sesdiv_' + whichone).style.display='';
+		E('sesdiv_' + whichone + '_showhide').innerHTML = '(Click here to hide)';
+		cookie.set('advanced_vlan_' + whichone + '_vis', 1);
+	}
 }
 
 function earlyInit()
@@ -795,8 +810,8 @@ function earlyInit()
 <div class='section'>
   <table class='tomato-grid' cellspacing=1 id='vlan-grid'></table>
   </div>
-  <div class='section-title'>Wireless</div>
-  <div class='section'>
+  <div class='section-title'>Wireless <small><i><a href='javascript:toggleVisibility("wireless");'><span id='sesdiv_wireless_showhide'>(Click here to show)</span></a></i></small></div>
+  <div class='section' id='sesdiv_wireless' style='display:none'>
   <script type='text/javascript'>
   var f = [];
   for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
@@ -819,8 +834,8 @@ REMOVE-END */
   </script>
 </div>
 
-<div class='section-title'>Notes</div>
-<div class='section'>
+<div class='section-title'>Notes <small><i><a href='javascript:toggleVisibility("notes");'><span id='sesdiv_notes_showhide'>(Click here to show)</span></a></i></small></div>
+<div class='section' id='sesdiv_notes' style='display:none'>
 <ul>
 <li><b>VID</b> - Unique identifier of a VLAN.</li>
 <li><b>Ports 1-4 &amp; WAN</b> - Which ethernet ports on the router should be members of this VLAN.</li>
