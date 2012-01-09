@@ -317,7 +317,7 @@ createFieldTable('', [
 
 <script type='text/javascript'>
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-u = wl_unit(uidx);
+u = wl_fface(uidx);
 W('<div class=\'section-title\' id=\'wl'+uidx+'-title\'>Wireless');
 if (wl_ifaces.length > 1)
 	W(' (' + wl_display_ifname(uidx) + ')');
