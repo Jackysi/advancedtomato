@@ -24,7 +24,7 @@
 /* REMOVE-BEGIN
 	!!TB - added qos_pfifo
 REMOVE-END */
-//	<% nvram("qos_classnames,qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_default,qos_pfifo,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma"); %>
+//	<% nvram("qos_classnames,qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_udp,qos_default,qos_pfifo,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma"); %>
 
 var classNames = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
 
@@ -136,6 +136,7 @@ function save()
 	fom.qos_fin.value = E('_f_qos_fin').checked ? 1 : 0;
 	fom.qos_rst.value = E('_f_qos_rst').checked ? 1 : 0;
 	fom.qos_icmp.value = E('_f_qos_icmp').checked ? 1 : 0;
+	fom.qos_udp.value = E('_f_qos_udp').checked ? 1 : 0;
 	fom.qos_reset.value = E('_f_qos_reset').checked ? 1 : 0;
 
 	qos = [];
@@ -196,6 +197,7 @@ function save()
 <input type='hidden' name='qos_fin'>
 <input type='hidden' name='qos_rst'>
 <input type='hidden' name='qos_icmp'>
+<input type='hidden' name='qos_udp'>
 <input type='hidden' name='qos_orates'>
 <input type='hidden' name='qos_irates'>
 <input type='hidden' name='qos_reset'>
@@ -220,6 +222,7 @@ createFieldTable('', [
 		{ suffix: ' RST &nbsp;', name: 'f_qos_rst', type: 'checkbox', value: nvram.qos_rst == '1' }
 	] },
 	{ title: 'Prioritize ICMP', name: 'f_qos_icmp', type: 'checkbox', value: nvram.qos_icmp == '1' },
+	{ title: 'No Ingress QOS for UDP', name: 'f_qos_udp', type: 'checkbox', value: nvram.qos_udp == '1' },
 	{ title: 'Reset class when changing settings', name: 'f_qos_reset', type: 'checkbox', value: nvram.qos_reset == '1' },
 	{ title: 'Default class', name: 'qos_default', type: 'select', options: classList, value: nvram.qos_default },
 /* REMOVE-BEGIN
