@@ -501,6 +501,7 @@ const defaults_t defaults[] = {
 	{ "qos_syn",			"1"				},
 	{ "qos_fin",			"1"				},
 	{ "qos_rst",			"1"				},
+	{ "qos_udp",			"0"				},
 	{ "qos_icmp",			"1"				},
 	{ "qos_reset",			"1"				},
 	{ "qos_obw",			"700"				},

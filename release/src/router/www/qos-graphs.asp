@@ -324,7 +324,7 @@ if (nvram.qos_enable != '1') {
 
 </td></tr>
 <tr><td id='footer' colspan=2>
-	<script type='text/javascript'>genStdRefresh(1,1,'ref.toggle()');</script>
+	<script type='text/javascript'>genStdRefresh(1,2,'ref.toggle()');</script>
 </td></tr>
 </table>
 </form>
