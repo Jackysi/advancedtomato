@@ -24,22 +24,23 @@
 /* REMOVE-BEGIN
 	!!TB - added qos_pfifo
 REMOVE-END */
-//	<% nvram("qos_classnames,qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_default,qos_pfifo,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma"); %>
+//	<% nvram("qos_classnames,qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_udp,qos_default,qos_pfifo,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma"); %>
 
 var classNames = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
 
-pctListin = [[0, 'No Limit']];
+pctListin = [];
 for (i = 1; i <= 100; ++i) pctListin.push([i, i + '%']);
 
-pctListout = [[0, '0']];
+pctListout = [];
 for (i = 1; i <= 100; ++i) pctListout.push([i, i + '%']);
 
-function oscale(rate, ceil)
+function scale(bandwidth, rate, ceil)
 {
+	if (bandwidth <= 0) return '';
 	if (rate <= 0) return '';
-	var b = E('_qos_obw').value;
-	var s = comma(MAX(Math.floor((b * rate) / 100), 1));
-	if (ceil > 0) s += ' - ' + MAX(Math.round((b * ceil) / 100), 1);
+
+	var s = comma(MAX(Math.floor((bandwidth * rate) / 100), 1));
+	if (ceil > 0) s += ' - ' + MAX(Math.round((bandwidth * ceil) / 100), 1);
 	return s + ' <small>kbit/s</small>';
 }
 
@@ -50,10 +51,27 @@ function toggleFiltersVisibility(){
 		E('qosclassnames').style.display='';
 }
 
-function iscale(ceil)
+function verifyClassCeilingAndRate(bandwidthString, rateString, ceilingString, resultsFieldName)
 {
-	if (ceil < 1) return '';
-	return comma(MAX(Math.floor((E('_qos_ibw').value * ceil) / 100), 1)) + ' <small>kbit/s</small>';
+	if (parseInt(ceilingString) >= parseInt(rateString))
+	{
+		elem.setInnerHTML(
+			resultsFieldName,
+			scale(
+				bandwidthString,
+				rateString,
+				ceilingString));
+	}
+	else
+	{
+		elem.setInnerHTML(
+                        resultsFieldName,
+                        'Ceiling must be greater than or equal to rate.');
+                                                                
+                return 0;
+	}	                                                                                        
+
+	return 1;
 }
 
 function verifyFields(focused, quiet)
@@ -61,13 +79,29 @@ function verifyFields(focused, quiet)
 	var i, e, b, f;
 
 	if (!v_range('_qos_obw', quiet, 10, 999999)) return 0;
-	for (i = 0; i < 10; ++i) {
-		elem.setInnerHTML('_okbps_' + i, oscale(E('_f_orate_' + i).value, E('_f_oceil_' + i).value));
+	for (i = 0; i < 10; ++i) 
+	{
+		if (!verifyClassCeilingAndRate(
+			E('_qos_obw').value,
+			E('_f_orate_' + i).value,
+			E('_f_oceil_' + i).value,
+			'_okbps_' + i))
+		{
+			return 0;
+		}
 	}
 
 	if (!v_range('_qos_ibw', quiet, 10, 999999)) return 0;
-	for (i = 0; i < 10; ++i) {
-		elem.setInnerHTML('_ikbps_' + i, iscale(E('_f_iceil_' + i).value));
+	for (i = 0; i < 10; ++i) 
+	{
+		if (!verifyClassCeilingAndRate(
+			E('_qos_ibw').value,
+			E('_f_irate_' + i).value,
+			E('_f_iceil_' + i).value,
+			'_ikbps_' + i))
+		{
+			return 0;
+		}
 	}
 
 	f = E('_fom').elements;
@@ -102,6 +136,7 @@ function save()
 	fom.qos_fin.value = E('_f_qos_fin').checked ? 1 : 0;
 	fom.qos_rst.value = E('_f_qos_rst').checked ? 1 : 0;
 	fom.qos_icmp.value = E('_f_qos_icmp').checked ? 1 : 0;
+	fom.qos_udp.value = E('_f_qos_udp').checked ? 1 : 0;
 	fom.qos_reset.value = E('_f_qos_reset').checked ? 1 : 0;
 
 	qos = [];
@@ -119,9 +154,13 @@ function save()
 	fom.qos_orates.value = a.join(',');
 
 	a = [];
-	for (i = 0; i < 10; ++i) {
-		a.push(E('_f_iceil_' + i).value);
+	
+	for (i = 0; i < 10; ++i) 
+	{
+		//a.push(E('_f_iceil_' + i).value);
+		a.push(E('_f_irate_' + i).value + '-' + E('_f_iceil_' + i).value);
 	}
+	
 	fom.qos_irates.value = a.join(',');
 
 	fom.ne_vegas.value = E('_f_ne_vegas').checked ? 1 : 0;
@@ -158,6 +197,7 @@ function save()
 <input type='hidden' name='qos_fin'>
 <input type='hidden' name='qos_rst'>
 <input type='hidden' name='qos_icmp'>
+<input type='hidden' name='qos_udp'>
 <input type='hidden' name='qos_orates'>
 <input type='hidden' name='qos_irates'>
 <input type='hidden' name='qos_reset'>
@@ -182,6 +222,7 @@ createFieldTable('', [
 		{ suffix: ' RST &nbsp;', name: 'f_qos_rst', type: 'checkbox', value: nvram.qos_rst == '1' }
 	] },
 	{ title: 'Prioritize ICMP', name: 'f_qos_icmp', type: 'checkbox', value: nvram.qos_icmp == '1' },
+	{ title: 'No Ingress QOS for UDP', name: 'f_qos_udp', type: 'checkbox', value: nvram.qos_udp == '1' },
 	{ title: 'Reset class when changing settings', name: 'f_qos_reset', type: 'checkbox', value: nvram.qos_reset == '1' },
 	{ title: 'Default class', name: 'qos_default', type: 'select', options: classList, value: nvram.qos_default },
 /* REMOVE-BEGIN
@@ -217,22 +258,40 @@ createFieldTable('', f);
 
 
 
-<div class='section-title'>Inbound Class Limits</div>
+<div class='section-title'>Inbound Rates / Limits</div>
 <div class='section'>
 <script type='text/javascript'>
-rates = nvram.qos_irates.split(',');
+allRates = nvram.qos_irates.split(',');
 f = [];
-f.push({ title: 'Max Available Bandwidth <small>(this is NOT an overall limit!)</small>', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s   (Set to measured bandwidth less 15-30%)</small>', value: nvram.qos_ibw });
+f.push({ title: 'Max Bandwidth Limit', name: 'qos_ibw', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s   (Set to measured bandwidth less 15-30%)</small>', value: nvram.qos_ibw });
 f.push(null);
-for (i = 0; i < 10; ++i) {
-	f.push({ title: classNames[i], multi: [
-			{ name:	'f_iceil_' + i, type: 'select', options: pctListin, value: rates[i] },
+
+f.push(
+	{
+		title: '', multi: [
+			{ title: 'Rate' },
+			{ title: 'Limit' } ]
+	});			
+
+for (i = 0; i < 10; ++i) 
+{
+	splitRate = allRates[i].split('-');
+	incoming_rate = splitRate[0] || 1;
+	incoming_ceil = splitRate[1] || 100;
+	
+	f.push(
+	{ 
+		title: classNames[i], multi: [
+			{ name:	'f_irate_' + i, type: 'select', options: pctListin, value: incoming_rate, suffix: ' ' },
+			{ name:	'f_iceil_' + i, type: 'select', options: pctListin, value: incoming_ceil },
 			{ custom: ' &nbsp; <span id="_ikbps_' + i + '"></span>' } ]
 	});
 }
 createFieldTable('', f);
 </script>
 </div>
+
+
 
 <div class='section-title'>QOS Class Names <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
 <div class='section' id='qosclassnames' style='display:none'>

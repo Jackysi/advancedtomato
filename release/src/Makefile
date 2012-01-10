@@ -714,9 +714,9 @@ endif
 ## Make the "VPN with no USB support" build
 v:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y USERPPTP=y NO_JFFS=y B=V BUILD_DESC="$(VPN)" USB=""  SNMP=y VLAN="$(VLAN)"
+	@$(MAKE) bin OPENVPN=y USERPPTP=y BBEXTRAS=y B=V BUILD_DESC="$(VPN)" USB=""  SNMP=y VLAN="$(VLAN)"
 else
-	@$(MAKE) bin OPENVPN=y USERPPTP=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB=""  SNMP=y VLAN="$(VLAN)"
+	@$(MAKE) bin OPENVPN=y USERPPTP=y NO_JFFS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB="" VLAN="$(VLAN)"
 endif
 
 ## Make the "Small VPN with no USB support" build
@@ -747,6 +747,9 @@ r2e:
 r2f:
 	@$(MAKE) f MIPS32=r2 BELKIN=y
 
+r2fs:
+	@$(MAKE) i MIPS32=r2
+
 r2i:
 	@$(MAKE) i MIPS32=r2
 
@@ -769,6 +772,9 @@ r2s:
 	@$(MAKE) s MIPS32=r2
 
 r2t:
+	@$(MAKE) t MIPS32=r2
+
+r2u:
 	@$(MAKE) t MIPS32=r2
 
 r2v:
@@ -884,21 +890,28 @@ else
 endif
 	@echo "s            S build (no USB support)"
 	@echo "f            F build (no USB support minus CIFS and RIPv1/2)"
+	@echo "fs           FS build (no USB support minus CIFS, JFFS, Zebra and RIPv1/2)"
 	@echo "v            V build (VPN with no USB support)"
+	@echo "vs           VS build (Small VPN with no USB support)"
 
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2a          MIPS Release 2 A build (standard)"
 	@echo "r2b          MIPS Release 2 B build (standard minus SSH)"
-	@echo "r2c          MIPS Release 2 V build (standard minus CIFS)"
+	@echo "r2c          MIPS Release 2 C build (standard minus CIFS)"
 	@echo "r2d          MIPS Release 2 D build (standard minus Samba server)"
 	@echo "r2e          MIPS Release 2 E build (standard plus VPN and extras)"
-	@echo "r2f          MIPS Release 2 F build (no USB support minus CIFS and RIPv1/2)"
+	@echo "r2f          MIPS Release 2 F build (no USB support minus CIFS, RIPv1/2)"
+	@echo "r2fs         MIPS Release 2 FS build (no USB support minus JFFS, CIFS, RIPv1/2, Zebra)"
 	@echo "r2i          MIPS Release 2 I build (IPv6 with no USB support minus CIFS and RIPv1/2)"
 	@echo "r2m          MIPS Release 2 M build (standard plus extras)"
 	@echo "r2nc         MIPS Release 2 NC build (standard plus VPN, extras and NOCAT)"
+	@echo "r2ncm        MIPS Release 2 NCM build (no USB support, plus NOCAT)"
+	@echo "r2ncs        MIPS Release 2 NCS build (standard plus NOCAT)"
 	@echo "r2s          MIPS Release 2 S build (no USB support)"
+	@echo "r2t          MIPS Release 2 T build (no USB support with extras)"
+	@echo "r2u          MIPS Release 2 U build (no USB support plus VPN with extras)"
 	@echo "r2v          MIPS Release 2 V build (VPN with no USB support)"
-	@echo "r2v          MIPS Release 2 V build (Small VPN with no USB support)"
+	@echo "r2vs         MIPS Release 2 VS build (Small VPN with no USB support)"
 	@echo "n60m         Linksys E-series build (60KB NVRAM, standard plus extras)"
 	@echo "n60e         Linksys E-series build (60KB NVRAM, standard plus VPN and extras)"
 	@echo "n60nc        Linksys E-series build (60KB NVRAM, standard plus extras, plus VPN, plus NOCAT)"

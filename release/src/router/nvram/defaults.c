@@ -365,6 +365,7 @@ const defaults_t defaults[] = {
 
 // basic-static
 	{ "dhcpd_static",		""				},
+	{ "arpbind_listed",		"0"				},	// AB - Enable static ARP for all devices on list
 
 // basic-wfilter
 	{ "wl_maclist",			""			},	// xx:xx:xx:xx:xx:xx ... = 17
@@ -500,6 +501,7 @@ const defaults_t defaults[] = {
 	{ "qos_syn",			"1"				},
 	{ "qos_fin",			"1"				},
 	{ "qos_rst",			"1"				},
+	{ "qos_udp",			"0"				},
 	{ "qos_icmp",			"1"				},
 	{ "qos_reset",			"1"				},
 	{ "qos_obw",			"700"				},
@@ -508,8 +510,8 @@ const defaults_t defaults[] = {
 	{ "qos_burst0",			""				},
 	{ "qos_burst1",			""				},
 	{ "qos_default",		"8"				},
-	{ "qos_orates",			"5-20,5-20,5-25,5-70,20-100,5-80,5-80,5-80,5-50,0-0"	},
-	{ "qos_irates",			"10,60,60,70,0,60,60,80,30,1"	},
+	{ "qos_orates",			"5-20,5-20,5-25,5-70,20-100,5-80,5-80,5-80,5-50,1-5"				},
+	{ "qos_irates",			"5-100,5-100,5-100,5-100,20-100,5-100,5-100,5-100,5-100,1-5" 			},
 	{ "qos_classnames",		"Service VOIP/Game Media Remote WWW Mail Messenger Download P2P/Bulk Crawl"	},
 
 	{ "ne_vegas",			"0"				},	// TCP Vegas
