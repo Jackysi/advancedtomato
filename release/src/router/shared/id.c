@@ -65,9 +65,7 @@ Ovislink WL1600GL		HW_BCM5354G           0x048E        8        0x11
 
 RT-N16				BCM4718               0x04cf       45        0x1218    0x0310      hardware_version=RT-N16-00-07-01-00 regulation_domain=0X10US sdram_init=0x419
 RT-N12				BCM4716               0x04cd       45        0x1201    0x????
-RT-N12B1			BCM5357               0x054d       45        0x1101    0x710
 RT-N10				BCM5356               0x04ec       45        0x1402    0x????
-RT-N10U				BCM5357               0x0550       45        0x1102    0x710
 RT-N66U				BCM4706               0xf5b2       00        0x1100    0x0110
 
 WNR3500L			BCM4718               0x04cf       3500      0x1213|02 0x0710|0x1710
@@ -142,10 +140,6 @@ int check_hw_type(void)
 		return HW_BCM5356;
 	case 0x489:
 		return HW_BCM4785;
-	case 0x0550:
-	case 0x054d:
-		return HW_BCM5357;
-
 #ifdef CONFIG_BCMWL5
 	case 0x04cd:
 	case 0xe4cd:
@@ -318,10 +312,6 @@ int get_model(void)
 		case HW_BCM5356:
 			if (nvram_match("boardrev", "0x1402")) return MODEL_RTN10;
 			break;
-		case HW_BCM5357:
-			if (nvram_match("boardrev", "0x1102")) return MODEL_RTN10U;
-			if (nvram_match("boardrev", "0x1101")) return MODEL_RTN12B1;
-			break;
 		case HW_BCM4716:
 			if (nvram_match("boardrev", "0x1201")) return MODEL_RTN12;
 			break;
@@ -393,3 +383,5 @@ int supports(unsigned long attr)
 {
 	return (strtoul(nvram_safe_get("t_features"), NULL, 0) & attr) != 0;
 }
+
+
