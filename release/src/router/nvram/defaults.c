@@ -184,7 +184,7 @@ const defaults_t defaults[] = {
 	{ "wl_radioids",		""				},	// List of radio IDs
 	{ "wl_ssid",			"wireless"			},	// Service set ID (network name)
 	{ "wl1_ssid",			"wireless1"			},
-	{ "wl_country_code",		"US"				},		// Country (default obtained from driver)
+	{ "wl_country_code",		"SG"				},	// Country (default obtained from driver)
 	{ "wl_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl1_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl_closed",			"0"				},	// Closed (hidden) network
@@ -465,7 +465,7 @@ const defaults_t defaults[] = {
 
 // advanced-wireless
 	{ "wl_txant",			"3"				},
-	{ "wl_txpwr",			"42"				},
+	{ "wl_txpwr",			"0"				},	// 0 = driver default power
 	{ "wl_maxassoc",		"128"				},	// Max associations driver could support
 	{ "wl_bss_maxassoc",		"128"				},
 	{ "wl_distance",		""				},
