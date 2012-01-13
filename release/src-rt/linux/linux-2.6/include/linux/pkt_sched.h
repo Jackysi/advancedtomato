@@ -38,9 +38,6 @@ struct tc_stats
 	__u32	pps;			/* Current flow packet rate */
 	__u32	qlen;
 	__u32	backlog;
-#ifdef __KERNEL__
-	spinlock_t *lock;
-#endif
 };
 
 struct tc_estimator
@@ -96,39 +93,12 @@ struct tc_fifo_qopt
 /* PRIO section */
 
 #define TCQ_PRIO_BANDS	16
+#define TCQ_MIN_PRIO_BANDS 2
 
 struct tc_prio_qopt
 {
 	int	bands;			/* Number of bands */
 	__u8	priomap[TC_PRIO_MAX+1];	/* Map: logical priority -> PRIO band */
-};
-
-/* CSZ section */
-
-struct tc_csz_qopt
-{
-	int		flows;		/* Maximal number of guaranteed flows */
-	unsigned char	R_log;		/* Fixed point position for round number */
-	unsigned char	delta_log;	/* Log of maximal managed time interval */
-	__u8		priomap[TC_PRIO_MAX+1];	/* Map: logical priority -> CSZ band */
-};
-
-struct tc_csz_copt
-{
-	struct tc_ratespec slice;
-	struct tc_ratespec rate;
-	struct tc_ratespec peakrate;
-	__u32		limit;
-	__u32		buffer;
-	__u32		mtu;
-};
-
-enum
-{
-	TCA_CSZ_UNSPEC,
-	TCA_CSZ_PARMS,
-	TCA_CSZ_RTAB,
-	TCA_CSZ_PTAB,
 };
 
 /* TBF section */
@@ -148,7 +118,10 @@ enum
 	TCA_TBF_PARMS,
 	TCA_TBF_RTAB,
 	TCA_TBF_PTAB,
+	__TCA_TBF_MAX,
 };
+
+#define TCA_TBF_MAX (__TCA_TBF_MAX - 1)
 
 
 /* TEQL section */
@@ -173,15 +146,15 @@ struct tc_sfq_qopt
  *
  *	The only reason for this is efficiency, it is possible
  *	to change these parameters in compile time.
- *
- *	If you need to play with these values use esfq instead.
+ *	
+ *	If you need to play with these values, use esfq instead.
  */
 
 /* ESFQ section */
 
 enum
 {
-	/* traditional */
+        /* traditional */
 	TCA_SFQ_HASH_CLASSIC,
 	TCA_SFQ_HASH_DST,
 	TCA_SFQ_HASH_SRC,
@@ -197,7 +170,7 @@ enum
 struct tc_esfq_qopt
 {
 	unsigned	quantum;	/* Bytes per round allocated to flow */
-	int		perturb_period; /* Period of hash perturbation */
+	int		perturb_period;	/* Period of hash perturbation */
 	__u32		limit;		/* Maximal packets in queue */
 	unsigned	divisor;	/* Hash divisor  */
 	unsigned	flows;		/* Maximal number of flows  */
@@ -211,7 +184,10 @@ enum
 	TCA_RED_UNSPEC,
 	TCA_RED_PARMS,
 	TCA_RED_STAB,
+	__TCA_RED_MAX,
 };
+
+#define TCA_RED_MAX (__TCA_RED_MAX - 1)
 
 struct tc_red_qopt
 {
@@ -223,6 +199,7 @@ struct tc_red_qopt
 	unsigned char   Scell_log;	/* cell size for idle damping */
 	unsigned char	flags;
 #define TC_RED_ECN	1
+#define TC_RED_HARDDROP	2
 };
 
 struct tc_red_xstats
@@ -243,40 +220,39 @@ enum
        TCA_GRED_PARMS,
        TCA_GRED_STAB,
        TCA_GRED_DPS,
+	   __TCA_GRED_MAX,
 };
 
-#define TCA_SET_OFF TCA_GRED_PARMS
+#define TCA_GRED_MAX (__TCA_GRED_MAX - 1)
+
 struct tc_gred_qopt
 {
-       __u32           limit;          /* HARD maximal queue length (bytes)    
-*/
-       __u32           qth_min;        /* Min average length threshold (bytes) 
-*/
-       __u32           qth_max;        /* Max average length threshold (bytes) 
-*/
-       __u32           DP;             /* upto 2^32 DPs */
-       __u32           backlog;        
-       __u32           qave;   
-       __u32           forced; 
-       __u32           early;  
-       __u32           other;  
-       __u32           pdrop;  
-
-       unsigned char   Wlog;           /* log(W)               */
-       unsigned char   Plog;           /* log(P_max/(qth_max-qth_min)) */
-       unsigned char   Scell_log;      /* cell size for idle damping */
-       __u8            prio;		/* prio of this VQ */
-       __u32	packets;
-       __u32	bytesin;
+	__u32		limit;        /* HARD maximal queue length (bytes)    */
+	__u32		qth_min;      /* Min average length threshold (bytes) */
+	__u32		qth_max;      /* Max average length threshold (bytes) */
+	__u32		DP;           /* upto 2^32 DPs */
+	__u32		backlog;
+	__u32		qave;
+	__u32		forced;
+	__u32		early;
+	__u32		other;
+	__u32		pdrop;
+	__u8		Wlog;         /* log(W)               */
+	__u8		Plog;         /* log(P_max/(qth_max-qth_min)) */
+	__u8		Scell_log;    /* cell size for idle damping */
+	__u8		prio;         /* prio of this VQ */
+	__u32		packets;
+	__u32		bytesin;
 };
+
 /* gred setup */
 struct tc_gred_sopt
 {
-       __u32		DPs;
-       __u32		def_DP;
-       __u8		grio;
-       __u8		pad1;
-       __u16		pad2;
+	__u32		DPs;
+	__u32		def_DP;
+	__u8		grio;
+	__u8		flags;
+	__u16		pad1;
 };
 
 /* HTB section */
@@ -311,7 +287,11 @@ enum
 	TCA_HTB_INIT,
 	TCA_HTB_CTAB,
 	TCA_HTB_RTAB,
+	__TCA_HTB_MAX,
 };
+
+#define TCA_HTB_MAX (__TCA_HTB_MAX - 1)
+
 struct tc_htb_xstats
 {
 	__u32 lends;
@@ -349,8 +329,11 @@ enum
 	TCA_HFSC_RSC,
 	TCA_HFSC_FSC,
 	TCA_HFSC_USC,
-	TCA_HFSC_MAX = TCA_HFSC_USC
+	__TCA_HFSC_MAX,
 };
+
+#define TCA_HFSC_MAX (__TCA_HFSC_MAX - 1)
+
 
 /* CBQ section */
 
@@ -433,9 +416,10 @@ enum
 	TCA_CBQ_RATE,
 	TCA_CBQ_RTAB,
 	TCA_CBQ_POLICE,
+	__TCA_CBQ_MAX,
 };
 
-#define TCA_CBQ_MAX	TCA_CBQ_POLICE
+#define TCA_CBQ_MAX	(__TCA_CBQ_MAX - 1)
 
 /* dsmark section */
 
@@ -445,10 +429,11 @@ enum {
 	TCA_DSMARK_DEFAULT_INDEX,
 	TCA_DSMARK_SET_TC_INDEX,
 	TCA_DSMARK_MASK,
-	TCA_DSMARK_VALUE
+	TCA_DSMARK_VALUE,
+	__TCA_DSMARK_MAX,
 };
 
-#define TCA_DSMARK_MAX TCA_DSMARK_VALUE
+#define TCA_DSMARK_MAX (__TCA_DSMARK_MAX - 1)
 
 /* ATM  section */
 
@@ -459,10 +444,11 @@ enum {
 	TCA_ATM_HDR,		/* LL header */
 	TCA_ATM_EXCESS,		/* excess traffic class (0 for CLP)  */
 	TCA_ATM_ADDR,		/* PVC address (for output only) */
-	TCA_ATM_STATE		/* VC state (ATM_VS_*; for output only) */
+	TCA_ATM_STATE,		/* VC state (ATM_VS_*; for output only) */
+	__TCA_ATM_MAX,
 };
 
-#define TCA_ATM_MAX	TCA_ATM_STATE
+#define TCA_ATM_MAX	(__TCA_ATM_MAX - 1)
 
 /* Network emulator */
 
@@ -471,16 +457,19 @@ enum
 	TCA_NETEM_UNSPEC,
 	TCA_NETEM_CORR,
 	TCA_NETEM_DELAY_DIST,
+	TCA_NETEM_REORDER,
+	TCA_NETEM_CORRUPT,
+	__TCA_NETEM_MAX,
 };
 
-#define TCA_NETEM_MAX	TCA_NETEM_DELAY_DIST
+#define TCA_NETEM_MAX (__TCA_NETEM_MAX - 1)
 
 struct tc_netem_qopt
 {
 	__u32	latency;	/* added delay (us) */
 	__u32   limit;		/* fifo limit (packets) */
 	__u32	loss;		/* random packet loss (0=none ~0=100%) */
-	__u32	gap;		/* re-ordering gap (0 for delay all) */
+	__u32	gap;		/* re-ordering gap (0 for none) */
 	__u32   duplicate;	/* random packet dup  (0=none ~0=100%) */
 	__u32	jitter;		/* random jitter in latency (us) */
 };
@@ -490,6 +479,18 @@ struct tc_netem_corr
 	__u32	delay_corr;	/* delay correlation */
 	__u32	loss_corr;	/* packet loss correlation */
 	__u32	dup_corr;	/* duplicate correlation  */
+};
+
+struct tc_netem_reorder
+{
+	__u32	probability;
+	__u32	correlation;
+};
+
+struct tc_netem_corrupt
+{
+	__u32	probability;
+	__u32	correlation;
 };
 
 #define NETEM_DIST_SCALE	8192
