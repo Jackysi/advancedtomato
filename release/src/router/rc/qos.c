@@ -94,7 +94,7 @@ void ipt_qos(void)
 			numeric (0:63) - dscp value
 			afXX, csX, be, ef - dscp class
 		class_prio:
-			0-8
+			0-10				// Changed from 8 in pkt_sched.h - Toastman
 			-1 = disabled
 
 		*/
@@ -433,7 +433,8 @@ void start_qos(void)
 			"\t$TQA parent 1:%d handle %d: $Q\n"
 			"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
 				i, rate, ceil,
-				x, calc(bw, rate), s, burst_leaf, (i >= 6) ? 7 : (i + 1), mtu,
+//				x, calc(bw, rate), s, burst_leaf, (i >= 6) ? 7 : (i + 1), mtu,
+				x, calc(bw, rate), s, burst_leaf, i, mtu,			//Toastman
 				x, x,
 				x, i + 1, x);
 	}
