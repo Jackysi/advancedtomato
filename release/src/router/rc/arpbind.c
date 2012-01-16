@@ -12,8 +12,6 @@ void start_arpbind(void) {
 	const char *ipaddr, *macaddr;
 	const char *name, *bind;
 
-	int anyways = nvram_get_int("arpbind_listed");
-
 	nvp = nv = strdup(nvram_safe_get("dhcpd_static"));
 
 	if (!nv) return;
@@ -30,7 +28,7 @@ void start_arpbind(void) {
 			continue;
 		if (strchr(macaddr,',') != NULL)
 			continue;
-		if ((strcmp(bind,"1") == 0) || (anyways))
+		if (strcmp(bind,"1") == 0)
 			eval ("arp", "-s", (char *)ipaddr, (char *)macaddr);
 	}
 	free(nv);

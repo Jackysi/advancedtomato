@@ -365,7 +365,6 @@ const defaults_t defaults[] = {
 
 // basic-static
 	{ "dhcpd_static",		""				},
-	{ "arpbind_listed",		"0"				},	// AB - Enable static ARP for all devices on list
 
 // basic-wfilter
 	{ "wl_maclist",			""			},	// xx:xx:xx:xx:xx:xx ... = 17
