@@ -186,9 +186,7 @@ enum {
 	MODEL_WHR3AG54,
 	MODEL_RT390W,
 	MODEL_RTN10,
-	MODEL_RTN10U,
 	MODEL_RTN12,
-	MODEL_RTN12B1,
 	MODEL_RTN16,
 	MODEL_RTN66U,
 	MODEL_WNR3500L,
@@ -233,7 +231,6 @@ enum {
 	HW_BCM4705L_BCM5325E_EWC,
 	HW_BCM5350,
 	HW_BCM5356,
-	HW_BCM5357,
 	HW_BCM4716,
 	HW_BCM4718,
 	HW_BCM4717,
@@ -325,3 +322,5 @@ extern const char *find_word(const char *buffer, const char *word);
 extern int remove_word(char *buffer, const char *word);
 
 #endif
+
+
