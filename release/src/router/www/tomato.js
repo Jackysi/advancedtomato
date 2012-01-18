@@ -2090,7 +2090,7 @@ TomatoRefresh.prototype = {
 function genStdTimeList(id, zero, min)
 {
 	var b = [];
-	var t = [3,4,5,10,15,30,60,120,180,240,300,10*60,15*60,20*60,30*60];
+	var t = [1,2,3,4,5,10,15,30,60,120,180,240,300,10*60,15*60,20*60,30*60];
 	var i, v;
 
 	if (min >= 0) {
@@ -2101,6 +2101,7 @@ function genStdTimeList(id, zero, min)
 			b.push('<option value=' + v + '>');
 			if (v == 60) b.push('1 minute');
 				else if (v > 60) b.push((v / 60) + ' minutes');
+				else if (v == 1) b.push('1 second');
 				else b.push(v + ' seconds');
 		}
 		b.push('</select> ');
@@ -2337,7 +2338,6 @@ function navi()
 		['IP Traffic', 			'ipt', 0, [
 			['Real-Time',		'realtime.asp'],
 			['Last 24 Hours',	'24.asp'],
-			['View Graphs',		'graphs.asp'],
 			['Transfer Rates',	'details.asp'],
 			['Daily',			'daily.asp'],
 			['Monthly',			'monthly.asp'] ] ],
@@ -2365,11 +2365,13 @@ function navi()
 			['MAC Address',		'mac.asp'],
 			['Miscellaneous',	'misc.asp'],
 			['Routing',			'routing.asp'],
+			['Wireless',		'wireless.asp']
 /* VLAN-BEGIN */
-			['VLAN',			'vlan.asp'],
+			,['VLAN',			'vlan.asp'],
 			['LAN Access',			'access.asp'],
+			['Virtual Wireless',		'wlanvifs.asp']
 /* VLAN-END */
-			['Wireless',		'wireless.asp'] ] ],
+			 ] ],
 		['Port Forwarding', 	'forward', 0, [
 			['Basic',			'basic.asp'],
 /* IPV6-BEGIN */

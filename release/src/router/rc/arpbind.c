@@ -24,7 +24,7 @@ void start_arpbind(void) {
 			continue;
 		if (strchr(macaddr,',') != NULL)
 			continue;
-		if ((strcmp(bind,"1") == 0) || (anyways))
+		if ((strcmp(bind,"1") == 0) || (anyways == 1))
 			eval ("arp", "-s", (char *)ipaddr, (char *)macaddr);
 	}
 	free(nv);

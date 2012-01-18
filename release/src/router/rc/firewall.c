@@ -71,6 +71,10 @@ FILE *ip6t_file;
 const int allowed_icmpv6[] = { 1, 2, 3, 4, 128, 129 };
 #endif
 
+static int is_sta(int idx, int unit, int subunit, void *param)
+{
+	return (nvram_match(wl_nvname("mode", unit, subunit), "sta") && (nvram_match(wl_nvname("bss_enabled", unit, subunit), "1")));
+}
 
 /*
 struct {
@@ -748,7 +752,8 @@ static void nat_table(void)
 
 		char *modem_ipaddr;
 		if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") )
-		     && (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0") )
+		     && (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0")
+		     && (!foreach_wif(1, NULL, is_sta)) )
 			ipt_write("-A POSTROUTING -o %s -d %s -j MASQUERADE\n", nvram_safe_get("wan_ifname"), modem_ipaddr);
 
 		for (i = 0; i < wanfaces.count; ++i) {
@@ -1007,8 +1012,6 @@ static void filter_forward(void)
 	char *p, *c;
 	int i;
 
-	ipt_account();
-		
 #ifdef TCONFIG_IPV6
 	ip6t_write(
 		"-A FORWARD -m rt --rt-type 0 -j DROP\n");
@@ -1245,6 +1248,8 @@ static void filter_log(void)
 	else {
 		limit[0] = 0;
 	}
+
+	ipt_account();
 
 #ifdef TCONFIG_IPV6
 	modprobe("ip6t_LOG");
