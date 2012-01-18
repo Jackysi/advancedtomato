@@ -84,6 +84,6 @@ void
 start_scanner();
 
 int
-wait_for_mount(const char * path);     // Tomato
+wait_for_mount(const char * path);	// Tomato
 
 #endif

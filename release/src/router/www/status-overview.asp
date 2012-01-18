@@ -38,6 +38,10 @@ wmo = {'ap':'Access Point','sta':'Wireless Client','wet':'Wireless Ethernet Brid
 auth = {'disabled':'-','wep':'WEP','wpa_personal':'WPA Personal (PSK)','wpa_enterprise':'WPA Enterprise','wpa2_personal':'WPA2 Personal (PSK)','wpa2_enterprise':'WPA2 Enterprise','wpaX_personal':'WPA / WPA2 Personal','wpaX_enterprise':'WPA / WPA2 Enterprise','radius':'Radius'};
 enc = {'tkip':'TKIP','aes':'AES','tkip+aes':'TKIP / AES'};
 bgmo = {'disabled':'-','mixed':'Auto','b-only':'B Only','g-only':'G Only','bg-mixed':'B/G Mixed','lrs':'LRS','n-only':'N Only'};
+
+lastjiffiestotal = 0;
+lastjiffiesidle = 0;
+lastjiffiesusage = 100;
 </script>
 
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
@@ -106,6 +110,7 @@ function c(id, htm)
 function show()
 {
 	c('cpu', stats.cpuload);
+	c('cpupercent', stats.cpupercent);
 	c('uptime', stats.uptime);
 	c('time', stats.time);
 	c('wanip', stats.wanip);
@@ -155,6 +160,7 @@ function show()
 				c('qual'+uidx, stats.qual[uidx] || '');
 			}
 		}
+		c('ifstatus'+uidx, wlstats[uidx].ifstatus || '');
 	}
 }
 
@@ -203,6 +209,7 @@ createFieldTable('', [
 	{ title: 'Time', rid: 'time', text: stats.time },
 	{ title: 'Uptime', rid: 'uptime', text: stats.uptime },
 	{ title: 'CPU Load <small>(1 / 5 / 15 mins)</small>', rid: 'cpu', text: stats.cpuload },
+	{ title: 'CPU Usage', rid: 'cpupercent', text: stats.cpupercent },
 	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory },
 	{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') },
 ]);
@@ -296,6 +303,10 @@ createFieldTable('', [
 	{ title: 'Router IP Address', text: nvram.lan_ipaddr },
 	{ title: 'Subnet Mask', text: nvram.lan_netmask },
 	{ title: 'Gateway', text: nvram.lan_gateway, ignore: nvram.wan_proto != 'disabled' },
+/* IPV6-BEGIN */
+	{ title: 'Router IPv6 Address', rid: 'ip6_lan', text: stats.ip6_lan, hidden: (stats.ip6_lan == '') },
+	{ title: 'IPv6 Link-local Address', rid: 'ip6_lan_ll', text: stats.ip6_lan_ll, hidden: (stats.ip6_lan_ll == '') },
+/* IPV6-END */
 	{ title: 'DNS', rid: 'dns', text: stats.dns, ignore: nvram.wan_proto != 'disabled' },
 	{ title: 'DHCP', text: s }
 ]);
@@ -306,26 +317,24 @@ createFieldTable('', [
 
 <script type='text/javascript'>
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-/* REMOVE-BEGIN
-//	u = wl_unit(uidx);
-REMOVE-END */
-	u = wl_fface(uidx);
-	W('<div class=\'section-title\' id=\'wl'+uidx+'-title\'>Wireless');
-	if (wl_ifaces.length > 0)
-		W(' (' + wl_display_ifname(uidx) + ')');
-	W('</div>');
-	W('<div class=\'section\' id=\'wl'+uidx+'-section\'>');
-	sec = auth[nvram['wl'+u+'_security_mode']] + '';
-	if (sec.indexOf('WPA') != -1) sec += ' + ' + enc[nvram['wl'+u+'_crypto']];
+u = wl_fface(uidx);
+W('<div class=\'section-title\' id=\'wl'+uidx+'-title\'>Wireless');
+if (wl_ifaces.length > 1)
+	W(' (' + wl_display_ifname(uidx) + ')');
+W('</div>');
+W('<div class=\'section\' id=\'wl'+uidx+'-section\'>');
+sec = auth[nvram['wl'+u+'_security_mode']] + '';
+if (sec.indexOf('WPA') != -1) sec += ' + ' + enc[nvram['wl'+u+'_crypto']];
 
-	wmode = wmo[nvram['wl'+u+'_mode']] + '';
-	if ((nvram['wl'+u+'_mode'] == 'ap') && (nvram['wl'+u+'_wds_enable'] * 1)) wmode += ' + WDS';
+wmode = wmo[nvram['wl'+u+'_mode']] + '';
+if ((nvram['wl'+u+'_mode'] == 'ap') && (nvram['wl'+u+'_wds_enable'] * 1)) wmode += ' + WDS';
 
-	createFieldTable('', [
-		{ title: 'MAC Address', text: nvram['wl'+u+'_hwaddr'] },
-		{ title: 'Wireless Mode', text: wmode },
-		{ title: 'Wireless Network Mode', text: bgmo[nvram['wl'+u+'_net_mode']], ignore: (wl_sunit(uidx)>=0) },
-		{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? '<b>Disabled</b>' : 'Enabled', ignore: (wl_sunit(uidx)>=0) },
+createFieldTable('', [
+	{ title: 'MAC Address', text: nvram['wl'+u+'_hwaddr'] },
+	{ title: 'Wireless Mode', text: wmode },
+	{ title: 'Wireless Network Mode', text: bgmo[nvram['wl'+u+'_net_mode']] },
+	{ title: 'Interface Status', rid: 'ifstatus'+uidx, text: wlstats[uidx].ifstatus },
+	{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? '<b>Disabled</b>' : 'Enabled' },
 /* REMOVE-BEGIN */
 //	{ title: 'SSID', text: (nvram['wl'+u+'_ssid'] + ' <small><i>' + ((nvram['wl'+u+'_mode'] != 'ap') ? '' : ((nvram['wl'+u+'_closed'] == 0) ? '(Broadcast Enabled)' : '(Broadcast Disabled)')) + '</i></small>') },
 /* REMOVE-END */

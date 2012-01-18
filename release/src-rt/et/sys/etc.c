@@ -36,10 +36,17 @@ typedef const struct si_pub  si_t;
 #endif /* ETROBO */
 
 uint32 et_msg_level =
+#ifdef BCMDBG
+	1;
+#else
 	0;
+#endif /* BCMDBG */
 
 /* local prototypes */
 static void etc_loopback(etc_info_t *etc, int on);
+#ifdef BCMDBG
+static void etc_dumpetc(etc_info_t *etc, struct bcmstrbuf *b);
+#endif /* BCMDBG */
 
 /* 802.1d priority to traffic class mapping. queues correspond one-to-one
  * with traffic classes.
@@ -282,6 +289,14 @@ etc_ioctl(etc_info_t *etc, int cmd, void *arg)
 	case ETCDUMP:
 		if (et_msg_level & 0x10000)
 			bcmdumplog((char *)arg, 4096);
+#ifdef BCMDBG
+		else
+		{
+			struct bcmstrbuf b;
+			bcm_binit(&b, (char*)arg, 4096);
+			et_dump(etc->et, &b);
+		}
+#endif /* BCMDBG */
 		break;
 
 	case ETCSETMSGLEVEL:
@@ -577,6 +592,72 @@ etc_qos(etc_info_t *etc, uint on)
 	et_init(etc->et, ET_INIT_DEF_OPTIONS);
 }
 
+#ifdef BCMDBG
+void
+etc_dump(etc_info_t *etc, struct bcmstrbuf *b)
+{
+	etc_dumpetc(etc, b);
+	(*etc->chops->dump)(etc->ch, b);
+}
+
+static void
+etc_dumpetc(etc_info_t *etc, struct bcmstrbuf *b)
+{
+	char perm[32], cur[32];
+	uint i;
+
+	bcm_bprintf(b, "etc 0x%x et 0x%x unit %d msglevel %d speed/duplex %d%s\n",
+		(ulong)etc, (ulong)etc->et, etc->unit, et_msg_level,
+		etc->speed, (etc->duplex ? "full": "half"));
+	bcm_bprintf(b, "up %d promisc %d loopbk %d forcespeed %d advertise 0x%x "
+	               "advertise2 0x%x needautoneg %d\n",
+	               etc->up, etc->promisc, etc->loopbk, etc->forcespeed,
+	               etc->advertise, etc->advertise2, etc->needautoneg);
+	bcm_bprintf(b, "piomode %d pioactive 0x%x nmulticast %d allmulti %d qos %d\n",
+		etc->piomode, (ulong)etc->pioactive, etc->nmulticast, etc->allmulti, etc->qos);
+	bcm_bprintf(b, "vendor 0x%x device 0x%x rev %d coreunit %d phyaddr %d mdcport %d\n",
+		etc->vendorid, etc->deviceid, etc->chiprev,
+		etc->coreunit, etc->phyaddr, etc->mdcport);
+
+	bcm_bprintf(b, "perm_etheraddr %s cur_etheraddr %s\n",
+		bcm_ether_ntoa(&etc->perm_etheraddr, perm),
+		bcm_ether_ntoa(&etc->cur_etheraddr, cur));
+
+	if (etc->nmulticast) {
+		bcm_bprintf(b, "multicast: ");
+		for (i = 0; i < etc->nmulticast; i++)
+			bcm_bprintf(b, "%s ", bcm_ether_ntoa(&etc->multicast[i], cur));
+		bcm_bprintf(b, "\n");
+	}
+
+	bcm_bprintf(b, "linkstate %d\n", etc->linkstate);
+	bcm_bprintf(b, "\n");
+
+	/* refresh stat counters */
+	(*etc->chops->statsupd)(etc->ch);
+
+	/* summary stat counter line */
+	/* use sw frame and byte counters -- hw mib counters wrap too quickly */
+	bcm_bprintf(b, "txframe %d txbyte %d txerror %d rxframe %d rxbyte %d rxerror %d\n",
+		etc->txframe, etc->txbyte, etc->txerror,
+		etc->rxframe, etc->rxbyte, etc->rxerror);
+
+	/* transmit & receive stat counters */
+	/* hardware mib pkt and octet counters wrap too quickly to be useful */
+	(*etc->chops->dumpmib)(etc->ch, b);
+
+	bcm_bprintf(b, "txnobuf %d reset %d dmade %d dmada %d dmape %d\n",
+	               etc->txnobuf, etc->reset, etc->dmade, etc->dmada, etc->dmape);
+
+	/* hardware mib pkt and octet counters wrap too quickly to be useful */
+	bcm_bprintf(b, "rxnobuf %d rxdmauflo %d rxoflo %d rxbadlen %d "
+	               "rxgiants %d rxoflodiscards %d\n",
+	               etc->rxnobuf, etc->rxdmauflo, etc->rxoflo, etc->rxbadlen,
+	               etc->rxgiants, etc->rxoflodiscards);
+
+	bcm_bprintf(b, "\n");
+}
+#endif /* BCMDBG */
 
 uint
 etc_totlen(etc_info_t *etc, void *p)
@@ -588,3 +669,32 @@ etc_totlen(etc_info_t *etc, void *p)
 		total += PKTLEN(etc->osh, p);
 	return (total);
 }
+
+#ifdef BCMDBG
+void
+etc_prhdr(char *msg, struct ether_header *eh, uint len, int unit)
+{
+	char da[32], sa[32];
+
+	if (msg && (msg[0] != '\0'))
+		printf("et%d: %s: ", unit, msg);
+	else
+		printf("et%d: ", unit);
+
+	printf("dst %s src %s type 0x%x len %d\n",
+		bcm_ether_ntoa((struct ether_addr *)eh->ether_dhost, da),
+		bcm_ether_ntoa((struct ether_addr *)eh->ether_shost, sa),
+		ntoh16(eh->ether_type),
+		len);
+}
+void
+etc_prhex(char *msg, uchar *buf, uint nbytes, int unit)
+{
+	if (msg && (msg[0] != '\0'))
+		printf("et%d: %s:\n", unit, msg);
+	else
+		printf("et%d:\n", unit);
+
+	prhex(NULL, buf, nbytes);
+}
+#endif /* BCMDBG */

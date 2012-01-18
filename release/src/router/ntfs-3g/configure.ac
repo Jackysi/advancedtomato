@@ -3,6 +3,7 @@
 #		 compilation.
 #
 # Copyright (c) 2000-2006 Anton Altaparmakov
+# Copyright (c) 2003 Jan Kratochvil
 # Copyright (c) 2005-2009 Szabolcs Szakacsits
 # Copyright (C) 2007-2008 Alon Bar-Lev
 #
@@ -23,8 +24,8 @@
 
 # Autoconf
 AC_PREREQ(2.59)
-AC_INIT([ntfs-3g],[2011.1.15],[ntfs-3g-devel@lists.sf.net])
-LIBNTFS_3G_VERSION="80"
+AC_INIT([ntfs-3g],[2011.4.12],[ntfs-3g-devel@lists.sf.net])
+LIBNTFS_3G_VERSION="81"
 AC_CONFIG_SRCDIR([src/ntfs-3g.c])
 
 # Environment
@@ -128,6 +129,20 @@ AC_ARG_ENABLE(
 )
 
 AC_ARG_ENABLE(
+	[ntfsprogs],
+	[AS_HELP_STRING([--disable-ntfsprogs],[disable ntfsprogs utilities
+		       (default=no)])],
+	,
+	[enable_ntfsprogs="yes"]
+)
+
+AC_ARG_ENABLE(crypto,
+	AS_HELP_STRING(--enable-crypto,enable crypto related code and utilities
+		       (default=no)), ,
+	enable_crypto=no
+)
+
+AC_ARG_ENABLE(
 	[nfconv],
 	[AS_HELP_STRING([--disable-nfconv],[disable the 'nfconv' patch, which adds support for Unicode normalization form conversion when built on Mac OS X @<:@default=enabled for Mac OS X@:>@])],
 	[enable_nfconv="no"],
@@ -152,6 +167,9 @@ ifdef(
 	[LT_INIT],
 	[AC_PROG_LIBTOOL]
 )
+
+AC_PROG_INSTALL
+PKG_PROG_PKG_CONFIG
 
 AC_PATH_PROG([MV], [mv])
 AC_PATH_PROG([RM], [rm])
@@ -256,6 +274,79 @@ else
 	FUSE_LIB_PATH=`$PKG_CONFIG --libs-only-L fuse | sed -e 's,/[/]*,/,g' -e 's,[ ]*$,,'`
 fi
 
+# Autodetect whether we can build crypto stuff or not.
+compile_crypto=false
+if test "$enable_crypto" != "no"; then
+	have_libgcrypt=false
+	AM_PATH_LIBGCRYPT(1.2.2, [ have_libgcrypt=true ],
+	[
+		if test "$enable_crypto" = "yes"; then
+			AC_MSG_ERROR([ntfsprogs crypto code requires the gcrypt library.])
+		else
+			AC_MSG_WARN([ntfsprogs crypto code requires the gcrypt library.])
+		fi
+	])
+	have_libgnutls=false
+	PKG_CHECK_MODULES(GNUTLS, gnutls >= 1.4.4, [ have_libgnutls=true ],
+		if test "$enable_crypto" = "yes"; then
+			AC_MSG_ERROR([ntfsprogs crypto code requires the gnutls library.])
+		else
+			AC_MSG_WARN([ntfsprogs crypto code requires the gnutls library.])
+		fi
+	)
+	if test "$have_libgcrypt" = "true"; then
+		if test "$have_libgnutls" = "true"; then
+			compile_crypto=true
+			AC_DEFINE([ENABLE_CRYPTO], 1,
+			[Define this to 1 if you want to enable support of
+			 encrypted files in libntfs and utilities.])
+		fi
+	fi
+fi
+AM_CONDITIONAL(ENABLE_CRYPTO, $compile_crypto)
+
+# add --with-extra-includes and --with-extra-libs switch to ./configure
+all_libraries="$all_libraries $USER_LDFLAGS"
+all_includes="$all_includes $USER_INCLUDES"
+AC_SUBST(all_includes)
+AC_SUBST(all_libraries)
+
+# Specify support for generating DCE compliant UUIDs (aka GUIDs).  We check if
+# uuid/uuid.h header is present and the uuid library is present that goes with
+# it and then check if uuid_generate() is present and usable.
+#
+# DCE UUIDs are enabled by default and can be disabled with the --disable-uuid
+# option to the configure script.
+AC_ARG_WITH(uuid, [
+  --with-uuid@<:@=PFX@:>@       generate DCE compliant UUIDs, with optional prefix
+                          to uuid library and headers @<:@default=detect@:>@
+  --without-uuid          do not generate DCE compliant UUIDs],
+	if test "$with_uuid" = "yes"; then
+		extrapath=default
+	elif test "$with_uuid" = "no"; then
+		extrapath=
+	else
+		extrapath=$with_uuid
+	fi,
+	extrapath=default
+)
+if test "x$extrapath" != "x"; then
+	if test "x$extrapath" != "xdefault"; then
+		MKNTFS_CPPFLAGS="$MKNTFS_CPPFLAGS -I$extrapath/include"
+		MKNTFS_LIBS="$MKNTFS_LIBS -L$extrapath/lib"
+	fi
+	AC_CHECK_HEADER([uuid/uuid.h],
+		AC_CHECK_LIB([uuid], [uuid_generate],
+			AC_DEFINE([ENABLE_UUID], 1,
+			[Define this to 1 if you want to enable generation of
+			DCE compliant UUIDs.])
+			MKNTFS_LIBS="$MKNTFS_LIBS -luuid",
+			AC_MSG_WARN([ntfsprogs DCE compliant UUID generation code requires the uuid library.]),
+		),
+		AC_MSG_WARN([ntfsprogs DCE compliant UUID generation code requires the uuid library.]),
+	)
+fi
+
 # Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS([ctype.h fcntl.h libgen.h libintl.h limits.h locale.h \
@@ -264,7 +355,7 @@ AC_CHECK_HEADERS([ctype.h fcntl.h libgen.h libintl.h limits.h locale.h \
 	endian.h byteswap.h sys/byteorder.h sys/endian.h sys/param.h \
 	sys/ioctl.h sys/mkdev.h sys/mount.h sys/stat.h sys/types.h sys/vfs.h \
 	sys/statvfs.h sys/sysmacros.h linux/major.h linux/fd.h linux/hdreg.h \
-	machine/endian.h windows.h syslog.h])
+	machine/endian.h windows.h syslog.h pwd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
@@ -280,6 +371,7 @@ AC_C_BIGENDIAN(
 	]
 	,
 )
+AC_C_CONST
 AC_C_INLINE
 AC_TYPE_OFF_T
 AC_TYPE_SIZE_T
@@ -389,6 +481,8 @@ AC_SUBST([rootsbindir])
 AC_SUBST([rootlibdir])
 AC_SUBST([LIBNTFS_3G_VERSION])
 AC_SUBST([LIBFUSE_LITE_LIBS])
+AC_SUBST([MKNTFS_CPPFLAGS])
+AC_SUBST([MKNTFS_LIBS])
 AC_SUBST([OUTPUT_FORMAT])
 AM_CONDITIONAL([FUSE_INTERNAL], [test "${with_fuse}" = "internal"])
 AM_CONDITIONAL([GENERATE_LDSCRIPT], [test "${enable_ldscript}" = "yes"])
@@ -398,6 +492,7 @@ AM_CONDITIONAL([RUN_LDCONFIG], [test "${enable_ldconfig}" = "yes"])
 AM_CONDITIONAL([REALLYSTATIC], [test "${enable_really_static}" = "yes"])
 AM_CONDITIONAL([INSTALL_LIBRARY], [test "${enable_library}" = "yes"])
 AM_CONDITIONAL([ENABLE_MOUNT_HELPER], [test "${enable_mount_helper}" = "yes"])
+AM_CONDITIONAL([ENABLE_NTFSPROGS], [test "${enable_ntfsprogs}" = "yes"])
 
 # workaround for <autoconf-2.60
 if test -z "${docdir}"; then
@@ -420,6 +515,20 @@ AC_CONFIG_FILES([
 	libntfs-3g/Makefile
 	libntfs-3g/libntfs-3g.pc
 	libntfs-3g/libntfs-3g.script.so
+	ntfsprogs/Makefile
+	ntfsprogs/mkntfs.8
+	ntfsprogs/ntfscat.8
+	ntfsprogs/ntfsclone.8
+	ntfsprogs/ntfscluster.8
+	ntfsprogs/ntfscmp.8
+	ntfsprogs/ntfscp.8
+	ntfsprogs/ntfsfix.8
+	ntfsprogs/ntfsinfo.8
+	ntfsprogs/ntfslabel.8
+	ntfsprogs/ntfsls.8
+	ntfsprogs/ntfsprogs.8
+	ntfsprogs/ntfsresize.8
+	ntfsprogs/ntfsundelete.8
 	src/Makefile
 	src/ntfs-3g.8
 	src/ntfs-3g.probe.8

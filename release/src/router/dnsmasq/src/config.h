@@ -14,7 +14,7 @@
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#define VERSION "2.57"
+#define VERSION "2.59"
 
 #define FTABSIZ 150 /* max number of outstanding requests (default) */
 #define MAX_PROCS 20 /* max no children for TCP requests */
@@ -74,7 +74,6 @@
 #define TFTP_MAX_CONNECTIONS 50 /* max simultaneous connections */
 #define LOG_MAX 5 /* log-queue length */
 #define RANDFILE "/dev/urandom"
-#define DAD_WAIT 20 /* retry binding IPv6 sockets for this long */
 #define EDNS0_OPTION_MAC 5 /* dyndns.org temporary assignment */
 
 /* DBUS interface specifics */
@@ -134,6 +133,12 @@ HAVE_IDN
          included when internationalisation support is built, using the 
 	 *-i18n makefile targets, even if HAVE_IDN is not explicitly set.
 
+HAVE_CONNTRACK
+   define this to include code which propogates conntrack marks from
+   incoming DNS queries to the corresponding upstream queries. This adds
+   a build-dependency on libnetfilter_conntrack, but the resulting binary will
+   still run happily on a kernel without conntrack support.
+
 NOTES:
    For Linux you should define 
       HAVE_LINUX_NETWORK
@@ -159,6 +164,7 @@ NOTES:
 #define HAVE_BROKEN_RTC
 /* #define HAVE_DBUS */
 /* #define HAVE_IDN */
+/* #define HAVE_CONNTRACK */
 
 /* Allow TFTP to be disabled with COPTS=-DNO_TFTP */
 #ifdef NO_TFTP

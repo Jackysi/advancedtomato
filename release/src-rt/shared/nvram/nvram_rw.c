@@ -168,6 +168,9 @@ BCMINITFN(find_nvram)(bool embonly, bool *isemb)
 				}
 			off <<= 1;
 		}
+#ifdef BCMDBG
+		printf("find_nvram: nvram not found, trying embedded nvram next\n");
+#endif /* BCMDBG */
 	}
 
 	/* Now check embedded nvram */

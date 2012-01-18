@@ -11,8 +11,7 @@
 
 #define MAX_NRULES	50
 
-
-static void unsched_restrictions(void)
+static inline void unsched_restrictions(void)
 {
 	system("cru d rcheck");
 }
@@ -80,6 +79,9 @@ int rcheck_main(int argc, char *argv[])
 #ifdef TCONFIG_IPV6
 	int r6;
 #endif
+#ifdef LINUX26
+	int ipt_active;
+#endif
 
 	if (!nvram_contains_word("log_events", "acre")) {
 		setlogmask(LOG_MASK(LOG_EMERG));	// can't set to 0
@@ -101,6 +103,10 @@ int rcheck_main(int argc, char *argv[])
 		now_mins = (tms->tm_hour * 60) + tms->tm_min;
 	}
 
+#ifdef LINUX26
+	ipt_active = 0;
+#endif
+
 	activated = strtoull(nvram_safe_get("rrules_activated"), NULL, 16);
 	count = 0;
 	radio = foreach_wif(0, NULL, radio_on) ? -1 : -2;
@@ -119,6 +125,11 @@ int rcheck_main(int argc, char *argv[])
 		else {
 			insch = in_sched(now_mins, now_dow, sched_begin, sched_end, sched_dow);
 		}
+
+#ifdef LINUX26
+		if ((insch) && (comp != '~'))
+			++ipt_active;
+#endif
 
 		n = 1 << nrule;
 		if ((insch) == ((activated & n) != 0)) {
@@ -192,6 +203,10 @@ int rcheck_main(int argc, char *argv[])
 #endif
 	}
 
+#ifdef LINUX26
+	allow_fastnat("restrictions", (ipt_active == 0));
+	try_enabling_fastnat();
+#endif
 	simple_unlock("restrictions");
 	return 0;
 }

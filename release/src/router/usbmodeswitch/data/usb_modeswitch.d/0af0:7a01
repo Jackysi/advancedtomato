@@ -1,0 +1,12 @@
+########################################################
+# Option HSO device
+
+DefaultVendor= 0x0af0
+DefaultProduct=0x7a01
+
+TargetClass=0xff
+
+MessageContent="55534243123456780000000000000601000000000000000000000000000000"
+
+CheckSuccess=20
+

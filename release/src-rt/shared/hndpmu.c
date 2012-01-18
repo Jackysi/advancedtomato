@@ -23,9 +23,17 @@
 #include <sbchipc.h>
 #include <hndpmu.h>
 
+#ifdef BCMDBG_ERR
+#define	PMU_ERROR(args)	printf args
+#else
 #define	PMU_ERROR(args)
+#endif	/* BCMDBG_ERR */
 
+#ifdef BCMDBG
+#define	PMU_MSG(args)	printf args
+#else
 #define	PMU_MSG(args)
+#endif	/* BCMDBG */
 
 /* To check in verbose debugging messages not intended
  * to be on except on private builds.
@@ -221,6 +229,9 @@ BCMINITFN(si_pmu_fast_pwrup_delay)(si_t *sih, osl_t *osh)
 	uint delay = PMU_MAX_TRANSITION_DLY;
 	chipcregs_t *cc;
 	uint origidx;
+#ifdef BCMDBG
+	char chn[8];
+#endif
 
 	ASSERT(sih->cccaps & CC_CAP_PMU);
 
@@ -973,6 +984,10 @@ static uint32
 BCMINITFN(si_pmu0_cpuclk0)(si_t *sih, osl_t *osh, chipcregs_t *cc)
 {
 	uint32 tmp, divarm;
+#ifdef BCMDBG
+	uint32 pdiv, wbint, wbfrac, fvco;
+	uint32 freq;
+#endif
 	uint32 FVCO = FVCO_880;
 
 	/* Read divarm from pllcontrol[0] */
@@ -980,6 +995,34 @@ BCMINITFN(si_pmu0_cpuclk0)(si_t *sih, osl_t *osh, chipcregs_t *cc)
 	tmp = R_REG(osh, &cc->pllcontrol_data);
 	divarm = (tmp & PMU0_PLL0_PC0_DIV_ARM_MASK) >> PMU0_PLL0_PC0_DIV_ARM_SHIFT;
 
+#ifdef BCMDBG
+	/* Calculate fvco based on xtal freq, pdiv, and wild */
+	pdiv = tmp & PMU0_PLL0_PC0_PDIV_MASK;
+
+	W_REG(osh, &cc->pllcontrol_addr, PMU0_PLL0_PLLCTL1);
+	tmp = R_REG(osh, &cc->pllcontrol_data);
+	wbfrac = (tmp & PMU0_PLL0_PC1_WILD_FRAC_MASK) >> PMU0_PLL0_PC1_WILD_FRAC_SHIFT;
+	wbint = (tmp & PMU0_PLL0_PC1_WILD_INT_MASK) >> PMU0_PLL0_PC1_WILD_INT_SHIFT;
+
+	W_REG(osh, &cc->pllcontrol_addr, PMU0_PLL0_PLLCTL2);
+	tmp = R_REG(osh, &cc->pllcontrol_data);
+	wbint += (tmp & PMU0_PLL0_PC2_WILD_INT_MASK) << PMU0_PLL0_PC2_WILD_INT_SHIFT;
+
+	freq = si_pmu0_alpclk0(sih, osh, cc) / 1000;
+
+	fvco = (freq * wbint) << 8;
+	fvco += (freq * (wbfrac >> 10)) >> 2;
+	fvco += (freq * (wbfrac & 0x3ff)) >> 10;
+	fvco >>= 8;
+	fvco >>= pdiv;
+	fvco /= 1000;
+	fvco *= 1000;
+
+	PMU_MSG(("si_pmu0_cpuclk0: wbint %u wbfrac %u fvco %u\n",
+	         wbint, wbfrac, fvco));
+
+	FVCO = fvco;
+#endif	/* BCMDBG */
 
 	/* Return ARM/SB clock */
 	return FVCO / (divarm + PMU0_PLL0_PC0_DIV_ARM_BASE) * 1000;
@@ -1114,6 +1157,9 @@ static const pmu1_xtaltab0_t BCMINITDATA(pmu1_xtaltab0_1440)[] = {
 static const pmu1_xtaltab0_t *
 BCMINITFN(si_pmu1_xtaltab0)(si_t *sih)
 {
+#ifdef BCMDBG
+	char chn[8];
+#endif
 
 	switch (CHIPID(sih->chip)) {
 	case BCM4325_CHIP_ID:
@@ -1132,6 +1178,9 @@ BCMINITFN(si_pmu1_xtaltab0)(si_t *sih)
 static const pmu1_xtaltab0_t *
 BCMINITFN(si_pmu1_xtaldef0)(si_t *sih)
 {
+#ifdef BCMDBG
+	char chn[8];
+#endif
 
 	switch (CHIPID(sih->chip)) {
 	case BCM4325_CHIP_ID:
@@ -1152,6 +1201,9 @@ BCMINITFN(si_pmu1_xtaldef0)(si_t *sih)
 static uint32
 BCMINITFN(si_pmu1_pllfvco0)(si_t *sih)
 {
+#ifdef BCMDBG
+	char chn[8];
+#endif
 
 	switch (CHIPID(sih->chip)) {
 	case BCM4325_CHIP_ID:
@@ -1343,6 +1395,10 @@ static uint32
 BCMINITFN(si_pmu1_cpuclk0)(si_t *sih, osl_t *osh, chipcregs_t *cc)
 {
 	uint32 tmp, m1div;
+#ifdef BCMDBG
+	uint32 ndiv_int, ndiv_frac, p2div, p1div, fvco;
+	uint32 fref;
+#endif
 	uint32 FVCO = si_pmu1_pllfvco0(sih);
 
 	/* Read m1div from pllcontrol[1] */
@@ -1350,6 +1406,38 @@ BCMINITFN(si_pmu1_cpuclk0)(si_t *sih, osl_t *osh, chipcregs_t *cc)
 	tmp = R_REG(osh, &cc->pllcontrol_data);
 	m1div = (tmp & PMU1_PLL0_PC1_M1DIV_MASK) >> PMU1_PLL0_PC1_M1DIV_SHIFT;
 
+#ifdef BCMDBG
+	/* Read p2div/p1div from pllcontrol[0] */
+	W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL0);
+	tmp = R_REG(osh, &cc->pllcontrol_data);
+	p2div = (tmp & PMU1_PLL0_PC0_P2DIV_MASK) >> PMU1_PLL0_PC0_P2DIV_SHIFT;
+	p1div = (tmp & PMU1_PLL0_PC0_P1DIV_MASK) >> PMU1_PLL0_PC0_P1DIV_SHIFT;
+
+	/* Calculate fvco based on xtal freq and ndiv and pdiv */
+	W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL2);
+	tmp = R_REG(osh, &cc->pllcontrol_data);
+	ndiv_int = (tmp & PMU1_PLL0_PC2_NDIV_INT_MASK) >> PMU1_PLL0_PC2_NDIV_INT_SHIFT;
+
+	W_REG(osh, &cc->pllcontrol_addr, PMU1_PLL0_PLLCTL3);
+	tmp = R_REG(osh, &cc->pllcontrol_data);
+	ndiv_frac = (tmp & PMU1_PLL0_PC3_NDIV_FRAC_MASK) >> PMU1_PLL0_PC3_NDIV_FRAC_SHIFT;
+
+	fref = si_pmu1_alpclk0(sih, osh, cc) / 1000;
+
+	fvco = (fref * ndiv_int) << 8;
+	fvco += (fref * (ndiv_frac >> 12)) >> 4;
+	fvco += (fref * (ndiv_frac & 0xfff)) >> 12;
+	fvco >>= 8;
+	fvco *= p2div;
+	fvco /= p1div;
+	fvco /= 1000;
+	fvco *= 1000;
+
+	PMU_MSG(("si_pmu1_cpuclk0: ndiv_int %u ndiv_frac %u p2div %u p1div %u fvco %u\n",
+	         ndiv_int, ndiv_frac, p2div, p1div, fvco));
+
+	FVCO = fvco;
+#endif	/* BCMDBG */
 
 	/* Return ARM/SB clock */
 	return FVCO / m1div * 1000;
@@ -1361,6 +1449,9 @@ BCMINITFN(si_pmu_pll_init)(si_t *sih, osl_t *osh, uint xtalfreq)
 {
 	chipcregs_t *cc;
 	uint origidx;
+#ifdef BCMDBG
+	char chn[8];
+#endif
 
 	ASSERT(sih->cccaps & CC_CAP_PMU);
 
@@ -1446,6 +1537,9 @@ BCMINITFN(si_pmu_alp_clock)(si_t *sih, osl_t *osh)
 	chipcregs_t *cc;
 	uint origidx;
 	uint32 clock = ALP_CLOCK;
+#ifdef BCMDBG
+	char chn[8];
+#endif
 
 	ASSERT(sih->cccaps & CC_CAP_PMU);
 
@@ -1550,6 +1644,9 @@ BCMINITFN(si_pmu_si_clock)(si_t *sih, osl_t *osh)
 	chipcregs_t *cc;
 	uint origidx;
 	uint32 clock = HT_CLOCK;
+#ifdef BCMDBG
+	char chn[8];
+#endif
 
 	ASSERT(sih->cccaps & CC_CAP_PMU);
 
@@ -1721,6 +1818,9 @@ BCMINITFN(si_sdiod_drive_strength_init)(si_t *sih, osl_t *osh, uint drivestrengt
 	sdiod_drive_str_t *str_tab = NULL;
 	uint32 str_mask = 0;
 	uint32 str_shift = 0;
+#ifdef BCMDBG
+	char chn[8];
+#endif
 
 	if (!(sih->cccaps & CC_CAP_PMU)) {
 		return;
@@ -2025,6 +2125,9 @@ si_pmu_spuravoid(si_t *sih, osl_t *osh, bool spuravoid)
 	chipcregs_t *cc;
 	uint origidx, intr_val;
 	uint32 tmp = 0;
+#ifdef BCMDBG_ERR
+	char chn[8];
+#endif
 
 	/* Remember original core before switch to chipc */
 	cc = (chipcregs_t *)si_switch_core(sih, CC_CORE_ID, &origidx, &intr_val);

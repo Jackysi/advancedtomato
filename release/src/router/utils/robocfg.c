@@ -160,8 +160,18 @@ static u32 robo_read32(robo_t *robo, u8 page, u8 reg)
 {
 	robo_reg(robo, page, reg, REG_MII_ADDR_READ);
 	
-	return mdio_read(robo, ROBO_PHY_ADDR, REG_MII_DATA0) +
-		(mdio_read(robo, ROBO_PHY_ADDR, REG_MII_DATA0 + 1) << 16);
+	return ((u32 )mdio_read(robo, ROBO_PHY_ADDR, REG_MII_DATA0)) |
+		((u32 )mdio_read(robo, ROBO_PHY_ADDR, REG_MII_DATA0 + 1) << 16);
+}
+
+static void robo_write(robo_t *robo, u8 page, u8 reg, u16 *val, int count)
+{
+	int i;
+
+	for (i = 0; i < count; i++)
+		mdio_write(robo, ROBO_PHY_ADDR, REG_MII_DATA0 + i, val[i]);
+
+	robo_reg(robo, page, reg, REG_MII_ADDR_WRITE);
 }
 
 static void robo_write16(robo_t *robo, u8 page, u8 reg, u16 val16)
@@ -175,8 +185,8 @@ static void robo_write16(robo_t *robo, u8 page, u8 reg, u16 val16)
 static void robo_write32(robo_t *robo, u8 page, u8 reg, u32 val32)
 {
 	/* write data */
-	mdio_write(robo, ROBO_PHY_ADDR, REG_MII_DATA0, val32 & 65535);
-	mdio_write(robo, ROBO_PHY_ADDR, REG_MII_DATA0 + 1, val32 >> 16);
+	mdio_write(robo, ROBO_PHY_ADDR, REG_MII_DATA0, (u16 )(val32 & 0xFFFF));
+	mdio_write(robo, ROBO_PHY_ADDR, REG_MII_DATA0 + 1, (u16 )(val32 >> 16));
 	
 	robo_reg(robo, page, reg, REG_MII_ADDR_WRITE);
 }
@@ -581,26 +591,48 @@ main(int argc, char *argv[])
 		{
 			break;
 		} else
-		if (strcasecmp(argv[i], "robowr") == 0 && (i + 2) < argc)
+		if (strncasecmp(argv[i], "robowr", 6) == 0 && (i + 2) < argc)
 		{
-			long pagereg = strtol(argv[i + 1], NULL, 0);
+			long pagereg = strtoul(argv[i + 1], NULL, 0);
+			int size = strtoul(argv[i] + 6, NULL, 0);
+			int k;
+			unsigned long long int v;
+			u16 buf[4];
 
-			robo_write16(&robo, pagereg >> 8, 
-				pagereg & 255, strtol(argv[i + 2], NULL, 0));
+			size = (size > 0 && size <= sizeof(buf) * 16) ? (size + 15) >> 4 : 1;
 
-			printf("Page 0x%02x, Reg 0x%02x: %04x\n",
-				(u16 )(pagereg >> 8), (u8 )(pagereg & 255),
-				robo_read16(&robo, pagereg >> 8, pagereg & 255));
+			v = strtoull(argv[i + 2], NULL, 0);
+			for (k = 0; k < size; k++)
+			{
+				buf[k] = (u16 )(v & 0xFFFF);
+				v >>= 16;
+			}
+			robo_write(&robo, pagereg >> 8, pagereg & 255, buf, size);
+
+			printf("Page 0x%02x, Reg 0x%02x: ",
+				(u16 )(pagereg >> 8), (u8 )(pagereg & 255));
+			robo_read(&robo, pagereg >> 8, pagereg & 255, buf, size);
+			while (size > 0)
+				printf("%04x", buf[--size]);
+			printf("\n");
 
 			i += 3;
 		} else
-		if (strcasecmp(argv[i], "robord") == 0 && (i + 1) < argc)
+		if (strncasecmp(argv[i], "robord", 6) == 0 && (i + 1) < argc)
 		{
-			long pagereg = strtol(argv[i + 1], NULL, 0);
+			long pagereg = strtoul(argv[i + 1], NULL, 0);
+			int size = strtoul(argv[i] + 6, NULL, 0);
+			u16 buf[4];
 
-			printf("Page 0x%02x, Reg 0x%02x: %04x\n",
-				(u16 )(pagereg >> 8), (u8 )(pagereg & 255),
-				robo_read16(&robo, pagereg >> 8, pagereg & 255));
+			size = (size > 0 && size <= sizeof(buf) * 16) ? (size + 15) >> 4 : 1;
+
+			printf("Page 0x%02x, Reg 0x%02x: ",
+				(u16 )(pagereg >> 8), (u8 )(pagereg & 255));
+
+			robo_read(&robo, pagereg >> 8, pagereg & 255, buf, size);
+			while (size > 0)
+				printf("%04x", buf[--size]);
+			printf("\n");
 
 			i += 2;
 		} else

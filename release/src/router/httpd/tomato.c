@@ -369,12 +369,9 @@ const aspapi_t aspapi[] = {
 	{ "link_uptime",		asp_link_uptime		},
 	{ "lipp",				asp_lipp			},
 	{ "netdev",				asp_netdev			},
-
-	{ "climon",				asp_climon			},
 	{ "iptraffic",			asp_iptraffic		},
 	{ "iptmon",				asp_iptmon			},
 	{ "ipt_bandwidth",		asp_ipt_bandwidth	},
-
 	{ "notice",				asp_notice			},
 	{ "nv",					asp_nv				},
 	{ "nvram",				asp_nvram 			},
@@ -386,6 +383,7 @@ const aspapi_t aspapi[] = {
 	{ "rrule",				asp_rrule			},
 	{ "statfs",				asp_statfs			},
 	{ "sysinfo",			asp_sysinfo			},
+	{ "jiffies",			asp_jiffies			},
 	{ "time",				asp_time			},
 	{ "upnpinfo",			asp_upnpinfo		},
 	{ "version",			asp_version			},
@@ -517,7 +515,7 @@ static const nvset_t nvset_list[] = {
 
 // basic-static
 	{ "bwm_client",			V_LENGTH(0, 4096)	},
-	{ "dhcpd_static",		V_LENGTH(0, 108*141)	},	// 106 (max chars per entry) x 140 entries
+	{ "dhcpd_static",		V_LENGTH(0, 108*141)	},	// 108 (max chars per entry) x 140 entries
 	{ "dhcpd_static_only",		V_01			},
 	{ "arpbind_static",		V_LENGTH(0, 34*141)	},	// 34 (max chars per entry) x 140 entries
 
@@ -547,9 +545,11 @@ static const nvset_t nvset_list[] = {
 	{ "ppp_custom",			V_LENGTH(0, 256)		},
 	{ "ppp_idletime",		V_RANGE(0, 1440)	},
 	{ "ppp_redialperiod",	V_RANGE(1, 86400)	},
+	{ "ppp_mlppp",			V_01				},
 	{ "mtu_enable",			V_01				},
 	{ "wan_mtu",			V_RANGE(576, 1500)	},
 	{ "wan_islan",			V_01				},
+	{ "modem_ipaddr",		V_IP				},
 
 	// LAN
 	{ "lan_ipaddr",			V_IP				},
@@ -707,9 +707,14 @@ static const nvset_t nvset_list[] = {
 	{ "multicast_lan2",		V_01				},
 	{ "multicast_lan3",		V_01				},
 #endif
+	{ "udpxy_enable",		V_01				},
+	{ "udpxy_stats",		V_01				},
+	{ "udpxy_clients",		V_RANGE(1, 5000)	},
+	{ "udpxy_port",			V_RANGE(0, 65535)	},
 	{ "block_loopback",		V_01				},
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},
+	{ "ne_snat",			V_01				},
 	{ "dhcp_pass",			V_01				},
 #ifdef TCONFIG_EMF
 	{ "emf_entry",			V_NONE				},
@@ -832,6 +837,7 @@ static const nvset_t nvset_list[] = {
 	{ "wl_nmode_protection",	V_WORD,				},	// off, auto
 	{ "wl_nmcsidx",			V_RANGE(-2, 32),	},	// -2 - 32
 	{ "wl_obss_coex",		V_01			},
+	{ "wl_wmf_bss_enable",		V_01				},	// Toastman
 
 // forward-dmz
 	{ "dmz_enable",			V_01				},
@@ -914,6 +920,7 @@ static const nvset_t nvset_list[] = {
 	{ "cstats_path",		V_LENGTH(0, 48)		},
 	{ "cstats_stime",		V_RANGE(1, 168)		},
 	{ "cstats_offset",		V_RANGE(1, 31)		},
+	{ "cstats_labels",		V_RANGE(0, 2)		},
 	{ "cstats_exclude",		V_LENGTH(0, 512)	},
 	{ "cstats_include",		V_LENGTH(0, 2048)	},
 	{ "cstats_all",			V_01				},
@@ -963,6 +970,8 @@ static const nvset_t nvset_list[] = {
 	{ "log_file",			V_01				},
 	{ "log_file_custom",		V_01				},
 	{ "log_file_path",		V_TEXT(0, 4096)			},
+	{ "log_file_size",		V_RANGE(0, 99999)	},
+	{ "log_file_keep",		V_RANGE(0, 99)		},
 	{ "log_limit",			V_RANGE(0, 2400)	},
 	{ "log_in",				V_RANGE(0, 3)		},
 	{ "log_out",			V_RANGE(0, 3)		},
@@ -991,6 +1000,9 @@ static const nvset_t nvset_list[] = {
 	{ "usb_uhci",			V_RANGE(-1, 1)			},	// -1 - disabled, 0 - off, 1 - on
 	{ "usb_ohci",			V_RANGE(-1, 1)			},
 	{ "usb_usb2",			V_RANGE(-1, 1)			},
+#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+	{ "usb_mmc",			V_RANGE(-1, 1)			},
+#endif
 	{ "usb_irq_thresh",		V_RANGE(0, 6)			},
 	{ "usb_storage",		V_01				},
 	{ "usb_printer",		V_01				},
@@ -1073,6 +1085,7 @@ static const nvset_t nvset_list[] = {
 	{ "qos_fin",			V_01				},
 	{ "qos_rst",			V_01				},
 	{ "qos_icmp",			V_01				},
+	{ "qos_udp",			V_01				},
 	{ "qos_reset",			V_01				},
 	{ "qos_pfifo",			V_01				}, // !!TB
 	{ "qos_obw",			V_RANGE(10, 999999)	},
@@ -1213,6 +1226,12 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client1_ca",       V_NONE              },
 	{ "vpn_client1_crt",      V_NONE              },
 	{ "vpn_client1_key",      V_NONE              },
+	{ "vpn_client1_userauth", V_01                },
+	{ "vpn_client1_username", V_TEXT(0,50)        },
+	{ "vpn_client1_password", V_TEXT(0,50)        },
+	{ "vpn_client1_useronly", V_01                },
+	{ "vpn_client1_tlsremote",V_01                },
+	{ "vpn_client1_cn",       V_NONE              },
 	{ "vpn_client2_poll",     V_RANGE(0, 1440)    },
 	{ "vpn_client2_if",       V_TEXT(3, 3)        },  // tap, tun
 	{ "vpn_client2_bridge",   V_01                },
@@ -1238,6 +1257,12 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client2_ca",       V_NONE              },
 	{ "vpn_client2_crt",      V_NONE              },
 	{ "vpn_client2_key",      V_NONE              },
+	{ "vpn_client2_userauth", V_01                },
+	{ "vpn_client2_username", V_TEXT(0,50)        },
+	{ "vpn_client2_password", V_TEXT(0,50)        },
+	{ "vpn_client2_useronly", V_01                },
+	{ "vpn_client2_tlsremote",V_01                },
+	{ "vpn_client2_cn",       V_NONE              },
 #endif // vpn
 
 
@@ -1275,6 +1300,22 @@ port_rate_limit_4	0-8
 wl_ap_ip
 wl_ap_ssid
 */
+	{ "pptp_client_enable",   V_01                  },
+	{ "pptp_client_peerdns",  V_RANGE(0,2)          },
+	{ "pptp_client_mtuenable",V_01                  },
+	{ "pptp_client_mtu",      V_RANGE(576, 1500)	},
+	{ "pptp_client_mruenable",V_01                  },
+	{ "pptp_client_mru",      V_RANGE(576, 1500)	},
+	{ "pptp_client_nat",      V_01                  },
+	{ "pptp_client_srvip",    V_NONE                },
+	{ "pptp_client_srvsub",   V_IP                  },
+	{ "pptp_client_srvsubmsk",V_IP                  },
+	{ "pptp_client_username", V_TEXT(0,50)          },
+	{ "pptp_client_passwd",   V_TEXT(0,50)          },
+	{ "pptp_client_crypt",    V_RANGE(0, 3)         },
+	{ "pptp_client_custom",   V_NONE                },
+	{ "pptp_client_dfltroute",V_01                  },
+	{ "pptp_client_stateless",V_01                  },
 
 	{ NULL }
 };

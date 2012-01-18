@@ -1,7 +1,7 @@
 /*
 
 	cstats
-	Copyright (C) 2011 Augusto Bott
+	Copyright (C) 2011-2012 Augusto Bott
 
 	based on rstats
 	Copyright (C) 2006-2009 Jonathan Zarate
@@ -37,51 +37,7 @@
 
 #include <tree.h>
 
-//#define DEBUG_NOISY
-//#define DEBUG_STIME
-
-//#ifdef DEBUG_NOISY
-//#define _dprintf(args...)	cprintf(args)
-//#define _dprintf(args...)	printf(args)
-//#else
-//#define _dprintf(args...)	do { } while (0)
-//#endif
-
-#define K 1024
-#define M (1024 * 1024)
-#define G (1024 * 1024 * 1024)
-
-#define SMIN	60
-#define	SHOUR	(60 * 60)
-#define	SDAY	(60 * 60 * 24)
-#define Y2K		946684800UL
-
-#define INTERVAL		120
-
-#define MAX_NSPEED		((24 * SHOUR) / INTERVAL)
-#define MAX_NDAILY		62
-#define MAX_NMONTHLY	25
-//#define MAX_SPEED_IP	64
-#define MAX_ROLLOVER	(225 * M)
-
-#define MAX_COUNTER	2
-#define RX 			0
-#define TX 			1
-
-#define DAILY		0
-#define MONTHLY		1
-
-#define ID_V0		0x30305352
-#define ID_V1		0x31305352
-#define ID_V2		0x32305352
-#define CURRENT_ID	ID_V2
-
-#define HI_BACK		5
-
-typedef struct {
-	uint32_t xtime;
-	uint64_t counter[MAX_COUNTER];
-} data_t;
+#include "cstats.h"
 
 long save_utime;
 char save_path[96];
@@ -91,34 +47,7 @@ volatile int gothup = 0;
 volatile int gotuser = 0;
 volatile int gotterm = 0;
 
-const char history_fn[] = "/var/lib/misc/cstats-history";
-const char uncomp_fn[] = "/var/tmp/cstats-uncomp";
-const char source_fn[] = "/var/lib/misc/cstats-source";
-
-typedef struct _Node {
-	char ipaddr[INET_ADDRSTRLEN];
-
-	uint32_t id;
-
-	data_t daily[MAX_NDAILY];
-	int dailyp;
-	data_t monthly[MAX_NMONTHLY];
-	int monthlyp;
-
-	long utime;
-	unsigned long speed[MAX_NSPEED][MAX_COUNTER];
-	unsigned long last[MAX_COUNTER];
-	int tail;
-	char sync;
-
-	TREE_ENTRY(_Node)	linkage;
-} Node;
-
-typedef TREE_HEAD(_Tree, _Node) Tree;
-
-TREE_DEFINE(_Node, linkage);
-
-/*
+#ifdef DEBUG_CSTATS
 void Node_print(Node *self, FILE *stream) {
 	fprintf(stream, "%s", self->ipaddr);
 }
@@ -134,7 +63,7 @@ void Tree_info(void) {
 	_dprintf("\n");
 	_dprintf("Tree depth = %d\n", TREE_DEPTH(&tree, linkage));
 }
-*/
+#endif
 
 Node *Node_new(char *ipaddr) {
 	Node *self;
@@ -165,12 +94,6 @@ static int get_stime(void) {
 #endif
 }
 
-typedef struct {
-	int mode;
-	int kn;
-	FILE *stream;
-} node_print_mode_t;
-
 void Node_save(Node *self, void *t) {
 	node_print_mode_t *info = (node_print_mode_t *)t;
 	if(fwrite(self, sizeof(Node), 1, info->stream) > 0) {
@@ -200,7 +123,6 @@ static int save_history_from_tree(const char *fname) {
 			sprintf(s, "gzip %s", fname);
 			system(s);
 		}
-
 	}
 	return info.kn;
 }
@@ -381,8 +303,7 @@ static int try_hardway(const char *fname) {
 	return found;
 }
 
-static void load_new(void)
-{
+static void load_new(void) {
 	char hgz[256];
 
 	sprintf(hgz, "%s.gz.new", history_fn);
@@ -579,11 +500,13 @@ static void bump(data_t *data, int *tail, int max, uint32_t xnow, unsigned long 
 }
 
 void Node_housekeeping(Node *self, void *info) {
+	if (self) {
 		if (self->sync == -1) {
 			self->sync = 0;
 		} else {
 			self->sync = 1;
 		}
+	}
 }
 
 static void calc(void) {
@@ -600,28 +523,29 @@ static void calc(void) {
 	unsigned long diff;
 	long tick;
 	int n;
-	char *exclude;
-	char *include;
+	char *exclude = NULL;
+	char *include = NULL;
 
-	Node *ptr;
+	Node *ptr = NULL;
 	Node test;
 
 	now = time(0);
-	exclude = nvram_safe_get("cstats_exclude");
-	include = nvram_safe_get("cstats_include");
 
+	exclude = strdup(nvram_safe_get("cstats_exclude"));
 	_dprintf("%s: cstats_exclude='%s'\n", __FUNCTION__, exclude);
+
+	include = strdup(nvram_safe_get("cstats_include"));
+	_dprintf("%s: cstats_include='%s'\n", __FUNCTION__, include);
+
 
 	unsigned long tx;
 	unsigned long rx;
 	char ip[INET_ADDRSTRLEN];
-
 	char br;
+
 	char name[] = "/proc/net/ipt_account/lanX";
 
 	for(br=0 ; br<=3 ; br++) {
-
-		char wholenetstatsline = 1;
 
 		char bridge[2] = "0";
 		if (br!=0)
@@ -633,40 +557,34 @@ static void calc(void) {
 
 		if ((f = fopen(name, "r")) == NULL) continue;
 
-//		_dprintf("%s: file %s opened\n", __FUNCTION__, name);
-//		if (!wholenetstatsline)
-//			fgets(buf, sizeof(buf), f); // network
-
 		while (fgets(buf, sizeof(buf), f)) {
-//		_dprintf("%s: read\n", __FUNCTION__);
 			if(sscanf(buf, 
+/*
 #if defined(LINUX26)
 				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dst = %lu %*u %*u %*u %*u packets_dst = %*u %*u %*u %*u %*u time = %*u",
 #else
 				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dest = %lu %*u %*u %*u %*u packets_dest = %*u %*u %*u %*u %*u time = %*u",
 #endif
-				ip, &rx, &tx) != 3 ) continue;
-//			_dprintf("%s: %s tx=%lu rx=%lu\n", __FUNCTION__, ip, tx, rx);
+*/
 
-//			if ((tx < 1) || (rx < 1)) continue;
+				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dst = %lu %*u %*u %*u %*u packets_dst = %*u %*u %*u %*u %*u time = %*u",
+//				"ip = %s bytes_src = %Lu %*Lu %*Lu %*Lu %*Lu packets_src = %*Lu %*Lu %*Lu %*Lu %*Lu bytes_dest = %Lu %*Lu %*Lu %*Lu %*Lu packets_dest = %*Lu %*Lu %*Lu %*Lu %*Lu time = %*lu",
+				ip, &rx, &tx) != 3 ) continue;
+#ifdef DEBUG_CSTATS
+			_dprintf("%s: %s tx=%lu rx=%lu\n", __FUNCTION__, ip, tx, rx);
+#endif
+
+			if (find_word(exclude, ip)) continue;
+			if ((tx < 1) && (rx < 1)) continue;
 
 			counter[0] = tx;
 			counter[1] = rx;
 			ipaddr=ip;
 
-//			_dprintf("%s: %s tx=%lu rx=%lu\n", __FUNCTION__, ipaddr, tx, rx);
-
-			if (find_word(exclude, ipaddr)) {
-				wholenetstatsline = 0;
-				continue;
-			}
-
 			strncpy(test.ipaddr, ipaddr, INET_ADDRSTRLEN);
 			ptr = TREE_FIND(&tree, _Node, linkage, &test);
 
-			if ((find_word(include, ipaddr)) || (wholenetstatsline == 1) || (ptr) || ((nvram_get_int("cstats_all")) && ((counter[0] > 0) || (counter[1] > 0)) )) {
-
-				wholenetstatsline = 0;
+			if ( (ptr) || (nvram_get_int("cstats_all")) || (find_word(include, ipaddr)) ) {
 
 				if (!ptr) {
 					_dprintf("%s: new ip: %s\n", __FUNCTION__, ipaddr);
@@ -675,18 +593,18 @@ static void calc(void) {
 					ptr->sync = 1;
 					ptr->utime = uptime;
 				}
-
-//				Tree_info();
-
+#ifdef DEBUG_CSTATS
+				Tree_info();
+#endif
 				_dprintf("%s: sync[%s]=%d\n", __FUNCTION__, ptr->ipaddr, ptr->sync);
 				if (ptr->sync) {
 					_dprintf("%s: sync[%s] changed to -1\n", __FUNCTION__, ptr->ipaddr);
 					ptr->sync = -1;
-/*
+#ifdef DEBUG_CSTATS
 					for (i = 0; i < MAX_COUNTER; ++i) {
 						_dprintf("%s: counter[%d]=%lu ptr->last[%d]=%lu\n", __FUNCTION__, i, counter[i], i, ptr->last[i]);
 					}
-*/
+#endif
 					memcpy(ptr->last, counter, sizeof(ptr->last));
 					memset(counter, 0, sizeof(counter));
 					for (i = 0; i < MAX_COUNTER; ++i) {
@@ -694,7 +612,9 @@ static void calc(void) {
 					}
 				}
 				else {
-//					_dprintf("%s: sync[%s] = %d \n", __FUNCTION__, ptr->ipaddr, ptr->sync);
+#ifdef DEBUG_CSTATS
+					_dprintf("%s: sync[%s] = %d \n", __FUNCTION__, ptr->ipaddr, ptr->sync);
+#endif
 					ptr->sync = -1;
 					_dprintf("%s: sync[%s] = %d \n", __FUNCTION__, ptr->ipaddr, ptr->sync);
 					tick = uptime - ptr->utime;
@@ -707,7 +627,9 @@ static void calc(void) {
 						for (i = 0; i < MAX_COUNTER; ++i) {
 							c = counter[i];
 							sc = ptr->last[i];
-//							_dprintf("%s: counter[%d]=%lu ptr->last[%d]=%lu c=%u sc=%u\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc);
+#ifdef DEBUG_CSTATS
+							_dprintf("%s: counter[%d]=%lu ptr->last[%d]=%lu c=%u sc=%u\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc);
+#endif
 							if (c < sc) {
 								diff = (0xFFFFFFFF - sc) + c;
 								if (diff > MAX_ROLLOVER) diff = 0;
@@ -722,7 +644,9 @@ static void calc(void) {
 						_dprintf("%s: ip=%s n=%d ptr->tail=%d\n", __FUNCTION__, ptr->ipaddr, n, ptr->tail);
 						for (j = 0; j < n; ++j) {
 							ptr->tail = (ptr->tail + 1) % MAX_NSPEED;
-//							_dprintf("%s: ip=%s j=%d n=%d ptr->tail=%d\n", __FUNCTION__, ptr->ipaddr, j, n, ptr->tail);
+#ifdef DEBUG_CSTATS
+							_dprintf("%s: ip=%s j=%d n=%d ptr->tail=%d\n", __FUNCTION__, ptr->ipaddr, j, n, ptr->tail);
+#endif
 							for (i = 0; i < MAX_COUNTER; ++i) {
 								ptr->speed[ptr->tail][i] = counter[i] / n;
 							}
@@ -732,12 +656,16 @@ static void calc(void) {
 				}
 
 				if (now > Y2K) {	/* Skip this if the time&date is not set yet */
-//					_dprintf("%s: calling bump %s ptr->dailyp=%d\n", __FUNCTION__, ptr->ipaddr, ptr->dailyp);
+#ifdef DEBUG_CSTATS
+					_dprintf("%s: calling bump %s ptr->dailyp=%d\n", __FUNCTION__, ptr->ipaddr, ptr->dailyp);
+#endif
 					tms = localtime(&now);
 					bump(ptr->daily, &ptr->dailyp, MAX_NDAILY,
 						(tms->tm_year << 16) | ((uint32_t)tms->tm_mon << 8) | tms->tm_mday, counter);
 
-//					_dprintf("%s: calling bump %s ptr->monthlyp=%d\n", __FUNCTION__, ptr->ipaddr, ptr->monthlyp);
+#ifdef DEBUG_CSTATS
+					_dprintf("%s: calling bump %s ptr->monthlyp=%d\n", __FUNCTION__, ptr->ipaddr, ptr->monthlyp);
+#endif
 					n = nvram_get_int("cstats_offset");
 					if ((n < 1) || (n > 31)) n = 1;
 					mon = now + ((1 - n) * (60 * 60 * 24));
@@ -751,13 +679,10 @@ static void calc(void) {
 		fclose(f);
 	}
 
-	// cleanup entries for next time
-	TREE_FORWARD_APPLY(&tree, _Node, linkage, Node_housekeeping, NULL);
-
 	// remove/exclude history (if we still have any data previously stored)
-	char *nvp, *nv, *b;
-	nvp = nv = strdup(nvram_safe_get("cstats_exclude"));
-	if (nv) {
+	char *nvp, *b;
+	nvp = exclude;
+	if (nvp) {
 		while ((b = strsep(&nvp, ",")) != NULL) {
 			_dprintf("%s: check exclude='%s'\n", __FUNCTION__, b);
 			strncpy(test.ipaddr, b, INET_ADDRSTRLEN);
@@ -769,8 +694,10 @@ static void calc(void) {
 				ptr = NULL;
 			}
 		}
-		free(nv);
 	}
+
+	// cleanup remaining entries for next time
+	TREE_FORWARD_APPLY(&tree, _Node, linkage, Node_housekeeping, NULL);
 
 	// todo: total > user ???
 	if (uptime >= save_utime) {
@@ -780,6 +707,16 @@ static void calc(void) {
 	}
 
 	_dprintf("%s: ====================================\n", __FUNCTION__);
+
+//QUIT:
+	if (exclude) {
+		free(exclude);
+		exclude = NULL;
+	}
+	if (include) {
+		free(include);
+		include = NULL;
+	}
 }
 
 static void sig_handler(int sig) {
@@ -806,7 +743,7 @@ int main(int argc, char *argv[]) {
 	long z;
 	int new;
 
-	printf("cstats - Copyright (C) 2011 Augusto Bott\n");
+	printf("cstats - Copyright (C) 2011-2012 Augusto Bott\n");
 	printf("based on rstats - Copyright (C) 2006-2009 Jonathan Zarate\n\n");
 
 	if (fork() != 0) return 0;

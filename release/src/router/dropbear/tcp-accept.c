@@ -61,6 +61,7 @@ static void tcp_acceptor(struct Listener *listener, int sock) {
 	if (getnameinfo((struct sockaddr*)&addr, len, ipstring, sizeof(ipstring),
 				portstring, sizeof(portstring), 
 				NI_NUMERICHOST | NI_NUMERICSERV) != 0) {
+		m_close(fd);
 		return;
 	}
 
@@ -81,6 +82,9 @@ static void tcp_acceptor(struct Listener *listener, int sock) {
 			port = tcpinfo->listenport;
 		}
 
+		if (addr == NULL) {
+			addr = "localhost";
+		}
 		buf_putstring(ses.writepayload, addr, strlen(addr));
 		buf_putint(ses.writepayload, port);
 

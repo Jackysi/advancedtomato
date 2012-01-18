@@ -104,6 +104,9 @@ static void chipphyinit(ch_t *ch, uint phyaddr);
 static void chipphyor(ch_t *ch, uint phyaddr, uint reg, uint16 v);
 static void chipphyforce(ch_t *ch, uint phyaddr);
 static void chipphyadvertise(ch_t *ch, uint phyaddr);
+#ifdef BCMDBG
+static void chipdumpregs(ch_t *ch, gmacregs_t *regs, struct bcmstrbuf *b);
+#endif /* BCMDBG */
 static void gmac_mf_cleanup(ch_t *ch);
 static int gmac_speed(ch_t *ch, uint32 speed);
 static void gmac_miiconfig(ch_t *ch);
@@ -456,8 +459,122 @@ chiplongname(ch_t *ch, char *buf, uint bufsize)
 static void
 chipdump(ch_t *ch, struct bcmstrbuf *b)
 {
+#ifdef BCMDBG
+	int32 i;
+
+	bcm_bprintf(b, "regs 0x%lx etphy 0x%lx ch->intstatus 0x%x intmask 0x%x\n",
+		(ulong)ch->regs, (ulong)ch->etphy, ch->intstatus, ch->intmask);
+	bcm_bprintf(b, "\n");
+
+	/* dma engine state */
+	for (i = 0; i < NUMTXQ; i++) {
+		dma_dump(ch->di[i], b, TRUE);
+		bcm_bprintf(b, "\n");
+	}
+
+	/* registers */
+	chipdumpregs(ch, ch->regs, b);
+	bcm_bprintf(b, "\n");
+
+	/* switch registers */
+#ifdef ETROBO
+	if (ch->etc->robo)
+		robo_dump_regs(ch->etc->robo, b);
+#endif /* ETROBO */
+#ifdef ETADM
+	if (ch->adm)
+		adm_dump_regs(ch->adm, b->buf);
+#endif /* ETADM */
+#endif	/* BCMDBG */
 }
 
+#ifdef BCMDBG
+
+#define	PRREG(name)	bcm_bprintf(b, #name " 0x%x ", R_REG(ch->osh, &regs->name))
+#define	PRMIBREG(name)	bcm_bprintf(b, #name " 0x%x ", R_REG(ch->osh, &regs->mib.name))
+
+static void
+chipdumpregs(ch_t *ch, gmacregs_t *regs, struct bcmstrbuf *b)
+{
+	uint phyaddr;
+
+	phyaddr = ch->etc->phyaddr;
+
+	PRREG(devcontrol); PRREG(devstatus);
+	bcm_bprintf(b, "\n");
+	PRREG(biststatus);
+	bcm_bprintf(b, "\n");
+	PRREG(intstatus); PRREG(intmask); PRREG(gptimer);
+	bcm_bprintf(b, "\n");
+	PRREG(intrecvlazy);
+	bcm_bprintf(b, "\n");
+	PRREG(flowctlthresh); PRREG(wrrthresh); PRREG(gmac_idle_cnt_thresh);
+	bcm_bprintf(b, "\n");
+	PRREG(phyaccess); PRREG(phycontrol);
+	bcm_bprintf(b, "\n");
+	PRREG(txqctl); PRREG(rxqctl);
+	bcm_bprintf(b, "\n");
+	PRREG(gpioselect); PRREG(gpio_output_en);
+	bcm_bprintf(b, "\n");
+	PRREG(clk_ctl_st); PRREG(pwrctl);
+	bcm_bprintf(b, "\n");
+
+	/* unimac registers */
+	PRREG(unimacversion); PRREG(hdbkpctl);
+	bcm_bprintf(b, "\n");
+	PRREG(cmdcfg);
+	bcm_bprintf(b, "\n");
+	PRREG(macaddrhigh); PRREG(macaddrlow);
+	bcm_bprintf(b, "\n");
+	PRREG(rxmaxlength); PRREG(pausequanta); PRREG(macmode);
+	bcm_bprintf(b, "\n");
+	PRREG(outertag); PRREG(innertag); PRREG(txipg); PRREG(pausectl);
+	bcm_bprintf(b, "\n");
+	PRREG(txflush); PRREG(rxstatus); PRREG(txstatus);
+	bcm_bprintf(b, "\n");
+
+	/* mib registers */
+	PRMIBREG(tx_good_octets); PRMIBREG(tx_good_pkts); PRMIBREG(tx_octets); PRMIBREG(tx_pkts);
+	bcm_bprintf(b, "\n");
+	PRMIBREG(tx_broadcast_pkts); PRMIBREG(tx_multicast_pkts);
+	bcm_bprintf(b, "\n");
+	PRMIBREG(tx_jabber_pkts); PRMIBREG(tx_oversize_pkts); PRMIBREG(tx_fragment_pkts);
+	bcm_bprintf(b, "\n");
+	PRMIBREG(tx_underruns); PRMIBREG(tx_total_cols); PRMIBREG(tx_single_cols);
+	bcm_bprintf(b, "\n");
+	PRMIBREG(tx_multiple_cols); PRMIBREG(tx_excessive_cols); PRMIBREG(tx_late_cols);
+	bcm_bprintf(b, "\n");
+	PRMIBREG(tx_defered); PRMIBREG(tx_carrier_lost); PRMIBREG(tx_pause_pkts);
+	bcm_bprintf(b, "\n");
+
+	PRMIBREG(rx_good_octets); PRMIBREG(rx_good_pkts); PRMIBREG(rx_octets); PRMIBREG(rx_pkts);
+	bcm_bprintf(b, "\n");
+	PRMIBREG(rx_broadcast_pkts); PRMIBREG(rx_multicast_pkts);
+	bcm_bprintf(b, "\n");
+	PRMIBREG(rx_jabber_pkts); PRMIBREG(rx_oversize_pkts); PRMIBREG(rx_fragment_pkts);
+	bcm_bprintf(b, "\n");
+	PRMIBREG(rx_missed_pkts); PRMIBREG(rx_crc_align_errs); PRMIBREG(rx_undersize);
+	bcm_bprintf(b, "\n");
+	PRMIBREG(rx_crc_errs); PRMIBREG(rx_align_errs); PRMIBREG(rx_symbol_errs);
+	bcm_bprintf(b, "\n");
+	PRMIBREG(rx_pause_pkts); PRMIBREG(rx_nonpause_pkts);
+	bcm_bprintf(b, "\n");
+	if (phyaddr != EPHY_NOREG) {
+		/* print a few interesting phy registers */
+		bcm_bprintf(b, "phy0 0x%x phy1 0x%x phy2 0x%x phy3 0x%x\n",
+		               chipphyrd(ch, phyaddr, 0),
+		               chipphyrd(ch, phyaddr, 1),
+		               chipphyrd(ch, phyaddr, 2),
+		               chipphyrd(ch, phyaddr, 3));
+		bcm_bprintf(b, "phy4 0x%x phy5 0x%x phy24 0x%x phy25 0x%x\n",
+		               chipphyrd(ch, phyaddr, 4),
+		               chipphyrd(ch, phyaddr, 5),
+		               chipphyrd(ch, phyaddr, 24),
+		               chipphyrd(ch, phyaddr, 25));
+	}
+
+}
+#endif	/* BCMDBG */
 
 static void
 gmac_clearmib(ch_t *ch)

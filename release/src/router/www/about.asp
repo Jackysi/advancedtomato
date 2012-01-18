@@ -101,17 +101,17 @@ IPv6 support,
 Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <br>
-<!-- VPN-BEGIN -->
-VPN integration and GUI Copyright (C) 2010 Keith Moyer,<br>
+<b>This compilation may also include:</b><br>
+<br>
+<!-- OPENVPN-BEGIN -->
+<b>OpenVPN integration and GUI</b><br>
+Copyright (C) 2010 Keith Moyer<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
-<!-- VPN-END -->
 <br>
-<b>This particular compilation/brew by Toastman/Teaman may also include:</b><br>
-<br>
+<!-- OPENVPN-END -->
 <b>"Teddy Bear" current features, notably:</b><br>
 - USB Support, Samba, FTP, Media Servers<br>
 - Web Monitor, Per-connection transfer rates<br>
-- Byte counter, QOS rule ID added to QOS/Details<br>
 - Additional ipv6 support in GUI, QOS, Conntrack<br>
 <a href='http://www.tomatousb.org/' target='_new'>http://www.tomatousb.org</a><br>
 <br>
@@ -138,15 +138,38 @@ Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
+
+<!-- JYAVENARD-BEGIN -->
+<b>"JYAvenard" Features:</b><br>
+<!-- OPENVPN-BEGIN -->
+- OpenVPN enhancements &amp; username/password only authentication<br>
+<!-- OPENVPN-END -->
+<!-- USERPPTP-BEGIN -->
+- PPTP VPN client integration and GUI<br>
+<!-- USERPPTP-END -->
+Copyright (C) 2010-2011 Jean-Yves Avenard<br>
+<a href='mailto:jean-yves@avenard.org'>jean-yves@avenard.org</a><br>
+<br>
+<!-- JYAVENARD-END -->
+
 <b>"Teaman" Features:</b><br>
-- QOS-detailed & ctrate filters<br>
-- Realtime bandwidth monitoring of LAN clients<br>
+- QOS-detailed & ctrate improved filters<br>
+- Per-IP bandwidth monitoring of LAN clients [cstats v2]<br>
+- IPTraffic conn/BW ratios graphs<br>
 - Static ARP binding<br>
-- VLAN administration GUI<br>
+- CPU % usage<br>  
+- Udpxy v1.0-Chipmunk-build 21<br>
+<!-- VLAN-BEGIN -->
 - Multiple LAN support integration and GUI<br>
 - Multiple/virtual SSID support (experimental)<br>
+<!-- VLAN-END -->
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
+<br>
+<b>"Tiomo" Features:</b><br>
+- IMQ based QOS Ingress<br>
+- Incoming Class Bandwidth pie chart<br>
+Copyright (C) 2012 Tiomo<br>
 <br>
 <b>"Toastman" Features:</b><br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
@@ -155,12 +178,10 @@ Copyright (C) 2011 Augusto Bott<br>
 - IMQ based QOS/Bandwidth Limiter<br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>
-- Extra Themes<br>
+- GPT support for HDD by Yaniv Hamo<br>
 <a href='http://www.linksysinfo.org/forums/showthread.php?t=60304' target='_new'>http://www.linksysinfo.org/forums/showthread.php?t=60304</a><br>
 <br>
-Development by Victek/PrinceAMD/Phykris/Shibby/Toastman/Teaman<br>
-<br>
-Based on Tomato Firmware v<% version(); %><br>
+<b>Based on Tomato Firmware v<% version(); %></b><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>
 <br>

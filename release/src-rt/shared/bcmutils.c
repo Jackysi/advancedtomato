@@ -1049,6 +1049,20 @@ bcmprinttslogs(void)
 }
 #endif	/* BCMTSTAMPEDLOGS */
 
+#ifdef BCMDBG
+/* pretty hex print a pkt buffer chain */
+void
+prpkt(const char *msg, osl_t *osh, void *p0)
+{
+	void *p;
+
+	if (msg && (msg[0] != '\0'))
+		printf("%s:\n", msg);
+
+	for (p = p0; p; p = PKTNEXT(osh, p))
+		prhex(NULL, PKTDATA(osh, p), PKTLEN(osh, p));
+}
+#endif	/* BCMDBG */
 
 /* Takes an Ethernet frame and sets out-of-bound PKTPRIO.
  * Also updates the inplace vlan tag if requested.
@@ -1756,8 +1770,8 @@ BCMROMFN(bcm_parse_ordered_tlvs)(void *buf, int buflen, uint key)
 	return NULL;
 }
 
-#if defined(WLMSG_PRHDRS) || defined(WLMSG_PRPKT) || defined(WLMSG_ASSOC) || \
-	defined(BCMDBG_DUMP)
+#if defined(BCMDBG) || defined(BCMDBG_ERR) || defined(WLMSG_PRHDRS) || \
+	defined(WLMSG_PRPKT) || defined(WLMSG_ASSOC) || defined(BCMDBG_DUMP)
 int
 bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len)
 {
@@ -1857,8 +1871,20 @@ prhex(const char *msg, uchar *buf, uint nbytes)
 	if (p != line)
 		printf("%s\n", line);
 }
-#endif 
+#endif /* BCMDBG || WLMSG_PRHDRS || WLMSG_PRPKT || WLMSG_ASSOC || BCMDBG_DUMP */
 
+#ifdef BCMDBG
+void
+deadbeef(void *p, uint len)
+{
+	static uint8 meat[] = { 0xde, 0xad, 0xbe, 0xef };
+
+	while (len-- > 0) {
+		*(uint8*)p = meat[((uintptr)p) & 3];
+		p = (uint8*)p + 1;
+	}
+}
+#endif /* BCMDBG */
 
 char *
 bcm_chipname(uint chipid, char *buf, uint len)

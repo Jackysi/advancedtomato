@@ -90,6 +90,7 @@ const defaults_t defaults[] = {
 	{ "wan_wins",			""				},	// x.x.x.x x.x.x.x ...
 	{ "wan_lease",			"86400"				},	// WAN lease time in seconds
 	{ "wan_islan",			"0"				},
+	{ "modem_ipaddr",		"0.0.0.0"		},	// modem IP address (i.e. PPPoE bridged modem)
 
 	{ "wan_primary",		"1"				},	// Primary wan connection
 	{ "wan_unit",			"0"				},	// Last configured connection
@@ -150,6 +151,7 @@ const defaults_t defaults[] = {
 	{ "ppp_get_ac",			""				},	// PPPoE Server ac name
 	{ "ppp_get_srv",		""				},	// PPPoE Server service name
 	{ "ppp_custom",			""				},	// PPPD additional options
+	{ "ppp_mlppp",			"0"				},	// PPPoE single line MLPPP
 
 	{ "pppoe_lei",			""				},
 	{ "pppoe_lef",			""				},
@@ -182,7 +184,7 @@ const defaults_t defaults[] = {
 	{ "wl_radioids",		""				},	// List of radio IDs
 	{ "wl_ssid",			"wireless"			},	// Service set ID (network name)
 	{ "wl1_ssid",			"wireless1"			},
-	{ "wl_country_code",		"US"				},		// Country (default obtained from driver)
+	{ "wl_country_code",		"SG"				},	// Country (default obtained from driver)
 	{ "wl_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl1_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl_closed",			"0"				},	// Closed (hidden) network
@@ -219,7 +221,7 @@ const defaults_t defaults[] = {
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
-	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3)    //Toastman - 0=off
+	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3|4)    //Toastman - 0=off
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"				},	// WEP encryption [64 | 128] // Add
 	{ "wl_wep_buf",			""				},	// save all settings for web // Add
@@ -309,7 +311,7 @@ const defaults_t defaults[] = {
 	{ "wl_radio_pwrsave_pps",	"10"			},	// Packets per second threshold for power save
 	{ "wl_radio_pwrsave_on_time",	"50"			},	// Radio on time for power save
 	// misc
-	{ "wl_wmf_bss_enable",		"0"			},	// WMF Enable/Disable
+	{ "wl_wmf_bss_enable",		"0"			},	// Wireless Multicast Forwarding Enable/Disable
 	{ "wl_rifs_advert",		"auto"			},	// RIFS mode advertisement
 	{ "wl_stbc_tx",			"auto"			},	// Default STBC TX setting
 	{ "wl_mcast_regen_bss_enable",	"1"			},	// MCAST REGEN Enable/Disable
@@ -396,7 +398,6 @@ const defaults_t defaults[] = {
 // advanced-misc
 	{ "boot_wait",			"on"				},
 	{ "wait_time",			"5"				},
-	{ "clkfreq",			""				},
 	{ "wan_speed",			"4"				},	// 0=10 Mb Full, 1=10 Mb Half, 2=100 Mb Full, 3=100 Mb Half, 4=Auto
 	{ "jumbo_frame_enable",		"0"				},	// Jumbo Frames support (for RT-N16/WNR3500L)
 	{ "jumbo_frame_size",		"2000"				},
@@ -429,7 +430,12 @@ const defaults_t defaults[] = {
 	{ "multicast_lan2",		"0"				},	// on LAN2 (br2)
 	{ "multicast_lan3",		"0"				},	// on LAN3 (br3)
 #endif
+	{ "udpxy_enable",		"0"				},
+	{ "udpxy_stats",		"0"				},
+	{ "udpxy_clients",		"3"				},
+	{ "udpxy_port",			"4022"			},
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
+	{ "ne_snat",			"0"				},	// use SNAT instead of MASQUERADE
 	{ "dhcp_pass",			"1"				},	// allow DHCP responses
 	{ "ne_shlimit",			"0,3,60"			},
 
@@ -458,7 +464,7 @@ const defaults_t defaults[] = {
 
 // advanced-wireless
 	{ "wl_txant",			"3"				},
-	{ "wl_txpwr",			"42"				},
+	{ "wl_txpwr",			"0"				},	// 0 = driver default power
 	{ "wl_maxassoc",		"128"				},	// Max associations driver could support
 	{ "wl_bss_maxassoc",		"128"				},
 	{ "wl_distance",		""				},
@@ -494,6 +500,7 @@ const defaults_t defaults[] = {
 	{ "qos_syn",			"1"				},
 	{ "qos_fin",			"1"				},
 	{ "qos_rst",			"1"				},
+	{ "qos_udp",			"0"				},
 	{ "qos_icmp",			"1"				},
 	{ "qos_reset",			"1"				},
 	{ "qos_obw",			"700"				},
@@ -502,8 +509,8 @@ const defaults_t defaults[] = {
 	{ "qos_burst0",			""				},
 	{ "qos_burst1",			""				},
 	{ "qos_default",		"8"				},
-	{ "qos_orates",			"5-20,5-20,5-25,5-70,20-100,5-80,5-80,5-80,5-50,0-0"	},
-	{ "qos_irates",			"10,60,60,70,0,60,60,80,30,1"	},
+	{ "qos_orates",			"5-20,5-20,5-25,5-70,20-100,5-80,5-80,5-80,5-50,1-5"				},
+	{ "qos_irates",			"5-100,5-100,5-100,5-100,20-100,5-100,5-100,5-100,5-100,1-5" 			},
 	{ "qos_classnames",		"Service VOIP/Game Media Remote WWW Mail Messenger Download P2P/Bulk Crawl"	},
 
 	{ "ne_vegas",			"0"				},	// TCP Vegas
@@ -590,7 +597,7 @@ const defaults_t defaults[] = {
 	{ "cstats_path",		""				},
 	{ "cstats_stime",		"48"			},
 	{ "cstats_offset",		"1"				},
-	{ "cstats_colors",		""				},
+	{ "cstats_labels",		"0"				},
 	{ "cstats_exclude",		""				},
 	{ "cstats_include",		""				},
 	{ "cstats_all",			"1"				},
@@ -626,8 +633,10 @@ const defaults_t defaults[] = {
 	{ "log_remoteip",		""				},
 	{ "log_remoteport",		"514"				},
 	{ "log_file",			"1"				},
-	{ "log_file_custom",		"0"				},
+	{ "log_file_custom",	"0"					},
 	{ "log_file_path",		"/var/log/messages"		},
+	{ "log_file_size",		"50"				},
+	{ "log_file_keep",		"1"				},
 	{ "log_limit",			"60"				},
 	{ "log_in",			"0"				},
 	{ "log_out",			"0"				},
@@ -666,6 +675,9 @@ const defaults_t defaults[] = {
 	{ "usb_uhci",			"0"				},
 	{ "usb_ohci",			"0"				},
 	{ "usb_usb2",			"1"				},
+#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+	{ "usb_mmc",			"-1"				},
+#endif
 	{ "usb_irq_thresh",		"0"				},
 	{ "usb_storage",		"1"				},
 	{ "usb_printer",		"1"				},
@@ -883,6 +895,23 @@ const defaults_t defaults[] = {
 	{ "vpn_client2_crt",      ""              },
 	{ "vpn_client2_key",      ""              },
 #endif	// vpn
+#ifdef TCONFIG_PPTP
+	{ "pptp_client_enable",   "0"             },
+	{ "pptp_client_peerdns",  "0"             },
+	{ "pptp_client_mtuenable","0"             },
+	{ "pptp_client_mtu",      "1450"          },
+	{ "pptp_client_mruenable","0"             },
+	{ "pptp_client_mru",      "1450"          },
+	{ "pptp_client_nat",      "0"             },
+	{ "pptp_client_srvip",    ""              },
+	{ "pptp_client_srvsub",   "10.0.0.0"      },
+	{ "pptp_client_srvsubmsk","255.0.0.0"     },
+	{ "pptp_client_username", ""              },
+	{ "pptp_client_passwd",   ""              },
+	{ "pptp_client_crypt",    "0"             },
+	{ "pptp_client_custom",   ""              },
+	{ "pptp_client_dfltroute","0"             },
+#endif
 
 #if 0
 // safe to remove?

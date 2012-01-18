@@ -765,12 +765,9 @@ static int get_chip(struct map_info *map, struct flchip *chip, unsigned long adr
 			        break;
 
 			if (time_after(jiffies, timeo)) {
-				/* Urgh. Resume and pretend we weren't here.  */
-				map_write(map, CMD(0xd0), adr);
-				/* Make sure we're in 'read status' mode if it had finished */
-				map_write(map, CMD(0x70), adr);
-				chip->state = FL_ERASING;
-				chip->oldstate = FL_READY;
+				/* Urgh. Resume and pretend we weren't here.
+				 * Make sure we're in 'read status' mode if it had finished */
+				put_chip(map, chip, adr);
 				printk(KERN_ERR "%s: Chip not ready after erase "
 				       "suspended: status = 0x%lx\n", map->name, status.x[0]);
 				return -EIO;
@@ -851,7 +848,6 @@ static void put_chip(struct map_info *map, struct flchip *chip, unsigned long ad
 
 	switch(chip->oldstate) {
 	case FL_ERASING:
-		chip->state = chip->oldstate;
 		/* What if one interleaved chip has finished and the
 		   other hasn't? The old code would leave the finished
 		   one in READY mode. That's bad, and caused -EROFS
@@ -1487,9 +1483,12 @@ static int __xipram do_write_buffer(struct map_info *map, struct flchip *chip,
 	int ret, wbufsize, word_gap, words;
 	const struct kvec *vec;
 	unsigned long vec_seek;
+	unsigned long initial_adr;
+	int initial_len = len;
 
 	wbufsize = cfi_interleave(cfi) << cfi->cfiq->MaxBufWriteSize;
 	adr += chip->start;
+	initial_adr = adr;
 	cmd_adr = adr & ~(wbufsize-1);
 
 	/* Let's determine this according to the interleave only once */
@@ -1502,7 +1501,7 @@ static int __xipram do_write_buffer(struct map_info *map, struct flchip *chip,
 		return ret;
 	}
 
-	XIP_INVAL_CACHED_RANGE(map, adr, len);
+	XIP_INVAL_CACHED_RANGE(map, initial_adr, initial_len);
 	ENABLE_VPP(map);
 	xip_disable(map, chip, cmd_adr);
 
@@ -1593,7 +1592,7 @@ static int __xipram do_write_buffer(struct map_info *map, struct flchip *chip,
 	chip->state = FL_WRITING;
 
 	ret = INVAL_CACHE_AND_WAIT(map, chip, cmd_adr,
-				   adr, len,
+				   initial_adr, initial_len,
 				   &chip->buffer_write_time);
 	if (ret) {
 		map_write(map, CMD(0x70), cmd_adr);

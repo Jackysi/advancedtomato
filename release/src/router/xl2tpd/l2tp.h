@@ -39,9 +39,10 @@ typedef unsigned long long _u64;
 #include <net/route.h>
 
 #define CONTROL_PIPE "/var/run/l2tp-control"
+#define CONTROL_PIPE_MESSAGE_SIZE 1024
 
 #define BINARY "xl2tpd"
-#define SERVER_VERSION "xl2tpd-1.2.8"
+#define SERVER_VERSION "xl2tpd-1.3.0"
 #define VENDOR_NAME "xelerance.com"
 #ifndef PPPD
 #define PPPD		"/usr/sbin/pppd"
@@ -83,7 +84,7 @@ struct payload_hdr
     _u16 Ns;                    /* Optional next sent */
     _u16 Nr;                    /* Optional next received */
     _u16 o_size;                /* Optional offset size */
-    _u16 o_pad;                 /* Optional offset padding */
+//    _u16 o_pad;                 /* Optional offset padding */
 } __attribute__((packed));
 
 #define NZL_TIMEOUT_DIVISOR 4   /* Divide TIMEOUT by this and

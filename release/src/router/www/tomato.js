@@ -2432,8 +2432,13 @@ REMOVE-END */
 /* USB-END */
 /* VPN-BEGIN */
 		['VPN Tunneling', 		'vpn', 0, [
-			['Server',			'server.asp'],
-			['Client',			'client.asp'] ] ],
+/* OPENVPN-BEGIN */
+			['OpenVPN Server',	'server.asp'],
+			['OpenVPN Client',	'client.asp'],
+/* OPENVPN-END */
+/* USERPPTP-BEGIN */
+			['PPTP Client',		'pptp.asp'] ] ],
+/* USERPPTP-END */
 /* VPN-END */
 		null,
 		['Administration',		'admin', 0, [

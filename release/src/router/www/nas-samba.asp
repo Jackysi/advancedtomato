@@ -245,19 +245,19 @@ createFieldTable('', [
 		value: nvram.smbd_autoshare },
 	{ title: 'Options', multi: [
 		{ suffix: '&nbsp; Master Browser &nbsp;&nbsp;&nbsp;', name: 'f_smbd_master', type: 'checkbox', value: nvram.smbd_master == 1 },
-		{ suffix: '&nbsp; WINS Server &nbsp;',	name: 'f_smbd_wins', type: 'checkbox', value: (nvram.smbd_wins == 1) && (nvram.wan_wins == '' || nvram.wan_wins == '0.0.0.0') }
+		{ suffix: '&nbsp; WINS Server (if not defined on Basic/Network page) &nbsp;',	name: 'f_smbd_wins', type: 'checkbox', value: (nvram.smbd_wins == 1) && (nvram.wan_wins == '' || nvram.wan_wins == '0.0.0.0') }
 	] }
 ]);
 </script>
 </div>
 <br>
 
-<div class='section-title'>Network Shares List</div>
+<div class='section-title'>Additional Shares List</div>
 <div class='section'>
 	<table class='tomato-grid' cellspacing=1 id='ss-grid'></table>
 	<script type='text/javascript'>ssg.setup();</script>
 <br>
-<small>When no shares are specified, <i>/mnt</i> directory is shared in Read Only mode.</small>
+<small>When no shares are specified and auto-sharing is disabled, <i>/mnt</i> directory is shared in Read Only mode.</small>
 </div>
 
 <!-- / / / -->

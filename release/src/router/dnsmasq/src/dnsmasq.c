@@ -40,7 +40,7 @@ static char *compile_opts =
 #ifndef LOCALEDIR
 "no-"
 #endif
-"I18N "
+"i18n "
 #ifndef HAVE_DHCP
 "no-"
 #endif
@@ -52,6 +52,10 @@ static char *compile_opts =
 "no-"
 #endif
 "TFTP "
+#ifndef HAVE_CONNTRACK
+"no-"
+#endif
+"conntrack "
 #if !defined(LOCALEDIR) && !defined(HAVE_IDN)
 "no-"
 #endif 
@@ -151,6 +155,14 @@ int main (int argc, char **argv)
     die(_("TFTP server not available: set HAVE_TFTP in src/config.h"), NULL, EC_BADCONF);
 #endif
 
+#ifdef HAVE_CONNTRACK
+  if (option_bool(OPT_CONNTRACK) && (daemon->query_port != 0 || daemon->osport))
+    die (_("Cannot use --conntrack AND --query-port"), NULL, EC_BADCONF); 
+#else
+  if (option_bool(OPT_CONNTRACK))
+    die(_("Conntrack support not available: set HAVE_CONNTRACK in src/config.h"), NULL, EC_BADCONF);
+#endif
+
 #ifdef HAVE_SOLARIS_NETWORK
   if (daemon->max_logs != 0)
     die(_("asychronous logging is not available under Solaris"), NULL, EC_BADCONF);
@@ -181,7 +193,7 @@ int main (int argc, char **argv)
     
   if (option_bool(OPT_NOWILD)) 
     {
-      daemon->listeners = create_bound_listeners();
+      create_bound_listeners(1);
 
       for (if_tmp = daemon->if_names; if_tmp; if_tmp = if_tmp->next)
 	if (if_tmp->name && !if_tmp->used)
@@ -195,7 +207,7 @@ int main (int argc, char **argv)
 	  }
     }
   else 
-    daemon->listeners = create_wildcard_listeners();
+    create_wildcard_listeners();
   
   if (daemon->port != 0)
     cache_init();
@@ -390,9 +402,15 @@ int main (int argc, char **argv)
 	{     
 #if defined(HAVE_LINUX_NETWORK)
 	  /* On linux, we keep CAP_NETADMIN (for ARP-injection) and
-	     CAP_NET_RAW (for icmp) if we're doing dhcp */
-	  data->effective = data->permitted = data->inheritable =
-	    (1 << CAP_NET_ADMIN) | (1 << CAP_NET_RAW) | (1 << CAP_SETUID);
+	     CAP_NET_RAW (for icmp) if we're doing dhcp. If we have yet to bind 
+	     ports because of DAD, we need CAP_NET_BIND_SERVICE too. */
+	  if (is_dad_listeners())
+	    data->effective = data->permitted = data->inheritable =
+	      (1 << CAP_NET_ADMIN) | (1 << CAP_NET_RAW) | 
+	      (1 << CAP_SETUID) | (1 << CAP_NET_BIND_SERVICE);
+	  else
+	    data->effective = data->permitted = data->inheritable =
+	      (1 << CAP_NET_ADMIN) | (1 << CAP_NET_RAW) | (1 << CAP_SETUID);
 	  
 	  /* Tell kernel to not clear capabilities when dropping root */
 	  if (capset(hdr, data) == -1 || prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0) == -1)
@@ -434,8 +452,12 @@ int main (int argc, char **argv)
 	    }     
 
 #ifdef HAVE_LINUX_NETWORK
-	  data->effective = data->permitted = 
-	    (1 << CAP_NET_ADMIN) | (1 << CAP_NET_RAW);
+	 if (is_dad_listeners())
+	   data->effective = data->permitted =
+	     (1 << CAP_NET_ADMIN) | (1 << CAP_NET_RAW) | (1 << CAP_NET_BIND_SERVICE);
+	 else
+	   data->effective = data->permitted = 
+	     (1 << CAP_NET_ADMIN) | (1 << CAP_NET_RAW);
 	  data->inheritable = 0;
 	  
 	  /* lose the setuid and setgid capbilities */
@@ -596,6 +618,13 @@ int main (int argc, char **argv)
 	  t.tv_usec = 250000;
 	  tp = &t;
 	}
+      /* Wake every second whilst waiting for DAD to complete */
+      else if (is_dad_listeners())
+	{
+	  t.tv_sec = 1;
+	  t.tv_usec = 0;
+	  tp = &t;
+	}
 
 #ifdef HAVE_DBUS
       set_dbus_listeners(&maxfd, &rset, &wset, &eset);
@@ -650,6 +679,15 @@ int main (int argc, char **argv)
       now = dnsmasq_time();
 
       check_log_writer(&wset);
+      
+      /* Check the interfaces to see if any have exited DAD state
+	 and if so, bind the address. */
+      if (is_dad_listeners())
+	{
+	  enumerate_interfaces();
+	  /* NB, is_dad_listeners() == 1 --> we're binding interfaces */
+	  create_bound_listeners(0);
+	}
 
 #ifdef HAVE_LINUX_NETWORK
       if (FD_ISSET(daemon->netlinkfd, &rset))
@@ -1155,9 +1193,6 @@ static void check_dns_listeners(fd_set *set, time_t now)
 	      unsigned char *buff;
 	      struct server *s; 
 	      int flags;
-	      struct in_addr dst_addr_4;
-	      
-	      dst_addr_4.s_addr = 0;
 	      
 #ifndef NO_FORK
 	      /* Arrange for SIGALARM after CHILD_LIFETIME seconds to
@@ -1176,10 +1211,7 @@ static void check_dns_listeners(fd_set *set, time_t now)
 	      if ((flags = fcntl(confd, F_GETFL, 0)) != -1)
 		fcntl(confd, F_SETFL, flags & ~O_NONBLOCK);
 	      
-	      if (listener->family == AF_INET)
-		dst_addr_4 = iface->addr.in.sin_addr;
-	      
-	      buff = tcp_request(confd, now, dst_addr_4, iface->netmask);
+	      buff = tcp_request(confd, now, &iface->addr, iface->netmask);
 	       
 	      shutdown(confd, SHUT_RDWR);
 	      close(confd);

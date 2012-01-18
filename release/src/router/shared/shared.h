@@ -188,6 +188,7 @@ enum {
 	MODEL_RTN10,
 	MODEL_RTN12,
 	MODEL_RTN16,
+	MODEL_RTN66U,
 	MODEL_WNR3500L,
 	MODEL_WNR2000v2,
 	MODEL_F7D3301,
@@ -235,6 +236,7 @@ enum {
 	HW_BCM4717,
 	HW_BCM5365,
 	HW_BCM4785,
+	HW_BCM4706,
 	HW_UNKNOWN
 };
 
@@ -257,6 +259,7 @@ extern int supports(unsigned long attr);
 extern char *psname(int pid, char *buffer, int maxlen);
 extern int pidof(const char *name);
 extern int killall(const char *name, int sig);
+extern int ppid(int pid);
 
 
 // files.c
@@ -319,3 +322,5 @@ extern const char *find_word(const char *buffer, const char *word);
 extern int remove_word(char *buffer, const char *word);
 
 #endif
+
+

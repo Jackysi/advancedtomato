@@ -154,7 +154,7 @@ inline void fix_hdr (void *buf)
     {
         int len = 6;
         if (PSBIT (ver))
-            len += 4;
+            len += 2;
         if (PLBIT (ver))
             len += 2;
         if (PFBIT (ver))
@@ -236,9 +236,9 @@ void control_xmit (void *b)
                 strcpy (t->self->errormsg, "Timeout");
                 t->self->needclose = -1;
             }
+	    call_close(t->self);
         }
-	free(buf->rstart);
-	free(buf);
+	toss (buf);
     }
     else
     {
@@ -519,7 +519,7 @@ void network_thread ()
 		do_packet_dump (buf);
 	    }
 	    if (!
-		(c = get_call (tunnel, call, from.sin_addr.s_addr,
+		(c = get_call (tunnel, call, from.sin_addr,
 			       from.sin_port, refme, refhim)))
 	    {
 		if ((c =

@@ -199,6 +199,11 @@ static const char *nv_default_value(const defaults_t *t)
 		case MODEL_WNR3500L:
 		case MODEL_RTN16:
 		case MODEL_WRT610Nv2:
+		case MODEL_F7D3301:
+		case MODEL_F7D3302:
+		case MODEL_F7D4301:
+		case MODEL_F7D4302:
+		case MODEL_F5D8235v3:
 			return "1";
 		}
 	}

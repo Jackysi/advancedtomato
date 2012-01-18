@@ -211,7 +211,7 @@ static int cop1Emulate(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 		       void *__user *fault_addr)
 {
 	mips_instruction ir;
-	void * emulpc, *contpc;
+	unsigned long emulpc, contpc;
 	unsigned int cond;
 
 	if (!access_ok(VERIFY_READ, xcp->cp0_epc, sizeof(mips_instruction))) {
@@ -242,7 +242,7 @@ static int cop1Emulate(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 		 * Linux MIPS branch emulator operates on context, updating the
 		 * cp0_epc.
 		 */
-		emulpc = (void *) (xcp->cp0_epc + 4);	/* Snapshot emulation target */
+		emulpc = xcp->cp0_epc + 4;	/* Snapshot emulation target */
 
 		if (__compute_return_epc(xcp)) {
 #ifdef CP1DBG
@@ -262,12 +262,12 @@ static int cop1Emulate(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 			return SIGSEGV;
 		}
 		/* __compute_return_epc() will have updated cp0_epc */
-		contpc = (void *)  xcp->cp0_epc;
+		contpc = xcp->cp0_epc;
 		/* In order not to confuse ptrace() et al, tweak context */
-		xcp->cp0_epc = (unsigned long) emulpc - 4;
+		xcp->cp0_epc = emulpc - 4;
 	} else {
-		emulpc = (void *)  xcp->cp0_epc;
-		contpc = (void *) (xcp->cp0_epc + 4);
+		emulpc = xcp->cp0_epc;
+		contpc = xcp->cp0_epc + 4;
 	}
 
       emul:
@@ -471,8 +471,7 @@ static int cop1Emulate(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 				 * instruction
 				 */
 				xcp->cp0_epc += 4;
-				contpc = (void *)
-					(xcp->cp0_epc +
+				contpc = (xcp->cp0_epc +
 					(MIPSInst_SIMM(ir) << 2));
 
 				if (!access_ok(VERIFY_READ, xcp->cp0_epc,
@@ -513,7 +512,7 @@ static int cop1Emulate(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 				 * Single step the non-cp1
 				 * instruction in the dslot
 				 */
-				return mips_dsemul(xcp, ir, (unsigned long) contpc);
+				return mips_dsemul(xcp, ir, contpc);
 			}
 			else {
 				/* branch not taken */
@@ -571,7 +570,7 @@ static int cop1Emulate(struct pt_regs *xcp, struct mips_fpu_struct *ctx,
 	}
 
 	/* we did it !! */
-	xcp->cp0_epc = (unsigned long) contpc;
+	xcp->cp0_epc = contpc;
 	xcp->cp0_cause &= ~CAUSEF_BD;
 
 	return 0;

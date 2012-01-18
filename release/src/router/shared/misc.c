@@ -126,8 +126,17 @@ int foreach_wif(int include_vifs, void *param,
 	int i;
 	int ret = 0;
 
-	snprintf(ifnames, sizeof(ifnames), "%s %s %s %s %s",
-		 nvram_safe_get("lan_ifnames"), nvram_safe_get("lan1_ifnames"), nvram_safe_get("lan2_ifnames"), nvram_safe_get("lan3_ifnames"), nvram_safe_get("wan_ifnames"));
+	snprintf(ifnames, sizeof(ifnames), "%s %s %s %s %s %s %s %s %s %s",
+		nvram_safe_get("lan_ifnames"),
+		nvram_safe_get("lan1_ifnames"),
+		nvram_safe_get("lan2_ifnames"),
+		nvram_safe_get("lan3_ifnames"),
+		nvram_safe_get("wan_ifnames"),
+		nvram_safe_get("wl_ifname"),
+		nvram_safe_get("wl0_ifname"),
+		nvram_safe_get("wl0_vifs"),
+		nvram_safe_get("wl1_ifname"),
+		nvram_safe_get("wl1_vifs"));
 	remove_dups(ifnames, sizeof(ifnames));
 
 	i = 0;
@@ -185,7 +194,13 @@ int check_wanup(void)
 	struct ifreq ifr;
 
 	proto = get_wan_proto();
-	if (proto == WP_DISABLED) return 0;
+	if (proto == WP_DISABLED)
+	{
+		if (nvram_match("boardrev", "0x11")) { // Ovislink 1600GL - led "connected" off
+			led(LED_WHITE,LED_OFF);
+		}
+		 return 0;
+	}
 
 	if ((proto == WP_PPTP) || (proto == WP_L2TP) || (proto == WP_PPPOE)) {
 		if (f_read_string("/tmp/ppp/link", buf1, sizeof(buf1)) > 0) {
@@ -225,6 +240,9 @@ int check_wanup(void)
 			up = 0;
 			_x_dprintf("%s: !IFF_UP\n", __FUNCTION__);
 		}
+	}
+	if (nvram_match("boardrev", "0x11")) { // Ovislink 1600GL - led "connected" on
+		led(LED_WHITE,up);
 	}
 
 	return up;

@@ -34,6 +34,10 @@
 #define pcie_war_ovr_aspm_update(a, b)	do { } while (0)
 
 #define pcicore_pcieserdesreg(a, b, c, d, e) (0)
+#ifdef BCMDBG
+#define pcie_lcreg(a, b, c) (0)
+#define pcicore_dump(a, b)	do { } while (0)
+#endif
 
 #define pcicore_pmecap_fast(a)	(FALSE)
 #define pcicore_pmeen(a)	do { } while (0)
@@ -63,6 +67,9 @@ extern void pcie_war_ovr_aspm_update(void *pch, uint8 aspm);
 extern uint32 pcicore_pcieserdesreg(void *pch, uint32 mdioslave, uint32 offset,
                                     uint32 mask, uint32 val);
 
+#ifdef BCMDBG
+extern void pcicore_dump(void *pch, struct bcmstrbuf *b);
+#endif
 
 extern bool pcicore_pmecap_fast(osl_t *osh);
 extern void pcicore_pmeen(void *pch);

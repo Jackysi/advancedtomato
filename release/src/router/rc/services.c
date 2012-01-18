@@ -335,10 +335,14 @@ void start_dnsmasq()
 		}
 
 		if ((do_dhcpd_hosts > 0) && (*mac != 0) && (strcmp(mac, "00:00:00:00:00:00") != 0)) {
+			char static_dhcp_lease[32];
+			strcpy(static_dhcp_lease, "");
+			if (nvram_get_int("dhcpd_slt") != 0)
+				sprintf(static_dhcp_lease, ",%s", sdhcp_lease);
 			if (df)
-				fprintf(df, "%s,%s,%s\n", mac, ip, sdhcp_lease);
+				fprintf(df, "%s,%s%s\n", mac, ip, static_dhcp_lease);
 			else
-				fprintf(f, "dhcp-host=%s,%s,%s\n", mac, ip, sdhcp_lease);
+				fprintf(f, "dhcp-host=%s,%s%s\n", mac, ip, static_dhcp_lease);
 		}
 	}
 
@@ -437,7 +441,7 @@ void dns_to_resolv(void)
 	m = umask(022);	// 077 from pppoecd
 	if ((f = fopen(dmresolv, "w")) != NULL) {
 		// Check for VPN DNS entries
-		if (!write_vpn_resolv(f)) {
+		if (!write_pptpvpn_resolv(f) && !write_vpn_resolv(f)) {
 #ifdef TCONFIG_IPV6
 			if (write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_dns"), "\n", 0) == 0 || nvram_get_int("dns_addget"))
 				write_ipv6_dns_servers(f, "nameserver ", nvram_safe_get("ipv6_get_dns"), "\n", 0);
@@ -1060,6 +1064,7 @@ void start_syslog(void)
 	char s[64];
 	char cfg[256];
 	char *rot_siz = "50";
+	char *rot_keep = "1";
 	char *log_file_path;
 
 	argv[0] = "syslogd";
@@ -1077,17 +1082,24 @@ void start_syslog(void)
 	if (nvram_match("log_file", "1")) {
 		argv[argc++] = "-L";
 
+		if (strcmp(nvram_safe_get("log_file_size"), "") != 0) {
+			rot_siz = nvram_safe_get("log_file_size");
+		}
+		if (nvram_get_int("log_file_size") > 0) {
+			rot_keep = nvram_safe_get("log_file_keep");
+		}
+
 		// log to custom path - shibby
 		if (nvram_match("log_file_custom", "1")) {
 			log_file_path = nvram_safe_get("log_file_path");
 			argv[argc++] = "-s";
-			argv[argc++] = "5000";
-			argv[argc++] = "-b";
-			argv[argc++] = "5";
+			argv[argc++] = rot_siz;
 			argv[argc++] = "-O";
 			argv[argc++] = log_file_path;
-			remove("/var/log/messages");
-			symlink(log_file_path, "/var/log/messages");
+			if (strcmp(nvram_safe_get("log_file_path"), "/var/log/messages") != 0) {
+				remove("/var/log/messages");
+				symlink(log_file_path, "/var/log/messages");
+			}
 		}
 		else
 
@@ -1124,10 +1136,13 @@ void start_syslog(void)
 		remove("/var/log/messages");
 		}
 
-
 		if (isdigit(*b_opt)) {
 			argv[argc++] = "-b";
 			argv[argc++] = b_opt;
+		} else
+		if (nvram_get_int("log_file_size") > 0) {
+			argv[argc++] = "-b";
+			argv[argc++] = rot_keep;
 		}
 	}
 
@@ -1234,6 +1249,24 @@ void stop_igmp_proxy(void)
 	killall_tk("igmpproxy");
 }
 
+// -----------------------------------------------------------------------------
+
+void start_udpxy(void)
+{
+	if (nvram_match("udpxy_enable", "1")) {
+		if (get_wan_proto() == WP_DISABLED)
+			return;
+		eval("udpxy", (nvram_get_int("udpxy_stats") ? "-S" : ""), "-p", nvram_safe_get("udpxy_port"), "-c", nvram_safe_get("udpxy_clients"), "-m", nvram_safe_get("wan_ifname") );
+	}
+}
+
+void stop_udpxy(void)
+{
+	killall_tk("udpxy");
+}
+
+// -----------------------------------------------------------------------------
+
 #ifdef TCONFIG_NOCAT
 
 static pid_t pid_splashd = -1;
@@ -1280,43 +1313,83 @@ void stop_ntpc(void)
 
 static void stop_rstats(void)
 {
-	int n;
+	int n, m;
 	int pid;
+	int pidz;
+	int ppidz;
+	int w = 0;
 
 	n = 60;
+	m = 15;
 	while ((n-- > 0) && ((pid = pidof("rstats")) > 0)) {
-		if (kill(pid, SIGTERM) != 0) break;
+		w = 1;
+		pidz = pidof("gzip");
+		if (pidz < 1) pidz = pidof("cp");
+		ppidz = ppid(ppid(pidz));
+		if ((m > 0) && (pidz > 0) && (pid == ppidz)) {
+			syslog(LOG_DEBUG, "rstats(PID %d) shutting down, waiting for helper process to complete(PID %d, PPID %d).\n", pid, pidz, ppidz);
+			--m;
+		} else {
+			kill(pid, SIGTERM);
+		}
 		sleep(1);
 	}
+	if ((w == 1) && (n > 0))
+		syslog(LOG_DEBUG, "rstats stopped.\n");
 }
 
 static void start_rstats(int new)
 {
 	if (nvram_match("rstats_enable", "1")) {
 		stop_rstats();
-		if (new) xstart("rstats", "--new");
-			else xstart("rstats");
+		if (new) {
+			syslog(LOG_DEBUG, "starting rstats (new datafile).\n");
+			xstart("rstats", "--new");
+		} else {
+			syslog(LOG_DEBUG, "starting rstats.\n");
+			xstart("rstats");
+		}
 	}
 }
 
 static void stop_cstats(void)
 {
-	int n;
+	int n, m;
 	int pid;
+	int pidz;
+	int ppidz;
+	int w = 0;
 
 	n = 60;
+	m = 15;
 	while ((n-- > 0) && ((pid = pidof("cstats")) > 0)) {
-		if (kill(pid, SIGTERM) != 0) break;
+		w = 1;
+		pidz = pidof("gzip");
+		if (pidz < 1) pidz = pidof("cp");
+		ppidz = ppid(ppid(pidz));
+		if ((m > 0) && (pidz > 0) && (pid == ppidz)) {
+			syslog(LOG_DEBUG, "cstats(PID %d) shutting down, waiting for helper process to complete(PID %d, PPID %d).\n", pid, pidz, ppidz);
+			--m;
+		} else {
+			kill(pid, SIGTERM);
+		}
 		sleep(1);
 	}
+	if ((w == 1) && (n > 0))
+		syslog(LOG_DEBUG, "cstats stopped.\n");
 }
 
 static void start_cstats(int new)
 {
 	if (nvram_match("cstats_enable", "1")) {
 		stop_cstats();
-		if (new) xstart("cstats", "--new");
-			else xstart("cstats");
+		if (new) {
+			syslog(LOG_DEBUG, "starting cstats (new datafile).\n");
+			xstart("cstats", "--new");
+		} else {
+			syslog(LOG_DEBUG, "starting cstats.\n");
+			xstart("cstats");
+		}
 	}
 }
 
@@ -1359,7 +1432,8 @@ static void start_ftpd(void)
 	FILE *fp, *f;
 	char *buf;
 	char *p, *q;
-	char *user, *pass, *rights;
+	char *user, *pass, *rights, *root_dir;
+	int i;
 
 	if (getpid() != 1) {
 		start_service("ftpd");
@@ -1485,7 +1559,7 @@ static void start_ftpd(void)
 	if ((buf = strdup(nvram_safe_get("ftp_users"))) != NULL)
 	{
 		/*
-		username<password<rights
+		username<password<rights[<root_dir]
 		rights:
 			Read/Write
 			Read Only
@@ -1494,8 +1568,12 @@ static void start_ftpd(void)
 		*/
 		p = buf;
 		while ((q = strsep(&p, ">")) != NULL) {
-			if (vstrsep(q, "<", &user, &pass, &rights) != 3) continue;
+			i = vstrsep(q, "<", &user, &pass, &rights, &root_dir);
+			if (i < 3 || i > 4) continue;
 			if (!user || !pass) continue;
+
+			if (i == 3 || !root_dir || !(*root_dir))
+				root_dir = nvram_safe_get("ftp_pubroot");
 
 			/* directory */
 			if (strncmp(rights, "Private", 7) == 0)
@@ -1504,7 +1582,7 @@ static void start_ftpd(void)
 				mkdir_if_none(tmp);
 			}
 			else
-				sprintf(tmp, "%s", nvram_storage_path("ftp_pubroot"));
+				sprintf(tmp, "%s", get_full_storage_path(root_dir));
 
 			fprintf(fp, "%s:%s:0:0:%s:%s:/sbin/nologin\n",
 				user, crypt(pass, "$1$"), user, tmp);
@@ -1700,25 +1778,8 @@ static void start_samba(void)
 		while ((dp = readdir(dir))) {
 			if (strcmp(dp->d_name, ".") && strcmp(dp->d_name, "..")) {
 
-				char path[256];
-				struct stat sb;
-				int thisdev;
-
 				/* Only if is a directory and is mounted */
-				sprintf(path, "%s/%s", MOUNT_ROOT, dp->d_name);
-				sb.st_mode = S_IFDIR;	/* failsafe */
-				stat(path, &sb);
-				if (!S_ISDIR(sb.st_mode))
-					continue;
-
-				/* If this dir & its parent dir are on the same device, it is not a mountpoint */
-				strcat(path, "/.");
-				stat(path, &sb);
-				thisdev = sb.st_dev;
-				strcat(path, ".");
-				++sb.st_dev;	/* failsafe */
-				stat(path, &sb);
-				if (thisdev == sb.st_dev)
+				if (!dir_is_mountpoint(MOUNT_ROOT, dp->d_name))
 					continue;
 
 				/* smbd_autoshare: 0 - disable, 1 - read-only, 2 - writable, 3 - hidden writable */
@@ -2120,29 +2181,13 @@ TOP:
 		if (action & A_STOP) {
 			stop_firewall();
 			stop_igmp_proxy();
+			stop_udpxy();
 		}
 		if (action & A_START) {
 			start_firewall();
 			start_igmp_proxy();
+			start_udpxy();
 		}
-		goto CLEAR;
-	}
-
-	if (strcmp(service, "bwclimon") == 0) {
-		if (action & A_STOP) stop_bwclimon();
-		if (action & A_START) start_bwclimon();
-		goto CLEAR;
-	}
-
-	if (strcmp(service, "account") == 0) {
-		if (action & A_STOP) stop_account();
-		if (action & A_START) start_account();
-		goto CLEAR;
-	}
-
-	if (strcmp(service, "arpbind") == 0) {
-		if (action & A_STOP) stop_arpbind();
-		if (action & A_START) start_arpbind();
 		goto CLEAR;
 	}
 
@@ -2162,6 +2207,12 @@ TOP:
 				}
 			}
 		}
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "arpbind") == 0) {
+		if (action & A_STOP) stop_arpbind();
+		if (action & A_START) start_arpbind();
 		goto CLEAR;
 	}
 
@@ -2185,12 +2236,6 @@ TOP:
 		if (action & A_START) {
 			start_qoslimit();
 		}
-		goto CLEAR;
-	}
-
-	if (strcmp(service, "arpbind") == 0) {
-		if (action & A_STOP) stop_arpbind();
-		if (action & A_START) stop_arpbind();
 		goto CLEAR;
 	}
 
@@ -2586,6 +2631,22 @@ TOP:
 	}
 #endif
 
+#ifdef TCONFIG_USERPPTP
+ 	if (strcmp(service, "pptpclient") == 0) {
+ 		if (action & A_STOP) stop_pptp_client();
+ 		if (action & A_START) start_pptp_client();
+		if (action & (A_START | A_STOP))
+		{
+			stop_dnsmasq();
+			dns_to_resolv();
+			start_dnsmasq();
+			if ((action & A_START) == 0)
+				clear_pptp_route();
+		}
+ 		goto CLEAR;
+ 	}
+#endif
+
 CLEAR:
 	if (next) goto TOP;
 
@@ -2613,7 +2674,13 @@ static void do_service(const char *name, const char *action, int user)
 
 	snprintf(s, sizeof(s), "%s-%s%s", name, action, (user ? "-c" : ""));
 	nvram_set("action_service", s);
-	kill(1, SIGUSR1);
+
+	if (nvram_match("debug_rc_svc", "1")) {
+		nvram_unset("debug_rc_svc");
+		exec_service();
+	} else {
+		kill(1, SIGUSR1);
+	}
 
 	n = 150;
 	while (nvram_match("action_service", s)) {

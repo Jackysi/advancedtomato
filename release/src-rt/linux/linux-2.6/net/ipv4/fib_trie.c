@@ -2396,7 +2396,6 @@ static int fib_route_seq_show(struct seq_file *seq, void *v)
 	const struct fib_trie_iter *iter = seq->private;
 	struct leaf *l = v;
 	int i;
-	char bf[128];
 
 	if (v == SEQ_START_TOKEN) {
 		seq_printf(seq, "%-127s\n", "Iface\tDestination\tGateway "
@@ -2424,14 +2423,16 @@ static int fib_route_seq_show(struct seq_file *seq, void *v)
 		list_for_each_entry_rcu(fa, &li->falh, fa_list) {
 			const struct fib_info *fi = fa->fa_info;
 			unsigned flags = fib_flag_trans(fa->fa_type, mask, fi);
+			int len;
 
 			if (fa->fa_type == RTN_BROADCAST
 			    || fa->fa_type == RTN_MULTICAST)
 				continue;
 
 			if (fi)
-				snprintf(bf, sizeof(bf),
-					 "%s\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u",
+				seq_printf(seq,
+					 "%s\t%08X\t%08X\t%04X\t%d\t%u\t"
+					 "%d\t%08X\t%d\t%u\t%u%n",
 					 fi->fib_dev ? fi->fib_dev->name : "*",
 					 prefix,
 					 fi->fib_nh->nh_gw, flags, 0, 0,
@@ -2439,14 +2440,15 @@ static int fib_route_seq_show(struct seq_file *seq, void *v)
 					 mask,
 					 (fi->fib_advmss ? fi->fib_advmss + 40 : 0),
 					 fi->fib_window,
-					 fi->fib_rtt >> 3);
+					 fi->fib_rtt >> 3, &len);
 			else
-				snprintf(bf, sizeof(bf),
-					 "*\t%08X\t%08X\t%04X\t%d\t%u\t%d\t%08X\t%d\t%u\t%u",
+				seq_printf(seq,
+					 "*\t%08X\t%08X\t%04X\t%d\t%u\t"
+					 "%d\t%08X\t%d\t%u\t%u%n",
 					 prefix, 0, flags, 0, 0, 0,
-					 mask, 0, 0, 0);
+					 mask, 0, 0, 0, &len);
 
-			seq_printf(seq, "%-127s\n", bf);
+			seq_printf(seq, "%*s\n", 127 - len, "");
 		}
 	}
 

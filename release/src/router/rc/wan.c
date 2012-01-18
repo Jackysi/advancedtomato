@@ -43,7 +43,7 @@
 #include <bcmdevs.h>
 
 static const char ppp_linkfile[] = "/tmp/ppp/link";
-static const char ppp_optfile[]  = "/tmp/ppp/options";
+static const char ppp_optfile[]  = "/tmp/ppp/wanoptions";
 
 static void make_secrets(void)
 {
@@ -150,6 +150,9 @@ static int config_pppd(int wan_proto, int num)
 		if (((p = nvram_get("ppp_ac")) != NULL) && (*p)) {
 			fprintf(fp, "rp_pppoe_ac '%s'\n", p);
 		}
+		if (nvram_match("ppp_mlppp", "1")) {
+			fprintf(fp, "mp\n");
+		}
 		break;
 	case WP_L2TP:
 		fprintf(fp, "nomppe nomppc\n");
@@ -209,7 +212,7 @@ static void stop_ppp(void)
 
 static void run_pppd(void)
 {
-	eval("pppd");
+	eval("pppd", "file", ppp_optfile);
 
 	if (nvram_get_int("ppp_demand")) {
 		// demand mode
@@ -416,15 +419,20 @@ void start_l2tp(void)
 		"port = 1701\n"
 		"[lac l2tp]\n"
 		"lns = %s\n"
+		"tx bps = 100000000\n"
 		"pppoptfile = %s\n"
 		"redial = yes\n"
 		"max redials = 32767\n"
 		"redial timeout = %d\n"
-		"ppp debug = %s\n",
+		"tunnel rws = 8\n"
+		"ppp debug = %s\n"
+		"%s\n",
 		nvram_safe_get("l2tp_server_ip"),
 		ppp_optfile,
 		demand ? 30 : (nvram_get_int("ppp_redialperiod") ? : 30),
-		nvram_get_int("debug_ppp") ? "yes" : "no");
+		nvram_get_int("debug_ppp") ? "yes" : "no",
+		nvram_safe_get("xl2tpd_custom"));
+	fappend(fp, "/etc/xl2tpd.custom");
 	fclose(fp);
 
 	enable_ip_forward();
@@ -444,7 +452,7 @@ void start_l2tp(void)
 
 // -----------------------------------------------------------------------------
 
-static char *wan_gateway(void)
+char *wan_gateway(void)
 {
 	char *gw = nvram_safe_get("wan_gateway_get");
 	if ((*gw == 0) || (strcmp(gw, "0.0.0.0") == 0))
@@ -848,7 +856,9 @@ void start_wan_done(char *wan_ifname)
 		stop_ddns();
 		start_ddns();
 		stop_igmp_proxy();
+		stop_udpxy();
 		start_igmp_proxy();
+		start_udpxy();
 	}
 
 #ifdef TCONFIG_IPV6
@@ -895,6 +905,11 @@ void start_wan_done(char *wan_ifname)
 	if (wanup)
 		start_vpn_eas();
 
+#ifdef TCONFIG_USERPPTP
+	if (wanup && nvram_get_int("pptp_client_enable"))
+		start_pptp_client();
+#endif
+
 	unlink(wan_connecting);
 
 	TRACE_PT("end\n");
@@ -907,12 +922,20 @@ void stop_wan(void)
 	
 	TRACE_PT("begin\n");
 
+#ifdef TCONFIG_USERPPTP
+	stop_pptp_client();
+	stop_dnsmasq();
+	dns_to_resolv();
+	start_dnsmasq();
+#endif
+	stop_vpn_eas();
 	stop_arpbind();
 	stop_qoslimit();
 	stop_qos();
 	stop_upnp();	//!!TB - moved from stop_services()
 	stop_firewall();
 	stop_igmp_proxy();
+	stop_udpxy();
 	stop_ntpc();
 
 #ifdef TCONFIG_IPV6

@@ -74,6 +74,7 @@ extern void asp_psup(int argc, char **argv);
 extern void wo_vpn_status(char *url);
 #endif
 extern void asp_sysinfo(int argc, char **argv);
+extern void asp_jiffies(int argc, char **argv);
 extern void asp_statfs(int argc, char **argv);
 extern void asp_notice(int argc, char **argv);
 extern void wo_wakeup(char *url);
@@ -160,8 +161,8 @@ extern void wo_bwmbackup(char *url);
 extern void wi_bwmrestore(char *url, int len, char *boundary);
 extern void wo_bwmrestore(char *url);
 extern void asp_netdev(int argc, char **argv);
-extern void asp_climon(int argc, char **argv);
 extern void asp_bandwidth(int argc, char **argv);
+extern void ctvbuf(FILE *f);
 
 extern void wo_iptbackup(char *url);
 extern void wi_iptrestore(char *url, int len, char *boundary);
@@ -169,7 +170,6 @@ extern void wo_iptrestore(char *url);
 
 extern void asp_ipt_bandwidth(int argc, char **argv);
 extern void asp_iptmon(int argc, char **argv);
-extern void asp_climon(int argc, char **argv);
 extern void asp_iptraffic(int argc, char **argv);
 
 #ifdef TCONFIG_NOCAT

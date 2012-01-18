@@ -142,6 +142,7 @@ extern void start_l2tp(void);
 extern void stop_l2tp(void);
 extern void start_wan(int mode);
 extern void start_wan_done(char *ifname);
+extern char *wan_gateway(void);
 #ifdef TCONFIG_IPV6
 extern void start_wan6_done(const char *wan_ifname);
 #endif
@@ -191,6 +192,8 @@ extern void start_syslog(void);
 extern void stop_syslog(void);
 extern void start_igmp_proxy(void);
 extern void stop_igmp_proxy(void);
+extern void start_udpxy(void);
+extern void stop_udpxy(void);
 extern void start_httpd(void);
 extern void stop_httpd(void);
 extern void clear_resolv(void);
@@ -292,22 +295,6 @@ extern void create_test_iptfile(void);
 extern void allow_fastnat(const char *service, int allow);
 extern void try_enabling_fastnat(void);
 #endif
-
-// bwclimon.c
-extern void start_bwclimon(void);
-extern void stop_bwclimon(void);
-
-// arpbind.c
-extern void start_arpbind(void);
-extern void stop_arpbind(void);
-
-// bwclimon.c
-extern void start_bwclimon(void);
-extern void stop_bwclimon(void);
-
-// account.c
-extern void start_account(void);
-extern void stop_account(void);
 
 // arpbind.c
 extern void start_arpbind(void);
@@ -413,6 +400,20 @@ extern int sched_main(int argc, char *argv[]);
 extern void start_sched(void);
 extern void stop_sched(void);
 
+// snmpd.c
+extern void start_snmpd(void);
+extern void stop_snmpd(void);
+
+#ifdef TCONFIG_USERPPTP
+// pptp_client.c
+extern void start_pptp_client(void);
+extern void stop_pptp_client(void);
+extern int write_pptpvpn_resolv(FILE*);
+extern void clear_pptp_route(void);
+#else
+#define write_pptpvpn_resolv(f) (0)
+#endif
+
 //nvram
 extern int nvram_file2nvram(const char *name, const char *filename);
 extern int nvram_nvram2file(const char *name, const char *filename);
@@ -443,10 +444,6 @@ extern void start_snmp();
 extern void stop_snmp();
 #endif
 
-//cmon.c
-extern void stop_cmon();
-extern void start_cmon();
-
 // vpn.c
 #ifdef TCONFIG_OPENVPN
 extern void start_vpnclient(int clientNum);
@@ -454,6 +451,7 @@ extern void stop_vpnclient(int clientNum);
 extern void start_vpnserver(int serverNum);
 extern void stop_vpnserver(int serverNum);
 extern void start_vpn_eas();
+extern void stop_vpn_eas();
 extern void run_vpn_firewall_scripts();
 extern void write_vpn_dnsmasq_config(FILE*);
 extern int write_vpn_resolv(FILE*);
@@ -467,6 +465,7 @@ static inline void run_vpn_firewall_scripts() {}
 static inline void write_vpn_dnsmasq_config(FILE*) {}
 */
 static inline void start_vpn_eas() { }
+static inline void stop_vpn_eas() { }
 #define write_vpn_resolv(f) (0)
 #endif
 

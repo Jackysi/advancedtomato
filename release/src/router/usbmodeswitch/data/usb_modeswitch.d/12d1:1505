@@ -1,0 +1,13 @@
+########################################################
+# Huawei EC156
+
+DefaultVendor= 0x12d1
+DefaultProduct=0x1505
+
+TargetVendor=  0x12d1
+TargetProduct= 0x140b
+
+MessageContent="55534243123456780000000000000011062000000100000000000000000000"
+
+CheckSuccess=20
+

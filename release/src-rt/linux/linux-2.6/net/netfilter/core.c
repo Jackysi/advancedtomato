@@ -138,6 +138,13 @@ unsigned int nf_iterate(struct list_head *head,
 	list_for_each_continue_rcu(*i, head) {
 		struct nf_hook_ops *elem = (struct nf_hook_ops *)*i;
 
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+		if (!elem->hook) {
+			NFDEBUG("nf_iterate: elem is empty return NF_DROP\n");
+			return NF_DROP;
+		}
+#endif
+
 		if (hook_thresh > elem->priority)
 			continue;
 

@@ -96,7 +96,15 @@ static void set_lan_hostname(const char *wan_hostname)
 	if ((f = fopen("/etc/hosts", "w"))) {
 		fprintf(f, "127.0.0.1  localhost\n");
 		if ((s = nvram_get("lan_ipaddr")) && (*s))
-			fprintf(f, "%s  %s\n", s, nvram_safe_get("lan_hostname"));
+			fprintf(f, "%s  %s %s-lan\n", s, nvram_safe_get("lan_hostname"), nvram_safe_get("lan_hostname"));
+#ifdef TCONFIG_VLAN
+		if ((s = nvram_get("lan1_ipaddr")) && (*s) && (strcmp(s,"") != 0))
+			fprintf(f, "%s  %s-lan1\n", s, nvram_safe_get("lan_hostname"));
+		if ((s = nvram_get("lan2_ipaddr")) && (*s) && (strcmp(s,"") != 0))
+			fprintf(f, "%s  %s-lan2\n", s, nvram_safe_get("lan_hostname"));
+		if ((s = nvram_get("lan3_ipaddr")) && (*s) && (strcmp(s,"") != 0))
+			fprintf(f, "%s  %s-lan3\n", s, nvram_safe_get("lan_hostname"));
+#endif
 #ifdef TCONFIG_IPV6
 		if (ipv6_enabled()) {
 			fprintf(f, "::1  localhost\n");
@@ -719,6 +727,20 @@ void do_static_routes(int add)
 		}
 	}
 	free(buf);
+
+	char *modem_ipaddr;
+	if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") )
+		&& (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0") ) {
+		char ip[16];
+		char *end = rindex(modem_ipaddr,'.')+1;
+		unsigned char c = atoi(end);
+		char *iface = nvram_safe_get("wan_ifname");
+
+		sprintf(ip, "%.*s%hhu", end-modem_ipaddr, modem_ipaddr, (unsigned char)(c^1^((c&2)^((c&1)<<1))) );
+		eval("ip", "addr", add ?"add":"del", ip, "peer", modem_ipaddr, "dev", iface);
+	}
+
+
 }
 
 void hotplug_net(void)

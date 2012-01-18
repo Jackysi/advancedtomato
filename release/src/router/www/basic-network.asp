@@ -49,7 +49,8 @@
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript' src='interfaces.js'></script>
 <script type='text/javascript'>
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,wl_security_mode,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype,lan_ifname,lan_stp,lan1_ifname,lan1_ipaddr,lan1_netmask,lan1_proto,lan1_stp,dhcp1_start,dhcp1_num,dhcp1_lease,dhcpd1_startip,dhcpd1_endip,lan2_ifname,lan2_ipaddr,lan2_netmask,lan2_proto,lan2_stp,dhcp2_start,dhcp2_num,dhcp2_lease,dhcpd2_startip,dhcpd2_endip,lan3_ifname,lan3_ipaddr,lan3_netmask,lan3_proto,lan3_stp,dhcp3_start,dhcp3_num,dhcp3_lease,dhcpd3_startip,dhcpd3_endip"); %>
+
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,wl_security_mode,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype,lan_ifname,lan_stp,lan1_ifname,lan1_ipaddr,lan1_netmask,lan1_proto,lan1_stp,dhcp1_start,dhcp1_num,dhcp1_lease,dhcpd1_startip,dhcpd1_endip,lan2_ifname,lan2_ipaddr,lan2_netmask,lan2_proto,lan2_stp,dhcp2_start,dhcp2_num,dhcp2_lease,dhcpd2_startip,dhcpd2_endip,lan3_ifname,lan3_ipaddr,lan3_netmask,lan3_proto,lan3_stp,dhcp3_start,dhcp3_num,dhcp3_lease,dhcpd3_startip,dhcpd3_endip,ppp_mlppp,modem_ipaddr"); %>
 
 /* VLAN-BEGIN */
 var lg = new TomatoGrid();
@@ -69,9 +70,11 @@ lg.setup = function() {
 		var j = (i == 0) ? '' : i.toString();
 		if (nvram['lan' + j + '_ifname'].length > 0) {
 			if ((!fixIP(nvram['dhcpd' + j + '_startip'])) || (!fixIP(nvram['dhcpd' + j + '_endip']))) {
-				var x = nvram['lan' + j + '_ipaddr'].split('.').splice(0, 3).join('.') + '.';
-				nvram['dhcpd' + j + '_startip'] = x + nvram['dhcp' + j + '_start'];
-				nvram['dhcpd' + j + '_endip'] = x + ((nvram['dhcp' + j + '_start'] * 1) + (nvram['dhcp' + j + '_num'] * 1) - 1);
+				if ((fixIP(nvram['lan' + j + '_ipaddr'])) && (fixIP(nvram['lan' + j + '_netmask'])) && (nvram['dhcp' + j + '_start'] != '')) {
+					var n = getNetworkAddress(nvram['lan' + j + '_ipaddr'], nvram['lan' + j + '_netmask']);
+					nvram['dhcpd' + j + '_startip'] = getAddress(('0.0.0.' + nvram['dhcp' + j + '_start'] * 1), n);
+					nvram['dhcpd' + j + '_endip'] = getAddress(('0.0.0.' + ((nvram['dhcp' + j + '_start'] * 1) + (nvram['dhcp' + j + '_num'] *1) - 1)), n);
+				}
 			}
 			lg.insertData(-1, [ 
 				i.toString(),
@@ -79,8 +82,8 @@ lg.setup = function() {
 				nvram['lan' + j + '_ipaddr'],
 				nvram['lan' + j + '_netmask'],
 				(nvram['lan' + j + '_proto'] == 'dhcp') ? '1' : '0',
-				(nvram['dhcp' + j + '_start'] != '') ? fixIP(getNetworkAddress(nvram['lan' + j + '_ipaddr'], nvram['lan' + j + '_netmask']).split('.').splice(0, 3).join('.') + '.' + nvram['dhcp' + j + '_start']) : '',
-				(nvram['dhcp' + j + '_start'] != '') ? parseInt(nvram['dhcp' + j + '_start']) + parseInt(nvram['dhcp' + j + '_num']) - 1 : '',
+				nvram['dhcpd' + j + '_startip'],
+				nvram['dhcpd' + j + '_endip'],
 				(nvram['lan' + j + '_proto'] == 'dhcp') ? (((nvram['dhcp' + j + '_lease'])*1 == 0) ? '1440' : (nvram['dhcp' + j + '_lease']).toString()) : ''
 			] ) ;
 			numBridges++;
@@ -99,7 +102,7 @@ lg.dataToView = function(data) {
 	data[2],
 	data[3],
 	(data[4].toString() == '1') ? '<small><i>Enabled</i></small>' : '<small><i>Disabled</i></small>',
-	(((data[5] != null) && (data[5] != '')) ? (data[5] + ' - ') : '') + (((data[6] != null) && (data[6] != '')) ? data[6] : ''),
+	(data[5].toString() + ((numberOfBitsOnNetMask(data[3])>=24) ? (' - ' + data[6].split('.').splice(3, 1).toString()) : ('<br>' + data[6].toString()) )),
 	(((data[7] != null) && (data[7] != '')) ? data[7] : '') ];
 }
 
@@ -110,20 +113,19 @@ lg.dataToFieldValues = function (data) {
 	data[3].toString(),
 	(data[4].toString() == '1') ? 'checked' : '',
 	data[5].toString(),
-	(data[6] != '') ? fixIP(getNetworkAddress(data[2], data[3]).split('.').splice(0, 3).join('.') + '.' + parseInt(data[6])) : '',
+	data[6].toString(),
 	data[7].toString() ];
 }
 
 lg.fieldValuesToData = function(row) {
 	var f = fields.getAll(row);
-	var g = f[6].value.split('.');
 	return [f[0].value,
 	f[1].checked ? 1 : 0,
 	f[2].value,
 	f[3].value,
 	f[4].checked ? 1 : 0,
 	f[5].value,
-	(g[3] != null) ? g[3] : '',
+	f[6].value,
 	f[7].value ];
 }
 
@@ -258,9 +260,9 @@ lg.verifyFields = function(row, quiet) {
 		if(!v_netmask(f[3], quiet || !ok)) {
 			return 0;
 		} else {
-// must be class B or smaller network
-			if (numberOfBitsOnNetMask(f[3].value) < 16) {
-				ferror.set(f[3], 'Netmask must have at least 16 bits set (255.255.0.0)', quiet);
+// must be 22 bits or smaller network
+			if (numberOfBitsOnNetMask(f[3].value) < 22) {
+				ferror.set(f[3], 'Netmask must have at least 22 bits set (255.255.252.0)', quiet);
 				return 0;
 			} else {
 				ferror.clear(f[3]);
@@ -725,6 +727,8 @@ function verifyFields(focused, quiet)
 		_mtu_enable: 1,
 		_f_wan_mtu: 1,
 		_f_wan_islan: 0,
+		_f_ppp_mlppp: 1,
+		_modem_ipaddr: 1,
 
 /* NOVLAN-BEGIN */
 		_dhcp_lease: 1,
@@ -818,6 +822,8 @@ function verifyFields(focused, quiet)
 		vis._ppp_demand = 0;
 		vis._mtu_enable = 0;
 		vis._f_wan_mtu = 0;
+		vis._f_ppp_mlppp = 0;
+		vis._modem_ipaddr = 0;
 		break;
 	case 'dhcp':
 		vis._l2tp_server_ip = 0;
@@ -830,6 +836,8 @@ function verifyFields(focused, quiet)
 		vis._wan_gateway = 0;
 		vis._wan_ipaddr = 0;
 		vis._wan_netmask = 0;
+		vis._f_ppp_mlppp = 0;
+		vis._modem_ipaddr = 1;
 
 		vis._lan_gateway = 0;
 		break;
@@ -840,6 +848,7 @@ function verifyFields(focused, quiet)
 		vis._wan_gateway = 0;
 		vis._wan_ipaddr = 0;
 		vis._wan_netmask = 0;
+		vis._modem_ipaddr = 1;
 
 		vis._lan_gateway = 0;
 		break;
@@ -851,6 +860,8 @@ function verifyFields(focused, quiet)
 		vis._ppp_custom = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
+		vis._f_ppp_mlppp = 0;
+		vis._modem_ipaddr = 0;
 
 		vis._lan_gateway = 0;
 		break;
@@ -859,6 +870,7 @@ function verifyFields(focused, quiet)
 		vis._ppp_service = 0;
 		vis._wan_gateway = (!E('_f_pptp_dhcp').checked);
 		vis._wan_ipaddr = (!E('_f_pptp_dhcp').checked);
+		vis._modem_ipaddr = 0;
 
 		vis._lan_gateway = 0;
 		break;
@@ -867,6 +879,7 @@ function verifyFields(focused, quiet)
 		vis._ppp_service = 0;
 		vis._wan_gateway = (!E('_f_pptp_dhcp').checked);
 		vis._wan_ipaddr = (!E('_f_pptp_dhcp').checked);
+		vis._modem_ipaddr = 0;
 
 		vis._lan_gateway = 0;
 		break;
@@ -1150,7 +1163,7 @@ REMOVE-END */
 		if ((vis[a[i]]) && (!v_ip(a[i], quiet || !ok))) ok = 0;
 
 	// IP address, blank -> 0.0.0.0
-	a = ['_f_dns_1', '_f_dns_2', '_f_dns_3','_wan_wins','_lan_gateway'];
+	a = ['_f_dns_1', '_f_dns_2', '_f_dns_3','_wan_wins','_lan_gateway', '_modem_ipaddr'];
 	for (i = a.length - 1; i >= 0; --i)
 		if ((vis[a[i]]) && (!v_dns(a[i], quiet || !ok))) ok = 0;
 
@@ -1259,6 +1272,21 @@ REMOVE-END */
 
 		elem.setInnerHTML('dhcp_count', '(' + ((aton(b.value) - aton(a.value)) + 1) + ')');
 	}
+
+/* REMOVE-BEGIN */
+/* TODO: same validation for builds with VLAN-GUI enabled */
+/* REMOVE-END */
+	ferror.clear('_modem_ipaddr');
+	a = E('_modem_ipaddr');
+	b = E('_lan_ipaddr');
+	c = E('_lan_netmask');
+	if ( vis['_modem_ipaddr'] && !(a._error_msg || b._error_msg || c._error_msg) && a.value != "0.0.0.0" ) {
+		c = aton(c.value);
+		if ( (aton(a.value) & c) == (aton(b.value) & c) ) {
+			ferror.set('_modem_ipaddr', 'Modem IP address may not be within your local address space.', quiet);
+			ok = 0;
+		}
+	}
 /* NOVLAN-END */
 
 	return ok;
@@ -1311,7 +1339,9 @@ function save()
 				fom.lan_proto.value = 'static';
 /* NOVLAN-END */
 /* VLAN-BEGIN */
+/* REMOVE-BEGIN */
 // TODO - what's required ? integrate with tomatogrid?
+/* REMOVE-END */
 /* VLAN-END */
 		}
 
@@ -1451,24 +1481,23 @@ function save()
 		fom['lan' + j + '_netmask'].value = d[i][3];
 		fom['lan' + j + '_proto'].value = (d[i][4] != '0') ? 'dhcp' : 'static';
 		fom['dhcp' + j + '_start'].value = (d[i][4] != '0') ? (d[i][5]).split('.').splice(3, 1) : '';
-		fom['dhcp' + j + '_num'].value = (d[i][4] != '0') ? d[i][6] - fom['dhcp' + j + '_start'].value + 1 : '';
+		fom['dhcp' + j + '_num'].value = (d[i][4] != '0') ? d[i][6].split('.').splice(3, 1) - (d[i][5]).split('.').splice(3, 1) + 1 : ''; // presuming /24 subnet (legacy)
 		fom['dhcp' + j + '_lease'].value = (d[i][4] != '0') ? d[i][7] : '';
 		fom['dhcpd' + j + '_startip'].value = (d[i][4] != '0') ? d[i][5] : '';
-		fom['dhcpd' + j + '_endip'].value = (d[i][4] != '0') ? fixIP(getNetworkAddress(d[i][2], d[i][3]).split('.').splice(0, 3).join('.') + '.' + parseInt(d[i][6])) : '';
+		fom['dhcpd' + j + '_endip'].value = (d[i][4] != '0') ? d[i][6] : '';
 
-/* REMOVE-BEGIN
-alert('lan' + j + '_ifname=' + fom['lan' + j + '_ifname'].value + 
-	', lan' + j + '_stp=' + fom['lan' + j + '_stp'].value + 
-	', lan' + j + '_ipaddr=' + fom['lan' + j + '_ipaddr'].value + 
-	', lan' + j + '_netmask=' + fom['lan' + j + '_netmask'].value + 
-	', lan' + j + '_proto=' + fom['lan' + j + '_proto'].value + 
-	', dhcp' + j + '_start=' + fom['dhcp' + j + '_start'].value + 
-	', dhcp' + j + '_num=' + fom['dhcp' + j + '_num'].value + 
-	', dhcp' + j + '_lease=' + fom['dhcp' + j + '_lease'].value + 
-	', dhcpd' + j + '_startip=' + fom['dhcpd' + j + '_startip'].value + 
-	', dhcpd' + j + '_endip=' + fom['dhcpd' + j + '_endip'].value);
-// fixIP(getNetworkAddress(data[2], data[3]).split('.').splice(0, 3).join('.') + '.' + parseInt(data[6]))
-REMOVE-END */
+/* REMOVE-BEGIN */
+alert('lan' + j + '_ifname=' + fom['lan' + j + '_ifname'].value + '\n' +
+	'lan' + j + '_stp=' + fom['lan' + j + '_stp'].value + '\n' +
+	'lan' + j + '_ipaddr=' + fom['lan' + j + '_ipaddr'].value + '\n' +
+	'lan' + j + '_netmask=' + fom['lan' + j + '_netmask'].value + '\n' +
+	'lan' + j + '_proto=' + fom['lan' + j + '_proto'].value + '\n' +
+	'dhcp' + j + '_start=' + fom['dhcp' + j + '_start'].value + '\n' +
+	'dhcp' + j + '_num=' + fom['dhcp' + j + '_num'].value + '\n' +
+	'dhcp' + j + '_lease=' + fom['dhcp' + j + '_lease'].value + '\n' +
+	'dhcpd' + j + '_startip=' + fom['dhcpd' + j + '_startip'].value + '\n' +
+	'dhcpd' + j + '_endip=' + fom['dhcpd' + j + '_endip'].value);
+/* REMOVE-END */
 	}
 
 	var e = E('footer-msg');
@@ -1489,6 +1518,9 @@ REMOVE-END */
 //	if ((nvram.lan_ipaddr != fom.lan_ipaddr.value) || (nvram.lan1_ipaddr != fom.lan1_ipaddr.value) ||
 //		(nvram.lan2_ipaddr != fom.lan2_ipaddr.value) || (nvram.lan3_ipaddr != fom.lan3_ipaddr.value)){
 REMOVE-END */
+
+	fom.ppp_mlppp.value = fom.f_ppp_mlppp.checked ? 1 : 0;
+
 	if (nvram.lan_ipaddr != fom.lan_ipaddr.value) {
 		fom._moveip.value = 1;
 		form.submit(fom);
@@ -1536,6 +1568,7 @@ function init()
 <input type='hidden' name='lan_proto'>
 <!-- NOVLAN-END -->
 <input type='hidden' name='wan_dns'>
+<input type='hidden' name='ppp_mlppp'>
 
 <!-- VLAN-BEGIN -->
 <script type='text/javascript'>
@@ -1581,6 +1614,8 @@ createFieldTable('', [
 	{ title: 'MTU', multi: [
 		{ name: 'mtu_enable', type: 'select', options: [['0', 'Default'],['1','Manual']], value: nvram.mtu_enable },
 		{ name: 'f_wan_mtu', type: 'text', maxlen: 4, size: 6, value: nvram.wan_mtu } ] },
+	{ title: 'Single Line MLPPP', name: 'f_ppp_mlppp', type: 'checkbox', value: (nvram.ppp_mlppp == 1) },
+	{ title: 'Route Modem IP', name: 'modem_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.modem_ipaddr },
 /* NOVLAN-BEGIN */
 	{ title: 'Use WAN port for LAN', name: 'f_wan_islan', type: 'checkbox', value: (nvram.wan_islan == 1) }
 /* NOVLAN-END */

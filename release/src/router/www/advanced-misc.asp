@@ -85,7 +85,7 @@ for (i = 3; i <= 20; ++i) a.push([i, i + ' seconds']);
 createFieldTable('', [
 	{ title: 'Boot Wait Time *', name: 'wait_time', type: 'select', options: a, value: fixInt(nvram.wait_time, 3, 20, 3) },
 	{ title: 'WAN Port Speed *', name: 'wan_speed', type: 'select', options: [[0,'10Mb Full'],[1,'10Mb Half'],[2,'100Mb Full'],[3,'100Mb Half'],[4,'Auto']], value: nvram.wan_speed },
-	{ title: 'CPU Frequency **', name: 'clkfreq', type: 'select', options: [['','Default'],['188,94'],['200,100'],['216,108'],['240,120'],['250,125'],['266,133'],['300,150'],['354,177'],['400,200'],['453,226'],['480,240'],['500,250'],['532,266']], value: nvram.clkfreq },
+	{ title: 'CPU Frequency *', name: 'clkfreq', type: 'select', options: [['188,94'],['200,100'],['216,108'],['240,120'],['250,125'],['266,133'],['300,150,75'],['354,177,88'],['400,200,100'],['453,226,113'],['480,240,120'],['500,250,125'],['532,266,133']], value: nvram.clkfreq },
 
 	null,
 
@@ -106,13 +106,13 @@ createFieldTable('', [
 	<ul>
 	<br>
 	<br>
+	<b>NOTES</b><br>
+	<br>
 	<small>
-	*  Not all models support these options<br>
-	** Please make sure to set your CPU clock frequency before use<br>
-	** You must reboot the router for the new CPU clock frequency to take effect<br>
-	<br>
-	<br>
-	<b>Please check to make sure your router can support these changes before you commit them</b><br>
+	* CPU clock frequencies up to 266 are for older MIPSR1 routers, and set 2 parameters<br>
+	* Frequencies above 266 are used for later models of router, and set 3 parameters<br>
+	* You must reboot the router for the new CPU clock frequency to take effect<br>
+	* Not all models support these options<br>
 	</small>
 	</ul>
 </div>

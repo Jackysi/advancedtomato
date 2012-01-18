@@ -214,13 +214,12 @@ mppe_alloc(unsigned char *options, int opt_len, int comp)
 	return NULL;
     }
 
-    state = (struct ppp_mppe_state *)kmalloc(sizeof(*state), GFP_KERNEL);
+    state = (struct ppp_mppe_state *)kzalloc(sizeof(*state), GFP_KERNEL);
     if (state == NULL) {
 	printk(KERN_ERR "%s: cannot allocate space for %scompressor\n", fname,
 	       comp ? "" : "de");
 	return NULL;
     }
-    memset(state, 0, sizeof(struct ppp_mppe_state));
 
     state->mppc = options[5] & MPPE_MPPC;	/* Do we use MPPC? */
     state->mppe = options[5] & (MPPE_128BIT | MPPE_56BIT |

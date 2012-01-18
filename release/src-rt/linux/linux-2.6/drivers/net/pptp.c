@@ -46,6 +46,8 @@
 
 //#define DEBUG
 //#define CONFIG_NET_IPGRE_DEMUX
+#define HAVE_FIND_NEXT_BIT
+#define HAVE_SKB_CLONE_WRITABLE
 
 #if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
 #include <net/gre.h>
@@ -53,12 +55,23 @@
 
 #define PPTP_DRIVER_VERSION "0.8.5"
 
+#ifdef DEBUG
 static int log_level=0;
 static int log_packets=10;
+#endif
 
 #define MAX_CALLID 65535
 #define PPP_LCP_ECHOREQ 0x09
 #define PPP_LCP_ECHOREP 0x0A
+
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,4,20)
+#define BITS_TO_LONGS(bits) \
+	(((bits)+BITS_PER_LONG-1)/BITS_PER_LONG)
+#define DECLARE_BITMAP(name,bits) \
+	unsigned long name[BITS_TO_LONGS(bits)]
+#define CLEAR_BITMAP(name,bits) \
+	memset(name, 0, BITS_TO_LONGS(bits)*sizeof(unsigned long))
+#endif
 
 static DECLARE_BITMAP(callid_bitmap, MAX_CALLID + 1);
 static struct pppox_sock **callid_sock;
@@ -93,8 +106,9 @@ static inline void nf_reset(struct sk_buff *skb)
 }
 #define __user
 #endif
+#endif
 
-#if 0 // already defined for mips32
+#ifndef HAVE_FIND_NEXT_BIT
 /**
  * __ffs - find first bit in word.
  * @word: The word to search
@@ -175,7 +189,7 @@ found_middle:
 	return result + __ffs(tmp);
 }
 #endif
-#endif
+
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 static rwlock_t chan_lock=RW_LOCK_UNLOCKED;
@@ -227,7 +241,7 @@ struct pptp_gre_header {
   u32 seq;		/* sequence number.  Present if S==1 */
   u32 ack;		/* seq number of highest packet recieved by */
   				/*  sender in this session */
-} __packed;
+} __attribute__ ((__packed__));
 #define PPTP_HEADER_OVERHEAD (2+sizeof(struct pptp_gre_header))
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
@@ -411,7 +425,7 @@ static int pptp_xmit(struct ppp_channel *chan, struct sk_buff *skb)
 	max_headroom = LL_RESERVED_SPACE(tdev) + sizeof(*iph)+sizeof(*hdr)+2;
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,23) && !defined(HAVE_SKB_CLONE_WRITABLE)
 	if (skb_headroom(skb) < max_headroom || skb_cloned(skb) || skb_shared(skb)) {
 #else
 	if (skb_headroom(skb) < max_headroom || skb_shared(skb) ||
@@ -697,7 +711,8 @@ static int pptp_rcv(struct sk_buff *skb)
 					(!PPTP_GRE_IS_K(header->flags)) ||
 					/* routing and recursion ctrl = 0  */
 					((header->flags&0xF) != 0)){
-			/* if invalid, discard this packet */
+		/* if invalid, discard this packet */
+#ifdef DEBUG
 		if (log_level>=1)
 			printk(KERN_INFO"PPTP: Discarding GRE: %X %X %X %X %X %X\n",
 							header->ver&0x7F, ntohs(header->protocol),
@@ -705,6 +720,7 @@ static int pptp_rcv(struct sk_buff *skb)
 							PPTP_GRE_IS_R(header->flags),
 							PPTP_GRE_IS_K(header->flags),
 							header->flags & 0xF);
+#endif
 		goto drop;
 	}
 
@@ -873,6 +889,7 @@ static int pptp_connect(struct socket *sock, struct sockaddr *uservaddr,
 	po->chan.mtu-=PPTP_HEADER_OVERHEAD;
 
 	po->chan.hdrlen=2+sizeof(struct pptp_gre_header);
+	po->chan.hdrlen += NET_SKB_PAD + sizeof(struct iphdr);
 	error = ppp_register_channel(&po->chan);
 	if (error){
 		printk(KERN_ERR "PPTP: failed to register PPP channel (%d)\n",error);
@@ -1150,20 +1167,18 @@ static int __init pptp_init_module(void)
 	int err=0;
 	printk(KERN_INFO "PPTP driver version " PPTP_DRIVER_VERSION "\n");
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-	callid_sock = __vmalloc((MAX_CALLID + 1) * sizeof(void *),
-	                        GFP_KERNEL, PAGE_KERNEL);
-#else
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,0)
 	callid_sock = __vmalloc((MAX_CALLID + 1) * sizeof(void *),
 	                        GFP_KERNEL | __GFP_ZERO, PAGE_KERNEL);
+#else
+	callid_sock = __vmalloc((MAX_CALLID + 1) * sizeof(void *),
+	                        GFP_KERNEL, PAGE_KERNEL);
+	memset(callid_sock, 0, (MAX_CALLID + 1) * sizeof(void *));
 #endif
 	if (!callid_sock) {
 		printk(KERN_ERR "PPTP: cann't allocate memory\n");
 		return -ENOMEM;
 	}
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-	memset(callid_sock, 0, (MAX_CALLID + 1) * sizeof(void *));
-#endif
 
 #if defined(CONFIG_NET_IPGRE_DEMUX) || defined(CONFIG_NET_IPGRE_DEMUX_MODULE)
 	if (gre_add_protocol(&gre_pptp_protocol, GREPROTO_PPTP) < 0) {
@@ -1240,6 +1255,7 @@ MODULE_DESCRIPTION("Point-to-Point Tunneling Protocol for Linux");
 MODULE_AUTHOR("Kozlov D. (xeb@mail.ru)");
 MODULE_LICENSE("GPL");
 
+#ifdef DEBUG
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 MODULE_PARM(log_level,"i");
 MODULE_PARM(log_packets,"i");
@@ -1248,4 +1264,4 @@ module_param(log_level,int,0);
 module_param(log_packets,int,0);
 #endif
 MODULE_PARM_DESC(log_level,"Logging level (default=0)");
-
+#endif

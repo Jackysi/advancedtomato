@@ -202,6 +202,7 @@ int do_led(int which, int mode)
 	static int wrt320n[]	= { 255,   2,     3,    4,  255,  255,  255,  255	};
 	static int wrt610nv2[]	= { 255,   5,     3,    0,  255,  255,  255,   -7	};
 	static int e4200[]	= { 255,   5,    -3,  255,  255,  255,  255,  255	};
+	static int rtn66u[]	= { 255, -12,   255,  255,  255,  255,  255,   15	};
 #endif
 
 	char s[16];
@@ -308,6 +309,9 @@ int do_led(int which, int mode)
 		if (which != LED_DIAG) return ret;
 		b = -1;	// power light
 		break;
+	case MODEL_RTN66U:
+		b = rtn66u[which];
+		break;
 	case MODEL_WNR3500L:
 		if (which == LED_DIAG) {
 			// power led gpio: 0x03 - green, 0x07 - amber
@@ -406,3 +410,5 @@ SET:
 
 	return ret;
 }
+
+

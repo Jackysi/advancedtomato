@@ -95,7 +95,7 @@ fill_playlists()
 	struct stat file;
 	char type[4];
 	sqlite_int64 plID, detailID;
-	char sql_buf[1024] = "SELECT ID, NAME, PATH from PLAYLISTS where ITEMS > FOUND";
+	char sql_buf[] = "SELECT ID, NAME, PATH from PLAYLISTS where ITEMS > FOUND";
 
 	if( sql_get_table(db, sql_buf, &result, &rows, NULL) != SQLITE_OK ) 
 		return -1;
@@ -121,7 +121,7 @@ fill_playlists()
 		if( sql_get_int_field(db, "SELECT ID from OBJECTS where PARENT_ID = '"MUSIC_PLIST_ID"'"
 		                          " and NAME = '%q'", plname) <= 0 )
 		{
-			detailID = GetFolderMetadata(plname, NULL, NULL, NULL, NULL);
+			detailID = GetFolderMetadata(plname, NULL, NULL, NULL, 0);
 			sql_exec(db, "INSERT into OBJECTS"
 			             " (OBJECT_ID, PARENT_ID, DETAIL_ID, CLASS, NAME) "
 			             "VALUES"

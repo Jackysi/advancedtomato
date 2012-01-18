@@ -1,4 +1,3 @@
-/* $Id: upnpreplyparse.c,v 1.6 2010/11/11 23:48:13 jmaggard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  *
@@ -47,11 +46,11 @@ NameValueParserStartElt(void * d, const char * name, int l)
     if(!data->head.lh_first)
     {
         struct NameValue * nv;
-        nv = malloc(sizeof(struct NameValue));
+        nv = malloc(sizeof(struct NameValue)+l+1);
         strcpy(nv->name, "rootElement");
         memcpy(nv->value, name, l);
         nv->value[l] = '\0';
-        LIST_INSERT_HEAD( &(data->head), nv, entries);
+        LIST_INSERT_HEAD(&(data->head), nv, entries);
     }
 }
 
@@ -60,14 +59,14 @@ NameValueParserGetData(void * d, const char * datas, int l)
 {
     struct NameValueParserData * data = (struct NameValueParserData *)d;
     struct NameValue * nv;
-    nv = malloc(sizeof(struct NameValue));
-    if(l>511)
-        l = 511;
+    if(l>1975)
+        l = 1975;
+    nv = malloc(sizeof(struct NameValue)+l+1);
     strncpy(nv->name, data->curelt, 64);
     nv->name[63] = '\0';
     memcpy(nv->value, datas, l);
     nv->value[l] = '\0';
-    LIST_INSERT_HEAD( &(data->head), nv, entries);
+    LIST_INSERT_HEAD(&(data->head), nv, entries);
 }
 
 void
