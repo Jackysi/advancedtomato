@@ -646,13 +646,13 @@ static int print_wif(int idx, int unit, int subunit, void *param)
 
 //		wl_iovar_get(wl_nvname("ifname", unit, 0), "cap", (void *)caps, WLC_IOCTL_SMLEN);
 //		wl_iovar_get("eth1", "cap", (void *)caps, WLC_IOCTL_SMLEN);
+		max_no_vifs = 1;
 		wl_iovar_get(nvram_safe_get(wl_nvname("ifname", unit, 0)), "cap", (void *)caps, WLC_IOCTL_SMLEN);
 		foreach(cap, caps, next) {
 			if (!strcmp(cap, "mbss16"))
 				max_no_vifs = 16;
-			else if (!strcmp(cap, "mbss4"))
+			if (!strcmp(cap, "mbss4"))
 				max_no_vifs = 4;
-			else max_no_vifs = 1;
 		}
 
 	}
