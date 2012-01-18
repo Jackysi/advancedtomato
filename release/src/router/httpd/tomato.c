@@ -609,6 +609,13 @@ static const nvset_t nvset_list[] = {
 	{ "wl_closed",			V_01				},
 	{ "wl_channel",			V_RANGE(0, 216)		},
 
+#ifdef TCONFIG_VLAN
+	{ "wl_vifs",			V_LENGTH(0, 64)		},	// multiple/virtual BSSIDs
+#ifndef LINUX26
+	{ "nas_alternate",			V_01			},	// only meaningful for ND/K24 builds
+#endif
+#endif
+
 	{ "wl_security_mode",		V_LENGTH(1, 32)		},	// disabled, radius, wep, wpa_personal, wpa_enterprise, wpa2_personal, wpa2_enterprise
 	{ "wl_radius_ipaddr",	V_IP				},
 	{ "wl_radius_port",		V_PORT				},

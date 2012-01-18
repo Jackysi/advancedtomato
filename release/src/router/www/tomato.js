@@ -2366,11 +2366,13 @@ function navi()
 			['MAC Address',		'mac.asp'],
 			['Miscellaneous',	'misc.asp'],
 			['Routing',			'routing.asp'],
+			['Wireless',		'wireless.asp']
 /* VLAN-BEGIN */
-			['VLAN',			'vlan.asp'],
+			,['VLAN',			'vlan.asp'],
 			['LAN Access',			'access.asp'],
+			['Virtual Wireless',		'wlanvifs.asp']
 /* VLAN-END */
-			['Wireless',		'wireless.asp'] ] ],
+			 ] ],
 		['Port Forwarding', 	'forward', 0, [
 			['Basic',			'basic.asp'],
 /* IPV6-BEGIN */
