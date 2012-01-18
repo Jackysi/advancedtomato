@@ -434,7 +434,7 @@ function earlyInit() {
 	//			nvram['wl' + ''],
 				bridged
 			]);
-			max_no_vifs = max_no_vifs + wl_ifaces[uidx][7];
+			max_no_vifs = max_no_vifs + (wl_ifaces[uidx][7] >= 4) ? 4 : wl_ifaces[uidx][7];
 		}
 	}
 
@@ -444,6 +444,7 @@ function earlyInit() {
 
 		var total = vifs_defined[uidx][10] * 1;
 		if (isNaN(total)) continue;
+		if (total >= 4) total = 4;
 
 		W('#spin'+vifs_defined[uidx][2]+', ');
 
