@@ -337,10 +337,13 @@ static int set_wlmac(int idx, int unit, int subunit, void *param)
 		!nvram_get_int(wl_nvname("bss_enabled", unit, subunit)))
 		return 0;
 
-//	set_mac(ifname, wl_nvname("macaddr", unit, subunit),
-	set_mac(ifname, wl_nvname("hwaddr", unit, subunit),  // AB multiSSID
+	if (strcmp(nvram_safe_get(wl_nvname("hwaddr", unit, subunit)), "") == 0) {
+//		set_mac(ifname, wl_nvname("macaddr", unit, subunit),
+		set_mac(ifname, wl_nvname("hwaddr", unit, subunit),  // AB multiSSID
 		2 + unit + ((subunit > 0) ? ((unit + 1) * 0x10 + subunit) : 0));
-
+	} else {
+		set_mac(ifname, wl_nvname("hwaddr", unit, subunit), 0);
+	}
 	return 1;
 }
 

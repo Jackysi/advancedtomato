@@ -226,6 +226,10 @@ const defaults_t defaults[] = {
 	{ "wl_wep_gen",			""				},	// save all settings for generate button	// Add
 	{ "wl_wep_last",		""				},	// Save last wl_wep mode	// Add
 
+#ifdef TCONFIG_VLAN
+	{ "wl_vifs",			""				},	// multiple/virtual BSSIDs
+#endif
+
 	// WPA parameters
 	{ "wl_security_mode",		"disabled"		},	// WPA mode (disabled|radius|wpa_personal|wpa_enterprise|wep|wpa2_personal|wpa2_enterprise) for WEB	// Add
 	{ "wl_auth_mode",		"none"			},	// Network authentication mode (radius|none)
