@@ -81,7 +81,7 @@ static int nas_starter(int idx, int unit, int subunit, void *param) {
 			else
 				snprintf(unit_str, sizeof(unit_str), "%d", unit);
 
-			for(br=0 ; br<=3 ; br++) {
+			for(br=3 ; br>=0 ; br--) {
 				char bridge[2] = "0";
 				if (br!=0)
 					bridge[0]+=br;
@@ -93,7 +93,7 @@ static int nas_starter(int idx, int unit, int subunit, void *param) {
 
 				if(strstr(nvram_safe_get(lanN_ifnames),nvram_safe_get(wl_nvname("ifname", unit, subunit))) != NULL) {
 					xstart("/usr/sbin/nas.sh", unit_str, nvram_safe_get(lanN_ifname));
-					sleep(1);
+					sleep(3);
 				}
 			}
 		}

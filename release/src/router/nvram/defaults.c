@@ -228,6 +228,10 @@ const defaults_t defaults[] = {
 	{ "wl_wep_gen",			""				},	// save all settings for generate button	// Add
 	{ "wl_wep_last",		""				},	// Save last wl_wep mode	// Add
 
+#ifdef TCONFIG_VLAN
+	{ "wl_vifs",			""				},	// multiple/virtual BSSIDs
+#endif
+
 	// WPA parameters
 	{ "wl_security_mode",		"disabled"		},	// WPA mode (disabled|radius|wpa_personal|wpa_enterprise|wep|wpa2_personal|wpa2_enterprise) for WEB	// Add
 	{ "wl_auth_mode",		"none"			},	// Network authentication mode (radius|none)
@@ -349,22 +353,23 @@ const defaults_t defaults[] = {
 	{ "ddnsx_refresh",		"28"			},
 
 // basic-ident
-	{ "router_name",		"toast"		},
+	{ "router_name",		"tomato"		},
 	{ "wan_hostname",		"unknown"		},
 	{ "wan_domain",			""				},
 
 // basic-time
-	{ "tm_sel",				"CET-1CEST,M3.5.0/2,M10.5.0/3"	},
-	{ "tm_tz",				"CET-1CEST,M3.5.0/2,M10.5.0/3"	},
+	{ "tm_sel",				"PST8PDT,M3.2.0/2,M11.1.0/2"	},
+	{ "tm_tz",				"PST8PDT,M3.2.0/2,M11.1.0/2"	},
 	{ "tm_dst",				"1",							},
 	{ "ntp_updates",		"4"								},
 	{ "ntp_tdod",			"0"								},
-	{ "ntp_server",			"0.europe.pool.ntp.org 1.europe.pool.ntp.org 2.europe.pool.ntp.org" },
+	{ "ntp_server",			"0.pool.ntp.org 1.pool.ntp.org 2.pool.ntp.org" },
 	{ "ntp_kiss",			""								},
 	{ "ntp_kiss_ignore",	""								},
 
 // basic-static
 	{ "dhcpd_static",		""				},
+	{ "arpbind_listed",		"0"				},	// AB - Enable static ARP for all devices on list
 
 // basic-wfilter
 	{ "wl_maclist",			""			},	// xx:xx:xx:xx:xx:xx ... = 17
@@ -633,12 +638,12 @@ const defaults_t defaults[] = {
 	{ "log_remoteip",		""				},
 	{ "log_remoteport",		"514"				},
 	{ "log_file",			"1"				},
-	{ "log_file_custom",	"0"					},
-	{ "log_file_path",		"/var/log/messages"		},
-	{ "log_file_size",		"50"				},
-	{ "log_file_keep",		"1"				},
-	{ "log_limit",			"60"				},
-	{ "log_in",			"0"				},
+	{ "log_file_custom",	"0"				},
+	{ "log_file_path",		"/var/log/messages"},
+	{ "log_file_size",		"50"			},
+	{ "log_file_keep",		"1"			},
+	{ "log_limit",			"60"			},
+	{ "log_in",				"0"				},
 	{ "log_out",			"0"				},
 	{ "log_mark",			"60"				},
 	{ "log_events",			""				},

@@ -514,10 +514,10 @@ static const nvset_t nvset_list[] = {
 	{ "ntp_kiss",			V_LENGTH(0, 255)	},
 
 // basic-static
-	{ "bwm_client",			V_LENGTH(0, 4096)	},
-	{ "dhcpd_static",		V_LENGTH(0, 108*141)	},	// 108 (max chars per entry) x 140 entries
-	{ "dhcpd_static_only",		V_01			},
-	{ "arpbind_static",		V_LENGTH(0, 34*141)	},	// 34 (max chars per entry) x 140 entries
+	{ "dhcpd_static",		V_LENGTH(0, 106*141)},	// 106 (max chars per entry) x 140 entries
+	{ "dhcpd_static_only",	V_01				},
+	{ "arpbind_static",		V_LENGTH(0, 34*141)},	// 34 (max chars per entry) x 140 entries
+	{ "arpbind_listed",		V_01				}, // AB - Enable static ARP for all devices on list
 
 // basic-ddns
 	{ "ddnsx0",				V_LENGTH(0, 2048)	},
@@ -612,6 +612,13 @@ static const nvset_t nvset_list[] = {
 	{ "wl_ssid",			V_LENGTH(1, 32)		},
 	{ "wl_closed",			V_01				},
 	{ "wl_channel",			V_RANGE(0, 216)		},
+
+#ifdef TCONFIG_VLAN
+	{ "wl_vifs",			V_LENGTH(0, 64)		},	// multiple/virtual BSSIDs
+#ifndef LINUX26
+	{ "nas_alternate",			V_01			},	// only meaningful for ND/K24 builds
+#endif
+#endif
 
 	{ "wl_security_mode",		V_LENGTH(1, 32)		},	// disabled, radius, wep, wpa_personal, wpa_enterprise, wpa2_personal, wpa2_enterprise
 	{ "wl_radius_ipaddr",	V_IP				},
