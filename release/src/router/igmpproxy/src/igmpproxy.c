@@ -194,8 +194,9 @@ int igmpProxyInit() {
                     if(upStreamVif == -1) {
                         upStreamVif = Ix;
                     } else {
-                        my_log(LOG_ERR, 0, "Vif #%d was already upstream. Cannot set VIF #%d as upstream as well.",
+                        my_log(LOG_WARNING, 0, "Vif #%d was already upstream. Cannot set VIF #%d as upstream as well (skipping this VIF).",
                             upStreamVif, Ix);
+                        Dp->state = IF_STATE_DISABLED;
                     }
                 }
 
