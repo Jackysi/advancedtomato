@@ -207,8 +207,11 @@ install:
 	@echo " [udpxy] Installing..."
 	@test -d $(INSTALLROOT)/usr/sbin || mkdir -p -m 755 $(INSTALLROOT)/usr/sbin
 	@cp $(EXEC) $(INSTALLROOT)/usr/sbin
-	@ln -s $(INSTALLROOT)/usr/sbin/$(EXEC) $(INSTALLROOT)/usr/sbin/$(UDPXREC)
-	@ls -l $(INSTALLROOT)/usr/sbin/$(EXEC) $(INSTALLROOT)/usr/sbin/$(UDPXREC)
+ifneq (yes, $(NO_UDPXREC))
+	@rm -f $(INSTALLROOT)/usr/sbin/$(UDPXREC)
+	ln -s $(EXEC) $(INSTALLROOT)/usr/sbin/$(UDPXREC)
+endif
+
 	$(STRIP) $(INSTALLROOT)/usr/sbin/udpxy
 	@ls -l $(INSTALLROOT)/usr/sbin/$(EXEC) $(INSTALLROOT)/usr/sbin/$(UDPXREC)
 	@echo "Installation of udpxy is complete"
