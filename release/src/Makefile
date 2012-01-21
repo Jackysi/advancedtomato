@@ -126,11 +126,11 @@ endif
 ifeq ($(WRT54),y)
 ifneq ($(MIPS32),r2)
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-l W54G,image/tomato-WRT54G_WRT54GL$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
-		-l W54S,image/tomato-WRT54GS$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
-		-l W54s,image/tomato-WRT54GSv4$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
-		-l W54U,image/tomato-WRTSL54GS$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
-		-m 0x10577050,image/tomato-WR850G$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+		-l W54G,image/tomato-WRT54G_WRT54GL$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l W54S,image/tomato-WRT54GS$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l W54s,image/tomato-WRT54GSv4$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l W54U,image/tomato-WRTSL54GS$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-m 0x10577050,image/tomato-WR850G$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		| tee -a fpkg.log
 endif
 endif
