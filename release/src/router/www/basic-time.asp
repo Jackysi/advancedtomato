@@ -235,29 +235,22 @@ createFieldTable('', [
 		['EET-2EEST-3,M3.5.0/3,M10.5.0/4','UTC+02:00 Estonia, Finland, Latvia, Lithuania'],
 		['UTC-2','UTC+02:00 South Africa, Israel'],
 		['STD-2DST,M3.5.0/2,M10.5.0/2','UTC+02:00 Greece, Ukraine, Romania, Turkey, Latvia'],
-		['UTC-3','UTC+03:00 Iraq, Jordan, Kuwait'],
-		['MSK-3MSD,M3.5.0,M10.5.0/3','UTC+03:00 Moscow'],
-		['UTC-4','UTC+04:00 Oman, UAE'],
+		['UTC-3','UTC+03:00 Iraq, Jordan, Kalingrad, Kuwait,'],
+		['UTC-4','UTC+04:00 Moscow, Oman, UAE'],
 		['AMT-4AMST,M3.5.0,M10.5.0/3','UTC+04:00 Armenia'],
 		['UTC-4:30','UTC+04:30 Kabul'],
 		['UTC-5','UTC+05:00 Pakistan'],
-		['YEKT-5YEKST,M3.5.0,M10.5.0/3','UTC+05:00 Russia, Yekaterinburg'],
 		['UTC-5:30','UTC+05:30 Bombay, Calcutta, Madras, New Delhi'],
-		['UTC-6','UTC+06:00 Bangladesh'],
-		['NOVT-6NOVST,M3.5.0,M10.5.0/3','UTC+06:00 Russia, Novosibirsk'],
-		['UTC-7','UTC+07:00 Thailand'],
-		['KRAT-7KRAST,M3.5.0,M10.5.0/3','UTC+07:00 Russia, Krasnoyarsk'],
-		['UTC-8','UTC+08:00 China, Hong Kong, Western Australia, Singapore, Taiwan'],
-		['IRKT-8IRKST,M3.5.0,M10.5.0/3','UTC+08:00 Russia, Irkutsk'],
-		['UTC-9','UTC+09:00 Japan, Korea'],
-		['YAKT-9YAKST,M3.5.0,M10.5.0/3','UTC+09:00 Russia, Yakutsk'],
+		['UTC-6','UTC+06:00 Bangladesh, Yekaterinburg'],
+		['UTC-7','UTC+07:00 Omsk, Thailand'],
+		['UTC-8','UTC+08:00 China, Hong Kong, Krasnoyarsk, Western Australia, Singapore, Taiwan'],
+		['UTC-9','UTC+09:00 Irkutsk, Japan, Korea'],
 		['ACST-9:30ACDT,M10.1.0/2,M4.1.0/3', 'UTC+09:30 South Australia'],
 		['ACST-9:30', 'UTC+09:30 Darwin'],
-		['UTC-10','UTC+10:00 Guam, Russia'],
 		['AEST-10AEDT,M10.1.0,M4.1.0/3', 'UTC+10:00 Australia'],
-		['AEST-10', 'UTC+10:00 Brisbane'],
-		['UTC-11','UTC+11:00 Solomon Islands'],
-		['UTC-12','UTC+12:00 Fiji'],
+		['AEST-10', 'UTC+10:00 Brisbane, Yakutsk'],
+		['UTC-11','UTC+11:00 Solomon Islands, Guam, Vladivostok'],
+		['UTC-12','UTC+12:00 Fiji, Magadan'],
 		['NZST-12NZDT,M9.5.0/2,M4.1.0/3','UTC+12:00 New Zealand']
 	], value: nvram.tm_sel },
 	{ title: 'Auto Daylight Savings Time', indent: 2, name: 'f_tm_dst', type: 'checkbox', value: nvram.tm_dst != '0' },
@@ -275,7 +268,6 @@ createFieldTable('', [
 </script>
 </div>
 <br><br>
-
 <div id='ntpkiss' style='display:none'>
 The following NTP servers have been automatically blocked by request from the server:
 <b id='ntpkiss-ip'></b>
