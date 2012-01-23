@@ -729,7 +729,7 @@ void do_static_routes(int add)
 	free(buf);
 
 	char *modem_ipaddr;
-	if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") )
+	if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") || nvram_match("wan_proto", "static") )
 		&& (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0") ) {
 		char ip[16];
 		char *end = rindex(modem_ipaddr,'.')+1;

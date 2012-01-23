@@ -753,7 +753,7 @@ static void nat_table(void)
 #endif
 
 		char *modem_ipaddr;
-		if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") )
+		if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") || nvram_match("wan_proto", "static") )
 		     && (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0") )
 			ipt_write("-A POSTROUTING -o %s -d %s -j MASQUERADE\n", nvram_safe_get("wan_ifname"), modem_ipaddr);
 
@@ -1482,6 +1482,7 @@ int start_firewall(void)
 	simple_lock("firewall");
 	simple_lock("restrictions");
 
+	wanproto = get_wan_proto();
 	wanup = check_wanup();
 
 	f_write_string("/proc/sys/net/ipv4/tcp_syncookies", nvram_get_int("ne_syncookies") ? "1" : "0", 0, 0);
