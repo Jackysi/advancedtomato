@@ -359,8 +359,8 @@ const defaults_t defaults[] = {
 	{ "wan_domain",			""				},
 
 // basic-time
-	{ "tm_sel",				"PST8PDT,M3.2.0/2,M11.1.0/2"	},
-	{ "tm_tz",				"PST8PDT,M3.2.0/2,M11.1.0/2"	},
+	{ "tm_sel",				"BRT3BRST,M10.3.0/0,M2.3.0/0"	},
+	{ "tm_tz",				"BRT3BRST,M10.3.0/0,M2.3.0/0"	},
 	{ "tm_dst",				"1",							},
 	{ "ntp_updates",		"4"								},
 	{ "ntp_tdod",			"0"								},
@@ -568,7 +568,7 @@ const defaults_t defaults[] = {
 	{ "rmgt_sip",			""				},	// remote management: source ip address
 
 	{ "http_id",			""				},
-	{ "web_mx",				"status,bwm"	},
+	{ "web_mx",				""				},
 	{ "web_pb",				""				},
 
 // admin-bwm
