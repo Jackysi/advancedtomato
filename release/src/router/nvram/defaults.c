@@ -184,7 +184,7 @@ const defaults_t defaults[] = {
 	{ "wl_radioids",		""				},	// List of radio IDs
 	{ "wl_ssid",			"wireless"			},	// Service set ID (network name)
 	{ "wl1_ssid",			"wireless1"			},
-	{ "wl_country_code",		"SG"				},	// Country (default obtained from driver)
+	{ "wl_country_code",		""		},		// Country (default obtained from driver)
 	{ "wl_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl1_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl_closed",			"0"				},	// Closed (hidden) network
@@ -358,8 +358,8 @@ const defaults_t defaults[] = {
 	{ "wan_domain",			""				},
 
 // basic-time
-	{ "tm_sel",				"PST8PDT,M3.2.0/2,M11.1.0/2"	},
-	{ "tm_tz",				"PST8PDT,M3.2.0/2,M11.1.0/2"	},
+	{ "tm_sel",				"BRT3BRST,M10.3.0/0,M2.3.0/0"	},
+	{ "tm_tz",				"BRT3BRST,M10.3.0/0,M2.3.0/0"	},
 	{ "tm_dst",				"1",							},
 	{ "ntp_updates",		"4"								},
 	{ "ntp_tdod",			"0"								},
@@ -566,8 +566,7 @@ const defaults_t defaults[] = {
 	{ "https_crt_file",		""				},
 	{ "https_crt",			""				},
 	{ "web_wl_filter",		"0"				},	// Allow/Deny Wireless Access Web
-	{ "web_favicon",		"0"				},
-	{ "web_css",			"brownlight"			},
+	{ "web_css",			"tomato"		},
 	{ "web_svg",			"1"				},
 	{ "telnetd_eas",		"1"				},
 	{ "telnetd_port",		"23"				},
@@ -583,8 +582,8 @@ const defaults_t defaults[] = {
 	{ "rmgt_sip",			""				},	// remote management: source ip address
 
 	{ "http_id",			""				},
-	{ "web_mx",			"status,bwm"			},
-	{ "web_pb",			""				},
+	{ "web_mx",				""				},
+	{ "web_pb",				""				},
 
 // admin-bwm
 	{ "rstats_enable",		"1"				},

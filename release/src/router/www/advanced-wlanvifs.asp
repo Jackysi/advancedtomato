@@ -119,7 +119,7 @@ wlg.setup = function() {
 	wlg.canDelete = false;
 	wlg.showNewEditor();
 	wlg.resetNewEditor();
-	if (wlg.maxAdd < max_no_vifs) {
+	if (wlg.getAllData().length >= max_no_vifs) {
 		wlg.disableNewEditor(true);
 	}
 }
@@ -327,6 +327,15 @@ wlg.onAdd = function() {
 
 	tabSelect(u);
 	verifyFields(null,1);
+
+	var e = E('footer-msg');
+	e.innerHTML = 'After configuring this VIF, review and save your settings on the Overview tab.';
+	e.style.visibility = 'visible';
+	setTimeout(
+		function() {
+		e.innerHTML = '';
+		e.style.visibility = 'hidden';
+		}, 5000);
 }
 
 wlg.onOK = function() {
@@ -346,16 +355,22 @@ wlg.onOK = function() {
 	E('_f_wl'+u+'_mode').value = data[3];
 
 	var vif = definedVIFidx(u);
+/* REMOVE-BEGIN */
 //	vifs_defined[vif][4] = data[1]; // radio
 //	vifs_defined[vif][6] = data[2]; // bss_enabled
 //	vifs_defined[vif][8] = data[3]; // SSID
 //	vifs_defined[vif][7] = data[4]; // WL mode
+/* REMOVE-END */
 	vifs_defined[vif][4] = data[1]; // radio
+/* REMOVE-BEGIN */
 //	vifs_defined[vif][6] = data[2]; // bss_enabled
+/* REMOVE-END */
 	vifs_defined[vif][8] = data[2]; // SSID
 	vifs_defined[vif][7] = data[3]; // WL mode
 	vifs_defined[vif][11] = data[4]; // LAN bridge
+/* REMOVE-BEGIN */
 //alert(data.join('\n'));
+/* REMOVE-END */
 
 	this.source.setRowData(data);
 	for (i = 0; i < this.source.cells.length; ++i) {
@@ -402,7 +417,7 @@ function earlyInit() {
 /* REMOVE-END */
 
 	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		var u = wl_fface(uidx);
+		var u = wl_fface(uidx).toString();
 		var bridged = 4;
 		if (u) {
 			var wmode = (((nvram['wl' + u + '_mode']) == 'ap') && ((nvram['wl' + u + '_wds_enable']) == '1')) ? 'apwds': (nvram['wl' + u + '_mode']);
@@ -417,6 +432,7 @@ function earlyInit() {
 				}
 			}
 
+			var wlvifs = ((wl_ifaces[uidx][7] > 4) ? '4' : wl_ifaces[uidx][7].toString());
 			vifs_defined.push([
 				u.toString(),						// fface == wl_ifaces[uidx][1]
 				wl_ifaces[uidx][0],
@@ -430,11 +446,12 @@ function earlyInit() {
 				wl_ifaces[uidx][4] || '',			// nvram['wl' + u + '_ssid'],
 	//			wl_ifaces[uidx][4], 				// nvram['wl' + u + '_ssid'],
 				nvram['wl' + u + '_hwaddr'],		// MAC addr
-				(wl_ifaces[uidx][7] * 1).toString(), // VIFs supported
-	//			nvram['wl' + ''],
+//				(wl_ifaces[uidx][7] * 1).toString(), // VIFs supported
+				wlvifs,								// VIFs supported
 				bridged
 			]);
-			max_no_vifs = max_no_vifs + (wl_ifaces[uidx][7] >= 4) ? 4 : wl_ifaces[uidx][7];
+//			max_no_vifs = max_no_vifs + ((wl_ifaces[uidx][7] > 4) ? 4 : wl_ifaces[uidx][7]);
+			max_no_vifs = max_no_vifs + parseInt(wlvifs);
 		}
 	}
 
@@ -474,11 +491,12 @@ function init() {
 		if (((nvram['wl' + wl_unit(uninit) + '_corerev']) *1) >= 9) break;
 		uninit--;
 	}
+
+	E('sesdiv').style.display = '';
 	if (uninit < 0) {
-		W('<i>This feature is not supported on this router.</i>');
+		E('sesdiv').innerHTML = '<i>This feature is not supported on this router.</i>';
 		return;
 	}
-	E('sesdiv').style.display = '';
 
 	tabSelect(cookie.get('advanced_wlanvifs_tab') || tabs[0][0]);
 
@@ -524,10 +542,11 @@ function tabSelect(name) {
 	tabHigh(name);
 
 	if (name == 'overview') {
-			wlg.populate();
+		wlg.populate();
 	}
 
 	elem.display('overview-tab', (name == 'overview'));
+	E('save-button').disabled = (name != 'overview');
 
 	for (var i = 1; i < tabs.length; ++i) {
 		if (name == tabs[i][0]) {
@@ -801,7 +820,10 @@ REMOVE-END */
 
 			e = E('_f_wl'+u+'_mode');
 			for(var i = 0; i < e.options.length ; i++) {
-				e.options[i].disabled = ((e.options[i].value != 'ap') && (e.options[i].value != 'wet'));
+/* REMOVE-BEGIN */
+//				e.options[i].disabled = ((e.options[i].value != 'ap') && (e.options[i].value != 'wet'));
+/* REMOVE-END */
+				e.options[i].disabled = (e.options[i].value != 'ap');
 			}
 /* REMOVE-BEGIN */
 //			E('_f_wl'+u+'_mode').options[1].disabled = 1;
@@ -974,8 +996,12 @@ REMOVE-END */
 	return ok;
 }
 
-function save() {
+function cancel() {
+	cookie.set('advanced_wlanvifs_tab', 'overview');
+	javascript:reloadPage();
+}
 
+function save() {
 	if (wlg.isEditing()) return;
 	wlg.resetNewEditor();
 	if (!verifyFields(null, false)) return;
@@ -1362,13 +1388,15 @@ createFieldTable('', [
 <ul>
 <li><b>Other relevant notes/hints:</b>
 <ul>
-<li>When creating/defining a new wireless VIF, it's MAC address will be shown (incorrectly) as '00:00:00:00:00:00', as it's unknown at that moment (until network is restarted and/or the page is reloaded).</li>
+<li>When creating/defining a new wireless VIF, it's MAC address will be shown (incorrectly) as '00:00:00:00:00:00', as it's unknown at that moment (until network is restarted and this page is reloaded).</li>
 <li>Once created/defined, a wireless VIF cannot de deleted: it can only be <i>disabled</i>.</li>
 <li>When saving changes, the MAC addresses of all defined non-primary wireless VIFs are <i>unset</i> and get <i>recreated</i> (so those might change when saving settings).</li>
-<li>By definition, configuration settings for the <i>primary VIF</i> of any physical wireless interfaces shouldn't be touched here.</li>
+<li>This web interface allows configuring a maximum of 4 VIFs for each physical wireless interface available - up to 3 extra VIFs can be defined in addition to the primary VIF (<i>on devices with multiple VIF capabilities</i>).</li>
+<li>By definition, configuration settings for the <i>primary VIF</i> of any physical wireless interfaces shouldn't be touched here (use the <a href=basic-network.asp>Basic/Network</a> page instead).</li>
 </ul>
+<br>
 <ul>
-<li>This is highly <b>experimental</b> and hasn't been tested in anything but a WRT54GL v1.1 running a Teaman-ND K24 build.</li>
+<li>This is highly <b>experimental</b> and hasn't been tested in anything but a WRT54GL v1.1 running a Teaman-ND K24 build and a Cisco/Linksys E3000 running a Teaman-RT K26 build.</li>
 <li>There's lots of things that could go wrong, please do think about what you're doing and take a backup before hitting the 'Save' button on this page!</li>
 <li>You've been warned!</li>
 </ul>
@@ -1564,7 +1592,7 @@ for (var i = 1; i < tabs.length; ++i) {
 <tr><td id='footer' colspan=2>
 	<span id='footer-msg'></span>
 	<input type='button' value='Save' id='save-button' onclick='save()'>
-	<input type='button' value='Cancel' id='cancel-button' onclick='javascript:reloadPage();'>
+	<input type='button' value='Cancel' id='cancel-button' onclick='cancel()'>
 </td></tr>
 </table>
 </form>
