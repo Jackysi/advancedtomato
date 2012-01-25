@@ -695,6 +695,10 @@ void stop_lan(void)
 	_dprintf("%s %d\n", __FUNCTION__, __LINE__);
 }
 
+static int is_sta(int idx, int unit, int subunit, void *param)
+{
+	return (nvram_match(wl_nvname("mode", unit, subunit), "sta") && (nvram_match(wl_nvname("bss_enabled", unit, subunit), "1")));
+}
 
 void do_static_routes(int add)
 {
@@ -732,8 +736,9 @@ void do_static_routes(int add)
 	free(buf);
 
 	char *modem_ipaddr;
-	if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") )
-		&& (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0") ) {
+	if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") || nvram_match("wan_proto", "static") )
+		&& (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0") 
+		&& (!foreach_wif(1, NULL, is_sta)) ) {
 		char ip[16];
 		char *end = rindex(modem_ipaddr,'.')+1;
 		unsigned char c = atoi(end);
