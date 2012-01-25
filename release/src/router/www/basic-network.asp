@@ -856,7 +856,7 @@ function verifyFields(focused, quiet)
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
 		vis._f_ppp_mlppp = 0;
-		vis._modem_ipaddr = 0;
+		vis._modem_ipaddr = 1;
 
 		vis._lan_gateway = 0;
 		break;

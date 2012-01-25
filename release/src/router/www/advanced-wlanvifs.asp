@@ -820,7 +820,10 @@ REMOVE-END */
 
 			e = E('_f_wl'+u+'_mode');
 			for(var i = 0; i < e.options.length ; i++) {
-				e.options[i].disabled = ((e.options[i].value != 'ap') && (e.options[i].value != 'wet'));
+/* REMOVE-BEGIN */
+//				e.options[i].disabled = ((e.options[i].value != 'ap') && (e.options[i].value != 'wet'));
+/* REMOVE-END */
+				e.options[i].disabled = (e.options[i].value != 'ap');
 			}
 /* REMOVE-BEGIN */
 //			E('_f_wl'+u+'_mode').options[1].disabled = 1;
