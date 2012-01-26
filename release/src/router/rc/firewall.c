@@ -1181,7 +1181,6 @@ static void filter_forward(void)
 	}
 #else
 	ipt_write("-A FORWARD -i %s -j %s\n", lanface, chain_out_accept);
-		lanface, chain_out_accept);
 #endif
 
 // #ifdef TCONFIG_VLAN
