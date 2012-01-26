@@ -576,10 +576,9 @@ const defaults_t defaults[] = {
 	{ "sshd_dsskey",		""				},
 	{ "sshd_forwarding",		"1"				},
 	{ "rmgt_sip",			""				},	// remote management: source ip address
-
 	{ "http_id",			""				},
-	{ "web_mx",			"status,bwm"			},
-	{ "web_pb",			""				},
+	{ "web_mx",				""				},
+	{ "web_pb",				""				},
 
 // admin-bwm
 	{ "rstats_enable",		"1"				},
