@@ -634,10 +634,28 @@ static int print_wif(int idx, int unit, int subunit, void *param)
 	char unit_str[] = "000000";
 	char *ssidj;
 
-	if (subunit > 0)
+	char *next;
+	char cap[WLC_IOCTL_SMLEN];
+	char caps[WLC_IOCTL_SMLEN];
+	int max_no_vifs = 0;
+
+	if (subunit > 0) {
 		snprintf(unit_str, sizeof(unit_str), "%d.%d", unit, subunit);
-	else
+	} else {
 		snprintf(unit_str, sizeof(unit_str), "%d", unit);
+
+//		wl_iovar_get(wl_nvname("ifname", unit, 0), "cap", (void *)caps, WLC_IOCTL_SMLEN);
+//		wl_iovar_get("eth1", "cap", (void *)caps, WLC_IOCTL_SMLEN);
+		max_no_vifs = 1;
+		wl_iovar_get(nvram_safe_get(wl_nvname("ifname", unit, 0)), "cap", (void *)caps, WLC_IOCTL_SMLEN);
+		foreach(cap, caps, next) {
+			if (!strcmp(cap, "mbss16"))
+				max_no_vifs = 16;
+			if (!strcmp(cap, "mbss4"))
+				max_no_vifs = 4;
+		}
+
+	}
 
 	int up = 0;
 	int sfd;
@@ -656,13 +674,13 @@ static int print_wif(int idx, int unit, int subunit, void *param)
 
 	// [ifname, unitstr, unit, subunit, ssid, hwaddr, up]
 	ssidj = js_string(nvram_safe_get(wl_nvname("ssid", unit, subunit)));
-	web_printf("%c['%s','%s',%d,%d,'%s','%s',%d]", (idx == 0) ? ' ' : ',',
+	web_printf("%c['%s','%s',%d,%d,'%s','%s',%d,%d]", (idx == 0) ? ' ' : ',',
 		nvram_safe_get(wl_nvname("ifname", unit, subunit)),
 		unit_str, unit, subunit, ssidj,
 		// assume the slave inteface MAC address is the same as the primary interface
 //		nvram_safe_get(wl_nvname("hwaddr", unit, 0))
 //		// virtual inteface MAC address
-		nvram_safe_get(wl_nvname("hwaddr", unit, subunit)), up // AB multiSSID
+		nvram_safe_get(wl_nvname("hwaddr", unit, subunit)), up, max_no_vifs // AB multiSSID
 	);
 	free(ssidj);
 	if (sfd >= 0) close(sfd);

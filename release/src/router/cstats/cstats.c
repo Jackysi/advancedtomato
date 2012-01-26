@@ -559,14 +559,6 @@ static void calc(void) {
 
 		while (fgets(buf, sizeof(buf), f)) {
 			if(sscanf(buf, 
-/*
-#if defined(LINUX26)
-				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dst = %lu %*u %*u %*u %*u packets_dst = %*u %*u %*u %*u %*u time = %*u",
-#else
-				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dest = %lu %*u %*u %*u %*u packets_dest = %*u %*u %*u %*u %*u time = %*u",
-#endif
-*/
-
 				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dst = %lu %*u %*u %*u %*u packets_dst = %*u %*u %*u %*u %*u time = %*u",
 //				"ip = %s bytes_src = %Lu %*Lu %*Lu %*Lu %*Lu packets_src = %*Lu %*Lu %*Lu %*Lu %*Lu bytes_dest = %Lu %*Lu %*Lu %*Lu %*Lu packets_dest = %*Lu %*Lu %*Lu %*Lu %*Lu time = %*lu",
 				ip, &rx, &tx) != 3 ) continue;

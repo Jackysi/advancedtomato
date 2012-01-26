@@ -46,7 +46,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("lan_ipaddr,lan_netmask,dhcpd_static,dhcpd_startip,dhcpd_static_only,cstats_include"); %>
+//	<% nvram("lan_ipaddr,lan_netmask,dhcpd_static,dhcpd_startip,dhcpd_static_only,cstats_include,arpbind_listed"); %>
 
 if (nvram.lan_ipaddr.match(/^(\d+\.\d+\.\d+)\.(\d+)$/)) ipp = RegExp.$1 + '.';
 	else ipp = '?.?.?.';
@@ -304,6 +304,7 @@ function save() {
 
 	var fom = E('_fom');
 	fom.dhcpd_static.value = sdhcp;
+	fom.arpbind_listed.value = E('_f_arpbind_listed').checked ? '1' : '0';
 	fom.dhcpd_static_only.value = E('_f_dhcpd_static_only').checked ? '1' : '0';
 	fom.cstats_include.value = ipt;
 	form.submit(fom, 1);
@@ -359,6 +360,7 @@ function verifyFields(focused, quiet) {
 <input type='hidden' name='dhcpd_static'>
 <input type='hidden' name='dhcpd_static_only'>
 <input type='hidden' name='cstats_include'>
+<input type='hidden' name='arpbind_listed'>
 
 <div class='section-title'>Static DHCP/ARP &amp; Bandwidth Monitoring of LAN Clients</div>
 <div class='section'>
@@ -371,6 +373,7 @@ function verifyFields(focused, quiet) {
 <div class='section' id='sesdivoptions' style='display:none'>
 <script type='text/javascript'>
 createFieldTable('', [
+{ title: 'Enable static ARP for all devices on list ', name: 'f_arpbind_listed', type: 'checkbox', value: nvram.arpbind_listed == '1' },
 { title: 'Ignore DHCP requests from unknown devices', name: 'f_dhcpd_static_only', type: 'checkbox', value: nvram.dhcpd_static_only == '1' }
 ]);
 </script>
@@ -389,6 +392,7 @@ createFieldTable('', [
 </ul>
 
 <ul>
+<li><b>Enable static ARP for (...)</b> - Enforce static ARP binding for all IP/MAC address pairs listed above.</li>
 <li><b>Ignore DHCP requests (...)</b> - Unlisted MAC addresses won't be able to obtain an IP address through DHCP.</li>
 </ul>
 

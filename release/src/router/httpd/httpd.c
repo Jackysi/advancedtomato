@@ -835,9 +835,9 @@ static void setup_listeners(int do_ipv6)
 
 	strlcpy(ipaddr, nvram_safe_get("lan_ipaddr"), sizeof(ipaddr));
 #ifdef TCONFIG_VLAN
-	strlcpy(ipaddr1, nvram_safe_get("lan1_ipaddr"), sizeof(ipaddr1));
-	strlcpy(ipaddr2, nvram_safe_get("lan2_ipaddr"), sizeof(ipaddr2));
-	strlcpy(ipaddr3, nvram_safe_get("lan3_ipaddr"), sizeof(ipaddr3));
+	strlcpy(ipaddr1, nvram_safe_get("lan1_ipaddr"), sizeof(ipaddr));
+	strlcpy(ipaddr2, nvram_safe_get("lan2_ipaddr"), sizeof(ipaddr));
+	strlcpy(ipaddr3, nvram_safe_get("lan3_ipaddr"), sizeof(ipaddr));
 #endif
 
 	if (!nvram_match("http_enable", "0")) {
@@ -867,7 +867,6 @@ static void setup_listeners(int do_ipv6)
 		if (strcmp(ipaddr3,"")!=0)
 			add_listen_socket(ipaddr3, p, do_ipv6, 1);
 #endif
-
 		IF_TCONFIG_IPV6(if (do_ipv6 && wanport == p) wan6port = 0);
 	}
 #endif
