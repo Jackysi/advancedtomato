@@ -554,6 +554,11 @@ ifdef CONFIG_PLC
 CFLAGS += -DPLC
 endif
 
+#netgear 3500v2
+ifeq ($(CONFIG_MTD_NFLASH),y)
+CFLAGS += -DNFLASH_SUPPORT
+endif
+
 # Default kernel image to build when no specific target is given.
 # KBUILD_IMAGE may be overruled on the command line or
 # set in the environment

@@ -17,6 +17,10 @@ SHARED := ../../../../../../shared
 BCM947XX_OBJS = $(addprefix $(SHARED)/, hndmips.o hndchipc.o linux_gpio.o sflash.o)
 BCM947XX_OBJS += $(addprefix $(SHARED)/nvram/, nvram.o)
 
+ifeq ($(CONFIG_MTD_NFLASH),y)
+BCM947XX_OBJS += $(addprefix $(SHARED)/, nflash.o)
+endif
+
 EXTRA_CFLAGS += -DLINUX_HYBRID_POSTPROCESSING_REMOVAL
 
 ifeq ($(CONFIG_PCI),y)

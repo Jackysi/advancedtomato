@@ -190,7 +190,7 @@ createFieldTable('', [
 	{ title: 'Model', text: nvram.t_model_name },
 	{ title: 'Chipset', text: stats.systemtype },
 	{ title: 'CPU Freq', text: stats.cpumhz },
-	{ title: 'Flash RAM Size', text: stats.flashsize },
+	{ title: 'Flash Size', text: stats.flashsize },
 	null,
 	{ title: 'Time', rid: 'time', text: stats.time },
 	{ title: 'Uptime', rid: 'uptime', text: stats.uptime },

@@ -48,6 +48,14 @@ ifeq ($(NVRAM_SIZE),)
 NVRAM_SIZE = 0
 endif
 
+ifeq ($(WNR3500LV2),)
+WNR3500LV2 = 0
+else
+WNRTOOL=$(SRCBASE)/wnrtool
+BOARD_FILE=$(WNRTOOL)/compatible_WNR3500Lv2.txt
+fw_cfg_file := $(WNRTOOL)/ambitCfg.h
+endif
+
 -include tomato_profile.mak
 
 # This could be simpler by just using $(TOMATO_PROFILE_NAME) like it used to be,
@@ -98,6 +106,20 @@ all: tomato_ver
 
 	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx
 	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+
+ifeq ($(WNR3500LV2),1)
+	@echo "Creating Firmware for Netgear WNR3500L v2 .... "
+	mipsel-uclibc-objcopy -O binary -g $(LINUXDIR)/vmlinux image/vmlinux.bin
+	$(WNRTOOL)/lzma e image/vmlinux.bin image/vmlinux.lzma
+	$(WNRTOOL)/trx -o image/tomato-wnr3500lv2.trx image/vmlinux.lzma $(SRCBASE)/router/mipsel-uclibc/target.image
+	rm -f image/vmlinux.bin image/vmlinux.lzma
+	cd image && touch rootfs
+	cd image && $(WNRTOOL)/packet -k tomato-wnr3500lv2.trx -f rootfs -b $(BOARD_FILE) -ok kernel_image -oall kernel_rootfs_image -or rootfs_image -i $(fw_cfg_file) && rm -f rootfs && \
+	cp kernel_rootfs_image.chk tomato-Netgear-3500Lv2-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(V2)-$(current_BUILD_DESC).chk
+	@echo "Cleanup ....
+	rm -f image/*image.chk image/*.trx
+endif
+
 ifeq ($(WRT54),y)
 ifneq ($(MIPS32),r2)
 	@rm -f image/tomato-WRT54*$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
@@ -239,6 +261,7 @@ what:
 # Options for "make bin" :
 # BUILD_DESC (Std|Lite|Ext|...)
 # MIPS32 (r2|r1)
+# WNR3500LV2 (0|1)
 # KERN_SIZE_OPT
 # USB ("USB"|"")
 # JFFSv1 | NO_JFFS
@@ -524,6 +547,10 @@ define KernelConfig
 		echo "CONFIG_CPU_MIPS32_R2=y" >>$(1); \
 		sed -i "/CONFIG_CPU_MIPSR1/d" $(1); \
 		echo "CONFIG_CPU_MIPSR2=y" >>$(1); \
+		if [ "$(WNR3500LV2)" = "1" ]; then \
+			sed -i "/CONFIG_MTD_NFLASH/d" $(1); \
+			echo "CONFIG_MTD_NFLASH=y" >>$(1); \
+		fi; \
 	fi; \
 	if [ "$(USB)" = "" ]; then \
 		sed -i "/CONFIG_EFI_PARTITION/d" $(1); \
@@ -785,6 +812,17 @@ n60o:
 n60k:
 	@$(MAKE) r2k NVRAM_SIZE=60 LINKSYS_E=y
 
+#Builds for WNR3500L v2
+v2z:
+	@$(MAKE) z MIPS32=r2 WNR3500LV2=1
+
+v2e:
+	@$(MAKE) e MIPS32=r2 WNR3500LV2=1
+
+v2t:
+	@$(MAKE) t MIPS32=r2 WNR3500LV2=1
+
+
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
 	echo '#define TOMATO_$(N) 1' >> router/shared/tomato_profile.h
@@ -870,6 +908,9 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "n60b         Linksys E-series build Big-VPN"
 	@echo "n60o         Linksys E-series build Mega-VPN"
 	@echo "n60k         Linksys E-series build with IPv6"
+	@echo "v2e          Netgear WNR3500Lv2 build VPN"
+	@echo "v2t          Netgear WNR3500Lv2 build BT-VPN"
+	@echo "v2z          Netgear WNR3500Lv2 build AIO"
 endif
 	@echo "..etc..      other build configs"
 	@echo "clean        -C router clean"

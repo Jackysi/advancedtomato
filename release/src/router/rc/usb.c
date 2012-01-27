@@ -84,6 +84,10 @@ void start_usb(void)
 	char param[32];
 	int i;
 
+	if (nvram_match("boardtype", "0x052b")) { // Netgear WNR3500L v2 - initialize USB port
+		xstart("gpio", "enable", "20");
+	}
+
 	_dprintf("%s\n", __FUNCTION__);
 	tune_bdflush();
 
@@ -281,6 +285,11 @@ void stop_usb(void)
 			modprobe_r("usbserial");
 		}
 */
+
+	if (nvram_match("boardtype", "0x052b")) { // Netgear WNR3500L v2 - disable USB port
+		xstart("gpio", "disable", "20");
+	}
+
 	}
 #endif
 

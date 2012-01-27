@@ -408,6 +408,10 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
 		dirty |= check_nv("vlan2ports", "0 8");
 		break;
+	case MODEL_WNR3500LV2:
+		dirty |= check_nv("vlan1ports", "1 2 3 4 8*");
+		dirty |= check_nv("vlan2ports", "0 8");
+		break;
 	case MODEL_WNR2000v2:
 		dirty |= check_nv("vlan0ports", "4 3 2 1 5*");
 		dirty |= check_nv("vlan1ports", "0 5");
@@ -538,6 +542,9 @@ static void check_bootnv(void)
 		dirty |= check_nv("boardflags", "0x00000710"); // needed to enable USB
 		dirty |= check_nv("vlan2hwname", "et0");
 		dirty |= check_nv("ledbh0", "7");
+		break;
+	case MODEL_WNR3500LV2:
+		dirty |= check_nv("vlan2hwname", "et0");
 		break;
 	case MODEL_WNR2000v2:
 		dirty |= check_nv("ledbh5", "8");
@@ -1021,6 +1028,16 @@ static int init_nvram(void)
 		features = SUP_SES | SUP_AOSS_LED | SUP_80211N | SUP_1000ET;
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("sromrev", "3");
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+		}
+		break;
+	case MODEL_WNR3500LV2:
+		mfr = "Netgear";
+		name = "WNR3500L v2";
+		features = SUP_SES | SUP_AOSS_LED | SUP_80211N | SUP_1000ET;
+		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan1 eth1");
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");

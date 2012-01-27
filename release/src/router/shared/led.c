@@ -315,6 +315,7 @@ int do_led(int which, int mode)
 		b = rtn66u[which];
 		break;
 	case MODEL_WNR3500L:
+	case MODEL_WNR3500LV2:
 		if (which == LED_DIAG) {
 			// power led gpio: 0x03 - green, 0x07 - amber
 			b = (mode) ? 7 : 3;

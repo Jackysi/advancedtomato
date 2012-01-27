@@ -71,6 +71,7 @@ RT-N10U				BCM5357               0x0550       45        0x1102    0x710
 RT-N66U				BCM4706               0xf5b2       00        0x1100    0x0110
 
 WNR3500L			BCM4718               0x04cf       3500      0x1213|02 0x0710|0x1710
+WNR3500Lv2			BCM47186              0x052b       3500(L)   02        0x710|0x1000
 WNR2000v2			BCM4716B0             0xe4cd       1         0x1700
 
 F7D4301 v1			BCM4718               0xd4cf       12345     0x1204
@@ -160,6 +161,8 @@ int check_hw_type(void)
 		return HW_BCM4718;
 	case 0xf5b2:
 		return HW_BCM4706;
+	case 0x052b:		/* WNR3500LV2 */
+		return HW_BCM47186;
 #endif
 	}
 
@@ -350,6 +353,10 @@ int get_model(void)
 		case HW_BCM4718:
 			//if (nvram_match("boardrev", "0x1213") || nvram_match("boardrev", "02"))
 			return MODEL_WNR3500L;
+			break;
+		case HW_BCM47186:
+			return MODEL_WNR3500LV2;
+			break;
 		}
 		break;
 #endif
