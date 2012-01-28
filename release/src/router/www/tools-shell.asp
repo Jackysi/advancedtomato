@@ -145,8 +145,6 @@ createFieldTable('', [
 
 <div class='section-title'>Notes <small><i><a href='javascript:toggleVisibility("notes");'><span id='sesdiv_notes_showhide'>(Click here to show)</span></a></i></small></div>
 <div class='section' id='sesdiv_notes' style='display:none'>
-
-<div>
 	<ul>
 		<li><b>TIP</b> - Use the command "nvram export --set" or "nvram export --set | grep qos" to cut and paste configuration
 	</ul>
