@@ -255,8 +255,10 @@ void start_dnsmasq()
 			}
 #endif
 		} else {
-			if (strcmp(nvram_safe_get(lanN_ifname),"")!=0)
+			if (strcmp(nvram_safe_get(lanN_ifname),"")!=0) {
+				fprintf(f, "interface=%s\n", nvram_safe_get(lanN_ifname));
 				fprintf(f, "no-dhcp-interface=%s\n", nvram_safe_get(lanN_ifname));
+			}
 		}
 	}
 	// write static lease entries & create hosts file
@@ -283,22 +285,20 @@ void start_dnsmasq()
 	snprintf(buf, sizeof(buf), "%s/dhcp-hosts", dmdhcp);
 	df = fopen(buf, "w");
 
-
 	// PREVIOUS/OLD FORMAT:
-
-	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 53 w/ delim
+	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 73 w/ delim
 	// 00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 85 w/ delim
-	// 00:aa:bb:cc:dd:ee,00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 106 w/ delim
+	// 00:aa:bb:cc:dd:ee,00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz> = 103 w/ delim
 
-	// NEW FORMAT (+static ARP binding after hostname):
-	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 55 w/ delim
+	// NEW FORMAT (+static ARP binding flag after hostname):
+	// 00:aa:bb:cc:dd:ee<123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 75 w/ delim
 	// 00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 87 w/ delim
-	// 00:aa:bb:cc:dd:ee,00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 108 w/ delim
+	// 00:aa:bb:cc:dd:ee,00:aa:bb:cc:dd:ee<123.123.123.123<xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.xyz<a> = 105 w/ delim
 
 	p = nvram_safe_get("dhcpd_static");
 	while ((e = strchr(p, '>')) != NULL) {
 		n = (e - p);
-		if (n > 107) {
+		if (n > 104) {
 			p = e + 1;
 			continue;
 		}
@@ -1131,9 +1131,9 @@ void start_syslog(void)
 		}
 
 		if (nvram_match("log_file_custom", "0")) {
-		argv[argc++] = "-s";
-		argv[argc++] = rot_siz;
-		remove("/var/log/messages");
+			argv[argc++] = "-s";
+			argv[argc++] = rot_siz;
+			remove("/var/log/messages");
 		}
 
 		if (isdigit(*b_opt)) {
@@ -1201,7 +1201,8 @@ void start_igmp_proxy(void)
 				"phyint %s upstream\n"
 				"\taltnet %s\n",
 //				"phyint %s downstream ratelimit 0\n",
-				get_wanface(),
+//				get_wanface(),
+				nvram_safe_get("wan_ifname"),
 				nvram_get("multicast_altnet") ? : "0.0.0.0/0");
 //				nvram_safe_get("lan_ifname"));
 

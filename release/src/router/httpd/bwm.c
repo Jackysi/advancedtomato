@@ -288,13 +288,6 @@ void asp_iptmon(int argc, char **argv) {
 
 		while (fgets(sa, sizeof(sa), a)) {
 			if(sscanf(sa, 
-/*
-#ifdef LINUX26
-				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dst = %lu %*u %*u %*u %*u packets_dst = %*u %*u %*u %*u %*u time = %*u",
-#else
-				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dest = %lu %*u %*u %*u %*u packets_dest = %*u %*u %*u %*u %*u time = %*u",
-#endif
-*/
 				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dst = %lu %*u %*u %*u %*u packets_dst = %*u %*u %*u %*u %*u time = %*u",
 				ip, &tx, &rx) != 3 ) continue;
 
@@ -360,5 +353,4 @@ void asp_ipt_bandwidth(int argc, char **argv)
 		unlink(name);
 	}
 }
-
 

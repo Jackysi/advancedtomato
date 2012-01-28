@@ -140,27 +140,36 @@ REMOVE-END */
 		ferror.clear(E('_upnp_clean_threshold'));
 	}
 /* VLAN-BEGIN */
-	E('_f_upnp_lan').disabled = ((nvram.lan_ifname.length < 1) || !((enable != 0) && (bc != 0)));
+	E('_f_upnp_lan').disabled = ((nvram.lan_ifname.length < 1) || (enable == 0));
 	if (E('_f_upnp_lan').disabled)
 		E('_f_upnp_lan').checked = false;
-	E('_f_upnp_lan1').disabled = ((nvram.lan1_ifname.length < 1) || !((enable != 0) && (bc != 0)));
+	E('_f_upnp_lan1').disabled = ((nvram.lan1_ifname.length < 1) || (enable == 0));
 	if (E('_f_upnp_lan1').disabled)
 		E('_f_upnp_lan1').checked = false;
-	E('_f_upnp_lan2').disabled = ((nvram.lan2_ifname.length < 1) || !((enable != 0) && (bc != 0)));
+	E('_f_upnp_lan2').disabled = ((nvram.lan2_ifname.length < 1) || (enable == 0));
 	if (E('_f_upnp_lan2').disabled)
 		E('_f_upnp_lan2').checked = false;
-	E('_f_upnp_lan3').disabled = ((nvram.lan3_ifname.length < 1) || !((enable != 0) && (bc != 0)));
+	E('_f_upnp_lan3').disabled = ((nvram.lan3_ifname.length < 1) || (enable == 0));
 	if (E('_f_upnp_lan3').disabled)
 		E('_f_upnp_lan3').checked = false;
 	if ((enable) && (!E('_f_upnp_lan').checked) && (!E('_f_upnp_lan1').checked) && (!E('_f_upnp_lan2').checked) && (!E('_f_upnp_lan3').checked)) {
-		if (E('_f_enable_natpmp').checked)
-			ferror.set('_f_enable_natpmp', 'NAT-PMP must be enabled in least one LAN bridge', quiet);
-		if (E('_f_enable_upnp').checked)
-			ferror.set('_f_enable_upnp', 'UPnP must be enabled in least one LAN bridge', quiet);
+		if ((E('_f_enable_natpmp').checked) || (E('_f_enable_upnp').checked)) {
+			var m = 'NAT-PMP or UPnP must be enabled in least one LAN bridge';
+			ferror.set('_f_enable_natpmp', m, quiet);
+			ferror.set('_f_enable_upnp', m, 1);
+			ferror.set('_f_upnp_lan', m, 1);
+			ferror.set('_f_upnp_lan1', m, 1);
+			ferror.set('_f_upnp_lan2', m, 1);
+			ferror.set('_f_upnp_lan3', m, 1);
+		}
 		return 0;
 	} else {
 		ferror.clear('_f_enable_natpmp');
 		ferror.clear('_f_enable_upnp');
+		ferror.clear('_f_upnp_lan');
+		ferror.clear('_f_upnp_lan1');
+		ferror.clear('_f_upnp_lan2');
+		ferror.clear('_f_upnp_lan3');
 	}
 /* VLAN-END */
 	return 1;

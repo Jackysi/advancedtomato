@@ -95,7 +95,7 @@ function init()
 - USB support integration and GUI,
 <!-- USB-END -->
 <!-- IPV6-BEGIN -->
-IPv6 support,
+IPv6 support
 <!-- IPV6-END -->
 <br>
 Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>

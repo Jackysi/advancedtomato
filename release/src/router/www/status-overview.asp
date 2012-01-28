@@ -168,17 +168,38 @@ function earlyInit()
 {
 	elem.display('b_dhcpc', show_dhcpc);
 	elem.display('b_connect', 'b_disconnect', show_codi);
-	elem.display('wan-title', 'wan-section', nvram.wan_proto != 'disabled');
+	if (nvram.wan_proto == 'disabled')
+		elem.display('wan-title', 'sesdiv_wan', 0);
 	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 		if (wl_sunit(uidx)<0)
-			elem.display('b_wl'+uidx+'_enable', 'b_wl'+uidx+'_disable', show_radio[uidx]);
+			elem.display('b_wl'+wl_fface(uidx)+'_enable', 'b_wl'+wl_fface(uidx)+'_disable', show_radio[uidx]);
 	}
 	show();
 }
 
-function init()
-{
+function init() {
+	var c;
+	if (((c = cookie.get('status_overview_system_vis')) != null) && (c != '1')) toggleVisibility("system");
+	if (((c = cookie.get('status_overview_wan_vis')) != null) && (c != '1')) toggleVisibility("wan");
+	if (((c = cookie.get('status_overview_lan_vis')) != null) && (c != '1')) toggleVisibility("lan");
+	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+		u = wl_fface(uidx);
+		if (((c = cookie.get('status_overview_wl_'+u+'_vis')) != null) && (c != '1')) toggleVisibility("wl_"+u);
+	}
+
 	ref.initPage(3000, 3);
+}
+
+function toggleVisibility(whichone) {
+	if (E('sesdiv_' + whichone).style.display == '') {
+		E('sesdiv_' + whichone).style.display = 'none';
+		E('sesdiv_' + whichone + '_showhide').innerHTML = '(Click here to show)';
+		cookie.set('status_overview_' + whichone + '_vis', 0);
+	} else {
+		E('sesdiv_' + whichone).style.display='';
+		E('sesdiv_' + whichone + '_showhide').innerHTML = '(Click here to hide)';
+		cookie.set('status_overview_' + whichone + '_vis', 1);
+	}
 }
 </script>
 
@@ -196,14 +217,14 @@ function init()
 
 <!-- / / / -->
 
-<div class='section-title'>System</div>
-<div class='section'>
+<div class='section-title'>System <small><i><a href='javascript:toggleVisibility("system");'><span id='sesdiv_system_showhide'>(Click here to hide)</span></a></i></small></div>
+<div class='section' id='sesdiv_system'>
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Name', text: nvram.router_name },
 	{ title: 'Model', text: nvram.t_model_name },
 	{ title: 'Chipset', text: stats.systemtype },
-	{ title: 'CPU Freq', text: stats.cpumhz },
+	{ title: 'CPU Freq', text: stats.cpumhz, hidden: (stats.cpumhz == ' MHz') },
 	{ title: 'Flash RAM Size', text: stats.flashsize },
 	null,
 	{ title: 'Time', rid: 'time', text: stats.time },
@@ -216,14 +237,14 @@ createFieldTable('', [
 </script>
 </div>
 
-<div class='section-title' id='wan-title'>WAN</div>
-<div class='section' id='wan-section'>
+<div class='section-title' id='wan-title'>WAN <small><i><a href='javascript:toggleVisibility("wan");'><span id='sesdiv_wan_showhide'>(Click here to hide)</span></a></i></small></div>
+<div class='section' id='sesdiv_wan'>
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'MAC Address', text: nvram.wan_hwaddr },
 	{ title: 'Connection Type', text: { 'dhcp':'DHCP', 'static':'Static IP', 'pppoe':'PPPoE', 'pptp':'PPTP', 'l2tp':'L2TP' }[nvram.wan_proto] || '-' },
 	{ title: 'IP Address', rid: 'wanip', text: stats.wanip },
-	{ title: 'Previous WAN IP', rid: 'wanprebuf',text:stats.wanprebuf }, //Victek
+	{ title: 'Previous WAN IP', rid: 'wanprebuf', text: stats.wanprebuf, hidden: ((nvram.wan_proto != 'pppoe') && (nvram.wan_proto != 'pptp') && (nvram.wan_proto != 'l2tp')) }, //Victek
 	{ title: 'Subnet Mask', rid: 'wannetmask', text: stats.wannetmask },
 	{ title: 'Gateway', rid: 'wangateway', text: stats.wangateway },
 /* IPV6-BEGIN */
@@ -246,8 +267,8 @@ createFieldTable('', [
 </div>
 
 
-<div class='section-title'>LAN</div>
-<div class='section'>
+<div class='section-title'>LAN <small><i><a href='javascript:toggleVisibility("lan");'><span id='sesdiv_lan_showhide'>(Click here to hide)</span></a></i></small></div>
+<div class='section' id='sesdiv_lan'>
 <script type='text/javascript'>
 
 /* VLAN-BEGIN */
@@ -317,24 +338,28 @@ createFieldTable('', [
 
 <script type='text/javascript'>
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-u = wl_fface(uidx);
-W('<div class=\'section-title\' id=\'wl'+uidx+'-title\'>Wireless');
-if (wl_ifaces.length > 1)
-	W(' (' + wl_display_ifname(uidx) + ')');
-W('</div>');
-W('<div class=\'section\' id=\'wl'+uidx+'-section\'>');
-sec = auth[nvram['wl'+u+'_security_mode']] + '';
-if (sec.indexOf('WPA') != -1) sec += ' + ' + enc[nvram['wl'+u+'_crypto']];
+/* REMOVE-BEGIN
+//	u = wl_unit(uidx);
+REMOVE-END */
+	u = wl_fface(uidx);
+	W('<div class=\'section-title\' id=\'wl'+u+'-title\'>Wireless');
+	if (wl_ifaces.length > 0)
+		W(' (' + wl_display_ifname(uidx) + ')');
+	W(' <small><i><a href=\'javascript:toggleVisibility("wl_' + u + '");\'><span id=\'sesdiv_wl_' +u + '_showhide\'>(Click here to hide)</span></a></i></small>');
+	W('</div>');
+	W('<div class=\'section\' id=\'sesdiv_wl_'+u+'\'>');
+	sec = auth[nvram['wl'+u+'_security_mode']] + '';
+	if (sec.indexOf('WPA') != -1) sec += ' + ' + enc[nvram['wl'+u+'_crypto']];
 
-wmode = wmo[nvram['wl'+u+'_mode']] + '';
-if ((nvram['wl'+u+'_mode'] == 'ap') && (nvram['wl'+u+'_wds_enable'] * 1)) wmode += ' + WDS';
+	wmode = wmo[nvram['wl'+u+'_mode']] + '';
+	if ((nvram['wl'+u+'_mode'] == 'ap') && (nvram['wl'+u+'_wds_enable'] * 1)) wmode += ' + WDS';
 
-createFieldTable('', [
-	{ title: 'MAC Address', text: nvram['wl'+u+'_hwaddr'] },
-	{ title: 'Wireless Mode', text: wmode },
-	{ title: 'Wireless Network Mode', text: bgmo[nvram['wl'+u+'_net_mode']] },
-	{ title: 'Interface Status', rid: 'ifstatus'+uidx, text: wlstats[uidx].ifstatus },
-	{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? '<b>Disabled</b>' : 'Enabled' },
+	createFieldTable('', [
+		{ title: 'MAC Address', text: nvram['wl'+u+'_hwaddr'] },
+		{ title: 'Wireless Mode', text: wmode },
+		{ title: 'Wireless Network Mode', text: bgmo[nvram['wl'+u+'_net_mode']], ignore: (wl_sunit(uidx)>=0) },
+		{ title: 'Interface Status', rid: 'ifstatus'+uidx, text: wlstats[uidx].ifstatus },
+		{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? '<b>Disabled</b>' : 'Enabled', ignore: (wl_sunit(uidx)>=0) },
 /* REMOVE-BEGIN */
 //	{ title: 'SSID', text: (nvram['wl'+u+'_ssid'] + ' <small><i>' + ((nvram['wl'+u+'_mode'] != 'ap') ? '' : ((nvram['wl'+u+'_closed'] == 0) ? '(Broadcast Enabled)' : '(Broadcast Disabled)')) + '</i></small>') },
 /* REMOVE-END */
