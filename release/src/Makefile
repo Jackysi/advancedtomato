@@ -661,7 +661,7 @@ i:
 ## Make the "No USB with IPv6, no Zebra, with VPN" build - for 4MB routers
 ifeq ($(CONFIG_LINUX26),y)
 j:
-	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_XXTP=y SLIM=y NO_SAMBA=y NO_ZEBRA=y IPV6SUPP=y OPENVPN=y USERPPTP=y NO_LIBOPT=y B=I BUILD_DESC="MiniIPv6-VPN" USB="" VLAN="$(VLAN)" SNMP="$(SNMP)"
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_XXTP=y SLIM=y NO_SAMBA=y NO_ZEBRA=y IPV6SUPP=y OPENVPN=y USERPPTP=y NO_LIBOPT=y B=J BUILD_DESC="MiniIPv6-VPN" USB="" VLAN="$(VLAN)" SNMP="$(SNMP)"
 endif
 
 ## Make the "normal with Extras and NTFS" build
@@ -684,12 +684,12 @@ endif
 ## Toastman
 ## Make the "Mini: no USB, + NOCAT" build - for 4MB routers
 ncm:
-	@$(MAKE) bin JFFSv1=y NOCAT=y B=F BUILD_DESC="Mini-NOCAT" USB="" VLAN="$(VLAN)"
+	@$(MAKE) bin JFFSv1=y NOCAT=y B=NCM BUILD_DESC="Mini-NOCAT" USB="" VLAN="$(VLAN)"
 
 ## Toastman
 ## Make the "normal" build + NOCAT
 ncs:
-	@$(MAKE) bin NOCAT=y B=A BUILD_DESC="Std-NOCAT" USB="USB" SNMP=y VLAN="$(VLAN)"
+	@$(MAKE) bin NOCAT=y B=NCS BUILD_DESC="Std-NOCAT" USB="USB" SNMP=y VLAN="$(VLAN)"
 
 
 ## Make the "No USB" build
@@ -704,10 +704,10 @@ endif
 ## Make the "No USB with Extras" build (K26 only, for 8MB flash)
 ifeq ($(CONFIG_LINUX26),y)
 t:
-	@$(MAKE) bin B=S USB="" BBEXTRAS=y EBTABLES=y NO_LIBOPT=y $(if $(filter r2, $(MIPS32)),,BCM57=y) IPV6SUPP=y BUILD_DESC="Std" SNMP=y VLAN="$(VLAN)"
+	@$(MAKE) bin B=T USB="" BBEXTRAS=y EBTABLES=y NO_LIBOPT=y $(if $(filter r2, $(MIPS32)),,BCM57=y) IPV6SUPP=y BUILD_DESC="Std" SNMP=y VLAN="$(VLAN)"
 ## Make the "No USB with OpenVPN and Extras" build (K26 only, for 8MB flash)
 u:
-	@$(MAKE) bin B=V USB="" BBEXTRAS=y EBTABLES=y NO_LIBOPT=y $(if $(filter r2, $(MIPS32)),,BCM57=y) IPV6SUPP=y OPENVPN=y USERPPTP=y BUILD_DESC="$(VPN)"  SNMP=y VLAN="$(VLAN)"
+	@$(MAKE) bin B=U USB="" BBEXTRAS=y EBTABLES=y NO_LIBOPT=y $(if $(filter r2, $(MIPS32)),,BCM57=y) IPV6SUPP=y OPENVPN=y USERPPTP=y BUILD_DESC="$(VPN)"  SNMP=y VLAN="$(VLAN)"
 endif
 
 ## Make the "VPN with no USB support" build
@@ -721,7 +721,7 @@ endif
 ## Make the "Small VPN with no USB support" build
 vs:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y USERPPTP=y NO_JFFS=y NO_CIFS=y B=V BUILD_DESC="SmallVPN" USB=""
+	@$(MAKE) bin OPENVPN=y USERPPTP=y NO_JFFS=y NO_CIFS=y B=VS BUILD_DESC="SmallVPN" USB=""
 else
 	@$(MAKE) bin OPENVPN=y USERPPTP=y NO_JFFS=y NO_CIFS=y BCM57=y B=VS BUILD_DESC="SmallVPN" USB=""
 endif
@@ -747,7 +747,7 @@ r2f:
 	@$(MAKE) f MIPS32=r2 BELKIN=y
 
 r2fs:
-	@$(MAKE) i MIPS32=r2
+	@$(MAKE) fs MIPS32=r2
 
 r2i:
 	@$(MAKE) i MIPS32=r2
