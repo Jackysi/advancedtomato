@@ -43,6 +43,7 @@ ND = "K26"
 else
 ND = "ND"
 endif
+VLAN ?= "n"
 
 ifeq ($(NVRAM_SIZE),)
 NVRAM_SIZE = 0
@@ -677,7 +678,7 @@ f:
 ifeq ($(CONFIG_LINUX26),y)
 ## MiniIPv6 - for 4MB routers
 i:
-	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB=""
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB="" VLAN="$(VLAN)"
 endif
 
 ifeq ($(CONFIG_LINUX26),y)

@@ -1031,6 +1031,25 @@ static void filter_forward(void)
 	}
 	free(nv);
 
+	ip46t_write(
+		"-A FORWARD -m state --state INVALID -j DROP\n");		// drop if INVALID state
+
+	// clamp tcp mss to pmtu
+	clampmss();
+
+	if (wanup) {
+		ipt_restrictions();
+
+		ipt_layer7_inbound();
+	}
+
+	ipt_webmon();
+
+	ip46t_write(
+		":wanin - [0:0]\n"
+		":wanout - [0:0]\n"
+		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
+
 	char lanN_ifname[] = "lanXX_ifname";
 	char br;
 	for(br=0 ; br<=3 ; br++) {
@@ -1065,31 +1084,6 @@ static void filter_forward(void)
 //		ip46t_write("-A FORWARD -i %s -j %s\n", nvram_safe_get(lanN_ifname), chain_out_accept);
 		}
 	}
-
-	ip46t_write(
-		"-A FORWARD -m state --state INVALID -j DROP\n");		// drop if INVALID state
-
-/* shibby - unused ?!?
-	// IPv4 only ?
-	ipt_write(
-		"-A FORWARD -m state --state INVALID -j DROP\n");	// drop if INVALID state
-shibby */
-
-	// clamp tcp mss to pmtu
-	clampmss();
-
-	if (wanup) {
-		ipt_restrictions();
-
-		ipt_layer7_inbound();
-	}
-
-	ipt_webmon();
-
-	ip46t_write(
-		":wanin - [0:0]\n"
-		":wanout - [0:0]\n"
-		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
 
 #ifdef TCONFIG_IPV6
 	// Filter out invalid WAN->WAN connections
@@ -1138,33 +1132,6 @@ shibby */
 			ip46t_write("-A FORWARD -i %s -j %s\n", nvram_safe_get(lanN_ifname), chain_out_accept);
 		}
 	}
-
-/* shibby - unused ?!?
-
-	for (i = 0; i < wanfaces.count; ++i) {
-		if (*(wanfaces.iface[i].name)) {
-			ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lanface, wanfaces.iface[i].name, chain_out_accept);
-			if (strcmp(lan1face,"")!=0)
-				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan1face, wanfaces.iface[i].name, chain_out_accept);
-			if (strcmp(lan2face,"")!=0)
-				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan2face, wanfaces.iface[i].name, chain_out_accept);
-			if (strcmp(lan3face,"")!=0)
-				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan3face, wanfaces.iface[i].name, chain_out_accept);
-		}
-	}
-
-#ifdef TCONFIG_IPV6
-//IPv6 forward LAN->WAN accept
-	ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lanface, wan6face, chain_out_accept);
-	if (strcmp(lan1face,"")!=0)
-		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan1face, wan6face, chain_out_accept);
-	if (strcmp(lan2face,"")!=0)
-		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan2face, wan6face, chain_out_accept);
-	if (strcmp(lan3face,"")!=0)
-		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan3face, wan6face, chain_out_accept);
-#endif
-
-shibby */
 
 	// IPv4 only
 	if (nvram_get_int("upnp_enable") & 3) {

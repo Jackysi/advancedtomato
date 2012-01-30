@@ -11,7 +11,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Basic: Networks</title>
+<title>[<% ident(); %>] Basic: Network</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
@@ -26,11 +26,16 @@
 #lan-grid .co5,
 #lan-grid .co6,
 #lan-grid .co7 {
-  text-align: center;
+	text-align: center;
 }
 
 #lan-grid .centered {
-  text-align: center;
+	text-align: center;
+}
+
+#spin {
+	visibility: hidden;
+	vertical-align: middle;
 }
 </style>
 
@@ -73,7 +78,7 @@ lg.setup = function() {
 				(nvram['lan' + j + '_proto'] == 'dhcp') ? '1' : '0',
 				nvram['dhcpd' + j + '_startip'],
 				nvram['dhcpd' + j + '_endip'],
-				(nvram['dhcp' + j + '_start'] != '') ? nvram['dhcp' + j + '_lease'] : ''
+				(nvram['lan' + j + '_proto'] == 'dhcp') ? (((nvram['dhcp' + j + '_lease'])*1 == 0) ? '1440' : (nvram['dhcp' + j + '_lease']).toString()) : ''
 			] ) ;
 			numBridges++;
 		}
@@ -704,14 +709,6 @@ function verifyFields(focused, quiet)
 		_f_ppp_mlppp: 1,
 		_modem_ipaddr: 1,
 
-/* REMOVE-BEGIN
-//		_dhcp_lease: 1,
-//		_f_dhcpd_enable: 1,
-//		_dhcpd_startip: 1,
-//		_dhcpd_endip: 1,
-//		_lan_ipaddr: 1,
-//		_lan_netmask: 1,
-REMOVE-END */
 		_f_dns_1: 1,
 		_f_dns_2: 1,
 		_f_dns_3: 1,
@@ -769,10 +766,6 @@ REMOVE-END */
 		if (wmode == 'wet') {
 			wan = 'disabled';
 			vis._wan_proto = 0;
-/* REMOVE-BEGIN
-//			vis._f_dhcpd_enable = 0;
-//			vis._dhcp_lease = 0;
-REMOVE-END */
 		}
 
 		if ((wan == 'disabled') || (wmode == 'sta') || (wmode == 'wet')) {
@@ -917,9 +910,6 @@ REMOVE-END */
 		}
 	}
 
-/* REMOVE-BEGIN
-//	if (!E('_f_dhcpd_enable').checked) vis._dhcp_lease = 0;
-REMOVE-END */
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 		u = wl_unit(uidx);
 		wmode = E('_f_wl'+u+'_mode').value;
@@ -1049,9 +1039,6 @@ REMOVE-END */
 	} // for each wl_iface
 
 	vis._ppp_passwd = vis._ppp_username;
-/* REMOVE-BEGIN
-//	vis._dhcpd_startip = vis._dhcpd_endip = vis._wan_wins = vis._dhcp_lease;
-REMOVE-END */
 
 	for (a in vis) {
 		b = E(a);
@@ -1154,9 +1141,6 @@ REMOVE-END */
 		}
 
 	// IP address
-/* REMOVE-BEGIN
-//	a = ['_wan_gateway','_wan_ipaddr','_lan_ipaddr', '_dhcpd_startip', '_dhcpd_endip'];
-REMOVE-END */
 	a = ['_wan_gateway','_wan_ipaddr'];
 	for (i = a.length - 1; i >= 0; --i)
 		if ((vis[a[i]]) && (!v_ip(a[i], quiet || !ok))) ok = 0;
@@ -1167,18 +1151,11 @@ REMOVE-END */
 		if ((vis[a[i]]) && (!v_dns(a[i], quiet || !ok))) ok = 0;
 
 	// netmask
-/* REMOVE-BEGIN
-//	a = ['_wan_netmask','_lan_netmask'];
-REMOVE-END */
 	a = ['_wan_netmask'];
 	for (i = a.length - 1; i >= 0; --i)
 		if ((vis[a[i]]) && (!v_netmask(a[i], quiet || !ok))) ok = 0;
 
 	// range
-/* REMOVE-BEGIN
-//	a = [['_ppp_idletime', 3, 1440],['_ppp_redialperiod', 1, 86400],['_f_wan_mtu', 576, 1500],
-//		 ['_dhcp_lease', 1, 10080]];
-REMOVE-END */
 	a = [['_ppp_idletime', 3, 1440],['_ppp_redialperiod', 1, 86400],['_f_wan_mtu', 576, 1500]];
 	for (i = a.length - 1; i >= 0; --i) {
 		v = a[i];
@@ -1234,36 +1211,6 @@ REMOVE-END */
 			}
 		}
 	}
-/* REMOVE-BEGIN
-	a = E('_dhcpd_startip');
-	b = E('_dhcpd_endip');
-	ferror.clear(a);
-	ferror.clear(b);
-
-	if ((vis._dhcp_lease) && (!a._error_msg) && (!b._error_msg)) {
-		c = aton(E('_lan_netmask').value);
-		d = aton(E('_lan_ipaddr').value) & c;
-		e = 'Invalid IP address or subnet mask';
-		if ((aton(a.value) & c) != d) {
-			ferror.set(a, e, quiet || !ok);
-			ok = 0;
-		}
-		if ((aton(b.value) & c) != d) {
-			ferror.set(b, e, quiet || !ok);
-			ok = 0;
-		}
-	}
-
-	if ((vis._dhcp_lease) && (!a._error_msg) && (!b._error_msg)) {
-		if (aton(a.value) > aton(b.value)) {
-			c = a.value;
-			a.value = b.value;
-			b.value = c;
-		}
-
-		elem.setInnerHTML('dhcp_count', '(' + ((aton(b.value) - aton(a.value)) + 1) + ')');
-	}
-REMOVE-END */
 
 /* REMOVE-BEGIN */
 /* TODO: same validation for builds with VLAN-GUI enabled */
@@ -1318,9 +1265,9 @@ function save()
 		if (wmode == 'wet') {
 			fom.wan_proto.value = 'disabled';
 			fom.wan_proto.disabled = 0;
-/* REMOVE-BEGIN
-//			fom.lan_proto.value = 'static';
-REMOVE-END */
+/* REMOVE-BEGIN */
+// TODO - what's required ? integrate with tomatogrid?
+/* REMOVE-END */
 		}
 
 		a = [];
@@ -1527,7 +1474,7 @@ function init()
 
 <!-- / / / -->
 
-<input type='hidden' name='_nextpage' value='basic-networks.asp'>
+<input type='hidden' name='_nextpage' value='basic-network.asp'>
 <input type='hidden' name='_nextwait' value='10'>
 <input type='hidden' name='_service' value='*'>
 <input type='hidden' name='_moveip' value='0'>
@@ -1599,32 +1546,19 @@ createFieldTable('', [
 <div class='section-title'>LAN</div>
 <div class='section'>
 	<table class='tomato-grid' cellspacing=1 id='lan-grid'></table>
+
 	<script type='text/javascript'>lg.setup();</script>
+
 <script type='text/javascript'>
 dns = nvram.wan_dns.split(/\s+/);
 /* REMOVE-BEGIN
 //ipp = nvram.lan_ipaddr.split('.').splice(0, 3).join('.');
 REMOVE-END */
 createFieldTable('', [
-/* REMOVE-BEGIN
-//	{ title: 'Router IP Address', name: 'lan_ipaddr', type: 'text', maxlen: 15, size: 17, value: nvram.lan_ipaddr },
-//	{ title: 'Subnet Mask', name: 'lan_netmask', type: 'text', maxlen: 15, size: 17, value: nvram.lan_netmask },
-REMOVE-END */
 	{ title: 'Default Gateway', name: 'lan_gateway', type: 'text', maxlen: 15, size: 17, value: nvram.lan_gateway },
 	{ title: 'Static DNS', suffix: '&nbsp; <i>(IP:port)</i>', name: 'f_dns_1', type: 'text', maxlen: 21, size: 25, value: dns[0] || '0.0.0.0' },
 	{ title: '', name: 'f_dns_2', type: 'text', maxlen: 21, size: 25, value: dns[1] || '0.0.0.0' },
 	{ title: '', name: 'f_dns_3', type: 'text', maxlen: 21, size: 25, value: dns[2] || '0.0.0.0' },
-/* REMOVE-BEGIN
-//	{ title: 'DHCP Server', name: 'f_dhcpd_enable', type: 'checkbox', value: (nvram.lan_proto == 'dhcp') },
-//	{ title: 'IP Address Range', indent: 2, multi: [
-//		{ name: 'dhcpd_startip', type: 'text', maxlen: 15, size: 17, value: nvram.dhcpd_startip, suffix: ' - ' },
-//		{ name: 'dhcpd_endip', type: 'text', maxlen: 15, size: 17, value: nvram.dhcpd_endip, suffix: ' <i id="dhcp_count"></i>' }
-//	] },
-
-//	{ title: 'Lease Time', indent: 2, name: 'dhcp_lease', type: 'text', maxlen: 6, size: 8, suffix: ' <i>(minutes)</i>',
-//		value: (nvram.dhcp_lease > 0) ? nvram.dhcp_lease : 1440 },
-//	{ title: 'WINS <i>(for DHCP)</i>', indent: 2, name: 'wan_wins', type: 'text', maxlen: 15, size: 17, value: nvram.wan_wins }
-REMOVE-END */
 	{ title: 'WINS <i>(for DHCP)</i>', name: 'wan_wins', type: 'text', maxlen: 15, size: 17, value: nvram.wan_wins }
 ]);
 </script>

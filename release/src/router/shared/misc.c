@@ -127,8 +127,17 @@ int foreach_wif(int include_vifs, void *param,
 	int i;
 	int ret = 0;
 
-	snprintf(ifnames, sizeof(ifnames), "%s %s %s %s %s",
-		 nvram_safe_get("lan_ifnames"), nvram_safe_get("lan1_ifnames"), nvram_safe_get("lan2_ifnames"), nvram_safe_get("lan3_ifnames"), nvram_safe_get("wan_ifnames"));
+	snprintf(ifnames, sizeof(ifnames), "%s %s %s %s %s %s %s %s %s %s",
+		nvram_safe_get("lan_ifnames"),
+		nvram_safe_get("lan1_ifnames"),
+		nvram_safe_get("lan2_ifnames"),
+		nvram_safe_get("lan3_ifnames"),
+		nvram_safe_get("wan_ifnames"),
+		nvram_safe_get("wl_ifname"),
+		nvram_safe_get("wl0_ifname"),
+		nvram_safe_get("wl0_vifs"),
+		nvram_safe_get("wl1_ifname"),
+		nvram_safe_get("wl1_vifs"));
 	remove_dups(ifnames, sizeof(ifnames));
 
 	i = 0;
