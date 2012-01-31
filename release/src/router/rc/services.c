@@ -258,6 +258,7 @@ void start_dnsmasq()
 			if (strcmp(nvram_safe_get(lanN_ifname),"")!=0) {
 				fprintf(f, "interface=%s\n", nvram_safe_get(lanN_ifname));
 				fprintf(f, "no-dhcp-interface=%s\n", nvram_safe_get(lanN_ifname));
+			}
 		}
 	}
 	// write static lease entries & create hosts file
@@ -1066,7 +1067,7 @@ void start_syslog(void)
 		// log to custom path - shibby
 		if (nvram_match("log_file_custom", "1")) {
 			log_file_path = nvram_safe_get("log_file_path");
-			argv[argc++] = roz_siz;
+			argv[argc++] = rot_siz;
 			argv[argc++] = "-O";
 			argv[argc++] = log_file_path;
 			if (strcmp(nvram_safe_get("log_file_path"), "/var/log/messages") != 0) {
