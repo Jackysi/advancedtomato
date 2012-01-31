@@ -783,7 +783,6 @@ void start_upnp(void)
 				f_read_string("/proc/sys/kernel/random/uuid", uuid, sizeof(uuid));
 				fprintf(f, "uuid=%s\n", uuid);
 
-#ifdef TCONFIG_VLAN
 				char lanN_ipaddr[] = "lanXX_ipaddr";
 				char lanN_netmask[] = "lanXX_netmask";
 				char upnp_lanN[] = "upnp_lanXX";
@@ -804,10 +803,6 @@ void start_upnp(void)
 					char *lanmask = nvram_safe_get(lanN_netmask);
 					char *lanlisten = nvram_safe_get(upnp_lanN);
 					if((strcmp(lanlisten,"1")==0) && (strcmp(lanip,"")!=0) && (strcmp(lanip,"0.0.0.0")!=0)) {
-#else
-					char *lanip = nvram_safe_get("lan_ipaddr");
-					char *lanmask = nvram_safe_get("lan_netmask");
-#endif
 						fprintf(f,
 							"listening_ip=%s/%s\n",
 							lanip, lanmask);
@@ -827,10 +822,8 @@ void start_upnp(void)
 							// by default allow only redirection of ports above 1024
 							fprintf(f, "allow 1024-65535 %s/%s 1024-65535\n", lanip, lanmask);
 						}
-#ifdef TCONFIG_VLAN
 					}
 				}
-#endif
 
 				fappend(f, "/etc/upnp/config.custom");
 				fprintf(f, "\ndeny 0-65535 0.0.0.0/0 0-65535\n");
@@ -914,26 +907,20 @@ void start_zebra(void)
 
 	char *lan_tx = nvram_safe_get("dr_lan_tx");
 	char *lan_rx = nvram_safe_get("dr_lan_rx");
-#ifdef TCONFIG_VLAN
 	char *lan1_tx = nvram_safe_get("dr_lan1_tx");
 	char *lan1_rx = nvram_safe_get("dr_lan1_rx");
 	char *lan2_tx = nvram_safe_get("dr_lan2_tx");
 	char *lan2_rx = nvram_safe_get("dr_lan2_rx");
 	char *lan3_tx = nvram_safe_get("dr_lan3_tx");
 	char *lan3_rx = nvram_safe_get("dr_lan3_rx");
-#endif
 	char *wan_tx = nvram_safe_get("dr_wan_tx");
 	char *wan_rx = nvram_safe_get("dr_wan_rx");
 
-#ifdef TCONFIG_VLAN
 	if ((*lan_tx == '0') && (*lan_rx == '0') && 
 		(*lan1_tx == '0') && (*lan1_rx == '0') && 
 		(*lan2_tx == '0') && (*lan2_rx == '0') && 
 		(*lan3_tx == '0') && (*lan3_rx == '0') && 
 		(*wan_tx == '0') && (*wan_rx == '0')) {
-#else
-	if ((*lan_tx == '0') && (*lan_rx == '0') && (*wan_tx == '0') && (*wan_rx == '0')) {
-#endif
 		return;
 	}
 
@@ -945,24 +932,20 @@ void start_zebra(void)
 	//
 	if ((fp = fopen("/etc/ripd.conf", "w")) != NULL) {
 		char *lan_ifname = nvram_safe_get("lan_ifname");
-#ifdef TCONFIG_VLAN
 		char *lan1_ifname = nvram_safe_get("lan1_ifname");
 		char *lan2_ifname = nvram_safe_get("lan2_ifname");
 		char *lan3_ifname = nvram_safe_get("lan3_ifname");
-#endif
 		char *wan_ifname = nvram_safe_get("wan_ifname");
 
 		fprintf(fp, "router rip\n");
 		if(strcmp(lan_ifname,"")!=0)
 			fprintf(fp, "network %s\n", lan_ifname);
-#ifdef TCONFIG_VLAN
 		if(strcmp(lan1_ifname,"")!=0)
 			fprintf(fp, "network %s\n", lan1_ifname);
 		if(strcmp(lan2_ifname,"")!=0)
 			fprintf(fp, "network %s\n", lan2_ifname);
 		if(strcmp(lan3_ifname,"")!=0)
 			fprintf(fp, "network %s\n", lan3_ifname);
-#endif
 		fprintf(fp, "network %s\n", wan_ifname);
 		fprintf(fp, "redistribute connected\n");
 		//fprintf(fp, "redistribute static\n");
@@ -975,7 +958,6 @@ void start_zebra(void)
 			if (*lan_tx != '0') fprintf(fp, "ip rip send version %s\n", lan_tx);
 			if (*lan_rx != '0') fprintf(fp, "ip rip receive version %s\n", lan_rx);
 		}
-#ifdef TCONFIG_VLAN
 		if(strcmp(lan1_ifname,"")!=0) {
 			fprintf(fp, "interface %s\n", lan1_ifname);
 			if (*lan1_tx != '0') fprintf(fp, "ip rip send version %s\n", lan1_tx);
@@ -991,7 +973,6 @@ void start_zebra(void)
 			if (*lan3_tx != '0') fprintf(fp, "ip rip send version %s\n", lan3_tx);
 			if (*lan3_rx != '0') fprintf(fp, "ip rip receive version %s\n", lan3_rx);
 		}
-#endif
 		fprintf(fp, "interface %s\n", wan_ifname);
 		if (*wan_tx != '0') fprintf(fp, "ip rip send version %s\n", wan_tx);
 		if (*wan_rx != '0') fprintf(fp, "ip rip receive version %s\n", wan_rx);
@@ -1001,7 +982,6 @@ void start_zebra(void)
 			if (*lan_tx == '0') fprintf(fp, "distribute-list private out %s\n", lan_ifname);
 			if (*lan_rx == '0') fprintf(fp, "distribute-list private in %s\n", lan_ifname);
 		}
-#ifdef TCONFIG_VLAN
 		if(strcmp(lan1_ifname,"")!=0) {
 			if (*lan1_tx == '0') fprintf(fp, "distribute-list private out %s\n", lan1_ifname);
 			if (*lan1_rx == '0') fprintf(fp, "distribute-list private in %s\n", lan1_ifname);
@@ -1014,7 +994,6 @@ void start_zebra(void)
 			if (*lan3_tx == '0') fprintf(fp, "distribute-list private out %s\n", lan3_ifname);
 			if (*lan3_rx == '0') fprintf(fp, "distribute-list private in %s\n", lan3_ifname);
 		}
-#endif
 		if (*wan_tx == '0') fprintf(fp, "distribute-list private out %s\n", wan_ifname);
 		if (*wan_rx == '0') fprintf(fp, "distribute-list private in %s\n", wan_ifname);
 		fprintf(fp, "access-list private deny any\n");
@@ -1187,7 +1166,6 @@ void start_igmp_proxy(void)
 				nvram_get("multicast_altnet") ? : "0.0.0.0/0");
 //				nvram_safe_get("lan_ifname"));
 
-#ifdef TCONFIG_VLAN
 				char lanN_ifname[] = "lanXX_ifname";
 				char multicast_lanN[] = "multicast_lanXX";
 				char br;
@@ -1208,11 +1186,6 @@ void start_igmp_proxy(void)
 							nvram_safe_get(lanN_ifname));
 					}
 				}
-#else
-			fprintf(fp,
-						"phyint %s downstream ratelimit 0\n",
-						nvram_safe_get("lan_ifname"));
-#endif
 			fclose(fp);
 			eval("igmpproxy", "/etc/igmp.conf");
 		}
@@ -1278,43 +1251,83 @@ void stop_ntpc(void)
 
 static void stop_rstats(void)
 {
-	int n;
+	int n, m;
 	int pid;
+	int pidz;
+	int ppidz;
+	int w = 0;
 
 	n = 60;
+	m = 15;
 	while ((n-- > 0) && ((pid = pidof("rstats")) > 0)) {
-		if (kill(pid, SIGTERM) != 0) break;
+		w = 1;
+		pidz = pidof("gzip");
+		if (pidz < 1) pidz = pidof("cp");
+		ppidz = ppid(ppid(pidz));
+		if ((m > 0) && (pidz > 0) && (pid == ppidz)) {
+			syslog(LOG_DEBUG, "rstats(PID %d) shutting down, waiting for helper process to complete(PID %d, PPID %d).\n", pid, pidz, ppidz);
+			--m;
+		} else {
+			kill(pid, SIGTERM);
+		}
 		sleep(1);
 	}
+	if ((w == 1) && (n > 0))
+		syslog(LOG_DEBUG, "rstats stopped.\n");
 }
 
 static void start_rstats(int new)
 {
 	if (nvram_match("rstats_enable", "1")) {
 		stop_rstats();
-		if (new) xstart("rstats", "--new");
-			else xstart("rstats");
+		if (new) {
+			syslog(LOG_DEBUG, "starting rstats (new datafile).\n");
+			xstart("rstats", "--new");
+		} else {
+			syslog(LOG_DEBUG, "starting rstats.\n");
+			xstart("rstats");
+		}
 	}
 }
 
 static void stop_cstats(void)
 {
-	int n;
+	int n, m;
 	int pid;
+	int pidz;
+	int ppidz;
+	int w = 0;
 
 	n = 60;
+	m = 15;
 	while ((n-- > 0) && ((pid = pidof("cstats")) > 0)) {
-		if (kill(pid, SIGTERM) != 0) break;
+		w = 1;
+		pidz = pidof("gzip");
+		if (pidz < 1) pidz = pidof("cp");
+		ppidz = ppid(ppid(pidz));
+		if ((m > 0) && (pidz > 0) && (pid == ppidz)) {
+			syslog(LOG_DEBUG, "cstats(PID %d) shutting down, waiting for helper process to complete(PID %d, PPID %d).\n", pid, pidz, ppidz);
+			--m;
+		} else {
+			kill(pid, SIGTERM);
+		}
 		sleep(1);
 	}
+	if ((w == 1) && (n > 0))
+		syslog(LOG_DEBUG, "cstats stopped.\n");
 }
 
 static void start_cstats(int new)
 {
 	if (nvram_match("cstats_enable", "1")) {
 		stop_cstats();
-		if (new) xstart("cstats", "--new");
-			else xstart("cstats");
+		if (new) {
+			syslog(LOG_DEBUG, "starting cstats (new datafile).\n");
+			xstart("cstats", "--new");
+		} else {
+			syslog(LOG_DEBUG, "starting cstats.\n");
+			xstart("cstats");
+		}
 	}
 }
 
@@ -2158,9 +2171,9 @@ TOP:
 		goto CLEAR;
 	}
 
-	if (strcmp(service, "account") == 0) {
-		if (action & A_STOP) stop_account();
-		if (action & A_START) start_account();
+	if (strcmp(service, "arpbind") == 0) {
+		if (action & A_STOP) stop_arpbind();
+		if (action & A_START) start_arpbind();
 		goto CLEAR;
 	}
 
@@ -2184,12 +2197,6 @@ TOP:
 	if (action & A_START) {
 		new_qoslimit_start();
 	}
-		goto CLEAR;
-	}
-
-	if (strcmp(service, "arpbind") == 0) {
-		if (action & A_STOP) stop_arpbind();
-		if (action & A_START) start_arpbind();
 		goto CLEAR;
 	}
 
@@ -2380,14 +2387,12 @@ TOP:
 			stop_zebra();
 			do_static_routes(0);	// remove old '_saved'
 			eval("brctl", "stp", nvram_safe_get("lan_ifname"), "0");
-#ifdef TCONFIG_VLAN
 			if(strcmp(nvram_safe_get("lan1_ifname"),"")!=0)
 				eval("brctl", "stp", nvram_safe_get("lan1_ifname"), "0");
 			if(strcmp(nvram_safe_get("lan2_ifname"),"")!=0)
 				eval("brctl", "stp", nvram_safe_get("lan2_ifname"), "0");
 			if(strcmp(nvram_safe_get("lan3_ifname"),"")!=0)
 				eval("brctl", "stp", nvram_safe_get("lan3_ifname"), "0");
-#endif
 		}
 		stop_firewall();
 		start_firewall();
@@ -2395,14 +2400,12 @@ TOP:
 			do_static_routes(1);	// add new
 			start_zebra();
 			eval("brctl", "stp", nvram_safe_get("lan_ifname"), nvram_safe_get("lan_stp"));
-#ifdef TCONFIG_VLAN
 			if(strcmp(nvram_safe_get("lan1_ifname"),"")!=0)
 				eval("brctl", "stp", nvram_safe_get("lan1_ifname"), nvram_safe_get("lan1_stp"));
 			if(strcmp(nvram_safe_get("lan2_ifname"),"")!=0)
 				eval("brctl", "stp", nvram_safe_get("lan2_ifname"), nvram_safe_get("lan2_stp"));
 			if(strcmp(nvram_safe_get("lan3_ifname"),"")!=0)
 				eval("brctl", "stp", nvram_safe_get("lan3_ifname"), nvram_safe_get("lan3_stp"));
-#endif
 		}
 		goto CLEAR;
 	}
@@ -2647,7 +2650,13 @@ static void do_service(const char *name, const char *action, int user)
 
 	snprintf(s, sizeof(s), "%s-%s%s", name, action, (user ? "-c" : ""));
 	nvram_set("action_service", s);
-	kill(1, SIGUSR1);
+
+	if (nvram_match("debug_rc_svc", "1")) {
+		nvram_unset("debug_rc_svc");
+		exec_service();
+	} else {
+		kill(1, SIGUSR1);
+	}
 
 	n = 150;
 	while (nvram_match("action_service", s)) {

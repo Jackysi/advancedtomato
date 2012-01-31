@@ -44,9 +44,6 @@ if [ "$CONFIG_IP_NF_IPTABLES" != "n" ]; then
   dep_tristate '  random match support' CONFIG_IP_NF_MATCH_RANDOM $CONFIG_IP_NF_IPTABLES
   dep_tristate '  recent match support' CONFIG_IP_NF_MATCH_RECENT $CONFIG_IP_NF_IPTABLES
   dep_tristate '  account match support' CONFIG_IP_NF_MATCH_ACCOUNT $CONFIG_IP_NF_IPTABLES $CONFIG_PROC_FS
-  if [ "$CONFIG_IP_NF_MATCH_ACCOUNT" != "n" ]; then 
-    bool '    account debugging output' CONFIG_IP_NF_MATCH_ACCOUNT_DEBUG
-  fi
   dep_tristate '  IP address pool support' CONFIG_IP_NF_POOL $CONFIG_IP_NF_IPTABLES
   if [ "$CONFIG_IP_NF_POOL" = "y" -o "$CONFIG_IP_NF_POOL" = "m" ]; then
     bool '    enable statistics on pool usage' CONFIG_IP_POOL_STATISTICS n

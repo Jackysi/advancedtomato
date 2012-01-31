@@ -284,7 +284,7 @@ const struct mime_handler mime_handlers[] = {
 	{ "bwm/*.gz",			NULL,					0,	wi_generic,			wo_bwmbackup,	1 },
 	{ "bwm/restore.cgi",	NULL,					0,	wi_bwmrestore,		wo_bwmrestore,	1 },
 
-	{ "ipt/*.gz",		NULL,					0,	wi_generic,				wo_iptbackup,	1 },
+	{ "ipt/*.gz",			NULL,					0,	wi_generic,			wo_iptbackup,	1 },
 	{ "ipt/restore.cgi",	NULL,					0,	wi_iptrestore,		wo_iptrestore,	1 },
 
 	{ "logs/view.cgi",	NULL,						0,	wi_generic,			wo_viewlog,		1 },
@@ -360,7 +360,7 @@ const aspapi_t aspapi[] = {
 	{ "ctrate",				asp_ctrate			},
 	{ "ddnsx",				asp_ddnsx			},
 	{ "devlist",			asp_devlist			},
-	{ "webmon",			asp_webmon			},
+	{ "webmon",				asp_webmon			},
 	{ "dhcpc_time",			asp_dhcpc_time		},
 	{ "dns",				asp_dns				},
 	{ "ident",				asp_ident			},
@@ -369,9 +369,11 @@ const aspapi_t aspapi[] = {
 	{ "link_uptime",		asp_link_uptime		},
 	{ "lipp",				asp_lipp			},
 	{ "netdev",				asp_netdev			},
+
 	{ "iptraffic",			asp_iptraffic		},
 	{ "iptmon",				asp_iptmon			},
 	{ "ipt_bandwidth",		asp_ipt_bandwidth	},
+
 	{ "notice",				asp_notice			},
 	{ "nv",					asp_nv				},
 	{ "nvram",				asp_nvram 			},

@@ -2337,14 +2337,14 @@ function myName()
 function navi()
 {
 	var menu = [
-		['Status', 				'status', 0, [
-			['Overview',		'overview.asp'],
-			['Device List',		'devices.asp'],
-			['Web Usage',		'webmon.asp'],
+		['Status', 			'status', 0, [
+			['Overview',			'overview.asp'],
+			['Device List',			'devices.asp'],
+			['Web Usage',			'webmon.asp'],
 			['Logs',			'log.asp'] ] ],
 		['Bandwidth', 			'bwm', 0, [
-			['Real-Time',		'realtime.asp'],
-			['Last 24 Hours',	'24.asp'],
+			['Real-Time',			'realtime.asp'],
+			['Last 24 Hours',		'24.asp'],
 			['Daily',			'daily.asp'],
 			['Weekly',			'weekly.asp'],
 			['Monthly',			'monthly.asp']
@@ -2357,79 +2357,79 @@ function navi()
 			['Daily',			'daily.asp'],
 			['Monthly',			'monthly.asp']
 			] ],
-		['Tools', 				'tools', 0, [
+		['Tools', 			'tools', 0, [
 			['Ping',			'ping.asp'],
 			['Trace',			'trace.asp'],
 			['System',			'shell.asp'],
-			['Wireless Survey',	'survey.asp'],
+			['Wireless Survey',		'survey.asp'],
 			['WOL',				'wol.asp'] ] ],
 		null,
-		['Basic', 				'basic', 0, [
+		['Basic', 			'basic', 0, [
 			['Network',			'network.asp'],
 /* IPV6-BEGIN */
 			['IPv6',			'ipv6.asp'],
 /* IPV6-END */
-			['Identification',	'ident.asp'],
+			['Identification',		'ident.asp'],
 			['Time',			'time.asp'],
 			['DDNS',			'ddns.asp'],
 			['Static DHCP/ARP/IPT',		'static.asp'],
-			['Wireless Filter',	'wfilter.asp'] ] ],
+			['Wireless Filter',		'wfilter.asp'] ] ],
 		['Advanced', 			'advanced', 0, [
-			['Conntrack/Netfilter',	'ctnf.asp'],
-			['DHCP/DNS',		'dhcpdns.asp'],
-			['Firewall',		'firewall.asp'],
-			['MAC Address',		'mac.asp'],
-			['Miscellaneous',	'misc.asp'],
+			['Conntrack/Netfilter',		'ctnf.asp'],
+			['DHCP/DNS',			'dhcpdns.asp'],
+			['Firewall',			'firewall.asp'],
+			['MAC Address',			'mac.asp'],
+			['Miscellaneous',		'misc.asp'],
 			['Routing',			'routing.asp'],
 			['VLAN',			'vlan.asp'],
 			['LAN Access',			'access.asp'],
-			['Wireless',		'wireless.asp'] ] ],
-		['Port Forwarding', 	'forward', 0, [
+			['Wireless',			'wireless.asp'] ] ],
+		['Port Forwarding', 		'forward', 0, [
 			['Basic',			'basic.asp'],
 /* IPV6-BEGIN */
-			['Basic IPv6',		'basic-ipv6.asp'],
+			['Basic IPv6',			'basic-ipv6.asp'],
 /* IPV6-END */
 			['DMZ',				'dmz.asp'],
-			['Triggered',		'triggered.asp'],
-			['UPnP/NAT-PMP',	'upnp.asp'] ] ],
-		['QoS',					'qos', 0, [
-			['Basic Settings',	'settings.asp'],
-			['Classification',	'classify.asp'],
-			['View Graphs',		'graphs.asp'],
-			['View Details',	'detailed.asp'],
-			['Transfer Rates',	'ctrate.asp']
+			['Triggered',			'triggered.asp'],
+			['UPnP/NAT-PMP',		'upnp.asp'] ] ],
+		['QoS',				'qos', 0, [
+			['Basic Settings',		'settings.asp'],
+			['Classification',		'classify.asp'],
+			['View Graphs',			'graphs.asp'],
+			['View Details',		'detailed.asp'],
+			['Transfer Rates',		'ctrate.asp']
 			] ],
-		['Bandwidth Limiter',	'new-qoslimit.asp'],
+		['Bandwidth Limiter',		'new-qoslimit.asp'],
 /* NOCAT-BEGIN */
-		['Captive Portal',	'new-splashd.asp'],
+		['Captive Portal',		'new-splashd.asp'],
 /* NOCAT-END */
-		['Access Restriction',	'restrict.asp'],
+		['Access Restriction',		'restrict.asp'],
 /* REMOVE-BEGIN
 		['Scripts',				'sc', 0, [
-			['Startup',			'startup.asp'],
+			['Startup',		'startup.asp'],
 			['Shutdown',		'shutdown.asp'],
 			['Firewall',		'firewall.asp'],
-			['WAN Up',			'wanup.asp']
+			['WAN Up',		'wanup.asp']
 			] ],
 REMOVE-END */
 /* USB-BEGIN */
 // ---- !!TB - USB, FTP, Samba, Media Server
 		['USB and NAS',			'nas', 0, [
-			['USB Support',		'usb.asp']
+			['USB Support',			'usb.asp']
 /* FTP-BEGIN */
-			,['FTP Server',		'ftp.asp']
+			,['FTP Server',			'ftp.asp']
 /* FTP-END */
 /* SAMBA-BEGIN */
-			,['File Sharing',	'samba.asp']
+			,['File Sharing',		'samba.asp']
 /* SAMBA-END */
 /* MEDIA-SRV-BEGIN */
-			,['Media Server',	'media.asp']
+			,['Media Server',		'media.asp']
 /* MEDIA-SRV-END */
 /* UPS-BEGIN */
-			,['UPS Monitor',	'ups.asp']
+			,['UPS Monitor',		'ups.asp']
 /* UPS-END */
 /* BT-BEGIN */
-			,['BitTorrent Client',	'bittorrent.asp']
+			,['BitTorrent Client',		'bittorrent.asp']
 /* BT-END */
 			] ],
 /* USB-END */
@@ -2440,36 +2440,36 @@ REMOVE-END */
 /* VPN-END */
 		null,
 		['Administration',		'admin', 0, [
-			['Admin Access',	'access.asp'],
-			['Bandwidth Monitoring','bwm.asp'],
-			['IP Traffic Monitoring','iptraffic.asp'],
-			['Buttons/LED',	'buttons.asp'],
+			['Admin Access',		'access.asp'],
+			['Bandwidth Monitoring',	'bwm.asp'],
+			['IP Traffic Monitoring',	'iptraffic.asp'],
+			['Buttons/LED',			'buttons.asp'],
 /* CIFS-BEGIN */
-			['CIFS Client',		'cifs.asp'],
+			['CIFS Client',			'cifs.asp'],
 /* CIFS-END */
 /* SDHC-BEGIN */
-			['SDHC/MMC',		'sdhc.asp'],
+			['SDHC/MMC',			'sdhc.asp'],
 /* SDHC-END */
-			['Configuration',	'config.asp'],
-			['Debugging',		'debug.asp'],
+			['Configuration',		'config.asp'],
+			['Debugging',			'debug.asp'],
 /* JFFS2-BEGIN */
 			['JFFS',			'jffs2.asp'],
 /* JFFS2-END */
 /* NFS-BEGIN */
-			['NFS Server',		'nfs.asp'],
+			['NFS Server',			'nfs.asp'],
 /* NFS-END */
 /* SNMP-BEGIN */
-			['SNMP',		'snmp.asp'],
+			['SNMP',			'snmp.asp'],
 /* SNMP-END */
 			['Logging',			'log.asp'],
-			['Scheduler',		'sched.asp'],
+			['Scheduler',			'sched.asp'],
 			['Scripts',			'scripts.asp'],
 			['Upgrade',			'upgrade.asp'] ] ],
 		null,
-		['About',				'about.asp'],
+		['About',			'about.asp'],
 		['Reboot...',			'javascript:reboot()'],
 		['Shutdown...',			'javascript:shutdown()'],
-		['Logout',				'javascript:logout()']
+		['Logout',			'javascript:logout()']
 	];
 	var name, base;
 	var i, j;

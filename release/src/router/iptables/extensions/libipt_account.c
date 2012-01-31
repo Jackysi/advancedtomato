@@ -1,9 +1,11 @@
-/* Copyright (c) 2004-2009 Piotr 'QuakeR' Gasidlo <quaker@barbara.eu.org>
+/* Copyright (c) 2004-2006 Piotr 'QuakeR' Gasid³o <quaker@barbara.eu.org>
+ * accounting match helper (libipt_account.c)
+ *
+ * Version: 0.1.20
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
- * 
  */
 
 #include <stdio.h>
@@ -203,66 +205,49 @@ static void init(struct ipt_entry_match *match,
   struct t_ipt_account_info *info = (struct t_ipt_account_info *)(match)->data;
 
 
-  /* set default table name to DEFAULT */
-  strncpy(info->name, "DEFAULT", IPT_ACCOUNT_NAME_LEN);
-  info->shortlisting = 0;
-#ifdef LINUX26
-  info->table = NULL;
-#endif
-
+	/* set default table name to DEFAULT */
+	strncpy(info->name, "DEFAULT", IPT_ACCOUNT_NAME_LEN);
+	info->shortlisting = 0;
+	info->table = NULL;
+	
 }
 
 /* Function parses match's arguments */
-static int parse(int c, 
-    char **argv, 
-    int invert, 
-    unsigned int *flags,
-#ifdef XTABLES_VERSION    
-    const void *entry,
-    struct xt_entry_match **match
-#else
-    const struct ipt_entry *entry,
-    unsigned int *nfcache,
-    struct ipt_entry_match **match
-#endif 
-    )
-{ 
-  struct t_ipt_account_info *info = (struct t_ipt_account_info *)(*match)->data;
+static int parse(int c, char **argv, 
+		  int invert, 
+		  unsigned int *flags,
+                  const struct ipt_entry *entry,
+                  unsigned int *nfcache,
+                  struct ipt_entry_match **match) {
+	
+	struct t_ipt_account_info *info = (struct t_ipt_account_info *)(*match)->data;
 
-  switch (c) {
-    
-    /* --aaddr */
-    case 201:
-      parse_network(optarg, info);
-      if (!valid_network_and_netmask(info))
-#ifdef XTABLES_VERSION    
-        xtables_error(PARAMETER_PROBLEM, "account: wrong network/netmask");
-#else
-        exit_error(PARAMETER_PROBLEM, "account: wrong network/netmask");
-#endif
-      *flags = 1;
-      break;
-      
-    /* --aname */
-    case 202:
-      if (strlen(optarg) < IPT_ACCOUNT_NAME_LEN) {
-        strncpy(info->name, optarg, IPT_ACCOUNT_NAME_LEN);
-        info->name[IPT_ACCOUNT_NAME_LEN] = '\0';
-      } else
-#ifdef XTABLES_VERSION    
-        xtables_error(PARAMETER_PROBLEM, "account: Too long table name");      
-#else
-        exit_error(PARAMETER_PROBLEM, "account: Too long table name");      
-#endif
-      break;  
-    /* --ashort */
-    case 203:
-      info->shortlisting = 1;
-      break;
-    default:
-      return 0;     
-  }
-  return 1; 
+	switch (c) {
+		
+		/* --aaddr */
+		case 201:
+			parse_network(optarg, info);
+			if (!valid_network_and_netmask(info))
+				exit_error(PARAMETER_PROBLEM, "account: wrong network/netmask");
+			*flags = 1;
+			break;
+			
+		/* --aname */
+		case 202:
+			if (strlen(optarg) < IPT_ACCOUNT_NAME_LEN) {
+				strncpy(info->name, optarg, IPT_ACCOUNT_NAME_LEN);
+				info->name[IPT_ACCOUNT_NAME_LEN] = '\0';
+			}	else
+				exit_error(PARAMETER_PROBLEM, "account: Too long table name");
+			break;	
+		/* --ashort */
+		case 203:
+			info->shortlisting = 1;
+			break;
+		default:
+			return 0;
+	}
+	return 1;
 }
 
 /* Final check whether network/netmask was specified */
