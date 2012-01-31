@@ -255,7 +255,8 @@ void start_dnsmasq()
 			}
 #endif
 		} else {
-			if (strcmp(nvram_safe_get(lanN_ifname),"")!=0)
+			if (strcmp(nvram_safe_get(lanN_ifname),"")!=0) {
+				fprintf(f, "interface=%s\n", nvram_safe_get(lanN_ifname));
 				fprintf(f, "no-dhcp-interface=%s\n", nvram_safe_get(lanN_ifname));
 		}
 	}
