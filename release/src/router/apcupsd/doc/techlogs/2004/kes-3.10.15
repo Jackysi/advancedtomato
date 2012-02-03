@@ -1,0 +1,13 @@
+             Technical notes on version 3.10.15
+                        Kern Sibbald
+
+General:
+07Aug04
+- Document Mandrake USB kernel problems.
+04Aug04
+- Fix HID_MAX_USAGES in the examples directory
+03Aug04
+- Apply David Walser's patch for missing colors in multimon.  Reads
+  the apcupsd.css file from the sysconf directory.
+02Aug04
+- Add EEPROM fix from Giuseppe Ghibo passed on by David Walser

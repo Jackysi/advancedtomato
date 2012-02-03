@@ -1,0 +1,118 @@
+         Technical notes on version 3.8.1-5  
+                      6 April 2001
+                      Kern Sibbald
+
+General:
+- This version is a pre-release of version 3.8.2.
+  It contains fixes for most known problems.
+- Major work has been done to include in this release 
+  much of the code that will go into version 4.0.
+- Addition merging of 3.8 and 4.0 will occur prior
+  to the final release of 3.8.2
+- The only major addition that I am planning to 3.8.2
+  for the next prerelease (3.8.1-6) will be pthread
+  support (at least the first cut).
+- The name of apcnetd has been changed to apcnisd
+
+New Features:
+- New indenting standard (see code). Not yet uniformly
+  applied -- work in progress.
+- New NetBSD support.
+- Updated Debian support.
+- apccontrol now called with additional arguments.
+- GNOME realtime monitoring program added in gupsc
+  directory (not supported).
+- Improved shutdown on WinNT.
+- Self test detection.
+- TCP Wrapper support (untested).
+- New KILLDELAY <seconds>  configuration directive (untested)
+  that causes apcupsd to wait after issuing a shutdown, and
+  after the delay seconds have expired, it will issue a
+  kill power to the UPS.  Potentially useful on systems
+  where apcupsd cannot regain control after completing 
+  a system shutdown (i.e. WinNT).
+- Multimon can now use css for more control by the user.
+
+Changes implemented since the 3.8.1 release:
+- Added NetBSD code submitted
+- Added submission for Debian release.
+- Corrected the make depend to only update the Makefile
+  rather than both Makefile and Makefile.in
+- Added a new AVERSION define to version.h which is meant
+  to allow us to maintain source code with multiple
+  versions.
+- Reformatted many files to Riccardo's 4.0 standards.
+  Indent 4 spaces at each level instead of 8.
+- Made important modifications to apcaction.c. This
+  allows detection of Self-test.
+- In apcexec.c changed calling sequence of execute_command()
+  to conform to version 4.0 (added UPSINFO argument).
+- To correct a problem with zombies on BSD systems, I added
+  a UPSINFO variable that is the count of children created
+  by execute_command(). do_action() in apcaction.c was
+  modified to check this variable, do a non-blocking wait,
+  and decrement it if any children were found.  This should
+  properly reap the zombies.
+- Added additional debug information (strerror) to failed
+  semaphore and shared memory system call errors in apcipc.c
+- In apcnet.c, removed ChangeBatt from slave because it is
+  apparently being set incorrectly on some BSD masters when
+  apcupsd is restarted.
+- Added an O_NDELAY to the serial port open() in apcserial.c
+  to avoid infinite waits on some BSD systems. This required
+  the addition of an fcntl() after the open to reset the
+  blocking read(), which is needed in apcupsd.
+- Removed an unwanted break in a switch in apcstatus.c that
+  caused the status output for BackUPS Pros to be cut short.
+- Added a HAVE_POWERFLUTE define and changed powerflute.c to
+  use it. This prevents a lot of the errors seen on systems
+  that don't have ncurses.
+- configure.in, added HAVE_NETBSD_OS, HAVE_POWERFLUTE, and
+  modified generation of makefiles to only configure the files
+  in the recognized distribution.  Modified the automatic 
+  make of the dependencies to use "make depend"
+- Removed the call on the shell to execute a script file in
+  apccontrol. This permits execution of any type of file, but
+  it now requires that the file be executable.
+- Corrected the error in the name of ANNOYDELAY in the man
+  file as well as in the html manual.
+- Added a number of updates and corrections to the html manual,
+  thanks to reports from users.
+- Updated all the script files in <src>/etc to correct the DoS
+  problem that was reported by one of our users - thanks.
+- added a new gupsc directory that has the GNOME realtime 
+  monitoring program with very pretty dials. 
+- Added num_execed_children variable to UPSINFO structure.
+- Added .bat files to the win32/bin directory as they seem
+  to be more reliable than the .pif files especially on WinNT.
+- Enhanced shutdown.c in win32 to try a simple shutdown, but
+  on NT, it also does an InitiateSystemShutdown.
+- Moved many of the source files into the lib subdirectory
+  and created a libapc.a library.
+- Added TCP Wrapper support. Configure it by adding:
+  --with-libwrap[=DIR] to the ./configure command.  The
+  =DIR is an optional specification of a non-standard library
+  path, otherwise it uses the defaults (/include and /lib).
+- Accumulate time on batteries and the number of
+  transfers to batteries.  The original version had some bug
+  which are now fixed.
+- Fixed DoS problem with mail files.
+- Fixed several 4/8 byte problems.
+- Use .bat files in Win32 instead of .pif to reduce problems.
+- Fixed a segfault in kill_power() editing an error message
+  (in the case the kill power was improperly issued).
+- Implemented fast poll when on batteries.
+- Modified code for handling the 940-0095B cable. Hopefully
+  this will fix the problems.
+- Eliminate zombies on BSD systems after calling apccontrol
+- Eliminate powerflute errors if not configured.   
+- Throw away errors during make depend during ./configure,
+  but report the problem. This is for the Sun, which doesn't
+  seem to generate dependencies correctly.
+- Experimenting with a new CGI multimon program submitted by
+  Chris Evanco that uses cascading style sheets -- cool.  It
+  will probably replace the old multimon.cgi after we work out
+  some of the final details. To try it, put the multimon.css
+  in the correct directory and either execute multimoncss.cgi
+  or replace multimon.cgi with multimoncss.cgi.            
+                                  

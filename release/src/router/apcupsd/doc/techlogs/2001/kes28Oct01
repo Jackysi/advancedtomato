@@ -1,0 +1,33 @@
+             Technical notes on version 3.9.7 
+                       28 October 2001
+                        Kern Sibbald
+
+General:
+
+Changes submitted this submission:
+- moved some device specific fields previously in
+  the UPSINFO structure into the driver_internal_data
+  location (defined structures for USB, APCSMART, and
+  DUMB drivers).
+- Added "debounce" code to wait 6 seconds between issuing
+  the "Power problem detected" message and the "Power failure"
+  message. This will prevent annoying messages for short
+  power interruptions. The old 3.8.2 code worked this way
+  because we previously blocked on a select() for 5 seconds.
+  This no longer worked in 3.9.x because I changed to a slow
+  select() of 60 seconds, and a fast select() of 1 second 
+  after any power problem.
+- I cleaned up the apcstatus.c code that was referencing the
+  ioctl bits (and so removed the #warning message). In the
+  process, I did a bit of cleanup of simple signalling code.
+  When we switch to using the Status word, we will be able
+  to simplify a lot of code!
+- Enhancements to the document (ANNOY documentation, 
+  runtime calibration documentation)
+- Make USB driver detect different UPS and reset
+  static data.
+- Increase number of events that are saved and 
+  reported from 10 to 50.
+- Modified USB code to signal that the USB connection was
+  lost only after 2 retrys of 5 seconds each. This should
+  reduce the noise level a bit.

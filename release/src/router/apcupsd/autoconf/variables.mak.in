@@ -1,0 +1,103 @@
+# General rules for Makefile(s) subsystem.
+# In this file we will put everything that need to be
+# shared betweek all the Makefile(s).
+# This file must be included at the beginning of every Makefile
+#
+# Copyright (C) 1999-2002 Riccardo Facchetti <riccardo@master.oasi.gpa.it>
+
+#
+# package version
+PACKAGE = apcupsd
+DISTNAME = @DISTNAME@
+DISTVER = @DISTVER@
+VERSION = @VERSION@
+
+#
+# programs needed by compilation
+CP = @CP@
+MV = @MV@
+ECHO = @ECHO@
+RM = @RM@
+RMF = $(RM) -rf
+LN = @LN@
+SED = @SED@
+MAKE = @MAKE@
+SHELL = @SHELL@
+RANLIB = @RANLIB@
+AR = @AR@
+INSTALL = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA = @INSTALL_DATA@
+INSTALL_SCRIPT = @INSTALL_SCRIPT@
+MKINSTALLDIRS = @MKINSTALLDIRS@
+CHKCONFIG = /sbin/chkconfig
+RST2HTML := @RST2HTML@
+RST2PDF := @RST2PDF@
+
+# Files and directories (paths)
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+sysconfdir = @sysconfdir@
+cgibin = @CGIBIN@
+VPATH = /usr/lib:/usr/local/lib
+srcdir = @srcdir@
+abstopdir = @ABSSRCDIR@
+sbindir = @sbindir@
+piddir = @PIDDIR@
+mandir=@mandir@
+bindir = @bindir@
+datadir = @datadir@
+HALPOLICYDIR = @HALPOLICYDIR@
+DISTDIR = @DISTDIR@
+PWRFAILDIR = @PWRFAILDIR@
+LOCKDIR = @LOCKDIR@
+
+# Compilation macros.
+CC = @CC@
+CXX = @CXX@
+OBJC = $(CC) -x objective-c++
+NIB = ibtool
+LD = @LD@
+DEFS = @EXTRADEFS@ $(LOCALDEFS)
+
+# Libraries
+APCLIBS = $(topdir)/src/lib/libapc.a
+APCDRVLIBS = $(topdir)/src/drivers/libdrivers.a @APCDRVLIBS@
+DRVLIBS = @PTHREAD_LFLAGS@ @DRVLIBS@
+X_LIBS = @X_LIBS@
+X_EXTRA_LIBS = @X_EXTRA_LIBS@
+
+CPPFLAGS = @CPPFLAGS@ -I$(topdir)/include $(EXTRAINCS)
+CFLAGS = $(CPPFLAGS) @CFLAGS@ @PTHREAD_CFLAGS@
+CXXFLAGS = $(CPPFLAGS) @CXXFLAGS@ @PTHREAD_CFLAGS@
+OBJCFLAGS = $(CPPFLAGS) $(CFLAGS)
+LDFLAGS = @LDFLAGS@
+LIBS = @LIBS@
+LIBGD = @GD_LIBS@
+POWERLIBS = @POWERLIBS@
+GAPCMON_CFLAGS = @GAPCMON_CFLAGS@
+GAPCMON_LIBS = @GAPCMON_LIBS@
+LIBEXTRAOBJ = @LIBEXTRAOBJ@
+RST2HTMLOPTS = --field-name-limit=0 --generator --time --no-footnote-backlinks --record-dependencies=$(df).d
+RST2PDFOPTS = --no-footnote-backlinks --real-footnotes
+NIBFLAGS = 
+
+# Driver and package enable flags
+SMARTDRV   := @APCSMART_DRIVER@
+DUMBDRV    := @DUMB_DRIVER@
+USBDRV     := @USB_DRIVER@
+NETDRV     := @NET_DRIVER@
+PCNETDRV   := @PCNET_DRIVER@
+SNMPDRV    := @SNMP_DRIVER@
+SNMPLTDRV  := @SNMPLITE_DRIVER@
+TESTDRV    := @TEST_DRIVER@
+USBTYPE    := @USB_TYPE@
+CGIDIR     := @CGI@
+USBHIDDIR  := @LIBUSBHID@
+GAPCMON    := @GAPCMON@
+APCAGENT   := @APCAGENT@
+
+OBJDIR = .obj
+DEPDIR = .deps
+df = $(DEPDIR)/$(*F)
+DEVNULL := >/dev/null 2>&1

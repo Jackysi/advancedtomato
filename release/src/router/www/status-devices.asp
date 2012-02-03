@@ -218,7 +218,7 @@ dg.populate = function()
 		e = get(a[2], a[1]);
 		e.lease = '<small><a href="javascript:deleteLease(\'L' + i + '\',\'' + a[1] + '\')" title="Delete Lease" id="L' + i + '">' + a[3] + '</a></small>';
 		e.name = a[0];
-		e.ifname = nvram.lan_ifname;
+		e.ifname = '';
 	}
 
 	for (i = wldev.length - 1; i >= 0; --i) {

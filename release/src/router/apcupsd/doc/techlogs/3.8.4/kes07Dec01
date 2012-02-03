@@ -1,0 +1,18 @@
+             Technical notes on version 3.8.4 
+                      07 December 2001
+                        Kern Sibbald
+
+General:
+- Fixed multimoncss.c so that the Normal class is used in
+  the Temperature and Humidity columns.
+- Added #include <time.h> to multimon.c and multimoncss.c
+  to avoid compiler warnings.
+- Modified a number of startup scripts (RedHat, HP, SuSe, Caldera,
+  Slackware, and unknown).
+  so that the subsystem lock file is created in /var/lock/subsys
+  rather than /var/lock.           
+- Added 940-0127A and 940-0128A cables to be the same as the
+  940-0119A cable.
+
+
+Changes submitted this submission:

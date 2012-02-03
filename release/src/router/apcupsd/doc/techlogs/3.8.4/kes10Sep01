@@ -1,0 +1,19 @@
+             Technical notes on version 3.8.3 
+                      10 September 2001
+                        Kern Sibbald
+
+General:
+- Pulled in the latest copy of the manual, which corrects a number
+  of errors reported by users.
+- updated all the distribution/apccontrol files to reboot  the
+  machine if the mains comes back after a power failure and the
+  shutdown is cancelled. This will prevent the machine from being
+  left in an unstable state.
+- updated all the halt scripts in the distributions script to
+  remove the sleep commands after the killpower. This will allow
+  the halt script to run to completion and to synchronize any
+  raid devices (often done in the final steps by the kernel).
+- applied the RedHat apcupsd.spec patch supplied by Giulio Orsero.
+
+
+Changes submitted this submission:

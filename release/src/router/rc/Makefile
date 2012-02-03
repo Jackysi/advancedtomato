@@ -14,7 +14,7 @@ OBJS := rc.o init.o interface.o network.o wan.o services.o dhcp.o
 OBJS += firewall.o ppp.o telssh.o wnas.o
 OBJS += listen.o redial.o led.o qos.o forward.o misc.o mtd.o
 OBJS += buttons.o restrict.o gpio.o sched.o
-OBJS += account.o new_qoslimit.o arpbind.o
+OBJS += new_qoslimit.o arpbind.o
 #	heartbeat.o
 
 ifeq ($(TCONFIG_USB),y)
@@ -55,6 +55,10 @@ endif
 
 ifeq ($(TCONFIG_SDHC),y)
 OBJS += mmc.o
+endif
+
+ifeq ($(TCONFIG_UPS),y)
+OBJS += ups.o
 endif
 
 all: rc

@@ -1,0 +1,12 @@
+             Technical notes on version 3.10.10
+                       16 January 2004
+                        Kern Sibbald
+
+General:
+- Based on observations that Adam Kropelin has made on a problem UPS,
+  I've modified the USB driver to poll for the dynamic UPS data a maximum
+  of once every 5 seconds, unless it is on batteries.         
+- I added a new "offbattery" event that is only executed if the 
+  "onbattery" event was executed. This should allow users to easily
+  control what messages they get and by using the ONBATTERYDELAY the
+  time on batteries before the onbattery event is notified.

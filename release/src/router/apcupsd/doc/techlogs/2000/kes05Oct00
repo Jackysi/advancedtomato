@@ -1,0 +1,39 @@
+         Technical notes on my code submission of 05 Oct 00
+                        Kern Sibbald
+
+General:
+- Several bug fixes
+- Fixed problems with Win32 binary release that
+  prevented proper shutdown. Thanks to the testing
+  efforts of Paul Stagner.
+- More documentation for Win32. Add ChangeLog to
+  manual, renumber to 3.8.0
+
+Changes submitted this submission:
+- Moved # comment characters in Makefiles to
+  column 1 to avoid problems with native Alpha make.
+- Fixed a problem in apcaction.c reported by Nikita Schmidt
+  that caused early shutdown on power loss in some cases 
+  if using a nonzero value of TIMEOUT. This was a bug that
+  I introduced in 3.8.0 in optimizing the code.
+- Fixed a problem with old SmartUPSes manufactured before 1994
+  where certain EEPROM values are not available. This was causing
+  immediate shutdown on power loss. This is an ancient bug.
+- Enhanced the error print out if apcupsd is unable to execv()
+  the apccontrol file. This is critical for proper shutdown and
+  helps debugging failed shutdown testing.
+- Fixed a problem where when the cursor is over the tray icon
+  in the Win32 version that is being run as a slave. The correct
+  status was not shown.
+- Modified configure.in to add the -Wall option to the compile only
+  if we are using a gcc compiler as this option does not normally exist
+  on other compilers.
+- Removed a C++ comment from multimon.c and replaced it with a 
+  standard C comment.
+- Increased the version from pre1 to pre3 (pre2 was used to release
+  corrected Win32 binaries).
+- At Riccardo's request fixed a script problem on SuSE as reported
+  by Lothar Hegebart.
+- Fixed a bug in configure.in when setting the default compilation
+  options to -O2 -Wall that caused and error message on Solaris
+  and Alpha systems.

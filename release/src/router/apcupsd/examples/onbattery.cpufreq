@@ -1,0 +1,55 @@
+#!/bin/sh
+#
+# This shell script if placed in /etc/apcupsd will be
+# called by /etc/apcupsd/apccontrol when the UPS goes
+# on batteries.
+#
+# We scale the CPU clock frequency back to save power
+# and send an email message to root to notify him.
+#
+# NOTE: Assumes Linux-2.6.x kernel with CPUFREQ 
+# support for your chipset. Enable appropriate
+# modprobe line below to match your hardware.
+SYSADMIN=root
+APCUPSD_MAIL="/bin/mail"
+
+# Load the appropriate cpufreq module. This is best done
+# in boot scripts, but throw it here to make sure it has
+# been done.
+modprobe p4_clockmod
+#modprobe cpufreq-nforce2
+#modprobe powernow-k6
+#modprobe powernow-k8
+#modprobe speedstep-smi
+
+# Give the cpufreq module a chance to initialize
+sleep 1
+
+# Iterate over all CPUs, enabling the userspace governor
+# and programming the current clock speed to the minimum.
+# This is redundant on hyperthread siblings, but it
+# doesn't hurt anything and it keeps the code simple.
+for CPU in /sys/devices/system/cpu/cpu*/cpufreq ; do
+	echo -n userspace > $CPU/scaling_governor
+	cat $CPU/scaling_min_freq > $CPU/scaling_setspeed
+done
+
+# Send an email to root
+HOSTNAME=`hostname`
+MSG="$HOSTNAME Power Failure!"
+#
+(
+   echo "Subject: $MSG"
+   echo " "
+   echo "$MSG"
+   echo " "
+   for CPU in `ls -1 /sys/devices/system/cpu` ; do
+      echo -n "$CPU freq scaled to "
+      cat /sys/devices/system/cpu/$CPU/cpufreq/scaling_setspeed | tr -d '\n'
+      echo " MHz"
+   done
+   echo " "
+   /sbin/apcaccess status
+) | $APCUPSD_MAIL -s "$MSG" $SYSADMIN
+exit 0
+

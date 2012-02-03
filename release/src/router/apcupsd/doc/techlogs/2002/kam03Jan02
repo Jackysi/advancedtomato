@@ -1,0 +1,34 @@
+From:   Kamal A Mostafa <kamal@whence.com>
+To:     Kern Sibbald <kern@sibbald.com>
+Cc:     Riccardo Facchetti <riccardo@master.oasi.gpa.it>
+Subject: apcupsd trimeventsfile patch
+Date:   03 Jan 2002 19:03:07 -0800      
+trimeventsfile.patch - provides TRIMEVENTSFILE config parameter
+
+    etc/apcupsd.conf.in
+        - added "TRIMEVENTSFILE [ on | off ]" parameter and description
+    include/apc_struct.h
+        - added trimeventsfile member to 'struct ups'
+    lib/apcconfig.c
+        - added config parsing for TRIMEVENTSFILE
+    apcreports.c
+        - added code to obey ups->trimeventsfile
+        - moved locking and close/re-open code into truncate_events_file()
+    lib/apcevents.c
+        - BUG: The do_reports() shmarea locking code is still slightly
+          broken -- if truncate_events_file() works but the read lock fails
+          then ups->eventfile will be left in a bad state.  Also it occurs
+          to me that truncate_events_file() should manage ups->eventfile
+          in the first place, so I moved the shmarea locking and
+          ups->eventfile close/re-open code into truncate_events_file().
+          Now, truncate_events_file() is more robust, in that it doesn't
+          require the caller to fiddle with the ups structure afterwards.
+
+        - truncate_events_file() seems kinda silly in that it first
+          determines whether or not it needs to trim the file (i.e.
+          trunc=TRUE), but even even if it doesn't plan to trim the file,
+          it goes ahead and malloc's a bunch of space, sorts the file as
+          if it were going to trim it, and then ends up throwing it all
+          away again.  I changed truncate_events_file() so that it bails
+          out much sooner if it doesn't need to do any work.  (Took me
+          longer to describe the change here than it did to fix it! ;-)

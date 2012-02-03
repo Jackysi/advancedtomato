@@ -47,6 +47,12 @@ function verifyFields(focused, quiet)
 	var a = E('_f_imq_enable').checked;
 	E('_imq_numdevs').disabled = !a;
 
+	if ((enable_mcast) && (!E('_f_multicast_lan').checked) && (!E('_f_multicast_lan1').checked) && (!E('_f_multicast_lan2').checked) && (!E('_f_multicast_lan3').checked)) {
+		ferror.set('_f_multicast', 'IGMPproxy must be enabled in least one LAN bridge', quiet);
+		return 0;
+	} else {
+		ferror.clear('_f_multicast');
+	}
 	return 1;
 }
 

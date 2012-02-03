@@ -414,6 +414,44 @@ int ipt_layer7(const char *v, char *opt)
 	return 1;
 }
 
+// -----------------------------------------------------------------------------
+
+static void ipt_account(void) {
+	struct in_addr ipaddr, netmask, network;
+	char lanN_ifname[] = "lanXX_ifname";
+	char lanN_ipaddr[] = "lanXX_ipaddr";
+	char lanN_netmask[] = "lanXX_netmask";
+	char lanN[] = "lanXX";
+	char netaddrnetmask[] = "255.255.255.255/255.255.255.255 ";
+	char br;
+
+	for(br=0 ; br<=3 ; br++) {
+		char bridge[2] = "0";
+		if (br!=0)
+			bridge[0]+=br;
+		else
+			strcpy(bridge, "");
+
+		sprintf(lanN_ifname, "lan%s_ifname", bridge);
+
+		if (strcmp(nvram_safe_get(lanN_ifname), "")!=0) {
+
+			sprintf(lanN_ipaddr, "lan%s_ipaddr", bridge);
+			sprintf(lanN_netmask, "lan%s_netmask", bridge);
+			sprintf(lanN, "lan%s", bridge);
+
+			inet_aton(nvram_safe_get(lanN_ipaddr), &ipaddr);
+			inet_aton(nvram_safe_get(lanN_netmask), &netmask);
+
+			// bitwise AND of ip and netmask gives the network
+			network.s_addr = ipaddr.s_addr & netmask.s_addr;
+
+			sprintf(netaddrnetmask, "%s/%s", inet_ntoa(network), nvram_safe_get(lanN_netmask));
+
+			ip46t_write("-A FORWARD -m account --aaddr %s --aname %s\n", netaddrnetmask, lanN);
+		}
+	}
+}
 
 // -----------------------------------------------------------------------------
 
@@ -712,7 +750,7 @@ static void nat_table(void)
 		}
 
 		char *modem_ipaddr;
-		if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") )
+		if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") || nvram_match("wan_proto", "static") )
 		    && (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0") )
 			ipt_write("-A POSTROUTING -o %s -d %s -j MASQUERADE\n", nvram_safe_get("wan_ifname"), modem_ipaddr);
 
@@ -971,6 +1009,8 @@ static void filter_forward(void)
 		"-A FORWARD -m rt --rt-type 0 -j DROP\n");
 #endif
 
+	ipt_account();
+
 	ip46t_write(
 		"-A FORWARD -i %s -o %s -j ACCEPT\n",			// accept all lan to lan
 		lanface, lanface);
@@ -1028,6 +1068,25 @@ static void filter_forward(void)
 	}
 	free(nv);
 
+	ip46t_write(
+		"-A FORWARD -m state --state INVALID -j DROP\n");		// drop if INVALID state
+
+	// clamp tcp mss to pmtu
+	clampmss();
+
+	if (wanup) {
+		ipt_restrictions();
+
+		ipt_layer7_inbound();
+	}
+
+	ipt_webmon();
+
+	ip46t_write(
+		":wanin - [0:0]\n"
+		":wanout - [0:0]\n"
+		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
+
 	char lanN_ifname[] = "lanXX_ifname";
 	char br;
 	for(br=0 ; br<=3 ; br++) {
@@ -1062,31 +1121,6 @@ static void filter_forward(void)
 //		ip46t_write("-A FORWARD -i %s -j %s\n", nvram_safe_get(lanN_ifname), chain_out_accept);
 		}
 	}
-
-	ip46t_write(
-		"-A FORWARD -m state --state INVALID -j DROP\n");		// drop if INVALID state
-
-/* shibby - unused ?!?
-	// IPv4 only ?
-	ipt_write(
-		"-A FORWARD -m state --state INVALID -j DROP\n");	// drop if INVALID state
-shibby */
-
-	// clamp tcp mss to pmtu
-	clampmss();
-
-	if (wanup) {
-		ipt_restrictions();
-
-		ipt_layer7_inbound();
-	}
-
-	ipt_webmon();
-
-	ip46t_write(
-		":wanin - [0:0]\n"
-		":wanout - [0:0]\n"
-		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
 
 #ifdef TCONFIG_IPV6
 	// Filter out invalid WAN->WAN connections
@@ -1135,33 +1169,6 @@ shibby */
 			ip46t_write("-A FORWARD -i %s -j %s\n", nvram_safe_get(lanN_ifname), chain_out_accept);
 		}
 	}
-
-/* shibby - unused ?!?
-
-	for (i = 0; i < wanfaces.count; ++i) {
-		if (*(wanfaces.iface[i].name)) {
-			ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lanface, wanfaces.iface[i].name, chain_out_accept);
-			if (strcmp(lan1face,"")!=0)
-				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan1face, wanfaces.iface[i].name, chain_out_accept);
-			if (strcmp(lan2face,"")!=0)
-				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan2face, wanfaces.iface[i].name, chain_out_accept);
-			if (strcmp(lan3face,"")!=0)
-				ip46t_write("-A FORWARD -i %s -o %s -j %s\n", lan3face, wanfaces.iface[i].name, chain_out_accept);
-		}
-	}
-
-#ifdef TCONFIG_IPV6
-//IPv6 forward LAN->WAN accept
-	ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lanface, wan6face, chain_out_accept);
-	if (strcmp(lan1face,"")!=0)
-		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan1face, wan6face, chain_out_accept);
-	if (strcmp(lan2face,"")!=0)
-		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan2face, wan6face, chain_out_accept);
-	if (strcmp(lan3face,"")!=0)
-		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan3face, wan6face, chain_out_accept);
-#endif
-
-shibby */
 
 	// IPv4 only
 	if (nvram_get_int("upnp_enable") & 3) {
@@ -1413,7 +1420,6 @@ static void filter_table(void)
 	}
 	ip46t_write("COMMIT\n");
 }
-
 
 // -----------------------------------------------------------------------------
 
@@ -1686,8 +1692,6 @@ if (nvram_match("imq_enable", "1")) {
 	run_vpn_firewall_scripts();
 #endif
 	run_nvscript("script_fire", NULL, 1);
-
-	start_account();
 
 #ifdef LINUX26
 	allow_fastnat("firewall", can_enable_fastnat);

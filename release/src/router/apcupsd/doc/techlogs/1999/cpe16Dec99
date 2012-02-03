@@ -1,0 +1,43 @@
+
+
+        Technical notes on my code submission of 16 Dec 99
+                        Carl Erhorn
+
+
+General:
+
+- I've added some source files to the sun directory, changed 
+many others as a result of testing, and added a README.solaris 
+file in the source directory. I added my name to a new port
+entry in the Developers file, 'Solaris Port:'. 
+
+- This is the first real attempt to provide a port of the 3.7.0
+package to the Sun Solaris system. I am currently testing on a 
+Solaris X86 system, running Solaris 2.6 with all recommended 
+patches, and the Y2K recommended patches. The UPS is an APC 
+SMartUPS-700, attached by a standard serial port. 
+
+- I have moved the PID files into /etc/apcupsd, rather than using
+/etc. It keeps all the related files except the lock file in one
+place. 
+
+- Many thanks to Kern and Riccardo, who helped me get the initial 
+bugs out, provided a tremendous amount of information, and made
+many changes for me as a result of my feedback. Kern in particular
+has been instrumental in my getting going again with the porting 
+process. 
+
+Work to complete:
+
+- I have not done careful testing of the network features, as I
+do not have a second Solaris system here. However, I intend to 
+test using a Redhat Linux system as a net client, and will be 
+building the package on that system soon. 
+
+Suggestions:
+
+- I think that the killpower diagnostic messages should not be
+displayed unless the daemon determines that it cannot get an
+OK response from any of the methods that it tries. As long as
+one method works, the diagnostic messages should be suppressed. 
+

@@ -295,6 +295,7 @@ extern void try_enabling_fastnat(void);
 // forward.c
 extern void ipt_forward(ipt_table_t table);
 extern void ipt_triggered(ipt_table_t table);
+
 #ifdef TCONFIG_IPV6
 extern void ip6t_forward(void);
 #endif
@@ -433,6 +434,12 @@ extern void start_snmp();
 extern void stop_snmp();
 #endif
 
+// apcupsd.c
+#ifdef TCONFIG_UPS
+extern void start_ups();
+extern void stop_ups();
+#endif
+
 // vpn.c
 #ifdef TCONFIG_OPENVPN
 extern void start_vpnclient(int clientNum);
@@ -455,10 +462,6 @@ static inline void write_vpn_dnsmasq_config(FILE*) {}
 static inline void start_vpn_eas() { }
 #define write_vpn_resolv(f) (0)
 #endif
-
-// account.c
-extern void start_account(void);
-extern void stop_account(void);
 
 // new_qoslimit.c
 extern void ipt_qoslimit(int chain);

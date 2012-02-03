@@ -1,0 +1,18 @@
+Source: apcupsd
+Section: admin
+Priority: optional
+Maintainer: Martin Mitchell <martin@debian.org>
+Build-Depends: debhelper, mawk, libncurses-dev, automake
+Standards-Version: 3.5.2
+
+Package: apcupsd
+Architecture: any
+Provides: ups-monitor
+Conflicts: ups-monitor
+Suggests: logrotate
+Depends: ${shlibs:Depends}, bsdutils
+Description: APC UPS Power Management
+ Controls / monitors the status of an APC UPS under Linux.
+ Allows your computer or server to run for a specified length of
+ time on UPS power, and then executes a controlled shutdown in
+ the case of an extended power failure.

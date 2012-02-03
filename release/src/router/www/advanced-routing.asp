@@ -67,7 +67,6 @@ ara.setup = function() {
 	}
 }
 
-
 var ars = new TomatoGrid();
 
 ars.verifyFields = function(row, quiet) {
@@ -80,6 +79,7 @@ ars.setup = function() {
 	this.init('ars-grid', '', 20, [
 		{ type: 'text', maxlen: 15 }, { type: 'text', maxlen: 15 }, { type: 'text', maxlen: 15 },
 		{ type: 'text', maxlen: 3 }, { type: 'select', options: [['LAN','LAN'],['LAN1','LAN1'],['LAN2','LAN2'],['LAN3','LAN3'],['WAN','WAN'],['MAN','MAN']] }, { type: 'text', maxlen: 32 }]);
+
 	this.headerSet(['Destination', 'Gateway', 'Subnet Mask', 'Metric', 'Interface', 'Description']);
 	var routes = nvram.routes_static.split('>');
 	for (var i = 0; i < routes.length; ++i) {
@@ -154,28 +154,13 @@ function save()
 	fom.routes_static.value = r.join('>');
 
 /* ZEBRA-BEGIN */
-/*
-	var wan = '0';
-	var lan = '0';
 
-	switch (E('_dr_setting').value) {
-	case '1':
-		lan = '1 2';
-		break;
-	case '2':
-		wan = '1 2';
-		break;
-	case '3':
-		lan = '1 2';
-		wan = '1 2';
-		break;
-	}
-*/
 	fom.dr_lan_tx.value = fom.dr_lan_rx.value = (E('_f_dr_lan').checked) ? '1 2' : '0';
 	fom.dr_lan1_tx.value = fom.dr_lan1_rx.value = (E('_f_dr_lan1').checked) ? '1 2' : '0';
 	fom.dr_lan2_tx.value = fom.dr_lan2_rx.value = (E('_f_dr_lan2').checked) ? '1 2' : '0';
 	fom.dr_lan3_tx.value = fom.dr_lan3_rx.value = (E('_f_dr_lan3').checked) ? '1 2' : '0';
 	fom.dr_wan_tx.value = fom.dr_wan_rx.value = (E('_f_dr_wan').checked) ? '1 2' : '0';
+
 /* ZEBRA-END */
 
 	fom.dhcp_routes.value = E('_f_dhcp_routes').checked ? '1' : '0';
@@ -264,7 +249,6 @@ createFieldTable('', [
 	{ title: 'Efficient Multicast Forwarding', name: 'f_emf', type: 'checkbox', value: nvram.emf_enable != '0' },
 /* EMF-END */
 	{ title: 'DHCP Routes', name: 'f_dhcp_routes', type: 'checkbox', value: nvram.dhcp_routes != '0' },
-//	{ title: 'Spanning-Tree Protocol', name: 'f_stp', type: 'checkbox', value: nvram.lan_stp != '0' }
 ]);
 </script>
 </div>

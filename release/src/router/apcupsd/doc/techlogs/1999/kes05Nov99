@@ -1,0 +1,279 @@
+         Technical notes on my code submission of 05 Nov 99
+                        Kern Sibbald
+
+General:
+- Since I did not complete my submission notes of yesterday,
+  this file contains the missing parts. 
+
+Additional documenatation of kes03Nov99: 
+- I changed the default location of the status file to
+  be /etc/apcupsd/apcupsd.status (previously /etc/apcupsd.status).
+- Added new function codes for the functions and codes used
+  to access the UPS. This code will be described more in
+  detail in a later submission, but essential it replaces
+  the UPS capability flag word (limited to 32 bits or capabilities)
+  with a character array, allowing us to add additional functions.
+- Removed the old defines for LI, LW and LD.
+- Removed the old defines for error_abort and error_exit.  They
+  are now simple subroutines.
+- Removed the subroutine remove_file() as it is better written simply
+  as unlink().
+- Removed the killpwr variable from several subroutines, and created
+  a new subroutine to actually do the work, called kill_power().
+- Renamed procfs to be status
+- Cleaned up the text in apccontrol to be a bit easier to understand,
+  and slightly more explicit (at least for me).
+
+Changes submitted this submission:
+- added code for LOGSTATS <on/off> in apcconfig.c
+- removed all logprintf() from apcnet.c replacing them with
+  log_event(LOG_DEBUG, ...).
+- removed logprintf() subroutine.
+- Completed STATUS logging code.
+- Added a first step at documenting the program flow
+  to the end of apcupsd.c as comments.
+- put an updated version of apcupsd.conf into the /etc 
+  directory.
+- put a dumb readfifo.c test program into the examples
+  directory. If you point this program to a named pipe
+  that writes the STATUS data, it will print it out.
+- The Makefiles in the cgi and cgi/gd1.2 directories were
+  missing in the snapshot.  I suspect that they were deleted by the make
+  distclean command.  To prevent their loss in the future, I also
+  created a Makefile.in in each of these directories.
+
+
+Work to complete:
+- Automatically call cgi make from our make.
+- Documentation.
+- Automatic conversion of old apcupsd.config files
+  to the new format?
+- Eliminate the rest of the printfs().
+- Examine all configuration messages, and eliminate all
+ "Someone will have to explain this to me" messages.
+- Check and double check killpwr changes.
+- Correct problems pointed out by Riccardo in integrating
+  my submission.
+- Complete writing of status logging.
+- Rework the cgi program to correct errors and add other
+  display modes (e.g. remaining run time).
+- Add the full status display to the cgi program (same
+  as currently printed by "apcaccess status"
+- Remove remaining traces of old log file. 
+
+Suggestion:
+- I suggest we begin changing names of our program from
+  apc... to ups... to be more generic, especially if we
+  are intending to support UPSes other than APC UPSes.
+
+New syslog() code:
+
+Our basic philosophy is that all logging should be done
+through the syslog() facility. This is now implemented
+with one exception that I will explain below concerning
+the status file logging.
+
+All logging functions and all error reporting are now done
+through the log_event() subroutine call. Exceptions to this
+are: initialization code where printf's are done, and writing
+to the status file. Once the initialization code has completed
+and the fork() to become a daemon is done, no printf's are
+used.
+
+log_event() has exactly the same format as syslog(). In fact,
+the subroutine consists of only a syslog() call.  If anyone really
+wishes to log to a file, the code to do so can easily be done
+by adding code to log_event() in apclog.c.
+
+I have broken logging into four separate types that I call:
+
+1. DEBUG
+2. DATA
+3. STATUS
+4. EVENTS
+
+DEBUG logging:
+Debug logging consists of debug messages. Normally these are turned
+on only by developers, and currently there exist very few of these
+debug messages.
+
+DATA logging:
+Data logging consists of periodically logging important data concerning
+the operation of the UPS. For the definitive definition of the format,
+see log_data() in apcreports.c. The format varies according to the UPS
+model and hence the information available. However, for UPS models,
+configured with the UPSTYPE statement as
+newbackupspro, backupspropnp, smartups, matrixups, and sharesmart will be
+written in a format very similar to what PowerChute writes. 
+logging output will be the same for all the following models:
+
+Configured
+UPSTYPE            Long name
+===========     =================
+newbackupspro   Smarter BackUPS Pro
+backupspropnp   Smarter BackUPS Pro
+smartups        SmartUPS
+matrixups       MatrixUPS
+sharesmart      ShareUPS Advanced Port
+
+
+That is:
+
+MinLineVoltage, MaxLineVoltage, OutputVoltage, BatteryVoltage, LineFrequency,
+UPSTemperature,AmbientTemperature,Humidity,LineVoltage
+
+where AmbientTemperature and Humity are always blank in the current
+implementation. An actual example from the log file is:
+
+Nov  2 12:43:05 matou apcupsd[23439]: 224.9,227.5,226.2,27.74,50.00,100.0,30.6,,,226.2
+
+STATUS logging:
+Status logging consists of periodically logging ALL available information
+concerning the UPS. In this case, the volume of data is rather large,
+consequently, this information is not automatically sent to the system
+log file, but rather written as a series of data records to a specific file.
+After each write, the file is rewound so that the size of the file remains
+constant. At the current time, this file is 763 bytes.
+The format of this file is very similar to the old apcupsd procfs file.
+Once networking is implemented, we can consider eliminating this file.
+However, in the mean time. It is essential so that users can obtain all
+desired information. In fact, the current CGI brower user interface uses
+this file to graphically display information.  If specified in the configuration
+file, this data will also be written to the system log file. Please
+note, that it would not normally be wise to write this data to a normal
+system log file as there is no mechanism in syslog() to rewind the 
+file and hence the log file would quickly become enormous. 
+However, in two cases, it can be very useful to use syslog() to
+write this information. 
+
+The first case is to setup your syslog.conf file so that the 
+data is written to a named pipe.  In this case, normally
+not more than about 8192 bytes of data will be kept before it
+is discarded by the system.
+ 
+ The second case is to setup your syslog.conf file so that the
+ status data is sent to another machine, which presumably then 
+ writes it to a named pipe. Consequently, with this mechanism,
+ we have a very simple means of networking apcupsd data.
+
+To make reading the status data reliable via a named pipe,
+the first record written contains a version number, the number
+of records that follow the first record, and the total number
+of bytes in those subsequent records. An actual example 
+of such a status file (/etc/apcupsd/apcupsd.status) is:
+
+APC      : 001,028,0675            
+DATE     : Nov 03 11:56:32
+RELEASE  : 3.6.3
+CABLE    : Custom Cable Smart
+UPSMODEL : SMART-UPS 1000
+UPSMODE  : Stand Alone
+UPSNAME  : UPS_IDEN
+ULINE    : 228.8 Volts
+MLINE    : 230.1 Volts
+NLINE    : 227.5 Volts
+FLINE    : 50.0 Hz
+VOUTP    : 228.8 Volts
+LOUTP    : 011.4 Percent Load Capacity
+BOUTP    : 27.7 Volts
+BCHAR    : 100.0 Batt. Charge
+TIME     : 112.0 Minutes
+SENSE    : LOW
+WAKEUP   : 060 Cycles
+SLEEP    : 180 Cycles
+LOTRANS  : 204.0 Volts
+HITRANS  : 253.0 Volts
+CHARGE   : 050.0 Percent
+BFAIL    : 0x08 Status Flag
+UTEMP    : 30.1 C Internal
+ALARM    : Low Batt
+LASTEVNT : LINE VOLTAGE DECREASE
+LOWBATT  : 02 Minutes
+DIPSW    : 0x0000
+END APC  : Nov 03 11:56:32
+
+Consequently, the first record always consists of 24 bytes (23
+characters followed by a newline).  This record starts with APC and as
+indicated in the example above is followed by 28 records consisting of
+675 bytes.  The last record begins with END APC and contains the date
+and time matching the DATE record.
+
+Documentation of each record needs to be written. In the coming
+weeks, I plan to add additional records and possibly change the
+names of some of the fields.
+
+When this data is written to a file, it is written as two records,
+the first record, and all the other records together. In reading the
+file, it can be either be read a record at a time, or in one big
+read.
+
+When this data is written to syslog(), it is written a          
+record at a time. The first record is the first 24 bytes.           
+By having the number of records and the size in the
+first record, the complete status can be reliably
+reassembled.
+
+EVENTS logging:
+Events logging consists of logging events as they happen.
+For example, successful startup, power fail, battery failure,
+system shutdown, …
+
+Implementation details:
+In order to ensure that the data logged to syslog() can be
+directed to different files, I have assigned syslog() levels
+to each of our four types of data as follows: 
+
+1. DEBUG logging has level LOG_DEBUG
+2. DATA logging has level LOG_INFO
+3. STATUS logging has level LOG_NOTICE
+4. EVENTS logging has levels LOG_WARNING,
+    LOG_ERR, LOG_CRIT, and LOG_ALERT
+
+It should be noted that more work needs to be done
+on the precise definitions of each of the levels for EVENTS
+logging. Currently, it is roughly broken down as follows:
+
+LOG_WARNING   general information such as startup, etc.
+LOG_ERR an error condition detected, e.g. communications
+     problem with the UPS.
+LOG_CRIT a serious problem has occurred such as power
+     failure, running on UPS batteries, …
+LOG_ALERT a condition that needs immediate attention such
+     as pending system shutdown, …
+
+More work needs to be done to the code to ensure that it
+corresponds to the above levels.
+
+As a practical example of how to setup your syslog() to use the
+new logging feature, suppose you wish to direct all DATA logging
+to a file named /var/log/apcupsd.data, all EVENTS
+to the standard /var/log/messages file (to be mixed with other
+system messages), and at the same time send all EVENTS to 
+/var/log/apcupsd.events, and finally, you want to send all STATUS
+logging to the named pipe /var/log/apcupsd.status
+
+First as root, you create the named pipe:
+
+    mkfifo /var/log/apcupsd.status
+       
+change its permissions as necessary or use the -m option to set them
+when creating the pipe.
+
+Then you modify your /etc/syslog.conf file to direct the appropriate
+levels of messages where you want them.  To accomplish the above,
+my syslog.conf file looks like:
+
+# exclude all apcupsd info by default
+*.info;local0.none                    /var/log/messages
+
+# Everything for apcupsd goes here
+local0.info;local0.!notice             /var/log/apcupsd.data
+local0.notice;local0.!warn            |/var/log/apcupsd.status
+local0.warn                            /var/log/apcupsd.events
+local0.warn                            /var/log/messages
+
+
+
+
+
+   

@@ -1,0 +1,66 @@
+         Technical notes on my code submission of 27 Sep 00
+                        Kern Sibbald
+
+General:
+- Integrated fixes from Devin Reade -- many thanks.
+- Did an Alpha Tru64 port
+- "Completed" the Win32 port
+- Lots of documenation updates.
+
+Changes submitted this submission:
+- Moved the version definition from Makefile.in
+  to version.h. This makes it easier to change the
+  version. Note, I added additional version fields
+  that are not yet used, but might be useful.
+- New changes to Makefile.in to support building of
+  a Win32 version.  Still to be done make install for
+  Win32.
+- added a new program apctest.c, which tests dumb cables.
+  More work is needed on this program.
+- when rebuilding the configure file, ensure that old configure
+  files are removed.
+- if we create a sysconfdir, create it with 0755 permissions.
+- Makefile.in: clean: remove only regular files of zero length (Devin Reade).
+- apcaction.c: add new time variables to keep track of when
+  we went on batteries. Also optimize the code to drastically
+  reduce the number of time() calls and to call it only if
+  really needed.
+- apcaction.c: remove the LineDown variable, which is not used.
+- apcaction.c: complain once every nine hours if the battery
+  must be replaced.
+- keep track of number of transfers to batteries and when
+  last done.
+- apcconfig.c: do correct casting of pointer to long so that
+  it works on 64 bit machines.
+- apcnet.c: move the master's IP address to a static variable.
+  On Win32, the address was being released, which is perfectly
+  reasonable.
+- apcnet.c: rationalize the log_event types a bit.
+- apcnet.c: if we get a bad bind, continue trying for 15 minutes.
+- apcnet.c: remove invalid close()
+- apcserial.c: set in/out serial port speeds for Alpha, CYGWIN,
+  and Linux systems.
+- apcserial.c: correct low battery signal for dumb UPSes using
+  Custom Simple cable.
+- apcsmart.c: add code to support # -> replace battery
+- apcstatus.c: report new variables.
+- apcupsd.c: unlink pid file before creating it.
+- apcupsd.c: use open() to create the pid file, with 0644 permissions.
+- apcupsd.c: vastly simplify becoming a daemon.
+- apcupsd.c: make umask() set 022 (Devin Reade)
+- apcupsd.c: close stdin, stdout, stderr
+- autoconf/acconfig.h.in: add HAVE_OSF1_OS for Alpha
+- autoconf/configure.in: fix Win32 stuff, remove old VERSION
+  stuff; pull version from version.h; add Alpha stuff; add
+  code to support --with-pid-dir=<dir>; 
+- autoconf/configure.in: fixed HOST to have DISTNAME, previously,
+  it was always NONE. 
+- add distributions/alpha subdirectory with new Alpha port code.
+- make RPM spec file for RedHat release -- lots of work!
+- A number of new STATUS examples in the examples directory.
+- Corrected a few minor errors in the master/slave examples.
+- Corrected and added additional EVENT script files that email
+  event messages.  These really should be standard.
+- Reworked apc.h and apc_config.h to separate system stuff and
+  machine dependencies. Also tweaked apc_defines.h
+- win32 directory a number of changes.

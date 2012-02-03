@@ -1,0 +1,38 @@
+             Technical notes on version 3.8.2Beta12
+                        20 June 2001
+                        Kern Sibbald
+
+General:
+- Minor bug fixes prior to 3.8.2 release.
+- Some documentation.
+
+Changes submitted this submission:
+- Brought ChangeLog up to date.
+- Moved old ChangeLog to ChangeLog.old
+- Removed the chmod +t apcnisd since it doesn't
+  work on some systems.
+- In prior release: modified apcaccess to work with
+  pthreaded apcupsd. It requires the NIS server and
+  you can specify a host and port as an optional 
+  second argument. This works across the network 
+  providing the two machines are of identical architecture.
+
+    apcaccess status host:port   
+
+- Same for powerflute.
+- After generating an event (usually a message, possibly
+  email) for change battery five times, apcupsd resets the
+  change battery flag. This should help avoid false alarms
+  which are extremely rare. Previously apcupsd had to be
+  restarted to clear this condition.
+- Deleted a useless message in apcsetup.c
+- Ensure that argvalue is properly terminated.
+- Modified upsimage.c to produce slightly better looking
+  graphs if the voltage or output voltage is less than
+  80 volts.
+- Fixed an installation problem (fat fingered data) in 
+  configure.in for SuSe systems.
+- Implement localtime_r() which is reentrant.
+- Moved old techlogs into subdirectories 1999 and 2000.
+  This makes it easier to see the most recent techlogs.
+

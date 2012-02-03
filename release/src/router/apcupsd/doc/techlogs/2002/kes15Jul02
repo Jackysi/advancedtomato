@@ -1,0 +1,23 @@
+             Technical notes on version 3.9.10
+                       15 July 2002
+                       Kern Sibbald
+
+General:
+
+Changes submitted this submission:
+- Based on recent emails concerning the cable wiring for
+  the 940-0128A cable, I updated the document and did
+  some testing.
+- Modified apctest to perform a shutdown test for
+  USB UPSes.  
+- Removed the device_close() statements from kill_power()
+  as they should not be there.
+- Removed the generation of the reboot for dumb UPSes after
+  a kill power. Previous comments indicated that they should
+  be removed, and now they are commented out.
+  This change is essential for the apctest code to work for
+  a USB UPS.
+- Made another attempt at getting USB kill power to work.
+  I've left a good deal of debug code in the source -- until
+  it all works.
+

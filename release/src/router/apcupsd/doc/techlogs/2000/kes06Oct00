@@ -1,0 +1,18 @@
+         Technical notes on my code submission of 06 Oct 00
+                        Kern Sibbald
+
+General:
+- Update timers when first power problem detected to
+  eliminate timing window.
+- Because of their importance, moved changeme, commfailure, commok,
+  mainsback, and onbattery from <src>/examples to <src>/etc
+- Copy changeme, commfailure, commok, mainsback, and onbattery
+  into sysconfigdir by default.
+- NOTE: the above script files should really be processed by
+  ./configure to contain the correct locations for the executables 
+  and for the mail program. This needs to be done, but in the
+  mean time, they should not create any problems, and can be
+  a valuable tool for notification.
+
+Changes submitted this submission:
+- See above.

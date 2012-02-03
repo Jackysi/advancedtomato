@@ -1,0 +1,24 @@
+             Technical notes on version 3.10.3
+                       11 December 2001
+                        Kern Sibbald
+
+General:
+- Tried to correct problems with Makefiles
+- Thanks to David Walser who pointed out where on the Sun, the make
+  install was doing terrible things -- I found that there was
+  a missing semicolon in the new Makefile.  Before my previous cleanup,
+  there were actually 4 missing semicolons.  Hopefully this
+  will correct the problem.
+- For a second time, David Walser came to the rescue finding the
+  CGI install problem reported by lots of people.  The new code
+  used "make" instead of $(MAKE) to call the CGI make.  Fixed.
+
+Changes submitted this submission:
+- Removed Makefile code that creates and sets permission bits on
+  /tmp $(prefix) and $(exec-prefix)
+- Removed all occurrences of -z in the Makefiles (at least that I
+  found) and replaced them with a more conservative formulation.
+- Removed the install-symlinks script that caused some problems
+  on distributions with blanks in the DISTVER name.
+- Added install-symlinks to the suse Makefile.in. This is the
+  only platform that currently uses it.

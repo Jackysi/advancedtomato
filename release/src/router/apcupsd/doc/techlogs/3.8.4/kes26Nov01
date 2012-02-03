@@ -1,0 +1,12 @@
+             Technical notes on version 3.8.3 
+                      26 November 2001
+                        Kern Sibbald
+
+General:
+- Applied the the updates supplied by Carl Erhorn for adding
+  Ambient Temperature and Humidity to multimon.
+- Tweaked the indenting a bit for some of the cgi programs touched
+  by Carl. There is still more work to do to bring it in line with
+  our new indenting standards.
+
+Changes submitted this submission:

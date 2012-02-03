@@ -1,0 +1,53 @@
+APC      : 001,052,0981
+DATE     : Tue Dec 14 20:43:59 CET 1999
+HOSTNAME : azuth
+RELEASE  : 3.7.0-beta-1
+CABLE    : Custom Cable Smart
+MODEL    : Smart-UPS v/s 650
+UPSMODE  : Stand Alone
+LINEFAIL : OK
+BATTSTAT : OK
+LINEVOLT : OK
+UPSNAME  : N/A
+LINEV    : N/A
+MAXLINEV : N/A
+MINLINEV : N/A
+LINEFREQ : N/A
+OUTPUTV  : N/A
+LOADPCT  : N/A
+BATTV    : N/A
+BCHARGE  : N/A
+MBATTCHG : 5 Percent
+TIMELEFT : N/A
+MINTIMEL : 3 Minutes
+MAXTIME  : 0 Seconds
+SENSE    : N/A
+DWAKE    : N/A
+DSHUTD   : N/A
+LOTRANS  : N/A
+HITRANS  : N/A
+RETPCT   : N/A
+STATFLAG : 0x08 Status Flag
+STATUS   : ONLINE 
+ITEMP    : N/A
+ALARMDEL : N/A
+LASTXFER : Line voltage notch or spike
+SELFTEST : NO
+STESTI   : N/A
+DLOWBATT : N/A
+DIPSW    : N/A
+REG1     : 0x00 Register 1
+REG2     : 0x00 Register 2
+REG3     : 0x00 Register 3
+MANDATE  : N/A
+SERIALNO : gs9734969448
+BATTDATE : N/A
+NOMOUTV  : N/A
+NOMBATTV : N/A
+HUMIDITY : N/A
+AMBTEMP  : N/A
+EXTBATTS : N/A
+BADBATTS : N/A
+FIRMWARE : 62.J.I
+APCMODEL : N/A
+END APC  : Tue Dec 14 20:44:00 CET 1999

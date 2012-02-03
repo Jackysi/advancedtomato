@@ -405,10 +405,9 @@ function init() {
 		toggleVisibility("filters");
 	}
 
-	if (viewClass != -1) E('stitle').innerHTML = 'Details: ' + abc[viewClass] + ' <span id=\'numtotalconn\'></span>';
-
 	E('_f_shortcuts').checked = (((c = cookie.get('qos_detailed_shortcuts')) != null) && (c == '1'));
 
+	if (viewClass != -1) E('stitle').innerHTML = 'View Details: ' + abc[viewClass] + ' <span id=\'numtotalconn\'></span>';
 	grid.setup();
 	ref.postData = 'exec=ctdump&arg0=' + viewClass;
 	ref.initPage(250);
@@ -484,7 +483,7 @@ function verifyFields(focused, quiet)
 
 <!-- / / / -->
 
-<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>Details <span id='numtotalconn'></span></div>
+<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>View Details: <span id='numtotalconn'></span></div>
 <div class='section'>
 <table id='grid' class='tomato-grid' style="float:left" cellspacing=1></table>
 
@@ -493,7 +492,7 @@ function verifyFields(focused, quiet)
 
 <!-- / / / -->
 
-<div class='section-title'>Filters <small><i><a href='javascript:toggleVisibility("filters");'><span id='sesdivfiltersshowhide'>(Click here to show)</span></a></i></small></div>
+<div class='section-title'>Filters: <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
 <div class='section' id='sesdivfilters' style='display:none'>
 <script type='text/javascript'>
 var c;

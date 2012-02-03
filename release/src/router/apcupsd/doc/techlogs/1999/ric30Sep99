@@ -1,0 +1,56 @@
+= Using select() mechanism on UPS file descriptor =
+                    Riccardo Facchetti
+
+- Preface -
+
+The UPS send its status in various ways and not all these ways can fit well in
+the select() mechanism.
+The UPS (but not all the UPSes) have two types of information:
+
+1. simple status (online, onbatt, etc etc) that is sent by UPS on status
+   change so no need to ask UPS to send us anything. It's the '!', '$' etc
+   etc. In this case the _best_ way to read the status is select() since we
+   don't know _when_ the status change will happen.
+
+2. verbose status (Voltages, temperatures, etc etc) that need to be asked to
+   the UPS. In this case, select()ing on the FD is not functional because we
+   ask to the UPS something and the UPS will answer immediately so select()
+   it is likely to return immediately with something waiting from the FD.
+   Here select have _no_ effect.
+
+We are interested mainly in 1., and only with low priority we can be
+interested in 2. We want to know if batteries are failing much more than we
+want to know that voltage is 221 and not 220 V.
+
+- Proposal -
+
+The best way to ask the UPS its status is:
+
+1. Waiting for simple status on fd by default.
+2. Asking for verbose status once in a while.
+
+- Implementation -
+
+We have two UPS types:
+
+1. dumb-cable
+2. smart-cable
+
+Type 1. is stupid and need only ioctl to know the simple status. No verbose
+status is known. In this case we do not have a way to select because we don't
+read the file descriptor at all. For this one instead of select() we have to
+sleep() to give CPU to other processes.
+
+Type 2. is more intelligent, and implementation is more complicated.
+We wait on the FD with select() by default. This means that select() is likely
+to timeout because it is not so frequent a status change on the UPS.
+Once in a while we ask the UPS all the info we need to fill the UPSINFO
+structure. This timing can be done by select() timeout mechanism. The timeout
+is likely to be the preferred path because the UPS is meant to be everytime
+online. When timeout occours we read the UPS status and fill the info that
+come back. After filling the info we do_report so that the do_report is timed
+by the same timeout ... there's no point to do_report() faster or slower than
+fillUPS.
+
+Note: in this implementation I assume that the only writer to shmarea is
+      apcserial!

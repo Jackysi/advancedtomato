@@ -783,7 +783,7 @@ function earlyInit()
   <table class='tomato-grid' cellspacing=1 id='vlan-grid'></table>
   <script type='text/javascript'>
   createFieldTable('', [
-    { title: 'Bridge WLAN to', name: 'f_bridge_wlan_to', type: 'select', options: [[0,'LAN (br0)'],[1,'LAN1  (br1)'],[2,'LAN2 (br2)'],[3,'LAN3 (br3)'],[4,'none']] }
+    { title: 'Bridge WLAN to', name: 'f_bridge_wlan_to', type: 'select', options: [[0,'LAN (br0)'],[1,'LAN1  (br1)'],[2,'LAN2 (br2)'],[3,'LAN3 (br3)'],[4,'none']], value: 4 }
     ]);
   if(port_vlan_supported) vlg.setup();
   </script>

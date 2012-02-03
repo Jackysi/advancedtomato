@@ -143,3 +143,8 @@ config TCONFIG_SDHC
 config TCONFIG_HFS
 	bool "  HFS/HFS+ filesystem support "
 	default n
+
+config TCONFIG_UPS
+	bool "  UPS Monitor"
+	depends on TCONFIG_USB
+	default n

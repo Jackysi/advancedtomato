@@ -480,7 +480,7 @@ function verifyFields(focused, quiet) {
 
 <!-- / / / -->
 
-<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>Transfer Rates <span id='numtotalconn'></span></div>
+<div class='section-title' id='stitle' onclick='document.location="qos-graphs.asp"' style='cursor:pointer'>Transfer Rates: <span id='numtotalconn'></span></div>
 <div class='section'>
 <table id='grid' class='tomato-grid' style="float:left" cellspacing=1></table>
 
@@ -489,7 +489,7 @@ function verifyFields(focused, quiet) {
 
 <!-- / / / -->
 
-<div class='section-title'>Filters <small><i><a href='javascript:toggleVisibility("filters");'><span id='sesdivfiltersshowhide'>(Click here to show)</span></a></i></small></div>
+<div class='section-title'>Filters: <small><i><a href='javascript:toggleFiltersVisibility();'>(Toggle Visibility)</a></i></small></div>
 <div class='section' id='sesdivfilters' style='display:none'>
 <script type='text/javascript'>
 var c;

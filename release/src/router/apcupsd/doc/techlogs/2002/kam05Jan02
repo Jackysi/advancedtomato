@@ -1,0 +1,48 @@
+Date: Sat, 5 Jan 2002 21:46:44 -0800
+From: Kamal A Mostafa <kamal@whence.com>
+To: Riccardo Facchetti <riccardo@master.oasi.gpa.it>, Kern Sibbald <kern@sibbald.com>
+Subject: new EVENTSFILEMAX code
+
+Hi Guys-
+
+Well, I went ahead and rewrote truncate_events_file() from scratch -- it was
+a nice file-size-based thing that used no malloc's.  Alas, while testing it I
+discovered a rather nasty bug which, I believe, has been present since at
+least 3.8.4...
+
+I was running some tests where I'd fill up the events file to force the new
+truncation code to kick in.  The new code worked fine, but when I killed
+off apcupsd, I noticed that I didn't get the usual "apcupsd exiting, signal
+15" and "apcupsd shutdown succeeded" log_event() messages that should have
+been at the tail end of the eventsfile.
+
+I suspect that the function terminate() is using an old copy of the event_fd
+file descriptor (which has since been closed) or something along those lines.
+As I see it, any truncation scheme which closes and reopens the ups->evend_fd
+would cause this problem.  Maybe truncation screws up the forked children or
+threads also.  Bummer.
+
+So I rewrote it again.  My new trim_eventfile() doesn't ever close the
+ups->event_fd -- that's probably just "better" anyway.  The basic premise is
+rewind, read, rewind, truncate, write.  And sure enough, now I get the
+"exiting" messages even after the file has been trimmed, so I think all is
+well.
+
+*Whew*  I'm sorry I ever started poking at it in the first place!  ;-}
+
+
+Anyway...  The new version replaces the TRIMEVENTSFILE [on|off] param with
+"EVENTSFILEMAX <kilobytes>".  I've attached two versions of the patch.  Use
+one or the other, depending on whether you have or haven't already applied
+my previous TRIMEVENTSFILE patch.
+
+        apc.evmax-398.patch     -applies to apcupsd-3.9.8-18Dec01
+
+        apc.evmax-kamal.patch   -applies to TRIMEVENTSFILE version
+
+Comments?
+
+===================
+
+KES: Integrated 9Jan02 there were a number of rejects due to space/tab
+     mangling.

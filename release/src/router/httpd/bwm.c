@@ -282,11 +282,7 @@ void asp_iptmon(int argc, char **argv) {
 
 		while (fgets(sa, sizeof(sa), a)) {
 			if(sscanf(sa, 
-#ifdef LINUX26
 				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dst = %lu %*u %*u %*u %*u packets_dst = %*u %*u %*u %*u %*u time = %*u",
-#else
-				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dest = %lu %*u %*u %*u %*u packets_dest = %*u %*u %*u %*u %*u time = %*u",
-#endif
 				ip, &tx, &rx) != 3 ) continue;
 
 			if (find_word(exclude, ip)) {
@@ -351,82 +347,3 @@ void asp_ipt_bandwidth(int argc, char **argv)
 		unlink(name);
 	}
 }
-
-void asp_iptraffic(int argc, char **argv) {
-
-	char comma;
-	char sa[256];
-	char sb[256];
-	FILE *a;
-	FILE *b;
-	char *p;
-	char ip[INET6_ADDRSTRLEN];
-
-	char *exclude;
-
-	unsigned long tx_bytes, rx_bytes;
-	unsigned long tp_tcp, rp_tcp;
-	unsigned long tp_udp, rp_udp;
-	unsigned long tp_icmp, rp_icmp;
-	unsigned long ct_tcp, ct_udp;
-
-	exclude = nvram_safe_get("cstats_exclude");
-
-// needs extra tweaks in the code before this works as it should
-// so we'll stick to IPv4-only for now...
-// #if defined(TCONFIG_IPV6) && defined(LINUX26)
-//	const char conntrack[] = "/proc/net/nf_conntrack";
-// #else
-	const char conntrack[] = "/proc/net/ip_conntrack";
-// #endif
-
-	if ((b = fopen(conntrack, "r")) == NULL) return;
-
-	char br;
-	char name[] = "/proc/net/ipt_account/lanX";
-
-	web_puts("\n\niptraffic=[");
-	comma = ' ';
-
-	for(br=0 ; br<=3 ; br++) {
-		char bridge[2] = "0";
-		if (br!=0)
-			bridge[0]+=br;
-		else
-			strcpy(bridge, "");
-
-		sprintf(name, "/proc/net/ipt_account/lan%s", bridge);
-
-		if ((a = fopen(name, "r")) == NULL) continue;
-
-		fgets(sa, sizeof(sa), a); // network
-		while (fgets(sa, sizeof(sa), a)) {
-			if(sscanf(sa,
-#ifdef LINUX26
-				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %lu %lu %lu %*u bytes_dst = %lu %*u %*u %*u %*u packets_dst = %*u %lu %lu %lu %*u time = %*u",
-#else
-				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %lu %lu %lu %*u bytes_dest = %lu %*u %*u %*u %*u packets_dest = %*u %lu %lu %lu %*u time = %*u",
-#endif
-				ip, &tx_bytes, &tp_tcp, &tp_udp, &tp_icmp, &rx_bytes, &rp_tcp, &rp_udp, &rp_icmp) != 9 ) continue;
-
-			if (find_word(exclude, ip)) continue ;
-
-			if ((tx_bytes > 0) || (rx_bytes > 0)){
-				rewind(b);
-				ct_tcp = 0;
-				ct_udp = 0;
-				while (fgets(sb, sizeof(sb), b)) {
-					if ((p = strstr(sb, ip)) == NULL) continue;
-					if (strncmp(sb, "tcp", 3) == 0) ct_tcp++;
-					if (strncmp(sb, "udp", 3) == 0) ct_udp++;
-				}
-				web_printf("%c['%s', %lu, %lu, %lu, %lu, %lu, %lu, %lu, %lu, %lu, %lu]", 
-							comma, ip, rx_bytes, tx_bytes, rp_tcp, tp_tcp, rp_udp, tp_udp, rp_icmp, tp_icmp, ct_tcp, ct_udp);
-				comma = ',';
-			}
-		}
-		fclose(a);
-	}
-	web_puts("];\n");
-}
-

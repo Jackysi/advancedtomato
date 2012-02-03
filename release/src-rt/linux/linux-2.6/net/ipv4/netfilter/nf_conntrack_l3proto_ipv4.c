@@ -1,535 +1,598 @@
-/* (C) 1999-2001 Paul `Rusty' Russell
- * (C) 2002-2004 Netfilter Core Team <coreteam@netfilter.org>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- */
-
-#include <linux/types.h>
-#include <linux/ip.h>
-#include <linux/netfilter.h>
-#include <linux/module.h>
-#include <linux/skbuff.h>
-#include <linux/icmp.h>
-#include <linux/sysctl.h>
-#include <net/route.h>
-#include <net/ip.h>
-
-#include <linux/netfilter_ipv4.h>
-#include <net/netfilter/nf_conntrack.h>
-#include <net/netfilter/nf_conntrack_helper.h>
-#include <net/netfilter/nf_conntrack_l4proto.h>
-#include <net/netfilter/nf_conntrack_l3proto.h>
-#include <net/netfilter/nf_conntrack_core.h>
-#include <net/netfilter/ipv4/nf_conntrack_ipv4.h>
-
-#if 0
-#define DEBUGP printk
-#else
-#define DEBUGP(format, args...)
-#endif
-
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-int ipv4_conntrack_fastnat = 0;
-EXPORT_SYMBOL_GPL(ipv4_conntrack_fastnat);
-#endif
-
-static int ipv4_pkt_to_tuple(const struct sk_buff *skb, unsigned int nhoff,
-			     struct nf_conntrack_tuple *tuple)
-{
-	__be32 _addrs[2], *ap;
-	ap = skb_header_pointer(skb, nhoff + offsetof(struct iphdr, saddr),
-				sizeof(u_int32_t) * 2, _addrs);
-	if (ap == NULL)
-		return 0;
-
-	tuple->src.u3.ip = ap[0];
-	tuple->dst.u3.ip = ap[1];
-
-	return 1;
-}
-
-static int ipv4_invert_tuple(struct nf_conntrack_tuple *tuple,
-			   const struct nf_conntrack_tuple *orig)
-{
-	tuple->src.u3.ip = orig->dst.u3.ip;
-	tuple->dst.u3.ip = orig->src.u3.ip;
-
-	return 1;
-}
-
-static int ipv4_print_tuple(struct seq_file *s,
-			    const struct nf_conntrack_tuple *tuple)
-{
-	return seq_printf(s, "src=%u.%u.%u.%u dst=%u.%u.%u.%u ",
-			  NIPQUAD(tuple->src.u3.ip),
-			  NIPQUAD(tuple->dst.u3.ip));
-}
-
-/* Returns new sk_buff, or NULL */
-#if !defined(CONFIG_BCM_NAT) && !defined(CONFIG_BCM_NAT_MODULE)
-static
-#endif
-int nf_ct_ipv4_gather_frags(struct sk_buff *skb, u_int32_t user)
-{
-	int err;
-
-	skb_orphan(skb);
-
-	local_bh_disable();
-	err = ip_defrag(skb, user);
-	local_bh_enable();
-
-	if (!err)
-		ip_send_check(ip_hdr(skb));
-
-	return err;
-}
-
-static int
-ipv4_prepare(struct sk_buff *skb, unsigned int hooknum, unsigned int *dataoff,
-	     u_int8_t *protonum)
-{
-	/* Never happen */
-	if (ip_hdr(skb)->frag_off & htons(IP_OFFSET)) {
-		if (net_ratelimit()) {
-			printk(KERN_ERR "ipv4_prepare: Frag of proto %u (hook=%u)\n",
-			ip_hdr(skb)->protocol, hooknum);
-		}
-		return -NF_DROP;
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en-US" lang="en-US">
+<!-- git web interface version 1.6.5.GIT, (C) 2005-2006, Kay Sievers <kay.sievers@vrfy.org>, Christian Gierke -->
+<!-- git core binaries version 1.6.5.GIT -->
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+<meta name="generator" content="gitweb/1.6.5.GIT git/1.6.5.GIT"/>
+<meta name="robots" content="index, nofollow"/>
+<title>Public Git Hosting - tomato.git/blob - release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c</title>
+<script type="text/javascript">/* <![CDATA[ */
+function fixBlameLinks() {
+	var allLinks = document.getElementsByTagName("a");
+	for (var i = 0; i < allLinks.length; i++) {
+		var link = allLinks.item(i);
+		if (link.className == 'blamelink')
+			link.href = link.href.replace("/blame/", "/blame_incremental/");
 	}
-
-	*dataoff = skb_network_offset(skb) + ip_hdrlen(skb);
-	*protonum = ip_hdr(skb)->protocol;
-
-	return NF_ACCEPT;
 }
-
-int nf_nat_module_is_loaded = 0;
-EXPORT_SYMBOL_GPL(nf_nat_module_is_loaded);
-
-static u_int32_t ipv4_get_features(const struct nf_conntrack_tuple *tuple)
-{
-	if (nf_nat_module_is_loaded)
-		return NF_CT_F_NAT;
-
-	return NF_CT_F_BASIC;
-}
-
-static unsigned int ipv4_confirm(unsigned int hooknum,
-				 struct sk_buff *skb,
-				 const struct net_device *in,
-				 const struct net_device *out,
-				 int (*okfn)(struct sk_buff *))
-{
-	/* We've seen it coming out the other side: confirm it */
-	return nf_conntrack_confirm(skb);
-}
-
-static unsigned int ipv4_conntrack_help(unsigned int hooknum,
-				      struct sk_buff *skb,
-				      const struct net_device *in,
-				      const struct net_device *out,
-				      int (*okfn)(struct sk_buff *))
-{
-	struct nf_conn *ct;
-	enum ip_conntrack_info ctinfo;
-	struct nf_conn_help *help;
-	struct nf_conntrack_helper *helper;
-
-	/* This is where we call the helper: as the packet goes out. */
-	ct = nf_ct_get(skb, &ctinfo);
-	if (!ct || ctinfo == IP_CT_RELATED + IP_CT_IS_REPLY)
-		return NF_ACCEPT;
-
-	help = nfct_help(ct);
-	if (!help)
-		return NF_ACCEPT;
-	/* rcu_read_lock()ed by nf_hook_slow */
-	helper = rcu_dereference(help->helper);
-	if (!helper)
-		return NF_ACCEPT;
-	return helper->help(skb, skb_network_offset(skb) + ip_hdrlen(skb),
-			    ct, ctinfo);
-}
-
-static unsigned int ipv4_conntrack_defrag(unsigned int hooknum,
-					  struct sk_buff *skb,
-					  const struct net_device *in,
-					  const struct net_device *out,
-					  int (*okfn)(struct sk_buff *))
-{
-	/* Previously seen (loopback)?  Ignore.  Do this before
-	   fragment check. */
-	if (skb->nfct)
-		return NF_ACCEPT;
-
-	/* Gather fragments. */
-	if (ip_hdr(skb)->frag_off & htons(IP_MF | IP_OFFSET)) {
-		if (nf_ct_ipv4_gather_frags(skb,
-					    hooknum == NF_IP_PRE_ROUTING ?
-					    IP_DEFRAG_CONNTRACK_IN :
-					    IP_DEFRAG_CONNTRACK_OUT))
-			return NF_STOLEN;
-	}
-	return NF_ACCEPT;
-}
-
-static unsigned int ipv4_conntrack_in(unsigned int hooknum,
-				      struct sk_buff *skb,
-				      const struct net_device *in,
-				      const struct net_device *out,
-				      int (*okfn)(struct sk_buff *))
-{
-	return nf_conntrack_in(PF_INET, hooknum, skb);
-}
-
-static unsigned int ipv4_conntrack_local(unsigned int hooknum,
-					 struct sk_buff *skb,
-					 const struct net_device *in,
-					 const struct net_device *out,
-					 int (*okfn)(struct sk_buff *))
-{
-	/* root is playing with raw sockets. */
-	if (skb->len < sizeof(struct iphdr) ||
-	    ip_hdrlen(skb) < sizeof(struct iphdr)) {
-		if (net_ratelimit())
-			printk("ipt_hook: happy cracking.\n");
-		return NF_ACCEPT;
-	}
-	return nf_conntrack_in(PF_INET, hooknum, skb);
-}
-
-/* Connection tracking may drop packets, but never alters them, so
-   make it the first hook. */
-static struct nf_hook_ops ipv4_conntrack_ops[] = {
-	{
-		.hook		= ipv4_conntrack_defrag,
-		.owner		= THIS_MODULE,
-		.pf		= PF_INET,
-		.hooknum	= NF_IP_PRE_ROUTING,
-		.priority	= NF_IP_PRI_CONNTRACK_DEFRAG,
-	},
-	{
-		.hook		= ipv4_conntrack_in,
-		.owner		= THIS_MODULE,
-		.pf		= PF_INET,
-		.hooknum	= NF_IP_PRE_ROUTING,
-		.priority	= NF_IP_PRI_CONNTRACK,
-	},
-	{
-		.hook           = ipv4_conntrack_defrag,
-		.owner          = THIS_MODULE,
-		.pf             = PF_INET,
-		.hooknum        = NF_IP_LOCAL_OUT,
-		.priority       = NF_IP_PRI_CONNTRACK_DEFRAG,
-	},
-	{
-		.hook		= ipv4_conntrack_local,
-		.owner		= THIS_MODULE,
-		.pf		= PF_INET,
-		.hooknum	= NF_IP_LOCAL_OUT,
-		.priority	= NF_IP_PRI_CONNTRACK,
-	},
-	{
-		.hook		= ipv4_conntrack_help,
-		.owner		= THIS_MODULE,
-		.pf		= PF_INET,
-		.hooknum	= NF_IP_POST_ROUTING,
-		.priority	= NF_IP_PRI_CONNTRACK_HELPER,
-	},
-	{
-		.hook		= ipv4_conntrack_help,
-		.owner		= THIS_MODULE,
-		.pf		= PF_INET,
-		.hooknum	= NF_IP_LOCAL_IN,
-		.priority	= NF_IP_PRI_CONNTRACK_HELPER,
-	},
-	{
-		.hook		= ipv4_confirm,
-		.owner		= THIS_MODULE,
-		.pf		= PF_INET,
-		.hooknum	= NF_IP_POST_ROUTING,
-		.priority	= NF_IP_PRI_CONNTRACK_CONFIRM,
-	},
-	{
-		.hook		= ipv4_confirm,
-		.owner		= THIS_MODULE,
-		.pf		= PF_INET,
-		.hooknum	= NF_IP_LOCAL_IN,
-		.priority	= NF_IP_PRI_CONNTRACK_CONFIRM,
-	},
-};
-
-#if defined(CONFIG_SYSCTL) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
-static int log_invalid_proto_min = 0;
-static int log_invalid_proto_max = 255;
-
-static ctl_table ip_ct_sysctl_table[] = {
-	{
-		.ctl_name	= NET_IPV4_NF_CONNTRACK_MAX,
-		.procname	= "ip_conntrack_max",
-		.data		= &nf_conntrack_max,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= &proc_dointvec,
-	},
-	{
-		.ctl_name	= NET_IPV4_NF_CONNTRACK_COUNT,
-		.procname	= "ip_conntrack_count",
-		.data		= &nf_conntrack_count,
-		.maxlen		= sizeof(int),
-		.mode		= 0444,
-		.proc_handler	= &proc_dointvec,
-	},
-	{
-		.ctl_name	= NET_IPV4_NF_CONNTRACK_BUCKETS,
-		.procname	= "ip_conntrack_buckets",
-		.data		= &nf_conntrack_htable_size,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0444,
-		.proc_handler	= &proc_dointvec,
-	},
-	{
-		.ctl_name	= NET_IPV4_NF_CONNTRACK_CHECKSUM,
-		.procname	= "ip_conntrack_checksum",
-		.data		= &nf_conntrack_checksum,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= &proc_dointvec,
-	},
-	{
-		.ctl_name	= NET_IPV4_NF_CONNTRACK_LOG_INVALID,
-		.procname	= "ip_conntrack_log_invalid",
-		.data		= &nf_ct_log_invalid,
-		.maxlen		= sizeof(unsigned int),
-		.mode		= 0644,
-		.proc_handler	= &proc_dointvec_minmax,
-		.strategy	= &sysctl_intvec,
-		.extra1		= &log_invalid_proto_min,
-		.extra2		= &log_invalid_proto_max,
-	},
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	{
-		.ctl_name	= NET_IPV4_CONNTRACK_FASTNAT,
-		.procname	= "ip_conntrack_fastnat",
-		.data		= &ipv4_conntrack_fastnat,
-		.maxlen		= sizeof(int),
-		.mode		= 0644,
-		.proc_handler	= &proc_dointvec,
-	},
-#endif
-	{
-		.ctl_name	= 0
-	}
-};
-#endif /* CONFIG_SYSCTL && CONFIG_NF_CONNTRACK_PROC_COMPAT */
-
-/* Fast function for those who don't want to parse /proc (and I don't
-   blame them). */
-/* Reversing the socket's dst/src point of view gives us the reply
-   mapping. */
-static int
-getorigdst(struct sock *sk, int optval, void __user *user, int *len)
-{
-	struct inet_sock *inet = inet_sk(sk);
-	struct nf_conntrack_tuple_hash *h;
-	struct nf_conntrack_tuple tuple;
-
-	memset(&tuple, 0, sizeof(tuple));
-	tuple.src.u3.ip = inet->rcv_saddr;
-	tuple.src.u.tcp.port = inet->sport;
-	tuple.dst.u3.ip = inet->daddr;
-	tuple.dst.u.tcp.port = inet->dport;
-	tuple.src.l3num = PF_INET;
-	tuple.dst.protonum = IPPROTO_TCP;
-
-	/* We only do TCP at the moment: is there a better way? */
-	if (strcmp(sk->sk_prot->name, "TCP")) {
-		DEBUGP("SO_ORIGINAL_DST: Not a TCP socket\n");
-		return -ENOPROTOOPT;
-	}
-
-	if ((unsigned int) *len < sizeof(struct sockaddr_in)) {
-		DEBUGP("SO_ORIGINAL_DST: len %u not %u\n",
-		       *len, sizeof(struct sockaddr_in));
-		return -EINVAL;
-	}
-
-	h = nf_conntrack_find_get(&tuple, NULL);
-	if (h) {
-		struct sockaddr_in sin;
-		struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
-
-		sin.sin_family = AF_INET;
-		sin.sin_port = ct->tuplehash[IP_CT_DIR_ORIGINAL]
-			.tuple.dst.u.tcp.port;
-		sin.sin_addr.s_addr = ct->tuplehash[IP_CT_DIR_ORIGINAL]
-			.tuple.dst.u3.ip;
-		memset(sin.sin_zero, 0, sizeof(sin.sin_zero));
-
-		DEBUGP("SO_ORIGINAL_DST: %u.%u.%u.%u %u\n",
-		       NIPQUAD(sin.sin_addr.s_addr), ntohs(sin.sin_port));
-		nf_ct_put(ct);
-		if (copy_to_user(user, &sin, sizeof(sin)) != 0)
-			return -EFAULT;
-		else
-			return 0;
-	}
-	DEBUGP("SO_ORIGINAL_DST: Can't find %u.%u.%u.%u/%u-%u.%u.%u.%u/%u.\n",
-	       NIPQUAD(tuple.src.u3.ip), ntohs(tuple.src.u.tcp.port),
-	       NIPQUAD(tuple.dst.u3.ip), ntohs(tuple.dst.u.tcp.port));
-	return -ENOENT;
-}
-
-#if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
-
-#include <linux/netfilter/nfnetlink.h>
-#include <linux/netfilter/nfnetlink_conntrack.h>
-
-static int ipv4_tuple_to_nfattr(struct sk_buff *skb,
-				const struct nf_conntrack_tuple *tuple)
-{
-	NFA_PUT(skb, CTA_IP_V4_SRC, sizeof(u_int32_t),
-		&tuple->src.u3.ip);
-	NFA_PUT(skb, CTA_IP_V4_DST, sizeof(u_int32_t),
-		&tuple->dst.u3.ip);
-	return 0;
-
-nfattr_failure:
-	return -1;
-}
-
-static const size_t cta_min_ip[CTA_IP_MAX] = {
-	[CTA_IP_V4_SRC-1]       = sizeof(u_int32_t),
-	[CTA_IP_V4_DST-1]       = sizeof(u_int32_t),
-};
-
-static int ipv4_nfattr_to_tuple(struct nfattr *tb[],
-				struct nf_conntrack_tuple *t)
-{
-	if (!tb[CTA_IP_V4_SRC-1] || !tb[CTA_IP_V4_DST-1])
-		return -EINVAL;
-
-	if (nfattr_bad_size(tb, CTA_IP_MAX, cta_min_ip))
-		return -EINVAL;
-
-	t->src.u3.ip = *(__be32 *)NFA_DATA(tb[CTA_IP_V4_SRC-1]);
-	t->dst.u3.ip = *(__be32 *)NFA_DATA(tb[CTA_IP_V4_DST-1]);
-
-	return 0;
-}
-#endif
-
-static struct nf_sockopt_ops so_getorigdst = {
-	.pf		= PF_INET,
-	.get_optmin	= SO_ORIGINAL_DST,
-	.get_optmax	= SO_ORIGINAL_DST+1,
-	.get		= &getorigdst,
-};
-
-struct nf_conntrack_l3proto nf_conntrack_l3proto_ipv4 = {
-	.l3proto	 = PF_INET,
-	.name		 = "ipv4",
-	.pkt_to_tuple	 = ipv4_pkt_to_tuple,
-	.invert_tuple	 = ipv4_invert_tuple,
-	.print_tuple	 = ipv4_print_tuple,
-	.prepare	 = ipv4_prepare,
-	.get_features	 = ipv4_get_features,
-#if defined(CONFIG_NF_CT_NETLINK) || defined(CONFIG_NF_CT_NETLINK_MODULE)
-	.tuple_to_nfattr = ipv4_tuple_to_nfattr,
-	.nfattr_to_tuple = ipv4_nfattr_to_tuple,
-#endif
-#if defined(CONFIG_SYSCTL) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
-	.ctl_table_path  = nf_net_ipv4_netfilter_sysctl_path,
-	.ctl_table	 = ip_ct_sysctl_table,
-#endif
-	.me		 = THIS_MODULE,
-};
-
-MODULE_ALIAS("nf_conntrack-" __stringify(AF_INET));
-MODULE_ALIAS("ip_conntrack");
-MODULE_LICENSE("GPL");
-
-static int __init nf_conntrack_l3proto_ipv4_init(void)
-{
-	int ret = 0;
-
-	need_conntrack();
-
-	ret = nf_register_sockopt(&so_getorigdst);
-	if (ret < 0) {
-		printk(KERN_ERR "Unable to register netfilter socket option\n");
-		return ret;
-	}
-
-	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_tcp4);
-	if (ret < 0) {
-		printk("nf_conntrack_ipv4: can't register tcp.\n");
-		goto cleanup_sockopt;
-	}
-
-	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_udp4);
-	if (ret < 0) {
-		printk("nf_conntrack_ipv4: can't register udp.\n");
-		goto cleanup_tcp;
-	}
-
-	ret = nf_conntrack_l4proto_register(&nf_conntrack_l4proto_icmp);
-	if (ret < 0) {
-		printk("nf_conntrack_ipv4: can't register icmp.\n");
-		goto cleanup_udp;
-	}
-
-	ret = nf_conntrack_l3proto_register(&nf_conntrack_l3proto_ipv4);
-	if (ret < 0) {
-		printk("nf_conntrack_ipv4: can't register ipv4\n");
-		goto cleanup_icmp;
-	}
-
-	ret = nf_register_hooks(ipv4_conntrack_ops,
-				ARRAY_SIZE(ipv4_conntrack_ops));
-	if (ret < 0) {
-		printk("nf_conntrack_ipv4: can't register hooks.\n");
-		goto cleanup_ipv4;
-	}
-#if defined(CONFIG_PROC_FS) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
-	ret = nf_conntrack_ipv4_compat_init();
-	if (ret < 0)
-		goto cleanup_hooks;
-#endif
-	return ret;
-#if defined(CONFIG_PROC_FS) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
- cleanup_hooks:
-	nf_unregister_hooks(ipv4_conntrack_ops, ARRAY_SIZE(ipv4_conntrack_ops));
-#endif
- cleanup_ipv4:
-	nf_conntrack_l3proto_unregister(&nf_conntrack_l3proto_ipv4);
- cleanup_icmp:
-	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_icmp);
- cleanup_udp:
-	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udp4);
- cleanup_tcp:
-	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_tcp4);
- cleanup_sockopt:
-	nf_unregister_sockopt(&so_getorigdst);
-	return ret;
-}
-
-static void __exit nf_conntrack_l3proto_ipv4_fini(void)
-{
-	synchronize_net();
-#if defined(CONFIG_PROC_FS) && defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)
-	nf_conntrack_ipv4_compat_fini();
-#endif
-	nf_unregister_hooks(ipv4_conntrack_ops, ARRAY_SIZE(ipv4_conntrack_ops));
-	nf_conntrack_l3proto_unregister(&nf_conntrack_l3proto_ipv4);
-	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_icmp);
-	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_udp4);
-	nf_conntrack_l4proto_unregister(&nf_conntrack_l4proto_tcp4);
-	nf_unregister_sockopt(&so_getorigdst);
-}
-
-module_init(nf_conntrack_l3proto_ipv4_init);
-module_exit(nf_conntrack_l3proto_ipv4_fini);
+/* ]]> */</script>
+<base href="http://repo.or.cz/w" />
+<link rel="stylesheet" type="text/css" href="http://repo.or.cz/gitweb.css"/>
+<link rel="alternate" title="tomato.git - history of release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c on 'tomato-RT-N' - RSS feed" href="http://repo.or.cz/w/tomato.git/rss/refs/heads/tomato-RT-N?f=release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c" type="application/rss+xml" />
+<link rel="alternate" title="tomato.git - history of release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c on 'tomato-RT-N' - RSS feed (no merges)" href="http://repo.or.cz/w/tomato.git/rss/refs/heads/tomato-RT-N?f=release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c;opt=--no-merges" type="application/rss+xml" />
+<link rel="alternate" title="tomato.git - history of release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c on 'tomato-RT-N' - Atom feed" href="http://repo.or.cz/w/tomato.git/atom/refs/heads/tomato-RT-N?f=release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c;opt=--no-merges" type="application/atom+xml" />
+<link rel="alternate" title="tomato.git - history of release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c on 'tomato-RT-N' - Atom feed (no merges)" href="http://repo.or.cz/w/tomato.git/atom/refs/heads/tomato-RT-N?f=release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c;opt=--no-merges" type="application/atom+xml" />
+<link rel="shortcut icon" href="http://repo.or.cz/git-favicon.png" type="image/png" />
+<script src="http://repo.or.cz/gitweb.js" type="text/javascript"></script>
+</head>
+<body>
+<div class="page_header">
+<a title="git homepage" href="http://git-scm.com/"><img src="http://repo.or.cz/git-logo.png" width="72" height="27" alt="git" class="logo"/></a><a href="http://repo.or.cz/w">repo.or.cz</a> / <a href="http://repo.or.cz/w/tomato.git">tomato.git</a> / blob
+</div>
+<form method="get" action="http://repo.or.cz/w/tomato.git" enctype="application/x-www-form-urlencoded">
+<div class="search">
+<input name="a" type="hidden" value="search" />
+<input name="h" type="hidden" value="refs/heads/tomato-RT-N" />
+<select name="st" >
+<option selected="selected" value="commit">commit</option>
+<option value="grep">grep</option>
+<option value="author">author</option>
+<option value="committer">committer</option>
+<option value="pickaxe">pickaxe</option>
+</select><sup><a href="http://repo.or.cz/w/tomato.git/search_help">?</a></sup> search:
+<input type="text" name="s"  />
+<span title="Extended regular expression"><label><input type="checkbox" name="sr" value="1" />re</label></span></div>
+</form>
+<div class="page_nav">
+<a href="http://repo.or.cz/w/tomato.git">summary</a> | <a href="http://repo.or.cz/w/tomato.git/shortlog">log</a> | <a href="http://repo.or.cz/git-browser/by-commit.html?r=tomato.git">graphiclog</a> | <a href="http://repo.or.cz/w/tomato.git/commit/refs/heads/tomato-RT-N">commit</a> | <a href="http://repo.or.cz/w/tomato.git/commitdiff/refs/heads/tomato-RT-N">commitdiff</a> | <a href="http://repo.or.cz/w/tomato.git/tree/refs/heads/tomato-RT-N">tree</a> | <a href="http://repo.or.cz/editproj.cgi?name=tomato.git">edit</a> | <a href="http://repo.or.cz/regproj.cgi?fork=tomato.git">fork</a><br/>
+<a href="http://repo.or.cz/w/tomato.git/blame/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c">blame</a> | <a href="http://repo.or.cz/w/tomato.git/history/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c">history</a> | <a href="http://repo.or.cz/w/tomato.git/blob_plain/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c">raw</a> | <a href="http://repo.or.cz/w/tomato.git/blob/HEAD:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c">HEAD</a><br/>
+</div>
+<div class="header">
+<a class="title" href="http://repo.or.cz/w/tomato.git/commit/refs/heads/tomato-RT-N">Merge branch 'tomato-RT' into tomato-RT-N</a>
+</div>
+<div class="page_path"><a title="tree root" href="http://repo.or.cz/w/tomato.git/tree/refs/heads/tomato-RT-N">[tomato.git]</a> / <a title="release" href="http://repo.or.cz/w/tomato.git/tree/refs/heads/tomato-RT-N:/release">release</a> / <a title="release/src-rt" href="http://repo.or.cz/w/tomato.git/tree/refs/heads/tomato-RT-N:/release/src-rt">src-rt</a> / <a title="release/src-rt/linux" href="http://repo.or.cz/w/tomato.git/tree/refs/heads/tomato-RT-N:/release/src-rt/linux">linux</a> / <a title="release/src-rt/linux/linux-2.6" href="http://repo.or.cz/w/tomato.git/tree/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6">linux-2.6</a> / <a title="release/src-rt/linux/linux-2.6/net" href="http://repo.or.cz/w/tomato.git/tree/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net">net</a> / <a title="release/src-rt/linux/linux-2.6/net/ipv4" href="http://repo.or.cz/w/tomato.git/tree/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4">ipv4</a> / <a title="release/src-rt/linux/linux-2.6/net/ipv4/netfilter" href="http://repo.or.cz/w/tomato.git/tree/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter">netfilter</a> / <a title="release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c" href="http://repo.or.cz/w/tomato.git/blob_plain/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c">nf_conntrack_l3proto_ipv4.c</a><br/></div>
+<div class="page_body">
+<div class="pre"><a id="l1" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l1" class="linenr">   1</a> /*&nbsp;(C)&nbsp;1999-2001&nbsp;Paul&nbsp;`Rusty'&nbsp;Russell</div>
+<div class="pre"><a id="l2" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l2" class="linenr">   2</a> &nbsp;*&nbsp;(C)&nbsp;2002-2004&nbsp;Netfilter&nbsp;Core&nbsp;Team&nbsp;&lt;coreteam@netfilter.org&gt;</div>
+<div class="pre"><a id="l3" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l3" class="linenr">   3</a> &nbsp;*</div>
+<div class="pre"><a id="l4" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l4" class="linenr">   4</a> &nbsp;*&nbsp;This&nbsp;program&nbsp;is&nbsp;free&nbsp;software;&nbsp;you&nbsp;can&nbsp;redistribute&nbsp;it&nbsp;and/or&nbsp;modify</div>
+<div class="pre"><a id="l5" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l5" class="linenr">   5</a> &nbsp;*&nbsp;it&nbsp;under&nbsp;the&nbsp;terms&nbsp;of&nbsp;the&nbsp;GNU&nbsp;General&nbsp;Public&nbsp;License&nbsp;version&nbsp;2&nbsp;as</div>
+<div class="pre"><a id="l6" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l6" class="linenr">   6</a> &nbsp;*&nbsp;published&nbsp;by&nbsp;the&nbsp;Free&nbsp;Software&nbsp;Foundation.</div>
+<div class="pre"><a id="l7" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l7" class="linenr">   7</a> &nbsp;*/</div>
+<div class="pre"><a id="l8" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l8" class="linenr">   8</a> </div>
+<div class="pre"><a id="l9" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l9" class="linenr">   9</a> #include&nbsp;&lt;linux/types.h&gt;</div>
+<div class="pre"><a id="l10" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l10" class="linenr">  10</a> #include&nbsp;&lt;linux/ip.h&gt;</div>
+<div class="pre"><a id="l11" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l11" class="linenr">  11</a> #include&nbsp;&lt;linux/netfilter.h&gt;</div>
+<div class="pre"><a id="l12" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l12" class="linenr">  12</a> #include&nbsp;&lt;linux/module.h&gt;</div>
+<div class="pre"><a id="l13" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l13" class="linenr">  13</a> #include&nbsp;&lt;linux/skbuff.h&gt;</div>
+<div class="pre"><a id="l14" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l14" class="linenr">  14</a> #include&nbsp;&lt;linux/icmp.h&gt;</div>
+<div class="pre"><a id="l15" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l15" class="linenr">  15</a> #include&nbsp;&lt;linux/sysctl.h&gt;</div>
+<div class="pre"><a id="l16" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l16" class="linenr">  16</a> #include&nbsp;&lt;net/route.h&gt;</div>
+<div class="pre"><a id="l17" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l17" class="linenr">  17</a> #include&nbsp;&lt;net/ip.h&gt;</div>
+<div class="pre"><a id="l18" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l18" class="linenr">  18</a> </div>
+<div class="pre"><a id="l19" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l19" class="linenr">  19</a> #include&nbsp;&lt;linux/netfilter_ipv4.h&gt;</div>
+<div class="pre"><a id="l20" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l20" class="linenr">  20</a> #include&nbsp;&lt;net/netfilter/nf_conntrack.h&gt;</div>
+<div class="pre"><a id="l21" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l21" class="linenr">  21</a> #include&nbsp;&lt;net/netfilter/nf_conntrack_helper.h&gt;</div>
+<div class="pre"><a id="l22" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l22" class="linenr">  22</a> #include&nbsp;&lt;net/netfilter/nf_conntrack_l4proto.h&gt;</div>
+<div class="pre"><a id="l23" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l23" class="linenr">  23</a> #include&nbsp;&lt;net/netfilter/nf_conntrack_l3proto.h&gt;</div>
+<div class="pre"><a id="l24" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l24" class="linenr">  24</a> #include&nbsp;&lt;net/netfilter/nf_conntrack_core.h&gt;</div>
+<div class="pre"><a id="l25" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l25" class="linenr">  25</a> #include&nbsp;&lt;net/netfilter/ipv4/nf_conntrack_ipv4.h&gt;</div>
+<div class="pre"><a id="l26" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l26" class="linenr">  26</a> </div>
+<div class="pre"><a id="l27" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l27" class="linenr">  27</a> #if&nbsp;0</div>
+<div class="pre"><a id="l28" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l28" class="linenr">  28</a> #define&nbsp;DEBUGP&nbsp;printk</div>
+<div class="pre"><a id="l29" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l29" class="linenr">  29</a> #else</div>
+<div class="pre"><a id="l30" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l30" class="linenr">  30</a> #define&nbsp;DEBUGP(format,&nbsp;args...)</div>
+<div class="pre"><a id="l31" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l31" class="linenr">  31</a> #endif</div>
+<div class="pre"><a id="l32" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l32" class="linenr">  32</a> </div>
+<div class="pre"><a id="l33" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l33" class="linenr">  33</a> #if&nbsp;defined(CONFIG_BCM_NAT)&nbsp;||&nbsp;defined(CONFIG_BCM_NAT_MODULE)&nbsp;||&nbsp;defined(HNDCTF)</div>
+<div class="pre"><a id="l34" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l34" class="linenr">  34</a> int&nbsp;ipv4_conntrack_fastnat&nbsp;=&nbsp;0;</div>
+<div class="pre"><a id="l35" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l35" class="linenr">  35</a> EXPORT_SYMBOL_GPL(ipv4_conntrack_fastnat);</div>
+<div class="pre"><a id="l36" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l36" class="linenr">  36</a> #endif</div>
+<div class="pre"><a id="l37" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l37" class="linenr">  37</a> </div>
+<div class="pre"><a id="l38" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l38" class="linenr">  38</a> static&nbsp;int&nbsp;ipv4_pkt_to_tuple(const&nbsp;struct&nbsp;sk_buff&nbsp;*skb,&nbsp;unsigned&nbsp;int&nbsp;nhoff,</div>
+<div class="pre"><a id="l39" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l39" class="linenr">  39</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;nf_conntrack_tuple&nbsp;*tuple)</div>
+<div class="pre"><a id="l40" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l40" class="linenr">  40</a> {</div>
+<div class="pre"><a id="l41" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l41" class="linenr">  41</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;__be32&nbsp;_addrs[2],&nbsp;*ap;</div>
+<div class="pre"><a id="l42" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l42" class="linenr">  42</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ap&nbsp;=&nbsp;skb_header_pointer(skb,&nbsp;nhoff&nbsp;+&nbsp;offsetof(struct&nbsp;iphdr,&nbsp;saddr),</div>
+<div class="pre"><a id="l43" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l43" class="linenr">  43</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sizeof(u_int32_t)&nbsp;*&nbsp;2,&nbsp;_addrs);</div>
+<div class="pre"><a id="l44" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l44" class="linenr">  44</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(ap&nbsp;==&nbsp;NULL)</div>
+<div class="pre"><a id="l45" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l45" class="linenr">  45</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;0;</div>
+<div class="pre"><a id="l46" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l46" class="linenr">  46</a> </div>
+<div class="pre"><a id="l47" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l47" class="linenr">  47</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tuple-&gt;src.u3.ip&nbsp;=&nbsp;ap[0];</div>
+<div class="pre"><a id="l48" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l48" class="linenr">  48</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tuple-&gt;dst.u3.ip&nbsp;=&nbsp;ap[1];</div>
+<div class="pre"><a id="l49" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l49" class="linenr">  49</a> </div>
+<div class="pre"><a id="l50" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l50" class="linenr">  50</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;1;</div>
+<div class="pre"><a id="l51" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l51" class="linenr">  51</a> }</div>
+<div class="pre"><a id="l52" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l52" class="linenr">  52</a> </div>
+<div class="pre"><a id="l53" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l53" class="linenr">  53</a> static&nbsp;int&nbsp;ipv4_invert_tuple(struct&nbsp;nf_conntrack_tuple&nbsp;*tuple,</div>
+<div class="pre"><a id="l54" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l54" class="linenr">  54</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;struct&nbsp;nf_conntrack_tuple&nbsp;*orig)</div>
+<div class="pre"><a id="l55" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l55" class="linenr">  55</a> {</div>
+<div class="pre"><a id="l56" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l56" class="linenr">  56</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tuple-&gt;src.u3.ip&nbsp;=&nbsp;orig-&gt;dst.u3.ip;</div>
+<div class="pre"><a id="l57" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l57" class="linenr">  57</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tuple-&gt;dst.u3.ip&nbsp;=&nbsp;orig-&gt;src.u3.ip;</div>
+<div class="pre"><a id="l58" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l58" class="linenr">  58</a> </div>
+<div class="pre"><a id="l59" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l59" class="linenr">  59</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;1;</div>
+<div class="pre"><a id="l60" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l60" class="linenr">  60</a> }</div>
+<div class="pre"><a id="l61" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l61" class="linenr">  61</a> </div>
+<div class="pre"><a id="l62" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l62" class="linenr">  62</a> static&nbsp;int&nbsp;ipv4_print_tuple(struct&nbsp;seq_file&nbsp;*s,</div>
+<div class="pre"><a id="l63" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l63" class="linenr">  63</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;struct&nbsp;nf_conntrack_tuple&nbsp;*tuple)</div>
+<div class="pre"><a id="l64" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l64" class="linenr">  64</a> {</div>
+<div class="pre"><a id="l65" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l65" class="linenr">  65</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;seq_printf(s,&nbsp;&quot;src=%u.%u.%u.%u&nbsp;dst=%u.%u.%u.%u&nbsp;&quot;,</div>
+<div class="pre"><a id="l66" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l66" class="linenr">  66</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NIPQUAD(tuple-&gt;src.u3.ip),</div>
+<div class="pre"><a id="l67" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l67" class="linenr">  67</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NIPQUAD(tuple-&gt;dst.u3.ip));</div>
+<div class="pre"><a id="l68" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l68" class="linenr">  68</a> }</div>
+<div class="pre"><a id="l69" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l69" class="linenr">  69</a> </div>
+<div class="pre"><a id="l70" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l70" class="linenr">  70</a> /*&nbsp;Returns&nbsp;new&nbsp;sk_buff,&nbsp;or&nbsp;NULL&nbsp;*/</div>
+<div class="pre"><a id="l71" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l71" class="linenr">  71</a> #if&nbsp;!defined(CONFIG_BCM_NAT)&nbsp;&amp;&amp;&nbsp;!defined(CONFIG_BCM_NAT_MODULE)</div>
+<div class="pre"><a id="l72" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l72" class="linenr">  72</a> static</div>
+<div class="pre"><a id="l73" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l73" class="linenr">  73</a> #endif</div>
+<div class="pre"><a id="l74" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l74" class="linenr">  74</a> int&nbsp;nf_ct_ipv4_gather_frags(struct&nbsp;sk_buff&nbsp;*skb,&nbsp;u_int32_t&nbsp;user)</div>
+<div class="pre"><a id="l75" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l75" class="linenr">  75</a> {</div>
+<div class="pre"><a id="l76" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l76" class="linenr">  76</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;err;</div>
+<div class="pre"><a id="l77" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l77" class="linenr">  77</a> </div>
+<div class="pre"><a id="l78" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l78" class="linenr">  78</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;skb_orphan(skb);</div>
+<div class="pre"><a id="l79" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l79" class="linenr">  79</a> </div>
+<div class="pre"><a id="l80" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l80" class="linenr">  80</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;local_bh_disable();</div>
+<div class="pre"><a id="l81" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l81" class="linenr">  81</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;err&nbsp;=&nbsp;ip_defrag(skb,&nbsp;user);</div>
+<div class="pre"><a id="l82" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l82" class="linenr">  82</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;local_bh_enable();</div>
+<div class="pre"><a id="l83" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l83" class="linenr">  83</a> </div>
+<div class="pre"><a id="l84" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l84" class="linenr">  84</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(!err)</div>
+<div class="pre"><a id="l85" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l85" class="linenr">  85</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ip_send_check(ip_hdr(skb));</div>
+<div class="pre"><a id="l86" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l86" class="linenr">  86</a> </div>
+<div class="pre"><a id="l87" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l87" class="linenr">  87</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;err;</div>
+<div class="pre"><a id="l88" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l88" class="linenr">  88</a> }</div>
+<div class="pre"><a id="l89" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l89" class="linenr">  89</a> </div>
+<div class="pre"><a id="l90" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l90" class="linenr">  90</a> static&nbsp;int</div>
+<div class="pre"><a id="l91" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l91" class="linenr">  91</a> ipv4_prepare(struct&nbsp;sk_buff&nbsp;*skb,&nbsp;unsigned&nbsp;int&nbsp;hooknum,&nbsp;unsigned&nbsp;int&nbsp;*dataoff,</div>
+<div class="pre"><a id="l92" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l92" class="linenr">  92</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;u_int8_t&nbsp;*protonum)</div>
+<div class="pre"><a id="l93" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l93" class="linenr">  93</a> {</div>
+<div class="pre"><a id="l94" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l94" class="linenr">  94</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*&nbsp;Never&nbsp;happen&nbsp;*/</div>
+<div class="pre"><a id="l95" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l95" class="linenr">  95</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(ip_hdr(skb)-&gt;frag_off&nbsp;&amp;&nbsp;htons(IP_OFFSET))&nbsp;{</div>
+<div class="pre"><a id="l96" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l96" class="linenr">  96</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(net_ratelimit())&nbsp;{</div>
+<div class="pre"><a id="l97" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l97" class="linenr">  97</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(KERN_ERR&nbsp;&quot;ipv4_prepare:&nbsp;Frag&nbsp;of&nbsp;proto&nbsp;%u&nbsp;(hook=%u)\n&quot;,</div>
+<div class="pre"><a id="l98" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l98" class="linenr">  98</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ip_hdr(skb)-&gt;protocol,&nbsp;hooknum);</div>
+<div class="pre"><a id="l99" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l99" class="linenr">  99</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div class="pre"><a id="l100" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l100" class="linenr"> 100</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;-NF_DROP;</div>
+<div class="pre"><a id="l101" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l101" class="linenr"> 101</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div class="pre"><a id="l102" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l102" class="linenr"> 102</a> </div>
+<div class="pre"><a id="l103" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l103" class="linenr"> 103</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*dataoff&nbsp;=&nbsp;skb_network_offset(skb)&nbsp;+&nbsp;ip_hdrlen(skb);</div>
+<div class="pre"><a id="l104" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l104" class="linenr"> 104</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*protonum&nbsp;=&nbsp;ip_hdr(skb)-&gt;protocol;</div>
+<div class="pre"><a id="l105" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l105" class="linenr"> 105</a> </div>
+<div class="pre"><a id="l106" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l106" class="linenr"> 106</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;NF_ACCEPT;</div>
+<div class="pre"><a id="l107" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l107" class="linenr"> 107</a> }</div>
+<div class="pre"><a id="l108" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l108" class="linenr"> 108</a> </div>
+<div class="pre"><a id="l109" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l109" class="linenr"> 109</a> int&nbsp;nf_nat_module_is_loaded&nbsp;=&nbsp;0;</div>
+<div class="pre"><a id="l110" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l110" class="linenr"> 110</a> EXPORT_SYMBOL_GPL(nf_nat_module_is_loaded);</div>
+<div class="pre"><a id="l111" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l111" class="linenr"> 111</a> </div>
+<div class="pre"><a id="l112" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l112" class="linenr"> 112</a> static&nbsp;u_int32_t&nbsp;ipv4_get_features(const&nbsp;struct&nbsp;nf_conntrack_tuple&nbsp;*tuple)</div>
+<div class="pre"><a id="l113" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l113" class="linenr"> 113</a> {</div>
+<div class="pre"><a id="l114" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l114" class="linenr"> 114</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(nf_nat_module_is_loaded)</div>
+<div class="pre"><a id="l115" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l115" class="linenr"> 115</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;NF_CT_F_NAT;</div>
+<div class="pre"><a id="l116" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l116" class="linenr"> 116</a> </div>
+<div class="pre"><a id="l117" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l117" class="linenr"> 117</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;NF_CT_F_BASIC;</div>
+<div class="pre"><a id="l118" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l118" class="linenr"> 118</a> }</div>
+<div class="pre"><a id="l119" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l119" class="linenr"> 119</a> </div>
+<div class="pre"><a id="l120" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l120" class="linenr"> 120</a> static&nbsp;unsigned&nbsp;int&nbsp;ipv4_confirm(unsigned&nbsp;int&nbsp;hooknum,</div>
+<div class="pre"><a id="l121" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l121" class="linenr"> 121</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;sk_buff&nbsp;*skb,</div>
+<div class="pre"><a id="l122" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l122" class="linenr"> 122</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;struct&nbsp;net_device&nbsp;*in,</div>
+<div class="pre"><a id="l123" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l123" class="linenr"> 123</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;struct&nbsp;net_device&nbsp;*out,</div>
+<div class="pre"><a id="l124" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l124" class="linenr"> 124</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;(*okfn)(struct&nbsp;sk_buff&nbsp;*))</div>
+<div class="pre"><a id="l125" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l125" class="linenr"> 125</a> {</div>
+<div class="pre"><a id="l126" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l126" class="linenr"> 126</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*&nbsp;We've&nbsp;seen&nbsp;it&nbsp;coming&nbsp;out&nbsp;the&nbsp;other&nbsp;side:&nbsp;confirm&nbsp;it&nbsp;*/</div>
+<div class="pre"><a id="l127" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l127" class="linenr"> 127</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;nf_conntrack_confirm(skb);</div>
+<div class="pre"><a id="l128" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l128" class="linenr"> 128</a> }</div>
+<div class="pre"><a id="l129" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l129" class="linenr"> 129</a> </div>
+<div class="pre"><a id="l130" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l130" class="linenr"> 130</a> static&nbsp;unsigned&nbsp;int&nbsp;ipv4_conntrack_help(unsigned&nbsp;int&nbsp;hooknum,</div>
+<div class="pre"><a id="l131" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l131" class="linenr"> 131</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;sk_buff&nbsp;*skb,</div>
+<div class="pre"><a id="l132" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l132" class="linenr"> 132</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;struct&nbsp;net_device&nbsp;*in,</div>
+<div class="pre"><a id="l133" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l133" class="linenr"> 133</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;struct&nbsp;net_device&nbsp;*out,</div>
+<div class="pre"><a id="l134" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l134" class="linenr"> 134</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;(*okfn)(struct&nbsp;sk_buff&nbsp;*))</div>
+<div class="pre"><a id="l135" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l135" class="linenr"> 135</a> {</div>
+<div class="pre"><a id="l136" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l136" class="linenr"> 136</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;nf_conn&nbsp;*ct;</div>
+<div class="pre"><a id="l137" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l137" class="linenr"> 137</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;enum&nbsp;ip_conntrack_info&nbsp;ctinfo;</div>
+<div class="pre"><a id="l138" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l138" class="linenr"> 138</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;nf_conn_help&nbsp;*help;</div>
+<div class="pre"><a id="l139" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l139" class="linenr"> 139</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;nf_conntrack_helper&nbsp;*helper;</div>
+<div class="pre"><a id="l140" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l140" class="linenr"> 140</a> </div>
+<div class="pre"><a id="l141" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l141" class="linenr"> 141</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*&nbsp;This&nbsp;is&nbsp;where&nbsp;we&nbsp;call&nbsp;the&nbsp;helper:&nbsp;as&nbsp;the&nbsp;packet&nbsp;goes&nbsp;out.&nbsp;*/</div>
+<div class="pre"><a id="l142" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l142" class="linenr"> 142</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ct&nbsp;=&nbsp;nf_ct_get(skb,&nbsp;&amp;ctinfo);</div>
+<div class="pre"><a id="l143" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l143" class="linenr"> 143</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(!ct&nbsp;||&nbsp;ctinfo&nbsp;==&nbsp;IP_CT_RELATED&nbsp;+&nbsp;IP_CT_IS_REPLY)</div>
+<div class="pre"><a id="l144" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l144" class="linenr"> 144</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;NF_ACCEPT;</div>
+<div class="pre"><a id="l145" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l145" class="linenr"> 145</a> </div>
+<div class="pre"><a id="l146" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l146" class="linenr"> 146</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;help&nbsp;=&nbsp;nfct_help(ct);</div>
+<div class="pre"><a id="l147" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l147" class="linenr"> 147</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(!help)</div>
+<div class="pre"><a id="l148" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l148" class="linenr"> 148</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;NF_ACCEPT;</div>
+<div class="pre"><a id="l149" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l149" class="linenr"> 149</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*&nbsp;rcu_read_lock()ed&nbsp;by&nbsp;nf_hook_slow&nbsp;*/</div>
+<div class="pre"><a id="l150" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l150" class="linenr"> 150</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;helper&nbsp;=&nbsp;rcu_dereference(help-&gt;helper);</div>
+<div class="pre"><a id="l151" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l151" class="linenr"> 151</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(!helper)</div>
+<div class="pre"><a id="l152" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l152" class="linenr"> 152</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;NF_ACCEPT;</div>
+<div class="pre"><a id="l153" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l153" class="linenr"> 153</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;helper-&gt;help(skb,&nbsp;skb_network_offset(skb)&nbsp;+&nbsp;ip_hdrlen(skb),</div>
+<div class="pre"><a id="l154" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l154" class="linenr"> 154</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ct,&nbsp;ctinfo);</div>
+<div class="pre"><a id="l155" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l155" class="linenr"> 155</a> }</div>
+<div class="pre"><a id="l156" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l156" class="linenr"> 156</a> </div>
+<div class="pre"><a id="l157" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l157" class="linenr"> 157</a> static&nbsp;unsigned&nbsp;int&nbsp;ipv4_conntrack_defrag(unsigned&nbsp;int&nbsp;hooknum,</div>
+<div class="pre"><a id="l158" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l158" class="linenr"> 158</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;sk_buff&nbsp;*skb,</div>
+<div class="pre"><a id="l159" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l159" class="linenr"> 159</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;struct&nbsp;net_device&nbsp;*in,</div>
+<div class="pre"><a id="l160" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l160" class="linenr"> 160</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;struct&nbsp;net_device&nbsp;*out,</div>
+<div class="pre"><a id="l161" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l161" class="linenr"> 161</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;(*okfn)(struct&nbsp;sk_buff&nbsp;*))</div>
+<div class="pre"><a id="l162" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l162" class="linenr"> 162</a> {</div>
+<div class="pre"><a id="l163" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l163" class="linenr"> 163</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*&nbsp;Previously&nbsp;seen&nbsp;(loopback)?&nbsp;&nbsp;Ignore.&nbsp;&nbsp;Do&nbsp;this&nbsp;before</div>
+<div class="pre"><a id="l164" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l164" class="linenr"> 164</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;fragment&nbsp;check.&nbsp;*/</div>
+<div class="pre"><a id="l165" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l165" class="linenr"> 165</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(skb-&gt;nfct)</div>
+<div class="pre"><a id="l166" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l166" class="linenr"> 166</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;NF_ACCEPT;</div>
+<div class="pre"><a id="l167" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l167" class="linenr"> 167</a> </div>
+<div class="pre"><a id="l168" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l168" class="linenr"> 168</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*&nbsp;Gather&nbsp;fragments.&nbsp;*/</div>
+<div class="pre"><a id="l169" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l169" class="linenr"> 169</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(ip_hdr(skb)-&gt;frag_off&nbsp;&amp;&nbsp;htons(IP_MF&nbsp;|&nbsp;IP_OFFSET))&nbsp;{</div>
+<div class="pre"><a id="l170" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l170" class="linenr"> 170</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(nf_ct_ipv4_gather_frags(skb,</div>
+<div class="pre"><a id="l171" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l171" class="linenr"> 171</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;hooknum&nbsp;==&nbsp;NF_IP_PRE_ROUTING&nbsp;?</div>
+<div class="pre"><a id="l172" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l172" class="linenr"> 172</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;IP_DEFRAG_CONNTRACK_IN&nbsp;:</div>
+<div class="pre"><a id="l173" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l173" class="linenr"> 173</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;IP_DEFRAG_CONNTRACK_OUT))</div>
+<div class="pre"><a id="l174" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l174" class="linenr"> 174</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;NF_STOLEN;</div>
+<div class="pre"><a id="l175" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l175" class="linenr"> 175</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div class="pre"><a id="l176" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l176" class="linenr"> 176</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;NF_ACCEPT;</div>
+<div class="pre"><a id="l177" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l177" class="linenr"> 177</a> }</div>
+<div class="pre"><a id="l178" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l178" class="linenr"> 178</a> </div>
+<div class="pre"><a id="l179" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l179" class="linenr"> 179</a> static&nbsp;unsigned&nbsp;int&nbsp;ipv4_conntrack_in(unsigned&nbsp;int&nbsp;hooknum,</div>
+<div class="pre"><a id="l180" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l180" class="linenr"> 180</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;sk_buff&nbsp;*skb,</div>
+<div class="pre"><a id="l181" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l181" class="linenr"> 181</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;struct&nbsp;net_device&nbsp;*in,</div>
+<div class="pre"><a id="l182" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l182" class="linenr"> 182</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;struct&nbsp;net_device&nbsp;*out,</div>
+<div class="pre"><a id="l183" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l183" class="linenr"> 183</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;(*okfn)(struct&nbsp;sk_buff&nbsp;*))</div>
+<div class="pre"><a id="l184" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l184" class="linenr"> 184</a> {</div>
+<div class="pre"><a id="l185" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l185" class="linenr"> 185</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;nf_conntrack_in(PF_INET,&nbsp;hooknum,&nbsp;skb);</div>
+<div class="pre"><a id="l186" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l186" class="linenr"> 186</a> }</div>
+<div class="pre"><a id="l187" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l187" class="linenr"> 187</a> </div>
+<div class="pre"><a id="l188" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l188" class="linenr"> 188</a> static&nbsp;unsigned&nbsp;int&nbsp;ipv4_conntrack_local(unsigned&nbsp;int&nbsp;hooknum,</div>
+<div class="pre"><a id="l189" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l189" class="linenr"> 189</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;sk_buff&nbsp;*skb,</div>
+<div class="pre"><a id="l190" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l190" class="linenr"> 190</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;struct&nbsp;net_device&nbsp;*in,</div>
+<div class="pre"><a id="l191" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l191" class="linenr"> 191</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;struct&nbsp;net_device&nbsp;*out,</div>
+<div class="pre"><a id="l192" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l192" class="linenr"> 192</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;(*okfn)(struct&nbsp;sk_buff&nbsp;*))</div>
+<div class="pre"><a id="l193" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l193" class="linenr"> 193</a> {</div>
+<div class="pre"><a id="l194" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l194" class="linenr"> 194</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*&nbsp;root&nbsp;is&nbsp;playing&nbsp;with&nbsp;raw&nbsp;sockets.&nbsp;*/</div>
+<div class="pre"><a id="l195" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l195" class="linenr"> 195</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(skb-&gt;len&nbsp;&lt;&nbsp;sizeof(struct&nbsp;iphdr)&nbsp;||</div>
+<div class="pre"><a id="l196" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l196" class="linenr"> 196</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ip_hdrlen(skb)&nbsp;&lt;&nbsp;sizeof(struct&nbsp;iphdr))&nbsp;{</div>
+<div class="pre"><a id="l197" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l197" class="linenr"> 197</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(net_ratelimit())</div>
+<div class="pre"><a id="l198" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l198" class="linenr"> 198</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;ipt_hook:&nbsp;happy&nbsp;cracking.\n&quot;);</div>
+<div class="pre"><a id="l199" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l199" class="linenr"> 199</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;NF_ACCEPT;</div>
+<div class="pre"><a id="l200" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l200" class="linenr"> 200</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div class="pre"><a id="l201" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l201" class="linenr"> 201</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;nf_conntrack_in(PF_INET,&nbsp;hooknum,&nbsp;skb);</div>
+<div class="pre"><a id="l202" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l202" class="linenr"> 202</a> }</div>
+<div class="pre"><a id="l203" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l203" class="linenr"> 203</a> </div>
+<div class="pre"><a id="l204" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l204" class="linenr"> 204</a> /*&nbsp;Connection&nbsp;tracking&nbsp;may&nbsp;drop&nbsp;packets,&nbsp;but&nbsp;never&nbsp;alters&nbsp;them,&nbsp;so</div>
+<div class="pre"><a id="l205" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l205" class="linenr"> 205</a> &nbsp;&nbsp;&nbsp;make&nbsp;it&nbsp;the&nbsp;first&nbsp;hook.&nbsp;*/</div>
+<div class="pre"><a id="l206" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l206" class="linenr"> 206</a> static&nbsp;struct&nbsp;nf_hook_ops&nbsp;ipv4_conntrack_ops[]&nbsp;=&nbsp;{</div>
+<div class="pre"><a id="l207" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l207" class="linenr"> 207</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{</div>
+<div class="pre"><a id="l208" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l208" class="linenr"> 208</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hook&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;ipv4_conntrack_defrag,</div>
+<div class="pre"><a id="l209" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l209" class="linenr"> 209</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.owner&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;THIS_MODULE,</div>
+<div class="pre"><a id="l210" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l210" class="linenr"> 210</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.pf&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;PF_INET,</div>
+<div class="pre"><a id="l211" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l211" class="linenr"> 211</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hooknum&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_PRE_ROUTING,</div>
+<div class="pre"><a id="l212" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l212" class="linenr"> 212</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.priority&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_PRI_CONNTRACK_DEFRAG,</div>
+<div class="pre"><a id="l213" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l213" class="linenr"> 213</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},</div>
+<div class="pre"><a id="l214" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l214" class="linenr"> 214</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{</div>
+<div class="pre"><a id="l215" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l215" class="linenr"> 215</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hook&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;ipv4_conntrack_in,</div>
+<div class="pre"><a id="l216" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l216" class="linenr"> 216</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.owner&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;THIS_MODULE,</div>
+<div class="pre"><a id="l217" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l217" class="linenr"> 217</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.pf&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;PF_INET,</div>
+<div class="pre"><a id="l218" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l218" class="linenr"> 218</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hooknum&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_PRE_ROUTING,</div>
+<div class="pre"><a id="l219" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l219" class="linenr"> 219</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.priority&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_PRI_CONNTRACK,</div>
+<div class="pre"><a id="l220" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l220" class="linenr"> 220</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},</div>
+<div class="pre"><a id="l221" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l221" class="linenr"> 221</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{</div>
+<div class="pre"><a id="l222" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l222" class="linenr"> 222</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hook&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;ipv4_conntrack_defrag,</div>
+<div class="pre"><a id="l223" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l223" class="linenr"> 223</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.owner&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;THIS_MODULE,</div>
+<div class="pre"><a id="l224" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l224" class="linenr"> 224</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.pf&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;PF_INET,</div>
+<div class="pre"><a id="l225" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l225" class="linenr"> 225</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hooknum&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_LOCAL_OUT,</div>
+<div class="pre"><a id="l226" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l226" class="linenr"> 226</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.priority&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_PRI_CONNTRACK_DEFRAG,</div>
+<div class="pre"><a id="l227" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l227" class="linenr"> 227</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},</div>
+<div class="pre"><a id="l228" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l228" class="linenr"> 228</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{</div>
+<div class="pre"><a id="l229" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l229" class="linenr"> 229</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hook&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;ipv4_conntrack_local,</div>
+<div class="pre"><a id="l230" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l230" class="linenr"> 230</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.owner&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;THIS_MODULE,</div>
+<div class="pre"><a id="l231" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l231" class="linenr"> 231</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.pf&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;PF_INET,</div>
+<div class="pre"><a id="l232" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l232" class="linenr"> 232</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hooknum&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_LOCAL_OUT,</div>
+<div class="pre"><a id="l233" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l233" class="linenr"> 233</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.priority&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_PRI_CONNTRACK,</div>
+<div class="pre"><a id="l234" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l234" class="linenr"> 234</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},</div>
+<div class="pre"><a id="l235" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l235" class="linenr"> 235</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{</div>
+<div class="pre"><a id="l236" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l236" class="linenr"> 236</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hook&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;ipv4_conntrack_help,</div>
+<div class="pre"><a id="l237" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l237" class="linenr"> 237</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.owner&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;THIS_MODULE,</div>
+<div class="pre"><a id="l238" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l238" class="linenr"> 238</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.pf&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;PF_INET,</div>
+<div class="pre"><a id="l239" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l239" class="linenr"> 239</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hooknum&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_POST_ROUTING,</div>
+<div class="pre"><a id="l240" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l240" class="linenr"> 240</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.priority&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_PRI_CONNTRACK_HELPER,</div>
+<div class="pre"><a id="l241" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l241" class="linenr"> 241</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},</div>
+<div class="pre"><a id="l242" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l242" class="linenr"> 242</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{</div>
+<div class="pre"><a id="l243" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l243" class="linenr"> 243</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hook&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;ipv4_conntrack_help,</div>
+<div class="pre"><a id="l244" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l244" class="linenr"> 244</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.owner&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;THIS_MODULE,</div>
+<div class="pre"><a id="l245" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l245" class="linenr"> 245</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.pf&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;PF_INET,</div>
+<div class="pre"><a id="l246" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l246" class="linenr"> 246</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hooknum&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_LOCAL_IN,</div>
+<div class="pre"><a id="l247" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l247" class="linenr"> 247</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.priority&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_PRI_CONNTRACK_HELPER,</div>
+<div class="pre"><a id="l248" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l248" class="linenr"> 248</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},</div>
+<div class="pre"><a id="l249" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l249" class="linenr"> 249</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{</div>
+<div class="pre"><a id="l250" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l250" class="linenr"> 250</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hook&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;ipv4_confirm,</div>
+<div class="pre"><a id="l251" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l251" class="linenr"> 251</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.owner&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;THIS_MODULE,</div>
+<div class="pre"><a id="l252" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l252" class="linenr"> 252</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.pf&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;PF_INET,</div>
+<div class="pre"><a id="l253" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l253" class="linenr"> 253</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hooknum&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_POST_ROUTING,</div>
+<div class="pre"><a id="l254" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l254" class="linenr"> 254</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.priority&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_PRI_CONNTRACK_CONFIRM,</div>
+<div class="pre"><a id="l255" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l255" class="linenr"> 255</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},</div>
+<div class="pre"><a id="l256" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l256" class="linenr"> 256</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{</div>
+<div class="pre"><a id="l257" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l257" class="linenr"> 257</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hook&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;ipv4_confirm,</div>
+<div class="pre"><a id="l258" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l258" class="linenr"> 258</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.owner&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;THIS_MODULE,</div>
+<div class="pre"><a id="l259" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l259" class="linenr"> 259</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.pf&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;PF_INET,</div>
+<div class="pre"><a id="l260" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l260" class="linenr"> 260</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.hooknum&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_LOCAL_IN,</div>
+<div class="pre"><a id="l261" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l261" class="linenr"> 261</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.priority&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NF_IP_PRI_CONNTRACK_CONFIRM,</div>
+<div class="pre"><a id="l262" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l262" class="linenr"> 262</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},</div>
+<div class="pre"><a id="l263" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l263" class="linenr"> 263</a> };</div>
+<div class="pre"><a id="l264" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l264" class="linenr"> 264</a> </div>
+<div class="pre"><a id="l265" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l265" class="linenr"> 265</a> #if&nbsp;defined(CONFIG_SYSCTL)&nbsp;&amp;&amp;&nbsp;defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)</div>
+<div class="pre"><a id="l266" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l266" class="linenr"> 266</a> static&nbsp;int&nbsp;log_invalid_proto_min&nbsp;=&nbsp;0;</div>
+<div class="pre"><a id="l267" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l267" class="linenr"> 267</a> static&nbsp;int&nbsp;log_invalid_proto_max&nbsp;=&nbsp;255;</div>
+<div class="pre"><a id="l268" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l268" class="linenr"> 268</a> </div>
+<div class="pre"><a id="l269" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l269" class="linenr"> 269</a> static&nbsp;ctl_table&nbsp;ip_ct_sysctl_table[]&nbsp;=&nbsp;{</div>
+<div class="pre"><a id="l270" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l270" class="linenr"> 270</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{</div>
+<div class="pre"><a id="l271" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l271" class="linenr"> 271</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ctl_name&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NET_IPV4_NF_CONNTRACK_MAX,</div>
+<div class="pre"><a id="l272" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l272" class="linenr"> 272</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.procname&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&quot;ip_conntrack_max&quot;,</div>
+<div class="pre"><a id="l273" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l273" class="linenr"> 273</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.data&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&amp;nf_conntrack_max,</div>
+<div class="pre"><a id="l274" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l274" class="linenr"> 274</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.maxlen&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;sizeof(int),</div>
+<div class="pre"><a id="l275" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l275" class="linenr"> 275</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.mode&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;0644,</div>
+<div class="pre"><a id="l276" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l276" class="linenr"> 276</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.proc_handler&nbsp;&nbsp;&nbsp;=&nbsp;&amp;proc_dointvec,</div>
+<div class="pre"><a id="l277" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l277" class="linenr"> 277</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},</div>
+<div class="pre"><a id="l278" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l278" class="linenr"> 278</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{</div>
+<div class="pre"><a id="l279" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l279" class="linenr"> 279</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ctl_name&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NET_IPV4_NF_CONNTRACK_COUNT,</div>
+<div class="pre"><a id="l280" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l280" class="linenr"> 280</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.procname&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&quot;ip_conntrack_count&quot;,</div>
+<div class="pre"><a id="l281" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l281" class="linenr"> 281</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.data&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&amp;nf_conntrack_count,</div>
+<div class="pre"><a id="l282" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l282" class="linenr"> 282</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.maxlen&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;sizeof(int),</div>
+<div class="pre"><a id="l283" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l283" class="linenr"> 283</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.mode&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;0444,</div>
+<div class="pre"><a id="l284" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l284" class="linenr"> 284</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.proc_handler&nbsp;&nbsp;&nbsp;=&nbsp;&amp;proc_dointvec,</div>
+<div class="pre"><a id="l285" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l285" class="linenr"> 285</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},</div>
+<div class="pre"><a id="l286" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l286" class="linenr"> 286</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{</div>
+<div class="pre"><a id="l287" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l287" class="linenr"> 287</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ctl_name&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NET_IPV4_NF_CONNTRACK_BUCKETS,</div>
+<div class="pre"><a id="l288" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l288" class="linenr"> 288</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.procname&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&quot;ip_conntrack_buckets&quot;,</div>
+<div class="pre"><a id="l289" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l289" class="linenr"> 289</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.data&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&amp;nf_conntrack_htable_size,</div>
+<div class="pre"><a id="l290" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l290" class="linenr"> 290</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.maxlen&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;sizeof(unsigned&nbsp;int),</div>
+<div class="pre"><a id="l291" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l291" class="linenr"> 291</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.mode&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;0444,</div>
+<div class="pre"><a id="l292" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l292" class="linenr"> 292</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.proc_handler&nbsp;&nbsp;&nbsp;=&nbsp;&amp;proc_dointvec,</div>
+<div class="pre"><a id="l293" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l293" class="linenr"> 293</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},</div>
+<div class="pre"><a id="l294" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l294" class="linenr"> 294</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{</div>
+<div class="pre"><a id="l295" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l295" class="linenr"> 295</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ctl_name&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NET_IPV4_NF_CONNTRACK_CHECKSUM,</div>
+<div class="pre"><a id="l296" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l296" class="linenr"> 296</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.procname&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&quot;ip_conntrack_checksum&quot;,</div>
+<div class="pre"><a id="l297" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l297" class="linenr"> 297</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.data&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&amp;nf_conntrack_checksum,</div>
+<div class="pre"><a id="l298" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l298" class="linenr"> 298</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.maxlen&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;sizeof(int),</div>
+<div class="pre"><a id="l299" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l299" class="linenr"> 299</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.mode&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;0644,</div>
+<div class="pre"><a id="l300" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l300" class="linenr"> 300</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.proc_handler&nbsp;&nbsp;&nbsp;=&nbsp;&amp;proc_dointvec,</div>
+<div class="pre"><a id="l301" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l301" class="linenr"> 301</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},</div>
+<div class="pre"><a id="l302" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l302" class="linenr"> 302</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{</div>
+<div class="pre"><a id="l303" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l303" class="linenr"> 303</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ctl_name&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NET_IPV4_NF_CONNTRACK_LOG_INVALID,</div>
+<div class="pre"><a id="l304" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l304" class="linenr"> 304</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.procname&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&quot;ip_conntrack_log_invalid&quot;,</div>
+<div class="pre"><a id="l305" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l305" class="linenr"> 305</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.data&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&amp;nf_ct_log_invalid,</div>
+<div class="pre"><a id="l306" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l306" class="linenr"> 306</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.maxlen&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;sizeof(unsigned&nbsp;int),</div>
+<div class="pre"><a id="l307" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l307" class="linenr"> 307</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.mode&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;0644,</div>
+<div class="pre"><a id="l308" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l308" class="linenr"> 308</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.proc_handler&nbsp;&nbsp;&nbsp;=&nbsp;&amp;proc_dointvec_minmax,</div>
+<div class="pre"><a id="l309" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l309" class="linenr"> 309</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.strategy&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&amp;sysctl_intvec,</div>
+<div class="pre"><a id="l310" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l310" class="linenr"> 310</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.extra1&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&amp;log_invalid_proto_min,</div>
+<div class="pre"><a id="l311" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l311" class="linenr"> 311</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.extra2&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&amp;log_invalid_proto_max,</div>
+<div class="pre"><a id="l312" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l312" class="linenr"> 312</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},</div>
+<div class="pre"><a id="l313" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l313" class="linenr"> 313</a> #if&nbsp;defined(CONFIG_BCM_NAT)&nbsp;||&nbsp;defined(CONFIG_BCM_NAT_MODULE)&nbsp;||&nbsp;defined(HNDCTF)</div>
+<div class="pre"><a id="l314" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l314" class="linenr"> 314</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{</div>
+<div class="pre"><a id="l315" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l315" class="linenr"> 315</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ctl_name&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;NET_IPV4_CONNTRACK_FASTNAT,</div>
+<div class="pre"><a id="l316" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l316" class="linenr"> 316</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.procname&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&quot;ip_conntrack_fastnat&quot;,</div>
+<div class="pre"><a id="l317" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l317" class="linenr"> 317</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.data&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&amp;ipv4_conntrack_fastnat,</div>
+<div class="pre"><a id="l318" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l318" class="linenr"> 318</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.maxlen&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;sizeof(int),</div>
+<div class="pre"><a id="l319" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l319" class="linenr"> 319</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.mode&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;0644,</div>
+<div class="pre"><a id="l320" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l320" class="linenr"> 320</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.proc_handler&nbsp;&nbsp;&nbsp;=&nbsp;&amp;proc_dointvec,</div>
+<div class="pre"><a id="l321" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l321" class="linenr"> 321</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;},</div>
+<div class="pre"><a id="l322" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l322" class="linenr"> 322</a> #endif</div>
+<div class="pre"><a id="l323" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l323" class="linenr"> 323</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{</div>
+<div class="pre"><a id="l324" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l324" class="linenr"> 324</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ctl_name&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;0</div>
+<div class="pre"><a id="l325" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l325" class="linenr"> 325</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div class="pre"><a id="l326" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l326" class="linenr"> 326</a> };</div>
+<div class="pre"><a id="l327" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l327" class="linenr"> 327</a> #endif&nbsp;/*&nbsp;CONFIG_SYSCTL&nbsp;&amp;&amp;&nbsp;CONFIG_NF_CONNTRACK_PROC_COMPAT&nbsp;*/</div>
+<div class="pre"><a id="l328" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l328" class="linenr"> 328</a> </div>
+<div class="pre"><a id="l329" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l329" class="linenr"> 329</a> /*&nbsp;Fast&nbsp;function&nbsp;for&nbsp;those&nbsp;who&nbsp;don't&nbsp;want&nbsp;to&nbsp;parse&nbsp;/proc&nbsp;(and&nbsp;I&nbsp;don't</div>
+<div class="pre"><a id="l330" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l330" class="linenr"> 330</a> &nbsp;&nbsp;&nbsp;blame&nbsp;them).&nbsp;*/</div>
+<div class="pre"><a id="l331" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l331" class="linenr"> 331</a> /*&nbsp;Reversing&nbsp;the&nbsp;socket's&nbsp;dst/src&nbsp;point&nbsp;of&nbsp;view&nbsp;gives&nbsp;us&nbsp;the&nbsp;reply</div>
+<div class="pre"><a id="l332" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l332" class="linenr"> 332</a> &nbsp;&nbsp;&nbsp;mapping.&nbsp;*/</div>
+<div class="pre"><a id="l333" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l333" class="linenr"> 333</a> static&nbsp;int</div>
+<div class="pre"><a id="l334" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l334" class="linenr"> 334</a> getorigdst(struct&nbsp;sock&nbsp;*sk,&nbsp;int&nbsp;optval,&nbsp;void&nbsp;__user&nbsp;*user,&nbsp;int&nbsp;*len)</div>
+<div class="pre"><a id="l335" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l335" class="linenr"> 335</a> {</div>
+<div class="pre"><a id="l336" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l336" class="linenr"> 336</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;inet_sock&nbsp;*inet&nbsp;=&nbsp;inet_sk(sk);</div>
+<div class="pre"><a id="l337" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l337" class="linenr"> 337</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;nf_conntrack_tuple_hash&nbsp;*h;</div>
+<div class="pre"><a id="l338" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l338" class="linenr"> 338</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;nf_conntrack_tuple&nbsp;tuple;</div>
+<div class="pre"><a id="l339" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l339" class="linenr"> 339</a> </div>
+<div class="pre"><a id="l340" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l340" class="linenr"> 340</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memset(&amp;tuple,&nbsp;0,&nbsp;sizeof(tuple));</div>
+<div class="pre"><a id="l341" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l341" class="linenr"> 341</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tuple.src.u3.ip&nbsp;=&nbsp;inet-&gt;rcv_saddr;</div>
+<div class="pre"><a id="l342" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l342" class="linenr"> 342</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tuple.src.u.tcp.port&nbsp;=&nbsp;inet-&gt;sport;</div>
+<div class="pre"><a id="l343" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l343" class="linenr"> 343</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tuple.dst.u3.ip&nbsp;=&nbsp;inet-&gt;daddr;</div>
+<div class="pre"><a id="l344" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l344" class="linenr"> 344</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tuple.dst.u.tcp.port&nbsp;=&nbsp;inet-&gt;dport;</div>
+<div class="pre"><a id="l345" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l345" class="linenr"> 345</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tuple.src.l3num&nbsp;=&nbsp;PF_INET;</div>
+<div class="pre"><a id="l346" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l346" class="linenr"> 346</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;tuple.dst.protonum&nbsp;=&nbsp;IPPROTO_TCP;</div>
+<div class="pre"><a id="l347" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l347" class="linenr"> 347</a> </div>
+<div class="pre"><a id="l348" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l348" class="linenr"> 348</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/*&nbsp;We&nbsp;only&nbsp;do&nbsp;TCP&nbsp;at&nbsp;the&nbsp;moment:&nbsp;is&nbsp;there&nbsp;a&nbsp;better&nbsp;way?&nbsp;*/</div>
+<div class="pre"><a id="l349" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l349" class="linenr"> 349</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(strcmp(sk-&gt;sk_prot-&gt;name,&nbsp;&quot;TCP&quot;))&nbsp;{</div>
+<div class="pre"><a id="l350" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l350" class="linenr"> 350</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DEBUGP(&quot;SO_ORIGINAL_DST:&nbsp;Not&nbsp;a&nbsp;TCP&nbsp;socket\n&quot;);</div>
+<div class="pre"><a id="l351" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l351" class="linenr"> 351</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;-ENOPROTOOPT;</div>
+<div class="pre"><a id="l352" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l352" class="linenr"> 352</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div class="pre"><a id="l353" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l353" class="linenr"> 353</a> </div>
+<div class="pre"><a id="l354" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l354" class="linenr"> 354</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;((unsigned&nbsp;int)&nbsp;*len&nbsp;&lt;&nbsp;sizeof(struct&nbsp;sockaddr_in))&nbsp;{</div>
+<div class="pre"><a id="l355" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l355" class="linenr"> 355</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DEBUGP(&quot;SO_ORIGINAL_DST:&nbsp;len&nbsp;%u&nbsp;not&nbsp;%u\n&quot;,</div>
+<div class="pre"><a id="l356" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l356" class="linenr"> 356</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;*len,&nbsp;sizeof(struct&nbsp;sockaddr_in));</div>
+<div class="pre"><a id="l357" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l357" class="linenr"> 357</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;-EINVAL;</div>
+<div class="pre"><a id="l358" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l358" class="linenr"> 358</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div class="pre"><a id="l359" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l359" class="linenr"> 359</a> </div>
+<div class="pre"><a id="l360" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l360" class="linenr"> 360</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;h&nbsp;=&nbsp;nf_conntrack_find_get(&amp;tuple,&nbsp;NULL);</div>
+<div class="pre"><a id="l361" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l361" class="linenr"> 361</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(h)&nbsp;{</div>
+<div class="pre"><a id="l362" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l362" class="linenr"> 362</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;sockaddr_in&nbsp;sin;</div>
+<div class="pre"><a id="l363" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l363" class="linenr"> 363</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;nf_conn&nbsp;*ct&nbsp;=&nbsp;nf_ct_tuplehash_to_ctrack(h);</div>
+<div class="pre"><a id="l364" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l364" class="linenr"> 364</a> </div>
+<div class="pre"><a id="l365" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l365" class="linenr"> 365</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sin.sin_family&nbsp;=&nbsp;AF_INET;</div>
+<div class="pre"><a id="l366" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l366" class="linenr"> 366</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sin.sin_port&nbsp;=&nbsp;ct-&gt;tuplehash[IP_CT_DIR_ORIGINAL]</div>
+<div class="pre"><a id="l367" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l367" class="linenr"> 367</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.tuple.dst.u.tcp.port;</div>
+<div class="pre"><a id="l368" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l368" class="linenr"> 368</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;sin.sin_addr.s_addr&nbsp;=&nbsp;ct-&gt;tuplehash[IP_CT_DIR_ORIGINAL]</div>
+<div class="pre"><a id="l369" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l369" class="linenr"> 369</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.tuple.dst.u3.ip;</div>
+<div class="pre"><a id="l370" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l370" class="linenr"> 370</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;memset(sin.sin_zero,&nbsp;0,&nbsp;sizeof(sin.sin_zero));</div>
+<div class="pre"><a id="l371" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l371" class="linenr"> 371</a> </div>
+<div class="pre"><a id="l372" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l372" class="linenr"> 372</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DEBUGP(&quot;SO_ORIGINAL_DST:&nbsp;%u.%u.%u.%u&nbsp;%u\n&quot;,</div>
+<div class="pre"><a id="l373" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l373" class="linenr"> 373</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NIPQUAD(sin.sin_addr.s_addr),&nbsp;ntohs(sin.sin_port));</div>
+<div class="pre"><a id="l374" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l374" class="linenr"> 374</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nf_ct_put(ct);</div>
+<div class="pre"><a id="l375" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l375" class="linenr"> 375</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(copy_to_user(user,&nbsp;&amp;sin,&nbsp;sizeof(sin))&nbsp;!=&nbsp;0)</div>
+<div class="pre"><a id="l376" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l376" class="linenr"> 376</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;-EFAULT;</div>
+<div class="pre"><a id="l377" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l377" class="linenr"> 377</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;else</div>
+<div class="pre"><a id="l378" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l378" class="linenr"> 378</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;0;</div>
+<div class="pre"><a id="l379" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l379" class="linenr"> 379</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div class="pre"><a id="l380" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l380" class="linenr"> 380</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;DEBUGP(&quot;SO_ORIGINAL_DST:&nbsp;Can't&nbsp;find&nbsp;%u.%u.%u.%u/%u-%u.%u.%u.%u/%u.\n&quot;,</div>
+<div class="pre"><a id="l381" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l381" class="linenr"> 381</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NIPQUAD(tuple.src.u3.ip),&nbsp;ntohs(tuple.src.u.tcp.port),</div>
+<div class="pre"><a id="l382" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l382" class="linenr"> 382</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NIPQUAD(tuple.dst.u3.ip),&nbsp;ntohs(tuple.dst.u.tcp.port));</div>
+<div class="pre"><a id="l383" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l383" class="linenr"> 383</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;-ENOENT;</div>
+<div class="pre"><a id="l384" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l384" class="linenr"> 384</a> }</div>
+<div class="pre"><a id="l385" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l385" class="linenr"> 385</a> </div>
+<div class="pre"><a id="l386" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l386" class="linenr"> 386</a> #if&nbsp;defined(CONFIG_NF_CT_NETLINK)&nbsp;||&nbsp;defined(CONFIG_NF_CT_NETLINK_MODULE)</div>
+<div class="pre"><a id="l387" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l387" class="linenr"> 387</a> </div>
+<div class="pre"><a id="l388" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l388" class="linenr"> 388</a> #include&nbsp;&lt;linux/netfilter/nfnetlink.h&gt;</div>
+<div class="pre"><a id="l389" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l389" class="linenr"> 389</a> #include&nbsp;&lt;linux/netfilter/nfnetlink_conntrack.h&gt;</div>
+<div class="pre"><a id="l390" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l390" class="linenr"> 390</a> </div>
+<div class="pre"><a id="l391" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l391" class="linenr"> 391</a> static&nbsp;int&nbsp;ipv4_tuple_to_nfattr(struct&nbsp;sk_buff&nbsp;*skb,</div>
+<div class="pre"><a id="l392" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l392" class="linenr"> 392</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const&nbsp;struct&nbsp;nf_conntrack_tuple&nbsp;*tuple)</div>
+<div class="pre"><a id="l393" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l393" class="linenr"> 393</a> {</div>
+<div class="pre"><a id="l394" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l394" class="linenr"> 394</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NFA_PUT(skb,&nbsp;CTA_IP_V4_SRC,&nbsp;sizeof(u_int32_t),</div>
+<div class="pre"><a id="l395" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l395" class="linenr"> 395</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;tuple-&gt;src.u3.ip);</div>
+<div class="pre"><a id="l396" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l396" class="linenr"> 396</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NFA_PUT(skb,&nbsp;CTA_IP_V4_DST,&nbsp;sizeof(u_int32_t),</div>
+<div class="pre"><a id="l397" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l397" class="linenr"> 397</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;tuple-&gt;dst.u3.ip);</div>
+<div class="pre"><a id="l398" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l398" class="linenr"> 398</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;0;</div>
+<div class="pre"><a id="l399" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l399" class="linenr"> 399</a> </div>
+<div class="pre"><a id="l400" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l400" class="linenr"> 400</a> nfattr_failure:</div>
+<div class="pre"><a id="l401" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l401" class="linenr"> 401</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;-1;</div>
+<div class="pre"><a id="l402" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l402" class="linenr"> 402</a> }</div>
+<div class="pre"><a id="l403" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l403" class="linenr"> 403</a> </div>
+<div class="pre"><a id="l404" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l404" class="linenr"> 404</a> static&nbsp;const&nbsp;size_t&nbsp;cta_min_ip[CTA_IP_MAX]&nbsp;=&nbsp;{</div>
+<div class="pre"><a id="l405" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l405" class="linenr"> 405</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[CTA_IP_V4_SRC-1]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;sizeof(u_int32_t),</div>
+<div class="pre"><a id="l406" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l406" class="linenr"> 406</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;[CTA_IP_V4_DST-1]&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;sizeof(u_int32_t),</div>
+<div class="pre"><a id="l407" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l407" class="linenr"> 407</a> };</div>
+<div class="pre"><a id="l408" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l408" class="linenr"> 408</a> </div>
+<div class="pre"><a id="l409" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l409" class="linenr"> 409</a> static&nbsp;int&nbsp;ipv4_nfattr_to_tuple(struct&nbsp;nfattr&nbsp;*tb[],</div>
+<div class="pre"><a id="l410" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l410" class="linenr"> 410</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;struct&nbsp;nf_conntrack_tuple&nbsp;*t)</div>
+<div class="pre"><a id="l411" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l411" class="linenr"> 411</a> {</div>
+<div class="pre"><a id="l412" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l412" class="linenr"> 412</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(!tb[CTA_IP_V4_SRC-1]&nbsp;||&nbsp;!tb[CTA_IP_V4_DST-1])</div>
+<div class="pre"><a id="l413" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l413" class="linenr"> 413</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;-EINVAL;</div>
+<div class="pre"><a id="l414" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l414" class="linenr"> 414</a> </div>
+<div class="pre"><a id="l415" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l415" class="linenr"> 415</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(nfattr_bad_size(tb,&nbsp;CTA_IP_MAX,&nbsp;cta_min_ip))</div>
+<div class="pre"><a id="l416" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l416" class="linenr"> 416</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;-EINVAL;</div>
+<div class="pre"><a id="l417" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l417" class="linenr"> 417</a> </div>
+<div class="pre"><a id="l418" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l418" class="linenr"> 418</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;t-&gt;src.u3.ip&nbsp;=&nbsp;*(__be32&nbsp;*)NFA_DATA(tb[CTA_IP_V4_SRC-1]);</div>
+<div class="pre"><a id="l419" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l419" class="linenr"> 419</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;t-&gt;dst.u3.ip&nbsp;=&nbsp;*(__be32&nbsp;*)NFA_DATA(tb[CTA_IP_V4_DST-1]);</div>
+<div class="pre"><a id="l420" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l420" class="linenr"> 420</a> </div>
+<div class="pre"><a id="l421" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l421" class="linenr"> 421</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;0;</div>
+<div class="pre"><a id="l422" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l422" class="linenr"> 422</a> }</div>
+<div class="pre"><a id="l423" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l423" class="linenr"> 423</a> #endif</div>
+<div class="pre"><a id="l424" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l424" class="linenr"> 424</a> </div>
+<div class="pre"><a id="l425" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l425" class="linenr"> 425</a> static&nbsp;struct&nbsp;nf_sockopt_ops&nbsp;so_getorigdst&nbsp;=&nbsp;{</div>
+<div class="pre"><a id="l426" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l426" class="linenr"> 426</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.pf&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;PF_INET,</div>
+<div class="pre"><a id="l427" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l427" class="linenr"> 427</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.get_optmin&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;SO_ORIGINAL_DST,</div>
+<div class="pre"><a id="l428" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l428" class="linenr"> 428</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.get_optmax&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;SO_ORIGINAL_DST+1,</div>
+<div class="pre"><a id="l429" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l429" class="linenr"> 429</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.get&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&amp;getorigdst,</div>
+<div class="pre"><a id="l430" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l430" class="linenr"> 430</a> };</div>
+<div class="pre"><a id="l431" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l431" class="linenr"> 431</a> </div>
+<div class="pre"><a id="l432" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l432" class="linenr"> 432</a> struct&nbsp;nf_conntrack_l3proto&nbsp;nf_conntrack_l3proto_ipv4&nbsp;=&nbsp;{</div>
+<div class="pre"><a id="l433" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l433" class="linenr"> 433</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.l3proto&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;PF_INET,</div>
+<div class="pre"><a id="l434" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l434" class="linenr"> 434</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.name&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;&quot;ipv4&quot;,</div>
+<div class="pre"><a id="l435" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l435" class="linenr"> 435</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.pkt_to_tuple&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;ipv4_pkt_to_tuple,</div>
+<div class="pre"><a id="l436" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l436" class="linenr"> 436</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.invert_tuple&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;ipv4_invert_tuple,</div>
+<div class="pre"><a id="l437" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l437" class="linenr"> 437</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.print_tuple&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;ipv4_print_tuple,</div>
+<div class="pre"><a id="l438" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l438" class="linenr"> 438</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.prepare&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;ipv4_prepare,</div>
+<div class="pre"><a id="l439" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l439" class="linenr"> 439</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.get_features&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;ipv4_get_features,</div>
+<div class="pre"><a id="l440" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l440" class="linenr"> 440</a> #if&nbsp;defined(CONFIG_NF_CT_NETLINK)&nbsp;||&nbsp;defined(CONFIG_NF_CT_NETLINK_MODULE)</div>
+<div class="pre"><a id="l441" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l441" class="linenr"> 441</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.tuple_to_nfattr&nbsp;=&nbsp;ipv4_tuple_to_nfattr,</div>
+<div class="pre"><a id="l442" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l442" class="linenr"> 442</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.nfattr_to_tuple&nbsp;=&nbsp;ipv4_nfattr_to_tuple,</div>
+<div class="pre"><a id="l443" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l443" class="linenr"> 443</a> #endif</div>
+<div class="pre"><a id="l444" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l444" class="linenr"> 444</a> #if&nbsp;defined(CONFIG_SYSCTL)&nbsp;&amp;&amp;&nbsp;defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)</div>
+<div class="pre"><a id="l445" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l445" class="linenr"> 445</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ctl_table_path&nbsp;&nbsp;=&nbsp;nf_net_ipv4_netfilter_sysctl_path,</div>
+<div class="pre"><a id="l446" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l446" class="linenr"> 446</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.ctl_table&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;ip_ct_sysctl_table,</div>
+<div class="pre"><a id="l447" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l447" class="linenr"> 447</a> #endif</div>
+<div class="pre"><a id="l448" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l448" class="linenr"> 448</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;=&nbsp;THIS_MODULE,</div>
+<div class="pre"><a id="l449" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l449" class="linenr"> 449</a> };</div>
+<div class="pre"><a id="l450" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l450" class="linenr"> 450</a> </div>
+<div class="pre"><a id="l451" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l451" class="linenr"> 451</a> MODULE_ALIAS(&quot;nf_conntrack-&quot;&nbsp;__stringify(AF_INET));</div>
+<div class="pre"><a id="l452" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l452" class="linenr"> 452</a> MODULE_ALIAS(&quot;ip_conntrack&quot;);</div>
+<div class="pre"><a id="l453" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l453" class="linenr"> 453</a> MODULE_LICENSE(&quot;GPL&quot;);</div>
+<div class="pre"><a id="l454" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l454" class="linenr"> 454</a> </div>
+<div class="pre"><a id="l455" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l455" class="linenr"> 455</a> static&nbsp;int&nbsp;__init&nbsp;nf_conntrack_l3proto_ipv4_init(void)</div>
+<div class="pre"><a id="l456" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l456" class="linenr"> 456</a> {</div>
+<div class="pre"><a id="l457" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l457" class="linenr"> 457</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;int&nbsp;ret&nbsp;=&nbsp;0;</div>
+<div class="pre"><a id="l458" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l458" class="linenr"> 458</a> </div>
+<div class="pre"><a id="l459" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l459" class="linenr"> 459</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;need_conntrack();</div>
+<div class="pre"><a id="l460" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l460" class="linenr"> 460</a> </div>
+<div class="pre"><a id="l461" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l461" class="linenr"> 461</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret&nbsp;=&nbsp;nf_register_sockopt(&amp;so_getorigdst);</div>
+<div class="pre"><a id="l462" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l462" class="linenr"> 462</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(ret&nbsp;&lt;&nbsp;0)&nbsp;{</div>
+<div class="pre"><a id="l463" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l463" class="linenr"> 463</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(KERN_ERR&nbsp;&quot;Unable&nbsp;to&nbsp;register&nbsp;netfilter&nbsp;socket&nbsp;option\n&quot;);</div>
+<div class="pre"><a id="l464" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l464" class="linenr"> 464</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;ret;</div>
+<div class="pre"><a id="l465" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l465" class="linenr"> 465</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div class="pre"><a id="l466" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l466" class="linenr"> 466</a> </div>
+<div class="pre"><a id="l467" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l467" class="linenr"> 467</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret&nbsp;=&nbsp;nf_conntrack_l4proto_register(&amp;nf_conntrack_l4proto_tcp4);</div>
+<div class="pre"><a id="l468" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l468" class="linenr"> 468</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(ret&nbsp;&lt;&nbsp;0)&nbsp;{</div>
+<div class="pre"><a id="l469" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l469" class="linenr"> 469</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;nf_conntrack_ipv4:&nbsp;can't&nbsp;register&nbsp;tcp.\n&quot;);</div>
+<div class="pre"><a id="l470" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l470" class="linenr"> 470</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto&nbsp;cleanup_sockopt;</div>
+<div class="pre"><a id="l471" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l471" class="linenr"> 471</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div class="pre"><a id="l472" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l472" class="linenr"> 472</a> </div>
+<div class="pre"><a id="l473" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l473" class="linenr"> 473</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret&nbsp;=&nbsp;nf_conntrack_l4proto_register(&amp;nf_conntrack_l4proto_udp4);</div>
+<div class="pre"><a id="l474" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l474" class="linenr"> 474</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(ret&nbsp;&lt;&nbsp;0)&nbsp;{</div>
+<div class="pre"><a id="l475" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l475" class="linenr"> 475</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;nf_conntrack_ipv4:&nbsp;can't&nbsp;register&nbsp;udp.\n&quot;);</div>
+<div class="pre"><a id="l476" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l476" class="linenr"> 476</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto&nbsp;cleanup_tcp;</div>
+<div class="pre"><a id="l477" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l477" class="linenr"> 477</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div class="pre"><a id="l478" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l478" class="linenr"> 478</a> </div>
+<div class="pre"><a id="l479" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l479" class="linenr"> 479</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret&nbsp;=&nbsp;nf_conntrack_l4proto_register(&amp;nf_conntrack_l4proto_icmp);</div>
+<div class="pre"><a id="l480" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l480" class="linenr"> 480</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(ret&nbsp;&lt;&nbsp;0)&nbsp;{</div>
+<div class="pre"><a id="l481" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l481" class="linenr"> 481</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;nf_conntrack_ipv4:&nbsp;can't&nbsp;register&nbsp;icmp.\n&quot;);</div>
+<div class="pre"><a id="l482" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l482" class="linenr"> 482</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto&nbsp;cleanup_udp;</div>
+<div class="pre"><a id="l483" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l483" class="linenr"> 483</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div class="pre"><a id="l484" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l484" class="linenr"> 484</a> </div>
+<div class="pre"><a id="l485" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l485" class="linenr"> 485</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret&nbsp;=&nbsp;nf_conntrack_l3proto_register(&amp;nf_conntrack_l3proto_ipv4);</div>
+<div class="pre"><a id="l486" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l486" class="linenr"> 486</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(ret&nbsp;&lt;&nbsp;0)&nbsp;{</div>
+<div class="pre"><a id="l487" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l487" class="linenr"> 487</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;nf_conntrack_ipv4:&nbsp;can't&nbsp;register&nbsp;ipv4\n&quot;);</div>
+<div class="pre"><a id="l488" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l488" class="linenr"> 488</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto&nbsp;cleanup_icmp;</div>
+<div class="pre"><a id="l489" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l489" class="linenr"> 489</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div class="pre"><a id="l490" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l490" class="linenr"> 490</a> </div>
+<div class="pre"><a id="l491" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l491" class="linenr"> 491</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret&nbsp;=&nbsp;nf_register_hooks(ipv4_conntrack_ops,</div>
+<div class="pre"><a id="l492" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l492" class="linenr"> 492</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ARRAY_SIZE(ipv4_conntrack_ops));</div>
+<div class="pre"><a id="l493" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l493" class="linenr"> 493</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(ret&nbsp;&lt;&nbsp;0)&nbsp;{</div>
+<div class="pre"><a id="l494" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l494" class="linenr"> 494</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;printk(&quot;nf_conntrack_ipv4:&nbsp;can't&nbsp;register&nbsp;hooks.\n&quot;);</div>
+<div class="pre"><a id="l495" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l495" class="linenr"> 495</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto&nbsp;cleanup_ipv4;</div>
+<div class="pre"><a id="l496" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l496" class="linenr"> 496</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</div>
+<div class="pre"><a id="l497" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l497" class="linenr"> 497</a> #if&nbsp;defined(CONFIG_PROC_FS)&nbsp;&amp;&amp;&nbsp;defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)</div>
+<div class="pre"><a id="l498" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l498" class="linenr"> 498</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;ret&nbsp;=&nbsp;nf_conntrack_ipv4_compat_init();</div>
+<div class="pre"><a id="l499" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l499" class="linenr"> 499</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if&nbsp;(ret&nbsp;&lt;&nbsp;0)</div>
+<div class="pre"><a id="l500" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l500" class="linenr"> 500</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;goto&nbsp;cleanup_hooks;</div>
+<div class="pre"><a id="l501" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l501" class="linenr"> 501</a> #endif</div>
+<div class="pre"><a id="l502" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l502" class="linenr"> 502</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;ret;</div>
+<div class="pre"><a id="l503" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l503" class="linenr"> 503</a> #if&nbsp;defined(CONFIG_PROC_FS)&nbsp;&amp;&amp;&nbsp;defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)</div>
+<div class="pre"><a id="l504" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l504" class="linenr"> 504</a> &nbsp;cleanup_hooks:</div>
+<div class="pre"><a id="l505" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l505" class="linenr"> 505</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nf_unregister_hooks(ipv4_conntrack_ops,&nbsp;ARRAY_SIZE(ipv4_conntrack_ops));</div>
+<div class="pre"><a id="l506" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l506" class="linenr"> 506</a> #endif</div>
+<div class="pre"><a id="l507" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l507" class="linenr"> 507</a> &nbsp;cleanup_ipv4:</div>
+<div class="pre"><a id="l508" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l508" class="linenr"> 508</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nf_conntrack_l3proto_unregister(&amp;nf_conntrack_l3proto_ipv4);</div>
+<div class="pre"><a id="l509" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l509" class="linenr"> 509</a> &nbsp;cleanup_icmp:</div>
+<div class="pre"><a id="l510" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l510" class="linenr"> 510</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nf_conntrack_l4proto_unregister(&amp;nf_conntrack_l4proto_icmp);</div>
+<div class="pre"><a id="l511" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l511" class="linenr"> 511</a> &nbsp;cleanup_udp:</div>
+<div class="pre"><a id="l512" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l512" class="linenr"> 512</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nf_conntrack_l4proto_unregister(&amp;nf_conntrack_l4proto_udp4);</div>
+<div class="pre"><a id="l513" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l513" class="linenr"> 513</a> &nbsp;cleanup_tcp:</div>
+<div class="pre"><a id="l514" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l514" class="linenr"> 514</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nf_conntrack_l4proto_unregister(&amp;nf_conntrack_l4proto_tcp4);</div>
+<div class="pre"><a id="l515" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l515" class="linenr"> 515</a> &nbsp;cleanup_sockopt:</div>
+<div class="pre"><a id="l516" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l516" class="linenr"> 516</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nf_unregister_sockopt(&amp;so_getorigdst);</div>
+<div class="pre"><a id="l517" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l517" class="linenr"> 517</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;return&nbsp;ret;</div>
+<div class="pre"><a id="l518" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l518" class="linenr"> 518</a> }</div>
+<div class="pre"><a id="l519" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l519" class="linenr"> 519</a> </div>
+<div class="pre"><a id="l520" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l520" class="linenr"> 520</a> static&nbsp;void&nbsp;__exit&nbsp;nf_conntrack_l3proto_ipv4_fini(void)</div>
+<div class="pre"><a id="l521" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l521" class="linenr"> 521</a> {</div>
+<div class="pre"><a id="l522" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l522" class="linenr"> 522</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;synchronize_net();</div>
+<div class="pre"><a id="l523" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l523" class="linenr"> 523</a> #if&nbsp;defined(CONFIG_PROC_FS)&nbsp;&amp;&amp;&nbsp;defined(CONFIG_NF_CONNTRACK_PROC_COMPAT)</div>
+<div class="pre"><a id="l524" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l524" class="linenr"> 524</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nf_conntrack_ipv4_compat_fini();</div>
+<div class="pre"><a id="l525" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l525" class="linenr"> 525</a> #endif</div>
+<div class="pre"><a id="l526" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l526" class="linenr"> 526</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nf_unregister_hooks(ipv4_conntrack_ops,&nbsp;ARRAY_SIZE(ipv4_conntrack_ops));</div>
+<div class="pre"><a id="l527" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l527" class="linenr"> 527</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nf_conntrack_l3proto_unregister(&amp;nf_conntrack_l3proto_ipv4);</div>
+<div class="pre"><a id="l528" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l528" class="linenr"> 528</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nf_conntrack_l4proto_unregister(&amp;nf_conntrack_l4proto_icmp);</div>
+<div class="pre"><a id="l529" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l529" class="linenr"> 529</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nf_conntrack_l4proto_unregister(&amp;nf_conntrack_l4proto_udp4);</div>
+<div class="pre"><a id="l530" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l530" class="linenr"> 530</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nf_conntrack_l4proto_unregister(&amp;nf_conntrack_l4proto_tcp4);</div>
+<div class="pre"><a id="l531" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l531" class="linenr"> 531</a> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;nf_unregister_sockopt(&amp;so_getorigdst);</div>
+<div class="pre"><a id="l532" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l532" class="linenr"> 532</a> }</div>
+<div class="pre"><a id="l533" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l533" class="linenr"> 533</a> </div>
+<div class="pre"><a id="l534" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l534" class="linenr"> 534</a> module_init(nf_conntrack_l3proto_ipv4_init);</div>
+<div class="pre"><a id="l535" href="http://repo.or.cz/w/tomato.git/blob/refs/heads/tomato-RT-N:/release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c#l535" class="linenr"> 535</a> module_exit(nf_conntrack_l3proto_ipv4_fini);</div>
+</div><div class="page_footer">
+<div class="page_footer_text">Tomato firmware and modifications</div>
+<a class="rss_logo" title="history of release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c on 'tomato-RT-N' RSS feed" href="http://repo.or.cz/w/tomato.git/rss/refs/heads/tomato-RT-N?f=release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c">RSS</a>
+<a class="rss_logo" title="history of release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c on 'tomato-RT-N' Atom feed" href="http://repo.or.cz/w/tomato.git/atom/refs/heads/tomato-RT-N?f=release/src-rt/linux/linux-2.6/net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c">Atom</a>
+</div>
+</body>
+</html>

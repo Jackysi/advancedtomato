@@ -1,0 +1,53 @@
+             Technical notes on version 3.8.2Beta6
+                        10 April 2001
+                        Kern Sibbald
+
+General:
+- I've added a good number of new ./configure command line
+  options that permit fairly detailed preconfiguration of
+  apcupsd.conf
+- I've integrated (by hand) the new Debian code.
+- Changed the release name to apcupsd-3.8.2Beta6 to avoid
+  conflicts with packagers who use -nn at the end.
+- NOTE! The default location (if it exists) for putting the
+  apcupsd.events and apcupsd.status files is /var/log
+  rather than /etc/apcupsd (see kes09Apr01 for details).
+
+Changes submitted this submission:
+- Added dependencies to the lib subdirectory.  This
+  was causing incorrect makes when header files changed.
+- I added the following variables to the ./configure
+  command line.  Type ./configure --help to see the full list
+
+  --with-distname=NAME    Specify DISTNAME
+  --with-nologin=DIR      Specify nologin file directory (default /etc)
+  --with-pid-dir=DIR      Specify PIDDIR directory
+  --with-log-dir=DIR      Specify EVENTS and STATUS directory
+  --with-lock-dir=DIR     Specify serial port lock directory
+  --with-serial-dev=DEV   Specify serial port device
+  --with-nis-port=PORT    Specify NIS (CGI) port
+  --with-net-port=PORT    Specify Master/slave port
+  --with-upstype=TYPE     Specify the UPS type
+  --with-upscable=CABLE   Specify the UPS cable
+
+  See notes in kes09Apr01 for more details.
+  The output from ./configure now includes all the ablve items.
+
+- We have been having a good number of shared memory problems,
+  mostly due to old zombie apcupsds.  I've made the code try
+  1000 different keys before giving up.  Note, if it does use
+  a different key, apcaccess will not function as it has
+  no way of knowing the new key.
+- cgi/upsfetch.c now uses configure NISPORT
+- cgi/upsfetch.c now retrieves the last self test date (if available).
+- cgi/upsstats.c the self test date is now displayed (if available)
+- Added a lot of stuff to the Debian directory.  Note, the
+  apcupsd make files for proper building and installation are
+  in <src>/distributions/debian, and all the package information
+  is in the debian subdirectory packageinfo.  There is also a lot
+  of stuff in the debian subdirectory examples.
+- Eliminated all the apcupsd.conf files the were contained in
+  the distributions directory.
+- Made a generic apcupsd.conf.in that is modified according to the
+  ./configure parameters to build <src>/etc/apcupsd.conf.  This
+  allows pretty good pre-configuration of the apcupsd.conf

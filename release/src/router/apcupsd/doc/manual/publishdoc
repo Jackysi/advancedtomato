@@ -1,0 +1,14 @@
+#!/bin/sh
+sftp -b - web.sourceforge.net <<-END
+	cd /home/groups/a/ap/apcupsd/htdocs
+	-mkdir manual
+	cd manual
+	-rm *
+	progress
+	put manual.pdf
+	put manual.html
+	put *.png
+	ln manual.pdf apcupsd.pdf
+	ln manual.html index.html
+END
+

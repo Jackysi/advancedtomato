@@ -1,0 +1,74 @@
+#! /bin/sh
+# Copyright (c) 1996 S.u.S.E. GmbH Fuerth, Germany.  All rights reserved.
+#
+# Author: Florian La Roche <florian@suse.de>, 1996
+#	  Werner Fink <werner@suse.de>, 1996
+#
+#	Updated for "apcupsd"
+#	  Andre M. Hedrick <hedrick@astro.dyer.vanderbilt.edu>, 1997
+#
+# /sbin/init.d/halt (and symlinked to reboot)
+#
+
+. /etc/rc.config
+
+case "$0" in
+	*halt)
+		message="The system is halted."
+		command="halt"
+		;;
+	*reboot)
+		message="Please stand by while rebooting the system..."
+		command="reboot"
+		;;
+	*)
+		echo "$0: call me as \"halt\" or \"reboot\" please!"
+		exit 1
+		;;
+esac
+
+# Write to wtmp file before unmounting /var
+$command -w 
+
+echo "Sending all processes the TERM signal..."
+killall5 -15
+
+if [ "$1" = "fast" ]; then
+	sleep 1
+else
+	sleep 5
+fi
+
+echo "Sending all processes the KILL signal..."
+killall5 -9
+
+echo "Turning off swap."
+sync ; sync
+swapoff -a
+
+echo "Unmounting file systems"
+umount -av
+
+# maybe we use Multiple devices
+if test -f /etc/mdtab -a -x /sbin/mdadd ; then
+    echo -n "Disable Multiple Devices"
+    /sbin/mdstop -a
+    echo "."
+fi
+
+# See if this is a powerfail situation.
+if [ -f @PWRFAILDIR@/powerfail ]; then
+  echo
+  echo "Apcupsd will now power off the UPS!"
+  echo
+  @sysconfdir@/apccontrol killpower
+  echo
+fi
+
+# on umsdos fs this would lead to an error message. so direct errors to
+# /dev/null
+mount -no remount,ro / 2> /dev/null
+sync
+
+echo $message
+exec $command -d -f

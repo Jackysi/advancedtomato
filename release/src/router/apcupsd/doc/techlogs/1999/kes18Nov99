@@ -1,0 +1,162 @@
+         Technical notes on my code submission of 18 Nov 99
+                        Kern Sibbald
+
+General:
+- This patch submission consists of cgi changes,
+  the addition of new capabilities code, and
+  some variable name changes to make the code
+  more readable and consistent.    
+- Again, some differences that are due only to tabbing.
+
+Changes submitted this submission:
+- Reworked the integration of the cgi program with
+  configure.in and Makefile.in
+- To get the cgi directory to build, you add the
+  new configure option --enable-cgi as in:
+
+      ./configure --enable-cgi
+
+  You will probably also want to specify an installation
+  directory as in:
+
+      ./configure --enable-cgi --with-cgi-bin=<your cgi bin>
+
+  So to do a cgi build:
+
+   ./configure --enable-cgi --with-cgi-bin=...
+   make
+   make install
+
+   Restart your apcupsd daemon by default with                    
+   the new apcupsd.config file, the networking
+   will be turned on. There is no extra daemon
+   to start.
+   
+
+   Edit /etc/apcupsd/hosts.conf to add your hosts to be
+   monitored. You must do this.
+
+   Optionally edit /etc/apcupsd/multimon.conf to change the default
+   multimon display. The list of available keywords can be found
+   in cgi/upsfetch.c and multimon.h.
+
+   Execute the multimon program from your browser with something like:
+
+   http://127.0.0.1/cgi-bin/multimon.cgi
+
+- For developers, the cgi-bin directory can be obtained in
+  your Makefile.in with @CGIBIN@.
+- I began adding code to save the last 5 events. Most of this
+  code will be removed in the next patch as I have now
+  figured out "the right way" to do it.
+- Changed BattUp to BattLow; changed BatLoad to BattChg (for
+  battery charge), changed lowbatt to dlowbatt, changed minon
+  to rtnpct, changed sleep to dshutd, changed wakeup to
+  dwake, change replace to battdat.
+- Fixed all the "Someone will have to explain this to me" in
+  apcconfig.c. I need to make an audit of this file.
+- Reworked all the capabilities code and implemented it
+  almost everywhere (there are a few stray smart_poll() 
+  calls that should be convered). 
+- To avoid accidently mixing up capibilities indicies (CI_ ...)
+  and capabilities commands (codes sent to UPS), I renamed
+  the commands to be XXX_CMD_... These are used only in one
+  place in apcconfig.c and should never be used elsewhere
+  in the code.
+- Consolidated a lot of the old capabilities code into
+  two new subroutines read_static_ups_data() and 
+  read_volatile_ups_data(). See comments in the code.
+- Added a number of new capabilities and made apcupsd
+  poll for them (register 1, 2, 3, nominal output voltage,
+  nominal battery voltage, number of external batteries,
+  firmware revision, and model).
+  See STATUS output.
+- Changed thread SIGCHLD from SIG_DFL to SIG_IGN, which 
+  explicitly sets it to what we want rather than relying
+  on the default action of the system.
+- The time and date on the DATE record is now the time
+  and date that the UPS was last polled rather than the
+  current time and date.
+- added a new upsfstats.cgi program to the cgi directory.
+  It is not yet complete, but if you call it with a proper
+  host, it will dump the full status. Next patch, it will
+  be integrated into the multimon.cgi program.  No bug
+  reports yet, please. The Makefile.in does not yet build
+  it.
+- Updated acpupsd.conf with more documentation and to 
+  as a default turn off NETSTATUS, STATTIME, DATATIME,
+  and the FACILITY command.  
+- Reduced the BATTERYLEVEL in apcupsd.conf to 5% and
+  the MINUTES to 3.
+- Reorganized the shared memory buffer again and added
+  some more documentation. In general, I tried to group
+  the static items reported by the UPS and the changable
+  items.  See the code in include/apc_struct.h for more
+  details.
+
+                Kern's ToDo List
+
+To do:
+- Add "events" command to the network interface
+  to retrieve the last five events.
+- Make the END record of the STATUS command
+  have the current time/date rather than the
+  poll time/date.
+- Remember date and time when apcupsd started.
+- Save last 5 major events and pass them in STATUS file.
+- Check error_aborts in apcnetd (especially apcserver.c)
+- Documentation.
+- Automatic conversion of old apcupsd.config files
+  to the new format?
+- Eliminate the rest of the printfs().
+- Check and double check killpwr changes.
+- Add the full status display to the cgi program (same
+  as currently printed by "apcaccess status"
+- Possibly retab new cgi/net server code
+- Create new line for status bits but in English
+- Fix name of unknown() and change comments in subroutine
+  save_dumb_status() ...
+- Expand Last UPS Self Test field in cgi program
+- Produce a RPM for RedHat
+- Audit apcconfig.c
+- Enhance documentation of apcupsd.conf
+- Fix apcupsd so that it respawns the server if it
+  dies (limit number of times). This will avoid the
+  possibility that someone can bring down our apcupsd
+  by connecting via Internet (denial of service attack,
+  or exploit possible buffer overflow).
+- Eliminate rest of character command codes using new
+  capabilities code in apcsetup.c (for setup stuff).
+
+Wish list:
+- Add more commands (individual variables) to apcnetd
+- Accumlate time on batteries and number of transfers
+  to batteries. Perhaps save history in file so that the
+  info can be recovered if apcupsd restarts.
+
+Done:
+- Change translo and transhi to be use new mnemonics
+  lowxfer and highxfer.
+- Make fetch_data() be called automatically from 
+  getvardata().
+- Cleanup error_abort/printf inconsistencies in cgi code.
+- Put date/time in shared memory buffer in UPSfill()
+- Probably apcnetd should be started at the same time
+  as apcupsd. Or perhaps a configuration parameter should
+  be added to have apcupsd start it.
+- The TCP port for apcnetd should be configurable.
+- Update CGI programs to understand N/A
+- Remove remaining traces of old log file. 
+- Delete apcnetd on make clean
+- Make apcnetd capable of being called from inetd
+- Fix STATUS code so that there is only ONE copy.
+- Fix configure.in to add AC_ARG_ENABLE() for cgi directory.
+- Complete writing of status logging.
+- Put in new capabilities code.
+- Start capabilities codes from 0 instead of 1.
+- Add additional STATUS output.
+- Make non-available STATUS information print N/A
+- Add capabilities to codes sent to UPS.
+- Examine all configuration messages, and eliminate all
+ "Someone will have to explain this to me" messages.
+- Added all known (to me) status codes

@@ -1,0 +1,35 @@
+             Technical notes on version 3.9.8 
+                       22 January 2002
+                        Kern Sibbald
+
+General:
+- Merged in changes sent by Riccardo and by Kamal
+  ric05Jan02 ric13Jan02 kam03Jan02 kam05Jan02
+  Actually Riccardo did a lot of the merging. I've
+  sort of lost track.
+- See also dr20Jan02 and mb07Jan02
+- Significant changes to the usb driver to handle
+  the SmartUPS in usb mode.
+- Copied over the latest tech logs from 3.8.5.
+
+Changes submitted this submission:
+- Made apctest build on Win platforms.
+- Apcupsd now needs -lm option because usb driver uses
+  the pow() function to do proper unit scaling.
+- Added wait_time to the UPSINFO structure which gives an
+  indication to the driver of how much time to wait. This
+  takes a bit of calculation (see apcdevice.c) because
+  of data and status reports that my have faster times.
+  The driver can still adjust this time if necessary,
+  as the DUMB and NET drivers do.
+- Enhanced the data logging to include Ambient temperature
+  and humidity as well as correct a wrong value.
+- Added some new status word bits:
+   UPS_SHUTDOWNIMM
+   UPS_BELOWCAPLIMIT
+   UPS_REMTIMELIMIT
+  They remain to be implemented.
+- Moved a good part of the USB specific capability arrays into
+  the USB driver. We could do likewise for other drivers.
+- Pulled over the French translation of the messages from 3.8.5
+- Updated the version to 3.9.8-22Jan02

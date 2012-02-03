@@ -1,0 +1,45 @@
+             Technical notes on version 3.10.14
+                        Kern Sibbald
+
+General:
+28Jul04
+- Add workaround from Adam for linux/hiddev.h missing define.
+- Updates to manual.
+- Integrate patch for Mandrake apcupsd.in forwarded by David Walser.
+18Jul04
+- Found another store into the ups buffer so #ifdefed it. Cannot
+  store into the ups buffer on non-pthreads systems.
+17Jul04
+- Fiddle with apcconfig.c to correct astrncpy() problem noted by
+  Adam.
+- #ifdef code in apcaccess that tries to write in the shared memory
+  buffer.
+- Applied Adam's patch for fixing the pthreads dependencies in asys.c
+- Tweak the patch a bit hopefully so that OpenBSD will work.
+09Jul04
+- Made a sweep through quite a few files updating the copyright, 
+  eliminating the disclaimer (now in DISCLAIMER), and adding as many
+  astrncpy() and astrncat()s as I could find. There still remain some
+  drivers and the cgi code to do.
+- Implemented true/false and bool. Started implementing it in many of
+  the files I touched.
+- Updated the net driver and did a fairly good testing of it.
+- Made apcupsd remain in the foreground when doing a kill power.
+- Eliminated some of the error messages during kill power by not
+  doing useless things.
+- Added back code to print what is happening during kill power
+  in the USB code.
+- Corrected a few of the USB error messages that could have been
+  missleading or confusing.
+- Eliminated some inappropriate usages of size_t.
+20Jun04
+- Integrated a number of updates into the manual, particularly from
+  Adam.
+- Put wall as ${WALL} in platforms/apccontrol.in
+- If the IP address is 0.0.0.0 force it to localhost in apcaccess.
+- Integrat Thomas Habets' changes to keep connect() from blocking
+  in apcnet.c so that apcupsd can service more slaves.
+- Ensure that stdin/out/err are allocated in daemon_start() of apcuspd.c
+- Update snmp.c with bug fix from Bacula.
+- Bill has made numerous changes to improve the code such as adding
+  consts where appropriate.

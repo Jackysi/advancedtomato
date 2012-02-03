@@ -1,0 +1,32 @@
+             Technical notes on version 3.9.6 
+                      16 September 2001
+                        Kern Sibbald
+
+General:
+- Pulled in the latest copy of the manual, which corrects a number
+  of errors reported by users.
+- updated all the halt scripts in the distributions script to
+  remove the sleep commands after the killpower. This will allow
+  the halt script to run to completion and to synchronize any
+  raid devices (often done in the final steps by the kernel).
+- applied the RedHat apcupsd.spec patch supplied by Giulio Orsero.
+- Made quite a few changes to the master/slave code so that
+  it will reconnect in case of an error. It also sets a
+  bit in Status when the slave is down, and polls the slave
+  more frequently attempting to connect.
+
+Changes submitted this submission:
+- Modified calling sequence to the device self check to eliminate
+  the time argument. This simplifies the code slightly.
+- If a slave is marked DOWN, after 2 minutes, attempt to bring him back up
+  on the next poll.              
+- Applied pthread link fix reported by a user for netbsd and openbsd.
+- Fixed a bug in apctest where the kill power test would not work
+  because of the powerfail file was not created.
+- Removed all the sleeps from the halt scripts as noted above.
+- Added a new subdirectory to doc named jobs, which contains the
+  job descriptions.
+- Reworked the self test message code in the Smart driver a bit.
+- Added locking code to linux-usb.c to correspond to new driver
+  requirements.
+

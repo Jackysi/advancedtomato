@@ -1,0 +1,31 @@
+ChangeSet 1.1258, 2003/06/18 16:55:46-07:00, vsu@altlinux.ru
+
+[PATCH] USB: HIDDEV / UPS patches
+
+
+ drivers/usb/hid-core.c |   12 +++++++++---
+ 1 files changed, 9 insertions(+), 3 deletions(-)
+
+
+diff -Nru a/drivers/usb/hid-core.c b/drivers/usb/hid-core.c
+--- a/drivers/usb/hid-core.c	Wed Jun 18 17:34:51 2003
++++ b/drivers/usb/hid-core.c	Wed Jun 18 17:34:51 2003
+@@ -1067,10 +1067,16 @@
+ 
+ void hid_write_report(struct hid_device *hid, struct hid_report *report)
+ {
+-	hid_output_report(report, hid->out[hid->outhead].buffer);
++	if (hid->report_enum[report->type].numbered) {
++		hid->out[hid->outhead].buffer[0] = report->id;
++		hid_output_report(report, hid->out[hid->outhead].buffer + 1);
++		hid->out[hid->outhead].dr.wLength = cpu_to_le16(((report->size + 7) >> 3) + 1);
++	} else {
++		hid_output_report(report, hid->out[hid->outhead].buffer);
++		hid->out[hid->outhead].dr.wLength = cpu_to_le16((report->size + 7) >> 3);
++	}
+ 
+-	hid->out[hid->outhead].dr.wValue = cpu_to_le16(0x200 | report->id);
+-	hid->out[hid->outhead].dr.wLength = cpu_to_le16((report->size + 7) >> 3);
++	hid->out[hid->outhead].dr.wValue = cpu_to_le16(((report->type + 1) << 8) | report->id);
+ 
+ 	hid->outhead = (hid->outhead + 1) & (HID_CONTROL_FIFO_SIZE - 1);

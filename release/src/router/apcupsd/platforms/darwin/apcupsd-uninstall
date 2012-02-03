@@ -1,0 +1,47 @@
+#!/bin/sh
+
+if [ "$USER" != "root" ] ; then
+   echo This script must be run as root. 
+   echo Try \'sudo $0\'
+   exit 1
+fi
+
+confirm=
+read -p "Are you sure you want to uninstall apcupsd? [Y/N] " confirm
+case $confirm in
+   y|Y) break  ;;
+   *) exit 1 ;;
+esac
+
+if [ -e /var/run/apcupsd.lock ] ; then
+   SystemStarter stop "APC UPS monitor"
+fi
+
+files="/System/Library/Extensions/ApcupsdDummy.kext \
+       /Library/StartupItems/apcupsd \
+       /Applications/apcagent.app \
+       /etc/apcupsd \
+       /sbin/apcaccess \
+       /sbin/apcupsd \
+       /sbin/apctest \
+       /sbin/smtp \
+       /usr/share/man/man5/apcupsd.conf.5 \
+       /usr/share/man/man8/apcaccess.8 \
+       /usr/share/man/man8/apccontrol.8 \
+       /usr/share/man/man8/apcupsd.8 \
+       /usr/share/man/man8/apctest.8 \
+       /Library/Receipts/Apcupsd-*.pkg \
+       /sbin/apcupsd-uninstall"
+
+echo Removing files...
+for file in $files ; do
+   if [ -e "$file" ] ; then
+      echo Removing $file
+      rm -rf "$file"
+   fi
+done
+
+# Ensure kext cache gets rebuilt
+touch /System/Library/Extensions
+
+echo Apcupsd files removed. Please reboot to complete the uninstall.

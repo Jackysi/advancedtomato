@@ -1,0 +1,733 @@
+#
+# Makefile for win32 apcupsd executables
+# Using MinGW cross-compiler on GNU/Linux
+#  
+#  Modified from Bacula Makefile.in for apcupsd
+#   Kern Sibbald, April 2006
+#  Further modifications by Adam Kropelin
+# 
+
+# Configuration
+VERSION = @VERSION@
+
+PARENT_DIR = @TOP_DIR@
+TOPDIR = @topdir@
+CROSSTOOLS = $(PARENT_DIR)/cross-tools
+MINGW = $(CROSSTOOLS)/mingw32
+INCLUDE_MINGW = -I $(MINGW)/mingw32/include
+INCLUDE_GCC = -I $(MINGW)/lib/gcc/mingw32/3.4.5/include
+
+# By default we will use the winusb driver
+# The other option is generic
+USBTYPE ?= winusb
+
+DEPKGS = $(PARENT_DIR)/depkgs-win32/libroot
+
+INCLUDE_APC = -I ../../include -I ./compat
+INCLUDE_PTHREADS = -I $(DEPKGS)/include/pthread
+INCLUDE_LIBUSB = -I $(DEPKGS)/include
+INCLUDE_NETSNMP = -I $(DEPKGS)/include/net-snmp
+INCLUDE_LIBUSBHID = -I ../libusbhid
+INCLUDE_ICONS = -I .
+
+LIB_MINGW = $(MINGW)/mingw32/lib
+LIB_PTHREADS = $(DEPKGS)/lib/pthreadGCE.dll
+LIB_NETSNMP = $(DEPKGS)/lib/libnetsnmp.a
+
+ifeq ($(USBTYPE),generic)
+  LIB_LIBUSB = $(DEPKGS)/lib/libusb.a
+else
+  LIB_LIBUSB = -lsetupapi
+endif
+
+BIN_DIR = $(MINGW)/bin
+
+INCLUDES = \
+	$(INCLUDE_GCC) \
+	$(INCLUDE_MINGW) \
+	$(INCLUDE_PTHREADS) \
+	$(INCLUDE_LIBUSB) \
+	$(INCLUDE_APC) \
+	$(INCLUDE_ICONS) \
+	$(INCLUDE_LIBUSBHID) \
+	$(INCLUDE_NETSNMP)
+
+HAVES = \
+	-DHAVE_MINGW \
+	-DHAVE_WIN32 \
+	-DHAVE_NET_DRIVER \
+	-DHAVE_TEST_DRIVER \
+	-DHAVE_APCSMART_DRIVER \
+	-DHAVE_DUMB_DRIVER \
+	-DHAVE_USB_DRIVER \
+	-DHAVE_SNMP_DRIVER \
+	-DHAVE_NET_SNMP \
+	-DHAVE_PCNET_DRIVER \
+	-DHAVE_SNMPLITE_DRIVER
+
+DEFINES = \
+	-DWIN32 \
+	$(HAVES) \
+	-D__APCUPSD__ \
+	-D_WIN32_IE=0x0500
+
+CC = $(BIN_DIR)/mingw32-gcc -O2 $(DEFINES) $(INCLUDES)
+CXX = $(BIN_DIR)/mingw32-g++ -O2 $(DEFINES) $(INCLUDES)
+WINDRES = $(BIN_DIR)/mingw32-windres
+MAKENSIS = $(BIN_DIR)/makensis
+STRIP = $(BIN_DIR)/mingw32-strip
+UNIX2DOS = unix2dos
+
+TEXTFILES := $(TOPDIR)/COPYING \
+             $(TOPDIR)/ChangeLog \
+             $(TOPDIR)/ReleaseNotes \
+             $(wildcard $(TOPDIR)/doc/*.txt)
+
+first: all
+
+OBJDIR = obj
+
+######################################################################
+
+# Files in src/win32/compat
+
+OBJS_COMPAT = \
+	$(OBJDIR)/compat.o \
+	$(OBJDIR)/winapi.o \
+   $(OBJDIR)/netcompat.o
+
+$(OBJDIR)/compat.o: compat/compat.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/winapi.o: compat/winapi.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/netcompat.o: compat/netcompat.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# Files in src/win32
+OBJS_WIN = \
+	$(OBJDIR)/winservice.o \
+	$(OBJDIR)/winmain.o
+
+$(OBJDIR)/winmain.o:    winmain.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/winservice.o: winservice.cpp
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+
+# Files files in src/lib
+
+LIB_OBJS = \
+	$(OBJDIR)/apcconfig.o \
+	$(OBJDIR)/apcerror.o \
+	$(OBJDIR)/apcevents.o \
+	$(OBJDIR)/apcexec.o \
+	$(OBJDIR)/apcfile.o \
+	$(OBJDIR)/apclibnis.o \
+	$(OBJDIR)/apclock.o \
+	$(OBJDIR)/apclog.o \
+	$(OBJDIR)/apcsignal.o \
+	$(OBJDIR)/apcstatus.o \
+	$(OBJDIR)/asys.o \
+	$(OBJDIR)/newups.o \
+	$(OBJDIR)/md5.o \
+	$(OBJDIR)/sleep.o \
+	$(OBJDIR)/inet_pton.o \
+   $(OBJDIR)/statmgr.o \
+   $(OBJDIR)/amutex.o \
+   $(OBJDIR)/athread.o \
+   $(OBJDIR)/astring.o \
+   $(OBJDIR)/atimer.o \
+   $(OBJDIR)/autil.o \
+   $(OBJDIR)/gethostname.o
+
+#
+# Rules for generating from ../lib
+# 
+
+$(OBJDIR)/apcconfig.o: ../lib/apcconfig.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/apcerror.o: ../lib/apcerror.c
+	$(CXX) -c $< -o $@
+ 
+$(OBJDIR)/apcevents.o: ../lib/apcevents.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/apcexec.o: ../lib/apcexec.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/apcfile.o: ../lib/apcfile.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/apclibnis.o: ../lib/apclibnis.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/apclock.o: ../lib/apclock.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/apclog.o: ../lib/apclog.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/apcsignal.o: ../lib/apcsignal.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/apcstatus.o: ../lib/apcstatus.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/asys.o: ../lib/asys.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/newups.o: ../lib/newups.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/md5.o: ../lib/md5.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/sleep.o: ../lib/sleep.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/inet_pton.o: ../lib/inet_pton.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/statmgr.o:	  ../lib/statmgr.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/amutex.o:	  ../lib/amutex.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/athread.o:	  ../lib/athread.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/astring.o:	  ../lib/astring.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/atimer.o:	  ../lib/atimer.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/autil.o:	  ../lib/autil.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/gethostname.o:	  ../lib/gethostname.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# Files in src/drivers
+OBJS_DRIVERS = \
+	$(OBJDIR)/drivers.o
+
+$(OBJDIR)/drivers.o:  ../drivers/drivers.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# Files in src/drivers/test
+OBJS_TESTDRV = \
+	$(OBJDIR)/testdriver.o
+
+$(OBJDIR)/testdriver.o:  ../drivers/test/testdriver.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# Files in src/drivers/pcnet
+OBJS_PCNETDRV = \
+	$(OBJDIR)/pcnet.o
+
+$(OBJDIR)/pcnet.o:  ../drivers/pcnet/pcnet.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# Files in src/drivers/net
+OBJS_NETDRV = \
+	$(OBJDIR)/net.o
+
+$(OBJDIR)/net.o:  ../drivers/net/net.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# Files in src/drivers/apcsmart
+OBJS_SMARTDRV = \
+	$(OBJDIR)/smart.o	\
+	$(OBJDIR)/smartoper.o	\
+	$(OBJDIR)/smartsetup.o	\
+	$(OBJDIR)/smartsetup2.o \
+	$(OBJDIR)/smarteeprom.o
+
+$(OBJDIR)/smart.o: ../drivers/apcsmart/smart.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/smartoper.o: ../drivers/apcsmart/smartoper.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/smartsetup.o: ../drivers/apcsmart/smartsetup.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/smartsetup2.o: ../drivers/apcsmart/smartsetup2.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/smarteeprom.o: ../drivers/apcsmart/smarteeprom.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# Files in src/drivers/dumb
+OBJS_DUMBDRV = \
+	$(OBJDIR)/dumboper.o   \
+	$(OBJDIR)/dumbsetup.o
+
+$(OBJDIR)/dumboper.o: ../drivers/dumb/dumboper.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/dumbsetup.o: ../drivers/dumb/dumbsetup.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# Files needed for usb driver
+
+OBJS_USBDRV := \
+   $(OBJDIR)/generic-usb.o \
+   $(OBJDIR)/usb.o \
+   $(OBJDIR)/hidutils.o \
+   $(OBJDIR)/data.o \
+   $(OBJDIR)/parse.o \
+   $(OBJDIR)/descr.o
+
+#
+# DIRTY UGLY HACK ALERT! libusb.h should be generated by ./configure,
+# but we're not running configure for mingw32 build yet so we fake it
+# with echo.
+#
+ifeq ($(USBTYPE),generic)
+   $(OBJDIR)/generic-usb.o: ../drivers/usb/generic/generic-usb.c
+	   echo "#include \"$(DEPKGS)/include/usb.h\"" > ../drivers/usb/generic/libusb.h
+	   $(CXX) -c $< -o $@
+else
+   OBJS_USBDRV += $(OBJDIR)/libusb-winusb-bridge.o
+
+   $(OBJDIR)/generic-usb.o: ../drivers/usb/generic/generic-usb.c
+	   echo "#include \"libusb-winusb-bridge.h\"" > ../drivers/usb/generic/libusb.h
+	   $(CXX) -c $< -o $@
+
+   $(OBJDIR)/libusb-winusb-bridge.o: libusb-winusb-bridge.c
+	   $(CXX) -c $< -o $@
+endif
+
+$(OBJDIR)/hidutils.o: ../drivers/usb/generic/hidutils.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/usb.o: ../drivers/usb/usb.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/data.o: ../libusbhid/data.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/parse.o: ../libusbhid/parse.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/descr.o: ../libusbhid/descr.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# Files in src/drivers/snmp
+OBJS_SNMPDRV = \
+	$(OBJDIR)/drv_powernet.o \
+	$(OBJDIR)/drv_rfc1628.o  \
+	$(OBJDIR)/powernet-mib-mgr.o \
+	$(OBJDIR)/rfc1628-mib-mgr.o \
+	$(OBJDIR)/snmp.o
+
+$(OBJDIR)/drv_powernet.o: ../drivers/snmp/drv_powernet.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/drv_rfc1628.o: ../drivers/snmp/drv_rfc1628.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/powernet-mib-mgr.o: ../drivers/snmp/powernet-mib-mgr.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/rfc1628-mib-mgr.o: ../drivers/snmp/rfc1628-mib-mgr.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/snmp.o: ../drivers/snmp/snmp.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# Files in src/drivers/snmplite
+OBJS_SNMPLITEDRV = \
+	$(OBJDIR)/snmplite.o \
+	$(OBJDIR)/mibs.o \
+	$(OBJDIR)/apc-mib.o \
+	$(OBJDIR)/rfc1628-mib.o \
+   $(OBJDIR)/mge-mib.o \
+	$(OBJDIR)/asn.o  \
+	$(OBJDIR)/snmpeng.o
+
+$(OBJDIR)/snmplite.o: ../drivers/snmplite/snmplite.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/mibs.o: ../drivers/snmplite/mibs.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/apc-mib.o: ../drivers/snmplite/apc-mib.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/rfc1628-mib.o: ../drivers/snmplite/rfc1628-mib.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/mge-mib.o: ../drivers/snmplite/mge-mib.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/asn.o: ../drivers/snmplite/asn.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/snmpeng.o: ../drivers/snmplite/snmp.cpp
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# Files in src
+OBJS_SRC = \
+	$(OBJDIR)/action.o \
+	$(OBJDIR)/apcnis.o \
+	$(OBJDIR)/device.o \
+	$(OBJDIR)/options.o \
+	$(OBJDIR)/reports.o
+
+$(OBJDIR)/action.o:  ../action.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/apcnis.o:  ../apcnis.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/device.o:  ../device.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/options.o:  ../options.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/reports.o:  ../reports.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# apcupsd objects
+OBJS_APCUPSD = \
+	$(OBJDIR)/apcupsd.o
+
+$(OBJDIR)/apcupsd.o:  ../apcupsd.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# apctest objects
+OBJS_APCTEST = \
+	$(OBJDIR)/apctest.o
+
+$(OBJDIR)/apctest.o:  ../apctest.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# apcaccess objects
+OBJS_ACCESS = \
+	$(OBJDIR)/apcaccess.o
+
+$(OBJDIR)/apcaccess.o:	../apcaccess.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# smtp objects
+OBJS_SMTP = \
+	$(OBJDIR)/smtp.o \
+	$(OBJDIR)/apclog.o \
+	$(OBJDIR)/asys.o \
+	$(OBJDIR)/apcerror.o
+
+$(OBJDIR)/smtp.o:	../smtp.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# shutdown objects
+OBJS_SHUT = \
+	$(OBJDIR)/shutdown.o
+
+$(OBJDIR)/shutdown.o: shutdown.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# popup objects
+OBJS_POP = \
+	$(OBJDIR)/popup.o
+
+$(OBJDIR)/popup.o: popup.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# email objects
+OBJS_EMAIL = \
+	$(OBJDIR)/email.o \
+	$(OBJDIR)/apclog.o \
+	$(OBJDIR)/asys.o \
+	$(OBJDIR)/apcerror.o 
+
+$(OBJDIR)/email.o: email.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# background objects
+OBJS_BKG = \
+	$(OBJDIR)/background.o
+
+$(OBJDIR)/background.o:	background.c
+	$(CXX) -c $< -o $@
+
+######################################################################
+
+# apctray objects
+OBJS_APT = \
+   $(OBJDIR)/apctray.o \
+   $(OBJDIR)/winabout.o \
+   $(OBJDIR)/winevents.o \
+   $(OBJDIR)/winstat.o \
+   $(OBJDIR)/apclog.o \
+   $(OBJDIR)/apclibnis.o \
+   $(OBJDIR)/asys.o \
+   $(OBJDIR)/apcerror.o \
+   $(OBJDIR)/wintray.o \
+   $(OBJDIR)/winres.res \
+   $(OBJDIR)/balloonmgr.o \
+   $(OBJDIR)/meter.o \
+   $(OBJDIR)/listview.o \
+   $(OBJDIR)/instmgr.o \
+   $(OBJDIR)/winconfig.o \
+   $(OBJDIR)/astring.o \
+   $(OBJDIR)/statmgr.o \
+   $(OBJDIR)/amutex.o \
+   $(OBJDIR)/gethostname.o
+
+$(OBJDIR)/winabout.o:  winabout.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/winevents.o: winevents.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/apctray.o:   apctray.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/winstat.o:	  winstat.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/wintray.o:	  wintray.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/balloonmgr.o:	balloonmgr.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/meter.o:	meter.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/listview.o:	listview.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/instmgr.o:	instmgr.cpp
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/winconfig.o:	winconfig.cpp
+	$(CXX) -c $< -o $@
+
+# Windows resource file formatted version (a,b,c,d)
+comma := ,
+RCVERSION = $(subst .,$(comma),$(firstword $(subst -, ,$(VERSION))).0)
+
+$(OBJDIR)/winres.res:  winres.rc
+	sed -e "s/\$$VERSION/$(VERSION)/" \
+       -e "s/FILEVERSION.*/FILEVERSION     $(RCVERSION)/" \
+       -e "s/PRODUCTVERSION.*/PRODUCTVERSION  $(RCVERSION)/" $< | \
+   $(WINDRES) $(INCLUDE_ICONS) -O coff -o $@
+
+######################################################################
+
+GAPCMON_CFLAGS=-I$(DEPKGS)/glib/include/gtk-2.0 \
+   -I$(DEPKGS)/glib/lib/gtk-2.0/include \
+   -I$(DEPKGS)/glib/include/atk-1.0 \
+   -I$(DEPKGS)/glib/include/pango-1.0 \
+   -I$(DEPKGS)/glib/include/glib-2.0 \
+   -I$(DEPKGS)/glib/lib/glib-2.0/include \
+   -I$(DEPKGS)/glib/include/gconf/2 \
+   -I$(DEPKGS)/glib/include/orbit-2.0 \
+   -I$(DEPKGS)/glib/include/cairo \
+   -mms-bitfields
+
+OBJS_GAPCMON = \
+   $(OBJDIR)/gapcmon.o
+
+$(OBJDIR)/gapcmon.o: ../gapcmon/gapcmon.c
+	$(CC) $(GAPCMON_CFLAGS) -c $< -o $@
+
+######################################################################
+
+# multimon objects
+$(OBJDIR)/cgilib.o: ../cgi/cgilib.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/multimon.o: ../cgi/multimon.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/upsfetch.o: ../cgi/upsfetch.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/upsfstats.o: ../cgi/upsfstats.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/upsstats.o: ../cgi/upsstats.c
+	$(CXX) -c $< -o $@
+
+$(OBJDIR)/upsimage.o: ../cgi/upsimage.c
+	$(CXX) -c $< -DSYS_IMGFMT_PNG -DNONDLL -o $@
+
+######################################################################
+
+APC_OBJS = $(OBJS_SRC) $(LIB_OBJS) $(OBJS_COMPAT) $(OBJS_WIN) \
+	   $(OBJS_DRIVERS) $(OBJS_TESTDRV) $(OBJS_NETDRV) \
+	   $(OBJS_SMARTDRV) $(OBJS_DUMBDRV) $(OBJS_USBDRV) $(OBJS_SNMPLITEDRV) \
+	   $(OBJS_SNMPDRV) $(OBJS_PCNETDRV) $(OBJS_APCUPSD)
+APC_LIBS = $(LIB_PTHREADS) $(LIB_LIBUSB) $(LIB_NETSNMP) \
+	-L$(LIB_MINGW) -luser32 -lgdi32 -lwsock32 -lnetapi32
+
+TEST_OBJS = $(OBJS_SRC) $(LIB_OBJS) $(OBJS_COMPAT) \
+	   $(OBJS_DRIVERS) $(OBJS_TESTDRV) $(OBJS_NETDRV) \
+	   $(OBJS_SMARTDRV) $(OBJS_DUMBDRV) $(OBJS_USBDRV) $(OBJS_SNMPLITEDRV) \
+	   $(OBJS_SNMPDRV) $(OBJS_PCNETDRV) $(OBJS_APCTEST)
+TEST_LIBS = $(LIB_PTHREADS) $(LIB_LIBUSB) $(LIB_NETSNMP) \
+   -L$(LIB_MINGW) -luser32 -lwsock32 -lnetapi32
+
+ACCESS_OBJS = $(OBJS_ACCESS) $(LIB_OBJS) $(OBJS_COMPAT)
+ACCESS_LIBS = $(LIB_PTHREADS) -L$(LIB_MINGW) -luser32 -lwsock32 -lnetapi32
+
+SHUT_OBJS = $(OBJS_SHUT)
+SHUT_LIBS = 
+
+POP_OBJS = $(OBJS_POP)
+POP_LIBS = 
+
+BKG_OBJS = $(OBJS_BKG)
+BKG_LIBS = 
+
+APT_OBJS = $(OBJS_APT) $(OBJS_COMPAT)
+APT_LIBS = -L$(LIB_MINGW) -luser32 -lgdi32 -lwsock32 -lnetapi32 -lrpcrt4 $(LIB_PTHREADS)
+
+SMTP_OBJS = $(OBJS_SMTP) $(OBJS_COMPAT)
+SMTP_LIBS = $(APC_LIBS)
+
+EMAIL_OBJS = $(OBJS_EMAIL) $(OBJS_COMPAT)
+EMAIL_LIBS = -L$(LIB_MINGW) -lwsock32 -lmapi32
+
+GAPCMON_OBJS = $(OBJS_GAPCMON)
+GAPCMON_LIBS = $(LIB_PTHREADS) -L$(DEPKGS)/glib/lib -Wl,--export-dynamic \
+   -lgtk-win32-2.0 -lgdk-win32-2.0 -latk-1.0 -lgdk_pixbuf-2.0 -lpangowin32-1.0 \
+   -lpango-1.0 -lgobject-2.0 -lgconf-2 -lORBit-2 -lm -lgmodule-2.0 \
+   -lgthread-2.0 -lglib-2.0
+
+MULTIMON_OBJS = $(OBJDIR)/upsfetch.o $(OBJDIR)/cgilib.o $(OBJDIR)/multimon.o \
+   $(OBJDIR)/apclibnis.o $(OBJDIR)/asys.o ${OBJDIR}/apcerror.o \
+   ${OBJDIR}/netcompat.o $(OBJDIR)/gethostname.o
+MULTIMON_LIBS = -L$(LIB_MINGW) -lwsock32
+
+UPSSTATS_OBJS = $(OBJDIR)/upsfetch.o $(OBJDIR)/cgilib.o $(OBJDIR)/upsstats.o \
+   $(OBJDIR)/apclibnis.o $(OBJDIR)/asys.o ${OBJDIR}/apcerror.o \
+   ${OBJDIR}/netcompat.o $(OBJDIR)/gethostname.o
+UPSSTATS_LIBS = -L$(LIB_MINGW) -lwsock32
+
+UPSFSTATS_OBJS = $(OBJDIR)/upsfetch.o $(OBJDIR)/cgilib.o $(OBJDIR)/upsfstats.o \
+   $(OBJDIR)/apclibnis.o $(OBJDIR)/asys.o ${OBJDIR}/apcerror.o \
+   ${OBJDIR}/netcompat.o $(OBJDIR)/gethostname.o
+UPSFSTATS_LIBS = -L$(LIB_MINGW) -lwsock32
+
+UPSIMAGE_OBJS = $(OBJDIR)/cgilib.o $(OBJDIR)/upsimage.o \
+   $(OBJDIR)/asys.o ${OBJDIR}/apcerror.o
+UPSIMAGE_LIBS = -L$(DEPKGS)/lib -lgd -lpng12 -lz
+
+# Targets
+
+objdir:
+	mkdir -p ${OBJDIR}
+
+all: objdir apcupsd.exe apcaccess.exe shutdown.exe popup.exe apctest.exe \
+     smtp.exe email.exe background.exe apctray.exe multimon.cgi upsstats.cgi \
+     upsfstats.cgi upsimage.cgi
+
+clean:
+	rm -rf $(OBJDIR) *.exe *.cgi
+	rm -rf pthreadGCE.dll mingwm10.dll
+
+pthreadGCE.dll: $(DEPKGS)/lib/pthreadGCE.dll
+	cp -f $(DEPKGS)/lib/pthreadGCE.dll .
+
+mingwm10.dll: $(MINGW)/mingw32/bin/mingwm10.dll
+	cp -f $(MINGW)/mingw32/bin/mingwm10.dll .
+
+# Link the apcupsd daemon executable ...
+apcupsd.exe: $(APC_OBJS) pthreadGCE.dll mingwm10.dll
+	$(CXX) $(APC_OBJS) $(APC_LIBS) -mwindows -o $@
+
+apcaccess.exe: $(ACCESS_OBJS) pthreadGCE.dll mingwm10.dll
+	$(CXX) $(ACCESS_OBJS) $(ACCESS_LIBS) -o $@
+
+apctest.exe: $(TEST_OBJS) pthreadGCE.dll mingwm10.dll
+	$(CXX) $(TEST_OBJS) $(TEST_LIBS) -o $@
+
+shutdown.exe: $(SHUT_OBJS) mingwm10.dll
+	$(CXX) $(SHUT_OBJS) $(SHUT_LIBS) -mwindows -o $@
+
+popup.exe: $(POP_OBJS) mingwm10.dll
+	$(CXX) $(POP_OBJS) $(POP_LIBS) -mwindows -o $@
+
+email.exe: $(EMAIL_OBJS) mingwm10.dll
+	$(CXX) $(EMAIL_OBJS) $(EMAIL_LIBS) -o $@
+
+background.exe: $(BKG_OBJS) mingwm10.dll
+	$(CXX) $(BKG_OBJS) $(BKG_LIBS) -mwindows -o $@
+
+smtp.exe: $(SMTP_OBJS) mingwm10.dll
+	$(CXX) $(SMTP_OBJS) $(SMTP_LIBS) -o $@
+
+apctray.exe: $(APT_OBJS) mingwm10.dll
+	$(CXX) $(APT_OBJS) $(APT_LIBS) -mwindows -o $@
+
+gapcmon.exe: $(GAPCMON_OBJS)
+	$(CC) $(GAPCMON_OBJS) $(GAPCMON_LIBS) -mwindows -o $@
+
+multimon.cgi: $(MULTIMON_OBJS) mingwm10.dll
+	$(CXX) $(MULTIMON_OBJS) $(MULTIMON_LIBS) -o $@
+
+upsstats.cgi: $(UPSSTATS_OBJS) mingwm10.dll
+	$(CXX) $(UPSSTATS_OBJS) $(UPSSTATS_LIBS) -o $@
+
+upsfstats.cgi: $(UPSFSTATS_OBJS) mingwm10.dll
+	$(CXX) $(UPSFSTATS_OBJS) $(UPSFSTATS_LIBS) -o $@
+
+upsimage.cgi: $(UPSIMAGE_OBJS) mingwm10.dll
+	$(CXX) $(UPSIMAGE_OBJS) $(UPSIMAGE_LIBS) -o $@
+
+winapcupsd.exe: all installer/*.nsi installer/*.nsh installer/*.ini $(TEXTFILES)
+	$(STRIP) *.exe *.dll *.cgi
+	$(UNIX2DOS) -k -n $(foreach f,$(TEXTFILES),$(f) installer/$(subst .txt,,$(notdir $(f))).txt)
+	$(MAKENSIS) -V2 -DDEPKGS="$(DEPKGS)" -DVERSION="$(VERSION)" -DTOPDIR="${TOPDIR}" -DUSBTYPE="${USBTYPE}" installer/winapcupsd.nsi

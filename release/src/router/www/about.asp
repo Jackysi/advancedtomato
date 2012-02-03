@@ -132,6 +132,9 @@ Copyright (C) 2010 Keith Moyer,<br>
 <!-- SNMP-BEGIN -->
 - SNMP integration and GUI<br>
 <!-- SNMP-END -->
+<!-- UPS-BEGIN -->
+- APCUPSD integration and GUI (implemented by @arrmo)<br>
+<!-- UPS-END -->
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>

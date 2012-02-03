@@ -96,7 +96,13 @@ static void set_lan_hostname(const char *wan_hostname)
 	if ((f = fopen("/etc/hosts", "w"))) {
 		fprintf(f, "127.0.0.1  localhost\n");
 		if ((s = nvram_get("lan_ipaddr")) && (*s))
-			fprintf(f, "%s  %s\n", s, nvram_safe_get("lan_hostname"));
+			fprintf(f, "%s  %s %s-lan\n", s, nvram_safe_get("lan_hostname"), nvram_safe_get("lan_hostname"));
+		if ((s = nvram_get("lan1_ipaddr")) && (*s) && (strcmp(s,"") != 0))
+			fprintf(f, "%s  %s-lan1\n", s, nvram_safe_get("lan_hostname"));
+		if ((s = nvram_get("lan2_ipaddr")) && (*s) && (strcmp(s,"") != 0))
+			fprintf(f, "%s  %s-lan2\n", s, nvram_safe_get("lan_hostname"));
+		if ((s = nvram_get("lan3_ipaddr")) && (*s) && (strcmp(s,"") != 0))
+			fprintf(f, "%s  %s-lan3\n", s, nvram_safe_get("lan_hostname"));
 #ifdef TCONFIG_IPV6
 		if (ipv6_enabled()) {
 			fprintf(f, "::1  localhost\n");
@@ -695,8 +701,6 @@ void do_static_routes(int add)
 	p = buf;
 	while ((q = strsep(&p, ">")) != NULL) {
 		if (vstrsep(q, "<", &dest, &gateway, &mask, &metric, &ifname) != 5) continue;
-//		ifname = nvram_safe_get((*ifname == 'L') ? "lan_ifname" :
-//					((*ifname == 'W') ? "wan_iface" : "wan_ifname"));
 		ifname = nvram_safe_get(((strcmp(ifname,"LAN")==0) ? "lan_ifname" :
 					((strcmp(ifname,"LAN1")==0) ? "lan1_ifname" :
 					((strcmp(ifname,"LAN2")==0) ? "lan2_ifname" :
@@ -715,7 +719,7 @@ void do_static_routes(int add)
 	free(buf);
 
 	char *modem_ipaddr;
-	if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") )
+	if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") || nvram_match("wan_proto", "static") )
 	    && (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0") ) {
 		char ip[16];
 		char *end = rindex(modem_ipaddr,'.')+1;

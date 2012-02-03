@@ -1,0 +1,100 @@
+         Technical notes on my code submission of 20 Nov 99
+                        Kern Sibbald
+
+General:
+- Again, a bunch of tabbing problems. Sorry Riccardo. I
+  will fix my editor ...
+- This submission mainly contains the code necessary to
+  add the last 5 events to the cgi programs. I am planning
+  to change the code a bit in the near future to possibly
+  pass the last 10 events.
+
+Changes submitted this submission:
+- I created a new file apcevents.c to send the last
+  5 events over the network. As currently configured,
+  it truncates the events file when it reaches 50
+  events rewriting only the last 5 events. This prevents
+  it from growing indefinitely.
+- The events are written to a temporary file when they
+  are generated. This resolves the problem of multiple
+  processes generating events as well as preserving events
+  across a system crash or restarting of apcupsd.
+- I added a new configuration statement
+
+   EVENTFILE <filename>
+  
+  That tells apcupsd where to create the events file.
+  If this name is not specified, no events will be
+  available over the network.
+- I removed the old le structures that I had created 
+  in the shared memory area to hold the last events. They
+  are now written to a file.
+- I added code to log_event() to write the event to a file
+  if the file is opened.
+- I reworked the code in the server to ensure that if it
+  error_aborts, it informs the other end to prevent the
+  client from hanging for a long time.  More work is
+  needed for the integrated server to ensure that apcupsd
+  does not die when the server dies.
+- Changed the STATUS output to have the current time and
+  date on the END APC record. The DATE record contains
+  the time and date that the UPS was last polled.
+- Fixed the name of unknown() to be save_dumb_status() 
+  and added a bit of documentation to the subroutine.
+- Created a new cgi program called upsfstats.c (I think
+  this was in the last submission). This program produces
+  an apcaccess like status giving all information available
+  from the UPS.         
+- I updated the cgi multimon.c to output the last 5 events
+  and to have a link to produce the full status by calling
+  upsfstats.cgi.
+- I cleaned up some of the html that was written. It still is
+  not really up to standards, but it is better. And it displays
+  correctly on 3 browsers.                
+- I set the default NETSTATUS off in the configuration file.
+- Updated the client test program to use the apcnetlib.
+
+                Kern's ToDo List
+
+To do:
+- Fix my editor to have a mode to leave tabs alone.
+- Check error_aborts in apcnetd (especially apcserver.c)
+- Documentation.
+- Automatic conversion of old apcupsd.config files
+  to the new format?
+- Eliminate the rest of the printfs().
+- Check and double check killpwr changes.
+- Possibly retab new cgi/net server code
+- Create new line for status bits but in English
+- Expand Last UPS Self Test field in cgi program
+- Produce a RPM for RedHat
+- Audit apcconfig.c
+- Enhance documentation of apcupsd.conf
+- Fix apcupsd so that it respawns the server if it
+  dies (limit number of times). This will avoid the
+  possibility that someone can bring down our apcupsd
+  by connecting via Internet (denial of service attack,
+  or exploit possible buffer overflow).
+- Eliminate rest of character command codes using new
+  capabilities code in apcsetup.c (for setup stuff).
+- Remember date and time when apcupsd started.
+- Add events display to the full upsfstats.cgi
+
+Wish list:
+- Add more commands (individual variables) to apcnetd
+- Accumlate time on batteries and number of transfers
+  to batteries. Perhaps save history in file so that the
+  info can be recovered if apcupsd restarts.
+
+Done:
+- Add "events" command to the network interface
+  to retrieve the last five events.
+- Save last 5 major events and pass them in STATUS file.
+- Fix name of unknown() and change comments in subroutine
+  save_dumb_status() ...
+- Make the END record of the STATUS command
+  have the current time/date rather than the
+  poll time/date.
+- Add the full status display to the cgi program (same
+  as currently printed by "apcaccess status"
+

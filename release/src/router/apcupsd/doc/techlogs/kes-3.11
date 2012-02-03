@@ -1,0 +1,65 @@
+             Technical notes on version 3.11.0
+                        Kern Sibbald
+
+General:
+26Nov05
+- Update the version
+- Cleanup errors in the uninstall script
+- Remove a few MessageBoxes that annoy on Win98
+- Set default UPSTYPE to apcsmart (was smartups)
+- Add examples to installer script.
+- Try to remove all files on uninstall.
+- Add "missing" installer macro files.
+- Implement NSIS installer. It can be downloaded from:
+  http://sourceforge.net/projects/nsis/  I'm using version
+  2.0, but the latest one is 2.11
+- Create winapcupsd.nsi.in file in src/win32 directory.
+- Modify configure.in to generate winapcupsd.nsi file.
+- Remove most of the old ServiceHelper code. It is not used,
+  and creates problems on remote logins.
+- Add nagios plugin contributed by Christian Masopust.
+- Add all the new cygwin 1.5.18 binaries and the dll.
+- Eliminate some compiler warnings.
+- Make the old make binary-release work.
+- Implement a new target for building the NSIS installer.
+    ./configure (options...)
+    make
+    cd src/win32
+    make winapcupsd.exe
+
+26Jun05
+- Correct compiler warnings in cgi for g++ 4.0
+13Jun05
+- Make /usr/share/man the default man directory.  
+- Require C++ compiler and use full path.
+12Jun05
+- Renamed:
+    apcdevice.c    device.c
+    apcreports.c   reports.c
+    apcaction.c    action.c
+- Added set_replacebatt(value) and set_shutdownimm(value)
+11Jun05
+- Renamed:
+    apc_defines.h  defines.h
+    apc_struct.h   struct.h
+    apc_drivers.h  drivers.h
+    apc_nis.h      nis.h
+    apc_extern.h   extern.h 
+- Replace all old bit set/tests with methods. There are a
+  few exceptions to this (multimon.c, ...) generally where
+  status bits from the network are being examined.
+06Jun05
+- Implement trace to file with -T option.
+- Convert all set/clear/test of Status to method accesses.
+  There are some inconsistencies that must be resolved.
+- Eliminate apc_version.h by combining it with version.h
+01Jun05
+- Get rid of old forking code.
+- Start conversion of Status word to method accesses.
+15May05
+- Convert the core code to be compiled by C++. Most of it was already
+  done.
+- Modify the UPSINFO structure to be a class so that I can add class
+  methods for accessing some of the variables (status bits).
+05Apr05
+- Move kes-3.10.17 to new 2005 directory (keeps techlogs cleaner).

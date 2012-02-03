@@ -1,0 +1,18 @@
+             Technical notes on version 3.8.3 
+                        10 July 2001
+                        Kern Sibbald
+
+General:
+- Updated manual to include ideas/suggestions received
+  from users installing 3.8.2.
+- Fixed safe.apccontrol to be a bit more system independent 
+  (thanks to Steven Orr for the idea).
+- Added safe.apccontrol.in so that it is configured properly.
+- Added a big warning message to the end of the ./configure
+  output if /usr/ucb is on your path.
+- Fixed reference to lock file in Solaris apcupsd.in so it is
+  properly configured.
+- Removed unused variable from Solaris apcupsd.in
+
+
+Changes submitted this submission:

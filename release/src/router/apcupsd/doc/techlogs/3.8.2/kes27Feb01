@@ -1,0 +1,66 @@
+         Technical notes on version 3.8.1-25Feb01
+                        Kern Sibbald
+
+General:
+- This version has a few bug fixes, and is for
+  limited distribution to test bug fixes.
+
+Changes submitted this submission:
+- Added NetBSD code submitted
+- Corrected the make depend to only update the Makefile
+  rather than both Makefile and Makefile.in
+- Added a new AVERSION define to version.h which is meant
+  to allow us to maintain source code with multiple
+  versions.
+- Reformatted apcaction.c to Riccardo's 4.0 standards
+- Modified apcaction.c to be compatible with version 4.0
+- Changed start_thread() to start_child().
+- Changed clean_threads() to terminate_children().
+- In apcexec.c changed calling sequence of execute_command()
+  to conform to version 4.0 (added UPSINFO argument).
+- To correct a problem with zombies on BSD systems, I added
+  a UPSINFO variable that is the count of children created
+  by execute_command(). do_action() in apcaction.c was
+  modified to check this variable, do a non-blocking wait,
+  and decrement it if any children were found.  This should
+  properly reap the zombies.
+- Added additional debug information (strerror) to failed
+  semaphore and shared memory system call errors in apcipc.c
+- In apcnet.c, removed ChangeBatt from slave because it is
+  apparently being set incorrectly on some BSD masters when
+  apcupsd is restarted.
+- Added an O_NDELAY to the serial port open() in apcserial.c
+  to avoid infinite waits on some BSD systems. This required
+  the addition of an fcntl() after the open to reset the
+  blocking read(), which is needed in apcupsd.
+- Removed an unwanted break in a switch in apcstatus.c that
+  caused the status output for BackUPS Pros to be cut short.
+- Added a HAVE_POWERFLUTE define and changed powerflute.c to
+  use it. This prevents a lot of the errors seen on systems
+  that don't have ncurses.
+- configure.in, added HAVE_NETBSD_OS, HAVE_POWERFLUTE, and
+  modified generation of makefiles to only configure the files
+  in the recognized distribution.  Modified the automatic 
+  make of the dependencies to use "make depend"
+- Removed the call on the shell to execute a script file in
+  apccontrol. This permits execution of any type of file, but
+  it now requires that the file be executable.
+- Corrected the error in the name of ANNOYDELAY in the man
+  file as well as in the html manual.
+- Added a number of updates and corrections to the html manual,
+  thanks to reports from users.
+- Updated all the script files in <src>/etc to correct the DoS
+  problem that was reported by one of our users - thanks.
+- added a new gupsc directory that has the GNOME realtime 
+  monitoring program with very pretty dials. 
+- Added num_execed_children variable to UPSINFO structure.
+- Added .bat files to the win32/bin directory as they seem
+  to be more reliable than the .pif files especially on WinNT.
+- Enhanced shutdown.c in win32 to try a simple shutdown, but
+  on NT, it also does an InitiateSystemShutdown.
+
+
+
+
+
+

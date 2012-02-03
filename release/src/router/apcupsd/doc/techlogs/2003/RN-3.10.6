@@ -1,0 +1,58 @@
+
+          Release Notes for Apcupsd 3.10.6
+
+General:
+This new release has been in the works for over two years,
+and it represents a significant and fundamental change
+in apcupsd due to the efforts of Riccardo Faccetti that is the
+addition of UPS drivers allowing apcupsd to be more easily adapted
+to different UPS architechtures.
+
+Changes since apcupsd 3.10.6
+
+- Integrated Alexander Schremmer's stdout fix for Windows --
+  keeps debug printout from being sent to the serial port.
+- Bob Kuo found a bug that caused a seg fault for newer USB
+  UPSes. The error was that my code walked off the end of a
+  table in linux-usb.c if the USB code was not in the
+  table.
+
+Major Changes since version 3.8.6 this Release:
+
+- The manual has been totally rewritten/reorganized by
+  Eric S. Raymond. Thanks.
+- Support for USB UPSes.
+- Full kill power for USB UPSes is supported if you have
+  a kernel 2.4.22 or higher, or you apply the kernel
+  patch supplied by Sergey Vlasov.  See the examples directory.
+- Version 3.10.6 (as opposed to 3.8.x) has device specific drivers,
+  and thus can have a much smaller footprint by turning off unused
+  drivers and parts of the code. See the new ./configure options.
+- There is a new networking driver (net) that uses the NIS interface
+  rather than the older master/slave networking. It is very
+  simple to setup, but has certain disadvantages -- for details 
+  see the manual
+- Win32 daemons work much better with a new version of cygwin.
+- Using a special cable (easy to build), you can run your APC
+  USB UPSes in serial mode.
+- The apctest program has been enhanced to do EEPROM programming in
+  a much more interactive way than the prior versions.
+
+Other Changes this Release:
+
+- The rpms now build without being root.
+- A number of bug fixes.
+- Support for additional systems, UPSes, and cables.
+- Support for system gd program rather than older version we supply.
+- pthreads is turned on by default, and we no longer support the
+  old forking version. We have left the code in case anyone needs
+  it, but there is some fixing to do to make it work.
+
+
+Items to note:  !!!!!
+- The default NIS port has changed from 7000 to 3551. Port 3551 has been
+  officially assigned to apcupsd by IANA.
+- A number of directive names have changed since 3.8.6, so please check
+  your .conf file carefully, or better yet, rename your old version so    
+  that apcupsd will install the new one, then make any minor modifications
+  that you need.

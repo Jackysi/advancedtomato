@@ -1,0 +1,48 @@
+Apcupsd-3.10.10-1 RPM Release Notes
+18 January 2004
+D. Scott Barninger
+<barninger at fairfieldcomputers dot com>
+
+These release notes detail changes in the rpm packages. Please 
+see the release notes in the tarball for other changes.
+
+*****************************************************************
+* This rpm release contains some important changes since 3.10.8 *
+*****************************************************************
+
+The platform designator (rh7, rh8, rh9) has been
+REMOVED from the package names as this was creating
+some problems. Hence, you CAN NOT upgrade existing
+3.10.8 or lower installations with these packages (rpm -U).
+
+To upgrade:
+1. Backup your configuration file (/etc/apcupsd/apcupsd.conf)
+"just to be safe."
+2. Uninstall the old apcupsd package, ie.
+rpm -e apcupsd-usb-rh9
+If you are not sure what package name is installed do
+rpm -qa | grep apcupsd
+3. Install the new package with rpm -i
+
+*****************
+* Other Changes *
+*****************
+
+- This release adds the net driver which was missing from previous builds.
+
+- The usb serial port device has been set to BLANK in the usb package which 
+will cause apcupsd to search all known locations. This eliminates the problem 
+with the "nonstandard" locations which were used in RedHat 7.x. The previous
+patch used to fix that has been eliminated.
+
+******************
+* Platform Notes *
+******************
+
+We now have a dedicated box dual-booting RedHat 7.3 and 8.0 for the purpose of
+providing continued packaging support as long as it is desired. All packages 
+are built with all of the latest applicable updates applied. In the case of
+RedHat 7 and 8 we are pulling in the latest Progeny updates as well thanks to
+the folks at http://oss.redundant.com/pub/party-updates/ 
+<party-updates at arrrrrr dot com>.
+

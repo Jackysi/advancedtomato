@@ -27,6 +27,7 @@ var colors = [
 	['Green &amp; Blue', '#118811', '#6495ed'], ['Blue &amp; Orange', '#003EBA', '#FF9000'],
 	['Blue &amp; Red', '#003EDD', '#CC4040'], ['Blue', '#22f', '#225'], ['Gray', '#000', '#999'],
 	['Red &amp; Black', '#d00', '#000']];
+//var hostnamecache = [];
 
 function xpsb(byt)
 {
@@ -191,6 +192,10 @@ function loadData()
 				if (h.hide == 1) continue;
 			}
 
+			if (typeof(h.hide) != 'undefined') {
+				if (h.hide == 1) continue;
+			}
+
 			if (updateReTotal) {
 				h.rx_total = h.rx_max = 0;
 				h.tx_total = h.tx_max = 0;
@@ -215,13 +220,13 @@ function loadData()
 			if (h.rx_max > xx_max) xx_max = h.rx_max;
 			if (h.tx_max > xx_max) xx_max = h.tx_max;
 
-			t = i;									// by default, show only the IP address (or IF name)
+			t = i;											// by default, show only the IP address (or IF name)
 			if ((typeof(hostnamecache) != 'undefined') && (hostnamecache[i] != null)) {
 				if (nvram['cstats_labels'] != null ) {
-					if (nvram['cstats_labels'] == '1') {    // if known, show only the hostname
+					if (nvram['cstats_labels'] == '1') {	// if known, show only the hostname
 						t = hostnamecache[i];
 					}
-					if (nvram['cstats_labels'] == '0') {    // show hostname and IP
+					if (nvram['cstats_labels'] == '0') {	// show hostname and IP
 						t = hostnamecache[i] + ' <small>(' + i + ')</small>';
 					}
 				}

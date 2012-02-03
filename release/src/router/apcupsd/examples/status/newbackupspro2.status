@@ -1,0 +1,50 @@
+DATE     : Thu Sep 21 15:20:43 BST 2000
+HOSTNAME : good-machine
+RELEASE  : 3.7.2
+CABLE    : APC Cable 940-0095A
+MODEL    : BACK-UPS PRO 420
+UPSMODE  : Net Master
+SHARE    : NetworkUPS
+UPSNAME  : UPS_IDEN
+STATUS   : ONLINE 
+LINEV    : 243.3 Volts
+LOADPCT  :  41.6 Percent Load Capacity
+BCHARGE  : 100.0 Percent
+TIMELEFT :  12.0 Minutes
+MBATTCHG : 5 Percent
+MINTIMEL : 6 Minutes
+MAXTIME  : 0 Seconds
+MAXLINEV : 246.2 Volts
+MINLINEV : 243.3 Volts
+OUTPUTV  : 243.3 Volts
+SENSE    : High
+DWAKE    : 060 Seconds
+DSHUTD   : 180 Seconds
+DLOWBATT : 02 Minutes
+LOTRANS  : 208.0 Volts
+HITRANS  : 253.0 Volts
+RETPCT   : 050.0 Percent
+ITEMP    : N/A
+ALARMDEL : Low Battery
+BATTV    : 13.9 Volts
+LINEFREQ : 50.0 Hz
+LASTXFER : No transfers since turnon
+SELFTEST : NO
+STESTI   : OFF
+STATFLAG : 0x08 Status Flag
+DIPSW    : N/A
+REG1     : 0x00 Register 1
+REG2     : 0x00 Register 2
+REG3     : 0x00 Register 3
+MANDATE  : 07/25/98
+SERIALNO : GB1234123412
+BATTDATE : 07/25/98
+NOMOUTV  : 230
+NOMBATTV :  12.0
+HUMIDITY : N/A
+AMBTEMP  : N/A
+EXTBATTS : N/A
+BADBATTS : N/A
+FIRMWARE : 11.2.I
+APCMODEL : DWI
+END APC  : Thu Sep 21 15:20:47 BST 2000

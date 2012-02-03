@@ -1,0 +1,27 @@
+--- linux-2.4.26/include/linux/hiddev.h.orig	Sun Jul  4 23:11:15 2004
++++ linux-2.4.26/include/linux/hiddev.h	Sun Jul  4 23:14:51 2004
+@@ -128,10 +128,11 @@
+ 
+ /* hiddev_usage_ref_multi is used for sending multiple bytes to a control.
+  * It really manifests itself as setting the value of consecutive usages */
++#define HID_MAX_MULTI_USAGES 1024
+ struct hiddev_usage_ref_multi {
+ 	struct hiddev_usage_ref uref;
+ 	__u32 num_values;
+-	__s32 values[HID_MAX_USAGES];
++	__s32 values[HID_MAX_MULTI_USAGES];
+ };
+ 
+ /* FIELD_INDEX_NONE is returned in read() data from the kernel when flags
+@@ -213,6 +214,11 @@
+  */
+ 
+ #ifdef CONFIG_USB_HIDDEV
++struct hid_device;
++struct hid_usage;
++struct hid_field;
++struct hid_report;
++
+ int hiddev_connect(struct hid_device *);
+ void hiddev_disconnect(struct hid_device *);
+ void hiddev_hid_event(struct hid_device *hid, struct hid_field *field,

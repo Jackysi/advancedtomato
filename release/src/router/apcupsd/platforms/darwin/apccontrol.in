@@ -1,0 +1,143 @@
+#!@SCRIPTSHELL@
+#
+# Copyright (C) 1999-2002 Riccardo Facchetti <riccardo@master.oasi.gpa.it>
+#
+#  for apcupsd release @VERSION@ (@DATE@) - @DISTNAME@
+#
+# @configure_input@
+#
+#  Note, this is a generic file that can be used by most
+#   systems. If a particular system needs to have something
+#   special, start with this file, and put a copy in the
+#   platform subdirectory.
+#
+
+#
+# These variables are needed for set up the autoconf other variables.
+#
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+
+APCPID=@PIDDIR@/apcupsd.pid
+APCUPSD=@sbindir@/apcupsd
+SHUTDOWN=@SHUTDOWN@
+SCRIPTSHELL=@SCRIPTSHELL@
+SCRIPTDIR=@sysconfdir@
+WALL=wall
+
+# Log notifications using Growl, if available
+GROWLSEARCH="/usr/bin/growlnotify /usr/local/bin/growlnotify /opt/local/bin/growlnotify"
+for GROWL in $GROWLSEARCH ; do
+	if [ -x $GROWL ] ; then
+		WALL="$GROWL -t Apcupsd Notice"
+		break
+	fi
+done
+
+#
+# Concatenate all output from this script to the events file
+#  Note, the following kills the script in a power fail situation
+#   where the disks are mounted read-only.
+# exec >>@LOGDIR@/apcupsd.events 2>&1
+
+#
+# This piece is to substitute the default behaviour with your own script,
+# perl, or C program.
+# You can customize every single command creating an executable file (may be a
+# script or a compiled program) and calling it the same as the $1 parameter
+# passed by apcupsd to this script.
+#
+# After executing your script, apccontrol continues with the default action.
+# If you do not want apccontrol to continue, exit your script with exit 
+# code 99. E.g. "exit 99".
+#
+# WARNING: the apccontrol file will be overwritten every time you update your
+# apcupsd, doing `make install'. Your own customized scripts will _not_ be
+# overwritten. If you wish to make changes to this file (discouraged), you
+# should change apccontrol.sh.in and then rerun the configure process.
+#
+if [ -f ${SCRIPTDIR}/${1} -a -x ${SCRIPTDIR}/${1} ]
+then
+    ${SCRIPTDIR}/${1} ${2} ${3} ${4}
+    # exit code 99 means he does not want us to do default action
+    if [ $? = 99 ] ; then
+	exit 0
+    fi
+fi
+
+case "$1" in
+    killpower)
+	echo "Apccontrol doing: ${APCUPSD} --killpower on UPS ${2}"
+	sleep 10
+	${APCUPSD} --killpower
+	echo "Apccontrol has done: ${APCUPSD} --killpower on UPS ${2}" | ${WALL}
+    ;;
+    commfailure)
+	echo "Communications lost with UPS ${2}" | ${WALL}
+    ;;
+    commok)
+	echo "Communications restored with UPS ${2}" | ${WALL}
+    ;;
+#
+# powerout, onbattery, offbattery, mainsback events occur
+#   in that order.
+#
+    powerout)
+    ;;
+    onbattery)
+	echo "Power failure on UPS ${2}. Running on batteries." | ${WALL}
+    ;;
+    offbattery)
+	echo "Power has returned on UPS ${2}..." | ${WALL}
+    ;;
+    mainsback)
+	if [ -f @PWRFAILDIR@/powerfail ] ; then
+	   printf "Continuing with shutdown."  | ${WALL}
+	fi
+    ;;
+    failing)
+	echo "Battery power exhaused on UPS ${2}. Doing shutdown." | ${WALL}
+    ;;
+    timeout)
+	echo "Battery time limit exceeded on UPS ${2}. Doing shutdown." | ${WALL}
+    ;;
+    loadlimit)
+	echo "Remaining battery charge below limit on UPS ${2}. Doing shutdown." | ${WALL}
+    ;;
+    runlimit)
+	echo "Remaining battery runtime below limit on UPS ${2}. Doing shutdown." | ${WALL}
+    ;;
+    doreboot)
+	echo "UPS ${2} initiating Reboot Sequence" | ${WALL}
+	${SHUTDOWN} -r now "apcupsd UPS ${2} initiated reboot"
+    ;;
+    doshutdown)
+	echo "UPS ${2} initiated Shutdown Sequence" | ${WALL}
+	${SHUTDOWN} -h now "apcupsd UPS ${2} initiated shutdown"
+    ;;
+    annoyme)
+	echo "Power problems with UPS ${2}. Please logoff." | ${WALL}
+    ;;
+    emergency)
+	echo "Emergency Shutdown. Possible battery failure on UPS ${2}." | ${WALL}
+    ;;
+    changeme)
+	echo "Emergency! Batteries have failed on UPS ${2}. Change them NOW" | ${WALL}
+    ;;
+    remotedown)
+	echo "Remote Shutdown. Beginning Shutdown Sequence." | ${WALL}
+    ;;
+    startselftest)
+    ;;
+    endselftest)
+    ;;
+    battdetach)
+    ;;
+    battattach)
+    ;;
+    *)	echo "Usage: ${0##*/} command"
+	echo "	     warning: this script is intended to be launched by"
+	echo "	     apcupsd and should never be launched by users."
+	exit 1
+    ;;
+esac

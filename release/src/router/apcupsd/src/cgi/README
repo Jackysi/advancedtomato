@@ -1,0 +1,83 @@
+* GPLed - see COPYING for details.
+* 
+* These cgi scripts were based on v0.2 of those by 
+*              Russell Kroll <rkroll@exploits.org>
+*
+* This version of the scripts by 
+*              Jonathan Benson <jbenson@technologist.com>
+* Any feedback, comments, etc should be directed at me and NOT Russell
+*
+* This program has been extensively adapted for Apcupsd by
+*   Kern Sibbald, 2000   <kern@sibbald.com>
+*   Any comments should be directed to <apcupsd-devel@apcupsd.org>
+*   Many thanks to Jonathan for his initial port to apcupsd, it
+*   has now become an official part of apcupsd.
+*
+
+I have modified the scripts by Russell Kroll that work with his upstools
+suite to suit the apcupsd available at:
+http://www.dyer.vanderbilt.edu/server/apcupsd/
+
+I've also added various features (see below).
+
+ - upsstats.cgi: Generates the HTML for the main status page.
+
+ - upsimage.cgi: Called by IMG SRC tags in status pages.
+       
+       Features: (original)
+                 * Text output of various stats & 3 graphs
+                         * Battery Capacity 
+                         * Utility Voltage
+                         * UPS Load
+                 * Handles 110V UPS only
+                 (added)
+                 * 2 more graphs
+                         * Battery Voltage
+                         * Output Voltage
+                 * Ability to select each graph
+                 * Ability to change temperature reading (deg C/F/K)
+                 * Should now handle 110/230V UPS (110V untested)
+                 * Automatic refresh every 30 secs
+                 * Random number added to end of IMG cgi call to
+                   ensure images are NOT cached
+
+
+OK, assuming you have configured and installed the program already, here
+is how you actually use it to keep an eye on things.
+
+============
+= upsstats =
+============
+
+upsstats is a CGI program, and as such, you must invoke it through your
+web server with a browser.  Assuming you have it installed into your
+/cgi-bin directory, accessing the following URL will allow you to see
+what's going on in your UPS..
+
+http://your.machine.dom/cgi-bin/upsstats.cgi
+
+Making a bookmark to this script or linking to it from another page is an 
+easy way to return to it in the future.
+
+To change any of the graphs just pick your option from the pull down menu.
+The same goes for the temperature display.
+
+============
+= upsimage =
+============
+
+upsimage is also a CGI program like upsstats, but it is intended to be
+called by IMG SRC requests inside the page that upsstats generates.
+You can source the images from it directly if you like, but they may
+look rather odd outside the table scheme of the normal upsstats page.
+Most users will probably never need to touch upsimage directly.
+
+
+===============
+= Other Notes =
+===============
+
+upsimage uses the gd library from http://www.boutell.com/ for quick 
+generation of GIF images.  If you have something that needs speedy 
+graphical representations of data that's being written in C, you should 
+check it out.

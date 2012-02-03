@@ -1,0 +1,52 @@
+APC      : 001,051,1237
+DATE     : Sun Apr 14 05:52:47 PDT 2002
+HOSTNAME : PSI
+RELEASE  : 3.8.5
+UPSNAME  : UPS_IDEN
+CABLE    : Custom Cable Smart
+MODEL    : PowerStack 450  
+UPSMODE  : Net Master
+STARTTIME: Sun Mar 31 01:23:34 PST 2002
+SHARE    : NetworkUPS
+STATUS   : ONLINE 
+LINEV    : 122.4 Volts
+LOADPCT  :  44.8 Percent Load Capacity
+BCHARGE  : 100.0 Percent
+TIMELEFT :  25.0 Minutes
+MBATTCHG : 5 Percent
+MINTIMEL : 10 Minutes
+MAXTIME  : 0 Seconds
+MAXLINEV : 123.8 Volts
+MINLINEV : 121.6 Volts
+OUTPUTV  : 122.4 Volts
+SENSE    : High
+DWAKE    : 000 Seconds
+DSHUTD   : 020 Seconds
+DLOWBATT : 02 Minutes
+LOTRANS  : 106.0 Volts
+HITRANS  : 127.0 Volts
+RETPCT   : 000.0 Percent
+ALARMDEL : 5 seconds
+BATTV    : 13.6 Volts
+LINEFREQ : 60.0 Hz
+LASTXFER : Line voltage notch or spike
+NUMXFERS : 2
+XONBATT  : Wed Apr 10 00:52:03 PDT 2002
+TONBATT  : 0 seconds
+CUMONBATT: 9 seconds
+XOFFBATT : Wed Apr 10 00:52:09 PDT 2002
+LASTSTEST: Wed Apr 10 00:52:03 PDT 2002
+SELFTEST : NO
+STESTI   : 336
+STATFLAG : 0x008 Status Flag
+REG1     : 0x00 Register 1
+REG2     : 0x00 Register 2
+REG3     : 0x00 Register 3
+MANDATE  : 12/18/01
+SERIALNO : NS0151240614
+BATTDATE : 12/18/01
+NOMOUTV  : 115
+NOMBATTV :  12.0
+FIRMWARE : 26.5.D
+APCMODEL : DWD
+END APC  : Sun Apr 14 05:52:52 PDT 2002

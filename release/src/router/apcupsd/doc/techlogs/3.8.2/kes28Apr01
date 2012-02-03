@@ -1,0 +1,79 @@
+             Technical notes on version 3.8.2Beta9
+                        28 April 2001
+                        Kern Sibbald
+
+General:
+- I've added a first cut of pthreads support.
+
+Changes submitted this submission:
+- Pthreads now works on RedHat Linux and on Win32
+  machines. It is enabled with:
+
+   ./configure --enable-pthreads
+
+  I've provided new PTHREAD_CFLAGS and PTHREAD_LFLAGS
+  defines so that pthreads can be adapted to different
+  systems. Currently, no checks are made in ./configure
+  to assure that pthreads really exists.  The pthreads
+  functions used are:
+
+    pthread_create
+    pthread_mutex_init
+    pthread_mutex_lock
+    pthread_mutex_unlock
+    pthread_join
+    pthread_self
+    pthread_equal
+    pthread_cancel
+    pthread_detach
+    pthread_mutex_destroy
+
+  For the moment, I have not implemented multiple readers,
+  single writer.  It is simply single everything. I'm not
+  sure that multiple readers will be necessary. If so, I will
+  add:
+
+    pthread_cond_init
+    pthread_cond_broadcast
+    pthread_cond_destroy
+    pthread_cond_wait
+    pthread_cond_signal
+
+  to the list of pthreads functions used.
+
+  On Sun systems, I set the concurrency to 4. On
+  all other systems, it is assumed that this is
+  not necessary, which is the case for Linux 
+  (some adjustments will probably be needed).
+
+  I've looked at a number of other pthreads packages
+  (MIT threads, Omnithreads, and Ralf Engelschall's 
+   PTH (GNU Portable Threads), and I don't exclude
+  using one or more of them in a future version, but
+  I don't have the energy to ramp up the learning curve
+  for the moment.                     
+
+  With pthreads enabled, there is only one process and
+  a number of threads (on Linux this translates into
+  light weight processes, which look like processes).
+  Also, with pthreads enabled, there is no shared memory
+  segment, which means that apcaccess now must communicate
+  to the daemon using TCP/IP and hence if you want apcaccess
+  to work, you must run the NIS server.
+- Modified apcaccess to use the NIS for the UPS information
+  when no shared memory is configured.
+- Modified the NIS server to set SO_REUSEADDR on the
+  socket (also SO_KEEPALIVE). This should reduce the number of
+  bind failures.
+- Removed some old USE_TMP_DIRECTORY defines that are not
+  used.
+- Added --with-pwrfail-dir=xxx as a ./configure option to
+  be able to set the powerfail directory.
+- The SERVERPORT configuration directive is now NISPORT,
+  for compatibility, I have left the old name as well.
+- I removed the compiled in default for status file directory
+  since it is defined in apcupsd.conf
+
+
+
+  

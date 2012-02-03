@@ -140,6 +140,13 @@ ifneq ($(TCONFIG_BT),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/BT-BEGIN/,/BT-END/d"
 endif
 
+# Only include the UPS pages if apcupsd is configured in.
+ifneq ($(TCONFIG_UPS),y)
+	rm -f $(INSTALLDIR)/www/nas-ups.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/UPS-BEGIN/,/UPS-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/UPS-BEGIN/,/UPS-END/d"
+endif
+
 
 # Only include the USB and NAS pages if USB Support is configured in.
 ifneq ($(TCONFIG_USB),y)

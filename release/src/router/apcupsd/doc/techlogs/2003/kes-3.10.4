@@ -1,0 +1,42 @@
+             Technical notes on version 3.10.4
+                       02 February 2003
+                        Kern Sibbald
+
+General:
+- Added error messages if old master/slave code called.
+- Reworked the messages for ./configure --help to be aligned and
+  clearer for networking and master/slave
+- A number of important patches all supplied by Mirko Doelle.
+- Moved technotes for 2001 and 2002 into respective directories.
+- Created a new kes-3.10.4 file to which I will append if there
+  are additional changes to 3.10.4. This will reduce the number
+  of release note files.
+
+Changes submitted this submission:
+28Jan03
+- Fixed a lot of problems in the Win32 build (improper #ifdefing,
+  missing prototypes, inet_pton not properly ifdeffed. Header files
+  that are not available, ...)
+- Modified make distclean to remove CVS directories (or most of them).
+21Jan03
+- Added error messages if old master/slave code called.
+- Reworked the messages for ./configure --help to be aligned and
+  clearer for networking and master/slave
+- A number of important patches all supplied by Mirko Doelle.
+- Moved technotes for 2001 and 2002 into respective directories.
+- Created a new kes-3.10.4 file to which I will append if there
+  are additional changes to 3.10.4. This will reduce the number
+  of release note files.
+
+19Jan03
+- Fixed hangs in usb driver startup when could not open port by
+  releasing the ups structure lock before the Error_abort calls.
+  Thanks to Mirko Doelle for reporting this.
+- Fixed the default path for mkinstalldirs from $(topdir) to
+  $(topdir)/autoconf.  Reported by Mirko.
+- Fixed configure.in to always create platform/apccontrol. Previously
+  it was not being created for Debian. Reported by Mirko.
+- Removed Debian specific installation of apccontrol. Reported by
+  Mirko.
+- Implemented code to display the apcupsd events with the most recent
+  first. Code sent by Mirko, but I modified it slightly.

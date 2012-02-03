@@ -1,0 +1,26 @@
+         Technical notes on my code submission of 16 Jan 00
+                        Kern Sibbald
+
+General:
+- Bug fixes and documentation.
+
+Changes submitted this submission:
+- On the Solaris 7 system, apparently make -C does not work.
+  I noticed this for the build of the cgi directory, so I
+  modified the configure.in script to do an explicit cd.
+- Due to some reported problems with the halt script on
+  older RedHat systems, I reworked the awk script to
+  work for more cases.  I also updated the messages
+  that are printed by the RedHat make.
+- Based on questions and the problems, I've enhanced the
+  documentation a bit. Mainly, I added clearer examples
+  of how to test things.
+- I added a new STATUS output that includes humidity and
+  termperature.
+- I updated the client.c program to accept a host name
+  on the command line.
+- I added eeprom as a command line argument to apcaccess.
+  I thought I had done this in a previous submission, but
+  it seems to be missing.  This is important because the
+  manual refers to apcaccess eeprom in many places and I
+  prefer not to change it.

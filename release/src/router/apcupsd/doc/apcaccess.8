@@ -1,0 +1,405 @@
+.\" manual page [] for apctest version 3.14.6
+.Dd January 10, 2009
+.Dt APCACCESS 8
+.Os apcaccess v3.14.6
+.Sh NAME
+.Nm apcaccess
+.Nd retrieve status information from apcupsd(8)
+.Sh SYNOPSIS
+.Nm 
+[status [ [<hostname>][:<port>] ] ]
+.Sh DESCRIPTION
+.Nm
+is a program which prints out the complete status of most American Power 
+Conversion Corp. (APC) UPSes provided you have the
+.Xr apcupsd 8
+daemon installed, properly configured and running. It can access status
+information from any APC UPS attached to the localhost or attached to 
+any computer on the network which is running apcuspd in NIS mode.
+.Pp
+The command line options are:
+.Bl -hang -width "<hostname>"
+.It status
+An optional command, unless a hostname is also being specified. Shorthand for
+.Em status\& localhost:3551 .
+This produces a full printout of the available status information for the 
+associated UPS.
+.It <hostname>
+An optional hostname which may be a bare machine name, fully qualified 
+domain name or IP address.
+.It :<port>
+An optional port number where a hostname argument has been specified. The 
+default is 3551, the official port number assigned by 
+.Tn IANA 
+for the apcupsd NIS server.
+.El
+.Pp
+.Nm 
+uses apcupsd's inbuilt Network Information Server (NIS) -- no relation 
+to Sun's NIS/YP service -- to obtain the current status information from the 
+UPS on the local or remote computer. It is therefore
+necessary to have the following configuration directives:
+.Pp
+.Bl -item -compact
+.It
+        NETSERVER on
+.It 
+        NISPORT 3551
+.El
+.Pp
+in the
+.Pa /etc/apcupsd/apcupsd.conf
+configuration file so that the Network Information Server will be accessible.
+Firewall rules for appropriate network access may also be needed.
+.Sh STATUS REPORT FORMAT
+The status report output format is simple ASCII. Generally there
+is a single piece of information on each line of output. The
+content varies based on the model of UPS being used and, in some cases,
+the firmware version. 
+.Sh EXAMPLES
+Set out below is a sample of the status output which may be
+generated for the specified UPS models.
+.Pp
+.Ss All models
+.Bl -hang -width "xxxxxxxx" -compact
+.It APC
+: version, number of records and number of bytes following
+.It DATE
+: Date and time of last update from UPS
+.It HOSTNAME
+: hostname of computer running apcupsd
+.It VERSION
+: apcupsd version number, date and operating system
+.It UPSNAME
+: UPS name from configuration file (dumb) or EEPROM (smart)
+.It CABLE
+: Cable type specified in the configuration file
+.It MODEL
+: UPS model derived from UPS information
+.It UPSMODE
+: Mode in which UPS is operating
+.It STARTTIME
+: Date and time apcupsd was started
+.It STATUS
+: UPS status (online, charging, on battery etc)
+.It MASTERUPD
+: Last time the master sent an update to the slave
+.It ENDAPC
+: Date and time of status information was written
+.El
+.Ss Smart-UPS and Matrix-UPS (Smart Signalling)
+.Bl -hang -width "xxxxxxxx"-compact
+.It LINEV
+: Current input line voltage
+.It LOADPCT
+: Percentage of UPS load capacity used as estimated by UPS
+.It BCHARGE
+: Current battery capacity charge percentage
+.It TIMELEFT
+: Remaining runtime left on battery as estimated by the UPS
+.It MBATTCHG
+: Min battery charge % (BCHARGE) required for system shutdown
+.It MINTIMEL
+: Min battery runtime (MINUTES) required for system shutdown
+.It MAXTIME
+: Max battery runtime (TIMEOUT) after which system is shutdown
+.It MAXLINEV
+: Maximum input line voltage since apcupsd started
+.It MINLINEV
+: Min (observed) input line voltage since apcupsd started
+.It OUTPUTV
+: Current UPS output voltage
+.It SENSE
+: Current UPS sensitivity setting for voltage fluctuations
+.It DWAKE
+: Time UPS waits after power off when the power is restored
+.It DSHUTD
+: Delay before UPS powers down after command received
+.It DLOWBATT
+: Low battery signal sent when this much runtime remains
+.It LOTRANS
+: Input line voltage below which UPS will switch to battery
+.It HITRANS
+: Input line voltage above which UPS will switch to battery
+.It RETPCT
+: Battery charge % required after power off to restore power
+.It ITEMP
+: UPS internal temperature in degrees Celcius
+.It ALARMDEL
+: Delay period before UPS starts sounding alarm
+.It BATTV
+: Current battery voltage
+.It LINEFREQ
+: Current line frequency in Hertz
+.It LASTXFER
+: Reason for last transfer to battery since apcupsd startup
+.It NUMXFERS
+: Number of transfers to battery since apcupsd startup
+.It XONBATT
+: Date, time of last transfer to battery since apcupsd startup
+.It TONBATT
+: Seconds currently on battery
+.It CUMONBATT
+: Cumulative seconds on battery since apcupsd startup
+.It XOFFBAT
+: Date, time of last transfer off battery since apcupsd startup
+.It SELFTEST
+: Date and time of last self test since apcupsd startup
+.It STESTI
+: Self-test interval
+.It STATFLAG
+: UPS status flag in hex
+.It DIPSW
+: Current UPS DIP switch settings
+.It REG1
+: Fault register 1 in hex
+.It REG2
+: Fault register 2 in hex
+.It REG3
+: Fault register 3 in hex
+.It MANDATE
+: UPS date of manufacture
+.It SERIALNO
+: UPS serial number
+.It BATTDATE
+: Date battery last replaced (if set)
+.It NOMOUTV
+: Nominal output voltage to supply when on battery power
+.It NOMBATTV
+: Nominal battery voltage
+.It EXTBATTS
+: Number of external batteries (for XL models)
+.It BADBATTS
+: Number of bad external battery packs (for XL models)
+.It FIRMWARE
+: UPS firmware version
+.It APCMODEL
+: APC model information
+.El
+.Ss Newer Back-UPS Pro (Smart Signalling)
+.Bl -hang -width "xxxxxxxx"-compact
+.It LINEV
+: Current input line voltage
+.It LOADPCT
+: Percentage of UPS load capacity used
+.It MBATTCHG
+: Min battery charge % (BCHARGE) required for system shutdown
+.It MINTIMEL
+: Min battery runtime (MINUTES) required for system shutdown
+.It MAXTIME
+: Max battery runtime (TIMEOUT) after which system is shutdown
+.It MAXLINEV
+: Maximum input line voltage since apcupsd startup
+.It MINLINEV
+: Minimum input line voltage since apcupsd startup
+.It OUTPUTV
+: Current UPS output voltage
+.It BATTV
+: Current battery charge voltage
+.It STATFLAG
+: UPS status flag in hex
+.El
+.Ss Back-UPS RS 1500 (USB)
+.Bl -hang -width "xxxxxxxx"-compact
+.It LINEV
+: Current input line voltage
+.It LOADPCT
+: Percentage of UPS load capacity used
+.It BCHARGE
+: Current battery capacity charge percentage
+.It TIMELEFT
+: Remaining runtime left on battery as estimated by UPS
+.It MBATTCHG
+: Min battery charge % (BCHARGE) required for system shutdown
+.It MINTIMEL
+: Min battery runtime (MINUTES) required for system shutdown
+.It MAXTIME
+: Max battery runtime (TIMEOUT) after which system is shutdown
+.It *OUTPUTV
+: Current UPS output voltage
+.It *DWAKE
+: Time UPS waits after power off when the power is restored
+.It *DSHUTD
+: Delay before UPS powers down after command received
+.It LOTRANS
+: Input line voltage below which UPS will switch to battery
+.It HITRANS
+: Input line voltage above which UPS will switch to battery
+.It *RETPCT
+: Battery charge % required after power off to restore power
+.It *ITEMP
+: UPS internal temperature in degrees Celcius
+.It ALARMDEL
+: Delay period before UPS starts sounding alarm
+.It BATTV
+: Current battery voltage
+.It *LINEFREQ
+: Current line frequency in Hertz
+.It *LASTXFER
+: Reason for last transfer to battery since apcupsd startup
+.It NUMXFERS
+: Number of transfers to battery since apcupsd startup
+.It XONBATT
+: Date, time of last transfer to battery since apcupsd startup
+.It TONBATT
+: Seconds currently on battery
+.It CUMONBATT
+: Cumulative seconds on battery since apcupsd startup
+.It XOFFBAT
+: Date, time of last transfer off battery since apcupsd startup
+.It SELFTEST
+: Date and time of last self test since apcupsd startup
+.It STATFLAG
+: UPS status flag in hex
+.It MANDATE
+: UPS date of manufacture
+.It SERIALNO
+: UPS serial number
+.It BATTDATE
+: Date battery last replaced (if set)
+.It NOMBATTV
+: Nominal battery voltage
+.It FIRMWARE
+: UPS firmware version
+.It APCMODEL
+: APC model information
+.It * presence dependant on USB firmware version.
+.El
+.Ss Web/SNMP (AP9716) or PowerNet SNMP (AP9605) SmartSlot Card
+.Bl -hang -width "xxxxxxxx"-compact
+.It LINEV
+: Current input line voltage
+.It LOADPCT
+: Percentage of UPS load capacity used as estimated by UPS
+.It BCHARGE
+: Current battery capacity charge percentage
+.It TIMELEFT
+: Remaining runtime left on battery as estimated by UPS
+.It MBATTCHG
+: Min battery charge % (BCHARGE) required for system shutdown
+.It MINTIMEL
+: Min battery runtime (MINUTES) required for system shutdown
+.It MAXTIME
+: Max battery runtime (TIMEOUT) after which system is shutdown
+.It MAXLINEV
+: Maximum input line voltage since apcupsd startup
+.It MINLINEV
+: Minimum input line voltage since apcupsd startup
+.It OUTPUTV
+: UPS output voltage
+.It SENSE
+: Current UPS sensitivity setting for voltage fluctuations
+.It DWAKE
+: Time UPS waits after power off when the power is restored
+.It DSHUTD
+: Delay before UPS powers down after command received
+.It DLOWBATT
+: Low battery signal sent when this much runtime remains
+.It LOTRANS
+: Input line voltage below which UPS will switch to battery
+.It HITRANS
+: Input line voltage above which UPS will switch to battery
+.It RETPCT
+: Battery charge % required after power off to restore power
+.It ITEMP
+: UPS internal temperature in degrees Celcius
+.It ALARMDEL
+: Delay period before UPS starts sounding alarm
+.It LINEFREQ
+: Current line frequency in Hertz
+.It NUMXFERS
+: Number of transfers to battery since apcupsd startup
+.It TONBATT
+: Seconds currently on battery
+.It CUMONBATT
+: Cumulative seconds on battery since apcupsd startup
+.It XOFFBATT
+: Date, time of last transfer off battery since apcupsd startup
+.It STESTI
+: Self-test interval
+.It STATFLAG
+: UPS status flag in hex
+.It DIPSW
+: Current UPS DIP switch settings
+.It MANDATE
+: UPS date of manufacture
+.It SERIALNO
+: UPS serial number
+.It BATTDATE
+: Date battery last replaced (if set)
+.It NOMOUTV
+: Nominal output voltage to supply when on battery power
+.It NOMPOWER
+: Nominal power output in watts
+.It EXTBATTS
+: Number of external batteries (for XL models)
+.It BADBATTS
+: Number of bad external battery packs (for XL models)
+.It FIRMWARE
+: UPS firmware version
+.It APCMODEL
+: APC model information
+.El
+.Ss Share-UPS (AP9270) (Basic port)
+.Bl -hang -width "xxxxxxxx"-compact
+.It MBATTCHG
+: Min battery charge % (BCHARGE) required for system shutdown
+.It MINTIMEL
+: Min battery runtime (MINUTES) required for system shutdown
+.It MAXTIME
+: Max battery runtime (TIMEOUT) after which system is shutdown
+.It NUMXFERS
+: Number of transfers to battery since apcupsd startup
+.It TONBATT
+: Seconds currently on battery
+.It CUMONBATT
+: Cumulative seconds on battery since apcupsd startup
+.It XOFFBATT
+: Date, time of last transfer off battery since apcupsd startup
+.It STATFLAG
+: UPS status flag in hex
+.El
+.Ss UPS Environmental Monitoring SmartSlot Card (AP9612TH)
+.Bl -hang -width "xxxxxxxx"-compact
+.It HUMIDITY
+: Ambient humidity
+.It AMBTEMP
+: Ambient temperature
+.El
+.Ss Back-UPS Pro and Smart-UPS v/s (Smart Signalling)
+.Bl -hang -width "xxxxxxxx"-compact
+.It LINEFAIL
+: Input line voltage status.
+.It BATTSTAT
+: Battery status.
+.It LASTXFER
+: Last (observed) transfer to battery.
+.El
+.Ss Back-UPS and Net-UPS (Simple Signalling)
+.Bl -hang -width "xxxxxxxx"-compact
+.It LINEFAIL
+: Input line voltage status.
+.It BATTSTAT
+: Battery status.
+.It STATFLAG
+: UPS status flag in hex.
+.El
+.Sh FILES
+.Pa /etc/apcupsd/apcupsd.conf
+.Sh SEE ALSO
+.Xr apcupsd.conf 5 , 
+.Xr apcupsd 8 .
+.Pp
+The HTML apcupsd manual installed on your system or available online at
+http://www.apcupsd.org/
+.Sh AUTHORS
+.Ss This page
+.An Trevor Roydhouse
+.Ss Software
+.An Adam Kropelin (current Project Manager and Code Maintainer)
+.An Kern Sibbald (former Project Manager and Code Maintainer)
+.An Riccardo Facchetti (former Project Manager and Code Maintainer)
+.An Andre M. Hedrick (Project Founder and former Code Maintainer)
+.Ss Contributors
+An enormous number of users who have devoted their time and energy to
+this project -- thanks.

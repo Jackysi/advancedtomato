@@ -1,0 +1,20 @@
+             Technical notes on version 3.8.3 
+                      20 November 2001
+                        Kern Sibbald
+
+General:
+- Pulled in the latest copy of the manual.
+- Applied the changes as submitted by Carl Erhorn for
+  Solaris. Most I pulled from Riccardo's integration
+  into 3.9.7.
+- Applied a fix provided by a user to apcsetup.c that
+  fixes the setup code for old Smart UPSes that are not
+  so smart and that return a zero length capabilities
+  string.
+- Fixed apctest.c so that it creates the powerfail file
+  for the powerfail test prior to calling kill_power,
+  then deletes it afterward.
+- Updated the version release date.
+
+
+Changes submitted this submission:

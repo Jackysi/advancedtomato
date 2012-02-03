@@ -1,0 +1,83 @@
+10.4+ Universal Binary Builds from XCode 3.x
+
+The information in this file is for those who wish to build an apcupsd binary 
+package to run on machines other than the machine on which it was built. If you 
+are building apcupsd for use on the same machine as the one you are building it 
+on, you do not have to do any of this. In that case, just install dependent 
+libs such as libgd and libusb binaries from Fink or MacPorts (or build from 
+source) with no special treatment needed.
+
+To build the most compatible apcupsd binary package possible, we must...
+
+* Build universal binaries to support PPC and Intel platforms (so-called "fat"
+  binaries)
+* Build all dependent libraries static to ensure no extra dylibs are needed on
+  the taget machine
+* Target the MacOS 10.4 "Universal" SDK to ensure the binaries will run on all
+  platforms >= 10.4
+
+Instructions:
+
+- Install XCode-3.1 (requires Mac OS 10.5)
+  * Be sure to select the 10.4 SDK when installing
+  * After installing, check if /Developer/SDKs/MacOSX10.4u.sdk/usr/local/lib
+    is a symlink to /usr/local/lib. If so, remove it.
+  * This procedure CANNOT be done with XCode-3.2 since Apple dropped support 
+    for PPC platforms in XCode-3.2.
+
+- Build dependent libs (libusb, libpng, libgd)
+  * Tested with libusb-0.1.12, libpng-1.2.40, and gd-2.0.35
+  * "Fat" libs will be installed into /Developer/SDKs/MacOSX10.4u.sdk/usr/local 
+    so they will not conflict with other libraries you may have installed on 
+    your build system.
+
+  libpng & libusb:
+
+   CPPFLAGS="-isysroot /Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4" \
+     LDFLAGS="-isysroot /Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -arch i386 -arch ppc" \
+     CFLAGS="-arch i386 -arch ppc" CXXFLAGS="-arch i386 -arch ppc" \
+     CC=gcc-4.0 CXX=g++-4.0 ./configure \
+     --prefix=/Developer/SDKs/MacOSX10.4u.sdk/usr/local --disable-shared \
+     --disable-dependency-tracking
+   make
+   sudo make install
+
+  libgd (depends on libpng, so build/install that first):
+  * gd-2.0.35 has a configure bug where you have to do this twice! After the
+    first configure, when you invoke make, the build system complains about a
+    missing aclocal-1.9 and repeats the configure for you...and gets it wrong. 
+    So you have to wait for the bogus reconfigure and make to finish, then
+    configure again the right way, make clean, and make. If you fail to do this
+    it will probably still build, but you'll end up with dependencies on a
+    bunch of X11 libs that you don't want.
+
+   CPPFLAGS="-isysroot /Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4" \
+     LDFLAGS="-isysroot /Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -arch i386 -arch ppc" \
+     CFLAGS="-arch i386 -arch ppc" CXXFLAGS="-arch i386 -arch ppc" \
+     PATH="/Developer/SDKs/MacOSX10.4u.sdk/usr/local/bin:$PATH" \
+     CC=gcc-4.0 CXX=g++-4.0 ./configure \
+     --prefix=/Developer/SDKs/MacOSX10.4u.sdk/usr/local --disable-shared \
+     --disable-dependency-tracking --without-fontconfig --without-freetype \
+     --without-x
+   make
+   <rerun same configure from above)
+   make clean
+   make
+   sudo make install
+
+- Build apcupsd
+
+   CPPFLAGS="-isysroot /Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4" \
+     LDFLAGS="-isysroot /Developer/SDKs/MacOSX10.4u.sdk -mmacosx-version-min=10.4 -arch i386 -arch ppc" \
+     CFLAGS="-arch i386 -arch ppc" CXXFLAGS="-arch i386 -arch ppc" \
+     PATH="$PATH:/Developer/SDKs/MacOSX10.4u.sdk/usr/local/bin" \
+     CC=gcc-4.0 CXX=g++-4.0 ./configure \
+     --enable-usb --enable-cgi --enable-snmp
+   make
+
+- Build apcupsd binary package
+
+   cd platforms/darwin
+   sudo make apcupsd.pkg
+
+The resulting binary package is found in platforms/darwin/Apcupsd-<version>.dmg

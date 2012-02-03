@@ -1,0 +1,34 @@
+         Technical notes on my code submission of 10 Sep 00
+                        Kern Sibbald
+
+General:
+- The bulk of my changes were to the Win32 subdirectory
+  and have already been integrated by Riccardo.
+- This release is one bug fix, some security improvements
+  concerning file permissions, and manual updates.
+
+Changes submitted this submission:
+- In Makefile.in, I tightened down the file permissions
+  by adding 744 to apccontrol.
+- apcsetup.c: changed a character string from MAXSTRING
+  to 1000 bytes in length. This is because the cababilities
+  string in some APC models overflowed the buffer.
+- Added a Pragma no-cache to multimon.c to keep the file
+  from being cached.
+- Deleted config.h.in from the source directory as it is
+  now in the autoconf subdirectory.
+- For the RedHat distribution changed permissions on
+  apcupsd to 744, added 744 to the permissions of halt
+  (both in /etc/rc.d/init.d).
+- A number of manual updates including additions to 
+  testing, and a new Trouble Shooting section that needs
+  additional work (at least it is a beginning).
+  I also cleaned up most of the HTML errors except in
+  the bible where there still remain quite a number to
+  be fixed.
+- Updated /etc/apcupsd.conf correcting the version number
+  and the spelling of TIMEOUT in one of the comments.
+- Added changeme, commfailure, and commok scripts to 
+  the examples directory that email root when one of those
+  events occurs.
+

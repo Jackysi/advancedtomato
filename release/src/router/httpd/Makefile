@@ -9,6 +9,7 @@ OBJS += nvram.o log.o webio.o wl.o devlist.o ddns.o config.o bwm.o
 OBJS += blackhole.o utf8.o
 OBJS += cpuinfo.o
 
+OBJS += iptraffic.o
 ifeq ($(TCONFIG_USB),y)
 OBJS += usb.o
 endif

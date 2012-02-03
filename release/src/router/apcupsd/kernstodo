@@ -1,0 +1,1001 @@
+                Kern's ToDo List
+
+- Convert Windows emulation from Cygwin to native Win32
+  The main missing piece here is an emulation layer for
+  the serial port.
+- Implement USB support for Windows
+- Convert the manual to LaTeX
+  This will be done in the next couple of months.
+- Consider converting apcupsd to C++
+  This will be done in the next couple months -- after
+  the 3.10.17 release.
+
+- UPS 500ES with cable 094-0127B
+  BATTERYLEVEL -5
+  otherwise the UPS would shut off immediately.
+- The UPS sensitivity can be adjusted using the UPS front-panel. You press and 
+  hold the Power Switch for more than 10 seconds and then press again 
+  repeatedly until the required number of front-panel indicators are displayed.
+  The UPS manual includes information on adjusting the Transfer Voltage using 
+  this procedure.
+- Add a call to a script on restart after a powerfailure.
+  Can we have the init.d script call the apccontrol script with a some 
+  kind of "restart" event if the powerfail file existed?
+- If you --disable-nis, then the build of apcaccess fails.
+- See if NISIP is properly documented saying that it restricts to
+  the IP you set.
+- Fix make file dependencies by adding libaries to dependencies
+  in src/Makefile.in, but do not add $(LIBS).
+- Document problem with Dmsg() going to serial port.
+- Document apctest.
+- Document that manually running the UPS you should send
+  Y first of all.
+- Fix DNS for apcupsd.com and apcupsd.org being set by Italian
+  server.
+- Check if new net code does the following on a slave during
+  a power failure:
+    Fri Sep 05 15:19:55 CEST 2003 Power failure.
+    Fri Sep 05 15:19:55 CEST 2003 Running on UPS batteries.
+    Fri Sep 05 15:20:02 CEST 2003 Power is back. UPS running on mains.
+    Fri Sep 05 15:20:07 CEST 2003 Power failure.
+    Fri Sep 05 15:20:07 CEST 2003 Running on UPS batteries.
+    Fri Sep 05 15:20:10 CEST 2003 Power is back. UPS running on mains.
+
+=== USB on windows ====
+usbhidioc2.zip in apcupsd/others
+    Re: Apcupsd for Win32 with USB support ?
+    From: "Vladislav Staroselskiy" <inet@vladstar.pp.ru>
+    To: kern@sibbald.com
+    CC: "Apcupsd-users" <apcupsd-users@lists.sourceforge.net>
+        
+    Hi Kern !
+
+    > > Is there any chance to see Apcupsd for Win32 with USB support at the
+    near
+    > > future ?
+    > Very unlikely, unless someone sends me or points me to some sample code
+    > that reads and writes USB via Windows. Even then, I'm not too
+    > enthusiastic about programming in Windows.
+
+
+    There are code examples here: http://www.alanmacek.com/usb/deviceAPI.html
+
+    There are also few helpful links:
+    USB Central: http://www.lvr.com/usb.htm
+    USB drivers page on MSDN:
+    http://msdn.microsoft.com/library/default.asp?url=/library/en-us/wceddk40/html/cxconusbdrivers.asp
+    MSDN newsgroups, where programming questions can be asked:
+    http://msdn.microsoft.com/newsgroups/
+
+    P.S. Please, don't drop this idea, the most of modern UPS's don't have
+    serial port anymore, but Windows is still OS, that users like to have on
+    their workstations... and THANKS for doing this project, apcupsd is great !
+
+    Sincerely yours, Vladislav Staroselskiy.
+======
+
+=====
+    In PowerChute Plus a daemon "_upsd" starts during the booting
+    process (or it could be started manually) by reading the
+    "pwrchute.ini" file such as "apcups.conf" in APCUPSD. This file
+    specify the parameters to the daemon, in which several variables
+    are included.  The interesting one is ups turn off and wakeup
+    time in hours.
+
+    By reading the ups turn off time the daemon execute the process
+    to turn off the Computer and ups at specific time, based on the
+    system clock.  This process would be summarized as follows:
+
+    1.  At the specific time the daemon (_upsd) execute a script to
+    shutdown the system.  This script contain the command to shutdown
+    the system (system dependent)
+
+    2.  An script file is written on root directory called
+    "upsoff.cmd" by the daemon.  This file consist the command to
+    turn off the ups.  Such as:
+
+    !/bin/sh
+    /usr/lib/powerchute/upsoff /dev/ttyd0 Normal UUS^@
+
+    The above script produced during the power failure situation and
+    similarly the following script will be produced during the
+    scheduled shutdown, in which "upsoff" is a binary in PowerChute
+    Plus package to turnoff the UPS. The above scenario is as power
+    failing situation in APCUPSD with "killpower" option.
+
+    !/bin/sh
+    /usr/lib/powerchute/upsoff /dev/ttyd0 Normal @165^@
+
+    The final parameter specifies the amount of time UPS has to go on
+    sleep, i.e., the above script is executed by the "halt" script in
+    RedHat and removed.  So that, it turn of the UPS (or make it to
+    sleep for specific time in 24 hors time period) then it the UPS
+    will wake up after the prescribed time.  Just as power failing
+    situation in APCUPSD with "killpower" option.  Then the system
+    will up as usual.  The last parameter variables specify from the
+    command set of the UPS (as I hope).
+===
+
+- Possibly add a user configurable delay before declaring a
+  power outage.
+- If you add a battery pack, there is a special procedure to do
+  that is documented in the APC Knowledge Base in order for the
+  timeleft to be updated properly.
+- Put the apcupsd events into Win system log.
+- To whom it may concern:  May 2003
+  I have found a vendor for the APC 940-0095A cables as well as all of
+  the other cables that APC makes.  The discount of the cable equates to
+  roughly 30%.
+  I bought a 940-0095A for $30.00 US + shipping from Stonewall Cable,
+  Inc.  www.stonewallcable.com
+    James Widener <james at manisys.com>
+- I have a quantity of new in the package 940-0127A cables you mention
+  on your website for UPS. Do you know of anyone needing a large quantity
+  of these?  Also manual/packets and other short electronic type cables.
+  Please feel free to pass on my name if you can.  Thank you.
+
+  Carl Lindahl                     May 2003
+  Hardware Engineer
+  American Systems Corporation
+  7001 University Blvd
+  Winter Park, Fl 32792
+  carl.lindahl@2asc.com
+  407-678-8500 x6033
+  407-678-5178 fax
+
+ 
+- Add minVolt maxVolt to apcupsd (calculate them ourselves).
+- Apparently apcaccess status crashes for apcupsd without threads.
+- Try adding -lm if a local copy of libgd is used (or patch the
+  makefile).
+- Please consider creating a graphical setup for APCUPSD which would
+  walk the user through the type of UPS, how it is conneted, the type
+  cable used similar to the Palm configuration in Ximian Evolution.
+
+  After several attempts, I was unsuccessful at using APCUPSD, until I
+  found (http://www.mandrake.com/en/archives/cooker/2002-04/msg01252.php)
+  which provides all of the configuration needed to use APCUPSD with
+  Mandrake 8.2.
+
+- Produce a more reasonable error message in attempting EEPROM
+  configuration on a USB device.
+- Check that 3.10.5 will autostart on XP
+- Neither 3.8.6 nor 3.10.5 has a description of the service displayed under
+  admintools/services/properties/description on XP (Gorm Jensen). 
+- Make NISP handle multiple devices or addresses.
+- Make sure that log dir and lock dir are created if they do
+  not exist in "make install".
+- Add a ./configure option for setting NISIP.
+- See if 3.10.4 takes longer to link up with the UPS than 3.8.5
+- Make sure old copies of scripts are saved during install.
+- Don't delete old apccontrol -- may be modified by user. 
+- Add CONFIG_USB_HIDDEV=y possible fix to manual.
+- Make sure apcnisd works (at least for forked version).
+- Fix CI_VBATT that doesn't seem to work.
+- Look into shutdown delay (perhaps add MASTERDELAY).
+  Check document.
+- Consider MASTERKILLPOWERDELAY
+- Implement install_slave
+- Add Master shutdown delay.
+- If in power loss and slave looses connection with
+  master, initiate shutdown -- after a user definable timout.
+- Document LOGSTATS
+- Document or remove NETACCESS
+- --prefix reportedly does not work in ./configure
+- Add relative links to the bottom of the multimon stats
+  page -> href-"multimon.cgi" or back to the home.
+- Try to find the right mail program on Solaris (i.e. mailx
+  rather then mail) or document the smtp program.
+- Possibly use shutdown -i5 on Solaris instead of 
+  shutdown -i0 -- check with Carl
+- For FreeBSD use shutdown -h according to Neil.
+- Failure to connect to the UPS should generate an event
+  and perhaps apcupsd should continue running and periodically
+  generate events rather than exiting in error.
+- Fix hot swapping of USB UPSes with a different UPS model.
+  Need to update static data from USB.
+- Implement kill power for USB.
+- Cleanup apcreports and apcstatus code to use Status word.
+  Especially the dumb UPS code.
+- Become daemon sooner to avoid network hangs.
+- Avoid opening, closing, then reopening the serial port.
+- Close all open file descriptors before execing.
+- add /sbin/halt -i -d -p to shutdown
+  See above for FreeBSD and Solaris.
+- Don't try to create nologin or powerfail files if doing a killpower.
+- Make suggested changes to Makefiles (see emails).
+- Figure out po stuff works.
+- When running the --killpower, delete the
+  powerfail file if we are not in a powerfail
+  condition.
+- look at use of snprintf and vsnprintf!
+- Add SSL
+- Add "File | Save" to Windows shutdown.
+- Add optional delay on onbattery to eliminate messages
+  for short outages (or add a new event).
+- Look into making rpm relocatable or at least the cgi part.
+- Add calibrate runtime option.
+- Setuid of network processes to "nobody".
+- Document porting issues.
+- enhance manual for master/slave stuff especially
+  the network problems.
+- Fix power off problems for Dumb UPSes which don't know about 
+  2 minute delay of modern dumb UPSes.
+    Email from Richar Lovison <riovison@simons-rock.edu>
+    Concerning Bacuk-UPS ES series and cables.  One more thing I should
+    let you know.  For some reason the function, doshutdown, is not
+    being called in apccontrol.  That explains why I was getting a
+    shutdown when I saw the "Emergency shutdown" xconsole message since
+    the emergency function has the shutdown command as part of the
+    function.  For now I worked around this by inserting the line:
+
+    ${SHUTDOWN} -h now "apcupsd remote shutdown"
+
+    at the end of the failing, timeout, loadlimit and runlimit functions
+    in the apccontrol file.  Maybe this is a problem with version 3.8.1?
+    In any case, I now get a proper shutdown with the batteries fully
+    charged after a designated TIMEOUT. After your vacation, if you wish
+    any further help from me I'd be willing to give it...  my way of
+    giving back I guess.  [:)]
+
+Next release focus: improved documentation, simpler installation,
+                    improved security and networking.
+
+Key:   - => to be done; + => in beta; * => completed
+
+A.1  * Linux USB (implemented in 3.9.4 - kill power doesn't work)
+A.2  * Configure USB code on/off (implemented in 3.9.5)
+A.3  - Configure Network Information Server (CGI) code on/off 
+       (smaller footprint)
+A.4  - Configure master/slave code on/off (smaller footprint)
+A.5  - Add universal Dumb UPS configurator similar to what
+       exists in powerd, but much more comprehensive. (general cleanup
+       and allows support of ANY Dumb UPS with ANY cable).
+A.6  * Drivers (USB, Smart, Dumb) (general cleanup of core code).
+       (implemented by Riccardo). (implemented in 3.9.5)
+A.7  * Configure drivers code on/off (smaller footprint) (implemented
+       in 3.9.5).
+A.8  * Add port to hosts.conf (implemented in 3.8.3).
+A.9  * Log errors in apccontrol.
+A.10 * Persistent slave connections. Currently connection
+       is made and broken each communication. (implemented
+       in 3.9.4). 
+A.11 - CRAM-MD5 authentication for master/slave (security - requires A.10).
+A.12 + Ensure that ANNOY and ANNOYDELAY work (correctly documented).
+       Need possible coding changed to separate ANNOY and NOLOGON.
+A.13 * Reduced STATUS output by eliminating lines with N/A
+       (implemented in 3.8.3).
+A.14 * Detect, log, and generate event when master/slave not 
+       responding (improved error detection) (implemented in
+       3.9.6)
+A.15 - Eliminate of unnecessary/confusing configuration directives
+       (this requires a good deal of thought and implmentation of
+       A.6).
+A.16 * Additional documentation including pdf version of document.
+A.17 - Merge of specific 4.0 code/features (e.g. new Makefiles, 
+       eeprom programming, ...)
+
+Possibilities:
+B.1 + New master/slave protocol using same network code as CGI
+       (future releases would be be upward compatible -- needs A.6)
+B.2 - Built-in mini-Web server (Carl's suggestion) with SSL.
+B.3 - GUI via mini-Web server or CGI code.
+B.4 * Support of multiple-UPSes (implemented in 3.8.3).
+B.5 - General cleanup of configuration file reading code
+      possibly with new configuration file syntax. (this
+      is only needed if B.4 is implemented).
+B.6 - Move EEPROM programming code to a separate program
+      and add additional features.
+
+User Requests:
+C.1 * More documentation, including pdf format; better
+      organization of documentation (work here progressing
+      but it is a continuing effort).
+C.2 - Develop a formalized release test plan.
+C.3 * Implement an effective bug tracking system.
+C.4 + Identification of people responsible for various 
+      functions (platform maintenance, testing, web
+      site maintenance, documentation, ...) (Job descriptions
+      written -- several people formally identified).
+C.5 * Reorganize code for efficiency and for easier
+      maintenance (part of A.6 and A.17).
+
+Design:
+UPSTYPE = Smart/Dumb/USB/Slave 
+
+CABLE = DUMB
+
+GETPORT <condition> <signal-spec>
+
+SETPORT <event> <action-spec>
+
+Where:
+
+<condition> = POWERFAIL | LOWBATT | LINEDOWN   (ONBATT)
+<event>     = INITUPS | POWERFAIL | SHUTDOWN   (EXIT)   
+action-spec = <signal-spec> | <sleep-spec> ...
+signal-spec = <signal> <state> ...
+signal      = CTS | DSR | RNG | ST | CSR | RTS
+state       = SET | CLEAR
+sleep-spec  = SLEEP N
+
+<html>
+<body>
+<pre>
+
+
+To do:
+========
+Hello,
+
+Yes, what you did is exactly what it takes to get
+apcupsd to work with cygwin installed.  There are
+four major pitfalls:
+
+1. The normal cygwin installation uses mount points
+   and installs everything in a subdirectory of cygwin.
+   This was not appropriate for apcupsd, and is not how
+   I run my system -- I prefer my files to be visible
+   in the root directory as on Unix.  If you use the
+   standard apcupsd install, it removes all cygwin mount
+   points. From what you wrote, you avoided this problem.
+
+2. If you install on a cygwin system, you must ensure that
+   /apcupsd/bin gets you to the apcupsd directory, so if you
+   are using the standard cygwin suggestions, you must ensure
+   that you place apcupsd into the cygwin directory as you did.
+
+3. Finally, you must either delete the cygwin1.dll from the
+   apcupsd bin directory or insure that you are always running
+   the same cygwin distribution as apcupsd (currently 1.3.10)
+   since two different cygwin1.dll programs will not co-exist.
+
+4. If you do upgrade your cygwin system, be aware that my experience
+   is that only about one out of every 3 of their releases is
+   stable enough to run apcupsd. So upgrade with caution, and
+   you may need to build apcupsd depending on what changes
+   they made.
+
+Thanks for pointing out that you got this cygwin configuration
+to work. I'll try to get these notes + yours into the 
+next manual for the next time someone wants to try 
+running apcupsd with cygwin.  As Neil pointed out, it is
+not evident that it will work, and though these notes should
+be helpful, we probably won't officially support running apcupsd
+AND cygwin unless you wish to be constrained to running on
+the same version as we are (not always evident).
+
+Best regards,
+
+Kern
+
+
+On Mon, 2002-07-01 at 18:29, James Garrison wrote:
+> I didn't find details on installing apcupsd with an existing
+> cygwin installation, but after looking over the install
+> script I "guessed" that all I had to do was put the
+> apcupsd directory under my cygwin root and run
+> 
+>       apcupsd /install
+> 
+> from the there.  Everything appears to be working correctly,
+> including running apcupsd slaved to a Linux master.  Did I miss
+> something or is it really that simple? Did I miss where this
+> is documented?  If not, it definitely needs to be added to the doc.
+> 
+> Thanks for a great program.  This is what APC *should* be
+> providing to its users, not the crappy stuff they currently have.
+> 
+======
+
+
+Wish list:
+- Look at using libgd-1.3 in place of gd for cgi.
+  Perhaps a lib directory could be added to the build tree and a
+  "-with-included-gd" configure switch could control the inclusion of the
+  local libgd.  
+- Fix confusion with UPSTYPE, ... 
+- Add more commands (individual variables) to apcnetd
+- Make apcaccess use the network code as an option.
+- Eliminate rest of character command codes using new
+  capabilities code in apcsetup.c (for setup stuff).
+- Eliminate the rest of the printfs().
+- Eliminate as many error_aborts as possible in making
+  new events.
+- STATUS file should be opened with open() rather
+  than fopen(). Some small changes required. 
+- Expand Last UPS Self Test field in cgi program
+- Send events across network to slaves rather than 
+  status values.
+- Send configuration (ups type, ...) across network to
+  slaves and ignore slave UPS configuration info.
+- Create globals file and move more variables out
+  of shared memory buffer.  Maybe even eliminate
+  shared memory.
+- Implement a new option or mode in apcupsd where when there
+  is a power failure, apcupsd issues the system shutdown as
+  usual, but it continues running. After a user defined time
+  limit after the shutdown, apcupsd will tell the UPS to
+  shut off the power.
+  From: Zsolt Domokos [DomokosZ@esi.com]
+             
+
+Fixed but needs testing:
+- Add Chris' schematic of the 940-0095A cable.
+- add 127 and 128A cables to 3.9.8!   
+
+
+
+Done:
+- When USB is offline status indicates SLAVE
+- Need to insure that the reports are done if they
+  are requested more frequently than the poll period.
+- Fix powerflute build problem.
+- Win32 Threads
+- Fix libwrap
+- Change the default SERVERPORT and NETPORT 
+- Add configuration for ports
+- Add configuration for logfile
+- Fix passing stack pointer to thread in apcnis.c !!!!!
+- Master did not shutdown in TIMEOUT.
+- Set appropriate permissions on files in /etc/apcupsd during
+  make install.
+- Finish the rpm spec file.
+- Accumulate time on batteries and number of transfers
+  to batteries. Perhaps save history in file so that the
+  info can be recovered if apcupsd restarts.
+- Remember date and time when apcupsd started.
+- Allow IP addresses for masters and slaves.
+- Add remaining time before TIMEOUT to STATUS output.
+- Fix 4/8 byte problem reported by Tom Holroyd
+- Fix zombies on BSD. Each exec() increments a counter.
+- Fix the problem with DoS with the email files
+  where the file can be linked to a system file.
+- fix ChangeBatt problem in apcnet (line 389).
+      > 1) Start master and slave apcupsd daemons
+      > 2) Terminate the apcupsd daemon on the master
+      > 3) Wait a little time
+      > 4) Start the master apcupsd daemon
+      > 5) Slave reports that UPS batteries have failed
+      > 6) A zombie shell process appears on slave
+  why is bad data being sent.
+  Do nonblocking wait in main loop and decrement counter.
+- Use links and .bat files instead of .pifs on Win32
+- Add a KILLDELAY mode where after shutdown, apcupsd continues
+  running, and then after a specified time issues
+  the kill_power to the UPS.    
+- Detect self tests
+- SEGFAULT in kill_power()
+- Buffer overflow in capabilities
+- If UPS capabilities, only test those defined
+- Fast Poll when on batteries.
+- Improved Win32 shutdown -- guarantees shutdown, previous
+  version could hang if dialogue not answered. Can now
+  specify shutdown delay.
+- Some files have large diff files because they
+  have been reformatted to apcupsd 4.0 standards.
+- I am in the process of integrating version 4.0
+  code into this stream, so many of the changes are
+  related to this activity.
+- Modified code for handling 940-0095B cable. Hopefully,
+  it will work now.
+- Added the Caldera code that was submitted by John Pinner.
+- Integrated NetBSD patches that I received from Devin Reade -- thanks.
+- To correct a problem with zombies on BSD systems, I added
+  a UPSINFO variable that is the count of children created
+  by execute_command(). do_action() in apcaction.c was
+  modified to check this variable, do a non-blocking wait,
+  and decrement it if any children were found.  This should
+  properly reap the zombies.
+- Added additional debug information (strerror) to failed
+  semaphore and shared memory system call errors in apcipc.c
+- In apcnet.c, removed ChangeBatt from slave because it is
+  apparently being set incorrectly on some BSD masters when
+  apcupsd is restarted.
+- Added an O_NDELAY to the serial port open() in apcserial.c
+  to avoid infinite waits on some BSD systems. This required
+  the addition of an fcntl() after the open to reset the
+  blocking read(), which is needed in apcupsd.
+- Removed an unwanted break in a switch in apcstatus.c that
+  caused the status output for BackUPS Pros to be cut short.
+- Added a HAVE_POWERFLUTE define and changed powerflute.c to
+  use it. This prevents a lot of the errors seen on systems
+  that don't have ncurses.
+- configure.in, added HAVE_NETBSD_OS, HAVE_POWERFLUTE, and
+  modified generation of makefiles to only configure the files
+  in the recognized distribution.  Modified the automatic 
+  make of the dependencies to use "make depend"
+- Removed the call on the shell to execute a script file in
+  apccontrol. This permits execution of any type of file, but
+  it now requires that the file be executable.
+- Reindent apclock.c apcstatus.c apclog.c apcevents.c
+- Add TCP Wrappers -- fix problems pointed out by Neil,
+  and implement code.
+- Fix gethostbyname on Win32 (apparently this works).
+- Fix apcaction.c to be a state machine,
+  and to generate events.
+- Make all events into event subroutines that can be
+  called from anywhere -- including network code.
+  Thus do_action() will be a very small loop detecting
+  and sending events.
+
+
+We have several electrical circuits in our computer room. So we have one master running on each circuit and the rest on a circuit are slaves. This way, we don't get messages from all PCs, just one per circuit. We can monitor each circuit individually now. Not only does APC's PowerChute Linux version not run on most of our machines (needs X) but you just can't customize it that way I have learned with apcupsd. Plus, powerchute likes to go out and find everything and I don't want that. Many of our machines are just servers and don't have X. They don't need it. 
+Yes, fixing apcupsd so that it doesn't send out power loss messages
+during the automatic self test is definitely on my list of things
+to do, and I will make sure it is in the next release. Your vote
+does count as much as everyone else's. In fact, you just gave me
+an idea - it might be good to have an optional configuration directive
+that delays the onbattery event for a given number of seconds, and
+if the condition is cleared, the event would be dropped. This could
+eliminate a lot of noise for small problems that are easily handled
+by apcupsd.
+
+This sounds perfect. I'm sure many people could use this feature.
+Thanks,
+
+Charles
+- Use links and .bat files instead of .pifs on Win32
+- Pass second argument to apccontrol indicating if
+  we are master/slave and other info.
+- Add multiple arguments to apccontrol
+
+
+========================================
+From: Alan W. Irwin <irwin@beluga.phys.uvic.ca>
+To: apcupsd-devel@apcupsd.org
+Subject: [Apcupsd-devel] Comparison of the official Debian unstable package for apcupsd-3.8.5 with my own
+Date: 15 Feb 2002 12:30:05 -0800
+I compared the official version with my unofficial patch to do the same thing,
+and except for two files in my patch, I think the official patch is the same
+or better.
+
+The official patch completely ignores
+apcupsd-3.8.5/distributions/debian/packageinfo and instead creates its own
+apcupsd-3.8.5/debian directory.  The apcupsd team might consider adopting
+the official debian patch (which has no impact outside the debian directory)
+and dropping the packaginfo directory (which is misnamed, and which contains
+white-space munged versions of a subset of the files in the official debian
+directory).  I would recommend the official patch over my own because they
+included some additional minor fixups to the files in the debian directory.
+
+The only exceptions where I did a better job are the files named
+packageinfo/undocumented and packageinfo/examples in my patch which should
+replace debian/undocumented and debian/examples in the official Debian
+patch. The file named "undocumented" documents executables which should have
+a man page, but don't, and "examples" is a list of example files to install.
+"examples" is seriously incomplete for the official debian patch.  For
+example, it does not include safe.apccontrol so that file is not part of the
+official Debian package, but it is part of mine.
+
+To summarize, I just installed the official version for Debian unstable
+apcupsd-3.8.5 and aside from some example and man page files which are
+missing it works as well as can be expected for a BackUPS with 940-0023A cable
+connected to the Master which in turn is connected to a slave (also on
+UPS) via the LAN.  My patch should be put in the dustbin except for the
+files named "undocumented" and "examples".
+
+One thing I noticed relevant to documentation fixups is their example
+apcupsd.conf specifically replaced the configuration parameter SERVERPORT
+with NISPORT.  Assuming the Debian packager knows what he is doing, this means
+such a transition has occurred in 3.8.5, but I cannot find it in the
+documentation.  Also, if SERVERPORT is going to be replaced by NISPORT, I
+suggest you also do the replacement in examples/apcupsd.slave.conf and
+examples/apcupsd.master.conf for consistency.
+
+Alan
+
+email: irwin@beluga.phys.uvic.ca
+phone: 250-727-2902     FAX: 250-721-7715
+snail-mail:
+Dr. Alan W. Irwin
+Department of Physics and Astronomy,
+University of Victoria, P.O. Box 3055,
+Victoria, British Columbia, Canada, V8W 3P6
+__________________________
+
+Linux-powered astrophysics
+__________________________
+
+
+
+                                      From: Alan W. Irwin <irwin@beluga.phys.uvic.ca>
+                                      Cc: Apcupsd-devel <apcupsd-devel@apcupsd.org>
+                                      Subject: Re: [Apcupsd-devel] Debian woody apcupsd-3.8.5 working so far in safe mode (was Cannot get Debian woody apcupsd-3.8.1.5 to actually shutdown the computer even though dumb UPS signalling seems to be w
+                                      Date: 14 Feb 2002 20:13:44 -0800
+                                      On 14 Feb 2002, Kern Sibbald wrote:
+
+>
+> 1). Yes, NETACCESS is not documented -- an oversight, but
+>     it is in fact not used and we hope to remove it.
+>     I've put it on my todo list -- thanks.
+
+Note that examples/apcupsd.master.conf and examples/apcupsd.slave.conf have
+this parameter (and perhaps other example configuration files as well?) so
+it should be removed from these example files when you remove NETACCESS
+altogether.
+
+>
+> 2.  I found this a bit surprising. So I looked into the
+>     problem a bit more and found that there is a bit of
+>     confusion -- perhaps in our manual as well. Basically,
+>     it appears that the shutdown on both machines is done
+>     immediately. What is delayed 30 seconds on the master
+>     is the kill power request to the UPS.
+>     In looking at the kill power code for 3.8.5, the master,
+>     regardless of whether it is a Dumb or Smart UPS, waits
+>     30 seconds before setting the kill power bit, then
+>     after setting it, it waits an additional 10 seconds to
+>     hold the bit on.  Clearly at least the documentation
+>     could be improved on this. It is now on my todo list.
+>
+>     Modifying apccontrol is the best way to correct the situation.
+>     You are right -- it does get overwritten on the next installation.
+>     I'll put this on my todo list to see if we can find a solution.
+
+Thanks.  While I am asking, I suppose I should ask for the Moon....;-)
+Ideally, what I would like to see is a configurable wait (although 30
+seconds is not bad) after the remote shutdown command is sent to the slaves
+before the master starts its shutdown.  This is important when the slaves
+(such as mine) depend on the Master to export their NFS mounted files
+systems, for example.
+
+>
+>
+> 3.  This is a general problem with installation. Basically the
+>     installation is designed for a stand alone situation, so when
+>     you installed the slave, it installed the instructions in your
+>     halt script necessary to recall apcupsd at the end of the shutdown
+>     to kill the power. This can be fixed either as you did or by
+>     deleting the changes to the halt script. We've made improvements
+>     in the installation process for 3.8.5, but it probably merits more
+>     attention.
+
+Thanks.
+
+>
+> Feature request:
+> Unfortunately, it is impossible to implement what you ask for the
+> 023A cable due to the physical limitations of the cable
+> wiring. Here is a section from our manual on the subject:
+>
+>       This cable can only be used on simple signaling UPSes,
+>       and apparently only provides the On Battery signal. As
+>       a consequence, this cable is pretty much useless, and
+>       we recommend that you find a better cable because all
+>       APC UPSes support more than just On Battery.
+>
+
+Thanks for pointing me to that reference.  I will probably just grit my
+teeth and live with the 23A limitations.
+
+
+> If you have any Debian patches or changes for our 3.8.5 code that would
+help us, please send them to us.
+
+See attached.
+
+Here are the instructions for building the debian woody package,
+apcupsd_3.8.5-1_i386.deb.
+
+Apply this patch to a clean 3.8.5 tree, then cd into the patched tree
+
+cd apcupsd-3.8.5
+
+and either
+
+ln -s distributions/debian/packageinfo debian
+or
+mv distributions/debian/packageinfo debian
+or
+mv distributions/debian/packageinfo distributions/debian/debian
+
+(I only tried the first of these, but I think the others would work as well.
+I also could have put some variation of this as part of the patch, but that
+makes for a larger patch, and I will leave it to the apcupsd team to decide
+the best way to rename packageinfo to debian. The point is that the current
+packageinfo/rules file *must* be accessible as debian/rules in order for the
+debian build software to work.) Then build the package (stay in directory
+apcupsd-3.8.5 to invoke this command, but look for the generated deb file in
+directory above)
+
+debuild -us -uc
+
+As a first step, this command scans through the tree to find the debian/rules file
+so that is why you must symlink or rename packageinfo above.
+
+debuild worked without errors for me, (and also the installed package works
+well on my two Debian Master and Slave systems). To install the package simply
+cd .. ; dpkg --install apcupsd_3.8.5-1_i386.deb, and follow normal procedure
+for configuring and testing apcupsd.
+
+Despite my success in building and installing apcupsd_3.8.5-1_i386.deb, I
+cannot guarantee any success for others since their situation may be
+different.  However, I believe it is at least a good start to packaging
+3.8.5 for Debian because I have taken the approach of making minimalist
+changes to 3.8.5 guided by the current official Debian packaging. I have
+added needed files to the debian (a.k.a. packageinfo) tree (and also removed
+one unneeded one) and tweaked the contents of a few files (such as the
+undocumented man pages and the examples).  However, the most important
+change is white-space issues in the debian/rules file.  Whitespace issues
+are important there since that is a makefile. Somehow the whitespace in
+rules got badly munged for 3.8.5. Without my patch (which reverts to the
+official Debian rules file with correct whitespace), that file is unusuable.
+
+I will also be submitting my patch to Debian as part of a bug report.
+
+Alan
+
+email: irwin@beluga.phys.uvic.ca
+phone: 250-727-2902     FAX: 250-721-7715
+snail-mail:
+Dr. Alan W. Irwin
+Department of Physics and Astronomy,
+University of Victoria, P.O. Box 3055,
+Victoria, British Columbia, Canada, V8W 3P6
+__________________________
+
+Linux-powered astrophysics
+__________________________
+
+
+gzip-compressed file attachment (patch.debian.gz), "Patch file which allows Debian packaging of 3.8.5"
+     
+Documentation:
+ 
+Munagala Ramanath <Munagala.Ramanath@PostX.com>
+
+I would add documentation improvements as A16 if you
+have the bandwidth to do it. Specifically:
+
+1. A separate section discussing master/slave setup,
+   discussing for example the order in which the master
+   and slaves should be activated, how often they
+   communicate, who initiates the communication, what
+   happens if the master goes down or some (or even _all_
+   the slaves go down), etc.
+
+2. (done)
+   In the "Configure Options" section, add a note that
+   many of these configuration options are equivalent
+   to changing the corresponding option in the apcupsd.conf
+   file. Similarly, add a note in the "Configuration Directives"
+   section that some of these directives are set based on
+   --with options given to the configure script.
+
+3. (done)
+   In the Solaris section, ask users to verify that they have
+   either /usr/sbin (or /etc since /etc/shutdown is just a
+   symbolic link to /usr/sbin/shutdown) before /usr/ucb in
+   their path to avoid using the wrong shutdown program.
+
+4. (done)
+   In the Solaris section (this may be worth adding to the
+   other systems as well) that discusses modifying /sbin/rc0
+   add a note saying that if you want to manually reboot
+   the machines you can skip this step (I prefer to manually
+   reboot my machines after a powerfail because it is not
+   unusual for power to fail and return a couple of times
+   in rapid succession and I don't want to worry about the
+   unpredictability of power shutting off during a reboot)
+
+5. (done)
+   Add a note in the "Solaris EEPROM Changes" section that
+   recent versions of Solaris (7 & 8) appear to have removed
+   this eeprom option and there seems to be no way to suppress
+   the serial port probing during boot.
+
+6. Add a section specifically devoted to setup and testing
+   for dumb UPSes. I first tried cables 940-0024C and 940-1524C
+   with a BackUPS 500 but was unable to make it work (when I
+   pulled the power cord, the event was not detected by the
+   demon). I couldn't tell if I was using the wrong cable or
+   if something else was wrong. So I went out and bought a
+   SmartUPS and this seems to work OK.
+
+7. In the "Configuration Directives" section, it would be useful
+   if for each parameter, the following is specified:
+   -- what the values should be for master and slave (e.g. UPSCABLE
+      should be "ether" for the slaves -- this is stated in the
+      description of MASTER; it would be helpful to put it in the
+      description of UPSCABLE).
+   -- whether it is required or optional.
+   -- what exactly "default value" means (e.g. the DEVICE option
+      says the default is /dev/ttyS[0|1|2|3|4]; it is not clear
+      how multiple values can be a "default" and also whether
+      I can simply comment out this option to get the default or
+      whether it just means the configure script will choose a default
+      but this option is required.
+
+8. (done)
+   In the discussion of TIMEOUT, it says "The timeout for the master
+   is always 30 seconds longer than slaves". It is not clear if this
+   means slave_timeout = master_timeout - 30 or master_timeout =
+   slave_timeout + 30, or something else.
+
+From Carl:
+I'm responding to Kern's recent note, in regard to Solaris issues:
+
+>3. In the Solaris section, ask users to verify that they have
+  either /usr/sbin (or /etc since /etc/shutdown is just a
+  symbolic link to /usr/sbin/shutdown) before /usr/ucb in
+  their path to avoid using the wrong shutdown program.
+
+Would it make sense to directly call /usr/sbin/shutdown, and
+ignore the /usr/ucb/shutdown script entirely? I have never
+heard of anyone moving this script from where it is installed,
+although that would be possible. In such a case, a note that
+says: If you moved shutdown for some reason, be aware your
+must also modify the apc scripts to reflect the new location.
+
+Sun has stated a number of times that /usr/sbin/shutdown is
+the recommended way to gracefully stop the system. Since this
+file is a shell script, it can be easily modified, but again,
+almost no one does this.
+
+Directly calling the script would eliminate any confusion, but
+would require extra effort if for some reason the user moved
+the script somewhere else. Still, it's a simpler, more fool-
+proof approach.
+
+>4. In the Solaris section (this may be worth adding to the
+  other systems as well) that discusses modifying /sbin/rc0
+  add a note saying that if you want to manually reboot
+  the machines you can skip this step (I prefer to manually
+  reboot my machines after a powerfail because it is not
+  unusual for power to fail and return a couple of times
+  in rapid succession and I don't want to worry about the
+  unpredictability of power shutting off during a reboot)
+
+Yes, or give the option during the config, and run a script
+of some kind to do the editing (or not, if the user chooses
+to skip automated shutdown).
+
+>5. Add a note in the "Solaris EEPROM Changes" section that
+  recent versions of Solaris (7 & 8) appear to have removed
+  this eeprom option and there seems to be no way to suppress
+  the serial port probing during boot.
+
+I'm not sure this is accurate. Solaris X86 still has this
+option in Solaris 8 - I am running it as my primary machine
+at home. Solaris Sparc never needed this option, as it did
+not probe the serial ports during boot. Only the new Sun
+'Sunblade' machines seem to need the option, and do not
+have it. I've spoken to my friends at Sun, and am awaiting
+a response. As of now, I do not know of a work-around for
+the SunBlade systems.
+
+But my Sun Ultra-80 at work runs fine, and does not have the
+noprobe option. It just doesn't need it. As far as reports go,
+only the Sunblade machines seem to have a problem.
+
+Perhaps a note should be added that we cannot support the
+Sunblade models at this time, and why. Sun also just added
+a new line of rack servers, and they may also be sensitive
+to this. But I have no reports yet, and do not have one of the
+new Netra servers to test with.
+
+I am going to write to one of our friends at APC, and see if
+they are aware of the problem. They were recently certified as
+a 'Solaris-Ready' hardware vendor. Perhaps they are working on
+a solution with Sun already.
+
+But there is still no problem with either X86 or the majority
+of the Sparc systems out there, so there is also no cause for
+panic about this.
+
+What would be great would be a way to tell the UPS to ignore
+the handshake probe for a few minutes after powerup. That
+would get us past the problem, unless the user delayed turning
+on the system after power returned.
+
+Earlier email from Ram:
+Thanks for your comments:
+
+1. Yes, good point, I will create a second safe.apccontrol script
+   for systems requiring printf | wall.  On my Linux system, 
+   printf | wall sometimes prints nothing, which is why I changed
+   it for this debug script.
+
+   Thanks for pointing out the -a option on Solaris. I will add it
+   to the Solaris file (this option does not appear to be available
+   on other systems).
+
+2. Hmm. Not too surprising given all the changes. I'll look at it.
+   Thanks.
+
+3. Thanks for the suggestion for the doc, I will add them shortly.
+   Here is briefly what I will add.
+   --- No, you can start the master/slaves in any order they will
+       ultimately sync up. The "preferable" order is to bring the
+       slave up first since it waits for the master to contact it.
+       Note, I added a new output to the STATUS command some time
+       ago. It is MASTERUPD which indicates the last time the
+       slave was updated from the master. MASTERUPD appears only
+       in slave configurations.
+   --- Yes there is a default NETTIME. It is 60 seconds. NETPORT
+       has no default, but if you don't modify the standard
+acpupsd.conf.in
+       file, it will be set. The value is system dependent, but
+       generally 6666 (but it is 6544 on Debian by default, ...).
+       The configured (possibly by default) NETPORT will be
+displayed
+       in the output of your ./configure
+   --- When running as a netslave, the DEVICE is ignored. The
+UPSCABLE
+       should be set to "ether" (without quotes), and the UPSTYPE
+should
+       be set to the same type as the master.  In a future version,
+I
+       hope to fix this so that ALL information is pulled from the
+       master. There is a new section of the 3.8.2 manual (rather
+crude
+       at the moment) called "Configuration Examples" which is
+intended
+       to help in this regard.
+
+Thanks for your comments.
+
+Best regards,
+
+Kern
+
+Munagala Ramanath wrote:
+> 
+> Hi,
+> 
+> A couple of minor points w.r.t. the Solaris version:
+> 
+> 1. The safe.apccontrol script uses "wall <string>" but this usage is not
+>     valid on Solaris; wall gets its input from a file or stdin. The
+> apccontrol script
+>     uses "printf <string> | wall" which works. Also, it may be better to use
+>     "wall -a" because this will write to _all_ terminal windows rather than
+> just
+>     console windows (if the user does not have a console window, he doesn't
+>     see the message).
+> 2. The installed apcupsd script has an unused variable "sbindir=@sysbindir@"
+> 
+> For the master/slave mode, it will be useful to add answers to the following
+> questions:
+> 
+> -- Does it matter if the master demon is started first or the slaves first ?
+> -- Is there a default value for NETTIME and NETPORT or is it necessary
+>    to specify these explicitly in the conf file ?
+> -- If UPSCLASS is set to netslave, does it matter what UPSCABLE,
+>    UPSTYPE and DEVICE are set to ?
+> 
+> Thanks for an excellent package!
+
+Items done:
+- Add 10 second delay in apccontrol before the killpower.
+- Make pthreads the default.
+- Check INSTALL path on Solaris.
+- Save script files on install (mainsback,...) rather than overwriting
+  them.
+- Document need for 10 second delay to make USB killpower work.
+- Make sure rpm for 3.10.6 doesn't install the manual
+  in .../man8/man8/...
+- Check what changes were made to the Mandrake spec file to make non-root
+  rebuilds work.
+- The USB chapter is out of date as supposedly refers to files
+  that do not exist in the current release.
+- Switch to using /dev/usb/hiddev[0-9] in place of 
+  /dev/usb/hid/hiddev[0-9] in the next release.     
+- Modify hid-ups.c to handle both forms.
+- Extend apcupsd to handle [0-15].
+- Generate events when slave makes/looses a connection.
+  Already done, I think, but check it.
+- Fix USB battery voltage scaling problem (factor of 
+  10 to small).
+- Document the -b option, and for some reason -b and --killpower
+  cannot be used together.
+- Figure out why make -j doesn't work.
+- Look into libgd
+# This is what I was talking about in my last mail.  If the makefile had
+  a variable similar to apaches' "root", all those "install" lines could
+  be replaced by a single "make install root=$RPM_BUILD_ROOT".  This
+  also makes life a LOT easier if someone would like to write another
+  spec-file later.
+- Send list of USB programming problems to APC.
+- Make make install so that it can work with rpm

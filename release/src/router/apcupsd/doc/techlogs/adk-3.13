@@ -1,0 +1,8 @@
+             Technical notes on version 3.13.0
+                        Adam Kropelin
+
+General:
+
+23Jan06:
+- Add gapcmon courtesy of James Scott Jr <jscott@skoona.net>
+- Merge generic-usb driver from Branch-generic_usb

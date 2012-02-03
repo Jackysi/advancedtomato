@@ -1,0 +1,72 @@
+apcupsd (3.8.1.5-1) unstable; urgency=low
+
+  * New upstream release. (closes: #79045, #74060, #83059)
+  * Provide ups-monitor. (closes: #78058)
+  * Update to standards version 3.5.2.
+  * Update build depends. (closes: #70159)
+  * Change section to admin.
+  * Move events and status files to appropriate places. (closes: #63745)
+
+ -- Martin Mitchell <martin@debian.org>  Sun,  8 Apr 2001 22:57:24 +1000
+
+apcupsd (3.7.1-2) unstable; urgency=low
+
+  * Fix init.d script problem with environment variable.
+
+ -- Martin Mitchell <martin@debian.org>  Wed, 17 May 2000 01:20:06 +1000
+
+apcupsd (3.7.1-1) unstable; urgency=low
+
+  * New upstream release. (closes: #57131, #61777, #52206, #61636, #43447)
+  * Update copyright information.
+  * Update to standards version 3.1.1.
+  * Remove implicit bash dependency. (closes: #46505)
+
+ -- Martin Mitchell <martin@debian.org>  Tue, 25 Apr 2000 14:21:54 +1000
+
+apcupsd (3.6.2-1) unstable; urgency=low
+
+  * New upstream release. (closes: #42653)
+  * New maintainer.
+  * Update to standards version 3.0.1.
+  * Remove files and substvars. (closes: #41599)
+
+ -- Martin Mitchell <martin@debian.org>  Mon,  9 Aug 1999 01:11:48 +1000
+
+apcupsd (3.6.1-1) unstable; urgency=low
+
+  * New upstream release
+  * Binaries now reside in /usr/sbin (upstream change)
+
+ -- Leon Breedt <ljb@debian.org>  Wed, 14 Jul 1999 14:35:57 +0200
+
+apcupsd (3.5.8-4) unstable; urgency=low
+
+  * Removed empty README.Debian (closes #38956)
+  * Fixed cron.daily to restart quietly (closes #41056)
+
+ -- Leon Breedt <ljb@debian.org>  Fri,  9 Jul 1999 21:39:29 +0200
+
+apcupsd (3.5.8-3) unstable; urgency=low
+
+  * Various edits to /etc/apcupsd.conf
+  * Fixed /etc/init.d/apcupsd
+  * Added logrotate script
+
+ -- Leon Breedt <ljb@debian.org>  Mon,  7 Jun 1999 17:33:59 +0200
+
+apcupsd (3.5.8-2) unstable; urgency=low
+
+  * Added apcupsd.conf warning
+
+ -- Leon Breedt <ljb@debian.org>  Tue, 25 May 1999 21:42:53 +0200
+
+apcupsd (3.5.8-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Leon Breedt <ljb@debian.org>  Sun, 23 May 1999 20:47:12 +0200
+
+Local variables:
+mode: debian-changelog
+End:

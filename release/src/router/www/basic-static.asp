@@ -15,7 +15,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] Basic: Static DHCP/ARP &amp; Bandwidth Monitoring of LAN Clients</title>
+<title>[<% ident(); %>] Basic: Static DHCP/ARP/IPT</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
@@ -309,7 +309,8 @@ function save() {
 	form.submit(fom, 1);
 }
 
-function init() {
+function init()
+{
 	var c;
 	if (((c = cookie.get('basic_static_notes_vis')) != null) && (c == '1')) {
 		toggleVisibility("notes");
@@ -360,7 +361,7 @@ function verifyFields(focused, quiet) {
 <input type='hidden' name='dhcpd_static_only'>
 <input type='hidden' name='cstats_include'>
 
-<div class='section-title'>Static DHCP/ARP &amp; Bandwidth Monitoring of LAN Clients</div>
+<div class='section-title'>Static DHCP/ARP/IPT</div>
 <div class='section'>
 	<table class='tomato-grid' id='bs-grid'></table>
 </div>
@@ -374,10 +375,6 @@ createFieldTable('', [
 { title: 'Ignore DHCP requests from unknown devices', name: 'f_dhcpd_static_only', type: 'checkbox', value: nvram.dhcpd_static_only == '1' }
 ]);
 </script>
-</div>
-
-<!-- / / / -->
-
 <div class='section-title'>Notes <small><i><a href='javascript:toggleVisibility("notes");'><span id='sesdivnotesshowhide'>(Click here to show)</span></a></i></small></div>
 <div class='section' id='sesdivnotes' style='display:none'>
 <ul>
@@ -387,11 +384,6 @@ createFieldTable('', [
 <li><b>IPTraffic</b> - Keep track of bandwidth usage for this IP address.</li>
 <li><b>Hostname</b> - Human-readable nickname/label assigned to this device on the network.</li>
 </ul>
-
-<ul>
-<li><b>Ignore DHCP requests (...)</b> - Unlisted MAC addresses won't be able to obtain an IP address through DHCP.</li>
-</ul>
-
 <small>
 <ul>
 <li><b>Other relevant notes/hints:</b>

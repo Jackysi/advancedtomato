@@ -616,6 +616,8 @@ const defaults_t defaults[] = {
 	{ "log_file",			"1"				},
 	{ "log_file_custom",		"0"				},
 	{ "log_file_path",		"/var/log/messages"		},
+	{ "log_file_size",		"50"				},
+	{ "log_file_keep",		"1"				},
 	{ "log_limit",			"60"				},
 	{ "log_in",			"0"				},
 	{ "log_out",			"0"				},
@@ -776,6 +778,10 @@ const defaults_t defaults[] = {
 #ifdef TCONFIG_NFS
 	{ "nfs_enable",			"0"				},
 	{ "nfs_exports",		""				},
+#endif
+
+#ifdef TCONFIG_UPS
+	{ "ups_enable",			"0"				},
 #endif
 
 #ifdef TCONFIG_OPENVPN
