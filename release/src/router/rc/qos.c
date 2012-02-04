@@ -288,26 +288,12 @@ void ipt_qos(void)
 		if ((sscanf(p, "%u-%u", &rate, &ceil) == 2) && (rate >= 1))
 		{		
 			ipt_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", qface);
-
-
-		if (nvram_get_int("qos_udp")) {
-			ipt_write("-A PREROUTING -i %s -p tcp -j IMQ --todev %s\n", qface, qosImqDeviceNumberString);	// pass only tcp
-		}
-		else {
-			ipt_write("-A PREROUTING -i %s -j IMQ --todev %s\n", qface, qosImqDeviceNumberString);	// pass everything thru ingress
-		}
-
+			ipt_write("-A PREROUTING -i %s -p tcp -j IMQ --todev %s\n", qface, qosImqDeviceNumberString);
 #ifdef TCONFIG_IPV6
 			if (*wan6face)
 			{
 				ip6t_write("-A PREROUTING -i %s -j CONNMARK --restore-mark --mask 0xff\n", wan6face);
-
-				if (nvram_get_int("qos_udp")) {
-						ip6t_write("-A PREROUTING -i %s -p tcp -j IMQ --todev %s\n", wan6face, qosImqDeviceNumberString);	// pass only tcp
-				}
-				else {
-						ip6t_write("-A PREROUTING -i %s -j IMQ --todev %s\n", wan6face, qosImqDeviceNumberString);	// pass everything thru ingress
-				}
+				ip6t_write("-A PREROUTING -i %s -p tcp -j IMQ --todev %s\n", wan6face, qosImqDeviceNumberString);
 			}
 #endif
 			break;
@@ -589,7 +575,6 @@ void start_qos(void)
 	if (nvram_get_int("qos_icmp")) {
 		fputs("\n\t$TFA parent 1: prio 13 protocol ip u32 match ip protocol 1 0xff flowid 1:10\n", f);
 	}
-
 
 	////
 	//// INCOMING TRAFFIC SHAPING
