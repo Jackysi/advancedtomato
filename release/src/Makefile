@@ -116,7 +116,7 @@ ifeq ($(WNR3500LV2),1)
 	cd image && touch rootfs
 	cd image && $(WNRTOOL)/packet -k tomato-wnr3500lv2.trx -f rootfs -b $(BOARD_FILE) -ok kernel_image -oall kernel_rootfs_image -or rootfs_image -i $(fw_cfg_file) && rm -f rootfs && \
 	cp kernel_rootfs_image.chk tomato-Netgear-3500Lv2-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(V2)-$(current_BUILD_DESC).chk
-	@echo "Cleanup ....
+	@echo "Cleanup ...."
 	rm -f image/*image.chk image/*.trx
 endif
 
