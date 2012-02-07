@@ -149,6 +149,7 @@ obj-$(TCONFIG_BBT) += libcurl
 obj-$(TCONFIG_BBT) += transmission
 obj-$(TCONFIG_BT) += btgui
 obj-$(TCONFIG_BBT) += zlib
+obj-$(TCONFIG_BBT) += gettext
 
 obj-$(CONFIG_LINUX26) += hotplug2
 obj-$(CONFIG_LINUX26) += udevtrigger
@@ -1474,9 +1475,9 @@ openvpn-install: openvpn
 #shibby
 libcurl/stamp-h1: zlib openssl
 	cd libcurl && CC=$(CC) STRIP='mipsel-uclibc-strip' \
-		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
 		CPPFLAGS="-I$(TOP)/zlib" \
-		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+		LDFLAGS="-L$(TOP)/zlib -fPIC" \
 		$(CONFIGURE) --prefix=/usr --disable-thread --enable-shared --enable-static \
 		--enable-ares --enable-cookies --enable-crypto-auth --enable-nonblocking \
 		--enable-file --enable-ftp --enable-http --enable-ipv6 --enable-tftp \
@@ -1506,8 +1507,8 @@ libcurl-install: libcurl
 
 libevent/stamp-h1:
 	cd libevent && CC=$(CC) \
-		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
-		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+		CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+		LDFLAGS="-fPIC" \
 		$(CONFIGURE)
 		touch libevent/stamp-h1
 
@@ -1518,7 +1519,7 @@ libevent: libevent/stamp-h1
 libevent-clean:
 	-@$(MAKE) -C libevent clean
 	@rm -f libevent/stamp-h1 libevent/Makefile
-	@rm -rf libevent/staged
+	@rm -rf libevent/staged-h1 libevent/Makefile
 
 libevent-install: libevent
 	install -d $(INSTALLDIR)/libevent/usr/lib
@@ -1527,8 +1528,29 @@ libevent-install: libevent
 	install -d $(TOP)/libevent/staged
 	$(MAKE) -C libevent DESTDIR=$(TOP)/libevent/staged install
 
-transmission/stamp-h1: openssl libcurl libevent zlib
-	cd transmission && CC=$(CC) AR=$(AR) LD=$(LD) STRIP='mipsel-uclibc-strip' \
+gettext/stamp-h1:
+	cd gettext && \
+	CC=$(CC) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	LDFLAGS="" \
+	$(CONFIGURE)
+	touch gettext/stamp-h1
+
+gettext: gettext/stamp-h1
+	@$(SEP)
+	$(MAKE) -C gettext/gettext-runtime/intl
+	#only libintl.so we neeed for transmission
+
+gettext-clean:
+	-@$(MAKE) -C gettext clean
+	@rm -f gettext/stamp-h1 gettext/Makefile
+
+gettext-install: gettext
+	install -d $(INSTALLDIR)/gettext/usr/lib
+	install gettext/gettext-runtime/intl/.libs/libintl.so.3.4.3 $(INSTALLDIR)/gettext/usr/lib/libintl.so.3
+	$(STRIP) -s $(INSTALLDIR)/gettext/usr/lib/libintl.so.3
+
+transmission/stamp-h1: openssl libcurl libevent zlib gettext
+	cd transmission && CC=$(CC) STRIP='mipsel-uclibc-strip' \
 		CFLAGS="-Os -Wall -fno-delete-null-pointer-checks -funit-at-a-time \
 		--param large-function-growth=800 --param max-inline-insns-single=3000 \
 		-ffunction-sections -fdata-sections \
@@ -1536,9 +1558,9 @@ transmission/stamp-h1: openssl libcurl libevent zlib
 		-Wcast-align -Wstrict-prototypes -Wmissing-declarations -Wmissing-format-attribute \
 		-Wredundant-decls -Wnested-externs -Wunused-parameter -Wwrite-strings -Winline -Wfloat-equal \
 		-Wextra -Wdeclaration-after-statement -Winit-self" \
-		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+		LDFLAGS="-L$(TOP)/zlib -L$(TOP)/gettext/gettext-runtime/intl/.libs -lintl -lpthread" \
 		CPPFLAGS="-I$(TOP)/zlib -O3 -DTR_EMBEDDED" \
-		ac_cv_header_libintl_h=no HAVE_CXX=yes \
+		ac_cv_header_libintl_h=yes HAVE_CXX=yes \
 		$(CONFIGURE) --target=mipsel-linux --prefix=/usr --disable-gtk --disable-nls \
 		--enable-lightweight --enable-largefile --enable-utp \
 		LIBCURL_CFLAGS="-I$(TOP)/libcurl/include" \
