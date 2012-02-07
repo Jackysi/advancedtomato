@@ -1532,7 +1532,7 @@ gettext/stamp-h1:
 	cd gettext && \
 	CC=$(CC) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
 	LDFLAGS="" \
-	$(CONFIGURE)
+	$(CONFIGURE) --prefix=$(TOP)/gettext/staged
 	touch gettext/stamp-h1
 
 gettext: gettext/stamp-h1
@@ -1543,6 +1543,7 @@ gettext: gettext/stamp-h1
 gettext-clean:
 	-@$(MAKE) -C gettext clean
 	@rm -f gettext/stamp-h1 gettext/Makefile
+	@rm -rf gettext/staged
 
 gettext-install: gettext
 	install -d $(INSTALLDIR)/gettext/usr/lib
