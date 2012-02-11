@@ -895,7 +895,9 @@ static void filter_forward(void)
 	char *p, *c;
 	int i;
 
-	ipt_account();
+	if (nvram_match("cstats_enable", "1")) {
+		ipt_account();
+	}
 
 	ipt_write(
 		"-A FORWARD -i %s -o %s -j ACCEPT\n",			// accept all lan to lan
