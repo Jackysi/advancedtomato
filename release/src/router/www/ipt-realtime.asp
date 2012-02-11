@@ -46,7 +46,7 @@ ul.tabs a,
 <script type='text/javascript' src='interfaces.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,cstats_colors,dhcpd_static,lan_ipaddr,lan_netmask,lan1_ipaddr,lan1_netmask,lan2_ipaddr,lan2_netmask,lan3_ipaddr,lan3_netmask,cstats_labels"); %>
+//	<% nvram("wan_ifname,lan_ifname,wl_ifname,wan_proto,wan_iface,web_svg,cstats_enable,cstats_colors,dhcpd_static,lan_ipaddr,lan_netmask,lan1_ipaddr,lan1_netmask,lan2_ipaddr,lan2_netmask,lan3_ipaddr,lan3_netmask,cstats_labels"); %>
 
 //	<% devlist(); %>
 
@@ -161,6 +161,8 @@ function watchdogReset() {
 }
 
 function init() {
+	if (nvram.cstats_enable != '1') return;
+
 	populateCache();
 
 	speed_history = [];
@@ -276,7 +278,7 @@ function verifyFields(focused, quiet) {
 	<div id='tab-area'></div>
 
 	<script type='text/javascript'>
-	if (nvram.web_svg != '0') {
+	if ((nvram.web_svg != '0') && (nvram.cstats_enable == '1')) {
 		// without a div, Opera 9 moves svgdoc several pixels outside of <embed> (?)
 		W("<div style='border-top:1px solid #f0f0f0;border-bottom:1px solid #f0f0f0;visibility:hidden;padding:0;margin:0' id='graph'><embed src='bwm-graph.svg?<% version(); %>' style='width:760px;height:300px;margin:0;padding:0' type='image/svg+xml' pluginspage='http://www.adobe.com/svg/viewer/install/'></embed></div>");
 	}
@@ -345,6 +347,17 @@ createFieldTable('', [
 
 </div>
 <br>
+
+<!-- / / / -->
+
+<script type='text/javascript'>
+if (nvram.cstats_enable != '1') {
+	W('<div class="note-disabled">IP Traffic monitoring disabled.</b><br><br><a href="admin-iptraffic.asp">Enable &raquo;</a><div>');
+	E('cstats').style.display = 'none';
+}else {
+	W('<div class="note-warning" style="display:none" id="rbusy">The cstats program is not responding or is busy. Try reloading after a few seconds.</div>');
+}
+</script>
 
 <!-- / / / -->
 
