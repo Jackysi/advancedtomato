@@ -1104,7 +1104,7 @@ function save() {
 		E('_wl'+u+'_radio').value = wradio ? 1 : 0;
 		E('_wl'+u+'_bss_enabled').value = wradio ? 1 : 0;
 
-		E('_wl'+u+'_auth').value = eval('nvram["wl'+u+'_auth"]') || 'none';
+		E('_wl'+u+'_auth').value = eval('nvram["wl'+u+'_auth"]') || '0';
 
 		e = E('_wl'+u+'_akm');
 		switch (sm2) {
@@ -1131,7 +1131,7 @@ function save() {
 		E('_wl'+u+'_auth_mode').value = (sm2 == 'radius') ? 'radius' : 'none';
 		E('_wl'+u+'_wep').value = ((sm2 == 'radius') || (sm2 == 'wep')) ? 'enabled': 'disabled';
 
-		if (sm2.indexOf('wpa') != -1) E('_wl'+u+'_auth').value = 0;
+		if (sm2.indexOf('wpa') != -1) E('_wl'+u+'_auth').value = '0';
 
 /* REMOVE-BEGIN */
 //  primary VIF
