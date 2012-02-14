@@ -131,6 +131,9 @@ Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 - Custom log file path<br>
 <!-- LINUX26-BEGIN -->
 - SD-idle tool integration for kernel 2.6<br>
+<!-- USB-BEGIN -->
+- 3G Modem support (big thanks for @LDevil)<br>
+<!-- USB-END -->
 <!-- LINUX26-END -->
 <!-- SNMP-BEGIN -->
 - SNMP integration and GUI<br>
