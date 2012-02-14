@@ -47,6 +47,7 @@ extern const char *tomato_shortver;
 #define	WP_L2TP			3
 #define	WP_PPPOE		4
 #define	WP_PPTP			5
+#define	WP_PPP3G		6
 
 #ifdef TCONFIG_IPV6
 #define	IPV6_DISABLED		0

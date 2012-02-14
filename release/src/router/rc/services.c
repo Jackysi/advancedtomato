@@ -452,6 +452,7 @@ void dns_to_resolv(void)
 				if (nvram_match("ppp_demand", "1")) {
 					switch (get_wan_proto()) {
 					case WP_PPPOE:
+					case WP_PPP3G:
 					case WP_PPTP:
 					case WP_L2TP:
 						fprintf(f, "nameserver 1.1.1.1\n");

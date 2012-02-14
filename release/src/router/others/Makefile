@@ -11,6 +11,11 @@ ifeq ($(TCONFIG_USB),y)
 # Optware perl symlink
 	install -d $(INSTALLDIR)/usr/bin
 	ln -sf /opt/bin/perl $(INSTALLDIR)/usr/bin/perl
+
+ifeq ($(CONFIG_LINUX26),y)
+#3G modem switch script
+	install -m 0700 switch3g $(INSTALLDIR)/usr/sbin
+endif
 endif
 
 # cron helper

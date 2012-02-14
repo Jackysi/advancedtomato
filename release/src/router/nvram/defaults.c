@@ -134,6 +134,12 @@ const defaults_t defaults[] = {
 	{ "dhcp3_lease",			"0"				},
 #endif
 
+	//3G parameters
+	{ "modem_pin",			""			},
+	{ "modem_dev",			"USB0"			},
+	{ "modem_init",			"*99#"			},
+	{ "modem_apn",			"internet"		},
+
 	// PPPoE parameters
 	{ "pppoe_ifname",		""				},	// PPPoE enslaved interface
 	{ "ppp_username",		""				},	// PPP username
@@ -703,6 +709,7 @@ const defaults_t defaults[] = {
 	{ "script_usbmount",		""				},
 	{ "script_usbumount",		""				},
 	{ "idle_enable",		"0"				},
+	{ "usb_3g",			"1"				},
 #endif
 
 #ifdef TCONFIG_FTP
