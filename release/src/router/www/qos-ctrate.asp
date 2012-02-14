@@ -201,7 +201,7 @@ grid.setName = function(ip, name) {
 		row = this.tb.rows[i];
 		data = row.getRowData();
 		for (j = cols.length-1; j >= 0; j--) {
-			if (data[cols[j]].indexOf(ip) != -1 ) {
+			if (data[cols[j]] == ip) {
 				data[cols[j]] = name + ((ip.indexOf(':') != -1) ? '<br>' : ' ') + '<small>(' + ip + ')</small>';
 				row.setRowData(data);
 				if (E('_f_shortcuts').checked)
@@ -280,7 +280,7 @@ ref.refresh = function(text)
 		if (E('_f_excludemcast').checked) {
 			var mmin = 3758096384; // aton('224.0.0.0') == 3758096384
 			var mmax = 4026531839; // aton('239.255.255.255') == 4026531839
-			if (((aton(b[1]) >= mmin) && (aton(b[1]) <= mmax)) || 
+			if (((aton(b[1]) >= mmin) && (aton(b[1]) <= mmax)) ||
 				((aton(b[2]) >= mmin) && (aton(b[2]) <= mmax))) {
 				continue;
 			}
