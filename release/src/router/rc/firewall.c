@@ -1170,7 +1170,7 @@ static void filter_forward(void)
 		}
 	}
 
- #ifdef TCONFIG_VLAN
+#ifdef TCONFIG_VLAN
 	for(br=0 ; br<=3 ; br++) {
 		char bridge[2] = "0";
 		if (br!=0)
@@ -1265,8 +1265,6 @@ static void filter_log(void)
 	else {
 		limit[0] = 0;
 	}
-
-	ipt_account();
 
 #ifdef TCONFIG_IPV6
 	modprobe("ip6t_LOG");
