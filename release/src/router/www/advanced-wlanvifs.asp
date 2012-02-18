@@ -48,7 +48,7 @@ ul.tabs a,
 
 <script type='text/javascript'>
 
-// <% nvram("nas_alternate,wl_auth,wl_auth_mode,wl_bss_enabled,wl_channel,wl_closed,wl_corerev,wl_crypto,wl_hwaddr,wl_ifname,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_nband,wl_nbw_cap,wl_nctrlsb,wl_net_mode,wl_passphrase,wl_phytype,wl_radio,wl_radius_ipaddr,wl_radius_key,wl_radius_port,wl_security_mode,wl_ssid,wl_vifs,wl_wds,wl_wds_enable,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_bss_maxassoc,wl_wme,lan_ifname,lan_ifnames,lan1_ifname,lan1_ifnames,lan2_ifname,lan2_ifnames,lan3_ifname,lan3_ifnames");%>
+// <% nvram("nas_alternate,wl_auth,wl_auth_mode,wl_bss_enabled,wl_channel,wl_closed,wl_corerev,wl_crypto,wl_hwaddr,wl_ifname,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_nband,wl_nbw_cap,wl_nctrlsb,wl_net_mode,wl_passphrase,wl_phytype,wl_radio,wl_radius_ipaddr,wl_radius_key,wl_radius_port,wl_security_mode,wl_ssid,wl_vifs,wl_wds,wl_wds_enable,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_bss_maxassoc,wl_wme,lan_ifname,lan_ifnames,lan1_ifname,lan1_ifnames,lan2_ifname,lan2_ifnames,lan3_ifname,lan3_ifnames,t_features");%>
 
 var vifs_possible = [];
 var vifs_defined = [];
@@ -197,14 +197,11 @@ wlg.verifyFields = function(row, quiet) {
 		f[4].options[3].disabled=1;
 
 	if (f[0].value.indexOf('.') < 0) {
-		fields.disableAll(row, 1);
-		return 1;
-	} else {
 /* REMOVE-BEGIN */
-//		f[3].options[1].disabled = 1; // AP + WDS
-//		f[3].options[2].disabled = 1; // Wireless Client
-//		f[3].options[4].disabled = 1; // WDS
+//		fields.disableAll(row, 1);
+//		return 1;
 /* REMOVE-END */
+	} else {
 		for(var i = 0; i < f[3].options.length ; i++) {
 /* REMOVE-BEGIN */
 //			f[3].options[i].disabled = ((f[3].options[i].value != 'ap') && (f[3].options[i].value != 'wet'));
@@ -331,11 +328,13 @@ wlg.onAdd = function() {
 	var e = E('footer-msg');
 	e.innerHTML = 'After configuring this VIF, review and save your settings on the Overview tab.';
 	e.style.visibility = 'visible';
-	setTimeout(
-		function() {
-		e.innerHTML = '';
-		e.style.visibility = 'hidden';
-		}, 5000);
+/* REMOVE-BEGIN */
+//	setTimeout(
+//		function() {
+//		e.innerHTML = '';
+//		e.style.visibility = 'hidden';
+//		}, 5000);
+/* REMOVE-END */
 }
 
 wlg.onOK = function() {
@@ -537,23 +536,23 @@ function definedVIFidx(vif) {
 }
 
 function tabSelect(name) {
+	if (wlg.isEditing()) return;
+
 	tgHideIcons();
 
 	tabHigh(name);
+
+	if (!E('save-button').disabled) E('footer-msg').style.visibility = 'hidden';
 
 	if (name == 'overview') {
 		wlg.populate();
 	}
 
 	elem.display('overview-tab', (name == 'overview'));
-	E('save-button').disabled = (name != 'overview');
+	E('save-button').value = (name != 'overview') ? 'Overview' : 'Save';
 
 	for (var i = 1; i < tabs.length; ++i) {
 		if (name == tabs[i][0]) {
-/* REMOVE-BEGIN */
-// TODO: allow changing settings for main/primary WL VIF?
-//			if ((tabs[i][0].indexOf('.') < 0) || (definedVIFidx(name) < 0)) {
-/* REMOVE-END */
 			if (definedVIFidx(name) < 0) {
 				elem.display(tabs[i][0] + '-tab-disabled', 1);
 				elem.display(tabs[i][0] + '-tab', 0);
@@ -699,6 +698,8 @@ function verifyFields(focused, quiet) {
 			}
 		}
 
+		E('wl'+u+'_mode_msg').style.visibility = ((wmode == 'sta') || (wmode == 'wet')) ? 'visible' : 'hidden';
+
 		switch (wmode) {
 		case 'apwds':
 		case 'wds':
@@ -825,10 +826,6 @@ REMOVE-END */
 /* REMOVE-END */
 				e.options[i].disabled = (e.options[i].value != 'ap');
 			}
-/* REMOVE-BEGIN */
-//			E('_f_wl'+u+'_mode').options[1].disabled = 1;
-//			E('_f_wl'+u+'_mode').options[4].disabled = 1;
-/* REMOVE-END */
 		}
 
 		wl_vis[vidx]._f_wl_psk_random1 = wl_vis[vidx]._wl_wpa_psk;
@@ -1002,6 +999,11 @@ function cancel() {
 }
 
 function save() {
+	if (E('save-button').value != 'Save') {
+		tabSelect('overview');
+		return;
+	}
+
 	if (wlg.isEditing()) return;
 	wlg.resetNewEditor();
 	if (!verifyFields(null, false)) return;
@@ -1476,7 +1478,8 @@ for (var i = 1; i < tabs.length; ++i) {
 		{ title: 'MAC Address', text: '<a href="advanced-mac.asp">' + (eval('nvram["wl'+u+'_hwaddr"]') || '00:00:00:00:00:00') + '</a>' },
 		{ title: 'Wireless Mode', name: 'f_wl'+u+'_mode', type: 'select',
 			options: wl_modes_available,
-			value: ((eval('nvram["wl'+u+'_mode"]') == 'ap') && (eval('nvram["wl'+u+'_wds_enable"]') == '1')) ? 'apwds' : eval('nvram["wl'+u+'_mode"]') }
+			value: ((eval('nvram["wl'+u+'_mode"]') == 'ap') && (eval('nvram["wl'+u+'_wds_enable"]') == '1')) ? 'apwds' : eval('nvram["wl'+u+'_mode"]'),
+			suffix: ' &nbsp; <b id="wl'+u+'_mode_msg" style="visibility:hidden"><small>(note: you might wish to cross-check settings later on <a href=basic-network.asp>Basic/Network</a>)</small></b>' }
 	);
 
 // only if primary VIF
