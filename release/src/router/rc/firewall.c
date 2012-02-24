@@ -448,7 +448,8 @@ static void ipt_account(void) {
 
 			sprintf(netaddrnetmask, "%s/%s", inet_ntoa(network), nvram_safe_get(lanN_netmask));
 
-			ip46t_write("-A FORWARD -m account --aaddr %s --aname %s\n", netaddrnetmask, lanN);
+			//ipv4 only
+			ipt_write("-A FORWARD -m account --aaddr %s --aname %s\n", netaddrnetmask, lanN);
 		}
 	}
 }
