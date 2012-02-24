@@ -1057,7 +1057,8 @@ static void filter_forward(void)
 			if (!ipt_addr(dst, sizeof(dst), daddr, "dst", IPT_V4|IPT_V6, 1, "LAN access IPv4", desc))
 				continue;
 
-			ip46t_write("-A FORWARD -i %s%s -o %s%s %s %s -j ACCEPT\n",
+			//ipv4 only
+			ipt_write("-A FORWARD -i %s%s -o %s%s %s %s -j ACCEPT\n",
 				"br",
 				sbr,
 				"br",
