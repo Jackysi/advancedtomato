@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: util.c 12999 2011-10-20 00:46:26Z jordan $
+ * $Id: util.c 13195 2012-02-03 21:21:52Z jordan $
  */
 
 #include <ctype.h> /* isxdigit() */
@@ -40,17 +40,17 @@ const char * mem_M_str = N_("MiB");
 const char * mem_G_str = N_("GiB");
 const char * mem_T_str = N_("TiB");
 
-const int disk_K = 1024;
-const char * disk_K_str = N_("KiB");
-const char * disk_M_str = N_("MiB");
-const char * disk_G_str = N_("GiB");
-const char * disk_T_str = N_("TiB");
+const int disk_K = 1000;
+const char * disk_K_str = N_("kB");
+const char * disk_M_str = N_("MB");
+const char * disk_G_str = N_("GB");
+const char * disk_T_str = N_("TB");
 
-const int speed_K = 1024;
-const char * speed_K_str = N_("KiB/s");
-const char * speed_M_str = N_("MiB/s");
-const char * speed_G_str = N_("GiB/s");
-const char * speed_T_str = N_("TiB/s");
+const int speed_K = 1000;
+const char * speed_K_str = N_("kB/s");
+const char * speed_M_str = N_("MB/s");
+const char * speed_G_str = N_("GB/s");
+const char * speed_T_str = N_("TB/s");
 
 /***
 ****
@@ -313,7 +313,7 @@ gtr_file_trash_or_remove( const char * filename )
 
     if( !trashed ) {
         GError * err = NULL;
-        trashed = g_file_delete( file, NULL, &err );
+        g_file_delete( file, NULL, &err );
         if( err ) {
             g_message( "Unable to delete file \"%s\": %s", filename, err->message );
             g_clear_error( &err );
@@ -343,10 +343,9 @@ gtr_get_help_uri( void )
 void
 gtr_open_file( const char * path )
 {
-    char * uri = NULL;
+    char * uri;
 
     GFile * file = g_file_new_for_path( path );
-    uri = g_file_get_uri( file );
     g_object_unref( G_OBJECT( file ) );
 
     if( g_path_is_absolute( path ) )

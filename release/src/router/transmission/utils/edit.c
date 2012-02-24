@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: edit.c 12851 2011-09-07 04:21:45Z jordan $
+ * $Id: edit.c 13191 2012-02-03 16:44:07Z jordan $
  */
 
 #include <stdio.h> /* fprintf() */
@@ -242,7 +242,7 @@ addURL( tr_benc * metainfo, const char * url )
         if( !had_announce_list )
         {
             announce_list = tr_bencDictAddList( metainfo, "announce-list", 2 );
-       
+
             if( had_announce )
             {
                 /* we're moving from an 'announce' to an 'announce-list',

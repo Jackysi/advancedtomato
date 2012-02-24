@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: InfoGeneralViewController.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: InfoGeneralViewController.m 13162 2012-01-14 17:12:04Z livings124 $
  *
- * Copyright (c) 2010-2011 Transmission authors and contributors
+ * Copyright (c) 2010-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,7 +23,6 @@
  *****************************************************************************/
 
 #import "InfoGeneralViewController.h"
-#import "NSApplicationAdditions.h"
 #import "NSStringAdditions.h"
 #import "Torrent.h"
 
@@ -43,24 +42,6 @@
     }
     
     return self;
-}
-
-- (void) awakeFromNib
-{
-    if (![NSApp isOnSnowLeopardOrBetter])
-    {
-        NSImage * revealOn = [[NSImage imageNamed: @"RevealOn.png"] copy],
-                * revealOff = [[NSImage imageNamed: @"RevealOff.png"] copy];
-        
-        [revealOn setFlipped: NO];
-        [revealOff setFlipped: NO];
-        
-        [fRevealDataButton setImage: revealOff];
-        [fRevealDataButton setAlternateImage: revealOn];
-        
-        [revealOn release];
-        [revealOff release];
-    }
 }
 
 - (void) dealloc
@@ -103,13 +84,8 @@
     if (!location)
         return;
     
-    if ([NSApp isOnSnowLeopardOrBetter])
-    {
-        NSURL * file = [NSURL fileURLWithPath: location];
-        [[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs: [NSArray arrayWithObject: file]];
-    }
-    else
-        [[NSWorkspace sharedWorkspace] selectFile: location inFileViewerRootedAtPath: nil];
+    NSURL * file = [NSURL fileURLWithPath: location];
+    [[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs: [NSArray arrayWithObject: file]];
 }
 
 @end

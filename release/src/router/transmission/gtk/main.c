@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: main.c 12997 2011-10-20 00:37:39Z jordan $
+ * $Id: main.c 13188 2012-02-03 15:51:36Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -46,6 +46,7 @@
 #include "hig.h"
 #include "makemeta-ui.h"
 #include "msgwin.h"
+#include "notify.h"
 #include "open-dialog.h"
 #include "relocate.h"
 #include "stats.h"
@@ -72,6 +73,7 @@ struct cbdata
     gboolean                    start_paused;
     gboolean                    is_iconified;
 
+    guint                       activation_count;
     guint                       timer;
     guint                       update_model_soon_tag;
     guint                       refresh_actions_tag;
@@ -532,8 +534,16 @@ on_startup( GApplication * application, gpointer user_data )
 }
 
 static void
-on_activate( GApplication * app UNUSED, gpointer unused UNUSED )
+on_activate( GApplication * app UNUSED, struct cbdata * cbdata )
 {
+    cbdata->activation_count++;
+
+    /* GApplication emits an 'activate' signal when bootstrapping the primary.
+     * Ordinarily we handle that by presenting the main window, but if the user
+     * user started Transmission minimized, ignore that initial signal... */
+    if( cbdata->is_iconified && ( cbdata->activation_count == 1 ) )
+        return;
+
     gtr_action_activate( "present-main-window" );
 }
 
@@ -633,6 +643,9 @@ main( int argc, char ** argv )
     /* set up the config dir */
     gtr_pref_init( cbdata.config_dir );
     g_mkdir_with_parents( cbdata.config_dir, 0755 );
+
+    /* init notifications */
+    gtr_notify_init( );
 
     /* init the application for the specified config dir */
     stat( cbdata.config_dir, &sb );
@@ -921,7 +934,7 @@ on_app_exit( gpointer vdata )
     gtk_misc_set_alignment( GTK_MISC( w ), 0.0, 0.5 );
     gtk_table_attach_defaults( GTK_TABLE( p ), w, 1, 2, 0, 1 );
 
-    w = gtk_label_new( _( "Sending upload/download totals to tracker..." ) );
+    w = gtk_label_new( _( "Sending upload/download totals to tracker…" ) );
     gtk_misc_set_alignment( GTK_MISC( w ), 0.0, 0.5 );
     gtk_table_attach_defaults( GTK_TABLE( p ), w, 1, 2, 1, 2 );
 

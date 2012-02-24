@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: Torrent.h 12773 2011-08-28 00:07:30Z livings124 $
+ * $Id: Torrent.h 13162 2012-01-14 17:12:04Z livings124 $
  *
- * Copyright (c) 2006-2011 Transmission authors and contributors
+ * Copyright (c) 2006-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,8 +28,7 @@
 
 @class FileListNode;
 
-#warning uncomment
-@interface Torrent : NSObject <NSCopying>//, QLPreviewItem>
+@interface Torrent : NSObject <NSCopying, QLPreviewItem>
 {
     tr_torrent * fHandle;
     const tr_info * fInfo;

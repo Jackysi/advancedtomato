@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: FileNameCell.m 12483 2011-05-31 22:26:04Z livings124 $
+ * $Id: FileNameCell.m 13162 2012-01-14 17:12:04Z livings124 $
  * 
- * Copyright (c) 2007-2011 Transmission authors and contributors
+ * Copyright (c) 2007-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,7 +26,6 @@
 #import "FileOutlineView.h"
 #import "Torrent.h"
 #import "FileListNode.h"
-#import "NSApplicationAdditions.h"
 #import "NSStringAdditions.h"
 
 #import "transmission.h" // required by utils.h
@@ -116,15 +115,7 @@
 - (void) drawWithFrame: (NSRect) cellFrame inView: (NSView *) controlView
 {
     //icon
-    if ([NSApp isOnSnowLeopardOrBetter])
-        [[self image] drawInRect: [self imageRectForBounds: cellFrame] fromRect: NSZeroRect operation: NSCompositeSourceOver fraction: 1.0
-            respectFlipped: YES hints: nil];
-    else
-    {
-        NSImage * image = [self image];
-        [image setFlipped: YES];
-        [image drawInRect: [self imageRectForBounds: cellFrame] fromRect: NSZeroRect operation: NSCompositeSourceOver fraction: 1.0];
-    }
+    [[self image] drawInRect: [self imageRectForBounds: cellFrame] fromRect: NSZeroRect operation: NSCompositeSourceOver fraction: 1.0 respectFlipped: YES hints: nil];
     
     NSColor * titleColor, * statusColor;
     if ([self backgroundStyle] == NSBackgroundStyleDark)

@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: ColorTextField.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: ColorTextField.m 13162 2012-01-14 17:12:04Z livings124 $
  * 
- * Copyright (c) 2008-2011 Transmission authors and contributors
+ * Copyright (c) 2008-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),

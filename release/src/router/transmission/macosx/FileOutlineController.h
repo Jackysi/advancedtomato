@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: FileOutlineController.h 12599 2011-07-30 00:11:29Z livings124 $
+ * $Id: FileOutlineController.h 13162 2012-01-14 17:12:04Z livings124 $
  *
- * Copyright (c) 2008-2011 Transmission authors and contributors
+ * Copyright (c) 2008-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -35,8 +35,6 @@
     IBOutlet FileOutlineView * fOutline;
     
     NSString * fFilterText;
-    
-    NSRecursiveLock * fLock;
 }
 
 - (FileOutlineView *) outlineView;
@@ -45,7 +43,7 @@
 
 - (void) setFilterText: (NSString *) text;
 
-- (void) reloadData;
+- (void) refresh;
 
 - (void) setCheck: (id) sender;
 - (void) setOnlySelectedCheck: (id) sender;

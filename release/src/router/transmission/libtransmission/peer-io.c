@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-io.c 12477 2011-05-30 15:50:50Z jordan $
+ * $Id: peer-io.c 12954 2011-10-08 23:53:27Z jordan $
  */
 
 #include <assert.h>
@@ -18,8 +18,6 @@
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 
-#include <libutp/utp.h>
-
 #include "transmission.h"
 #include "session.h"
 #include "bandwidth.h"
@@ -28,6 +26,7 @@
 #include "peer-common.h" /* MAX_BLOCK_SIZE */
 #include "peer-io.h"
 #include "trevent.h" /* tr_runInEventThread() */
+#include "tr-utp.h"
 #include "utils.h"
 
 

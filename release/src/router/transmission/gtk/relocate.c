@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: relocate.c 12679 2011-08-13 21:08:53Z jordan $
+ * $Id: relocate.c 13188 2012-02-03 15:51:36Z jordan $
  */
 
 #include <libtransmission/transmission.h>
@@ -122,7 +122,7 @@ onResponse( GtkDialog * dialog, int response, gpointer unused UNUSED )
                                     GTK_MESSAGE_INFO,
                                     GTK_BUTTONS_CLOSE,
                                     NULL );
-        gtk_message_dialog_format_secondary_text( GTK_MESSAGE_DIALOG( w ), _( "This may take a moment..." ) );
+        gtk_message_dialog_format_secondary_text( GTK_MESSAGE_DIALOG( w ), _( "This may take a moment…" ) );
         gtk_dialog_set_response_sensitive( GTK_DIALOG( w ), GTK_RESPONSE_CLOSE, FALSE );
         gtk_widget_show( w );
 

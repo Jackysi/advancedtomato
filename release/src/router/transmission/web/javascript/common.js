@@ -34,11 +34,13 @@ $.fn.tabbedDialog = function (dialog_opts) {
 }
 
 $(document).ready(function() {
-	// Initialise the dialog controller
-	dialog = new Dialog();
 
-	// Initialise the main Transmission controller
-	transmission = new Transmission();
+	// IE8 and below don’t support ES5 Date.now()
+	if (!Date.now) {
+		Date.now = function() {
+			return +new Date();
+		};
+	}
 
 	// IE specific fixes here
 	if ($.browser.msie) {
@@ -68,6 +70,12 @@ $(document).ready(function() {
 		// and this kills the border we used to have
 		$('.trans_menu div.outerbox').css('border', 'none');
 	}
+
+	// Initialise the dialog controller
+	dialog = new Dialog();
+
+	// Initialise the main Transmission controller
+	transmission = new Transmission();
 });
 
 /**
@@ -149,6 +157,7 @@ Prefs._SortByAge          = 'age';
 Prefs._SortByActivity     = 'activity';
 Prefs._SortByName         = 'name';
 Prefs._SortByQueue        = 'queue_order';
+Prefs._SortBySize         = 'size';
 Prefs._SortByProgress     = 'percent_completed';
 Prefs._SortByRatio        = 'ratio';
 Prefs._SortByState        = 'state';

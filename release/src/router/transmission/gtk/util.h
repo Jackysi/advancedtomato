@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: util.h 12997 2011-10-20 00:37:39Z jordan $
+ * $Id: util.h 12963 2011-10-11 04:11:08Z jordan $
  */
 
 #ifndef GTR_UTIL_H

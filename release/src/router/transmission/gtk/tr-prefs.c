@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: tr-prefs.c 12997 2011-10-20 00:37:39Z jordan $
+ * $Id: tr-prefs.c 13192 2012-02-03 17:12:17Z jordan $
  */
 
 #include <ctype.h> /* isspace */
@@ -322,7 +322,7 @@ torrentPage( GObject * core )
     guint row = 0;
 
     t = hig_workarea_create( );
-    hig_workarea_add_section_title( t, &row, _( "Adding" ) );
+    hig_workarea_add_section_title( t, &row, C_( "Gerund", "Adding" ) );
 
     s = _( "_Start when added" );
     w = new_check_button( s, TR_PREFS_KEY_START, core );
@@ -344,7 +344,7 @@ torrentPage( GObject * core )
     hig_workarea_add_row_w( t, &row, l, w, NULL );
 
     hig_workarea_add_section_divider( t, &row );
-    hig_workarea_add_section_title( t, &row, _( "Seeding" ) );
+    hig_workarea_add_section_title( t, &row, C_( "Gerund", "Seeding" ) );
 
     s = _( "Stop seeding at _ratio:" );
     w = new_check_button( s, TR_PREFS_KEY_RATIO_ENABLED, core );
@@ -481,7 +481,7 @@ onBlocklistUpdate( GtkButton * w, gpointer gdata )
                                 GTK_BUTTONS_CLOSE,
                                 "%s", _( "Update Blocklist" ) );
     gtk_widget_set_sensitive( data->updateBlocklistButton, FALSE );
-    gtk_message_dialog_format_secondary_text( GTK_MESSAGE_DIALOG( d ), "%s", _( "Getting new blocklist..." ) );
+    gtk_message_dialog_format_secondary_text( GTK_MESSAGE_DIALOG( d ), "%s", _( "Getting new blocklist…" ) );
     data->updateBlocklistDialog = d;
     g_signal_connect( d, "response", G_CALLBACK(onBlocklistUpdateResponse), data );
     gtk_widget_show( d );
@@ -1182,7 +1182,7 @@ onPortTest( GtkButton * button UNUSED, gpointer vdata )
     struct network_page_data * data = vdata;
     gtk_widget_set_sensitive( data->portButton, FALSE );
     gtk_widget_set_sensitive( data->portSpin, FALSE );
-    gtk_label_set_markup( GTK_LABEL( data->portLabel ), _( "<i>Testing TCP port...</i>" ) );
+    gtk_label_set_markup( GTK_LABEL( data->portLabel ), _( "<i>Testing TCP port…</i>" ) );
     if( !data->portTag )
         data->portTag = g_signal_connect( data->core, "port-tested", G_CALLBACK(onPortTested), data );
     gtr_core_port_test( data->core );
@@ -1281,7 +1281,7 @@ gtr_prefs_dialog_new( GtkWindow * parent, GObject * core )
                               gtk_label_new ( _( "Torrents" ) ) );
     gtk_notebook_append_page( GTK_NOTEBOOK( n ),
                               downloadPage( core ),
-                              gtk_label_new ( _( "Downloading" ) ) );
+                              gtk_label_new ( C_( "Gerund", "Downloading" ) ) );
     gtk_notebook_append_page( GTK_NOTEBOOK( n ),
                               bandwidthPage( core ),
                               gtk_label_new ( _( "Speed" ) ) );

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: makemeta-ui.c 12997 2011-10-20 00:37:39Z jordan $
+ * $Id: makemeta-ui.c 13188 2012-02-03 15:51:36Z jordan $
  */
 
 #include <glib/gi18n.h>
@@ -180,7 +180,7 @@ makeProgressDialog( GtkWidget * parent, MakeMetaUI * ui )
     v = gtr_vbox_new( TRUE, GUI_PAD );
     gtk_container_add( GTK_CONTAINER( fr ), v );
 
-    l = gtk_label_new( _( "Creating torrent..." ) );
+    l = gtk_label_new( _( "Creating torrent…" ) );
     gtk_misc_set_alignment( GTK_MISC( l ), 0.0, 0.5 );
     gtk_label_set_justify( GTK_LABEL( l ), GTK_JUSTIFY_LEFT );
     ui->progress_label = l;

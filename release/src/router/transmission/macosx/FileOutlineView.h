@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: FileOutlineView.h 12483 2011-05-31 22:26:04Z livings124 $
+ * $Id: FileOutlineView.h 13162 2012-01-14 17:12:04Z livings124 $
  * 
- * Copyright (c) 2007-2011 Transmission authors and contributors
+ * Copyright (c) 2007-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),

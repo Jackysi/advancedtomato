@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: announcer-http.c 12914 2011-09-25 21:48:34Z jordan $
+ * $Id: announcer-http.c 13191 2012-02-03 16:44:07Z jordan $
  */
 
 #include <limits.h> /* USHRT_MAX */
@@ -291,6 +291,9 @@ tr_tracker_http_announce( tr_session                 * session,
     const char * url = (const char *) evbuffer_pullup( buf, -1 );
 
     d = tr_new0( struct announce_data, 1 );
+    d->response.seeders = -1;
+    d->response.leechers = -1;
+    d->response.downloads = -1;
     d->response_func = response_func;
     d->response_func_user_data = response_func_user_data;
     memcpy( d->response.info_hash, request->info_hash, SHA_DIGEST_LENGTH );
@@ -360,7 +363,7 @@ on_scrape_done( tr_session   * session,
         tr_benc * flags;
         const char * str;
         const int benc_loaded = !tr_bencLoad( msg, msglen, &top, NULL );
-        
+
         if( getenv( "TR_CURL_VERBOSE" ) != NULL )
         {
             if( !benc_loaded )
@@ -375,7 +378,7 @@ on_scrape_done( tr_session   * session,
                 tr_free( str );
             }
         }
-        
+
         if( benc_loaded )
         {
             if( tr_bencDictFindStr( &top, "failure reason", &str ) )
@@ -463,7 +466,12 @@ tr_tracker_http_scrape( tr_session               * session,
     d->response_func_user_data = response_func_user_data;
     d->response.row_count = request->info_hash_count;
     for( i=0; i<d->response.row_count; ++i )
+    {
         memcpy( d->response.rows[i].info_hash, request->info_hash[i], SHA_DIGEST_LENGTH );
+        d->response.rows[i].seeders = -1;
+        d->response.rows[i].leechers = -1;
+        d->response.rows[i].downloads = -1;
+    }
     tr_strlcpy( d->log_name, request->log_name, sizeof( d->log_name ) );
 
     dbgmsg( request->log_name, "Sending scrape to libcurl: \"%s\"", url );

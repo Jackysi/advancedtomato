@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: Badger.h 12504 2011-06-19 03:52:54Z livings124 $
+ * $Id: Badger.h 13162 2012-01-14 17:12:04Z livings124 $
  *
- * Copyright (c) 2006-2011 Transmission authors and contributors
+ * Copyright (c) 2006-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),

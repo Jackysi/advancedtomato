@@ -8,25 +8,25 @@
 Transmission.fmt = (function()
 {
 	var speed_K = 1000;
-	var speed_B_str = 'B';
-	var speed_K_str = 'KB/s';
+	var speed_B_str =  'B/s';
+	var speed_K_str = 'kB/s';
 	var speed_M_str = 'MB/s';
 	var speed_G_str = 'GB/s';
 	var speed_T_str = 'TB/s';
 
-	var size_K = 1024;
-	var size_B_str = 'B';
-	var size_K_str = 'KB';
+	var size_K = 1000;
+	var size_B_str =  'B';
+	var size_K_str = 'kB';
 	var size_M_str = 'MB';
 	var size_G_str = 'GB';
 	var size_T_str = 'TB';
 
 	var mem_K = 1024;
-	var mem_B_str = 'B';
-	var mem_K_str = 'KB';
-	var mem_M_str = 'MB';
-	var mem_G_str = 'GB';
-	var mem_T_str = 'TB';
+	var mem_B_str =   'B';
+	var mem_K_str = 'KiB';
+	var mem_M_str = 'MiB';
+	var mem_G_str = 'GiB';
+	var mem_T_str = 'TiB';
 
 	return {
 
@@ -270,7 +270,7 @@ Transmission.fmt = (function()
 
 		plural: function(i, word)
 		{
-			return [ i, ' ', word, (word==1?'':'s') ].join('');
+			return [ i.toStringWithCommas(), ' ', word, (i==1?'':'s') ].join('');
 		},
 
 		peerStatus: function( flagStr ) 

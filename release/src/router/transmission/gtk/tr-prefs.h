@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: tr-prefs.h 12682 2011-08-13 22:58:49Z jordan $
+ * $Id: tr-prefs.h 13107 2011-12-10 19:00:50Z jordan $
  */
 
 #ifndef GTR_PREFS_H
@@ -42,9 +42,7 @@ GtkWidget * gtr_prefs_dialog_new( GtkWindow * parent, GObject * core );
 #define PREF_KEY_STATUSBAR                               "show-statusbar"
 #define PREF_KEY_STATUSBAR_STATS                         "statusbar-stats"
 #define PREF_KEY_TOOLBAR                                 "show-toolbar"
-#define PREF_KEY_TORRENT_ADDED_NOTIFICATION_COMMAND      "torrent-added-notification-command"
 #define PREF_KEY_TORRENT_ADDED_NOTIFICATION_ENABLED      "torrent-added-notification-enabled"
-#define PREF_KEY_TORRENT_COMPLETE_NOTIFICATION_COMMAND   "torrent-complete-notification-command"
 #define PREF_KEY_TORRENT_COMPLETE_NOTIFICATION_ENABLED   "torrent-complete-notification-enabled"
 #define PREF_KEY_TORRENT_COMPLETE_SOUND_COMMAND          "torrent-complete-sound-command"
 #define PREF_KEY_TORRENT_COMPLETE_SOUND_ENABLED          "torrent-complete-sound-enabled"

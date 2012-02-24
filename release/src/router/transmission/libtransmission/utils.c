@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: utils.c 13002 2011-10-20 01:02:48Z jordan $
+ * $Id: utils.c 13191 2012-02-03 16:44:07Z jordan $
  */
 
 #ifdef HAVE_MEMMEM
@@ -17,8 +17,8 @@
 #if defined(SYS_DARWIN)
  #define HAVE_GETPAGESIZE
  #define HAVE_ICONV_OPEN
+ #define HAVE_MKDTEMP
  #define HAVE_VALLOC
- #undef HAVE_POSIX_MEMALIGN /* not supported on OS X 10.5 and lower */
 #endif
 
 #include <assert.h>
@@ -505,6 +505,18 @@ tr_dirname( const char * path )
     return ret;
 }
 
+char*
+tr_mkdtemp( char * template )
+{
+#ifdef HAVE_MKDTEMP
+    return mkdtemp( template );
+#else
+    if( !mktemp( template ) || mkdir( template, 0700 ) )
+        return NULL;
+    return template;
+#endif
+}
+
 int
 tr_mkdir( const char * path,
           int permissions
@@ -966,11 +978,19 @@ bool
 tr_urlIsValidTracker( const char * url )
 {
     bool valid;
-    const int len = url ? strlen(url) : 0;
 
-    valid = isValidURLChars( url, len )
-         && !tr_urlParse( url, len, NULL, NULL, NULL, NULL )
-         && ( !memcmp(url,"http://",7) || !memcmp(url,"https://",8) || !memcmp(url,"udp://",6) );
+    if( url == NULL )
+    {
+        valid = false;
+    }
+    else
+    {
+        const int len = strlen( url );
+
+        valid = isValidURLChars( url, len )
+            && !tr_urlParse( url, len, NULL, NULL, NULL, NULL )
+            && ( !memcmp(url,"http://",7) || !memcmp(url,"https://",8) || !memcmp(url,"udp://",6) );
+    }
 
     return valid;
 }
@@ -980,12 +1000,20 @@ bool
 tr_urlIsValid( const char * url, int url_len )
 {
     bool valid;
-    if( ( url_len < 0 ) && ( url != NULL ) )
-        url_len = strlen( url );
 
-    valid = isValidURLChars( url, url_len )
-         && !tr_urlParse( url, url_len, NULL, NULL, NULL, NULL )
-         && ( !memcmp(url,"http://",7) || !memcmp(url,"https://",8) || !memcmp(url,"ftp://",6) || !memcmp(url,"sftp://",7) );
+    if( url == NULL )
+    {
+        valid = false;
+    }
+    else
+    {
+        if( url_len < 0 )
+            url_len = strlen( url );
+
+        valid = isValidURLChars( url, url_len )
+            && !tr_urlParse( url, url_len, NULL, NULL, NULL, NULL )
+            && ( !memcmp(url,"http://",7) || !memcmp(url,"https://",8) || !memcmp(url,"ftp://",6) || !memcmp(url,"sftp://",7) );
+    }
 
     return valid;
 }
@@ -1606,12 +1634,12 @@ tr_htonll( uint64_t x )
 #ifdef HAVE_HTONLL
     return htonll( x );
 #else
-    /* fallback code by bdonlan at 
-     * http://stackoverflow.com/questions/809902/64-bit-ntohl-in-c/875505#875505 */ 
-    union { uint32_t lx[2]; uint64_t llx; } u; 
-    u.lx[0] = htonl(x >> 32); 
-    u.lx[1] = htonl(x & 0xFFFFFFFFULL); 
-    return u.llx; 
+    /* fallback code by bdonlan at
+     * http://stackoverflow.com/questions/809902/64-bit-ntohl-in-c/875505#875505 */
+    union { uint32_t lx[2]; uint64_t llx; } u;
+    u.lx[0] = htonl(x >> 32);
+    u.lx[1] = htonl(x & 0xFFFFFFFFULL);
+    return u.llx;
 #endif
 }
 
@@ -1621,11 +1649,11 @@ tr_ntohll( uint64_t x )
 #ifdef HAVE_NTOHLL
     return ntohll( x );
 #else
-    /* fallback code by bdonlan at 
-     * http://stackoverflow.com/questions/809902/64-bit-ntohl-in-c/875505#875505 */ 
-    union { uint32_t lx[2]; uint64_t llx; } u; 
-    u.llx = x; 
-    return ((uint64_t)ntohl(u.lx[0]) << 32) | (uint64_t)ntohl(u.lx[1]); 
+    /* fallback code by bdonlan at
+     * http://stackoverflow.com/questions/809902/64-bit-ntohl-in-c/875505#875505 */
+    union { uint32_t lx[2]; uint64_t llx; } u;
+    u.llx = x;
+    return ((uint64_t)ntohl(u.lx[0]) << 32) | (uint64_t)ntohl(u.lx[1]);
 #endif
 }
 

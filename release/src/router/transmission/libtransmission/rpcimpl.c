@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: rpcimpl.c 13001 2011-10-20 00:58:58Z jordan $
+ * $Id: rpcimpl.c 12990 2011-10-17 12:44:17Z jordan $
  */
 
 #include <assert.h>

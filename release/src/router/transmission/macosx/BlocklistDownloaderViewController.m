@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: BlocklistDownloaderViewController.m 11647 2011-01-08 05:11:28Z livings124 $
+ * $Id: BlocklistDownloaderViewController.m 13162 2012-01-14 17:12:04Z livings124 $
  *
- * Copyright (c) 2008-2011 Transmission authors and contributors
+ * Copyright (c) 2008-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),

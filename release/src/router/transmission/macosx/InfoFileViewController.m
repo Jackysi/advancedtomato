@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: InfoFileViewController.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: InfoFileViewController.m 13162 2012-01-14 17:12:04Z livings124 $
  *
- * Copyright (c) 2010-2011 Transmission authors and contributors
+ * Copyright (c) 2010-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -83,7 +83,7 @@
         [self setupInfo];
     
     if ([fTorrents count] == 1)
-        [fFileController reloadData];
+        [fFileController refresh];
 }
 
 - (void) saveViewSize
@@ -132,8 +132,7 @@
     return NO;
 }
 
-#warning uncomment (in header too)
-- (NSRect) quickLookSourceFrameForPreviewItem: (id /*<QLPreviewItem>*/) item
+- (NSRect) quickLookSourceFrameForPreviewItem: (id <QLPreviewItem>) item
 {
     FileOutlineView * fileOutlineView = [fFileController outlineView];
     

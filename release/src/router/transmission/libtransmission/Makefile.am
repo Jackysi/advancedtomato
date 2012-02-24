@@ -1,13 +1,13 @@
 AM_CPPFLAGS = \
-    -I. \
     -I$(top_srcdir) \
-    -I$(top_srcdir)/third-party/ \
     -D__TRANSMISSION__ \
     -DPACKAGE_DATA_DIR=\""$(datadir)"\"
 
 AM_CFLAGS = \
     @DHT_CFLAGS@ \
     @LIBUTP_CFLAGS@ \
+    @LIBUPNP_CFLAGS@ \
+    @LIBNATPMP_CFLAGS@ \
     @LIBEVENT_CFLAGS@ \
     @LIBCURL_CFLAGS@ \
     @OPENSSL_CFLAGS@ \
@@ -90,7 +90,7 @@ noinst_HEADERS = \
     magnet.h \
     makemeta.h \
     metainfo.h \
-    natpmp.h \
+    natpmp_local.h \
     net.h \
     peer-common.h \
     peer-io.h \
@@ -139,8 +139,8 @@ apps_ldflags = \
 
 apps_ldadd = \
     ./libtransmission.a  \
-    $(top_builddir)/third-party/miniupnp/libminiupnp.a \
-    $(top_builddir)/third-party/libnatpmp/libnatpmp.a \
+    @LIBUPNP_LIBS@ \
+    @LIBNATPMP_LIBS@ \
     @INTLLIBS@ \
     @DHT_LIBS@ \
     @LIBUTP_LIBS@ \

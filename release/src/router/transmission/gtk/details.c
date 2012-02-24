@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: details.c 12997 2011-10-20 00:37:39Z jordan $
+ * $Id: details.c 13192 2012-02-03 17:12:17Z jordan $
  */
 
 #include <stddef.h>
@@ -557,13 +557,13 @@ activityString( int activity, bool finished )
 {
     switch( activity )
     {
-        case TR_STATUS_CHECK_WAIT:    return _( "Queued for verification" );
-        case TR_STATUS_CHECK:         return _( "Verifying local data" );
-        case TR_STATUS_DOWNLOAD_WAIT: return _( "Queued for download" );
-        case TR_STATUS_DOWNLOAD:      return _( "Downloading" );
-        case TR_STATUS_SEED_WAIT:     return _( "Queued for seeding" );
-        case TR_STATUS_SEED:          return _( "Seeding" );
-        case TR_STATUS_STOPPED:       return finished ? _( "Finished" ) : _( "Paused" );
+        case TR_STATUS_CHECK_WAIT:    return  _( "Queued for verification" );
+        case TR_STATUS_CHECK:         return  _( "Verifying local data" );
+        case TR_STATUS_DOWNLOAD_WAIT: return  _( "Queued for download" );
+        case TR_STATUS_DOWNLOAD:      return C_( "Verb", "Downloading" );
+        case TR_STATUS_SEED_WAIT:     return  _( "Queued for seeding" );
+        case TR_STATUS_SEED:          return C_( "Verb", "Seeding" );
+        case TR_STATUS_STOPPED:       return  finished ? _( "Finished" ) : _( "Paused" );
     }
 
     return "";
@@ -796,14 +796,11 @@ refreshInfo( struct DetailsImpl * di, tr_torrent ** torrents, int n )
         uint64_t leftUntilDone = 0;
         uint64_t haveUnchecked = 0;
         uint64_t haveValid = 0;
-        uint32_t verifiedPieces = 0;
         uint64_t available = 0;
         for( i=0; i<n; ++i ) {
             const tr_stat * st = stats[i];
-            const tr_info * inf = infos[i];
             haveUnchecked += st->haveUnchecked;
             haveValid += st->haveValid;
-            verifiedPieces += inf->pieceSize ? st->haveValid / inf->pieceSize : 0;
             sizeWhenDone += st->sizeWhenDone;
             leftUntilDone += st->leftUntilDone;
             available += st->sizeWhenDone - st->leftUntilDone + st->desiredAvailable;
@@ -1843,7 +1840,7 @@ buildTrackerSummary( GString * gstr, const char * key, const tr_tracker_stat * s
             case TR_TRACKER_ACTIVE:
                 tr_strltime_rounded( timebuf, now - st->lastAnnounceStartTime, sizeof( timebuf ) );
                 g_string_append_c( gstr, '\n' );
-                g_string_append_printf( gstr, _( "Asking for more peers now... <small>%s</small>" ), timebuf );
+                g_string_append_printf( gstr, _( "Asking for more peers now… <small>%s</small>" ), timebuf );
                 break;
         }
 
@@ -1876,7 +1873,7 @@ buildTrackerSummary( GString * gstr, const char * key, const tr_tracker_stat * s
                 case TR_TRACKER_ACTIVE:
                     g_string_append_c( gstr, '\n' );
                     tr_strltime_rounded( timebuf, now - st->lastScrapeStartTime, sizeof( timebuf ) );
-                    g_string_append_printf( gstr, _( "Asking for peer counts now... <small>%s</small>" ), timebuf );
+                    g_string_append_printf( gstr, _( "Asking for peer counts now… <small>%s</small>" ), timebuf );
                     break;
             }
         }

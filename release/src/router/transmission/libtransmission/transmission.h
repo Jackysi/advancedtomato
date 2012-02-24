@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: transmission.h 12772 2011-08-27 23:54:10Z livings124 $
+ * $Id: transmission.h 13191 2012-02-03 16:44:07Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -759,7 +759,7 @@ void            tr_torrentSetPriority( tr_torrent *, tr_priority_t );
 ****  Torrents can be moved in the queue using the simple functions
 ****  tr_torrentQueueMove{Top,Up,Down,Bottom}. They can be moved to
 ****  arbitrary points in the queue with tr_torrentSetQueuePosition().
-****  
+****
 ***/
 
 

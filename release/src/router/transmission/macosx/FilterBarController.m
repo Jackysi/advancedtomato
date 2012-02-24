@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: FilterBarController.m 12897 2011-09-19 00:48:30Z livings124 $
+ * $Id: FilterBarController.m 13162 2012-01-14 17:12:04Z livings124 $
  * 
- * Copyright (c) 2011 Transmission authors and contributors
+ * Copyright (c) 2011-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -392,8 +392,6 @@
 - (void) updateGroups: (NSNotification *) notification
 {
     [self updateGroupsButton];
-    
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"ApplyFilter" object: nil];
 }
 
 @end
