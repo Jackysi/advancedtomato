@@ -493,7 +493,7 @@ function verifyFields(focused, quiet)
 
 <!-- / / / -->
 
-<div class='section-title'>Filters: <small><i><a href='javascript:toggleVisibility("filters");'><span id='sesdivfiltersshowhide'>(Toggle Visibility)</div></a></i></small></div>
+<div class='section-title'>Filters: <small><i><a href='javascript:toggleVisibility("filters");'><span id='sesdivfiltersshowhide'>(Toggle Visibility)</span></a></i></small></div>
 <div class='section' id='sesdivfilters' style='display:none'>
 <script type='text/javascript'>
 var c;
