@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: port-forwarding.c 12228 2011-03-25 01:41:57Z jordan $
+ * $Id: port-forwarding.c 13199 2012-02-04 01:28:15Z jordan $
  */
 
 #include <assert.h>
@@ -18,7 +18,7 @@
 #include <event2/event.h>
 
 #include "transmission.h"
-#include "natpmp.h"
+#include "natpmp_local.h"
 #include "net.h"
 #include "peer-mgr.h"
 #include "port-forwarding.h"

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * $Id: net.c 12300 2011-04-02 16:43:17Z jch $
+ * $Id: net.c 12954 2011-10-08 23:53:27Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -37,8 +37,6 @@
 #endif
 
 #include <event2/util.h>
-
-#include <libutp/utp.h>
 
 #include "transmission.h"
 #include "fdlimit.h" /* tr_fdSocketClose() */

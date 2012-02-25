@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: TrackerNode.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: TrackerNode.m 13175 2012-01-21 14:58:39Z livings124 $
  *
- * Copyright (c) 2009-2011 Transmission authors and contributors
+ * Copyright (c) 2009-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,17 +23,19 @@
  *****************************************************************************/
 
 #import "TrackerNode.h"
-#import "NSApplicationAdditions.h"
 #import "NSStringAdditions.h"
 
 @implementation TrackerNode
+
+#warning remove ivars in header when 64-bit only (or it compiles in 32-bit mode)
+@synthesize torrent = fTorrent;
 
 - (id) initWithTrackerStat: (tr_tracker_stat *) stat torrent: (Torrent *) torrent
 {
     if ((self = [super init]))
     {
         fStat = *stat;
-        fTorrent = torrent;
+        fTorrent = torrent; //weak reference
     }
     
     return self;
@@ -48,6 +50,20 @@
 {
     //this object is essentially immutable after initial setup
     return [self retain];
+}
+
+- (BOOL) isEqual: (id) object
+{
+    if (self == object)
+        return YES;
+    
+    if (![object isKindOfClass: [self class]])
+        return NO;
+    
+    if ([self torrent] != [object torrent])
+        return NO;
+    
+    return [self tier] == [object tier] && [[self fullAnnounceAddress] isEqualToString: [object fullAnnounceAddress]];
 }
 
 - (NSString *) host
@@ -68,11 +84,6 @@
 - (NSUInteger) identifier
 {
     return fStat.id;
-}
-
-- (Torrent *) torrent
-{
-    return fTorrent;
 }
 
 - (NSInteger) totalSeeders
@@ -98,9 +109,7 @@
         NSDateFormatter * dateFormatter = [[NSDateFormatter alloc] init];
         [dateFormatter setDateStyle: NSDateFormatterFullStyle];
         [dateFormatter setTimeStyle: NSDateFormatterShortStyle];
-        
-        if ([NSApp isOnSnowLeopardOrBetter])
-            [dateFormatter setDoesRelativeDateFormatting: YES];
+        [dateFormatter setDoesRelativeDateFormatting: YES];
         
         dateString = [dateFormatter stringFromDate: [NSDate dateWithTimeIntervalSince1970: fStat.lastAnnounceTime]];
         [dateFormatter release];
@@ -171,9 +180,7 @@
         NSDateFormatter * dateFormatter = [[NSDateFormatter alloc] init];
         [dateFormatter setDateStyle: NSDateFormatterFullStyle];
         [dateFormatter setTimeStyle: NSDateFormatterShortStyle];
-        
-        if ([NSApp isOnSnowLeopardOrBetter])
-            [dateFormatter setDoesRelativeDateFormatting: YES];
+        [dateFormatter setDoesRelativeDateFormatting: YES];
         
         dateString = [dateFormatter stringFromDate: [NSDate dateWithTimeIntervalSince1970: fStat.lastScrapeTime]];
         [dateFormatter release];

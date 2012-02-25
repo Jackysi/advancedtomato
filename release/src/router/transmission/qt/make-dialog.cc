@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: make-dialog.cc 12697 2011-08-20 05:19:27Z jordan $
+ * $Id: make-dialog.cc 13106 2011-12-10 18:45:21Z jordan $
  */
 
 #include <cassert>
@@ -82,7 +82,7 @@ MakeDialog :: onProgress( )
 
     // progress label
     const QString top = QString::fromLocal8Bit( myBuilder->top );
-    const QString base( QFileInfo(top).baseName() );
+    const QString base( QFileInfo(top).completeBaseName() );
     QString str;
     if( !b->isDone )
         str = tr( "Creating \"%1\"" ).arg( base );
@@ -148,7 +148,7 @@ MakeDialog :: makeTorrent( )
 
     // the file to create
     const QString path = QString::fromLocal8Bit( myBuilder->top );
-    const QString torrentName = QFileInfo(path).baseName() + QString::fromAscii(".torrent");
+    const QString torrentName = QFileInfo(path).completeBaseName() + QString::fromAscii(".torrent");
     myTarget = QDir( myDestination ).filePath( torrentName );
     std::cerr << qPrintable(myTarget) << std::endl;
 

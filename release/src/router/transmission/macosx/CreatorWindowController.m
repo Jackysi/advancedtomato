@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: CreatorWindowController.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: CreatorWindowController.m 13162 2012-01-14 17:12:04Z livings124 $
  *
- * Copyright (c) 2007-2011 Transmission authors and contributors
+ * Copyright (c) 2007-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,7 +23,6 @@
  *****************************************************************************/
 
 #import "CreatorWindowController.h"
-#import "NSApplicationAdditions.h"
 #import "NSStringAdditions.h"
 
 #import "transmission.h" // required by utils.h
@@ -35,7 +34,6 @@
 @interface CreatorWindowController (Private)
 
 + (NSString *) chooseFile;
-- (void) locationSheetClosed: (NSSavePanel *) openPanel returnCode: (NSInteger) code contextInfo: (void *) info;
 
 - (void) createBlankAddressAlertDidEnd: (NSAlert *) alert returnCode: (NSInteger) returnCode contextInfo: (void *) contextInfo;
 - (void) createReal;
@@ -147,7 +145,7 @@
     const BOOL multifile = !fInfo->isSingleFile;
     
     NSImage * icon = [[NSWorkspace sharedWorkspace] iconForFileType: multifile
-                        ? NSFileTypeForHFSTypeCode('fldr') : [fPath pathExtension]];
+                        ? NSFileTypeForHFSTypeCode(kGenericFolderIcon) : [fPath pathExtension]];
     [icon setSize: [fIconView frame].size];
     [fIconView setImage: icon];
     
@@ -210,9 +208,19 @@
     [panel setAllowedFileTypes: [NSArray arrayWithObjects: @"org.bittorrent.torrent", @"torrent", nil]];
     [panel setCanSelectHiddenExtension: YES];
     
-    [panel beginSheetForDirectory: [fLocation stringByDeletingLastPathComponent] file: [fLocation lastPathComponent]
-            modalForWindow: [self window] modalDelegate: self didEndSelector: @selector(locationSheetClosed:returnCode:contextInfo:)
-            contextInfo: nil];
+    [panel setDirectoryURL: [NSURL fileURLWithPath: [fLocation stringByDeletingLastPathComponent]]];
+    [panel setNameFieldStringValue: [fLocation lastPathComponent]];
+    
+    [panel beginSheetModalForWindow: [self window] completionHandler: ^(NSInteger result) {
+        if (result == NSFileHandlingPanelOKButton)
+        {
+            [fLocation release];
+            fLocation = [[[panel URL] path] retain];
+            
+            [fLocationField setStringValue: [fLocation stringByAbbreviatingWithTildeInPath]];
+            [fLocationField setToolTip: fLocation];
+        }
+    }];
 }
 
 - (void) create: (id) sender
@@ -255,7 +263,7 @@
 
 - (void) windowWillClose: (NSNotification *) notification
 {
-    [self release];
+    [self autorelease];
 }
 
 - (void) cancelCreateProgress: (id) sender
@@ -331,16 +339,8 @@
     NSString * text = [addresses componentsJoinedByString: @"\n"];
     
     NSPasteboard * pb = [NSPasteboard generalPasteboard];
-    if ([NSApp isOnSnowLeopardOrBetter])
-    {
-        [pb clearContents];
-        [pb writeObjects: [NSArray arrayWithObject: text]];
-    }
-    else
-    {
-        [pb declareTypes: [NSArray arrayWithObject: NSStringPboardType] owner: nil];
-        [pb setString: text forType: NSStringPboardType];
-    }
+    [pb clearContents];
+    [pb writeObjects: [NSArray arrayWithObject: text]];
 }
 
 - (BOOL) validateMenuItem: (NSMenuItem *) menuItem
@@ -352,9 +352,7 @@
     
     if (action == @selector(paste:))
         return [[self window] firstResponder] == fTrackerTable
-            && ([NSApp isOnSnowLeopardOrBetter]
-                ? [[NSPasteboard generalPasteboard] canReadObjectForClasses: [NSArray arrayWithObject: [NSString class]] options: nil]
-                : [[NSPasteboard generalPasteboard] availableTypeFromArray: [NSArray arrayWithObject: NSStringPboardType]] != nil);
+            && [[NSPasteboard generalPasteboard] canReadObjectForClasses: [NSArray arrayWithObject: [NSString class]] options: nil];
     
     return YES;
 }
@@ -363,23 +361,11 @@
 {
     NSMutableArray * tempTrackers = [NSMutableArray array];
     
-    if ([NSApp isOnSnowLeopardOrBetter])
+    NSArray * items = [[NSPasteboard generalPasteboard] readObjectsForClasses: [NSArray arrayWithObject: [NSString class]] options: nil];
+    NSAssert(items != nil, @"no string items to paste; should not be able to call this method");
+    
+    for (NSString * pbItem in items)
     {
-        NSArray * items = [[NSPasteboard generalPasteboard] readObjectsForClasses:
-                            [NSArray arrayWithObject: [NSString class]] options: nil];
-        NSAssert(items != nil, @"no string items to paste; should not be able to call this method");
-        
-        for (NSString * pbItem in items)
-        {
-            for (NSString * tracker in [pbItem componentsSeparatedByString: @"\n"])
-                [tempTrackers addObject: tracker];
-        }
-    }
-    else
-    {
-        NSString * pbItem =[[NSPasteboard generalPasteboard] stringForType: NSStringPboardType];
-        NSAssert(pbItem != nil, @"no string items to paste; should not be able to call this method");
-        
         for (NSString * tracker in [pbItem componentsSeparatedByString: @"\n"])
             [tempTrackers addObject: tracker];
     }
@@ -427,19 +413,7 @@
     [panel setMessage: NSLocalizedString(@"Select a file or folder for the torrent file.", "Create torrent -> select file")];
     
     BOOL success = [panel runModal] == NSOKButton;
-    return success ? [[panel filenames] objectAtIndex: 0] : nil;
-}
-
-- (void) locationSheetClosed: (NSSavePanel *) panel returnCode: (NSInteger) code contextInfo: (void *) info
-{
-    if (code == NSOKButton)
-    {
-        [fLocation release];
-        fLocation = [[panel filename] retain];
-        
-        [fLocationField setStringValue: [fLocation stringByAbbreviatingWithTildeInPath]];
-        [fLocationField setToolTip: fLocation];
-    }
+    return success ? [[[panel URLs] objectAtIndex: 0] path] : nil;
 }
 
 - (void) createBlankAddressAlertDidEnd: (NSAlert *) alert returnCode: (NSInteger) returnCode contextInfo: (void *) contextInfo

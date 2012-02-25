@@ -1,7 +1,7 @@
 /******************************************************************************
  * $Id$
  *
- * Copyright (c) 2011 Transmission authors and contributors
+ * Copyright (c) 2011-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -49,7 +49,7 @@
 
 - (IBAction) updatedDisplayString: (id) sender
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"ReloadTorrentTable" object: nil];
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"RefreshTorrentTable" object: nil];
 }
 
 - (IBAction) setDownSpeedSetting: (id) sender

@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: InfoWindowController.h 11876 2011-02-12 03:53:23Z livings124 $
+ * $Id: InfoWindowController.h 13162 2012-01-14 17:12:04Z livings124 $
  *
- * Copyright (c) 2006-2011 Transmission authors and contributors
+ * Copyright (c) 2006-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,7 @@
  *****************************************************************************/
 
 #import <Cocoa/Cocoa.h>
+#import <Quartz/Quartz.h>
 
 @protocol InfoViewController;
 @class InfoGeneralViewController;
@@ -62,6 +63,6 @@
 
 - (NSArray *) quickLookURLs;
 - (BOOL) canQuickLook;
-- (NSRect) quickLookSourceFrameForPreviewItem: (id /*<QLPreviewItem>*/) item;
+- (NSRect) quickLookSourceFrameForPreviewItem: (id <QLPreviewItem>) item;
 
 @end

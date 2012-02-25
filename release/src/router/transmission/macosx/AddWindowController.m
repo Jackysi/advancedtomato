@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: AddWindowController.m 12689 2011-08-16 02:33:18Z livings124 $
+ * $Id: AddWindowController.m 13162 2012-01-14 17:12:04Z livings124 $
  *
- * Copyright (c) 2008-2011 Transmission authors and contributors
+ * Copyright (c) 2008-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -43,8 +43,6 @@
 - (void) confirmAdd;
 
 - (void) setDestinationPath: (NSString *) destination;
-
-- (void) folderChoiceClosed: (NSOpenPanel *) openPanel returnCode: (NSInteger) code contextInfo: (void *) contextInfo;
 
 - (void) setGroupsMenu;
 - (void) changeGroupValue: (id) sender;
@@ -166,8 +164,18 @@
     [panel setMessage: [NSString stringWithFormat: NSLocalizedString(@"Select the download folder for \"%@\"",
                         "Add -> select destination folder"), [fTorrent name]]];
     
-    [panel beginSheetForDirectory: nil file: nil types: nil modalForWindow: [self window] modalDelegate: self
-            didEndSelector: @selector(folderChoiceClosed:returnCode:contextInfo:) contextInfo: nil];
+    [panel beginSheetModalForWindow: [self window] completionHandler: ^(NSInteger result) {
+        if (result == NSFileHandlingPanelOKButton)
+        {
+            fLockDestination = NO;
+            [self setDestinationPath: [[[panel URLs] objectAtIndex: 0] path]];
+        }
+        else
+        {
+            if (!fDestination)
+                [self performSelectorOnMainThread: @selector(cancelAdd:) withObject: nil waitUntilDone: NO];
+        }
+    }];
 }
 
 - (void) add: (id) sender
@@ -268,7 +276,7 @@
 {
     [fTorrent update];
     
-    [fFileController reloadData];
+    [fFileController refresh];
     
     if ([fTorrent isChecking])
     {
@@ -320,20 +328,6 @@
     ExpandedPathToIconTransformer * iconTransformer = [[ExpandedPathToIconTransformer alloc] init];
     [fLocationImageView setImage: [iconTransformer transformedValue: fDestination]];
     [iconTransformer release];
-}
-
-- (void) folderChoiceClosed: (NSOpenPanel *) openPanel returnCode: (NSInteger) code contextInfo: (void *) contextInfo
-{
-    if (code == NSOKButton)
-    {
-        fLockDestination = NO;
-        [self setDestinationPath: [[openPanel filenames] objectAtIndex: 0]];
-    }
-    else
-    {
-        if (!fDestination)
-            [self performSelectorOnMainThread: @selector(cancelAdd:) withObject: nil waitUntilDone: NO];
-    }
 }
 
 - (void) setGroupsMenu

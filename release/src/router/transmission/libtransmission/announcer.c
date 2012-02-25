@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: announcer.c 12683 2011-08-14 14:45:54Z jordan $
+ * $Id: announcer.c 13155 2012-01-11 22:31:02Z livings124 $
  */
 
 #include <assert.h>
@@ -910,7 +910,7 @@ announce_request_new( const tr_announcer  * announcer,
     req->up = tier->byteCounts[TR_ANN_UP];
     req->down = tier->byteCounts[TR_ANN_DOWN];
     req->corrupt = tier->byteCounts[TR_ANN_CORRUPT];
-    req->left = tr_cpLeftUntilComplete( &tor->completion ),
+    req->left = tr_cpLeftUntilComplete( &tor->completion );
     req->event = event;
     req->numwant = event == TR_ANNOUNCE_EVENT_STOPPED ? 0 : NUMWANT;
     req->key = announcer->key;
@@ -1072,7 +1072,10 @@ on_announce_done( const tr_announce_response  * response,
         {
             int i;
             const char * str;
-            bool got_scrape_info = false;
+            int scrape_fields = 0;
+            int seeders = 0;
+            int leechers = 0;
+            int downloads = 0;
             const bool isStopped = event == TR_ANNOUNCE_EVENT_STOPPED;
 
             publishErrorClear( tier );
@@ -1081,18 +1084,21 @@ on_announce_done( const tr_announce_response  * response,
             {
                 tracker->consecutiveFailures = 0;
 
-                /* if the tracker included scrape fields in its announce response,
-                   then a separate scrape isn't needed */
-
-                got_scrape_info = response->seeders
-                               || response->leechers
-                               || response->downloads;
-
-                if( got_scrape_info )
+                if( response->seeders >= 0 )
                 {
-                    tracker->seederCount = response->seeders;
-                    tracker->leecherCount = response->leechers;
-                    tracker->downloadCount = response->downloads;
+                    tracker->seederCount = seeders = response->seeders;
+                    ++scrape_fields;
+                }
+
+                if( response->leechers >= 0 )
+                {
+                    tracker->leecherCount = leechers = response->leechers;
+                    ++scrape_fields;
+                }
+                if( response->downloads >= 0 )
+                {
+                    tracker->downloadCount = downloads = response->downloads;
+                    ++scrape_fields;
                 }
 
                 if(( str = response->tracker_id_str ))
@@ -1109,6 +1115,11 @@ on_announce_done( const tr_announce_response  * response,
                 dbgmsg( tier, "tracker gave \"%s\"", str );
                 publishWarning( tier, str );
             }
+            else
+            {
+                tr_strlcpy( tier->lastAnnounceStr, _( "Success" ),
+                            sizeof( tier->lastAnnounceStr ) );
+            }
 
             if(( i = response->min_interval ))
                 tier->announceMinIntervalSec = i;
@@ -1117,20 +1128,18 @@ on_announce_done( const tr_announce_response  * response,
                 tier->announceIntervalSec = i;
 
             if( response->pex_count > 0 )
-                publishPeersPex( tier, response->seeders, response->leechers,
+                publishPeersPex( tier, seeders, leechers,
                                  response->pex, response->pex_count );
 
             if( response->pex6_count > 0 )
-                publishPeersPex( tier, response->seeders, response->leechers,
+                publishPeersPex( tier, seeders, leechers,
                                  response->pex6, response->pex6_count );
-
-            if( !*tier->lastAnnounceStr )
-                tr_strlcpy( tier->lastAnnounceStr, _( "Success" ),
-                            sizeof( tier->lastAnnounceStr ) );
 
             tier->isRunning = data->isRunningOnSuccess;
 
-            if( got_scrape_info )
+            /* if the tracker included scrape fields in its announce response,
+               then a separate scrape isn't needed */
+            if( scrape_fields >= 3 )
             {
                 tr_tordbg( tier->tor, "Announce response contained scrape info; "
                                       "rescheduling next scrape to %d seconds from now.",
@@ -1340,9 +1349,12 @@ on_scrape_done( const tr_scrape_response * response, void * vsession )
 
                     if(( tracker = tier->currentTracker ))
                     {
-                        tracker->seederCount = row->seeders;
-                        tracker->leecherCount = row->leechers;
-                        tracker->downloadCount = row->downloads;
+                        if( row->seeders >= 0 )
+                            tracker->seederCount = row->seeders;
+                        if( row->leechers >= 0 )
+                            tracker->leecherCount = row->leechers;
+                        if( row->downloads >= 0 )
+                            tracker->downloadCount = row->downloads;
                         tracker->downloaderCount = row->downloaders;
                         tracker->consecutiveFailures = 0;
                     }

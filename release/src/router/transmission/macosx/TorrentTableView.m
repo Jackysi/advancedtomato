@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: TorrentTableView.m 12769 2011-08-27 21:32:45Z livings124 $
+ * $Id: TorrentTableView.m 13171 2012-01-18 04:09:39Z livings124 $
  *
- * Copyright (c) 2005-2011 Transmission authors and contributors
+ * Copyright (c) 2005-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -34,6 +34,7 @@
 
 #define MAX_GROUP 999999
 
+//eliminate when Lion-only
 #define ACTION_MENU_GLOBAL_TAG 101
 #define ACTION_MENU_UNLIMITED_TAG 102
 #define ACTION_MENU_LIMIT_TAG 103
@@ -106,8 +107,7 @@
     //set group columns to show ratio, needs to be in awakeFromNib to size columns correctly
     [self setGroupStatusColumns];
     
-    [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(reloadData)
-                                                 name: @"ReloadTorrentTable" object: nil];
+    [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(setNeedsDisplay) name: @"RefreshTorrentTable" object: nil];
 }
 
 - (BOOL) isGroupCollapsed: (NSInteger) value
@@ -178,19 +178,7 @@
         if ([ident isEqualToString: @"UL Image"] || [ident isEqualToString: @"DL Image"])
         {
             //ensure arrows are white only when selected
-            if ([NSApp isOnSnowLeopardOrBetter])
-                [[cell image] setTemplate: [cell backgroundStyle] == NSBackgroundStyleLowered];
-            else
-            {
-                NSImage * image = [cell image];
-                const BOOL template = [cell backgroundStyle] == NSBackgroundStyleLowered;
-                if ([image isTemplate] != template)
-                {
-                    [image setTemplate: template];
-                    [cell setImage: nil];
-                    [cell setImage: image];
-                }
-            }
+            [[cell image] setTemplate: [cell backgroundStyle] == NSBackgroundStyleLowered];
         }
     }
 }
@@ -213,12 +201,11 @@
 
 - (NSString *) outlineView: (NSOutlineView *) outlineView typeSelectStringForTableColumn: (NSTableColumn *) tableColumn item: (id) item
 {
-    return [item isKindOfClass: [Torrent class]] ? [item name]
+    return [item isKindOfClass: [Torrent class]] ? [(Torrent *)item name]
             : [[self preparedCellAtColumn: [self columnWithIdentifier: @"Group"] row: [self rowForItem: item]] stringValue];
 }
 
-- (NSString *) outlineView: (NSOutlineView *) outlineView toolTipForCell: (NSCell *) cell rect: (NSRectPointer) rect
-                tableColumn: (NSTableColumn *) column item: (id) item mouseLocation: (NSPoint) mouseLocation
+- (NSString *) outlineView: (NSOutlineView *) outlineView toolTipForCell: (NSCell *) cell rect: (NSRectPointer) rect tableColumn: (NSTableColumn *) column item: (id) item mouseLocation: (NSPoint) mouseLocation
 {
     NSString * ident = [column identifier];
     if ([ident isEqualToString: @"DL"] || [ident isEqualToString: @"DL Image"])
@@ -357,6 +344,8 @@
 
 - (void) outlineViewSelectionIsChanging: (NSNotification *) notification
 {
+    #warning elliminate when view-based?
+    //if pushing a button, don't change the selected rows
     if (fSelectedValues)
         [self selectValues: fSelectedValues];
 }
@@ -552,12 +541,30 @@
     return [fTorrentCell iconRectForBounds: [self rectOfRow: row]];
 }
 
-#warning catch string urls?
 - (void) paste: (id) sender
 {
     NSURL * url;
     if ((url = [NSURL URLFromPasteboard: [NSPasteboard generalPasteboard]]))
         [fController openURL: [url absoluteString]];
+    else if ([NSApp isOnLionOrBetter])
+    {
+        NSArray * items = [[NSPasteboard generalPasteboard] readObjectsForClasses: [NSArray arrayWithObject: [NSString class]] options: nil];
+        if (items)
+        {
+            NSDataDetector * detector = [NSDataDetectorLion dataDetectorWithTypes: NSTextCheckingTypeLink error: nil];
+            for (NSString * pbItem in items)
+            {
+                if ([pbItem rangeOfString: @"magnet:" options: (NSAnchoredSearch | NSCaseInsensitiveSearch)].location != NSNotFound)
+                    [fController openURL: pbItem];
+                else
+                {
+                    #warning only accept full text?
+                    for (NSTextCheckingResult * result in [detector matchesInString: pbItem options: 0 range: NSMakeRange(0, [pbItem length])])
+                        [fController openURL: [[result URL] absoluteString]];
+                }
+            }
+        }
+    }
 }
 
 - (BOOL) validateMenuItem: (NSMenuItem *) menuItem
@@ -565,7 +572,27 @@
     SEL action = [menuItem action];
     
     if (action == @selector(paste:))
-        return [[[NSPasteboard generalPasteboard] types] containsObject: NSURLPboardType];
+    {
+        if ([[[NSPasteboard generalPasteboard] types] containsObject: NSURLPboardType])
+            return YES;
+        
+        if ([NSApp isOnLionOrBetter])
+        {
+            NSArray * items = [[NSPasteboard generalPasteboard] readObjectsForClasses: [NSArray arrayWithObject: [NSString class]] options: nil];
+            if (items)
+            {
+                NSDataDetector * detector = [NSDataDetectorLion dataDetectorWithTypes: NSTextCheckingTypeLink error: nil];
+                for (NSString * pbItem in items)
+                {
+                    if (([pbItem rangeOfString: @"magnet:" options: (NSAnchoredSearch | NSCaseInsensitiveSearch)].location != NSNotFound)
+                        || [detector firstMatchInString: pbItem options: 0 range: NSMakeRange(0, [pbItem length])])
+                        return YES;
+                }
+            }
+        }
+        
+        return NO;
+    }
     
     return YES;
 }
@@ -576,7 +603,7 @@
         [fController stopTorrents: [NSArray arrayWithObject: torrent]];
     else
     {
-        if (([NSApp isOnSnowLeopardOrBetter] ? [NSEvent modifierFlags] : [[NSApp currentEvent] modifierFlags]) & NSAlternateKeyMask)
+        if ([NSEvent modifierFlags] & NSAlternateKeyMask)
             [fController resumeTorrentsNoWait: [NSArray arrayWithObject: torrent]];
         else if ([torrent waitingToStart])
             [fController stopTorrents: [NSArray arrayWithObject: torrent]];
@@ -625,20 +652,8 @@
         NSPoint location = rect.origin;
         location.y += NSHeight(rect) + 5.0;
         
-        if ([NSApp isOnSnowLeopardOrBetter])
-        {
-            location = [self convertPoint: location toView: self];
-            [fActionMenu popUpMenuPositioningItem: nil atLocation: location inView: self];
-        }
-        else
-        {
-            location = [self convertPoint: location toView: nil];
-            NSEvent * newEvent = [NSEvent mouseEventWithType: [event type] location: location
-                modifierFlags: [event modifierFlags] timestamp: [event timestamp] windowNumber: [event windowNumber]
-                context: [event context] eventNumber: [event eventNumber] clickCount: [event clickCount] pressure: [event pressure]];
-            
-            [NSMenu popUpContextMenu: fActionMenu withEvent: newEvent forView: self];
-        }
+        location = [self convertPoint: location toView: self];
+        [fActionMenu popUpMenuPositioningItem: nil atLocation: location inView: self];
         
         [fMenuTorrent release];
         fMenuTorrent = nil;
@@ -656,6 +671,7 @@
     fActionPopoverShown = NO;
 }
 
+//eliminate when Lion-only, along with all the menu item instance variables
 - (void) menuNeedsUpdate: (NSMenu *) menu
 {
     //this method seems to be called when it shouldn't be
@@ -739,6 +755,7 @@
     }
 }
 
+//the following methods might not be needed when Lion-only
 - (void) setQuickLimitMode: (id) sender
 {
     const BOOL limit = [sender tag] == ACTION_MENU_LIMIT_TAG;
@@ -758,7 +775,7 @@
 
 - (void) setGlobalLimit: (id) sender
 {
-    [fMenuTorrent setUseGlobalSpeedLimit: [sender state] != NSOnState];
+    [fMenuTorrent setUseGlobalSpeedLimit: [(NSButton *)sender state] != NSOnState];
     
     [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateOptions" object: nil];
 }
@@ -825,7 +842,7 @@
     
     NSMutableArray * progressMarks = [NSMutableArray arrayWithCapacity: 16];
     for (NSAnimationProgress i = 0.0625; i <= 1.0; i += 0.0625)
-        [progressMarks addObject: [NSNumber numberWithDouble: i]];
+        [progressMarks addObject: [NSNumber numberWithFloat: i]];
     
     fPiecesBarAnimation = [[NSAnimation alloc] initWithDuration: TOGGLE_PROGRESS_SECONDS animationCurve: NSAnimationEaseIn];
     [fPiecesBarAnimation setAnimationBlockingMode: NSAnimationNonblocking];
@@ -853,7 +870,7 @@
         else
             fPiecesBarPercent = 1.0 - progress;
         
-        [self reloadData];
+        [self setNeedsDisplay: YES];
     }
 }
 

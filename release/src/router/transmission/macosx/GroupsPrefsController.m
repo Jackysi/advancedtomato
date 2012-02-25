@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: GroupsPrefsController.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: GroupsPrefsController.m 13162 2012-01-14 17:12:04Z livings124 $
  *
- * Copyright (c) 2007-2011 Transmission authors and contributors
+ * Copyright (c) 2007-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -26,6 +26,7 @@
 #import "GroupsController.h"
 #import "ExpandedPathToPathTransformer.h"
 #import "ExpandedPathToIconTransformer.h"
+#import "NSApplicationAdditions.h"
 
 #define GROUP_TABLE_VIEW_DATA_TYPE @"GroupTableViewDataType"
 
@@ -121,21 +122,32 @@
         NSIndexSet * indexes = [NSKeyedUnarchiver unarchiveObjectWithData: [pasteboard dataForType: GROUP_TABLE_VIEW_DATA_TYPE]];
         NSInteger oldRow = [indexes firstIndex], selectedRow = [fTableView selectedRow];
         
-        [[GroupsController groups] moveGroupAtRow: oldRow toRow: newRow];
-        
         if (oldRow < newRow)
             newRow--;
         
-        if (selectedRow == oldRow)
-            selectedRow = newRow;
-        else if (selectedRow > oldRow && selectedRow <= newRow)
-            selectedRow--;
-        else if (selectedRow < oldRow && selectedRow >= newRow)
-            selectedRow++;
-        else;
+        if ([NSApp isOnLionOrBetter])
+            [fTableView beginUpdates];
         
-        [fTableView selectRowIndexes: [NSIndexSet indexSetWithIndex: selectedRow] byExtendingSelection: NO];
-        [fTableView reloadData];
+        [[GroupsController groups] moveGroupAtRow: oldRow toRow: newRow];
+        
+        if ([NSApp isOnLionOrBetter])
+        {
+            [fTableView moveRowAtIndex: oldRow toIndex: newRow];
+            [fTableView endUpdates];
+        }
+        else
+        {
+            if (selectedRow == oldRow)
+                selectedRow = newRow;
+            else if (selectedRow > oldRow && selectedRow <= newRow)
+                selectedRow--;
+            else if (selectedRow < oldRow && selectedRow >= newRow)
+                selectedRow++;
+            else;
+            
+            [fTableView selectRowIndexes: [NSIndexSet indexSetWithIndex: selectedRow] byExtendingSelection: NO];
+            [fTableView reloadData];
+        }
     }
     
     return YES;
@@ -143,18 +155,29 @@
 
 - (void) addRemoveGroup: (id) sender
 {
-    [[NSColorPanel sharedColorPanel] close];
+    if ([NSColorPanel sharedColorPanelExists])
+        [[NSColorPanel sharedColorPanel] close];
 
     NSInteger row;
     
     switch ([[sender cell] tagForSegment: [sender selectedSegment]])
     {
         case ADD_TAG:
+            if ([NSApp isOnLionOrBetter])
+                [fTableView beginUpdates];
+            
             [[GroupsController groups] addNewGroup];
             
-            [fTableView reloadData];
+            row = [fTableView numberOfRows];
             
-            row = [fTableView numberOfRows]-1;
+            if ([NSApp isOnLionOrBetter])
+            {
+                [fTableView insertRowsAtIndexes: [NSIndexSet indexSetWithIndex: row] withAnimation: NSTableViewAnimationSlideUp];
+                [fTableView endUpdates];
+            }
+            else
+                [fTableView reloadData];
+            
             [fTableView selectRowIndexes: [NSIndexSet indexSetWithIndex: row] byExtendingSelection: NO];
             [fTableView scrollRowToVisible: row];
             
@@ -164,18 +187,26 @@
         
         case REMOVE_TAG:
             row = [fTableView selectedRow];
+            
+            
+            if ([NSApp isOnLionOrBetter])
+                [fTableView beginUpdates];
+            
             [[GroupsController groups] removeGroupWithRowIndex: row];            
-                        
-            [fTableView reloadData];
+            
+            if ([NSApp isOnLionOrBetter])
+            {
+                [fTableView removeRowsAtIndexes: [NSIndexSet indexSetWithIndex: row] withAnimation: NSTableViewAnimationSlideUp];
+                [fTableView endUpdates];
+            }
+            else
+                [fTableView reloadData];
             
             if ([fTableView numberOfRows] > 0)
             {
                 if (row == [fTableView numberOfRows])
-                {
                     --row;
-                    [fTableView selectRowIndexes: [NSIndexSet indexSetWithIndex: row] byExtendingSelection: NO];
-                }
-                
+                [fTableView selectRowIndexes: [NSIndexSet indexSetWithIndex: row] byExtendingSelection: NO];
                 [fTableView scrollRowToVisible: row];
             }
             
@@ -194,10 +225,25 @@
     [panel setCanChooseFiles: NO];
     [panel setCanChooseDirectories: YES];
     [panel setCanCreateDirectories: YES];
-
-    [panel beginSheetForDirectory: nil file: nil types: nil
-        modalForWindow: [fCustomLocationPopUp window] modalDelegate: self didEndSelector:
-        @selector(customDownloadLocationSheetClosed:returnCode:contextInfo:) contextInfo: nil];
+    
+    [panel beginSheetModalForWindow: [fCustomLocationPopUp window] completionHandler: ^(NSInteger result) {
+        const NSInteger index = [[GroupsController groups] indexForRow: [fTableView selectedRow]];
+        if (result == NSFileHandlingPanelOKButton)
+        {
+            NSString * path = [[[panel URLs] objectAtIndex: 0] path];
+            [[GroupsController groups] setCustomDownloadLocation: path forIndex: index];
+            [[GroupsController groups] setUsesCustomDownloadLocation: YES forIndex: index];
+        }
+        else
+        {
+            if (![[GroupsController groups] customDownloadLocationForIndex: index])
+                [[GroupsController groups] setUsesCustomDownloadLocation: NO forIndex: index];
+        }
+        
+        [self refreshCustomLocationWithSingleGroup];
+        
+        [fCustomLocationPopUp selectItemAtIndex: 0];
+    }];
 }
 
 - (IBAction) toggleUseCustomDownloadLocation: (id) sender
@@ -214,26 +260,6 @@
         [[GroupsController groups] setUsesCustomDownloadLocation: NO forIndex: index];
 
     [fCustomLocationPopUp setEnabled: ([fCustomLocationEnableCheck state] == NSOnState)];
-}
-
-- (void) customDownloadLocationSheetClosed: (NSOpenPanel *) openPanel returnCode: (int) code contextInfo: (void *) info
-{
-    NSInteger index = [[GroupsController groups] indexForRow: [fTableView selectedRow]];
-    if (code == NSOKButton)
-    {
-        NSString * path = [[openPanel filenames] objectAtIndex: 0];
-        [[GroupsController groups] setCustomDownloadLocation: path forIndex: index];
-        [[GroupsController groups] setUsesCustomDownloadLocation: YES forIndex: index];
-    }
-    else
-    {
-        if (![[GroupsController groups] customDownloadLocationForIndex: index])
-            [[GroupsController groups] setUsesCustomDownloadLocation: NO forIndex: index];
-    }
-    
-    [self refreshCustomLocationWithSingleGroup];
-    
-    [fCustomLocationPopUp selectItemAtIndex: 0];
 }
 
 #pragma mark -

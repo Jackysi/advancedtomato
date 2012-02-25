@@ -7,13 +7,15 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: notify.h 12578 2011-07-23 17:23:12Z jordan $
+ * $Id: notify.h 13107 2011-12-10 19:00:50Z jordan $
  */
 
 #ifndef GTR_NOTIFY_H
 #define GTR_NOTIFY_H
 
 #include "tr-core.h"
+
+void gtr_notify_init( void );
 
 void gtr_notify_torrent_added     ( const char * name );
 

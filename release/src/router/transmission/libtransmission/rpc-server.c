@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: rpc-server.c 12930 2011-09-27 22:34:52Z livings124 $
+ * $Id: rpc-server.c 13226 2012-02-15 01:44:21Z jordan $
  */
 
 #include <assert.h>
@@ -160,7 +160,7 @@ extract_parts_from_multipart( const struct evkeyvalq * headers,
     size_t inlen = evbuffer_get_length( body );
 
     const char * boundary_key = "boundary=";
-    const char * boundary_key_begin = strstr( content_type, boundary_key );
+    const char * boundary_key_begin = content_type ? strstr( content_type, boundary_key ) : NULL;
     const char * boundary_val = boundary_key_begin ? boundary_key_begin + strlen( boundary_key ) : "arglebargle";
     char * boundary = tr_strdup_printf( "--%s", boundary_val );
     const size_t boundary_len = strlen( boundary );

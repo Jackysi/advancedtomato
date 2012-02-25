@@ -26,8 +26,8 @@ dist_man_MANS = \
 
 transmission_create_LDADD = \
     $(top_builddir)/libtransmission/libtransmission.a \
-    $(top_builddir)/third-party/miniupnp/libminiupnp.a \
-    $(top_builddir)/third-party/libnatpmp/libnatpmp.a \
+    @LIBUPNP_LIBS@ \
+    @LIBNATPMP_LIBS@ \
     @INTLLIBS@ \
     @DHT_LIBS@ \
     @LIBUTP_LIBS@ \

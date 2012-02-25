@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: bencode.c 12463 2011-05-27 23:28:40Z jordan $
+ * $Id: bencode.c 13198 2012-02-04 00:34:39Z jordan $
  */
 
 #include <assert.h>
@@ -1592,6 +1592,16 @@ tr_bencMergeDicts( tr_benc * target, const tr_benc * source )
                 {
                     tr_bencListCopy( tr_bencDictAddList( target, key, tr_bencListSize( val ) ), val );
                 }
+            }
+            else if( tr_bencIsDict( val ) )
+            {
+                tr_benc * target_dict = tr_bencDictFind( target, key );
+
+                if( target_dict == NULL )
+                    target_dict = tr_bencDictAddDict( target, key, tr_bencDictSize( val ) );
+
+                if( tr_bencIsDict( target_dict ) )
+                    tr_bencMergeDicts( target_dict, val );
             }
             else
             {

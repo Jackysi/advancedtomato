@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: utils.h 12211 2011-03-22 23:49:29Z jordan $
+ * $Id: utils.h 13084 2011-11-12 00:16:04Z jordan $
  */
 
 #ifndef TR_UTILS_H
@@ -221,6 +221,9 @@ int tr_mkdir( const char * path, int permissions ) TR_GNUC_NONNULL(1);
  * (in which case errno is set appropriately).
  */
 int tr_mkdirp( const char * path, int permissions ) TR_GNUC_NONNULL(1);
+
+/** @brief Portability wrapper for mkdtemp() that uses the system implementation if available */
+char* tr_mkdtemp( char * _template );
 
 
 /**
@@ -513,7 +516,20 @@ static inline time_t tr_time( void ) { return __tr_current_time; }
 /** @brief Private libtransmission function to update tr_time()'s counter */
 static inline void tr_timeUpdate( time_t now ) { __tr_current_time = now; }
 
-/** @brief Portability wrapper for realpath() that uses the system implementation if available */
+#ifdef WIN32
+ #include <windef.h> /* MAX_PATH */
+ #define TR_PATH_MAX (MAX_PATH + 1)
+#else
+ #include <limits.h> /* PATH_MAX */
+ #ifdef PATH_MAX
+  #define TR_PATH_MAX PATH_MAX
+ #else
+  #define TR_PATH_MAX 4096
+ #endif
+#endif
+
+/** @brief Portability wrapper for realpath() that uses the system implementation if available.
+    @param resolved_path should be TR_PATH_MAX or larger */
 char* tr_realpath( const char *path, char * resolved_path );
 
 /** @brief Portability wrapper for htonll() that uses the system implementation if available */

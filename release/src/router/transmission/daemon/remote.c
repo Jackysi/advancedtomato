@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: remote.c 12729 2011-08-24 19:30:28Z jordan $
+ * $Id: remote.c 13195 2012-02-03 21:21:52Z jordan $
  */
 
 #include <assert.h>
@@ -51,19 +51,19 @@
 #define MEM_G_STR "GiB"
 #define MEM_T_STR "TiB"
 
-#define DISK_K 1024
-#define DISK_B_STR   "B"
-#define DISK_K_STR "KiB"
-#define DISK_M_STR "MiB"
-#define DISK_G_STR "GiB"
-#define DISK_T_STR "TiB"
+#define DISK_K 1000
+#define DISK_B_STR  "B"
+#define DISK_K_STR "kB"
+#define DISK_M_STR "MB"
+#define DISK_G_STR "GB"
+#define DISK_T_STR "TB"
 
-#define SPEED_K 1024
-#define SPEED_B_STR   "B/s"
-#define SPEED_K_STR "KiB/s"
-#define SPEED_M_STR "MiB/s"
-#define SPEED_G_STR "GiB/s"
-#define SPEED_T_STR "TiB/s"
+#define SPEED_K 1000
+#define SPEED_B_STR  "B/s"
+#define SPEED_K_STR "kB/s"
+#define SPEED_M_STR "MB/s"
+#define SPEED_G_STR "GB/s"
+#define SPEED_T_STR "TB/s"
 
 /***
 ****
@@ -211,7 +211,7 @@ getUsage( void )
                 "       "
         MY_NAME " [host:port] [options]\n"
                 "       "
-        MY_NAME " [http://host:port/transmission/] [options]\n"
+        MY_NAME " [http(s?)://host:port/transmission/] [options]\n"
                 "\n"
                 "See the man page for detailed explanations and many examples.";
 }
@@ -817,6 +817,10 @@ getStatusString( tr_benc * t, char * buf, size_t buflen )
             }
             break;
         }
+
+        default:
+            tr_strlcpy( buf, "Unknown", buflen );
+            break;
     }
 
     return buf;
@@ -1646,6 +1650,7 @@ processResponse( const char * rpcurl, const void * response, size_t len )
     else
     {
         int64_t      tag = -1;
+	int          itag;
         const char * str;
 
         if(tr_bencDictFindStr(&top, "result", &str))
@@ -1659,7 +1664,8 @@ processResponse( const char * rpcurl, const void * response, size_t len )
             {
         tr_bencDictFindInt( &top, "tag", &tag );
 
-        switch( tag )
+	itag = tag;
+	switch( itag )
         {
             case TAG_SESSION:
                 printSession( &top ); break;
@@ -1782,7 +1788,7 @@ flush( const char * rpcurl, tr_benc ** benc )
                  * build a new CURL* and try again */
                 curl_easy_cleanup( curl );
                 curl = NULL;
-                flush( rpcurl, benc );
+                status |= flush( rpcurl, benc );
                 benc = NULL;
                 break;
             default:
@@ -2330,7 +2336,7 @@ processArgs( const char * rpcurl, int argc, const char ** argv )
     return status;
 }
 
-/* [host:port] or [host] or [port] or [http://host:port/transmission/] */
+/* [host:port] or [host] or [port] or [http(s?)://host:port/transmission/] */
 static void
 getHostAndPortAndRpcUrl( int * argc, char ** argv,
                          char ** host, int * port, char ** rpcurl )
@@ -2340,9 +2346,14 @@ getHostAndPortAndRpcUrl( int * argc, char ** argv,
         int          i;
         const char * s = argv[1];
         const char * delim = strchr( s, ':' );
-        if( !strncmp(s, "http://", 7 ) )   /* user passed in full rpc url */
+        if( !strncmp(s, "http://", 7 ) )   /* user passed in http rpc url */
         {
-            *rpcurl = tr_strdup_printf( "%s/rpc/", s );
+            *rpcurl = tr_strdup_printf( "%s/rpc/", s + 7 );
+        }
+        else if( !strncmp(s, "https://", 8) ) /* user passed in https rpc url */
+        {
+            UseSSL = true;
+            *rpcurl = tr_strdup_printf( "%s/rpc/", s + 8 );
         }
         else if( delim )   /* user passed in both host and port */
         {

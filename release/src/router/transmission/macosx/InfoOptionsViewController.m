@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: InfoOptionsViewController.m 12489 2011-06-04 13:48:56Z livings124 $
+ * $Id: InfoOptionsViewController.m 13162 2012-01-14 17:12:04Z livings124 $
  *
- * Copyright (c) 2010-2011 Transmission authors and contributors
+ * Copyright (c) 2010-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -270,9 +270,9 @@
 {
     const BOOL upload = sender == fUploadLimitCheck;
     
-    if ([sender state] == NSMixedState)
+    if ([(NSButton *)sender state] == NSMixedState)
         [sender setState: NSOnState];
-    const BOOL limit = [sender state] == NSOnState;
+    const BOOL limit = [(NSButton *)sender state] == NSOnState;
     
     for (Torrent * torrent in fTorrents)
         [torrent setUseSpeedLimit: limit upload: upload];
@@ -293,9 +293,9 @@
 
 - (void) setUseGlobalSpeedLimit: (id) sender
 {
-    if ([sender state] == NSMixedState)
+    if ([(NSButton *)sender state] == NSMixedState)
         [sender setState: NSOnState];
-    const BOOL limit = [sender state] == NSOnState;
+    const BOOL limit = [(NSButton *)sender state] == NSOnState;
     
     for (Torrent * torrent in fTorrents)
         [torrent setUseGlobalSpeedLimit: limit];

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: msgwin.c 12997 2011-10-20 00:37:39Z jordan $
+ * $Id: msgwin.c 13205 2012-02-04 23:59:42Z jordan $
  */
 
 #include <errno.h>
@@ -378,6 +378,17 @@ addMessages( GtkListStore * store, struct tr_msg_list * head )
                                            COL_MESSAGE, i->message,
                                            COL_SEQUENCE, ++sequence,
                                            -1 );
+
+        /* if it's an error message, dump it to the terminal too */
+        if( i->level == TR_MSG_ERR )
+        {
+            GString * gstr = g_string_sized_new( 512 );
+            g_string_append_printf( gstr, "%s:%d %s", i->file, i->line, i->message );
+            if( i->name != NULL )
+                g_string_append_printf( gstr, " (%s)", i->name );
+            g_warning( "%s", gstr->str );
+            g_string_free( gstr, TRUE );
+        }
     }
 
     return i; /* tail */

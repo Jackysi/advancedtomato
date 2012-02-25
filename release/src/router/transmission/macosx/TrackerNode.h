@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: TrackerNode.h 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: TrackerNode.h 13175 2012-01-21 14:58:39Z livings124 $
  *
- * Copyright (c) 2009-2011 Transmission authors and contributors
+ * Copyright (c) 2009-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -31,10 +31,14 @@
 {
     tr_tracker_stat fStat;
     
-    Torrent * fTorrent; //weak reference
+    Torrent * fTorrent;
 }
 
+@property (nonatomic, readonly) Torrent * torrent;
+
 - (id) initWithTrackerStat: (tr_tracker_stat *) stat torrent: (Torrent *) torrent;
+
+- (BOOL) isEqual: (id) object;
 
 - (NSString *) host;
 - (NSString *) fullAnnounceAddress;
@@ -42,8 +46,6 @@
 - (NSInteger) tier;
 
 - (NSUInteger) identifier;
-
-- (Torrent *) torrent;
 
 - (NSInteger) totalSeeders;
 - (NSInteger) totalLeechers;

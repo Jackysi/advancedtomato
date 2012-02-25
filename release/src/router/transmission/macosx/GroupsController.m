@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: GroupsController.m 11617 2011-01-01 20:42:14Z livings124 $
+ * $Id: GroupsController.m 13162 2012-01-14 17:12:04Z livings124 $
  *
- * Copyright (c) 2007-2011 Transmission authors and contributors
+ * Copyright (c) 2007-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,6 +23,7 @@
  *****************************************************************************/
 
 #import "GroupsController.h"
+#import "NSMutableArrayAdditions.h"
 
 #define ICON_WIDTH 16.0
 #define ICON_WIDTH_SMALL 12.0
@@ -281,17 +282,7 @@ GroupsController * fGroupsInstance = nil;
 
 - (void) moveGroupAtRow: (NSInteger) oldRow toRow: (NSInteger) newRow
 {
-    if (oldRow < newRow)
-        newRow--;
-    
-    //remove objects to reinsert
-    id movingGroup = [[fGroups objectAtIndex: oldRow] retain];
-    [fGroups removeObjectAtIndex: oldRow];
-    
-    //insert objects at new location
-    [fGroups insertObject: movingGroup atIndex: newRow];
-    
-    [movingGroup release];
+    [fGroups moveObjectAtIndex: oldRow toIndex: newRow];
     
     [self saveGroups];
     [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateGroups" object: self];

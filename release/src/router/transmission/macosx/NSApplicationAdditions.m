@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: NSApplicationAdditions.m 12570 2011-07-21 02:35:03Z livings124 $
+ * $Id: NSApplicationAdditions.m 13162 2012-01-14 17:12:04Z livings124 $
  *
- * Copyright (c) 2009-2011 Transmission authors and contributors
+ * Copyright (c) 2009-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -25,11 +25,6 @@
 #import "NSApplicationAdditions.h"
 
 @implementation NSApplication (NSApplicationAdditions)
-
-- (BOOL) isOnSnowLeopardOrBetter
-{
-	return floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_5;
-}
 
 - (BOOL) isOnLionOrBetter
 {

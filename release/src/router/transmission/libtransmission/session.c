@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: session.c 12649 2011-08-08 16:29:47Z jordan $
+ * $Id: session.c 13191 2012-02-03 16:44:07Z jordan $
  */
 
 #include <assert.h>
@@ -2675,7 +2675,6 @@ tr_sessionSetQueueStalledMinutes( tr_session * session, int minutes )
     assert( minutes > 0 );
 
     session->queueStalledMinutes = minutes;
-   
 }
 
 void
@@ -2686,7 +2685,7 @@ tr_sessionSetQueueStalledEnabled( tr_session * session, bool is_enabled )
 
     session->stalledEnabled = is_enabled;
 }
-  
+
 bool
 tr_sessionGetQueueStalledEnabled( const tr_session * session )
 {

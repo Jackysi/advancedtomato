@@ -18,8 +18,8 @@ transmission_cli_SOURCES = cli.c
 
 transmission_cli_LDADD = \
     $(top_builddir)/libtransmission/libtransmission.a \
-    $(top_builddir)/third-party/libnatpmp/libnatpmp.a \
-    $(top_builddir)/third-party/miniupnp/libminiupnp.a \
+    @LIBNATPMP_LIBS@ \
+    @LIBUPNP_LIBS@ \
     @DHT_LIBS@ \
     @LIBUTP_LIBS@ \
     @LIBEVENT_LIBS@ \

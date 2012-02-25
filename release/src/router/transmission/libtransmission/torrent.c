@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: torrent.c 12931 2011-09-28 16:06:19Z jordan $
+ * $Id: torrent.c 13203 2012-02-04 03:09:31Z jordan $
  */
 
 #include <signal.h> /* signal() */
@@ -2756,7 +2756,7 @@ deleteLocalData( tr_torrent * tor, tr_fileFunc func )
 
     base = tr_strdup_printf( "%s__XXXXXX", tr_torrentName( tor ) );
     tmpdir = tr_buildPath( top, base, NULL );
-    mkdtemp( tmpdir );
+    tr_mkdtemp( tmpdir );
     tr_free( base );
 
     for( f=0; f<tor->info.fileCount; ++f )
@@ -2833,13 +2833,9 @@ deleteLocalData( tr_torrent * tor, tr_fileFunc func )
     /* build a list of 'top's child directories that belong to this torrent */
     for( f=0; f<tor->info.fileCount; ++f )
     {
-        char * dir;
-        char * filename;
-
         /* get the directory that this file goes in... */
-        filename = tr_buildPath( top, tor->info.files[f].name, NULL );
-        dir = tr_dirname( filename );
-        tr_free( filename );
+        char * filename = tr_buildPath( top, tor->info.files[f].name, NULL );
+        char * dir = tr_dirname( filename );
         if( !tr_is_same_file( top, dir ) && strcmp( top, dir ) ) {
             for( ;; ) {
                 char * parent = tr_dirname( dir );
@@ -2853,6 +2849,8 @@ deleteLocalData( tr_torrent * tor, tr_fileFunc func )
                 dir = parent;
             }
         }
+        tr_free( dir );
+        tr_free( filename );
     }
     for( i=0, n=tr_ptrArraySize(&folders); i<n; ++i )
         removeEmptyFoldersAndJunkFiles( tr_ptrArrayNth( &folders, i ) );

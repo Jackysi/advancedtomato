@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: FileListNode.h 12483 2011-05-31 22:26:04Z livings124 $
+ * $Id: FileListNode.h 13175 2012-01-21 14:58:39Z livings124 $
  *
- * Copyright (c) 2008-2011 Transmission authors and contributors
+ * Copyright (c) 2008-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -28,17 +28,26 @@
 
 @interface FileListNode : NSObject <NSCopying>
 {
-    NSString * fName, * fPath;
-    BOOL fIsFolder;
     NSMutableIndexSet * fIndexes;
-    
-    uint64_t fSize;
-    NSImage * fIcon;
     
     NSMutableArray * fChildren;
     
+    NSString * fName;
+    NSString * fPath;
     Torrent * fTorrent;
+    uint64_t fSize;
+    NSImage * fIcon;
+    BOOL fIsFolder;
 }
+
+@property (nonatomic, readonly) NSString * name;
+@property (nonatomic, readonly) NSString * path;
+
+@property (nonatomic, readonly) Torrent * torrent;
+
+@property (nonatomic, readonly) uint64_t size;
+@property (nonatomic, readonly) NSImage * icon;
+@property (nonatomic, readonly) BOOL isFolder;
 
 - (id) initWithFolderName: (NSString *) name path: (NSString *) path torrent: (Torrent *) torrent;
 - (id) initWithFileName: (NSString *) name path: (NSString *) path size: (uint64_t) size index: (NSUInteger) index torrent: (Torrent *) torrent;
@@ -48,16 +57,8 @@
 
 - (NSString *) description;
 
-- (BOOL) isFolder;
-- (NSString *) name;
-- (NSString *) path;
 - (NSIndexSet *) indexes;
 
-- (uint64_t) size;
-- (NSImage *) icon;
-
 - (NSMutableArray *) children;
-
-- (Torrent *) torrent;
 
 @end

@@ -1067,6 +1067,7 @@ void start_syslog(void)
 		// log to custom path - shibby
 		if (nvram_match("log_file_custom", "1")) {
 			log_file_path = nvram_safe_get("log_file_path");
+			argv[argc++] = "-s";
 			argv[argc++] = rot_siz;
 			argv[argc++] = "-O";
 			argv[argc++] = log_file_path;

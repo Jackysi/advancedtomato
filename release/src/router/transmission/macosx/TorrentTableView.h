@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: TorrentTableView.h 12686 2011-08-15 00:30:29Z livings124 $
+ * $Id: TorrentTableView.h 13162 2012-01-14 17:12:04Z livings124 $
  *
- * Copyright (c) 2005-2011 Transmission authors and contributors
+ * Copyright (c) 2005-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),

@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: TrackerCell.m 12370 2011-04-17 20:01:46Z livings124 $
+ * $Id: TrackerCell.m 13219 2012-02-11 05:13:46Z livings124 $
  * 
- * Copyright (c) 2009-2011 Transmission authors and contributors
+ * Copyright (c) 2009-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -23,7 +23,6 @@
  *****************************************************************************/
 
 #import "TrackerCell.h"
-#import "NSApplicationAdditions.h"
 #import "TrackerNode.h"
 
 #import "transmission.h" // required by utils.h
@@ -60,13 +59,12 @@
 @implementation TrackerCell
 
 //make the favicons accessible to all tracker cells
-#warning make NSCache when 10.6-only
-NSMutableDictionary * fTrackerIconCache;
+NSCache * fTrackerIconCache;
 NSMutableSet * fTrackerIconLoading;
 
 + (void) initialize
 {
-    fTrackerIconCache = [[NSMutableDictionary alloc] init];
+    fTrackerIconCache = [[NSCache alloc] init];
     fTrackerIconLoading = [[NSMutableSet alloc] init];
 }
 
@@ -111,15 +109,7 @@ NSMutableSet * fTrackerIconLoading;
 - (void) drawWithFrame: (NSRect) cellFrame inView: (NSView *) controlView
 {
     //icon
-    if ([NSApp isOnSnowLeopardOrBetter])
-        [[self favIcon] drawInRect: [self imageRectForBounds: cellFrame] fromRect: NSZeroRect operation: NSCompositeSourceOver
-                        fraction: 1.0 respectFlipped: YES hints: nil];
-    else
-    {
-        NSImage * icon = [self favIcon];
-        [icon setFlipped: YES];
-        [icon drawInRect: [self imageRectForBounds: cellFrame] fromRect: NSZeroRect operation: NSCompositeSourceOver fraction: 1.0];
-    }
+    [[self favIcon] drawInRect: [self imageRectForBounds: cellFrame] fromRect: NSZeroRect operation: NSCompositeSourceOver fraction: 1.0 respectFlipped: YES hints: nil];
 
     //set table colors
     NSColor * nameColor, * statusColor;
@@ -228,40 +218,39 @@ NSMutableSet * fTrackerIconLoading;
 #warning better favicon detection
 - (void) loadTrackerIcon: (NSString *) baseAddress
 {
-    NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
-    
-    //try favicon.png
-    NSURL * favIconUrl = [NSURL URLWithString: [baseAddress stringByAppendingPathComponent: @"favicon.png"]];
-    
-    NSURLRequest * request = [NSURLRequest requestWithURL: favIconUrl cachePolicy: NSURLRequestUseProtocolCachePolicy
-                                timeoutInterval: 30.0];
-    NSData * iconData = [NSURLConnection sendSynchronousRequest: request returningResponse: NULL error: NULL];
-    NSImage * icon = [[NSImage alloc] initWithData: iconData];
-    
-    //try favicon.ico
-    if (!icon)
+    @autoreleasepool
     {
-        favIconUrl = [NSURL URLWithString: [baseAddress stringByAppendingPathComponent: @"favicon.ico"]];
+        //try favicon.png
+        NSURL * favIconUrl = [NSURL URLWithString: [baseAddress stringByAppendingPathComponent: @"favicon.png"]];
         
-        request = [NSURLRequest requestWithURL: favIconUrl cachePolicy: NSURLRequestUseProtocolCachePolicy
-                    timeoutInterval: 30.0];
-        iconData = [NSURLConnection sendSynchronousRequest: request returningResponse: NULL error: NULL];
-        icon = [[NSImage alloc] initWithData: iconData];
-    }
-    
-    if (icon)
-    {
-        [fTrackerIconCache setObject: icon forKey: baseAddress];
-        [icon release];
+        NSURLRequest * request = [NSURLRequest requestWithURL: favIconUrl cachePolicy: NSURLRequestUseProtocolCachePolicy
+                                    timeoutInterval: 30.0];
+        NSData * iconData = [NSURLConnection sendSynchronousRequest: request returningResponse: NULL error: NULL];
+        NSImage * icon = [[NSImage alloc] initWithData: iconData];
         
-        [[self controlView] setNeedsDisplay: YES];
+        //try favicon.ico
+        if (!icon)
+        {
+            favIconUrl = [NSURL URLWithString: [baseAddress stringByAppendingPathComponent: @"favicon.ico"]];
+            
+            request = [NSURLRequest requestWithURL: favIconUrl cachePolicy: NSURLRequestUseProtocolCachePolicy
+                        timeoutInterval: 30.0];
+            iconData = [NSURLConnection sendSynchronousRequest: request returningResponse: NULL error: NULL];
+            icon = [[NSImage alloc] initWithData: iconData];
+        }
+        
+        if (icon)
+        {
+            [fTrackerIconCache setObject: icon forKey: baseAddress];
+            [icon release];
+            
+            [[self controlView] setNeedsDisplay: YES];
+        }
+        else
+            [fTrackerIconCache setObject: [NSNull null] forKey: baseAddress];
+        
+        [fTrackerIconLoading removeObject: baseAddress];
     }
-    else
-        [fTrackerIconCache setObject: [NSNull null] forKey: baseAddress];
-    
-    [fTrackerIconLoading removeObject: baseAddress];
-
-    [pool drain];
 }
 
 - (NSRect) imageRectForBounds: (NSRect) bounds

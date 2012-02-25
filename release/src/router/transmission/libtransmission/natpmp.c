@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: natpmp.c 12225 2011-03-24 22:57:39Z jordan $
+ * $Id: natpmp.c 13199 2012-02-04 01:28:15Z jordan $
  */
 
 #include <errno.h>
@@ -17,10 +17,10 @@
 #include <event2/util.h> /* evutil_inet_ntop() */
 
 #define ENABLE_STRNATPMPERR
-#include <libnatpmp/natpmp.h>
+#include "natpmp.h"
 
 #include "transmission.h"
-#include "natpmp.h"
+#include "natpmp_local.h"
 #include "net.h" /* tr_netCloseSocket */
 #include "port-forwarding.h"
 #include "utils.h"

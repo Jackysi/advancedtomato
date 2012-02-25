@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: Torrent.m 12774 2011-08-28 00:26:39Z livings124 $
+ * $Id: Torrent.m 13219 2012-02-11 05:13:46Z livings124 $
  *
- * Copyright (c) 2006-2011 Transmission authors and contributors
+ * Copyright (c) 2006-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -67,13 +67,12 @@ void startQueueCallback(tr_torrent * torrent, void * torrentData)
 
 void completenessChangeCallback(tr_torrent * torrent, tr_completeness status, bool wasRunning, void * torrentData)
 {
-    NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
-    
-    NSDictionary * dict = [[NSDictionary alloc] initWithObjectsAndKeys: [NSNumber numberWithInt: status], @"Status",
-                            [NSNumber numberWithBool: wasRunning], @"WasRunning", nil];
-    [(Torrent *)torrentData performSelectorOnMainThread: @selector(completenessChange:) withObject: dict waitUntilDone: NO];
-    
-    [pool drain];
+    @autoreleasepool
+    {
+        NSDictionary * dict = [[NSDictionary alloc] initWithObjectsAndKeys: [NSNumber numberWithInt: status], @"Status",
+                               [NSNumber numberWithBool: wasRunning], @"WasRunning", nil];
+        [(Torrent *)torrentData performSelectorOnMainThread: @selector(completenessChange:) withObject: dict waitUntilDone: NO];
+    }
 }
 
 void ratioLimitHitCallback(tr_torrent * torrent, void * torrentData)
@@ -93,12 +92,11 @@ void metadataCallback(tr_torrent * torrent, void * torrentData)
 
 int trashDataFile(const char * filename)
 {
-    NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
-    
-    if (filename != NULL)
-        [Torrent trashFile: [NSString stringWithUTF8String: filename]];
-    
-    [pool drain];
+    @autoreleasepool
+    {
+        if (filename != NULL)
+            [Torrent trashFile: [NSString stringWithUTF8String: filename]];
+    }
     return 0;
 }
 
@@ -293,7 +291,14 @@ int trashDataFile(const char * filename)
 
 - (void) update
 {
+    //get previous stalled value before update
+    const BOOL wasStalled = fStat != NULL && [self isStalled];
+    
     fStat = tr_torrentStat(fHandle);
+    
+    //make sure the "active" filter is updated when stalled-ness changes
+    if (wasStalled != [self isStalled])
+        [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self];
     
     //when the data first appears, update time machine exclusion
     if (!fTimeMachineExclude)
@@ -604,9 +609,9 @@ int trashDataFile(const char * filename)
     if ([self isMagnet])
         return [NSImage imageNamed: @"Magnet.png"];
     
-    #warning replace 'fldr' stuff with NSImageNameFolder on 10.6
+    #warning replace kGenericFolderIcon stuff with NSImageNameFolder on 10.6
     if (!fIcon)
-        fIcon = [[[NSWorkspace sharedWorkspace] iconForFileType: [self isFolder] ? NSFileTypeForHFSTypeCode('fldr')
+        fIcon = [[[NSWorkspace sharedWorkspace] iconForFileType: [self isFolder] ? NSFileTypeForHFSTypeCode(kGenericFolderIcon)
                                                                                 : [[self name] pathExtension]] retain];
     return fIcon;
 }
@@ -1374,13 +1379,7 @@ int trashDataFile(const char * filename)
 {
     NSAssert2(index < [self fileCount], @"Index %d is greater than file count %d", index, [self fileCount]);
     
-    if ([self fileCount] == 1 || [self isComplete])
-        return NO;
-    
-    if (!fFileStat)
-        [self updateFileStat];
-    
-    return fFileStat[index].progress < 1.0;
+    return [self canChangeDownloadCheckForFiles: [NSIndexSet indexSetWithIndex: index]];
 }
 
 - (BOOL) canChangeDownloadCheckForFiles: (NSIndexSet *) indexSet
@@ -1391,10 +1390,15 @@ int trashDataFile(const char * filename)
     if (!fFileStat)
         [self updateFileStat];
     
-    for (NSUInteger index = [indexSet firstIndex]; index != NSNotFound; index = [indexSet indexGreaterThanIndex: index])
+    __block BOOL canChange = NO;
+    [indexSet enumerateIndexesWithOptions: NSEnumerationConcurrent usingBlock: ^(NSUInteger index, BOOL *stop) {
         if (fFileStat[index].progress < 1.0)
-            return YES;
-    return NO;
+        {
+            canChange = YES;
+            *stop = YES;
+        }
+    }];
+    return canChange;
 }
 
 - (NSInteger) checkForFiles: (NSIndexSet *) indexSet
@@ -1703,10 +1707,14 @@ int trashDataFile(const char * filename)
             if ([pathComponents count] > 2)
             {
                 //determine if folder node already exists
-                FileListNode * node;
-                for (node in fileList)
-                    if ([[node name] isEqualToString: name] && [node isFolder])
-                        break;
+                __block FileListNode * node = nil;
+                [fileList enumerateObjectsWithOptions: NSEnumerationConcurrent usingBlock: ^(FileListNode * searchNode, NSUInteger idx, BOOL * stop) {
+                    if ([[searchNode name] isEqualToString: name] && [searchNode isFolder])
+                    {
+                        node = searchNode;
+                        *stop = YES;
+                    }
+                }];
                 
                 if (!node)
                 {
@@ -1715,8 +1723,7 @@ int trashDataFile(const char * filename)
                     [node release];
                 }
                 
-                NSMutableArray * trimmedComponents = [NSMutableArray arrayWithArray: [pathComponents subarrayWithRange:
-                                                        NSMakeRange(2, [pathComponents count]-2)]];
+                NSMutableArray * trimmedComponents = [NSMutableArray arrayWithArray: [pathComponents subarrayWithRange: NSMakeRange(2, [pathComponents count]-2)]];
                 
                 [node insertIndex: i withSize: file->length];
                 [self insertPath: trimmedComponents forParent: node fileSize: file->length index: i flatList: flatFileList];
@@ -1751,12 +1758,17 @@ int trashDataFile(const char * filename)
     NSString * name = [components objectAtIndex: 0];
     const BOOL isFolder = [components count] > 1;
     
-    FileListNode * node = nil;
+    //determine if folder node already exists
+    __block FileListNode * node = nil;
     if (isFolder)
     {
-        for (node in [parent children])
-            if ([[node name] isEqualToString: name] && [node isFolder])
-                break;
+        [[parent children] enumerateObjectsWithOptions: NSEnumerationConcurrent usingBlock: ^(FileListNode * searchNode, NSUInteger idx, BOOL * stop) {
+            if ([[searchNode name] isEqualToString: name] && [searchNode isFolder])
+            {
+                node = searchNode;
+                *stop = YES;
+            }
+        }];
     }
     
     //create new folder or file if it doesn't already exist
@@ -1786,13 +1798,13 @@ int trashDataFile(const char * filename)
 
 - (void) sortFileList: (NSMutableArray *) fileNodes
 {
-    NSSortDescriptor * descriptor = [[[NSSortDescriptor alloc] initWithKey: @"name" ascending: YES
-                                            selector: @selector(compareFinder:)] autorelease];
+    NSSortDescriptor * descriptor = [NSSortDescriptor sortDescriptorWithKey: @"name" ascending: YES selector: @selector(localizedStandardCompare:)];
     [fileNodes sortUsingDescriptors: [NSArray arrayWithObject: descriptor]];
     
-    for (FileListNode * node in fileNodes)
+    [fileNodes enumerateObjectsWithOptions: NSEnumerationConcurrent usingBlock: ^(FileListNode * node, NSUInteger idx, BOOL * stop) {
         if ([node isFolder])
             [self sortFileList: [node children]];
+    }];
 }
 
 - (void) startQueue
@@ -1812,6 +1824,19 @@ int trashDataFile(const char * filename)
             //simpler to create a new dictionary than to use statusInfo - avoids retention chicanery
             [[NSNotificationCenter defaultCenter] postNotificationName: @"TorrentFinishedDownloading" object: self
                 userInfo: [NSDictionary dictionaryWithObject: [statusInfo objectForKey: @"WasRunning"] forKey: @"WasRunning"]];
+            
+            //quarantine the finished data
+            NSString * dataLocation = [[self currentDirectory] stringByAppendingPathComponent: [self name]];
+            FSRef ref;
+            if (FSPathMakeRef((const UInt8 *)[dataLocation UTF8String], &ref, NULL) == noErr)
+            {
+                NSDictionary * quarantineProperties = [NSDictionary dictionaryWithObject: (NSString *)kLSQuarantineTypeOtherDownload forKey: (NSString *)kLSQuarantineTypeKey];
+                if (LSSetItemAttribute(&ref, kLSRolesAll, kLSItemQuarantineProperties, quarantineProperties) != noErr)
+                    NSLog(@"Failed to quarantine: %@", dataLocation);
+            }
+            else
+                NSLog(@"Could not find file to quarantine: %@", dataLocation);
+            
             break;
         
         case TR_LEECH:

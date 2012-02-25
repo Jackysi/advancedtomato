@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id: Controller.h 12772 2011-08-27 23:54:10Z livings124 $
+ * $Id: Controller.h 13184 2012-01-30 00:14:43Z livings124 $
  *
- * Copyright (c) 2005-2011 Transmission authors and contributors
+ * Copyright (c) 2005-2012 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -49,8 +49,7 @@ typedef enum
     ADD_CREATED
 } addType;
 
-#warning uncomment
-@interface Controller : NSObject <GrowlApplicationBridgeDelegate, NSPopoverDelegate, NSSoundDelegate, NSToolbarDelegate, NSWindowDelegate> //, QLPreviewPanelDataSource, QLPreviewPanelDelegate>
+@interface Controller : NSObject <GrowlApplicationBridgeDelegate, NSURLDownloadDelegate, NSPopoverDelegate, NSSoundDelegate, NSToolbarDelegate, NSWindowDelegate, QLPreviewPanelDataSource, QLPreviewPanelDelegate>
 {
     tr_session                      * fLib;
     
@@ -80,6 +79,8 @@ typedef enum
                                 
     IBOutlet NSMenuItem             * fNextInfoTabItem, * fPrevInfoTabItem;
     
+    IBOutlet NSMenu                 * fSortMenu;
+    
     IBOutlet NSMenu                 * fActionMenu;
     
     IBOutlet NSMenu                 * fUploadMenu, * fDownloadMenu;
@@ -91,8 +92,7 @@ typedef enum
     
     IBOutlet NSMenu                 * fGroupsSetMenu, * fGroupsSetContextMenu;
     
-    #warning change to QLPreviewPanel
-    id                              fPreviewPanel;
+    QLPreviewPanel                  * fPreviewPanel;
     BOOL                            fQuitting;
     BOOL                            fQuitRequested;
     BOOL                            fPauseOnLaunch;
@@ -103,6 +103,8 @@ typedef enum
     NSTimer                         * fAutoImportTimer;
     
     NSMutableDictionary             * fPendingTorrentDownloads;
+    
+    NSMutableSet                    * fAddingTransfers;
     
     BOOL                            fGlobalPopoverShown;
     BOOL                            fSoundPlaying;
@@ -154,7 +156,6 @@ typedef enum
 
 - (void) moveDataFilesSelected: (id) sender;
 - (void) moveDataFiles: (NSArray *) torrents;
-- (void) moveDataFileChoiceClosed: (NSOpenPanel *) panel returnCode: (NSInteger) code contextInfo: (NSArray *) torrents;
 
 - (void) copyTorrentFiles: (id) sender;
 - (void) copyTorrentFileForTorrents: (NSMutableArray *) torrents;
@@ -192,8 +193,9 @@ typedef enum
 
 - (void) applyFilter;
 
-- (void) sortTorrents;
-- (void) sortTorrentsIgnoreSelected;
+- (void) sortTorrents: (BOOL) includeQueueOrder;
+- (void) sortTorrentsCallUpdates: (BOOL) callUpdates includeQueueOrder: (BOOL) includeQueueOrder;
+- (void) rearrangeTorrentTableArray: (NSMutableArray *) rearrangeArray forParent: (id) parent withSortDescriptors: (NSArray *) descriptors beganTableUpdate: (BOOL *) beganTableUpdate;
 - (void) setSort: (id) sender;
 - (void) setSortByGroup: (id) sender;
 - (void) setSortReverse: (id) sender;
