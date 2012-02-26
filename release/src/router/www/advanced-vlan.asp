@@ -130,7 +130,7 @@ var COL_BRI = 12;
 // set to either 5 or 8 when nvram settings are read (FastE or GigE routers)
 var SWITCH_INTERNAL_PORT=0;
 // option made available for experimental purposes on routers known to support port-based VLANs, but not confirmed to support 801.11q trunks
-var PORT_VLAN_SUPPORT_OVERRIDE=0;
+var PORT_VLAN_SUPPORT_OVERRIDE = ((nvram['trunk_vlan_so'] == '1') ? 1 : 0);
 
 function verifyFields(focused, quiet){
   PORT_VLAN_SUPPORT_OVERRIDE=(E('_f_trunk_vlan_so').checked ? 1 : 0);
