@@ -130,8 +130,8 @@ endif
 ifneq ($(TCONFIG_VLAN),y)
 	rm -f $(INSTALLDIR)/www/advanced-vlan.asp
 	rm -f $(INSTALLDIR)/www/advanced-access.asp
- 	rm -f $(INSTALLDIR)/www/advanced-wlanvifs.asp
- 	sed -i $(INSTALLDIR)/www/about.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	rm -f $(INSTALLDIR)/www/advanced-wlanvifs.asp
+	sed -i $(INSTALLDIR)/www/about.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 	sed -i $(INSTALLDIR)/www/advanced-firewall.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
