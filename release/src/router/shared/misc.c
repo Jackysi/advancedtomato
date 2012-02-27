@@ -38,6 +38,7 @@ int get_wan_proto(void)
 		"l2tp",
 		"pppoe",
 		"pptp",
+		"ppp3g",
 		NULL
 	};
 	int i;
@@ -202,7 +203,7 @@ int check_wanup(void)
 		 return 0;
 	}
 
-	if ((proto == WP_PPTP) || (proto == WP_L2TP) || (proto == WP_PPPOE)) {
+	if ((proto == WP_PPTP) || (proto == WP_L2TP) || (proto == WP_PPPOE) || (proto == WP_PPP3G)) {
 		if (f_read_string("/tmp/ppp/link", buf1, sizeof(buf1)) > 0) {
 				// contains the base name of a file in /var/run/ containing pid of a daemon
 				snprintf(buf2, sizeof(buf2), "/var/run/%s.pid", buf1);
@@ -359,7 +360,7 @@ const wanface_list_t *get_wanfaces(void)
 			break;
 		default:
 			ip = (proto == WP_DISABLED) ? "0.0.0.0" : nvram_safe_get("wan_ipaddr");
-			if (proto == WP_PPPOE) {
+			if ((proto == WP_PPPOE) || (proto == WP_PPP3G)) {
 				iface = nvram_safe_get("wan_iface");
 				if (!(*iface)) iface = "ppp+";
 			}

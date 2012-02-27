@@ -455,6 +455,7 @@ static void ipt_account(void) {
 
 			sprintf(netaddrnetmask, "%s/%s", inet_ntoa(network), nvram_safe_get(lanN_netmask));
 
+			//ipv4 only
 			ipt_write("-A FORWARD -m account --aaddr %s --aname %s\n", netaddrnetmask, lanN);
 		}
 	}
@@ -1066,7 +1067,8 @@ static void filter_forward(void)
 			if (!ipt_addr(dst, sizeof(dst), daddr, "dst", IPT_V4|IPT_V6, 0, "LAN access", desc))
 				continue;
 
-			ip46t_write("-A FORWARD -i %s%s -o %s%s %s %s -j ACCEPT\n",
+			//ipv4 only
+			ipt_write("-A FORWARD -i %s%s -o %s%s %s %s -j ACCEPT\n",
 				"br",
 				sbr,
 				"br",
