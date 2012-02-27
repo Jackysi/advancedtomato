@@ -42,6 +42,12 @@ ifneq ($(CONFIG_LINUX26),y)
 	for F in $(wildcard *.asp *.js); do \
 		sed -i $$F -e "/LINUX26-BEGIN/,/LINUX26-END/d"; \
 	done
+# But remove some K24 options if building for Linux 2.6.
+else
+	cd $(INSTALLDIR)/www && \
+	for F in $(wildcard *.asp *.js); do \
+		sed -i $$F -e "/LINUX24-BEGIN/,/LINUX24-END/d"; \
+	done
 endif
 
 # Only include the CIFS pages if CIFS is configured in.
@@ -141,6 +147,7 @@ endif
 ifneq ($(TCONFIG_VLAN),y)
 	rm -f $(INSTALLDIR)/www/advanced-vlan.asp
 	rm -f $(INSTALLDIR)/www/advanced-access.asp
+	rm -f $(INSTALLDIR)/www/advanced-wlanvifs.asp
 	sed -i $(INSTALLDIR)/www/about.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 	sed -i $(INSTALLDIR)/www/advanced-firewall.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
@@ -198,6 +205,7 @@ endif
 	for F in $(wildcard *.asp *.js *.jsx *.html); do \
 		[ -f $(INSTALLDIR)/www/$$F ] && sed -i $$F \
 		-e "/LINUX26-BEGIN/d"	-e "/LINUX26-END/d" \
+		-e "/LINUX24-BEGIN/d"	-e "/LINUX24-END/d" \
 		-e "/USB-BEGIN/d"	-e "/USB-END/d" \
 		-e "/EXTRAS-BEGIN/d"	-e "/EXTRAS-END/d" \
 		-e "/NTFS-BEGIN/d"	-e "/NTFS-END/d" \

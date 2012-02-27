@@ -136,6 +136,20 @@ function init()
 {
 	tg.recolor();
 	tg.resetNewEditor();
+	var c;
+	if (((c = cookie.get('forward_triggered_notes_vis')) != null) && (c == '1')) toggleVisibility("notes");
+}
+
+function toggleVisibility(whichone) {
+	if (E('sesdiv_' + whichone).style.display == '') {
+		E('sesdiv_' + whichone).style.display = 'none';
+		E('sesdiv_' + whichone + '_showhide').innerHTML = '(Click here to show)';
+		cookie.set('forward_triggered_' + whichone + '_vis', 0);
+	} else {
+		E('sesdiv_' + whichone).style.display='';
+		E('sesdiv_' + whichone + '_showhide').innerHTML = '(Click here to hide)';
+		cookie.set('forward_triggered_' + whichone + '_vis', 1);
+	}
 }
 </script>
 </head>
@@ -163,7 +177,8 @@ function init()
 	<script type='text/javascript'>tg.setup();</script>
 </div>
 
-<div>
+<div class='section-title'>Notes <small><i><a href='javascript:toggleVisibility("notes");'><span id='sesdiv_notes_showhide'>(Click here to show)</span></a></i></small></div>
+<div class='section' id='sesdiv_notes' style='display:none'>
 <ul>
 <li>Use "-" to specify a range of ports (200-300).
 <li>Trigger Ports are the initial LAN to WAN "trigger".

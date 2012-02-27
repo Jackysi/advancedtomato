@@ -353,6 +353,29 @@ static void print_ipv6_addrs(void)
 }
 #endif
 
+void asp_jiffies(int argc, char **argv)
+{
+	char sa[64];
+	FILE *a;
+	char *e = NULL;
+	char *f= NULL;
+
+	const char procstat[] = "/proc/stat";
+	if ((a = fopen(procstat, "r")) != NULL) {
+		fgets(sa, sizeof(sa), a);
+
+		e = sa;
+
+		if ((e = strchr(sa, ' ')) != NULL) e = e + 2;
+
+		if ((f = strchr(sa, 10)) != NULL) *f = 0;
+
+		web_printf("\njiffies = [ '");
+		web_printf("%s", e);
+		web_puts("' ];\n");
+		fclose(a);
+	}
+}
 
 int get_flashsize()
 {
@@ -392,41 +415,11 @@ mtd1: 007d0000 00010000 "linux"
 	}
 }
 
-void asp_jiffies(int argc, char **argv)
-{
-	char sa[64];
-	FILE *a;
-	char *e = NULL;
-	char *f= NULL;
-
-	const char procstat[] = "/proc/stat";
-	if ((a = fopen(procstat, "r")) != NULL) {
-		fgets(sa, sizeof(sa), a);
-
-		e = sa;
-
-		if ((e = strchr(sa, ' ')) != NULL) e = e + 2;
-
-		if ((f = strchr(sa, 10)) != NULL) *f = 0;
-
-		web_printf("\njiffies = [ '");
-		web_printf("%s", e);
-		web_puts("' ];\n");
-		fclose(a);
-	}
-}
-
 void asp_sysinfo(int argc, char **argv)
 {
 	struct sysinfo si;
 	char s[64];
 	meminfo_t mem;
-
-	char sa[64];
-	FILE *a;
-	char *e = NULL;
-	char *f= NULL;
-	const char procstat[] = "/proc/stat";
 
 	char system_type[64];
 	char cpu_model[64];
@@ -434,6 +427,12 @@ void asp_sysinfo(int argc, char **argv)
 	char cpuclk[8];
 
 	get_cpuinfo(system_type, cpu_model, bogomips, cpuclk);
+
+	char sa[64];
+	FILE *a;
+	char *e = NULL;
+	char *f= NULL;
+	const char procstat[] = "/proc/stat";
 
 	web_puts("\nsysinfo = {\n");
 
@@ -747,6 +746,14 @@ void wo_wakeup(char *url)
 			*p = 0;
 
 			eval("ether-wake", "-b", "-i", nvram_safe_get("lan_ifname"), mac);
+#ifdef TCONFIG_VLAN
+			if (strcmp(nvram_safe_get("lan1_ifname"), "") != 0)
+				eval("ether-wake", "-b", "-i", nvram_safe_get("lan1_ifname"), mac);
+			if (strcmp(nvram_safe_get("lan2_ifname"), "") != 0)
+				eval("ether-wake", "-b", "-i", nvram_safe_get("lan2_ifname"), mac);
+			if (strcmp(nvram_safe_get("lan3_ifname"), "") != 0)
+				eval("ether-wake", "-b", "-i", nvram_safe_get("lan3_ifname"), mac);
+#endif
 			mac = p + 1;
 		}
 	}

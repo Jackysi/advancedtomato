@@ -45,6 +45,8 @@ static int watchdog = 0;
 static u8 *mcr = NULL;
 extern int bcm947xx_cpu_clk; //Tomato RAF features
 
+extern int bcm947xx_cpu_clk; //Tomato RAF features
+
 void __init
 bcm947xx_time_init(void)
 {
@@ -67,6 +69,8 @@ bcm947xx_time_init(void)
 
 	printk("CPU: BCM%04x rev %d pkg %d at %d MHz\n", sb_chip(sbh),
 	        sb_chiprev(sbh), sb_chippkg(sbh), (hz + 500000) / 1000000);
+	bcm947xx_cpu_clk = (hz + 500000) / 1000000; //Tomato RAF feature
+
 	bcm947xx_cpu_clk = (hz + 500000) / 1000000; //Tomato RAF feature
 
 	/* Set MIPS counter frequency for fixed_rate_gettimeoffset() */

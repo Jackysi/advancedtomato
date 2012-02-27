@@ -228,6 +228,10 @@ const defaults_t defaults[] = {
 	{ "wl_wep_gen",			""				},	// save all settings for generate button	// Add
 	{ "wl_wep_last",		""				},	// Save last wl_wep mode	// Add
 
+#ifdef TCONFIG_VLAN
+	{ "wl_vifs",			""				},	// multiple/virtual BSSIDs
+#endif
+
 	// WPA parameters
 	{ "wl_security_mode",		"disabled"		},	// WPA mode (disabled|radius|wpa_personal|wpa_enterprise|wep|wpa2_personal|wpa2_enterprise) for WEB	// Add
 	{ "wl_auth_mode",		"none"			},	// Network authentication mode (radius|none)
@@ -354,8 +358,8 @@ const defaults_t defaults[] = {
 	{ "wan_domain",			""				},
 
 // basic-time
-	{ "tm_sel",				"CET-1CEST,M3.5.0/2,M10.5.0/3"	},
-	{ "tm_tz",				"CET-1CEST,M3.5.0/2,M10.5.0/3"	},
+	{ "tm_sel",				"BRT3BRST,M10.3.0/0,M2.3.0/0"	},
+	{ "tm_tz",				"BRT3BRST,M10.3.0/0,M2.3.0/0"	},
 	{ "tm_dst",				"1",							},
 	{ "ntp_updates",		"4"								},
 	{ "ntp_tdod",			"0"								},
@@ -365,6 +369,7 @@ const defaults_t defaults[] = {
 
 // basic-static
 	{ "dhcpd_static",		""				},
+	{ "arpbind_listed",		"0"				},	// AB - Enable static ARP for all devices on list
 
 // basic-wfilter
 	{ "wl_maclist",			""			},	// xx:xx:xx:xx:xx:xx ... = 17
@@ -580,8 +585,9 @@ const defaults_t defaults[] = {
 	{ "rmgt_sip",			""				},	// remote management: source ip address
 
 	{ "http_id",			""				},
-	{ "web_mx",			"status,bwm"			},
+	{ "web_mx",			""				},
 	{ "web_pb",			""				},
+
 
 // admin-bwm
 	{ "rstats_enable",		"1"				},

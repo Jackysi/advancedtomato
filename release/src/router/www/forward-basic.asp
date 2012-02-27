@@ -191,6 +191,20 @@ function init()
 {
 	fog.recolor();
 	fog.resetNewEditor();
+	var c;
+	if (((c = cookie.get('forward_basic_notes_vis')) != null) && (c == '1')) toggleVisibility("notes");
+}
+
+function toggleVisibility(whichone) {
+	if (E('sesdiv_' + whichone).style.display == '') {
+		E('sesdiv_' + whichone).style.display = 'none';
+		E('sesdiv_' + whichone + '_showhide').innerHTML = '(Click here to show)';
+		cookie.set('forward_basic_' + whichone + '_vis', 0);
+	} else {
+		E('sesdiv_' + whichone).style.display='';
+		E('sesdiv_' + whichone + '_showhide').innerHTML = '(Click here to hide)';
+		cookie.set('forward_basic_' + whichone + '_vis', 1);
+	}
 }
 </script>
 </head>
@@ -218,7 +232,8 @@ function init()
 	<script type='text/javascript'>fog.setup();</script>
 </div>
 
-<div>
+<div class='section-title'>Notes <small><i><a href='javascript:toggleVisibility("notes");'><span id='sesdiv_notes_showhide'>(Click here to show)</span></a></i></small></div>
+<div class='section' id='sesdiv_notes' style='display:none'>
 <ul>
 <li><b>Src Address</b> <i>(optional)</i> - Forward only if from this address. Ex: "1.2.3.4", "1.2.3.4 - 2.3.4.5", "1.2.3.0/24", "me.example.com".
 <li><b>Ext Ports</b> - The ports to be forwarded, as seen from the WAN. Ex: "2345", "200,300", "200-300,400".

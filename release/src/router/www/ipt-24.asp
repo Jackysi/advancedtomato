@@ -161,7 +161,10 @@ ref.initX = function() {
 }
 
 function init() {
-	if (nvram.cstats_enable != '1') return;
+	if (nvram.cstats_enable != '1') {
+		E('refresh-button').disabled = 1;
+		return;
+	}
 
 	populateCache();
 
@@ -398,6 +401,7 @@ createFieldTable('', [
 </div>
 
 </div>
+<br>
 
 <!-- / / / -->
 

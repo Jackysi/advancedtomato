@@ -255,8 +255,10 @@ void start_dnsmasq()
 			}
 #endif
 		} else {
-			if (strcmp(nvram_safe_get(lanN_ifname),"")!=0)
+			if (strcmp(nvram_safe_get(lanN_ifname),"")!=0) {
+				fprintf(f, "interface=%s\n", nvram_safe_get(lanN_ifname));
 				fprintf(f, "no-dhcp-interface=%s\n", nvram_safe_get(lanN_ifname));
+			}
 		}
 	}
 	// write static lease entries & create hosts file
@@ -1129,9 +1131,9 @@ void start_syslog(void)
 		}
 
 		if (nvram_match("log_file_custom", "0")) {
-		argv[argc++] = "-s";
-		argv[argc++] = rot_siz;
-		remove("/var/log/messages");
+			argv[argc++] = "-s";
+			argv[argc++] = rot_siz;
+			remove("/var/log/messages");
 		}
 
 		if (isdigit(*b_opt)) {
@@ -2187,12 +2189,6 @@ TOP:
 			start_igmp_proxy();
 			start_udpxy();
 		}
-		goto CLEAR;
-	}
-
-	if (strcmp(service, "arpbind") == 0) {
-		if (action & A_STOP) stop_arpbind();
-		if (action & A_START) start_arpbind();
 		goto CLEAR;
 	}
 
