@@ -238,7 +238,7 @@ void start_dnsmasq()
 				p = nvram_safe_get("lan_gateway");
 				if ((*p) && (strcmp(p, "0.0.0.0") != 0)) nv = p;
 			}
-#ifdef TCONFIG-VLAN
+#ifdef TCONFIG_VLAN
 			fprintf(f,
 				"dhcp-option=%s,3,%s\n",	// gateway
 				nvram_safe_get(lanN_ifname), nv);
