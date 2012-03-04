@@ -3,6 +3,22 @@
 	Tomato Firmware
 	Copyright (C) 2006-2009 Jonathan Zarate
 
+
+
+Notes:
+
+Originally Tomato had 10 classes, but only used 6 priority levels for some unknown reason.
+Therefore, the last 4 classes all had the same prio of 7. The ingress system had no priority system
+and allowed only class limits. It looked as if this was a legacy of an earlier prototype using CBQ.
+
+On 4th February 2012 a new IMQ based ingress system was added to Toastman builds which
+allows use of priorities on all incoming classes. QOS now uses 10 prios in both egress and ingress.
+
+An incoming bandwidth pie chart was added at the same time, making it easier to see the result of 
+QOS rules on incoming data.
+
+-Toastman 
+
 */
 
 #include "rc.h"
@@ -94,7 +110,7 @@ void ipt_qos(void)
 			numeric (0:63) - dscp value
 			afXX, csX, be, ef - dscp class
 		class_prio:
-			0-10				// Changed from 8 in pkt_sched.h - Toastman
+			0-10				// was 0-8 - Changed from 8 in pkt_sched.h - Toastman
 			-1 = disabled
 
 		*/
@@ -433,8 +449,7 @@ void start_qos(void)
 			"\t$TQA parent 1:%d handle %d: $Q\n"
 			"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
 				i, rate, ceil,
-//				x, calc(bw, rate), s, burst_leaf, (i >= 6) ? 7 : (i + 1), mtu,
-				x, calc(bw, rate), s, burst_leaf, i, mtu,			//Toastman
+				x, calc(bw, rate), s, burst_leaf, i+1, mtu,	//prios 1-10 - Toastman
 				x, x,
 				x, i + 1, x);
 	}
@@ -622,7 +637,7 @@ void start_qos(void)
 		unsigned int classid = ((unsigned int)i + 1) * 10;
 		
 		// priority
-		unsigned int priority = (unsigned int)i + 1;
+		unsigned int priority = (unsigned int)i + 1;			//prios 1-10 - Toastman
 		
 		// rate in kb/s
 		unsigned int rateInKilobitsPerSecond =
