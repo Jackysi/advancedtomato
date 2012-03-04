@@ -280,9 +280,9 @@ struct tc_gred_sopt
 };
 
 /* HTB section */
-#define TC_HTB_NUMPRIO		10
+#define TC_HTB_NUMPRIO		11	/* Toastman */
 #define TC_HTB_MAXDEPTH		8
-#define TC_HTB_PROTOVER		3 /* the same as HTB and TC's major */
+#define TC_HTB_PROTOVER		3	/* the same as HTB and TC's major */
 
 struct tc_htb_opt
 {
@@ -354,7 +354,7 @@ enum
 
 /* CBQ section */
 
-#define TC_CBQ_MAXPRIO		8
+#define TC_CBQ_MAXPRIO		11	/* Toastman */
 #define TC_CBQ_MAXLEVEL		8
 #define TC_CBQ_DEF_EWMA		5
 
