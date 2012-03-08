@@ -402,6 +402,7 @@ static int init_vlan_ports(void)
 		break;
 #ifdef CONFIG_BCMWL5
 	case MODEL_WNR3500L:
+	case MODEL_WNR2000v2:
 	case MODEL_WRT320N:
 	case MODEL_RTN16:
 	case MODEL_RTN66U:
@@ -411,10 +412,6 @@ static int init_vlan_ports(void)
 	case MODEL_WNR3500LV2:
 		dirty |= check_nv("vlan1ports", "1 2 3 4 8*");
 		dirty |= check_nv("vlan2ports", "0 8");
-		break;
-	case MODEL_WNR2000v2:
-		dirty |= check_nv("vlan0ports", "4 3 2 1 5*");
-		dirty |= check_nv("vlan1ports", "0 5");
 		break;
 	case MODEL_RTN10:
 		dirty |= check_nv("vlan1ports", "4 5");
