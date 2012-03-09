@@ -1,4 +1,3 @@
-/* $Id: testupnpdescgen.c,v 1.9 2011/02/17 23:17:24 jmaggard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  *
