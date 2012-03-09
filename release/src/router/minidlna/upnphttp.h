@@ -1,7 +1,27 @@
-/* MiniUPnP project
- * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
+/* MiniDLNA project
  *
- * Copyright (c) 2006, Thomas Bernard
+ * http://sourceforge.net/projects/minidlna/
+ *
+ * MiniDLNA media server
+ * Copyright (C) 2008-2012  Justin Maggard
+ *
+ * This file is part of MiniDLNA.
+ *
+ * MiniDLNA is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ *
+ * MiniDLNA is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with MiniDLNA. If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Portions of the code from the MiniUPnP project:
+ *
+ * Copyright (c) 2006-2007, Thomas Bernard
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -36,7 +56,7 @@
 #include "config.h"
 
 /* server: HTTP header returned in all HTTP responses : */
-#define MINIDLNA_SERVER_STRING	OS_VERSION " DLNADOC/1.50 UPnP/1.0 MiniDLNA/1.0"
+#define MINIDLNA_SERVER_STRING	OS_VERSION " DLNADOC/1.50 UPnP/1.0 " SERVER_NAME "/" MINIDLNA_VERSION
 
 /*
  states :
@@ -71,6 +91,8 @@ struct upnphttp {
 	int req_soapActionLen;
 	const char * req_Callback;	/* For SUBSCRIBE */
 	int req_CallbackLen;
+	const char * req_NT;
+	int req_NTLen;
 	int req_Timeout;
 	const char * req_SID;		/* For UNSUBSCRIBE */
 	int req_SIDLen;
@@ -92,9 +114,10 @@ struct upnphttp {
 #define FLAG_SID                0x00000002
 #define FLAG_RANGE              0x00000004
 #define FLAG_HOST               0x00000008
+#define FLAG_LANGUAGE           0x00000010
 
+#define FLAG_INVALID_REQ        0x00000040
 #define FLAG_HTML               0x00000080
-#define FLAG_INVALID_REQ        0x00000010
 
 #define FLAG_CHUNKED            0x00000100
 #define FLAG_TIMESEEK           0x00000200
@@ -113,7 +136,8 @@ struct upnphttp {
 #define FLAG_NO_RESIZE          0x02000000
 #define FLAG_MS_PFS             0x04000000 // Microsoft PlaysForSure client
 #define FLAG_SAMSUNG            0x08000000
-#define FLAG_AUDIO_ONLY         0x10000000
+#define FLAG_SAMSUNG_TV         0x10000000
+#define FLAG_AUDIO_ONLY         0x20000000
 
 #define FLAG_FREE_OBJECT_ID     0x00000001
 #define FLAG_ROOT_CONTAINER     0x00000002
