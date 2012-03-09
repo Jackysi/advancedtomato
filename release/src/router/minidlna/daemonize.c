@@ -1,4 +1,3 @@
-/* $Id: daemonize.c,v 1.4 2011/02/15 02:46:28 jmaggard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  *
@@ -41,12 +40,12 @@
 #include "config.h"
 #include "log.h"
 
-#ifndef USE_DAEMON
-
 int
 daemonize(void)
 {
-	int pid, i;
+	int pid;
+#ifndef USE_DAEMON
+	int i;
 
 	switch(fork())
 	{
@@ -72,16 +71,20 @@ daemonize(void)
 		dup(i); /* stderr */
 
 		umask(027);
-		chdir("/"); /* chdir to /tmp ? */			
+		chdir("/");
 
-		return pid;
-
+		break;
 	/* parent process */
 	default:
 		exit(0);
 	}
-}
+#else
+	if( daemon(0, 0) < 0 )
+		perror("daemon()");
+	pid = getpid();
 #endif
+	return pid;
+}
 
 int
 writepidfile(const char * fname, int pid)
