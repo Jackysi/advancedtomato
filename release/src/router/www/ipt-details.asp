@@ -316,6 +316,12 @@ grid.setup = function() {
 }
 
 function init() {
+	if (nvram.cstats_enable != '1') {
+		E('refresh-time').disabled = 1;
+		E('refresh-button').disabled = 1;
+		return;
+	}
+
 	if ((c = '<% cgi_get("ipt_filterip"); %>') != '') {
 		if (c.length>6) {
 			E('_f_filter_ip').value = c;
@@ -446,6 +452,7 @@ function toggleVisibility(whichone) {
 <td id='content'>
 <div id='ident'><% ident(); %></div>
 
+<div id='cstats'>
 <!-- / / / -->
 
 <div class='section-title'>IP Traffic Details</div>
@@ -475,9 +482,13 @@ createFieldTable('',c);
 </div>
 </div>
 
+<!-- / / / -->
+
+</div>
+<br>
+
 <script type='text/javascript'>checkCstats();</script>
 
-<!-- / / / -->
 
 </td></tr>
 <tr><td id='footer' colspan=2>
