@@ -1,5 +1,5 @@
 #!/bin/sh
-# part of usb_modeswitch 1.2.3
+# part of usb_modeswitch 1.1.9
 device_in()
 {
 	if [ ! -e /var/lib/usb_modeswitch/$1 ]; then
@@ -37,12 +37,10 @@ if [ $(expr "$1" : "--.*") ]; then
 		v_id=$3
 	fi
 fi
-PATH=/sbin:/usr/sbin:$PATH
 case "$1" in
 	--driver-bind)
 		(
 		dir=$(ls -d /sys$2/ttyUSB* 2>/dev/null)
-		sleep 1
 		if [ ! -z "$dir" ]; then
 			exit 0
 		fi
@@ -51,13 +49,13 @@ case "$1" in
 		if [ "$?" = "1" ]; then
 			id_attr="/sys/bus/usb-serial/drivers/option1/new_id"
 			if [ ! -e "$id_attr" ]; then
-				modprobe option 2>/dev/null || true
+				/sbin/modprobe option 2>/dev/null || true
 			fi
 			if [ -e "$id_attr" ]; then
-				echo "$v_id $p_id ff" > $id_attr
+				echo "$v_id $p_id" > $id_attr
 			else
-				modprobe -r usbserial
-				modprobe usbserial "vendor=0x$v_id" "product=0x$p_id"
+				/sbin/modprobe -r usbserial
+				/sbin/modprobe usbserial "vendor=0x$v_id" "product=0x$p_id"
 			fi
 		fi
 		) &
@@ -66,8 +64,8 @@ case "$1" in
 	--symlink-name)
 		device_in "link_list" $v_id $p_id
 		if [ "$?" = "1" ]; then
-			if [ -e "/usr/sbin/usb_modeswitch_dispatcher" ]; then
-				exec usb_modeswitch_dispatcher $1 $2 2>>/dev/null
+			if [ -e "/usr/bin/tclsh" ]; then
+				exec /usr/bin/tclsh /usr/sbin/usb_modeswitch_dispatcher $1 $2 $v_id $p_id 2>/dev/null
 			fi
 		fi
 		exit 0
@@ -77,11 +75,11 @@ exec 1<&- 2<&- 5<&- 7<&-
 (
 count=120
 while [ $count != 0 ]; do
-	if [ ! -e "/usr/sbin/usb_modeswitch_dispatcher" ]; then
+	if [ ! -e "/usr/bin/tclsh" ]; then
 		sleep 1
 		count=$(($count - 1))
 	else
-		exec usb_modeswitch_dispatcher --switch-mode $1 $0 &
+		exec /usr/bin/tclsh /usr/sbin/usb_modeswitch_dispatcher "$@" 2>/dev/null &
 		exit 0
 	fi
 done
