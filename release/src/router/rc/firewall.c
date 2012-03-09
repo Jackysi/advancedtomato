@@ -1010,7 +1010,9 @@ static void filter_forward(void)
 		"-A FORWARD -m rt --rt-type 0 -j DROP\n");
 #endif
 
-	ipt_account();
+	if (nvram_match("cstats_enable", "1")) {
+		ipt_account();
+	}
 
 	ip46t_write(
 		"-A FORWARD -i %s -o %s -j ACCEPT\n",			// accept all lan to lan
