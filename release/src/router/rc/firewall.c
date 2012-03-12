@@ -899,6 +899,14 @@ static void filter_forward(void)
 		":wanout - [0:0]\n"
 		"-A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT\n");	// already established or related (via helper)
 
+#ifdef TCONFIG_PPTPD
+	//Add for pptp server
+	if (nvram_match("pptpd_enable", "1")) {
+		ipt_write("-A INPUT -p tcp --dport 1723 -j ACCEPT\n");
+		ipt_write("-A INPUT -p 47 -j ACCEPT\n");
+	}
+#endif
+
 #ifdef TCONFIG_IPV6
 	// Filter out invalid WAN->WAN connections
 	if (*wan6face)

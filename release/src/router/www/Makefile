@@ -147,6 +147,13 @@ else
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/VPN-BEGIN/,/VPN-END/d"
 endif
 
+# Only include the PPTPD pages if PPTPD is compiled in
+ifneq ($(TCONFIG_PPTPD),y)
+	rm -f $(INSTALLDIR)/www/pptp-server.asp
+	rm -f $(INSTALLDIR)/www/pptp-online.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/PPTPD-BEGIN/,/PPTPD-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/PPTPD-BEGIN/,/PPTPD-END/d"
+endif
 
 # clean up
 	cd $(INSTALLDIR)/www && \

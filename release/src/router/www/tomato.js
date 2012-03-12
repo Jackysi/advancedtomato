@@ -2400,9 +2400,14 @@ REMOVE-END */
 /* USB-END */
 /* VPN-BEGIN */
 		['VPN Tunneling', 		'vpn', 0, [
-			['Server',			'server.asp'],
-			['Client',			'client.asp'] ] ],
+			['OpenVPN Server',		'server.asp'],
+			['OpenVPN Client',		'client.asp'] ] ],
 /* VPN-END */
+/* PPTPD-BEGIN */
+		['PPTP VPN', 			'pptp', 0, [
+			['PPTP Server',			'server.asp'],
+			['Online Users',		'online.asp'] ] ],
+/* PPTPD-END */
 		null,
 		['Administration',		'admin', 0, [
 			['Admin Access',	'access.asp'],

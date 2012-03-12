@@ -320,6 +320,10 @@ main(argc, argv)
 
     strlcpy(path_ipup, _PATH_IPUP, sizeof(path_ipup));
     strlcpy(path_ipdown, _PATH_IPDOWN, sizeof(path_ipdown));
+#ifdef INET6
+    strlcpy(path_ipv6up, _PATH_IPV6UP, sizeof(path_ipv6up));
+    strlcpy(path_ipv6down, _PATH_IPV6DOWN, sizeof(path_ipv6down));
+#endif
 
     link_stats_valid = 0;
     new_phase(PHASE_INITIALIZE);
@@ -1314,6 +1318,9 @@ static void check_time(void)
 	struct sysinfo i;
     struct callout *p;
 	
+	if(nochecktime)
+		return;
+
 	gettimeofday(&t, NULL);
 	sysinfo(&i);
 	new_diff = t.tv_sec - i.uptime;

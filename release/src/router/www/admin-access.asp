@@ -46,6 +46,9 @@ var xmenus = [['Status', 'status'], ['Bandwidth', 'bwm'], ['Tools', 'tools'], ['
 /* VPN-BEGIN */
 	['VPN Tunneling', 'vpn'],
 /* VPN-END */
+/* PPTPD-BEGIN */
+	['PPTP VPN', 'pptp'],
+/* PPTPD-END */
 	['Administration', 'admin']];
 
 function toggle(service, isup)

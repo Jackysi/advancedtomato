@@ -111,6 +111,11 @@ VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovp
 <br><br>
 <!-- VPN-END -->
 
+<!-- PPTPD-BEGIN -->
+PPTP Server integration and GUI Copyright (C) 2012 Augusto Bott, <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
+<br><br>
+<!-- PPTPD-END -->
+
 Based on Tomato Firmware v<% version(); %><br>
 Copyright (C) 2006-2010 Jonathan Zarate<br>
 <a href='http://www.polarcloud.com/tomato/' target='_new'>http://www.polarcloud.com/tomato/</a><br>

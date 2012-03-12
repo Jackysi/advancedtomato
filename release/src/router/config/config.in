@@ -111,3 +111,9 @@ config TCONFIG_NTFS
 	bool "  NTFS-3g Support"
 	depends on TCONFIG_USB
 	default n
+
+	config TCONFIG_PPTPD
+	bool "PPTPD"
+	depends on TCONFIG_PPTP
+	default n
+
