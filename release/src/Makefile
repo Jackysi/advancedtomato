@@ -247,6 +247,7 @@ what:
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM
 # SNMP SDHC VLAN
+# PPTPD NO_EXTRA_NET_SCH
 
 define RouterOptions
 	@( \
@@ -509,6 +510,14 @@ define KernelConfig
 		sed -i "/CONFIG_CPU_MIPSR1/d" $(1); \
 		echo "CONFIG_CPU_MIPSR2=y" >>$(1); \
 	fi; \
+	if [ "$(CONFIG_LINUX26)" = "" ] && [ "$(NO_EXTRA_NET_SCH)" = "y" ]; then \
+		sed -i "/CONFIG_NET_SCH_HFSC/d" $(1); \
+		echo "# CONFIG_NET_SCH_HFSC is not set" >>$(1); \
+		sed -i "/CONFIG_NET_SCH_ESFQ/d" $(1); \
+		echo "# CONFIG_NET_SCH_ESFQ is not set" >>$(1); \
+		sed -i "/CONFIG_NET_SCH_TBF/d" $(1); \
+		echo "# CONFIG_NET_SCH_TBF is not set" >>$(1); \
+	fi; \
 	if [ "$(USB)" = "" ]; then \
 		if [ "$(SDHC)" = "n" ]; then \
 			sed -i "/CONFIG_MSDOS_PARTITION/d" $(1); \
@@ -649,7 +658,7 @@ endif
 en:
 ifneq ($(CONFIG_LINUX26),y)
 #	@$(MAKE) bin OPENVPN=y NTFS=n BBEXTRAS=y USBEXTRAS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)" VLAN="$(VLAN)" SDHC="$(SDHC)"
-	@$(MAKE) bin OPENVPN=y NTFS=n USBEXTRAS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)" VLAN="$(VLAN)" SDHC="$(SDHC)"
+	@$(MAKE) bin OPENVPN=y NTFS=n NO_JFFS=y NO_EXTRA_NET_SCH=y USBEXTRAS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP="$(SNMP)" VLAN="$(VLAN)" SDHC="$(SDHC)"
 endif
 
 ## Make the "Mini: no USB, no CIFS, no Zebra" build - targeted for Netgear routers
