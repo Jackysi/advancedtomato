@@ -45,6 +45,7 @@ ND = "ND"
 endif
 SNMP ?= "n"
 VLAN ?= "n"
+PPTPD ?= "n"
 
 ifeq ($(NVRAM_SIZE),)
 NVRAM_SIZE = 0
@@ -355,6 +356,10 @@ define RouterOptions
 	if [ "$(VLAN)" = "y" ]; then \
 		sed -i "/TCONFIG_VLAN/d" $(1); \
 		echo "TCONFIG_VLAN=y" >>$(1); \
+	fi; \
+	if [ "$(PPTPD)" = "y" ]; then \
+		sed -i "/TCONFIG_PPTPD/d" $(1); \
+		echo "TCONFIG_PPTPD=y" >>$(1); \
 	fi; \
 	)
 endef
