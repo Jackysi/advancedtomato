@@ -187,6 +187,13 @@ ifneq ($(TCONFIG_SNMP),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/SNMP-BEGIN/,/SNMP-END/d"
 endif
 
+# Only include the PPTPD pages if PPTPD is compiled in
+ifneq ($(TCONFIG_PPTPD),y)
+	rm -f $(INSTALLDIR)/www/pptp-server.asp
+	rm -f $(INSTALLDIR)/www/pptp-online.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/PPTPD-BEGIN/,/PPTPD-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/PPTPD-BEGIN/,/PPTPD-END/d"
+endif
 
 # clean up
 	cd $(INSTALLDIR)/www && \

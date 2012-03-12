@@ -238,11 +238,11 @@ void start_dnsmasq()
 				p = nvram_safe_get("lan_gateway");
 				if ((*p) && (strcmp(p, "0.0.0.0") != 0)) nv = p;
 			}
-
+#ifdef TCONFIG_VLAN
 			fprintf(f,
 				"dhcp-option=%s,3,%s\n",	// gateway
 				nvram_safe_get(lanN_ifname), nv);
-
+#endif
 			if (((nv = nvram_get("wan_wins")) != NULL) && (*nv) && (strcmp(nv, "0.0.0.0") != 0)) {
 				fprintf(f, "dhcp-option=%s,44,%s\n", nvram_safe_get(lanN_ifname), nv);
 			}
@@ -2049,6 +2049,9 @@ void start_services(void)
 	start_rstats(0);
 	start_cstats(0);
 	start_sched();
+#ifdef TCONFIG_PPTPD
+	start_pptpd();
+#endif
 #ifdef TCONFIG_IPV6
 	/* note: starting radvd here might be too early in case of
 	 * DHCPv6 or 6to4 because we won't have received a prefix and
@@ -2079,6 +2082,9 @@ void stop_services(void)
 
 #ifdef TCONFIG_IPV6
 	stop_radvd();
+#endif
+#ifdef TCONFIG_PPTPD
+	stop_pptpd();
 #endif
 	stop_sched();
 	stop_rstats();
@@ -2593,6 +2599,14 @@ TOP:
 	if (strncmp(service, "vpnserver", 9) == 0) {
 		if (action & A_STOP) stop_vpnserver(atoi(&service[9]));
 		if (action & A_START) start_vpnserver(atoi(&service[9]));
+		goto CLEAR;
+	}
+#endif
+
+#ifdef TCONFIG_PPTPD
+	if (strcmp(service, "pptpd") == 0) {
+		if (action & A_STOP) stop_pptpd();
+		if (action & A_START) start_pptpd();
 		goto CLEAR;
 	}
 #endif

@@ -118,9 +118,12 @@ VLAN administration GUI<br>
 Multiple LAN support integration and GUI<br>
 Multiple/virtual SSID support (experimental)<br>
 <!-- VLAN-END -->
+<!-- PPTPD-BEGIN -->
+PPTP Server integration and GUI</a><br>
+<!-- PPTPD-END -->
 Real-time bandwidth monitoring of LAN clients<br>
 Static ARP binding<br>
-Copyright (C) 2011 Augusto Bott<br>
+Copyright (C) 2011-2012 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br>
 

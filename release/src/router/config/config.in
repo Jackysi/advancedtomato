@@ -124,3 +124,8 @@ config TCONFIG_VLAN
 	bool "VLAN GUI"
 	default n
 
+config TCONFIG_PPTPD
+	bool "PPTPD"
+	depends on TCONFIG_PPTP
+	default n
+
