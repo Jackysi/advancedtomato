@@ -127,17 +127,22 @@ void start_pptpd(void)
 		"proxyarp\n"
 //		"ipcp-accept-local\n"
 //		"ipcp-accept-remote\n"
-		"minunit 4\n" // AB !!
+		"minunit 4\n"			// AB !! - we leave ppp0-ppp3 for WAN and/or other ppp connections (PPTP client, ADSL, etc... perhaps)?
+		"nobsdcomp\n"
 		"lcp-echo-failure 10\n"
 		"lcp-echo-interval 5\n"
-		"deflate 0\n" "auth\n" "-chap\n" "-mschap\n" "+mschap-v2\n");
+//		"deflate 0\n" "auth\n" "-chap\n" "-mschap\n" "+mschap-v2\n");
+		"refuse-pap\n"
+		"refuse-chap\n"
+		"refuse-mschap\n"
+		"require-mschap-v2\n");
 
 //	if (nvram_match("pptpd_forcemppe", "none")) {
 	if (nvram_match("pptpd_forcemppe", "0")) {
-		fprintf(fp, "-mppc\n");
+//		fprintf(fp, "-mppc\n");
 		fprintf(fp, "nomppe\n");
 	} else {
-		fprintf(fp, "+mppc\n");
+//		fprintf(fp, "+mppc\n");
 /*		if (nvram_match("pptpd_forcemppe", "auto")) {
 			fprintf(fp, "+mppe-40\n");
 			fprintf(fp, "+mppe-56\n");
@@ -150,10 +155,12 @@ void start_pptpd(void)
 			fprintf(fp, "-mppe-128\n");
                 }
                 else if (nvram_match("pptpd_forcemppe", "+mppe-128")) {
-*/                        fprintf(fp, "+mppe\n");
+                        fprintf(fp, "+mppe\n");
 			fprintf(fp, "-mppe-40\n");
 			fprintf(fp, "-mppe-56\n");
                         fprintf(fp, "+mppe-128\n");
+*/
+			fprintf(fp, "require-mppe-128\n");
                 }
 		fprintf(fp, "nomppe-stateful\n");
 //	}
