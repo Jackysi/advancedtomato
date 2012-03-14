@@ -173,11 +173,14 @@ endif
 # Remove AES ciphers from the GUI if openssl doesn't have an AES directory
 ifeq ($(TCONFIG_OPENVPN),y)
 	test -d ../openssl/crypto/aes || sed -i $(INSTALLDIR)/www/vpn.js -e "/AES-BEGIN/,/AES-END/d"
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
+	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
 else
-	rm -f $(INSTALLDIR)/www/vpn*
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/VPN-BEGIN/,/VPN-END/d"
-	sed -i $(INSTALLDIR)/www/about.asp -e "/VPN-BEGIN/,/VPN-END/d"
-	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/VPN-BEGIN/,/VPN-END/d"
+	rm -f $(INSTALLDIR)/www/vpn-server.asp
+	rm -f $(INSTALLDIR)/www/vpn-client.asp
+	rm -f $(INSTALLDIR)/www/vpn.js
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/ OPENVPN-BEGIN/,/ OPENVPN-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/ OPENVPN-BEGIN/,/ OPENVPN-END/d"
 endif
 
 # Only include the snmp pages if SNMP is compiled in
@@ -188,11 +191,14 @@ ifneq ($(TCONFIG_SNMP),y)
 endif
 
 # Only include the PPTPD pages if PPTPD is compiled in
-ifneq ($(TCONFIG_PPTPD),y)
-	rm -f $(INSTALLDIR)/www/pptp-server.asp
-	rm -f $(INSTALLDIR)/www/pptp-online.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/PPTPD-BEGIN/,/PPTPD-END/d"
-	sed -i $(INSTALLDIR)/www/about.asp -e "/PPTPD-BEGIN/,/PPTPD-END/d"
+ifeq ($(TCONFIG_PPTPD),y)
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
+	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
+else
+	rm -f $(INSTALLDIR)/www/vpn-pptp-server.asp
+	rm -f $(INSTALLDIR)/www/vpn-pptp-online.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/ PPTPD-BEGIN/,/ PPTPD-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/ PPTPD-BEGIN/,/ PPTPD-END/d"
 endif
 
 # clean up
@@ -212,8 +218,10 @@ endif
 		-e "/CIFS-BEGIN/d"	-e "/CIFS-END/d" \
 		-e "/ZEBRA-BEGIN/d"	-e "/ZEBRA-END/d" \
 		-e "/EMF-BEGIN/d"	-e "/EMF-END/d" \
-		-e "/VPN-BEGIN/d"	-e "/VPN-END/d" \
+		-e "/ OPENVPN-BEGIN/d"	-e "/ OPENVPN-END/d" \
 		-e "/AES-BEGIN/d"	-e "/AES-END/d" \
+		-e "/ PPTPD-BEGIN/d"	-e "/ PPTPD-END/d" \
+		-e "/ VPN-BEGIN/,/ VPN-END/d" \
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
 		-e "/CTF-BEGIN/d"	-e "/CTF-END/d" \
 		-e "/SNMP-BEGIN/d"	-e "/SNMP_END/d"\

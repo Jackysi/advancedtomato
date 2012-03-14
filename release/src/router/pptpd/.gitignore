@@ -1,7 +1,6 @@
 *.o
 *.so
 stamp-h1
-Makefile
 bcrelay
 config.log
 config.status
