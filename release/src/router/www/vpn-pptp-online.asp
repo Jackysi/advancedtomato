@@ -239,7 +239,7 @@ function init() {
 <table id='dev-grid' class='tomato-grid' cellspacing=0></table>
 </div>
 <div style="float:right;text-align:right">
-&raquo; <a href="pptp-server.asp">Configure</a>
+&raquo; <a href="vpn-pptp-server.asp">Configure</a>
 </div>
 </td></tr>
 <tr><td id='footer' colspan=2><script type='text/javascript'>genStdRefresh(1,1,'ref.toggle()');</script></td></tr>

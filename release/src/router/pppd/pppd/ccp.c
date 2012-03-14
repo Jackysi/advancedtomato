@@ -169,7 +169,7 @@ static option_t ccp_option_list[] = {
     { "+mppe-128", o_bool, &ccp_wantoptions[0].mppe_128,
       "require MPPE 128-bit encryption", 1, &ccp_allowoptions[0].mppe_128,
       OPT_ALIAS | OPT_PRIO },
-    { "nomppe-128", o_bool, &ccp_wantoptions[0].mppe_40,
+    { "nomppe-128", o_bool, &ccp_wantoptions[0].mppe_128,
       "don't allow MPPE 128-bit encryption", OPT_PRIOSUB | OPT_A2CLR,
       &ccp_allowoptions[0].mppe_128 },
     { "-mppe-128", o_bool, &ccp_wantoptions[0].mppe_128,

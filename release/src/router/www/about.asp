@@ -106,12 +106,12 @@ Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <!-- / / / -->
 <br>
 
-<!-- VPN-BEGIN -->
+<!-- OPENVPN-BEGIN -->
 VPN integration and GUI<br>
 Copyright (C) 2010 Keith Moyer<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br>
-<!-- VPN-END -->
+<!-- OPENVPN-END -->
 
 <!-- VLAN-BEGIN -->
 VLAN administration GUI<br>
