@@ -5117,7 +5117,7 @@ if ${ax_cv_check_cflags___fstack_protector_all+:} false; then :
 else
 
   ax_check_save_flags=$CFLAGS
-  CFLAGS="$CFLAGS  -fstack-protector-all"
+  CFLAGS="$CFLAGS"
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 #include <stdio.h>
@@ -5148,7 +5148,7 @@ if ${ax_cv_check_ldflags___fstack_protector_all+:} false; then :
 else
 
   ax_check_save_flags=$LDFLAGS
-  LDFLAGS="$LDFLAGS  -fstack-protector-all"
+  LDFLAGS="$LDFLAGS"
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 #include <stdio.h>
@@ -5172,7 +5172,7 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ax_cv_check_ldflags___fstack_protector_all" >&5
 $as_echo "$ax_cv_check_ldflags___fstack_protector_all" >&6; }
 if test x"$ax_cv_check_ldflags___fstack_protector_all" = xyes; then :
-  CFLAGS="$CFLAGS -fstack-protector-all"
+  CFLAGS="$CFLAGS"
 
 else
   :
