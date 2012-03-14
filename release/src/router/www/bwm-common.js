@@ -192,10 +192,6 @@ function loadData()
 				if (h.hide == 1) continue;
 			}
 
-			if (typeof(h.hide) != 'undefined') {
-				if (h.hide == 1) continue;
-			}
-
 			if (updateReTotal) {
 				h.rx_total = h.rx_max = 0;
 				h.tx_total = h.tx_max = 0;
