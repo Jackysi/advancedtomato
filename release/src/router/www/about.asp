@@ -106,10 +106,10 @@ Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <!-- / / / -->
 <br><br>
 
-<!-- VPN-BEGIN -->
+<!-- OPENVPN-BEGIN -->
 VPN integration and GUI Copyright (C) 2010 Keith Moyer, <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br><br>
-<!-- VPN-END -->
+<!-- OPENVPN-END -->
 
 <!-- PPTPD-BEGIN -->
 PPTP Server integration and GUI Copyright (C) 2012 Augusto Bott, <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>

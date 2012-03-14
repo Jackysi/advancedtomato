@@ -360,7 +360,7 @@ createFieldTable('', [
 
 <br>
 <div style="float:right;text-align:right">
-&raquo; <a href="pptp-online.asp">PPTP Online</a>
+&raquo; <a href="vpn-pptp-online.asp">PPTP Online</a>
 </div>
 
 </td></tr>
