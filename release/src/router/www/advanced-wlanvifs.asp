@@ -1158,7 +1158,7 @@ function save() {
 				E('_wl'+u+'_nmcsidx').value = -1; // Auto
 				break;
 			case 'n-only':
-				if (selectedBand(uidx) == '1') { // 5 GHz
+				if (selectedBand(wl_ifidxx(u)) == '1') { // 5 GHz
 					E('_wl'+u+'_nmode').value = -1;
 					E('_wl'+u+'_nmcsidx').value = -1;
 				} else {
