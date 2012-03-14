@@ -167,10 +167,10 @@ Copyright (C) 2010-2011 Jean-Yves Avenard<br>
 - Multiple/virtual SSID support (experimental)<br>
 <!-- VLAN-END -->
 <!-- PPTPD-BEGIN -->
-PPTP Server integration and GUI</a><br>
+- PPTP Server integration and GUI</a><br>
 <!-- PPTPD-END -->
-Real-time bandwidth monitoring of LAN clients<br>
-Static ARP binding<br>
+- Real-time bandwidth monitoring of LAN clients<br>
+- Static ARP binding<br>
 Copyright (C) 2011-2012 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>http://code.google.com/p/tomato-sdhc-vlan/</a><br>
 <br>
