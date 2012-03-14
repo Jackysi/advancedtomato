@@ -1,0 +1,27 @@
+
+* Version 0.9.3:
+ - Support for native Windows builds.
+
+* Version 0.9.2:
+ - Support for cross-compilation. In particular, the proxy can now
+   compile and work on iOS.
+
+* Version 0.9.1:
+ - DNSCrypt should compile out of the box on DD-WRT and other
+   uclibc-based systems.
+
+* Version 0.9:
+ - libuv has been updated.
+ - Enhanced compatibility with non-Intel architectures.
+
+* Version 0.8:
+ - Support for Windows (through Cygwin, for now) has been improved.
+ - Documentation has been improved.
+ - The package now compiles on Dragonfly BSD-current.
+ - Signatures are now using ed25519 instead of edwards25519sha512batch.
+ - The proxy now compiles on Openwall Linux.
+ - Libuv has been updated.
+ - A sample .plist file and a Homebrew formula for OSX are now provided.
+
+* Version 0.7:
+ - Initial public release.
