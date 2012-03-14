@@ -1,5 +1,4 @@
 #! /bin/sh
-# $Id: genconfig.sh,v 1.20 2011/02/17 23:17:24 jmaggard Exp $
 # MiniDLNA project
 # http://sourceforge.net/projects/minidlna/
 #

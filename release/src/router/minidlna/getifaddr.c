@@ -1,4 +1,3 @@
-/* $Id: getifaddr.c,v 1.14 2011/05/02 23:50:52 jmaggard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  *
