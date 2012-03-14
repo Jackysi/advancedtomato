@@ -444,6 +444,12 @@ extern void start_snmp();
 extern void stop_snmp();
 #endif
 
+// pptp.c
+#ifdef TCONFIG_PPTPD
+extern void start_pptpd(void);
+extern void stop_pptpd(void);
+#endif
+
 // vpn.c
 #ifdef TCONFIG_OPENVPN
 extern void start_vpnclient(int clientNum);

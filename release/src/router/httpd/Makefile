@@ -10,6 +10,9 @@ OBJS += blackhole.o utf8.o
 OBJS += cpuinfo.o
 OBJS += iptraffic.o
 
+ifeq ($(TCONFIG_PPTPD),y)
+OBJS += pptpd.o
+endif
 ifeq ($(TCONFIG_USB),y)
 OBJS += usb.o
 endif

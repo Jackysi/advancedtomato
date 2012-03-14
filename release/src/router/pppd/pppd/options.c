@@ -91,6 +91,7 @@ struct option_value {
 /*
  * Option variables and default values.
  */
+bool	nochecktime = 0;	/* Don't check time */
 int	debug = 0;		/* Debug flag */
 int	kdebugflag = 0;		/* Tell kernel to print debug messages */
 int	default_device = 1;	/* Using /dev/tty or equivalent */
@@ -104,6 +105,8 @@ bool	persist = 0;		/* Reopen link after it goes down */
 char	our_name[MAXNAMELEN];	/* Our name for authentication purposes */
 bool	demand = 0;		/* do dial-on-demand */
 char	*ipparam = NULL;	/* Extra parameter for ip up/down scripts */
+char	*chapseccustom = NULL;	/* Custom chap-secrets file */
+
 int	idle_time_limit = 0;	/* Disconnect if idle for this many seconds */
 int	holdoff = 30;		/* # seconds to pause before reconnecting */
 bool	holdoff_specified;	/* true if a holdoff value has been given */
@@ -190,6 +193,8 @@ static struct option_list *extra_options = NULL;
  * Valid arguments.
  */
 option_t general_options[] = {
+    { "nochecktime", o_bool, &nochecktime,
+      "Don't check time", OPT_PRIO | 1 },
     { "debug", o_int, &debug,
       "Increase debugging level", OPT_INC | OPT_NOARG | 1 },
     { "-d", o_int, &debug,
