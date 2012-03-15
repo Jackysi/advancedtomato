@@ -141,6 +141,12 @@ void start_dnsmasq()
 		if (nv && *nv) fprintf(f, "rebind-domain-ok=%s\n", nv);
 	}
 
+#ifdef TCONFIG_DNSCRYPT
+	if (nvram_match("dnscrypt_proxy", "1")) {
+		fprintf(f, "server=127.0.0.1#40\n");
+	}
+#endif
+
 	for (n = 0 ; n < dns->count; ++n) {
 		if (dns->dns[n].port != 53) {
 			fprintf(f, "server=%s#%u\n", inet_ntoa(dns->dns[n].addr), dns->dns[n].port);
@@ -353,6 +359,12 @@ void start_dnsmasq()
 		fprintf(f, "dhcp-authoritative\n");
 	}
 
+#ifdef TCONFIG_DNSCRYPT
+	if (nvram_match("dnscrypt_proxy", "1")) {
+		fprintf(f, "strict-order\n");
+	}
+#endif
+
 	//
 
 #ifdef TCONFIG_OPENVPN
@@ -382,6 +394,14 @@ void start_dnsmasq()
 	}
 
 	TRACE_PT("end\n");
+
+#ifdef TCONFIG_DNSCRYPT
+	//start dnscrypt-proxy
+	if (nvram_match("dnscrypt_proxy", "1")) {
+		eval("dnscrypt-proxy", "-d", "-P", "40");
+	}
+#endif
+
 }
 
 void stop_dnsmasq(void)
@@ -399,6 +419,9 @@ void stop_dnsmasq(void)
 	symlink(dmresolv, "/etc/resolv.conf");
 
 	killall_tk("dnsmasq");
+#ifdef TCONFIG_DNSCRYPT
+	killall_tk("dnscrypt-proxy");
+#endif
 
 	TRACE_PT("end\n");
 }

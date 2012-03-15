@@ -1,0 +1,8 @@
+./dist-dirs
+./dist-files
+./features/small_udp_query.feature
+./features/step_definitions/opendnscache-proxy.rb
+./features/step_definitions/opendnscache.rb
+./features/tcp_fallback.feature
+./Makefile.in
+./Rakefile

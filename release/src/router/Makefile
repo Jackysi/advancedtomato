@@ -46,6 +46,7 @@ obj-y += utils
 obj-y += ntpc
 obj-y += rstats
 obj-y += cstats
+obj-$(TCONFIG_DNSCRYPT) += dnscrypt
 obj-$(TCONFIG_SNMP) += snmp
 obj-$(TCONFIG_SDHC) += mmc
 
@@ -1762,6 +1763,21 @@ apcupsd-install: apcupsd
 	@rm -rf $(INSTALLDIR)/apcupsd/www/apcupsd/ups*.cgi
 	$(STRIP) $(INSTALLDIR)/apcupsd/sbin/*
 	$(STRIP) $(INSTALLDIR)/apcupsd/www/apcupsd/*
+
+dnscrypt/stamp-h1:
+	cd $(TOP)/dnscrypt && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	$(CONFIGURE) --prefix=/usr
+	touch dnscrypt/stamp-h1
+
+dnscrypt: dnscrypt/stamp-h1
+
+dnscrypt-install: dnscrypt
+	install -D dnscrypt/src/dnscrypt-proxy/dnscrypt-proxy $(INSTALLDIR)/dnscrypt/usr/sbin/dnscrypt-proxy
+	$(STRIP) -s $(INSTALLDIR)/dnscrypt/usr/sbin/dnscrypt-proxy
+
+dnscrypt-clean: dnscrypt/stamp-h1
+	-$(MAKE) -c dnscrypt clean
+	@rm -rf dnscrypt/stamp-h1 dnscrypt/src/dnscrypt-proxy/.deps dnscrypt/Makefile
 
 #
 # Generic rules
