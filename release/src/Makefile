@@ -222,7 +222,7 @@ what:
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT
-# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS
+# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS DNSCRYPT
 
 define RouterOptions
 	@( \
@@ -360,6 +360,10 @@ define RouterOptions
 	if [ "$(UPS)" = "y" ]; then \
 		sed -i "/TCONFIG_UPS/d" $(1); \
 		echo "TCONFIG_UPS=y" >>$(1); \
+	fi; \
+	if [ "$(DNSCRYPT)" = "y" ]; then \
+		sed -i "/TCONFIG_DNSCRYPT/d" $(1); \
+		echo "TCONFIG_DNSCRYPT=y" >>$(1); \
 	fi; \
 	)
 endef

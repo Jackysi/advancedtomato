@@ -148,3 +148,7 @@ config TCONFIG_UPS
 	bool "  UPS Monitor"
 	depends on TCONFIG_USB
 	default n
+
+config TCONFIG_DNSCRYPT
+	bool "  DNScrypt-proxy"
+	default n

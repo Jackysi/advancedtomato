@@ -135,6 +135,9 @@ Copyright (C) 2010 Keith Moyer,<br>
 <!-- UPS-BEGIN -->
 - APCUPSD integration and GUI (implemented by @arrmo)<br>
 <!-- UPS-END -->
+<!-- DNSCRYPT-BEGIN -->
+- DNScrypt-proxy 0.9.3 integration and GUI<br>
+<!-- DNSCRYPT-END -->
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>

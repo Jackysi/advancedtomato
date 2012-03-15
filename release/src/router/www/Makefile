@@ -209,6 +209,12 @@ ifneq ($(TCONFIG_SDHC),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/SDHC-BEGIN/,/SDHC-END/d"
 endif
 
+# Only include the dnscrypt option if is compiled in
+ifneq ($(TCONFIG_DNSCRYPT),y)
+	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/DNSCRYPT-BEGIN/,/DNSCRYPT-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/DNSCRYPT-BEGIN/,/DNSCRYPT-END/d"
+endif
+
 # clean up
 	cd $(INSTALLDIR)/www && \
 	for F in $(wildcard *.asp *.js *.jsx *.html); do \
@@ -235,6 +241,7 @@ endif
 		-e "/SNMP-BEGIN/d"	-e "/SNMP-END/d"\
 		-e "/SDHC-BEGIN/d"	-e "/SDHC-END/d"\
 		-e "/HFS-BEGIN/d"	-e "/HFS-END/d"\
+		-e "/DNSCRYPT-BEGIN/d"	-e "/DNSCRYPT-END/d"\
 		|| true; \
 	done
 
