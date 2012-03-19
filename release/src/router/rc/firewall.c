@@ -1572,7 +1572,7 @@ int start_firewall(void)
 	modprobe("ip6t_REJECT");
 #endif
 
-/* shibby */
+/* shibby
 if (nvram_match("imq_enable", "1")) {
 	char numdevs[10];
 	sprintf(numdevs, "numdevs=%d", nvram_get_int("imq_numdevs"));
@@ -1583,6 +1583,7 @@ if (nvram_match("imq_enable", "1")) {
 	modprobe("ipt_IMQ");
 #endif
 	}
+*/
 
 	mangle_table();
 	nat_table();

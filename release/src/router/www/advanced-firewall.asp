@@ -26,7 +26,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("block_wan,nf_loopback,ne_syncookies,imq_enable,imq_numdevs,multicast_pass,multicast_lan,multicast_lan1,multicast_lan2,multicast_lan3,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname"); %>
+//	<% nvram("block_wan,nf_loopback,ne_syncookies,multicast_pass,multicast_lan,multicast_lan1,multicast_lan2,multicast_lan3,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname"); %>
 
 function verifyFields(focused, quiet)
 {
@@ -43,9 +43,6 @@ function verifyFields(focused, quiet)
 		E('_f_multicast_lan2').checked = false;
 	if(nvram.lan3_ifname.length < 1)
 		E('_f_multicast_lan3').checked = false;
-
-	var a = E('_f_imq_enable').checked;
-	E('_imq_numdevs').disabled = !a;
 
 	if ((enable_mcast) && (!E('_f_multicast_lan').checked) && (!E('_f_multicast_lan1').checked) && (!E('_f_multicast_lan2').checked) && (!E('_f_multicast_lan3').checked)) {
 		ferror.set('_f_multicast', 'IGMPproxy must be enabled in least one LAN bridge', quiet);
@@ -65,7 +62,6 @@ function save()
 	fom = E('_fom');
 	fom.block_wan.value = E('_f_icmp').checked ? 0 : 1;
 	fom.ne_syncookies.value = E('_f_syncookies').checked ? 1 : 0;
-	fom.imq_enable.value = E('_f_imq_enable').checked ? 1 : 0;
 	fom.multicast_pass.value = E('_f_multicast').checked ? 1 : 0;
 	fom.multicast_lan.value = E('_f_multicast_lan').checked ? 1 : 0;
 	fom.multicast_lan1.value = E('_f_multicast_lan1').checked ? 1 : 0;
@@ -94,7 +90,6 @@ function save()
 
 <input type='hidden' name='block_wan'>
 <input type='hidden' name='ne_syncookies'>
-<input type='hidden' name='imq_enable'>
 <input type='hidden' name='multicast_pass'>
 <input type='hidden' name='multicast_lan'>
 <input type='hidden' name='multicast_lan1'>
@@ -113,12 +108,7 @@ createFieldTable('', [
 	{ title: 'LAN', indent: 2, name: 'f_multicast_lan', type: 'checkbox', value: (nvram.multicast_lan == '1') },
 	{ title: 'LAN1', indent: 2, name: 'f_multicast_lan1', type: 'checkbox', value: (nvram.multicast_lan1 == '1') },
 	{ title: 'LAN2', indent: 2, name: 'f_multicast_lan2', type: 'checkbox', value: (nvram.multicast_lan2 == '1') },
-	{ title: 'LAN3', indent: 2, name: 'f_multicast_lan3', type: 'checkbox', value: (nvram.multicast_lan3 == '1') },
-	null,
-	{ title: 'IMQ Enable', name: 'f_imq_enable', type: 'checkbox', value: nvram.imq_enable == '1', suffix: ' <small>*</small>' },
-	{ title: 'Set IMQ Numdevs', name: 'imq_numdevs', type: 'text', maxlen: 4, size: 6, value: nvram.imq_numdevs, suffix: ' <small>* (range: 2 - 16; default: 2)</small>' },
-	null,
-	{ text: '<small>* May take effect after reboot</small>' }
+	{ title: 'LAN3', indent: 2, name: 'f_multicast_lan3', type: 'checkbox', value: (nvram.multicast_lan3 == '1') }
 
 ]);
 </script>
