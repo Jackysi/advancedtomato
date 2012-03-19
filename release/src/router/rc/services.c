@@ -1131,7 +1131,10 @@ void start_syslog(void)
 		if (nvram_match("log_file_custom", "0")) {
 			argv[argc++] = "-s";
 			argv[argc++] = rot_siz;
-			remove("/var/log/messages");
+			struct stat sb;
+			if (lstat("/var/log/messages", &sb) != -1)
+				if (S_ISLNK(sb.st_mode))
+					remove("/var/log/messages");
 		}
 
 		if (isdigit(*b_opt)) {
