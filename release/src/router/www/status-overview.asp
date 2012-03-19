@@ -156,8 +156,7 @@ function earlyInit()
 {
 	elem.display('b_dhcpc', show_dhcpc);
 	elem.display('b_connect', 'b_disconnect', show_codi);
-	if (nvram.wan_proto == 'disabled')
-		elem.display('wan-title', 'sesdiv_wan', 0);
+	elem.display('wan-title', 'wan-section', nvram.wan_proto != 'disabled');
 	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 		elem.display('b_wl'+uidx+'_enable', 'b_wl'+uidx+'_disable', show_radio[uidx]);
 	}
@@ -166,28 +165,7 @@ function earlyInit()
 
 function init()
 {
-	var c;
-	if (((c = cookie.get('status_overview_system_vis')) != null) && (c != '1')) toggleVisibility("system");
-	if (((c = cookie.get('status_overview_wan_vis')) != null) && (c != '1')) toggleVisibility("wan");
-	if (((c = cookie.get('status_overview_lan_vis')) != null) && (c != '1')) toggleVisibility("lan");
-	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		u = wl_unit(uidx);
-		if (((c = cookie.get('status_overview_wl_'+u+'_vis')) != null) && (c != '1')) toggleVisibility("wl_"+u);
-	}
-
 	ref.initPage(3000, 3);
-}
-
-function toggleVisibility(whichone) {
-	if (E('sesdiv_' + whichone).style.display == '') {
-		E('sesdiv_' + whichone).style.display = 'none';
-		E('sesdiv_' + whichone + '_showhide').innerHTML = '(show)';
-		cookie.set('status_overview_' + whichone + '_vis', 0);
-	} else {
-		E('sesdiv_' + whichone).style.display='';
-		E('sesdiv_' + whichone + '_showhide').innerHTML = '(hide)';
-		cookie.set('status_overview_' + whichone + '_vis', 1);
-	}
 }
 </script>
 
@@ -205,8 +183,8 @@ function toggleVisibility(whichone) {
 
 <!-- / / / -->
 
-<div class='section-title'>System <small><i><a href='javascript:toggleVisibility("system");'><span id='sesdiv_system_showhide'>(hide)</span></a></i></small></div>
-<div class='section' id='sesdiv_system'>
+<div class='section-title'>System</div>
+<div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Name', text: nvram.router_name },
@@ -225,8 +203,8 @@ createFieldTable('', [
 </script>
 </div>
 
-<div class='section-title' id='wan-title'>WAN <small><i><a href='javascript:toggleVisibility("wan");'><span id='sesdiv_wan_showhide'>(hide)</span></a></i></small></div>
-<div class='section' id='sesdiv_wan'>
+<div class='section-title' id='wan-title'>WAN</div>
+<div class='section' id='wan-section'>
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'MAC Address', text: nvram.wan_hwaddr },
@@ -254,8 +232,8 @@ createFieldTable('', [
 </div>
 
 
-<div class='section-title'>LAN <small><i><a href='javascript:toggleVisibility("lan");'><span id='sesdiv_lan_showhide'>(hide)</span></a></i></small></div>
-<div class='section' id='sesdiv_lan'>
+<div class='section-title'>LAN</div>
+<div class='section'>
 <script type='text/javascript'>
 
 function h_countbitsfromleft(num) {
@@ -325,12 +303,11 @@ createFieldTable('', [
 <script type='text/javascript'>
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 u = wl_unit(uidx);
-W('<div class=\'section-title\' id=\'wl'+u+'-title\'>Wireless');
+W('<div class=\'section-title\' id=\'wl'+uidx+'-title\'>Wireless');
 if (wl_ifaces.length > 0)
 	W(' (' + wl_display_ifname(uidx) + ')');
-W(' <small><i><a href=\'javascript:toggleVisibility("wl_' + u + '");\'><span id=\'sesdiv_wl_' +u + '_showhide\'>(hide)</span></a></i></small>');
 W('</div>');
-W('<div class=\'section\' id=\'sesdiv_wl_'+u+'\'>');
+W('<div class=\'section\' id=\'wl'+uidx+'-section\'>');
 sec = auth[nvram['wl'+u+'_security_mode']] + '';
 if (sec.indexOf('WPA') != -1) sec += ' + ' + enc[nvram['wl'+u+'_crypto']];
 
@@ -338,11 +315,11 @@ wmode = wmo[nvram['wl'+u+'_mode']] + '';
 if ((nvram['wl'+u+'_mode'] == 'ap') && (nvram['wl'+u+'_wds_enable'] * 1)) wmode += ' + WDS';
 
 createFieldTable('', [
+	{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? '<b>Disabled</b>' : 'Enabled' },
 	{ title: 'MAC Address', text: nvram['wl'+u+'_hwaddr'] },
 	{ title: 'Wireless Mode', text: wmode },
 	{ title: 'Wireless Network Mode', text: bgmo[nvram['wl'+u+'_net_mode']] },
 	{ title: 'Interface Status', rid: 'ifstatus'+uidx, text: wlstats[uidx].ifstatus },
-	{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? '<b>Disabled</b>' : 'Enabled' },
 /* REMOVE-BEGIN */
 //	{ title: 'SSID', text: (nvram['wl'+u+'_ssid'] + ' <small><i>' + ((nvram['wl'+u+'_mode'] != 'ap') ? '' : ((nvram['wl'+u+'_closed'] == 0) ? '(Broadcast Enabled)' : '(Broadcast Disabled)')) + '</i></small>') },
 /* REMOVE-END */
