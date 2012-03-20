@@ -2439,9 +2439,14 @@ REMOVE-END */
 			['OpenVPN Server',	'server.asp'],
 			['OpenVPN Client',	'client.asp'],
 /* OPENVPN-END */
+/* PPTPD-BEGIN */
+			['PPTP Server',		'pptp-server.asp'],
+			['PPTP Online',		'pptp-online.asp'],
+/* PPTPD-END */
 /* USERPPTP-BEGIN */
-			['PPTP Client',		'pptp.asp'] ] ],
+			['PPTP Client',		'pptp.asp']
 /* USERPPTP-END */
+		] ],
 /* VPN-END */
 		null,
 		['Administration',		'admin', 0, [

@@ -5,9 +5,9 @@ void start_arpbind(void) {
 	char *nvp, *nv, *b;
 	const char *ipaddr, *macaddr;
 	const char *name, *bind;
-	
+
 	int anyways = nvram_get_int("arpbind_listed");
-	
+
 	nvp = nv = strdup(nvram_safe_get("dhcpd_static"));
 
 	if (!nv) return;

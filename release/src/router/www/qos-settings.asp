@@ -28,10 +28,10 @@ REMOVE-END */
 
 var classNames = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
 
-pctListin = [];
+pctListin = [[0, 'No Limit']];
 for (i = 1; i <= 100; ++i) pctListin.push([i, i + '%']);
 
-pctListout = [];
+pctListout = [[0, 'No Limit']];
 for (i = 1; i <= 100; ++i) pctListout.push([i, i + '%']);
 
 function scale(bandwidth, rate, ceil)

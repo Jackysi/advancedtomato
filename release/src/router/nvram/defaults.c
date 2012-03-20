@@ -49,7 +49,7 @@ const defaults_t defaults[] = {
 
 	// LAN TCP/IP parameters
 	{ "lan_dhcp",			"0"				},	// DHCP client [static|dhcp]
-//	{ "lan_proto",			"dhcp"				},	// DHCP server [static|dhcp]  //start with no dhcp if nvram corrupted
+	{ "lan_proto",			"static"			},	// DHCP server [static|dhcp]  //start with DISABLED dhcp if nvram corrupted
 	{ "lan_ipaddr",			"192.168.1.1"			},	// LAN IP address
 	{ "lan_netmask",		"255.255.255.0"			},	// LAN netmask
 	{ "lan_wins",			""				},	// x.x.x.x x.x.x.x ...
@@ -190,7 +190,7 @@ const defaults_t defaults[] = {
 	{ "wl_radioids",		""				},	// List of radio IDs
 	{ "wl_ssid",			"wireless"			},	// Service set ID (network name)
 	{ "wl1_ssid",			"wireless1"			},
-	{ "wl_country_code",		"SG"				},	// Country (default obtained from driver)
+	{ "wl_country_code",		"SG"		},		// Country (default obtained from driver)
 	{ "wl_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl1_radio",			"1"				},	// Enable (1) or disable (0) radio
 	{ "wl_closed",			"0"				},	// Closed (hidden) network
@@ -313,10 +313,10 @@ const defaults_t defaults[] = {
 	{ "wl_ampdu_rr_rtylimit_tid",	"2 2 2 2 2 2 2 2"	},	// Default AMPDU regular rate retry limit per-tid setting
 	{ "wl_amsdu",			"auto"			},	// Default AMSDU setting
 	// power save
-	{ "wl_rxchain_pwrsave_enable",	"1"			},	// Rxchain powersave enable
+	{ "wl_rxchain_pwrsave_enable",	"0"			},	// Rxchain powersave enable			// OFF - Toastman
 	{ "wl_rxchain_pwrsave_quiet_time","1800"		},	// Quiet time for power save
 	{ "wl_rxchain_pwrsave_pps",	"10"			},	// Packets per second threshold for power save
-	{ "wl_radio_pwrsave_enable",	"0"			},	// Radio powersave enable
+	{ "wl_radio_pwrsave_enable",	"0"			},	// Radio powersave enable			// OFF - Toastman
 	{ "wl_radio_pwrsave_quiet_time","1800"			},	// Quiet time for power save
 	{ "wl_radio_pwrsave_pps",	"10"			},	// Packets per second threshold for power save
 	{ "wl_radio_pwrsave_on_time",	"50"			},	// Radio on time for power save
@@ -512,11 +512,11 @@ const defaults_t defaults[] = {
 	{ "qos_fin",			"1"				},
 	{ "qos_rst",			"1"				},
 	{ "qos_udp",			"0"				},
-	{ "qos_icmp",			"1"				}, 
+	{ "qos_icmp",			"1"				},
 	{ "qos_reset",			"1"				},
 	{ "qos_obw",			"700"				},
-	{ "qos_ibw",			"16000"				},
-	{ "qos_orules",			"0<<-1<d<53<0<<0:10<<0<DNS>0<<-1<d<37<0<<0:10<<0<Time>0<<17<d<123<0<<0:10<<0<NTP>0<<-1<d<3455<0<<0:10<<0<RSVP>0<<-1<d<9<0<<0:50<<4<SCTP, Discard>0<<-1<x<135,2101,2103,2105<0<<<<4<RPC (Microsoft)>0<<6<d<23,992<0<<<<3<Telnet>0<<6<x<22,2222<0<<<<3<SSH>0<<17<d<3544<0<<<<-1<Teredo Tunnel>0<<6<s<80,8080,2222<0<<<<3<Remote Access>0<<-1<x<3389<0<<<<3<Remote Assistance>0<<-1<x<6970:7170,8554<0<<<<2<Quicktime/RealAudio>0<<-1<d<1220,7070<0<<<<2<Quicktime/RealAudio>0<<-1<x<554,5004,5005<0<<<<2<RTP, RTSP>0<<-1<x<1755<0<<<<2<MMS (Microsoft)>0<<-1<d<3478,3479,5060:5063<0<<<<1<SIP, Sipgate Stun Services>0<<-1<s<53,88,3074<0<<<<1<Xbox Live>0<<6<d<1718:1720<0<<<<1<H323>0<<6<d<80,443<0<<0:512<<4<HTTP, HTTPS>0<<6<d<8080<0<<0:512<<4<HTTP Proxy/Alternate>0<<-1<d<11999,2300:2400,6073,28800:29100,47624<0<<<<-1<Other games>0<<6<d<25,587,465,2525<0<<<<5<SMTP, Submission Mail>0<<6<d<110,995<0<<<<5<POP3 Mail>0<<6<d<143,220,585,993<0<<<<5<IMAP Mail>0<<6<d<6005,6006<0<<<<6<Camfrog>0<<-1<d<1493,1502,1503,1542,1863,1963,3389,5061,5190:5193,7001<0<<<<6<MSGR1 - Windows Live>0<<-1<d<1071:1074,1455,1638,1644,5000:5010,5050,5100,5101,5150,8000:8002<0<<<<6<MSGR2 - Yahoo>0<<-1<d<194,1720,1730:1732,5220:5223,5298,6660:6669,22555<0<<<<6<MSGR3 - Additional>0<<6<d<119,563<0<<<<7<NNTP News & Downloads>0<<6<d<20,21,989,990<0<<<<7<FTP>0<<-1<x<6571,6891:6901<0<<<<7<WLM File/Webcam>0<<6<d<80,443,8080<0<<512:<<7<HTTP,SSL File Transfers>0<<-1<a<<0<httpvideo<<<2<HTTP Video, (Youtube)>0<<-1<a<<0<flash<<<2<Flash Video, (Youtube)>0<<-1<a<<0<rtp<<<2<RTP>0<<-1<a<<0<rtmp<<<2<RTMP>0<<-2<a<<0<rtmp<<<2<RTMPT (RTMP over HTTP)>0<<-1<a<<0<shoutcast<<<2<Shoutcast>0<<-1<a<<0<irc<<<6<IRC>0<<-1<a<<0<skypetoskype<<<1<Skype to Skype>0<<-1<a<<0<skypeout<<<1<Skype Phone>0<<17<d<1:65535<0<<<<9<P2P (uTP, UDP)" },
+	{ "qos_ibw",			"15000"				},
+	{ "qos_orules",			"0<<-1<d<53<0<<0:10<<0<DNS>0<<-1<d<37<0<<0:10<<0<Time>0<<17<d<123<0<<0:10<<0<NTP>0<<-1<d<3455<0<<0:10<<0<RSVP>0<<-1<d<9<0<<0:50<<4<SCTP, Discard>0<<-1<x<135,2101,2103,2105<0<<<<4<RPC (Microsoft)>0<<6<d<23,992<0<<<<3<Telnet>0<<6<x<22,2222<0<<<<0<SSH>0<<17<d<3544<0<<<<-1<Teredo Tunnel>0<<6<s<80,8080,2222<0<<<<3<Remote Access>0<<-1<x<3389<0<<<<3<Remote Assistance>0<<-1<x<6970:7170,8554<0<<<<2<Quicktime/RealAudio>0<<-1<d<1220,7070<0<<<<2<Quicktime/RealAudio>0<<-1<x<554,5004,5005<0<<<<2<RTP, RTSP>0<<-1<x<1755<0<<<<2<MMS (Microsoft)>0<<-1<d<3478,3479,5060:5063<0<<<<1<SIP, Sipgate Stun Services>0<<-1<s<53,88,3074<0<<<<1<Xbox Live>0<<6<d<1718:1720<0<<<<1<H323>0<<6<d<80,443<0<<0:512<<4<HTTP, HTTPS>0<<6<d<8080<0<<0:512<<4<HTTP Proxy/Alternate>0<<-1<d<11999,2300:2400,6073,28800:29100,47624<0<<<<-1<Other games>0<<6<d<25,587,465,2525<0<<<<5<SMTP, Submission Mail>0<<6<d<110,995<0<<<<5<POP3 Mail>0<<6<d<143,220,585,993<0<<<<5<IMAP Mail>0<<6<d<6005,6006<0<<<<6<Camfrog>0<<-1<d<1493,1502,1503,1542,1863,1963,3389,5061,5190:5193,7001<0<<<<6<MSGR1 - Windows Live>0<<-1<d<1071:1074,1455,1638,1644,5000:5010,5050,5100,5101,5150,8000:8002<0<<<<6<MSGR2 - Yahoo>0<<-1<d<194,1720,1730:1732,5220:5223,5298,6660:6669,22555<0<<<<6<MSGR3 - Additional>0<<6<d<119,563<0<<<<7<NNTP News & Downloads>0<<6<d<20,21,989,990<0<<<<7<FTP>0<<-1<x<6571,6891:6901<0<<<<7<WLM File/Webcam>0<<6<d<80,443,8080<0<<512:<<7<HTTP,SSL File Transfers>0<<-1<a<<0<httpvideo<<<2<HTTP Video, (Youtube)>0<<-1<a<<0<flash<<<2<Flash Video, (Youtube)>0<<-1<a<<0<rtp<<<2<RTP>0<<-1<a<<0<rtmp<<<2<RTMP>0<<-2<a<<0<rtmp<<<2<RTMPT (RTMP over HTTP)>0<<-1<a<<0<shoutcast<<<2<Shoutcast>0<<-1<a<<0<irc<<<6<IRC>0<<-1<a<<0<skypetoskype<<<1<Skype to Skype>0<<-1<a<<0<skypeout<<<1<Skype Phone>0<<17<d<1:65535<0<<<<9<P2P (uTP, UDP)" },
 	{ "qos_burst0",			""				},
 	{ "qos_burst1",			""				},
 	{ "qos_default",		"8"				},

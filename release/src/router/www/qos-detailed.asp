@@ -43,7 +43,7 @@
 //	<% nvram('qos_classnames,lan_ipaddr,lan1_ipaddr,lan2_ipaddr,lan3_ipaddr,lan_netmask,lan1_netmask,lan2_netmask,lan3_netmask,t_hidelr'); %>
 
 var Unclassified = ['Unclassified'];
-var classNames = nvram.qos_classnames.split(' ');
+var classNames = nvram.qos_classnames.split(' ');		//Toastman Class Labels
 var abc = Unclassified.concat(classNames);
 
 var colors = ['F08080','E6E6FA','0066CC','8FBC8F','FAFAD2','ADD8E6','9ACD32','E0FFFF','90EE90','FF9933','FFF0F5'];
@@ -210,7 +210,7 @@ grid.setName = function(ip, name) {
 		row = this.tb.rows[i];
 		data = row.getRowData();
 		for (j = cols.length-1; j >= 0; j--) {
-			if (data[cols[j]].indexOf(ip) != -1 ) {
+			if (data[cols[j]] == ip) {
 				data[cols[j]] = name + ((ip.indexOf(':') != -1) ? '<br>' : ' ') + '<small>(' + ip + ')</small>';
 				row.setRowData(data);
 				if (E('_f_shortcuts').checked)
@@ -288,7 +288,7 @@ ref.refresh = function(text) {
 		if (E('_f_excludemcast').checked) {
 			var mmin = 3758096384; // aton('224.0.0.0')
 			var mmax = 4026531839; // aton('239.255.255.255')
-			if (((aton(b[2]) >= mmin) && (aton(b[2]) <= mmax)) || 
+			if (((aton(b[2]) >= mmin) && (aton(b[2]) <= mmax)) ||
 				((aton(b[3]) >= mmin) && (aton(b[3]) <= mmax))) {
 				continue;
 			}
