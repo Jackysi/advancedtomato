@@ -126,4 +126,11 @@ config TCONFIG_VLAN
 
 config TCONFIG_USERPPTP
 	bool "User PPTP"
+	depends on TCONFIG_PPTP
 	default n
+
+config TCONFIG_PPTPD
+	bool "PPTPD"
+	depends on TCONFIG_PPTP
+	default n
+

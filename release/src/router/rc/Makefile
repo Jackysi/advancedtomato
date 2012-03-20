@@ -36,6 +36,9 @@ endif
 ifeq ($(TCONFIG_NOCAT),y)
 OBJS += nocat.o
 endif
+ifeq ($(TCONFIG_PPTPD),y)
+OBJS += pptpd.o
+endif
 
 ifeq ($(TOMATO_SL),1)
 #OBJS += usb.o

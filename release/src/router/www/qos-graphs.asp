@@ -50,9 +50,14 @@
 
 var svgReady = 0;
 
+
+
 var Unclassified = ['Unclassified'];
-var classNames = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
+var classNames = nvram.qos_classnames.split(' ');		//Toastman Class Labels
 var abc = Unclassified.concat(classNames);
+
+
+//      var abc = ['Unclassified', 'Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
 
 var colors = [
 	'c6e2ff',

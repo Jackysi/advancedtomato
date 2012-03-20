@@ -31,3 +31,4 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_SNMP is not set
 # TCONFIG_VLAN is not set
 # TCONFIG_USERPPTP is not set
+# TCONFIG_PPTPD is not set
