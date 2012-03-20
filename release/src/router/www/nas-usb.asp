@@ -268,7 +268,7 @@ function verifyFields(focused, quiet)
 	E('_f_fat').disabled = b || a;
 /* LINUX26-BEGIN */
 	E('_f_idle_enable').disabled = b || a;
-	E('_f_usb_3g').disabled = b || a;
+	E('_f_usb_3g').disabled = b;
 /* LINUX26-END */
 /* NTFS-BEGIN */
 	E('_f_ntfs').disabled = b || a;
