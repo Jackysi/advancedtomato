@@ -46,6 +46,7 @@ obj-y += utils
 obj-y += ntpc
 obj-y += rstats
 obj-y += cstats
+obj-y += udpxy
 obj-$(TCONFIG_DNSCRYPT) += dnscrypt
 obj-$(TCONFIG_SNMP) += snmp
 obj-$(TCONFIG_SDHC) += mmc

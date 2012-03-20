@@ -26,7 +26,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("block_wan,nf_loopback,ne_syncookies,multicast_pass,multicast_lan,multicast_lan1,multicast_lan2,multicast_lan3,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname"); %>
+//	<% nvram("block_wan,nf_loopback,ne_syncookies,multicast_pass,multicast_lan,multicast_lan1,multicast_lan2,multicast_lan3,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname,udpxy_enable,udpxy_stats,udpxy_clients,udpxy_port"); %>
 
 function verifyFields(focused, quiet)
 {
@@ -50,6 +50,11 @@ function verifyFields(focused, quiet)
 	} else {
 		ferror.clear('_f_multicast');
 	}
+	
+	E('_f_udpxy_stats').disabled = !E('_f_udpxy_enable').checked;
+	E('_f_udpxy_clients').disabled = !E('_f_udpxy_enable').checked;
+	E('_f_udpxy_port').disabled = !E('_f_udpxy_enable').checked;
+	
 	return 1;
 }
 
@@ -67,6 +72,10 @@ function save()
 	fom.multicast_lan1.value = E('_f_multicast_lan1').checked ? 1 : 0;
 	fom.multicast_lan2.value = E('_f_multicast_lan2').checked ? 1 : 0;
 	fom.multicast_lan3.value = E('_f_multicast_lan3').checked ? 1 : 0;
+	fom.udpxy_enable.value = E('_f_udpxy_enable').checked ? 1 : 0;
+	fom.udpxy_stats.value = E('_f_udpxy_stats').checked ? 1 : 0;
+	fom.udpxy_clients.value = E('_f_udpxy_clients').value;
+	fom.udpxy_port.value = E('_f_udpxy_port').value;
 	form.submit(fom, 1);
 }
 </script>
@@ -95,20 +104,39 @@ function save()
 <input type='hidden' name='multicast_lan1'>
 <input type='hidden' name='multicast_lan2'>
 <input type='hidden' name='multicast_lan3'>
+<input type='hidden' name='udpxy_enable'>
+<input type='hidden' name='udpxy_stats'>
+<input type='hidden' name='udpxy_clients'>
+<input type='hidden' name='udpxy_port'>
 
-<div class='section-title'>Firewall</div>
+<div class='section-title'>Firewall / NAT</div>
 <div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Respond to ICMP ping', name: 'f_icmp', type: 'checkbox', value: nvram.block_wan == '0' },
-	{ title: 'NAT loopback', name: 'nf_loopback', type: 'select', options: [[0,'All'],[1,'Forwarded Only'],[2,'Disabled']], value: fixInt(nvram.nf_loopback, 0, 2, 1) },
 	{ title: 'Enable SYN cookies', name: 'f_syncookies', type: 'checkbox', value: nvram.ne_syncookies != '0' },
 	null,
-	{ title: 'Allow multicast', name: 'f_multicast', type: 'checkbox', value: nvram.multicast_pass == '1' },
+	{ title: 'NAT loopback', name: 'nf_loopback', type: 'select', options: [[0,'All'],[1,'Forwarded Only'],[2,'Disabled']], value: fixInt(nvram.nf_loopback, 0, 2, 1) }
+]);
+</script>
+</div>
+
+<!-- / / / -->
+
+<div class='section-title'>Multicast</div>
+<div class='section'>
+<script type='text/javascript'>
+createFieldTable('', [
+	{ title: 'Enable IGMPproxy', name: 'f_multicast', type: 'checkbox', value: nvram.multicast_pass == '1' },
 	{ title: 'LAN', indent: 2, name: 'f_multicast_lan', type: 'checkbox', value: (nvram.multicast_lan == '1') },
 	{ title: 'LAN1', indent: 2, name: 'f_multicast_lan1', type: 'checkbox', value: (nvram.multicast_lan1 == '1') },
 	{ title: 'LAN2', indent: 2, name: 'f_multicast_lan2', type: 'checkbox', value: (nvram.multicast_lan2 == '1') },
-	{ title: 'LAN3', indent: 2, name: 'f_multicast_lan3', type: 'checkbox', value: (nvram.multicast_lan3 == '1') }
+	{ title: 'LAN3', indent: 2, name: 'f_multicast_lan3', type: 'checkbox', value: (nvram.multicast_lan3 == '1') },
+	null,
+	{ title: 'Enable Udpxy', name: 'f_udpxy_enable', type: 'checkbox', value: (nvram.udpxy_enable == '1') },
+	{ title: 'Enable client statistics', indent: 2, name: 'f_udpxy_stats', type: 'checkbox', value: (nvram.udpxy_stats == '1') },
+	{ title: 'Max clients', indent: 2, name: 'f_udpxy_clients', type: 'text', maxlen: 4, size: 6, value: fixInt(nvram.udpxy_clients || 3, 1, 5000, 3) },
+	{ title: 'Udpxy port', indent: 2, name: 'f_udpxy_port', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.udpxy_port, 4022) }
 
 ]);
 </script>
