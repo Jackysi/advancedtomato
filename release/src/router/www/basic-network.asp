@@ -1603,7 +1603,7 @@ W('<input type=\'hidden\' id=\'_wl'+u+'_nctrlsb\' name=\'wl'+u+'_nctrlsb\'>');
 W('<input type=\'hidden\' id=\'_wl'+u+'_nbw\' name=\'wl'+u+'_nbw\'>');
 
 W('<div class=\'section-title\'>Wireless');
-if (wl_ifaces.length > 1)
+if (wl_ifaces.length > 0)
 	W(' (' + wl_display_ifname(uidx) + ')');
 W('</div>');
 
