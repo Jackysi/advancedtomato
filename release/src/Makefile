@@ -718,6 +718,12 @@ else
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Big-VPN" USB="USB" BTGUI=y NOCAT=y NFS=y OPENVPN=y SNMP=y HFS=y DNSCRYPT=y
 endif
 
+## Mega
+p:
+ifeq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Mega" USB="USB" NOCAT=y BTCLIENT=y DNSCRYPT=y
+endif
+
 ## Mega-VPN
 o:
 ifeq ($(CONFIG_LINUX26),y)
@@ -786,6 +792,9 @@ r2e:
 r2c:
 	@$(MAKE) c MIPS32=r2
 
+r2u:
+	@$(MAKE) u MIPS32=r2
+
 r2t:
 	@$(MAKE) t MIPS32=r2
 
@@ -794,6 +803,9 @@ r2b:
 
 r2n:
 	@$(MAKE) n MIPS32=r2
+
+r2p:
+	@$(MAKE) p MIPS32=r2
 
 r2o:
 	@$(MAKE) o MIPS32=r2
@@ -826,6 +838,9 @@ n60z:
 n60c:
 	@$(MAKE) r2c NVRAM_SIZE=60 LINKSYS_E=y
 
+n60u:
+	@$(MAKE) r2u NVRAM_SIZE=60 LINKSYS_E=1
+
 n60t:
 	@$(MAKE) r2t NVRAM_SIZE=60 LINKSYS_E=y
 
@@ -834,6 +849,9 @@ n60b:
 
 n60n:
 	@$(MAKE) r2n NVRAM_SIZE=60 LINKSYS_E=y
+
+n60p:
+	@$(MAKE) r2p NVRAM_SIZE=60 LINKSYS_E=1
 
 n60o:
 	@$(MAKE) r2o NVRAM_SIZE=60 LINKSYS_E=y
@@ -905,9 +923,11 @@ setprofile:
 
 help:
 	@echo "c            BTgui - (Ext plus BT gui)"
+	@echo "u            BT
 	@echo "t            BT-VPN - (BT plus VPN)"
 	@echo "e            VPN - (standard plus VPN, extra utilities and NTFS support)"
 	@echo "b            Big-VPN - (Big plus VPN)"
+	@echo "p            Mega"
 	@echo "o            Mega-VPN - (Mega plus VPN plus NOCAT minus NFS)"
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "i            MiniIPv6 - (IPv6 with no USB support minus CIFS and RIPv1/2)"
@@ -920,9 +940,11 @@ endif
 	@echo "w            SD-VPN (no usb) - (VPN with SD-MOD and no USB support)"
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2c          MIPS Release 2 BTgui"
+	@echo "r2u          MIPS Release 2 BT"
 	@echo "r2t          MIPS Release 2 BT-VPN"
 	@echo "r2e          MIPS Release 2 VPN"
 	@echo "r2b          MIPS Release 2 Big-VPN"
+	@echo "r2p          MIPS Release 2 Mega"
 	@echo "r2o          MIPS Release 2 Mega-VPN"
 	@echo "r2z          MIPS Release 2 AIO (for routers +8MB flash)"
 	@echo "r2v          MIPS Release 2 VPN (no usb)"
@@ -932,9 +954,11 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2k          MIPS Release 2 IPv6 (for 8MB flash)"
 	@echo "r2f          MIPS Release 2 Mini (for netgear)"
 	@echo "n60c         Linksys E-series build BTGui"
+	@echo "n60u         Linksys E-series build BT"
 	@echo "n60t         Linksys E-series build BT-VPN"
 	@echo "n60e         Linksys E-series build VPN"
 	@echo "n60b         Linksys E-series build Big-VPN"
+	@echo "n60p         Linksys E-series build Mega"
 	@echo "n60o         Linksys E-series build Mega-VPN"
 	@echo "n60k         Linksys E-series build with IPv6"
 	@echo "v2e          Netgear WNR3500Lv2 build VPN"
