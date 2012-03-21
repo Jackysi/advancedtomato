@@ -1972,10 +1972,6 @@ static void start_nas_services(void)
 #ifdef TCONFIG_MEDIA_SERVER
 	start_media_server();
 #endif
-#ifdef TCONFIG_UPS
-	start_ups();
-#endif
-
 }
 
 static void stop_nas_services(void)
@@ -1994,10 +1990,6 @@ static void stop_nas_services(void)
 #ifdef TCONFIG_SAMBASRV
 	stop_samba();
 #endif
-#ifdef TCONFIG_UPS
-	stop_ups();
-#endif
-
 }
 
 void restart_nas_services(int stop, int start)

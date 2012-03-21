@@ -169,6 +169,11 @@ void start_usb(void)
 			xstart( "sd-idle" );
 		}
 #endif
+
+#ifdef TCONFIG_UPS
+		start_ups();
+#endif
+
 	}
 }
 
@@ -243,6 +248,10 @@ void stop_usb(void)
 	if (nvram_get_int("idle_enable") == 0) {
 		killall("sd-idle", SIGTERM);
 	}
+
+#ifdef TCONFIG_UPS
+	stop_ups();
+#endif
 
 	if (nvram_match("3g_usb", "0") ) {
 		if (nvram_match("3g_module", "sierra") ) {
