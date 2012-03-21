@@ -200,7 +200,7 @@ void stop_usb(void)
 		modprobe_r("vfat");
 		modprobe_r("fat");
 		modprobe_r("fuse");
-#ifdef TCONFIG_SAMBASRV
+#ifdef TCONFIG_HFS
 		modprobe_r("hfs");
 		modprobe_r("hfsplus");
 #endif
