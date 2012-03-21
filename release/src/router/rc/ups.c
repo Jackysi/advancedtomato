@@ -12,9 +12,10 @@ void start_ups(void)
     FILE *fpm;
     FILE *fpc;
 
-//  only if enable...
-    if( nvram_match( "ups_enable", "1" ) )
-    {
+//  always copy and try start service if USB support is enable
+//  if service will not find apc ups, then will turn off automaticaly
+//    if( nvram_match( "ups_enable", "1" ) )
+//    {
 
         eval("cp", "/www/apcupsd/tomatodata.cgi", "/www/ext/cgi-bin/tomatodata.cgi");
         eval("cp", "/www/apcupsd/tomatoups.cgi", "/www/ext/cgi-bin/tomatoups.cgi");
@@ -47,7 +48,7 @@ void start_ups(void)
         chmod( "/etc/apcemail.conf", 0644 );
 */
         xstart( "apcupsd" );
-    }
+//    }
 
     return;
 }
@@ -57,7 +58,7 @@ void stop_ups(void)
     killall("apcupsd", SIGTERM);
 //    eval("rm", "/etc/apcupsd.conf");
 //    eval("rm", "/etc/apcemail.conf");
-    eval("rm", "/www/ext/cgi-bin/tomatodata.cgi");
-    eval("rm", "/www/ext/cgi-bin/tomatoups.cgi");
+//    eval("rm", "/www/ext/cgi-bin/tomatodata.cgi");
+//    eval("rm", "/www/ext/cgi-bin/tomatoups.cgi");
     return;
 }

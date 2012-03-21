@@ -160,6 +160,7 @@ Copyright (C) 2007-2011 Ofer Chen & Vicente Soriano<br>
 - Static ARP binding<br>
 - VLAN administration GUI<br>
 - Multiple LAN support integration and GUI<br>
+- UDPxy integration and GUI<br>
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>Tomato-sdhc-vlan Homepage</a><br>
 <br>

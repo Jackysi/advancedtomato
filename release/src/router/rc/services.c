@@ -1131,7 +1131,10 @@ void start_syslog(void)
 		if (nvram_match("log_file_custom", "0")) {
 		argv[argc++] = "-s";
 		argv[argc++] = rot_siz;
-		remove("/var/log/messages");
+		struct stat sb;
+		if (lstat("/var/log/messages", &sb) != -1)
+			if (S_ISLNK(sb.st_mode))
+				remove("/var/log/messages");
 		}
 
 		if (isdigit(*b_opt)) {
@@ -1240,6 +1243,24 @@ void stop_igmp_proxy(void)
 	pid_igmp = -1;
 	killall_tk("igmpproxy");
 }
+
+// -----------------------------------------------------------------------------
+
+void start_udpxy(void)
+{
+	if (nvram_match("udpxy_enable", "1")) {
+		if (get_wan_proto() == WP_DISABLED)
+			return;
+		eval("udpxy", (nvram_get_int("udpxy_stats") ? "-S" : ""), "-p", nvram_safe_get("udpxy_port"), "-c", nvram_safe_get("udpxy_clients"), "-m", nvram_safe_get("wan_ifname") );
+	}
+}
+
+void stop_udpxy(void)
+{
+	killall_tk("udpxy");
+}
+
+// -----------------------------------------------------------------------------
 
 #ifdef TCONFIG_NOCAT
 
@@ -1952,10 +1973,6 @@ static void start_nas_services(void)
 #ifdef TCONFIG_MEDIA_SERVER
 	start_media_server();
 #endif
-#ifdef TCONFIG_UPS
-	start_ups();
-#endif
-
 }
 
 static void stop_nas_services(void)
@@ -1974,10 +1991,6 @@ static void stop_nas_services(void)
 #ifdef TCONFIG_SAMBASRV
 	stop_samba();
 #endif
-#ifdef TCONFIG_UPS
-	stop_ups();
-#endif
-
 }
 
 void restart_nas_services(int stop, int start)
@@ -2182,10 +2195,12 @@ TOP:
 		if (action & A_STOP) {
 			stop_firewall();
 			stop_igmp_proxy();
+			stop_udpxy();
 		}
 		if (action & A_START) {
 			start_firewall();
 			start_igmp_proxy();
+			start_udpxy();
 		}
 		goto CLEAR;
 	}

@@ -954,7 +954,9 @@ void start_wan_done(char *wan_ifname)
 		stop_ddns();
 		start_ddns();
 		stop_igmp_proxy();
+		stop_udpxy();
 		start_igmp_proxy();
+		start_udpxy();
 	}
 
 #ifdef TCONFIG_IPV6
@@ -1019,6 +1021,7 @@ void stop_wan(void)
 	stop_upnp();	//!!TB - moved from stop_services()
 	stop_firewall();
 	stop_igmp_proxy();
+	stop_udpxy();
 	stop_ntpc();
 
 #ifdef TCONFIG_IPV6
