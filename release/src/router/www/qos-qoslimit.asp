@@ -54,7 +54,7 @@ for (var i = 1; i <= 100; ++i) {
 var qosg = new TomatoGrid();
 
 qosg.setup = function() {
-	this.init('qosg-grid', '', 40, [
+	this.init('qosg-grid', '', 80, [
 		{ type: 'text', maxlen: 31 },
 		{ type: 'text', maxlen: 6 },
 		{ type: 'text', maxlen: 6 },
