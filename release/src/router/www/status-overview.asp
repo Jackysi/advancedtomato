@@ -114,7 +114,6 @@ function show()
 	c('uptime', stats.uptime);
 	c('time', stats.time);
 	c('wanip', stats.wanip);
-	c('wanprebuf',stats.wanprebuf); //Victek
 	c('wannetmask', stats.wannetmask);
 	c('wangateway', stats.wangateway);
 	c('dns', stats.dns);
@@ -224,7 +223,7 @@ createFieldTable('', [
 	{ title: 'Name', text: nvram.router_name },
 	{ title: 'Model', text: nvram.t_model_name },
 	{ title: 'Chipset', text: stats.systemtype },
-	{ title: 'CPU Freq', text: stats.cpumhz },
+	{ title: 'CPU Freq', text: stats.cpumhz, hidden: (stats.cpumhz == ' MHz') },
 	{ title: 'Flash RAM Size', text: stats.flashsize },
 	null,
 	{ title: 'Time', rid: 'time', text: stats.time },
@@ -232,7 +231,7 @@ createFieldTable('', [
 	{ title: 'CPU Load <small>(1 / 5 / 15 mins)</small>', rid: 'cpu', text: stats.cpuload },
 	{ title: 'CPU Usage', rid: 'cpupercent', text: stats.cpupercent },
 	{ title: 'Total / Free Memory', rid: 'memory', text: stats.memory },
-	{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') },
+	{ title: 'Total / Free Swap', rid: 'swap', text: stats.swap, hidden: (stats.swap == '') }
 ]);
 </script>
 </div>
@@ -244,7 +243,6 @@ createFieldTable('', [
 	{ title: 'MAC Address', text: nvram.wan_hwaddr },
 	{ title: 'Connection Type', text: { 'dhcp':'DHCP', 'static':'Static IP', 'pppoe':'PPPoE', 'pptp':'PPTP', 'l2tp':'L2TP' }[nvram.wan_proto] || '-' },
 	{ title: 'IP Address', rid: 'wanip', text: stats.wanip },
-	{ title: 'Previous WAN IP', rid: 'wanprebuf',text:stats.wanprebuf }, //Victek
 	{ title: 'Subnet Mask', rid: 'wannetmask', text: stats.wannetmask },
 	{ title: 'Gateway', rid: 'wangateway', text: stats.wangateway },
 /* IPV6-BEGIN */
@@ -310,44 +308,15 @@ if (nvram.lan_proto == 'dhcp') {
 		nvram.dhcpd_startip = x + nvram.dhcp_start;
 		nvram.dhcpd_endip = x + ((nvram.dhcp_start * 1) + (nvram.dhcp_num * 1) - 1);
 	}
-	return(Number.NaN);
+	s = '<a href="status-devices.asp">' + nvram.dhcpd_startip + ' - ' + nvram.dhcpd_endip + '</a>';
 }
-
-function numberOfBitsOnNetMask(netmask) {
-	var total = 0;
-	var t = netmask.split('.');
-	for (var i = 0; i<= 3 ; i++) {
-		total += h_countbitsfromleft(t[i]);
-	}
-	return total;
+else {
+	s = 'Disabled';
 }
-
-var s='';
-var t='';
-MAX_BRIDGE_ID=3;
-for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
-	var j = (i == 0) ? '' : i.toString();
-	if (nvram['lan' + j + '_ifname'].length > 0) {
-		if (nvram['lan' + j + '_proto'] == 'dhcp') {
-			if ((!fixIP(nvram.dhcpd_startip)) || (!fixIP(nvram.dhcpd_endip))) {
-				var x = nvram['lan' + j + '_ipaddr'].split('.').splice(0, 3).join('.') + '.';
-				nvram['dhcpd' + j + '_startip'] = x + nvram['dhcp' + j + '_start'];
-				nvram['dhcpd' + j + '_endip'] = x + ((nvram['dhcp' + j + '_start'] * 1) + (nvram['dhcp' + j + '_num'] * 1) - 1);
-			}
-			s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? ', ' : '';
-			s += '<a href="status-devices.asp">' + nvram['dhcpd' + j + '_startip'] + ' - ' + nvram['dhcpd' + j + '_endip'] + '</a> on LAN' + j + ' (br' + i + ')';
-		} else {
-			s += ((s.length>0)&&(s.charAt(s.length-1) != ' ')) ? ', ' : '';
-			s += 'Disabled on LAN' + j + ' (br' + i + ')';
-		}
-		t += ((t.length>0)&&(t.charAt(t.length-1) != ' ')) ? ', ' : '';
-		t += nvram['lan' + j + '_ipaddr'] + '/' + numberOfBitsOnNetMask(nvram['lan' + j + '_netmask']) + ' on LAN' + j + ' (br' + i + ')';
-	}
-}
-
 createFieldTable('', [
 	{ title: 'Router MAC Address', text: nvram.et0macaddr },
-	{ title: 'Router IP Addresses', text: t },
+	{ title: 'Router IP Address', text: nvram.lan_ipaddr },
+	{ title: 'Subnet Mask', text: nvram.lan_netmask },
 	{ title: 'Gateway', text: nvram.lan_gateway, ignore: nvram.wan_proto != 'disabled' },
 /* IPV6-BEGIN */
 	{ title: 'Router IPv6 Address', rid: 'ip6_lan', text: stats.ip6_lan, hidden: (stats.ip6_lan == '') },
@@ -418,3 +387,5 @@ REMOVE-END */
 <script type='text/javascript'>earlyInit()</script>
 </body>
 </html>
+
+
