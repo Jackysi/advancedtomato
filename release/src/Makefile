@@ -251,6 +251,7 @@ what:
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM
 # NOCAT
 # SNMP
+# HFS
 # USERPPTP
 # VLAN
 
@@ -356,6 +357,10 @@ define RouterOptions
 			sed -i "/TCONFIG_FTP_SSL/d" $(1); \
 			echo "TCONFIG_FTP_SSL=y" >>$(1); \
 		fi; \
+	fi; \
+	if [ "$(HFS)" = "y" ]; then \
+		sed -i "/TCONFIG_HFS/d" $(1); \
+		echo "TCONFIG_HFS=y" >>$(1); \
 	fi; \
 	if [ "$(SNMP)" = "y" ]; then \
 		sed -i "/TCONFIG_SNMP/d" $(1); \
