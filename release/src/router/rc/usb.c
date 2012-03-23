@@ -206,8 +206,10 @@ void stop_usb(void)
 		modprobe_r("vfat");
 		modprobe_r("fat");
 		modprobe_r("fuse");
+#ifdef TCONFIG_HFS
 		modprobe_r("hfs");
 		modprobe_r("hfsplus");
+#endif
 		sleep(1);
 #ifdef TCONFIG_SAMBASRV
 		modprobe_r("nls_cp437");
