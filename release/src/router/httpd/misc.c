@@ -378,7 +378,7 @@ mtd1: 007d0000 00010000 "linux"
 		fclose(f);
 	}
 	if (found) {
-		     if (nvram_match("boardtype", "0x052b")) return 128; //Netgear 3500L v2 has 128MB NAND flash but linux partition has only 32MB
+		     if (nvram_match("boardtype", "0x052b") && nvram_match("boardrev", "02")) return 128; //Netgear 3500L v2 has 128MB NAND flash but linux partition has only 32MB
 		else if ((size > 0x2000000) && (size < 0x4000000)) return 64;
 		else if ((size > 0x1000000) && (size < 0x2000000)) return 32;
 		else if ((size > 0x800000) && (size < 0x1000000)) return 16;

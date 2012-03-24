@@ -440,6 +440,7 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan1ports", "0 1 2 3 5*");
 		dirty |= check_nv("vlan2ports", "4 5");
 		break;
+	case MODEL_RTN15U:
 	case MODEL_E4200:
 		dirty |= check_nv("vlan1ports", "0 1 2 3 8*");
 		dirty |= check_nv("vlan2ports", "4 8");
@@ -981,6 +982,22 @@ static int init_nvram(void)
 		if (!nvram_match("t_fix1", (char *)name)) {
 			nvram_set("lan_ifnames", "vlan0 eth1");
 			nvram_set("wan_ifnameX", "vlan1");
+			nvram_set("wl_ifname", "eth1");
+		}
+		break;
+	case MODEL_RTN15U:
+		mfr = "Asus";
+		name = "RT-N15U";
+		features = SUP_SES | SUP_80211N;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_iface", "vlan2");
+			nvram_set("wan_ifname", "vlan2");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wan_ifnames", "vlan2");
 			nvram_set("wl_ifname", "eth1");
 		}
 		break;

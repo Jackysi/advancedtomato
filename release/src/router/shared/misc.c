@@ -200,6 +200,9 @@ int check_wanup(void)
 		if (nvram_match("boardrev", "0x11")) { // Ovislink 1600GL - led "connected" off
 			led(LED_WHITE,LED_OFF);
 		}
+		if (nvram_match("boardtype", "0x052b") &&  nvram_match("boardrev", "0x1204")) { //rt-n15u wan led off
+			led(LED_WHITE,LED_OFF);
+		}
 		 return 0;
 	}
 
@@ -243,6 +246,9 @@ int check_wanup(void)
 		}
 	}
 	if (nvram_match("boardrev", "0x11")) { // Ovislink 1600GL - led "connected" on
+		led(LED_WHITE,up);
+	}
+	if (nvram_match("boardtype", "0x052b") &&  nvram_match("boardrev", "0x1204")) { //rt-n15u wan led on
 		led(LED_WHITE,up);
 	}
 
