@@ -204,6 +204,7 @@ int do_led(int which, int mode)
 	static int e4200[]	= { 255,   5,    -3,  255,  255,  255,  255,  255	};
 	static int rtn10u[]	= { 255, 255,   255,  255,  255,   -7,  255,    8	};
 	static int rtn12b1[]	= {  -5, 255,   255,  255,  255,  255,  255,  225	};
+	static int rtn15u[]	= {   1, 255,     3,  255,  255,  255,  255,    9	};
 	static int rtn66u[]	= { 255, -12,   255,  255,  255,  255,  255,   15	};
 #endif
 
@@ -310,6 +311,9 @@ int do_led(int which, int mode)
 	case MODEL_RTN16:
 		if (which != LED_DIAG) return ret;
 		b = -1;	// power light
+		break;
+	case MODEL_RTN15U:
+		b = rtn15u[which];
 		break;
 	case MODEL_RTN66U:
 		b = rtn66u[which];

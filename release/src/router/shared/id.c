@@ -64,6 +64,7 @@ ZTE H618B			HW_BCM5354G           0x048e     1105        0x35      0x0750
 Ovislink WL1600GL		HW_BCM5354G           0x048E        8        0x11
 
 RT-N16				BCM4718               0x04cf       45        0x1218    0x0310      hardware_version=RT-N16-00-07-01-00 regulation_domain=0X10US sdram_init=0x419
+RT-N15U				BCM5357               0x052b       45        0x1204    0x80001710|0x1000
 RT-N12				BCM4716               0x04cd       45        0x1201    0x????
 RT-N12B1			BCM5357               0x054d       45        0x1101    0x710
 RT-N10				BCM5356               0x04ec       45        0x1402    0x????
@@ -143,10 +144,6 @@ int check_hw_type(void)
 		return HW_BCM5356;
 	case 0x489:
 		return HW_BCM4785;
-	case 0x0550:
-	case 0x054d:
-		return HW_BCM5357;
-
 #ifdef CONFIG_BCMWL5
 	case 0x04cd:
 	case 0xe4cd:
@@ -161,8 +158,12 @@ int check_hw_type(void)
 		return HW_BCM4718;
 	case 0xf5b2:
 		return HW_BCM4706;
-	case 0x052b:		/* WNR3500LV2 */
-		return HW_BCM47186;
+	case 0x052b:
+		if (nvram_match("boardrev", "0x1204")) return HW_BCM5357; //rt-n15u
+		if (nvram_match("boardrev", "02")) return HW_BCM47186; //WNR3500Lv2
+	case 0x0550:
+	case 0x054d:
+		return HW_BCM5357;
 #endif
 	}
 
@@ -324,6 +325,7 @@ int get_model(void)
 		case HW_BCM5357:
 			if (nvram_match("boardrev", "0x1102")) return MODEL_RTN10U;
 			if (nvram_match("boardrev", "0x1101")) return MODEL_RTN12B1;
+			if (nvram_match("boardrev", "0x1204")) return MODEL_RTN15U;
 			break;
 		case HW_BCM4716:
 			if (nvram_match("boardrev", "0x1201")) return MODEL_RTN12;

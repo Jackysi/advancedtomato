@@ -151,6 +151,10 @@ int buttons_main(int argc, char *argv[])
 		ses_mask = 1 << 0;
 		brau_mask = (1 << 4) | (1 << 5) | (1 << 6);
 		break;
+	case MODEL_RTN15U:
+		reset_mask = 1 << 5;
+		ses_mask = 1 << 8;
+		break;
 	case MODEL_RTN16:
 		reset_mask = 1 << 6;
 		ses_mask = 1 << 8;
