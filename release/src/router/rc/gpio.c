@@ -17,7 +17,7 @@ int gpio_main(int argc, char *argv[])
 
 	if ((argc == 3) && ((strncmp(argv[1], "en", 2) == 0) || (strncmp(argv[1], "di", 2) == 0))) {
 		bit = atoi(argv[2]);
-		if ((bit >= 0) && (bit <= 15)) {
+		if ((bit >= 0) && (bit <= 20)) {
 			bit = 1 << bit;
 			{
 				gpio_write(bit, argv[1][0] == 'e');
