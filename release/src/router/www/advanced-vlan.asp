@@ -59,6 +59,7 @@ switch(nvram['boardtype']) {
   case '0x048e':  // WL-520GU, WL-500G Premium v2
   case '0x04ef':  // WRT320N/E2000
   case '0x04cf':  // WRT610Nv2/E3000, RT-N16
+  case '0xf52c':  // E4200v1
     trunk_vlan_supported = 1;
     break;
   default:
@@ -95,7 +96,7 @@ switch(nvram['boardtype']) {
     COL_P3N = '1';
     COL_P4N = '0';
     break;
-  case '0xf52c':  // E4200
+  case '0xf52c':  // E4200v1
     COL_P0N = '0';
     COL_P1N = '1';
     COL_P2N = '2';
