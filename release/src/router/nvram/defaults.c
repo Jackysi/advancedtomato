@@ -563,7 +563,7 @@ const defaults_t defaults[] = {
 	{ "rstats_bak",			"0"				},
 
 // admin-ipt
-	{ "cstats_enable",		"1"				},
+	{ "cstats_enable",		"0"				},
 	{ "cstats_path",		""				},
 	{ "cstats_stime",		"48"			},
 	{ "cstats_offset",		"1"				},
