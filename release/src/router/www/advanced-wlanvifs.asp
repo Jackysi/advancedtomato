@@ -577,8 +577,10 @@ function verifyFields(focused, quiet) {
 	var wmode, sm2;
 
 	for (uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+		u = wl_fface(uidx);
+		if (u)
+			E('wl'+u+'_hwaddr_msg').style.visibility = ((wl_ifaces[uidx][8] == 'ap') && (wl_ifaces[uidx][5] != wl_ifaces[uidx][9])) ? 'visible' : 'hidden';
 		if (wl_sunit(uidx) < 0) {
-			u = wl_fface(uidx);
 			if (focused == E('_f_wl'+u+'_nband')) {
 				refreshNetModes(uidx);
 				refreshChannels(uidx);
@@ -1233,9 +1235,9 @@ function do_pre_submit_form(fom) {
 					}
 				}
 			}
-			// unset HWADDR for any/all non-primary VIFs we have configured
-			s += 'nvram unset wl' + u + '_hwaddr\n';
 /* REMOVE-BEGIN */
+			// unset HWADDR for any/all non-primary VIFs we have configured
+//			s += 'nvram unset wl' + u + '_hwaddr\n';
 // AB TODO: figure out what to do with pre-existing/set MAC addresses
 //			if (vif >= 0) {
 //				if ((vifs_defined[vif][9] == '00:00:00:00:00:00') || (vifs_defined[vif][9] == '')) {
@@ -1390,9 +1392,9 @@ createFieldTable('', [
 <ul>
 <li><b>Other relevant notes/hints:</b>
 <ul>
-<li>When creating/defining a new wireless VIF, it's MAC address will be shown (incorrectly) as '00:00:00:00:00:00', as it's unknown at that moment (until network is restarted and this page is reloaded).</li>
 <li>Once created/defined, a wireless VIF cannot de deleted: it can only be <i>disabled</i>.</li>
-<li>When saving changes, the MAC addresses of all defined non-primary wireless VIFs are <i>unset</i> and get <i>recreated</i> (so those might change when saving settings).</li>
+<li>When creating/defining a new wireless VIF, it's MAC address will be shown (incorrectly) as '00:00:00:00:00:00', as it's unknown at that moment (until network is restarted and this page is reloaded).</li>
+<li>When saving changes, the MAC addresses of all defined non-primary wireless VIFs could sometimes be (already) <i>set</i> but might be <i>recreated</i> by the WL driver (so that previously defined/saved settings might need to be updated/changed accordingly on <a href=advanced-mac.asp>Advanced/MAC Address</a> after saving settings and rebooting your router).</li>
 <li>This web interface allows configuring a maximum of 4 VIFs for each physical wireless interface available - up to 3 extra VIFs can be defined in addition to the primary VIF (<i>on devices with multiple VIF capabilities</i>).</li>
 <li>By definition, configuration settings for the <i>primary VIF</i> of any physical wireless interfaces shouldn't be touched here (use the <a href=basic-network.asp>Basic/Network</a> page instead).</li>
 </ul>
@@ -1405,25 +1407,10 @@ createFieldTable('', [
 </ul>
 </small>
 
-<!-- REMOVE-BEGIN -->
-<small>
-<ul>
-<li><b>Other relevant notes/hints:</b>
-<ul>
-<li>To specify multiple hostnames for a device, separate them with spaces.</li>
-<li>To enable/enforce static ARP binding for a particular device, it must have only one MAC associated with that particular IP address (i.e. you can't have two MAC addresses linked to the same hostname/device in the table above).</li>
-<li>When ARP binding is enabled for a particular MAC/IP address pair, that device will always be shown as "active" in the <a href="tools-wol.asp">Wake On LAN</a> table.</li>
-<li>See also the <a href='advanced-dhcpdns.asp'>Advanced DHCP/DNS</a> settings page for more DHCP-related configuration options.</li>
-</ul>
-</ul>
-</small>
-<!-- REMOVE-END -->
 </div>
-
 
 <!-- / / / -->
 
-<!-- / OVERVIEW-TAB / -->
 </div>
 
 <!-- / / / -->
@@ -1475,7 +1462,8 @@ for (var i = 1; i < tabs.length; ++i) {
 	f.push (
 		{ title: 'Enable Interface', name: 'f_wl'+u+'_radio', type: 'checkbox',
 			value: (eval('nvram["wl'+u+'_radio"]') == '1') && (eval('nvram["wl'+u+'_net_mode"]') != 'disabled') },
-		{ title: 'MAC Address', text: '<a href="advanced-mac.asp">' + (eval('nvram["wl'+u+'_hwaddr"]') || '00:00:00:00:00:00') + '</a>' },
+		{ title: 'MAC Address', text: '<a href="advanced-mac.asp">' + (eval('nvram["wl'+u+'_hwaddr"]') || '00:00:00:00:00:00') + '</a>' +
+			' &nbsp; <b id="wl'+u+'_hwaddr_msg" style="visibility:hidden"><small>(warning: WL driver reports BSSID <a href=advanced-mac.asp>' + ((typeof(wl_ifaces[wl_ifidxx(u)]) != 'undefined')? wl_ifaces[wl_ifidxx(u)][9] : '') + '</a>)</small></b>' },
 		{ title: 'Wireless Mode', name: 'f_wl'+u+'_mode', type: 'select',
 			options: wl_modes_available,
 			value: ((eval('nvram["wl'+u+'_mode"]') == 'ap') && (eval('nvram["wl'+u+'_wds_enable"]') == '1')) ? 'apwds' : eval('nvram["wl'+u+'_mode"]'),
