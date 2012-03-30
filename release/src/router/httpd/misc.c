@@ -777,14 +777,12 @@ void wo_wakeup(char *url)
 			*p = 0;
 
 			eval("ether-wake", "-b", "-i", nvram_safe_get("lan_ifname"), mac);
-
 			if (strcmp(nvram_safe_get("lan1_ifname"), "") != 0)
 				eval("ether-wake", "-b", "-i", nvram_safe_get("lan1_ifname"), mac);
 			if (strcmp(nvram_safe_get("lan2_ifname"), "") != 0)
 				eval("ether-wake", "-b", "-i", nvram_safe_get("lan2_ifname"), mac);
 			if (strcmp(nvram_safe_get("lan3_ifname"), "") != 0)
 				eval("ether-wake", "-b", "-i", nvram_safe_get("lan3_ifname"), mac);
-
 			mac = p + 1;
 		}
 	}

@@ -2383,6 +2383,7 @@ function navi()
 			['Routing',			'routing.asp'],
 			['VLAN',			'vlan.asp'],
 			['LAN Access',			'access.asp'],
+			['Virtual Wireless',		'wlanvifs.asp'],
 			['Wireless',			'wireless.asp'] ] ],
 		['Port Forwarding', 		'forward', 0, [
 			['Basic',			'basic.asp'],

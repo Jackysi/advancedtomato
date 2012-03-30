@@ -322,6 +322,27 @@ static void check_afterburner(void)
 */
 }
 
+static int set_wlmac(int idx, int unit, int subunit, void *param)
+{
+	char *ifname;
+
+	ifname = nvram_safe_get(wl_nvname("ifname", unit, subunit));
+
+	// skip disabled wl vifs
+	if (strncmp(ifname, "wl", 2) == 0 && strchr(ifname, '.') &&
+		!nvram_get_int(wl_nvname("bss_enabled", unit, subunit)))
+		return 0;
+
+	if (strcmp(nvram_safe_get(wl_nvname("hwaddr", unit, subunit)), "") == 0) {
+//		set_mac(ifname, wl_nvname("macaddr", unit, subunit),
+		set_mac(ifname, wl_nvname("hwaddr", unit, subunit),  // AB multiSSID
+		2 + unit + ((subunit > 0) ? ((unit + 1) * 0x10 + subunit) : 0));
+	} else {
+		set_mac(ifname, wl_nvname("hwaddr", unit, subunit), 0);
+	}
+	return 1;
+}
+
 void start_wl(void)
 {
 	char *lan_ifname, *lan_ifnames, *ifname, *p;
@@ -330,6 +351,8 @@ void start_wl(void)
 
 	char tmp[32];
 	char br;
+
+	foreach_wif(1, NULL, set_wlmac);
 
 	for(br=0 ; br<4 ; br++) {
 		char bridge[2] = "0";
@@ -391,23 +414,6 @@ void start_wl(void)
 
 	if (is_client)
 		xstart("radio", "join");
-}
-
-static int set_wlmac(int idx, int unit, int subunit, void *param)
-{
-	char *ifname;
-
-	ifname = nvram_safe_get(wl_nvname("ifname", unit, subunit));
-
-	// skip disabled wl vifs
-	if (strncmp(ifname, "wl", 2) == 0 && strchr(ifname, '.') &&
-		!nvram_get_int(wl_nvname("bss_enabled", unit, subunit)))
-		return 0;
-
-	set_mac(ifname, wl_nvname("macaddr", unit, subunit),
-		2 + unit + ((subunit > 0) ? ((unit + 1) * 0x10 + subunit) : 0));
-
-	return 1;
 }
 
 #ifdef TCONFIG_IPV6

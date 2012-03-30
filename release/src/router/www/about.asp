@@ -13,7 +13,7 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] About</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 <script type='text/javascript'>
 //	<% nvram(''); %>	// http_id
@@ -160,6 +160,7 @@ Copyright (C) 2007-2011 Ofer Chen & Vicente Soriano<br>
 - Static ARP binding<br>
 - VLAN administration GUI<br>
 - Multiple LAN support integration and GUI<br>
+- Multiple/virtual SSID support (experimental)<br>
 - UDPxy integration and GUI<br>
 Copyright (C) 2011 Augusto Bott<br>
 <a href='http://code.google.com/p/tomato-sdhc-vlan/' target='_new'>Tomato-sdhc-vlan Homepage</a><br>

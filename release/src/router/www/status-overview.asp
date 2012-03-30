@@ -4,6 +4,10 @@
 	Copyright (C) 2006-2010 Jonathan Zarate
 	http://www.polarcloud.com/tomato/
 
+	Tomato VLAN GUI
+	Copyright (C) 2011 Augusto Bott
+	http://code.google.com/p/tomato-sdhc-vlan/
+
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
 -->
@@ -15,6 +19,7 @@
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
+<script type='text/javascript' src='interfaces.js'></script>
 
 <!-- / / / -->
 
@@ -48,7 +53,11 @@ show_codi = ((nvram.wan_proto == 'pppoe') || (nvram.wan_proto == 'l2tp') || (nvr
 
 show_radio = [];
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-	show_radio.push((nvram['wl'+wl_unit(uidx)+'_radio'] == '1'));
+/* REMOVE-BEGIN
+//	show_radio.push((nvram['wl'+wl_unit(uidx)+'_radio'] == '1'));
+REMOVE-END */
+	if (wl_sunit(uidx)<0)
+		show_radio.push((nvram['wl'+wl_fface(uidx)+'_radio'] == '1'));
 }
 
 nphy = features('11n');
@@ -130,23 +139,25 @@ function show()
 	}
 
 	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		c('radio'+uidx, wlstats[uidx].radio ? 'Enabled' : '<b>Disabled</b>');
-		c('rate'+uidx, wlstats[uidx].rate);
-		if (show_radio[uidx]) {
-			E('b_wl'+uidx+'_enable').disabled = wlstats[uidx].radio;
-			E('b_wl'+uidx+'_disable').disabled = !wlstats[uidx].radio;
-		}
-		c('channel'+uidx, stats.channel[uidx]);
-		if (nphy) {
-			c('nbw'+uidx, wlstats[uidx].nbw);
-		}
-		c('interference'+uidx, stats.interference[uidx]);
-		elem.display('interference'+uidx, stats.interference[uidx] != '');
+		if (wl_sunit(uidx)<0) {
+			c('radio'+uidx, wlstats[uidx].radio ? 'Enabled' : '<b>Disabled</b>');
+			c('rate'+uidx, wlstats[uidx].rate);
+			if (show_radio[uidx]) {
+				E('b_wl'+uidx+'_enable').disabled = wlstats[uidx].radio;
+				E('b_wl'+uidx+'_disable').disabled = !wlstats[uidx].radio;
+			}
+			c('channel'+uidx, stats.channel[uidx]);
+			if (nphy) {
+				c('nbw'+uidx, wlstats[uidx].nbw);
+			}
+			c('interference'+uidx, stats.interference[uidx]);
+			elem.display('interference'+uidx, stats.interference[uidx] != '');
 
-		if (wlstats[uidx].client) {
-			c('rssi'+uidx, wlstats[uidx].rssi || '');
-			c('noise'+uidx, wlstats[uidx].noise || '');
-			c('qual'+uidx, stats.qual[uidx] || '');
+			if (wlstats[uidx].client) {
+				c('rssi'+uidx, wlstats[uidx].rssi || '');
+				c('noise'+uidx, wlstats[uidx].noise || '');
+				c('qual'+uidx, stats.qual[uidx] || '');
+			}
 		}
 		c('ifstatus'+uidx, wlstats[uidx].ifstatus || '');
 	}
@@ -159,7 +170,8 @@ function earlyInit()
 	if (nvram.wan_proto == 'disabled')
 		elem.display('wan-title', 'sesdiv_wan', 0);
 	for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-		elem.display('b_wl'+uidx+'_enable', 'b_wl'+uidx+'_disable', show_radio[uidx]);
+		if (wl_sunit(uidx)<0)
+			elem.display('b_wl'+uidx+'_enable', 'b_wl'+uidx+'_disable', show_radio[uidx]);
 	}
 	show();
 }
@@ -285,7 +297,6 @@ function numberOfBitsOnNetMask(netmask) {
 
 var s='';
 var t='';
-MAX_BRIDGE_ID=3;
 for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
 	var j = (i == 0) ? '' : i.toString();
 	if (nvram['lan' + j + '_ifname'].length > 0) {
@@ -324,43 +335,45 @@ createFieldTable('', [
 
 <script type='text/javascript'>
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-u = wl_unit(uidx);
-W('<div class=\'section-title\' id=\'wl'+u+'-title\'>Wireless');
-if (wl_ifaces.length > 0)
-	W(' (' + wl_display_ifname(uidx) + ')');
-W(' <small><i><a href=\'javascript:toggleVisibility("wl_' + u + '");\'><span id=\'sesdiv_wl_' +u + '_showhide\'>(hide)</span></a></i></small>');
-W('</div>');
-W('<div class=\'section\' id=\'sesdiv_wl_'+u+'\'>');
-sec = auth[nvram['wl'+u+'_security_mode']] + '';
-if (sec.indexOf('WPA') != -1) sec += ' + ' + enc[nvram['wl'+u+'_crypto']];
+/* REMOVE-BEGIN
+//	u = wl_unit(uidx);
+REMOVE-END */
+	u = wl_fface(uidx);
+	W('<div class=\'section-title\' id=\'wl'+uidx+'-title\'>Wireless');
+	if (wl_ifaces.length > 0)
+		W(' (' + wl_display_ifname(uidx) + ')');
+	W('</div>');
+	W('<div class=\'section\' id=\'wl'+uidx+'-section\'>');
+	sec = auth[nvram['wl'+u+'_security_mode']] + '';
+	if (sec.indexOf('WPA') != -1) sec += ' + ' + enc[nvram['wl'+u+'_crypto']];
 
-wmode = wmo[nvram['wl'+u+'_mode']] + '';
-if ((nvram['wl'+u+'_mode'] == 'ap') && (nvram['wl'+u+'_wds_enable'] * 1)) wmode += ' + WDS';
+	wmode = wmo[nvram['wl'+u+'_mode']] + '';
+	if ((nvram['wl'+u+'_mode'] == 'ap') && (nvram['wl'+u+'_wds_enable'] * 1)) wmode += ' + WDS';
 
-createFieldTable('', [
-	{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? '<b>Disabled</b>' : 'Enabled' },
-	{ title: 'MAC Address', text: nvram['wl'+u+'_hwaddr'] },
-	{ title: 'Wireless Mode', text: wmode },
-	{ title: 'Wireless Network Mode', text: bgmo[nvram['wl'+u+'_net_mode']] },
-	{ title: 'Interface Status', rid: 'ifstatus'+uidx, text: wlstats[uidx].ifstatus },
+	createFieldTable('', [
+		{ title: 'MAC Address', text: nvram['wl'+u+'_hwaddr'] },
+		{ title: 'Wireless Mode', text: wmode },
+		{ title: 'Wireless Network Mode', text: bgmo[nvram['wl'+u+'_net_mode']], ignore: (wl_sunit(uidx)>=0) },
+		{ title: 'Interface Status', rid: 'ifstatus'+uidx, text: wlstats[uidx].ifstatus },
+		{ title: 'Radio', rid: 'radio'+uidx, text: (wlstats[uidx].radio == 0) ? '<b>Disabled</b>' : 'Enabled', ignore: (wl_sunit(uidx)>=0) },
 /* REMOVE-BEGIN */
 //	{ title: 'SSID', text: (nvram['wl'+u+'_ssid'] + ' <small><i>' + ((nvram['wl'+u+'_mode'] != 'ap') ? '' : ((nvram['wl'+u+'_closed'] == 0) ? '(Broadcast Enabled)' : '(Broadcast Disabled)')) + '</i></small>') },
 /* REMOVE-END */
-	{ title: 'SSID', text: nvram['wl'+u+'_ssid'] },
-	{ title: 'Broadcast', text: (nvram['wl'+u+'_closed'] == 0) ? 'Enabled' : '<b>Disabled</b>', ignore: (nvram['wl'+u+'_mode'] != 'ap') },
-	{ title: 'Security', text: sec },
-	{ title: 'Channel', rid: 'channel'+uidx, text: stats.channel[uidx] },
-	{ title: 'Channel Width', rid: 'nbw'+uidx, text: wlstats[uidx].nbw, ignore: !nphy },
-	{ title: 'Interference Level', rid: 'interference'+uidx, text: stats.interference[uidx], hidden: (stats.interference[uidx] == '') },
-	{ title: 'Rate', rid: 'rate'+uidx, text: wlstats[uidx].rate },
-	{ title: 'RSSI', rid: 'rssi'+uidx, text: wlstats[uidx].rssi || '', ignore: !wlstats[uidx].client },
-	{ title: 'Noise', rid: 'noise'+uidx, text: wlstats[uidx].noise || '', ignore: !wlstats[uidx].client },
-	{ title: 'Signal Quality', rid: 'qual'+uidx, text: stats.qual[uidx] || '', ignore: !wlstats[uidx].client }
-]);
+		{ title: 'SSID', text: nvram['wl'+u+'_ssid'] },
+		{ title: 'Broadcast', text: (nvram['wl'+u+'_closed'] == 0) ? 'Enabled' : '<b>Disabled</b>', ignore: (nvram['wl'+u+'_mode'] != 'ap') },
+		{ title: 'Security', text: sec },
+		{ title: 'Channel', rid: 'channel'+uidx, text: stats.channel[uidx], ignore: (wl_sunit(uidx)>=0) },
+		{ title: 'Channel Width', rid: 'nbw'+uidx, text: wlstats[uidx].nbw, ignore: ((!nphy) || (wl_sunit(uidx)>=0)) },
+		{ title: 'Interference Level', rid: 'interference'+uidx, text: stats.interference[uidx], hidden: ((stats.interference[uidx] == '') || (wl_sunit(uidx)>=0)) },
+		{ title: 'Rate', rid: 'rate'+uidx, text: wlstats[uidx].rate, ignore: (wl_sunit(uidx)>=0) },
+		{ title: 'RSSI', rid: 'rssi'+uidx, text: wlstats[uidx].rssi || '', ignore: ((!wlstats[uidx].client) || (wl_sunit(uidx)>=0)) },
+		{ title: 'Noise', rid: 'noise'+uidx, text: wlstats[uidx].noise || '', ignore: ((!wlstats[uidx].client) || (wl_sunit(uidx)>=0)) },
+		{ title: 'Signal Quality', rid: 'qual'+uidx, text: stats.qual[uidx] || '', ignore: ((!wlstats[uidx].client) || (wl_sunit(uidx)>=0)) }
+	]);
 
-W('<input type=\'button\' class=\'controls\' onclick=\'wlenable('+uidx+', 1)\' id=\'b_wl'+uidx+'_enable\' value=\'Enable\' style=\'display:none\'>');
-W('<input type=\'button\' class=\'controls\' onclick=\'wlenable('+uidx+', 0)\' id=\'b_wl'+uidx+'_disable\' value=\'Disable\' style=\'display:none\'>');
-W('</div>');
+	W('<input type=\'button\' class=\'controls\' onclick=\'wlenable('+uidx+', 1)\' id=\'b_wl'+uidx+'_enable\' value=\'Enable\' style=\'display:none\'>');
+	W('<input type=\'button\' class=\'controls\' onclick=\'wlenable('+uidx+', 0)\' id=\'b_wl'+uidx+'_disable\' value=\'Disable\' style=\'display:none\'>');
+	W('</div>');
 }
 </script>
 
