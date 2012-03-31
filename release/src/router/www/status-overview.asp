@@ -296,6 +296,10 @@ createFieldTable('', [
 	{ title: 'Router MAC Address', text: nvram.et0macaddr },
 	{ title: 'Router IP Addresses', text: t },
 	{ title: 'Gateway', text: nvram.lan_gateway, ignore: nvram.wan_proto != 'disabled' },
+/* IPV6-BEGIN */
+	{ title: 'Router IPv6 Address', rid: 'ip6_lan', text: stats.ip6_lan, hidden: (stats.ip6_lan == '') },
+	{ title: 'IPv6 Link-local Address', rid: 'ip6_lan_ll', text: stats.ip6_lan_ll, hidden: (stats.ip6_lan_ll == '') },
+/* IPV6-END */
 	{ title: 'DNS', rid: 'dns', text: stats.dns, ignore: nvram.wan_proto != 'disabled' },
 	{ title: 'DHCP', text: s }
 ]);
