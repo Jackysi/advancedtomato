@@ -429,10 +429,6 @@ extern void start_snmp();
 extern void stop_snmp();
 #endif
 
-//cmon.c
-extern void stop_cmon();
-extern void start_cmon();
-
 // pptp.c
 #ifdef TCONFIG_PPTPD
 extern void start_pptpd(void);
