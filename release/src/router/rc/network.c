@@ -572,7 +572,7 @@ void start_lan(void)
 				}
 			
 				if ((nvram_get_int("wan_islan")) && (br==0) &&
-					((get_wan_proto() == WP_DISABLED) || (sta))) {
+					((get_wan_proto() == WP_DISABLED) || (get_wan_proto() == WP_PPP3G) || (sta))) {
 					ifname = nvram_get("wan_ifnameX");
 					if (ifconfig(ifname, IFUP, NULL, NULL) == 0)
 						eval("brctl", "addif", lan_ifname, ifname);

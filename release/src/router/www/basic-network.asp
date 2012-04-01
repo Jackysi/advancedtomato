@@ -873,6 +873,8 @@ function verifyFields(focused, quiet)
 		vis._wan_ipaddr = 0;
 		vis._wan_netmask = 0;
 		vis._lan_gateway = 0;
+		vis._modem_ipaddr = 0;
+		vis._f_wan_islan = 1;
 		break;
 	case 'static':
 		vis._l2tp_server_ip = 0;
@@ -1171,7 +1173,7 @@ REMOVE-END */
 			else ferror.clear('_wl'+u+'_channel');
 
 			if (E('_f_wl'+u+'_mode').value == 'sta') {
-				if ((wan == 'disabled') && (E('_f_wl'+u+'_radio').checked)) {
+				if (((wan == 'disabled') || (wan == 'ppp3g')) && (E('_f_wl'+u+'_radio').checked)) {
 					ferror.set('_wan_proto', 'Wireless Client mode requires a valid WAN setting (usually DHCP).', quiet || !ok);
 					ok = 0;
 				}
@@ -1636,7 +1638,7 @@ createFieldTable('', [
 /* LINUX26-END */
 		['disabled','Disabled']],
 		value: nvram.wan_proto },
-	{ title: 'Modem device', name: 'modem_dev', type: 'select', options: [['ttyUSB0', '/dev/ttyUSB0'],['ttyUSB2', '/dev/ttyUSB2']], value: nvram.modem_dev },
+	{ title: 'Modem device', name: 'modem_dev', type: 'select', options: [['ttyUSB0', '/dev/ttyUSB0'],['ttyUSB1', '/dev/ttyUSB1'],['ttyUSB2', '/dev/ttyUSB2'],['ttyUSB3', '/dev/ttyUSB3'],['ttyUSB4', '/dev/ttyUSB4'],['ttyUSB5', '/dev/ttyUSB5']], value: nvram.modem_dev },
 	{ title: 'PIN Code', name: 'modem_pin', type: 'text', maxlen: 6, size: 8, value: nvram.modem_pin },
 	{ title: 'Modem init string', name: 'modem_init', type: 'text', maxlen: 25, size: 32, value: nvram.modem_init },
 	{ title: 'APN', name: 'modem_apn', type: 'text', maxlen: 25, size: 32, value: nvram.modem_apn },
