@@ -670,20 +670,26 @@ static int print_wif(int idx, int unit, int subunit, void *param)
 		if (ioctl(sfd, SIOCGIFFLAGS, &ifr) == 0)
 			if (ifr.ifr_flags & (IFF_UP | IFF_RUNNING))
 				up = 1;
+		close(sfd);
 	}
 
-	// [ifname, unitstr, unit, subunit, ssid, hwaddr, up]
+	char *ifname;
+	ifname = nvram_safe_get(wl_nvname("ifname", unit, subunit));
+	struct ether_addr bssid;
+
+	wl_ioctl(ifname, WLC_GET_BSSID, &bssid, ETHER_ADDR_LEN);
+
+	// [ifname, unitstr, unit, subunit, ssid, hwaddr, up, wmode, bssid]
 	ssidj = js_string(nvram_safe_get(wl_nvname("ssid", unit, subunit)));
-	web_printf("%c['%s','%s',%d,%d,'%s','%s',%d,%d]", (idx == 0) ? ' ' : ',',
+	web_printf("%c['%s','%s',%d,%d,'%s','%s',%d,%d,'%s','%02X:%02X:%02X:%02X:%02X:%02X']", (idx == 0) ? ' ' : ',',
 		nvram_safe_get(wl_nvname("ifname", unit, subunit)),
 		unit_str, unit, subunit, ssidj,
-		// assume the slave inteface MAC address is the same as the primary interface
-//		nvram_safe_get(wl_nvname("hwaddr", unit, 0))
 //		// virtual inteface MAC address
-		nvram_safe_get(wl_nvname("hwaddr", unit, subunit)), up, max_no_vifs // AB multiSSID
+		nvram_safe_get(wl_nvname("hwaddr", unit, subunit)), up, max_no_vifs, // AB multiSSID
+		nvram_safe_get(wl_nvname("mode", unit, subunit)),
+		bssid.octet[0], bssid.octet[1], bssid.octet[2], bssid.octet[3], bssid.octet[4], bssid.octet[5]
 	);
 	free(ssidj);
-	if (sfd >= 0) close(sfd);
 
 	return 0;
 }
