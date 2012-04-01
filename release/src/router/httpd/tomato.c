@@ -1232,6 +1232,7 @@ static const nvset_t nvset_list[] = {
 	{ "pptpd_wins2",		V_TEXT(0, 15)		},
 	{ "pptpd_mtu",			V_RANGE(576, 1500)	},
 	{ "pptpd_mru",			V_RANGE(576, 1500)	},
+	{ "pptpd_custom",		V_TEXT(0, 2048)		},
 
 /*
 ppp_static			0/1
