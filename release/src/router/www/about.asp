@@ -148,7 +148,7 @@ Copyright (C) 2011 Michał Rupental<br>
 - OpenVPN enhancements &amp; username/password only authentication<br>
 <!-- OPENVPN-END -->
 <!-- USERPPTP-BEGIN -->
-- PPTP VPN client integration and GUI<br>
+- PPTP VPN Client integration and GUI<br>
 <!-- USERPPTP-END -->
 Copyright (C) 2010-2011 Jean-Yves Avenard<br>
 <a href='mailto:jean-yves@avenard.org'>jean-yves@avenard.org</a><br>
@@ -167,7 +167,7 @@ Copyright (C) 2010-2011 Jean-Yves Avenard<br>
 - Multiple/virtual SSID support (experimental)<br>
 <!-- VLAN-END -->
 <!-- PPTPD-BEGIN -->
-- PPTP Server integration and GUI</a><br>
+- PPTP VPN Server integration and GUI</a><br>
 <!-- PPTPD-END -->
 - Real-time bandwidth monitoring of LAN clients<br>
 - Static ARP binding<br>
