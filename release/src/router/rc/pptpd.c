@@ -194,6 +194,8 @@ void start_pptpd(void)
 	if(!manual_dns && !nvram_match("lan_ipaddr", ""))
                 fprintf(fp, "ms-dns %s\n", nvram_safe_get("lan_ipaddr"));
 
+	fprintf(fp, "%s\n\n", nvram_safe_get("pptpd_custom"));
+
 	// Following is all crude and need to be revisited once testing confirms
 	// that it does work
 	// Should be enough for testing..
