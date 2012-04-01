@@ -22,10 +22,14 @@
 #ul-grid .co2 {
   text-align: center;
 }
+textarea {
+  width: 98%;
+  height: 15em;
+}
 </style>
 <script type='text/javascript' src='interfaces.js'></script>
 <script type='text/javascript'>
-//	<% nvram("lan_ipaddr,lan_netmask,pptpd_enable,pptpd_remoteip,pptpd_forcemppe,pptpd_broadcast,pptpd_users,pptpd_dns1,pptpd_dns2,pptpd_wins1,pptpd_wins2,pptpd_mtu,pptpd_mru");%>
+//	<% nvram("lan_ipaddr,lan_netmask,pptpd_enable,pptpd_remoteip,pptpd_forcemppe,pptpd_broadcast,pptpd_users,pptpd_dns1,pptpd_dns2,pptpd_wins1,pptpd_wins2,pptpd_mtu,pptpd_mru,pptpd_custom");%>
 
 if (nvram.pptpd_remoteip == '') nvram.pptpd_remoteip = '172.19.0.1-6';
 if (nvram.pptpd_forcemppe == '') nvram.pptpd_forcemppe = '1';
@@ -168,6 +172,7 @@ function verifyFields(focused, quiet) {
 	E('_pptpd_broadcast').disabled = c;
 	E('_f_pptpd_startip').disabled = c;
 	E('_f_pptpd_endip').disabled = c;
+	E('_pptpd_custom').disabled = c;
 
 	var a = E('_f_pptpd_startip');
 /* REMOVE-BEGIN */
@@ -323,7 +328,9 @@ createFieldTable('', [
 	{ title: 'WINS Servers', name: 'pptpd_wins1', type: 'text', maxlen: 15, size: 17, value: nvram.pptpd_wins1 },
 	{ title: '', name: 'pptpd_wins2', type: 'text', maxlen: 15, size: 17, value: nvram.pptpd_wins2 },
 	{ title: 'MTU', name: 'pptpd_mtu', type: 'text', maxlen: 4, size: 6, value: (nvram.pptpd_mtu ? nvram.pptpd_mtu : 1450)},
-	{ title: 'MRU', name: 'pptpd_mru', type: 'text', maxlen: 4, size: 6, value: (nvram.pptpd_mru ? nvram.pptpd_mru : 1450)}
+	{ title: 'MRU', name: 'pptpd_mru', type: 'text', maxlen: 4, size: 6, value: (nvram.pptpd_mru ? nvram.pptpd_mru : 1450)},
+	{ title: 'Custom configuration', name: 'pptpd_custom', type: 'textarea', value: nvram.pptpd_custom }
+
 ]);
 </script>
 </div>
