@@ -2077,6 +2077,9 @@ void start_services(void)
 	start_rstats(0);
 	start_cstats(0);
 	start_sched();
+#ifdef TCONFIG_PPTPD
+	start_pptpd();
+#endif
 #ifdef TCONFIG_IPV6
 	/* note: starting radvd here might be too early in case of
 	 * DHCPv6 or 6to4 because we won't have received a prefix and
@@ -2118,6 +2121,9 @@ void stop_services(void)
 	restart_nas_services(1, 0);	// stop Samba, FTP and Media Server
 #ifdef TCONFIG_IPV6
 	stop_radvd();
+#endif
+#ifdef TCONFIG_PPTPD
+	stop_pptpd();
 #endif
 	stop_sched();
 	stop_rstats();
@@ -2671,6 +2677,14 @@ TOP:
 	if (strcmp(service, "splashd") == 0) {
 		if (action & A_STOP) stop_splashd();
 		if (action & A_START) start_splashd();
+		goto CLEAR;
+	}
+#endif
+
+#ifdef TCONFIG_PPTPD
+	if (strcmp(service, "pptpd") == 0) {
+		if (action & A_STOP) stop_pptpd();
+		if (action & A_START) start_pptpd();
 		goto CLEAR;
 	}
 #endif

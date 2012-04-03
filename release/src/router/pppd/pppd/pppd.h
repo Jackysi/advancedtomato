@@ -273,6 +273,7 @@ extern struct notifier *fork_notifier;	/* we are a new child process */
  * Variables set by command-line options.
  */
 
+extern bool	nochecktime;	/* Don't check time */
 extern int	debug;		/* Debug flag */
 extern int	kdebugflag;	/* Tell kernel to print debug messages */
 extern int	default_device;	/* Using /dev/tty or equivalent */
@@ -301,6 +302,7 @@ extern char	remote_name[MAXNAMELEN]; /* Peer's name for authentication */
 extern bool	explicit_remote;/* remote_name specified with remotename opt */
 extern bool	demand;		/* Do dial-on-demand */
 extern char	*ipparam;	/* Extra parameter for ip up/down scripts */
+extern char	*chapseccustom;	/* Custom chap-secrets file */
 extern bool	cryptpap;	/* Others' PAP passwords are encrypted */
 extern int	idle_time_limit;/* Shut down link if idle for this long */
 extern int	holdoff;	/* Dead time before restarting */
@@ -323,6 +325,9 @@ extern char	*bundle_name;	/* bundle name for multilink */
 extern bool	dump_options;	/* print out option values */
 extern bool	dryrun;		/* check everything, print options, exit */
 extern int	child_wait;	/* # seconds to wait for children at end */
+#ifdef CHAPMS
+extern bool	ms_ignore_domain; /* Ignore any MS domain prefix */
+#endif
 
 #ifdef MAXOCTETS
 extern unsigned int maxoctets;	     /* Maximum octetes per session (in bytes) */

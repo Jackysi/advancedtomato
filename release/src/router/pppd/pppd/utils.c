@@ -1057,6 +1057,11 @@ unlock()
 void saveWANStatus(char *currentstatus, int statusindex)
 {
 	FILE *STATUSFILE;
+
+	/* only save with status description */
+	if (strlen(currentstatus) == 0)
+		return;
+
 #ifdef ONWL500G_SHELL
 	if ((req_unit == 0) && (STATUSFILE = fopen("/etc/linuxigd/wanstatus.log", "w"))!=NULL)
 	{

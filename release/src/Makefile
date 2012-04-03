@@ -44,6 +44,8 @@ else
 ND = "ND"
 endif
 
+PPTPD ?= "n"
+
 ifeq ($(NVRAM_SIZE),)
 NVRAM_SIZE = 0
 endif
@@ -326,6 +328,10 @@ define RouterOptions
 			sed -i "/TCONFIG_FTP_SSL/d" $(1); \
 			echo "TCONFIG_FTP_SSL=y" >>$(1); \
 		fi; \
+	fi; \
+	if [ "$(PPTPD)" = "y" ]; then \
+		sed -i "/TCONFIG_PPTPD/d" $(1); \
+		echo "TCONFIG_PPTPD=y" >>$(1); \
 	fi; \
 	if [ "$(BTCLIENT)" = "y" ]; then \
 		sed -i "/TCONFIG_BT/d" $(1); \

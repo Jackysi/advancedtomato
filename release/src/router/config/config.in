@@ -13,6 +13,11 @@ config TCONFIG_PPTP
 	bool "PPTP"
 	default y
 
+config TCONFIG_PPTPD
+	bool "PPTPD"
+	depends on TCONFIG_PPTP
+	default n
+
 config TCONFIG_HTTPS
 	bool "HTTPS"
 	default y
