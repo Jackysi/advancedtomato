@@ -339,11 +339,12 @@ for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
 //	u = wl_unit(uidx);
 REMOVE-END */
 	u = wl_fface(uidx);
-	W('<div class=\'section-title\' id=\'wl'+uidx+'-title\'>Wireless');
+	W('<div class=\'section-title\' id=\'wl'+u+'-title\'>Wireless');
 	if (wl_ifaces.length > 0)
 		W(' (' + wl_display_ifname(uidx) + ')');
+	W(' <small><i><a href=\'javascript:toggleVisibility("wl_' + u + '");\'><span id=\'sesdiv_wl_' +u + '_showhide\'>(hide)</span></a></i></small>');
 	W('</div>');
-	W('<div class=\'section\' id=\'wl'+uidx+'-section\'>');
+	W('<div class=\'section\' id=\'sesdiv_wl_'+u+'\'>');
 	sec = auth[nvram['wl'+u+'_security_mode']] + '';
 	if (sec.indexOf('WPA') != -1) sec += ' + ' + enc[nvram['wl'+u+'_crypto']];
 
