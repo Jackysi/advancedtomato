@@ -1607,13 +1607,9 @@ transmission-install: transmission
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-cli
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-show
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-edit
-	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-daemon
-	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-remote
-ifeq ($(TCONFIG_TR_EXTRAS),y)
-	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-create
-else
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-create
-endif
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-remote
+	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-daemon
 
 btgui:
 	@$(SEP)
