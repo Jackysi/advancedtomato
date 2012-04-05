@@ -25,6 +25,10 @@ ifeq ($(FULL_OPENSSL),y)
 LIBS += -L$(TOP)/openssl -lssl -lcrypto
 endif
 
+ifeq ($(TCONFIG_PPTPD),y)
+OBJS += pptpd.o
+endif
+
 all: httpd
 
 httpd: $(OBJS)

@@ -335,6 +335,9 @@ const struct mime_handler mime_handlers[] = {
 #ifdef TCONFIG_OPENVPN
 	{ "vpnstatus.cgi",	mime_javascript,			0,	wi_generic,			wo_vpn_status,		1 },
 #endif
+#ifdef TCONFIG_PPTPD
+	{ "pptpd.cgi",		mime_javascript,			0,	wi_generic,			wo_pptpdcmd,		1 },	//!!AB - PPTPD
+#endif
 #ifdef TCONFIG_USB
 	{ "usbcmd.cgi",			mime_javascript,			0,	wi_generic,		wo_usbcommand,		1 },	//!!TB - USB
 #endif
@@ -391,6 +394,9 @@ const aspapi_t aspapi[] = {
 	{ "version",			asp_version			},
 	{ "wanstatus",			asp_wanstatus		},
 	{ "wanup",				asp_wanup			},
+#ifdef TCONFIG_PPTPD
+	{ "pptpd_userol",		asp_pptpd_userol	},
+#endif
 	{ "wlstats",			asp_wlstats		},
 	{ "wlclient",			asp_wlclient		},
 	{ "wlnoise",			asp_wlnoise			},
@@ -625,6 +631,11 @@ static const nvset_t nvset_list[] = {
 	{ "wl_closed",			V_01				},
 	{ "wl_channel",			V_RANGE(0, 216)		},
 
+	{ "wl_vifs",			V_LENGTH(0, 64)		},	// multiple/virtual BSSIDs
+#ifndef LINUX26
+	{ "nas_alternate",			V_01			},	// only meaningful for ND/K24 builds
+#endif
+
 	{ "wl_security_mode",		V_LENGTH(1, 32)		},	// disabled, radius, wep, wpa_personal, wpa_enterprise, wpa2_personal, wpa2_enterprise
 	{ "wl_radius_ipaddr",	V_IP				},
 	{ "wl_radius_port",		V_PORT				},
@@ -780,6 +791,7 @@ static const nvset_t nvset_list[] = {
 // advanced-mac
 	{ "mac_wan",			V_LENGTH(0, 17)		},
 	{ "wl_macaddr",			V_LENGTH(0, 17)		},
+	{ "wl_hwaddr",			V_LENGTH(0, 17)		},
 
 // advanced-routing
 	{ "routes_static",		V_LENGTH(0, 2048)	},
@@ -1314,6 +1326,21 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client2_crt",      V_NONE              },
 	{ "vpn_client2_key",      V_NONE              },
 #endif // vpn
+
+#ifdef TCONFIG_PPTPD
+// pptp server
+	{ "pptpd_enable",		V_01			},
+	{ "pptpd_remoteip",		V_TEXT(0,24)		},
+	{ "pptpd_forcemppe",		V_01			},
+	{ "pptpd_users",		V_TEXT(0, 67*16)	},
+	{ "pptpd_broadcast",		V_TEXT(0,8)		},
+	{ "pptpd_dns1",			V_TEXT(0, 15)		},
+	{ "pptpd_dns2",			V_TEXT(0, 15)		},
+	{ "pptpd_wins1",		V_TEXT(0, 15)		},
+	{ "pptpd_wins2",		V_TEXT(0, 15)		},
+	{ "pptpd_mtu",			V_RANGE(576, 1500)	},
+	{ "pptpd_mru",			V_RANGE(576, 1500)	},
+#endif
 
 /*
 ppp_static			0/1

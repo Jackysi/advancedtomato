@@ -129,21 +129,19 @@ void start_bittorrent(void)
     fprintf( fp, "mkdir %s/.settings\n", pk );
     fprintf( fp, "fi\n");
     fprintf( fp, "mv /tmp/settings.json %s/.settings\n", pk );
+
+    fprintf( fp, "rm %s/.settings/blocklists/*\n", pk );
+
+    if ( nvram_match( "bt_blocklist", "1") )
+    {
+        fprintf( fp, "wget %s -O %s/.settings/blocklists/level1.gz\n", nvram_safe_get( "bt_blocklist_url" ), pk );
+        fprintf( fp, "gunzip %s/.settings/blocklists/level1.gz\n", pk );
+    }
+
     fprintf( fp, "%s/transmission-daemon -g %s/.settings\n", pn, pk );
     fprintf( fp, "logger \"Transmission daemon successfully started\" \n");
     fprintf( fp, "sleep 2\n" );
 
-    if ( nvram_match( "bt_blocklist", "1") )
-    {
-        if ( nvram_match( "bt_auth", "1") )
-        {
-            fprintf( fp, "%s/transmission-remote %s --auth %s:%s --blocklist-update\n", pn, nvram_safe_get( "bt_port_gui" ), nvram_safe_get( "bt_login" ), nvram_safe_get( "bt_password" ) );
-        }
-        else
-        {
-            fprintf( fp, "%s/transmission-remote %s --blocklist-update\n", pn, nvram_safe_get( "bt_port_gui" ) );
-        }
-    }
 
     fprintf( fp, "/usr/bin/btcheck addcru\n");
 

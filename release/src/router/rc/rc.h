@@ -247,6 +247,7 @@ extern void remove_storage_main(int shutdn);
 
 // wnas.c
 extern int wds_enable(void);
+extern int wl_security_on(void);
 extern void start_nas(void);
 extern void stop_nas(void);
 extern void notify_nas(const char *ifname);
@@ -440,6 +441,12 @@ extern void stop_snmp();
 #ifdef TCONFIG_UPS
 extern void start_ups();
 extern void stop_ups();
+#endif
+
+// pptp.c
+#ifdef TCONFIG_PPTPD
+extern void start_pptpd(void);
+extern void stop_pptpd(void);
 #endif
 
 // vpn.c

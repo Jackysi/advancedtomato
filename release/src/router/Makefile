@@ -136,6 +136,7 @@ obj-y += miniupnpd
 #
 obj-$(TCONFIG_L2TP) += xl2tpd
 obj-$(TCONFIG_PPTP) += accel-pptp
+obj-$(TCONFIG_PPTPD) += pptpd
 obj-$(TCONFIG_HTTPS) += openssl
 obj-$(TCONFIG_SSH) += dropbear
 obj-$(TCONFIG_ZEBRA) += zebra
@@ -959,6 +960,24 @@ accel-pptp-install: accel-pptp
 	install -D accel-pptp/src/.libs/pptp.so $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
 	$(STRIP) $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
 
+pptpd/stamp-h1:
+	cd $(TOP)/pptpd && $(CONFIGURE) --prefix=$(INSTALLDIR)/pptpd --enable-bcrelay CC=mipsel-uclibc-gcc \
+		STRIP=mipsel-uclibc-strip AR=mipsel-uclibc-ar LD=mipsel-uclibc-ld NM=mipsel-uclibc-nm RANLIB=mipsel-uclibc-ranlib
+	touch pptpd/stamp-h1
+
+pptpd: pptpd/stamp-h1
+
+pptpd-install: pptpd
+	@echo pptpd
+	@install -D pptpd/pptpd $(INSTALLDIR)/pptpd/usr/sbin/pptpd
+	@install -D pptpd/bcrelay $(INSTALLDIR)/pptpd/usr/sbin/bcrelay
+	@install -D pptpd/pptpctrl $(INSTALLDIR)/pptpd/usr/sbin/pptpctrl
+	@$(STRIP) $(INSTALLDIR)/pptpd/usr/sbin/pptpd
+	@$(STRIP) $(INSTALLDIR)/pptpd/usr/sbin/bcrelay
+	@$(STRIP) $(INSTALLDIR)/pptpd/usr/sbin/pptpctrl
+
+pptpd-clean: pptpd/stamp-h1
+	cd $(TOP)/pptpd && make clean && rm -rf stamp-h1 .deps
 
 pppd/Makefile: pppd/linux/Makefile.top
 	cd pppd && $(CONFIGURE) --prefix=/usr --sysconfdir=/tmp
@@ -1594,13 +1613,9 @@ transmission-install: transmission
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-cli
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-show
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-edit
-	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-daemon
-	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-remote
-ifeq ($(TCONFIG_TR_EXTRAS),y)
-	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-create
-else
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-create
-endif
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-remote
+	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-daemon
 
 btgui:
 	@$(SEP)

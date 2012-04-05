@@ -24,7 +24,7 @@
 
 #define VLAN_NUMPRIS	8	/* # of prio, start from 0 */
 
-#define DEV_NUMIFS	16	/* Max. # of devices/interfaces supported */
+#define DEV_NUMIFS	32	/* Max. # of devices/interfaces supported */
 
 #define WL_MAXBSSCFG	16	/* maximum number of BSS Configs we can configure */
 

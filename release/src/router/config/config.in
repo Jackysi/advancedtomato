@@ -13,6 +13,11 @@ config TCONFIG_PPTP
 	bool "PPTP"
 	default y
 
+config TCONFIG_PPTPD
+	bool "PPTPD"
+	depends on TCONFIG_PPTP
+	default n
+
 config TCONFIG_HTTPS
 	bool "HTTPS"
 	default y
@@ -122,10 +127,6 @@ config TCONFIG_BT
 
 config TCONFIG_BBT
 	bool "  Bittorrent client binaries only"
-	default n
-
-config TCONFIG_TR_EXTRAS
-	bool "  Transmission extra tools"
 	default n
 
 config TCONFIG_NFS
