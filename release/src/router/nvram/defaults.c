@@ -1073,6 +1073,25 @@ const defaults_t defaults[] = {
 	{ "qosl_ulc",				""			},
 	{ "qosl_dlr",				""			},
 	{ "qosl_ulr",				""			},
+	{ "limit_br1_enable",			"0"			},
+	{ "limit_br1_dlc",			""			},
+	{ "limit_br1_ulc",			""			},
+	{ "limit_br1_dlr",			""			},
+	{ "limit_br1_ulr",			""			},
+	{ "limit_br1_prio",			"2"			},
+	{ "limit_br2_enable",			"0"			},
+	{ "limit_br2_dlc",			""			},
+	{ "limit_br2_ulc",			""			},
+	{ "limit_br2_dlr",			""			},
+	{ "limit_br2_ulr",			""			},
+	{ "limit_br2_prio",			"2"			},
+	{ "limit_br3_enable",			"0"			},
+	{ "limit_br3_dlc",			""			},
+	{ "limit_br3_ulc",			""			},
+	{ "limit_br3_dlr",			""			},
+	{ "limit_br3_ulr",			""			},
+	{ "limit_br3_prio",			"2"			},
+
 
 // NoCatSplash. !!Victek
 #ifdef TCONFIG_NOCAT
