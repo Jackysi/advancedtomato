@@ -2448,6 +2448,7 @@ REMOVE-END */
 			['PPTP Online',			'pptp-online.asp']
 /* PPTPD-END */
 			] ],
+/* VPN-END */
 		null,
 		['Administration',		'admin', 0, [
 			['Admin Access',		'access.asp'],
