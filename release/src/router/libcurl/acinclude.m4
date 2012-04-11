@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -51,7 +51,7 @@ CURL_DEF_TOKEN $1
   ],[
     tmp_exp=`eval "$ac_cpp conftest.$ac_ext" 2>/dev/null | \
       "$GREP" CURL_DEF_TOKEN 2>/dev/null | \
-      "$SED" 's/.*CURL_DEF_TOKEN[[ ]]//' 2>/dev/null | \
+      "$SED" 's/.*CURL_DEF_TOKEN[[ ]][[ ]]*//' 2>/dev/null | \
       "$SED" 's/[["]][[ ]]*[["]]//g' 2>/dev/null`
     if test -z "$tmp_exp" || test "$tmp_exp" = "$1"; then
       tmp_exp=""
@@ -1663,7 +1663,7 @@ AC_DEFUN([CURL_CHECK_FUNC_RECVFROM], [
           for recvfrom_arg2 in 'char *' 'void *'; do
             for recvfrom_arg3 in 'size_t' 'int' 'socklen_t' 'unsigned int'; do
               for recvfrom_arg4 in 'int' 'unsigned int'; do
-                for recvfrom_arg5 in 'struct sockaddr *' 'void *'; do
+                for recvfrom_arg5 in 'struct sockaddr *' 'void *' 'const struct sockaddr *'; do
                   for recvfrom_arg6 in 'socklen_t *' 'int *' 'unsigned int *' 'size_t *' 'void *'; do
                     if test "$curl_cv_func_recvfrom_args" = "unknown"; then
                       AC_COMPILE_IFELSE([
@@ -1731,7 +1731,7 @@ AC_DEFUN([CURL_CHECK_FUNC_RECVFROM], [
       shift
       #
       recvfrom_ptrt_arg2=$[2]
-      recvfrom_ptrt_arg5=$[5]
+      recvfrom_qual_ptrt_arg5=$[5]
       recvfrom_ptrt_arg6=$[6]
       #
       AC_DEFINE_UNQUOTED(RECVFROM_TYPE_ARG1, $[1],
@@ -1753,12 +1753,25 @@ AC_DEFUN([CURL_CHECK_FUNC_RECVFROM], [
           ;;
       esac
       #
+      case "$recvfrom_qual_ptrt_arg5" in
+        const*)
+          recvfrom_qual_arg5=const
+          recvfrom_ptrt_arg5=`echo $recvfrom_qual_ptrt_arg5 | sed 's/^const //'`
+        ;;
+        *)
+          recvfrom_qual_arg5=
+          recvfrom_ptrt_arg5=$recvfrom_qual_ptrt_arg5
+        ;;
+      esac
+      #
       recvfrom_type_arg2=`echo $recvfrom_ptrt_arg2 | sed 's/ \*//'`
       recvfrom_type_arg5=`echo $recvfrom_ptrt_arg5 | sed 's/ \*//'`
       recvfrom_type_arg6=`echo $recvfrom_ptrt_arg6 | sed 's/ \*//'`
       #
       AC_DEFINE_UNQUOTED(RECVFROM_TYPE_ARG2, $recvfrom_type_arg2,
         [Define to the type pointed by arg 2 for recvfrom.])
+      AC_DEFINE_UNQUOTED(RECVFROM_QUAL_ARG5, $recvfrom_qual_arg5,
+        [Define to the type qualifier pointed by arg 5 for recvfrom.])
       AC_DEFINE_UNQUOTED(RECVFROM_TYPE_ARG5, $recvfrom_type_arg5,
         [Define to the type pointed by arg 5 for recvfrom.])
       AC_DEFINE_UNQUOTED(RECVFROM_TYPE_ARG6, $recvfrom_type_arg6,
@@ -2145,6 +2158,7 @@ AC_DEFUN([CURL_CHECK_LIBS_CLOCK_GETTIME_MONOTONIC], [
         else
           LIBS="$curl_cv_gclk_LIBS $curl_cv_save_LIBS"
         fi
+        CURL_LIBS="$CURL_LIBS $curl_cv_gclk_LIBS"
         AC_MSG_RESULT([$curl_cv_gclk_LIBS])
         ac_cv_func_clock_gettime="yes"
         ;;
@@ -2842,7 +2856,7 @@ AC_DEFUN([DO_CURL_OFF_T_CHECK], [
     tmp_includes=""
     tmp_source=""
     tmp_fmt=""
-    case AS_TR_SH([$1]) in
+    case XC_SH_TR_SH([$1]) in
       int64_t)
         tmp_includes="$curl_includes_inttypes"
         tmp_source="char f@<:@@:>@ = PRId64;"
@@ -2900,7 +2914,7 @@ AC_DEFUN([DO_CURL_OFF_T_SUFFIX_CHECK], [
   curl_suffix_curl_off_t="unknown"
   curl_suffix_curl_off_tu="unknown"
   #
-  case AS_TR_SH([$1]) in
+  case XC_SH_TR_SH([$1]) in
     long_long | __longlong | __longlong_t)
       tst_suffixes="LL::"
       ;;
@@ -3072,7 +3086,7 @@ AC_DEFUN([CURL_CONFIGURE_CURL_OFF_T], [
     curl_format_curl_off_tu=`echo "$curl_format_curl_off_tu" | "$SED" 's/D$/U/'`
   else
     x_pull_headers="no"
-    case AS_TR_SH([$curl_typeof_curl_off_t]) in
+    case XC_SH_TR_SH([$curl_typeof_curl_off_t]) in
       long_long | __longlong | __longlong_t)
         curl_format_curl_off_t="lld"
         curl_format_curl_off_tu="llu"
@@ -3180,7 +3194,7 @@ AC_DEFUN([CURL_CHECK_WIN32_LARGEFILE], [
       ;;
     win32_small_files)
       AC_MSG_RESULT([yes (large file disabled)])
-      AC_DEFINE_UNQUOTED(USE_WIN32_LARGE_FILES, 1,
+      AC_DEFINE_UNQUOTED(USE_WIN32_SMALL_FILES, 1,
         [Define to 1 if you are building a Windows target without large file support.])
       ;;
     *)
@@ -3244,4 +3258,45 @@ AC_DEFUN([CURL_CHECK_PKGCONFIG], [
         AC_MSG_RESULT([found])
       fi
     fi
+])
+
+
+dnl CURL_GENERATE_CONFIGUREHELP_PM
+dnl -------------------------------------------------
+dnl Generate test harness configurehelp.pm module, defining and
+dnl initializing some perl variables with values which are known
+dnl when the configure script runs. For portability reasons, test
+dnl harness needs information on how to run the C preprocessor.
+
+AC_DEFUN([CURL_GENERATE_CONFIGUREHELP_PM], [
+  AC_REQUIRE([AC_PROG_CPP])dnl
+  tmp_cpp=`eval echo "$ac_cpp" 2>/dev/null`
+  if test -z "$tmp_cpp"; then
+    tmp_cpp='cpp'
+  fi
+  cat >./tests/configurehelp.pm <<_EOF
+[@%:@] This is a generated file.  Do not edit.
+
+package configurehelp;
+
+use strict;
+use warnings;
+use Exporter;
+
+use vars qw(
+    @ISA
+    @EXPORT_OK
+    \$Cpreprocessor
+    );
+
+@ISA = qw(Exporter);
+
+@EXPORT_OK = qw(
+    \$Cpreprocessor
+    );
+
+\$Cpreprocessor = '$tmp_cpp';
+
+1;
+_EOF
 ])

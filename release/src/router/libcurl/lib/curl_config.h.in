@@ -24,6 +24,9 @@
 /* to disable FTP */
 #undef CURL_DISABLE_FTP
 
+/* to disable Gopher */
+#undef CURL_DISABLE_GOPHER
+
 /* to disable HTTP */
 #undef CURL_DISABLE_HTTP
 
@@ -35,6 +38,9 @@
 
 /* to disable LDAPS */
 #undef CURL_DISABLE_LDAPS
+
+/* to disable --libcurl C code generation option */
+#undef CURL_DISABLE_LIBCURL_OPTION
 
 /* to disable POP3 */
 #undef CURL_DISABLE_POP3
@@ -53,6 +59,9 @@
 
 /* to disable TFTP */
 #undef CURL_DISABLE_TFTP
+
+/* to disable TLS-SRP authentication */
+#undef CURL_DISABLE_TLS_SRP
 
 /* to disable verbose strings */
 #undef CURL_DISABLE_VERBOSE_STRINGS
@@ -174,8 +183,20 @@
 /* Define to 1 if you have the freeifaddrs function. */
 #undef HAVE_FREEIFADDRS
 
+/* Define to 1 if you have the fsetxattr function. */
+#undef HAVE_FSETXATTR
+
+/* fsetxattr() takes 5 args */
+#undef HAVE_FSETXATTR_5
+
+/* fsetxattr() takes 6 args */
+#undef HAVE_FSETXATTR_6
+
 /* Define to 1 if you have the ftruncate function. */
 #undef HAVE_FTRUNCATE
+
+/* Define to 1 if you have the gai_strerror function. */
+#undef HAVE_GAI_STRERROR
 
 /* Define to 1 if you have a working getaddrinfo function. */
 #undef HAVE_GETADDRINFO
@@ -251,6 +272,9 @@
 
 /* Define to 1 if you have a working gmtime_r function. */
 #undef HAVE_GMTIME_R
+
+/* if you have the function gnutls_srp_verifier */
+#undef HAVE_GNUTLS_SRP
 
 /* if you have the gssapi libraries */
 #undef HAVE_GSSAPI
@@ -373,9 +397,6 @@
 /* Define to 1 if you have the `resolve' library (-lresolve). */
 #undef HAVE_LIBRESOLVE
 
-/* Define to 1 if you have the `rtmp' library (-lrtmp). */
-#undef HAVE_LIBRTMP
-
 /* Define to 1 if you have the <librtmp/rtmp.h> header file. */
 #undef HAVE_LIBRTMP_RTMP_H
 
@@ -393,6 +414,9 @@
 
 /* Define to 1 if you have the `libssh2_scp_send64' function. */
 #undef HAVE_LIBSSH2_SCP_SEND64
+
+/* Define to 1 if you have the `libssh2_session_handshake' function. */
+#undef HAVE_LIBSSH2_SESSION_HANDSHAKE
 
 /* Define to 1 if you have the `libssh2_version' function. */
 #undef HAVE_LIBSSH2_VERSION
@@ -575,11 +599,20 @@
 /* Define to 1 if you have the socket function. */
 #undef HAVE_SOCKET
 
+/* Define to 1 if you have the socketpair function. */
+#undef HAVE_SOCKETPAIR
+
 /* Define to 1 if you have the <socket.h> header file. */
 #undef HAVE_SOCKET_H
 
 /* Define this if you have the SPNEGO library fbopenssl */
 #undef HAVE_SPNEGO
+
+/* if you have the function SRP_Calc_client_key */
+#undef HAVE_SSLEAY_SRP
+
+/* Define to 1 if you have the `SSLv2_client_method' function. */
+#undef HAVE_SSLV2_CLIENT_METHOD
 
 /* Define to 1 if you have the `SSL_get_shutdown' function. */
 #undef HAVE_SSL_GET_SHUTDOWN
@@ -698,6 +731,12 @@
 /* Define to 1 if you have the <sys/utime.h> header file. */
 #undef HAVE_SYS_UTIME_H
 
+/* Define to 1 if you have the <sys/wait.h> header file. */
+#undef HAVE_SYS_WAIT_H
+
+/* Define to 1 if you have the <sys/xattr.h> header file. */
+#undef HAVE_SYS_XATTR_H
+
 /* Define to 1 if you have the <termios.h> header file. */
 #undef HAVE_TERMIOS_H
 
@@ -783,6 +822,12 @@
 /* Define to 1 if _THREAD_SAFE preprocessor symbol must be defined. */
 #undef NEED_THREAD_SAFE
 
+/* Define to enable NTLM delegation to winbind's ntlm_auth helper. */
+#undef NTLM_WB_ENABLED
+
+/* Define absolute filename for winbind's ntlm_auth helper. */
+#undef NTLM_WB_FILE
+
 /* cpu-machine-OS */
 #undef OS
 
@@ -809,6 +854,9 @@
 
 /* a suitable file to read random data from */
 #undef RANDOM_FILE
+
+/* Define to the type qualifier pointed by arg 5 for recvfrom. */
+#undef RECVFROM_QUAL_ARG5
 
 /* Define to the type of arg 1 for recvfrom. */
 #undef RECVFROM_TYPE_ARG1
@@ -924,11 +972,20 @@
 /* Define to enable c-ares support */
 #undef USE_ARES
 
+/* if axTLS is enabled */
+#undef USE_AXTLS
+
 /* Define to disable non-blocking sockets. */
 #undef USE_BLOCKING_SOCKETS
 
+/* if CyaSSL is enabled */
+#undef USE_CYASSL
+
 /* if GnuTLS is enabled */
 #undef USE_GNUTLS
+
+/* if GnuTLS uses nettle as crypto backend */
+#undef USE_GNUTLS_NETTLE
 
 /* if librtmp is in use */
 #undef USE_LIBRTMP
@@ -957,9 +1014,16 @@
 /* if you want POSIX threaded DNS lookup */
 #undef USE_THREADS_POSIX
 
+/* Use TLS-SRP authentication */
+#undef USE_TLS_SRP
+
+/* Define to 1 if you are building a Windows target with large file support.
+   */
+#undef USE_WIN32_LARGE_FILES
+
 /* Define to 1 if you are building a Windows target without large file
    support. */
-#undef USE_WIN32_LARGE_FILES
+#undef USE_WIN32_SMALL_FILES
 
 /* to enable SSPI support */
 #undef USE_WINDOWS_SSPI

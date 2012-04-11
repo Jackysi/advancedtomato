@@ -1,12 +1,25 @@
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
  *                             / __| | | | |_) | |
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
- * Example source code to show how the callback function can be used to
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ *
+ * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+ * copies of the Software, and permit persons to whom the Software is
+ * furnished to do so, under the terms of the COPYING file.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ***************************************************************************/
+/* Example source code to show how the callback function can be used to
  * download data into a chunk of memory instead of storing it in a file.
  * After successful download we use curl_easy_getinfo() calls to get the
  * amount of downloaded bytes, the time used for the whole download, and
@@ -22,8 +35,6 @@
 #include <time.h>
 
 #include <curl/curl.h>
-#include <curl/types.h>
-#include <curl/easy.h>
 
 #define URL_BASE "http://speedtest.your.domain/"
 #define URL_1M   URL_BASE "file_1M.bin"
@@ -71,7 +82,7 @@ int main(int argc, char *argv[])
         } else if (strncasecmp(*argv, "-T", 2) == 0) {
           prttime = 1;
         } else if (strncasecmp(*argv, "-M=", 3) == 0) {
-          int m = atoi(*argv + 3);
+          long m = strtol((*argv)+3, NULL, 10);
           switch(m) {
             case   1: url = URL_1M;
                       break;

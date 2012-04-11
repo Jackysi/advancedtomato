@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -28,7 +28,8 @@
  * Define WIN32 when build target is Win32 API
  */
 
-#if (defined(_WIN32) || defined(__WIN32__)) && !defined(WIN32) && !defined(__SYMBIAN32__)
+#if (defined(_WIN32) || defined(__WIN32__)) && !defined(WIN32) && \
+  !defined(__SYMBIAN32__)
 #define WIN32
 #endif
 
@@ -134,6 +135,11 @@
 #  endif
 #endif
 
+#ifdef USE_LWIPSOCK
+#  include <lwip/sockets.h>
+#  include <lwip/netdb.h>
+#endif
+
 #ifdef TPF
 #  include <sys/socket.h>
    /* change which select is used for the curl command line tool */
@@ -143,11 +149,54 @@
 #endif
 
 #include <stdio.h>
+#ifdef HAVE_ASSERT_H
+#include <assert.h>
+#endif
+
 
 #ifdef __TANDEM
 #include <floss.h>
 #endif
 
+/*
+ * Large file (>2Gb) support using WIN32 functions.
+ */
+
+#ifdef USE_WIN32_LARGE_FILES
+#  include <io.h>
+#  include <sys/types.h>
+#  include <sys/stat.h>
+#  undef  lseek
+#  define lseek(fdes,offset,whence)  _lseeki64(fdes, offset, whence)
+#  define fstat(fdes,stp)            _fstati64(fdes, stp)
+#  define stat(fname,stp)            _stati64(fname, stp)
+#  define struct_stat                struct _stati64
+#  define LSEEK_ERROR                (__int64)-1
+#endif
+
+/*
+ * Small file (<2Gb) support using WIN32 functions.
+ */
+
+#ifdef USE_WIN32_SMALL_FILES
+#  include <io.h>
+#  include <sys/types.h>
+#  include <sys/stat.h>
+#  undef  lseek
+#  define lseek(fdes,offset,whence)  _lseek(fdes, (long)offset, whence)
+#  define fstat(fdes,stp)            _fstat(fdes, stp)
+#  define stat(fname,stp)            _stat(fname, stp)
+#  define struct_stat                struct _stat
+#  define LSEEK_ERROR                (long)-1
+#endif
+
+#ifndef struct_stat
+#  define struct_stat struct stat
+#endif
+
+#ifndef LSEEK_ERROR
+#  define LSEEK_ERROR (off_t)-1
+#endif
 
 #ifndef OS
 #define OS "unknown"
@@ -207,6 +256,11 @@ int fileno( FILE *stream);
 #define strdup(ptr) curlx_strdup(ptr)
 #endif
 
+/* Define S_ISREG if not defined by system headers, f.e. MSVC */
+#if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
+#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#endif
+
 /*
  * Include macros and defines that should only be processed once.
  */
@@ -215,4 +269,28 @@ int fileno( FILE *stream);
 #include "setup_once.h"
 #endif
 
+/*
+ * Definition of our NOP statement Object-like macro
+ */
+
+#ifndef Curl_nop_stmt
+#  define Curl_nop_stmt do { } WHILE_FALSE
+#endif
+
+/*
+ * Ensure that Winsock and lwIP TCP/IP stacks are not mixed.
+ */
+
+#if defined(__LWIP_OPT_H__)
+#  if defined(SOCKET) || \
+     defined(USE_WINSOCK) || \
+     defined(HAVE_ERRNO_H) || \
+     defined(HAVE_WINSOCK_H) || \
+     defined(HAVE_WINSOCK2_H) || \
+     defined(HAVE_WS2TCPIP_H)
+#    error "Winsock and lwIP TCP/IP stack definitions shall not coexist!"
+#  endif
+#endif
+
 #endif /* HEADER_CURL_SRC_SETUP_H */
+

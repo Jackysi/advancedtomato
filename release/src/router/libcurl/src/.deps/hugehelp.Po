@@ -1,3 +1,0 @@
-hugehelp.o hugehelp.o: hugehelp.c hugehelp.h
-
-hugehelp.h:

@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -42,7 +42,10 @@
 #include <string.h>
 #include <stdarg.h>
 #include <ctype.h>
+
+#ifdef HAVE_ERRNO_H
 #include <errno.h>
+#endif
 
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -236,10 +239,20 @@ struct timeval {
 #  define sclose(x)  closesocket((x))
 #elif defined(HAVE_CLOSESOCKET_CAMEL)
 #  define sclose(x)  CloseSocket((x))
+#elif defined(USE_LWIPSOCK)
+#  define sclose(x)  lwip_close((x))
 #else
 #  define sclose(x)  close((x))
 #endif
 
+/*
+ * Stack-independent version of fcntl() on sockets:
+ */
+#if defined(USE_LWIPSOCK)
+#  define sfcntl  lwip_fcntl
+#else
+#  define sfcntl  fcntl
+#endif
 
 /*
  * Uppercase macro versions of ANSI/ISO is*() functions/macros which
@@ -255,9 +268,12 @@ struct timeval {
 #define ISPRINT(x)  (isprint((int)  ((unsigned char)x)))
 #define ISUPPER(x)  (isupper((int)  ((unsigned char)x)))
 #define ISLOWER(x)  (islower((int)  ((unsigned char)x)))
+#define ISASCII(x)  (isascii((int)  ((unsigned char)x)))
 
 #define ISBLANK(x)  (int)((((unsigned char)x) == ' ') || \
                           (((unsigned char)x) == '\t'))
+
+#define TOLOWER(x)  (tolower((int)  ((unsigned char)x)))
 
 
 /*
@@ -301,6 +317,27 @@ struct timeval {
 
 
 /*
+ * Macro WHILE_FALSE may be used to build single-iteration do-while loops,
+ * avoiding compiler warnings. Mostly intended for other macro definitions.
+ */
+
+#define WHILE_FALSE  while(0)
+
+#if defined(_MSC_VER) && !defined(__POCC__)
+#  undef WHILE_FALSE
+#  if (_MSC_VER < 1500)
+#    define WHILE_FALSE  while(1, 0)
+#  else
+#    define WHILE_FALSE \
+__pragma(warning(push)) \
+__pragma(warning(disable:4127)) \
+while(0) \
+__pragma(warning(pop))
+#  endif
+#endif
+
+
+/*
  * Typedef to 'int' if sig_atomic_t is not an available 'typedefed' type.
  */
 
@@ -337,7 +374,7 @@ typedef int sig_atomic_t;
 #ifdef DEBUGBUILD
 #define DEBUGF(x) x
 #else
-#define DEBUGF(x) do { } while (0)
+#define DEBUGF(x) do { } WHILE_FALSE
 #endif
 
 
@@ -348,7 +385,7 @@ typedef int sig_atomic_t;
 #if defined(DEBUGBUILD) && defined(HAVE_ASSERT_H)
 #define DEBUGASSERT(x) assert(x)
 #else
-#define DEBUGASSERT(x) do { } while (0)
+#define DEBUGASSERT(x) do { } WHILE_FALSE
 #endif
 
 
@@ -490,4 +527,3 @@ typedef int sig_atomic_t;
 
 
 #endif /* __SETUP_ONCE_H */
-

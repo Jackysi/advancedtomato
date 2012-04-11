@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -22,8 +22,6 @@
 
 #include "setup.h"
 
-#include <string.h>
-
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
@@ -36,16 +34,12 @@
 #ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
-#ifdef HAVE_STDLIB_H
-#include <stdlib.h>     /* required for free() prototypes */
-#endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>     /* for the close() proto */
 #endif
 #ifdef __VMS
 #include <in.h>
 #include <inet.h>
-#include <stdlib.h>
 #endif
 
 #ifdef HAVE_PROCESS_H
@@ -73,51 +67,15 @@
 #ifdef CURLRES_SYNCH
 
 /*
- * Curl_wait_for_resolv() for synch-builds.  Curl_resolv() can never return
- * wait==TRUE, so this function will never be called. If it still gets called,
- * we return failure at once.
- *
- * We provide this function only to allow multi.c to remain unaware if we are
- * doing asynch resolves or not.
+ * Function provided by the resolver backend to set DNS servers to use.
  */
-CURLcode Curl_wait_for_resolv(struct connectdata *conn,
-                              struct Curl_dns_entry **entry)
+CURLcode Curl_set_dns_servers(struct SessionHandle *data,
+                              char *servers)
 {
-  (void)conn;
-  *entry=NULL;
-  return CURLE_COULDNT_RESOLVE_HOST;
-}
+  (void)data;
+  (void)servers;
+  return CURLE_NOT_BUILT_IN;
 
-/*
- * This function will never be called when synch-built. If it still gets
- * called, we return failure at once.
- *
- * We provide this function only to allow multi.c to remain unaware if we are
- * doing asynch resolves or not.
- */
-CURLcode Curl_is_resolved(struct connectdata *conn,
-                          struct Curl_dns_entry **dns)
-{
-  (void)conn;
-  *dns = NULL;
-
-  return CURLE_COULDNT_RESOLVE_HOST;
-}
-
-/*
- * We just return OK, this function is never actually used for synch builds.
- * It is present here to keep #ifdefs out from multi.c
- */
-
-int Curl_resolv_getsock(struct connectdata *conn,
-                        curl_socket_t *sock,
-                        int numsocks)
-{
-  (void)conn;
-  (void)sock;
-  (void)numsocks;
-
-  return 0; /* no bits since we don't use any socks */
 }
 
 #endif /* truly sync */

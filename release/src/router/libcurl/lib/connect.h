@@ -1,5 +1,5 @@
-#ifndef __CONNECT_H
-#define __CONNECT_H
+#ifndef HEADER_CURL_CONNECT_H
+#define HEADER_CURL_CONNECT_H
 /***************************************************************************
  *                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -21,8 +21,10 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
+#include "setup.h"
 
 #include "nonblock.h" /* for curlx_nonblock(), formerly Curl_nonblock() */
+#include "sockaddr.h"
 
 CURLcode Curl_is_connected(struct connectdata *conn,
                            int sockindex,
@@ -37,7 +39,7 @@ CURLcode Curl_connecthost(struct connectdata *conn,
 
 /* generic function that returns how much time there's left to run, according
    to the timeouts set */
-long Curl_timeleft(struct connectdata *conn,
+long Curl_timeleft(struct SessionHandle *data,
                    struct timeval *nowp,
                    bool duringconnect);
 
@@ -47,13 +49,12 @@ long Curl_timeleft(struct connectdata *conn,
  * Used to extract socket and connectdata struct for the most recent
  * transfer on the given SessionHandle.
  *
- * The socket 'long' will be -1 in case of failure!
+ * The returned socket will be CURL_SOCKET_BAD in case of failure!
  */
-CURLcode Curl_getconnectinfo(struct SessionHandle *data,
-                             long *param_longp,
-                             struct connectdata **connp);
+curl_socket_t Curl_getconnectinfo(struct SessionHandle *data,
+                                  struct connectdata **connp);
 
-#ifdef WIN32
+#ifdef USE_WINSOCK
 /* When you run a program that uses the Windows Sockets API, you may
    experience slow performance when you copy data to a TCP server.
 
@@ -65,9 +66,42 @@ CURLcode Curl_getconnectinfo(struct SessionHandle *data,
 */
 void Curl_sndbufset(curl_socket_t sockfd);
 #else
-#define Curl_sndbufset(y)
+#define Curl_sndbufset(y) Curl_nop_stmt
 #endif
 
 void Curl_updateconninfo(struct connectdata *conn, curl_socket_t sockfd);
+void Curl_persistconninfo(struct connectdata *conn);
+int Curl_closesocket(struct connectdata *conn, curl_socket_t sock);
 
-#endif
+/*
+ * The Curl_sockaddr_ex structure is basically libcurl's external API
+ * curl_sockaddr structure with enough space available to directly hold any
+ * protocol-specific address structures. The variable declared here will be
+ * used to pass / receive data to/from the fopensocket callback if this has
+ * been set, before that, it is initialized from parameters.
+ */
+struct Curl_sockaddr_ex {
+  int family;
+  int socktype;
+  int protocol;
+  unsigned int addrlen;
+  union {
+    struct sockaddr addr;
+    struct Curl_sockaddr_storage buff;
+  } _sa_ex_u;
+};
+#define sa_addr _sa_ex_u.addr
+
+/*
+ * Create a socket based on info from 'conn' and 'ai'.
+ *
+ * Fill in 'addr' and 'sockfd' accordingly if OK is returned. If the open
+ * socket callback is set, used that!
+ *
+ */
+CURLcode Curl_socket(struct connectdata *conn,
+                     const Curl_addrinfo *ai,
+                     struct Curl_sockaddr_ex *addr,
+                     curl_socket_t *sockfd);
+
+#endif /* HEADER_CURL_CONNECT_H */

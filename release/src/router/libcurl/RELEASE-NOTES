@@ -1,58 +1,49 @@
-Curl and libcurl 7.21.1
+Curl and libcurl 7.25.0
 
- Public curl releases:         117
- Command line options:         138
- curl_easy_setopt() options:   180
+ Public curl releases:         127
+ Command line options:         151
+ curl_easy_setopt() options:   199
  Public functions in libcurl:  58
  Known libcurl bindings:       39
- Contributors:                 808
+ Contributors:                 929
 
 This release includes the following changes:
 
- o maketgz: produce CHANGES automatically
- o added support for NTLM authentication when compiled with NSS
- o build: Enable configure --enable-werror
- o curl-config: --built-shared returns shared info
+ o configure: add option disable --libcurl output [1]
+ o --ssl-allow-beast and CURLOPT_SSL_OPTIONS added [2]
+ o Added CURLOPT_TCP_KEEPALIVE, CURLOPT_TCP_KEEPIDLE, CURLOPT_TCP_KEEPINTVL [4]
+ o curl: use new library-side TCP_KEEPALIVE options [5]
+ o Added a new CURLOPT_MAIL_AUTH option [13]
+ o Added support for --mail-auth [14]
+ o --libcurl now also works with -F and more! [15]
 
 This release includes the following bugfixes:
 
- o configure: spell --disable-threaded-resolver correctly
- o multi: call the progress callback in all states
- o multi: unmark handle as used when no longer head of pipeline
- o sendrecv: treat all negative values from send/recv as errors
- o ftp-wildcard: avoid tight loop when used without any pattern
- o multi_socket: re-use of same socket without notifying app
- o ftp wildcard: FTP LIST parser FIX
- o urlglobbing backslash escaping bug
- o build: add enable IPV6 option for the VC makefiles
- o multi: CURLINFO_LASTSOCKET doesn't work after remove_handle
- o --libcurl: use *_LARGE options with typecasted constants
- o --libcurl: hide setopt() calls setting default options
- o curl: avoid setting libcurl options to its default
- o --libcurl: list the tricky options instead of using [REMARK]
- o http: don't enable chunked during authentication negotiations
- o upload: warn users trying to upload from stdin with anyauth
- o configure: allow environments variable to override internals
- o threaded resolver: fix timeout issue
- o multi: fix condition that remove timers before trigger
- o examples: add curl_multi_timeout
- o --retry: access violation with URL part sets continued
- o ssh: Fix compile error on 64-bit systems.
- o remote-header-name: chop filename at next semicolon
- o ftp: response timeout bug in "quote" sending
- o CUSTOMREQUEST: shouldn't be disabled when HTTP is disabled
- o Watcom makefiles overhaul.
- o NTLM tests: boost coverage by forcing the hostname
- o multi: fix FTPS connecting the data connection with OpenSSL
- o retry: consider retrying even if -f is used
- o fix SOCKS problem when using multi interface
- o typecheck-gcc: add checks for recently added options
- o SCP: send large files properly with new enough libssh2
- o multi_socket: set timeout for 100-continue
- o ";type=" URL suffix over HTTP proxy
- o acknowledge progress callback error returns during connect
- o Watcom makefile fixes
- o runtests: clear old setenv remainders before test
+ o --max-redirs: allow negative numbers as option value [3]
+ o parse_proxy: bail out on zero-length proxy names [6]
+ o configure: don't modify LD_LIBRARY_PATH for cross compiles [7]
+ o curl_easy_reset: reset the referer string [8]
+ o curl tool: don't abort glob-loop due to failures [9]
+ o CONNECT: send correct Host: with IPv6 numerical address [10]
+ o Explicitly link to the nettle/gcrypt libraries [11]
+ o more resilient connection times among IP addresses [12]
+ o winbuild: fix IPV6 and IDN options
+ o SMTP: Fixed error when using CURLOPT_CONNECT_ONLY
+ o cyassl: update to CyaSSL 2.0.x API
+ o smtp: Fixed an issue with the EOB checking
+ o pop3: Fixed drop of final CRLF in EOB checking [16]
+ o smtp: Fixed an issue with writing postdata
+ o smtp: Added support for returning SMTP response codes
+ o CONNECT: fix ipv6 address in the Request-Line [17]
+ o curl-config: only provide libraries with --libs
+ o LWIP: don't consider HAVE_ERRNO_H to be winsock [19]
+ o ssh: tunnel through HTTP proxy if requested
+ o cookies: strip off [brackets] from numerical ipv6 host names [20]
+ o libcurl docs: version corrections [18]
+ o cmake: list_spaces_append_once failure [22]
+ o resolve with c-ares: don't resolve IPv6 when not working [21]
+ o smtp: changed error code for EHLO and HELO responses
+ o parsedate: fix a numeric overflow
 
 This release includes the following known bugs:
 
@@ -61,11 +52,35 @@ This release includes the following known bugs:
 This release would not have looked like this without help, code, reports and
 advice from friends like these:
 
- Dan Fandrich, Kamil Dudka, Krister Johansen, Pavel Raiskup, Jon Sargeant,
- Pierre Joye, Tor Arntsen, Constantine Sapuntzakis, Sidney San Martin,
- Jeff Pohlmeyer, Jan Van Boghout, Ben Greear, Guenter Knauf, Adam Light,
- Georg Lippitsch, Mike Power, Robin Cornelius, Mikael Johansson,
- Yang Tse, Ben Darnell
-
-
+ Colin Hogben, Alessandro Ghedini, Kamil Dudka, Rob Ward, Dave Reisner,
+ Martin Storsjo, Pierre Ynard, Pierre Joye, Yang Tse, Dan Fandrich,
+ Michael Day, Juan Barreto, Chandrakant Bagul, Steve Holme, Todd Ouska,
+ Rich Gray, John Joseph Bachir, Armel Asselin, Andrei Cipu,
+ Maxim Prohorov
+ 
         Thanks! (and sorry if I forgot to mention someone)
+
+References to bug reports and discussions on issues:
+
+ [1] = http://curl.haxx.se/mail/lib-2012-02/0009.html
+ [2] = http://curl.haxx.se/mail/lib-2012-02/0001.html
+ [3] = http://curl.haxx.se/mail/lib-2012-02/0098.html
+ [4] = http://curl.haxx.se/mail/lib-2012-01/0264.html
+ [5] = http://curl.haxx.se/mail/lib-2012-01/0263.html
+ [6] = http://curl.haxx.se/mail/lib-2012-02/0000.html
+ [7] = http://curl.haxx.se/mail/lib-2012-02/0052.html
+ [8] = http://curl.haxx.se/bug/view.cgi?id=3481551
+ [9] = http://curl.haxx.se/bug/view.cgi?id=3481223
+ [10] = http://curl.haxx.se/bug/view.cgi?id=3482093
+ [11] = http://curl.haxx.se/mail/lib-2012-01/0303.html
+ [12] = http://curl.haxx.se/mail/lib-2012-01/0190.html
+ [13] = http://curl.haxx.se/libcurl/c/curl_easy_setopt.html#CURLOPTMAILAUTH
+ [14] = http://curl.haxx.se/docs/manpage.html#--mail-auth
+ [15] = http://curl.haxx.se/docs/manpage.html#--libcurl
+ [16] = http://curl.haxx.se/mail/lib-2012-02/0051.html
+ [17] = http://curl.haxx.se/bug/view.cgi?id=3493129
+ [18] = http://curl.haxx.se/bug/view.cgi?id=3494091
+ [19] = http://curl.haxx.se/mail/lib-2012-03/0046.html
+ [20] = http://curl.haxx.se/mail/lib-2012-03/0036.html
+ [21] = http://curl.haxx.se/mail/lib-2012-03/0045.html
+ [22] = http://curl.haxx.se/bug/view.cgi?id=3494968

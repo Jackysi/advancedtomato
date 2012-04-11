@@ -1,5 +1,5 @@
-#ifndef __HTTP_DIGEST_H
-#define __HTTP_DIGEST_H
+#ifndef HEADER_CURL_HTTP_DIGEST_H
+#define HEADER_CURL_HTTP_DIGEST_H
 /***************************************************************************
  *                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2006, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -21,6 +21,7 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
+#include "setup.h"
 
 typedef enum {
   CURLDIGEST_NONE, /* not a digest */
@@ -46,12 +47,11 @@ CURLcode Curl_output_digest(struct connectdata *conn,
                             bool proxy,
                             const unsigned char *request,
                             const unsigned char *uripath);
-void Curl_digest_cleanup_one(struct digestdata *dig);
 
 #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_CRYPTO_AUTH)
 void Curl_digest_cleanup(struct SessionHandle *data);
 #else
-#define Curl_digest_cleanup(x) do {} while(0)
+#define Curl_digest_cleanup(x) Curl_nop_stmt
 #endif
 
-#endif
+#endif /* HEADER_CURL_HTTP_DIGEST_H */

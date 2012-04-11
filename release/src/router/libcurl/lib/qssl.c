@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -23,9 +23,9 @@
 #include "setup.h"
 
 #ifdef USE_QSOSSL
+
 #include <qsossl.h>
-#include <errno.h>
-#include <string.h>
+
 #ifdef HAVE_LIMITS_H
 #  include <limits.h>
 #endif
@@ -175,7 +175,7 @@ static CURLcode Curl_qsossl_handshake(struct connectdata * conn, int sockindex)
     h->exitPgm = Curl_qsossl_trap_cert;
 
   /* figure out how long time we should wait at maximum */
-  timeout_ms = Curl_timeleft(conn, NULL, TRUE);
+  timeout_ms = Curl_timeleft(data, NULL, TRUE);
 
   if(timeout_ms < 0) {
     /* time-out, bail out, go home */
@@ -266,7 +266,7 @@ CURLcode Curl_qsossl_connect(struct connectdata * conn, int sockindex)
       connssl->state = ssl_connection_none;
     }
   }
-  if (rc == CURLE_OK) {
+  if(rc == CURLE_OK) {
     connssl->state = ssl_connection_complete;
     conn->recv[sockindex] = qsossl_recv;
     conn->send[sockindex] = qsossl_send;
@@ -347,7 +347,7 @@ int Curl_qsossl_shutdown(struct connectdata * conn, int sockindex)
   what = Curl_socket_ready(conn->sock[sockindex],
                            CURL_SOCKET_BAD, SSL_SHUTDOWN_TIMEOUT);
 
-  for (;;) {
+  for(;;) {
     if(what < 0) {
       /* anything that gets here is fatally bad */
       failf(data, "select/poll on SSL socket, errno: %d", SOCKERRNO);
@@ -395,7 +395,7 @@ static ssize_t qsossl_send(struct connectdata * conn, int sockindex,
 
     case SSL_ERROR_BAD_STATE:
       /* The operation did not complete; the same SSL I/O function
-         should be called again later. This is basicly an EWOULDBLOCK
+         should be called again later. This is basically an EWOULDBLOCK
          equivalent. */
       *curlcode = CURLE_AGAIN;
       return -1;

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -22,11 +22,6 @@
 
 #include "setup.h"
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <errno.h>
-
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h> /* required for send() & recv() prototypes */
 #endif
@@ -42,7 +37,7 @@
 #include "sslgen.h"
 #include "ssh.h"
 #include "multiif.h"
-#include "rtsp.h"
+#include "non-ascii.h"
 
 #define _MPRINTF_REPLACE /* use the internal *printf() functions */
 #include <curl/mprintf.h>
@@ -55,10 +50,9 @@
 #define Curl_sec_read(a,b,c,d) -1
 #endif
 
-#include <string.h>
 #include "curl_memory.h"
 #include "strerror.h"
-#include "easyif.h" /* for the Curl_convert_from_network prototype */
+
 /* The last #include file should be: */
 #include "memdebug.h"
 
@@ -79,7 +73,7 @@ static size_t convert_lineends(struct SessionHandle *data,
     return(size);
   }
 
-  if(data->state.prev_block_had_trailing_cr == TRUE) {
+  if(data->state.prev_block_had_trailing_cr) {
     /* The previous block of incoming data
        had a trailing CR, which was turned into a LF. */
     if(*startPtr == '\n') {
@@ -298,9 +292,11 @@ ssize_t Curl_send_plain(struct connectdata *conn, int num,
       /* this is just a case of EWOULDBLOCK */
       bytes_written=0;
       *code = CURLE_AGAIN;
-    } else {
+    }
+    else {
       failf(conn->data, "Send failure: %s",
             Curl_strerror(conn, err));
+      conn->data->state.os_errno = err;
       *code = CURLE_SEND_ERROR;
     }
   }
@@ -352,9 +348,11 @@ ssize_t Curl_recv_plain(struct connectdata *conn, int num, char *buf,
       ) {
       /* this is just a case of EWOULDBLOCK */
       *code = CURLE_AGAIN;
-    } else {
+    }
+    else {
       failf(conn->data, "Recv failure: %s",
             Curl_strerror(conn, err));
+      conn->data->state.os_errno = err;
       *code = CURLE_RECV_ERROR;
     }
   }
@@ -439,15 +437,13 @@ CURLcode Curl_client_write(struct connectdata *conn,
   }
 
   if(type & CLIENTWRITE_BODY) {
-    if((conn->protocol&PROT_FTP) && conn->proto.ftpc.transfertype == 'A') {
-#ifdef CURL_DOES_CONVERSIONS
+    if((conn->handler->protocol&CURLPROTO_FTP) &&
+       conn->proto.ftpc.transfertype == 'A') {
       /* convert from the network encoding */
-      size_t rc;
-      rc = Curl_convert_from_network(data, ptr, len);
+      CURLcode rc = Curl_convert_from_network(data, ptr, len);
       /* Curl_convert_from_network calls failf if unsuccessful */
-      if(rc != CURLE_OK)
+      if(rc)
         return rc;
-#endif /* CURL_DOES_CONVERSIONS */
 
 #ifdef CURL_DO_LINEEND_CONV
       /* convert end-of-line markers */
@@ -531,17 +527,17 @@ CURLcode Curl_read_plain(curl_socket_t sockfd,
  * Returns a regular CURLcode value.
  */
 CURLcode Curl_read(struct connectdata *conn, /* connection data */
-              curl_socket_t sockfd,     /* read from this socket */
-              char *buf,                /* store read data here */
-              size_t sizerequested,     /* max amount to read */
-              ssize_t *n)               /* amount bytes read */
+                   curl_socket_t sockfd,     /* read from this socket */
+                   char *buf,                /* store read data here */
+                   size_t sizerequested,     /* max amount to read */
+                   ssize_t *n)               /* amount bytes read */
 {
   CURLcode curlcode = CURLE_RECV_ERROR;
   ssize_t nread = 0;
   size_t bytesfromsocket = 0;
   char *buffertofill = NULL;
-  bool pipelining = (bool)(conn->data->multi &&
-                     Curl_multi_canPipeline(conn->data->multi));
+  bool pipelining = (conn->data->multi &&
+                     Curl_multi_canPipeline(conn->data->multi)) ? TRUE : FALSE;
 
   /* Set 'num' to 0 or 1, depending on which socket that has been sent here.
      If it is the second socket, we set num to 1. Otherwise to 0. This lets
@@ -620,7 +616,7 @@ static int showit(struct SessionHandle *data, curl_infotype type,
       size_t i;
       for(i = 0; i < size-4; i++) {
         if(memcmp(&buf[i], "\x0d\x0a\x0d\x0a", 4) == 0) {
-          /* convert everthing through this CRLFCRLF but no further */
+          /* convert everything through this CRLFCRLF but no further */
           conv_size = i + 4;
           break;
         }

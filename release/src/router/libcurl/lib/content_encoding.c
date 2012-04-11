@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -23,9 +23,6 @@
 #include "setup.h"
 
 #ifdef HAVE_LIBZ
-
-#include <stdlib.h>
-#include <string.h>
 
 #include "urldata.h"
 #include <curl/curl.h>
@@ -51,6 +48,21 @@
 #define ORIG_NAME    0x08 /* bit 3 set: original file name present */
 #define COMMENT      0x10 /* bit 4 set: file comment present */
 #define RESERVED     0xE0 /* bits 5..7: reserved */
+
+static voidpf
+zalloc_cb(voidpf opaque, unsigned int items, unsigned int size)
+{
+  (void) opaque;
+  /* not a typo, keep it calloc() */
+  return (voidpf) calloc(items, size);
+}
+
+static void
+zfree_cb(voidpf opaque, voidpf ptr)
+{
+  (void) opaque;
+  free(ptr);
+}
 
 static CURLcode
 process_zlib_error(struct connectdata *conn, z_stream *z)
@@ -95,7 +107,7 @@ inflate_stream(struct connectdata *conn,
 
   /* because the buffer size is fixed, iteratively decompress and transfer to
      the client via client_write. */
-  for (;;) {
+  for(;;) {
     /* (re)set buffer for decompressed output for every iteration */
     z->next_out = (Bytef *)decomp;
     z->avail_out = DSIZ;
@@ -123,7 +135,9 @@ inflate_stream(struct connectdata *conn,
       }
 
       /* Done with these bytes, exit */
-      if(status == Z_OK && z->avail_in == 0) {
+
+      /* status is always Z_OK at this point! */
+      if(z->avail_in == 0) {
         free(decomp);
         return result;
       }
@@ -159,11 +173,10 @@ Curl_unencode_deflate_write(struct connectdata *conn,
 
   /* Initialize zlib? */
   if(k->zlib_init == ZLIB_UNINIT) {
-    z->zalloc = (alloc_func)Z_NULL;
-    z->zfree = (free_func)Z_NULL;
-    z->opaque = 0;
-    z->next_in = NULL;
-    z->avail_in = 0;
+    memset(z, 0, sizeof(z_stream));
+    z->zalloc = (alloc_func)zalloc_cb;
+    z->zfree = (free_func)zfree_cb;
+
     if(inflateInit(z) != Z_OK)
       return process_zlib_error(conn, z);
     k->zlib_init = ZLIB_INIT;
@@ -270,11 +283,9 @@ Curl_unencode_gzip_write(struct connectdata *conn,
 
   /* Initialize zlib? */
   if(k->zlib_init == ZLIB_UNINIT) {
-    z->zalloc = (alloc_func)Z_NULL;
-    z->zfree = (free_func)Z_NULL;
-    z->opaque = 0;
-    z->next_in = NULL;
-    z->avail_in = 0;
+    memset(z, 0, sizeof(z_stream));
+    z->zalloc = (alloc_func)zalloc_cb;
+    z->zfree = (free_func)zfree_cb;
 
     if(strcmp(zlibVersion(), "1.2.0.4") >= 0) {
       /* zlib ver. >= 1.2.0.4 supports transparent gzip decompressing */

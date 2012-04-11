@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -81,10 +81,7 @@ Example set of cookies:
 
 #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_COOKIES)
 
-#include <stdlib.h>
-#include <string.h>
-
-#define _MPRINTF_REPLACE /* without this on windows OS we get undefined reference to snprintf */
+#define _MPRINTF_REPLACE
 #include <curl/mprintf.h>
 
 #include "urldata.h"
@@ -100,7 +97,6 @@ Example set of cookies:
 
 /* The last #include file should be: */
 #include "memdebug.h"
-
 
 static void freecookie(struct Cookie *co)
 {
@@ -130,7 +126,7 @@ static bool tailmatch(const char *little, const char *bigone)
   if(littlelen > biglen)
     return FALSE;
 
-  return (bool)Curl_raw_equal(little, bigone+biglen-littlelen);
+  return Curl_raw_equal(little, bigone+biglen-littlelen) ? TRUE : FALSE;
 }
 
 /*
@@ -148,9 +144,9 @@ void Curl_cookie_loadfiles(struct SessionHandle *data)
                                        data->set.cookiesession);
       list = list->next;
     }
-    Curl_share_unlock(data, CURL_LOCK_DATA_COOKIE);
     curl_slist_free_all(data->change.cookielist); /* clean up list */
     data->change.cookielist = NULL; /* don't do this again! */
+    Curl_share_unlock(data, CURL_LOCK_DATA_COOKIE);
   }
 }
 
@@ -210,7 +206,6 @@ Curl_cookie_add(struct SessionHandle *data,
   if(httpheader) {
     /* This line was read off a HTTP-header */
     const char *ptr;
-    const char *sep;
     const char *semiptr;
     char *what;
 
@@ -227,183 +222,186 @@ Curl_cookie_add(struct SessionHandle *data,
 
     ptr = lineptr;
     do {
-      /* we have a <what>=<this> pair or a 'secure' word here */
-      sep = strchr(ptr, '=');
-      if(sep && (!semiptr || (semiptr>sep)) ) {
-        /*
-         * There is a = sign and if there was a semicolon too, which make sure
-         * that the semicolon comes _after_ the equal sign.
-         */
+      /* we have a <what>=<this> pair or a stand-alone word here */
+      name[0]=what[0]=0; /* init the buffers */
+      if(1 <= sscanf(ptr, "%" MAX_NAME_TXT "[^;\r\n =]=%"
+                     MAX_COOKIE_LINE_TXT "[^;\r\n]",
+                     name, what)) {
+        /* Use strstore() below to properly deal with received cookie
+           headers that have the same string property set more than once,
+           and then we use the last one. */
+        const char *whatptr;
+        bool done = FALSE;
+        bool sep;
+        size_t len=strlen(what);
+        const char *endofn = &ptr[ strlen(name) ];
 
-        name[0]=what[0]=0; /* init the buffers */
-        if(1 <= sscanf(ptr, "%" MAX_NAME_TXT "[^;=]=%"
-                       MAX_COOKIE_LINE_TXT "[^;\r\n]",
-                       name, what)) {
-          /* this is a <name>=<what> pair. We use strstore() below to properly
-             deal with received cookie headers that have the same string
-             property set more than once, and then we use the last one. */
+        /* skip trailing spaces in name */
+        while(*endofn && ISBLANK(*endofn))
+          endofn++;
 
-          const char *whatptr;
+        /* name ends with a '=' ? */
+        sep = (*endofn == '=')?TRUE:FALSE;
 
-          /* Strip off trailing whitespace from the 'what' */
-          size_t len=strlen(what);
-          while(len && ISBLANK(what[len-1])) {
-            what[len-1]=0;
-            len--;
+        /* Strip off trailing whitespace from the 'what' */
+        while(len && ISBLANK(what[len-1])) {
+          what[len-1]=0;
+          len--;
+        }
+
+        /* Skip leading whitespace from the 'what' */
+        whatptr=what;
+        while(*whatptr && ISBLANK(*whatptr))
+          whatptr++;
+
+        if(!len) {
+          /* this was a "<name>=" with no content, and we must allow
+             'secure' and 'httponly' specified this weirdly */
+          done = TRUE;
+          if(Curl_raw_equal("secure", name))
+            co->secure = TRUE;
+          else if(Curl_raw_equal("httponly", name))
+            co->httponly = TRUE;
+          else if(sep)
+            /* there was a '=' so we're not done parsing this field */
+            done = FALSE;
+        }
+        if(done)
+          ;
+        else if(Curl_raw_equal("path", name)) {
+          strstore(&co->path, whatptr);
+          if(!co->path) {
+            badcookie = TRUE; /* out of memory bad */
+            break;
           }
+        }
+        else if(Curl_raw_equal("domain", name)) {
+          /* note that this name may or may not have a preceding dot, but
+             we don't care about that, we treat the names the same anyway */
 
-          /* Skip leading whitespace from the 'what' */
-          whatptr=what;
-          while(*whatptr && ISBLANK(*whatptr)) {
-            whatptr++;
-          }
+          const char *domptr=whatptr;
+          const char *nextptr;
+          int dotcount=1;
 
-          if(Curl_raw_equal("path", name)) {
-            strstore(&co->path, whatptr);
-            if(!co->path) {
-              badcookie = TRUE; /* out of memory bad */
-              break;
+          /* Count the dots, we need to make sure that there are enough
+             of them. */
+
+          if('.' == whatptr[0])
+            /* don't count the initial dot, assume it */
+            domptr++;
+
+          do {
+            nextptr = strchr(domptr, '.');
+            if(nextptr) {
+              if(domptr != nextptr)
+                dotcount++;
+              domptr = nextptr+1;
             }
+          } while(nextptr);
+
+          /* The original Netscape cookie spec defined that this domain name
+             MUST have three dots (or two if one of the seven holy TLDs),
+             but it seems that these kinds of cookies are in use "out there"
+             so we cannot be that strict. I've therefore lowered the check
+             to not allow less than two dots. */
+
+          if(dotcount < 2) {
+            /* Received and skipped a cookie with a domain using too few
+               dots. */
+            badcookie=TRUE; /* mark this as a bad cookie */
+            infof(data, "skipped cookie with illegal dotcount domain: %s\n",
+                  whatptr);
           }
-          else if(Curl_raw_equal("domain", name)) {
-            /* note that this name may or may not have a preceeding dot, but
-               we don't care about that, we treat the names the same anyway */
-
-            const char *domptr=whatptr;
-            int dotcount=1;
-
-            /* Count the dots, we need to make sure that there are enough
-               of them. */
+          else {
+            /* Now, we make sure that our host is within the given domain,
+               or the given domain is not valid and thus cannot be set. */
 
             if('.' == whatptr[0])
-              /* don't count the initial dot, assume it */
-              domptr++;
+              whatptr++; /* ignore preceding dot */
 
-            do {
-              domptr = strchr(domptr, '.');
-              if(domptr) {
-                domptr++;
-                dotcount++;
+            if(!domain || tailmatch(whatptr, domain)) {
+              const char *tailptr=whatptr;
+              if(tailptr[0] == '.')
+                tailptr++;
+              strstore(&co->domain, tailptr); /* don't prefix w/dots
+                                                 internally */
+              if(!co->domain) {
+                badcookie = TRUE;
+                break;
               }
-            } while(domptr);
-
-            /* The original Netscape cookie spec defined that this domain name
-               MUST have three dots (or two if one of the seven holy TLDs),
-               but it seems that these kinds of cookies are in use "out there"
-               so we cannot be that strict. I've therefore lowered the check
-               to not allow less than two dots. */
-
-            if(dotcount < 2) {
-              /* Received and skipped a cookie with a domain using too few
-                 dots. */
-              badcookie=TRUE; /* mark this as a bad cookie */
-              infof(data, "skipped cookie with illegal dotcount domain: %s\n",
-                    whatptr);
+              co->tailmatch=TRUE; /* we always do that if the domain name was
+                                     given */
             }
             else {
-              /* Now, we make sure that our host is within the given domain,
-                 or the given domain is not valid and thus cannot be set. */
-
-              if('.' == whatptr[0])
-                whatptr++; /* ignore preceeding dot */
-
-              if(!domain || tailmatch(whatptr, domain)) {
-                const char *tailptr=whatptr;
-                if(tailptr[0] == '.')
-                  tailptr++;
-                strstore(&co->domain, tailptr); /* don't prefix w/dots
-                                                   internally */
-                if(!co->domain) {
-                  badcookie = TRUE;
-                  break;
-                }
-                co->tailmatch=TRUE; /* we always do that if the domain name was
-                                       given */
-              }
-              else {
-                /* we did not get a tailmatch and then the attempted set domain
-                   is not a domain to which the current host belongs. Mark as
-                   bad. */
-                badcookie=TRUE;
-                infof(data, "skipped cookie with bad tailmatch domain: %s\n",
-                      whatptr);
-              }
+              /* we did not get a tailmatch and then the attempted set domain
+                 is not a domain to which the current host belongs. Mark as
+                 bad. */
+              badcookie=TRUE;
+              infof(data, "skipped cookie with bad tailmatch domain: %s\n",
+                    whatptr);
             }
           }
-          else if(Curl_raw_equal("version", name)) {
-            strstore(&co->version, whatptr);
-            if(!co->version) {
-              badcookie = TRUE;
-              break;
-            }
-          }
-          else if(Curl_raw_equal("max-age", name)) {
-            /* Defined in RFC2109:
-
-               Optional.  The Max-Age attribute defines the lifetime of the
-               cookie, in seconds.  The delta-seconds value is a decimal non-
-               negative integer.  After delta-seconds seconds elapse, the
-               client should discard the cookie.  A value of zero means the
-               cookie should be discarded immediately.
-
-             */
-            strstore(&co->maxage, whatptr);
-            if(!co->maxage) {
-              badcookie = TRUE;
-              break;
-            }
-            co->expires =
-              atoi((*co->maxage=='\"')?&co->maxage[1]:&co->maxage[0]) +
-              (long)now;
-          }
-          else if(Curl_raw_equal("expires", name)) {
-            strstore(&co->expirestr, whatptr);
-            if(!co->expirestr) {
-              badcookie = TRUE;
-              break;
-            }
-            /* Note that if the date couldn't get parsed for whatever reason,
-               the cookie will be treated as a session cookie */
-            co->expires = curl_getdate(what, &now);
-
-            /* Session cookies have expires set to 0 so if we get that back
-               from the date parser let's add a second to make it a
-               non-session cookie */
-            if (co->expires == 0)
-              co->expires = 1;
-            else if( co->expires < 0 )
-                co->expires = 0;
-          }
-          else if(!co->name) {
-            co->name = strdup(name);
-            co->value = strdup(whatptr);
-            if(!co->name || !co->value) {
-              badcookie = TRUE;
-              break;
-            }
-          }
-          /*
-            else this is the second (or more) name we don't know
-            about! */
         }
-        else {
-          /* this is an "illegal" <what>=<this> pair */
+        else if(Curl_raw_equal("version", name)) {
+          strstore(&co->version, whatptr);
+          if(!co->version) {
+            badcookie = TRUE;
+            break;
+          }
         }
+        else if(Curl_raw_equal("max-age", name)) {
+          /* Defined in RFC2109:
+
+             Optional.  The Max-Age attribute defines the lifetime of the
+             cookie, in seconds.  The delta-seconds value is a decimal non-
+             negative integer.  After delta-seconds seconds elapse, the
+             client should discard the cookie.  A value of zero means the
+             cookie should be discarded immediately.
+
+          */
+          strstore(&co->maxage, whatptr);
+          if(!co->maxage) {
+            badcookie = TRUE;
+            break;
+          }
+          co->expires =
+            strtol((*co->maxage=='\"')?&co->maxage[1]:&co->maxage[0],NULL,10)
+            + (long)now;
+        }
+        else if(Curl_raw_equal("expires", name)) {
+          strstore(&co->expirestr, whatptr);
+          if(!co->expirestr) {
+            badcookie = TRUE;
+            break;
+          }
+          /* Note that if the date couldn't get parsed for whatever reason,
+             the cookie will be treated as a session cookie */
+          co->expires = curl_getdate(what, &now);
+
+          /* Session cookies have expires set to 0 so if we get that back
+             from the date parser let's add a second to make it a
+             non-session cookie */
+          if(co->expires == 0)
+            co->expires = 1;
+          else if(co->expires < 0)
+            co->expires = 0;
+        }
+        else if(!co->name) {
+          co->name = strdup(name);
+          co->value = strdup(whatptr);
+          if(!co->name || !co->value) {
+            badcookie = TRUE;
+            break;
+          }
+        }
+        /*
+          else this is the second (or more) name we don't know
+          about! */
       }
       else {
-        if(sscanf(ptr, "%" MAX_COOKIE_LINE_TXT "[^;\r\n]",
-                  what)) {
-          if(Curl_raw_equal("secure", what)) {
-            co->secure = TRUE;
-          }
-          else if (Curl_raw_equal("httponly", what)) {
-            co->httponly = TRUE;
-          }
-          /* else,
-             unsupported keyword without assign! */
-
-        }
+        /* this is an "illegal" <what>=<this> pair */
       }
+
       if(!semiptr || !*semiptr) {
         /* we already know there are no more cookies */
         semiptr = NULL;
@@ -477,10 +475,10 @@ Curl_cookie_add(struct SessionHandle *data,
        marked with httpOnly after the domain name are not accessible
        from javascripts, but since curl does not operate at javascript
        level, we include them anyway. In Firefox's cookie files, these
-       lines are preceeded with #HttpOnly_ and then everything is
+       lines are preceded with #HttpOnly_ and then everything is
        as usual, so we skip 10 characters of the line..
     */
-    if (strncmp(lineptr, "#HttpOnly_", 10) == 0) {
+    if(strncmp(lineptr, "#HttpOnly_", 10) == 0) {
       lineptr += 10;
       co->httponly = TRUE;
     }
@@ -512,7 +510,7 @@ Curl_cookie_add(struct SessionHandle *data,
         ptr=strtok_r(NULL, "\t", &tok_buf), fields++) {
       switch(fields) {
       case 0:
-        if(ptr[0]=='.') /* skip preceeding dots */
+        if(ptr[0]=='.') /* skip preceding dots */
           ptr++;
         co->domain = strdup(ptr);
         if(!co->domain)
@@ -529,7 +527,7 @@ Curl_cookie_add(struct SessionHandle *data,
            As far as I can see, it is set to true when the cookie says
            .domain.com and to false when the domain is complete www.domain.com
         */
-        co->tailmatch=(bool)Curl_raw_equal(ptr, "TRUE"); /* store information */
+        co->tailmatch = Curl_raw_equal(ptr, "TRUE")?TRUE:FALSE;
         break;
       case 2:
         /* It turns out, that sometimes the file format allows the path
@@ -549,7 +547,7 @@ Curl_cookie_add(struct SessionHandle *data,
         fields++; /* add a field and fall down to secure */
         /* FALLTHROUGH */
       case 3:
-        co->secure = (bool)Curl_raw_equal(ptr, "TRUE");
+        co->secure = Curl_raw_equal(ptr, "TRUE")?TRUE:FALSE;
         break;
       case 4:
         co->expires = curlx_strtoofft(ptr, NULL, 10);
@@ -817,8 +815,8 @@ struct Cookie *Curl_cookie_getlist(struct CookieInfo *c,
     /* only process this cookie if it is not expired or had no expire
        date AND that if the cookie requires we're secure we must only
        continue if we are! */
-    if( (!co->expires || (co->expires > now)) &&
-        (co->secure?secure:TRUE) ) {
+    if((!co->expires || (co->expires > now)) &&
+       (co->secure?secure:TRUE)) {
 
       /* now check if the domain is correct */
       if(!co->domain ||
@@ -875,7 +873,7 @@ struct Cookie *Curl_cookie_getlist(struct CookieInfo *c,
     size_t i;
 
     /* alloc an array and store all cookie pointers */
-    array = (struct Cookie **)malloc(sizeof(struct Cookie *) * matches);
+    array = malloc(sizeof(struct Cookie *) * matches);
     if(!array)
       goto fail;
 
@@ -1038,14 +1036,14 @@ static char *get_netscape_format(const struct Cookie *co)
 }
 
 /*
- * Curl_cookie_output()
+ * cookie_output()
  *
  * Writes all internally known cookies to the specified file. Specify
  * "-" as file name to write to stdout.
  *
  * The function returns non-zero on write failure.
  */
-int Curl_cookie_output(struct CookieInfo *c, const char *dumphere)
+static int cookie_output(struct CookieInfo *c, const char *dumphere)
 {
   struct Cookie *co;
   FILE *out;
@@ -1109,27 +1107,57 @@ struct curl_slist *Curl_cookie_list(struct SessionHandle *data)
 
   c = data->cookies->cookies;
 
-  beg = list;
   while(c) {
     /* fill the list with _all_ the cookies we know */
     line = get_netscape_format(c);
-    if(line == NULL) {
-      curl_slist_free_all(beg);
+    if(!line) {
+      curl_slist_free_all(list);
       return NULL;
     }
-    list = curl_slist_append(list, line);
+    beg = curl_slist_append(list, line);
     free(line);
-    if(list == NULL) {
-      curl_slist_free_all(beg);
+    if(!beg) {
+      curl_slist_free_all(list);
       return NULL;
     }
-    else if(beg == NULL) {
-      beg = list;
-    }
+    list = beg;
     c = c->next;
   }
 
   return list;
+}
+
+void Curl_flush_cookies(struct SessionHandle *data, int cleanup)
+{
+  if(data->set.str[STRING_COOKIEJAR]) {
+    if(data->change.cookielist) {
+      /* If there is a list of cookie files to read, do it first so that
+         we have all the told files read before we write the new jar.
+         Curl_cookie_loadfiles() LOCKS and UNLOCKS the share itself! */
+      Curl_cookie_loadfiles(data);
+    }
+
+    Curl_share_lock(data, CURL_LOCK_DATA_COOKIE, CURL_LOCK_ACCESS_SINGLE);
+
+    /* if we have a destination file for all the cookies to get dumped to */
+    if(cookie_output(data->cookies, data->set.str[STRING_COOKIEJAR]))
+      infof(data, "WARNING: failed to save cookies in %s\n",
+            data->set.str[STRING_COOKIEJAR]);
+  }
+  else {
+    if(cleanup && data->change.cookielist) {
+      /* since nothing is written, we can just free the list of cookie file
+         names */
+      curl_slist_free_all(data->change.cookielist); /* clean up list */
+      data->change.cookielist = NULL;
+    }
+    Curl_share_lock(data, CURL_LOCK_DATA_COOKIE, CURL_LOCK_ACCESS_SINGLE);
+  }
+
+  if(cleanup && (!data->share || (data->cookies != data->share->cookies))) {
+    Curl_cookie_cleanup(data->cookies);
+  }
+  Curl_share_unlock(data, CURL_LOCK_DATA_COOKIE);
 }
 
 #endif /* CURL_DISABLE_HTTP || CURL_DISABLE_COOKIES */
