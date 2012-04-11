@@ -1768,6 +1768,7 @@ ppp_receive_mp_frame(struct ppp *ppp, struct sk_buff *skb, struct channel *pch)
 		ppp->minseq = ppp->mrq.next->sequence;
 
 	/* Pull completed packets off the queue and receive them. */
+/* shibby - fix mlppp
 	while ((skb = ppp_mp_reconstruct(ppp)) != 0) {
 		if (pskb_may_pull(skb, 2))
 			ppp_receive_nonmp_frame(ppp, skb);
@@ -1777,6 +1778,12 @@ ppp_receive_mp_frame(struct ppp *ppp, struct sk_buff *skb, struct channel *pch)
 			ppp_receive_error(ppp);
 		}
 	}
+shibby */
+
+//shibby - backport from ddwrt source - fix mlppp
+	while ((skb = ppp_mp_reconstruct(ppp)) != 0)
+		ppp_receive_nonmp_frame(ppp, skb);
+//end
 
 	return;
 
