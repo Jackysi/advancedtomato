@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,11 +49,18 @@ evutil_secure_rng_init(void)
 	(void) arc4random();
 	return 0;
 }
-
-#ifndef _EVENT_HAVE_ARC4RANDOM_BUF
-static void
-arc4random_buf(void *buf, size_t n)
+int
+evutil_secure_rng_global_setup_locks_(const int enable_locks)
 {
+	return 0;
+}
+
+static void
+ev_arc4random_buf(void *buf, size_t n)
+{
+#ifdef _EVENT_HAVE_ARC4RANDOM_BUF
+	return arc4random_buf(buf, n);
+#else
 	unsigned char *b = buf;
 	/* Make sure that we start out with b at a 4-byte alignment; plenty
 	 * of CPUs care about this for 32-bit access. */
@@ -73,8 +80,8 @@ arc4random_buf(void *buf, size_t n)
 		ev_uint32_t u = arc4random();
 		memcpy(b, &u, n);
 	}
-}
 #endif
+}
 
 #else /* !_EVENT_HAVE_ARC4RANDOM { */
 
@@ -84,7 +91,9 @@ arc4random_buf(void *buf, size_t n)
 #define ARC4RANDOM_EXPORT static
 #define _ARC4_LOCK() EVLOCK_LOCK(arc4rand_lock, 0)
 #define _ARC4_UNLOCK() EVLOCK_UNLOCK(arc4rand_lock, 0)
+#ifndef _EVENT_DISABLE_THREAD_SUPPORT
 static void *arc4rand_lock;
+#endif
 
 #define ARC4RANDOM_UINT32 ev_uint32_t
 #define ARC4RANDOM_NOSTIR
@@ -93,13 +102,19 @@ static void *arc4rand_lock;
 
 #include "./arc4random.c"
 
+#ifndef _EVENT_DISABLE_THREAD_SUPPORT
+int
+evutil_secure_rng_global_setup_locks_(const int enable_locks)
+{
+	EVTHREAD_SETUP_GLOBAL_LOCK(arc4rand_lock, 0);
+	return 0;
+}
+#endif
+
 int
 evutil_secure_rng_init(void)
 {
 	int val;
-	if (!arc4rand_lock) {
-		EVTHREAD_ALLOC_LOCK(arc4rand_lock, 0);
-	}
 
 	_ARC4_LOCK();
 	if (!arc4_seeded_ok)
@@ -109,12 +124,18 @@ evutil_secure_rng_init(void)
 	return val;
 }
 
+static void
+ev_arc4random_buf(void *buf, size_t n)
+{
+	arc4random_buf(buf, n);
+}
+
 #endif /* } !_EVENT_HAVE_ARC4RANDOM */
 
 void
 evutil_secure_rng_get_bytes(void *buf, size_t n)
 {
-	arc4random_buf(buf, n);
+	ev_arc4random_buf(buf, n);
 }
 
 void

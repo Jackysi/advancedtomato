@@ -6,7 +6,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -362,8 +362,10 @@ if((($sshid =~ /OpenSSH/) && ($sshvernum < 299)) ||
 #***************************************************************************
 # Generate host and client key files for curl's tests
 #
-if((! -e $hstprvkeyf) || (! -e $hstpubkeyf) ||
-   (! -e $cliprvkeyf) || (! -e $clipubkeyf)) {
+if((! -e $hstprvkeyf) || (! -s $hstprvkeyf) ||
+   (! -e $hstpubkeyf) || (! -s $hstpubkeyf) ||
+   (! -e $cliprvkeyf) || (! -s $cliprvkeyf) ||
+   (! -e $clipubkeyf) || (! -s $clipubkeyf)) {
     # Make sure all files are gone so ssh-keygen doesn't complain
     unlink($hstprvkeyf, $hstpubkeyf, $cliprvkeyf, $clipubkeyf);
     logmsg 'generating host keys...' if($verbose);
@@ -706,8 +708,9 @@ if(system "$sshd -t -f $sshdconfig > $sshdlog 2>&1") {
 #***************************************************************************
 # Generate ssh client host key database file for curl's tests
 #
-if(! -e $knownhosts) {
+if((! -e $knownhosts) || (! -s $knownhosts)) {
     logmsg 'generating ssh client known hosts file...' if($verbose);
+    unlink($knownhosts);
     if(open(DSAKEYFILE, "<$hstpubkeyf")) {
         my @dsahostkey = do { local $/ = ' '; <DSAKEYFILE> };
         if(close(DSAKEYFILE)) {

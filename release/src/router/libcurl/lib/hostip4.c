@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -22,9 +22,6 @@
 
 #include "setup.h"
 
-#include <string.h>
-#include <errno.h>
-
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
@@ -37,16 +34,12 @@
 #ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
-#ifdef HAVE_STDLIB_H
-#include <stdlib.h>     /* required for free() prototypes */
-#endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>     /* for the close() proto */
 #endif
 #ifdef __VMS
 #include <in.h>
 #include <inet.h>
-#include <stdlib.h>
 #endif
 
 #ifdef HAVE_PROCESS_H
@@ -77,9 +70,9 @@
  * Curl_ipvalid() checks what CURL_IPRESOLVE_* requirements that might've
  * been set and returns TRUE if they are OK.
  */
-bool Curl_ipvalid(struct SessionHandle *data)
+bool Curl_ipvalid(struct connectdata *conn)
 {
-  if(data->set.ip_version == CURL_IPRESOLVE_V6)
+  if(conn->ip_version == CURL_IPRESOLVE_V6)
     /* an ipv6 address was requested and we can't get/use one */
     return FALSE;
 
@@ -87,6 +80,7 @@ bool Curl_ipvalid(struct SessionHandle *data)
 }
 
 #ifdef CURLRES_SYNCH
+
 /*
  * Curl_getaddrinfo() - the ipv4 synchronous version.
  *
@@ -124,6 +118,8 @@ Curl_addrinfo *Curl_getaddrinfo(struct connectdata *conn,
 }
 #endif /* CURLRES_SYNCH */
 #endif /* CURLRES_IPV4 */
+
+#if defined(CURLRES_IPV4) && !defined(CURLRES_ARES)
 
 /*
  * Curl_ipv4_resolve_r() - ipv4 threadsafe resolver function.
@@ -317,3 +313,4 @@ Curl_addrinfo *Curl_ipv4_resolve_r(const char *hostname,
 
   return ai;
 }
+#endif /* defined(CURLRES_IPV4) && !defined(CURLRES_ARES) */

@@ -1,6 +1,7 @@
 /* Portable arc4random.c based on arc4random.c from OpenBSD.
  * Portable version by Chris Davis, adapted for Libevent by Nick Mathewson
  * Copyright (c) 2010 Chris Davis, Niels Provos, and Nick Mathewson
+ * Copyright (c) 2010-2012 Niels Provos and Nick Mathewson
  *
  * Note that in Libevent, this file isn't compiled directly.  Instead,
  * it's included from evutil_rand.c
@@ -166,7 +167,7 @@ arc4_seed_win32(void)
 }
 #endif
 
-#if defined(_EVENT_HAVE_SYS_SYSCTL_H)
+#if defined(_EVENT_HAVE_SYS_SYSCTL_H) && defined(_EVENT_HAVE_SYSCTL)
 #if _EVENT_HAVE_DECL_CTL_KERN && _EVENT_HAVE_DECL_KERN_RANDOM && _EVENT_HAVE_DECL_RANDOM_UUID
 #define TRY_SEED_SYSCTL_LINUX
 static int
@@ -259,7 +260,7 @@ arc4_seed_proc_sys_kernel_random_uuid(void)
 	unsigned char entropy[64];
 	int bytes, n, i, nybbles;
 	for (bytes = 0; bytes<ADD_ENTROPY; ) {
-		fd = open("/proc/sys/kernel/random/uuid", O_RDONLY, 0);
+		fd = evutil_open_closeonexec("/proc/sys/kernel/random/uuid", O_RDONLY, 0);
 		if (fd < 0)
 			return -1;
 		n = read(fd, buf, sizeof(buf));
@@ -303,7 +304,7 @@ arc4_seed_urandom(void)
 	size_t n;
 
 	for (i = 0; filenames[i]; ++i) {
-		fd = open(filenames[i], O_RDONLY, 0);
+		fd = evutil_open_closeonexec(filenames[i], O_RDONLY, 0);
 		if (fd<0)
 			continue;
 		n = read_all(fd, buf, sizeof(buf));

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2003-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -282,6 +282,43 @@ test_evbuffer(void *ptr)
  end:
 	evbuffer_free(evb);
 	evbuffer_free(evb_two);
+}
+
+static void
+no_cleanup(const void *data, size_t datalen, void *extra)
+{
+}
+
+static void
+test_evbuffer_remove_buffer_with_empty(void *ptr)
+{
+    struct evbuffer *src = evbuffer_new();
+    struct evbuffer *dst = evbuffer_new();
+    char buf[2];
+
+    evbuffer_validate(src);
+    evbuffer_validate(dst);
+
+    /* setup the buffers */
+    /* we need more data in src than we will move later */
+    evbuffer_add_reference(src, buf, sizeof(buf), no_cleanup, NULL);
+    evbuffer_add_reference(src, buf, sizeof(buf), no_cleanup, NULL);
+    /* we need one buffer in dst and one empty buffer at the end */
+    evbuffer_add(dst, buf, sizeof(buf));
+    evbuffer_add_reference(dst, buf, 0, no_cleanup, NULL);
+
+    evbuffer_validate(src);
+    evbuffer_validate(dst);
+
+    /* move three bytes over */
+    evbuffer_remove_buffer(src, dst, 3);
+
+    evbuffer_validate(src);
+    evbuffer_validate(dst);
+
+end:
+    evbuffer_free(src);
+    evbuffer_free(dst);
 }
 
 static void
@@ -618,6 +655,9 @@ test_evbuffer_add_file(void *ptr)
 		TT_DIE(("Didn't recognize the implementation"));
 	}
 
+	/* Say that it drains to a fd so that we can use sendfile. */
+	evbuffer_set_flags(src, EVBUFFER_FLAG_DRAINS_TO_FD);
+
 #if defined(_EVENT_HAVE_SENDFILE) && defined(__sun__) && defined(__svr4__)
 	/* We need to use a pair of AF_INET sockets, since Solaris
 	   doesn't support sendfile() over AF_UNIX. */
@@ -881,11 +921,61 @@ test_evbuffer_readln(void *ptr)
 	free(cp); cp = NULL;
 	evbuffer_validate(evb);
 
-	test_ok = 1;
  end:
 	evbuffer_free(evb);
 	evbuffer_free(evb_tmp);
 	if (cp) free(cp);
+}
+
+static void
+test_evbuffer_search_eol(void *ptr)
+{
+	struct evbuffer *buf = evbuffer_new();
+	struct evbuffer_ptr ptr1, ptr2;
+	const char *s;
+	size_t eol_len;
+
+	s = "string! \r\n\r\nx\n";
+	evbuffer_add(buf, s, strlen(s));
+	eol_len = -1;
+	ptr1 = evbuffer_search_eol(buf, NULL, &eol_len, EVBUFFER_EOL_CRLF);
+	tt_int_op(ptr1.pos, ==, 8);
+	tt_int_op(eol_len, ==, 2);
+
+	eol_len = -1;
+	ptr2 = evbuffer_search_eol(buf, &ptr1, &eol_len, EVBUFFER_EOL_CRLF);
+	tt_int_op(ptr2.pos, ==, 8);
+	tt_int_op(eol_len, ==, 2);
+
+	evbuffer_ptr_set(buf, &ptr1, 1, EVBUFFER_PTR_ADD);
+	eol_len = -1;
+	ptr2 = evbuffer_search_eol(buf, &ptr1, &eol_len, EVBUFFER_EOL_CRLF);
+	tt_int_op(ptr2.pos, ==, 9);
+	tt_int_op(eol_len, ==, 1);
+
+	eol_len = -1;
+	ptr2 = evbuffer_search_eol(buf, &ptr1, &eol_len, EVBUFFER_EOL_CRLF_STRICT);
+	tt_int_op(ptr2.pos, ==, 10);
+	tt_int_op(eol_len, ==, 2);
+
+	eol_len = -1;
+	ptr1 = evbuffer_search_eol(buf, NULL, &eol_len, EVBUFFER_EOL_LF);
+	tt_int_op(ptr1.pos, ==, 9);
+	tt_int_op(eol_len, ==, 1);
+
+	eol_len = -1;
+	ptr2 = evbuffer_search_eol(buf, &ptr1, &eol_len, EVBUFFER_EOL_LF);
+	tt_int_op(ptr2.pos, ==, 9);
+	tt_int_op(eol_len, ==, 1);
+
+	evbuffer_ptr_set(buf, &ptr1, 1, EVBUFFER_PTR_ADD);
+	eol_len = -1;
+	ptr2 = evbuffer_search_eol(buf, &ptr1, &eol_len, EVBUFFER_EOL_LF);
+	tt_int_op(ptr2.pos, ==, 11);
+	tt_int_op(eol_len, ==, 1);
+
+end:
+	evbuffer_free(buf);
 }
 
 static void
@@ -1073,6 +1163,7 @@ test_evbuffer_search(void *ptr)
 	tt_int_op(pos.pos, ==, -1);
 	pos = evbuffer_search_range(buf, "ack", 3, NULL, &end);
 	tt_int_op(pos.pos, ==, -1);
+
 
 end:
 	if (buf)
@@ -1350,6 +1441,10 @@ test_evbuffer_peek(void *info)
 		evbuffer_add_buffer(buf, tmp_buf);
 	}
 
+	/* How many chunks do we need for everything? */
+	i = evbuffer_peek(buf, -1, NULL, NULL, 0);
+	tt_int_op(i, ==, 16);
+
 	/* Simple peek: get everything. */
 	i = evbuffer_peek(buf, -1, NULL, v, 20);
 	tt_int_op(i, ==, 16); /* we used only 16 chunks. */
@@ -1540,6 +1635,7 @@ static const struct testcase_setup_t nil_setup = {
 
 struct testcase_t evbuffer_testcases[] = {
 	{ "evbuffer", test_evbuffer, 0, NULL, NULL },
+	{ "remove_buffer_with_empty", test_evbuffer_remove_buffer_with_empty, 0, NULL, NULL },
 	{ "reserve2", test_evbuffer_reserve2, 0, NULL, NULL },
 	{ "reserve_many", test_evbuffer_reserve_many, 0, NULL, NULL },
 	{ "reserve_many2", test_evbuffer_reserve_many, 0, &nil_setup, (void*)"add" },
@@ -1548,6 +1644,7 @@ struct testcase_t evbuffer_testcases[] = {
 	{ "reference", test_evbuffer_reference, 0, NULL, NULL },
 	{ "iterative", test_evbuffer_iterative, 0, NULL, NULL },
 	{ "readln", test_evbuffer_readln, TT_NO_LOGS, &basic_setup, NULL },
+	{ "search_eol", test_evbuffer_search_eol, 0, NULL, NULL },
 	{ "find", test_evbuffer_find, 0, NULL, NULL },
 	{ "ptr_set", test_evbuffer_ptr_set, 0, NULL, NULL },
 	{ "search", test_evbuffer_search, 0, NULL, NULL },

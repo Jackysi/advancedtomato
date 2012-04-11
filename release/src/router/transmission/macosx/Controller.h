@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Controller.h 13184 2012-01-30 00:14:43Z livings124 $
+ * $Id: Controller.h 13256 2012-03-18 14:33:50Z livings124 $
  *
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *
@@ -61,6 +61,8 @@ typedef enum
     
     NSUserDefaults                  * fDefaults;
     
+    NSString                        * fConfigDirectory;
+    
     IBOutlet NSWindow               * fWindow;
     DragOverlayWindow               * fOverlayWindow;
     IBOutlet TorrentTableView       * fTableView;
@@ -106,6 +108,9 @@ typedef enum
     
     NSMutableSet                    * fAddingTransfers;
     
+    NSMutableSet                    * fAddWindows;
+    URLSheetWindowController        * fUrlSheetController;
+    
     BOOL                            fGlobalPopoverShown;
     BOOL                            fSoundPlaying;
 }
@@ -127,7 +132,6 @@ typedef enum
 
 - (void) openURL: (NSString *) urlString;
 - (void) openURLShowSheet: (id) sender;
-- (void) urlSheetDidEnd: (URLSheetWindowController *) controller url: (NSString *) urlString returnCode: (NSInteger) returnCode;
 
 - (void) quitSheetDidEnd: (NSWindow *) sheet returnCode: (NSInteger) returnCode contextInfo: (void *) contextInfo;
 

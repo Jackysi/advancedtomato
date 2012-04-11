@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010 Niels Provos, Nick Mathewson
+ * Copyright (c) 2009-2012 Niels Provos, Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,6 +24,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef _WIN32_WINNT
+/* Minimum required for InitializeCriticalSectionAndSpinCount */
+#define _WIN32_WINNT 0x0403
+#endif
 #include <winsock2.h>
 #include <windows.h>
 #include <process.h>
@@ -179,7 +183,7 @@ event_iocp_port_launch(int n_cpus)
 	if (n_cpus <= 0)
 		n_cpus = N_CPUS_DEFAULT;
 	port->n_threads = n_cpus * 2;
-	port->threads = calloc(port->n_threads, sizeof(HANDLE));
+	port->threads = mm_calloc(port->n_threads, sizeof(HANDLE));
 	if (!port->threads)
 		goto err;
 

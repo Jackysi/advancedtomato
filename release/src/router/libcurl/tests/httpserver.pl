@@ -6,7 +6,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -40,8 +40,10 @@ my $idnum = 1;       # dafault http server instance number
 my $proto = 'http';  # protocol the http server speaks
 my $pidfile;         # http server pid file
 my $logfile;         # http server log file
+my $connect;         # IP to connect to on CONNECT
 my $srcdir;
 my $fork;
+my $gopher = 0;
 
 my $flags  = "";
 my $path   = '.';
@@ -72,9 +74,18 @@ while(@ARGV) {
     elsif($ARGV[0] eq '--ipv6') {
         $ipvnum = 6;
     }
+    elsif($ARGV[0] eq '--gopher') {
+        $gopher = 1;
+    }
     elsif($ARGV[0] eq '--port') {
         if($ARGV[1] =~ /^(\d+)$/) {
             $port = $1;
+            shift @ARGV;
+        }
+    }
+    elsif($ARGV[0] eq '--connect') {
+        if($ARGV[1]) {
+            $connect = $ARGV[1];
             shift @ARGV;
         }
     }
@@ -106,8 +117,14 @@ if(!$logfile) {
     $logfile = server_logfilename($logdir, $proto, $ipvnum, $idnum);
 }
 
-$flags .= "--fork " if(defined($fork));
 $flags .= "--pidfile \"$pidfile\" --logfile \"$logfile\" ";
+$flags .= "--gopher " if($gopher);
+$flags .= "--fork " if(defined($fork));
+$flags .= "--connect $connect " if($connect);
 $flags .= "--ipv$ipvnum --port $port --srcdir \"$srcdir\"";
+
+if($verbose) {
+    print STDERR "RUN: server/sws $flags\n";
+}
 
 exec("server/sws $flags");

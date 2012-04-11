@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -24,10 +24,33 @@
 
 #ifndef CURL_DISABLE_CRYPTO_AUTH
 
-#include <string.h>
-
 #include "curl_md5.h"
 #include "curl_hmac.h"
+#include "warnless.h"
+
+#ifdef USE_GNUTLS_NETTLE
+
+#include <nettle/md5.h>
+
+typedef struct md5_ctx MD5_CTX;
+
+static void MD5_Init(MD5_CTX * ctx)
+{
+  md5_init(ctx);
+}
+
+static void MD5_Update(MD5_CTX * ctx,
+                       const unsigned char * input,
+                       unsigned int inputLen)
+{
+  md5_update(ctx, inputLen, input);
+}
+
+static void MD5_Final(unsigned char digest[16], MD5_CTX * ctx)
+{
+  md5_digest(ctx, 16, digest);
+}
+#else
 
 #ifdef USE_GNUTLS
 
@@ -208,7 +231,7 @@ static void MD5_Update (struct md5_ctx *context,    /* context */
     memcpy(&context->buffer[bufindex], input, partLen);
     MD5Transform(context->state, context->buffer);
 
-    for (i = partLen; i + 63 < inputLen; i += 64)
+    for(i = partLen; i + 63 < inputLen; i += 64)
       MD5Transform(context->state, &input[i]);
 
     bufindex = 0;
@@ -345,7 +368,7 @@ static void Encode (unsigned char *output,
 {
   unsigned int i, j;
 
-  for (i = 0, j = 0; j < len; i++, j += 4) {
+  for(i = 0, j = 0; j < len; i++, j += 4) {
     output[j] = (unsigned char)(input[i] & 0xff);
     output[j+1] = (unsigned char)((input[i] >> 8) & 0xff);
     output[j+2] = (unsigned char)((input[i] >> 16) & 0xff);
@@ -362,7 +385,7 @@ static void Decode (UINT4 *output,
 {
   unsigned int i, j;
 
-  for (i = 0, j = 0; j < len; i++, j += 4)
+  for(i = 0, j = 0; j < len; i++, j += 4)
     output[i] = ((UINT4)input[j]) | (((UINT4)input[j+1]) << 8) |
       (((UINT4)input[j+2]) << 16) | (((UINT4)input[j+3]) << 24);
 }
@@ -370,6 +393,8 @@ static void Decode (UINT4 *output,
 #endif /* USE_SSLEAY */
 
 #endif /* USE_GNUTLS */
+
+#endif /* USE_GNUTLS_NETTLE */
 
 const HMAC_params Curl_HMAC_MD5[] = {
   {
@@ -388,7 +413,7 @@ void Curl_md5it(unsigned char *outbuffer, /* 16 bytes */
 {
   MD5_CTX ctx;
   MD5_Init(&ctx);
-  MD5_Update(&ctx, input, (unsigned int)strlen((char *)input));
+  MD5_Update(&ctx, input, curlx_uztoui(strlen((char *)input)));
   MD5_Final(outbuffer, &ctx);
 }
 

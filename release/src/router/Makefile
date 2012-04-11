@@ -152,7 +152,7 @@ obj-$(TCONFIG_BBT) += libcurl
 obj-$(TCONFIG_BBT) += transmission
 obj-$(TCONFIG_BT) += btgui
 obj-$(TCONFIG_BBT) += zlib
-obj-$(TCONFIG_BBT) += gettext
+obj-$(TCONFIG_BBT) += libiconv
 
 obj-$(CONFIG_LINUX26) += hotplug2
 obj-$(CONFIG_LINUX26) += udevtrigger
@@ -1502,9 +1502,9 @@ openvpn-install: openvpn
 #shibby
 libcurl/stamp-h1: zlib openssl
 	cd libcurl && CC=$(CC) STRIP='mipsel-uclibc-strip' \
-		CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 		CPPFLAGS="-I$(TOP)/zlib" \
-		LDFLAGS="-L$(TOP)/zlib -fPIC" \
+		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
 		$(CONFIGURE) --prefix=/usr --disable-thread --enable-shared --enable-static \
 		--enable-ares --enable-cookies --enable-crypto-auth --enable-nonblocking \
 		--enable-file --enable-ftp --enable-http --enable-ipv6 --enable-tftp \
@@ -1534,62 +1534,57 @@ libcurl-install: libcurl
 
 libevent/stamp-h1:
 	cd libevent && CC=$(CC) \
-		CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
-		LDFLAGS="-fPIC" \
+		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
 		$(CONFIGURE)
 		touch libevent/stamp-h1
 
 libevent: libevent/stamp-h1
 	@$(SEP)
 	$(MAKE) -C libevent
+	$(MAKE) -C libevent DESTDIR=$(TOP)/libevent/staged install
 
 libevent-clean:
 	-@$(MAKE) -C libevent clean
 	@rm -f libevent/stamp-h1 libevent/Makefile
-	@rm -rf libevent/staged-h1 libevent/Makefile
+	@rm -rt libevent/staged
 
 libevent-install: libevent
 	install -d $(INSTALLDIR)/libevent/usr/lib
-	install libevent/.libs/libevent-2.0.so.5.1.0 $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5
+	install libevent/.libs/libevent-2.0.so.5.1.6 $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5
 	$(STRIP) -s $(INSTALLDIR)/libevent/usr/lib/libevent-2.0.so.5
-	install -d $(TOP)/libevent/staged
-	$(MAKE) -C libevent DESTDIR=$(TOP)/libevent/staged install
 
-gettext/stamp-h1:
-	cd gettext && \
-	CC=$(CC) CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
-	LDFLAGS="" \
-	$(CONFIGURE) --prefix=$(TOP)/gettext/staged
-	touch gettext/stamp-h1
+libiconv/stamp-h1:
+	cd libiconv && CC=$(CC) \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+	$(CONFIGURE) --prefix=/usr --disable-nls --enable-static
+	touch libiconv/stamp-h1
 
-gettext: gettext/stamp-h1
+libiconv: libiconv/stamp-h1
 	@$(SEP)
-	$(MAKE) -C gettext/gettext-runtime/intl
-	#only libintl.so we neeed for transmission
+	$(MAKE) -C libiconv
 
-gettext-clean:
-	-@$(MAKE) -C gettext clean
-	@rm -f gettext/stamp-h1 gettext/Makefile
-	@rm -rf gettext/staged
+libiconv-clean:
+	-@$(MAKE) -C libiconv clean
+	@rm -f libiconv/stamp-h1 libiconv/Makefile
 
-gettext-install: gettext
-	install -d $(INSTALLDIR)/gettext/usr/lib
-	install gettext/gettext-runtime/intl/.libs/libintl.so.3.4.3 $(INSTALLDIR)/gettext/usr/lib/libintl.so.3
-	$(STRIP) -s $(INSTALLDIR)/gettext/usr/lib/libintl.so.3
+libiconv-install: libiconv
+	install -d $(INSTALLDIR)/libiconv/usr/lib
+	install libiconv/lib/.libs/libiconv.so.2.5.1 $(INSTALLDIR)/libiconv/usr/lib/libiconv.so.2
+	$(STRIP)-s $(INSTALLDIR)/libiconv/usr/lib/libiconv.so.2
 
-transmission/stamp-h1: openssl libcurl libevent zlib gettext
+transmission/stamp-h1: openssl libcurl libevent zlib libiconv
 	cd transmission && CC=$(CC) STRIP='mipsel-uclibc-strip' \
 		CFLAGS="-Os -Wall -fno-delete-null-pointer-checks -funit-at-a-time \
-		--param large-function-growth=800 --param max-inline-insns-single=3000 \
-		-ffunction-sections -fdata-sections \
-		-O2 -O0 -std=gnu99 -ggdb3 -W -Wpointer-arith -Wformat-security -Wcast-align -Wundef \
-		-Wcast-align -Wstrict-prototypes -Wmissing-declarations -Wmissing-format-attribute \
-		-Wredundant-decls -Wnested-externs -Wunused-parameter -Wwrite-strings -Winline -Wfloat-equal \
-		-Wextra -Wdeclaration-after-statement -Winit-self" \
-		LDFLAGS="-L$(TOP)/zlib -L$(TOP)/gettext/gettext-runtime/intl/.libs -lintl -lpthread" \
-		CPPFLAGS="-I$(TOP)/zlib -O3 -DTR_EMBEDDED" \
+			--param large-function-growth=800 --param max-inline-insns-single=3000 \
+			-ffunction-sections -fdata-sections" \
+		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC \
+			-L$(TOP)/libiconv/lib/.libs -liconv" \
+		CPPFLAGS="-I$(TOP)/zlib -I$(TOP)/libiconv/include" \
 		ac_cv_header_libintl_h=yes HAVE_CXX=yes \
-		$(CONFIGURE) --target=mipsel-linux --prefix=/usr --disable-gtk --disable-nls \
+		am_cv_lib_iconv=yes ac_cv_func_iconv_open=yes \
+		$(CONFIGURE) --target=mipsel-linux --prefix=/usr --disable-nls \
 		--enable-lightweight --enable-largefile --enable-utp \
 		LIBCURL_CFLAGS="-I$(TOP)/libcurl/include" \
 		LIBCURL_LIBS="-L$(TOP)/libcurl/lib/.libs/ -lcurl" \
@@ -1614,8 +1609,12 @@ transmission-install: transmission
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-show
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-edit
 	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-create
-	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-remote
 	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-daemon
+ifeq ($(TCONFIG_TR_EXTRAS),y)
+	$(STRIP) -s $(INSTALLDIR)/transmission/usr/bin/transmission-remote
+else
+	@rm -rf $(INSTALLDIR)/transmission/usr/bin/transmission-remote
+endif
 
 btgui:
 	@$(SEP)

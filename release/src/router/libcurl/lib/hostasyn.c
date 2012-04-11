@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -22,8 +22,6 @@
 
 #include "setup.h"
 
-#include <string.h>
-
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
@@ -36,16 +34,12 @@
 #ifdef HAVE_ARPA_INET_H
 #include <arpa/inet.h>
 #endif
-#ifdef HAVE_STDLIB_H
-#include <stdlib.h>     /* required for free() prototypes */
-#endif
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>     /* for the close() proto */
 #endif
 #ifdef __VMS
 #include <in.h>
 #include <inet.h>
-#include <stdlib.h>
 #endif
 
 #ifdef HAVE_PROCESS_H
@@ -82,7 +76,7 @@
  *
  * The storage operation locks and unlocks the DNS cache.
  */
-CURLcode Curl_addrinfo_callback(struct connectdata * conn,
+CURLcode Curl_addrinfo_callback(struct connectdata *conn,
                                 int status,
                                 struct Curl_addrinfo *ai)
 {
@@ -110,8 +104,9 @@ CURLcode Curl_addrinfo_callback(struct connectdata * conn,
       if(data->share)
         Curl_share_unlock(data, CURL_LOCK_DATA_DNS);
     }
-    else
+    else {
       rc = CURLE_OUT_OF_MEMORY;
+    }
   }
 
   conn->async.dns = dns;
@@ -124,6 +119,45 @@ CURLcode Curl_addrinfo_callback(struct connectdata * conn,
   /* ipv4: The input hostent struct will be freed by ares when we return from
      this function */
   return rc;
+}
+
+/* Call this function after Curl_connect() has returned async=TRUE and
+   then a successful name resolve has been received.
+
+   Note: this function disconnects and frees the conn data in case of
+   resolve failure */
+CURLcode Curl_async_resolved(struct connectdata *conn,
+                             bool *protocol_done)
+{
+  CURLcode code;
+
+  if(conn->async.dns) {
+    conn->dns_entry = conn->async.dns;
+    conn->async.dns = NULL;
+  }
+
+  code = Curl_setup_conn(conn, protocol_done);
+
+  if(code)
+    /* We're not allowed to return failure with memory left allocated
+       in the connectdata struct, free those here */
+    Curl_disconnect(conn, FALSE); /* close the connection */
+
+  return code;
+}
+
+/*
+ * Curl_getaddrinfo() is the generic low-level name resolve API within this
+ * source file. There are several versions of this function - for different
+ * name resolve layers (selected at build-time). They all take this same set
+ * of arguments
+ */
+Curl_addrinfo *Curl_getaddrinfo(struct connectdata *conn,
+                                const char *hostname,
+                                int port,
+                                int *waitp)
+{
+  return Curl_resolver_getaddrinfo(conn, hostname, port, waitp);
 }
 
 #endif /* CURLRES_ASYNCH */

@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -109,6 +109,7 @@
 #include "getpart.h"
 #include "inet_pton.h"
 #include "util.h"
+#include "server_sockaddr.h"
 
 /* include memdebug.h last */
 #include "memdebug.h"
@@ -122,6 +123,7 @@
 const char *serverlogfile = DEFAULT_LOGFILE;
 
 static bool verbose = FALSE;
+static bool bind_only = FALSE;
 #ifdef ENABLE_IPV6
 static bool use_ipv6 = FALSE;
 #endif
@@ -688,10 +690,7 @@ static curl_socket_t sockdaemon(curl_socket_t sock,
                                 unsigned short *listenport)
 {
   /* passive daemon style */
-  struct sockaddr_in me;
-#ifdef ENABLE_IPV6
-  struct sockaddr_in6 me6;
-#endif /* ENABLE_IPV6 */
+  srvr_sockaddr_union_t listener;
   int flag;
   int rc;
   int totdelay = 0;
@@ -742,19 +741,19 @@ static curl_socket_t sockdaemon(curl_socket_t sock,
 #ifdef ENABLE_IPV6
   if(!use_ipv6) {
 #endif
-    memset(&me, 0, sizeof(me));
-    me.sin_family = AF_INET;
-    me.sin_addr.s_addr = INADDR_ANY;
-    me.sin_port = htons(*listenport);
-    rc = bind(sock, (struct sockaddr *) &me, sizeof(me));
+    memset(&listener.sa4, 0, sizeof(listener.sa4));
+    listener.sa4.sin_family = AF_INET;
+    listener.sa4.sin_addr.s_addr = INADDR_ANY;
+    listener.sa4.sin_port = htons(*listenport);
+    rc = bind(sock, &listener.sa, sizeof(listener.sa4));
 #ifdef ENABLE_IPV6
   }
   else {
-    memset(&me6, 0, sizeof(me6));
-    me6.sin6_family = AF_INET6;
-    me6.sin6_addr = in6addr_any;
-    me6.sin6_port = htons(*listenport);
-    rc = bind(sock, (struct sockaddr *) &me6, sizeof(me6));
+    memset(&listener.sa6, 0, sizeof(listener.sa6));
+    listener.sa6.sin6_family = AF_INET6;
+    listener.sa6.sin6_addr = in6addr_any;
+    listener.sa6.sin6_port = htons(*listenport);
+    rc = bind(sock, &listener.sa, sizeof(listener.sa6));
   }
 #endif /* ENABLE_IPV6 */
   if(rc) {
@@ -769,36 +768,30 @@ static curl_socket_t sockdaemon(curl_socket_t sock,
     /* The system was supposed to choose a port number, figure out which
        port we actually got and update the listener port value with it. */
     curl_socklen_t la_size;
-    struct sockaddr *localaddr;
-    struct sockaddr_in localaddr4;
+    srvr_sockaddr_union_t localaddr;
 #ifdef ENABLE_IPV6
-    struct sockaddr_in6 localaddr6;
-    if(!use_ipv6) {
+    if(!use_ipv6)
 #endif
-      la_size = sizeof(localaddr4);
-      localaddr = (struct sockaddr *)&localaddr4;
+      la_size = sizeof(localaddr.sa4);
 #ifdef ENABLE_IPV6
-    }
-    else {
-      la_size = sizeof(localaddr6);
-      localaddr = (struct sockaddr *)&localaddr6;
-    }
+    else
+      la_size = sizeof(localaddr.sa6);
 #endif
-    memset(localaddr, 0, (size_t)la_size);
-    if(getsockname(sock, localaddr, &la_size) < 0) {
+    memset(&localaddr.sa, 0, (size_t)la_size);
+    if(getsockname(sock, &localaddr.sa, &la_size) < 0) {
       error = SOCKERRNO;
       logmsg("getsockname() failed with error: (%d) %s",
              error, strerror(error));
       sclose(sock);
       return CURL_SOCKET_BAD;
     }
-    switch (localaddr->sa_family) {
+    switch (localaddr.sa.sa_family) {
     case AF_INET:
-      *listenport = ntohs(localaddr4.sin_port);
+      *listenport = ntohs(localaddr.sa4.sin_port);
       break;
 #ifdef ENABLE_IPV6
     case AF_INET6:
-      *listenport = ntohs(localaddr6.sin6_port);
+      *listenport = ntohs(localaddr.sa6.sin6_port);
       break;
 #endif
     default:
@@ -813,6 +806,12 @@ static curl_socket_t sockdaemon(curl_socket_t sock,
       sclose(sock);
       return CURL_SOCKET_BAD;
     }
+  }
+
+  /* bindonly option forces no listening */
+  if(bind_only) {
+    logmsg("instructed to bind port without listening");
+    return sock;
   }
 
   /* start accepting connections */
@@ -831,10 +830,7 @@ static curl_socket_t sockdaemon(curl_socket_t sock,
 
 int main(int argc, char *argv[])
 {
-  struct sockaddr_in me;
-#ifdef ENABLE_IPV6
-  struct sockaddr_in6 me6;
-#endif /* ENABLE_IPV6 */
+  srvr_sockaddr_union_t me;
   curl_socket_t sock = CURL_SOCKET_BAD;
   curl_socket_t msgsock = CURL_SOCKET_BAD;
   int wrotepidfile = 0;
@@ -886,6 +882,10 @@ int main(int argc, char *argv[])
 #endif
       arg++;
     }
+    else if(!strcmp("--bindonly", argv[arg])) {
+      bind_only = TRUE;
+      arg++;
+    }
     else if(!strcmp("--port", argv[arg])) {
       arg++;
       if(argc>arg) {
@@ -934,6 +934,7 @@ int main(int argc, char *argv[])
            " --pidfile [file]\n"
            " --ipv4\n"
            " --ipv6\n"
+           " --bindonly\n"
            " --port [port]\n"
            " --connect [port]\n"
            " --addr [address]");
@@ -961,6 +962,7 @@ int main(int argc, char *argv[])
     error = SOCKERRNO;
     logmsg("Error creating socket: (%d) %s",
            error, strerror(error));
+    write_stdout("FAIL\n", 5);
     goto sockfilt_cleanup;
   }
 
@@ -970,32 +972,33 @@ int main(int argc, char *argv[])
 #ifdef ENABLE_IPV6
     if(!use_ipv6) {
 #endif
-      memset(&me, 0, sizeof(me));
-      me.sin_family = AF_INET;
-      me.sin_port = htons(connectport);
-      me.sin_addr.s_addr = INADDR_ANY;
+      memset(&me.sa4, 0, sizeof(me.sa4));
+      me.sa4.sin_family = AF_INET;
+      me.sa4.sin_port = htons(connectport);
+      me.sa4.sin_addr.s_addr = INADDR_ANY;
       if (!addr)
         addr = "127.0.0.1";
-      Curl_inet_pton(AF_INET, addr, &me.sin_addr);
+      Curl_inet_pton(AF_INET, addr, &me.sa4.sin_addr);
 
-      rc = connect(sock, (struct sockaddr *) &me, sizeof(me));
+      rc = connect(sock, &me.sa, sizeof(me.sa4));
 #ifdef ENABLE_IPV6
     }
     else {
-      memset(&me6, 0, sizeof(me6));
-      me6.sin6_family = AF_INET6;
-      me6.sin6_port = htons(connectport);
+      memset(&me.sa6, 0, sizeof(me.sa6));
+      me.sa6.sin6_family = AF_INET6;
+      me.sa6.sin6_port = htons(connectport);
       if (!addr)
         addr = "::1";
-      Curl_inet_pton(AF_INET6, addr, &me6.sin6_addr);
+      Curl_inet_pton(AF_INET6, addr, &me.sa6.sin6_addr);
 
-      rc = connect(sock, (struct sockaddr *) &me6, sizeof(me6));
+      rc = connect(sock, &me.sa, sizeof(me.sa6));
     }
 #endif /* ENABLE_IPV6 */
     if(rc) {
       error = SOCKERRNO;
       logmsg("Error connecting to port %hu: (%d) %s",
              connectport, error, strerror(error));
+      write_stdout("FAIL\n", 5);
       goto sockfilt_cleanup;
     }
     logmsg("====> Client connect");
@@ -1004,8 +1007,10 @@ int main(int argc, char *argv[])
   else {
     /* passive daemon style */
     sock = sockdaemon(sock, &port);
-    if(CURL_SOCKET_BAD == sock)
+    if(CURL_SOCKET_BAD == sock) {
+      write_stdout("FAIL\n", 5);
       goto sockfilt_cleanup;
+    }
     msgsock = CURL_SOCKET_BAD; /* no stream socket yet */
   }
 
@@ -1013,12 +1018,16 @@ int main(int argc, char *argv[])
 
   if(connectport)
     logmsg("Connected to port %hu", connectport);
+  else if(bind_only)
+    logmsg("Bound without listening on port %hu", port);
   else
     logmsg("Listening on port %hu", port);
 
   wrotepidfile = write_pidfile(pidname);
-  if(!wrotepidfile)
+  if(!wrotepidfile) {
+    write_stdout("FAIL\n", 5);
     goto sockfilt_cleanup;
+  }
 
   do {
     juggle_again = juggle(&msgsock, sock, &mode);

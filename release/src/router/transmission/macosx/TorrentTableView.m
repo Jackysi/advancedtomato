@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: TorrentTableView.m 13171 2012-01-18 04:09:39Z livings124 $
+ * $Id: TorrentTableView.m 13255 2012-03-13 03:49:30Z livings124 $
  *
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *
@@ -836,14 +836,12 @@
 
 - (void) togglePiecesBar
 {
-    //stop previous animation
-    if (fPiecesBarAnimation)
-        [fPiecesBarAnimation release];
-    
     NSMutableArray * progressMarks = [NSMutableArray arrayWithCapacity: 16];
     for (NSAnimationProgress i = 0.0625; i <= 1.0; i += 0.0625)
         [progressMarks addObject: [NSNumber numberWithFloat: i]];
     
+    //this stops a previous animation
+    [fPiecesBarAnimation release];
     fPiecesBarAnimation = [[NSAnimation alloc] initWithDuration: TOGGLE_PROGRESS_SECONDS animationCurve: NSAnimationEaseIn];
     [fPiecesBarAnimation setAnimationBlockingMode: NSAnimationNonblocking];
     [fPiecesBarAnimation setProgressMarks: progressMarks];

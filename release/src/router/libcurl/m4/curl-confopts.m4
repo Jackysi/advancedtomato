@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -21,7 +21,7 @@
 #***************************************************************************
 
 # File version for 'aclocal' use. Keep it a single number.
-# serial 13
+# serial 16
 
 dnl CURL_CHECK_OPTION_THREADED_RESOLVER
 dnl -------------------------------------------------
@@ -472,6 +472,7 @@ AC_DEFUN([CURL_CHECK_LIB_ARES], [
           ares_channel channel;
           ares_cancel(channel); /* added in 1.2.0 */
           ares_process_fd(channel, 0, 0); /* added in 1.4.0 */
+          ares_dup(&channel, channel); /* added in 1.6.0 */
         ]])
       ],[
         AC_MSG_RESULT([yes])
@@ -492,6 +493,67 @@ AC_DEFUN([CURL_CHECK_LIB_ARES], [
       AC_SUBST([USE_ARES], [1])
       curl_res_msg="c-ares"
     fi
+  fi
+])
+
+
+dnl CURL_CHECK_OPTION_NTLM_WB
+dnl -------------------------------------------------
+dnl Verify if configure has been invoked with option
+dnl --enable-ntlm-wb or --disable-ntlm-wb, and set
+dnl shell variable want_ntlm_wb and want_ntlm_wb_file
+dnl as appropriate.
+
+AC_DEFUN([CURL_CHECK_OPTION_NTLM_WB], [
+  AC_BEFORE([$0],[CURL_CHECK_NTLM_WB])dnl
+  OPT_NTLM_WB="default"
+  AC_ARG_ENABLE(ntlm-wb,
+AC_HELP_STRING([--enable-ntlm-wb@<:@=FILE@:>@],[Enable NTLM delegation to winbind's ntlm_auth helper, where FILE is ntlm_auth's absolute filename (default: /usr/bin/ntlm_auth)])
+AC_HELP_STRING([--disable-ntlm-wb],[Disable NTLM delegation to winbind's ntlm_auth helper]),
+  OPT_NTLM_WB=$enableval)
+  want_ntlm_wb_file="/usr/bin/ntlm_auth"
+  case "$OPT_NTLM_WB" in
+    no)
+      dnl --disable-ntlm-wb option used
+      want_ntlm_wb="no"
+      ;;
+    default)
+      dnl configure option not specified
+      want_ntlm_wb="yes"
+      ;;
+    *)
+      dnl --enable-ntlm-wb option used
+      want_ntlm_wb="yes"
+      if test -n "$enableval" && test "$enableval" != "yes"; then
+        want_ntlm_wb_file="$enableval"
+      fi
+      ;;
+  esac
+])
+
+
+dnl CURL_CHECK_NTLM_WB
+dnl -------------------------------------------------
+dnl Check if support for NTLM delegation to winbind's
+dnl ntlm_auth helper will finally be enabled depending
+dnl on given configure options and target platform.
+
+AC_DEFUN([CURL_CHECK_NTLM_WB], [
+  AC_REQUIRE([CURL_CHECK_OPTION_NTLM_WB])dnl
+  AC_REQUIRE([CURL_CHECK_NATIVE_WINDOWS])dnl
+  AC_MSG_CHECKING([whether to enable NTLM delegation to winbind's helper])
+  if test "$ac_cv_native_windows" = "yes" ||
+    test "x$SSL_ENABLED" = "x"; then
+    want_ntlm_wb_file=""
+    want_ntlm_wb="no"
+  fi
+  AC_MSG_RESULT([$want_ntlm_wb])
+  if test "$want_ntlm_wb" = "yes"; then
+    AC_DEFINE(NTLM_WB_ENABLED, 1,
+      [Define to enable NTLM delegation to winbind's ntlm_auth helper.])
+    AC_DEFINE_UNQUOTED(NTLM_WB_FILE, "$want_ntlm_wb_file",
+      [Define absolute filename for winbind's ntlm_auth helper.])
+    NTLM_WB_ENABLED=1
   fi
 ])
 

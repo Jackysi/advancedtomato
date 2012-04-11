@@ -15,6 +15,12 @@
 
 @SET_MAKE@
 
+# test/Makefile.am for libevent
+# Copyright 2000-2007 Niels Provos
+# Copyright 2007-2012 Niels Provos and Nick Mathewson
+#
+# See LICENSE for copying information.
+
 
 VPATH = @srcdir@
 pkgdatadir = $(datadir)/@PACKAGE@
@@ -46,7 +52,7 @@ EXTRA_PROGRAMS = regress$(EXEEXT)
 @PTHREADS_TRUE@am__append_3 = ../libevent_pthreads.la
 @BUILD_WIN32_TRUE@am__append_4 = regress_iocp.c
 @OPENSSL_TRUE@am__append_5 = regress_ssl.c
-@OPENSSL_TRUE@am__append_6 = ../libevent_openssl.la -lcrypto -lssl
+@OPENSSL_TRUE@am__append_6 = ../libevent_openssl.la -lssl -lcrypto ${OPENSSL_LIBADD}
 subdir = test
 DIST_COMMON = $(noinst_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
@@ -102,7 +108,8 @@ am_regress_OBJECTS = regress-regress.$(OBJEXT) \
 	$(am__objects_2) $(am__objects_3) $(am__objects_4)
 regress_OBJECTS = $(am_regress_OBJECTS)
 am__DEPENDENCIES_2 = $(am__append_3)
-@OPENSSL_TRUE@am__DEPENDENCIES_3 = ../libevent_openssl.la
+@OPENSSL_TRUE@am__DEPENDENCIES_3 = ../libevent_openssl.la \
+@OPENSSL_TRUE@	$(am__DEPENDENCIES_1)
 regress_DEPENDENCIES = $(am__DEPENDENCIES_1) ../libevent.la \
 	$(am__DEPENDENCIES_2) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_3)
@@ -173,12 +180,15 @@ CPPFLAGS = @CPPFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
+DLLTOOL = @DLLTOOL@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+EV_LIB_GDI = @EV_LIB_GDI@
+EV_LIB_WS32 = @EV_LIB_WS32@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -198,11 +208,13 @@ LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
+MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OPENSSL_LIBADD = @OPENSSL_LIBADD@
 OPENSSL_LIBS = @OPENSSL_LIBS@
 OTOOL = @OTOOL@
 OTOOL64 = @OTOOL64@
@@ -228,6 +240,7 @@ abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
+ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
 acx_pthread_config = @acx_pthread_config@
@@ -278,7 +291,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 AUTOMAKE_OPTIONS = foreign
 AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/compat -I$(top_srcdir)/include -I../include -DTINYTEST_LOCAL
-EXTRA_DIST = regress.rpc regress.gen.h regress.gen.c test.sh
+EXTRA_DIST = regress.rpc regress.gen.h regress.gen.c rpcgen_wrapper.sh test.sh
 noinst_HEADERS = tinytest.h tinytest_macros.h regress.h tinytest_local.h
 TESTS = $(top_srcdir)/test/test.sh
 BUILT_SOURCES = $(am__append_2)
@@ -306,9 +319,7 @@ regress_SOURCES = regress.c regress_buffer.c regress_http.c \
 @ZLIB_REGRESS_TRUE@regress_zlib_SOURCES = regress_zlib.c
 regress_LDADD = $(LIBEVENT_GC_SECTIONS) ../libevent.la $(PTHREAD_LIBS) \
 	$(ZLIB_LIBS) $(am__append_6)
-regress_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/compat \
-	-I$(top_srcdir)/include -I../include $(PTHREAD_CFLAGS) $(ZLIB_CFLAGS)
-
+regress_CPPFLAGS = $(AM_CPPFLAGS) $(PTHREAD_CFLAGS) $(ZLIB_CFLAGS)
 regress_LDFLAGS = $(PTHREAD_CFLAGS)
 bench_SOURCES = bench.c
 bench_LDADD = $(LIBEVENT_GC_SECTIONS) ../libevent.la
@@ -318,6 +329,7 @@ bench_http_SOURCES = bench_http.c
 bench_http_LDADD = $(LIBEVENT_GC_SECTIONS) ../libevent.la
 bench_httpclient_SOURCES = bench_httpclient.c
 bench_httpclient_LDADD = $(LIBEVENT_GC_SECTIONS) ../libevent_core.la
+CLEANFILES = rpcgen-attempted
 DISTCLEANFILES = *~
 all: $(BUILT_SOURCES)
 	$(MAKE) $(AM_MAKEFLAGS) all-am
@@ -909,6 +921,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -1007,8 +1020,17 @@ uninstall-am:
 	tags uninstall uninstall-am
 
 
-regress.gen.c regress.gen.h: regress.rpc $(top_srcdir)/event_rpcgen.py
-	$(top_srcdir)/event_rpcgen.py $(srcdir)/regress.rpc || echo "No Python installed"
+regress.gen.c regress.gen.h: rpcgen-attempted
+
+rpcgen-attempted: $(srcdir)/regress.rpc $(srcdir)/../event_rpcgen.py $(srcdir)/rpcgen_wrapper.sh
+	date -u > $@
+	if $(srcdir)/rpcgen_wrapper.sh $(srcdir); then \
+	   echo "rpcgen okay"; \
+	else \
+	   echo "No Python installed; stubbing out RPC test." >&2; \
+	   echo " "> regress.gen.c; \
+	   echo "#define NO_PYTHON_EXISTS" > regress.gen.h; \
+	fi
 
 verify: check
 

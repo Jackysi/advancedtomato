@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoWindowController.m 13162 2012-01-14 17:12:04Z livings124 $
+ * $Id: InfoWindowController.m 13252 2012-03-13 02:55:15Z livings124 $
  *
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -140,12 +140,12 @@ typedef enum
     if ([fViewController respondsToSelector: @selector(saveViewSize)])
         [fViewController saveViewSize];
     
-    [fGeneralViewController dealloc];
-    [fActivityViewController dealloc];
-    [fTrackersViewController dealloc];
-    [fPeersViewController dealloc];
-    [fFileViewController dealloc];
-    [fOptionsViewController dealloc];
+    [fGeneralViewController release];
+    [fActivityViewController release];
+    [fTrackersViewController release];
+    [fPeersViewController release];
+    [fFileViewController release];
+    [fOptionsViewController release];
     
     [fTorrents release];
     

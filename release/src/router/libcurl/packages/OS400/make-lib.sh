@@ -11,8 +11,9 @@ cd "${TOPDIR}/lib"
 #      Create and compile the identification source file.
 
 echo '#pragma comment(user, "libcurl version '"${LIBCURL_VERSION}"'")' > os400.c
-echo '#pragma comment(date)' >> os400.c
-echo '#pragma comment(copyright, "Copyright (C) 1998-2010 Daniel Stenberg et al. OS/400 version by P. Monnerat")' >> os400.c
+echo '#pragma comment(user, __DATE__)' >> os400.c
+echo '#pragma comment(user, __TIME__)' >> os400.c
+echo '#pragma comment(copyright, "Copyright (C) 1998-2011 Daniel Stenberg et al. OS/400 version by P. Monnerat")' >> os400.c
 make_module     OS400           os400.c
 LINK=                           # No need to rebuild service program yet.
 MODULES=
@@ -45,9 +46,7 @@ make_module     OS400SYS        "${SCRIPTDIR}/os400sys.c"
 make_module     CCSIDCURL       "${SCRIPTDIR}/ccsidcurl.c"
 
 for SRC in ${CSOURCES}
-do      MODULE=`basename "${SRC}" .c |
-                tr '[a-z]' '[A-Z]'   |
-                sed -e 's/^\(..........\).*/\1/'`
+do      MODULE=`db2_name "${SRC}"`
         make_module "${MODULE}" "${SRC}"
 done
 

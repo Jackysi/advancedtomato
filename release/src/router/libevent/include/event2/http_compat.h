@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2000-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,7 @@
 #ifndef _EVENT2_HTTP_COMPAT_H_
 #define _EVENT2_HTTP_COMPAT_H_
 
-/** @file http_compat.h
+/** @file event2/http_compat.h
 
   Potentially non-threadsafe versions of the functions in http.h: provided
   only for backwards compatibility.

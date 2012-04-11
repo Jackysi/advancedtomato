@@ -15,6 +15,12 @@
 
 @SET_MAKE@
 
+# Makefile.am for libevent
+# Copyright 2000-2007 Niels Provos
+# Copyright 2007-2012 Niels Provos and Nick Mathewson
+#
+# See LICENSE for copying information.
+
 
 
 
@@ -50,13 +56,13 @@ host_triplet = @host@
 @SIGNAL_SUPPORT_TRUE@am__append_11 = signal.c
 @INSTALL_LIBEVENT_FALSE@am__append_12 = $(EVENT1_HDRS)
 subdir = .
-DIST_COMMON = README $(am__configure_deps) $(am__include_HEADERS_DIST) \
-	$(am__noinst_HEADERS_DIST) $(dist_bin_SCRIPTS) \
-	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(srcdir)/config.h.in $(srcdir)/libevent.pc.in \
-	$(srcdir)/libevent_openssl.pc.in \
+DIST_COMMON = README $(am__configure_deps) \
+	$(am__dist_bin_SCRIPTS_DIST) $(am__include_HEADERS_DIST) \
+	$(am__noinst_HEADERS_DIST) $(srcdir)/Makefile.am \
+	$(srcdir)/Makefile.in $(srcdir)/config.h.in \
+	$(srcdir)/libevent.pc.in $(srcdir)/libevent_openssl.pc.in \
 	$(srcdir)/libevent_pthreads.pc.in $(top_srcdir)/configure \
-	ChangeLog config.guess config.sub depcomp epoll_sub.c \
+	ChangeLog compile config.guess config.sub depcomp epoll_sub.c \
 	install-sh ltmain.sh missing
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/acx_pthread.m4 \
@@ -149,7 +155,7 @@ libevent_core_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(libevent_core_la_LDFLAGS) $(LDFLAGS) -o $@
 @INSTALL_LIBEVENT_FALSE@am_libevent_core_la_rpath =
 @INSTALL_LIBEVENT_TRUE@am_libevent_core_la_rpath = -rpath $(libdir)
-@BUILD_WIN32_TRUE@am__DEPENDENCIES_2 = libevent_core.la
+@BUILD_WITH_NO_UNDEFINED_TRUE@am__DEPENDENCIES_2 = libevent_core.la
 libevent_extra_la_DEPENDENCIES = $(am__DEPENDENCIES_2) \
 	$(am__DEPENDENCIES_1)
 am_libevent_extra_la_OBJECTS = $(am__objects_10)
@@ -160,7 +166,7 @@ libevent_extra_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 @INSTALL_LIBEVENT_FALSE@am_libevent_extra_la_rpath =
 @INSTALL_LIBEVENT_TRUE@am_libevent_extra_la_rpath = -rpath $(libdir)
 @OPENSSL_TRUE@libevent_openssl_la_DEPENDENCIES =  \
-@OPENSSL_TRUE@	$(am__DEPENDENCIES_2)
+@OPENSSL_TRUE@	$(am__DEPENDENCIES_2) $(am__DEPENDENCIES_1)
 am__libevent_openssl_la_SOURCES_DIST = bufferevent_openssl.c
 @OPENSSL_TRUE@am_libevent_openssl_la_OBJECTS = bufferevent_openssl.lo
 libevent_openssl_la_OBJECTS = $(am_libevent_openssl_la_OBJECTS)
@@ -170,7 +176,8 @@ libevent_openssl_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 @INSTALL_LIBEVENT_FALSE@@OPENSSL_TRUE@am_libevent_openssl_la_rpath =
 @INSTALL_LIBEVENT_TRUE@@OPENSSL_TRUE@am_libevent_openssl_la_rpath =  \
 @INSTALL_LIBEVENT_TRUE@@OPENSSL_TRUE@	-rpath $(libdir)
-libevent_pthreads_la_LIBADD =
+@PTHREADS_TRUE@libevent_pthreads_la_DEPENDENCIES =  \
+@PTHREADS_TRUE@	$(am__DEPENDENCIES_2)
 am__libevent_pthreads_la_SOURCES_DIST = evthread_pthread.c
 @PTHREADS_TRUE@am_libevent_pthreads_la_OBJECTS = evthread_pthread.lo
 libevent_pthreads_la_OBJECTS = $(am_libevent_pthreads_la_OBJECTS)
@@ -180,6 +187,7 @@ libevent_pthreads_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 @INSTALL_LIBEVENT_FALSE@@PTHREADS_TRUE@am_libevent_pthreads_la_rpath =
 @INSTALL_LIBEVENT_TRUE@@PTHREADS_TRUE@am_libevent_pthreads_la_rpath =  \
 @INSTALL_LIBEVENT_TRUE@@PTHREADS_TRUE@	-rpath $(libdir)
+am__dist_bin_SCRIPTS_DIST = event_rpcgen.py
 SCRIPTS = $(dist_bin_SCRIPTS)
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -280,12 +288,15 @@ CPPFLAGS = @CPPFLAGS@
 CYGPATH_W = @CYGPATH_W@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
+DLLTOOL = @DLLTOOL@
 DSYMUTIL = @DSYMUTIL@
 DUMPBIN = @DUMPBIN@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+EV_LIB_GDI = @EV_LIB_GDI@
+EV_LIB_WS32 = @EV_LIB_WS32@
 EXEEXT = @EXEEXT@
 FGREP = @FGREP@
 GREP = @GREP@
@@ -305,11 +316,13 @@ LIPO = @LIPO@
 LN_S = @LN_S@
 LTLIBOBJS = @LTLIBOBJS@
 MAKEINFO = @MAKEINFO@
+MANIFEST_TOOL = @MANIFEST_TOOL@
 MKDIR_P = @MKDIR_P@
 NM = @NM@
 NMEDIT = @NMEDIT@
 OBJDUMP = @OBJDUMP@
 OBJEXT = @OBJEXT@
+OPENSSL_LIBADD = @OPENSSL_LIBADD@
 OPENSSL_LIBS = @OPENSSL_LIBS@
 OTOOL = @OTOOL@
 OTOOL64 = @OTOOL64@
@@ -335,6 +348,7 @@ abs_builddir = @abs_builddir@
 abs_srcdir = @abs_srcdir@
 abs_top_builddir = @abs_top_builddir@
 abs_top_srcdir = @abs_top_srcdir@
+ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
 acx_pthread_config = @acx_pthread_config@
@@ -417,7 +431,7 @@ RELEASE = -release 2.0
 #
 # Once an RC is out, DO NOT MAKE ANY ABI-BREAKING CHANGES IN THAT SERIES
 # UNLESS YOU REALLY REALLY HAVE TO.
-VERSION_INFO = 6:0:1
+VERSION_INFO = 6:6:1
 
 # History:          RELEASE    VERSION_INFO
 #  2.0.1-alpha --     2.0        1:0:0
@@ -429,8 +443,15 @@ VERSION_INFO = 6:0:1
 #  2.0.7-rc    --     2.0        3:0:1
 #  2.0.8-rc    --     2.0        4:0:2
 #  2.0.9-rc    --     2.0        5:0:0 (ABI changed slightly)
-# Planned:
 #  2.0.10-stable--    2.0        5:1:0 (No ABI change)
+#  2.0.11-stable--    2.0        6:0:1 (ABI changed, backward-compatible)
+#  2.0.12-stable--    2.0        6:1:1 (No ABI change)
+#  2.0.13-stable--    2.0        6:2:1 (No ABI change)
+#  2.0.14-stable--    2.0        6:3:1 (No ABI change)
+#  2.0.15-stable--    2.0        6:3:1 (Forgot to update :( )
+#  2.0.16-stable--    2.0        6:4:1 (No ABI change)
+#  2.0.17-stable--    2.0        6:5:1 (No ABI change)
+#  2.0.18-stable--    2.0        6:6:1 (No ABI change)
 #
 # For Libevent 2.1:
 #  2.1.1-alpha --     2.1        1:0:0
@@ -452,7 +473,7 @@ VERSION_INFO = 6:0:1
 # nice and rare.  For the next couple of years, though, 'struct event'
 # is user-visible, and so we can pretty much guarantee that release
 # series won't be binary-compatible.
-dist_bin_SCRIPTS = event_rpcgen.py
+@INSTALL_LIBEVENT_TRUE@dist_bin_SCRIPTS = event_rpcgen.py
 pkgconfigdir = $(libdir)/pkgconfig
 LIBEVENT_PKGCONFIG = libevent.pc $(am__append_2) $(am__append_4)
 
@@ -465,6 +486,7 @@ PLATFORM_DEPENDENT_SRC = \
 EXTRA_DIST = \
 	LICENSE \
 	autogen.sh \
+	event_rpcgen.py \
 	libevent.pc.in \
 	Doxyfile \
 	whatsnew-2.0.txt \
@@ -478,7 +500,7 @@ LIBEVENT_LIBS_LA = libevent.la libevent_core.la libevent_extra.la \
 @INSTALL_LIBEVENT_FALSE@noinst_LTLIBRARIES = $(LIBEVENT_LIBS_LA)
 SUBDIRS = . include sample test
 @BUILD_WIN32_FALSE@SYS_LIBS = 
-@BUILD_WIN32_TRUE@SYS_LIBS = -lws2_32
+@BUILD_WIN32_TRUE@SYS_LIBS = -lws2_32 -lshell32 -ladvapi32
 @BUILD_WIN32_FALSE@SYS_SRC = $(am__append_5) $(am__append_6) \
 @BUILD_WIN32_FALSE@	$(am__append_7) $(am__append_8) \
 @BUILD_WIN32_FALSE@	$(am__append_9) $(am__append_10) \
@@ -498,10 +520,10 @@ CORE_SRC = event.c evthread.c buffer.c \
 	evmap.c	log.c evutil.c evutil_rand.c strlcpy.c $(SYS_SRC)
 
 EXTRA_SRC = event_tagging.c http.c evdns.c evrpc.c
-@BUILD_WIN32_FALSE@NO_UNDEFINED = 
-@BUILD_WIN32_TRUE@NO_UNDEFINED = -no-undefined
-@BUILD_WIN32_FALSE@MAYBE_CORE = 
-@BUILD_WIN32_TRUE@MAYBE_CORE = libevent_core.la
+@BUILD_WITH_NO_UNDEFINED_FALSE@NO_UNDEFINED = 
+@BUILD_WITH_NO_UNDEFINED_TRUE@NO_UNDEFINED = -no-undefined
+@BUILD_WITH_NO_UNDEFINED_FALSE@MAYBE_CORE = 
+@BUILD_WITH_NO_UNDEFINED_TRUE@MAYBE_CORE = libevent_core.la
 GENERIC_LDFLAGS = -version-info $(VERSION_INFO) $(RELEASE) $(NO_UNDEFINED)
 libevent_la_SOURCES = $(CORE_SRC) $(EXTRA_SRC)
 libevent_la_LIBADD = @LTLIBOBJS@ $(SYS_LIBS)
@@ -510,12 +532,13 @@ libevent_core_la_SOURCES = $(CORE_SRC)
 libevent_core_la_LIBADD = @LTLIBOBJS@ $(SYS_LIBS)
 libevent_core_la_LDFLAGS = $(GENERIC_LDFLAGS)
 @PTHREADS_TRUE@libevent_pthreads_la_SOURCES = evthread_pthread.c
+@PTHREADS_TRUE@libevent_pthreads_la_LIBADD = $(MAYBE_CORE)
 @PTHREADS_TRUE@libevent_pthreads_la_LDFLAGS = $(GENERIC_LDFLAGS)
 libevent_extra_la_SOURCES = $(EXTRA_SRC)
 libevent_extra_la_LIBADD = $(MAYBE_CORE) $(SYS_LIBS)
 libevent_extra_la_LDFLAGS = $(GENERIC_LDFLAGS)
 @OPENSSL_TRUE@libevent_openssl_la_SOURCES = bufferevent_openssl.c
-@OPENSSL_TRUE@libevent_openssl_la_LIBADD = $(MAYBE_CORE) -lcrypto -lssl
+@OPENSSL_TRUE@libevent_openssl_la_LIBADD = $(MAYBE_CORE) $(OPENSSL_LIBS)
 @OPENSSL_TRUE@libevent_openssl_la_LDFLAGS = $(GENERIC_LDFLAGS)
 noinst_HEADERS = util-internal.h mm-internal.h ipv6-internal.h \
 	evrpc-internal.h strlcpy-internal.h evbuffer-internal.h \

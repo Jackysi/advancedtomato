@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2006-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-/** @file rpc_struct.h
+/** @file event2/rpc_struct.h
 
   Structures used by rpc.h.  Using these structures directly may harm
   forward compatibility: be careful!

@@ -139,27 +139,7 @@ LINK32=link.exe
 # PROP Default_Filter ""
 # Begin Source File
 
-SOURCE=.\curlutil.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\getpass.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\homedir.c
-# End Source File
-# Begin Source File
-
 SOURCE=.\hugehelp.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\main.c
-# End Source File
-# Begin Source File
-
-SOURCE=.\os-specific.c
 # End Source File
 # Begin Source File
 
@@ -175,15 +155,147 @@ SOURCE=..\lib\strtoofft.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\urlglob.c
+SOURCE=.\tool_binmode.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\writeenv.c
+SOURCE=.\tool_bname.c
 # End Source File
 # Begin Source File
 
-SOURCE=.\writeout.c
+SOURCE=.\tool_cb_dbg.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_cb_hdr.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_cb_prg.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_cb_rea.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_cb_see.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_cb_wrt.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_cfgable.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_convert.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_dirhie.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_doswin.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_easysrc.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_formparse.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_getparam.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_getpass.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_help.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_helpers.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_homedir.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_libinfo.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_main.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_mfiles.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_msgs.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_operate.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_operhlp.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_panykey.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_paramhlp.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_parsecfg.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_setopt.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_sleep.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_urlglob.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_util.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_vms.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_writeenv.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_writeout.c
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_xattr.c
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -195,23 +307,7 @@ SOURCE=".\config-win32.h"
 # End Source File
 # Begin Source File
 
-SOURCE=.\curlutil.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\getpass.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\homedir.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\hugehelp.h
-# End Source File
-# Begin Source File
-
-SOURCE=.\os-specific.h
 # End Source File
 # Begin Source File
 
@@ -231,19 +327,155 @@ SOURCE=..\lib\strtoofft.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\urlglob.h
+SOURCE=.\tool_binmode.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\version.h
+SOURCE=.\tool_bname.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\writeenv.h
+SOURCE=.\tool_cb_dbg.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\writeout.h
+SOURCE=.\tool_cb_hdr.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_cb_prg.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_cb_rea.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_cb_see.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_cb_wrt.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_cfgable.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_convert.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_dirhie.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_doswin.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_easysrc.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_formparse.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_getparam.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_getpass.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_help.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_helpers.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_homedir.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_libinfo.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_main.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_mfiles.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_msgs.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_operate.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_operhlp.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_panykey.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_paramhlp.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_parsecfg.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_sdecls.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_setopt.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_sleep.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_urlglob.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_util.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_version.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_vms.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_writeenv.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_writeout.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\tool_xattr.h
 # End Source File
 # End Group
 # Begin Group "Resource Files"

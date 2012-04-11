@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Niels Provos, Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos, Nick Mathewson
  * Copyright (c) 2000-2007 Niels Provos <provos@citi.umich.edu>
  * All rights reserved.
  *
@@ -53,6 +53,10 @@
 
   If multiple bases are in use, bufferevent_base_set() must be called before
   enabling the bufferevent for the first time.
+
+  @deprecated This function is deprecated because it uses the current
+    event base, and as such can be error prone for multithreaded programs.
+    Use bufferevent_socket_new() instead.
 
   @param fd the file descriptor from which data is read and written to.
 	 This file descriptor is not allowed to be a pipe(2).

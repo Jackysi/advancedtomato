@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: main.c 13188 2012-02-03 15:51:36Z jordan $
+ * $Id: main.c 13237 2012-02-24 19:52:50Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -487,7 +487,7 @@ on_startup( GApplication * application, gpointer user_data )
     struct cbdata * cbdata = user_data;
 
     signal( SIGINT, signal_handler );
-    signal( SIGKILL, signal_handler );
+    signal( SIGTERM, signal_handler );
 
     sighandler_cbdata = cbdata;
 

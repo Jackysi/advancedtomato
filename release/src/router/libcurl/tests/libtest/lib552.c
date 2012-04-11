@@ -1,17 +1,31 @@
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
  *                             / __| | | | |_) | |
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
+ * Copyright (C) 1998 - 2012, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
- * argv1 = URL
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ *
+ * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+ * copies of the Software, and permit persons to whom the Software is
+ * furnished to do so, under the terms of the COPYING file.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ***************************************************************************/
+/* argv1 = URL
  * argv2 = proxy with embedded user+password
  */
 
 #include "test.h"
 
+#include "warnless.h"
 #include "memdebug.h"
 
 struct data {
@@ -123,7 +137,8 @@ static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *stream)
 
 static size_t write_callback(void *ptr, size_t size, size_t nmemb, void *stream)
 {
-  printf("%.*s", (int)(size * nmemb), (char *)ptr);
+  int amount = curlx_uztosi(size * nmemb);
+  printf("%.*s", amount, (char *)ptr);
   (void)stream;
   return size * nmemb;
 }

@@ -1,21 +1,33 @@
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
  *                             / __| | | | |_) | |
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
- * This is an example application source code using the multi interface
- * to do a multipart formpost without "blocking".
- */
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ *
+ * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+ * copies of the Software, and permit persons to whom the Software is
+ * furnished to do so, under the terms of the COPYING file.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ***************************************************************************/
+/* This is an example application source code using the multi interface
+ * to do a multipart formpost without "blocking". */
 #include <stdio.h>
 #include <string.h>
 #include <sys/time.h>
 
 #include <curl/curl.h>
 
-int main(int argc, char *argv[])
+int main(void)
 {
   CURL *curl;
 
@@ -58,8 +70,7 @@ int main(int argc, char *argv[])
   if(curl && multi_handle) {
 
     /* what URL that receives this POST */
-    curl_easy_setopt(curl, CURLOPT_URL,
-                     "http://www.fillinyoururl.com/upload.cgi");
+    curl_easy_setopt(curl, CURLOPT_URL, "http://www.example.com/upload.cgi");
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerlist);
@@ -67,8 +78,7 @@ int main(int argc, char *argv[])
 
     curl_multi_add_handle(multi_handle, curl);
 
-    while(CURLM_CALL_MULTI_PERFORM ==
-          curl_multi_perform(multi_handle, &still_running));
+    curl_multi_perform(multi_handle, &still_running);
 
     while(still_running) {
       struct timeval timeout;
@@ -114,12 +124,10 @@ int main(int argc, char *argv[])
         /* select error */
         break;
       case 0:
-        printf("timeout!\n");
       default:
         /* timeout or readable/writable sockets */
         printf("perform!\n");
-        while(CURLM_CALL_MULTI_PERFORM ==
-              curl_multi_perform(multi_handle, &still_running));
+        curl_multi_perform(multi_handle, &still_running);
         printf("running: %d!\n", still_running);
         break;
       }

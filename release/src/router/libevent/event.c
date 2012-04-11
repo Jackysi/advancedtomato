@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2000-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -182,7 +182,9 @@ eq_debug_entry(const struct event_debug_entry *a,
 int _event_debug_mode_on = 0;
 /* Set if it's too late to enable event_debug_mode. */
 static int event_debug_mode_too_late = 0;
+#ifndef _EVENT_DISABLE_THREAD_SUPPORT
 static void *_event_debug_map_lock = NULL;
+#endif
 static HT_HEAD(event_debug_map, event_debug_entry) global_debug_map =
 	HT_INITIALIZER();
 
@@ -237,8 +239,10 @@ HT_GENERATE(event_debug_map, event_debug_entry, node, hash_debug_entry,
 			dent->added = 1;				\
 		} else {						\
 			event_errx(_EVENT_ERR_ABORT,			\
-			    "%s: noting an add on a non-setup event %p", \
-			    __func__, (ev));				\
+			    "%s: noting an add on a non-setup event %p" \
+			    " (events: 0x%x, fd: %d, flags: 0x%x)",	\
+			    __func__, (ev), (ev)->ev_events,		\
+			    (ev)->ev_fd, (ev)->ev_flags);		\
 		}							\
 		EVLOCK_UNLOCK(_event_debug_map_lock, 0);		\
 	}								\
@@ -255,8 +259,10 @@ HT_GENERATE(event_debug_map, event_debug_entry, node, hash_debug_entry,
 			dent->added = 0;				\
 		} else {						\
 			event_errx(_EVENT_ERR_ABORT,			\
-			    "%s: noting a del on a non-setup event %p", \
-			    __func__, (ev));				\
+			    "%s: noting a del on a non-setup event %p"	\
+			    " (events: 0x%x, fd: %d, flags: 0x%x)",	\
+			    __func__, (ev), (ev)->ev_events,		\
+			    (ev)->ev_fd, (ev)->ev_flags);		\
 		}							\
 		EVLOCK_UNLOCK(_event_debug_map_lock, 0);		\
 	}								\
@@ -271,8 +277,10 @@ HT_GENERATE(event_debug_map, event_debug_entry, node, hash_debug_entry,
 		dent = HT_FIND(event_debug_map, &global_debug_map, &find); \
 		if (!dent) {						\
 			event_errx(_EVENT_ERR_ABORT,			\
-			    "%s called on a non-initialized event %p",	\
-			    __func__, (ev));				\
+			    "%s called on a non-initialized event %p"	\
+			    " (events: 0x%x, fd: %d, flags: 0x%x)",	\
+			    __func__, (ev), (ev)->ev_events,		\
+			    (ev)->ev_fd, (ev)->ev_flags);		\
 		}							\
 		EVLOCK_UNLOCK(_event_debug_map_lock, 0);		\
 	}								\
@@ -287,8 +295,10 @@ HT_GENERATE(event_debug_map, event_debug_entry, node, hash_debug_entry,
 		dent = HT_FIND(event_debug_map, &global_debug_map, &find); \
 		if (dent && dent->added) {				\
 			event_errx(_EVENT_ERR_ABORT,			\
-			    "%s called on an already added event %p",	\
-			    __func__, (ev));				\
+			    "%s called on an already added event %p"	\
+			    " (events: 0x%x, fd: %d, flags: 0x%x)",	\
+			    __func__, (ev), (ev)->ev_events,		\
+			    (ev)->ev_fd, (ev)->ev_flags);		\
 		}							\
 		EVLOCK_UNLOCK(_event_debug_map_lock, 0);		\
 	}								\
@@ -514,8 +524,6 @@ event_enable_debug_mode(void)
 	_event_debug_mode_on = 1;
 
 	HT_INIT(event_debug_map, &global_debug_map);
-
-	EVTHREAD_ALLOC_LOCK(_event_debug_map_lock, 0);
 #endif
 }
 
@@ -545,9 +553,6 @@ event_base_new_with_config(const struct event_config *cfg)
 
 #ifndef _EVENT_DISABLE_DEBUG_MODE
 	event_debug_mode_too_late = 1;
-	if (_event_debug_mode_on && !_event_debug_map_lock) {
-		EVTHREAD_ALLOC_LOCK(_event_debug_map_lock, 0);
-	}
 #endif
 
 	if ((base = mm_calloc(1, sizeof(struct event_base))) == NULL) {
@@ -603,6 +608,7 @@ event_base_new_with_config(const struct event_config *cfg)
 	if (base->evbase == NULL) {
 		event_warnx("%s: no event mechanism available",
 		    __func__);
+		base->evsel = NULL;
 		event_base_free(base);
 		return NULL;
 	}
@@ -619,7 +625,8 @@ event_base_new_with_config(const struct event_config *cfg)
 	/* prepare for threading */
 
 #ifndef _EVENT_DISABLE_THREAD_SUPPORT
-	if (!cfg || !(cfg->flags & EVENT_BASE_FLAG_NOLOCK)) {
+	if (EVTHREAD_LOCKING_ENABLED() &&
+	    (!cfg || !(cfg->flags & EVENT_BASE_FLAG_NOLOCK))) {
 		int r;
 		EVTHREAD_ALLOC_LOCK(base->th_base_lock,
 		    EVTHREAD_LOCKTYPE_RECURSIVE);
@@ -627,6 +634,7 @@ event_base_new_with_config(const struct event_config *cfg)
 		EVTHREAD_ALLOC_COND(base->current_event_cond);
 		r = evthread_make_base_notifiable(base);
 		if (r<0) {
+			event_warnx("%s: Unable to make base notifiable.", __func__);
 			event_base_free(base);
 			return NULL;
 		}
@@ -680,13 +688,19 @@ event_base_free(struct event_base *base)
 	/* XXXX grab the lock? If there is contention when one thread frees
 	 * the base, then the contending thread will be very sad soon. */
 
+	/* event_base_free(NULL) is how to free the current_base if we
+	 * made it with event_init and forgot to hold a reference to it. */
 	if (base == NULL && current_base)
 		base = current_base;
+	/* If we're freeing current_base, there won't be a current_base. */
 	if (base == current_base)
 		current_base = NULL;
-
+	/* Don't actually free NULL. */
+	if (base == NULL) {
+		event_warnx("%s: no base to free", __func__);
+		return;
+	}
 	/* XXX(niels) - check for internal events first */
-	EVUTIL_ASSERT(base);
 
 #ifdef WIN32
 	event_base_stop_iocp(base);
@@ -806,6 +820,10 @@ event_reinit(struct event_base *base)
 		if (base->sig.ev_signal.ev_flags & EVLIST_ACTIVE)
 			event_queue_remove(base, &base->sig.ev_signal,
 			    EVLIST_ACTIVE);
+		if (base->sig.ev_signal_pair[0] != -1)
+			EVUTIL_CLOSESOCKET(base->sig.ev_signal_pair[0]);
+		if (base->sig.ev_signal_pair[1] != -1)
+			EVUTIL_CLOSESOCKET(base->sig.ev_signal_pair[1]);
 		base->sig.ev_signal_added = 0;
 	}
 	if (base->th_notify_fd[0] != -1) {
@@ -842,6 +860,13 @@ event_reinit(struct event_base *base)
 
 	TAILQ_FOREACH(ev, &base->eventqueue, ev_next) {
 		if (ev->ev_events & (EV_READ|EV_WRITE)) {
+			if (ev == &base->sig.ev_signal) {
+				/* If we run into the ev_signal event, it's only
+				 * in eventqueue because some signal event was
+				 * added, which made evsig_add re-add ev_signal.
+				 * So don't double-add it. */
+				continue;
+			}
 			if (evmap_io_add(base, ev->ev_fd, ev) == -1)
 				res = -1;
 		} else if (ev->ev_events & EV_SIGNAL) {
@@ -1020,22 +1045,29 @@ static inline void
 event_signal_closure(struct event_base *base, struct event *ev)
 {
 	short ncalls;
+	int should_break;
 
 	/* Allows deletes to work */
 	ncalls = ev->ev_ncalls;
-	ev->ev_pncalls = &ncalls;
+	if (ncalls != 0)
+		ev->ev_pncalls = &ncalls;
 	EVBASE_RELEASE_LOCK(base, th_base_lock);
 	while (ncalls) {
 		ncalls--;
 		ev->ev_ncalls = ncalls;
 		if (ncalls == 0)
 			ev->ev_pncalls = NULL;
-		(*ev->ev_callback)((int)ev->ev_fd, ev->ev_res, ev->ev_arg);
-#if 0
-		/* XXXX we can't do this without a lock on the base. */
-		if (base->event_break)
+		(*ev->ev_callback)(ev->ev_fd, ev->ev_res, ev->ev_arg);
+
+		EVBASE_ACQUIRE_LOCK(base, th_base_lock);
+		should_break = base->event_break;
+		EVBASE_RELEASE_LOCK(base, th_base_lock);
+
+		if (should_break) {
+			if (ncalls != 0)
+				ev->ev_pncalls = NULL;
 			return;
-#endif
+		}
 	}
 }
 
@@ -1053,7 +1085,7 @@ event_signal_closure(struct event_base *base, struct event *ev)
  * of index into the event_base's aray of common timeouts.
  */
 
-#define MICROSECONDS_MASK       0x000fffff
+#define MICROSECONDS_MASK       COMMON_TIMEOUT_MICROSECONDS_MASK
 #define COMMON_TIMEOUT_IDX_MASK 0x0ff00000
 #define COMMON_TIMEOUT_IDX_SHIFT 20
 #define COMMON_TIMEOUT_MASK     0xf0000000
@@ -1256,7 +1288,7 @@ event_persist_closure(struct event_base *base, struct event *ev)
 		event_add_internal(ev, &run_at, 1);
 	}
 	EVBASE_RELEASE_LOCK(base, th_base_lock);
-	(*ev->ev_callback)((int)ev->ev_fd, ev->ev_res, ev->ev_arg);
+	(*ev->ev_callback)(ev->ev_fd, ev->ev_res, ev->ev_arg);
 }
 
 /*
@@ -1306,7 +1338,7 @@ event_process_active_single_queue(struct event_base *base,
 		case EV_CLOSURE_NONE:
 			EVBASE_RELEASE_LOCK(base, th_base_lock);
 			(*ev->ev_callback)(
-				(int)ev->ev_fd, ev->ev_res, ev->ev_arg);
+				ev->ev_fd, ev->ev_res, ev->ev_arg);
 			break;
 		}
 
@@ -2811,5 +2843,55 @@ event_base_del_virtual(struct event_base *base)
 	base->virtual_event_count--;
 	if (base->virtual_event_count == 0 && EVBASE_NEED_NOTIFY(base))
 		evthread_notify_base(base);
+	EVBASE_RELEASE_LOCK(base, th_base_lock);
+}
+
+#ifndef _EVENT_DISABLE_THREAD_SUPPORT
+int
+event_global_setup_locks_(const int enable_locks)
+{
+#ifndef _EVENT_DISABLE_DEBUG_MODE
+	EVTHREAD_SETUP_GLOBAL_LOCK(_event_debug_map_lock, 0);
+#endif
+	if (evsig_global_setup_locks_(enable_locks) < 0)
+		return -1;
+	if (evutil_secure_rng_global_setup_locks_(enable_locks) < 0)
+		return -1;
+	return 0;
+}
+#endif
+
+void
+event_base_assert_ok(struct event_base *base)
+{
+	int i;
+	EVBASE_ACQUIRE_LOCK(base, th_base_lock);
+	evmap_check_integrity(base);
+
+	/* Check the heap property */
+	for (i = 1; i < (int)base->timeheap.n; ++i) {
+		int parent = (i - 1) / 2;
+		struct event *ev, *p_ev;
+		ev = base->timeheap.p[i];
+		p_ev = base->timeheap.p[parent];
+		EVUTIL_ASSERT(ev->ev_flags & EV_TIMEOUT);
+		EVUTIL_ASSERT(evutil_timercmp(&p_ev->ev_timeout, &ev->ev_timeout, <=));
+		EVUTIL_ASSERT(ev->ev_timeout_pos.min_heap_idx == i);
+	}
+
+	/* Check that the common timeouts are fine */
+	for (i = 0; i < base->n_common_timeouts; ++i) {
+		struct common_timeout_list *ctl = base->common_timeout_queues[i];
+		struct event *last=NULL, *ev;
+		TAILQ_FOREACH(ev, &ctl->events, ev_timeout_pos.ev_next_with_common_timeout) {
+			if (last)
+				EVUTIL_ASSERT(evutil_timercmp(&last->ev_timeout, &ev->ev_timeout, <=));
+			EVUTIL_ASSERT(ev->ev_flags & EV_TIMEOUT);
+			EVUTIL_ASSERT(is_common_timeout(&ev->ev_timeout,base));
+			EVUTIL_ASSERT(COMMON_TIMEOUT_IDX(&ev->ev_timeout) == i);
+			last = ev;
+		}
+	}
+
 	EVBASE_RELEASE_LOCK(base, th_base_lock);
 }

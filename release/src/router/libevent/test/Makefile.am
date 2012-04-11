@@ -1,8 +1,14 @@
+# test/Makefile.am for libevent
+# Copyright 2000-2007 Niels Provos
+# Copyright 2007-2012 Niels Provos and Nick Mathewson
+#
+# See LICENSE for copying information.
+
 AUTOMAKE_OPTIONS = foreign
 
 AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/compat -I$(top_srcdir)/include -I../include -DTINYTEST_LOCAL
 
-EXTRA_DIST = regress.rpc regress.gen.h regress.gen.c test.sh
+EXTRA_DIST = regress.rpc regress.gen.h regress.gen.c rpcgen_wrapper.sh test.sh
 
 noinst_PROGRAMS = test-init test-eof test-weof test-time \
 	bench bench_cascade bench_http bench_httpclient test-ratelim \
@@ -54,13 +60,12 @@ regress_SOURCES += regress_iocp.c
 endif
 
 regress_LDADD = $(LIBEVENT_GC_SECTIONS) ../libevent.la $(PTHREAD_LIBS) $(ZLIB_LIBS)
-regress_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/compat \
-	-I$(top_srcdir)/include -I../include $(PTHREAD_CFLAGS) $(ZLIB_CFLAGS)
+regress_CPPFLAGS = $(AM_CPPFLAGS) $(PTHREAD_CFLAGS) $(ZLIB_CFLAGS)
 regress_LDFLAGS = $(PTHREAD_CFLAGS)
 
 if OPENSSL
 regress_SOURCES += regress_ssl.c
-regress_LDADD += ../libevent_openssl.la -lcrypto -lssl
+regress_LDADD += ../libevent_openssl.la -lssl -lcrypto ${OPENSSL_LIBADD}
 endif
 
 bench_SOURCES = bench.c
@@ -72,8 +77,19 @@ bench_http_LDADD = $(LIBEVENT_GC_SECTIONS) ../libevent.la
 bench_httpclient_SOURCES = bench_httpclient.c
 bench_httpclient_LDADD = $(LIBEVENT_GC_SECTIONS) ../libevent_core.la
 
-regress.gen.c regress.gen.h: regress.rpc $(top_srcdir)/event_rpcgen.py
-	$(top_srcdir)/event_rpcgen.py $(srcdir)/regress.rpc || echo "No Python installed"
+regress.gen.c regress.gen.h: rpcgen-attempted
+
+rpcgen-attempted: $(srcdir)/regress.rpc $(srcdir)/../event_rpcgen.py $(srcdir)/rpcgen_wrapper.sh
+	date -u > $@
+	if $(srcdir)/rpcgen_wrapper.sh $(srcdir); then \
+	   echo "rpcgen okay"; \
+	else \
+	   echo "No Python installed; stubbing out RPC test." >&2; \
+	   echo " "> regress.gen.c; \
+	   echo "#define NO_PYTHON_EXISTS" > regress.gen.h; \
+	fi
+
+CLEANFILES = rpcgen-attempted
 
 DISTCLEANFILES = *~
 

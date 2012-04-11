@@ -7,13 +7,13 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: torrent-delegate.h 12464 2011-05-28 00:09:15Z jordan $
+ * $Id: torrent-delegate.h 13244 2012-03-04 13:15:43Z jordan $
  */
 
 #ifndef QTR_TORRENT_DELEGATE_H
 #define QTR_TORRENT_DELEGATE_H
 
-#include <QItemDelegate>
+#include <QStyledItemDelegate>
 #include <QSize>
 
 class QStyleOptionProgressBarV2;
@@ -22,9 +22,13 @@ class QStyle;
 class Session;
 class Torrent;
 
-class TorrentDelegate: public QItemDelegate
+class TorrentDelegate: public QStyledItemDelegate
 {
         Q_OBJECT
+
+    public:
+      static QColor blueBrush, greenBrush;
+      static QColor blueBack,  greenBack;
 
     protected:
         QStyleOptionProgressBarV2 * myProgressBarStyle;
@@ -47,6 +51,7 @@ class TorrentDelegate: public QItemDelegate
 
         QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const;
         void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const;
+
 };
 
 #endif

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2003-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -76,6 +76,7 @@
 #include "tinytest.h"
 #include "tinytest_macros.h"
 #include "../iocp-internal.h"
+#include "../event-internal.h"
 
 long
 timeval_msec_diff(const struct timeval *start, const struct timeval *end)
@@ -254,8 +255,10 @@ basic_test_cleanup(const struct testcase_t *testcase, void *ptr)
 	}
 
 	if (testcase->flags & TT_NEED_BASE) {
-		if (data->base)
+		if (data->base) {
+			event_base_assert_ok(data->base);
 			event_base_free(data->base);
+		}
 	}
 
 	free(data);

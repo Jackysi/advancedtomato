@@ -1,13 +1,31 @@
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
  *                             / __| | | | |_) | |
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
- */
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ *
+ * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+ * copies of the Software, and permit persons to whom the Software is
+ * furnished to do so, under the terms of the COPYING file.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ***************************************************************************/
 #include "test.h"
+
+#include "testutil.h"
+#include "warnless.h"
+#include "memdebug.h"
+
+#define TEST_HANG_TIMEOUT 60 * 1000
 
 /*
  * Simply download a HTTPS file!
@@ -21,46 +39,44 @@
  */
 int test(char *URL)
 {
-  CURL *http_handle;
+  CURL *http_handle = NULL;
   CURLM *multi_handle = NULL;
-  CURLMcode code;
-  int res;
+  int res = 0;
 
   int still_running; /* keep number of running handles */
 
-  http_handle = curl_easy_init();
-  if (!http_handle)
-    return TEST_ERR_MAJOR_BAD;
+  start_test_timing();
+
+  /*
+  ** curl_global_init called indirectly from curl_easy_init.
+  */
+
+  easy_init(http_handle);
 
   /* set options */
-  test_setopt(http_handle, CURLOPT_URL, URL);
-  test_setopt(http_handle, CURLOPT_HEADER, 1L);
-  test_setopt(http_handle, CURLOPT_SSL_VERIFYPEER, 0L);
-  test_setopt(http_handle, CURLOPT_SSL_VERIFYHOST, 0L);
+  easy_setopt(http_handle, CURLOPT_URL, URL);
+  easy_setopt(http_handle, CURLOPT_HEADER, 1L);
+  easy_setopt(http_handle, CURLOPT_SSL_VERIFYPEER, 0L);
+  easy_setopt(http_handle, CURLOPT_SSL_VERIFYHOST, 0L);
 
   /* init a multi stack */
-  multi_handle = curl_multi_init();
-  if (!multi_handle) {
-    curl_easy_cleanup(http_handle);
-    return TEST_ERR_MAJOR_BAD;
-  }
+  multi_init(multi_handle);
 
   /* add the individual transfers */
-  curl_multi_add_handle(multi_handle, http_handle);
+  multi_add_handle(multi_handle, http_handle);
 
   /* we start some action by calling perform right away */
-  do {
-    code = curl_multi_perform(multi_handle, &still_running);
-  } while(code == CURLM_CALL_MULTI_PERFORM);
+  multi_perform(multi_handle, &still_running);
+
+  abort_on_test_timeout();
 
   while(still_running) {
     struct timeval timeout;
-    int rc; /* select() return code */
 
     fd_set fdread;
     fd_set fdwrite;
     fd_set fdexcep;
-    int maxfd;
+    int maxfd = -99;
 
     FD_ZERO(&fdread);
     FD_ZERO(&fdwrite);
@@ -71,33 +87,25 @@ int test(char *URL)
     timeout.tv_usec = 0;
 
     /* get file descriptors from the transfers */
-    curl_multi_fdset(multi_handle, &fdread, &fdwrite, &fdexcep, &maxfd);
+    multi_fdset(multi_handle, &fdread, &fdwrite, &fdexcep, &maxfd);
 
-    /* In a real-world program you OF COURSE check the return code of the
-       function calls, *and* you make sure that maxfd is bigger than -1 so
-       that the call to select() below makes sense! */
+    /* At this point, maxfd is guaranteed to be greater or equal than -1. */
 
-    rc = select(maxfd+1, &fdread, &fdwrite, &fdexcep, &timeout);
+    select_test(maxfd+1, &fdread, &fdwrite, &fdexcep, &timeout);
 
-    switch(rc) {
-    case -1:
-      /* select error */
-      break;
-    case 0:
-    default:
-      /* timeout or readable/writable sockets */
-      do {
-        code = curl_multi_perform(multi_handle, &still_running);
-      } while(code == CURLM_CALL_MULTI_PERFORM);
-      break;
-    }
+    abort_on_test_timeout();
+
+    /* timeout or readable/writable sockets */
+    multi_perform(multi_handle, &still_running);
+
+    abort_on_test_timeout();
   }
 
 test_cleanup:
 
-  if(multi_handle)
-    curl_multi_cleanup(multi_handle);
+  /* undocumented cleanup sequence - type UA */
 
+  curl_multi_cleanup(multi_handle);
   curl_easy_cleanup(http_handle);
   curl_global_cleanup();
 

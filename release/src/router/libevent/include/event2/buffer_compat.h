@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,7 @@
 #ifndef _EVENT2_BUFFER_COMPAT_H_
 #define _EVENT2_BUFFER_COMPAT_H_
 
-/** @file buffer_compat.h
+/** @file event2/buffer_compat.h
 
 	Obsolete and deprecated versions of the functions in buffer.h: provided
 	only for backward compatibility.

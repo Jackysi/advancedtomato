@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2010 Niels Provos, Nick Mathewson
+ * Copyright (c) 2008-2012 Niels Provos, Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -173,6 +173,10 @@ EVLOCK_TRY_LOCK(void *lock)
 #define EVTHREAD_COND_WAIT_TIMED(cond, lock, tv)			\
 	( (cond) ? _evthread_cond_fns.wait_condition((cond), (lock), (tv)) : 0 )
 
+/** True iff locking functions have been configured. */
+#define EVTHREAD_LOCKING_ENABLED()		\
+	(_evthread_lock_fns.lock != NULL)
+
 #elif ! defined(_EVENT_DISABLE_THREAD_SUPPORT)
 
 unsigned long _evthreadimpl_get_id(void);
@@ -185,6 +189,7 @@ void *_evthreadimpl_cond_alloc(unsigned condtype);
 void _evthreadimpl_cond_free(void *cond);
 int _evthreadimpl_cond_signal(void *cond, int broadcast);
 int _evthreadimpl_cond_wait(void *cond, void *lock, const struct timeval *tv);
+int _evthreadimpl_locking_enabled(void);
 
 #define EVTHREAD_GET_ID() _evthreadimpl_get_id()
 #define EVBASE_IN_THREAD(base)				\
@@ -281,6 +286,9 @@ EVLOCK_TRY_LOCK(void *lock)
 #define EVTHREAD_COND_WAIT_TIMED(cond, lock, tv)			\
 	( (cond) ? _evthreadimpl_cond_wait((cond), (lock), (tv)) : 0 )
 
+#define EVTHREAD_LOCKING_ENABLED()		\
+	(_evthreadimpl_locking_enabled())
+
 #else /* _EVENT_DISABLE_THREAD_SUPPORT */
 
 #define EVTHREAD_GET_ID()	1
@@ -306,6 +314,8 @@ EVLOCK_TRY_LOCK(void *lock)
 #define EVTHREAD_COND_BROADCAST(cond) _EVUTIL_NIL_STMT
 #define EVTHREAD_COND_WAIT(cond, lock) _EVUTIL_NIL_STMT
 #define EVTHREAD_COND_WAIT_TIMED(cond, lock, howlong) _EVUTIL_NIL_STMT
+
+#define EVTHREAD_LOCKING_ENABLED() 0
 
 #endif
 
@@ -345,6 +355,24 @@ EVLOCK_TRY_LOCK(void *lock)
 
 int _evthread_is_debug_lock_held(void *lock);
 void *_evthread_debug_get_real_lock(void *lock);
+
+void *evthread_setup_global_lock_(void *lock_, unsigned locktype,
+    int enable_locks);
+
+#define EVTHREAD_SETUP_GLOBAL_LOCK(lockvar, locktype)			\
+	do {								\
+		lockvar = evthread_setup_global_lock_(lockvar,		\
+		    (locktype), enable_locks);				\
+		if (!lockvar) {						\
+			event_warn("Couldn't allocate %s", #lockvar);	\
+			return -1;					\
+		}							\
+	} while (0);
+
+int event_global_setup_locks_(const int enable_locks);
+int evsig_global_setup_locks_(const int enable_locks);
+int evutil_secure_rng_global_setup_locks_(const int enable_locks);
+
 #endif
 
 #ifdef __cplusplus

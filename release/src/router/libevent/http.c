@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2002-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -219,29 +219,30 @@ strsep(char **s, const char *del)
 }
 #endif
 
-static const char *
-html_replace(char ch, char *buf)
+static size_t
+html_replace(const char ch, const char **escaped)
 {
 	switch (ch) {
 	case '<':
-		return "&lt;";
+		*escaped = "&lt;";
+		return 4;
 	case '>':
-		return "&gt;";
+		*escaped = "&gt;";
+		return 4;
 	case '"':
-		return "&quot;";
+		*escaped = "&quot;";
+		return 6;
 	case '\'':
-		return "&#039;";
+		*escaped = "&#039;";
+		return 6;
 	case '&':
-		return "&amp;";
+		*escaped = "&amp;";
+		return 5;
 	default:
 		break;
 	}
 
-	/* Echo the character back */
-	buf[0] = ch;
-	buf[1] = '\0';
-
-	return buf;
+	return 1;
 }
 
 /*
@@ -255,21 +256,34 @@ char *
 evhttp_htmlescape(const char *html)
 {
 	size_t i;
-	size_t new_size = 0, old_size = strlen(html);
+	size_t new_size = 0, old_size = 0;
 	char *escaped_html, *p;
-	char scratch_space[2];
 
-	for (i = 0; i < old_size; ++i)
-		new_size += strlen(html_replace(html[i], scratch_space));
+	if (html == NULL)
+		return (NULL);
 
+	old_size = strlen(html);
+	for (i = 0; i < old_size; ++i) {
+		const char *replaced = NULL;
+		const size_t replace_size = html_replace(html[i], &replaced);
+		if (replace_size > EV_SIZE_MAX - new_size) {
+			event_warn("%s: html_replace overflow", __func__);
+			return (NULL);
+		}
+		new_size += replace_size;
+	}
+
+	if (new_size == EV_SIZE_MAX)
+		return (NULL);
 	p = escaped_html = mm_malloc(new_size + 1);
 	if (escaped_html == NULL) {
-		event_warn("%s: malloc(%ld)", __func__, (long)(new_size + 1));
+		event_warn("%s: malloc(%lu)", __func__,
+		           (unsigned long)(new_size + 1));
 		return (NULL);
 	}
 	for (i = 0; i < old_size; ++i) {
-		const char *replaced = html_replace(html[i], scratch_space);
-		size_t len = strlen(replaced);
+		const char *replaced = &html[i];
+		const size_t len = html_replace(html[i], &replaced);
 		memcpy(p, replaced, len);
 		p += len;
 	}
@@ -445,8 +459,8 @@ evhttp_make_header_request(struct evhttp_connection *evcon,
 	if ((req->type == EVHTTP_REQ_POST || req->type == EVHTTP_REQ_PUT) &&
 	    evhttp_find_header(req->output_headers, "Content-Length") == NULL){
 		char size[22];
-		evutil_snprintf(size, sizeof(size), "%ld",
-		    (long)evbuffer_get_length(req->output_buffer));
+		evutil_snprintf(size, sizeof(size), EV_SIZE_FMT,
+		    EV_SIZE_ARG(evbuffer_get_length(req->output_buffer)));
 		evhttp_add_header(req->output_headers, "Content-Length", size);
 	}
 }
@@ -504,12 +518,13 @@ evhttp_maybe_add_date_header(struct evkeyvalq *headers)
  * unless it already has a content-length or transfer-encoding header. */
 static void
 evhttp_maybe_add_content_length_header(struct evkeyvalq *headers,
-    long content_length) /* XXX use size_t or int64, not long. */
+    size_t content_length)
 {
 	if (evhttp_find_header(headers, "Transfer-Encoding") == NULL &&
 	    evhttp_find_header(headers,	"Content-Length") == NULL) {
 		char len[22];
-		evutil_snprintf(len, sizeof(len), "%ld", content_length);
+		evutil_snprintf(len, sizeof(len), EV_SIZE_FMT,
+		    EV_SIZE_ARG(content_length));
 		evhttp_add_header(headers, "Content-Length", len);
 	}
 }
@@ -549,7 +564,7 @@ evhttp_make_header_response(struct evhttp_connection *evcon,
 			 */
 			evhttp_maybe_add_content_length_header(
 				req->output_headers,
-				(long)evbuffer_get_length(req->output_buffer));
+				evbuffer_get_length(req->output_buffer));
 		}
 	}
 
@@ -826,9 +841,23 @@ evhttp_connection_done(struct evhttp_connection *evcon)
 static enum message_read_status
 evhttp_handle_chunked_read(struct evhttp_request *req, struct evbuffer *buf)
 {
-	ev_ssize_t len;
+	if (req == NULL || buf == NULL) {
+	    return DATA_CORRUPTED;
+	}
 
-	while ((len = evbuffer_get_length(buf)) > 0) {
+	while (1) {
+		size_t buflen;
+
+		if ((buflen = evbuffer_get_length(buf)) == 0) {
+			break;
+		}
+
+		/* evbuffer_get_length returns size_t, but len variable is ssize_t,
+		 * check for overflow conditions */
+		if (buflen > EV_SSIZE_MAX) {
+			return DATA_CORRUPTED;
+		}
+
 		if (req->ntoread < 0) {
 			/* Read chunk size */
 			ev_int64_t ntoread;
@@ -851,11 +880,18 @@ evhttp_handle_chunked_read(struct evhttp_request *req, struct evbuffer *buf)
 				/* could not get chunk size */
 				return (DATA_CORRUPTED);
 			}
+
+			/* ntoread is signed int64, body_size is unsigned size_t, check for under/overflow conditions */
+			if ((ev_uint64_t)ntoread > EV_SIZE_MAX - req->body_size) {
+			    return DATA_CORRUPTED;
+			}
+
 			if (req->body_size + (size_t)ntoread > req->evcon->max_body_size) {
 				/* failed body length test */
 				event_debug(("Request body is too long"));
 				return (DATA_TOO_LONG);
 			}
+
 			req->body_size += (size_t)ntoread;
 			req->ntoread = ntoread;
 			if (req->ntoread == 0) {
@@ -865,12 +901,17 @@ evhttp_handle_chunked_read(struct evhttp_request *req, struct evbuffer *buf)
 			continue;
 		}
 
+		/* req->ntoread is signed int64, len is ssize_t, based on arch,
+		 * ssize_t could only be 32b, check for these conditions */
+		if (req->ntoread > EV_SSIZE_MAX) {
+			return DATA_CORRUPTED;
+		}
+
 		/* don't have enough to complete a chunk; wait for more */
-		if (len < req->ntoread)
+		if (req->ntoread > 0 && buflen < (ev_uint64_t)req->ntoread)
 			return (MORE_DATA_EXPECTED);
 
 		/* Completed chunk */
-		/* XXXX fixme: what if req->ntoread is > SIZE_T_MAX? */
 		evbuffer_remove_buffer(buf, req->input_buffer, (size_t)req->ntoread);
 		req->ntoread = -1;
 		if (req->chunk_cb != NULL) {
@@ -938,13 +979,19 @@ evhttp_read_body(struct evhttp_connection *evcon, struct evhttp_request *req)
 		}
 	} else if (req->ntoread < 0) {
 		/* Read until connection close. */
+		if ((size_t)(req->body_size + evbuffer_get_length(buf)) < req->body_size) {
+			evhttp_connection_fail(evcon, EVCON_HTTP_INVALID_HEADER);
+			return;
+		}
+
 		req->body_size += evbuffer_get_length(buf);
 		evbuffer_add_buffer(req->input_buffer, buf);
-	} else if (req->chunk_cb != NULL ||
-	    evbuffer_get_length(buf) >= (size_t)req->ntoread) {
+	} else if (req->chunk_cb != NULL || evbuffer_get_length(buf) >= (size_t)req->ntoread) {
+		/* XXX: the above get_length comparison has to be fixed for overflow conditions! */
 		/* We've postponed moving the data until now, but we're
 		 * about to use it. */
 		size_t n = evbuffer_get_length(buf);
+
 		if (n > (size_t) req->ntoread)
 			n = (size_t) req->ntoread;
 		req->ntoread -= n;
@@ -955,6 +1002,7 @@ evhttp_read_body(struct evhttp_connection *evcon, struct evhttp_request *req)
 	if (req->body_size > req->evcon->max_body_size ||
 	    (!req->chunked && req->ntoread >= 0 &&
 		(size_t)req->ntoread > req->evcon->max_body_size)) {
+		/* XXX: The above casted comparison must checked for overflow */
 		/* failed body length test */
 		event_debug(("Request body is too long"));
 		evhttp_connection_fail(evcon,
@@ -1029,9 +1077,10 @@ evhttp_read_cb(struct bufferevent *bufev, void *arg)
 
 			input = bufferevent_get_input(evcon->bufev);
 			total_len = evbuffer_get_length(input);
-			event_debug(("%s: read %d bytes in EVCON_IDLE state,"
-                                    " resetting connection",
-					__func__, (int)total_len));
+			event_debug(("%s: read "EV_SIZE_FMT
+				" bytes in EVCON_IDLE state,"
+				" resetting connection",
+				__func__, EV_SIZE_ARG(total_len)));
 #endif
 
 			evhttp_connection_reset(evcon);
@@ -1420,7 +1469,7 @@ evhttp_parse_http_version(const char *version, struct evhttp_request *req)
 	int major, minor;
 	char ch;
 	int n = sscanf(version, "HTTP/%d.%d%c", &major, &minor, &ch);
-	if (n > 2 || major > 1) {
+	if (n != 2 || major > 1) {
 		event_debug(("%s: bad version %s on message %p from %s",
 			__func__, version, req, req->remote_host));
 		return (-1);
@@ -1823,9 +1872,9 @@ evhttp_get_body_length(struct evhttp_request *req)
 		req->ntoread = ntoread;
 	}
 
-	event_debug(("%s: bytes to read: %ld (in buffer %ld)\n",
-		__func__, (long)req->ntoread,
-		evbuffer_get_length(bufferevent_get_input(req->evcon->bufev))));
+	event_debug(("%s: bytes to read: "EV_I64_FMT" (in buffer "EV_SIZE_FMT")\n",
+		__func__, EV_I64_ARG(req->ntoread),
+		EV_SIZE_ARG(evbuffer_get_length(bufferevent_get_input(req->evcon->bufev)))));
 
 	return (0);
 }
@@ -1895,11 +1944,12 @@ evhttp_get_body(struct evhttp_connection *evcon, struct evhttp_request *req)
 				   no, we should respond with an error. For
 				   now, just optimistically tell the client to
 				   send their message body. */
-				if (req->ntoread > 0 &&
-				    (size_t)req->ntoread > req->evcon->max_body_size) {
-					evhttp_send_error(req, HTTP_ENTITYTOOLARGE,
-							  NULL);
-					return;
+				if (req->ntoread > 0) {
+					/* ntoread is ev_int64_t, max_body_size is ev_uint64_t */ 
+					if ((req->evcon->max_body_size <= EV_INT64_MAX) && (ev_uint64_t)req->ntoread > req->evcon->max_body_size) {
+						evhttp_send_error(req, HTTP_ENTITYTOOLARGE, NULL);
+						return;
+					}
 				}
 				if (!evbuffer_get_length(bufferevent_get_input(evcon->bufev)))
 					evhttp_send_continue(evcon, req);
@@ -2067,6 +2117,12 @@ evhttp_connection_base_new(struct event_base *base, struct evdns_base *dnsbase,
 	return (NULL);
 }
 
+struct bufferevent *
+evhttp_connection_get_bufferevent(struct evhttp_connection *evcon)
+{
+	return evcon->bufev;
+}
+
 void
 evhttp_connection_set_base(struct evhttp_connection *evcon,
     struct event_base *base)
@@ -2194,20 +2250,20 @@ evhttp_make_request(struct evhttp_connection *evcon,
 	req->evcon = evcon;
 	EVUTIL_ASSERT(!(req->flags & EVHTTP_REQ_OWN_CONNECTION));
 
+       TAILQ_INSERT_TAIL(&evcon->requests, req, next);
+
 	/* If the connection object is not connected; make it so */
 	if (!evhttp_connected(evcon)) {
 		int res = evhttp_connection_connect(evcon);
-		/*
-		 * Enqueue the request only if we aren't going to
-		 * return failure from evhttp_make_request().
-		 */
-		if (res == 0)
-			TAILQ_INSERT_TAIL(&evcon->requests, req, next);
+	       /* evhttp_connection_fail(), which is called through
+		* evhttp_connection_connect(), assumes that req lies in
+		* evcon->requests.  Thus, enqueue the request in advance and r
+		* it in the error case. */
+	       if (res != 0)
+		       TAILQ_REMOVE(&evcon->requests, req, next);
 
 		return res;
 	}
-
-	TAILQ_INSERT_TAIL(&evcon->requests, req, next);
 
 	/*
 	 * If it's connected already and we are the first in the queue,
@@ -3155,8 +3211,11 @@ evhttp_new_object(void)
 struct evhttp *
 evhttp_new(struct event_base *base)
 {
-	struct evhttp *http = evhttp_new_object();
+	struct evhttp *http = NULL;
 
+	http = evhttp_new_object();
+	if (http == NULL)
+		return (NULL);
 	http->base = base;
 
 	return (http);
@@ -3169,8 +3228,11 @@ evhttp_new(struct event_base *base)
 struct evhttp *
 evhttp_start(const char *address, unsigned short port)
 {
-	struct evhttp *http = evhttp_new_object();
+	struct evhttp *http = NULL;
 
+	http = evhttp_new_object();
+	if (http == NULL)
+		return (NULL);
 	if (evhttp_bind_socket(http, address, port) == -1) {
 		mm_free(http);
 		return (NULL);

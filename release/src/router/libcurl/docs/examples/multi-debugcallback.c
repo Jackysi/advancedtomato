@@ -1,14 +1,25 @@
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
  *                             / __| | | | |_) | |
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
- * This is a very simple example using the multi interface and the debug
- * callback.
- */
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ *
+ * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+ * copies of the Software, and permit persons to whom the Software is
+ * furnished to do so, under the terms of the COPYING file.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ***************************************************************************/
+/* This is an example showing the multi interface and the debug callback. */
 
 #include <stdio.h>
 #include <string.h>
@@ -37,12 +48,12 @@ void dump(const char *text,
     /* without the hex output, we can fit more on screen */
     width = 0x40;
 
-  fprintf(stream, "%s, %010.10ld bytes (0x%08.8lx)\n",
+  fprintf(stream, "%s, %10.10ld bytes (0x%8.8lx)\n",
           text, (long)size, (long)size);
 
   for(i=0; i<size; i+= width) {
 
-    fprintf(stream, "%04.4lx: ", (long)i);
+    fprintf(stream, "%4.4lx: ", (long)i);
 
     if(!nohex) {
       /* hex not disabled, show it */
@@ -79,6 +90,7 @@ int my_trace(CURL *handle, curl_infotype type,
 {
   const char *text;
 
+  (void)userp;
   (void)handle; /* prevent compiler warning */
 
   switch (type) {
@@ -108,7 +120,7 @@ int my_trace(CURL *handle, curl_infotype type,
 /*
  * Simply download a HTTP file.
  */
-int main(int argc, char **argv)
+int main(void)
 {
   CURL *http_handle;
   CURLM *multi_handle;
@@ -118,7 +130,7 @@ int main(int argc, char **argv)
   http_handle = curl_easy_init();
 
   /* set the options (I left out a few, you'll get the point anyway) */
-  curl_easy_setopt(http_handle, CURLOPT_URL, "http://www.haxx.se/");
+  curl_easy_setopt(http_handle, CURLOPT_URL, "http://www.example.com/");
 
   curl_easy_setopt(http_handle, CURLOPT_DEBUGFUNCTION, my_trace);
   curl_easy_setopt(http_handle, CURLOPT_VERBOSE, 1L);
@@ -130,8 +142,7 @@ int main(int argc, char **argv)
   curl_multi_add_handle(multi_handle, http_handle);
 
   /* we start some action by calling perform right away */
-  while(CURLM_CALL_MULTI_PERFORM ==
-        curl_multi_perform(multi_handle, &still_running));
+  curl_multi_perform(multi_handle, &still_running);
 
   while(still_running) {
     struct timeval timeout;
@@ -181,8 +192,7 @@ int main(int argc, char **argv)
     case 0:
     default:
       /* timeout or readable/writable sockets */
-      while(CURLM_CALL_MULTI_PERFORM ==
-            curl_multi_perform(multi_handle, &still_running));
+      curl_multi_perform(multi_handle, &still_running);
       break;
     }
   }

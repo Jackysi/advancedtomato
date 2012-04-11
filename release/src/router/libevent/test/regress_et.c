@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2009-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,7 +23,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+#include "../util-internal.h"
 #include "event2/event-config.h"
 
 #ifdef WIN32
@@ -59,10 +59,6 @@ read_cb(evutil_socket_t fd, short event, void *arg)
 
 	len = recv(fd, &buf, sizeof(buf), 0);
 
-	/*printf("%s: %s %d%s\n", __func__, event & EV_ET ? "etread" : "read",
-		len, len ? "" : " - means EOF");
-	*/
-
 	called++;
 	if (event & EV_ET)
 		was_et = 1;
@@ -90,9 +86,21 @@ test_edgetriggered(void *et)
 	evutil_socket_t pair[2] = {-1,-1};
 	int supports_et;
 
+	/* On Linux 3.2.1 (at least, as patched by Fedora and tested by Nick),
+	 * doing a "recv" on an AF_UNIX socket resets the readability of the
+	 * socket, even though there is no state change, so we don't actually
+	 * get edge-triggered behavior.  Yuck!  Linux 3.1.9 didn't have this
+	 * problem.
+	 */
+#ifdef __linux__
+	if (evutil_ersatz_socketpair(AF_INET, SOCK_STREAM, 0, pair) == -1) {
+		tt_abort_perror("socketpair");
+	}
+#else
 	if (evutil_socketpair(LOCAL_SOCKETPAIR_AF, SOCK_STREAM, 0, pair) == -1) {
 		tt_abort_perror("socketpair");
 	}
+#endif
 
 	called = was_et = 0;
 

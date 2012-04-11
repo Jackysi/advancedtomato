@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: PrefsController.m 13225 2012-02-14 03:37:39Z livings124 $
+ * $Id: PrefsController.m 13251 2012-03-13 02:52:11Z livings124 $
  *
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *

@@ -1,12 +1,25 @@
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
  *                             / __| | | | |_) | |
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
- * This is the 'proxyauth.c' test app posted by Shmulik Regev on the libcurl
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ *
+ * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+ * copies of the Software, and permit persons to whom the Software is
+ * furnished to do so, under the terms of the COPYING file.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ***************************************************************************/
+/* This is the 'proxyauth.c' test app posted by Shmulik Regev on the libcurl
  * mailing list on 10 Jul 2007, converted to a test case.
  *
  * argv1 = URL
@@ -17,83 +30,113 @@
 
 #include "test.h"
 
+#include "testutil.h"
+#include "warnless.h"
 #include "memdebug.h"
+
+#define TEST_HANG_TIMEOUT 60 * 1000
 
 #define PROXY libtest_arg2
 #define PROXYUSERPWD libtest_arg3
 #define HOST test_argv[4]
 
-static int init(CURLM *cm, const char* url, const char* userpwd,
+#define NUM_HANDLES 2
+
+CURL *eh[NUM_HANDLES];
+
+static int init(int num, CURLM *cm, const char* url, const char* userpwd,
                 struct curl_slist *headers)
 {
-  CURL *eh;
-  int res;
+  int res = 0;
 
-  if ((eh = curl_easy_init()) == NULL) {
-    fprintf(stderr, "curl_easy_init() failed\n");
-    return 1; /* failure */
-  }
+  res_easy_init(eh[num]);
+  if(res)
+    goto init_failed;
 
-  res = curl_easy_setopt(eh, CURLOPT_URL, url);
-  if(res) return 1;
-  res = curl_easy_setopt(eh, CURLOPT_PROXY, PROXY);
-  if(res) return 1;
-  res = curl_easy_setopt(eh, CURLOPT_PROXYUSERPWD, userpwd);
-  if(res) return 1;
-  res = curl_easy_setopt(eh, CURLOPT_PROXYAUTH, (long)CURLAUTH_ANY);
-  if(res) return 1;
-  res = curl_easy_setopt(eh, CURLOPT_VERBOSE, 1L);
-  if(res) return 1;
-  res = curl_easy_setopt(eh, CURLOPT_HEADER, 1L);
-  if(res) return 1;
-  res = curl_easy_setopt(eh, CURLOPT_HTTPHEADER, headers); /* custom Host: */
-  if(res) return 1;
+  res_easy_setopt(eh[num], CURLOPT_URL, url);
+  if(res)
+    goto init_failed;
 
-  if ((res = (int)curl_multi_add_handle(cm, eh)) != CURLM_OK) {
-    fprintf(stderr, "curl_multi_add_handle() failed, "
-            "with code %d\n", res);
-    return 1; /* failure */
-  }
+  res_easy_setopt(eh[num], CURLOPT_PROXY, PROXY);
+  if(res)
+    goto init_failed;
+
+  res_easy_setopt(eh[num], CURLOPT_PROXYUSERPWD, userpwd);
+  if(res)
+    goto init_failed;
+
+  res_easy_setopt(eh[num], CURLOPT_PROXYAUTH, (long)CURLAUTH_ANY);
+  if(res)
+    goto init_failed;
+
+  res_easy_setopt(eh[num], CURLOPT_VERBOSE, 1L);
+  if(res)
+    goto init_failed;
+
+  res_easy_setopt(eh[num], CURLOPT_HEADER, 1L);
+  if(res)
+    goto init_failed;
+
+  res_easy_setopt(eh[num], CURLOPT_HTTPHEADER, headers); /* custom Host: */
+  if(res)
+    goto init_failed;
+
+  res_multi_add_handle(cm, eh[num]);
+  if(res)
+    goto init_failed;
 
   return 0; /* success */
+
+init_failed:
+
+  curl_easy_cleanup(eh[num]);
+  eh[num] = NULL;
+
+  return res; /* failure */
 }
 
-static int loop(CURLM *cm, const char* url, const char* userpwd,
+static int loop(int num, CURLM *cm, const char* url, const char* userpwd,
                 struct curl_slist *headers)
 {
   CURLMsg *msg;
-  CURLMcode code;
   long L;
-  int M, Q, U = -1;
+  int Q, U = -1;
   fd_set R, W, E;
   struct timeval T;
+  int res = 0;
 
-  if(init(cm, url, userpwd, headers))
-    return 1; /* failure */
+  res = init(num, cm, url, userpwd, headers);
+  if(res)
+    return res;
 
   while (U) {
 
-    do {
-      code = curl_multi_perform(cm, &U);
-    } while (code == CURLM_CALL_MULTI_PERFORM);
+    int M = -99;
+
+    res_multi_perform(cm, &U);
+    if(res)
+      return res;
+
+    res_test_timedout();
+    if(res)
+      return res;
 
     if (U) {
       FD_ZERO(&R);
       FD_ZERO(&W);
       FD_ZERO(&E);
 
-      if (curl_multi_fdset(cm, &R, &W, &E, &M)) {
-        fprintf(stderr, "E: curl_multi_fdset\n");
-        return 1; /* failure */
-      }
+      res_multi_fdset(cm, &R, &W, &E, &M);
+      if(res)
+        return res;
 
-      /* In a real-world program you OF COURSE check the return that maxfd is
-         bigger than -1 so that the call to select() below makes sense! */
+      /* At this point, M is guaranteed to be greater or equal than -1. */
 
-      if (curl_multi_timeout(cm, &L)) {
-        fprintf(stderr, "E: curl_multi_timeout\n");
-        return 1; /* failure */
-      }
+      res_multi_timeout(cm, &L);
+      if(res)
+        return res;
+
+      /* At this point, L is guaranteed to be greater or equal than -1. */
 
       if(L != -1) {
         T.tv_sec = L/1000;
@@ -104,24 +147,33 @@ static int loop(CURLM *cm, const char* url, const char* userpwd,
         T.tv_usec = 0;
       }
 
-      if (0 > select(M+1, &R, &W, &E, &T)) {
-        fprintf(stderr, "E: select\n");
-        return 1; /* failure */
-      }
+      res_select_test(M+1, &R, &W, &E, &T);
+      if(res)
+        return res;
     }
 
-    while ((msg = curl_multi_info_read(cm, &Q))) {
-      if (msg->msg == CURLMSG_DONE) {
+    while((msg = curl_multi_info_read(cm, &Q)) != NULL) {
+      if(msg->msg == CURLMSG_DONE) {
+        int i;
         CURL *e = msg->easy_handle;
         fprintf(stderr, "R: %d - %s\n", (int)msg->data.result,
                 curl_easy_strerror(msg->data.result));
         curl_multi_remove_handle(cm, e);
         curl_easy_cleanup(e);
+        for(i=0; i < NUM_HANDLES; i++) {
+          if(eh[i] == e) {
+            eh[i] = NULL;
+            break;
+          }
+        }
       }
-      else {
+      else
         fprintf(stderr, "E: CURLMsg (%d)\n", (int)msg->msg);
-      }
     }
+
+    res_test_timedout();
+    if(res)
+      return res;
   }
 
   return 0; /* success */
@@ -132,7 +184,13 @@ int test(char *URL)
   CURLM *cm = NULL;
   struct curl_slist *headers = NULL;
   char buffer[246]; /* naively fixed-size */
-  int res;
+  int res = 0;
+  int i;
+
+  for(i=0; i < NUM_HANDLES; i++)
+    eh[i] = NULL;
+
+  start_test_timing();
 
   if(test_argc < 4)
     return 99;
@@ -146,30 +204,37 @@ int test(char *URL)
     return TEST_ERR_MAJOR_BAD;
   }
 
-  if (curl_global_init(CURL_GLOBAL_ALL) != CURLE_OK) {
-    fprintf(stderr, "curl_global_init() failed\n");
+  res_global_init(CURL_GLOBAL_ALL);
+  if(res) {
     curl_slist_free_all(headers);
-    return TEST_ERR_MAJOR_BAD;
+    return res;
   }
 
-  if ((cm = curl_multi_init()) == NULL) {
-    fprintf(stderr, "curl_multi_init() failed\n");
-    curl_slist_free_all(headers);
+  res_multi_init(cm);
+  if(res) {
     curl_global_cleanup();
-    return TEST_ERR_MAJOR_BAD;
+    curl_slist_free_all(headers);
+    return res;
   }
 
-  res = loop(cm, URL, PROXYUSERPWD, headers);
+  res = loop(0, cm, URL, PROXYUSERPWD, headers);
   if(res)
     goto test_cleanup;
 
   fprintf(stderr, "lib540: now we do the request again\n");
-  res = loop(cm, URL, PROXYUSERPWD, headers);
+
+  res = loop(1, cm, URL, PROXYUSERPWD, headers);
 
 test_cleanup:
 
-  curl_multi_cleanup(cm);
+  /* proper cleanup sequence - type PB */
 
+  for(i=0; i < NUM_HANDLES; i++) {
+    curl_multi_remove_handle(cm, eh[i]);
+    curl_easy_cleanup(eh[i]);
+  }
+
+  curl_multi_cleanup(cm);
   curl_global_cleanup();
 
   curl_slist_free_all(headers);

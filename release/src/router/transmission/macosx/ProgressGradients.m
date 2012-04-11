@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: ProgressGradients.m 13162 2012-01-14 17:12:04Z livings124 $
+ * $Id: ProgressGradients.m 13253 2012-03-13 03:20:09Z livings124 $
  * 
  * Copyright (c) 2007-2012 Transmission authors and contributors
  *
@@ -38,9 +38,7 @@
     NSColor * color3 = [NSColor colorWithCalibratedRed: redComponent * 0.85 green: greenComponent * 0.85 blue: blueComponent * 0.85
                         alpha: alpha];
     
-    NSGradient * progressGradient = [[NSGradient alloc] initWithColorsAndLocations: baseColor, 0.0, color2, 0.5, color3, 0.5,
-                                        baseColor, 1.0, nil];
-    return [progressGradient autorelease];
+    return [[[NSGradient alloc] initWithColorsAndLocations: baseColor, 0.0, color2, 0.5, color3, 0.5, baseColor, 1.0, nil] autorelease];
 }
 
 @end

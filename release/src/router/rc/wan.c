@@ -43,7 +43,7 @@
 #include <bcmdevs.h>
 
 static const char ppp_linkfile[] = "/tmp/ppp/link";
-static const char ppp_optfile[]  = "/tmp/ppp/options";
+static const char ppp_optfile[]  = "/tmp/ppp/wanoptions";
 #ifdef LINUX26
 #ifdef TCONFIG_USB
 static const char ppp3g_chatfile[]  = "/tmp/ppp/connect.chat";
@@ -297,7 +297,7 @@ static void stop_ppp(void)
 
 static void run_pppd(void)
 {
-	eval("pppd");
+	eval("pppd", "file", ppp_optfile);
 
 	if (nvram_get_int("ppp_demand")) {
 		// demand mode

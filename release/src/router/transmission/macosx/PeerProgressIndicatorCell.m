@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: PeerProgressIndicatorCell.m 13162 2012-01-14 17:12:04Z livings124 $
+ * $Id: PeerProgressIndicatorCell.m 13253 2012-03-13 03:20:09Z livings124 $
  * 
  * Copyright (c) 2007-2012 Transmission authors and contributors
  *
@@ -24,9 +24,6 @@
 
 #import "PeerProgressIndicatorCell.h"
 #import "NSStringAdditions.h"
-
-#import "transmission.h" // required by utils.h
-#import "utils.h"
 
 @implementation PeerProgressIndicatorCell
 

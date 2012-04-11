@@ -1,0 +1,20 @@
+--- openssl/Makefile.org	2010-01-27 17:06:58.000000000 +0100
++++ openssl/Makefile.org	2011-09-26 09:16:53.000000000 +0200
+@@ -120,14 +120,15 @@
+ 	des aes rc2 rc4 rc5 idea bf cast camellia seed modes \
+ 	bn ec rsa dsa ecdsa dh ecdh dso engine \
+ 	buffer bio stack lhash rand err \
+-	evp asn1 pem x509 x509v3 conf txt_db pkcs7 pkcs12 comp ocsp ui krb5 \
++	evp asn1 pem x509 x509v3 conf txt_db pkcs7 pkcs12 comp ocsp ui \
+ 	cms pqueue ts jpake store
++
+ # keep in mind that the above list is adjusted by ./Configure
+ # according to no-xxx arguments...
+ 
+ # tests to perform.  "alltests" is a special word indicating that all tests
+ # should be performed.
+-TESTS = alltests
++TESTS =
+ 
+ MAKEFILE= Makefile
+ 

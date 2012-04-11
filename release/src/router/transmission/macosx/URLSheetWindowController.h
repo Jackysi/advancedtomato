@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: URLSheetWindowController.h 13162 2012-01-14 17:12:04Z livings124 $
+ * $Id: URLSheetWindowController.h 13254 2012-03-13 03:39:56Z livings124 $
  *
  * Copyright (c) 2011-2012 Transmission authors and contributors
  *
@@ -36,9 +36,10 @@
 }
 
 - (id) initWithController: (Controller *) controller;
-- (void) beginSheetForWindow: (NSWindow *) window;
 
 - (void) openURLEndSheet: (id) sender;
 - (void) openURLCancelEndSheet: (id) sender;
+
+- (NSString *) urlString;
 
 @end

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -86,5 +86,7 @@ int evmap_signal_del(struct event_base *base, int signum, struct event *ev);
 void evmap_signal_active(struct event_base *base, evutil_socket_t signum, int ncalls);
 
 void *evmap_io_get_fdinfo(struct event_io_map *ctx, evutil_socket_t fd);
+
+void evmap_check_integrity(struct event_base *base);
 
 #endif /* _EVMAP_H_ */

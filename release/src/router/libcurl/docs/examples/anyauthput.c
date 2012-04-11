@@ -1,12 +1,24 @@
-/*****************************************************************************
+/***************************************************************************
  *                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
  *                             / __| | | | |_) | |
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- */
-
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
+ *
+ * This software is licensed as described in the file COPYING, which
+ * you should have received as part of this distribution. The terms
+ * are also available at http://curl.haxx.se/docs/copyright.html.
+ *
+ * You may opt to use, copy, modify, merge, publish, distribute and/or sell
+ * copies of the Software, and permit persons to whom the Software is
+ * furnished to do so, under the terms of the COPYING file.
+ *
+ * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+ * KIND, either express or implied.
+ *
+ ***************************************************************************/
 #include <stdio.h>
 #include <fcntl.h>
 #ifdef WIN32
@@ -14,9 +26,8 @@
 #else
 #  ifdef __VMS
      typedef int intptr_t;
-#  else
-#    include <stdint.h>
 #  endif
+#  include <stdint.h>
 #  include <unistd.h>
 #endif
 #include <sys/types.h>
@@ -31,6 +42,7 @@
 #endif
 
 #include <curl/curl.h>
+#include "printf_macro.h"
 
 #if LIBCURL_VERSION_NUM < 0x070c03
 #error "upgrade your libcurl to no less than 7.12.3"
@@ -82,7 +94,7 @@ static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *stream)
 
   retcode = read(fd, ptr, size * nmemb);
 
-  fprintf(stderr, "*** We read %d bytes from file\n", retcode);
+  fprintf(stderr, "*** We read %" _FMT_SIZE_T " bytes from file\n", retcode);
 
   return retcode;
 }

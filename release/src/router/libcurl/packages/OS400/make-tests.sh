@@ -22,6 +22,8 @@ cd libtest
 #       _ Retain only lines that begins with "identifier =".
 #       _ Turn these lines into shell variable assignments.
 
+top_srcdir="${TOPDIR}"
+export top_srcdir
 eval "`sed -e ': begin'                                                 \
         -e '/\\\\$/{'                                                   \
         -e 'N'                                                          \
@@ -35,6 +37,11 @@ eval "`sed -e ': begin'                                                 \
         -e 's/=\\(.*[^ 	]\\)[ 	]*$/=\\"\\1\\"/'                        \
         -e 's/\\$(\\([^)]*\\))/${\\1}/g'                                \
         < Makefile.inc`"
+
+#       Special case: redefine chkhostname compilation parameters.
+
+chkhostname_SOURCES=chkhostname.c
+chkhostname_LDADD=curl_gethostname.o
 
 #       Compile all programs.
 #       The list is found in variable "noinst_PROGRAMS"
@@ -89,7 +96,15 @@ do      DB2PGM=`db2_name "${PGM}"`
         #       Link program if needed.
 
         if [ "${LINK}" ]
-        then    MODULES="`echo \"${MODULES}\" |
+        then    PGMLDADD="`eval echo \"\\${${PGM}_LDADD}\"`"
+                for LDARG in ${PGMLDADD}
+                do      case "${LDARG}" in
+                        -*)     ;;              # Ignore non-module.
+                        *)      MODULES="${MODULES} "`db2_name "${LDARG}"`
+                                ;;
+                        esac
+                done
+                MODULES="`echo \"${MODULES}\" |
                     sed \"s/[^ ][^ ]*/${TARGETLIB}\/&/g\"`"
                 CMD="CRTPGM PGM(${TARGETLIB}/${DB2PGM})"
                 CMD="${CMD} ENTMOD(QADRT/QADRTMAIN2)"

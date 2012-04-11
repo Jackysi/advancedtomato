@@ -1,6 +1,6 @@
 /* Based on work Copyright 2002 Christopher Clark */
-/* Copyright 2005-2010 Nick Mathewson */
-/* Copyright 2009-2010 Niels Provos and Nick Mathewson */
+/* Copyright 2005-2012 Nick Mathewson */
+/* Copyright 2009-2012 Niels Provos and Nick Mathewson */
 /* See license at end. */
 
 /* Based on ideas by Christopher Clark and interfaces from Niels Provos. */
@@ -223,7 +223,6 @@ ht_string_hash(const char *s)
                        void *data)                                      \
   {                                                                     \
     unsigned idx;                                                       \
-    int remove;                                                         \
     struct type **p, **nextp, *next;                                    \
     if (!head->hth_table)                                               \
       return;                                                           \
@@ -232,8 +231,7 @@ ht_string_hash(const char *s)
       while (*p) {                                                      \
         nextp = &(*p)->field.hte_next;                                  \
         next = *nextp;                                                  \
-        remove = fn(*p, data);                                          \
-        if (remove) {                                                   \
+        if (fn(*p, data)) {                                             \
           --head->hth_n_entries;                                        \
           *p = next;                                                    \
         } else {                                                        \

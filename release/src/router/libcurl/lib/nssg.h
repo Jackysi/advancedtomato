@@ -1,5 +1,5 @@
-#ifndef __NSSG_H
-#define __NSSG_H
+#ifndef HEADER_CURL_NSSG_H
+#define HEADER_CURL_NSSG_H
 /***************************************************************************
  *                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -21,6 +21,7 @@
  * KIND, either express or implied.
  *
  ***************************************************************************/
+#include "setup.h"
 
 #ifdef USE_NSS
 /*
@@ -28,6 +29,7 @@
  */
 
 #include "urldata.h"
+
 CURLcode Curl_nss_connect(struct connectdata *conn, int sockindex);
 CURLcode Curl_nss_connect_nonblocking(struct connectdata *conn,
                                       int sockindex,
@@ -55,17 +57,17 @@ CURLcode Curl_nss_force_init(struct SessionHandle *data);
 #define curlssl_connect Curl_nss_connect
 
 /* NSS has its own session ID cache */
-#define curlssl_session_free(x)
+#define curlssl_session_free(x) Curl_nop_stmt
 #define curlssl_close_all Curl_nss_close_all
 #define curlssl_close Curl_nss_close
 /* NSS has no shutdown function provided and thus always fail */
 #define curlssl_shutdown(x,y) (x=x, y=y, 1)
-#define curlssl_set_engine(x,y) (x=x, y=y, CURLE_FAILED_INIT)
-#define curlssl_set_engine_default(x) (x=x, CURLE_FAILED_INIT)
+#define curlssl_set_engine(x,y) (x=x, y=y, CURLE_NOT_BUILT_IN)
+#define curlssl_set_engine_default(x) (x=x, CURLE_NOT_BUILT_IN)
 #define curlssl_engines_list(x) (x=x, (struct curl_slist *)NULL)
 #define curlssl_version Curl_nss_version
 #define curlssl_check_cxn(x) Curl_nss_check_cxn(x)
 #define curlssl_data_pending(x,y) (x=x, y=y, 0)
 
 #endif /* USE_NSS */
-#endif
+#endif /* HEADER_CURL_NSSG_H */

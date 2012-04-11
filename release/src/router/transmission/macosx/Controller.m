@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Controller.m 13219 2012-02-11 05:13:46Z livings124 $
+ * $Id: Controller.m 13256 2012-03-18 14:33:50Z livings124 $
  * 
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *
@@ -320,10 +320,11 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
                                     [NSLocalizedString(@"GB", "Memory size - gigabytes") UTF8String],
                                     [NSLocalizedString(@"TB", "Memory size - terabytes") UTF8String]);
         
-        //use this instead of tr_getDefaultConfigDir("Transmission") so we are sure to get the "real" Application Support directory
-        const char * configDir = [[[NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES) objectAtIndex: 0] stringByAppendingPathComponent: @"Transmission"] UTF8String];
+        const char * configDir = tr_getDefaultConfigDir("Transmission");
         fLib = tr_sessionInit("macosx", configDir, YES, &settings);
         tr_bencFree(&settings);
+        
+        fConfigDirectory = [[NSString alloc] initWithUTF8String: configDir];
         
         [NSApp setDelegate: self];
         
@@ -445,8 +446,8 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         NSLog(@"Could not IORegisterForSystemPower");
     
     //load previous transfers
-    NSURL * historyURL = [[[[[NSFileManager defaultManager] URLsForDirectory: NSApplicationSupportDirectory inDomains: NSUserDomainMask] objectAtIndex: 0] URLByAppendingPathComponent: @"Transmission"] URLByAppendingPathComponent: TRANSFER_PLIST];
-    NSArray * history = [NSArray arrayWithContentsOfURL: historyURL];
+    NSString * historyFile = [fConfigDirectory stringByAppendingPathComponent: TRANSFER_PLIST];
+    NSArray * history = [NSArray arrayWithContentsOfFile: historyFile];
     if (!history)
     {
         //old version saved transfer info in prefs file
@@ -715,6 +716,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     [fTorrents release];
     [fDisplayedTorrents release];
     
+    [fAddWindows release];
     [fAddingTransfers release];
     
     [fOverlayWindow release];
@@ -723,6 +725,8 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     [fAutoImportedNames release];
     
     [fPreviewPanel release];
+    
+    [fConfigDirectory release];
     
     //complete cleanup
     tr_sessionClose(fLib);
@@ -752,6 +756,13 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     {
         [download cancel];
         
+        [fPendingTorrentDownloads removeObjectForKey: [[download request] URL]];
+        if ([fPendingTorrentDownloads count] == 0)
+        {
+            [fPendingTorrentDownloads release];
+            fPendingTorrentDownloads = nil;
+        }
+        
         NSRunAlertPanel(NSLocalizedString(@"Torrent download failed", "Download not a torrent -> title"),
             [NSString stringWithFormat: NSLocalizedString(@"It appears that the file \"%@\" from %@ is not a torrent file.",
             "Download not a torrent -> message"), suggestedName,
@@ -767,11 +778,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 
 -(void) download: (NSURLDownload *) download didCreateDestination: (NSString *) path
 {
-    if (!fPendingTorrentDownloads)
-        fPendingTorrentDownloads = [[NSMutableDictionary alloc] init];
-    
-    [fPendingTorrentDownloads setObject: [NSDictionary dictionaryWithObjectsAndKeys:
-                    path, @"Path", download, @"Download", nil] forKey: [[download request] URL]];
+    [(NSMutableDictionary *)[fPendingTorrentDownloads objectForKey: [[download request] URL]] setObject: path forKey: @"Path"];
 }
 
 - (void) download: (NSURLDownload *) download didFailWithError: (NSError *) error
@@ -902,6 +909,11 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
                                                     lockDestination: lockDestination controller: self torrentFile: torrentPath
                                                     deleteTorrent: deleteTorrentFile canToggleDelete: canToggleDelete];
             [addController showWindow: self];
+            
+            if (!fAddWindows)
+                fAddWindows = [[NSMutableSet alloc] init];
+            [fAddWindows addObject: addController];
+            [addController release];
         }
         else
         {
@@ -924,7 +936,6 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 - (void) askOpenConfirmed: (AddWindowController *) addController add: (BOOL) add
 {
     Torrent * torrent = [addController torrent];
-    [addController autorelease];
     
     if (add)
     {
@@ -944,6 +955,13 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     {
         [torrent closeRemoveTorrent: NO];
         [torrent release];
+    }
+    
+    [fAddWindows removeObject: addController];
+    if ([fAddWindows count] == 0)
+    {
+        [fAddWindows release];
+        fAddWindows = nil;
     }
 }
 
@@ -982,6 +1000,11 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         AddMagnetWindowController * addController = [[AddMagnetWindowController alloc] initWithTorrent: torrent destination: location
                                                         controller: self];
         [addController showWindow: self];
+        
+        if (!fAddWindows)
+            fAddWindows = [[NSMutableSet alloc] init];
+        [fAddWindows addObject: addController];
+        [addController release];
     }
     else
     {
@@ -1003,7 +1026,6 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 - (void) askOpenMagnetConfirmed: (AddMagnetWindowController *) addController add: (BOOL) add
 {
     Torrent * torrent = [addController torrent];
-    [addController autorelease];
     
     if (add)
     {
@@ -1023,6 +1045,13 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     {
         [torrent closeRemoveTorrent: NO];
         [torrent release];
+    }
+    
+    [fAddWindows removeObject: addController];
+    if ([fAddWindows count] == 0)
+    {
+        [fAddWindows release];
+        fAddWindows = nil;
     }
 }
 
@@ -1181,21 +1210,41 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         
         NSURLRequest * request = [NSURLRequest requestWithURL: [NSURL URLWithString: urlString]
                                     cachePolicy: NSURLRequestReloadIgnoringLocalAndRemoteCacheData timeoutInterval: 60];
-        [[NSURLDownload alloc] initWithRequest: request delegate: self];
+        
+        if ([fPendingTorrentDownloads objectForKey: [request URL]])
+        {
+            NSLog(@"Already downloading %@", [request URL]);
+            return;
+        }
+        
+        NSURLDownload * download = [[NSURLDownload alloc] initWithRequest: request delegate: self];
+        
+        if (!fPendingTorrentDownloads)
+            fPendingTorrentDownloads = [[NSMutableDictionary alloc] init];
+        [fPendingTorrentDownloads setObject: [NSMutableDictionary dictionaryWithObject: download forKey: @"Download"] forKey: [request URL]];
     }
 }
 
 - (void) openURLShowSheet: (id) sender
 {
-    [[[URLSheetWindowController alloc] initWithController: self] beginSheetForWindow: fWindow];
+    if (!fUrlSheetController)
+    {
+        fUrlSheetController = [[URLSheetWindowController alloc] initWithController: self];
+    
+        [NSApp beginSheet: [fUrlSheetController window] modalForWindow: fWindow modalDelegate: self didEndSelector: @selector(urlSheetDidEnd:returnCode:contextInfo:) contextInfo: nil];
+    }
 }
 
-- (void) urlSheetDidEnd: (URLSheetWindowController *) controller url: (NSString *) urlString returnCode: (NSInteger) returnCode
+- (void) urlSheetDidEnd: (NSWindow *) sheet returnCode: (NSInteger) returnCode contextInfo: (void *) contextInfo
 {
     if (returnCode == 1)
+    {
+        NSString * urlString = [fUrlSheetController urlString];
         [self performSelectorOnMainThread: @selector(openURL:) withObject: urlString waitUntilDone: NO];
+    }
     
-    [controller release];
+    [fUrlSheetController release];
+    fUrlSheetController = nil;
 }
 
 - (void) createFile: (id) sender
@@ -1352,10 +1401,9 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 {
     NSArray * torrents = [dict objectForKey: @"Torrents"];
     if (returnCode == NSAlertDefaultReturn)
-        [self confirmRemoveTorrents: torrents deleteData: [[dict objectForKey: @"DeleteData"] boolValue]];
-    else
-        [torrents release];
+        [self confirmRemoveTorrents: [torrents retain] deleteData: [[dict objectForKey: @"DeleteData"] boolValue]];
     
+    [torrents release];
     [dict release];
 }
 
@@ -1859,8 +1907,8 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     for (Torrent * torrent in fTorrents)
         [history addObject: [torrent history]];
     
-    NSURL * historyURL = [[[[[NSFileManager defaultManager] URLsForDirectory: NSApplicationSupportDirectory inDomains: NSUserDomainMask] objectAtIndex: 0] URLByAppendingPathComponent: @"Transmission"] URLByAppendingPathComponent: TRANSFER_PLIST];
-    [history writeToURL: historyURL atomically: YES];
+    NSString * historyFile = [fConfigDirectory stringByAppendingPathComponent: TRANSFER_PLIST];
+    [history writeToFile: historyFile atomically: YES];
 }
 
 - (void) setSort: (id) sender
@@ -2700,12 +2748,8 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         [fAutoImportTimer release];
         fAutoImportTimer = nil;
     }
-    
-    if (fAutoImportedNames)
-    {
-        [fAutoImportedNames release];
-        fAutoImportedNames = nil;
-    }
+    [fAutoImportedNames release];
+    fAutoImportedNames = nil;
     
     [self checkAutoImportDirectory];
 }
@@ -3207,7 +3251,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
                                     + (NSHeight([fWindow frame]) - NSHeight([[fWindow contentView] frame])); //contentView to window
         
         if (windowSize.height < minHeight)
-            windowSize.height =minHeight;
+            windowSize.height = minHeight;
         else
         {
             NSSize maxSize = [scrollView convertSize: [[fWindow screen] visibleFrame].size fromView: nil];

@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2002-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -254,6 +254,31 @@ static inline int evbuffer_chains_all_empty(struct evbuffer_chain *chain) {
 }
 #endif
 
+/* Free all trailing chains in 'buf' that are neither pinned nor empty, prior
+ * to replacing them all with a new chain.  Return a pointer to the place
+ * where the new chain will go.
+ *
+ * Internal; requires lock.  The caller must fix up buf->last and buf->first
+ * as needed; they might have been freed.
+ */
+static struct evbuffer_chain **
+evbuffer_free_trailing_empty_chains(struct evbuffer *buf)
+{
+	struct evbuffer_chain **ch = buf->last_with_datap;
+	/* Find the first victim chain.  It might be *last_with_datap */
+	while ((*ch) && ((*ch)->off != 0 || CHAIN_PINNED(*ch)))
+		ch = &(*ch)->next;
+	if (*ch) {
+		EVUTIL_ASSERT(evbuffer_chains_all_empty(*ch));
+		evbuffer_free_all_chains(*ch);
+		*ch = NULL;
+	}
+	return ch;
+}
+
+/* Add a single chain 'chain' to the end of 'buf', freeing trailing empty
+ * chains as necessary.  Requires lock.  Does not schedule callbacks.
+ */
 static void
 evbuffer_chain_insert(struct evbuffer *buf,
     struct evbuffer_chain *chain)
@@ -325,6 +350,24 @@ evbuffer_new(void)
 	buffer->last_with_datap = &buffer->first;
 
 	return (buffer);
+}
+
+int
+evbuffer_set_flags(struct evbuffer *buf, ev_uint64_t flags)
+{
+	EVBUFFER_LOCK(buf);
+	buf->flags |= (ev_uint32_t)flags;
+	EVBUFFER_UNLOCK(buf);
+	return 0;
+}
+
+int
+evbuffer_clear_flags(struct evbuffer *buf, ev_uint64_t flags)
+{
+	EVBUFFER_LOCK(buf);
+	buf->flags &= ~(ev_uint32_t)flags;
+	EVBUFFER_UNLOCK(buf);
+	return 0;
 }
 
 void
@@ -444,9 +487,14 @@ evbuffer_run_callbacks(struct evbuffer *buffer, int running_deferred)
 	}
 }
 
-static inline void
+void
 evbuffer_invoke_callbacks(struct evbuffer *buffer)
 {
+	if (TAILQ_EMPTY(&buffer->callbacks)) {
+		buffer->n_add_for_cb = buffer->n_del_for_cb = 0;
+		return;
+	}
+
 	if (buffer->deferred_cbs) {
 		if (buffer->deferred.queued)
 			return;
@@ -1081,10 +1129,13 @@ evbuffer_remove_buffer(struct evbuffer *src, struct evbuffer *dst,
 
 	if (nread) {
 		/* we can remove the chain */
+		struct evbuffer_chain **chp;
+		chp = evbuffer_free_trailing_empty_chains(dst);
+
 		if (dst->first == NULL) {
 			dst->first = src->first;
 		} else {
-			dst->last->next = src->first;
+			*chp = src->first;
 		}
 		dst->last = previous;
 		previous->next = NULL;
@@ -1102,6 +1153,9 @@ evbuffer_remove_buffer(struct evbuffer *src, struct evbuffer *dst,
 	chain->off -= datlen;
 	nread += datlen;
 
+	/* You might think we would want to increment dst->n_add_for_cb
+	 * here too.  But evbuffer_add above already took care of that.
+	 */
 	src->total_len -= nread;
 	src->n_del_for_cb += nread;
 
@@ -1249,7 +1303,7 @@ evbuffer_strchr(struct evbuffer_ptr *it, const char chr)
 		if (cp) {
 			it->_internal.chain = chain;
 			it->_internal.pos_in_chain = cp - buffer;
-			it->pos += (cp - buffer);
+			it->pos += (cp - buffer - i);
 			return it->pos;
 		}
 		it->pos += chain->off - i;
@@ -1552,6 +1606,7 @@ evbuffer_add(struct evbuffer *buf, const void *data_in, size_t datlen)
 	memcpy(tmp->buffer, data, datlen);
 	tmp->off = datlen;
 	evbuffer_chain_insert(buf, tmp);
+	buf->n_add_for_cb += datlen;
 
 out:
 	evbuffer_invoke_callbacks(buf);
@@ -2262,12 +2317,18 @@ evbuffer_write_sendfile(struct evbuffer *buffer, evutil_socket_t fd,
 	}
 	return (res);
 #elif defined(SENDFILE_IS_SOLARIS)
-	res = sendfile(fd, info->fd, &offset, chain->off);
-	if (res == -1 && EVUTIL_ERR_RW_RETRIABLE(errno)) {
-		/* if this is EAGAIN or EINTR return 0; otherwise, -1 */
-		return (0);
+	{
+		const off_t offset_orig = offset;
+		res = sendfile(fd, info->fd, &offset, chain->off);
+		if (res == -1 && EVUTIL_ERR_RW_RETRIABLE(errno)) {
+			if (offset - offset_orig)
+				return offset - offset_orig;
+			/* if this is EAGAIN or EINTR and no bytes were
+			 * written, return 0 */
+			return (0);
+		}
+		return (res);
 	}
-	return (res);
 #endif
 }
 #endif
@@ -2521,14 +2582,21 @@ evbuffer_peek(struct evbuffer *buffer, ev_ssize_t len,
 		chain = buffer->first;
 	}
 
+	if (n_vec == 0 && len < 0) {
+		/* If no vectors are provided and they asked for "everything",
+		 * pretend they asked for the actual available amount. */
+		len = buffer->total_len - len_so_far;
+	}
+
 	while (chain) {
 		if (len >= 0 && len_so_far >= len)
 			break;
 		if (idx<n_vec) {
 			vec[idx].iov_base = chain->buffer + chain->misalign;
 			vec[idx].iov_len = chain->off;
-		} else if (len<0)
+		} else if (len<0) {
 			break;
+		}
 		++idx;
 		len_so_far += chain->off;
 		chain = chain->next;
@@ -2669,10 +2737,19 @@ evbuffer_add_file(struct evbuffer *outbuf, int fd,
 	struct evbuffer_chain *chain;
 	struct evbuffer_chain_fd *info;
 #endif
+#if defined(USE_SENDFILE)
+	int sendfile_okay = 1;
+#endif
 	int ok = 1;
 
 #if defined(USE_SENDFILE)
 	if (use_sendfile) {
+		EVBUFFER_LOCK(outbuf);
+		sendfile_okay = outbuf->flags & EVBUFFER_FLAG_DRAINS_TO_FD;
+		EVBUFFER_UNLOCK(outbuf);
+	}
+
+	if (use_sendfile && sendfile_okay) {
 		chain = evbuffer_chain_new(sizeof(struct evbuffer_chain_fd));
 		if (chain == NULL) {
 			event_warn("%s: out of memory", __func__);

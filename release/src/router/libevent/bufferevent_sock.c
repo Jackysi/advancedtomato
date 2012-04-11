@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  * Copyright (c) 2002-2006 Niels Provos <provos@citi.umich.edu>
  * All rights reserved.
  *
@@ -113,8 +113,9 @@ bufferevent_socket_outbuf_cb(struct evbuffer *buf,
 	    !bufev_p->write_suspended) {
 		/* Somebody added data to the buffer, and we would like to
 		 * write, and we were not writing.  So, start writing. */
-		be_socket_add(&bufev->ev_write, &bufev->timeout_write);
-		/* XXXX handle failure from be_socket_add */
+		if (be_socket_add(&bufev->ev_write, &bufev->timeout_write) == -1) {
+		    /* Should we log this? */
+		}
 	}
 }
 
@@ -327,6 +328,7 @@ bufferevent_socket_new(struct event_base *base, evutil_socket_t fd,
 		return NULL;
 	}
 	bufev = &bufev_p->bev;
+	evbuffer_set_flags(bufev->output, EVBUFFER_FLAG_DRAINS_TO_FD);
 
 	event_assign(&bufev->ev_read, bufev->ev_base, fd,
 	    EV_READ|EV_PERSIST, bufferevent_readcb, bufev);
@@ -684,6 +686,7 @@ be_socket_ctrl(struct bufferevent *bev, enum bufferevent_ctrl_op op,
 		data->fd = event_get_fd(&bev->ev_read);
 		return 0;
 	case BEV_CTRL_GET_UNDERLYING:
+	case BEV_CTRL_CANCEL_ALL:
 	default:
 		return -1;
 	}
