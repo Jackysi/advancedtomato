@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: triconpushbutton.cc 11092 2010-08-01 20:36:13Z charles $
+ * $Id: triconpushbutton.cc 13241 2012-02-29 02:47:11Z jordan $
  */
 
 #include <iostream>
@@ -48,9 +48,6 @@ TrIconPushButton :: paintEvent( QPaintEvent * )
     QIcon::Mode mode = opt.state & QStyle::State_Enabled ? QIcon::Normal : QIcon::Disabled;
     if( ( mode == QIcon::Normal ) && ( opt.state & QStyle::State_HasFocus ) )
         mode = QIcon::Active;
-    QIcon::State state = QIcon::Off;
-    if( opt.state & QStyle::State_On )
-        state = QIcon::On;
     QPixmap pixmap = opt.icon.pixmap( opt.iconSize, QIcon::Active, QIcon::On );
     QRect iconRect( opt.rect.x() + HIG::PAD_SMALL,
                     opt.rect.y() + (opt.rect.height() - pixmap.height())/2,

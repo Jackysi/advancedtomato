@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: natpmp.c 13199 2012-02-04 01:28:15Z jordan $
+ * $Id: natpmp.c 13263 2012-04-07 00:12:57Z jordan $
  */
 
 #include <errno.h>
@@ -120,7 +120,7 @@ tr_natpmpPulse( struct tr_natpmp * nat, tr_port private_port, bool is_enabled, t
 
     if( is_enabled && ( nat->state == TR_NATPMP_DISCOVER ) )
     {
-        int val = initnatpmp( &nat->natpmp );
+        int val = initnatpmp( &nat->natpmp, 0, 0 );
         logVal( "initnatpmp", val );
         val = sendpublicaddressrequest( &nat->natpmp );
         logVal( "sendpublicaddressrequest", val );

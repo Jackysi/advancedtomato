@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: BonjourController.m 13162 2012-01-14 17:12:04Z livings124 $
+ * $Id: BonjourController.m 13253 2012-03-13 03:20:09Z livings124 $
  *
  * Copyright (c) 2008-2012 Transmission authors and contributors
  *
@@ -29,8 +29,11 @@
 BonjourController * fDefaultController = nil;
 + (BonjourController *) defaultController
 {
-    if (!fDefaultController)
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
         fDefaultController = [[BonjourController alloc] init];
+    });
+    
     return fDefaultController;
 }
 

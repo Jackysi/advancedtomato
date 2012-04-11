@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: notify.c 13107 2011-12-10 19:00:50Z jordan $
+ * $Id: notify.c 13265 2012-04-07 00:30:37Z jordan $
  */
 
 #include <string.h> /* strcmp() */
@@ -189,7 +189,9 @@ gtr_notify_torrent_completed( TrCore * core, int torrent_id )
     TrNotification * n;
     tr_torrent * tor;
     const char * cmd = gtr_pref_string_get( PREF_KEY_TORRENT_COMPLETE_SOUND_COMMAND );
-    g_spawn_command_line_async( cmd, NULL );
+
+    if( gtr_pref_flag_get( PREF_KEY_TORRENT_COMPLETE_SOUND_ENABLED ) )
+        g_spawn_command_line_async( cmd, NULL );
 
     if( ! gtr_pref_flag_get( PREF_KEY_TORRENT_COMPLETE_NOTIFICATION_ENABLED ) )
         return;

@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: mainwin.cc 12616 2011-08-03 03:47:17Z jordan $
+ * $Id: mainwin.cc 13264 2012-04-07 00:16:14Z jordan $
  */
 
 #include <cassert>
@@ -579,13 +579,45 @@ TrMainWindow :: setLocation( )
     d->show( );
 }
 
+// Open Folder & select torrent's file or top folder
+void openSelect(const QString& path)
+{
+#if defined(Q_OS_WIN)
+    const QString explorer = "explorer";
+        QString param;
+        if (!QFileInfo(path).isDir())
+            param = QLatin1String("/select,");
+        param += QDir::toNativeSeparators(path);
+        QProcess::startDetached(explorer, QStringList(param));
+#elif defined(Q_OS_MAC)
+    QStringList scriptArgs;
+        scriptArgs << QLatin1String("-e")
+                   << QString::fromLatin1("tell application \"Finder\" to reveal POSIX file \"%1\"")
+                                         .arg(path);
+        QProcess::execute(QLatin1String("/usr/bin/osascript"), scriptArgs);
+        scriptArgs.clear();
+        scriptArgs << QLatin1String("-e")
+                   << QLatin1String("tell application \"Finder\" to activate");
+        QProcess::execute("/usr/bin/osascript", scriptArgs);
+#elif defined(Q_OS_UNIX)
+    QDesktopServices :: openUrl( QUrl::fromLocalFile( path ) );
+#endif
+}
+
 void
 TrMainWindow :: openFolder( )
 {
     const int torrentId( *getSelectedTorrents().begin() );
     const Torrent * tor( myModel.getTorrentFromId( torrentId ) );
     const QString path( tor->getPath( ) );
-    QDesktopServices :: openUrl( QUrl::fromLocalFile( path ) );
+    const FileList files = tor->files();
+    if (files.size() == 1)
+        openSelect( path + "/" + files.at(0).filename );
+    else {
+        QDir dir( path + "/" + files.at(0).filename );
+        dir.cdUp();
+        openSelect( dir.path() );
+    }
 }
 
 void

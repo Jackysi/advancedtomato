@@ -3,8 +3,8 @@ dnl STATUS: "X" for prerelease beta builds,
 dnl         "Z" for unsupported trunk builds,
 dnl         "0" for stable, supported releases
 dnl these should be the only two lines you need to change
-m4_define([user_agent_prefix],[2.50])
-m4_define([peer_id_prefix],[-TR2500-])
+m4_define([user_agent_prefix],[2.51])
+m4_define([peer_id_prefix],[-TR2510-])
 
 AC_INIT([transmission],
         [user_agent_prefix],
@@ -73,7 +73,15 @@ AC_SUBST(LIBAPPINDICATOR_MINIMUM)
 
 AC_PROG_CC
 AC_PROG_CXX
-AC_CHECK_PROG([HAVE_CXX],[$CXX],[yes],[no])
+if test "x$CXX" != "x"; then # CXX is set...
+  if test -f "$CXX"; then # maybe it's an absolute path passed in env variables...
+    AC_MSG_CHECKING([for $CXX])
+    HAVE_CXX="yes"
+    AC_MSG_RESULT([$HAVE_CXX])
+  else
+    AC_CHECK_PROG([HAVE_CXX],[$CXX],[yes],[no])
+  fi
+fi
 AC_C_INLINE
 if test "x$GCC" = "xyes" ; then
 

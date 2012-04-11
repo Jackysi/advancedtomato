@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: BlocklistDownloaderViewController.m 13162 2012-01-14 17:12:04Z livings124 $
+ * $Id: BlocklistDownloaderViewController.m 13253 2012-03-13 03:20:09Z livings124 $
  *
  * Copyright (c) 2008-2012 Transmission authors and contributors
  *
@@ -37,10 +37,14 @@
 
 @implementation BlocklistDownloaderViewController
 
+BlocklistDownloaderViewController * fBLViewController = nil;
 + (void) downloadWithPrefsController: (PrefsController *) prefsController
 {
-    BlocklistDownloaderViewController * downloader = [[BlocklistDownloaderViewController alloc] initWithPrefsController: prefsController];
-    [downloader startDownload];
+    if (!fBLViewController)
+    {
+        fBLViewController = [[BlocklistDownloaderViewController alloc] initWithPrefsController: prefsController];
+        [fBLViewController startDownload];
+    }
 }
 
 - (void) awakeFromNib
@@ -101,6 +105,7 @@
     [NSApp endSheet: fStatusWindow];
     [fStatusWindow orderOut: self];
     
+    fBLViewController = nil;
     [self release];
 }
 
@@ -148,6 +153,8 @@
 - (void) failureSheetClosed: (NSAlert *) alert returnCode: (NSInteger) code contextInfo: (void *) info
 {
     [[alert window] orderOut: self];
+    
+    fBLViewController = nil;
     [self release];
 }
 

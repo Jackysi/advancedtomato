@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: open-dialog.c 13157 2012-01-13 22:10:26Z jordan $
+ * $Id: open-dialog.c 13267 2012-04-07 00:41:21Z jordan $
  */
 
 #include <glib/gi18n.h>
@@ -471,6 +471,11 @@ onOpenURLResponse( GtkDialog * dialog, int response, gpointer user_data )
             g_free( url );
         }
     }
+    else if( response == GTK_RESPONSE_CANCEL )
+    {
+        handled = TRUE;
+    }
+        
 
     if( handled )
         gtk_widget_destroy( GTK_WIDGET( dialog ) );
