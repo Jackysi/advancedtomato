@@ -138,6 +138,10 @@ void start_bittorrent(void)
         fprintf( fp, "gunzip %s/.settings/blocklists/level1.gz\n", pk );
     }
 
+//crash fix?
+    fprintf( fp, "EVENT_NOEPOLL=1; export EVENT_NOEPOLL\n" );
+//
+
     fprintf( fp, "%s/transmission-daemon -g %s/.settings\n", pn, pk );
     fprintf( fp, "logger \"Transmission daemon successfully started\" \n");
     fprintf( fp, "sleep 2\n" );
