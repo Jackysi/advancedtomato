@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2009-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -126,6 +126,9 @@ evbuffer_commit_read(struct evbuffer *evbuf, ev_ssize_t nBytes)
 	buf->read_in_progress = 0;
 
 	evbuf->total_len += nBytes;
+	evbuf->n_add_for_cb += nBytes;
+
+	evbuffer_invoke_callbacks(evbuf);
 
 	_evbuffer_decref_and_unlock(evbuf);
 }
@@ -150,6 +153,8 @@ evbuffer_overlapped_new(evutil_socket_t fd)
 	struct evbuffer_overlapped *evo;
 
 	evo = mm_calloc(1, sizeof(struct evbuffer_overlapped));
+	if (!evo)
+		return NULL;
 
 	TAILQ_INIT(&evo->buffer.callbacks);
 	evo->buffer.refcnt = 1;

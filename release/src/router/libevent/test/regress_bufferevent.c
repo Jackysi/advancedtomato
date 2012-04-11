@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2003-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -551,7 +551,7 @@ want_fail_eventcb(struct bufferevent *bev, short what, void *ctx)
 	if (what & BEV_EVENT_ERROR) {
 		s = bufferevent_getfd(bev);
 		err = evutil_socket_error_to_string(evutil_socket_geterror(s));
-		TT_BLATHER(("connection failure %s", err));
+		TT_BLATHER(("connection failure on %d: %s", s, err));
 		test_ok = 1;
 	} else {
 		TT_FAIL(("didn't fail? what %hd", what));

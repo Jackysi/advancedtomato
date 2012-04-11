@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2000-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,11 +27,14 @@
 #ifndef _EVENT2_BUFFEREVENT_STRUCT_H_
 #define _EVENT2_BUFFEREVENT_STRUCT_H_
 
-/** @file bufferevent_struct.h
+/** @file event2/bufferevent_struct.h
 
   Data structures for bufferevents.  Using these structures may hurt forward
   compatibility with later versions of Libevent: be careful!
 
+  @deprecated Use of bufferevent_struct.h is completely deprecated; these
+    structures are only exposed for backward compatibility with programs
+    written before Libevent 2.0 that used them.
  */
 
 #ifdef __cplusplus

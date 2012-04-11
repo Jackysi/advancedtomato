@@ -2,7 +2,7 @@
 
 /*
  * Copyright 2000-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -168,11 +168,6 @@ evsig_cb(evutil_socket_t fd, short what, void *arg)
 int
 evsig_init(struct event_base *base)
 {
-#ifndef _EVENT_DISABLE_THREAD_SUPPORT
-	if (! evsig_base_lock)
-		EVTHREAD_ALLOC_LOCK(evsig_base_lock, 0);
-#endif
-
 	/*
 	 * Our signal handler is going to write to one end of the socket
 	 * pair to wake up our event loop.  The event loop then scans for
@@ -404,9 +399,11 @@ evsig_dealloc(struct event_base *base)
 	int i = 0;
 	if (base->sig.ev_signal_added) {
 		event_del(&base->sig.ev_signal);
-		event_debug_unassign(&base->sig.ev_signal);
 		base->sig.ev_signal_added = 0;
 	}
+	/* debug event is created in evsig_init/event_assign even when
+	 * ev_signal_added == 0, so unassign is required */
+	event_debug_unassign(&base->sig.ev_signal);
 
 	for (i = 0; i < NSIG; ++i) {
 		if (i < base->sig.sh_old_max && base->sig.sh_old[i] != NULL)
@@ -436,3 +433,12 @@ evsig_dealloc(struct event_base *base)
 		base->sig.sh_old = NULL;
 	}
 }
+
+#ifndef _EVENT_DISABLE_THREAD_SUPPORT
+int
+evsig_global_setup_locks_(const int enable_locks)
+{
+	EVTHREAD_SETUP_GLOBAL_LOCK(evsig_base_lock, 0);
+	return 0;
+}
+#endif

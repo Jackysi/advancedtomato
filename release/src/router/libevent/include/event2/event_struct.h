@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2000-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,11 +27,13 @@
 #ifndef _EVENT2_EVENT_STRUCT_H_
 #define _EVENT2_EVENT_STRUCT_H_
 
-/** @file event_struct.h
+/** @file event2/event_struct.h
 
-  Structures used by event.h.  Using these structures directly may harm
-  forward compatibility: be careful!
+  Structures used by event.h.  Using these structures directly WILL harm
+  forward compatibility: be careful.
 
+  No field declared in this file should be used directly in user code.  Except
+  for historical reasons, these fields would not be exposed at all.
  */
 
 #ifdef __cplusplus

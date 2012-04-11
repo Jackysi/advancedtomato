@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,14 +55,14 @@
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
-#ifdef _EVENT_HAVE_ARPA_INET_H
-#include <arpa/inet.h>
-#endif
 #ifdef _EVENT_HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
 #ifdef _EVENT_HAVE_NETINET_IN6_H
 #include <netinet/in6.h>
+#endif
+#ifdef _EVENT_HAVE_ARPA_INET_H
+#include <arpa/inet.h>
 #endif
 
 #ifndef _EVENT_HAVE_GETTIMEOFDAY
@@ -86,6 +86,30 @@
 #define fstat _fstati64
 #define stat _stati64
 #endif
+
+int
+evutil_open_closeonexec(const char *pathname, int flags, unsigned mode)
+{
+	int fd;
+
+#ifdef O_CLOEXEC
+	flags |= O_CLOEXEC;
+#endif
+
+	if (flags & O_CREAT)
+		fd = open(pathname, flags, (mode_t)mode);
+	else
+		fd = open(pathname, flags);
+	if (fd < 0)
+		return -1;
+
+#if !defined(O_CLOEXEC) && defined(FD_CLOEXEC)
+	if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0)
+		return -1;
+#endif
+
+	return fd;
+}
 
 /**
    Read the contents of 'filename' into a newly allocated NUL-terminated
@@ -117,7 +141,7 @@ evutil_read_file(const char *filename, char **content_out, size_t *len_out,
 		mode |= O_BINARY;
 #endif
 
-	fd = open(filename, mode);
+	fd = evutil_open_closeonexec(filename, mode, 0);
 	if (fd < 0)
 		return -1;
 	if (fstat(fd, &st) || st.st_size < 0 ||
@@ -445,9 +469,9 @@ evutil_socket_connect(evutil_socket_t *fd_ptr, struct sockaddr *sa, int socklen)
 	int made_fd = 0;
 
 	if (*fd_ptr < 0) {
-		made_fd = 1;
 		if ((*fd_ptr = socket(sa->sa_family, SOCK_STREAM, 0)) < 0)
 			goto err;
+		made_fd = 1;
 		if (evutil_make_socket_nonblocking(*fd_ptr) < 0) {
 			goto err;
 		}

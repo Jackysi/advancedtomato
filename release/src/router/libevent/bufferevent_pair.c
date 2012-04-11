@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2010 Niels Provos, Nick Mathewson
+ * Copyright (c) 2009-2012 Niels Provos, Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -158,7 +158,7 @@ be_pair_transfer(struct bufferevent *src, struct bufferevent *dst,
 	evbuffer_unfreeze(dst->input, 0);
 
 	if (dst->wm_read.high) {
-		size_t dst_size = evbuffer_get_length(dst->input);
+		dst_size = evbuffer_get_length(dst->input);
 		if (dst_size < dst->wm_read.high) {
 			n = dst->wm_read.high - dst_size;
 			evbuffer_remove_buffer(src->output, dst->input, n);

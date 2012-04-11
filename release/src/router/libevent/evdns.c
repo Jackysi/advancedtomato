@@ -1,18 +1,32 @@
-/* $Id: evdns.c 6979 2006-08-04 18:31:13Z nickm $ */
-
-/* The original version of this module was written by Adam Langley; for
- * a history of modifications, check out the subversion logs.
+/* Copyright 2006-2007 Niels Provos
+ * Copyright 2007-2012 Nick Mathewson and Niels Provos
  *
- * When editing this module, try to keep it re-mergeable by Adam.  Don't
- * reformat the whitespace, add Tor dependencies, or so on.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
  *
- * TODO:
- *   - Support IPv6 and PTR records.
- *   - Replace all externally visible magic numbers with #defined constants.
- *   - Write documentation for APIs of all external functions.
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* Async DNS Library
+/* Based on software by Adam Langly. Adam's original message:
+ *
+ * Async DNS Library
  * Adam Langley <agl@imperialviolet.org>
  * http://www.imperialviolet.org/eventdns.html
  * Public Domain code
@@ -133,6 +147,7 @@
 #define TYPE_A	       EVDNS_TYPE_A
 #define TYPE_CNAME     5
 #define TYPE_PTR       EVDNS_TYPE_PTR
+#define TYPE_SOA       EVDNS_TYPE_SOA
 #define TYPE_AAAA      EVDNS_TYPE_AAAA
 
 #define CLASS_INET     EVDNS_CLASS_INET
@@ -166,6 +181,7 @@ struct request {
 	struct nameserver *ns;	/* the server which we last sent it */
 
 	/* these objects are kept in a circular list */
+	/* XXX We could turn this into a CIRCLEQ. */
 	struct request *next, *prev;
 
 	struct event timeout_event;
@@ -645,6 +661,8 @@ request_finished(struct request *const req, struct request **head, int free_hand
 	} else {
 		base->global_requests_waiting--;
 	}
+	/* it was initialized during request_new / evtimer_assign */
+	event_debug_unassign(&req->timeout_event);
 
 	if (!req->request_appended) {
 		/* need to free the request data on it's own */
@@ -758,7 +776,7 @@ reply_run_callback(struct deferred_cb *d, void *user_pointer)
 			    cb->reply.data.a.addresses,
 			    user_pointer);
 		else
-			cb->user_callback(cb->err, 0, 0, 0, NULL, user_pointer);
+			cb->user_callback(cb->err, 0, 0, cb->ttl, NULL, user_pointer);
 		break;
 	case TYPE_PTR:
 		if (cb->have_reply) {
@@ -766,7 +784,7 @@ reply_run_callback(struct deferred_cb *d, void *user_pointer)
 			cb->user_callback(DNS_ERR_NONE, DNS_PTR, 1, cb->ttl,
 			    &name, user_pointer);
 		} else {
-			cb->user_callback(cb->err, 0, 0, 0, NULL, user_pointer);
+			cb->user_callback(cb->err, 0, 0, cb->ttl, NULL, user_pointer);
 		}
 		break;
 	case TYPE_AAAA:
@@ -776,7 +794,7 @@ reply_run_callback(struct deferred_cb *d, void *user_pointer)
 			    cb->reply.data.aaaa.addresses,
 			    user_pointer);
 		else
-			cb->user_callback(cb->err, 0, 0, 0, NULL, user_pointer);
+			cb->user_callback(cb->err, 0, 0, cb->ttl, NULL, user_pointer);
 		break;
 	default:
 		EVUTIL_ASSERT(0);
@@ -840,13 +858,17 @@ reply_handle(struct request *const req, u16 flags, u32 ttl, struct reply *reply)
 		/* there was an error */
 		if (flags & 0x0200) {
 			error = DNS_ERR_TRUNCATED;
-		} else {
+		} else if (flags & 0x000f) {
 			u16 error_code = (flags & 0x000f) - 1;
 			if (error_code > 4) {
 				error = DNS_ERR_UNKNOWN;
 			} else {
 				error = error_codes[error_code];
 			}
+		} else if (reply && !reply->have_answer) {
+			error = DNS_ERR_NODATA;
+		} else {
+			error = DNS_ERR_UNKNOWN;
 		}
 
 		switch (error) {
@@ -874,7 +896,12 @@ reply_handle(struct request *const req, u16 flags, u32 ttl, struct reply *reply)
 				    addrbuf, sizeof(addrbuf)));
 			break;
 		default:
-			/* we got a good reply from the nameserver */
+			/* we got a good reply from the nameserver: it is up. */
+			if (req->handle == req->ns->probe_request) {
+				/* Avoid double-free */
+				req->ns->probe_request = NULL;
+			}
+
 			nameserver_up(req->ns);
 		}
 
@@ -893,7 +920,7 @@ reply_handle(struct request *const req, u16 flags, u32 ttl, struct reply *reply)
 		}
 
 		/* all else failed. Pass the failure up */
-		reply_schedule_callback(req, 0, error, NULL);
+		reply_schedule_callback(req, ttl, error, NULL);
 		request_finished(req, &REQ_HEAD(req->base, req->trans_id), 1);
 	} else {
 		/* all ok, tell the user */
@@ -996,8 +1023,8 @@ reply_parse(struct evdns_base *base, u8 *packet, int length) {
 
 	/* If it's not an answer, it doesn't correspond to any request. */
 	if (!(flags & 0x8000)) return -1;  /* must be an answer */
-	if (flags & 0x020f) {
-		/* there was an error */
+	if ((flags & 0x020f) && (flags & 0x020f) != DNS_ERR_NOTEXIST) {
+		/* there was an error and it's not NXDOMAIN */
 		goto err;
 	}
 	/* if (!answers) return; */  /* must have an answer of some form */
@@ -1037,7 +1064,7 @@ reply_parse(struct evdns_base *base, u8 *packet, int length) {
 		 */
 		TEST_NAME;
 		j += 4;
-		if (j >= length) goto err;
+		if (j > length) goto err;
 	}
 
 	if (!name_matches)
@@ -1119,6 +1146,39 @@ reply_parse(struct evdns_base *base, u8 *packet, int length) {
 		}
 	}
 
+	if (!reply.have_answer) {
+		for (i = 0; i < authority; ++i) {
+			u16 type, class;
+			SKIP_NAME;
+			GET16(type);
+			GET16(class);
+			GET32(ttl);
+			GET16(datalength);
+			if (type == TYPE_SOA && class == CLASS_INET) {
+				u32 serial, refresh, retry, expire, minimum;
+				SKIP_NAME;
+				SKIP_NAME;
+				GET32(serial);
+				GET32(refresh);
+				GET32(retry);
+				GET32(expire);
+				GET32(minimum);
+				(void)expire;
+				(void)retry;
+				(void)refresh;
+				(void)serial;
+				ttl_r = MIN(ttl_r, ttl);
+				ttl_r = MIN(ttl_r, minimum);
+			} else {
+				/* skip over any other type of resource */
+				j += datalength;
+			}
+		}
+	}
+
+	if (ttl_r == 0xffffffff)
+		ttl_r = 0;
+
 	reply_handle(req, flags, ttl_r, &reply);
 	return 0;
  err:
@@ -1150,6 +1210,9 @@ request_parse(u8 *packet, int length, struct evdns_server_port *port, struct soc
 	GET16(answers);
 	GET16(authority);
 	GET16(additional);
+	(void)answers;
+	(void)additional;
+	(void)authority;
 
 	if (flags & 0x8000) return -1; /* Must not be an answer. */
 	flags &= 0x0110; /* Only RD and CD get preserved. */
@@ -2393,7 +2456,7 @@ _evdns_nameserver_add_impl(struct evdns_base *base, const struct sockaddr *addre
 
 	evtimer_assign(&ns->timeout_event, ns->base->event_base, nameserver_prod_callback, ns);
 
-	ns->socket = socket(PF_INET, SOCK_DGRAM, 0);
+	ns->socket = socket(address->sa_family, SOCK_DGRAM, 0);
 	if (ns->socket < 0) { err = 1; goto out1; }
 	evutil_make_socket_closeonexec(ns->socket);
 	evutil_make_socket_nonblocking(ns->socket);
@@ -2429,9 +2492,7 @@ _evdns_nameserver_add_impl(struct evdns_base *base, const struct sockaddr *addre
 		ns->next = base->server_head->next;
 		ns->prev = base->server_head;
 		base->server_head->next = ns;
-		if (base->server_head->prev == base->server_head) {
-			base->server_head->prev = ns;
-		}
+		ns->next->prev = ns;
 	}
 
 	base->global_good_nameservers++;
@@ -3836,6 +3897,7 @@ evdns_err_to_string(int err)
 	case DNS_ERR_TIMEOUT: return "request timed out";
 	case DNS_ERR_SHUTDOWN: return "dns subsystem shut down";
 	case DNS_ERR_CANCEL: return "dns request canceled";
+	case DNS_ERR_NODATA: return "no records in the reply";
 	default: return "[Unknown error code]";
     }
 }

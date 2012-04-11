@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2000-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,7 +27,7 @@
 #ifndef _EVENT2_TAG_H_
 #define _EVENT2_TAG_H_
 
-/** @file tag.h
+/** @file event2/tag.h
 
   Helper functions for reading and writing tagged data onto buffers.
 

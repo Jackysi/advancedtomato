@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,6 +25,14 @@
  */
 #ifndef _EVUTIL_H_
 #define _EVUTIL_H_
+
+/** @file evutil.h
+
+  Utility and compatibility functions for Libevent.
+
+  The <evutil.h> header is deprecated in Libevent 2.0 and later; please
+  use <event2/util.h> instead.
+*/
 
 #include <event2/util.h>
 

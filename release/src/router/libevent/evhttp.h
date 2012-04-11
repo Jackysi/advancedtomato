@@ -1,6 +1,6 @@
 /*
  * Copyright 2000-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,16 @@
  */
 #ifndef _EVHTTP_H_
 #define _EVHTTP_H_
+
+/** @file evhttp.h
+
+  An http implementation subsystem for Libevent.
+
+  The <evhttp.h> header is deprecated in Libevent 2.0 and later; please
+  use <event2/http.h> instead.  Depending on what functionality you
+  need, you may also want to include more of the other <event2/...>
+  headers.
+ */
 
 #include <event.h>
 #include <event2/http.h>

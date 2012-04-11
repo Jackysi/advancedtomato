@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2000-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -338,8 +338,12 @@ static void
 evrpc_request_cb_closure(void *arg, enum EVRPC_HOOK_RESULT hook_res)
 {
 	struct evrpc_req_generic *rpc_state = arg;
-	struct evrpc *rpc = rpc_state->rpc;
-	struct evhttp_request *req = rpc_state->http_req;
+	struct evrpc *rpc;
+	struct evhttp_request *req;
+
+	EVUTIL_ASSERT(rpc_state);
+	rpc = rpc_state->rpc;
+	req = rpc_state->http_req;
 
 	if (hook_res == EVRPC_TERMINATE)
 		goto error;
@@ -399,8 +403,13 @@ evrpc_request_done_closure(void *, enum EVRPC_HOOK_RESULT);
 void
 evrpc_request_done(struct evrpc_req_generic *rpc_state)
 {
-	struct evhttp_request *req = rpc_state->http_req;
-	struct evrpc *rpc = rpc_state->rpc;
+	struct evhttp_request *req;
+	struct evrpc *rpc;
+
+	EVUTIL_ASSERT(rpc_state);
+
+	req = rpc_state->http_req;
+	rpc = rpc_state->rpc;
 
 	if (rpc->reply_complete(rpc_state->reply) == -1) {
 		/* the reply was not completely filled in.  error out */
@@ -466,7 +475,9 @@ static void
 evrpc_request_done_closure(void *arg, enum EVRPC_HOOK_RESULT hook_res)
 {
 	struct evrpc_req_generic *rpc_state = arg;
-	struct evhttp_request *req = rpc_state->http_req;
+	struct evhttp_request *req;
+	EVUTIL_ASSERT(rpc_state);
+	req = rpc_state->http_req;
 
 	if (hook_res == EVRPC_TERMINATE)
 		goto error;

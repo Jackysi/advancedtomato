@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2003-2007 Niels Provos <provos@citi.umich.edu>
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -316,7 +316,10 @@ test_simpleread(void)
 	/* Very simple read test */
 	setup_test("Simple read: ");
 
-	write(pair[0], TEST1, strlen(TEST1)+1);
+	if (write(pair[0], TEST1, strlen(TEST1)+1) < 0) {
+		tt_fail_perror("write");
+	}
+
 	shutdown(pair[0], SHUT_WR);
 
 	event_set(&ev, pair[1], EV_READ, simple_read_cb, &ev);
@@ -358,7 +361,10 @@ test_simpleread_multiple(void)
 	/* Very simple read test */
 	setup_test("Simple read to multiple evens: ");
 
-	write(pair[0], TEST1, strlen(TEST1)+1);
+	if (write(pair[0], TEST1, strlen(TEST1)+1) < 0) {
+		tt_fail_perror("write");
+	}
+
 	shutdown(pair[0], SHUT_WR);
 
 	event_set(&one, pair[1], EV_READ, simpleread_multiple_cb, NULL);
@@ -671,9 +677,11 @@ test_persistent_active_timeout(void *ptr)
 	tv_exit.tv_usec = 600 * 1000;
 	event_base_loopexit(base, &tv_exit);
 
+	event_base_assert_ok(base);
 	evutil_gettimeofday(&start, NULL);
 
 	event_base_dispatch(base);
+	event_base_assert_ok(base);
 
 	tt_int_op(res.n, ==, 3);
 	tt_int_op(res.events[0], ==, EV_READ);
@@ -742,9 +750,11 @@ test_common_timeout(void *ptr)
 		}
 	}
 
+	event_base_assert_ok(base);
 	event_base_dispatch(base);
 
 	evutil_gettimeofday(&now, NULL);
+	event_base_assert_ok(base);
 
 	for (i=0; i<10; ++i) {
 		struct timeval tmp;
@@ -807,7 +817,9 @@ test_fork(void)
 	tt_assert(current_base);
 	evthread_make_base_notifiable(current_base);
 
-	write(pair[0], TEST1, strlen(TEST1)+1);
+	if (write(pair[0], TEST1, strlen(TEST1)+1) < 0) {
+		tt_fail_perror("write");
+	}
 
 	event_set(&ev, pair[1], EV_READ, simple_read_cb, &ev);
 	if (event_add(&ev, NULL) == -1)
@@ -816,12 +828,19 @@ test_fork(void)
 	evsignal_set(&sig_ev, SIGCHLD, child_signal_cb, &got_sigchld);
 	evsignal_add(&sig_ev, NULL);
 
+	event_base_assert_ok(current_base);
+	TT_BLATHER(("Before fork"));
 	if ((pid = fork()) == 0) {
 		/* in the child */
+		TT_BLATHER(("In child, before reinit"));
+		event_base_assert_ok(current_base);
 		if (event_reinit(current_base) == -1) {
 			fprintf(stdout, "FAILED (reinit)\n");
 			exit(1);
 		}
+		TT_BLATHER(("After reinit"));
+		event_base_assert_ok(current_base);
+		TT_BLATHER(("After assert-ok"));
 
 		evsignal_del(&sig_ev);
 
@@ -840,12 +859,16 @@ test_fork(void)
 	/* wait for the child to read the data */
 	sleep(1);
 
-	write(pair[0], TEST1, strlen(TEST1)+1);
+	if (write(pair[0], TEST1, strlen(TEST1)+1) < 0) {
+		tt_fail_perror("write");
+	}
 
+	TT_BLATHER(("Before waitpid"));
 	if (waitpid(pid, &status, 0) == -1) {
 		fprintf(stdout, "FAILED (fork)\n");
 		exit(1);
 	}
+	TT_BLATHER(("After waitpid"));
 
 	if (WEXITSTATUS(status) != 76) {
 		fprintf(stdout, "FAILED (exit): %d\n", WEXITSTATUS(status));
@@ -853,7 +876,10 @@ test_fork(void)
 	}
 
 	/* test that the current event loop still works */
-	write(pair[0], TEST1, strlen(TEST1)+1);
+	if (write(pair[0], TEST1, strlen(TEST1)+1) < 0) {
+		fprintf(stderr, "%s: write\n", __func__);
+	}
+
 	shutdown(pair[0], SHUT_WR);
 
 	event_dispatch();
@@ -1413,7 +1439,11 @@ re_add_read_cb(evutil_socket_t fd, short event, void *arg)
 	char buf[256];
 	struct event *ev_other = arg;
 	readd_test_event_last_added = ev_other;
-	(void) read(fd, buf, sizeof(buf));
+
+	if (read(fd, buf, sizeof(buf)) < 0) {
+		tt_fail_perror("read");
+	}
+
 	event_add(ev_other, NULL);
 	++test_ok;
 }
@@ -1426,8 +1456,15 @@ test_nonpersist_readd(void)
 	setup_test("Re-add nonpersistent events: ");
 	event_set(&ev1, pair[0], EV_READ, re_add_read_cb, &ev2);
 	event_set(&ev2, pair[1], EV_READ, re_add_read_cb, &ev1);
-	(void) write(pair[0], "Hello", 5);
-	(void) write(pair[1], "Hello", 5);
+
+	if (write(pair[0], "Hello", 5) < 0) {
+		tt_fail_perror("write(pair[0])");
+	}
+
+	if (write(pair[1], "Hello", 5) < 0) {
+		tt_fail_perror("write(pair[1])\n");
+	}
+
 	if (event_add(&ev1, NULL) == -1 ||
 	    event_add(&ev2, NULL) == -1) {
 		test_ok = 0;
@@ -1565,7 +1602,11 @@ test_multiple_events_for_same_fd(void)
    event_add(&e2, NULL);
    event_loop(EVLOOP_ONCE);
    event_del(&e2);
-   write(pair[1], TEST1, strlen(TEST1)+1);
+
+   if (write(pair[1], TEST1, strlen(TEST1)+1) < 0) {
+	   tt_fail_perror("write");
+   }
+
    event_loop(EVLOOP_ONCE);
    event_del(&e1);
 
@@ -1592,8 +1633,12 @@ read_once_cb(evutil_socket_t fd, short event, void *arg)
 		test_ok = 0;
 	} else if (len) {
 		/* Assumes global pair[0] can be used for writing */
-		write(pair[0], TEST1, strlen(TEST1)+1);
-		test_ok = 1;
+		if (write(pair[0], TEST1, strlen(TEST1)+1) < 0) {
+			tt_fail_perror("write");
+			test_ok = 0;
+		} else {
+			test_ok = 1;
+		}
 	}
 
 	called++;
@@ -1608,7 +1653,9 @@ test_want_only_once(void)
 	/* Very simple read test */
 	setup_test("Want read only once: ");
 
-	write(pair[0], TEST1, strlen(TEST1)+1);
+	if (write(pair[0], TEST1, strlen(TEST1)+1) < 0) {
+		tt_fail_perror("write");
+	}
 
 	/* Setup the loop termination */
 	evutil_timerclear(&tv);
@@ -2003,7 +2050,10 @@ test_event_once(void *ptr)
 	r = event_base_once(data->base, -1, 0, NULL, NULL, NULL);
 	tt_int_op(r, <, 0);
 
-	write(data->pair[1], TEST1, strlen(TEST1)+1);
+	if (write(data->pair[1], TEST1, strlen(TEST1)+1) < 0) {
+		tt_fail_perror("write");
+	}
+
 	shutdown(data->pair[1], SHUT_WR);
 
 	event_base_dispatch(data->base);
@@ -2204,7 +2254,7 @@ many_event_cb(evutil_socket_t fd, short event, void *arg)
 static void
 test_many_events(void *arg)
 {
-	/* Try 70 events that should all be aready at once.  This will
+	/* Try 70 events that should all be ready at once.  This will
 	 * exercise the "resize" code on most of the backends, and will make
 	 * sure that we can get past the 64-handle limit of some windows
 	 * functions. */
@@ -2212,14 +2262,25 @@ test_many_events(void *arg)
 
 	struct basic_test_data *data = arg;
 	struct event_base *base = data->base;
+	int one_at_a_time = data->setup_data != NULL;
 	evutil_socket_t sock[MANY];
 	struct event *ev[MANY];
 	int called[MANY];
 	int i;
+	int loopflags = EVLOOP_NONBLOCK, evflags=0;
+	const int is_evport = !strcmp(event_base_get_method(base),"evport");
+	if (one_at_a_time) {
+		loopflags |= EVLOOP_ONCE;
+		evflags = EV_PERSIST;
+	}
 
 	memset(sock, 0xff, sizeof(sock));
 	memset(ev, 0, sizeof(ev));
 	memset(called, 0, sizeof(called));
+	if (is_evport && one_at_a_time) {
+		TT_DECLARE("NOTE", ("evport can't pass this in 2.0; skipping\n"));
+		tt_skip();
+	}
 
 	for (i = 0; i < MANY; ++i) {
 		/* We need an event that will hit the backend, and that will
@@ -2228,15 +2289,20 @@ test_many_events(void *arg)
 		sock[i] = socket(AF_INET, SOCK_DGRAM, 0);
 		tt_assert(sock[i] >= 0);
 		called[i] = 0;
-		ev[i] = event_new(base, sock[i], EV_WRITE, many_event_cb,
-		    &called[i]);
+		ev[i] = event_new(base, sock[i], EV_WRITE|evflags,
+		    many_event_cb, &called[i]);
 		event_add(ev[i], NULL);
+		if (one_at_a_time)
+			event_base_loop(base, EVLOOP_NONBLOCK|EVLOOP_ONCE);
 	}
 
-	event_base_loop(base, EVLOOP_NONBLOCK);
+	event_base_loop(base, loopflags);
 
 	for (i = 0; i < MANY; ++i) {
-		tt_int_op(called[i], ==, 1);
+		if (one_at_a_time)
+			tt_int_op(called[i], ==, MANY - i + 1);
+		else
+			tt_int_op(called[i], ==, 1);
 	}
 
 end:
@@ -2303,7 +2369,8 @@ struct testcase_t main_testcases[] = {
 	{ "dup_fd", test_dup_fd, TT_ISOLATED, &basic_setup, NULL },
 #endif
 	{ "mm_functions", test_mm_functions, TT_FORK, NULL, NULL },
-	BASIC(many_events, TT_ISOLATED),
+	{ "many_events", test_many_events, TT_ISOLATED, &basic_setup, NULL },
+	{ "many_events_slow_add", test_many_events, TT_ISOLATED, &basic_setup, (void*)1 },
 
 	{ "struct_event_size", test_struct_event_size, 0, NULL, NULL },
 

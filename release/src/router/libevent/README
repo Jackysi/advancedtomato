@@ -71,10 +71,12 @@ use and development: http://archives.seul.org/libevent/users/
 The following people have helped with suggestions, ideas, code or
 fixing bugs:
 
+  Arno Bakker
   Alejo
   Weston Andros Adamson
   William Ahern
   Ivan Andropov
+  Sergey Avseyev
   Avi Bab
   Gilad Benjamini
   Stas Bekman
@@ -85,27 +87,41 @@ fixing bugs:
   Tomash Brechko
   Kelly Brock
   Ralph Castain
+  Adrian Chadd
+  Lawnstein Chan
   Shuo Chen
   Ka-Hing Cheung
   Andrew Danforth
+  Ed Day
   Christopher Davis
   Mike Davis
   Mihai Draghicioiu
   Mark Ellzey
   Shie Erlich
+  Leonid Evdokimov
   Christophe Fillot
+  Mike Frysinger
+  Remi Gacogne
   Alexander von Gernler
   Artur Grabowski
   Dave Hart
+  Greg Hazel
   Michael Herf
   Sebastian Hahn
+  Mark Heily
+  Greg Hewgill
   Aaron Hopkins
   Tani Hosokawa
+  Jamie Iles
   Claudio Jeker
   Evan Jones
+  George Kadianakis
   Phua Keat
+  Kevin Ko
+  Brian Koehmstedt
   Marko Kreen
   Valery Kyholodov
+  Ross Lagerwall
   Scott Lamb
   Christopher Layne
   Adam Langley
@@ -114,14 +130,17 @@ fixing bugs:
   David Libenzi
   Yan Lin
   Moshe Litvin
+  Mitchell Livingston
   Hagne Mahre
   Lubomir Marinov
+  Abilio Marques
   Nick Mathewson
   James Mansion
   Nicholas Marriott
   Andrey Matveev
   Caitlin Mercer
   Dagobert Michelsen
+  Mansour Moufid
   Felix Nawothnig
   Trond Norbye
   Linus Nordberg
@@ -130,27 +149,38 @@ fixing bugs:
   Phil Oleson
   Dave Pacheco
   Tassilo von Parseval
+  Catalin Patulea
   Simon Perreault
   Pierre Phaneuf
   Ryan Phillips
   Dimitre Piskyulev
   Pavel Plesov
   Jon Poland
+  Nate R
+  Robert Ransom
   Bert JW Regeer
+  Peter Rosin
+  Maseeb Abdul Qadir
+  Wang Qin
   Hanna Schroeter
   Ralf Schmitt
   Mike Smellie
   Kevin Springborn
   Harlan Stenn
-  Ferenc Szalai
+  Steve Snyder
   Dug Song
   Dongsheng Song
+  Hannes Sowa
+  Ferenc Szalai
   Brodie Thiesfield
   Jason Toffaletti
+  Gisle Vanem
   Bas Verhoeven
   Constantine Verutin
+  Colin Watt
   Zack Weinberg
   Jardel Weyrich
+  Alex
   Taral
   propanbutan
   mmadia

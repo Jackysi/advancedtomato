@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2010 Niels Provos and Nick Mathewson
+ * Copyright (c) 2007-2012 Niels Provos and Nick Mathewson
  * Copyright (c) 2002-2006 Niels Provos <provos@citi.umich.edu>
  * All rights reserved.
  *
@@ -504,6 +504,7 @@ be_filter_ctrl(struct bufferevent *bev, enum bufferevent_ctrl_op op,
 		return 0;
 	case BEV_CTRL_GET_FD:
 	case BEV_CTRL_SET_FD:
+	case BEV_CTRL_CANCEL_ALL:
 	default:
 		return -1;
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2009-2010 Niels Provos and Nick Mathewson
+ * Copyright 2009-2012 Niels Provos and Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,10 @@
 #include "event2/event-config.h"
 
 #ifdef WIN32
+#ifndef _WIN32_WINNT
+/* Minimum required for InitializeCriticalSectionAndSpinCount */
+#define _WIN32_WINNT 0x0403
+#endif
 #include <winsock2.h>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
