@@ -98,10 +98,10 @@ void ipt_qoslimit(int chain)
 	{
 		if (nvram_get_int("qosl_enable") == 1) {
 			ipt_write(
-			"-A POSTROUTING ! -s %s/%s -j MARK --set-mark 100\n"
-			"-A PREROUTING  ! -d %s/%s -j MARK --set-mark 100\n"
-			,lanipaddr,lanmask
-			,lanipaddr,lanmask);
+			"-A POSTROUTING ! -s %s/%s -d %s/%s -j MARK --set-mark 100\n"
+			"-A PREROUTING  -s %s/%s ! -d %s/%s -j MARK --set-mark 100\n"
+			,lanipaddr,lanmask,lanipaddr,lanmask
+			,lanipaddr,lanmask,lanipaddr,lanmask);
 		}
 
 		//shibby br1
@@ -524,9 +524,9 @@ void new_qoslimit_start(void)
 		"tc qdisc del dev br3 root\n"
 		"tc qdisc add dev br3 root handle 8: htb\n"
 		"tc class add dev br3 parent 8: classid 8:1 htb rate %skbit\n"
-		"$TCA1 parent 8:1 classid 8:801 htb rate %skbit ceil %skbit prio %s\n"
-		"$TQA1 parent 8:801 handle 801: $SFQ\n"
-		"$TFA1 parent 8:0 prio %s protocol ip handle 801 fw flowid 8:801\n"
+		"$TCA3 parent 8:1 classid 8:801 htb rate %skbit ceil %skbit prio %s\n"
+		"$TQA3 parent 8:801 handle 801: $SFQ\n"
+		"$TFA3 parent 8:0 prio %s protocol ip handle 801 fw flowid 8:801\n"
 		,ibw
 		,dlr_3,dlc_3,prio_3
 		,prio_3);
