@@ -461,12 +461,18 @@ void start_lan(void)
 	char tmp[32];
 	char tmp2[32];
 	char br;
+	int vlan0tag;
+	int vid;
+	int vid_map;
+	char *iftmp;
+	char nv[64];
 
 	foreach_wif(1, NULL, set_wlmac);
 	check_afterburner();
 #ifdef TCONFIG_IPV6
 	enable_ipv6(ipv6_enabled());
 #endif
+	vlan0tag = nvram_get_int("vlan0tag");
 
 	if ((sfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0) return;
 	for(br=0 ; br<4 ; br++) {
@@ -512,15 +518,15 @@ void start_lan(void)
 			strcat(tmp, "_ifnames");
 			if ((lan_ifnames = strdup(nvram_safe_get(tmp))) != NULL) {
 				p = lan_ifnames;
-				while ((ifname = strsep(&p, " ")) != NULL) {
-					while (*ifname == ' ') ++ifname;
-					if (*ifname == 0) break;
+				while ((iftmp = strsep(&p, " ")) != NULL) {
+					while (*iftmp == ' ') ++iftmp;
+					if (*iftmp == 0) break;
+					ifname = iftmp;
 
 					unit = -1; subunit = -1;
 
 					// ignore disabled wl vifs
 					if (strncmp(ifname, "wl", 2) == 0 && strchr(ifname, '.')) {
-						char nv[64];
 
 						snprintf(nv, sizeof(nv) - 1, "%s_bss_enabled", ifname);
 						if (!nvram_get_int(nv))
@@ -530,6 +536,17 @@ void start_lan(void)
 					}
 					else
 						wl_ioctl(ifname, WLC_GET_INSTANCE, &unit, sizeof(unit));
+
+					// vlan ID mapping
+					if (strncmp(ifname, "vlan", 4) == 0) {
+						if (sscanf(ifname, "vlan%d", &vid) == 1) {
+							snprintf(tmp, sizeof(tmp), "vlan%dvid", vid);
+							vid_map = nvram_get_int(tmp);
+							if ((vid_map < 1) || (vid_map > 4094)) vid_map = vlan0tag | vid;
+							snprintf(tmp, sizeof(tmp), "vlan%d", vid_map);
+							ifname = tmp;
+						}
+					}
 
 					// bring up interface
 					if (ifconfig(ifname, IFUP|IFF_ALLMULTI, NULL, NULL) != 0) continue;
@@ -650,6 +667,10 @@ void stop_lan(void)
 	char *lan_ifnames, *p, *ifname;
 	char tmp[32];
 	char br;
+	int vlan0tag, vid, vid_map;
+	char *iftmp;
+
+	vlan0tag = nvram_get_int("vlan0tag");
 
 	for(br=0 ; br<4 ; br++) {
 		char bridge[2] = "0";
@@ -677,9 +698,20 @@ void stop_lan(void)
 		strcat(tmp, "_ifnames");
 			if ((lan_ifnames = strdup(nvram_safe_get(tmp))) != NULL) {
 				p = lan_ifnames;
-				while ((ifname = strsep(&p, " ")) != NULL) {
-					while (*ifname == ' ') ++ifname;
-					if (*ifname == 0) break;
+				while ((iftmp = strsep(&p, " ")) != NULL) {
+					while (*iftmp == ' ') ++iftmp;
+					if (*iftmp == 0) break;
+					ifname = iftmp;
+					// vlan ID mapping
+					if (strncmp(ifname, "vlan", 4) == 0) {
+						if (sscanf(ifname, "vlan%d", &vid) == 1) {
+							snprintf(tmp, sizeof(tmp), "vlan%dvid", vid);
+							vid_map = nvram_get_int(tmp);
+							if ((vid_map < 1) || (vid_map > 4094)) vid_map = vlan0tag | vid;
+							snprintf(tmp, sizeof(tmp), "vlan%d", vid_map);
+							ifname = tmp;
+						}
+					}
 					eval("wlconf", ifname, "down");
 					ifconfig(ifname, 0, NULL, NULL);
 					eval("brctl", "delif", lan_ifname, ifname);

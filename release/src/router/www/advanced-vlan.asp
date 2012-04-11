@@ -1,8 +1,12 @@
 <!DOCTYPE HTML PUBLIC '-//W3C//DTD HTML 4.0//EN'>
 <!--
 	Tomato VLAN GUI
-	Copyright (C) 2011 Augusto Bott
+	Copyright (C) 2011-2012 Augusto Bott
 	http://code.google.com/p/tomato-sdhc-vlan/
+
+	Tomato GUI
+	Copyright (C) 2006-2007 Jonathan Zarate
+	http://www.polarcloud.com/tomato/
 
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
@@ -28,8 +32,12 @@
 #vlan-grid .co10,
 #vlan-grid .co11,
 #vlan-grid .co12,
-#vlan-grid .co13 {
+#vlan-grid .co13,
+#vlan-grid .co14 {
   text-align: center;
+}
+#vlan-grid .co2 {
+	width: 60px;
 }
 #vlan-grid .centered {
   text-align: center;
@@ -38,7 +46,7 @@
 <script type='text/javascript' src='wireless.jsx?_http_id=<% nv(http_id); %>'></script>
 <script type='text/javascript' src='interfaces.js'></script>
 <script type='text/javascript'>
-<% nvram ("vlan0ports,vlan1ports,vlan2ports,vlan3ports,vlan4ports,vlan5ports,vlan6ports,vlan7ports,vlan8ports,vlan9ports,vlan10ports,vlan11ports,vlan12ports,vlan13ports,vlan14ports,vlan15ports,vlan0hwname,vlan1hwname,vlan2hwname,vlan3hwname,vlan4hwname,vlan5hwname,vlan6hwname,vlan7hwname,vlan8hwname,vlan9hwname,vlan10hwname,vlan11hwname,vlan12hwname,vlan13hwname,vlan14hwname,vlan15hwname,wan_ifnameX,manual_boot_nv,boardtype,boardflags,trunk_vlan_so,lan_ifname,lan_ifnames,lan1_ifname,lan1_ifnames,lan2_ifname,lan2_ifnames,lan3_ifname,lan3_ifnames,boardrev");%> 
+<% nvram ("vlan0ports,vlan1ports,vlan2ports,vlan3ports,vlan4ports,vlan5ports,vlan6ports,vlan7ports,vlan8ports,vlan9ports,vlan10ports,vlan11ports,vlan12ports,vlan13ports,vlan14ports,vlan15ports,vlan0hwname,vlan1hwname,vlan2hwname,vlan3hwname,vlan4hwname,vlan5hwname,vlan6hwname,vlan7hwname,vlan8hwname,vlan9hwname,vlan10hwname,vlan11hwname,vlan12hwname,vlan13hwname,vlan14hwname,vlan15hwname,wan_ifnameX,manual_boot_nv,boardtype,boardflags,trunk_vlan_so,lan_ifname,lan_ifnames,lan1_ifname,lan1_ifnames,lan2_ifname,lan2_ifnames,lan3_ifname,lan3_ifnames,boardrev,vlan0tag,vlan0vid,vlan1vid,vlan2vid,vlan3vid,vlan4vid,vlan5vid,vlan6vid,vlan7vid,vlan8vid,vlan9vid,vlan10vid,vlan11vid,vlan12vid,vlan13vid,vlan14vid,vlan15vid");%>
 
 var port_vlan_supported = 0;
 var trunk_vlan_supported = 0;
@@ -115,18 +123,21 @@ switch(nvram['boardtype']) {
 }
 
 var COL_VID = 0;
-var COL_P0  = 1;
-var COL_P0T = 2;
-var COL_P1  = 3;
-var COL_P1T = 4;
-var COL_P2  = 5;
-var COL_P2T = 6;
-var COL_P3  = 7;
-var COL_P3T = 8;
-var COL_P4  = 9;
-var COL_P4T = 10;
-var COL_VID_DEF = 11;
-var COL_BRI = 12;
+var COL_MAP = 1;
+var COL_P0  = 2;
+var COL_P0T = 3;
+var COL_P1  = 4;
+var COL_P1T = 5;
+var COL_P2  = 6;
+var COL_P2T = 7;
+var COL_P3  = 8;
+var COL_P3T = 9;
+var COL_P4  = 10;
+var COL_P4T = 11;
+var COL_VID_DEF = 12;
+var COL_BRI = 13;
+
+var vlt = nvram.vlan0tag | '0';
 
 // set to either 5 or 8 when nvram settings are read (FastE or GigE routers)
 var SWITCH_INTERNAL_PORT=0;
@@ -138,12 +149,6 @@ function verifyFields(focused, quiet){
   for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
     var u = wl_fface(uidx);
     var wlan = E('_f_bridge_wlan'+u+'_to');
-/* REMOVE-BEGIN
-//  var wlan = E('_f_bridge_wlan_to');
-//    if (wl_ifaces.length < 1) {
-//      wlan.disabled=true;
-//    } else {
-REMOVE-END */
       if(nvram.lan_ifname.length < 1)
         wlan.options[0].disabled=true;
       if(nvram.lan1_ifname.length < 1)
@@ -153,6 +158,15 @@ REMOVE-END */
       if(nvram.lan3_ifname.length < 1)
         wlan.options[3].disabled=true;
   }
+  var e = E('_vlan0tag');
+  if (!v_range('_vlan0tag', quiet, 0, 4080)) return 0;
+  var v = parseInt(e.value);
+  e.value = v - (v % 16);
+  if ((e.value != vlt) && (typeof(vlg) != 'undefined')) {
+    vlg.populate();
+    vlt = e.value;
+  }
+  return 1;
 }
 
 function save() {
@@ -164,6 +178,7 @@ function save() {
   for (var i = 0 ; i <= MAX_VLAN_ID ; i++) {
     fom['vlan' + i + 'ports'].value = '';
     fom['vlan' + i + 'hwname'].value = '';
+    fom['vlan' + i + 'vid'].value = '';
   }
   fom['wan_ifnameX'].value = '';
   fom['lan_ifnames'].value = '';
@@ -207,6 +222,7 @@ function save() {
 
     fom['vlan'+d[i][COL_VID]+'ports'].value = p;
     fom['vlan'+d[i][COL_VID]+'hwname'].value = 'et0';
+    fom['vlan'+d[i][COL_VID]+'vid'].value = ((d[i][COL_MAP].toString() != '') && (d[i][COL_MAP].toString() != '0')) ? d[i][COL_MAP] : '';
 
     fom['wan_ifnameX'].value += (d[i][COL_BRI] == '2') ? 'vlan'+d[i][0] : '';
     fom['lan_ifnames'].value += (d[i][COL_BRI] == '3') ? 'vlan'+d[i][0] : '';
@@ -312,6 +328,7 @@ if(port_vlan_supported) { // aka if(supported_hardware) block
   vlg.setup = function() {
     this.init('vlan-grid', '', (MAX_VLAN_ID + 1), [
     { type: 'select', options: [[0, '0'],[1, '1'],[2, '2'],[3, '3'],[4, '4'],[5, '5'],[6, '6'],[7, '7'],[8, '8'],[9, '9'],[10, '10'],[11, '11'],[12, '12'],[13, '13'],[14, '14'],[15, '15']], prefix: '<div class="centered">', suffix: '</div>' },
+    { type: 'text', maxlen: 4, prefix: '<div class="centered">', suffix: '</div>' },
     { type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
     { type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
     { type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
@@ -325,7 +342,17 @@ if(port_vlan_supported) { // aka if(supported_hardware) block
     { type: 'checkbox', prefix: '<div class="centered">', suffix: '</div>' },
     { type: 'select', options: [[1, 'none'],[2, 'WAN'],[3, 'LAN (br0)'],[4, 'LAN1 (br1)'],[5, 'LAN2 (br2)'],[6, 'LAN3 (br3)']], prefix: '<div class="centered">', suffix: '</div>' }]);
 
-    this.headerSet(['VID', 'Port 1', 'Tagged', 'Port 2', 'Tagged', 'Port 3', 'Tagged', 'Port 4', 'Tagged', 'WAN Port', 'Tagged', 'Default', 'Bridge']);
+    this.headerSet(['VLAN', 'VID', 'Port 1', 'Tagged', 'Port 2', 'Tagged', 'Port 3', 'Tagged', 'Port 4', 'Tagged', 'WAN Port', 'Tagged', 'Default', 'Bridge']);
+
+	vlg.populate();
+    vlg.canDelete = false;
+    vlg.sort(0);
+    vlg.showNewEditor();
+    vlg.resetNewEditor();
+  }
+
+  vlg.populate = function() {
+    vlg.removeAllData();
 
 // find out which vlans are supposed to be bridged to each LAN
     var bridged = [];
@@ -353,9 +380,6 @@ REMOVE-END */
         for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
           if(l[k].indexOf(wl_ifaces[uidx][0]) != -1) {
             E('_f_bridge_wlan'+wl_fface(uidx)+'_to').selectedIndex=i;
-/* REMOVE-BEGIN
-//          E('_f_bridge_wlan_to').selectedIndex=i;
-REMOVE-END */
           }
         }
       }
@@ -386,6 +410,7 @@ REMOVE-END */
             SWITCH_INTERNAL_PORT=(nvram['vlan' + i + 'ports']).charAt((nvram['vlan' + i + 'ports']).indexOf('*')-1);
 
           vlg.insertData(-1, [ i.toString(),
+            ((nvram['vlan' + i + 'vid'] != '') && (nvram['vlan' + i + 'vid'] > 0)) ? (nvram['vlan' + i + 'vid']).toString() : '0',
             port[COL_P0N], tagged[COL_P0N],
             port[COL_P1N], tagged[COL_P1N],
             port[COL_P2N], tagged[COL_P2N],
@@ -396,10 +421,6 @@ REMOVE-END */
         }
       }
     }
-    vlg.canDelete = false;
-    vlg.sort(0);
-    vlg.showNewEditor();
-    vlg.resetNewEditor();
   }
 
   vlg.countElem = function(f, v)
@@ -444,6 +465,8 @@ REMOVE-END */
       var j = (i==0) ? '' : i.toString();
         f[COL_BRI].options[i+2].disabled = (nvram['lan' + j + '_ifname'].length < 1);
     }
+
+    if (!v_range(f[COL_MAP], quiet, 0, 4094)) valid = 0;
 
     if(((trunk_vlan_supported) || (PORT_VLAN_SUPPORT_OVERRIDE)) && (f[COL_P0].checked == 1)) {
       f[COL_P0T].disabled=0;
@@ -562,6 +585,7 @@ REMOVE-END */
 
   vlg.dataToView = function(data) {
     return [data[COL_VID],
+    ((data[COL_MAP].toString() == '') || (data[COL_MAP].toString() == '0')) ? (parseInt(E('_vlan0tag').value) * 1 + data[COL_VID] *1 ).toString() : data[COL_MAP].toString(),
     (data[COL_P0].toString() != '0') ? 'Yes' : '',
     (data[COL_P0T].toString() != '0') ? 'On' : '',
     (data[COL_P1].toString() != '0') ? 'Yes' : '',
@@ -578,6 +602,7 @@ REMOVE-END */
 
   vlg.dataToFieldValues = function (data) {
     return [data[COL_VID],
+    data[COL_MAP],
     (data[COL_P0] != 0) ? 'checked' : '',
     (data[COL_P0T] != 0) ? 'checked' : '',
     (data[COL_P1] != 0) ? 'checked' : '',
@@ -595,6 +620,7 @@ REMOVE-END */
   vlg.fieldValuesToData = function(row) {
     var f = fields.getAll(row);
     return [f[COL_VID].value,
+    f[COL_MAP].value,
     f[COL_P0].checked ? 1 : 0,
     f[COL_P0T].checked ? 1 : 0,
     f[COL_P1].checked ? 1 : 0,
@@ -683,6 +709,8 @@ REMOVE-END */
         f[COL_BRI].options[i+2].disabled = (nvram['lan' + j + '_ifname'].length < 1);
     }
 
+    f[COL_MAP].value = '0';
+
     f[COL_VID].selectedIndex=0;
     var t = MAX_VLAN_ID;
     while((this.countVID(f[COL_VID].selectedIndex) > 0) && (t > 0)) {
@@ -717,15 +745,15 @@ REMOVE-END */
   }
 } // end of the so-called if(supported_device) block
 
-function init()
-{
-  if(port_vlan_supported) {
-    vlg.recolor();
-    vlg.resetNewEditor();
-    var c;
-	if (((c = cookie.get('advanced_vlan_notes_vis')) != null) && (c == '1')) toggleVisibility("notes");
-	if (((c = cookie.get('advanced_vlan_wireless_vis')) != null) && (c == '1')) toggleVisibility("wireless");
-  }
+function init() {
+	if(port_vlan_supported) {
+		vlg.recolor();
+		vlg.resetNewEditor();
+		var c;
+		if (((c = cookie.get('advanced_vlan_notes_vis')) != null) && (c == '1')) toggleVisibility("notes");
+		if (((c = cookie.get('advanced_vlan_wireless_vis')) != null) && (c == '1')) toggleVisibility("wireless");
+		if (((c = cookie.get('advanced_vlan_vidmap_vis')) != null) && (c == '1')) toggleVisibility("vidmap");
+	}
 }
 
 function toggleVisibility(whichone) {
@@ -740,13 +768,12 @@ function toggleVisibility(whichone) {
 	}
 }
 
-function earlyInit()
-{
-  if(!port_vlan_supported) {
-    E('save-button').disabled = 1;
-    return;
-  }
-  PORT_VLAN_SUPPORT_OVERRIDE = ((nvram['trunk_vlan_so'] == '1') ? 1 : 0);
+function earlyInit() {
+	if(!port_vlan_supported) {
+		E('save-button').disabled = 1;
+		return;
+	}
+	PORT_VLAN_SUPPORT_OVERRIDE = ((nvram['trunk_vlan_so'] == '1') ? 1 : 0);
 }
 
 </script>
@@ -805,50 +832,85 @@ function earlyInit()
 <input type='hidden' name='lan2_ifnames'>
 <input type='hidden' name='lan3_ifnames'>
 <input type='hidden' name='trunk_vlan_so'>
+<input type='hidden' name='vlan0vid'>
+<input type='hidden' name='vlan1vid'>
+<input type='hidden' name='vlan2vid'>
+<input type='hidden' name='vlan3vid'>
+<input type='hidden' name='vlan4vid'>
+<input type='hidden' name='vlan5vid'>
+<input type='hidden' name='vlan6vid'>
+<input type='hidden' name='vlan7vid'>
+<input type='hidden' name='vlan8vid'>
+<input type='hidden' name='vlan9vid'>
+<input type='hidden' name='vlan10vid'>
+<input type='hidden' name='vlan11vid'>
+<input type='hidden' name='vlan12vid'>
+<input type='hidden' name='vlan13vid'>
+<input type='hidden' name='vlan14vid'>
+<input type='hidden' name='vlan15vid'>
 
 <div id='sesdiv' style='display:none'>
 <div class='section-title'>VLAN</div>
 <div class='section'>
   <table class='tomato-grid' cellspacing=1 id='vlan-grid'></table>
-  </div>
-  <div class='section-title'>Wireless <small><i><a href='javascript:toggleVisibility("wireless");'><span id='sesdiv_wireless_showhide'>(Click here to show)</span></a></i></small></div>
-  <div class='section' id='sesdiv_wireless' style='display:none'>
-  <script type='text/javascript'>
-  var f = [];
-  for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-    var u = wl_fface(uidx);
-    f.push(
-/* REMOVE-BEGIN
-//      { title: ('Bridge WLAN' + uidx + ' (' + wl_ifaces[uidx][0] + ') to'), name: ('f_bridge_wlan'+u+'_to'), type: 'select', 
-REMOVE-END */
-      { title: ('Bridge ' + wl_ifaces[uidx][0] + ' to'), name: ('f_bridge_wlan'+u+'_to'), type: 'select', 
-        options: [[0,'LAN (br0)'],[1,'LAN1  (br1)'],[2,'LAN2 (br2)'],[3,'LAN3 (br3)'],[4,'none']], value: 4 } );
-  }
-  createFieldTable('',f);
-/* REMOVE-BEGIN
-//W('<hr>');
-//  createFieldTable('', [
-//    { title: 'Bridge WLAN to', name: 'f_bridge_wlan_to', type: 'select', options: [[0,'LAN (br0)'],[1,'LAN1 (br1)'],[2,'LAN2 (br2)'],[3,'LAN3 (br3)'],[4,'none']] }
-//    ]);
-REMOVE-END */
-  if(port_vlan_supported) vlg.setup();
-  </script>
 </div>
+
+<!-- / / / -->
+
+<div class='section-title'>VID Offset <small><i><a href='javascript:toggleVisibility("vidmap");'><span id='sesdiv_vidmap_showhide'>(Click here to show)</span></a></i></small></div>
+<div class='section' id='sesdiv_vidmap' style='display:none'>
+<script type='text/javascript'>
+createFieldTable('', [
+	{ title: 'First 802.1Q VLAN tag', name: 'vlan0tag', type: 'text', maxlen:4, size:6,
+		value: fixInt(nvram.vlan0tag, 0, 4080, 0),
+		suffix: ' <small><i>(range: 0 - 4080; must be a multiple of 16; set to 0 to disable)</i></small>' }
+]);
+</script>
+</div>
+
+<!-- / / / -->
+
+<div class='section-title'>Wireless <small><i><a href='javascript:toggleVisibility("wireless");'><span id='sesdiv_wireless_showhide'>(Click here to show)</span></a></i></small></div>
+<div class='section' id='sesdiv_wireless' style='display:none'>
+<script type='text/javascript'>
+var f = [];
+for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
+  var u = wl_fface(uidx);
+  f.push(
+    { title: ('Bridge ' + wl_ifaces[uidx][0] + ' to'), name: ('f_bridge_wlan'+u+'_to'), type: 'select', 
+     options: [[0,'LAN (br0)'],[1,'LAN1  (br1)'],[2,'LAN2 (br2)'],[3,'LAN3 (br3)'],[4,'none']], value: 4 } );
+}
+createFieldTable('',f);
+if(port_vlan_supported) vlg.setup();
+</script>
+</div>
+
+<!-- / / / -->
 
 <div class='section-title'>Notes <small><i><a href='javascript:toggleVisibility("notes");'><span id='sesdiv_notes_showhide'>(Click here to show)</span></a></i></small></div>
 <div class='section' id='sesdiv_notes' style='display:none'>
 <ul>
-<li><b>VID</b> - Unique identifier of a VLAN.</li>
+<li><b>VLAN</b> - Unique identifier of a VLAN.</li>
+<li><b>VID</b> - <i>EXPERIMENTAL</i> - Allows overriding 'traditional' VLAN/VID mapping with arbitrary VIDs for each VLAN (set to '0' to use 'regular' VLAN/VID mappings instead). Warning: this hasn't been verified/tested on anything but a Cisco/Linksys E3000 and may not be supported by your particular device/model (<small><b><i>see notes on "VID Offset" below</i></b></small>).</li>
 <li><b>Ports 1-4 &amp; WAN</b> - Which ethernet ports on the router should be members of this VLAN.</li>
-<li><b>Tagged</b> - Enable 802.1q tagging of ethernet frames on a particular port/VLAN
+<li><b>Tagged</b> - Enable 802.1Q tagging of ethernet frames on a particular port/VLAN
 <script type='text/javascript'>
 if(!trunk_vlan_supported)
   W(' <i>(not known to be supported on this model)</i>');
 </script>
 </li>
 <li><b>Default</b> - VLAN ID assigned to untagged frames received by the router.</li>
-<li><b>Bridge</b> - Determines if this VLAN ID should be treated as WAN, part of a LAN bridge or just left alone (i.e. member of a 802.1q trunk, being managed manually via scripts, etc...).</li>
+<li><b>Bridge</b> - Determines if this VLAN ID should be treated as WAN, part of a LAN bridge or just left alone (i.e. member of a 802.1Q trunk, being managed manually via scripts, etc...).</li>
 </ul>
+
+<ul>
+<li><b>VID Offset</b> - <i>EXPERIMENTAL</i> - First 802.1Q VLAN tag to be used as <i>base/initial tag/VID</i> for VLAN and VID assignments. This allows using VIDs larger than 15 on (older) devices such as the Linksys WRT54GL v1.1 (in contiguous blocks/ranges with up to 16 VLANs/VIDs). Set to '0' (zero) to disable this feature and VLANs will have the very same/identical value for its VID, as usual (from 0 to 15).</li>
+</ul>
+
+<ul>
+<li><b>Wireless</b> - Assignments of wireless interfaces to different LAN briges. You should probably be using and/or check things on <a href=advanced-wlanvifs.asp>Advanced/Virtual Wireless</a> and <a href=basic-network.asp>Basic/Network</a>.</li>
+</ul>
+
 <small>
 <ul>
 <li><b>Other relevant notes/hints:</b>
@@ -856,9 +918,17 @@ if(!trunk_vlan_supported)
 <li>One VID <i>must</i> be assigned to WAN.</li>
 <li>One VID <i>must</i> be selected as the default.</li>
 <script type='text/javascript'>
-if((trunk_vlan_supported) || (nvram.trunk_vlan_so == '1'))
-  W('<li>To prevent 802.1q compatibility issues, avoid using VID "0" as 802.1q specifies that frames with a tag of "0" do not belong to any VLAN.</li>');
+if((trunk_vlan_supported) || (nvram.trunk_vlan_so == '1')) {
+  W('<li>To prevent 802.1Q compatibility issues, avoid using VID "0" as 802.1Q specifies that frames with a tag of "0" do not belong to any VLAN (the tag contains only user priority information).</li>');
+  W('<li>It may be also recommended to avoid using VID "1" as some vendors consider it special/reserved (for management purposes).</li>');
+}
 </script>
+</ul>
+<br>
+<ul>
+<li>This is highly <b>experimental</b> and hasn't been tested in anything but a Linksys WRT54GL v1.1 running a Teaman-ND K24 build and a Cisco/Linksys E3000 running a Teaman-RT K26 build.</li>
+<li>There's lots of things that could go wrong, please do think about what you're doing and take a backup before hitting the 'Save' button on this page!</li>
+<li>You've been warned!</li>
 </ul>
 </ul>
 <div id='trunk_vlan_override' style='display:none'>

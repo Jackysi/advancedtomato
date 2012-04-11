@@ -20,9 +20,11 @@
 
 <script type='text/javascript' src='debug.js'></script>
 
+<script type='text/javascript' src='interfaces.js'></script>
+
 <script type='text/javascript'>
 
-//	<% nvram("dmz_enable,dmz_ipaddr,dmz_sip"); %>
+//	<% nvram("dmz_enable,dmz_ipaddr,dmz_sip,dmz_ifname,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname"); %>
 
 var lipp = '<% lipp(); %>.';
 
@@ -37,6 +39,12 @@ function verifyFields(focused, quiet)
 
 	sip = E('_f_dmz_sip');
 	sip.disabled = off;
+
+/* VLAN-BEGIN */
+	var dif = E('_dmz_ifname');
+	dif.disabled = off;
+	if (dif.options[(dif.selectedIndex)].disabled) dif.selectedIndex = 0;
+/* VLAN-END */
 
 	if (off) {
 		ferror.clearAll(dip, sip);
@@ -71,10 +79,27 @@ function save()
 	fom.dmz_sip.value = fom.f_dmz_sip.value.split(/\s*,\s*/).join(',');
 	form.submit(fom, 0);
 }
+
+function init() {
+/* VLAN-BEGIN */
+	var dif = E('_dmz_ifname');
+	if(nvram.lan_ifname.length < 1)
+		dif.options[0].disabled=true;
+	if(nvram.lan1_ifname.length < 1)
+		dif.options[1].disabled=true;
+	if(nvram.lan2_ifname.length < 1)
+		dif.options[2].disabled=true;
+	if(nvram.lan3_ifname.length < 1)
+		dif.options[3].disabled=true;
+	if(nvram.dmz_enable == '1')
+		verifyFields(null,true);
+/* VLAN-END */
+}
+
 </script>
 
 </head>
-<body>
+<body onload='init()'>
 <form id='_fom' method='post' action='tomato.cgi'>
 <table id='container' cellspacing=0>
 <tr><td colspan=2 id='header'>
@@ -101,6 +126,10 @@ createFieldTable('', [
 	{ title: 'Enable DMZ', name: 'f_dmz_enable', type: 'checkbox', value: (nvram.dmz_enable == '1') },
 	{ title: 'Destination Address', indent: 2, name: 'f_dmz_ipaddr', type: 'text', maxlen: 15, size: 17,
 		value: (nvram.dmz_ipaddr.indexOf('.') != -1) ? nvram.dmz_ipaddr : (lipp + nvram.dmz_ipaddr) },
+/* VLAN-BEGIN */
+	{ title: 'Destination Interface', indent: 2, name: 'dmz_ifname', type: 'select',
+		options: [['br0','LAN (br0)'],['br1','LAN1  (br1)'],['br2','LAN2 (br2)'],['br3','LAN3 (br3)']], value: nvram.dmz_ifname },
+/* VLAN-END */
 	{ title: 'Source Address<br>Restriction', indent: 2, name: 'f_dmz_sip', type: 'text', maxlen: 512, size: 64,
 		value: nvram.dmz_sip, suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24", "1.1.1.1 - 2.2.2.2" or "me.example.com")</small>' }
 ]);
