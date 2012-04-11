@@ -272,7 +272,11 @@ void usage()
 			"\tswitch <enable|disable>\n"
 			"\tport <port_number> [state <%s|%s|%s|%s>]\n"
 			"\t\t[stp %s|%s|%s|%s|%s|%s] [tag <vlan_tag>]\n"
-			"\t\t[media %s|%s|%s|%s|%s|%s|%s] [mdi-x %s|%s|%s]\n"
+			"\t\t[media %s|%s|%s|%s|%s"
+#if defined(BMCR_SPEED1000)
+			"|%s|%s"
+#endif
+			"] [mdi-x %s|%s|%s]\n"
 			"\t\t[jumbo %s|%s]\n"
 			"\tvlan <vlan_number> [ports <ports_list>]\n"
 			"\tvlans <enable|disable|reset>\n\n"
@@ -288,7 +292,10 @@ void usage()
 			"robocfg switch disable vlans enable reset vlan 0 ports \"1 2 3 4 5t\" vlan 1 ports \"0 5t\""
 			" port 0 state enabled stp none switch enable\n",
 			rxtx[0], rxtx[1], rxtx[2], rxtx[3], stp[0], stp[1], stp[2], stp[3], stp[4], stp[5],
-			media[0].name, media[1].name, media[2].name, media[3].name, media[4].name, media[5].name, media[6].name,
+			media[0].name, media[1].name, media[2].name, media[3].name, media[4].name,
+#if defined(BMCR_SPEED1000)
+			media[5].name, media[6].name,
+#endif
 			mdix[0].name, mdix[1].name, mdix[2].name,
 			jumbo[0], jumbo[1]);
 }
