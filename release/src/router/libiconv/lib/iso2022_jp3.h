@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1999-2004, 2008 Free Software Foundation, Inc.
+ * Copyright (C) 1999-2004 Free Software Foundation, Inc.
  * This file is part of the GNU LIBICONV Library.
  *
  * The GNU LIBICONV Library is free software; you can redistribute it
@@ -81,7 +81,7 @@ iso2022_jp3_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
               goto none;
             continue;
           }
-          goto ilseq;
+          return RET_ILSEQ;
         }
         if (s[1] == '$') {
           if (s[2] == '@' || s[2] == 'B') {
@@ -110,9 +110,9 @@ iso2022_jp3_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
               continue;
             }
           }
-          goto ilseq;
+          return RET_ILSEQ;
         }
-        goto ilseq;
+        return RET_ILSEQ;
       }
       break;
     }
@@ -121,45 +121,45 @@ iso2022_jp3_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
         if (c < 0x80) {
           int ret = ascii_mbtowc(conv,pwc,s,1);
           if (ret == RET_ILSEQ)
-            goto ilseq;
+            return RET_ILSEQ;
           if (ret != 1) abort();
           conv->istate = state;
           return count+1;
         } else
-          goto ilseq;
+          return RET_ILSEQ;
       case STATE_JISX0201ROMAN:
         if (c < 0x80) {
           int ret = jisx0201_mbtowc(conv,pwc,s,1);
           if (ret == RET_ILSEQ)
-            goto ilseq;
+            return RET_ILSEQ;
           if (ret != 1) abort();
           conv->istate = state;
           return count+1;
         } else
-          goto ilseq;
+          return RET_ILSEQ;
       case STATE_JISX0201KATAKANA:
         if (c < 0x80) {
           unsigned char buf = c+0x80;
           int ret = jisx0201_mbtowc(conv,pwc,&buf,1);
           if (ret == RET_ILSEQ)
-            goto ilseq;
+            return RET_ILSEQ;
           if (ret != 1) abort();
           conv->istate = state;
           return count+1;
         } else
-          goto ilseq;
+          return RET_ILSEQ;
       case STATE_JISX0208:
         if (n < count+2)
           goto none;
         if (s[0] < 0x80 && s[1] < 0x80) {
           int ret = jisx0208_mbtowc(conv,pwc,s,2);
           if (ret == RET_ILSEQ)
-            goto ilseq;
+            return RET_ILSEQ;
           if (ret != 2) abort();
           conv->istate = state;
           return count+2;
         } else
-          goto ilseq;
+          return RET_ILSEQ;
       case STATE_JISX02131:
       case STATE_JISX02132:
         if (n < count+2)
@@ -182,16 +182,12 @@ iso2022_jp3_mbtowc (conv_t conv, ucs4_t *pwc, const unsigned char *s, int n)
             return count+2;
           }
         }
-        goto ilseq;
+        return RET_ILSEQ;
       default: abort();
     }
   none:
     conv->istate = state;
     return RET_TOOFEW(count);
-
-  ilseq:
-    conv->istate = state;
-    return RET_SHIFT_ILSEQ(count);
   }
 }
 

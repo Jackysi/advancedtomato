@@ -1571,7 +1571,7 @@ libiconv-clean:
 
 libiconv-install: libiconv
 	install -d $(INSTALLDIR)/libiconv/usr/lib
-	install libiconv/lib/.libs/libiconv.so.2.5.1 $(INSTALLDIR)/libiconv/usr/lib/libiconv.so.2
+	install libiconv/lib/.libs/libiconv.so.2.4.0 $(INSTALLDIR)/libiconv/usr/lib/libiconv.so.2
 	$(STRIP)-s $(INSTALLDIR)/libiconv/usr/lib/libiconv.so.2
 
 transmission/stamp-h1: openssl libcurl libevent zlib libiconv

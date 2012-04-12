@@ -1,10 +1,10 @@
 /* xmalloc.c -- malloc with out of memory checking
-   Copyright (C) 1990-1996, 2000-2003, 2005-2007 Free Software Foundation, Inc.
+   Copyright (C) 1990-1996, 2000-2003, 2005 Free Software Foundation, Inc.
 
-   This program is free software: you can redistribute it and/or modify
+   This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 3 of the License, or
-   (at your option) any later version.
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -12,9 +12,12 @@
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
-   along with this program.  If not, see <http://www.gnu.org/licenses/>.  */
+   along with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
 
-#include <config.h>
+#ifdef HAVE_CONFIG_H
+# include <config.h>
+#endif
 
 /* Specification.  */
 #include "xalloc.h"
@@ -22,6 +25,7 @@
 #include <stdlib.h>
 
 #include "error.h"
+#include "exit.h"
 #include "gettext.h"
 
 #define _(str) gettext (str)
@@ -46,7 +50,7 @@ fixup_null_alloc (size_t n)
 {
   void *p;
 
-  p = NULL;
+  p = 0;
   if (n == 0)
     p = malloc ((size_t) 1);
   if (p == NULL)
@@ -67,39 +71,7 @@ xmalloc (size_t n)
   return p;
 }
 
-/* Allocate memory for NMEMB elements of SIZE bytes, with error checking.
-   SIZE must be > 0.  */
-
-void *
-xnmalloc (size_t nmemb, size_t size)
-{
-  size_t n;
-  void *p;
-
-  if (xalloc_oversized (nmemb, size))
-    xalloc_die ();
-  n = nmemb * size;
-  p = malloc (n);
-  if (p == NULL)
-    p = fixup_null_alloc (n);
-  return p;
-}
-
-/* Allocate SIZE bytes of memory dynamically, with error checking,
-   and zero it.  */
-
-void *
-xzalloc (size_t size)
-{
-  void *p;
-
-  p = xmalloc (size);
-  memset (p, 0, size);
-  return p;
-}
-
-/* Allocate memory for N elements of S bytes, with error checking,
-   and zero it.  */
+/* Allocate memory for N elements of S bytes, with error checking.  */
 
 void *
 xcalloc (size_t n, size_t s)
