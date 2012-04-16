@@ -530,19 +530,6 @@ const defaults_t defaults[] = {
 	{ "ne_vbeta",			"3"				},	// "
 	{ "ne_vgamma",			"2"				},	// "
 
-// qos-bw-limiter
-	{ "qosl_enable",		"0"			},
-//	{ "qosl_obw",			""			},	//unused - used qos_obw
-//	{ "qosl_ibw",			""			},	//unused - used qos_obw
-	{ "qosl_rules",			"" 			},
-	{ "qosl_denable",		"0" 			},
-	{ "qosl_dtcp",			"0" 			},	//unlimited
-	{ "qosl_dudp",			"0" 			},	//unlimited
-	{ "qosl_ddlc",			"" 			},
-	{ "qosl_dulc",			"" 			},
-	{ "qosl_ddlr",			"" 			},
-	{ "qosl_dulr",			"" 			},
-
 // access restrictions
 	{ "rruleN",				"0"				},
 	{ "rrule0",				"0|1320|300|31|||word text\n^begins-with.domain.\n.ends-with.net$\n^www.exact-domain.net$|0|example" },

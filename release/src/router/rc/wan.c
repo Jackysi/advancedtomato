@@ -934,7 +934,6 @@ void start_wan_done(char *wan_ifname)
 	start_dnsmasq();
 	start_firewall();
 	start_qos();
-	start_qoslimit();
 	start_arpbind();
 
 
@@ -1030,7 +1029,6 @@ void stop_wan(void)
 #endif
 	stop_vpn_eas();
 	stop_arpbind();
-	stop_qoslimit();
 	stop_qos();
 	stop_upnp();	//!!TB - moved from stop_services()
 	stop_firewall();

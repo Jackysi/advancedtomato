@@ -2239,17 +2239,6 @@ TOP:
 		goto CLEAR;
 	}
 
-	if (strcmp(service, "qoslimit") == 0) {
-		if (action & A_STOP) {
-			stop_qoslimit();
-		}
-		stop_firewall(); start_firewall();		// always restarted
-		if (action & A_START) {
-			start_qoslimit();
-		}
-		goto CLEAR;
-	}
-
 	if (strcmp(service, "upnp") == 0) {
 		if (action & A_STOP) {
 			stop_upnp();
