@@ -341,8 +341,13 @@ void stop_pptpd(void)
 void write_pptpd_dnsmasq_config(FILE* f) {
 	int i;
 	if (nvram_match("pptpd_enable", "1")) {
-		for (i = 4; i <= 9 ; i++ ) {
-			fprintf(f, "no-dhcp-interface=ppp%d\n", i);
+		fprintf(f, "interface=");
+		for (i = 4; i <= 9 ; i++) {
+			fprintf(f, "ppp%d%c", i, ((i < 9)? ',' : '\n'));
+		}
+		fprintf(f, "no-dhcp-interface=");
+		for (i = 4; i <= 9 ; i++) {
+			fprintf(f, "ppp%d%c", i, ((i < 9)? ',' : '\n'));
 		}
 	}
 }
