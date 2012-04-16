@@ -852,7 +852,7 @@ static const nvset_t nvset_list[] = {
 	{ "wlx_hperx",			V_01				},
 	{ "wl_reg_mode",		V_LENGTH(1, 3)			},	// !!TB - Regulatory: off, h, d
 	{ "wl_mitigation",		V_RANGE(0, 4)			},	// Interference Mitigation Mode (0|1|2|3|4)
-
+	{ "wl_interference_override",	V_RANGE(-1, 4)			},	// Interference Mitigation Override Mode (-1|0|1|2|3|4)
 	{ "wl_nmode_protection",	V_WORD,				},	// off, auto
 	{ "wl_nmcsidx",			V_RANGE(-2, 32),	},	// -2 - 32
 	{ "wl_obss_coex",		V_01			},
@@ -1120,19 +1120,6 @@ static const nvset_t nvset_list[] = {
 	{ "ne_valpha",			V_NUM				},
 	{ "ne_vbeta",			V_NUM				},
 	{ "ne_vgamma",			V_NUM				},
-
-// qos-bw-limiter
-	{ "qosl_enable",        	 V_01                   },
-	{ "qosl_rules",          	  V_LENGTH(0, 4096)      },
-	{ "qosl_denable",                 V_01                   },					
-	{ "qosl_dulr",                    V_RANGE(0, 999999)     },
-	{ "qosl_dulc",                    V_RANGE(0, 999999)     },
-	{ "qosl_ddlr",                    V_RANGE(0, 999999)     },
-	{ "qosl_ddlc",                    V_RANGE(0, 999999)     },	
-	{ "qosl_dtcp",                    V_RANGE(0, 1000)       },
-	{ "qosl_dudp",                    V_RANGE(0, 100)        },
-	/*qosl_ibw unused - qos_ibw shared*/
-	/*qosl_obw unused - qos_obw shared*/
 
 //NoCatSplash. Victek.
 #ifdef TCONFIG_NOCAT

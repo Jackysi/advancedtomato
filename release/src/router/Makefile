@@ -623,7 +623,9 @@ cyassl-install:
 ifeq ($(FULL_OPENSSL),y)
 OPENSSL_CIPHERS:=enable-rc5
 else
-OPENSSL_CIPHERS:=no-dh no-idea no-rc2 no-rc5 no-aes no-aes192 no-cast no-des no-modes no-tls1 no-tlsext
+OPENSSL_CIPHERS:=no-dh no-idea no-rc2 no-rc5 no-aes no-aes192 no-cast no-des no-modes
+# no-tls1 no-tlsext
+# openssl 1.0.1 doesn't build when using "no-tlsext" or "no-tls1"
 endif
 
 openssl/stamp-h1:

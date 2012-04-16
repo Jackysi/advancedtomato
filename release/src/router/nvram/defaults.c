@@ -227,7 +227,8 @@ const defaults_t defaults[] = {
 	{ "wl_infra",			"1"				},	// Network Type (BSS/IBSS)
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
-	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3|4)    //Toastman - 0=off
+	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3|4)    		   //Toastman  0=off
+	{ "wl_interference_override",	"-1"				},	// Interference Mitigation Override Mode (-1|0|1|2|3|4)    //Toastman -1=disabled
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"				},	// WEP encryption [64 | 128] // Add
 	{ "wl_wep_buf",			""				},	// save all settings for web // Add
@@ -528,19 +529,6 @@ const defaults_t defaults[] = {
 	{ "ne_valpha",			"3"				},	// "
 	{ "ne_vbeta",			"3"				},	// "
 	{ "ne_vgamma",			"2"				},	// "
-
-// qos-bw-limiter
-	{ "qosl_enable",		"0"			},
-//	{ "qosl_obw",			""			},	//unused - used qos_obw
-//	{ "qosl_ibw",			""			},	//unused - used qos_obw
-	{ "qosl_rules",			"" 			},
-	{ "qosl_denable",		"0" 			},
-	{ "qosl_dtcp",			"0" 			},	//unlimited
-	{ "qosl_dudp",			"0" 			},	//unlimited
-	{ "qosl_ddlc",			"" 			},
-	{ "qosl_dulc",			"" 			},
-	{ "qosl_ddlr",			"" 			},
-	{ "qosl_dulr",			"" 			},
 
 // access restrictions
 	{ "rruleN",				"0"				},

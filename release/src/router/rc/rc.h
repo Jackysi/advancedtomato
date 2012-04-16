@@ -475,11 +475,6 @@ static inline void stop_vpn_eas() { }
 #define write_vpn_resolv(f) (0)
 #endif
 
-// qoslimit.c
-extern void ipt_qoslimit(int chain);
-extern void start_qoslimit(void);
-extern void stop_qoslimit(void);
-
 // arpbind.c
 extern void start_arpbind(void);
 extern void stop_arpbind(void);
