@@ -337,3 +337,17 @@ void stop_pptpd(void)
 	killall_tk("bcrelay");
 	return;
 }
+
+void write_pptpd_dnsmasq_config(FILE* f) {
+	int i;
+	if (nvram_match("pptpd_enable", "1")) {
+		fprintf(f, "interface=");
+		for (i = 4; i <= 9 ; i++) {
+			fprintf(f, "ppp%d%c", i, ((i < 9)? ',' : '\n'));
+		}
+		fprintf(f, "no-dhcp-interface=");
+		for (i = 4; i <= 9 ; i++) {
+			fprintf(f, "ppp%d%c", i, ((i < 9)? ',' : '\n'));
+		}
+	}
+}

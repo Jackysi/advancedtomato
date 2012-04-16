@@ -433,6 +433,7 @@ extern void stop_snmp();
 #ifdef TCONFIG_PPTPD
 extern void start_pptpd(void);
 extern void stop_pptpd(void);
+extern void write_pptpd_dnsmasq_config(FILE* f);
 #endif
 
 // vpn.c
