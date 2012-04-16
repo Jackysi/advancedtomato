@@ -306,7 +306,7 @@ function toggleVisibility(whichone) {
 <div id='ident'><% ident(); %></div>
 <input type='hidden' name='_nextpage' value='vpn-pptpd.asp'>
 <input type='hidden' name='_nextwait' value='5'>
-<input type='hidden' name='_service' value='firewall-restart,pptpd-restart'>
+<input type='hidden' name='_service' value='firewall-restart,pptpd-restart,dnsmasq-restart'>
 <input type='hidden' name='pptpd_users'>
 <input type='hidden' name='pptpd_enable'>
 <input type='hidden' name='pptpd_remoteip'>
