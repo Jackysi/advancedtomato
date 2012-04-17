@@ -360,6 +360,10 @@ void start_dnsmasq()
 	write_vpn_dnsmasq_config(f);
 #endif
 
+#ifdef TCONFIG_PPTPD
+	write_pptpd_dnsmasq_config(f);
+#endif
+
 	fprintf(f, "%s\n\n", nvram_safe_get("dnsmasq_custom"));
 
 	fappend(f, "/etc/dnsmasq.custom");
@@ -1127,7 +1131,10 @@ void start_syslog(void)
 		if (nvram_match("log_file_custom", "0")) {
 			argv[argc++] = "-s";
 			argv[argc++] = rot_siz;
-			remove("/var/log/messages");
+			struct stat sb;
+			if (lstat("/var/log/messages", &sb) != -1)
+				if (S_ISLNK(sb.st_mode))
+					remove("/var/log/messages");
 		}
 
 		if (isdigit(*b_opt)) {

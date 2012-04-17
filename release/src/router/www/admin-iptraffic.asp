@@ -215,6 +215,20 @@ function save()
 function init()
 {
 	backupNameChanged();
+	var c;
+	if (((c = cookie.get('admin_iptraffic_notes_vis')) != null) && (c == '1')) toggleVisibility("notes");
+}
+
+function toggleVisibility(whichone) {
+	if (E('sesdiv_' + whichone).style.display == '') {
+		E('sesdiv_' + whichone).style.display = 'none';
+		E('sesdiv_' + whichone + '_showhide').innerHTML = '(Click here to show)';
+		cookie.set('admin_iptraffic_' + whichone + '_vis', 0);
+	} else {
+		E('sesdiv_' + whichone).style.display='';
+		E('sesdiv_' + whichone + '_showhide').innerHTML = '(Click here to hide)';
+		cookie.set('admin_iptraffic_' + whichone + '_vis', 1);
+	}
 }
 </script>
 
@@ -304,6 +318,32 @@ REMOVE-END */
 		<input type='button' name='f_restore_button' id='restore-button' value='Restore' onclick='restoreButton()'>
 		<br>
 	</form>
+</div>
+
+<!-- / / / -->
+
+<div class='section-title'>Notes <small><i><a href='javascript:toggleVisibility("notes");'><span id='sesdiv_notes_showhide'>(Click here to show)</span></a></i></small></div>
+<div class='section' id='sesdiv_notes' style='display:none'>
+<ul>
+<li>IP Traffic is about monitoring <i>IPv4</i> network traffic flowing <i>through</i> the router.</li>
+<li>Check your <a href=basic-network.asp>LAN Settings</a> before enabling this feature: any/all LAN interfaces must have a netmask with at least 16 bits set (255.255.0.0).</li>
+<li>Monitoring of larger subnets is not supported.</li>
+</ul>
+
+<small>
+<ul>
+<li><b>Other relevant notes/hints:</b>
+<ul>
+<li>Before enabling this feature, please check your <a href=basic-network.asp>LAN Settings</a> and make sure the netmask on any/all of your LAN bridges has been configured properly (i.e. netmask with at least 16 bits set or "255.255.0.0").</li>
+<li>Although technically supported, it's not actually recommended having IP Traffic monitoring enabled with subnets larger than/the equivalent of a class C network (i.e. netmask with at least 24 bits set or "255.255.255.0").</li>
+<li>IP Traffic monitoring keeps track of data/packets that would be either <i>coming from/leaving</i> or <i>going to/arriving</i> IPs on LAN interfaces/subnets.</li>
+<li>As a rule of thumb, this means keeping track of network/data packets being forwarded from/to LAN interfaces as a result of some kind of routing (or NAT) and would exclude any/all data/packets being exchanged between devices reachable/within the same LAN interface (i.e. on the same IP subnet/LAN bridge, even if packets are actually being forwarded from/to wired/wireless/different interfaces through the router).</li>
+<!-- VLAN-BEGIN -->
+<li>Network traffic/communications flowing from/to/between different LAN bridges/subnets will be tracked/accounted separately/accordingly ("twice", as in: number of bytes/packets <i>coming from</i> the first LAN bridge and (the same) number of bytes/packets <i>going to</i> the second LAN bridge).</li>
+<!-- VLAN-END -->
+</ul>
+</ul>
+
 </div>
 
 <!-- / / / -->

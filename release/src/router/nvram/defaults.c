@@ -484,6 +484,9 @@ const defaults_t defaults[] = {
 	{ "dmz_enable",			"0"				},
 	{ "dmz_ipaddr",			"0"				},
 	{ "dmz_sip",			""				},
+#ifdef TCONFIG_VLAN
+	{ "dmz_ifname",			"br0"			},
+#endif
 
 // forward-upnp
 	{ "upnp_enable",		"0"				},
@@ -583,7 +586,7 @@ const defaults_t defaults[] = {
 	{ "rstats_bak",			"0"				},
 
 // admin-ipt
-	{ "cstats_enable",		"1"				},
+	{ "cstats_enable",		"0"				},
 	{ "cstats_path",		""				},
 	{ "cstats_stime",		"48"			},
 	{ "cstats_offset",		"1"				},
