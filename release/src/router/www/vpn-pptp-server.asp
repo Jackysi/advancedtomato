@@ -24,7 +24,7 @@
 }
 textarea {
   width: 98%;
-  height: 15em;
+  height: 10em;
 }
 </style>
 <script type='text/javascript' src='interfaces.js'></script>
@@ -306,7 +306,7 @@ function toggleVisibility(whichone) {
 <div id='ident'><% ident(); %></div>
 <input type='hidden' name='_nextpage' value='vpn-pptpd.asp'>
 <input type='hidden' name='_nextwait' value='5'>
-<input type='hidden' name='_service' value='firewall-restart,pptpd-restart'>
+<input type='hidden' name='_service' value='firewall-restart,pptpd-restart,dnsmasq-restart'>
 <input type='hidden' name='pptpd_users'>
 <input type='hidden' name='pptpd_enable'>
 <input type='hidden' name='pptpd_remoteip'>
@@ -329,7 +329,7 @@ createFieldTable('', [
 	{ title: '', name: 'pptpd_wins2', type: 'text', maxlen: 15, size: 17, value: nvram.pptpd_wins2 },
 	{ title: 'MTU', name: 'pptpd_mtu', type: 'text', maxlen: 4, size: 6, value: (nvram.pptpd_mtu ? nvram.pptpd_mtu : 1450)},
 	{ title: 'MRU', name: 'pptpd_mru', type: 'text', maxlen: 4, size: 6, value: (nvram.pptpd_mru ? nvram.pptpd_mru : 1450)},
-	{ title: 'Custom configuration', name: 'pptpd_custom', type: 'textarea', value: nvram.pptpd_custom }
+	{ title: '<a href="http://poptop.sourceforge.net/" target="_new">Poptop</a><br>Custom configuration', name: 'pptpd_custom', type: 'textarea', value: nvram.pptpd_custom }
 
 ]);
 </script>
