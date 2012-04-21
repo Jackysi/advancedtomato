@@ -726,6 +726,9 @@ const defaults_t defaults[] = {
 
 #ifdef TCONFIG_SNMP
 	{ "snmp_enable",		"0"				},
+	{ "snmp_port",			"161"				},
+	{ "snmp_remote",		"0"				},
+	{ "snmp_remote_sip",		""				},
 	{ "snmp_location",		"router"			},
 	{ "snmp_contact",		"admin@tomato"			},
 	{ "snmp_ro",			"rocommunity"			},

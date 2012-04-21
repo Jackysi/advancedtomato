@@ -977,6 +977,26 @@ static void filter_input(void)
 	}
 #endif
 
+
+#ifdef TCONFIG_SNMP
+	if( nvram_match( "snmp_enable", "1" ) && nvram_match("snmp_remote", "1"))
+	{
+		strlcpy(t, nvram_safe_get("snmp_remote_sip"), sizeof(t));
+		p = t;
+		do {
+			if ((c = strchr(p, ',')) != NULL) *c = 0;
+
+			if (ipt_source(p, s, "snmp", "remote")) {
+				ipt_write("-A INPUT -p udp %s --dport %s -j %s\n",
+						s, nvram_safe_get("snmp_port"), chain_in_accept);
+			}
+
+			if (!c) break;
+			p = c + 1;
+		} while (*p);
+	}
+#endif
+
 	// IGMP query from WAN interface
 	if ((nvram_match("multicast_pass", "1")) || (nvram_match("udpxy_enable", "1"))) {
 		ipt_write("-A INPUT -p igmp -d 224.0.0.0/4 -j ACCEPT\n");
