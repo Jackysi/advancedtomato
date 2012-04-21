@@ -719,6 +719,9 @@ static const nvset_t nvset_list[] = {
 
 // advanced-firewall
 	{ "block_wan",			V_01				},
+	{ "block_wan_limit",		V_01				},
+	{ "block_wan_limit_icmp",	V_RANGE(1, 300)			},
+	{ "block_wan_limit_tr",		V_RANGE(1, 300)			},
 	{ "multicast_pass",		V_01				},
 #ifdef TCONFIG_VLAN
 	{ "multicast_lan",		V_01				},

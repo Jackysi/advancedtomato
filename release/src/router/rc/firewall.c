@@ -918,10 +918,17 @@ static void filter_input(void)
 
 	// ICMP request from WAN interface
 	if (nvram_match("block_wan", "0")) {
-		// allow ICMP packets to be received, but restrict the flow to avoid ping flood attacks
-		ipt_write("-A INPUT -p icmp -m limit --limit 1/second -j %s\n", chain_in_accept);
-		// allow udp traceroute packets
-		ipt_write("-A INPUT -p udp --dport 33434:33534 -m limit --limit 5/second -j %s\n", chain_in_accept);
+		if (nvram_match("block_wan_limit", "0")) {
+			// allow ICMP packets to be received
+			ipt_write("-A INPUT -p icmp -j %s\n", chain_in_accept);
+			// allow udp traceroute packets
+			ipt_write("-A INPUT -p udp --dport 33434:33534 -j %s\n", chain_in_accept);
+		} else {
+			// allow ICMP packets to be received, but restrict the flow to avoid ping flood attacks
+			ipt_write("-A INPUT -p icmp -m limit --limit %d/second -j %s\n", nvram_get_int("block_wan_limit_icmp"), chain_in_accept);
+			// allow udp traceroute packets, but restrict the flow to avoid ping flood attacks
+			ipt_write("-A INPUT -p udp --dport 33434:33534 -m limit --limit %d/second -j %s\n", nvram_get_int("block_wan_limit_tr"), chain_in_accept);
+		}
 	}
 
 	/* Accept incoming packets from broken dhcp servers, which are sending replies
