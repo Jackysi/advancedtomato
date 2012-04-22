@@ -192,7 +192,7 @@ function init() {
 
 	verifyFields(null,1);
 
-	var theRules = document.styleSheets[2].cssRules;
+	var theRules = document.styleSheets[document.styleSheets.length-1].cssRules;
 	switch (nvram['cstats_labels']) {
 		case '1':		// show hostnames only
 			theRules[theRules.length-1].style.cssText = 'width: 140px; font-weight:bold;';
