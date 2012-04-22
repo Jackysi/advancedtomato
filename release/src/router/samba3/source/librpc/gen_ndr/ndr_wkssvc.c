@@ -1385,10 +1385,10 @@ NTSTATUS ndr_pull_USER_INFO_0_CONTAINER(struct ndr_pull *ndr, int ndr_flags, str
 			NDR_PULL_ALLOC_N(ndr, r->user0, ndr_get_array_size(ndr, &r->user0));
 			_mem_save_user0_1 = NDR_PULL_GET_MEM_CTX(ndr);
 			NDR_PULL_SET_MEM_CTX(ndr, r->user0, 0);
-			for (cntr_user0_1 = 0; cntr_user0_1 < r->entries_read; cntr_user0_1++) {
+			for (cntr_user0_1 = 0; cntr_user0_1 < ndr_get_array_size(ndr, &r->user0); cntr_user0_1++) {
 				NDR_CHECK(ndr_pull_USER_INFO_0(ndr, NDR_SCALARS, &r->user0[cntr_user0_1]));
 			}
-			for (cntr_user0_1 = 0; cntr_user0_1 < r->entries_read; cntr_user0_1++) {
+			for (cntr_user0_1 = 0; cntr_user0_1 < ndr_get_array_size(ndr, &r->user0); cntr_user0_1++) {
 				NDR_CHECK(ndr_pull_USER_INFO_0(ndr, NDR_BUFFERS, &r->user0[cntr_user0_1]));
 			}
 			NDR_PULL_SET_MEM_CTX(ndr, _mem_save_user0_1, 0);
@@ -1631,10 +1631,10 @@ NTSTATUS ndr_pull_USER_INFO_1_CONTAINER(struct ndr_pull *ndr, int ndr_flags, str
 			NDR_PULL_ALLOC_N(ndr, r->user1, ndr_get_array_size(ndr, &r->user1));
 			_mem_save_user1_1 = NDR_PULL_GET_MEM_CTX(ndr);
 			NDR_PULL_SET_MEM_CTX(ndr, r->user1, 0);
-			for (cntr_user1_1 = 0; cntr_user1_1 < r->entries_read; cntr_user1_1++) {
+			for (cntr_user1_1 = 0; cntr_user1_1 < ndr_get_array_size(ndr, &r->user1); cntr_user1_1++) {
 				NDR_CHECK(ndr_pull_USER_INFO_1(ndr, NDR_SCALARS, &r->user1[cntr_user1_1]));
 			}
-			for (cntr_user1_1 = 0; cntr_user1_1 < r->entries_read; cntr_user1_1++) {
+			for (cntr_user1_1 = 0; cntr_user1_1 < ndr_get_array_size(ndr, &r->user1); cntr_user1_1++) {
 				NDR_CHECK(ndr_pull_USER_INFO_1(ndr, NDR_BUFFERS, &r->user1[cntr_user1_1]));
 			}
 			NDR_PULL_SET_MEM_CTX(ndr, _mem_save_user1_1, 0);
@@ -1953,10 +1953,10 @@ NTSTATUS ndr_pull_wkssvc_NetWkstaTransportCtr0(struct ndr_pull *ndr, int ndr_fla
 			NDR_PULL_ALLOC_N(ndr, r->array, ndr_get_array_size(ndr, &r->array));
 			_mem_save_array_1 = NDR_PULL_GET_MEM_CTX(ndr);
 			NDR_PULL_SET_MEM_CTX(ndr, r->array, 0);
-			for (cntr_array_1 = 0; cntr_array_1 < r->count; cntr_array_1++) {
+			for (cntr_array_1 = 0; cntr_array_1 < ndr_get_array_size(ndr, &r->array); cntr_array_1++) {
 				NDR_CHECK(ndr_pull_wkssvc_NetWkstaTransportInfo0(ndr, NDR_SCALARS, &r->array[cntr_array_1]));
 			}
-			for (cntr_array_1 = 0; cntr_array_1 < r->count; cntr_array_1++) {
+			for (cntr_array_1 = 0; cntr_array_1 < ndr_get_array_size(ndr, &r->array); cntr_array_1++) {
 				NDR_CHECK(ndr_pull_wkssvc_NetWkstaTransportInfo0(ndr, NDR_BUFFERS, &r->array[cntr_array_1]));
 			}
 			NDR_PULL_SET_MEM_CTX(ndr, _mem_save_array_1, 0);

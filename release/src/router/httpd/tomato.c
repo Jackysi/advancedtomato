@@ -719,6 +719,9 @@ static const nvset_t nvset_list[] = {
 
 // advanced-firewall
 	{ "block_wan",			V_01				},
+	{ "block_wan_limit",		V_01				},
+	{ "block_wan_limit_icmp",	V_RANGE(1, 300)			},
+	{ "block_wan_limit_tr",		V_RANGE(1, 300)			},
 	{ "multicast_pass",		V_01				},
 #ifdef TCONFIG_VLAN
 	{ "multicast_lan",		V_01				},
@@ -852,7 +855,6 @@ static const nvset_t nvset_list[] = {
 	{ "wlx_hperx",			V_01				},
 	{ "wl_reg_mode",		V_LENGTH(1, 3)			},	// !!TB - Regulatory: off, h, d
 	{ "wl_mitigation",		V_RANGE(0, 4)			},	// Interference Mitigation Mode (0|1|2|3|4)
-	{ "wl_interference_override",	V_RANGE(-1, 4)			},	// Interference Mitigation Override Mode (-1|0|1|2|3|4)
 	{ "wl_nmode_protection",	V_WORD,				},	// off, auto
 	{ "wl_nmcsidx",			V_RANGE(-2, 32),	},	// -2 - 32
 	{ "wl_obss_coex",		V_01			},
@@ -1065,6 +1067,9 @@ static const nvset_t nvset_list[] = {
 
 #ifdef TCONFIG_SNMP
 	{ "snmp_enable",		V_RANGE(0, 1)			},
+	{ "snmp_port",			V_RANGE(0, 65535)		},
+	{ "snmp_remote",		V_RANGE(0, 1)			},
+	{ "snmp_remote_sip",		V_LENGTH(0, 512)		},
 	{ "snmp_location",		V_LENGTH(0, 20)			},
 	{ "snmp_contact",		V_LENGTH(0, 20)			},
 	{ "snmp_ro",			V_LENGTH(0, 20)			},

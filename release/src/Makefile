@@ -37,7 +37,7 @@ include ./target.mak
 
 # Normally you'd do something like "make V1=8516 V2=-sub-ver a b c d"
 # But if you don't give anything for "V1", it'll get a default from tomato_version.
-V1 ?= "--def"
+current_TOMATO_V1 ?= "--def"
 VPN ?= "VPN"
 NC ?="NOCAT"
 ifeq ($(CONFIG_LINUX26),y)
@@ -71,6 +71,13 @@ current_BUILD_NAME = $(strip $(shell grep "^TOMATO_BUILD_NAME" tomato_profile.ma
 current_BUILD_DESC = $(strip $(shell grep "^TOMATO_BUILD_DESC" tomato_profile.mak  | cut -d"=" -f2 | sed -e "s/ //g"))
 current_BUILD_USB  = $(strip $(shell grep "^TOMATO_BUILD_USB"  tomato_profile.mak  | cut -d"=" -f2 | sed -e "s/ //g"))
 current_TOMATO_VER = $(strip $(shell grep "TOMATO_MAJOR" router/shared/tomato_version.h  | cut -d"\"" -f2)).$(strip $(shell grep "TOMATO_MINOR" router/shared/tomato_version.h  | cut -d"\"" -f2))
+current_TOMATO_MIPS32 = $(strip $(shell grep "^TOMATO_BUILD_MIPS32"  tomato_profile.mak  | cut -d"=" -f2 | sed -e "s/ //g" | sed -e "s/\"//g" ))
+current_TOMATO_V1 = $(strip $(shell grep "^TOMATO_BUILD_V1"  tomato_profile.mak  | cut -d"=" -f2 | sed -e "s/ //g" | sed -e "s/\"//g" ))
+current_TOMATO_V2 = $(strip $(shell grep "^TOMATO_BUILD_V2"  tomato_profile.mak  | cut -d"=" -f2 | sed -e "s/ //g" | sed -e "s/\"//g" ))
+current_TOMATO_B = $(strip $(shell grep "^TOMATO_BUILD_NAME"  tomato_profile.mak  | cut -d"=" -f2 | sed -e "s/ //g" | sed -e "s/\"//g" ))
+current_TOMATO_N = $(strip $(shell grep "^TOMATO_PROFILE_NAME"  tomato_profile.mak  | cut -d"=" -f2 | sed -e "s/ //g" | sed -e "s/\"//g" ))
+N=$(current_TOMATO_N)
+B=$(current_TOMATO_B)
 
 uppercase_N = $(shell echo $(N) | tr a-z  A-Z)
 lowercase_N = $(shell echo $(N) | tr A-Z a-z)
@@ -78,7 +85,8 @@ uppercase_B = $(shell echo $(B) | tr a-z  A-Z)
 lowercase_B = $(shell echo $(B) | tr A-Z a-z)
 
 ifeq ($(CONFIG_LINUX26),y)
-mips_rev = $(if $(filter $(MIPS32),r2),MIPSR2,MIPSR1)
+mips_rev = $(if $(filter $(current_TOMATO_MIPS32),r2),MIPSR2,MIPSR1)
+
 KERN_SIZE_OPT ?= n
 else
 mips_rev =
@@ -89,7 +97,7 @@ beta = $(if $(filter $(TOMATO_EXPERIMENTAL),1),-beta,)
 
 tomato_ver:
 	@echo ""
-	@btools/uversion.pl --gen $(V1) $(mips_rev)$(beta)$(V2) $(ND) $(current_BUILD_USB) $(current_BUILD_DESC)
+	@btools/uversion.pl --gen $(current_TOMATO_V1) $(mips_rev)$(beta)$(current_TOMATO_V2) $(ND) $(current_BUILD_USB) $(current_BUILD_DESC)
 
 ifeq ($(TOMATO_BUILD),)
 
@@ -100,7 +108,7 @@ else
 
 all: tomato_ver
 	@echo ""
-	@echo "Building Tomato $(ND) $(current_BUILD_USB) $(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2) $(current_BUILD_DESC) $(current_BUILD_NAME) with $(TOMATO_PROFILE_NAME) Profile"
+	@echo "Building Tomato $(ND) $(current_BUILD_USB) $(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2) $(current_BUILD_DESC) $(current_BUILD_NAME) with $(TOMATO_PROFILE_NAME) Profile"
 
 	@echo ""
 	@echo ""
@@ -110,8 +118,8 @@ all: tomato_ver
 	@$(MAKE) -C router install
 	@$(MAKE) -C btools
 
-	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx
-	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).trx
+	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin
 
 ifeq ($(WNR3500LV2),y)
 	@echo "Creating Firmware for Netgear WNR3500L v2 .... "
@@ -121,25 +129,25 @@ ifeq ($(WNR3500LV2),y)
 	rm -f image/vmlinux.bin image/vmlinux.lzma
 	cd image && touch rootfs
 	cd image && $(WNRTOOL)/packet -k tomato-wnr3500lv2.trx -f rootfs -b $(BOARD_FILE) -ok kernel_image -oall kernel_rootfs_image -or rootfs_image -i $(fw_cfg_file) && rm -f rootfs && \
-	cp kernel_rootfs_image.chk tomato-Netgear-3500Lv2-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(V2)-$(current_BUILD_DESC).chk
+	cp kernel_rootfs_image.chk tomato-Netgear-3500Lv2-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(current_TOMATO_V2)-$(current_BUILD_DESC).chk
 	@echo "Cleanup ...."
 	rm -f image/*image.chk image/*.trx
 endif
 
 ifeq ($(WRT54),y)
-ifneq ($(MIPS32),r2)
-	@rm -f image/tomato-WRT54*$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
-	@rm -f image/tomato-WRTSL54*$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
-	@rm -f image/tomato-WR850G$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+ifneq ($(current_TOMATO_MIPS32),r2)
+	@rm -f image/tomato-WRT54*$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-WRTSL54*$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-WR850G$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin
 endif
 endif
 ifeq ($(LINKSYS_E),y)
-	@rm -f image/tomato-E??00$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-E??00$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin
 endif
 ifeq ($(BELKIN),y)
 ifneq ($(NVRAM_SIZE),60)
-	@rm -f image/tomato-F7D????$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
-	@rm -f image/tomato-F5D8235v3$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-F7D????$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-F5D8235v3$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin
 endif
 endif
 	@echo "" >>fpkg.log
@@ -148,41 +156,41 @@ endif
 	@echo "" >>fpkg.log
 	@cat router/target.info >>fpkg.log
 ifeq ($(WRT54),y)
-ifneq ($(MIPS32),r2)
+ifneq ($(current_TOMATO_MIPS32),r2)
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-l W54G,image/tomato-WRT54G_WRT54GL$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
-		-l W54S,image/tomato-WRT54GS$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
-		-l W54s,image/tomato-WRT54GSv4$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
-		-l W54U,image/tomato-WRTSL54GS$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
-		-m 0x10577050,image/tomato-WR850G$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l W54G,image/tomato-WRT54G_WRT54GL$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin \
+		-l W54S,image/tomato-WRT54GS$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin \
+		-l W54s,image/tomato-WRT54GSv4$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin \
+		-l W54U,image/tomato-WRTSL54GS$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin \
+		-m 0x10577050,image/tomato-WR850G$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin \
 		| tee -a fpkg.log
 endif
 endif
 ifeq ($(LINKSYS_E),y)
 	# Linksys E-series images
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-l 4200,image/tomato-E4200$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
-		-l 61XN,image/tomato-E3000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
-		-l 32XN,image/tomato-E2000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l 4200,image/tomato-E4200$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin \
+		-l 61XN,image/tomato-E3000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin \
+		-l 32XN,image/tomato-E2000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin \
 		| tee -a fpkg.log
 endif
 ifeq ($(BELKIN),y)
 ifneq ($(NVRAM_SIZE),60)
 	# Create Belkin images
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-b 0x20100322,image/tomato-F7D3301$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
-		-b 0x20090928,image/tomato-F7D3302$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
-		-b 0x20091006,image/tomato-F7D4302$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
-		-b 0x00017116,image/tomato-F5D8235v3$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-b 0x20100322,image/tomato-F7D3301$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin \
+		-b 0x20090928,image/tomato-F7D3302$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin \
+		-b 0x20091006,image/tomato-F7D4302$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin \
+		-b 0x00017116,image/tomato-F5D8235v3$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin \
 		| tee -a fpkg.log
 endif
 endif
 	# Create generic TRX image
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-t image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
+		-t image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).trx \
 		| tee -a fpkg.log
 
-	@cp fpkg.log image/fpkg-$(V1)$(mips_rev)$(beta)$(V2).log
+	@cp fpkg.log image/fpkg-$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2).log
 	@echo ""
 	@echo "-----------------"
 	@echo `cat router/shared/tomato_version` " ready"
@@ -271,7 +279,7 @@ what:
 # KERN_SIZE_OPT
 # USB ("USB"|"")
 # JFFSv1 | NO_JFFS
-# NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
+# NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT, NO_FTP
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM
 # NOCAT
 # SNMP
@@ -341,6 +349,10 @@ define RouterOptions
 	if [ "$(NO_CIFS)" = "y" ]; then \
 		sed -i "/TCONFIG_CIFS/d" $(1); \
 		echo "# TCONFIG_CIFS is not set" >>$(1); \
+	fi; \
+	if [ "$(NO_FTP)" = "y" ]; then \
+		sed -i "/TCONFIG_FTP/d" $(1); \
+		echo "# TCONFIG_FTP is not set" >>$(1); \
 	fi; \
 	if [ "$(NO_SSH)" = "y" ]; then \
 		sed -i "/TCONFIG_SSH/d" $(1); \
@@ -652,7 +664,7 @@ endif
 	$(call KernelConfig, $(LINUXDIR)/config_$(lowercase_B))
 	$(call BusyboxOptions, router/busybox/config_$(lowercase_B))
 
-	@$(MAKE) setprofile N=$(TPROFILE) B=$(B) DESC="$(BUILD_DESC)" USB="$(USB)"
+	@$(MAKE) setprofile N=$(TPROFILE) B=$(B) DESC="$(BUILD_DESC)" USB="$(USB)" MIPS32="${MIPS32}" V1="${V1}" V2="${V2}"
 	@$(MAKE) all
 
 ## Make the "normal" build
@@ -885,6 +897,9 @@ setprofile:
 	echo 'TOMATO_PROFILE_L = $(lowercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_PROFILE_U = $(uppercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_BUILD_USB = "$(USB)"' >> tomato_profile.mak
+	echo 'TOMATO_BUILD_MIPS32 = "${MIPS32}"' >> tomato_profile.mak
+	echo 'TOMATO_BUILD_V1 = "${V1}"' >> tomato_profile.mak
+	echo 'TOMATO_BUILD_V2 = "${V2}"' >> tomato_profile.mak
 
 	echo 'export EXTRACFLAGS := $(EXTRA_CFLAGS) -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32 $(if $(filter $(NVRAM_SIZE),0),,-DCONFIG_NVRAM_SIZE=$(NVRAM_SIZE))' >> tomato_profile.mak
 

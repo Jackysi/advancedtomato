@@ -228,7 +228,6 @@ const defaults_t defaults[] = {
 	{ "wl_btc_mode",		"0"				},	// !!TB - BT Coexistence Mode
 	{ "wl_sta_retry_time",		"5"				},	// !!TB - Seconds between association attempts (0 to disable retries)
 	{ "wl_mitigation",		"0"				},	// Interference Mitigation Mode (0|1|2|3|4)    		   //Toastman  0=off
-	{ "wl_interference_override",	"-1"				},	// Interference Mitigation Override Mode (-1|0|1|2|3|4)    //Toastman -1=disabled
 	{ "wl_passphrase",		""				},	// Passphrase	// Add
 	{ "wl_wep_bit",			"128"				},	// WEP encryption [64 | 128] // Add
 	{ "wl_wep_buf",			""				},	// save all settings for web // Add
@@ -435,6 +434,9 @@ const defaults_t defaults[] = {
 //	{ "block_loopback",		"0"				},	// nat loopback
 	{ "nf_loopback",		"0"				},
 	{ "block_wan",			"1"				},	// block inbound icmp
+	{ "block_wan_limit",		"1"				},
+	{ "block_wan_limit_icmp",	"1"				},
+	{ "block_wan_limit_tr",		"5"				},
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
 #ifdef TCONFIG_VLAN
 	{ "multicast_lan",		"0"				},	// on LAN (br0)
@@ -724,6 +726,9 @@ const defaults_t defaults[] = {
 
 #ifdef TCONFIG_SNMP
 	{ "snmp_enable",		"0"				},
+	{ "snmp_port",			"161"				},
+	{ "snmp_remote",		"0"				},
+	{ "snmp_remote_sip",		""				},
 	{ "snmp_location",		"router"			},
 	{ "snmp_contact",		"admin@tomato"			},
 	{ "snmp_ro",			"rocommunity"			},
