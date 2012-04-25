@@ -525,6 +525,7 @@ chap_handle_status(struct chap_client_state *cs, int code, int id,
 	else {
 		cs->flags |= AUTH_FAILED;
 		error("CHAP authentication failed");
+		system("ppp_event -t CHAP_AUTH_FAIL &");
 		auth_withpeer_fail(0, PPP_CHAP);
 	}
 }

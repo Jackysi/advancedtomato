@@ -107,7 +107,7 @@ do {
 /* IPV6-END */
 
 	stats.wanstatus = '<% wanstatus(); %>';
-	if (stats.wanstatus != 'Connected') stats.wanstatus = '<b>' + stats.wanstatus + '</b>';
+	if (stats.wanstatus != 'Connected') stats.wanstatus = '<b>' + stats.wanstatus + ' <% link_starttime(); %></b>';
 
 	stats.channel = [];
 	stats.interference = [];
