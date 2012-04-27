@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2011 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2012 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -13,6 +13,9 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+
+#define NAMESERVER_PORT 53
+#define TFTP_PORT       69
 
 #define IN6ADDRSZ       16
 #define INADDRSZ        4
@@ -56,7 +59,7 @@ struct dns_header {
   u16 id;
   u8  hb3,hb4;
   u16 qdcount,ancount,nscount,arcount;
-} ;
+};
 
 #define HB3_QR       0x80
 #define HB3_OPCODE   0x78
