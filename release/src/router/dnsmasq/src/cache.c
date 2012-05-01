@@ -25,6 +25,7 @@ static int cache_inserted = 0, cache_live_freed = 0, insert_error;
 static union bigname *big_free = NULL;
 static int bignames_left, hash_size;
 static int uid = 0;
+static char *addrbuff = NULL;
 
 /* type->string mapping: this is also used by the name-hash function as a mixing table. */
 static const struct {
