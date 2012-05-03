@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2011 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2012 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -85,6 +85,5 @@ static int callback(enum nf_conntrack_msg_type type, struct nf_conntrack *ct, vo
 }
 
 #endif
-  
 
 

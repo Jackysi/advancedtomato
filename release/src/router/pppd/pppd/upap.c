@@ -539,6 +539,7 @@ upap_rauthnak(u, inp, id, len)
     u->us_clientstate = UPAPCS_BADAUTH;
 
     error("PAP authentication failed");
+    system("ppp_event -t PAP_AUTH_FAIL &");
     auth_withpeer_fail(u->us_unit, PPP_PAP);
 }
 

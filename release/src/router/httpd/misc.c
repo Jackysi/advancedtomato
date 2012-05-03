@@ -99,7 +99,11 @@ char *reltime(char *buf, time_t t)
 	if (t < 0) t = 0;
 	days = t / 86400;
 	m = t / 60;
-	sprintf(buf, "%d day%s, %02d:%02d:%02d", days, ((days==1) ? "" : "s"), ((m / 60) % 24), (m % 60), (int)(t % 60));
+	if (days == 0) {
+		sprintf(buf, "%02d:%02d:%02d", ((m / 60) % 24), (m % 60), (int)(t % 60));
+	} else {
+		sprintf(buf, "%d day%s, %02d:%02d:%02d", days, ((days==1) ? "" : "s"), ((m / 60) % 24), (m % 60), (int)(t % 60));
+	}
 	return buf;
 }
 
@@ -631,7 +635,27 @@ void asp_wanstatus(int argc, char **argv)
 		p = "Connected";
 	}
 	else if (f_exists("/var/lib/misc/wan.connecting")) {
+	        int proto = get_wan_proto();
+
 		p = "Connecting...";
+
+		if ((proto == WP_PPPOE || proto == WP_PPP3G) && f_exists("/tmp/ppp/log")) {
+			char s[256];
+
+			f_read_string("/tmp/ppp/log", s, sizeof(s));
+
+			if (strcmp(s, "PADO_TIMEOUT") == 0 || strcmp(s, "PADS_TIMEOUT") == 0) {
+				web_printf("Timed out%s", nvram_get_int("ppp_demand") == 0 ? ", Trying again...":"");
+			} else if (strcmp(s, "PAP_AUTH_FAIL") == 0 || strcmp(s, "CHAP_AUTH_FAIL") == 0) {
+				web_printf("Authentication failed%s", nvram_get_int("ppp_demand") == 0 ? ", Trying again...":"");
+			} else {
+				web_puts(p);
+			}
+			
+			return;
+			
+		}
+		
 	}
 	else {
 		p = "Disconnected";
@@ -650,6 +674,23 @@ void asp_link_uptime(int argc, char **argv)
 	if (check_wanup()) {
 		sysinfo(&si);
 		if (f_read("/var/lib/misc/wantime", &uptime, sizeof(uptime)) == sizeof(uptime)) {
+			reltime(buf, si.uptime - uptime);
+		}
+	}
+	web_puts(buf);
+}
+
+void asp_link_starttime(int argc, char **argv)
+{
+	struct sysinfo si;
+	char buf[64];
+	long uptime;
+
+	buf[0] = 0;
+
+	if (!check_wanup() && f_exists("/var/lib/misc/wan.connecting")) {
+		sysinfo(&si);
+		if (f_read("/var/lib/misc/wan.connecting", &uptime, sizeof(uptime)) == sizeof(uptime)) {
 			reltime(buf, si.uptime - uptime);
 		}
 	}

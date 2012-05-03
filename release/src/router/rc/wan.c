@@ -659,10 +659,13 @@ void start_wan(int mode)
 	int max;
 	int mtu;
 	char buf[128];
+	struct sysinfo si;
+
 
 	TRACE_PT("begin\n");
 
-	f_write(wan_connecting, NULL, 0, 0, 0);
+	sysinfo(&si);
+	f_write(wan_connecting, &si.uptime, sizeof(si.uptime), 0, 0);
 
 	//
 
@@ -972,8 +975,6 @@ void start_wan_done(char *wan_ifname)
 
 	if (wanup) {
 		SET_LED(GOT_IP);
-		notice_set("wan", "");
-
 		run_nvscript("script_wanup", NULL, 0);
 	}
 
@@ -1055,8 +1056,6 @@ void stop_wan(void)
 		ifconfig(name, 0, "0.0.0.0", NULL);
 
 	SET_LED(RELEASE_IP);
-	//notice_set("wan", "");
-	unlink("/var/notice/wan");
 	unlink(wan_connecting);
 
 	TRACE_PT("end\n");

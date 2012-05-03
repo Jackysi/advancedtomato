@@ -671,6 +671,7 @@ discovery(PPPoEConnection *conn)
 	    } else {
 		rp_fatal("Timeout waiting for PADO packets");
 	    }
+	    system("ppp_event -t PADO_TIMEOUT &");
 	}
 	sendPADI(conn);
 	conn->discoveryState = STATE_SENT_PADI;
@@ -703,6 +704,7 @@ discovery(PPPoEConnection *conn)
 	    } else {
 		rp_fatal("Timeout waiting for PADS packets");
 	    }
+	    system("ppp_event -t PADS_TIMEOUT &");
 	}
 	sendPADR(conn);
 	conn->discoveryState = STATE_SENT_PADR;

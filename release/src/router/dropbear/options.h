@@ -38,7 +38,7 @@
  * Both of these flags can be defined at once, don't compile without at least
  * one of them. */
 #define NON_INETD_MODE
-/*#define INETD_MODE*/
+#define INETD_MODE
 
 /* Setting this disables the fast exptmod bignum code. It saves ~5kB, but is
  * perhaps 20% slower for pubkey operations (it is probably worth experimenting
@@ -49,10 +49,10 @@
 several kB in binary size however will make the symmetrical ciphers and hashes
 slower, perhaps by 50%. Recommended for small systems that aren't doing
 much traffic. */
-#define DROPBEAR_SMALL_CODE
+/*#define DROPBEAR_SMALL_CODE*/
 
 /* Enable X11 Forwarding - server only */
-/*#define ENABLE_X11FWD*/
+#define ENABLE_X11FWD
 
 /* Enable TCP Fowarding */
 /* 'Local' is "-L" style (client listening port forwarded via server)

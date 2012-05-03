@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2011 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2012 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -13,6 +13,11 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#define DHCP_SERVER_PORT 67
+#define DHCP_CLIENT_PORT 68
+#define DHCP_SERVER_ALTPORT 1067
+#define DHCP_CLIENT_ALTPORT 1068
+#define PXE_PORT 4011
 
 #define BOOTREQUEST              1
 #define BOOTREPLY                2

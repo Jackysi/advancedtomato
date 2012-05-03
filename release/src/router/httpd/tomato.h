@@ -65,6 +65,7 @@ extern void asp_time(int argc, char **argv);
 extern void asp_wanup(int argc, char **argv);
 extern void asp_wanstatus(int argc, char **argv);
 extern void asp_link_uptime(int argc, char **argv);
+extern void asp_link_starttime(int argc, char **argv);
 extern void asp_rrule(int argc, char **argv);
 extern void asp_compmac(int argc, char **argv);
 extern void asp_ident(int argc, char **argv);
