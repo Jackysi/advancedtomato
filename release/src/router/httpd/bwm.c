@@ -59,7 +59,7 @@ void wo_iptbackup(char *url)
 		t = 0;
 	}
 	killall("cstats", SIGHUP);
-	for (i = 10; i > 0; --i) {
+	for (i = 20; i > 0; --i) { // may take a long time for gzip to complete
 		if ((stat(ifn, &st) == 0) && (st.st_mtime != t)) break;
 		sleep(1);
 	}
@@ -140,7 +140,7 @@ void wi_iptrestore(char *url, int len, char *boundary)
 		goto ERROR;
 	}
 
-	if ((len < 64) || (len > 10240)) {
+	if ((len < 64) || (len > 102400)) { // up to 100k
 		goto ERROR;
 	}
 
