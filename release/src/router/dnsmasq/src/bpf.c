@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2011 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2012 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -108,6 +108,10 @@ int iface_enumerate(int family, void *parm, int (*callback)())
   return 0; /* need code for Solaris and MacOS*/
 #endif
 
+  /* AF_LINK doesn't exist in Linux, so we can't use it in our API */
+  if (family == AF_LOCAL)
+    family = AF_LINK;
+
   if ((fd = socket(PF_INET, SOCK_DGRAM, 0)) == -1)
     return 0;
   
@@ -153,7 +157,7 @@ int iface_enumerate(int family, void *parm, int (*callback)())
 
       ifr = (struct ifreq *)ifreq.iov_base;
       memcpy(ifr, ptr, len);
-           
+      
       if (ifr->ifr_addr.sa_family == family)
 	{
 	  if (family == AF_INET)
@@ -182,13 +186,24 @@ int iface_enumerate(int family, void *parm, int (*callback)())
 		  addr->s6_addr[2] = 0;
 		  addr->s6_addr[3] = 0;
 		}
-	      if (!((*callback)(addr,
+	       /* We have no way to determine the prefix, so we assume it's 64 for now....... */
+	      if (!((*callback)(addr, 64,
 				(int)((struct sockaddr_in6 *)&ifr->ifr_addr)->sin6_scope_id,
 				(int)if_nametoindex(ifr->ifr_name), 0, 
 				parm)))
 		goto err;
 	    }
 #endif
+#ifdef HAVE_DHCP6      
+	  else if (family == AF_LINK)
+	    { 
+	      /* Assume ethernet again here */
+	      struct sockaddr_dl *sdl = (struct sockaddr_dl *)&ifr->ifr_addr;
+	      if (sdl->sdl_alen != 0 && !((*callback)((int)if_nametoindex(ifr->ifr_name),
+						      ARPHRD_ETHER, LLADDR(sdl), sdl->sdl_alen, parm)))
+		goto err;
+	    }
+#endif 
 	}
     }
   

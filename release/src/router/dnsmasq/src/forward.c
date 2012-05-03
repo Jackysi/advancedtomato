@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2011 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2012 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -26,9 +26,9 @@ static struct randfd *allocate_rfd(int family);
 
 /* Send a UDP packet with its source address set as "source" 
    unless nowild is true, when we just send it with the kernel default */
-static void send_from(int fd, int nowild, char *packet, size_t len, 
-		      union mysockaddr *to, struct all_addr *source,
-		      unsigned int iface)
+void send_from(int fd, int nowild, char *packet, size_t len, 
+	       union mysockaddr *to, struct all_addr *source,
+	       unsigned int iface)
 {
   struct msghdr msg;
   struct iovec iov[1]; 
@@ -70,7 +70,7 @@ static void send_from(int fd, int nowild, char *packet, size_t len,
 	  p.ipi_spec_dst = source->addr.addr4;
 	  memcpy(CMSG_DATA(cmptr), &p, sizeof(p));
 	  msg.msg_controllen = cmptr->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
-	  cmptr->cmsg_level = SOL_IP;
+	  cmptr->cmsg_level = IPPROTO_IP;
 	  cmptr->cmsg_type = IP_PKTINFO;
 #elif defined(IP_SENDSRCADDR)
 	  memcpy(CMSG_DATA(cmptr), &(source->addr.addr4), sizeof(source->addr.addr4));
@@ -88,10 +88,10 @@ static void send_from(int fd, int nowild, char *packet, size_t len,
 	  memcpy(CMSG_DATA(cmptr), &p, sizeof(p));
 	  msg.msg_controllen = cmptr->cmsg_len = CMSG_LEN(sizeof(struct in6_pktinfo));
 	  cmptr->cmsg_type = daemon->v6pktinfo;
-	  cmptr->cmsg_level = IPV6_LEVEL;
+	  cmptr->cmsg_level = IPPROTO_IPV6;
 	}
 #else
-      iface = 0; /* eliminate warning */
+      (void)iface; /* eliminate warning */
 #endif
     }
   
@@ -106,8 +106,11 @@ static void send_from(int fd, int nowild, char *packet, size_t len,
 	  msg.msg_controllen = 0;
 	  goto retry;
 	}
+      
       if (retry_send())
 	goto retry;
+      
+      my_syslog(LOG_ERR, _("failed to send packet: %s"), strerror(errno));
     }
 }
           
@@ -703,7 +706,7 @@ void receive_query(struct listener *listen, time_t now)
 #if defined(HAVE_LINUX_NETWORK)
       if (listen->family == AF_INET)
 	for (cmptr = CMSG_FIRSTHDR(&msg); cmptr; cmptr = CMSG_NXTHDR(&msg, cmptr))
-	  if (cmptr->cmsg_level == SOL_IP && cmptr->cmsg_type == IP_PKTINFO)
+	  if (cmptr->cmsg_level == IPPROTO_IP && cmptr->cmsg_type == IP_PKTINFO)
 	    {
 	      union {
 		unsigned char *c;
@@ -743,7 +746,7 @@ void receive_query(struct listener *listen, time_t now)
       if (listen->family == AF_INET6)
 	{
 	  for (cmptr = CMSG_FIRSTHDR(&msg); cmptr; cmptr = CMSG_NXTHDR(&msg, cmptr))
-	    if (cmptr->cmsg_level == IPV6_LEVEL && cmptr->cmsg_type == daemon->v6pktinfo)
+	    if (cmptr->cmsg_level == IPPROTO_IPV6 && cmptr->cmsg_type == daemon->v6pktinfo)
 	      {
 		union {
 		  unsigned char *c;
@@ -760,15 +763,36 @@ void receive_query(struct listener *listen, time_t now)
       /* enforce available interface configuration */
       
       if (!indextoname(listen->fd, if_index, ifr.ifr_name) ||
-	  !iface_check(listen->family, &dst_addr, ifr.ifr_name, &if_index))
+	  !iface_check(listen->family, &dst_addr, ifr.ifr_name))
 	return;
       
-      if (listen->family == AF_INET &&
-	  option_bool(OPT_LOCALISE) &&
-	  ioctl(listen->fd, SIOCGIFNETMASK, &ifr) == -1)
-	return;
-      
-      netmask = ((struct sockaddr_in *) &ifr.ifr_addr)->sin_addr;
+      if (listen->family == AF_INET && option_bool(OPT_LOCALISE))
+	{
+	  struct irec *iface;
+	  
+	  /* get the netmask of the interface whch has the address we were sent to.
+	     This is no neccessarily the interface we arrived on. */
+	  
+	  for (iface = daemon->interfaces; iface; iface = iface->next)
+	    if (iface->addr.sa.sa_family == AF_INET &&
+		iface->addr.in.sin_addr.s_addr == dst_addr_4.s_addr)
+	      break;
+	  
+	  /* interface may be new */
+	  if (!iface)
+	    enumerate_interfaces(); 
+	  
+	  for (iface = daemon->interfaces; iface; iface = iface->next)
+	    if (iface->addr.sa.sa_family == AF_INET &&
+		iface->addr.in.sin_addr.s_addr == dst_addr_4.s_addr)
+	      break;
+	  
+	  /* If we failed, abandon localisation */
+	  if (iface)
+	    netmask = iface->netmask;
+	  else
+	    dst_addr_4.s_addr = 0;
+	}
     }
   
   if (extract_request(header, (size_t)n, daemon->namebuff, &type))

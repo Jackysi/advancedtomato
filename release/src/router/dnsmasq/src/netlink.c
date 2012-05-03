@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2011 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2012 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -33,6 +33,7 @@
 #ifndef NDA_RTA
 #  define NDA_RTA(r) ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ndmsg)))) 
 #endif 
+
 
 static struct iovec iov;
 static u32 netlink_pid;
@@ -127,13 +128,15 @@ static ssize_t netlink_recv(void)
 }
   
 
-/* family = AF_UNSPEC finds ARP table entries. */
+/* family = AF_UNSPEC finds ARP table entries.
+   family = AF_LOCAL finds MAC addresses. */
 int iface_enumerate(int family, void *parm, int (*callback)())
 {
   struct sockaddr_nl addr;
   struct nlmsghdr *h;
   ssize_t len;
   static unsigned int seq = 0;
+  int callback_ok = 1;
 
   struct {
     struct nlmsghdr nlh;
@@ -144,10 +147,16 @@ int iface_enumerate(int family, void *parm, int (*callback)())
   addr.nl_pad = 0;
   addr.nl_groups = 0;
   addr.nl_pid = 0; /* address to kernel */
+ 
+ again: 
+  if (family == AF_UNSPEC)
+    req.nlh.nlmsg_type = RTM_GETNEIGH;
+  else if (family == AF_LOCAL)
+    req.nlh.nlmsg_type = RTM_GETLINK;
+  else
+    req.nlh.nlmsg_type = RTM_GETADDR;
 
- again:
   req.nlh.nlmsg_len = sizeof(req);
-  req.nlh.nlmsg_type = family == AF_UNSPEC ? RTM_GETNEIGH : RTM_GETADDR;
   req.nlh.nlmsg_flags = NLM_F_ROOT | NLM_F_MATCH | NLM_F_REQUEST | NLM_F_ACK; 
   req.nlh.nlmsg_pid = 0;
   req.nlh.nlmsg_seq = ++seq;
@@ -178,8 +187,8 @@ int iface_enumerate(int family, void *parm, int (*callback)())
 	else if (h->nlmsg_type == NLMSG_ERROR)
 	  nl_err(h);
 	else if (h->nlmsg_type == NLMSG_DONE)
-	  return 1;
-	else if (h->nlmsg_type == RTM_NEWADDR && family != AF_UNSPEC)
+	  return callback_ok;
+	else if (h->nlmsg_type == RTM_NEWADDR && family != AF_UNSPEC && family != AF_LOCAL)
 	  {
 	    struct ifaddrmsg *ifa = NLMSG_DATA(h);  
 	    struct rtattr *rta = IFA_RTA(ifa);
@@ -205,9 +214,9 @@ int iface_enumerate(int family, void *parm, int (*callback)())
 			rta = RTA_NEXT(rta, len1);
 		      }
 		    
-		    if (addr.s_addr)
+		    if (addr.s_addr && callback_ok)
 		      if (!((*callback)(addr, ifa->ifa_index, netmask, broadcast, parm)))
-			return 0;
+			callback_ok = 0;
 		  }
 #ifdef HAVE_IPV6
 		else if (ifa->ifa_family == AF_INET6)
@@ -221,10 +230,10 @@ int iface_enumerate(int family, void *parm, int (*callback)())
 			rta = RTA_NEXT(rta, len1);
 		      }
 		    
-		    if (addrp)
-		      if (!((*callback)(addrp, ifa->ifa_index, 
-					ifa->ifa_index, ifa->ifa_flags & IFA_F_TENTATIVE, parm)))
-			return 0;
+		    if (addrp && callback_ok)
+		      if (!((*callback)(addrp, (int)(ifa->ifa_prefixlen), (int)(ifa->ifa_scope), 
+					(int)(ifa->ifa_index), (int)(ifa->ifa_flags & IFA_F_TENTATIVE), parm)))
+			callback_ok = 0;
 		  }
 #endif
 	      }
@@ -250,10 +259,35 @@ int iface_enumerate(int family, void *parm, int (*callback)())
 		rta = RTA_NEXT(rta, len1);
 	      }
 
-	    if (inaddr && mac)
+	    if (inaddr && mac && callback_ok)
 	      if (!((*callback)(neigh->ndm_family, inaddr, mac, maclen, parm)))
-		return 0;
-	  }	
+		callback_ok = 0;
+	  }
+#ifdef HAVE_DHCP6
+	else if (h->nlmsg_type == RTM_NEWLINK && family == AF_LOCAL)
+	  {
+	    struct ifinfomsg *link =  NLMSG_DATA(h);
+	    struct rtattr *rta = IFLA_RTA(link);
+	    unsigned int len1 = h->nlmsg_len - NLMSG_LENGTH(sizeof(*link));
+	    char *mac = NULL;
+	    size_t maclen = 0;
+
+	    while (RTA_OK(rta, len1))
+	      {
+		if (rta->rta_type == IFLA_ADDRESS)
+		  {
+		    maclen = rta->rta_len - sizeof(struct rtattr);
+		    mac = (char *)(rta+1);
+		  }
+		
+		rta = RTA_NEXT(rta, len1);
+	      }
+
+	    if (mac && callback_ok && !((link->ifi_flags & (IFF_LOOPBACK | IFF_POINTOPOINT))) && 
+		!((*callback)((int)link->ifi_index, (unsigned int)link->ifi_type, mac, maclen, parm)))
+	      callback_ok = 0;
+	  }
+#endif
     }
 }
 
@@ -307,6 +341,17 @@ static void nl_routechange(struct nlmsghdr *h)
       /* Force re-reading resolv file right now, for luck. */
       daemon->last_resolv = 0;
       
+#ifdef HAVE_DHCP6
+      /* force RAs to sync new network and pick up new interfaces.  */
+      if (daemon->ra_contexts)
+	{
+	  ra_start_unsolicted(dnsmasq_time());
+	  /* cause lease_update_file to run after we return, in case we were called from
+	     iface_enumerate and can't re-enter it now */
+	  send_alarm();
+	}
+#endif
+
       if (daemon->srv_save)
 	{
 	  if (daemon->srv_save->sfd)
