@@ -146,7 +146,6 @@ Captive Portal Copyright (C) 2011 Ofer Chen & Vicente Soriano<br>
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
-
 <!-- JYAVENARD-BEGIN -->
 <b>"JYAvenard" Features:</b><br>
 <!-- OPENVPN-BEGIN -->
@@ -159,7 +158,6 @@ Copyright (C) 2010-2011 Jean-Yves Avenard<br>
 <a href='mailto:jean-yves@avenard.org'>jean-yves@avenard.org</a><br>
 <br>
 <!-- JYAVENARD-END -->
-
 <b>"Teaman" Features:</b><br>
 - QOS-detailed & ctrate improved filters<br>
 - Per-IP bandwidth monitoring of LAN clients [cstats v2]<br>
@@ -188,6 +186,7 @@ Copyright (C) 2012 Tiomo<br>
 - 250 entry limit in Static DHCP  & Wireless Filter<br>
 - 500 entry limit in Access Restriction rules<br>
 - Up to 80 QOS rules<br>
+- IMQ based QOS/Bandwidth Limiter<br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>
 - GPT support for HDD by Yaniv Hamo<br>

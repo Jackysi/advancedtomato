@@ -1128,6 +1128,12 @@ static const nvset_t nvset_list[] = {
 	{ "ne_vbeta",			V_NUM				},
 	{ "ne_vgamma",			V_NUM				},
 
+// qos-bw-limiter
+	{ "qosl_enable",		V_01                   },
+	{ "qosl_rules",			V_LENGTH(0, 4096)      },
+	/*qosl_ibw unused - qos_ibw shared*/
+	/*qosl_obw unused - qos_obw shared*/
+
 //NoCatSplash. Victek.
 #ifdef TCONFIG_NOCAT
 	{ "NC_enable",			V_01				},
