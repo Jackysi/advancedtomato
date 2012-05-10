@@ -440,6 +440,8 @@ define BusyboxOptions
 	if [ "$(BBEXTRAS)" = "y" ]; then \
 		sed -i "/CONFIG_SENDMAIL/d" $(1); \
 		echo "CONFIG_SENDMAIL=y" >>$(1); \
+		sed -i "/CONFIG_WHOIS/d" $(1); \
+		echo "CONFIG_WHOIS=y" >>$(1); \
 		sed -i "/CONFIG_FEATURE_SORT_BIG/d" $(1); \
 		echo "CONFIG_FEATURE_SORT_BIG=y" >>$(1); \
 		sed -i "/CONFIG_CLEAR/d" $(1); \

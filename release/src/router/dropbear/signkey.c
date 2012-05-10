@@ -105,11 +105,11 @@ int buf_get_pub_key(buffer *buf, sign_key *key, int *type) {
 	m_free(ident);
 
 	if (*type != DROPBEAR_SIGNKEY_ANY && *type != keytype) {
-		TRACE(("buf_get_pub_key bad type - got %d, expected %d", keytype, type))
+		TRACE(("buf_get_pub_key bad type - got %d, expected %d", keytype, *type))
 		return DROPBEAR_FAILURE;
 	}
 	
-	TRACE(("buf_get_pub_key keytype is %d"))
+	TRACE(("buf_get_pub_key keytype is %d", keytype))
 
 	*type = keytype;
 
@@ -296,8 +296,7 @@ static char * sign_key_md5_fingerprint(unsigned char* keyblob,
 	/* skip the size int of the string - this is a bit messy */
 	md5_process(&hs, keyblob, keybloblen);
 
-	if (md5_done(&hs, hash) != CRYPT_OK)
-		return NULL;
+	md5_done(&hs, hash);
 
 	/* "md5 hexfingerprinthere\0", each hex digit is "AB:" etc */
 	buflen = 4 + 3*MD5_HASH_SIZE;

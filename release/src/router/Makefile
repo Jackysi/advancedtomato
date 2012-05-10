@@ -978,7 +978,7 @@ pptpd-install: pptpd
 	@$(STRIP) $(INSTALLDIR)/pptpd/usr/sbin/bcrelay
 	@$(STRIP) $(INSTALLDIR)/pptpd/usr/sbin/pptpctrl
 
-pptpd-clean: pptpd/stamp-h1
+pptpd-clean:
 	cd $(TOP)/pptpd && make clean && rm -rf stamp-h1 .deps
 
 pppd/Makefile: pppd/linux/Makefile.top
@@ -1549,7 +1549,7 @@ libevent: libevent/stamp-h1
 libevent-clean:
 	-@$(MAKE) -C libevent clean
 	@rm -f libevent/stamp-h1 libevent/Makefile
-	@rm -rt libevent/staged
+	@rm -rf libevent/staged
 
 libevent-install: libevent
 	install -d $(INSTALLDIR)/libevent/usr/lib
@@ -1792,7 +1792,7 @@ dnscrypt-install: dnscrypt
 	install -D dnscrypt/src/dnscrypt-proxy/dnscrypt-proxy $(INSTALLDIR)/dnscrypt/usr/sbin/dnscrypt-proxy
 	$(STRIP) -s $(INSTALLDIR)/dnscrypt/usr/sbin/dnscrypt-proxy
 
-dnscrypt-clean: dnscrypt/stamp-h1
+dnscrypt-clean:
 	-$(MAKE) -c dnscrypt clean
 	@rm -rf dnscrypt/stamp-h1 dnscrypt/src/dnscrypt-proxy/.deps dnscrypt/Makefile
 

@@ -57,11 +57,11 @@
 #define MAX_FMT 100
 
 static void generic_dropbear_exit(int exitcode, const char* format, 
-		va_list param);
+		va_list param) ATTRIB_NORETURN;
 static void generic_dropbear_log(int priority, const char* format, 
 		va_list param);
 
-void (*_dropbear_exit)(int exitcode, const char* format, va_list param) 
+void (*_dropbear_exit)(int exitcode, const char* format, va_list param) ATTRIB_NORETURN
 						= generic_dropbear_exit;
 void (*_dropbear_log)(int priority, const char* format, va_list param)
 						= generic_dropbear_log;
@@ -161,10 +161,12 @@ static void set_sock_priority(int sock) {
 	val = 1;
 	setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, (void*)&val, sizeof(val));
 
-	/* set the TOS bit. note that this will fail for ipv6, I can't find any
-	 * equivalent. */
+	/* set the TOS bit for either ipv4 or ipv6 */
 #ifdef IPTOS_LOWDELAY
 	val = IPTOS_LOWDELAY;
+#if defined(IPPROTO_IPV6) && defined(IPV6_TCLASS)
+	setsockopt(sock, IPPROTO_IPV6, IPV6_TCLASS, (void*)&val, sizeof(val));
+#endif
 	setsockopt(sock, IPPROTO_IP, IP_TOS, (void*)&val, sizeof(val));
 #endif
 
@@ -254,6 +256,16 @@ int dropbear_listen(const char* address, const char* port,
 		linger.l_linger = 5;
 		setsockopt(sock, SOL_SOCKET, SO_LINGER, (void*)&linger, sizeof(linger));
 
+#if defined(IPPROTO_IPV6) && defined(IPV6_V6ONLY)
+		if (res->ai_family == AF_INET6) {
+			int on = 1;
+			if (setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, 
+						&on, sizeof(on)) == -1) {
+				dropbear_log(LOG_WARNING, "Couldn't set IPV6_V6ONLY");
+			}
+		}
+#endif
+
 		set_sock_priority(sock);
 
 		if (bind(sock, res->ai_addr, res->ai_addrlen) < 0) {
@@ -311,6 +323,7 @@ int connect_unix(const char* path) {
 	}
 	if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
 		TRACE(("Failed to connect to '%s' socket", path))
+		m_close(fd);
 		return -1;
 	}
 	return fd;
@@ -787,12 +800,6 @@ void * m_strdup(const char * str) {
 	return ret;
 }
 
-void __m_free(void* ptr) {
-	if (ptr != NULL) {
-		free(ptr);
-	}
-}
-
 void * m_realloc(void* ptr, size_t size) {
 
 	void *ret;
@@ -817,7 +824,7 @@ void m_burn(void *data, unsigned int len) {
 	if (data == NULL)
 		return;
 	while (len--) {
-		*p++ = 0x66;
+		*p++ = 0x0;
 	}
 }
 

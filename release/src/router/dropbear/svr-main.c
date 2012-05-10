@@ -118,7 +118,6 @@ void main_noinetd() {
 	int childsock;
 	int childpipe[2];
 
-	memset(listensocks, 0, sizeof(listensocks));
 	/* Note: commonsetup() must happen before we daemon()ise. Otherwise
 	   daemon() will chdir("/"), and we won't be able to find local-dir
 	   hostkeys. */
@@ -371,6 +370,7 @@ static void commonsetup() {
 	/* catch and reap zombie children */
 	sa_chld.sa_handler = sigchld_handler;
 	sa_chld.sa_flags = SA_NOCLDSTOP;
+	sigemptyset(&sa_chld.sa_mask);
 	if (sigaction(SIGCHLD, &sa_chld, NULL) < 0) {
 		dropbear_exit("signal() error");
 	}
