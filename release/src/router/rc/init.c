@@ -988,7 +988,7 @@ static int init_nvram(void)
 	case MODEL_RTN15U:
 		mfr = "Asus";
 		name = "RT-N15U";
-		features = SUP_SES | SUP_80211N;
+		features = SUP_SES | SUP_80211N | SUP_1000ET;
 #ifdef TCONFIG_USB
 		nvram_set("usb_uhci", "-1");
 #endif
