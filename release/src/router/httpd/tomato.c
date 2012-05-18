@@ -1222,6 +1222,7 @@ static const nvset_t nvset_list[] = {
 	{ "NC_AllowedWebHosts",		V_LENGTH(0, 255)		},
 	{ "NC_MACWhiteList",		V_LENGTH(0, 255)		},
 	{ "NC_SplashFile",		V_LENGTH(0, 8192)		},
+	{ "NC_BridgeLAN",		V_LENGTH(0, 50)			},
 #endif
 
 #ifdef TCONFIG_OPENVPN

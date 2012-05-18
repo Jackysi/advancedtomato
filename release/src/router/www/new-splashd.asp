@@ -25,7 +25,7 @@ textarea {
 }
 </style>
 <script type='text/javascript'>
-//	<% nvram("NC_enable,NC_Verbosity,NC_GatewayName,NC_GatewayPort,NC_ForcedRedirect,NC_HomePage,NC_DocumentRoot,NC_LoginTimeout,NC_IdleTimeout,NC_MaxMissedARP,NC_ExcludePorts,NC_IncludePorts,NC_AllowedWebHosts,NC_MACWhiteList"); %>
+//	<% nvram("NC_enable,NC_Verbosity,NC_GatewayName,NC_GatewayPort,NC_ForcedRedirect,NC_HomePage,NC_DocumentRoot,NC_LoginTimeout,NC_IdleTimeout,NC_MaxMissedARP,NC_ExcludePorts,NC_IncludePorts,NC_AllowedWebHosts,NC_MACWhiteList,NC_BridgeLAN,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname"); %>
 function fix(name)
 {
  var i;
@@ -69,6 +69,17 @@ function verifyFields(focused, quiet)
 	E('_NC_IncludePorts').disabled = !a;
 	E('_NC_AllowedWebHosts').disabled = !a;
 	E('_NC_MACWhiteList').disabled = !a;
+	E('_NC_BridgeLAN').disabled = !a;
+
+	var bridge = E('_NC_BridgeLAN');
+	if(nvram.lan_ifname.length < 1)
+		bridge.options[0].disabled=true;
+	if(nvram.lan1_ifname.length < 1)
+		bridge.options[1].disabled=true;
+	if(nvram.lan2_ifname.length < 1)
+		bridge.options[2].disabled=true;
+	if(nvram.lan3_ifname.length < 1)
+		bridge.options[3].disabled=true;
 
 	if ( (E('_f_NC_ForcedRedirect').checked) && (!v_length('_NC_HomePage', quiet, 1, 255))) return 0;
 	if (!v_length('_NC_GatewayName', quiet, 1, 255)) return 0;	
@@ -131,6 +142,13 @@ function init()
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Enable Function', name: 'f_NC_enable', type: 'checkbox', value: nvram.NC_enable == '1' },
+	{ title: 'Interface', multi: [
+		{ name: 'NC_BridgeLAN', type: 'select', options: [
+			['br0','LAN (br0)*'],
+			['br1','LAN1 (br1)'],
+			['br2','LAN2 (br2)'],
+			['br3','LAN3 (br3)']
+			], value: nvram.NC_BridgeLAN, suffix: ' <small>* default</small> ' } ] },
 	{ title: 'Gateway Name', name: 'NC_GatewayName', type: 'text', maxlen: 255, size: 34, value: nvram.NC_GatewayName },
 	{ title: 'Captive Site Forwarding', name: 'f_NC_ForcedRedirect', type: 'checkbox', value: (nvram.NC_ForcedRedirect == '1') },
 	{ title: 'Home Page', name: 'NC_HomePage', type: 'text', maxlen: 255, size: 34, value: nvram.NC_HomePage },
@@ -163,6 +181,7 @@ createFieldTable('', [
 <b>Captive Portal. User Guide.</b><br>
 <br>
 <b>*- Enable function:</b> When you tick and save the router will show a Welcome Banner when a computer access the Internet.<br>
+<b>*- Interface:</b> Select one of the bridges on which Captive Portal will listen.<br>
 <b>*- Gateway name:</b> The name of the Gateway appearing in the welcome banner<br>
 <b>*- Captive Site Forwarding:</b> When active, the 'Home Page' (read next line) will appear after you Agree in Welcome Banner.<br>
 <b>*- Home page:</b> The URL that will appear after you Agree the Welcome Banner.<br>
