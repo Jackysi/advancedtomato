@@ -388,7 +388,6 @@ const aspapi_t aspapi[] = {
 	{ "rrule",				asp_rrule			},
 	{ "statfs",				asp_statfs			},
 	{ "sysinfo",			asp_sysinfo			},
-	{ "jiffies",			asp_jiffies			},
 	{ "time",				asp_time			},
 	{ "upnpinfo",			asp_upnpinfo		},
 	{ "version",			asp_version			},
