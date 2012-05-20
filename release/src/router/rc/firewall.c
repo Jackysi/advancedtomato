@@ -982,7 +982,6 @@ static void filter_input(void)
 	}
 #endif
 
-
 #ifdef TCONFIG_SNMP
 	if( nvram_match( "snmp_enable", "1" ) && nvram_match("snmp_remote", "1"))
 	{
@@ -993,7 +992,7 @@ static void filter_input(void)
 
 			if (ipt_source(p, s, "snmp", "remote")) {
 				ipt_write("-A INPUT -p udp %s --dport %s -j %s\n",
-						s, nvram_safe_get("snmp_port"), chain_in_accept);
+					s, nvram_safe_get("snmp_port"), chain_in_accept);
 			}
 
 			if (!c) break;
