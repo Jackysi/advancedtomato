@@ -443,10 +443,14 @@ typedef struct dot11_obss_chanlist dot11_obss_chanlist_t;
 BWL_PRE_PACKED_STRUCT struct dot11_extcap_ie {
 	uint8 id;
 	uint8 len;
-	uint8 cap;
+	uint8 cap[1];
 } BWL_POST_PACKED_STRUCT;
 typedef struct dot11_extcap_ie dot11_extcap_ie_t;
-#define DOT11_EXTCAP_LEN	1
+
+#define DOT11_EXTCAP_LEN_MAX	5
+#define DOT11_EXTCAP_LEN_COEX	1
+#define DOT11_EXTCAP_LEN_BT	4
+#define DOT11_EXTCAP_LEN_IW	4
 
 /* 802.11h/802.11k Measurement Request/Report IEs */
 /* Measurement Type field */
@@ -1104,10 +1108,23 @@ BWL_PRE_PACKED_STRUCT struct dot11_management_notification {
 #define	DOT11_MNG_EXT_CHANNEL_OFFSET		62	/* d11 mgmt ext channel offset */
 
 
+#define DOT11_MNG_TIME_ADVERTISE_ID	69	/* 11p time advertisement */
 #define DOT11_MNG_RRM_CAP_ID		70	/* 11k radio measurement capability */
 #define	DOT11_MNG_HT_BSS_COEXINFO_ID		72	/* d11 mgmt OBSS Coexistence INFO */
 #define	DOT11_MNG_HT_BSS_CHANNEL_REPORT_ID	73	/* d11 mgmt OBSS Intolerant Channel list */
 #define	DOT11_MNG_HT_OBSS_ID			74	/* d11 mgmt OBSS HT info */
+#define DOT11_MNG_TIME_ZONE_ID			98	/* 11v time zone */
+#define DOT11_MNG_LINK_IDENTIFIER_ID	101	/* 11z TDLS Link Identifier IE */
+#define DOT11_MNG_WAKEUP_SCHEDULE_ID	102 /* 11z TDLS Wakeup Schedule IE */
+#define DOT11_MNG_CHANNEL_SWITCH_TIMING_ID	104 /* 11z TDLS Channel Switch Timing IE */
+#define DOT11_MNG_PTI_CONTROL_ID		105	/* 11z TDLS PTI Control IE */
+#define DOT11_MNG_PU_BUFFER_STATUS_ID	106	/* 11z TDLS PU Buffer Status IE */
+#define DOT11_MNG_INTERWORKING_ID		107	/* 11u interworking */
+#define DOT11_MNG_ADVERTISEMENT_ID		108	/* 11u advertisement protocol */
+#define DOT11_MNG_EXP_BW_REQ_ID			109	/* 11u expedited bandwith request */
+#define DOT11_MNG_QOS_MAP_ID			110	/* 11u QoS map set */
+#define DOT11_MNG_ROAM_CONSORT_ID		111	/* 11u roaming consortium */
+#define DOT11_MNG_EMERGCY_ALERT_ID		112	/* 11u emergency alert identifier */
 #define	DOT11_MNG_EXT_CAP_ID		127	/* d11 mgmt ext capability */
 #define DOT11_MNG_WPA_ID			221	/* d11 management WPA id */
 #define DOT11_MNG_PROPR_ID			221	/* d11 management proprietary id */
@@ -1147,8 +1164,13 @@ BWL_PRE_PACKED_STRUCT struct dot11_management_notification {
 #define DOT11_CAP_RRM			0x1000	/* d11 cap. 11k radio measurement */
 #define DOT11_CAP_CCK_OFDM			0x2000	/* d11 cap. CCK/OFDM */
 
-/* Extended Capability Information Field */
-#define DOT11_OBSS_COEX_MNG_SUPPORT	0x01	/* 20/40 BSS Coexistence Management support */
+/* Extended capabilities IE bitfields */
+/* 20/40 BSS Coexistence Management support bit position */
+#define DOT11_EXT_CAP_OBSS_COEX_MGMT		0
+/* BSS Transition Management support bit position */
+#define DOT11_EXT_CAP_BSS_TRANSITION_MGMT	19
+/* Interworking support bit position */
+#define DOT11_EXT_CAP_IW						31
 
 /*
  * Action Frame Constants
@@ -1416,17 +1438,6 @@ typedef struct dot11_rrm_cap_ie dot11_rrm_cap_ie_t;
 #define DOT11_RRM_CAP_BCN_REP_COND	7
 #define DOT11_RRM_CAP_AP_CHANREP	16
 
-
-/* Extended capabilities IE */
-
-#define DOT11_EXT_CAP_LEN		4	/* length of ext cap bitmap */
-BWL_PRE_PACKED_STRUCT struct dot11_ext_cap_ie {
-	uint8 cap[DOT11_EXT_CAP_LEN];
-} BWL_POST_PACKED_STRUCT;
-typedef struct dot11_ext_cap_ie dot11_ext_cap_ie_t;
-
-/* Extended capabilities IE bitfields */
-#define DOT11_EXT_CAP_BSS_TRANSITION_MGMT	19
 
 /* Operating Class (formerly "Regulatory Class") definitions */
 #define DOT11_OP_CLASS_NONE			255

@@ -17,7 +17,6 @@
 #define _etc_h_
 
 #include <etioctl.h>
-#include <proto/802.1d.h>
 
 #define	MAXMULTILIST	32
 
@@ -194,7 +193,7 @@ etc_up2tc(uint32 up)
 {
 	extern uint32 up2tc[];
 
-	return (up2tc[(up) & MAXPRIO]);
+	return (up2tc[up]);
 }
 
 static inline uint32

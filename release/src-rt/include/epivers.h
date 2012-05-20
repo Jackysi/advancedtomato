@@ -26,21 +26,21 @@
 
 #define	EPI_RC_NUMBER		138
 
-#define	EPI_INCREMENTAL_NUMBER	9
+#define	EPI_INCREMENTAL_NUMBER	20
 
 #define	EPI_BUILD_NUMBER	0
 
-#define	EPI_VERSION		5, 100, 138, 9
+#define	EPI_VERSION		5, 100, 138, 20
 
-#define	EPI_VERSION_NUM		0x05648a09
+#define	EPI_VERSION_NUM		0x05648a89 //0x05648a14
 
 #define EPI_VERSION_DEV		5.100.138
 
 /* Driver Version String, ASCII, 32 chars max */
 #ifdef WLTEST
-#define	EPI_VERSION_STR		"5.100.138.9 (WLTEST)"
+#define	EPI_VERSION_STR		"5.100.138.20 (WLTEST)"
 #else
-#define	EPI_VERSION_STR		"5.100.138.9"
+#define	EPI_VERSION_STR		"5.100.138.20"
 #endif
 
 #endif /* _epivers_h_ */

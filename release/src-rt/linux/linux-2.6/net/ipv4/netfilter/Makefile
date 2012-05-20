@@ -89,3 +89,5 @@ obj-$(CONFIG_BCM_NAT) += bcm_nat.o
 
 obj-$(CONFIG_IP_NF_TOMATOCT) += tomato_ct.o
 
+# DNSMQ
+obj-$(CONFIG_IP_NF_DNSMQ) += dnsmq.o

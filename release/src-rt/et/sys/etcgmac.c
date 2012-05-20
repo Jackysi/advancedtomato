@@ -225,6 +225,7 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 		ET_ERROR(("et%d: chipattach: getvar(%s) not found\n", etc->unit, name));
 		goto fail;
 	}
+ET_TRACE(("et get local ether addr: %s = %s\n", name, var));//Yau
 	bcm_ether_atoe(var, &etc->perm_etheraddr);
 
 	if (ETHER_ISNULLADDR(&etc->perm_etheraddr)) {
@@ -245,6 +246,7 @@ chipattach(etc_info_t *etc, void *osh, void *regsva)
 		ET_ERROR(("et%d: chipattach: getvar(%s) not found\n", etc->unit, name));
 		goto fail;
 	}
+ET_TRACE(("et get phyaddr:: %s = %s\n", name, var));//Yau
 	etc->phyaddr = bcm_atoi(var) & EPHY_MASK;
 
 	/* nvram says no phy is present */
@@ -1045,11 +1047,12 @@ gmac_mf_add(ch_t *ch, struct ether_addr *mcaddr)
 {
 	uint32 hash;
 	mflist_t *entry;
+#ifdef BCMDBG
+	char mac[ETHER_ADDR_STR_LEN];
+#endif /* BCMDBG */
 
 	/* add multicast addresses only */
 	if (!ETHER_ISMULTI(mcaddr)) {
-		char mac[ETHER_ADDR_STR_LEN];
-
 		ET_ERROR(("et%d: adding invalid multicast address %s\n",
 		          ch->etc->unit, bcm_ether_ntoa(mcaddr, mac)));
 		return (FAILURE);
