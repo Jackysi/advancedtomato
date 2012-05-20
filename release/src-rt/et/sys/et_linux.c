@@ -36,7 +36,6 @@
 #ifdef SIOCETHTOOL
 #include <linux/ethtool.h>
 #endif /* SIOCETHTOOL */
-#include <linux/mii.h>
 #include <linux/ip.h>
 #include <linux/if_vlan.h>
 
@@ -207,9 +206,6 @@ static void et_sendup(et_info_t *et, struct sk_buff *skb);
 #ifdef BCMDBG
 static void et_dumpet(et_info_t *et, struct bcmstrbuf *b);
 #endif /* BCMDBG */
-#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
-static void et_poll_controller(struct net_device *dev);
-#endif
 
 /* recognized PCI IDs */
 static struct pci_device_id et_id_table[] __devinitdata = {
@@ -517,10 +513,6 @@ et_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	dev->poll = et_poll;
 	dev->weight = (ET_GMAC(et->etc) ? 64 : 32);
 #endif /* BCM_NAPI */
-
-#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
-	dev->poll_controller = et_poll_controller;
-#endif
 
 	if (register_netdev(dev)) {
 		ET_ERROR(("et%d: register_netdev() failed\n", unit));
@@ -851,6 +843,7 @@ et_start(struct sk_buff *skb, struct net_device *dev)
 
 	ET_TRACE(("et%d: et_start: len %d\n", et->etc->unit, skb->len));
 	ET_LOG("et%d: et_start: len %d", et->etc->unit, skb->len);
+
 
 	/* put it on the tx queue and call sendnext */
 	ET_TXQ_LOCK(et);
@@ -1192,7 +1185,6 @@ et_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 	bool get = 0, set;
 	et_var_t *var = NULL;
 	void *buffer = NULL;
-	struct mii_ioctl_data *data = (struct mii_ioctl_data *)&ifr->ifr_data;
 
 	et = ET_INFO(dev);
 
@@ -1231,14 +1223,6 @@ et_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 		size = sizeof(et_var_t);
 		set = TRUE;
 		break;
-	case SIOCGMIIPHY:
-		data->phy_id = et->etc->phyaddr;
-	case SIOCGMIIREG:
-		data->val_out = (*et->etc->chops->phyrd)(et->etc->ch, data->phy_id, data->reg_num);
-		return 0;
-	case SIOCSMIIREG:
-		(*et->etc->chops->phywr)(et->etc->ch, data->phy_id, data->reg_num, data->val_in);
-		return 0;
 	default:
 		size = sizeof(int);
 		get = FALSE; set = TRUE;
@@ -1688,9 +1672,19 @@ et_error(et_info_t *et, struct sk_buff *skb, void *rxh)
 	}
 }
 
+#ifdef CONFIG_IP_NF_DNSMQ
+typedef int (*dnsmqHitHook)(struct sk_buff *skb);
+extern dnsmqHitHook dnsmq_hit_hook;
+#endif
+
 static inline int32
 et_ctf_forward(et_info_t *et, struct sk_buff *skb)
 {
+#ifdef CONFIG_IP_NF_DNSMQ
+	if(dnsmq_hit_hook&&dnsmq_hit_hook(skb)) 
+		return (BCME_ERROR);
+#endif
+
 #ifdef HNDCTF
 	/* use slow path if ctf is disabled */
 	if (!CTF_ENAB(et->cih))
@@ -1718,6 +1712,7 @@ et_ctf_forward(et_info_t *et, struct sk_buff *skb)
 
 	return (BCME_ERROR);
 }
+
 
 void BCMFASTPATH
 et_sendup(et_info_t *et, struct sk_buff *skb)
@@ -1755,26 +1750,6 @@ et_sendup(et_info_t *et, struct sk_buff *skb)
 	/* check for reported frame errors */
 	if (flags)
 		goto err;
-
-	/* check for invalid data on the unit 1, workaround hw bug */
-	if (etc->chip == BCM4710_CHIP_ID && etc->unit == 1) 
-	{
-		uint8 *ether_dhost = ((struct ether_header*)skb->data)->ether_dhost;
-		if (	!(flags & (RXF_MULT | RXF_BRDCAST)) != !ETHER_ISMULTI(ether_dhost) ||
-			!(flags & RXF_BRDCAST) != !ETHER_ISBCAST(ether_dhost) ||
-			((flags & (RXF_MULT | RXF_BRDCAST | RXF_MISS)) == 0 &&
-				ether_cmp(ether_dhost, &etc->cur_etheraddr)))
-		{
-			uchar eabuf[32];
-			bcm_ether_ntoa((struct ether_addr*)ether_dhost, eabuf);
-			ET_ERROR(("et%d: rx: bad dest address %s [%c%c%c]\n", 
-				etc->unit, eabuf, (flags & RXF_MULT) ? 'M' : ' ', 
-				(flags & RXF_BRDCAST) ? 'B' : ' ', (flags & RXF_MISS) ? 'P' : ' '));
-			/* schedule reset */
-			et->events |= INTR_ERROR;
-			goto err;
-		}
-	}
 
 	skb->dev = et->dev;
 
@@ -1910,19 +1885,3 @@ et_phywr(et_info_t *et, uint phyaddr, uint reg, uint16 val)
 	et->etc->chops->phywr(et->etc->ch, phyaddr, reg, val);
 	ET_UNLOCK(et);
 }
-
-#if defined(HAVE_POLL_CONTROLLER) || defined(CONFIG_NET_POLL_CONTROLLER)
-static void
-et_poll_controller(struct net_device *dev)
-{
-	et_info_t *et = ET_INFO(dev);
-
-	disable_irq(et->pdev->irq);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 20)
-	et_isr(et->pdev->irq, et);
-#else
-	et_isr(et->pdev->irq, et, NULL);
-#endif
-	enable_irq(et->pdev->irq);
-}
-#endif
