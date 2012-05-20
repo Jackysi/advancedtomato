@@ -1796,6 +1796,24 @@ dnscrypt-clean:
 	-$(MAKE) -c dnscrypt clean
 	@rm -rf dnscrypt/stamp-h1 dnscrypt/src/dnscrypt-proxy/.deps dnscrypt/Makefile
 
+tor/stamp-h1: openssl zlib libevent
+	cd $(TOP)/tor && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
+	$(CONFIGURE) --prefix=/usr --with-libevent-dir=$(TOP)/libevent/staged/usr/local \
+		--with-openssl-dir=$(TOP)/openssl --with-zlib-dir=$(TOP)/zlib
+	touch tor/stamp-h1
+
+tor: tor/stamp-h1
+
+tor-install: tor
+	install -D tor/src/or/tor $(INSTALLDIR)/tor/usr/sbin/tor
+	$(STRIP) -s $(INSTALLDIR)/tor/usr/sbin/tor
+
+tor-clean:
+	-$(MAKE) -c tor clean
+	@rm -rf tor/stamp-h1 tor/Makefile
+
 #
 # Generic rules
 #

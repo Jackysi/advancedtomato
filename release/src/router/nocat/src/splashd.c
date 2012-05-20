@@ -237,7 +237,6 @@ void g_syslog (const gchar *log_domain, GLogLevelFlags log_level,
 	       const gchar *message, gpointer user_data) {
 
     int priority;
-
     switch (log_level & G_LOG_LEVEL_MASK) {
 	case G_LOG_LEVEL_ERROR:	    priority = LOG_ERR;	    break;
 	case G_LOG_LEVEL_CRITICAL:  priority = LOG_CRIT;    break;
@@ -248,9 +247,7 @@ void g_syslog (const gchar *log_domain, GLogLevelFlags log_level,
 	default:		    priority = LOG_DEBUG;   break;
 				
     }
-
-    syslog( priority | LOG_DAEMON, message );
-
+    syslog( priority | LOG_DAEMON, "%s", message );
     if (log_level & G_LOG_FLAG_FATAL)
 	exit_signal = -1;
 }
@@ -324,8 +321,6 @@ int main (int argc, char **argv) {
     g_main_run( loop );
     if (CONFd("Verbosity") >= 3) g_message("exiting main loop");
     
-    fw_uninit( nocat_conf );
-
     g_message("splashd exit");
     
     g_log_remove_handler( NULL, log_hndl );
