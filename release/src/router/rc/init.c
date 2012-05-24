@@ -409,6 +409,10 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan1ports", "4 3 2 1 8*");
 		dirty |= check_nv("vlan2ports", "0 8");
 		break;
+	case MODEL_RTN53:
+		dirty |= check_nv("vlan2ports", "0 1 2 3 5*");
+		dirty |= check_nv("vlan1ports", "4 5");
+		break;
 	case MODEL_WNR2000v2:
 		dirty |= check_nv("vlan1ports", "4 3 2 1 5*");
 		dirty |= check_nv("vlan2ports", "0 5");
@@ -1013,6 +1017,18 @@ static int init_nvram(void)
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");
 			nvram_set("vlan_enable", "1");
+		}
+		break;
+	case MODEL_RTN53:
+		mfr = "Asus";
+		name = "RT-N53";
+		features = SUP_SES | SUP_80211N;
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan2 eth1");
+			nvram_set("wan_ifnameX", "vlan1");
+			nvram_set("landevs", "vlan2 wl0");
+			nvram_set("wandevs", "vlan1");
+			nvram_unset("vlan0ports");
 		}
 		break;
 	case MODEL_RTN66U:
