@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FileOutlineController.h 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: FileOutlineController.h 13296 2012-05-14 00:00:19Z livings124 $
  *
  * Copyright (c) 2008-2012 Transmission authors and contributors
  *
@@ -47,6 +47,8 @@
 
 - (void) setCheck: (id) sender;
 - (void) setOnlySelectedCheck: (id) sender;
+- (void) checkAll;
+- (void) uncheckAll;
 - (void) setPriority: (id) sender;
 
 - (void) revealFile: (id) sender;

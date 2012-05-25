@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: announcer.c 13155 2012-01-11 22:31:02Z livings124 $
+ * $Id: announcer.c 13300 2012-05-17 17:40:31Z jordan $
  */
 
 #include <assert.h>
@@ -753,6 +753,7 @@ dbgmsg_tier_announce_queue( const tr_tier * tier )
     {
         int i;
         char name[128];
+        char * message;
         struct evbuffer * buf = evbuffer_new( );
 
         tier_build_log_name( tier, name, sizeof( name ) );
@@ -763,8 +764,9 @@ dbgmsg_tier_announce_queue( const tr_tier * tier )
             evbuffer_add_printf( buf, "[%d:%s]", i, str );
         }
 
-        tr_deepLog( __FILE__, __LINE__, name, "announce queue is %s", evbuffer_pullup( buf, -1 ) );
-        evbuffer_free( buf );
+        message = evbuffer_free_to_str( buf );
+        tr_deepLog( __FILE__, __LINE__, name, "announce queue is %s", message );
+        tr_free( message );
     }
 }
 

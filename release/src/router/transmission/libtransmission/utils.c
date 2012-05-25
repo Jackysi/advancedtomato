@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: utils.c 13191 2012-02-03 16:44:07Z jordan $
+ * $Id: utils.c 13301 2012-05-17 22:22:30Z jordan $
  */
 
 #ifdef HAVE_MEMMEM
@@ -231,6 +231,7 @@ tr_deepLog( const char  * file,
         char              timestr[64];
         struct evbuffer * buf = evbuffer_new( );
         char *            base = tr_basename( file );
+        char *            message;
 
         evbuffer_add_printf( buf, "[%s] ",
                             tr_getLogTimeStr( timestr, sizeof( timestr ) ) );
@@ -241,12 +242,13 @@ tr_deepLog( const char  * file,
         va_end( args );
         evbuffer_add_printf( buf, " (%s:%d)\n", base, line );
         /* FIXME(libevent2) ifdef this out for nonwindows platforms */
-        OutputDebugString( evbuffer_pullup( buf, -1 ) );
+        message = evbuffer_free_to_str( buf );
+        OutputDebugString( message );
         if( fp )
-            fputs( (const char*)evbuffer_pullup( buf, -1 ), fp );
+            fputs( message, fp );
 
+        tr_free( message );
         tr_free( base );
-        evbuffer_free( buf );
     }
 }
 

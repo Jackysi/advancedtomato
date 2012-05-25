@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoFileViewController.h 13162 2012-01-14 17:12:04Z livings124 $
+ * $Id: InfoFileViewController.h 13296 2012-05-14 00:00:19Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -37,6 +37,7 @@
     IBOutlet FileOutlineController * fFileController;
     
     IBOutlet NSSearchField * fFileFilterField;
+    IBOutlet NSButton * fCheckAllButton, *fUncheckAllButton;
 }
 
 - (void) setInfoForTorrents: (NSArray *) torrents;
@@ -44,7 +45,9 @@
 
 - (void) saveViewSize;
 
-- (void) setFileFilterText: (id) sender;
+- (IBAction) setFileFilterText: (id) sender;
+- (IBAction) checkAll: (id) sender;
+- (IBAction) uncheckAll: (id) sender;
 
 - (NSArray *) quickLookURLs;
 - (BOOL) canQuickLook;

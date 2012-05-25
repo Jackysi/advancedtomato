@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: tr-icon.c 12648 2011-08-08 16:02:37Z jordan $
+ * $Id: tr-icon.c 13286 2012-04-16 18:42:26Z jordan $
  */
 
 #include <glib/gi18n.h>
@@ -143,6 +143,7 @@ gtr_icon_new( TrCore * core)
     app_indicator_set_status( indicator, APP_INDICATOR_STATUS_ACTIVE );
     w = gtr_action_get_widget( "/icon-popup" );
     app_indicator_set_menu( indicator, GTK_MENU ( w ) );
+    app_indicator_set_title( indicator, g_get_application_name( ) );
     g_object_set_qdata( G_OBJECT( indicator ), get_core_quark( ), core );
     return indicator;
 #else

@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoFileViewController.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: InfoFileViewController.m 13298 2012-05-14 00:27:40Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -59,6 +59,29 @@
     }
     
     [[fFileFilterField cell] setPlaceholderString: NSLocalizedString(@"Filter", "inspector -> file filter")];
+    
+    //localize and place all and none buttons
+    [fCheckAllButton setTitle: NSLocalizedString(@"All", "inspector -> check all")];
+    [fUncheckAllButton setTitle: NSLocalizedString(@"None", "inspector -> check all")];
+    
+    NSRect checkAllFrame = [fCheckAllButton frame];
+    NSRect uncheckAllFrame = [fUncheckAllButton frame];
+    const CGFloat oldAllWidth = checkAllFrame.size.width;
+    const CGFloat oldNoneWidth = uncheckAllFrame.size.width;
+    
+    [fCheckAllButton sizeToFit];
+    [fUncheckAllButton sizeToFit];
+    const CGFloat newWidth = MAX([fCheckAllButton bounds].size.width, [fUncheckAllButton bounds].size.width);
+    
+    const CGFloat uncheckAllChange = newWidth - oldNoneWidth;
+    uncheckAllFrame.size.width = newWidth;
+    uncheckAllFrame.origin.x -= uncheckAllChange;
+    [fUncheckAllButton setFrame: uncheckAllFrame];
+    
+    const CGFloat checkAllChange = newWidth - oldAllWidth;
+    checkAllFrame.size.width = newWidth;
+    checkAllFrame.origin.x -= (checkAllChange + uncheckAllChange);
+    [fCheckAllButton setFrame: checkAllFrame];
 }
 
 - (void) dealloc
@@ -83,7 +106,17 @@
         [self setupInfo];
     
     if ([fTorrents count] == 1)
+    {
         [fFileController refresh];
+        
+        Torrent * torrent = [fTorrents objectAtIndex: 0];
+        if ([torrent isFolder])
+        {
+            const NSInteger filesCheckState = [torrent checkForFiles: [NSIndexSet indexSetWithIndexesInRange: NSMakeRange(0, [torrent fileCount])]];
+            [fCheckAllButton setEnabled: filesCheckState != NSOnState]; //if anything is unchecked
+            [fUncheckAllButton setEnabled: ![torrent allDownloaded]]; //if there are any checked files that aren't finished
+        }
+    }
 }
 
 - (void) saveViewSize
@@ -94,6 +127,16 @@
 - (void) setFileFilterText: (id) sender
 {
     [fFileController setFilterText: [sender stringValue]];
+}
+
+- (IBAction) checkAll: (id) sender
+{
+    [fFileController checkAll];
+}
+
+- (IBAction) uncheckAll: (id) sender
+{
+    [fFileController uncheckAll];
 }
 
 - (NSArray *) quickLookURLs
@@ -173,12 +216,24 @@
         Torrent * torrent = [fTorrents objectAtIndex: 0];
         
         [fFileController setTorrent: torrent];
-        [fFileFilterField setEnabled: [torrent isFolder]];
+        
+        const BOOL isFolder = [torrent isFolder];
+        [fFileFilterField setEnabled: isFolder];
+        
+        if (!isFolder)
+        {
+            [fCheckAllButton setEnabled: NO];
+            [fUncheckAllButton setEnabled: NO];
+        }
     }
     else
     {
         [fFileController setTorrent: nil];
+        
         [fFileFilterField setEnabled: NO];
+        
+        [fCheckAllButton setEnabled: NO];
+        [fUncheckAllButton setEnabled: NO];
     }
     
     fSet = YES;
