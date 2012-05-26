@@ -2393,6 +2393,7 @@ function navi()
 			['DMZ',				'dmz.asp'],
 			['Triggered',			'triggered.asp'],
 			['UPnP/NAT-PMP',		'upnp.asp'] ] ],
+		['Access Restriction',		'restrict.asp'],
 		['QoS',				'qos', 0, [
 			['Basic Settings',		'settings.asp'],
 			['Classification',		'classify.asp'],
@@ -2400,11 +2401,11 @@ function navi()
 			['View Details',		'detailed.asp'],
 			['Transfer Rates',		'ctrate.asp']
 			] ],
-		['Bandwidth Limiter',		'new-qoslimit.asp'],
+		['Bandwidth Limiter',		'qoslimit.asp'],
+		null,
 /* NOCAT-BEGIN */
-		['Captive Portal',		'new-splashd.asp'],
+		['Captive Portal',		'splashd.asp'],
 /* NOCAT-END */
-		['Access Restriction',		'restrict.asp'],
 /* REMOVE-BEGIN
 		['Scripts',				'sc', 0, [
 			['Startup',		'startup.asp'],

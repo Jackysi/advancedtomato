@@ -14,7 +14,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] New: Captive Portal</title>
+<title>[<% ident(); %>] Captive Portal</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='<% nv('web_css'); %>.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -135,7 +135,7 @@ function init()
 <div class='section-title'>Captive Portal Management</div>
 <div class='section' id='config-section'>
 <form id='_fom' method='post' action='tomato.cgi'>
-<input type='hidden' name='_nextpage' value='new-splashd.asp'>
+<input type='hidden' name='_nextpage' value='splashd.asp'>
 <input type='hidden' name='_service' value='splashd-restart'>
 <input type='hidden' name='NC_enable'>
 <input type='hidden' name='NC_ForcedRedirect'>
