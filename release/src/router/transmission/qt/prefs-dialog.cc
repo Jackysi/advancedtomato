@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: prefs-dialog.cc 12697 2011-08-20 05:19:27Z jordan $
+ * $Id: prefs-dialog.cc 13295 2012-05-09 17:37:14Z jordan $
  */
 
 #include <cassert>
@@ -235,7 +235,7 @@ PrefsDialog :: createSpeedTab( )
     label->setPixmap( QPixmap( QString::fromAscii( ":/icons/alt-limit-off.png" ) ) );
     label->setAlignment( Qt::AlignLeft|Qt::AlignVCenter );
     h->addWidget( label );
-    label = new QLabel( tr( "Temporary Speed Limits" ) );
+    label = new QLabel( tr( "Alternative Speed Limits" ) );
     label->setStyleSheet( QString::fromAscii( "font: bold" ) );
     label->setAlignment( Qt::AlignLeft|Qt::AlignVCenter );
     h->addWidget( label );

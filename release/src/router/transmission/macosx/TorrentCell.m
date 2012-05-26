@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: TorrentCell.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: TorrentCell.m 13285 2012-04-14 03:07:06Z livings124 $
  *
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -539,6 +539,7 @@
     cellFrame.origin.x += PADDING_EXPANSION_FRAME;
     cellFrame.origin.y += PADDING_EXPANSION_FRAME;
     
+    [fTitleAttributes setObject: [NSColor controlTextColor] forKey: NSForegroundColorAttributeName];
     NSAttributedString * titleString = [self attributedTitle];
     [titleString drawInRect: cellFrame];
 }

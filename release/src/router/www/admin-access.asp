@@ -285,7 +285,11 @@ var m = [
 	{ title: 'Allow Wireless Access', name: 'f_http_wireless', type: 'checkbox', value:  nvram.web_wl_filter == 0 },
 	null,
 	{ title: 'Color Scheme', name: 'web_css', type: 'select',
-		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],['asus','Asus RT-N16'],['usbred','USB Red'],['usbblue','USB Blue'],['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css },
+		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],
+	/* THEMES-BEGIN */
+		['asus','Asus RT-N16'],['rtn66u','Asus RT-N66U'],
+	/* THEMES-END */
+		['usbred','USB Red'],['usbblue','USB Blue'],['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css },
 	{ title: 'Open Menus' }
 ];
 

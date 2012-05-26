@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoActivityViewController.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: InfoActivityViewController.m 13288 2012-04-17 10:59:59Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -142,6 +142,9 @@
         
         [fDateCompletedField setObjectValue: [torrent dateCompleted]];
         
+        //uses a relative date, so can't be set once
+        [fDateAddedField setObjectValue: [torrent dateAdded]];
+        
         [fDownloadTimeField setStringValue: [NSString timeString: [torrent secondsDownloading] showSeconds: YES]];
         [fSeedTimeField setStringValue: [NSString timeString: [torrent secondsSeeding] showSeconds: YES]];
         
@@ -181,17 +184,18 @@
             [fDownloadedTotalField setStringValue: @""];
             [fUploadedTotalField setStringValue: @""];
             [fFailedHashField setStringValue: @""];
-            [fDateActivityField setStringValue: @""];
+            [fDateActivityField setObjectValue: @""]; //using [field setStringValue: @""] causes "December 31, 1969 7:00 PM" to be displayed, at least on 10.7.3
             [fRatioField setStringValue: @""];
         }
-    
+        
         [fStateField setStringValue: @""];
         [fProgressField setStringValue: @""];
         
         [fErrorMessageView setString: @""];
         
-        [fDateAddedField setStringValue: @""];
-        [fDateCompletedField setStringValue: @""];
+        //using [field setStringValue: @""] causes "December 31, 1969 7:00 PM" to be displayed, at least on 10.7.3
+        [fDateAddedField setObjectValue: @""];
+        [fDateCompletedField setObjectValue: @""];
         
         [fDownloadTimeField setStringValue: @""];
         [fSeedTimeField setStringValue: @""];
@@ -204,8 +208,6 @@
     else
     {
         Torrent * torrent = [fTorrents objectAtIndex: 0];
-        
-        [fDateAddedField setObjectValue: [torrent dateAdded]];
         
         const BOOL piecesAvailableSegment = [[NSUserDefaults standardUserDefaults] boolForKey: @"PiecesViewShowAvailability"];
         [fPiecesControl setSelected: piecesAvailableSegment forSegment: PIECES_CONTROL_AVAILABLE];

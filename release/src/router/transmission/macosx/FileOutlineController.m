@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FileOutlineController.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: FileOutlineController.m 13296 2012-05-14 00:00:19Z livings124 $
  *
  * Copyright (c) 2008-2012 Transmission authors and contributors
  *
@@ -375,6 +375,20 @@ typedef enum
     [remainingItemIndexes removeIndexes: itemIndexes];
     [fTorrent setFileCheckState: NSOffState forIndexes: remainingItemIndexes];
     
+    [fOutline setNeedsDisplay: YES];
+}
+
+- (void) checkAll
+{
+    NSIndexSet * indexSet = [NSIndexSet indexSetWithIndexesInRange: NSMakeRange(0, [fTorrent fileCount])];
+    [fTorrent setFileCheckState: NSOnState forIndexes: indexSet];
+    [fOutline setNeedsDisplay: YES];
+}
+
+- (void) uncheckAll
+{
+    NSIndexSet * indexSet = [NSIndexSet indexSetWithIndexesInRange: NSMakeRange(0, [fTorrent fileCount])];
+    [fTorrent setFileCheckState: NSOffState forIndexes: indexSet];
     [fOutline setNeedsDisplay: YES];
 }
 

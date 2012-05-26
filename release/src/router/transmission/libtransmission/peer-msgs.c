@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-msgs.c 13154 2012-01-10 19:18:18Z jordan $
+ * $Id: peer-msgs.c 13300 2012-05-17 17:40:31Z jordan $
  */
 
 #include <assert.h>
@@ -239,6 +239,7 @@ myDebug( const char * file, int line,
         char              timestr[64];
         struct evbuffer * buf = evbuffer_new( );
         char *            base = tr_basename( file );
+        char *            message;
 
         evbuffer_add_printf( buf, "[%s] %s - %s [%s]: ",
                              tr_getLogTimeStr( timestr, sizeof( timestr ) ),
@@ -249,10 +250,12 @@ myDebug( const char * file, int line,
         evbuffer_add_vprintf( buf, fmt, args );
         va_end( args );
         evbuffer_add_printf( buf, " (%s:%d)\n", base, line );
-        fputs( (const char*)evbuffer_pullup( buf, -1 ), fp );
+
+        message = evbuffer_free_to_str( buf );
+        fputs( message, fp );
 
         tr_free( base );
-        evbuffer_free( buf );
+        tr_free( message );
     }
 }
 

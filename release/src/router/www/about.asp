@@ -88,7 +88,7 @@ function init()
 <div style='float:right;margin:20px 20px;text-align:center'>
 <img src='tux.png' alt='Linux &amp; Tomato' id='tux'>
 </div>
-<div style='margin:20px 20px;font-size:14px;color:#555;'>
+<div class='about'>
 <b>Tomato Firmware <% version(1); %></b><br>
 
 <!-- USB-BEGIN -->
@@ -114,7 +114,7 @@ Copyright (C) 2010 Keith Moyer,<br>
 
 <b>"Shibby" features:</b><br>
 <!-- BBT-BEGIN -->
-- Transmission 2.51 integration<br>
+- Transmission 2.52 integration<br>
 <!-- BBT-END -->
 <!-- BT-BEGIN -->
 - GUI for Transmission<br>

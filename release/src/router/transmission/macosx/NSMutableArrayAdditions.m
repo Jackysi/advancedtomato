@@ -26,6 +26,11 @@
 
 @implementation NSMutableArray (NSMutableArrayAdditions)
 
+/*
+ Note: This assumes Apple implemented this as an array under the hood.
+ If the underlying data structure is a linked-list, for example, then this might be less
+ efficient than simply removing the object and re-adding it.
+ */
 - (void) moveObjectAtIndex: (NSUInteger) fromIndex toIndex: (NSUInteger) toIndex
 {
     if (fromIndex == toIndex)
