@@ -2094,8 +2094,13 @@ void start_services(void)
 	start_snmp();
 #endif
 
+
 #ifdef TCONFIG_BT
 	start_bittorrent();
+#endif
+
+#ifdef TCONFIG_NOCAT
+	start_splashd();
 #endif
 
 #ifdef TCONFIG_NFS
@@ -2109,6 +2114,10 @@ void stop_services(void)
 
 #ifdef TCONFIG_BT
 	stop_bittorrent();
+#endif
+
+#ifdef TCONFIG_NOCAT
+	stop_splashd();
 #endif
 
 #ifdef TCONFIG_SNMP
@@ -2248,13 +2257,19 @@ TOP:
 	}
 
 	if (strcmp(service, "qoslimit") == 0) {
-	if (action & A_STOP) {
-	new_qoslimit_stop();
-	}
+		if (action & A_STOP) {
+			new_qoslimit_stop();
+		}
+#ifdef TCONFIG_NOCAT
+		stop_splashd();
+#endif
 		stop_firewall(); start_firewall();		// always restarted
-	if (action & A_START) {
-		new_qoslimit_start();
-	}
+		if (action & A_START) {
+			new_qoslimit_start();
+		}
+#ifdef TCONFIG_NOCAT
+		start_splashd();
+#endif
 		goto CLEAR;
 	}
 
