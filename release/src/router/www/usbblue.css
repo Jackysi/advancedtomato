@@ -292,3 +292,7 @@ textarea
 li, div {
 	font-family: Tahoma, Arial, Sans-serif;
 }
+
+.about {
+margin:20px 20px;
+}

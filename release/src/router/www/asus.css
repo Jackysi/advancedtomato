@@ -322,3 +322,7 @@ font-family: Tahoma, Arial, Sans-serif;
 #tabs a:hover {
 background: #343f6f none repeat scroll 0 0;
 }
+
+.about {
+margin:20px 20px;
+}
