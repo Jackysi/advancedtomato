@@ -85,7 +85,7 @@ ifneq ($(TCONFIG_USB_EXTRAS),y)
 	rm -f $(INSTALLDIR)/www/asus.png
 	rm -f $(INSTALLDIR)/www/asus-bg.png
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/THEMES-BEGIN/,/THEMES-END/d"
-# endif
+endif
 
 # Only include NTFS settings if NTFS support is configured in.
 ifneq ($(TCONFIG_NTFS),y)
