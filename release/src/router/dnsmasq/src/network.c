@@ -162,6 +162,7 @@ static int iface_allowed(struct irec **irecp, int if_index,
   int fd, mtu = 0, loopback;
   struct ifreq ifr;
   int tftp_ok = daemon->tftp_unlimited;
+  int dhcp_ok = 1;
 #ifdef HAVE_DHCP
   struct iname *tmp;
 #endif
@@ -190,6 +191,9 @@ static int iface_allowed(struct irec **irecp, int if_index,
     }
    
   loopback = ifr.ifr_flags & IFF_LOOPBACK;
+  
+  if (loopback)
+     dhcp_ok = 0;
 
   if (ioctl(fd, SIOCGIFMTU, &ifr) != -1)
     mtu = ifr.ifr_mtu;
@@ -238,7 +242,10 @@ static int iface_allowed(struct irec **irecp, int if_index,
 #ifdef HAVE_DHCP
       for (tmp = daemon->dhcp_except; tmp; tmp = tmp->next)
 	if (tmp->name && (strcmp(tmp->name, ifr.ifr_name) == 0))
-	  tftp_ok = 0;
+	  {
+	    tftp_ok = 0;
+	    dhcp_ok = 0;
+	  }
 #endif
       
 #ifdef HAVE_IPV6
@@ -254,14 +261,18 @@ static int iface_allowed(struct irec **irecp, int if_index,
       iface->addr = *addr;
       iface->netmask = netmask;
       iface->tftp_ok = tftp_ok;
+      iface->dhcp_ok = dhcp_ok;
       iface->mtu = mtu;
       iface->dad = dad;
       iface->done = 0;
       if ((iface->name = whine_malloc(strlen(ifr.ifr_name)+1)))
-	strcpy(iface->name, ifr.ifr_name);
-      iface->next = *irecp;
-      *irecp = iface;
-      return 1;
+	{
+	  strcpy(iface->name, ifr.ifr_name);
+	  iface->next = *irecp;
+	  *irecp = iface;
+	  return 1;
+	}
+      free(iface);
     }
   
   errno = ENOMEM; 
@@ -511,6 +522,7 @@ void create_bound_listeners(int dienow)
 {
   struct listener *new;
   struct irec *iface;
+  struct iname *if_tmp;
 
   for (iface = daemon->interfaces; iface; iface = iface->next)
     if (!iface->done && !iface->dad && 
@@ -520,6 +532,25 @@ void create_bound_listeners(int dienow)
 	new->next = daemon->listeners;
 	daemon->listeners = new;
 	iface->done = 1;
+      }
+
+  /* Check for --listen-address options that haven't been used because there's
+     no interface with a matching address. These may be valid: eg it's possible
+     to listen on 127.0.1.1 even if the loopback interface is 127.0.0.1
+
+     If the address isn't valid the bind() will fail and we'll die().
+
+     The resulting listeners have the ->iface field NULL, and this has to be
+     handled by the DNS and TFTP code. It disables --localise-queries processing
+     (no netmask) and some MTU login the tftp code. */
+
+  for (if_tmp = daemon->if_addrs; if_tmp; if_tmp = if_tmp->next)
+    if (!if_tmp->used && 
+	(new = create_listeners(&if_tmp->addr, 1, dienow)))
+      {
+	new->iface = NULL;
+	new->next = daemon->listeners;
+	daemon->listeners = new;
       }
 }
 

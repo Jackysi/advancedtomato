@@ -106,16 +106,14 @@ int main (int argc, char **argv)
     else
       open("/dev/null", O_RDWR); 
 
-#ifdef HAVE_LINUX_NETWORK
-  netlink_init();
-#elif !(defined(IP_RECVDSTADDR) && \
-	defined(IP_RECVIF) && \
-	defined(IP_SENDSRCADDR))
+#ifndef HAVE_LINUX_NETWORK
+#  if !(defined(IP_RECVDSTADDR) && defined(IP_RECVIF) && defined(IP_SENDSRCADDR))
   if (!option_bool(OPT_NOWILD))
     {
       bind_fallback = 1;
       set_option_bool(OPT_NOWILD);
     }
+#  endif
 #endif
 
 #ifndef HAVE_TFTP
@@ -180,10 +178,25 @@ int main (int argc, char **argv)
   if (daemon->dhcp6)
     dhcp6_init();
 
-  if (daemon->ra_contexts || daemon->dhcp6)
-    join_multicast();
 #  endif
 
+#endif
+
+#ifdef HAVE_LINUX_NETWORK
+  /* After lease_init */
+  netlink_init();
+#endif
+
+#ifdef HAVE_DHCP6
+  /* after netlink_init */
+  if (daemon->ra_contexts || daemon->dhcp6)
+    join_multicast();
+#endif
+
+#ifdef HAVE_DHCP
+  /* after netlink_init */
+  if (daemon->dhcp || daemon->dhcp6)
+    lease_find_interfaces(now);
 #endif
 
   if (!enumerate_interfaces())
@@ -196,13 +209,21 @@ int main (int argc, char **argv)
       for (if_tmp = daemon->if_names; if_tmp; if_tmp = if_tmp->next)
 	if (if_tmp->name && !if_tmp->used)
 	  die(_("unknown interface %s"), if_tmp->name, EC_BADNET);
-  
-      for (if_tmp = daemon->if_addrs; if_tmp; if_tmp = if_tmp->next)
-	if (!if_tmp->used)
-	  {
-	    prettyprint_addr(&if_tmp->addr, daemon->namebuff);
-	    die(_("no interface with address %s"), daemon->namebuff, EC_BADNET);
-	  }
+
+#if defined(HAVE_LINUX_NETWORK) && defined(HAVE_DHCP)
+      /* after enumerate_interfaces()  */
+      if (daemon->dhcp)
+	{
+	  bindtodevice(daemon->dhcpfd);
+	  if (daemon->enable_pxe)
+	    bindtodevice(daemon->pxefd);
+	}
+#endif
+
+#if defined(HAVE_LINUX_NETWORK) && defined(HAVE_DHCP6)
+      if (daemon->dhcp6)
+	bindtodevice(daemon->dhcp6fd);
+#endif
     }
   else 
     create_wildcard_listeners();
@@ -524,7 +545,7 @@ int main (int argc, char **argv)
     my_syslog(MS_DHCP | LOG_INFO, _("IPv6 router advertisement enabled"));
 
 #ifdef HAVE_DHCP
-  if (daemon->dhcp || daemon->dhcp6)
+  if (daemon->dhcp || daemon->dhcp6 || daemon->ra_contexts)
     {
       struct dhcp_context *dhcp_tmp;
       int family = AF_INET;
@@ -537,27 +558,56 @@ int main (int argc, char **argv)
 	{
 	  void *start = &dhcp_tmp->start;
 	  void *end = &dhcp_tmp->end;
-	  
+	  	  
 #ifdef HAVE_DHCP6
 	  if (family == AF_INET6)
 	    {
 	      start = &dhcp_tmp->start6;
 	      end = &dhcp_tmp->end6;
+	      struct in6_addr subnet = dhcp_tmp->start6;
+	      setaddr6part(&subnet, 0);
+	      inet_ntop(AF_INET6, &subnet, daemon->addrbuff, 256);
 	    }
 #endif
 	  
-	  prettyprint_time(daemon->dhcp_buff2, dhcp_tmp->lease_time);
-	  inet_ntop(family, start, daemon->dhcp_buff, 256);
-	  inet_ntop(family, end, daemon->dhcp_buff3, 256);
-	  my_syslog(MS_DHCP | LOG_INFO, 
-		    (dhcp_tmp->flags & CONTEXT_STATIC) ? 
-		    _("DHCP, static leases only on %.0s%s, lease time %s") :
-		    (dhcp_tmp->flags & CONTEXT_RA_ONLY) ? 
-		    _("router advertisement only on %.0s%s, lifetime %s") :
-		    (dhcp_tmp->flags & CONTEXT_PROXY) ?
-		    _("DHCP, proxy on subnet %.0s%s%.0s") :
-		    _("DHCP, IP range %s -- %s, lease time %s"),
-		    daemon->dhcp_buff, daemon->dhcp_buff3, daemon->dhcp_buff2);
+	  if (family != AF_INET && (dhcp_tmp->flags & CONTEXT_DEPRECATE))
+	    strcpy(daemon->namebuff, _("prefix deprecated"));
+	  else
+	    {
+	      char *p = daemon->namebuff;
+	      p += sprintf(p, _("lease time "));
+	      prettyprint_time(p, dhcp_tmp->lease_time);
+	    }
+	  
+	  if (daemon->dhcp_buff)
+	    inet_ntop(family, start, daemon->dhcp_buff, 256);
+	  if (daemon->dhcp_buff3)
+	    inet_ntop(family, end, daemon->dhcp_buff3, 256);
+	  if ((dhcp_tmp->flags & CONTEXT_DHCP) || family == AF_INET) 
+	    my_syslog(MS_DHCP | LOG_INFO, 
+		      (dhcp_tmp->flags & CONTEXT_RA_STATELESS) ? 
+		      _("stateless DHCPv6 on %s%.0s%.0s") :
+		      (dhcp_tmp->flags & CONTEXT_STATIC) ? 
+		      _("DHCP, static leases only on %.0s%s, %s") :
+		      (dhcp_tmp->flags & CONTEXT_PROXY) ?
+		      _("DHCP, proxy on subnet %.0s%s%.0s") :
+		      _("DHCP, IP range %s -- %s, %s"),
+		      daemon->dhcp_buff, daemon->dhcp_buff3, daemon->namebuff);
+
+	  if (dhcp_tmp->flags & CONTEXT_RA_NAME)
+	    my_syslog(MS_DHCP | LOG_INFO, _("DHCPv4-derived IPv6 names on %s"), 
+		      daemon->addrbuff);
+	  if (dhcp_tmp->flags & (CONTEXT_RA_ONLY | CONTEXT_RA_NAME | CONTEXT_RA_STATELESS))
+	    {
+	      if (!(dhcp_tmp->flags & CONTEXT_DEPRECATE))
+		{
+		  char *p = daemon->namebuff;
+		  p += sprintf(p, _("prefix valid "));
+		  prettyprint_time(p, dhcp_tmp->lease_time > 7200 ? dhcp_tmp->lease_time : 7200);
+		}
+	      my_syslog(MS_DHCP | LOG_INFO, _("SLAAC on %s %s"), 
+			daemon->addrbuff, daemon->namebuff);
+	    }
 	}
       
 #ifdef HAVE_DHCP6
@@ -685,12 +735,12 @@ int main (int argc, char **argv)
 	{
 	  FD_SET(daemon->dhcp6fd, &rset);
 	  bump_maxfd(daemon->dhcp6fd, &maxfd);
-	  
-	  if (daemon->ra_contexts)
-	    {
-	      FD_SET(daemon->icmp6fd, &rset);
-	      bump_maxfd(daemon->icmp6fd, &maxfd); 
-	    }
+	}
+
+      if (daemon->ra_contexts)
+	{
+	  FD_SET(daemon->icmp6fd, &rset);
+	  bump_maxfd(daemon->icmp6fd, &maxfd); 
 	}
 #endif
 
@@ -706,6 +756,10 @@ int main (int argc, char **argv)
 #  ifdef HAVE_SCRIPT
       while (helper_buf_empty() && do_script_run(now));
 
+#    ifdef HAVE_TFTP
+      while (helper_buf_empty() && do_tftp_script_run());
+#    endif
+
       if (!helper_buf_empty())
 	{
 	  FD_SET(daemon->helperfd, &wset);
@@ -714,6 +768,11 @@ int main (int argc, char **argv)
 #  else
       /* need this for other side-effects */
       while (do_script_run(now));
+
+#    ifdef HAVE_TFTP 
+      while (do_tftp_script_run());
+#    endif
+
 #  endif
 #endif
    
@@ -849,9 +908,17 @@ static void sig_handler(int sig)
     }
 }
 
-void send_alarm(void)
+/* now == 0 -> queue immediate callback */
+void send_alarm(time_t event, time_t now)
 {
-  send_event(pipewrite, EVENT_ALARM, 0, NULL);
+  if (now == 0 || event != 0)
+    {
+      /* alarm(0) or alarm(-ve) doesn't do what we want.... */
+      if ((now == 0 || difftime(event, now) <= 0.0))
+	send_event(pipewrite, EVENT_ALARM, 0, NULL);
+      else 
+	alarm((unsigned)difftime(event, now)); 
+    }
 }
 
 void send_event(int fd, int event, int data, char *msg)
@@ -973,13 +1040,8 @@ static void async_event(int pipe, time_t now)
 	  }
 #ifdef HAVE_DHCP6
 	else if (daemon->ra_contexts)
-	  {
-	    /* Not doing DHCP, so no lease system, manage 
-	       alarms for ra only */
-	    time_t next_event = periodic_ra(now);
-	    if (next_event != 0)
-	      alarm((unsigned)difftime(next_event, now)); 
-	  }
+	  /* Not doing DHCP, so no lease system, manage alarms for ra only */
+	    send_alarm(periodic_ra(now), now);
 #endif
 #endif
 	break;
@@ -1143,7 +1205,7 @@ void clear_cache_and_reload(time_t now)
       check_dhcp_hosts(0);
       lease_update_from_configs(); 
       lease_update_file(now); 
-      lease_update_dns();
+      lease_update_dns(1);
     }
 #ifdef HAVE_DHCP6
   else if (daemon->ra_contexts)
@@ -1257,18 +1319,19 @@ static void check_dns_listeners(fd_set *set, time_t now)
 	  int confd;
 	  struct irec *iface = NULL;
 	  pid_t p;
+	  union mysockaddr tcp_addr;
+	  socklen_t tcp_len = sizeof(union mysockaddr);
+
+	  while ((confd = accept(listener->tcpfd, NULL, NULL)) == -1 && errno == EINTR);
 	  
-	  while((confd = accept(listener->tcpfd, NULL, NULL)) == -1 && errno == EINTR);
-	  
-	  if (confd == -1)
+	  if (confd == -1 ||
+	      getsockname(confd, (struct sockaddr *)&tcp_addr, &tcp_len) == -1)
 	    continue;
 	  
 	  if (option_bool(OPT_NOWILD))
-	    iface = listener->iface;
+	    iface = listener->iface; /* May be NULL */
 	  else
 	    {
-	      union mysockaddr tcp_addr;
-	      socklen_t tcp_len = sizeof(union mysockaddr);
 	      /* Check for allowed interfaces when binding the wildcard address:
 		 we do this by looking for an interface with the same address as 
 		 the local address of the TCP connection, then looking to see if that's
@@ -1276,14 +1339,13 @@ static void check_dns_listeners(fd_set *set, time_t now)
 		 interface too, for localisation. */
 	      
 	      /* interface may be new since startup */
-	      if (enumerate_interfaces() &&
-		  getsockname(confd, (struct sockaddr *)&tcp_addr, &tcp_len) != -1)
+	      if (enumerate_interfaces())
 		for (iface = daemon->interfaces; iface; iface = iface->next)
 		  if (sockaddr_isequal(&iface->addr, &tcp_addr))
 		    break;
 	    }
 	  
-	  if (!iface)
+	  if (!iface && !option_bool(OPT_NOWILD))
 	    {
 	      shutdown(confd, SHUT_RDWR);
 	      close(confd);
@@ -1309,7 +1371,13 @@ static void check_dns_listeners(fd_set *set, time_t now)
 	      unsigned char *buff;
 	      struct server *s; 
 	      int flags;
-	      
+	      struct in_addr netmask;
+
+	      if (iface)
+		netmask = iface->netmask;
+	      else
+		netmask.s_addr = 0;
+
 #ifndef NO_FORK
 	      /* Arrange for SIGALARM after CHILD_LIFETIME seconds to
 		 terminate the process. */
@@ -1327,7 +1395,7 @@ static void check_dns_listeners(fd_set *set, time_t now)
 	      if ((flags = fcntl(confd, F_GETFL, 0)) != -1)
 		fcntl(confd, F_SETFL, flags & ~O_NONBLOCK);
 	      
-	      buff = tcp_request(confd, now, &iface->addr, iface->netmask);
+	      buff = tcp_request(confd, now, &tcp_addr, netmask);
 	       
 	      shutdown(confd, SHUT_RDWR);
 	      close(confd);

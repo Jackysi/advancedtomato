@@ -26,9 +26,9 @@ static struct randfd *allocate_rfd(int family);
 
 /* Send a UDP packet with its source address set as "source" 
    unless nowild is true, when we just send it with the kernel default */
-void send_from(int fd, int nowild, char *packet, size_t len, 
-	       union mysockaddr *to, struct all_addr *source,
-	       unsigned int iface)
+int send_from(int fd, int nowild, char *packet, size_t len, 
+	      union mysockaddr *to, struct all_addr *source,
+	      unsigned int iface)
 {
   struct msghdr msg;
   struct iovec iov[1]; 
@@ -111,7 +111,11 @@ void send_from(int fd, int nowild, char *packet, size_t len,
 	goto retry;
       
       my_syslog(LOG_ERR, _("failed to send packet: %s"), strerror(errno));
+      
+      return 0;
     }
+
+  return 1;
 }
           
 static unsigned int search_servers(time_t now, struct all_addr **addrpp, 
@@ -660,7 +664,7 @@ void receive_query(struct listener *listen, time_t now)
   /* packet buffer overwritten */
   daemon->srv_save = NULL;
   
-  if (listen->family == AF_INET && option_bool(OPT_NOWILD))
+  if (listen->iface && listen->family == AF_INET && option_bool(OPT_NOWILD))
     {
       dst_addr_4 = listen->iface->addr.in.sin_addr;
       netmask = listen->iface->netmask;
