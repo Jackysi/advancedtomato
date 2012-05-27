@@ -127,7 +127,7 @@ extern int capget(cap_user_header_t header, cap_user_data_t data);
 #define LINUX_CAPABILITY_VERSION_2  0x20071026
 #define LINUX_CAPABILITY_VERSION_3  0x20080522
 
-#include <sys/prctl.h>
+#include <linux/prctl.h>
 #elif defined(HAVE_SOLARIS_NETWORK)
 #include <priv.h>
 #endif
@@ -218,7 +218,8 @@ struct event_desc {
 #define OPT_FQDN_UPDATE    36
 #define OPT_RA             37
 #define OPT_TFTP_LC        38
-#define OPT_LAST           39
+#define OPT_QUIET_DHCP     39
+#define OPT_LAST           40
 
 /* extra flags for my_syslog, we use a couple of facilities since they are known 
    not to occupy the same bits as priorities, no matter how syslog.h is set up. */
