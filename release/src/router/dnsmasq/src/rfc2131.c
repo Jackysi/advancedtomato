@@ -483,14 +483,14 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	    {
 	      logaddr = &mess->yiaddr;
 		
-	      lease_set_hwaddr(lease, mess->chaddr, NULL, mess->hlen, mess->htype, 0);
+	      lease_set_hwaddr(lease, mess->chaddr, NULL, mess->hlen, mess->htype, 0, now, 1);
 	      if (hostname)
 		lease_set_hostname(lease, hostname, 1, get_domain(lease->addr), domain); 
 	      /* infinite lease unless nailed in dhcp-host line. */
 	      lease_set_expires(lease,  
 				have_config(config, CONFIG_TIME) ? config->lease_time : 0xffffffff, 
 				now); 
-	      lease_set_interface(lease, int_index);
+	      lease_set_interface(lease, int_index, now);
 	      
 	      clear_packet(mess, end);
 	      do_options(context, mess, end, NULL, hostname, get_domain(mess->yiaddr), 
@@ -1222,51 +1222,56 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 
 	  log_tags(tagif_netid, ntohl(mess->xid));
 	  
-#ifdef HAVE_SCRIPT
-	  if (do_classes && daemon->lease_change_command)
+	  if (do_classes)
 	    {
-	      struct dhcp_netid *n;
-	      
-	      if (mess->giaddr.s_addr)
-		lease->giaddr = mess->giaddr;
-	      
+	      /* pick up INIT-REBOOT events. */
 	      lease->flags |= LEASE_CHANGED;
-	      free(lease->extradata);
-	      lease->extradata = NULL;
-	      lease->extradata_size = lease->extradata_len = 0;
-	      
-	      add_extradata_opt(lease, option_find(mess, sz, OPTION_VENDOR_ID, 1));
-	      add_extradata_opt(lease, option_find(mess, sz, OPTION_HOSTNAME, 1));
-	      add_extradata_opt(lease, oui);
-	      add_extradata_opt(lease, serial);
-	      add_extradata_opt(lease, class);
-	      
-	      /* space-concat tag set */
-	      if (!tagif_netid)
-		add_extradata_opt(lease, NULL);
-	      else
-		for (n = tagif_netid; n; n = n->next)
-		  {
-		    struct dhcp_netid *n1;
-		    /* kill dupes */
-		    for (n1 = n->next; n1; n1 = n1->next)
-		      if (strcmp(n->net, n1->net) == 0)
-			break;
-		    if (!n1)
-		      lease_add_extradata(lease, (unsigned char *)n->net, strlen(n->net), n->next ? ' ' : 0); 
-		  }
 
-	      if ((opt = option_find(mess, sz, OPTION_USER_CLASS, 1)))
+#ifdef HAVE_SCRIPT
+	      if (daemon->lease_change_command)
 		{
-		  int len = option_len(opt);
-		  unsigned char *ucp = option_ptr(opt, 0);
-		  /* If the user-class option started as counted strings, the first byte will be zero. */
-		  if (len != 0 && ucp[0] == 0)
-		    ucp++, len--;
-		  lease_add_extradata(lease, ucp, len, 0);
+		  struct dhcp_netid *n;
+		  
+		  if (mess->giaddr.s_addr)
+		    lease->giaddr = mess->giaddr;
+		  
+		  free(lease->extradata);
+		  lease->extradata = NULL;
+		  lease->extradata_size = lease->extradata_len = 0;
+		  
+		  add_extradata_opt(lease, option_find(mess, sz, OPTION_VENDOR_ID, 1));
+		  add_extradata_opt(lease, option_find(mess, sz, OPTION_HOSTNAME, 1));
+		  add_extradata_opt(lease, oui);
+		  add_extradata_opt(lease, serial);
+		  add_extradata_opt(lease, class);
+		  
+		  /* space-concat tag set */
+		  if (!tagif_netid)
+		    add_extradata_opt(lease, NULL);
+		  else
+		    for (n = tagif_netid; n; n = n->next)
+		      {
+			struct dhcp_netid *n1;
+			/* kill dupes */
+			for (n1 = n->next; n1; n1 = n1->next)
+			  if (strcmp(n->net, n1->net) == 0)
+			    break;
+			if (!n1)
+			  lease_add_extradata(lease, (unsigned char *)n->net, strlen(n->net), n->next ? ' ' : 0); 
+		      }
+		  
+		  if ((opt = option_find(mess, sz, OPTION_USER_CLASS, 1)))
+		    {
+		      int len = option_len(opt);
+		      unsigned char *ucp = option_ptr(opt, 0);
+		      /* If the user-class option started as counted strings, the first byte will be zero. */
+		      if (len != 0 && ucp[0] == 0)
+			ucp++, len--;
+		      lease_add_extradata(lease, ucp, len, 0);
+		    }
 		}
-	    }
 #endif
+	    }
 	  
 	  if (!hostname_auth && (client_hostname = host_from_dns(mess->yiaddr)))
 	    {
@@ -1276,7 +1281,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	    }
 	  
 	  time = calc_time(context, config, option_find(mess, sz, OPTION_LEASE_TIME, 4));
-	  lease_set_hwaddr(lease, mess->chaddr, clid, mess->hlen, mess->htype, clid_len);
+	  lease_set_hwaddr(lease, mess->chaddr, clid, mess->hlen, mess->htype, clid_len, now, do_classes);
 	  
 	  /* if all the netids in the ignore_name list are present, ignore client-supplied name */
 	  if (!hostname_auth)
@@ -1310,7 +1315,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	    lease_set_hostname(lease, hostname, hostname_auth, get_domain(lease->addr), domain);
 	  
 	  lease_set_expires(lease, time, now);
-	  lease_set_interface(lease, int_index);
+	  lease_set_interface(lease, int_index, now);
 
 	  if (override.s_addr != 0)
 	    lease->override = override;
@@ -1387,7 +1392,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	  else
 	    time = (unsigned int)difftime(lease->expires, now);
 	  option_put(mess, end, OPTION_LEASE_TIME, 4, time);
-	  lease_set_interface(lease, int_index);
+	  lease_set_interface(lease, int_index, now);
 	}
 
       do_options(context, mess, end, req_options, hostname, get_domain(mess->ciaddr),
@@ -1499,6 +1504,10 @@ static void log_packet(char *type, void *addr, unsigned char *ext_mac,
 {
   struct in_addr a;
  
+  /* option to reduce excessive logging for DHCP packets */
+  if (option_bool(OPT_QUIET_DHCP) && strncmp(type, "DHCP", 4) == 0)
+    return;
+
   /* addr may be misaligned */
   if (addr)
     memcpy(&a, addr, sizeof(a));
@@ -2095,7 +2104,8 @@ static void do_options(struct dhcp_context *context,
   struct dhcp_netid_list *id_list;
 
   /* filter options based on tags, those we want get DHOPT_TAGOK bit set */
-  context->netid.next = NULL;
+  if (context)
+    context->netid.next = NULL;
   tagif = option_filter(netid, context && context->netid.net ? &context->netid : NULL, config_opts);
 	
   /* logging */

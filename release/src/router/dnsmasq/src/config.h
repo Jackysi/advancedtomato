@@ -18,6 +18,7 @@
 #define MAX_PROCS 20 /* max no children for TCP requests */
 #define CHILD_LIFETIME 150 /* secs 'till terminated (RFC1035 suggests > 120s) */
 #define EDNS_PKTSZ 4096 /* default max EDNS.0 UDP packet from RFC5625 */
+#define KEYBLOCK_LEN 140 /* choose to mininise fragmentation when storing DNSSEC keys */
 #define TIMEOUT 10 /* drop UDP queries after TIMEOUT seconds */
 #define FORWARD_TEST 50 /* try all servers every 50 queries */
 #define FORWARD_TIME 20 /* or 20 seconds */
@@ -120,7 +121,7 @@ RESOLVFILE
 #define HAVE_TFTP
 #define HAVE_SCRIPT
 /* #define HAVE_LUASCRIPT */
-/* #define HAVE_BROKEN_RTC */
+#define HAVE_BROKEN_RTC
 /* #define HAVE_DBUS */
 /* #define HAVE_IDN */
 /* #define HAVE_CONNTRACK */
@@ -167,7 +168,7 @@ HAVE_SOLARIS_NETWORK
    define exactly one of these to alter interaction with kernel networking.
 
 HAVE_GETOPT_LONG
-   defined when GNU-sty;e getopt_long available. 
+   defined when GNU-style getopt_long available. 
 
 HAVE_ARC4RANDOM
    defined if arc4random() available to get better security from DNS spoofs
