@@ -2401,7 +2401,7 @@ function navi()
 			['View Details',		'detailed.asp'],
 			['Transfer Rates',		'ctrate.asp']
 			] ],
-		['Bandwidth Limiter',		'qoslimit.asp'],
+		['Bandwidth Limiter',		'bwlimit.asp'],
 		null,
 /* NOCAT-BEGIN */
 		['Captive Portal',		'splashd.asp'],
