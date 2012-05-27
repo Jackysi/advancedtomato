@@ -227,10 +227,14 @@ void lease_update_file(time_t now)
 	    continue;
 #endif
 
+#if 1	// zzz
+	  ourprintf(&err, "%lu ", (unsigned long)lease->expires - now);
+#else
 #ifdef HAVE_BROKEN_RTC
 	  ourprintf(&err, "%u ", lease->length);
 #else
 	  ourprintf(&err, "%lu ", (unsigned long)lease->expires);
+#endif
 #endif
 
 	  if (lease->hwaddr_type != ARPHRD_ETHER || lease->hwaddr_len == 0) 
@@ -1033,8 +1037,47 @@ void lease_add_extradata(struct dhcp_lease *lease, unsigned char *data, unsigned
 }
 #endif
 
+void tomato_helper(time_t now)
+{
+	FILE *f;
+	struct in_addr ia;
+	char buf[64];
+	struct dhcp_lease *lease;
+
+	// if delete exists...
+	if ((f = fopen("/var/tmp/dhcp/delete", "r")) != NULL) {
+		while (fgets(buf, sizeof(buf), f)) {
+			ia.s_addr = inet_addr(buf);
+			lease = lease_find_by_addr(ia);
+			if (lease) {
+				lease_prune(lease, 0);
+				lease_update_file(now);
+			}
+		}
+		fclose(f);
+		unlink("/var/tmp/dhcp/delete");
+	}
+
+	// dump the leases file
+	if ((f = fopen("/var/tmp/dhcp/leases.!", "w")) != NULL) {
+		for (lease = leases; lease; lease = lease->next) {
+			if (lease->hwaddr_type == ARPHRD_ETHER) {
+				fprintf(f, "%lu %02X:%02X:%02X:%02X:%02X:%02X %s %s\n",
+					lease->expires - now,
+					lease->hwaddr[0], lease->hwaddr[1], lease->hwaddr[2], lease->hwaddr[3], lease->hwaddr[4], lease->hwaddr[5],
+					inet_ntoa(lease->addr),
+					((lease->hostname) && (strlen(lease->hostname) > 0)) ? lease->hostname : "*");
+			}
+		}
+		fclose(f);
+		rename("/var/tmp/dhcp/leases.!", "/var/tmp/dhcp/leases");
+	}
+}
+
+void flush_lease_file(time_t now)
+{
+	file_dirty = 1;
+	lease_update_file(now);
+}
+
 #endif
-	  
-
-      
-
