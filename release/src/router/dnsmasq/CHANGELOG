@@ -1,3 +1,110 @@
+version 2.61
+	    Re-write interface discovery code on *BSD to use
+	    getifaddrs. This is more portable, more straightforward,
+	    and allows us to find the prefix length for IPv6
+	    addresses.
+
+	    Add ra-names, ra-stateless and slaac keywords for DHCPv6.
+	    Dnsmasq can now synthesise AAAA records for dual-stack 
+            hosts which get IPv6 addresses via SLAAC. It is also now 
+	    possible to use SLAAC and stateless DHCPv6, and to 
+	    tell clients to use SLAAC addresses as well as DHCP ones.
+	    Thanks to Dave Taht for help with this.
+
+	    Add --dhcp-duid to allow DUID-EN uids to be used.
+
+	    Explicity send DHCPv6 replies to the correct port, instead
+	    of relying on clients to send requests with the correct
+	    source address, since at least one client in the wild gets
+	    this wrong. Thanks to Conrda Kostecki for help tracking
+	    this down.
+
+	    Send a preference value of 255 in DHCPv6 replies when 
+	    --dhcp-authoritative is in effect. This tells clients not
+	    to wait around for other DHCP servers.
+
+	    Better logging of DHCPv6 options.
+
+	    Add --host-record. Thanks to Rob Zwissler for the
+	    suggestion.
+
+	    Invoke the DHCP script with action "tftp" when a TFTP file
+	    transfer completes. The size of the file, address to which
+	    it was sent and complete pathname are supplied. Note that
+	    version 2.60 introduced some script incompatibilties
+	    associated with DHCPv6, and this is a further change. To
+	    be safe, scripts should ignore unknown actions, and if
+	    not IPv6-aware, should exit if the environment
+	    variable DNSMASQ_IAID is set. The use-case for this is
+	    to track netboot/install.  Suggestion from Shantanu
+	    Gadgil.
+
+	    Update contrib/port-forward/dnsmasq-portforward to reflect
+	    the above.
+
+	    Set the environment variable DNSMASQ_LOG_DHCP when running
+	    the script id --log-dhcp is in effect, so that script can
+	    taylor their logging verbosity. Suggestion from Malte
+	    Forkel.
+	    
+	    Arrange that addresses specified with --listen-address
+	    work even if there is no interface carrying the
+	    address. This is chiefly useful for IPv4 loopback
+	    addresses, where any address in 127.0.0.0/8 is a valid
+	    loopback address, but normally only 127.0.0.1 appears on
+	    the lo interface. Thanks to Mathieu Trudel-Lapierre for
+	    the idea and initial patch. 
+
+	    Fix crash, introduced in 2.60, when a DHCPINFORM is
+	    received from a network which has no valid dhcp-range.
+	    Thanks to Stephane Glondu for the bug report.
+
+	    Add a new DHCP lease time keyword, "deprecated" for
+	    --dhcp-range. This is only valid for IPv6, and sets the
+	    preffered lease time for both DHCP and RA to zero. The
+	    effect is that clients can continue to use the address 
+	    for existing connections, but new connections will use
+            other addresses, if they exist. This makes hitless
+	    renumbering at least possible.
+
+	    Fix bug in address6_available() which caused DHCPv6 lease
+	    aquistion to fail if more than one dhcp-range in use.
+
+	    Provide RDNSS and DNSSL data in router advertisements,
+	    using the settings provided for DHCP options
+	    option6:domain-search and option6:dns-server.
+
+	    Tweak logo/favicon.ico to add some transparency. Thanks to
+	    SamLT for work on this.
+	    
+	    Don't cache data from non-recursive nameservers, since it
+	    may erroneously look like a valid CNAME to a non-exitant
+	    name. Thanks to Ben Winslow for finding this.
+
+	    Call SO_BINDTODEVICE on the DHCP socket(s) when doing DHCP
+	    on exacly one interface and --bind-interfaces is set. This 
+	    makes the OpenStack use-case of one dnsmasq per virtual
+	    interface work. This is only available on Linux; it's not
+	    supported on other platforms. Thanks to Vishvananda Ishaya
+	    and the OpenStack team for the suggestion.
+
+	    Updated French translation. Thanks to Gildas Le Nadan.
+
+	    Give correct from-cache answers to explict CNAME queries.
+	    Thanks to Rob Zwissler for spotting this.
+	    
+	    Add --tftp-lowercase option. Thanks to Oliver Rath for the
+	    patch. 
+
+	    Ensure that the DBus DhcpLeaseUpdated events are generated
+	    when a lease goes through INIT_REBOOT state, even if the
+	    dhcp-script is not in use. thanks to Antoaneta-Ecaterina
+	    Ene for the patch.
+
+	    Fix failure of TFTP over IPv4 on OpenBSD platform. Thanks
+	    to Brad Smith for spotting this.
+	    
+
 version 2.60
             Fix compilation problem in Mac OS X Lion. Thanks to Olaf
             Flebbe for the patch.

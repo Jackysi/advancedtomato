@@ -33,12 +33,12 @@ void dhcp6_init(void)
 {
   int fd;
   struct sockaddr_in6 saddr;
-#if defined(IP_TOS) && defined(IPTOS_CLASS_CS6)
+#if defined(IPV6_TCLASS) && defined(IPTOS_CLASS_CS6)
   int class = IPTOS_CLASS_CS6;
 #endif
   
   if ((fd = socket(PF_INET6, SOCK_DGRAM, IPPROTO_UDP)) == -1 ||
-#if defined(IP_TOS) && defined(IPTOS_CLASS_CS6)
+#if defined(IPV6_TCLASS) && defined(IPTOS_CLASS_CS6)
       setsockopt(fd, IPPROTO_IPV6, IPV6_TCLASS, &class, sizeof(class)) == -1 ||
 #endif
       !fix_fd(fd) ||
@@ -75,6 +75,7 @@ void dhcp6_packet(time_t now)
   ssize_t sz; 
   struct ifreq ifr;
   struct iname *tmp;
+  unsigned short port;
 
   msg.msg_control = control_u.control6;
   msg.msg_controllen = sizeof(control_u);
@@ -84,7 +85,7 @@ void dhcp6_packet(time_t now)
   msg.msg_iov =  &daemon->dhcp_packet;
   msg.msg_iovlen = 1;
   
-  if ((sz = recv_dhcp_packet(daemon->dhcp6fd, &msg)) == -1 || sz <= 4)
+  if ((sz = recv_dhcp_packet(daemon->dhcp6fd, &msg)) == -1)
     return;
   
   for (cmptr = CMSG_FIRSTHDR(&msg); cmptr; cmptr = CMSG_NXTHDR(&msg, cmptr))
@@ -134,15 +135,23 @@ void dhcp6_packet(time_t now)
   
   lease_prune(NULL, now); /* lose any expired leases */
 
-  sz = dhcp6_reply(parm.current, if_index, ifr.ifr_name, &parm.fallback, 
-		   sz, IN6_IS_ADDR_MULTICAST(&from.sin6_addr), now);
+  port = dhcp6_reply(parm.current, if_index, ifr.ifr_name, &parm.fallback, 
+		     sz, IN6_IS_ADDR_MULTICAST(&from.sin6_addr), now);
   
   lease_update_file(now);
-  lease_update_dns();
+  lease_update_dns(0);
   
-  if (sz != 0)
-    while (sendto(daemon->dhcp6fd, daemon->outpacket.iov_base, sz, 0, (struct sockaddr *)&from, sizeof(from)) == -1 &&
+  /* The port in the source address of the original request should
+     be correct, but at least once client sends from the server port,
+     so we explicitly send to the client port to a client, and the
+     server port to a relay. */
+  if (port != 0)
+    {
+      from.sin6_port = htons(port);
+      while (sendto(daemon->dhcp6fd, daemon->outpacket.iov_base, save_counter(0), 
+		    0, (struct sockaddr *)&from, sizeof(from)) == -1 &&
 	   retry_send());
+    }
 }
 
 static int complete_context6(struct in6_addr *local,  int prefix,
@@ -220,7 +229,7 @@ int address6_allocate(struct dhcp_context *context,  unsigned char *clid, int cl
   
   for (pass = 0; pass <= 1; pass++)
     for (c = context; c; c = c->current)
-      if (c->flags & (CONTEXT_STATIC | CONTEXT_PROXY))
+      if (c->flags & (CONTEXT_DEPRECATE | CONTEXT_STATIC | CONTEXT_RA_STATELESS))
 	continue;
       else if (!match_netid(c->filter, netids, pass))
 	continue;
@@ -273,9 +282,9 @@ struct dhcp_context *address6_available(struct dhcp_context *context,
       start = addr6part(&tmp->start6);
       end = addr6part(&tmp->end6);
 
-      if (!(tmp->flags & (CONTEXT_STATIC | CONTEXT_PROXY)) &&
-          is_same_net6(&context->start6, taddr, context->prefix) &&
-	  is_same_net6(&context->end6, taddr, context->prefix) &&
+      if (!(tmp->flags & (CONTEXT_STATIC | CONTEXT_RA_STATELESS)) &&
+          is_same_net6(&tmp->start6, taddr, tmp->prefix) &&
+	  is_same_net6(&tmp->end6, taddr, tmp->prefix) &&
 	  addr >= start &&
           addr <= end &&
           match_netid(tmp->filter, netids, 1))
@@ -365,13 +374,26 @@ struct dhcp_config *find_config6(struct dhcp_config *configs,
 
 void make_duid(time_t now)
 {
-  /* rebase epoch to 1/1/2000 */
-  time_t newnow = now - 946684800;
-  
-  iface_enumerate(AF_LOCAL, &newnow, make_duid1);
-  
-  if(!daemon->duid)
-    die("Cannot create DHCPv6 server DUID: %s", NULL, EC_MISC);
+  if (daemon->duid_config)
+    {
+      unsigned char *p;
+      
+      daemon->duid = p = safe_malloc(daemon->duid_config_len + 6);
+      daemon->duid_len = daemon->duid_config_len + 6;
+      PUTSHORT(2, p); /* DUID_EN */
+      PUTLONG(daemon->duid_enterprise, p);
+      memcpy(p, daemon->duid_config, daemon->duid_config_len);
+    }
+  else
+    {
+      /* rebase epoch to 1/1/2000 */
+      time_t newnow = now - 946684800;
+      
+      iface_enumerate(AF_LOCAL, &newnow, make_duid1);
+      
+      if(!daemon->duid)
+	die("Cannot create DHCPv6 server DUID: %s", NULL, EC_MISC);
+    }
 }
 
 static int make_duid1(int index, unsigned int type, char *mac, size_t maclen, void *parm)
