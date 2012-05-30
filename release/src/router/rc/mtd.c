@@ -296,7 +296,12 @@ int mtd_write_main(int argc, char *argv[])
 	case 0x4E583233: // 32XN	E2000
 	case 0x4E303136: // 610N	WRT610N v2
 	case 0x4E583136: // 61XN	E3000
+	case 0x30303945: // E900	E900
 	case 0x30303145: // E100	E1000
+	case 0x30323145: // E120	E1200v1
+	case 0x32323145: // E122	E1200v2
+	case 0x30353145: // E150	E1500
+	case 0x30353531: // 1550	E1550
 	case 0x3031304D: // M010	M10
 	case 0x3032304D: // M020	M20
 	case 0x3036314E: // N160	WRT160N
@@ -304,6 +309,8 @@ int mtd_write_main(int argc, char *argv[])
 	case 0x4E303133: // 310N	WRT310N v1/v2
 //	case 0x32435745: // EWC2	WRT300N?
 	case 0x3035314E: // N150	WRT150N
+	case 0x58353245: // E25X	E2500
+	case 0x30303233: // 3200	E3200
 	case 0x30303234: // 4200	E4200
 		if (safe_fread(((char *)&cth) + 4, 1, sizeof(cth) - 4, f) != (sizeof(cth) - 4)) {
 			goto ERROR;
