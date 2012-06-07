@@ -56,8 +56,10 @@ out:
 }
 
 unsigned long shm_align_mask = PAGE_SIZE - 1;	/* Sane caches */
+unsigned char shm_align_shift = PAGE_SHIFT;	/* Sane caches */
 
 EXPORT_SYMBOL(shm_align_mask);
+EXPORT_SYMBOL(shm_align_shift);
 
 #define COLOUR_ALIGN(addr,pgoff)				\
 	((((addr) + shm_align_mask) & ~shm_align_mask) +	\
