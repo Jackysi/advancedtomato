@@ -86,7 +86,7 @@ createFieldTable('', [
 	{ title: 'Remote', indent: 2, name: 'f_snmp_remote', type: 'checkbox', value: nvram.snmp_remote == '1' },
 	{ title: 'Allowed Remote<br>IP Address', indent: 3, name: 'snmp_remote_sip', type: 'text', maxlen: 512, size: 64, value: nvram.snmp_remote_sip,
                 suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24", "1.1.1.1 - 2.2.2.2" or "me.example.com")</small>' },
-	
+	null,
 	{ title: 'Location', indent: 2, name: 'snmp_location', type: 'text', maxlen: 20, size: 25, value: nvram.snmp_location },
 	{ title: 'Contact', indent: 2, name: 'snmp_contact', type: 'text', maxlen: 20, size: 25, value: nvram.snmp_contact },
 	{ title: 'RO Community', indent: 2, name: 'snmp_ro', type: 'text', maxlen: 20, size: 25, value: nvram.snmp_ro }

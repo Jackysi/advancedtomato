@@ -994,6 +994,30 @@ static void __cpuinit probe_pcache(void)
 	       dcache_size >> 10, way_string[c->dcache.ways], c->dcache.linesz);
 }
 
+void __init r4k_probe_cache(void)
+{
+	unsigned long config1 = read_c0_config1();
+	unsigned int dcache_size, lsize, ways, sets;
+
+	if ((lsize = ((config1 >> 10) & 7)))
+		lsize = 2 << lsize;
+
+	sets = 64 << ((config1 >> 13) & 7);
+	ways = 1 + ((config1 >> 7) & 7);
+
+	if (lsize) {
+                shm_align_mask = max_t( unsigned long,
+                                        sets * lsize - 1,
+                                        PAGE_SIZE - 1);
+
+                if (shm_align_mask != (PAGE_SIZE - 1))
+                        shm_align_shift = ffs((shm_align_mask + 1)) - 1;
+        } else
+                shm_align_mask = PAGE_SIZE-1;
+
+		
+}
+
 /*
  * If you even _breathe_ on this function, look at the gcc output and make sure
  * it does not pop things on and off the stack for the cache sizing loop that
@@ -1262,12 +1286,7 @@ void __cpuinit r4k_cache_init(void)
 	 * This code supports virtually indexed processors and will be
 	 * unnecessarily inefficient on physically indexed processors.
 	 */
-	if (c->dcache.linesz)
-		shm_align_mask = max_t( unsigned long,
-					c->dcache.sets * c->dcache.linesz - 1,
-					PAGE_SIZE - 1);
-	else
-		shm_align_mask = PAGE_SIZE-1;
+
 	flush_cache_all		= r4k_flush_cache_all;
 	__flush_cache_all	= r4k___flush_cache_all;
 	flush_cache_mm		= r4k_flush_cache_mm;

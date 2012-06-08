@@ -559,6 +559,8 @@ static void mangle_table(void)
 	if (wanup) {
 
 		ipt_qos();
+		//1 for mangle
+		ipt_qoslimit(1);
 
 		p = nvram_safe_get("nf_ttl");
 		if (strncmp(p, "c:", 2) == 0) {
@@ -636,6 +638,9 @@ static void nat_table(void)
 		":OUTPUT ACCEPT [0:0]\n"
 		":%s - [0:0]\n",
 		chain_wan_prerouting);
+	
+	//2 for nat
+	ipt_qoslimit(2);
 	
 	if (gateway_mode) {
 		strlcpy(lanaddr, nvram_safe_get("lan_ipaddr"), sizeof(lanaddr));
@@ -977,7 +982,6 @@ static void filter_input(void)
 	}
 #endif
 
-
 #ifdef TCONFIG_SNMP
 	if( nvram_match( "snmp_enable", "1" ) && nvram_match("snmp_remote", "1"))
 	{
@@ -988,7 +992,7 @@ static void filter_input(void)
 
 			if (ipt_source(p, s, "snmp", "remote")) {
 				ipt_write("-A INPUT -p udp %s --dport %s -j %s\n",
-						s, nvram_safe_get("snmp_port"), chain_in_accept);
+					s, nvram_safe_get("snmp_port"), chain_in_accept);
 			}
 
 			if (!c) break;

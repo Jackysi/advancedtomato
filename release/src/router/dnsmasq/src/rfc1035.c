@@ -699,15 +699,17 @@ static unsigned char *do_doctor(unsigned char *p, int count, struct dns_header *
 	      unsigned char *p2 = p1;
 	      /* make counted string zero-term  and sanitise */
 	      for (i = 0; i < len; i++)
-		if (isprint(*(p2+1)))
-		  {
-		    *p2 = *(p2+1);
-		    p2++;
-		  }
+		{
+		  if (!isprint((int)*(p2+1)))
+		    break;
+		  
+		  *p2 = *(p2+1);
+		  p2++;
+		}
 	      *p2 = 0;
 	      my_syslog(LOG_INFO, "reply %s is %s", name, p1);
 	      /* restore */
-	      memmove(p1 + 1, p1, len);
+	      memmove(p1 + 1, p1, i);
 	      *p1 = len;
 	      p1 += len+1;
 	    }
@@ -936,10 +938,14 @@ int extract_addresses(struct dns_header *header, size_t qlen, char *name, time_t
 			  if (!cname_count--)
 			    return 0; /* looped CNAMES */
 			  newc = cache_insert(name, NULL, now, attl, F_CNAME | F_FORWARD);
-			  if (newc && cpp)
+			  if (newc)
 			    {
-			      cpp->addr.cname.cache = newc;
-			      cpp->addr.cname.uid = newc->uid;
+			      newc->addr.cname.cache = NULL;
+			      if (cpp)
+				{
+				  cpp->addr.cname.cache = newc;
+				  cpp->addr.cname.uid = newc->uid;
+				}
 			    }
 
 			  cpp = newc;
@@ -1003,10 +1009,16 @@ int extract_addresses(struct dns_header *header, size_t qlen, char *name, time_t
 	}
     }
   
-  /* Don't put stuff from a truncated packet into the cache,
-     also don't cache replies where DNSSEC validation was turned off, either
-     the upstream server told us so, or the original query specified it. */
-  if (!(header->hb3 & HB3_TC) && !(header->hb4 & HB4_CD) && !checking_disabled)
+  /* Don't put stuff from a truncated packet into the cache.
+     Don't cache replies where DNSSEC validation was turned off, either
+     the upstream server told us so, or the original query specified it. 
+     Don't cache replies from non-recursive nameservers, since we may get a 
+     reply containing a CNAME but not its target, even though the target 
+     does exist. */
+  if (!(header->hb3 & HB3_TC) && 
+      !(header->hb4 & HB4_CD) &&
+      (header->hb4 & HB4_RA) &&
+      !checking_disabled)
     cache_end_insert();
 
   return 0;
@@ -1631,6 +1643,23 @@ size_t answer_request(struct dns_header *header, char *limit, size_t qlen,
 			    }
 			}
 		    } while ((crecp = cache_find_by_name(crecp, name, now, flag | F_CNAME)));
+		}
+	    }
+
+	  if (qtype == T_CNAME || qtype == T_ANY)
+	    {
+	      if ((crecp = cache_find_by_name(NULL, name, now, F_CNAME)) &&
+		  (qtype == T_CNAME || (crecp->flags & (F_HOSTS | F_DHCP))))
+		{
+		  ans = 1;
+		  if (!dryrun)
+		    {
+		      log_query(crecp->flags, name, NULL, record_source(crecp->uid));
+		      if (add_resource_record(header, limit, &trunc, nameoffset, &ansp, 
+					      crec_ttl(crecp, now), &nameoffset,
+					      T_CNAME, C_IN, "d", cache_get_name(crecp->addr.cname.cache)))
+			anscount++;
+		    }
 		}
 	    }
 	  

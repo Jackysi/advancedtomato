@@ -148,6 +148,15 @@ void __update_cache(struct vm_area_struct *vma, unsigned long address,
 static char cache_panic[] __cpuinitdata =
 	"Yeee, unsupported cache architecture.";
 
+void __init cpu_early_probe_cache(void)
+{
+	if (cpu_has_4k_cache) {
+		extern void __weak r4k_probe_cache(void);
+
+		return r4k_probe_cache();
+	}
+}
+
 void __cpuinit cpu_cache_init(void)
 {
 	if (cpu_has_3k_cache) {

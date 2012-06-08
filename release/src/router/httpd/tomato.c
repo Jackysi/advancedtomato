@@ -1069,7 +1069,7 @@ static const nvset_t nvset_list[] = {
 
 #ifdef TCONFIG_SNMP
 	{ "snmp_enable",		V_RANGE(0, 1)			},
-	{ "snmp_port",			V_RANGE(0, 65535)		},
+	{ "snmp_port",			V_RANGE(1, 65535)		},
 	{ "snmp_remote",		V_RANGE(0, 1)			},
 	{ "snmp_remote_sip",		V_LENGTH(0, 512)		},
 	{ "snmp_location",		V_LENGTH(0, 20)			},
@@ -1127,6 +1127,12 @@ static const nvset_t nvset_list[] = {
 	{ "ne_valpha",			V_NUM				},
 	{ "ne_vbeta",			V_NUM				},
 	{ "ne_vgamma",			V_NUM				},
+
+// qos-bw-limiter
+	{ "qosl_enable",		V_01                   },
+	{ "qosl_rules",			V_LENGTH(0, 4096)      },
+	/*qosl_ibw unused - qos_ibw shared*/
+	/*qosl_obw unused - qos_obw shared*/
 
 //NoCatSplash. Victek.
 #ifdef TCONFIG_NOCAT

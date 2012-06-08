@@ -23,7 +23,7 @@ options. It includes a secure, read-only,
 TFTP server to allow net/PXE boot of DHCP hosts and also supports BOOTP.
 .PP
 Dnsmasq 
-supports IPv6 for DNS and TFTP, but not DHCP.
+supports IPv6 for all functions and a minimal router-advertisement daemon.
 .SH OPTIONS
 Note that in general missing parameters are allowed and switch off
 functions, for instance "--pid-file" disables writing a PID file. On
@@ -416,6 +416,24 @@ zone files: the port, weight and priority numbers are in a different
 order. More than one SRV record for a given service/domain is allowed,
 all that match are returned.
 .TP
+.B --host-record=<name>[,<name>....][<IPv4-address>],[<IPv6-address>]
+Add A, AAAA and PTR records to the DNS. This adds one or more names to
+the DNS with associated IPv4 (A) and IPv6 (AAAA) records. A name may
+appear in more than one 
+.B host-record
+and therefore be assigned more than one address. Only the first
+address creates a PTR record linking the address to the name. This is
+the same rule as is used reading hosts-files. 
+.B host-record
+options are considered to be read before host-files, so a name
+appearing there inhibits PTR-record creation if it appears in
+hosts-file also. Unlike hosts-files, names are not expanded, even when
+.B expand-hosts
+is in effect. Short and long names may appear in the same 
+.B host-record,
+eg. 
+.B --host-record=laptop,laptop.thekelleys.org,192.168.0.1,1234::100
+.TP
 .B \-Y, --txt-record=<name>[[,<text>],<text>]
 Return a TXT DNS record. The value of TXT record is a set of strings,
 so  any number may be included, delimited by commas; use quotes to put
@@ -494,9 +512,9 @@ compiled in and the kernel must have conntrack support
 included and configured. This option cannot be combined with
 --query-port. 
 .TP
-.B \-F, --dhcp-range=[interface:<interface>,][tag:<tag>[,tag:<tag>],][set:<tag],]<start-addr>,<end-addr>[,<netmask>[,<broadcast>]][,<lease time>]
+.B \-F, --dhcp-range=[interface:<interface>,][tag:<tag>[,tag:<tag>],][set:<tag],]<start-addr>[,<end-addr>][,<mode>][,<netmask>[,<broadcast>]][,<lease time>]
 .TP
-.B \-F, --dhcp-range=[interface:<interface>,][tag:<tag>[,tag:<tag>],][set:<tag],]<start-IPv6addr>,<end-IPv6addr>[,<prefix-len>][,<lease time>]
+.B \-F, --dhcp-range=[interface:<interface>,][tag:<tag>[,tag:<tag>],][set:<tag],]<start-IPv6addr>[,<end-IPv6addr>][,<mode>][,<prefix-len>][,<lease time>]
 
 Enable the DHCP server. Addresses will be given out from the range
 <start-addr> to <end-addr> and from statically defined addresses given
@@ -506,8 +524,12 @@ options. If the lease time is given, then leases
 will be given for that length of time. The lease time is in seconds,
 or minutes (eg 45m) or hours (eg 1h) or "infinite". If not given,
 the default lease time is one hour. The
-minimum lease time is two minutes. This
-option may be repeated, with different addresses, to enable DHCP
+minimum lease time is two minutes. For IPv6 ranges, the lease time
+maybe "deprecated"; this sets the preferred lifetime sent in a DHCP
+lease or router advertisement to zero, which causes clients to use
+other addresses, if available, for new connections as a prelude to renumbering.
+
+This option may be repeated, with different addresses, to enable DHCP
 service to more than one network. For directly connected networks (ie,
 networks on which the machine running dnsmasq has an interface) the
 netmask is optional: dnsmasq will determine it from the interface
@@ -532,7 +554,7 @@ When it is prefixed with 'tag:' instead, then its meaning changes from setting
 a tag to matching it. Only one tag may be set, but more than one tag
 may be matched.
 
-The end address may be replaced by the keyword 
+The optional <mode> keyword may be 
 .B static
 which tells dnsmasq to enable DHCP for the network specified, but not
 to dynamically allocate IP addresses: only hosts which have static
@@ -540,23 +562,50 @@ addresses given via
 .B dhcp-host
 or from /etc/ethers will be served. 
 
-The end address may be replaced by
-the keyword
+For IPv4, the <mode> may be 
 .B proxy
 in which case dnsmasq will provide proxy-DHCP on the specified
 subnet. (See 
 .B pxe-prompt
 and 
 .B pxe-service
-for details, applies to IPv4 only.)
+for details.)
 
-The end address may be replaced by
-the keyword
+For IPv6, the mode may be some combination of
+.B ra-only, slaac, ra-names, ra-stateless.
+
 .B ra-only
-which tells dnsmasq to offer Router Advertisement only on this subnet,
-and not DHCP. This applies to IPv6 only, see
-.B enable-ra
-for details.
+tells dnsmasq to offer Router Advertisement only on this subnet,
+and not DHCP. 
+
+.B slaac
+tells dnsmasq to offer Router Advertisement on this subnet and to set
+the A bit in the router advertisement, so that the client will use
+SLAAC addresses. When used with a DHCP range or static DHCP address
+this results in the client having both a DHCP-assigned and a SLAAC
+address.
+
+.B ra-stateless
+sends router advertisements with the O and A bits set, and provides a
+stateless DHCP service. The client will use a SLAAC address, and use
+DHCP for other configuration information.
+
+.B ra-names
+enables a mode
+which gives DNS names to dual-stack hosts which do SLAAC for
+IPv6. Dnsmasq uses the host's IPv4 lease to derive the name, network
+segment and MAC address and assumes that the host will also have an
+IPv6 address calculated using the SLAAC algorithm, on the same network
+segment. The address is pinged, and if a reply is received, an AAAA
+record is added to the DNS for this IPv6
+address. Note that this is only happens for directly-connected
+networks, (not one doing DHCP via a relay) and it will not work 
+if a host is using privacy extensions. 
+.B ra-names
+can be combined  with 
+.B ra-stateless
+and
+.B slaac.
 
 The interface:<interface name> section is not normally used. See the
 NOTES section for details of this.
@@ -1031,8 +1080,19 @@ the tags used to determine them.
 .B \-l, --dhcp-leasefile=<path>
 Use the specified file to store DHCP lease information.
 .TP 
+.B --dhcp-duid=<enterprise-id>,<uid>
+(IPv6 only) Specify the server persistent UID which the DHCPv6 server
+will use. This option is not normally required as dnsmasq creates a
+DUID automatically when it is first needed. When given, this option
+provides dnsmasq the data required to create a DUID-EN type DUID. Note
+that once set, the DUID is stored in the lease database, so to change between DUID-EN and
+automatically created DUIDs or vice-versa, the lease database must be
+re-intialised. The enterprise-id is assigned by IANA, and the uid is a
+string of hex octets unique to a particular device.
+.TP
 .B \-6 --dhcp-script=<path>
-Whenever a new DHCP lease is created, or an old one destroyed, the
+Whenever a new DHCP lease is created, or an old one destroyed, or a
+TFTP file transfer completes, the
 executable specified by this option is run.  <path>
 must be an absolute pathname, no PATH search occurs. 
 The arguments to the process
@@ -1082,6 +1142,10 @@ is known.
 DNSMASQ_TAGS contains all the tags set during the
 DHCP transaction, separated by spaces.
 
+DNSMASQ_LOG_DHCP is set if
+.B --log-dhcp
+is in effect.
+
 For IPv4 only:
 
 DNSMASQ_CLIENT_ID if the host provided a client-id.
@@ -1108,6 +1172,8 @@ only  supplied for
 since these data are not held in dnsmasq's lease
 database.
 
+
+
 All file descriptors are
 closed except stdin, stdout and stderr which are open to /dev/null
 (except in debug mode).
@@ -1126,6 +1192,17 @@ all existing leases as they are read from the lease file. Expired
 leases will be called with "del" and others with "old". When dnsmasq
 receives a HUP signal, the script will be invoked for existing leases
 with an "old " event.
+
+
+There are two further actions which may appear as the first argument
+to the script, "init" and "tftp". More may be added in the future, so
+scripts should be written to ignore unknown actions. "init" is
+described below in 
+.B --leasefile-ro
+The "tftp" action is invoked when a TFTP file transfer completes: the
+arguments are the file size in bytes, the address to which the file
+was sent, and the complete pathname of the file.
+ 
 .TP
 .B --dhcp-luascript=<path>
 Specify a script written in Lua, to be run when leases are created,
@@ -1139,11 +1216,13 @@ function, and may provide
 and
 .B shutdown
 functions, which are called, without arguments when dnsmasq starts up
-and terminates.
+and terminates. It may also provide a 
+.B tftp
+function.
 
 The 
 .B lease
-method receives the information detailed in 
+function receives the information detailed in 
 .B --dhcp-script. 
 It gets two arguments, firstly the action, which is a string
 containing, "add", "old" or "del", and secondly a table of tag value
@@ -1160,7 +1239,16 @@ for IPv4, and
 .B client_duid, ip_address
 and 
 .B hostname
-for IPv6. 
+for IPv6.
+
+The  
+.B tftp
+function is called in the same way as the lease function, and the
+table holds the tags 
+.B destination_address,
+.B file_name
+and 
+.B file_size.
 .TP
 .B --dhcp-scriptuser
 Specify the user as which to run the lease-change script or Lua script. This defaults to root, but can be changed to another user using this flag. 
@@ -1255,16 +1343,14 @@ only a subset of this is needed, and dnsmasq can handle it, using
 existing DHCP configuration to provide most data. When RA is enabled,
 dnsmasq will advertise a prefix for each dhcp-range, with default
 router and recursive DNS server as the relevant link-local address on 
-the machine running dnsmasq. The "managed address" bits are set,
-except for a dhcp-range which is marked as "ra-only", in which case RA
-is provided but no DHCPv6 service and the managed address bits are
-cleared. 
-.B enable-ra
-enables router advertisement for prefixes where dnsmasq is doing
-DHCPv6. It is not needed to "ra-only" prefixes. Creating an "ra-only"
-prefix and not setting 
-.B enable-ra
-sends advertisements only to "ra-only" prefixes. 
+the machine running dnsmasq. By default, he "managed address" bits are set, and
+the "use SLAAC" bit is reset. This can be changed for individual
+subnets with the mode keywords described in
+.B --dhcp-range.
+RFC6106 DNS parameters are included in the advertisements. By default,
+the relevant link-local address of the machine running dnsmasq is sent
+as recursive DNS server. If provided, the DHCPv6 options dns-server and
+domain-search are used for RDNSS and DNSSL.
 .TP
 .B --enable-tftp[=<interface>]
 Enable the TFTP server function. This is deliberately limited to that
@@ -1298,6 +1384,12 @@ has no effect, but only files which have the world-readable bit set
 are accessible. It is not recommended to run dnsmasq as root with TFTP
 enabled, and certainly not without specifying --tftp-root. Doing so
 can expose any world-readable file on the server to any host on the net. 
+.TP
+.B --tftp-lowercase
+Convert filenames in TFTP requests to all lowercase. This is useful
+for requests from Windows machines, which have case-insensitive
+filesystems and tend to play fast-and-loose with case in filenames.
+Note that dnsmasq's tftp server always converts "\\" to "/" in filenames.
 .TP
 .B --tftp-max=<connections>
 Set the maximum number of concurrent TFTP connections allowed. This

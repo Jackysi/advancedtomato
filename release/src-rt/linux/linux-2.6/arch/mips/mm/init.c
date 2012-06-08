@@ -62,6 +62,7 @@
 #endif /* CONFIG_MIPS_MT_SMTC */
 
 DEFINE_PER_CPU(struct mmu_gather, mmu_gathers);
+extern void cpu_early_probe_cache();
 
 /*
  * We have up to 8 empty zeroed pages so we can map one of the right colour
@@ -286,7 +287,7 @@ static void __init kmap_init(void)
 	unsigned long kmap_vstart;
 
 	/* cache the first kmap pte */
-	kmap_vstart = __fix_to_virt(FIX_KMAP_BEGIN);
+	kmap_vstart = __fix_to_virt(VALIAS_IDX(FIX_KMAP_BEGIN));
 	kmap_pte = kmap_get_fixmap_pte(kmap_vstart);
 
 	kmap_prot = PAGE_KERNEL;
@@ -362,6 +363,8 @@ void __init paging_init(void)
 	unsigned long lastpfn;
 #endif /* CONFIG_FLATMEM */
 
+	cpu_early_probe_cache();
+	
 	pagetable_init();
 
 #ifdef CONFIG_HIGHMEM

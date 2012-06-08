@@ -97,7 +97,8 @@ void lease_init(time_t now)
 	    if (hw_type == 0 && hw_len != 0)
 	      hw_type = ARPHRD_ETHER; 
 
-	    lease_set_hwaddr(lease, (unsigned char *)daemon->dhcp_buff2, (unsigned char *)daemon->packet, hw_len, hw_type, clid_len);
+	    lease_set_hwaddr(lease, (unsigned char *)daemon->dhcp_buff2, (unsigned char *)daemon->packet, 
+			     hw_len, hw_type, clid_len, now, 0);
 	    
 	    if (strcmp(daemon->dhcp_buff, "*") !=  0)
 	      lease_set_hostname(lease, daemon->dhcp_buff, 0, get_domain(lease->addr), NULL);
@@ -118,7 +119,7 @@ void lease_init(time_t now)
 	    
 	    if ((lease = lease6_allocate(&addr.addr.addr6, lease_type)))
 	      {
-		lease_set_hwaddr(lease, NULL, (unsigned char *)daemon->packet, 0, hw_type, clid_len);
+		lease_set_hwaddr(lease, NULL, (unsigned char *)daemon->packet, 0, hw_type, clid_len, now, 0);
 		
 		if (strcmp(daemon->dhcp_buff, "*") !=  0)
 		  lease_set_hostname(lease, daemon->dhcp_buff, 0, get_domain6((struct in6_addr *)lease->hwaddr), NULL);
@@ -175,16 +176,6 @@ void lease_init(time_t now)
   file_dirty = 0;
   lease_prune(NULL, now);
   dns_dirty = 1;
-
-#ifdef HAVE_DHCP6  
-  /* If we're not doing DHCPv6, and there are not v6 leases, don't add the DUID to the database */
-  if (!daemon->duid && daemon->dhcp6)
-    {
-      file_dirty = 1;
-      make_duid(now);
-    }
-#endif
-
 }
 
 void lease_update_from_configs(void)
@@ -236,10 +227,14 @@ void lease_update_file(time_t now)
 	    continue;
 #endif
 
+#if 1	// zzz
+	  ourprintf(&err, "%lu ", (unsigned long)lease->expires - now);
+#else
 #ifdef HAVE_BROKEN_RTC
 	  ourprintf(&err, "%u ", lease->length);
 #else
 	  ourprintf(&err, "%lu ", (unsigned long)lease->expires);
+#endif
 #endif
 
 	  if (lease->hwaddr_type != ARPHRD_ETHER || lease->hwaddr_len == 0) 
@@ -316,9 +311,16 @@ void lease_update_file(time_t now)
   next_event = 0;
 
 #ifdef HAVE_DHCP6
-  /* do timed RAs and determine when the next is */
+  /* do timed RAs and determine when the next is, also pings to potential SLAAC addresses */
   if (daemon->ra_contexts)
-    next_event = periodic_ra(now);
+    {
+      time_t ra_event = periodic_slaac(now, leases);
+      
+      next_event = periodic_ra(now);
+      
+      if (next_event == 0 || difftime(next_event, ra_event) > 0.0)
+	next_event = ra_event;
+    }
 #endif
 
   for (lease = leases; lease; lease = lease->next)
@@ -336,24 +338,107 @@ void lease_update_file(time_t now)
 		(unsigned int)difftime(next_event, now));
     }
 
-  if (next_event != 0)
-    alarm((unsigned)difftime(next_event, now)); 
+  send_alarm(next_event, now);
 }
 
-void lease_update_dns(void)
+
+static int find_interface_v4(struct in_addr local, int if_index, 
+			     struct in_addr netmask, struct in_addr broadcast, void *vparam)
 {
   struct dhcp_lease *lease;
   
-  if (daemon->port != 0 && dns_dirty)
+  (void) broadcast;
+  (void) vparam;
+
+  for (lease = leases; lease; lease = lease->next)
+    if (!(lease->flags & (LEASE_TA | LEASE_NA)))
+      if (is_same_net(local, lease->addr, netmask))
+	lease_set_interface(lease, if_index, *((time_t *)vparam));
+  
+  return 1;
+}
+
+#ifdef HAVE_DHCP6
+static int find_interface_v6(struct in6_addr *local,  int prefix,
+			     int scope, int if_index, int dad, void *vparam)
+{
+  struct dhcp_lease *lease;
+  
+  (void)scope;
+  (void)dad;
+
+  for (lease = leases; lease; lease = lease->next)
+    if ((lease->flags & (LEASE_TA | LEASE_NA)))
+      if (is_same_net6(local, (struct in6_addr *)&lease->hwaddr, prefix))
+	lease_set_interface(lease, if_index, *((time_t *)vparam));
+  
+  return 1;
+}
+
+void lease_ping_reply(struct in6_addr *sender, unsigned char *packet, char *interface)
+{
+  /* We may be doing RA but not DHCPv4, in which case the lease
+     database may not exist and we have nothing to do anyway */
+  if (daemon->dhcp)
+    slaac_ping_reply(sender, packet, interface, leases);
+}
+
+#endif
+
+
+/* Find interfaces associated with leases at start-up. This gets updated as
+   we do DHCP transactions, but information about directly-connected subnets
+   is useful from scrips and necessary for determining SLAAC addresses from
+   start-time. */
+void lease_find_interfaces(time_t now)
+{
+#ifdef HAVE_DHCP6
+  build_subnet_map();
+#endif
+
+  iface_enumerate(AF_INET, &now, find_interface_v4);
+#ifdef HAVE_DHCP6
+  iface_enumerate(AF_INET6, &now, find_interface_v6);
+
+  /* If we're not doing DHCPv6, and there are not v6 leases, don't add the DUID to the database */
+  if (!daemon->duid && daemon->dhcp6)
+    {
+      file_dirty = 1;
+      make_duid(now);
+    }
+#endif
+}
+
+
+
+void lease_update_dns(int force)
+{
+  struct dhcp_lease *lease;
+
+  if (daemon->port != 0 && (dns_dirty || force))
     {
       cache_unhash_dhcp();
-      
+
       for (lease = leases; lease; lease = lease->next)
 	{
 	  int prot = AF_INET;
+	  
 #ifdef HAVE_DHCP6
 	  if (lease->flags & (LEASE_TA | LEASE_NA))
 	    prot = AF_INET6;
+	  else if (lease->hostname || lease->fqdn)
+	    {
+	      struct slaac_address *slaac;
+
+	      for (slaac = lease->slaac_address; slaac; slaac = slaac->next)
+		if (slaac->backoff == 0)
+		  {
+		    if (lease->fqdn)
+		      cache_add_dhcp_entry(lease->fqdn, AF_INET6, (struct all_addr *)&slaac->addr, lease->expires);
+		    if (!option_bool(OPT_DHCP_FQDN) && lease->hostname)
+		      cache_add_dhcp_entry(lease->hostname, AF_INET6, (struct all_addr *)&slaac->addr, lease->expires);
+		  }
+	    }
 #endif
 	  
 	  if (lease->fqdn)
@@ -621,8 +706,16 @@ void lease_set_expires(struct dhcp_lease *lease, unsigned int len, time_t now)
 } 
 
 void lease_set_hwaddr(struct dhcp_lease *lease, unsigned char *hwaddr,
-		      unsigned char *clid, int hw_len, int hw_type, int clid_len)
+		      unsigned char *clid, int hw_len, int hw_type, int clid_len, 
+		      time_t now, int force)
 {
+#ifdef HAVE_DHCP6
+  int change = force;
+  lease->flags |= LEASE_HAVE_HWADDR;
+#endif
+
+  (void)force;
+
   if (hw_len != lease->hwaddr_len ||
       hw_type != lease->hwaddr_type || 
       (hw_len != 0 && memcmp(lease->hwaddr, hwaddr, hw_len) != 0))
@@ -633,6 +726,9 @@ void lease_set_hwaddr(struct dhcp_lease *lease, unsigned char *hwaddr,
       lease->hwaddr_type = hw_type;
       lease->flags |= LEASE_CHANGED;
       file_dirty = 1; /* run script on change */
+#ifdef HAVE_DHCP6
+      change = 1;
+#endif
     }
 
   /* only update clid when one is available, stops packets
@@ -650,17 +746,27 @@ void lease_set_hwaddr(struct dhcp_lease *lease, unsigned char *hwaddr,
 	  free(lease->clid);
 	  if (!(lease->clid = whine_malloc(clid_len)))
 	    return;
+#ifdef HAVE_DHCP6
+	  change = 1;
+#endif	   
 	}
       else if (memcmp(lease->clid, clid, clid_len) != 0)
 	{
 	  lease->flags |= LEASE_AUX_CHANGED;
 	  file_dirty = 1;
+#ifdef HAVE_DHCP6
+	  change = 1;
+#endif	
 	}
-
+      
       lease->clid_len = clid_len;
       memcpy(lease->clid, clid, clid_len);
     }
-
+  
+#ifdef HAVE_DHCP6
+  if (change)
+    slaac_add_addrs(lease, now, force);
+#endif
 }
 
 static void kill_name(struct dhcp_lease *lease)
@@ -778,13 +884,17 @@ void lease_set_hostname(struct dhcp_lease *lease, char *name, int auth, char *do
   lease->flags |= LEASE_CHANGED; /* run script on change */
 }
 
-void lease_set_interface(struct dhcp_lease *lease, int interface)
+void lease_set_interface(struct dhcp_lease *lease, int interface, time_t now)
 {
   if (lease->last_interface == interface)
     return;
 
   lease->last_interface = interface;
   lease->flags |= LEASE_CHANGED; 
+
+#ifdef HAVE_DHCP6
+  slaac_add_addrs(lease, now, 0);
+#endif
 }
 
 void rerun_scripts(void)
@@ -827,6 +937,14 @@ int do_script_run(time_t now)
 	}
       else 
 	{
+#ifdef HAVE_DHCP6
+	  struct slaac_address *slaac, *tmp;
+	  for (slaac = lease->slaac_address; slaac; slaac = tmp)
+	    {
+	      tmp = slaac->next;
+	      free(slaac);
+	    }
+#endif
 	  kill_name(lease);
 #ifdef HAVE_SCRIPT
 	  queue_script(ACTION_DEL, lease, lease->old_hostname, now);
@@ -919,4 +1037,48 @@ void lease_add_extradata(struct dhcp_lease *lease, unsigned char *data, unsigned
 }
 #endif
 
+void tomato_helper(time_t now)
+{
+	FILE *f;
+	struct in_addr ia;
+	char buf[64];
+	struct dhcp_lease *lease;
+
+	// if delete exists...
+	if ((f = fopen("/var/tmp/dhcp/delete", "r")) != NULL) {
+		while (fgets(buf, sizeof(buf), f)) {
+			ia.s_addr = inet_addr(buf);
+			lease = lease_find_by_addr(ia);
+			if (lease) {
+				lease_prune(lease, 0);
+				lease_update_file(now);
+			}
+		}
+		fclose(f);
+		unlink("/var/tmp/dhcp/delete");
+	}
+
+	// dump the leases file
+	if ((f = fopen("/var/tmp/dhcp/leases.!", "w")) != NULL) {
+		for (lease = leases; lease; lease = lease->next) {
+			if (lease->hwaddr_type == ARPHRD_ETHER) {
+				fprintf(f, "%lu %02X:%02X:%02X:%02X:%02X:%02X %s %s\n",
+					lease->expires - now,
+					lease->hwaddr[0], lease->hwaddr[1], lease->hwaddr[2], lease->hwaddr[3], lease->hwaddr[4], lease->hwaddr[5],
+					inet_ntoa(lease->addr),
+					((lease->hostname) && (strlen(lease->hostname) > 0)) ? lease->hostname : "*");
+			}
+		}
+		fclose(f);
+		rename("/var/tmp/dhcp/leases.!", "/var/tmp/dhcp/leases");
+	}
+}
+
+void flush_lease_file(time_t now)
+{
+	file_dirty = 1;
+	lease_update_file(now);
+}
+
 #endif
+
