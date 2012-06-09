@@ -39,6 +39,7 @@ void __kunmap(struct page *page)
 struct kmap_map {
 	struct page *page;
 	void        *vaddr;
+	unsigned long   pfn;
 };
 
 struct {
@@ -61,8 +62,9 @@ kmap_atomic_page_address(struct page *page)
 
 void *__kmap_atomic(struct page *page, enum km_type type)
 {
-	enum fixed_addresses idx;
+	unsigned int idx;
 	unsigned long vaddr;
+	unsigned long pfn;
 
 	/* even !CONFIG_PREEMPT needs this, for in_atomic in do_page_fault */
 	pagefault_disable();
@@ -70,16 +72,23 @@ void *__kmap_atomic(struct page *page, enum km_type type)
 		return page_address(page);
 
 	idx = type + KM_TYPE_NR*smp_processor_id();
-	vaddr = __fix_to_virt(FIX_KMAP_BEGIN + idx);
+	pfn = page_to_pfn(page);
+	vaddr = fix_to_virt_noalias(VALIAS_IDX(FIX_KMAP_BEGIN + idx), pfn);
 #ifdef CONFIG_DEBUG_HIGHMEM
-	if (!pte_none(*(kmap_pte-idx)))
+	if (!pte_none(*(kmap_pte-(virt_to_fix(vaddr) - VALIAS_IDX(FIX_KMAP_BEGIN)))))
 		BUG();
 #endif
-	set_pte(kmap_pte-idx, mk_pte(page, kmap_prot));
+	/* Vaddr could have been adjusted to avoid virt aliasing,
+	 * recalculate the idx from vaddr.
+	 */
+	set_pte(kmap_pte-(virt_to_fix(vaddr) - VALIAS_IDX(FIX_KMAP_BEGIN)), \
+		mk_pte(page, kmap_prot));
 	local_flush_tlb_one((unsigned long)vaddr);
 
 	kmap_atomic_maps[smp_processor_id()].map[type].page = page;
 	kmap_atomic_maps[smp_processor_id()].map[type].vaddr = (void *)vaddr;
+
+	kmap_atomic_maps[smp_processor_id()].map[type].pfn = pfn;
 
 	return (void*) vaddr;
 }
@@ -87,14 +96,15 @@ void *__kmap_atomic(struct page *page, enum km_type type)
 void __kunmap_atomic(void *kvaddr, enum km_type type)
 {
 	unsigned long vaddr = (unsigned long) kvaddr & PAGE_MASK;
-	enum fixed_addresses idx = type + KM_TYPE_NR*smp_processor_id();
+	unsigned int idx = type + KM_TYPE_NR*smp_processor_id();
+	unsigned long pfn  = kmap_atomic_maps[smp_processor_id()].map[type].pfn;
 
 	if (vaddr < FIXADDR_START) { // FIXME
 		pagefault_enable();
 		return;
 	}
 
-	if (vaddr != __fix_to_virt(FIX_KMAP_BEGIN+idx))
+	if (vaddr != fix_to_virt_noalias(VALIAS_IDX(FIX_KMAP_BEGIN + idx), pfn))
 		BUG();
 
 	/*
@@ -105,6 +115,8 @@ void __kunmap_atomic(void *kvaddr, enum km_type type)
 		kmap_atomic_maps[smp_processor_id()].map[type].page = (struct page *)0;
 		kmap_atomic_maps[smp_processor_id()].map[type].vaddr = (void *) 0;
 
+		kmap_atomic_maps[smp_processor_id()].map[type].pfn = 0;
+
 		flush_data_cache_page((unsigned long)vaddr);
 	}
 
@@ -113,7 +125,7 @@ void __kunmap_atomic(void *kvaddr, enum km_type type)
 	 * force other mappings to Oops if they'll try to access
 	 * this pte without first remap it
 	 */
-	pte_clear(&init_mm, vaddr, kmap_pte-idx);
+	pte_clear(&init_mm, vaddr, kmap_pte-(virt_to_fix(vaddr) - VALIAS_IDX(FIX_KMAP_BEGIN)));
 	local_flush_tlb_one(vaddr);
 #endif
 
@@ -126,14 +138,23 @@ void __kunmap_atomic(void *kvaddr, enum km_type type)
  */
 void *kmap_atomic_pfn(unsigned long pfn, enum km_type type)
 {
-	enum fixed_addresses idx;
+	unsigned int idx;
 	unsigned long vaddr;
 
 	pagefault_disable();
 
 	idx = type + KM_TYPE_NR*smp_processor_id();
-	vaddr = __fix_to_virt(FIX_KMAP_BEGIN + idx);
-	set_pte(kmap_pte-idx, pfn_pte(pfn, kmap_prot));
+	vaddr = fix_to_virt_noalias(VALIAS_IDX(FIX_KMAP_BEGIN + idx), pfn);
+	/* Vaddr could have been adjusted to avoid virt aliasing,
+	 * recalculate the idx from vaddr.
+	 */
+	set_pte(kmap_pte-(virt_to_fix(vaddr) - VALIAS_IDX(FIX_KMAP_BEGIN)), \
+		pfn_pte(pfn, kmap_prot));
+
+	kmap_atomic_maps[smp_processor_id()].map[type].page = (struct page *)0;
+	kmap_atomic_maps[smp_processor_id()].map[type].vaddr = (void *) vaddr;
+	kmap_atomic_maps[smp_processor_id()].map[type].pfn = pfn;
+
 	flush_tlb_one(vaddr);
 
 	return (void*) vaddr;
@@ -141,14 +162,13 @@ void *kmap_atomic_pfn(unsigned long pfn, enum km_type type)
 
 struct page *__kmap_atomic_to_page(void *ptr)
 {
-	unsigned long idx, vaddr = (unsigned long)ptr;
+	unsigned long vaddr = (unsigned long)ptr;
 	pte_t *pte;
 
 	if (vaddr < FIXADDR_START)
 		return virt_to_page(ptr);
 
-	idx = virt_to_fix(vaddr);
-	pte = kmap_pte - (idx - FIX_KMAP_BEGIN);
+	pte = kmap_pte - (virt_to_fix(vaddr) - VALIAS_IDX(FIX_KMAP_BEGIN));
 	return pte_page(*pte);
 }
 

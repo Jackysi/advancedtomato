@@ -84,11 +84,20 @@ extern void __set_fixmap (enum fixed_addresses idx,
 #else
 #define FIXADDR_TOP	((unsigned long)(long)(int)0xfffe0000)
 #endif
-#define FIXADDR_SIZE	(__end_of_fixed_addresses << PAGE_SHIFT)
+#define FIXADDR_SIZE   (__end_of_fixed_addresses << (VALIAS_PAGE_SHIFT))
 #define FIXADDR_START	(FIXADDR_TOP - FIXADDR_SIZE)
 
 #define __fix_to_virt(x)	(FIXADDR_TOP - ((x) << PAGE_SHIFT))
 #define __virt_to_fix(x)	((FIXADDR_TOP - ((x)&PAGE_MASK)) >> PAGE_SHIFT)
+
+static inline unsigned long fix_to_virt_noalias(const unsigned int x, unsigned long pfn)
+{
+	unsigned long vaddr = __fix_to_virt(x);
+	unsigned long poffset = (pfn << PAGE_SHIFT) & VALIAS_PAGE_OFFSET_MASK;
+	unsigned long voffset = vaddr & VALIAS_PAGE_OFFSET_MASK;
+
+	return ((!voffset || (poffset >= voffset)) ? (vaddr | poffset):(vaddr | poffset | VALIAS_PAGE_SIZE));
+}
 
 extern void __this_fixmap_does_not_exist(void);
 
