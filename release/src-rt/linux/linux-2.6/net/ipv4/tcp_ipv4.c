@@ -1313,6 +1313,15 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 		tmp_opt.saw_tstamp = 0;
 	}
 
+	if (tmp_opt.saw_tstamp && !tmp_opt.rcv_tsval) {
+		/* Some OSes (unknown ones, but I see them on web server, which
+		 * contains information interesting only for windows'
+		 * users) do not send their stamp in SYN. It is easy case.
+		 * We simply do not advertise TS support.
+		 */
+		tmp_opt.saw_tstamp = 0;
+		tmp_opt.tstamp_ok  = 0;
+	}
 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
 
 	tcp_openreq_init(req, &tmp_opt, skb);
