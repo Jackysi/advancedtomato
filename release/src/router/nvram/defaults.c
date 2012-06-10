@@ -429,6 +429,9 @@ const defaults_t defaults[] = {
 //		{ "block_loopback",		"0"				},	// nat loopback
 	{ "nf_loopback",		"1"				},
 	{ "block_wan",			"1"				},	// block inbound icmp
+	{ "block_wan_limit",		"1"				},
+	{ "block_wan_limit_icmp",	"1"				},
+	{ "block_wan_limit_tr",		"5"				},
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
 #ifdef TCONFIG_VLAN
 	{ "multicast_lan",		"0"				},	// on LAN (br0)
