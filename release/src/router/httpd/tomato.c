@@ -1072,6 +1072,9 @@ static const nvset_t nvset_list[] = {
 
 #ifdef TCONFIG_SNMP
 	{ "snmp_enable",		V_RANGE(0, 1)			},
+	{ "snmp_port",			V_RANGE(0, 65535)		},
+	{ "snmp_remote",		V_RANGE(0, 1)			},
+	{ "snmp_remote_sip",		V_LENGTH(0, 512)		},
 	{ "snmp_location",		V_LENGTH(0, 20)			},
 	{ "snmp_contact",		V_LENGTH(0, 20)			},
 	{ "snmp_ro",			V_LENGTH(0, 20)			},
