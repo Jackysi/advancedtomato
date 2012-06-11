@@ -142,7 +142,17 @@ ifneq ($(current_TOMATO_MIPS32),r2)
 endif
 endif
 ifeq ($(LINKSYS_E),y)
-	@rm -f image/tomato-E??00$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-E??????$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+endif
+ifeq ($(LINKSYS_E_64k),y)
+	@rm -f image/tomato-E??????$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+endif
+ifeq ($(LINKSYS_E1200v1),y)
+	@rm -f image/tomato-E1200v1$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+endif
+ifeq ($(LINKSYS_E1000v2),y)
+	@rm -f image/tomato-E1000v2-v21$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+	@rm -f image/tomato-Cisco-M10v2$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
 endif
 ifeq ($(BELKIN),y)
 ifneq ($(NVRAM_SIZE),60)
@@ -167,11 +177,35 @@ ifneq ($(current_TOMATO_MIPS32),r2)
 endif
 endif
 ifeq ($(LINKSYS_E),y)
-	# Linksys E-series images
+	# Linksys E-series(60k Nvram) images
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-l 4200,image/tomato-E4200$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin \
-		-l 61XN,image/tomato-E3000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin \
-		-l 32XN,image/tomato-E2000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin \
+		-l 1550,image/tomato-E1550$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l E25X,image/tomato-E2500$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l 3200,image/tomato-E3200$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l 4200,image/tomato-E4200$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l 61XN,image/tomato-E3000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l 32XN,image/tomato-E2000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		| tee -a fpkg.log
+endif
+ifeq ($(LINKSYS_E_64k),y)
+	# Linksys E-series(64k Nvram) images
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-l E900,image/tomato-E900$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l E122,image/tomato-E1200v2$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l E150,image/tomato-E1500$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		| tee -a fpkg.log
+endif
+ifeq ($(LINKSYS_E1000v2),y)
+	# Linksys E1000v2/v2.1 images
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-l E100,image/tomato-E1000v2-v21$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-l M010,image/tomato-Cisco-M10v2$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		| tee -a fpkg.log
+endif
+ifeq ($(LINKSYS_E1200v1),y)
+	# Linksys E1200v1 images
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-l E120,image/tomato-E1200v1$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		| tee -a fpkg.log
 endif
 ifeq ($(BELKIN),y)
@@ -795,6 +829,9 @@ r2e:
 	@$(MAKE) e MIPS32=r2
 
 r2f:
+	@$(MAKE) f MIPS32=r2
+
+r2fb:
 	@$(MAKE) f MIPS32=r2 BELKIN=y
 
 r2fs:
@@ -833,6 +870,8 @@ r2v:
 r2vs:
 	@$(MAKE) vs MIPS32=r2
 
+#Linksys E-Series with 60K Nvram Builds
+
 n60a:
 	@$(MAKE) r2a NVRAM_SIZE=60 LINKSYS_E=y
 
@@ -863,14 +902,66 @@ n60r:
 n60s:
 	@$(MAKE) bin MIPS32=r2 B=S USB="" NVRAM_SIZE=60 LINKSYS_E=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y BUILD_DESC="Std"
 
-n60t:
-	@$(MAKE) r2t NVRAM_SIZE=60 LINKSYS_E=y
-
 n60v:
-	@$(MAKE) bin MIPS32=r2 B=V USB="" NVRAM_SIZE=60 LINKSYS_E=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y OPENVPN=y USERPPTP=y BUILD_DESC="$(VPN)"
+	@$(MAKE) r2v NVRAM_SIZE=60 LINKSYS_E=y
+
+
+#Linksys E-Series with 64K Nvram Builds
+
+n64a:
+	@$(MAKE) r2a NVRAM_SIZE=64 LINKSYS_E_64=y
+
+n64b:
+	@$(MAKE) r2b NVRAM_SIZE=64 LINKSYS_E_64=y
+
+n64c:
+	@$(MAKE) r2c NVRAM_SIZE=64 LINKSYS_E_64=y
+
+n64e:
+	@$(MAKE) r2e NVRAM_SIZE=64 LINKSYS_E_64=y
+
+n64m:
+	@$(MAKE) r2m NVRAM_SIZE=64 LINKSYS_E_64=y
+
+n64n:
+	@$(MAKE) r2n NVRAM_SIZE=64 LINKSYS_E_64=y
+
+n64nc:
+	@$(MAKE) r2nc NVRAM_SIZE=64 LINKSYS_E_64=y
+
+n64o:
+	@$(MAKE) r2o NVRAM_SIZE=64 LINKSYS_E_64=y
+
+n64r:
+	@$(MAKE) r2r NVRAM_SIZE=64 LINKSYS_E_64=y
+
+n64s:
+	@$(MAKE) bin MIPS32=r2 B=S USB="" NVRAM_SIZE=64 LINKSYS_E_64=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y BUILD_DESC="Std"
+
+n64v:
+	@$(MAKE) r2v NVRAM_SIZE=64 LINKSYS_E_64=y
+
+
+#Linksys E-Series with 4MB Flash
+
+e1000v2i:
+	@$(MAKE) r2i NVRAM_SIZE=32 LINKSYS_E1000v2=y
+
+e1000v2f:
+	@$(MAKE) r2f NVRAM_SIZE=32 LINKSYS_E1000v2=y
+
+e1200v1i:
+	@$(MAKE) r2i NVRAM_SIZE=64 LINKSYS_E1200v1=y
+
+e1200v1f:
+	@$(MAKE) r2f NVRAM_SIZE=64 LINKSYS_E1200v1=y
+
+
+#Builds for WNR3500L v2
 
 v2e:
-	@$(MAKE) e MIPS32=r2 WNR3500LV2=y
+	@$(MAKE) e MIPS32=r2 WNR3500LV2=1 NO_JFFS=y
+
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -967,13 +1058,29 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2u          MIPS Release 2 U build (no USB support plus VPN with extras)"
 	@echo "r2v          MIPS Release 2 V build (VPN with no USB support)"
 	@echo "r2vs         MIPS Release 2 VS build (Small VPN with no USB support)"
+
+	@echo "       Linksys E-Series with 60k Nvram"
 	@echo "n60m         Linksys E-series build (60KB NVRAM, standard plus extras)"
 	@echo "n60e         Linksys E-series build (60KB NVRAM, standard plus VPN and extras)"
 	@echo "n60nc        Linksys E-series build (60KB NVRAM, standard plus extras, plus VPN, plus NOCAT)"
 	@echo "n60s         Linksys E-series build (60KB NVRAM, no USB support)"
 	@echo "n60v         Linksys E-series build (60KB NVRAM, VPN with no USB support)"
-	@echo "v2e          Netgear WNR3500Lv2 build (standard plus VPN and extras)"
 
+	@echo "       Linksys E-Series with 64k Nvram/8MB Flash(E900/E1200v2/E1500)"
+	@echo "n64m         Linksys E-series build (64KB NVRAM, standard plus extras)"
+	@echo "n64e         Linksys E-series build (64KB NVRAM, standard plus VPN and extras)"
+	@echo "n64nc        Linksys E-series build (64KB NVRAM, standard plus extras, plus VPN, plus NOCAT)"
+	@echo "n64s         Linksys E-series build (64KB NVRAM, no USB support)"
+	@echo "n64v         Linksys E-series build (64KB NVRAM, VPN with no USB support)"
+
+	@echo "       Linksys E-Series with 4MB Flash(E1000v2/v2.1/E1200v1)"
+	@echo "e1000v2i     Linksys E1000v2-v2.1/Cisco M10v2 MiniIPv6"
+	@echo "e1000v2f     Linksys E1000v2-v2.1/Cisco M10v2 Mini"
+	@echo "e1200v1i     Linksys E1200v1 MiniIPv6"
+	@echo "e1200v1i     Linksys E1200v1 Mini"
+
+	@echo "       Netgear WNR3500L v2 builds (128MB Flash)"
+	@echo "v2e          Netgear WNR3500Lv2 build
 
 endif
 	@echo "..etc..      other build configs"

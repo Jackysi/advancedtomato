@@ -199,6 +199,9 @@ int do_led(int which, int mode)
 	static int wnr2000v2[]	= { 255, 255,   255,  255,  255,   -7,  255,  255	};
 	static int f7d[]	= { 255, 255,   255,  255,   12,   13,  255,   14	};
 	static int wrt160nv3[]	= { 255,   1,     4,    2,  255,  255,  255,  255	};
+	static int e900[]	= { 255,  -6,     8,  255,  255,  255,  255,  255	};
+	static int e1000v2[]	= { 255,  -6,     8,    7,  255,  255,  255,  255	};
+	static int e3200[]	= { 255,  -3,   255,  255,  255,  255,  255,  255	};
 	static int wrt320n[]	= { 255,   2,     3,    4,  255,  255,  255,  255	};
 	static int wrt610nv2[]	= { 255,   5,     3,    0,  255,  255,  255,   -7	};
 	static int e4200[]	= { 255,   5,    -3,  255,  255,  255,  255,  255	};
@@ -346,6 +349,18 @@ int do_led(int which, int mode)
 			c = (mode) ? -10 : 11;
 		} else
 			b = f7d[which];
+		break;
+	case MODEL_E1000v2:
+		b = e1000v2[which];
+		break;
+	case MODEL_E900:
+	case MODEL_E1500:
+	case MODEL_E1550:
+		b = e900[which];
+		break;
+	case MODEL_E2500:
+	case MODEL_E3200:
+		b = e3200[which];
 		break;
 	case MODEL_WRT160Nv3:
 		b = wrt160nv3[which];
