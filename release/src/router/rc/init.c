@@ -420,7 +420,6 @@ static int init_vlan_ports(void)
 	case MODEL_RTN10:
 		dirty |= check_nv("vlan1ports", "4 5");
 		break;
-	case MODEL_E1000v2:
 	case MODEL_RTN10U:
 		dirty |= check_nv("vlan0ports", "1 2 3 4 5*");
 		dirty |= check_nv("vlan1ports", "0 5");
@@ -447,6 +446,10 @@ static int init_vlan_ports(void)
 	case MODEL_F7D4302:
 		dirty |= check_nv("vlan1ports", "0 1 2 3 5*");
 		dirty |= check_nv("vlan2ports", "4 5");
+		break;
+	case MODEL_E1000v2:
+		dirty |= check_nv("vlan1ports", "1 2 3 4 5*");
+		dirty |= check_nv("vlan2ports", "0 5");
 		break;
 	case MODEL_RTN15U:
 	case MODEL_E1550:
@@ -1316,7 +1319,7 @@ static int init_nvram(void)
 
 	if (name) {
 		nvram_set("t_fix1", name);
-		if (strcmp(nvram_safe_get("boot_hw_ver"), "") != 0) {
+		if (strcmp(ver, "") != 0) {
 			sprintf(s, "%s %s %s", mfr, name, ver);
 		} else {
 			sprintf(s, "%s %s", mfr, name);

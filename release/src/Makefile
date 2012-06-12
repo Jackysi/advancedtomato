@@ -789,7 +789,7 @@ f:
 ifeq ($(CONFIG_LINUX26),y)
 ## MiniIPv6 - for 4MB routers
 i:
-	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB=""
+	@$(MAKE) bin NO_JFFS=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB=""
 endif
 
 ## VPN with no USB support (IPv6 in K26 build)
@@ -865,8 +865,11 @@ n60d:
 n60o:
 	@$(MAKE) r2o NVRAM_SIZE=60 LINKSYS_E=y
 
-n60k:
-	@$(MAKE) r2k NVRAM_SIZE=60 LINKSYS_E=y
+n60i:
+	@$(MAKE) r2i NVRAM_SIZE=60 LINKSYS_E=y
+
+n60j:
+	@$(MAKE) r2j NVRAM_SIZE=60 LINKSYS_E=y
 
 n60v:
 	@$(MAKE) r2v NVRAM_SIZE=60 LINKSYS_E=y
@@ -894,9 +897,6 @@ n64d:
 
 n64o:
 	@$(MAKE) r2o NVRAM_SIZE=64 LINKSYS_E_64k=y
-
-n64k:
-	@$(MAKE) r2k NVRAM_SIZE=64 LINKSYS_E_64k=y
 
 
 #Linksys E-Series with 4MB Flash
@@ -979,7 +979,7 @@ help:
 	@echo "e            VPN - (standard plus VPN, extra utilities and NTFS support)"
 	@echo "c            BTgui-VPN - (Ext plus BT gui)"
 	@echo "d            Nocat-VPN - (BTgui plus VPN plus Nocat)"
-	@echo "u            BT
+	@echo "u            BT"
 	@echo "t            BT-VPN - (BT plus VPN)"
 	@echo "b            Big-VPN - (Big plus VPN)"
 	@echo "o            Mega-VPN - (Mega plus VPN plus NOCAT minus NFS)"
@@ -1006,7 +1006,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "e1000v2i     Linksys E1000v2-v2.1/Cisco M10v2 MiniIPv6"
 	@echo "e1000v2f     Linksys E1000v2-v2.1/Cisco M10v2 Mini"
 	@echo "e1200v1i     Linksys E1200v1 MiniIPv6"
-	@echo "e1200v1i     Linksys E1200v1 Mini"
+	@echo "e1200v1f     Linksys E1200v1 Mini"
 	@echo "       Linksys E-Series with 60k Nvram"
 	@echo "n60e         Linksys E-series build VPN"
 	@echo "n60c         Linksys E-series build BTGui-VPN"
@@ -1016,6 +1016,8 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "n60b         Linksys E-series build Big-VPN"
 	@echo "n60o         Linksys E-series build Mega-VPN"
 	@echo "n60z         Linksys E-series build AIO"
+	@echo "n60i         Linksys E-series build Mini for E2500"
+	@echo "n60j         Linksys E-series build MiniIPv6 for E2500"
 	@echo "n60v         Linksys E-series build IPv6-VPN for E2000"
 	@echo "       Linksys E-Series with 64k Nvram/8MB Flash(E900/E1200v2/E1500)"
 	@echo "n64e         Linksys E-series(64k Nvram) build VPN"
