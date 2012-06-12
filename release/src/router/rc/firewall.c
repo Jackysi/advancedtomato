@@ -1070,9 +1070,9 @@ static void filter_forward(void)
 			n = vstrsep(b, "<", &d, &sbr, &saddr, &dbr, &daddr, &desc);
 			if (*d != '1')
 				continue;
-			if (!ipt_addr(src, sizeof(src), saddr, "src", IPT_V4|IPT_V6, 1, "LAN access IPv4", desc))
+			if (!ipt_addr(src, sizeof(src), saddr, "src", IPT_V4|IPT_V6, 0, "LAN access", desc))
 				continue;
-			if (!ipt_addr(dst, sizeof(dst), daddr, "dst", IPT_V4|IPT_V6, 1, "LAN access IPv4", desc))
+			>if (!ipt_addr(dst, sizeof(dst), daddr, "dst", IPT_V4|IPT_V6, 0, "LAN access", desc))
 				continue;
 
 			//ipv4 only
@@ -1200,6 +1200,18 @@ static void filter_forward(void)
 			ip46t_write("-A FORWARD -i %s -j %s\n", nvram_safe_get(lanN_ifname), chain_out_accept);
 		}
 	}
+
+#ifdef TCONFIG_IPV6
+//IPv6 forward LAN->WAN accept
+	ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lanface, wan6face, chain_out_accept);
+
+	if (strcmp(lan1face,"")!=0)
+		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan1face, wan6face, chain_out_accept);
+	if (strcmp(lan2face,"")!=0)
+		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan2face, wan6face, chain_out_accept);
+	if (strcmp(lan3face,"")!=0)
+		ip6t_write("-A FORWARD -i %s -o %s -j %s\n", lan3face, wan6face, chain_out_accept);
+#endif
 
 	// IPv4 only
 	if (nvram_get_int("upnp_enable") & 3) {

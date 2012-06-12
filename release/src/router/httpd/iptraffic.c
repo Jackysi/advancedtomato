@@ -65,12 +65,8 @@ void asp_iptraffic(int argc, char **argv) {
 		fgets(sa, sizeof(sa), a); // network
 		while (fgets(sa, sizeof(sa), a)) {
 			if(sscanf(sa, 
-#ifdef LINUX26
 				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %lu %lu %lu %*u bytes_dst = %lu %*u %*u %*u %*u packets_dst = %*u %lu %lu %lu %*u time = %*u",
-#else
-				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %lu %lu %lu %*u bytes_dst = %lu %*u %*u %*u %*u packets_dst = %*u %lu %lu %lu %*u time = %*u",
-#endif
-				ip, &tx_bytes, &tp_tcp, &tp_udp, &tp_icmp, &rx_bytes, &rp_tcp, &rp_udp, &rp_icmp) != 9 ) continue;
+					ip, &tx_bytes, &tp_tcp, &tp_udp, &tp_icmp, &rx_bytes, &rp_tcp, &rp_udp, &rp_icmp) != 9 ) continue;
 			if (find_word(exclude, ip)) continue ;
 			if ((tx_bytes > 0) || (rx_bytes > 0)){
 				strncpy(tmp.ipaddr, ip, INET_ADDRSTRLEN);

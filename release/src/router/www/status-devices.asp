@@ -155,7 +155,7 @@ function addbwlimit(n)
 {
 	var e = list[n];
 	cookie.set('addbwlimit', [e.ip, e.name.split(',')[0]].join(','), 1);
-	location.href = 'new-qoslimit.asp';
+	location.href = 'bwlimit.asp';
 }
 
 var ref = new TomatoRefresh('update.cgi', 'exec=devlist', 0, 'status_devices_refresh');
