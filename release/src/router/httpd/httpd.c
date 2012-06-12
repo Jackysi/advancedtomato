@@ -831,9 +831,9 @@ static void setup_listeners(int do_ipv6)
 	else
 #endif
 	strlcpy(ipaddr, nvram_safe_get("lan_ipaddr"), sizeof(ipaddr));
-	strlcpy(ipaddr1, nvram_safe_get("lan1_ipaddr"), sizeof(ipaddr1));
-	strlcpy(ipaddr2, nvram_safe_get("lan2_ipaddr"), sizeof(ipaddr2));
-	strlcpy(ipaddr3, nvram_safe_get("lan3_ipaddr"), sizeof(ipaddr3));
+	strlcpy(ipaddr1, nvram_safe_get("lan1_ipaddr"), sizeof(ipaddr));
+	strlcpy(ipaddr2, nvram_safe_get("lan2_ipaddr"), sizeof(ipaddr));
+	strlcpy(ipaddr3, nvram_safe_get("lan3_ipaddr"), sizeof(ipaddr));
 
 	if (!nvram_match("http_enable", "0")) {
 		p = nvram_get_int("http_lanport");
