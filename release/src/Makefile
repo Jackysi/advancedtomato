@@ -1077,7 +1077,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "e1000v2i     Linksys E1000v2-v2.1/Cisco M10v2 MiniIPv6"
 	@echo "e1000v2f     Linksys E1000v2-v2.1/Cisco M10v2 Mini"
 	@echo "e1200v1i     Linksys E1200v1 MiniIPv6"
-	@echo "e1200v1i     Linksys E1200v1 Mini"
+	@echo "e1200v1f     Linksys E1200v1 Mini"
 
 	@echo "       Netgear WNR3500L v2 builds (128MB Flash)"
 	@echo "v2e          Netgear WNR3500Lv2 build
