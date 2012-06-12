@@ -960,7 +960,7 @@ e1200v1f:
 #Builds for WNR3500L v2
 
 v2e:
-	@$(MAKE) e MIPS32=r2 WNR3500LV2=1 NO_JFFS=y
+	@$(MAKE) e MIPS32=r2 WNR3500LV2=y NO_JFFS=y
 
 
 setprofile:
