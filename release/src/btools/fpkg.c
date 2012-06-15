@@ -320,9 +320,9 @@ void create_cytan(const char *fname, const char *pattern)
 	memset(&h, 0, sizeof(h));
 	memcpy(h.magic, pattern, 4);
 	memcpy(h.u2nd, "U2ND", 4);
-	h.version[0] = 1;   // stock fw has version check
-	h.version[1] = 1;
-	h.version[2] = 99;
+	h.version[0] = 4; // stock fw has version check
+	h.version[1] = 20;
+	h.version[2] = 6;
 //	h.version[0] = 4;		// 4.0.0	should be >= *_VERSION_FROM defined in code_pattern.h
 	h.flags = 0xFF;
 	tm = localtime(&max_time);
