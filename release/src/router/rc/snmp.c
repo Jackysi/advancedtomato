@@ -21,6 +21,8 @@ void start_snmp(void)
             perror( "/etc/snmpd.conf" );
             return;
         }
+
+            fprintf(fp, "agentaddress udp:%d\n", nvram_get_int( "snmp_port" ) );
             fprintf(fp, "syslocation %s\n", nvram_safe_get( "snmp_location" ) );
             fprintf(fp, "syscontact %s <%s>\n", nvram_safe_get( "snmp_contact" ),nvram_safe_get( "snmp_contact" ) );
             fprintf(fp, "rocommunity %s\n", nvram_safe_get( "snmp_ro" ) );
