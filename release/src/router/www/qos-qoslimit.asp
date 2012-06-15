@@ -261,6 +261,14 @@ function init()
 		<br>
 		<table class='tomato-grid' id='qosg-grid'></table>
 		<div>
+		<br>
+		<br>
+		<br>
+			<ul>
+				<li><b>IP Address / IP Range</b> - e.g. 192.168.1.5 or 192.168.1.45-57 or 45-57 -  A range of IP's will <b>share</b> the bandwidth.<br>
+			</ul>
+		</div>
+	</div>
 
 <!-- / / / -->
 
