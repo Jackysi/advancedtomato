@@ -712,6 +712,9 @@ static const nvset_t nvset_list[] = {
 
 // advanced-firewall
 	{ "block_wan",			V_01				},
+	{ "block_wan_limit",		V_01				},
+	{ "block_wan_limit_icmp",	V_RANGE(1, 300)			},
+	{ "block_wan_limit_tr",		V_RANGE(1, 300)			},
 	{ "multicast_pass",		V_01				},
 #ifdef TCONFIG_VLAN
 	{ "multicast_lan",		V_01				},
@@ -1088,6 +1091,9 @@ static const nvset_t nvset_list[] = {
 
 #ifdef TCONFIG_SNMP
 	{ "snmp_enable",		V_RANGE(0, 1)			},
+	{ "snmp_port",			V_RANGE(0, 65535)		},
+	{ "snmp_remote",		V_RANGE(0, 1)			},
+	{ "snmp_remote_sip",		V_LENGTH(0, 512)		},
 	{ "snmp_location",		V_LENGTH(0, 20)			},
 	{ "snmp_contact",		V_LENGTH(0, 20)			},
 	{ "snmp_ro",			V_LENGTH(0, 20)			},
