@@ -1320,7 +1320,8 @@ static int init_nvram(void)
 	if (name) {
 		nvram_set("t_fix1", name);
 		if (strcmp(nvram_safe_get("boot_hw_ver"), "") != 0) {
-			sprintf(s, "%s %s %s", mfr, name, ver);
+			sprintf(s, "%s %s %s", mfr, name);
+//			sprintf(s, "%s %s %s", mfr, name, ver);
 		} else {
 			sprintf(s, "%s %s", mfr, name);
 	}
