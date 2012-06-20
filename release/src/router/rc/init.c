@@ -1054,7 +1054,7 @@ static int init_nvram(void)
 #ifdef TCONFIG_USB
 		nvram_set("usb_uhci", "-1");
 #if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
-		if (nvram_get_int("usb_mmc") == -1) nvram_set("usb_mmc", "0");
+		if (nvram_get_int("usb_mmc") == -1) nvram_set("usb_mmc", "1");
 #endif
 #endif
 		if (!nvram_match("t_fix1", (char *)name)) {
