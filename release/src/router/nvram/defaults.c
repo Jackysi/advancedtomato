@@ -663,13 +663,13 @@ const defaults_t defaults[] = {
 
 #ifdef TCONFIG_USB
 // nas-usb - !!TB
-	{ "usb_enable",			"0"				},
+	{ "usb_enable",			"1"				},
 	{ "usb_uhci",			"0"				},
 	{ "usb_ohci",			"0"				},
 	{ "usb_usb2",			"1"				},
 	{ "usb_irq_thresh",		"0"				},
 	{ "usb_storage",		"1"				},
-	{ "usb_printer",		"1"				},
+	{ "usb_printer",		"0"				},
 	{ "usb_printer_bidirect",	"0"				},
 	{ "usb_ext_opt",		""				},
 	{ "usb_fat_opt",		""				},
