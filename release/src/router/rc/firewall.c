@@ -1235,12 +1235,16 @@ static void filter_forward(void)
 #endif
 
 		if (dmz_dst(dst)) {
+			char dmz_ifname[IFNAMSIZ+1];
+			strlcpy(dmz_ifname, nvram_safe_get("dmz_ifname"), sizeof(dmz_ifname));
+			if(strcmp(dmz_ifname, "") == 0)
+				strlcpy(dmz_ifname, lanface, sizeof(lanface));
 			strlcpy(t, nvram_safe_get("dmz_sip"), sizeof(t));
 			p = t;
 			do {
 				if ((c = strchr(p, ',')) != NULL) *c = 0;
-				if (ipt_source_strict(p, src, "dmz", NULL))
-					ipt_write("-A FORWARD -o %s %s -d %s -j %s\n", lanface, src, dst, chain_in_accept);
+				if (ipt_source(p, src, "dmz", NULL))
+					ipt_write("-A FORWARD -o %s %s -d %s -j %s\n", dmz_ifname, src, dst, chain_in_accept);
 				if (!c) break;
 				p = c + 1;
 			} while (*p);

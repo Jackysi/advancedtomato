@@ -194,6 +194,8 @@ void start_pptpd(void)
 	if(!manual_dns && !nvram_match("lan_ipaddr", ""))
                 fprintf(fp, "ms-dns %s\n", nvram_safe_get("lan_ipaddr"));
 
+	fprintf(fp, "%s\n\n", nvram_safe_get("pptpd_custom"));
+
 	// Following is all crude and need to be revisited once testing confirms
 	// that it does work
 	// Should be enough for testing..
@@ -334,4 +336,18 @@ void stop_pptpd(void)
 	killall_tk("pptpd");
 	killall_tk("bcrelay");
 	return;
+}
+
+void write_pptpd_dnsmasq_config(FILE* f) {
+	int i;
+	if (nvram_match("pptpd_enable", "1")) {
+		fprintf(f, "interface=");
+		for (i = 4; i <= 9 ; i++) {
+			fprintf(f, "ppp%d%c", i, ((i < 9)? ',' : '\n'));
+		}
+		fprintf(f, "no-dhcp-interface=");
+		for (i = 4; i <= 9 ; i++) {
+			fprintf(f, "ppp%d%c", i, ((i < 9)? ',' : '\n'));
+		}
+	}
 }

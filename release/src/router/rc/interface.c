@@ -216,6 +216,8 @@ int start_vlan(void)
 		char vlan_id[16];
 		char *hwname, *hwaddr;
 		char prio[8];
+		int vid_map;
+
 		/* get the address of the EMAC on which the VLAN sits */
 		snprintf(nvvar_name, sizeof(nvvar_name), "vlan%dhwname", i);
 		if (!(hwname = nvram_get(nvvar_name)))
@@ -242,11 +244,17 @@ int start_vlan(void)
 			continue;
 		if (!(ifr.ifr_flags & IFF_UP))
 			ifconfig(ifr.ifr_name, IFUP, 0, 0);
+
+		/* vlan ID mapping */
+		snprintf(nvvar_name, sizeof(nvvar_name), "vlan%dvid", i);
+		vid_map = nvram_get_int(nvvar_name);
+		if ((vid_map < 1) || (vid_map > 4094)) vid_map = vlan0tag | i;
+
 		/* create the VLAN interface */
-		snprintf(vlan_id, sizeof(vlan_id), "%d", i | vlan0tag);
+		snprintf(vlan_id, sizeof(vlan_id), "%d", vid_map);
 		eval("vconfig", "add", ifr.ifr_name, vlan_id);
 		/* setup ingress map (vlan->priority => skb->priority) */
-		snprintf(vlan_id, sizeof(vlan_id), "vlan%d", i | vlan0tag);
+		snprintf(vlan_id, sizeof(vlan_id), "vlan%d", vid_map);
 		for (j = 0; j < VLAN_NUMPRIS; j ++) {
 			snprintf(prio, sizeof(prio), "%d", j);
 			eval("vconfig", "set_ingress_map", vlan_id, prio, prio);
@@ -262,11 +270,14 @@ int start_vlan(void)
 int stop_vlan(void)
 {
 	int i;
+	int vlan0tag, vid_map;
 	char nvvar_name[16];
 	char vlan_id[16];
 	char *hwname;
 
 	if ((strtoul(nvram_safe_get("boardflags"), NULL, 0) & BFL_ENETVLAN) == 0) return 0;
+
+	vlan0tag = nvram_get_int("vlan0tag");
 
 	for (i = 0; i <= VLAN_MAXVID; i ++) {
 		/* get the address of the EMAC on which the VLAN sits */
@@ -274,8 +285,13 @@ int stop_vlan(void)
 		if (!(hwname = nvram_get(nvvar_name)))
 			continue;
 
+		/* vlan ID mapping */
+		snprintf(nvvar_name, sizeof(nvvar_name), "vlan%dvid", i);
+		vid_map = nvram_get_int(nvvar_name);
+		if ((vid_map < 1) || (vid_map > 4094)) vid_map = vlan0tag | i;
+
 		/* remove the VLAN interface */
-		snprintf(vlan_id, sizeof(vlan_id), "vlan%d", i | nvram_get_int("vlan0tag"));
+		snprintf(vlan_id, sizeof(vlan_id), "vlan%d", vid_map);
 		eval("vconfig", "rem", vlan_id);
 	}
 

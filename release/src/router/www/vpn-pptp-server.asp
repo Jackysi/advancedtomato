@@ -22,10 +22,14 @@
 #ul-grid .co2 {
   text-align: center;
 }
+textarea {
+  width: 98%;
+  height: 10em;
+}
 </style>
 <script type='text/javascript' src='interfaces.js'></script>
 <script type='text/javascript'>
-//	<% nvram("lan_ipaddr,lan_netmask,pptpd_enable,pptpd_remoteip,pptpd_forcemppe,pptpd_broadcast,pptpd_users,pptpd_dns1,pptpd_dns2,pptpd_wins1,pptpd_wins2,pptpd_mtu,pptpd_mru");%>
+//	<% nvram("lan_ipaddr,lan_netmask,pptpd_enable,pptpd_remoteip,pptpd_forcemppe,pptpd_broadcast,pptpd_users,pptpd_dns1,pptpd_dns2,pptpd_wins1,pptpd_wins2,pptpd_mtu,pptpd_mru,pptpd_custom");%>
 
 if (nvram.pptpd_remoteip == '') nvram.pptpd_remoteip = '172.19.0.1-6';
 if (nvram.pptpd_forcemppe == '') nvram.pptpd_forcemppe = '1';
@@ -168,6 +172,7 @@ function verifyFields(focused, quiet) {
 	E('_pptpd_broadcast').disabled = c;
 	E('_f_pptpd_startip').disabled = c;
 	E('_f_pptpd_endip').disabled = c;
+	E('_pptpd_custom').disabled = c;
 
 	var a = E('_f_pptpd_startip');
 /* REMOVE-BEGIN */
@@ -301,7 +306,7 @@ function toggleVisibility(whichone) {
 <div id='ident'><% ident(); %></div>
 <input type='hidden' name='_nextpage' value='vpn-pptpd.asp'>
 <input type='hidden' name='_nextwait' value='5'>
-<input type='hidden' name='_service' value='firewall-restart,pptpd-restart'>
+<input type='hidden' name='_service' value='firewall-restart,pptpd-restart,dnsmasq-restart'>
 <input type='hidden' name='pptpd_users'>
 <input type='hidden' name='pptpd_enable'>
 <input type='hidden' name='pptpd_remoteip'>
@@ -311,19 +316,21 @@ function toggleVisibility(whichone) {
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Enable', name: 'f_pptpd_enable', type: 'checkbox', value: nvram.pptpd_enable == '1' },
-	{ title: 'Local IP Address/Netmask', indent: 2, text: (nvram.lan_ipaddr + ' / ' + nvram.lan_netmask) },
-	{ title: 'Remote IP Address Range', indent: 2, multi: [
+	{ title: 'Local IP Address/Netmask', text: (nvram.lan_ipaddr + ' / ' + nvram.lan_netmask) },
+	{ title: 'Remote IP Address Range', multi: [
 		{ name: 'f_pptpd_startip', type: 'text', maxlen: 15, size: 17, value: nvram.dhcpd_startip, suffix: '&nbsp;-&nbsp;' },
 		{ name: 'f_pptpd_endip', type: 'text', maxlen: 15, size: 17, value: nvram.dhcpd_endip, suffix: ' <i id="pptpd_count"></i>' }
 	] },
-	{ title: 'Broadcast Relay Mode', indent: 2, name: 'pptpd_broadcast', type: 'select', options: [['disable','Disabled'], ['br0','LAN to VPN Clients'], ['ppp','VPN Clients to LAN'], ['br0ppp','Both']], value: nvram.pptpd_broadcast },
-	{ title: 'Encryption', indent: 2, name: 'pptpd_forcemppe', type: 'select', options: [[0, 'None'], [1, 'MPPE-128']], value: nvram.pptpd_forcemppe },
-	{ title: 'DNS Servers', indent: 2, name: 'pptpd_dns1', type: 'text', maxlen: 15, size: 17, value: nvram.pptpd_dns1 },
+	{ title: 'Broadcast Relay Mode', name: 'pptpd_broadcast', type: 'select', options: [['disable','Disabled'], ['br0','LAN to VPN Clients'], ['ppp','VPN Clients to LAN'], ['br0ppp','Both']], value: nvram.pptpd_broadcast },
+	{ title: 'Encryption', name: 'pptpd_forcemppe', type: 'select', options: [[0, 'None'], [1, 'MPPE-128']], value: nvram.pptpd_forcemppe },
+	{ title: 'DNS Servers', name: 'pptpd_dns1', type: 'text', maxlen: 15, size: 17, value: nvram.pptpd_dns1 },
 	{ title: '', name: 'pptpd_dns2', type: 'text', maxlen: 15, size: 17, value: nvram.pptpd_dns2 },
-	{ title: 'WINS Servers', indent: 2, name: 'pptpd_wins1', type: 'text', maxlen: 15, size: 17, value: nvram.pptpd_wins1 },
+	{ title: 'WINS Servers', name: 'pptpd_wins1', type: 'text', maxlen: 15, size: 17, value: nvram.pptpd_wins1 },
 	{ title: '', name: 'pptpd_wins2', type: 'text', maxlen: 15, size: 17, value: nvram.pptpd_wins2 },
-	{ title: 'MTU', indent: 2, name: 'pptpd_mtu', type: 'text', maxlen: 4, size: 6, value: (nvram.pptpd_mtu ? nvram.pptpd_mtu : 1450)},
-	{ title: 'MRU', indent: 2, name: 'pptpd_mru', type: 'text', maxlen: 4, size: 6, value: (nvram.pptpd_mru ? nvram.pptpd_mru : 1450)}
+	{ title: 'MTU', name: 'pptpd_mtu', type: 'text', maxlen: 4, size: 6, value: (nvram.pptpd_mtu ? nvram.pptpd_mtu : 1450)},
+	{ title: 'MRU', name: 'pptpd_mru', type: 'text', maxlen: 4, size: 6, value: (nvram.pptpd_mru ? nvram.pptpd_mru : 1450)},
+	{ title: '<a href="http://poptop.sourceforge.net/" target="_new">Poptop</a><br>Custom configuration', name: 'pptpd_custom', type: 'textarea', value: nvram.pptpd_custom }
+
 ]);
 </script>
 </div>
@@ -351,10 +358,9 @@ createFieldTable('', [
 
 <small>
 <ul>
-<li><b>Other relevant notes/hints:</b></li>
+<li><b>Other relevant notes/hints:</b>
 <ul>
 <li>Try to avoid any conflicts and/or overlaps between the address ranges configured/available for DHCP and VPN clients on your local networks.</li>
-</ul>
 </ul>
 </small>
 </div>
