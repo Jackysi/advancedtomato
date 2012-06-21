@@ -841,7 +841,7 @@ help:
 	@echo "e            VPN - (standard plus VPN, extra utilities and NTFS support)"
 	@echo "c            BTgui-VPN - (Ext plus BT gui)"
 	@echo "d            Nocat-VPN - (BTgui plus VPN plus Nocat)"
-	@echo "u            BT
+	@echo "u            BT"
 	@echo "t            BT-VPN - (BT plus VPN)"
 	@echo "b            Big-VPN - (Big plus VPN)"
 	@echo "o            Mega-VPN - (Mega plus VPN plus NOCAT minus NFS)"
