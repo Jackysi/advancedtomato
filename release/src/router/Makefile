@@ -1069,7 +1069,7 @@ libbcm-install:
 iproute2:
 	@$(SEP)
 	@$(MAKE) -C $@ KERNEL_INCLUDE=$(LINUXDIR)/include EXTRACFLAGS="$(EXTRACFLAGS) $(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6)"
-	
+
 iproute2-install: iproute2
 	install -D iproute2/tc/tc $(INSTALLDIR)/iproute2/usr/sbin/tc
 	$(STRIP) $(INSTALLDIR)/iproute2/usr/sbin/tc
@@ -1581,7 +1581,7 @@ transmission/stamp-h1: openssl libcurl libevent zlib libiconv
 		ac_cv_header_libintl_h=yes HAVE_CXX=yes \
 		am_cv_lib_iconv=yes ac_cv_func_iconv_open=yes \
 		$(CONFIGURE) --target=mipsel-linux --prefix=/usr --disable-nls \
-		--enable-lightweight --enable-largefile --enable-utp \
+		--enable-lightweight --enable-largefile --enable-utp --without-gtk \
 		LIBCURL_CFLAGS="-I$(TOP)/libcurl/include" \
 		LIBCURL_LIBS="-L$(TOP)/libcurl/lib/.libs/ -lcurl" \
 		LIBEVENT_CFLAGS="-I$(TOP)/libevent/include" \
