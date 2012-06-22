@@ -171,6 +171,8 @@ else
   endif
 endif
 
+obj-y += wanuptime
+
 obj-clean := $(foreach obj, $(obj-y) $(obj-n) $(obj-), $(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 
@@ -1396,6 +1398,16 @@ igs:
 igs-install: igs
 	$(MAKE) -C $(SRCBASE)/emf/igsconf INSTALLDIR=$(INSTALLDIR) install
 
+wanuptime: nvram shared
+	@$(SEP)
+	@$(MAKE) -C wanuptime
+
+wanuptime-clean:
+	$(MAKE) -C wanuptime clean
+
+wanuptime-install:
+	install -D wanuptime/wanuptime $(INSTALLDIR)/wanuptime/usr/sbin/wanuptime
+	$(STRIP) $(INSTALLDIR)/wanuptime/usr/sbin/wanuptime
 
 ebtables: dummy
 	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) \
