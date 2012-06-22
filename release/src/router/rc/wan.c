@@ -1056,6 +1056,8 @@ void stop_wan(void)
 	stop_pppoe();
 	stop_ppp();
 	stop_dhcpc();
+	if (nvram_get_int("pptp_client_enable"))
+		stop_pptp_client();
 	clear_resolv();
 	nvram_set("wan_get_dns", "");
 
