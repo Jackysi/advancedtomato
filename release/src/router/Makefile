@@ -958,7 +958,7 @@ accel-pptp-install: accel-pptp
 	$(STRIP) $(INSTALLDIR)/accel-pptp/usr/lib/pppd/pptp.so
 
 pptpd/stamp-h1:
-	cd $(TOP)/pptpd && $(CONFIGURE) --prefix=$(INSTALLDIR)/pptpd --enable-bcrelay CC=mipsel-uclibc-gcc \
+	cd pptpd && $(CONFIGURE) --prefix=$(INSTALLDIR)/pptpd --enable-bcrelay CC=mipsel-uclibc-gcc \
 		STRIP=mipsel-uclibc-strip AR=mipsel-uclibc-ar LD=mipsel-uclibc-ld NM=mipsel-uclibc-nm RANLIB=mipsel-uclibc-ranlib
 	touch pptpd/stamp-h1
 
@@ -974,7 +974,7 @@ pptpd-install: pptpd
 	@$(STRIP) $(INSTALLDIR)/pptpd/usr/sbin/pptpctrl
 
 pptpd-clean:
-	cd $(TOP)/pptpd && make clean && rm -rf stamp-h1 .deps
+	cd pptpd && make clean && rm -rf stamp-h1 .deps
 
 pppd/Makefile: pppd/linux/Makefile.top
 	cd pppd && $(CONFIGURE) --prefix=/usr --sysconfdir=/tmp
@@ -1416,7 +1416,7 @@ ebtables-clean:
 	make -C ebtables clean
 
 #Roadkill
-glib:
+glib/stamp-h1:
 	@$(SEP)
 	@cd glib && $(CONFIGURE) --prefix=/usr glib_cv_prog_cc_ansi_proto=no glib_cv_has__inline=yes glib_cv_has__inline__=yes glib_cv_hasinline=yes \
 		glib_cv_sane_realloc=yes glib_cv_va_copy=no glib_cv___va_copy=yes glib_cv_va_val_copy=yes glib_cv_rtldglobal_broken=no \
@@ -1424,31 +1424,36 @@ glib:
 		glib_cv_byte_contents_gmutex="0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0" glib_cv_sys_pthread_getspecific_posix=yes \
 		glib_cv_sys_pthread_mutex_trylock_posix=yes glib_cv_sys_pthread_cond_timedwait_posix=yes ac_cv_func_getpwuid_r=yes ac_cv_func_getpwuid_r_posix=yes
 	@$(MAKE) -C glib
+	touch glib/stamp-h1
+
+glib: glib/stamp-h1
 
 glib-clean:
 	$(MAKE) -C glib clean
+	rm glib/stamp-h1
 
-glib-install:
+glib-install: glib
 	@$(MAKE) -C glib DESTDIR=$(INSTALLDIR)/glib install
 
 #Roadkill
-nocat: glib glib-install
+nocat/stamp-h1: glib-install
 	@$(SEP)
 	@cd nocat && \
 	NC_CONF_PATH="/" \
 	$(CONFIGURE) --with-firewall=iptables --with-glib-prefix="$(INSTALLDIR)/glib/usr" --localstatedir=/var --sysconfdir=/etc
 	@$(MAKE) -C nocat
 
-	echo *** cleaning up glib staging after compile
-	rm -rfv $(INSTALLDIR)/glib/usr
 	echo *** integrate glib to nocat installdir
 	install -d $(INSTALLDIR)/nocat/usr/lib
 	install -D glib/.libs/libglib-1.2.so.0.0.10 $(INSTALLDIR)/nocat/usr/lib/libglib-1.2.so.0.0.10
 	cd $(INSTALLDIR)/nocat/usr/lib && ln -s libglib-1.2.so.0.0.10 libglib-1.2.so.0
 	$(STRIP) $(INSTALLDIR)/nocat/usr/lib/libglib-1.2.so.0.0.10
+	touch nocat/stamp-h1
+
+nocat: nocat/stamp-h1
 
 nocat-clean:
-	$(MAKE) -C nocat clean
+	@$(MAKE) -C nocat clean
 
 nocat-install:
 	install -D nocat/src/splashd $(INSTALLDIR)/nocat/usr/sbin/splashd
@@ -1752,7 +1757,7 @@ snmp-install: snmp
 	$(STRIP) $(INSTALLDIR)/snmp/usr/sbin/snmpd
 
 apcupsd/stamp-h1:
-	cd apcupsd && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	cd apcupsd && touch autoconf/variables.mak && CC=$(CC) STRIP='mipsel-uclibc-strip' \
 	$(MAKE) configure && \
 	LDFLAGS="-L$(TOOLCHAIN)/lib -ffunction-sections -fdata-sections" \
 	$(CONFIGURE) --prefix=/usr --without-x --enable-shared --enable-static --enable-usb --disable-pcnet --enable-cgi \

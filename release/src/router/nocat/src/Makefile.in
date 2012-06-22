@@ -74,6 +74,13 @@ splashtest_DEPENDENCIES = libsplash.a
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I.
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
+@AMDEP_TRUE@DEP_FILES = ./$(DEPDIR)/base64.Po ./$(DEPDIR)/conf.Po \
+@AMDEP_TRUE@	./$(DEPDIR)/defaults.Po ./$(DEPDIR)/firewall.Po \
+@AMDEP_TRUE@	./$(DEPDIR)/gateway.Po ./$(DEPDIR)/ghttpd.Po \
+@AMDEP_TRUE@	./$(DEPDIR)/http.Po ./$(DEPDIR)/linux.Po \
+@AMDEP_TRUE@	./$(DEPDIR)/open.Po ./$(DEPDIR)/passive.Po \
+@AMDEP_TRUE@	./$(DEPDIR)/splashd.Po ./$(DEPDIR)/util.Po \
+@AMDEP_TRUE@	./$(DEPDIR)/splashtest.Po 
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
