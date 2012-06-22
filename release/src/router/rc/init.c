@@ -718,7 +718,7 @@ static int init_nvram(void)
 
 	mfr = "Broadcom";
 	name = NULL;
-	ver = 0;
+	ver = NULL;
 	features = 0;
 	switch (model) {
 	case MODEL_WRT54G:
@@ -1320,7 +1320,7 @@ static int init_nvram(void)
 
 	if (name) {
 		nvram_set("t_fix1", name);
-		if (strcmp(ver, "") > 0) {
+		if (ver && !strcmp(ver, "")) {
 			sprintf(s, "%s %s v%s", mfr, name, ver);
 		} else {
 			sprintf(s, "%s %s", mfr, name);
