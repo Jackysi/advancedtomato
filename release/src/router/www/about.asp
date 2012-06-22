@@ -106,7 +106,7 @@ Copyright (C) 2008-2011 Fedor Kozhevnikov, Ray Van Tassle, Wes Campaigne<br>
 <br>
 
 <!-- OPENVPN-BEGIN -->
-<b>VPN integration and GUI,</b><br>
+<b>OpenVPN integration and GUI,</b><br>
 Copyright (C) 2010 Keith Moyer,<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br>
@@ -141,6 +141,19 @@ Copyright (C) 2010 Keith Moyer,<br>
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
+
+<!-- JYAVENARD-BEGIN -->
+<b>"JYAvenard" Features:</b><br>
+<!-- OPENVPN-BEGIN -->
+- OpenVPN enhancements &amp; username/password only authentication<br>
+<!-- OPENVPN-END -->
+<!-- USERPPTP-BEGIN -->
+- PPTP VPN Client integration and GUI<br>
+<!-- USERPPTP-END -->
+Copyright (C) 2010-2012 Jean-Yves Avenard<br>
+<a href='mailto:jean-yves@avenard.org'>jean-yves@avenard.org</a><br>
+<br>
+<!-- JYAVENARD-END -->
 
 <b>"Victek" features:</b><br>
 - Extended Sysinfo<br>
