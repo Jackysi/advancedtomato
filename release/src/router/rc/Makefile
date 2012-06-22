@@ -37,6 +37,10 @@ ifeq ($(TCONFIG_PPTPD),y)
 OBJS += pptpd.o
 endif
 
+ifeq ($(TCONFIG_USERPPTP),y)
+OBJS += pptp_client.o
+endif
+
 ifeq ($(TCONFIG_NOCAT),y)
 OBJS += nocat.o
 endif

@@ -1412,6 +1412,24 @@ port_rate_limit_4	0-8
 wl_ap_ip
 wl_ap_ssid
 */
+#ifdef TCONFIG_USERPPTP
+	{ "pptp_client_enable",   V_01                  },
+	{ "pptp_client_peerdns",  V_RANGE(0,2)          },
+	{ "pptp_client_mtuenable",V_01                  },
+	{ "pptp_client_mtu",      V_RANGE(576, 1500)	},
+	{ "pptp_client_mruenable",V_01                  },
+	{ "pptp_client_mru",      V_RANGE(576, 1500)	},
+	{ "pptp_client_nat",      V_01                  },
+	{ "pptp_client_srvip",    V_NONE                },
+	{ "pptp_client_srvsub",   V_IP                  },
+	{ "pptp_client_srvsubmsk",V_IP                  },
+	{ "pptp_client_username", V_TEXT(0,50)          },
+	{ "pptp_client_passwd",   V_TEXT(0,50)          },
+	{ "pptp_client_crypt",    V_RANGE(0, 3)         },
+	{ "pptp_client_custom",   V_NONE                },
+	{ "pptp_client_dfltroute",V_01                  },
+	{ "pptp_client_stateless",V_01                  },
+#endif
 
 	{ NULL }
 };
