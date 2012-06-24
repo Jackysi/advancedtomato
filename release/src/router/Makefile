@@ -577,7 +577,7 @@ busybox-install:
 	$(MAKE) -C busybox install EXTRA_CFLAGS="-fPIC $(EXTRACFLAGS)" CONFIG_PREFIX=$(INSTALLDIR)/busybox
 
 busybox-clean:
-	$(MAKE) -C busybox distclean
+	-@$(MAKE) -C busybox distclean
 
 busybox-config:
 	$(MAKE) -C busybox menuconfig
@@ -598,7 +598,7 @@ matrixssl-install:
 	@true
 
 matrixssl-clean:
-	$(MAKE) -C matrixssl/src clean
+	-@$(MAKE) -C matrixssl/src clean
 
 cyassl/stamp-h1:
 	@cd cyassl && CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) LD=$(LD) \
@@ -726,7 +726,7 @@ ifeq ($(TCONFIG_IPV6),y)
 endif
 
 iptables-clean:
-	-$(MAKE) -C iptables KERNEL_DIR=$(LINUXDIR) clean
+	-@$(MAKE) -C iptables KERNEL_DIR=$(LINUXDIR) clean
 
 ppp:
 	@$(SEP)
@@ -746,7 +746,7 @@ rp-pppoe: pppd rp-pppoe/src/stamp-h1
 	$(MAKE) -C rp-pppoe/src pppoe-relay rp-pppoe.so
 
 rp-pppoe-clean:
-	-$(MAKE) -C rp-pppoe/src clean
+	-@$(MAKE) -C rp-pppoe/src clean
 	@rm -f rp-pppoe/src/pppoe-relay
 	@rm -f rp-pppoe/src/stamp-h1
 
@@ -770,7 +770,7 @@ miniupnpd: iptables miniupnpd-config
 	LDFLAGS="-L$(TOP)/iptables -liptc" LIBS=""
 
 miniupnpd-clean:
-	-$(MAKE) -C miniupnpd -f Makefile.linux clean
+	-@$(MAKE) -C miniupnpd -f Makefile.linux clean
 	@rm -f miniupnpd/config.h
 
 miniupnpd-install:
@@ -956,7 +956,7 @@ pptpd-install: pptpd
 	@$(STRIP) $(INSTALLDIR)/pptpd/usr/sbin/pptpctrl
 
 pptpd-clean:
-	-$(MAKE) -C pptpd clean
+	-@$(MAKE) -C pptpd clean
 	rm -rf pptpd/.deps pptpd/stamp-h1
 
 
@@ -968,7 +968,7 @@ pppd: pppd/Makefile
 	@$(MAKE) -C pppd MFLAGS='$(if $(TCONFIG_IPV6),HAVE_INET6=y,) EXTRACFLAGS="$(EXTRACFLAGS)"'
 
 pppd-clean:
-	-$(MAKE) -C pppd clean
+	-@$(MAKE) -C pppd clean
 	@rm -f pppd/Makefile
 
 pppd-install: pppd
@@ -1338,7 +1338,7 @@ igmpproxy-install: igmpproxy
 	$(STRIP) $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
 
 igmpproxy-clean:
-	-$(MAKE) -C igmpproxy/src clean
+	-@$(MAKE) -C igmpproxy/src clean
 	@rm -f igmpproxy/src/Makefile
 
 udev:
@@ -1374,7 +1374,7 @@ wanuptime: nvram shared
 	@$(MAKE) -C wanuptime
 
 wanuptime-clean:
-	$(MAKE) -C wanuptime clean
+	-@$(MAKE) -C wanuptime clean
 
 wanuptime-install:
 	install -D wanuptime/wanuptime $(INSTALLDIR)/wanuptime/usr/sbin/wanuptime
@@ -1403,7 +1403,7 @@ ebtables-install: ebtables
 	$(STRIP) $(INSTALLDIR)/ebtables/usr/lib/libebt*.so
 
 ebtables-clean:
-	make -C ebtables clean
+	-@$(MAKE) -C ebtables clean
 
 #Roadkill
 glib/stamp-h1:
@@ -1419,7 +1419,7 @@ glib/stamp-h1:
 glib: glib/stamp-h1
 
 glib-clean:
-	$(MAKE) -C glib clean
+	-@$(MAKE) -C glib clean
 	rm -f glib/stamp-h1
 
 glib-install: glib
@@ -1443,7 +1443,7 @@ nocat/stamp-h1: glib-install
 nocat: nocat/stamp-h1
 
 nocat-clean:
-	-$(MAKE) -C nocat clean
+	-@$(MAKE) -C nocat clean
 	rm -f nocat/stamp-h1
 
 nocat-install:
@@ -1460,7 +1460,7 @@ lzo/stamp-h1:
 lzo: lzo/stamp-h1
 
 lzo-clean:
-	-$(MAKE) -C lzo clean
+	-@$(MAKE) -C lzo clean
 	@rm -f lzo/stamp-h1
 
 lzo-install: lzo
@@ -1483,7 +1483,7 @@ openvpn/.conf:
 	touch openvpn/.conf
 
 openvpn-clean:
-	-$(MAKE) -C openvpn clean
+	-@$(MAKE) -C openvpn clean
 	@rm -f openvpn/.conf
 
 openvpn-install: openvpn
@@ -1499,7 +1499,7 @@ sd-idle/stamp-h1:
 	touch sd-idle/stamp-h1
 
 sd-idle-clean:
-	-$(MAKE) -C sd-idle clean
+	-@$(MAKE) -C sd-idle clean
 	@rm -f sd-idle/stamp-h1
 
 sd-idle-install: sd-idle/stamp-h1
@@ -1525,7 +1525,7 @@ snmp: snmp/stamp-h1
 	$(MAKE) -C snmp
 
 snmp-clean:
-	-$(MAKE) -C snmp clean
+	-@$(MAKE) -C snmp clean
 	@rm -f snmp/stamp-h1
 
 snmp-install: snmp
