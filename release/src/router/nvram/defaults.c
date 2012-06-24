@@ -904,7 +904,7 @@ const defaults_t defaults[] = {
 	{ "vpn_client2_crt",      ""              },
 	{ "vpn_client2_key",      ""              },
 #endif	// vpn
-#ifdef TCONFIG_PPTP
+#ifdef TCONFIG_USERPPTP
 	{ "pptp_client_enable",   "0"             },
 	{ "pptp_client_peerdns",  "0"             },
 	{ "pptp_client_mtuenable","0"             },
