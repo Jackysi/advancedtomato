@@ -1040,7 +1040,6 @@ void stop_wan(void)
 	dns_to_resolv();
 	start_dnsmasq();
 #endif
-	stop_vpn_eas();
 	stop_arpbind();
 	stop_qoslimit();
 	stop_qos();
@@ -1061,6 +1060,7 @@ void stop_wan(void)
 	stop_pppoe();
 	stop_ppp();
 	stop_dhcpc();
+	stop_vpn_eas();
 	clear_resolv();
 	nvram_set("wan_get_dns", "");
 
@@ -1069,6 +1069,8 @@ void stop_wan(void)
 		ifconfig(name, 0, "0.0.0.0", NULL);
 
 	SET_LED(RELEASE_IP);
+	//notice_set("wan", "");
+	unlink("/var/notice/wan");
 	unlink(wan_connecting);
 
 	TRACE_PT("end\n");

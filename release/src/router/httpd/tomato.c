@@ -1352,6 +1352,7 @@ port_rate_limit_4	0-8
 wl_ap_ip
 wl_ap_ssid
 */
+#ifdef TCONFIG_USERPPTP
 	{ "pptp_client_enable",   V_01                  },
 	{ "pptp_client_peerdns",  V_RANGE(0,2)          },
 	{ "pptp_client_mtuenable",V_01                  },
@@ -1368,7 +1369,7 @@ wl_ap_ssid
 	{ "pptp_client_custom",   V_NONE                },
 	{ "pptp_client_dfltroute",V_01                  },
 	{ "pptp_client_stateless",V_01                  },
-
+#endif
 	{ NULL }
 };
 
