@@ -718,6 +718,7 @@ static int init_nvram(void)
 
 	mfr = "Broadcom";
 	name = NULL;
+	ver = NULL;
 	features = 0;
 	switch (model) {
 	case MODEL_WRT54G:
@@ -1319,8 +1320,8 @@ static int init_nvram(void)
 
 	if (name) {
 		nvram_set("t_fix1", name);
-		if (strcmp(nvram_safe_get("boot_hw_ver"), "") != 0) {
-			sprintf(s, "%s %s %s", mfr, name, ver);
+		if (ver && strcmp(ver, "")) {
+			sprintf(s, "%s %s v%s", mfr, name, ver);
 		} else {
 			sprintf(s, "%s %s", mfr, name);
 		}
@@ -1354,6 +1355,8 @@ static int init_nvram(void)
 		nvram_set("wan_ifnameX", p);
 #endif
 	}
+
+	nvram_set("wl_hwaddr", "");	// zzz- when disabling wireless, we must get null wireless mac ??
 
 	//!!TB - do not force country code here to allow nvram override
 	//nvram_set("wl_country", "JP");
