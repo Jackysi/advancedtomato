@@ -128,11 +128,9 @@ function save()
 	fom.macnames.value = names.join('>');
 
 	for (i = 0; i < wl_ifaces.length; ++i) {
-		if(wl_ifaces[i][0].indexOf('.') < 0) {
-			u = wl_unit(i);
-			E('_wl'+u+'_macmode').value = fom.wl_macmode.value;
-			E('_wl'+u+'_maclist').value = fom.wl_maclist.value;
-		}
+		u = wl_fface(i);
+		E('_wl'+u+'_macmode').value = fom.wl_macmode.value;
+		E('_wl'+u+'_maclist').value = fom.wl_maclist.value;
 	}
 
 	form.submit(fom, 1);
@@ -175,11 +173,9 @@ function init()
 
 <script type='text/javascript'>
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
-	if(wl_ifaces[uidx][0].indexOf('.') < 0) {
-		var u = wl_unit(uidx);
-		W('<input type=\'hidden\' id=\'_wl'+u+'_macmode\' name=\'wl'+u+'_macmode\'>');
-		W('<input type=\'hidden\' id=\'_wl'+u+'_maclist\' name=\'wl'+u+'_maclist\'>');
-	}
+	var u = wl_fface(uidx);
+	W('<input type=\'hidden\' id=\'_wl'+u+'_macmode\' name=\'wl'+u+'_macmode\'>');
+	W('<input type=\'hidden\' id=\'_wl'+u+'_maclist\' name=\'wl'+u+'_maclist\'>');
 }
 </script>
 

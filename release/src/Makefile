@@ -732,20 +732,20 @@ endif
 
 ## Make the "Mini: no USB, no CIFS, no Zebra" build - targeted for Netgear routers
 f:
-	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y SLIM=y B=F BUILD_DESC="Mini" USB="" VLAN="$(VLAN)"
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_SSH=y NO_ZEBRA=y SLIM=y B=F BUILD_DESC="Mini" USB="" VLAN="$(VLAN)"
 
 ## Make the "Tiny: no JFFS, no USB, no CIFS, no Zebra" build - targeted for cheapskate routers
 fs:
-	@$(MAKE) bin NO_CIFS=y NO_JFFS=y NO_ZEBRA=y SLIM=y B=FS BUILD_DESC="Tiny" USB="" VLAN="$(VLAN)"
+	@$(MAKE) bin NO_CIFS=y NO_SSH=y NO_JFFS=y NO_ZEBRA=y SLIM=y B=FS BUILD_DESC="Tiny" USB="" VLAN="$(VLAN)"
 
 ## Make the "No USB with IPv6, no Zebra" build - for 4MB routers
 i:
-	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB="" VLAN="$(VLAN)"
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_SSH=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB="" VLAN="$(VLAN)"
 
 ## Make the "No USB with IPv6, no Zebra, with VPN" build - for 4MB routers
 ifeq ($(CONFIG_LINUX26),y)
 j:
-	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_XXTP=y SLIM=y NO_SAMBA=y NO_ZEBRA=y IPV6SUPP=y OPENVPN=y USERPPTP=y NO_LIBOPT=y B=J BUILD_DESC="MiniIPv6-VPN" USB="" VLAN="$(VLAN)" SNMP="$(SNMP)"
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_SSH=y NO_XXTP=y SLIM=y NO_SAMBA=y NO_ZEBRA=y IPV6SUPP=y OPENVPN=y USERPPTP=y NO_LIBOPT=y B=J BUILD_DESC="MiniIPv6-VPN" USB="" VLAN="$(VLAN)" SNMP="$(SNMP)"
 endif
 
 ## Make the "normal with Extras and NTFS" build

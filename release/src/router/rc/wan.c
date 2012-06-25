@@ -660,7 +660,9 @@ void start_wan(int mode)
 	int mtu;
 	char buf[128];
 	struct sysinfo si;
-
+	int vid;
+	int vid_map;
+	int vlan0tag;
 
 	TRACE_PT("begin\n");
 
@@ -671,6 +673,15 @@ void start_wan(int mode)
 
 	if (!foreach_wif(1, &p, is_sta)) {
 		p = nvram_safe_get("wan_ifnameX");
+		/* vlan ID mapping */
+		if (sscanf(p, "vlan%d", &vid) == 1) {
+			vlan0tag = nvram_get_int("vlan0tag");
+			snprintf(buf, sizeof(buf), "vlan%dvid", vid);
+			vid_map = nvram_get_int(buf);
+			if ((vid_map < 1) || (vid_map > 4094)) vid_map = vlan0tag | vid;
+			snprintf(buf, sizeof(buf), "vlan%d", vid_map);
+			p = buf;
+		}
 		set_mac(p, "mac_wan", 1);
 	}
 	nvram_set("wan_ifname", p);
@@ -1029,7 +1040,6 @@ void stop_wan(void)
 	dns_to_resolv();
 	start_dnsmasq();
 #endif
-	stop_vpn_eas();
 	stop_arpbind();
 	stop_qoslimit();
 	stop_qos();
@@ -1050,6 +1060,7 @@ void stop_wan(void)
 	stop_pppoe();
 	stop_ppp();
 	stop_dhcpc();
+	stop_vpn_eas();
 	clear_resolv();
 	nvram_set("wan_get_dns", "");
 
@@ -1058,6 +1069,8 @@ void stop_wan(void)
 		ifconfig(name, 0, "0.0.0.0", NULL);
 
 	SET_LED(RELEASE_IP);
+	//notice_set("wan", "");
+	unlink("/var/notice/wan");
 	unlink(wan_connecting);
 
 	TRACE_PT("end\n");
