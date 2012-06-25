@@ -120,11 +120,17 @@ typedef unsigned __int64 uint64;
 #endif
 #endif /* KERNEL */
 #define TYPEDEF_BOOL
-#endif
+#endif /* MAXOSX */
 
 #if defined(__NetBSD__)
-#define TYPEDEF_ULONG
+#ifndef _KERNEL
+#include <stdbool.h>
 #endif
+#define TYPEDEF_BOOL
+#define TYPEDEF_UINT
+#define TYPEDEF_USHORT
+#define TYPEDEF_ULONG
+#endif  /* NetBSD */
 
 #if defined(__sparc__)
 #define TYPEDEF_ULONG

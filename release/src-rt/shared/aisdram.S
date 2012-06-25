@@ -25,6 +25,7 @@
 #include <sbmemc.h>
 #include <sbsocram.h>
 #include <dmemc_core.h>
+#include <amemc_core.h>
 #include <sbchipc.h>
 
 #if	defined(NFLASH_SUPPORT)
@@ -51,7 +52,7 @@
 	li	k0,KSEG1ADDR(0x18000040); \
 	li	k1,x; \
 	sw	k1,FLADDR_OFF(k0)
-	
+
 #define TRACE(x) \
 	li	k1,x; \
 	sw	k1,FLADDR_OFF(k0)
@@ -193,7 +194,7 @@ ddr2_init:
 nfl_pagesz_map:
 	/* page size mapping */
 	.word	0x200, 0x800, 0x1000, 0x2000
-	
+
 nfl_blksz_map:
 	/* block size mapping */
 	.word	0x4000, 0x20000, 0x2000, 0x80000, 0x40000, 0, 0, 0
@@ -261,7 +262,7 @@ LEAF(ai_draminit)
 	beq	s4,DMEMS_CORE_ID,founddmemc
 	nop
 
-	beq	s4,AMEMC_CORE_ID,foundamemc
+	beq	s4,AMEMC_CORE_ID,founddmemc
 	nop
 
 	b	1b
@@ -272,17 +273,6 @@ noctrl:	TRACE(0x415307)
 	jr	t6
 	li	v0,-1
 
-foundamemc:
-	beqz	s5,1f				# Running from RAM, simply return
-	nop
-
-	la      t2,ai_amemcinit
-	add     t2,t2,s5
-	jalr    t2
-	nop
-1:
-	jr	t6
-	move	v0,zero
 
 founddmemc:
 	TRACE(0x415308)
@@ -292,10 +282,10 @@ founddmemc:
 	 */
 	bnez	s5,1f				# Not running from RAM, go ahead
 	nop
-	
+
 	jr	t6				# Return with 0 rc.
 	move	v0,zero
-	
+
 	/* We'll cheat a little: memory controllers don't have master ports, so
 	 * the EROM entry right after the CIDs is the slave port for the registers
 	 */
@@ -355,6 +345,11 @@ swrap:	and	a2,t0,t2
 	srl	s3,t3,CIB_REV_SHIFT		# s3 = core revision
 	beq     s4,DMEMS_CORE_ID,1f
 	nop
+
+	/* Go find nvram if the controller is AMEMC. */
+	beq     s4,AMEMC_CORE_ID,find_nvram
+	nop
+
 	ble	s3,1,is16x
 	nop
 
@@ -379,7 +374,7 @@ is16x:	TRACE(0x41530b)
 find_nvram:
 	TRACE(0x41530c)
 	li	t0,KSEG1ADDR(SI_FLASH2 - NVRAM_SPACE)
-	li	t1,FLASH_MIN 
+	li	t1,FLASH_MIN
 	li	t2,SI_FLASH2_SZ
 	li	t3,NVRAM_MAGIC
 
@@ -390,7 +385,7 @@ find_nvram:
 	bne	t4,BCM5357_CHIP_ID,1f
 	nop
 	lw	t5,CC_CHIPST(s2)
-	li	t4,0x10	
+	li	t4,0x10
 	and	t4,t4,t5
 	beqz	t4,1f
 	nop
@@ -482,7 +477,7 @@ embedded_nv:
 
 	b	init_dmemc
 	li	s0,0x144
-	
+
 read_config:
 	/* sdram_config is a 16bit value 12 bytes inside the nvram hdr.
 	 * Currently it is defined as:
@@ -504,7 +499,19 @@ read_config:
 	 */
 	TRACE(0x415310)
 	lw	s0,12(t4)	# Pick up sdram_config & sdram_refresh
+
+	/* Determine if it is DMEMC or AMEMC */
+	bne s4,AMEMC_CORE_ID,init_dmemc
 	lw	s8,16(t4)	# Pick up sdram_ncdl
+
+	/* Initailize AMEMC */
+	la	t2,ai_amemcinit
+	add	t2,t2,s5
+	jalr	t2
+	nop
+
+	jr	t6
+	move	v0,zero
 
 	/* Initialize DMEMC/DMEMS */
 init_dmemc:
@@ -605,7 +612,7 @@ nvover:	beqz	s8,chhalf
 	and	t1,t1,t2
 	or	t0,t0,t1
 	sw	t0,DMEMC_CONTROL141(a1)
-	
+
 	li	t0,0x7f0000
 	and	t0,t0,s0		# clk_wr_delay_0
 	srl	t0,t0,8
@@ -636,7 +643,7 @@ old_ncdl:
 	sw	t0,DMEMC_CONTROL23(a1)
 
 	sw	s8,DMEMC_CONTROL22(a1)
-	
+
 	/* Check for half-width */
 chhalf:	li	t0,0x80
 	and	t0,t0,s0
@@ -659,7 +666,7 @@ ch8banks:
 	nop
 
 	/* Change regs for 8-bank DDRs */
-do8banks:	
+do8banks:
 	lw	t0,DMEMC_CONTROL05(a1)
 	li	t1,0x00010000
 	or	t0,t0,t1
@@ -761,17 +768,17 @@ dobypass:
 
 	bgt	s3,1,4f
 	nop
-	
+
 1:	li	t0,0x00170017
 	beq	a3,DM_STAT_SDR,2f
 	nop
-	
+
 	li	t0,0x000f000f
 	beq	a3,DM_STAT_DDR1,2f
 	nop
 
 	li	t0,0x00200020
-	
+
 2:	sw	t0,DMEMC_CONTROL25(a1)
 	beq	s4,DMEMS_CORE_ID,3f
 	nop
@@ -799,7 +806,7 @@ dobypass:
 
 	ble	s3,1,ckvsim
 	nop
-	
+
 	lw	t0,DMEMC_CONTROL140(a1)
 	li	t1,0x10000000
 	or	t0,t0,t1
@@ -848,7 +855,7 @@ turnon:
 	sll	t0,t1,16
 	or	t2,t2,t0
 	sw	t2,DMEMC_CONTROL140(a1)
-	
+
 	lw	t2,DMEMC_CONTROL142(a1)
 	li	t0,~0x01ff8000
 	and	t2,t2,t0
@@ -859,7 +866,7 @@ turnon:
 	sll	t0,t0,15
 	or	t2,t2,t0
 	sw	t2,DMEMC_CONTROL142(a1)
-	
+
 	lw	t1,DMEMC_CONTROL145(a1)
 	srl	t1,t1,3
 	lw	t2,DMEMC_CONTROL141(a1)
@@ -868,7 +875,7 @@ turnon:
 	sll	t0,t1,16
 	or	t2,t2,t0
 	sw	t2,DMEMC_CONTROL141(a1)
-	
+
 	lw	t2,DMEMC_CONTROL143(a1)
 	li	t0,~0x01ff8000
 	and	t2,t2,t0
@@ -947,12 +954,12 @@ ai_core_reset:
 dmemc_init_regs:
 	beq     s4,DMEMS_CORE_ID,loop_regs
 	li	t3,128
-	
+
 	ble	s3,1,loop_regs
 	nop
 
 	li	t3,256
-	
+
 loop_regs:
 	add	a0,a0,s5			# Relocate address
 	li	t0,DMEMC_TABLE_END
@@ -988,7 +995,7 @@ LEAF(nfl_size_block)
 	add	a0,a0,s5			# Relocate address
 	add	t8,t8,a0
 	lw	v1,0(t8)
-	
+
 	li	t8,0x7
 	sll	t8,28
 	and	t8,t8,t9
@@ -1046,169 +1053,37 @@ END(nfl_check_badb)
 
 /*  *********************************************************************
     *  AI_AMEMCINIT
-    *  
+    *
     *  AI version of DDR / memory controller initialization
     *
     *  This routine deals with DDR23_PHY and PL341 MEMC.
-    *  
+    *
     ********************************************************************* */
-#define MEMC_BURST_LENGTH       (4)    
 /* Convenient macro for writing registers (use t0 for base) */
 #define ddr_write(offset, value)   \
     li      a0, (value);           \
     sw      a0, offset(t0);
 
-#define AI_DDRPHY_BASE       (0x1800f000)
-#define AI_MEMC_BASE         (0x18006000)
-#define AI_MEMC_SLAVE_BASE   (0x18106000)
-
-/* From bsp_config.h of _BCM953003RSP_ */
-/* (required) PLL clock */
-#define CFG_DDR_PLL_CLOCK       (331250)	/* KHz */
-
-/* (required) Row bits: 0=11bits, 1=12bits, ..., 5=16bits */
-#define CFG_DDR_ROW_BITS        2   /* 13 bits */
-
-/* (required) Column bits: 1=9bits, 2=10bits, 3=11bits */
-#define CFG_DDR_COLUMN_BITS     2   /* 10 bits */
-
-/* (required) Bank bits: 0=2bits, 3=3bits */
-#define CFG_DDR_BANK_BITS       3
-
-/* (required) Memory width: 0=16bits, 1=32bits, 2=64bits */
-#define CFG_DDR_MEM_WIDTH       1
-
-/* (required) CAS Latency (NOTE: could be affected by PLL clock) */
-#define CFG_DDR_CAS_LATENCY     5
-
-/* (required) t_wr (picoseconds) */
-#define CFG_DDR_T_WR            15000
-
-/* (optional) Refresh period t_refi (picoseconds) */
-#define CFG_DDR_REFRESH_PRD     7800000
-
-/* (optional) t_rfc (picoseconds) */
-#define CFG_DDR_T_RFC           105000
-
-/*
- * Convenient macros
- */
-#define MEMCYCLES(psec)   (((psec) * (CFG_DDR_PLL_CLOCK) + 999999999) / 1000000000)
-
-/*
- * Convenient macros (minimum requirement and truncated decimal)
- */
-#define MEMCYCLES_MIN(psec)   ((psec) * (CFG_DDR_PLL_CLOCK) / 1000000000)
-
-/*
- * PLL clock configuration
- */
-#define PLL_NDIV_INT_VAL    (16 * (CFG_DDR_PLL_CLOCK) / 100000)
-
-/*
- * DDR23PHY registers
- */
-#define DDR23PHY_PLL_STATUS             0x010
-#define DDR23PHY_PLL_CONFIG             0x014
-#define DDR23PHY_PLL_PRE_DIVIDER        0x018
-#define DDR23PHY_PLL_DIVIDER            0x01c
-#define DDR23PHY_STATIC_VDL_OVERRIDE    0x030
-#define DDR23PHY_ZQ_PVT_COMP_CTL        0x03c
-#define DDR23PHY_BL3_VDL_CALIBRATE      0x104
-#define DDR23PHY_BL3_VDL_STATUS         0x108
-#define DDR23PHY_BL3_READ_CONTROL       0x130
-#define DDR23PHY_BL3_WR_PREAMBLE_MODE   0x148
-#define DDR23PHY_BL2_VDL_CALIBRATE      0x204
-#define DDR23PHY_BL2_VDL_STATUS         0x208
-#define DDR23PHY_BL2_READ_CONTROL       0x230
-#define DDR23PHY_BL2_WR_PREAMBLE_MODE   0x248
-#define DDR23PHY_BL1_VDL_CALIBRATE      0x304
-#define DDR23PHY_BL1_VDL_STATUS         0x308
-#define DDR23PHY_BL1_READ_CONTROL       0x330
-#define DDR23PHY_BL1_WR_PREAMBLE_MODE   0x348
-#define DDR23PHY_BL0_VDL_CALIBRATE      0x404
-#define DDR23PHY_BL0_VDL_STATUS         0x408
-#define DDR23PHY_BL0_READ_CONTROL       0x430
-#define DDR23PHY_BL0_WR_PREAMBLE_MODE   0x448
-
-/*
- * PL341 registers
- */
-#define PL341_memc_status               0x000
-#define PL341_memc_cmd                  0x004
-#define PL341_direct_cmd                0x008
-#define PL341_memory_cfg                0x00c
-#define PL341_refresh_prd               0x010
-#define PL341_cas_latency               0x014
-#define PL341_write_latency             0x018
-#define PL341_t_mrd                     0x01c
-#define PL341_t_ras                     0x020
-#define PL341_t_rc                      0x024
-#define PL341_t_rcd                     0x028
-#define PL341_t_rfc                     0x02c
-#define PL341_t_rp                      0x030
-#define PL341_t_rrd                     0x034
-#define PL341_t_wr                      0x038
-#define PL341_t_wtr                     0x03c
-#define PL341_t_xp                      0x040
-#define PL341_t_xsr                     0x044
-#define PL341_t_esr                     0x048
-#define PL341_memory_cfg2               0x04c
-#define PL341_memory_cfg3               0x050
-#define PL341_t_faw                     0x054
-#define PL341_chip_0_cfg                0x200
-#define PL341_user_config0              0x304
-
-
-/*
- * Values for PL341 Direct Command Register
- */
-#define MCHIP_CMD_PRECHARGE_ALL         (0x0 << 18)
-#define MCHIP_CMD_AUTO_REFRESH          (0x1 << 18)
-#define MCHIP_CMD_MODE_REG              (0x2 << 18)
-#define MCHIP_CMD_NOP                   (0x3 << 18)
-#define MCHIP_MODEREG_SEL(x)            ((x) << 16)
-#define MCHIP_MR_WRITE_RECOVERY(x)      (((x) - 1) << 9)
-#define MCHIP_MR_DLL_RESET(x)           ((x) << 8)
-#define MCHIP_MR_CAS_LATENCY(x)         ((x) << 4)
-#if MEMC_BURST_LENGTH == 4
-#define MCHIP_MR_BURST_LENGTH           (2)
-#else
-#define MCHIP_MR_BURST_LENGTH           (3)
-#endif
-#define MCHIP_EMR1_DLL_DISABLE(x)       ((x) << 0)
-#define MCHIP_EMR1_RTT_ODT_DISABLED     (0)
-#define MCHIP_EMR1_RTT_75_OHM           (1 << 2)
-#define MCHIP_EMR1_RTT_150_OHM          (1 << 6)
-#define MCHIP_EMR1_RTT_50_OHM           ((1 << 6) | (1 << 2))
-#define MCHIP_EMR1_OCD_CALI_EXIT        (0x0 << 7)
-#define MCHIP_EMR1_OCD_CALI_DEFAULT     (0x3 << 7)
-
 LEAF(ai_amemcinit)
         .set    noreorder
-    
-        move    t7,ra
-    
-        /* 
+
+        /*
          * ddr23_phy_init
          */
 
         li      t0, KSEG1ADDR(AI_DDRPHY_BASE)
-        
 
 #ifndef CFG_QUICKTURN
 
-#define PVT_MAX_RETRY       (120)
-#define PVT_MATCHED_COUNT   (3)
         li      t2, 0x10000000
         li      t3, 0
         li      t5, 0
 2:
         /* Do recalibration */
         beq     t5, PVT_MAX_RETRY, 9f
-        lw      a1, DDR23PHY_ZQ_PVT_COMP_CTL(t0)
+        lw      t7, DDR23PHY_ZQ_PVT_COMP_CTL(t0)
         ddr_write(DDR23PHY_ZQ_PVT_COMP_CTL, 0x04000000);
-1:      
+1:
         /* Wait until sample_done == 1 */
         lw      t1, DDR23PHY_ZQ_PVT_COMP_CTL(t0)
         and     t1, t1, t2;
@@ -1217,12 +1092,12 @@ LEAF(ai_amemcinit)
 
         /* Increase total retry count */
         add     t5, t5, 1
-        
+
         /* Check if the result is the same as previous one */
         lw      t1, DDR23PHY_ZQ_PVT_COMP_CTL(t0)
-        beq     t1, a1, 3f
+        beq     t1, t7, 3f
         nop
-        
+
         /* If not, clear matched count */
         b       2b
         li      t3, 0
@@ -1232,14 +1107,14 @@ LEAF(ai_amemcinit)
         bne     t3, PVT_MATCHED_COUNT, 2b
         nop
 9:
-       
+
         /* setup PLL */
         ddr_write(DDR23PHY_PLL_CONFIG,      0x8000000c);
-        ddr_write(DDR23PHY_PLL_PRE_DIVIDER, 
+        ddr_write(DDR23PHY_PLL_PRE_DIVIDER,
                 0x00000011 + (PLL_NDIV_INT_VAL << 8));
         ddr_write(DDR23PHY_PLL_DIVIDER,     0x02000000);
         ddr_write(DDR23PHY_PLL_CONFIG,      0x80000008);
-        
+
         /* Wait for PLL locked */
         li      t2, 1;
 1:      /* Wait until lock == 1 */
@@ -1252,16 +1127,16 @@ LEAF(ai_amemcinit)
         ddr_write(DDR23PHY_PLL_CONFIG,      0x80000000);
         ddr_write(DDR23PHY_PLL_CONFIG,      0x00000000);
 
-        /* 
+        /*
          * Calibrate VDL
          */
-        
+
         /* calib_once + calib_fast (for all BL) */
         ddr_write(DDR23PHY_BL3_VDL_CALIBRATE, 0x00000003);
         ddr_write(DDR23PHY_BL2_VDL_CALIBRATE, 0x00000003);
         ddr_write(DDR23PHY_BL1_VDL_CALIBRATE, 0x00000003);
         ddr_write(DDR23PHY_BL0_VDL_CALIBRATE, 0x00000003);
-    
+
         li      t2, 0x0000003;
         li      t0, KSEG1ADDR(AI_DDRPHY_BASE)
 1:      /* Wait until calib_idle == 1 and locked for all BL */
@@ -1281,7 +1156,7 @@ LEAF(ai_amemcinit)
         and     t1, t1, t2;
         beq     t1, zero, 1b
         nop
-    
+
         /* VDL override */
         lw      t1, DDR23PHY_BL0_VDL_STATUS(t0)
         srl     t1, t1, 8
@@ -1293,127 +1168,172 @@ LEAF(ai_amemcinit)
         sll     t1, 20
         or      t2, t2, t1                          /* ovr_force */
         sw      t2, DDR23PHY_STATIC_VDL_OVERRIDE(t0)
-    
+
 #endif /* !CFG_QUICKTURN */
 
         /*
          * Memory controller PL341 initialization
-         */ 
-        
+         */
+
         /* De-assert core reset */
-        li      t0, KSEG1ADDR(AI_MEMC_SLAVE_BASE);
+        move	t0, a2	# AMEMC DMP regs
         ddr_write(AI_RESETCTRL, 0x00000000)
-    
-        li      t0, KSEG1ADDR(AI_MEMC_BASE);
-        
+
+        move	t0, a1 # AMEMC regs
+
 #ifdef CFG_DDR_REFRESH_PRD
         /* refresh_prd */
         ddr_write(PL341_refresh_prd, MEMCYCLES_MIN(CFG_DDR_REFRESH_PRD));
 #endif
-        
-#ifdef CFG_DDR_CAS_LATENCY
-        /* cas_latency */
-        ddr_write(PL341_cas_latency, (CFG_DDR_CAS_LATENCY << 1));
-#endif
-    
-#ifdef CFG_DDR_WRITE_LATENCY
-        /* write_latency */
-        ddr_write(PL341_write_latency, CFG_DDR_WRITE_LATENCY);
-#endif
-    
+
 #ifdef CFG_DDR_T_MRD
         /* MRD time [6:0] */
         ddr_write(PL341_t_mrd, MEMCYCLES(CFG_DDR_T_MRD));
 #endif
-    
+
 #ifdef CFG_DDR_T_RAS
         /* ras time [4:0] */
         ddr_write(PL341_t_ras, MEMCYCLES(CFG_DDR_T_RAS));
 #endif
-    
+
 #ifdef CFG_DDR_T_RC
         /* t_rc [4:0] */
         ddr_write(PL341_t_rc, MEMCYCLES(CFG_DDR_T_RC));
 #endif
-    
+
 #ifdef CFG_DDR_T_RCD
         /* t_rcd [4:0] */
         ddr_write(PL341_t_rcd, MEMCYCLES(CFG_DDR_T_RCD));
 #endif
-    
+
 #ifdef CFG_DDR_T_RFC
         /* t_rfc [6:0]  schedule_rfc[14:8] */
         ddr_write(PL341_t_rfc,
             ((MEMCYCLES(CFG_DDR_T_RFC) - 3) << 8) | MEMCYCLES(CFG_DDR_T_RFC));
 #endif
-    
+
 #ifdef CFG_DDR_T_RP
         /* t_rp [3:0] */
-        ddr_write(PL341_t_rp, 
+        ddr_write(PL341_t_rp,
             ((MEMCYCLES(CFG_DDR_T_RP) - 3) << 8) | MEMCYCLES(CFG_DDR_T_RP));
 #endif
-    
+
 #ifdef CFG_DDR_T_RRD
         /* t_rrd [2:0] */
         ddr_write(PL341_t_rrd, MEMCYCLES(CFG_DDR_T_RRD));
 #endif
-    
+
 #ifdef CFG_DDR_T_WR
         /* t_wr */
         ddr_write(PL341_t_wr, MEMCYCLES(CFG_DDR_T_WR));
 #endif
-    
+
 #ifdef CFG_DDR_T_WTR
         /* t_wtr */
         ddr_write(PL341_t_wtr, MEMCYCLES(CFG_DDR_T_WTR));
 #endif
-    
+
 #ifdef CFG_DDR_T_XP
         /* t_xp[7:0] */
         ddr_write(PL341_t_xp, MEMCYCLES(CFG_DDR_T_XP));
 #endif
-    
+
 #ifdef CFG_DDR_T_XSR
         /* t_xsr[7:0] */
         ddr_write(PL341_t_xsr, MEMCYCLES(CFG_DDR_T_XSR));
 #endif
-    
+
 #ifdef CFG_DDR_T_ESR
         /* t_esr[7:0] */
         ddr_write(PL341_t_esr, MEMCYCLES(CFG_DDR_T_ESR));
 #endif
-    
+
 #ifdef CFG_DDR_T_FAW
         /* t_faw */
-        ddr_write(PL341_t_faw, 
+        ddr_write(PL341_t_faw,
             ((MEMCYCLES(CFG_DDR_T_FAW) - 3) << 8) | MEMCYCLES(CFG_DDR_T_FAW));
 #endif
-    
-        /* memory_cfg register */
-        ddr_write(PL341_memory_cfg, 
-            (2 << 15) | (CFG_DDR_ROW_BITS << 3) | CFG_DDR_COLUMN_BITS
-            );
-            
-        /* Figure out if it's a low cost package */
-        #li      s2,PHYS_TO_K1(SI_ENUM_BASE)         # s2 = SI_ENUM_BASE
-        lw      t1,CC_CHIPID(s2)
-        li      s3,0x00300000
-        and     t1,t1,s3
-    
-        /* memory_cfg2 register */
-        li      t2, (CFG_DDR_MEM_WIDTH << 6) | (CFG_DDR_BANK_BITS << 4)
-        beq     t1, 0, 1f
+
+        /* Check if sdram_config is nonzero */
+        and	t1, s0, 0xffff
+        bne	t1, $0, sdram_mem_cfg
         nop
-        and     t2, t2, 0xffffff3f /* Set to 16bit for low cost package */
+
+        /* sdram_config is 0, configure by code-default values */
+        /* Figure out if it's a low cost package */
+        andi	t1, s1, 0x03
+
+        /* Standard package, assume 1024-column, 32-bit, 8-bank DDR */
+        beq	t1, $0, sdram_mem_cfg
+        li	s0, (0x0140 | CFG_DDR_CAS_LATENCY)
+
+        /* Low cost package, assume 1024-column, 16-bit, 8-bank DDR */
+        li	s0, (0x01c0 | CFG_DDR_CAS_LATENCY)
+
+sdram_mem_cfg:
+        /* CAS Latency:
+        *  sdram_config[2:0]: CAS latency
+        *  PL341_cas_latency[3:1]: CL range from 2 to 6
+        *  PL341_write_latency[2:0]: CL - 1
+        */
+        andi	t1, s0, 0x07
+        sll	t2, t1, 1
+        sw	t2, PL341_cas_latency(a1)
+        subu	t2, t1, 1
+        sw	t2, PL341_write_latency(a1)
+
+        /* PL341_memory_cfg: Rows and Columns */
+        lw	t2, PL341_memory_cfg(a1)	# Read PL341_memory_cfg
+
+        /* Columns:
+        *  sdram_config[10:8]: 0=2048; 1=1024; 2=512; 3=256 columns
+        *  PL341_memory_cfg[2:0]: 1=9-bit; 2=10-bit; 3=11-bit; Others=Reserved.
+        */
+        li	t3, ~0x7			# columns(bit2:0)
+        and	t2, t2, t3		# clear column
+        srl	t1, s0, 8			# Column fields from sdram_config s0(bit10:8)
+        andi	t1, t1, 0x07
+        li	t3, 0x3
+        subu	t1, t3, t1
+        andi	t1, t1, 0x07
+        or	t2, t2, t1
+        sw	t2, PL341_memory_cfg(a1)
+
+        /* PL341_memory_cfg2: Bus width and Banks */
+        lw	t2, PL341_memory_cfg2(a1)	# Read PL341_memory_cfg2
+
+        /* Low cost package is 16-bit bus */
+        andi	t1, s1, 0x03
+        li	t3, ~0xc0
+        bne	t1, $0, 2f	# nonzero: low cost package with 16-bit bus
+        and	t2, t2, t3	# Clear bit[7:6] to work in 16-bit mode
+
+        /* Bus width:
+        *  sdram_config[7]: 0 default bus width, 1: reduced width
+        *  PL341_memory_cfg2[7:6]: 00 for 16bit, 01=32bit, 10=64bit, 11=reserved
+        */
+        andi	t1, s0, 0x80
+        bne	t1, $0, 2f	# Work in 16-bit mode
+        nop
+        or	t2, t2, 0x40	# Set bit[7:6] to 32-bit mode
+2:
+        /* Banks:
+        *  sdram_config[6]: 0 for 4 banks, 1 for 8 banks
+        *  PL341_memory_cfg2[5:4]: 00 for 4 banks, 11 for 8 banks
+        */
+        andi	t1, s0, 0x40	# Bank configuration
+        li	t3, ~0x30
+        beq	t1, $0, 1f
+        and	t2, t2, t3	# Clear bit[5:4] to work in 4-bank mode
+        or	t2, t2, 0x30	# Set bit[5:4] to 11 for 8-bank mode
 1:
-        sw      t2, PL341_memory_cfg2(t0);
-    
+        sw	t2, PL341_memory_cfg2(a1);
+
         /* chip0 configuration */
         ddr_write(PL341_chip_0_cfg, 0x00000000);
-        
+
         /* user_config0 */
         ddr_write(PL341_user_config0, 0x00000003);
-
 
         /*
          * DDR2 chip initialization
@@ -1421,75 +1341,71 @@ LEAF(ai_amemcinit)
 
         /* Issue NOP */
         ddr_write(PL341_direct_cmd, MCHIP_CMD_NOP);
-    
+
         /* issue precharge all */
         ddr_write(PL341_direct_cmd, MCHIP_CMD_PRECHARGE_ALL);
-    
+
         /* Set EMR2 */
-        ddr_write(PL341_direct_cmd, MCHIP_CMD_MODE_REG | MCHIP_MODEREG_SEL(2)); 
-        
+        ddr_write(PL341_direct_cmd, MCHIP_CMD_MODE_REG | MCHIP_MODEREG_SEL(2));
+
         /* Set EMR3 */
-        ddr_write(PL341_direct_cmd, MCHIP_CMD_MODE_REG | MCHIP_MODEREG_SEL(3)); 
-        
+        ddr_write(PL341_direct_cmd, MCHIP_CMD_MODE_REG | MCHIP_MODEREG_SEL(3));
+
         /* DLL Enable */
-        ddr_write(PL341_direct_cmd, 
-            MCHIP_CMD_MODE_REG | MCHIP_MODEREG_SEL(1) | 
+        ddr_write(PL341_direct_cmd,
+            MCHIP_CMD_MODE_REG | MCHIP_MODEREG_SEL(1) |
             MCHIP_EMR1_DLL_DISABLE(0)
             );
-    
+
         /* DLL Reset */
-        ddr_write(PL341_direct_cmd, 
-            MCHIP_CMD_MODE_REG | MCHIP_MODEREG_SEL(0) |
-            MCHIP_MR_WRITE_RECOVERY(MEMCYCLES(CFG_DDR_T_WR)) |
-            MCHIP_MR_DLL_RESET(1) |
-            MCHIP_MR_CAS_LATENCY(CFG_DDR_CAS_LATENCY) |
-            MCHIP_MR_BURST_LENGTH
-            );
-    
+        /* Set CAS to external memory devices */
+        lw	t1, PL341_cas_latency(a1)		# CAS value in bit3:1
+        li	t2, (MCHIP_CMD_MODE_REG | MCHIP_MODEREG_SEL(0) | \
+            MCHIP_MR_WRITE_RECOVERY(MEMCYCLES(CFG_DDR_T_WR)) | \
+            MCHIP_MR_DLL_RESET(1) | MCHIP_MR_BURST_LENGTH)
+        sll	t1, t1, 3		# Shift to bit6:4 for DDR MRS register
+        or	t2, t2, t1
+        sw	t2, PL341_direct_cmd(a1)
+
         /* issue precharge all */
         ddr_write(PL341_direct_cmd, MCHIP_CMD_PRECHARGE_ALL);
-    
+
         /* auto-refresh 2 times */
         ddr_write(PL341_direct_cmd, MCHIP_CMD_AUTO_REFRESH);
         ddr_write(PL341_direct_cmd, MCHIP_CMD_AUTO_REFRESH);
-        
+
         /* DLL Reset=0 (Un-Reset DLL) */
-        ddr_write(PL341_direct_cmd, 
-            MCHIP_CMD_MODE_REG | MCHIP_MODEREG_SEL(0) |
-            MCHIP_MR_WRITE_RECOVERY(MEMCYCLES(CFG_DDR_T_WR)) |
-            MCHIP_MR_DLL_RESET(0) | 
-            MCHIP_MR_CAS_LATENCY(CFG_DDR_CAS_LATENCY) | 
-            MCHIP_MR_BURST_LENGTH
-            );
-        
+        and	t2, t2, ~MCHIP_MR_DLL_RESET(1)
+        sw	t2, PL341_direct_cmd(a1)
+
         /* DLL Enable & RTT 75ohm */
-        ddr_write(PL341_direct_cmd, 
-            MCHIP_CMD_MODE_REG | MCHIP_MODEREG_SEL(1) | 
+        ddr_write(PL341_direct_cmd,
+            MCHIP_CMD_MODE_REG | MCHIP_MODEREG_SEL(1) |
             MCHIP_EMR1_DLL_DISABLE(0) | MCHIP_EMR1_RTT_75_OHM |
             MCHIP_EMR1_OCD_CALI_EXIT
             );
-    
+
         /* OCD Defaults */
-        ddr_write(PL341_direct_cmd, 
-            MCHIP_CMD_MODE_REG | MCHIP_MODEREG_SEL(1) | 
+        ddr_write(PL341_direct_cmd,
+            MCHIP_CMD_MODE_REG | MCHIP_MODEREG_SEL(1) |
             MCHIP_EMR1_DLL_DISABLE(0) | MCHIP_EMR1_RTT_75_OHM |
             MCHIP_EMR1_OCD_CALI_DEFAULT
             );
-    
+
         /* OCD Exit */
-        ddr_write(PL341_direct_cmd, 
-            MCHIP_CMD_MODE_REG | MCHIP_MODEREG_SEL(1) | 
+        ddr_write(PL341_direct_cmd,
+            MCHIP_CMD_MODE_REG | MCHIP_MODEREG_SEL(1) |
             MCHIP_EMR1_DLL_DISABLE(0) | MCHIP_EMR1_RTT_75_OHM |
             MCHIP_EMR1_OCD_CALI_EXIT
             );
-    
+
         /* set MEMC to GO */
         ddr_write(PL341_memc_cmd, 0);
         nop
         nop
-    
-        jr      t7
+
+        jr      ra
         nop
-    
+
         .set    reorder
 END(ai_amemcinit)

@@ -1576,11 +1576,11 @@ typedef struct wl_po {
 #define WL_CHAN_FREQ_RANGE_5GM     2
 #define WL_CHAN_FREQ_RANGE_5GH     3
 
-#define WL_CHAN_FREQ_RANGE_5GLL_VER2    4
-#define WL_CHAN_FREQ_RANGE_5GLH_VER2    5
-#define WL_CHAN_FREQ_RANGE_5GML_VER2    6
-#define WL_CHAN_FREQ_RANGE_5GMH_VER2    7
-#define WL_CHAN_FREQ_RANGE_5GH_VER2     8
+#define WL_CHAN_FREQ_RANGE_5GLL_5BAND    4
+#define WL_CHAN_FREQ_RANGE_5GLH_5BAND    5
+#define WL_CHAN_FREQ_RANGE_5GML_5BAND    6
+#define WL_CHAN_FREQ_RANGE_5GMH_5BAND    7
+#define WL_CHAN_FREQ_RANGE_5GH_5BAND     8
 
 /* phy types (returned by WLC_GET_PHYTPE) */
 #define	WLC_PHY_TYPE_A		0
@@ -1672,6 +1672,9 @@ typedef struct wl_po {
 /* bitflags for SGI support (sgi_rx iovar) */
 #define WLC_N_SGI_20			0x01
 #define WLC_N_SGI_40			0x02
+
+/* when sgi_tx==WLC_SGI_ALL, bypass rate selection, enable sgi for all mcs */
+#define WLC_SGI_ALL				0x02
 
 /* Values for PM */
 #define PM_OFF	0
@@ -3354,6 +3357,7 @@ typedef enum {
 #define VNDR_IE_AUTHRSP_FLAG	0x8
 #define VNDR_IE_PRBREQ_FLAG	0x10
 #define VNDR_IE_ASSOCREQ_FLAG	0x20
+#define VNDR_IE_IWAPID_FLAG	0x40 /* vendor IE in IW advertisement protocol ID field */
 #define VNDR_IE_CUSTOM_FLAG	0x100 /* allow custom IE id */
 
 #define VNDR_IE_INFO_HDR_LEN	(sizeof(uint32))
@@ -3372,6 +3376,28 @@ typedef BWL_PRE_PACKED_STRUCT struct {
 	char cmd[VNDR_IE_CMD_LEN];	/* vndr_ie IOVar set command : "add", "del" + NUL */
 	vndr_ie_buf_t vndr_ie_buffer;	/* buffer containing Vendor IE list information */
 } BWL_POST_PACKED_STRUCT vndr_ie_setbuf_t;
+
+typedef BWL_PRE_PACKED_STRUCT struct {
+	uint8 id;		/* IE type */
+	uint8 len;		/* IE length */
+	uint8 data[1];	/* IE data */
+} BWL_POST_PACKED_STRUCT ie_info_t;
+
+typedef BWL_PRE_PACKED_STRUCT struct {
+	int iecount;			/* number of entries in the ie_list[] array */
+	uint32 pktflag;			/* bitmask indicating which packet(s) contain this IE */
+	ie_info_t ie_list[1];	/* variable size list of ie_info_t structs */
+} BWL_POST_PACKED_STRUCT ie_buf_t;
+
+typedef BWL_PRE_PACKED_STRUCT struct {
+	char cmd[VNDR_IE_CMD_LEN];	/* ie IOVar set command : "add" + NUL */
+	ie_buf_t ie_buffer;	/* buffer containing IE list information */
+} BWL_POST_PACKED_STRUCT ie_setbuf_t;
+
+typedef BWL_PRE_PACKED_STRUCT struct {
+	uint32 pktflag;		/* bitmask indicating which packet(s) contain this IE */
+	uint8 id;		/* IE type */
+} BWL_POST_PACKED_STRUCT ie_getbuf_t;
 
 /* structures used to define format of wps ie data from probe requests */
 /* passed up to applications via iovar "prbreq_wpsie" */

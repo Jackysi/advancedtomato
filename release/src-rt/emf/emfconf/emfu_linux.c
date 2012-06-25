@@ -1,7 +1,7 @@
 /*
  * EMFL Command Line Utility Linux specific code
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: emfu_linux.c,v 1.1 2007/03/17 03:14:23 Exp $
+ * $Id: emfu_linux.c 241182 2011-02-17 21:50:03Z gmo $
  */
 
 #include <stdio.h>

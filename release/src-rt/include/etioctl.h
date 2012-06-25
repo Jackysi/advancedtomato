@@ -53,6 +53,7 @@
  */
 #define IOV_ET_POWER_SAVE_MODE 1
 #define IOV_ET_CLEAR_DUMP      2
+#define IOV_ET_ROBO_DEVID      3
 
 #if defined(linux) || defined(__ECOS)
 #define SIOCSETCUP		(SIOCDEVPRIVATE + ETCUP)
@@ -89,6 +90,33 @@ struct txg {
 };
 #endif /* linux */
 
+
+#if defined(__NetBSD__)
+#define SIOCSETCUP		 _IOW('e',  0, struct ifreq)
+#define SIOCSETCDOWN		 _IOW('e',  1, struct ifreq)
+#define SIOCSETCLOOP		 _IOW('e',  2, struct ifreq)
+#define SIOCGETCDUMP		_IOWR('e',  3, struct ifreq)
+#define SIOCSETCSETMSGLEVEL	 _IOW('e',  4, struct ifreq)
+#define SIOCSETCPROMISC		 _IOW('e',  5, struct ifreq)
+#define SIOCSETCTXDOWN		 _IOW('e',  6, struct ifreq)	/* obsolete */
+#define SIOCSETCSPEED		 _IOW('e',  7, struct ifreq)
+#define SIOCTXGEN		 _IOW('e',  8, struct ifreq)
+#define SIOCGETCPHYRD		_IOWR('e',  9, struct ifreq)
+#define SIOCSETCPHYWR		 _IOW('e', 10, struct ifreq)
+#define SIOCSETCQOS		 _IOW('e', 11, struct ifreq)
+#define SIOCGETCPHYRD2		_IOWR('e', 12, struct ifreq)
+#define SIOCSETCPHYWR2		 _IOW('e', 13, struct ifreq)
+#define SIOCGETCROBORD		_IOWR('e', 14, struct ifreq)
+#define SIOCSETCROBOWR		 _IOW('e', 15, struct ifreq)
+
+/* arg to SIOCTXGEN */
+struct txg {
+	uint32 num;		/* number of frames to send */
+	uint32 delay;		/* delay in microseconds between sending each */
+	uint32 size;		/* size of ether frame to send */
+	uchar buf[1514];	/* starting ether frame data */
+};
+#endif	/* __NetBSD__ */
 
 /*
  * custom OID support

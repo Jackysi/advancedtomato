@@ -128,9 +128,12 @@
 #define BCM43237_D11N5G_ID	0x4356		/* 43237 802.11n 5GHz device */
 #define BCM43227_D11N2G_ID	0x4358		/* 43228 802.11n 2.4GHz device */
 #define BCM43228_D11N_ID		0x4359		/* 43228 802.11n DualBand device */
-#define BCM43228_D11N5G_ID	0x435a		/* 43228 802.11n 5GHz device */ 
+#define BCM43228_D11N5G_ID	0x435a		/* 43228 802.11n 5GHz device */
 #define BCM43362_D11N_ID	0x4363		/* 43362 802.11n 2.4GHz device */
 #define BCM43239_D11N_ID	0x4370		/* 43239 802.11n dualband device */
+#define BCM4324_D11N_ID		0x4374		/* 4324 802.11n dualband device */
+#define BCM43217_D11N2G_ID	0x43a9		/* 43217 802.11n 2.4GHz device */
+#define BCM43131_D11N2G_ID	0x43aa		/* 43131 802.11n 2.4GHz device */
 
 #define BCM4314_D11N2G_ID       0x4364          /* 4314 802.11n 2.4G device */
 #define BCM43142_D11N2G_ID      0x4365          /* 43142 802.11n 2.4G device */
@@ -189,6 +192,7 @@
 #define	BCM43112_CHIP_ID	43112		/* 43112 chipcommon chipid (OTP chipid) */
 #define	BCM4312_CHIP_ID		0x4312		/* 4312 chipcommon chipid */
 #define BCM4313_CHIP_ID		0x4313		/* 4313 chip id */
+#define	BCM43131_CHIP_ID	43131		/* 43131 chip id (OTP chipid) */
 #define	BCM4315_CHIP_ID		0x4315		/* 4315 chip id */
 #define	BCM4318_CHIP_ID		0x4318		/* 4318 chipcommon chipid */
 #define	BCM4319_CHIP_ID		0x4319		/* 4319 chip id */
@@ -221,9 +225,13 @@
 #define BCM43362_CHIP_ID	43362		/* 43362 chipcommon chipid */
 #define BCM4330_CHIP_ID		0x4330		/* 4330 chipcommon chipid */
 #define BCM6362_CHIP_ID		0x6362		/* 6362 chipcommon chipid */
+#define BCM4334_CHIP_ID		0x4334		/* 4334 chipcommon chipid */
+#define BCM4334_D11N_ID         0x4380          /* 4334 802.11n dualband device */
+#define BCM4334_D11N2G_ID       0x4381          /* 4334 802.11n 2.4G device */
+#define BCM4334_D11N5G_ID       0x4382          /* 4334 802.11n 5G device */
 #define BCM4314_CHIP_ID         0x4314          /* 4314 chipcommon chipid */
 #define BCM43142_CHIP_ID        43142           /* 43142 chipcommon chipid */
-
+#define BCM4324_CHIP_ID         0x4324          /* 4324 chipcommon chipid */
 #define	BCM4342_CHIP_ID		4342		/* 4342 chipcommon chipid (OTP, RBBU) */
 #define	BCM4402_CHIP_ID		0x4402		/* 4402 chipid */
 #define	BCM4704_CHIP_ID		0x4704		/* 4704 chipcommon chipid */
@@ -266,7 +274,10 @@
 #define BCM5357_PKG_ID		11		/* 5357 package id */
 #define BCM5356U_PKG_ID		12		/* 5356U package id */
 #define BCM53572_PKG_ID		8		/* 53572 package id */
+#define BCM5357C0_PKG_ID	8		/* 5357c0 package id (the same as 53572) */
 #define BCM47188_PKG_ID		9		/* 47188 package id */
+#define BCM5358C0_PKG_ID	0xa		/* 5358c0 package id */
+#define BCM5356C0_PKG_ID	0xb		/* 5356c0 package id */
 #define BCM4331TT_PKG_ID        8		/* 4331 12x12 package id */
 #define BCM4331TN_PKG_ID        9		/* 4331 12x9 package id */
 #define BCM4331TNA0_PKG_ID     0xb		/* 4331 12x9 package id */
@@ -340,7 +351,7 @@
 #define BFL2_CAESERS_BRD	0x00000040  /* Board is Caesers brd (unused by sw) */
 #define BFL2_BTC3WIRE		0x00000080  /* Board support legacy 3 wire or 4 wire */
 #define BFL2_BTCLEGACY          0x00000080  /* Board support legacy 3/4 wire, to replace
-					     * BFL2_BTC3WIRE 
+					     * BFL2_BTC3WIRE
 					     */
 #define BFL2_SKWRKFEM_BRD	0x00000100  /* 4321mcm93 board uses Skyworks FEM */
 #define BFL2_SPUR_WAR		0x00000200  /* Board has a WAR for clock-harmonic spurs */
@@ -370,7 +381,8 @@
 #define BFL2_PWR_NOMINAL	0x04000000  /* 0: power reduction on, 1: no power reduction */
 #define BFL2_EXTLNA_TX		0x08000000  /* Temp boardflag to indicate to */
 						/* ucode control of eLNA during Tx */
-
+#define BFL2_4313_RADIOREG	0x10000000
+									   /*  board rework */
 
 /* board specific GPIO assignment, gpio 0-3 are also customer-configurable led */
 #define	BOARD_GPIO_BTC3W_IN	0x850	/* bit 4 is RF_ACTIVE, bit 6 is STATUS, bit 11 is PRI */
@@ -629,6 +641,7 @@
 #define BCM94319BHEMU3_SSID     0x0563
 #define BCM94319SDHMB_SSID     0x058c
 #define BCM94319SDBREF_SSID     0x05a1
+#define BCM94319USBSDB_SSID     0x05a2
 
 /* 4329 boards */
 #define BCM94329AGB_SSID	0X04b9
@@ -681,6 +694,10 @@
 #define BCM943228HM4L_SSID	0x0545
 #define BCM943228SD_SSID	0x0573
 
+/* 43239 Boards */
+#define BCM943239MOD_SSID	0x05ac
+#define BCM943239REF_SSID	0x05aa
+
 /* 4331 boards */
 #define BCM94331X19               0x00D6	/* X19B */
 #define BCM94331PCIEBT3Ax_SSID    0x00E4	/* X28 */
@@ -696,6 +713,8 @@
 #define BCM94331PCIEDUAL_SSID     0x059B
 #define BCM94331MCH5_SSID         0x05A9
 #define BCM94331PCIEDUALV2_SSID   0x05B7
+#define BCM94331CS_SSID           0x05C6
+#define BCM94331CSAX_SSID         0x00EF
 
 /* 53572 Boards */
 #define BCM953572BU_SSID       0x058D

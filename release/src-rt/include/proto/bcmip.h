@@ -42,6 +42,7 @@
 #define IP_PROT_ICMP		0x1	/* ICMP protocol */
 #define IP_PROT_TCP		0x6	/* TCP protocol */
 #define IP_PROT_UDP		0x11	/* UDP protocol type */
+#define IP_PROT_IGMP		0x02	/* IGMP protocol */
 
 /* IPV4 field offsets */
 #define IPV4_VER_HL_OFFSET	0	/* version and ihl byte offset */

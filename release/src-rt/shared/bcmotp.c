@@ -362,11 +362,10 @@ ipxotp_max_rgnsz(otpinfo_t *oi)
 	case BCM43431_CHIP_ID:
 		oi->fusebits = OTP_SZ_FU_72;
 		break;
+	case BCM43131_CHIP_ID:
+	case BCM43227_CHIP_ID:
 	case BCM43228_CHIP_ID:
 	case BCM43428_CHIP_ID:
-		oi->fusebits = OTP_SZ_FU_72;
-		break;
-	case BCM43227_CHIP_ID:
 		oi->fusebits = OTP_SZ_FU_72;
 		break;
 	default:
