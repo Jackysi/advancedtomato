@@ -439,7 +439,7 @@ define RouterOptions
 	if [ "$(USERPPTP)" = "y" ]; then \
 		sed -i "/TCONFIG_USERPPTP/d" $(1); \
 		echo "TCONFIG_USERPPTP=y" >>$(1); \
- 	fi; \
+	fi; \
 	if [ "$(VLAN)" = "y" ]; then \
 		sed -i "/TCONFIG_VLAN/d" $(1); \
 		echo "TCONFIG_VLAN=y" >>$(1); \
@@ -1080,7 +1080,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "e1200v1f     Linksys E1200v1 Mini"
 
 	@echo "       Netgear WNR3500L v2 builds (128MB Flash)"
-	@echo "v2e          Netgear WNR3500Lv2 build
+	@echo "v2e          Netgear WNR3500Lv2 build"
 
 endif
 	@echo "..etc..      other build configs"
@@ -1090,7 +1090,7 @@ endif
 	@echo "cleankernel  -C Linux distclean (but preserves .config)"
 	@echo "distclean    distclean of Linux & busybox (but preserve .configs)"
 	@echo "prepk        -C Linux oldconfig dep"
-	
+
 .PHONY: all clean distclean cleanimage cleantools cleankernel prepk what setprofile help
 .PHONY: a b c d m Makefile allversions tomato_profile.mak
 
