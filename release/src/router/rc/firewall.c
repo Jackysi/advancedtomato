@@ -992,7 +992,7 @@ static void filter_input(void)
 
 			if (ipt_source(p, s, "snmp", "remote")) {
 				ipt_write("-A INPUT -p udp %s --dport %s -j %s\n",
-					s, nvram_safe_get("snmp_port"), chain_in_accept);
+						s, nvram_safe_get("snmp_port"), chain_in_accept);
 			}
 
 			if (!c) break;
@@ -1274,12 +1274,22 @@ static void filter_forward(void)
 #endif
 
 		if (dmz_dst(dst)) {
+#ifdef TCONFIG_VLAN
+			char dmz_ifname[IFNAMSIZ+1];
+			strlcpy(dmz_ifname, nvram_safe_get("dmz_ifname"), sizeof(dmz_ifname));
+			if(strcmp(dmz_ifname, "") == 0)
+				strlcpy(dmz_ifname, lanface, sizeof(lanface));
+#endif
 			strlcpy(t, nvram_safe_get("dmz_sip"), sizeof(t));
 			p = t;
 			do {
 				if ((c = strchr(p, ',')) != NULL) *c = 0;
 				if (ipt_source_strict(p, src, "dmz", NULL))
+#ifdef TCONFIG_VLAN
+					ipt_write("-A FORWARD -o %s %s -d %s -j %s\n", dmz_ifname, src, dst, chain_in_accept);
+#else
 					ipt_write("-A FORWARD -o %s %s -d %s -j %s\n", lanface, src, dst, chain_in_accept);
+#endif
 				if (!c) break;
 				p = c + 1;
 			} while (*p);

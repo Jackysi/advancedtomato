@@ -794,6 +794,23 @@ static const nvset_t nvset_list[] = {
 	{ "lan_ifnames",		V_TEXT(0,64)			},
 	{ "manual_boot_nv",		V_01				},
 	{ "trunk_vlan_so",		V_01				},
+	{ "vlan0tag",		V_TEXT(0,5)			},
+	{ "vlan0vid",		V_TEXT(0,5)			},
+	{ "vlan1vid",		V_TEXT(0,5)			},
+	{ "vlan2vid",		V_TEXT(0,5)			},
+	{ "vlan3vid",		V_TEXT(0,5)			},
+	{ "vlan4vid",		V_TEXT(0,5)			},
+	{ "vlan5vid",		V_TEXT(0,5)			},
+	{ "vlan6vid",		V_TEXT(0,5)			},
+	{ "vlan7vid",		V_TEXT(0,5)			},
+	{ "vlan8vid",		V_TEXT(0,5)			},
+	{ "vlan9vid",		V_TEXT(0,5)			},
+	{ "vlan10vid",		V_TEXT(0,5)			},
+	{ "vlan11vid",		V_TEXT(0,5)			},
+	{ "vlan12vid",		V_TEXT(0,5)			},
+	{ "vlan13vid",		V_TEXT(0,5)			},
+	{ "vlan14vid",		V_TEXT(0,5)			},
+	{ "vlan15vid",		V_TEXT(0,5)			},
 #endif
 
 // advanced-mac
@@ -865,6 +882,9 @@ static const nvset_t nvset_list[] = {
 	{ "dmz_enable",			V_01				},
 	{ "dmz_ipaddr",			V_LENGTH(0, 15)		},
 	{ "dmz_sip",			V_LENGTH(0, 512)	},
+#ifdef TCONFIG_VLAN
+	{ "dmz_ifname",			V_LENGTH(0, 5)			},
+#endif
 
 // forward-upnp
 	{ "upnp_enable",		V_NUM				},
@@ -1069,7 +1089,7 @@ static const nvset_t nvset_list[] = {
 
 #ifdef TCONFIG_SNMP
 	{ "snmp_enable",		V_RANGE(0, 1)			},
-	{ "snmp_port",			V_RANGE(1, 65535)		},
+	{ "snmp_port",			V_RANGE(0, 65535)		},
 	{ "snmp_remote",		V_RANGE(0, 1)			},
 	{ "snmp_remote_sip",		V_LENGTH(0, 512)		},
 	{ "snmp_location",		V_LENGTH(0, 20)			},
@@ -1297,6 +1317,7 @@ static const nvset_t nvset_list[] = {
 	{ "pptpd_wins2",		V_TEXT(0, 15)		},
 	{ "pptpd_mtu",			V_RANGE(576, 1500)	},
 	{ "pptpd_mru",			V_RANGE(576, 1500)	},
+	{ "pptpd_custom",		V_TEXT(0, 2048)		},
 
 /*
 ppp_static			0/1

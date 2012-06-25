@@ -363,6 +363,10 @@ void start_dnsmasq()
 	write_vpn_dnsmasq_config(f);
 #endif
 
+#ifdef TCONFIG_PPTPD
+	write_pptpd_dnsmasq_config(f);
+#endif
+
 	fprintf(f, "%s\n\n", nvram_safe_get("dnsmasq_custom"));
 
 	fappend(f, "/etc/dnsmasq.custom");
