@@ -83,6 +83,107 @@ hash(const char *s)
 	return hashval;
 }
 
+//#define NVRAM2HANDLER 1
+
+/*
+ * separte nvram into two part, for those bootloader can't handle large nvram well models
+ * nvram_header
+ *
+ * nvram_header2
+ *
+ */
+
+#ifdef NVRAM2HANDLER
+
+struct nvram_header *find_next_header(struct nvram_header *header, char *ptr)
+{
+	struct nvram_header *hdr;
+	char *hdrptr;
+
+	hdrptr = (char *)header;
+
+	if(ptr>hdrptr) {
+		if((ptr-hdrptr)%16) {
+			hdrptr = ptr + (16-(ptr-hdrptr)%16);
+		}
+		else hdrptr = ptr;
+	}	
+	else hdrptr = NULL;
+
+	hdr = (struct nvram_header *)hdrptr;
+
+printk("header : %x %x %x\n", header, ptr, hdr);
+
+	return hdr; 
+}
+
+/* (Re)initialize the hash table. Should be locked. */
+static int
+BCMINITFN(nvram_rehash)(struct nvram_header *header)
+{
+	char buf[] = "0xXXXXXXXX", *name, *value, *end, *eq;
+	struct nvram_header *hdrptr;
+	/* (Re)initialize hash table */
+	nvram_free();
+
+	hdrptr = header;
+
+	/* Parse and set "name=value\0 ... \0\0" */
+	name = (char *) &hdrptr[1];
+	end = (char *) hdrptr + NVRAM_SPACE - 2;
+	end[0] = end[1] = '\0';
+
+again:
+	for (; *name; name = value + strlen(value) + 1) {
+		if (!(eq = strchr(name, '=')))
+			break;
+		*eq = '\0';
+		value = eq + 1;
+		_nvram_set(name, value);
+		*eq = '=';
+	}
+
+printk("rehash %x %x\n", header, name);
+{
+	int j;
+
+	for(j=0;j<64;j++) {
+		if(j%16==0) printk("\n");
+		printk("%x ", *(name-32+j));
+	}
+	printk("\n");
+}
+	hdrptr = find_next_header(header, name+2);
+
+	if(hdrptr)
+		printk("magic: %x\n", hdrptr->magic);
+
+	if(hdrptr && hdrptr->magic==NVRAM_MAGIC) {
+		name = (char *)&hdrptr[1];
+		goto again;
+	}
+
+	/* Set special SDRAM parameters */
+	if (!_nvram_get("sdram_init")) {
+		sprintf(buf, "0x%04X", (uint16)(header->crc_ver_init >> 16));
+		_nvram_set("sdram_init", buf);
+	}
+	if (!_nvram_get("sdram_config")) {
+		sprintf(buf, "0x%04X", (uint16)(header->config_refresh & 0xffff));
+		_nvram_set("sdram_config", buf);
+	}
+	if (!_nvram_get("sdram_refresh")) {
+		sprintf(buf, "0x%04X", (uint16)((header->config_refresh >> 16) & 0xffff));
+		_nvram_set("sdram_refresh", buf);
+	}
+	if (!_nvram_get("sdram_ncdl")) {
+		sprintf(buf, "0x%08X", header->config_ncdl);
+		_nvram_set("sdram_ncdl", buf);
+	}
+
+	return 0;
+}
+#else
 /* (Re)initialize the hash table. Should be locked. */
 static int
 BCMINITFN(nvram_rehash)(struct nvram_header *header)
@@ -125,6 +226,7 @@ BCMINITFN(nvram_rehash)(struct nvram_header *header)
 
 	return 0;
 }
+#endif
 
 /* Get the value of an NVRAM variable. Should be locked. */
 char *
@@ -234,6 +336,82 @@ _nvram_getall(char *buf, int count)
 	return 0;
 }
 
+#ifdef NVRAM2HANDLER
+/* Regenerate NVRAM. Should be locked. */
+int
+BCMINITFN(_nvram_commit)(struct nvram_header *header)
+{
+	char *init, *config, *refresh, *ncdl;
+	char *ptr, *end;
+	int i;
+	struct nvram_tuple *t;
+	struct nvram_header *hdrptr;
+	int starti, next;
+
+	hdrptr=header;
+	bzero(hdrptr, NVRAM_SPACE);
+	/* Leave space for a double NUL at the end */
+	end = (char *) header + NVRAM_SPACE - 2;
+	starti=0;
+	next = 0;
+
+again:
+
+	/* Regenerate header */
+	hdrptr->magic = NVRAM_MAGIC;
+	hdrptr->crc_ver_init = (NVRAM_VERSION << 8);
+	if (!(init = _nvram_get("sdram_init")) ||
+	    !(config = _nvram_get("sdram_config")) ||
+	    !(refresh = _nvram_get("sdram_refresh")) ||
+	    !(ncdl = _nvram_get("sdram_ncdl"))) {
+		hdrptr->crc_ver_init |= SDRAM_INIT << 16;
+		hdrptr->config_refresh = SDRAM_CONFIG;
+		hdrptr->config_refresh |= SDRAM_REFRESH << 16;
+		hdrptr->config_ncdl = 0;
+	} else {
+		hdrptr->crc_ver_init |= (bcm_strtoul(init, NULL, 0) & 0xffff) << 16;
+		hdrptr->config_refresh = bcm_strtoul(config, NULL, 0) & 0xffff;
+		hdrptr->config_refresh |= (bcm_strtoul(refresh, NULL, 0) & 0xffff) << 16;
+		hdrptr->config_ncdl = bcm_strtoul(ncdl, NULL, 0);
+	}
+
+	/* Clear data area */
+	ptr = (char *) hdrptr + sizeof(struct nvram_header);
+
+	/* Write out all tuples */
+	for (i = starti; i < ARRAYSIZE(nvram_hash); i++) {
+		for (t = nvram_hash[i]; t; t = t->next) {
+			if ((ptr + strlen(t->name) + 1 + strlen(t->value) + 1) > end)
+				break;
+			ptr += sprintf(ptr, "%s=%s", t->name, t->value) + 1;
+		}
+		if(starti==0 && (ptr-(char *)hdrptr)>(NVRAM_SPACE/2)) {
+			starti = i+1;
+printk("next hash table: %x\n", i);
+			break;
+		}	
+	}
+
+	/* End with a double NUL */
+	ptr += 2;
+
+	/* Set new length */
+	hdrptr->len = ROUNDUP(ptr - (char *) hdrptr, 4);
+
+	/* Set new CRC8 */
+	hdrptr->crc_ver_init |= nvram_calc_crc(hdrptr);
+
+printk("commit %x %x %d\n", header, ptr, i);
+	hdrptr = find_next_header(header, ptr);
+
+	if(hdrptr && i<ARRAYSIZE(nvram_hash)) {
+		goto again;
+	}
+
+	/* Reinitialize hash table */
+	return nvram_rehash(header);
+}
+#else
 /* Regenerate NVRAM. Should be locked. */
 int
 BCMINITFN(_nvram_commit)(struct nvram_header *header)
@@ -289,6 +467,7 @@ BCMINITFN(_nvram_commit)(struct nvram_header *header)
 	/* Reinitialize hash table */
 	return nvram_rehash(header);
 }
+#endif
 
 /* Initialize hash table. Should be locked. */
 int
@@ -302,7 +481,7 @@ BCMINITFN(_nvram_init)(void *sih)
 		printf("nvram_init: out of memory\n");
 		return -12; /* -ENOMEM */
 	}
-
+	printf("_nvram_init: allocat header: %lu, size= %lu\n", header, NVRAM_SPACE);
 	if ((ret = _nvram_read(header)) == 0 &&
 	    header->magic == NVRAM_MAGIC)
 		nvram_rehash(header);

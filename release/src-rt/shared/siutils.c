@@ -585,6 +585,37 @@ BCMATTACHFN(si_doattach)(si_info_t *sii, uint devid, osl_t *osh, void *regs,
 			si_corereg(sih, SI_CC_IDX, OFFSETOF(chipcregs_t, watchdog), ~0, 100);
 			OSL_DELAY(20000);	/* Srom read takes ~12mS */
 		}
+#ifdef BCMQT
+		/* Set OTPClkDiv to smaller value otherwise OTP always reads 0xFFFF.
+		 * For real-chip we shouldn't set OTPClkDiv to 2 because 20/2 = 10 > 9Mhz
+		 * but for 4314 QT if we set it to 4. OTP reads 0xFFFF every two words.
+		 */
+		{
+			uint otpclkdiv = 0;
+
+			if ((CHIPID(sih->chip) == BCM4314_CHIP_ID) ||
+				(CHIPID(sih->chip) == BCM43142_CHIP_ID)) {
+				otpclkdiv = 2;
+			} else if ((CHIPID(sih->chip) == BCM43227_CHIP_ID) ||
+				(CHIPID(sih->chip) == BCM43131_CHIP_ID) ||
+				(CHIPID(sih->chip) == BCM43228_CHIP_ID)) {
+				otpclkdiv = 4;
+			}
+
+			if (otpclkdiv != 0) {
+				uint clkdiv, savecore;
+				savecore = si_coreidx(sih);
+				si_setcore(sih, CC_CORE_ID, 0);
+
+				clkdiv = R_REG(osh, &cc->clkdiv);
+				clkdiv = (clkdiv & ~CLKD_OTP) | (otpclkdiv << CLKD_OTP_SHIFT);
+				W_REG(osh, &cc->clkdiv, clkdiv);
+
+				SI_ERROR(("%s: set clkdiv to 0x%x for QT\n", __FUNCTION__, clkdiv));
+				si_setcoreidx(sih, savecore);
+			}
+		}
+#endif /* BCMQT */
 	}
 #endif /* !_CFE_ || CFG_WL */
 #ifdef SI_SPROM_PROBE
@@ -726,7 +757,7 @@ BCMATTACHFN(si_detach)(si_t *sih)
 
 #if defined(STA)
 	struct si_pub *si_local = NULL;
-	bcopy(&sih, &si_local, sizeof(si_t**));
+	bcopy(&sih, &si_local, sizeof(si_t*));
 #endif 
 
 	sii = SI_INFO(sih);
@@ -1104,6 +1135,16 @@ si_addrspacesize(si_t *sih, uint asidx)
 	}
 }
 
+void
+si_coreaddrspaceX(si_t *sih, uint asidx, uint32 *addr, uint32 *size)
+{
+	/* Only supported for SOCI_AI */
+	if (CHIPTYPE(sih->socitype) == SOCI_AI)
+		ai_coreaddrspaceX(sih, asidx, addr, size);
+	else
+		*size = 0;
+}
+
 uint32
 si_core_cflags(si_t *sih, uint32 mask, uint32 val)
 {
@@ -1365,12 +1406,6 @@ BCMINITFN(si_clock)(si_t *sih)
 	else
 		m = R_REG(sii->osh, &cc->clockcontrol_sb);
 
-	if (CHIPID(sih->chip) == BCM5365_CHIP_ID)
-		rate = 200000000; /* PLL_TYPE3 */
-	else if (CHIPID(sih->chip) == BCM5354_CHIP_ID)
-		/* 5354 has a constant sb clock of 120MHz */
-		rate = 120000000;
-	else
 	/* calculate rate */
 	rate = si_clock_rate(pll_type, n, m);
 
@@ -4005,6 +4040,8 @@ si_is_sprom_available(si_t *sih)
 	case BCM4331_CHIP_ID:
 	case BCM43431_CHIP_ID:
 		return (sih->chipst & CST4331_SPROM_PRESENT) != 0;
+	case BCM43131_CHIP_ID:
+	case BCM43227_CHIP_ID:
 	case BCM43228_CHIP_ID:
 	case BCM43428_CHIP_ID:
 		return (sih->chipst & CST43228_OTP_PRESENT) != CST43228_OTP_PRESENT;
@@ -4046,6 +4083,8 @@ si_is_otp_disabled(si_t *sih)
 	case BCM43235_CHIP_ID:	case BCM43236_CHIP_ID:	case BCM43238_CHIP_ID:
 	case BCM43234_CHIP_ID:	case BCM43237_CHIP_ID:
 	case BCM4331_CHIP_ID:   case BCM43431_CHIP_ID:
+	case BCM43131_CHIP_ID:
+	case BCM43227_CHIP_ID:
 	case BCM43228_CHIP_ID:  case BCM43428_CHIP_ID:
 	default:
 		return FALSE;

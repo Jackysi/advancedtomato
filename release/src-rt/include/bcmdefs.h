@@ -283,6 +283,8 @@ typedef struct  {
  * will result in failure of dma map
  */
 #define MAX_DMA_SEGS 8
+#elif defined(__NetBSD__)
+#define MAX_DMA_SEGS 16
 #else
 #define MAX_DMA_SEGS 4
 #endif
@@ -305,9 +307,13 @@ typedef struct {
 #if defined(BCM_RPC_NOCOPY) || defined(BCM_RCP_TXNOCOPY)
 /* add 40 bytes to allow for extra RPC header and info  */
 #define BCMEXTRAHDROOM 220
-#else
+#else /* BCM_RPC_NOCOPY || BCM_RPC_TXNOCOPY */
+#ifdef CTFMAP
+#define BCMEXTRAHDROOM 176
+#else /* CTFMAP */
 #define BCMEXTRAHDROOM 172
-#endif
+#endif /* CTFMAP */
+#endif /* BCM_RPC_NOCOPY || BCM_RPC_TXNOCOPY */
 
 /* Packet alignment for most efficient SDIO (can change based on platform) */
 #ifndef SDALIGN

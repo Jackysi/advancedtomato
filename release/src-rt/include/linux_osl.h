@@ -163,8 +163,6 @@ extern void osl_dma_free_consistent(osl_t *osh, void *va, uint size, ulong pa);
 #define	DMA_RX	2	/* RX direction for DMA */
 
 /* map/unmap shared (dma-able) memory */
-#define	DMA_MAP(osh, va, size, direction, p, dmah) \
-	osl_dma_map((osh), (va), (size), (direction))
 #define	DMA_UNMAP(osh, pa, size, direction, p, dmah) \
 	osl_dma_unmap((osh), (pa), (size), (direction))
 extern uint osl_dma_map(osl_t *osh, void *va, uint size, int direction);
@@ -207,10 +205,7 @@ extern int osl_error(int bcmerror);
 #include <linux/string.h>	/* for mem*, str* */
 
 #define OSL_SYSUPTIME()		((uint32)jiffies * (1000 / HZ))
-
-#ifndef printf
 #define	printf(fmt, args...)	printk(fmt , ## args)
-#endif
 
 /* bcopy's: Linux kernel doesn't provide these (anymore) */
 #define	bcopy(src, dst, len)	memcpy((dst), (src), (len))
@@ -430,13 +425,13 @@ typedef struct ctfpool {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22)
 #define	FASTBUF	(1 << 4)
 #define	CTFBUF	(1 << 5)
-#define	PKTSETFAST(osh, skb)	((((struct sk_buff*)(skb))->ctf_mac_len) |= FASTBUF)
-#define	PKTCLRFAST(osh, skb)	((((struct sk_buff*)(skb))->ctf_mac_len) &= (~FASTBUF))
-#define	PKTSETCTF(osh, skb)	((((struct sk_buff*)(skb))->ctf_mac_len) |= CTFBUF)
-#define	PKTCLRCTF(osh, skb)	((((struct sk_buff*)(skb))->ctf_mac_len) &= (~CTFBUF))
-#define	PKTISFAST(osh, skb)	((((struct sk_buff*)(skb))->ctf_mac_len) & FASTBUF)
-#define	PKTISCTF(osh, skb)	((((struct sk_buff*)(skb))->ctf_mac_len) & CTFBUF)
-#define PKTFAST(osh, skb)	(((struct sk_buff*)(skb))->ctf_mac_len)
+#define	PKTSETFAST(osh, skb)	((((struct sk_buff*)(skb))->mac_len) |= FASTBUF)
+#define	PKTCLRFAST(osh, skb)	((((struct sk_buff*)(skb))->mac_len) &= (~FASTBUF))
+#define	PKTSETCTF(osh, skb)	((((struct sk_buff*)(skb))->mac_len) |= CTFBUF)
+#define	PKTCLRCTF(osh, skb)	((((struct sk_buff*)(skb))->mac_len) &= (~CTFBUF))
+#define	PKTISFAST(osh, skb)	((((struct sk_buff*)(skb))->mac_len) & FASTBUF)
+#define	PKTISCTF(osh, skb)	((((struct sk_buff*)(skb))->mac_len) & CTFBUF)
+#define	PKTFAST(osh, skb)	(((struct sk_buff*)(skb))->mac_len)
 #else
 #define	FASTBUF	(1 << 0)
 #define	CTFBUF	(1 << 1)
@@ -459,12 +454,37 @@ extern void osl_ctfpool_cleanup(osl_t *osh);
 extern void osl_ctfpool_stats(osl_t *osh, void *b);
 #endif /* CTFPOOL */
 
+#ifdef CTFMAP
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 14)
+#define CTFMAPPTR(osh, skb) 	(((struct sk_buff*)(skb))->sp)
+#else /* 2.6.14 */
+#define CTFMAPPTR(osh, skb)	(((struct sk_buff*)(skb))->list)
+#endif /* 2.6.14 */
+
+#define PKTCTFMAP(osh, p) \
+do { \
+	if (PKTISCTF(osh, p)) { \
+		int32 sz; \
+		sz = (uint32)(((struct sk_buff *)p)->tail) - \
+		     (uint32)CTFMAPPTR(osh, p); \
+		/* map the remaining unmapped area */ \
+		if (sz > 0) { \
+			_DMA_MAP(osh, (void *)CTFMAPPTR(osh, p), \
+				sz, DMA_RX, p, NULL); \
+		} \
+		/* clear ctf buf flag */ \
+		PKTCLRCTF(osh, p); \
+		CTFMAPPTR(osh, p) = NULL; \
+	} \
+} while (0)
+#endif /* CTFMAP */
+
 #ifdef HNDCTF
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22)
 #define	SKIPCT	(1 << 6)
-#define	PKTSETSKIPCT(osh, skb)	(((struct sk_buff*)(skb))->ctf_mac_len |= SKIPCT)
-#define	PKTCLRSKIPCT(osh, skb)	(((struct sk_buff*)(skb))->ctf_mac_len &= (~SKIPCT))
-#define	PKTSKIPCT(osh, skb)	(((struct sk_buff*)(skb))->ctf_mac_len & SKIPCT)
+#define	PKTSETSKIPCT(osh, skb)	(((struct sk_buff*)(skb))->mac_len |= SKIPCT)
+#define	PKTCLRSKIPCT(osh, skb)	(((struct sk_buff*)(skb))->mac_len &= (~SKIPCT))
+#define	PKTSKIPCT(osh, skb)	(((struct sk_buff*)(skb))->mac_len & SKIPCT)
 #else /* 2.6.22 */
 #define	SKIPCT	(1 << 2)
 #define	PKTSETSKIPCT(osh, skb)	(((struct sk_buff*)(skb))->__unused |= SKIPCT)
@@ -792,6 +812,25 @@ extern void osl_pktlist_remove(osl_t *osh, void *p);
 #endif /* BCMDBG_PKT */
 
 #endif	/* BINOSL */
+
+#ifdef CTFMAP
+#include <ctf/hndctf.h>
+#define CTFMAPSZ 	320
+#define DMA_MAP(osh, va, size, direction, p, dmah) \
+({ \
+	typeof(size) sz = (size); \
+	if (PKTISCTF((osh), (p))) { \
+		sz = CTFMAPSZ; \
+		CTFMAPPTR((osh), (p)) = (void *)(((uint8 *)(va)) + CTFMAPSZ); \
+	} \
+	osl_dma_map((osh), (va), sz, (direction)); \
+})
+#define _DMA_MAP(osh, va, size, direction, p, dmah) \
+	dma_cache_inv((uint)(va), (size))
+#else /* CTFMAP */
+#define DMA_MAP(osh, va, size, direction, p, dmah) \
+	osl_dma_map((osh), (va), (size), (direction))
+#endif /* CTFMAP */
 
 #else /* ! BCMDRIVER */
 

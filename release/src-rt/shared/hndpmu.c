@@ -342,7 +342,7 @@ si_pmu_paref_ldo_enable(si_t *sih, osl_t *osh, bool enable)
 uint16
 BCMINITFN(si_pmu_fast_pwrup_delay)(si_t *sih, osl_t *osh)
 {
-	uint delay = PMU_MAX_TRANSITION_DLY;
+	uint delay_val = PMU_MAX_TRANSITION_DLY;
 	chipcregs_t *cc;
 	uint origidx;
 #ifdef BCMDBG
@@ -369,89 +369,90 @@ BCMINITFN(si_pmu_fast_pwrup_delay)(si_t *sih, osl_t *osh)
 	case BCM43234_CHIP_ID:	case BCM43237_CHIP_ID:
 	case BCM4331_CHIP_ID:
 	case BCM43431_CHIP_ID:
+	case BCM43131_CHIP_ID:
 	case BCM43227_CHIP_ID:
 	case BCM43228_CHIP_ID:
 	case BCM43428_CHIP_ID:
 	case BCM6362_CHIP_ID:
 	case BCM4342_CHIP_ID:
 	case BCM4313_CHIP_ID:
-		delay = ISSIM_ENAB(sih) ? 70 : 3700;
+		delay_val = ISSIM_ENAB(sih) ? 70 : 3700;
 		break;
 	case BCM4328_CHIP_ID:
-		delay = 7000;
+		delay_val = 7000;
 		break;
 	case BCM4325_CHIP_ID:
 		if (ISSIM_ENAB(sih))
-			delay = 70;
+			delay_val = 70;
 		else {
 			uint32 ilp = si_ilp_clock(sih);
-			delay = (si_pmu_res_uptime(sih, osh, cc, RES4325_HT_AVAIL) +
+			delay_val = (si_pmu_res_uptime(sih, osh, cc, RES4325_HT_AVAIL) +
 			         D11SCC_SLOW2FAST_TRANSITION) * ((1000000 + ilp - 1) / ilp);
-			delay = (11 * delay) / 10;
+			delay_val = (11 * delay_val) / 10;
 		}
 		break;
 	case BCM4329_CHIP_ID:
 		if (ISSIM_ENAB(sih))
-			delay = 70;
+			delay_val = 70;
 		else {
 			uint32 ilp = si_ilp_clock(sih);
-			delay = (si_pmu_res_uptime(sih, osh, cc, RES4329_HT_AVAIL) +
+			delay_val = (si_pmu_res_uptime(sih, osh, cc, RES4329_HT_AVAIL) +
 			         D11SCC_SLOW2FAST_TRANSITION) * ((1000000 + ilp - 1) / ilp);
-			delay = (11 * delay) / 10;
+			delay_val = (11 * delay_val) / 10;
 		}
 		break;
 	case BCM4315_CHIP_ID:
 		if (ISSIM_ENAB(sih))
-			delay = 70;
+			delay_val = 70;
 		else {
 			uint32 ilp = si_ilp_clock(sih);
-			delay = (si_pmu_res_uptime(sih, osh, cc, RES4315_HT_AVAIL) +
+			delay_val = (si_pmu_res_uptime(sih, osh, cc, RES4315_HT_AVAIL) +
 			         D11SCC_SLOW2FAST_TRANSITION) * ((1000000 + ilp - 1) / ilp);
-			delay = (11 * delay) / 10;
+			delay_val = (11 * delay_val) / 10;
 		}
 		break;
 	case BCM4319_CHIP_ID:
 		if (ISSIM_ENAB(sih))
-			delay = 70;
+			delay_val = 70;
 		else {
 #ifdef BCMUSBDEV
 			/* For USB HT is always available, even durring IEEE PS,
 			* so need minimal delay
 			*/
-			delay = 100;
+			delay_val = 100;
 #else /* BCMUSBDEV */
 			/* For SDIO, total delay in getting HT available */
 			/* Adjusted for uptime XTAL=672us, HTAVail=128us */
 			uint32 ilp = si_ilp_clock(sih);
-			delay = si_pmu_res_uptime(sih, osh, cc, RES4319_HT_AVAIL);
-			PMU_MSG(("si_ilp_clock (Hz): %u delay (ilp clks): %u\n", ilp, delay));
-			delay = (delay + D11SCC_SLOW2FAST_TRANSITION) * (1000000 / ilp);
-			PMU_MSG(("delay (us): %u\n", delay));
-			delay = (11 * delay) / 10;
-			PMU_MSG(("delay (us): %u\n", delay));
+			delay_val = si_pmu_res_uptime(sih, osh, cc, RES4319_HT_AVAIL);
+			PMU_MSG(("si_ilp_clock (Hz): %u delay (ilp clks): %u\n", ilp, delay_val));
+			delay_val = (delay_val + D11SCC_SLOW2FAST_TRANSITION) * (1000000 / ilp);
+			PMU_MSG(("delay (us): %u\n", delay_val));
+			delay_val = (11 * delay_val) / 10;
+			PMU_MSG(("delay (us): %u\n", delay_val));
 			/* VDDIO_RF por delay = 3.4ms */
-			if (delay < 3400) delay = 3400;
+			if (delay_val < 3400) delay_val = 3400;
 #endif /* BCMUSBDEV */
 		}
 		break;
 	case BCM4336_CHIP_ID:
 		if (ISSIM_ENAB(sih))
-			delay = 70;
+			delay_val = 70;
 		else {
 			uint32 ilp = si_ilp_clock(sih);
-			delay = (si_pmu_res_uptime(sih, osh, cc, RES4336_HT_AVAIL) +
+			delay_val = (si_pmu_res_uptime(sih, osh, cc, RES4336_HT_AVAIL) +
 			         D11SCC_SLOW2FAST_TRANSITION) * ((1000000 + ilp - 1) / ilp);
-			delay = (11 * delay) / 10;
+			delay_val = (11 * delay_val) / 10;
 		}
 		break;
 	case BCM4330_CHIP_ID:
 		if (ISSIM_ENAB(sih))
-			delay = 70;
+			delay_val = 70;
 		else {
 			uint32 ilp = si_ilp_clock(sih);
-			delay = (si_pmu_res_uptime(sih, osh, cc, RES4330_HT_AVAIL) +
+			delay_val = (si_pmu_res_uptime(sih, osh, cc, RES4330_HT_AVAIL) +
 			         D11SCC_SLOW2FAST_TRANSITION) * ((1000000 + ilp - 1) / ilp);
-			delay = (11 * delay) / 10;
+			delay_val = (11 * delay_val) / 10;
 		}
 		break;
 	default:
@@ -465,7 +466,7 @@ BCMINITFN(si_pmu_fast_pwrup_delay)(si_t *sih, osl_t *osh)
 	/* Return to original core */
 	si_setcoreidx(sih, origidx);
 
-	return (uint16)delay;
+	return (uint16)delay_val;
 }
 #endif /* !_CFE_ || CFG_WL */
 
@@ -2320,6 +2321,7 @@ BCMATTACHFN(si_pmu_pll_init)(si_t *sih, osl_t *osh, uint xtalfreq)
 	case BCM43235_CHIP_ID:	case BCM43236_CHIP_ID:	case BCM43238_CHIP_ID:
 	case BCM43234_CHIP_ID:	case BCM43237_CHIP_ID:
 	case BCM4331_CHIP_ID:   case BCM43431_CHIP_ID:
+	case BCM43131_CHIP_ID:
 	case BCM43227_CHIP_ID:
 	case BCM43228_CHIP_ID:
 	case BCM43428_CHIP_ID:
@@ -2390,6 +2392,7 @@ BCMINITFN(si_pmu_alp_clock)(si_t *sih, osl_t *osh)
 	case BCM43235_CHIP_ID:	case BCM43236_CHIP_ID:	case BCM43238_CHIP_ID:
 	case BCM43234_CHIP_ID:	case BCM43237_CHIP_ID:
 	case BCM4331_CHIP_ID:   case BCM43431_CHIP_ID:
+	case BCM43131_CHIP_ID:
 	case BCM43227_CHIP_ID:
 	case BCM43228_CHIP_ID:
 	case BCM43428_CHIP_ID:
@@ -2480,7 +2483,7 @@ BCMINITFN(si_pmu5_clock)(si_t *sih, osl_t *osh, chipcregs_t *cc, uint pll0, uint
 static uint32
 BCMINITFN(si_4706_pmu_clock)(si_t *sih, osl_t *osh, chipcregs_t *cc, uint pll0, uint m)
 {
-	uint32  w;
+	uint32 w, ndiv, p1div, p2div;
 	uint32 clock;
 
 	/* Strictly there is an m5 divider, but I'm not sure we use it */
@@ -2489,12 +2492,14 @@ BCMINITFN(si_4706_pmu_clock)(si_t *sih, osl_t *osh, chipcregs_t *cc, uint pll0, 
 		return 0;
 	}
 
-	/* Get N divider to determine CPU clock */
+	/* Get N, P1 and P2 dividers to determine CPU clock */
 	W_REG(osh, &cc->pllcontrol_addr, pll0 + PMU6_4706_PROCPLL_OFF);
-	w = (R_REG(NULL, &cc->pllcontrol_data) & PMU6_4706_PROC_NDIV_INT_MASK) >>
-		PMU6_4706_PROC_NDIV_INT_SHIFT;
+	w = R_REG(NULL, &cc->pllcontrol_data);
+	ndiv = (w & PMU6_4706_PROC_NDIV_INT_MASK) >> PMU6_4706_PROC_NDIV_INT_SHIFT;
+	p1div = (w & PMU6_4706_PROC_P1DIV_MASK) >> PMU6_4706_PROC_P1DIV_SHIFT;
+	p2div = (w & PMU6_4706_PROC_P2DIV_MASK) >> PMU6_4706_PROC_P2DIV_SHIFT;
 	/* Fixed reference clock 25MHz and m = 2 */
-	clock = w * 25000000 / 2;
+	clock = (25000000 / 2) * ndiv * p2div / p1div;
 	if (m == PMU5_MAINPLL_MEM)
 		clock = clock / 2;
 	else if (m == PMU5_MAINPLL_SI)
@@ -3468,6 +3473,7 @@ si_pmu_spuravoid_pllupdate(si_t *sih, chipcregs_t *cc, osl_t *osh, uint8 spuravo
 
 		tmp = PCTL_PLL_PLLCTL_UPD;
 		break;
+	case BCM43131_CHIP_ID:
 	case BCM43227_CHIP_ID:
 	case BCM43228_CHIP_ID:
 	case BCM43428_CHIP_ID:
@@ -3858,7 +3864,7 @@ si_pmu_radio_enable(si_t *sih, bool enable)
 
 /* Wait for a particular clock level to be on the backplane */
 uint32
-si_pmu_waitforclk_on_backplane(si_t *sih, osl_t *osh, uint32 clk, uint32 delay)
+si_pmu_waitforclk_on_backplane(si_t *sih, osl_t *osh, uint32 clk, uint32 delay_val)
 {
 	chipcregs_t *cc;
 	uint origidx;
@@ -3870,8 +3876,8 @@ si_pmu_waitforclk_on_backplane(si_t *sih, osl_t *osh, uint32 clk, uint32 delay)
 	cc = si_setcoreidx(sih, SI_CC_IDX);
 	ASSERT(cc != NULL);
 
-	if (delay)
-		SPINWAIT(((R_REG(osh, &cc->pmustatus) & clk) != clk), delay);
+	if (delay_val)
+		SPINWAIT(((R_REG(osh, &cc->pmustatus) & clk) != clk), delay_val);
 
 	/* Return to original core */
 	si_setcoreidx(sih, origidx);
