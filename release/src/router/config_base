@@ -38,3 +38,4 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_HFS is not set
 # TCONFIG_UPS is not set
 # TCONFIG_DNSCRYPT is not set
+# TCONFIG_NVRAM_64K is not set
