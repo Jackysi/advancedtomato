@@ -169,7 +169,6 @@ else
   endif
 endif
 
-obj-$(TCONFIG_SNMP) += snmp
 obj-y += wanuptime
 
 obj-clean := $(foreach obj, $(obj-y) $(obj-n) $(obj-), $(obj)-clean)
@@ -1406,6 +1405,7 @@ wanuptime-clean:
 wanuptime-install:
 	install -D wanuptime/wanuptime $(INSTALLDIR)/wanuptime/usr/sbin/wanuptime
 	$(STRIP) $(INSTALLDIR)/wanuptime/usr/sbin/wanuptime
+<<<<<<< HEAD:release/src/router/Makefile
 
 snmp: snmp/include/net-snmp/net-snmp-config.h
 	@$(SEP)
@@ -1422,6 +1422,8 @@ snmp-clean:
 snmp-install:
 	install -D snmp/agent/snmpd $(INSTALLDIR)/snmp/usr/sbin/snmpd
 	$(STRIP) $(INSTALLDIR)/snmp/usr/sbin/snmpd
+=======
+>>>>>>> origin/tomato-shibby-jya:release/src/router/Makefile
 
 ebtables: dummy
 	$(MAKE) -C ebtables CC=$(CC) LD=$(LD) \
