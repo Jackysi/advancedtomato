@@ -134,3 +134,6 @@ config TCONFIG_PPTPD
 	depends on TCONFIG_PPTP
 	default n
 
+config TCONFIG_NVRAM_64K
+	bool "NVRAM_64K"
+	default n

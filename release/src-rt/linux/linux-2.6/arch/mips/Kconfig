@@ -717,6 +717,10 @@ config GENERIC_GPIO
 	bool "Generic GPIO"
 	default n
 
+config NVRAM_64K
+        bool "Support nvram 64K"
+        default n
+
 endmenu
 
 

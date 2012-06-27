@@ -168,7 +168,11 @@ uint8 nvram_calc_crc(struct nvram_header * nvh);
 #define NVRAM_INVALID_MAGIC	0xFFFFFFFF
 #define NVRAM_VERSION		1
 #define NVRAM_HEADER_SIZE	20
-#define NVRAM_SPACE		0x8000
+#if (defined(TCONFIG_NVRAM_64K) || defined(CONFIG_NVRAM_64K))
+    #define NVRAM_SPACE		0x10000
+#else
+    #define NVRAM_SPACE		0x8000
+#endif
 
 #define NVRAM_MAX_VALUE_LEN 255
 #define NVRAM_MAX_PARAM_LEN 64

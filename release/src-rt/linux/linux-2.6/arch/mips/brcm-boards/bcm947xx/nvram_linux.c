@@ -38,6 +38,7 @@
 #include <siutils.h>
 #include <hndmips.h>
 #include <sflash.h>
+#include <linux/delay.h>
 #ifdef NFLASH_SUPPORT
 #include <nflash.h>
 #endif
@@ -389,6 +390,16 @@ early_nvram_init(void)
 #endif
 
 		off = FLASH_MIN;
+
+#ifdef NVRAM_64K_SUPPORT
+		header = (struct nvram_header *) KSEG1ADDR(base + lim - 0x8000);
+		if(header->magic==0xffffffff) {
+	        	header = (struct nvram_header *) KSEG1ADDR(base + 1 KB);
+		        if (nvram_valid(header))
+	        	        goto found;
+		}
+#endif
+
 		while (off <= lim) {
 			/* Windowed flash access */
 			header = (struct nvram_header *) KSEG1ADDR(base + off - NVRAM_SPACE);
@@ -1027,6 +1038,18 @@ nvram_commit(void)
 	offset = nvram_mtd->size - erasesize;
 	ret = nvram_mtd->read(nvram_mtd, offset, 4, &len, nvram_commit_buf);
 
+#ifdef NVRAM_64K_SUPPORT /*Only for RT-N66U upgrade from nvram 32K -> 64K*/
+        if(header->len < 0x8001){
+                char *log_buf;
+                u_int32_t offset_t;
+                size_t log_len;
+
+                offset_t = 0x18000;
+                log_buf =0x01020304;
+                ret = nvram_mtd->write(nvram_mtd, offset_t, sizeof(log_buf), &log_len, &log_buf);
+        }
+#endif
+
 done:
 	up(&nvram_sem);
 #if 0
@@ -1250,6 +1273,45 @@ dev_nvram_init(void)
 	}
 	if (i >= MAX_MTD_DEVICES)
 		nvram_mtd = NULL;
+#endif
+
+#ifdef NVRAM_64K_SUPPORT
+        int ret32;
+        char *log_buf;
+        u_int32_t offset_t;
+        size_t log_len;
+        DECLARE_WAITQUEUE(wait, current);
+        wait_queue_head_t wait_q;
+        struct erase_info erase;
+
+        offset_t = 0x18000;
+        ret32 = nvram_mtd->read(nvram_mtd, offset_t, 4, &log_len, &log_buf);
+        if(log_buf==0xffffffff) {
+	        /* Erase sector blocks */
+                init_waitqueue_head(&wait_q);
+
+                erase.mtd = nvram_mtd;
+                erase.addr = 0;
+                erase.len = nvram_mtd->erasesize;
+                erase.callback = erase_callback;
+                erase.priv = (u_long) &wait_q;
+                set_current_state(TASK_INTERRUPTIBLE);
+                add_wait_queue(&wait_q, &wait);
+
+                /* Unlock sector blocks */
+                if (nvram_mtd->unlock)
+                        nvram_mtd->unlock(nvram_mtd, 0, nvram_mtd->erasesize);
+
+                if ((ret = nvram_mtd->erase(nvram_mtd, &erase))) {
+                        set_current_state(TASK_RUNNING);
+                        remove_wait_queue(&wait_q, &wait);
+                        printk("nvram mtd erase error\n");
+                }
+
+                /* Wait for erase to finish */
+                schedule();
+                remove_wait_queue(&wait_q, &wait);
+        }
 #endif
 
 	/* Initialize hash table lock */

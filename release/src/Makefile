@@ -62,6 +62,14 @@ BOARD_FILE=$(WNRTOOL)/compatible_WNR3500Lv2.txt
 fw_cfg_file := $(WNRTOOL)/ambitCfg.h
 endif
 
+ifeq ($(NVRAM_64K),y)
+EXTRA_64KDESC = ' -64K'
+EXTRA_64KCFLAG = '-DTCONFIG_NVRAM_64K'
+else
+EXTRA_64KDESC = ''
+EXTRA_64KCFLAG = ''
+endif
+
 -include tomato_profile.mak
 
 # This could be simpler by just using $(TOMATO_PROFILE_NAME) like it used to be,
@@ -448,6 +456,10 @@ define RouterOptions
 		sed -i "/TCONFIG_PPTPD/d" $(1); \
 		echo "TCONFIG_PPTPD=y" >>$(1); \
 	fi; \
+        if [ "$(NVRAM_64K)" = "y" ]; then \
+                sed -i "/TCONFIG_NVRAM_64K/d" $(1); \
+                echo "TCONFIG_NVRAM_64K=y" >>$(1); \
+        fi; \
 	)
 endef
 
@@ -681,6 +693,12 @@ define KernelConfig
 			echo "CONFIG_BRIDGE_EBT_IP6=m" >>$(1); \
 		fi; \
 	fi; \
+        sed -i "/CONFIG_NVRAM_64K/d" $(1); \
+        if [ "$(NVRAM_64K)" = "y" ]; then \
+                echo "CONFIG_NVRAM_64K=y" >>$(1); \
+        else \
+                echo "# CONFIG_NVRAM_64K is not set" >>$(1); \
+	fi \
 	)
 endef
 
@@ -971,7 +989,7 @@ setprofile:
 	echo '#define TOMATO_PROFILE PROFILE_$(N)' >> router/shared/tomato_profile.h
 	echo '#define TOMATO_PROFILE_NAME "$(N)"' >> router/shared/tomato_profile.h
 	echo '#define TOMATO_BUILD_NAME "$(B)"' >> router/shared/tomato_profile.h
-	echo '#define TOMATO_BUILD_DESC "$(DESC)"' >> router/shared/tomato_profile.h
+	echo '#define TOMATO_BUILD_DESC "$(DESC)$(EXTRA_64KDESC)"' >> router/shared/tomato_profile.h
 	echo '#ifndef CONFIG_NVRAM_SIZE' >> router/shared/tomato_profile.h
 	echo '#define CONFIG_NVRAM_SIZE $(NVRAM_SIZE)' >> router/shared/tomato_profile.h
 	echo '#endif' >> router/shared/tomato_profile.h
@@ -984,7 +1002,7 @@ setprofile:
 	echo 'TOMATO_PROFILE_NAME = "$(N)"' >> tomato_profile.mak
 	echo 'TOMATO_BUILD = "$(B)"' >> tomato_profile.mak
 	echo 'TOMATO_BUILD_NAME = "$(B)"' >> tomato_profile.mak
-	echo 'TOMATO_BUILD_DESC = "$(DESC)"' >> tomato_profile.mak
+	echo 'TOMATO_BUILD_DESC = "$(DESC)$(EXTRA_64KDESC)"' >> tomato_profile.mak
 	echo 'TOMATO_PROFILE_L = $(lowercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_PROFILE_U = $(uppercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_BUILD_USB = "$(USB)"' >> tomato_profile.mak
@@ -992,7 +1010,7 @@ setprofile:
 	echo 'TOMATO_BUILD_V1 = "${V1}"' >> tomato_profile.mak
 	echo 'TOMATO_BUILD_V2 = "${V2}"' >> tomato_profile.mak
 
-	echo 'export EXTRACFLAGS := $(EXTRA_CFLAGS) -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32 $(if $(filter $(NVRAM_SIZE),0),,-DCONFIG_NVRAM_SIZE=$(NVRAM_SIZE))' >> tomato_profile.mak
+	echo 'export EXTRACFLAGS := $(EXTRA_CFLAGS) -DBCMWPA2 -funit-at-a-time -Wno-pointer-sign -mtune=mips32 -mips32 $(if $(filter $(NVRAM_SIZE),0),,-DCONFIG_NVRAM_SIZE=$(NVRAM_SIZE)) $(EXTRA_64KCFLAG)' >> tomato_profile.mak
 
 # Note that changes to variables in tomato_profile.mak don't
 # get propogated to this invocation of make!
