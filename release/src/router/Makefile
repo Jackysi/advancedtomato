@@ -1473,6 +1473,7 @@ nocat: nocat/stamp-h1
 
 nocat-clean:
 	-@$(MAKE) -C nocat clean
+	rm -f nocat/stamp-h1
 
 nocat-install:
 	install -D nocat/src/splashd $(INSTALLDIR)/nocat/usr/sbin/splashd
