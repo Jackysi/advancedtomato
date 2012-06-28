@@ -434,6 +434,9 @@ const defaults_t defaults[] = {
 //		{ "block_loopback",		"0"				},	// nat loopback
 	{ "nf_loopback",		"0"				},
 	{ "block_wan",			"1"				},	// block inbound icmp
+	{ "block_wan_limit",		"1"				},
+	{ "block_wan_limit_icmp",	"1"				},
+	{ "block_wan_limit_tr",		"5"				},
 	{ "multicast_pass",		"0"				},	// enable multicast proxy
 	{ "multicast_lan",		"0"				},	// on LAN (br0)
 	{ "multicast_lan1",		"0"				},	// on LAN1 (br1)
@@ -444,6 +447,7 @@ const defaults_t defaults[] = {
 	{ "udpxy_clients",		"3"				},
 	{ "udpxy_port",			"4022"				},
 	{ "ne_syncookies",		"0"				},	// tcp_syncookies
+	{ "ne_snat",			"0"				},	// use SNAT instead of MASQUERADE
 	{ "dhcp_pass",			"1"				},	// allow DHCP responses
 	{ "ne_shlimit",			"1,3,60"			},	//shibby - enable limit connection attempts for sshd
 
@@ -917,6 +921,23 @@ const defaults_t defaults[] = {
 	{ "vpn_client2_crt",      ""              },
 	{ "vpn_client2_key",      ""              },
 #endif	// vpn
+#ifdef TCONFIG_USERPPTP
+	{ "pptp_client_enable",   "0"             },
+	{ "pptp_client_peerdns",  "0"             },
+	{ "pptp_client_mtuenable","0"             },
+	{ "pptp_client_mtu",      "1450"          },
+	{ "pptp_client_mruenable","0"             },
+	{ "pptp_client_mru",      "1450"          },
+	{ "pptp_client_nat",      "0"             },
+	{ "pptp_client_srvip",    ""              },
+	{ "pptp_client_srvsub",   "10.0.0.0"      },
+	{ "pptp_client_srvsubmsk","255.0.0.0"     },
+	{ "pptp_client_username", ""              },
+	{ "pptp_client_passwd",   ""              },
+	{ "pptp_client_crypt",    "0"             },
+	{ "pptp_client_custom",   ""              },
+	{ "pptp_client_dfltroute","0"             },
+#endif
 
 #ifdef TCONFIG_BT
 // nas-transmission

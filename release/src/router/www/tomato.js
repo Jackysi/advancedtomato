@@ -2448,7 +2448,10 @@ REMOVE-END */
 			['PPTP Server',			'pptp-server.asp'],
 			['PPTP Online',			'pptp-online.asp']
 /* PPTPD-END */
-			] ],
+/* USERPPTP-BEGIN */
+			,['PPTP Client',		'pptp.asp']
+/* USERPPTP-END */
+		] ],
 /* VPN-END */
 		null,
 		['Administration',		'admin', 0, [

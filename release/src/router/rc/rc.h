@@ -142,6 +142,7 @@ extern void start_l2tp(void);
 extern void stop_l2tp(void);
 extern void start_wan(int mode);
 extern void start_wan_done(char *ifname);
+extern char *wan_gateway(void);
 #ifdef TCONFIG_IPV6
 extern void start_wan6_done(const char *wan_ifname);
 #endif
@@ -395,6 +396,16 @@ extern int sched_main(int argc, char *argv[]);
 extern void start_sched(void);
 extern void stop_sched(void);
 
+#ifdef TCONFIG_USERPPTP
+// pptp_client.c
+extern void start_pptp_client(void);
+extern void stop_pptp_client(void);
+extern int write_pptpvpn_resolv(FILE*);
+extern void clear_pptp_route(void);
+#else
+#define write_pptpvpn_resolv(f) (0)
+#endif
+
 //nvram
 extern int nvram_file2nvram(const char *name, const char *filename);
 extern int nvram_nvram2file(const char *name, const char *filename);
@@ -457,6 +468,7 @@ extern void stop_vpnclient(int clientNum);
 extern void start_vpnserver(int serverNum);
 extern void stop_vpnserver(int serverNum);
 extern void start_vpn_eas();
+extern void stop_vpn_eas();
 extern void run_vpn_firewall_scripts();
 extern void write_vpn_dnsmasq_config(FILE*);
 extern int write_vpn_resolv(FILE*);
@@ -470,6 +482,7 @@ static inline void run_vpn_firewall_scripts() {}
 static inline void write_vpn_dnsmasq_config(FILE*) {}
 */
 static inline void start_vpn_eas() { }
+static inline void stop_vpn_eas() { }
 #define write_vpn_resolv(f) (0)
 #endif
 

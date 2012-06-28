@@ -13,7 +13,7 @@
 <head>
 <meta http-equiv='content-type' content='text/html;charset=utf-8'>
 <meta name='robots' content='noindex,nofollow'>
-<title>[<% ident(); %>] VPN: Server</title>
+<title>[<% ident(); %>] OpenVPN: Server</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
@@ -398,7 +398,7 @@ table.status-table
 <input type='hidden' name='vpn_server_eas' id='vpn_server_eas' value=''>
 <input type='hidden' name='vpn_server_dns' id='vpn_server_dns' value=''>
 
-<div class='section-title'>VPN Server Configuration</div>
+<div class='section-title'>OpenVPN Server Configuration</div>
 <div class='section'>
 <script type='text/javascript'>
 tabCreate.apply(this, tabs);

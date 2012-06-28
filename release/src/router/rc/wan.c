@@ -551,7 +551,7 @@ void start_l2tp(void)
 
 // -----------------------------------------------------------------------------
 
-static char *wan_gateway(void)
+char *wan_gateway(void)
 {
 	char *gw = nvram_safe_get("wan_gateway_get");
 	if ((*gw == 0) || (strcmp(gw, "0.0.0.0") == 0))
@@ -1013,6 +1013,11 @@ void start_wan_done(char *wan_ifname)
 	if (wanup)
 		start_vpn_eas();
 
+#ifdef TCONFIG_USERPPTP
+	if (wanup && nvram_get_int("pptp_client_enable"))
+		start_pptp_client();
+#endif
+
 	unlink(wan_connecting);
 
 	new_qoslimit_start(); //!! RAF
@@ -1026,6 +1031,13 @@ void stop_wan(void)
 	char *next;
 	
 	TRACE_PT("begin\n");
+
+#ifdef TCONFIG_USERPPTP
+	stop_pptp_client();
+	stop_dnsmasq();
+	dns_to_resolv();
+	start_dnsmasq();
+#endif
 
 	new_qoslimit_stop(); //!! RAF
 
@@ -1047,6 +1059,9 @@ void stop_wan(void)
 	stop_pppoe();
 	stop_ppp();
 	stop_dhcpc();
+	stop_vpn_eas();
+	if (nvram_get_int("pptp_client_enable"))
+		stop_pptp_client();
 	clear_resolv();
 	nvram_set("wan_get_dns", "");
 

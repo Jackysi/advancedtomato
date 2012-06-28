@@ -721,6 +721,9 @@ static const nvset_t nvset_list[] = {
 
 // advanced-firewall
 	{ "block_wan",			V_01				},
+	{ "block_wan_limit",		V_01				},
+	{ "block_wan_limit_icmp",	V_RANGE(1, 300)			},
+	{ "block_wan_limit_tr",		V_RANGE(1, 300)			},
 	{ "multicast_pass",		V_01				},
 	{ "multicast_lan",		V_01				},
 	{ "multicast_lan1",		V_01				},
@@ -733,6 +736,7 @@ static const nvset_t nvset_list[] = {
 	{ "udpxy_port",			V_RANGE(0, 65535)		},
 	{ "nf_loopback",		V_NUM				},
 	{ "ne_syncookies",		V_01				},
+	{ "ne_snat",			V_01				},
 	{ "dhcp_pass",			V_01				},
 #ifdef TCONFIG_EMF
 	{ "emf_entry",			V_NONE				},
@@ -1339,6 +1343,12 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client1_ca",       V_NONE              },
 	{ "vpn_client1_crt",      V_NONE              },
 	{ "vpn_client1_key",      V_NONE              },
+	{ "vpn_client1_userauth", V_01                },
+	{ "vpn_client1_username", V_TEXT(0,50)        },
+	{ "vpn_client1_password", V_TEXT(0,50)        },
+	{ "vpn_client1_useronly", V_01                },
+	{ "vpn_client1_tlsremote",V_01                },
+	{ "vpn_client1_cn",       V_NONE              },
 	{ "vpn_client2_poll",     V_RANGE(0, 1440)    },
 	{ "vpn_client2_if",       V_TEXT(3, 3)        },  // tap, tun
 	{ "vpn_client2_bridge",   V_01                },
@@ -1364,6 +1374,12 @@ static const nvset_t nvset_list[] = {
 	{ "vpn_client2_ca",       V_NONE              },
 	{ "vpn_client2_crt",      V_NONE              },
 	{ "vpn_client2_key",      V_NONE              },
+	{ "vpn_client2_userauth", V_01                },
+	{ "vpn_client2_username", V_TEXT(0,50)        },
+	{ "vpn_client2_password", V_TEXT(0,50)        },
+	{ "vpn_client2_useronly", V_01                },
+	{ "vpn_client2_tlsremote",V_01                },
+	{ "vpn_client2_cn",       V_NONE              },
 #endif // vpn
 
 #ifdef TCONFIG_PPTPD
@@ -1415,6 +1431,24 @@ port_rate_limit_4	0-8
 wl_ap_ip
 wl_ap_ssid
 */
+#ifdef TCONFIG_USERPPTP
+	{ "pptp_client_enable",   V_01                  },
+	{ "pptp_client_peerdns",  V_RANGE(0,2)          },
+	{ "pptp_client_mtuenable",V_01                  },
+	{ "pptp_client_mtu",      V_RANGE(576, 1500)	},
+	{ "pptp_client_mruenable",V_01                  },
+	{ "pptp_client_mru",      V_RANGE(576, 1500)	},
+	{ "pptp_client_nat",      V_01                  },
+	{ "pptp_client_srvip",    V_NONE                },
+	{ "pptp_client_srvsub",   V_IP                  },
+	{ "pptp_client_srvsubmsk",V_IP                  },
+	{ "pptp_client_username", V_TEXT(0,50)          },
+	{ "pptp_client_passwd",   V_TEXT(0,50)          },
+	{ "pptp_client_crypt",    V_RANGE(0, 3)         },
+	{ "pptp_client_custom",   V_NONE                },
+	{ "pptp_client_dfltroute",V_01                  },
+	{ "pptp_client_stateless",V_01                  },
+#endif
 
 	{ NULL }
 };

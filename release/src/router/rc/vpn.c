@@ -58,6 +58,7 @@ void start_vpnclient(int clientNum)
 	int nvi, ip[4], nm[4];
 	long int nvl;
 	int pid;
+	int userauth, useronly;
 
 	sprintf(&buffer[0], "vpnclient%d", clientNum);
 	if (getpid() != 1) {
@@ -167,6 +168,11 @@ void start_vpnclient(int clientNum)
 		}
 	}
 
+	sprintf(&buffer[0], "vpn_client%d_userauth", clientNum);
+	userauth = nvram_get_int(&buffer[0]);
+	sprintf(&buffer[0], "vpn_client%d_useronly", clientNum);
+	useronly = userauth && nvram_get_int(&buffer[0]);
+
 	// Build and write config file
 	vpnlog(VPN_LOG_EXTRA,"Writing config file");
 	sprintf(&buffer[0], "/etc/openvpn/client%d/config.ovpn", clientNum);
@@ -252,12 +258,23 @@ void start_vpnclient(int clientNum)
 		sprintf(&buffer[0], "vpn_client%d_ca", clientNum);
 		if ( !nvram_is_empty(&buffer[0]) )
 			fprintf(fp, "ca ca.crt\n");
-		sprintf(&buffer[0], "vpn_client%d_crt", clientNum);
-		if ( !nvram_is_empty(&buffer[0]) )
-			fprintf(fp, "cert client.crt\n");
-		sprintf(&buffer[0], "vpn_client%d_key", clientNum);
-		if ( !nvram_is_empty(&buffer[0]) )
-			fprintf(fp, "key client.key\n");
+		if (!useronly)
+		{
+			sprintf(&buffer[0], "vpn_client%d_crt", clientNum);
+			if ( !nvram_is_empty(&buffer[0]) )
+				fprintf(fp, "cert client.crt\n");
+			sprintf(&buffer[0], "vpn_client%d_key", clientNum);
+			if ( !nvram_is_empty(&buffer[0]) )
+				fprintf(fp, "key client.key\n");
+		}
+		sprintf(&buffer[0], "vpn_client%d_tlsremote", clientNum);
+		if (nvram_get_int(&buffer[0]))
+		{
+			sprintf(&buffer[0], "vpn_client%d_cn", clientNum);
+			fprintf(fp, "tls-remote %s\n", nvram_safe_get(&buffer[0]));
+		}
+		if (userauth)
+			fprintf(fp, "auth-user-pass up\n");
 	}
 	else if ( cryptMode == SECRET )
 	{
@@ -288,25 +305,39 @@ void start_vpnclient(int clientNum)
 			fclose(fp);
 		}
 
-		sprintf(&buffer[0], "vpn_client%d_key", clientNum);
-		if ( !nvram_is_empty(&buffer[0]) )
+		if (!useronly)
 		{
-			sprintf(&buffer[0], "/etc/openvpn/client%d/client.key", clientNum);
-			fp = fopen(&buffer[0], "w");
-			chmod(&buffer[0], S_IRUSR|S_IWUSR);
 			sprintf(&buffer[0], "vpn_client%d_key", clientNum);
-			fprintf(fp, "%s", nvram_safe_get(&buffer[0]));
-			fclose(fp);
-		}
+			if ( !nvram_is_empty(&buffer[0]) )
+			{
+				sprintf(&buffer[0], "/etc/openvpn/client%d/client.key", clientNum);
+				fp = fopen(&buffer[0], "w");
+				chmod(&buffer[0], S_IRUSR|S_IWUSR);
+				sprintf(&buffer[0], "vpn_client%d_key", clientNum);
+				fprintf(fp, "%s", nvram_safe_get(&buffer[0]));
+				fclose(fp);
+			}
 
-		sprintf(&buffer[0], "vpn_client%d_crt", clientNum);
-		if ( !nvram_is_empty(&buffer[0]) )
+			sprintf(&buffer[0], "vpn_client%d_crt", clientNum);
+			if ( !nvram_is_empty(&buffer[0]) )
+			{
+				sprintf(&buffer[0], "/etc/openvpn/client%d/client.crt", clientNum);
+				fp = fopen(&buffer[0], "w");
+				chmod(&buffer[0], S_IRUSR|S_IWUSR);
+				sprintf(&buffer[0], "vpn_client%d_crt", clientNum);
+				fprintf(fp, "%s", nvram_safe_get(&buffer[0]));
+				fclose(fp);
+			}
+		}
+		if (userauth)
 		{
-			sprintf(&buffer[0], "/etc/openvpn/client%d/client.crt", clientNum);
+			sprintf(&buffer[0], "/etc/openvpn/client%d/up", clientNum);
 			fp = fopen(&buffer[0], "w");
 			chmod(&buffer[0], S_IRUSR|S_IWUSR);
-			sprintf(&buffer[0], "vpn_client%d_crt", clientNum);
-			fprintf(fp, "%s", nvram_safe_get(&buffer[0]));
+			sprintf(&buffer[0], "vpn_client%d_username", clientNum);
+			fprintf(fp, "%s\n", nvram_safe_get(&buffer[0]));
+			sprintf(&buffer[0], "vpn_client%d_password", clientNum);
+			fprintf(fp, "%s\n", nvram_safe_get(&buffer[0]));
 			fclose(fp);
 		}
 	}
@@ -1022,7 +1053,7 @@ void start_vpn_eas()
 
 	// Parse and start servers
 	strlcpy(&buffer[0], nvram_safe_get("vpn_server_eas"), sizeof(buffer));
-	if ( strlen(&buffer[0]) != 0 ) vpnlog(VPN_LOG_INFO, "Starting servers (eas): %s", &buffer[0]);
+	if ( strlen(&buffer[0]) != 0 ) vpnlog(VPN_LOG_INFO, "Starting OpenVPN servers (eas): %s", &buffer[0]);
 	i = 0;
 	for( cur = strtok(&buffer[0],","); cur != NULL && i < 4; cur = strtok(NULL, ",")) { nums[i++] = atoi(cur); }
 	nums[i] = 0;
@@ -1031,11 +1062,11 @@ void start_vpn_eas()
 		sprintf(&buffer[0], "vpnserver%d", nums[i]);
 		if ( pidof(&buffer[0]) >= 0 )
 		{
-			vpnlog(VPN_LOG_INFO, "Stopping server %d (eas)", nums[i]);
+			vpnlog(VPN_LOG_INFO, "Stopping OpenVPN server %d (eas)", nums[i]);
 			stop_vpnserver(nums[i]);
 		}
 
-		vpnlog(VPN_LOG_INFO, "Starting server %d (eas)", nums[i]);
+		vpnlog(VPN_LOG_INFO, "Starting OpenVPN server %d (eas)", nums[i]);
 		start_vpnserver(nums[i]);
 	}
 
@@ -1050,12 +1081,50 @@ void start_vpn_eas()
 		sprintf(&buffer[0], "vpnclient%d", nums[i]);
 		if ( pidof(&buffer[0]) >= 0 )
 		{
-			vpnlog(VPN_LOG_INFO, "Stopping client %d (eas)", nums[i]);
+			vpnlog(VPN_LOG_INFO, "Stopping OpenVPN client %d (eas)", nums[i]);
 			stop_vpnclient(nums[i]);
 		}
 
-		vpnlog(VPN_LOG_INFO, "Starting client %d (eas)", nums[i]);
+		vpnlog(VPN_LOG_INFO, "Starting OpenVPN client %d (eas)", nums[i]);
 		start_vpnclient(nums[i]);
+	}
+}
+
+void stop_vpn_eas()
+{
+	char buffer[16], *cur;
+	int nums[4], i;
+	
+	// Parse and stop servers
+	strlcpy(&buffer[0], nvram_safe_get("vpn_server_eas"), sizeof(buffer));
+	if ( strlen(&buffer[0]) != 0 ) vpnlog(VPN_LOG_INFO, "Stopping OpenVPN servers (eas): %s", &buffer[0]);
+	i = 0;
+	for( cur = strtok(&buffer[0],","); cur != NULL && i < 4; cur = strtok(NULL, ",")) { nums[i++] = atoi(cur); }
+	nums[i] = 0;
+	for( i = 0; nums[i] > 0; i++ )
+	{
+		sprintf(&buffer[0], "vpnserver%d", nums[i]);
+		if ( pidof(&buffer[0]) >= 0 )
+		{
+			vpnlog(VPN_LOG_INFO, "Stopping OpenVPN server %d (eas)", nums[i]);
+			stop_vpnserver(nums[i]);
+		}
+	}
+
+	// Parse and stop clients
+	strlcpy(&buffer[0], nvram_safe_get("vpn_client_eas"), sizeof(buffer));
+	if ( strlen(&buffer[0]) != 0 ) vpnlog(VPN_LOG_INFO, "Stopping OpenVPN clients (eas): %s", &buffer[0]);
+	i = 0;
+	for( cur = strtok(&buffer[0],","); cur != NULL && i < 4; cur = strtok(NULL, ",")) { nums[i++] = atoi(cur); }
+	nums[i] = 0;
+	for( i = 0; nums[i] > 0; i++ )
+	{
+		sprintf(&buffer[0], "vpnclient%d", nums[i]);
+		if ( pidof(&buffer[0]) >= 0 )
+		{
+			vpnlog(VPN_LOG_INFO, "Stopping OpenVPN client %d (eas)", nums[i]);
+			stop_vpnclient(nums[i]);
+		}
 	}
 }
 

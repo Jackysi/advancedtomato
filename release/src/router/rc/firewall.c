@@ -68,6 +68,10 @@ FILE *ip6t_file;
 const int allowed_icmpv6[] = { 1, 2, 3, 4, 128, 129 };
 #endif
 
+static int is_sta(int idx, int unit, int subunit, void *param)
+{
+	return (nvram_match(wl_nvname("mode", unit, subunit), "sta") && (nvram_match(wl_nvname("bss_enabled", unit, subunit), "1")));
+}
 
 /*
 struct {
@@ -743,7 +747,7 @@ static void nat_table(void)
 
 		for (i = 0; i < wanfaces.count; ++i) {
 			if (*(wanfaces.iface[i].name)) {
-				if ((!wanup) || (nvram_get_int("net_snat") != 1))
+				if ((!wanup) || (nvram_get_int("ne_snat") != 1))
 					ipt_write("-A POSTROUTING %s -o %s -j MASQUERADE\n", p, wanfaces.iface[i].name);
 				else
 					ipt_write("-A POSTROUTING %s -o %s -j SNAT --to-source %s\n", p, wanfaces.iface[i].name, wanfaces.iface[i].ip);
@@ -752,7 +756,8 @@ static void nat_table(void)
 
 		char *modem_ipaddr;
 		if ( (nvram_match("wan_proto", "pppoe") || nvram_match("wan_proto", "dhcp") || nvram_match("wan_proto", "static") )
-		    && (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0") )
+		    && (modem_ipaddr = nvram_safe_get("modem_ipaddr")) && *modem_ipaddr && !nvram_match("modem_ipaddr","0.0.0.0")
+		    && (!foreach_wif(1, NULL, is_sta)) )
 			ipt_write("-A POSTROUTING -o %s -d %s -j MASQUERADE\n", nvram_safe_get("wan_ifname"), modem_ipaddr);
 
 		switch (nvram_get_int("nf_loopback")) {
@@ -903,10 +908,17 @@ static void filter_input(void)
 
 	// ICMP request from WAN interface
 	if (nvram_match("block_wan", "0")) {
-		// allow ICMP packets to be received, but restrict the flow to avoid ping flood attacks
-		ipt_write("-A INPUT -p icmp -m limit --limit 1/second -j %s\n", chain_in_accept);
-		// allow udp traceroute packets
-		ipt_write("-A INPUT -p udp --dport 33434:33534 -m limit --limit 5/second -j %s\n", chain_in_accept);
+		if (nvram_match("block_wan_limit", "0")) {
+			// allow ICMP packets to be received
+			ipt_write("-A INPUT -p icmp -j %s\n", chain_in_accept);
+			// allow udp traceroute packets
+			ipt_write("-A INPUT -p udp --dport 33434:33534 -j %s\n", chain_in_accept);
+		} else {
+			// allow ICMP packets to be received, but restrict the flow to avoid ping flood attacks
+			ipt_write("-A INPUT -p icmp -m limit --limit %d/second -j %s\n", nvram_get_int("block_wan_limit_icmp"), chain_in_accept);
+			// allow udp traceroute packets, but restrict the flow to avoid ping flood attacks
+			ipt_write("-A INPUT -p udp --dport 33434:33534 -m limit --limit %d/second -j %s\n", nvram_get_int("block_wan_limit_tr"), chain_in_accept);
+		}
 	}
 
 	/* Accept incoming packets from broken dhcp servers, which are sending replies
