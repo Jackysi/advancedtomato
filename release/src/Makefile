@@ -54,20 +54,26 @@ ifeq ($(NVRAM_SIZE),)
 NVRAM_SIZE = 0
 endif
 
+ifeq ($(VLAN),y)
+EXTRA_PREDESC = 'VLAN-'
+else
+EXTRA_PREDESC = ''
+endif
+
+ifeq ($(NVRAM_64K),y)
+EXTRA_POSTDESC = ' -64K'
+EXTRA_64KCFLAG = '-DTCONFIG_NVRAM_64K'
+else
+EXTRA_POSTDESC = ''
+EXTRA_64KCFLAG = ''
+endif
+
 ifeq ($(WNR3500LV2),)
 WNR3500LV2 = 0
 else
 WNRTOOL=$(SRCBASE)/wnrtool
 BOARD_FILE=$(WNRTOOL)/compatible_WNR3500Lv2.txt
 fw_cfg_file := $(WNRTOOL)/ambitCfg.h
-endif
-
-ifeq ($(NVRAM_64K),y)
-EXTRA_64KDESC = ' -64K'
-EXTRA_64KCFLAG = '-DTCONFIG_NVRAM_64K'
-else
-EXTRA_64KDESC = ''
-EXTRA_64KCFLAG = ''
 endif
 
 -include tomato_profile.mak
@@ -989,7 +995,7 @@ setprofile:
 	echo '#define TOMATO_PROFILE PROFILE_$(N)' >> router/shared/tomato_profile.h
 	echo '#define TOMATO_PROFILE_NAME "$(N)"' >> router/shared/tomato_profile.h
 	echo '#define TOMATO_BUILD_NAME "$(B)"' >> router/shared/tomato_profile.h
-	echo '#define TOMATO_BUILD_DESC "$(DESC)$(EXTRA_64KDESC)"' >> router/shared/tomato_profile.h
+	echo '#define TOMATO_BUILD_DESC "$(EXTRA_PREDESC)$(DESC)$(EXTRA_POSTDESC)"' >> router/shared/tomato_profile.h
 	echo '#ifndef CONFIG_NVRAM_SIZE' >> router/shared/tomato_profile.h
 	echo '#define CONFIG_NVRAM_SIZE $(NVRAM_SIZE)' >> router/shared/tomato_profile.h
 	echo '#endif' >> router/shared/tomato_profile.h
@@ -1002,7 +1008,7 @@ setprofile:
 	echo 'TOMATO_PROFILE_NAME = "$(N)"' >> tomato_profile.mak
 	echo 'TOMATO_BUILD = "$(B)"' >> tomato_profile.mak
 	echo 'TOMATO_BUILD_NAME = "$(B)"' >> tomato_profile.mak
-	echo 'TOMATO_BUILD_DESC = "$(DESC)$(EXTRA_64KDESC)"' >> tomato_profile.mak
+	echo 'TOMATO_BUILD_DESC = "$(EXTRA_PREDESC)$(DESC)$(EXTRA_POSTDESC)"' >> tomato_profile.mak
 	echo 'TOMATO_PROFILE_L = $(lowercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_PROFILE_U = $(uppercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_BUILD_USB = "$(USB)"' >> tomato_profile.mak

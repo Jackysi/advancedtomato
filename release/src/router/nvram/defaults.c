@@ -1031,21 +1031,24 @@ const defaults_t defaults[] = {
 
 // NoCatSplash. !!Victek
 #ifdef TCONFIG_NOCAT
-	{ "NC_enable",		"0" 					}, 	// enable NoCatSplash
-	{ "NC_Verbosity",	"0"					},	// logging too verbose on startup!
-	{ "NC_GatewayName",	"WWW Portal" 				},
-        { "NC_GatewayPort",	"5280" 					},
-        { "NC_GatewayMode",	"Open" 					},
-        { "NC_DocumentRoot",	"/tmp/splashd" 				},
-        { "NC_ExcludePorts",	"1863" 					},
-        { "NC_HomePage",	"" 					},
-        { "NC_ForcedRedirect",	"0" 					},
-        { "NC_IdleTimeout",	"0" 					},
-        { "NC_MaxMissedARP",	"5" 					},
-	{ "NC_PeerChecktimeout", "0"					},
-        { "NC_LoginTimeout",	"86400"					},
-        { "NC_RenewTimeout",	"0" 					},
-        { "NC_AllowedWebHosts",	""					},
+	{ "NC_enable",				"0"			}, // enable NoCatSplash
+	{ "NC_Verbosity",			"2"			},
+	{ "NC_GatewayName",			"Tomato Captive Portal"	},
+	{ "NC_GatewayPort",			"5280"			},
+	{ "NC_GatewayMode",			"Open"			},
+	{ "NC_DocumentRoot",			"/tmp/splashd"		},
+	{ "NC_ExcludePorts",			"1863"			},
+	{ "NC_HomePage",			"http://google.com"	},
+	{ "NC_ForcedRedirect",			"0"			},
+	{ "NC_IdleTimeout",			"0"			},
+	{ "NC_MaxMissedARP",			"5"			},
+	{ "NC_PeerChecktimeout",		"0"			},
+	{ "NC_LoginTimeout",			"3600"			},
+	{ "NC_RenewTimeout",			"0"			},
+	{ "NC_AllowedWebHosts",			""			},
+#ifdef TCONFIG_VLAN
+	{ "NC_BridgeLAN",			"br0"			},
+#endif
 #endif
 	{ NULL, NULL}
 
