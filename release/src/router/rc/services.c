@@ -2709,7 +2709,7 @@ TOP:
 	}
 #endif
 
-#ifdef TCONFIG_USERPPTP
+#ifdef TCONFIG_PPTPD
  	if (strcmp(service, "pptpclient") == 0) {
  		if (action & A_STOP) stop_pptp_client();
  		if (action & A_START) start_pptp_client();

@@ -2439,18 +2439,13 @@ REMOVE-END */
 		['VPN Tunneling',			'vpn', 0, [
 /* OPENVPN-BEGIN */
 			['OpenVPN Server',		'server.asp'],
-			['OpenVPN Client',		'client.asp']
+			['OpenVPN Client',		'client.asp'],
 /* OPENVPN-END */
 /* PPTPD-BEGIN */
-/* OPENVPN-BEGIN */
-			,
-/* OPENVPN-END */
 			['PPTP Server',			'pptp-server.asp'],
-			['PPTP Online',			'pptp-online.asp']
+			['PPTP Online',			'pptp-online.asp'],
+			['PPTP Client',			'pptp.asp']
 /* PPTPD-END */
-/* USERPPTP-BEGIN */
-			,['PPTP Client',		'pptp.asp']
-/* USERPPTP-END */
 		] ],
 /* VPN-END */
 		null,

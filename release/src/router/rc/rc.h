@@ -396,7 +396,7 @@ extern int sched_main(int argc, char *argv[]);
 extern void start_sched(void);
 extern void stop_sched(void);
 
-#ifdef TCONFIG_USERPPTP
+#ifdef TCONFIG_PPTPD
 // pptp_client.c
 extern void start_pptp_client(void);
 extern void stop_pptp_client(void);
