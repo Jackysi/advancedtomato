@@ -1292,6 +1292,7 @@ void stop_splashd(void)
 {
 	pid_splashd = -1;
 	stop_nocat();
+	start_wan(BOOT);
 }
 #endif
 
@@ -2104,6 +2105,10 @@ void start_services(void)
 	start_snmp();
 #endif
 
+#ifdef TCONFIG_NOCAT
+	start_splashd();
+#endif
+
 }
 
 void stop_services(void)
@@ -2112,11 +2117,13 @@ void stop_services(void)
 // restart_nas_services(1, 0);	// stop Samba, FTP and Media Server
 
 
+#ifdef TCONFIG_NOCAT
+	stop_splashd();
+#endif
 
 #ifdef TCONFIG_SNMP
 	stop_snmp();
 #endif
-
 
 #ifdef TCONFIG_IPV6
 	stop_radvd();
@@ -2247,10 +2254,16 @@ TOP:
 		if (action & A_STOP) {
 			stop_qoslimit();
 		}
+#ifdef TCONFIG_NOCAT
+		stop_splashd();
+#endif
 		stop_firewall(); start_firewall();		// always restarted
 		if (action & A_START) {
 			start_qoslimit();
 		}
+#ifdef TCONFIG_NOCAT
+		start_splashd();
+#endif
 		goto CLEAR;
 	}
 

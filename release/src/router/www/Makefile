@@ -110,9 +110,11 @@ endif
 # Victek for RAF verion
 # Only include Captive Portal menu option and pages when configured.
 ifneq ($(TCONFIG_NOCAT),y)
-	rm -f $(INSTALLDIR)/www/new-splashd.asp
+	rm -f $(INSTALLDIR)/www/splashd.asp
 	rm -f $(INSTALLDIR)/www/splash.html
+	rm -f $(INSTALLDIR)/www/style.css
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/NOCAT-BEGIN/,/NOCAT-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/NOCAT-BEGIN/,/NOCAT-END/d"
 endif
 
 # Only include IPv6 options if IPv6 is configured in.
@@ -156,6 +158,7 @@ ifneq ($(TCONFIG_VLAN),y)
 	sed -i $(INSTALLDIR)/www/status-devices.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 	sed -i $(INSTALLDIR)/www/status-overview.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/ VLAN-BEGIN/,/ VLAN-END/d"
+	sed -i $(INSTALLDIR)/www/splashd.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 else
 	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/ NOVLAN-BEGIN/,/ NOVLAN-END/d"
 	sed -i $(INSTALLDIR)/www/basic-network.asp -e "/ NOVLAN-BEGIN/,/ NOVLAN-END/d"
