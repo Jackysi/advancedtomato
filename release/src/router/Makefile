@@ -479,7 +479,7 @@ ifeq ($(TCONFIG_L7PAT),y)
 	cp layer7/squished/*.pat $(TARGETDIR)/rom/etc/l7-protocols
 endif
 
-ifeq ($(TCONFIG_USERPPTP),y)
+ifeq ($(TCONFIG_PPTPD),y)
 	@mkdir -p $(TARGETDIR)/rom/etc/vpn
 	cp rc/vpn/* $(TARGETDIR)/rom/etc/vpn
 	chmod +x $(TARGETDIR)/rom/etc/vpn/*

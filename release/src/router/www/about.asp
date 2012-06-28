@@ -142,18 +142,18 @@ Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
 
-<!-- JYAVENARD-BEGIN -->
+<!-- VPN-BEGIN -->
 <b>"JYAvenard" Features:</b><br>
 <!-- OPENVPN-BEGIN -->
 - OpenVPN enhancements &amp; username/password only authentication<br>
 <!-- OPENVPN-END -->
-<!-- USERPPTP-BEGIN -->
+<!-- PPTPD-BEGIN -->
 - PPTP VPN Client integration and GUI<br>
-<!-- USERPPTP-END -->
+<!-- PPTPD-END -->
 Copyright (C) 2010-2012 Jean-Yves Avenard<br>
 <a href='mailto:jean-yves@avenard.org'>jean-yves@avenard.org</a><br>
 <br>
-<!-- JYAVENARD-END -->
+<!-- VPN-END -->
 
 <b>"Victek" features:</b><br>
 - Extended Sysinfo<br>

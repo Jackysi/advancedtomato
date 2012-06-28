@@ -196,23 +196,15 @@ else
 	sed -i $(INSTALLDIR)/www/about.asp -e "/ OPENVPN-BEGIN/,/ OPENVPN-END/d"
 endif
 
-ifeq ($(TCONFIG_USERPPTP),y)
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
-	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
-else
-	rm -f $(INSTALLDIR)/www/vpn-pptp.asp
-	sed -i $(INSTALLDIR)/www/tomato.js -e "/USERPPTP-BEGIN/,/USERPPTP-END/d"
-	sed -i $(INSTALLDIR)/www/about.asp -e "/USERPPTP-BEGIN/,/USERPPTP-END/d"
-	sed -i $(INSTALLDIR)/www/about.asp -e "/JYAVENARD-BEGIN/,/JYAVENARD-END/d"
-endif
-
 # Only include the PPTPD pages if PPTPD is compiled in
 ifeq ($(TCONFIG_PPTPD),y)
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
 else
 	rm -f $(INSTALLDIR)/www/vpn-pptp-server.asp
 	rm -f $(INSTALLDIR)/www/vpn-pptp-online.asp
+	rm -f $(INSTALLDIR)/www/vpn-pptp.asp
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/ PPTPD-BEGIN/,/ PPTPD-END/d"
 	sed -i $(INSTALLDIR)/www/about.asp -e "/ PPTPD-BEGIN/,/ PPTPD-END/d"
 endif
@@ -260,10 +252,10 @@ endif
 		-e "/CIFS-BEGIN/d"	-e "/CIFS-END/d" \
 		-e "/ZEBRA-BEGIN/d"	-e "/ZEBRA-END/d" \
 		-e "/EMF-BEGIN/d"	-e "/EMF-END/d" \
-		-e "/ OPENVPN-BEGIN/d"	-e "/ OPENVPN-END/d" \
+		-e "/OPENVPN-BEGIN/d"	-e "/OPENVPN-END/d" \
 		-e "/AES-BEGIN/d"	-e "/AES-END/d" \
-		-e "/ PPTPD-BEGIN/d"	-e "/ PPTPD-END/d"\
-		-e "/ VPN-BEGIN/,/ VPN-END/d" \
+		-e "/PPTPD-BEGIN/d"	-e "/PPTPD-END/d"\
+		-e "/VPN-BEGIN/,/VPN-END/d" \
 		-e "/IPV6-BEGIN/d"	-e "/IPV6-END/d" \
 		-e "/CTF-BEGIN/d"	-e "/CTF-END/d" \
 		-e "/BBT-BEGIN/d"	-e "/BBT-END/d" \
