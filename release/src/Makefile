@@ -52,6 +52,12 @@ ifeq ($(NVRAM_SIZE),)
 NVRAM_SIZE = 0
 endif
 
+ifeq ($(VLAN),y)
+EXTRA_PREDESC = 'VLAN-'
+else
+EXTRA_PREDESC = ''
+endif
+
 -include tomato_profile.mak
 
 # This could be simpler by just using $(TOMATO_PROFILE_NAME) like it used to be,
@@ -363,7 +369,7 @@ define RouterOptions
 	if [ "$(USERPPTP)" = "y" ]; then \
 		sed -i "/TCONFIG_USERPPTP/d" $(1); \
 		echo "TCONFIG_USERPPTP=y" >>$(1); \
- 	fi; \
+	fi; \
 	if [ "$(VLAN)" = "y" ]; then \
 		sed -i "/TCONFIG_VLAN/d" $(1); \
 		echo "TCONFIG_VLAN=y" >>$(1); \
@@ -827,7 +833,7 @@ setprofile:
 	echo '#define TOMATO_PROFILE PROFILE_$(N)' >> router/shared/tomato_profile.h
 	echo '#define TOMATO_PROFILE_NAME "$(N)"' >> router/shared/tomato_profile.h
 	echo '#define TOMATO_BUILD_NAME "$(B)"' >> router/shared/tomato_profile.h
-	echo '#define TOMATO_BUILD_DESC "$(DESC)"' >> router/shared/tomato_profile.h
+	echo '#define TOMATO_BUILD_DESC "$(EXTRA_PREDESC)$(DESC)"' >> router/shared/tomato_profile.h
 	echo '#ifndef CONFIG_NVRAM_SIZE' >> router/shared/tomato_profile.h
 	echo '#define CONFIG_NVRAM_SIZE $(NVRAM_SIZE)' >> router/shared/tomato_profile.h
 	echo '#endif' >> router/shared/tomato_profile.h
@@ -840,7 +846,7 @@ setprofile:
 	echo 'TOMATO_PROFILE_NAME = "$(N)"' >> tomato_profile.mak
 	echo 'TOMATO_BUILD = "$(B)"' >> tomato_profile.mak
 	echo 'TOMATO_BUILD_NAME = "$(B)"' >> tomato_profile.mak
-	echo 'TOMATO_BUILD_DESC = "$(DESC)"' >> tomato_profile.mak
+	echo 'TOMATO_BUILD_DESC = "$(EXTRA_PREDESC)$(DESC)"' >> tomato_profile.mak
 	echo 'TOMATO_PROFILE_L = $(lowercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_PROFILE_U = $(uppercase_N)' >> tomato_profile.mak
 	echo 'TOMATO_BUILD_USB = "$(USB)"' >> tomato_profile.mak
@@ -924,7 +930,7 @@ endif
 	@echo "cleankernel  -C Linux distclean (but preserves .config)"
 	@echo "distclean    distclean of Linux & busybox (but preserve .configs)"
 	@echo "prepk        -C Linux oldconfig dep"
-	
+
 .PHONY: all clean distclean cleanimage cleantools cleankernel prepk what setprofile help
 .PHONY: a b c d m Makefile allversions tomato_profile.mak
 
