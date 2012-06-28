@@ -174,6 +174,7 @@ extern void si_restore_core(si_t *sih, uint coreid, uint intr_val);
 extern int si_numaddrspaces(si_t *sih);
 extern uint32 si_addrspace(si_t *sih, uint asidx);
 extern uint32 si_addrspacesize(si_t *sih, uint asidx);
+extern void si_coreaddrspaceX(si_t *sih, uint asidx, uint32 *addr, uint32 *size);
 extern int si_corebist(si_t *sih);
 extern void si_core_reset(si_t *sih, uint32 bits, uint32 resetbits);
 extern void si_core_disable(si_t *sih, uint32 bits);

@@ -3,7 +3,7 @@
  * EMF, enable/disable BSS forwarding, add/delete/list the Static
  * MFDB entries.
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -11,7 +11,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: emfu.c,v 1.5 2007/10/13 00:54:06 Exp $
+ * $Id: emfu.c 241182 2011-02-17 21:50:03Z gmo $
  */
 #include <stdio.h>
 #include <sys/types.h>

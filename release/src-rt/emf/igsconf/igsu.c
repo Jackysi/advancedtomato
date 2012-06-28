@@ -2,7 +2,7 @@
  * IGSL Command Line Utility: This utility can be used to add/remove
  * snooping capability on desired bridge interface.
  *
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,7 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: igsu.c,v 1.5 2007/10/13 00:54:08 Exp $
+ * $Id: igsu.c 241182 2011-02-17 21:50:03Z gmo $
  */
 #include <stdio.h>
 #include <sys/types.h>

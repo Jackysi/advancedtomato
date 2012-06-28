@@ -363,9 +363,13 @@ BCMATTACHFN(ai_scan)(si_t *sih, void *regs, uint devid)
 		for (i = 1; i < nsp; i++) {
 			j = 0;
 			do {
-				asd = get_asd(sih, &eromptr, i, j++, AD_ST_SLAVE, &addrl, &addrh,
+				asd = get_asd(sih, &eromptr, i, j, AD_ST_SLAVE, &addrl, &addrh,
 				              &sizel, &sizeh);
-			} while (asd != 0);
+
+				if (asd == 0)
+					break;
+				j++;
+			} while (1);
 			if (j == 0) {
 				SI_ERROR((" SP %d has no address descriptors\n", i));
 				goto error;
@@ -481,6 +485,91 @@ ai_setcoreidx(si_t *sih, uint coreidx)
 	sii->curidx = coreidx;
 
 	return regs;
+}
+
+void
+ai_coreaddrspaceX(si_t *sih, uint asidx, uint32 *addr, uint32 *size)
+{
+	si_info_t *sii = SI_INFO(sih);
+	chipcregs_t *cc = NULL;
+	uint32 erombase, *eromptr, *eromlim;
+	uint i, j, cidx;
+	uint32 cia, cib, nmp, nsp;
+	uint32 asd, addrl, addrh, sizel, sizeh;
+
+	for (i = 0; i < sii->numcores; i++) {
+		if (sii->coreid[i] == CC_CORE_ID) {
+			cc = (chipcregs_t *)sii->regs[i];
+			break;
+		}
+	}
+	if (cc == NULL)
+		goto error;
+
+	erombase = R_REG(sii->osh, &cc->eromptr);
+	eromptr = (uint32 *)REG_MAP(erombase, SI_CORE_SIZE);
+	eromlim = eromptr + (ER_REMAPCONTROL / sizeof(uint32));
+
+	cidx = sii->curidx;
+	cia = sii->cia[cidx];
+	cib = sii->cib[cidx];
+
+	nmp = (cib & CIB_NMP_MASK) >> CIB_NMP_SHIFT;
+	nsp = (cib & CIB_NSP_MASK) >> CIB_NSP_SHIFT;
+
+	/* scan for cores */
+	while (eromptr < eromlim) {
+		if ((get_erom_ent(sih, &eromptr, ER_TAG, ER_CI) == cia) &&
+			(get_erom_ent(sih, &eromptr, 0, 0) == cib)) {
+			break;
+		}
+	}
+
+	/* skip master ports */
+	for (i = 0; i < nmp; i++)
+		get_erom_ent(sih, &eromptr, ER_VALID, ER_VALID);
+
+	/* Skip ASDs in port 0 */
+	asd = get_asd(sih, &eromptr, 0, 0, AD_ST_SLAVE, &addrl, &addrh, &sizel, &sizeh);
+	if (asd == 0) {
+		/* Try again to see if it is a bridge */
+		asd = get_asd(sih, &eromptr, 0, 0, AD_ST_BRIDGE, &addrl, &addrh,
+		              &sizel, &sizeh);
+	}
+
+	j = 1;
+	do {
+		asd = get_asd(sih, &eromptr, 0, j, AD_ST_SLAVE, &addrl, &addrh,
+		              &sizel, &sizeh);
+		j++;
+	} while (asd != 0);
+
+	/* Go through the ASDs for other slave ports */
+	for (i = 1; i < nsp; i++) {
+		j = 0;
+		do {
+			asd = get_asd(sih, &eromptr, i, j, AD_ST_SLAVE, &addrl, &addrh,
+				&sizel, &sizeh);
+			if (asd == 0)
+				break;
+
+			if (!asidx--) {
+				*addr = addrl;
+				*size = sizel;
+				return;
+			}
+			j++;
+		} while (1);
+
+		if (j == 0) {
+			SI_ERROR((" SP %d has no address descriptors\n", i));
+			break;
+		}
+	}
+
+error:
+	*size = 0;
+	return;
 }
 
 /* Return the number of address spaces in current core */

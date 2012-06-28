@@ -41,7 +41,9 @@
 #endif
 #endif /* WLC_HIGH */
 #ifdef WLC_LOW
+#if !defined(_HNDRTE_)
 #error "RPC only supports HNDRTE in LOW driver"
+#endif
 #endif /* WLC_LOW */
 
 /* use local flag BCMDBG_RPC so that it can be turned on without global BCMDBG */
@@ -51,6 +53,7 @@
 #endif
 #endif	/* BCMDBG */
 
+#define BCMDBG_RPC
 /* #define BCMDBG_RPC */
 
 static uint32 rpc_msg_level = RPC_ERROR_VAL;
@@ -989,12 +992,12 @@ bcm_rpc_watchdog(struct rpc_info *rpci)
 		 count = 0;
 		 uptime++;
 		if (uptime % 60 == 0)
-			RPC_ERR(("rpc uptime %d minutes\n", (uptime / 60)));
+			RPC_TRACE(("rpc uptime %d minutes\n", (uptime / 60)));
 	}
 #else
 	uptime++;
 	if (uptime % 60 == 0) {
-		RPC_ERR(("rpc uptime %d minutes\n", (uptime / 60)));
+		RPC_TRACE(("rpc uptime %d minutes\n", (uptime / 60)));
 	}
 #endif
 
@@ -1124,7 +1127,9 @@ bcm_rpc_call(struct rpc_info *rpci, rpc_buf_t *b)
 		return -1;
 	}
 
+	RPC_OSL_LOCK(rpci->rpc_osh);
 	rpci->trans++;
+	RPC_OSL_UNLOCK(rpci->rpc_osh);
 
 #ifdef BCMDBG_RPC	    /* Since successful add the entry */
 	if (RPC_PKTLOG_ON()) {

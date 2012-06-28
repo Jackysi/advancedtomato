@@ -846,6 +846,20 @@ ifeq ($(WL11D),1)
 endif
 #endif
 
+#ifdef WL11U
+# 11U
+ifeq ($(WL11U),1)
+	WLFLAGS += -DWL11U
+endif
+#endif
+
+#ifdef WLPROBRESP_SW
+# WLPROBRESP_SW
+ifeq ($(WLPROBRESP_SW),1)
+	WLFLAGS += -DWLPROBRESP_SW
+endif
+#endif
+
 #ifdef DBAND
 # DBAND
 ifeq ($(DBAND),1)
@@ -878,6 +892,13 @@ endif
 # WLCHANIM
 ifeq ($(WLCHANIM),1)
 	WLFLAGS += -DWLCHANIM
+endif
+#endif
+
+# WL_AP_TPC
+#ifdef WL_AP_TPC
+ifeq ($(WL_AP_TPC),1)
+         WLFLAGS += -DWL_AP_TPC
 endif
 #endif
 
