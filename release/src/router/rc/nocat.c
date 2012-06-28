@@ -33,20 +33,45 @@ int build_nocat_conf( void )
      * settings that need to be set based on router configurations 
      * Autodetected on the device: lan_ifname & NC_Iface variable
      */
-        fprintf( fp, "InternalDevice\t%s\n", nvram_safe_get( "lan_ifname" ));
-	fprintf( fp, "ExternalDevice\t%s\n", nvram_safe_get("wan_iface"));
-	fprintf( fp, "RouteOnly\t%s\n", "1" );
+    fprintf( fp, "ExternalDevice\t%s\n", nvram_safe_get("wan_iface"));
+    fprintf( fp, "RouteOnly\t%s\n", "1" );
+
+#ifdef TCONFIG_VLAN
+    if (nvram_match( "NC_BridgeLAN", "br0") )
+    {
+            fprintf( fp, "InternalDevice\t%s\n", nvram_safe_get( "lan_ifname" ));
+            fprintf( fp, "GatewayAddr\t%s\n", nvram_safe_get( "lan_ipaddr" ) );
+    }
+    if (nvram_match( "NC_BridgeLAN", "br1") )
+    {
+            fprintf( fp, "InternalDevice\t%s\n", nvram_safe_get( "lan1_ifname" ));
+            fprintf( fp, "GatewayAddr\t%s\n", nvram_safe_get( "lan1_ipaddr" ) );
+    }
+    if (nvram_match( "NC_BridgeLAN", "br2") )
+    {
+            fprintf( fp, "InternalDevice\t%s\n", nvram_safe_get( "lan2_ifname" ));
+            fprintf( fp, "GatewayAddr\t%s\n", nvram_safe_get( "lan2_ipaddr" ) );
+    }
+    if (nvram_match( "NC_BridgeLAN", "br3") )
+    {
+            fprintf( fp, "InternalDevice\t%s\n", nvram_safe_get( "lan3_ifname" ));
+            fprintf( fp, "GatewayAddr\t%s\n", nvram_safe_get( "lan3_ipaddr" ) );
+    }
+#else
+    fprintf( fp, "InternalDevice\t%s\n", nvram_safe_get( "lan_ifname" ));
+    fprintf( fp, "GatewayAddr\t%s\n", nvram_safe_get( "lan_ipaddr" ) );
+#endif
+
+    fprintf( fp, "GatewayMAC\t%s\n", nvram_safe_get( "et0macaddr" ) );
+
     /*
     *These are user defined, eventually via the web page 
     */
     if ((p = nvram_get("NC_Verbosity")) == NULL) p = "2";
     fprintf( fp, "Verbosity\t%s\n", p );
 
-    if ((p = nvram_get("NC_GatewayName")) == NULL) p = "Tomato Portal";
+    if ((p = nvram_get("NC_GatewayName")) == NULL) p = "Tomato RAF Portal";
     fprintf( fp, "GatewayName\t%s\n", p );
-
-    fprintf( fp, "GatewayAddr\t%s\n", nvram_safe_get( "lan_ipaddr" ) );
-    fprintf( fp, "GatewayMAC\t%s\n", nvram_safe_get( "et0macaddr" ) );
 
     if ((p = nvram_get("NC_GatewayPort")) == NULL) p = "5280";
     fprintf( fp, "GatewayPort\t%s\n", p );
@@ -145,19 +170,19 @@ void start_nocat(void)
 
 	if ((p = nvram_get("NC_DocumentRoot")) == NULL) p = "/tmp/splashd";
 	sprintf( splashfile, "%s/splash.html", p );
-	sprintf( logofile, "%s/tux.png", p );
-	sprintf( iconfile, "%s/favicon.ico", p );	
+	sprintf( logofile, "%s/style.css", p );
+	sprintf( iconfile, "%s/favicon.ico", p );
     if (!f_exists(splashfile)) {
         nvram_get_file("NC_SplashFile", splashfile, 8192);
-	if (!f_exists(splashfile)) {
+        if (!f_exists(splashfile)) {
             sprintf(cpcmd, "cp /www/splash.html %s", splashfile);
             system(cpcmd);
+            sprintf(cpcmd, "cp /www/style.css  %s", logofile);
+            system(cpcmd);
+            sprintf(cpcmd, "cp /www/favicon.ico  %s", iconfile);
+            system(cpcmd);
         }
-        sprintf(cpcmd, "cp /www/tux.png  %s", logofile);
-        system(cpcmd);
-	sprintf(cpcmd, "cp /www/favicon.ico  %s", iconfile);
-        system(cpcmd);
-	}
+    }
 	
     	if( !( fp = fopen( "/tmp/start_splashd.sh", "w" ) ) )
 	{

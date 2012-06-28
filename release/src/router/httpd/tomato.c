@@ -1158,21 +1158,24 @@ static const nvset_t nvset_list[] = {
 #ifdef TCONFIG_NOCAT
 	{ "NC_enable",			V_01				},
 	{ "NC_Verbosity",		V_RANGE(0, 10)			},
-        { "NC_GatewayName",		V_LENGTH(0, 255)		},
+	{ "NC_GatewayName",		V_LENGTH(0, 255)		},
 	{ "NC_GatewayPort",		V_PORT				},
-        { "NC_ForcedRedirect",		V_01				},
-        { "NC_HomePage",		V_LENGTH(0, 255)		},
-        { "NC_DocumentRoot",		V_LENGTH(0, 255)		},
-        { "NC_SplashURL",		V_LENGTH(0, 255)		},
-        { "NC_LoginTimeout",		V_RANGE(0, 86400000)		},
-        { "NC_IdleTimeout",		V_RANGE(0, 86400000)		},
+	{ "NC_ForcedRedirect",		V_01				},
+	{ "NC_HomePage",		V_LENGTH(0, 255)		},
+	{ "NC_DocumentRoot",		V_LENGTH(0, 255)		},
+	{ "NC_SplashURL",		V_LENGTH(0, 255)		},
+	{ "NC_LoginTimeout",		V_RANGE(0, 86400000)		},
+	{ "NC_IdleTimeout",		V_RANGE(0, 86400000)		},
 	{ "NC_MaxMissedARP",		V_RANGE(0, 10)			},
 	{ "NC_PeerChecktimeout",	V_RANGE(0, 60)			},
-        { "NC_ExcludePorts",		V_LENGTH(0, 255)		},
-        { "NC_IncludePorts",		V_LENGTH(0, 255)		},
-        { "NC_AllowedWebHosts",		V_LENGTH(0, 255)		},
-        { "NC_MACWhiteList",		V_LENGTH(0, 255)		},
+	{ "NC_ExcludePorts",		V_LENGTH(0, 255)		},
+	{ "NC_IncludePorts",		V_LENGTH(0, 255)		},
+	{ "NC_AllowedWebHosts",		V_LENGTH(0, 255)		},
+	{ "NC_MACWhiteList",		V_LENGTH(0, 255)		},
 	{ "NC_SplashFile",		V_LENGTH(0, 8192)		},
+#ifdef TCONFIG_VLAN
+	{ "NC_BridgeLAN",		V_LENGTH(0, 50)			},
+#endif
 #endif
 
 #ifdef TCONFIG_OPENVPN
