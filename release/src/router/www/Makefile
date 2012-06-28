@@ -188,6 +188,7 @@ ifeq ($(TCONFIG_OPENVPN),y)
 	test -d ../openssl/crypto/aes || sed -i $(INSTALLDIR)/www/vpn.js -e "/AES-BEGIN/,/AES-END/d"
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/ VPN-BEGIN/d" -e "/ VPN-END/d"
 else
 	rm -f $(INSTALLDIR)/www/vpn-server.asp
 	rm -f $(INSTALLDIR)/www/vpn-client.asp
