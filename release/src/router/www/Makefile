@@ -158,7 +158,7 @@ ifneq ($(TCONFIG_VLAN),y)
 	sed -i $(INSTALLDIR)/www/status-devices.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 	sed -i $(INSTALLDIR)/www/status-overview.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 	sed -i $(INSTALLDIR)/www/tomato.js -e "/ VLAN-BEGIN/,/ VLAN-END/d"
-ifneq ($(TCONFIG_NOCAT),y)
+ifeq ($(TCONFIG_NOCAT),y)
 	sed -i $(INSTALLDIR)/www/splashd.asp -e "/ VLAN-BEGIN/,/ VLAN-END/d"
 endif
 else
