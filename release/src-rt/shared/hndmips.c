@@ -249,12 +249,10 @@ BCMATTACHFN(si_mips_init)(si_t *sih, uint shirqmap)
 	tmp = CEIL(10, ns) << FW_W3_SHIFT;	/* W3 = 10nS */
 	tmp |= CEIL(10, ns) << FW_W1_SHIFT;	/* W1 = 10nS */
 	tmp |= CEIL(120, ns);			/* W0 = 120nS */
-	if ((sih->ccrev < 9) ||
-	    (CHIPID(sih->chip) == BCM5365_CHIP_ID))
+	if (sih->ccrev < 9)
 		W_REG(osh, &cc->flash_waitcount, tmp);
 
 	if ((sih->ccrev < 9) ||
-	    (CHIPID(sih->chip) == BCM5365_CHIP_ID) ||
 	    ((CHIPID(sih->chip) == BCM5350_CHIP_ID) && CHIPREV(sih->chiprev) == 0)) {
 		W_REG(osh, &cc->pcmcia_memwait, tmp);
 	}
@@ -405,7 +403,7 @@ BCMINITFN(si_mem_clock)(si_t *sih)
 
 #define ALLINTS (IE_IRQ0 | IE_IRQ1 | IE_IRQ2 | IE_IRQ3 | IE_IRQ4)
 
-static void __attribute__((__noinline__))
+static void __attribute__ ((__noinline__))
 ephy_poll_phyaccess(void)
 {
 	asm("phypoll: \tlui  $8, 0xb800\n\t"
@@ -416,23 +414,21 @@ ephy_poll_phyaccess(void)
 		"nop");
 }
 
-static void __attribute__((__noinline__))
-do_router_coma(si_t *sih, void *dmem, int delay)
+static void __attribute__ ((__noinline__))
+coma_delay(void)
+{
+	/* for (i = 0; i < 3000000; i++); */
+	asm("lui  $8, 0x2d\n\t"
+		"ori     $8,$8,0xc6c0\n\t"
+		"coma_delay_loop: \taddiu   $8,$8,-1\n\t"
+		"bnez    $8,coma_delay_loop\n\t"
+		"nop");
+}
+
+static void __attribute__ ((__noinline__))
+do_router_coma(si_t *sih, void *dmem, int delay_val)
 {
 	uint8 phy;
-	volatile _dmemcregs_t *dmc = (volatile _dmemcregs_t *)dmem;
-	dmemsregs_t *dms = (dmemsregs_t *)dmem;
-
-	/* SDRAM refresh */
-	if (((CHIPID(sih->chip)) == BCM53572_CHIP_ID)) {
-		SET_REG(osh, &dms->control[9], DMC09_SREFRESH, DMC09_SREFRESH);
-		SET_REG(osh, &dms->control[9], DMC09_START, 0);
-	} else {
-		SET_REG(osh, &dmc->control[9], DMC09_SREFRESH, DMC09_SREFRESH);
-		SET_REG(osh, &dmc->control[9], DMC09_START, 0);
-	}
-
-	OSL_DELAY(delay * 1000000);
 
 	/* set jtag user reg 0 = 0x80 to set DDR pad power saving mode */
 	asm("lui  $8, 0xb800");
@@ -444,7 +440,7 @@ do_router_coma(si_t *sih, void *dmem, int delay)
 	asm("sw   $9, 0x0030($8)");
 	asm("sync");
 
-	OSL_DELAY(delay * 1000000);
+	coma_delay();
 
 	/* ephy ports powerdown */
 
@@ -587,11 +583,11 @@ do_router_coma(si_t *sih, void *dmem, int delay)
 		asm("addi $10, $10, 1");
 	}
 
-	OSL_DELAY(delay * 1000000);
+	coma_delay();
 	/* ports 0-5 writes end */
 
 	if (((CHIPID(sih->chip)) == BCM53572_CHIP_ID)) {
-		/* set ephy pll and bias power power save through chipc registers */
+		/* set ephy pll and bias power save through chipc registers */
 		asm("lui  $8, 0xb800");
 		asm("li   $9, 0x4");
 		asm("sw   $9, 0x0650($8)");
@@ -600,7 +596,7 @@ do_router_coma(si_t *sih, void *dmem, int delay)
 		asm("sync");
 		asm("nop");
 
-		OSL_DELAY(delay * 1000000);
+		coma_delay();
 
 		asm("lui  $8, 0xb800");
 		asm("li   $9, 0x2");
@@ -610,7 +606,16 @@ do_router_coma(si_t *sih, void *dmem, int delay)
 		asm("sync");
 		asm("nop");
 
-		OSL_DELAY(delay * 1000000);
+		coma_delay();
+
+		/* Clear the dmems ddrctrl reg */
+		asm("lui  $8, 0xb800");
+		asm("li   $9, 0x0");
+		asm("sw   $9, 0x41e4($8)");
+		asm("sync");
+		asm("nop");
+
+		coma_delay();
 	}
 	else {
 		/* A0 vs B0 steps */
@@ -626,7 +631,7 @@ do_router_coma(si_t *sih, void *dmem, int delay)
 			asm("sw   $9, 0x0030($8)");
 			asm("sync");
 
-			OSL_DELAY(delay * 1000000);
+			coma_delay();
 		} else {
 
 			/* set ephy pll and bias power power save through chipc registers */
@@ -638,7 +643,7 @@ do_router_coma(si_t *sih, void *dmem, int delay)
 			asm("sync");
 			asm("nop");
 
-			OSL_DELAY(delay * 1000000);
+			coma_delay();
 
 			asm("lui  $8, 0xb800");
 			asm("li   $9, 0x2");
@@ -648,7 +653,7 @@ do_router_coma(si_t *sih, void *dmem, int delay)
 			asm("sync");
 			asm("nop");
 
-			OSL_DELAY(delay * 1000000);
+			coma_delay();
 		}
 	}
 
@@ -662,7 +667,7 @@ do_router_coma(si_t *sih, void *dmem, int delay)
 	asm("sw   $9, 0x0030($8)");
 	asm("sync");
 
-	OSL_DELAY(delay * 1000000);
+	coma_delay();
 
 	/* set gmac dmp io control = 0 */
 	asm("lui  $8, 0xb810");
@@ -671,16 +676,35 @@ do_router_coma(si_t *sih, void *dmem, int delay)
 	asm("sync");
 	asm("nop");
 
-	OSL_DELAY(delay * 1000000);
+	coma_delay();
 
-	/* set ddr dmp io control = 0 */
-	asm("lui  $8, 0xb810");
-	asm("li   $9, 0x0");
-	asm("sw   $9, 0x5408($8)");
-	asm("sync");
-	asm("nop");
+	if (((CHIPID(sih->chip)) == BCM53572_CHIP_ID)) {
+		/* set ddr dmp io control = 0 */
+		asm("lui  $8, 0xb810");
+		asm("li   $9, 0x0");
+		asm("sw   $9, 0x4408($8)");
+		asm("sync");
+		asm("nop");
+		/* put dmems in reset */
+		asm("li   $9, 0x1");
+		asm("sw   $9, 0x4800($8)");
+		asm("sync");
+		asm("nop");
+	} else {
+		/* set ddr dmp io control = 0 */
+		asm("lui  $8, 0xb810");
+		asm("li   $9, 0x0");
+		asm("sw   $9, 0x5408($8)");
+		asm("sync");
+		asm("nop");
+		/* put dmemc in reset */
+		asm("li   $9, 0x1");
+		asm("sw   $9, 0x5800($8)");
+		asm("sync");
+		asm("nop");
+	}
 
-	OSL_DELAY(delay * 1000000);
+	coma_delay();
 
 	/* set PMU control = 1 */
 	asm("lui  $8, 0xb800");
@@ -689,7 +713,7 @@ do_router_coma(si_t *sih, void *dmem, int delay)
 	asm("sync");
 	asm("nop");
 
-	OSL_DELAY(delay * 1000000);
+	coma_delay();
 
 	if (((CHIPID(sih->chip)) != BCM53572_CHIP_ID)) {
 		/* Set switching freq of internal 12V regulator to 600kHz */
@@ -704,7 +728,7 @@ do_router_coma(si_t *sih, void *dmem, int delay)
 		asm("sync");
 		asm("nop");
 
-		OSL_DELAY(delay * 1000000);
+		coma_delay();
 	}
 
 	/* set mips dmp io control = 0 */
@@ -725,15 +749,16 @@ do_router_coma(si_t *sih, void *dmem, int delay)
 	asm("nop");
 }
 
-static void __attribute__((__noinline__))
+static void __attribute__ ((__noinline__))
 BCMINITFN(aftercoma)(void)
 {
 
 }
 
 void
-si_router_coma(si_t *sih, int reset, int delay)
+si_router_coma(si_t *sih, int reset, int delay_val)
 {
+	osl_t *osh;
 	void *dmem = NULL;
 	chipcregs_t *cc;
 	uint ic_size, ic_lsize;
@@ -741,6 +766,8 @@ si_router_coma(si_t *sih, int reset, int delay)
 	uint32 c0reg;
 	uint32 tmp;
 	int i;
+
+	osh = si_osh(sih);
 
 	/* Disable interrupts */
 
@@ -755,12 +782,6 @@ si_router_coma(si_t *sih, int reset, int delay)
 	end = (ulong)&aftercoma;
 	for (i = 0; i < (end - start); i += ic_lsize)
 		cache_op(start + i, Fill_I);
-
-	/* d11:  aidmp(resetctrl) = 1, aidmp(ioctrl) = 0 */
-	si_setcore(sih, D11_CORE_ID, 0);
-	si_core_disable(sih, 0);
-
-	OSL_DELAY(delay * 1000000);
 
 	/* Prepare JTAG registers */ 
 	si_setcore(sih, CC_CORE_ID, 0);
@@ -786,7 +807,7 @@ si_router_coma(si_t *sih, int reset, int delay)
 	else
 		dmem = (void *)si_setcore(sih, DMEMC_CORE_ID, 0);
 
-	do_router_coma(sih, dmem, delay);
+	do_router_coma(sih, dmem, delay_val);
 }
 
 static void
@@ -956,6 +977,8 @@ BCMINITFN(mips_pmu_setclock_4706)(si_t *sih, uint32 mipsclock,
 	chipcregs_t *cc = NULL;
 	uint idx, i;
 	bool ret = TRUE, boolChanged = FALSE;
+	osl_t *osh;
+
 	/* 25MHz table for 4706 */
 	static uint32 BCMINITDATA(pll25mhz_table)[][3 + PLL_ENTRIES_4706] = {
 	/*	cpu, ddr, axi, proc_PLL,    */
@@ -964,9 +987,14 @@ BCMINITFN(mips_pmu_setclock_4706)(si_t *sih, uint32 mipsclock,
 		{ 400, 200, 100, 0xc0011100, },
 		{ 500, 250, 125, 0xc0011140, },
 		{ 600, 300, 150, 0xc0011180, },
+		{ 632, 316, 158, 0xc00157e8, },
+		{ 650, 325, 162, 0xc00111a0, },
+		{ 662, 331, 165, 0xc00111a8, },
 		{0}
 	};
 	uint32 (*pll_table)[4] = pll25mhz_table;
+
+	osh = si_osh(sih);
 
 	/* get index of the current core */
 	idx = si_coreidx(sih);

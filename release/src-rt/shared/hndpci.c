@@ -810,7 +810,7 @@ BCMATTACHFN(hndpci_init_pci)(si_t *sih, uint coreunit)
 			printf("PCI: Reset RC\n");
 			OSL_DELAY(3000);
 			W_REG(osh, &pcie->control, PCIE_RST_OE);
-			OSL_DELAY(1000);		/* delay 1 ms */
+			OSL_DELAY(50000);		/* delay 50 ms *//* for 4706 reboot issue*/
 			W_REG(osh, &pcie->control, PCIE_RST | PCIE_RST_OE);
 		}
 
@@ -980,6 +980,48 @@ hndpci_arb_park(si_t *sih, uint parkid)
 	OSL_DELAY(1);
 }
 
+/*for 4706 reboot issue*/
+int
+hndpci_deinit_pci(si_t *sih, uint coreunit)
+{
+	int coreidx;
+	sbpciregs_t *pci;
+	sbpcieregs_t *pcie = NULL;
+
+	if (pci_disabled[coreunit])
+		return 0;
+
+	coreidx = si_coreidx(sih);
+	pci = (sbpciregs_t *)si_setcore(sih, PCI_CORE_ID, coreunit);
+	if (pci == NULL) {
+		pcie = (sbpcieregs_t *)si_setcore(sih, PCIE_CORE_ID, coreunit);
+		if (pcie == NULL) {
+			printf("PCI: no core\n");
+			return -1;
+		}
+	}
+
+	if (pci)
+			W_REG(osh, &pci->control, PCI_RST_OE);		
+	else
+			W_REG(osh, &pcie->control, PCIE_RST_OE);
+
+	si_core_disable(sih, 0);
+	si_setcoreidx(sih, coreidx);
+	return 0;
+}
+
+/*
+ *  * Deinitialize PCI(e) cores 
+ *   */
+void
+hndpci_deinit(si_t *sih)
+{
+	int coreunit;
+
+	for (coreunit = 0; coreunit < SI_PCI_MAXCORES; coreunit++)
+		hndpci_deinit_pci(sih, coreunit);
+}
 /*
  * Get the PCI region address and size information.
  */

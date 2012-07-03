@@ -1216,6 +1216,14 @@ _dma_rxfill(dma_info_t *di)
 		if (extra_offset)
 			PKTPULL(di->osh, p, extra_offset);
 
+#ifdef CTFMAP
+		/* mark as ctf buffer for fast mapping */
+		if(CTF_ENAB(kcih)) {
+			ASSERT((((uint32)PKTDATA(di->osh, p)) & 31)==0);
+			PKTSETCTF(di->osh, p);
+		}
+#endif /* CTFMAP */
+
 		/* Do a cached write instead of uncached write since DMA_MAP
 		 * will flush the cache.
 		 */

@@ -35,7 +35,7 @@
 #define ERR2	0x30 /* Mask for err UNUSED */
 #define DONE	0x80 /* Mask for done */
 #define WBUFSIZE 32  /* Write Buffer size */
-#define FLASH_TRIES 4000000 /* retry count */
+#define FLASH_TRIES 700000 /* retry count */
 #define CMD_ADDR ((unsigned long)0xFFFFFFFF)
 
 /* 'which' param for block() */

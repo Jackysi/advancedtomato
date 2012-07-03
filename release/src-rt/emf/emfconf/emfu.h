@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, Broadcom Corporation
+ * Copyright (C) 2010, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -7,7 +7,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: emfu.h,v 1.3 2007/07/11 23:23:20 Exp $
+ * $Id: emfu.h 241182 2011-02-17 21:50:03Z gmo $
  */
 
 #ifndef _EMFU_H_

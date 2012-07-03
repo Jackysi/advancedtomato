@@ -582,7 +582,7 @@ wlconf_set_wme(char *name, char *prefix)
 	return;
 }
 
-#if defined(linux)
+#if defined(linux) || defined(__NetBSD__)
 #include <unistd.h>
 static void
 sleep_ms(const unsigned int ms)
@@ -1030,7 +1030,7 @@ wlconf_del_wet_tunnel_vndr_ie(char *name, int bsscfg_idx, uchar *oui)
 				break;
 			}
 		}
-		bufaddr = ieinfo->vndr_ie_data.oui + ieinfo->vndr_ie_data.len;
+		bufaddr = (char *)ieinfo->vndr_ie_data.oui + ieinfo->vndr_ie_data.len;
 	}
 
 	if (!found)
@@ -1121,7 +1121,7 @@ wlconf(char *name)
 	char tmp[100], prefix[PREFIX_LEN];
 	char var[80], *next, *str, *addr = NULL;
 	/* Pay attention to buffer length requirements when using this */
-	char buf[WLC_IOCTL_MAXLEN];
+	char buf[WLC_IOCTL_SMLEN*2]  __attribute__ ((aligned(4)));
 	char *country;
 	wlc_rev_info_t rev;
 	channel_info_t ci;
@@ -1249,10 +1249,11 @@ wlconf(char *name)
 			if (bcmerr == BCME_RANGE)
 				break;
 		}
-		if (ret)
+		if (ret) {
 			WLCONF_DBG("%d:(%s): setting bsscfg #%d iovar \"bss\" to 0"
 			           " (down) failed, ret = %d, bcmerr = %d\n",
 			           __LINE__, name, i, ret, bcmerr);
+		}
 	}
 
 	/* Get the list of BSS Configs */
@@ -1275,7 +1276,7 @@ wlconf(char *name)
 	/* create a wlX.Y_ifname nvram setting */
 	for (i = 1; i < bclist->count; i++) {
 		bsscfg = &bclist->bsscfgs[i];
-#if defined(linux) || defined(__ECOS)
+#if defined(linux) || defined(__ECOS) || defined(__NetBSD__)
 		strcpy(var, bsscfg->ifname);
 #endif
 		nvram_set(strcat_r(bsscfg->prefix, "ifname", tmp), var);
@@ -1390,7 +1391,7 @@ wlconf(char *name)
 	WL_IOCTL(name, WLC_SET_INFRA, &val, sizeof(val));
 
 	/* Set The AP MAX Associations Limit */
-	if (ap | apsta) {
+	if (ap || apsta) {
 		max_assoc = val = atoi(nvram_safe_get(strcat_r(prefix, "maxassoc", tmp)));
 		if (val > 0) {
 			WL_IOVAR_SETINT(name, "maxassoc", val);
@@ -1398,6 +1399,8 @@ wlconf(char *name)
 			WL_IOVAR_GETINT(name, "maxassoc", &max_assoc);
 		}
 	}
+	if (!wet && !sta)
+		WL_IOVAR_SETINT(name, "mpc", OFF);
 
 	for (i = 0; i < bclist->count; i++) {
 		char *subprefix;
@@ -1431,7 +1434,8 @@ wlconf(char *name)
 				brcm_prop_ie_t wet_tunnel_ie;
 				wet_tunnel_ie.type = WET_TUNNEL_IE_TYPE;
 				wet_tunnel_ie.cap = htons(1);
-				wlconf_set_wet_tunnel_vndr_ie(name, bsscfg->idx, BRCM_PROP_OUI,
+				wlconf_set_wet_tunnel_vndr_ie(name,
+				        bsscfg->idx, (uchar *)BRCM_PROP_OUI,
 					(uchar *)&(wet_tunnel_ie.type),
 					sizeof(wet_tunnel_ie.type)+sizeof(wet_tunnel_ie.cap));
 				WL_IOVAR_SETINT(name, "ap_tunneling", 1);
@@ -1588,7 +1592,8 @@ wlconf(char *name)
 
 	if ((rev.chipnum == BCM4716_CHIP_ID) || (rev.chipnum == BCM47162_CHIP_ID) ||
 		(rev.chipnum == BCM4748_CHIP_ID) || (rev.chipnum == BCM4331_CHIP_ID) ||
-		(rev.chipnum == BCM43431_CHIP_ID)) {
+		(rev.chipnum == BCM43431_CHIP_ID) || (rev.chipnum == BCM5357_CHIP_ID) ||
+		(rev.chipnum == BCM53572_CHIP_ID) || (rev.chipnum == BCM43236_CHIP_ID)) {
 		int pam_mode = WLC_N_PREAMBLE_GF_BRCM; /* default GF-BRCM */
 
 		strcat_r(prefix, "mimo_preamble", tmp);
@@ -1599,6 +1604,18 @@ wlconf(char *name)
 		else if (nvram_match(tmp, "auto"))
 			pam_mode = -1;
 		WL_IOVAR_SETINT(name, "mimo_preamble", pam_mode);
+	}
+
+	if ((rev.chipnum == BCM5357_CHIP_ID) || (rev.chipnum == BCM53572_CHIP_ID)) {
+		val = atoi(nvram_safe_get("coma_sleep"));
+		if (val > 0) {
+			struct {int sleep; int delay;} setbuf;
+			nvram_unset("coma_sleep");
+			nvram_commit();
+			setbuf.sleep = val;
+			setbuf.delay = 1;
+			WL_IOVAR_SET(name, "coma", &setbuf, sizeof(setbuf));
+		}
 	}
 
 	/* Get current phy type */
@@ -1785,9 +1802,8 @@ wlconf(char *name)
 		int control = WLC_PROTECTION_CTL_OFF;
 
 		/* Set n protection override and control algorithm */
-		strcat_r(prefix, "nmode_protection", tmp);
-
-		if (nvram_match(tmp, "auto")) {
+		str = nvram_get(strcat_r(prefix, "nmode_protection", tmp));
+		if (!str || !strcmp(str, "auto")) {
 			override = WLC_PROTECTION_AUTO;
 			control = WLC_PROTECTION_CTL_OVERLAP;
 		}

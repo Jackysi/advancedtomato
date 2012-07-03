@@ -34,6 +34,16 @@
 #include "emfc.h"
 #include "emf_export.h"
 
+/* BH-enabled helpers */
+#define EMF_RELOCK(lock) do {		\
+	OSL_UNLOCK(lock);		\
+	spin_lock(&((lock)->slock));	\
+} while (0)
+#define OSL_RELOCK(lock) do {		\
+	spin_unlock(&((lock)->slock));	\
+	OSL_LOCK(lock);			\
+} while (0)
+
 static CLIST_DECL_INIT(emfc_list_head);
 static osl_lock_t emfc_list_lock;
 
@@ -187,6 +197,8 @@ emfc_unreg_frame_handle(emfc_info_t *emfc, void *sdu, void *ifp, uint8 proto,
 	/* Flood the frame on to user specified ports */
 	for (ptr = emfc->iflist_head; ptr != NULL; ptr = ptr->next)
 	{
+		int32 res;
+
 		/* Dont forward the frame on to the port on which it
 		 * was received.
 		 */
@@ -216,8 +228,11 @@ emfc_unreg_frame_handle(emfc_info_t *emfc, void *sdu, void *ifp, uint8 proto,
 			return (EMF_DROP);
 		}
 
-		if (emfc->wrapper.forward_fn(emfc->emfi, sdu_clone, dest_ip,
-		                ptr->ifp, rt_port) != SUCCESS)
+		EMF_RELOCK(emfc->iflist_lock);
+		res = emfc->wrapper.forward_fn(emfc->emfi, sdu_clone, dest_ip,
+		                ptr->ifp, rt_port);
+		OSL_RELOCK(emfc->iflist_lock);
+		if (res != SUCCESS)
 		{
 			EMF_INFO("Unable to flood the unreg frame on to %s\n",
 			         DEV_IFNAME(ptr->ifp));
@@ -346,6 +361,7 @@ emfc_input(emfc_info_t *emfc, void *sdu, void *ifp, uint8 *iph, bool rt_port)
 		emfc_mgrp_t *mgrp;
 		emfc_mi_t *mi;
 		void *sdu_clone;
+		int32 res;
 
 		EMF_DEBUG("Received frame with proto %d\n", IPV4_PROT(iph));
 
@@ -397,7 +413,9 @@ emfc_input(emfc_info_t *emfc, void *sdu, void *ifp, uint8 *iph, bool rt_port)
 				return (EMF_DROP);
 			}
 
+			EMF_RELOCK(emfc->fdb_lock);
 			emfc->wrapper.sendup_fn(emfc->emfi, sdu_clone);
+			OSL_RELOCK(emfc->fdb_lock);
 			EMFC_STATS_INCR(emfc, mcast_data_sentup);
 		}
 
@@ -424,9 +442,11 @@ emfc_input(emfc_info_t *emfc, void *sdu, void *ifp, uint8 *iph, bool rt_port)
 				return (EMF_DROP);
 			}
 
-			emfc->wrapper.forward_fn(emfc->emfi, sdu_clone,
-			            dest_ip, mi->mi_mhif->mhif_ifp, rt_port) ?
-			            EMFC_STATS_INCR(emfc, mcast_data_dropped) :
+			EMF_RELOCK(emfc->fdb_lock);
+			res = emfc->wrapper.forward_fn(emfc->emfi, sdu_clone,
+			            dest_ip, mi->mi_mhif->mhif_ifp, rt_port);
+			OSL_RELOCK(emfc->fdb_lock);
+			res ? EMFC_STATS_INCR(emfc, mcast_data_dropped) :
 			            mi->mi_mhif->mhif_data_fwd++,
 			            mi->mi_data_fwd++;
 		}
@@ -439,9 +459,11 @@ emfc_input(emfc_info_t *emfc, void *sdu, void *ifp, uint8 *iph, bool rt_port)
 		{
 			EMF_DEBUG("Sending the original packet buffer\n");
 
-			emfc->wrapper.forward_fn(emfc->emfi, sdu, dest_ip,
-			            mi->mi_mhif->mhif_ifp, rt_port) ?
-			            EMFC_STATS_INCR(emfc, mcast_data_dropped) :
+			EMF_RELOCK(emfc->fdb_lock);
+			res = emfc->wrapper.forward_fn(emfc->emfi, sdu, dest_ip,
+			            mi->mi_mhif->mhif_ifp, rt_port);
+			OSL_RELOCK(emfc->fdb_lock);
+			res ? EMFC_STATS_INCR(emfc, mcast_data_dropped) :
 			            mi->mi_mhif->mhif_data_fwd++,
 			            mi->mi_data_fwd++;
 		}

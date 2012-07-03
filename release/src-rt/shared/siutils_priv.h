@@ -221,6 +221,7 @@ extern void ai_core_disable(si_t *sih, uint32 bits);
 extern int ai_numaddrspaces(si_t *sih);
 extern uint32 ai_addrspace(si_t *sih, uint asidx);
 extern uint32 ai_addrspacesize(si_t *sih, uint asidx);
+extern void ai_coreaddrspaceX(si_t *sih, uint asidx, uint32 *addr, uint32 *size);
 extern void ai_write_wrap_reg(si_t *sih, uint32 offset, uint32 val);
 
 #ifdef BCMDBG
