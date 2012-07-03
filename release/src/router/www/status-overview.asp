@@ -34,6 +34,9 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
+
+//	<% nvstat(); %>
+
 wmo = {'ap':'Access Point','sta':'Wireless Client','wet':'Wireless Ethernet Bridge','wds':'WDS'};
 auth = {'disabled':'-','wep':'WEP','wpa_personal':'WPA Personal (PSK)','wpa_enterprise':'WPA Enterprise','wpa2_personal':'WPA2 Personal (PSK)','wpa2_enterprise':'WPA2 Enterprise','wpaX_personal':'WPA / WPA2 Personal','wpaX_enterprise':'WPA / WPA2 Enterprise','radius':'Radius'};
 enc = {'tkip':'TKIP','aes':'AES','tkip+aes':'TKIP / AES'};
@@ -215,12 +218,14 @@ function toggleVisibility(whichone) {
 <div class='section-title'>System <small><i><a href='javascript:toggleVisibility("system");'><span id='sesdiv_system_showhide'>(hide)</span></a></i></small></div>
 <div class='section' id='sesdiv_system'>
 <script type='text/javascript'>
+var a = nvstat.free / nvstat.size * 100.0;
 createFieldTable('', [
 	{ title: 'Name', text: nvram.router_name },
 	{ title: 'Model', text: nvram.t_model_name },
 	{ title: 'Chipset', text: stats.systemtype },
 	{ title: 'CPU Freq', text: stats.cpumhz },
 	{ title: 'Flash Size', text: stats.flashsize },
+	{ title: 'Total / Free NVRAM:', text: scaleSize(nvstat.size) + ' / ' + scaleSize(nvstat.free) + ' <small>(' + (a).toFixed(2) + '%)</small>' },
 	null,
 	{ title: 'Time', rid: 'time', text: stats.time },
 	{ title: 'Uptime', rid: 'uptime', text: stats.uptime },
