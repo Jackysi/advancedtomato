@@ -730,10 +730,10 @@ static void nat_table(void)
 		} else if (nvram_match("tor_iface", "br1")) {
 			ipt_write("-A PREROUTING %s -i %s -p tcp --dport 80 ! -d %s -j DNAT --to-destination %s:%s\n",
 				nvram_safe_get("tor_iface"), nvram_safe_get("lan1_ipaddr"), nvram_safe_get("lan1_ipaddr"), nvram_safe_get("tor_transport") );
-		} else if (nvram_match("tor_iface", "br0")) {
+		} else if (nvram_match("tor_iface", "br2")) {
 			ipt_write("-A PREROUTING %s -i %s -p tcp --dport 80 ! -d %s -j DNAT --to-destination %s:%s\n",
 				nvram_safe_get("tor_iface"), nvram_safe_get("lan2_ipaddr"), nvram_safe_get("lan2_ipaddr"), nvram_safe_get("tor_transport") );
-		} else if (nvram_match("tor_iface", "br0")) {
+		} else if (nvram_match("tor_iface", "br3")) {
 			ipt_write("-A PREROUTING %s -i %s -p tcp --dport 80 ! -d %s -j DNAT --to-destination %s:%s\n",
 				nvram_safe_get("tor_iface"), nvram_safe_get("lan3_ipaddr"), nvram_safe_get("lan3_ipaddr"), nvram_safe_get("tor_transport") );
 		} else {
