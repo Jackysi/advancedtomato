@@ -1134,6 +1134,17 @@ const defaults_t defaults[] = {
 	{ "NC_AllowedWebHosts",			""			},
 	{ "NC_BridgeLAN",			"br0"			},
 #endif
+
+#ifdef TCONFIG_TOR
+	{ "tor_enable",				"0"			},
+	{ "tor_socksport",			"9050"			},
+	{ "tor_transport",			"9040"			},
+	{ "tor_dnsport",			"9053"			},
+	{ "tor_datadir",			"/tmp/tor"		},
+	{ "tor_iface",				"br0"			},
+	{ "tor_users",				"192.168.1.0/24"	},
+#endif
+
 	{ NULL, NULL	}
 };
 

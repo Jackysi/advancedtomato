@@ -1395,6 +1395,16 @@ static const nvset_t nvset_list[] = {
 	{ "pptpd_custom",		V_TEXT(0, 2048)		},
 #endif
 
+#ifdef TCONFIG_TOR
+	{ "tor_enable",			V_01			},
+	{ "tor_socksport",		V_RANGE(1,65535)	},
+	{ "tor_transport",		V_RANGE(1,65535)	},
+	{ "tor_dnsport",		V_RANGE(1,65535)	},
+	{ "tor_datadir",		V_TEXT(0,24)		},
+	{ "tor_iface",			V_LENGTH(0, 50)		},
+	{ "tor_users",			V_LENGTH(0, 4096)	},
+#endif
+
 /*
 ppp_static			0/1
 ppp_static_ip		IP

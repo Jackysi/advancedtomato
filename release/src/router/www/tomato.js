@@ -2381,6 +2381,9 @@ function navi()
 			['MAC Address',			'mac.asp'],
 			['Miscellaneous',		'misc.asp'],
 			['Routing',			'routing.asp'],
+/* TOR-BEGIN */
+			['TOR Project',			'tor.asp'],
+/* TOR-END */
 			['VLAN',			'vlan.asp'],
 			['LAN Access',			'access.asp'],
 			['Virtual Wireless',		'wlanvifs.asp'],

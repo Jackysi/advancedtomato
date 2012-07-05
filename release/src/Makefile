@@ -224,7 +224,7 @@ what:
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT
-# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS DNSCRYPT PPTPD
+# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS DNSCRYPT PPTPD TOR
 
 define RouterOptions
 	@( \
@@ -370,6 +370,10 @@ define RouterOptions
 	if [ "$(DNSCRYPT)" = "y" ]; then \
 		sed -i "/TCONFIG_DNSCRYPT/d" $(1); \
 		echo "TCONFIG_DNSCRYPT=y" >>$(1); \
+	fi; \
+	if [ "$(TOR)" = "y" ]; then \
+		sed -i "/TCONFIG_TOR/d" $(1); \
+		echo "TCONFIG_TOR=y" >>$(1); \
 	fi; \
 	)
 endef
@@ -637,9 +641,9 @@ endif
 ## VPN
 e:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP=y HFS=y DNSCRYPT=y PPTPD=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP=y HFS=y DNSCRYPT=y PPTPD=y TOR=y
 else
-	@$(MAKE) bin OPENVPN=y BBEXTRAS=y USBEXTRAS=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB"  SNMP=y HFS=y DNSCRYPT=y PPTPD=y
+	@$(MAKE) bin OPENVPN=y BBEXTRAS=y USBEXTRAS=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB"  SNMP=y HFS=y DNSCRYPT=y PPTPD=y TOR=y
 endif
 
 ## BTgui-VPN
@@ -656,6 +660,14 @@ ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Nocat-VPN" USB="USB" BTGUI=y NOCAT=y OPENVPN=y SNMP=y HFS=y DNSCRYPT=y PPTPD=y
 else
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Nocat-VPN" USB="USB" BTGUI=y NOCAT=y OPENVPN=y SNMP=y HFS=y DNSCRYPT=y PPTPD=y
+endif
+
+## TOR-VPN
+g:
+ifeq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Tor-VPN" USB="USB" BTGUI=y TOR=y OPENVPN=y DNSCRYPT=y PPTPD=y
+else
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Tor-VPN" USB="USB" BTGUI=y TOR=y OPENVPN=y DNSCRYPT=y PPTPD=y
 endif
 
 
@@ -686,13 +698,13 @@ endif
 ## Mega-VPN
 o:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Mega-VPN" USB="USB" NOCAT=y BTCLIENT=y DNSCRYPT=y UPS=y PPTPD=y TR_EXTRAS=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Mega-VPN" USB="USB" NOCAT=y BTCLIENT=y DNSCRYPT=y UPS=y PPTPD=y TR_EXTRAS=y TOR=y
 endif
 
 ## All-In-One (AIO) MIPS1 - only for router with more than 8MB flash!! ZTE H618B
 z:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" USB="USB" NOCAT=y BTCLIENT=y TR_EXTRAS=y NFS=y SNMP=y HFS=y DNSCRYPT=y UPS=y PPTPD=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="AIO" USB="USB" NOCAT=y BTCLIENT=y TR_EXTRAS=y NFS=y SNMP=y HFS=y DNSCRYPT=y UPS=y PPTPD=y TOR=y
 endif
 
 #################################
@@ -743,6 +755,9 @@ r2t:
 r2d:
 	@$(MAKE) d MIPS32=r2
 
+r2g:
+	@$(MAKE) g MIPS32=r2
+
 r2b:
 	@$(MAKE) b MIPS32=r2
 
@@ -779,6 +794,9 @@ n60b:
 
 n60d:
 	@$(MAKE) r2d NVRAM_SIZE=60 LINKSYS_E=1
+
+n60g:
+	@$(MAKE) r2g NVRAM_SIZE=60 LINKSYS_E=1
 
 n60o:
 	@$(MAKE) r2o NVRAM_SIZE=60 LINKSYS_E=1
@@ -841,6 +859,7 @@ help:
 	@echo "e            VPN - (standard plus VPN, extra utilities and NTFS support)"
 	@echo "c            BTgui-VPN - (Ext plus BT gui)"
 	@echo "d            Nocat-VPN - (BTgui plus VPN plus Nocat)"
+	@echo "g            Tor-VPN - (BTgui plus VPN plus TOR Project)"
 	@echo "u            BT"
 	@echo "t            BT-VPN - (BT plus VPN)"
 	@echo "b            Big-VPN - (Big plus VPN)"
@@ -856,6 +875,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2e          MIPS Release 2 VPN"
 	@echo "r2c          MIPS Release 2 BTgui-VPN"
 	@echo "r2d          MIPS Release 2 Nocat-VPN"
+	@echo "r2g          MIPS Release 2 Tor-VPN"
 	@echo "r2u          MIPS Release 2 BT"
 	@echo "r2t          MIPS Release 2 BT-VPN"
 	@echo "r2b          MIPS Release 2 Big-VPN"
@@ -867,6 +887,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "n60e         Linksys E-series build VPN"
 	@echo "n60c         Linksys E-series build BTGui-VPN"
 	@echo "n60d         Linksys E-series build BTGui-VPN plus Nocat"
+	@echo "n60g         Linksys E-series build BTGui-VPN plus TOR Project"
 	@echo "n60u         Linksys E-series build BT"
 	@echo "n60t         Linksys E-series build BT-VPN"
 	@echo "n60b         Linksys E-series build Big-VPN"

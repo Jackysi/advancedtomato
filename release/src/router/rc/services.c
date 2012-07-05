@@ -2098,6 +2098,9 @@ void start_services(void)
 	start_snmp();
 #endif
 
+#ifdef TCONFIG_TOR
+	start_tor();
+#endif
 
 #ifdef TCONFIG_BT
 	start_bittorrent();
@@ -2126,6 +2129,10 @@ void stop_services(void)
 
 #ifdef TCONFIG_SNMP
 	stop_snmp();
+#endif
+
+#ifdef TCONFIG_TOR
+	stop_tor();
 #endif
 
 #ifdef TCONFIG_NFS
@@ -2611,6 +2618,14 @@ TOP:
 	if (strcmp(service, "snmp") == 0) {
 		if (action & A_STOP) stop_snmp();
 		if (action & A_START) start_snmp();
+		goto CLEAR;
+	}
+#endif
+
+#ifdef TCONFIG_TOR
+	if (strcmp(service, "tor") == 0) {
+		if (action & A_STOP) stop_tor();
+		if (action & A_START) start_tor();
 		goto CLEAR;
 	}
 #endif

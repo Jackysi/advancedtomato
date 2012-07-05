@@ -138,6 +138,9 @@ Copyright (C) 2010 Keith Moyer,<br>
 <!-- DNSCRYPT-BEGIN -->
 - DNScrypt-proxy 0.9.3 integration and GUI<br>
 <!-- DNSCRYPT-END -->
+<!-- TOR-BEGIN -->
+- TOR Project integration and GUI<br>
+<!-- TOR-END -->
 Copyright (C) 2011 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
