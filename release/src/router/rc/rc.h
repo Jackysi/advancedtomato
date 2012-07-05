@@ -448,6 +448,12 @@ extern void start_snmp();
 extern void stop_snmp();
 #endif
 
+//tor.c
+#ifdef TCONFIG_TOR
+extern void start_tor();
+extern void stop_tor();
+#endif
+
 // apcupsd.c
 #ifdef TCONFIG_UPS
 extern void start_ups();

@@ -721,6 +721,38 @@ static void nat_table(void)
 			}
 		}
 
+#ifdef TCONFIG_TOR
+	//TOR
+	if (nvram_match("tor_enable", "1")) {
+		if (nvram_match("tor_iface", "br0"))  {
+			ipt_write("-A PREROUTING %s -i %s -p tcp --dport 80 ! -d %s -j DNAT --to-destination %s:%s\n",
+				nvram_safe_get("tor_iface"), nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_ipaddr"), nvram_safe_get("tor_transport") );
+		} else if (nvram_match("tor_iface", "br1")) {
+			ipt_write("-A PREROUTING %s -i %s -p tcp --dport 80 ! -d %s -j DNAT --to-destination %s:%s\n",
+				nvram_safe_get("tor_iface"), nvram_safe_get("lan1_ipaddr"), nvram_safe_get("lan1_ipaddr"), nvram_safe_get("tor_transport") );
+		} else if (nvram_match("tor_iface", "br2")) {
+			ipt_write("-A PREROUTING %s -i %s -p tcp --dport 80 ! -d %s -j DNAT --to-destination %s:%s\n",
+				nvram_safe_get("tor_iface"), nvram_safe_get("lan2_ipaddr"), nvram_safe_get("lan2_ipaddr"), nvram_safe_get("tor_transport") );
+		} else if (nvram_match("tor_iface", "br3")) {
+			ipt_write("-A PREROUTING %s -i %s -p tcp --dport 80 ! -d %s -j DNAT --to-destination %s:%s\n",
+				nvram_safe_get("tor_iface"), nvram_safe_get("lan3_ipaddr"), nvram_safe_get("lan3_ipaddr"), nvram_safe_get("tor_transport") );
+		} else {
+			strlcpy(t, nvram_safe_get("tor_users"), sizeof(t));
+			p = t;
+			do {
+				if ((c = strchr(p, ',')) != NULL) *c = 0;
+
+				if (ipt_source_strict(p, src, "tor", NULL))
+					ipt_write("-A PREROUTING %s -p tcp --dport 80 ! -d %s -j DNAT --to-destination %s:%s\n",
+						src, nvram_safe_get("lan_ipaddr"), nvram_safe_get("lan_ipaddr"), nvram_safe_get("tor_transport") );
+
+				if (!c) break;
+				p = c + 1;
+			} while (*p);
+		}
+	}
+#endif
+
 		if (wanup) {
 			if (dmz_dst(dst)) {
 				strlcpy(t, nvram_safe_get("dmz_sip"), sizeof(t));

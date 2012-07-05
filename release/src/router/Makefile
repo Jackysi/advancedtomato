@@ -47,6 +47,9 @@ obj-y += ntpc
 obj-y += rstats
 obj-y += cstats
 obj-y += udpxy
+obj-$(TCONFIG_TOR) += tor
+obj-$(TCONFIG_TOR) += libevent
+obj-$(TCONFIG_TOR) += zlib
 obj-$(TCONFIG_DNSCRYPT) += dnscrypt
 obj-$(TCONFIG_SNMP) += snmp
 obj-$(TCONFIG_SDHC) += mmc
@@ -166,7 +169,11 @@ else
     ifeq ($(TCONFIG_BBT),y)
       export FULL_OPENSSL := y
     else
-      FULL_OPENSSL :=
+      ifeq ($(TCONFIG_TOR),y)
+        export FULL_OPENSSL := y
+      else
+        FULL_OPENSSL :=
+      endif
     endif
   endif
 endif
@@ -653,7 +660,7 @@ cyassl-install:
 ifeq ($(FULL_OPENSSL),y)
 OPENSSL_CIPHERS:=enable-rc5
 else
-OPENSSL_CIPHERS:=no-dh no-idea no-rc2 no-rc5 no-aes no-aes192 no-cast no-des no-modes
+OPENSSL_CIPHERS:=no-dh no-idea no-rc2 no-rc5 no-aes no-aes192 no-cast no-des no-modes no-engine
 # no-tls1 no-tlsext
 # openssl 1.0.1 doesn't build when using "no-tlsext" or "no-tls1"
 endif
@@ -666,7 +673,7 @@ openssl/stamp-h1:
 	no-sha0 no-smime no-camellia no-krb5 no-rmd160 no-ripemd \
 	no-seed no-capieng no-cms no-gms no-gmp no-rfc3779 \
 	no-ec no-ecdh no-ecdsa no-err no-hw no-jpake no-threads \
-	no-zlib no-engine no-engines no-sse2 no-perlasm \
+	no-zlib no-engines no-sse2 no-perlasm \
 	no-dtls1 no-store no-psk no-md2 no-mdc2 no-ts
 
 	@$(MAKE) -C openssl clean
@@ -1303,6 +1310,11 @@ ifneq ($(MEDIA_SERVER_STATIC),y)
 	$(STRIP) $(INSTALLDIR)/zlib/usr/lib/libz.so.1
 endif
 ifeq ($(TCONFIG_BT),y)
+	install -d $(INSTALLDIR)/zlib/usr/lib
+	install -D zlib/libz.so.1 $(INSTALLDIR)/zlib/usr/lib/
+	$(STRIP) $(INSTALLDIR)/zlib/usr/lib/libz.so.1
+endif
+ifeq ($(TCONFIG_TOR),y)
 	install -d $(INSTALLDIR)/zlib/usr/lib
 	install -D zlib/libz.so.1 $(INSTALLDIR)/zlib/usr/lib/
 	$(STRIP) $(INSTALLDIR)/zlib/usr/lib/libz.so.1

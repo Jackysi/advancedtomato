@@ -155,6 +155,13 @@ ifneq ($(TCONFIG_UPS),y)
 	sed -i $(INSTALLDIR)/www/about.asp -e "/UPS-BEGIN/,/UPS-END/d"
 endif
 
+# Only include the TOR pages if tor project is configured in.
+ifneq ($(TCONFIG_TOR),y)
+	rm -f $(INSTALLDIR)/www/advanced-tor.asp
+	sed -i $(INSTALLDIR)/www/tomato.js -e "/TOR-BEGIN/,/TOR-END/d"
+	sed -i $(INSTALLDIR)/www/about.asp -e "/TOR-BEGIN/,/TOR-END/d"
+endif
+
 
 # Only include the USB and NAS pages if USB Support is configured in.
 ifneq ($(TCONFIG_USB),y)
@@ -269,6 +276,7 @@ endif
 		-e "/SDHC-BEGIN/d"	-e "/SDHC-END/d"\
 		-e "/HFS-BEGIN/d"	-e "/HFS-END/d"\
 		-e "/DNSCRYPT-BEGIN/d"	-e "/DNSCRYPT-END/d"\
+		-e "/TOR-BEGIN/d"	-e "/TOR-END/d"\
 		|| true; \
 	done
 
