@@ -830,6 +830,13 @@ else
 	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB="" SNMP=y PPTPD=y
 endif
 
+## Max build for router with 8MB flash without USB Support
+m:
+ifeq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin OPENVPN=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y B=E BUILD_DESC="Max" USB="" NOCAT=y NFS=y SNMP=y DNSCRYPT=y PPTPD=y TOR=y
+endif
+
+
 ## SD-VPN - Only k24
 w:
 ifneq ($(CONFIG_LINUX26),y)
@@ -875,6 +882,9 @@ r2i:
 
 r2v:
 	@$(MAKE) v MIPS32=r2
+
+r2m:
+	@$(MAKE) m MIPS32=r2
 
 #Linksys E-series witk 60K NVRAM builds
 n60z:
@@ -931,6 +941,9 @@ n64b:
 n64d:
 	@$(MAKE) r2d NVRAM_SIZE=64 LINKSYS_E_64k=y
 
+n64g:
+	@$(MAKE) r2g NVRAM_SIZE=64 LINKSYS_E_64k=y
+
 n64o:
 	@$(MAKE) r2o NVRAM_SIZE=64 LINKSYS_E_64k=y
 
@@ -956,6 +969,9 @@ v2z:
 
 v2e:
 	@$(MAKE) e MIPS32=r2 WNR3500LV2=1 NO_JFFS=y
+
+v2g:
+	@$(MAKE) g MIPS32=r2 WNR3500LV2=1 NO_JFFS=y
 
 v2t:
 	@$(MAKE) t MIPS32=r2 WNR3500LV2=1 NO_JFFS=y
@@ -1038,6 +1054,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2o          MIPS Release 2 Mega-VPN"
 	@echo "r2z          MIPS Release 2 AIO (for routers +8MB flash)"
 	@echo "r2v          MIPS Release 2 VPN (no usb)"
+	@echo "r2m          MIPS Release 2 Max (no usb)"
 	@echo "r2i          MIPS Release 2 MiniIPv6 (for 4MB flash)"
 	@echo "r2f          MIPS Release 2 Mini (for netgear)"
 	@echo "       Linksys E-Series with 4MB Flash(E1000v2/v2.1/E1200v1)"
@@ -1062,12 +1079,14 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "n64e         Linksys E-series(64k Nvram) build VPN"
 	@echo "n64c         Linksys E-series(64k Nvram) build BTGui-VPN"
 	@echo "n64d         Linksys E-series(64k Nvram) build BTGui-VPN plus Nocat"
+	@echo "n64g         Linksys E-series(64k Nvram) build BTGui-VPN plus TOR Project"
 	@echo "n64u         Linksys E-series(64k Nvram) build BT"
 	@echo "n64t         Linksys E-series(64k Nvram) build BT-VPN"
 	@echo "n64b         Linksys E-series(64k Nvram) build Big-VPN"
 	@echo "n64o         Linksys E-series(64k Nvram) build Mega-VPN"
 	@echo "       Netgear WNR3500L v2 builds (128MB Flash)"
 	@echo "v2e          Netgear WNR3500Lv2 build VPN"
+	@echo "v2g          Netgear WNR3500Lv2 build Tor-VPN"
 	@echo "v2t          Netgear WNR3500Lv2 build BT-VPN"
 	@echo "v2z          Netgear WNR3500Lv2 build AIO"
 endif
