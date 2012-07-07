@@ -993,7 +993,7 @@ r64e:
 r64g:
 	@$(MAKE) g MIPS32=r2 NVRAM_64K
 
-r64o
+r64o:
 	@$(MAKE) o MIPS32=r2 NVRAM_64K
 
 r64t:
