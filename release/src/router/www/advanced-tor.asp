@@ -21,7 +21,7 @@ textarea {
 }
 </style>
 <script type='text/javascript'>
-//	<% nvram("tor_enable,tor_socksport,tor_transport,tor_dnsport,tor_datadir,tor_users,tor_iface,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname"); %>
+//	<% nvram("tor_enable,tor_socksport,tor_transport,tor_dnsport,tor_datadir,tor_users,tor_custom,tor_iface,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname"); %>
 
 function verifyFields(focused, quiet)
 {
@@ -35,6 +35,7 @@ function verifyFields(focused, quiet)
 	E('_tor_dnsport').disabled = !a;
 	E('_tor_datadir').disabled = !a;
 	E('_tor_iface').disabled = !a;
+	E('_tor_custom').disabled = !a;
 
 	elem.display('_tor_users', o && a);
 
@@ -47,6 +48,48 @@ function verifyFields(focused, quiet)
 		bridge.options[2].disabled=true;
 	if(nvram.lan3_ifname.length < 1)
 		bridge.options[3].disabled=true;
+
+	var s = E('_tor_custom');
+
+	if (s.value.search(/SocksPort/) == 0)  {
+		ferror.set(s, 'Cannot set "SocksPort" option here. You can set it in Tomato GUI', quiet);
+		ok = 0; }
+
+	if (s.value.search(/SocksBindAddress/) == 0)  {
+		ferror.set(s, 'Cannot set "SocksBindAddress" option here.', quiet);
+		ok = 0; }
+
+	if (s.value.search(/AllowUnverifiedNodes/) == 0)  {
+		ferror.set(s, 'Cannot set "AllowUnverifiedNodes" option here.', quiet);
+		ok = 0; }
+
+	if (s.value.search(/Log/) == 0)  {
+		ferror.set(s, 'Cannot set "Log" option here.', quiet);
+		ok = 0; }
+
+	if (s.value.search(/DataDirectory/) == 0)  {
+		ferror.set(s, 'Cannot set "DataDirectory" option here. You can set it in Tomato GUI', quiet);
+		ok = 0; }
+
+	if (s.value.search(/TransPort/) == 0)  {
+		ferror.set(s, 'Cannot set "TransPort" option here. You can set it in Tomato GUI', quiet);
+		ok = 0; }
+
+	if (s.value.search(/TransListenAddress/) == 0)  {
+		ferror.set(s, 'Cannot set "TransListenAddress" option here.', quiet);
+		ok = 0; }
+
+	if (s.value.search(/DNSPort/) == 0)  {
+		ferror.set(s, 'Cannot set "DNSPort" option here. You can set it in Tomato GUI', quiet);
+		ok = 0; }
+
+	if (s.value.search(/DNSListenAddress/) == 0)  {
+		ferror.set(s, 'Cannot set "DNSListenAddress" option here.', quiet);
+		ok = 0; }
+
+	if (s.value.search(/User/) == 0)  {
+		ferror.set(s, 'Cannot set "User" option here.', quiet);
+		ok = 0; }
 
 	return ok;
 }
@@ -105,7 +148,9 @@ createFieldTable('', [
 			['br3','LAN3 (br3)'],
 			['custom','Only selected IP`s']
 				], value: nvram.tor_iface },
-		{ name: 'tor_users', type: 'text', maxlen: 512, size: 64, value: nvram.tor_users } ] }
+		{ name: 'tor_users', type: 'text', maxlen: 512, size: 64, value: nvram.tor_users } ] },
+	null,
+	{ title: 'Custom Configuration', name: 'tor_custom', type: 'textarea', value: nvram.tor_custom }
 ]);
 </script>
 </div>
@@ -115,7 +160,7 @@ createFieldTable('', [
 	<li><b>Enable TOR</b> - Be patient. Running TOR can take from several seconds to several minutes.
 	<li><b>Only selected IP`s</b> - ex: 1.2.3.4,1.1.0/24,1.2.3.1-1.2.3.4
 	<li>Only connections to destination port 80 are redirected to TOR.
-	<li>Attention! - If your router has only 32MB RAM, you have to use swap, but 64MB (or more) is recommended.
+	<li>Attention! - If your router has only 32MB RAM, you have to use swap.
 </ul>
 </div>
 </form>
