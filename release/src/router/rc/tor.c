@@ -40,6 +40,7 @@ void start_tor(void)
             fprintf(fp, "DNSPort %s\n", nvram_safe_get( "tor_dnsport" ) );
             fprintf(fp, "DNSListenAddress %s\n", ip );
             fprintf(fp, "User nobody\n");
+            fprintf(fp, "%s\n", nvram_safe_get("tor_custom"));
 
     fclose( fp );
     chmod( "/etc/tor.conf", 0644 );

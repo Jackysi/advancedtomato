@@ -1146,6 +1146,7 @@ const defaults_t defaults[] = {
 	{ "tor_datadir",			"/tmp/tor"		},
 	{ "tor_iface",				"br0"			},
 	{ "tor_users",				"192.168.1.0/24"	},
+	{ "tor_custom",				""			},
 #endif
 
 	{ NULL, NULL	}

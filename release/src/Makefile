@@ -836,7 +836,6 @@ ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin OPENVPN=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y B=E BUILD_DESC="Max" USB="" NOCAT=y NFS=y SNMP=y DNSCRYPT=y PPTPD=y TOR=y
 endif
 
-
 ## SD-VPN - Only k24
 w:
 ifneq ($(CONFIG_LINUX26),y)
@@ -920,6 +919,8 @@ n60j:
 n60v:
 	@$(MAKE) r2v NVRAM_SIZE=60 LINKSYS_E=y
 
+n60m:
+	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=y
 
 #Linksys E-Series with 64K Nvram Builds
 
@@ -946,6 +947,12 @@ n64g:
 
 n64o:
 	@$(MAKE) r2o NVRAM_SIZE=64 LINKSYS_E_64k=y
+
+n64v:
+	@$(MAKE) r2v NVRAM_SIZE=64 LINKSYS_E_64k=y
+
+n64m:
+	@$(MAKE) r2m NVRAM_SIZE=64 LINKSYS_E_64k=y
 
 
 #Linksys E-Series with 4MB Flash
@@ -991,6 +998,9 @@ r64o
 
 r64t:
 	@$(MAKE) t MIPS32=r2 NVRAM_64K
+
+n60m:
+	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=1
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -1058,6 +1068,7 @@ ifeq ($(CONFIG_LINUX26),y)
 endif
 	@echo "f            Mini - (no USB support minus CIFS and RIPv1/2)"
 	@echo "v            VPN (no usb) - (VPN with no USB support)" / in K26 + IPv6 support
+	@echo "m            Max (no usb) - (Max with no USB support)" / in K26 + IPv6 support
 	@echo "w            SD-VPN (no usb) - (VPN with SD-MOD and no USB support)"
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2e          MIPS Release 2 VPN"
@@ -1091,6 +1102,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "n60i         Linksys E-series build Mini for E2500"
 	@echo "n60j         Linksys E-series build MiniIPv6 for E2500"
 	@echo "n60v         Linksys E-series build IPv6-VPN for E2000"
+	@echo "n60m         Linksys E-series build Max for E2000"
 	@echo "       Linksys E-Series with 64k Nvram/8MB Flash(E900/E1200v2/E1500)"
 	@echo "n64e         Linksys E-series(64k Nvram) build VPN"
 	@echo "n64c         Linksys E-series(64k Nvram) build BTGui-VPN"
@@ -1100,6 +1112,8 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "n64t         Linksys E-series(64k Nvram) build BT-VPN"
 	@echo "n64b         Linksys E-series(64k Nvram) build Big-VPN"
 	@echo "n64o         Linksys E-series(64k Nvram) build Mega-VPN"
+	@echo "n64v         Linksys E-series(64k Nvram) build IPv6-VPN"
+	@echo "n64m         Linksys E-series(64k Nvram) build Max"
 	@echo "       Netgear WNR3500L v2 builds (128MB Flash)"
 	@echo "v2e          Netgear WNR3500Lv2 build VPN"
 	@echo "v2g          Netgear WNR3500Lv2 build Tor-VPN"
