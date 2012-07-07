@@ -985,19 +985,19 @@ v2t:
 
 #Builds for Asus RT-N66u with 64k NVRAM support
 r64z:
-	@$(MAKE) z MIPS32=r2 NVRAM_64K
+	@$(MAKE) z MIPS32=r2 NVRAM_64K=y
 
 r64e:
-	@$(MAKE) e MIPS32=r2 NVRAM_64K
+	@$(MAKE) e MIPS32=r2 NVRAM_64K=y
 
 r64g:
-	@$(MAKE) g MIPS32=r2 NVRAM_64K
+	@$(MAKE) g MIPS32=r2 NVRAM_64K=y
 
 r64o:
-	@$(MAKE) o MIPS32=r2 NVRAM_64K
+	@$(MAKE) o MIPS32=r2 NVRAM_64K=y
 
 r64t:
-	@$(MAKE) t MIPS32=r2 NVRAM_64K
+	@$(MAKE) t MIPS32=r2 NVRAM_64K=y
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
