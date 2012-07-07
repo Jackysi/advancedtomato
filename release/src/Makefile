@@ -987,7 +987,7 @@ r64g:
 	@$(MAKE) g MIPS32=r2 NVRAM_64K
 
 r64o
-	@$(MAKE) oMIPS32=r2 NVRAM_64K
+	@$(MAKE) o MIPS32=r2 NVRAM_64K
 
 r64t:
 	@$(MAKE) t MIPS32=r2 NVRAM_64K
@@ -1108,8 +1108,8 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "       Asus RT-N66u with 64k NVRAM"
 	@echo "r64e         RT-N66u build VPN"
 	@echo "r64g         RT-N66u build Tor-VPN"
-	@echo "r64t         RT-N66u BT-VPN"
-	@echo "r64o         RT-N66u Mega-VPN"
+	@echo "r64t         RT-N66u build BT-VPN"
+	@echo "r64o         RT-N66u build Mega-VPN"
 	@echo "r64z         RT-N66u build AIO"
 endif
 	@echo "..etc..      other build configs"
