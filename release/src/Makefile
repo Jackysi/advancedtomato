@@ -905,7 +905,7 @@ n60d:
 	@$(MAKE) r2d NVRAM_SIZE=60 LINKSYS_E=y
 
 n60g:
-	@$(MAKE) r2g NVRAM_SIZE=60 LINKSYS_E=1
+	@$(MAKE) r2g NVRAM_SIZE=60 LINKSYS_E=y
 
 n60o:
 	@$(MAKE) r2o NVRAM_SIZE=60 LINKSYS_E=y
@@ -998,9 +998,6 @@ r64o
 
 r64t:
 	@$(MAKE) t MIPS32=r2 NVRAM_64K
-
-n60m:
-	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=1
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
