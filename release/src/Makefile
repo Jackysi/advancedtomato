@@ -727,6 +727,14 @@ else
 	@$(MAKE) bin OPENVPN=y BBEXTRAS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB="" SNMP=y PPTPD=y
 endif
 
+## Max build for router with 8MB flash without USB Support (like WRT54GS v1)
+m:
+ifeq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin OPENVPN=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y B=E BUILD_DESC="Max" USB="" NOCAT=y NFS=y SNMP=y DNSCRYPT=y PPTPD=y TOR=y
+else
+	@$(MAKE) bin OPENVPN=y BBEXTRAS=y B=E BUILD_DESC="Max" USB="" NOCAT=y NFS=y SNMP=y DNSCRYPT=y PPTPD=y TOR=y
+endif
+
 ## SD-VPN - Only k24
 w:
 ifneq ($(CONFIG_LINUX26),y)
@@ -773,6 +781,9 @@ r2i:
 r2v:
 	@$(MAKE) v MIPS32=r2
 
+r2m:
+	@$(MAKE) m MIPS32=r2
+
 #AIO for E4200
 n60z:
 	@$(MAKE) r2z NVRAM_SIZE=60 LINKSYS_E=1
@@ -803,6 +814,9 @@ n60o:
 
 n60v:
 	@$(MAKE) r2v NVRAM_SIZE=60 LINKSYS_E=1
+
+n60m:
+	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=1
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
@@ -870,6 +884,7 @@ ifeq ($(CONFIG_LINUX26),y)
 endif
 	@echo "f            Mini - (no USB support minus CIFS and RIPv1/2)"
 	@echo "v            VPN (no usb) - (VPN with no USB support)" / in K26 + IPv6 support
+	@echo "m            Max (no usb) - (Max with no USB support)" / in K26 + IPv6 support
 	@echo "w            SD-VPN (no usb) - (VPN with SD-MOD and no USB support)"
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2e          MIPS Release 2 VPN"
@@ -882,6 +897,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2o          MIPS Release 2 Mega-VPN"
 	@echo "r2z          MIPS Release 2 AIO (for routers +8MB flash)"
 	@echo "r2v          MIPS Release 2 VPN (no usb)"
+	@echo "r2m          MIPS Release 2 Max (no usb)"
 	@echo "r2i          MIPS Release 2 MiniIPv6 (for 4MB flash)"
 	@echo "r2f          MIPS Release 2 Mini (for netgear)"
 	@echo "n60e         Linksys E-series build VPN"
@@ -894,6 +910,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "n60o         Linksys E-series build Mega-VPN"
 	@echo "n60z         Linksys E-series build AIO"
 	@echo "n60v         Linksys E-series build IPv6-VPN for E2000"
+	@echo "n60m         Linksys E-series build Max for E2000"
 endif
 	@echo "..etc..      other build configs"
 	@echo "clean        -C router clean"
