@@ -976,6 +976,22 @@ v2g:
 v2t:
 	@$(MAKE) t MIPS32=r2 WNR3500LV2=1 NO_JFFS=y
 
+#Builds for Asus RT-N66u with 64k NVRAM support
+r64z:
+	@$(MAKE) z MIPS32=r2 NVRAM_64K
+
+r64e:
+	@$(MAKE) e MIPS32=r2 NVRAM_64K
+
+r64g:
+	@$(MAKE) g MIPS32=r2 NVRAM_64K
+
+r64o
+	@$(MAKE) oMIPS32=r2 NVRAM_64K
+
+r64t:
+	@$(MAKE) t MIPS32=r2 NVRAM_64K
+
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h
 	echo '#define TOMATO_$(N) 1' >> router/shared/tomato_profile.h
@@ -1089,6 +1105,12 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "v2g          Netgear WNR3500Lv2 build Tor-VPN"
 	@echo "v2t          Netgear WNR3500Lv2 build BT-VPN"
 	@echo "v2z          Netgear WNR3500Lv2 build AIO"
+	@echo "       Asus RT-N66u with 64k NVRAM"
+	@echo "r64e         RT-N66u build VPN"
+	@echo "r64g         RT-N66u build Tor-VPN"
+	@echo "r64t         RT-N66u BT-VPN"
+	@echo "r64o         RT-N66u Mega-VPN"
+	@echo "r64z         RT-N66u build AIO"
 endif
 	@echo "..etc..      other build configs"
 	@echo "clean        -C router clean"
