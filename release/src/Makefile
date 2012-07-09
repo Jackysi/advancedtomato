@@ -49,6 +49,7 @@ SNMP ?= "n"
 VLAN ?= "n"
 USERPPTP ?= "n"
 PPTPD ?= "n"
+TCPDUMP ?= "n"
 
 ifeq ($(NVRAM_SIZE),)
 NVRAM_SIZE = 0
@@ -466,6 +467,10 @@ define RouterOptions
                 sed -i "/TCONFIG_NVRAM_64K/d" $(1); \
                 echo "TCONFIG_NVRAM_64K=y" >>$(1); \
         fi; \
+	if [ "$(TCPDUMP)" = "y" ]; then \
+		sed -i "/TCONFIG_TCPDUMP/d" $(1); \
+		echo "TCONFIG_TCPDUMP=y" >>$(1); \
+	fi; \
 	)
 endef
 
@@ -748,10 +753,10 @@ endif
 ## Make the "normal (with NTFS support) + VPN" build
 e:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" VLAN="$(VLAN)" SNMP=y
+	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" VLAN="$(VLAN)" SNMP=y TCPDUMP="$(TCPDUMP)"
 else
 #	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB" VLAN="$(VLAN)"
-	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y BBEXTRAS=y USBEXTRAS=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP=y VLAN="$(VLAN)"
+	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y BBEXTRAS=y USBEXTRAS=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP=y VLAN="$(VLAN)" TCPDUMP="$(TCPDUMP)"
 endif
 
 ## Make the "Mini: no USB, no CIFS, no Zebra" build - targeted for Netgear routers
@@ -775,18 +780,18 @@ endif
 ## Make the "normal with Extras and NTFS" build
 m:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB" VLAN="$(VLAN)" SNMP=y USERPPTP=y  PPTPD=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Ext" USB="USB" VLAN="$(VLAN)" SNMP=y USERPPTP=y  PPTPD=y TCPDUMP="$(TCPDUMP)"
 else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB" VLAN="$(VLAN)" SNMP=y USERPPTP=y PPTPD=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Ext" USB="USB" VLAN="$(VLAN)" SNMP=y USERPPTP=y PPTPD=y TCPDUMP="$(TCPDUMP)"
 endif
 
 ## Roadkill
 ## Make the "normal (with NTFS support) + VPN + NOCAT" build
 nc:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=NC BUILD_DESC="$(VPN)" USB="USB" SNMP=y VLAN="$(VLAN)" NOCAT=y BUILD_DESC+="-$(NC)"
+	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=NC BUILD_DESC="$(VPN)" USB="USB" SNMP=y VLAN="$(VLAN)" NOCAT=y TCPDUMP="$(TCPDUMP)" BUILD_DESC+="-$(NC)"
 else
-	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NTFS=y B=NC BUILD_DESC="$(VPN)" USB="USB" VLAN="$(VLAN)" NOCAT=y BUILD_DESC+=" $(NC)"
+	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NTFS=y B=NC BUILD_DESC="$(VPN)" USB="USB" VLAN="$(VLAN)" NOCAT=y TCPDUMP="$(TCPDUMP)" BUILD_DESC+=" $(NC)"
 endif
 
 ## Toastman
@@ -797,15 +802,15 @@ ncm:
 ## Toastman
 ## Make the "normal" build + NOCAT
 ncs:
-	@$(MAKE) bin NOCAT=y B=NCS BUILD_DESC="Std-NOCAT" USB="USB" SNMP=y VLAN="$(VLAN)"
+	@$(MAKE) bin NOCAT=y B=NCS BUILD_DESC="Std-NOCAT" USB="USB" SNMP=y VLAN="$(VLAN)" TCPDUMP="$(TCPDUMP)"
 
 
 ## Make the "No USB" build
 s:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB="" VLAN="$(VLAN)"
+	@$(MAKE) bin JFFSv1=y $(if $(filter r2, $(MIPS32)),,BCM57=y) B=S BUILD_DESC="Std" USB="" VLAN="$(VLAN)" TCPDUMP="$(TCPDUMP)"
 else
-	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB="" VLAN="$(VLAN)"
+	@$(MAKE) bin BBEXTRAS=y BCM57=y B=S BUILD_DESC="Std" USB="" VLAN="$(VLAN)" TCPDUMP="$(TCPDUMP)"
 endif
 
 
@@ -821,9 +826,9 @@ endif
 ## Make the "VPN with no USB support" build
 v:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NO_JFFS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB="" VLAN="$(VLAN)"
+	@$(MAKE) bin OPENVPN=y USERPPTP=y PPTPD=y NO_JFFS=y BCM57=y B=V BUILD_DESC="$(VPN)" USB="" VLAN="$(VLAN)" TCPDUMP="$(TCPDUMP)" TCPDUMP="$(TCPDUMP)"
 else
-	@$(MAKE) bin OPENVPN=y PPTPD=y BBEXTRAS=y B=V BUILD_DESC="$(VPN)" USB=""  SNMP=y VLAN="$(VLAN)"
+	@$(MAKE) bin OPENVPN=y PPTPD=y BBEXTRAS=y B=V BUILD_DESC="$(VPN)" USB=""  SNMP=y VLAN="$(VLAN)" TCPDUMP="$(TCPDUMP)" TCPDUMP="$(TCPDUMP)"
 endif
 
 ## Make the "Small VPN with no USB support" build

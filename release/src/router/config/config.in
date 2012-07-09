@@ -137,3 +137,7 @@ config TCONFIG_PPTPD
 config TCONFIG_NVRAM_64K
 	bool "NVRAM_64K"
 	default n
+
+config TCONFIG_TCPDUMP
+	bool "TCPDUMP and LIBPCAP utilities"
+	default n

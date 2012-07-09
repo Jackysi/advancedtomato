@@ -1,0 +1,17 @@
+--- pcap/pcap.h	2008-10-10 19:42:44.000000000 -0700
++++ pcap/pcap.h	2008-12-15 08:45:29.000000000 -0800
+@@ -177,9 +190,11 @@
+ 	u_int ps_recv;		/* number of packets received */
+ 	u_int ps_drop;		/* number of packets dropped */
+ 	u_int ps_ifdrop;	/* drops by interface XXX not yet supported */
+-#ifdef WIN32
+-	u_int bs_capt;		/* number of packets that reach the application */
+-#endif /* WIN32 */
++#ifdef HAVE_REMOTE
++	u_int ps_capt;		/* number of packets that are received by the application; please get rid off the Win32 ifdef */
++	u_int ps_sent;		/* number of packets sent by the server on the network */
++	u_int ps_netdrop;	/* number of packets lost on the network */
++#endif /* HAVE_REMOTE */
+ };
+ 
+ #ifdef MSDOS

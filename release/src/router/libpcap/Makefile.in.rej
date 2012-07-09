@@ -1,0 +1,32 @@
+--- Makefile.in	2008-10-27 18:26:13.000000000 -0700
++++ Makefile.in	2008-12-15 08:45:29.000000000 -0800
+@@ -47,7 +47,8 @@
+ CC = @CC@
+ CCOPT = @V_CCOPT@
+ INCLS = -I. @V_INCLS@
+-DEFS = @DEFS@ @V_DEFS@
++# HAVE_REMOTE
++DEFS = @DEFS@ @V_DEFS@ @V_HAVE_REMOTE@
+ LIBS = @V_LIBS@
+ DAGLIBS = @DAGLIBS@
+ DEPLIBS = @DEPLIBS@
+@@ -83,13 +84,17 @@
+ CSRC =	pcap.c inet.c gencode.c optimize.c nametoaddr.c \
+ 	etherent.c savefile.c bpf_filter.c bpf_image.c bpf_dump.c
+ GENSRC = scanner.c grammar.c version.c
++# HAVE_REMOTE
++REMOTESRC = @V_REMOTE_FILES@
+ LIBOBJS = @LIBOBJS@
+ 
+-SRC =	$(PSRC) $(FSRC) $(CSRC) $(SSRC) $(GENSRC)
++# HAVE_REMOTE
++SRC =	$(PSRC) $(FSRC) $(CSRC) $(SSRC) $(GENSRC) $(REMOTESRC)
+ 
+ # We would like to say "OBJ = $(SRC:.c=.o)" but Ultrix's make cannot
+ # hack the extra indirection
+-OBJ =	$(PSRC:.c=.o) $(FSRC:.c=.o) $(CSRC:.c=.o) $(SSRC:.c=.o) $(GENSRC:.c=.o) $(LIBOBJS)
++# HAVE_REMOTE
++OBJ =	$(PSRC:.c=.o) $(FSRC:.c=.o) $(CSRC:.c=.o) $(SSRC:.c=.o) $(GENSRC:.c=.o) $(REMOTESRC:.c=.o) $(LIBOBJS)
+ HDR = \
+ 	acconfig.h \
+ 	arcnet.h \

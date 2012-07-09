@@ -33,3 +33,4 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_USERPPTP is not set
 # TCONFIG_PPTPD is not set
 # TCONFIG_NVRAM_64K is not set
+# TCONFIG_TCPDUMP is not set

@@ -148,6 +148,8 @@ endif
 
 obj-y += wanuptime
 
+obj-$(TCONFIG_TCPDUMP) += lpcap tcpdump
+
 obj-clean := $(foreach obj, $(obj-y) $(obj-n) $(obj-), $(obj)-clean)
 obj-install := $(foreach obj,$(obj-y),$(obj)-install)
 
@@ -1038,10 +1040,6 @@ bpalogin-install:
 #		@-mkdir -p libnet/lib
 #		@$(MAKE) -C libnet CC=$(CC) AR=$(AR) RANLIB=$(RANLIB)
 
-#	libpcap:
-#		@$(SEP)
-#		@$(MAKE) -C libpcap CC=$(CC) AR=$(AR) RANLIB=$(RANLIB)
-
 libbcm:
 	@[ ! -f libbcm/Makefile ] || $(MAKE) -C libbcm
 
@@ -1532,6 +1530,47 @@ snmp-install: snmp
 	install -D snmp/agent/snmpd $(INSTALLDIR)/snmp/usr/sbin/snmpd
 	$(STRIP) $(INSTALLDIR)/snmp/usr/sbin/snmpd
 
+libpcap/stamp-h1: openssl
+	cd libpcap && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
+	ac_cv_linux_vers=2 \
+	$(CONFIGURE) --prefix=/usr --with-pcap=linux \
+	$(if $(TCONFIG_IPV6),--enable-ipv6,--disable-ipv6)
+	touch libpcap/stamp-h1
+
+libpcap: libpcap/stamp-h1
+	@$(SEP)
+	$(MAKE) -C libpcap
+
+libpcap-clean:
+	-@$(MAKE) -C libpcap clean
+	@rm -f libpcap/stamp-h1
+
+libpcap-install:
+	@$(SEP)
+
+tcpdump/stamp-h1: openssl libpcap
+	cd tcpdump && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS) -I$(TOP)/openssl/include" \
+	LDFLAGS="-L$(TOP)/openssl" \
+	ac_cv_linux_vers=2 ac_cv_search_getaddrinfo=no \
+	$(CONFIGURE) --prefix=/usr --disable-smb \
+	--without-smi --with-crypt \
+	$(if $(TCONFIG_IPV6),--enable-ipv6,--disable-ipv6)
+	touch tcpdump/stamp-h1
+
+tcpdump: tcpdump/stamp-h1
+	@$(SEP)
+	$(MAKE) -C tcpdump
+
+tcpdump-clean:
+	-@$(MAKE) -C tcpdump clean
+	@rm -f tcpdump/stamp-h1
+
+tcpdump-install: tcpdump
+	install -D tcpdump/tcpdump $(INSTALLDIR)/tcpdump/usr/sbin/tcpdump
+	$(STRIP) $(INSTALLDIR)/tcpdump/usr/sbin/tcpdump
+
 #
 # Generic rules
 #
@@ -1556,4 +1595,4 @@ $(obj-y) $(obj-n) $(obj-clean) $(obj-install): dummy
 
 .PHONY: all clean distclean mrproper install package
 .PHONY: conf mconf oldconf kconf kmconf config menuconfig oldconfig
-.PHONY: dummy libnet libpcap
+.PHONY: dummy libnet

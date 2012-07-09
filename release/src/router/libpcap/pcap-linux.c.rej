@@ -1,0 +1,84 @@
+--- pcap-linux.c	2008-10-27 18:52:19.000000000 -0700
++++ pcap-linux.c	2008-12-15 10:40:38.000000000 -0800
+@@ -300,32 +304,72 @@
+ pcap_create(const char *device, char *ebuf)
+ {
+ 	pcap_t *handle;
++	char *device_no_prefix = (char*)device;
++
++#ifdef HAVE_REMOTE
++	/*
++		Retrofit; we have to make older applications compatible with the remote capture
++		So, we're calling the pcap_open_remote() from here, that is a very dirty thing.
++		Obviously, we cannot exploit all the new features; for instance, we cannot
++		send authentication, we cannot use a UDP data connection, and so on.
++	*/
++
++	char host[PCAP_BUF_SIZE + 1];
++	char port[PCAP_BUF_SIZE + 1];
++	char name[PCAP_BUF_SIZE + 1];
++	int srctype;
++
++	if (pcap_parsesrcstr(device, &srctype, host, port, name, ebuf) )
++		return NULL;
++
++	if (srctype == PCAP_SRC_IFREMOTE)
++	{
++		handle = pcap_create_common(device, ebuf);
++		if (handle == NULL)
++			return NULL;
++
++		handle->activate_op = pcap_activate_linux;
++		handle->can_set_rfmon_op = NULL;
++		return handle;
++	}
++	
++	if (srctype == PCAP_SRC_IFLOCAL)
++	{
++		/*
++		 * If it starts with rpcap://, cut down the string
++		 */
++		if (strncmp(device, PCAP_SRC_IF_STRING, strlen(PCAP_SRC_IF_STRING)) == 0)
++		{
++			device_no_prefix = (char*)device + strlen(PCAP_SRC_IF_STRING);
++		}
++	}
++#endif		/* HAVE_REMOTE */
+ 
+ #ifdef HAVE_DAG_API
+-	if (strstr(device, "dag")) {
+-		return dag_create(device, ebuf);
++	if (strstr(device_no_prefix, "dag")) {
++		return dag_create(device_no_prefix, ebuf);
+ 	}
+ #endif /* HAVE_DAG_API */
+ 
+ #ifdef HAVE_SEPTEL_API
+-	if (strstr(device, "septel")) {
+-		return septel_create(device, ebuf);
++	if (strstr(device_no_prefix, "septel")) {
++		return septel_create(device_no_prefix, ebuf);
+ 	}
+ #endif /* HAVE_SEPTEL_API */
+ 
+ #ifdef PCAP_SUPPORT_BT
+-	if (strstr(device, "bluetooth")) {
+-		return bt_create(device, ebuf);
++	if (strstr(device_no_prefix, "bluetooth")) {
++		return bt_create(device_no_prefix, ebuf);
+ 	}
+ #endif
+ 
+ #ifdef PCAP_SUPPORT_USB
+-	if (strstr(device, "usb")) {
+-		return usb_create(device, ebuf);
++	if (strstr(device_no_prefix, "usb")) {
++		return usb_create(device_no_prefix, ebuf);
+ 	}
+ #endif
+ 
+-	handle = pcap_create_common(device, ebuf);
++	handle = pcap_create_common(device_no_prefix, ebuf);
+ 	if (handle == NULL)
+ 		return NULL;
+ 
