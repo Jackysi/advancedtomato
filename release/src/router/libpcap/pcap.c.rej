@@ -1,0 +1,46 @@
+--- pcap.c	2008-10-10 19:42:44.000000000 -0700
++++ pcap.c	2008-12-15 08:45:29.000000000 -0800
+@@ -273,6 +277,20 @@
+ int
+ pcap_dispatch(pcap_t *p, int cnt, pcap_handler callback, u_char *user)
+ {
++#ifdef HAVE_REMOTE
++	/* Checks the capture type */
++	if (p->rmt_clientside)
++	{
++		/* We are on an remote capture */
++		if (!p->rmt_capstarted)
++		{
++			// if the capture has not started yet, please start it
++			if (pcap_startcapture_remote(p) )
++				return -1;
++		}
++	}
++#endif /* HAVE_REMOTE */
++
+ 	return p->read_op(p, cnt, callback, user);
+ }
+ 
+@@ -382,6 +414,22 @@
+ 	/* Saves a pointer to the packet headers */
+ 	*pkt_header= &p->pcap_header;
+ 
++#ifdef HAVE_REMOTE
++	/* Checks the capture type */
++	if (p->rmt_clientside)
++	{
++		/* We are on an remote capture */
++		if (!p->rmt_capstarted)
++		{
++			// if the capture has not started yet, please start it
++			if (pcap_startcapture_remote(p) )
++				return -1;
++		}
++
++		return pcap_read_nocb_remote(p, pkt_header, (u_char **) pkt_data);
++	}
++#endif /* HAVE_REMOTE */
++
+ 	if (p->sf.rfile != NULL) {
+ 		int status;
+ 

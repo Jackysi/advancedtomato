@@ -1,0 +1,71 @@
+--- configure.in	2008-10-27 18:26:13.000000000 -0700
++++ configure.in	2008-12-15 10:48:45.000000000 -0800
+@@ -501,6 +501,57 @@
+ fi
+ AC_MSG_RESULT($have_socklen_t)
+ 
++dnl HAVE_REMOTE
++AC_MSG_CHECKING(if --disable-remote option is specified)
++AC_ARG_ENABLE(remote, [  --disable-remote        disable remote capture capabilities])
++
++case "x$enable_remote" in
++xyes)	enable_remote=enabled	;;
++xno)	enable_remote=disabled	;;
++x)	enable_remote=enabled	;;
++esac
++
++AC_MSG_RESULT(${enable_remote})
++
++if test "$enable_remote" = "enabled"; then
++
++	dnl
++	dnl Checking if the remote features of libpcap are supported by
++	dnl the OS and must be compiled
++	dnl
++
++	AC_MSG_CHECKING(if remote capture is supported)
++	
++	if test -e ./remote-ext.h ; then	# Check that the remote extensions are there
++	
++		case "$V_PCAP" in
++		
++		linux)
++			V_REMOTE_FILES="pcap-new.c pcap-remote.c sockutils.c"
++			V_HAVE_REMOTE="-DHAVE_REMOTE"
++			AC_DEFINE(HAVE_REMOTE,1,[Enable remote capture support])
++			have_remote=yes
++			;;
++		
++		bpf)
++		V_REMOTE_FILES="pcap-new.c pcap-remote.c sockutils.c"
++			V_HAVE_REMOTE="-DHAVE_REMOTE"
++			AC_DEFINE(HAVE_REMOTE,1,[Enable remote capture support])
++			have_remote=yes
++			;;
++		
++		*)
++			have_remote=no
++			;;
++		
++		esac
++	
++	AC_MSG_RESULT(${have_remote})
++	fi
++
++fi
++dnl END HAVE_REMOTE
++
+ AC_ARG_ENABLE(ipv6, [  --enable-ipv6           build IPv6-capable version @<:@default=yes, if getaddrinfo available@:>@],
+     [],
+     [enable_ipv6=ifavailable])
+@@ -1007,6 +1058,10 @@
+ AC_SUBST(V_LEX)
+ AC_SUBST(V_PCAP)
+ AC_SUBST(V_FINDALLDEVS)
++# HAVE_REMOTE
++AC_SUBST(V_HAVE_REMOTE)
++AC_SUBST(V_REMOTE_FILES)
++# END HAVE_REMOTE
+ AC_SUBST(V_YACC)
+ AC_SUBST(SSRC)
+ AC_SUBST(DYEXT)

@@ -1,0 +1,39 @@
+--- savefile.c	2008-10-10 19:42:44.000000000 -0700
++++ savefile.c	2008-12-15 08:45:30.000000000 -0800
+@@ -1606,6 +1611,36 @@
+ 
+ 		if ((fcode = p->fcode.bf_insns) == NULL ||
+ 		    bpf_filter(fcode, p->buffer, h.len, h.caplen)) {
++
++#ifdef HAVE_REMOTE
++			if (p->rmt_samp.method == PCAP_SAMP_1_EVERY_N)
++			{
++				samp_npkt= (samp_npkt + 1) % p->rmt_samp.value;
++
++				// Discard all packets that are not '1 out of N'
++				if (samp_npkt != 0)
++					continue;
++			}
++
++			if (p->rmt_samp.method == PCAP_SAMP_FIRST_AFTER_N_MS)
++			{
++				// Check if the timestamp of the arrived packet is smaller than our target time
++				if ( (h.ts.tv_sec < samp_time.tv_sec) ||
++						( (h.ts.tv_sec == samp_time.tv_sec) && (h.ts.tv_usec < samp_time.tv_usec) ) )
++					continue;
++
++				// The arrived packet is suitable for being sent to the remote host
++				// So, let's update the target time
++				samp_time.tv_usec= h.ts.tv_usec + p->rmt_samp.value * 1000;
++				if (samp_time.tv_usec > 1000000)
++				{
++					samp_time.tv_sec= h.ts.tv_sec + samp_time.tv_usec / 1000000;
++					samp_time.tv_usec= samp_time.tv_usec % 1000000;
++				}
++
++			}
++#endif /* HAVE_REMOTE */
++
+ 			(*callback)(user, &h, p->buffer);
+ 			if (++n >= cnt && cnt > 0)
+ 				break;

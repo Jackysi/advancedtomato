@@ -1,0 +1,69 @@
+--- configure	2008-10-27 18:26:13.000000000 -0700
++++ configure	2008-12-15 08:55:54.000000000 -0800
+@@ -684,6 +684,8 @@
+ V_LIBS
+ V_PCAP
+ V_FINDALLDEVS
++V_HAVE_REMOTE
++V_REMOTE_FILES
+ SSRC
+ DYEXT
+ DAGLIBS
+@@ -1283,6 +1285,7 @@
+   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+   --disable-largefile     omit support for large files
+   --disable-protochain    disable \"protochain\" insn
++  --disable-remote        disable remote capture capabilities
+   --enable-ipv6           build IPv6-capable version [default=yes, if getaddrinfo available]
+   --enable-optimizer-dbg  build optimizer debugging code
+   --enable-yydebug        build parser debugging code
+@@ -3887,11 +3890,13 @@
+ cat confdefs.h >>conftest.$ac_ext
+ cat >>conftest.$ac_ext <<_ACEOF
+ /* end confdefs.h.  */
+-#include <stdio.h>
++#include <sys/types.h> /* for off_t */
++     #include <stdio.h>
+ int
+ main ()
+ {
+-return fseeko (stdin, 0, 0) && (fseeko) (stdin, 0, 0);
++int (*fp) (FILE *, off_t, int) = fseeko;
++     return fseeko (stdin, 0, 0) && fp (stdin, 0, 0);
+   ;
+   return 0;
+ }
+@@ -3931,11 +3936,13 @@
+ cat >>conftest.$ac_ext <<_ACEOF
+ /* end confdefs.h.  */
+ #define _LARGEFILE_SOURCE 1
+-#include <stdio.h>
++#include <sys/types.h> /* for off_t */
++     #include <stdio.h>
+ int
+ main ()
+ {
+-return fseeko (stdin, 0, 0) && (fseeko) (stdin, 0, 0);
++int (*fp) (FILE *, off_t, int) = fseeko;
++     return fseeko (stdin, 0, 0) && fp (stdin, 0, 0);
+   ;
+   return 0;
+ }
+@@ -10221,6 +10293,8 @@
+ V_LIBS!$V_LIBS$ac_delim
+ V_PCAP!$V_PCAP$ac_delim
+ V_FINDALLDEVS!$V_FINDALLDEVS$ac_delim
++V_HAVE_REMOTE!$V_HAVE_REMOTE$ac_delim
++V_REMOTE_FILES!$V_REMOTE_FILES$ac_delim
+ SSRC!$SSRC$ac_delim
+ DYEXT!$DYEXT$ac_delim
+ DAGLIBS!$DAGLIBS$ac_delim
+@@ -10237,7 +10311,7 @@
+ LTLIBOBJS!$LTLIBOBJS$ac_delim
+ _ACEOF
+ 
+-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 84; then
++  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 86; then
+     break
+   elif $ac_last_try; then
+     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
