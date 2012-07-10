@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-mgr.h 12539 2011-07-10 15:24:51Z jordan $
+ * $Id: peer-mgr.h 13361 2012-07-01 02:17:35Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -248,9 +248,9 @@ struct tr_peer_stat* tr_peerMgrPeerStats( const tr_torrent * tor,
 double* tr_peerMgrWebSpeeds_KBps( const tr_torrent * tor );
 
 
-int tr_peerGetPieceSpeed_Bps( const tr_peer    * peer,
-                              uint64_t           now,
-                              tr_direction       direction );
+unsigned int tr_peerGetPieceSpeed_Bps( const tr_peer    * peer,
+                                       uint64_t           now,
+                                       tr_direction       direction );
 
 void tr_peerMgrClearInterest( tr_torrent * tor );
 

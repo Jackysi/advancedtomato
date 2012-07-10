@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: NSStringAdditions.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: NSStringAdditions.m 13369 2012-07-05 00:18:15Z livings124 $
  *
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *
@@ -29,8 +29,7 @@
 
 @interface NSString (Private)
 
-+ (NSString *) stringForFileSize: (uint64_t) size showUnitUnless: (NSString *) notAllowedUnit
-    unitsUsed: (NSString **) unitUsed;
++ (NSString *) stringForFileSize: (uint64_t) size showUnitUnless: (NSString *) notAllowedUnit unitsUsed: (NSString **) unitUsed;
 
 + (NSString *) stringForSpeed: (CGFloat) speed kb: (NSString *) kb mb: (NSString *) mb gb: (NSString *) gb;
 
@@ -48,11 +47,16 @@
 	return [self stringByAppendingString: [NSString ellipsis]];
 }
 
+#warning use localizedStringWithFormat: directly in roardacted
 + (NSString *) formattedUInteger: (NSUInteger) value
 {
-    NSNumberFormatter * numberFormatter = [[[NSNumberFormatter alloc] init] autorelease];
-    [numberFormatter setNumberStyle: NSNumberFormatterDecimalStyle];
-    [numberFormatter setMaximumFractionDigits: 0];
+    static NSNumberFormatter * numberFormatter;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        numberFormatter = [[NSNumberFormatter alloc] init];
+        [numberFormatter setNumberStyle: NSNumberFormatterDecimalStyle];
+        [numberFormatter setMaximumFractionDigits: 0];
+    });
     
     return [numberFormatter stringFromNumber: [NSNumber numberWithUnsignedInteger: value]];
 }
@@ -200,8 +204,7 @@
 
 @implementation NSString (Private)
 
-+ (NSString *) stringForFileSize: (uint64_t) size showUnitUnless: (NSString *) notAllowedUnit
-    unitsUsed: (NSString **) unitUsed
++ (NSString *) stringForFileSize: (uint64_t) size showUnitUnless: (NSString *) notAllowedUnit unitsUsed: (NSString **) unitUsed
 {
     double convertedSize;
     NSString * unit;
@@ -228,7 +231,7 @@
     {
         convertedSize = size / powf(1000.0, 4);
         unit = NSLocalizedString(@"TB", "File size - terabytes");
-        decimals = 3; //guessing on this one
+        decimals = 2;
     }
     
     //match Finder's behavior

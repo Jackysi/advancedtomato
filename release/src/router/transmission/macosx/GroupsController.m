@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: GroupsController.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: GroupsController.m 13340 2012-06-10 02:35:58Z livings124 $
  *
  * Copyright (c) 2007-2012 Transmission authors and contributors
  *
@@ -153,7 +153,7 @@ GroupsController * fGroupsInstance = nil;
 {
     NSInteger orderIndex = [self rowValueForIndex: index];
     return orderIndex != -1 ? [self imageForGroup: [fGroups objectAtIndex: orderIndex]]
-                            : [NSImage imageNamed: @"GroupsNoneTemplate.png"];
+                            : [NSImage imageNamed: @"GroupsNoneTemplate"];
 }
 
 - (NSColor *) colorForIndex: (NSInteger) index
@@ -297,7 +297,7 @@ GroupsController * fGroupsInstance = nil;
     [item setTarget: target];
     [item setTag: -1];
     
-    NSImage * icon = [NSImage imageNamed: @"GroupsNoneTemplate.png"];
+    NSImage * icon = [NSImage imageNamed: @"GroupsNoneTemplate"];
     if (small)
     {
         icon = [icon copy];

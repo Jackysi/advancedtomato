@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: StatsWindowController.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: StatsWindowController.m 13352 2012-06-18 01:33:27Z livings124 $
  *
  * Copyright (c) 2007-2012 Transmission authors and contributors
  *
@@ -23,6 +23,8 @@
  *****************************************************************************/
 
 #import "StatsWindowController.h"
+#import "Controller.h"
+#import "NSApplicationAdditions.h"
 #import "NSStringAdditions.h"
 
 #define UPDATE_SECONDS 1.0
@@ -39,27 +41,34 @@
 @implementation StatsWindowController
 
 StatsWindowController * fStatsWindowInstance = nil;
-tr_session * fLib;
-+ (StatsWindowController *) statsWindow: (tr_session *) lib
+tr_session * fLib = NULL;
++ (StatsWindowController *) statsWindow
 {
     if (!fStatsWindowInstance)
     {
-        if ((fStatsWindowInstance = [[self alloc] initWithWindowNibName: @"StatsWindow"]))
+        if ((fStatsWindowInstance = [[self alloc] init]))
         {
-            fLib = lib;
+            fLib = [(Controller *)[NSApp delegate] sessionHandle];
         }
     }
     return fStatsWindowInstance;
+}
+
+- (id) init
+{
+    return [super initWithWindowNibName: @"StatsWindow"];
 }
 
 - (void) awakeFromNib
 {
     [self updateStats];
     
-    fTimer = [NSTimer scheduledTimerWithTimeInterval: UPDATE_SECONDS target: self
-                selector: @selector(updateStats) userInfo: nil repeats: YES];
+    fTimer = [NSTimer scheduledTimerWithTimeInterval: UPDATE_SECONDS target: self selector: @selector(updateStats) userInfo: nil repeats: YES];
     [[NSRunLoop currentRunLoop] addTimer: fTimer forMode: NSModalPanelRunLoopMode];
     [[NSRunLoop currentRunLoop] addTimer: fTimer forMode: NSEventTrackingRunLoopMode];
+    
+    if ([NSApp isOnLionOrBetter])
+        [[self window] setRestorationClass: [self class]];
     
     [[self window] setTitle: NSLocalizedString(@"Statistics", "Stats window -> title")];
     
@@ -68,8 +77,7 @@ tr_session * fLib;
     [fDownloadedLabelField setStringValue: [NSLocalizedString(@"Downloaded", "Stats window -> label") stringByAppendingString: @":"]];
     [fRatioLabelField setStringValue: [NSLocalizedString(@"Ratio", "Stats window -> label") stringByAppendingString: @":"]];
     [fTimeLabelField setStringValue: [NSLocalizedString(@"Running Time", "Stats window -> label") stringByAppendingString: @":"]];
-    [fNumOpenedLabelField setStringValue: [NSLocalizedString(@"Program Started", "Stats window -> label")
-                                            stringByAppendingString: @":"]];
+    [fNumOpenedLabelField setStringValue: [NSLocalizedString(@"Program Started", "Stats window -> label") stringByAppendingString: @":"]];
     
     //size all elements
     const CGFloat oldWidth = [fUploadedLabelField frame].size.width;
@@ -128,6 +136,13 @@ tr_session * fLib;
     
     [fStatsWindowInstance autorelease];
     fStatsWindowInstance = nil;
+}
+
++ (void) restoreWindowWithIdentifier: (NSString *) identifier state: (NSCoder *) state completionHandler: (void (^)(NSWindow *, NSError *)) completionHandler
+{
+    NSAssert1([identifier isEqualToString: @"StatsWindow"], @"Trying to restore unexpected identifier %@", identifier);
+    
+    completionHandler([[StatsWindowController statsWindow] window], nil);
 }
 
 - (void) resetStats: (id) sender

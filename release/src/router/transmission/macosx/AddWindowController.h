@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: AddWindowController.h 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: AddWindowController.h 13334 2012-06-03 23:29:39Z livings124 $
  *
  * Copyright (c) 2008-2012 Transmission authors and contributors
  *
@@ -36,7 +36,11 @@
     IBOutlet NSPopUpButton * fGroupPopUp, * fPriorityPopUp;
     IBOutlet NSProgressIndicator * fVerifyIndicator;
     
+    IBOutlet NSTextField * fFileFilterField;
+    IBOutlet NSButton * fCheckAllButton, *fUncheckAllButton;
+    
     IBOutlet FileOutlineController * fFileController;
+    IBOutlet NSScrollView * fFileScrollView;
     
     Controller * fController;
     
@@ -61,11 +65,15 @@
 - (void) add: (id) sender;
 - (void) cancelAdd: (id) sender;
 
+- (IBAction) setFileFilterText: (id) sender;
+- (IBAction) checkAll: (id) sender;
+- (IBAction) uncheckAll: (id) sender;
+
 - (void) verifyLocalData: (id) sender;
 
 - (void) changePriority: (id) sender;
 
-- (void) updateStatusField: (NSNotification *) notification;
+- (void) updateCheckButtons: (NSNotification *) notification;
 
 - (void) updateGroupMenu: (NSNotification *) notification;
 

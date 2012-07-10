@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Torrent.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: Torrent.m 13340 2012-06-10 02:35:58Z livings124 $
  *
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -492,18 +492,18 @@ int trashDataFile(const char * filename)
     return tr_torrentSetPriority(fHandle, priority);
 }
 
-#warning when 10.6-only use recycleURLs:completionHandler:
 + (void) trashFile: (NSString *) path
 {
     //attempt to move to trash
     if (![[NSWorkspace sharedWorkspace] performFileOperation: NSWorkspaceRecycleOperation
-        source: [path stringByDeletingLastPathComponent] destination: @""
-        files: [NSArray arrayWithObject: [path lastPathComponent]] tag: nil])
+                                                      source: [path stringByDeletingLastPathComponent] destination: @""
+                                                       files: [NSArray arrayWithObject: [path lastPathComponent]] tag: nil])
     {
         //if cannot trash, just delete it (will work if it's on a remote volume)
         NSError * error;
         if (![[NSFileManager defaultManager] removeItemAtPath: path error: &error])
-            NSLog(@"Could not trash %@: %@", path, [error localizedDescription]);
+            NSLog(@"old Could not trash %@: %@", path, [error localizedDescription]);
+        else {NSLog(@"old removed %@", path);}
     }
 }
 
@@ -607,7 +607,7 @@ int trashDataFile(const char * filename)
 - (NSImage *) icon
 {
     if ([self isMagnet])
-        return [NSImage imageNamed: @"Magnet.png"];
+        return [NSImage imageNamed: @"Magnet"];
     
     #warning replace kGenericFolderIcon stuff with NSImageNameFolder on 10.6
     if (!fIcon)

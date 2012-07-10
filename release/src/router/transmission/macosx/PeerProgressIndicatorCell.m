@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: PeerProgressIndicatorCell.m 13253 2012-03-13 03:20:09Z livings124 $
+ * $Id: PeerProgressIndicatorCell.m 13340 2012-06-10 02:35:58Z livings124 $
  * 
  * Copyright (c) 2007-2012 Transmission authors and contributors
  *
@@ -74,7 +74,7 @@
         [super drawWithFrame: cellFrame inView: controlView];
         if (fSeed)
         {
-            NSImage * checkImage = [NSImage imageNamed: @"CompleteCheck.png"];
+            NSImage * checkImage = [NSImage imageNamed: @"CompleteCheck"];
             
             const NSSize imageSize = [checkImage size];
             const NSRect rect = NSMakeRect(floor(NSMidX(cellFrame) - imageSize.width * 0.5),

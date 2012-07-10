@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: rpcimpl.c 12990 2011-10-17 12:44:17Z jordan $
+ * $Id: rpcimpl.c 13359 2012-07-01 01:42:58Z jordan $
  */
 
 #include <assert.h>
@@ -523,7 +523,7 @@ addPeers( const tr_torrent * tor,
 
     for( i = 0; i < peerCount; ++i )
     {
-        tr_benc *            d = tr_bencListAddDict( list, 14 );
+        tr_benc *            d = tr_bencListAddDict( list, 16 );
         const tr_peer_stat * peer = peers + i;
         tr_bencDictAddStr ( d, "address", peer->addr );
         tr_bencDictAddStr ( d, "clientName", peer->client );
@@ -637,7 +637,7 @@ addField( const tr_torrent * const tor,
         tr_bencDictAddInt( d, key, st->peersConnected );
     else if( tr_streq( key, keylen, "peersFrom" ) )
     {
-        tr_benc *   tmp = tr_bencDictAddDict( d, key, 6 );
+        tr_benc *   tmp = tr_bencDictAddDict( d, key, 7 );
         const int * f = st->peersFrom;
         tr_bencDictAddInt( tmp, "fromCache",    f[TR_PEER_FROM_RESUME] );
         tr_bencDictAddInt( tmp, "fromDht",      f[TR_PEER_FROM_DHT] );

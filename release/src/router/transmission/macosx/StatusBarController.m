@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: StatusBarController.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: StatusBarController.m 13343 2012-06-10 13:47:32Z livings124 $
  * 
  * Copyright (c) 2011-2012 Transmission authors and contributors
  *
@@ -76,6 +76,8 @@ typedef enum
     [[fStatusButton cell] setBackgroundStyle: NSBackgroundStyleRaised];
     [[fTotalDLField cell] setBackgroundStyle: NSBackgroundStyleRaised];
     [[fTotalULField cell] setBackgroundStyle: NSBackgroundStyleRaised];
+    [[fTotalDLImageView cell] setBackgroundStyle: NSBackgroundStyleRaised];
+    [[fTotalULImageView cell] setBackgroundStyle: NSBackgroundStyleRaised];
     
     [self updateSpeedFieldsToolTips];
     

@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Controller.h 13256 2012-03-18 14:33:50Z livings124 $
+ * $Id: Controller.h 13321 2012-05-28 17:26:15Z livings124 $
  *
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *
@@ -135,6 +135,8 @@ typedef enum
 
 - (void) quitSheetDidEnd: (NSWindow *) sheet returnCode: (NSInteger) returnCode contextInfo: (void *) contextInfo;
 
+- (tr_session *) sessionHandle;
+
 - (void) createFile: (id) sender;
 
 - (void) resumeSelectedTorrents:    (id) sender;
@@ -173,6 +175,7 @@ typedef enum
 - (void) verifySelectedTorrents: (id) sender;
 - (void) verifyTorrents: (NSArray *) torrents;
 
+@property (retain, readonly) PrefsController * prefsController;
 - (void) showPreferenceWindow: (id) sender;
 
 - (void) showAboutWindow: (id) sender;
@@ -181,6 +184,7 @@ typedef enum
 - (void) resetInfo;
 - (void) setInfoTab: (id) sender;
 
+@property (retain, readonly) MessageWindowController * messageWindowController;
 - (void) showMessageWindow: (id) sender;
 - (void) showStatsWindow: (id) sender;
 

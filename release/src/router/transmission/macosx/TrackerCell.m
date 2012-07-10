@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: TrackerCell.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: TrackerCell.m 13340 2012-06-10 02:35:58Z livings124 $
  * 
  * Copyright (c) 2009-2012 Transmission authors and contributors
  *
@@ -212,7 +212,7 @@ NSMutableSet * fTrackerIconLoading;
         }
     }
         
-    return (icon && icon != [NSNull null]) ? icon : [NSImage imageNamed: @"FavIcon.png"];
+    return (icon && icon != [NSNull null]) ? icon : [NSImage imageNamed: @"FavIcon"];
 }
 
 #warning better favicon detection

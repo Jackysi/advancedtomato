@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-msgs.c 13300 2012-05-17 17:40:31Z jordan $
+ * $Id: peer-msgs.c 13361 2012-07-01 02:17:35Z jordan $
  */
 
 #include <assert.h>
@@ -1676,8 +1676,8 @@ updateDesiredRequestCount( tr_peermsgs * msgs )
     else
     {
         int estimatedBlocksInPeriod;
-        int rate_Bps;
-        int irate_Bps;
+        unsigned int rate_Bps;
+        unsigned int irate_Bps;
         const int floor = 4;
         const int seconds = REQUEST_BUF_SECS;
         const uint64_t now = tr_time_msec( );
@@ -1689,8 +1689,8 @@ updateDesiredRequestCount( tr_peermsgs * msgs )
             rate_Bps = MIN( rate_Bps, tr_torrentGetSpeedLimit_Bps( torrent, TR_PEER_TO_CLIENT ) );
 
         /* honor the session limits, if enabled */
-        if( tr_torrentUsesSessionLimits( torrent ) )
-            if( tr_sessionGetActiveSpeedLimit_Bps( torrent->session, TR_PEER_TO_CLIENT, &irate_Bps ) )
+        if( tr_torrentUsesSessionLimits( torrent ) 
+	&&  tr_sessionGetActiveSpeedLimit_Bps( torrent->session, TR_PEER_TO_CLIENT, &irate_Bps ) )
                 rate_Bps = MIN( rate_Bps, irate_Bps );
 
         /* use this desired rate to figure out how

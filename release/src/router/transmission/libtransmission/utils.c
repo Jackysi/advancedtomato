@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: utils.c 13301 2012-05-17 22:22:30Z jordan $
+ * $Id: utils.c 13362 2012-07-01 03:05:36Z jordan $
  */
 
 #ifdef HAVE_MEMMEM
@@ -636,6 +636,24 @@ tr_buildPath( const char *first_element, ... )
     /* sanity checks & return */
     assert( pch - buf == (off_t)bufLen );
     return buf;
+}
+
+#ifdef SYS_DARWIN
+ #define TR_STAT_MTIME(sb) ((sb).st_mtimespec.tv_sec)
+#else
+ #define TR_STAT_MTIME(sb) ((sb).st_mtime)
+#endif
+
+bool
+tr_fileExists( const char * filename, time_t * mtime )
+{
+    struct stat sb;
+    const bool ok = !stat( filename, &sb );
+
+    if( ok && ( mtime != NULL ) )
+        *mtime = TR_STAT_MTIME( sb );
+
+    return ok;
 }
 
 /****

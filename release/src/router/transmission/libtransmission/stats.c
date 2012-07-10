@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: stats.c 12204 2011-03-22 15:19:54Z jordan $
+ * $Id: stats.c 13363 2012-07-01 04:00:27Z jordan $
  */
 
 #include "transmission.h"
@@ -210,6 +210,7 @@ tr_sessionClearStats( tr_session * session )
     zero.sessionCount = 0;
     zero.secondsActive = 0;
 
+    session->sessionStats->isDirty = true;
     session->sessionStats->single = session->sessionStats->old = zero;
     session->sessionStats->startTime = tr_time( );
 }

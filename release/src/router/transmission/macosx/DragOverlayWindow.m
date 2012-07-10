@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: DragOverlayWindow.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: DragOverlayWindow.m 13340 2012-06-10 02:35:58Z livings124 $
  *
  * Copyright (c) 2007-2012 Transmission authors and contributors
  *
@@ -151,14 +151,14 @@
 
 - (void) setFile: (NSString *) file
 {
-    [[self contentView] setOverlay: [NSImage imageNamed: @"CreateLarge.png"]
+    [[self contentView] setOverlay: [NSImage imageNamed: @"CreateLarge"]
         mainLine: NSLocalizedString(@"Create a Torrent File", "Drag overlay -> file") subLine: file];
     [self fadeIn];
 }
 
 - (void) setURL: (NSString *) url
 {
-    [[self contentView] setOverlay: [NSImage imageNamed: @"Globe.png"]
+    [[self contentView] setOverlay: [NSImage imageNamed: @"Globe"]
         mainLine: NSLocalizedString(@"Web Address", "Drag overlay -> url") subLine: url];
     [self fadeIn];
 }

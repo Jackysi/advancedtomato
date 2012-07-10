@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: utils.h 13084 2011-11-12 00:16:04Z jordan $
+ * $Id: utils.h 13362 2012-07-01 03:05:36Z jordan $
  */
 
 #ifndef TR_UTILS_H
@@ -238,6 +238,9 @@ uint8_t* tr_loadFile( const char * filename, size_t * size ) TR_GNUC_MALLOC
            platform's correct directory separator. */
 char* tr_buildPath( const char * first_element, ... ) TR_GNUC_NULL_TERMINATED
                                                       TR_GNUC_MALLOC;
+
+bool tr_fileExists( const char * filename, time_t * mtime );
+
 
 struct event;
 

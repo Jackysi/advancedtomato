@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoFileViewController.m 13298 2012-05-14 00:27:40Z livings124 $
+ * $Id: InfoFileViewController.m 13309 2012-05-20 00:19:55Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -109,6 +109,7 @@
     {
         [fFileController refresh];
         
+        #warning use TorrentFileCheckChange notification as well
         Torrent * torrent = [fTorrents objectAtIndex: 0];
         if ([torrent isFolder])
         {

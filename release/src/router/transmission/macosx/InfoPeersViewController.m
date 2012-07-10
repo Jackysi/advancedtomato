@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoPeersViewController.m 13293 2012-04-29 00:53:34Z livings124 $
+ * $Id: InfoPeersViewController.m 13340 2012-06-10 02:35:58Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -280,7 +280,7 @@
         NSDictionary * peer = [fPeers objectAtIndex: row];
         
         if ([ident isEqualToString: @"Encryption"])
-            return [[peer objectForKey: @"Encryption"] boolValue] ? [NSImage imageNamed: @"Lock.png"] : nil;
+            return [[peer objectForKey: @"Encryption"] boolValue] ? [NSImage imageNamed: @"Lock"] : nil;
         else if ([ident isEqualToString: @"Client"])
             return [peer objectForKey: @"Client"];
         else if  ([ident isEqualToString: @"Progress"])

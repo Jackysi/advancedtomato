@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: bandwidth.c 13034 2011-10-25 21:54:51Z jordan $
+ * $Id: bandwidth.c 13361 2012-07-01 02:17:35Z jordan $
  */
 
 #include <assert.h>
@@ -174,8 +174,8 @@ allocateBandwidth( tr_bandwidth  * b,
     /* set the available bandwidth */
     if( b->band[dir].isLimited )
     {
-        const unsigned int nextPulseSpeed = b->band[dir].desiredSpeed_Bps;
-        b->band[dir].bytesLeft = ( nextPulseSpeed * period_msec ) / 1000u;
+        const uint64_t nextPulseSpeed = b->band[dir].desiredSpeed_Bps;
+        b->band[dir].bytesLeft = (unsigned int)( nextPulseSpeed * period_msec ) / 1000u;
     }
 
     /* add this bandwidth's peer, if any, to the peer pool */

@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FileOutlineController.m 13296 2012-05-14 00:00:19Z livings124 $
+ * $Id: FileOutlineController.m 13340 2012-06-10 02:35:58Z livings124 $
  *
  * Copyright (c) 2008-2012 Transmission authors and contributors
  *
@@ -564,7 +564,7 @@ typedef enum
             action: @selector(setPriority:) keyEquivalent: @""];
     [item setTarget: self];
     [item setTag: FILE_PRIORITY_HIGH_TAG];
-    [item setImage: [NSImage imageNamed: @"PriorityHighTemplate.png"]];
+    [item setImage: [NSImage imageNamed: @"PriorityHighTemplate"]];
     [priorityMenu addItem: item];
     [item release];
     
@@ -572,7 +572,7 @@ typedef enum
             action: @selector(setPriority:) keyEquivalent: @""];
     [item setTarget: self];
     [item setTag: FILE_PRIORITY_NORMAL_TAG];
-    [item setImage: [NSImage imageNamed: @"PriorityNormalTemplate.png"]];
+    [item setImage: [NSImage imageNamed: @"PriorityNormalTemplate"]];
     [priorityMenu addItem: item];
     [item release];
     
@@ -580,7 +580,7 @@ typedef enum
             action: @selector(setPriority:) keyEquivalent: @""];
     [item setTarget: self];
     [item setTag: FILE_PRIORITY_LOW_TAG];
-    [item setImage: [NSImage imageNamed: @"PriorityLowTemplate.png"]];
+    [item setImage: [NSImage imageNamed: @"PriorityLowTemplate"]];
     [priorityMenu addItem: item];
     [item release];
     

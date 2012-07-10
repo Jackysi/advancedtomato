@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: webseed.c 13105 2011-12-10 18:42:52Z jordan $
+ * $Id: webseed.c 13361 2012-07-01 02:17:35Z jordan $
  */
 
 #include <string.h> /* strlen() */
@@ -512,7 +512,9 @@ task_request_next_chunk( struct tr_webseed_task * t )
 }
 
 bool
-tr_webseedGetSpeed_Bps( const tr_webseed * w, uint64_t now, int * setme_Bps )
+tr_webseedGetSpeed_Bps( const tr_webseed * w,
+                        uint64_t           now,
+                        unsigned int     * setme_Bps )
 {
     const bool is_active = webseed_has_tasks( w );
     *setme_Bps = is_active ? tr_bandwidthGetPieceSpeed_Bps( &w->bandwidth, now, TR_DOWN ) : 0;
@@ -522,7 +524,7 @@ tr_webseedGetSpeed_Bps( const tr_webseed * w, uint64_t now, int * setme_Bps )
 bool
 tr_webseedIsActive( const tr_webseed * w )
 {
-    int Bps = 0;
+    unsigned int Bps = 0;
     return tr_webseedGetSpeed_Bps( w, tr_time_msec(), &Bps ) && ( Bps > 0 );
 }
 
