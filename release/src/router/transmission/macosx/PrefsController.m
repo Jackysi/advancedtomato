@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: PrefsController.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: PrefsController.m 13352 2012-06-18 01:33:27Z livings124 $
  *
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *
@@ -25,8 +25,10 @@
 #import "PrefsController.h"
 #import "BlocklistDownloaderViewController.h"
 #import "BlocklistScheduler.h"
+#import "Controller.h"
 #import "PortChecker.h"
 #import "BonjourController.h"
+#import "NSApplicationAdditions.h"
 #import "NSStringAdditions.h"
 #import "UKKQueue.h"
 
@@ -65,21 +67,12 @@
 
 @implementation PrefsController
 
-tr_session * fHandle;
-+ (void) setHandle: (tr_session *) handle
-{
-    fHandle = handle;
-}
-
-+ (tr_session *) handle
-{
-    return fHandle;
-}
-
-- (id) init
+- (id) initWithHandle: (tr_session *) handle
 {
     if ((self = [super initWithWindowNibName: @"PrefsWindow"]))
     {
+        fHandle = handle;
+        
         fDefaults = [NSUserDefaults standardUserDefaults];
         
         //check for old version download location (before 1.1)
@@ -100,10 +93,9 @@ tr_session * fHandle;
             [fDefaults setObject: blocklistDate forKey: @"BlocklistNewLastUpdate"];
             [fDefaults removeObjectForKey: @"BlocklistLastUpdate"];
             
-            NSString * blocklistDir = [NSHomeDirectory() stringByAppendingPathComponent:
-                                        @"/Library/Application Support/Transmission/blocklists/"];
-            [[NSFileManager defaultManager] moveItemAtPath: [blocklistDir stringByAppendingPathComponent: @"level1.bin"]
-                toPath: [blocklistDir stringByAppendingPathComponent: [NSString stringWithUTF8String: DEFAULT_BLOCKLIST_FILENAME]]
+            NSURL * blocklistDir = [[[[NSFileManager defaultManager] URLsForDirectory: NSApplicationDirectory inDomains: NSUserDomainMask] objectAtIndex: 0] URLByAppendingPathComponent: @"Transmission/blocklists/"];
+            [[NSFileManager defaultManager] moveItemAtURL: [blocklistDir URLByAppendingPathComponent: @"level1.bin"]
+                toURL: [blocklistDir URLByAppendingPathComponent: [NSString stringWithUTF8String: DEFAULT_BLOCKLIST_FILENAME]]
                 error: nil];
         }
         
@@ -169,6 +161,9 @@ tr_session * fHandle;
 {
     fHasLoaded = YES;
     
+    if ([NSApp isOnLionOrBetter])
+        [[self window] setRestorationClass: [self class]];
+    
     NSToolbar * toolbar = [[NSToolbar alloc] initWithIdentifier: @"Preferences Toolbar"];
     [toolbar setDelegate: self];
     [toolbar setAllowsUserCustomization: NO];
@@ -180,10 +175,19 @@ tr_session * fHandle;
     
     [self setPrefView: nil];
     
-    [fBuiltInGrowlButton setState: [fDefaults boolForKey: @"DisplayNotifications"]];
-    const BOOL growlRunning = [GrowlApplicationBridge isGrowlRunning];
-    [fBuiltInGrowlButton setHidden: growlRunning];
-    [fGrowlInstalledField setHidden: !growlRunning];
+    if ([GrowlApplicationBridge isGrowlRunning])
+    {
+        [fBuiltInGrowlButton setHidden: YES];
+        [fGrowlAppButton setHidden: NO];
+#warning remove NO
+        [fGrowlAppButton setEnabled:NO && [GrowlApplicationBridge isGrowlURLSchemeAvailable]];
+    }
+    else
+    {
+        [fBuiltInGrowlButton setHidden: NO];
+        [fGrowlAppButton setHidden: YES];
+        [fBuiltInGrowlButton setState: [fDefaults boolForKey: @"DisplayNotifications"]];
+    }
     
     //set download folder
     [fFolderPopUp selectItemAtIndex: [fDefaults boolForKey: @"DownloadLocationConstant"] ? DOWNLOAD_FOLDER : DOWNLOAD_TORRENT];
@@ -264,7 +268,7 @@ tr_session * fHandle;
     else if ([ident isEqualToString: TOOLBAR_TRANSFERS])
     {
         [item setLabel: NSLocalizedString(@"Transfers", "Preferences -> toolbar item title")];
-        [item setImage: [NSImage imageNamed: @"Transfers.png"]];
+        [item setImage: [NSImage imageNamed: @"Transfers"]];
         [item setTarget: self];
         [item setAction: @selector(setPrefView:)];
         [item setAutovalidates: NO];
@@ -272,7 +276,7 @@ tr_session * fHandle;
     else if ([ident isEqualToString: TOOLBAR_GROUPS])
     {
         [item setLabel: NSLocalizedString(@"Groups", "Preferences -> toolbar item title")];
-        [item setImage: [NSImage imageNamed: @"Groups.png"]];
+        [item setImage: [NSImage imageNamed: @"Groups"]];
         [item setTarget: self];
         [item setAction: @selector(setPrefView:)];
         [item setAutovalidates: NO];
@@ -280,7 +284,7 @@ tr_session * fHandle;
     else if ([ident isEqualToString: TOOLBAR_BANDWIDTH])
     {
         [item setLabel: NSLocalizedString(@"Bandwidth", "Preferences -> toolbar item title")];
-        [item setImage: [NSImage imageNamed: @"Bandwidth.png"]];
+        [item setImage: [NSImage imageNamed: @"Bandwidth"]];
         [item setTarget: self];
         [item setAction: @selector(setPrefView:)];
         [item setAutovalidates: NO];
@@ -304,7 +308,7 @@ tr_session * fHandle;
     else if ([ident isEqualToString: TOOLBAR_REMOTE])
     {
         [item setLabel: NSLocalizedString(@"Remote", "Preferences -> toolbar item title")];
-        [item setImage: [NSImage imageNamed: @"Remote.png"]];
+        [item setImage: [NSImage imageNamed: @"Remote"]];
         [item setTarget: self];
         [item setAction: @selector(setPrefView:)];
         [item setAutovalidates: NO];
@@ -332,6 +336,12 @@ tr_session * fHandle;
 - (NSArray *) toolbarDefaultItemIdentifiers: (NSToolbar *) toolbar
 {
     return [self toolbarAllowedItemIdentifiers: toolbar];
+}
+
++ (void) restoreWindowWithIdentifier: (NSString *) identifier state: (NSCoder *) state completionHandler: (void (^)(NSWindow *, NSError *)) completionHandler
+{
+    NSWindow * window = [[(Controller *)[NSApp delegate] prefsController] window];
+    completionHandler(window, nil);
 }
 
 //for a beta release, always use the beta appcast
@@ -367,7 +377,7 @@ tr_session * fHandle;
 
 - (void) setRandomPortOnStart: (id) sender
 {
-    tr_sessionSetPeerPortRandomOnStart(fHandle, [sender state] == NSOnState);
+    tr_sessionSetPeerPortRandomOnStart(fHandle, [(NSButton *)sender state] == NSOnState);
 }
 
 - (void) setNat: (id) sender
@@ -411,15 +421,15 @@ tr_session * fHandle;
     {
         case PORT_STATUS_OPEN:
             [fPortStatusField setStringValue: NSLocalizedString(@"Port is open", "Preferences -> Network -> port status")];
-            [fPortStatusImage setImage: [NSImage imageNamed: @"GreenDot.png"]];
+            [fPortStatusImage setImage: [NSImage imageNamed: @"GreenDot"]];
             break;
         case PORT_STATUS_CLOSED:
             [fPortStatusField setStringValue: NSLocalizedString(@"Port is closed", "Preferences -> Network -> port status")];
-            [fPortStatusImage setImage: [NSImage imageNamed: @"RedDot.png"]];
+            [fPortStatusImage setImage: [NSImage imageNamed: @"RedDot"]];
             break;
         case PORT_STATUS_ERROR:
             [fPortStatusField setStringValue: NSLocalizedString(@"Port check site is down", "Preferences -> Network -> port status")];
-            [fPortStatusImage setImage: [NSImage imageNamed: @"YellowDot.png"]];
+            [fPortStatusImage setImage: [NSImage imageNamed: @"YellowDot"]];
             break;
         default:
             NSAssert1(NO, @"Port checker returned invalid status: %d", [fPortChecker status]);
@@ -433,8 +443,7 @@ tr_session * fHandle;
 {
     NSMutableArray * sounds = [NSMutableArray array];
     
-    NSArray * directories = NSSearchPathForDirectoriesInDomains(NSAllLibrariesDirectory,
-                                NSUserDomainMask | NSLocalDomainMask | NSSystemDomainMask, YES);
+    NSArray * directories = NSSearchPathForDirectoriesInDomains(NSAllLibrariesDirectory, NSUserDomainMask | NSLocalDomainMask | NSSystemDomainMask, YES);
     
     for (NSString * directory in directories)
     {
@@ -735,9 +744,14 @@ tr_session * fHandle;
 
 - (IBAction) setBuiltInGrowlEnabled: (id) sender
 {
-    const BOOL enable = [sender state] == NSOnState;
+    const BOOL enable = [(NSButton *)sender state] == NSOnState;
     [fDefaults setBool: enable forKey: @"DisplayNotifications"];
     [GrowlApplicationBridge setShouldUseBuiltInNotifications: enable];
+}
+
+- (IBAction) openGrowlApp: (id) sender
+{
+    [GrowlApplicationBridge openGrowlPreferences: YES];
 }
 
 - (void) resetWarnings: (id) sender

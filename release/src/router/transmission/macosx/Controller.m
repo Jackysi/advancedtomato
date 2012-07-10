@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Controller.m 13292 2012-04-28 23:56:53Z livings124 $
+ * $Id: Controller.m 13354 2012-06-22 11:42:50Z livings124 $
  * 
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *
@@ -156,6 +156,10 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 }
 
 @implementation Controller
+
+#warning remove ivars in header when 64-bit only (or it compiles in 32-bit mode)
+@synthesize prefsController = fPrefsController;
+@synthesize messageWindowController = fMessageController;
 
 + (void) initialize
 {
@@ -337,8 +341,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         
         fInfoController = [[InfoWindowController alloc] init];
         
-        [PrefsController setHandle: fLib];
-        fPrefsController = [[PrefsController alloc] init];
+        fPrefsController = [[PrefsController alloc] initWithHandle: fLib];
         
         fQuitting = NO;
         fGlobalPopoverShown = NO;
@@ -732,6 +735,11 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     tr_sessionClose(fLib);
 }
 
+- (tr_session *) sessionHandle
+{
+    return fLib;
+}
+
 - (void) handleOpenContentsEvent: (NSAppleEventDescriptor *) event replyEvent: (NSAppleEventDescriptor *) replyEvent
 {
     NSString * urlString = nil;
@@ -1058,8 +1066,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 - (void) openCreatedFile: (NSNotification *) notification
 {
     NSDictionary * dict = [notification userInfo];
-    [self openFiles: [NSArray arrayWithObject: [dict objectForKey: @"File"]] addType: ADD_CREATED
-                        forcePath: [dict objectForKey: @"Path"]];
+    [self openFiles: [NSArray arrayWithObject: [dict objectForKey: @"File"]] addType: ADD_CREATED forcePath: [dict objectForKey: @"Path"]];
     [dict release];
 }
 
@@ -1744,22 +1751,28 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         [fInfoController setPreviousTab];
 }
 
-- (void) showMessageWindow: (id) sender
+- (MessageWindowController *) messageWindowController
 {
     if (!fMessageController)
         fMessageController = [[MessageWindowController alloc] init];
-    [fMessageController showWindow: nil];
+    
+    return fMessageController;
+}
+
+- (void) showMessageWindow: (id) sender
+{
+    [[self messageWindowController] showWindow: nil];
 }
 
 - (void) showStatsWindow: (id) sender
 {
-    [[StatsWindowController statsWindow: fLib] showWindow: nil];
+    [[StatsWindowController statsWindow] showWindow: nil];
 }
 
 - (void) updateUI
 {
     CGFloat dlRate = 0.0, ulRate = 0.0;
-    BOOL completed = NO;
+    BOOL anyCompleted = NO;
     for (Torrent * torrent in fTorrents)
     {
         [torrent update];
@@ -1768,7 +1781,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         dlRate += [torrent downloadRate];
         ulRate += [torrent uploadRate];
         
-        completed |= [torrent isFinishedSeeding];
+        anyCompleted |= [torrent isFinishedSeeding];
     }
     
     if (![NSApp isHidden])
@@ -1779,7 +1792,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
             
             [fStatusBar updateWithDownload: dlRate upload: ulRate];
             
-            [fClearCompletedButton setHidden: !completed];
+            [fClearCompletedButton setHidden: !anyCompleted];
         }
 
         //update non-constant parts of info window
@@ -2077,7 +2090,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     for (NSUInteger currentIndex = 1; currentIndex < [rearrangeArray count]; ++currentIndex)
     {
         //manually do the sorting in-place
-        const NSUInteger insertIndex = [rearrangeArray indexOfObject: [rearrangeArray objectAtIndex: currentIndex] inSortedRange: NSMakeRange(0, currentIndex) options: (NSBinarySearchingInsertionIndex | NSBinarySearchingLastEqual) usingComparator: ^(id obj1, id obj2) {
+        const NSUInteger insertIndex = [rearrangeArray indexOfObject: [rearrangeArray objectAtIndex: currentIndex] inSortedRange: NSMakeRange(0, currentIndex) options: (NSBinarySearchingInsertionIndex | NSBinarySearchingLastEqual) usingComparator: ^NSComparisonResult(id obj1, id obj2) {
             for (NSSortDescriptor * descriptor in descriptors)
             {
                 const NSComparisonResult result = [descriptor compareObject: obj1 toObject: obj2];
@@ -2545,7 +2558,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         
         NSPopover * popover = [[NSPopoverLion alloc] init];
         [popover setBehavior: NSPopoverBehaviorTransient];
-        GlobalOptionsPopoverViewController * viewController = [[GlobalOptionsPopoverViewController alloc] initWithHandle: [PrefsController handle]];
+        GlobalOptionsPopoverViewController * viewController = [[GlobalOptionsPopoverViewController alloc] initWithHandle: fLib];
         [popover setContentViewController: viewController];
         [popover setDelegate: self];
         
@@ -2818,7 +2831,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     if (![fDefaults boolForKey: @"AutoImport"])
         return;
     
-    NSString * location = [notification object],
+    NSString * location = [(NSURL *)[notification object] path],
             * path = [fDefaults stringForKey: @"AutoImportDirectory"];
     
     if (location && path && [[[location stringByDeletingLastPathComponent] stringByExpandingTildeInPath]
@@ -2869,10 +2882,10 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
             return [[GroupsController groups] imageForIndex: group];
         }
         else if ([ident isEqualToString: @"DL Image"])
-            return [NSImage imageNamed: @"DownArrowGroupTemplate.png"];
+            return [NSImage imageNamed: @"DownArrowGroupTemplate"];
         else if ([ident isEqualToString: @"UL Image"])
             return [NSImage imageNamed: [fDefaults boolForKey: @"DisplayGroupRowRatio"]
-                                        ? @"YingYangGroupTemplate.png" : @"UpArrowGroupTemplate.png"];
+                                        ? @"YingYangGroupTemplate" : @"UpArrowGroupTemplate"];
         else
         {
             TorrentGroup * group = (TorrentGroup *)item;
@@ -3152,7 +3165,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         else
         {
             if (!torrent && [files count] == 1)
-                [CreatorWindowController createTorrentFile: fLib forFile: [files objectAtIndex: 0]];
+                [CreatorWindowController createTorrentFile: fLib forFile: [NSURL fileURLWithPath: [files objectAtIndex: 0]]];
             else
                 accept = NO;
         }
@@ -3590,7 +3603,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         [item setLabel: NSLocalizedString(@"Create", "Create toolbar item -> label")];
         [item setPaletteLabel: NSLocalizedString(@"Create Torrent File", "Create toolbar item -> palette label")];
         [item setToolTip: NSLocalizedString(@"Create torrent file", "Create toolbar item -> tooltip")];
-        [item setImage: [NSImage imageNamed: @"ToolbarCreateTemplate.png"]];
+        [item setImage: [NSImage imageNamed: @"ToolbarCreateTemplate"]];
         [item setTarget: self];
         [item setAction: @selector(createFile:)];
         [item setAutovalidates: NO];
@@ -3604,7 +3617,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         [item setLabel: NSLocalizedString(@"Open", "Open toolbar item -> label")];
         [item setPaletteLabel: NSLocalizedString(@"Open Torrent Files", "Open toolbar item -> palette label")];
         [item setToolTip: NSLocalizedString(@"Open torrent files", "Open toolbar item -> tooltip")];
-        [item setImage: [NSImage imageNamed: @"ToolbarOpenTemplate.png"]];
+        [item setImage: [NSImage imageNamed: @"ToolbarOpenTemplate"]];
         [item setTarget: self];
         [item setAction: @selector(openShowSheet:)];
         [item setAutovalidates: NO];
@@ -3618,7 +3631,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         [item setLabel: NSLocalizedString(@"Open Address", "Open address toolbar item -> label")];
         [item setPaletteLabel: NSLocalizedString(@"Open Torrent Address", "Open address toolbar item -> palette label")];
         [item setToolTip: NSLocalizedString(@"Open torrent web address", "Open address toolbar item -> tooltip")];
-        [item setImage: [NSImage imageNamed: @"ToolbarOpenWebTemplate.png"]];
+        [item setImage: [NSImage imageNamed: @"ToolbarOpenWebTemplate"]];
         [item setTarget: self];
         [item setAction: @selector(openURLShowSheet:)];
         [item setAutovalidates: NO];
@@ -3632,7 +3645,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         [item setLabel: NSLocalizedString(@"Remove", "Remove toolbar item -> label")];
         [item setPaletteLabel: NSLocalizedString(@"Remove Selected", "Remove toolbar item -> palette label")];
         [item setToolTip: NSLocalizedString(@"Remove selected transfers", "Remove toolbar item -> tooltip")];
-        [item setImage: [NSImage imageNamed: @"ToolbarRemoveTemplate.png"]];
+        [item setImage: [NSImage imageNamed: @"ToolbarRemoveTemplate"]];
         [item setTarget: self];
         [item setAction: @selector(removeNoDelete:)];
         [item setVisibilityPriority: NSToolbarItemVisibilityPriorityHigh];
@@ -3647,7 +3660,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         [item setLabel: NSLocalizedString(@"Inspector", "Inspector toolbar item -> label")];
         [item setPaletteLabel: NSLocalizedString(@"Toggle Inspector", "Inspector toolbar item -> palette label")];
         [item setToolTip: NSLocalizedString(@"Toggle the torrent inspector", "Inspector toolbar item -> tooltip")];
-        [item setImage: [NSImage imageNamed: @"ToolbarInfoTemplate.png"]];
+        [item setImage: [NSImage imageNamed: @"ToolbarInfoTemplate"]];
         [item setTarget: self];
         [item setAction: @selector(showInfo:)];
         
@@ -3677,12 +3690,12 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         [groupItem setIdentifiers: [NSArray arrayWithObjects: TOOLBAR_PAUSE_ALL, TOOLBAR_RESUME_ALL, nil]];
         
         [segmentedCell setTag: TOOLBAR_PAUSE_TAG forSegment: TOOLBAR_PAUSE_TAG];
-        [segmentedControl setImage: [NSImage imageNamed: @"ToolbarPauseAllTemplate.png"] forSegment: TOOLBAR_PAUSE_TAG];
+        [segmentedControl setImage: [NSImage imageNamed: @"ToolbarPauseAllTemplate"] forSegment: TOOLBAR_PAUSE_TAG];
         [segmentedCell setToolTip: NSLocalizedString(@"Pause all transfers",
                                     "All toolbar item -> tooltip") forSegment: TOOLBAR_PAUSE_TAG];
         
         [segmentedCell setTag: TOOLBAR_RESUME_TAG forSegment: TOOLBAR_RESUME_TAG];
-        [segmentedControl setImage: [NSImage imageNamed: @"ToolbarResumeAllTemplate.png"] forSegment: TOOLBAR_RESUME_TAG];
+        [segmentedControl setImage: [NSImage imageNamed: @"ToolbarResumeAllTemplate"] forSegment: TOOLBAR_RESUME_TAG];
         [segmentedCell setToolTip: NSLocalizedString(@"Resume all transfers",
                                     "All toolbar item -> tooltip") forSegment: TOOLBAR_RESUME_TAG];
         
@@ -3719,12 +3732,12 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         [groupItem setIdentifiers: [NSArray arrayWithObjects: TOOLBAR_PAUSE_SELECTED, TOOLBAR_RESUME_SELECTED, nil]];
         
         [segmentedCell setTag: TOOLBAR_PAUSE_TAG forSegment: TOOLBAR_PAUSE_TAG];
-        [segmentedControl setImage: [NSImage imageNamed: @"ToolbarPauseSelectedTemplate.png"] forSegment: TOOLBAR_PAUSE_TAG];
+        [segmentedControl setImage: [NSImage imageNamed: @"ToolbarPauseSelectedTemplate"] forSegment: TOOLBAR_PAUSE_TAG];
         [segmentedCell setToolTip: NSLocalizedString(@"Pause selected transfers",
                                     "Selected toolbar item -> tooltip") forSegment: TOOLBAR_PAUSE_TAG];
         
         [segmentedCell setTag: TOOLBAR_RESUME_TAG forSegment: TOOLBAR_RESUME_TAG];
-        [segmentedControl setImage: [NSImage imageNamed: @"ToolbarResumeSelectedTemplate.png"] forSegment: TOOLBAR_RESUME_TAG];
+        [segmentedControl setImage: [NSImage imageNamed: @"ToolbarResumeSelectedTemplate"] forSegment: TOOLBAR_RESUME_TAG];
         [segmentedCell setToolTip: NSLocalizedString(@"Resume selected transfers",
                                     "Selected toolbar item -> tooltip") forSegment: TOOLBAR_RESUME_TAG];
         
@@ -3745,7 +3758,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         [item setLabel: NSLocalizedString(@"Filter", "Filter toolbar item -> label")];
         [item setPaletteLabel: NSLocalizedString(@"Toggle Filter", "Filter toolbar item -> palette label")];
         [item setToolTip: NSLocalizedString(@"Toggle the filter bar", "Filter toolbar item -> tooltip")];
-        [item setImage: [NSImage imageNamed: @"ToolbarFilterTemplate.png"]];
+        [item setImage: [NSImage imageNamed: @"ToolbarFilterTemplate"]];
         [item setTarget: self];
         [item setAction: @selector(toggleFilterBar:)];
         

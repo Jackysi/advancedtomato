@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: BadgeView.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: BadgeView.m 13340 2012-06-10 02:35:58Z livings124 $
  *
  * Copyright (c) 2007-2012 Transmission authors and contributors
  *
@@ -76,7 +76,7 @@
     
     if (fQuitting)
     {
-        NSImage * quitBadge = [NSImage imageNamed: @"QuitBadge.png"];
+        NSImage * quitBadge = [NSImage imageNamed: @"QuitBadge"];
         [self badge: quitBadge string: NSLocalizedString(@"Quitting", "Dock Badger -> quit")
                 atHeight: (NSHeight(rect) - [quitBadge size].height) * 0.5 adjustForQuit: YES];
         return;
@@ -87,13 +87,13 @@
     CGFloat bottom = 0.0;
     if (upload)
     {
-        NSImage * uploadBadge = [NSImage imageNamed: @"UploadBadge.png"];
+        NSImage * uploadBadge = [NSImage imageNamed: @"UploadBadge"];
         [self badge: uploadBadge string: [NSString stringForSpeedAbbrev: fUploadRate] atHeight: bottom adjustForQuit: NO];
         if (download)
             bottom += [uploadBadge size].height + BETWEEN_PADDING; //download rate above upload rate
     }
     if (download)
-        [self badge: [NSImage imageNamed: @"DownloadBadge.png"] string: [NSString stringForSpeedAbbrev: fDownloadRate]
+        [self badge: [NSImage imageNamed: @"DownloadBadge"] string: [NSString stringForSpeedAbbrev: fDownloadRate]
                 atHeight: bottom adjustForQuit: NO];
 }
 

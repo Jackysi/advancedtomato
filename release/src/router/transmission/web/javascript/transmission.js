@@ -183,7 +183,9 @@ Transmission.prototype =
 			context_move_top:             function() { tr.moveTop(); },
 			context_move_up:              function() { tr.moveUp(); },
 			context_move_down:            function() { tr.moveDown(); },
-			context_move_bottom:          function() { tr.moveBottom(); }
+			context_move_bottom:          function() { tr.moveBottom(); },
+			context_select_all:           function() { tr.selectAll(); },
+			context_deselect_all:         function() { tr.deselectAll(); }
 		};
 
 		// Set up the context menu
@@ -680,6 +682,10 @@ Transmission.prototype =
 				this.setSortDirection(dir);
 				break;
 
+			case 'toggle_notifications':
+				Notifications && Notifications.toggle();
+				break;
+
 			default:
 				console.log('unhandled: ' + id);
 				break;
@@ -723,6 +729,16 @@ Transmission.prototype =
 				// do we need more info for this torrent?
 				if(!('name' in t.fields) || !('status' in t.fields))
 					needinfo.push(id);
+
+				t.notifyOnFieldChange('status', $.proxy(function (newValue, oldValue) {
+					if (oldValue === Torrent._StatusDownload && (newValue == Torrent._StatusSeed || newValue == Torrent._StatusSeedWait)) {
+						$(this).trigger('downloadComplete', [t]);
+					} else if (oldValue === Torrent._StatusSeed && newValue === Torrent._StatusStopped && t.isFinished()) {
+						$(this).trigger('seedingComplete', [t]);
+					} else {
+						$(this).trigger('statusChange', [t]);
+					}
+				}, this));
 			}
 		}
 

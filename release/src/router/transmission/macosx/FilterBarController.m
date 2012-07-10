@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FilterBarController.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: FilterBarController.m 13340 2012-06-10 02:35:58Z livings124 $
  * 
  * Copyright (c) 2011-2012 Transmission authors and contributors
  *
@@ -374,7 +374,7 @@
     NSString * toolTip;
     if (groupIndex == GROUP_FILTER_ALL_TAG)
     {
-        icon = [NSImage imageNamed: @"PinTemplate.png"];
+        icon = [NSImage imageNamed: @"PinTemplate"];
         toolTip = NSLocalizedString(@"All Groups", "Groups -> Button");
     }
     else

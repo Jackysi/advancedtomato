@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-mgr.c 13123 2011-12-31 21:28:53Z jordan $
+ * $Id: peer-mgr.c 13361 2012-07-01 02:17:35Z jordan $
  */
 
 #include <assert.h>
@@ -17,6 +17,8 @@
 #include <stdlib.h> /* qsort */
 
 #include <event2/event.h>
+
+#include <libutp/utp.h>
 
 #include "transmission.h"
 #include "announcer.h"
@@ -2492,10 +2494,20 @@ tr_peerUpdateProgress( tr_torrent * tor, tr_peer * peer )
         const float true_count = tr_bitfieldCountTrueBits( have );
 
         if( tr_torrentHasMetadata( tor ) )
+        {
             peer->progress = true_count / tor->info.pieceCount;
+        }
         else /* without pieceCount, this result is only a best guess... */
+        {
             peer->progress = true_count / ( have->bit_count + 1 );
+        }
     }
+
+    /* clamp the progress range */
+    if ( peer->progress < 0.0 )
+        peer->progress = 0.0;
+    if ( peer->progress > 1.0 )
+        peer->progress = 1.0;
 
     if( peer->atom && ( peer->progress >= 1.0 ) )
         atomSetSeed( tor->torrentPeers, peer->atom );
@@ -2664,7 +2676,7 @@ tr_peerMgrWebSpeeds_KBps( const tr_torrent * tor )
     assert( webseedCount == tor->info.webseedCount );
 
     for( i=0; i<webseedCount; ++i ) {
-        int Bps;
+        unsigned int Bps;
         if( tr_webseedGetSpeed_Bps( webseeds[i], now, &Bps ) )
             ret[i] = Bps / (double)tr_speed_K;
         else
@@ -2674,7 +2686,7 @@ tr_peerMgrWebSpeeds_KBps( const tr_torrent * tor )
     return ret;
 }
 
-int
+unsigned int
 tr_peerGetPieceSpeed_Bps( const tr_peer * peer, uint64_t now, tr_direction direction )
 {
     return peer->io ? tr_peerIoGetPieceSpeed_Bps( peer->io, now, direction ) : 0.0;
@@ -3011,7 +3023,7 @@ isNew( const tr_peer * peer )
 static int
 getRate( const tr_torrent * tor, struct peer_atom * atom, uint64_t now )
 {
-    int Bps;
+    unsigned int Bps;
 
     if( tr_torrentIsSeed( tor ) )
         Bps = tr_peerGetPieceSpeed_Bps( atom->peer, now, TR_CLIENT_TO_PEER );
@@ -3037,8 +3049,8 @@ isBandwidthMaxedOut( const tr_bandwidth * b,
     if( !tr_bandwidthIsLimited( b, dir ) )
         return false;
     else {
-        const int got = tr_bandwidthGetPieceSpeed_Bps( b, now_msec, dir );
-        const int want = tr_bandwidthGetDesiredSpeed_Bps( b, dir );
+        const unsigned int got = tr_bandwidthGetPieceSpeed_Bps( b, now_msec, dir );
+        const unsigned int want = tr_bandwidthGetDesiredSpeed_Bps( b, dir );
         return got >= want;
     }
 }

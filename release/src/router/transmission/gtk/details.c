@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: details.c 13192 2012-02-03 17:12:17Z jordan $
+ * $Id: details.c 13361 2012-07-01 02:17:35Z jordan $
  */
 
 #include <stddef.h>
@@ -211,7 +211,7 @@ refreshOptions( struct DetailsImpl * di, tr_torrent ** torrents, int n )
 
     /* down_limit_spin */
     if( n ) {
-        const int baseline = tr_torrentGetSpeedLimit_KBps( torrents[0], TR_DOWN );
+        const unsigned int baseline = tr_torrentGetSpeedLimit_KBps( torrents[0], TR_DOWN );
         int i;
         for( i=1; i<n; ++i )
             if( baseline != ( tr_torrentGetSpeedLimit_KBps( torrents[i], TR_DOWN ) ) )
@@ -235,7 +235,7 @@ refreshOptions( struct DetailsImpl * di, tr_torrent ** torrents, int n )
 
     /* up_limit_sping */
     if( n ) {
-        const int baseline = tr_torrentGetSpeedLimit_KBps( torrents[0], TR_UP );
+        const unsigned int  baseline = tr_torrentGetSpeedLimit_KBps( torrents[0], TR_UP );
         int i;
         for( i=1; i<n; ++i )
             if( baseline != ( tr_torrentGetSpeedLimit_KBps( torrents[i], TR_UP ) ) )

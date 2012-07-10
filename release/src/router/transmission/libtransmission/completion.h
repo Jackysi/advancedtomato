@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: completion.h 12918 2011-09-26 06:18:48Z jordan $
+ * $Id: completion.h 13310 2012-05-20 14:14:59Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -87,12 +87,6 @@ static inline uint64_t
 tr_cpHaveTotal( const tr_completion * cp )
 {
     return cp->sizeNow;
-}
-
-static inline uint64_t
-tr_cpLeftUntilComplete( const tr_completion * cp )
-{
-    return tr_torrentInfo(cp->tor)->totalSize - cp->sizeNow;
 }
 
 static inline bool tr_cpHasAll( const tr_completion * cp )

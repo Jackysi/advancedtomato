@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: StatsWindowController.h 13162 2012-01-14 17:12:04Z livings124 $
+ * $Id: StatsWindowController.h 13318 2012-05-27 22:31:58Z livings124 $
  *
  * Copyright (c) 2007-2012 Transmission authors and contributors
  *
@@ -34,7 +34,7 @@
     NSTimer * fTimer;
 }
 
-+ (StatsWindowController *) statsWindow: (tr_session *) lib;
++ (StatsWindowController *) statsWindow;
 
 - (void) resetStats: (id) sender;
 

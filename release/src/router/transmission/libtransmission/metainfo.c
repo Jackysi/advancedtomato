@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: metainfo.c 12848 2011-09-06 16:45:48Z jordan $
+ * $Id: metainfo.c 13311 2012-05-20 14:47:18Z jordan $
  */
 
 #include <assert.h>
@@ -267,6 +267,11 @@ tr_convertAnnounceToScrape( const char * announce )
         memcpy( walk, suffix, suffix_len ); walk += suffix_len;
         *walk++ = '\0';
         assert( walk - scrape == (int)alloc_len );
+    }
+    /* Some torrents with UDP annouce URLs don't have /announce. */
+    else if ( !strncmp( announce, "udp:", 4 ) )
+    {
+        scrape = tr_strdup( announce );
     }
 
     return scrape;

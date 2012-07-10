@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: announcer-http.c 13300 2012-05-17 17:40:31Z jordan $
+ * $Id: announcer-http.c 13310 2012-05-20 14:14:59Z jordan $
  */
 
 #include <limits.h> /* USHRT_MAX */
@@ -81,7 +81,7 @@ announce_url_new( const tr_session * session, const tr_announce_request * req )
                               req->port,
                               req->up,
                               req->down,
-                              req->left,
+                              req->leftUntilComplete,
                               req->numwant,
                               req->key );
 

@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: daemon.c 13195 2012-02-03 21:21:52Z jordan $
+ * $Id: daemon.c 13330 2012-05-30 17:59:52Z jordan $
  */
 
 #include <errno.h>
@@ -57,8 +57,13 @@
 #define SPEED_G_STR "GB/s"
 #define SPEED_T_STR "TB/s"
 
+#define LOGFILE_MODE_STR "a+"
+
 static bool paused = false;
 static bool closing = false;
+static bool seenHUP = false;
+static const char *logfileName = NULL;
+static FILE *logfile = NULL;
 static tr_session * mySession = NULL;
 
 /***
@@ -141,19 +146,41 @@ gotsig( int sig )
     {
         case SIGHUP:
         {
-            tr_benc settings;
-            const char * configDir = tr_sessionGetConfigDir( mySession );
-            tr_inf( "Reloading settings from \"%s\"", configDir );
-            tr_bencInitDict( &settings, 0 );
-            tr_bencDictAddBool( &settings, TR_PREFS_KEY_RPC_ENABLED, true );
-            tr_sessionLoadSettings( &settings, configDir, MY_NAME );
-            tr_sessionSet( mySession, &settings );
-            tr_bencFree( &settings );
-            tr_sessionReloadBlocklists( mySession );
+            if( !mySession )
+            {
+                tr_inf( "Deferring reload until session is fully started." );
+                seenHUP = true;
+            }
+            else
+            {
+                tr_benc settings;
+                const char * configDir;
+
+                /* reopen the logfile to allow for log rotation */
+                if( logfileName ) {
+                    logfile = freopen( logfileName, LOGFILE_MODE_STR, logfile );
+                    if( !logfile )
+                        fprintf( stderr, "Couldn't reopen \"%s\": %s\n", logfileName, tr_strerror( errno ) );
+                }
+
+                configDir = tr_sessionGetConfigDir( mySession );
+                tr_inf( "Reloading settings from \"%s\"", configDir );
+                tr_bencInitDict( &settings, 0 );
+                tr_bencDictAddBool( &settings, TR_PREFS_KEY_RPC_ENABLED, true );
+                tr_sessionLoadSettings( &settings, configDir, MY_NAME );
+                tr_sessionSet( mySession, &settings );
+                tr_bencFree( &settings );
+                tr_sessionReloadBlocklists( mySession );
+            }
             break;
         }
 
         default:
+            tr_err( "Unexpected signal(%d) in daemon, closing.", sig);
+            /* no break */
+
+        case SIGINT:
+        case SIGTERM:
             closing = true;
             break;
     }
@@ -339,8 +366,8 @@ main( int argc, char ** argv )
     const char * configDir = NULL;
     const char * pid_filename;
     dtr_watchdir * watchdir = NULL;
-    FILE * logfile = NULL;
     bool pidfile_created = false;
+    tr_session * session = NULL;
 
     signal( SIGINT, gotsig );
     signal( SIGTERM, gotsig );
@@ -377,8 +404,10 @@ main( int argc, char ** argv )
                       break;
             case 'd': dumpSettings = true;
                       break;
-            case 'e': logfile = fopen( optarg, "a+" );
-                      if( logfile == NULL )
+            case 'e': logfile = fopen( optarg, LOGFILE_MODE_STR );
+                      if( logfile )
+                          logfileName = optarg;
+                      else
                           fprintf( stderr, "Couldn't open \"%s\": %s\n", optarg, tr_strerror( errno ) );
                       break;
             case 'f': foreground = true;
@@ -483,10 +512,10 @@ main( int argc, char ** argv )
     tr_formatter_mem_init( MEM_K, MEM_K_STR, MEM_M_STR, MEM_G_STR, MEM_T_STR );
     tr_formatter_size_init( DISK_K, DISK_K_STR, DISK_M_STR, DISK_G_STR, DISK_T_STR );
     tr_formatter_speed_init( SPEED_K, SPEED_K_STR, SPEED_M_STR, SPEED_G_STR, SPEED_T_STR );
-    mySession = tr_sessionInit( "daemon", configDir, true, &settings );
-    tr_sessionSetRPCCallback( mySession, on_rpc_callback, NULL );
+    session = tr_sessionInit( "daemon", configDir, true, &settings );
+    tr_sessionSetRPCCallback( session, on_rpc_callback, NULL );
     tr_ninf( NULL, "Using settings from \"%s\"", configDir );
-    tr_sessionSaveSettings( mySession, configDir, &settings );
+    tr_sessionSaveSettings( session, configDir, &settings );
 
     pid_filename = NULL;
     tr_bencDictFindStr( &settings, PREF_KEY_PIDFILE, &pid_filename );
@@ -506,6 +535,12 @@ main( int argc, char ** argv )
 
     if( tr_bencDictFindBool( &settings, TR_PREFS_KEY_RPC_AUTH_REQUIRED, &boolVal ) && boolVal )
         tr_ninf( MY_NAME, "requiring authentication" );
+
+    mySession = session;
+
+    /* If we got a SIGHUP during startup, process that now. */
+    if( seenHUP )
+        gotsig( SIGHUP );
 
     /* maybe add a watchdir */
     {

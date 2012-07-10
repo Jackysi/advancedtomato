@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: MessageWindowController.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: MessageWindowController.m 13352 2012-06-18 01:33:27Z livings124 $
  *
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -23,6 +23,7 @@
  *****************************************************************************/
 
 #import "MessageWindowController.h"
+#import "Controller.h"
 #import "NSApplicationAdditions.h"
 #import "NSMutableArrayAdditions.h"
 #import "NSStringAdditions.h"
@@ -56,6 +57,9 @@
     NSWindow * window = [self window];
     [window setFrameAutosaveName: @"MessageWindowFrame"];
     [window setFrameUsingName: @"MessageWindowFrame"];
+    
+    if ([NSApp isOnLionOrBetter])
+        [window setRestorationClass: [self class]];
     
     [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(resizeColumn)
         name: @"NSTableViewColumnDidResizeNotification" object: fMessageTable];
@@ -149,8 +153,7 @@
 {
     if (!fTimer)
     {
-        fTimer = [NSTimer scheduledTimerWithTimeInterval: UPDATE_SECONDS target: self
-                    selector: @selector(updateLog:) userInfo: nil repeats: YES];
+        fTimer = [NSTimer scheduledTimerWithTimeInterval: UPDATE_SECONDS target: self selector: @selector(updateLog:) userInfo: nil repeats: YES];
         [self updateLog: nil];
     }
 }
@@ -159,6 +162,21 @@
 {
     [fTimer invalidate];
     fTimer = nil;
+}
+
++ (void) restoreWindowWithIdentifier: (NSString *) identifier state: (NSCoder *) state completionHandler: (void (^)(NSWindow *, NSError *)) completionHandler
+{
+    NSAssert1([identifier isEqualToString: @"MessageWindow"], @"Trying to restore unexpected identifier %@", identifier);
+    
+    NSWindow * window = [[(Controller *)[NSApp delegate] messageWindowController] window];
+    completionHandler(window, nil);
+}
+
+- (void) window: (NSWindow *) window didDecodeRestorableState: (NSCoder *) coder
+{
+    [fTimer invalidate];
+    fTimer = [NSTimer scheduledTimerWithTimeInterval: UPDATE_SECONDS target: self selector: @selector(updateLog:) userInfo: nil repeats: YES];
+    [self updateLog: nil];
 }
 
 - (void) updateLog: (NSTimer *) timer
@@ -250,11 +268,11 @@
         switch (level)
         {
             case TR_MSG_ERR:
-                return [NSImage imageNamed: @"RedDot.png"];
+                return [NSImage imageNamed: @"RedDot"];
             case TR_MSG_INF:
-                return [NSImage imageNamed: @"YellowDot.png"];
+                return [NSImage imageNamed: @"YellowDot"];
             case TR_MSG_DBG:
-                return [NSImage imageNamed: @"PurpleDot.png"];
+                return [NSImage imageNamed: @"PurpleDot"];
             default:
                 NSAssert1(NO, @"Unknown message log level: %d", level);
                 return nil;

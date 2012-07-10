@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: announcer-common.h 12238 2011-03-26 12:06:04Z jordan $
+ * $Id: announcer-common.h 13310 2012-05-20 14:14:59Z jordan $
  */
 
 #ifndef __LIBTRANSMISSION_ANNOUNCER_MODULE___
@@ -148,7 +148,7 @@ typedef struct
     uint64_t corrupt;
 
     /* the total size of the torrent minus the number of bytes completed */
-    uint64_t left;
+    uint64_t leftUntilComplete;
 
     /* the tracker's announce URL */
     char * url;

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: torrent.c 13203 2012-02-04 03:09:31Z jordan $
+ * $Id: torrent.c 13362 2012-07-01 03:05:36Z jordan $
  */
 
 #include <signal.h> /* signal() */
@@ -153,7 +153,7 @@ bool
 tr_torrentIsPieceTransferAllowed( const tr_torrent  * tor,
                                   tr_direction        direction )
 {
-    int limit;
+    unsigned int limit;
     bool allowed = true;
 
     if( tr_torrentUsesSpeedLimit( tor, direction ) )
@@ -173,22 +173,21 @@ tr_torrentIsPieceTransferAllowed( const tr_torrent  * tor,
 ***/
 
 void
-tr_torrentSetSpeedLimit_Bps( tr_torrent * tor, tr_direction dir, int Bps )
+tr_torrentSetSpeedLimit_Bps( tr_torrent * tor, tr_direction dir, unsigned int Bps )
 {
     assert( tr_isTorrent( tor ) );
     assert( tr_isDirection( dir ) );
-    assert( Bps >= 0 );
 
     if( tr_bandwidthSetDesiredSpeed_Bps( &tor->bandwidth, dir, Bps ) )
         tr_torrentSetDirty( tor );
 }
 void
-tr_torrentSetSpeedLimit_KBps( tr_torrent * tor, tr_direction dir, int KBps )
+tr_torrentSetSpeedLimit_KBps( tr_torrent * tor, tr_direction dir, unsigned int KBps )
 {
     tr_torrentSetSpeedLimit_Bps( tor, dir, toSpeedBytes( KBps ) );
 }
 
-int
+unsigned int
 tr_torrentGetSpeedLimit_Bps( const tr_torrent * tor, tr_direction dir )
 {
     assert( tr_isTorrent( tor ) );
@@ -196,7 +195,7 @@ tr_torrentGetSpeedLimit_Bps( const tr_torrent * tor, tr_direction dir )
 
     return tr_bandwidthGetDesiredSpeed_Bps( &tor->bandwidth, dir );
 }
-int
+unsigned int
 tr_torrentGetSpeedLimit_KBps( const tr_torrent * tor, tr_direction dir )
 {
     return toSpeedKBps( tr_torrentGetSpeedLimit_Bps( tor, dir ) );
@@ -2722,8 +2721,6 @@ removeEmptyFoldersAndJunkFiles( const char * folder )
     }
 }
 
-static bool fileExists( const char * filename, time_t * optional_mtime );
-
 /**
  * This convoluted code does something (seemingly) simple:
  * remove the torrent's local files.
@@ -2762,12 +2759,12 @@ deleteLocalData( tr_torrent * tor, tr_fileFunc func )
     for( f=0; f<tor->info.fileCount; ++f )
     {
         char * filename = tr_buildPath( top, tor->info.files[f].name, NULL );
-        if( !fileExists( filename, NULL ) ) {
+        if( !tr_fileExists( filename, NULL ) ) {
                 char * partial = tr_torrentBuildPartial( tor, f );
                 tr_free( filename );
                 filename = tr_buildPath( top, partial, NULL );
                 tr_free( partial );
-                if( !fileExists( filename, NULL ) ) {
+                if( !tr_fileExists( filename, NULL ) ) {
                         tr_free( filename );
                         filename = NULL;
                 }
@@ -2814,7 +2811,7 @@ deleteLocalData( tr_torrent * tor, tr_fileFunc func )
     for( i=0, n=tr_ptrArraySize(&files); i<n; ++i )
     {
         char * walk = tr_strdup( tr_ptrArrayNth( &files, i ) );
-        while( fileExists( walk, NULL ) && !tr_is_same_file( tmpdir, walk ) )
+        while( tr_fileExists( walk, NULL ) && !tr_is_same_file( tmpdir, walk ) )
         {
             char * tmp = tr_dirname( walk );
             func( walk );
@@ -3054,25 +3051,6 @@ tr_torrentFileCompleted( tr_torrent * tor, tr_file_index_t fileNum )
 ****
 ***/
 
-#ifdef SYS_DARWIN
- #define TR_STAT_MTIME(sb) ((sb).st_mtimespec.tv_sec)
-#else
- #define TR_STAT_MTIME(sb) ((sb).st_mtime)
-#endif
-
-
-static bool
-fileExists( const char * filename, time_t * mtime )
-{
-    struct stat sb;
-    const bool ok = !stat( filename, &sb );
-
-    if( ok && ( mtime != NULL ) )
-        *mtime = TR_STAT_MTIME( sb );
-
-    return ok;
-}
-
 bool
 tr_torrentFindFile2( const tr_torrent * tor, tr_file_index_t fileNum,
                      const char ** base, char ** subpath, time_t * mtime )
@@ -3089,7 +3067,7 @@ tr_torrentFindFile2( const tr_torrent * tor, tr_file_index_t fileNum,
 
     if( b == NULL ) {
         char * filename = tr_buildPath( tor->downloadDir, file->name, NULL );
-        if( fileExists( filename, mtime ) ) {
+        if( tr_fileExists( filename, mtime ) ) {
             b = tor->downloadDir;
             s = file->name;
         }
@@ -3098,7 +3076,7 @@ tr_torrentFindFile2( const tr_torrent * tor, tr_file_index_t fileNum,
 
     if( ( b == NULL ) && ( tor->incompleteDir != NULL ) ) {
         char * filename = tr_buildPath( tor->incompleteDir, file->name, NULL );
-        if( fileExists( filename, mtime ) ) {
+        if( tr_fileExists( filename, mtime ) ) {
             b = tor->incompleteDir;
             s = file->name;
         }
@@ -3110,7 +3088,7 @@ tr_torrentFindFile2( const tr_torrent * tor, tr_file_index_t fileNum,
 
     if( ( b == NULL ) && ( tor->incompleteDir != NULL ) ) {
         char * filename = tr_buildPath( tor->incompleteDir, part, NULL );
-        if( fileExists( filename, mtime ) ) {
+        if( tr_fileExists( filename, mtime ) ) {
             b = tor->incompleteDir;
             s = part;
         }
@@ -3119,7 +3097,7 @@ tr_torrentFindFile2( const tr_torrent * tor, tr_file_index_t fileNum,
 
     if( b == NULL) {
         char * filename = tr_buildPath( tor->downloadDir, part, NULL );
-        if( fileExists( filename, mtime ) ) {
+        if( tr_fileExists( filename, mtime ) ) {
             b = tor->downloadDir;
             s = part;
         }
