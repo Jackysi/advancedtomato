@@ -2626,6 +2626,9 @@ TOP:
 #ifdef TCONFIG_TOR
 	if (strcmp(service, "tor") == 0) {
 		if (action & A_STOP) stop_tor();
+
+		stop_firewall(); start_firewall();		// always restarted
+
 		if (action & A_START) start_tor();
 		goto CLEAR;
 	}
