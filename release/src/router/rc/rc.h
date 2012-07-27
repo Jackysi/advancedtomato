@@ -160,7 +160,11 @@ extern void hotplug_net(void);
 extern void do_static_routes(int add);
 extern int radio_main(int argc, char *argv[]);
 extern int wldist_main(int argc, char *argv[]);
+extern void stop_wireless(void);
+extern void start_wireless(void);
 extern void start_wl(void);
+extern void unload_wl(void);
+extern void load_wl(void);
 #ifdef TCONFIG_IPV6
 extern void enable_ipv6(int enable);
 extern void accept_ra(const char *ifname);
