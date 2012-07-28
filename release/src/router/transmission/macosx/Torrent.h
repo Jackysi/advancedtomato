@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Torrent.h 13334 2012-06-03 23:29:39Z livings124 $
+ * $Id: Torrent.h 13379 2012-07-07 02:14:08Z livings124 $
  *
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -45,6 +45,8 @@
     
     NSIndexSet * fPreviousFinishedIndexes;
     NSDate * fPreviousFinishedIndexesDate;
+    
+    BOOL fRemoveWhenFinishSeeding;
     
     NSInteger fGroupValue;
     
@@ -113,6 +115,8 @@
 
 - (void) setMaxPeerConnect: (uint16_t) count;
 - (uint16_t) maxPeerConnect;
+
+@property (nonatomic) BOOL removeWhenFinishSeeding;
 
 - (BOOL) waitingToStart;
 

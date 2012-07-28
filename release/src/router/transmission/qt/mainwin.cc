@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: mainwin.cc 13264 2012-04-07 00:16:14Z jordan $
+ * $Id: mainwin.cc 13385 2012-07-13 00:29:40Z jordan $
  */
 
 #include <cassert>
@@ -1145,11 +1145,12 @@ TrMainWindow :: openURL( QString url )
 {
     bool ok;
     const QString key = QInputDialog::getText( this,
-                                               tr( "Open URL or Magnet Link" ),
+                                               tr( "Open Link" ),
                                                tr( "Open URL or Magnet Link" ),
                                                QLineEdit::Normal,
                                                url,
-                                               &ok );
+                                               &ok,
+                                               Qt::WindowStaysOnTopHint );
     if( ok && !key.isEmpty( ) )
         mySession.addTorrent( key );
 }
@@ -1336,7 +1337,8 @@ TrMainWindow :: dragEnterEvent( QDragEnterEvent * event )
     const QMimeData * mime = event->mimeData( );
 
     if( mime->hasFormat("application/x-bittorrent")
-            || mime->text().trimmed().endsWith(".torrent", Qt::CaseInsensitive) )
+            || mime->text().trimmed().endsWith(".torrent", Qt::CaseInsensitive)
+            || mime->text().startsWith("magnet:", Qt::CaseInsensitive) )
         event->acceptProposedAction();
 }
 

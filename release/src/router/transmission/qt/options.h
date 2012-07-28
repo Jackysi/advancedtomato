@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: options.h 11092 2010-08-01 20:36:13Z charles $
+ * $Id: options.h 13381 2012-07-09 23:18:40Z jordan $
  */
 
 #ifndef OPTIONS_DIALOG_H
@@ -27,6 +27,7 @@
 #include <QCryptographicHash>
 #include <QFile>
 #include <QTimer>
+#include <QLineEdit>
 
 #include "add-data.h" // AddData
 #include "file-tree.h" // FileList
@@ -82,6 +83,7 @@ class Options: public QDialog
         QComboBox * myPriorityCombo;
         QPushButton * myFileButton;
         QPushButton * myDestinationButton;
+        QLineEdit * myDestinationEdit;
         QPushButton * myVerifyButton;
         QVector<int> myPriorities;
         QVector<bool> myWanted;

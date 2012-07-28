@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: file-tree.cc 12697 2011-08-20 05:19:27Z jordan $
+ * $Id: file-tree.cc 13395 2012-07-22 17:01:52Z jordan $
  */
 
 #include <cassert>
@@ -41,43 +41,70 @@ enum
 *****
 ****/
 
+QHash<QString,int>&
+FileTreeItem :: getMyChildRows()
+{
+    const size_t n = childCount( );
+
+    // ensure that all the rows are hashed
+    while( myFirstUnhashedRow < n )
+    {
+      myChildRows.insert (myChildren[myFirstUnhashedRow]->name(), myFirstUnhashedRow);
+      myFirstUnhashedRow++;
+    }
+
+    return myChildRows;
+}
+
+
 FileTreeItem :: ~FileTreeItem( )
 {
     assert( myChildren.isEmpty( ) );
 
-    if( myParent ) {
-        const int pos = myParent->myChildren.indexOf( this );
-        if( pos >= 0 )
-            myParent->myChildren.removeAt( pos );
-        else
-            assert( 0 && "failed to remove" );
+    if( myParent != 0 )
+    {
+        const int pos = row( );
+        assert ((pos>=0) && "couldn't find child in parent's lookup");
+        myParent->myChildren.removeAt( pos );
+        myParent->myChildRows.remove( name() );
+        myParent->myFirstUnhashedRow = pos;
     }
 }
 
 void
 FileTreeItem :: appendChild( FileTreeItem * child )
 {
+    const size_t n = childCount();
     child->myParent = this;
-    myChildren.append( child );
+    myChildren.append (child);
+    myFirstUnhashedRow = n;
 }
 
 FileTreeItem *
-FileTreeItem :: child( const QString& filename )
+FileTreeItem :: child (const QString& filename )
 {
-    foreach( FileTreeItem * c, myChildren )
-        if( c->name() == filename )
-            return c;
+  FileTreeItem * item(0);
 
-    return 0;
+  const int row = getMyChildRows().value (filename, -1);
+  if (row != -1)
+    {
+      item = child (row);
+      assert (filename == item->name());
+    }
+
+  return item;
 }
 
 int
 FileTreeItem :: row( ) const
 {
-    int i(0);
+    int i(-1);
 
     if( myParent )
-        i = myParent->myChildren.indexOf( const_cast<FileTreeItem*>(this) );
+    {
+        i = myParent->getMyChildRows().value (name(), -1);
+        assert (this == myParent->myChildren[i]);
+    }
 
     return i;
 }
@@ -394,8 +421,10 @@ FileTreeModel :: indexOf( FileTreeItem * item, int column ) const
 void
 FileTreeModel :: clearSubtree( const QModelIndex& top )
 {
-    while( hasChildren( top ) )
-        clearSubtree( index( 0, 0, top ) );
+    size_t i = rowCount( top );
+
+    while( i > 0 )
+        clearSubtree( index( --i, 0, top ) );
 
     delete static_cast<FileTreeItem*>(top.internalPointer());
 }
@@ -642,7 +671,7 @@ FileTreeView :: FileTreeView( QWidget * parent ):
     installEventFilter( this );
 
     for( int i=0; i<NUM_COLUMNS; ++i )
-        header()->setResizeMode( i, QHeaderView::Fixed );
+        header()->setResizeMode( i, QHeaderView::Interactive );
 
     connect( this, SIGNAL(clicked(const QModelIndex&)),
              this, SLOT(onClicked(const QModelIndex&)) );

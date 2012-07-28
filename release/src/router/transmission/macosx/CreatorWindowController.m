@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: CreatorWindowController.m 13352 2012-06-18 01:33:27Z livings124 $
+ * $Id: CreatorWindowController.m 13396 2012-07-23 11:31:48Z livings124 $
  *
  * Copyright (c) 2007-2012 Transmission authors and contributors
  *
@@ -543,6 +543,9 @@
     [fDefaults setBool: [fOpenCheck state] == NSOnState forKey: @"CreatorOpen"];
     fOpenWhenCreated = [fOpenCheck state] == NSOnState; //need this since the check box might not exist, and value in prefs might have changed from another creator window
     [fDefaults setURL: [fLocation URLByDeletingLastPathComponent] forKey: @"CreatorLocationURL"];
+    
+    if ([NSApp isOnLionOrBetter])
+        [[self window] setRestorable: NO];
     
     [[NSNotificationCenter defaultCenter] postNotificationName: @"BeginCreateTorrentFile" object: fLocation userInfo: nil];
     tr_makeMetaInfo(fInfo, [[fLocation path] UTF8String], trackerInfo, [fTrackers count], [[fCommentView string] UTF8String], [fPrivateCheck state] == NSOnState);

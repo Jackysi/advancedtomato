@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: MessageWindowController.m 13352 2012-06-18 01:33:27Z livings124 $
+ * $Id: MessageWindowController.m 13399 2012-07-24 00:20:04Z livings124 $
  *
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -62,7 +62,7 @@
         [window setRestorationClass: [self class]];
     
     [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(resizeColumn)
-        name: @"NSTableViewColumnDidResizeNotification" object: fMessageTable];
+        name: NSTableViewColumnDidResizeNotification object: fMessageTable];
     
     [window setContentBorderThickness: NSMinY([[fMessageTable enclosingScrollView] frame]) forEdge: NSMinYEdge];
     

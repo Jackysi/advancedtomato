@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: util.c 13195 2012-02-03 21:21:52Z jordan $
+ * $Id: util.c 13388 2012-07-14 19:26:55Z jordan $
  */
 
 #include <ctype.h> /* isxdigit() */
@@ -471,26 +471,6 @@ gtr_priority_combo_new( void )
 /***
 ****
 ***/
-
-GtkWidget*
-gtr_hbox_new( gboolean homogenous UNUSED, gint spacing )
-{
-#if GTK_CHECK_VERSION( 3,2,0 )
-    return gtk_box_new( GTK_ORIENTATION_HORIZONTAL, spacing );
-#else
-    return gtk_hbox_new( homogenous, spacing );
-#endif
-}
-
-GtkWidget*
-gtr_vbox_new( gboolean homogenous UNUSED, gint spacing )
-{
-#if GTK_CHECK_VERSION( 3,2,0 )
-    return gtk_box_new( GTK_ORIENTATION_VERTICAL, spacing );
-#else
-    return gtk_vbox_new( homogenous, spacing );
-#endif
-}
 
 #define GTR_CHILD_HIDDEN "gtr-child-hidden"
 

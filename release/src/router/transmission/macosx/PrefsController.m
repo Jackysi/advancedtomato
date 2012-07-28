@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: PrefsController.m 13352 2012-06-18 01:33:27Z livings124 $
+ * $Id: PrefsController.m 13380 2012-07-07 17:58:52Z livings124 $
  *
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *
@@ -60,6 +60,8 @@
 @interface PrefsController (Private)
 
 - (void) setPrefView: (id) sender;
+
+- (void) updateGrowlButton;
 
 - (void) setKeychainPassword: (const char *) password forService: (const char *) service username: (const char *) username;
 
@@ -175,19 +177,8 @@
     
     [self setPrefView: nil];
     
-    if ([GrowlApplicationBridge isGrowlRunning])
-    {
-        [fBuiltInGrowlButton setHidden: YES];
-        [fGrowlAppButton setHidden: NO];
-#warning remove NO
-        [fGrowlAppButton setEnabled:NO && [GrowlApplicationBridge isGrowlURLSchemeAvailable]];
-    }
-    else
-    {
-        [fBuiltInGrowlButton setHidden: NO];
-        [fGrowlAppButton setHidden: YES];
-        [fBuiltInGrowlButton setState: [fDefaults boolForKey: @"DisplayNotifications"]];
-    }
+    //make sure proper notification settings are shown
+    [self updateGrowlButton];
     
     //set download folder
     [fFolderPopUp selectItemAtIndex: [fDefaults boolForKey: @"DownloadLocationConstant"] ? DOWNLOAD_FOLDER : DOWNLOAD_TORRENT];
@@ -336,6 +327,12 @@
 - (NSArray *) toolbarDefaultItemIdentifiers: (NSToolbar *) toolbar
 {
     return [self toolbarAllowedItemIdentifiers: toolbar];
+}
+
+- (void) windowDidBecomeMain: (NSNotification *) notification
+{
+    //this is a good place to see if Growl was quit/launched
+    [self updateGrowlButton];
 }
 
 + (void) restoreWindowWithIdentifier: (NSString *) identifier state: (NSCoder *) state completionHandler: (void (^)(NSWindow *, NSError *)) completionHandler
@@ -1450,6 +1447,23 @@
                 [window setTitle: [item label]];
                 break;
             }
+    }
+}
+
+- (void) updateGrowlButton
+{
+    if ([GrowlApplicationBridge isGrowlRunning])
+    {
+        [fBuiltInGrowlButton setHidden: YES];
+        [fGrowlAppButton setHidden: NO];
+#warning remove NO
+        [fGrowlAppButton setEnabled:NO && [GrowlApplicationBridge isGrowlURLSchemeAvailable]];
+    }
+    else
+    {
+        [fBuiltInGrowlButton setHidden: NO];
+        [fGrowlAppButton setHidden: YES];
+        [fBuiltInGrowlButton setState: [fDefaults boolForKey: @"DisplayNotifications"]];
     }
 }
 
