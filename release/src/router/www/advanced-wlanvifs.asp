@@ -7,6 +7,8 @@
 	Virtual Wireless Interfaces web interface & extensions
 	Copyright (C) 2012 Augusto Bott
 	http://code.google.com/p/tomato-sdhc-vlan/
+	Some portions Copyright (C) Jean-Yves Avenard
+	mailto:jean-yves@avenard.org
 
 	For use with Tomato Firmware only.
 	No part of this file may be used without permission.
@@ -52,6 +54,7 @@ ul.tabs a,
 
 var vifs_possible = [];
 var vifs_defined = [];
+var vifs_deleted = [];
 var max_no_vifs = 0;
 
 var wl_modes_available = [];
@@ -129,7 +132,7 @@ wlg.populate = function() {
 		wlg.removeAllData();
 		for (var uidx in vifs_defined) {
 			if (typeof(vifs_defined[uidx][0]) == 'undefined') continue;
-			var wmode = (((vifs_defined[uidx][7])     == 'ap') && ((nvram['wl' + u + '_wds_enable']) == '1')) ? 'apwds': (vifs_defined[uidx][7]);
+			var wmode = (((vifs_defined[uidx][7]) == 'ap') && ((nvram['wl' + u + '_wds_enable']) == '1')) ? 'apwds': (vifs_defined[uidx][7]);
 			this.insertData(-1, [
 				vifs_defined[uidx][0],
 				vifs_defined[uidx][4],
@@ -264,17 +267,15 @@ wlg.fieldValuesToData = function(row) {
 
 wlg.onDelete = function() {
 	this.removeEditor();
-// TODO: DELETE VIF IS NOT SUPPORTED
-// TODO: ONLY DISABLING
-//	if (this.source._data[0].indexOf('.') > 0) {
-////TODO: update vifs_defined (+ VIF tabs enabled/disabled)
-//		var vif = definedVIFidx(this.source._data[0]);
-//		vifs_defined.splice(vif,1);
-//		elem.remove(this.source);
-//		this.source = null;
-//	} else {
+	if (this.source._data[0].indexOf('.') > 0) {
+		var vif = definedVIFidx(this.source._data[0]);
+		vifs_defined.splice(vif,1);
+		vifs_deleted.push(this.source._data[0]);
+		elem.remove(this.source);
+		this.source = null;
+	} else {
 		this.showSource();
-//	}
+	}
 	this.disableNewEditor(false);
 	this.resetNewEditor();
 }
@@ -321,6 +322,14 @@ wlg.onAdd = function() {
 
 	this.disableNewEditor(false);
 	this.resetNewEditor();
+
+	/* if we had previously deleted this entry, remove it from deleted table */
+	for (var i = 0; i < vifs_deleted.length; i++) {
+		if (vifs_deleted[i] == u) {
+			vifs_deleted.splice(i, 1);
+			break;
+		}
+	}
 
 	tabSelect(u);
 	verifyFields(null,1);
@@ -1020,10 +1029,6 @@ function save() {
 	fom.nas_alternate.value = E('_f_nas_alternate').checked ? '1' : '0';
 /* LINUX24-END */
 
-/* REMOVE-BEGIN */
-// AB TODO: get back to this
-// CLEAN UP FIRST
-/* REMOVE-END */
 	for (var i = 0 ; i <= MAX_BRIDGE_ID ; i++) {
 		var j = (i == 0) ? '' : i.toString();
 		fom['lan'+j+'_ifnames'].value = '';
@@ -1058,6 +1063,7 @@ function save() {
 		if (vifs_defined[vif][11]*1 != 4) {
 			var x = (vifs_defined[vif][11] == '0') ? '' : vifs_defined[vif][11].toString();
 			fom['lan'+x+'_ifnames'].value += ' ' + vifs_defined[vif][1];
+			fom['lan'+x+'_ifnames'].value = fom['lan'+x+'_ifnames'].value.trim();
 		}
 
 /* REMOVE-BEGIN */
@@ -1223,14 +1229,10 @@ function do_pre_submit_form(fom) {
 		var u = vifs_possible[vidx][0].toString();  // WL unit (primary) or unit.subunit (virtual)
 		if (u.indexOf('.') > 0) { // only if virtual VIF
 			var vif = definedVIFidx(u);
-			for (var i = 0; i < elem.length ; ++i) {
-				if (elem[i].name.indexOf('wl' + u) == 0) {
-					if (vif < 0) { // not defined, nvram unset
-/* REMOVE-BEGIN */
-// AB TODO: delete VIF support? cleanup NVRAM?
-//						s += 'nvram unset ' + elem[i].name + '\n';
-/* REMOVE-END */
-					} else {
+			if (vif >= 0)
+			{
+				for (var i = 0; i < elem.length ; ++i) {
+					if (elem[i].name.indexOf('wl' + u) == 0) {
 						s += 'nvram set ' + elem[i].name + '=\'' + elem[i].value + '\'\n';
 					}
 				}
@@ -1245,20 +1247,48 @@ function do_pre_submit_form(fom) {
 //				}
 //			}
 /* REMOVE-END */
-/* REMOVE-BEGIN */
-// AB TODO: delete VIF support? cleanup?
-//			if (vif < 0) { // not defined, nvram unset
-//				s += 'nvram unset wl' + u + '_wme\n';
-//				s += 'nvram unset wl' + u + '_bss_maxassoc\n';
-//				s += 'ifconfig wl' + u + ' down\n';
-//			} else {
-//				s += 'nvram set wl' + u + '_wme="\'' + elem[i].value + '\'\n';
-//				handle wlX_wme + wlX_bssid_maxassoc ?
-//			}
-/* REMOVE-END */
 		}
 	}
 
+	/* Clean-up deleted interfaces */
+	var lan_ifnames = nvram['lan_ifnames'];
+	var lan1_ifnames = nvram['lan1_ifnames'];
+	var lan2_ifnames = nvram['lan2_ifnames'];
+	var lan3_ifnames = nvram['lan3_ifnames'];
+	var wl0_vifs = nvram['wl0_vifs'];
+	var wl1_vifs = nvram['wl1_vifs'];
+
+	for (var vidx = 0; vidx < vifs_deleted.length; ++vidx) {
+		var u = vifs_deleted[vidx];
+		for (var i = 0; i < elem.length ; ++i) {
+			if (elem[i].name.indexOf('wl' + u) == 0) {
+				s += 'nvram unset ' + elem[i].name + '\n';
+			}
+		}
+		lan_ifnames = lan_ifnames.replace('wl'+u, '');
+		lan1_ifnames = lan1_ifnames.replace('wl'+u, '');
+		lan2_ifnames = lan2_ifnames.replace('wl'+u, '');
+		lan3_ifnames = lan3_ifnames.replace('wl'+u, '');
+		if (typeof(wl0_vifs) != 'undefined') {
+			wl0_vifs = wl0_vifs.replace('wl'+u, '');
+		}
+		if (typeof(wl1_vifs) != 'undefined') {
+			wl1_vifs = wl1_vifs.replace('wl'+u, '');
+		}
+		s += 'nvram unset wl' + u + '_wme\n';
+		s += 'nvram unset wl' + u + '_bss_maxassoc\n';
+	}
+	if (vifs_deleted.length > 0)
+	{
+		s += 'nvram set lan_ifnames=\'' + lan_ifnames + '\'\n';
+		s += 'nvram set lan1_ifnames=\'' + lan1_ifnames + '\'\n';
+		s += 'nvram set lan2_ifnames=\'' + lan2_ifnames + '\'\n';
+		s += 'nvram set lan3_ifnames=\'' + lan3_ifnames + '\'\n';
+		if (typeof(wl0_vifs) != 'undefined')
+			s += 'nvram set wl0_vifs=\'' + wl0_vifs + '\'\n';
+		if (typeof(wl1_vifs) != 'undefined')
+			s += 'nvram set wl1_vifs=\'' + wl1_vifs + '\'\n';
+	}
 	post_pre_submit_form(s);
 }
 
@@ -1310,8 +1340,9 @@ function escapeText(s) {
 <!-- / / / -->
 
 <input type='hidden' name='_nextpage' value='advanced-wlanvifs.asp'>
-<input type='hidden' name='_nextwait' value='20'>
-<input type='hidden' name='_service' value='*'>
+<input type='hidden' name='_nextwait' value='10'>
+<input type='hidden' name='_service' value='wireless-restart'>
+<input type='hidden' name='_force_commit' value='1'>
 
 <!-- LINUX24-BEGIN -->
 <input type='hidden' name='nas_alternate' value=''>
@@ -1392,17 +1423,10 @@ createFieldTable('', [
 <ul>
 <li><b>Other relevant notes/hints:</b>
 <ul>
-<li>Once created/defined, a wireless VIF cannot de deleted: it can only be <i>disabled</i>.</li>
 <li>When creating/defining a new wireless VIF, it's MAC address will be shown (incorrectly) as '00:00:00:00:00:00', as it's unknown at that moment (until network is restarted and this page is reloaded).</li>
 <li>When saving changes, the MAC addresses of all defined non-primary wireless VIFs could sometimes be (already) <i>set</i> but might be <i>recreated</i> by the WL driver (so that previously defined/saved settings might need to be updated/changed accordingly on <a href=advanced-mac.asp>Advanced/MAC Address</a> after saving settings and rebooting your router).</li>
 <li>This web interface allows configuring a maximum of 4 VIFs for each physical wireless interface available - up to 3 extra VIFs can be defined in addition to the primary VIF (<i>on devices with multiple VIF capabilities</i>).</li>
 <li>By definition, configuration settings for the <i>primary VIF</i> of any physical wireless interfaces shouldn't be touched here (use the <a href=basic-network.asp>Basic/Network</a> page instead).</li>
-</ul>
-<br>
-<ul>
-<li>This is highly <b>experimental</b> and hasn't been tested in anything but a WRT54GL v1.1 running a Teaman-ND K24 build and a Cisco/Linksys E3000 running a Teaman-RT K26 build.</li>
-<li>There's lots of things that could go wrong, please do think about what you're doing and take a backup before hitting the 'Save' button on this page!</li>
-<li>You've been warned!</li>
 </ul>
 </ul>
 </small>

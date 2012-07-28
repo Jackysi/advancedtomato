@@ -2531,6 +2531,30 @@ TOP:
 		goto CLEAR;
 	}
 
+	if (strcmp(service, "wireless") == 0) {
+		if(action & A_STOP) {
+			stop_wireless();
+		}
+		if(action & A_START) {
+			start_wireless();
+		}
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "wl") == 0) {
+		if(action & A_STOP) {
+			stop_wireless();
+			unload_wl();
+		}
+		if(action & A_START) {
+			load_wl();
+			start_wireless();
+			stop_wireless();
+			start_wireless();
+		}
+		goto CLEAR;
+	}
+
 	if (strcmp(service, "nas") == 0) {
 		if (action & A_STOP) {
 			stop_nas();
