@@ -1622,6 +1622,7 @@ static void wo_tomato(char *url)
 	int nvset;
 	const char *red;
 	int commit;
+	int force_commit;
 
 //	_dprintf("tomato.cgi\n");
 
@@ -1629,6 +1630,7 @@ static void wo_tomato(char *url)
 	if (!*red) send_header(200, NULL, mime_html, 0);
 
 	commit = atoi(webcgi_safeget("_commit", "1"));
+	force_commit = atoi(webcgi_safeget("_force_commit", "0"));
 	ajax = atoi(webcgi_safeget("_ajax", "0"));
 
 	nvset = atoi(webcgi_safeget("_nvset", "1"));
@@ -1663,7 +1665,7 @@ static void wo_tomato(char *url)
 		}
 	}
 
-	if (commit) {
+	if (commit || force_commit) {
 		_dprintf("commit from tomato.cgi\n");
 		nvram_commit_x();
 	}
