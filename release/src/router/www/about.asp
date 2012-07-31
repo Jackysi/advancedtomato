@@ -136,7 +136,7 @@ Copyright (C) 2010 Keith Moyer,<br>
 - APCUPSD integration and GUI (implemented by @arrmo)<br>
 <!-- UPS-END -->
 <!-- DNSCRYPT-BEGIN -->
-- DNScrypt-proxy 0.9.3 integration and GUI<br>
+- DNScrypt-proxy 1.0 integration and GUI<br>
 <!-- DNSCRYPT-END -->
 <!-- TOR-BEGIN -->
 - TOR Project integration and GUI<br>
