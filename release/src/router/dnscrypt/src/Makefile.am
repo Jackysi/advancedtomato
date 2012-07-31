@@ -1,5 +1,7 @@
 
 SUBDIRS = \
-	dnscrypt-proxy \
-	libuv \
-    libnacl
+	ext \
+	libevent \
+	libnacl \
+	proxy \
+	hostip

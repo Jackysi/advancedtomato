@@ -402,6 +402,7 @@ void start_dnsmasq()
 #ifdef TCONFIG_DNSCRYPT
 	//start dnscrypt-proxy
 	if (nvram_match("dnscrypt_proxy", "1")) {
+		eval("ntp2ip");
 		eval("dnscrypt-proxy", "-d", "-P", "40");
 	}
 #endif

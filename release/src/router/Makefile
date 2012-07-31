@@ -1815,14 +1815,16 @@ apcupsd-install: apcupsd
 
 dnscrypt/stamp-h1:
 	cd $(TOP)/dnscrypt && CC=$(CC) STRIP='mipsel-uclibc-strip' \
-	$(CONFIGURE) --prefix=/usr
+	$(CONFIGURE) --prefix=/usr --disable-ssp --disable-largefile --disable-assert
 	touch dnscrypt/stamp-h1
 
 dnscrypt: dnscrypt/stamp-h1
 
 dnscrypt-install: dnscrypt
-	install -D dnscrypt/src/dnscrypt-proxy/dnscrypt-proxy $(INSTALLDIR)/dnscrypt/usr/sbin/dnscrypt-proxy
+	install -D dnscrypt/src/proxy/dnscrypt-proxy $(INSTALLDIR)/dnscrypt/usr/sbin/dnscrypt-proxy
+	install -D dnscrypt/src/hostip/hostip $(INSTALLDIR)/dnscrypt/usr/sbin/hostip
 	$(STRIP) -s $(INSTALLDIR)/dnscrypt/usr/sbin/dnscrypt-proxy
+	$(STRIP) -s $(INSTALLDIR)/dnscrypt/usr/sbin/hostip
 
 dnscrypt-clean:
 	-@$(MAKE) -c dnscrypt clean

@@ -247,16 +247,7 @@ static int ntpsync_main(int argc, char **argv)
 
 		count = 0;
 
-#ifdef TCONFIG_DNSCRYPT
-		if (nvram_match( "dnscrypt_proxy", "1") )
-		{
-			servers = p = strdup(nvram_safe_get("ntp_server_ip"));
-		} else {
-#endif
-			servers = p = strdup(nvram_safe_get("ntp_server"));
-#ifdef TCONFIG_DNSCRYPT
-		}
-#endif
+		servers = p = strdup(nvram_safe_get("ntp_server"));
 
 		if (!servers) {
 			printf("Not enough memory\n");

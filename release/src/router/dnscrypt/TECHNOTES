@@ -16,7 +16,7 @@ Cryptographic library
   so that portable packages can be built. CPU-specific implementations are
   used server-side.
 
-- crypto_box_curve25519xsalsa20poly1305_*() for signing/encrypting
+- crypto_box_curve25519xsalsa20poly1305_*() for authenticating/encrypting
   queries and replies, crypto_sign_ed25519_*() for signing certificates, and
   crypto_stream_salsa20() as a PRNG.
 
@@ -25,20 +25,14 @@ Cryptographic library
 Event-notification library
 --------------------------
 
-- Uses NodeJS' libuv, which wraps libev and native Windows functions, and
-  provides nice cross-platform wrappers for common functions. Unbound's
-  boilerplate is also excellent, but it hasn't been packaged as a
-  standalone library yet.
+- Uses libevent. Unbound's boilerplate is also excellent, but it hasn't been
+  packaged as a standalone library yet.
 
-- Because it is totally awesome for writing software that has to
-  eventually work on Windows.
+- Because it is totally awesome for writing portable software.
 
-- Bundled with dnscrypt, for now, because it's still a moving target.
-
-- It currently uses static per-OS config.h definitions, which makes
-  compilation faster, but breaks on operating systems with older libc, like
-  Openwall Linux. The bundled version has minor local changes in order
-  to support Openwall Linux.
+- Bundled with dnscrypt, for now, because it's a modified version (so
+  that evdns can cope with TXT records) and because some distributions
+  are still shipping dead old versions.
 
 Certificates
 ------------
