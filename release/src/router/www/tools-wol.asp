@@ -53,6 +53,17 @@ wg.setup = function() {
 	this.headerSet(['MAC Address', 'IP Address', 'Status', 'Name']);
 	this.sort(3);
 }
+wg.sortCompare = function(a, b) {
+        var da = a.getRowData();
+        var db = b.getRowData();
+        var r = 0;
+        var c = this.sortColumn;
+        if (c == 1)
+                r = cmpIP(da[c], db[c]);
+        else
+                r = cmpText(da[c], db[c]);
+        return this.sortAscending ? r : -r;
+}
 wg.populate = function()
 {
 	var i, j, r, s;
