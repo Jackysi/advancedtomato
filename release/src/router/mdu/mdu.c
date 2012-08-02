@@ -1475,12 +1475,15 @@ static void update_editdns(void)
 ...
 
 Good responses:
-	Your tunnel endpoint has been updated to: X.X.X.X
-	That IPv4 endpoint is already in use.
+	+OK: Tunnel endpoint updated to: XXX.XXX.XXX.XXX
+	-ERROR: This tunnel is already associated with this IP address. Please try and limit your updates to IP changes.
 Bad responses:
-	Please enter a valid IPv4 endpoint!
-	That user_id or password is not valid
-	Unable to find your tunnel
+	-ERROR: Tunnel not found
+	-ERROR: Invalid API key or password
+	-ERROR: IP is not in a valid format
+	-ERROR: Missing parameter(s).
+	-ERROR: IP is not ICMP pingable. Please make sure ICMP is not blocked. If you are blocking ICMP, please allow 66.220.2.74 through your firewall.
+	-ERROR: IP is blocked. (RFC1918 Private Address Space)
 
 */
 static void update_heipv6tb(void)
@@ -1496,20 +1499,20 @@ static void update_heipv6tb(void)
 		get_option_required("host"));
 
 	// +opt
-	append_addr_option(query, "&ipv4b=%s");
+	append_addr_option(query, "&ip=%s");
 
 	r = wget(1, 0, "ipv4.tunnelbroker.net", query, NULL, 0, &body);
 	if (r == 200) {
-		if ((strstr(body, "has been updated") != NULL) || (strstr(body, "already in use") != NULL)) {
+		if ((strstr(body, "endpoint updated to") != NULL) || (strstr(body, "is already associated") != NULL)) {
 			success();
 		}
-		if (strstr(body, "is not valid") != NULL) {
+		if (strstr(body, "Invalid API key or password") != NULL) {
 			error(M_INVALID_AUTH);
 		}
-		if (strstr(body, "find your tunnel") != NULL) {
+		if (strstr(body, "Tunnel not found") != NULL) {
 			error(M_INVALID_PARAM__S, "Tunnel ID");
 		}
-		if (strstr(body, "valid IPv4 endpoint") != NULL) {
+		if (strstr(body, "IP is not in a valid format") != NULL) {
 			error(M_INVALID_PARAM__S, "IPv4 endpoint");
 		}
 
