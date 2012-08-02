@@ -479,8 +479,12 @@ function v_macip(e, quiet, bok, lan_ipaddr, lan_netmask)
 function fixIP(ip, x)
 {
 	var a, n, i;
+        a = ip;
+        i = a.indexOf("<br>");
+        if (i > 0)
+                a = a.slice(0,i);
 
-	a = ip.split('.');
+        a = a.split('.');
 	if (a.length != 4) return null;
 	for (i = 0; i < 4; ++i) {
 		n = a[i] * 1;
