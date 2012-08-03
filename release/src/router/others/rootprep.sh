@@ -33,3 +33,4 @@ ln -sf /www/ext/proxy.pac www/wpad.dat
 # shibby
 mkdir -p -m 0755 nas
 mkdir -p -m 0755 bkp
+mkdir -p -m 0777 tftpboot
