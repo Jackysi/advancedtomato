@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: stats.c 12679 2011-08-13 21:08:53Z jordan $
+ * $Id: stats.c 13388 2012-07-14 19:26:55Z jordan $
  */
 
 #include <glib/gi18n.h>
@@ -176,7 +176,6 @@ gtr_stats_dialog_new( GtkWindow * parent, TrCore * core )
     l = ui->all_time_lb = gtk_label_new( NULL );
     gtk_label_set_single_line_mode( GTK_LABEL( l ), TRUE );
     hig_workarea_add_row( t, &row, _( "Duration:" ), l, NULL );
-    hig_workarea_finish( t, &row );
     gtr_dialog_set_content( GTK_DIALOG( d ), t );
 
     updateStats( ui );

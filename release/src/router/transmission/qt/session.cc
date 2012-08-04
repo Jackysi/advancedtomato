@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: session.cc 12661 2011-08-09 13:35:44Z jordan $
+ * $Id: session.cc 13393 2012-07-22 15:18:52Z jordan $
  */
 
 #include <cassert>
@@ -1033,8 +1033,12 @@ Session :: launchWebInterface( )
 {
     QUrl url;
     if( !mySession ) // remote session
+    {
         url = myUrl;
-    else { // local session
+        url.setPath( "/transmission/web/" );
+    }
+    else // local session
+    {
         url.setScheme( "http" );
         url.setHost( "localhost" );
         url.setPort( myPrefs.getInt( Prefs::RPC_PORT ) );

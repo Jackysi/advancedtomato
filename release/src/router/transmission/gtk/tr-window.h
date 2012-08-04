@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: tr-window.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: tr-window.h 13391 2012-07-14 22:44:41Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -28,11 +28,9 @@
 #include <gtk/gtk.h>
 #include "tr-core.h"
 
-typedef GtkWindow TrWindow;
-
-GtkWidget        * gtr_window_new( GtkUIManager * uim, TrCore * core );
-GtkTreeSelection * gtr_window_get_selection( TrWindow * );
-void               gtr_window_set_busy( TrWindow *, gboolean isBusy );
-void               gtr_window_refresh( TrWindow * );
+GtkWidget        * gtr_window_new( GtkApplication * app, GtkUIManager * uim, TrCore * core );
+GtkTreeSelection * gtr_window_get_selection( GtkWindow * );
+void               gtr_window_set_busy( GtkWindow *, gboolean isBusy );
+void               gtr_window_refresh( GtkWindow * );
 
 #endif /* GTR_WINDOW_H */

@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: main.c 13237 2012-02-24 19:52:50Z jordan $
+ * $Id: main.c 13391 2012-07-14 22:44:41Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -440,6 +440,7 @@ on_rpc_changed( tr_session            * session,
         case TR_RPC_TORRENT_MOVED:
         case TR_RPC_TORRENT_STARTED:
         case TR_RPC_TORRENT_STOPPED:
+        case TR_RPC_SESSION_QUEUE_POSITIONS_CHANGED:
             /* nothing interesting to do here */
             break;
     }
@@ -475,7 +476,7 @@ signal_handler( int sig )
 *****
 ****/
 
-static void app_setup( TrWindow * wind, struct cbdata  * cbdata );
+static void app_setup( GtkWindow * wind, struct cbdata  * cbdata );
 
 static void
 on_startup( GApplication * application, gpointer user_data )
@@ -511,7 +512,7 @@ on_startup( GApplication * application, gpointer user_data )
     gtk_ui_manager_ensure_update ( ui_manager );
 
     /* create main window now to be a parent to any error dialogs */
-    win = GTK_WINDOW( gtr_window_new( ui_manager, cbdata->core ) );
+    win = GTK_WINDOW( gtr_window_new( GTK_APPLICATION( application ), ui_manager, cbdata->core ) );
     g_signal_connect( win, "size-allocate", G_CALLBACK( on_main_window_size_allocated ), cbdata );
     g_application_hold( application );
     g_object_weak_ref( G_OBJECT( win ), (GWeakNotify)g_application_release, application );
@@ -586,7 +587,7 @@ main( int argc, char ** argv )
     int ret;
     struct stat sb;
     char * application_id;
-    GApplication * app;
+    GtkApplication * app;
     GOptionContext * option_context;
     bool show_version = false;
     GError * error = NULL;
@@ -611,7 +612,6 @@ main( int argc, char ** argv )
     textdomain( MY_READABLE_NAME );
 
     /* init glib/gtk */
-    g_thread_init (NULL);
     g_type_init ();
     gtk_init (&argc, &argv);
     g_set_application_name (_( "Transmission" ));
@@ -650,11 +650,11 @@ main( int argc, char ** argv )
     /* init the application for the specified config dir */
     stat( cbdata.config_dir, &sb );
     application_id = g_strdup_printf( "com.transmissionbt.transmission_%lu_%lu", (unsigned long)sb.st_dev, (unsigned long)sb.st_ino );
-    app = g_application_new( application_id, G_APPLICATION_HANDLES_OPEN );
+    app = gtk_application_new( application_id, G_APPLICATION_HANDLES_OPEN );
     g_signal_connect( app, "open", G_CALLBACK(on_open), &cbdata );
     g_signal_connect( app, "startup", G_CALLBACK(on_startup), &cbdata );
     g_signal_connect( app, "activate", G_CALLBACK(on_activate), &cbdata );
-    ret = g_application_run (app, argc, argv);
+    ret = g_application_run( G_APPLICATION( app ), argc, argv);
     g_object_unref( app );
     g_free( application_id );
     return ret;
@@ -669,12 +669,12 @@ on_core_busy( TrCore * core UNUSED, gboolean busy, struct cbdata * c )
 static void on_core_error( TrCore *, guint, const char *, struct cbdata * );
 static void on_add_torrent( TrCore *, tr_ctor *, gpointer );
 static void on_prefs_changed( TrCore * core, const char * key, gpointer );
-static void main_window_setup( struct cbdata * cbdata, TrWindow * wind );
+static void main_window_setup( struct cbdata * cbdata, GtkWindow * wind );
 static gboolean update_model_loop( gpointer gdata );
 static gboolean update_model_once( gpointer gdata );
 
 static void
-app_setup( TrWindow * wind, struct cbdata * cbdata )
+app_setup( GtkWindow * wind, struct cbdata * cbdata )
 {
     if( cbdata->is_iconified )
         gtr_pref_flag_set( PREF_KEY_SHOW_TRAY_ICON, TRUE );
@@ -834,14 +834,14 @@ on_drag_data_received( GtkWidget         * widget          UNUSED,
 }
 
 static void
-main_window_setup( struct cbdata * cbdata, TrWindow * wind )
+main_window_setup( struct cbdata * cbdata, GtkWindow * wind )
 {
     GtkWidget * w;
     GtkTreeModel * model;
     GtkTreeSelection * sel;
 
     g_assert( NULL == cbdata->wind );
-    cbdata->wind = GTK_WINDOW( wind );
+    cbdata->wind = wind;
     cbdata->sel = sel = GTK_TREE_SELECTION( gtr_window_get_selection( cbdata->wind ) );
 
     g_signal_connect( sel, "changed", G_CALLBACK( on_selection_changed ), cbdata );
@@ -922,27 +922,27 @@ on_app_exit( gpointer vdata )
     r = gtk_alignment_new( 0.5, 0.5, 0.01, 0.01 );
     gtk_container_add( GTK_CONTAINER( c ), r );
 
-    p = gtk_table_new( 3, 2, FALSE );
-    gtk_table_set_col_spacings( GTK_TABLE( p ), GUI_PAD_BIG );
+    p = gtk_grid_new( );
+    gtk_grid_set_column_spacing( GTK_GRID( p ), GUI_PAD_BIG );
     gtk_container_add( GTK_CONTAINER( r ), p );
 
     w = gtk_image_new_from_stock( GTK_STOCK_NETWORK, GTK_ICON_SIZE_DIALOG );
-    gtk_table_attach_defaults( GTK_TABLE( p ), w, 0, 1, 0, 2 );
+    gtk_grid_attach( GTK_GRID( p ), w, 0, 0, 1, 2 );
 
     w = gtk_label_new( NULL );
     gtk_label_set_markup( GTK_LABEL( w ), _( "<b>Closing Connections</b>" ) );
     gtk_misc_set_alignment( GTK_MISC( w ), 0.0, 0.5 );
-    gtk_table_attach_defaults( GTK_TABLE( p ), w, 1, 2, 0, 1 );
+    gtk_grid_attach( GTK_GRID( p ), w, 1, 0, 1, 1 );
 
     w = gtk_label_new( _( "Sending upload/download totals to tracker…" ) );
     gtk_misc_set_alignment( GTK_MISC( w ), 0.0, 0.5 );
-    gtk_table_attach_defaults( GTK_TABLE( p ), w, 1, 2, 1, 2 );
+    gtk_grid_attach( GTK_GRID( p ), w, 1, 1, 1, 1 );
 
     b = gtk_alignment_new( 0.0, 1.0, 0.01, 0.01 );
     w = gtk_button_new_with_mnemonic( _( "_Quit Now" ) );
     g_signal_connect( w, "clicked", G_CALLBACK( exit_now_cb ), NULL );
     gtk_container_add( GTK_CONTAINER( b ), w );
-    gtk_table_attach( GTK_TABLE( p ), b, 1, 2, 2, 3, GTK_FILL, GTK_FILL, 0, 10 );
+    gtk_grid_attach( GTK_GRID( p ), b, 1, 2, 1, 1 );
 
     gtk_widget_show_all( r );
     gtk_widget_grab_focus( w );
@@ -959,7 +959,7 @@ on_app_exit( gpointer vdata )
                                    gtr_pref_int_get( PREF_KEY_MAIN_WINDOW_Y ) );
 
     /* shut down libT */
-    g_thread_create( session_close_threadfunc, vdata, TRUE, NULL );
+    g_thread_new( "shutdown-thread", session_close_threadfunc, vdata );
 }
 
 static void

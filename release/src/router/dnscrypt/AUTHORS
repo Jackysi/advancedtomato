@@ -3,10 +3,10 @@ NaCl
 see http://nacl.cr.yp.to/ for more info about this library and the
 list of contributors.
 
-libuv
------
-see https://github.com/joyent/libuv for more info about this library
-and the src/libuv/AUTHORS file for the list of contributors.
+libevent
+--------
+see https://http://libevent.org/ for more info about this library
+and the src/libevent/README file for the list of contributors.
 
 dnscrypt
 --------

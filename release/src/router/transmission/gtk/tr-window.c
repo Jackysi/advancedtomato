@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: tr-window.c 13195 2012-02-03 21:21:52Z jordan $
+ * $Id: tr-window.c 13391 2012-07-14 22:44:41Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -76,7 +76,7 @@ get_private_data_key( void )
 }
 
 static PrivateData*
-get_private_data( TrWindow * w )
+get_private_data( GtkWindow * w )
 {
     return g_object_get_qdata ( G_OBJECT( w ), get_private_data_key( ) );
 }
@@ -196,11 +196,7 @@ prefsChanged( TrCore * core UNUSED,
         /* since the cell size has changed, we need gtktreeview to revalidate
          * its fixed-height mode values. Unfortunately there's not an API call
          * for that, but it *does* revalidate when it thinks the style's been tweaked */
-#if GTK_CHECK_VERSION( 3,0,0 )
         g_signal_emit_by_name( p->view, "style-updated", NULL, NULL );
-#else
-        g_signal_emit_by_name( p->view, "style-set", NULL, NULL );
-#endif
     }
     else if( !strcmp( key, PREF_KEY_STATUSBAR ) )
     {
@@ -219,7 +215,7 @@ prefsChanged( TrCore * core UNUSED,
     }
     else if( !strcmp( key, PREF_KEY_STATUSBAR_STATS ) )
     {
-        gtr_window_refresh( (TrWindow*)wind );
+        gtr_window_refresh( wind );
     }
     else if( !strcmp( key, TR_PREFS_KEY_ALT_SPEED_ENABLED ) ||
              !strcmp( key, TR_PREFS_KEY_ALT_SPEED_UP_KBps ) ||
@@ -584,7 +580,7 @@ onOptionsClicked( GtkButton * button UNUSED, gpointer vp )
 ***/
 
 GtkWidget *
-gtr_window_new( GtkUIManager * ui_mgr, TrCore * core )
+gtr_window_new( GtkApplication * app, GtkUIManager * ui_mgr, TrCore * core )
 {
     int           i, n;
     const char  * pch;
@@ -597,7 +593,7 @@ gtr_window_new( GtkUIManager * ui_mgr, TrCore * core )
     p = g_new0( PrivateData, 1 );
 
     /* make the window */
-    self = gtk_window_new ( GTK_WINDOW_TOPLEVEL );
+    self = gtk_application_window_new ( app );
     g_object_set_qdata_full( G_OBJECT(self), get_private_data_key( ), p, privateFree );
     win = GTK_WINDOW( self );
     gtk_window_set_title( win, g_get_application_name( ) );
@@ -612,7 +608,7 @@ gtr_window_new( GtkUIManager * ui_mgr, TrCore * core )
     gtk_window_add_accel_group( win, gtk_ui_manager_get_accel_group( ui_mgr ) );
 
     /* window's main container */
-    vbox = gtr_vbox_new ( FALSE, 0 );
+    vbox = gtk_box_new( GTK_ORIENTATION_VERTICAL, 0 );
     gtk_container_add ( GTK_CONTAINER( self ), vbox );
 
     /* main menu */
@@ -622,10 +618,8 @@ gtr_window_new( GtkUIManager * ui_mgr, TrCore * core )
 
     /* toolbar */
     toolbar = p->toolbar = gtr_action_get_widget( "/main-window-toolbar" );
-#if GTK_CHECK_VERSION( 3,0,0 )
     gtk_style_context_add_class( gtk_widget_get_style_context( toolbar ),
                                  GTK_STYLE_CLASS_PRIMARY_TOOLBAR );
-#endif
     gtr_action_set_important( "open-torrent-toolbar", TRUE );
     gtr_action_set_important( "show-torrent-properties", TRUE );
 
@@ -656,7 +650,7 @@ gtr_window_new( GtkUIManager * ui_mgr, TrCore * core )
     }
 
     /* status */
-    h = status = p->status = gtr_hbox_new( FALSE, GUI_PAD_BIG );
+    h = status = p->status = gtk_box_new( GTK_ORIENTATION_HORIZONTAL, GUI_PAD_BIG );
     gtk_container_set_border_width( GTK_CONTAINER( h ), GUI_PAD_SMALL );
 
         w = gtk_button_new( );
@@ -678,7 +672,7 @@ gtr_window_new( GtkUIManager * ui_mgr, TrCore * core )
         gtk_label_set_single_line_mode( GTK_LABEL( w ), TRUE );
         gtk_box_pack_start( GTK_BOX( h ), w, 1, 1, GUI_PAD );
 
-        hbox = gtr_hbox_new( FALSE, GUI_PAD );
+        hbox = gtk_box_new( GTK_ORIENTATION_HORIZONTAL, GUI_PAD );
             w = gtk_alignment_new( 0.0f, 0.0f, 0.0f, 0.0f );
             gtk_widget_set_size_request( w, GUI_PAD, 0u );
             gtk_box_pack_start( GTK_BOX( hbox ), w, FALSE, FALSE, 0 );
@@ -689,7 +683,7 @@ gtr_window_new( GtkUIManager * ui_mgr, TrCore * core )
             gtk_box_pack_start( GTK_BOX( hbox ), w, FALSE, FALSE, 0 );
         gtk_box_pack_end( GTK_BOX( h ), hbox, FALSE, FALSE, 0 );
 
-        hbox = gtr_hbox_new( FALSE, GUI_PAD );
+        hbox = gtk_box_new( GTK_ORIENTATION_HORIZONTAL, GUI_PAD );
             w = gtk_alignment_new( 0.0f, 0.0f, 0.0f, 0.0f );
             gtk_widget_set_size_request( w, GUI_PAD, 0u );
             gtk_box_pack_start( GTK_BOX( hbox ), w, FALSE, FALSE, 0 );
@@ -700,7 +694,7 @@ gtr_window_new( GtkUIManager * ui_mgr, TrCore * core )
             gtk_box_pack_start( GTK_BOX( hbox ), w, FALSE, FALSE, 0 );
         gtk_box_pack_end( GTK_BOX( h ), hbox, FALSE, FALSE, 0 );
 
-        hbox = gtr_hbox_new( FALSE, GUI_PAD );
+        hbox = gtk_box_new( GTK_ORIENTATION_HORIZONTAL, GUI_PAD );
             w = gtk_button_new( );
             gtk_widget_set_tooltip_text( w, _( "Statistics" ) );
             gtk_container_add( GTK_CONTAINER( w ), gtk_image_new_from_stock( "ratio", -1 ) );
@@ -865,7 +859,7 @@ updateSpeeds( PrivateData * p )
 }
 
 void
-gtr_window_refresh( TrWindow * self )
+gtr_window_refresh( GtkWindow * self )
 {
     PrivateData * p = get_private_data( self );
 
@@ -878,13 +872,13 @@ gtr_window_refresh( TrWindow * self )
 }
 
 GtkTreeSelection*
-gtr_window_get_selection( TrWindow * w )
+gtr_window_get_selection( GtkWindow * w )
 {
     return get_private_data( w )->selection;
 }
 
 void
-gtr_window_set_busy( TrWindow * w, gboolean isBusy )
+gtr_window_set_busy( GtkWindow * w, gboolean isBusy )
 {
     if( w && gtk_widget_get_realized( GTK_WIDGET( w ) ) )
     {
@@ -894,12 +888,6 @@ gtr_window_set_busy( TrWindow * w, gboolean isBusy )
         gdk_window_set_cursor( gtk_widget_get_window( GTK_WIDGET( w ) ), cursor );
         gdk_display_flush( display );
 
-        if( cursor ) {
-#if GTK_CHECK_VERSION( 3,0,0 )
-            g_object_unref( cursor );
-#else
-            gdk_cursor_unref( cursor );
-#endif
-        }
+        g_clear_object (&cursor);
     }
 }

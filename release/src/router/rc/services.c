@@ -402,6 +402,7 @@ void start_dnsmasq()
 #ifdef TCONFIG_DNSCRYPT
 	//start dnscrypt-proxy
 	if (nvram_match("dnscrypt_proxy", "1")) {
+		eval("ntp2ip");
 		eval("dnscrypt-proxy", "-d", "-P", "40");
 	}
 #endif
@@ -2549,6 +2550,30 @@ TOP:
 #ifdef TCONFIG_USB
 			start_nas_services();
 #endif
+		}
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "wireless") == 0) {
+		if(action & A_STOP) {
+			stop_wireless();
+		}
+		if(action & A_START) {
+			start_wireless();
+		}
+		goto CLEAR;
+	}
+
+	if (strcmp(service, "wl") == 0) {
+		if(action & A_STOP) {
+			stop_wireless();
+			unload_wl();
+		}
+		if(action & A_START) {
+			load_wl();
+			start_wireless();
+			stop_wireless();
+			start_wireless();
 		}
 		goto CLEAR;
 	}

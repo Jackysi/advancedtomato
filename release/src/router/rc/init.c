@@ -1576,7 +1576,7 @@ static void sysinit(void)
 		break;
 	}
 
-	modprobe("wl");
+	load_wl();
 
 	config_loopback();
 

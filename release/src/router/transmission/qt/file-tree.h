@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: file-tree.h 11092 2010-08-01 20:36:13Z charles $
+ * $Id: file-tree.h 13384 2012-07-13 00:27:04Z jordan $
  */
 
 #ifndef QTR_TREE_FILE_MODEL
@@ -17,6 +17,7 @@
 #include <QObject>
 #include <QItemDelegate>
 #include <QList>
+#include <QHash>
 #include <QSet>
 #include <QSize>
 #include <QString>
@@ -43,7 +44,8 @@ class FileTreeItem: public QObject
         FileTreeItem( int fileIndex, const QString& name="" ):
             myIndex(fileIndex), myParent(0), myName(name),
             myPriority(0), myIsWanted(0),
-            myHaveSize(0), myTotalSize(0) { }
+            myHaveSize(0), myTotalSize(0),
+            myFirstUnhashedRow(0) { }
 
     public:
         void appendChild( FileTreeItem *child );
@@ -72,11 +74,14 @@ class FileTreeItem: public QObject
         int myIndex;
         FileTreeItem * myParent;
         QList<FileTreeItem*> myChildren;
+        QHash<QString,int> myChildRows;
+        QHash<QString,int>& getMyChildRows();
         const QString myName;
         int myPriority;
         bool myIsWanted;
         uint64_t myHaveSize;
         uint64_t myTotalSize;
+        size_t myFirstUnhashedRow;
 };
 
 class FileTreeModel: public QAbstractItemModel

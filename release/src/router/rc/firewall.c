@@ -327,6 +327,8 @@ int ipt_ipp2p(const char *v, char *opt)
 		if (n & 0x0200) strcat(opt, "--waste ");
 		if (n & 0x0400) strcat(opt, "--winmx ");
 		if (n & 0x0800) strcat(opt, "--xdcc ");
+		if (n & 0x1000) strcat(opt, "--pp ");
+		if (n & 0x2000) strcat(opt, "--xunlei ");
 	}
 
 	modprobe("ipt_ipp2p");

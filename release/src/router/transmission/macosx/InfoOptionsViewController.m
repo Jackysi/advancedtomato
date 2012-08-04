@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoOptionsViewController.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: InfoOptionsViewController.m 13377 2012-07-07 01:47:12Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -156,7 +156,8 @@
     enumerator = [fTorrents objectEnumerator];
     torrent = [enumerator nextObject]; //first torrent
     
-    NSInteger checkRatio = [torrent ratioSetting], checkIdle = [torrent idleSetting];
+    NSInteger checkRatio = [torrent ratioSetting], checkIdle = [torrent idleSetting],
+            removeWhenFinishSeeding = [torrent removeWhenFinishSeeding] ? NSOnState : NSOffState;
     CGFloat ratioLimit = [torrent ratioLimit];
     NSUInteger idleLimit = [torrent idleLimitMinutes];
     
@@ -174,6 +175,9 @@
         
         if (idleLimit != INVALID && idleLimit != [torrent idleLimitMinutes])
             idleLimit = INVALID;
+        
+        if (removeWhenFinishSeeding != NSMixedState && removeWhenFinishSeeding != ([torrent removeWhenFinishSeeding] ? NSOnState : NSOffState))
+            removeWhenFinishSeeding = NSMixedState;
     }
     
     //set ratio view
@@ -217,6 +221,10 @@
     [fIdleLimitLabel setHidden: checkIdle != TR_IDLELIMIT_SINGLE];
     
     [fIdleLimitGlobalLabel setHidden: checkIdle != TR_IDLELIMIT_GLOBAL];
+    
+    //set remove transfer when seeding finishes
+    [fRemoveSeedingCompleteCheck setState: removeWhenFinishSeeding];
+    [fRemoveSeedingCompleteCheck setEnabled: YES];
     
     //get priority info
     enumerator = [fTorrents objectEnumerator];
@@ -407,6 +415,18 @@
     [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateOptionsNotification" object: self];
 }
 
+- (IBAction) setRemoveWhenSeedingCompletes: (id) sender
+{
+    if ([(NSButton *)sender state] == NSMixedState)
+        [sender setState: NSOnState];
+    const BOOL enable = [(NSButton *)sender state] == NSOnState;
+    
+    for (Torrent * torrent in fTorrents)
+        [torrent setRemoveWhenFinishSeeding: enable];
+    
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateOptionsNotification" object: self];
+}
+
 - (void) setPriority: (id) sender
 {
     tr_priority_t priority;
@@ -502,6 +522,9 @@
         [fIdleLimitField setStringValue: @""];
         [fIdleLimitLabel setHidden: YES];
         [fIdleLimitGlobalLabel setHidden: YES];
+        
+        [fRemoveSeedingCompleteCheck setEnabled: NO];
+        [fRemoveSeedingCompleteCheck setState: NSOffState];
         
         [fPeersConnectField setEnabled: NO];
         [fPeersConnectField setStringValue: @""];

@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: app.cc 12697 2011-08-20 05:19:27Z jordan $
+ * $Id: app.cc 13385 2012-07-13 00:29:40Z jordan $
  */
 
 #include <cassert>
@@ -23,7 +23,6 @@
 #include <QLabel>
 #include <QLibraryInfo>
 #include <QRect>
-#include <QtGlobal>
 
 #include <libtransmission/transmission.h>
 #include <libtransmission/tr-getopt.h>
@@ -98,11 +97,7 @@ MyApp :: MyApp( int& argc, char ** argv ):
     installTranslator( &qtTranslator );
 
     // install the transmission translator
-#ifdef Q_OS_WIN32
     appTranslator.load( QString(MY_CONFIG_NAME) + "_" + QLocale::system().name(), QCoreApplication::applicationDirPath() + "/translations" );
-#else
-    appTranslator.load( QString(MY_CONFIG_NAME) + "_" + QLocale::system().name(), QLibraryInfo::location(QLibraryInfo::TranslationsPath) );
-#endif
     installTranslator( &appTranslator );
 
     Formatter::initUnits( );
@@ -419,6 +414,10 @@ MyApp :: addTorrent( const AddData& addme )
     else if( addme.type == addme.URL )
     {
         myWindow->openURL( addme.url.toString( ) );
+    }
+    else if( addme.type == addme.MAGNET )
+    {
+        myWindow->openURL( addme.magnet );
     }
     else
     {

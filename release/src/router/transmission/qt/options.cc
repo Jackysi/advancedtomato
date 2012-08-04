@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: options.cc 12697 2011-08-20 05:19:27Z jordan $
+ * $Id: options.cc 13381 2012-07-09 23:18:40Z jordan $
  */
 
 #include <cstdio>
@@ -29,6 +29,7 @@
 #include <QSet>
 #include <QVBoxLayout>
 #include <QWidget>
+#include <QLineEdit>
 
 #include <libtransmission/transmission.h>
 #include <libtransmission/bencode.h>
@@ -110,14 +111,15 @@ Options :: Options( Session& session, const Prefs& prefs, const AddData& addme, 
     l->setBuddy( p );
     connect( p, SIGNAL(clicked(bool)), this, SLOT(onFilenameClicked()));
 
+    const QFileIconProvider iconProvider;
+    const QIcon folderIcon = iconProvider.icon( QFileIconProvider::Folder );
+    const QPixmap folderPixmap = folderIcon.pixmap( iconSize );
+
+    l = new QLabel( tr( "&Destination folder:" ) );
+    layout->addWidget( l, ++row, 0, Qt::AlignLeft );
+
     if( session.isLocal( ) )
     {
-        const QFileIconProvider iconProvider;
-        const QIcon folderIcon = iconProvider.icon( QFileIconProvider::Folder );
-        const QPixmap folderPixmap = folderIcon.pixmap( iconSize );
-
-        l = new QLabel( tr( "&Destination folder:" ) );
-        layout->addWidget( l, ++row, 0, Qt::AlignLeft );
         myDestination.setPath( prefs.getString( Prefs :: DOWNLOAD_DIR ) );
         p = myDestinationButton = new QPushButton;
         p->setIcon( folderPixmap );
@@ -126,6 +128,13 @@ Options :: Options( Session& session, const Prefs& prefs, const AddData& addme, 
         layout->addWidget( p, row, 1 );
         l->setBuddy( p );
         connect( p, SIGNAL(clicked(bool)), this, SLOT(onDestinationClicked()));
+    }
+    else
+    {
+        QLineEdit * e = myDestinationEdit = new QLineEdit;
+        e->setText( prefs.getString( Prefs :: DOWNLOAD_DIR ) );
+        layout->addWidget( e, row, 1 );
+        l->setBuddy( e );
     }
 
     myTree = new FileTreeView;
@@ -319,10 +328,14 @@ Options :: onAccepted( )
     tr_bencDictAddStr( &top, "method", "torrent-add" );
     tr_bencDictAddInt( &top, "tag", tag );
     tr_benc * args( tr_bencDictAddDict( &top, "arguments", 10 ) );
+    QString downloadDir;
 
     // "download-dir"
     if( myDestinationButton )
-        tr_bencDictAddStr( args, "download-dir", myDestination.absolutePath().toUtf8().constData() );
+        downloadDir = myDestination.absolutePath();
+    else
+        downloadDir = myDestinationEdit->text();
+    tr_bencDictAddStr( args, "download-dir", downloadDir.toUtf8().constData() );
 
     // "metainfo"
     switch( myAdd.type )
