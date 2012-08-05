@@ -162,3 +162,7 @@ config TCONFIG_DNSCRYPT
 config TCONFIG_TOR
 	bool "  TOR Project"
 	default n
+
+config TCONFIG_IPSEC
+	bool "IPSec Support"
+	default n
