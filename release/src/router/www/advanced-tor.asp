@@ -138,7 +138,7 @@ createFieldTable('', [
 	{ title: 'Socks Port', name: 'tor_socksport', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.tor_socksport, 9050) },
 	{ title: 'Trans Port', name: 'tor_transport', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.tor_transport, 9040) },
 	{ title: 'DNS Port', name: 'tor_dnsport', type: 'text', maxlen: 5, size: 7, value: fixPort(nvram.tor_dnsport, 9053) },
-	{ title: 'Data Directory', name: 'tor_datadir', type: 'text', maxlen: 15, size: 17, value: nvram.tor_datadir },
+	{ title: 'Data Directory', name: 'tor_datadir', type: 'text', maxlen: 24, size: 28, value: nvram.tor_datadir },
 	null,
 	{ title: 'Redirect all users from', multi: [
 		{ name: 'tor_iface', type: 'select', options: [
