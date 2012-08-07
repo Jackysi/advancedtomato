@@ -364,7 +364,9 @@ void stop_lan_wl(void)
 	char *p, *ifname;
 	char *wl_ifnames;
 	char *lan_ifname;
+#ifdef CONFIG_BCMWL5
 	int unit, subunit;
+#endif
 
 	eval("ebtables", "-F");
 
@@ -412,7 +414,9 @@ void stop_lan_wl(void)
 void start_lan_wl(void)
 {
 	char *lan_ifname;
+#ifdef CONFIG_BCMWL5
 	struct ifreq ifr;
+#endif
 	char *wl_ifnames, *ifname, *p;
 	uint32 ip;
 	int unit, subunit, sta;
@@ -420,7 +424,11 @@ void start_lan_wl(void)
 	char tmp[32];
 	char br;
 
+#ifdef CONFIG_BCMWL5
 	foreach_wif(0, NULL, set_wlmac);
+#else
+	foreach_wif(1, NULL, set_wlmac);
+#endif
 
 	for(br=0 ; br<4 ; br++) {
 		char bridge[2] = "0";
@@ -466,9 +474,7 @@ void start_lan_wl(void)
 						if (get_ifname_unit(ifname, &unit, &subunit) < 0)
 							continue;
 						set_wlmac(0, unit, subunit, NULL);
-#endif
 					}
-#ifdef CONFIG_BCMWL5
 					else
 						wl_ioctl(ifname, WLC_GET_INSTANCE, &unit, sizeof(unit));
 #endif
@@ -575,6 +581,7 @@ void restart_wl(void)
 		xstart("radio", "join");
 }
 
+#ifdef CONFIG_BCMWL5
 static int disabled_wl(int idx, int unit, int subunit, void *param)
 {
 	char *ifname;
@@ -587,6 +594,7 @@ static int disabled_wl(int idx, int unit, int subunit, void *param)
 		return 1;
 	return 0;
 }
+#endif
 
 void start_wl(void)
 {
@@ -597,6 +605,7 @@ void start_wl(void)
 	char tmp[32];
 	char br;
 
+#ifdef CONFIG_BCMWL5
 		// HACK: When a virtual SSID is disabled, it requires two initialisation
 	if (foreach_wif(1, NULL, disabled_wl))
 	{
@@ -604,6 +613,7 @@ void start_wl(void)
 		start_wireless();
 		return;
 	}
+#endif
 
 	for(br=0 ; br<4 ; br++) {
 		char bridge[2] = "0";
@@ -714,7 +724,11 @@ void start_lan(void)
 	char *iftmp;
 	char nv[64];
 
+#ifdef CONFIG_BCMWL5
 	foreach_wif(0, NULL, set_wlmac);
+#else
+	foreach_wif(1, NULL, set_wlmac);
+#endif
 	check_afterburner();
 #ifdef TCONFIG_IPV6
 	enable_ipv6(ipv6_enabled());
