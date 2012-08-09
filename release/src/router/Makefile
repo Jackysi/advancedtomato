@@ -1837,7 +1837,7 @@ apcupsd-install: apcupsd
 
 dnscrypt/stamp-h1:
 	cd $(TOP)/dnscrypt && CC=$(CC) STRIP='mipsel-uclibc-strip' \
-	$(CONFIGURE) --prefix=/usr --disable-ssp --disable-largefile --disable-assert
+	$(CONFIGURE) --prefix=/usr --disable-ssp
 	touch dnscrypt/stamp-h1
 
 dnscrypt: dnscrypt/stamp-h1
