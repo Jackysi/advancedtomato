@@ -56,6 +56,8 @@ extern const char *tomato_shortver;
 #define	IPV6_ANYCAST_6TO4	3
 #define	IPV6_6IN4		4
 #define	IPV6_MANUAL		5
+#define	IPV6_6RD		6
+#define	IPV6_6RD_DHCP		7
 #endif
 
 enum {
@@ -93,6 +95,10 @@ extern int get_wan_proto(void);
 extern int get_ipv6_service(void);
 #define ipv6_enabled()	(get_ipv6_service() != IPV6_DISABLED)
 extern const char *ipv6_router_address(struct in6_addr *in6addr);
+extern int calc_6rd_local_prefix(const struct in6_addr *prefix,
+	int prefix_len, int relay_prefix_len,
+	const struct in_addr *local_ip,
+	struct in6_addr *local_prefix, int *local_prefix_len);
 #else
 #define ipv6_enabled()	(0)
 #endif

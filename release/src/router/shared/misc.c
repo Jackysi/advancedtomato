@@ -60,6 +60,8 @@ int get_ipv6_service(void)
 		"6to4",		// IPV6_ANYCAST_6TO4
 		"sit",		// IPV6_6IN4
 		"other",	// IPV6_MANUAL
+		"6rd",		// IPV6_6RD
+		"6rd-pd",	// IPV6_6RD_DHCP
 		NULL
 	};
 	int i;
@@ -96,6 +98,39 @@ const char *ipv6_router_address(struct in6_addr *in6addr)
 		memcpy(in6addr, &addr, sizeof(addr));
 
 	return addr6;
+}
+
+int calc_6rd_local_prefix(const struct in6_addr *prefix,
+	int prefix_len, int relay_prefix_len,
+	const struct in_addr *local_ip,
+	struct in6_addr *local_prefix, int *local_prefix_len)
+{
+	// the following code is based on ipv6calc's code
+	uint32_t local_ip_bits, j;
+	int i;
+
+	if (!prefix || !local_ip || !local_prefix || !local_prefix_len) {
+		return 0;
+	}
+
+	*local_prefix_len = prefix_len + 32 - relay_prefix_len;
+	if (*local_prefix_len > 64) {
+		return 0;
+	}
+
+	local_ip_bits = ntohl(local_ip->s_addr) << relay_prefix_len;
+
+	for (i=0; i<4; i++) {
+		local_prefix->s6_addr32[i] = prefix->s6_addr32[i];
+	}
+
+	for (j = 0x80000000, i = prefix_len; i < *local_prefix_len; i++, j>>=1)
+	{
+		if (local_ip_bits & j)
+			local_prefix->s6_addr[i>>3] |= (0x80 >> (i & 0x7));
+	}
+
+	return 1;
 }
 #endif
 

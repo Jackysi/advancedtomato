@@ -756,6 +756,11 @@ dnsmasq-install:
 	$(STRIP) $(INSTALLDIR)/dnsmasq/usr/sbin/dnsmasq
 
 iptables:
+ifeq ($(CONFIG_LINUX26),y)
+	cp -f iptables/extensions/libipt_ipp2p_K26.c iptables/extensions/libipt_ipp2p.c
+else
+	cp -f iptables/extensions/libipt_ipp2p_K24.c iptables/extensions/libipt_ipp2p.c
+endif
 	@$(SEP)
 	$(MAKE) -C iptables BINDIR=/usr/sbin LIBDIR=/usr/lib KERNEL_DIR=$(LINUXDIR) COPT_FLAGS="-Os $(EXTRACFLAGS) -U CONFIG_NVRAM_SIZE"
 
@@ -1838,7 +1843,7 @@ apcupsd-install: apcupsd
 
 dnscrypt/stamp-h1:
 	cd $(TOP)/dnscrypt && CC=$(CC) STRIP='mipsel-uclibc-strip' \
-	$(CONFIGURE) --prefix=/usr --disable-ssp --disable-largefile --disable-assert
+	$(CONFIGURE) --prefix=/usr --disable-ssp
 	touch dnscrypt/stamp-h1
 
 dnscrypt: dnscrypt/stamp-h1

@@ -81,10 +81,16 @@ function verifyFields(focused, quiet)
 				vis._f_ipv6_rtr_addr_auto = 2;
 			}
 			break;
+		case '6rd-pd':
 		case 'native-pd':
 			vis._f_ipv6_prefix = 0;
 			vis._f_ipv6_rtr_addr_auto = 0;
 			vis._f_ipv6_rtr_addr = 0;
+			if (c == '6rd-pd') {
+				vis._f_ipv6_prefix_length = 0;
+				vis._f_ipv6_accept_ra_wan = 0;
+				vis._f_ipv6_accept_ra_lan = 0;
+			}
 			// fall through
 		case 'native':
 			vis._ipv6_ifname = 0;
@@ -289,7 +295,7 @@ dns = nvram.ipv6_dns.split(/\s+/);
 
 createFieldTable('', [
 	{ title: 'IPv6 Service Type', name: 'ipv6_service', type: 'select', 
-		options: [['', 'Disabled'],['native','Native IPv6 from ISP'],['native-pd','DHCPv6 with Prefix Delegation'],['6to4','6to4 Anycast Relay'],['sit','6in4 Static Tunnel'],['other','Other (Manual Configuration)']],
+		options: [['', 'Disabled'],['native','Native IPv6 from ISP'],['native-pd','DHCPv6 with Prefix Delegation'],['6to4','6to4 Anycast Relay'],['sit','6in4 Static Tunnel'],['6rd-pd','6rd from DHCPv4 (Option 212)'],['other','Other (Manual Configuration)']],
 		value: nvram.ipv6_service },
 	{ title: 'IPv6 WAN Interface', name: 'ipv6_ifname', type: 'text', maxlen: 8, size: 10, value: nvram.ipv6_ifname },
 	null,
