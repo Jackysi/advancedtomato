@@ -289,7 +289,7 @@ var m = [
 	/* THEMES-BEGIN */
 		['asus','Asus RT-N16'],['rtn66u','Asus RT-N66U'],
 	/* THEMES-END */
-		['usbred','USB Red'],['usbblue','USB Blue'],['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css },
+		['usbred','USB Red'],['usbblue','USB Blue'],['asusred','Asus Red'],['linksysred','Linksys Red'],['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css },
 	{ title: 'Open Menus' }
 ];
 
