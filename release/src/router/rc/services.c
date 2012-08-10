@@ -597,13 +597,133 @@ void stop_ipv6_tunnel(void)
 	modprobe_r("sit");
 }
 
+void start_6rd_tunnel(void)
+{
+	const char *tun_dev, *wanip;
+	int service, mask_len, prefix_len, local_prefix_len;
+	char mtu[10], prefix[INET6_ADDRSTRLEN], relay[INET_ADDRSTRLEN];
+	struct in_addr netmask_addr, relay_addr, relay_prefix_addr, wanip_addr;
+	struct in6_addr prefix_addr, local_prefix_addr;
+	char local_prefix[INET6_ADDRSTRLEN];
+	char tmp_ipv6[INET6_ADDRSTRLEN + 4], tmp_ipv4[INET_ADDRSTRLEN + 4];
+	char tmp[256];
+	FILE *f;
+
+	service = get_ipv6_service();
+	wanip = get_wanip();
+	tun_dev = get_wan6face();
+	sprintf(mtu, "%d", (nvram_get_int("wan_mtu") > 0) ? (nvram_get_int("wan_mtu") - 20) : 1280);
+
+	// maybe we can merge the ipv6_6rd_* variables into a single ipv_6rd_string (ala wan_6rd)
+	// to save nvram space?
+	if (service == IPV6_6RD) {
+		_dprintf("starting 6rd tunnel using manual settings.\n");
+		mask_len = nvram_get_int("ipv6_6rd_ipv4masklen");
+		prefix_len = nvram_get_int("ipv6_6rd_prefix_length");
+		strcpy(prefix, nvram_safe_get("ipv6_6rd_prefix"));
+		strcpy(relay, nvram_safe_get("ipv6_6rd_borderrelay"));
+	}
+	else {
+		_dprintf("starting 6rd tunnel using automatic settings.\n");
+		char *wan_6rd = nvram_safe_get("wan_6rd");
+		if (sscanf(wan_6rd, "%d %d %s %s", &mask_len,  &prefix_len, prefix, relay) < 4) {
+			_dprintf("wan_6rd string is missing or invalid (%s)\n", wan_6rd);
+			return;
+		}
+	}
+
+	// validate values that were passed
+	if (mask_len < 0 || mask_len > 32) {
+		_dprintf("invalid mask_len value (%d)\n", mask_len);
+		return;
+	}
+	if (prefix_len < 0 || prefix_len > 128) {
+		_dprintf("invalid prefix_len value (%d)\n", prefix_len);
+		return;
+	}
+	if ((32 - mask_len) + prefix_len > 128) {
+		_dprintf("invalid combination of mask_len and prefix_len!\n");
+		return;
+	}
+
+	sprintf(tmp, "ping -q -c 2 %s | grep packet", relay);
+	if ((f = popen(tmp, "r")) == NULL) {
+		_dprintf("error obtaining data\n");
+		return;
+	}
+	fgets(tmp, sizeof(tmp), f);
+	pclose(f);
+	if (strstr(tmp, " 0% packet loss") == NULL) {
+		_dprintf("failed to ping border relay\n");
+		return;
+	}
+
+	// get relay prefix from border relay address and mask
+	netmask_addr.s_addr = htonl(0xffffffff << (32 - mask_len));
+	inet_aton(relay, &relay_addr);
+	relay_prefix_addr.s_addr = relay_addr.s_addr & netmask_addr.s_addr;
+
+	// calculate the local prefix
+	inet_pton(AF_INET6, prefix, &prefix_addr);
+	inet_pton(AF_INET, wanip, &wanip_addr);
+	if (calc_6rd_local_prefix(&prefix_addr, prefix_len, mask_len,
+	    &wanip_addr, &local_prefix_addr, &local_prefix_len) == 0) {
+		_dprintf("error calculating local prefix.");
+		return;
+	}
+	inet_ntop(AF_INET6, &local_prefix_addr, local_prefix, sizeof(local_prefix));
+
+	snprintf(tmp_ipv6, sizeof(tmp_ipv6), "%s1", local_prefix);
+	nvram_set("ipv6_rtr_addr", tmp_ipv6);
+	nvram_set("ipv6_prefix", local_prefix);
+
+	// load sit module needed for the 6rd tunnel
+	modprobe("sit");
+
+	// creating the 6rd tunnel
+	eval("ip", "tunnel", "add", (char *)tun_dev, "mode", "sit", "local", (char *)wanip, "ttl", nvram_safe_get("ipv6_tun_ttl"));
+
+	snprintf(tmp_ipv6, sizeof(tmp_ipv6), "%s/%d", prefix, prefix_len);
+	snprintf(tmp_ipv4, sizeof(tmp_ipv4), "%s/%d", inet_ntoa(relay_prefix_addr), mask_len);
+	eval("ip", "tunnel" "6rd", "dev", (char *)tun_dev, "6rd-prefix", tmp_ipv6, "6rd-relay_prefix", tmp_ipv4);
+
+	// bringing up the link
+	eval("ip", "link", "set", "dev", (char *)tun_dev, "mtu", (char *)mtu, "up");
+
+	// setting the WAN address Note: IPv6 WAN CIDR should be: ((32 - ip6rd_ipv4masklen) + ip6rd_prefixlen)
+	snprintf(tmp_ipv6, sizeof(tmp_ipv6), "%s1/%d", local_prefix, local_prefix_len);
+	eval("ip", "-6", "addr", "add", tmp_ipv6, "dev", (char *)tun_dev);
+
+	// setting the LAN address Note: IPv6 LAN CIDR should be 64
+	snprintf(tmp_ipv6, sizeof(tmp_ipv6), "%s1/%d", local_prefix, nvram_get_int("ipv6_prefix_length") ? : 64);
+	eval("ip", "-6", "addr", "add", tmp_ipv6, "dev", nvram_safe_get("lan_ifname"));
+
+	// adding default route via the border relay
+	snprintf(tmp_ipv6, sizeof(tmp_ipv6), "::%s", relay);
+	eval("ip", "-6", "route", "add", "default", "via", tmp_ipv6, "dev", (char *)tun_dev);
+
+	nvram_set("ipv6_ifname", (char *)tun_dev);
+
+	// (re)start radvd
+	start_radvd();
+
+	printf("6rd end\n");
+}
+
+void stop_6rd_tunnel(void)
+{
+	eval("ip", "tunnel", "del", (char *)get_wan6face());
+	eval("ip", "-6", "addr", "flush", "dev", nvram_safe_get("lan_ifname"), "scope", "global");
+	modprobe_r("sit");
+}
+
 static pid_t pid_radvd = -1;
 
 void start_radvd(void)
 {
 	FILE *f;
 	char *prefix, *ip, *mtu;
-	int do_dns, do_6to4;
+	int do_dns, do_6to4, do_6rd;
 	char *argv[] = { "radvd", NULL, NULL, NULL };
 	int pid, argc, service, cnt;
 
@@ -617,6 +737,7 @@ void start_radvd(void)
 	if (ipv6_enabled() && nvram_get_int("ipv6_radvd")) {
 		service = get_ipv6_service();
 		do_6to4 = (service == IPV6_ANYCAST_6TO4);
+		do_6rd = (service == IPV6_6RD || service == IPV6_6RD_DHCP);
 		mtu = NULL;
 
 		switch (service) {
@@ -625,6 +746,8 @@ void start_radvd(void)
 			break;
 		case IPV6_ANYCAST_6TO4:
 		case IPV6_6IN4:
+		case IPV6_6RD:
+		case IPV6_6RD_DHCP:
 			mtu = (nvram_get_int("ipv6_tun_mtu") > 0) ? nvram_safe_get("ipv6_tun_mtu") : "1480";
 			// fall through
 		default:
@@ -658,7 +781,7 @@ void start_radvd(void)
 			nvram_safe_get("lan_ifname"),
 			mtu ? " AdvLinkMTU " : "", mtu ? : "", mtu ? ";\n" : "",
 			prefix,
-			do_6to4 ? "  AdvValidLifetime 300;\n  AdvPreferredLifetime 120;\n" : "",
+			(do_6to4 || do_6rd)  ? "  AdvValidLifetime 300;\n  AdvPreferredLifetime 120;\n" : "",
 		        do_6to4 ? "  Base6to4Interface " : "",
 		        do_6to4 ? get_wanface() : "",
 		        do_6to4 ? ";\n" : "");

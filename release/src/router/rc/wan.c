@@ -861,6 +861,13 @@ void start_wan6_done(const char *wan_ifname)
 		// FIXME: give it a few seconds for DAD completion
 		sleep(2);
 		break;
+	case IPV6_6RD:
+	case IPV6_6RD_DHCP:
+		stop_6rd_tunnel();
+		start_6rd_tunnel();
+		// FIXME2?: give it a few seconds for DAD completion
+		sleep(2);
+		break;
 	}
 }
 #endif
