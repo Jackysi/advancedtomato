@@ -126,6 +126,10 @@ static int deconfig(char *ifname)
 
 	//	route_del(ifname, 0, NULL, NULL, NULL);
 
+#ifdef TCONFIG_IPV6
+	nvram_set("wan_6rd", "");
+#endif
+
 	TRACE_PT("end\n");
 	return 0;
 }
@@ -238,6 +242,10 @@ static int bound(char *ifname, int renew)
 
 	expires(atoi(safe_getenv("lease")));
 
+#ifdef TCONFIG_IPV6
+	env2nv("6rd", "wan_6rd");
+#endif
+
 	TRACE_PT("wan_ipaddr=%s\n", nvram_safe_get("wan_ipaddr"));
 	TRACE_PT("wan_netmask=%s\n", netmask);
 	TRACE_PT("wan_gateway=%s\n", nvram_safe_get("wan_gateway"));
@@ -246,6 +254,9 @@ static int bound(char *ifname, int renew)
 	TRACE_PT("wan_lease=%s\n", nvram_safe_get("wan_lease"));
 	TRACE_PT("wan_routes1=%s\n", nvram_safe_get("wan_routes1"));
 	TRACE_PT("wan_routes2=%s\n", nvram_safe_get("wan_routes2"));
+#ifdef TCONFIG_IPV6
+	TRACE_PT("wan_6rd=%s\n", nvram_safe_get("wan_6rd"));
+#endif
 
 	ifconfig(ifname, IFUP, "0.0.0.0", NULL);
 	ifconfig(ifname, IFUP, nvram_safe_get("wan_ipaddr"), netmask);
@@ -380,12 +391,18 @@ void start_dhcpc(void)
 #endif
 
 	snprintf(cmd, sizeof(cmd),
-		"udhcpc -i %s -b -s dhcpc-event %s %s %s %s %s",
+		"udhcpc -i %s -b -s dhcpc-event %s %s %s %s %s %s",
 		ifname,
 		nvram_invmatch("wan_hostname", "") ? "-H" : "", nvram_safe_get("wan_hostname"),
 		nvram_get_int("dhcpc_minpkt") ? "-m" : "",
 		nvram_contains_word("log_events", "dhcpc") ? "-S" : "",
-		nvram_safe_get("dhcpc_custom"));
+		nvram_safe_get("dhcpc_custom"),.
+#ifdef TCONFIG_IPV6
+		(get_ipv6_service() == IPV6_6RD_DHCP) ? "-O 6rd" : ""
+#else
+		""
+#endif
+		);
 
 	xstart("/bin/sh", "-c", cmd);
 
