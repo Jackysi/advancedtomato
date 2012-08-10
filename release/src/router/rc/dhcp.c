@@ -396,7 +396,7 @@ void start_dhcpc(void)
 		nvram_invmatch("wan_hostname", "") ? "-H" : "", nvram_safe_get("wan_hostname"),
 		nvram_get_int("dhcpc_minpkt") ? "-m" : "",
 		nvram_contains_word("log_events", "dhcpc") ? "-S" : "",
-		nvram_safe_get("dhcpc_custom"),.
+		nvram_safe_get("dhcpc_custom"),
 #ifdef TCONFIG_IPV6
 		(get_ipv6_service() == IPV6_6RD_DHCP) ? "-O 6rd" : ""
 #else
