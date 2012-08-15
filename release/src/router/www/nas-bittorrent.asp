@@ -395,7 +395,7 @@ createFieldTable('', [
 			['/cifs1','CIFS 1'],['/cifs2','CIFS 2'],
 /* CIFS-END */
 			['/tmp','RAM (Temporary)'], ['custom','Custom'] ], value: nvram.bt_settings, suffix: ' ' },
-		{ name: 'bt_settings_custom', type: 'text', maxlen: 40, size: 40, value: nvram.bt_settings_custom }
+		{ name: 'bt_settings_custom', type: 'text', maxlen: 60, size: 40, value: nvram.bt_settings_custom }
 		] },
 	{ title: 'Blocklist', multi: [
 		{ name: 'f_bt_blocklist', type: 'checkbox', value: nvram.bt_blocklist == '1', suffix: '  ' },

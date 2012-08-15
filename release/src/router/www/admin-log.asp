@@ -169,7 +169,7 @@ createFieldTable('', [
 	{ title: 'Number of rotated logs to keep', name: 'log_file_keep', type: 'text', maxlen: 2, size: 3, value: nvram.log_file_keep || 1 },
 	{ title: 'Custom Log File Path', multi: [
 		{ name: 'f_log_file_custom', type: 'checkbox', value: nvram.log_file_custom == 1, suffix: '  ' },
-		{ name: 'log_file_path', type: 'text', maxlen: 32, size: 20, value: nvram.log_file_path, suffix: ' <small>(make sure the directory exists and is writable)</small>' }
+		{ name: 'log_file_path', type: 'text', maxlen: 50, size: 30, value: nvram.log_file_path, suffix: ' <small>(make sure the directory exists and is writable)</small>' }
 		] },
 	{ title: 'Log To Remote System', name: 'f_log_remote', type: 'checkbox', value: nvram.log_remote == 1 },
 	{ title: 'Host or IP Address / Port', indent: 2, multi: [

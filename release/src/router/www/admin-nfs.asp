@@ -90,7 +90,7 @@ nfsg.resetNewEditor = function() {
 nfsg.setup = function()
 {
 	this.init('nfsg-grid', '', 50, [
-		{ type: 'text', maxlen: 20 },
+		{ type: 'text', maxlen: 50 },
 		{ type: 'text', maxlen: 30 },
 		{ type: 'select', options: access },
 		{ type: 'select', options: sync },
