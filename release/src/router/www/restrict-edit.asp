@@ -82,7 +82,11 @@ layer7.unshift(['', 'Layer 7 (disabled)']);
 
 var ipp2p = [
 	[0,'IPP2P (disabled)'],[0xFFFF,'All IPP2P Filters'],[1,'AppleJuice'],[2,'Ares'],[4,'BitTorrent'],[8,'Direct Connect'],
-	[16,'eDonkey'],[32,'Gnutella'],[64,'Kazaa'],[128,'Mute'],[256,'SoulSeek'],[512,'Waste'],[1024,'WinMX'],[2048,'XDCC']];
+	[16,'eDonkey'],[32,'Gnutella'],[64,'Kazaa'],[128,'Mute'],[4096,'PPLive/UUSee'],[256,'SoulSeek'],[512,'Waste'],[1024,'WinMX']
+/* LINUX26-BEGIN */
+	,[2048,'XDCC'],[8192,'Xunlei/QQCyclone']
+/* LINUX26-END */
+	];
 
 var dowNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 

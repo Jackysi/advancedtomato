@@ -171,6 +171,7 @@ struct nf_conn
 	u_int32_t ctf_flags;
 #endif /* HNDCTF */
 
+	u_int32_t ipp2p;
 	/* Storage reserved for other modules: */
 	union nf_conntrack_proto proto;
 
