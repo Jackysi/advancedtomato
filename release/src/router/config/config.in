@@ -166,3 +166,7 @@ config TCONFIG_TOR
 config TCONFIG_IPSEC
 	bool "IPSec Support"
 	default n
+
+config TCONFIG_RAID
+	bool "RAID Support: mdadm plus md modules"
+	default n

@@ -1,0 +1,41 @@
+Subject:  ANNOUNCE: mdadm 2.0 - A tool for managing Soft RAID under Linux
+
+I am (at last) please to announce the availability of
+   mdadm version 2.0
+
+It is available at the usual places:
+   http://www.cse.unsw.edu.au/~neilb/source/mdadm/
+and
+   http://www.{countrycode}.kernel.org/pub/linux/utils/raid/mdadm/
+
+mdadm is a tool for creating, managing and monitoring
+device arrays using the "md" driver in Linux, also
+known as Software RAID arrays.
+
+Release 2.0 contains a substantial rewrite of various pieces of
+functionality, particularly the --create option.  This enables support
+for a new style of superblock - the version-1 superblock.
+Version-1 can support many more than 28 devices and can be easily
+moved between hosts with different endian-ness.
+Release 2.0 also contains support for the recent bitmap-intent-logging
+which will appear in 2.6.13, and the RAID1 write-behind that will be
+available in 2.6.14 (it is currently only in -mm).
+
+This release comes with a test-suite which has been used to verify that
+mdadm-2.0 actually works in a number of common scenarios.  Some of the
+tests require a bleeding-edge kernel, so don't be surprised if some fail
+on kernels prior to 2.6.14.
+
+Being a '.0' release, 2.0 should be treated with some caution.
+However I believe it is quite stable and can safely be used on
+production systems.
+
+Note that this release is "2.0", not "2.0.0".  I never found a use for
+the third number with 1.X.Y, so I dropped it.
+
+
+Development of mdadm has moved from CSE@UNSW and is now sponsored by
+ SUSE Labs, Novell Inc.
+
+NeilBrown  26th August 2005
+

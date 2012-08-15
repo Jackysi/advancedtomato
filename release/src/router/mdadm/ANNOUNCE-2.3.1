@@ -1,0 +1,31 @@
+Subject:  ANNOUNCE: mdadm 2.3.1 - A tool for managing Soft RAID under Linux
+
+I am pleased to announce the availability of
+   mdadm version 2.3.1
+
+It is available at the usual places:
+   http://www.cse.unsw.edu.au/~neilb/source/mdadm/
+and
+   http://www.{countrycode}.kernel.org/pub/linux/utils/raid/mdadm/
+
+mdadm is a tool for creating, managing and monitoring
+device arrays using the "md" driver in Linux, also
+known as Software RAID arrays.
+
+Release 2.3.1 primarily fixes a few compile problems with 2.3.  Though
+there are some functionality changes, they are extremely minor and you
+probably won't notice them.
+
+Changelog Entries:
+    -   Fixed -O2 compile so I could make and RPM.
+    -   Type cast number to be printed %llu so it compiles on 64bit
+        machines. (Thanks Luca).
+    -   Stop using asm/byteorder.h - to make Redhat happy :-(
+    -   Require bitmap files to have a '/' in their name.
+    -   Error-check a few syscalls - code from SuSE package.
+
+Development of mdadm is sponsored by
+ SUSE Labs, Novell Inc.
+
+NeilBrown  6th February 2006
+
