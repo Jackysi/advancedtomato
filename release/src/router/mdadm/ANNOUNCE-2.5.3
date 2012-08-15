@@ -1,0 +1,33 @@
+Subject:  ANNOUNCE: mdadm 2.5.3 - A tool for managing Soft RAID under Linux
+
+I am pleased to announce the availability of
+   mdadm version 2.5.3
+
+It is available at the usual places:
+   http://www.cse.unsw.edu.au/~neilb/source/mdadm/
+and
+   countrycode=xx.
+   http://www.${countrycode}kernel.org/pub/linux/utils/raid/mdadm/
+and via git at
+   git://neil.brown.name/mdadm
+   http://neil.brown.name/git?p=mdadm
+
+mdadm is a tool for creating, managing and monitoring
+device arrays using the "md" driver in Linux, also
+known as Software RAID arrays.
+
+Release 2.5.3 is a bugfix release over 2.5.2.
+
+Changelog Entries:
+    -   Document v0.91 superblocks in md.4
+    -   Make GPL explicit in man pages.
+    -   Fix recent breakage of starting degraded arrays.
+    -   Tidyup automatic name choice for v-1 arrays:
+	  /dev/md_d0 now becomes '0', not '_d0'.
+
+Development of mdadm is sponsored by
+ SUSE Labs, Novell Inc.
+
+NeilBrown  7th August 2006
+
+

@@ -62,6 +62,7 @@ obj-y += wlconf
 obj-y += cyassl
 obj-y += mssl
 obj-y += mdu
+obj-y += mdadm
 
 obj-$(TCONFIG_NFS) += portmap
 obj-$(TCONFIG_NFS) += e2fsprogs
@@ -115,6 +116,12 @@ ifeq ($(TCONFIG_IPSEC),y)
 export TCONFIG_IPSEC := y
 else
 TCONFIG_IPSEC :=
+endif
+
+ifeq ($(TCONFIG_RAID),y)
+export TCONFIG_RAID := y
+else
+TCONFIG_RAID :=
 endif
 
 obj-$(NEED_SAMBA2) += samba
@@ -366,11 +373,16 @@ endif
 	@rm -rf $(PLATFORMDIR)/extras
 	@mkdir $(PLATFORMDIR)/extras
 	@mkdir $(PLATFORMDIR)/extras/ipsec
+	@mkdir $(PLATFORMDIR)/extras/raid
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/ip_gre.*o $(PLATFORMDIR)/extras/ || true
-	$(if $(TCONFIG_IPSEC),@cp -f,@mv) $(TARGETDIR)/usr/lib/iptables/libipt_policy.*o $(PLATFORMDIR)/extras/ipsec/ || true
+#	$(if $(TCONFIG_IPSEC),@cp -f,@mv) $(TARGETDIR)/usr/lib/iptables/libipt_policy.*o $(PLATFORMDIR)/extras/ipsec/ || true
 
 	$(if $(TCONFIG_OPENVPN),@cp -f,$(if $(TCONFIG_USB_EXTRAS),@cp -f,$(if $(TCONFIG_IPV6),@cp -f,@mv))) $(TARGETDIR)/lib/modules/*/kernel/drivers/net/tun.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(TCONFIG_EBTABLES),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/net/bridge/netfilter/ebt*.*o $(PLATFORMDIR)/extras/ || true
+
+	$(if $(TCONFIG_RAID),@cp -f,@mv) $(TARGETDIR)/usr/sbin/mdadm $(PLATFORMDIR)/extras/raid/ || true
+	$(if $(TCONFIG_RAID),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/md/*.ko $(PLATFORMDIR)/extras/raid/ || true
+	$(if $(TCONFIG_RAID),@ls,@rm -rf) $(TARGETDIR)/lib/modules/*/kernel/drivers/md || true
 
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ifb.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/sched/sch_red.*o $(PLATFORMDIR)/extras/ || true
@@ -436,11 +448,11 @@ endif
 	$(if $(TCONFIG_IPSEC),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/net/key/*.ko $(PLATFORMDIR)/extras/ipsec/ || true
 	$(if $(TCONFIG_IPSEC),@ls,@rm -rf) $(TARGETDIR)/lib/modules/*/kernel/net/key || true
 	$(if $(TCONFIG_IPSEC),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/net/ipv*/xfrm*.ko $(PLATFORMDIR)/extras/ipsec/ || true
-	$(if $(TCONFIG_IPSEC),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/net/ipv*/tunnel*.ko $(PLATFORMDIR)/extras/ipsec/ || true
+#	$(if $(TCONFIG_IPSEC),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/net/ipv*/tunnel*.ko $(PLATFORMDIR)/extras/ipsec/ || true
 	$(if $(TCONFIG_IPSEC),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/net/ipv*/ah*.ko $(PLATFORMDIR)/extras/ipsec/ || true
 	$(if $(TCONFIG_IPSEC),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/net/ipv*/esp*.ko $(PLATFORMDIR)/extras/ipsec/ || true
 	$(if $(TCONFIG_IPSEC),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/net/ipv*/ipcomp*.ko $(PLATFORMDIR)/extras/ipsec/ || true
-	$(if $(TCONFIG_IPSEC),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/net/netfilter/xt_policy.ko $(PLATFORMDIR)/extras/ipsec/ || true
+#	$(if $(TCONFIG_IPSEC),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/net/netfilter/xt_policy.ko $(PLATFORMDIR)/extras/ipsec/ || true
 
 	$(if $(NEED_EX_NLS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nls_cp9*.*o $(PLATFORMDIR)/extras/ || true
 	$(if $(NEED_EX_NLS),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/fs/nls_cp1251.*o $(PLATFORMDIR)/extras/ || true
@@ -1876,6 +1888,15 @@ tor-install: tor
 tor-clean:
 	-@$(MAKE) -c tor clean
 	@rm -rf tor/stamp-h1 tor/Makefile
+
+mdadm:
+
+mdadm-install: mdadm
+	install -D mdadm/mdadm $(INSTALLDIR)/mdadm/usr/sbin/mdadm
+	$(STRIP) -s $(INSTALLDIR)/mdadm/usr/sbin/mdadm
+
+mdadm-clean:
+	-@$(MAKE) -c mdadm clean
 
 #
 # Generic rules

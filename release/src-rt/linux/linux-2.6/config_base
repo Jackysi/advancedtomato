@@ -839,7 +839,16 @@ CONFIG_SCSI_WAIT_SCAN=m
 #
 # Multi-device support (RAID and LVM)
 #
-# CONFIG_MD is not set
+CONFIG_MD=y
+CONFIG_BLK_DEV_MD=m
+# CONFIG_MD_LINEAR is not set
+CONFIG_MD_RAID0=m
+CONFIG_MD_RAID1=m
+# CONFIG_MD_RAID10 is not set
+# CONFIG_MD_RAID456 is not set
+# CONFIG_MD_MULTIPATH is not set
+# CONFIG_MD_FAULTY is not set
+# CONFIG_BLK_DEV_DM is not set
 
 #
 # Fusion MPT device support

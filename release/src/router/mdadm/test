@@ -1,0 +1,176 @@
+#!/bin/sh
+#
+# run test suite for mdadm
+user=`id -un`
+if [ " $user" != " root" ]
+then echo >&2 "test: testing can only be done as 'root'."
+     exit 1;
+fi
+
+prefix='[0-9][0-9]'
+if [ -n "$1" ]
+then prefix=$1
+fi
+
+dir=`pwd`
+mdadm=$dir/mdadm
+if [ \! -x $mdadm ]
+then
+   echo >&2 "test: $mdadm isn't usable."
+fi
+
+# assume md0, md1, md2 exist in /dev
+md0=/dev/md0 md1=/dev/md1 md2=/dev/md2
+
+# We test mdadm on loop-back block devices.
+# dir for storing files should be settable by command line maybe
+targetdir=/var/tmp
+size=20000
+mdsize0=19904
+mdsize1=19992
+mdsize11=19996
+mdsize12=19992
+
+cleanup() {
+	$mdadm -Ss
+	for d in 0 1 2 3 4 5 6 7
+	do
+           losetup -d /dev/loop$d ; # rm -f $targetdir/mdtest$d
+        done
+}
+
+trap cleanup 0 1 2 3 15
+
+devlist=
+for d in 0 1 2 3 4 5 6 7
+do
+   [ -f $targetdir/mdtest$d ] || dd if=/dev/zero of=$targetdir/mdtest$d count=$size bs=1K > /dev/null 2>&1
+   [ -b /dev/loop$d ] || mknod /dev/loop$d b 7 $d
+   if [ $d -eq 7 ]
+   then
+     losetup /dev/loop$d $targetdir/mdtest6 # for multipath use
+   else
+     losetup /dev/loop$d $targetdir/mdtest$d
+   fi
+   eval dev$d=/dev/loop$d
+   eval file$d=$targetdir/mdtest$d
+   eval devlist=\"\$devlist \$dev$d\"
+done
+path0=$dev6
+path1=$dev7
+
+if [ " $1" = " setup" ]
+then trap 0 ; exit 0
+fi
+
+# mdadm always adds --quiet, and we want to see any unexpected messages
+mdadm() {
+    rm -f $targetdir/stderr
+    case $* in
+       *-C* ) $mdadm 2> $targetdir/stderr --quiet "$@" --auto=yes;;
+        * )   $mdadm 2> $targetdir/stderr --quiet "$@"
+    esac
+    cat >&2 $targetdir/stderr
+}
+
+# check various things
+check() {
+   case $1 in
+    spares )
+       spares=`tr '] ' '\012\012' < /proc/mdstat | grep -c '(S)' || exit 0`
+       if [ $spares -ne $2 ]
+       then
+          echo >&2 "ERROR expected $2 spares, found $spares"; exit 1;
+       fi
+      ;;
+    raid* | linear )
+      grep -s "active $1 " /proc/mdstat > /dev/null || {
+   		echo >&2 "ERROR active $1 not found" ; cat /proc/mdstat ; exit 1;}
+     ;;
+    resync | recovery )
+      sleep 0.5
+      grep -s $1 /proc/mdstat > /dev/null || {
+   		echo >&2 ERROR no $1 happening; cat /proc/mdstat; exit 1; }
+     ;;
+   
+     nosync )
+       sleep 0.5
+       if grep -s 're[synccovery]* =' > /dev/null /proc/mdstat ; then
+   	   echo >&2 "ERROR resync or recovery is happening!"; cat /proc/mdstat ; exit 1; 
+       fi
+     ;;
+   
+    wait )
+      sleep 0.1
+      while grep 're[synccovery]* =' > /dev/null /proc/mdstat
+      do sleep 2;
+      done
+      ;;
+   
+    state )
+       grep -s "blocks.*\[$2\]\$" /proc/mdstat > /dev/null || {
+   		echo >&2 "ERROR state $2 not found!"; cat /proc/mdstat ; exit 1; }
+       sleep 0.5
+      ;;
+
+    bitmap )
+       grep -s bitmap > /dev/null /proc/mdstat || {
+	   echo >&2 ERROR no bitmap ; cat /proc/mdstat ; exit 1; }
+      ;;
+    nobitmap )
+       if grep -s "bitmap" > /dev/null /proc/mdstat 
+       then
+	   echo >&2 ERROR bitmap present ; cat /proc/mdstat ; exit 1;
+       fi
+      ;;
+   
+    * ) echo >&2 ERROR unknown check $1 ; exit 1;
+   esac
+}
+
+no_errors() {
+  if [ -s $targetdir/stderr ]
+  then echo Bad errors from mdadm: ; cat $targetdir/stderr; exit 2;
+  fi
+}
+# basic device test
+
+testdev() {
+   dev=$1
+   cnt=$2
+   dvsize=$3
+   chunk=$4
+   mkfs -j $dev > /dev/null 2>&1 && fsck -fn $dev >&2
+   dsize=$[dvsize/chunk]
+   dsize=$[dsize*chunk]
+   rasize=$[dsize*2*cnt]
+   if [ $rasize -ne `/sbin/blockdev --getsize $dev` ]
+   then
+     echo "ERROR: size is wrong for $dev: $cnt * $dvsize (chunk=$chunk) = $rasize, not `/sbin/blockdev --getsize $dev`"
+     exit 1
+   fi
+}
+
+rotest() {
+  dev=$1
+  fsck -fn $dev >&2
+}
+
+
+
+for script in tests/$prefix tests/$prefix*[^~]
+do
+  if [ -f "$script" ]
+  then
+   rm -f $targetdir/stderr
+   # source script in a subshell, so it has access to our
+   # namespace, but cannot change it.
+   if ( set -ex ; . $script )  2> $targetdir/log
+   then echo "$script succeeded" 
+   else cat $targetdir/log ; cat $targetdir/stderr
+        echo "$script failed"
+       exit 1
+   fi
+  fi
+done
+exit 0
