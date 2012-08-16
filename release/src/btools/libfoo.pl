@@ -159,10 +159,10 @@ sub fixDyn
 #shibby
 	fixDynDep("transmission-daemon", "libevent-2.0.so.5");
 	fixDynDep("transmission-daemon", "libcurl.so.4.2.0");
-	fixDynDep("transmission-daemon", "libiconv.so.2");
+#	fixDynDep("transmission-daemon", "libiconv.so.2");
 	fixDynDep("transmission-remote", "libevent-2.0.so.5");
 	fixDynDep("transmission-remote", "libcurl.so.4.2.0");
-	fixDynDep("transmission-remote", "libiconv.so.2");
+#	fixDynDep("transmission-remote", "libiconv.so.2");
 
 	fixDynDep("tomatodata.cgi", "libc.so.0");
 	fixDynDep("tomatoups.cgi", "libc.so.0");
@@ -480,7 +480,7 @@ genSO("${root}/usr/lib/libbcmcrypto.so", "${router}/libbcmcrypto/libbcmcrypto.a"
 #shibby
 genSO("${root}/usr/lib/libcurl.so.4.2.0", "${router}/libcurl/lib/.libs/libcurl.a", "", "-L${router}/zlib");
 genSO("${root}/usr/lib/libevent-2.0.so.5", "${router}/libevent/.libs/libevent.a");
-genSO("${root}/usr/lib/libiconv.so.2", "${router}/libiconv/lib/.libs/libiconv.a");
+#genSO("${root}/usr/lib/libiconv.so.2", "${router}/libiconv/lib/.libs/libiconv.a");
 
 print "\n";
 
