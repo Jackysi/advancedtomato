@@ -1649,16 +1649,14 @@ libiconv-install: libiconv
 	install libiconv/lib/.libs/libiconv.so.2.4.0 $(INSTALLDIR)/libiconv/usr/lib/libiconv.so.2
 	$(STRIP)-s $(INSTALLDIR)/libiconv/usr/lib/libiconv.so.2
 
-transmission/stamp-h1: openssl libcurl libevent zlib libiconv
+transmission/stamp-h1: openssl libcurl libevent zlib
 	cd transmission && CC=$(CC) STRIP='mipsel-uclibc-strip' \
 		CFLAGS="-Os -Wall -fno-delete-null-pointer-checks -funit-at-a-time \
 			--param large-function-growth=800 --param max-inline-insns-single=3000 \
 			-ffunction-sections -fdata-sections" \
-		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC \
-			-L$(TOP)/libiconv/lib/.libs -liconv" \
-		CPPFLAGS="-I$(TOP)/zlib -I$(TOP)/libiconv/include" \
-		ac_cv_header_libintl_h=yes HAVE_CXX=yes \
-		am_cv_lib_iconv=yes ac_cv_func_iconv_open=yes \
+		LDFLAGS="-L$(TOP)/zlib -ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC" \
+		CPPFLAGS="-I$(TOP)/zlib" \
+		HAVE_CXX=yes \
 		$(CONFIGURE) --target=mipsel-linux --prefix=/usr --disable-nls \
 		--enable-lightweight --enable-largefile --enable-utp --without-gtk \
 		LIBCURL_CFLAGS="-I$(TOP)/libcurl/include" \
