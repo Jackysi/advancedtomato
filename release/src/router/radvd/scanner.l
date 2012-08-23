@@ -1,5 +1,4 @@
 /*
- *   $Id: scanner.l,v 1.29 2011/05/07 02:09:40 reubenhwk Exp $
  *
  *   Authors:
  *    Pedro Roque		<roque@di.fc.ul.pt>
@@ -17,7 +16,6 @@
 %option nounput noinput noyywrap
 
 %{
-#include <string.h>
 #include "config.h"
 #include "includes.h"
 #include "log.h"
@@ -26,8 +24,6 @@
 extern char *conf_file;
 
 int num_lines = 1;
-
-#define YY_NO_INPUT
 %}
 
 digit		[0-9]
