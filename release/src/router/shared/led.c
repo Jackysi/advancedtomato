@@ -356,9 +356,9 @@ int do_led(int which, int mode)
 	case MODEL_E900:
 	case MODEL_E1500:
 	case MODEL_E1550:
+	case MODEL_E2500:
 		b = e900[which];
 		break;
-	case MODEL_E2500:
 	case MODEL_E3200:
 		b = e3200[which];
 		break;
