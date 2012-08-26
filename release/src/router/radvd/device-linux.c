@@ -1,5 +1,4 @@
 /*
- *   $Id: device-linux.c,v 1.27 2010/12/14 11:58:21 psavola Exp $
  *
  *   Authors:
  *    Lars Fenneberg		<lf@elemental.net>
@@ -29,7 +28,7 @@
  * the defined prefixes
  */
 int
-setup_deviceinfo(int sock, struct Interface *iface)
+setup_deviceinfo(struct Interface *iface)
 {
 	struct ifreq	ifr;
 	struct AdvPrefix *prefix;
@@ -124,7 +123,7 @@ setup_deviceinfo(int sock, struct Interface *iface)
  * this function extracts the link local address and interface index
  * from PATH_PROC_NET_IF_INET6.  Note: 'sock' unused in Linux.
  */
-int setup_linklocal_addr(int sock, struct Interface *iface)
+int setup_linklocal_addr(struct Interface *iface)
 {
 	FILE *fp;
 	char str_addr[40];
@@ -167,7 +166,7 @@ int setup_linklocal_addr(int sock, struct Interface *iface)
 	return (-1);
 }
 
-int setup_allrouters_membership(int sock, struct Interface *iface)
+int setup_allrouters_membership(struct Interface *iface)
 {
 	struct ipv6_mreq mreq;
 
@@ -191,7 +190,7 @@ int setup_allrouters_membership(int sock, struct Interface *iface)
 	return (0);
 }
 
-int check_allrouters_membership(int sock, struct Interface *iface)
+int check_allrouters_membership(struct Interface *iface)
 {
 	#define ALL_ROUTERS_MCAST "ff020000000000000000000000000002"
 
@@ -226,7 +225,7 @@ int check_allrouters_membership(int sock, struct Interface *iface)
 
 	if (!allrouters_ok) {
 		flog(LOG_WARNING, "resetting ipv6-allrouters membership on %s", iface->Name);
-		setup_allrouters_membership(sock, iface);
+		return setup_allrouters_membership(iface);
 	}
 
 	return(0);
@@ -241,6 +240,10 @@ set_interface_var(const char *iface,
 	FILE *fp;
 	char spath[64+IFNAMSIZ];	/* XXX: magic constant */
 	if (snprintf(spath, sizeof(spath), var, iface) >= sizeof(spath))
+		return -1;
+
+	/* No path traversal */
+	if (!iface[0] || !strcmp(iface, ".") || !strcmp(iface, "..") || strchr(iface, '/'))
 		return -1;
 
 	if (access(spath, F_OK) != 0)
@@ -262,62 +265,24 @@ set_interface_var(const char *iface,
 int
 set_interface_linkmtu(const char *iface, uint32_t mtu)
 {
-	if (privsep_enabled())
-		return privsep_interface_linkmtu(iface, mtu);
-
-	return set_interface_var(iface,
-				 PROC_SYS_IP6_LINKMTU, "LinkMTU",
-				 mtu);
+	return privsep_interface_linkmtu(iface, mtu);
 }
 
 int
 set_interface_curhlim(const char *iface, uint8_t hlim)
 {
-	if (privsep_enabled())
-		return privsep_interface_curhlim(iface, hlim);
-
-	return set_interface_var(iface,
-				 PROC_SYS_IP6_CURHLIM, "CurHopLimit",
-				 hlim);
+	return privsep_interface_curhlim(iface, hlim);
 }
 
 int
 set_interface_reachtime(const char *iface, uint32_t rtime)
 {
-	int ret;
-
-	if (privsep_enabled())
-		return privsep_interface_reachtime(iface, rtime);
-
-	ret = set_interface_var(iface,
-				PROC_SYS_IP6_BASEREACHTIME_MS,
-				NULL,
-				rtime);
-	if (ret)
-		ret = set_interface_var(iface,
-					PROC_SYS_IP6_BASEREACHTIME,
-					"BaseReachableTimer",
-					rtime / 1000); /* sec */
-	return ret;
+	return privsep_interface_reachtime(iface, rtime);
 }
 
 int
 set_interface_retranstimer(const char *iface, uint32_t rettimer)
 {
-	int ret;
-
-	if (privsep_enabled())
-		return privsep_interface_retranstimer(iface, rettimer);
-
-	ret = set_interface_var(iface,
-				PROC_SYS_IP6_RETRANSTIMER_MS,
-				NULL,
-				rettimer);
-	if (ret)
-		ret = set_interface_var(iface,
-					PROC_SYS_IP6_RETRANSTIMER,
-					"RetransTimer",
-					rettimer / 1000 * USER_HZ); /* XXX user_hz */
-	return ret;
+	return privsep_interface_retranstimer(iface, rettimer);
 }
 

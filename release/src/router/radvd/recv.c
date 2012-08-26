@@ -1,5 +1,4 @@
 /*
- *   $Id: recv.c,v 1.13 2010/12/14 11:58:21 psavola Exp $
  *
  *   Authors:
  *    Pedro Roque		<roque@di.fc.ul.pt>
@@ -19,7 +18,7 @@
 #include "radvd.h"
 
 int
-recv_rs_ra(int sock, unsigned char *msg, struct sockaddr_in6 *addr,
+recv_rs_ra(unsigned char *msg, struct sockaddr_in6 *addr,
                  struct in6_pktinfo **pkt_info, int *hoplimit)
 {
 	struct msghdr mhdr;

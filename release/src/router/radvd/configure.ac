@@ -1,5 +1,4 @@
 dnl
-dnl  $Id: configure.in,v 1.14 2010/12/14 10:59:12 psavola Exp $
 dnl
 dnl   Authors:
 dnl    Lars Fenneberg		<lf@elemental.net>	 
@@ -13,20 +12,14 @@ dnl   may request it from <pekkas@netcore.fi>.
 dnl
 dnl
 
-AC_REVISION ($Id: configure.in,v 1.14 2010/12/14 10:59:12 psavola Exp $)
 AC_INIT(radvd.c)
 
 AC_CANONICAL_SYSTEM
 VERSION=`cat ${srcdir}/VERSION | grep -v '^#' | tr -d '\012'`
 AM_INIT_AUTOMAKE(radvd,$VERSION,true)
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES(yes)])
 
-case $host in
-    *darwin*)
-        target=$host
-    ;;
-esac
-
-echo $ac_n "building for architecture""... $ac_c" 1>&6
+AC_MSG_CHECKING([architecture])
 case "$target" in
 	*linux*)
 		AC_MSG_RESULT(linux)
@@ -38,7 +31,7 @@ case "$target" in
                 arch=bsd44
         ;;
         *darwin*)
-		AC_MSG_RESULT(bsd44)
+		AC_MSG_RESULT([bsd44 (darwin)])
                 arch=bsd44
         ;;
         *)      
@@ -52,6 +45,35 @@ esac
 
 dnl Determine CC and preset CFLAGS
 AC_PROG_CC
+
+dnl Determine of netlink is available
+AC_MSG_CHECKING(netlink)
+AC_TRY_COMPILE([
+#include <asm/types.h>
+#include <sys/socket.h>
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
+],[
+int
+main(int argc, char * argv[])
+{
+        int sock;
+        struct sockaddr_nl snl;
+
+        sock = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+
+        snl.nl_family = AF_NETLINK;
+        snl.nl_groups = RTMGRP_LINK;
+
+        return 0;
+}
+],[
+AC_DEFINE(HAVE_NETLINK, 1, [Linux netlink])
+CONDITIONAL_SOURCES=netlink.${OBJEXT}
+AC_MSG_RESULT(yes)
+],[
+AC_MSG_RESULT(no)
+])
 
 dnl Needed for normal compile
 AC_PROG_INSTALL
@@ -91,7 +113,8 @@ AC_MSG_CHECKING(where to find configfile)
 AC_ARG_WITH(configfile,
 [  --with-configfile       Path to the radvd config file [SYSCONF/radvd.conf]],
 	PATH_RADVD_CONF=$withval,
-	PATH_RADVD_CONF=${sysconfdir}/radvd.conf)
+	[eval PATH_RADVD_CONF=${sysconfdir}/radvd.conf])
+PATH_RADVD_CONF=$(echo $PATH_RADVD_CONF | sed 's/NONE//1')
 AC_MSG_RESULT($PATH_RADVD_CONF)
 
 dnl Checking which syslog facility to use
@@ -114,28 +137,24 @@ AC_CHECK_LIB(c, inet_ntop,,
 # prevent caching
 unset ac_cv_lib_inet6_inet_ntop
 
+PKG_CHECK_MODULES([DAEMON], libdaemon)
+
 dnl Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS(sys/time.h)
+AC_CHECK_HEADERS( \
+	getopt.h \
+	ifaddrs.h \
+	machine/limits.h \
+	machine/param.h \
+	net/if_arp.h \
+	net/if_dl.h \
+	net/if_types.h \
+	sys/param.h \
+	sys/sockio.h \
+	sys/time.h \
+	time.h \
+)
 AC_HEADER_TIME
-
-AC_CHECK_HEADER(netinet/ip6.h, hdrfound=yes, hdrfound=no)
-if test "$hdrfound" = no
-then
- # deprecated
- AC_CHECK_HEADER(netinet/ipv6.h, hdrfound=yes)
-fi
-if test "$hdrfound" = no
-then
-   AC_MSG_RESULT(no)
-fi
-unset hdrfound
-
-AC_CHECK_HEADERS(ifaddrs.h sys/sockio.h getopt.h inttypes.h)
-AC_CHECK_HEADERS(net/if_dl.h net/if_types.h net/if_arp.h)
-AC_CHECK_HEADERS(sys/param.h)
-AC_CHECK_HEADERS(machine/param.h)
-AC_CHECK_HEADERS(machine/limits.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -156,8 +175,12 @@ AC_MSG_RESULT(no))
 dnl Checks for library functions.
 AC_CHECK_FUNCS(getopt_long)
 
-AC_LINK_FILES(device-${arch}.c, device.c)
-AC_LINK_FILES(privsep-${arch}.c, privsep.c)
+CONDITIONAL_SOURCES="device-${arch}.${OBJEXT} ${CONDITIONAL_SOURCES}"
+if test x${arch} = xlinux ; then
+	CONDITIONAL_SOURCES="privsep-${arch}.${OBJEXT} ${CONDITIONAL_SOURCES}"
+	AC_DEFINE(USE_PRIVSEP, 1, [Use privsep])
+fi
+AC_SUBST(CONDITIONAL_SOURCES)
 
 AC_SUBST(VERSION)
 AC_SUBST(PATH_RADVD_CONF)
@@ -166,4 +189,21 @@ AC_SUBST(PATH_RADVD_LOG)
 AC_SUBST(LOG_FACILITY)
 
 AM_CONFIG_HEADER(config.h)
-AC_OUTPUT(Makefile)
+AC_OUTPUT(Makefile redhat/radvd.spec)
+
+cat << EOF
+
+Your build configuration:
+
+	CFLAGS = $CFLAGS
+	LDFLAGS = $LDFLAGS
+	Arch = ${arch}
+	Extras: ${CONDITIONAL_SOURCES}
+	prefix: $prefix
+	PID file: $PATH_RADVD_PID
+	Log file: $PATH_RADVD_LOG
+	Config file: $PATH_RADVD_CONF
+	Radvd version: $VERSION
+
+EOF
+

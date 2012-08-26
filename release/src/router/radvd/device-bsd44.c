@@ -1,5 +1,4 @@
 /*
- *   $Id: device-bsd44.c,v 1.25 2010/12/14 11:58:21 psavola Exp $
  *
  *   Authors:
  *    Craig Metz		<cmetz@inner.net>
@@ -27,13 +26,18 @@ static uint8_t ll_prefix[] = { 0xfe, 0x80 };
  * the defined prefixes
  */
 int
-setup_deviceinfo(int sock, struct Interface *iface)
+setup_deviceinfo(struct Interface *iface)
 {
-	struct ifaddrs *addresses, *ifa;
+	struct ifaddrs *addresses = 0, *ifa;
 
 	struct ifreq ifr;
 	struct AdvPrefix *prefix;
 	char zero[sizeof(iface->if_addr)];
+
+	if(if_nametoindex(iface->Name) == 0){
+		flog(LOG_ERR, "%s not found: %s", iface->Name, strerror(errno));
+		goto ret;
+	}
 
  	memset(&ifr, 0, sizeof(ifr));
 	strncpy(ifr.ifr_name, iface->Name, IFNAMSIZ-1);
@@ -127,7 +131,8 @@ ret:
 	iface->if_maxmtu = -1;
 	iface->if_hwaddr_len = -1;
 	iface->if_prefix_len = -1;
-	freeifaddrs(addresses);
+	if (addresses != 0)
+		freeifaddrs(addresses);
 	return -1;
 }
 
@@ -135,9 +140,9 @@ ret:
  * Saves the first link local address seen on the specified interface to iface->if_addr
  *
  */
-int setup_linklocal_addr(int sock, struct Interface *iface)
+int setup_linklocal_addr(struct Interface *iface)
 {
-	struct ifaddrs *addresses, *ifa;
+	struct ifaddrs *addresses = 0, *ifa;
 
 	if (getifaddrs(&addresses) != 0)
 	{
@@ -173,19 +178,20 @@ int setup_linklocal_addr(int sock, struct Interface *iface)
 		freeifaddrs(addresses);
 		return 0;
 	}
-	freeifaddrs(addresses);
 
 ret:
+	if(addresses)
+		freeifaddrs(addresses);
 	flog(LOG_ERR, "no linklocal address configured for %s", iface->Name);
 	return -1;
 }
 
-int setup_allrouters_membership(int sock, struct Interface *iface)
+int setup_allrouters_membership(struct Interface *iface)
 {
 	return (0);
 }
 
-int check_allrouters_membership(int sock, struct Interface *iface)
+int check_allrouters_membership(struct Interface *iface)
 {
 	return (0);
 }

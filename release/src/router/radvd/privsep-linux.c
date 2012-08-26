@@ -1,5 +1,4 @@
 /*
- *   $Id: privsep-linux.c,v 1.5 2010/12/14 11:58:21 psavola Exp $
  *
  *   Authors:
  *    Jim Paris			<jim@jtan.com>
@@ -52,14 +51,18 @@ privsep_read_loop(void)
 		ret = readn(pfd, &cmd, sizeof(cmd));
 		if (ret <= 0) {
 			/* Error or EOF, give up */
+			if (ret < 0) {
+				flog(LOG_ERR, "Exiting, privsep_read_loop had readn error: %s\n",
+				     strerror(errno));
+			} else {
+				flog(LOG_ERR, "Exiting, privsep_read_loop had readn return 0 bytes\n");
+			}
 			close(pfd);
-			flog(LOG_ERR, "Exiting, privsep_read_loop had readn error: %s\n",
-			     strerror(errno));
 			_exit(0);
 		}
 		if (ret != sizeof(cmd)) {
 			/* Short read, ignore */
-			continue;
+			return;
 		}
 
 		cmd.iface[IFNAMSIZ-1] = '\0';
@@ -111,24 +114,12 @@ privsep_read_loop(void)
 	}
 }
 
-/* Return 1 if privsep is currently enabled */
-int
-privsep_enabled(void)
-{
-	if (pfd < 0)
-		return 0;
-	return 1;
-}
-
 /* Fork to create privileged process connected by a pipe */
 int
 privsep_init(void)
 {
 	int pipefds[2];
 	pid_t pid;
-
-	if (privsep_enabled())
-		return 0;
 
 	if (pipe(pipefds) != 0) {
 		flog(LOG_ERR, "Couldn't create privsep pipe.");
