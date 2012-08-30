@@ -1,4 +1,5 @@
 /*
+ *   $Id: radvdump.c,v 1.25 2011/02/28 10:53:07 reubenhwk Exp $
  *
  *   Authors:
  *    Lars Fenneberg		<lf@elemental.net>
@@ -462,7 +463,7 @@ print_ff(unsigned char *msg, int len, struct sockaddr_in6 *addr, int hoplimit, u
 
 				if (suffix[0] != '\0')
 					strcat(suffix, ".");
-				strncat(suffix, (char*)&dnssl_info->nd_opt_dnssli_suffixes[offset], label_len);
+				strncat(suffix, &dnssl_info->nd_opt_dnssli_suffixes[offset], label_len);
 				offset += label_len;
 			}
 

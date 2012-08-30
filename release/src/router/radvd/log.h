@@ -1,4 +1,5 @@
 /*
+ *   $Id: log.h,v 1.1 2011/02/07 00:26:48 reubenhwk Exp $
  *
  *   Authors:
  *    Lars Fenneberg		<lf@elemental.net>	 

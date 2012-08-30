@@ -1,4 +1,5 @@
 /*
+ *   $Id: defaults.h,v 1.31 2011/05/04 18:03:57 reubenhwk Exp $
  *
  *   Authors:
  *    Lars Fenneberg		<lf@elemental.net>
@@ -199,7 +200,7 @@ struct nd_opt_dnssl_info_local
 	uint8_t   			nd_opt_dnssli_len;
 	uint16_t   			nd_opt_dnssli_reserved;
 	uint32_t			nd_opt_dnssli_lifetime;
-	unsigned char			nd_opt_dnssli_suffixes[];
+	char				nd_opt_dnssli_suffixes[];
 };
 
 /* Flags */

@@ -128,7 +128,6 @@ obj-$(NEED_SAMBA2) += samba
 obj-$(NEED_SAMBA3) += samba3
 obj-$(TCONFIG_NTFS) += ntfs-3g
 obj-$(TCONFIG_EBTABLES) += ebtables
-obj-$(TCONFIG_IPV6) += libdaemon
 obj-$(TCONFIG_IPV6) += radvd
 obj-$(TCONFIG_IPV6) += dhcpv6
 
@@ -937,33 +936,15 @@ usbmodeswitch-install: usbmodeswitch usbmodeswitchdb-install
 	@mkdir -p $(TARGETDIR)/rom/etc
 	@sed 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < $(TOP)/usbmodeswitch/usb_modeswitch.conf > $(TARGETDIR)/rom/etc/usb_modeswitch.conf
 
-libdaemon: libdaemon/Makefile
-	$(MAKE) -C $@
-
-libdaemon/Makefile: libdaemon/Makefile.in
-	cd libdaemon && $(CONFIGURE) ac_cv_func_setpgrp_void=yes \
-	--disable-dependency-tracking
-
-libdaemon-install: libdaemon
-	install -D libdaemon/libdaemon/.libs/libdaemon.so.0.5.0 $(INSTALLDIR)/libdaemon/usr/lib/libdaemon.so.0.5.0
-	$(STRIP) $(INSTALLDIR)/libdaemon/usr/lib/*.so.*
-	cd $(INSTALLDIR)/libdaemon/usr/lib && \
-		ln -sf libdaemon.so.0.5.0 libdaemon.so && \
-		ln -sf libdaemon.so.0.5.0 libdaemon.so.0
-
-libdaemon-clean:
-	-@$(MAKE) -C libdaemon distclean
 
 radvd/stamp-h1:
 	cd radvd && CFLAGS="-Os $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
-	$(CONFIGURE) --prefix="" --disable-dependency-tracking \
-	DAEMON_CFLAGS="-I$(TOP)/libdaemon" \
-	DAEMON_LIBS="-ldaemon -L$(TOP)/libdaemon/libdaemon/.libs"
+	$(CONFIGURE) --prefix=""
 	@$(MAKE) -C radvd clean
 	@touch radvd/stamp-h1
 
-radvd: libdaemon radvd/stamp-h1
+radvd: radvd/stamp-h1
 
 radvd-clean:
 	-@$(MAKE) -C radvd distclean

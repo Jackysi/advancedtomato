@@ -183,8 +183,6 @@ sub fixDyn
 
 #Roadkill for NocatSplash
 	fixDynDep("splashd","libglib-1.2.so.0.0.10");
-#JYA for radvd
-	fixDynDep("radvd", "libdaemon.so.0.5.0");
 }
 
 sub usersOf

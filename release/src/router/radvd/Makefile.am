@@ -1,4 +1,5 @@
 #
+#   $Id: Makefile.am,v 1.22 2011/05/09 11:04:12 psavola Exp $
 #
 #   Authors:
 #    Lars Fenneberg		<lf@elemental.net>	 
@@ -57,14 +58,11 @@ EXTRA_radvd_SOURCES = \
 	device-linux.c \
 	netlink.c \
 	netlink.h \
+	privsep-bsd44.c \
 	privsep-linux.c
 
-radvd_CPPFLAGS = \
-	@DAEMON_CFLAGS@
-
 radvd_LDADD = \
-	@CONDITIONAL_SOURCES@ \
-	@DAEMON_LIBS@
+	@CONDITIONAL_SOURCES@
 
 radvd_DEPENDENCIES = \
 	@CONDITIONAL_SOURCES@

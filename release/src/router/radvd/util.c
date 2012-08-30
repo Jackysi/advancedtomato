@@ -1,4 +1,5 @@
 /*
+ *   $Id: util.c,v 1.12 2010/12/14 11:58:21 psavola Exp $
  *
  *   Authors:
  *    Lars Fenneberg		<lf@elemental.net>

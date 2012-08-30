@@ -1,4 +1,5 @@
 /*
+ *	$Id: log.c,v 1.12 2010/12/14 11:58:21 psavola Exp $
  *
  *	Authors:
  *	 Lars Fenneberg		<lf@elemental.net>
@@ -112,23 +113,29 @@ void
 dlog(int prio, int level, char *format, ...)
 {
 	va_list ap;
+	int res;
 
 	if (debug_level < level)
 		return;
 
 	va_start(ap, format);
-	vlog(prio, format, ap);
+	res = vlog(prio, format, ap);
 	va_end(ap);
+
+	/* XXX: should we do something if res < 0.. */
 }
 
 void
 flog(int prio, char *format, ...)
 {
 	va_list ap;
+	int res;
 
 	va_start(ap, format);
-	vlog(prio, format, ap);
+	res = vlog(prio, format, ap);
 	va_end(ap);
+
+	/* XXX: should we do something if res < 0.. */
 }
 
 int
@@ -151,6 +158,13 @@ log_close(void)
 			return (-1);
 	}
 	return 0;
+}
+
+int
+log_reopen(void)
+{
+	log_close();
+	return log_open(log_method, log_ident, log_file, log_facility);
 }
 
 void
