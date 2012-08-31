@@ -1,5 +1,4 @@
 dnl
-dnl  $Id: configure.in,v 1.25 2011/02/25 06:14:05 reubenhwk Exp $
 dnl
 dnl   Authors:
 dnl    Lars Fenneberg		<lf@elemental.net>	 
@@ -13,7 +12,6 @@ dnl   may request it from <pekkas@netcore.fi>.
 dnl
 dnl
 
-AC_REVISION ($Id: configure.in,v 1.25 2011/02/25 06:14:05 reubenhwk Exp $)
 AC_INIT(radvd.c)
 
 AC_CANONICAL_SYSTEM
@@ -139,6 +137,8 @@ AC_CHECK_LIB(c, inet_ntop,,
 # prevent caching
 unset ac_cv_lib_inet6_inet_ntop
 
+PKG_CHECK_MODULES([DAEMON], libdaemon)
+
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_CHECK_HEADERS( \
@@ -175,7 +175,11 @@ AC_MSG_RESULT(no))
 dnl Checks for library functions.
 AC_CHECK_FUNCS(getopt_long)
 
-CONDITIONAL_SOURCES="device-${arch}.${OBJEXT} privsep-${arch}.${OBJEXT} ${CONDITIONAL_SOURCES}"
+CONDITIONAL_SOURCES="device-${arch}.${OBJEXT} ${CONDITIONAL_SOURCES}"
+if test x${arch} = xlinux ; then
+	CONDITIONAL_SOURCES="privsep-${arch}.${OBJEXT} ${CONDITIONAL_SOURCES}"
+	AC_DEFINE(USE_PRIVSEP, 1, [Use privsep])
+fi
 AC_SUBST(CONDITIONAL_SOURCES)
 
 AC_SUBST(VERSION)
@@ -185,7 +189,7 @@ AC_SUBST(PATH_RADVD_LOG)
 AC_SUBST(LOG_FACILITY)
 
 AM_CONFIG_HEADER(config.h)
-AC_OUTPUT(Makefile)
+AC_OUTPUT(Makefile redhat/radvd.spec)
 
 cat << EOF
 
