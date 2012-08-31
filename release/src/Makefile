@@ -231,20 +231,6 @@ endif
 	@echo "-----------------"
 	@echo `cat router/shared/tomato_version` " ready"
 	@echo "-----------------"
-endif
-else
-	# Create generic TRX image
-	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-t image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
-		| tee -a fpkg.log
-endif
-endif
-endif
-	@cp fpkg.log image/fpkg-$(V1)$(mips_rev)$(beta)$(V2).log
-	@echo ""
-	@echo "-----------------"
-	@echo `cat router/shared/tomato_version` " ready"
-	@echo "-----------------"
 ifneq ($(NOVERSION),1)	
 	@cp router/shared/tomato_version router/shared/tomato_version_last
 	@btools/uversion.pl --bump
