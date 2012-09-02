@@ -168,7 +168,7 @@ obj-$(TCONFIG_BBT) += libcurl
 obj-$(TCONFIG_BBT) += transmission
 obj-$(TCONFIG_BT) += btgui
 obj-$(TCONFIG_BBT) += zlib
-obj-$(TCONFIG_BBT) += libiconv
+#obj-$(TCONFIG_BBT) += libiconv
 
 obj-$(CONFIG_LINUX26) += hotplug2
 obj-$(CONFIG_LINUX26) += udevtrigger
