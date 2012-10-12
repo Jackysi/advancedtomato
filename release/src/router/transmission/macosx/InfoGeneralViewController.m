@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoGeneralViewController.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: InfoGeneralViewController.m 13481 2012-09-08 20:22:05Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -51,6 +51,51 @@
     [super dealloc];
 }
 
+#warning uncomment after 2.7
+/*- (void) awakeFromNib
+{
+    #warning remove when 10.7-only with auto layout
+    [fInfoSectionLabel sizeToFit];
+    [fWhereSectionLabel sizeToFit];
+    
+    NSArray * labels = @[ fPiecesLabel, fHashLabel, fSecureLabel, fCreatorLabel, fDateCreatedLabel, fCommentLabel, fDataLocationLabel ];
+    
+    CGFloat oldMaxWidth = 0.0, newMaxWidth = 0.0;
+    NSTextField * oldLongestLabel = nil;
+    for (NSTextField * label in labels)
+    {
+        const CGFloat oldWidth = [label bounds].size.width;
+        if (oldWidth > oldMaxWidth)
+        {
+            oldMaxWidth = oldWidth;
+            oldLongestLabel = label;
+        }
+        
+        [label sizeToFit];
+        const CGFloat newWidth = [label bounds].size.width;
+        if (newWidth > newMaxWidth)
+            newMaxWidth = newWidth;
+    }
+    
+    for (NSTextField * label in labels)
+    {
+        NSRect frame = [label frame];
+        frame.origin.x = [oldLongestLabel frame].origin.x;
+        frame.origin.x += newMaxWidth - frame.size.width;
+        [label setFrame: frame];
+    }
+    
+    NSArray * fields = @[ fPiecesField, fHashField, fSecureField, fCreatorField, fDateCreatedField, fCommentScrollView, fDataLocationField ];
+    
+    for (NSView * field in fields) {
+        const CGFloat widthIncrease = newMaxWidth - oldMaxWidth;
+        NSRect frame = [field frame];
+        frame.origin.x += widthIncrease;
+        frame.size.width -= widthIncrease;
+        [field setFrame: frame];
+    }
+}*/
+
 - (void) setInfoForTorrents: (NSArray *) torrents
 {
     //don't check if it's the same in case the metadata changed
@@ -98,7 +143,7 @@
     {
         Torrent * torrent = [fTorrents objectAtIndex: 0];
         
-        NSString * piecesString = ![torrent isMagnet] ? [NSString stringWithFormat: @"%d, %@", [torrent pieceCount],
+        NSString * piecesString = ![torrent isMagnet] ? [NSString stringWithFormat: @"%ld, %@", [torrent pieceCount],
                                         [NSString stringForFileSize: [torrent pieceSize]]] : @"";
         [fPiecesField setStringValue: piecesString];
                                         

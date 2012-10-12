@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: TrackerCell.m 13340 2012-06-10 02:35:58Z livings124 $
+ * $Id: TrackerCell.m 13434 2012-08-13 00:52:04Z livings124 $
  * 
  * Copyright (c) 2009-2012 Transmission authors and contributors
  *
@@ -312,7 +312,7 @@ NSMutableSet * fTrackerIconLoading;
 
 - (NSAttributedString *) attributedCount: (NSInteger) count
 {
-    NSString * countString = count != -1 ? [NSString stringWithFormat: @"%d", count] : NSLocalizedString(@"N/A", "tracker peer stat");
+    NSString * countString = count != -1 ? [NSString stringWithFormat: @"%ld", count] : NSLocalizedString(@"N/A", "tracker peer stat");
     return [[[NSAttributedString alloc] initWithString: countString attributes: fStatusAttributes] autorelease];
 }
 

@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Controller.h 13321 2012-05-28 17:26:15Z livings124 $
+ * $Id: Controller.h 13414 2012-07-25 12:49:11Z livings124 $
  *
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *
@@ -49,7 +49,7 @@ typedef enum
     ADD_CREATED
 } addType;
 
-@interface Controller : NSObject <GrowlApplicationBridgeDelegate, NSURLDownloadDelegate, NSPopoverDelegate, NSSoundDelegate, NSToolbarDelegate, NSWindowDelegate, QLPreviewPanelDataSource, QLPreviewPanelDelegate>
+@interface Controller : NSObject <GrowlApplicationBridgeDelegate, NSURLDownloadDelegate, NSUserNotificationCenterDelegate, NSPopoverDelegate, NSSoundDelegate, NSToolbarDelegate, NSWindowDelegate, QLPreviewPanelDataSource, QLPreviewPanelDelegate>
 {
     tr_session                      * fLib;
     
@@ -192,6 +192,8 @@ typedef enum
 - (void) fullUpdateUI;
 
 - (void) setBottomCountText: (BOOL) filtering;
+
+- (Torrent *) torrentForHash: (NSString *) hash;
 
 - (void) torrentFinishedDownloading: (NSNotification *) notification;
 - (void) torrentRestartedDownloading: (NSNotification *) notification;

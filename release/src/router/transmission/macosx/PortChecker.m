@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: PortChecker.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: PortChecker.m 13492 2012-09-10 02:37:29Z livings124 $
  *
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -24,7 +24,7 @@
 
 #import "PortChecker.h"
 
-#define CHECKER_URL(port) [NSString stringWithFormat: @"http://portcheck.transmissionbt.com/%d", port]
+#define CHECKER_URL(port) [NSString stringWithFormat: @"http://portcheck.transmissionbt.com/%ld", port]
 #define CHECK_FIRE 3.0
 
 @interface PortChecker (Private)
@@ -45,8 +45,7 @@
         
         fStatus = PORT_STATUS_CHECKING;
         
-        fTimer = [NSTimer scheduledTimerWithTimeInterval: CHECK_FIRE target: self selector: @selector(startProbe:)
-                    userInfo: [NSNumber numberWithInteger: portNumber] repeats: NO];
+        fTimer = [[NSTimer scheduledTimerWithTimeInterval: CHECK_FIRE target: self selector: @selector(startProbe:) userInfo: [NSNumber numberWithInteger: portNumber] repeats: NO] retain];
         if (!delay)
             [fTimer fire];
     }
@@ -57,6 +56,7 @@
 - (void) dealloc
 {
     [fTimer invalidate];
+    [fTimer release];
     
     [fConnection release];
     [fPortProbeData release];
@@ -71,6 +71,7 @@
 - (void) cancelProbe
 {
     [fTimer invalidate];
+    [fTimer release];
     fTimer = nil;
     
     [fConnection cancel];
@@ -124,6 +125,7 @@
 
 - (void) startProbe: (NSTimer *) timer
 {
+    [fTimer release];
     fTimer = nil;
     
     NSURLRequest * portProbeRequest = [NSURLRequest requestWithURL: [NSURL URLWithString: CHECKER_URL([[timer userInfo] integerValue])]

@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: TorrentTableView.m 13255 2012-03-13 03:49:30Z livings124 $
+ * $Id: TorrentTableView.m 13434 2012-08-13 00:52:04Z livings124 $
  *
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *
@@ -826,7 +826,7 @@
             priority = TR_PRI_LOW;
             break;
         default:
-            NSAssert1(NO, @"Unknown priority: %d", [sender tag]);
+            NSAssert1(NO, @"Unknown priority: %ld", [sender tag]);
     }
     
     [fMenuTorrent setPriority: priority];

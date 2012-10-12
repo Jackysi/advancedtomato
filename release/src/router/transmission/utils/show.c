@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: show.c 13397 2012-07-23 15:28:27Z jordan $
+ * $Id: show.c 13475 2012-09-07 04:25:04Z jordan $
  */
 
 #include <stdio.h> /* fprintf() */
@@ -342,7 +342,7 @@ main( int argc, char * argv[] )
 
         if( scrapeFlag )
             doScrape( &inf );
-        else 
+        else
             showInfo( &inf );
     }
 

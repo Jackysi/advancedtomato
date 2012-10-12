@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: BlocklistScheduler.m 13162 2012-01-14 17:12:04Z livings124 $
+ * $Id: BlocklistScheduler.m 13492 2012-09-10 02:37:29Z livings124 $
  *
  * Copyright (c) 2008-2012 Transmission authors and contributors
  *
@@ -69,8 +69,7 @@ BlocklistScheduler * fScheduler = nil;
     
     NSDate * useDate = lastUpdateDate ? [lastUpdateDate laterDate: closeDate] : closeDate;
     
-    fTimer = [[NSTimer alloc] initWithFireDate: useDate interval: 0 target: self selector: @selector(runUpdater)
-                userInfo: nil repeats: NO];
+    fTimer = [[NSTimer alloc] initWithFireDate: useDate interval: 0 target: self selector: @selector(runUpdater) userInfo: nil repeats: NO];
     
     //current run loop usually means a second update won't work
     NSRunLoop * loop = [NSRunLoop mainRunLoop];
@@ -82,6 +81,7 @@ BlocklistScheduler * fScheduler = nil;
 - (void) cancelSchedule
 {
     [fTimer invalidate];
+    [fTimer release];
     fTimer = nil;
 }
 
@@ -91,6 +91,7 @@ BlocklistScheduler * fScheduler = nil;
 
 - (void) runUpdater
 {
+    [fTimer release];
     fTimer = nil;
     [BlocklistDownloader downloader];
 }

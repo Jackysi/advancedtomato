@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoOptionsViewController.h 13377 2012-07-07 01:47:12Z livings124 $
+ * $Id: InfoOptionsViewController.h 13480 2012-09-08 18:09:02Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -37,6 +37,11 @@
                         * fUploadLimitLabel, * fDownloadLimitLabel, * fIdleLimitLabel,
                         * fRatioLimitGlobalLabel, * fIdleLimitGlobalLabel,
                         * fPeersConnectLabel, * fPeersConnectField;
+    
+    //remove when we switch to auto layout on 10.7
+    IBOutlet NSTextField * fTransferBandwidthSectionLabel, * fPrioritySectionLabel, * fPriorityLabel;
+    IBOutlet NSTextField * fSeedingLimitsSectionLabel, * fRatioLabel, * fInactivityLabel;
+    IBOutlet NSTextField * fAdvancedSectionLabel, * fMaxConnectionsLabel;
     
     NSString * fInitialString;
 }

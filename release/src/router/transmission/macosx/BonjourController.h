@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: BonjourController.h 13162 2012-01-14 17:12:04Z livings124 $
+ * $Id: BonjourController.h 13491 2012-09-10 02:01:07Z livings124 $
  *
  * Copyright (c) 2008-2012 Transmission authors and contributors
  *
@@ -30,8 +30,9 @@
 }
 
 + (BonjourController *) defaultController;
++ (BOOL) defaultControllerExists;
 
-- (void) startWithPort: (NSInteger) port;
+- (void) startWithPort: (int) port;
 - (void) stop;
 
 @end

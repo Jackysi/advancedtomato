@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: AddMagnetWindowController.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: AddMagnetWindowController.m 13479 2012-09-08 03:48:12Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -94,6 +94,67 @@
         [fLocationField setStringValue: @""];
         [fLocationImageView setImage: nil];
     }
+    
+    #warning enable after 2.7
+    /*
+    #warning when 10.7-only, switch to auto layout
+    [fMagnetLinkLabel sizeToFit];
+    
+    const CGFloat downloadToLabelOldWidth = [fDownloadToLabel frame].size.width;
+    [fDownloadToLabel sizeToFit];
+    const CGFloat changeDestOldWidth = [fChangeDestinationButton frame].size.width;
+    [fChangeDestinationButton sizeToFit];
+    NSRect changeDestFrame = [fChangeDestinationButton frame];
+    changeDestFrame.origin.x -= changeDestFrame.size.width - changeDestOldWidth;
+    [fChangeDestinationButton setFrame: changeDestFrame];
+    
+    NSRect downloadToBoxFrame = [fDownloadToBox frame];
+    const CGFloat downloadToBoxSizeDiff = ([fDownloadToLabel frame].size.width - downloadToLabelOldWidth) + (changeDestFrame.size.width - changeDestOldWidth);
+    downloadToBoxFrame.size.width -= downloadToBoxSizeDiff;
+    downloadToBoxFrame.origin.x -= downloadToLabelOldWidth - [fDownloadToLabel frame].size.width;
+    [fDownloadToBox setFrame: downloadToBoxFrame];
+    
+    NSRect groupPopUpFrame = [fGroupPopUp frame];
+    NSRect priorityPopUpFrame = [fPriorityPopUp frame];
+    const CGFloat popUpOffset = groupPopUpFrame.origin.x - NSMaxX([fGroupLabel frame]);
+    [fGroupLabel sizeToFit];
+    [fPriorityLabel sizeToFit];
+    NSRect groupLabelFrame = [fGroupLabel frame];
+    NSRect priorityLabelFrame = [fPriorityLabel frame];
+    //first bring them both to the left edge
+    groupLabelFrame.origin.x = MIN(groupLabelFrame.origin.x, priorityLabelFrame.origin.x);
+    priorityLabelFrame.origin.x = MIN(groupLabelFrame.origin.x, priorityLabelFrame.origin.x);
+    //then align on the right
+    const CGFloat labelWidth = MAX(groupLabelFrame.size.width, priorityLabelFrame.size.width);
+    groupLabelFrame.origin.x += labelWidth - groupLabelFrame.size.width;
+    priorityLabelFrame.origin.x += labelWidth - priorityLabelFrame.size.width;
+    groupPopUpFrame.origin.x = NSMaxX(groupLabelFrame) + popUpOffset;
+    priorityPopUpFrame.origin.x = NSMaxX(priorityLabelFrame) + popUpOffset;
+    [fGroupLabel setFrame: groupLabelFrame];
+    [fGroupPopUp setFrame: groupPopUpFrame];
+    [fPriorityLabel setFrame: priorityLabelFrame];
+    [fPriorityPopUp setFrame: priorityPopUpFrame];
+    
+    const CGFloat minButtonWidth = 82.0;
+    const CGFloat oldAddButtonWidth = [fAddButton bounds].size.width;
+    const CGFloat oldCancelButtonWidth = [fCancelButton bounds].size.width;
+    #warning add "extra" width that sizeToFit loses
+    [fAddButton sizeToFit];
+    [fCancelButton sizeToFit];
+    NSRect addButtonFrame = [fAddButton frame];
+    NSRect cancelButtonFrame = [fCancelButton frame];
+    CGFloat buttonWidth = MAX(addButtonFrame.size.width, cancelButtonFrame.size.width);
+    buttonWidth = MAX(buttonWidth, minButtonWidth);
+    addButtonFrame.size.width = buttonWidth;
+    cancelButtonFrame.size.width = buttonWidth;
+    const CGFloat addButtonWidthIncrease = buttonWidth - oldAddButtonWidth;
+    addButtonFrame.origin.x -= addButtonWidthIncrease;
+    cancelButtonFrame.origin.x -= addButtonWidthIncrease + (buttonWidth - oldCancelButtonWidth);
+    [fAddButton setFrame: addButtonFrame];
+    [fCancelButton setFrame: cancelButtonFrame];
+    
+    [fStartCheck sizeToFit];
+     */
 }
 
 - (void) windowDidLoad
@@ -183,7 +244,7 @@
         case POPUP_PRIORITY_HIGH: priority = TR_PRI_HIGH; break;
         case POPUP_PRIORITY_NORMAL: priority = TR_PRI_NORMAL; break;
         case POPUP_PRIORITY_LOW: priority = TR_PRI_LOW; break;
-        default: NSAssert1(NO, @"Unknown priority tag for adding torrent: %d", [sender tag]);
+        default: NSAssert1(NO, @"Unknown priority tag for adding torrent: %ld", [sender tag]);
     }
     [fTorrent setPriority: priority];
 }

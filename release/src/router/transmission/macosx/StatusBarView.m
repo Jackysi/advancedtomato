@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: StatusBarView.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: StatusBarView.m 13536 2012-09-26 16:55:34Z livings124 $
  * 
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -23,6 +23,8 @@
  *****************************************************************************/
 
 #import "StatusBarView.h"
+#import "NSApplicationAdditions.h"
+#import <QuartzCore/QuartzCore.h>
 
 @interface StatusBarView (Private)
 
@@ -40,10 +42,26 @@
         NSColor * darkColor = [NSColor colorWithCalibratedRed: 155.0/255.0 green: 155.0/255.0 blue: 155.0/255.0 alpha: 1.0];
         fGradient = [[NSGradient alloc] initWithStartingColor: lightColor endingColor: darkColor];
         
-        [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(reload)
-            name: NSWindowDidBecomeMainNotification object: [self window]];
-        [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(reload)
-            name: NSWindowDidResignMainNotification object: [self window]];
+        //noise only for 10.7 + 
+        if([NSApp isOnLionOrBetter])
+        {
+            CIFilter * randomFilter = [CIFilter filterWithName: @"CIRandomGenerator"];
+            [randomFilter setDefaults];
+            
+            fNoiseImage = [randomFilter valueForKey: @"outputImage"];
+            
+            CIFilter * monochromeFilter = [CIFilter filterWithName: @"CIColorMonochrome"];
+            [monochromeFilter setDefaults];
+            [monochromeFilter setValue: fNoiseImage forKey: @"inputImage"];
+            CIColor * monoFilterColor = [CIColor colorWithRed: 1.0 green: 1.0 blue: 1.0];
+            [monochromeFilter setValue: monoFilterColor forKey: @"inputColor"];
+            fNoiseImage = [[monochromeFilter valueForKey:@"outputImage"] retain];
+        }
+        else
+            fNoiseImage = nil;
+        
+        [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(reload) name: NSWindowDidBecomeMainNotification object: [self window]];
+        [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(reload) name: NSWindowDidResignMainNotification object: [self window]];
     }
     return self;
 }
@@ -51,7 +69,7 @@
 - (void) dealloc
 {
     [[NSNotificationCenter defaultCenter] removeObserver: self];
-    
+    [fNoiseImage release];
     [fGradient release];
     [super dealloc];
 }
@@ -74,29 +92,34 @@
     NSRect gridRects[active ? 2 : 3];
     NSColor * colorRects[active ? 2 : 3];
     
-    NSRect lineBorderRect = NSMakeRect(NSMinX(rect), NSHeight([self bounds]) - 1.0, NSWidth(rect), 1.0);
+    //bottom line
+    NSRect lineBorderRect = NSMakeRect(NSMinX(rect), 0.0, NSWidth(rect), 1.0);
+    NSRect intersectLineBorderRect = NSIntersectionRect(lineBorderRect, rect);
+    if (!NSIsEmptyRect(intersectLineBorderRect))
+    {
+        gridRects[count] = intersectLineBorderRect;
+        colorRects[count] = active ? [NSColor colorWithCalibratedWhite: 0.25 alpha: 1.0]
+        : [NSColor colorWithCalibratedWhite: 0.5 alpha: 1.0];
+        ++count;
+        
+        rect.origin.y += intersectLineBorderRect.size.height;
+        rect.size.height -= intersectLineBorderRect.size.height;
+    }
+    
+    
+    //top line
     if (active)
     {
-        if (NSIntersectsRect(lineBorderRect, rect))
+        lineBorderRect.origin.y = NSHeight([self bounds]) - 1.0;
+        intersectLineBorderRect = NSIntersectionRect(lineBorderRect, rect);
+        if (!NSIsEmptyRect(intersectLineBorderRect))
         {
-            gridRects[count] = lineBorderRect;
+            gridRects[count] = intersectLineBorderRect;
             colorRects[count] = [NSColor colorWithCalibratedWhite: 0.75 alpha: 1.0];
             ++count;
             
-            rect.size.height -= 1.0;
+            rect.size.height -= intersectLineBorderRect.size.height;
         }
-    }
-    
-    lineBorderRect.origin.y = 0.0;
-    if (NSIntersectsRect(lineBorderRect, rect))
-    {
-        gridRects[count] = lineBorderRect;
-        colorRects[count] = active ? [NSColor colorWithCalibratedWhite: 0.25 alpha: 1.0]
-                                    : [NSColor colorWithCalibratedWhite: 0.5 alpha: 1.0];
-        ++count;
-        
-        rect.origin.y += 1.0;
-        rect.size.height -= 1.0;
     }
     
     if (!NSIsEmptyRect(rect))
@@ -115,6 +138,14 @@
     }
     
     NSRectFillListWithColors(gridRects, colorRects, count);
+    
+    if (fNoiseImage) {
+        NSAssert([NSApp isOnLionOrBetter], @"we have a noise image, but we're on 10.6"); //https://trac.transmissionbt.com/ticket/5053
+        [fNoiseImage drawInRect: rect
+                       fromRect: [self convertRectToBacking: rect]
+                      operation: NSCompositeSourceOver
+                       fraction: 0.12];
+    }
 }
 
 @end

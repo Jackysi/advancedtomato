@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: PrefsController.m 13380 2012-07-07 17:58:52Z livings124 $
+ * $Id: PrefsController.m 13492 2012-09-10 02:37:29Z livings124 $
  *
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *
@@ -55,7 +55,7 @@
 #define RPC_KEYCHAIN_SERVICE    "Transmission:Remote"
 #define RPC_KEYCHAIN_NAME       "Remote"
 
-#define WEBUI_URL   @"http://localhost:%d/"
+#define WEBUI_URL   @"http://localhost:%ld/"
 
 @interface PrefsController (Private)
 
@@ -133,7 +133,7 @@
         }
         
         //set built-in Growl
-        [GrowlApplicationBridge setShouldUseBuiltInNotifications: [fDefaults boolForKey: @"DisplayNotifications"]];
+        [GrowlApplicationBridge setShouldUseBuiltInNotifications: ![NSApp isOnMountainLionOrBetter] && [fDefaults boolForKey: @"DisplayNotifications"]];
         
         [self setAutoUpdateToBeta: nil];
     }
@@ -146,6 +146,7 @@
     [[NSNotificationCenter defaultCenter] removeObserver: self];
     
     [fPortStatusTimer invalidate];
+    [fPortStatusTimer release];
     if (fPortChecker)
     {
         [fPortChecker cancelProbe];
@@ -201,8 +202,7 @@
     fNatStatus = -1;
     
     [self updatePortStatus];
-    fPortStatusTimer = [NSTimer scheduledTimerWithTimeInterval: 5.0 target: self
-                        selector: @selector(updatePortStatus) userInfo: nil repeats: YES];
+    fPortStatusTimer = [[NSTimer scheduledTimerWithTimeInterval: 5.0 target: self selector: @selector(updatePortStatus) userInfo: nil repeats: YES] retain];
     
     //set peer connections
     [fPeersGlobalField setIntValue: [fDefaults integerForKey: @"PeersTotal"]];
@@ -751,6 +751,11 @@
     [GrowlApplicationBridge openGrowlPreferences: YES];
 }
 
+- (void) openNotificationSystemPrefs: (id) sender
+{
+    [[NSWorkspace sharedWorkspace] openURL: [NSURL fileURLWithPath:@"/System/Library/PreferencePanes/Notifications.prefPane"]];
+}
+
 - (void) resetWarnings: (id) sender
 {
     [fDefaults removeObjectForKey: @"WarningDuplicate"];
@@ -1045,7 +1050,10 @@
     if ([fDefaults boolForKey:@"RPC"] && [fDefaults boolForKey: @"RPCWebDiscovery"])
         [[BonjourController defaultController] startWithPort: [fDefaults integerForKey: @"RPCPort"]];
     else
-        [[BonjourController defaultController] stop];
+    {
+        if ([BonjourController defaultControllerExists])
+            [[BonjourController defaultController] stop];
+    }
 }
 
 - (void) updateRPCWhitelist
@@ -1456,13 +1464,32 @@
     {
         [fBuiltInGrowlButton setHidden: YES];
         [fGrowlAppButton setHidden: NO];
+        
 #warning remove NO
-        [fGrowlAppButton setEnabled:NO && [GrowlApplicationBridge isGrowlURLSchemeAvailable]];
+        [fGrowlAppButton setEnabled: NO && [GrowlApplicationBridge isGrowlURLSchemeAvailable]];
+        [fGrowlAppButton setTitle: NSLocalizedString(@"Configure In Growl", "Prefs -> Notifications")];
+        [fGrowlAppButton sizeToFit];
+        
+        [fGrowlAppButton setTarget: self];
+        [fGrowlAppButton setAction: @selector(openGrowlApp:)];
+    }
+    else if ([NSApp isOnMountainLionOrBetter])
+    {
+        [fBuiltInGrowlButton setHidden: YES];
+        [fGrowlAppButton setHidden: NO];
+        
+        [fGrowlAppButton setEnabled: YES];
+        [fGrowlAppButton setTitle: NSLocalizedString(@"Configure In System Preferences", "Prefs -> Notifications")];
+        [fGrowlAppButton sizeToFit];
+        
+        [fGrowlAppButton setTarget: self];
+        [fGrowlAppButton setAction: @selector(openNotificationSystemPrefs:)];
     }
     else
     {
         [fBuiltInGrowlButton setHidden: NO];
         [fGrowlAppButton setHidden: YES];
+        
         [fBuiltInGrowlButton setState: [fDefaults boolForKey: @"DisplayNotifications"]];
     }
 }

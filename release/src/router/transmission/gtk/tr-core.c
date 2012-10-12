@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: tr-core.c 12973 2011-10-11 20:32:15Z jordan $
+ * $Id: tr-core.c 13520 2012-09-23 15:38:07Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -984,11 +984,14 @@ core_create_new_torrent( TrCore * core, tr_ctor * ctor )
     {
         const char * config = tr_sessionGetConfigDir( session );
         const char * source = tr_ctorGetSourceFile( ctor );
-        const int is_internal = source && ( strstr( source, config ) == source );
 
-        /* #1294: don't delete the .torrent file if it's our internal copy */
-        if( !is_internal )
-            gtr_file_trash_or_remove( source );
+        if( source != NULL )
+        {
+          /* #1294: don't delete the .torrent file if it's our internal copy */
+          const int is_internal = ( strstr( source, config ) == source );
+          if( !is_internal )
+              gtr_file_trash_or_remove( source );
+        }
     }
 
     return tor;

@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: mainwin.cc 13385 2012-07-13 00:29:40Z jordan $
+ * $Id: mainwin.cc 13446 2012-08-19 00:01:54Z jordan $
  */
 
 #include <cassert>
@@ -45,6 +45,27 @@
 #include "ui_mainwin.h"
 
 #define PREFS_KEY "prefs-key";
+
+
+/**
+ * This is a proxy-style for that forces it to be always disabled.
+ * We use this to make our torrent list view behave consistently on
+ * both GTK and Qt implementations.
+ */
+class ListViewProxyStyle: public QProxyStyle
+{
+    public:
+        int styleHint(StyleHint hint,
+                      const QStyleOption *option = 0,
+                      const QWidget *widget = 0,
+                      QStyleHintReturn *returnData = 0) const
+        {
+            if (hint == QStyle::SH_ItemView_ActivateItemOnSingleClick)
+                return 0;
+            return QProxyStyle::styleHint(hint, option, widget, returnData);
+        }
+};
+
 
 QIcon
 TrMainWindow :: getStockIcon( const QString& name, int fallback )
@@ -105,6 +126,8 @@ TrMainWindow :: TrMainWindow( Session& session, Prefs& prefs, TorrentModel& mode
 
     int i = style->pixelMetric( QStyle::PM_SmallIconSize, 0, this );
     const QSize smallIconSize( i, i );
+
+    ui.listView->setStyle(new ListViewProxyStyle);
 
     // icons
     ui.action_OpenFile->setIcon( getStockIcon( "folder-open", QStyle::SP_DialogOpenButton ) );
@@ -171,6 +194,7 @@ TrMainWindow :: TrMainWindow( Session& session, Prefs& prefs, TorrentModel& mode
     connect( ui.action_SetLocation, SIGNAL(triggered()), this, SLOT(setLocation()));
     connect( ui.action_Properties, SIGNAL(triggered()), this, SLOT(openProperties()));
     connect( ui.action_SessionDialog, SIGNAL(triggered()), mySessionDialog, SLOT(show()));
+
     connect( ui.listView, SIGNAL(activated(const QModelIndex&)), ui.action_Properties, SLOT(trigger()));
 
     // signals
@@ -205,6 +229,10 @@ TrMainWindow :: TrMainWindow( Session& session, Prefs& prefs, TorrentModel& mode
     actionGroup->addAction( ui.action_SortBySize );
     actionGroup->addAction( ui.action_SortByState );
 
+    myAltSpeedAction = new QAction( tr( "Speed Limits" ), this );
+    myAltSpeedAction->setIcon( myPrefs.get<bool>(Prefs::ALT_SPEED_LIMIT_ENABLED) ? mySpeedModeOnIcon : mySpeedModeOffIcon );
+    connect( myAltSpeedAction, SIGNAL(triggered()), this, SLOT(toggleSpeedMode()) );
+
     QMenu * menu = new QMenu( );
     menu->addAction( ui.action_OpenFile );
     menu->addAction( ui.action_AddURL );
@@ -215,6 +243,7 @@ TrMainWindow :: TrMainWindow( Session& session, Prefs& prefs, TorrentModel& mode
     menu->addSeparator( );
     menu->addAction( ui.action_StartAll );
     menu->addAction( ui.action_PauseAll );
+    menu->addAction( myAltSpeedAction );
     menu->addSeparator( );
     menu->addAction( ui.action_Quit );
     myTrayIcon.setContextMenu( menu );
@@ -913,7 +942,11 @@ TrMainWindow :: setCompactView( bool visible )
 void
 TrMainWindow :: toggleSpeedMode( )
 {
+    bool mode;
+    
     myPrefs.toggleBool( Prefs :: ALT_SPEED_LIMIT_ENABLED );
+    mode = myPrefs.get<bool>( Prefs::ALT_SPEED_LIMIT_ENABLED );
+    myAltSpeedAction->setIcon( mode ? mySpeedModeOnIcon : mySpeedModeOffIcon );
 }
 void
 TrMainWindow :: setToolbarVisible( bool visible )

@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: StatusBarController.m 13343 2012-06-10 13:47:32Z livings124 $
+ * $Id: StatusBarController.m 13434 2012-08-13 00:52:04Z livings124 $
  * 
  * Copyright (c) 2011-2012 Transmission authors and contributors
  *
@@ -165,7 +165,7 @@ typedef enum
             statusLabel = STATUS_TRANSFER_SESSION;
             break;
         default:
-            NSAssert1(NO, @"Unknown status label tag received: %d", [sender tag]);
+            NSAssert1(NO, @"Unknown status label tag received: %ld", [sender tag]);
             return;
     }
     
@@ -235,7 +235,7 @@ typedef enum
                 statusLabel = STATUS_TRANSFER_SESSION;
                 break;
             default:
-                NSAssert1(NO, @"Unknown status label tag received: %d", [menuItem tag]);
+                NSAssert1(NO, @"Unknown status label tag received: %ld", [menuItem tag]);
         }
         
         [menuItem setState: [statusLabel isEqualToString: [[NSUserDefaults standardUserDefaults] stringForKey: @"StatusLabel"]]

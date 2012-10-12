@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: StatsWindowController.m 13352 2012-06-18 01:33:27Z livings124 $
+ * $Id: StatsWindowController.m 13526 2012-09-24 02:43:44Z livings124 $
  *
  * Copyright (c) 2007-2012 Transmission authors and contributors
  *
@@ -63,7 +63,7 @@ tr_session * fLib = NULL;
 {
     [self updateStats];
     
-    fTimer = [NSTimer scheduledTimerWithTimeInterval: UPDATE_SECONDS target: self selector: @selector(updateStats) userInfo: nil repeats: YES];
+    fTimer = [[NSTimer scheduledTimerWithTimeInterval: UPDATE_SECONDS target: self selector: @selector(updateStats) userInfo: nil repeats: YES] retain];
     [[NSRunLoop currentRunLoop] addTimer: fTimer forMode: NSModalPanelRunLoopMode];
     [[NSRunLoop currentRunLoop] addTimer: fTimer forMode: NSEventTrackingRunLoopMode];
     
@@ -79,39 +79,26 @@ tr_session * fLib = NULL;
     [fTimeLabelField setStringValue: [NSLocalizedString(@"Running Time", "Stats window -> label") stringByAppendingString: @":"]];
     [fNumOpenedLabelField setStringValue: [NSLocalizedString(@"Program Started", "Stats window -> label") stringByAppendingString: @":"]];
     
-    //size all elements
+    //size of all labels
     const CGFloat oldWidth = [fUploadedLabelField frame].size.width;
     
-    [fUploadedLabelField sizeToFit];
-    [fDownloadedLabelField sizeToFit];
-    [fRatioLabelField sizeToFit];
-    [fTimeLabelField sizeToFit];
-    [fNumOpenedLabelField sizeToFit];
+    NSArray * labels = @[fUploadedLabelField, fDownloadedLabelField, fRatioLabelField, fTimeLabelField, fNumOpenedLabelField];
     
-    CGFloat maxWidth = MAX([fUploadedLabelField frame].size.width, [fDownloadedLabelField frame].size.width);
-    maxWidth = MAX(maxWidth, [fRatioLabelField frame].size.width);
-    maxWidth = MAX(maxWidth, [fTimeLabelField frame].size.width);
-    maxWidth = MAX(maxWidth, [fNumOpenedLabelField frame].size.width);
+    CGFloat maxWidth = CGFLOAT_MIN;
+    for (NSTextField * label in labels)
+    {
+        [label sizeToFit];
+        
+        const CGFloat width = [label frame].size.width;
+        maxWidth = MAX(maxWidth, width);
+    }
     
-    NSRect frame = [fUploadedLabelField frame];
-    frame.size.width = maxWidth;
-    [fUploadedLabelField setFrame: frame];
-    
-    frame = [fDownloadedLabelField frame];
-    frame.size.width = maxWidth;
-    [fDownloadedLabelField setFrame: frame];
-    
-    frame = [fRatioLabelField frame];
-    frame.size.width = maxWidth;
-    [fRatioLabelField setFrame: frame];
-    
-    frame = [fTimeLabelField frame];
-    frame.size.width = maxWidth;
-    [fTimeLabelField setFrame: frame];
-    
-    frame = [fNumOpenedLabelField frame];
-    frame.size.width = maxWidth;
-    [fNumOpenedLabelField setFrame: frame];
+    for (NSTextField * label in labels)
+    {
+        NSRect frame = [label frame];
+        frame.size.width = maxWidth;
+        [label setFrame: frame];
+    }
     
     //resize window for new label width - fields are set in nib to adjust correctly
     NSRect windowRect = [[self window] frame];
@@ -133,6 +120,8 @@ tr_session * fLib = NULL;
 - (void) windowWillClose: (id) sender
 {
     [fTimer invalidate];
+    [fTimer release];
+    fTimer = nil;
     
     [fStatsWindowInstance autorelease];
     fStatsWindowInstance = nil;
@@ -181,21 +170,24 @@ tr_session * fLib = NULL;
     tr_sessionGetCumulativeStats(fLib, &statsAll);
     tr_sessionGetStats(fLib, &statsSession);
     
+    NSByteCountFormatter * byteFormatter = nil;
+    if ([NSApp isOnMountainLionOrBetter])
+    {
+        byteFormatter = [[NSByteCountFormatterMtLion alloc] init];
+        [byteFormatter setAllowedUnits: NSByteCountFormatterUseBytes];
+    }
+    
     [fUploadedField setStringValue: [NSString stringForFileSize: statsSession.uploadedBytes]];
-    [fUploadedField setToolTip: [NSString stringWithFormat: NSLocalizedString(@"%@ bytes", "stats -> bytes"),
-                                    [NSString formattedUInteger: statsSession.uploadedBytes]]];
-    [fUploadedAllField setStringValue: [NSString stringWithFormat: NSLocalizedString(@"%@ total", "stats total"),
-                                        [NSString stringForFileSize: statsAll.uploadedBytes]]];
-    [fUploadedAllField setToolTip: [NSString stringWithFormat: NSLocalizedString(@"%@ bytes", "stats -> bytes"),
-                                    [NSString formattedUInteger: statsAll.uploadedBytes]]];
+    [fUploadedField setToolTip: [NSApp isOnMountainLionOrBetter] ? [byteFormatter stringFromByteCount: statsSession.uploadedBytes] : [NSString stringWithFormat: NSLocalizedString(@"%@ bytes", "stats -> bytes"), [NSString formattedUInteger: statsSession.uploadedBytes]]];
+    [fUploadedAllField setStringValue: [NSString stringWithFormat: NSLocalizedString(@"%@ total", "stats total"), [NSString stringForFileSize: statsAll.uploadedBytes]]];
+    [fUploadedAllField setToolTip: [NSApp isOnMountainLionOrBetter] ? [byteFormatter stringFromByteCount: statsAll.uploadedBytes] : [NSString stringWithFormat: NSLocalizedString(@"%@ bytes", "stats -> bytes"), [NSString formattedUInteger: statsAll.uploadedBytes]]];
     
     [fDownloadedField setStringValue: [NSString stringForFileSize: statsSession.downloadedBytes]];
-    [fDownloadedField setToolTip: [NSString stringWithFormat: NSLocalizedString(@"%@ bytes", "stats -> bytes"),
-                                    [NSString formattedUInteger: statsSession.downloadedBytes]]];
-    [fDownloadedAllField setStringValue: [NSString stringWithFormat: NSLocalizedString(@"%@ total", "stats total"),
-                                        [NSString stringForFileSize: statsAll.downloadedBytes]]];
-    [fDownloadedAllField setToolTip: [NSString stringWithFormat: NSLocalizedString(@"%@ bytes", "stats -> bytes"),
-                                        [NSString formattedUInteger: statsAll.downloadedBytes]]];
+    [fDownloadedField setToolTip: [NSApp isOnMountainLionOrBetter] ? [byteFormatter stringFromByteCount: statsSession.downloadedBytes] : [NSString stringWithFormat: NSLocalizedString(@"%@ bytes", "stats -> bytes"), [NSString formattedUInteger: statsSession.downloadedBytes]]];
+    [fDownloadedAllField setStringValue: [NSString stringWithFormat: NSLocalizedString(@"%@ total", "stats total"), [NSString stringForFileSize: statsAll.downloadedBytes]]];
+    [fDownloadedAllField setToolTip: [NSApp isOnMountainLionOrBetter] ? [byteFormatter stringFromByteCount: statsAll.downloadedBytes] : [NSString stringWithFormat: NSLocalizedString(@"%@ bytes", "stats -> bytes"), [NSString formattedUInteger: statsAll.downloadedBytes]]];
+    
+    [byteFormatter release];
     
     [fRatioField setStringValue: [NSString stringForRatio: statsSession.ratio]];
     
@@ -205,14 +197,12 @@ tr_session * fLib = NULL;
     [fRatioAllField setStringValue: totalRatioString];
     
     [fTimeField setStringValue: [NSString timeString: statsSession.secondsActive showSeconds: NO]];
-    [fTimeAllField setStringValue: [NSString stringWithFormat: NSLocalizedString(@"%@ total", "stats total"),
-                                        [NSString timeString: statsAll.secondsActive showSeconds: NO]]];
+    [fTimeAllField setStringValue: [NSString stringWithFormat: NSLocalizedString(@"%@ total", "stats total"), [NSString timeString: statsAll.secondsActive showSeconds: NO]]];
     
     if (statsAll.sessionCount == 1)
         [fNumOpenedField setStringValue: NSLocalizedString(@"1 time", "stats window -> times opened")];
     else
-        [fNumOpenedField setStringValue: [NSString stringWithFormat: NSLocalizedString(@"%@ times", "stats window -> times opened"),
-                                            [NSString formattedUInteger: statsAll.sessionCount]]];
+        [fNumOpenedField setStringValue: [NSString stringWithFormat: NSLocalizedString(@"%@ times", "stats window -> times opened"), [NSString formattedUInteger: statsAll.sessionCount]]];
 }
 
 - (void) performResetStats

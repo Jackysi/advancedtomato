@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: MessageWindowController.m 13399 2012-07-24 00:20:04Z livings124 $
+ * $Id: MessageWindowController.m 13492 2012-09-10 02:37:29Z livings124 $
  *
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -139,6 +139,7 @@
     [[NSNotificationCenter defaultCenter] removeObserver: self];
     
     [fTimer invalidate];
+    [fTimer release];
     [fLock release];
     
     [fMessages release];
@@ -153,7 +154,7 @@
 {
     if (!fTimer)
     {
-        fTimer = [NSTimer scheduledTimerWithTimeInterval: UPDATE_SECONDS target: self selector: @selector(updateLog:) userInfo: nil repeats: YES];
+        fTimer = [[NSTimer scheduledTimerWithTimeInterval: UPDATE_SECONDS target: self selector: @selector(updateLog:) userInfo: nil repeats: YES] retain];
         [self updateLog: nil];
     }
 }
@@ -161,6 +162,7 @@
 - (void) windowWillClose: (id)sender
 {
     [fTimer invalidate];
+    [fTimer release];
     fTimer = nil;
 }
 
@@ -175,7 +177,8 @@
 - (void) window: (NSWindow *) window didDecodeRestorableState: (NSCoder *) coder
 {
     [fTimer invalidate];
-    fTimer = [NSTimer scheduledTimerWithTimeInterval: UPDATE_SECONDS target: self selector: @selector(updateLog:) userInfo: nil repeats: YES];
+    [fTimer release];
+    fTimer = [[NSTimer scheduledTimerWithTimeInterval: UPDATE_SECONDS target: self selector: @selector(updateLog:) userInfo: nil repeats: YES] retain];
     [self updateLog: nil];
 }
 
@@ -274,7 +277,7 @@
             case TR_MSG_DBG:
                 return [NSImage imageNamed: @"PurpleDot"];
             default:
-                NSAssert1(NO, @"Unknown message log level: %d", level);
+                NSAssert1(NO, @"Unknown message log level: %ld", level);
                 return nil;
         }
     }
@@ -291,6 +294,7 @@
     
     NSTableColumn * column = [tableView tableColumnWithIdentifier: @"Message"];
     const CGFloat count = floorf([message sizeWithAttributes: fAttributes].width / [column width]);
+    
     return [tableView rowHeight] * (count + 1.0);
 }
 
@@ -347,7 +351,7 @@
             level = TR_MSG_DBG;
             break;
         default:
-            NSAssert1(NO, @"Unknown message log level: %d", [fLevelButton indexOfSelectedItem]);
+            NSAssert1(NO, @"Unknown message log level: %ld", [fLevelButton indexOfSelectedItem]);
     }
     
     if ([[NSUserDefaults standardUserDefaults] integerForKey: @"MessageLevel"] == level)
@@ -541,7 +545,7 @@
             levelString = NSLocalizedString(@"Debug", "Message window -> level");
             break;
         default:
-            NSAssert1(NO, @"Unknown message log level: %d", level);
+            NSAssert1(NO, @"Unknown message log level: %ld", level);
     }
     
     return [NSString stringWithFormat: @"%@ %@ [%@] %@: %@", [message objectForKey: @"Date"],

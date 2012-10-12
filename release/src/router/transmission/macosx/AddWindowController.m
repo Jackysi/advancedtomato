@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: AddWindowController.m 13334 2012-06-03 23:29:39Z livings124 $
+ * $Id: AddWindowController.m 13492 2012-09-10 02:37:29Z livings124 $
  *
  * Copyright (c) 2008-2012 Transmission authors and contributors
  *
@@ -55,7 +55,7 @@
 
 - (id) initWithTorrent: (Torrent *) torrent destination: (NSString *) path lockDestination: (BOOL) lockDestination
     controller: (Controller *) controller torrentFile: (NSString *) torrentFile
-    deleteTorrent: (BOOL) deleteTorrent canToggleDelete: (BOOL) canToggleDelete
+    deleteTorrentCheckEnableInitially: (BOOL) deleteTorrent canToggleDelete: (BOOL) canToggleDelete
 {
     if ((self = [super initWithWindowNibName: @"AddWindow"]))
     {
@@ -67,8 +67,8 @@
         
         fTorrentFile = [[torrentFile stringByExpandingTildeInPath] retain];
         
-        fDeleteTorrentInitial = deleteTorrent;
-        fDeleteEnableInitial = canToggleDelete;
+        fDeleteTorrentEnableInitially = deleteTorrent;
+        fCanToggleDelete = canToggleDelete;
         
         fGroupValue = [torrent groupValue];
         
@@ -122,8 +122,8 @@
     
     [fStartCheck setState: [[NSUserDefaults standardUserDefaults] boolForKey: @"AutoStartDownload"] ? NSOnState : NSOffState];
     
-    [fDeleteCheck setState: fDeleteTorrentInitial ? NSOnState : NSOffState];
-    [fDeleteCheck setEnabled: fDeleteEnableInitial];
+    [fDeleteCheck setState: fDeleteTorrentEnableInitially ? NSOnState : NSOffState];
+    [fDeleteCheck setEnabled: fCanToggleDelete];
     
     if (fDestination)
         [self setDestinationPath: fDestination];
@@ -133,8 +133,8 @@
         [fLocationImageView setImage: nil];
     }
     
-    fTimer = [NSTimer scheduledTimerWithTimeInterval: UPDATE_SECONDS target: self
-                selector: @selector(updateFiles) userInfo: nil repeats: YES];
+    fTimer = [[NSTimer scheduledTimerWithTimeInterval: UPDATE_SECONDS target: self
+                selector: @selector(updateFiles) userInfo: nil repeats: YES] retain];
     [self updateFiles];
 }
 
@@ -150,6 +150,7 @@
     [[NSNotificationCenter defaultCenter] removeObserver: self];
     
     [fTimer invalidate];
+    [fTimer release];
     
     [fDestination release];
     [fTorrentFile release];
@@ -220,6 +221,7 @@
 - (BOOL) windowShouldClose: (id) window
 {
     [fTimer invalidate];
+    [fTimer release];
     fTimer = nil;
     
     [fFileController setTorrent: nil]; //avoid a crash when window tries to update
@@ -257,7 +259,7 @@
         case POPUP_PRIORITY_HIGH: priority = TR_PRI_HIGH; break;
         case POPUP_PRIORITY_NORMAL: priority = TR_PRI_NORMAL; break;
         case POPUP_PRIORITY_LOW: priority = TR_PRI_LOW; break;
-        default: NSAssert1(NO, @"Unknown priority tag for adding torrent: %d", [sender tag]);
+        default: NSAssert1(NO, @"Unknown priority tag for adding torrent: %ld", [sender tag]);
     }
     [fTorrent setPriority: priority];
 }
@@ -331,10 +333,11 @@
 - (void) confirmAdd
 {
     [fTimer invalidate];
+    [fTimer release];
     fTimer = nil;
     [fTorrent setGroupValue: fGroupValue];
     
-    if (fTorrentFile && [fDeleteCheck state] == NSOnState)
+    if (fTorrentFile && fCanToggleDelete && [fDeleteCheck state] == NSOnState)
         [Torrent trashFile: fTorrentFile];
     
     if ([fStartCheck state] == NSOnState)

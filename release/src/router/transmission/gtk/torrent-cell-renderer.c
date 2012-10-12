@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: torrent-cell-renderer.c 13388 2012-07-14 19:26:55Z jordan $
+ * $Id: torrent-cell-renderer.c 13506 2012-09-20 03:39:00Z jordan $
  */
 
 #include <gtk/gtk.h>
@@ -274,7 +274,7 @@ getStatusString( GString           * gstr,
                 g_string_append_printf( gstr,
                     ngettext( "Downloading metadata from %1$'d peer (%2$d%% done)",
                               "Downloading metadata from %1$'d peers (%2$d%% done)",
-                              st->peersConnected + st->peersConnected ),
+                              st->peersConnected + st->webseedsSendingToUs ),
                     st->peersConnected + st->webseedsSendingToUs,
                     (int)(100.0*st->metadataPercentComplete) );
             }
