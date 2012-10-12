@@ -441,6 +441,7 @@ static int init_vlan_ports(void)
 		break;
 	case MODEL_E900:
 	case MODEL_E1500:
+	case MODEL_E1550:
 	case MODEL_E2500:
 	case MODEL_F7D3302:
 	case MODEL_F7D4302:
@@ -452,7 +453,6 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan2ports", "0 5");
 		break;
 	case MODEL_RTN15U:
-	case MODEL_E1550:
 	case MODEL_E3200:
 	case MODEL_E4200:
 		dirty |= check_nv("vlan1ports", "0 1 2 3 8*");
@@ -1320,10 +1320,11 @@ static int init_nvram(void)
 
 	if (name) {
 		nvram_set("t_fix1", name);
-		if (ver && !strcmp(ver, "")) {
-			sprintf(s, "%s %s v%s", mfr, name, ver);
-		} else {
+		/* Don't show the version information if it's empty (null or empty string) */
+		if (ver == NULL || strcmp(ver, "") == 0) {
 			sprintf(s, "%s %s", mfr, name);
+		} else {
+			sprintf(s, "%s %s v%s", mfr, name, ver);
 		}
 	}
 	else {
