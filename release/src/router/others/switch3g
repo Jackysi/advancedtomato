@@ -4,17 +4,33 @@
 # Copyright (C) 2011 shibby
 #
 
+CHECK=`cat /tmp/switch3g.debug`
+if [ "$CHECK" -gt 0 ]; then
+    logger 3G MODEM - previous proces of switch3g still working
+    exit 0
+fi
+
 PIN=`nvram get modem_pin`
 IS_PIN=`nvram get modem_pin | wc -w`
 DEVNR=`nvram get modem_dev`
 
-# is modem ready?
+#run process
+echo "1" > /tmp/switch3g.debug
 
+# is modem ready?
+DEV0=`cat /proc/bus/usb/devices | grep Driver | grep cdc_acm | wc -l`
 DEV1=`cat /proc/bus/usb/devices | grep Driver | grep option | wc -l`
 DEV2=`cat /proc/bus/usb/devices | grep Driver | grep sierra | wc -l`
 DEV3=`cat /proc/bus/usb/devices | grep Driver | grep usbserial | wc -l`
 
-if [ "$DEV1" -gt 0 ]; then
+if [ "$DEV0" -gt 0 ]; then
+    logger 3G MODEM already found - using cdc-acm module
+    nvram set 3g_module=cdc-acm
+    if [ "$IS_PIN" == "1" ]; then
+        echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
+    fi
+    break;
+elif [ "$DEV1" -gt 0 ]; then
     logger 3G MODEM already found - using option module
     nvram set 3g_module=option
     if [ "$IS_PIN" == "1" ]; then
@@ -66,12 +82,21 @@ else
     done
 
     #trying option and sierra module first
+    modprobe cdc-acm
     modprobe option
     modprobe sierra
     sleep 2
-    DEV=`cat /proc/bus/usb/devices | grep Driver | grep option | wc -l`
+    DEV0=`cat /proc/bus/usb/devices | grep Driver | grep cdc_acm | wc -l`
+    DEV1=`cat /proc/bus/usb/devices | grep Driver | grep option | wc -l`
     DEV2=`cat /proc/bus/usb/devices | grep Driver | grep sierra | wc -l`
-    if [ "$DEV" -gt 0 ]; then
+    if [ "$DEV0" -gt 0 ]; then
+        logger 3G MODEM ready - using cdc-acm module
+        nvram set 3g_module=cdc-acm
+        if [ "$IS_PIN" == "1" ]; then
+            echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
+        fi
+        break;
+    elif [ "$DEV1" -gt 0 ]; then
         logger 3G MODEM ready - using option module
         nvram set 3g_module=option
         if [ "$IS_PIN" == "1" ]; then
@@ -86,8 +111,9 @@ else
         fi
         break;
     else
-        logger 3G MODEM not found by option and sierra module. Trying usbserial ...
+        logger 3G MODEM not found by cdc-acm, option or sierra module. Trying usbserial ...
 
+        #rmmod cdc_acm //we can`t do that. I don`t know why...
         rmmod sierra
         rmmod option
 
@@ -167,3 +193,6 @@ fi
 if [ "$NO" == "1" ]; then
     logger 3G MODEM not found ... sorry
 fi
+
+#end process
+echo "0" > /tmp/switch3g.debug
