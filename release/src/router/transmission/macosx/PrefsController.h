@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: PrefsController.h 13337 2012-06-10 01:44:03Z livings124 $
+ * $Id: PrefsController.h 13449 2012-08-19 19:06:52Z livings124 $
  *
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *
@@ -105,6 +105,7 @@
 
 - (IBAction) setBuiltInGrowlEnabled: (id) sender;
 - (IBAction) openGrowlApp: (id) sender;
+- (void) openNotificationSystemPrefs: (id) sender;
 
 - (void) resetWarnings: (id) sender;
 

@@ -19,7 +19,9 @@ EXTRA_DIST = \
     sparkle_dsa_pub.pem \
     UKKQueue \
     TransmissionHelp \
+    QuickLookPlugin \
     Images \
+    da.lproj \
     de.lproj \
     en.lproj \
     es.lproj \
@@ -29,7 +31,6 @@ EXTRA_DIST = \
     pt.lproj \
     pt_PT.lproj \
     ru.lproj \
-    zh_CN.lproj \
     AboutWindowController.h \
     AboutWindowController.m \
     AddMagnetWindowController.h \
@@ -159,17 +160,21 @@ EXTRA_DIST = \
     TrackerTableView.h \
     TrackerTableView.m \
     URLSheetWindowController.h \
-    URLSheetWindowController.m
+    URLSheetWindowController.m \
+    WebSeedTableView.h \
+    WebSeedTableView.m
 
 dist-hook:
 	rm -rf `find $(distdir)/ -type d -name .svn`
 	rm -rf `find $(distdir)/ -type d -name .deps`
 
+if BUILD_MAC
 # Use Xcode do make the actual build
 all:
 	@(cd .. && xcodebuild -alltargets -activeconfiguration | grep -v "^$$")
-clean:
+clean-local:
 	@(cd .. && xcodebuild -alltargets -activeconfiguration clean | grep -v "^$$")
+endif
 
 define PACKAGE_RULE1
 	$(RM) tmp "Transmission $(VERSION_PACKAGE)" \

@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: mainwin.h 12611 2011-08-02 03:59:54Z jordan $
+ * $Id: mainwin.h 13446 2012-08-19 00:01:54Z jordan $
  */
 
 #ifndef MAIN_WINDOW_H
@@ -151,6 +151,7 @@ class TrMainWindow: public QMainWindow
         QWidget * createStatusBar( void );
         QWidget * myStatusBar;
         QPushButton * myAltSpeedButton;
+        QAction * myAltSpeedAction;
         QPushButton * myOptionsButton;
         QLabel * myVisibleCountLabel;
         QPushButton * myStatsModeButton;

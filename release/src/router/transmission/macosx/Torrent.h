@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Torrent.h 13379 2012-07-07 02:14:08Z livings124 $
+ * $Id: Torrent.h 13419 2012-08-06 03:59:07Z livings124 $
  *
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -52,7 +52,7 @@
     
     BOOL fResumeOnWake;
     
-    NSString * fTimeMachineExclude;
+    BOOL fTimeMachineExcludeInitialized;
 }
 
 - (id) initWithPath: (NSString *) path location: (NSString *) location deleteTorrentFile: (BOOL) torrentDelete

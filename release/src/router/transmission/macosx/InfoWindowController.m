@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoWindowController.m 13252 2012-03-13 02:55:15Z livings124 $
+ * $Id: InfoWindowController.m 13434 2012-08-13 00:52:04Z livings124 $
  *
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -31,6 +31,7 @@
 #import "InfoFileViewController.h"
 #import "InfoOptionsViewController.h"
 #import "InfoTabButtonCell.h"
+#import "NSApplicationAdditions.h"
 #import "NSStringAdditions.h"
 #import "Torrent.h"
 
@@ -276,7 +277,7 @@ typedef enum
             identifier = TAB_OPTIONS_IDENT;
             break;
         default:
-            NSAssert1(NO, @"Unknown info tab selected: %d", fCurrentTabTag);
+            NSAssert1(NO, @"Unknown info tab selected: %ld", fCurrentTabTag);
             return;
     }
     
@@ -448,8 +449,18 @@ typedef enum
                 [fBasicInfoField setStringValue: [NSString stringWithFormat: @"%@, %@", fileString,
                     [NSString stringWithFormat: NSLocalizedString(@"%@ total", "Inspector -> selected torrents"),
                         [NSString stringForFileSize: size]]]];
-                [fBasicInfoField setToolTip: [NSString stringWithFormat: NSLocalizedString(@"%@ bytes",
-                                                "Inspector -> selected torrents"), [NSString formattedUInteger: size]]];
+                
+                NSString * byteString;
+                if ([NSApp isOnMountainLionOrBetter])
+                {
+                    NSByteCountFormatter * formatter = [[NSByteCountFormatterMtLion alloc] init];
+                    [formatter setAllowedUnits: NSByteCountFormatterUseBytes];
+                    byteString = [formatter stringFromByteCount: size];
+                    [formatter release];
+                }
+                else
+                    byteString = [NSString stringWithFormat: NSLocalizedString(@"%@ bytes", "Inspector -> selected torrents"), [NSString formattedUInteger: size]];
+                [fBasicInfoField setToolTip: byteString];
             }
             else
             {
@@ -497,8 +508,18 @@ typedef enum
                 basicString = [NSString stringWithFormat: @"%@, %@", fileString, basicString];
             }
             [fBasicInfoField setStringValue: basicString];
-            [fBasicInfoField setToolTip: [NSString stringWithFormat: NSLocalizedString(@"%@ bytes", "Inspector -> selected torrents"),
-                                            [NSString formattedUInteger: [torrent size]]]];
+            
+            NSString * byteString;
+            if ([NSApp isOnMountainLionOrBetter])
+            {
+                NSByteCountFormatter * formatter = [[NSByteCountFormatterMtLion alloc] init];
+                [formatter setAllowedUnits: NSByteCountFormatterUseBytes];
+                byteString = [formatter stringFromByteCount: [torrent size]];
+                [formatter release];
+            }
+            else
+                byteString = [NSString stringWithFormat: NSLocalizedString(@"%@ bytes", "Inspector -> selected torrents"), [NSString formattedUInteger: [torrent size]]];
+            [fBasicInfoField setToolTip: byteString];
         }
         else
         {

@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: prefs.h 12607 2011-08-01 22:24:24Z jordan $
+ * $Id: prefs.h 13448 2012-08-19 16:12:20Z jordan $
  */
 
 #ifndef QTR_PREFS_H
@@ -141,7 +141,7 @@ class Prefs: public QObject
     private:
         QSet<int> myTemporaryPrefs;
         QString myConfigDir;
-        QVariant myValues[PREFS_COUNT];
+        mutable QVariant myValues[PREFS_COUNT];
         void initDefaults( struct tr_benc* );
 
     public:

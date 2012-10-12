@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: torrent.c 13389 2012-07-14 19:34:38Z jordan $
+ * $Id: torrent.c 13470 2012-09-06 03:23:50Z livings124 $
  */
 
 #include <signal.h> /* signal() */

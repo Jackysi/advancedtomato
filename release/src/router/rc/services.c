@@ -1684,7 +1684,6 @@ static void start_ftpd(void)
 	{
 		/*
 		username<password<rights[<root_dir>]
-
 		rights:
 			Read/Write
 			Read Only
@@ -1698,7 +1697,7 @@ static void start_ftpd(void)
 			if (!user || !pass) continue;
 
 			if (i == 3 || !root_dir || !(*root_dir))
-				root_dir = nvram_safe_get("ftp_pubroot");
+			root_dir = nvram_safe_get("ftp_pubroot");
 
 			/* directory */
 			if (strncmp(rights, "Private", 7) == 0)

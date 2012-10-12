@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FilterBarController.m 13340 2012-06-10 02:35:58Z livings124 $
+ * $Id: FilterBarController.m 13414 2012-07-25 12:49:11Z livings124 $
  * 
  * Copyright (c) 2011-2012 Transmission authors and contributors
  *
@@ -236,6 +236,26 @@
     [self updateGroupsButton];
     
     [[NSNotificationCenter defaultCenter] postNotificationName: @"ApplyFilter" object: nil];
+}
+
+- (void) reset: (BOOL) updateUI
+{
+    [[NSUserDefaults standardUserDefaults] setInteger: GROUP_FILTER_ALL_TAG forKey: @"FilterGroup"];
+    
+    if (updateUI)
+    {   
+        [self updateGroupsButton];
+        
+        [self setFilter: fNoFilterButton];
+        
+        [fSearchField setStringValue: @""];
+        [self setSearchText: fSearchField];
+    }
+    else
+    {
+        [[NSUserDefaults standardUserDefaults] setObject: FILTER_NONE forKey: @"Filter"];
+        [[NSUserDefaults standardUserDefaults] removeObjectForKey: @"FilterSearchString"];
+    }
 }
 
 - (NSArray *) searchStrings

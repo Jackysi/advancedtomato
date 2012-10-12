@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: AddWindowController.h 13334 2012-06-03 23:29:39Z livings124 $
+ * $Id: AddWindowController.h 13416 2012-08-05 03:48:13Z livings124 $
  *
  * Copyright (c) 2008-2012 Transmission authors and contributors
  *
@@ -48,7 +48,7 @@
     NSString * fDestination, * fTorrentFile;
     BOOL fLockDestination;
     
-    BOOL fDeleteTorrentInitial, fDeleteEnableInitial;
+    BOOL fDeleteTorrentEnableInitially, fCanToggleDelete;
     NSInteger fGroupValue;
     
     NSTimer * fTimer;
@@ -56,7 +56,7 @@
 
 - (id) initWithTorrent: (Torrent *) torrent destination: (NSString *) path lockDestination: (BOOL) lockDestination
     controller: (Controller *) controller torrentFile: (NSString *) torrentFile
-    deleteTorrent: (BOOL) deleteTorrent canToggleDelete: (BOOL) canToggleDelete;
+    deleteTorrentCheckEnableInitially: (BOOL) deleteTorrent canToggleDelete: (BOOL) canToggleDelete; //if canToggleDelete is NO, we will also not delete the file regardless of the delete check's state (this is so it can be disabled and checked for a downloaded torrent, where the file's already deleted)
 
 - (Torrent *) torrent;
 

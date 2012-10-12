@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: StatusBarView.h 13162 2012-01-14 17:12:04Z livings124 $
+ * $Id: StatusBarView.h 13454 2012-08-30 02:37:00Z livings124 $
  * 
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -23,10 +23,12 @@
  *****************************************************************************/
 
 #import <Cocoa/Cocoa.h>
+#import <QuartzCore/QuartzCore.h>
 
 @interface StatusBarView : NSView
 {
     NSGradient * fGradient;
+    CIImage * fNoiseImage;
 }
 
 @end

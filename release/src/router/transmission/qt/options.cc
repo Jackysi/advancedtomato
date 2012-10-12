@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: options.cc 13381 2012-07-09 23:18:40Z jordan $
+ * $Id: options.cc 13447 2012-08-19 00:12:43Z jordan $
  */
 
 #include <cstdio>
@@ -56,9 +56,11 @@ FileAdded :: executed( int64_t tag, const QString& result, struct tr_benc * argu
     if( tag != myTag )
         return;
 
-    if( result == "success" )
-        if( !myDelFile.isEmpty( ) )
-            QFile( myDelFile ).remove( );
+    if( ( result == "success" ) && !myDelFile.isEmpty( ) ) {
+        QFile file( myDelFile );
+        file.setPermissions( QFile::ReadOwner | QFile::WriteOwner );
+        file.remove();
+    }
 
     if( result != "success" ) {
         QString text = result;

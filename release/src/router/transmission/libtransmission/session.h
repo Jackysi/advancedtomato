@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: session.h 13361 2012-07-01 02:17:35Z jordan $
+ * $Id: session.h 13499 2012-09-18 00:58:10Z livings124 $
  */
 
 #ifndef __TRANSMISSION__
@@ -33,6 +33,12 @@
 #include "utils.h"
 
 typedef enum { TR_NET_OK, TR_NET_ERROR, TR_NET_WAIT } tr_tristate_t;
+
+typedef enum {
+    TR_AUTO_SWITCH_UNUSED,
+    TR_AUTO_SWITCH_ON,
+    TR_AUTO_SWITCH_OFF,
+} tr_auto_switch_state_t;
 
 enum
 {
@@ -87,6 +93,9 @@ struct tr_turtle_info
      * Each bit's value indicates whether the scheduler wants turtle
      * limits on or off at that given minute in the week. */
     tr_bitfield minutes;
+
+    /* recent action that was done by turtle's automatic switch */
+    tr_auto_switch_state_t autoTurtleState;
 };
 
 /** @brief handle to an active libtransmission session */

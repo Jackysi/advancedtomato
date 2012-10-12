@@ -7,12 +7,11 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: prefs.cc 12607 2011-08-01 22:24:24Z jordan $
+ * $Id: prefs.cc 13448 2012-08-19 16:12:20Z jordan $
  */
 
 #include <cassert>
 #include <iostream>
-#include <cstdlib> // strtod
 
 #include <QDir>
 #include <QFile>
@@ -21,8 +20,10 @@
 #include <libtransmission/bencode.h>
 #include <libtransmission/json.h>
 #include <libtransmission/utils.h>
+#include <stdlib.h>
 #include "prefs.h"
 #include "types.h"
+#include "utils.h"
 
 /***
 ****
@@ -125,7 +126,7 @@ Prefs::PrefItem Prefs::myItems[] =
 ***/
 
 Prefs :: Prefs( const char * configDir ):
-    myConfigDir( configDir )
+    myConfigDir( QString::fromUtf8( configDir ) )
 {
     assert( sizeof(myItems) / sizeof(myItems[0]) == PREFS_COUNT );
     for( int i=0; i<PREFS_COUNT; ++i )
@@ -163,7 +164,7 @@ Prefs :: Prefs( const char * configDir ):
                 break;
             case QVariant::String:
                 if( tr_bencGetStr( b, &str ) )
-                    myValues[i].setValue( QString::fromUtf8(str) );
+                    myValues[i].setValue( QString::fromUtf8( str ) );
                 break;
             case QVariant::Bool:
                 if( tr_bencGetBool( b, &boolVal ) )
@@ -219,7 +220,12 @@ Prefs :: ~Prefs( )
                 tr_bencDictAddStr( &top, key, val.value<FilterMode>().name().toUtf8().constData() );
                 break;
             case QVariant::String:
-                tr_bencDictAddStr( &top, key, val.toString().toUtf8().constData() );
+                {   const char * s = val.toByteArray().constData();
+                    if ( Utils::isValidUtf8( s ) )
+                        tr_bencDictAddStr( &top, key, s );
+                    else
+                        tr_bencDictAddStr( &top, key, val.toString().toUtf8().constData() );
+                }
                 break;
             case QVariant::Bool:
                 tr_bencDictAddBool( &top, key, val.toBool() );
@@ -253,7 +259,7 @@ Prefs :: initDefaults( tr_benc * d )
     tr_bencDictAddBool( d, keyStr(INHIBIT_HIBERNATION), false );
     tr_bencDictAddInt ( d, keyStr(BLOCKLIST_DATE), 0 );
     tr_bencDictAddBool( d, keyStr(BLOCKLIST_UPDATES_ENABLED), true );
-    tr_bencDictAddStr ( d, keyStr(OPEN_DIALOG_FOLDER), QDir::home().absolutePath().toLatin1() );
+    tr_bencDictAddStr ( d, keyStr(OPEN_DIALOG_FOLDER), QDir::home().absolutePath().toUtf8() );
     tr_bencDictAddInt ( d, keyStr(SHOW_TRACKER_SCRAPES), false );
     tr_bencDictAddBool( d, keyStr(TOOLBAR), true );
     tr_bencDictAddBool( d, keyStr(FILTERBAR), true );
@@ -297,7 +303,10 @@ QString
 Prefs :: getString( int key ) const
 {
     assert( myItems[key].type == QVariant::String );
-    return myValues[key].toString( );
+    QByteArray b = myValues[key].toByteArray();
+    if ( Utils::isValidUtf8( b.constData() ) )
+       myValues[key].setValue( QString::fromUtf8( b.constData() ) );
+    return myValues[key].toString();
 }
 
 int

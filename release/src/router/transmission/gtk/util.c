@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: util.c 13388 2012-07-14 19:26:55Z jordan $
+ * $Id: util.c 13520 2012-09-23 15:38:07Z jordan $
  */
 
 #include <ctype.h> /* isxdigit() */
@@ -299,8 +299,12 @@ on_tree_view_button_released( GtkWidget *      view,
 int
 gtr_file_trash_or_remove( const char * filename )
 {
+    GFile * file;
     gboolean trashed = FALSE;
-    GFile * file = g_file_new_for_path( filename );
+
+    g_return_val_if_fail (filename && *filename, 0);
+
+    file = g_file_new_for_path( filename );
 
     if( gtr_pref_flag_get( PREF_KEY_TRASH_CAN_ENABLED ) ) {
         GError * err = NULL;

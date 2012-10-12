@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FileListNode.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: FileListNode.m 13434 2012-08-13 00:52:04Z livings124 $
  *
  * Copyright (c) 2008-2012 Transmission authors and contributors
  *
@@ -99,7 +99,7 @@
 - (NSString *) description
 {
     if (!fIsFolder)
-        return [NSString stringWithFormat: @"%@ (%d)", fName, [fIndexes firstIndex]];
+        return [NSString stringWithFormat: @"%@ (%ld)", fName, [fIndexes firstIndex]];
     else
         return [NSString stringWithFormat: @"%@ (folder: %@)", fName, fIndexes];
 }

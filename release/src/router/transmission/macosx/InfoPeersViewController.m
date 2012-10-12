@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoPeersViewController.m 13340 2012-06-10 02:35:58Z livings124 $
+ * $Id: InfoPeersViewController.m 13434 2012-08-13 00:52:04Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -373,7 +373,7 @@
         NSString * portString;
         NSInteger port;
         if ((port = [[peer objectForKey: @"Port"] intValue]) > 0)
-            portString = [NSString stringWithFormat: @"%d", port];
+            portString = [NSString stringWithFormat: @"%ld", port];
         else
             portString = NSLocalizedString(@"N/A", "Inspector -> Peers tab -> table row tooltip");
         [components addObject: [NSString stringWithFormat: @"%@: %@", NSLocalizedString(@"Port",
@@ -405,7 +405,7 @@
                                         "Inspector -> Peers tab -> table row tooltip")];
                 break;
             default:
-                NSAssert1(NO, @"Peer from unknown source: %d", peerFrom);
+                NSAssert1(NO, @"Peer from unknown source: %ld", peerFrom);
         }
         
         //determing status strings from flags

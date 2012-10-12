@@ -65,6 +65,7 @@ WL-500G Premium		BCM4704_BCM5325F      0x042f       45        0x10      0x0110  
 WL-500W			BCM4704_BCM5325F_EWC  0x0472       45        0x23      0x0010      hardware_version=WL500gW-01-00-00-00 regulation_domain=0X10US sdram_init=0x0009
 
 WL-500G Premium v2		HW_BCM5354G           0x48E        45        0x10      0x0750
+WL-330GE			HW_BCM5354G           0x048e       45        0x10      0x0650      hardware_version=WL330GE-02-06-00-05 //MIPSR1, 4MB flash w/o USB
 WL-520GU			HW_BCM5354G           0x48E        45        0x10      0x0750      hardware_version=WL520GU-01-07-02-00
 ZTE H618B			HW_BCM5354G           0x048e     1105        0x35      0x0750
 Ovislink WL1600GL		HW_BCM5354G           0x048E        8        0x11
@@ -352,6 +353,7 @@ int get_model(void)
 			return MODEL_WL500GE;
 		case HW_BCM5354G:
 			if (strncmp(nvram_safe_get("hardware_version"), "WL520GU", 7) == 0) return MODEL_WL520GU;
+			if (strncmp(nvram_safe_get("hardware_version"), "WL330GE", 7) == 0) return MODEL_WL330GE;
 			return MODEL_WL500GPv2;
 		case HW_BCM5365:
 			return MODEL_WL500GD;

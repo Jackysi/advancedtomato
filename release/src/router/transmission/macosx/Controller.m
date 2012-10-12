@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Controller.m 13377 2012-07-07 01:47:12Z livings124 $
+ * $Id: Controller.m 13495 2012-09-11 00:46:32Z livings124 $
  * 
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *
@@ -309,20 +309,50 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         tr_bencDictAddStr(&settings, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_FILENAME, [[fDefaults stringForKey: @"DoneScriptPath"] UTF8String]);
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_UTP_ENABLED, [fDefaults boolForKey: @"UTPGlobal"]);
         
-        tr_formatter_size_init(1000, [NSLocalizedString(@"KB", "File size - kilobytes") UTF8String],
-                                        [NSLocalizedString(@"MB", "File size - megabytes") UTF8String],
-                                        [NSLocalizedString(@"GB", "File size - gigabytes") UTF8String],
-                                        [NSLocalizedString(@"TB", "File size - terabytes") UTF8String]);
+        
+        NSString * kbString, * mbString, * gbString, * tbString;
+        if ([NSApp isOnMountainLionOrBetter])
+        {
+            NSByteCountFormatter * unitFormatter = [[NSByteCountFormatterMtLion alloc] init];
+            [unitFormatter setIncludesCount: NO];
+            [unitFormatter setAllowsNonnumericFormatting: NO];
+            
+            [unitFormatter setAllowedUnits: NSByteCountFormatterUseKB];
+            kbString = [unitFormatter stringFromByteCount: 17]; //use a random value to avoid possible pluralization issues with 1 or 0 (an example is if we use 1 for bytes, we'd get "byte" when we'd want "bytes" for the generic libtransmission value at least)
+            
+            [unitFormatter setAllowedUnits: NSByteCountFormatterUseMB];
+            mbString = [unitFormatter stringFromByteCount: 17];
+            
+            [unitFormatter setAllowedUnits: NSByteCountFormatterUseGB];
+            gbString = [unitFormatter stringFromByteCount: 17];
+            
+            [unitFormatter setAllowedUnits: NSByteCountFormatterUseTB];
+            tbString = [unitFormatter stringFromByteCount: 17];
+            
+            [unitFormatter release];
+        }
+        else
+        {
+            kbString = NSLocalizedString(@"KB", "file/memory size - kilobytes");
+            mbString = NSLocalizedString(@"MB", "file/memory size - megabytes");
+            gbString = NSLocalizedString(@"GB", "file/memory size - gigabytes");
+            tbString = NSLocalizedString(@"TB", "file/memory size - terabytes");
+        }
+        
+        tr_formatter_size_init(1000, [kbString UTF8String],
+                                        [mbString UTF8String],
+                                        [gbString UTF8String],
+                                        [tbString UTF8String]);
 
         tr_formatter_speed_init(1000, [NSLocalizedString(@"KB/s", "Transfer speed (kilobytes per second)") UTF8String],
                                         [NSLocalizedString(@"MB/s", "Transfer speed (megabytes per second)") UTF8String],
                                         [NSLocalizedString(@"GB/s", "Transfer speed (gigabytes per second)") UTF8String],
                                         [NSLocalizedString(@"TB/s", "Transfer speed (terabytes per second)") UTF8String]); //why not?
 
-        tr_formatter_mem_init(1000, [NSLocalizedString(@"KB", "Memory size - kilobytes") UTF8String],
-                                    [NSLocalizedString(@"MB", "Memory size - megabytes") UTF8String],
-                                    [NSLocalizedString(@"GB", "Memory size - gigabytes") UTF8String],
-                                    [NSLocalizedString(@"TB", "Memory size - terabytes") UTF8String]);
+        tr_formatter_mem_init(1000, [kbString UTF8String],
+                                    [mbString UTF8String],
+                                    [gbString UTF8String],
+                                    [tbString UTF8String]);
         
         const char * configDir = tr_getDefaultConfigDir("Transmission");
         fLib = tr_sessionInit("macosx", configDir, YES, &settings);
@@ -484,6 +514,9 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     
     fBadger = [[Badger alloc] initWithLib: fLib];
     
+    if ([NSApp isOnMountainLionOrBetter])
+        [[NSUserNotificationCenterMtLion defaultUserNotificationCenter] setDelegate: self];
+    
     //observe notifications
     NSNotificationCenter * nc = [NSNotificationCenter defaultCenter];
     
@@ -534,8 +567,8 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 
     //timer to update the interface every second
     [self updateUI];
-    fTimer = [NSTimer scheduledTimerWithTimeInterval: UPDATE_UI_SECONDS target: self
-                selector: @selector(updateUI) userInfo: nil repeats: YES];
+    fTimer = [[NSTimer scheduledTimerWithTimeInterval: UPDATE_UI_SECONDS target: self
+                selector: @selector(updateUI) userInfo: nil repeats: YES] retain];
     [[NSRunLoop currentRunLoop] addTimer: fTimer forMode: NSModalPanelRunLoopMode];
     [[NSRunLoop currentRunLoop] addTimer: fTimer forMode: NSEventTrackingRunLoopMode];
     
@@ -554,6 +587,14 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     //register for dock icon drags (has to be in applicationDidFinishLaunching: to work)
     [[NSAppleEventManager sharedAppleEventManager] setEventHandler: self andSelector: @selector(handleOpenContentsEvent:replyEvent:)
         forEventClass: kCoreEventClass andEventID: kAEOpenContents];
+    
+    //if we were opened from a user notification, do the corresponding action
+    if ([NSApp isOnMountainLionOrBetter])
+    {
+        NSUserNotification * launchNotification = [[notification userInfo] objectForKey: NSApplicationLaunchUserNotificationKey];
+        if (launchNotification)
+            [self userNotificationCenter: nil didActivateNotification: launchNotification];
+    }
     
     //auto importing
     [self checkAutoImportDirectory];
@@ -642,7 +683,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
             NSBeginAlertSheet(NSLocalizedString(@"Are you sure you want to quit?", "Confirm Quit panel -> title"),
                                 NSLocalizedString(@"Quit", "Confirm Quit panel -> button"),
                                 NSLocalizedString(@"Cancel", "Confirm Quit panel -> button"), nil, fWindow, self,
-                                @selector(quitSheetDidEnd:returnCode:contextInfo:), nil, nil, message);
+                                @selector(quitSheetDidEnd:returnCode:contextInfo:), nil, nil, @"%@", message);
             return NSTerminateLater;
         }
     }
@@ -660,7 +701,8 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     fQuitting = YES;
     
     //stop the Bonjour service
-    [[BonjourController defaultController] stop];
+    if ([BonjourController defaultControllerExists])
+        [[BonjourController defaultController] stop];
 
     //stop blocklist download
     if ([BlocklistDownloader isRunning])
@@ -670,6 +712,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     [[NSNotificationCenter defaultCenter] removeObserver: self];
     
     [fTimer invalidate];
+    [fTimer release];
     
     if (fAutoImportTimer)
     {   
@@ -915,7 +958,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         {
             AddWindowController * addController = [[AddWindowController alloc] initWithTorrent: torrent destination: location
                                                     lockDestination: lockDestination controller: self torrentFile: torrentPath
-                                                    deleteTorrent: deleteTorrentFile canToggleDelete: canToggleDelete];
+                                                    deleteTorrentCheckEnableInitially: deleteTorrentFile canToggleDelete: canToggleDelete];
             [addController showWindow: self];
             
             if (!fAddWindows)
@@ -1396,7 +1439,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
             
             NSBeginAlertSheet(title, NSLocalizedString(@"Remove", "Removal confirm panel -> button"),
                 NSLocalizedString(@"Cancel", "Removal confirm panel -> button"), nil, fWindow, self,
-                nil, @selector(removeSheetDidEnd:returnCode:contextInfo:), dict, message);
+                nil, @selector(removeSheetDidEnd:returnCode:contextInfo:), dict, @"%@", message);
             return;
         }
     }
@@ -1453,13 +1496,14 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
             {
                 if (!beganUpdate)
                 {
+                    [NSAnimationContext beginGrouping]; //this has to be before we set the completion handler (#4874)
+                    
                     //we can't closeRemoveTorrent: until it's no longer in the GUI at all
                     [[NSAnimationContext currentContext] setCompletionHandler: ^{
                         for (Torrent * torrent in torrents)
                             [torrent closeRemoveTorrent: deleteData];
                     }];
                     
-                    [NSAnimationContext beginGrouping];
                     [fTableView beginUpdates];
                     beganUpdate = YES;
                 }
@@ -1836,6 +1880,102 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     [fTotalTorrentsField setStringValue: totalTorrentsString];
 }
 
+- (BOOL) userNotificationCenter: (NSUserNotificationCenter *) center shouldPresentNotification:(NSUserNotification *) notification
+{
+    return YES;
+}
+
+- (void) userNotificationCenter: (NSUserNotificationCenter *) center didActivateNotification: (NSUserNotification *) notification
+{
+    if (![notification userInfo])
+        return;
+    
+    if ([notification activationType] == NSUserNotificationActivationTypeActionButtonClicked) //reveal
+    {
+        Torrent * torrent = [self torrentForHash: [[notification userInfo] objectForKey: @"Hash"]];
+        NSString * location = [torrent dataLocation];
+        if (!location)
+            location = [[notification userInfo] objectForKey: @"Location"];
+        if (location)
+            [[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs: @[[NSURL fileURLWithPath: location]]];
+    }
+    else if ([notification activationType] == NSUserNotificationActivationTypeContentsClicked)
+    {
+        Torrent * torrent = [self torrentForHash: [[notification userInfo] objectForKey: @"Hash"]];
+        if (torrent)
+        {
+            //select in the table - first see if it's already shown
+            NSInteger row = [fTableView rowForItem: torrent];
+            if (row == -1)
+            {
+                //if it's not shown, see if it's in a collapsed row
+                if ([fDefaults boolForKey: @"SortByGroup"])
+                {
+                    __block TorrentGroup * parent = nil;
+                    [fDisplayedTorrents enumerateObjectsWithOptions: NSEnumerationConcurrent usingBlock: ^(TorrentGroup * group, NSUInteger idx, BOOL *stop) {
+                        if ([[group torrents] containsObject: torrent])
+                        {
+                            parent = group;
+                            *stop = YES;
+                        }
+                    }];
+                    if (parent)
+                    {
+                        [[fTableView animator] expandItem: parent];
+                        row = [fTableView rowForItem: torrent];
+                    }
+                }
+                
+                if (row == -1)
+                {
+                    //not found - must be filtering
+                    NSAssert([fDefaults boolForKey: @"FilterBar"], @"expected the filter to be enabled");
+                    [fFilterBar reset: YES];
+                    
+                    row = [fTableView rowForItem: torrent];
+                    
+                    //if it's not shown, it has to be in a collapsed row...again
+                    if ([fDefaults boolForKey: @"SortByGroup"])
+                    {
+                        __block TorrentGroup * parent = nil;
+                        [fDisplayedTorrents enumerateObjectsWithOptions: NSEnumerationConcurrent usingBlock: ^(TorrentGroup * group, NSUInteger idx, BOOL *stop) {
+                            if ([[group torrents] containsObject: torrent])
+                            {
+                                parent = group;
+                                *stop = YES;
+                            }
+                        }];
+                        if (parent)
+                        {
+                            [[fTableView animator] expandItem: parent];
+                            row = [fTableView rowForItem: torrent];
+                        }
+                    }
+                }
+            }
+            
+            NSAssert1(row != -1, @"expected a row to be found for torrent %@", torrent);
+            [fTableView selectRowIndexes: [NSIndexSet indexSetWithIndex: row] byExtendingSelection:NO];
+            #warning focus the window
+        }
+    }
+}
+
+- (Torrent *) torrentForHash: (NSString *) hash
+{
+    NSParameterAssert(hash != nil);
+    
+    __block Torrent * torrent = nil;
+    [fTorrents enumerateObjectsWithOptions: NSEnumerationConcurrent usingBlock: ^(id obj, NSUInteger idx, BOOL * stop) {
+        if ([[(Torrent *)obj hashString] isEqualToString: hash])
+        {
+            torrent = obj;
+            *stop = YES;
+        }
+    }];
+    return torrent;
+}
+
 - (void) torrentFinishedDownloading: (NSNotification *) notification
 {
     Torrent * torrent = [notification object];
@@ -1853,15 +1993,40 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
             }
         }
         
-        NSMutableDictionary * clickContext = [NSMutableDictionary dictionaryWithObject: GROWL_DOWNLOAD_COMPLETE forKey: @"Type"];
-        
         NSString * location = [torrent dataLocation];
+        
+        NSString * notificationTitle = NSLocalizedString(@"Download Complete", "notification title");
+        if ([NSApp isOnMountainLionOrBetter])
+        {
+            NSUserNotification * notification = [[NSUserNotificationMtLion alloc] init];
+            [notification setTitle: notificationTitle];
+            [notification setInformativeText: [torrent name]];
+            
+            [notification setHasActionButton: YES];
+            [notification setActionButtonTitle: NSLocalizedString(@"Show", "notification button")];
+            
+            NSMutableDictionary * userInfo = [NSMutableDictionary dictionaryWithObject: [torrent hashString] forKey: @"Hash"];
+            if (location)
+                [userInfo setObject: location forKey: @"Location"];
+            [notification setUserInfo: userInfo];
+            
+            [[NSUserNotificationCenterMtLion defaultUserNotificationCenter] deliverNotification: notification];
+            [notification release];
+            
+            NSLog(@"delegate: %@", [[NSUserNotificationCenterMtLion defaultUserNotificationCenter] delegate]);
+        }
+        
+        NSMutableDictionary * clickContext = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+                                              GROWL_DOWNLOAD_COMPLETE, @"Type", nil];
+        
         if (location)
             [clickContext setObject: location forKey: @"Location"];
         
-        [GrowlApplicationBridge notifyWithTitle: NSLocalizedString(@"Download Complete", "Growl notification title")
+        [GrowlApplicationBridge notifyWithTitle: notificationTitle
                                     description: [torrent name] notificationName: GROWL_DOWNLOAD_COMPLETE
                                     iconData: nil priority: 0 isSticky: NO clickContext: clickContext];
+        
+        NSLog(@"delegate: %@", [[NSUserNotificationCenterMtLion defaultUserNotificationCenter] delegate]);
         
         if (![fWindow isMainWindow])
             [fBadger addCompletedTorrent: torrent];
@@ -1894,13 +2059,33 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         }
     }
     
+    NSString * location = [torrent dataLocation];
+    
+    NSString * notificationTitle = NSLocalizedString(@"Seeding Complete", "notification title");
+    if ([NSApp isOnMountainLionOrBetter])
+    {
+        NSUserNotification * notification = [[NSUserNotificationMtLion alloc] init];
+        [notification setTitle: notificationTitle];
+        [notification setInformativeText: [torrent name]];
+        
+        [notification setHasActionButton: YES];
+        [notification setActionButtonTitle: NSLocalizedString(@"Show", "notification button")];
+        
+        NSMutableDictionary * userInfo = [NSMutableDictionary dictionaryWithObject: [torrent hashString] forKey: @"Hash"];
+        if (location)
+            [userInfo setObject: location forKey: @"Location"];
+        [notification setUserInfo: userInfo];
+        
+        [[NSUserNotificationCenterMtLion defaultUserNotificationCenter] deliverNotification: notification];
+        [notification release];
+    }
+    
     NSMutableDictionary * clickContext = [NSMutableDictionary dictionaryWithObject: GROWL_SEEDING_COMPLETE forKey: @"Type"];
     
-    NSString * location = [torrent dataLocation];
     if (location)
         [clickContext setObject: location forKey: @"Location"];
     
-    [GrowlApplicationBridge notifyWithTitle: NSLocalizedString(@"Seeding Complete", "Growl notification title")
+    [GrowlApplicationBridge notifyWithTitle: notificationTitle
                                 description: [torrent name] notificationName: GROWL_SEEDING_COMPLETE
                                    iconData: nil priority: 0 isSticky: NO clickContext: clickContext];
     
@@ -1963,7 +2148,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
             sortType = SORT_SIZE;
             break;
         default:
-            NSAssert1(NO, @"Unknown sort tag received: %d", [(NSMenuItem *)sender tag]);
+            NSAssert1(NO, @"Unknown sort tag received: %ld", [(NSMenuItem *)sender tag]);
             return;
     }
     
@@ -2815,7 +3000,20 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
             case TR_PARSE_OK:
                 [self openFiles: [NSArray arrayWithObject: fullFile] addType: ADD_AUTO forcePath: nil];
                 
-                [GrowlApplicationBridge notifyWithTitle: NSLocalizedString(@"Torrent File Auto Added", "Growl notification title")
+                NSString * notificationTitle = NSLocalizedString(@"Torrent File Auto Added", "notification title");
+                if ([NSApp isOnMountainLionOrBetter])
+                {
+                    NSUserNotification* notification = [[NSUserNotificationMtLion alloc] init];
+                    [notification setTitle: notificationTitle];
+                    [notification setInformativeText: file];
+                    
+                    [notification setHasActionButton: NO];
+                    
+                    [[NSUserNotificationCenterMtLion defaultUserNotificationCenter] deliverNotification: notification];
+                    [notification release];
+                }
+                
+                [GrowlApplicationBridge notifyWithTitle: notificationTitle
                     description: file notificationName: GROWL_AUTO_ADD iconData: nil priority: 0 isSticky: NO
                     clickContext: nil];
                 break;
@@ -3402,11 +3600,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     
     //disable filtering when hiding
     if (!show)
-    {
-        [[NSUserDefaults standardUserDefaults] setObject: FILTER_NONE forKey: @"Filter"];
-        [[NSUserDefaults standardUserDefaults] setInteger: GROUP_FILTER_ALL_TAG forKey: @"FilterGroup"];
-        [[NSUserDefaults standardUserDefaults] removeObjectForKey: @"FilterSearchString"];
-    }
+        [fFilterBar reset: NO];
     
     [self applyFilter]; //do even if showing to ensure tooltips are updated
 }
@@ -3957,7 +4151,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
                 sortType = SORT_SIZE;
                 break;
             default:
-                NSAssert1(NO, @"Unknown sort tag received: %d", [menuItem tag]);
+                NSAssert1(NO, @"Unknown sort tag received: %ld", [menuItem tag]);
         }
         
         [menuItem setState: [sortType isEqualToString: [fDefaults stringForKey: @"Sort"]] ? NSOnState : NSOffState];
@@ -4486,15 +4680,15 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 
 - (NSDictionary *) registrationDictionaryForGrowl
 {
-    NSArray * notifications = [NSArray arrayWithObjects: GROWL_DOWNLOAD_COMPLETE, GROWL_SEEDING_COMPLETE,
-                                                            GROWL_AUTO_ADD, GROWL_AUTO_SPEED_LIMIT, nil];
-    return [NSDictionary dictionaryWithObjectsAndKeys: notifications, GROWL_NOTIFICATIONS_ALL,
-                                notifications, GROWL_NOTIFICATIONS_DEFAULT, nil];
+    NSArray * notifications = @[GROWL_DOWNLOAD_COMPLETE, GROWL_SEEDING_COMPLETE, GROWL_AUTO_ADD, GROWL_AUTO_SPEED_LIMIT];
+    
+    return @{GROWL_NOTIFICATIONS_ALL : notifications,
+                GROWL_NOTIFICATIONS_DEFAULT : notifications };
 }
 
 - (void) growlNotificationWasClicked: (id) clickContext
 {
-    if (!clickContext || ![clickContext isKindOfClass: [NSDictionary class]])
+    if (![clickContext isKindOfClass: [NSDictionary class]])
         return;
     
     NSString * type = [clickContext objectForKey: @"Type"], * location;

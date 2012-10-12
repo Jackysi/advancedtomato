@@ -222,18 +222,18 @@ function Inspector(controller) {
         else {
             d = u = 0;
             if(torrents.length == 1) {
-				d = torrents[0].getDownloadedEver();
-				u = torrents[0].getUploadedEver();
-				
-				if (d == 0)
-					d = torrents[0].getHaveValid();
+                d = torrents[0].getDownloadedEver();
+                u = torrents[0].getUploadedEver();
+                                
+                if (d == 0)
+                    d = torrents[0].getHaveValid();
             }
             else {
-				for(i=0; t=torrents[i]; ++i) {
-					d += t.getDownloadedEver();
-					u += t.getUploadedEver();
-				}
-			}
+                for(i=0; t=torrents[i]; ++i) {
+                    d += t.getDownloadedEver();
+                    u += t.getUploadedEver();
+                }
+            }
             str = fmt.size(u) + ' (Ratio: ' + fmt.ratioString( Math.ratio(u,d))+')';
         }
         setTextContent(e.uploaded_lb, str);
@@ -456,67 +456,127 @@ function Inspector(controller) {
     *****  FILES PAGE
     ****/
 
-    changeFileCommand = function(rows, command) {
+    changeFileCommand = function(fileIndices, command) {
         var torrentId = data.file_torrent.getId();
-        var rowIndices = $.map(rows.slice(0),function (row) {return row.getIndex();});
-        data.controller.changeFileCommand(torrentId, rowIndices, command);
+        data.controller.changeFileCommand(torrentId, fileIndices, command);
     },
 
-    selectAllFiles = function() {
-        changeFileCommand([], 'files-wanted');
+    onFileWantedToggled = function(ev, fileIndices, want) {
+        changeFileCommand(fileIndices, want?'files-wanted':'files-unwanted');
     },
 
-    deselectAllFiles = function() {
-        changeFileCommand([], 'files-unwanted');
-    },
-
-    onFileWantedToggled = function(ev, row, want) {
-        changeFileCommand([row], want?'files-wanted':'files-unwanted');
-    },
-
-    onFilePriorityToggled = function(ev, row, priority) {
+    onFilePriorityToggled = function(ev, fileIndices, priority) {
         var command;
         switch(priority) {
             case -1: command = 'priority-low'; break;
             case  1: command = 'priority-high'; break;
             default: command = 'priority-normal'; break;
         }
-        changeFileCommand([row], command);
+        changeFileCommand(fileIndices, command);
+    },
+
+    onNameClicked = function(ev, fileRow, fileIndices) {
+        $(fileRow.getElement()).siblings().slideToggle();
     },
 
     clearFileList = function() {
         $(data.elements.file_list).empty();
         delete data.file_torrent;
+        delete data.file_torrent_n;
         delete data.file_rows;
     },
 
+    createFileTreeModel = function (tor) {
+        var i, j, n, name, tokens, walk, tree, token, sub,
+            leaves = [ ],
+            tree = { children: { }, file_indices: [ ] };
+
+        n = tor.getFileCount();
+        for (i=0; i<n; ++i) {
+            name = tor.getFile(i).name;
+            tokens = name.split('/');
+            walk = tree;
+            for (j=0; j<tokens.length; ++j) {
+                token = tokens[j];
+                sub = walk.children[token];
+                if (!sub) {
+                    walk.children[token] = sub = {
+                      name: token,
+                      parent: walk,
+                      children: { },
+                      file_indices: [ ],
+                      depth: j
+                    };
+                }
+                walk = sub;
+            }
+            walk.file_index = i;
+            delete walk.children;
+            leaves.push (walk);
+        }
+
+        for (i=0; i<leaves.length; ++i) {
+            walk = leaves[i];
+            j = walk.file_index;
+            do {
+                walk.file_indices.push (j);
+                walk = walk.parent;
+            } while (walk);
+        }
+
+        return tree;
+    },
+
+    addNodeToView = function (tor, parent, sub, i) {
+        var row;
+        row = new FileRow(tor, sub.depth, sub.name, sub.file_indices, i%2);
+        data.file_rows.push(row);
+        parent.appendChild(row.getElement());
+        $(row).bind('wantedToggled',onFileWantedToggled);
+        $(row).bind('priorityToggled',onFilePriorityToggled);
+        $(row).bind('nameClicked',onNameClicked);
+    }
+
+    addSubtreeToView = function (tor, parent, sub, i) {
+        var key, div;
+        div = document.createElement('div');
+        if (sub.parent)
+            addNodeToView (tor, div, sub, i++);
+        if (sub.children)
+            for (key in sub.children)
+                i = addSubtreeToView (tor, div, sub.children[key]);  
+        parent.appendChild(div);
+        return i;
+    },
+                
     updateFilesPage = function() {
-        var i, n, sel, row, tor, fragment,
+        var i, n, tor, fragment, tree,
             file_list = data.elements.file_list,
             torrents = data.torrents;
 
+        // only show one torrent at a time
         if (torrents.length !== 1) {
             clearFileList();
             return;
         }
 
-        // build the file list
         tor = torrents[0];
-
-        clearFileList();
-        data.file_torrent = tor;
-        n = tor.getFileCount();
-        data.file_rows = [];
-        fragment = document.createDocumentFragment();
-
-        for (i=0; i<n; ++i) {
-            row = data.file_rows[i] = new FileRow(tor, i);
-            fragment.appendChild(row.getElement());
-                    $(row).bind('wantedToggled',onFileWantedToggled);
-                    $(row).bind('priorityToggled',onFilePriorityToggled);
+        n = tor ? tor.getFileCount() : 0;
+        if (tor!=data.file_torrent || n!=data.file_torrent_n) {
+            // rebuild the file list...
+            clearFileList();
+            data.file_torrent = tor;
+            data.file_torrent_n = n;
+            data.file_rows = [ ];
+            fragment = document.createDocumentFragment();
+            tree = createFileTreeModel (tor);
+            addSubtreeToView (tor, fragment, tree, 0);
+            file_list.appendChild (fragment);
+        } else {
+            // ...refresh the already-existing file list
+            for (i=0, n=data.file_rows.length; i<n; ++i)
+                data.file_rows[i].refresh();
         }
-
-        file_list.appendChild(fragment);
     },
 
     /****
@@ -714,26 +774,22 @@ function Inspector(controller) {
         data.elements.peers_list     = $('#inspector_peers_list')[0];
         data.elements.trackers_list  = $('#inspector_trackers_list')[0];
 
-	data.elements.have_lb           = $('#inspector-info-have')[0];
-	data.elements.availability_lb   = $('#inspector-info-availability')[0];
-	data.elements.downloaded_lb     = $('#inspector-info-downloaded')[0];
-	data.elements.uploaded_lb       = $('#inspector-info-uploaded')[0];
-	data.elements.state_lb          = $('#inspector-info-state')[0];
-	data.elements.running_time_lb   = $('#inspector-info-running-time')[0];
-	data.elements.remaining_time_lb = $('#inspector-info-remaining-time')[0];
-	data.elements.last_activity_lb  = $('#inspector-info-last-activity')[0];
-	data.elements.error_lb          = $('#inspector-info-error')[0];
-	data.elements.size_lb           = $('#inspector-info-size')[0];
-	data.elements.foldername_lb     = $('#inspector-info-location')[0];
-	data.elements.hash_lb           = $('#inspector-info-hash')[0];
-	data.elements.privacy_lb        = $('#inspector-info-privacy')[0];
-	data.elements.origin_lb         = $('#inspector-info-origin')[0];
-	data.elements.comment_lb        = $('#inspector-info-comment')[0];
+        data.elements.have_lb           = $('#inspector-info-have')[0];
+        data.elements.availability_lb   = $('#inspector-info-availability')[0];
+        data.elements.downloaded_lb     = $('#inspector-info-downloaded')[0];
+        data.elements.uploaded_lb       = $('#inspector-info-uploaded')[0];
+        data.elements.state_lb          = $('#inspector-info-state')[0];
+        data.elements.running_time_lb   = $('#inspector-info-running-time')[0];
+        data.elements.remaining_time_lb = $('#inspector-info-remaining-time')[0];
+        data.elements.last_activity_lb  = $('#inspector-info-last-activity')[0];
+        data.elements.error_lb          = $('#inspector-info-error')[0];
+        data.elements.size_lb           = $('#inspector-info-size')[0];
+        data.elements.foldername_lb     = $('#inspector-info-location')[0];
+        data.elements.hash_lb           = $('#inspector-info-hash')[0];
+        data.elements.privacy_lb        = $('#inspector-info-privacy')[0];
+        data.elements.origin_lb         = $('#inspector-info-origin')[0];
+        data.elements.comment_lb        = $('#inspector-info-comment')[0];
         data.elements.name_lb           = $('#torrent_inspector_name')[0];
-
-        // file page's buttons
-        $('#select-all-files').click(selectAllFiles);
-        $('#deselect-all-files').click(deselectAllFiles);
 
         // force initial 'N/A' updates on all the pages
         updateInspector();

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: rpcimpl.c 13359 2012-07-01 01:42:58Z jordan $
+ * $Id: rpcimpl.c 13504 2012-09-19 05:11:19Z jordan $
  */
 
 #include <assert.h>
@@ -652,12 +652,16 @@ addField( const tr_torrent * const tor,
     else if( tr_streq( key, keylen, "peersSendingToUs" ) )
         tr_bencDictAddInt( d, key, st->peersSendingToUs );
     else if( tr_streq( key, keylen, "pieces" ) ) {
-        size_t byte_count = 0;
-        void * bytes = tr_cpCreatePieceBitfield( &tor->completion, &byte_count );
-        char * str = tr_base64_encode( bytes, byte_count, NULL );
-        tr_bencDictAddStr( d, key, str!=NULL ? str : "" );
-        tr_free( str );
-        tr_free( bytes );
+        if (tr_torrentHasMetadata( tor ) ) {
+            size_t byte_count = 0;
+            void * bytes = tr_cpCreatePieceBitfield( &tor->completion, &byte_count );
+            char * str = tr_base64_encode( bytes, byte_count, NULL );
+            tr_bencDictAddStr( d, key, str!=NULL ? str : "" );
+            tr_free( str );
+            tr_free( bytes );
+        } else {
+            tr_bencDictAddStr( d, key, "" );
+        }
     }
     else if( tr_streq( key, keylen, "pieceCount" ) )
         tr_bencDictAddInt( d, key, inf->pieceCount );

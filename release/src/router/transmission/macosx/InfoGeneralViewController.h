@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoGeneralViewController.h 13162 2012-01-14 17:12:04Z livings124 $
+ * $Id: InfoGeneralViewController.h 13481 2012-09-08 20:22:05Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -38,6 +38,14 @@
     IBOutlet NSTextView * fCommentView;
     
     IBOutlet NSButton * fRevealDataButton;
+    
+    //remove when we switch to auto layout on 10.7
+    IBOutlet NSTextField * fPiecesLabel, * fHashLabel, * fSecureLabel,
+                        * fCreatorLabel, * fDateCreatedLabel,
+                        * fCommentLabel,
+                        * fDataLocationLabel;
+    IBOutlet NSTextField * fInfoSectionLabel, * fWhereSectionLabel;
+    IBOutlet NSScrollView * fCommentScrollView;
 }
 
 - (void) setInfoForTorrents: (NSArray *) torrents;

@@ -2,13 +2,13 @@
 <archive type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="8.00">
 	<data>
 		<int key="IBDocument.SystemTarget">1060</int>
-		<string key="IBDocument.SystemVersion">11D50</string>
-		<string key="IBDocument.InterfaceBuilderVersion">1617</string>
-		<string key="IBDocument.AppKitVersion">1138.32</string>
-		<string key="IBDocument.HIToolboxVersion">568.00</string>
+		<string key="IBDocument.SystemVersion">11E53</string>
+		<string key="IBDocument.InterfaceBuilderVersion">2182</string>
+		<string key="IBDocument.AppKitVersion">1138.47</string>
+		<string key="IBDocument.HIToolboxVersion">569.00</string>
 		<object class="NSMutableDictionary" key="IBDocument.PluginVersions">
 			<string key="NS.key.0">com.apple.InterfaceBuilder.CocoaPlugin</string>
-			<string key="NS.object.0">1617</string>
+			<string key="NS.object.0">2182</string>
 		</object>
 		<array key="IBDocument.IntegratedClassDependencies">
 			<string>NSPopUpButton</string>
@@ -29,7 +29,10 @@
 		<array key="IBDocument.PluginDependencies">
 			<string>com.apple.InterfaceBuilder.CocoaPlugin</string>
 		</array>
-		<dictionary class="NSMutableDictionary" key="IBDocument.Metadata"/>
+		<object class="NSMutableDictionary" key="IBDocument.Metadata">
+			<string key="NS.key.0">PluginDependencyRecalculationVersion</string>
+			<integer value="1" key="NS.object.0"/>
+		</object>
 		<array class="NSMutableArray" key="IBDocument.RootObjects" id="1000">
 			<object class="NSCustomObject" id="1001">
 				<string key="NSClassName">AddMagnetWindowController</string>
@@ -45,14 +48,14 @@
 				<int key="NSWindowBacking">2</int>
 				<string key="NSWindowRect">{{173, 705}, {400, 238}}</string>
 				<int key="NSWTFlags">1613234176</int>
-				<string key="NSWindowTitle">窗口</string>
+				<string key="NSWindowTitle">Window</string>
 				<string key="NSWindowClass">NSWindow</string>
 				<nil key="NSViewClass"/>
 				<nil key="NSUserInterfaceItemIdentifier"/>
 				<string key="NSWindowContentMaxSize">{9999, 238}</string>
 				<string key="NSWindowContentMinSize">{400, 238}</string>
 				<object class="NSView" key="NSWindowView" id="1006">
-					<nil key="NSNextResponder"/>
+					<reference key="NSNextResponder"/>
 					<int key="NSvFlags">256</int>
 					<array class="NSMutableArray" key="NSSubviews">
 						<object class="NSImageView" id="887781818">
@@ -94,7 +97,7 @@
 							<object class="NSTextFieldCell" key="NSCell" id="814218719">
 								<int key="NSCellFlags">67239488</int>
 								<int key="NSCellFlags2">272632320</int>
-								<string key="NSContents">文件名称</string>
+								<string key="NSContents">File Name</string>
 								<object class="NSFont" key="NSSupport">
 									<string key="NSName">LucidaGrande</string>
 									<double key="NSSize">18</double>
@@ -124,14 +127,14 @@
 						<object class="NSButton" id="999003967">
 							<reference key="NSNextResponder" ref="1006"/>
 							<int key="NSvFlags">292</int>
-							<string key="NSFrame">{{18, 21}, {132, 18}}</string>
+							<string key="NSFrame">{{18, 21}, {143, 18}}</string>
 							<reference key="NSSuperview" ref="1006"/>
 							<reference key="NSNextKeyView" ref="533609783"/>
 							<bool key="NSEnabled">YES</bool>
 							<object class="NSButtonCell" key="NSCell" id="282889060">
 								<int key="NSCellFlags">-2080244224</int>
 								<int key="NSCellFlags2">0</int>
-								<string key="NSContents">添加时启动</string>
+								<string key="NSContents">Start efter tilføjelse</string>
 								<object class="NSFont" key="NSSupport" id="728563564">
 									<string key="NSName">LucidaGrande</string>
 									<double key="NSSize">13</double>
@@ -140,10 +143,6 @@
 								<reference key="NSControlView" ref="999003967"/>
 								<int key="NSButtonFlags">1211912703</int>
 								<int key="NSButtonFlags2">2</int>
-								<object class="NSCustomResource" key="NSNormalImage">
-									<string key="NSClassName">NSImage</string>
-									<string key="NSResourceName">NSSwitch</string>
-								</object>
 								<object class="NSButtonImageSource" key="NSAlternateImage">
 									<string key="NSImageName">NSSwitch</string>
 								</object>
@@ -162,7 +161,7 @@
 							<object class="NSButtonCell" key="NSCell" id="772980466">
 								<int key="NSCellFlags">67239424</int>
 								<int key="NSCellFlags2">134217728</int>
-								<string key="NSContents">添加</string>
+								<string key="NSContents">Tilføj</string>
 								<object class="NSFont" key="NSSupport" id="636816778">
 									<string key="NSName">LucidaGrande</string>
 									<double key="NSSize">13</double>
@@ -181,14 +180,14 @@
 						<object class="NSButton" id="533609783">
 							<reference key="NSNextResponder" ref="1006"/>
 							<int key="NSvFlags">289</int>
-							<string key="NSFrame">{{224, 12}, {82, 32}}</string>
+							<string key="NSFrame">{{213, 12}, {94, 32}}</string>
 							<reference key="NSSuperview" ref="1006"/>
 							<reference key="NSNextKeyView" ref="636183414"/>
 							<bool key="NSEnabled">YES</bool>
 							<object class="NSButtonCell" key="NSCell" id="340651593">
 								<int key="NSCellFlags">67239424</int>
 								<int key="NSCellFlags2">134217728</int>
-								<string key="NSContents">取消</string>
+								<string key="NSContents">Annuller</string>
 								<reference key="NSSupport" ref="728563564"/>
 								<reference key="NSControlView" ref="533609783"/>
 								<int key="NSButtonFlags">-2038284033</int>
@@ -203,14 +202,14 @@
 						<object class="NSTextField" id="368126870">
 							<reference key="NSNextResponder" ref="1006"/>
 							<int key="NSvFlags">268</int>
-							<string key="NSFrame">{{41, 211}, {87, 17}}</string>
+							<string key="NSFrame">{{41, 211}, {79, 17}}</string>
 							<reference key="NSSuperview" ref="1006"/>
 							<reference key="NSNextKeyView" ref="471778487"/>
 							<bool key="NSEnabled">YES</bool>
 							<object class="NSTextFieldCell" key="NSCell" id="670793942">
 								<int key="NSCellFlags">68288064</int>
 								<int key="NSCellFlags2">272630784</int>
-								<string key="NSContents">磁化链接</string>
+								<string key="NSContents">Magnetlink</string>
 								<object class="NSFont" key="NSSupport">
 									<string key="NSName">LucidaGrande-Bold</string>
 									<double key="NSSize">13</double>
@@ -232,7 +231,7 @@
 										<object class="NSPopUpButton" id="711151157">
 											<reference key="NSNextResponder" ref="638974187"/>
 											<int key="NSvFlags">268</int>
-											<string key="NSFrame">{{71, 47}, {125, 26}}</string>
+											<string key="NSFrame">{{73, 47}, {125, 26}}</string>
 											<reference key="NSSuperview" ref="638974187"/>
 											<reference key="NSNextKeyView" ref="485847244"/>
 											<bool key="NSEnabled">YES</bool>
@@ -250,7 +249,7 @@
 												<nil key="NSMenuItem"/>
 												<bool key="NSMenuItemRespectAlignment">YES</bool>
 												<object class="NSMenu" key="NSMenu" id="594668561">
-													<string key="NSTitle">其他视图</string>
+													<string key="NSTitle">OtherViews</string>
 													<array class="NSMutableArray" key="NSMenuItems"/>
 												</object>
 												<int key="NSSelectedIndex">-1</int>
@@ -263,14 +262,14 @@
 										<object class="NSButton" id="1065995789">
 											<reference key="NSNextResponder" ref="638974187"/>
 											<int key="NSvFlags">265</int>
-											<string key="NSFrame">{{273, 76}, {78, 28}}</string>
+											<string key="NSFrame">{{276, 76}, {75, 28}}</string>
 											<reference key="NSSuperview" ref="638974187"/>
 											<reference key="NSNextKeyView" ref="224369214"/>
 											<bool key="NSEnabled">YES</bool>
 											<object class="NSButtonCell" key="NSCell" id="1009241144">
 												<int key="NSCellFlags">67239424</int>
 												<int key="NSCellFlags2">134348800</int>
-												<string key="NSContents">更改…</string>
+												<string key="NSContents">Ændre…</string>
 												<object class="NSFont" key="NSSupport" id="26">
 													<string key="NSName">LucidaGrande</string>
 													<double key="NSSize">11</double>
@@ -302,7 +301,7 @@
 											<object class="NSTextFieldCell" key="NSCell" id="974538373">
 												<int key="NSCellFlags">67239424</int>
 												<int key="NSCellFlags2">272629760</int>
-												<string key="NSContents">下载到：</string>
+												<string key="NSContents">Download til:</string>
 												<reference key="NSSupport" ref="728563564"/>
 												<reference key="NSControlView" ref="1059202456"/>
 												<reference key="NSBackgroundColor" ref="729622418"/>
@@ -312,14 +311,14 @@
 										<object class="NSTextField" id="485847244">
 											<reference key="NSNextResponder" ref="638974187"/>
 											<int key="NSvFlags">268</int>
-											<string key="NSFrame">{{15, 25}, {54, 17}}</string>
+											<string key="NSFrame">{{20, 25}, {50, 17}}</string>
 											<reference key="NSSuperview" ref="638974187"/>
 											<reference key="NSNextKeyView" ref="1049508202"/>
 											<bool key="NSEnabled">YES</bool>
 											<object class="NSTextFieldCell" key="NSCell" id="387612783">
 												<int key="NSCellFlags">67239424</int>
 												<int key="NSCellFlags2">272629760</int>
-												<string key="NSContents">优先级：</string>
+												<string key="NSContents">Priotet:</string>
 												<reference key="NSSupport" ref="728563564"/>
 												<reference key="NSControlView" ref="485847244"/>
 												<reference key="NSBackgroundColor" ref="729622418"/>
@@ -329,7 +328,7 @@
 										<object class="NSPopUpButton" id="1049508202">
 											<reference key="NSNextResponder" ref="638974187"/>
 											<int key="NSvFlags">268</int>
-											<string key="NSFrame">{{71, 19}, {125, 26}}</string>
+											<string key="NSFrame">{{73, 19}, {125, 26}}</string>
 											<reference key="NSSuperview" ref="638974187"/>
 											<reference key="NSNextKeyView" ref="999003967"/>
 											<bool key="NSEnabled">YES</bool>
@@ -344,58 +343,58 @@
 												<string key="NSKeyEquivalent"/>
 												<int key="NSPeriodicDelay">400</int>
 												<int key="NSPeriodicInterval">75</int>
-												<object class="NSMenuItem" key="NSMenuItem" id="434739017">
-													<reference key="NSMenu" ref="842244290"/>
-													<string key="NSTitle">高</string>
-													<string key="NSKeyEquiv"/>
-													<int key="NSMnemonicLoc">2147483647</int>
-													<int key="NSState">1</int>
-													<object class="NSCustomResource" key="NSImage">
-														<string key="NSClassName">NSImage</string>
-														<string key="NSResourceName">PriorityHighTemplate</string>
-													</object>
-													<object class="NSCustomResource" key="NSOnImage" id="257337323">
-														<string key="NSClassName">NSImage</string>
-														<string key="NSResourceName">NSMenuCheckmark</string>
-													</object>
-													<object class="NSCustomResource" key="NSMixedImage" id="922155245">
-														<string key="NSClassName">NSImage</string>
-														<string key="NSResourceName">NSMenuMixedState</string>
-													</object>
-													<string key="NSAction">_popUpItemAction:</string>
-													<reference key="NSTarget" ref="664513336"/>
-												</object>
+												<nil key="NSMenuItem"/>
 												<bool key="NSMenuItemRespectAlignment">YES</bool>
 												<object class="NSMenu" key="NSMenu" id="842244290">
-													<string key="NSTitle">其他视图</string>
+													<string key="NSTitle">OtherViews</string>
 													<array class="NSMutableArray" key="NSMenuItems">
-														<reference ref="434739017"/>
+														<object class="NSMenuItem" id="434739017">
+															<reference key="NSMenu" ref="842244290"/>
+															<string key="NSTitle">Høj</string>
+															<string key="NSKeyEquiv"/>
+															<int key="NSMnemonicLoc">2147483647</int>
+															<int key="NSState">1</int>
+															<object class="NSCustomResource" key="NSImage">
+																<string key="NSClassName">NSImage</string>
+																<string key="NSResourceName">PriorityHighTemplate</string>
+															</object>
+															<object class="NSCustomResource" key="NSOnImage" id="624988023">
+																<string key="NSClassName">NSImage</string>
+																<string key="NSResourceName">NSMenuCheckmark</string>
+															</object>
+															<object class="NSCustomResource" key="NSMixedImage" id="869869925">
+																<string key="NSClassName">NSImage</string>
+																<string key="NSResourceName">NSMenuMixedState</string>
+															</object>
+															<string key="NSAction">_popUpItemAction:</string>
+															<reference key="NSTarget" ref="664513336"/>
+														</object>
 														<object class="NSMenuItem" id="347354464">
 															<reference key="NSMenu" ref="842244290"/>
-															<string key="NSTitle">正常</string>
+															<string key="NSTitle">Normal</string>
 															<string key="NSKeyEquiv"/>
 															<int key="NSMnemonicLoc">2147483647</int>
 															<object class="NSCustomResource" key="NSImage">
 																<string key="NSClassName">NSImage</string>
 																<string key="NSResourceName">PriorityNormalTemplate</string>
 															</object>
-															<reference key="NSOnImage" ref="257337323"/>
-															<reference key="NSMixedImage" ref="922155245"/>
+															<reference key="NSOnImage" ref="624988023"/>
+															<reference key="NSMixedImage" ref="869869925"/>
 															<string key="NSAction">_popUpItemAction:</string>
 															<int key="NSTag">1</int>
 															<reference key="NSTarget" ref="664513336"/>
 														</object>
 														<object class="NSMenuItem" id="914442461">
 															<reference key="NSMenu" ref="842244290"/>
-															<string key="NSTitle">低</string>
+															<string key="NSTitle">Lav</string>
 															<string key="NSKeyEquiv"/>
 															<int key="NSMnemonicLoc">2147483647</int>
 															<object class="NSCustomResource" key="NSImage">
 																<string key="NSClassName">NSImage</string>
 																<string key="NSResourceName">PriorityLowTemplate</string>
 															</object>
-															<reference key="NSOnImage" ref="257337323"/>
-															<reference key="NSMixedImage" ref="922155245"/>
+															<reference key="NSOnImage" ref="624988023"/>
+															<reference key="NSMixedImage" ref="869869925"/>
 															<string key="NSAction">_popUpItemAction:</string>
 															<int key="NSTag">2</int>
 															<reference key="NSTarget" ref="664513336"/>
@@ -412,14 +411,14 @@
 										<object class="NSTextField" id="224369214">
 											<reference key="NSNextResponder" ref="638974187"/>
 											<int key="NSvFlags">268</int>
-											<string key="NSFrame">{{21, 53}, {48, 17}}</string>
+											<string key="NSFrame">{{15, 53}, {59, 17}}</string>
 											<reference key="NSSuperview" ref="638974187"/>
 											<reference key="NSNextKeyView" ref="711151157"/>
 											<bool key="NSEnabled">YES</bool>
 											<object class="NSTextFieldCell" key="NSCell" id="580409040">
 												<int key="NSCellFlags">67239424</int>
 												<int key="NSCellFlags2">272629760</int>
-												<string key="NSContents">组别：</string>
+												<string key="NSContents">Gruppe:</string>
 												<reference key="NSSupport" ref="728563564"/>
 												<reference key="NSControlView" ref="224369214"/>
 												<reference key="NSBackgroundColor" ref="729622418"/>
@@ -444,7 +443,7 @@
 															<object class="NSTextFieldCell" key="NSCell" id="925446737">
 																<int key="NSCellFlags">67239488</int>
 																<int key="NSCellFlags2">4327936</int>
-																<string key="NSContents">文件</string>
+																<string key="NSContents">File</string>
 																<reference key="NSSupport" ref="26"/>
 																<reference key="NSControlView" ref="698797028"/>
 																<reference key="NSBackgroundColor" ref="729622418"/>
@@ -528,7 +527,7 @@
 							<object class="NSTextFieldCell" key="NSTitleCell">
 								<int key="NSCellFlags">67239424</int>
 								<int key="NSCellFlags2">0</int>
-								<string key="NSContents">盒子</string>
+								<string key="NSContents">Box</string>
 								<reference key="NSSupport" ref="26"/>
 								<reference key="NSBackgroundColor" ref="760940836"/>
 								<object class="NSColor" key="NSTextColor">
@@ -544,9 +543,10 @@
 						</object>
 					</array>
 					<string key="NSFrameSize">{400, 238}</string>
+					<reference key="NSSuperview"/>
 					<reference key="NSNextKeyView" ref="887781818"/>
 				</object>
-				<string key="NSScreenRect">{{0, 0}, {1680, 1028}}</string>
+				<string key="NSScreenRect">{{0, 0}, {1920, 1178}}</string>
 				<string key="NSMinSize">{400, 260}</string>
 				<string key="NSMaxSize">{9999, 260}</string>
 				<string key="NSFrameAutosaveName">AddMagnetWindow</string>
@@ -628,14 +628,6 @@
 					<int key="connectionID">39</int>
 				</object>
 				<object class="IBConnectionRecord">
-					<object class="IBOutletConnection" key="connection">
-						<string key="label">delegate</string>
-						<reference key="source" ref="1005"/>
-						<reference key="destination" ref="1001"/>
-					</object>
-					<int key="connectionID">61</int>
-				</object>
-				<object class="IBConnectionRecord">
 					<object class="IBActionConnection" key="connection">
 						<string key="label">changePriority:</string>
 						<reference key="source" ref="1001"/>
@@ -650,6 +642,14 @@
 						<reference key="destination" ref="1049508202"/>
 					</object>
 					<int key="connectionID">99</int>
+				</object>
+				<object class="IBConnectionRecord">
+					<object class="IBOutletConnection" key="connection">
+						<string key="label">delegate</string>
+						<reference key="source" ref="1005"/>
+						<reference key="destination" ref="1001"/>
+					</object>
+					<int key="connectionID">61</int>
 				</object>
 			</array>
 			<object class="IBMutableOrderedSet" key="objectRecords">
@@ -1046,10 +1046,6 @@
 			<string key="NS.key.0">com.apple.InterfaceBuilder.CocoaPlugin.macosx</string>
 			<real value="1060" key="NS.object.0"/>
 		</object>
-		<object class="NSMutableDictionary" key="IBDocument.PluginDeclaredDependencyDefaults">
-			<string key="NS.key.0">com.apple.InterfaceBuilder.CocoaPlugin.macosx</string>
-			<real value="1070" key="NS.object.0"/>
-		</object>
 		<bool key="IBDocument.PluginDeclaredDependenciesTrackSystemTargetVersion">YES</bool>
 		<int key="IBDocument.defaultPropertyAccessControl">3</int>
 		<dictionary class="NSMutableDictionary" key="IBDocument.LastKnownImageSizes">
@@ -1057,7 +1053,6 @@
 			<string key="NSApplicationIcon">{128, 128}</string>
 			<string key="NSMenuCheckmark">{11, 11}</string>
 			<string key="NSMenuMixedState">{10, 3}</string>
-			<string key="NSSwitch">{15, 15}</string>
 			<string key="PriorityHighTemplate">{128, 128}</string>
 			<string key="PriorityLowTemplate">{128, 128}</string>
 			<string key="PriorityNormalTemplate">{128, 128}</string>

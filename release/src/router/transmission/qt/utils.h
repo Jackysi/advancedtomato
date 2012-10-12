@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: utils.h 12697 2011-08-20 05:19:27Z jordan $
+ * $Id: utils.h 13448 2012-08-19 16:12:20Z jordan $
  */
 
 #ifndef QTR_UTILS
@@ -32,6 +32,8 @@ class Utils: public QObject
     public:
         static QString remoteFileChooser( QWidget * parent, const QString& title, const QString& myPath, bool dir, bool local );
         static const QIcon& guessMimeIcon( const QString& filename );
+        // Test if string is UTF-8 or not
+        static bool isValidUtf8 ( const char *s );
 
         // meh
         static void toStderr( const QString& qstr );

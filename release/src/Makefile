@@ -116,6 +116,7 @@ all: tomato_ver
 
 	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx
 	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+<<<<<<< HEAD
 
 ifeq ($(WNR3500LV2),1)
 	@echo "Creating Firmware for Netgear WNR3500L v2 .... "
@@ -158,6 +159,13 @@ endif
 endif
 ifeq ($(BELKIN),y)
 ifneq ($(NVRAM_SIZE),60)
+=======
+ifeq ($(LINKSYS_E),1)
+	@rm -f image/tomato-E??00$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+endif
+ifeq ($(BELKIN),y)
+ifneq ($(NVRAM_SIZE),60)
+>>>>>>> tomato-shibby
 	@rm -f image/tomato-F7D????$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin
 	@rm -f image/tomato-F5D8235v3$(current_BUILD_USB)-$(current_TOMATO_VER).$(current_TOMATO_V1)$(mips_rev)$(beta)$(current_TOMATO_V2)-$(current_BUILD_DESC).bin
 endif
@@ -167,19 +175,25 @@ endif
 	@cat router/shared/tomato_version >>fpkg.log
 	@echo "" >>fpkg.log
 	@cat router/target.info >>fpkg.log
-ifeq ($(WRT54),y)
-ifneq ($(MIPS32),r2)
+ifeq ($(wildcard include/bcm20xx.h),)
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-l W54G,image/tomato-WRT54G_WRT54GL$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
-		-l W54S,image/tomato-WRT54GS$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
-		-l W54s,image/tomato-WRT54GSv4$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
-		-l W54U,image/tomato-WRTSL54GS$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
-		-m 0x10577050,image/tomato-WR850G$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
+		-t image/tomato.trx \
+		-l W54G,image/WRT54G_WRT54GL.bin \
+		-l W54S,image/WRT54GS.bin \
+		-l W54s,image/WRT54GSv4.bin \
+		-l W54U,image/WRTSL54GS.bin \
+		-m 0x10577050,image/WR850G.bin \
 		| tee -a fpkg.log
+<<<<<<< HEAD
 endif
 endif
 ifeq ($(LINKSYS_E),y)
 	# Linksys E-series(60k Nvram) images
+=======
+else
+ifeq ($(LINKSYS_E),1)
+	# Linksys E-series build plus generic TRX image
+>>>>>>> tomato-shibby
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
 		-l 1550,image/tomato-E1550$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		-l E25X,image/tomato-E2500$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
@@ -188,15 +202,23 @@ ifeq ($(LINKSYS_E),y)
 		-l 61XN,image/tomato-E3000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		-l 32XN,image/tomato-E2000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		| tee -a fpkg.log
+<<<<<<< HEAD
 endif
 ifeq ($(LINKSYS_E_64k),y)
 	# Linksys E-series(64k Nvram) images
+=======
+else
+ifeq ($(BELKIN),y)
+ifneq ($(NVRAM_SIZE),60)
+	# Create Belkin images
+>>>>>>> tomato-shibby
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
 		-l E900,image/tomato-E900$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		-l E122,image/tomato-E1200v2$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		-l E150,image/tomato-E1500$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		| tee -a fpkg.log
 endif
+<<<<<<< HEAD
 ifeq ($(LINKSYS_E1000v2),y)
 	# Linksys E1000v2/v2.1 images
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
@@ -213,18 +235,23 @@ endif
 ifeq ($(BELKIN),y)
 ifneq ($(NVRAM_SIZE),60)
 	# Create Belkin images
+=======
+else
+	# Create generic TRX image
+>>>>>>> tomato-shibby
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
-		-b 0x20100322,image/tomato-F7D3301$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
-		-b 0x20090928,image/tomato-F7D3302$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
-		-b 0x20091006,image/tomato-F7D4302$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
-		-b 0x00017116,image/tomato-F5D8235v3$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		-t image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
 		| tee -a fpkg.log
 endif
 endif
+<<<<<<< HEAD
 	# Create generic TRX image
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
 		-t image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx \
 		| tee -a fpkg.log
+=======
+endif
+>>>>>>> tomato-shibby
 
 	@cp fpkg.log image/fpkg-$(V1)$(mips_rev)$(beta)$(V2).log
 	@echo ""
@@ -516,12 +543,20 @@ define BusyboxOptions
 		echo "CONFIG_NICE=y" >>$(1); \
 		sed -i "/CONFIG_SETCONSOLE/d" $(1); \
 		echo "CONFIG_SETCONSOLE=y" >>$(1); \
+<<<<<<< HEAD
 		sed -i "/CONFIG_MKFIFO/d" $(1); \
 		echo "CONFIG_MKFIFO=y" >>$(1); \
+=======
+>>>>>>> tomato-shibby
 		sed -i "/CONFIG_SEQ/d" $(1); \
 		echo "CONFIG_SEQ=y" >>$(1); \
 		sed -i "/CONFIG_STTY/d" $(1); \
 		echo "CONFIG_STTY=y" >>$(1); \
+<<<<<<< HEAD
+=======
+		sed -i "/CONFIG_MKFIFO/d" $(1); \
+		echo "CONFIG_MKFIFO=y" >>$(1); \
+>>>>>>> tomato-shibby
 	fi; \
 	if [ "$(USB)" = "USB" ]; then \
 		if [ "$(USBEXTRAS)" = "y" ]; then \
@@ -919,9 +954,18 @@ r2v:
 r2m:
 	@$(MAKE) m MIPS32=r2
 
+<<<<<<< HEAD
 #Linksys E-series witk 60K NVRAM builds
 n60z:
 	@$(MAKE) r2z NVRAM_SIZE=60 LINKSYS_E=y
+=======
+#AIO for E4200
+n60z:
+	@$(MAKE) r2z NVRAM_SIZE=60 LINKSYS_E=1
+
+n60e:
+	@$(MAKE) r2e NVRAM_SIZE=60 LINKSYS_E=1
+>>>>>>> tomato-shibby
 
 n60c:
 	@$(MAKE) r2c NVRAM_SIZE=60 LINKSYS_E=y
@@ -954,6 +998,7 @@ n60v:
 	@$(MAKE) r2v NVRAM_SIZE=60 LINKSYS_E=y
 
 n60m:
+<<<<<<< HEAD
 	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=y
 
 #Linksys E-Series with 64K Nvram Builds
@@ -1032,6 +1077,9 @@ r64o:
 
 r64t:
 	@$(MAKE) t MIPS32=r2 NVRAM_64K=y
+=======
+	@$(MAKE) r2m NVRAM_SIZE=60 LINKSYS_E=1
+>>>>>>> tomato-shibby
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h

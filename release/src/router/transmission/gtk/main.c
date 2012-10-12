@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: main.c 13391 2012-07-14 22:44:41Z jordan $
+ * $Id: main.c 13477 2012-09-07 17:18:17Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -55,10 +55,11 @@
 #include "tr-prefs.h"
 #include "tr-window.h"
 #include "util.h"
-#include "ui.h"
 
 #define MY_CONFIG_NAME "transmission"
 #define MY_READABLE_NAME "transmission-gtk"
+
+#define TR_RESOURCE_PATH "/com/transmissionbt/transmission/"
 
 #define SHOW_LICENSE
 static const char * LICENSE =
@@ -481,6 +482,7 @@ static void app_setup( GtkWindow * wind, struct cbdata  * cbdata );
 static void
 on_startup( GApplication * application, gpointer user_data )
 {
+    GError * error;
     const char * str;
     GtkWindow * win;
     GtkUIManager * ui_manager;
@@ -494,9 +496,9 @@ on_startup( GApplication * application, gpointer user_data )
 
     /* ensure the directories are created */
     if(( str = gtr_pref_string_get( TR_PREFS_KEY_DOWNLOAD_DIR )))
-	g_mkdir_with_parents( str, 0777 );
+      g_mkdir_with_parents( str, 0777 );
     if(( str = gtr_pref_string_get( TR_PREFS_KEY_INCOMPLETE_DIR )))
-	g_mkdir_with_parents( str, 0777 );
+      g_mkdir_with_parents( str, 0777 );
 
     /* initialize the libtransmission session */
     session = tr_sessionInit( "gtk", cbdata->config_dir, TRUE, gtr_pref_get_all( ) );
@@ -506,9 +508,11 @@ on_startup( GApplication * application, gpointer user_data )
     cbdata->core = gtr_core_new( session );
 
     /* init the ui manager */
+    error = NULL;
     ui_manager = gtk_ui_manager_new ( );
     gtr_actions_init ( ui_manager, cbdata );
-    gtk_ui_manager_add_ui_from_string ( ui_manager, fallback_ui_file, -1, NULL );
+    gtk_ui_manager_add_ui_from_resource ( ui_manager, TR_RESOURCE_PATH "transmission-ui.xml", &error );
+    g_assert_no_error (error);
     gtk_ui_manager_ensure_update ( ui_manager );
 
     /* create main window now to be a parent to any error dialogs */
@@ -521,13 +525,13 @@ on_startup( GApplication * application, gpointer user_data )
 
     /* check & see if it's time to update the blocklist */
     if( gtr_pref_flag_get( TR_PREFS_KEY_BLOCKLIST_ENABLED ) ) {
-	if( gtr_pref_flag_get( PREF_KEY_BLOCKLIST_UPDATES_ENABLED ) ) {
-	    const int64_t last_time = gtr_pref_int_get( "blocklist-date" );
-	    const int SECONDS_IN_A_WEEK = 7 * 24 * 60 * 60;
-	    const time_t now = time( NULL );
-	if( last_time + SECONDS_IN_A_WEEK < now )
-	    gtr_core_blocklist_update( cbdata->core );
-        }
+      if( gtr_pref_flag_get( PREF_KEY_BLOCKLIST_UPDATES_ENABLED ) ) {
+        const int64_t last_time = gtr_pref_int_get( "blocklist-date" );
+        const int SECONDS_IN_A_WEEK = 7 * 24 * 60 * 60;
+        const time_t now = time( NULL );
+        if( last_time + SECONDS_IN_A_WEEK < now )
+          gtr_core_blocklist_update( cbdata->core );
+      }
     }
 
     /* if there's no magnet link handler registered, register us */
