@@ -1697,6 +1697,7 @@ static void start_ftpd(void)
 			if (!user || !pass) continue;
 
 			if (i == 3 || !root_dir || !(*root_dir))
+
 			root_dir = nvram_safe_get("ftp_pubroot");
 
 			/* directory */

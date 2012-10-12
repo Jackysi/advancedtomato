@@ -45,11 +45,11 @@
 #include <proto/ethernet.h>	/* for sprom content groking */
 
 /* debug/trace */
-#if defined(WLTEST)
+#if defined(BCMDBG_ERR) || defined(WLTEST)
 #define	BS_ERROR(args)	printf args
 #else
 #define	BS_ERROR(args)
-#endif	
+#endif	/* BCMDBG_ERR || WLTEST */
 
 #define SROM_OFFSET(sih)  ((sih->ccrev > 31) ? \
 	(((sih->cccaps & CC_CAP_SROM) == 0) ? NULL : \
@@ -1915,7 +1915,7 @@ otp_read_pci(osl_t *osh, si_t *sih, uint16 *buf, uint bufsz)
 }
 #endif /* defined(BCMNVRAMW) || defined(BCMNVRAMR) */
 
-#if defined(WLTEST)
+#if defined(WLTEST) || defined(BCMDBG)
 int
 srom_otp_write_region_crc(si_t *sih, uint nbytes, uint16* buf16, bool write)
 {

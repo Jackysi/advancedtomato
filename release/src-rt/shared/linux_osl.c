@@ -190,6 +190,12 @@ osl_attach(void *pdev, uint bustype, bool pkttag)
 			break;
 	}
 
+#ifdef BCMDBG
+	if (pkttag) {
+		struct sk_buff *skb;
+		ASSERT(OSL_PKTTAG_SZ <= sizeof(skb->cb));
+	}
+#endif
 	return osh;
 }
 
@@ -513,6 +519,11 @@ osl_pci_read_config(osl_t *osh, uint offset, uint size)
 			break;
 	} while (retry--);
 
+#ifdef BCMDBG
+	if (retry < PCI_CFG_RETRY)
+		printk("PCI CONFIG READ access to %d required %d retries\n", offset,
+		       (PCI_CFG_RETRY - retry));
+#endif /* BCMDBG */
 
 	return (val);
 }
@@ -535,6 +546,11 @@ osl_pci_write_config(osl_t *osh, uint offset, uint size, uint val)
 			break;
 	} while (retry--);
 
+#ifdef BCMDBG
+	if (retry < PCI_CFG_RETRY)
+		printk("PCI CONFIG WRITE access to %d required %d retries\n", offset,
+		       (PCI_CFG_RETRY - retry));
+#endif /* BCMDBG */
 }
 
 /* return bus # for the pci device pointed by osh->pdev */
@@ -581,7 +597,7 @@ osl_pcmcia_write_attr(osl_t *osh, uint offset, void *buf, int size)
  */
 static
 #endif
-void *
+void * BCMFASTPATH
 osl_malloc(osl_t *osh, uint size)
 {
 	void *addr;
@@ -610,7 +626,7 @@ osl_malloc(osl_t *osh, uint size)
  */
 static
 #endif
-void
+void BCMFASTPATH
 osl_mfree(osl_t *osh, void *addr, uint size)
 {
 	if (osh) {

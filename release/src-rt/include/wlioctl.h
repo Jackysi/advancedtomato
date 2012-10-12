@@ -1339,7 +1339,8 @@ typedef struct wl_po {
 #define	INTERFERE_NONE	0	/* off */
 #define	NON_WLAN	1	/* foreign/non 802.11 interference, no auto detect */
 #define	WLAN_MANUAL	2	/* ACI: no auto detection */
-#define	WLAN_AUTO	3	/* ACI: auto - detact */
+#define	WLAN_AUTO	3	/* ACI: auto - detect */
+#define	WLAN_AUTO_W_NOISE	4	/* ACI: auto - detect and non 802.11 interference */
 #define AUTO_ACTIVE	(1 << 7) /* Auto is currently active */
 
 /* Begin: wl_aci_args_t */
@@ -1489,16 +1490,54 @@ typedef struct {
 } tx_power_legacy_t;
 /* End: tx_power_legacy_t */
 
+/* Begin: tx_power_legacy2_t */
+#define WL_TX_POWER_RATES_LEGACY	45
+#define WL_TX_POWER_MCS20_FIRST	        12
+#define WL_TX_POWER_MCS20_NUM	        16
+#define WL_TX_POWER_MCS40_FIRST	        28
+#define WL_TX_POWER_MCS40_NUM	        17
+
+typedef struct {
+	uint32 flags;
+	chanspec_t chanspec;			     /* txpwr report for this channel */
+	chanspec_t local_chanspec;		     /* channel on which we are associated */
+	uint8 local_max;			     /* local max according to the AP */
+	uint8 local_constraint;			     /* local constraint according to the AP */
+	int8  antgain[2];			     /* Ant gain for each band - from SROM */
+	uint8 rf_cores;				     /* count of RF Cores being reported */
+	uint8 est_Pout[4];                           /* Latest tx power out estimate per RF
+						      * chain without adjustment
+						      */
+	uint8 est_Pout_cck;                          /* Latest CCK tx power out estimate */
+	uint8 user_limit[WL_TX_POWER_RATES_LEGACY];  /* User limit */
+	uint8 reg_limit[WL_TX_POWER_RATES_LEGACY];   /* Regulatory power limit */
+	uint8 board_limit[WL_TX_POWER_RATES_LEGACY]; /* Max power board can support (SROM) */
+	uint8 target[WL_TX_POWER_RATES_LEGACY];	     /* Latest target power */
+} tx_power_legacy2_t;
+/* End: tx_power_legacy2_t */
+
 /* Begin: tx_power_t */
-#define WL_TX_POWER_RATES	45
-#define WL_TX_POWER_CCK_FIRST	0
-#define WL_TX_POWER_CCK_NUM	4
-#define WL_TX_POWER_OFDM_FIRST	4
-#define WL_TX_POWER_OFDM_NUM	8
-#define WL_TX_POWER_MCS20_FIRST	12
-#define WL_TX_POWER_MCS20_NUM	16
-#define WL_TX_POWER_MCS40_FIRST	28
-#define WL_TX_POWER_MCS40_NUM	17
+#define WL_TX_POWER_RATES	       101
+#define WL_TX_POWER_CCK_FIRST	       0
+#define WL_TX_POWER_CCK_NUM	       4
+#define WL_TX_POWER_OFDM_FIRST	       4        /* Index for first 20MHz OFDM SISO rate */
+#define WL_TX_POWER_OFDM20_CDD_FIRST   12       /* Index for first 20MHz OFDM CDD rate */
+#define WL_TX_POWER_OFDM40_SISO_FIRST  52       /* Index for first 40MHz OFDM SISO rate */
+#define WL_TX_POWER_OFDM40_CDD_FIRST   60       /* Index for first 40MHz OFDM CDD rate */
+#define WL_TX_POWER_OFDM_NUM	       8
+#define WL_TX_POWER_MCS20_SISO_FIRST   20       /* Index for first 20MHz MCS SISO rate */
+#define WL_TX_POWER_MCS20_CDD_FIRST    28       /* Index for first 20MHz MCS CDD rate */
+#define WL_TX_POWER_MCS20_STBC_FIRST   36       /* Index for first 20MHz MCS STBC rate */
+#define WL_TX_POWER_MCS20_SDM_FIRST    44       /* Index for first 20MHz MCS SDM rate */
+#define WL_TX_POWER_MCS40_SISO_FIRST   68       /* Index for first 40MHz MCS SISO rate */
+#define WL_TX_POWER_MCS40_CDD_FIRST    76       /* Index for first 40MHz MCS CDD rate */
+#define WL_TX_POWER_MCS40_STBC_FIRST   84       /* Index for first 40MHz MCS STBC rate */
+#define WL_TX_POWER_MCS40_SDM_FIRST    92       /* Index for first 40MHz MCS SDM rate */
+#define WL_TX_POWER_MCS_1_STREAM_NUM   8
+#define WL_TX_POWER_MCS_2_STREAM_NUM   8
+#define WL_TX_POWER_MCS_32	       100      /* Index for 40MHz rate MCS 32 */
+#define WL_TX_POWER_MCS_32_NUM	       1
+
 typedef struct {
 	uint32 flags;
 	chanspec_t chanspec;			/* txpwr report for this channel */
@@ -1507,8 +1546,13 @@ typedef struct {
 	uint8 local_constraint;			/* local constraint according to the AP */
 	int8  antgain[2];			/* Ant gain for each band - from SROM */
 	uint8 rf_cores;				/* count of RF Cores being reported */
-	uint8 est_Pout[4];			/* Latest tx power out estimate per RF chain */
+	uint8 est_Pout[4];                      /* Latest tx power out estimate per RF chain */
+	uint8 est_Pout_act[4];                  /* Latest tx power out estimate per RF chain
+						 * without adjustment
+						 */
 	uint8 est_Pout_cck;			/* Latest CCK tx power out estimate */
+	uint8 tx_power_max[4];                  /* Maximum target power among all rates */
+	uint8 tx_power_max_rate_ind[4];         /* Index of the rate with the max target power */
 	uint8 user_limit[WL_TX_POWER_RATES];	/* User limit */
 	uint8 reg_limit[WL_TX_POWER_RATES];	/* Regulatory power limit */
 	uint8 board_limit[WL_TX_POWER_RATES];	/* Max power board can support (SROM) */
@@ -1519,7 +1563,7 @@ typedef struct {
 #define WL_TX_POWER_F_ENABLED	1
 #define WL_TX_POWER_F_HW	2
 #define WL_TX_POWER_F_MIMO	4
-
+#define WL_TX_POWER_F_SISO	8
 /* End: tx_power_t */
 
 typedef struct tx_inst_power {
@@ -1600,6 +1644,7 @@ typedef struct tx_inst_power {
 #define WL_APSTA_VAL		0x00800000
 #define WL_DFS_VAL		0x01000000
 #define WL_BA_VAL		0x02000000
+#define WL_ACI_VAL		0x04000000
 #define WL_MBSS_VAL		0x04000000
 #define WL_CAC_VAL		0x08000000
 #define WL_AMSDU_VAL		0x10000000

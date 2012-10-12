@@ -43,7 +43,11 @@ typedef struct {
 } pcicore_info_t;
 
 /* debug/trace */
+#ifdef BCMDBG_ERR
+#define	PCI_ERROR(args)	printf args
+#else
 #define	PCI_ERROR(args)
+#endif	/* BCMDBG_ERR */
 
 /* routines to access mdio slave device registers */
 static bool pcie_mdiosetblock(pcicore_info_t *pi,  uint blk);
@@ -842,6 +846,16 @@ pcie_lcreg(void *pch, uint32 mask, uint32 val)
 	return OSL_PCI_READ_CONFIG(pi->osh, offset, sizeof(uint32));
 }
 
+#ifdef BCMDBG
+void
+pcicore_dump(void *pch, struct bcmstrbuf *b)
+{
+	pcicore_info_t *pi = (pcicore_info_t *)pch;
+
+	bcm_bprintf(b, "FORCEHT %d pcie_polarity 0x%x pcie_aspm_ovr 0x%x\n",
+	            pi->sih->pci_pr32414, pi->pcie_polarity, pi->pcie_war_aspm_ovr);
+}
+#endif /* BCMDBG */
 
 
 uint32

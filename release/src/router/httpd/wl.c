@@ -36,7 +36,7 @@ static void check_wl_unit(const char *unitarg)
 		unitarg, webcgi_safeget("_wl_unit", nvram_safe_get("wl_unit")), ifname, unit, subunit);
 }
 
-static void wl_restore(char *wif, int unit, int ap, int radio)
+static void wl_restore(char *wif, int unit, int ap, int radio, int scan_time)
 {
 	if (ap > 0) {
 		wl_ioctl(wif, WLC_SET_AP, &ap, sizeof(ap));
@@ -49,6 +49,12 @@ static void wl_restore(char *wif, int unit, int ap, int radio)
 		eval("wl", "-i", wif, "ssid", nvram_safe_get(wl_nvname("ssid", unit, 0)));
 #endif
 	}
+#ifdef WLC_SET_SCAN_CHANNEL_TIME
+	if (scan_time > 0) {
+		// restore original scan channel time
+		wl_ioctl(wif, WLC_SET_SCAN_CHANNEL_TIME, &scan_time, sizeof(scan_time));
+	}
+#endif
 	set_radio(radio, unit);
 }
 
@@ -61,6 +67,7 @@ typedef struct {
 	struct {
 		int ap;
 		int radio;
+		int scan_time;
 	} wif[MAX_WLIF_SCAN];
 } scan_list_t;
 
@@ -71,10 +78,14 @@ static int start_scan(int idx, int unit, int subunit, void *param)
 	char *wif;
 	int zero = 0;
 	int retry;
+#ifdef WLC_SET_SCAN_CHANNEL_TIME
+	int scan_time = 40;
+#endif
 
 	if ((idx >= MAX_WLIF_SCAN) || (rp->unit_filter >= 0 && rp->unit_filter != unit)) return 0;
 
 	wif = nvram_safe_get(wl_nvname("ifname", unit, 0));
+
 	memset(&sp, 0xff, sizeof(sp));		// most default to -1
 	sp.ssid.SSID_len = 0;
 	sp.bss_type = DOT11_BSSTYPE_ANY;	// =2
@@ -91,6 +102,14 @@ static int start_scan(int idx, int unit, int subunit, void *param)
 	// set scan type based on the ap mode
 	sp.scan_type = rp->wif[idx].ap ? DOT11_SCANTYPE_PASSIVE : -1 /* default */;
 
+#ifdef WLC_SET_SCAN_CHANNEL_TIME
+	// extend scan channel time to get more AP probe resp
+	wl_ioctl(wif, WLC_GET_SCAN_CHANNEL_TIME, &(rp->wif[idx].scan_time), sizeof(rp->wif[idx].scan_time));
+	if (rp->wif[idx].scan_time < scan_time) {
+		wl_ioctl(wif, WLC_SET_SCAN_CHANNEL_TIME, &scan_time, sizeof(scan_time));
+	}
+#endif
+
 	rp->wif[idx].radio = get_radio(unit);
 	if (!(rp->wif[idx].radio)) set_radio(1, unit);
 
@@ -102,7 +121,7 @@ static int start_scan(int idx, int unit, int subunit, void *param)
 	}
 
 	// Unable to start scan
-	wl_restore(wif, unit, rp->wif[idx].ap, rp->wif[idx].radio);
+	wl_restore(wif, unit, rp->wif[idx].ap, rp->wif[idx].radio, rp->wif[idx].scan_time);
 	return 0;
 }
 
@@ -125,7 +144,7 @@ static int get_scan_results(int idx, int unit, int subunit, void *param)
 	results = malloc(WLC_IOCTL_MAXLEN + sizeof(*results));
 	if (!results) {
 		// Not enough memory
-		wl_restore(wif, unit, rp->wif[idx].ap, rp->wif[idx].radio);
+		wl_restore(wif, unit, rp->wif[idx].ap, rp->wif[idx].radio, rp->wif[idx].scan_time);
 		return 0;
 	}
 	results->buflen = WLC_IOCTL_MAXLEN;
@@ -141,7 +160,7 @@ static int get_scan_results(int idx, int unit, int subunit, void *param)
 		usleep(100000);
 	}
 
-	wl_restore(wif, unit, rp->wif[idx].ap, rp->wif[idx].radio);
+	wl_restore(wif, unit, rp->wif[idx].ap, rp->wif[idx].radio, rp->wif[idx].scan_time);
 
 	if (r < 0) {
 		free(results);
@@ -193,7 +212,11 @@ static int get_scan_results(int idx, int unit, int subunit, void *param)
 		for (j = 0; j < bssi->rateset.count; ++j) {
 			web_printf("%s%u", j ? "," : "", bssi->rateset.rates[j]);
 		}
-		web_printf("],%d,%d]", bssi->n_cap, bssi->nbss_cap);
+
+		web_printf("],%d,%d,%d]",
+			bssi->n_cap,
+			bssi->nbss_cap,
+			bssi->n_cap ? (CHSPEC_IS40(bssi->chanspec) ? 40 : (CHSPEC_IS20(bssi->chanspec) ? 20 : 10)) : 0);
 
 		bssi = (wl_bss_info_t*)((uint8*)bssi + bssi->length);
 	}
@@ -316,7 +339,7 @@ void wo_wlmnoise(char *url)
 		read_noise(unit);
 	}
 
-	wl_restore(wif, unit, ap, radio);
+	wl_restore(wif, unit, ap, radio, 0);
 }
 
 static int wl_chanfreq(uint ch, int band)

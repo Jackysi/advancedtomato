@@ -101,11 +101,6 @@ static int udp_error(struct sk_buff *skb, unsigned int dataoff,
 	unsigned int udplen = skb->len - dataoff;
 	struct udphdr _hdr, *hdr;
 
-#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
-	if (ipv4_conntrack_fastnat)
-		return NF_ACCEPT;
-#endif
-
 	/* Header is too small? */
 	hdr = skb_header_pointer(skb, dataoff, sizeof(_hdr), &_hdr);
 	if (hdr == NULL) {
@@ -122,6 +117,11 @@ static int udp_error(struct sk_buff *skb, unsigned int dataoff,
 				"nf_ct_udp: truncated/malformed packet ");
 		return -NF_ACCEPT;
 	}
+
+#if defined(CONFIG_BCM_NAT) || defined(CONFIG_BCM_NAT_MODULE)
+	if (ipv4_conntrack_fastnat)
+		return NF_ACCEPT;
+#endif
 
 	/* Packet with no checksum */
 	if (!hdr->check)

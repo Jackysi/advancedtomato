@@ -1,4 +1,4 @@
-/* $Id: upnpdescgen.c,v 1.53 2011/03/03 17:27:18 nanard Exp $ */
+/* $Id: upnpdescgen.c,v 1.63 2011/05/27 21:36:50 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard 
@@ -18,34 +18,34 @@
 #include "miniupnpdpath.h"
 #include "upnpglobalvars.h"
 #include "upnpdescstrings.h"
+#include "upnpurns.h"
+#include "getconnstatus.h"
 
-#ifdef IGD_V2
-/* IGD v2 */
-#define DEVICE_TYPE_IGD     "urn:schemas-upnp-org:device:InternetGatewayDevice:2"
-#define DEVICE_TYPE_WAN     "urn:schemas-upnp-org:device:WANDevice:2"
-#define DEVICE_TYPE_WANC    "urn:schemas-upnp-org:device:WANConnectionDevice:2"
-#define SERVICE_TYPE_WANIPC "urn:schemas-upnp-org:service:WANIPConnection:2"
-#define ENABLE_DP_SERVICE
-#else
-/* IGD v1 */
-#define DEVICE_TYPE_IGD     "urn:schemas-upnp-org:device:InternetGatewayDevice:1"
-#define DEVICE_TYPE_WAN     "urn:schemas-upnp-org:device:WANDevice:1"
-#define DEVICE_TYPE_WANC    "urn:schemas-upnp-org:device:WANConnectionDevice:1"
-#define SERVICE_TYPE_WANIPC "urn:schemas-upnp-org:service:WANIPConnection:1"
-#endif
+
+/* Event magical values codes */
+#define CONNECTIONSTATUS_MAGICALVALUE (249)
+#define FIREWALLENABLED_MAGICALVALUE (250)
+#define INBOUNDPINHOLEALLOWED_MAGICALVALUE (251)
+#define SYSTEMUPDATEID_MAGICALVALUE (252)
+#define PORTMAPPINGNUMBEROFENTRIES_MAGICALVALUE (253)
+#define EXTERNALIPADDRESS_MAGICALVALUE (254)
+#define DEFAULTCONNECTIONSERVICE_MAGICALVALUE (255)
+
 
 static const char * const upnptypes[] =
 {
 	"string",
 	"boolean",
 	"ui2",
-	"ui4"
+	"ui4",
+	"bin.base64"
 };
 
 static const char * const upnpdefaultvalues[] =
 {
 	0,
-	"Unconfigured"
+	"IP_Routed"/*"Unconfigured"*/, /* 1 default value for ConnectionType */
+	"3600", /* 2 default value for PortMappingLeaseDuration */
 };
 
 static const char * const upnpallowedvalues[] =
@@ -91,6 +91,33 @@ static const char * const upnpallowedvalues[] =
 	0
 };
 
+static const int upnpallowedranges[] = {
+	0,
+	/* 1 PortMappingLeaseDuration */
+	0,
+	604800,
+	/* 3 InternalPort */
+	1,
+	65535,
+    /* 5 LeaseTime */
+	1,
+	86400,
+	/* 7 OutboundPinholeTimeout */
+	100,
+	200,
+};
+
+static const char * magicargname[] = {
+	0,
+	"StartPort",
+	"EndPort",
+	"RemoteHost",
+	"RemotePort",
+	"InternalClient",
+	"InternalPort",
+	"IsWorking"
+};
+
 static const char xmlver[] = 
 	"<?xml version=\"1.0\"?>\r\n";
 static const char root_service[] =
@@ -129,12 +156,31 @@ static const struct XMLElt rootDesc[] =
 	{"/serialNumber", serialnumber},
 	{"/UDN", uuidvalue},	/* required */
 	/* see if /UPC is needed. */
-#if defined(ENABLE_L3F_SERVICE) || defined(HAS_DUMMY_SERVICE) || defined(ENABLE_DP_SERVICE)
-#ifdef ENABLE_DP_SERVICE
-	{"serviceList", INITHELPER(57,2)},
+#ifdef ENABLE_6FC_SERVICE
+#define SERVICES_OFFSET 63
 #else
-	{"serviceList", INITHELPER(57,1)},
+#define SERVICES_OFFSET 58
 #endif
+#if defined(ENABLE_L3F_SERVICE) || defined(HAS_DUMMY_SERVICE) || defined(ENABLE_DP_SERVICE)
+	/* here we dening Services for the root device :
+	 * L3F and DUMMY and DeviceProtection */
+#ifdef ENABLE_L3F_SERVICE
+#define NSERVICES1 1
+#else
+#define NSERVICES1 0
+#endif
+#ifdef HAS_DUMMY_SERVICE
+#define NSERVICES2 1
+#else
+#define NSERVICES2 0
+#endif
+#ifdef ENABLE_DP_SERVICE
+#define NSERVICES3 1
+#else
+#define NSERVICES3 0
+#endif
+#define NSERVICES (NSERVICES1+NSERVICES2+NSERVICES3)
+	{"serviceList", INITHELPER(SERVICES_OFFSET,NSERVICES)},
 	{"deviceList", INITHELPER(18,1)},
 	{"/presentationURL", presentationurl},	/* recommended */
 #else
@@ -185,21 +231,37 @@ static const struct XMLElt rootDesc[] =
 	{"/serialNumber", serialnumber},
 	{"/UDN", uuidvalue},
 	{"/UPC", WANCDEV_UPC},
+#ifdef ENABLE_6FC_SERVICE
+	{"serviceList", INITHELPER(51,2)},
+#else
 	{"serviceList", INITHELPER(51,1)},
+#endif
 /* 51 */
-	{"service", INITHELPER(52,5)},
-/* 52 */
+	{"service", INITHELPER(53,5)},
+	{"service", INITHELPER(58,5)},
+/* 53 */
 	{"/serviceType", SERVICE_TYPE_WANIPC},
 		/* urn:schemas-upnp-org:service:WANIPConnection:2 for v2 */
-	{"/serviceId", "urn:upnp-org:serviceId:WANIPConn1"},
+	{"/serviceId", SERVICE_ID_WANIPC},
+		/* urn:upnp-org:serviceId:WANIPConn1 or 2 */
 	{"/controlURL", WANIPC_CONTROLURL},
 	{"/eventSubURL", WANIPC_EVENTURL},
 	{"/SCPDURL", WANIPC_PATH},
-/* 57 */
+#ifdef ENABLE_6FC_SERVICE
+/* 58 */
+	{"/serviceType", "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1"},
+	{"/serviceId", "urn:upnp-org:serviceId:WANIPv6FC1"},
+	{"/controlURL", WANIP6FC_CONTROLURL},
+	{"/eventSubURL", WANIP6FC_EVENTURL},
+	{"/SCPDURL", WANIP6FC_PATH},
+#endif
+/* 58 / 63 = SERVICES_OFFSET*/
+#if defined(HAS_DUMMY_SERVICE) || defined(ENABLE_L3F_SERVICE) || defined(ENABLE_DP_SERVICE)
+	{"service", INITHELPER(SERVICES_OFFSET+2,5)},
+	{"service", INITHELPER(SERVICES_OFFSET+7,5)},
+#endif
 #ifdef HAS_DUMMY_SERVICE
-	{"service", INITHELPER(59,5)},
-	{"service", INITHELPER(64,5)},
-/* 59 */
+/* 60 / 65 = SERVICES_OFFSET+2 */
 	{"/serviceType", "urn:schemas-dummy-com:service:Dummy:1"},
 	{"/serviceId", "urn:dummy-com:serviceId:dummy1"},
 	{"/controlURL", "/dummy"},
@@ -207,9 +269,7 @@ static const struct XMLElt rootDesc[] =
 	{"/SCPDURL", DUMMY_PATH},
 #endif
 #ifdef ENABLE_L3F_SERVICE
-	{"service", INITHELPER(59,5)},
-	{"service", INITHELPER(64,5)},
-/* 59 */
+/* 60 / 65 = SERVICES_OFFSET+2 */
 	{"/serviceType", "urn:schemas-upnp-org:service:Layer3Forwarding:1"},
 	{"/serviceId", "urn:upnp-org:serviceId:Layer3Forwarding1"},
 	{"/controlURL", L3F_CONTROLURL}, /* The Layer3Forwarding service is only */
@@ -222,7 +282,7 @@ static const struct XMLElt rootDesc[] =
  * If DeviceProtection is not implemented and applied, it is RECOMMENDED
  * that control points are able to access only actions and parameters defined
  * as Public role. */
-/* 64 */
+/* 65 / 70 = SERVICES_OFFSET+7 */
 	{"/serviceType", "urn:schemas-upnp-org:service:DeviceProtection:1"},
 	{"/serviceId", "urn:upnp-org:serviceId:DeviceProtection1"},
 	{"/controlURL", DP_CONTROLURL},
@@ -270,8 +330,8 @@ static const struct argument AddAnyPortMappingArgs[] =
 
 static const struct argument DeletePortMappingRangeArgs[] =
 {
-	{1, 12},	/* NewStartPort / ExternalPort */
-	{1, 12},	/* NewEndPort / ExternalPort */
+	{1|(1<<2), 12},	/* NewStartPort / ExternalPort */
+	{1|(2<<2), 12},	/* NewEndPort / ExternalPort */
 	{1, 14},	/* NewProtocol / PortMappingProtocol */
 	{1, 18},	/* NewManage / A_ARG_TYPE_Manage */
 	{0, 0}
@@ -279,8 +339,8 @@ static const struct argument DeletePortMappingRangeArgs[] =
 
 static const struct argument GetListOfPortMappingsArgs[] =
 {
-	{1, 12},	/* NewStartPort / ExternalPort */
-	{1, 12},	/* NewEndPort / ExternalPort */
+	{1|(1<<2), 12},	/* NewStartPort / ExternalPort */
+	{1|(2<<2), 12},	/* NewEndPort / ExternalPort */
 	{1, 14},	/* NewProtocol / PortMappingProtocol */
 	{1, 18},	/* NewManage / A_ARG_TYPE_Manage */
 	{1, 8},		/* NewNumberOfPorts / PortMappingNumberOfEntries */
@@ -360,6 +420,30 @@ static const struct argument GetSpecificPortMappingEntryArgs[] =
 
 static const struct action WANIPCnActions[] =
 {
+	{"SetConnectionType", SetConnectionTypeArgs}, /* R */
+	{"GetConnectionTypeInfo", GetConnectionTypeInfoArgs}, /* R */
+	{"RequestConnection", 0}, /* R */
+	{"RequestTermination", 0}, /* O */
+	{"ForceTermination", 0}, /* R */
+	/*{"SetAutoDisconnectTime", 0},*/ /* O */
+	/*{"SetIdleDisconnectTime", 0},*/ /* O */
+	/*{"SetWarnDisconnectDelay", 0}, */ /* O */
+	{"GetStatusInfo", GetStatusInfoArgs}, /* R */
+	/*GetAutoDisconnectTime*/
+	/*GetIdleDisconnectTime*/
+	/*GetWarnDisconnectDelay*/
+	{"GetNATRSIPStatus", GetNATRSIPStatusArgs}, /* R */
+	{"GetGenericPortMappingEntry", GetGenericPortMappingEntryArgs}, /* R */
+	{"GetSpecificPortMappingEntry", GetSpecificPortMappingEntryArgs}, /* R */
+	{"AddPortMapping", AddPortMappingArgs}, /* R */
+	{"DeletePortMapping", DeletePortMappingArgs}, /* R */
+	{"GetExternalIPAddress", GetExternalIPAddressArgs}, /* R */
+#ifdef IGD_V2
+	{"DeletePortMappingRange", DeletePortMappingRangeArgs}, /* R, IGD v2 */
+	{"GetListOfPortMappings", GetListOfPortMappingsArgs}, /* R, IGD v2 */
+	{"AddAnyPortMapping", AddAnyPortMappingArgs}, /* R, IGD v2 */
+#endif
+#if 0
 	{"AddPortMapping", AddPortMappingArgs}, /* R */
 	{"GetExternalIPAddress", GetExternalIPAddressArgs}, /* R */
 	{"DeletePortMapping", DeletePortMappingArgs}, /* R */
@@ -377,6 +461,7 @@ static const struct action WANIPCnActions[] =
 	{"DeletePortMappingRange", DeletePortMappingRangeArgs},
 	{"GetListOfPortMappings", GetListOfPortMappingsArgs},
 #endif
+#endif
 	{0, 0}
 };
 /* R=Required, O=Optional */
@@ -384,11 +469,16 @@ static const struct action WANIPCnActions[] =
 static const struct stateVar WANIPCnVars[] =
 {
 /* 0 */
+#if 0
 	{"ConnectionType", 0, 0/*1*/}, /* required */
 	{"PossibleConnectionTypes", 0|0x80, 0, 14, 15},
+#endif
+	{"ConnectionType", 0, 1, 14, 15}, /* required */
+	{"PossibleConnectionTypes", 0|0x80, 0, 0, 15},
 	 /* Required
 	  * Allowed values : Unconfigured / IP_Routed / IP_Bridged */
-	{"ConnectionStatus", 0|0x80, 0/*1*/, 18, 20}, /* required */
+	{"ConnectionStatus", 0|0x80, 0/*1*/, 18,
+	 CONNECTIONSTATUS_MAGICALVALUE }, /* required */
 	 /* Allowed Values : Unconfigured / Connecting(opt) / Connected
 	  *                  PendingDisconnect(opt) / Disconnecting (opt)
 	  *                  Disconnected */
@@ -405,11 +495,13 @@ static const struct stateVar WANIPCnVars[] =
 	  *                  ERROR_UNKNOWN(opt) */
 	{"RSIPAvailable", 1, 0}, /* required */
 	{"NATEnabled", 1, 0},    /* required */
-	{"ExternalIPAddress", 0|0x80, 0, 0, 254}, /* required. Default : empty string */
-	{"PortMappingNumberOfEntries", 2|0x80, 0, 0, 253}, /* required >= 0 */
+	{"ExternalIPAddress", 0|0x80, 0, 0,
+	 EXTERNALIPADDRESS_MAGICALVALUE}, /* required. Default : empty string */
+	{"PortMappingNumberOfEntries", 2|0x80, 0, 0,
+	 PORTMAPPINGNUMBEROFENTRIES_MAGICALVALUE}, /* required >= 0 */
 	{"PortMappingEnabled", 1, 0}, /* Required */
 /* 10 */
-	{"PortMappingLeaseDuration", 3, 0}, /* required */
+	{"PortMappingLeaseDuration", 3, 2, 1}, /* required */
 	/* TODO : for IGD v2 : 
 	 * <stateVariable sendEvents="no">
 	 *   <name>PortMappingLeaseDuration</name>
@@ -422,14 +514,13 @@ static const struct stateVar WANIPCnVars[] =
 	 * </stateVariable> */
 	{"RemoteHost", 0, 0},   /* required. Default : empty string */
 	{"ExternalPort", 2, 0}, /* required */
-	{"InternalPort", 2, 0}, /* required */
-	/* TODO : add <allowedValueRange> for IGD v2 */
+	{"InternalPort", 2, 0, 3}, /* required */
 	{"PortMappingProtocol", 0, 0, 11}, /* required allowedValues: TCP/UDP */
 	{"InternalClient", 0, 0}, /* required */
 	{"PortMappingDescription", 0, 0}, /* required default: empty string */
 /* added in v2 UPnP-gw-WANIPConnection-v2-Service.pdf */
 #ifdef IGD_V2
-	{"SystemUpdateID", 3, 0},
+	{"SystemUpdateID", 3|0x80, 0, 0, SYSTEMUPDATEID_MAGICALVALUE},
 	{"A_ARG_TYPE_Manage", 1, 0},
 	{"A_ARG_TYPE_PortListing", 0, 0},
 #endif
@@ -503,6 +594,7 @@ static const struct stateVar WANCfgVars[] =
 	{"TotalPacketsSent", 3, 0},    /* Optional */
 	{"TotalPacketsReceived", 3, 0},/* Optional */
 	/*{"MaximumActiveConnections", 2, 0},	// allowed Range value // OPTIONAL */
+	/*{"WANAccessProvider", 0, 0},*/   /* Optional */
 	{0, 0}
 };
 
@@ -532,12 +624,133 @@ static const struct action L3FActions[] =
 
 static const struct stateVar L3FVars[] =
 {
-	{"DefaultConnectionService", 0|0x80, 0, 0, 255}, /* Required */
+	{"DefaultConnectionService", 0|0x80, 0, 0,
+	 DEFAULTCONNECTIONSERVICE_MAGICALVALUE}, /* Required */
 	{0, 0}
 };
 
 static const struct serviceDesc scpdL3F =
 { L3FActions, L3FVars };
+#endif
+
+#ifdef ENABLE_6FC_SERVICE
+/* see UPnP-gw-WANIPv6FirewallControl-v1-Service.pdf */
+static const struct argument GetFirewallStatusArgs[] =
+{
+	{2|0x80, 0}, /* OUT : FirewallEnabled */
+	{2|0x80, 6}, /* OUT : InboundPinholeAllowed */
+	{0, 0}
+};
+
+static const struct argument GetOutboundPinholeTimeoutArgs[] =
+{
+	{1|0x80|(3<<2), 1}, /* RemoteHost IN A_ARG_TYPE_IPv6Address */
+	{1|0x80|(4<<2), 2}, /* RemotePort IN A_ARG_TYPE_Port */
+	{1|0x80|(5<<2), 1}, /* InternalClient IN A_ARG_TYPE_IPv6Address */
+	{1|0x80|(6<<2), 2}, /* InternalPort IN A_ARG_TYPE_Port */
+	{1|0x80, 3}, /* Protocol IN A_ARG_TYPE_Protocol */
+	{2|0x80, 7}, /* OutboundPinholeTimeout OUT A_ARG_TYPE_OutboundPinholeTimeout */
+	{0, 0}
+};
+
+static const struct argument AddPinholeArgs[] =
+{
+	{1|0x80|(3<<2), 1}, /* RemoteHost IN A_ARG_TYPE_IPv6Address */
+	{1|0x80|(4<<2), 2}, /* RemotePort IN A_ARG_TYPE_Port */
+	{1|0x80|(5<<2), 1}, /* InternalClient IN A_ARG_TYPE_IPv6Address */
+	{1|0x80|(6<<2), 2}, /* InternalPort IN A_ARG_TYPE_Port */
+	{1|0x80, 3}, /* Protocol IN A_ARG_TYPE_Protocol */
+	{1|0x80, 5}, /* LeaseTime IN A_ARG_TYPE_LeaseTime */
+	{2|0x80, 4}, /* UniqueID OUT A_ARG_TYPE_UniqueID */
+	{0, 0}
+};
+
+static const struct argument UpdatePinholeArgs[] =
+{
+	{1|0x80, 4}, /* UniqueID IN A_ARG_TYPE_UniqueID */
+	{1, 5}, /* LeaseTime IN A_ARG_TYPE_LeaseTime */
+	{0, 0}
+};
+
+static const struct argument DeletePinholeArgs[] =
+{
+	{1|0x80, 4}, /* UniqueID IN A_ARG_TYPE_UniqueID */
+	{0, 0}
+};
+
+static const struct argument GetPinholePacketsArgs[] =
+{
+	{1|0x80, 4}, /* UniqueID IN A_ARG_TYPE_UniqueID */
+	{2|0x80, 9}, /* PinholePackets OUT A_ARG_TYPE_PinholePackets */
+	{0, 0}
+};
+
+static const struct argument CheckPinholeWorkingArgs[] =
+{
+	{1|0x80, 4}, /* UniqueID IN A_ARG_TYPE_UniqueID */
+	{2|0x80|(7<<2), 8}, /* IsWorking OUT A_ARG_TYPE_Boolean */
+	{0, 0}
+};
+
+static const struct action IPv6FCActions[] =
+{
+	{"GetFirewallStatus", GetFirewallStatusArgs}, /* Req */
+	{"GetOutboundPinholeTimeout", GetOutboundPinholeTimeoutArgs}, /* Opt */
+	{"AddPinhole", AddPinholeArgs}, /* Req */
+	{"UpdatePinhole", UpdatePinholeArgs}, /* Req */
+	{"DeletePinhole", DeletePinholeArgs}, /* Req */
+	{"GetPinholePackets", GetPinholePacketsArgs}, /* Req */
+	{"CheckPinholeWorking", CheckPinholeWorkingArgs}, /* Opt */
+	{0, 0}
+};
+
+static const struct stateVar IPv6FCVars[] =
+{
+	{"FirewallEnabled", 1|0x80, 0, 0,
+	 FIREWALLENABLED_MAGICALVALUE}, /* Required */
+	{"A_ARG_TYPE_IPv6Address", 0, 0, 0, 0}, /* Required */
+	{"A_ARG_TYPE_Port", 2, 0, 0, 0}, /* Required */
+	{"A_ARG_TYPE_Protocol", 2, 0, 0, 0}, /* Required */
+/* 4 */
+	{"A_ARG_TYPE_UniqueID", 2, 0, 0, 0}, /* Required */
+	{"A_ARG_TYPE_LeaseTime", 3, 0, 5, 0}, /* Required */
+	{"InboundPinholeAllowed", 1|0x80, 0, 0,
+	 INBOUNDPINHOLEALLOWED_MAGICALVALUE}, /* Required */
+	{"A_ARG_TYPE_OutboundPinholeTimeout", 3, 0, 7, 0}, /* Optional */
+/* 8 */
+	{"A_ARG_TYPE_Boolean", 1, 0, 0, 0}, /* Optional */
+	{"A_ARG_TYPE_PinholePackets", 3, 0, 0, 0}, /* Required */
+	{0, 0}
+};
+
+static const struct serviceDesc scpd6FC =
+{ IPv6FCActions, IPv6FCVars };
+#endif
+
+#ifdef ENABLE_DP_SERVICE
+/* UPnP-gw-DeviceProtection-v1-Service.pdf */
+static const struct action DPActions[] =
+{
+	{"SendSetupMessage", 0},
+	{"GetSupportedProtocols", 0},
+	{"GetAssignedRoles", 0},
+	{0, 0}
+};
+
+static const struct stateVar DPVars[] =
+{
+	{"SetupReady", 1|0x80},
+	{"SupportedProtocols", 0},
+	{"A_ARG_TYPE_ACL", 0},
+	{"A_ARG_TYPE_IdentityList", 0},
+	{"A_ARG_TYPE_Identity", 0},
+	{"A_ARG_TYPE_Base64", 4},
+	{"A_ARG_TYPE_String", 0},
+	{0, 0}
+};
+
+static const struct serviceDesc scpdDP =
+{ DPActions, DPVars };
 #endif
 
 /* strcat_str()
@@ -547,14 +760,21 @@ static char *
 strcat_str(char * str, int * len, int * tmplen, const char * s2)
 {
 	int s2len;
+	int newlen;
+	char * p;
+
 	s2len = (int)strlen(s2);
 	if(*tmplen <= (*len + s2len))
 	{
 		if(s2len < 256)
-			*tmplen += 256;
+			newlen = *tmplen + 256;
 		else
-			*tmplen += s2len + 1;
-		str = (char *)realloc(str, *tmplen);
+			newlen = *tmplen + s2len + 1;
+		p = (char *)realloc(str, newlen);
+		if(p == NULL) /* handle a failure of realloc() */
+			return str;
+		str = p;
+		*tmplen = newlen;
 	}
 	/*strcpy(str + *len, s2); */
 	memcpy(str + *len, s2, s2len + 1);
@@ -568,13 +788,49 @@ strcat_str(char * str, int * len, int * tmplen, const char * s2)
 static char *
 strcat_char(char * str, int * len, int * tmplen, char c)
 {
+	char * p;
+
 	if(*tmplen <= (*len + 1))
 	{
 		*tmplen += 256;
-		str = (char *)realloc(str, *tmplen);
+		p = (char *)realloc(str, *tmplen);
+		if(p == NULL) /* handle a failure of realloc() */
+		{
+			*tmplen -= 256;
+			return str;
+		}
+		str = p;
 	}
 	str[*len] = c;
 	(*len)++;
+	return str;
+}
+
+/* strcat_int()
+ * concatenate the string representation of the integer.
+ * call strcat_char() */
+static char *
+strcat_int(char * str, int * len, int * tmplen, int i)
+{
+	char buf[16];
+	int j;
+
+	if(i < 0) {
+		str = strcat_char(str, len, tmplen, '-');
+		i = -i;
+	} else if(i == 0) {
+		/* special case for 0 */
+		str = strcat_char(str, len, tmplen, '0');
+		return str;
+	}
+	j = 0;
+	while(i && j < sizeof(buf)) {
+		buf[j++] = '0' + (i % 10);
+		i = i / 10;
+	}
+	while(j > 0) {
+		str = strcat_char(str, len, tmplen, buf[--j]);
+	}
 	return str;
 }
 
@@ -723,9 +979,15 @@ genServiceDesc(int * len, const struct serviceDesc * s)
 			j = 0;
 			while(args[j].dir)
 			{
-				str = strcat_str(str, len, &tmplen, "<argument><name>New");
+				str = strcat_str(str, len, &tmplen, "<argument><name>");
+				if((args[j].dir & 0x80) == 0) {
+					str = strcat_str(str, len, &tmplen, "New");
+				}
 				p = vars[args[j].relatedVar].name;
-				if(0 == memcmp(p, "PortMapping", 11)
+				if(args[j].dir & 0x7c) {
+					/* use magic values ... */
+					str = strcat_str(str, len, &tmplen, magicargname[(args[j].dir & 0x7c) >> 2]);
+				} else if(0 == memcmp(p, "PortMapping", 11)
 				   && 0 != memcmp(p + 11, "Description", 11)) {
 					if(0 == memcmp(p + 11, "NumberOfEntries", 15)) {
 						/* PortMappingNumberOfEntries */
@@ -756,7 +1018,7 @@ genServiceDesc(int * len, const struct serviceDesc * s)
 					str = strcat_str(str, len, &tmplen, p);
 				}
 				str = strcat_str(str, len, &tmplen, "</name><direction>");
-				str = strcat_str(str, len, &tmplen, args[j].dir==1?"in":"out");
+				str = strcat_str(str, len, &tmplen, (args[j].dir&0x03)==1?"in":"out");
 				str = strcat_str(str, len, &tmplen,
 						"</direction><relatedStateVariable>");
 				str = strcat_str(str, len, &tmplen, p);
@@ -790,14 +1052,25 @@ genServiceDesc(int * len, const struct serviceDesc * s)
 		str = strcat_str(str, len, &tmplen, "</dataType>");
 		if(vars[i].iallowedlist)
 		{
-		  str = strcat_str(str, len, &tmplen, "<allowedValueList>");
-		  for(j=vars[i].iallowedlist; upnpallowedvalues[j]; j++)
+		  if((vars[i].itype & 0x0f) == 0)
 		  {
-		    str = strcat_str(str, len, &tmplen, "<allowedValue>");
-		    str = strcat_str(str, len, &tmplen, upnpallowedvalues[j]);
-		    str = strcat_str(str, len, &tmplen, "</allowedValue>");
+		    /* string */
+		    str = strcat_str(str, len, &tmplen, "<allowedValueList>");
+		    for(j=vars[i].iallowedlist; upnpallowedvalues[j]; j++)
+		    {
+		      str = strcat_str(str, len, &tmplen, "<allowedValue>");
+		      str = strcat_str(str, len, &tmplen, upnpallowedvalues[j]);
+		      str = strcat_str(str, len, &tmplen, "</allowedValue>");
+		    }
+		    str = strcat_str(str, len, &tmplen, "</allowedValueList>");
+		  } else {
+		    /* ui2 and ui4 */
+		    str = strcat_str(str, len, &tmplen, "<allowedValueRange><minimum>");
+			str = strcat_int(str, len, &tmplen, upnpallowedranges[vars[i].iallowedlist]);
+		    str = strcat_str(str, len, &tmplen, "</minimum><maximum>");
+			str = strcat_int(str, len, &tmplen, upnpallowedranges[vars[i].iallowedlist+1]);
+		    str = strcat_str(str, len, &tmplen, "</maximum></allowedValueRange>");
 		  }
-		  str = strcat_str(str, len, &tmplen, "</allowedValueList>");
 		}
 		/*if(vars[i].defaultValue) */
 		if(vars[i].idefault)
@@ -840,6 +1113,22 @@ genL3F(int * len)
 }
 #endif
 
+#ifdef ENABLE_6FC_SERVICE
+char *
+gen6FC(int * len)
+{
+	return genServiceDesc(len, &scpd6FC);
+}
+#endif
+
+#ifdef ENABLE_DP_SERVICE
+char *
+genDP(int * len)
+{
+	return genServiceDesc(len, &scpdDP);
+}
+#endif
+
 #ifdef ENABLE_EVENTS
 static char *
 genEventVars(int * len, const struct serviceDesc * s, const char * servns)
@@ -866,11 +1155,42 @@ genEventVars(int * len, const struct serviceDesc * s, const char * servns)
 			switch(v->ieventvalue) {
 			case 0:
 				break;
-			case 253:	/* Port mapping number of entries magical value */
-				snprintf(tmp, sizeof(tmp), "%d", upnp_get_portmapping_number_of_entries());
+			case CONNECTIONSTATUS_MAGICALVALUE:
+				/* or get_wan_connection_status_str(ext_if_name) */
+				str = strcat_str(str, len, &tmplen,
+				   upnpallowedvalues[18 + get_wan_connection_status(ext_if_name)]);
+				break;
+#ifdef ENABLE_6FC_SERVICE
+			case FIREWALLENABLED_MAGICALVALUE:
+				/* see 2.4.2 of UPnP-gw-WANIPv6FirewallControl-v1-Service.pdf */
+				snprintf(tmp, sizeof(tmp), "%d",
+				         ipv6fc_firewall_enabled);
 				str = strcat_str(str, len, &tmplen, tmp);
 				break;
-			case 254:	/* External ip address magical value */
+			case INBOUNDPINHOLEALLOWED_MAGICALVALUE:
+				/* see 2.4.3 of UPnP-gw-WANIPv6FirewallControl-v1-Service.pdf */
+				snprintf(tmp, sizeof(tmp), "%d",
+				         ipv6fc_inbound_pinhole_allowed);
+				str = strcat_str(str, len, &tmplen, tmp);
+				break;
+#endif
+#ifdef IGD_V2
+			case SYSTEMUPDATEID_MAGICALVALUE:
+				/* Please read section 2.3.23 SystemUpdateID
+				 * of UPnP-gw-WANIPConnection-v2-Service.pdf */
+				snprintf(tmp, sizeof(tmp), "%d",
+				         1/* system update id */);
+				str = strcat_str(str, len, &tmplen, tmp);
+				break;
+#endif
+			case PORTMAPPINGNUMBEROFENTRIES_MAGICALVALUE:
+				/* Port mapping number of entries magical value */
+				snprintf(tmp, sizeof(tmp), "%d",
+				         upnp_get_portmapping_number_of_entries());
+				str = strcat_str(str, len, &tmplen, tmp);
+				break;
+			case EXTERNALIPADDRESS_MAGICALVALUE:
+				/* External ip address magical value */
 				if(use_ext_ip_addr)
 					str = strcat_str(str, len, &tmplen, use_ext_ip_addr);
 				else {
@@ -881,16 +1201,14 @@ genEventVars(int * len, const struct serviceDesc * s, const char * servns)
 						str = strcat_str(str, len, &tmplen, ext_ip_addr);
 					}
 				}
-				/*str = strcat_str(str, len, &tmplen, "0.0.0.0");*/
 				break;
-			case 255:	/* DefaultConnectionService magical value */
+			case DEFAULTCONNECTIONSERVICE_MAGICALVALUE:
+				/* DefaultConnectionService magical value */
 				str = strcat_str(str, len, &tmplen, uuidvalue);
 				str = strcat_str(str, len, &tmplen, ":WANConnectionDevice:1,urn:upnp-org:serviceId:WANIPConn1");
-				//printf("%s:WANConnectionDevice:1,urn:upnp-org:serviceId:WANIPConn1", uuidvalue);
 				break;
 			default:
 				str = strcat_str(str, len, &tmplen, upnpallowedvalues[v->ieventvalue]);
-				//printf("%s", upnpallowedvalues[v->ieventvalue]);
 			}
 			str = strcat_str(str, len, &tmplen, "</s:");
 			str = strcat_str(str, len, &tmplen, v->name);
@@ -932,4 +1250,25 @@ getVarsL3F(int * l)
 	                    "urn:schemas-upnp-org:service:Layer3Forwarding:1");
 }
 #endif
+
+#ifdef ENABLE_6FC_SERVICE
+char *
+getVars6FC(int * l)
+{
+	return genEventVars(l,
+	                    &scpd6FC,
+	                    "urn:schemas-upnp-org:service:WANIPv6FirewallControl:1");
+}
 #endif
+
+#ifdef ENABLE_DP_SERVICE
+char *
+getVarsDP(int * l)
+{
+	return genEventVars(l,
+	                    &scpdDP,
+	                    "urn:schemas-upnp-org:service:DeviceProtection:1");
+}
+#endif
+
+#endif /* ENABLE_EVENTS */

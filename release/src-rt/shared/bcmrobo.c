@@ -27,7 +27,11 @@
 #include <proto/ethernet.h>
 
 
+#ifdef	BCMDBG
+#define	ET_ERROR(args)	printf args
+#else	/* BCMDBG */
 #define	ET_ERROR(args)
+#endif	/* BCMDBG */
 #define	ET_MSG(args)
 
 #define VARG(var, len) (((len) == 1) ? *((uint8 *)(var)) : \
@@ -1206,6 +1210,96 @@ bcm_robo_enable_switch(robo_info_t *robo)
 	return ret;
 }
 
+#ifdef BCMDBG
+void
+robo_dump_regs(robo_info_t *robo, struct bcmstrbuf *b)
+{
+	uint8 val8;
+	uint16 val16;
+	uint32 val32;
+	pdesc_t *pdesc;
+	int pdescsz;
+	int i;
+
+	bcm_bprintf(b, "%s:\n", robo->ops->desc);
+	if (robo->miird == NULL) {
+		bcm_bprintf(b, "SPI gpio pins: ss %d sck %d mosi %d miso %d\n",
+		            robo->ss, robo->sck, robo->mosi, robo->miso);
+	}
+
+	/* Enable management interface access */
+	if (robo->ops->enable_mgmtif)
+		robo->ops->enable_mgmtif(robo);
+
+	/* Dump registers interested */
+	robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_MODE, &val8, sizeof(val8));
+	bcm_bprintf(b, "(0x00,0x0B)Switch mode regsiter: 0x%02x\n", val8);
+	if (robo->devid == DEVID5325) {
+		robo->ops->read_reg(robo, PAGE_CTRL, REG_CTRL_MIIPO, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x00,0x0E)MII port state override regsiter: 0x%02x\n", val8);
+	}
+	if (robo->miird == NULL)
+		goto exit;
+	if (robo->devid == DEVID5325) {
+		pdesc = pdesc25;
+		pdescsz = sizeof(pdesc25) / sizeof(pdesc_t);
+	} else {
+		pdesc = pdesc97;
+		pdescsz = sizeof(pdesc97) / sizeof(pdesc_t);
+	}
+
+	robo->ops->read_reg(robo, PAGE_VLAN, REG_VLAN_CTRL0, &val8, sizeof(val8));
+	bcm_bprintf(b, "(0x34,0x00)VLAN control 0 register: 0x%02x\n", val8);
+	robo->ops->read_reg(robo, PAGE_VLAN, REG_VLAN_CTRL1, &val8, sizeof(val8));
+	bcm_bprintf(b, "(0x34,0x01)VLAN control 1 register: 0x%02x\n", val8);
+	robo->ops->read_reg(robo, PAGE_VLAN, REG_VLAN_CTRL4, &val8, sizeof(val8));
+	if (robo->devid == DEVID5325) {
+		bcm_bprintf(b, "(0x34,0x04)VLAN control 4 register: 0x%02x\n", val8);
+		robo->ops->read_reg(robo, PAGE_VLAN, REG_VLAN_CTRL5, &val8, sizeof(val8));
+		bcm_bprintf(b, "(0x34,0x05)VLAN control 5 register: 0x%02x\n", val8);
+
+		robo->ops->read_reg(robo, PAGE_VLAN, REG_VLAN_PMAP, &val32, sizeof(val32));
+		bcm_bprintf(b, "(0x34,0x20)Prio Re-map: 0x%08x\n", val32);
+
+		for (i = 0; i <= VLAN_MAXVID; i++) {
+			val16 = (1 << 13)	/* start command */
+			        | i;		/* vlan id */
+			robo->ops->write_reg(robo, PAGE_VLAN, REG_VLAN_ACCESS, &val16,
+			                     sizeof(val16));
+			robo->ops->read_reg(robo, PAGE_VLAN, REG_VLAN_READ, &val32, sizeof(val32));
+			bcm_bprintf(b, "(0x34,0xc)VLAN %d untag bits: 0x%02x member bits: 0x%02x\n",
+			            i, (val32 & 0x0fc0) >> 6, (val32 & 0x003f));
+		}
+
+	} else {
+		for (i = 0; i <= VLAN_MAXVID; i++) {
+			/* VLAN Table Address Index Register (Page 0x05, Address 0x61-0x62) */
+			val16 = i;		/* vlan id */
+			robo->ops->write_reg(robo, PAGE_VTBL, REG_VTBL_INDX, &val16,
+			                     sizeof(val16));
+			/* VLAN Table Access Register (Page 0x34, Address 0x60) */
+			val8 = ((1 << 7) | 	/* start command */
+			        1);		/* read */
+			robo->ops->write_reg(robo, PAGE_VTBL, REG_VTBL_ACCESS, &val8,
+			                     sizeof(val8));
+			/* VLAN Table Entry Register (Page 0x05, Address 0x63-0x66) */
+			robo->ops->read_reg(robo, PAGE_VTBL, REG_VTBL_ENTRY, &val32,
+			                    sizeof(val32));
+			bcm_bprintf(b, "VLAN %d untag bits: 0x%02x member bits: 0x%02x\n",
+			            i, (val32 & 0x3fe00) >> 9, (val32 & 0x1ff));
+		}
+	}
+	for (i = 0; i < pdescsz; i++) {
+		robo->ops->read_reg(robo, PAGE_VLAN, pdesc[i].ptagr, &val16, sizeof(val16));
+		bcm_bprintf(b, "(0x34,0x%02x)Port %d Tag: 0x%04x\n", pdesc[i].ptagr, i, val16);
+	}
+
+exit:
+	/* Disable management interface access */
+	if (robo->ops->disable_mgmtif)
+		robo->ops->disable_mgmtif(robo);
+}
+#endif /* BCMDBG */
 
 /*
  * Update the power save configuration for ports that changed link status.

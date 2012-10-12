@@ -133,7 +133,7 @@ pkt2pktcopy(osl_t *osh, void *p1, uint offs1, void *p2, uint offs2, int maxlen)
 
 
 /* return total length of buffer chain */
-uint BCMFASTPATH
+uint
 pkttotlen(osl_t *osh, void *p)
 {
 	uint total;
@@ -155,7 +155,7 @@ pktlast(osl_t *osh, void *p)
 }
 
 /* count segments of a chained packet */
-uint BCMFASTPATH
+uint
 pktsegcnt(osl_t *osh, void *p)
 {
 	uint cnt;
@@ -282,7 +282,7 @@ pktq_pdeq_tail(struct pktq *pq, int prec)
 	return p;
 }
 
-void
+void BCMFASTPATH
 pktq_pflush(osl_t *osh, struct pktq *pq, int prec, bool dir)
 {
 	struct pktq_prec *q;
@@ -426,7 +426,7 @@ pktq_deq_tail(struct pktq *pq, int *prec_out)
 	return p;
 }
 
-void *
+void * BCMFASTPATH
 pktq_peek(struct pktq *pq, int *prec_out)
 {
 	int prec;
@@ -443,7 +443,7 @@ pktq_peek(struct pktq *pq, int *prec_out)
 	return (pq->q[prec].head);
 }
 
-void *
+void * BCMFASTPATH
 pktq_peek_tail(struct pktq *pq, int *prec_out)
 {
 	int prec;
@@ -461,7 +461,7 @@ pktq_peek_tail(struct pktq *pq, int *prec_out)
 	return (pq->q[prec].tail);
 }
 
-void
+void BCMFASTPATH
 pktq_flush(osl_t *osh, struct pktq *pq, bool dir)
 {
 	int prec;
@@ -471,7 +471,7 @@ pktq_flush(osl_t *osh, struct pktq *pq, bool dir)
 }
 
 /* Return sum of lengths of a specific set of precedences */
-int
+int BCMFASTPATH
 pktq_mlen(struct pktq *pq, uint prec_bmp)
 {
 	int prec, len;
@@ -1049,6 +1049,20 @@ bcmprinttslogs(void)
 }
 #endif	/* BCMTSTAMPEDLOGS */
 
+#ifdef BCMDBG
+/* pretty hex print a pkt buffer chain */
+void
+prpkt(const char *msg, osl_t *osh, void *p0)
+{
+	void *p;
+
+	if (msg && (msg[0] != '\0'))
+		printf("%s:\n", msg);
+
+	for (p = p0; p; p = PKTNEXT(osh, p))
+		prhex(NULL, PKTDATA(osh, p), PKTLEN(osh, p));
+}
+#endif	/* BCMDBG */
 
 /* Takes an Ethernet frame and sets out-of-bound PKTPRIO.
  * Also updates the inplace vlan tag if requested.
@@ -1756,8 +1770,8 @@ BCMROMFN(bcm_parse_ordered_tlvs)(void *buf, int buflen, uint key)
 	return NULL;
 }
 
-#if defined(WLMSG_PRHDRS) || defined(WLMSG_PRPKT) || defined(WLMSG_ASSOC) || \
-	defined(BCMDBG_DUMP)
+#if defined(BCMDBG) || defined(BCMDBG_ERR) || defined(WLMSG_PRHDRS) || \
+	defined(WLMSG_PRPKT) || defined(WLMSG_ASSOC) || defined(BCMDBG_DUMP)
 int
 bcm_format_flags(const bcm_bit_desc_t *bd, uint32 flags, char* buf, int len)
 {
@@ -1857,8 +1871,20 @@ prhex(const char *msg, uchar *buf, uint nbytes)
 	if (p != line)
 		printf("%s\n", line);
 }
-#endif 
+#endif /* BCMDBG || WLMSG_PRHDRS || WLMSG_PRPKT || WLMSG_ASSOC || BCMDBG_DUMP */
 
+#ifdef BCMDBG
+void
+deadbeef(void *p, uint len)
+{
+	static uint8 meat[] = { 0xde, 0xad, 0xbe, 0xef };
+
+	while (len-- > 0) {
+		*(uint8*)p = meat[((uintptr)p) & 3];
+		p = (uint8*)p + 1;
+	}
+}
+#endif /* BCMDBG */
 
 char *
 bcm_chipname(uint chipid, char *buf, uint len)

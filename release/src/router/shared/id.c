@@ -67,6 +67,7 @@ Ovislink WL1600GL		HW_BCM5354G           0x048E        8        0x11
 RT-N16				BCM4718               0x04cf       45        0x1218    0x0310      hardware_version=RT-N16-00-07-01-00 regulation_domain=0X10US sdram_init=0x419
 RT-N12				BCM4716               0x04cd       45        0x1201    0x????
 RT-N10				BCM5356               0x04ec       45        0x1402    0x????
+RT-N66U				BCM4706               0xf5b2       00        0x1100    0x0110
 
 WNR3500L			BCM4718               0x04cf       3500      0x1213|02 0x0710|0x1710
 WNR2000v2			BCM4716B0             0xe4cd       1         0x1700
@@ -152,6 +153,8 @@ int check_hw_type(void)
 	case 0xd4cf:
 	case 0xf52c:
 		return HW_BCM4718;
+	case 0xf5b2:
+		return HW_BCM4706;
 #endif
 	}
 
@@ -346,6 +349,9 @@ int get_model(void)
 		switch (hw) {
 		case HW_BCM5354G:
 			if (nvram_match("boardrev", "0x35")) return MODEL_DIR320;
+			break;
+		case HW_BCM4706:
+			if (nvram_match("boardrev", "0x1100")) return MODEL_RTN66U;
 			break;
 		}
 		break;
