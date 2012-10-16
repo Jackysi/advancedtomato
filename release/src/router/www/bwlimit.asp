@@ -363,7 +363,7 @@ function init()
 		<div>
 			<ul>
 				<li><b>Default Class</b> - IP / MAC's non included in the list will take the Default Rate/Ceiling setting
-				<li><b>The bandwitdh will be shared by all unlisted hosts in br1</b>
+				<li><b>The bandwitdh will be shared by all unlisted hosts in br0</b>
 			</ul>
 		</div>
 	</div>
