@@ -178,3 +178,8 @@ config TCONFIG_RAID
 config TCONFIG_THEMES
 	bool "Extra themes"
 	default y
+
+config TCONFIG_MICROSD
+	bool "Support SD card (RT-N66u only)"
+	depends on TCONFIG_USB
+	default n
