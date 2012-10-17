@@ -1055,7 +1055,7 @@ static const nvset_t nvset_list[] = {
 	{ "usb_uhci",			V_RANGE(-1, 1)			},	// -1 - disabled, 0 - off, 1 - on
 	{ "usb_ohci",			V_RANGE(-1, 1)			},
 	{ "usb_usb2",			V_RANGE(-1, 1)			},
-#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+#if defined(LINUX26) && defined(TCONFIG_MICROSD)
 	{ "usb_mmc",			V_RANGE(-1, 1)			},
 #endif
 	{ "usb_irq_thresh",		V_RANGE(0, 6)			},

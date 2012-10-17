@@ -265,10 +265,10 @@ function verifyFields(focused, quiet)
 	E('_f_storage').disabled = b;
 
 /* LINUX26-BEGIN */
-/* EXTRAS-BEGIN */
+/* MICROSD-BEGIN */
 	E('_f_mmc').disabled = a || b || nvram.usb_mmc == -1;
 	elem.display(PR('_f_mmc'), nvram.usb_mmc != -1);
-/* EXTRAS-END */
+/* MICROSD-END */
 /* LINUX26-END */
 
 	E('_f_ext3').disabled = b || a;
@@ -313,9 +313,9 @@ function save()
 	fom.usb_printer_bidirect.value = E('_f_bprint').checked ? 1 : 0;
 
 /* LINUX26-BEGIN */
-/* EXTRAS-BEGIN */
+/* MICROSD-BEGIN */
 	fom.usb_mmc.value = nvram.usb_mmc == -1 ? -1 : (E('_f_mmc').checked ? 1 : 0);
-/* EXTRAS-END */
+/* MICROSD-END */
 /* LINUX26-END */
 
 	fom.usb_fs_ext3.value = E('_f_ext3').checked ? 1 : 0;
@@ -407,9 +407,9 @@ createFieldTable('', [
 /* HFS-END */
 		] },
 /* LINUX26-BEGIN */
-/* EXTRAS-BEGIN */
+/* MICROSD-BEGIN */
 		{ title: 'SD/MMC Card Support', indent: 2, name: 'f_mmc', type: 'checkbox', value: nvram.usb_mmc == 1 },
-/* EXTRAS-END */
+/* MICROSD-END */
 /* LINUX26-END */
 		{ title: 'Automount', indent: 2, name: 'f_automount', type: 'checkbox',
 			suffix: ' <small>Automatically mount all partitions to sub-directories in <i>/mnt</i>.</small>', value: nvram.usb_automount == 1 },

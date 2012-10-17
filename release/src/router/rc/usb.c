@@ -132,7 +132,7 @@ void start_usb(void)
 			}
 #endif
 
-#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+#if defined(LINUX26) && defined(TCONFIG_MICROSD)
 			if (nvram_get_int("usb_mmc") == 1) {
 				/* insert SD/MMC modules if present */
 				modprobe("mmc_core");
@@ -233,7 +233,7 @@ void stop_usb(void)
 		modprobe_r(SCSI_MOD);
 	}
 
-#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+#if defined(LINUX26) && defined(TCONFIG_MICROSD)
 	if (disabled || !nvram_get_int("usb_storage") || nvram_get_int("usb_mmc") != 1) {
 		modprobe_r("sdhci");
 		modprobe_r("mmc_block");
