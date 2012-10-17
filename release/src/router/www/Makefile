@@ -281,6 +281,7 @@ endif
 		-e "/HFS-BEGIN/d"	-e "/HFS-END/d"\
 		-e "/DNSCRYPT-BEGIN/d"	-e "/DNSCRYPT-END/d"\
 		-e "/TOR-BEGIN/d"	-e "/TOR-END/d"\
+		-e "/MICROSD-BEGIN/d"	-e "/MICROSD-END/d"\
 		|| true; \
 	done
 
