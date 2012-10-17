@@ -77,8 +77,8 @@ ifneq ($(TCONFIG_EMF),y)
 	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/EMF-BEGIN/,/EMF-END/d"
 endif
 
-# Only include extra themes if USB Extras are configured in.
-ifneq ($(TCONFIG_USB_EXTRAS),y)
+# Only include extra themes if TCONFIG_THEMES is configured in.
+ifneq ($(TCONFIG_THEMES),y)
 	rm -f $(INSTALLDIR)/www/rtn66u.css
 	rm -f $(INSTALLDIR)/www/rtn66u.png
 	rm -f $(INSTALLDIR)/www/asus.css

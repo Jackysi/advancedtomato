@@ -61,7 +61,7 @@ obj-y += wlconf
 obj-y += cyassl
 obj-y += mssl
 obj-y += mdu
-obj-y += mdadm
+obj-$(TCONFIG_RAID) += mdadm
 
 obj-$(TCONFIG_NFS) += portmap
 obj-$(TCONFIG_NFS) += e2fsprogs
