@@ -668,7 +668,7 @@ const defaults_t defaults[] = {
 	{ "usb_uhci",			"0"				},
 	{ "usb_ohci",			"0"				},
 	{ "usb_usb2",			"1"				},
-#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+#if defined(LINUX26) && defined(TCONFIG_MICROSD)
 	{ "usb_mmc",			"-1"				},
 #endif
 	{ "usb_irq_thresh",		"0"				},

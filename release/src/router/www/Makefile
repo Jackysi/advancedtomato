@@ -77,15 +77,19 @@ ifneq ($(TCONFIG_EMF),y)
 	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/EMF-BEGIN/,/EMF-END/d"
 endif
 
-# Only include extra themes if USB Extras are configured in.
-ifneq ($(TCONFIG_USB_EXTRAS),y)
+# Only include extra themes if TCONFIG_THEMES is configured in.
+ifneq ($(TCONFIG_THEMES),y)
 	rm -f $(INSTALLDIR)/www/rtn66u.css
 	rm -f $(INSTALLDIR)/www/rtn66u.png
 	rm -f $(INSTALLDIR)/www/asus.css
 	rm -f $(INSTALLDIR)/www/asus.png
 	rm -f $(INSTALLDIR)/www/asus-bg.png
 	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/THEMES-BEGIN/,/THEMES-END/d"
-	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/EXTRAS-BEGIN/,/EXTRAS-END/d"
+endif
+
+# Only include sd/mmc card support if MICROSD is configured in.
+ifneq ($(TCONFIG_MICROSD),y)
+	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/MICROSD-BEGIN/,/MICROSD-END/d"
 endif
 
 # Only include NTFS settings if NTFS support is configured in.
@@ -277,6 +281,7 @@ endif
 		-e "/HFS-BEGIN/d"	-e "/HFS-END/d"\
 		-e "/DNSCRYPT-BEGIN/d"	-e "/DNSCRYPT-END/d"\
 		-e "/TOR-BEGIN/d"	-e "/TOR-END/d"\
+		-e "/MICROSD-BEGIN/d"	-e "/MICROSD-END/d"\
 		|| true; \
 	done
 

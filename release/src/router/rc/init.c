@@ -1058,7 +1058,7 @@ static int init_nvram(void)
 		features = SUP_SES | SUP_80211N | SUP_1000ET;
 #ifdef TCONFIG_USB
 		nvram_set("usb_uhci", "-1");
-#if defined(LINUX26) && defined(TCONFIG_USB_EXTRAS)
+#if defined(LINUX26) && defined(TCONFIG_MICROSD)
 		if (nvram_get_int("usb_mmc") == -1) nvram_set("usb_mmc", "1");
 #endif
 #endif
