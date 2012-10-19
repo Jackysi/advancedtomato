@@ -5,11 +5,13 @@ MAINTAINERCLEANFILES = $(srcdir)/Makefile.in
 
 if FUSE_INTERNAL
 FUSE_CFLAGS = -I$(top_srcdir)/include/fuse-lite
-FUSE_LIBS   =
+FUSE_LIBS   = $(top_builddir)/libfuse-lite/libfuse-lite.la
 else
 FUSE_CFLAGS = $(FUSE_MODULE_CFLAGS)
 FUSE_LIBS   = $(FUSE_MODULE_LIBS)
 endif
+
+if ENABLE_NTFS_3G
 
 bin_PROGRAMS	 = ntfs-3g.probe \
 		ntfs-3g.usermap \
@@ -57,6 +59,8 @@ ntfs_3g_probe_SOURCES 	= ntfs-3g.probe.c
 ntfs_3g_usermap_SOURCES 	= usermap.c
 ntfs_3g_secaudit_SOURCES 	= secaudit.c
 
+drivers : $(FUSE_LIBS) ntfs-3g lowntfs-3g
+
 if RUN_LDCONFIG
 install-exec-hook:
 	$(LDCONFIG)
@@ -78,3 +82,5 @@ uninstall-local:
 if ENABLE_MOUNT_HELPER
 	$(RM) -f "$(DESTDIR)/sbin/mount.ntfs-3g" "$(DESTDIR)/sbin/mount.lowntfs-3g"
 endif
+
+endif # ENABLE_NTFS_3G
