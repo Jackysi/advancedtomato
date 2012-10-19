@@ -58,12 +58,13 @@ libLTLIBRARIES_INSTALL = $(INSTALL)
 rootlibLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(lib_LTLIBRARIES) $(noinst_LTLIBRARIES) \
 	$(rootlib_LTLIBRARIES)
-@FUSE_INTERNAL_TRUE@libntfs_3g_la_DEPENDENCIES = $(top_builddir)/libfuse-lite/libfuse-lite.la
+libntfs_3g_la_LIBADD =
 am__libntfs_3g_la_SOURCES_DIST = acls.c attrib.c attrlist.c bitmap.c \
 	bootsect.c cache.c collate.c compat.c compress.c debug.c \
 	device.c dir.c efs.c index.c inode.c lcnalloc.c logfile.c \
-	logging.c mft.c misc.c mst.c object_id.c reparse.c runlist.c \
-	security.c unistr.c volume.c xattrs.c win32_io.c unix_io.c
+	logging.c mft.c misc.c mst.c object_id.c realpath.c reparse.c \
+	runlist.c security.c unistr.c volume.c xattrs.c win32_io.c \
+	unix_io.c
 @NTFS_DEVICE_DEFAULT_IO_OPS_TRUE@@WINDOWS_TRUE@am__objects_1 = libntfs_3g_la-win32_io.lo
 @NTFS_DEVICE_DEFAULT_IO_OPS_TRUE@@WINDOWS_FALSE@am__objects_2 = libntfs_3g_la-unix_io.lo
 am_libntfs_3g_la_OBJECTS = libntfs_3g_la-acls.lo \
@@ -77,10 +78,11 @@ am_libntfs_3g_la_OBJECTS = libntfs_3g_la-acls.lo \
 	libntfs_3g_la-lcnalloc.lo libntfs_3g_la-logfile.lo \
 	libntfs_3g_la-logging.lo libntfs_3g_la-mft.lo \
 	libntfs_3g_la-misc.lo libntfs_3g_la-mst.lo \
-	libntfs_3g_la-object_id.lo libntfs_3g_la-reparse.lo \
-	libntfs_3g_la-runlist.lo libntfs_3g_la-security.lo \
-	libntfs_3g_la-unistr.lo libntfs_3g_la-volume.lo \
-	libntfs_3g_la-xattrs.lo $(am__objects_1) $(am__objects_2)
+	libntfs_3g_la-object_id.lo libntfs_3g_la-realpath.lo \
+	libntfs_3g_la-reparse.lo libntfs_3g_la-runlist.lo \
+	libntfs_3g_la-security.lo libntfs_3g_la-unistr.lo \
+	libntfs_3g_la-volume.lo libntfs_3g_la-xattrs.lo \
+	$(am__objects_1) $(am__objects_2)
 libntfs_3g_la_OBJECTS = $(am_libntfs_3g_la_OBJECTS)
 libntfs_3g_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
 	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(libntfs_3g_la_CFLAGS) \
@@ -249,12 +251,12 @@ MAINTAINERCLEANFILES = $(srcdir)/Makefile.in
 @INSTALL_LIBRARY_FALSE@noinst_LTLIBRARIES = libntfs-3g.la
 libntfs_3g_la_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/include/ntfs-3g
 libntfs_3g_la_LDFLAGS = -version-info $(LIBNTFS_3G_VERSION) -no-undefined
-@FUSE_INTERNAL_TRUE@libntfs_3g_la_LIBADD = $(top_builddir)/libfuse-lite/libfuse-lite.la
 libntfs_3g_la_SOURCES = acls.c attrib.c attrlist.c bitmap.c bootsect.c \
 	cache.c collate.c compat.c compress.c debug.c device.c dir.c \
 	efs.c index.c inode.c lcnalloc.c logfile.c logging.c mft.c \
-	misc.c mst.c object_id.c reparse.c runlist.c security.c \
-	unistr.c volume.c xattrs.c $(am__append_1) $(am__append_2)
+	misc.c mst.c object_id.c realpath.c reparse.c runlist.c \
+	security.c unistr.c volume.c xattrs.c $(am__append_1) \
+	$(am__append_2)
 all: all-am
 
 .SUFFIXES:
@@ -386,6 +388,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libntfs_3g_la-misc.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libntfs_3g_la-mst.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libntfs_3g_la-object_id.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libntfs_3g_la-realpath.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libntfs_3g_la-reparse.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libntfs_3g_la-runlist.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libntfs_3g_la-security.Plo@am__quote@
@@ -569,6 +572,13 @@ libntfs_3g_la-object_id.lo: object_id.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='object_id.c' object='libntfs_3g_la-object_id.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libntfs_3g_la_CFLAGS) $(CFLAGS) -c -o libntfs_3g_la-object_id.lo `test -f 'object_id.c' || echo '$(srcdir)/'`object_id.c
+
+libntfs_3g_la-realpath.lo: realpath.c
+@am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libntfs_3g_la_CFLAGS) $(CFLAGS) -MT libntfs_3g_la-realpath.lo -MD -MP -MF $(DEPDIR)/libntfs_3g_la-realpath.Tpo -c -o libntfs_3g_la-realpath.lo `test -f 'realpath.c' || echo '$(srcdir)/'`realpath.c
+@am__fastdepCC_TRUE@	mv -f $(DEPDIR)/libntfs_3g_la-realpath.Tpo $(DEPDIR)/libntfs_3g_la-realpath.Plo
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='realpath.c' object='libntfs_3g_la-realpath.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libntfs_3g_la_CFLAGS) $(CFLAGS) -c -o libntfs_3g_la-realpath.lo `test -f 'realpath.c' || echo '$(srcdir)/'`realpath.c
 
 libntfs_3g_la-reparse.lo: reparse.c
 @am__fastdepCC_TRUE@	$(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libntfs_3g_la_CFLAGS) $(CFLAGS) -MT libntfs_3g_la-reparse.lo -MD -MP -MF $(DEPDIR)/libntfs_3g_la-reparse.Tpo -c -o libntfs_3g_la-reparse.lo `test -f 'reparse.c' || echo '$(srcdir)/'`reparse.c

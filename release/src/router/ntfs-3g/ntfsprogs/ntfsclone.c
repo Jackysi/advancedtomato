@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2003-2006 Szabolcs Szakacsits
  * Copyright (c) 2004-2006 Anton Altaparmakov
- * Copyright (c) 2010      Jean-Pierre Andre
+ * Copyright (c) 2010-2011 Jean-Pierre Andre
  * Special image format support copyright (c) 2004 Per Olofsson
  *
  * Clone NTFS data and/or metadata to a sparse file, image, device or stdout.
@@ -89,6 +89,10 @@
 #define BLKGETSIZE64	_IOR(0x12,114,size_t)	/* Get device size in bytes. */
 #endif
 
+#ifdef __sun
+#define NO_STATFS 1	/* statfs(2) and f_type are not universal */
+#endif
+
 static const char *EXEC_NAME = "ntfsclone";
 
 static const char *bad_sectors_warning_msg =
@@ -115,11 +119,14 @@ static struct {
 	int ignore_fs_check;
 	int rescue;
 	int save_image;
+	int metadata_image;
 	int preserve_timestamps;
 	int restore_image;
 	char *output;
 	char *volume;
+#ifndef NO_STATFS
 	struct statfs stfs;
+#endif
 } opt;
 
 struct bitmap {
@@ -138,6 +145,7 @@ typedef struct {
 	ntfs_inode *ni;			/* inode being processed */
 	ntfs_attr_search_ctx *ctx;	/* inode attribute being processed */
 	s64 inuse;			/* number of clusters in use */
+	LCN current_lcn;
 } ntfs_walk_clusters_ctx;
 
 typedef int (ntfs_walk_op)(ntfs_inode *ni, void *data);
@@ -322,7 +330,6 @@ static void usage(void)
 	exit(1);
 }
 
-
 static void parse_options(int argc, char **argv)
 {
 	static const char *sopt = "-dfhmo:O:rst";
@@ -407,15 +414,16 @@ static void parse_options(int argc, char **argv)
 		usage();
 	}
 
-	if (opt.metadata && opt.save_image)
-		err_exit("Saving only metadata to an image is not "
-			 "supported!\n");
+	if (opt.metadata && opt.save_image) {
+		opt.metadata_image++;
+		opt.save_image = 0;
+	}
 
 	if (opt.metadata && opt.restore_image)
 		err_exit("Restoring only metadata from an image is not "
 			 "supported!\n");
 
-	if (opt.metadata && opt.std_out)
+	if (opt.metadata && !opt.metadata_image && opt.std_out)
 		err_exit("Cloning only metadata to stdout isn't supported!\n");
 
 	if (opt.ignore_fs_check && !opt.metadata)
@@ -541,7 +549,7 @@ static int io_all(void *fd, void *buf, int count, int do_write)
 
 	while (count > 0) {
 		if (do_write) {
-			if (opt.save_image)
+			if (opt.save_image || opt.metadata_image)
 				i = fwrite(buf, 1, count, stream_out);
 			else
 				i = write(*(int *)fd, buf, count);
@@ -622,13 +630,15 @@ static void copy_cluster(int rescue, u64 rescue_lcn, u64 lcn)
 		}
 	}
 
-	if (opt.save_image) {
+	if (opt.save_image || (opt.metadata_image && !wipe)) {
 		char cmd = 1;
 		if (write_all(&fd_out, &cmd, sizeof(cmd)) == -1)
 			perr_exit("write_all");
 	}
 
-	if (write_all(&fd_out, buff, csize) == -1) {
+	if ((!opt.metadata_image || !wipe)
+	    && (write_all(&fd_out, buff, csize) == -1)) {
+#ifndef NO_STATFS
 		int err = errno;
 		perr_printf("Write failed");
 		if (err == EIO && opt.stfs.f_type == 0x517b)
@@ -637,6 +647,9 @@ static void copy_cluster(int rescue, u64 rescue_lcn, u64 lcn)
 			       "efficient sparse file handling by default. "
 			       "Please try a different method.\n");
 		exit(1);
+#else
+		perr_printf("Write failed");
+#endif
 	}
 }
 
@@ -649,11 +662,25 @@ static void lseek_to_cluster(s64 lcn)
 	if (vol->dev->d_ops->seek(vol->dev, pos, SEEK_SET) == (off_t)-1)
 		perr_exit("lseek input");
 
-	if (opt.std_out || opt.save_image)
+	if (opt.std_out || opt.save_image || opt.metadata_image)
 		return;
 
 	if (lseek(fd_out, pos, SEEK_SET) == (off_t)-1)
 		perr_exit("lseek output");
+}
+
+static void gap_to_cluster(s64 gap)
+{
+	sle64 count;
+	char buf[1 + sizeof(count)];
+
+	if (gap) {
+		count = cpu_to_sle64(gap);
+		buf[0] = 0;
+		memcpy(&buf[1], &count, sizeof(count));
+		if (write_all(&fd_out, buf, sizeof(buf)) == -1)
+			perr_exit("write_all");
+	}
 }
 
 static void image_skip_clusters(s64 count)
@@ -675,17 +702,38 @@ static void dump_clusters(ntfs_walk_clusters_ctx *image, runlist *rl)
 {
 	s64 i, len; /* number of clusters to copy */
 
-	if (opt.std_out || !opt.metadata)
+	if ((opt.std_out && !opt.metadata_image) || !opt.metadata)
 		return;
 
 	if (!(len = is_critical_metadata(image, rl)))
 		return;
 
 	lseek_to_cluster(rl->lcn);
+	if (opt.metadata_image && !wipe)
+		gap_to_cluster(rl->lcn - image->current_lcn);
+	if (!wipe) {
+		/* FIXME: this could give pretty suboptimal performance */
+		for (i = 0; i < len; i++)
+			copy_cluster(opt.rescue, rl->lcn + i, rl->lcn + i);
+		image->current_lcn = rl->lcn + len;
+	}
+	if (opt.metadata_image)
+		image->inuse += len;
+}
 
-	/* FIXME: this could give pretty suboptimal performance */
-	for (i = 0; i < len; i++)
-		copy_cluster(opt.rescue, rl->lcn + i, rl->lcn + i);
+static void write_image_hdr(void)
+{
+	char alignment[IMAGE_HDR_ALIGN];
+
+	if (opt.save_image || opt.metadata_image) {
+		int alignsize = le32_to_cpu(image_hdr.offset_to_image_data)
+				- sizeof(image_hdr);
+		memset(alignment,0,IMAGE_HDR_ALIGN);
+		if ((alignsize < 0)
+			|| write_all(&fd_out, &image_hdr, sizeof(image_hdr))
+			|| write_all(&fd_out, alignment, alignsize))
+			perr_exit("write_all");
+	}
 }
 
 static void clone_ntfs(u64 nr_clusters)
@@ -798,13 +846,22 @@ static void restore_image(void)
 						sizeof(count)) == -1)
 					perr_exit("read_all");
 			}
-			if (opt.std_out)
-				write_empty_clusters(csize, count,
+			if (opt.std_out) {
+				if ((!p_counter && count) || (count < 0))
+					err_exit("Cannot restore a metadata"
+						" image to stdout\n");
+				else
+					write_empty_clusters(csize, count,
 						     &progress, &p_counter);
-			else {
-				if (lseek(fd_out, count * csize, SEEK_CUR) ==
-						(off_t)-1)
-					perr_exit("restore_image: lseek");
+			} else {
+				if (((pos + count) < 0)
+				   || ((pos + count)
+					> sle64_to_cpu(image_hdr.nr_clusters)))
+					err_exit("restore_image: corrupt image\n");
+				else
+					if (lseek(fd_out, count * csize,
+							SEEK_CUR) == (off_t)-1)
+						perr_exit("restore_image: lseek");
 			}
 			pos += count;
 		} else if (cmd == 1) {
@@ -1042,7 +1099,14 @@ static void clone_logfile_parts(ntfs_walk_clusters_ctx *image, runlist *rl)
 			break;
 
 		lseek_to_cluster(lcn);
+
+		if (opt.metadata_image && !wipe)
+			gap_to_cluster(lcn - image->current_lcn);
+
 		copy_cluster(opt.rescue, lcn, lcn);
+		image->current_lcn = lcn + 1;
+		if (opt.metadata_image)
+			image->inuse++;
 
 		if (offset == 0)
 			offset = NTFS_BLOCK_SIZE >> 1;
@@ -1093,7 +1157,7 @@ static void walk_runs(struct ntfs_walk_cluster *walk)
 				(unsigned int)le32_to_cpu(a->type),
 				(long long)lcn, (long long)lcn_length);
 
-		if (!wipe)
+		if (!wipe || opt.metadata_image)
 			dump_clusters(walk->image, rl + i);
 
 		for (j = 0; j < lcn_length; j++) {
@@ -1104,9 +1168,10 @@ static void walk_runs(struct ntfs_walk_cluster *walk)
 					 "properly?\n", (unsigned long long)k);
 		}
 
-		walk->image->inuse += lcn_length;
+		if (!opt.metadata_image)
+			walk->image->inuse += lcn_length;
 	}
-	if (!wipe && !opt.std_out && opt.metadata &&
+	if (((!wipe && !opt.std_out) || opt.metadata_image) && opt.metadata &&
 	    walk->image->ni->mft_no == FILE_LogFile &&
 	    walk->image->ctx->attr->type == AT_DATA)
 		clone_logfile_parts(walk->image, rl);
@@ -1150,10 +1215,11 @@ static void compare_bitmaps(struct bitmap *a)
 			perr_exit("Couldn't get $Bitmap $DATA");
 
 		if (count == 0) {
-			if (a->size > pos)
+			/* the backup bootsector need not be accounted for */
+			if (((vol->nr_clusters + 7) >> 3) > pos)
 				err_exit("$Bitmap size is smaller than expected"
-					 " (%lld != %lld)\n",
-					(long long)a->size, (long long)pos);
+					 " (%lld < %lld)\n",
+					(long long)pos, (long long)a->size);
 			break;
 		}
 
@@ -1272,6 +1338,7 @@ static int walk_clusters(ntfs_volume *volume, struct ntfs_walk_cluster *walk)
 {
 	s64 inode = 0;
 	s64 last_mft_rec;
+	u64 nr_clusters;
 	ntfs_inode *ni;
 	struct progress_bar progress;
 
@@ -1279,8 +1346,10 @@ static int walk_clusters(ntfs_volume *volume, struct ntfs_walk_cluster *walk)
 
 	last_mft_rec = (volume->mft_na->initialized_size >>
 			volume->mft_record_size_bits) - 1;
+	walk->image->current_lcn = 0;
 	progress_init(&progress, inode, last_mft_rec, 100);
 
+	NVolSetNoFixupWarn(volume);
 	for (; inode <= last_mft_rec; inode++) {
 
 		int err, deleted_inode;
@@ -1347,7 +1416,17 @@ out:
 			perr_exit("ntfs_inode_close for inode %lld",
 				(long long)inode);
 	}
-
+	if (opt.metadata) {
+				/* also get the backup bootsector */
+		nr_clusters = vol->nr_clusters;
+		lseek_to_cluster(nr_clusters);
+		if (opt.metadata_image && !wipe)
+			gap_to_cluster(nr_clusters - walk->image->current_lcn);
+		if (!wipe)
+			copy_cluster(opt.rescue, nr_clusters, nr_clusters);
+		walk->image->current_lcn = nr_clusters;
+		walk->image->inuse++;
+	}
 	return 0;
 }
 
@@ -1565,6 +1644,7 @@ static void fsync_clone(int fd)
 
 static void set_filesize(s64 filesize)
 {
+#ifndef NO_STATFS
 	long fs_type = 0; /* Unknown filesystem type */
 
 	if (fstatfs(fd_out, &opt.stfs) == -1)
@@ -1582,22 +1662,27 @@ static void set_filesize(s64 filesize)
 		Printf("WARNING: You're using SMBFS and if the remote share "
 		       "isn't Samba but a Windows\ncomputer then the clone "
 		       "operation will be very inefficient and may fail!\n");
+#endif
 
 	if (ftruncate(fd_out, filesize) == -1) {
 		int err = errno;
 		perr_printf("ftruncate failed for file '%s'", opt.output);
+#ifndef NO_STATFS
 		if (fs_type)
 			Printf("Destination filesystem type is 0x%lx.\n",
 			       (unsigned long)fs_type);
+#endif
 		if (err == E2BIG) {
 			Printf("Your system or the destination filesystem "
 			       "doesn't support large files.\n");
+#ifndef NO_STATFS
 			if (fs_type == 0x517b) {
 				Printf("SMBFS needs minimum Linux kernel "
 				       "version 2.4.25 and\n the 'lfs' option"
 				       "\nfor smbmount to have large "
 				       "file support.\n");
 			}
+#endif
 		} else if (err == EPERM) {
 			Printf("Apparently the destination filesystem doesn't "
 			       "support sparse files.\nYou can overcome this "
@@ -1894,7 +1979,7 @@ int main(int argc, char **argv)
 				flags |= O_EXCL;
 		}
 
-		if (opt.save_image) {
+		if (opt.save_image || opt.metadata_image) {
 			stream_out = fopen(opt.output,"w");
 			if (!stream_out)
 				perr_exit("Opening file '%s' failed",
@@ -1906,7 +1991,7 @@ int main(int argc, char **argv)
 				perr_exit("Opening file '%s' failed",
 						opt.output);
 
-		if (!opt.save_image)
+		if (!opt.save_image && !opt.metadata_image)
 			check_output_device(ntfs_size);
 	}
 
@@ -1921,6 +2006,8 @@ int main(int argc, char **argv)
 	memset(&image, 0, sizeof(image));
 	backup_clusters.image = &image;
 
+	if (opt.metadata_image)
+		wipe = 1;
 	walk_clusters(vol, &backup_clusters);
 	compare_bitmaps(&lcn_bitmap);
 	print_disk_usage("", vol->cluster_size, vol->nr_clusters, image.inuse);
@@ -1932,7 +2019,7 @@ int main(int argc, char **argv)
 	if (opt.save_image)
 		initialise_image_hdr(device_size, image.inuse);
 
-	if (opt.std_out || !opt.metadata) {
+	if ((opt.std_out && !opt.metadata_image) || !opt.metadata) {
 		s64 nr_clusters_to_save = image.inuse;
 		if (opt.std_out && !opt.save_image)
 			nr_clusters_to_save = vol->nr_clusters;
@@ -1947,14 +2034,20 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
-	wipe = 1;
-	fsync_clone(fd_out); /* sync copy before mounting */
-	opt.volume = opt.output;
+	if (opt.metadata_image) {
+		wipe = 0;
+		initialise_image_hdr(device_size, image.inuse);
+		write_image_hdr();
+	} else {
+		wipe = 1;
+		fsync_clone(fd_out); /* sync copy before mounting */
+		opt.volume = opt.output;
 	/* 'force' again mount for dirty volumes (e.g. after resize).
 	   FIXME: use mount flags to avoid potential side-effects in future */
-	opt.force++;
-	ntfs_umount(vol,FALSE);
-	mount_volume(0 /*MS_NOATIME*/);
+		opt.force++;
+		ntfs_umount(vol,FALSE);
+		mount_volume(0 /*MS_NOATIME*/);
+	}
 
 	free(lcn_bitmap.bm);
 	setup_lcn_bitmap();
@@ -1979,7 +2072,10 @@ int main(int argc, char **argv)
 	wiped_total += wiped_timestamp_data;
 	Printf("Wiped totally            = %10u\n", wiped_total);
 
-	fsync_clone(fd_out);
+	if (opt.metadata_image)
+		fclose(stream_out);
+	else
+		fsync_clone(fd_out);
 	ntfs_umount(vol,FALSE);
 	free(lcn_bitmap.bm);
 	return (0);

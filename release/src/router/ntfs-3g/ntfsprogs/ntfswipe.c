@@ -497,7 +497,8 @@ static s64 wipe_compressed_attribute(ntfs_volume *vol, int byte,
 		if (size < 0) {
 			ntfs_log_verbose("Internal error\n");
 			ntfs_log_error("bug or damaged fs: we want "
-				"allocate buffer size %lld bytes", size);
+				"allocate buffer size %lld bytes",
+				(long long)size);
 			return -1;
 		}
 
@@ -511,7 +512,8 @@ static s64 wipe_compressed_attribute(ntfs_volume *vol, int byte,
 		if (!buf) {
 			ntfs_log_verbose("Not enough memory\n");
 			ntfs_log_error("Not enough memory to allocate "
-							"%lld bytes", size);
+							"%lld bytes",
+							(long long)size);
 			return -1;
 		}
 		memset(buf, byte, size);
@@ -521,7 +523,9 @@ static s64 wipe_compressed_attribute(ntfs_volume *vol, int byte,
 		if (ret != size) {
 			ntfs_log_verbose("Internal error\n");
 			ntfs_log_error("ntfs_rl_pwrite failed, offset %llu, "
-				"size %lld, vcn %lld",	offset, size, rlc->vcn);
+				"size %lld, vcn %lld",
+				(unsigned long long)offset,
+				(long long)size, (long long)rlc->vcn);
 			return -1;
 		}
 		wiped += ret;
@@ -563,7 +567,8 @@ static s64 wipe_attribute(ntfs_volume *vol, int byte, enum action act,
 	buf = malloc(size);
 	if (!buf) {
 		ntfs_log_verbose("Not enough memory\n");
-		ntfs_log_error("Not enough memory to allocate %lld bytes", size);
+		ntfs_log_error("Not enough memory to allocate %lld bytes",
+					(long long)size);
 		return -1;
 	}
 	memset(buf, byte, size);
@@ -607,7 +612,7 @@ static s64 wipe_tails(ntfs_volume *vol, int byte, enum action act)
 	for (inode_num = 16; inode_num < nr_mft_records; inode_num++) {
 		s64 wiped;
 
-		ntfs_log_verbose("Inode %lld - ", inode_num);
+		ntfs_log_verbose("Inode %lld - ", (long long)inode_num);
 		ni = ntfs_inode_open(vol, inode_num);
 		if (!ni) {
 			ntfs_log_verbose("Could not open inode\n");
@@ -632,7 +637,8 @@ static s64 wipe_tails(ntfs_volume *vol, int byte, enum action act)
 
 		if (ntfs_attr_map_whole_runlist(na)) {
 			ntfs_log_verbose("Internal error\n");
-			ntfs_log_error("Can't map runlist (inode %lld)\n", inode_num);
+			ntfs_log_error("Can't map runlist (inode %lld)\n",
+					(long long)inode_num);
 			goto close_attr;
 		}
 
@@ -642,12 +648,13 @@ static s64 wipe_tails(ntfs_volume *vol, int byte, enum action act)
 			wiped = wipe_attribute(vol, byte, act, na);
 
 		if (wiped == -1) {
-			ntfs_log_error(" (inode %lld)\n", inode_num);
+			ntfs_log_error(" (inode %lld)\n", (long long)inode_num);
 			goto close_attr;
 		}
 
 		if (wiped) {
-			ntfs_log_verbose("Wiped %llu bytes\n", wiped);
+			ntfs_log_verbose("Wiped %llu bytes\n",
+					(unsigned long long)wiped);
 			total += wiped;
 		} else
 			ntfs_log_verbose("Nothing to wipe\n");
@@ -656,7 +663,8 @@ close_attr:
 close_inode:
 		ntfs_inode_close(ni);
 	}
-	ntfs_log_quiet("wipe_tails 0x%02x, %lld bytes\n", byte, total);
+	ntfs_log_quiet("wipe_tails 0x%02x, %lld bytes\n", byte,
+				(long long)total);
 	return total;
 }
 
@@ -681,13 +689,13 @@ static s64 wipe_mft(ntfs_volume *vol, int byte, enum action act)
 	s64 total = 0;
 	s64 result = 0;
 	int size = 0;
-	u8 *buffer = NULL;
+	MFT_RECORD *rec = NULL;
 
 	if (!vol || (byte < 0))
 		return -1;
 
-	buffer = malloc(vol->mft_record_size);
-	if (!buffer) {
+	rec = malloc(vol->mft_record_size);
+	if (!rec) {
 		ntfs_log_error("malloc failed\n");
 		return -1;
 	}
@@ -698,7 +706,7 @@ static s64 wipe_mft(ntfs_volume *vol, int byte, enum action act)
 	for (i = 0; i < nr_mft_records; i++) {
 		if (utils_mftrec_in_use(vol, i)) {
 			result = ntfs_attr_mst_pread(vol->mft_na, vol->mft_record_size * i,
-				1, vol->mft_record_size, buffer);
+				1, vol->mft_record_size, rec);
 			if (result != 1) {
 				ntfs_log_error("error attr mst read %lld\n",
 						(long long)i);
@@ -707,7 +715,7 @@ static s64 wipe_mft(ntfs_volume *vol, int byte, enum action act)
 			}
 
 			// We know that the end marker will only take 4 bytes
-			size = *((u32*) (buffer + 0x18)) - 4;
+			size = le32_to_cpu(rec->bytes_in_use) - 4;
 
 			if (act == act_info) {
 				//ntfs_log_info("mft %d\n", size);
@@ -715,83 +723,81 @@ static s64 wipe_mft(ntfs_volume *vol, int byte, enum action act)
 				continue;
 			}
 
-			memset(buffer + size, byte, vol->mft_record_size - size);
+			memset(((u8*) rec) + size, byte, vol->mft_record_size - size);
+		} else {
+			const u16 usa_offset =
+				(vol->major_ver == 3) ? 0x0030 : 0x002A;
+			const u32 usa_size = 1 +
+				(vol->mft_record_size >> NTFS_BLOCK_SIZE_BITS);
+			const u16 attrs_offset =
+				((usa_offset + usa_size) + 7) & ~((u16) 7);
+			const u32 bytes_in_use = attrs_offset + 8;
 
-			result = ntfs_attr_mst_pwrite(vol->mft_na, vol->mft_record_size * i,
-				1, vol->mft_record_size, buffer);
-			if (result != 1) {
-				ntfs_log_error("error attr mst write %lld\n",
-						(long long)i);
+			if(usa_size > 0xFFFF || (usa_offset + usa_size) >
+				(NTFS_BLOCK_SIZE - sizeof(u16)))
+			{
+				ntfs_log_error("%d: usa_size out of bounds "
+					"(%u)\n", __LINE__, usa_size);
 				total = -1;
 				goto free;
 			}
 
-			if ((vol->mft_record_size * (i+1)) <= vol->mftmirr_na->allocated_size)
-			{
-				// We have to reduce the update sequence number, or else...
-				u16 offset;
-				u16 usa;
-				offset = le16_to_cpu(*(buffer + 0x04));
-				usa = le16_to_cpu(*(buffer + offset));
-				*((u16*) (buffer + offset)) = cpu_to_le16(usa - 1);
-
-				result = ntfs_attr_mst_pwrite(vol->mftmirr_na, vol->mft_record_size * i,
-					1, vol->mft_record_size, buffer);
-				if (result != 1) {
-					ntfs_log_error("error attr mst write %lld\n",
-							(long long)i);
-					total = -1;
-					goto free;
-				}
-			}
-
-			total += vol->mft_record_size;
-		} else {
 			if (act == act_info) {
 				total += vol->mft_record_size;
 				continue;
 			}
 
 			// Build the record from scratch
-			memset(buffer, 0, vol->mft_record_size);
+			memset(rec, 0, vol->mft_record_size);
 
 			// Common values
-			*((u32*) (buffer + 0x00)) = magic_FILE;				// Magic
-			*((u16*) (buffer + 0x06)) = cpu_to_le16(0x0003);		// USA size
-			*((u16*) (buffer + 0x10)) = cpu_to_le16(0x0001);		// Seq num
-			*((u32*) (buffer + 0x1C)) = cpu_to_le32(vol->mft_record_size);	// FILE size
-			*((u16*) (buffer + 0x28)) = cpu_to_le16(0x0001);		// Attr ID
+			rec->magic = magic_FILE;
+			rec->usa_ofs = cpu_to_le16(usa_offset);
+			rec->usa_count = cpu_to_le16((u16) usa_size);
+			rec->sequence_number = cpu_to_le16(0x0001);
+			rec->attrs_offset = cpu_to_le16(attrs_offset);
+			rec->bytes_in_use = cpu_to_le32(bytes_in_use);
+			rec->bytes_allocated = cpu_to_le32(vol->mft_record_size);
+			rec->next_attr_instance = cpu_to_le16(0x0001);
 
-			if (vol->major_ver == 3) {
-				// Only XP and 2K3
-				*((u16*) (buffer + 0x04)) = cpu_to_le16(0x0030);	// USA offset
-				*((u16*) (buffer + 0x14)) = cpu_to_le16(0x0038);	// Attr offset
-				*((u32*) (buffer + 0x18)) = cpu_to_le32(0x00000040);	// FILE usage
-				*((u32*) (buffer + 0x38)) = cpu_to_le32(0xFFFFFFFF);	// End marker
-			} else {
-				// Only NT and 2K
-				*((u16*) (buffer + 0x04)) = cpu_to_le16(0x002A);	// USA offset
-				*((u16*) (buffer + 0x14)) = cpu_to_le16(0x0030);	// Attr offset
-				*((u32*) (buffer + 0x18)) = cpu_to_le32(0x00000038);	// FILE usage
-				*((u32*) (buffer + 0x30)) = cpu_to_le32(0xFFFFFFFF);	// End marker
-			}
+			// End marker.
+			*((le32*) (((u8*) rec) + attrs_offset)) = cpu_to_le32(0xFFFFFFFF);
+		}
 
-			result = ntfs_attr_mst_pwrite(vol->mft_na, vol->mft_record_size * i,
-				1, vol->mft_record_size, buffer);
+		result = ntfs_attr_mst_pwrite(vol->mft_na, vol->mft_record_size * i,
+			1, vol->mft_record_size, rec);
+		if (result != 1) {
+			ntfs_log_error("error attr mst write %lld\n",
+					(long long)i);
+			total = -1;
+			goto free;
+		}
+
+		if ((vol->mft_record_size * (i+1)) <= vol->mftmirr_na->allocated_size)
+		{
+			// We have to reduce the update sequence number, or else...
+			u16 offset;
+			le16 *usnp;
+			offset = le16_to_cpu(rec->usa_ofs);
+			usnp = (le16*) (((u8*) rec) + offset);
+			*usnp = cpu_to_le16(le16_to_cpu(*usnp) - 1);
+
+			result = ntfs_attr_mst_pwrite(vol->mftmirr_na, vol->mft_record_size * i,
+				1, vol->mft_record_size, rec);
 			if (result != 1) {
 				ntfs_log_error("error attr mst write %lld\n",
 						(long long)i);
 				total = -1;
 				goto free;
 			}
-
-			total += vol->mft_record_size;
 		}
+
+		total += vol->mft_record_size;
 	}
 
 	ntfs_log_quiet("wipe_mft 0x%02x, %lld bytes\n", byte, (long long)total);
 free:
-	free(buffer);
+	free(rec);
 	return total;
 }
 
@@ -826,7 +832,8 @@ static s64 wipe_index_allocation(ntfs_volume *vol, int byte, enum action act
 	bitmap = malloc(nab->data_size);
 	if (!bitmap) {
 		ntfs_log_verbose("malloc failed\n");
-		ntfs_log_error("Couldn't allocate %lld bytes", nab->data_size);
+		ntfs_log_error("Couldn't allocate %lld bytes",
+				(long long)nab->data_size);
 		return -1;
 	}
 
@@ -972,7 +979,7 @@ static s64 wipe_directory(ntfs_volume *vol, int byte, enum action act)
 		u32 indx_record_size;
 		s64 wiped;
 
-		ntfs_log_verbose("Inode %lld - ", inode_num);
+		ntfs_log_verbose("Inode %lld - ", (long long)inode_num);
 		ni = ntfs_inode_open(vol, inode_num);
 		if (!ni) {
 			if (opts.verbose > 2)
@@ -1002,14 +1009,14 @@ static s64 wipe_directory(ntfs_volume *vol, int byte, enum action act)
 		if (!NAttrNonResident(naa)) {
 			ntfs_log_verbose("Resident $INDEX_ALLOCATION\n");
 			ntfs_log_error("damaged fs: Resident $INDEX_ALLOCATION "
-					"(inode %lld)\n", inode_num);
+					"(inode %lld)\n", (long long)inode_num);
 			goto close_attr_allocation;
 		}
 
 		if (ntfs_attr_map_whole_runlist(naa)) {
 			ntfs_log_verbose("Internal error\n");
 			ntfs_log_error("Can't map runlist for $INDEX_ALLOCATION "
-					"(inode %lld)\n", inode_num);
+					"(inode %lld)\n", (long long)inode_num);
 			goto close_attr_allocation;
 		}
 
@@ -1018,7 +1025,7 @@ static s64 wipe_directory(ntfs_volume *vol, int byte, enum action act)
 			ntfs_log_verbose("Couldn't open $BITMAP\n");
 			ntfs_log_error("damaged fs: $INDEX_ALLOCATION is present, "
 					"but we can't open $BITMAP with same "
-					"name (inode %lld)\n", inode_num);
+					"name (inode %lld)\n", (long long)inode_num);
 			goto close_attr_allocation;
 		}
 
@@ -1027,32 +1034,34 @@ static s64 wipe_directory(ntfs_volume *vol, int byte, enum action act)
 			ntfs_log_verbose("Couldn't open $INDEX_ROOT\n");
 			ntfs_log_error("damaged fs: $INDEX_ALLOCATION is present, but "
 					"we can't open $INDEX_ROOT with same name"
-					" (inode %lld)\n", inode_num);
+					" (inode %lld)\n", (long long)inode_num);
 			goto close_attr_bitmap;
 		}
 
 		if (NAttrNonResident(nar)) {
 			ntfs_log_verbose("Not resident $INDEX_ROOT\n");
 			ntfs_log_error("damaged fs: Not resident $INDEX_ROOT "
-					"(inode %lld)\n", inode_num);
+					"(inode %lld)\n", (long long)inode_num);
 			goto close_attr_root;
 		}
 
 		indx_record_size = get_indx_record_size(nar);
 		if (!indx_record_size) {
-			ntfs_log_error(" (inode %lld)\n", inode_num);
+			ntfs_log_error(" (inode %lld)\n", (long long)inode_num);
 			goto close_attr_root;
 		}
 
 		wiped = wipe_index_allocation(vol, byte, act,
 						naa, nab, indx_record_size);
 		if (wiped == -1) {
-			ntfs_log_error(" (inode %lld)\n", inode_num);
+			ntfs_log_error(" (inode %lld)\n",
+					(long long)inode_num);
 			goto close_attr_root;
 		}
 
 		if (wiped) {
-			ntfs_log_verbose("Wiped %llu bytes\n", wiped);
+			ntfs_log_verbose("Wiped %llu bytes\n",
+					(unsigned long long)wiped);
 			total += wiped;
 		} else
 			ntfs_log_verbose("Nothing to wipe\n");
@@ -1066,7 +1075,8 @@ close_inode:
 		ntfs_inode_close(ni);
 	}
 
-	ntfs_log_quiet("wipe_directory 0x%02x, %lld bytes\n", byte, total);
+	ntfs_log_quiet("wipe_directory 0x%02x, %lld bytes\n", byte,
+			(long long)total);
 	return total;
 }
 
@@ -1166,7 +1176,8 @@ static s64 wipe_logfile(ntfs_volume *vol, int byte, enum action act
 
 	ntfs_attr_close(na);
 	ntfs_inode_close(ni);
-	ntfs_log_quiet("wipe_logfile 0x%02x, %lld bytes\n", byte, pos);
+	ntfs_log_quiet("wipe_logfile 0x%02x, %lld bytes\n", byte,
+			(long long)pos);
 	return pos;
 
 io_error_exit:
@@ -1256,7 +1267,8 @@ static s64 wipe_pagefile(ntfs_volume *vol, int byte, enum action act
 
 	ntfs_attr_close(na);
 	ntfs_inode_close(ni);
-	ntfs_log_quiet("wipe_pagefile 0x%02x, %lld bytes\n", byte, pos);
+	ntfs_log_quiet("wipe_pagefile 0x%02x, %lld bytes\n", byte,
+			(long long)pos);
 	return pos;
 
 io_error_exit:
