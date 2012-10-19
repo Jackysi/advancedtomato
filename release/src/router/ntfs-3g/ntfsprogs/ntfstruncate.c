@@ -241,7 +241,7 @@ static void parse_options(int argc, char *argv[])
 		s = argv[optind++];
 		if (optind != argc) {
 			/* Convert the string to little endian Unicode. */
-			attr_name_len = ntfs_mbstoucs_libntfscompat(s, &attr_name, 0);
+			attr_name_len = ntfs_mbstoucs(s, &attr_name);
 			if ((int)attr_name_len < 0)
 				err_exit("Invalid attribute name \"%s\": %s\n",
 						s, strerror(errno));
@@ -270,7 +270,7 @@ static void parse_options(int argc, char *argv[])
 	if (*s2 || ll < 0 || (ll >= LLONG_MAX && errno == ERANGE))
 		err_exit("Invalid new length: %s\n", s);
 	new_len = ll;
-	ntfs_log_verbose("new length = %lli\n", new_len);
+	ntfs_log_verbose("new length = %lli\n", (long long)new_len);
 }
 
 /**
