@@ -317,7 +317,7 @@ what:
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT
-# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS DNSCRYPT PPTPD TOR IPSEC RAID MICROSD NO_THEMES
+# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS DNSCRYPT PPTPD TOR IPSEC RAID NO_THEMES
 
 define RouterOptions
 	@( \
@@ -482,13 +482,9 @@ define RouterOptions
 		sed -i "/TCONFIG_TOR/d" $(1); \
 		echo "TCONFIG_TOR=y" >>$(1); \
 	fi; \
-	if [ "$(MICROSD)" = "y" ]; then \
-		sed -i "/TCONFIG_MICROSD/d" $(1); \
-		echo "TCONFIG_MICROSD=y" >>$(1); \
-	fi; \
 	if [ "$(NO_THEMES)" = "y" ]; then \
 		sed -i "/TCONFIG_THEMES/d" $(1); \
-		echo "# TCONFIG_THEMESis not set" >>$(1); \
+		echo "# TCONFIG_THEMES is not set" >>$(1); \
 	fi; \
 	)
 endef
