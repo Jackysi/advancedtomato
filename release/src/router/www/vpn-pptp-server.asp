@@ -266,8 +266,6 @@ function verifyFields(focused, quiet) {
 function init() {
 	var c;
 	if (((c = cookie.get('vpn_pptpd_notes_vis')) != null) && (c == '1')) toggleVisibility("notes");
-	if (((c = cookie.get('vpn_pptpd_settings_vis')) != null) && (c == '0')) toggleVisibility("settings");
-	if (((c = cookie.get('vpn_pptpd_userlist_vis')) != null) && (c == '0')) toggleVisibility("userlist");
 
 	if (nvram.pptpd_remoteip.indexOf('-') != -1) {
 		var tmp = nvram.pptpd_remoteip.split('-');
@@ -311,8 +309,8 @@ function toggleVisibility(whichone) {
 <input type='hidden' name='pptpd_enable'>
 <input type='hidden' name='pptpd_remoteip'>
 
-<div class='section-title'>PPTP Server Configuration <small><i><a href='javascript:toggleVisibility("settings");'><span id='sesdiv_settings_showhide'>(Click here to hide)</span></a></i></small></div>
-<div class='section' id='sesdiv_settings'>
+<div class='section-title'>PPTP Server Configuration</div>
+<div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Enable', name: 'f_pptpd_enable', type: 'checkbox', value: nvram.pptpd_enable == '1' },
@@ -335,11 +333,8 @@ createFieldTable('', [
 </script>
 </div>
 
-<div class='section-title'>PPTP User List <small><i><a href='javascript:toggleVisibility("userlist");'><span id='sesdiv_userlist_showhide'>(Click here to hide)</span></a></i></small></div>
-<!-- REMOVE-BEGIN -->
-<!-- <div class='section-title'>PPTP User List <small> <span id='user_count'></span> <i><a href='javascript:toggleVisibility("userlist");'><span id='sesdiv_userlist_showhide'>(Click here to hide)</span></a></i></small></div> -->
-<!--REMOVE-END -->
-<div class='section' id='sesdiv_userlist'>
+<div class='section-title'>PPTP User List</div>
+<div class='section'>
   <table class='tomato-grid' cellspacing=1 id='ul-grid'></table>
 </div>
 

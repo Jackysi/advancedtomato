@@ -798,8 +798,6 @@ function init() {
 		vlg.resetNewEditor();
 		var c;
 		if (((c = cookie.get('advanced_vlan_notes_vis')) != null) && (c == '1')) toggleVisibility("notes");
-		if (((c = cookie.get('advanced_vlan_wireless_vis')) != null) && (c == '1')) toggleVisibility("wireless");
-		if (((c = cookie.get('advanced_vlan_vidmap_vis')) != null) && (c == '1')) toggleVisibility("vidmap");
 	}
 }
 
@@ -904,8 +902,8 @@ function earlyInit() {
 
 <!-- / / / -->
 
-<div class='section-title'>VID Offset <small><i><a href='javascript:toggleVisibility("vidmap");'><span id='sesdiv_vidmap_showhide'>(Click here to show)</span></a></i></small></div>
-<div class='section' id='sesdiv_vidmap' style='display:none'>
+<div class='section-title'>VID Offset</div>
+<div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'First 802.1Q VLAN tag', name: 'vlan0tag', type: 'text', maxlen:4, size:6,
@@ -917,8 +915,8 @@ createFieldTable('', [
 
 <!-- / / / -->
 
-<div class='section-title'>Wireless <small><i><a href='javascript:toggleVisibility("wireless");'><span id='sesdiv_wireless_showhide'>(Click here to show)</span></a></i></small></div>
-<div class='section' id='sesdiv_wireless' style='display:none'>
+<div class='section-title'>Wireless</div>
+<div class='section'>
 <script type='text/javascript'>
 var f = [];
 for (var uidx = 0; uidx < wl_ifaces.length; ++uidx) {
@@ -933,6 +931,14 @@ if(port_vlan_supported) vlg.setup();
 </div>
 
 <!-- / / / -->
+<div class='section-title'>Trunk VLAN support override (experimental)</div>
+<div class='section'>
+<script type='text/javascript'>
+createFieldTable('', [
+  { title: 'Enable', name: 'f_trunk_vlan_so', type: 'checkbox', value: nvram.trunk_vlan_so == '1' },
+]);
+</script>
+</div>
 
 <div class='section-title'>Notes <small><i><a href='javascript:toggleVisibility("notes");'><span id='sesdiv_notes_showhide'>(Click here to show)</span></a></i></small></div>
 <div class='section' id='sesdiv_notes' style='display:none'>
@@ -978,15 +984,6 @@ if((trunk_vlan_supported) || (nvram.trunk_vlan_so == '1')) {
 <li>You've been warned!</li>
 </ul>
 </ul>
-<div id='trunk_vlan_override' style='display:none'>
-<div class='section-title'>Trunk VLAN support override (experimental)</div>
-<div class='section'>
-<script type='text/javascript'>
-createFieldTable('', [
-  { title: 'Enable', name: 'f_trunk_vlan_so', type: 'checkbox', value: nvram.trunk_vlan_so == '1' },
-]);
-</script>
-</div>
 </div>
 </div>
 </small>
