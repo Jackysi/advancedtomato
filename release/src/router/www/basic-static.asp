@@ -316,10 +316,6 @@ function init()
 		toggleVisibility("notes");
 	}
 
-	if (((c = cookie.get('basic_static_options_vis')) != null) && (c == '1')) {
-		toggleVisibility("options");
-	}
-
 	sg.recolor();
 }
 
@@ -368,8 +364,8 @@ function verifyFields(focused, quiet) {
 
 <!-- / / / -->
 
-<div class='section-title'>Options <small><i><a href='javascript:toggleVisibility("options");'><span id='sesdivoptionsshowhide'>(Click here to show)</span></a></i></small></div>
-<div class='section' id='sesdivoptions' style='display:none'>
+<div class='section-title'>Options</div>
+<div class='section'>
 <script type='text/javascript'>
 createFieldTable('', [
 { title: 'Ignore DHCP requests from unknown devices', name: 'f_dhcpd_static_only', type: 'checkbox', value: nvram.dhcpd_static_only == '1' }
