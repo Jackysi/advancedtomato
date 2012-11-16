@@ -183,3 +183,8 @@ config TCONFIG_MICROSD
 	bool "Support SD card (RT-N66u only)"
 	depends on TCONFIG_USB
 	default n
+
+config TCONFIG_USBAP
+	bool "Include wl_high module"
+	depends on TCONFIG_USB
+	default n

@@ -542,11 +542,9 @@ CFLAGS	+= $(call cc-option,-fno-strict-overflow)
 CFLAGS	+= $(call cc-option,-fno-dwarf2-cfi-asm)
 
 ifneq ($(CONFIG_BCM_CTF),)
-CFLAGS += -DHNDCTF
+CFLAGS += -DHNDCTF -DCTFPOOL -DCTFMAP
 ifneq ($(CONFIG_WL_USBAP),)
 CFLAGS += -DCTFPOOL_SPINLOCK
-else
-CFLAGS += -DCTFPOOL -DCTFMAP
 endif
 endif
 

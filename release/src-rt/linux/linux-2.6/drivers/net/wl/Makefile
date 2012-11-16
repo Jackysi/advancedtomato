@@ -1,15 +1,21 @@
 #
 # Makefile for the Broadcom wl driver
 #
-# Copyright (C) 2009, Broadcom Corporation
-# All Rights Reserved.
+# Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
 # 
-# THIS SOFTWARE IS OFFERED "AS IS", AND BROADCOM GRANTS NO WARRANTIES OF ANY
-# KIND, EXPRESS OR IMPLIED, BY STATUTE, COMMUNICATION OR OTHERWISE. BROADCOM
-# SPECIFICALLY DISCLAIMS ANY IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS
-# FOR A SPECIFIC PURPOSE OR NONINFRINGEMENT CONCERNING THIS SOFTWARE.
+# Permission to use, copy, modify, and/or distribute this software for any
+# purpose with or without fee is hereby granted, provided that the above
+# copyright notice and this permission notice appear in all copies.
+# 
+# THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+# SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+# WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
+# OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
+# CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
-# $Id: Makefile,v 1.11 2010/02/23 07:32:54 Exp $
+# $Id: Makefile,v 1.13 2010-12-13 20:23:49 $
 #
 
 SRCBASE := ../../../../..
@@ -17,16 +23,6 @@ SRCBASE := ../../../../..
 TARGET := wl
 WLCONF_H := wlconf.h
 WLCONF_O := wlconf.o
-
-WL_PARTIAL_REBUILD := 0
-
-CONFIG_WL_AP := "wlconfig_lx_router_ap"
-CONFIG_WL_APSTA := "wlconfig_lx_router_apsta"
-CONFIG_WL_STA := "wlconfig_lx_router_sta"
-CONFIG_WL_AP_SDSTD := "wlconfig_lx_router_ap_sdstd"
-CONFIG_WL_AP_ONCHIP_G := "wlconfig_lx_router_ap_1chipG"
-CONFIG_WL_STA_ONCHIP_G := "wlconfig_lx_router_sta_1chipG"
-CONFIG_WL_HIGH := "wlconfig_lx_router_high"
 
 # Generate list of supported variants
 VLIST_BASE := AP STA APSTA
@@ -59,11 +55,12 @@ wl_suffix := $(shell echo "$(WL_SUFFIX)" | tr A-Z a-z)
 
 # For PREBUILD and postbuild w/WLSRC, compile variants in subdirs
 # Subdir names use lowercase versions of the variant suffixes
-wlsubdirs := $(addprefix wl_,$(foreach v,$(VLIST),$(shell echo "$(v)/" | tr A-Z a-z)))
+#wlsubdirs := $(addprefix wl_,$(foreach v,$(VLIST),$(shell echo "$(v)/" | tr A-Z a-z)))
+wlsubdirs := $(addprefix wl_,$(foreach v,$(VLIST),$(shell echo "$(v)" | tr A-Z a-z)))
 
 
 #subdir-y += $(wlsubdirs)
 #subdir-m += $(wlsubdirs)
 
-
+.NOTPARALLEL:
 include $(src)/wl_generic.mk

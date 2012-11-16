@@ -317,7 +317,7 @@ what:
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT
-# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS DNSCRYPT PPTPD TOR IPSEC RAID MICROSD NO_THEMES
+# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS DNSCRYPT PPTPD TOR IPSEC RAID MICROSD NO_THEMES USBAP
 
 define RouterOptions
 	@( \
@@ -489,6 +489,10 @@ define RouterOptions
 	if [ "$(MICROSD)" = "y" ]; then \
 		sed -i "/TCONFIG_MICROSD/d" $(1); \
 		echo "TCONFIG_MICROSD=y" >>$(1); \
+	fi; \
+	if [ "$(USBAP)" = "y" ]; then \
+		sed -i "/TCONFIG_USBAP/d" $(1); \
+		echo "TCONFIG_USBAP=y" >>$(1); \
 	fi; \
 	)
 endef
@@ -748,6 +752,13 @@ define KernelConfig
 		echo "CONFIG_BCM57XX=m" >>$(1); \
 	else \
 		echo "# CONFIG_BCM57XX is not set" >>$(1); \
+	fi; \
+	if [ "$(USBAP)" = "y" ]; then \
+		echo "CONFIG_WL_USBAP=y" >>$(1); \
+		echo 'CONFIG_WL_APSTA="wlconfig_lx_router_high"' >>$(1); \
+	else \
+		echo "# CONFIG_WL_USBAP is not set" >>$(1); \
+		echo 'CONFIG_WL_APSTA="wlconfig_lx_router_apsta"' >>$(1); \
 	fi; \
 	if [ "$(CONFIG_LINUX26)" = "y" ] && [ "$(EBTABLES)" = "y" ]; then \
 		sed -i "/CONFIG_BRIDGE_NF_EBTABLES/d" $(1); \

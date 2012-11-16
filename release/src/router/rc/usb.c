@@ -106,6 +106,13 @@ void start_usb(void)
 			f_write_string("/proc/leds-usb/gpio_pin", param, 0, 0);
 		}
 #endif
+
+#ifdef TCONFIG_USBAP
+			char instance[20];
+			sprintf(instance, "instance_base=1");
+			modprobe("wl_high", instance );
+#endif
+
 		if (nvram_get_int("usb_storage")) {
 			/* insert scsi and storage modules before usb drivers */
 			modprobe(SCSI_MOD);

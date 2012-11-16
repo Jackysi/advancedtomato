@@ -75,7 +75,7 @@ struct urb *usb_alloc_urb(int iso_packets, gfp_t mem_flags)
 	usb_init_urb(urb);
 	return urb;
 }
-EXPORT_SYMBOL_GPL(usb_alloc_urb);
+EXPORT_SYMBOL(usb_alloc_urb);
 
 /**
  * usb_free_urb - frees the memory used by a urb when all users of it are finished
@@ -92,7 +92,7 @@ void usb_free_urb(struct urb *urb)
 	if (urb)
 		kref_put(&urb->kref, urb_destroy);
 }
-EXPORT_SYMBOL_GPL(usb_free_urb);
+EXPORT_SYMBOL(usb_free_urb);
 
 /**
  * usb_get_urb - increments the reference count of the urb
@@ -462,7 +462,7 @@ int usb_submit_urb(struct urb *urb, gfp_t mem_flags)
 
 	return usb_hcd_submit_urb(urb, mem_flags);
 }
-EXPORT_SYMBOL_GPL(usb_submit_urb);
+EXPORT_SYMBOL(usb_submit_urb);
 
 /*-------------------------------------------------------------------*/
 
@@ -576,7 +576,7 @@ void usb_kill_urb(struct urb *urb)
 
 	atomic_dec(&urb->reject);
 }
-EXPORT_SYMBOL_GPL(usb_kill_urb);
+EXPORT_SYMBOL(usb_kill_urb);
 
 /**
  * usb_poison_urb - reliably kill a transfer and prevent further use of an URB
