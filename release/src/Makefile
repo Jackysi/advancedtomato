@@ -182,11 +182,21 @@ ifeq ($(LINKSYS_E),y)
 	# Linksys E-series(60k Nvram) images
 	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
 		-l 1550,image/tomato-E1550$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
-		-l E25X,image/tomato-E2500$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
-		-l 3200,image/tomato-E3200$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		-l 4200,image/tomato-E4200$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		-l 61XN,image/tomato-E3000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		-l 32XN,image/tomato-E2000$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		| tee -a fpkg.log
+endif
+ifeq ($(LINKSYS_E2500),y)
+	# Linksys E2500(60k Nvram) image
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-l E25X,image/tomato-E2500$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
+		| tee -a fpkg.log
+endif
+ifeq ($(LINKSYS_E3200),y)
+	# Linksys E2500(60k Nvram) image
+	@btools/fpkg -i lzma-loader/loader.gz -i $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed/vmlinuz -a 1024 -i router/mipsel-uclibc/target.image \
+		-l E3200,image/tomato-E3200$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin \
 		| tee -a fpkg.log
 endif
 ifeq ($(LINKSYS_E_64k),y)
@@ -317,7 +327,7 @@ what:
 # JFFSv1 | NO_JFFS
 # NO_CIFS, NO_SSH, NO_ZEBRA, NO_SAMBA, NO_HTTPS, NO_XXTP, NO_LIBOPT
 # SAMBA3, OPENVPN, IPV6SUPP, EBTABLES, NTFS, MEDIASRV, BBEXTRAS, USBEXTRAS, BCM57, SLIM, NOCAT
-# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS DNSCRYPT PPTPD TOR IPSEC RAID MICROSD NO_THEMES USBAP
+# NFS BTCLIENT BTGUI TR_EXTRAS SNMP SDHC HFS UPS DNSCRYPT PPTPD TOR IPSEC RAID MICROSD NO_THEMES USBAP NO_USBAPP
 
 define RouterOptions
 	@( \
@@ -493,6 +503,16 @@ define RouterOptions
 	if [ "$(USBAP)" = "y" ]; then \
 		sed -i "/TCONFIG_USBAP/d" $(1); \
 		echo "TCONFIG_USBAP=y" >>$(1); \
+		if [ "$(NO_USBAPP)" = "y" ]; then \
+			sed -i "/TCONFIG_REMOVE_USBAPP/d" $(1); \
+			echo "TCONFIG_REMOVE_USBAPP=y" >>$(1); \
+			sed -i "/TCONFIG_FTP/d" $(1); \
+			echo "# TCONFIG_FTP is not set" >>$(1); \
+			echo "# TCONFIG_FTP_SSL is not set" >>$(1); \
+			sed -i "/TCONFIG_SAMBA/d" $(1); \
+			echo "# TCONFIG_SAMBASRV is not set" >>$(1); \
+			echo "# TCONFIG_SAMBA3 is not set" >>$(1); \
+		fi; \
 	fi; \
 	)
 endef
@@ -1051,6 +1071,17 @@ r64o:
 
 r64t:
 	@$(MAKE) t MIPS32=r2 NVRAM_64K=y MICROSD=y
+
+ifeq ($(CONFIG_LINUX26),y)
+rtn53:
+	@$(MAKE) bin MIPS32=r2 OPENVPN=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y B=E BUILD_DESC="RT-N53" USB="USB" SNMP=y DNSCRYPT=y PPTPD=y TOR=y NOCAT=y USBAP=y NO_USBAPP=y
+
+e2500:
+	@$(MAKE) bin MIPS32=r2 OPENVPN=y BBEXTRAS=y EBTABLES=y NO_LIBOPT=y IPV6SUPP=y B=E BUILD_DESC="Max" USB="USB" SNMP=y DNSCRYPT=y PPTPD=y TOR=y NOCAT=y USBAP=y NO_USBAPP=y NVRAM_SIZE=60 LINKSYS_E2500=y
+
+e3200:
+	@$(MAKE) r2z USBAP=y NVRAM_SIZE=60 LINKSYS_E3200=y
+endif
 
 setprofile:
 	echo '#ifndef TOMATO_PROFILE' > router/shared/tomato_profile.h

@@ -1044,10 +1044,23 @@ static int init_nvram(void)
 		mfr = "Asus";
 		name = "RT-N53";
 		features = SUP_SES | SUP_80211N;
+#if defined(LINUX26) && defined(TCONFIG_USBAP)
+		if (nvram_get_int("usb_storage") == 1) nvram_set("usb_storage", "-1");
+#endif
 		if (!nvram_match("t_fix1", (char *)name)) {
+#ifdef TCONFIG_USBAP
+			nvram_set("lan_ifnames", "vlan2 eth1 eth2");
+			nvram_set("landevs", "vlan2 wl0 wl1");
+			nvram_set("wl0_ifnames", "eth1 eth2");
+			nvram_set("wl_ifnames", "eth1 eth2");
+			nvram_set("wl1_ifname", "eth2");
+#else
 			nvram_set("lan_ifnames", "vlan2 eth1");
-			nvram_set("wan_ifnameX", "vlan1");
 			nvram_set("landevs", "vlan2 wl0");
+#endif
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("wl0_ifname", "eth1");
+			nvram_set("wan_ifnameX", "vlan1");
 			nvram_set("wandevs", "vlan1");
 			nvram_unset("vlan0ports");
 		}
@@ -1169,10 +1182,24 @@ static int init_nvram(void)
 		name = nvram_safe_get("boot_hw_model");
 		ver = nvram_safe_get("boot_hw_ver");
 		features = SUP_SES | SUP_80211N;
+#if defined(LINUX26) && defined(TCONFIG_USBAP)
+		if (nvram_get_int("usb_storage") == 1) nvram_set("usb_storage", "-1");
+#endif
 		if (!nvram_match("t_fix1", (char *)name)) {
+#ifdef TCONFIG_USBAP
 			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
+			nvram_set("landevs", "vlan1 wl0 wl1");
+			nvram_set("wl0_ifnames", "eth1 eth2");
+			nvram_set("wl_ifnames", "eth1 eth2");
+			nvram_set("wl0_ifname", "eth1");
+			nvram_set("wl1_ifname", "eth2");
+#else
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("landevs", "vlan2 wl0");
+#endif
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");
+
 		}
 		break;
 	case MODEL_E3200:
@@ -1184,9 +1211,19 @@ static int init_nvram(void)
 		nvram_set("usb_uhci", "-1");
 #endif
 		if (!nvram_match("t_fix1", (char *)name)) {
+#ifdef TCONFIG_USBAP
 			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
-			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("landevs", "vlan1 wl0 wl1");
+			nvram_set("wl0_ifnames", "eth1 eth2");
+			nvram_set("wl_ifnames", "eth1 eth2");
+			nvram_set("wl0_ifname", "eth1");
+			nvram_set("wl1_ifname", "eth2");
+#else
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("landevs", "vlan1 wl0");
+#endif
 			nvram_set("wl_ifname", "eth1");
+			nvram_set("wan_ifnameX", "vlan2");
 		}
 		break;
 	case MODEL_E1000v2:
