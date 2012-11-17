@@ -106,7 +106,6 @@ void start_usb(void)
 			f_write_string("/proc/leds-usb/gpio_pin", param, 0, 0);
 		}
 #endif
-
 #ifdef TCONFIG_USBAP
 			char instance[20];
 			sprintf(instance, "instance_base=1");
@@ -192,6 +191,13 @@ void start_usb(void)
 #ifdef TCONFIG_UPS
 		start_ups();
 #endif
+
+#ifdef TCONFIG_USBAP
+			//enable eth2 after detect new iface by wl_high module
+			sleep(5);
+			xstart("service", "wireless", "restart");
+#endif
+
 
 	}
 }
