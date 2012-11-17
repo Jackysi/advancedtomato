@@ -1051,8 +1051,6 @@ static int init_nvram(void)
 #ifdef TCONFIG_USBAP
 			nvram_set("lan_ifnames", "vlan2 eth1 eth2");
 			nvram_set("landevs", "vlan2 wl0 wl1");
-			nvram_set("wl0_ifnames", "eth1 eth2");
-			nvram_set("wl_ifnames", "eth1 eth2");
 			nvram_set("wl1_ifname", "eth2");
 #else
 			nvram_set("lan_ifnames", "vlan2 eth1");
@@ -1189,13 +1187,11 @@ static int init_nvram(void)
 #ifdef TCONFIG_USBAP
 			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
 			nvram_set("landevs", "vlan1 wl0 wl1");
-			nvram_set("wl0_ifnames", "eth1 eth2");
-			nvram_set("wl_ifnames", "eth1 eth2");
 			nvram_set("wl0_ifname", "eth1");
 			nvram_set("wl1_ifname", "eth2");
 #else
 			nvram_set("lan_ifnames", "vlan1 eth1");
-			nvram_set("landevs", "vlan2 wl0");
+			nvram_set("landevs", "vlan1 wl0");
 #endif
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");
@@ -1214,8 +1210,6 @@ static int init_nvram(void)
 #ifdef TCONFIG_USBAP
 			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
 			nvram_set("landevs", "vlan1 wl0 wl1");
-			nvram_set("wl0_ifnames", "eth1 eth2");
-			nvram_set("wl_ifnames", "eth1 eth2");
 			nvram_set("wl0_ifname", "eth1");
 			nvram_set("wl1_ifname", "eth2");
 #else
@@ -1376,11 +1370,10 @@ static int init_nvram(void)
 
 	if (name) {
 		nvram_set("t_fix1", name);
-		/* Don't show the version information if it's empty (null or empty string) */
-		if (ver == NULL || strcmp(ver, "") == 0) {
-			sprintf(s, "%s %s", mfr, name);
-		} else {
+		if (ver && strcmp(ver, "")) {
 			sprintf(s, "%s %s v%s", mfr, name, ver);
+		} else {
+			sprintf(s, "%s %s", mfr, name);
 		}
 	}
 	else {
