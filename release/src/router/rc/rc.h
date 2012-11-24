@@ -520,6 +520,10 @@ extern void stop_nocat();
 extern void reset_nocat(); 
 #endif
 
+// tomatoanon.c
+extern void start_tomatoanon(); 
+extern void stop_tomatoanon(); 
+
 #endif
 
 

@@ -662,6 +662,12 @@ const defaults_t defaults[] = {
 	{ "jffs2_on",			"0"				},
 	{ "jffs2_exec",			""				},
 
+// admin-tomatoanon
+	{ "tomatoanon_enable",		"-1"				},
+	{ "tomatoanon_answer",		"0"				},
+	{ "tomatoanon_cru",		"6"				},
+	{ "tomatoanon_id",		""				},
+
 #ifdef TCONFIG_USB
 // nas-usb - !!TB
 	{ "usb_enable",			"1"				},
