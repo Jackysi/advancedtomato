@@ -66,7 +66,7 @@ if [ "$ANON_ANSWER" == "1" ]; then
         #Get country name and code
         wget -O /tmp/country http://api.easyjquery.com/test/demo-ip.php
         ISO=`cat /tmp/country | grep Country] | cut -d " " -f7`
-        COUNTRY=`cat /tmp/country | grep CountryName | cut -d " " -f7`
+        COUNTRY=`cat /tmp/country | grep CountryName | cut -d " " -f7,8,9`
         rm /tmp/country
 
         #Change all spaces to %20.
@@ -82,7 +82,7 @@ if [ "$ANON_ANSWER" == "1" ]; then
 
         INTERVAL=`nvram get tomatoanon_cru`
         cru d tomatoanon
-        cru a tomatoanon "* */$INTERVAL * * * /usr/bin/tomatoanon"
+        cru a tomatoanon "0 */$INTERVAL * * * /usr/bin/tomatoanon"
 
     else #if anon is not enabled or was disabled right now
 
