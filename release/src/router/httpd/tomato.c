@@ -1049,6 +1049,12 @@ static const nvset_t nvset_list[] = {
 	{ "mmc_exec_umount",		V_LENGTH(0, 64)			},
 #endif
 
+// admin-tomatoanon
+	{ "tomatoanon_answer",		V_RANGE(0, 1)			},
+	{ "tomatoanon_enable",		V_RANGE(-1, 1)			},
+	{ "tomatoanon_cru",		V_RANGE(1, 12)			},
+	{ "tomatoanon_id",		V_LENGTH(0, 32)			},
+
 // nas-usb - !!TB
 #ifdef TCONFIG_USB
 	{ "usb_enable",			V_01				},

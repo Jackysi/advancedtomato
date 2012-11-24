@@ -163,6 +163,9 @@ function show()
 
 function earlyInit()
 {
+	if ((stats.anon_enable == '-1') || (stats.anon_answer == '0'))
+		E('notice1').style.display = '';
+
 	elem.display('b_dhcpc', show_dhcpc);
 	elem.display('b_connect', 'b_disconnect', show_codi);
 	if (nvram.wan_proto == 'disabled')
@@ -214,6 +217,11 @@ function toggleVisibility(whichone) {
 <div id='ident'><% ident(); %></div>
 
 <!-- / / / -->
+<div style='display:none' id='notice1'>
+<div class='section-title'><font color="red"><center>!! Attention !!</center></font></div>
+<div class='section'><center>You did not configure <b>TomatoAnon project</b> setting.
+<br>Please go to <a href='admin-tomatoanon.asp'><b>TomatoAnon configuration page</b></a> and make a choice.</center></div>
+</div>
 
 <div class='section-title'>System <small><i><a href='javascript:toggleVisibility("system");'><span id='sesdiv_system_showhide'>(hide)</span></a></i></small></div>
 <div class='section' id='sesdiv_system'>

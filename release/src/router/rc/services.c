@@ -1697,6 +1697,7 @@ static void start_ftpd(void)
 			if (!user || !pass) continue;
 
 			if (i == 3 || !root_dir || !(*root_dir))
+
 			root_dir = nvram_safe_get("ftp_pubroot");
 
 			/* directory */
@@ -2222,6 +2223,8 @@ void start_services(void)
 	start_snmp();
 #endif
 
+	start_tomatoanon();
+
 #ifdef TCONFIG_TOR
 	start_tor();
 #endif
@@ -2258,6 +2261,8 @@ void stop_services(void)
 #ifdef TCONFIG_TOR
 	stop_tor();
 #endif
+
+	stop_tomatoanon();
 
 #ifdef TCONFIG_NFS
 	stop_nfs();
@@ -2788,6 +2793,12 @@ TOP:
 		goto CLEAR;
 	}
 #endif
+
+	if (strcmp(service, "tomatoanon") == 0) {
+		if (action & A_STOP) stop_tomatoanon();
+		if (action & A_START) start_tomatoanon();
+		goto CLEAR;
+	}
 
 #ifdef TCONFIG_USB
 	// !!TB - USB Support

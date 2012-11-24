@@ -1,0 +1,99 @@
+#!/bin/sh
+
+###############################
+# Copyright (C) 2012 shibby
+#
+# This script send anonymous or incompleted information about model of router and installed tomato version.
+# Those information will be used ONLY for stats.
+# Any of private information will be NOT sended!
+# Results you can explore on http://tomato.groov.pl/tomatoanon.php page.
+# If you don`t agree to run this script you can set nvram variable tomatoanon to 0.
+#
+# Sended information:
+# - MD5SUM of WAN+LAN MAC addresses - this will identify a router. Ex: 1c1dbd4202d794251ec1acf1211bb2c8
+# - Model of router. Ex: Asus RT-N66U
+# - Version of installed tomato. Ex: 102 K26 USB
+# - Builtype. Ex: Mega-VPN-64K
+# - Country. Ex: POLAND
+# - ISO Country code. Ex: PL
+# - Uptime of your router. Ex: 3 days
+#
+# That`s all
+###############################
+
+ANON_ENABLED=`nvram get tomatoanon_enable`
+ANON_ANSWER=`nvram get tomatoanon_answer`
+
+if [ "$ANON_ANSWER" == "1" ]; then
+    if [ "$ANON_ENABLED" == "1" ]; then
+
+        #Collect datas
+        MOD=Shibby
+        UPTIME=`uptime | cut -d "," -f1 | cut -d " " -f4,5`
+        WANMAC=`nvram get wan_hwaddr`
+        LANMAC=`nvram get lan_hwaddr`
+        MODEL=`nvram get t_model_name`
+        WANMAC_MD5=`echo "$WANMAC+$LANMAC" | md5sum | cut -d " " -f1`
+        nvram set tomatoanon_id="$WANMAC_MD5"
+        nvram commit
+
+        #Detect Version and Buildtype
+        KERNEL=`uname -r | cut -d "." -f1,2`
+        if [ "$KERNEL" == "2.6" ]; then
+            IS_USB=`nvram get os_version | grep USB | wc -l`
+            if [ "$IS_USB" == "0" ]; then #if K26
+                VER=`nvram get os_version | cut -d "-" -f2,3,4,5,6,7,8 | cut -d " " -f1,2`
+                BUILDTYPE=`nvram get os_version | cut -d "-" -f2,3,4,5,6,7,8 | cut -d " " -f3,4,5`
+            else #if K26USB
+                VER=`nvram get os_version | cut -d "-" -f2,3,4,5,6,7,8 | cut -d " " -f1,2,3`
+                BUILDTYPE=`nvram get os_version | cut -d "-" -f2,3,4,5,6,7,8 | cut -d " " -f4,5,6`
+            fi
+        else #K2.4
+            IS_USB=`nvram get os_version | grep USB | wc -l`
+            if [ "$IS_USB" == "0" ]; then #if K24
+                VER=`nvram get os_version | cut -d " " -f2,3`
+                BUILDTYPE=`nvram get os_version  | cut -d " " -f4,5`
+            else # if K24USB
+                VER=`nvram get os_version | cut -d " " -f2,3,4`
+                BUILDTYPE=`nvram get os_version  | cut -d " " -f5,6`
+            fi
+        fi
+
+        #Get country name and code
+        wget -O /tmp/country http://api.easyjquery.com/test/demo-ip.php
+        ISO=`cat /tmp/country | grep Country] | cut -d " " -f7`
+        COUNTRY=`cat /tmp/country | grep CountryName | cut -d " " -f7`
+        rm /tmp/country
+
+        #Change all spaces to %20.
+        echo "http://tomato.groov.pl/tomatoanon.php?wanmac_md5=$WANMAC_MD5&model=$MODEL&version=$VER&buildtype=$BUILDTYPE&country=$COUNTRY&flag=$ISO&uptime=$UPTIME&mod=$MOD&anon=1" > /tmp/AnonLink
+        sed -i "s/ /%20/g" /tmp/AnonLink
+        ANONSEND=`cat /tmp/AnonLink`
+        rm /tmp/AnonLink
+
+        #We have all we need well we can send datas to Anon database
+        wget -O /dev/null $ANONSEND
+
+        #Thanks
+
+        INTERVAL=`nvram get tomatoanon_cru`
+        cru d tomatoanon
+        cru a tomatoanon "* */$INTERVAL * * * /usr/bin/tomatoanon"
+
+    else #if anon is not enabled or was disabled right now
+
+        ISCRU=`cru l | grep tomatoanon | wc -l`
+        if [ "$ISCRU" == "0" ]; then
+            cru d tomatoanon
+        fi
+
+    fi #end ANON_ENABLE
+
+else #if answer is not enabled or was disabled right now
+
+    ISCRU=`cru l | grep tomatoanon | wc -l`
+    if [ "$ISCRU" == "0" ]; then
+        cru d tomatoanon
+    fi
+
+fi #end ANON_ANSWER

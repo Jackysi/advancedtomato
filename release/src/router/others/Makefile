@@ -22,6 +22,9 @@ ifeq ($(TCONFIG_DNSCRYPT),y)
 	install -m 0700 ntp2ip $(INSTALLDIR)/usr/sbin
 endif
 
+#TomatoAnon project
+	install -m 0700 tomatoanon $(INSTALLDIR)/usr/sbin
+
 # cron helper
 	install -m 0700 cru $(INSTALLDIR)/usr/sbin
 
