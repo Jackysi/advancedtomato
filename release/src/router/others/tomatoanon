@@ -34,8 +34,12 @@ if [ "$ANON_ANSWER" == "1" ]; then
         LANMAC=`nvram get lan_hwaddr`
         MODEL=`nvram get t_model_name`
         WANMAC_MD5=`echo "$WANMAC+$LANMAC" | md5sum | cut -d " " -f1`
-        nvram set tomatoanon_id="$WANMAC_MD5"
-        nvram commit
+
+        ROUTERID=`nvram get tomatoanon_id`
+        if [ ! "$ROUTERID" == "$WANMAC_MD5"]; then
+            nvram set tomatoanon_id="$WANMAC_MD5"
+            nvram commit
+        fi
 
         #Detect Version and Buildtype
         KERNEL=`uname -r | cut -d "." -f1,2`
