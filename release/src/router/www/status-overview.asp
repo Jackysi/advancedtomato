@@ -219,8 +219,8 @@ function toggleVisibility(whichone) {
 <!-- / / / -->
 <div style='display:none' id='notice1'>
 <div class='section-title'><font color="red"><center>!! Attention !!</center></font></div>
-<div class='section'><center>You did not configure <b>TomatoAnon project</b> setting.
-<br>Please go to <a href='admin-tomatoanon.asp'><b>TomatoAnon configuration page</b></a> and make a choice.</center></div>
+<div class='section'><center><font color="black">You did not configure <b>TomatoAnon project</b> setting.
+<br>Please go to <a style="color: black;" href='admin-tomatoanon.asp'><b>TomatoAnon configuration page</b></a> and make a choice.</font></center></div>
 </div>
 
 <div class='section-title'>System <small><i><a href='javascript:toggleVisibility("system");'><span id='sesdiv_system_showhide'>(hide)</span></a></i></small></div>
