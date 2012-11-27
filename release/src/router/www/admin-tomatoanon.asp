@@ -58,7 +58,7 @@ function init()
 <input type='hidden' name='_nextpage' value='admin-tomatoanon.asp'>
 <input type='hidden' name='_service' value='tomatoanon-restart'>
 <div class='section-title'>About TomatoAnon Project</div>
-<div class="fields">
+<div class="fields"><font color="#FFFFFF">
 <b>Hello</b><br>
 <br>
 I would like to present You a new Project named TomatoAnon.<br>
@@ -86,7 +86,7 @@ That`s all !!<br>
 <br>
 Thank You for read that and please make a right choice.<br>
 <br>
-<b>Best Regards!</b>
+<b>Best Regards!</b></font>
 </div>
 <br>
 <br>

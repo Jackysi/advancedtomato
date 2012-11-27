@@ -33,10 +33,11 @@ if [ "$ANON_ANSWER" == "1" ]; then
         WANMAC=`nvram get wan_hwaddr`
         LANMAC=`nvram get lan_hwaddr`
         MODEL=`nvram get t_model_name`
-        WANMAC_MD5=`echo "$WANMAC+$LANMAC" | md5sum | cut -d " " -f1`
+        DRIVER=`wl ver | grep version | awk '{ print $7 }'`
+        WANMAC_MD5=`echo "$WANMAC+$LANMAC" | md5sum | awk '{ print $1 }'`
 
         ROUTERID=`nvram get tomatoanon_id`
-        if [ ! "$ROUTERID" == "$WANMAC_MD5"]; then
+        if [ ! "$ROUTERID" == "$WANMAC_MD5" ]; then
             nvram set tomatoanon_id="$WANMAC_MD5"
             nvram commit
         fi
@@ -46,31 +47,31 @@ if [ "$ANON_ANSWER" == "1" ]; then
         if [ "$KERNEL" == "2.6" ]; then
             IS_USB=`nvram get os_version | grep USB | wc -l`
             if [ "$IS_USB" == "0" ]; then #if K26
-                VER=`nvram get os_version | cut -d "-" -f2,3,4,5,6,7,8 | cut -d " " -f1,2`
-                BUILDTYPE=`nvram get os_version | cut -d "-" -f2,3,4,5,6,7,8 | cut -d " " -f3,4,5`
+                VER=`nvram get os_version | awk '{ print $2" "$3 }' | cut -d "-" -f2`
+                BUILDTYPE=`nvram get os_version | awk '{ print $4 }'`
             else #if K26USB
-                VER=`nvram get os_version | cut -d "-" -f2,3,4,5,6,7,8 | cut -d " " -f1,2,3`
-                BUILDTYPE=`nvram get os_version | cut -d "-" -f2,3,4,5,6,7,8 | cut -d " " -f4,5,6`
+                VER=`nvram get os_version | awk '{ print $2" "$3" "$4 }' | cut -d "-" -f2`
+                BUILDTYPE=`nvram get os_version | awk '{ print $5 }'`
             fi
         else #K2.4
             IS_USB=`nvram get os_version | grep USB | wc -l`
             if [ "$IS_USB" == "0" ]; then #if K24
-                VER=`nvram get os_version | cut -d " " -f2,3`
-                BUILDTYPE=`nvram get os_version  | cut -d " " -f4,5`
+                VER=`nvram get os_version | awk '{ print $2" "$3 }'`
+                BUILDTYPE=`nvram get os_version  |  awk '{ print $4 }'`
             else # if K24USB
-                VER=`nvram get os_version | cut -d " " -f2,3,4`
-                BUILDTYPE=`nvram get os_version  | cut -d " " -f5,6`
+                VER=`nvram get os_version | awk '{ print $2" "$3" "$4 }'`
+                BUILDTYPE=`nvram get os_version | awk '{ print $5 }'`
             fi
         fi
 
         #Get country name and code
         wget -O /tmp/country http://api.easyjquery.com/test/demo-ip.php
-        ISO=`cat /tmp/country | grep Country] | cut -d " " -f7`
-        COUNTRY=`cat /tmp/country | grep CountryName | cut -d " " -f7`
+        ISO=`cat /tmp/country | grep Country] | awk '{ print $3 }'`
+        COUNTRY=`cat /tmp/country | grep CountryName | awk '{ print $3" "$4" "$5 }'`
         rm /tmp/country
 
         #Change all spaces to %20.
-        echo "http://tomato.groov.pl/tomatoanon.php?wanmac_md5=$WANMAC_MD5&model=$MODEL&version=$VER&buildtype=$BUILDTYPE&country=$COUNTRY&flag=$ISO&uptime=$UPTIME&mod=$MOD&anon=1" > /tmp/AnonLink
+        echo "http://tomato.groov.pl/tomatoanon.php?wanmac_md5=$WANMAC_MD5&model=$MODEL&version=$VER&buildtype=$BUILDTYPE&country=$COUNTRY&flag=$ISO&driver=$DRIVER&uptime=$UPTIME&mod=$MOD&anon=1" > /tmp/AnonLink
         sed -i "s/ /%20/g" /tmp/AnonLink
         ANONSEND=`cat /tmp/AnonLink`
         rm /tmp/AnonLink
@@ -82,7 +83,7 @@ if [ "$ANON_ANSWER" == "1" ]; then
 
         INTERVAL=`nvram get tomatoanon_cru`
         cru d tomatoanon
-        cru a tomatoanon "* */$INTERVAL * * * /usr/bin/tomatoanon"
+        cru a tomatoanon "0 */$INTERVAL * * * /usr/sbin/tomatoanon"
 
     else #if anon is not enabled or was disabled right now
 
