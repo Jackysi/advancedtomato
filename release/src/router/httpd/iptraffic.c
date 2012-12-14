@@ -88,6 +88,7 @@ void asp_iptraffic(int argc, char **argv) {
 	web_puts("];\n");
 
 	TREE_FORWARD_APPLY(&tree, _Node, linkage, Node_housekeeping, NULL);
+	TREE_INIT(&tree, Node_compare);
 }
 
 void iptraffic_conntrack_init() {
