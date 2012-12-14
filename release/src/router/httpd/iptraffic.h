@@ -55,7 +55,6 @@ Tree tree = TREE_INITIALIZER(Node_compare);
 
 void Node_housekeeping(Node *self, void *info) {
 	free(self);
-	TREE_REMOVE(&tree, _Node, linkage, self);
 }
 
 // DEBUG
