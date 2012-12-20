@@ -191,7 +191,7 @@ if (wl_sunit(uidx)<0) {
 		{ title: 'Interference Mitigation', name: 'wl'+u+'_mitigation', type: 'select',
 			options: [['0','None *'],['1','Non-WLAN'],['2','WLAN Manual'],['3','WLAN Auto'],['4','WLAN Auto with Noise Reduction']],
  			value: nvram['wl'+u+'_mitigation'] },
-		{ title: 'WMM', name: 'wl'+u+'_wme', type: 'select', options: [['auto','Auto *'],['off','Disable'],['on','Enable']], value: nvram['wl'+u+'_wme'] },
+		{ title: 'WMM', name: 'wl'+u+'_wme', type: 'select', options: [['auto','Auto'],['off','Disable'],['on','Enable *']], value: nvram['wl'+u+'_wme'] },
 		{ title: 'No ACK', name: 'wl'+u+'_wme_no_ack', indent: 2, type: 'select', options: [['off','Disable *'],['on','Enable']],
 			value: nvram['wl'+u+'_wme_no_ack'] },
 	{ title: 'APSD Mode', name: 'wl'+u+'_wme_apsd', indent: 2, type: 'select', options: [['off','Disable *'],['on','Enable']],
