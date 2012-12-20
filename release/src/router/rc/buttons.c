@@ -122,6 +122,7 @@ int buttons_main(int argc, char *argv[])
 		break;		
 	case MODEL_WL500GPv2:
 	case MODEL_WL520GU:
+	case MODEL_WL330GE:
 		reset_mask = 1 << 2;
 		ses_mask = 1 << 3;
 		break;		
