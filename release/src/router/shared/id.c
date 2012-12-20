@@ -177,6 +177,7 @@ int check_hw_type(void)
 		return HW_BCM47186;
 	case 0xf550:
 	case 0xc500:
+	case 0xc550:
 		return HW_BCM5358U;
 	case 0x058e:
 		return HW_BCM53572;
