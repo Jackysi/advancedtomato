@@ -92,6 +92,7 @@ switch(nvram['boardtype']) {
       break;
     }
   case '0x048e':  // WL-520GU, WL-500G Premium v2
+  case '0x0550':  // RT-N53
     COL_P0N = '3';
     COL_P1N = '2';
     COL_P2N = '1';
