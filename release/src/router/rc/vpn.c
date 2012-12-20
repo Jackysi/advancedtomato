@@ -70,7 +70,7 @@ void start_vpnclient(int clientNum)
 
 	if ( (pid = pidof(&buffer[0])) >= 0 )
 	{
-		vpnlog(VPN_LOG_NOTE, "VPN Client %d already running...", clientNum);
+		vpnlog(VPN_LOG_INFO, "VPN Client %d already running...", clientNum);
 		vpnlog(VPN_LOG_INFO,"PID: %d", pid);
 		return;
 	}
