@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: AddWindowController.h 13416 2012-08-05 03:48:13Z livings124 $
+ * $Id: AddWindowController.h 13602 2012-10-30 00:22:10Z livings124 $
  *
  * Copyright (c) 2008-2012 Transmission authors and contributors
  *
@@ -23,6 +23,7 @@
  *****************************************************************************/
 
 #import <Cocoa/Cocoa.h>
+#import "Torrent.h"
 
 @class Controller;
 @class FileOutlineController;
@@ -52,6 +53,8 @@
     NSInteger fGroupValue;
     
     NSTimer * fTimer;
+	
+    TorrentDeterminationType fGroupValueDetermination;
 }
 
 - (id) initWithTorrent: (Torrent *) torrent destination: (NSString *) path lockDestination: (BOOL) lockDestination

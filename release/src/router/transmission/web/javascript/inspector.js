@@ -82,14 +82,6 @@ function Inspector(controller) {
     *****  GENERAL INFO PAGE
     ****/
 
-    accumulateString = function (oldVal, newVal) {
-        if (!oldVal || !oldVal.length)
-            return newVal;
-        if (oldVal === newVal)
-            return newVal;
-        return 'Mixed';
-    },
-
     updateInfoPage = function () {
         var torrents = data.torrents,
             e = data.elements,
@@ -404,7 +396,7 @@ function Inspector(controller) {
         }
         if(!str)
             str = none;  
-        setTextContent(e.comment_lb, str.replace(/(https?|ftp):\/\/([\w\-]+(\.[\w\-]+)*(\.[a-z]{2,4})?)(\d{1,5})?(\/([^<>\s]*))?/g, '<a target="_blank" href="$&">$&</a>'));
+        setTextContent(e.comment_lb, str);
 
         //
         //  origin
@@ -670,7 +662,7 @@ function Inspector(controller) {
         if (tracker.hasAnnounced) {
             lastAnnounceTime = Transmission.fmt.timestamp(tracker.lastAnnounceTime);
             if (tracker.lastAnnounceSucceeded) {
-                lastAnnounce = [ lastAnnounceTime, ' (got ',  Transmission.fmt.plural(tracker.lastAnnouncePeerCount, 'peer'), ')' ];
+                lastAnnounce = [ lastAnnounceTime, ' (got ',  Transmission.fmt.countString('peer','peers',tracker.lastAnnouncePeerCount), ')' ];
             } else {
                 lastAnnounceLabel = 'Announce error';
                 lastAnnounce = [ (tracker.lastAnnounceResult ? (tracker.lastAnnounceResult + ' - ') : ''), lastAnnounceTime ];
@@ -727,7 +719,7 @@ function Inspector(controller) {
                     tier = tracker.tier;
 
                     html.push('<div class="inspector_group_label">',
-                          'Tier ', tier, '</div>',
+                          'Tier ', tier+1, '</div>',
                           '<ul class="tier_list">');
                 }
 
@@ -737,7 +729,7 @@ function Inspector(controller) {
                 lastScrapeStatusHash = lastScrapeStatus(tracker);
                 parity = (j%2) ? 'odd' : 'even';
                 html.push('<li class="inspector_tracker_entry ', parity, '"><div class="tracker_host" title="', sanitizeText(tracker.announce), '">',
-                      sanitizeText(tracker.host), '</div>',
+                      sanitizeText(tracker.host || tracker.announce), '</div>',
                       '<div class="tracker_activity">',
                       '<div>', lastAnnounceStatusHash['label'], ': ', lastAnnounceStatusHash['value'], '</div>',
                       '<div>', announceState, '</div>',

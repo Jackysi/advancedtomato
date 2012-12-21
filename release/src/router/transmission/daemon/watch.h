@@ -5,22 +5,22 @@
  * This file Copyright (C) Mnemosyne LLC
  *
  * This file is licensed by the GPL version 2. Works owned by the
- * Transmission project are granted a special exemption to clause 2(b)
+ * Transmission project are granted a special exemption to clause 2 (b)
  * so that the bulk of its code can remain under the MIT license.
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: watch.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: watch.h 13625 2012-12-05 17:29:46Z jordan $
  */
 
 typedef struct dtr_watchdir dtr_watchdir;
 
-typedef void( dtr_watchdir_callback )( tr_session * session, const char * dir, const char * file );
+typedef void (dtr_watchdir_callback)(tr_session * session, const char * dir, const char * file);
 
-dtr_watchdir* dtr_watchdir_new( tr_session * session, const char * dir, dtr_watchdir_callback cb );
+dtr_watchdir* dtr_watchdir_new (tr_session * session, const char * dir, dtr_watchdir_callback cb);
 
-void dtr_watchdir_update( dtr_watchdir * w );
+void dtr_watchdir_update (dtr_watchdir * w);
 
-void dtr_watchdir_free( dtr_watchdir * w );
+void dtr_watchdir_free (dtr_watchdir * w);
 
 #endif

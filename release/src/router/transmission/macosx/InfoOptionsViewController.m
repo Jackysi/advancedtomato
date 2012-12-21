@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoOptionsViewController.m 13480 2012-09-08 18:09:02Z livings124 $
+ * $Id: InfoOptionsViewController.m 13660 2012-12-13 13:38:58Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -62,9 +62,9 @@
     
     [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(setGlobalLabels) name: @"UpdateGlobalOptions" object: nil];
     [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(updateOptionsNotification:) name: @"UpdateOptionsNotification" object: nil];
-    
+    /*
     #warning remove when 10.7-only with auto layout
-    /*const CGFloat padding = 6.0; //this shows as 8 in IB
+    const CGFloat padding = 6.0; //this shows as 8 in IB
     [fPrioritySectionLabel sizeToFit];
     [fPriorityLabel sizeToFit];
     NSRect priorityPopUpFrame = [fPriorityPopUp frame];

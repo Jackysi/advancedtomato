@@ -38,6 +38,7 @@ function FileRow(torrent, depth, name, indices, even)
 		var e = $(elements.root);
 		e.toggleClass('skip', !fields.isWanted);
 		e.toggleClass('complete', isDone());
+		$(e[0].checkbox).prop('disabled', !isEditable());
 		$(e[0].checkbox).prop('checked', fields.isWanted);
 	},
 	refreshProgressHTML = function()
@@ -103,6 +104,9 @@ function FileRow(torrent, depth, name, indices, even)
 
 	isDone = function () {
 		return fields.have >= fields.size;
+	},
+	isEditable = function () {
+		return (fields.torrent.getFileCount()>1) && !isDone();
 	},
 
 	createRow = function(torrent, depth, name, even) {
@@ -181,9 +185,6 @@ function FileRow(torrent, depth, name, indices, even)
 
 	this.getElement = function() {
 		return elements.root;
-	};
-	this.isEditable = function () {
-		return (fields.torrent.getFileCount()>1) && !isDone();
 	};
 	this.refresh = function() {
 		refreshImpl();

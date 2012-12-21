@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: DragOverlayView.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: DragOverlayView.m 13599 2012-10-29 22:16:42Z livings124 $
  *
  * Copyright (c) 2007-2012 Transmission authors and contributors
  *
@@ -113,8 +113,7 @@
     {
         const NSRect frame = [self frame];
         const NSSize imageSize = [fBadge size];
-        [fBadge compositeToPoint: NSMakePoint((NSWidth(frame) - imageSize.width) * 0.5,
-                    (NSHeight(frame) - imageSize.height) * 0.5) operation: NSCompositeSourceOver];
+        [fBadge drawAtPoint: NSMakePoint((NSWidth(frame) - imageSize.width) * 0.5, (NSHeight(frame) - imageSize.height) * 0.5) fromRect: NSZeroRect operation: NSCompositeSourceOver fraction: 1.0];
     }
 }
 

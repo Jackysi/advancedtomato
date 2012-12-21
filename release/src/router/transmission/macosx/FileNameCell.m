@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FileNameCell.m 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: FileNameCell.m 13600 2012-10-29 22:17:08Z livings124 $
  * 
  * Copyright (c) 2007-2012 Transmission authors and contributors
  *
@@ -38,6 +38,7 @@
 #define PADDING_ABOVE_TITLE_FILE 2.0
 #define PADDING_BELOW_STATUS_FILE 2.0
 #define PADDING_BETWEEN_NAME_AND_FOLDER_STATUS 4.0
+#define PADDING_EXPANSION_FRAME 2.0
 
 @interface FileNameCell (Private)
 
@@ -142,6 +143,31 @@
     [statusString drawInRect: statusRect];
 }
 
+- (NSRect) expansionFrameWithFrame: (NSRect) cellFrame inView: (NSView *) view
+{
+    NSAttributedString * titleString = [self attributedTitle];
+    NSRect realRect = [self rectForTitleWithString: titleString inBounds: cellFrame];
+    
+    if ([titleString size].width > NSWidth(realRect)
+        && NSMouseInRect([view convertPoint: [[view window] convertScreenToBase: [NSEvent mouseLocation]] fromView: nil], realRect, [view isFlipped]))
+    {
+        realRect.size.width = [titleString size].width;
+        return NSInsetRect(realRect, -PADDING_EXPANSION_FRAME, -PADDING_EXPANSION_FRAME);
+    }
+    
+    return NSZeroRect;
+}
+
+- (void) drawWithExpansionFrame: (NSRect) cellFrame inView: (NSView *)view
+{
+    cellFrame.origin.x += PADDING_EXPANSION_FRAME;
+    cellFrame.origin.y += PADDING_EXPANSION_FRAME;
+    
+    [fTitleAttributes setObject: [NSColor controlTextColor] forKey: NSForegroundColorAttributeName];
+    NSAttributedString * titleString = [self attributedTitle];
+    [titleString drawInRect: cellFrame];
+}
+
 @end
 
 @implementation FileNameCell (Private)
@@ -150,18 +176,19 @@
 {
     const NSSize titleSize = [string size];
     
+    //no right padding, so that there's not too much space between this and the priority image
     NSRect result;
     if (![(FileListNode *)[self objectValue] isFolder])
     {
         result.origin.x = NSMinX(bounds) + PADDING_HORIZONAL + IMAGE_ICON_SIZE + PADDING_BETWEEN_IMAGE_AND_TITLE;
         result.origin.y = NSMinY(bounds) + PADDING_ABOVE_TITLE_FILE;
-        result.size.width = NSMaxX(bounds) - NSMinX(result) - PADDING_HORIZONAL;
+        result.size.width = NSMaxX(bounds) - NSMinX(result);
     }
     else
     {
         result.origin.x = NSMinX(bounds) + PADDING_HORIZONAL + IMAGE_FOLDER_SIZE + PADDING_BETWEEN_IMAGE_AND_TITLE;
         result.origin.y = NSMidY(bounds) - titleSize.height * 0.5;
-        result.size.width = MIN(titleSize.width, NSMaxX(bounds) - NSMinX(result) - PADDING_HORIZONAL);
+        result.size.width = MIN(titleSize.width, NSMaxX(bounds) - NSMinX(result));
     }
     result.size.height = titleSize.height;
     
@@ -183,7 +210,7 @@
     {
         result.origin.x = NSMaxX(titleRect) + PADDING_BETWEEN_NAME_AND_FOLDER_STATUS;
         result.origin.y = NSMaxY(titleRect) - statusSize.height - 1.0;
-        result.size.width = NSMaxX(bounds) - NSMaxX(titleRect) - PADDING_HORIZONAL;
+        result.size.width = NSMaxX(bounds) - NSMaxX(titleRect);
     }
     result.size.height = statusSize.height;
     

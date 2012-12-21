@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: AddMagnetWindowController.h 13479 2012-09-08 03:48:12Z livings124 $
+ * $Id: AddMagnetWindowController.h 13602 2012-10-30 00:22:10Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -23,6 +23,7 @@
  *****************************************************************************/
 
 #import <Cocoa/Cocoa.h>
+#import "Torrent.h"
 
 @class Controller;
 @class Torrent;
@@ -47,6 +48,7 @@
     NSString * fDestination;
     
     NSInteger fGroupValue;
+    TorrentDeterminationType fGroupDeterminationType;
 }
 
 - (id) initWithTorrent: (Torrent *) torrent destination: (NSString *) path controller: (Controller *) controller;

@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Badger.m 13255 2012-03-13 03:49:30Z livings124 $
+ * $Id: Badger.m 13571 2012-10-15 02:12:44Z livings124 $
  *
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -65,6 +65,8 @@
 
 - (void) addCompletedTorrent: (Torrent *) torrent
 {
+    NSParameterAssert(torrent != nil);
+    
     [fHashes addObject: [torrent hashString]];
     [[NSApp dockTile] setBadgeLabel: [NSString formattedUInteger: [fHashes count]]];
 }
