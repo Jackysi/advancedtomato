@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -12,7 +12,7 @@
 #ifndef _TOR_NTMAIN_H
 #define _TOR_NTMAIN_H
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 #if !defined (WINCE)
 #define NT_SERVICE
 #endif

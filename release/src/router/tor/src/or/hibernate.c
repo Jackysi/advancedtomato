@@ -1,5 +1,5 @@
 /* Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -21,6 +21,7 @@ hibernating, phase 2:
   - close all OR/AP/exit conns)
 */
 
+#define HIBERNATE_PRIVATE
 #include "or.h"
 #include "config.h"
 #include "connection.h"
@@ -29,26 +30,11 @@ hibernating, phase 2:
 #include "main.h"
 #include "router.h"
 
-/** Possible values of hibernate_state */
-typedef enum {
-  /** We are running normally. */
-  HIBERNATE_STATE_LIVE=1,
-  /** We're trying to shut down cleanly, and we'll kill all active connections
-   * at shutdown_time. */
-  HIBERNATE_STATE_EXITING=2,
-  /** We're running low on allocated bandwidth for this period, so we won't
-   * accept any new connections. */
-  HIBERNATE_STATE_LOWBANDWIDTH=3,
-  /** We are hibernating, and we won't wake up till there's more bandwidth to
-   * use. */
-  HIBERNATE_STATE_DORMANT=4
-} hibernate_state_t;
-
 extern long stats_n_seconds_working; /* published uptime */
 
 /** Are we currently awake, asleep, running out of bandwidth, or shutting
  * down? */
-static hibernate_state_t hibernate_state = HIBERNATE_STATE_LIVE;
+static hibernate_state_t hibernate_state = HIBERNATE_STATE_INITIAL;
 /** If are hibernating, when do we plan to wake up? Set to 0 if we
  * aren't hibernating. */
 static time_t hibernate_end_time = 0;
@@ -116,9 +102,11 @@ static time_unit_t cfg_unit = UNIT_MONTH;
 
 /** How many days,hours,minutes into each unit does our accounting interval
  * start? */
+/** @{ */
 static int cfg_start_day = 0,
            cfg_start_hour = 0,
            cfg_start_min = 0;
+/** @} */
 
 static void reset_accounting(time_t now);
 static int read_bandwidth_usage(void);
@@ -134,7 +122,7 @@ static void accounting_set_wakeup_time(void);
  * options->AccountingStart.  Return 0 on success, -1 on failure. If
  * <b>validate_only</b> is true, do not change the current settings. */
 int
-accounting_parse_options(or_options_t *options, int validate_only)
+accounting_parse_options(const or_options_t *options, int validate_only)
 {
   time_unit_t unit;
   int ok, idx;
@@ -154,7 +142,7 @@ accounting_parse_options(or_options_t *options, int validate_only)
     return 0;
   }
 
-  items = smartlist_create();
+  items = smartlist_new();
   smartlist_split_string(items, v, NULL,
                          SPLIT_SKIP_SPACE|SPLIT_IGNORE_BLANK,0);
   if (smartlist_len(items)<2) {
@@ -249,11 +237,19 @@ accounting_parse_options(or_options_t *options, int validate_only)
  * hibernate, return 1, else return 0.
  */
 int
-accounting_is_enabled(or_options_t *options)
+accounting_is_enabled(const or_options_t *options)
 {
   if (options->AccountingMax)
     return 1;
   return 0;
+}
+
+/** If accounting is enabled, return how long (in seconds) this
+ * interval lasts. */
+int
+accounting_get_interval_length(void)
+{
+  return (int)(interval_end_time - interval_start_time);
 }
 
 /** Called from main.c to tell us that <b>seconds</b> seconds have
@@ -411,7 +407,7 @@ static void
 update_expected_bandwidth(void)
 {
   uint64_t expected;
-  or_options_t *options= get_options();
+  const or_options_t *options= get_options();
   uint64_t max_configured = (options->RelayBandwidthRate > 0 ?
                              options->RelayBandwidthRate :
                              options->BandwidthRate) * 60;
@@ -517,8 +513,7 @@ static void
 accounting_set_wakeup_time(void)
 {
   char digest[DIGEST_LEN];
-  crypto_digest_env_t *d_env;
-  int time_in_interval;
+  crypto_digest_t *d_env;
   uint64_t time_to_exhaust_bw;
   int time_to_consider;
 
@@ -535,11 +530,11 @@ accounting_set_wakeup_time(void)
 
     crypto_pk_get_digest(get_server_identity_key(), digest);
 
-    d_env = crypto_new_digest_env();
+    d_env = crypto_digest_new();
     crypto_digest_add_bytes(d_env, buf, ISO_TIME_LEN);
     crypto_digest_add_bytes(d_env, digest, DIGEST_LEN);
     crypto_digest_get_digest(d_env, digest, DIGEST_LEN);
-    crypto_free_digest_env(d_env);
+    crypto_digest_free(d_env);
   } else {
     crypto_rand(digest, DIGEST_LEN);
   }
@@ -552,14 +547,12 @@ accounting_set_wakeup_time(void)
     interval_wakeup_time = interval_start_time;
 
     log_notice(LD_ACCT,
-           "Configured hibernation.  This interval begins at %s "
-           "and ends at %s.  We have no prior estimate for bandwidth, so "
+           "Configured hibernation. This interval begins at %s "
+           "and ends at %s. We have no prior estimate for bandwidth, so "
            "we will start out awake and hibernate when we exhaust our quota.",
            buf1, buf2);
     return;
   }
-
-  time_in_interval = (int)(interval_end_time - interval_start_time);
 
   time_to_exhaust_bw =
     (get_options()->AccountingMax/expected_bandwidth_usage)*60;
@@ -567,7 +560,8 @@ accounting_set_wakeup_time(void)
     time_to_exhaust_bw = INT_MAX;
     time_to_consider = 0;
   } else {
-    time_to_consider = time_in_interval - (int)time_to_exhaust_bw;
+    time_to_consider = accounting_get_interval_length() -
+                       (int)time_to_exhaust_bw;
   }
 
   if (time_to_consider<=0) {
@@ -749,8 +743,7 @@ hibernate_soft_limit_reached(void)
 static void
 hibernate_begin(hibernate_state_t new_state, time_t now)
 {
-  connection_t *conn;
-  or_options_t *options = get_options();
+  const or_options_t *options = get_options();
 
   if (new_state == HIBERNATE_STATE_EXITING &&
       hibernate_state != HIBERNATE_STATE_LIVE) {
@@ -770,15 +763,7 @@ hibernate_begin(hibernate_state_t new_state, time_t now)
   }
 
   /* close listeners. leave control listener(s). */
-  while ((conn = connection_get_by_type(CONN_TYPE_OR_LISTENER)) ||
-         (conn = connection_get_by_type(CONN_TYPE_AP_LISTENER)) ||
-         (conn = connection_get_by_type(CONN_TYPE_AP_TRANS_LISTENER)) ||
-         (conn = connection_get_by_type(CONN_TYPE_AP_DNS_LISTENER)) ||
-         (conn = connection_get_by_type(CONN_TYPE_AP_NATD_LISTENER)) ||
-         (conn = connection_get_by_type(CONN_TYPE_DIR_LISTENER))) {
-    log_info(LD_NET,"Closing listener type %d", conn->type);
-    connection_mark_for_close(conn);
-  }
+  connection_mark_all_noncontrol_listeners();
 
   /* XXX kill intro point circs */
   /* XXX upload rendezvous service descriptors with no intro points */
@@ -804,10 +789,12 @@ static void
 hibernate_end(hibernate_state_t new_state)
 {
   tor_assert(hibernate_state == HIBERNATE_STATE_LOWBANDWIDTH ||
-             hibernate_state == HIBERNATE_STATE_DORMANT);
+             hibernate_state == HIBERNATE_STATE_DORMANT ||
+             hibernate_state == HIBERNATE_STATE_INITIAL);
 
   /* listeners will be relaunched in run_scheduled_events() in main.c */
-  log_notice(LD_ACCT,"Hibernation period ended. Resuming normal activity.");
+  if (hibernate_state != HIBERNATE_STATE_INITIAL)
+    log_notice(LD_ACCT,"Hibernation period ended. Resuming normal activity.");
 
   hibernate_state = new_state;
   hibernate_end_time = 0; /* no longer hibernating */
@@ -856,7 +843,7 @@ hibernate_go_dormant(time_t now)
       connection_edge_end(TO_EDGE_CONN(conn), END_STREAM_REASON_HIBERNATING);
     log_info(LD_NET,"Closing conn type %d", conn->type);
     if (conn->type == CONN_TYPE_AP) /* send socks failure if needed */
-      connection_mark_unattached_ap(TO_EDGE_CONN(conn),
+      connection_mark_unattached_ap(TO_ENTRY_CONN(conn),
                                     END_STREAM_REASON_HIBERNATING);
     else
       connection_mark_for_close(conn);
@@ -939,7 +926,8 @@ consider_hibernation(time_t now)
 
   /* Else, we aren't hibernating. See if it's time to start hibernating, or to
    * go dormant. */
-  if (hibernate_state == HIBERNATE_STATE_LIVE) {
+  if (hibernate_state == HIBERNATE_STATE_LIVE ||
+      hibernate_state == HIBERNATE_STATE_INITIAL) {
     if (hibernate_soft_limit_reached()) {
       log_notice(LD_ACCT,
                  "Bandwidth soft limit reached; commencing hibernation. "
@@ -951,6 +939,8 @@ consider_hibernation(time_t now)
                  "Commencing hibernation. We will wake up at %s local time.",
                  buf);
       hibernate_go_dormant(now);
+    } else if (hibernate_state == HIBERNATE_STATE_INITIAL) {
+      hibernate_end(HIBERNATE_STATE_LIVE);
     }
   }
 
@@ -988,8 +978,7 @@ getinfo_helper_accounting(control_connection_t *conn,
     else
       *answer = tor_strdup("awake");
   } else if (!strcmp(question, "accounting/bytes")) {
-    *answer = tor_malloc(32);
-    tor_snprintf(*answer, 32, U64_FORMAT" "U64_FORMAT,
+    tor_asprintf(answer, U64_FORMAT" "U64_FORMAT,
                  U64_PRINTF_ARG(n_bytes_read_in_interval),
                  U64_PRINTF_ARG(n_bytes_written_in_interval));
   } else if (!strcmp(question, "accounting/bytes-left")) {
@@ -999,8 +988,7 @@ getinfo_helper_accounting(control_connection_t *conn,
       read_left = limit - n_bytes_read_in_interval;
     if (n_bytes_written_in_interval < limit)
       write_left = limit - n_bytes_written_in_interval;
-    *answer = tor_malloc(64);
-    tor_snprintf(*answer, 64, U64_FORMAT" "U64_FORMAT,
+    tor_asprintf(answer, U64_FORMAT" "U64_FORMAT,
                  U64_PRINTF_ARG(read_left), U64_PRINTF_ARG(write_left));
   } else if (!strcmp(question, "accounting/interval-start")) {
     *answer = tor_malloc(ISO_TIME_LEN+1);
@@ -1015,5 +1003,15 @@ getinfo_helper_accounting(control_connection_t *conn,
     *answer = NULL;
   }
   return 0;
+}
+
+/**
+ * Manually change the hibernation state.  Private; used only by the unit
+ * tests.
+ */
+void
+hibernate_set_state_for_testing_(hibernate_state_t newstate)
+{
+  hibernate_state = newstate;
 }
 

@@ -1,3 +1,5 @@
+/* Copyright (c) 2011-2012, The Tor Project, Inc. */
+/* See LICENSE for licensing information */
 
 /**
  * \file procmon.c
@@ -21,7 +23,7 @@
 #include <errno.h>
 #endif
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 #include <windows.h>
 
 /* Windows does not define pid_t, but _getpid() returns an int. */
@@ -41,6 +43,7 @@ static void tor_process_monitor_poll_cb(evutil_socket_t unused1, short unused2,
 /* This struct may contain pointers into the original process
  * specifier string, but it should *never* contain anything which
  * needs to be freed. */
+/* DOCDOC parsed_process_specifier_t */
 struct parsed_process_specifier_t {
   pid_t pid;
 };
@@ -81,6 +84,7 @@ parse_process_specifier(const char *process_spec,
   return -1;
 }
 
+/* DOCDOC tor_process_monitor_t */
 struct tor_process_monitor_t {
   /** Log domain for warning messages. */
   log_domain_mask_t log_domain;
@@ -91,7 +95,7 @@ struct tor_process_monitor_t {
    * polls. */
   pid_t pid;
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
   /** Windows-only: Should we poll hproc?  If false, poll pid
    * instead. */
   int poll_hproc;
@@ -152,6 +156,7 @@ tor_validate_process_specifier(const char *process_spec,
 #define PERIODIC_TIMER_FLAGS (0)
 #endif
 
+/* DOCDOC poll_interval_tv */
 static struct timeval poll_interval_tv = {15, 0};
 /* Note: If you port this file to plain Libevent 2, you can make
  * poll_interval_tv const.  It has to be non-const here because in
@@ -192,7 +197,7 @@ tor_process_monitor_new(struct event_base *base,
 
   procmon->pid = ppspec.pid;
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
   procmon->hproc = OpenProcess(PROCESS_QUERY_INFORMATION | SYNCHRONIZE,
                                FALSE,
                                procmon->pid);
@@ -246,7 +251,7 @@ tor_process_monitor_poll_cb(evutil_socket_t unused1, short unused2,
 
   tor_assert(procmon != NULL);
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
   if (procmon->poll_hproc) {
     DWORD exit_code;
     if (!GetExitCodeProcess(procmon->hproc, &exit_code)) {
@@ -323,7 +328,7 @@ tor_process_monitor_free(tor_process_monitor_t *procmon)
   if (procmon == NULL)
     return;
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
   if (procmon->hproc != NULL)
     CloseHandle(procmon->hproc);
 #endif

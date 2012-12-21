@@ -1,6 +1,6 @@
 /* Copyright (c) 2003-2004, Roger Dingledine
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 #ifndef _TOR_CONTAINER_H
@@ -26,7 +26,7 @@ typedef struct smartlist_t {
   /** @} */
 } smartlist_t;
 
-smartlist_t *smartlist_create(void);
+smartlist_t *smartlist_new(void);
 void smartlist_free(smartlist_t *sl);
 void smartlist_clear(smartlist_t *sl);
 void smartlist_add(smartlist_t *sl, void *element);
@@ -35,19 +35,14 @@ void smartlist_remove(smartlist_t *sl, const void *element);
 void *smartlist_pop_last(smartlist_t *sl);
 void smartlist_reverse(smartlist_t *sl);
 void smartlist_string_remove(smartlist_t *sl, const char *element);
-int smartlist_isin(const smartlist_t *sl, const void *element) ATTR_PURE;
-int smartlist_string_isin(const smartlist_t *sl, const char *element)
-  ATTR_PURE;
-int smartlist_string_pos(const smartlist_t *, const char *elt) ATTR_PURE;
-int smartlist_string_isin_case(const smartlist_t *sl, const char *element)
-  ATTR_PURE;
-int smartlist_string_num_isin(const smartlist_t *sl, int num) ATTR_PURE;
-int smartlist_strings_eq(const smartlist_t *sl1, const smartlist_t *sl2)
-  ATTR_PURE;
-int smartlist_digest_isin(const smartlist_t *sl, const char *element)
-  ATTR_PURE;
-int smartlist_overlap(const smartlist_t *sl1, const smartlist_t *sl2)
-  ATTR_PURE;
+int smartlist_isin(const smartlist_t *sl, const void *element);
+int smartlist_string_isin(const smartlist_t *sl, const char *element);
+int smartlist_string_pos(const smartlist_t *, const char *elt);
+int smartlist_string_isin_case(const smartlist_t *sl, const char *element);
+int smartlist_string_num_isin(const smartlist_t *sl, int num);
+int smartlist_strings_eq(const smartlist_t *sl1, const smartlist_t *sl2);
+int smartlist_digest_isin(const smartlist_t *sl, const char *element);
+int smartlist_overlap(const smartlist_t *sl1, const smartlist_t *sl2);
 void smartlist_intersect(smartlist_t *sl1, const smartlist_t *sl2);
 void smartlist_subtract(smartlist_t *sl1, const smartlist_t *sl2);
 
@@ -55,14 +50,14 @@ void smartlist_subtract(smartlist_t *sl1, const smartlist_t *sl2);
 #ifdef DEBUG_SMARTLIST
 /** Return the number of items in sl.
  */
-static INLINE int smartlist_len(const smartlist_t *sl) ATTR_PURE;
+static INLINE int smartlist_len(const smartlist_t *sl);
 static INLINE int smartlist_len(const smartlist_t *sl) {
   tor_assert(sl);
   return (sl)->num_used;
 }
 /** Return the <b>idx</b>th element of sl.
  */
-static INLINE void *smartlist_get(const smartlist_t *sl, int idx) ATTR_PURE;
+static INLINE void *smartlist_get(const smartlist_t *sl, int idx);
 static INLINE void *smartlist_get(const smartlist_t *sl, int idx) {
   tor_assert(sl);
   tor_assert(idx>=0);
@@ -114,8 +109,7 @@ void smartlist_uniq_strings(smartlist_t *sl);
 void smartlist_uniq_digests(smartlist_t *sl);
 void smartlist_uniq_digests256(smartlist_t *sl);
 void *smartlist_bsearch(smartlist_t *sl, const void *key,
-                        int (*compare)(const void *key, const void **member))
-  ATTR_PURE;
+                        int (*compare)(const void *key, const void **member));
 int smartlist_bsearch_idx(const smartlist_t *sl, const void *key,
                           int (*compare)(const void *key, const void **member),
                           int *found_out);
@@ -148,9 +142,9 @@ char *smartlist_join_strings2(smartlist_t *sl, const char *join,
 
 /** Iterate over the items in a smartlist <b>sl</b>, in order.  For each item,
  * assign it to a new local variable of type <b>type</b> named <b>var</b>, and
- * execute the statement <b>cmd</b>.  Inside the loop, the loop index can
- * be accessed as <b>var</b>_sl_idx and the length of the list can be accessed
- * as <b>var</b>_sl_len.
+ * execute the statements inside the loop body.  Inside the loop, the loop
+ * index can be accessed as <b>var</b>_sl_idx and the length of the list can
+ * be accessed as <b>var</b>_sl_len.
  *
  * NOTE: Do not change the length of the list while the loop is in progress,
  * unless you adjust the _sl_len variable correspondingly.  See second example
@@ -159,23 +153,21 @@ char *smartlist_join_strings2(smartlist_t *sl, const char *join,
  * Example use:
  * <pre>
  *   smartlist_t *list = smartlist_split("A:B:C", ":", 0, 0);
- *   SMARTLIST_FOREACH(list, char *, cp,
- *   {
+ *   SMARTLIST_FOREACH_BEGIN(list, char *, cp) {
  *     printf("%d: %s\n", cp_sl_idx, cp);
  *     tor_free(cp);
- *   });
+ *   } SMARTLIST_FOREACH_END(cp);
  *   smartlist_free(list);
  * </pre>
  *
  * Example use (advanced):
  * <pre>
- *   SMARTLIST_FOREACH(list, char *, cp,
- *   {
+ *   SMARTLIST_FOREACH_BEGIN(list, char *, cp) {
  *     if (!strcmp(cp, "junk")) {
  *       tor_free(cp);
  *       SMARTLIST_DEL_CURRENT(list, cp);
  *     }
- *   });
+ *   } SMARTLIST_FOREACH_END(cp);
  * </pre>
  */
 /* Note: these macros use token pasting, and reach into smartlist internals.
@@ -224,6 +216,14 @@ char *smartlist_join_strings2(smartlist_t *sl, const char *join,
     var = NULL;                                 \
   } STMT_END
 
+/**
+ * An alias for SMARTLIST_FOREACH_BEGIN and SMARTLIST_FOREACH_END, using
+ * <b>cmd</b> as the loop body.  This wrapper is here for convenience with
+ * very short loops.
+ *
+ * By convention, we do not use this for loops which nest, or for loops over
+ * 10 lines or so.  Use SMARTLIST_FOREACH_{BEGIN,END} for those.
+ */
 #define SMARTLIST_FOREACH(sl, type, var, cmd)                   \
   SMARTLIST_FOREACH_BEGIN(sl,type,var) {                        \
     cmd;                                                        \

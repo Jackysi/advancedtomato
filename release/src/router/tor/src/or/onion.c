@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -29,9 +29,11 @@ typedef struct onion_queue_t {
 #define ONIONQUEUE_WAIT_CUTOFF 5
 
 /** First and last elements in the linked list of circuits waiting for CPU
- * workers, or NULL if the list is empty. */
+ * workers, or NULL if the list is empty.
+ * @{ */
 static onion_queue_t *ol_list=NULL;
 static onion_queue_t *ol_tail=NULL;
+/**@}*/
 /** Length of ol_list */
 static int ol_length=0;
 
@@ -170,12 +172,12 @@ onion_pending_remove(or_circuit_t *circ)
  * The meeting point/cookies and auth are zeroed out for now.
  */
 int
-onion_skin_create(crypto_pk_env_t *dest_router_key,
-                  crypto_dh_env_t **handshake_state_out,
+onion_skin_create(crypto_pk_t *dest_router_key,
+                  crypto_dh_t **handshake_state_out,
                   char *onion_skin_out) /* ONIONSKIN_CHALLENGE_LEN bytes */
 {
   char challenge[DH_KEY_LEN];
-  crypto_dh_env_t *dh = NULL;
+  crypto_dh_t *dh = NULL;
   int dhbytes, pkbytes;
 
   tor_assert(dest_router_key);
@@ -204,12 +206,12 @@ onion_skin_create(crypto_pk_env_t *dest_router_key,
                                       PK_PKCS1_OAEP_PADDING, 1)<0)
     goto err;
 
-  memset(challenge, 0, sizeof(challenge));
+  memwipe(challenge, 0, sizeof(challenge));
   *handshake_state_out = dh;
 
   return 0;
  err:
-  memset(challenge, 0, sizeof(challenge));
+  memwipe(challenge, 0, sizeof(challenge));
   if (dh) crypto_dh_free(dh);
   return -1;
 }
@@ -221,19 +223,19 @@ onion_skin_create(crypto_pk_env_t *dest_router_key,
  */
 int
 onion_skin_server_handshake(const char *onion_skin, /*ONIONSKIN_CHALLENGE_LEN*/
-                            crypto_pk_env_t *private_key,
-                            crypto_pk_env_t *prev_private_key,
+                            crypto_pk_t *private_key,
+                            crypto_pk_t *prev_private_key,
                             char *handshake_reply_out, /*ONIONSKIN_REPLY_LEN*/
                             char *key_out,
                             size_t key_out_len)
 {
   char challenge[ONIONSKIN_CHALLENGE_LEN];
-  crypto_dh_env_t *dh = NULL;
+  crypto_dh_t *dh = NULL;
   ssize_t len;
   char *key_material=NULL;
   size_t key_material_len=0;
   int i;
-  crypto_pk_env_t *k;
+  crypto_pk_t *k;
 
   len = -1;
   for (i=0;i<2;++i) {
@@ -284,15 +286,15 @@ onion_skin_server_handshake(const char *onion_skin, /*ONIONSKIN_CHALLENGE_LEN*/
   /* use the rest of the key material for our shared keys, digests, etc */
   memcpy(key_out, key_material+DIGEST_LEN, key_out_len);
 
-  memset(challenge, 0, sizeof(challenge));
-  memset(key_material, 0, key_material_len);
+  memwipe(challenge, 0, sizeof(challenge));
+  memwipe(key_material, 0, key_material_len);
   tor_free(key_material);
   crypto_dh_free(dh);
   return 0;
  err:
-  memset(challenge, 0, sizeof(challenge));
+  memwipe(challenge, 0, sizeof(challenge));
   if (key_material) {
-    memset(key_material, 0, key_material_len);
+    memwipe(key_material, 0, key_material_len);
     tor_free(key_material);
   }
   if (dh) crypto_dh_free(dh);
@@ -310,7 +312,7 @@ onion_skin_server_handshake(const char *onion_skin, /*ONIONSKIN_CHALLENGE_LEN*/
  * After the invocation, call crypto_dh_free on handshake_state.
  */
 int
-onion_skin_client_handshake(crypto_dh_env_t *handshake_state,
+onion_skin_client_handshake(crypto_dh_t *handshake_state,
             const char *handshake_reply, /* ONIONSKIN_REPLY_LEN bytes */
             char *key_out,
             size_t key_out_len)
@@ -338,11 +340,11 @@ onion_skin_client_handshake(crypto_dh_env_t *handshake_state,
   /* use the rest of the key material for our shared keys, digests, etc */
   memcpy(key_out, key_material+DIGEST_LEN, key_out_len);
 
-  memset(key_material, 0, key_material_len);
+  memwipe(key_material, 0, key_material_len);
   tor_free(key_material);
   return 0;
  err:
-  memset(key_material, 0, key_material_len);
+  memwipe(key_material, 0, key_material_len);
   tor_free(key_material);
   return -1;
 }
@@ -379,8 +381,8 @@ fast_server_handshake(const uint8_t *key_in, /* DIGEST_LEN bytes */
   memcpy(key_out, out+DIGEST_LEN, key_out_len);
   r = 0;
  done:
-  memset(tmp, 0, sizeof(tmp));
-  memset(out, 0, out_len);
+  memwipe(tmp, 0, sizeof(tmp));
+  memwipe(out, 0, out_len);
   tor_free(out);
   return r;
 }
@@ -424,8 +426,8 @@ fast_client_handshake(const uint8_t *handshake_state,/*DIGEST_LEN bytes*/
   memcpy(key_out, out+DIGEST_LEN, key_out_len);
   r = 0;
  done:
-  memset(tmp, 0, sizeof(tmp));
-  memset(out, 0, out_len);
+  memwipe(tmp, 0, sizeof(tmp));
+  memwipe(out, 0, out_len);
   tor_free(out);
   return r;
 }

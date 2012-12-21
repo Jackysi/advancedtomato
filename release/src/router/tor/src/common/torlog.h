@@ -1,7 +1,7 @@
 /* Copyright (c) 2001, Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -92,8 +92,10 @@
 #define LD_HIST     (1u<<18)
 /** OR handshaking */
 #define LD_HANDSHAKE (1u<<19)
+/** Heartbeat messages */
+#define LD_HEARTBEAT (1u<<20)
 /** Number of logging domains in the code. */
-#define N_LOGGING_DOMAINS 20
+#define N_LOGGING_DOMAINS 21
 
 /** This log message is not safe to send to a callback-based logger
  * immediately.  Used as a flag, not a log domain. */
@@ -145,12 +147,13 @@ void change_callback_log_severity(int loglevelMin, int loglevelMax,
                                   log_callback cb);
 void flush_pending_log_callbacks(void);
 void log_set_application_name(const char *name);
+void set_log_time_granularity(int granularity_msec);
 
 void tor_log(int severity, log_domain_mask_t domain, const char *format, ...)
   CHECK_PRINTF(3,4);
 #define log tor_log /* hack it so we don't conflict with log() as much */
 
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(RUNNING_DOXYGEN)
 extern int _log_global_min_severity;
 
 void _log_fn(int severity, log_domain_mask_t domain,

@@ -1,6 +1,6 @@
 /* Copyright (c) 2003-2004, Roger Dingledine
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -17,6 +17,10 @@
 #include "di_ops.h"
 #include <stdio.h>
 #include <stdlib.h>
+#ifdef _WIN32
+/* for the correct alias to struct stat */
+#include <sys/stat.h>
+#endif
 
 #ifndef O_BINARY
 #define O_BINARY 0
@@ -73,6 +77,7 @@
 void *_tor_malloc(size_t size DMALLOC_PARAMS) ATTR_MALLOC;
 void *_tor_malloc_zero(size_t size DMALLOC_PARAMS) ATTR_MALLOC;
 void *_tor_malloc_roundup(size_t *size DMALLOC_PARAMS) ATTR_MALLOC;
+void *_tor_calloc(size_t nmemb, size_t size DMALLOC_PARAMS) ATTR_MALLOC;
 void *_tor_realloc(void *ptr, size_t size DMALLOC_PARAMS);
 char *_tor_strdup(const char *s DMALLOC_PARAMS) ATTR_MALLOC ATTR_NONNULL((1));
 char *_tor_strndup(const char *s, size_t n DMALLOC_PARAMS)
@@ -107,6 +112,7 @@ extern int dmalloc_free(const char *file, const int line, void *pnt,
 
 #define tor_malloc(size)       _tor_malloc(size DMALLOC_ARGS)
 #define tor_malloc_zero(size)  _tor_malloc_zero(size DMALLOC_ARGS)
+#define tor_calloc(nmemb,size) _tor_calloc(nmemb, size DMALLOC_ARGS)
 #define tor_malloc_roundup(szp) _tor_malloc_roundup(szp DMALLOC_ARGS)
 #define tor_realloc(ptr, size) _tor_realloc(ptr, size DMALLOC_ARGS)
 #define tor_strdup(s)          _tor_strdup(s DMALLOC_ARGS)
@@ -160,6 +166,7 @@ uint64_t round_to_power_of_2(uint64_t u64);
 unsigned round_to_next_multiple_of(unsigned number, unsigned divisor);
 uint32_t round_uint32_to_next_multiple_of(uint32_t number, uint32_t divisor);
 uint64_t round_uint64_to_next_multiple_of(uint64_t number, uint64_t divisor);
+int n_bits_set_u8(uint8_t v);
 
 /* Compute the CEIL of <b>a</b> divided by <b>b</b>, for nonnegative <b>a</b>
  * and positive <b>b</b>.  Works on integer types only. Not defined if a+b can
@@ -172,18 +179,15 @@ uint64_t round_uint64_to_next_multiple_of(uint64_t number, uint64_t divisor);
 #define HEX_CHARACTERS "0123456789ABCDEFabcdef"
 void tor_strlower(char *s) ATTR_NONNULL((1));
 void tor_strupper(char *s) ATTR_NONNULL((1));
-int tor_strisprint(const char *s) ATTR_PURE ATTR_NONNULL((1));
-int tor_strisnonupper(const char *s) ATTR_PURE ATTR_NONNULL((1));
-int strcmpstart(const char *s1, const char *s2) ATTR_PURE ATTR_NONNULL((1,2));
-int strcmp_len(const char *s1, const char *s2, size_t len)
-  ATTR_PURE ATTR_NONNULL((1,2));
-int strcasecmpstart(const char *s1, const char *s2)
-  ATTR_PURE ATTR_NONNULL((1,2));
-int strcmpend(const char *s1, const char *s2) ATTR_PURE ATTR_NONNULL((1,2));
-int strcasecmpend(const char *s1, const char *s2)
-  ATTR_PURE ATTR_NONNULL((1,2));
-int fast_memcmpstart(const void *mem, size_t memlen,
-                     const char *prefix) ATTR_PURE;
+int tor_strisprint(const char *s) ATTR_NONNULL((1));
+int tor_strisnonupper(const char *s) ATTR_NONNULL((1));
+int strcmp_opt(const char *s1, const char *s2);
+int strcmpstart(const char *s1, const char *s2) ATTR_NONNULL((1,2));
+int strcmp_len(const char *s1, const char *s2, size_t len) ATTR_NONNULL((1,2));
+int strcasecmpstart(const char *s1, const char *s2) ATTR_NONNULL((1,2));
+int strcmpend(const char *s1, const char *s2) ATTR_NONNULL((1,2));
+int strcasecmpend(const char *s1, const char *s2) ATTR_NONNULL((1,2));
+int fast_memcmpstart(const void *mem, size_t memlen, const char *prefix);
 
 void tor_strstrip(char *s, const char *strip) ATTR_NONNULL((1,2));
 long tor_parse_long(const char *s, int base, long min,
@@ -195,28 +199,40 @@ double tor_parse_double(const char *s, double min, double max, int *ok,
 uint64_t tor_parse_uint64(const char *s, int base, uint64_t min,
                          uint64_t max, int *ok, char **next);
 const char *hex_str(const char *from, size_t fromlen) ATTR_NONNULL((1));
-const char *eat_whitespace(const char *s) ATTR_PURE;
-const char *eat_whitespace_eos(const char *s, const char *eos) ATTR_PURE;
-const char *eat_whitespace_no_nl(const char *s) ATTR_PURE;
-const char *eat_whitespace_eos_no_nl(const char *s, const char *eos) ATTR_PURE;
-const char *find_whitespace(const char *s) ATTR_PURE;
-const char *find_whitespace_eos(const char *s, const char *eos) ATTR_PURE;
-const char *find_str_at_start_of_line(const char *haystack, const char *needle)
-  ATTR_PURE;
-int tor_mem_is_zero(const char *mem, size_t len) ATTR_PURE;
-int tor_digest_is_zero(const char *digest) ATTR_PURE;
-int tor_digest256_is_zero(const char *digest) ATTR_PURE;
+const char *eat_whitespace(const char *s);
+const char *eat_whitespace_eos(const char *s, const char *eos);
+const char *eat_whitespace_no_nl(const char *s);
+const char *eat_whitespace_eos_no_nl(const char *s, const char *eos);
+const char *find_whitespace(const char *s);
+const char *find_whitespace_eos(const char *s, const char *eos);
+const char *find_str_at_start_of_line(const char *haystack,
+                                      const char *needle);
+int string_is_C_identifier(const char *string);
+
+int tor_mem_is_zero(const char *mem, size_t len);
+int tor_digest_is_zero(const char *digest);
+int tor_digest256_is_zero(const char *digest);
 char *esc_for_log(const char *string) ATTR_MALLOC;
 const char *escaped(const char *string);
 struct smartlist_t;
 void wrap_string(struct smartlist_t *out, const char *string, size_t width,
                  const char *prefix0, const char *prefixRest);
-int tor_vsscanf(const char *buf, const char *pattern, va_list ap);
+int tor_vsscanf(const char *buf, const char *pattern, va_list ap)
+#ifdef __GNUC__
+  __attribute__((format(scanf, 2, 0)))
+#endif
+  ;
 int tor_sscanf(const char *buf, const char *pattern, ...)
 #ifdef __GNUC__
   __attribute__((format(scanf, 2, 3)))
 #endif
   ;
+
+void smartlist_add_asprintf(struct smartlist_t *sl, const char *pattern, ...)
+  CHECK_PRINTF(2, 3);
+void smartlist_add_vasprintf(struct smartlist_t *sl, const char *pattern,
+                             va_list args)
+  CHECK_PRINTF(2, 0);
 
 int hex_decode_digit(char c);
 void base16_encode(char *dest, size_t destlen, const char *src, size_t srclen);
@@ -228,13 +244,16 @@ int64_t tv_to_msec(const struct timeval *tv);
 int64_t tv_to_usec(const struct timeval *tv);
 long tv_udiff(const struct timeval *start, const struct timeval *end);
 long tv_mdiff(const struct timeval *start, const struct timeval *end);
-time_t tor_timegm(struct tm *tm);
+int tor_timegm(const struct tm *tm, time_t *time_out);
 #define RFC1123_TIME_LEN 29
 void format_rfc1123_time(char *buf, time_t t);
 int parse_rfc1123_time(const char *buf, time_t *t);
 #define ISO_TIME_LEN 19
+#define ISO_TIME_USEC_LEN (ISO_TIME_LEN+7)
 void format_local_iso_time(char *buf, time_t t);
 void format_iso_time(char *buf, time_t t);
+void format_iso_time_nospace(char *buf, time_t t);
+void format_iso_time_nospace_usec(char *buf, const struct timeval *tv);
 int parse_iso_time(const char *buf, time_t *t);
 int parse_http_time(const char *buf, struct tm *tm);
 int format_time_interval(char *out, size_t out_len, long interval);
@@ -279,6 +298,16 @@ char *rate_limit_log(ratelim_t *lim, time_t now);
 ssize_t write_all(tor_socket_t fd, const char *buf, size_t count,int isSocket);
 ssize_t read_all(tor_socket_t fd, char *buf, size_t count, int isSocket);
 
+/** Status of an I/O stream. */
+enum stream_status {
+  IO_STREAM_OKAY,
+  IO_STREAM_EAGAIN,
+  IO_STREAM_TERM,
+  IO_STREAM_CLOSED
+};
+
+enum stream_status get_string_from_pipe(FILE *stream, char *buf, size_t count);
+
 /** Return values from file_status(); see that function's documentation
  * for details. */
 typedef enum { FN_ERROR, FN_NOENT, FN_FILE, FN_DIR } file_status_t;
@@ -296,6 +325,7 @@ int check_private_dir(const char *dirname, cpd_check_t check,
                       const char *effective_user);
 #define OPEN_FLAGS_REPLACE (O_WRONLY|O_CREAT|O_TRUNC)
 #define OPEN_FLAGS_APPEND (O_WRONLY|O_CREAT|O_APPEND)
+#define OPEN_FLAGS_DONT_REPLACE (O_CREAT|O_EXCL|O_APPEND|O_WRONLY)
 typedef struct open_file_t open_file_t;
 int start_writing_to_file(const char *fname, int open_flags, int mode,
                           open_file_t **data_out);
@@ -317,28 +347,139 @@ int write_chunks_to_file(const char *fname, const struct smartlist_t *chunks,
                          int bin);
 int append_bytes_to_file(const char *fname, const char *str, size_t len,
                          int bin);
+int write_bytes_to_new_file(const char *fname, const char *str, size_t len,
+                            int bin);
 
 /** Flag for read_file_to_str: open the file in binary mode. */
 #define RFTS_BIN            1
 /** Flag for read_file_to_str: it's okay if the file doesn't exist. */
 #define RFTS_IGNORE_MISSING 2
 
+#ifndef _WIN32
 struct stat;
+#endif
 char *read_file_to_str(const char *filename, int flags, struct stat *stat_out)
   ATTR_MALLOC;
 const char *parse_config_line_from_str(const char *line,
                                        char **key_out, char **value_out);
 char *expand_filename(const char *filename);
 struct smartlist_t *tor_listdir(const char *dirname);
-int path_is_relative(const char *filename) ATTR_PURE;
+int path_is_relative(const char *filename);
 
 /* Process helpers */
 void start_daemon(void);
 void finish_daemon(const char *desired_cwd);
 void write_pidfile(char *filename);
 
-#ifdef MS_WINDOWS
+/* Port forwarding */
+void tor_check_port_forwarding(const char *filename,
+                               int dir_port, int or_port, time_t now);
+
+typedef struct process_handle_t process_handle_t;
+typedef struct process_environment_t process_environment_t;
+int tor_spawn_background(const char *const filename, const char **argv,
+                         process_environment_t *env,
+                         process_handle_t **process_handle_out);
+
+#define SPAWN_ERROR_MESSAGE "ERR: Failed to spawn background process - code "
+
+#ifdef _WIN32
 HANDLE load_windows_system_library(const TCHAR *library_name);
+#endif
+
+int environment_variable_names_equal(const char *s1, const char *s2);
+
+/* DOCDOC process_environment_t */
+struct process_environment_t {
+  /** A pointer to a sorted empty-string-terminated sequence of
+   * NUL-terminated strings of the form "NAME=VALUE". */
+  char *windows_environment_block;
+  /** A pointer to a NULL-terminated array of pointers to
+   * NUL-terminated strings of the form "NAME=VALUE". */
+  char **unixoid_environment_block;
+};
+
+process_environment_t *process_environment_make(struct smartlist_t *env_vars);
+void process_environment_free(process_environment_t *env);
+
+struct smartlist_t *get_current_process_environment_variables(void);
+
+void set_environment_variable_in_smartlist(struct smartlist_t *env_vars,
+                                           const char *new_var,
+                                           void (*free_old)(void*),
+                                           int free_p);
+
+/* Values of process_handle_t.status. PROCESS_STATUS_NOTRUNNING must be
+ * 0 because tor_check_port_forwarding depends on this being the initial
+ * statue of the static instance of process_handle_t */
+#define PROCESS_STATUS_NOTRUNNING 0
+#define PROCESS_STATUS_RUNNING 1
+#define PROCESS_STATUS_ERROR -1
+
+#ifdef UTIL_PRIVATE
+/** Structure to represent the state of a process with which Tor is
+ * communicating. The contents of this structure are private to util.c */
+struct process_handle_t {
+  /** One of the PROCESS_STATUS_* values */
+  int status;
+#ifdef _WIN32
+  HANDLE stdout_pipe;
+  HANDLE stderr_pipe;
+  PROCESS_INFORMATION pid;
+#else
+  int stdout_pipe;
+  int stderr_pipe;
+  FILE *stdout_handle;
+  FILE *stderr_handle;
+  pid_t pid;
+#endif // _WIN32
+};
+#endif
+
+/* Return values of tor_get_exit_code() */
+#define PROCESS_EXIT_RUNNING 1
+#define PROCESS_EXIT_EXITED 0
+#define PROCESS_EXIT_ERROR -1
+int tor_get_exit_code(const process_handle_t *process_handle,
+                      int block, int *exit_code);
+int tor_split_lines(struct smartlist_t *sl, char *buf, int len);
+#ifdef _WIN32
+ssize_t tor_read_all_handle(HANDLE h, char *buf, size_t count,
+                            const process_handle_t *process);
+#else
+ssize_t tor_read_all_handle(FILE *h, char *buf, size_t count,
+                            const process_handle_t *process,
+                            int *eof);
+#endif
+ssize_t tor_read_all_from_process_stdout(
+    const process_handle_t *process_handle, char *buf, size_t count);
+ssize_t tor_read_all_from_process_stderr(
+    const process_handle_t *process_handle, char *buf, size_t count);
+char *tor_join_win_cmdline(const char *argv[]);
+
+int tor_process_get_pid(process_handle_t *process_handle);
+#ifdef _WIN32
+HANDLE tor_process_get_stdout_pipe(process_handle_t *process_handle);
+#else
+FILE *tor_process_get_stdout_pipe(process_handle_t *process_handle);
+#endif
+
+int tor_terminate_process(process_handle_t *process_handle);
+void tor_process_handle_destroy(process_handle_t *process_handle,
+                                int also_terminate_process);
+
+#ifdef UTIL_PRIVATE
+/* Prototypes for private functions only used by util.c (and unit tests) */
+
+int format_hex_number_for_helper_exit_status(unsigned int x, char *buf,
+                                             int max_len);
+int format_helper_exit_status(unsigned char child_state,
+                              int saved_errno, char *hex_errno);
+
+/* Space for hex values of child state, a slash, saved_errno (with
+   leading minus) and newline (no null) */
+#define HEX_ERRNO_SIZE (sizeof(char) * 2 + 1 + \
+                        1 + sizeof(int) * 2 + 1)
 #endif
 
 const char *libor_get_digests(void);

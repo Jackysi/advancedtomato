@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: tor-gencert
-.\"    Author: [see the "AUTHORS" section]
+.\"    Author: Nick Mathewson
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 12/15/2011
-.\"    Manual: [FIXME: manual]
-.\"    Source: [FIXME: source]
+.\"      Date: 11/19/2012
+.\"    Manual: \ \&
+.\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "TOR\-GENCERT" "1" "12/15/2011" "[FIXME: source]" "[FIXME: manual]"
+.TH "TOR\-GENCERT" "1" "11/19/2012" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -109,3 +109,9 @@ Roger Dingledine <arma@mit\&.edu>, Nick Mathewson <nickm@alum\&.mit\&.edu>\&.
 .if n \{\
 .RE
 .\}
+.SH "AUTHOR"
+.PP
+\fBNick Mathewson\fR
+.RS 4
+Author.
+.RE

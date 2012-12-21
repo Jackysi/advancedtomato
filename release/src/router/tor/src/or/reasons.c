@@ -1,5 +1,5 @@
 /* Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -143,7 +143,7 @@ stream_end_reason_to_socks5_response(int reason)
  * E_CASE is for errors where windows has both a EFOO and a WSAEFOO
  * version, and S_CASE is for errors where windows has only a WSAEFOO
  * version.  (The E is for 'error', the S is for 'socket'). */
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 #define E_CASE(s) case s: case WSA ## s
 #define S_CASE(s) case WSA ## s
 #else
@@ -184,6 +184,8 @@ errno_to_stream_end_reason(int e)
     S_CASE(ENOBUFS):
     case ENOMEM:
     case ENFILE:
+    S_CASE(EADDRINUSE):
+    S_CASE(EADDRNOTAVAIL):
     E_CASE(EMFILE):
       return END_STREAM_REASON_RESOURCELIMIT;
     default:

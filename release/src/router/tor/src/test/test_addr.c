@@ -1,6 +1,6 @@
 /* Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 #include "orconfig.h"
@@ -14,30 +14,30 @@ test_addr_basic(void)
   uint16_t u16;
   char *cp;
 
-  /* Test parse_addr_port */
+  /* Test addr_port_lookup */
   cp = NULL; u32 = 3; u16 = 3;
-  test_assert(!parse_addr_port(LOG_WARN, "1.2.3.4", &cp, &u32, &u16));
+  test_assert(!addr_port_lookup(LOG_WARN, "1.2.3.4", &cp, &u32, &u16));
   test_streq(cp, "1.2.3.4");
   test_eq(u32, 0x01020304u);
   test_eq(u16, 0);
   tor_free(cp);
-  test_assert(!parse_addr_port(LOG_WARN, "4.3.2.1:99", &cp, &u32, &u16));
+  test_assert(!addr_port_lookup(LOG_WARN, "4.3.2.1:99", &cp, &u32, &u16));
   test_streq(cp, "4.3.2.1");
   test_eq(u32, 0x04030201u);
   test_eq(u16, 99);
   tor_free(cp);
-  test_assert(!parse_addr_port(LOG_WARN, "nonexistent.address:4040",
+  test_assert(!addr_port_lookup(LOG_WARN, "nonexistent.address:4040",
                                &cp, NULL, &u16));
   test_streq(cp, "nonexistent.address");
   test_eq(u16, 4040);
   tor_free(cp);
-  test_assert(!parse_addr_port(LOG_WARN, "localhost:9999", &cp, &u32, &u16));
+  test_assert(!addr_port_lookup(LOG_WARN, "localhost:9999", &cp, &u32, &u16));
   test_streq(cp, "localhost");
   test_eq(u32, 0x7f000001u);
   test_eq(u16, 9999);
   tor_free(cp);
   u32 = 3;
-  test_assert(!parse_addr_port(LOG_WARN, "localhost", NULL, &u32, &u16));
+  test_assert(!addr_port_lookup(LOG_WARN, "localhost", NULL, &u32, &u16));
   test_eq(cp, NULL);
   test_eq(u32, 0x7f000001u);
   test_eq(u16, 0);
@@ -53,9 +53,17 @@ test_addr_basic(void)
     char tmpbuf[TOR_ADDR_BUF_LEN];
     const char *ip = "176.192.208.224";
     struct in_addr in;
-    tor_inet_pton(AF_INET, ip, &in);
-    tor_inet_ntop(AF_INET, &in, tmpbuf, sizeof(tmpbuf));
+
+    /* good round trip */
+    test_eq(tor_inet_pton(AF_INET, ip, &in), 1);
+    test_eq_ptr(tor_inet_ntop(AF_INET, &in, tmpbuf, sizeof(tmpbuf)), &tmpbuf);
     test_streq(tmpbuf, ip);
+
+    /* just enough buffer length */
+    test_streq(tor_inet_ntop(AF_INET, &in, tmpbuf, strlen(ip) + 1), ip);
+
+    /* too short buffer */
+    test_eq_ptr(tor_inet_ntop(AF_INET, &in, tmpbuf, strlen(ip)), NULL);
   }
 
  done:
@@ -65,16 +73,18 @@ test_addr_basic(void)
 #define _test_op_ip6(a,op,b,e1,e2)                               \
   STMT_BEGIN                                                     \
   tt_assert_test_fmt_type(a,b,e1" "#op" "e2,struct in6_addr*,    \
-    (memcmp(_val1->s6_addr, _val2->s6_addr, 16) op 0),           \
+    (memcmp(val1_->s6_addr, val2_->s6_addr, 16) op 0),           \
     char *, "%s",                                                \
     { int i; char *cp;                                           \
-      cp = _print = tor_malloc(64);                              \
+      cp = print_ = tor_malloc(64);                              \
       for (i=0;i<16;++i) {                                       \
-        tor_snprintf(cp, 3,"%02x", (unsigned)_value->s6_addr[i]);\
+        tor_snprintf(cp, 3,"%02x", (unsigned)value_->s6_addr[i]);\
         cp += 2;                                                 \
         if (i != 15) *cp++ = ':';                                \
       }                                                          \
-    }, { tor_free(_print); }                                     \
+    },                                                           \
+    { tor_free(print_); },                                       \
+    TT_EXIT_TEST_FUNCTION                                        \
   );                                                             \
   STMT_END
 
@@ -165,6 +175,7 @@ static void
 test_addr_ip6_helpers(void)
 {
   char buf[TOR_ADDR_BUF_LEN], bug[TOR_ADDR_BUF_LEN];
+  char rbuf[REVERSE_LOOKUP_NAME_BUF_LEN];
   struct in6_addr a1, a2;
   tor_addr_t t1, t2;
   int r, i;
@@ -175,8 +186,30 @@ test_addr_ip6_helpers(void)
   struct sockaddr_in *sin;
   struct sockaddr_in6 *sin6;
 
-  //  struct in_addr b1, b2;
   /* Test tor_inet_ntop and tor_inet_pton: IPv6 */
+  {
+    const char *ip = "2001::1234";
+    const char *ip_ffff = "::ffff:192.168.1.2";
+
+    /* good round trip */
+    test_eq(tor_inet_pton(AF_INET6, ip, &a1), 1);
+    test_eq_ptr(tor_inet_ntop(AF_INET6, &a1, buf, sizeof(buf)), &buf);
+    test_streq(buf, ip);
+
+    /* good round trip - ::ffff:0:0 style */
+    test_eq(tor_inet_pton(AF_INET6, ip_ffff, &a2), 1);
+    test_eq_ptr(tor_inet_ntop(AF_INET6, &a2, buf, sizeof(buf)), &buf);
+    test_streq(buf, ip_ffff);
+
+    /* just long enough buffer (remember \0) */
+    test_streq(tor_inet_ntop(AF_INET6, &a1, buf, strlen(ip)+1), ip);
+    test_streq(tor_inet_ntop(AF_INET6, &a2, buf, strlen(ip_ffff)+1),
+               ip_ffff);
+
+    /* too short buffer (remember \0) */
+    test_eq_ptr(tor_inet_ntop(AF_INET6, &a1, buf, strlen(ip)), NULL);
+    test_eq_ptr(tor_inet_ntop(AF_INET6, &a2, buf, strlen(ip_ffff)), NULL);
+  }
 
   /* ==== Converting to and from sockaddr_t. */
   sin = (struct sockaddr_in *)&sa_storage;
@@ -268,12 +301,23 @@ test_addr_ip6_helpers(void)
   test_ntop6_reduces("1000:0001:0000:0007:0000:0000:0000:0000",
                      "1000:1:0:7::");
 
+  /* Bad af param */
+  test_eq(tor_inet_pton(AF_UNSPEC, 0, 0), -1);
+
   /* === Test pton: invalid in6. */
   test_pton6_bad("foobar.");
+  test_pton6_bad("-1::");
+  test_pton6_bad("00001::");
+  test_pton6_bad("10000::");
+  test_pton6_bad("::10000");
   test_pton6_bad("55555::");
   test_pton6_bad("9:-60::");
+  test_pton6_bad("9:+60::");
+  test_pton6_bad("9|60::");
+  test_pton6_bad("0x60::");
+  test_pton6_bad("::0x60");
+  test_pton6_bad("9:0x60::");
   test_pton6_bad("1:2:33333:4:0002:3::");
-  //test_pton6_bad("1:2:3333:4:00002:3::");// BAD, but glibc doesn't say so.
   test_pton6_bad("1:2:3333:4:fish:3::");
   test_pton6_bad("1:2:3:4:5:6:7:8:9");
   test_pton6_bad("1:2:3:4:5:6:7");
@@ -281,8 +325,14 @@ test_addr_ip6_helpers(void)
   test_pton6_bad("1:2:3:4:5:6:1.2.3");
   test_pton6_bad("::1.2.3");
   test_pton6_bad("::1.2.3.4.5");
+  test_pton6_bad("::ffff:0xff.0.0.0");
+  test_pton6_bad("::ffff:ff.0.0.0");
+  test_pton6_bad("::ffff:256.0.0.0");
+  test_pton6_bad("::ffff:-1.0.0.0");
   test_pton6_bad("99");
   test_pton6_bad("");
+  test_pton6_bad(".");
+  test_pton6_bad(":");
   test_pton6_bad("1::2::3:4");
   test_pton6_bad("a:::b:c");
   test_pton6_bad(":::a:b:c");
@@ -291,6 +341,9 @@ test_addr_ip6_helpers(void)
   /* test internal checking */
   test_external_ip("fbff:ffff::2:7", 0);
   test_internal_ip("fc01::2:7", 0);
+  test_internal_ip("fc01::02:7", 0);
+  test_internal_ip("fc01::002:7", 0);
+  test_internal_ip("fc01::0002:7", 0);
   test_internal_ip("fdff:ffff::f:f", 0);
   test_external_ip("fe00::3:f", 0);
 
@@ -361,33 +414,67 @@ test_addr_ip6_helpers(void)
   test_addr_compare_masked("0::2:2:1", <, "0::8000:2:1", 81);
   test_addr_compare_masked("0::2:2:1", ==, "0::8000:2:1", 80);
 
-  /* Test decorated addr_to_string. */
-  test_eq(AF_INET6, tor_addr_from_str(&t1, "[123:45:6789::5005:11]"));
+  /* Test undecorated tor_addr_to_str */
+  test_eq(AF_INET6, tor_addr_parse(&t1, "[123:45:6789::5005:11]"));
+  p1 = tor_addr_to_str(buf, &t1, sizeof(buf), 0);
+  test_streq(p1, "123:45:6789::5005:11");
+  test_eq(AF_INET, tor_addr_parse(&t1, "18.0.0.1"));
+  p1 = tor_addr_to_str(buf, &t1, sizeof(buf), 0);
+  test_streq(p1, "18.0.0.1");
+
+  /* Test decorated tor_addr_to_str */
+  test_eq(AF_INET6, tor_addr_parse(&t1, "[123:45:6789::5005:11]"));
   p1 = tor_addr_to_str(buf, &t1, sizeof(buf), 1);
   test_streq(p1, "[123:45:6789::5005:11]");
-  test_eq(AF_INET, tor_addr_from_str(&t1, "18.0.0.1"));
+  test_eq(AF_INET, tor_addr_parse(&t1, "18.0.0.1"));
   p1 = tor_addr_to_str(buf, &t1, sizeof(buf), 1);
   test_streq(p1, "18.0.0.1");
 
-  /* Test tor_addr_parse_reverse_lookup_name */
-  i = tor_addr_parse_reverse_lookup_name(&t1, "Foobar.baz", AF_UNSPEC, 0);
+  /* Test buffer bounds checking of tor_addr_to_str */
+  test_eq(AF_INET6, tor_addr_parse(&t1, "::")); /* 2 + \0 */
+  test_eq_ptr(tor_addr_to_str(buf, &t1, 2, 0), NULL); /* too short buf */
+  test_streq(tor_addr_to_str(buf, &t1, 3, 0), "::");
+  test_eq_ptr(tor_addr_to_str(buf, &t1, 4, 1), NULL); /* too short buf */
+  test_streq(tor_addr_to_str(buf, &t1, 5, 1), "[::]");
+
+  test_eq(AF_INET6, tor_addr_parse(&t1, "2000::1337")); /* 10 + \0 */
+  test_eq_ptr(tor_addr_to_str(buf, &t1, 10, 0), NULL); /* too short buf */
+  test_streq(tor_addr_to_str(buf, &t1, 11, 0), "2000::1337");
+  test_eq_ptr(tor_addr_to_str(buf, &t1, 12, 1), NULL); /* too short buf */
+  test_streq(tor_addr_to_str(buf, &t1, 13, 1), "[2000::1337]");
+
+  test_eq(AF_INET, tor_addr_parse(&t1, "1.2.3.4")); /* 7 + \0 */
+  test_eq_ptr(tor_addr_to_str(buf, &t1, 7, 0), NULL); /* too short buf */
+  test_streq(tor_addr_to_str(buf, &t1, 8, 0), "1.2.3.4");
+
+  test_eq(AF_INET, tor_addr_parse(&t1, "255.255.255.255")); /* 15 + \0 */
+  test_eq_ptr(tor_addr_to_str(buf, &t1, 15, 0), NULL); /* too short buf */
+  test_streq(tor_addr_to_str(buf, &t1, 16, 0), "255.255.255.255");
+  test_eq_ptr(tor_addr_to_str(buf, &t1, 15, 1), NULL); /* too short buf */
+  test_streq(tor_addr_to_str(buf, &t1, 16, 1), "255.255.255.255");
+
+  t1.family = AF_UNSPEC;
+  test_eq_ptr(tor_addr_to_str(buf, &t1, sizeof(buf), 0), NULL);
+
+  /* Test tor_addr_parse_PTR_name */
+  i = tor_addr_parse_PTR_name(&t1, "Foobar.baz", AF_UNSPEC, 0);
   test_eq(0, i);
-  i = tor_addr_parse_reverse_lookup_name(&t1, "Foobar.baz", AF_UNSPEC, 1);
+  i = tor_addr_parse_PTR_name(&t1, "Foobar.baz", AF_UNSPEC, 1);
   test_eq(0, i);
-  i = tor_addr_parse_reverse_lookup_name(&t1, "1.0.168.192.in-addr.arpa",
+  i = tor_addr_parse_PTR_name(&t1, "1.0.168.192.in-addr.arpa",
                                          AF_UNSPEC, 1);
   test_eq(1, i);
   test_eq(tor_addr_family(&t1), AF_INET);
   p1 = tor_addr_to_str(buf, &t1, sizeof(buf), 1);
   test_streq(p1, "192.168.0.1");
-  i = tor_addr_parse_reverse_lookup_name(&t1, "192.168.0.99", AF_UNSPEC, 0);
+  i = tor_addr_parse_PTR_name(&t1, "192.168.0.99", AF_UNSPEC, 0);
   test_eq(0, i);
-  i = tor_addr_parse_reverse_lookup_name(&t1, "192.168.0.99", AF_UNSPEC, 1);
+  i = tor_addr_parse_PTR_name(&t1, "192.168.0.99", AF_UNSPEC, 1);
   test_eq(1, i);
   p1 = tor_addr_to_str(buf, &t1, sizeof(buf), 1);
   test_streq(p1, "192.168.0.99");
   memset(&t1, 0, sizeof(t1));
-  i = tor_addr_parse_reverse_lookup_name(&t1,
+  i = tor_addr_parse_PTR_name(&t1,
                                          "0.1.2.3.4.5.6.7.8.9.a.b.c.d.e.f."
                                          "f.e.e.b.1.e.b.e.e.f.f.e.e.e.d.9."
                                          "ip6.ARPA",
@@ -396,42 +483,90 @@ test_addr_ip6_helpers(void)
   p1 = tor_addr_to_str(buf, &t1, sizeof(buf), 1);
   test_streq(p1, "[9dee:effe:ebe1:beef:fedc:ba98:7654:3210]");
   /* Failing cases. */
-  i = tor_addr_parse_reverse_lookup_name(&t1,
+  i = tor_addr_parse_PTR_name(&t1,
                                          "6.7.8.9.a.b.c.d.e.f."
                                          "f.e.e.b.1.e.b.e.e.f.f.e.e.e.d.9."
                                          "ip6.ARPA",
                                          AF_UNSPEC, 0);
   test_eq(i, -1);
-  i = tor_addr_parse_reverse_lookup_name(&t1,
+  i = tor_addr_parse_PTR_name(&t1,
                                          "6.7.8.9.a.b.c.d.e.f.a.b.c.d.e.f.0."
                                          "f.e.e.b.1.e.b.e.e.f.f.e.e.e.d.9."
                                          "ip6.ARPA",
                                          AF_UNSPEC, 0);
   test_eq(i, -1);
-  i = tor_addr_parse_reverse_lookup_name(&t1,
+  i = tor_addr_parse_PTR_name(&t1,
                                          "6.7.8.9.a.b.c.d.e.f.X.0.0.0.0.9."
                                          "f.e.e.b.1.e.b.e.e.f.f.e.e.e.d.9."
                                          "ip6.ARPA",
                                          AF_UNSPEC, 0);
   test_eq(i, -1);
-  i = tor_addr_parse_reverse_lookup_name(&t1, "32.1.1.in-addr.arpa",
+  i = tor_addr_parse_PTR_name(&t1, "32.1.1.in-addr.arpa",
                                          AF_UNSPEC, 0);
   test_eq(i, -1);
-  i = tor_addr_parse_reverse_lookup_name(&t1, ".in-addr.arpa",
+  i = tor_addr_parse_PTR_name(&t1, ".in-addr.arpa",
                                          AF_UNSPEC, 0);
   test_eq(i, -1);
-  i = tor_addr_parse_reverse_lookup_name(&t1, "1.2.3.4.5.in-addr.arpa",
+  i = tor_addr_parse_PTR_name(&t1, "1.2.3.4.5.in-addr.arpa",
                                          AF_UNSPEC, 0);
   test_eq(i, -1);
-  i = tor_addr_parse_reverse_lookup_name(&t1, "1.2.3.4.5.in-addr.arpa",
+  i = tor_addr_parse_PTR_name(&t1, "1.2.3.4.5.in-addr.arpa",
                                          AF_INET6, 0);
   test_eq(i, -1);
-  i = tor_addr_parse_reverse_lookup_name(&t1,
+  i = tor_addr_parse_PTR_name(&t1,
                                          "6.7.8.9.a.b.c.d.e.f.a.b.c.d.e.0."
                                          "f.e.e.b.1.e.b.e.e.f.f.e.e.e.d.9."
                                          "ip6.ARPA",
                                          AF_INET, 0);
   test_eq(i, -1);
+
+  /* === Test tor_addr_to_PTR_name */
+
+  /* Stage IPv4 addr */
+  memset(&sa_storage, 0, sizeof(sa_storage));
+  sin = (struct sockaddr_in *)&sa_storage;
+  sin->sin_family = AF_INET;
+  sin->sin_addr.s_addr = htonl(0x7f010203); /* 127.1.2.3 */
+  tor_addr_from_sockaddr(&t1, (struct sockaddr *)sin, NULL);
+
+  /* Check IPv4 PTR - too short buffer */
+  test_eq(tor_addr_to_PTR_name(rbuf, 1, &t1), -1);
+  test_eq(tor_addr_to_PTR_name(rbuf,
+                               strlen("3.2.1.127.in-addr.arpa") - 1,
+                               &t1), -1);
+
+  /* Check IPv4 PTR - valid addr */
+  test_eq(tor_addr_to_PTR_name(rbuf, sizeof(rbuf), &t1),
+          strlen("3.2.1.127.in-addr.arpa"));
+  test_streq(rbuf, "3.2.1.127.in-addr.arpa");
+
+  /* Invalid addr family */
+  t1.family = AF_UNSPEC;
+  test_eq(tor_addr_to_PTR_name(rbuf, sizeof(rbuf), &t1), -1);
+
+  /* Stage IPv6 addr */
+  memset(&sa_storage, 0, sizeof(sa_storage));
+  sin6 = (struct sockaddr_in6 *)&sa_storage;
+  sin6->sin6_family = AF_INET6;
+  sin6->sin6_addr.s6_addr[0] = 0x80; /* 8000::abcd */
+  sin6->sin6_addr.s6_addr[14] = 0xab;
+  sin6->sin6_addr.s6_addr[15] = 0xcd;
+
+  tor_addr_from_sockaddr(&t1, (struct sockaddr *)sin6, NULL);
+
+  {
+    const char* addr_PTR = "d.c.b.a.0.0.0.0.0.0.0.0.0.0.0.0."
+      "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.8.ip6.arpa";
+
+    /* Check IPv6 PTR - too short buffer */
+    test_eq(tor_addr_to_PTR_name(rbuf, 0, &t1), -1);
+    test_eq(tor_addr_to_PTR_name(rbuf, strlen(addr_PTR) - 1, &t1), -1);
+
+    /* Check IPv6 PTR - valid addr */
+    test_eq(tor_addr_to_PTR_name(rbuf, sizeof(rbuf), &t1),
+            strlen(addr_PTR));
+    test_streq(rbuf, addr_PTR);
+  }
 
   /* test tor_addr_parse_mask_ports */
   test_addr_mask_ports_parse("[::f]/17:47-95", AF_INET6,
@@ -478,12 +613,11 @@ test_addr_ip6_helpers(void)
   /* get interface addresses */
   r = get_interface_address6(LOG_DEBUG, AF_INET, &t1);
   i = get_interface_address6(LOG_DEBUG, AF_INET6, &t2);
-#if 0
-  tor_inet_ntop(AF_INET, &t1.sa.sin_addr, buf, sizeof(buf));
-  printf("\nv4 address: %s  (family=%d)", buf, IN_FAMILY(&t1));
-  tor_inet_ntop(AF_INET6, &t2.sa6.sin6_addr, buf, sizeof(buf));
-  printf("\nv6 address: %s  (family=%d)", buf, IN_FAMILY(&t2));
-#endif
+
+  TT_BLATHER(("v4 address: %s (family=%d)", fmt_addr(&t1),
+              tor_addr_family(&t1)));
+  TT_BLATHER(("v6 address: %s (family=%d)", fmt_addr(&t2),
+              tor_addr_family(&t2)));
 
  done:
   ;

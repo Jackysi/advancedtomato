@@ -3,6 +3,9 @@
 /* Define if building universal (internal helper macro) */
 #undef AC_APPLE_UNIVERSAL_BUILD
 
+/* tor's build directory */
+#undef BUILDDIR
+
 /* tor's configuration directory */
 #undef CONFDIR
 
@@ -18,11 +21,29 @@
 /* Defined if we will try to use multithreading */
 #undef ENABLE_THREADS
 
+/* Define to nothing if C supports flexible array members, and to 1 if it does
+   not. That way, with a declaration like `struct s { int n; double
+   d[FLEXIBLE_ARRAY_MEMBER]; };', the struct hack can be used with pre-C99
+   compilers. When computing the size of such an object, don't use 'sizeof
+   (struct s)' as it overestimates the size. Use 'offsetof (struct s, d)'
+   instead. Don't use 'offsetof (struct s, d[0])', as this doesn't work with
+   MSVC and with C++ compilers. */
+#undef FLEXIBLE_ARRAY_MEMBER
+
+/* Define to 1 if you have the `accept4' function. */
+#undef HAVE_ACCEPT4
+
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #undef HAVE_ARPA_INET_H
 
 /* Define to 1 if you have the <assert.h> header file. */
 #undef HAVE_ASSERT_H
+
+/* Define to 1 if you have the `clock_gettime' function. */
+#undef HAVE_CLOCK_GETTIME
+
+/* Define to 1 if you have the <crt_externs.h> header file. */
+#undef HAVE_CRT_EXTERNS_H
 
 /* Define to 1 if you have the declaration of `mlockall', and to 0 if you
    don't. */
@@ -42,6 +63,9 @@
 
 /* Define to 1 if you have the `evdns_set_outgoing_bind_address' function. */
 #undef HAVE_EVDNS_SET_OUTGOING_BIND_ADDRESS
+
+/* Define to 1 if you have the <event2/bufferevent_ssl.h> header file. */
+#undef HAVE_EVENT2_BUFFEREVENT_SSL_H
 
 /* Define to 1 if you have the <event2/dns.h> header file. */
 #undef HAVE_EVENT2_DNS_H
@@ -63,6 +87,9 @@
 
 /* Define to 1 if you have the `event_set_log_callback' function. */
 #undef HAVE_EVENT_SET_LOG_CALLBACK
+
+/* Defined if we have extern char **environ already declared */
+#undef HAVE_EXTERN_ENVIRON_DECLARED
 
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
@@ -88,6 +115,9 @@
 /* Define this if gethostbyname_r takes 6 arguments */
 #undef HAVE_GETHOSTBYNAME_R_6_ARG
 
+/* Define to 1 if you have the `getifaddrs' function. */
+#undef HAVE_GETIFADDRS
+
 /* Define to 1 if you have the `getresgid' function. */
 #undef HAVE_GETRESGID
 
@@ -106,11 +136,20 @@
 /* Define to 1 if you have the <grp.h> header file. */
 #undef HAVE_GRP_H
 
+/* Define to 1 if you have the <ifaddrs.h> header file. */
+#undef HAVE_IFADDRS_H
+
 /* Define to 1 if you have the `inet_aton' function. */
 #undef HAVE_INET_ATON
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
+
+/* Define to 1 if you have the `ioctl' function. */
+#undef HAVE_IOCTL
+
+/* Define to 1 if you have the `issetugid' function. */
+#undef HAVE_ISSETUGID
 
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
@@ -196,9 +235,6 @@
 /* Define to 1 if you have the <pwd.h> header file. */
 #undef HAVE_PWD_H
 
-/* Define to 1 if you have the `readv' function. */
-#undef HAVE_READV
-
 /* Define to 1 if you have the `rint' function. */
 #undef HAVE_RINT
 
@@ -268,6 +304,9 @@
 /* Define to 1 if `tv_sec' is a member of `struct timeval'. */
 #undef HAVE_STRUCT_TIMEVAL_TV_SEC
 
+/* Define to 1 if you have the `sysconf' function. */
+#undef HAVE_SYSCONF
+
 /* Define to 1 if you have the <syslog.h> header file. */
 #undef HAVE_SYSLOG_H
 
@@ -310,9 +349,6 @@
 /* Define to 1 if you have the <sys/types.h> header file. */
 #undef HAVE_SYS_TYPES_H
 
-/* Define to 1 if you have the <sys/uio.h> header file. */
-#undef HAVE_SYS_UIO_H
-
 /* Define to 1 if you have the <sys/un.h> header file. */
 #undef HAVE_SYS_UN_H
 
@@ -343,8 +379,8 @@
 /* Define to 1 if you have the `vasprintf' function. */
 #undef HAVE_VASPRINTF
 
-/* Define to 1 if you have the `writev' function. */
-#undef HAVE_WRITEV
+/* Define to 1 if you have the `_NSGetEnviron' function. */
+#undef HAVE__NSGETENVIRON
 
 /* Defined if we want to keep track of how much of each kind of resource we
    download. */
@@ -356,8 +392,17 @@
 /* Define to 1 iff malloc(0) returns a pointer */
 #undef MALLOC_ZERO_WORKS
 
-/* Define to 1 if we are building for Windows. */
-#undef MS_WINDOWS
+/* Define to 1 if we are building with UPnP. */
+#undef MINIUPNPC
+
+/* libminiupnpc version 1.5 found */
+#undef MINIUPNPC15
+
+/* Define to 1 if we are building with nat-pmp. */
+#undef NAT_PMP
+
+/* Define to 1 if your C compiler doesn't accept -c and -o together. */
+#undef NO_MINUS_C_MINUS_O
 
 /* Define to 1 iff memset(0) sets pointers to NULL */
 #undef NULL_REP_IS_ZERO_BYTES
@@ -458,6 +503,9 @@
 /* Define to 1 iff time_t is signed */
 #undef TIME_T_IS_SIGNED
 
+/* Defined if we're going to use Libevent's buffered IO API */
+#undef USE_BUFFEREVENTS
+
 /* Debug memory allocation library */
 #undef USE_DMALLOC
 
@@ -480,6 +528,11 @@
 # ifndef WORDS_BIGENDIAN
 #  undef WORDS_BIGENDIAN
 # endif
+#endif
+
+/* Enable large inode numbers on Mac OS X 10.5.  */
+#ifndef _DARWIN_USE_64_BIT_INODE
+# define _DARWIN_USE_64_BIT_INODE 1
 #endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */

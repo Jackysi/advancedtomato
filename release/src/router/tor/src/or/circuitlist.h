@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -15,6 +15,7 @@
 circuit_t * _circuit_get_global_list(void);
 const char *circuit_state_to_string(int state);
 const char *circuit_purpose_to_controller_string(uint8_t purpose);
+const char *circuit_purpose_to_controller_hs_state_string(uint8_t purpose);
 const char *circuit_purpose_to_string(uint8_t purpose);
 void circuit_dump_by_conn(connection_t *conn, int severity);
 void circuit_set_p_circid_orconn(or_circuit_t *circ, circid_t id,
@@ -32,8 +33,8 @@ int circuit_id_in_use_on_orconn(circid_t circ_id, or_connection_t *conn);
 circuit_t *circuit_get_by_edge_conn(edge_connection_t *conn);
 void circuit_unlink_all_from_or_conn(or_connection_t *conn, int reason);
 origin_circuit_t *circuit_get_by_global_id(uint32_t id);
-origin_circuit_t *circuit_get_by_rend_query_and_purpose(const char *rend_query,
-                                                        uint8_t purpose);
+origin_circuit_t *circuit_get_ready_rend_circ_by_rend_data(
+  const rend_data_t *rend_data);
 origin_circuit_t *circuit_get_next_by_pk_and_purpose(origin_circuit_t *start,
                                          const char *digest, uint8_t purpose);
 or_circuit_t *circuit_get_rendezvous(const char *cookie);

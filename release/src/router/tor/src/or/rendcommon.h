@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -28,14 +28,14 @@ void rend_process_relay_cell(circuit_t *circ, const crypt_path_t *layer_hint,
 void rend_service_descriptor_free(rend_service_descriptor_t *desc);
 rend_service_descriptor_t *rend_parse_service_descriptor(const char *str,
                                                          size_t len);
-int rend_get_service_id(crypto_pk_env_t *pk, char *out);
+int rend_get_service_id(crypto_pk_t *pk, char *out);
 void rend_encoded_v2_service_descriptor_free(
                                rend_encoded_v2_service_descriptor_t *desc);
 void rend_intro_point_free(rend_intro_point_t *intro);
 
 void rend_cache_init(void);
-void rend_cache_clean(void);
-void rend_cache_clean_v2_descs_as_dir(void);
+void rend_cache_clean(time_t now);
+void rend_cache_clean_v2_descs_as_dir(time_t now);
 void rend_cache_purge(void);
 void rend_cache_free_all(void);
 int rend_valid_service_id(const char *query);
@@ -53,7 +53,7 @@ int rend_cache_size(void);
 int rend_encode_v2_descriptors(smartlist_t *descs_out,
                                rend_service_descriptor_t *desc, time_t now,
                                uint8_t period, rend_auth_type_t auth_type,
-                               crypto_pk_env_t *client_key,
+                               crypto_pk_t *client_key,
                                smartlist_t *client_cookies);
 int rend_compute_v2_desc_id(char *desc_id_out, const char *service_id,
                             const char *descriptor_cookie,

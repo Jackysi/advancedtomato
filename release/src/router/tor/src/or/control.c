@@ -1,5 +1,5 @@
 /* Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -18,6 +18,7 @@
 #include "config.h"
 #include "connection.h"
 #include "connection_edge.h"
+#include "connection_or.h"
 #include "control.h"
 #include "directory.h"
 #include "dirserv.h"
@@ -26,11 +27,18 @@
 #include "hibernate.h"
 #include "main.h"
 #include "networkstatus.h"
+#include "nodelist.h"
 #include "policies.h"
 #include "reasons.h"
+#include "rephist.h"
 #include "router.h"
 #include "routerlist.h"
 #include "routerparse.h"
+
+#ifndef _WIN32
+#include <pwd.h>
+#include <sys/resource.h>
+#endif
 
 #include "procmon.h"
 
@@ -47,7 +55,7 @@
 #define EVENT_STREAM_STATUS    0x0002
 #define EVENT_OR_CONN_STATUS   0x0003
 #define EVENT_BANDWIDTH_USED   0x0004
-#define EVENT_LOG_OBSOLETE     0x0005 /* Can reclaim this. */
+#define EVENT_CIRCUIT_STATUS_MINOR 0x0005
 #define EVENT_NEW_DESC         0x0006
 #define EVENT_DEBUG_MSG        0x0007
 #define EVENT_INFO_MSG         0x0008
@@ -66,7 +74,9 @@
 #define EVENT_CLIENTS_SEEN     0x0015
 #define EVENT_NEWCONSENSUS     0x0016
 #define EVENT_BUILDTIMEOUT_SET     0x0017
-#define _EVENT_MAX             0x0017
+#define EVENT_SIGNAL           0x0018
+#define EVENT_CONF_CHANGED     0x0019
+#define _EVENT_MAX             0x0019
 /* If _EVENT_MAX ever hits 0x0020, we need to make the mask wider. */
 
 /** Bitfield: The bit 1&lt;&lt;e is set if <b>any</b> open control
@@ -101,6 +111,12 @@ static int authentication_cookie_is_set = 0;
  * read it off disk, it has permission to connect.) */
 static char authentication_cookie[AUTHENTICATION_COOKIE_LEN];
 
+#define SAFECOOKIE_SERVER_TO_CONTROLLER_CONSTANT \
+  "Tor safe cookie authentication server-to-controller hash"
+#define SAFECOOKIE_CONTROLLER_TO_SERVER_CONSTANT \
+  "Tor safe cookie authentication controller-to-server hash"
+#define SAFECOOKIE_SERVER_NONCE_LEN DIGEST256_LEN
+
 /** A sufficiently large size to record the last bootstrap phase string. */
 #define BOOTSTRAP_MSG_LEN 1024
 
@@ -120,6 +136,13 @@ typedef int event_format_t;
 static void connection_printf_to_buf(control_connection_t *conn,
                                      const char *format, ...)
   CHECK_PRINTF(2,3);
+static void send_control_event_impl(uint16_t event, event_format_t which,
+                                    const char *format, va_list ap)
+  CHECK_PRINTF(3,0);
+static int control_event_status(int type, int severity, const char *format,
+                                va_list args)
+  CHECK_PRINTF(3,0);
+
 static void send_control_done(control_connection_t *conn);
 static void send_control_event(uint16_t event, event_format_t which,
                                const char *format, ...)
@@ -168,7 +191,7 @@ static int handle_control_resolve(control_connection_t *conn, uint32_t len,
 static int handle_control_usefeature(control_connection_t *conn,
                                      uint32_t len,
                                      const char *body);
-static int write_stream_target_to_buf(edge_connection_t *conn, char *buf,
+static int write_stream_target_to_buf(entry_connection_t *conn, char *buf,
                                       size_t len);
 static void orconn_target_get_name(char *buf, size_t len,
                                    or_connection_t *conn);
@@ -263,8 +286,7 @@ control_adjust_event_log_severity(void)
       break;
     }
   }
-  if (EVENT_IS_INTERESTING(EVENT_LOG_OBSOLETE) ||
-      EVENT_IS_INTERESTING(EVENT_STATUS_GENERAL)) {
+  if (EVENT_IS_INTERESTING(EVENT_STATUS_GENERAL)) {
     if (min_log_event > EVENT_NOTICE_MSG)
       min_log_event = EVENT_NOTICE_MSG;
     if (max_log_event < EVENT_ERR_MSG)
@@ -494,8 +516,8 @@ connection_printf_to_buf(control_connection_t *conn, const char *format, ...)
   va_end(ap);
 
   if (len < 0) {
-    log_warn(LD_BUG, "Unable to format string for controller.");
-    return;
+    log_err(LD_BUG, "Unable to format string for controller.");
+    tor_assert(0);
   }
 
   connection_write_to_buf(buf, (size_t)len, TO_CONN(conn));
@@ -509,26 +531,23 @@ control_ports_write_to_file(void)
 {
   smartlist_t *lines;
   char *joined = NULL;
-  or_options_t *options = get_options();
+  const or_options_t *options = get_options();
 
   if (!options->ControlPortWriteToFile)
     return;
 
-  lines = smartlist_create();
+  lines = smartlist_new();
 
   SMARTLIST_FOREACH_BEGIN(get_connection_array(), const connection_t *, conn) {
-    char *port_str = NULL;
     if (conn->type != CONN_TYPE_CONTROL_LISTENER || conn->marked_for_close)
       continue;
 #ifdef AF_UNIX
     if (conn->socket_family == AF_UNIX) {
-      tor_asprintf(&port_str, "UNIX_PORT=%s\n", conn->address);
-      smartlist_add(lines, port_str);
+      smartlist_add_asprintf(lines, "UNIX_PORT=%s\n", conn->address);
       continue;
     }
 #endif
-    tor_asprintf(&port_str, "PORT=%s:%d\n", conn->address, conn->port);
-    smartlist_add(lines, port_str);
+    smartlist_add_asprintf(lines, "PORT=%s:%d\n", conn->address, conn->port);
   } SMARTLIST_FOREACH_END(conn);
 
   joined = smartlist_join_strings(lines, "", 0, NULL);
@@ -537,7 +556,7 @@ control_ports_write_to_file(void)
     log_warn(LD_CONTROL, "Writing %s failed: %s",
              options->ControlPortWriteToFile, strerror(errno));
   }
-#ifndef MS_WINDOWS
+#ifndef _WIN32
   if (options->ControlPortFileGroupReadable) {
     if (chmod(options->ControlPortWriteToFile, 0640)) {
       log_warn(LD_FS,"Unable to make %s group-readable.",
@@ -593,7 +612,7 @@ send_control_event_string(uint16_t event, event_format_t which,
         else if (event == EVENT_STATUS_SERVER)
           is_err = !strcmpstart(msg, "STATUS_SERVER ERR ");
         if (is_err)
-          connection_handle_write(TO_CONN(control_conn), 1);
+          connection_flush(TO_CONN(control_conn));
       }
     }
   } SMARTLIST_FOREACH_END(conn);
@@ -647,7 +666,7 @@ get_circ(const char *id)
 }
 
 /** Given a text stream <b>id</b>, return the corresponding AP connection. */
-static edge_connection_t *
+static entry_connection_t *
 get_stream(const char *id)
 {
   uint64_t n_id;
@@ -659,7 +678,7 @@ get_stream(const char *id)
   conn = connection_get_by_global_id(n_id);
   if (!conn || conn->type != CONN_TYPE_AP || conn->marked_for_close)
     return NULL;
-  return TO_EDGE_CONN(conn);
+  return TO_ENTRY_CONN(conn);
 }
 
 /** Helper for setconf and resetconf. Acts like setconf, except
@@ -677,7 +696,7 @@ control_setconf_helper(control_connection_t *conn, uint32_t len, char *body,
   const int clear_first = 1;
 
   char *config;
-  smartlist_t *entries = smartlist_create();
+  smartlist_t *entries = smartlist_new();
 
   /* We have a string, "body", of the format '(key(=val|="val")?)' entries
    * separated by space.  break it into a list of configuration entries. */
@@ -692,7 +711,6 @@ control_setconf_helper(control_connection_t *conn, uint32_t len, char *body,
     if (*eq == '=') {
       char *val=NULL;
       size_t val_len=0;
-      size_t ent_len;
       if (*body != '\"') {
         char *val_start = body;
         while (!TOR_ISSPACE(*body))
@@ -710,9 +728,7 @@ control_setconf_helper(control_connection_t *conn, uint32_t len, char *body,
           return 0;
         }
       }
-      ent_len = strlen(key)+val_len+3;
-      entry = tor_malloc(ent_len+1);
-      tor_snprintf(entry, ent_len, "%s %s", key, val);
+      tor_asprintf(&entry, "%s %s", key, val);
       tor_free(key);
       tor_free(val);
     } else {
@@ -728,7 +744,7 @@ control_setconf_helper(control_connection_t *conn, uint32_t len, char *body,
   SMARTLIST_FOREACH(entries, char *, cp, tor_free(cp));
   smartlist_free(entries);
 
-  if (config_get_lines(config, &lines) < 0) {
+  if (config_get_lines(config, &lines, 0) < 0) {
     log_warn(LD_CONTROL,"Controller gave us config lines we can't parse.");
     connection_write_str_to_buf("551 Couldn't parse configuration\r\n",
                                 conn);
@@ -793,38 +809,31 @@ static int
 handle_control_getconf(control_connection_t *conn, uint32_t body_len,
                        const char *body)
 {
-  smartlist_t *questions = smartlist_create();
-  smartlist_t *answers = smartlist_create();
-  smartlist_t *unrecognized = smartlist_create();
+  smartlist_t *questions = smartlist_new();
+  smartlist_t *answers = smartlist_new();
+  smartlist_t *unrecognized = smartlist_new();
   char *msg = NULL;
   size_t msg_len;
-  or_options_t *options = get_options();
+  const or_options_t *options = get_options();
   int i, len;
 
   (void) body_len; /* body is NUL-terminated; so we can ignore len. */
   smartlist_split_string(questions, body, " ",
                          SPLIT_SKIP_SPACE|SPLIT_IGNORE_BLANK, 0);
-  SMARTLIST_FOREACH(questions, const char *, q,
-  {
+  SMARTLIST_FOREACH_BEGIN(questions, const char *, q) {
     if (!option_is_recognized(q)) {
       smartlist_add(unrecognized, (char*) q);
     } else {
       config_line_t *answer = option_get_assignment(options,q);
       if (!answer) {
         const char *name = option_get_canonical_name(q);
-        size_t alen = strlen(name)+8;
-        char *astr = tor_malloc(alen);
-        tor_snprintf(astr, alen, "250-%s\r\n", name);
-        smartlist_add(answers, astr);
+        smartlist_add_asprintf(answers, "250-%s\r\n", name);
       }
 
       while (answer) {
         config_line_t *next;
-        size_t alen = strlen(answer->key)+strlen(answer->value)+8;
-        char *astr = tor_malloc(alen);
-        tor_snprintf(astr, alen, "250-%s=%s\r\n",
+        smartlist_add_asprintf(answers, "250-%s=%s\r\n",
                      answer->key, answer->value);
-        smartlist_add(answers, astr);
 
         next = answer->next;
         tor_free(answer->key);
@@ -833,7 +842,7 @@ handle_control_getconf(control_connection_t *conn, uint32_t body_len,
         answer = next;
       }
     }
-  });
+  } SMARTLIST_FOREACH_END(q);
 
   if ((len = smartlist_len(unrecognized))) {
     for (i=0; i < len-1; ++i)
@@ -874,7 +883,7 @@ handle_control_loadconf(control_connection_t *conn, uint32_t len,
   const char *msg = NULL;
   (void) len;
 
-  retval = options_init_from_string(body, CMD_RUN_TOR, NULL, &errstring);
+  retval = options_init_from_string(NULL, body, CMD_RUN_TOR, NULL, &errstring);
 
   if (retval != SETOPT_OK)
     log_warn(LD_CONTROL,
@@ -910,15 +919,51 @@ handle_control_loadconf(control_connection_t *conn, uint32_t len,
   return 0;
 }
 
+/** Helper structure: maps event values to their names. */
+struct control_event_t {
+  uint16_t event_code;
+  const char *event_name;
+};
+/** Table mapping event values to their names.  Used to implement SETEVENTS
+ * and GETINFO events/names, and to keep they in sync. */
+static const struct control_event_t control_event_table[] = {
+  { EVENT_CIRCUIT_STATUS, "CIRC" },
+  { EVENT_CIRCUIT_STATUS_MINOR, "CIRC_MINOR" },
+  { EVENT_STREAM_STATUS, "STREAM" },
+  { EVENT_OR_CONN_STATUS, "ORCONN" },
+  { EVENT_BANDWIDTH_USED, "BW" },
+  { EVENT_DEBUG_MSG, "DEBUG" },
+  { EVENT_INFO_MSG, "INFO" },
+  { EVENT_NOTICE_MSG, "NOTICE" },
+  { EVENT_WARN_MSG, "WARN" },
+  { EVENT_ERR_MSG, "ERR" },
+  { EVENT_NEW_DESC, "NEWDESC" },
+  { EVENT_ADDRMAP, "ADDRMAP" },
+  { EVENT_AUTHDIR_NEWDESCS, "AUTHDIR_NEWDESCS" },
+  { EVENT_DESCCHANGED, "DESCCHANGED" },
+  { EVENT_NS, "NS" },
+  { EVENT_STATUS_GENERAL, "STATUS_GENERAL" },
+  { EVENT_STATUS_CLIENT, "STATUS_CLIENT" },
+  { EVENT_STATUS_SERVER, "STATUS_SERVER" },
+  { EVENT_GUARD, "GUARD" },
+  { EVENT_STREAM_BANDWIDTH_USED, "STREAM_BW" },
+  { EVENT_CLIENTS_SEEN, "CLIENTS_SEEN" },
+  { EVENT_NEWCONSENSUS, "NEWCONSENSUS" },
+  { EVENT_BUILDTIMEOUT_SET, "BUILDTIMEOUT_SET" },
+  { EVENT_SIGNAL, "SIGNAL" },
+  { EVENT_CONF_CHANGED, "CONF_CHANGED"},
+  { 0, NULL },
+};
+
 /** Called when we get a SETEVENTS message: update conn->event_mask,
  * and reply with DONE or ERROR. */
 static int
 handle_control_setevents(control_connection_t *conn, uint32_t len,
                          const char *body)
 {
-  uint16_t event_code;
+  int event_code = -1;
   uint32_t event_mask = 0;
-  smartlist_t *events = smartlist_create();
+  smartlist_t *events = smartlist_new();
 
   (void) len;
 
@@ -928,56 +973,22 @@ handle_control_setevents(control_connection_t *conn, uint32_t len,
     {
       if (!strcasecmp(ev, "EXTENDED")) {
         continue;
-      } else if (!strcasecmp(ev, "CIRC"))
-        event_code = EVENT_CIRCUIT_STATUS;
-      else if (!strcasecmp(ev, "STREAM"))
-        event_code = EVENT_STREAM_STATUS;
-      else if (!strcasecmp(ev, "ORCONN"))
-        event_code = EVENT_OR_CONN_STATUS;
-      else if (!strcasecmp(ev, "BW"))
-        event_code = EVENT_BANDWIDTH_USED;
-      else if (!strcasecmp(ev, "DEBUG"))
-        event_code = EVENT_DEBUG_MSG;
-      else if (!strcasecmp(ev, "INFO"))
-        event_code = EVENT_INFO_MSG;
-      else if (!strcasecmp(ev, "NOTICE"))
-        event_code = EVENT_NOTICE_MSG;
-      else if (!strcasecmp(ev, "WARN"))
-        event_code = EVENT_WARN_MSG;
-      else if (!strcasecmp(ev, "ERR"))
-        event_code = EVENT_ERR_MSG;
-      else if (!strcasecmp(ev, "NEWDESC"))
-        event_code = EVENT_NEW_DESC;
-      else if (!strcasecmp(ev, "ADDRMAP"))
-        event_code = EVENT_ADDRMAP;
-      else if (!strcasecmp(ev, "AUTHDIR_NEWDESCS"))
-        event_code = EVENT_AUTHDIR_NEWDESCS;
-      else if (!strcasecmp(ev, "DESCCHANGED"))
-        event_code = EVENT_DESCCHANGED;
-      else if (!strcasecmp(ev, "NS"))
-        event_code = EVENT_NS;
-      else if (!strcasecmp(ev, "STATUS_GENERAL"))
-        event_code = EVENT_STATUS_GENERAL;
-      else if (!strcasecmp(ev, "STATUS_CLIENT"))
-        event_code = EVENT_STATUS_CLIENT;
-      else if (!strcasecmp(ev, "STATUS_SERVER"))
-        event_code = EVENT_STATUS_SERVER;
-      else if (!strcasecmp(ev, "GUARD"))
-        event_code = EVENT_GUARD;
-      else if (!strcasecmp(ev, "STREAM_BW"))
-        event_code = EVENT_STREAM_BANDWIDTH_USED;
-      else if (!strcasecmp(ev, "CLIENTS_SEEN"))
-        event_code = EVENT_CLIENTS_SEEN;
-      else if (!strcasecmp(ev, "NEWCONSENSUS"))
-        event_code = EVENT_NEWCONSENSUS;
-      else if (!strcasecmp(ev, "BUILDTIMEOUT_SET"))
-        event_code = EVENT_BUILDTIMEOUT_SET;
-      else {
-        connection_printf_to_buf(conn, "552 Unrecognized event \"%s\"\r\n",
-                                 ev);
-        SMARTLIST_FOREACH(events, char *, e, tor_free(e));
-        smartlist_free(events);
-        return 0;
+      } else {
+        int i;
+        for (i = 0; control_event_table[i].event_name != NULL; ++i) {
+          if (!strcasecmp(ev, control_event_table[i].event_name)) {
+            event_code = control_event_table[i].event_code;
+            break;
+          }
+        }
+
+        if (event_code == -1) {
+          connection_printf_to_buf(conn, "552 Unrecognized event \"%s\"\r\n",
+                                   ev);
+          SMARTLIST_FOREACH(events, char *, e, tor_free(e));
+          smartlist_free(events);
+          return 0;
+        }
       }
       event_mask |= (1 << event_code);
     }
@@ -1001,7 +1012,7 @@ decode_hashed_passwords(config_line_t *passwords)
 {
   char decoded[64];
   config_line_t *cl;
-  smartlist_t *sl = smartlist_create();
+  smartlist_t *sl = smartlist_new();
 
   tor_assert(passwords);
 
@@ -1039,7 +1050,7 @@ handle_control_authenticate(control_connection_t *conn, uint32_t len,
                             const char *body)
 {
   int used_quoted_string = 0;
-  or_options_t *options = get_options();
+  const or_options_t *options = get_options();
   const char *errstr = NULL;
   char *password;
   size_t password_len;
@@ -1048,7 +1059,10 @@ handle_control_authenticate(control_connection_t *conn, uint32_t len,
   int bad_cookie=0, bad_password=0;
   smartlist_t *sl = NULL;
 
-  if (TOR_ISXDIGIT(body[0])) {
+  if (!len) {
+    password = tor_strdup("");
+    password_len = 0;
+  } else if (TOR_ISXDIGIT(body[0])) {
     cp = body;
     while (TOR_ISXDIGIT(*cp))
       ++cp;
@@ -1065,9 +1079,6 @@ handle_control_authenticate(control_connection_t *conn, uint32_t len,
       tor_free(password);
       return 0;
     }
-  } else if (TOR_ISSPACE(body[0])) {
-    password = tor_strdup("");
-    password_len = 0;
   } else {
     if (!decode_escaped_string(body, len, &password, &password_len)) {
       connection_write_str_to_buf("551 Invalid quoted string.  You need "
@@ -1076,6 +1087,32 @@ handle_control_authenticate(control_connection_t *conn, uint32_t len,
       return 0;
     }
     used_quoted_string = 1;
+  }
+
+  if (conn->safecookie_client_hash != NULL) {
+    /* The controller has chosen safe cookie authentication; the only
+     * acceptable authentication value is the controller-to-server
+     * response. */
+
+    tor_assert(authentication_cookie_is_set);
+
+    if (password_len != DIGEST256_LEN) {
+      log_warn(LD_CONTROL,
+               "Got safe cookie authentication response with wrong length "
+               "(%d)", (int)password_len);
+      errstr = "Wrong length for safe cookie response.";
+      goto err;
+    }
+
+    if (tor_memneq(conn->safecookie_client_hash, password, DIGEST256_LEN)) {
+      log_warn(LD_CONTROL,
+               "Got incorrect safe cookie authentication response");
+      errstr = "Safe cookie response did not match expected value.";
+      goto err;
+    }
+
+    tor_free(conn->safecookie_client_hash);
+    goto ok;
   }
 
   if (!options->CookieAuthentication && !options->HashedControlPassword &&
@@ -1114,7 +1151,7 @@ handle_control_authenticate(control_connection_t *conn, uint32_t len,
     smartlist_t *sl_tmp;
     char received[DIGEST_LEN];
     int also_cookie = options->CookieAuthentication;
-    sl = smartlist_create();
+    sl = smartlist_new();
     if (options->HashedControlPassword) {
       sl_tmp = decode_hashed_passwords(options->HashedControlPassword);
       if (!sl_tmp)
@@ -1248,7 +1285,7 @@ handle_control_signal(control_connection_t *conn, uint32_t len,
   send_control_done(conn);
   /* Flush the "done" first if the signal might make us shut down. */
   if (sig == SIGTERM || sig == SIGINT)
-    connection_handle_write(TO_CONN(conn), 1);
+    connection_flush(TO_CONN(conn));
 
   process_signal(sig);
 
@@ -1275,6 +1312,17 @@ handle_control_takeownership(control_connection_t *conn, uint32_t len,
   return 0;
 }
 
+/** Return true iff <b>addr</b> is unusable as a mapaddress target because of
+ * containing funny characters. */
+static int
+address_is_invalid_mapaddress_target(const char *addr)
+{
+  if (!strcmpstart(addr, "*."))
+    return address_is_invalid_destination(addr+2, 1);
+  else
+    return address_is_invalid_destination(addr, 1);
+}
+
 /** Called when we get a MAPADDRESS command; try to bind all listed addresses,
  * and report success or failure. */
 static int
@@ -1288,24 +1336,20 @@ handle_control_mapaddress(control_connection_t *conn, uint32_t len,
   size_t sz;
   (void) len; /* body is NUL-terminated, so it's safe to ignore the length. */
 
-  lines = smartlist_create();
-  elts = smartlist_create();
-  reply = smartlist_create();
+  lines = smartlist_new();
+  elts = smartlist_new();
+  reply = smartlist_new();
   smartlist_split_string(lines, body, " ",
                          SPLIT_SKIP_SPACE|SPLIT_IGNORE_BLANK, 0);
-  SMARTLIST_FOREACH(lines, char *, line,
-  {
+  SMARTLIST_FOREACH_BEGIN(lines, char *, line) {
     tor_strlower(line);
     smartlist_split_string(elts, line, "=", 0, 2);
     if (smartlist_len(elts) == 2) {
       const char *from = smartlist_get(elts,0);
       const char *to = smartlist_get(elts,1);
-      size_t anslen = strlen(line)+512;
-      char *ans = tor_malloc(anslen);
-      if (address_is_invalid_destination(to, 1)) {
-        tor_snprintf(ans, anslen,
+      if (address_is_invalid_mapaddress_target(to)) {
+        smartlist_add_asprintf(reply,
                      "512-syntax error: invalid address '%s'", to);
-        smartlist_add(reply, ans);
         log_warn(LD_CONTROL,
                  "Skipping invalid argument '%s' in MapAddress msg", to);
       } else if (!strcmp(from, ".") || !strcmp(from, "0.0.0.0")) {
@@ -1313,34 +1357,38 @@ handle_control_mapaddress(control_connection_t *conn, uint32_t len,
               !strcmp(from,".") ? RESOLVED_TYPE_HOSTNAME : RESOLVED_TYPE_IPV4,
                tor_strdup(to));
         if (!address) {
-          tor_snprintf(ans, anslen,
+          smartlist_add_asprintf(reply,
                        "451-resource exhausted: skipping '%s'", line);
-          smartlist_add(reply, ans);
           log_warn(LD_CONTROL,
                    "Unable to allocate address for '%s' in MapAddress msg",
                    safe_str_client(line));
         } else {
-          tor_snprintf(ans, anslen, "250-%s=%s", address, to);
-          smartlist_add(reply, ans);
+          smartlist_add_asprintf(reply, "250-%s=%s", address, to);
         }
       } else {
-        addressmap_register(from, tor_strdup(to), 1, ADDRMAPSRC_CONTROLLER);
-        tor_snprintf(ans, anslen, "250-%s", line);
-        smartlist_add(reply, ans);
+        const char *msg;
+        if (addressmap_register_auto(from, to, 1,
+                                     ADDRMAPSRC_CONTROLLER, &msg) < 0) {
+          smartlist_add_asprintf(reply,
+                                 "512-syntax error: invalid address mapping "
+                                 " '%s': %s", line, msg);
+          log_warn(LD_CONTROL,
+                   "Skipping invalid argument '%s' in MapAddress msg: %s",
+                   line, msg);
+        } else {
+          smartlist_add_asprintf(reply, "250-%s", line);
+        }
       }
     } else {
-      size_t anslen = strlen(line)+256;
-      char *ans = tor_malloc(anslen);
-      tor_snprintf(ans, anslen, "512-syntax error: mapping '%s' is "
+      smartlist_add_asprintf(reply, "512-syntax error: mapping '%s' is "
                    "not of expected form 'foo=bar'.", line);
-      smartlist_add(reply, ans);
       log_info(LD_CONTROL, "Skipping MapAddress '%s': wrong "
                            "number of items.",
                            safe_str_client(line));
     }
     SMARTLIST_FOREACH(elts, char *, cp, tor_free(cp));
     smartlist_clear(elts);
-  });
+  } SMARTLIST_FOREACH_END(line);
   SMARTLIST_FOREACH(lines, char *, cp, tor_free(cp));
   smartlist_free(lines);
   smartlist_free(elts);
@@ -1371,17 +1419,27 @@ getinfo_helper_misc(control_connection_t *conn, const char *question,
   if (!strcmp(question, "version")) {
     *answer = tor_strdup(get_version());
   } else if (!strcmp(question, "config-file")) {
-    *answer = tor_strdup(get_torrc_fname());
+    *answer = tor_strdup(get_torrc_fname(0));
+  } else if (!strcmp(question, "config-defaults-file")) {
+    *answer = tor_strdup(get_torrc_fname(1));
   } else if (!strcmp(question, "config-text")) {
     *answer = options_dump(get_options(), 1);
   } else if (!strcmp(question, "info/names")) {
     *answer = list_getinfo_options();
+  } else if (!strcmp(question, "dormant")) {
+    int dormant = rep_hist_circbuilding_dormant(time(NULL));
+    *answer = tor_strdup(dormant ? "1" : "0");
   } else if (!strcmp(question, "events/names")) {
-    *answer = tor_strdup("CIRC STREAM ORCONN BW DEBUG INFO NOTICE WARN ERR "
-                         "NEWDESC ADDRMAP AUTHDIR_NEWDESCS DESCCHANGED "
-                         "NS STATUS_GENERAL STATUS_CLIENT STATUS_SERVER "
-                         "GUARD STREAM_BW CLIENTS_SEEN NEWCONSENSUS "
-                         "BUILDTIMEOUT_SET");
+    int i;
+    smartlist_t *event_names = smartlist_new();
+
+    for (i = 0; control_event_table[i].event_name != NULL; ++i) {
+      smartlist_add(event_names, (char *)control_event_table[i].event_name);
+    }
+
+    *answer = smartlist_join_strings(event_names, " ", 0, NULL);
+
+    smartlist_free(event_names);
   } else if (!strcmp(question, "features/names")) {
     *answer = tor_strdup("VERBOSE_NAMES EXTENDED_EVENTS");
   } else if (!strcmp(question, "address")) {
@@ -1391,10 +1449,48 @@ getinfo_helper_misc(control_connection_t *conn, const char *question,
       return -1;
     }
     *answer = tor_dup_ip(addr);
+  } else if (!strcmp(question, "traffic/read")) {
+    tor_asprintf(answer, U64_FORMAT, U64_PRINTF_ARG(get_bytes_read()));
+  } else if (!strcmp(question, "traffic/written")) {
+    tor_asprintf(answer, U64_FORMAT, U64_PRINTF_ARG(get_bytes_written()));
+  } else if (!strcmp(question, "process/pid")) {
+    int myPid = -1;
+
+    #ifdef _WIN32
+      myPid = _getpid();
+    #else
+      myPid = getpid();
+    #endif
+
+    tor_asprintf(answer, "%d", myPid);
+  } else if (!strcmp(question, "process/uid")) {
+    #ifdef _WIN32
+      *answer = tor_strdup("-1");
+    #else
+      int myUid = geteuid();
+      tor_asprintf(answer, "%d", myUid);
+    #endif
+  } else if (!strcmp(question, "process/user")) {
+    #ifdef _WIN32
+      *answer = tor_strdup("");
+    #else
+      int myUid = geteuid();
+      struct passwd *myPwEntry = getpwuid(myUid);
+
+      if (myPwEntry) {
+        *answer = tor_strdup(myPwEntry->pw_name);
+      } else {
+        *answer = tor_strdup("");
+      }
+    #endif
+  } else if (!strcmp(question, "process/descriptor-limit")) {
+    int max_fds=-1;
+    set_max_file_descriptors(0, &max_fds);
+    tor_asprintf(answer, "%d", max_fds);
   } else if (!strcmp(question, "dir-usage")) {
     *answer = directory_dump_request_log();
   } else if (!strcmp(question, "fingerprint")) {
-    crypto_pk_env_t *server_key;
+    crypto_pk_t *server_key;
     if (!server_mode(get_options())) {
       *errmsg = "Not running in server mode";
       return -1;
@@ -1416,8 +1512,9 @@ getinfo_helper_misc(control_connection_t *conn, const char *question,
  * NOTE: <b>ri_body</b> is as returned by signed_descriptor_get_body: it might
  * not be NUL-terminated. */
 static char *
-munge_extrainfo_into_routerinfo(const char *ri_body, signed_descriptor_t *ri,
-                                signed_descriptor_t *ei)
+munge_extrainfo_into_routerinfo(const char *ri_body,
+                                const signed_descriptor_t *ri,
+                                const signed_descriptor_t *ei)
 {
   char *out = NULL, *outp;
   int i;
@@ -1485,9 +1582,8 @@ getinfo_helper_listeners(control_connection_t *control_conn,
   else
     return 0; /* unknown key */
 
-  res = smartlist_create();
+  res = smartlist_new();
   SMARTLIST_FOREACH_BEGIN(get_connection_array(), connection_t *, conn) {
-    char *addr;
     struct sockaddr_storage ss;
     socklen_t ss_len = sizeof(ss);
 
@@ -1495,14 +1591,13 @@ getinfo_helper_listeners(control_connection_t *control_conn,
       continue;
 
     if (getsockname(conn->s, (struct sockaddr *)&ss, &ss_len) < 0) {
-      tor_asprintf(&addr, "%s:%d", conn->address, (int)conn->port);
+      smartlist_add_asprintf(res, "%s:%d", conn->address, (int)conn->port);
     } else {
       char *tmp = tor_sockaddr_to_str((struct sockaddr *)&ss);
-      addr = esc_for_log(tmp);
+      smartlist_add(res, esc_for_log(tmp));
       tor_free(tmp);
     }
-    if (addr)
-      smartlist_add(res, addr);
+
   } SMARTLIST_FOREACH_END(conn);
 
   *answer = smartlist_join_strings(res, " ", 0, NULL);
@@ -1519,16 +1614,19 @@ getinfo_helper_dir(control_connection_t *control_conn,
                    const char *question, char **answer,
                    const char **errmsg)
 {
+  const routerinfo_t *ri;
   (void) control_conn;
   if (!strcmpstart(question, "desc/id/")) {
-    routerinfo_t *ri = router_get_by_hexdigest(question+strlen("desc/id/"));
+    ri = router_get_by_hexdigest(question+strlen("desc/id/"));
     if (ri) {
       const char *body = signed_descriptor_get_body(&ri->cache_info);
       if (body)
         *answer = tor_strndup(body, ri->cache_info.signed_descriptor_len);
     }
   } else if (!strcmpstart(question, "desc/name/")) {
-    routerinfo_t *ri = router_get_by_nickname(question+strlen("desc/name/"),1);
+    /* XXX023 Setting 'warn_if_unnamed' here is a bit silly -- the
+     * warning goes to the user, not to the controller. */
+    ri = router_get_by_nickname(question+strlen("desc/name/"),1);
     if (ri) {
       const char *body = signed_descriptor_get_body(&ri->cache_info);
       if (body)
@@ -1536,9 +1634,9 @@ getinfo_helper_dir(control_connection_t *control_conn,
     }
   } else if (!strcmp(question, "desc/all-recent")) {
     routerlist_t *routerlist = router_get_routerlist();
-    smartlist_t *sl = smartlist_create();
+    smartlist_t *sl = smartlist_new();
     if (routerlist && routerlist->routers) {
-      SMARTLIST_FOREACH(routerlist->routers, routerinfo_t *, ri,
+      SMARTLIST_FOREACH(routerlist->routers, const routerinfo_t *, ri,
       {
         const char *body = signed_descriptor_get_body(&ri->cache_info);
         if (body)
@@ -1552,10 +1650,9 @@ getinfo_helper_dir(control_connection_t *control_conn,
   } else if (!strcmp(question, "desc/all-recent-extrainfo-hack")) {
     /* XXXX Remove this once Torstat asks for extrainfos. */
     routerlist_t *routerlist = router_get_routerlist();
-    smartlist_t *sl = smartlist_create();
+    smartlist_t *sl = smartlist_new();
     if (routerlist && routerlist->routers) {
-      SMARTLIST_FOREACH(routerlist->routers, routerinfo_t *, ri,
-      {
+      SMARTLIST_FOREACH_BEGIN(routerlist->routers, const routerinfo_t *, ri) {
         const char *body = signed_descriptor_get_body(&ri->cache_info);
         signed_descriptor_t *ei = extrainfo_get_by_descriptor_digest(
                                      ri->cache_info.extra_info_digest);
@@ -1566,14 +1663,33 @@ getinfo_helper_dir(control_connection_t *control_conn,
           smartlist_add(sl,
                   tor_strndup(body, ri->cache_info.signed_descriptor_len));
         }
-      });
+      } SMARTLIST_FOREACH_END(ri);
     }
     *answer = smartlist_join_strings(sl, "", 0, NULL);
     SMARTLIST_FOREACH(sl, char *, c, tor_free(c));
     smartlist_free(sl);
+  } else if (!strcmpstart(question, "md/id/")) {
+    const node_t *node = node_get_by_hex_id(question+strlen("md/id/"));
+    const microdesc_t *md = NULL;
+    if (node) md = node->md;
+    if (md) {
+      tor_assert(md->body);
+      *answer = tor_strndup(md->body, md->bodylen);
+    }
+  } else if (!strcmpstart(question, "md/name/")) {
+    /* XXX023 Setting 'warn_if_unnamed' here is a bit silly -- the
+     * warning goes to the user, not to the controller. */
+    const node_t *node = node_get_by_nickname(question+strlen("md/name/"), 1);
+    /* XXXX duplicated code */
+    const microdesc_t *md = NULL;
+    if (node) md = node->md;
+    if (md) {
+      tor_assert(md->body);
+      *answer = tor_strndup(md->body, md->bodylen);
+    }
   } else if (!strcmpstart(question, "desc-annotations/id/")) {
-    routerinfo_t *ri = router_get_by_hexdigest(question+
-                                               strlen("desc-annotations/id/"));
+    ri = router_get_by_hexdigest(question+
+                                 strlen("desc-annotations/id/"));
     if (ri) {
       const char *annotations =
         signed_descriptor_get_annotations(&ri->cache_info);
@@ -1582,13 +1698,13 @@ getinfo_helper_dir(control_connection_t *control_conn,
                               ri->cache_info.annotations_len);
     }
   } else if (!strcmpstart(question, "dir/server/")) {
-    size_t answer_len = 0, url_len = strlen(question)+2;
-    char *url = tor_malloc(url_len);
-    smartlist_t *descs = smartlist_create();
+    size_t answer_len = 0;
+    char *url = NULL;
+    smartlist_t *descs = smartlist_new();
     const char *msg;
     int res;
     char *cp;
-    tor_snprintf(url, url_len, "/tor/%s", question+4);
+    tor_asprintf(&url, "/tor/%s", question+4);
     res = dirserv_get_routerdescs(descs, url, &msg);
     if (res) {
       log_warn(LD_CONTROL, "getinfo '%s': %s", question, msg);
@@ -1613,7 +1729,7 @@ getinfo_helper_dir(control_connection_t *control_conn,
     if (directory_permits_controller_requests(get_options())) {
       size_t len=0;
       char *cp;
-      smartlist_t *status_list = smartlist_create();
+      smartlist_t *status_list = smartlist_new();
       dirserv_get_networkstatus_v2(status_list,
                                    question+strlen("dir/status/"));
       SMARTLIST_FOREACH(status_list, cached_dir_t *, d, len += d->dir_len);
@@ -1625,8 +1741,8 @@ getinfo_helper_dir(control_connection_t *control_conn,
       *cp = '\0';
       smartlist_free(status_list);
     } else {
-      smartlist_t *fp_list = smartlist_create();
-      smartlist_t *status_list = smartlist_create();
+      smartlist_t *fp_list = smartlist_new();
+      smartlist_t *status_list = smartlist_new();
       dirserv_get_networkstatus_v2_fingerprints(
                              fp_list, question+strlen("dir/status/"));
       SMARTLIST_FOREACH(fp_list, const char *, fp, {
@@ -1687,6 +1803,81 @@ getinfo_helper_dir(control_connection_t *control_conn,
   return 0;
 }
 
+/** Allocate and return a description of <b>circ</b>'s current status,
+ * including its path (if any). */
+static char *
+circuit_describe_status_for_controller(origin_circuit_t *circ)
+{
+  char *rv;
+  smartlist_t *descparts = smartlist_new();
+
+  {
+    char *vpath = circuit_list_path_for_controller(circ);
+    if (*vpath) {
+      smartlist_add(descparts, vpath);
+    } else {
+      tor_free(vpath); /* empty path; don't put an extra space in the result */
+    }
+  }
+
+  {
+    cpath_build_state_t *build_state = circ->build_state;
+    smartlist_t *flaglist = smartlist_new();
+    char *flaglist_joined;
+
+    if (build_state->onehop_tunnel)
+      smartlist_add(flaglist, (void *)"ONEHOP_TUNNEL");
+    if (build_state->is_internal)
+      smartlist_add(flaglist, (void *)"IS_INTERNAL");
+    if (build_state->need_capacity)
+      smartlist_add(flaglist, (void *)"NEED_CAPACITY");
+    if (build_state->need_uptime)
+      smartlist_add(flaglist, (void *)"NEED_UPTIME");
+
+    /* Only emit a BUILD_FLAGS argument if it will have a non-empty value. */
+    if (smartlist_len(flaglist)) {
+      flaglist_joined = smartlist_join_strings(flaglist, ",", 0, NULL);
+
+      smartlist_add_asprintf(descparts, "BUILD_FLAGS=%s", flaglist_joined);
+
+      tor_free(flaglist_joined);
+    }
+
+    smartlist_free(flaglist);
+  }
+
+  smartlist_add_asprintf(descparts, "PURPOSE=%s",
+                    circuit_purpose_to_controller_string(circ->_base.purpose));
+
+  {
+    const char *hs_state =
+      circuit_purpose_to_controller_hs_state_string(circ->_base.purpose);
+
+    if (hs_state != NULL) {
+      smartlist_add_asprintf(descparts, "HS_STATE=%s", hs_state);
+    }
+  }
+
+  if (circ->rend_data != NULL) {
+    smartlist_add_asprintf(descparts, "REND_QUERY=%s",
+                 circ->rend_data->onion_address);
+  }
+
+  {
+    char tbuf[ISO_TIME_USEC_LEN+1];
+    format_iso_time_nospace_usec(tbuf, &circ->_base.timestamp_created);
+
+    smartlist_add_asprintf(descparts, "TIME_CREATED=%s", tbuf);
+  }
+
+  rv = smartlist_join_strings(descparts, " ", 0, NULL);
+
+  SMARTLIST_FOREACH(descparts, char *, cp, tor_free(cp));
+  smartlist_free(descparts);
+
+  return rv;
+}
+
 /** Implementation helper for GETINFO: knows how to generate summaries of the
  * current states of things we send events about. */
 static int
@@ -1696,46 +1887,40 @@ getinfo_helper_events(control_connection_t *control_conn,
 {
   (void) control_conn;
   if (!strcmp(question, "circuit-status")) {
-    circuit_t *circ;
-    smartlist_t *status = smartlist_create();
-    for (circ = _circuit_get_global_list(); circ; circ = circ->next) {
-      char *s, *path;
-      size_t slen;
+    circuit_t *circ_;
+    smartlist_t *status = smartlist_new();
+    for (circ_ = _circuit_get_global_list(); circ_; circ_ = circ_->next) {
+      origin_circuit_t *circ;
+      char *circdesc;
       const char *state;
-      const char *purpose;
-      if (! CIRCUIT_IS_ORIGIN(circ) || circ->marked_for_close)
+      if (! CIRCUIT_IS_ORIGIN(circ_) || circ_->marked_for_close)
         continue;
+      circ = TO_ORIGIN_CIRCUIT(circ_);
 
-      path = circuit_list_path_for_controller(TO_ORIGIN_CIRCUIT(circ));
-
-      if (circ->state == CIRCUIT_STATE_OPEN)
+      if (circ->_base.state == CIRCUIT_STATE_OPEN)
         state = "BUILT";
-      else if (strlen(path))
+      else if (circ->cpath)
         state = "EXTENDED";
       else
         state = "LAUNCHED";
 
-      purpose = circuit_purpose_to_controller_string(circ->purpose);
-      slen = strlen(path)+strlen(state)+strlen(purpose)+30;
-      s = tor_malloc(slen+1);
-      tor_snprintf(s, slen, "%lu %s%s%s PURPOSE=%s",
-                   (unsigned long)TO_ORIGIN_CIRCUIT(circ)->global_identifier,
-                   state, *path ? " " : "", path, purpose);
-      smartlist_add(status, s);
-      tor_free(path);
+      circdesc = circuit_describe_status_for_controller(circ);
+
+      smartlist_add_asprintf(status, "%lu %s%s%s",
+                   (unsigned long)circ->global_identifier,
+                   state, *circdesc ? " " : "", circdesc);
+      tor_free(circdesc);
     }
     *answer = smartlist_join_strings(status, "\r\n", 0, NULL);
     SMARTLIST_FOREACH(status, char *, cp, tor_free(cp));
     smartlist_free(status);
   } else if (!strcmp(question, "stream-status")) {
     smartlist_t *conns = get_connection_array();
-    smartlist_t *status = smartlist_create();
+    smartlist_t *status = smartlist_new();
     char buf[256];
     SMARTLIST_FOREACH_BEGIN(conns, connection_t *, base_conn) {
       const char *state;
-      edge_connection_t *conn;
-      char *s;
-      size_t slen;
+      entry_connection_t *conn;
       circuit_t *circ;
       origin_circuit_t *origin_circ = NULL;
       if (base_conn->type != CONN_TYPE_AP ||
@@ -1743,8 +1928,8 @@ getinfo_helper_events(control_connection_t *control_conn,
           base_conn->state == AP_CONN_STATE_SOCKS_WAIT ||
           base_conn->state == AP_CONN_STATE_NATD_WAIT)
         continue;
-      conn = TO_EDGE_CONN(base_conn);
-      switch (conn->_base.state)
+      conn = TO_ENTRY_CONN(base_conn);
+      switch (base_conn->state)
         {
         case AP_CONN_STATE_CONTROLLER_WAIT:
         case AP_CONN_STATE_CIRCUIT_WAIT:
@@ -1763,33 +1948,28 @@ getinfo_helper_events(control_connection_t *control_conn,
           state = "SUCCEEDED"; break;
         default:
           log_warn(LD_BUG, "Asked for stream in unknown state %d",
-                   conn->_base.state);
+                   base_conn->state);
           continue;
         }
-      circ = circuit_get_by_edge_conn(conn);
+      circ = circuit_get_by_edge_conn(ENTRY_TO_EDGE_CONN(conn));
       if (circ && CIRCUIT_IS_ORIGIN(circ))
         origin_circ = TO_ORIGIN_CIRCUIT(circ);
       write_stream_target_to_buf(conn, buf, sizeof(buf));
-      slen = strlen(buf)+strlen(state)+32;
-      s = tor_malloc(slen+1);
-      tor_snprintf(s, slen, "%lu %s %lu %s",
-                   (unsigned long) conn->_base.global_identifier,state,
+      smartlist_add_asprintf(status, "%lu %s %lu %s",
+                   (unsigned long) base_conn->global_identifier,state,
                    origin_circ?
                          (unsigned long)origin_circ->global_identifier : 0ul,
                    buf);
-      smartlist_add(status, s);
     } SMARTLIST_FOREACH_END(base_conn);
     *answer = smartlist_join_strings(status, "\r\n", 0, NULL);
     SMARTLIST_FOREACH(status, char *, cp, tor_free(cp));
     smartlist_free(status);
   } else if (!strcmp(question, "orconn-status")) {
     smartlist_t *conns = get_connection_array();
-    smartlist_t *status = smartlist_create();
+    smartlist_t *status = smartlist_new();
     SMARTLIST_FOREACH_BEGIN(conns, connection_t *, base_conn) {
       const char *state;
-      char *s;
       char name[128];
-      size_t slen;
       or_connection_t *conn;
       if (base_conn->type != CONN_TYPE_OR || base_conn->marked_for_close)
         continue;
@@ -1801,10 +1981,7 @@ getinfo_helper_events(control_connection_t *control_conn,
       else
         state = "NEW";
       orconn_target_get_name(name, sizeof(name), conn);
-      slen = strlen(name)+strlen(state)+2;
-      s = tor_malloc(slen+1);
-      tor_snprintf(s, slen, "%s %s", name, state);
-      smartlist_add(status, s);
+      smartlist_add_asprintf(status, "%s %s", name, state);
     } SMARTLIST_FOREACH_END(base_conn);
     *answer = smartlist_join_strings(status, "\r\n", 0, NULL);
     SMARTLIST_FOREACH(status, char *, cp, tor_free(cp));
@@ -1824,7 +2001,7 @@ getinfo_helper_events(control_connection_t *control_conn,
     } else {
       return 0;
     }
-    mappings = smartlist_create();
+    mappings = smartlist_new();
     addressmap_get_mappings(mappings, min_e, max_e, 1);
     *answer = smartlist_join_strings(mappings, "\r\n", 0, NULL);
     SMARTLIST_FOREACH(mappings, char *, cp, tor_free(cp));
@@ -1848,8 +2025,7 @@ getinfo_helper_events(control_connection_t *control_conn,
     } else if (!strcmp(question, "status/reachability-succeeded/dir")) {
       *answer = tor_strdup(check_whether_dirport_reachable() ? "1" : "0");
     } else if (!strcmp(question, "status/reachability-succeeded")) {
-      *answer = tor_malloc(16);
-      tor_snprintf(*answer, 16, "OR=%d DIR=%d",
+      tor_asprintf(answer, "OR=%d DIR=%d",
                    check_whether_orport_reachable() ? 1 : 0,
                    check_whether_dirport_reachable() ? 1 : 0);
     } else if (!strcmp(question, "status/bootstrap-phase")) {
@@ -1885,9 +2061,7 @@ getinfo_helper_events(control_connection_t *control_conn,
           }
       } else if (!strcmp(question, "status/version/num-versioning") ||
                  !strcmp(question, "status/version/num-concurring")) {
-        char s[33];
-        tor_snprintf(s, sizeof(s), "%d", get_n_authorities(V3_AUTHORITY));
-        *answer = tor_strdup(s);
+        tor_asprintf(answer, "%d", get_n_authorities(V3_DIRINFO));
         log_warn(LD_GENERAL, "%s is deprecated; it no longer gives useful "
                  "information", question);
       }
@@ -1934,6 +2108,7 @@ typedef struct getinfo_item_t {
 static const getinfo_item_t getinfo_items[] = {
   ITEM("version", misc, "The current version of Tor."),
   ITEM("config-file", misc, "Current location of the \"torrc\" file."),
+  ITEM("config-defaults-file", misc, "Current location of the defaults file."),
   ITEM("config-text", misc,
        "Return the string that would be written by a saveconf command."),
   ITEM("accounting/bytes", accounting,
@@ -1965,6 +2140,8 @@ static const getinfo_item_t getinfo_items[] = {
   ITEM("desc/all-recent", dir,
        "All non-expired, non-superseded router descriptors."),
   ITEM("desc/all-recent-extrainfo-hack", dir, NULL), /* Hack. */
+  PREFIX("md/id/", dir, "Microdescriptors by ID"),
+  PREFIX("md/name/", dir, "Microdescriptors by name"),
   PREFIX("extra-info/digest/", dir, "Extra-info documents by digest."),
   PREFIX("net/listeners/", listeners, "Bound addresses by type"),
   ITEM("ns/all", networkstatus,
@@ -1975,12 +2152,13 @@ static const getinfo_item_t getinfo_items[] = {
          "Brief summary of router status by nickname (v2 directory format)."),
   PREFIX("ns/purpose/", networkstatus,
          "Brief summary of router status by purpose (v2 directory format)."),
-
   ITEM("network-status", dir,
        "Brief summary of router status (v1 directory format)"),
   ITEM("circuit-status", events, "List of current circuits originating here."),
   ITEM("stream-status", events,"List of current streams."),
   ITEM("orconn-status", events, "A list of current OR connections."),
+  ITEM("dormant", misc,
+       "Is Tor dormant (not building circuits because it's idle)?"),
   PREFIX("address-mappings/", events, NULL),
   DOC("address-mappings/all", "Current address mappings."),
   DOC("address-mappings/cache", "Current cached DNS replies."),
@@ -2004,6 +2182,14 @@ static const getinfo_item_t getinfo_items[] = {
       "Number of versioning authorities agreeing on the status of the "
       "current version"),
   ITEM("address", misc, "IP address of this Tor host, if we can guess it."),
+  ITEM("traffic/read", misc,"Bytes read since the process was started."),
+  ITEM("traffic/written", misc,
+       "Bytes written since the process was started."),
+  ITEM("process/pid", misc, "Process id belonging to the main tor process."),
+  ITEM("process/uid", misc, "User id running the tor process."),
+  ITEM("process/user", misc,
+       "Username under which the tor process is running."),
+  ITEM("process/descriptor-limit", misc, "File descriptor limit."),
   ITEM("dir-usage", misc, "Breakdown of bytes transferred over DirPort."),
   PREFIX("desc-annotations/id/", dir, "Router annotations by hexdigest."),
   PREFIX("dir/server/", dir,"Router descriptors as retrieved from a DirPort."),
@@ -2022,18 +2208,16 @@ static char *
 list_getinfo_options(void)
 {
   int i;
-  char *buf=NULL;
-  smartlist_t *lines = smartlist_create();
+  smartlist_t *lines = smartlist_new();
   char *ans;
   for (i = 0; getinfo_items[i].varname; ++i) {
     if (!getinfo_items[i].desc)
       continue;
 
-    tor_asprintf(&buf, "%s%s -- %s\n",
+    smartlist_add_asprintf(lines, "%s%s -- %s\n",
                  getinfo_items[i].varname,
                  getinfo_items[i].is_prefix ? "*" : "",
                  getinfo_items[i].desc);
-    smartlist_add(lines, buf);
   }
   smartlist_sort_strings(lines);
 
@@ -2077,9 +2261,9 @@ static int
 handle_control_getinfo(control_connection_t *conn, uint32_t len,
                        const char *body)
 {
-  smartlist_t *questions = smartlist_create();
-  smartlist_t *answers = smartlist_create();
-  smartlist_t *unrecognized = smartlist_create();
+  smartlist_t *questions = smartlist_new();
+  smartlist_t *answers = smartlist_new();
+  smartlist_t *unrecognized = smartlist_new();
   char *msg = NULL, *ans = NULL;
   int i;
   (void) len; /* body is NUL-terminated, so it's safe to ignore the length. */
@@ -2165,7 +2349,7 @@ static smartlist_t *
 getargs_helper(const char *command, control_connection_t *conn,
                const char *body, int min_args, int max_args)
 {
-  smartlist_t *args = smartlist_create();
+  smartlist_t *args = smartlist_new();
   smartlist_split_string(args, body, " ",
                          SPLIT_SKIP_SPACE|SPLIT_IGNORE_BLANK, 0);
   if (smartlist_len(args) < min_args) {
@@ -2213,14 +2397,14 @@ static int
 handle_control_extendcircuit(control_connection_t *conn, uint32_t len,
                              const char *body)
 {
-  smartlist_t *router_nicknames=NULL, *routers=NULL;
+  smartlist_t *router_nicknames=NULL, *nodes=NULL;
   origin_circuit_t *circ = NULL;
   int zero_circ;
   uint8_t intended_purpose = CIRCUIT_PURPOSE_C_GENERAL;
   smartlist_t *args;
   (void) len;
 
-  router_nicknames = smartlist_create();
+  router_nicknames = smartlist_new();
 
   args = getargs_helper("EXTENDCIRCUIT", conn, body, 1, -1);
   if (!args)
@@ -2244,8 +2428,7 @@ handle_control_extendcircuit(control_connection_t *conn, uint32_t len,
     if ((smartlist_len(args) == 1) ||
         (smartlist_len(args) >= 2 && is_keyval_pair(smartlist_get(args, 1)))) {
       // "EXTENDCIRCUIT 0" || EXTENDCIRCUIT 0 foo=bar"
-      circ = circuit_launch_by_router(intended_purpose, NULL,
-                                      CIRCLAUNCH_NEED_CAPACITY);
+      circ = circuit_launch(intended_purpose, CIRCLAUNCH_NEED_CAPACITY);
       if (!circ) {
         connection_write_str_to_buf("551 Couldn't start circuit\r\n", conn);
       } else {
@@ -2273,17 +2456,20 @@ handle_control_extendcircuit(control_connection_t *conn, uint32_t len,
   SMARTLIST_FOREACH(args, char *, cp, tor_free(cp));
   smartlist_free(args);
 
-  routers = smartlist_create();
-  SMARTLIST_FOREACH(router_nicknames, const char *, n,
-  {
-    routerinfo_t *r = router_get_by_nickname(n, 1);
-    if (!r) {
+  nodes = smartlist_new();
+  SMARTLIST_FOREACH_BEGIN(router_nicknames, const char *, n) {
+    const node_t *node = node_get_by_nickname(n, 1);
+    if (!node) {
       connection_printf_to_buf(conn, "552 No such router \"%s\"\r\n", n);
       goto done;
     }
-    smartlist_add(routers, r);
-  });
-  if (!smartlist_len(routers)) {
+    if (!node_has_descriptor(node)) {
+      connection_printf_to_buf(conn, "552 descriptor for \"%s\"\r\n", n);
+      goto done;
+    }
+    smartlist_add(nodes, (void*)node);
+  } SMARTLIST_FOREACH_END(n);
+  if (!smartlist_len(nodes)) {
     connection_write_str_to_buf("512 No router names provided\r\n", conn);
     goto done;
   }
@@ -2294,9 +2480,10 @@ handle_control_extendcircuit(control_connection_t *conn, uint32_t len,
   }
 
   /* now circ refers to something that is ready to be extended */
-  SMARTLIST_FOREACH(routers, routerinfo_t *, r,
+  SMARTLIST_FOREACH(nodes, const node_t *, node,
   {
-    extend_info_t *info = extend_info_from_router(r);
+    extend_info_t *info = extend_info_from_node(node, 0);
+    tor_assert(info); /* True, since node_has_descriptor(node) == true */
     circuit_append_new_exit(circ, info);
     extend_info_free(info);
   });
@@ -2330,7 +2517,7 @@ handle_control_extendcircuit(control_connection_t *conn, uint32_t len,
  done:
   SMARTLIST_FOREACH(router_nicknames, char *, n, tor_free(n));
   smartlist_free(router_nicknames);
-  smartlist_free(routers);
+  smartlist_free(nodes);
   return 0;
 }
 
@@ -2357,6 +2544,10 @@ handle_control_setcircuitpurpose(control_connection_t *conn,
 
   {
     const char *purp = find_element_starting_with(args,1,"PURPOSE=");
+    if (!purp) {
+      connection_write_str_to_buf("552 No purpose given\r\n", conn);
+      goto done;
+    }
     new_purpose = circuit_purpose_from_string(purp);
     if (new_purpose == CIRCUIT_PURPOSE_UNKNOWN) {
       connection_printf_to_buf(conn, "552 Unknown purpose \"%s\"\r\n", purp);
@@ -2364,7 +2555,7 @@ handle_control_setcircuitpurpose(control_connection_t *conn,
     }
   }
 
-  circ->_base.purpose = new_purpose;
+  circuit_change_purpose(TO_CIRCUIT(circ), new_purpose);
   connection_write_str_to_buf("250 OK\r\n", conn);
 
  done:
@@ -2381,7 +2572,7 @@ static int
 handle_control_attachstream(control_connection_t *conn, uint32_t len,
                             const char *body)
 {
-  edge_connection_t *ap_conn = NULL;
+  entry_connection_t *ap_conn = NULL;
   origin_circuit_t *circ = NULL;
   int zero_circ;
   smartlist_t *args;
@@ -2417,9 +2608,9 @@ handle_control_attachstream(control_connection_t *conn, uint32_t len,
   if (!ap_conn || (!zero_circ && !circ) || !hop_line_ok)
     return 0;
 
-  if (ap_conn->_base.state != AP_CONN_STATE_CONTROLLER_WAIT &&
-      ap_conn->_base.state != AP_CONN_STATE_CONNECT_WAIT &&
-      ap_conn->_base.state != AP_CONN_STATE_RESOLVE_WAIT) {
+  if (ENTRY_TO_CONN(ap_conn)->state != AP_CONN_STATE_CONTROLLER_WAIT &&
+      ENTRY_TO_CONN(ap_conn)->state != AP_CONN_STATE_CONNECT_WAIT &&
+      ENTRY_TO_CONN(ap_conn)->state != AP_CONN_STATE_RESOLVE_WAIT) {
     connection_write_str_to_buf(
                     "555 Connection is not managed by controller.\r\n",
                     conn);
@@ -2427,15 +2618,16 @@ handle_control_attachstream(control_connection_t *conn, uint32_t len,
   }
 
   /* Do we need to detach it first? */
-  if (ap_conn->_base.state != AP_CONN_STATE_CONTROLLER_WAIT) {
-    circuit_t *tmpcirc = circuit_get_by_edge_conn(ap_conn);
-    connection_edge_end(ap_conn, END_STREAM_REASON_TIMEOUT);
+  if (ENTRY_TO_CONN(ap_conn)->state != AP_CONN_STATE_CONTROLLER_WAIT) {
+    edge_connection_t *edge_conn = ENTRY_TO_EDGE_CONN(ap_conn);
+    circuit_t *tmpcirc = circuit_get_by_edge_conn(edge_conn);
+    connection_edge_end(edge_conn, END_STREAM_REASON_TIMEOUT);
     /* Un-mark it as ending, since we're going to reuse it. */
-    ap_conn->edge_has_sent_end = 0;
-    ap_conn->end_reason = 0;
+    edge_conn->edge_has_sent_end = 0;
+    edge_conn->end_reason = 0;
     if (tmpcirc)
-      circuit_detach_stream(tmpcirc,ap_conn);
-    ap_conn->_base.state = AP_CONN_STATE_CONTROLLER_WAIT;
+      circuit_detach_stream(tmpcirc, edge_conn);
+    TO_CONN(edge_conn)->state = AP_CONN_STATE_CONTROLLER_WAIT;
   }
 
   if (circ && (circ->_base.state != CIRCUIT_STATE_OPEN)) {
@@ -2446,16 +2638,17 @@ handle_control_attachstream(control_connection_t *conn, uint32_t len,
   }
   /* Is this a single hop circuit? */
   if (circ && (circuit_get_cpath_len(circ)<2 || hop==1)) {
-    routerinfo_t *r = NULL;
-    char* exit_digest;
+    const node_t *node = NULL;
+    char *exit_digest;
     if (circ->build_state &&
         circ->build_state->chosen_exit &&
         !tor_digest_is_zero(circ->build_state->chosen_exit->identity_digest)) {
       exit_digest = circ->build_state->chosen_exit->identity_digest;
-      r = router_get_by_digest(exit_digest);
+      node = node_get_by_id(exit_digest);
     }
     /* Do both the client and relay allow one-hop exit circuits? */
-    if (!r || !r->allow_single_hop_exits ||
+    if (!node ||
+        !node_allows_single_hop_exits(node) ||
         !get_options()->AllowSingleHopCircuits) {
       connection_write_str_to_buf(
       "551 Can't attach stream to this one-hop circuit.\r\n", conn);
@@ -2493,14 +2686,13 @@ handle_control_postdescriptor(control_connection_t *conn, uint32_t len,
   int cache = 0; /* eventually, we may switch this to 1 */
 
   char *cp = memchr(body, '\n', len);
-  smartlist_t *args = smartlist_create();
+  smartlist_t *args = smartlist_new();
   tor_assert(cp);
   *cp++ = '\0';
 
   smartlist_split_string(args, body, " ",
                          SPLIT_SKIP_SPACE|SPLIT_IGNORE_BLANK, 0);
-  SMARTLIST_FOREACH(args, char *, option,
-  {
+  SMARTLIST_FOREACH_BEGIN(args, char *, option) {
     if (!strcasecmpstart(option, "purpose=")) {
       option += strlen("purpose=");
       purpose = router_purpose_from_string(option);
@@ -2525,7 +2717,7 @@ handle_control_postdescriptor(control_connection_t *conn, uint32_t len,
         "512 Unexpected argument \"%s\" to postdescriptor\r\n", option);
       goto done;
     }
-  });
+  } SMARTLIST_FOREACH_END(option);
 
   read_escaped_data(cp, len-(cp-body), &desc);
 
@@ -2556,7 +2748,7 @@ static int
 handle_control_redirectstream(control_connection_t *conn, uint32_t len,
                               const char *body)
 {
-  edge_connection_t *ap_conn = NULL;
+  entry_connection_t *ap_conn = NULL;
   char *new_addr = NULL;
   uint16_t new_port = 0;
   smartlist_t *args;
@@ -2604,7 +2796,7 @@ static int
 handle_control_closestream(control_connection_t *conn, uint32_t len,
                            const char *body)
 {
-  edge_connection_t *ap_conn=NULL;
+  entry_connection_t *ap_conn=NULL;
   uint8_t reason=0;
   smartlist_t *args;
   int ok;
@@ -2692,7 +2884,7 @@ handle_control_resolve(control_connection_t *conn, uint32_t len,
              "isn't listening for ADDRMAP events.  It probably won't see "
              "the answer.");
   }
-  args = smartlist_create();
+  args = smartlist_new();
   smartlist_split_string(args, body, " ",
                          SPLIT_SKIP_SPACE|SPLIT_IGNORE_BLANK, 0);
   {
@@ -2700,7 +2892,7 @@ handle_control_resolve(control_connection_t *conn, uint32_t len,
     if (modearg && !strcasecmp(modearg, "mode=reverse"))
       is_reverse = 1;
   }
-  failed = smartlist_create();
+  failed = smartlist_new();
   SMARTLIST_FOREACH(args, const char *, arg, {
       if (!is_keyval_pair(arg)) {
           if (dnsserv_launch_request(arg, is_reverse)<0)
@@ -2730,7 +2922,7 @@ handle_control_protocolinfo(control_connection_t *conn, uint32_t len,
   (void)len;
 
   conn->have_sent_protocolinfo = 1;
-  args = smartlist_create();
+  args = smartlist_new();
   smartlist_split_string(args, body, " ",
                          SPLIT_SKIP_SPACE|SPLIT_IGNORE_BLANK, 0);
   SMARTLIST_FOREACH(args, const char *, arg, {
@@ -2749,17 +2941,22 @@ handle_control_protocolinfo(control_connection_t *conn, uint32_t len,
       connection_mark_for_close(TO_CONN(conn));
     goto done;
   } else {
-    or_options_t *options = get_options();
+    const or_options_t *options = get_options();
     int cookies = options->CookieAuthentication;
     char *cfile = get_cookie_file();
-    char *esc_cfile = esc_for_log(cfile);
+    char *abs_cfile;
+    char *esc_cfile;
     char *methods;
+    abs_cfile = make_path_absolute(cfile);
+    esc_cfile = esc_for_log(abs_cfile);
     {
       int passwd = (options->HashedControlPassword != NULL ||
                     options->HashedControlSessionPassword != NULL);
-      smartlist_t *mlist = smartlist_create();
-      if (cookies)
+      smartlist_t *mlist = smartlist_new();
+      if (cookies) {
         smartlist_add(mlist, (char*)"COOKIE");
+        smartlist_add(mlist, (char*)"SAFECOOKIE");
+      }
       if (passwd)
         smartlist_add(mlist, (char*)"HASHEDPASSWORD");
       if (!cookies && !passwd)
@@ -2779,11 +2976,129 @@ handle_control_protocolinfo(control_connection_t *conn, uint32_t len,
                              escaped(VERSION));
     tor_free(methods);
     tor_free(cfile);
+    tor_free(abs_cfile);
     tor_free(esc_cfile);
   }
  done:
   SMARTLIST_FOREACH(args, char *, cp, tor_free(cp));
   smartlist_free(args);
+  return 0;
+}
+
+/** Called when we get an AUTHCHALLENGE command. */
+static int
+handle_control_authchallenge(control_connection_t *conn, uint32_t len,
+                             const char *body)
+{
+  const char *cp = body;
+  char *client_nonce;
+  size_t client_nonce_len;
+  char server_hash[DIGEST256_LEN];
+  char server_hash_encoded[HEX_DIGEST256_LEN+1];
+  char server_nonce[SAFECOOKIE_SERVER_NONCE_LEN];
+  char server_nonce_encoded[(2*SAFECOOKIE_SERVER_NONCE_LEN) + 1];
+
+  cp += strspn(cp, " \t\n\r");
+  if (!strcasecmpstart(cp, "SAFECOOKIE")) {
+    cp += strlen("SAFECOOKIE");
+  } else {
+    connection_write_str_to_buf("513 AUTHCHALLENGE only supports SAFECOOKIE "
+                                "authentication\r\n", conn);
+    connection_mark_for_close(TO_CONN(conn));
+    return -1;
+  }
+
+  if (!authentication_cookie_is_set) {
+    connection_write_str_to_buf("515 Cookie authentication is disabled\r\n",
+                                conn);
+    connection_mark_for_close(TO_CONN(conn));
+    return -1;
+  }
+
+  cp += strspn(cp, " \t\n\r");
+  if (*cp == '"') {
+    const char *newcp =
+      decode_escaped_string(cp, len - (cp - body),
+                            &client_nonce, &client_nonce_len);
+    if (newcp == NULL) {
+      connection_write_str_to_buf("513 Invalid quoted client nonce\r\n",
+                                  conn);
+      connection_mark_for_close(TO_CONN(conn));
+      return -1;
+    }
+    cp = newcp;
+  } else {
+    size_t client_nonce_encoded_len = strspn(cp, "0123456789ABCDEFabcdef");
+
+    client_nonce_len = client_nonce_encoded_len / 2;
+    client_nonce = tor_malloc_zero(client_nonce_len);
+
+    if (base16_decode(client_nonce, client_nonce_len,
+                      cp, client_nonce_encoded_len) < 0) {
+      connection_write_str_to_buf("513 Invalid base16 client nonce\r\n",
+                                  conn);
+      connection_mark_for_close(TO_CONN(conn));
+      tor_free(client_nonce);
+      return -1;
+    }
+
+    cp += client_nonce_encoded_len;
+  }
+
+  cp += strspn(cp, " \t\n\r");
+  if (*cp != '\0' ||
+      cp != body + len) {
+    connection_write_str_to_buf("513 Junk at end of AUTHCHALLENGE command\r\n",
+                                conn);
+    connection_mark_for_close(TO_CONN(conn));
+    tor_free(client_nonce);
+    return -1;
+  }
+
+  tor_assert(!crypto_rand(server_nonce, SAFECOOKIE_SERVER_NONCE_LEN));
+
+  /* Now compute and send the server-to-controller response, and the
+   * server's nonce. */
+  tor_assert(authentication_cookie != NULL);
+
+  {
+    size_t tmp_len = (AUTHENTICATION_COOKIE_LEN +
+                      client_nonce_len +
+                      SAFECOOKIE_SERVER_NONCE_LEN);
+    char *tmp = tor_malloc_zero(tmp_len);
+    char *client_hash = tor_malloc_zero(DIGEST256_LEN);
+    memcpy(tmp, authentication_cookie, AUTHENTICATION_COOKIE_LEN);
+    memcpy(tmp + AUTHENTICATION_COOKIE_LEN, client_nonce, client_nonce_len);
+    memcpy(tmp + AUTHENTICATION_COOKIE_LEN + client_nonce_len,
+           server_nonce, SAFECOOKIE_SERVER_NONCE_LEN);
+
+    crypto_hmac_sha256(server_hash,
+                       SAFECOOKIE_SERVER_TO_CONTROLLER_CONSTANT,
+                       strlen(SAFECOOKIE_SERVER_TO_CONTROLLER_CONSTANT),
+                       tmp,
+                       tmp_len);
+
+    crypto_hmac_sha256(client_hash,
+                       SAFECOOKIE_CONTROLLER_TO_SERVER_CONSTANT,
+                       strlen(SAFECOOKIE_CONTROLLER_TO_SERVER_CONSTANT),
+                       tmp,
+                       tmp_len);
+
+    conn->safecookie_client_hash = client_hash;
+
+    tor_free(tmp);
+  }
+
+  base16_encode(server_hash_encoded, sizeof(server_hash_encoded),
+                server_hash, sizeof(server_hash));
+  base16_encode(server_nonce_encoded, sizeof(server_nonce_encoded),
+                server_nonce, sizeof(server_nonce));
+
+  connection_printf_to_buf(conn,
+                           "250 AUTHCHALLENGE SERVERHASH=%s "
+                           "SERVERNONCE=%s\r\n",
+                           server_hash_encoded,
+                           server_nonce_encoded);
   return 0;
 }
 
@@ -2797,10 +3112,10 @@ handle_control_usefeature(control_connection_t *conn,
   smartlist_t *args;
   int bad = 0;
   (void) len; /* body is nul-terminated; it's safe to ignore the length */
-  args = smartlist_create();
+  args = smartlist_new();
   smartlist_split_string(args, body, " ",
                          SPLIT_SKIP_SPACE|SPLIT_IGNORE_BLANK, 0);
-  SMARTLIST_FOREACH(args, const char *, arg, {
+  SMARTLIST_FOREACH_BEGIN(args, const char *, arg) {
       if (!strcasecmp(arg, "VERBOSE_NAMES"))
         ;
       else if (!strcasecmp(arg, "EXTENDED_EVENTS"))
@@ -2811,7 +3126,7 @@ handle_control_usefeature(control_connection_t *conn,
         bad = 1;
         break;
       }
-    });
+  } SMARTLIST_FOREACH_END(arg);
 
   if (!bad) {
     send_control_done(conn);
@@ -2827,8 +3142,6 @@ int
 connection_control_finished_flushing(control_connection_t *conn)
 {
   tor_assert(conn);
-
-  connection_stop_writing(TO_CONN(conn));
   return 0;
 }
 
@@ -2888,7 +3201,10 @@ is_valid_initial_command(control_connection_t *conn, const char *cmd)
   if (conn->_base.state == CONTROL_CONN_STATE_OPEN)
     return 1;
   if (!strcasecmp(cmd, "PROTOCOLINFO"))
-    return !conn->have_sent_protocolinfo;
+    return (!conn->have_sent_protocolinfo &&
+            conn->safecookie_client_hash == NULL);
+  if (!strcasecmp(cmd, "AUTHCHALLENGE"))
+    return (conn->safecookie_client_hash == NULL);
   if (!strcasecmp(cmd, "AUTHENTICATE") ||
       !strcasecmp(cmd, "QUIT"))
     return 1;
@@ -2899,6 +3215,21 @@ is_valid_initial_command(control_connection_t *conn, const char *cmd)
  * that needs to be anywhere near this long probably means that one of our
  * interfaces is broken. */
 #define MAX_COMMAND_LINE_LENGTH (1024*1024)
+
+/** Wrapper around peek_(evbuffer|buf)_has_control0 command: presents the same
+ * interface as those underlying functions, but takes a connection_t intead of
+ * an evbuffer or a buf_t.
+ */
+static int
+peek_connection_has_control0_command(connection_t *conn)
+{
+  IF_HAS_BUFFEREVENT(conn, {
+    struct evbuffer *input = bufferevent_get_input(conn->bufev);
+    return peek_evbuffer_has_control0_command(input);
+  }) ELSE_IF_NO_BUFFEREVENT {
+    return peek_buf_has_control0_command(conn->inbuf);
+  }
+}
 
 /** Called when data has arrived on a v1 control connection: Try to fetch
  * commands from conn->inbuf, and execute them.
@@ -2922,7 +3253,7 @@ connection_control_process_inbuf(control_connection_t *conn)
   }
 
   if (conn->_base.state == CONTROL_CONN_STATE_NEEDAUTH &&
-      peek_buf_has_control0_command(conn->_base.inbuf)) {
+      peek_connection_has_control0_command(TO_CONN(conn))) {
     /* Detect v0 commands and send a "no more v0" message. */
     size_t body_len;
     char buf[128];
@@ -2934,8 +3265,8 @@ connection_control_process_inbuf(control_connection_t *conn)
     body_len = 2+strlen(buf+6)+2; /* code, msg, nul. */
     set_uint16(buf+0, htons(body_len));
     connection_write_to_buf(buf, 4+body_len, TO_CONN(conn));
-    connection_mark_for_close(TO_CONN(conn));
-    conn->_base.hold_open_until_flushed = 1;
+
+    connection_mark_and_flush(TO_CONN(conn));
     return 0;
   }
 
@@ -2946,7 +3277,7 @@ connection_control_process_inbuf(control_connection_t *conn)
     /* First, fetch a line. */
     do {
       data_len = conn->incoming_cmd_len - conn->incoming_cmd_cur_len;
-      r = fetch_from_buf_line(conn->_base.inbuf,
+      r = connection_fetch_from_buf_line(TO_CONN(conn),
                               conn->incoming_cmd+conn->incoming_cmd_cur_len,
                               &data_len);
       if (r == 0)
@@ -2956,8 +3287,7 @@ connection_control_process_inbuf(control_connection_t *conn)
         if (data_len + conn->incoming_cmd_cur_len > MAX_COMMAND_LINE_LENGTH) {
           connection_write_str_to_buf("500 Line too long.\r\n", conn);
           connection_stop_reading(TO_CONN(conn));
-          connection_mark_for_close(TO_CONN(conn));
-          conn->_base.hold_open_until_flushed = 1;
+          connection_mark_and_flush(TO_CONN(conn));
         }
         while (conn->incoming_cmd_len < data_len+conn->incoming_cmd_cur_len)
           conn->incoming_cmd_len *= 2;
@@ -3004,7 +3334,7 @@ connection_control_process_inbuf(control_connection_t *conn)
   args = conn->incoming_cmd+cmd_len+1;
   tor_assert(data_len>(size_t)cmd_len);
   data_len -= (cmd_len+1); /* skip the command and NUL we added after it */
-  while (*args == ' ' || *args == '\t') {
+  while (TOR_ISSPACE(*args)) {
     ++args;
     --data_len;
   }
@@ -3017,8 +3347,7 @@ connection_control_process_inbuf(control_connection_t *conn)
   /* Otherwise, Quit is always valid. */
   if (!strcasecmp(conn->incoming_cmd, "QUIT")) {
     connection_write_str_to_buf("250 closing connection\r\n", conn);
-    connection_mark_for_close(TO_CONN(conn));
-    conn->_base.hold_open_until_flushed = 1;
+    connection_mark_and_flush(TO_CONN(conn));
     return 0;
   }
 
@@ -3104,6 +3433,9 @@ connection_control_process_inbuf(control_connection_t *conn)
   } else if (!strcasecmp(conn->incoming_cmd, "PROTOCOLINFO")) {
     if (handle_control_protocolinfo(conn, cmd_data_len, args))
       return -1;
+  } else if (!strcasecmp(conn->incoming_cmd, "AUTHCHALLENGE")) {
+    if (handle_control_authchallenge(conn, cmd_data_len, args))
+      return -1;
   } else {
     connection_printf_to_buf(conn, "510 Unrecognized command \"%s\"\r\n",
                              conn->incoming_cmd);
@@ -3113,14 +3445,14 @@ connection_control_process_inbuf(control_connection_t *conn)
   goto again;
 }
 
-/** Something has happened to circuit <b>circ</b>: tell any interested
- * control connections. */
+/** Something major has happened to circuit <b>circ</b>: tell any
+ * interested control connections. */
 int
 control_event_circuit_status(origin_circuit_t *circ, circuit_status_event_t tp,
                              int reason_code)
 {
   const char *status;
-  char extended_buf[96];
+  char reasons[64] = "";
   if (!EVENT_IS_INTERESTING(EVENT_CIRCUIT_STATUS))
     return 0;
   tor_assert(circ);
@@ -3134,42 +3466,139 @@ control_event_circuit_status(origin_circuit_t *circ, circuit_status_event_t tp,
     case CIRC_EVENT_CLOSED: status = "CLOSED"; break;
     default:
       log_warn(LD_BUG, "Unrecognized status code %d", (int)tp);
+      tor_fragile_assert();
       return 0;
     }
 
-  tor_snprintf(extended_buf, sizeof(extended_buf), "PURPOSE=%s",
-               circuit_purpose_to_controller_string(circ->_base.purpose));
-
   if (tp == CIRC_EVENT_FAILED || tp == CIRC_EVENT_CLOSED) {
     const char *reason_str = circuit_end_reason_to_control_string(reason_code);
-    char *reason = NULL;
-    size_t n=strlen(extended_buf);
+    char unk_reason_buf[16];
     if (!reason_str) {
-      reason = tor_malloc(16);
-      tor_snprintf(reason, 16, "UNKNOWN_%d", reason_code);
-      reason_str = reason;
+      tor_snprintf(unk_reason_buf, 16, "UNKNOWN_%d", reason_code);
+      reason_str = unk_reason_buf;
     }
     if (reason_code > 0 && reason_code & END_CIRC_REASON_FLAG_REMOTE) {
-      tor_snprintf(extended_buf+n, sizeof(extended_buf)-n,
+      tor_snprintf(reasons, sizeof(reasons),
                    " REASON=DESTROYED REMOTE_REASON=%s", reason_str);
     } else {
-      tor_snprintf(extended_buf+n, sizeof(extended_buf)-n,
+      tor_snprintf(reasons, sizeof(reasons),
                    " REASON=%s", reason_str);
     }
-    tor_free(reason);
   }
 
   {
-    char *vpath = circuit_list_path_for_controller(circ);
-    const char *sp = strlen(vpath) ? " " : "";
+    char *circdesc = circuit_describe_status_for_controller(circ);
+    const char *sp = strlen(circdesc) ? " " : "";
     send_control_event(EVENT_CIRCUIT_STATUS, ALL_FORMATS,
-                                "650 CIRC %lu %s%s%s %s\r\n",
+                                "650 CIRC %lu %s%s%s%s\r\n",
                                 (unsigned long)circ->global_identifier,
-                                status, sp, vpath, extended_buf);
-    tor_free(vpath);
+                                status, sp,
+                                circdesc,
+                                reasons);
+    tor_free(circdesc);
   }
 
   return 0;
+}
+
+/** Something minor has happened to circuit <b>circ</b>: tell any
+ * interested control connections. */
+static int
+control_event_circuit_status_minor(origin_circuit_t *circ,
+                                   circuit_status_minor_event_t e,
+                                   int purpose, const struct timeval *tv)
+{
+  const char *event_desc;
+  char event_tail[160] = "";
+  if (!EVENT_IS_INTERESTING(EVENT_CIRCUIT_STATUS_MINOR))
+    return 0;
+  tor_assert(circ);
+
+  switch (e)
+    {
+    case CIRC_MINOR_EVENT_PURPOSE_CHANGED:
+      event_desc = "PURPOSE_CHANGED";
+
+      {
+        /* event_tail can currently be up to 68 chars long */
+        const char *hs_state_str =
+          circuit_purpose_to_controller_hs_state_string(purpose);
+        tor_snprintf(event_tail, sizeof(event_tail),
+                     " OLD_PURPOSE=%s%s%s",
+                     circuit_purpose_to_controller_string(purpose),
+                     (hs_state_str != NULL) ? " OLD_HS_STATE=" : "",
+                     (hs_state_str != NULL) ? hs_state_str : "");
+      }
+
+      break;
+    case CIRC_MINOR_EVENT_CANNIBALIZED:
+      event_desc = "CANNIBALIZED";
+
+      {
+        /* event_tail can currently be up to 130 chars long */
+        const char *hs_state_str =
+          circuit_purpose_to_controller_hs_state_string(purpose);
+        const struct timeval *old_timestamp_created = tv;
+        char tbuf[ISO_TIME_USEC_LEN+1];
+        format_iso_time_nospace_usec(tbuf, old_timestamp_created);
+
+        tor_snprintf(event_tail, sizeof(event_tail),
+                     " OLD_PURPOSE=%s%s%s OLD_TIME_CREATED=%s",
+                     circuit_purpose_to_controller_string(purpose),
+                     (hs_state_str != NULL) ? " OLD_HS_STATE=" : "",
+                     (hs_state_str != NULL) ? hs_state_str : "",
+                     tbuf);
+      }
+
+      break;
+    default:
+      log_warn(LD_BUG, "Unrecognized status code %d", (int)e);
+      tor_fragile_assert();
+      return 0;
+    }
+
+  {
+    char *circdesc = circuit_describe_status_for_controller(circ);
+    const char *sp = strlen(circdesc) ? " " : "";
+    send_control_event(EVENT_CIRCUIT_STATUS_MINOR, ALL_FORMATS,
+                       "650 CIRC_MINOR %lu %s%s%s%s\r\n",
+                       (unsigned long)circ->global_identifier,
+                       event_desc, sp,
+                       circdesc,
+                       event_tail);
+    tor_free(circdesc);
+  }
+
+  return 0;
+}
+
+/**
+ * <b>circ</b> has changed its purpose from <b>old_purpose</b>: tell any
+ * interested controllers.
+ */
+int
+control_event_circuit_purpose_changed(origin_circuit_t *circ,
+                                      int old_purpose)
+{
+  return control_event_circuit_status_minor(circ,
+                                            CIRC_MINOR_EVENT_PURPOSE_CHANGED,
+                                            old_purpose,
+                                            NULL);
+}
+
+/**
+ * <b>circ</b> has changed its purpose from <b>old_purpose</b>, and its
+ * created-time from <b>old_tv_created</b>: tell any interested controllers.
+ */
+int
+control_event_circuit_cannibalized(origin_circuit_t *circ,
+                                   int old_purpose,
+                                   const struct timeval *old_tv_created)
+{
+  return control_event_circuit_status_minor(circ,
+                                            CIRC_MINOR_EVENT_CANNIBALIZED,
+                                            old_purpose,
+                                            old_tv_created);
 }
 
 /** Given an AP connection <b>conn</b> and a <b>len</b>-character buffer
@@ -3177,7 +3606,7 @@ control_event_circuit_status(origin_circuit_t *circ, circuit_status_event_t tp,
  * <b>conn</b>, and write it to <b>buf</b>.  Return 0 on success, -1 on
  * failure. */
 static int
-write_stream_target_to_buf(edge_connection_t *conn, char *buf, size_t len)
+write_stream_target_to_buf(entry_connection_t *conn, char *buf, size_t len)
 {
   char buf2[256];
   if (conn->chosen_exit_name)
@@ -3188,8 +3617,8 @@ write_stream_target_to_buf(edge_connection_t *conn, char *buf, size_t len)
   if (tor_snprintf(buf, len, "%s%s%s:%d",
                conn->socks_request->address,
                conn->chosen_exit_name ? buf2 : "",
-               !conn->chosen_exit_name &&
-                 connection_edge_is_rendezvous_stream(conn) ? ".onion" : "",
+               !conn->chosen_exit_name && connection_edge_is_rendezvous_stream(
+                                     ENTRY_TO_EDGE_CONN(conn)) ? ".onion" : "",
                conn->socks_request->port)<0)
     return -1;
   return 0;
@@ -3198,7 +3627,7 @@ write_stream_target_to_buf(edge_connection_t *conn, char *buf, size_t len)
 /** Something has happened to the stream associated with AP connection
  * <b>conn</b>: tell any interested control connections. */
 int
-control_event_stream_status(edge_connection_t *conn, stream_status_event_t tp,
+control_event_stream_status(entry_connection_t *conn, stream_status_event_t tp,
                             int reason_code)
 {
   char reason_buf[64];
@@ -3241,8 +3670,7 @@ control_event_stream_status(edge_connection_t *conn, stream_status_event_t tp,
     const char *reason_str = stream_end_reason_to_control_string(reason_code);
     char *r = NULL;
     if (!reason_str) {
-      r = tor_malloc(16);
-      tor_snprintf(r, 16, " UNKNOWN_%d", reason_code);
+      tor_asprintf(&r, " UNKNOWN_%d", reason_code);
       reason_str = r;
     }
     if (reason_code & END_STREAM_REASON_FLAG_REMOTE)
@@ -3270,7 +3698,7 @@ control_event_stream_status(edge_connection_t *conn, stream_status_event_t tp,
 
   if (tp == STREAM_EVENT_NEW) {
     tor_snprintf(addrport_buf,sizeof(addrport_buf), " SOURCE_ADDR=%s:%d",
-                 TO_CONN(conn)->address, TO_CONN(conn)->port );
+                 ENTRY_TO_CONN(conn)->address, ENTRY_TO_CONN(conn)->port);
   } else {
     addrport_buf[0] = '\0';
   }
@@ -3278,12 +3706,12 @@ control_event_stream_status(edge_connection_t *conn, stream_status_event_t tp,
   if (tp == STREAM_EVENT_NEW_RESOLVE) {
     purpose = " PURPOSE=DNS_REQUEST";
   } else if (tp == STREAM_EVENT_NEW) {
-    if (conn->is_dns_request ||
+    if (ENTRY_TO_EDGE_CONN(conn)->is_dns_request ||
         (conn->socks_request &&
          SOCKS_COMMAND_IS_RESOLVE(conn->socks_request->command)))
       purpose = " PURPOSE=DNS_REQUEST";
     else if (conn->use_begindir) {
-      connection_t *linked = TO_CONN(conn)->linked_conn;
+      connection_t *linked = ENTRY_TO_CONN(conn)->linked_conn;
       int linked_dir_purpose = -1;
       if (linked && linked->type == CONN_TYPE_DIR)
         linked_dir_purpose = linked->purpose;
@@ -3295,12 +3723,13 @@ control_event_stream_status(edge_connection_t *conn, stream_status_event_t tp,
       purpose = " PURPOSE=USER";
   }
 
-  circ = circuit_get_by_edge_conn(conn);
+  circ = circuit_get_by_edge_conn(ENTRY_TO_EDGE_CONN(conn));
   if (circ && CIRCUIT_IS_ORIGIN(circ))
     origin_circ = TO_ORIGIN_CIRCUIT(circ);
   send_control_event(EVENT_STREAM_STATUS, ALL_FORMATS,
                         "650 STREAM "U64_FORMAT" %s %lu %s%s%s%s\r\n",
-                        U64_PRINTF_ARG(conn->_base.global_identifier), status,
+                     U64_PRINTF_ARG(ENTRY_TO_CONN(conn)->global_identifier),
+                     status,
                         origin_circ?
                            (unsigned long)origin_circ->global_identifier : 0ul,
                         buf, reason_buf, addrport_buf, purpose);
@@ -3316,10 +3745,10 @@ control_event_stream_status(edge_connection_t *conn, stream_status_event_t tp,
 static void
 orconn_target_get_name(char *name, size_t len, or_connection_t *conn)
 {
-  routerinfo_t *ri = router_get_by_digest(conn->identity_digest);
-  if (ri) {
+  const node_t *node = node_get_by_id(conn->identity_digest);
+  if (node) {
     tor_assert(len > MAX_VERBOSE_NICKNAME_LEN);
-    router_get_verbose_nickname(name, ri);
+    node_get_verbose_nickname(node, name);
   } else if (! tor_digest_is_zero(conn->identity_digest)) {
     name[0] = '$';
     base16_encode(name+1, len-1, conn->identity_digest,
@@ -3524,18 +3953,15 @@ control_event_descriptors_changed(smartlist_t *routers)
     return 0;
 
   {
-    smartlist_t *names = smartlist_create();
+    smartlist_t *names = smartlist_new();
     char *ids;
-    size_t names_len;
     SMARTLIST_FOREACH(routers, routerinfo_t *, ri, {
         char *b = tor_malloc(MAX_VERBOSE_NICKNAME_LEN+1);
         router_get_verbose_nickname(b, ri);
         smartlist_add(names, b);
       });
-    ids = smartlist_join_strings(names, " ", 0, &names_len);
-    names_len = strlen(ids)+32;
-    msg = tor_malloc(names_len);
-    tor_snprintf(msg, names_len, "650 NEWDESC %s\r\n", ids);
+    ids = smartlist_join_strings(names, " ", 0, NULL);
+    tor_asprintf(&msg, "650 NEWDESC %s\r\n", ids);
     send_control_event_string(EVENT_NEW_DESC, ALL_FORMATS, msg);
     tor_free(ids);
     tor_free(msg);
@@ -3632,11 +4058,11 @@ control_event_networkstatus_changed_helper(smartlist_t *statuses,
   if (!EVENT_IS_INTERESTING(event) || !smartlist_len(statuses))
     return 0;
 
-  strs = smartlist_create();
+  strs = smartlist_new();
   smartlist_add(strs, tor_strdup("650+"));
   smartlist_add(strs, tor_strdup(event_string));
   smartlist_add(strs, tor_strdup("\r\n"));
-  SMARTLIST_FOREACH(statuses, routerstatus_t *, rs,
+  SMARTLIST_FOREACH(statuses, const routerstatus_t *, rs,
     {
       s = networkstatus_getinfo_helper_single(rs);
       if (!s) continue;
@@ -3681,10 +4107,12 @@ control_event_buildtimeout_set(const circuit_build_times_t *cbt,
                         buildtimeout_set_event_t type)
 {
   const char *type_string = NULL;
-  double qnt = circuit_build_times_quantile_cutoff();
+  double qnt;
 
   if (!control_event_is_interesting(EVENT_BUILDTIMEOUT_SET))
     return 0;
+
+  qnt = circuit_build_times_quantile_cutoff();
 
   switch (type) {
     case BUILDTIMEOUT_SET_EVENT_COMPUTED:
@@ -3724,10 +4152,46 @@ control_event_buildtimeout_set(const circuit_build_times_t *cbt,
   return 0;
 }
 
+/** Called when a signal has been processed from signal_callback */
+int
+control_event_signal(uintptr_t signal)
+{
+  const char *signal_string = NULL;
+
+  if (!control_event_is_interesting(EVENT_SIGNAL))
+    return 0;
+
+  switch (signal) {
+    case SIGHUP:
+      signal_string = "RELOAD";
+      break;
+    case SIGUSR1:
+      signal_string = "DUMP";
+      break;
+    case SIGUSR2:
+      signal_string = "DEBUG";
+      break;
+    case SIGNEWNYM:
+      signal_string = "NEWNYM";
+      break;
+    case SIGCLEARDNSCACHE:
+      signal_string = "CLEARDNSCACHE";
+      break;
+    default:
+      log_warn(LD_BUG, "Unrecognized signal %lu in control_event_signal",
+               (unsigned long)signal);
+      return -1;
+  }
+
+  send_control_event(EVENT_SIGNAL, ALL_FORMATS, "650 SIGNAL %s\r\n",
+                     signal_string);
+  return 0;
+}
+
 /** Called when a single local_routerstatus_t has changed: Sends an NS event
  * to any controller that cares. */
 int
-control_event_networkstatus_changed_single(routerstatus_t *rs)
+control_event_networkstatus_changed_single(const routerstatus_t *rs)
 {
   smartlist_t *statuses;
   int r;
@@ -3735,8 +4199,8 @@ control_event_networkstatus_changed_single(routerstatus_t *rs)
   if (!EVENT_IS_INTERESTING(EVENT_NS))
     return 0;
 
-  statuses = smartlist_create();
-  smartlist_add(statuses, rs);
+  statuses = smartlist_new();
+  smartlist_add(statuses, (void*)rs);
   r = control_event_networkstatus_changed(statuses);
   smartlist_free(statuses);
   return r;
@@ -3758,6 +4222,7 @@ control_event_my_descriptor_changed(void)
 static int
 control_event_status(int type, int severity, const char *format, va_list args)
 {
+  char *user_buf = NULL;
   char format_buf[160];
   const char *status, *sev;
 
@@ -3789,13 +4254,15 @@ control_event_status(int type, int severity, const char *format, va_list args)
       log_warn(LD_BUG, "Unrecognized status severity %d", severity);
       return -1;
   }
-  if (tor_snprintf(format_buf, sizeof(format_buf), "650 %s %s %s\r\n",
-                   status, sev, format)<0) {
+  if (tor_snprintf(format_buf, sizeof(format_buf), "650 %s %s",
+                   status, sev)<0) {
     log_warn(LD_BUG, "Format string too long.");
     return -1;
   }
+  tor_vasprintf(&user_buf, format, args);
 
-  send_control_event_impl(type, ALL_FORMATS, format_buf, args);
+  send_control_event(type, ALL_FORMATS, "%s %s\r\n", format_buf, user_buf);
+  tor_free(user_buf);
   return 0;
 }
 
@@ -3861,9 +4328,9 @@ control_event_guard(const char *nickname, const char *digest,
 
   {
     char buf[MAX_VERBOSE_NICKNAME_LEN+1];
-    routerinfo_t *ri = router_get_by_digest(digest);
-    if (ri) {
-      router_get_verbose_nickname(buf, ri);
+    const node_t *node = node_get_by_id(digest);
+    if (node) {
+      node_get_verbose_nickname(node, buf);
     } else {
       tor_snprintf(buf, sizeof(buf), "$%s~%s", hbuf, nickname);
     }
@@ -3873,12 +4340,45 @@ control_event_guard(const char *nickname, const char *digest,
   return 0;
 }
 
+/** Called when a configuration option changes. This is generally triggered
+ * by SETCONF requests and RELOAD/SIGHUP signals. The <b>elements</b> is
+ * a smartlist_t containing (key, value, ...) pairs in sequence.
+ * <b>value</b> can be NULL. */
+int
+control_event_conf_changed(smartlist_t *elements)
+{
+  int i;
+  char *result;
+  smartlist_t *lines;
+  if (!EVENT_IS_INTERESTING(EVENT_CONF_CHANGED) ||
+      smartlist_len(elements) == 0) {
+    return 0;
+  }
+  lines = smartlist_new();
+  for (i = 0; i < smartlist_len(elements); i += 2) {
+    char *k = smartlist_get(elements, i);
+    char *v = smartlist_get(elements, i+1);
+    if (v == NULL) {
+      smartlist_add_asprintf(lines, "650-%s", k);
+    } else {
+      smartlist_add_asprintf(lines, "650-%s=%s", k, v);
+    }
+  }
+  result = smartlist_join_strings(lines, "\r\n", 0, NULL);
+  send_control_event(EVENT_CONF_CHANGED, 0,
+    "650-CONF_CHANGED\r\n%s\r\n650 OK\r\n", result);
+  tor_free(result);
+  SMARTLIST_FOREACH(lines, char *, cp, tor_free(cp));
+  smartlist_free(lines);
+  return 0;
+}
+
 /** Helper: Return a newly allocated string containing a path to the
  * file where we store our authentication cookie. */
 static char *
 get_cookie_file(void)
 {
-  or_options_t *options = get_options();
+  const or_options_t *options = get_options();
   if (options->CookieAuthFile && strlen(options->CookieAuthFile)) {
     return tor_strdup(options->CookieAuthFile);
   } else {
@@ -3914,7 +4414,7 @@ init_cookie_authentication(int enabled)
     tor_free(fname);
     return -1;
   }
-#ifndef MS_WINDOWS
+#ifndef _WIN32
   if (get_options()->CookieAuthFileGroupReadable) {
     if (chmod(fname, 0640)) {
       log_warn(LD_FS,"Unable to make %s group-readable.", escaped(fname));
@@ -4146,6 +4646,7 @@ control_event_bootstrap_problem(const char *warn, int reason)
   const char *tag, *summary;
   char buf[BOOTSTRAP_MSG_LEN];
   const char *recommendation = "ignore";
+  int severity;
 
   /* bootstrap_percent must not be in "undefined" state here. */
   tor_assert(status >= 0);
@@ -4170,12 +4671,17 @@ control_event_bootstrap_problem(const char *warn, int reason)
     status--; /* find a recognized status string based on current progress */
   status = bootstrap_percent; /* set status back to the actual number */
 
-  log_fn(!strcmp(recommendation, "warn") ? LOG_WARN : LOG_INFO,
+  severity = !strcmp(recommendation, "warn") ? LOG_WARN : LOG_INFO;
+
+  log_fn(severity,
          LD_CONTROL, "Problem bootstrapping. Stuck at %d%%: %s. (%s; %s; "
          "count %d; recommendation %s)",
          status, summary, warn,
          orconn_end_reason_to_control_string(reason),
          bootstrap_problems, recommendation);
+
+  connection_or_report_broken_states(severity, LD_HANDSHAKE);
+
   tor_snprintf(buf, sizeof(buf),
       "BOOTSTRAP PROGRESS=%d TAG=%s SUMMARY=\"%s\" WARNING=\"%s\" REASON=%s "
       "COUNT=%d RECOMMENDATION=%s",

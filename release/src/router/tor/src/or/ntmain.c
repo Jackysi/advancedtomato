@@ -1,6 +1,6 @@
 /* Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 #define MAIN_PRIVATE
@@ -193,7 +193,6 @@ nt_service_loadlibrary(void)
  */
 int
 nt_service_is_stopping(void)
-/* XXXX this function would probably _love_ to be inline, in 0.2.0. */
 {
   /* If we haven't loaded the function pointers, we can't possibly be an NT
    * service trying to shut down. */
@@ -456,10 +455,10 @@ static char *
 nt_service_command_line(int *using_default_torrc)
 {
   TCHAR tor_exe[MAX_PATH+1];
-  char tor_exe_ascii[MAX_PATH+1];
-  char *command, *options=NULL;
+  char tor_exe_ascii[MAX_PATH*2+1];
+  char *command=NULL, *options=NULL;
   smartlist_t *sl;
-  int i, cmdlen;
+  int i;
   *using_default_torrc = 1;
 
   /* Get the location of tor.exe */
@@ -467,7 +466,7 @@ nt_service_command_line(int *using_default_torrc)
     return NULL;
 
   /* Get the service arguments */
-  sl = smartlist_create();
+  sl = smartlist_new();
   for (i = 1; i < backup_argc; ++i) {
     if (!strcmp(backup_argv[i], "--options") ||
         !strcmp(backup_argv[i], "-options")) {
@@ -484,25 +483,18 @@ nt_service_command_line(int *using_default_torrc)
 
 #ifdef UNICODE
   wcstombs(tor_exe_ascii, tor_exe, sizeof(tor_exe_ascii));
+  tor_exe_ascii[sizeof(tor_exe_ascii)-1] = '\0';
 #else
   strlcpy(tor_exe_ascii, tor_exe, sizeof(tor_exe_ascii));
 #endif
 
-  /* Allocate a string for the NT service command line */
-  cmdlen = strlen(tor_exe_ascii) + (options?strlen(options):0) + 32;
-  command = tor_malloc(cmdlen);
-
+  /* Allocate a string for the NT service command line and */
   /* Format the service command */
   if (options) {
-    if (tor_snprintf(command, cmdlen, "\"%s\" --nt-service \"%s\"",
-                     tor_exe_ascii, options)<0) {
-      tor_free(command); /* sets command to NULL. */
-    }
+    tor_asprintf(&command, "\"%s\" --nt-service \"%s\"",
+                 tor_exe_ascii, options);
   } else { /* ! options */
-    if (tor_snprintf(command, cmdlen, "\"%s\" --nt-service",
-                     tor_exe_ascii)<0) {
-      tor_free(command); /* sets command to NULL. */
-    }
+    tor_asprintf(&command, "\"%s\" --nt-service", tor_exe_ascii);
   }
 
   tor_free(options);

@@ -1,12 +1,18 @@
-/* The original version of this module was written by Adam Langley; for
- * a history of modifications, check out the subversion logs.
+/* READ THIS COMMENT BEFORE HACKING THIS FILE.
  *
- * When editing this module, try to keep it re-mergeable by Adam.  Don't
- * reformat the whitespace, add Tor dependencies, or so on.
+ * This eventdns.c copy has diverged a bit from Libevent's version, and it's
+ * no longer easy to resynchronize them.  Once Tor requires Libevent 2.0, we
+ * will just dump this file and use Libevent's evdns code.
  *
- * TODO:
- *	 - Replace all externally visible magic numbers with #defined constants.
- *	 - Write documentation for APIs of all external functions.
+ * Therefore, you probably shouldn't make any change here without making it to
+ * Libevent as well: it's not good for the implementation to diverge even
+ * more.  Also, we can't shouldn't wantonly the API here (since Libevent APIs
+ * can't change in ways that break user behavior).  Also, we shouldn't bother
+ * with cosmetic changes: the whole module is slated for demolition, so
+ * there's no point dusting the linebreaks or re-painting the parser.
+ *
+ * (We can't just drop the Libevent 2.0 evdns implementation in here instead,
+ * since it depends pretty heavily on parts of Libevent 2.0.)
  */
 
 /* Async DNS Library
@@ -75,7 +81,6 @@
 #include <stdint.h>
 #endif
 #include <stdlib.h>
-#include <string.h>
 #include <errno.h>
 #include <assert.h>
 #ifdef HAVE_UNISTD_H
@@ -91,7 +96,7 @@
 
 #include "eventdns.h"
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <windows.h>
 #include <winsock2.h>
 #include <iphlpapi.h>
@@ -105,7 +110,7 @@
 #include <netinet/in6.h>
 #endif
 
-#ifdef WIN32
+#ifdef _WIN32
 typedef int socklen_t;
 #endif
 
@@ -338,7 +343,7 @@ static void server_port_ready_callback(int fd, short events, void *arg);
 
 static int strtoint(const char *const str);
 
-#ifdef WIN32
+#ifdef _WIN32
 static int
 last_error(int sock)
 {
@@ -427,7 +432,7 @@ _evdns_log(int warn, const char *fmt, ...)
 	if (!evdns_log_fn)
 		return;
 	va_start(args,fmt);
-#ifdef WIN32
+#ifdef _WIN32
 	_vsnprintf(buf, sizeof(buf), fmt, args);
 #else
 	vsnprintf(buf, sizeof(buf), fmt, args);
@@ -1831,8 +1836,8 @@ evdns_server_request_respond(struct evdns_server_request *_req, int err)
 	r = sendto(port->socket, req->response, req->response_len, 0,
 			   (struct sockaddr*) &req->addr, req->addrlen);
 	if (r<0) {
-		int err = last_error(port->socket);
-		if (! error_is_eagain(err))
+		int error = last_error(port->socket);
+		if (! error_is_eagain(error))
 			return -1;
 
 		if (port->pending_replies) {
@@ -2291,9 +2296,9 @@ _evdns_nameserver_add_impl(const struct sockaddr *address,
 
 	evtimer_set(&ns->timeout_event, nameserver_prod_callback, ns);
 
-	ns->socket = socket(address->sa_family, SOCK_DGRAM, 0);
+	ns->socket = tor_open_socket(address->sa_family, SOCK_DGRAM, 0);
 	if (ns->socket < 0) { err = 1; goto out1; }
-#ifdef WIN32
+#ifdef _WIN32
 	{
 		u_long nonblocking = 1;
 		ioctlsocket(ns->socket, FIONBIO, &nonblocking);
@@ -3040,7 +3045,7 @@ evdns_resolv_conf_parse(int flags, const char *const filename) {
 
 	log(EVDNS_LOG_DEBUG, "Parsing resolv.conf file %s", filename);
 
-	fd = open(filename, O_RDONLY);
+	fd = tor_open_cloexec(filename, O_RDONLY, 0);
 	if (fd < 0) {
 		evdns_resolv_set_defaults(flags);
 		return 1;
@@ -3096,7 +3101,7 @@ out1:
 	return err;
 }
 
-#ifdef WIN32
+#ifdef _WIN32
 /* Add multiple nameservers from a space-or-comma-separated list. */
 static int
 evdns_nameserver_ip_add_line(const char *ips) {
@@ -3208,7 +3213,7 @@ static int
 config_nameserver_from_reg_key(HKEY key, const TCHAR *subkey)
 {
 	char *buf;
-  char ansibuf[MAX_PATH] = {0};
+	char ansibuf[MAX_PATH] = {0};
 	DWORD bufsz = 0, type = 0;
 	int status = 0;
 
@@ -3221,6 +3226,7 @@ config_nameserver_from_reg_key(HKEY key, const TCHAR *subkey)
 	if (RegQueryValueEx(key, subkey, 0, &type, (LPBYTE)buf, &bufsz)
 		== ERROR_SUCCESS && bufsz > 1) {
 		wcstombs(ansibuf,(wchar_t*)buf,MAX_PATH);/*XXXX UNICODE */
+		abuf[MAX_PATH-1] = '\0';
 		status = evdns_nameserver_ip_add_line(ansibuf);
 	}
 
@@ -3304,7 +3310,7 @@ int
 evdns_init(void)
 {
 		int res = 0;
-#ifdef WIN32
+#ifdef _WIN32
 		evdns_config_windows_nameservers();
 #else
 		res = evdns_resolv_conf_parse(DNS_OPTIONS_ALL, "/etc/resolv.conf");
@@ -3460,7 +3466,7 @@ main(int c, char **v) {
 	if (servertest) {
 		int sock;
 		struct sockaddr_in my_addr;
-		sock = socket(PF_INET, SOCK_DGRAM, 0);
+		sock = tor_open_socket(PF_INET, SOCK_DGRAM, 0);
 		fcntl(sock, F_SETFL, O_NONBLOCK);
 		my_addr.sin_family = AF_INET;
 		my_addr.sin_port = htons(10053);

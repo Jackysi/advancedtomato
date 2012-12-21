@@ -1,6 +1,6 @@
 /* Copyright (c) 2003-2004, Roger Dingledine
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -29,7 +29,7 @@
 /** Allocate and return an empty smartlist.
  */
 smartlist_t *
-smartlist_create(void)
+smartlist_new(void)
 {
   smartlist_t *sl = tor_malloc(sizeof(smartlist_t));
   sl->num_used = 0;
@@ -296,7 +296,6 @@ smartlist_subtract(smartlist_t *sl1, const smartlist_t *sl2)
 
 /** Remove the <b>idx</b>th element of sl; if idx is not the last
  * element, swap the last element of sl into the <b>idx</b>th space.
- * Return the old value of the <b>idx</b>th element.
  */
 void
 smartlist_del(smartlist_t *sl, int idx)
@@ -572,7 +571,28 @@ smartlist_bsearch_idx(const smartlist_t *sl, const void *key,
                       int (*compare)(const void *key, const void **member),
                       int *found_out)
 {
-  int hi = smartlist_len(sl) - 1, lo = 0, cmp, mid;
+  const int len = smartlist_len(sl);
+  int hi, lo, cmp, mid;
+
+  if (len == 0) {
+    *found_out = 0;
+    return 0;
+  } else if (len == 1) {
+    cmp = compare(key, (const void **) &sl->list[0]);
+    if (cmp == 0) {
+      *found_out = 1;
+      return 0;
+    } else if (cmp < 0) {
+      *found_out = 0;
+      return 0;
+    } else {
+      *found_out = 0;
+      return 1;
+    }
+  }
+
+  hi = smartlist_len(sl) - 1;
+  lo = 0;
 
   while (lo <= hi) {
     mid = (lo + hi) / 2;
@@ -1028,7 +1048,7 @@ digestmap_set(digestmap_t *map, const char *key, void *val)
    * the hash table that we do in the unoptimized code above.  (Each of
    * HT_INSERT and HT_FIND calls HT_SET_HASH and HT_FIND_P.)
    */
-  _HT_FIND_OR_INSERT(digestmap_impl, node, digestmap_entry_hash, &(map->head),
+  HT_FIND_OR_INSERT_(digestmap_impl, node, digestmap_entry_hash, &(map->head),
          digestmap_entry_t, &search, ptr,
          {
             /* we found an entry. */
@@ -1042,7 +1062,7 @@ digestmap_set(digestmap_t *map, const char *key, void *val)
              tor_malloc_zero(sizeof(digestmap_entry_t));
            memcpy(newent->key, key, DIGEST_LEN);
            newent->val = val;
-           _HT_FOI_INSERT(node, &(map->head), &search, newent, ptr);
+           HT_FOI_INSERT_(node, &(map->head), &search, newent, ptr);
            return NULL;
          });
 #endif
@@ -1355,14 +1375,14 @@ digestmap_free(digestmap_t *map, void (*free_val)(void*))
 void
 strmap_assert_ok(const strmap_t *map)
 {
-  tor_assert(!_strmap_impl_HT_REP_IS_BAD(&map->head));
+  tor_assert(!strmap_impl_HT_REP_IS_BAD_(&map->head));
 }
 /** Fail with an assertion error if anything has gone wrong with the internal
  * representation of <b>map</b>. */
 void
 digestmap_assert_ok(const digestmap_t *map)
 {
-  tor_assert(!_digestmap_impl_HT_REP_IS_BAD(&map->head));
+  tor_assert(!digestmap_impl_HT_REP_IS_BAD_(&map->head));
 }
 
 /** Return true iff <b>map</b> has no entries. */

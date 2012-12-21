@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -38,31 +38,46 @@ int router_set_networkstatus_v2(const char *s, time_t arrived_at,
 void networkstatus_v2_list_clean(time_t now);
 int compare_digest_to_routerstatus_entry(const void *_key,
                                          const void **_member);
-routerstatus_t *networkstatus_v2_find_entry(networkstatus_v2_t *ns,
+const routerstatus_t *networkstatus_v2_find_entry(networkstatus_v2_t *ns,
                                          const char *digest);
-routerstatus_t *networkstatus_vote_find_entry(networkstatus_t *ns,
+const routerstatus_t *networkstatus_vote_find_entry(networkstatus_t *ns,
+                                              const char *digest);
+routerstatus_t *networkstatus_v2_find_mutable_entry(networkstatus_v2_t *ns,
+                                        const char *digest);
+routerstatus_t *networkstatus_vote_find_mutable_entry(networkstatus_t *ns,
                                               const char *digest);
 int networkstatus_vote_find_entry_idx(networkstatus_t *ns,
                                       const char *digest, int *found_out);
 const smartlist_t *networkstatus_get_v2_list(void);
 download_status_t *router_get_dl_status_by_descriptor_digest(const char *d);
-routerstatus_t *router_get_consensus_status_by_id(const char *digest);
-routerstatus_t *router_get_consensus_status_by_descriptor_digest(
-                                                        const char *digest);
-routerstatus_t *router_get_consensus_status_by_nickname(const char *nickname,
-                                                       int warn_if_unnamed);
+const routerstatus_t *router_get_consensus_status_by_id(const char *digest);
+routerstatus_t *router_get_mutable_consensus_status_by_id(
+                                   const char *digest);
+const routerstatus_t *router_get_consensus_status_by_descriptor_digest(
+                                   networkstatus_t *consensus,
+                                   const char *digest);
+routerstatus_t *router_get_mutable_consensus_status_by_descriptor_digest(
+                                   networkstatus_t *consensus,
+                                   const char *digest);
+const routerstatus_t *router_get_consensus_status_by_nickname(
+                                   const char *nickname,
+                                   int warn_if_unnamed);
 const char *networkstatus_get_router_digest_by_nickname(const char *nickname);
 int networkstatus_nickname_is_unnamed(const char *nickname);
-void networkstatus_consensus_download_failed(int status_code);
+void networkstatus_consensus_download_failed(int status_code,
+                                             const char *flavname);
 void update_consensus_networkstatus_fetch_time(time_t now);
-int should_delay_dir_fetches(or_options_t *options);
+int should_delay_dir_fetches(const or_options_t *options);
 void update_networkstatus_downloads(time_t now);
 void update_certificate_downloads(time_t now);
 int consensus_is_waiting_for_certs(void);
 networkstatus_v2_t *networkstatus_v2_get_by_digest(const char *digest);
 networkstatus_t *networkstatus_get_latest_consensus(void);
+networkstatus_t *networkstatus_get_latest_consensus_by_flavor(
+                                                  consensus_flavor_t f);
 networkstatus_t *networkstatus_get_live_consensus(time_t now);
-networkstatus_t *networkstatus_get_reasonably_live_consensus(time_t now);
+networkstatus_t *networkstatus_get_reasonably_live_consensus(time_t now,
+                                                             int flavor);
 #define NSSET_FROM_CACHE 1
 #define NSSET_WAS_WAITING_FOR_CERTS 2
 #define NSSET_DONT_DOWNLOAD_CERTS 4
@@ -78,10 +93,11 @@ void routers_update_status_from_consensus_networkstatus(smartlist_t *routers,
 void signed_descs_update_status_from_consensus_networkstatus(
                                                          smartlist_t *descs);
 
-char *networkstatus_getinfo_helper_single(routerstatus_t *rs);
+char *networkstatus_getinfo_helper_single(const routerstatus_t *rs);
 char *networkstatus_getinfo_by_purpose(const char *purpose_string, time_t now);
 void networkstatus_dump_bridge_status_to_file(time_t now);
-int32_t networkstatus_get_param(networkstatus_t *ns, const char *param_name,
+int32_t networkstatus_get_param(const networkstatus_t *ns,
+                                const char *param_name,
                                 int32_t default_val, int32_t min_val,
                                 int32_t max_val);
 int getinfo_helper_networkstatus(control_connection_t *conn,

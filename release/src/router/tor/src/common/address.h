@@ -1,6 +1,6 @@
 /* Copyright (c) 2003-2004, Roger Dingledine
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -26,10 +26,21 @@ typedef struct tor_addr_t
 {
   sa_family_t family;
   union {
+    uint32_t dummy_; /* This field is here so we have something to initialize
+                      * with a reliable cross-platform type. */
     struct in_addr in_addr;
     struct in6_addr in6_addr;
   } addr;
 } tor_addr_t;
+
+/** Holds an IP address and a TCP/UDP port.  */
+typedef struct tor_addr_port_t
+{
+  tor_addr_t addr;
+  uint16_t port;
+} tor_addr_port_t;
+
+#define TOR_ADDR_NULL {AF_UNSPEC, {0}};
 
 static INLINE const struct in6_addr *tor_addr_to_in6(const tor_addr_t *a);
 static INLINE uint32_t tor_addr_to_ipv4n(const tor_addr_t *a);
@@ -126,7 +137,15 @@ tor_addr_eq_ipv4h(const tor_addr_t *a, uint32_t u)
 
 int tor_addr_lookup(const char *name, uint16_t family, tor_addr_t *addr_out);
 char *tor_dup_addr(const tor_addr_t *addr) ATTR_MALLOC;
-const char *fmt_addr(const tor_addr_t *addr);
+
+/** Wrapper function of fmt_addr_impl(). It does not decorate IPv6
+ *  addresses. */
+#define fmt_addr(a) fmt_addr_impl((a), 0)
+/** Wrapper function of fmt_addr_impl(). It decorates IPv6
+ *  addresses. */
+#define fmt_and_decorate_addr(a) fmt_addr_impl((a), 1)
+const char *fmt_addr_impl(const tor_addr_t *addr, int decorate);
+const char * fmt_addr32(uint32_t addr);
 int get_interface_address6(int severity, sa_family_t family, tor_addr_t *addr);
 
 /** Flag to specify how to do a comparison between addresses.  In an "exact"
@@ -148,24 +167,24 @@ int tor_addr_compare_masked(const tor_addr_t *addr1, const tor_addr_t *addr2,
 
 unsigned int tor_addr_hash(const tor_addr_t *addr);
 int tor_addr_is_v4(const tor_addr_t *addr);
-int tor_addr_is_internal(const tor_addr_t *ip, int for_listening) ATTR_PURE;
+int tor_addr_is_internal(const tor_addr_t *ip, int for_listening);
 
 /** Longest length that can be required for a reverse lookup name. */
 /* 32 nybbles, 32 dots, 8 characters of "ip6.arpa", 1 NUL: 73 characters. */
 #define REVERSE_LOOKUP_NAME_BUF_LEN 73
-int tor_addr_to_reverse_lookup_name(char *out, size_t outlen,
+int tor_addr_to_PTR_name(char *out, size_t outlen,
                                     const tor_addr_t *addr);
-int tor_addr_parse_reverse_lookup_name(tor_addr_t *result, const char *address,
+int tor_addr_parse_PTR_name(tor_addr_t *result, const char *address,
                                        int family, int accept_regular);
 
-int tor_addr_port_parse(const char *s, tor_addr_t *addr_out,
+int tor_addr_port_lookup(const char *s, tor_addr_t *addr_out,
                         uint16_t *port_out);
 int tor_addr_parse_mask_ports(const char *s,
                               tor_addr_t *addr_out, maskbits_t *mask_out,
                               uint16_t *port_min_out, uint16_t *port_max_out);
-const char * tor_addr_to_str(char *dest, const tor_addr_t *addr, int len,
+const char * tor_addr_to_str(char *dest, const tor_addr_t *addr, size_t len,
                              int decorate);
-int tor_addr_from_str(tor_addr_t *addr, const char *src);
+int tor_addr_parse(tor_addr_t *addr, const char *src);
 void tor_addr_copy(tor_addr_t *dest, const tor_addr_t *src);
 void tor_addr_from_ipv4n(tor_addr_t *dest, uint32_t v4addr);
 /** Set <b>dest</b> to the IPv4 address encoded in <b>v4addr</b> in host
@@ -180,9 +199,14 @@ void tor_addr_from_in6(tor_addr_t *dest, const struct in6_addr *in6);
 int tor_addr_is_null(const tor_addr_t *addr);
 int tor_addr_is_loopback(const tor_addr_t *addr);
 
+int tor_addr_port_split(int severity, const char *addrport,
+                        char **address_out, uint16_t *port_out);
+
+int tor_addr_hostname_is_local(const char *name);
+
 /* IPv4 helpers */
-int is_internal_IP(uint32_t ip, int for_listening) ATTR_PURE;
-int parse_addr_port(int severity, const char *addrport, char **address,
+int is_internal_IP(uint32_t ip, int for_listening);
+int addr_port_lookup(int severity, const char *addrport, char **address,
                     uint32_t *addr, uint16_t *port_out);
 int parse_port_range(const char *port, uint16_t *port_min_out,
                      uint16_t *port_max_out);

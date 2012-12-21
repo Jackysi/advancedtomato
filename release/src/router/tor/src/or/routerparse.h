@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -19,12 +19,12 @@ int router_get_networkstatus_v2_hash(const char *s, char *digest);
 int router_get_networkstatus_v3_hash(const char *s, char *digest,
                                      digest_algorithm_t algorithm);
 int router_get_networkstatus_v3_hashes(const char *s, digests_t *digests);
-int router_get_extrainfo_hash(const char *s, char *digest);
+int router_get_extrainfo_hash(const char *s, size_t s_len, char *digest);
 #define DIROBJ_MAX_SIG_LEN 256
 int router_append_dirobj_signature(char *buf, size_t buf_len,
                                    const char *digest,
                                    size_t digest_len,
-                                   crypto_pk_env_t *private_key);
+                                   crypto_pk_t *private_key);
 int router_parse_list_from_string(const char **s, const char *eos,
                                   smartlist_t *dest,
                                   saved_location_t saved_location,
@@ -44,8 +44,9 @@ addr_policy_t *router_parse_addr_policy_item_from_string(const char *s,
                                                   int assume_action);
 version_status_t tor_version_is_obsolete(const char *myversion,
                                          const char *versionlist);
-int tor_version_parse(const char *s, tor_version_t *out);
+int tor_version_supports_microdescriptors(const char *platform);
 int tor_version_as_new_as(const char *platform, const char *cutoff);
+int tor_version_parse(const char *s, tor_version_t *out);
 int tor_version_compare(tor_version_t *a, tor_version_t *b);
 int tor_version_same_series(tor_version_t *a, tor_version_t *b);
 void sort_version_list(smartlist_t *lst, int remove_duplicates);
