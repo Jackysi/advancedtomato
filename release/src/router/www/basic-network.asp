@@ -865,7 +865,6 @@ function verifyFields(focused, quiet)
 		break;
 	case 'ppp3g':
 		vis._ppp_service = 0;
-		vis._ppp_custom = 0;
 		vis._l2tp_server_ip = 0;
 		vis._pptp_server_ip = 0;
 		vis._f_pptp_dhcp = 0;
@@ -874,7 +873,7 @@ function verifyFields(focused, quiet)
 		vis._wan_netmask = 0;
 		vis._lan_gateway = 0;
 		vis._modem_ipaddr = 0;
-		vis._f_wan_islan = 1;
+		vis._f_ppp_mlppp = 0;
 		break;
 	case 'static':
 		vis._l2tp_server_ip = 0;
@@ -1638,7 +1637,7 @@ createFieldTable('', [
 /* LINUX26-END */
 		['disabled','Disabled']],
 		value: nvram.wan_proto },
-	{ title: 'Modem device', name: 'modem_dev', type: 'select', options: [['ttyUSB0', '/dev/ttyUSB0'],['ttyUSB1', '/dev/ttyUSB1'],['ttyUSB2', '/dev/ttyUSB2'],['ttyUSB3', '/dev/ttyUSB3'],['ttyUSB4', '/dev/ttyUSB4'],['ttyUSB5', '/dev/ttyUSB5']], value: nvram.modem_dev },
+	{ title: 'Modem device', name: 'modem_dev', type: 'select', options: [['ttyUSB0', '/dev/ttyUSB0'],['ttyUSB1', '/dev/ttyUSB1'],['ttyUSB2', '/dev/ttyUSB2'],['ttyUSB3', '/dev/ttyUSB3'],['ttyACM0', '/dev/ttyACM0']], value: nvram.modem_dev },
 	{ title: 'PIN Code', name: 'modem_pin', type: 'text', maxlen: 6, size: 8, value: nvram.modem_pin },
 	{ title: 'Modem init string', name: 'modem_init', type: 'text', maxlen: 25, size: 32, value: nvram.modem_init },
 	{ title: 'APN', name: 'modem_apn', type: 'text', maxlen: 25, size: 32, value: nvram.modem_apn },
