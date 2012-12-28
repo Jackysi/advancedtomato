@@ -41,6 +41,7 @@ int init_config ()
     int returnedValue;
 
     gconfig.port = UDP_LISTEN_PORT;
+    gconfig.sarefnum = IP_IPSEC_REFINFO; /* default use the latest we know */
     gconfig.listenaddr = htonl(INADDR_ANY); /* Default is to bind (listen) to all interfaces */
     gconfig.debug_avp = 0;
     gconfig.debug_network = 0;
@@ -867,19 +868,27 @@ struct iprange *set_range (char *word, char *value, struct iprange *in)
     bcopy (hp->h_addr, &ipr->start, sizeof (unsigned int));
     if (c)
     {
+		char ip_hi[16];
+
 		e = d;
 		while(*e != '\0') {
 			if (*e++ == '.')
 				count++;
 		}
-		if (count != 3) {
-			char ip_hi[16];
-
+		if (count < 3) {
 			strcpy(ip_hi, value);
-			e = strrchr(ip_hi, '.')+1;
+			for (e = ip_hi + sizeof(ip_hi); e >= ip_hi; e--) {
+				if (*e == '.') count--;
+				if (count < 0) {
+					e++;
+					break;
+				}
+			}
 			/* Copy the last field + null terminator */
-			strcpy(e, d);
-			d = ip_hi;
+			if (ip_hi + sizeof(ip_hi)-e > strlen(d)) {
+				strcpy(e, d);
+				d = ip_hi;
+			}
 		}
         hp = gethostbyname (d);
         if (!hp)
@@ -1119,7 +1128,7 @@ int set_ipsec_saref (char *word, char *value, int context, void *item)
 		(word, value, &(g->ipsecsaref)))
 		    return -1;
 	    if(g->ipsecsaref) {
-		    l2tp_log(LOG_WARNING, "Enabling IPsec SAref processing for L2TP transport mode SAs\n");
+		    l2tp_log(LOG_INFO, "Enabling IPsec SAref processing for L2TP transport mode SAs\n");
 	    }
 	    if(g->forceuserspace != 1) {
 		    l2tp_log(LOG_WARNING, "IPsec SAref does not work with L2TP kernel mode yet, enabling forceuserspace=yes\n");
@@ -1130,6 +1139,21 @@ int set_ipsec_saref (char *word, char *value, int context, void *item)
 		      word);
 	    return -1;
     }
+    return 0;
+}
+
+int set_saref_num (char *word, char *value, int context, void *item)
+{
+	switch (context & ~CONTEXT_DEFAULT)
+	{
+	case CONTEXT_GLOBAL:
+		l2tp_log (LOG_INFO, "Setting SAref IP_IPSEC_REFINFO number to %s\n", value);
+		set_int (word, value, &(((struct global *) item)->sarefnum));
+		break;
+	default:
+		snprintf (filerr, sizeof (filerr), "'%s' not valid in this context\n", word);
+		return -1;
+	}
     return 0;
 }
 
@@ -1209,15 +1233,16 @@ int parse_config (FILE * f)
     char *s, *d, *t;
     int linenum = 0;
     int def = 0;
-    struct keyword *kw;
     void *data = NULL;
     struct lns *tl;
     struct lac *tc;
     while (!feof (f))
     {
-        fgets (buf, sizeof (buf), f);
-        if (feof (f))
+        if (NULL == fgets (buf, sizeof (buf), f))
+        {
+            /* Error or EOL */
             break;
+        }
         linenum++;
         s = buf;
         /* Strip comments */
@@ -1387,26 +1412,41 @@ int parse_config (FILE * f)
             l2tp_log (LOG_DEBUG, "parse_config: field is %s, value is %s\n", s, t);
 #endif
             /* Okay, bit twidling is done.  Let's handle this */
-            for (kw = words; kw->keyword; kw++)
+            
+            switch (parse_one_option (s, t, context | def, data))
             {
-                if (!strcasecmp (s, kw->keyword))
-                {
-                    if (kw->handler (s, t, context | def, data))
-                    {
-                        l2tp_log (LOG_WARNING, "parse_config: line %d: %s", linenum,
+            case -1:
+                l2tp_log (LOG_WARNING, "parse_config: line %d: %s", linenum,
                              filerr);
-                        return -1;
-                    }
-                    break;
-                }
-            }
-            if (!kw->keyword)
-            {
+                return -1;
+            case -2:
                 l2tp_log (LOG_CRIT, "parse_config: line %d: Unknown field '%s'\n",
                      linenum, s);
                 return -1;
-            }
+            }            
         }
+    }
+    return 0;
+}
+
+int parse_one_option(char *word, char *value, int context, void *item)
+{
+    struct keyword *kw;
+    
+    for (kw = words; kw->keyword; kw++)
+    {
+        if (!strcasecmp (word, kw->keyword))
+        {
+            if (kw->handler (word, value, context, item))
+            {
+                return -1;
+            }
+            break;
+        }
+    }
+    if (!kw->keyword)
+    {
+        return -2;
     }
     return 0;
 }
@@ -1414,6 +1454,7 @@ int parse_config (FILE * f)
 struct keyword words[] = {
     {"listen-addr", &set_listenaddr},
     {"port", &set_port},
+    {"saref refinfo", &set_saref_num},
     {"rand source", &set_rand_source},
     {"auth file", &set_authfile},
     {"exclusive", &set_exclusive},

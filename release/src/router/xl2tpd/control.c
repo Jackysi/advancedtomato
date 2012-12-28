@@ -596,6 +596,9 @@ int control_finish (struct tunnel *t, struct call *c)
         if (gconfig.debug_state)
             l2tp_log (LOG_DEBUG, "%s: sending SCCCN\n", __FUNCTION__);
         control_xmit (buf);
+
+        connect_pppol2tp(t);
+
         /* Schedule a HELLO */
         tv.tv_sec = HELLO_DELAY;
         tv.tv_usec = 0;
@@ -608,6 +611,7 @@ int control_finish (struct tunnel *t, struct call *c)
 		  "Connection established to %s, %d.  Local: %d, Remote: %d (ref=%u/%u).\n",
 		  IPADDY (t->peer.sin_addr),
 		  ntohs (t->peer.sin_port), t->ourtid, t->tid, t->refme, t->refhim);
+
         if (t->lac)
         {
             /* This is part of a LAC, so we want to go ahead
@@ -635,6 +639,9 @@ int control_finish (struct tunnel *t, struct call *c)
 		  IPADDY (t->peer.sin_addr),
 		  ntohs (t->peer.sin_port), t->ourtid, t->tid, t->refme, t->refhim,
 		  t->lns->entname);
+
+        connect_pppol2tp(t);
+
         /* Schedule a HELLO */
         tv.tv_sec = HELLO_DELAY;
         tv.tv_usec = 0;
@@ -873,7 +880,13 @@ int control_finish (struct tunnel *t, struct call *c)
                             "%s: Unable to create password pipe for pppd\n", __FUNCTION__);
                   return -EINVAL;
                 }
-                write (pppd_passwdfd[1], c->lac->password, strlen (c->lac->password));
+                if (-1 == write (pppd_passwdfd[1], c->lac->password, strlen (c->lac->password)))
+                {
+                    l2tp_log (LOG_DEBUG,
+                            "%s: Unable to write password to pipe for pppd\n", __FUNCTION__);
+                    close (pppd_passwdfd[1]);
+                    return -EINVAL;
+                }
                 close (pppd_passwdfd[1]);
 
                 /* clear memory used for password, paranoid?  */
@@ -898,6 +911,8 @@ int control_finish (struct tunnel *t, struct call *c)
         opt_destroy (po);
         if (c->lac)
             c->lac->rtries = 0;
+	if (c->lac->password[0])
+	    close(pppd_passwdfd[0]);
         break;
     case ICCN:
         if (c == t->self)
@@ -1305,7 +1320,7 @@ inline int check_payload (struct buffer *buf, struct tunnel *t,
 			}
 		} */
         if (PSBIT (h->ver))
-            ehlen += 4;         /* Offset information */
+            ehlen += 2;         /* Offset information */
         if (PLBIT (h->ver))
             ehlen += h->length; /* include length if available */
         if (PVER (h->ver) != VER_L2TP)
@@ -1371,7 +1386,7 @@ inline int expand_payload (struct buffer *buf, struct tunnel *t,
     if (!PFBIT (h->ver))
         ehlen += 4;             /* Should have Ns and Nr too */
     if (!PSBIT (h->ver))
-        ehlen += 4;             /* Offset information */
+        ehlen += 2;             /* Offset information */
     if (ehlen)
     {
         /*
@@ -1416,13 +1431,13 @@ inline int expand_payload (struct buffer *buf, struct tunnel *t,
         {
             r++;
             new_hdr->o_size = *r;
-            r++;
-            new_hdr->o_pad = *r;
+//            r++;
+//            new_hdr->o_pad = *r;
         }
         else
         {
             new_hdr->o_size = 0;
-            new_hdr->o_pad = 0;
+//            new_hdr->o_pad = 0;
         }
     }
     else
@@ -1554,8 +1569,9 @@ inline int write_packet (struct buffer *buf, struct tunnel *t, struct call *c,
     /*
      * Skip over header 
      */
-    buf->start += sizeof (struct payload_hdr);
-    buf->len -= sizeof (struct payload_hdr);
+    _u16 offset = ((struct payload_hdr*)(buf->start))->o_size;  // For FIXME:
+    buf->start += sizeof(struct payload_hdr) + offset;
+    buf->len -= sizeof(struct payload_hdr) + offset;
 
     c->rx_pkts++;
     c->rx_bytes += buf->len;
@@ -1642,15 +1658,14 @@ inline int write_packet (struct buffer *buf, struct tunnel *t, struct call *c,
     }
 #endif
 
-    x = write (c->fd, wbuf, pos);
-    if (x < pos)
+    x = 0;
+    while ( pos != x )
     {
-      if (DEBUG)
+      err = write (c->fd, wbuf+x, pos-x);
+      if ( err < 0 ) {
+        if ( errno != EINTR && errno != EAGAIN ) {
 	l2tp_log (LOG_WARNING, "%s: %s(%d)\n", __FUNCTION__, strerror (errno),
 		  errno);
-
-        if (!(errno == EINTR) && !(errno == EAGAIN))
-        {
             /*
                * I guess pppd died.  we'll pretend
                * everything ended normally
@@ -1659,6 +1674,11 @@ inline int write_packet (struct buffer *buf, struct tunnel *t, struct call *c,
             c->fd = -1;
             return -EIO;
         }
+        else {
+          continue;  //goto while
+        }
+      }
+      x += err;
     }
     return 0;
 }
@@ -1672,7 +1692,6 @@ void handle_special (struct buffer *buf, struct call *c, _u16 call)
        * call if it was a CDN, otherwise, send a CDN to notify them
        * that this call has been terminated.
      */
-    struct buffer *outgoing;
     struct tunnel *t = c->container;
     /* Don't do anything unless it's a control packet */
     if (!CTBIT (*((_u16 *) buf->start)))
@@ -1692,7 +1711,6 @@ void handle_special (struct buffer *buf, struct call *c, _u16 call)
             return;
         }
         /* Make a packet with the specified call number */
-        outgoing = new_outgoing (t);
         /* FIXME: If I'm not a CDN, I need to send a CDN */
         control_zlb (buf, t, c);
         c->cid = 0;

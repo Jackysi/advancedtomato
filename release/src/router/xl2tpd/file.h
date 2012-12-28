@@ -157,6 +157,9 @@ struct global
     int debug_tunnel;		/* Print tunnel debugging info? */
     int debug_state;		/* Print FSM debugging info? */
     int ipsecsaref;
+    int sarefnum;		/* Value of IPSEC_REFINFO used by kernel
+				 * (we used to pick 22, but 2.6.36+ took that, so now we pick 30)
+				 * Changed in SAref patch in openswan 2.6.36 for linux 2.6.36+ */
 };
 
 extern struct global gconfig;   /* Global configuration options */
@@ -166,4 +169,9 @@ extern struct lac *laclist;     /* All LAC entries */
 extern struct lns *deflns;      /* Default LNS config */
 extern struct lac *deflac;      /* Default LAC config */
 extern int init_config ();      /* Read in the config file */
+
+/* Tries to apply _word_ option with _value_ to _item_ in _context_ */
+extern int parse_one_option (char *word, char *value, int context, void *item);
+/* Allocate memory and filled up new lac */
+extern struct lac *new_lac ();
 #endif
