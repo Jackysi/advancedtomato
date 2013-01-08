@@ -35,7 +35,7 @@
 
 #define TRX_MAGIC		0x30524448
 #define TRX_MAX_OFFSET		4
-#define TRX_MAX_LEN		((8 * 1024 * 1024) - ((256 + 128) * 1024))		// 8MB - (256K cfe + 128K cfg)
+#define TRX_MAX_LEN		((16 * 1024 * 1024) - ((256 + 128) * 1024))		// 8MB - (256K cfe + 128K cfg)
 
 typedef struct {
 	uint32_t magic;
@@ -267,10 +267,7 @@ void finalize_trx(void)
 		exit(1);
 	}
 
-	if (trx_final) {
-		trx->magic = trx_magic;
-		return;
-	}
+	if (trx_final) return;
 	trx_final = 1;
 
 	len = trx->length;
@@ -378,7 +375,6 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 	trx->length = trx_header_size();
-	trx_magic = TRX_MAGIC;
 
 	while ((o = getopt(argc, argv, "v:i:a:t:l:m:b:")) != -1) {
 		switch (o) {
@@ -421,7 +417,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	trx_magic = TRX_MAGIC;
 	if (trx_count == 0) {
 		help();
 	}
