@@ -4,18 +4,18 @@
 # Copyright (C) 2011 shibby
 #
 
-CHECK=`cat /tmp/switch3g.debug`
-if [ "$CHECK" -gt 0 ]; then
+LOCK=`/tmp/switch3g.lock`
+if [ -f $LOCK ]; then #lock exist
     logger 3G MODEM - previous proces of switch3g still working
     exit 0
-fi
+else
 
 PIN=`nvram get modem_pin`
 IS_PIN=`nvram get modem_pin | wc -w`
 DEVNR=`nvram get modem_dev`
 
 #run process
-echo "1" > /tmp/switch3g.debug
+echo "1" > /tmp/switch3g.lock
 
 # is modem ready?
 DEV0=`cat /proc/bus/usb/devices | grep Driver | grep cdc_acm | wc -l`
@@ -29,6 +29,7 @@ if [ "$DEV0" -gt 0 ]; then
     if [ "$IS_PIN" == "1" ]; then
         echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
     fi
+    rm /tmp/switch3g.lock
     break;
 elif [ "$DEV1" -gt 0 ]; then
     logger 3G MODEM already found - using option module
@@ -36,6 +37,7 @@ elif [ "$DEV1" -gt 0 ]; then
     if [ "$IS_PIN" == "1" ]; then
         echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
     fi
+    rm /tmp/switch3g.lock
     break;
 elif [ "$DEV2" -gt 0 ]; then
     logger 3G MODEM already found - using sierra module
@@ -43,6 +45,7 @@ elif [ "$DEV2" -gt 0 ]; then
     if [ "$IS_PIN" == "1" ]; then
         echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
     fi
+    rm /tmp/switch3g.lock
     break;
 elif [ "$DEV3" -gt 0 ]; then
     logger 3G MODEM already found - using usbserial module
@@ -50,6 +53,7 @@ elif [ "$DEV3" -gt 0 ]; then
     if [ "$IS_PIN" == "1" ]; then
         echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
     fi
+    rm /tmp/switch3g.lock
     break;
 else
     #modem not found, try detect
@@ -95,6 +99,7 @@ else
         if [ "$IS_PIN" == "1" ]; then
             echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
         fi
+        rm /tmp/switch3g.lock
         break;
     elif [ "$DEV1" -gt 0 ]; then
         logger 3G MODEM ready - using option module
@@ -102,6 +107,7 @@ else
         if [ "$IS_PIN" == "1" ]; then
             echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
         fi
+        rm /tmp/switch3g.lock
         break;
     elif [ "$DEV2" -gt 0 ]; then
         logger 3G MODEM ready - using sierra module
@@ -109,6 +115,7 @@ else
         if [ "$IS_PIN" == "1" ]; then
             echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
         fi
+        rm /tmp/switch3g.lock
         break;
     else
         logger 3G MODEM not found by cdc-acm, option or sierra module. Trying usbserial ...
@@ -135,6 +142,7 @@ else
             if [ "$IS_PIN" == "1" ]; then
                 echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
             fi
+            rm /tmp/switch3g.lock
             break;
         elif [ -f /tmp/3g.detect ]; then
             VENDOR=`cat /tmp/3g.detect | cut -d ":" -f1`
@@ -150,6 +158,7 @@ else
                     if [ "$IS_PIN" == "1" ]; then
                         echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
                     fi
+                    rm /tmp/switch3g.lock
                     break;
                 else
                     logger 3G MODEM - loading module
@@ -160,6 +169,7 @@ else
                     if [ "$IS_PIN" == "1" ]; then
                         echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
                     fi
+                    rm /tmp/switch3g.lock
                     break;
                 fi
             fi
@@ -181,6 +191,7 @@ else
                         if [ "$IS_PIN" == "1" ]; then
                             echo -e "AT+CPIN=$PIN\r" > /dev/$DEVNR
                         fi
+                        rm /tmp/switch3g.lock
                         break;
                     else
                         NO=1
@@ -194,5 +205,8 @@ if [ "$NO" == "1" ]; then
     logger 3G MODEM not found ... sorry
 fi
 
-#end process
-echo "0" > /tmp/switch3g.debug
+#end script
+fi
+
+#remove lock
+rm /tmp/switch3g.lock
