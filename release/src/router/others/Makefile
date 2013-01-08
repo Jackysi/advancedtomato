@@ -25,6 +25,9 @@ endif
 #TomatoAnon project
 	install -m 0700 tomatoanon $(INSTALLDIR)/usr/sbin
 
+#TTB project
+	install -m 0700 ttb $(INSTALLDIR)/usr/sbin
+
 # cron helper
 	install -m 0700 cru $(INSTALLDIR)/usr/sbin
 

@@ -29,7 +29,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,sshd_forwarding,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save,lan_ipaddr,ne_shlimit"); %>
+//	<% nvram("http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_css,ttb_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,sshd_forwarding,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save,lan_ipaddr,ne_shlimit"); %>
 
 changed = 0;
 tdup = parseInt('<% psup("telnetd"); %>');
@@ -67,11 +67,20 @@ function verifyFields(focused, quiet)
 	var a, b, c;
 	var i;
 
+	var o = (E('_web_css').value == 'online');
+	var p = nvram.ttb_css;
+	elem.display(PR('_ttb_css'), o);
+
 	try {
 		a = E('_web_css').value;
-		if (a != nvram.web_css) {
-			E('guicss').href = a + '.css';
+		if (a == 'online') {
+			E('guicss').href = 'ext/' + p + '.css';
 			nvram.web_css = a;
+		} else {
+			if (a != nvram.web_css) {
+				E('guicss').href = a + '.css';
+				nvram.web_css = a;
+			}
 		}
 	}
 	catch (ex) {
@@ -247,7 +256,7 @@ function init()
 <!-- / / / -->
 
 <input type='hidden' name='_nextpage' value='admin-access.asp'>
-<input type='hidden' name='_nextwait' value='10'>
+<input type='hidden' name='_nextwait' value='20'>
 <input type='hidden' name='_service' value='admin-restart'>
 
 <input type='hidden' name='http_enable'>
@@ -285,11 +294,9 @@ var m = [
 	{ title: 'Allow Wireless Access', name: 'f_http_wireless', type: 'checkbox', value:  nvram.web_wl_filter == 0 },
 	null,
 	{ title: 'Color Scheme', name: 'web_css', type: 'select',
-		options: [['red','Tomato'],['black','Black'],['blue','Blue'],['bluegreen','Blue &amp; Green (Lighter)'],['bluegreen2','Blue &amp; Green (Darker)'],['brown','Brown'],['cyan','Cyan'],['olive','Olive'],['pumpkin','Pumpkin'],
-	/* THEMES-BEGIN */
-		['asus','Asus RT-N16'],['rtn66u','Asus RT-N66U'],
-	/* THEMES-END */
-		['usbred','USB Red'],['usbblue','USB Blue'],['asusred','Asus Red'],['linksysred','Linksys Red'],['ext/custom','Custom (ext/custom.css)']], value: nvram.web_css },
+		options: [['openlinksys','USB Blue - OpenLinksys'],['red','Tomato'],['ext/custom','Custom (ext/custom.css)'], ['online', 'On-line from TTB']], value: nvram.web_css },
+	{ title: 'TTB ID#', indent: 2, name: 'ttb_css', type: 'text', maxlen: 25, size: 30, value: nvram.ttb_css, suffix: ' Theme name from <a href="http://www.tomatothemebase.eu" target="_blanc">TTB themes gallery</a>' },
+	null,
 	{ title: 'Open Menus' }
 ];
 

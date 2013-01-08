@@ -423,9 +423,14 @@ const aspapi_t aspapi[] = {
 static void asp_css(int argc, char **argv)
 {
 	const char *css = nvram_safe_get("web_css");
-	
-	if (strcmp(css, "tomato") != 0) {
-		web_printf("<link rel='stylesheet' type='text/css' href='%s.css'>", css);
+	const char *ttb = nvram_safe_get("ttb_css");
+
+	if( nvram_match( "web_css", "online" ) ) {
+		web_printf("<link rel='stylesheet' type='text/css' href='ext/%s.css'>", ttb);
+	} else {
+		if (strcmp(css, "tomato") != 0) {
+			web_printf("<link rel='stylesheet' type='text/css' href='%s.css'>", css);
+		}
 	}
 }
 
@@ -931,6 +936,7 @@ static const nvset_t nvset_list[] = {
 	{ "https_lanport",		V_PORT				},
 	{ "web_wl_filter",		V_01				},
 	{ "web_css",			V_LENGTH(1, 32)		},
+	{ "ttb_css",			V_LENGTH(1, 32)		},
 	{ "web_mx",				V_LENGTH(0, 128)	},
 	{ "http_wanport",		V_PORT				},
 	{ "telnetd_eas",		V_01				},

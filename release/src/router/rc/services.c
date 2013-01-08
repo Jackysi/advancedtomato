@@ -506,6 +506,9 @@ void start_httpd(void)
 		return;
 	}
 
+	if( nvram_match( "web_css", "online" ) )
+		xstart( "/usr/sbin/ttb" );
+
 	stop_httpd();
 	chdir("/www");
 	eval("httpd");
