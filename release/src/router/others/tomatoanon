@@ -82,8 +82,12 @@ if [ "$ANON_ANSWER" == "1" ]; then
         #Thanks
 
         INTERVAL=`nvram get tomatoanon_cru`
+
+        #random minutes 0..59
+        MINUTES=`awk 'BEGIN {srand(); printf "%d", 60*rand()}'`
+
         cru d tomatoanon
-        cru a tomatoanon "0 */$INTERVAL * * * /usr/sbin/tomatoanon"
+        cru a tomatoanon "$MINUTES */$INTERVAL * * * /usr/sbin/tomatoanon"
 
     else #if anon is not enabled or was disabled right now
 
