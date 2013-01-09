@@ -59,32 +59,32 @@ function init()
 <input type='hidden' name='_service' value='tomatoanon-restart'>
 <div class='section-title'>About TomatoAnon Project</div>
 <div class="fields"><div class="about">
-<b>Hello</b><br>
+<b>Hello,</b><br>
 <br>
-I would like to present You a new Project named TomatoAnon.<br>
-TomatoAnon script will send anonymous or incompleted information about router`s model and installed tomato version.<br>
-Those information will be used ONLY for stats.<br>
-<b>Any of private information (like MAC`s, IP`s etc) will NOT be send!</b><br>
-Script is open, writen is bash, well anybody can look what truly is send to database.<br>
+I would like to present you with a new project I've been working on, called TomatoAnon.<br>
+The TomatoAnon script will send (to a database) information about your router's model and installed version of Tomato.<br>
+The information submitted is 100% anonymous and will ONLY be used for statistical purposes.<br>
+<b>This script does NOT send any private or personal information whatsoever (like MAC`s, IP`s etc)!</b><br>
+Script is fully open, and written in bash. Anyone is free to look at the content that is submitted to the database.<br>
 <br>
-Results you can explore on <a href=http://tomato.groov.pl/tomatoanon.php target=_blanc><b>http://tomato.groov.pl/tomatoanon.php</b></a> page.<br>
-Those informations may help you with a choice the best and most popular router in your country.<br>
-You can check which tomato version is used by the most people and which one is the most stable.<br>
+The submitted results can be viewed on the <a href=http://tomato.groov.pl/tomatoanon.php target=_blanc><b>http://tomato.groov.pl/tomatoanon.php</b></a> page.<br>
+This information may help you when choosing the best and most popular router available in your country.<br>
+You can check which version of Tomato is most commonly used and which one is the most stable.<br>
 <br>
-If you don`t agree to run this script you can simple disable it<br>
-Remember, you can enable it any time you want.<br>
+If you don't agree with this script, or do not wish to use it, you can simply disable it.<br>
+You can always re-enable it at any time.<br>
 <br>
-Sended information:<br>
+The following data is sent by TomatoAnon:<br>
  - MD5SUM of WAN+LAN MAC addresses - this will identify a router. Ex: 1c1dbd4202d794251ec1acf1211bb2c8<br>
  - Model of router. Ex: Asus RT-N66U<br>
- - Version of installed tomato. Ex: 102 K26 USB<br>
+ - Installed version of Tomato. Ex: 102 K26 USB<br>
  - Builtype. Ex: Mega-VPN-64K<br>
  - Country. Ex: POLAND<br>
  - ISO Country code. Ex: PL<br>
  - Uptime of your router. Ex: 3 days<br>
-That`s all !!<br>
+That`s it !!<br>
 <br>
-Thank You for read that and please make a right choice.<br>
+Thank you for reading and please make the right choice to help this project.<br>
 <br>
 <b>Best Regards!</b></font>
 </div></div>

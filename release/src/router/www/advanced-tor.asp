@@ -157,10 +157,10 @@ createFieldTable('', [
 <div class='section-title'>Notes</div>
 <div class='section'>
 <ul>
-	<li><b>Enable TOR</b> - Be patient. Running TOR can take from several seconds to several minutes.
+	<li><b>Enable TOR</b> - Be patient. Starting the TOR client can take from several seconds to several minutes.
 	<li><b>Only selected IP`s</b> - ex: 1.2.3.4,1.1.0/24,1.2.3.1-1.2.3.4
-	<li>Only connections to destination port 80 are redirected to TOR.
-	<li>Attention! - If your router has only 32MB RAM, you have to use swap.
+	<li>•Only connections to destination port 80 are redirected to TOR.
+	<li>•Caution! - If your router only has 32MB of RAM, you'll have to use swap.
 </ul>
 </div>
 </form>

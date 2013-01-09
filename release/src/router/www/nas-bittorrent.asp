@@ -309,10 +309,10 @@ createFieldTable('', [
 ]);
 </script>
 	<ul>
-		<li><b>Enable torrent client</b> - Attention! - If your router has only 32MB RAM, you have to use swap.
-		<li><b>Transmission binary path</b> Path to directory with transmission-daemon etc.
-		<li><b>Keep alive</b> - If enabled, transmission daemon will be checked every specified time and run after crash.
-		<li><b>Listening port</b> - Port for torrent client. Make sure port is not in use.
+		<li><b>Enable torrent client</b> - Caution! - If your router only has 32MB of RAM, you'll have to use swap.
+		<li><b>Transmission binary path</b> Path to the directory containing transmission-daemon etc.
+		<li><b>Keep alive</b> - If enabled, transmission-daemon will be checked at the specified interval and will re-launch after a crash.
+		<li><b>Listening port</b> - Port used for torrent client. Make sure this port is not in use.
 	</ul>
 </div>
 <div class='section-title'>Remote Access<script>W(btgui_link);</script></div>
@@ -328,9 +328,9 @@ createFieldTable('', [
 ]);
 </script>
 	<ul>
-		<li><b>Listening GUI port</b> - Port for Transmission GUI. Make sure port is not in use.
-		<li><b>Authentication required</b> - Authentication is <b><i>highly recomended</i></b>.
-		<li><b>Allow remote access</b> - This option will open Transmission GUI port from WAN site and allow use GUI from the internet.
+		<li><b>Listening GUI port</b> - Port used for Transmission GUI. Make sure this port is not in use.
+		<li><b>Authentication required</b> - Authentication is <b><i>highly recomended</i></b>. GUI will prompt for user/pass.
+		<li><b>Allow remote access</b> - This option will open the Transmission GUI port from the WAN side and allow the GUI to be accessed from the internet.
 	</ul>
 </div>
 <div class='section-title'>Limits</div>
@@ -370,8 +370,8 @@ createFieldTable('', [
 ]);
 </script>
 	<ul>
-		<li><b>Downloads queuing</b> - If true, limit how many torrents can be downloaded at once
-		<li><b>Seeds queuing</b> - If true, limit how many torrents can be uploaded at once
+		<li><b>Downloads queuing</b> - If enabled, this option will limit how many torrents can be downloaded at once.
+		<li><b>Seeds queuing</b> - If enabled, this option will limit how many torrents can be uploaded/seeded at once.
 	</ul>
 </div>
 <div class='section-title'>Advanced Settings</div>
