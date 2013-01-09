@@ -101,7 +101,15 @@ switch(nvram['boardtype']) {
     }
   case '0xd4cf':  // Belkin F7D4301
   case '0x048e':  // WL-520GU, WL-500G Premium v2
-  case '0x0550':  // RT-N53
+  case '0x0550':  // RT-N53 (boardrev = 0x1442), RT-N10U ( boardrev = 0x1102)
+    if (nvram['boardrev'] == '0x1102') { //RT-N10U
+      COL_P0N = '1';
+      COL_P1N = '2';
+      COL_P2N = '3';
+      COL_P3N = '4';
+      COL_P4N = '0';
+      break;
+    }
     COL_P0N = '3';
     COL_P1N = '2';
     COL_P2N = '1';
