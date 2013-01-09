@@ -556,8 +556,8 @@ const defaults_t defaults[] = {
 	{ "https_crt_file",		""				},
 	{ "https_crt",			""				},
 	{ "web_wl_filter",		"0"				},	// Allow/Deny Wireless Access Web
-	{ "web_css",			"usbblue"		},
-	{ "ttb_css",			""			},		//Tomato Themes Base
+	{ "web_css",			"openlinksys"			},
+	{ "ttb_css",			"example"			},	//Tomato Themes Base
 	{ "web_svg",			"1"				},
 	{ "telnetd_eas",		"1"				},
 	{ "telnetd_port",		"23"			},
