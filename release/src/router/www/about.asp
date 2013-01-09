@@ -114,7 +114,7 @@ Copyright (C) 2010 Keith Moyer,<br>
 
 <b>"Shibby" features:</b><br>
 <!-- BBT-BEGIN -->
-- Transmission 2.71 integration<br>
+- Transmission 2.75 integration<br>
 <!-- BBT-END -->
 <!-- BT-BEGIN -->
 - GUI for Transmission<br>
@@ -142,7 +142,8 @@ Copyright (C) 2010 Keith Moyer,<br>
 - TOR Project integration and GUI<br>
 <!-- TOR-END -->
 - TomatoAnon project integration and GUI<br>
-Copyright (C) 2011 Michał Rupental<br>
+- TomatoThemeBase project imtegration and GUI<br>
+Copyright (C) 2011-2013 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>
 

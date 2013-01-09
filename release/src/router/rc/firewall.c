@@ -29,6 +29,7 @@
 #include <arpa/inet.h>
 #include <dirent.h>
 
+static int web_lanport;
 wanface_list_t wanfaces;
 char lanface[IFNAMSIZ + 1];
 char lan1face[IFNAMSIZ + 1];
@@ -704,6 +705,31 @@ static void nat_table(void)
 
 			// ICMP packets are always redirected to INPUT chains
 			ipt_write("-A %s -p icmp -j DNAT --to-destination %s\n", chain_wan_prerouting, lanaddr);
+
+
+			//force remote access to router if DMZ is enabled - shibby
+			if( (nvram_match("dmz_enable", "1")) && (nvram_match("dmz_ra", "1")) ) {
+				strlcpy(t, nvram_safe_get("rmgt_sip"), sizeof(t));
+				p = t;
+				do {
+					if ((c = strchr(p, ',')) != NULL) *c = 0;
+					ipt_source(p, src, "ra", NULL);
+
+					if (remotemanage) {
+						ipt_write("-A %s -p tcp -m tcp %s --dport %s -j DNAT --to-destination %s:%d\n",
+							chain_wan_prerouting, src, nvram_safe_get("http_wanport"), lanaddr, web_lanport);
+					}
+
+					if (nvram_get_int("sshd_remote")) {
+						ipt_write("-A %s %s -p tcp -m tcp --dport %s -j DNAT --to-destination %s:%s\n",
+							chain_wan_prerouting, src, nvram_safe_get("sshd_rport"), lanaddr, nvram_safe_get("sshd_port"));
+					}
+
+					if (!c) break;
+					p = c + 1;
+				} while (*p);
+			}
+
 
 			ipt_forward(IPT_TABLE_NAT);
 			ipt_triggered(IPT_TABLE_NAT);
@@ -1642,6 +1668,14 @@ int start_firewall(void)
 		/* Remote management */
 		if (nvram_match("remote_management", "1") && nvram_invmatch("http_wanport", "") &&
 			nvram_invmatch("http_wanport", "0")) remotemanage = 1;
+
+		if (nvram_match("remote_mgt_https", "1")) {
+			web_lanport = nvram_get_int("https_lanport");
+			if (web_lanport <= 0) web_lanport = 443;
+		} else {
+			web_lanport = nvram_get_int("http_lanport");
+			if (web_lanport <= 0) web_lanport = 80;
+		}
 	}
 
 	if ((ipt_file = fopen(ipt_fname, "w")) == NULL) {

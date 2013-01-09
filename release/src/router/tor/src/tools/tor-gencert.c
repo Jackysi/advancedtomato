@@ -1,4 +1,4 @@
-/* Copyright (c) 2007-2011, The Tor Project, Inc. */
+/* Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 #include "orconfig.h"
@@ -9,7 +9,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 #include <openssl/evp.h>
 #include <openssl/pem.h>
@@ -103,7 +105,7 @@ load_passphrase(void)
   cp = memchr(buf, '\n', n);
   passphrase_len = cp-buf;
   passphrase = tor_strndup(buf, passphrase_len);
-  memset(buf, 0, sizeof(buf));
+  memwipe(buf, 0, sizeof(buf));
   return 0;
 }
 
@@ -111,7 +113,7 @@ static void
 clear_passphrase(void)
 {
   if (passphrase) {
-    memset(passphrase, 0, passphrase_len);
+    memwipe(passphrase, 0, passphrase_len);
     tor_free(passphrase);
   }
 }
@@ -153,7 +155,7 @@ parse_commandline(int argc, char **argv)
       }
       months_lifetime = atoi(argv[++i]);
       if (months_lifetime > 24 || months_lifetime < 0) {
-        fprintf(stderr, "Lifetime (in months) was out of range.");
+        fprintf(stderr, "Lifetime (in months) was out of range.\n");
         return 1;
       }
     } else if (!strcmp(argv[i], "-r") || !strcmp(argv[i], "--reuse")) {
@@ -169,7 +171,7 @@ parse_commandline(int argc, char **argv)
         fprintf(stderr, "No argument to -a\n");
         return 1;
       }
-      if (parse_addr_port(LOG_ERR, argv[++i], NULL, &addr, &port)<0)
+      if (addr_port_lookup(LOG_ERR, argv[++i], NULL, &addr, &port)<0)
         return 1;
       in.s_addr = htonl(addr);
       tor_inet_ntoa(&in, b, sizeof(b));
@@ -189,7 +191,7 @@ parse_commandline(int argc, char **argv)
     }
   }
 
-  memset(&s, 0, sizeof(s));
+  memwipe(&s, 0, sizeof(s));
   if (verbose)
     set_log_severity_config(LOG_DEBUG, LOG_ERR, &s);
   else
@@ -222,13 +224,13 @@ static RSA *
 generate_key(int bits)
 {
   RSA *rsa = NULL;
-  crypto_pk_env_t *env = crypto_new_pk_env();
+  crypto_pk_t *env = crypto_pk_new();
   if (crypto_pk_generate_key_with_bits(env,bits)<0)
     goto done;
-  rsa = _crypto_pk_env_get_rsa(env);
+  rsa = _crypto_pk_get_rsa(env);
   rsa = RSAPrivateKey_dup(rsa);
  done:
-  crypto_free_pk_env(env);
+  crypto_pk_free(env);
   return rsa;
 }
 
@@ -399,10 +401,10 @@ static int
 get_fingerprint(EVP_PKEY *pkey, char *out)
 {
   int r = 1;
-  crypto_pk_env_t *pk = _crypto_new_pk_env_rsa(EVP_PKEY_get1_RSA(pkey));
+  crypto_pk_t *pk = _crypto_new_pk_from_rsa(EVP_PKEY_get1_RSA(pkey));
   if (pk) {
     r = crypto_pk_get_fingerprint(pk, out, 0);
-    crypto_free_pk_env(pk);
+    crypto_pk_free(pk);
   }
   return r;
 }
@@ -412,10 +414,10 @@ static int
 get_digest(EVP_PKEY *pkey, char *out)
 {
   int r = 1;
-  crypto_pk_env_t *pk = _crypto_new_pk_env_rsa(EVP_PKEY_get1_RSA(pkey));
+  crypto_pk_t *pk = _crypto_new_pk_from_rsa(EVP_PKEY_get1_RSA(pkey));
   if (pk) {
     r = crypto_pk_get_digest(pk, out);
-    crypto_free_pk_env(pk);
+    crypto_pk_free(pk);
   }
   return r;
 }
@@ -495,7 +497,12 @@ generate_certificate(void)
     return 1;
   }
 
-  fputs(buf, f);
+  if (fputs(buf, f) < 0) {
+    log_err(LD_GENERAL, "Couldn't write to %s: %s",
+            certificate_file, strerror(errno));
+    fclose(f);
+    return 1;
+  }
   fclose(f);
   return 0;
 }

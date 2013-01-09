@@ -42,7 +42,7 @@ typedef unsigned long long _u64;
 #define CONTROL_PIPE_MESSAGE_SIZE 1024
 
 #define BINARY "xl2tpd"
-#define SERVER_VERSION "xl2tpd-1.3.0"
+#define SERVER_VERSION "xl2tpd-1.3.1"
 #define VENDOR_NAME "xelerance.com"
 #ifndef PPPD
 #define PPPD		"/usr/sbin/pppd"
@@ -168,6 +168,8 @@ struct tunnel
     int ourrws;                 /* Receive Window Size */
     int rxspeed;		/* Receive bps */
     int txspeed;		/* Transmit bps */
+    int udp_fd;			/* UDP fd */
+    int pppox_fd;			/* PPPOX tunnel fd */
     struct call *self;
     struct lns *lns;            /* LNS that owns us */
     struct lac *lac;            /* LAC that owns us */
@@ -222,6 +224,7 @@ extern void control_xmit (void *);
 extern int ppd;
 extern int switch_io;           /* jz */
 extern int control_fd;
+extern int connect_pppol2tp(struct tunnel *t);
 extern int start_pppd (struct call *c, struct ppp_opts *);
 extern void magic_lac_dial (void *);
 extern int get_entropy (unsigned char *, int);

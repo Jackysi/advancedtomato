@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2011, The Tor Project, Inc. */
+/* Copyright (c) 2009-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -6,9 +6,8 @@
  * \brief Wrappers to handle porting between different versions of libevent.
  *
  * In an ideal world, we'd just use Libevent 2.0 from now on.  But as of June
- * 2009, Libevent 2.0 is still in alpha, and we will have old versions of
- * Libevent for the forseeable future.
- **/
+ * 2012, Libevent 1.4 is still all over, and some poor souls are stuck on
+ * Libevent 1.3e. */
 
 #include "orconfig.h"
 #include "compat.h"
@@ -19,6 +18,10 @@
 
 #ifdef HAVE_EVENT2_EVENT_H
 #include <event2/event.h>
+#include <event2/thread.h>
+#ifdef USE_BUFFEREVENTS
+#include <event2/bufferevent.h>
+#endif
 #else
 #include <event.h>
 #endif
@@ -53,7 +56,7 @@ typedef uint32_t le_version_t;
 
 static le_version_t tor_get_libevent_version(const char **v_out);
 
-#ifdef HAVE_EVENT_SET_LOG_CALLBACK
+#if defined(HAVE_EVENT_SET_LOG_CALLBACK) || defined(RUNNING_DOXYGEN)
 /** A string which, if it appears in a libevent log, should be ignored. */
 static const char *suppress_msg = NULL;
 /** Callback function passed to event_set_log() so we can intercept
@@ -163,11 +166,24 @@ struct event_base *the_event_base = NULL;
 #endif
 #endif
 
+#ifdef USE_BUFFEREVENTS
+static int using_iocp_bufferevents = 0;
+static void tor_libevent_set_tick_timeout(int msec_per_tick);
+
+int
+tor_libevent_using_iocp_bufferevents(void)
+{
+  return using_iocp_bufferevents;
+}
+#endif
+
 /** Initialize the Libevent library and set up the event base. */
 void
-tor_libevent_initialize(void)
+tor_libevent_initialize(tor_libevent_cfg *torcfg)
 {
   tor_assert(the_event_base == NULL);
+  /* some paths below don't use torcfg, so avoid unused variable warnings */
+  (void)torcfg;
 
 #ifdef __APPLE__
   if (MACOSX_KQUEUE_IS_BROKEN ||
@@ -178,17 +194,65 @@ tor_libevent_initialize(void)
 
 #ifdef HAVE_EVENT2_EVENT_H
   {
-    struct event_config *cfg = event_config_new();
+    int attempts = 0;
+    int using_threads;
+    struct event_config *cfg;
+
+  retry:
+    ++attempts;
+    using_threads = 0;
+    cfg = event_config_new();
     tor_assert(cfg);
 
-    /* In 0.2.2, we don't use locking at all.  Telling Libevent not to try to
-     * turn it on can avoid a needless socketpair() attempt.
-     */
-    event_config_set_flag(cfg, EVENT_BASE_FLAG_NOLOCK);
+#if defined(_WIN32) && defined(USE_BUFFEREVENTS)
+    if (! torcfg->disable_iocp) {
+      evthread_use_windows_threads();
+      event_config_set_flag(cfg, EVENT_BASE_FLAG_STARTUP_IOCP);
+      using_iocp_bufferevents = 1;
+      using_threads = 1;
+    } else {
+      using_iocp_bufferevents = 0;
+    }
+#endif
+
+    if (!using_threads) {
+      /* Telling Libevent not to try to turn locking on can avoid a needless
+       * socketpair() attempt. */
+      event_config_set_flag(cfg, EVENT_BASE_FLAG_NOLOCK);
+    }
+
+#if defined(LIBEVENT_VERSION_NUMBER) && LIBEVENT_VERSION_NUMBER >= V(2,0,7)
+    if (torcfg->num_cpus > 0)
+      event_config_set_num_cpus_hint(cfg, torcfg->num_cpus);
+#endif
+
+#if LIBEVENT_VERSION_NUMBER >= V(2,0,9)
+    /* We can enable changelist support with epoll, since we don't give
+     * Libevent any dup'd fds.  This lets us avoid some syscalls. */
+    event_config_set_flag(cfg, EVENT_BASE_FLAG_EPOLL_USE_CHANGELIST);
+#endif
 
     the_event_base = event_base_new_with_config(cfg);
 
     event_config_free(cfg);
+
+    if (using_threads && the_event_base == NULL && attempts < 2) {
+      /* This could be a socketpair() failure, which can happen sometimes on
+       * windows boxes with obnoxious firewall rules.  Downgrade and try
+       * again. */
+#if defined(_WIN32) && defined(USE_BUFFEREVENTS)
+      if (torcfg->disable_iocp == 0) {
+        log_warn(LD_GENERAL, "Unable to initialize Libevent. Trying again "
+                 "with IOCP disabled.");
+      } else
+#endif
+      {
+          log_warn(LD_GENERAL, "Unable to initialize Libevent. Trying again.");
+      }
+
+      torcfg->disable_iocp = 1;
+      goto retry;
+    }
   }
 #else
   the_event_base = event_init();
@@ -211,6 +275,10 @@ tor_libevent_initialize(void)
   log(LOG_WARN, LD_GENERAL,
       "You have a *VERY* old version of libevent.  It is likely to be buggy; "
       "please build Tor with a more recent version.");
+#endif
+
+#ifdef USE_BUFFEREVENTS
+  tor_libevent_set_tick_timeout(torcfg->msec_per_tick);
 #endif
 }
 
@@ -257,7 +325,7 @@ tor_decode_libevent_version(const char *v)
 
   /* Try the new preferred "1.4.11-stable" format.
    * Also accept "1.4.14b-stable". */
-  fields = sscanf(v, "%u.%u.%u%c%c", &major, &minor, &patchlevel, &c, &e);
+  fields = tor_sscanf(v, "%u.%u.%u%c%c", &major, &minor, &patchlevel, &c, &e);
   if (fields == 3 ||
       ((fields == 4 || fields == 5 ) && (c == '-' || c == '_')) ||
       (fields == 5 && TOR_ISALPHA(c) && (e == '-' || e == '_'))) {
@@ -265,7 +333,7 @@ tor_decode_libevent_version(const char *v)
   }
 
   /* Try the old "1.3e" format. */
-  fields = sscanf(v, "%u.%u%c%c", &major, &minor, &c, &extra);
+  fields = tor_sscanf(v, "%u.%u%c%c", &major, &minor, &c, &extra);
   if (fields == 3 && TOR_ISALPHA(c)) {
     return V_OLD(major, minor, c);
   } else if (fields == 2) {
@@ -568,4 +636,91 @@ periodic_timer_free(periodic_timer_t *timer)
   tor_event_free(timer->ev);
   tor_free(timer);
 }
+
+#ifdef USE_BUFFEREVENTS
+static const struct timeval *one_tick = NULL;
+/**
+ * Return a special timeout to be passed whenever libevent's O(1) timeout
+ * implementation should be used. Only use this when the timer is supposed
+ * to fire after msec_per_tick ticks have elapsed.
+*/
+const struct timeval *
+tor_libevent_get_one_tick_timeout(void)
+{
+  tor_assert(one_tick);
+  return one_tick;
+}
+
+/** Initialize the common timeout that we'll use to refill the buckets every
+ * time a tick elapses. */
+static void
+tor_libevent_set_tick_timeout(int msec_per_tick)
+{
+  struct event_base *base = tor_libevent_get_base();
+  struct timeval tv;
+
+  tor_assert(! one_tick);
+  tv.tv_sec = msec_per_tick / 1000;
+  tv.tv_usec = (msec_per_tick % 1000) * 1000;
+  one_tick = event_base_init_common_timeout(base, &tv);
+}
+
+static struct bufferevent *
+tor_get_root_bufferevent(struct bufferevent *bev)
+{
+  struct bufferevent *u;
+  while ((u = bufferevent_get_underlying(bev)) != NULL)
+    bev = u;
+  return bev;
+}
+
+int
+tor_set_bufferevent_rate_limit(struct bufferevent *bev,
+                               struct ev_token_bucket_cfg *cfg)
+{
+  return bufferevent_set_rate_limit(tor_get_root_bufferevent(bev), cfg);
+}
+
+int
+tor_add_bufferevent_to_rate_limit_group(struct bufferevent *bev,
+                                        struct bufferevent_rate_limit_group *g)
+{
+  return bufferevent_add_to_rate_limit_group(tor_get_root_bufferevent(bev), g);
+}
+#endif
+
+#if defined(LIBEVENT_VERSION_NUMBER) && LIBEVENT_VERSION_NUMBER >= V(2,1,1)
+void
+tor_gettimeofday_cached(struct timeval *tv)
+{
+  event_base_gettimeofday_cached(the_event_base, tv);
+}
+void
+tor_gettimeofday_cache_clear(void)
+{
+  event_base_update_cache_time(the_event_base);
+}
+#else
+/** Cache the current hi-res time; the cache gets reset when libevent
+ * calls us. */
+static struct timeval cached_time_hires = {0, 0};
+
+/** Return a fairly recent view of the current time. */
+void
+tor_gettimeofday_cached(struct timeval *tv)
+{
+  if (cached_time_hires.tv_sec == 0) {
+    tor_gettimeofday(&cached_time_hires);
+  }
+  *tv = cached_time_hires;
+}
+
+/** Reset the cached view of the current time, so that the next time we try
+ * to learn it, we will get an up-to-date value. */
+void
+tor_gettimeofday_cache_clear(void)
+{
+  cached_time_hires.tv_sec = 0;
+}
+#endif
 

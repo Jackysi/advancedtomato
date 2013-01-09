@@ -1,7 +1,7 @@
 /* Copyright (c) 2001, Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -97,6 +97,7 @@ should_log_function_name(log_domain_mask_t domain, int severity)
 
 /** A mutex to guard changes to logfiles and logging. */
 static tor_mutex_t log_mutex;
+/** True iff we have initialized log_mutex */
 static int log_mutex_initialized = 0;
 
 /** Linked list of logfile_t. */
@@ -137,6 +138,13 @@ static void close_log(logfile_t *victim);
 
 static char *domain_to_string(log_domain_mask_t domain,
                              char *buf, size_t buflen);
+static INLINE char *format_msg(char *buf, size_t buf_len,
+           log_domain_mask_t domain, int severity, const char *funcname,
+           const char *format, va_list ap, size_t *msg_len_out)
+  CHECK_PRINTF(6,0);
+static void logv(int severity, log_domain_mask_t domain, const char *funcname,
+                 const char *format, va_list ap)
+  CHECK_PRINTF(4,0);
 
 /** Name of the application: used to generate the message we write at the
  * start of each new log. */
@@ -154,6 +162,17 @@ log_set_application_name(const char *name)
   appname = name ? tor_strdup(name) : NULL;
 }
 
+/** Log time granularity in milliseconds. */
+static int log_time_granularity = 1;
+
+/** Define log time granularity for all logs to be <b>granularity_msec</b>
+ * milliseconds. */
+void
+set_log_time_granularity(int granularity_msec)
+{
+  log_time_granularity = granularity_msec;
+}
+
 /** Helper: Write the standard prefix for log lines to a
  * <b>buf_len</b> character buffer in <b>buf</b>.
  */
@@ -164,14 +183,22 @@ _log_prefix(char *buf, size_t buf_len, int severity)
   struct timeval now;
   struct tm tm;
   size_t n;
-  int r;
+  int r, ms;
 
   tor_gettimeofday(&now);
   t = (time_t)now.tv_sec;
+  ms = (int)now.tv_usec / 1000;
+  if (log_time_granularity >= 1000) {
+    t -= t % (log_time_granularity / 1000);
+    ms = 0;
+  } else {
+    ms -= ((int)now.tv_usec / 1000) % log_time_granularity;
+  }
 
   n = strftime(buf, buf_len, "%b %d %H:%M:%S", tor_localtime_r(&t, &tm));
-  r = tor_snprintf(buf+n, buf_len-n, ".%.3i [%s] ",
-                   (int)now.tv_usec / 1000, sev_to_string(severity));
+  r = tor_snprintf(buf+n, buf_len-n, ".%.3i [%s] ", ms,
+                   sev_to_string(severity));
+
   if (r<0)
     return buf_len-1;
   else
@@ -634,7 +661,7 @@ init_logging(void)
     log_mutex_initialized = 1;
   }
   if (pending_cb_messages == NULL)
-    pending_cb_messages = smartlist_create();
+    pending_cb_messages = smartlist_new();
 }
 
 /** Set whether we report logging domains as a part of our log messages.
@@ -703,7 +730,7 @@ change_callback_log_severity(int loglevelMin, int loglevelMax,
   UNLOCK_LOGS();
 }
 
-/** If there are any log messages that were genered with LD_NOCB waiting to
+/** If there are any log messages that were generated with LD_NOCB waiting to
  * be sent to callback-based loggers, send them now. */
 void
 flush_pending_log_callbacks(void)
@@ -718,7 +745,7 @@ flush_pending_log_callbacks(void)
   }
 
   messages = pending_cb_messages;
-  pending_cb_messages = smartlist_create();
+  pending_cb_messages = smartlist_new();
   do {
     SMARTLIST_FOREACH_BEGIN(messages, pending_cb_message_t *, msg) {
       const int severity = msg->severity;
@@ -803,7 +830,7 @@ add_file_log(const log_severity_list_t *severity, const char *filename)
   int fd;
   logfile_t *lf;
 
-  fd = open(filename, O_WRONLY|O_CREAT|O_APPEND, 0644);
+  fd = tor_open_cloexec(filename, O_WRONLY|O_CREAT|O_APPEND, 0644);
   if (fd<0)
     return -1;
   if (tor_fd_seekend(fd)<0)
@@ -880,7 +907,7 @@ log_level_to_string(int level)
 static const char *domain_list[] = {
   "GENERAL", "CRYPTO", "NET", "CONFIG", "FS", "PROTOCOL", "MM",
   "HTTP", "APP", "CONTROL", "CIRC", "REND", "BUG", "DIR", "DIRSERV",
-  "OR", "EDGE", "ACCT", "HIST", "HANDSHAKE", NULL
+  "OR", "EDGE", "ACCT", "HIST", "HANDSHAKE", "HEARTBEAT", NULL
 };
 
 /** Return a bitmask for the log domain for which <b>domain</b> is the name,
@@ -974,12 +1001,11 @@ parse_log_severity_config(const char **cfg_ptr,
         return -1;
       domains = 0;
       domains_str = tor_strndup(cfg+1, closebracket-cfg-1);
-      domains_list = smartlist_create();
+      domains_list = smartlist_new();
       smartlist_split_string(domains_list, domains_str, ",", SPLIT_SKIP_SPACE,
                              -1);
       tor_free(domains_str);
-      SMARTLIST_FOREACH(domains_list, const char *, domain,
-          {
+      SMARTLIST_FOREACH_BEGIN(domains_list, const char *, domain) {
             if (!strcmp(domain, "*")) {
               domains = ~0u;
             } else {
@@ -1000,7 +1026,7 @@ parse_log_severity_config(const char **cfg_ptr,
                   domains |= d;
               }
             }
-          });
+      } SMARTLIST_FOREACH_END(domain);
       SMARTLIST_FOREACH(domains_list, char *, d, tor_free(d));
       smartlist_free(domains_list);
       if (err)

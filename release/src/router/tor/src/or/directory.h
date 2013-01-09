@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -13,9 +13,8 @@
 #define _TOR_DIRECTORY_H
 
 int directories_have_accepted_server_descriptor(void);
-char *authority_type_to_string(authority_type_t auth);
 void directory_post_to_dirservers(uint8_t dir_purpose, uint8_t router_purpose,
-                                  authority_type_t type, const char *payload,
+                                  dirinfo_type_t type, const char *payload,
                                   size_t payload_len, size_t extrainfo_len);
 void directory_get_from_dirserver(uint8_t dir_purpose, uint8_t router_purpose,
                                   const char *resource,
@@ -23,7 +22,7 @@ void directory_get_from_dirserver(uint8_t dir_purpose, uint8_t router_purpose,
 void directory_get_from_all_authorities(uint8_t dir_purpose,
                                         uint8_t router_purpose,
                                         const char *resource);
-void directory_initiate_command_routerstatus(routerstatus_t *status,
+void directory_initiate_command_routerstatus(const routerstatus_t *status,
                                              uint8_t dir_purpose,
                                              uint8_t router_purpose,
                                              int anonymized_connection,
@@ -31,7 +30,7 @@ void directory_initiate_command_routerstatus(routerstatus_t *status,
                                              const char *payload,
                                              size_t payload_len,
                                              time_t if_modified_since);
-void directory_initiate_command_routerstatus_rend(routerstatus_t *status,
+void directory_initiate_command_routerstatus_rend(const routerstatus_t *status,
                                                   uint8_t dir_purpose,
                                                   uint8_t router_purpose,
                                                   int anonymized_connection,
@@ -49,7 +48,7 @@ int connection_dir_reached_eof(dir_connection_t *conn);
 int connection_dir_process_inbuf(dir_connection_t *conn);
 int connection_dir_finished_flushing(dir_connection_t *conn);
 int connection_dir_finished_connecting(dir_connection_t *conn);
-void connection_dir_request_failed(dir_connection_t *conn);
+void connection_dir_about_to_close(dir_connection_t *dir_conn);
 void directory_initiate_command(const char *address, const tor_addr_t *addr,
                                 uint16_t or_port, uint16_t dir_port,
                                 int supports_conditional_consensus,
@@ -81,7 +80,7 @@ time_t download_status_increment_failure(download_status_t *dls,
  * the optional status code <b>sc</b>. */
 #define download_status_failed(dls, sc)                                 \
   download_status_increment_failure((dls), (sc), NULL,                  \
-                                    get_options()->DirPort, time(NULL))
+                                    get_options()->DirPort_set, time(NULL))
 
 void download_status_reset(download_status_t *dls);
 static int download_status_is_ready(download_status_t *dls, time_t now,

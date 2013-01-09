@@ -77,16 +77,6 @@ ifneq ($(TCONFIG_EMF),y)
 	sed -i $(INSTALLDIR)/www/advanced-routing.asp -e "/EMF-BEGIN/,/EMF-END/d"
 endif
 
-# Only include extra themes if TCONFIG_THEMES is configured in.
-ifneq ($(TCONFIG_THEMES),y)
-	rm -f $(INSTALLDIR)/www/rtn66u.css
-	rm -f $(INSTALLDIR)/www/rtn66u.png
-	rm -f $(INSTALLDIR)/www/asus.css
-	rm -f $(INSTALLDIR)/www/asus.png
-	rm -f $(INSTALLDIR)/www/asus-bg.png
-	sed -i $(INSTALLDIR)/www/admin-access.asp -e "/THEMES-BEGIN/,/THEMES-END/d"
-endif
-
 # Only include sd/mmc card support if MICROSD is configured in.
 ifneq ($(TCONFIG_MICROSD),y)
 	sed -i $(INSTALLDIR)/www/nas-usb.asp -e "/MICROSD-BEGIN/,/MICROSD-END/d"
@@ -269,7 +259,6 @@ endif
 		-e "/SAMBA-BEGIN/d"	-e "/SAMBA-END/d" \
 		-e "/FTP-BEGIN/d"	-e "/FTP-END/d" \
 		-e "/MEDIA-SRV-BEGIN/d"	-e "/MEDIA-SRV-END/d" \
-		-e "/THEMES-BEGIN/d"	-e "/THEMES-END/d" \
 		-e "/JFFS2-BEGIN/d"	-e "/JFFS2-END/d" \
 		-e "/CIFS-BEGIN/d"	-e "/CIFS-END/d" \
 		-e "/ZEBRA-BEGIN/d"	-e "/ZEBRA-END/d" \

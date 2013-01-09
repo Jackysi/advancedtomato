@@ -1,6 +1,6 @@
 /* Copyright (c) 2003, Roger Dingledine
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -14,6 +14,10 @@
 #define _GNU_SOURCE
 
 #include "orconfig.h"
+#ifdef HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
+#define UTIL_PRIVATE
 #include "util.h"
 #include "torlog.h"
 #undef log
@@ -22,11 +26,12 @@
 #include "container.h"
 #include "address.h"
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 #include <io.h>
 #include <direct.h>
 #include <process.h>
 #include <tchar.h>
+#include <winbase.h>
 #else
 #include <dirent.h>
 #include <pwd.h>
@@ -42,6 +47,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <signal.h>
 
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -67,9 +73,6 @@
 #ifdef HAVE_SYS_FCNTL_H
 #include <sys/fcntl.h>
 #endif
-#ifdef HAVE_FCNTL_H
-#include <fcntl.h>
-#endif
 #ifdef HAVE_TIME_H
 #include <time.h>
 #endif
@@ -77,7 +80,7 @@
 #include <malloc/malloc.h>
 #endif
 #ifdef HAVE_MALLOC_H
-#ifndef OPENBSD
+#if !defined(OPENBSD) && !defined(__FreeBSD__)
 /* OpenBSD has a malloc.h, but for our purposes, it only exists in order to
  * scold us for being so stupid as to autodetect its presence.  To be fair,
  * they've done this since 1996, when autoconf was only 5 years old. */
@@ -86,6 +89,9 @@
 #endif
 #ifdef HAVE_MALLOC_NP_H
 #include <malloc_np.h>
+#endif
+#ifdef HAVE_SYS_WAIT_H
+#include <sys/wait.h>
 #endif
 
 /* =====
@@ -163,6 +169,35 @@ _tor_malloc_zero(size_t size DMALLOC_PARAMS)
    * for big stuff, so we don't bother with calloc. */
   void *result = _tor_malloc(size DMALLOC_FN_ARGS);
   memset(result, 0, size);
+  return result;
+}
+
+/** Allocate a chunk of <b>nmemb</b>*<b>size</b> bytes of memory, fill
+ * the memory with zero bytes, and return a pointer to the result.
+ * Log and terminate the process on error.  (Same as
+ * calloc(<b>nmemb</b>,<b>size</b>), but never returns NULL.)
+ *
+ * XXXX This implementation probably asserts in cases where it could
+ * work, because it only tries dividing SIZE_MAX by size (according to
+ * the calloc(3) man page, the size of an element of the nmemb-element
+ * array to be allocated), not by nmemb (which could in theory be
+ * smaller than size).  Don't do that then.
+ */
+void *
+_tor_calloc(size_t nmemb, size_t size DMALLOC_PARAMS)
+{
+  /* You may ask yourself, "wouldn't it be smart to use calloc instead of
+   * malloc+memset?  Perhaps libc's calloc knows some nifty optimization trick
+   * we don't!"  Indeed it does, but its optimizations are only a big win when
+   * we're allocating something very big (it knows if it just got the memory
+   * from the OS in a pre-zeroed state).  We don't want to use tor_malloc_zero
+   * for big stuff, so we don't bother with calloc. */
+  void *result;
+  size_t max_nmemb = (size == 0) ? SIZE_MAX : SIZE_MAX/size;
+
+  tor_assert(nmemb < max_nmemb);
+
+  result = _tor_malloc_zero((nmemb * size) DMALLOC_FN_ARGS);
   return result;
 }
 
@@ -417,6 +452,32 @@ round_uint64_to_next_multiple_of(uint64_t number, uint64_t divisor)
   return number;
 }
 
+/** Return the number of bits set in <b>v</b>. */
+int
+n_bits_set_u8(uint8_t v)
+{
+  static const int nybble_table[] = {
+    0, /* 0000 */
+    1, /* 0001 */
+    1, /* 0010 */
+    2, /* 0011 */
+    1, /* 0100 */
+    2, /* 0101 */
+    2, /* 0110 */
+    3, /* 0111 */
+    1, /* 1000 */
+    2, /* 1001 */
+    2, /* 1010 */
+    3, /* 1011 */
+    2, /* 1100 */
+    3, /* 1101 */
+    3, /* 1110 */
+    4, /* 1111 */
+  };
+
+  return nybble_table[v & 15] + nybble_table[v>>4];
+}
+
 /* =====
  * String manipulation
  * ===== */
@@ -498,6 +559,23 @@ tor_strisnonupper(const char *s)
     s++;
   }
   return 1;
+}
+
+/** As strcmp, except that either string may be NULL.  The NULL string is
+ * considered to be before any non-NULL string. */
+int
+strcmp_opt(const char *s1, const char *s2)
+{
+  if (!s1) {
+    if (!s2)
+      return 0;
+    else
+      return -1;
+  } else if (!s2) {
+    return 1;
+  } else {
+    return strcmp(s1, s2);
+  }
 }
 
 /** Compares the first strlen(s2) characters of s1 with s2.  Returns as for
@@ -722,6 +800,34 @@ find_str_at_start_of_line(const char *haystack, const char *needle)
   return NULL;
 }
 
+/** Returns true if <b>string</b> could be a C identifier.
+    A C identifier must begin with a letter or an underscore and the
+    rest of its characters can be letters, numbers or underscores. No
+    length limit is imposed. */
+int
+string_is_C_identifier(const char *string)
+{
+  size_t iter;
+  size_t length = strlen(string);
+  if (!length)
+    return 0;
+
+  for (iter = 0; iter < length ; iter++) {
+    if (iter == 0) {
+      if (!(TOR_ISALPHA(string[iter]) ||
+            string[iter] == '_'))
+        return 0;
+    } else {
+      if (!(TOR_ISALPHA(string[iter]) ||
+            TOR_ISDIGIT(string[iter]) ||
+            string[iter] == '_'))
+        return 0;
+    }
+  }
+
+  return 1;
+}
+
 /** Return true iff the 'len' bytes at 'mem' are all zero. */
 int
 tor_mem_is_zero(const char *mem, size_t len)
@@ -764,6 +870,9 @@ tor_digest256_is_zero(const char *digest)
 /* Helper: common code to check whether the result of a strtol or strtoul or
  * strtoll is correct. */
 #define CHECK_STRTOX_RESULT()                           \
+  /* Did an overflow occur? */                          \
+  if (errno == ERANGE)                                  \
+    goto err;                                           \
   /* Was at least one character converted? */           \
   if (endptr == s)                                      \
     goto err;                                           \
@@ -800,6 +909,13 @@ tor_parse_long(const char *s, int base, long min, long max,
   char *endptr;
   long r;
 
+  if (base < 0) {
+    if (ok)
+      *ok = 0;
+    return 0;
+  }
+
+  errno = 0;
   r = strtol(s, &endptr, base);
   CHECK_STRTOX_RESULT();
 }
@@ -812,6 +928,13 @@ tor_parse_ulong(const char *s, int base, unsigned long min,
   char *endptr;
   unsigned long r;
 
+  if (base < 0) {
+    if (ok)
+      *ok = 0;
+    return 0;
+  }
+
+  errno = 0;
   r = strtoul(s, &endptr, base);
   CHECK_STRTOX_RESULT();
 }
@@ -823,6 +946,7 @@ tor_parse_double(const char *s, double min, double max, int *ok, char **next)
   char *endptr;
   double r;
 
+  errno = 0;
   r = strtod(s, &endptr);
   CHECK_STRTOX_RESULT();
 }
@@ -836,9 +960,16 @@ tor_parse_uint64(const char *s, int base, uint64_t min,
   char *endptr;
   uint64_t r;
 
+  if (base < 0) {
+    if (ok)
+      *ok = 0;
+    return 0;
+  }
+
+  errno = 0;
 #ifdef HAVE_STRTOULL
   r = (uint64_t)strtoull(s, &endptr, base);
-#elif defined(MS_WINDOWS)
+#elif defined(_WIN32)
 #if defined(_MSC_VER) && _MSC_VER < 1300
   tor_assert(base <= 10);
   r = (uint64_t)_atoi64(s);
@@ -958,7 +1089,7 @@ esc_for_log(const char *s)
   char *result, *outp;
   size_t len = 3;
   if (!s) {
-    return tor_strdup("");
+    return tor_strdup("(null)");
   }
 
   for (cp = s; *cp; ++cp) {
@@ -1205,11 +1336,11 @@ n_leapdays(int y1, int y2)
 static const int days_per_month[] =
   { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-/** Return a time_t given a struct tm.  The result is given in GMT, and
- * does not account for leap seconds.
+/** Compute a time_t given a struct tm.  The result is given in GMT, and
+ * does not account for leap seconds.  Return 0 on success, -1 on failure.
  */
-time_t
-tor_timegm(struct tm *tm)
+int
+tor_timegm(const struct tm *tm, time_t *time_out)
 {
   /* This is a pretty ironclad timegm implementation, snarfed from Python2.2.
    * It's way more brute-force than fiddling with tzset().
@@ -1217,11 +1348,11 @@ tor_timegm(struct tm *tm)
   time_t year, days, hours, minutes, seconds;
   int i;
   year = tm->tm_year + 1900;
-  if (year < 1970 || tm->tm_mon < 0 || tm->tm_mon > 11) {
+  if (year < 1970 || tm->tm_mon < 0 || tm->tm_mon > 11 ||
+      tm->tm_year >= INT32_MAX-1900) {
     log_warn(LD_BUG, "Out-of-range argument to tor_timegm");
     return -1;
   }
-  tor_assert(year < INT_MAX);
   days = 365 * (year-1970) + n_leapdays(1970,(int)year);
   for (i = 0; i < tm->tm_mon; ++i)
     days += days_per_month[i];
@@ -1232,7 +1363,8 @@ tor_timegm(struct tm *tm)
 
   minutes = hours*60 + tm->tm_min;
   seconds = minutes*60 + tm->tm_sec;
-  return seconds;
+  *time_out = seconds;
+  return 0;
 }
 
 /* strftime is locale-specific, so we need to replace those parts */
@@ -1261,7 +1393,7 @@ format_rfc1123_time(char *buf, time_t t)
   tor_assert(tm.tm_wday >= 0);
   tor_assert(tm.tm_wday <= 6);
   memcpy(buf, WEEKDAY_NAMES[tm.tm_wday], 3);
-  tor_assert(tm.tm_wday >= 0);
+  tor_assert(tm.tm_mon >= 0);
   tor_assert(tm.tm_mon <= 11);
   memcpy(buf+8, MONTH_NAMES[tm.tm_mon], 3);
 }
@@ -1291,7 +1423,8 @@ parse_rfc1123_time(const char *buf, time_t *t)
     tor_free(esc);
     return -1;
   }
-  if (tm_mday > 31 || tm_hour > 23 || tm_min > 59 || tm_sec > 61) {
+  if (tm_mday < 1 || tm_mday > 31 || tm_hour > 23 || tm_min > 59 ||
+      tm_sec > 60 || tm_year >= INT32_MAX || tm_year < 1970) {
     char *esc = esc_for_log(buf);
     log_warn(LD_GENERAL, "Got invalid RFC1123 time %s", esc);
     tor_free(esc);
@@ -1327,8 +1460,7 @@ parse_rfc1123_time(const char *buf, time_t *t)
   }
   tm.tm_year -= 1900;
 
-  *t = tor_timegm(&tm);
-  return 0;
+  return tor_timegm(&tm, t);
 }
 
 /** Set <b>buf</b> to the ISO8601 encoding of the local value of <b>t</b>.
@@ -1353,6 +1485,26 @@ format_iso_time(char *buf, time_t t)
   strftime(buf, ISO_TIME_LEN+1, "%Y-%m-%d %H:%M:%S", tor_gmtime_r(&t, &tm));
 }
 
+/** As format_iso_time, but use the yyyy-mm-ddThh:mm:ss format to avoid
+ * embedding an internal space. */
+void
+format_iso_time_nospace(char *buf, time_t t)
+{
+  format_iso_time(buf, t);
+  buf[10] = 'T';
+}
+
+/** As format_iso_time_nospace, but include microseconds in decimal
+ * fixed-point format.  Requires that buf be at least ISO_TIME_USEC_LEN+1
+ * bytes long. */
+void
+format_iso_time_nospace_usec(char *buf, const struct timeval *tv)
+{
+  tor_assert(tv);
+  format_iso_time_nospace(buf, tv->tv_sec);
+  tor_snprintf(buf+ISO_TIME_LEN, 8, ".%06d", (int)tv->tv_usec);
+}
+
 /** Given an ISO-formatted UTC time value (after the epoch) in <b>cp</b>,
  * parse it and store its value in *<b>t</b>.  Return 0 on success, -1 on
  * failure.  Ignore extraneous stuff in <b>cp</b> separated by whitespace from
@@ -1361,7 +1513,7 @@ int
 parse_iso_time(const char *cp, time_t *t)
 {
   struct tm st_tm;
-  unsigned int year=0, month=0, day=0, hour=100, minute=100, second=100;
+  unsigned int year=0, month=0, day=0, hour=0, minute=0, second=0;
   if (tor_sscanf(cp, "%u-%2u-%2u %2u:%2u:%2u", &year, &month,
                 &day, &hour, &minute, &second) < 6) {
     char *esc = esc_for_log(cp);
@@ -1370,13 +1522,13 @@ parse_iso_time(const char *cp, time_t *t)
     return -1;
   }
   if (year < 1970 || month < 1 || month > 12 || day < 1 || day > 31 ||
-          hour > 23 || minute > 59 || second > 61) {
+          hour > 23 || minute > 59 || second > 60 || year >= INT32_MAX) {
     char *esc = esc_for_log(cp);
     log_warn(LD_GENERAL, "ISO time %s was nonsensical", esc);
     tor_free(esc);
     return -1;
   }
-  st_tm.tm_year = year-1900;
+  st_tm.tm_year = (int)year-1900;
   st_tm.tm_mon = month-1;
   st_tm.tm_mday = day;
   st_tm.tm_hour = hour;
@@ -1389,8 +1541,7 @@ parse_iso_time(const char *cp, time_t *t)
     tor_free(esc);
     return -1;
   }
-  *t = tor_timegm(&st_tm);
-  return 0;
+  return tor_timegm(&st_tm, t);
 }
 
 /** Given a <b>date</b> in one of the three formats allowed by HTTP (ugh),
@@ -1410,12 +1561,15 @@ parse_http_time(const char *date, struct tm *tm)
   /* First, try RFC1123 or RFC850 format: skip the weekday.  */
   if ((cp = strchr(date, ','))) {
     ++cp;
-    if (tor_sscanf(date, "%2u %3s %4u %2u:%2u:%2u GMT",
+    if (*cp != ' ')
+      return -1;
+    ++cp;
+    if (tor_sscanf(cp, "%2u %3s %4u %2u:%2u:%2u GMT",
                &tm_mday, month, &tm_year,
                &tm_hour, &tm_min, &tm_sec) == 6) {
       /* rfc1123-date */
       tm_year -= 1900;
-    } else if (tor_sscanf(date, "%2u-%3s-%2u %2u:%2u:%2u GMT",
+    } else if (tor_sscanf(cp, "%2u-%3s-%2u %2u:%2u:%2u GMT",
                       &tm_mday, month, &tm_year,
                       &tm_hour, &tm_min, &tm_sec) == 6) {
       /* rfc850-date */
@@ -1440,18 +1594,20 @@ parse_http_time(const char *date, struct tm *tm)
 
   month[3] = '\0';
   /* Okay, now decode the month. */
+  /* set tm->tm_mon to dummy value so the check below fails. */
+  tm->tm_mon = -1;
   for (i = 0; i < 12; ++i) {
     if (!strcasecmp(MONTH_NAMES[i], month)) {
-      tm->tm_mon = i+1;
+      tm->tm_mon = i;
     }
   }
 
   if (tm->tm_year < 0 ||
-      tm->tm_mon < 1  || tm->tm_mon > 12 ||
-      tm->tm_mday < 0 || tm->tm_mday > 31 ||
+      tm->tm_mon < 0  || tm->tm_mon > 11 ||
+      tm->tm_mday < 1 || tm->tm_mday > 31 ||
       tm->tm_hour < 0 || tm->tm_hour > 23 ||
       tm->tm_min < 0  || tm->tm_min > 59 ||
-      tm->tm_sec < 0  || tm->tm_sec > 61)
+      tm->tm_sec < 0  || tm->tm_sec > 60)
     return -1; /* Out of range, or bad month. */
 
   return 0;
@@ -1634,7 +1790,7 @@ read_all(tor_socket_t fd, char *buf, size_t count, int isSocket)
 static void
 clean_name_for_stat(char *name)
 {
-#ifdef MS_WINDOWS
+#ifdef _WIN32
   size_t len = strlen(name);
   if (!len)
     return;
@@ -1693,7 +1849,7 @@ check_private_dir(const char *dirname, cpd_check_t check,
   int r;
   struct stat st;
   char *f;
-#ifndef MS_WINDOWS
+#ifndef _WIN32
   int mask;
   struct passwd *pw = NULL;
   uid_t running_uid;
@@ -1715,7 +1871,7 @@ check_private_dir(const char *dirname, cpd_check_t check,
     }
     if (check & CPD_CREATE) {
       log_info(LD_GENERAL, "Creating directory %s", dirname);
-#if defined (MS_WINDOWS) && !defined (WINCE)
+#if defined (_WIN32) && !defined (WINCE)
       r = mkdir(dirname);
 #else
       r = mkdir(dirname, 0700);
@@ -1737,7 +1893,7 @@ check_private_dir(const char *dirname, cpd_check_t check,
     log_warn(LD_FS, "%s is not a directory", dirname);
     return -1;
   }
-#ifndef MS_WINDOWS
+#ifndef _WIN32
   if (effective_user) {
     /* Look up the user and group information.
      * If we have a problem, bail out. */
@@ -1824,7 +1980,7 @@ check_private_dir(const char *dirname, cpd_check_t check,
 int
 write_str_to_file(const char *fname, const char *str, int bin)
 {
-#ifdef MS_WINDOWS
+#ifdef _WIN32
   if (!bin && strchr(str, '\r')) {
     log_warn(LD_BUG,
              "We're writing a text string that already contains a CR.");
@@ -1867,7 +2023,6 @@ int
 start_writing_to_file(const char *fname, int open_flags, int mode,
                       open_file_t **data_out)
 {
-  size_t tempname_len = strlen(fname)+16;
   open_file_t *new_file = tor_malloc_zero(sizeof(open_file_t));
   const char *open_name;
   int append = 0;
@@ -1878,7 +2033,6 @@ start_writing_to_file(const char *fname, int open_flags, int mode,
   tor_assert((open_flags & (O_BINARY|O_TEXT)) != 0);
 #endif
   new_file->fd = -1;
-  tor_assert(tempname_len > strlen(fname)); /*check for overflow*/
   new_file->filename = tor_strdup(fname);
   if (open_flags & O_APPEND) {
     open_name = fname;
@@ -1886,11 +2040,8 @@ start_writing_to_file(const char *fname, int open_flags, int mode,
     append = 1;
     open_flags &= ~O_APPEND;
   } else {
-    open_name = new_file->tempname = tor_malloc(tempname_len);
-    if (tor_snprintf(new_file->tempname, tempname_len, "%s.tmp", fname)<0) {
-      log_warn(LD_GENERAL, "Failed to generate filename");
-      goto err;
-    }
+    tor_asprintf(&new_file->tempname, "%s.tmp", fname);
+    open_name = new_file->tempname;
     /* We always replace an existing temporary file if there is one. */
     open_flags |= O_CREAT|O_TRUNC;
     open_flags &= ~O_EXCL;
@@ -1899,7 +2050,7 @@ start_writing_to_file(const char *fname, int open_flags, int mode,
   if (open_flags & O_BINARY)
     new_file->binary = 1;
 
-  new_file->fd = open(open_name, open_flags, mode);
+  new_file->fd = tor_open_cloexec(open_name, open_flags, mode);
   if (new_file->fd < 0) {
     log_warn(LD_FS, "Couldn't open \"%s\" (%s) for writing: %s",
         open_name, fname, strerror(errno));
@@ -2060,20 +2211,29 @@ write_chunks_to_file(const char *fname, const smartlist_t *chunks, int bin)
   return write_chunks_to_file_impl(fname, chunks, flags);
 }
 
+/** Write <b>len</b> bytes, starting at <b>str</b>, to <b>fname</b>
+    using the open() flags passed in <b>flags</b>. */
+static int
+write_bytes_to_file_impl(const char *fname, const char *str, size_t len,
+                         int flags)
+{
+  int r;
+  sized_chunk_t c = { str, len };
+  smartlist_t *chunks = smartlist_new();
+  smartlist_add(chunks, &c);
+  r = write_chunks_to_file_impl(fname, chunks, flags);
+  smartlist_free(chunks);
+  return r;
+}
+
 /** As write_str_to_file, but does not assume a NUL-terminated
  * string. Instead, we write <b>len</b> bytes, starting at <b>str</b>. */
 int
 write_bytes_to_file(const char *fname, const char *str, size_t len,
                     int bin)
 {
-  int flags = OPEN_FLAGS_REPLACE|(bin?O_BINARY:O_TEXT);
-  int r;
-  sized_chunk_t c = { str, len };
-  smartlist_t *chunks = smartlist_create();
-  smartlist_add(chunks, &c);
-  r = write_chunks_to_file_impl(fname, chunks, flags);
-  smartlist_free(chunks);
-  return r;
+  return write_bytes_to_file_impl(fname, str, len,
+                                  OPEN_FLAGS_REPLACE|(bin?O_BINARY:O_TEXT));
 }
 
 /** As write_bytes_to_file, but if the file already exists, append the bytes
@@ -2082,14 +2242,19 @@ int
 append_bytes_to_file(const char *fname, const char *str, size_t len,
                      int bin)
 {
-  int flags = OPEN_FLAGS_APPEND|(bin?O_BINARY:O_TEXT);
-  int r;
-  sized_chunk_t c = { str, len };
-  smartlist_t *chunks = smartlist_create();
-  smartlist_add(chunks, &c);
-  r = write_chunks_to_file_impl(fname, chunks, flags);
-  smartlist_free(chunks);
-  return r;
+  return write_bytes_to_file_impl(fname, str, len,
+                                  OPEN_FLAGS_APPEND|(bin?O_BINARY:O_TEXT));
+}
+
+/** Like write_str_to_file(), but also return -1 if there was a file
+    already residing in <b>fname</b>. */
+int
+write_bytes_to_new_file(const char *fname, const char *str, size_t len,
+                        int bin)
+{
+  return write_bytes_to_file_impl(fname, str, len,
+                                  OPEN_FLAGS_DONT_REPLACE|
+                                  (bin?O_BINARY:O_TEXT));
 }
 
 /** Read the contents of <b>filename</b> into a newly allocated
@@ -2120,7 +2285,7 @@ read_file_to_str(const char *filename, int flags, struct stat *stat_out)
 
   tor_assert(filename);
 
-  fd = open(filename,O_RDONLY|(bin?O_BINARY:O_TEXT),0);
+  fd = tor_open_cloexec(filename,O_RDONLY|(bin?O_BINARY:O_TEXT),0);
   if (fd<0) {
     int severity = LOG_WARN;
     int save_errno = errno;
@@ -2157,7 +2322,7 @@ read_file_to_str(const char *filename, int flags, struct stat *stat_out)
   }
   string[r] = '\0'; /* NUL-terminate the result. */
 
-#ifdef MS_WINDOWS
+#if defined(_WIN32) || defined(__CYGWIN__)
   if (!bin && strchr(string, '\r')) {
     log_debug(LD_FS, "We didn't convert CRLF to LF as well as we hoped "
               "when reading %s. Coping.",
@@ -2212,14 +2377,16 @@ unescape_string(const char *s, char **result, size_t *size_out)
       case '\"':
         goto end_of_loop;
       case '\\':
-        if ((cp[1] == 'x' || cp[1] == 'X')
-            && TOR_ISXDIGIT(cp[2]) && TOR_ISXDIGIT(cp[3])) {
+        if (cp[1] == 'x' || cp[1] == 'X') {
+          if (!(TOR_ISXDIGIT(cp[2]) && TOR_ISXDIGIT(cp[3])))
+            return NULL;
           cp += 4;
         } else if (TOR_ISODIGIT(cp[1])) {
           cp += 2;
           if (TOR_ISODIGIT(*cp)) ++cp;
           if (TOR_ISODIGIT(*cp)) ++cp;
-        } else if (cp[1]) {
+        } else if (cp[1] == 'n' || cp[1] == 'r' || cp[1] == 't' || cp[1] == '"'
+                   || cp[1] == '\\' || cp[1] == '\'') {
           cp += 2;
         } else {
           return NULL;
@@ -2251,9 +2418,19 @@ unescape_string(const char *s, char **result, size_t *size_out)
           case 'r': *out++ = '\r'; cp += 2; break;
           case 't': *out++ = '\t'; cp += 2; break;
           case 'x': case 'X':
-            *out++ = ((hex_decode_digit(cp[2])<<4) +
-                      hex_decode_digit(cp[3]));
-            cp += 4;
+            {
+              int x1, x2;
+
+              x1 = hex_decode_digit(cp[2]);
+              x2 = hex_decode_digit(cp[3]);
+              if (x1 == -1 || x2 == -1) {
+                  tor_free(*result);
+                  return NULL;
+              }
+
+              *out++ = ((x1<<4) + x2);
+              cp += 4;
+            }
             break;
           case '0': case '1': case '2': case '3': case '4': case '5':
           case '6': case '7':
@@ -2310,7 +2487,7 @@ parse_config_line_from_str(const char *line, char **key_out, char **value_out)
      KEYCHAR = Any character except ' ', '\r', '\n', '\t', '#', "\"
 
      VALUES = QUOTEDVALUE | NORMALVALUE
-     QUOTEDVALUE = QUOTE QVITEM* QUOTE EOLSPACE?
+     QUOTEDVALUE = QUOTE QVCHAR* QUOTE EOLSPACE?
      QUOTE = '"'
      QVCHAR = KEYCHAR | ESC ('n' | 't' | 'r' | '"' | ESC |'\'' | OCTAL | HEX)
      ESC = "\\"
@@ -2438,7 +2615,7 @@ char *
 expand_filename(const char *filename)
 {
   tor_assert(filename);
-#ifdef MS_WINDOWS
+#ifdef _WIN32
   return tor_strdup(filename);
 #else
   if (*filename == '~') {
@@ -2506,18 +2683,21 @@ digit_to_num(char d)
  * success, store the result in <b>out</b>, advance bufp to the next
  * character, and return 0.  On failure, return -1. */
 static int
-scan_unsigned(const char **bufp, unsigned *out, int width)
+scan_unsigned(const char **bufp, unsigned *out, int width, int base)
 {
   unsigned result = 0;
   int scanned_so_far = 0;
+  const int hex = base==16;
+  tor_assert(base == 10 || base == 16);
   if (!bufp || !*bufp || !out)
     return -1;
   if (width<0)
     width=MAX_SCANF_WIDTH;
 
-  while (**bufp && TOR_ISDIGIT(**bufp) && scanned_so_far < width) {
-    int digit = digit_to_num(*(*bufp)++);
-    unsigned new_result = result * 10 + digit;
+  while (**bufp && (hex?TOR_ISXDIGIT(**bufp):TOR_ISDIGIT(**bufp))
+         && scanned_so_far < width) {
+    int digit = hex?hex_decode_digit(*(*bufp)++):digit_to_num(*(*bufp)++);
+    unsigned new_result = result * base + digit;
     if (new_result > UINT32_MAX || new_result < result)
       return -1; /* over/underflow. */
     result = new_result;
@@ -2579,11 +2759,12 @@ tor_vsscanf(const char *buf, const char *pattern, va_list ap)
         if (!width) /* No zero-width things. */
           return -1;
       }
-      if (*pattern == 'u') {
+      if (*pattern == 'u' || *pattern == 'x') {
         unsigned *u = va_arg(ap, unsigned *);
+        const int base = (*pattern == 'u') ? 10 : 16;
         if (!*buf)
           return n_matched;
-        if (scan_unsigned(&buf, u, width)<0)
+        if (scan_unsigned(&buf, u, width, base)<0)
           return n_matched;
         ++pattern;
         ++n_matched;
@@ -2606,7 +2787,7 @@ tor_vsscanf(const char *buf, const char *pattern, va_list ap)
         ++n_matched;
       } else if (*pattern == '%') {
         if (*buf != '%')
-          return -1;
+          return n_matched;
         ++buf;
         ++pattern;
       } else {
@@ -2620,9 +2801,9 @@ tor_vsscanf(const char *buf, const char *pattern, va_list ap)
 
 /** Minimal sscanf replacement: parse <b>buf</b> according to <b>pattern</b>
  * and store the results in the corresponding argument fields.  Differs from
- * sscanf in that it: Only handles %u and %Ns.  Does not handle arbitrarily
- * long widths. %u does not consume any space.  Is locale-independent.
- * Returns -1 on malformed patterns.
+ * sscanf in that it: Only handles %u, %x, %c and %Ns.  Does not handle
+ * arbitrarily long widths. %u and %x do not consume any space.  Is
+ * locale-independent.  Returns -1 on malformed patterns.
  *
  * (As with other locale-independent functions, we need this to parse data that
  * is in ASCII without worrying that the C library's locale-handling will make
@@ -2639,6 +2820,30 @@ tor_sscanf(const char *buf, const char *pattern, ...)
   return r;
 }
 
+/** Append the string produced by tor_asprintf(<b>pattern</b>, <b>...</b>)
+ * to <b>sl</b>. */
+void
+smartlist_add_asprintf(struct smartlist_t *sl, const char *pattern, ...)
+{
+  va_list ap;
+  va_start(ap, pattern);
+  smartlist_add_vasprintf(sl, pattern, ap);
+  va_end(ap);
+}
+
+/** va_list-based backend of smartlist_add_asprintf. */
+void
+smartlist_add_vasprintf(struct smartlist_t *sl, const char *pattern,
+                        va_list args)
+{
+  char *str = NULL;
+
+  tor_vasprintf(&str, pattern, args);
+  tor_assert(str != NULL);
+
+  smartlist_add(sl, str);
+}
+
 /** Return a new list containing the filenames in the directory <b>dirname</b>.
  * Return NULL on error or if <b>dirname</b> is not a directory.
  */
@@ -2646,15 +2851,13 @@ smartlist_t *
 tor_listdir(const char *dirname)
 {
   smartlist_t *result;
-#ifdef MS_WINDOWS
-  char *pattern;
+#ifdef _WIN32
+  char *pattern=NULL;
   TCHAR tpattern[MAX_PATH] = {0};
-  char name[MAX_PATH] = {0};
+  char name[MAX_PATH*2+1] = {0};
   HANDLE handle;
   WIN32_FIND_DATA findData;
-  size_t pattern_len = strlen(dirname)+16;
-  pattern = tor_malloc(pattern_len);
-  tor_snprintf(pattern, pattern_len, "%s\\*", dirname);
+  tor_asprintf(&pattern, "%s\\*", dirname);
 #ifdef UNICODE
   mbstowcs(tpattern,pattern,MAX_PATH);
 #else
@@ -2664,10 +2867,11 @@ tor_listdir(const char *dirname)
     tor_free(pattern);
     return NULL;
   }
-  result = smartlist_create();
+  result = smartlist_new();
   while (1) {
 #ifdef UNICODE
     wcstombs(name,findData.cFileName,MAX_PATH);
+    name[sizeof(name)-1] = '\0';
 #else
     strlcpy(name,findData.cFileName,sizeof(name));
 #endif
@@ -2693,7 +2897,7 @@ tor_listdir(const char *dirname)
   if (!(d = opendir(dirname)))
     return NULL;
 
-  result = smartlist_create();
+  result = smartlist_new();
   while ((de = readdir(d))) {
     if (!strcmp(de->d_name, ".") ||
         !strcmp(de->d_name, ".."))
@@ -2711,7 +2915,7 @@ path_is_relative(const char *filename)
 {
   if (filename && filename[0] == '/')
     return 0;
-#ifdef MS_WINDOWS
+#ifdef _WIN32
   else if (filename && filename[0] == '\\')
     return 0;
   else if (filename && strlen(filename)>3 && TOR_ISALPHA(filename[0]) &&
@@ -2726,7 +2930,7 @@ path_is_relative(const char *filename)
  * Process helpers
  * ===== */
 
-#ifndef MS_WINDOWS
+#ifndef _WIN32
 /* Based on code contributed by christian grothoff */
 /** True iff we've called start_daemon(). */
 static int start_daemon_called = 0;
@@ -2816,7 +3020,7 @@ finish_daemon(const char *desired_cwd)
     exit(1);
   }
 
-  nullfd = open("/dev/null", O_RDWR);
+  nullfd = tor_open_cloexec("/dev/null", O_RDWR, 0);
   if (nullfd < 0) {
     log_err(LD_GENERAL,"/dev/null can't be opened. Exiting.");
     exit(1);
@@ -2840,7 +3044,7 @@ finish_daemon(const char *desired_cwd)
   close(daemon_filedes[1]);
 }
 #else
-/* defined(MS_WINDOWS) */
+/* defined(_WIN32) */
 void
 start_daemon(void)
 {
@@ -2863,7 +3067,7 @@ write_pidfile(char *filename)
     log_warn(LD_FS, "Unable to open \"%s\" for writing: %s", filename,
              strerror(errno));
   } else {
-#ifdef MS_WINDOWS
+#ifdef _WIN32
     fprintf(pidfile, "%d\n", (int)_getpid());
 #else
     fprintf(pidfile, "%d\n", (int)getpid());
@@ -2872,7 +3076,7 @@ write_pidfile(char *filename)
   }
 }
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 HANDLE
 load_windows_system_library(const TCHAR *library_name)
 {
@@ -2886,4 +3090,1464 @@ load_windows_system_library(const TCHAR *library_name)
   return LoadLibrary(path);
 }
 #endif
+
+/** Format a single argument for being put on a Windows command line.
+ * Returns a newly allocated string */
+static char *
+format_win_cmdline_argument(const char *arg)
+{
+  char *formatted_arg;
+  char need_quotes;
+  const char *c;
+  int i;
+  int bs_counter = 0;
+  /* Backslash we can point to when one is inserted into the string */
+  const char backslash = '\\';
+
+  /* Smartlist of *char */
+  smartlist_t *arg_chars;
+  arg_chars = smartlist_new();
+
+  /* Quote string if it contains whitespace or is empty */
+  need_quotes = (strchr(arg, ' ') || strchr(arg, '\t') || '\0' == arg[0]);
+
+  /* Build up smartlist of *chars */
+  for (c=arg; *c != '\0'; c++) {
+    if ('"' == *c) {
+      /* Double up backslashes preceding a quote */
+      for (i=0; i<(bs_counter*2); i++)
+        smartlist_add(arg_chars, (void*)&backslash);
+      bs_counter = 0;
+      /* Escape the quote */
+      smartlist_add(arg_chars, (void*)&backslash);
+      smartlist_add(arg_chars, (void*)c);
+    } else if ('\\' == *c) {
+      /* Count backslashes until we know whether to double up */
+      bs_counter++;
+    } else {
+      /* Don't double up slashes preceding a non-quote */
+      for (i=0; i<bs_counter; i++)
+        smartlist_add(arg_chars, (void*)&backslash);
+      bs_counter = 0;
+      smartlist_add(arg_chars, (void*)c);
+    }
+  }
+  /* Don't double up trailing backslashes */
+  for (i=0; i<bs_counter; i++)
+    smartlist_add(arg_chars, (void*)&backslash);
+
+  /* Allocate space for argument, quotes (if needed), and terminator */
+  formatted_arg = tor_malloc(sizeof(char) *
+      (smartlist_len(arg_chars) + (need_quotes?2:0) + 1));
+
+  /* Add leading quote */
+  i=0;
+  if (need_quotes)
+    formatted_arg[i++] = '"';
+
+  /* Add characters */
+  SMARTLIST_FOREACH(arg_chars, char*, c,
+  {
+    formatted_arg[i++] = *c;
+  });
+
+  /* Add trailing quote */
+  if (need_quotes)
+    formatted_arg[i++] = '"';
+  formatted_arg[i] = '\0';
+
+  smartlist_free(arg_chars);
+  return formatted_arg;
+}
+
+/** Format a command line for use on Windows, which takes the command as a
+ * string rather than string array. Follows the rules from "Parsing C++
+ * Command-Line Arguments" in MSDN. Algorithm based on list2cmdline in the
+ * Python subprocess module. Returns a newly allocated string */
+char *
+tor_join_win_cmdline(const char *argv[])
+{
+  smartlist_t *argv_list;
+  char *joined_argv;
+  int i;
+
+  /* Format each argument and put the result in a smartlist */
+  argv_list = smartlist_new();
+  for (i=0; argv[i] != NULL; i++) {
+    smartlist_add(argv_list, (void *)format_win_cmdline_argument(argv[i]));
+  }
+
+  /* Join the arguments with whitespace */
+  joined_argv = smartlist_join_strings(argv_list, " ", 0, NULL);
+
+  /* Free the newly allocated arguments, and the smartlist */
+  SMARTLIST_FOREACH(argv_list, char *, arg,
+  {
+    tor_free(arg);
+  });
+  smartlist_free(argv_list);
+
+  return joined_argv;
+}
+
+/**
+ * Helper function to output hex numbers, called by
+ * format_helper_exit_status().  This writes the hexadecimal digits of x into
+ * buf, up to max_len digits, and returns the actual number of digits written.
+ * If there is insufficient space, it will write nothing and return 0.
+ *
+ * This function DOES NOT add a terminating NUL character to its output: be
+ * careful!
+ *
+ * This accepts an unsigned int because format_helper_exit_status() needs to
+ * call it with a signed int and an unsigned char, and since the C standard
+ * does not guarantee that an int is wider than a char (an int must be at
+ * least 16 bits but it is permitted for a char to be that wide as well), we
+ * can't assume a signed int is sufficient to accomodate an unsigned char.
+ * Thus, format_helper_exit_status() will still need to emit any require '-'
+ * on its own.
+ *
+ * For most purposes, you'd want to use tor_snprintf("%x") instead of this
+ * function; it's designed to be used in code paths where you can't call
+ * arbitrary C functions.
+ */
+int
+format_hex_number_for_helper_exit_status(unsigned int x, char *buf,
+                                         int max_len)
+{
+  int len;
+  unsigned int tmp;
+  char *cur;
+
+  /* Sanity check */
+  if (!buf || max_len <= 0)
+    return 0;
+
+  /* How many chars do we need for x? */
+  if (x > 0) {
+    len = 0;
+    tmp = x;
+    while (tmp > 0) {
+      tmp >>= 4;
+      ++len;
+    }
+  } else {
+    len = 1;
+  }
+
+  /* Bail if we would go past the end of the buffer */
+  if (len > max_len)
+    return 0;
+
+  /* Point to last one */
+  cur = buf + len - 1;
+
+  /* Convert x to hex */
+  do {
+    *cur-- = "0123456789ABCDEF"[x & 0xf];
+    x >>= 4;
+  } while (x != 0 && cur >= buf);
+
+  /* Return len */
+  return len;
+}
+
+/** Format <b>child_state</b> and <b>saved_errno</b> as a hex string placed in
+ * <b>hex_errno</b>.  Called between fork and _exit, so must be signal-handler
+ * safe.
+ *
+ * <b>hex_errno</b> must have at least HEX_ERRNO_SIZE bytes available.
+ *
+ * The format of <b>hex_errno</b> is: "CHILD_STATE/ERRNO\n", left-padded
+ * with spaces. Note that there is no trailing \0. CHILD_STATE indicates where
+ * in the processs of starting the child process did the failure occur (see
+ * CHILD_STATE_* macros for definition), and SAVED_ERRNO is the value of
+ * errno when the failure occurred.
+ *
+ * On success return the number of characters added to hex_errno, not counting
+ * the terminating NUL; return -1 on error.
+ */
+int
+format_helper_exit_status(unsigned char child_state, int saved_errno,
+                          char *hex_errno)
+{
+  unsigned int unsigned_errno;
+  int written, left;
+  char *cur;
+  size_t i;
+  int res = -1;
+
+  /* Fill hex_errno with spaces, and a trailing newline (memset may
+     not be signal handler safe, so we can't use it) */
+  for (i = 0; i < (HEX_ERRNO_SIZE - 1); i++)
+    hex_errno[i] = ' ';
+  hex_errno[HEX_ERRNO_SIZE - 1] = '\n';
+
+  /* Convert errno to be unsigned for hex conversion */
+  if (saved_errno < 0) {
+    unsigned_errno = (unsigned int) -saved_errno;
+  } else {
+    unsigned_errno = (unsigned int) saved_errno;
+  }
+
+  /*
+   * Count how many chars of space we have left, and keep a pointer into the
+   * current point in the buffer.
+   */
+  left = HEX_ERRNO_SIZE;
+  cur = hex_errno;
+
+  /* Emit child_state */
+  written = format_hex_number_for_helper_exit_status(child_state,
+                                                     cur, left);
+  if (written <= 0)
+    goto err;
+
+  /* Adjust left and cur */
+  left -= written;
+  cur += written;
+  if (left <= 0)
+    goto err;
+
+  /* Now the '/' */
+  *cur = '/';
+
+  /* Adjust left and cur */
+  ++cur;
+  --left;
+  if (left <= 0)
+    goto err;
+
+  /* Need minus? */
+  if (saved_errno < 0) {
+    *cur = '-';
+    ++cur;
+    --left;
+    if (left <= 0)
+      goto err;
+  }
+
+  /* Emit unsigned_errno */
+  written = format_hex_number_for_helper_exit_status(unsigned_errno,
+                                                     cur, left);
+
+  if (written <= 0)
+    goto err;
+
+  /* Adjust left and cur */
+  left -= written;
+  cur += written;
+
+  /* Check that we have enough space left for a newline */
+  if (left <= 0)
+    goto err;
+
+  /* Emit the newline and NUL */
+  *cur++ = '\n';
+  *cur++ = '\0';
+
+  res = (int)(cur - hex_errno - 1);
+
+  goto done;
+
+ err:
+  /*
+   * In error exit, just write a '\0' in the first char so whatever called
+   * this at least won't fall off the end.
+   */
+  *hex_errno = '\0';
+
+ done:
+  return res;
+}
+
+/* Maximum number of file descriptors, if we cannot get it via sysconf() */
+#define DEFAULT_MAX_FD 256
+
+/** Terminate the process of <b>process_handle</b>.
+ *  Code borrowed from Python's os.kill. */
+int
+tor_terminate_process(process_handle_t *process_handle)
+{
+#ifdef _WIN32
+  if (tor_get_exit_code(process_handle, 0, NULL) == PROCESS_EXIT_RUNNING) {
+    HANDLE handle;
+    /* If the signal is outside of what GenerateConsoleCtrlEvent can use,
+       attempt to open and terminate the process. */
+    handle = OpenProcess(PROCESS_ALL_ACCESS, FALSE,
+                         process_handle->pid.dwProcessId);
+    if (!handle)
+      return -1;
+
+    if (!TerminateProcess(handle, 0))
+      return -1;
+    else
+      return 0;
+  }
+#else /* Unix */
+  return kill(process_handle->pid, SIGTERM);
+#endif
+
+  return -1;
+}
+
+/** Return the Process ID of <b>process_handle</b>. */
+int
+tor_process_get_pid(process_handle_t *process_handle)
+{
+#ifdef _WIN32
+  return (int) process_handle->pid.dwProcessId;
+#else
+  return (int) process_handle->pid;
+#endif
+}
+
+#ifdef _WIN32
+HANDLE
+tor_process_get_stdout_pipe(process_handle_t *process_handle)
+{
+  return process_handle->stdout_pipe;
+}
+#else
+/* DOCDOC tor_process_get_stdout_pipe */
+FILE *
+tor_process_get_stdout_pipe(process_handle_t *process_handle)
+{
+  return process_handle->stdout_handle;
+}
+#endif
+
+/* DOCDOC process_handle_new */
+static process_handle_t *
+process_handle_new(void)
+{
+  process_handle_t *out = tor_malloc_zero(sizeof(process_handle_t));
+
+#ifdef _WIN32
+  out->stdout_pipe = INVALID_HANDLE_VALUE;
+  out->stderr_pipe = INVALID_HANDLE_VALUE;
+#else
+  out->stdout_pipe = -1;
+  out->stderr_pipe = -1;
+#endif
+
+  return out;
+}
+
+/**
+ * @name child-process states
+ *
+ * Each of these values represents a possible state that a child process can
+ * be in.  They're used to determine what to say when telling the parent how
+ * far along we were before failure.
+ *
+ * @{
+ */
+#define CHILD_STATE_INIT 0
+#define CHILD_STATE_PIPE 1
+#define CHILD_STATE_MAXFD 2
+#define CHILD_STATE_FORK 3
+#define CHILD_STATE_DUPOUT 4
+#define CHILD_STATE_DUPERR 5
+#define CHILD_STATE_REDIRECT 6
+#define CHILD_STATE_CLOSEFD 7
+#define CHILD_STATE_EXEC 8
+#define CHILD_STATE_FAILEXEC 9
+/** @} */
+/** Start a program in the background. If <b>filename</b> contains a '/', then
+ * it will be treated as an absolute or relative path.  Otherwise, on
+ * non-Windows systems, the system path will be searched for <b>filename</b>.
+ * On Windows, only the current directory will be searched. Here, to search the
+ * system path (as well as the application directory, current working
+ * directory, and system directories), set filename to NULL.
+ *
+ * The strings in <b>argv</b> will be passed as the command line arguments of
+ * the child program (following convention, argv[0] should normally be the
+ * filename of the executable, and this must be the case if <b>filename</b> is
+ * NULL). The last element of argv must be NULL. A handle to the child process
+ * will be returned in process_handle (which must be non-NULL). Read
+ * process_handle.status to find out if the process was successfully launched.
+ * For convenience, process_handle.status is returned by this function.
+ *
+ * Some parts of this code are based on the POSIX subprocess module from
+ * Python, and example code from
+ * http://msdn.microsoft.com/en-us/library/ms682499%28v=vs.85%29.aspx.
+ */
+int
+tor_spawn_background(const char *const filename, const char **argv,
+                     process_environment_t *env,
+                     process_handle_t **process_handle_out)
+{
+#ifdef _WIN32
+  HANDLE stdout_pipe_read = NULL;
+  HANDLE stdout_pipe_write = NULL;
+  HANDLE stderr_pipe_read = NULL;
+  HANDLE stderr_pipe_write = NULL;
+  process_handle_t *process_handle;
+  int status;
+
+  STARTUPINFOA siStartInfo;
+  BOOL retval = FALSE;
+
+  SECURITY_ATTRIBUTES saAttr;
+  char *joined_argv;
+
+  saAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
+  saAttr.bInheritHandle = TRUE;
+  /* TODO: should we set explicit security attributes? (#2046, comment 5) */
+  saAttr.lpSecurityDescriptor = NULL;
+
+  /* Assume failure to start process */
+  status = PROCESS_STATUS_ERROR;
+
+  /* Set up pipe for stdout */
+  if (!CreatePipe(&stdout_pipe_read, &stdout_pipe_write, &saAttr, 0)) {
+    log_warn(LD_GENERAL,
+      "Failed to create pipe for stdout communication with child process: %s",
+      format_win32_error(GetLastError()));
+    return status;
+  }
+  if (!SetHandleInformation(stdout_pipe_read, HANDLE_FLAG_INHERIT, 0)) {
+    log_warn(LD_GENERAL,
+      "Failed to configure pipe for stdout communication with child "
+      "process: %s", format_win32_error(GetLastError()));
+    return status;
+  }
+
+  /* Set up pipe for stderr */
+  if (!CreatePipe(&stderr_pipe_read, &stderr_pipe_write, &saAttr, 0)) {
+    log_warn(LD_GENERAL,
+      "Failed to create pipe for stderr communication with child process: %s",
+      format_win32_error(GetLastError()));
+    return status;
+  }
+  if (!SetHandleInformation(stderr_pipe_read, HANDLE_FLAG_INHERIT, 0)) {
+    log_warn(LD_GENERAL,
+      "Failed to configure pipe for stderr communication with child "
+      "process: %s", format_win32_error(GetLastError()));
+    return status;
+  }
+
+  /* Create the child process */
+
+  /* Windows expects argv to be a whitespace delimited string, so join argv up
+   */
+  joined_argv = tor_join_win_cmdline(argv);
+
+  process_handle = process_handle_new();
+  process_handle->status = status;
+
+  ZeroMemory(&(process_handle->pid), sizeof(PROCESS_INFORMATION));
+  ZeroMemory(&siStartInfo, sizeof(STARTUPINFO));
+  siStartInfo.cb = sizeof(STARTUPINFO);
+  siStartInfo.hStdError = stderr_pipe_write;
+  siStartInfo.hStdOutput = stdout_pipe_write;
+  siStartInfo.hStdInput = NULL;
+  siStartInfo.dwFlags |= STARTF_USESTDHANDLES;
+
+  /* Create the child process */
+
+  retval = CreateProcessA(filename,      // module name
+                 joined_argv,   // command line
+  /* TODO: should we set explicit security attributes? (#2046, comment 5) */
+                 NULL,          // process security attributes
+                 NULL,          // primary thread security attributes
+                 TRUE,          // handles are inherited
+  /*(TODO: set CREATE_NEW CONSOLE/PROCESS_GROUP to make GetExitCodeProcess()
+   * work?) */
+                 0,             // creation flags
+                 (env==NULL) ? NULL : env->windows_environment_block,
+                 NULL,          // use parent's current directory
+                 &siStartInfo,  // STARTUPINFO pointer
+                 &(process_handle->pid));  // receives PROCESS_INFORMATION
+
+  tor_free(joined_argv);
+
+  if (!retval) {
+    log_warn(LD_GENERAL,
+      "Failed to create child process %s: %s", filename?filename:argv[0],
+      format_win32_error(GetLastError()));
+    tor_free(process_handle);
+  } else  {
+    /* TODO: Close hProcess and hThread in process_handle->pid? */
+    process_handle->stdout_pipe = stdout_pipe_read;
+    process_handle->stderr_pipe = stderr_pipe_read;
+    status = process_handle->status = PROCESS_STATUS_RUNNING;
+  }
+
+  /* TODO: Close pipes on exit */
+  *process_handle_out = process_handle;
+  return status;
+#else // _WIN32
+  pid_t pid;
+  int stdout_pipe[2];
+  int stderr_pipe[2];
+  int fd, retval;
+  ssize_t nbytes;
+  process_handle_t *process_handle;
+  int status;
+
+  const char *error_message = SPAWN_ERROR_MESSAGE;
+  size_t error_message_length;
+
+  /* Represents where in the process of spawning the program is;
+     this is used for printing out the error message */
+  unsigned char child_state = CHILD_STATE_INIT;
+
+  char hex_errno[HEX_ERRNO_SIZE];
+
+  static int max_fd = -1;
+
+  status = PROCESS_STATUS_ERROR;
+
+  /* We do the strlen here because strlen() is not signal handler safe,
+     and we are not allowed to use unsafe functions between fork and exec */
+  error_message_length = strlen(error_message);
+
+  child_state = CHILD_STATE_PIPE;
+
+  /* Set up pipe for redirecting stdout and stderr of child */
+  retval = pipe(stdout_pipe);
+  if (-1 == retval) {
+    log_warn(LD_GENERAL,
+      "Failed to set up pipe for stdout communication with child process: %s",
+       strerror(errno));
+    return status;
+  }
+
+  retval = pipe(stderr_pipe);
+  if (-1 == retval) {
+    log_warn(LD_GENERAL,
+      "Failed to set up pipe for stderr communication with child process: %s",
+      strerror(errno));
+
+    close(stdout_pipe[0]);
+    close(stdout_pipe[1]);
+
+    return status;
+  }
+
+  child_state = CHILD_STATE_MAXFD;
+
+#ifdef _SC_OPEN_MAX
+  if (-1 != max_fd) {
+    max_fd = (int) sysconf(_SC_OPEN_MAX);
+    if (max_fd == -1)
+      max_fd = DEFAULT_MAX_FD;
+      log_warn(LD_GENERAL,
+               "Cannot find maximum file descriptor, assuming %d", max_fd);
+  }
+#else
+  max_fd = DEFAULT_MAX_FD;
+#endif
+
+  child_state = CHILD_STATE_FORK;
+
+  pid = fork();
+  if (0 == pid) {
+    /* In child */
+
+    child_state = CHILD_STATE_DUPOUT;
+
+    /* Link child stdout to the write end of the pipe */
+    retval = dup2(stdout_pipe[1], STDOUT_FILENO);
+    if (-1 == retval)
+        goto error;
+
+    child_state = CHILD_STATE_DUPERR;
+
+    /* Link child stderr to the write end of the pipe */
+    retval = dup2(stderr_pipe[1], STDERR_FILENO);
+    if (-1 == retval)
+        goto error;
+
+    child_state = CHILD_STATE_REDIRECT;
+
+    /* Link stdin to /dev/null */
+    fd = open("/dev/null", O_RDONLY); /* NOT cloexec, obviously. */
+    if (fd != -1)
+      dup2(fd, STDIN_FILENO);
+    else
+      goto error;
+
+    child_state = CHILD_STATE_CLOSEFD;
+
+    close(stderr_pipe[0]);
+    close(stderr_pipe[1]);
+    close(stdout_pipe[0]);
+    close(stdout_pipe[1]);
+    close(fd);
+
+    /* Close all other fds, including the read end of the pipe */
+    /* XXX: We should now be doing enough FD_CLOEXEC setting to make
+     * this needless. */
+    for (fd = STDERR_FILENO + 1; fd < max_fd; fd++) {
+      close(fd);
+    }
+
+    child_state = CHILD_STATE_EXEC;
+
+    /* Call the requested program. We need the cast because
+       execvp doesn't define argv as const, even though it
+       does not modify the arguments */
+    if (env)
+      execve(filename, (char *const *) argv, env->unixoid_environment_block);
+    else
+      execvp(filename, (char *const *) argv);
+
+    /* If we got here, the exec or open(/dev/null) failed */
+
+    child_state = CHILD_STATE_FAILEXEC;
+
+  error:
+    {
+      /* XXX: are we leaking fds from the pipe? */
+      int n;
+
+      n = format_helper_exit_status(child_state, errno, hex_errno);
+
+      if (n >= 0) {
+        /* Write the error message. GCC requires that we check the return
+           value, but there is nothing we can do if it fails */
+        /* TODO: Don't use STDOUT, use a pipe set up just for this purpose */
+        nbytes = write(STDOUT_FILENO, error_message, error_message_length);
+        nbytes = write(STDOUT_FILENO, hex_errno, n);
+      }
+    }
+
+    (void) nbytes;
+
+    _exit(255);
+    /* Never reached, but avoids compiler warning */
+    return status;
+  }
+
+  /* In parent */
+
+  if (-1 == pid) {
+    log_warn(LD_GENERAL, "Failed to fork child process: %s", strerror(errno));
+    close(stdout_pipe[0]);
+    close(stdout_pipe[1]);
+    close(stderr_pipe[0]);
+    close(stderr_pipe[1]);
+    return status;
+  }
+
+  process_handle = process_handle_new();
+  process_handle->status = status;
+  process_handle->pid = pid;
+
+  /* TODO: If the child process forked but failed to exec, waitpid it */
+
+  /* Return read end of the pipes to caller, and close write end */
+  process_handle->stdout_pipe = stdout_pipe[0];
+  retval = close(stdout_pipe[1]);
+
+  if (-1 == retval) {
+    log_warn(LD_GENERAL,
+            "Failed to close write end of stdout pipe in parent process: %s",
+            strerror(errno));
+  }
+
+  process_handle->stderr_pipe = stderr_pipe[0];
+  retval = close(stderr_pipe[1]);
+
+  if (-1 == retval) {
+    log_warn(LD_GENERAL,
+            "Failed to close write end of stderr pipe in parent process: %s",
+            strerror(errno));
+  }
+
+  status = process_handle->status = PROCESS_STATUS_RUNNING;
+  /* Set stdout/stderr pipes to be non-blocking */
+  fcntl(process_handle->stdout_pipe, F_SETFL, O_NONBLOCK);
+  fcntl(process_handle->stderr_pipe, F_SETFL, O_NONBLOCK);
+  /* Open the buffered IO streams */
+  process_handle->stdout_handle = fdopen(process_handle->stdout_pipe, "r");
+  process_handle->stderr_handle = fdopen(process_handle->stderr_pipe, "r");
+
+  *process_handle_out = process_handle;
+  return process_handle->status;
+#endif // _WIN32
+}
+
+/** Destroy all resources allocated by the process handle in
+ *  <b>process_handle</b>.
+ *  If <b>also_terminate_process</b> is true, also terminate the
+ *  process of the process handle. */
+void
+tor_process_handle_destroy(process_handle_t *process_handle,
+                           int also_terminate_process)
+{
+  if (!process_handle)
+    return;
+
+  if (also_terminate_process) {
+    if (tor_terminate_process(process_handle) < 0) {
+      log_notice(LD_GENERAL, "Failed to terminate process with PID '%d'",
+                 tor_process_get_pid(process_handle));
+    } else {
+      log_info(LD_GENERAL, "Terminated process with PID '%d'",
+               tor_process_get_pid(process_handle));
+    }
+  }
+
+  process_handle->status = PROCESS_STATUS_NOTRUNNING;
+
+#ifdef _WIN32
+  if (process_handle->stdout_pipe)
+    CloseHandle(process_handle->stdout_pipe);
+
+  if (process_handle->stderr_pipe)
+    CloseHandle(process_handle->stderr_pipe);
+#else
+  if (process_handle->stdout_handle)
+    fclose(process_handle->stdout_handle);
+
+  if (process_handle->stderr_handle)
+    fclose(process_handle->stderr_handle);
+#endif
+
+  memset(process_handle, 0x0f, sizeof(process_handle_t));
+  tor_free(process_handle);
+}
+
+/** Get the exit code of a process specified by <b>process_handle</b> and store
+ * it in <b>exit_code</b>, if set to a non-NULL value.  If <b>block</b> is set
+ * to true, the call will block until the process has exited.  Otherwise if
+ * the process is still running, the function will return
+ * PROCESS_EXIT_RUNNING, and exit_code will be left unchanged. Returns
+ * PROCESS_EXIT_EXITED if the process did exit. If there is a failure,
+ * PROCESS_EXIT_ERROR will be returned and the contents of exit_code (if
+ * non-NULL) will be undefined. N.B. Under *nix operating systems, this will
+ * probably not work in Tor, because waitpid() is called in main.c to reap any
+ * terminated child processes.*/
+int
+tor_get_exit_code(const process_handle_t *process_handle,
+                  int block, int *exit_code)
+{
+#ifdef _WIN32
+  DWORD retval;
+  BOOL success;
+
+  if (block) {
+    /* Wait for the process to exit */
+    retval = WaitForSingleObject(process_handle->pid.hProcess, INFINITE);
+    if (retval != WAIT_OBJECT_0) {
+      log_warn(LD_GENERAL, "WaitForSingleObject() failed (%d): %s",
+              (int)retval, format_win32_error(GetLastError()));
+      return PROCESS_EXIT_ERROR;
+    }
+  } else {
+    retval = WaitForSingleObject(process_handle->pid.hProcess, 0);
+    if (WAIT_TIMEOUT == retval) {
+      /* Process has not exited */
+      return PROCESS_EXIT_RUNNING;
+    } else if (retval != WAIT_OBJECT_0) {
+      log_warn(LD_GENERAL, "WaitForSingleObject() failed (%d): %s",
+               (int)retval, format_win32_error(GetLastError()));
+      return PROCESS_EXIT_ERROR;
+    }
+  }
+
+  if (exit_code != NULL) {
+    success = GetExitCodeProcess(process_handle->pid.hProcess,
+                                 (PDWORD)exit_code);
+    if (!success) {
+      log_warn(LD_GENERAL, "GetExitCodeProcess() failed: %s",
+               format_win32_error(GetLastError()));
+      return PROCESS_EXIT_ERROR;
+    }
+  }
+#else
+  int stat_loc;
+  int retval;
+
+  retval = waitpid(process_handle->pid, &stat_loc, block?0:WNOHANG);
+  if (!block && 0 == retval) {
+    /* Process has not exited */
+    return PROCESS_EXIT_RUNNING;
+  } else if (retval != process_handle->pid) {
+    log_warn(LD_GENERAL, "waitpid() failed for PID %d: %s",
+             process_handle->pid, strerror(errno));
+    return PROCESS_EXIT_ERROR;
+  }
+
+  if (!WIFEXITED(stat_loc)) {
+    log_warn(LD_GENERAL, "Process %d did not exit normally",
+             process_handle->pid);
+    return PROCESS_EXIT_ERROR;
+  }
+
+  if (exit_code != NULL)
+    *exit_code = WEXITSTATUS(stat_loc);
+#endif // _WIN32
+
+  return PROCESS_EXIT_EXITED;
+}
+
+/** Helper: return the number of characters in <b>s</b> preceding the first
+ * occurrence of <b>ch</b>. If <b>ch</b> does not occur in <b>s</b>, return
+ * the length of <b>s</b>. Should be equivalent to strspn(s, "ch"). */
+static INLINE size_t
+str_num_before(const char *s, char ch)
+{
+  const char *cp = strchr(s, ch);
+  if (cp)
+    return cp - s;
+  else
+    return strlen(s);
+}
+
+/** Return non-zero iff getenv would consider <b>s1</b> and <b>s2</b>
+ * to have the same name as strings in a process's environment. */
+int
+environment_variable_names_equal(const char *s1, const char *s2)
+{
+  size_t s1_name_len = str_num_before(s1, '=');
+  size_t s2_name_len = str_num_before(s2, '=');
+
+  return (s1_name_len == s2_name_len &&
+          tor_memeq(s1, s2, s1_name_len));
+}
+
+/** Free <b>env</b> (assuming it was produced by
+ * process_environment_make). */
+void
+process_environment_free(process_environment_t *env)
+{
+  if (env == NULL) return;
+
+  /* As both an optimization hack to reduce consing on Unixoid systems
+   * and a nice way to ensure that some otherwise-Windows-specific
+   * code will always get tested before changes to it get merged, the
+   * strings which env->unixoid_environment_block points to are packed
+   * into env->windows_environment_block. */
+  tor_free(env->unixoid_environment_block);
+  tor_free(env->windows_environment_block);
+
+  tor_free(env);
+}
+
+/** Make a process_environment_t containing the environment variables
+ * specified in <b>env_vars</b> (as C strings of the form
+ * "NAME=VALUE"). */
+process_environment_t *
+process_environment_make(struct smartlist_t *env_vars)
+{
+  process_environment_t *env = tor_malloc_zero(sizeof(process_environment_t));
+  size_t n_env_vars = smartlist_len(env_vars);
+  size_t i;
+  size_t total_env_length;
+  smartlist_t *env_vars_sorted;
+
+  tor_assert(n_env_vars + 1 != 0);
+  env->unixoid_environment_block = tor_calloc(n_env_vars + 1, sizeof(char *));
+  /* env->unixoid_environment_block is already NULL-terminated,
+   * because we assume that NULL == 0 (and check that during compilation). */
+
+  total_env_length = 1; /* terminating NUL of terminating empty string */
+  for (i = 0; i < n_env_vars; ++i) {
+    const char *s = smartlist_get(env_vars, i);
+    size_t slen = strlen(s);
+
+    tor_assert(slen + 1 != 0);
+    tor_assert(slen + 1 < SIZE_MAX - total_env_length);
+    total_env_length += slen + 1;
+  }
+
+  env->windows_environment_block = tor_malloc_zero(total_env_length);
+  /* env->windows_environment_block is already
+   * (NUL-terminated-empty-string)-terminated. */
+
+  /* Some versions of Windows supposedly require that environment
+   * blocks be sorted.  Or maybe some Windows programs (or their
+   * runtime libraries) fail to look up strings in non-sorted
+   * environment blocks.
+   *
+   * Also, sorting strings makes it easy to find duplicate environment
+   * variables and environment-variable strings without an '=' on all
+   * OSes, and they can cause badness.  Let's complain about those. */
+  env_vars_sorted = smartlist_new();
+  smartlist_add_all(env_vars_sorted, env_vars);
+  smartlist_sort_strings(env_vars_sorted);
+
+  /* Now copy the strings into the environment blocks. */
+  {
+    char *cp = env->windows_environment_block;
+    const char *prev_env_var = NULL;
+
+    for (i = 0; i < n_env_vars; ++i) {
+      const char *s = smartlist_get(env_vars_sorted, i);
+      size_t slen = strlen(s);
+      size_t s_name_len = str_num_before(s, '=');
+
+      if (s_name_len == slen) {
+        log_warn(LD_GENERAL,
+                 "Preparing an environment containing a variable "
+                 "without a value: %s",
+                 s);
+      }
+      if (prev_env_var != NULL &&
+          environment_variable_names_equal(s, prev_env_var)) {
+        log_warn(LD_GENERAL,
+                 "Preparing an environment containing two variables "
+                 "with the same name: %s and %s",
+                 prev_env_var, s);
+      }
+
+      prev_env_var = s;
+
+      /* Actually copy the string into the environment. */
+      memcpy(cp, s, slen+1);
+      env->unixoid_environment_block[i] = cp;
+      cp += slen+1;
+    }
+
+    tor_assert(cp == env->windows_environment_block + total_env_length - 1);
+  }
+
+  smartlist_free(env_vars_sorted);
+
+  return env;
+}
+
+/** Return a newly allocated smartlist containing every variable in
+ * this process's environment, as a NUL-terminated string of the form
+ * "NAME=VALUE".  Note that on some/many/most/all OSes, the parent
+ * process can put strings not of that form in our environment;
+ * callers should try to not get crashed by that.
+ *
+ * The returned strings are heap-allocated, and must be freed by the
+ * caller. */
+struct smartlist_t *
+get_current_process_environment_variables(void)
+{
+  smartlist_t *sl = smartlist_new();
+
+  char **environ_tmp; /* Not const char ** ? Really? */
+  for (environ_tmp = get_environment(); *environ_tmp; ++environ_tmp) {
+    smartlist_add(sl, tor_strdup(*environ_tmp));
+  }
+
+  return sl;
+}
+
+/** For each string s in <b>env_vars</b> such that
+ * environment_variable_names_equal(s, <b>new_var</b>), remove it; if
+ * <b>free_p</b> is non-zero, call <b>free_old</b>(s).  If
+ * <b>new_var</b> contains '=', insert it into <b>env_vars</b>. */
+void
+set_environment_variable_in_smartlist(struct smartlist_t *env_vars,
+                                      const char *new_var,
+                                      void (*free_old)(void*),
+                                      int free_p)
+{
+  SMARTLIST_FOREACH_BEGIN(env_vars, const char *, s) {
+    if (environment_variable_names_equal(s, new_var)) {
+      SMARTLIST_DEL_CURRENT(env_vars, s);
+      if (free_p) {
+        free_old((void *)s);
+      }
+    }
+  } SMARTLIST_FOREACH_END(s);
+
+  if (strchr(new_var, '=') != NULL) {
+    smartlist_add(env_vars, (void *)new_var);
+  }
+}
+
+#ifdef _WIN32
+/** Read from a handle <b>h</b> into <b>buf</b>, up to <b>count</b> bytes.  If
+ * <b>hProcess</b> is NULL, the function will return immediately if there is
+ * nothing more to read. Otherwise <b>hProcess</b> should be set to the handle
+ * to the process owning the <b>h</b>. In this case, the function will exit
+ * only once the process has exited, or <b>count</b> bytes are read. Returns
+ * the number of bytes read, or -1 on error. */
+ssize_t
+tor_read_all_handle(HANDLE h, char *buf, size_t count,
+                    const process_handle_t *process)
+{
+  size_t numread = 0;
+  BOOL retval;
+  DWORD byte_count;
+  BOOL process_exited = FALSE;
+
+  if (count > SIZE_T_CEILING || count > SSIZE_T_MAX)
+    return -1;
+
+  while (numread != count) {
+    /* Check if there is anything to read */
+    retval = PeekNamedPipe(h, NULL, 0, NULL, &byte_count, NULL);
+    if (!retval) {
+      log_warn(LD_GENERAL,
+        "Failed to peek from handle: %s",
+        format_win32_error(GetLastError()));
+      return -1;
+    } else if (0 == byte_count) {
+      /* Nothing available: process exited or it is busy */
+
+      /* Exit if we don't know whether the process is running */
+      if (NULL == process)
+        break;
+
+      /* The process exited and there's nothing left to read from it */
+      if (process_exited)
+        break;
+
+      /* If process is not running, check for output one more time in case
+         it wrote something after the peek was performed. Otherwise keep on
+         waiting for output */
+      tor_assert(process != NULL);
+      byte_count = WaitForSingleObject(process->pid.hProcess, 0);
+      if (WAIT_TIMEOUT != byte_count)
+        process_exited = TRUE;
+
+      continue;
+    }
+
+    /* There is data to read; read it */
+    retval = ReadFile(h, buf+numread, count-numread, &byte_count, NULL);
+    tor_assert(byte_count + numread <= count);
+    if (!retval) {
+      log_warn(LD_GENERAL, "Failed to read from handle: %s",
+        format_win32_error(GetLastError()));
+      return -1;
+    } else if (0 == byte_count) {
+      /* End of file */
+      break;
+    }
+    numread += byte_count;
+  }
+  return (ssize_t)numread;
+}
+#else
+/** Read from a handle <b>h</b> into <b>buf</b>, up to <b>count</b> bytes.  If
+ * <b>process</b> is NULL, the function will return immediately if there is
+ * nothing more to read. Otherwise data will be read until end of file, or
+ * <b>count</b> bytes are read.  Returns the number of bytes read, or -1 on
+ * error. Sets <b>eof</b> to true if <b>eof</b> is not NULL and the end of the
+ * file has been reached. */
+ssize_t
+tor_read_all_handle(FILE *h, char *buf, size_t count,
+                    const process_handle_t *process,
+                    int *eof)
+{
+  size_t numread = 0;
+  char *retval;
+
+  if (eof)
+    *eof = 0;
+
+  if (count > SIZE_T_CEILING || count > SSIZE_T_MAX)
+    return -1;
+
+  while (numread != count) {
+    /* Use fgets because that is what we use in log_from_pipe() */
+    retval = fgets(buf+numread, (int)(count-numread), h);
+    if (NULL == retval) {
+      if (feof(h)) {
+        log_debug(LD_GENERAL, "fgets() reached end of file");
+        if (eof)
+          *eof = 1;
+        break;
+      } else {
+        if (EAGAIN == errno) {
+          if (process)
+            continue;
+          else
+            break;
+        } else {
+          log_warn(LD_GENERAL, "fgets() from handle failed: %s",
+                   strerror(errno));
+          return -1;
+        }
+      }
+    }
+    tor_assert(retval != NULL);
+    tor_assert(strlen(retval) + numread <= count);
+    numread += strlen(retval);
+  }
+
+  log_debug(LD_GENERAL, "fgets() read %d bytes from handle", (int)numread);
+  return (ssize_t)numread;
+}
+#endif
+
+/** Read from stdout of a process until the process exits. */
+ssize_t
+tor_read_all_from_process_stdout(const process_handle_t *process_handle,
+                                 char *buf, size_t count)
+{
+#ifdef _WIN32
+  return tor_read_all_handle(process_handle->stdout_pipe, buf, count,
+                             process_handle);
+#else
+  return tor_read_all_handle(process_handle->stdout_handle, buf, count,
+                             process_handle, NULL);
+#endif
+}
+
+/** Read from stdout of a process until the process exits. */
+ssize_t
+tor_read_all_from_process_stderr(const process_handle_t *process_handle,
+                                 char *buf, size_t count)
+{
+#ifdef _WIN32
+  return tor_read_all_handle(process_handle->stderr_pipe, buf, count,
+                             process_handle);
+#else
+  return tor_read_all_handle(process_handle->stderr_handle, buf, count,
+                             process_handle, NULL);
+#endif
+}
+
+/** Split buf into lines, and add to smartlist. The buffer <b>buf</b> will be
+ * modified. The resulting smartlist will consist of pointers to buf, so there
+ * is no need to free the contents of sl. <b>buf</b> must be a NUL-terminated
+ * string. <b>len</b> should be set to the length of the buffer excluding the
+ * NUL. Non-printable characters (including NUL) will be replaced with "." */
+int
+tor_split_lines(smartlist_t *sl, char *buf, int len)
+{
+  /* Index in buf of the start of the current line */
+  int start = 0;
+  /* Index in buf of the current character being processed */
+  int cur = 0;
+  /* Are we currently in a line */
+  char in_line = 0;
+
+  /* Loop over string */
+  while (cur < len) {
+    /* Loop until end of line or end of string */
+    for (; cur < len; cur++) {
+      if (in_line) {
+        if ('\r' == buf[cur] || '\n' == buf[cur]) {
+          /* End of line */
+          buf[cur] = '\0';
+          /* Point cur to the next line */
+          cur++;
+          /* Line starts at start and ends with a nul */
+          break;
+        } else {
+          if (!TOR_ISPRINT(buf[cur]))
+            buf[cur] = '.';
+        }
+      } else {
+        if ('\r' == buf[cur] || '\n' == buf[cur]) {
+          /* Skip leading vertical space */
+          ;
+        } else {
+          in_line = 1;
+          start = cur;
+          if (!TOR_ISPRINT(buf[cur]))
+            buf[cur] = '.';
+        }
+      }
+    }
+    /* We are at the end of the line or end of string. If in_line is true there
+     * is a line which starts at buf+start and ends at a NUL. cur points to
+     * the character after the NUL. */
+    if (in_line)
+      smartlist_add(sl, (void *)(buf+start));
+    in_line = 0;
+  }
+  return smartlist_len(sl);
+}
+
+#ifdef _WIN32
+/** Read from stream, and send lines to log at the specified log level.
+ * Returns -1 if there is a error reading, and 0 otherwise.
+ * If the generated stream is flushed more often than on new lines, or
+ * a read exceeds 256 bytes, lines will be truncated. This should be fixed,
+ * along with the corresponding problem on *nix (see bug #2045).
+ */
+static int
+log_from_handle(HANDLE *pipe, int severity)
+{
+  char buf[256];
+  int pos;
+  smartlist_t *lines;
+
+  pos = tor_read_all_handle(pipe, buf, sizeof(buf) - 1, NULL);
+  if (pos < 0) {
+    /* Error */
+    log_warn(LD_GENERAL, "Failed to read data from subprocess");
+    return -1;
+  }
+
+  if (0 == pos) {
+    /* There's nothing to read (process is busy or has exited) */
+    log_debug(LD_GENERAL, "Subprocess had nothing to say");
+    return 0;
+  }
+
+  /* End with a null even if there isn't a \r\n at the end */
+  /* TODO: What if this is a partial line? */
+  buf[pos] = '\0';
+  log_debug(LD_GENERAL, "Subprocess had %d bytes to say", pos);
+
+  /* Split up the buffer */
+  lines = smartlist_new();
+  tor_split_lines(lines, buf, pos);
+
+  /* Log each line */
+  SMARTLIST_FOREACH(lines, char *, line,
+  {
+    log_fn(severity, LD_GENERAL, "Port forwarding helper says: %s", line);
+  });
+  smartlist_free(lines);
+
+  return 0;
+}
+
+#else
+
+/** Read from stream, and send lines to log at the specified log level.
+ * Returns 1 if stream is closed normally, -1 if there is a error reading, and
+ * 0 otherwise. Handles lines from tor-fw-helper and
+ * tor_spawn_background() specially.
+ */
+static int
+log_from_pipe(FILE *stream, int severity, const char *executable,
+              int *child_status)
+{
+  char buf[256];
+  enum stream_status r;
+
+  for (;;) {
+    r = get_string_from_pipe(stream, buf, sizeof(buf) - 1);
+
+    if (r == IO_STREAM_CLOSED) {
+      return 1;
+    } else if (r == IO_STREAM_EAGAIN) {
+      return 0;
+    } else if (r == IO_STREAM_TERM) {
+      return -1;
+    }
+
+    tor_assert(r == IO_STREAM_OKAY);
+
+    /* Check if buf starts with SPAWN_ERROR_MESSAGE */
+    if (strcmpstart(buf, SPAWN_ERROR_MESSAGE) == 0) {
+      /* Parse error message */
+      int retval, child_state, saved_errno;
+      retval = tor_sscanf(buf, SPAWN_ERROR_MESSAGE "%x/%x",
+                          &child_state, &saved_errno);
+      if (retval == 2) {
+        log_warn(LD_GENERAL,
+                 "Failed to start child process \"%s\" in state %d: %s",
+                 executable, child_state, strerror(saved_errno));
+        if (child_status)
+          *child_status = 1;
+      } else {
+        /* Failed to parse message from child process, log it as a
+           warning */
+        log_warn(LD_GENERAL,
+                 "Unexpected message from port forwarding helper \"%s\": %s",
+                 executable, buf);
+      }
+    } else {
+      log_fn(severity, LD_GENERAL, "Port forwarding helper says: %s", buf);
+    }
+  }
+
+  /* We should never get here */
+  return -1;
+}
+#endif
+
+/** Reads from <b>stream</b> and stores input in <b>buf_out</b> making
+ *  sure it's below <b>count</b> bytes.
+ *  If the string has a trailing newline, we strip it off.
+ *
+ * This function is specifically created to handle input from managed
+ * proxies, according to the pluggable transports spec. Make sure it
+ * fits your needs before using it.
+ *
+ * Returns:
+ * IO_STREAM_CLOSED: If the stream is closed.
+ * IO_STREAM_EAGAIN: If there is nothing to read and we should check back
+ *  later.
+ * IO_STREAM_TERM: If something is wrong with the stream.
+ * IO_STREAM_OKAY: If everything went okay and we got a string
+ *  in <b>buf_out</b>. */
+enum stream_status
+get_string_from_pipe(FILE *stream, char *buf_out, size_t count)
+{
+  char *retval;
+  size_t len;
+
+  tor_assert(count <= INT_MAX);
+
+  retval = fgets(buf_out, (int)count, stream);
+
+  if (!retval) {
+    if (feof(stream)) {
+      /* Program has closed stream (probably it exited) */
+      /* TODO: check error */
+      return IO_STREAM_CLOSED;
+    } else {
+      if (EAGAIN == errno) {
+        /* Nothing more to read, try again next time */
+        return IO_STREAM_EAGAIN;
+      } else {
+        /* There was a problem, abandon this child process */
+        return IO_STREAM_TERM;
+      }
+    }
+  } else {
+    len = strlen(buf_out);
+    if (len == 0) {
+      /* this probably means we got a NUL at the start of the string. */
+      return IO_STREAM_EAGAIN;
+    }
+
+    if (buf_out[len - 1] == '\n') {
+      /* Remove the trailing newline */
+      buf_out[len - 1] = '\0';
+    } else {
+      /* No newline; check whether we overflowed the buffer */
+      if (!feof(stream))
+        log_info(LD_GENERAL,
+                 "Line from stream was truncated: %s", buf_out);
+      /* TODO: What to do with this error? */
+    }
+
+    return IO_STREAM_OKAY;
+  }
+
+  /* We should never get here */
+  return IO_STREAM_TERM;
+}
+
+/* DOCDOC tor_check_port_forwarding */
+void
+tor_check_port_forwarding(const char *filename, int dir_port, int or_port,
+                          time_t now)
+{
+/* When fw-helper succeeds, how long do we wait until running it again */
+#define TIME_TO_EXEC_FWHELPER_SUCCESS 300
+/* When fw-helper failed to start, how long do we wait until running it again
+ */
+#define TIME_TO_EXEC_FWHELPER_FAIL 60
+
+  /* Static variables are initialized to zero, so child_handle.status=0
+   * which corresponds to it not running on startup */
+  static process_handle_t *child_handle=NULL;
+
+  static time_t time_to_run_helper = 0;
+  int stdout_status, stderr_status, retval;
+  const char *argv[10];
+  char s_dirport[6], s_orport[6];
+
+  tor_assert(filename);
+
+  /* Set up command line for tor-fw-helper */
+  snprintf(s_dirport, sizeof s_dirport, "%d", dir_port);
+  snprintf(s_orport, sizeof s_orport, "%d", or_port);
+
+  /* TODO: Allow different internal and external ports */
+  argv[0] = filename;
+  argv[1] = "--internal-or-port";
+  argv[2] = s_orport;
+  argv[3] = "--external-or-port";
+  argv[4] = s_orport;
+  argv[5] = "--internal-dir-port";
+  argv[6] = s_dirport;
+  argv[7] = "--external-dir-port";
+  argv[8] = s_dirport;
+  argv[9] = NULL;
+
+  /* Start the child, if it is not already running */
+  if ((!child_handle || child_handle->status != PROCESS_STATUS_RUNNING) &&
+      time_to_run_helper < now) {
+    int status;
+
+    /* Assume tor-fw-helper will succeed, start it later*/
+    time_to_run_helper = now + TIME_TO_EXEC_FWHELPER_SUCCESS;
+
+    if (child_handle) {
+      tor_process_handle_destroy(child_handle, 1);
+      child_handle = NULL;
+    }
+
+#ifdef _WIN32
+    /* Passing NULL as lpApplicationName makes Windows search for the .exe */
+    status = tor_spawn_background(NULL, argv, NULL, &child_handle);
+#else
+    status = tor_spawn_background(filename, argv, NULL, &child_handle);
+#endif
+
+    if (PROCESS_STATUS_ERROR == status) {
+      log_warn(LD_GENERAL, "Failed to start port forwarding helper %s",
+              filename);
+      time_to_run_helper = now + TIME_TO_EXEC_FWHELPER_FAIL;
+      return;
+    }
+
+    log_info(LD_GENERAL,
+             "Started port forwarding helper (%s) with pid '%d'",
+             filename, tor_process_get_pid(child_handle));
+  }
+
+  /* If child is running, read from its stdout and stderr) */
+  if (child_handle && PROCESS_STATUS_RUNNING == child_handle->status) {
+    /* Read from stdout/stderr and log result */
+    retval = 0;
+#ifdef _WIN32
+    stdout_status = log_from_handle(child_handle->stdout_pipe, LOG_INFO);
+    stderr_status = log_from_handle(child_handle->stderr_pipe, LOG_WARN);
+    /* If we got this far (on Windows), the process started */
+    retval = 0;
+#else
+    stdout_status = log_from_pipe(child_handle->stdout_handle,
+                    LOG_INFO, filename, &retval);
+    stderr_status = log_from_pipe(child_handle->stderr_handle,
+                    LOG_WARN, filename, &retval);
+#endif
+    if (retval) {
+      /* There was a problem in the child process */
+      time_to_run_helper = now + TIME_TO_EXEC_FWHELPER_FAIL;
+    }
+
+    /* Combine the two statuses in order of severity */
+    if (-1 == stdout_status || -1 == stderr_status)
+      /* There was a failure */
+      retval = -1;
+#ifdef _WIN32
+    else if (!child_handle || tor_get_exit_code(child_handle, 0, NULL) !=
+             PROCESS_EXIT_RUNNING) {
+      /* process has exited or there was an error */
+      /* TODO: Do something with the process return value */
+      /* TODO: What if the process output something since
+       * between log_from_handle and tor_get_exit_code? */
+      retval = 1;
+    }
+#else
+    else if (1 == stdout_status || 1 == stderr_status)
+      /* stdout or stderr was closed, the process probably
+       * exited. It will be reaped by waitpid() in main.c */
+      /* TODO: Do something with the process return value */
+      retval = 1;
+#endif
+    else
+      /* Both are fine */
+      retval = 0;
+
+    /* If either pipe indicates a failure, act on it */
+    if (0 != retval) {
+      if (1 == retval) {
+        log_info(LD_GENERAL, "Port forwarding helper terminated");
+        child_handle->status = PROCESS_STATUS_NOTRUNNING;
+      } else {
+        log_warn(LD_GENERAL, "Failed to read from port forwarding helper");
+        child_handle->status = PROCESS_STATUS_ERROR;
+      }
+
+      /* TODO: The child might not actually be finished (maybe it failed or
+         closed stdout/stderr), so maybe we shouldn't start another? */
+    }
+  }
+}
 

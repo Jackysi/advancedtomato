@@ -40,7 +40,6 @@ TCONFIG_SAMBASRV=y
 # TCONFIG_DNSCRYPT is not set
 # TCONFIG_NVRAM_64K is not set
 # TCONFIG_TOR is not set
-TCONFIG_THEMES=y
 # TCONFIG_MICROSD is not set
 # TCONFIG_USBAP is not set
 # TCONFIG_REMOVE_USBAPP is not set

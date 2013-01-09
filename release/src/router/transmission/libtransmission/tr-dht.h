@@ -19,7 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * $Id: tr-dht.h 12204 2011-03-22 15:19:54Z jordan $
+ * $Id: tr-dht.h 13625 2012-12-05 17:29:46Z jordan $
  *
  */
 
@@ -36,14 +36,14 @@ enum
     TR_DHT_GOOD         = 4
 };
 
-int  tr_dhtInit( tr_session * );
-void tr_dhtUninit( tr_session * );
-bool tr_dhtEnabled( const tr_session * );
-tr_port tr_dhtPort ( tr_session * );
-int tr_dhtStatus( tr_session *, int af, int * setme_nodeCount );
-const char *tr_dhtPrintableStatus(int status);
-int tr_dhtAddNode( tr_session *, const tr_address *, tr_port, bool bootstrap );
-void tr_dhtUpkeep( tr_session * );
-void tr_dhtCallback(unsigned char *buf, int buflen,
+int  tr_dhtInit (tr_session *);
+void tr_dhtUninit (tr_session *);
+bool tr_dhtEnabled (const tr_session *);
+tr_port tr_dhtPort (tr_session *);
+int tr_dhtStatus (tr_session *, int af, int * setme_nodeCount);
+const char *tr_dhtPrintableStatus (int status);
+int tr_dhtAddNode (tr_session *, const tr_address *, tr_port, bool bootstrap);
+void tr_dhtUpkeep (tr_session *);
+void tr_dhtCallback (unsigned char *buf, int buflen,
                     struct sockaddr *from, socklen_t fromlen,
                     void *sv);

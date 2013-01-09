@@ -1,6 +1,6 @@
 /* Copyright (c) 2003-2004, Roger Dingledine
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -13,10 +13,16 @@
 #include "util.h"
 #include "address.h"
 #include "torlog.h"
+#include "container.h"
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 #include <process.h>
 #include <windows.h>
+#include <winsock2.h>
+/* For access to structs needed by GetAdaptersAddresses */
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0501
+#include <iphlpapi.h>
 #endif
 
 #ifdef HAVE_SYS_TIME_H
@@ -46,11 +52,27 @@
 #ifdef HAVE_SYS_UN_H
 #include <sys/un.h>
 #endif
+#ifdef HAVE_IFADDRS_H
+#include <ifaddrs.h>
+#endif
+#ifdef HAVE_SYS_IOCTL_H
+#include <sys/ioctl.h>
+#endif
+#ifdef HAVE_NET_IF_H
+#include <net/if.h>
+#endif
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+
+/* tor_addr_is_null() and maybe other functions rely on AF_UNSPEC being 0 to
+ * work correctly. Bail out here if we've found a platform where AF_UNSPEC
+ * isn't 0. */
+#if AF_UNSPEC != 0
+#error We rely on AF_UNSPEC being 0. Let us know about your platform, please!
+#endif
 
 /** Convert the tor_addr_t in <b>a</b>, with port in <b>port</b>, into a
  * sockaddr object in *<b>sa_out</b> of object size <b>len</b>.  If not enough
@@ -253,7 +275,7 @@ tor_addr_lookup(const char *name, uint16_t family, tor_addr_t *addr)
     ent = err ? NULL : &hent;
 #else
     ent = gethostbyname(name);
-#ifdef MS_WINDOWS
+#ifdef _WIN32
     err = WSAGetLastError();
 #else
     err = h_errno;
@@ -269,7 +291,7 @@ tor_addr_lookup(const char *name, uint16_t family, tor_addr_t *addr)
       }
       return 0;
     }
-#ifdef MS_WINDOWS
+#ifdef _WIN32
     return (err == WSATRY_AGAIN) ? 1 : -1;
 #else
     return (err == TRY_AGAIN) ? 1 : -1;
@@ -333,7 +355,9 @@ tor_addr_is_internal(const tor_addr_t *addr, int for_listening)
 
   /* unknown address family... assume it's not safe for external use */
   /* rather than tor_assert(0) */
-  log_warn(LD_BUG, "tor_addr_is_internal() called with a non-IP address.");
+  log_warn(LD_BUG, "tor_addr_is_internal() called with a non-IP address of "
+           "type %d", (int)v_family);
+  tor_fragile_assert();
   return 1;
 }
 
@@ -343,22 +367,28 @@ tor_addr_is_internal(const tor_addr_t *addr, int for_listening)
  *  brackets.
  */
 const char *
-tor_addr_to_str(char *dest, const tor_addr_t *addr, int len, int decorate)
+tor_addr_to_str(char *dest, const tor_addr_t *addr, size_t len, int decorate)
 {
   const char *ptr;
   tor_assert(addr && dest);
 
   switch (tor_addr_family(addr)) {
     case AF_INET:
-      if (len<3)
+      /* Shortest addr x.x.x.x + \0 */
+      if (len < 8)
         return NULL;
-        ptr = tor_inet_ntop(AF_INET, &addr->addr.in_addr, dest, len);
+      ptr = tor_inet_ntop(AF_INET, &addr->addr.in_addr, dest, len);
       break;
     case AF_INET6:
+      /* Shortest addr [ :: ] + \0 */
+      if (len < (3 + (decorate ? 2 : 0)))
+        return NULL;
+
       if (decorate)
         ptr = tor_inet_ntop(AF_INET6, &addr->addr.in6_addr, dest+1, len-2);
       else
         ptr = tor_inet_ntop(AF_INET6, &addr->addr.in6_addr, dest, len);
+
       if (ptr && decorate) {
         *dest = '[';
         memcpy(dest+strlen(dest), "]", 2);
@@ -384,7 +414,7 @@ tor_addr_to_str(char *dest, const tor_addr_t *addr, int len, int decorate)
  * IPv4 or IPv6 address too.
  */
 int
-tor_addr_parse_reverse_lookup_name(tor_addr_t *result, const char *address,
+tor_addr_parse_PTR_name(tor_addr_t *result, const char *address,
                                    int family, int accept_regular)
 {
   if (!strcasecmpend(address, ".in-addr.arpa")) {
@@ -455,7 +485,7 @@ tor_addr_parse_reverse_lookup_name(tor_addr_t *result, const char *address,
 
   if (accept_regular) {
     tor_addr_t tmp;
-    int r = tor_addr_from_str(&tmp, address);
+    int r = tor_addr_parse(&tmp, address);
     if (r < 0)
       return 0;
     if (r != family && family != AF_UNSPEC)
@@ -470,13 +500,17 @@ tor_addr_parse_reverse_lookup_name(tor_addr_t *result, const char *address,
   return 0;
 }
 
-/** Convert <b>addr</b> to an in-addr.arpa name or a .ip6.arpa name, and store
- * the result in the <b>outlen</b>-byte buffer at <b>out</b>.  Return 0 on
- * success, -1 on failure. */
+/** Convert <b>addr</b> to an in-addr.arpa name or a .ip6.arpa name,
+ * and store the result in the <b>outlen</b>-byte buffer at
+ * <b>out</b>.  Return the number of chars written to <b>out</b>, not
+ * including the trailing \0, on success. Returns -1 on failure. */
 int
-tor_addr_to_reverse_lookup_name(char *out, size_t outlen,
-                                const tor_addr_t *addr)
+tor_addr_to_PTR_name(char *out, size_t outlen,
+                     const tor_addr_t *addr)
 {
+  tor_assert(out);
+  tor_assert(addr);
+
   if (addr->family == AF_INET) {
     uint32_t a = tor_addr_to_ipv4h(addr);
 
@@ -499,7 +533,7 @@ tor_addr_to_reverse_lookup_name(char *out, size_t outlen,
       *cp++ = '.';
     }
     memcpy(cp, "ip6.arpa", 9); /* 8 characters plus NUL */
-    return 0;
+    return 32 * 2 + 8;
   }
   return -1;
 }
@@ -952,19 +986,37 @@ tor_dup_addr(const tor_addr_t *addr)
   }
 }
 
-/** Return a string representing the address <b>addr</b>.  This string is
- * statically allocated, and must not be freed.  Each call to
- * <b>fmt_addr</b> invalidates the last result of the function.  This
- * function is not thread-safe. */
+/** Return a string representing the address <b>addr</b>.  This string
+ * is statically allocated, and must not be freed.  Each call to
+ * <b>fmt_addr_impl</b> invalidates the last result of the function.
+ * This function is not thread-safe. If <b>decorate</b> is set, add
+ * brackets to IPv6 addresses.
+ *
+ * It's better to use the wrapper macros of this function:
+ * <b>fmt_addr()</b> and <b>fmt_and_decorate_addr()</b>.
+ */
 const char *
-fmt_addr(const tor_addr_t *addr)
+fmt_addr_impl(const tor_addr_t *addr, int decorate)
 {
   static char buf[TOR_ADDR_BUF_LEN];
   if (!addr) return "<null>";
-  if (tor_addr_to_str(buf, addr, sizeof(buf), 0))
+  if (tor_addr_to_str(buf, addr, sizeof(buf), decorate))
     return buf;
   else
     return "???";
+}
+
+/** Like fmt_addr(), but takes <b>addr</b> as a host-order IPv4
+ * addresses. Also not thread-safe, also clobbers its return buffer on
+ * repeated calls. */
+const char *
+fmt_addr32(uint32_t addr)
+{
+  static char buf[INET_NTOA_BUF_LEN];
+  struct in_addr in;
+  in.s_addr = htonl(addr);
+  tor_inet_ntoa(&in, buf, sizeof(buf));
+  return buf;
 }
 
 /** Convert the string in <b>src</b> to a tor_addr_t <b>addr</b>.  The string
@@ -974,7 +1026,7 @@ fmt_addr(const tor_addr_t *addr)
  *  Return an address family on success, or -1 if an invalid address string is
  *  provided. */
 int
-tor_addr_from_str(tor_addr_t *addr, const char *src)
+tor_addr_parse(tor_addr_t *addr, const char *src)
 {
   char *tmp = NULL; /* Holds substring if we got a dotted quad. */
   int result;
@@ -1002,7 +1054,7 @@ tor_addr_from_str(tor_addr_t *addr, const char *src)
  * address as needed, and put the result in <b>addr_out</b> and (optionally)
  * <b>port_out</b>.  Return 0 on success, negative on failure. */
 int
-tor_addr_port_parse(const char *s, tor_addr_t *addr_out, uint16_t *port_out)
+tor_addr_port_lookup(const char *s, tor_addr_t *addr_out, uint16_t *port_out)
 {
   const char *port;
   tor_addr_t addr;
@@ -1056,6 +1108,169 @@ tor_addr_port_parse(const char *s, tor_addr_t *addr_out, uint16_t *port_out)
   return -1;
 }
 
+#ifdef _WIN32
+typedef ULONG (WINAPI *GetAdaptersAddresses_fn_t)(
+              ULONG, ULONG, PVOID, PIP_ADAPTER_ADDRESSES, PULONG);
+#endif
+
+/** Try to ask our network interfaces what addresses they are bound to.
+ * Return a new smartlist of tor_addr_t on success, and NULL on failure.
+ * (An empty smartlist indicates that we successfully learned that we have no
+ * addresses.)  Log failure messages at <b>severity</b>. */
+static smartlist_t *
+get_interface_addresses_raw(int severity)
+{
+#if defined(HAVE_GETIFADDRS)
+  /* Most free Unixy systems provide getifaddrs, which gives us a linked list
+   * of struct ifaddrs. */
+  struct ifaddrs *ifa = NULL;
+  const struct ifaddrs *i;
+  smartlist_t *result;
+  if (getifaddrs(&ifa) < 0) {
+    log_fn(severity, LD_NET, "Unable to call getifaddrs(): %s",
+           strerror(errno));
+    return NULL;
+  }
+
+  result = smartlist_new();
+  for (i = ifa; i; i = i->ifa_next) {
+    tor_addr_t tmp;
+    if (!i->ifa_addr)
+      continue;
+    if (i->ifa_addr->sa_family != AF_INET &&
+        i->ifa_addr->sa_family != AF_INET6)
+      continue;
+    if (tor_addr_from_sockaddr(&tmp, i->ifa_addr, NULL) < 0)
+      continue;
+    smartlist_add(result, tor_memdup(&tmp, sizeof(tmp)));
+  }
+
+  freeifaddrs(ifa);
+  return result;
+#elif defined(_WIN32)
+  /* Windows XP began to provide GetAdaptersAddresses. Windows 2000 had a
+     "GetAdaptersInfo", but that's deprecated; let's just try
+     GetAdaptersAddresses and fall back to connect+getsockname.
+  */
+  HANDLE lib = load_windows_system_library(TEXT("iphlpapi.dll"));
+  smartlist_t *result = NULL;
+  GetAdaptersAddresses_fn_t fn;
+  ULONG size, res;
+  IP_ADAPTER_ADDRESSES *addresses = NULL, *address;
+
+  (void) severity;
+
+#define FLAGS (GAA_FLAG_SKIP_ANYCAST | \
+               GAA_FLAG_SKIP_MULTICAST | \
+               GAA_FLAG_SKIP_DNS_SERVER)
+
+  if (!lib) {
+    log_fn(severity, LD_NET, "Unable to load iphlpapi.dll");
+    goto done;
+  }
+
+  if (!(fn = (GetAdaptersAddresses_fn_t)
+                  GetProcAddress(lib, "GetAdaptersAddresses"))) {
+    log_fn(severity, LD_NET, "Unable to obtain pointer to "
+           "GetAdaptersAddresses");
+    goto done;
+  }
+
+  /* Guess how much space we need. */
+  size = 15*1024;
+  addresses = tor_malloc(size);
+  res = fn(AF_UNSPEC, FLAGS, NULL, addresses, &size);
+  if (res == ERROR_BUFFER_OVERFLOW) {
+    /* we didn't guess that we needed enough space; try again */
+    tor_free(addresses);
+    addresses = tor_malloc(size);
+    res = fn(AF_UNSPEC, FLAGS, NULL, addresses, &size);
+  }
+  if (res != NO_ERROR) {
+    log_fn(severity, LD_NET, "GetAdaptersAddresses failed (result: %lu)", res);
+    goto done;
+  }
+
+  result = smartlist_new();
+  for (address = addresses; address; address = address->Next) {
+    IP_ADAPTER_UNICAST_ADDRESS *a;
+    for (a = address->FirstUnicastAddress; a; a = a->Next) {
+      /* Yes, it's a linked list inside a linked list */
+      struct sockaddr *sa = a->Address.lpSockaddr;
+      tor_addr_t tmp;
+      if (sa->sa_family != AF_INET && sa->sa_family != AF_INET6)
+        continue;
+      if (tor_addr_from_sockaddr(&tmp, sa, NULL) < 0)
+        continue;
+      smartlist_add(result, tor_memdup(&tmp, sizeof(tmp)));
+    }
+  }
+
+ done:
+  if (lib)
+    FreeLibrary(lib);
+  tor_free(addresses);
+  return result;
+#elif defined(SIOCGIFCONF) && defined(HAVE_IOCTL)
+  /* Some older unixy systems make us use ioctl(SIOCGIFCONF) */
+  struct ifconf ifc;
+  int fd, i, sz, n;
+  smartlist_t *result = NULL;
+  /* This interface, AFAICT, only supports AF_INET addresses */
+  fd = socket(AF_INET, SOCK_DGRAM, 0);
+  if (fd < 0) {
+    log(severity, LD_NET, "socket failed: %s", strerror(errno));
+    goto done;
+  }
+  /* Guess how much space we need. */
+  ifc.ifc_len = sz = 15*1024;
+  ifc.ifc_ifcu.ifcu_req = tor_malloc(sz);
+  if (ioctl(fd, SIOCGIFCONF, &ifc) < 0) {
+    log(severity, LD_NET, "ioctl failed: %s", strerror(errno));
+    close(fd);
+    goto done;
+  }
+  close(fd);
+  result = smartlist_new();
+  if (ifc.ifc_len < sz)
+    sz = ifc.ifc_len;
+  n = sz / sizeof(struct ifreq);
+  for (i = 0; i < n ; ++i) {
+    struct ifreq *r = &ifc.ifc_ifcu.ifcu_req[i];
+    struct sockaddr *sa = &r->ifr_addr;
+    tor_addr_t tmp;
+    if (sa->sa_family != AF_INET && sa->sa_family != AF_INET6)
+      continue; /* should be impossible */
+    if (tor_addr_from_sockaddr(&tmp, sa, NULL) < 0)
+      continue;
+    smartlist_add(result, tor_memdup(&tmp, sizeof(tmp)));
+  }
+ done:
+  tor_free(ifc.ifc_ifcu.ifcu_req);
+  return result;
+#else
+  (void) severity;
+  return NULL;
+#endif
+}
+
+/** Return true iff <b>a</b> is a multicast address.  */
+static int
+tor_addr_is_multicast(const tor_addr_t *a)
+{
+  sa_family_t family = tor_addr_family(a);
+  if (family == AF_INET) {
+    uint32_t ipv4h = tor_addr_to_ipv4h(a);
+    if ((ipv4h >> 24) == 0xe0)
+      return 1; /* Multicast */
+  } else if (family == AF_INET6) {
+    const uint8_t *a32 = tor_addr_to_in6_addr8(a);
+    if (a32[0] == 0xff)
+      return 1;
+  }
+  return 0;
+}
+
 /** Set *<b>addr</b> to the IP address (if any) of whatever interface
  * connects to the Internet.  This address should only be used in checking
  * whether our address has changed.  Return 0 on success, -1 on failure.
@@ -1063,12 +1278,38 @@ tor_addr_port_parse(const char *s, tor_addr_t *addr_out, uint16_t *port_out)
 int
 get_interface_address6(int severity, sa_family_t family, tor_addr_t *addr)
 {
+  /* XXX really, this function should yield a smartlist of addresses. */
+  smartlist_t *addrs;
   int sock=-1, r=-1;
   struct sockaddr_storage my_addr, target_addr;
   socklen_t addr_len;
-
   tor_assert(addr);
 
+  /* Try to do this the smart way if possible. */
+  if ((addrs = get_interface_addresses_raw(severity))) {
+    int rv = -1;
+    SMARTLIST_FOREACH_BEGIN(addrs, tor_addr_t *, a) {
+      if (family != AF_UNSPEC && family != tor_addr_family(a))
+        continue;
+      if (tor_addr_is_loopback(a) ||
+          tor_addr_is_multicast(a))
+        continue;
+
+      tor_addr_copy(addr, a);
+      rv = 0;
+
+      /* If we found a non-internal address, declare success.  Otherwise,
+       * keep looking. */
+      if (!tor_addr_is_internal(a, 0))
+        break;
+    } SMARTLIST_FOREACH_END(a);
+
+    SMARTLIST_FOREACH(addrs, tor_addr_t *, a, tor_free(a));
+    smartlist_free(addrs);
+    return rv;
+  }
+
+  /* Okay, the smart way is out. */
   memset(addr, 0, sizeof(tor_addr_t));
   memset(&target_addr, 0, sizeof(target_addr));
   /* Don't worry: no packets are sent. We just need to use a real address
@@ -1122,7 +1363,7 @@ get_interface_address6(int severity, sa_family_t family, tor_addr_t *addr)
 
 /* ======
  * IPv4 helpers
- * XXXX023 IPv6 deprecate some of these.
+ * XXXX024 IPv6 deprecate some of these.
  */
 
 /** Return true iff <b>ip</b> (in host order) is an IP reserved to localhost,
@@ -1138,6 +1379,20 @@ is_internal_IP(uint32_t ip, int for_listening)
   return tor_addr_is_internal(&myaddr, for_listening);
 }
 
+/** Given an address of the form "host:port", try to divide it into its host
+ * ane port portions, setting *<b>address_out</b> to a newly allocated string
+ * holding the address portion and *<b>port_out</b> to the port (or 0 if no
+ * port is given).  Return 0 on success, -1 on failure. */
+int
+tor_addr_port_split(int severity, const char *addrport,
+                    char **address_out, uint16_t *port_out)
+{
+  tor_assert(addrport);
+  tor_assert(address_out);
+  tor_assert(port_out);
+  return addr_port_lookup(severity, addrport, address_out, NULL, port_out);
+}
+
 /** Parse a string of the form "host[:port]" from <b>addrport</b>.  If
  * <b>address</b> is provided, set *<b>address</b> to a copy of the
  * host portion of the string.  If <b>addr</b> is provided, try to
@@ -1149,7 +1404,7 @@ is_internal_IP(uint32_t ip, int for_listening)
  * Return 0 on success, -1 on failure.
  */
 int
-parse_addr_port(int severity, const char *addrport, char **address,
+addr_port_lookup(int severity, const char *addrport, char **address,
                 uint32_t *addr, uint16_t *port_out)
 {
   const char *colon;
@@ -1159,7 +1414,7 @@ parse_addr_port(int severity, const char *addrport, char **address,
 
   tor_assert(addrport);
 
-  colon = strchr(addrport, ':');
+  colon = strrchr(addrport, ':');
   if (colon) {
     _address = tor_strndup(addrport, colon-addrport);
     _port = (int) tor_parse_long(colon+1,10,1,65535,NULL,NULL);
@@ -1271,7 +1526,7 @@ parse_port_range(const char *port, uint16_t *port_min_out,
     } else if (endptr && *endptr == '-') {
       port = endptr+1;
       endptr = NULL;
-      port_max = (int)tor_parse_long(port, 10, 1, 65536, &ok, &endptr);
+      port_max = (int)tor_parse_long(port, 10, 1, 65535, &ok, &endptr);
       if (!ok) {
         log_warn(LD_GENERAL,
                  "Malformed port %s on address range; rejecting.",
@@ -1430,5 +1685,15 @@ get_interface_address(int severity, uint32_t *addr)
   if (r>=0)
     *addr = tor_addr_to_ipv4h(&local_addr);
   return r;
+}
+
+/** Return true if we can tell that <b>name</b> is a canonical name for the
+ * loopback address. */
+int
+tor_addr_hostname_is_local(const char *name)
+{
+  return !strcasecmp(name, "localhost") ||
+    !strcasecmp(name, "local") ||
+    !strcasecmpend(name, ".local");
 }
 

@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: StatusBarView.m 13536 2012-09-26 16:55:34Z livings124 $
+ * $Id: StatusBarView.m 13563 2012-10-14 17:33:23Z livings124 $
  * 
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -42,7 +42,6 @@
         NSColor * darkColor = [NSColor colorWithCalibratedRed: 155.0/255.0 green: 155.0/255.0 blue: 155.0/255.0 alpha: 1.0];
         fGradient = [[NSGradient alloc] initWithStartingColor: lightColor endingColor: darkColor];
         
-        //noise only for 10.7 + 
         if([NSApp isOnLionOrBetter])
         {
             CIFilter * randomFilter = [CIFilter filterWithName: @"CIRandomGenerator"];

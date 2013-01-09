@@ -114,7 +114,7 @@ $(EXEC): $(OBJS) $(HDRS)
 	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LDLIBS)
 
 $(CONTROL_EXEC): $(CONTROL_SRCS)
-	$(CC) $(CONTROL_SRCS) -o $@
+	$(CC) $(LDFLAGS) $(CONTROL_SRCS) -o $@
 
 pfc:
 	$(CC) $(CFLAGS) -c contrib/pfc.c

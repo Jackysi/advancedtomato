@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -13,7 +13,7 @@
 #define _TOR_RENDSERVICE_H
 
 int num_rend_services(void);
-int rend_config_services(or_options_t *options, int validate_only);
+int rend_config_services(const or_options_t *options, int validate_only);
 int rend_service_load_keys(void);
 void rend_services_introduce(void);
 void rend_consider_services_upload(time_t now);

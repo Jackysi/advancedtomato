@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -22,9 +22,6 @@
 #include "../common/torlog.h"
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
-#endif
-#ifdef HAVE_SYS_UIO_H
-#include <sys/uio.h>
 #endif
 
 //#define PARANOIA
@@ -56,6 +53,13 @@
  * forever.
  */
 
+static int parse_socks(const char *data, size_t datalen, socks_request_t *req,
+                       int log_sockstype, int safe_socks, ssize_t *drain_out,
+                       size_t *want_length_out);
+static int parse_socks_client(const uint8_t *data, size_t datalen,
+                              int state, char **reason,
+                              ssize_t *drain_out);
+
 /* Chunk manipulation functions */
 
 /** A single chunk on a buffer or in a freelist. */
@@ -64,8 +68,8 @@ typedef struct chunk_t {
   size_t datalen; /**< The number of bytes stored in this chunk */
   size_t memlen; /**< The number of usable bytes of storage in <b>mem</b>. */
   char *data; /**< A pointer to the first byte of data stored in <b>mem</b>. */
-  char mem[1]; /**< The actual memory used for storage in this chunk. May be
-                * more than one byte long. */
+  char mem[FLEXIBLE_ARRAY_MEMBER]; /**< The actual memory used for storage in
+                * this chunk. */
 } chunk_t;
 
 #define CHUNK_HEADER_LEN STRUCT_OFFSET(chunk_t, mem[0])
@@ -104,7 +108,7 @@ chunk_repack(chunk_t *chunk)
   chunk->data = &chunk->mem[0];
 }
 
-#ifdef ENABLE_BUF_FREELISTS
+#if defined(ENABLE_BUF_FREELISTS) || defined(RUNNING_DOXYGEN)
 /** A freelist of chunks. */
 typedef struct chunk_freelist_t {
   size_t alloc_size; /**< What size chunks does this freelist hold? */
@@ -548,9 +552,43 @@ buf_free(buf_t *buf)
 {
   if (!buf)
     return;
+
   buf_clear(buf);
   buf->magic = 0xdeadbeef;
   tor_free(buf);
+}
+
+/** Return a new copy of <b>in_chunk</b> */
+static chunk_t *
+chunk_copy(const chunk_t *in_chunk)
+{
+  chunk_t *newch = tor_memdup(in_chunk, CHUNK_ALLOC_SIZE(in_chunk->memlen));
+  newch->next = NULL;
+  if (in_chunk->data) {
+    off_t offset = in_chunk->data - in_chunk->mem;
+    newch->data = newch->mem + offset;
+  }
+  return newch;
+}
+
+/** Return a new copy of <b>buf</b> */
+buf_t *
+buf_copy(const buf_t *buf)
+{
+  chunk_t *ch;
+  buf_t *out = buf_new();
+  out->default_chunk_size = buf->default_chunk_size;
+  for (ch = buf->head; ch; ch = ch->next) {
+    chunk_t *newch = chunk_copy(ch);
+    if (out->tail) {
+      out->tail->next = newch;
+      out->tail = newch;
+    } else {
+      out->head = out->tail = newch;
+    }
+  }
+  out->datalen = buf->datalen;
+  return out;
 }
 
 /** Append a new chunk with enough capacity to hold <b>capacity</b> bytes to
@@ -579,10 +617,6 @@ buf_add_chunk_with_capacity(buf_t *buf, size_t capacity, int capped)
   return chunk;
 }
 
-/** If we're using readv and writev, how many chunks are we willing to
- * read/write at a time? */
-#define N_IOV 3
-
 /** Read up to <b>at_most</b> bytes from the socket <b>fd</b> into
  * <b>chunk</b> (which must be on <b>buf</b>). If we get an EOF, set
  * *<b>reached_eof</b> to 1.  Return -1 on error, 0 on eof or blocking,
@@ -592,30 +626,14 @@ read_to_chunk(buf_t *buf, chunk_t *chunk, tor_socket_t fd, size_t at_most,
               int *reached_eof, int *socket_error)
 {
   ssize_t read_result;
-#if 0 && defined(HAVE_READV) && !defined(WIN32)
-  struct iovec iov[N_IOV];
-  int i;
-  size_t remaining = at_most;
-  for (i=0; chunk && i < N_IOV && remaining; ++i) {
-    iov[i].iov_base = CHUNK_WRITE_PTR(chunk);
-    if (remaining > CHUNK_REMAINING_CAPACITY(chunk))
-      iov[i].iov_len = CHUNK_REMAINING_CAPACITY(chunk);
-    else
-      iov[i].iov_len = remaining;
-    remaining -= iov[i].iov_len;
-    chunk = chunk->next;
-  }
-  read_result = readv(fd, iov, i);
-#else
   if (at_most > CHUNK_REMAINING_CAPACITY(chunk))
     at_most = CHUNK_REMAINING_CAPACITY(chunk);
   read_result = tor_socket_recv(fd, CHUNK_WRITE_PTR(chunk), at_most, 0);
-#endif
 
   if (read_result < 0) {
     int e = tor_socket_errno(fd);
     if (!ERRNO_IS_EAGAIN(e)) { /* it's a real error */
-#ifdef MS_WINDOWS
+#ifdef _WIN32
       if (e == WSAENOBUFS)
         log_warn(LD_NET,"recv() failed: WSAENOBUFS. Not enough ram?");
 #endif
@@ -629,14 +647,6 @@ read_to_chunk(buf_t *buf, chunk_t *chunk, tor_socket_t fd, size_t at_most,
     return 0;
   } else { /* actually got bytes. */
     buf->datalen += read_result;
-#if 0 && defined(HAVE_READV) && !defined(WIN32)
-    while ((size_t)read_result > CHUNK_REMAINING_CAPACITY(chunk)) {
-      chunk->datalen += CHUNK_REMAINING_CAPACITY(chunk);
-      read_result -= CHUNK_REMAINING_CAPACITY(chunk);
-      chunk = chunk->next;
-      tor_assert(chunk);
-    }
-#endif
     chunk->datalen += read_result;
     log_debug(LD_NET,"Read %ld bytes. %d on inbuf.", (long)read_result,
               (int)buf->datalen);
@@ -667,12 +677,12 @@ read_to_chunk_tls(buf_t *buf, chunk_t *chunk, tor_tls_t *tls,
  * (because of EOF), set *<b>reached_eof</b> to 1 and return 0. Return -1 on
  * error; else return the number of bytes read.
  */
-/* XXXX023 indicate "read blocked" somehow? */
+/* XXXX024 indicate "read blocked" somehow? */
 int
 read_to_buf(tor_socket_t s, size_t at_most, buf_t *buf, int *reached_eof,
             int *socket_error)
 {
-  /* XXXX023 It's stupid to overload the return values for these functions:
+  /* XXXX024 It's stupid to overload the return values for these functions:
    * "error status" and "number of bytes read" are not mutually exclusive.
    */
   int r = 0;
@@ -680,7 +690,7 @@ read_to_buf(tor_socket_t s, size_t at_most, buf_t *buf, int *reached_eof,
 
   check();
   tor_assert(reached_eof);
-  tor_assert(s >= 0);
+  tor_assert(SOCKET_OK(s));
 
   while (at_most > total_read) {
     size_t readlen = at_most - total_read;
@@ -734,6 +744,9 @@ read_to_buf_tls(tor_tls_t *tls, size_t at_most, buf_t *buf)
 {
   int r = 0;
   size_t total_read = 0;
+
+  check_no_tls_errors();
+
   check();
 
   while (at_most > total_read) {
@@ -772,30 +785,15 @@ flush_chunk(tor_socket_t s, buf_t *buf, chunk_t *chunk, size_t sz,
             size_t *buf_flushlen)
 {
   ssize_t write_result;
-#if 0 && defined(HAVE_WRITEV) && !defined(WIN32)
-  struct iovec iov[N_IOV];
-  int i;
-  size_t remaining = sz;
-  for (i=0; chunk && i < N_IOV && remaining; ++i) {
-    iov[i].iov_base = chunk->data;
-    if (remaining > chunk->datalen)
-      iov[i].iov_len = chunk->datalen;
-    else
-      iov[i].iov_len = remaining;
-    remaining -= iov[i].iov_len;
-    chunk = chunk->next;
-  }
-  write_result = writev(s, iov, i);
-#else
+
   if (sz > chunk->datalen)
     sz = chunk->datalen;
   write_result = tor_socket_send(s, chunk->data, sz, 0);
-#endif
 
   if (write_result < 0) {
     int e = tor_socket_errno(s);
     if (!ERRNO_IS_EAGAIN(e)) { /* it's a real error */
-#ifdef MS_WINDOWS
+#ifdef _WIN32
       if (e == WSAENOBUFS)
         log_warn(LD_NET,"write() failed: WSAENOBUFS. Not enough ram?");
 #endif
@@ -857,13 +855,13 @@ flush_chunk_tls(tor_tls_t *tls, buf_t *buf, chunk_t *chunk,
 int
 flush_buf(tor_socket_t s, buf_t *buf, size_t sz, size_t *buf_flushlen)
 {
-  /* XXXX023 It's stupid to overload the return values for these functions:
+  /* XXXX024 It's stupid to overload the return values for these functions:
    * "error status" and "number of bytes flushed" are not mutually exclusive.
    */
   int r;
   size_t flushed = 0;
   tor_assert(buf_flushlen);
-  tor_assert(s >= 0);
+  tor_assert(SOCKET_OK(s));
   tor_assert(*buf_flushlen <= buf->datalen);
   tor_assert(sz <= *buf_flushlen);
 
@@ -1011,6 +1009,33 @@ fetch_from_buf(char *string, size_t string_len, buf_t *buf)
   return (int)buf->datalen;
 }
 
+/** True iff the cell command <b>command</b> is one that implies a
+ * variable-length cell in Tor link protocol <b>linkproto</b>. */
+static INLINE int
+cell_command_is_var_length(uint8_t command, int linkproto)
+{
+  /* If linkproto is v2 (2), CELL_VERSIONS is the only variable-length cells
+   * work as implemented here. If it's 1, there are no variable-length cells.
+   * Tor does not support other versions right now, and so can't negotiate
+   * them.
+   */
+  switch (linkproto) {
+  case 1:
+    /* Link protocol version 1 has no variable-length cells. */
+    return 0;
+  case 2:
+    /* In link protocol version 2, VERSIONS is the only variable-length cell */
+    return command == CELL_VERSIONS;
+  case 0:
+  case 3:
+  default:
+    /* In link protocol version 3 and later, and in version "unknown",
+     * commands 128 and higher indicate variable-length. VERSIONS is
+     * grandfathered in. */
+    return command == CELL_VERSIONS || command >= 128;
+  }
+}
+
 /** Check <b>buf</b> for a variable-length cell according to the rules of link
  * protocol version <b>linkproto</b>.  If one is found, pull it off the buffer
  * and assign a newly allocated var_cell_t to *<b>out</b>, and return 1.
@@ -1025,12 +1050,6 @@ fetch_var_cell_from_buf(buf_t *buf, var_cell_t **out, int linkproto)
   var_cell_t *result;
   uint8_t command;
   uint16_t length;
-  /* If linkproto is unknown (0) or v2 (2), variable-length cells work as
-   * implemented here. If it's 1, there are no variable-length cells.  Tor
-   * does not support other versions right now, and so can't negotiate them.
-   */
-  if (linkproto == 1)
-    return 0;
   check();
   *out = NULL;
   if (buf->datalen < VAR_CELL_HEADER_SIZE)
@@ -1038,7 +1057,7 @@ fetch_var_cell_from_buf(buf_t *buf, var_cell_t **out, int linkproto)
   peek_from_buf(hdr, sizeof(hdr), buf);
 
   command = get_uint8(hdr+2);
-  if (!(CELL_COMMAND_IS_VAR_LENGTH(command)))
+  if (!(cell_command_is_var_length(command, linkproto)))
     return 0;
 
   length = ntohs(get_uint16(hdr+3));
@@ -1057,6 +1076,91 @@ fetch_var_cell_from_buf(buf_t *buf, var_cell_t **out, int linkproto)
   return 1;
 }
 
+#ifdef USE_BUFFEREVENTS
+/** Try to read <b>n</b> bytes from <b>buf</b> at <b>pos</b> (which may be
+ * NULL for the start of the buffer), copying the data only if necessary.  Set
+ * *<b>data_out</b> to a pointer to the desired bytes.  Set <b>free_out</b>
+ * to 1 if we needed to malloc *<b>data</b> because the original bytes were
+ * noncontiguous; 0 otherwise.  Return the number of bytes actually available
+ * at *<b>data_out</b>.
+ */
+static ssize_t
+inspect_evbuffer(struct evbuffer *buf, char **data_out, size_t n,
+                 int *free_out, struct evbuffer_ptr *pos)
+{
+  int n_vecs, i;
+
+  if (evbuffer_get_length(buf) < n)
+    n = evbuffer_get_length(buf);
+  if (n == 0)
+    return 0;
+  n_vecs = evbuffer_peek(buf, n, pos, NULL, 0);
+  tor_assert(n_vecs > 0);
+  if (n_vecs == 1) {
+    struct evbuffer_iovec v;
+    i = evbuffer_peek(buf, n, pos, &v, 1);
+    tor_assert(i == 1);
+    *data_out = v.iov_base;
+    *free_out = 0;
+    return v.iov_len;
+  } else {
+    ev_ssize_t copied;
+    *data_out = tor_malloc(n);
+    *free_out = 1;
+    copied = evbuffer_copyout(buf, *data_out, n);
+    tor_assert(copied >= 0 && (size_t)copied == n);
+    return copied;
+  }
+}
+
+/** As fetch_var_cell_from_buf, buf works on an evbuffer. */
+int
+fetch_var_cell_from_evbuffer(struct evbuffer *buf, var_cell_t **out,
+                             int linkproto)
+{
+  char *hdr = NULL;
+  int free_hdr = 0;
+  size_t n;
+  size_t buf_len;
+  uint8_t command;
+  uint16_t cell_length;
+  var_cell_t *cell;
+  int result = 0;
+
+  *out = NULL;
+  buf_len = evbuffer_get_length(buf);
+  if (buf_len < VAR_CELL_HEADER_SIZE)
+    return 0;
+
+  n = inspect_evbuffer(buf, &hdr, VAR_CELL_HEADER_SIZE, &free_hdr, NULL);
+  tor_assert(n >= VAR_CELL_HEADER_SIZE);
+
+  command = get_uint8(hdr+2);
+  if (!(cell_command_is_var_length(command, linkproto))) {
+    goto done;
+  }
+
+  cell_length = ntohs(get_uint16(hdr+3));
+  if (buf_len < (size_t)(VAR_CELL_HEADER_SIZE+cell_length)) {
+    result = 1; /* Not all here yet. */
+    goto done;
+  }
+
+  cell = var_cell_new(cell_length);
+  cell->command = command;
+  cell->circ_id = ntohs(get_uint16(hdr));
+  evbuffer_drain(buf, VAR_CELL_HEADER_SIZE);
+  evbuffer_remove(buf, cell->payload, cell_length);
+  *out = cell;
+  result = 1;
+
+ done:
+  if (free_hdr && hdr)
+    tor_free(hdr);
+  return result;
+}
+#endif
+
 /** Move up to *<b>buf_flushlen</b> bytes from <b>buf_in</b> to
  * <b>buf_out</b>, and modify *<b>buf_flushlen</b> appropriately.
  * Return the number of bytes actually copied.
@@ -1064,8 +1168,7 @@ fetch_var_cell_from_buf(buf_t *buf, var_cell_t **out, int linkproto)
 int
 move_buf_to_buf(buf_t *buf_out, buf_t *buf_in, size_t *buf_flushlen)
 {
-  /* XXXX we can do way better here, but this doesn't turn up in any
-   * profiles. */
+  /* We can do way better here, but this doesn't turn up in any profiles. */
   char b[4096];
   size_t cp, len;
   len = *buf_flushlen;
@@ -1300,6 +1403,94 @@ fetch_from_buf_http(buf_t *buf,
   return 1;
 }
 
+#ifdef USE_BUFFEREVENTS
+/** As fetch_from_buf_http, buf works on an evbuffer. */
+int
+fetch_from_evbuffer_http(struct evbuffer *buf,
+                    char **headers_out, size_t max_headerlen,
+                    char **body_out, size_t *body_used, size_t max_bodylen,
+                    int force_complete)
+{
+  struct evbuffer_ptr crlf, content_length;
+  size_t headerlen, bodylen, contentlen;
+
+  /* Find the first \r\n\r\n in the buffer */
+  crlf = evbuffer_search(buf, "\r\n\r\n", 4, NULL);
+  if (crlf.pos < 0) {
+    /* We didn't find one. */
+    if (evbuffer_get_length(buf) > max_headerlen)
+      return -1; /* Headers too long. */
+    return 0; /* Headers not here yet. */
+  } else if (crlf.pos > (int)max_headerlen) {
+    return -1; /* Headers too long. */
+  }
+
+  headerlen = crlf.pos + 4;  /* Skip over the \r\n\r\n */
+  bodylen = evbuffer_get_length(buf) - headerlen;
+  if (bodylen > max_bodylen)
+    return -1; /* body too long */
+
+  /* Look for the first occurrence of CONTENT_LENGTH insize buf before the
+   * crlfcrlf */
+  content_length = evbuffer_search_range(buf, CONTENT_LENGTH,
+                                         strlen(CONTENT_LENGTH), NULL, &crlf);
+
+  if (content_length.pos >= 0) {
+    /* We found a content_length: parse it and figure out if the body is here
+     * yet. */
+    struct evbuffer_ptr eol;
+    char *data = NULL;
+    int free_data = 0;
+    int n, i;
+    n = evbuffer_ptr_set(buf, &content_length, strlen(CONTENT_LENGTH),
+                         EVBUFFER_PTR_ADD);
+    tor_assert(n == 0);
+    eol = evbuffer_search_eol(buf, &content_length, NULL, EVBUFFER_EOL_CRLF);
+    tor_assert(eol.pos > content_length.pos);
+    tor_assert(eol.pos <= crlf.pos);
+    inspect_evbuffer(buf, &data, eol.pos - content_length.pos, &free_data,
+                         &content_length);
+
+    i = atoi(data);
+    if (free_data)
+      tor_free(data);
+    if (i < 0) {
+      log_warn(LD_PROTOCOL, "Content-Length is less than zero; it looks like "
+               "someone is trying to crash us.");
+      return -1;
+    }
+    contentlen = i;
+    /* if content-length is malformed, then our body length is 0. fine. */
+    log_debug(LD_HTTP,"Got a contentlen of %d.",(int)contentlen);
+    if (bodylen < contentlen) {
+      if (!force_complete) {
+        log_debug(LD_HTTP,"body not all here yet.");
+        return 0; /* not all there yet */
+      }
+    }
+    if (bodylen > contentlen) {
+      bodylen = contentlen;
+      log_debug(LD_HTTP,"bodylen reduced to %d.",(int)bodylen);
+    }
+  }
+
+  if (headers_out) {
+    *headers_out = tor_malloc(headerlen+1);
+    evbuffer_remove(buf, *headers_out, headerlen);
+    (*headers_out)[headerlen] = '\0';
+  }
+  if (body_out) {
+    tor_assert(headers_out);
+    tor_assert(body_used);
+    *body_used = bodylen;
+    *body_out = tor_malloc(bodylen+1);
+    evbuffer_remove(buf, *body_out, bodylen);
+    (*body_out)[bodylen] = '\0';
+  }
+  return 1;
+}
+#endif
+
 /**
  * Wait this many seconds before warning the user about using SOCKS unsafely
  * again (requires that WarnUnsafeSocks is turned on). */
@@ -1314,7 +1505,7 @@ log_unsafe_socks_warning(int socks_protocol, const char *address,
 {
   static ratelim_t socks_ratelim = RATELIM_INIT(SOCKS_WARN_INTERVAL);
 
-  or_options_t *options = get_options();
+  const or_options_t *options = get_options();
   char *m = NULL;
   if (! options->WarnUnsafeSocks)
     return;
@@ -1340,6 +1531,31 @@ log_unsafe_socks_warning(int socks_protocol, const char *address,
 /** Do not attempt to parse socks messages longer than this.  This value is
  * actually significantly higher than the longest possible socks message. */
 #define MAX_SOCKS_MESSAGE_LEN 512
+
+/** Return a new socks_request_t. */
+socks_request_t *
+socks_request_new(void)
+{
+  return tor_malloc_zero(sizeof(socks_request_t));
+}
+
+/** Free all storage held in the socks_request_t <b>req</b>. */
+void
+socks_request_free(socks_request_t *req)
+{
+  if (!req)
+    return;
+  if (req->username) {
+    memwipe(req->username, 0x10, req->usernamelen);
+    tor_free(req->username);
+  }
+  if (req->password) {
+    memwipe(req->password, 0x04, req->passwordlen);
+    tor_free(req->password);
+  }
+  memwipe(req, 0xCC, sizeof(socks_request_t));
+  tor_free(req);
+}
 
 /** There is a (possibly incomplete) socks handshake on <b>buf</b>, of one
  * of the forms
@@ -1370,59 +1586,241 @@ int
 fetch_from_buf_socks(buf_t *buf, socks_request_t *req,
                      int log_sockstype, int safe_socks)
 {
+  int res;
+  ssize_t n_drain;
+  size_t want_length = 128;
+
+  if (buf->datalen < 2) /* version and another byte */
+    return 0;
+
+  do {
+    n_drain = 0;
+    buf_pullup(buf, want_length, 0);
+    tor_assert(buf->head && buf->head->datalen >= 2);
+    want_length = 0;
+
+    res = parse_socks(buf->head->data, buf->head->datalen, req, log_sockstype,
+                      safe_socks, &n_drain, &want_length);
+
+    if (n_drain < 0)
+      buf_clear(buf);
+    else if (n_drain > 0)
+      buf_remove_from_front(buf, n_drain);
+
+  } while (res == 0 && buf->head && want_length < buf->datalen &&
+           buf->datalen >= 2);
+
+  return res;
+}
+
+#ifdef USE_BUFFEREVENTS
+/* As fetch_from_buf_socks(), but targets an evbuffer instead. */
+int
+fetch_from_evbuffer_socks(struct evbuffer *buf, socks_request_t *req,
+                          int log_sockstype, int safe_socks)
+{
+  char *data;
+  ssize_t n_drain;
+  size_t datalen, buflen, want_length;
+  int res;
+
+  buflen = evbuffer_get_length(buf);
+  if (buflen < 2)
+    return 0;
+
+  {
+    /* See if we can find the socks request in the first chunk of the buffer.
+     */
+    struct evbuffer_iovec v;
+    int i;
+    n_drain = 0;
+    i = evbuffer_peek(buf, -1, NULL, &v, 1);
+    tor_assert(i == 1);
+    data = v.iov_base;
+    datalen = v.iov_len;
+    want_length = 0;
+
+    res = parse_socks(data, datalen, req, log_sockstype,
+                      safe_socks, &n_drain, &want_length);
+
+    if (n_drain < 0)
+      evbuffer_drain(buf, evbuffer_get_length(buf));
+    else if (n_drain > 0)
+      evbuffer_drain(buf, n_drain);
+
+    if (res)
+      return res;
+  }
+
+  /* Okay, the first chunk of the buffer didn't have a complete socks request.
+   * That means that either we don't have a whole socks request at all, or
+   * it's gotten split up.  We're going to try passing parse_socks() bigger
+   * and bigger chunks until either it says "Okay, I got it", or it says it
+   * will need more data than we currently have. */
+
+  /* Loop while we have more data that we haven't given parse_socks() yet. */
+  do {
+    int free_data = 0;
+    const size_t last_wanted = want_length;
+    n_drain = 0;
+    data = NULL;
+    datalen = inspect_evbuffer(buf, &data, want_length, &free_data, NULL);
+
+    want_length = 0;
+    res = parse_socks(data, datalen, req, log_sockstype,
+                      safe_socks, &n_drain, &want_length);
+
+    if (free_data)
+      tor_free(data);
+
+    if (n_drain < 0)
+      evbuffer_drain(buf, evbuffer_get_length(buf));
+    else if (n_drain > 0)
+      evbuffer_drain(buf, n_drain);
+
+    if (res == 0 && n_drain == 0 && want_length <= last_wanted) {
+      /* If we drained nothing, and we didn't ask for more than last time,
+       * then we probably wanted more data than the buffer actually had,
+       * and we're finding out that we're not satisified with it. It's
+       * time to break until we have more data. */
+      break;
+    }
+
+    buflen = evbuffer_get_length(buf);
+  } while (res == 0 && want_length <= buflen && buflen >= 2);
+
+  return res;
+}
+#endif
+
+/** Implementation helper to implement fetch_from_*_socks.  Instead of looking
+ * at a buffer's contents, we look at the <b>datalen</b> bytes of data in
+ * <b>data</b>. Instead of removing data from the buffer, we set
+ * <b>drain_out</b> to the amount of data that should be removed (or -1 if the
+ * buffer should be cleared).  Instead of pulling more data into the first
+ * chunk of the buffer, we set *<b>want_length_out</b> to the number of bytes
+ * we'd like to see in the input buffer, if they're available. */
+static int
+parse_socks(const char *data, size_t datalen, socks_request_t *req,
+            int log_sockstype, int safe_socks, ssize_t *drain_out,
+            size_t *want_length_out)
+{
   unsigned int len;
   char tmpbuf[TOR_ADDR_BUF_LEN+1];
   tor_addr_t destaddr;
   uint32_t destip;
   uint8_t socksver;
-  enum {socks4, socks4a} socks4_prot = socks4a;
   char *next, *startaddr;
+  unsigned char usernamelen, passlen;
   struct in_addr in;
 
-  if (buf->datalen < 2) /* version and another byte */
+  if (datalen < 2) {
+    /* We always need at least 2 bytes. */
+    *want_length_out = 2;
     return 0;
+  }
 
-  buf_pullup(buf, MAX_SOCKS_MESSAGE_LEN, 0);
-  tor_assert(buf->head && buf->head->datalen >= 2);
+  if (req->socks_version == 5 && !req->got_auth) {
+    /* See if we have received authentication.  Strictly speaking, we should
+       also check whether we actually negotiated username/password
+       authentication.  But some broken clients will send us authentication
+       even if we negotiated SOCKS_NO_AUTH. */
+    if (*data == 1) { /* username/pass version 1 */
+      /* Format is: authversion [1 byte] == 1
+                    usernamelen [1 byte]
+                    username    [usernamelen bytes]
+                    passlen     [1 byte]
+                    password    [passlen bytes] */
+      usernamelen = (unsigned char)*(data + 1);
+      if (datalen < 2u + usernamelen + 1u) {
+        *want_length_out = 2u + usernamelen + 1u;
+        return 0;
+      }
+      passlen = (unsigned char)*(data + 2u + usernamelen);
+      if (datalen < 2u + usernamelen + 1u + passlen) {
+        *want_length_out = 2u + usernamelen + 1u + passlen;
+        return 0;
+      }
+      req->replylen = 2; /* 2 bytes of response */
+      req->reply[0] = 5;
+      req->reply[1] = 0; /* authentication successful */
+      log_debug(LD_APP,
+               "socks5: Accepted username/password without checking.");
+      if (usernamelen) {
+        req->username = tor_memdup(data+2u, usernamelen);
+        req->usernamelen = usernamelen;
+      }
+      if (passlen) {
+        req->password = tor_memdup(data+3u+usernamelen, passlen);
+        req->passwordlen = passlen;
+      }
+      *drain_out = 2u + usernamelen + 1u + passlen;
+      req->got_auth = 1;
+      *want_length_out = 7; /* Minimal socks5 sommand. */
+      return 0;
+    } else if (req->auth_type == SOCKS_USER_PASS) {
+      /* unknown version byte */
+      log_warn(LD_APP, "Socks5 username/password version %d not recognized; "
+               "rejecting.", (int)*data);
+      return -1;
+    }
+  }
 
-  socksver = *buf->head->data;
+  socksver = *data;
 
   switch (socksver) { /* which version of socks? */
-
     case 5: /* socks5 */
 
       if (req->socks_version != 5) { /* we need to negotiate a method */
-        unsigned char nummethods = (unsigned char)*(buf->head->data+1);
+        unsigned char nummethods = (unsigned char)*(data+1);
+        int r=0;
         tor_assert(!req->socks_version);
-        if (buf->datalen < 2u+nummethods)
+        if (datalen < 2u+nummethods) {
+          *want_length_out = 2u+nummethods;
           return 0;
-        buf_pullup(buf, 2u+nummethods, 0);
-        if (!nummethods || !memchr(buf->head->data+2, 0, nummethods)) {
-          log_warn(LD_APP,
-                   "socks5: offered methods don't include 'no auth'. "
-                   "Rejecting.");
-          req->replylen = 2; /* 2 bytes of response */
-          req->reply[0] = 5;
-          req->reply[1] = '\xFF'; /* reject all methods */
-          return -1;
         }
-        /* remove packet from buf. also remove any other extraneous
-         * bytes, to support broken socks clients. */
-        buf_clear(buf);
-
+        if (!nummethods)
+          return -1;
         req->replylen = 2; /* 2 bytes of response */
         req->reply[0] = 5; /* socks5 reply */
-        req->reply[1] = 0; /* tell client to use "none" auth method */
-        req->socks_version = 5; /* remember we've already negotiated auth */
-        log_debug(LD_APP,"socks5: accepted method 0");
-        return 0;
+        if (memchr(data+2, SOCKS_NO_AUTH, nummethods)) {
+          req->reply[1] = SOCKS_NO_AUTH; /* tell client to use "none" auth
+                                            method */
+          req->socks_version = 5; /* remember we've already negotiated auth */
+          log_debug(LD_APP,"socks5: accepted method 0 (no authentication)");
+          r=0;
+        } else if (memchr(data+2, SOCKS_USER_PASS, nummethods)) {
+          req->auth_type = SOCKS_USER_PASS;
+          req->reply[1] = SOCKS_USER_PASS; /* tell client to use "user/pass"
+                                              auth method */
+          req->socks_version = 5; /* remember we've already negotiated auth */
+          log_debug(LD_APP,"socks5: accepted method 2 (username/password)");
+          r=0;
+        } else {
+          log_warn(LD_APP,
+                    "socks5: offered methods don't include 'no auth' or "
+                    "username/password. Rejecting.");
+          req->reply[1] = '\xFF'; /* reject all methods */
+          r=-1;
+        }
+        /* Remove packet from buf. Some SOCKS clients will have sent extra
+         * junk at this point; let's hope it's an authentication message. */
+        *drain_out = 2u + nummethods;
+
+        return r;
+      }
+      if (req->auth_type != SOCKS_NO_AUTH && !req->got_auth) {
+        log_warn(LD_APP,
+                 "socks5: negotiated authentication, but none provided");
+        return -1;
       }
       /* we know the method; read in the request */
       log_debug(LD_APP,"socks5: checking request");
-      if (buf->datalen < 8) /* basic info plus >=2 for addr plus 2 for port */
+      if (datalen < 7) {/* basic info plus >=1 for addr plus 2 for port */
+        *want_length_out = 7;
         return 0; /* not yet */
-      tor_assert(buf->head->datalen >= 8);
-      req->command = (unsigned char) *(buf->head->data+1);
+      }
+      req->command = (unsigned char) *(data+1);
       if (req->command != SOCKS_COMMAND_CONNECT &&
           req->command != SOCKS_COMMAND_RESOLVE &&
           req->command != SOCKS_COMMAND_RESOLVE_PTR) {
@@ -1431,19 +1829,21 @@ fetch_from_buf_socks(buf_t *buf, socks_request_t *req,
                  req->command);
         return -1;
       }
-      switch (*(buf->head->data+3)) { /* address type */
+      switch (*(data+3)) { /* address type */
         case 1: /* IPv4 address */
         case 4: /* IPv6 address */ {
-          const int is_v6 = *(buf->head->data+3) == 4;
+          const int is_v6 = *(data+3) == 4;
           const unsigned addrlen = is_v6 ? 16 : 4;
           log_debug(LD_APP,"socks5: ipv4 address type");
-          if (buf->datalen < 6+addrlen) /* ip/port there? */
+          if (datalen < 6+addrlen) {/* ip/port there? */
+            *want_length_out = 6+addrlen;
             return 0; /* not yet */
+          }
 
           if (is_v6)
-            tor_addr_from_ipv6_bytes(&destaddr, buf->head->data+4);
+            tor_addr_from_ipv6_bytes(&destaddr, data+4);
           else
-            tor_addr_from_ipv4n(&destaddr, get_uint32(buf->head->data+4));
+            tor_addr_from_ipv4n(&destaddr, get_uint32(data+4));
 
           tor_addr_to_str(tmpbuf, &destaddr, sizeof(tmpbuf), 1);
 
@@ -1455,8 +1855,8 @@ fetch_from_buf_socks(buf_t *buf, socks_request_t *req,
             return -1;
           }
           strlcpy(req->address,tmpbuf,sizeof(req->address));
-          req->port = ntohs(get_uint16(buf->head->data+4+addrlen));
-          buf_remove_from_front(buf, 6+addrlen);
+          req->port = ntohs(get_uint16(data+4+addrlen));
+          *drain_out = 6+addrlen;
           if (req->command != SOCKS_COMMAND_RESOLVE_PTR &&
               !addressmap_have_mapping(req->address,0)) {
             log_unsafe_socks_warning(5, req->address, req->port, safe_socks);
@@ -1472,21 +1872,21 @@ fetch_from_buf_socks(buf_t *buf, socks_request_t *req,
                      "hostname type. Rejecting.");
             return -1;
           }
-          len = (unsigned char)*(buf->head->data+4);
-          if (buf->datalen < 7+len) /* addr/port there? */
+          len = (unsigned char)*(data+4);
+          if (datalen < 7+len) { /* addr/port there? */
+            *want_length_out = 7+len;
             return 0; /* not yet */
-          buf_pullup(buf, 7+len, 0);
-          tor_assert(buf->head->datalen >= 7+len);
+          }
           if (len+1 > MAX_SOCKS_ADDR_LEN) {
             log_warn(LD_APP,
                      "socks5 hostname is %d bytes, which doesn't fit in "
                      "%d. Rejecting.", len+1,MAX_SOCKS_ADDR_LEN);
             return -1;
           }
-          memcpy(req->address,buf->head->data+5,len);
+          memcpy(req->address,data+5,len);
           req->address[len] = 0;
-          req->port = ntohs(get_uint16(buf->head->data+5+len));
-          buf_remove_from_front(buf, 5+len+2);
+          req->port = ntohs(get_uint16(data+5+len));
+          *drain_out = 5+len+2;
           if (!tor_strisprint(req->address) || strchr(req->address,'\"')) {
             log_warn(LD_PROTOCOL,
                      "Your application (using socks5 to port %d) gave Tor "
@@ -1496,25 +1896,29 @@ fetch_from_buf_socks(buf_t *buf, socks_request_t *req,
           }
           if (log_sockstype)
             log_notice(LD_APP,
-                  "Your application (using socks5 to port %d) gave "
-                  "Tor a hostname, which means Tor will do the DNS resolve "
-                  "for you. This is good.", req->port);
+                  "Your application (using socks5 to port %d) instructed "
+                  "Tor to take care of the DNS resolution itself if "
+                  "necessary. This is good.", req->port);
           return 1;
         default: /* unsupported */
           log_warn(LD_APP,"socks5: unsupported address type %d. Rejecting.",
-                   (int) *(buf->head->data+3));
+                   (int) *(data+3));
           return -1;
       }
       tor_assert(0);
-    case 4: /* socks4 */
-      /* http://archive.socks.permeo.com/protocol/socks4.protocol */
-      /* http://archive.socks.permeo.com/protocol/socks4a.protocol */
+    case 4: { /* socks4 */
+      enum {socks4, socks4a} socks4_prot = socks4a;
+      const char *authstart, *authend;
+      /* http://ss5.sourceforge.net/socks4.protocol.txt */
+      /* http://ss5.sourceforge.net/socks4A.protocol.txt */
 
       req->socks_version = 4;
-      if (buf->datalen < SOCKS4_NETWORK_LEN) /* basic info available? */
+      if (datalen < SOCKS4_NETWORK_LEN) {/* basic info available? */
+        *want_length_out = SOCKS4_NETWORK_LEN;
         return 0; /* not yet */
-      buf_pullup(buf, 1280, 0);
-      req->command = (unsigned char) *(buf->head->data+1);
+      }
+      // buf_pullup(buf, 1280, 0);
+      req->command = (unsigned char) *(data+1);
       if (req->command != SOCKS_COMMAND_CONNECT &&
           req->command != SOCKS_COMMAND_RESOLVE) {
         /* not a connect or resolve? we don't support it. (No resolve_ptr with
@@ -1524,8 +1928,8 @@ fetch_from_buf_socks(buf_t *buf, socks_request_t *req,
         return -1;
       }
 
-      req->port = ntohs(get_uint16(buf->head->data+2));
-      destip = ntohl(get_uint32(buf->head->data+4));
+      req->port = ntohs(get_uint16(data+2));
+      destip = ntohl(get_uint32(data+4));
       if ((!req->port && req->command!=SOCKS_COMMAND_RESOLVE) || !destip) {
         log_warn(LD_APP,"socks4: Port or DestIP is zero. Rejecting.");
         return -1;
@@ -1545,17 +1949,20 @@ fetch_from_buf_socks(buf_t *buf, socks_request_t *req,
         socks4_prot = socks4;
       }
 
-      next = memchr(buf->head->data+SOCKS4_NETWORK_LEN, 0,
-                    buf->head->datalen-SOCKS4_NETWORK_LEN);
+      authstart = data + SOCKS4_NETWORK_LEN;
+      next = memchr(authstart, 0,
+                    datalen-SOCKS4_NETWORK_LEN);
       if (!next) {
-        if (buf->head->datalen >= 1024) {
+        if (datalen >= 1024) {
           log_debug(LD_APP, "Socks4 user name too long; rejecting.");
           return -1;
         }
         log_debug(LD_APP,"socks4: Username not here yet.");
+        *want_length_out = datalen+1024; /* More than we need, but safe */
         return 0;
       }
-      tor_assert(next < CHUNK_WRITE_PTR(buf->head));
+      authend = next;
+      tor_assert(next < data+datalen);
 
       startaddr = NULL;
       if (socks4_prot != socks4a &&
@@ -1566,18 +1973,20 @@ fetch_from_buf_socks(buf_t *buf, socks_request_t *req,
           return -1;
       }
       if (socks4_prot == socks4a) {
-        if (next+1 == CHUNK_WRITE_PTR(buf->head)) {
+        if (next+1 == data+datalen) {
           log_debug(LD_APP,"socks4: No part of destaddr here yet.");
+          *want_length_out = datalen + 1024; /* More than we need, but safe */
           return 0;
         }
         startaddr = next+1;
-        next = memchr(startaddr, 0, CHUNK_WRITE_PTR(buf->head)-startaddr);
+        next = memchr(startaddr, 0, data + datalen - startaddr);
         if (!next) {
-          if (buf->head->datalen >= 1024) {
+          if (datalen >= 1024) {
             log_debug(LD_APP,"socks4: Destaddr too long.");
             return -1;
           }
           log_debug(LD_APP,"socks4: Destaddr not all here yet.");
+          *want_length_out = datalen + 1024; /* More than we need, but safe */
           return 0;
         }
         if (MAX_SOCKS_ADDR_LEN <= next-startaddr) {
@@ -1588,9 +1997,9 @@ fetch_from_buf_socks(buf_t *buf, socks_request_t *req,
 
         if (log_sockstype)
           log_notice(LD_APP,
-                     "Your application (using socks4a to port %d) gave "
-                     "Tor a hostname, which means Tor will do the DNS resolve "
-                     "for you. This is good.", req->port);
+                     "Your application (using socks4a to port %d) instructed "
+                     "Tor to take care of the DNS resolution itself if "
+                     "necessary. This is good.", req->port);
       }
       log_debug(LD_APP,"socks4: Everything is here. Success.");
       strlcpy(req->address, startaddr ? startaddr : tmpbuf,
@@ -1602,15 +2011,20 @@ fetch_from_buf_socks(buf_t *buf, socks_request_t *req,
                  req->port, escaped(req->address));
         return -1;
       }
+      if (authend != authstart) {
+        req->got_auth = 1;
+        req->usernamelen = authend - authstart;
+        req->username = tor_memdup(authstart, authend - authstart);
+      }
       /* next points to the final \0 on inbuf */
-      buf_remove_from_front(buf, next - buf->head->data + 1);
+      *drain_out = next - data + 1;
       return 1;
-
+    }
     case 'G': /* get */
     case 'H': /* head */
     case 'P': /* put/post */
     case 'C': /* connect */
-      strlcpy(req->reply,
+      strlcpy((char*)req->reply,
 "HTTP/1.0 501 Tor is not an HTTP Proxy\r\n"
 "Content-Type: text/html; charset=iso-8859-1\r\n\r\n"
 "<html>\n"
@@ -1636,14 +2050,15 @@ fetch_from_buf_socks(buf_t *buf, socks_request_t *req,
 "</body>\n"
 "</html>\n"
              , MAX_SOCKS_REPLY_LEN);
-      req->replylen = strlen(req->reply)+1;
+      req->replylen = strlen((char*)req->reply)+1;
       /* fall through */
     default: /* version is not socks4 or socks5 */
       log_warn(LD_APP,
                "Socks version %d not recognized. (Tor is not an http proxy.)",
-               *(buf->head->data));
+               *(data));
       {
-        char *tmp = tor_strndup(buf->head->data, 8); /*XXXX what if longer?*/
+        /* Tell the controller the first 8 bytes. */
+        char *tmp = tor_strndup(data, datalen < 8 ? datalen : 8);
         control_event_client_status(LOG_WARN,
                                     "SOCKS_UNKNOWN_PROTOCOL DATA=\"%s\"",
                                     escaped(tmp));
@@ -1665,21 +2080,67 @@ fetch_from_buf_socks(buf_t *buf, socks_request_t *req,
 int
 fetch_from_buf_socks_client(buf_t *buf, int state, char **reason)
 {
-  unsigned char *data;
-  size_t addrlen;
-
+  ssize_t drain = 0;
+  int r;
   if (buf->datalen < 2)
     return 0;
 
   buf_pullup(buf, MAX_SOCKS_MESSAGE_LEN, 0);
   tor_assert(buf->head && buf->head->datalen >= 2);
 
-  data = (unsigned char *) buf->head->data;
+  r = parse_socks_client((uint8_t*)buf->head->data, buf->head->datalen,
+                         state, reason, &drain);
+  if (drain > 0)
+    buf_remove_from_front(buf, drain);
+  else if (drain < 0)
+    buf_clear(buf);
+
+  return r;
+}
+
+#ifdef USE_BUFFEREVENTS
+/** As fetch_from_buf_socks_client, buf works on an evbuffer */
+int
+fetch_from_evbuffer_socks_client(struct evbuffer *buf, int state,
+                                 char **reason)
+{
+  ssize_t drain = 0;
+  uint8_t *data;
+  size_t datalen;
+  int r;
+
+  /* Linearize the SOCKS response in the buffer, up to 128 bytes.
+   * (parse_socks_client shouldn't need to see anything beyond that.) */
+  datalen = evbuffer_get_length(buf);
+  if (datalen > MAX_SOCKS_MESSAGE_LEN)
+    datalen = MAX_SOCKS_MESSAGE_LEN;
+  data = evbuffer_pullup(buf, datalen);
+
+  r = parse_socks_client(data, datalen, state, reason, &drain);
+  if (drain > 0)
+    evbuffer_drain(buf, drain);
+  else if (drain < 0)
+    evbuffer_drain(buf, evbuffer_get_length(buf));
+
+  return r;
+}
+#endif
+
+/** Implementation logic for fetch_from_*_socks_client. */
+static int
+parse_socks_client(const uint8_t *data, size_t datalen,
+                   int state, char **reason,
+                   ssize_t *drain_out)
+{
+  unsigned int addrlen;
+  *drain_out = 0;
+  if (datalen < 2)
+    return 0;
 
   switch (state) {
     case PROXY_SOCKS4_WANT_CONNECT_OK:
       /* Wait for the complete response */
-      if (buf->head->datalen < 8)
+      if (datalen < 8)
         return 0;
 
       if (data[1] != 0x5a) {
@@ -1688,7 +2149,7 @@ fetch_from_buf_socks_client(buf_t *buf, int state, char **reason)
       }
 
       /* Success */
-      buf_remove_from_front(buf, 8);
+      *drain_out = 8;
       return 1;
 
     case PROXY_SOCKS5_WANT_AUTH_METHOD_NONE:
@@ -1700,7 +2161,7 @@ fetch_from_buf_socks_client(buf_t *buf, int state, char **reason)
       }
 
       log_info(LD_NET, "SOCKS 5 client: continuing without authentication");
-      buf_clear(buf);
+      *drain_out = -1;
       return 1;
 
     case PROXY_SOCKS5_WANT_AUTH_METHOD_RFC1929:
@@ -1710,11 +2171,11 @@ fetch_from_buf_socks_client(buf_t *buf, int state, char **reason)
         case 0x00:
           log_info(LD_NET, "SOCKS 5 client: we have auth details but server "
                             "doesn't require authentication.");
-          buf_clear(buf);
+          *drain_out = -1;
           return 1;
         case 0x02:
           log_info(LD_NET, "SOCKS 5 client: need authentication.");
-          buf_clear(buf);
+          *drain_out = -1;
           return 2;
         /* fall through */
       }
@@ -1731,7 +2192,7 @@ fetch_from_buf_socks_client(buf_t *buf, int state, char **reason)
       }
 
       log_info(LD_NET, "SOCKS 5 client: authentication successful.");
-      buf_clear(buf);
+      *drain_out = -1;
       return 1;
 
     case PROXY_SOCKS5_WANT_CONNECT_OK:
@@ -1740,7 +2201,7 @@ fetch_from_buf_socks_client(buf_t *buf, int state, char **reason)
        * the data used */
 
       /* wait for address type field to arrive */
-      if (buf->datalen < 4)
+      if (datalen < 4)
         return 0;
 
       switch (data[3]) {
@@ -1751,7 +2212,7 @@ fetch_from_buf_socks_client(buf_t *buf, int state, char **reason)
           addrlen = 16;
           break;
         case 0x03: /* fqdn (can this happen here?) */
-          if (buf->datalen < 5)
+          if (datalen < 5)
             return 0;
           addrlen = 1 + data[4];
           break;
@@ -1761,7 +2222,7 @@ fetch_from_buf_socks_client(buf_t *buf, int state, char **reason)
       }
 
       /* wait for address and port */
-      if (buf->datalen < 6 + addrlen)
+      if (datalen < 6 + addrlen)
         return 0;
 
       if (data[1] != 0x00) {
@@ -1769,7 +2230,7 @@ fetch_from_buf_socks_client(buf_t *buf, int state, char **reason)
         return -1;
       }
 
-      buf_remove_from_front(buf, 6 + addrlen);
+      *drain_out = 6 + addrlen;
       return 1;
   }
 
@@ -1795,6 +2256,27 @@ peek_buf_has_control0_command(buf_t *buf)
   return 0;
 }
 
+#ifdef USE_BUFFEREVENTS
+int
+peek_evbuffer_has_control0_command(struct evbuffer *buf)
+{
+  int result = 0;
+  if (evbuffer_get_length(buf) >= 4) {
+    int free_out = 0;
+    char *data = NULL;
+    size_t n = inspect_evbuffer(buf, &data, 4, &free_out, NULL);
+    uint16_t cmd;
+    tor_assert(n >= 4);
+    cmd = ntohs(get_uint16(data+2));
+    if (cmd <= 0x14)
+      result = 1;
+    if (free_out)
+      tor_free(data);
+  }
+  return result;
+}
+#endif
+
 /** Return the index within <b>buf</b> at which <b>ch</b> first appears,
  * or -1 if <b>ch</b> does not appear on buf. */
 static off_t
@@ -1812,12 +2294,12 @@ buf_find_offset_of_char(buf_t *buf, char ch)
   return -1;
 }
 
-/** Try to read a single LF-terminated line from <b>buf</b>, and write it,
- * NUL-terminated, into the *<b>data_len</b> byte buffer at <b>data_out</b>.
- * Set *<b>data_len</b> to the number of bytes in the line, not counting the
- * terminating NUL.  Return 1 if we read a whole line, return 0 if we don't
- * have a whole line yet, and return -1 if the line length exceeds
- * *<b>data_len</b>.
+/** Try to read a single LF-terminated line from <b>buf</b>, and write it
+ * (including the LF), NUL-terminated, into the *<b>data_len</b> byte buffer
+ * at <b>data_out</b>.  Set *<b>data_len</b> to the number of bytes in the
+ * line, not counting the terminating NUL.  Return 1 if we read a whole line,
+ * return 0 if we don't have a whole line yet, and return -1 if the line
+ * length exceeds *<b>data_len</b>.
  */
 int
 fetch_from_buf_line(buf_t *buf, char *data_out, size_t *data_len)
@@ -1888,6 +2370,96 @@ write_to_buf_zlib(buf_t *buf, tor_zlib_state_t *state,
 
   } while (!over);
   check();
+  return 0;
+}
+
+#ifdef USE_BUFFEREVENTS
+int
+write_to_evbuffer_zlib(struct evbuffer *buf, tor_zlib_state_t *state,
+                       const char *data, size_t data_len,
+                       int done)
+{
+  char *next;
+  size_t old_avail, avail;
+  int over = 0, n;
+  struct evbuffer_iovec vec[1];
+  do {
+    {
+      size_t cap = data_len / 4;
+      if (cap < 128)
+        cap = 128;
+      /* XXXX NM this strategy is fragmentation-prone. We should really have
+       * two iovecs, and write first into the one, and then into the
+       * second if the first gets full. */
+      n = evbuffer_reserve_space(buf, cap, vec, 1);
+      tor_assert(n == 1);
+    }
+
+    next = vec[0].iov_base;
+    avail = old_avail = vec[0].iov_len;
+
+    switch (tor_zlib_process(state, &next, &avail, &data, &data_len, done)) {
+      case TOR_ZLIB_DONE:
+        over = 1;
+        break;
+      case TOR_ZLIB_ERR:
+        return -1;
+      case TOR_ZLIB_OK:
+        if (data_len == 0)
+          over = 1;
+        break;
+      case TOR_ZLIB_BUF_FULL:
+        if (avail) {
+          /* Zlib says we need more room (ZLIB_BUF_FULL).  Start a new chunk
+           * automatically, whether were going to or not. */
+        }
+        break;
+    }
+
+    /* XXXX possible infinite loop on BUF_FULL. */
+    vec[0].iov_len = old_avail - avail;
+    evbuffer_commit_space(buf, vec, 1);
+
+  } while (!over);
+  check();
+  return 0;
+}
+#endif
+
+/** Set *<b>output</b> to contain a copy of the data in *<b>input</b> */
+int
+generic_buffer_set_to_copy(generic_buffer_t **output,
+                           const generic_buffer_t *input)
+{
+#ifdef USE_BUFFEREVENTS
+  struct evbuffer_ptr ptr;
+  size_t remaining = evbuffer_get_length(input);
+  if (*output) {
+    evbuffer_drain(*output, evbuffer_get_length(*output));
+  } else {
+    if (!(*output = evbuffer_new()))
+      return -1;
+  }
+  evbuffer_ptr_set((struct evbuffer*)input, &ptr, 0, EVBUFFER_PTR_SET);
+  while (remaining) {
+    struct evbuffer_iovec v[4];
+    int n_used, i;
+    n_used = evbuffer_peek((struct evbuffer*)input, -1, &ptr, v, 4);
+    if (n_used < 0)
+      return -1;
+    for (i=0;i<n_used;++i) {
+      evbuffer_add(*output, v[i].iov_base, v[i].iov_len);
+      tor_assert(v[i].iov_len <= remaining);
+      remaining -= v[i].iov_len;
+      evbuffer_ptr_set((struct evbuffer*)input,
+                       &ptr, v[i].iov_len, EVBUFFER_PTR_ADD);
+    }
+  }
+#else
+  if (*output)
+    buf_free(*output);
+  *output = buf_copy(input);
+#endif
   return 0;
 }
 

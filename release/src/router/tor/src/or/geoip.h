@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -15,16 +15,18 @@
 #ifdef GEOIP_PRIVATE
 int geoip_parse_entry(const char *line);
 #endif
-int should_record_bridge_info(or_options_t *options);
-int geoip_load_file(const char *filename, or_options_t *options);
+int should_record_bridge_info(const or_options_t *options);
+int geoip_load_file(const char *filename, const or_options_t *options);
 int geoip_get_country_by_ip(uint32_t ipaddr);
+int geoip_get_country_by_addr(const tor_addr_t *addr);
 int geoip_get_n_countries(void);
 const char *geoip_get_country_name(country_t num);
 int geoip_is_loaded(void);
+const char *geoip_db_digest(void);
 country_t geoip_get_country(const char *countrycode);
 
 void geoip_note_client_seen(geoip_client_action_t action,
-                            uint32_t addr, time_t now);
+                            const tor_addr_t *addr, time_t now);
 void geoip_remove_old_clients(time_t cutoff);
 
 void geoip_note_ns_response(geoip_client_action_t action,
@@ -42,12 +44,17 @@ void geoip_change_dirreq_state(uint64_t dirreq_id, dirreq_type_t type,
                                dirreq_state_t new_state);
 
 void geoip_dirreq_stats_init(time_t now);
+void geoip_reset_dirreq_stats(time_t now);
+char *geoip_format_dirreq_stats(time_t now);
 time_t geoip_dirreq_stats_write(time_t now);
 void geoip_dirreq_stats_term(void);
 void geoip_entry_stats_init(time_t now);
 time_t geoip_entry_stats_write(time_t now);
 void geoip_entry_stats_term(void);
+void geoip_reset_entry_stats(time_t now);
+char *geoip_format_entry_stats(time_t now);
 void geoip_bridge_stats_init(time_t now);
+char *geoip_format_bridge_stats(time_t now);
 time_t geoip_bridge_stats_write(time_t now);
 void geoip_bridge_stats_term(void);
 const char *geoip_get_bridge_stats_extrainfo(time_t);

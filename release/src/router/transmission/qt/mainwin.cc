@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: mainwin.cc 13446 2012-08-19 00:01:54Z jordan $
+ * $Id: mainwin.cc 13555 2012-10-08 04:23:39Z jordan $
  */
 
 #include <cassert>
@@ -1146,6 +1146,7 @@ TrMainWindow :: openTorrent( )
                                     myPrefs.getString( Prefs::OPEN_DIALOG_FOLDER ),
                                     tr( "Torrent Files (*.torrent);;All Files (*.*)" ) );
     myFileDialog->setFileMode( QFileDialog::ExistingFiles );
+    myFileDialog->setAttribute( Qt::WA_DeleteOnClose );
 
     QCheckBox * button = new QCheckBox( tr( "Show &options dialog" ) );
     button->setChecked( myPrefs.getBool( Prefs::OPTIONS_PROMPT ) );

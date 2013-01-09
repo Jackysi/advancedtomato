@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: tor-resolve
-.\"    Author: [see the "AUTHORS" section]
+.\"    Author: Peter Palfrader
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 12/15/2011
-.\"    Manual: [FIXME: manual]
-.\"    Source: [FIXME: source]
+.\"      Date: 11/19/2012
+.\"    Manual: \ \&
+.\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "TOR\-RESOLVE" "1" "12/15/2011" "[FIXME: source]" "[FIXME: manual]"
+.TH "TOR\-RESOLVE" "1" "11/19/2012" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -66,3 +66,9 @@ See doc/socks\-extensions\&.txt in the Tor package for protocol details\&.
 .SH "AUTHORS"
 .sp
 Roger Dingledine <arma@mit\&.edu>, Nick Mathewson <nickm@alum\&.mit\&.edu>\&.
+.SH "AUTHOR"
+.PP
+\fBPeter Palfrader\fR
+.RS 4
+Author.
+.RE

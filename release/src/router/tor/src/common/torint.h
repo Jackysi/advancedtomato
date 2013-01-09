@@ -1,6 +1,6 @@
 /* Copyright (c) 2003, Roger Dingledine
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -111,6 +111,15 @@ typedef signed int int32_t;
 typedef unsigned int uint32_t;
 #define HAVE_UINT32_T
 #endif
+#ifndef UINT16_MAX
+#define UINT16_MAX 0xffffu
+#endif
+#ifndef INT16_MAX
+#define INT16_MAX 0x7fff
+#endif
+#ifndef INT16_MIN
+#define INT16_MIN (-INT16_MAX-1)
+#endif
 #ifndef UINT32_MAX
 #define UINT32_MAX 0xffffffffu
 #endif
@@ -179,6 +188,16 @@ typedef unsigned __int64 uint64_t;
 #endif
 #ifndef INT64_MAX
 #define INT64_MAX 0x7fffffffffffffffi64
+#endif
+#endif
+
+#ifndef SIZE_MAX
+#if SIZEOF_SIZE_T == 8
+#define SIZE_MAX UINT64_MAX
+#elif  SIZEOF_SIZE_T == 4
+#define SIZE_MAX UINT32_MAX
+#else
+#error "Can't define SIZE_MAX"
 #endif
 #endif
 

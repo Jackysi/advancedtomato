@@ -1,6 +1,6 @@
 /* Copyright (c) 2002, Christopher Clark.
  * Copyright (c) 2005-2006, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See license at end. */
 
 /* Based on ideas by Christopher Clark and interfaces from Niels Provos. */
@@ -25,18 +25,21 @@
 #define HT_INITIALIZER()                        \
   { NULL, 0, 0, 0, -1 }
 
+#ifdef HT_NO_CACHE_HASH_VALUES
+#define HT_ENTRY(type)                          \
+  struct {                                      \
+    struct type *hte_next;                      \
+  }
+#else
 #define HT_ENTRY(type)                          \
   struct {                                      \
     struct type *hte_next;                      \
     unsigned hte_hash;                          \
   }
+#endif
 
 #define HT_EMPTY(head)                          \
   ((head)->hth_n_entries == 0)
-
-/* Helper: alias for the bucket containing 'elm'. */
-#define _HT_BUCKET(head, field, elm)                                    \
-  ((head)->hth_table[elm->field.hte_hash % head->hth_table_length])
 
 /* How many elements in 'head'? */
 #define HT_SIZE(head)                           \
@@ -98,8 +101,26 @@ ht_string_hash(const char *s)
   return h;
 }
 
-#define _HT_SET_HASH(elm, field, hashfn)        \
-    (elm)->field.hte_hash = hashfn(elm)
+#ifndef HT_NO_CACHE_HASH_VALUES
+#define HT_SET_HASH_(elm, field, hashfn)        \
+    do { (elm)->field.hte_hash = hashfn(elm); } while (0)
+#define HT_SET_HASHVAL_(elm, field, val)        \
+    do { (elm)->field.hte_hash = (val); } while (0)
+#define HT_ELT_HASH_(elm, field, hashfn)        \
+    ((elm)->field.hte_hash)
+#else
+#define HT_SET_HASH_(elm, field, hashfn)        \
+    ((void)0)
+#define HT_ELT_HASH_(elm, field, hashfn)        \
+    (hashfn(elm))
+#define HT_SET_HASHVAL_(elm, field, val)        \
+        ((void)0)
+#endif
+
+/* Helper: alias for the bucket containing 'elm'. */
+#define HT_BUCKET_(head, field, elm, hashfn)                            \
+    ((head)->hth_table[HT_ELT_HASH_(elm,field,hashfn)                   \
+        % head->hth_table_length])
 
 #define HT_FOREACH(x, name, head)                 \
   for ((x) = HT_START(name, head);                \
@@ -109,7 +130,7 @@ ht_string_hash(const char *s)
 #define HT_PROTOTYPE(name, type, field, hashfn, eqfn)                   \
   int name##_HT_GROW(struct name *ht, unsigned min_capacity);           \
   void name##_HT_CLEAR(struct name *ht);                                \
-  int _##name##_HT_REP_IS_BAD(const struct name *ht);                   \
+  int name##_HT_REP_IS_BAD_(const struct name *ht);                     \
   static INLINE void                                                    \
   name##_HT_INIT(struct name *head) {                                   \
     head->hth_table_length = 0;                                         \
@@ -121,12 +142,12 @@ ht_string_hash(const char *s)
   /* Helper: returns a pointer to the right location in the table       \
    * 'head' to find or insert the element 'elm'. */                     \
   static INLINE struct type **                                          \
-  _##name##_HT_FIND_P(struct name *head, struct type *elm)              \
+  name##_HT_FIND_P_(struct name *head, struct type *elm)                \
   {                                                                     \
     struct type **p;                                                    \
     if (!head->hth_table)                                               \
       return NULL;                                                      \
-    p = &_HT_BUCKET(head, field, elm);                                  \
+    p = &HT_BUCKET_(head, field, elm, hashfn);                          \
     while (*p) {                                                        \
       if (eqfn(*p, elm))                                                \
         return p;                                                       \
@@ -141,8 +162,8 @@ ht_string_hash(const char *s)
   {                                                                     \
     struct type **p;                                                    \
     struct name *h = (struct name *) head;                              \
-    _HT_SET_HASH(elm, field, hashfn);                                   \
-    p = _##name##_HT_FIND_P(h, elm);                                    \
+    HT_SET_HASH_(elm, field, hashfn);                                   \
+    p = name##_HT_FIND_P_(h, elm);                                      \
     return p ? *p : NULL;                                               \
   }                                                                     \
   /* Insert the element 'elm' into the table 'head'.  Do not call this  \
@@ -154,8 +175,8 @@ ht_string_hash(const char *s)
     if (!head->hth_table || head->hth_n_entries >= head->hth_load_limit) \
       name##_HT_GROW(head, head->hth_n_entries+1);                      \
     ++head->hth_n_entries;                                              \
-    _HT_SET_HASH(elm, field, hashfn);                                   \
-    p = &_HT_BUCKET(head, field, elm);                                  \
+    HT_SET_HASH_(elm, field, hashfn);                                   \
+    p = &HT_BUCKET_(head, field, elm, hashfn);                          \
     elm->field.hte_next = *p;                                           \
     *p = elm;                                                           \
   }                                                                     \
@@ -168,8 +189,8 @@ ht_string_hash(const char *s)
     struct type **p, *r;                                                \
     if (!head->hth_table || head->hth_n_entries >= head->hth_load_limit) \
       name##_HT_GROW(head, head->hth_n_entries+1);                      \
-    _HT_SET_HASH(elm, field, hashfn);                                   \
-    p = _##name##_HT_FIND_P(head, elm);                                 \
+    HT_SET_HASH_(elm, field, hashfn);                                   \
+    p = name##_HT_FIND_P_(head, elm);                                   \
     r = *p;                                                             \
     *p = elm;                                                           \
     if (r && (r!=elm)) {                                                \
@@ -187,8 +208,8 @@ ht_string_hash(const char *s)
   name##_HT_REMOVE(struct name *head, struct type *elm)                 \
   {                                                                     \
     struct type **p, *r;                                                \
-    _HT_SET_HASH(elm, field, hashfn);                                   \
-    p = _##name##_HT_FIND_P(head,elm);                                  \
+    HT_SET_HASH_(elm, field, hashfn);                                   \
+    p = name##_HT_FIND_P_(head,elm);                                    \
     if (!p || !*p)                                                      \
       return NULL;                                                      \
     r = *p;                                                             \
@@ -207,7 +228,6 @@ ht_string_hash(const char *s)
                        void *data)                                      \
   {                                                                     \
     unsigned idx;                                                       \
-    int remove;                                                         \
     struct type **p, **nextp, *next;                                    \
     if (!head->hth_table)                                               \
       return;                                                           \
@@ -216,8 +236,7 @@ ht_string_hash(const char *s)
       while (*p) {                                                      \
         nextp = &(*p)->field.hte_next;                                  \
         next = *nextp;                                                  \
-        remove = fn(*p, data);                                          \
-        if (remove) {                                                   \
+        if (fn(*p, data)) {                                             \
           --head->hth_n_entries;                                        \
           *p = next;                                                    \
         } else {                                                        \
@@ -251,7 +270,8 @@ ht_string_hash(const char *s)
     if ((*elm)->field.hte_next) {                                       \
       return &(*elm)->field.hte_next;                                   \
     } else {                                                            \
-      unsigned b = ((*elm)->field.hte_hash % head->hth_table_length)+1; \
+      unsigned b = (HT_ELT_HASH_(*elm, field, hashfn)                   \
+      % head->hth_table_length)+1;                                      \
       while (b < head->hth_table_length) {                              \
         if (head->hth_table[b])                                         \
           return &head->hth_table[b];                                   \
@@ -263,7 +283,7 @@ ht_string_hash(const char *s)
   static INLINE struct type **                                          \
   name##_HT_NEXT_RMV(struct name *head, struct type **elm)              \
   {                                                                     \
-    unsigned h = (*elm)->field.hte_hash;                                \
+    unsigned h = HT_ELT_HASH_(*elm, field, hashfn);                     \
     *elm = (*elm)->field.hte_next;                                      \
     --head->hth_n_entries;                                              \
     if (*elm) {                                                         \
@@ -320,7 +340,7 @@ ht_string_hash(const char *s)
         elm = head->hth_table[b];                                       \
         while (elm) {                                                   \
           next = elm->field.hte_next;                                   \
-          b2 = elm->field.hte_hash % new_len;                           \
+          b2 = HT_ELT_HASH_(elm, field, hashfn) % new_len;              \
           elm->field.hte_next = new_table[b2];                          \
           new_table[b2] = elm;                                          \
           elm = next;                                                   \
@@ -338,7 +358,7 @@ ht_string_hash(const char *s)
       for (b=0; b < head->hth_table_length; ++b) {                      \
         struct type *e, **pE;                                           \
         for (pE = &new_table[b], e = *pE; e != NULL; e = *pE) {         \
-          b2 = e->field.hte_hash % new_len;                             \
+          b2 = HT_ELT_HASH_(e, field, hashfn) % new_len;                \
           if (b2 == b) {                                                \
             pE = &e->field.hte_next;                                    \
           } else {                                                      \
@@ -368,7 +388,7 @@ ht_string_hash(const char *s)
   /* Debugging helper: return false iff the representation of 'head' is \
    * internally consistent. */                                          \
   int                                                                   \
-  _##name##_HT_REP_IS_BAD(const struct name *head)                      \
+  name##_HT_REP_IS_BAD_(const struct name *head)                        \
   {                                                                     \
     unsigned n, i;                                                      \
     struct type *elm;                                                   \
@@ -390,9 +410,9 @@ ht_string_hash(const char *s)
       return 5;                                                         \
     for (n = i = 0; i < head->hth_table_length; ++i) {                  \
       for (elm = head->hth_table[i]; elm; elm = elm->field.hte_next) {  \
-        if (elm->field.hte_hash != hashfn(elm))                         \
+        if (HT_ELT_HASH_(elm, field, hashfn) != hashfn(elm))            \
           return 1000 + i;                                              \
-        if ((elm->field.hte_hash % head->hth_table_length) != i)        \
+        if ((HT_ELT_HASH_(elm, field, hashfn) % head->hth_table_length) != i) \
           return 10000 + i;                                             \
         ++n;                                                            \
       }                                                                 \
@@ -405,24 +425,24 @@ ht_string_hash(const char *s)
 /** Implements an over-optimized "find and insert if absent" block;
  * not meant for direct usage by typical code, or usage outside the critical
  * path.*/
-#define _HT_FIND_OR_INSERT(name, field, hashfn, head, eltype, elm, var, y, n) \
+#define HT_FIND_OR_INSERT_(name, field, hashfn, head, eltype, elm, var, y, n) \
   {                                                                     \
-    struct name *_##var##_head = head;                                  \
-    eltype **var;                                                       \
-    if (!_##var##_head->hth_table ||                                    \
-        _##var##_head->hth_n_entries >= _##var##_head->hth_load_limit)  \
-      name##_HT_GROW(_##var##_head, _##var##_head->hth_n_entries+1);     \
-    _HT_SET_HASH((elm), field, hashfn);                                \
-    var = _##name##_HT_FIND_P(_##var##_head, (elm));                    \
+    struct name *var##_head_ = head;                                    \
+    struct eltype **var;                                                \
+    if (!var##_head_->hth_table ||                                      \
+        var##_head_->hth_n_entries >= var##_head_->hth_load_limit)      \
+      name##_HT_GROW(var##_head_, var##_head_->hth_n_entries+1);        \
+    HT_SET_HASH_((elm), field, hashfn);                                 \
+    var = name##_HT_FIND_P_(var##_head_, (elm));                        \
     if (*var) {                                                         \
       y;                                                                \
     } else {                                                            \
       n;                                                                \
     }                                                                   \
   }
-#define _HT_FOI_INSERT(field, head, elm, newent, var)       \
+#define HT_FOI_INSERT_(field, head, elm, newent, var)       \
   {                                                         \
-    newent->field.hte_hash = (elm)->field.hte_hash;         \
+    HT_SET_HASHVAL_(newent, field, (elm)->field.hte_hash);  \
     newent->field.hte_next = NULL;                          \
     *var = newent;                                          \
     ++((head)->hth_n_entries);                              \
@@ -431,9 +451,8 @@ ht_string_hash(const char *s)
 /*
  * Copyright 2005, Nick Mathewson.  Implementation logic is adapted from code
  * by Christopher Clark, retrofit to allow drop-in memory management, and to
- * use the same interface as Niels Provos's HT_H.  I'm not sure whether this
- * is a derived work any more, but whether it is or not, the license below
- * applies.
+ * use the same interface as Niels Provos's tree.h.  This is probably still
+ * a derived work, so the original license below still applies.
  *
  * Copyright (c) 2002, Christopher Clark
  * All rights reserved.

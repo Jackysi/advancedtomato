@@ -1,5 +1,5 @@
 /* Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson
- * Copyright (c) 2007-2011, The Tor Project, Inc.
+ * Copyright (c) 2007-2012, The Tor Project, Inc.
  */
 /* See LICENSE for licensing information */
 
@@ -32,7 +32,7 @@
 #include <errno.h>
 #endif
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 #if defined(_MSC_VER) && (_MSC_VER <= 1300)
 #include <winsock.h>
 #else
@@ -393,7 +393,7 @@ main(int argc, char **argv)
       socksport = 9050; /* 9050 */
     }
   } else if (n_args == 2) {
-    if (parse_addr_port(LOG_WARN, arg[1], NULL, &sockshost, &socksport)<0) {
+    if (addr_port_lookup(LOG_WARN, arg[1], NULL, &sockshost, &socksport)<0) {
       fprintf(stderr, "Couldn't parse/resolve address %s", arg[1]);
       return 1;
     }

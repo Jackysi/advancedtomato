@@ -1,13 +1,13 @@
 '\" t
 .\"     Title: torify
-.\"    Author: [FIXME: author] [see http://docbook.sf.net/el/author]
+.\"    Author: Peter Palfrader
 .\" Generator: DocBook XSL Stylesheets v1.76.1 <http://docbook.sf.net/>
-.\"      Date: 12/15/2011
-.\"    Manual: [FIXME: manual]
-.\"    Source: [FIXME: source]
+.\"      Date: Jacob Appelbaum
+.\"    Manual: \ \&
+.\"    Source: \ \&
 .\"  Language: English
 .\"
-.TH "TORIFY" "1" "12/15/2011" "[FIXME: source]" "[FIXME: manual]"
+.TH "TORIFY" "1" "Jacob Appelbaum" "\ \&" "\ \&"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -36,7 +36,7 @@ torify \- wrapper for torsocks or tsocks and tor
 .sp
 \fBtorify\fR is a simple wrapper that attempts to find the best underlying Tor wrapper available on a system\&. It calls torsocks or tsocks with a tor specific configuration file\&.
 .sp
-torsocks is an improved wrapper that explictly rejects UDP, safely resolves DNS lookups and properly socksifies your TCP connections\&.
+torsocks is an improved wrapper that explicitly rejects UDP, safely resolves DNS lookups and properly socksifies your TCP connections\&.
 .sp
 tsocks itself is a wrapper between the tsocks library and the application that you would like to run socksified\&.
 .sp
@@ -51,3 +51,9 @@ Both will leak ICMP data\&.
 .SH "SEE ALSO"
 .sp
 \fBtor\fR(1), \fBtor\-resolve\fR(1), \fBtorsocks\fR(1), \fBtsocks\fR(1), \fBtsocks\&.conf\fR(5)\&.
+.SH "AUTHOR"
+.PP
+\fBPeter Palfrader\fR
+.RS 4
+Author.
+.RE

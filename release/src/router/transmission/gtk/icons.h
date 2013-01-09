@@ -3,7 +3,7 @@
  * "There is no problem for me, you can license
  * my code under whatever licence you wish :)"
  *
- * $Id: icons.h 11709 2011-01-19 13:48:47Z jordan $
+ * $Id: icons.h 13625 2012-12-05 17:29:46Z jordan $
  */
 
 #ifndef GTR_ICONS_H
@@ -12,10 +12,10 @@
 #define DIRECTORY_MIME_TYPE "folder"
 #define UNKNOWN_MIME_TYPE "unknown"
 
-const char * gtr_get_mime_type_from_filename( const char *file );
+const char * gtr_get_mime_type_from_filename (const char *file);
 
-GdkPixbuf  * gtr_get_mime_type_icon( const char   * mime_type,
+GdkPixbuf  * gtr_get_mime_type_icon (const char   * mime_type,
                                      GtkIconSize    icon_size,
-                                     GtkWidget    * for_widget );
+                                     GtkWidget    * for_widget);
 
 #endif

@@ -24,7 +24,7 @@
 
 <script type='text/javascript'>
 
-//	<% nvram("dmz_enable,dmz_ipaddr,dmz_sip,dmz_ifname,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname"); %>
+//	<% nvram("dmz_enable,dmz_ipaddr,dmz_sip,dmz_ifname,dmz_ra,lan_ifname,lan1_ifname,lan2_ifname,lan3_ifname"); %>
 
 var lipp = '<% lipp(); %>.';
 
@@ -38,6 +38,9 @@ function verifyFields(focused, quiet)
 	dip.disabled = off;
 
 	sip = E('_f_dmz_sip');
+	sip.disabled = off;
+
+	sip = E('_f_dmz_ra');
 	sip.disabled = off;
 
 /* VLAN-BEGIN */
@@ -77,6 +80,7 @@ function save()
 		fom.dmz_ipaddr.value = (s.indexOf(lipp) == 0) ? s.replace(lipp, '') : s;
 	}
 	fom.dmz_sip.value = fom.f_dmz_sip.value.split(/\s*,\s*/).join(',');
+	fom.dmz_ra.value = E('_f_dmz_ra').checked ? 1 : 0;
 	form.submit(fom, 0);
 }
 
@@ -118,6 +122,7 @@ function init() {
 <input type='hidden' name='dmz_enable'>
 <input type='hidden' name='dmz_ipaddr'>
 <input type='hidden' name='dmz_sip'>
+<input type='hidden' name='dmz_ra'>
 
 <div class='section-title'>DMZ</div>
 <div class='section'>
@@ -126,12 +131,12 @@ createFieldTable('', [
 	{ title: 'Enable DMZ', name: 'f_dmz_enable', type: 'checkbox', value: (nvram.dmz_enable == '1') },
 	{ title: 'Destination Address', indent: 2, name: 'f_dmz_ipaddr', type: 'text', maxlen: 15, size: 17,
 		value: (nvram.dmz_ipaddr.indexOf('.') != -1) ? nvram.dmz_ipaddr : (lipp + nvram.dmz_ipaddr) },
-/* VLAN-BEGIN */
 	{ title: 'Destination Interface', indent: 2, name: 'dmz_ifname', type: 'select',
 		options: [['br0','LAN (br0)'],['br1','LAN1  (br1)'],['br2','LAN2 (br2)'],['br3','LAN3 (br3)']], value: nvram.dmz_ifname },
-/* VLAN-END */
 	{ title: 'Source Address<br>Restriction', indent: 2, name: 'f_dmz_sip', type: 'text', maxlen: 512, size: 64,
-		value: nvram.dmz_sip, suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24", "1.1.1.1 - 2.2.2.2" or "me.example.com")</small>' }
+		value: nvram.dmz_sip, suffix: '<br><small>(optional; ex: "1.1.1.1", "1.1.1.0/24", "1.1.1.1 - 2.2.2.2" or "me.example.com")</small>' },
+	null,
+	{ title: 'Leave Remote Access', indent: 2, name: 'f_dmz_ra', type: 'checkbox', value: (nvram.dmz_ra == '1'), suffix: ' &nbsp;<small>(Redirect remote access ports for SSH and HTTP(s) to router)</small>' }
 ]);
 </script>
 </div>

@@ -1,5 +1,5 @@
 /* Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -9,6 +9,7 @@
 
 #include "or.h"
 #include "circuitlist.h"
+#include "circuituse.h"
 #include "config.h"
 #include "relay.h"
 #include "rendmid.h"
@@ -21,7 +22,7 @@ int
 rend_mid_establish_intro(or_circuit_t *circ, const uint8_t *request,
                          size_t request_len)
 {
-  crypto_pk_env_t *pk = NULL;
+  crypto_pk_t *pk = NULL;
   char buf[DIGEST_LEN+9];
   char expected_digest[DIGEST_LEN];
   char pk_digest[DIGEST_LEN];
@@ -85,7 +86,7 @@ rend_mid_establish_intro(or_circuit_t *circ, const uint8_t *request,
     goto err;
   }
 
-  crypto_free_pk_env(pk); /* don't need it anymore */
+  crypto_pk_free(pk); /* don't need it anymore */
   pk = NULL; /* so we don't free it again if err */
 
   base32_encode(serviceid, REND_SERVICE_ID_LEN_BASE32+1,
@@ -109,7 +110,7 @@ rend_mid_establish_intro(or_circuit_t *circ, const uint8_t *request,
   }
 
   /* Now, set up this circuit. */
-  circ->_base.purpose = CIRCUIT_PURPOSE_INTRO_POINT;
+  circuit_change_purpose(TO_CIRCUIT(circ), CIRCUIT_PURPOSE_INTRO_POINT);
   memcpy(circ->rend_token, pk_digest, DIGEST_LEN);
 
   log_info(LD_REND,
@@ -121,7 +122,7 @@ rend_mid_establish_intro(or_circuit_t *circ, const uint8_t *request,
   log_warn(LD_PROTOCOL, "Rejecting truncated ESTABLISH_INTRO cell.");
   reason = END_CIRC_REASON_TORPROTOCOL;
  err:
-  if (pk) crypto_free_pk_env(pk);
+  if (pk) crypto_pk_free(pk);
   circuit_mark_for_close(TO_CIRCUIT(circ), reason);
   return -1;
 }
@@ -249,7 +250,7 @@ rend_mid_establish_rendezvous(or_circuit_t *circ, const uint8_t *request,
     goto err;
   }
 
-  circ->_base.purpose = CIRCUIT_PURPOSE_REND_POINT_WAITING;
+  circuit_change_purpose(TO_CIRCUIT(circ), CIRCUIT_PURPOSE_REND_POINT_WAITING);
   memcpy(circ->rend_token, request, REND_COOKIE_LEN);
 
   base16_encode(hexid,9,(char*)request,4);
@@ -275,13 +276,6 @@ rend_mid_rendezvous(or_circuit_t *circ, const uint8_t *request,
   or_circuit_t *rend_circ;
   char hexid[9];
   int reason = END_CIRC_REASON_INTERNAL;
-  base16_encode(hexid,9,(char*)request,request_len<4?request_len:4);
-
-  if (request_len>=4) {
-    log_info(LD_REND,
-             "Got request for rendezvous from circuit %d to cookie %s.",
-             circ->p_circ_id, hexid);
-  }
 
   if (circ->_base.purpose != CIRCUIT_PURPOSE_OR || circ->_base.n_conn) {
     log_info(LD_REND,
@@ -298,6 +292,12 @@ rend_mid_rendezvous(or_circuit_t *circ, const uint8_t *request,
     reason = END_CIRC_REASON_TORPROTOCOL;
     goto err;
   }
+
+  base16_encode(hexid, sizeof(hexid), (const char*)request, 4);
+
+  log_info(LD_REND,
+           "Got request for rendezvous from circuit %d to cookie %s.",
+           circ->p_circ_id, hexid);
 
   rend_circ = circuit_get_rendezvous((char*)request);
   if (!rend_circ) {
@@ -324,8 +324,9 @@ rend_mid_rendezvous(or_circuit_t *circ, const uint8_t *request,
            "Completing rendezvous: circuit %d joins circuit %d (cookie %s)",
            circ->p_circ_id, rend_circ->p_circ_id, hexid);
 
-  circ->_base.purpose = CIRCUIT_PURPOSE_REND_ESTABLISHED;
-  rend_circ->_base.purpose = CIRCUIT_PURPOSE_REND_ESTABLISHED;
+  circuit_change_purpose(TO_CIRCUIT(circ), CIRCUIT_PURPOSE_REND_ESTABLISHED);
+  circuit_change_purpose(TO_CIRCUIT(rend_circ),
+                         CIRCUIT_PURPOSE_REND_ESTABLISHED);
   memset(circ->rend_token, 0, REND_COOKIE_LEN);
 
   rend_circ->rend_splice = circ;

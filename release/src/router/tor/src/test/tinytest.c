@@ -1,4 +1,4 @@
-/* tinytest.c -- Copyright 2009-2010 Nick Mathewson
+/* tinytest.c -- Copyright 2009-2012 Nick Mathewson
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,13 +22,16 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifdef TINYTEST_LOCAL
+#include "tinytest_local.h"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include <windows.h>
 #else
 #include <sys/types.h>
@@ -40,9 +43,6 @@
 #define __attribute__(x)
 #endif
 
-#ifdef TINYTEST_LOCAL
-#include "tinytest_local.h"
-#endif
 #include "tinytest.h"
 #include "tinytest_macros.h"
 
@@ -64,16 +64,16 @@ const char *cur_test_prefix = NULL; /**< prefix of the current test group */
 /** Name of the current test, if we haven't logged is yet. Used for --quiet */
 const char *cur_test_name = NULL;
 
-#ifdef WIN32
-/** Pointer to argv[0] for win32. */
-static const char *commandname = NULL;
+#ifdef _WIN32
+/* Copy of argv[0] for win32. */
+static char commandname[MAX_PATH+1];
 #endif
 
 static void usage(struct testgroup_t *groups, int list_groups)
   __attribute__((noreturn));
 
 static enum outcome
-_testcase_run_bare(const struct testcase_t *testcase)
+testcase_run_bare_(const struct testcase_t *testcase)
 {
 	void *env = NULL;
 	int outcome;
@@ -100,10 +100,10 @@ _testcase_run_bare(const struct testcase_t *testcase)
 #define MAGIC_EXITCODE 42
 
 static enum outcome
-_testcase_run_forked(const struct testgroup_t *group,
+testcase_run_forked_(const struct testgroup_t *group,
 		     const struct testcase_t *testcase)
 {
-#ifdef WIN32
+#ifdef _WIN32
 	/* Fork? On Win32?  How primitive!  We'll do what the smart kids do:
 	   we'll invoke our own exe (whose name we recall from the command
 	   line) with a command line that tells it to run just the test we
@@ -119,7 +119,7 @@ _testcase_run_forked(const struct testgroup_t *group,
 	DWORD exitcode;
 
 	if (!in_tinytest_main) {
-		printf("\nERROR.  On Windows, _testcase_run_forked must be"
+		printf("\nERROR.  On Windows, testcase_run_forked_ must be"
 		       " called from within tinytest_main.\n");
 		abort();
 	}
@@ -165,7 +165,7 @@ _testcase_run_forked(const struct testgroup_t *group,
 		int test_r, write_r;
 		char b[1];
 		close(outcome_pipe[0]);
-		test_r = _testcase_run_bare(testcase);
+		test_r = testcase_run_bare_(testcase);
 		assert(0<=(int)test_r && (int)test_r<=2);
 		b[0] = "NYS"[test_r];
 		write_r = (int)write(outcome_pipe[1], b, 1);
@@ -174,6 +174,7 @@ _testcase_run_forked(const struct testgroup_t *group,
 			exit(1);
 		}
 		exit(0);
+		return FAIL; /* unreachable */
 	} else {
 		/* parent */
 		int status, r;
@@ -218,9 +219,9 @@ testcase_run_one(const struct testgroup_t *group,
 	}
 
 	if ((testcase->flags & TT_FORK) && !(opt_forked||opt_nofork)) {
-		outcome = _testcase_run_forked(group, testcase);
+		outcome = testcase_run_forked_(group, testcase);
 	} else {
-		outcome = _testcase_run_bare(testcase);
+		outcome = testcase_run_bare_(testcase);
 	}
 
 	if (outcome == OK) {
@@ -239,13 +240,14 @@ testcase_run_one(const struct testgroup_t *group,
 
 	if (opt_forked) {
 		exit(outcome==OK ? 0 : (outcome==SKIP?MAGIC_EXITCODE : 1));
+		return 1; /* unreachable */
 	} else {
 		return (int)outcome;
 	}
 }
 
 int
-_tinytest_set_flag(struct testgroup_t *groups, const char *arg, unsigned long flag)
+tinytest_set_flag_(struct testgroup_t *groups, const char *arg, unsigned long flag)
 {
 	int i, j;
 	size_t length = LONGEST_TEST_NAME;
@@ -277,7 +279,7 @@ usage(struct testgroup_t *groups, int list_groups)
 	puts("  Use --list-tests for a list of tests.");
 	if (list_groups) {
 		puts("Known tests are:");
-		_tinytest_set_flag(groups, "..", 0);
+		tinytest_set_flag_(groups, "..", 0);
 	}
 	exit(0);
 }
@@ -287,8 +289,13 @@ tinytest_main(int c, const char **v, struct testgroup_t *groups)
 {
 	int i, j, n=0;
 
-#ifdef WIN32
-	commandname = v[0];
+#ifdef _WIN32
+	const char *sp = strrchr(v[0], '.');
+	const char *extension = "";
+	if (!sp || stricmp(sp, ".exe"))
+		extension = ".exe"; /* Add an exe so CreateProcess will work */
+	snprintf(commandname, sizeof(commandname), "%s%s", v[0], extension);
+	commandname[MAX_PATH]='\0';
 #endif
 	for (i=1; i<c; ++i) {
 		if (v[i][0] == '-') {
@@ -315,28 +322,28 @@ tinytest_main(int c, const char **v, struct testgroup_t *groups)
 			}
 		} else {
 			const char *test = v[i];
-			int flag = _TT_ENABLED;
+			int flag = TT_ENABLED_;
 			if (test[0] == ':') {
 				++test;
 				flag = TT_SKIP;
 			} else {
 				++n;
 			}
-			if (!_tinytest_set_flag(groups, test, flag)) {
+			if (!tinytest_set_flag_(groups, test, flag)) {
 				printf("No such test as %s!\n", v[i]);
 				return -1;
 			}
 		}
 	}
 	if (!n)
-		_tinytest_set_flag(groups, "..", _TT_ENABLED);
+		tinytest_set_flag_(groups, "..", TT_ENABLED_);
 
 	setvbuf(stdout, NULL, _IONBF, 0);
 
 	++in_tinytest_main;
 	for (i=0; groups[i].prefix; ++i)
 		for (j=0; groups[i].cases[j].name; ++j)
-			if (groups[i].cases[j].flags & _TT_ENABLED)
+			if (groups[i].cases[j].flags & TT_ENABLED_)
 				testcase_run_one(&groups[i],
 						 &groups[i].cases[j]);
 
@@ -355,13 +362,13 @@ tinytest_main(int c, const char **v, struct testgroup_t *groups)
 }
 
 int
-_tinytest_get_verbosity(void)
+tinytest_get_verbosity_(void)
 {
 	return opt_verbosity;
 }
 
 void
-_tinytest_set_test_failed(void)
+tinytest_set_test_failed_(void)
 {
 	if (opt_verbosity <= 0 && cur_test_name) {
 		if (opt_verbosity==0) puts("");
@@ -372,7 +379,7 @@ _tinytest_set_test_failed(void)
 }
 
 void
-_tinytest_set_test_skipped(void)
+tinytest_set_test_skipped_(void)
 {
 	if (cur_test_outcome==OK)
 		cur_test_outcome = SKIP;

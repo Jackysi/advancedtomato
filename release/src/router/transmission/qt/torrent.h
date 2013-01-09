@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: torrent.h 12611 2011-08-02 03:59:54Z jordan $
+ * $Id: torrent.h 13553 2012-10-07 17:51:56Z jordan $
  */
 
 #ifndef QTR_TORRENT_H
@@ -282,7 +282,8 @@ class Torrent: public QObject
         QDateTime dateCreated( ) const { return getDateTime( DATE_CREATED ); }
         QDateTime manualAnnounceTime( ) const { return getDateTime( MANUAL_ANNOUNCE_TIME ); }
         bool canManualAnnounce( ) const { return isReadyToTransfer() && (manualAnnounceTime()<=QDateTime::currentDateTime()); }
-        int peersWeAreDownloadingFrom( ) const { return getInt( PEERS_SENDING_TO_US ) + getInt( WEBSEEDS_SENDING_TO_US ); }
+        int peersWeAreDownloadingFrom( ) const { return getInt( PEERS_SENDING_TO_US ); }
+        int webseedsWeAreDownloadingFrom( ) const { return getInt( WEBSEEDS_SENDING_TO_US ); }
         int peersWeAreUploadingTo( ) const { return getInt( PEERS_GETTING_FROM_US ); }
         bool isUploading( ) const { return peersWeAreUploadingTo( ) > 0; }
         int connectedPeers( ) const { return getInt( PEERS_CONNECTED ); }

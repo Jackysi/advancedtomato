@@ -1,6 +1,6 @@
 /* Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -11,8 +11,10 @@
 #include "or.h"
 #include "config.h"
 #include "dirserv.h"
+#include "nodelist.h"
 #include "policies.h"
 #include "routerparse.h"
+#include "geoip.h"
 #include "ht.h"
 
 /** Policy that addresses for incoming SOCKS connections must match. */
@@ -73,27 +75,26 @@ policy_expand_private(smartlist_t **policy)
   if (!*policy) /*XXXX disallow NULL policies? */
     return;
 
-  tmp = smartlist_create();
+  tmp = smartlist_new();
 
-  SMARTLIST_FOREACH(*policy, addr_policy_t *, p,
-  {
+  SMARTLIST_FOREACH_BEGIN(*policy, addr_policy_t *, p) {
      if (! p->is_private) {
        smartlist_add(tmp, p);
        continue;
      }
      for (i = 0; private_nets[i]; ++i) {
-       addr_policy_t policy;
-       memcpy(&policy, p, sizeof(addr_policy_t));
-       policy.is_private = 0;
-       policy.is_canonical = 0;
-       if (tor_addr_parse_mask_ports(private_nets[i], &policy.addr,
-                                  &policy.maskbits, &port_min, &port_max)<0) {
+       addr_policy_t newpolicy;
+       memcpy(&newpolicy, p, sizeof(addr_policy_t));
+       newpolicy.is_private = 0;
+       newpolicy.is_canonical = 0;
+       if (tor_addr_parse_mask_ports(private_nets[i], &newpolicy.addr,
+                               &newpolicy.maskbits, &port_min, &port_max)<0) {
          tor_assert(0);
        }
-       smartlist_add(tmp, addr_policy_get_canonical_entry(&policy));
+       smartlist_add(tmp, addr_policy_get_canonical_entry(&newpolicy));
      }
      addr_policy_free(p);
-  });
+  } SMARTLIST_FOREACH_END(p);
 
   smartlist_free(*policy);
   *policy = tmp;
@@ -120,13 +121,12 @@ parse_addr_policy(config_line_t *cfg, smartlist_t **dest,
   if (!cfg)
     return 0;
 
-  result = smartlist_create();
-  entries = smartlist_create();
+  result = smartlist_new();
+  entries = smartlist_new();
   for (; cfg; cfg = cfg->next) {
     smartlist_split_string(entries, cfg->value, ",",
                            SPLIT_SKIP_SPACE|SPLIT_IGNORE_BLANK, 0);
-    SMARTLIST_FOREACH(entries, const char *, ent,
-    {
+    SMARTLIST_FOREACH_BEGIN(entries, const char *, ent) {
       log_debug(LD_CONFIG,"Adding new entry '%s'",ent);
       item = router_parse_addr_policy_item_from_string(ent, assume_action);
       if (item) {
@@ -135,7 +135,7 @@ parse_addr_policy(config_line_t *cfg, smartlist_t **dest,
         log_warn(LD_CONFIG,"Malformed policy '%s'.", ent);
         r = -1;
       }
-    });
+    } SMARTLIST_FOREACH_END(ent);
     SMARTLIST_FOREACH(entries, char *, ent, tor_free(ent));
     smartlist_clear(entries);
   }
@@ -163,7 +163,7 @@ parse_addr_policy(config_line_t *cfg, smartlist_t **dest,
 static int
 parse_reachable_addresses(void)
 {
-  or_options_t *options = get_options();
+  const or_options_t *options = get_options();
   int ret = 0;
 
   if (options->ReachableDirAddresses &&
@@ -261,12 +261,28 @@ fascist_firewall_allows_address_or(const tor_addr_t *addr, uint16_t port)
 /** Return true iff we think our firewall will let us make an OR connection to
  * <b>ri</b>. */
 int
-fascist_firewall_allows_or(routerinfo_t *ri)
+fascist_firewall_allows_or(const routerinfo_t *ri)
 {
   /* XXXX proposal 118 */
   tor_addr_t addr;
   tor_addr_from_ipv4h(&addr, ri->addr);
   return fascist_firewall_allows_address_or(&addr, ri->or_port);
+}
+
+/** Return true iff we think our firewall will let us make an OR connection to
+ * <b>node</b>. */
+int
+fascist_firewall_allows_node(const node_t *node)
+{
+  if (node->ri) {
+    return fascist_firewall_allows_or(node->ri);
+  } else if (node->rs) {
+    tor_addr_t addr;
+    tor_addr_from_ipv4h(&addr, node->rs->addr);
+    return fascist_firewall_allows_address_or(&addr, node->rs->or_port);
+  } else {
+    return 1;
+  }
 }
 
 /** Return true iff we think our firewall will let us make a directory
@@ -296,13 +312,29 @@ socks_policy_permits_address(const tor_addr_t *addr)
   return addr_policy_permits_tor_addr(addr, 1, socks_policy);
 }
 
+/** Return true iff the address <b>addr</b> is in a country listed in the
+ * case-insensitive list of country codes <b>cc_list</b>. */
+static int
+addr_is_in_cc_list(uint32_t addr, const smartlist_t *cc_list)
+{
+  country_t country;
+  const char *name;
+  if (!cc_list)
+    return 0;
+  country = geoip_get_country_by_ip(addr);
+  name = geoip_get_country_name(country);
+  return smartlist_string_isin_case(cc_list, name);
+}
+
 /** Return 1 if <b>addr</b>:<b>port</b> is permitted to publish to our
  * directory, based on <b>authdir_reject_policy</b>. Else return 0.
  */
 int
 authdir_policy_permits_address(uint32_t addr, uint16_t port)
 {
-  return addr_policy_permits_address(addr, port, authdir_reject_policy);
+  if (! addr_policy_permits_address(addr, port, authdir_reject_policy))
+    return 0;
+  return !addr_is_in_cc_list(addr, get_options()->AuthDirRejectCCs);
 }
 
 /** Return 1 if <b>addr</b>:<b>port</b> is considered valid in our
@@ -311,7 +343,9 @@ authdir_policy_permits_address(uint32_t addr, uint16_t port)
 int
 authdir_policy_valid_address(uint32_t addr, uint16_t port)
 {
-  return addr_policy_permits_address(addr, port, authdir_invalid_policy);
+  if (! addr_policy_permits_address(addr, port, authdir_invalid_policy))
+    return 0;
+  return !addr_is_in_cc_list(addr, get_options()->AuthDirInvalidCCs);
 }
 
 /** Return 1 if <b>addr</b>:<b>port</b> should be marked as a bad dir,
@@ -320,7 +354,9 @@ authdir_policy_valid_address(uint32_t addr, uint16_t port)
 int
 authdir_policy_baddir_address(uint32_t addr, uint16_t port)
 {
-  return ! addr_policy_permits_address(addr, port, authdir_baddir_policy);
+  if (! addr_policy_permits_address(addr, port, authdir_baddir_policy))
+    return 1;
+  return addr_is_in_cc_list(addr, get_options()->AuthDirBadDirCCs);
 }
 
 /** Return 1 if <b>addr</b>:<b>port</b> should be marked as a bad exit,
@@ -329,7 +365,9 @@ authdir_policy_baddir_address(uint32_t addr, uint16_t port)
 int
 authdir_policy_badexit_address(uint32_t addr, uint16_t port)
 {
-  return ! addr_policy_permits_address(addr, port, authdir_badexit_policy);
+  if (! addr_policy_permits_address(addr, port, authdir_badexit_policy))
+    return 1;
+  return addr_is_in_cc_list(addr, get_options()->AuthDirBadExitCCs);
 }
 
 #define REJECT(arg) \
@@ -339,7 +377,7 @@ authdir_policy_badexit_address(uint32_t addr, uint16_t port)
  * options in <b>options</b>, return -1 and set <b>msg</b> to a newly
  * allocated description of the error. Else return 0. */
 int
-validate_addr_policies(or_options_t *options, char **msg)
+validate_addr_policies(const or_options_t *options, char **msg)
 {
   /* XXXX Maybe merge this into parse_policies_from_options, to make sure
    * that the two can't go out of sync. */
@@ -423,7 +461,7 @@ load_policy_from_option(config_line_t *config, smartlist_t **policy,
 /** Set all policies based on <b>options</b>, which should have been validated
  * first by validate_addr_policies. */
 int
-policies_parse_from_options(or_options_t *options)
+policies_parse_from_options(const or_options_t *options)
 {
   int ret = 0;
   if (load_policy_from_option(options->SocksPolicy, &socks_policy, -1) < 0)
@@ -495,6 +533,7 @@ typedef struct policy_map_ent_t {
   addr_policy_t *policy;
 } policy_map_ent_t;
 
+/* DOCDOC policy_root */
 static HT_HEAD(policy_map, policy_map_ent_t) policy_root = HT_INITIALIZER();
 
 /** Return true iff a and b are equal. */
@@ -551,18 +590,6 @@ addr_policy_get_canonical_entry(addr_policy_t *e)
   tor_assert(!cmp_single_addr_policy(found->policy, e));
   ++found->policy->refcnt;
   return found->policy;
-}
-
-/** As compare_tor_addr_to_addr_policy, but instead of a tor_addr_t, takes
- * in host order. */
-addr_policy_result_t
-compare_addr_to_addr_policy(uint32_t addr, uint16_t port,
-                            const smartlist_t *policy)
-{
-  /*XXXX deprecate this function when possible. */
-  tor_addr_t a;
-  tor_addr_from_ipv4h(&a, addr);
-  return compare_tor_addr_to_addr_policy(&a, port, policy);
 }
 
 /** Helper for compare_tor_addr_to_addr_policy.  Implements the case where
@@ -641,7 +668,7 @@ compare_unknown_tor_addr_to_addr_policy(uint16_t port,
 
   SMARTLIST_FOREACH_BEGIN(policy, addr_policy_t *, tmpe) {
     if (tmpe->prt_min <= port && port <= tmpe->prt_max) {
-       if (tmpe->maskbits == 0) {
+      if (tmpe->maskbits == 0) {
         /* Definitely matches, since it covers all addresses. */
         if (tmpe->policy_type == ADDR_POLICY_ACCEPT) {
           /* If we already hit a clause that might trigger a 'reject', than we
@@ -684,8 +711,12 @@ compare_tor_addr_to_addr_policy(const tor_addr_t *addr, uint16_t port,
   if (!policy) {
     /* no policy? accept all. */
     return ADDR_POLICY_ACCEPTED;
-  } else if (tor_addr_is_null(addr)) {
-    tor_assert(port != 0);
+  } else if (addr == NULL || tor_addr_is_null(addr)) {
+    if (port == 0) {
+      log_info(LD_BUG, "Rejecting null address with 0 port (family %d)",
+               addr ? tor_addr_family(addr) : -1);
+      return ADDR_POLICY_REJECTED;
+    }
     return compare_unknown_tor_addr_to_addr_policy(port, policy);
   } else if (port == 0) {
     return compare_known_tor_addr_to_addr_policy_noport(addr, policy);
@@ -866,15 +897,11 @@ policies_exit_policy_append_reject_star(smartlist_t **dest)
   append_exit_policy_string(dest, "reject *:*");
 }
 
-/** Replace the exit policy of <b>r</b> with reject *:*. */
+/** Replace the exit policy of <b>node</b> with reject *:* */
 void
-policies_set_router_exitpolicy_to_reject_all(routerinfo_t *r)
+policies_set_node_exitpolicy_to_reject_all(node_t *node)
 {
-  addr_policy_t *item;
-  addr_policy_list_free(r->exit_policy);
-  r->exit_policy = smartlist_create();
-  item = router_parse_addr_policy_item_from_string("reject *:*", -1);
-  smartlist_add(r->exit_policy, item);
+  node->rejects_all = 1;
 }
 
 /** Return 1 if there is at least one /8 subnet in <b>policy</b> that
@@ -887,7 +914,7 @@ exit_policy_is_general_exit_helper(smartlist_t *policy, int port)
   char subnet_status[256];
 
   memset(subnet_status, 0, sizeof(subnet_status));
-  SMARTLIST_FOREACH(policy, addr_policy_t *, p, {
+  SMARTLIST_FOREACH_BEGIN(policy, addr_policy_t *, p) {
     if (tor_addr_family(&p->addr) != AF_INET)
       continue; /* IPv4 only for now */
     if (p->prt_min > port || p->prt_max < port)
@@ -918,7 +945,7 @@ exit_policy_is_general_exit_helper(smartlist_t *policy, int port)
         subnet_status[i] = 1;
       }
     }
-  });
+  } SMARTLIST_FOREACH_END(p);
   return 0;
 }
 
@@ -1040,7 +1067,7 @@ policy_summary_create(void)
   item->reject_count = 0;
   item->accepted = 0;
 
-  summary = smartlist_create();
+  summary = smartlist_new();
   smartlist_add(summary, item);
 
   return summary;
@@ -1085,7 +1112,7 @@ policy_summary_split(smartlist_t *summary,
   int start_at_index;
 
   int i = 0;
-  /* XXXX Do a binary search if run time matters */
+
   while (AT(i)->prt_max < prt_min)
     i++;
   if (AT(i)->prt_min != prt_min) {
@@ -1194,7 +1221,7 @@ policy_summarize(smartlist_t *policy)
   smartlist_t *summary = policy_summary_create();
   smartlist_t *accepts, *rejects;
   int i, last, start_prt;
-  size_t accepts_len, rejects_len, shorter_len, final_size;
+  size_t accepts_len, rejects_len;
   char *accepts_str = NULL, *rejects_str = NULL, *shorter_str, *result;
   const char *prefix;
 
@@ -1212,8 +1239,8 @@ policy_summarize(smartlist_t *policy)
    */
   i = 0;
   start_prt = 1;
-  accepts = smartlist_create();
-  rejects = smartlist_create();
+  accepts = smartlist_new();
+  rejects = smartlist_new();
   while (1) {
     last = i == smartlist_len(summary)-1;
     if (last ||
@@ -1266,21 +1293,15 @@ policy_summarize(smartlist_t *policy)
     tor_assert(*c == ',');
     *c = '\0';
 
-    shorter_len = strlen(shorter_str);
   } else if (rejects_len < accepts_len) {
     shorter_str = rejects_str;
-    shorter_len = rejects_len;
     prefix = "reject";
   } else {
     shorter_str = accepts_str;
-    shorter_len = accepts_len;
     prefix = "accept";
   }
 
-  final_size = strlen(prefix)+1+shorter_len+1;
-  tor_assert(final_size <= MAX_EXITPOLICY_SUMMARY_LEN+1);
-  result = tor_malloc(final_size);
-  tor_snprintf(result, final_size, "%s %s", prefix, shorter_str);
+  tor_asprintf(&result, "%s %s", prefix, shorter_str);
 
  cleanup:
   /* cleanup */
@@ -1296,6 +1317,226 @@ policy_summarize(smartlist_t *policy)
   smartlist_free(rejects);
 
   return result;
+}
+
+/** Convert a summarized policy string into a short_policy_t.  Return NULL
+ * if the string is not well-formed. */
+short_policy_t *
+parse_short_policy(const char *summary)
+{
+  const char *orig_summary = summary;
+  short_policy_t *result;
+  int is_accept;
+  int n_entries;
+  short_policy_entry_t entries[MAX_EXITPOLICY_SUMMARY_LEN]; /* overkill */
+  const char *next;
+
+  if (!strcmpstart(summary, "accept ")) {
+    is_accept = 1;
+    summary += strlen("accept ");
+  } else if (!strcmpstart(summary, "reject ")) {
+    is_accept = 0;
+    summary += strlen("reject ");
+  } else {
+    log_fn(LOG_PROTOCOL_WARN, LD_DIR, "Unrecognized policy summary keyword");
+    return NULL;
+  }
+
+  n_entries = 0;
+  for ( ; *summary; summary = next) {
+    const char *comma = strchr(summary, ',');
+    unsigned low, high;
+    char dummy;
+    char ent_buf[32];
+    size_t len;
+
+    next = comma ? comma+1 : strchr(summary, '\0');
+    len = comma ? (size_t)(comma - summary) : strlen(summary);
+
+    if (n_entries == MAX_EXITPOLICY_SUMMARY_LEN) {
+      log_fn(LOG_PROTOCOL_WARN, LD_DIR, "Impossibly long policy summary %s",
+             escaped(orig_summary));
+      return NULL;
+    }
+
+    if (! TOR_ISDIGIT(*summary) || len > (sizeof(ent_buf)-1)) {
+      /* unrecognized entry format. skip it. */
+      continue;
+    }
+    if (len < 1) {
+      /* empty; skip it. */
+      /* XXX This happens to be unreachable, since if len==0, then *summary is
+       * ',' or '\0', and the TOR_ISDIGIT test above would have failed. */
+      continue;
+    }
+
+    memcpy(ent_buf, summary, len);
+    ent_buf[len] = '\0';
+
+    if (tor_sscanf(ent_buf, "%u-%u%c", &low, &high, &dummy) == 2) {
+      if (low<1 || low>65535 || high<1 || high>65535 || low>high) {
+        log_fn(LOG_PROTOCOL_WARN, LD_DIR,
+               "Found bad entry in policy summary %s", escaped(orig_summary));
+        return NULL;
+      }
+    } else if (tor_sscanf(ent_buf, "%u%c", &low, &dummy) == 1) {
+      if (low<1 || low>65535) {
+        log_fn(LOG_PROTOCOL_WARN, LD_DIR,
+               "Found bad entry in policy summary %s", escaped(orig_summary));
+        return NULL;
+      }
+      high = low;
+    } else {
+      log_fn(LOG_PROTOCOL_WARN, LD_DIR,"Found bad entry in policy summary %s",
+             escaped(orig_summary));
+      return NULL;
+    }
+
+    entries[n_entries].min_port = low;
+    entries[n_entries].max_port = high;
+    n_entries++;
+  }
+
+  if (n_entries == 0) {
+    log_fn(LOG_PROTOCOL_WARN, LD_DIR,
+           "Found no port-range entries in summary %s", escaped(orig_summary));
+    return NULL;
+  }
+
+  {
+    size_t size = STRUCT_OFFSET(short_policy_t, entries) +
+      sizeof(short_policy_entry_t)*(n_entries);
+    result = tor_malloc_zero(size);
+
+    tor_assert( (char*)&result->entries[n_entries-1] < ((char*)result)+size);
+  }
+
+  result->is_accept = is_accept;
+  result->n_entries = n_entries;
+  memcpy(result->entries, entries, sizeof(short_policy_entry_t)*n_entries);
+  return result;
+}
+
+/** Write <b>policy</b> back out into a string. Used only for unit tests
+ * currently. */
+char *
+write_short_policy(const short_policy_t *policy)
+{
+  int i;
+  char *answer;
+  smartlist_t *sl = smartlist_new();
+
+  smartlist_add_asprintf(sl, "%s", policy->is_accept ? "accept " : "reject ");
+
+  for (i=0; i < policy->n_entries; i++) {
+    const short_policy_entry_t *e = &policy->entries[i];
+    if (e->min_port == e->max_port) {
+      smartlist_add_asprintf(sl, "%d", e->min_port);
+    } else {
+      smartlist_add_asprintf(sl, "%d-%d", e->min_port, e->max_port);
+    }
+    if (i < policy->n_entries-1)
+      smartlist_add(sl, tor_strdup(","));
+  }
+  answer = smartlist_join_strings(sl, "", 0, NULL);
+  SMARTLIST_FOREACH(sl, char *, a, tor_free(a));
+  smartlist_free(sl);
+  return answer;
+}
+
+/** Release all storage held in <b>policy</b>. */
+void
+short_policy_free(short_policy_t *policy)
+{
+  tor_free(policy);
+}
+
+/** See whether the <b>addr</b>:<b>port</b> address is likely to be accepted
+ * or rejected by the summarized policy <b>policy</b>.  Return values are as
+ * for compare_tor_addr_to_addr_policy.  Unlike the regular addr_policy
+ * functions, requires the <b>port</b> be specified. */
+addr_policy_result_t
+compare_tor_addr_to_short_policy(const tor_addr_t *addr, uint16_t port,
+                                 const short_policy_t *policy)
+{
+  int i;
+  int found_match = 0;
+  int accept;
+
+  tor_assert(port != 0);
+
+  if (addr && tor_addr_is_null(addr))
+    addr = NULL; /* Unspec means 'no address at all,' in this context. */
+
+  if (addr && get_options()->ClientRejectInternalAddresses &&
+      (tor_addr_is_internal(addr, 0) || tor_addr_is_loopback(addr)))
+    return ADDR_POLICY_REJECTED;
+
+  for (i=0; i < policy->n_entries; ++i) {
+    const short_policy_entry_t *e = &policy->entries[i];
+    if (e->min_port <= port && port <= e->max_port) {
+      found_match = 1;
+      break;
+    }
+  }
+
+  if (found_match)
+    accept = policy->is_accept;
+  else
+    accept = ! policy->is_accept;
+
+  /* ???? are these right? -NM */
+  /* We should be sure not to return ADDR_POLICY_ACCEPTED in the accept
+   * case here, because it would cause clients to believe that the node
+   * allows exit enclaving. Trying it anyway would open up a cool attack
+   * where the node refuses due to exitpolicy, the client reacts in
+   * surprise by rewriting the node's exitpolicy to reject *:*, and then
+   * a bad guy targets users by causing them to attempt such connections
+   * to 98% of the exits.
+   *
+   * Once microdescriptors can handle addresses in special cases (e.g. if
+   * we ever solve ticket 1774), we can provide certainty here. -RD */
+  if (accept)
+    return ADDR_POLICY_PROBABLY_ACCEPTED;
+  else
+    return ADDR_POLICY_REJECTED;
+}
+
+/** Return true iff <b>policy</b> seems reject all ports */
+int
+short_policy_is_reject_star(const short_policy_t *policy)
+{
+  /* This doesn't need to be as much on the lookout as policy_is_reject_star,
+   * since policy summaries are from the consensus or from consensus
+   * microdescs.
+   */
+  tor_assert(policy);
+  /* Check for an exact match of "reject 1-65535". */
+  return (policy->is_accept == 0 && policy->n_entries == 1 &&
+          policy->entries[0].min_port == 1 &&
+          policy->entries[0].max_port == 65535);
+}
+
+/** Decides whether addr:port is probably or definitely accepted or rejcted by
+ * <b>node</b>.  See compare_tor_addr_to_addr_policy for details on addr/port
+ * interpretation. */
+addr_policy_result_t
+compare_tor_addr_to_node_policy(const tor_addr_t *addr, uint16_t port,
+                                const node_t *node)
+{
+  if (node->rejects_all)
+    return ADDR_POLICY_REJECTED;
+
+  if (node->ri)
+    return compare_tor_addr_to_addr_policy(addr, port, node->ri->exit_policy);
+  else if (node->md) {
+    if (node->md->exit_policy == NULL)
+      return ADDR_POLICY_REJECTED;
+    else
+      return compare_tor_addr_to_short_policy(addr, port,
+                                              node->md->exit_policy);
+  } else
+    return ADDR_POLICY_PROBABLY_REJECTED;
 }
 
 /** Implementation for GETINFO control command: knows the answer for questions

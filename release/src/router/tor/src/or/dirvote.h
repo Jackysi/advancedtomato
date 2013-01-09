@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -24,13 +24,15 @@ void dirvote_free_all(void);
 /* vote manipulation */
 char *networkstatus_compute_consensus(smartlist_t *votes,
                                       int total_authorities,
-                                      crypto_pk_env_t *identity_key,
-                                      crypto_pk_env_t *signing_key,
+                                      crypto_pk_t *identity_key,
+                                      crypto_pk_t *signing_key,
                                       const char *legacy_identity_key_digest,
-                                      crypto_pk_env_t *legacy_signing_key,
+                                      crypto_pk_t *legacy_signing_key,
                                       consensus_flavor_t flavor);
 int networkstatus_add_detached_signatures(networkstatus_t *target,
                                           ns_detached_signatures_t *sigs,
+                                          const char *source,
+                                          int severity,
                                           const char **msg_out);
 char *networkstatus_get_detached_signatures(smartlist_t *consensuses);
 void ns_detached_signatures_free(ns_detached_signatures_t *s);
@@ -41,8 +43,8 @@ authority_cert_t *authority_cert_dup(authority_cert_t *cert);
 /* vote scheduling */
 void dirvote_get_preferred_voting_intervals(vote_timing_t *timing_out);
 time_t dirvote_get_start_of_next_interval(time_t now, int interval);
-void dirvote_recalculate_timing(or_options_t *options, time_t now);
-void dirvote_act(or_options_t *options, time_t now);
+void dirvote_recalculate_timing(const or_options_t *options, time_t now);
+void dirvote_act(const or_options_t *options, time_t now);
 
 /* invoked on timers and by outside triggers. */
 struct pending_vote_t * dirvote_add_vote(const char *vote_body,
@@ -60,12 +62,12 @@ const char *dirvote_get_pending_detached_signatures(void);
 #define DGV_INCLUDE_PREVIOUS 4
 const cached_dir_t *dirvote_get_vote(const char *fp, int flags);
 void set_routerstatus_from_routerinfo(routerstatus_t *rs,
+                                      node_t *node,
                                       routerinfo_t *ri, time_t now,
                                       int naming, int listbadexits,
                                       int listbaddirs, int vote_on_hsdirs);
-void router_clear_status_flags(routerinfo_t *ri);
 networkstatus_t *
-dirserv_generate_networkstatus_vote_obj(crypto_pk_env_t *private_key,
+dirserv_generate_networkstatus_vote_obj(crypto_pk_t *private_key,
                                         authority_cert_t *cert);
 
 microdesc_t *dirvote_create_microdescriptor(const routerinfo_t *ri);
@@ -81,9 +83,10 @@ document_signature_t *voter_get_sig_by_algorithm(
                            digest_algorithm_t alg);
 
 #ifdef DIRVOTE_PRIVATE
-char *format_networkstatus_vote(crypto_pk_env_t *private_key,
+char *format_networkstatus_vote(crypto_pk_t *private_key,
                                  networkstatus_t *v3_ns);
-char *dirvote_compute_params(smartlist_t *votes);
+char *dirvote_compute_params(smartlist_t *votes, int method,
+                             int total_authorities);
 #endif
 
 #endif

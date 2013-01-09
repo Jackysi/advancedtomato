@@ -34,7 +34,6 @@ libtransmission_a_SOURCES = \
     history.c \
     inout.c \
     json.c \
-    JSON_parser.c \
     list.c \
     magnet.c \
     makemeta.c \
@@ -84,8 +83,9 @@ noinst_HEADERS = \
     handshake.h \
     history.h \
     inout.h \
+    jsonsl.c \
+    jsonsl.h \
     json.h \
-    JSON_parser.h \
     libtransmission-test.h \
     list.h \
     magnet.h \
@@ -122,12 +122,14 @@ noinst_HEADERS = \
     webseed.h
 
 TESTS = \
+    bitfield-test \
     blocklist-test \
     bencode-test \
     clients-test \
     history-test \
     json-test \
     magnet-test \
+    metainfo-test \
     peer-msgs-test \
     rpc-test \
     test-peer-id \
@@ -155,6 +157,10 @@ bencode_test_SOURCES = bencode-test.c
 bencode_test_LDADD = ${apps_ldadd}
 bencode_test_LDFLAGS = ${apps_ldflags}
 
+bitfield_test_SOURCES = bitfield-test.c
+bitfield_test_LDADD = ${apps_ldadd}
+bitfield_test_LDFLAGS = ${apps_ldflags}
+
 blocklist_test_SOURCES = blocklist-test.c
 blocklist_test_LDADD = ${apps_ldadd}
 blocklist_test_LDFLAGS = ${apps_ldflags}
@@ -174,6 +180,10 @@ json_test_LDFLAGS = ${apps_ldflags}
 magnet_test_SOURCES = magnet-test.c
 magnet_test_LDADD = ${apps_ldadd}
 magnet_test_LDFLAGS = ${apps_ldflags}
+
+metainfo_test_SOURCES = metainfo-test.c
+metainfo_test_LDADD = ${apps_ldadd}
+metainfo_test_LDFLAGS = ${apps_ldflags}
 
 peer_msgs_test_SOURCES = peer-msgs-test.c
 peer_msgs_test_LDADD = ${apps_ldadd}

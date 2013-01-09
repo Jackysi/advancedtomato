@@ -1,7 +1,7 @@
 /* Copyright (c) 2001 Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -34,7 +34,7 @@ int rep_hist_load_state(or_state_t *state, char **err);
 void rep_history_clean(time_t before);
 
 void rep_hist_note_router_reachable(const char *id, const tor_addr_t *at_addr,
-                                    uint16_t at_port, time_t when);
+                                    const uint16_t at_port, time_t when);
 void rep_hist_note_router_unreachable(const char *id, time_t when);
 int rep_hist_record_mtbf_data(time_t now, int missing_means_down);
 int rep_hist_load_mtbf_data(time_t now);
@@ -49,6 +49,7 @@ const char *rep_hist_get_router_stability_doc(time_t now);
 
 void rep_hist_note_used_port(time_t now, uint16_t port);
 smartlist_t *rep_hist_get_predicted_ports(time_t now);
+void rep_hist_remove_predicted_ports(const smartlist_t *rmv_ports);
 void rep_hist_note_used_resolve(time_t now);
 void rep_hist_note_used_internal(time_t now, int need_uptime,
                                  int need_capacity);
@@ -77,6 +78,23 @@ void rep_hist_buffer_stats_add_circ(circuit_t *circ,
                                     time_t end_of_interval);
 time_t rep_hist_buffer_stats_write(time_t now);
 void rep_hist_buffer_stats_term(void);
+void rep_hist_add_buffer_stats(double mean_num_cells_in_queue,
+     double mean_time_cells_in_queue, uint32_t processed_cells);
+char *rep_hist_format_buffer_stats(time_t now);
+void rep_hist_reset_buffer_stats(time_t now);
+
+void rep_hist_desc_stats_init(time_t now);
+void rep_hist_note_desc_served(const char * desc);
+void rep_hist_desc_stats_term(void);
+time_t rep_hist_desc_stats_write(time_t now);
+
+void rep_hist_conn_stats_init(time_t now);
+void rep_hist_note_or_conn_bytes(uint64_t conn_id, size_t num_read,
+                                 size_t num_written, time_t when);
+void rep_hist_reset_conn_stats(time_t now);
+char *rep_hist_format_conn_stats(time_t now);
+time_t rep_hist_conn_stats_write(time_t now);
+void rep_hist_conn_stats_term(void);
 
 #endif
 

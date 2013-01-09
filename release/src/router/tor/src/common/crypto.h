@@ -1,7 +1,7 @@
 /* Copyright (c) 2001, Matej Pfajfar.
  * Copyright (c) 2001-2004, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 /**
@@ -15,6 +15,38 @@
 
 #include <stdio.h>
 #include "torint.h"
+
+/*
+  Macro to create an arbitrary OpenSSL version number as used by
+  OPENSSL_VERSION_NUMBER or SSLeay(), since the actual numbers are a bit hard
+  to read.
+
+  Don't use this directly, instead use one of the other OPENSSL_V macros
+  below.
+
+  The format is: 4 bits major, 8 bits minor, 8 bits fix, 8 bits patch, 4 bit
+  status.
+ */
+#define OPENSSL_VER(a,b,c,d,e)                                \
+  (((a)<<28) |                                                \
+   ((b)<<20) |                                                \
+   ((c)<<12) |                                                \
+   ((d)<< 4) |                                                \
+    (e))
+/** An openssl release number.  For example, OPENSSL_V(0,9,8,'j') is the
+ * version for the released version of 0.9.8j */
+#define OPENSSL_V(a,b,c,d) \
+  OPENSSL_VER((a),(b),(c),(d)-'a'+1,0xf)
+/** An openssl release number for the first release in the series.  For
+ * example, OPENSSL_V_NOPATCH(1,0,0) is the first released version of OpenSSL
+ * 1.0.0. */
+#define OPENSSL_V_NOPATCH(a,b,c) \
+  OPENSSL_VER((a),(b),(c),0,0xf)
+/** The first version that would occur for any alpha or beta in an openssl
+ * series. For example, OPENSSL_V_SERIES(0,9,8) is greater than any released
+ * 0.9.7, and less than any released 0.9.8. */
+#define OPENSSL_V_SERIES(a,b,c) \
+  OPENSSL_VER((a),(b),(c),0,0)
 
 /** Length of the output of our message digest. */
 #define DIGEST_LEN 20
@@ -37,11 +69,9 @@
  * signs removed. */
 #define BASE64_DIGEST256_LEN 43
 
-/** Constants used to indicate no padding for public-key encryption */
-#define PK_NO_PADDING         60000
-/** Constants used to indicate PKCS1 padding for public-key encryption */
+/** Constant used to indicate PKCS1 padding for public-key encryption */
 #define PK_PKCS1_PADDING      60001
-/** Constants used to indicate OAEP padding for public-key encryption */
+/** Constant used to indicate OAEP padding for public-key encryption */
 #define PK_PKCS1_OAEP_PADDING 60002
 
 /** Number of bytes added for PKCS1 padding. */
@@ -75,10 +105,10 @@ typedef struct {
   char d[N_DIGEST_ALGORITHMS][DIGEST256_LEN];
 } digests_t;
 
-typedef struct crypto_pk_env_t crypto_pk_env_t;
-typedef struct crypto_cipher_env_t crypto_cipher_env_t;
-typedef struct crypto_digest_env_t crypto_digest_env_t;
-typedef struct crypto_dh_env_t crypto_dh_env_t;
+typedef struct crypto_pk_t crypto_pk_t;
+typedef struct crypto_cipher_t crypto_cipher_t;
+typedef struct crypto_digest_t crypto_digest_t;
+typedef struct crypto_dh_t crypto_dh_t;
 
 /* global state */
 int crypto_global_init(int hardwareAccel,
@@ -88,90 +118,84 @@ void crypto_thread_cleanup(void);
 int crypto_global_cleanup(void);
 
 /* environment setup */
-crypto_pk_env_t *crypto_new_pk_env(void);
-void crypto_free_pk_env(crypto_pk_env_t *env);
+crypto_pk_t *crypto_pk_new(void);
+void crypto_pk_free(crypto_pk_t *env);
 
-/* convenience function: wraps crypto_create_crypto_env, set_key, and init. */
-crypto_cipher_env_t *crypto_create_init_cipher(const char *key,
-                                               int encrypt_mode);
+void crypto_set_tls_dh_prime(const char *dynamic_dh_modulus_fname);
 
-crypto_cipher_env_t *crypto_new_cipher_env(void);
-void crypto_free_cipher_env(crypto_cipher_env_t *env);
+crypto_cipher_t *crypto_cipher_new(const char *key);
+crypto_cipher_t *crypto_cipher_new_with_iv(const char *key, const char *iv);
+void crypto_cipher_free(crypto_cipher_t *env);
 
 /* public key crypto */
-int crypto_pk_generate_key_with_bits(crypto_pk_env_t *env, int bits);
+int crypto_pk_generate_key_with_bits(crypto_pk_t *env, int bits);
 #define crypto_pk_generate_key(env)                     \
   crypto_pk_generate_key_with_bits((env), (PK_BYTES*8))
 
-int crypto_pk_read_private_key_from_filename(crypto_pk_env_t *env,
+int crypto_pk_read_private_key_from_filename(crypto_pk_t *env,
                                              const char *keyfile);
-int crypto_pk_write_public_key_to_string(crypto_pk_env_t *env,
+int crypto_pk_write_public_key_to_string(crypto_pk_t *env,
                                          char **dest, size_t *len);
-int crypto_pk_write_private_key_to_string(crypto_pk_env_t *env,
+int crypto_pk_write_private_key_to_string(crypto_pk_t *env,
                                           char **dest, size_t *len);
-int crypto_pk_read_public_key_from_string(crypto_pk_env_t *env,
+int crypto_pk_read_public_key_from_string(crypto_pk_t *env,
                                           const char *src, size_t len);
-int crypto_pk_read_private_key_from_string(crypto_pk_env_t *env,
+int crypto_pk_read_private_key_from_string(crypto_pk_t *env,
                                            const char *s, ssize_t len);
-int crypto_pk_write_private_key_to_filename(crypto_pk_env_t *env,
+int crypto_pk_write_private_key_to_filename(crypto_pk_t *env,
                                             const char *fname);
 
-int crypto_pk_check_key(crypto_pk_env_t *env);
-int crypto_pk_cmp_keys(crypto_pk_env_t *a, crypto_pk_env_t *b);
-size_t crypto_pk_keysize(crypto_pk_env_t *env);
-int crypto_pk_num_bits(crypto_pk_env_t *env);
-crypto_pk_env_t *crypto_pk_dup_key(crypto_pk_env_t *orig);
-crypto_pk_env_t *crypto_pk_copy_full(crypto_pk_env_t *orig);
-int crypto_pk_key_is_private(const crypto_pk_env_t *key);
-int crypto_pk_public_exponent_ok(crypto_pk_env_t *env);
+int crypto_pk_check_key(crypto_pk_t *env);
+int crypto_pk_cmp_keys(crypto_pk_t *a, crypto_pk_t *b);
+size_t crypto_pk_keysize(crypto_pk_t *env);
+int crypto_pk_num_bits(crypto_pk_t *env);
+crypto_pk_t *crypto_pk_dup_key(crypto_pk_t *orig);
+crypto_pk_t *crypto_pk_copy_full(crypto_pk_t *orig);
+int crypto_pk_key_is_private(const crypto_pk_t *key);
+int crypto_pk_public_exponent_ok(crypto_pk_t *env);
 
-int crypto_pk_public_encrypt(crypto_pk_env_t *env, char *to, size_t tolen,
+int crypto_pk_public_encrypt(crypto_pk_t *env, char *to, size_t tolen,
                              const char *from, size_t fromlen, int padding);
-int crypto_pk_private_decrypt(crypto_pk_env_t *env, char *to, size_t tolen,
+int crypto_pk_private_decrypt(crypto_pk_t *env, char *to, size_t tolen,
                               const char *from, size_t fromlen,
                               int padding, int warnOnFailure);
-int crypto_pk_public_checksig(crypto_pk_env_t *env, char *to, size_t tolen,
+int crypto_pk_public_checksig(crypto_pk_t *env, char *to, size_t tolen,
                               const char *from, size_t fromlen);
-int crypto_pk_public_checksig_digest(crypto_pk_env_t *env, const char *data,
+int crypto_pk_public_checksig_digest(crypto_pk_t *env, const char *data,
                                size_t datalen, const char *sig, size_t siglen);
-int crypto_pk_private_sign(crypto_pk_env_t *env, char *to, size_t tolen,
+int crypto_pk_private_sign(crypto_pk_t *env, char *to, size_t tolen,
                            const char *from, size_t fromlen);
-int crypto_pk_private_sign_digest(crypto_pk_env_t *env, char *to, size_t tolen,
+int crypto_pk_private_sign_digest(crypto_pk_t *env, char *to, size_t tolen,
                                   const char *from, size_t fromlen);
-int crypto_pk_public_hybrid_encrypt(crypto_pk_env_t *env, char *to,
+int crypto_pk_public_hybrid_encrypt(crypto_pk_t *env, char *to,
                                     size_t tolen,
                                     const char *from, size_t fromlen,
                                     int padding, int force);
-int crypto_pk_private_hybrid_decrypt(crypto_pk_env_t *env, char *to,
+int crypto_pk_private_hybrid_decrypt(crypto_pk_t *env, char *to,
                                      size_t tolen,
                                      const char *from, size_t fromlen,
                                      int padding, int warnOnFailure);
 
-int crypto_pk_asn1_encode(crypto_pk_env_t *pk, char *dest, size_t dest_len);
-crypto_pk_env_t *crypto_pk_asn1_decode(const char *str, size_t len);
-int crypto_pk_get_digest(crypto_pk_env_t *pk, char *digest_out);
-int crypto_pk_get_fingerprint(crypto_pk_env_t *pk, char *fp_out,int add_space);
+int crypto_pk_asn1_encode(crypto_pk_t *pk, char *dest, size_t dest_len);
+crypto_pk_t *crypto_pk_asn1_decode(const char *str, size_t len);
+int crypto_pk_get_digest(crypto_pk_t *pk, char *digest_out);
+int crypto_pk_get_all_digests(crypto_pk_t *pk, digests_t *digests_out);
+int crypto_pk_get_fingerprint(crypto_pk_t *pk, char *fp_out,int add_space);
 int crypto_pk_check_fingerprint_syntax(const char *s);
 
 /* symmetric crypto */
-int crypto_cipher_generate_key(crypto_cipher_env_t *env);
-void crypto_cipher_set_key(crypto_cipher_env_t *env, const char *key);
-void crypto_cipher_generate_iv(char *iv_out);
-int crypto_cipher_set_iv(crypto_cipher_env_t *env, const char *iv);
-const char *crypto_cipher_get_key(crypto_cipher_env_t *env);
-int crypto_cipher_encrypt_init_cipher(crypto_cipher_env_t *env);
-int crypto_cipher_decrypt_init_cipher(crypto_cipher_env_t *env);
+const char *crypto_cipher_get_key(crypto_cipher_t *env);
 
-int crypto_cipher_encrypt(crypto_cipher_env_t *env, char *to,
+int crypto_cipher_encrypt(crypto_cipher_t *env, char *to,
                           const char *from, size_t fromlen);
-int crypto_cipher_decrypt(crypto_cipher_env_t *env, char *to,
+int crypto_cipher_decrypt(crypto_cipher_t *env, char *to,
                           const char *from, size_t fromlen);
-int crypto_cipher_crypt_inplace(crypto_cipher_env_t *env, char *d, size_t len);
+int crypto_cipher_crypt_inplace(crypto_cipher_t *env, char *d, size_t len);
 
-int crypto_cipher_encrypt_with_iv(crypto_cipher_env_t *env,
+int crypto_cipher_encrypt_with_iv(const char *key,
                                   char *to, size_t tolen,
                                   const char *from, size_t fromlen);
-int crypto_cipher_decrypt_with_iv(crypto_cipher_env_t *env,
+int crypto_cipher_decrypt_with_iv(const char *key,
                                   char *to, size_t tolen,
                                   const char *from, size_t fromlen);
 
@@ -182,33 +206,36 @@ int crypto_digest256(char *digest, const char *m, size_t len,
 int crypto_digest_all(digests_t *ds_out, const char *m, size_t len);
 const char *crypto_digest_algorithm_get_name(digest_algorithm_t alg);
 int crypto_digest_algorithm_parse_name(const char *name);
-crypto_digest_env_t *crypto_new_digest_env(void);
-crypto_digest_env_t *crypto_new_digest256_env(digest_algorithm_t algorithm);
-void crypto_free_digest_env(crypto_digest_env_t *digest);
-void crypto_digest_add_bytes(crypto_digest_env_t *digest, const char *data,
+crypto_digest_t *crypto_digest_new(void);
+crypto_digest_t *crypto_digest256_new(digest_algorithm_t algorithm);
+void crypto_digest_free(crypto_digest_t *digest);
+void crypto_digest_add_bytes(crypto_digest_t *digest, const char *data,
                              size_t len);
-void crypto_digest_get_digest(crypto_digest_env_t *digest,
+void crypto_digest_get_digest(crypto_digest_t *digest,
                               char *out, size_t out_len);
-crypto_digest_env_t *crypto_digest_dup(const crypto_digest_env_t *digest);
-void crypto_digest_assign(crypto_digest_env_t *into,
-                          const crypto_digest_env_t *from);
+crypto_digest_t *crypto_digest_dup(const crypto_digest_t *digest);
+void crypto_digest_assign(crypto_digest_t *into,
+                          const crypto_digest_t *from);
 void crypto_hmac_sha1(char *hmac_out,
                       const char *key, size_t key_len,
                       const char *msg, size_t msg_len);
+void crypto_hmac_sha256(char *hmac_out,
+                        const char *key, size_t key_len,
+                        const char *msg, size_t msg_len);
 
 /* Key negotiation */
 #define DH_TYPE_CIRCUIT 1
 #define DH_TYPE_REND 2
 #define DH_TYPE_TLS 3
-crypto_dh_env_t *crypto_dh_new(int dh_type);
-int crypto_dh_get_bytes(crypto_dh_env_t *dh);
-int crypto_dh_generate_public(crypto_dh_env_t *dh);
-int crypto_dh_get_public(crypto_dh_env_t *dh, char *pubkey_out,
+crypto_dh_t *crypto_dh_new(int dh_type);
+int crypto_dh_get_bytes(crypto_dh_t *dh);
+int crypto_dh_generate_public(crypto_dh_t *dh);
+int crypto_dh_get_public(crypto_dh_t *dh, char *pubkey_out,
                          size_t pubkey_out_len);
-ssize_t crypto_dh_compute_secret(int severity, crypto_dh_env_t *dh,
+ssize_t crypto_dh_compute_secret(int severity, crypto_dh_t *dh,
                              const char *pubkey, size_t pubkey_len,
                              char *secret_out, size_t secret_out_len);
-void crypto_dh_free(crypto_dh_env_t *dh);
+void crypto_dh_free(crypto_dh_t *dh);
 int crypto_expand_key_material(const char *key_in, size_t in_len,
                                char *key_out, size_t key_out_len);
 
@@ -244,16 +271,20 @@ int digest256_from_base64(char *digest, const char *d64);
 void secret_to_key(char *key_out, size_t key_out_len, const char *secret,
                    size_t secret_len, const char *s2k_specifier);
 
+/** OpenSSL-based utility functions. */
+void memwipe(void *mem, uint8_t byte, size_t sz);
+
 #ifdef CRYPTO_PRIVATE
-/* Prototypes for private functions only used by tortls.c and crypto.c */
+/* Prototypes for private functions only used by tortls.c, crypto.c, and the
+ * unit tests. */
 struct rsa_st;
 struct evp_pkey_st;
 struct dh_st;
-struct rsa_st *_crypto_pk_env_get_rsa(crypto_pk_env_t *env);
-crypto_pk_env_t *_crypto_new_pk_env_rsa(struct rsa_st *rsa);
-struct evp_pkey_st *_crypto_pk_env_get_evp_pkey(crypto_pk_env_t *env,
+struct rsa_st *_crypto_pk_get_rsa(crypto_pk_t *env);
+crypto_pk_t *_crypto_new_pk_from_rsa(struct rsa_st *rsa);
+struct evp_pkey_st *_crypto_pk_get_evp_pkey(crypto_pk_t *env,
                                                 int private);
-struct dh_st *_crypto_dh_env_get_dh(crypto_dh_env_t *dh);
+struct dh_st *_crypto_dh_get_dh(crypto_dh_t *dh);
 /* Prototypes for private functions only used by crypto.c and test.c*/
 void add_spaces_to_fp(char *out, size_t outlen, const char *in);
 #endif

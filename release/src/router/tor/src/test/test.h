@@ -1,6 +1,6 @@
 /* Copyright (c) 2001-2003, Roger Dingledine.
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 #ifndef _TOR_TEST_H
@@ -34,18 +34,18 @@
 #define test_neq_ptr(expr1, expr2) tt_ptr_op((expr1), !=, (expr2))
 #define test_streq(expr1, expr2) tt_str_op((expr1), ==, (expr2))
 #define test_strneq(expr1, expr2) tt_str_op((expr1), !=, (expr2))
-#define test_streq(expr1, expr2) tt_str_op((expr1), ==, (expr2))
 
 #define test_mem_op(expr1, op, expr2, len)                              \
   tt_assert_test_fmt_type(expr1,expr2,#expr1" "#op" "#expr2,            \
                           const char *,                                 \
-                          (memcmp(_val1, _val2, len) op 0),             \
+                          (memcmp(val1_, val2_, len) op 0),             \
                           char *, "%s",                                 \
                           { size_t printlen = (len)*2+1;                \
-                            _print = tor_malloc(printlen);              \
-                            base16_encode(_print, printlen, _value,     \
+                            print_ = tor_malloc(printlen);              \
+                            base16_encode(print_, printlen, value_,     \
                                           (len)); },                    \
-                          { tor_free(_print); }                         \
+                          { tor_free(print_); },                        \
+                          TT_EXIT_TEST_FUNCTION                         \
                           );
 
 #define test_memeq(expr1, expr2, len) test_mem_op((expr1), ==, (expr2), len)
@@ -66,7 +66,7 @@
 #define test_memeq_hex(expr1, hex) test_mem_op_hex(expr1, ==, hex)
 
 const char *get_fname(const char *name);
-crypto_pk_env_t *pk_generate(int idx);
+crypto_pk_t *pk_generate(int idx);
 
 void legacy_test_helper(void *data);
 extern const struct testcase_setup_t legacy_setup;

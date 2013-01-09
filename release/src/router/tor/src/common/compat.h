@@ -1,6 +1,6 @@
 /* Copyright (c) 2003-2004, Roger Dingledine
  * Copyright (c) 2004-2006, Roger Dingledine, Nick Mathewson.
- * Copyright (c) 2007-2011, The Tor Project, Inc. */
+ * Copyright (c) 2007-2012, The Tor Project, Inc. */
 /* See LICENSE for licensing information */
 
 #ifndef _TOR_COMPAT_H
@@ -8,9 +8,10 @@
 
 #include "orconfig.h"
 #include "torint.h"
-#ifdef MS_WINDOWS
-#define WIN32_WINNT 0x400
-#define _WIN32_WINNT 0x400
+#ifdef _WIN32
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0501
+#endif
 #define WIN32_LEAN_AND_MEAN
 #if defined(_MSC_VER) && (_MSC_VER < 1300)
 #include <winsock.h>
@@ -18,6 +19,9 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #endif
+#endif
+#ifdef HAVE_SYS_PARAM_H
+#include <sys/param.h>
 #endif
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -31,7 +35,7 @@
 #ifdef HAVE_STRING_H
 #include <string.h>
 #endif
-#if defined(HAVE_PTHREAD_H) && !defined(MS_WINDOWS)
+#if defined(HAVE_PTHREAD_H) && !defined(_WIN32)
 #include <pthread.h>
 #endif
 #include <stdarg.h>
@@ -41,15 +45,14 @@
 #ifdef HAVE_SYS_SOCKET_H
 #include <sys/socket.h>
 #endif
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
 #endif
 #ifdef HAVE_NETINET6_IN6_H
 #include <netinet6/in6.h>
 #endif
+
+#include <stdio.h>
 
 #if defined (WINCE)
 #include <fcntl.h>
@@ -86,7 +89,7 @@
 #endif
 
 /* inline is __inline on windows. */
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 #define INLINE __inline
 #else
 #define INLINE inline
@@ -132,7 +135,6 @@ extern INLINE double U64_TO_DBL(uint64_t x) {
 /* GCC has several useful attributes. */
 #if defined(__GNUC__) && __GNUC__ >= 3
 #define ATTR_NORETURN __attribute__((noreturn))
-#define ATTR_PURE __attribute__((pure))
 #define ATTR_CONST __attribute__((const))
 #define ATTR_MALLOC __attribute__((malloc))
 #define ATTR_NORETURN __attribute__((noreturn))
@@ -165,7 +167,6 @@ extern INLINE double U64_TO_DBL(uint64_t x) {
 #define PREDICT_UNLIKELY(exp) __builtin_expect(!!(exp), 0)
 #else
 #define ATTR_NORETURN
-#define ATTR_PURE
 #define ATTR_CONST
 #define ATTR_MALLOC
 #define ATTR_NORETURN
@@ -195,7 +196,7 @@ extern INLINE double U64_TO_DBL(uint64_t x) {
 #endif
 
 /* ===== String compatibility */
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 /* Windows names string functions differently from most other platforms. */
 #define strncasecmp _strnicmp
 #define strcasecmp _stricmp
@@ -248,8 +249,7 @@ typedef struct tor_mmap_t {
 #ifdef HAVE_SYS_MMAN_H
   size_t mapping_size; /**< Size of the actual mapping. (This is this file
                         * size, rounded up to the nearest page.) */
-#elif defined MS_WINDOWS
-  HANDLE file_handle;
+#elif defined _WIN32
   HANDLE mmap_handle;
 #endif
 
@@ -261,16 +261,17 @@ void tor_munmap_file(tor_mmap_t *handle) ATTR_NONNULL((1));
 int tor_snprintf(char *str, size_t size, const char *format, ...)
   CHECK_PRINTF(3,4) ATTR_NONNULL((1,3));
 int tor_vsnprintf(char *str, size_t size, const char *format, va_list args)
-  ATTR_NONNULL((1,3));
+  CHECK_PRINTF(3,0) ATTR_NONNULL((1,3));
 
 int tor_asprintf(char **strp, const char *fmt, ...)
   CHECK_PRINTF(2,3);
-int tor_vasprintf(char **strp, const char *fmt, va_list args);
+int tor_vasprintf(char **strp, const char *fmt, va_list args)
+  CHECK_PRINTF(2,0);
 
 const void *tor_memmem(const void *haystack, size_t hlen, const void *needle,
-                       size_t nlen)  ATTR_PURE ATTR_NONNULL((1,3));
+                       size_t nlen) ATTR_NONNULL((1,3));
 static const void *tor_memstr(const void *haystack, size_t hlen,
-                           const char *needle) ATTR_PURE ATTR_NONNULL((1,3));
+                           const char *needle) ATTR_NONNULL((1,3));
 static INLINE const void *
 tor_memstr(const void *haystack, size_t hlen, const char *needle)
 {
@@ -306,7 +307,7 @@ char *tor_strtok_r_impl(char *str, const char *sep, char **lasts);
 #define tor_strtok_r(str, sep, lasts) tor_strtok_r_impl(str, sep, lasts)
 #endif
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 #define _SHORT_FILE_ (tor_fix_source_file(__FILE__))
 const char *tor_fix_source_file(const char *fname);
 #else
@@ -334,7 +335,7 @@ struct tm *tor_gmtime_r(const time_t *timep, struct tm *result);
 #define timeradd(tv1,tv2,tvout) \
   do {                                                  \
     (tvout)->tv_sec = (tv1)->tv_sec + (tv2)->tv_sec;    \
-    (tvout)->tv_usec = (tv2)->tv_usec + (tv2)->tv_usec; \
+    (tvout)->tv_usec = (tv1)->tv_usec + (tv2)->tv_usec; \
     if ((tvout)->tv_usec >= 1000000) {                  \
       (tvout)->tv_usec -= 1000000;                      \
       (tvout)->tv_sec++;                                \
@@ -348,7 +349,7 @@ struct tm *tor_gmtime_r(const time_t *timep, struct tm *result);
 #define timersub(tv1,tv2,tvout) \
   do {                                                  \
     (tvout)->tv_sec = (tv1)->tv_sec - (tv2)->tv_sec;    \
-    (tvout)->tv_usec = (tv2)->tv_usec - (tv2)->tv_usec; \
+    (tvout)->tv_usec = (tv1)->tv_usec - (tv2)->tv_usec; \
     if ((tvout)->tv_usec < 0) {                         \
       (tvout)->tv_usec += 1000000;                      \
       (tvout)->tv_sec--;                                \
@@ -371,6 +372,9 @@ struct tm *tor_gmtime_r(const time_t *timep, struct tm *result);
 #endif
 
 /* ===== File compatibility */
+int tor_open_cloexec(const char *path, int flags, unsigned mode);
+FILE *tor_fopen_cloexec(const char *path, const char *mode);
+
 int replace_file(const char *from, const char *to);
 int touch_file(const char *fname);
 
@@ -382,7 +386,7 @@ void tor_lockfile_unlock(tor_lockfile_t *lockfile);
 off_t tor_fd_getpos(int fd);
 int tor_fd_seekend(int fd);
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 #define PATH_SEPARATOR "\\"
 #else
 #define PATH_SEPARATOR "/"
@@ -394,12 +398,20 @@ int tor_fd_seekend(int fd);
 typedef int socklen_t;
 #endif
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
+/* XXX Actually, this should arguably be SOCKET; we use intptr_t here so that
+ * any inadvertant checks for the socket being <= 0 or > 0 will probably
+ * still work. */
 #define tor_socket_t intptr_t
-#define SOCKET_OK(s) ((unsigned)(s) != INVALID_SOCKET)
+#define SOCKET_OK(s) ((SOCKET)(s) != INVALID_SOCKET)
+#define TOR_INVALID_SOCKET INVALID_SOCKET
 #else
+/** Type used for a network socket. */
 #define tor_socket_t int
+/** Macro: true iff 's' is a possible value for a valid initialized socket. */
 #define SOCKET_OK(s) ((s) >= 0)
+/** Error/uninitialized value for a tor_socket_t. */
+#define TOR_INVALID_SOCKET (-1)
 #endif
 
 int tor_close_socket(tor_socket_t s);
@@ -487,7 +499,9 @@ int network_init(void);
  * errnos against expected values, and use tor_socket_errno to find
  * the actual errno after a socket operation fails.
  */
-#if defined(MS_WINDOWS)
+#if defined(_WIN32)
+/** Expands to WSA<b>e</b> on Windows, and to <b>e</b> elsewhere. */
+#define SOCK_ERRNO(e) WSA##e
 /** Return true if e is EAGAIN or the local equivalent. */
 #define ERRNO_IS_EAGAIN(e)           ((e) == EAGAIN || (e) == WSAEWOULDBLOCK)
 /** Return true if e is EINPROGRESS or the local equivalent. */
@@ -508,6 +522,7 @@ int network_init(void);
 int tor_socket_errno(tor_socket_t sock);
 const char *tor_socket_strerror(int e);
 #else
+#define SOCK_ERRNO(e) e
 #define ERRNO_IS_EAGAIN(e)           ((e) == EAGAIN)
 #define ERRNO_IS_EINPROGRESS(e)      ((e) == EINPROGRESS)
 #define ERRNO_IS_CONN_EINPROGRESS(e) ((e) == EINPROGRESS)
@@ -540,9 +555,9 @@ long tor_weak_random(void);
 /* ===== OS compatibility */
 const char *get_uname(void);
 
-uint16_t get_uint16(const void *cp) ATTR_PURE ATTR_NONNULL((1));
-uint32_t get_uint32(const void *cp) ATTR_PURE ATTR_NONNULL((1));
-uint64_t get_uint64(const void *cp) ATTR_PURE ATTR_NONNULL((1));
+uint16_t get_uint16(const void *cp) ATTR_NONNULL((1));
+uint32_t get_uint32(const void *cp) ATTR_NONNULL((1));
+uint64_t get_uint64(const void *cp) ATTR_NONNULL((1));
 void set_uint16(void *cp, uint16_t v) ATTR_NONNULL((1));
 void set_uint32(void *cp, uint32_t v) ATTR_NONNULL((1));
 void set_uint64(void *cp, uint64_t v) ATTR_NONNULL((1));
@@ -560,17 +575,21 @@ set_uint8(void *cp, uint8_t v)
 typedef unsigned long rlim_t;
 #endif
 int set_max_file_descriptors(rlim_t limit, int *max);
+int tor_disable_debugger_attach(void);
 int switch_id(const char *user);
 #ifdef HAVE_PWD_H
 char *get_user_homedir(const char *username);
 #endif
 
 int get_parent_directory(char *fname);
+char *make_path_absolute(char *fname);
+
+char **get_environment(void);
 
 int spawn_func(void (*func)(void *), void *data);
 void spawn_exit(void) ATTR_NORETURN;
 
-#if defined(ENABLE_THREADS) && defined(MS_WINDOWS)
+#if defined(ENABLE_THREADS) && defined(_WIN32)
 #define USE_WIN32_THREADS
 #define TOR_IS_MULTITHREADED 1
 #elif (defined(ENABLE_THREADS) && defined(HAVE_PTHREAD_H) && \
@@ -580,6 +599,8 @@ void spawn_exit(void) ATTR_NORETURN;
 #else
 #undef TOR_IS_MULTITHREADED
 #endif
+
+int compute_num_cpus(void);
 
 /* Because we use threads instead of processes on most platforms (Windows,
  * Linux, etc), we need locking for them.  On platforms with poor thread
@@ -650,14 +671,14 @@ void tor_cond_signal_all(tor_cond_t *cond);
 #endif
 
 /* Platform-specific helpers. */
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 char *format_win32_error(DWORD err);
 #endif
 
 /*for some reason my compiler doesn't have these version flags defined
   a nice homework assignment for someone one day is to define the rest*/
 //these are the values as given on MSDN
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 
 #ifndef VER_SUITE_EMBEDDEDNT
 #define VER_SUITE_EMBEDDEDNT 0x00000040

@@ -17,6 +17,7 @@ output=$3
 if [ "$1" = "html" ]; then
     input=${output%%.html.in}.1.txt
     base=${output%%.html.in}
+
     if [ "$2" != none ]; then
       "$2" -d manpage -o $output $input;
     else
@@ -32,7 +33,7 @@ if [ "$1" = "html" ]; then
 elif [ "$1" = "man" ]; then
     input=${output%%.1.in}.1.txt
     base=${output%%.1.in}
-    
+
     if test "$2" = none; then
       echo "==================================";
       echo;
@@ -53,7 +54,9 @@ You need a working asciidoc installed to be able to build the manpage.
 a2x is installed, but for some reason it isn't working.  Sometimes
 This happens because required docbook support files are missing.
 Please install docbook-xsl, docbook-xml, and libxml2-utils (Debian) or
-similar.
+similar. If you use homebrew on Mac OS X, install the docbook formula
+and add "export XML_CATALOG_FILES=/usr/local/etc/xml/catalog" to your
+.bashrc
 
 Alternatively, to build without manpages, use the --disable-asciidoc
 argument when calling configure.

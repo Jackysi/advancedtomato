@@ -41,6 +41,7 @@ int init_config ()
     int returnedValue;
 
     gconfig.port = UDP_LISTEN_PORT;
+    gconfig.sarefnum = IP_IPSEC_REFINFO; /* default use the latest we know */
     gconfig.listenaddr = htonl(INADDR_ANY); /* Default is to bind (listen) to all interfaces */
     gconfig.debug_avp = 0;
     gconfig.debug_network = 0;
@@ -1127,7 +1128,7 @@ int set_ipsec_saref (char *word, char *value, int context, void *item)
 		(word, value, &(g->ipsecsaref)))
 		    return -1;
 	    if(g->ipsecsaref) {
-		    l2tp_log(LOG_WARNING, "Enabling IPsec SAref processing for L2TP transport mode SAs\n");
+		    l2tp_log(LOG_INFO, "Enabling IPsec SAref processing for L2TP transport mode SAs\n");
 	    }
 	    if(g->forceuserspace != 1) {
 		    l2tp_log(LOG_WARNING, "IPsec SAref does not work with L2TP kernel mode yet, enabling forceuserspace=yes\n");
@@ -1138,6 +1139,21 @@ int set_ipsec_saref (char *word, char *value, int context, void *item)
 		      word);
 	    return -1;
     }
+    return 0;
+}
+
+int set_saref_num (char *word, char *value, int context, void *item)
+{
+	switch (context & ~CONTEXT_DEFAULT)
+	{
+	case CONTEXT_GLOBAL:
+		l2tp_log (LOG_INFO, "Setting SAref IP_IPSEC_REFINFO number to %s\n", value);
+		set_int (word, value, &(((struct global *) item)->sarefnum));
+		break;
+	default:
+		snprintf (filerr, sizeof (filerr), "'%s' not valid in this context\n", word);
+		return -1;
+	}
     return 0;
 }
 
@@ -1438,6 +1454,7 @@ int parse_one_option(char *word, char *value, int context, void *item)
 struct keyword words[] = {
     {"listen-addr", &set_listenaddr},
     {"port", &set_port},
+    {"saref refinfo", &set_saref_num},
     {"rand source", &set_rand_source},
     {"auth file", &set_authfile},
     {"exclusive", &set_exclusive},
