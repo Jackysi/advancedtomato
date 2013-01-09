@@ -689,9 +689,9 @@ endif
 ## VPN
 e:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP=y HFS=y DNSCRYPT=y PPTPD=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP=y DNSCRYPT=y PPTPD=y
 else
-	@$(MAKE) bin OPENVPN=y BBEXTRAS=y USBEXTRAS=y NTFS=y B=E BUILD_DESC="$(VPN)" USB="USB"  SNMP=y HFS=y DNSCRYPT=y PPTPD=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y B=E BUILD_DESC="$(VPN)" USB="USB" SNMP=y DNSCRYPT=y PPTPD=y
 endif
 
 ## BTgui-VPN
@@ -705,9 +705,9 @@ endif
 ## Nocat-VPN
 d:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Nocat-VPN" USB="USB" BTGUI=y NOCAT=y OPENVPN=y SNMP=y HFS=y DNSCRYPT=y PPTPD=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Nocat-VPN" USB="USB" BTGUI=y NOCAT=y OPENVPN=y SNMP=y DNSCRYPT=y PPTPD=y
 else
-	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Nocat-VPN" USB="USB" BTGUI=y NOCAT=y OPENVPN=y SNMP=y HFS=y DNSCRYPT=y PPTPD=y
+	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Nocat-VPN" USB="USB" BTGUI=y NOCAT=y OPENVPN=y SNMP=y DNSCRYPT=y PPTPD=y
 endif
 
 ## TOR-VPN
@@ -716,15 +716,6 @@ ifeq ($(CONFIG_LINUX26),y)
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="Tor-VPN" USB="USB" BTGUI=y TOR=y OPENVPN=y DNSCRYPT=y PPTPD=y NO_CIFS=y
 else
 	@$(MAKE) bin NTFS=y BBEXTRAS=y USBEXTRAS=y B=M BUILD_DESC="Tor-VPN" USB="USB" BTGUI=y TOR=y OPENVPN=y DNSCRYPT=y PPTPD=y NO_CIFS=y
-endif
-
-
-## BT
-u:
-ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="BT" USB="USB" BTCLIENT=y DNSCRYPT=y
-else
-	@$(MAKE) bin NTFS=y USBEXTRAS=y B=M BUILD_DESC="BT-VPN" USB="USB" BTCLIENT=y DNSCRYPT=y
 endif
 
 ## BT-VPN
@@ -746,7 +737,7 @@ endif
 ## Mega-VPN
 o:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Mega-VPN" USB="USB" NOCAT=y BTCLIENT=y DNSCRYPT=y UPS=y PPTPD=y TR_EXTRAS=y TOR=y IPSEC=y RAID=y
+	@$(MAKE) bin OPENVPN=y NTFS=y BBEXTRAS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=E BUILD_DESC="Mega-VPN" USB="USB" NOCAT=y BTCLIENT=y DNSCRYPT=y SNMP=y UPS=y PPTPD=y TR_EXTRAS=y TOR=y IPSEC=y RAID=y
 endif
 
 ## All-In-One (AIO) MIPS1 - only for router with more than 8MB flash!! ZTE H618B
@@ -922,7 +913,6 @@ help:
 	@echo "c            BTgui-VPN - (Ext plus BT gui)"
 	@echo "d            Nocat-VPN - (BTgui plus VPN plus Nocat)"
 	@echo "g            Tor-VPN - (BTgui plus VPN plus TOR Project)"
-	@echo "u            BT"
 	@echo "t            BT-VPN - (BT plus VPN)"
 	@echo "b            Big-VPN - (Big plus VPN)"
 	@echo "o            Mega-VPN - (Mega plus VPN plus NOCAT minus NFS)"
@@ -939,10 +929,9 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2c          MIPS Release 2 BTgui-VPN"
 	@echo "r2d          MIPS Release 2 Nocat-VPN"
 	@echo "r2g          MIPS Release 2 Tor-VPN"
-	@echo "r2u          MIPS Release 2 BT"
 	@echo "r2t          MIPS Release 2 BT-VPN"
 	@echo "r2b          MIPS Release 2 Big-VPN"
-	@echo "r2o          MIPS Release 2 Mega-VPN"
+	@echo "r2o          MIPS Release 2 Mega-VPN (for routers +8MB flash)"
 	@echo "r2z          MIPS Release 2 AIO (for routers +8MB flash)"
 	@echo "r2v          MIPS Release 2 VPN (no usb)"
 	@echo "r2m          MIPS Release 2 Max (no usb)"
@@ -952,7 +941,6 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "n60c         Linksys E-series build BTGui-VPN"
 	@echo "n60d         Linksys E-series build BTGui-VPN plus Nocat"
 	@echo "n60g         Linksys E-series build BTGui-VPN plus TOR Project"
-	@echo "n60u         Linksys E-series build BT"
 	@echo "n60t         Linksys E-series build BT-VPN"
 	@echo "n60b         Linksys E-series build Big-VPN"
 	@echo "n60o         Linksys E-series build Mega-VPN"
