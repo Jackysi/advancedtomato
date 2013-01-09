@@ -313,11 +313,9 @@ createFieldTable('', f);
 
 
 
-<span id='s_vegas' style='display:none'>
-<div class='section-title'>TCP Vegas <small>(network congestion control)</small></div>
+<div class='section-title'>TCP Vegas <small>(Network Congestion Control)</small></div>
 <div class='section'>
 <script type='text/javascript'>
-/* move me? */
 createFieldTable('', [
 	{ title: 'Enable TCP Vegas', name: 'f_ne_vegas', type: 'checkbox', value: nvram.ne_vegas == '1' },
 	{ title: 'Alpha', name: 'ne_valpha', type: 'text', maxlen: 6, size: 8, value: nvram.ne_valpha },
@@ -326,7 +324,6 @@ createFieldTable('', [
 ]);
 </script>
 </div>
-</span>
 
 <!-- / / / -->
 
