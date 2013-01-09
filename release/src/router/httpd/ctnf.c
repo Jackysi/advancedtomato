@@ -551,23 +551,15 @@ void asp_ctrate(int argc, char **argv)
 	fclose(b);
 }
 	
-
-void asp_qrate(int argc, char **argv)
+static void retrieveRatesFromTc(const char* deviceName, unsigned long ratesArray[])
 {
-	FILE *f;
 	char s[256];
-	unsigned long rates[10];
+	FILE *f;
 	unsigned long u;
 	char *e;
 	int n;
-	char comma;
-	char *a[1];
-
-	a[0] = "1";
-	asp_ctcount(1, a);
-
-	memset(rates, 0, sizeof(rates));
-	sprintf(s, "tc -s class ls dev %s", get_wanface());
+	
+	sprintf(s, "tc -s class ls dev %s", deviceName);
 	if ((f = popen(s, "r")) != NULL) {
 		n = 1;
 		while (fgets(s, sizeof(s), f)) {
@@ -581,7 +573,7 @@ void asp_qrate(int argc, char **argv)
 						u = strtoul(s + 6, &e, 10);
 						if (*e == 'K') u *= 1000;
 							else if (*e == 'M') u *= 1000 * 1000;
-						rates[n - 1] = u;
+						ratesArray[n - 1] = u;
 						n = 1;
 					}
 				}
@@ -589,9 +581,34 @@ void asp_qrate(int argc, char **argv)
 		}
 		pclose(f);
 	}
+}
+
+void asp_qrate(int argc, char **argv)
+{
+	unsigned long rates[10];
+	int n;
+	char comma;
+	char *a[1];
+
+	a[0] = "1";
+	asp_ctcount(1, a);
+
+	memset(rates, 0, sizeof(rates));
+	retrieveRatesFromTc(get_wanface(), rates);
 
 	comma = ' ';
-	web_puts("\nqrates = [0,");
+	web_puts("\nqrates_out = [0,");
+	for (n = 0; n < 10; ++n) {
+		web_printf("%c%lu", comma, rates[n]);
+		comma = ',';
+	}
+	web_puts("];");
+	
+	memset(rates, 0, sizeof(rates));
+	retrieveRatesFromTc("imq0", rates);
+
+	comma = ' ';
+	web_puts("\nqrates_in = [0,");
 	for (n = 0; n < 10; ++n) {
 		web_printf("%c%lu", comma, rates[n]);
 		comma = ',';

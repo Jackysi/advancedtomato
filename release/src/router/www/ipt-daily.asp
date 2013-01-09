@@ -249,13 +249,15 @@ dg.sortCompare = function(a, b) {
 	var r = 0;
 	switch (col) {
 	case 0:	// Date
-	case 1:	// Hostname
-		r = cmpText(da[col], db[col]);
-		break;
+        case 1: // Hostname
+                r = cmpIP(da[col], db[col]);
+                if (r == 0)
+                        r = cmpText(da[col], db[col]);
+                break;
 	case 2:	// Download
 	case 3:	// Upload
 	case 4:	// Total
-		r = cmpFloat(parseFloat(da[col].replace(",","")), parseFloat(db[col].replace(",","")));
+                r = cmpFloat(da[col].replace(/,/g,""), db[col].replace(/,/g,""));
 		break;
 	}
 	return this.sortAscending ? r : -r;

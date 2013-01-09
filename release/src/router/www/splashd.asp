@@ -16,7 +16,7 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] Captive Portal</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='<% nv('web_css'); %>.css'>
+<link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
 <style type='text/css'>
 textarea {

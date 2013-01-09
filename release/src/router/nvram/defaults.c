@@ -509,7 +509,8 @@ const defaults_t defaults[] = {
 	{ "qos_syn",			"1"				},
 	{ "qos_fin",			"1"				},
 	{ "qos_rst",			"1"				},
-	{ "qos_icmp",			"0"				},
+	{ "qos_udp",			"0"				},
+	{ "qos_icmp",			"1"				},
 	{ "qos_reset",			"1"				},
 	{ "qos_obw",			"230"				},
 	{ "qos_ibw",			"1000"				},
@@ -517,8 +518,8 @@ const defaults_t defaults[] = {
 	{ "qos_burst0",			""				},
 	{ "qos_burst1",			""				},
 	{ "qos_default",		"8"				},
-	{ "qos_orates",			"5-20,5-20,5-25,5-70,20-100,5-80,5-80,5-80,5-50,0-0"	},
-	{ "qos_irates",			"10,60,60,70,0,60,60,80,30,1"	},
+	{ "qos_orates",			"5-20,5-20,5-25,5-70,20-100,5-80,5-80,5-80,5-50,1-5"				},
+	{ "qos_irates",			"5-100,5-100,5-100,5-100,20-100,5-100,5-100,5-100,5-100,1-5" 			},
 	{ "qos_classnames",		"Service VOIP/Game Media Remote WWW Mail Messenger Download P2P/Bulk Crawl"	},
 
 	{ "ne_vegas",			"0"				},	// TCP Vegas
@@ -556,8 +557,8 @@ const defaults_t defaults[] = {
 	{ "https_crt_file",		""				},
 	{ "https_crt",			""				},
 	{ "web_wl_filter",		"0"				},	// Allow/Deny Wireless Access Web
-	{ "web_css",			"usbblue"		},
-	{ "ttb_css",			""			},		//Tomato Themes Base
+	{ "web_css",			"openlinksys"			},
+	{ "ttb_css",			"example"			},	//Tomato Themes Base
 	{ "web_svg",			"1"				},
 	{ "telnetd_eas",		"1"				},
 	{ "telnetd_port",		"23"			},
