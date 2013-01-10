@@ -302,6 +302,7 @@ int do_led(int which, int mode)
 	case MODEL_WL500GPv2:
 	case MODEL_WL500GD:
 	case MODEL_WL520GU:
+	case MODEL_WL330GE:
 		if (which != LED_DIAG) return ret;
 		b = -99;	// Invert power light as diag indicator
 		break;

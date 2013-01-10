@@ -223,7 +223,8 @@ enum {
 	MODEL_WLA2G54L,
 	MODEL_TM2300,
 	MODEL_WZRG300N,
-	MODEL_WRT300N
+	MODEL_WRT300N,
+	MODEL_WL330GE
 };
 
 /* NOTE: Do not insert new entries in the middle of this enum,

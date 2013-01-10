@@ -136,10 +136,11 @@ when a user mapping file is present and the
 mount option is not set.
 .TP
 .B inherit
-When creating a new file, set its initial ownership and protections
+When creating a new file, set its initial protections
 according to inheritance rules defined in parent directory. These rules
 deviate from Posix specifications, but yield a better Windows
-compatibility.
+compatibility. The \fBcompression\fR option or a valid user mapping file
+is required for this option to be effective.
 .TP
 .B ro
 Mount filesystem read\-only. Useful if Windows is hibernated or the
@@ -197,6 +198,12 @@ than the current modify or change time. Unlike
 this option doesn't break applications that need to know 
 if a file has been read since the last time it was modified.
 This is the default behaviour.
+.TP
+.B delay_mtime
+Delay the updating of file modification time and file change time until
+the file is closed. This is mainly useful for files which are written
+to without changing their size, such as databases or file system images
+mounted as loop.
 .TP
 .B show_sys_files
 Show the metafiles in directory listings. Otherwise the default behaviour is
@@ -283,6 +290,11 @@ This option disables creating new transparently compressed files in directories
 marked for compression. Existing compressed files can still be read and
 updated. Currently this is the default option.
 .TP
+.B big_writes
+This option prevents fuse from splitting write buffers into 4K chunks,
+enabling big write buffers to be transferred from the application in a
+single step (up to some system limit, generally 128K bytes).
+.TP
 .B debug
 Makes ntfs-3g to print a lot of debug output from libntfs-3g and FUSE.
 .TP
@@ -363,8 +375,10 @@ to be the owner of all files:
 .B ntfs-3g /dev/sda5 /home/user/mnt \-o ro,uid=1000
 .sp
 .RE
-/etc/fstab entry for the above:
+/etc/fstab entry for the above (the sixth and last field has to be zero to
+avoid a file system check at boot time) :
 .RS
+.sp
 .B /dev/sda5 /home/user/mnt ntfs\-3g ro,uid=1000 0 0
 .sp
 .RE

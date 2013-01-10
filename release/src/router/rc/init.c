@@ -377,7 +377,8 @@ static int init_vlan_ports(void)
 	case MODEL_WL500GE:
 	case MODEL_WL500GPv2:
 	case MODEL_WL520GU:
-		if (nvram_match("vlan1ports", "0 5u"))	// 520GU or WL500GE?
+	case MODEL_WL330GE:
+		if (nvram_match("vlan1ports", "0 5u"))  // 520GU or 330GE or WL500GE?
 			dirty |= check_nv("vlan1ports", "0 5");
 		else if (nvram_match("vlan1ports", "4 5u"))
 			dirty |= check_nv("vlan1ports", "4 5");
@@ -492,6 +493,9 @@ static void check_bootnv(void)
 	case MODEL_WBRG54:
 		dirty |= check_nv("wl0gpio0", "130");
 		break;
+	case MODEL_WL330GE:
+		dirty |= check_nv("wl0gpio1", "0x02");
+		break;
 	case MODEL_WR850GV1:
 	case MODEL_WR850GV2:
 		// need to cleanup some variables...
@@ -592,8 +596,8 @@ static void check_bootnv(void)
 		}
 	case MODEL_E4200:
 		dirty |= check_nv("vlan2hwname", "et0");
-		if (invalid_mac(nvram_get("pci/1/1/macaddr")) == 0 ||
-		    invalid_mac(nvram_get("sb/1/macaddr"))) {
+		if (strncasecmp(nvram_safe_get("pci/1/1/macaddr"), "00:90:4c", 8) == 0 ||
+		    strncasecmp(nvram_safe_get("sb/1/macaddr"), "00:90:4c", 8) == 0) {
 			strcpy(mac, nvram_safe_get("et0macaddr"));
 			inc_mac(mac, 2);
 			dirty |= check_nv("sb/1/macaddr", mac);
@@ -1241,6 +1245,20 @@ static int init_nvram(void)
 		}
 		break;
 #endif	// CONFIG_BCMWL5
+	case MODEL_WL330GE:
+		mfr = "Asus";
+		name = "WL-330gE";
+		// The 330gE has only one wired port which can act either as WAN or LAN.
+		// Failsafe mode is to have it start as a LAN port so you can get an IP
+		// address via DHCP and access the router config page.
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("lan_ifnames", "eth1");
+			nvram_set("wan_ifnameX", "eth0");
+			nvram_set("wan_islan", "1");
+			nvram_set("wan_proto", "disabled");
+		}
+		break;
 	case MODEL_WL500GPv2:
 		mfr = "Asus";
 		name = "WL-500gP v2";

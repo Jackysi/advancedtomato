@@ -44,7 +44,7 @@
 </style>
 
 <script type='text/javascript'>
-// <% nvram("qos_classnames,web_svg,qos_enable"); %>
+// <% nvram("qos_classnames,web_svg,qos_enable,qos_obw,qos_ibw"); %>
 
 //<% qrate(); %>
 
@@ -53,8 +53,9 @@ var svgReady = 0;
 
 
 var Unclassified = ['Unclassified'];
+var Unused = ['Unused'];
 var classNames = nvram.qos_classnames.split(' ');		//Toastman Class Labels
-var abc = Unclassified.concat(classNames);
+var abc = Unclassified.concat(classNames,Unused);
 
 
 //      var abc = ['Unclassified', 'Highest', 'High', 'Medium', 'Low', 'Lowest', 'Class A', 'Class B', 'Class C', 'Class D', 'Class E'];
@@ -70,8 +71,11 @@ var colors = [
 	'deb887',
 	'F08080',
 	'ffa500',
-	'ffd700'
+	'ffd700',
+	'D8D8D8'
 ];
+
+var toggle=true;
 
 function mClick(n)
 {
@@ -103,30 +107,52 @@ function showData()
 		E('cpct' + i).innerHTML = p.toFixed(2) + '%';
 	}
 	E('ccnt-total').innerHTML = totalConnections;
+		
+	obwrate = nvram.qos_obw * 1000;
+	ibwrate = nvram.qos_ibw * 1000;
+	
+	if(toggle == false)
+	{
+		totalorate = totalOutgoingBandwidth;
+		totalirate = totalIncomingBandwidth;
+		totalrateout = '100%';
+		totalratein = '100%';
+	} else 
+	{
+		FreeOutgoing = (obwrate - totalOutgoingBandwidth);
+		qrates_out.push(FreeOutgoing);
+		FreeIncoming = (ibwrate - totalIncomingBandwidth);
+		qrates_in.push(FreeIncoming);
+		totalorate = obwrate;
+		totalirate = ibwrate;
+		totalrateout = ((totalOutgoingBandwidth / totalorate) * 100).toFixed(2) + '%';
+		totalratein = ((totalIncomingBandwidth / totalirate) * 100).toFixed(2) + '%';
+	}
 
 	for (i = 1; i < 11; ++i) {
 		n = qrates_out[i];
 		E('bocnt' + i).innerHTML = (n / 1000).toFixed(2)
 		E('bocntx' + i).innerHTML = (n / 8192).toFixed(2)
-		if (totalOutgoingBandwidth > 0) p = (n / totalOutgoingBandwidth) * 100;
+		if (totalOutgoingBandwidth > 0) p = (n / totalorate) * 100;
 			else p = 0;
 		E('bopct' + i).innerHTML = p.toFixed(2) + '%';
 	}
 	E('bocnt-total').innerHTML = (totalOutgoingBandwidth / 1000).toFixed(2)
 	E('bocntx-total').innerHTML = (totalOutgoingBandwidth / 8192).toFixed(2)
-	
+	E('rateout').innerHTML = totalrateout;
+
 	for (i = 1; i < 11; ++i) {
 		n = qrates_in[i];
 		E('bicnt' + i).innerHTML = (n / 1000).toFixed(2)
 		E('bicntx' + i).innerHTML = (n / 8192).toFixed(2)
-		if (totalIncomingBandwidth > 0) p = (n / totalIncomingBandwidth) * 100;
+		if (totalIncomingBandwidth > 0) p = (n / totalirate) * 100;
 			else p = 0;
 		E('bipct' + i).innerHTML = p.toFixed(2) + '%';
 	}
 	E('bicnt-total').innerHTML = (totalIncomingBandwidth / 1000).toFixed(2)
 	E('bicntx-total').innerHTML = (totalIncomingBandwidth / 8192).toFixed(2)
+	E('ratein').innerHTML = totalratein;
 }
-
 
 var ref = new TomatoRefresh('update.cgi', 'exec=qrate', 2, 'qos_graphs');
 
@@ -217,11 +243,29 @@ function checkSVG()
 	}
 }
 
+function showGraph()
+{
+	if(toggle == true)
+	{
+		toggle=false;
+		qrates_out = qrates_out.slice(0, -1);	
+		qrates_in = qrates_in.slice(0, -1);
+		showData();
+		checkSVG();
+	} else 
+	{
+		toggle=true;
+		showData();
+		checkSVG();
+	}
+}
+
 function init()
 {
 	nbase = fixInt(cookie.get('qnbase'), 0, 1, 0);
 	showData();
 	checkSVG();
+	showGraph();
 	ref.initPage(2000, 3);
 }
 </script>
@@ -229,12 +273,12 @@ function init()
 <body onload='init()'>
 <form id='_fom' action='javascript:{}'>
 <table id='container' cellspacing=0>
-<tr><td colspan=2 id='header'>
+<tr><td colspan=3 id='header'>
 	<div class='title'>Tomato</div>
 	<div class='version'>Version <% version(); %></div>
 </td></tr>
 <tr id='body'><td id='navi'><script type='text/javascript'>navi()</script></td>
-<td id='content'>
+<td id='content'colspan=2>
 <div id='ident'><% ident(); %></div>
 
 <!-- / / / -->
@@ -268,7 +312,7 @@ if (nvram.web_svg != '0') {
 <div class="section">
 <table border=0 width="100%"><tr><td>
 	<table style="width:250px">
-	<tr><td class='color' style="height:1em"></td><td class='title' style="width:45px">&nbsp;</td><td class='thead count'>kbit/s</td><td class='thead count'>KB/s</td><td class='pct'>&nbsp;</td></tr>
+	<tr><td class='color' style="height:1em"></td><td class='title' style="width:45px">&nbsp;</td><td class='thead count'>kbit/s</td><td class='thead count'>KB/s</td><td class='thead pct'>Rate</td></tr>
 <script type='text/javascript'>
 for (i = 1; i < 11; ++i) {
 	W('<tr style="cursor:pointer" onclick="mClick(' + i + ')">' +
@@ -279,7 +323,7 @@ for (i = 1; i < 11; ++i) {
 		'<td id="bopct' + i + '" class="pct"></td></tr>');
 }
 </script>
-	<tr><td>&nbsp;</td><td class="total">Total</a></td><td id="bocnt-total" class="total count"></td><td id="bocntx-total" class="total count"></td><td class="total pct">100%</td></tr>
+	<tr><td>&nbsp;</td><td class="total">Total</a></td><td id="bocnt-total" class="total count"></td><td id="bocntx-total" class="total count"></td><td id="rateout" class="total pct"></td></tr>
 	</table>
 </td><td style="margin-right:150px">
 <script type='text/javascript'>
@@ -295,7 +339,7 @@ if (nvram.web_svg != '0') {
 <div class="section">
 <table border=0 width="100%"><tr><td>
 	<table style="width:250px">
-	<tr><td class='color' style="height:1em"></td><td class='title' style="width:45px">&nbsp;</td><td class='thead count'>kbit/s</td><td class='thead count'>KB/s</td><td class='pct'>&nbsp;</td></tr>
+	<tr><td class='color' style="height:1em"></td><td class='title' style="width:45px">&nbsp;</td><td class='thead count'>kbit/s</td><td class='thead count'>KB/s</td><td class='thead pct'>Rate</td></tr>
 <script type='text/javascript'>
 for (i = 1; i < 11; ++i) {
 	W('<tr style="cursor:pointer" onclick="mClick(' + i + ')">' +
@@ -306,7 +350,7 @@ for (i = 1; i < 11; ++i) {
 		'<td id="bipct' + i + '" class="pct"></td></tr>');
 }
 </script>
-	<tr><td>&nbsp;</td><td class="total">Total</a></td><td id="bicnt-total" class="total count"></td><td id="bicntx-total" class="total count"></td><td class="total pct">100%</td></tr>
+	<tr><td>&nbsp;</td><td class="total">Total</a></td><td id="bicnt-total" class="total count"></td><td id="bicntx-total" class="total count"></td><td id="ratein" class="total pct"></td></tr>
 	</table>
 </td><td style="margin-right:150px">
 <script type='text/javascript'>
@@ -318,7 +362,6 @@ if (nvram.web_svg != '0') {
 </table>
 </div>
 
-
 <script type='text/javascript'>
 if (nvram.qos_enable != '1') {
 	W('<div class="note-disabled"><b>QoS disabled.</b> &nbsp; <a href="qos-settings.asp">Enable &raquo;</a></div>');
@@ -328,9 +371,10 @@ if (nvram.qos_enable != '1') {
 <!-- / / / -->
 
 </td></tr>
-<tr><td id='footer' colspan=2>
-	<script type='text/javascript'>genStdRefresh(1,2,'ref.toggle()');</script>
-</td></tr>
+<tr><td id='footer'></td>
+	<td id='footer' width="528"><input name="mybtn" style="width:100px" value="Switch Graph" type="button" onclick="showGraph()" ></td>
+	<td id='footer' width="237"><script type='text/javascript'>genStdRefresh(1,2,'ref.toggle()');</script></td>
+	</tr>
 </table>
 </form>
 </body>

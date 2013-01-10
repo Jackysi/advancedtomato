@@ -179,7 +179,8 @@ struct open_file {
 enum {
 	CLOSE_GHOST = 1,
 	CLOSE_COMPRESSED = 2,
-	CLOSE_ENCRYPTED = 4
+	CLOSE_ENCRYPTED = 4,
+	CLOSE_DMTIME = 8
 };
 
 static struct ntfs_options opts;
@@ -557,7 +558,8 @@ int ntfs_macfuse_setchgtime(const char *path, const struct timespec *tv)
 }
 #endif /* defined(__APPLE__) || defined(__DARWIN__) */
 
-#if defined(FUSE_CAP_DONT_MASK) || (defined(__APPLE__) || defined(__DARWIN__))
+#if defined(FUSE_CAP_DONT_MASK) || defined(FUSE_CAP_BIG_WRITES) \
+		|| (defined(__APPLE__) || defined(__DARWIN__))
 static void ntfs_init(void *userdata __attribute__((unused)),
 			struct fuse_conn_info *conn)
 {
@@ -568,6 +570,12 @@ static void ntfs_init(void *userdata __attribute__((unused)),
 		/* request umask not to be enforced by fuse */
 	conn->want |= FUSE_CAP_DONT_MASK;
 #endif /* defined FUSE_CAP_DONT_MASK */
+#ifdef FUSE_CAP_BIG_WRITES
+	if (ctx->big_writes
+	    && ((ctx->vol->nr_clusters << ctx->vol->cluster_size_bits)
+			>= SAFE_CAPACITY_FOR_BIG_WRITES))
+		conn->want |= FUSE_CAP_BIG_WRITES;
+#endif
 }
 #endif /* defined(FUSE_CAP_DONT_MASK) || (defined(__APPLE__) || defined(__DARWIN__)) */
 
@@ -1212,6 +1220,9 @@ static void ntfs_fuse_open(fuse_req_t req, fuse_ino_t ino,
 				    && (ni->flags & FILE_ATTR_ENCRYPTED))
 					state |= CLOSE_ENCRYPTED;
 #endif /* HAVE_SETXATTR */
+			/* mark a future need to update the mtime */
+				if (ctx->dmtime)
+					state |= CLOSE_DMTIME;
 			/* deny opening metadata files for writing */
 				if (ino < FILE_first_user)
 					res = -EPERM;
@@ -1255,8 +1266,10 @@ static void ntfs_fuse_read(fuse_req_t req, fuse_ino_t ino, size_t size,
 	s64 total = 0;
 	s64 max_read;
 
-	if (!size)
+	if (!size) {
+		res = 0;
 		goto exit;
+	}
 	buf = (char*)ntfs_malloc(size);
 	if (!buf) {
 		res = -errno;
@@ -1346,7 +1359,7 @@ static void ntfs_fuse_write(fuse_req_t req, fuse_ino_t ino, const char *buf,
 		total  += ret;
 	}
 	res = total;
-	if (res > 0)
+	if ((res > 0) && !ctx->dmtime)
 		ntfs_fuse_update_times(na->ni, NTFS_UPDATE_MCTIME);
 exit:
 	if (na)
@@ -1902,6 +1915,8 @@ static int ntfs_fuse_create(fuse_req_t req, fuse_ino_t parent, const char *name,
 			    && (ni->flags & FILE_ATTR_ENCRYPTED))
 				state |= CLOSE_ENCRYPTED;
 #endif /* HAVE_SETXATTR */
+			if (fi && ctx->dmtime)
+				state |= CLOSE_DMTIME;
 			ntfs_inode_update_mbsname(dir_ni, name, ni->mft_no);
 			NInoSetDirty(ni);
 			e->ino = ni->mft_no;
@@ -2372,7 +2387,9 @@ static void ntfs_fuse_release(fuse_req_t req, fuse_ino_t ino,
 
 	of = (struct open_file*)(long)fi->fh;
 	/* Only for marked descriptors there is something to do */
-	if (!of || !(of->state & (CLOSE_COMPRESSED | CLOSE_ENCRYPTED))) {
+	if (!of
+	    || !(of->state & (CLOSE_COMPRESSED
+				| CLOSE_ENCRYPTED | CLOSE_DMTIME))) {
 		res = 0;
 		goto out;
 	}
@@ -2387,6 +2404,8 @@ static void ntfs_fuse_release(fuse_req_t req, fuse_ino_t ino,
 		goto exit;
 	}
 	res = 0;
+	if (of->state & CLOSE_DMTIME)
+		ntfs_inode_update_times(ni,NTFS_UPDATE_MCTIME);
 	if (of->state & CLOSE_COMPRESSED)
 		res = ntfs_attr_pclose(na);
 #ifdef HAVE_SETXATTR	/* extended attributes interface required */
@@ -3364,7 +3383,8 @@ static struct fuse_lowlevel_ops ntfs_3g_ops = {
 	.setbkuptime	= ntfs_macfuse_setbkuptime,
 	.setchgtime	= ntfs_macfuse_setchgtime,
 #endif /* defined(__APPLE__) || defined(__DARWIN__) */
-#if defined(FUSE_CAP_DONT_MASK) || (defined(__APPLE__) || defined(__DARWIN__))
+#if defined(FUSE_CAP_DONT_MASK) || defined(FUSE_CAP_BIG_WRITES) \
+		|| (defined(__APPLE__) || defined(__DARWIN__))
 	.init		= ntfs_init
 #endif
 };
@@ -3413,6 +3433,8 @@ static int ntfs_open(const char *device)
 		NDevSetSync(ctx->vol->dev);
 	if (ctx->compression)
 		NVolSetCompression(ctx->vol);
+	else
+		NVolClearCompression(ctx->vol);
 #ifdef HAVE_SETXATTR
 			/* archivers must see hidden files */
 	if (ctx->efs_raw)
@@ -3456,16 +3478,6 @@ static void usage(void)
 			5 + POSIXACLS*6 - KERNELPERMS*3 + CACHEING,
 			EXEC_NAME, ntfs_home);
 }
-
-#ifndef HAVE_REALPATH
-/* If there is no realpath() on the system, provide a dummy one. */
-static char *realpath(const char *path, char *resolved_path)
-{
-	strncpy(resolved_path, path, PATH_MAX);
-	resolved_path[PATH_MAX] = '\0';
-	return resolved_path;
-}
-#endif
 
 #if defined(linux) || defined(__uClinux__)
 
@@ -3668,6 +3680,9 @@ static void setup_logging(char *parsed_options)
 	ctx->seccache = (struct PERMISSIONS_CACHE*)NULL;
 
 	ntfs_log_info("Version %s %s %d\n", VERSION, FUSE_TYPE, fuse_version());
+	if (strcmp(opts.arg_device,opts.device))
+		ntfs_log_info("Requested device %s canonicalized as %s\n",
+				opts.arg_device,opts.device);
 	ntfs_log_info("Mounted %s (%s, label \"%s\", NTFS %d.%d)\n",
 			opts.device, (ctx->ro) ? "Read-Only" : "Read-Write",
 			ctx->vol->vol_name, ctx->vol->major_ver,
