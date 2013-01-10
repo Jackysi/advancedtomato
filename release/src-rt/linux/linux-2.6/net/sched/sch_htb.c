@@ -71,7 +71,7 @@
 #define HTB_HSIZE 16		/* classid hash size */
 #define HTB_EWMAC 2		/* rate average over HTB_EWMAC*HTB_HSIZE sec */
 #define HTB_RATECM 1		/* whether to use rate computer */
-#define HTB_HYSTERESIS 0	/* whether to use mode hysteresis for speedup */
+//#define HTB_HYSTERESIS 0	/* whether to use mode hysteresis for speedup */
 #define HTB_VER 0x30011		/* major must be matched with number suplied by TC as version */
 
 #if HTB_VER >> 16 != TC_HTB_PROTOVER
@@ -157,12 +157,10 @@ struct htb_class {
 static inline long L2T(struct htb_class *cl, struct qdisc_rate_table *rate,
 			   int size)
 {
-	int slot = size >> rate->rate.cell_log;
-	if (slot > 255) {
+	long result = qdisc_l2t(rate, size);
+	    if (result > rate->data[255])
 		cl->xstats.giants++;
-		slot = 255;
-	}
-	return rate->data[slot];
+	return result;
 }
 
 struct htb_sched {

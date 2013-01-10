@@ -74,7 +74,7 @@
 #define HTB_EWMAC 2	/* rate average over HTB_EWMAC*HTB_HSIZE sec */
 //#define HTB_DEBUG 1	/* compile debugging support (activated by tc tool) */
 #define HTB_RATECM 1    /* whether to use rate computer */
-#define HTB_HYSTERESIS 0/* whether to use mode hysteresis for speedup */
+//#define HTB_HYSTERESIS 0/* whether to use mode hysteresis for speedup */
 #define HTB_QLOCK(S) spin_lock_bh(&(S)->dev->queue_lock)
 #define HTB_QUNLOCK(S) spin_unlock_bh(&(S)->dev->queue_lock)
 #define HTB_VER 0x30011	/* major must be matched with number suplied by TC as version */
@@ -205,12 +205,10 @@ struct htb_class
 static __inline__ long L2T(struct htb_class *cl,struct qdisc_rate_table *rate,
 	int size)
 { 
-    int slot = size >> rate->rate.cell_log;
-    if (slot > 255) {
-	cl->xstats.giants++;
-	slot = 255;
-    }
-    return rate->data[slot];
+	long result = qdisc_l2t(rate, size);
+	if (result > rate->data[255])
+		cl->xstats.giants++;
+	return result;
 }
 
 struct htb_sched
