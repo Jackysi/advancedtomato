@@ -512,6 +512,7 @@ const defaults_t defaults[] = {
 #endif
 
 // qos
+	{ "atm_overhead",		"0"				},	
 	{ "qos_enable",			"0"				},
 	{ "qos_ack",			"0"				},
 	{ "qos_syn",			"1"				},
