@@ -372,7 +372,7 @@ if (nvram.qos_enable != '1') {
 
 </td></tr>
 <tr><td id='footer'></td>
-	<td id='footer' width="528"><input name="mybtn" style="width:100px" value="Switch Graph" type="button" onclick="showGraph()" ></td>
+	<td id='footer' width="528"><input name="mybtn" style="width:100px" value="Zoom Graphs" type="button" onclick="showGraph()" ></td>
 	<td id='footer' width="237"><script type='text/javascript'>genStdRefresh(1,2,'ref.toggle()');</script></td>
 	</tr>
 </table>

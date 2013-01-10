@@ -43,7 +43,10 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 	struct tc_tbf_qopt opt;
 	__u32 rtab[256];
 	__u32 ptab[256];
-	unsigned buffer=0, mtu=0, mpu=0, latency=0;
+	unsigned buffer=0, mtu=0, latency=0;
+	__u8 mpu=0;
+	__s8 overhead=0;
+	int atm=0;
 	int Rcell_log=-1, Pcell_log = -1; 
 	struct rtattr *tail;
 
@@ -103,7 +106,7 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 				fprintf(stderr, "Double \"mpu\" spec\n");
 				return -1;
 			}
-			if (get_size(&mpu, *argv)) {
+			if (get_u8(&mpu, *argv, 10)) {
 				explain1("mpu");
 				return -1;
 			}
@@ -118,6 +121,20 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 				explain1("rate");
 				return -1;
 			}
+			ok++;
+		} else if (strcmp(*argv, "overhead") == 0) {
+			NEXT_ARG();
+			if (overhead) {
+				fprintf(stderr, "Double \"overhead\" spec\n");
+				return -1;
+			}
+			if (get_s8(&overhead, *argv, 10)) {
+				explain1("overhead");
+				return -1;
+			}
+			ok++;
+		} else if (strcmp(*argv, "atm") == 0) {
+			atm = 1;
 			ok++;
 		} else if (matches(*argv, "peakrate") == 0) {
 			NEXT_ARG();
@@ -170,21 +187,11 @@ static int tbf_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 		opt.limit = lim;
 	}
 
-	if ((Rcell_log = tc_calc_rtable(opt.rate.rate, rtab, Rcell_log, mtu, mpu)) < 0) {
-		fprintf(stderr, "TBF: failed to calculate rate table.\n");
-		return -1;
-	}
+	tc_calc_ratespec(&opt.rate, rtab, opt.rate.rate, Rcell_log, mtu, mpu, atm, overhead);
 	opt.buffer = tc_calc_xmittime(opt.rate.rate, buffer);
-	opt.rate.cell_log = Rcell_log;
-	opt.rate.mpu = mpu;
 	if (opt.peakrate.rate) {
-		if ((Pcell_log = tc_calc_rtable(opt.peakrate.rate, ptab, Pcell_log, mtu, mpu)) < 0) {
-			fprintf(stderr, "TBF: failed to calculate peak rate table.\n");
-			return -1;
-		}
+		tc_calc_ratespec(&opt.peakrate, ptab, opt.peakrate.rate, Pcell_log, mtu, mpu, atm, overhead);
 		opt.mtu = tc_calc_xmittime(opt.peakrate.rate, mtu);
-		opt.peakrate.cell_log = Pcell_log;
-		opt.peakrate.mpu = mpu;
 	}
 
 	tail = NLMSG_TAIL(n);
@@ -220,8 +227,12 @@ static int tbf_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 	fprintf(f, "rate %s ", sprint_rate(qopt->rate.rate, b1));
 	buffer = ((double)qopt->rate.rate*tc_core_tick2usec(qopt->buffer))/1000000;
 	if (show_details) {
-		fprintf(f, "burst %s/%u mpu %s ", sprint_size(buffer, b1),
-			1<<qopt->rate.cell_log, sprint_size(qopt->rate.mpu, b2));
+		fprintf(f, "burst %s/%u mpu %s overhead %d ", sprint_size(buffer, b1),
+			1<<qopt->rate.cell_log,
+			sprint_size(qopt->rate.mpu & 0xFF, b2),
+			(__s8)(qopt->rate.mpu >> 8));
+		if (qopt->rate.feature & 0x0001)
+			fprintf(f, "atm ");
 	} else {
 		fprintf(f, "burst %s ", sprint_size(buffer, b1));
 	}
@@ -232,8 +243,12 @@ static int tbf_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 		if (qopt->mtu || qopt->peakrate.mpu) {
 			mtu = ((double)qopt->peakrate.rate*tc_core_tick2usec(qopt->mtu))/1000000;
 			if (show_details) {
-				fprintf(f, "mtu %s/%u mpu %s ", sprint_size(mtu, b1),
-					1<<qopt->peakrate.cell_log, sprint_size(qopt->peakrate.mpu, b2));
+				fprintf(f, "mtu %s/%u mpu %s overhead %d ", sprint_size(mtu, b1),
+					1<<qopt->peakrate.cell_log,
+					sprint_size(qopt->peakrate.mpu & 0xFF, b2),
+					(__s8)(qopt->peakrate.mpu >> 8));
+				if (qopt->peakrate.feature & 0x0001)
+					fprintf(f, "atm ");
 			} else {
 				fprintf(f, "minburst %s ", sprint_size(mtu, b1));
 			}

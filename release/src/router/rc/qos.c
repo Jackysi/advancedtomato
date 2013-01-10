@@ -349,6 +349,7 @@ void start_qos(void)
 	unsigned int mtu;
 	unsigned int r2q;
 	unsigned int qosDefaultClassId;
+	unsigned int overhead;
 	FILE *f;
 	int x;
 	int inuse;
@@ -397,8 +398,9 @@ void start_qos(void)
 
 	mtu = strtoul(nvram_safe_get("wan_mtu"), NULL, 10);
 	bw = strtoul(nvram_safe_get("qos_obw"), NULL, 10);
-
+	overhead = strtoul(nvram_safe_get("atm_overhead"), NULL, 10);
 	r2q = 10;
+
 	if ((bw * 1000) / (8 * r2q) < mtu) {
 		r2q = (bw * 1000) / (8 * mtu);
 		if (r2q < 1) r2q = 1;
@@ -406,28 +408,53 @@ void start_qos(void)
 		r2q = (bw * 1000) / (8 * 60000) + 1;
 	}
 
-	fprintf(f,
-		"#!/bin/sh\n"
-		"WAN_DEV=%s\n"
-		"IMQ_DEV=%s\n"
-		"TQA=\"tc qdisc add dev $WAN_DEV\"\n"
-		"TCA=\"tc class add dev $WAN_DEV\"\n"
-		"TFA=\"tc filter add dev $WAN_DEV\"\n"
-		"TQA_IMQ=\"tc qdisc add dev $IMQ_DEV\"\n"
-		"TCA_IMQ=\"tc class add dev $IMQ_DEV\"\n"
-		"TFA_IMQ=\"tc filter add dev $IMQ_DEV\"\n"
-		"Q=\"%s\"\n"
-		"\n"
-		"case \"$1\" in\n"
-		"start)\n"
-		"\ttc qdisc del dev $WAN_DEV root 2>/dev/null\n"
-		"\t$TQA root handle 1: htb default %u r2q %u\n"
-		"\t$TCA parent 1: classid 1:1 htb rate %ukbit ceil %ukbit %s\n",
-			get_wanface(),
-			qosImqDeviceString,
-			nvram_get_int("qos_pfifo") ? "pfifo limit 256" : "sfq perturb 10",
-			qosDefaultClassId, r2q,
-			bw, bw, burst_root);
+	if (overhead == 0) {
+		fprintf(f,
+			"#!/bin/sh\n"
+			"WAN_DEV=%s\n"
+			"IMQ_DEV=%s\n"
+			"TQA=\"tc qdisc add dev $WAN_DEV\"\n"
+			"TCA=\"tc class add dev $WAN_DEV\"\n"
+			"TFA=\"tc filter add dev $WAN_DEV\"\n"
+			"TQA_IMQ=\"tc qdisc add dev $IMQ_DEV\"\n"
+			"TCA_IMQ=\"tc class add dev $IMQ_DEV\"\n"
+			"TFA_IMQ=\"tc filter add dev $IMQ_DEV\"\n"
+			"Q=\"%s\"\n"
+			"\n"
+			"case \"$1\" in\n"
+			"start)\n"
+			"\ttc qdisc del dev $WAN_DEV root 2>/dev/null\n"
+			"\t$TQA root handle 1: htb default %u r2q %u\n"
+			"\t$TCA parent 1: classid 1:1 htb rate %ukbit ceil %ukbit %s\n",
+				get_wanface(),
+				qosImqDeviceString,
+				nvram_get_int("qos_pfifo") ? "pfifo limit 256" : "sfq perturb 10",
+				qosDefaultClassId, r2q,
+				bw, bw, burst_root);
+	} else {
+		fprintf(f,
+			"#!/bin/sh\n"
+			"WAN_DEV=%s\n"
+			"IMQ_DEV=%s\n"
+			"TQA=\"tc qdisc add dev $WAN_DEV\"\n"
+			"TCA=\"tc class add dev $WAN_DEV\"\n"
+			"TFA=\"tc filter add dev $WAN_DEV\"\n"
+			"TQA_IMQ=\"tc qdisc add dev $IMQ_DEV\"\n"
+			"TCA_IMQ=\"tc class add dev $IMQ_DEV\"\n"
+			"TFA_IMQ=\"tc filter add dev $IMQ_DEV\"\n"
+			"Q=\"%s\"\n"
+			"\n"
+			"case \"$1\" in\n"
+			"start)\n"
+			"\ttc qdisc del dev $WAN_DEV root 2>/dev/null\n"
+			"\t$TQA root handle 1: htb default %u r2q %u\n"
+			"\t$TCA parent 1: classid 1:1 htb rate %ukbit ceil %ukbit %s overhead %u atm\n",
+				get_wanface(),
+				qosImqDeviceString,
+				nvram_get_int("qos_pfifo") ? "pfifo limit 256" : "sfq perturb 10",
+				qosDefaultClassId, r2q,
+				bw, bw, burst_root, overhead);
+		}
 
 	inuse = nvram_get_int("qos_inuse");
 
@@ -443,15 +470,28 @@ void start_qos(void)
 		if (ceil > 0) sprintf(s, "ceil %ukbit ", calc(bw, ceil));
 			else s[0] = 0;
 		x = (i + 1) * 10;
-		fprintf(f,
-			"# egress %d: %u-%u%%\n"
-			"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u\n"
-			"\t$TQA parent 1:%d handle %d: $Q\n"
-			"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
-				i, rate, ceil,
-				x, calc(bw, rate), s, burst_leaf, i+1, mtu,	//prios 1-10 - Toastman
-				x, x,
-				x, i + 1, x);
+
+		if (overhead == 0) {		
+			fprintf(f,
+				"# egress %d: %u-%u%%\n"
+				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u\n"
+				"\t$TQA parent 1:%d handle %d: $Q\n"
+				"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
+					i, rate, ceil,
+					x, calc(bw, rate), s, burst_leaf, i+1, mtu,
+					x, x,
+					x, i + 1, x);
+		} else {
+			fprintf(f,
+				"# egress %d: %u-%u%%\n"
+				"\t$TCA parent 1:1 classid 1:%d htb rate %ukbit %s %s prio %d quantum %u overhead %u atm\n"
+				"\t$TQA parent 1:%d handle %d: $Q\n"
+				"\t$TFA parent 1: prio %d protocol ip handle %d fw flowid 1:%d\n",
+					i, rate, ceil,
+					x, calc(bw, rate), s, burst_leaf, i+1, mtu, overhead,
+					x, x,
+					x, i + 1, x);
+			}
 	}
 	free(buf);
 
@@ -612,7 +652,8 @@ void start_qos(void)
 	////
 	
 	first = 1;
-	
+	overhead = strtoul(nvram_safe_get("atm_overhead"), NULL, 10);
+
 	g = buf = strdup(nvram_safe_get("qos_irates"));
 	
 	for (i = 0; i < 10; ++i)
@@ -662,10 +703,11 @@ void start_qos(void)
 			r2q = (incomingBandwidthInKilobitsPerSecond * 1000) / (8 * 60000) + 1;
 		}
 
-		if (first) 
+		if (first)
 		{
 			first = 0;
-			fprintf(f,
+			if (overhead == 0) {
+				fprintf(f,
 				"\n"
 				"\tip link set $IMQ_DEV up\n"
 				"\ttc qdisc del dev $IMQ_DEV 2>/dev/null\n"
@@ -674,6 +716,17 @@ void start_qos(void)
 				qosDefaultClassId, r2q,
 				incomingBandwidthInKilobitsPerSecond,
 				incomingBandwidthInKilobitsPerSecond);
+			} else {
+				fprintf(f,
+					"\n"
+					"\tip link set $IMQ_DEV up\n"
+					"\ttc qdisc del dev $IMQ_DEV 2>/dev/null\n"
+					"\t$TQA_IMQ handle 1: root htb default %u r2q %u\n"
+					"\t$TCA_IMQ parent 1: classid 1:1 htb rate %ukbit ceil %ukbit overhead %u atm\n",
+					qosDefaultClassId, r2q,
+					incomingBandwidthInKilobitsPerSecond,
+					incomingBandwidthInKilobitsPerSecond, overhead);
+				}
 		}
 		
 		fprintf(
@@ -682,10 +735,17 @@ void start_qos(void)
 			"\t# class id %u: rate %ukbit ceil %ukbit\n",
 			classid, rateInKilobitsPerSecond, ceilingInKilobitsPerSecond);
 
-		fprintf(
-			f,
-			"\t$TCA_IMQ parent 1:1 classid 1:%u htb rate %ukbit ceil %ukbit prio %u quantum %u\n",
-			classid, rateInKilobitsPerSecond, ceilingInKilobitsPerSecond, priority, mtu);
+		if (overhead == 0) {
+			fprintf(
+				f,
+				"\t$TCA_IMQ parent 1:1 classid 1:%u htb rate %ukbit ceil %ukbit prio %u quantum %u\n",
+				classid, rateInKilobitsPerSecond, ceilingInKilobitsPerSecond, priority, mtu);
+		} else {
+			fprintf(
+				f,
+				"\t$TCA_IMQ parent 1:1 classid 1:%u htb rate %ukbit ceil %ukbit prio %u quantum %u overhead %u atm\n",
+				classid, rateInKilobitsPerSecond, ceilingInKilobitsPerSecond, priority, mtu, overhead);
+			}
 
 		fprintf(
 			f,

@@ -31,8 +31,8 @@
 #include <net/sock.h>
 #include <net/pkt_sched.h>
 
-#define L2T(p,L)   ((p)->R_tab->data[(L)>>(p)->R_tab->rate.cell_log])
-#define L2T_P(p,L) ((p)->P_tab->data[(L)>>(p)->P_tab->rate.cell_log])
+#define L2T(p,L)   qdisc_l2t((p)->R_tab,L)
+#define L2T_P(p,L) qdisc_l2t((p)->P_tab,L)
 
 static u32 idx_gen;
 static struct tcf_police *tcf_police_ht[16];

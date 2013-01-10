@@ -32,6 +32,7 @@ static void explain_class(void)
 	fprintf(stderr, "               [ prio NUMBER ] [ cell BYTES ] [ ewma LOG ]\n");
 	fprintf(stderr, "               [ estimator INTERVAL TIME_CONSTANT ]\n");
 	fprintf(stderr, "               [ split CLASSID ] [ defmap MASK/CHANGE ]\n");
+	fprintf(stderr, "               [ overhead BYTES ] [ atm ]\n");
 }
 
 static void explain(void)
@@ -52,7 +53,10 @@ static int cbq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 	struct tc_ratespec r;
 	struct tc_cbq_lssopt lss;
 	__u32 rtab[256];
-	unsigned mpu=0, avpkt=0, allot=0;
+	unsigned avpkt=0, allot=0;
+	__u8 mpu=0;
+	__s8 overhead=0;
+	int atm=0;
 	int cell_log=-1; 
 	int ewma_log=-1;
 	struct rtattr *tail;
@@ -102,7 +106,7 @@ static int cbq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 			}
 		} else if (strcmp(*argv, "mpu") == 0) {
 			NEXT_ARG();
-			if (get_size(&mpu, *argv)) {
+			if (get_u8(&mpu, *argv, 10)) {
 				explain1("mpu");
 				return -1;
 			}
@@ -113,6 +117,14 @@ static int cbq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 				explain1("allot");
 				return -1;
 			}
+		} else if (strcmp(*argv, "overhead") == 0) {
+			NEXT_ARG();
+			if (get_s8(&overhead, *argv, 10)) {
+				explain1("overhead");
+				return -1;
+			}
+		} else if (strcmp(*argv, "atm") == 0) {
+		  	atm = 1;
 		} else if (strcmp(*argv, "help") == 0) {
 			explain();
 			return -1;
@@ -137,12 +149,7 @@ static int cbq_parse_opt(struct qdisc_util *qu, int argc, char **argv, struct nl
 	if (allot < (avpkt*3)/2)
 		allot = (avpkt*3)/2;
 
-	if ((cell_log = tc_calc_rtable(r.rate, rtab, cell_log, allot, mpu)) < 0) {
-		fprintf(stderr, "CBQ: failed to calculate rate table.\n");
-		return -1;
-	}
-	r.cell_log = cell_log;
-	r.mpu = mpu;
+	tc_calc_ratespec(&r, rtab, r.rate, cell_log, allot, mpu, atm, overhead);
 
 	if (ewma_log < 0)
 		ewma_log = TC_CBQ_DEF_EWMA;
@@ -175,7 +182,9 @@ static int cbq_parse_class_opt(struct qdisc_util *qu, int argc, char **argv, str
 	struct tc_cbq_fopt fopt;
 	struct tc_cbq_ovl ovl;
 	__u32 rtab[256];
-	unsigned mpu=0;
+	__u8 mpu=0;
+	__s8 overhead = 0;
+	int atm = 0;
 	int cell_log=-1; 
 	int ewma_log=-1;
 	unsigned bndw = 0;
@@ -289,10 +298,18 @@ static int cbq_parse_class_opt(struct qdisc_util *qu, int argc, char **argv, str
 			lss.change |= TCF_CBQ_LSS_AVPKT;
 		} else if (strcmp(*argv, "mpu") == 0) {
 			NEXT_ARG();
-			if (get_size(&mpu, *argv)) {
+			if (get_u8(&mpu, *argv, 10)) {
 				explain1("mpu");
 				return -1;
 			}
+		} else if (strcmp(*argv, "overhead") == 0) {
+			NEXT_ARG();
+			if (get_s8(&overhead, *argv, 10)) {
+				explain1("overhead");
+				return -1;
+			}
+		} else if (strcmp(*argv, "atm") == 0) {
+		  	atm = 1;		
 		} else if (strcmp(*argv, "weight") == 0) {
 			NEXT_ARG();
 			if (get_size(&wrr.weight, *argv)) {
@@ -336,12 +353,8 @@ static int cbq_parse_class_opt(struct qdisc_util *qu, int argc, char **argv, str
 		unsigned pktsize = wrr.allot;
 		if (wrr.allot < (lss.avpkt*3)/2)
 			wrr.allot = (lss.avpkt*3)/2;
-		if ((cell_log = tc_calc_rtable(r.rate, rtab, cell_log, pktsize, mpu)) < 0) {
-			fprintf(stderr, "CBQ: failed to calculate rate table.\n");
-			return -1;
-		}
-		r.cell_log = cell_log;
-		r.mpu = mpu;
+		
+		tc_calc_ratespec(&r, rtab, r.rate, cell_log, pktsize, mpu, atm, overhead);
 	}
 	if (ewma_log < 0)
 		ewma_log = TC_CBQ_DEF_EWMA;
@@ -463,8 +476,12 @@ static int cbq_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
 		fprintf(f, "rate %s ", buf);
 		if (show_details) {
 			fprintf(f, "cell %ub ", 1<<r->cell_log);
-			if (r->mpu)
-				fprintf(f, "mpu %ub ", r->mpu);
+			if (r->mpu & 0xff)
+				fprintf(f, "mpu %ub ", (__u8)r->mpu);
+			if ((r->mpu >> 8))
+				fprintf(f, "overhead %db ", (__s8)(r->mpu >> 8));
+			if (r->feature & 0x0001)
+				fprintf(f, "atm ");
 		}
 	}
 	if (lss && lss->flags) {
