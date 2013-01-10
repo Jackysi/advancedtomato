@@ -77,8 +77,9 @@ struct tc_ratespec
 {
 	unsigned char	cell_log;
 	unsigned char	__reserved;
-	unsigned short	feature;
-	short		addend;
+	unsigned short	feature;	/* Always 0 in pre-atm patch kernels */
+	char		cell_align;	/* Always 0 in pre-atm patch kernels */
+	unsigned char	__unused;
 	unsigned short	mpu;
 	__u32		rate;
 };

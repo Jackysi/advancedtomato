@@ -24,7 +24,7 @@
 /* REMOVE-BEGIN
 	!!TB - added qos_pfifo
 REMOVE-END */
-//	<% nvram("qos_classnames,qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_udp,qos_default,qos_pfifo,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma"); %>
+//	<% nvram("qos_classnames,qos_enable,qos_ack,qos_syn,qos_fin,qos_rst,qos_icmp,qos_udp,qos_default,qos_pfifo,qos_obw,qos_ibw,qos_orates,qos_irates,qos_reset,ne_vegas,ne_valpha,ne_vbeta,ne_vgamma,atm_overhead"); %>
 
 var classNames = nvram.qos_classnames.split(' ');		// Toastman - configurable class names
 
@@ -233,7 +233,21 @@ REMOVE-END */
 </script>
 </div>
 
+<div class='section-title'>Settings for DSL only</div>
+<div class='section'>
+<script type='text/javascript'>
 
+createFieldTable('', [
+		{ title: 'DSL Overhead Value - ATM Encapsulation Type', multi:[
+		{name: 'atm_overhead', type: 'select', options: [['0','None'],['32','32-PPPoE VC-Mux'],['40','40-PPPoE LLC/Snap'],
+						['10','10-PPPoA VC-Mux'],['14','14-PPPoA LLC/Snap'],
+						['8','8-RFC2684/RFC1483 Routed VC-Mux'],['16','16-RFC2684/RFC1483 Routed LLC/Snap'],
+						['24','24-RFC2684/RFC1483 Bridged VC-Mux'],
+						['32','32-RFC2684/RFC1483 Bridged LLC/Snap']], value:nvram.atm_overhead }
+		] }
+]);
+</script>
+</div>
 
 <div class='section-title'>Outbound Rates / Limits</div>
 <div class='section'>
