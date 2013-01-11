@@ -1569,12 +1569,14 @@ openvpn: openvpn/.conf openssl lzo
 openvpn/.conf:
 	cd openvpn && CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-L$(TOP)/openssl -L$(TOP)/lzo/src/.libs -ffunction-sections -fdata-sections -Wl,--gc-sections" \
+	CPPFLAGS="-I$(TOP)/lzo/include -I$(TOP)/openssl/include" \
 	$(CONFIGURE) --prefix= \
-	--with-lzo-headers="$(TOP)/lzo/include" \
-	--with-ssl-headers="$(TOP)/openssl/include/" \
+	--with-crypto-library=openssl \
 	--with-iproute-path="/usr/sbin/ip" \
 	--disable-debug --disable-plugins --enable-management --enable-small \
-	--disable-selinux --disable-socks --enable-password-save
+	--disable-selinux --disable-socks --enable-password-save \
+	OPENSSL_SSL_CFLAGS="-I$(TOP)/openssl/include" \
+	OPENSSL_SSL_LIBS="-L$(TOP)/openssl -lssl"
 	touch openvpn/.conf
 
 openvpn-clean:
@@ -1582,7 +1584,7 @@ openvpn-clean:
 	@rm -f openvpn/.conf
 
 openvpn-install: openvpn
-	install -D openvpn/openvpn $(INSTALLDIR)/openvpn/usr/sbin/openvpn
+	install -D openvpn/src/openvpn/.libs/openvpn $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	$(STRIP) -s $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	chmod 0500 $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 
