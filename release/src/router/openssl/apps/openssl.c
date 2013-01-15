@@ -471,16 +471,13 @@ static int do_cmd(LHASH_OF(FUNCTION) *prog, int argc, char *argv[])
 	fp=lh_FUNCTION_retrieve(prog,&f);
 	if (fp == NULL)
 		{
-#if 0
 		if (EVP_get_digestbyname(argv[0]))
 			{
 			f.type = FUNC_TYPE_MD;
 			f.func = dgst_main;
 			fp = &f;
 			}
-		else
-#endif // 0
-		if (EVP_get_cipherbyname(argv[0]))
+		else if (EVP_get_cipherbyname(argv[0]))
 			{
 			f.type = FUNC_TYPE_CIPHER;
 			f.func = enc_main;
