@@ -114,7 +114,7 @@ Copyright (C) 2010 Keith Moyer,<br>
 
 <b>"Shibby" features:</b><br>
 <!-- BBT-BEGIN -->
-- Transmission 2.75 integration<br>
+- Transmission 2.76 integration<br>
 <!-- BBT-END -->
 <!-- BT-BEGIN -->
 - GUI for Transmission<br>
@@ -190,6 +190,8 @@ Copyright (C) 2011 Augusto Bott<br>
 <b>"Toastman" features:</b><br>
 - Configurable QOS class names<br>
 - Comprehensive QOS rule examples set by default<br>
+- TC-ATM overhead calculation - patch by tvlz<br>
+- GPT support for HDD by Yaniv Hamo<br>
 Copyright (C) 2011 Toastman<br>
 <a href='http://www.linksysinfo.org/index.php?threads/using-qos-tutorial-and-discussion.28349/' target='_new'>Using QoS - Tutorial and discussion</a><br>
 <br>
