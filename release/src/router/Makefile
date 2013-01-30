@@ -1574,7 +1574,8 @@ openvpn/.conf:
 	--disable-debug --disable-plugins --enable-management --enable-small \
 	--disable-selinux --disable-socks --enable-password-save \
 	OPENSSL_SSL_CFLAGS="-I$(TOP)/openssl/include" \
-	OPENSSL_SSL_LIBS="-L$(TOP)/openssl -lssl"
+	OPENSSL_SSL_LIBS="-L$(TOP)/openssl -lssl" \
+	ac_cv_lib_resolv_gethostbyname=no
 	touch openvpn/.conf
 
 openvpn-clean:
