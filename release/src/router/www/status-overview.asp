@@ -36,6 +36,7 @@
 <script type='text/javascript'>
 
 //	<% nvstat(); %>
+//	<% etherstates(); %>
 
 wmo = {'ap':'Access Point','sta':'Wireless Client','wet':'Wireless Ethernet Bridge','wds':'WDS'};
 auth = {'disabled':'-','wep':'WEP','wpa_personal':'WPA Personal (PSK)','wpa_enterprise':'WPA Enterprise','wpa2_personal':'WPA2 Personal (PSK)','wpa2_enterprise':'WPA2 Enterprise','wpaX_personal':'WPA / WPA2 Personal','wpaX_enterprise':'WPA / WPA2 Enterprise','radius':'Radius'};
@@ -104,6 +105,95 @@ ref.refresh = function(text)
 function c(id, htm)
 {
 	E(id).cells[1].innerHTML = htm;
+}
+
+function ethstates()
+{
+	port = etherstates.port0;
+	if (port == "disable") { return 0; }
+
+	var state, state1, state2;
+	var code = '<div class="section-title">Ethernet Ports</div>';
+	code += '<table class="fields"><tr><td class="title indent1"><center><b>WAN</b></center></td><td colspan="4"><center><b>LAN</b></center></td><tr>';
+
+	if (port == "DOWN") {
+		state = '<img src="eth_off.png"><br>';
+		state2 = port.replace("DOWN","Down");
+	} else {
+		state = '<img src="eth_on.png"><br>';
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
+	}
+	if (stats.lan_desc == '1') {
+		code += '<td class="title indent1"><center>' + state + state2 + '</center></td>';
+	} else {
+		code += '<td class="title indent1"><center>' + state + '</center></td>';
+	}
+
+	port = etherstates.port1;
+	if (port == "DOWN") {
+		state = '<img src="eth_off.png"><br>';
+		state2 = port.replace("DOWN","Down");
+	} else {
+		state = '<img src="eth_on.png"><br>';
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
+	}
+	if (stats.lan_desc == '1') {
+		code += '<td width="10%"><center>' + state + state2 + '</center></td>';
+	} else {
+		code += '<td width="10%"><center>' + state + '</center></td>';
+	}
+
+	port = etherstates.port2;
+	if (port == "DOWN") {
+		state = '<img src="eth_off.png"><br>';
+		state2 = port.replace("DOWN","Down");
+	} else {
+		state = '<img src="eth_on.png"><br>';
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
+	}
+	if (stats.lan_desc == '1') {
+		code += '<td width="10%"><center>' + state + state2 + '</center></td>';
+	} else {
+		code += '<td width="10%"><center>' + state + '</center></td>';
+	}
+
+	port = etherstates.port3;
+	if (port == "DOWN") {
+		state = '<img src="eth_off.png"><br>';
+		state2 = port.replace("DOWN","Down");
+	} else {
+		state = '<img src="eth_on.png"><br>';
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
+	}
+	if (stats.lan_desc == '1') {
+		code += '<td width="10%"><center>' + state + state2 + '</center></td>';
+	} else {
+		code += '<td width="10%"><center>' + state + '</center></td>';
+	}
+
+	port = etherstates.port4;
+	if (port == "DOWN") {
+		state = '<img src="eth_off.png"><br>';
+		state2 = port.replace("DOWN","Down");
+	} else {
+		state = '<img src="eth_on.png"><br>';
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
+	}
+	if (stats.lan_desc == '1') {
+		code += '<td width="10%"><center>' + state + state2 + '</center></td>';
+	} else {
+		code += '<td width="10%"><center>' + state + '</center></td>';
+	}
+
+	code += '<td class="content"> </td>';
+	code += '</tr></table>';
+	code += '</div>';
+	E("ports").innerHTML = code;
 }
 
 function show()
@@ -175,6 +265,9 @@ function earlyInit()
 		if (wl_sunit(uidx)<0)
 			elem.display('b_wl'+uidx+'_enable', 'b_wl'+uidx+'_disable', show_radio[uidx]);
 	}
+
+	ethstates();
+
 	show();
 }
 
@@ -243,6 +336,9 @@ createFieldTable('', [
 	{ title: 'Total / Free NVRAM', text: scaleSize(nvstat.size) + ' / ' + scaleSize(nvstat.free) + ' <small>(' + (a).toFixed(2) + '%)</small>' }
 ]);
 </script>
+</div>
+
+<div class='section' id='ports'>
 </div>
 
 <div class='section-title' id='wan-title'>WAN <small><i><a href='javascript:toggleVisibility("wan");'><span id='sesdiv_wan_showhide'>(hide)</span></a></i></small></div>
