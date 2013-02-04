@@ -295,7 +295,7 @@ var m = [
 	null,
 	{ title: 'Color Scheme', name: 'web_css', type: 'select',
 		options: [['openlinksys','USB Blue - OpenLinksys'],['red','Tomato'],['ext/custom','Custom (ext/custom.css)'], ['online', 'On-line from TTB']], value: nvram.web_css },
-	{ title: 'TTB ID#', indent: 2, name: 'ttb_css', type: 'text', maxlen: 25, size: 30, value: nvram.ttb_css, suffix: ' Theme name from <a href="http://www.tomatothemebase.eu" target="_blanc">TTB themes gallery</a>' },
+	{ title: 'TTB ID#', indent: 2, name: 'ttb_css', type: 'text', maxlen: 25, size: 30, value: nvram.ttb_css, suffix: ' Theme name from <a href="http://www.tomatothemebase.eu" target="_blanc"><u><i>TTB themes gallery</i></u></a>' },
 	null,
 	{ title: 'Open Menus' }
 ];
