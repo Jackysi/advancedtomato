@@ -1,4 +1,4 @@
-/* $Id: iptcrdr.c,v 1.45 2011/06/22 20:34:39 nanard Exp $ */
+/* $Id: iptcrdr.c,v 1.50 2012/10/03 14:49:08 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * (c) 2006-2011 Thomas Bernard
@@ -13,8 +13,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <dlfcn.h>
-#include <libiptc/libiptc.h>
 #include <iptables.h>
+#include <libiptc/libiptc.h>
 
 #include <linux/version.h>
 
@@ -48,6 +48,8 @@
 #define IPT_ALIGN XT_ALIGN
 #endif
 
+#include "../macros.h"
+#include "../config.h"
 #include "iptcrdr.h"
 #include "../upnpglobalvars.h"
 
@@ -196,7 +198,10 @@ add_redirect_rule2(const char * ifname,
                    const char * iaddr, unsigned short iport, int proto,
 				   const char * desc, unsigned int timestamp)
 {
-	int r = addnatrule(proto, eport, iaddr, iport, rhost);
+	int r;
+	UNUSED(ifname);
+
+	r = addnatrule(proto, eport, iaddr, iport, rhost);
 	if(r >= 0)
 		add_redirect_desc(eport, proto, desc, timestamp);
 	return r;
@@ -208,10 +213,14 @@ add_filter_rule2(const char * ifname,
                  unsigned short eport, unsigned short iport,
                  int proto, const char * desc)
 {
+	UNUSED(ifname);
+	UNUSED(eport);
+	UNUSED(desc);
+
 	return add_filter_rule(proto, rhost, iaddr, iport);
 }
 
-/* get_redirect_rule() 
+/* get_redirect_rule()
  * returns -1 if the rule is not found */
 int
 get_redirect_rule(const char * ifname, unsigned short eport, int proto,
@@ -227,6 +236,7 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 	const struct ipt_entry_target * target;
 	const struct ip_nat_multi_range * mr;
 	const struct ipt_entry_match *match;
+	UNUSED(ifname);
 
 	h = iptc_init("nat");
 	if(!h)
@@ -270,7 +280,7 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 						continue;
 				}
 				target = (void *)e + e->target_offset;
-				//target = ipt_get_target(e);
+				/* target = ipt_get_target(e); */
 				mr = (const struct ip_nat_multi_range *)&target->data[0];
 				snprintip(iaddr, iaddrlen, ntohl(mr->range[0].min_ip));
 				*iport = ntohs(mr->range[0].min.all);
@@ -297,7 +307,7 @@ get_redirect_rule(const char * ifname, unsigned short eport, int proto,
 	return r;
 }
 
-/* get_redirect_rule_by_index() 
+/* get_redirect_rule_by_index()
  * return -1 when the rule was not found */
 int
 get_redirect_rule_by_index(int index,
@@ -324,6 +334,7 @@ get_redirect_rule_by_index(int index,
 	const struct ipt_entry_target * target;
 	const struct ip_nat_multi_range * mr;
 	const struct ipt_entry_match *match;
+	UNUSED(ifname);
 
 	h = iptc_init("nat");
 	if(!h)
@@ -569,7 +580,7 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 }
 
 /* ==================================== */
-/* TODO : add the -m state --state NEW,ESTABLISHED,RELATED 
+/* TODO : add the -m state --state NEW,ESTABLISHED,RELATED
  * only for the filter rule */
 static struct ipt_entry_match *
 get_tcp_match(unsigned short dport)
@@ -703,7 +714,7 @@ iptc_init_verify_and_append(const char * table,
 	return 0;
 }
 
-/* add nat rule 
+/* add nat rule
  * iptables -t nat -A MINIUPNPD -p proto --dport eport -j DNAT --to iaddr:iport
  * */
 static int
@@ -745,7 +756,7 @@ addnatrule(int proto, unsigned short eport,
 		e->ip.src.s_addr = inet_addr(rhost);
 		e->ip.smsk.s_addr = INADDR_NONE;
 	}
-	
+
 	r = iptc_init_verify_and_append("nat", miniupnpd_nat_chain, e, "addnatrule()");
 	free(target);
 	free(match);
@@ -808,7 +819,7 @@ add_filter_rule(int proto, const char * rhost,
 		e->ip.src.s_addr = inet_addr(rhost);
 		e->ip.smsk.s_addr = INADDR_NONE;
 	}
-	
+
 	r = iptc_init_verify_and_append("filter", miniupnpd_forward_chain, e, "add_filter_rule()");
 	free(target);
 	free(match);
@@ -976,6 +987,7 @@ list_redirect_rule(const char * ifname)
 	const struct ip_nat_multi_range * mr;
 	const char * target_str;
 	char addr[16], mask[16];
+	(void)ifname;
 
 	h = iptc_init("nat");
 	if(!h)

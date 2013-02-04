@@ -1,12 +1,12 @@
-/* $Id: upnpglobalvars.h,v 1.29 2011/05/27 21:36:22 nanard Exp $ */
+/* $Id: upnpglobalvars.h,v 1.34 2012/09/27 15:47:15 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2011 Thomas Bernard 
+ * (c) 2006-2012 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
-#ifndef __UPNPGLOBALVARS_H__
-#define __UPNPGLOBALVARS_H__
+#ifndef UPNPGLOBALVARS_H_INCLUDED
+#define UPNPGLOBALVARS_H_INCLUDED
 
 #include <time.h>
 #include "upnppermissions.h"
@@ -65,6 +65,9 @@ extern char modelnumber[];
 #define PRESENTATIONURL_MAX_LEN (64)
 extern char presentationurl[];
 
+#define FRIENDLY_NAME_MAX_LEN (64)
+extern char friendly_name[];
+
 /* UPnP permission rules : */
 extern struct upnpperm * upnppermlist;
 extern unsigned int num_upnpperm;
@@ -82,6 +85,7 @@ extern unsigned short nextnatpmptoclean_proto;
 extern unsigned int nextruletoclean_timestamp;
 
 #ifdef USE_PF
+extern const char * anchor_name;
 /* queue and tag for PF rules */
 extern const char * queue;
 extern const char * tag;
@@ -90,6 +94,9 @@ extern const char * tag;
 #ifdef USE_NETFILTER
 extern const char * miniupnpd_nat_chain;
 extern const char * miniupnpd_forward_chain;
+#ifdef ENABLE_6FC_SERVICE
+extern const char * miniupnpd_v6_filter_chain;
+#endif
 #endif
 
 #ifdef ENABLE_NFQUEUE
