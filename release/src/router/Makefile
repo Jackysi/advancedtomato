@@ -146,6 +146,7 @@ obj-$(TCONFIG_MEDIA_SERVER) += libvorbis
 obj-$(TCONFIG_MEDIA_SERVER) += minidlna
 MEDIA_SERVER_STATIC=y
 
+obj-y += libnfnetlink
 obj-y += miniupnpd
 #	obj-y += upnp
 
@@ -505,7 +506,7 @@ endif
 
 	@mv $(TARGETDIR)/usr/sbin/ttcp $(PLATFORMDIR)/extras/apps/ || true
 	@mv $(TARGETDIR)/usr/sbin/mii-tool $(PLATFORMDIR)/extras/apps/ || true
-	@mv $(TARGETDIR)/usr/sbin/robocfg $(PLATFORMDIR)/extras/apps/ || true
+	@cp -r $(TARGETDIR)/usr/sbin/robocfg $(PLATFORMDIR)/extras/apps/ || true
 
 	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/usr/lib/libusb* $(PLATFORMDIR)/extras/lib/ || true
 	$(if $(NEED_EX_USB),@cp -f,@mv) $(TARGETDIR)/usr/sbin/usb_modeswitch $(PLATFORMDIR)/extras/apps/ || true
@@ -694,9 +695,7 @@ cyassl-install:
 ifeq ($(FULL_OPENSSL),y)
 OPENSSL_CIPHERS:=enable-rc5
 else
-OPENSSL_CIPHERS:=no-dh no-idea no-rc2 no-rc5 no-aes no-aes192 no-cast no-des no-modes no-engine
-# no-tls1 no-tlsext
-# openssl 1.0.1 doesn't build when using "no-tlsext" or "no-tls1"
+OPENSSL_CIPHERS:=no-dh no-idea no-rc2 no-rc5 no-engine no-aes192 no-cast
 endif
 
 openssl/stamp-h1:
@@ -835,15 +834,35 @@ rp-pppoe-install: rp-pppoe
 
 upnp: nvram shared iptables
 
-miniupnpd-config:
-	@cd miniupnpd && ./genconfig.sh
+libnfnetlink/stamp-h1:
+	cd $(TOP)/libnfnetlink && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
+		$(CONFIGURE) --prefix=/usr --enable-shared --enable-static
+	touch tor/stamp-h1
 
-miniupnpd: iptables miniupnpd-config
+libnfnetlink: libnfnetlink/stamp-h1
+
+libnfnetlink-install:
+	install -D libnfnetlink/src/.libs/libnfnetlink.so.0.2.0 $(INSTALLDIR)/libnfnetlink/usr/lib/libnfnetlink.so.0.2.0
+	$(STRIP) -s $(INSTALLDIR)/libnfnetlink/usr/lib/libnfnetlink.so.0.2.0
+	cd $(INSTALLDIR)/libnfnetlink/usr/lib/ && \
+		ln -sf libnfnetlink.so.0.2.0 libnfnetlink.so.0 && \
+		ln -sf libnfnetlink.so.0.2.0 libnfnetlink.so
+
+miniupnpd-config:
+#ifeq ($(TCONFIG_IPV6),y)
+#	@cd miniupnpd && ./genconfig.sh --ipv6
+#else
+	@cd miniupnpd && ./genconfig.sh
+#endif
+
+miniupnpd: iptables miniupnpd-config libnfnetlink
 	@$(SEP)
 	$(MAKE) -C miniupnpd miniupnpd -f Makefile.linux \
-	TARGET_OPENWRT="not really" CC=$(CC) \
-	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include -I$(TOP)/shared" \
-	LDFLAGS="-L$(TOP)/iptables -liptc" LIBS=""
+	TARGET_OPENWRT="not really" LD=mipsel-uclibc-ld CC=$(CC) \
+	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include -I$(TOP)/libnfnetlink/include" \
+	LDFLAGS="-L$(TOP)/iptables -liptc -L$(TOP)/libnfnetlink/src/.libs -lnfnetlink" LIBS=""
 
 miniupnpd-clean:
 	-@$(MAKE) -C miniupnpd -f Makefile.linux clean
@@ -1585,7 +1604,8 @@ openvpn/.conf:
 	--disable-debug --disable-plugins --enable-management --enable-small \
 	--disable-selinux --disable-socks --enable-password-save \
 	OPENSSL_SSL_CFLAGS="-I$(TOP)/openssl/include" \
-	OPENSSL_SSL_LIBS="-L$(TOP)/openssl -lssl"
+	OPENSSL_SSL_LIBS="-L$(TOP)/openssl -lssl" \
+	ac_cv_lib_resolv_gethostbyname=no
 	touch openvpn/.conf
 
 openvpn-clean:

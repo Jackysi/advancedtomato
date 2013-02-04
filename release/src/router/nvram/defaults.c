@@ -61,6 +61,10 @@ const defaults_t defaults[] = {
 	{ "lan_gateway",		"0.0.0.0"		},	// LAN Gateway
 	{ "wl_wds_enable",		"0"				},	// WDS Enable (0|1)
 
+	{ "lan_state",			"1"				},	// Show Ethernet LAN ports state (0|1)
+	{ "lan_desc",			"1"				},	// Show Ethernet LAN ports state (0|1)
+	{ "lan_invert",			"0"				},	// Invert Ethernet LAN ports state (0|1)
+
 	{ "lan1_ipaddr",		""				},
 	{ "lan1_netmask",		""				},
 	{ "lan1_stp",			"0"				},

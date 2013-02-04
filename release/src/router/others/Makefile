@@ -28,6 +28,9 @@ endif
 #TTB project
 	install -m 0700 ttb $(INSTALLDIR)/usr/sbin
 
+#Ethernet state report
+	install -m 0700 ethstate $(INSTALLDIR)/usr/sbin
+
 # cron helper
 	install -m 0700 cru $(INSTALLDIR)/usr/sbin
 

@@ -810,6 +810,12 @@ endif
 	@$(MAKE) setprofile N=$(TPROFILE) B=$(B) DESC="$(BUILD_DESC)" USB="$(USB)"
 	@$(MAKE) all
 
+## mini-USB - K24 only
+n:
+ifneq ($(CONFIG_LINUX26),y)
+	@$(MAKE) bin BBEXTRAS=y USBEXTRAS=y B=E BUILD_DESC="mini-USB" USB="USB"
+endif
+
 ## VPN
 e:
 ifeq ($(CONFIG_LINUX26),y)
@@ -1116,6 +1122,7 @@ setprofile:
 	@$(MAKE) -C router oldconfig
 
 help:
+	@echo "n            Mini-USB - for oruter with 4MB flash and USB port - K24 only"
 	@echo "e            VPN - (standard plus VPN, extra utilities and NTFS support)"
 	@echo "c            BTgui-VPN - (Ext plus BT gui)"
 	@echo "d            Nocat-VPN - (BTgui plus VPN plus Nocat)"

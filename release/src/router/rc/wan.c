@@ -1083,10 +1083,6 @@ void stop_wan(void)
 	stop_ppp();
 	stop_dhcpc();
 	stop_vpn_eas();
-#ifdef TCONFIG_PPTPD
-	if (nvram_get_int("pptp_client_enable"))
-		stop_pptp_client();
-#endif
 	clear_resolv();
 	nvram_set("wan_get_dns", "");
 
