@@ -113,7 +113,7 @@ function ethstates()
 	if (port == "disable") { return 0; }
 
 	var state, state1, state2;
-	var code = '<div class="section-title">Ethernet Ports</div>';
+	var code = '<div class="section-title">Ethernet Ports State</div>';
 	code += '<table class="fields"><tr><td class="title indent1"><center><b>WAN</b></center></td><td colspan="4"><center><b>LAN</b></center></td><tr>';
 
 	if (port == "DOWN") {
@@ -190,9 +190,8 @@ function ethstates()
 		code += '<td width="10%"><center>' + state + '</center></td>';
 	}
 
-	code += '<td class="content"> </td>';
-	code += '</tr></table>';
-	code += '</div>';
+	code += '<td class="content"> </td></tr>';
+	code += '<tr><td class="title indent1" colspan="6" align="right">&raquo; <a href="basic-network.asp">Configure</a></td></tr></table></div>';
 	E("ports").innerHTML = code;
 }
 

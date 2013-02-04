@@ -1600,12 +1600,18 @@ createFieldTable('', [
 /* DNSCRYPT-BEGIN */
 	{ title: 'Use dnscrypt-proxy', name: 'f_dnscrypt_proxy', type: 'checkbox', value: (nvram.dnscrypt_proxy == 1) },
 /* DNSCRYPT-END */
-	{ title: 'WINS <i>(for DHCP)</i>', name: 'wan_wins', type: 'text', maxlen: 15, size: 17, value: nvram.wan_wins },
-	null,
+	{ title: 'WINS <i>(for DHCP)</i>', name: 'wan_wins', type: 'text', maxlen: 15, size: 17, value: nvram.wan_wins }
+]);
+</script>
+</div>
+
+<div class='section-title'>Ethernet Ports State - Configuration</div>
+<div class='section'>
+<script type='text/javascript'>
+createFieldTable('', [
 	{ title: 'Enable Port State', name: 'f_lan_state', type: 'checkbox', value: (nvram.lan_state == 1), suffix: '<i> Enable Ethernet State on Overview page</i>' },
 	{ title: 'Show Speed Info', indent: 2, name: 'f_lan_desc', type: 'checkbox', value: (nvram.lan_desc == 1) },
 	{ title: 'Invert Ports Order', indent: 2, name: 'f_lan_invert', type: 'checkbox', value: (nvram.lan_invert == 1), suffix: '<i> Invert Ethernet LAN ports order on Overview page</i>' }
-
 ]);
 </script>
 </div>
