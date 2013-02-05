@@ -226,9 +226,15 @@ evconnlistener_new_bind(struct event_base *base, evconnlistener_cb cb,
 		}
 	}
 
-	setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (void*)&on, sizeof(on));
+	if (setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (void*)&on, sizeof(on))<0) {
+		evutil_closesocket(fd);
+		return NULL;
+	}
 	if (flags & LEV_OPT_REUSEABLE) {
-		evutil_make_listen_socket_reuseable(fd);
+		if (evutil_make_listen_socket_reuseable(fd) < 0) {
+			evutil_closesocket(fd);
+			return NULL;
+		}
 	}
 
 	if (sa) {
@@ -735,6 +741,10 @@ iocp_listener_disable_impl(struct evconnlistener *lev, int shutdown)
 		}
 		LeaveCriticalSection(&as->lock);
 	}
+
+	if (shutdown && lev->flags & LEV_OPT_CLOSE_ON_FREE)
+		evutil_closesocket(lev_iocp->fd);
+
 	UNLOCK(lev);
 	return 0;
 }
