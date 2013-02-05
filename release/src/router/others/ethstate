@@ -12,7 +12,7 @@ fi
 
 VWAN=`nvram get wan_ifname`
 VPORT=`nvram get $VWAN'ports' | awk '{print $1}'`
-echo "1"
+
 /usr/sbin/robocfg show | grep Port | awk '{print $1" "$2" "$3}' > /tmp/ethernet.state.tmp
 
 #Search WAN port
