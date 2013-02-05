@@ -1,0 +1,34 @@
+#!/bin/sh
+
+# Turn off/on all led for routers RT-N16 and RT-N66U
+
+N16=`nvram get t_model_name | grep RT-N16 | wc -l`
+N66U=`nvram get t_model_name | grep RT-N66U | wc -l`
+
+if [ "$N16" == "1" -o "$N66U" == "1" ]; then
+    case "$1" in
+        on)
+            et robowr 0x00 0x18 0x1e0
+            et robowr 0x00 0x1a 0x1e0
+            wl -i eth1 leddc 1
+            wl -i eth2 leddc 1
+            gpio enable 12 #power led
+            gpio enable 15 #usb led
+        ;;
+        off)
+            et robowr 0x00 0x18 0x1ff
+            et robowr 0x00 0x1a 0x1ff
+            wl -i eth1 leddc 0
+            wl -i eth2 leddc 0
+            gpio disable 12 #power led
+            gpio disable 15 #usb led
+        ;;
+        *)
+            echo $"Usage: $0 {on|off}"
+            exit 1
+
+    esac
+
+else
+    echo "Router does not supported by this script"
+fi
