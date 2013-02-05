@@ -469,7 +469,7 @@ check_error_logging(void (*fn)(void), int wantexitcode,
 	int status = 0, exitcode;
 	fatal_want_severity = wantseverity;
 	fatal_want_message = wantmsg;
-	if ((pid = fork()) == 0) {
+	if ((pid = regress_fork()) == 0) {
 		/* child process */
 		fn();
 		exit(0); /* should be unreachable. */
@@ -983,7 +983,7 @@ test_evutil_getaddrinfo(void *arg)
 	hints.ai_flags = EVUTIL_AI_NUMERICHOST;
 	r = evutil_getaddrinfo("www.google.com", "80", &hints, &ai);
 	tt_int_op(r, ==, EVUTIL_EAI_NONAME);
-	tt_int_op(ai, ==, NULL);
+	tt_ptr_op(ai, ==, NULL);
 
 	/* Try symbolic service names wit AI_NUMERICSERV */
 	memset(&hints, 0, sizeof(hints));
