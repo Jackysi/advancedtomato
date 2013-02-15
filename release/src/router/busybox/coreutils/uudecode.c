@@ -10,6 +10,18 @@
  * Bugs: the spec doesn't mention anything about "`\n`\n" prior to the
  * "end" line
  */
+
+//usage:#define uudecode_trivial_usage
+//usage:       "[-o OUTFILE] [INFILE]"
+//usage:#define uudecode_full_usage "\n\n"
+//usage:       "Uudecode a file\n"
+//usage:       "Finds OUTFILE in uuencoded source unless -o is given"
+//usage:
+//usage:#define uudecode_example_usage
+//usage:       "$ uudecode -o busybox busybox.uu\n"
+//usage:       "$ ls -l busybox\n"
+//usage:       "-rwxr-xr-x   1 ams      ams        245264 Jun  7 21:35 busybox\n"
+
 #include "libbb.h"
 
 #if ENABLE_UUDECODE
@@ -113,10 +125,11 @@ int uudecode_main(int argc UNUSED_PARAM, char **argv)
 		mode = bb_strtou(line_ptr, NULL, 8);
 		if (outname == NULL) {
 			outname = strchr(line_ptr, ' ');
-			if ((outname == NULL) || (*outname == '\0')) {
+			if (!outname)
 				break;
-			}
 			outname++;
+			if (!outname[0])
+				break;
 		}
 		dst_stream = stdout;
 		if (NOT_LONE_DASH(outname)) {
@@ -132,7 +145,7 @@ int uudecode_main(int argc UNUSED_PARAM, char **argv)
 }
 #endif
 
-//applet:IF_BASE64(APPLET(base64, _BB_DIR_BIN, _BB_SUID_DROP))
+//applet:IF_BASE64(APPLET(base64, BB_DIR_BIN, BB_SUID_DROP))
 
 //kbuild:lib-$(CONFIG_BASE64) += uudecode.o
 
@@ -146,7 +159,6 @@ int uudecode_main(int argc UNUSED_PARAM, char **argv)
 //usage:	"[-d] [FILE]"
 //usage:#define base64_full_usage "\n\n"
 //usage:       "Base64 encode or decode FILE to standard output"
-//usage:     "\nOptions:"
 //usage:     "\n	-d	Decode data"
 ////usage:     "\n	-w COL	Wrap lines at COL (default 76, 0 disables)"
 ////usage:     "\n	-i	When decoding, ignore non-alphabet characters"

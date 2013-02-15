@@ -17,6 +17,13 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
+//usage:#define klogd_trivial_usage
+//usage:       "[-c N] [-n]"
+//usage:#define klogd_full_usage "\n\n"
+//usage:       "Kernel logger\n"
+//usage:     "\n	-c N	Print to console messages more urgent than prio N (1-8)"
+//usage:     "\n	-n	Run in foreground"
+
 #include "libbb.h"
 #include <syslog.h>
 

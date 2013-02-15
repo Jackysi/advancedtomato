@@ -57,10 +57,13 @@ void FAST_FUNC launch_helper(const char **argv)
 	G.helper_pid = xvfork();
 
 	i = (!G.helper_pid) * 2; // for parent:0, for child:2
-	close(pipes[i + 1]); // 1 or 3 - closing one write end
-	close(pipes[2 - i]); // 2 or 0 - closing one read end
-	xmove_fd(pipes[i], STDIN_FILENO); // 0 or 2 - using other read end
-	xmove_fd(pipes[3 - i], STDOUT_FILENO); // 3 or 1 - other write end
+	close(pipes[i + 1]);     // 1 or 3 - closing one write end
+	close(pipes[2 - i]);     // 2 or 0 - closing one read end
+	xmove_fd(pipes[i], STDIN_FILENO);      // 0 or 2 - using other read end
+	xmove_fd(pipes[3 - i], STDOUT_FILENO); // 3 or 1 - using other write end
+	// End result:
+	// parent stdout [3] -> child stdin [2]
+	// child stdout [1] -> parent stdin [0]
 
 	if (!G.helper_pid) {
 		// child: try to execute connection helper
@@ -75,13 +78,16 @@ void FAST_FUNC launch_helper(const char **argv)
 	atexit(kill_helper);
 }
 
-const FAST_FUNC char *command(const char *fmt, const char *param)
+char* FAST_FUNC send_mail_command(const char *fmt, const char *param)
 {
-	const char *msg = fmt;
+	char *msg;
 	if (timeout)
 		alarm(timeout);
-	if (msg) {
+	msg = (char*)fmt;
+	if (fmt) {
 		msg = xasprintf(fmt, param);
+		if (verbose)
+			bb_error_msg("send:'%s'", msg);
 		printf("%s\r\n", msg);
 	}
 	fflush_all();
@@ -90,7 +96,7 @@ const FAST_FUNC char *command(const char *fmt, const char *param)
 
 // NB: parse_url can modify url[] (despite const), but only if '@' is there
 /*
-static char FAST_FUNC *parse_url(char *url, char **user, char **pass)
+static char* FAST_FUNC parse_url(char *url, char **user, char **pass)
 {
 	// parse [user[:pass]@]host
 	// return host
@@ -113,7 +119,7 @@ static char FAST_FUNC *parse_url(char *url, char **user, char **pass)
 void FAST_FUNC encode_base64(char *fname, const char *text, const char *eol)
 {
 	enum {
-		SRC_BUF_SIZE = 45,  /* This *MUST* be a multiple of 3 */
+		SRC_BUF_SIZE = 57,  /* This *MUST* be a multiple of 3 */
 		DST_BUF_SIZE = 4 * ((SRC_BUF_SIZE + 2) / 3),
 	};
 #define src_buf text
@@ -169,8 +175,8 @@ void FAST_FUNC get_cred_or_die(int fd)
 		G.user = xstrdup(bb_ask(fd, /* timeout: */ 0, "User: "));
 		G.pass = xstrdup(bb_ask(fd, /* timeout: */ 0, "Password: "));
 	} else {
-		G.user = xmalloc_reads(fd, /* pfx: */ NULL, /* maxsize: */ NULL);
-		G.pass = xmalloc_reads(fd, /* pfx: */ NULL, /* maxsize: */ NULL);
+		G.user = xmalloc_reads(fd, /* maxsize: */ NULL);
+		G.pass = xmalloc_reads(fd, /* maxsize: */ NULL);
 	}
 	if (!G.user || !*G.user || !G.pass)
 		bb_error_msg_and_die("no username or password");

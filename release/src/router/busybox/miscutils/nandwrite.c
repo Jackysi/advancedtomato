@@ -8,39 +8,37 @@
  * TODO: add support for large (>4GB) MTD devices
  */
 
-//applet:IF_NANDWRITE(APPLET(nandwrite, _BB_DIR_USR_SBIN, _BB_SUID_DROP))
-//applet:IF_NANDWRITE(APPLET_ODDNAME(nanddump, nandwrite, _BB_DIR_USR_SBIN, _BB_SUID_DROP, nanddump))
-
-//kbuild:lib-$(CONFIG_NANDWRITE) += nandwrite.o
-//kbuild:lib-$(CONFIG_NANDDUMP) += nandwrite.o
-
 //config:config NANDWRITE
 //config:	bool "nandwrite"
-//config:	default n
-//config:	depends on PLATFORM_LINUX
+//config:	default y
+//config:	select PLATFORM_LINUX
 //config:	help
 //config:	  Write to the specified MTD device, with bad blocks awareness
 //config:
 //config:config NANDDUMP
 //config:	bool "nanddump"
-//config:	default n
-//config:	depends on PLATFORM_LINUX
+//config:	default y
+//config:	select PLATFORM_LINUX
 //config:	help
 //config:	  Dump the content of raw NAND chip
+
+//applet:IF_NANDWRITE(APPLET(nandwrite, BB_DIR_USR_SBIN, BB_SUID_DROP))
+//applet:IF_NANDWRITE(APPLET_ODDNAME(nanddump, nandwrite, BB_DIR_USR_SBIN, BB_SUID_DROP, nanddump))
+
+//kbuild:lib-$(CONFIG_NANDWRITE) += nandwrite.o
+//kbuild:lib-$(CONFIG_NANDDUMP) += nandwrite.o
 
 //usage:#define nandwrite_trivial_usage
 //usage:	"[-p] [-s ADDR] MTD_DEVICE [FILE]"
 //usage:#define nandwrite_full_usage "\n\n"
 //usage:	"Write to the specified MTD device\n"
-//usage:     "\nOptions:"
 //usage:     "\n	-p	Pad to page size"
 //usage:     "\n	-s ADDR	Start address"
 
 //usage:#define nanddump_trivial_usage
 //usage:	"[-o] [-b] [-s ADDR] [-f FILE] MTD_DEVICE"
 //usage:#define nanddump_full_usage "\n\n"
-//usage:	"Dump the sepcified MTD device\n"
-//usage:     "\nOptions:"
+//usage:	"Dump the specified MTD device\n"
 //usage:     "\n	-o	Omit oob data"
 //usage:     "\n	-b	Omit bad block from the dump"
 //usage:     "\n	-s ADDR	Start address"

@@ -9,7 +9,7 @@
  * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
-//applet:IF_POWERTOP(APPLET(powertop, _BB_DIR_BIN, _BB_SUID_DROP))
+//applet:IF_POWERTOP(APPLET(powertop, BB_DIR_BIN, BB_SUID_DROP))
 
 //kbuild:lib-$(CONFIG_POWERTOP) += powertop.o
 
@@ -393,11 +393,9 @@ static NOINLINE int process_timer_stats(void)
 	char buf[128];
 	char line[15 + 3 + 128];
 	int n;
-	ullong totalticks;
 	FILE *fp;
 
 	buf[0] = '\0';
-	totalticks = 0;
 
 	n = 0;
 	fp = NULL;

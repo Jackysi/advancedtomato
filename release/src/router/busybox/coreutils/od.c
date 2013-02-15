@@ -11,6 +11,12 @@
  * Original copyright notice is retained at the end of this file.
  */
 
+//usage:#if !ENABLE_DESKTOP
+//usage:#define od_trivial_usage
+//usage:       "[-aBbcDdeFfHhIiLlOovXx] [FILE]"
+//usage:#define od_full_usage "\n\n"
+//usage:       "Print FILE (or stdin) unambiguously, as octal bytes by default"
+//usage:#endif
 
 #include "libbb.h"
 #if ENABLE_DESKTOP

@@ -12,6 +12,21 @@
  *     Geert Uytterhoeven (Geert.Uytterhoeven@cs.kuleuven.ac.be)
  */
 
+//usage:#define fbset_trivial_usage
+//usage:       "[OPTIONS] [MODE]"
+//usage:#define fbset_full_usage "\n\n"
+//usage:       "Show and modify frame buffer settings"
+//usage:
+//usage:#define fbset_example_usage
+//usage:       "$ fbset\n"
+//usage:       "mode \"1024x768-76\"\n"
+//usage:       "	# D: 78.653 MHz, H: 59.949 kHz, V: 75.694 Hz\n"
+//usage:       "	geometry 1024 768 1024 768 16\n"
+//usage:       "	timings 12714 128 32 16 4 128 4\n"
+//usage:       "	accel false\n"
+//usage:       "	rgba 5/11,6/5,5/0,0/0\n"
+//usage:       "endmode\n"
+
 #include "libbb.h"
 
 #define DEFAULTFBDEV  FB_0
@@ -370,7 +385,7 @@ int fbset_main(int argc, char **argv)
 		OPT_CHANGE   = (1 << 0),
 		OPT_SHOW     = (1 << 1),
 		OPT_READMODE = (1 << 2),
-		OPT_ALL      = (1 << 9),
+		OPT_ALL      = (1 << 3),
 	};
 	struct fb_var_screeninfo var_old, var_set;
 	int fh, i;
@@ -387,7 +402,14 @@ int fbset_main(int argc, char **argv)
 	argv++;
 	argc--;
 	for (; argc > 0 && (thisarg = *argv) != NULL; argc--, argv++) {
-		if (thisarg[0] == '-') for (i = 0; i < ARRAY_SIZE(g_cmdoptions); i++) {
+		if (thisarg[0] != '-') {
+			if (!ENABLE_FEATURE_FBSET_READMODE || argc != 1)
+				bb_show_usage();
+			mode = thisarg;
+			options |= OPT_READMODE;
+			goto contin;
+		}
+		for (i = 0; i < ARRAY_SIZE(g_cmdoptions); i++) {
 			if (strcmp(thisarg + 1, g_cmdoptions[i].name) != 0)
 				continue;
 			if (argc <= g_cmdoptions[i].param_count)
@@ -456,10 +478,7 @@ int fbset_main(int argc, char **argv)
 			argv += g_cmdoptions[i].param_count;
 			goto contin;
 		}
-		if (!ENABLE_FEATURE_FBSET_READMODE || argc != 1)
-			bb_show_usage();
-		mode = *argv;
-		options |= OPT_READMODE;
+		bb_show_usage();
  contin: ;
 	}
 
@@ -471,6 +490,7 @@ int fbset_main(int argc, char **argv)
 		if (!read_mode_db(&var_old, modefile, mode)) {
 			bb_error_msg_and_die("unknown video mode '%s'", mode);
 		}
+		options |= OPT_CHANGE;
 #endif
 	}
 

@@ -181,7 +181,19 @@ config GETTY
 	default y
 	select FEATURE_SYSLOG
 	help
-	  getty lets you log in on a tty, it is normally invoked by init.
+	  getty lets you log in on a tty. It is normally invoked by init.
+
+	  Note that you can save a few bytes by disabling it and
+	  using login applet directly.
+	  If you need to reset tty attributes before calling login,
+	  this script approximates getty:
+
+	  exec </dev/$1 >/dev/$1 2>&1 || exit 1
+	  reset
+	  stty sane; stty ispeed 38400; stty ospeed 38400
+	  printf "%s login: " "`hostname`"
+	  read -r login
+	  exec /bin/login "$login"
 
 config LOGIN
 	bool "login"
@@ -192,6 +204,17 @@ config LOGIN
 
 	  Note that Busybox binary must be setuid root for this applet to
 	  work properly.
+
+config LOGIN_SESSION_AS_CHILD
+	bool "Run logged in session in a child process"
+	default y if PAM
+	depends on LOGIN
+	help
+	  Run the logged in session in a child process.  This allows
+	  login to clean up things such as utmp entries or PAM sessions
+	  when the login session is complete.  If you use PAM, you
+	  almost always would want this to be set to Y, else PAM session
+	  will not be cleaned up.
 
 config PAM
 	bool "Support for PAM (Pluggable Authentication Modules)"
@@ -259,6 +282,13 @@ config CHPASSWD
 	help
 	  Reads a file of user name and password pairs from standard input
 	  and uses this information to update a group of existing users.
+
+config FEATURE_DEFAULT_PASSWD_ALGO
+	string "Default password encryption method (passwd -a, cryptpw -m parameter)"
+	default "des"
+	depends on PASSWD || CRYPTPW
+	help
+	  Possible choices are "d[es]", "m[d5]", "s[ha256]" or "sha512".
 
 config SU
 	bool "su"

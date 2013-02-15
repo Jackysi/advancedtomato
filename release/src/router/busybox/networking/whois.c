@@ -16,7 +16,7 @@
 //config:	help
 //config:	  whois is a client for the whois directory service
 
-//applet:IF_WHOIS(APPLET(whois, _BB_DIR_USR_BIN, _BB_SUID_DROP))
+//applet:IF_WHOIS(APPLET(whois, BB_DIR_USR_BIN, BB_SUID_DROP))
 
 //kbuild:lib-$(CONFIG_WHOIS) += whois.o
 

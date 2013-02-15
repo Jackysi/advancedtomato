@@ -7,9 +7,9 @@
  * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
-//applet:IF_HALT(APPLET(halt, _BB_DIR_SBIN, _BB_SUID_DROP))
-//applet:IF_HALT(APPLET_ODDNAME(poweroff, halt, _BB_DIR_SBIN, _BB_SUID_DROP, poweroff))
-//applet:IF_HALT(APPLET_ODDNAME(reboot, halt, _BB_DIR_SBIN, _BB_SUID_DROP, reboot))
+//applet:IF_HALT(APPLET(halt, BB_DIR_SBIN, BB_SUID_DROP))
+//applet:IF_HALT(APPLET_ODDNAME(poweroff, halt, BB_DIR_SBIN, BB_SUID_DROP, poweroff))
+//applet:IF_HALT(APPLET_ODDNAME(reboot, halt, BB_DIR_SBIN, BB_SUID_DROP, reboot))
 
 //kbuild:lib-$(CONFIG_HALT) += halt.o
 
@@ -43,7 +43,6 @@
 //usage:       "[-d DELAY] [-n] [-f]" IF_FEATURE_WTMP(" [-w]")
 //usage:#define halt_full_usage "\n\n"
 //usage:       "Halt the system\n"
-//usage:     "\nOptions:"
 //usage:     "\n	-d SEC	Delay interval"
 //usage:     "\n	-n	Do not sync"
 //usage:     "\n	-f	Force (don't go through init)"
@@ -55,7 +54,6 @@
 //usage:       "[-d DELAY] [-n] [-f]"
 //usage:#define poweroff_full_usage "\n\n"
 //usage:       "Halt and shut off power\n"
-//usage:     "\nOptions:"
 //usage:     "\n	-d SEC	Delay interval"
 //usage:     "\n	-n	Do not sync"
 //usage:     "\n	-f	Force (don't go through init)"
@@ -64,7 +62,6 @@
 //usage:       "[-d DELAY] [-n] [-f]"
 //usage:#define reboot_full_usage "\n\n"
 //usage:       "Reboot the system\n"
-//usage:     "\nOptions:"
 //usage:     "\n	-d SEC	Delay interval"
 //usage:     "\n	-n	Do not sync"
 //usage:     "\n	-f	Force (don't go through init)"
@@ -74,7 +71,6 @@
 
 #if ENABLE_FEATURE_WTMP
 #include <sys/utsname.h>
-#include <utmp.h>
 
 static void write_wtmp(void)
 {
@@ -158,11 +154,13 @@ int halt_main(int argc UNUSED_PARAM, char **argv)
 				/* runlevels:
 				 * 0 == shutdown
 				 * 6 == reboot */
-				rc = execlp(CONFIG_TELINIT_PATH,
+				execlp(CONFIG_TELINIT_PATH,
 						CONFIG_TELINIT_PATH,
 						which == 2 ? "6" : "0",
 						(char *)NULL
 				);
+				bb_perror_msg_and_die("can't execute '%s'",
+						CONFIG_TELINIT_PATH);
 			}
 		}
 	} else {

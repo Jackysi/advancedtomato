@@ -7,7 +7,7 @@
  * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
-//applet:IF_MPSTAT(APPLET(mpstat, _BB_DIR_BIN, _BB_SUID_DROP))
+//applet:IF_MPSTAT(APPLET(mpstat, BB_DIR_BIN, BB_SUID_DROP))
 
 //kbuild:lib-$(CONFIG_MPSTAT) += mpstat.o
 
@@ -36,11 +36,10 @@
  * We are printing headers in the " IRQNAME/s" form, experimentally
  * anything smaller than 10 chars looks ugly for /proc/softirqs stats.
  */
-#define INTRATE_SCRWIDTH   10
+#define INTRATE_SCRWIDTH      10
 #define INTRATE_SCRWIDTH_STR "10"
 
 /* System files */
-#define SYSFS_DEVCPU      "/sys/devices/system/cpu"
 #define PROCFS_STAT       "/proc/stat"
 #define PROCFS_INTERRUPTS "/proc/interrupts"
 #define PROCFS_SOFTIRQS   "/proc/softirqs"
@@ -845,7 +844,6 @@ static int get_irqcpu_nr(const char *f, int max_irqs)
 //usage:       "[-A] [-I SUM|CPU|ALL|SCPU] [-u] [-P num|ALL] [INTERVAL [COUNT]]"
 //usage:#define mpstat_full_usage "\n\n"
 //usage:       "Per-processor statistics\n"
-//usage:     "\nOptions:"
 //usage:     "\n	-A			Same as -I ALL -u -P ALL"
 //usage:     "\n	-I SUM|CPU|ALL|SCPU	Report interrupt statistics"
 //usage:     "\n	-P num|ALL		Processor to monitor"
