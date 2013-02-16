@@ -28,9 +28,36 @@
  *
  */
 
+//usage:#define dpkg_trivial_usage
+//usage:       "[-ilCPru] [-F OPT] PACKAGE"
+//usage:#define dpkg_full_usage "\n\n"
+//usage:       "Install, remove and manage Debian packages\n"
+//usage:	IF_LONG_OPTS(
+//usage:     "\n	-i,--install	Install the package"
+//usage:     "\n	-l,--list	List of installed packages"
+//usage:     "\n	--configure	Configure an unpackaged package"
+//usage:     "\n	-P,--purge	Purge all files of a package"
+//usage:     "\n	-r,--remove	Remove all but the configuration files for a package"
+//usage:     "\n	--unpack	Unpack a package, but don't configure it"
+//usage:     "\n	--force-depends	Ignore dependency problems"
+//usage:     "\n	--force-confnew	Overwrite existing config files when installing"
+//usage:     "\n	--force-confold	Keep old config files when installing"
+//usage:	)
+//usage:	IF_NOT_LONG_OPTS(
+//usage:     "\n	-i		Install the package"
+//usage:     "\n	-l		List of installed packages"
+//usage:     "\n	-C		Configure an unpackaged package"
+//usage:     "\n	-P		Purge all files of a package"
+//usage:     "\n	-r		Remove all but the configuration files for a package"
+//usage:     "\n	-u		Unpack a package, but don't configure it"
+//usage:     "\n	-F depends	Ignore dependency problems"
+//usage:     "\n	-F confnew	Overwrite existing config files when installing"
+//usage:     "\n	-F confold	Keep old config files when installing"
+//usage:	)
+
 #include "libbb.h"
 #include <fnmatch.h>
-#include "archive.h"
+#include "bb_archive.h"
 
 /* note: if you vary hash_prime sizes be aware,
  * 1) tweaking these will have a big effect on how much memory this program uses.
@@ -674,28 +701,21 @@ static unsigned get_status(const unsigned status_node, const int num)
 
 static void set_status(const unsigned status_node_num, const char *new_value, const int position)
 {
-	const unsigned new_value_len = strlen(new_value);
 	const unsigned new_value_num = search_name_hashtable(new_value);
 	unsigned want = get_status(status_node_num, 1);
 	unsigned flag = get_status(status_node_num, 2);
 	unsigned status = get_status(status_node_num, 3);
-	int want_len = strlen(name_hashtable[want]);
-	int flag_len = strlen(name_hashtable[flag]);
-	int status_len = strlen(name_hashtable[status]);
 	char *new_status;
 
 	switch (position) {
 		case 1:
 			want = new_value_num;
-			want_len = new_value_len;
 			break;
 		case 2:
 			flag = new_value_num;
-			flag_len = new_value_len;
 			break;
 		case 3:
 			status = new_value_num;
-			status_len = new_value_len;
 			break;
 		default:
 			bb_error_msg_and_die("DEBUG ONLY: this shouldnt happen");

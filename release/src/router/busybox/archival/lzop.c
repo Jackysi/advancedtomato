@@ -25,8 +25,33 @@
    "Minimalized" for busybox by Alain Knaff
 */
 
+//usage:#define lzop_trivial_usage
+//usage:       "[-cfvd123456789CF] [FILE]..."
+//usage:#define lzop_full_usage "\n\n"
+//usage:       "	-1..9	Compression level"
+//usage:     "\n	-d	Decompress"
+//usage:     "\n	-c	Write to stdout"
+//usage:     "\n	-f	Force"
+//usage:     "\n	-v	Verbose"
+//usage:     "\n	-F	Don't store or verify checksum"
+//usage:     "\n	-C	Also write checksum of compressed block"
+//usage:
+//usage:#define lzopcat_trivial_usage
+//usage:       "[-vCF] [FILE]..."
+//usage:#define lzopcat_full_usage "\n\n"
+//usage:       "	-v	Verbose"
+//usage:     "\n	-F	Don't store or verify checksum"
+//usage:
+//usage:#define unlzop_trivial_usage
+//usage:       "[-cfvCF] [FILE]..."
+//usage:#define unlzop_full_usage "\n\n"
+//usage:       "	-c	Write to stdout"
+//usage:     "\n	-f	Force"
+//usage:     "\n	-v	Verbose"
+//usage:     "\n	-F	Don't store or verify checksum"
+
 #include "libbb.h"
-#include "archive.h"
+#include "bb_archive.h"
 #include "liblzo_interface.h"
 
 /* lzo-2.03/src/lzo_ptr.h */
@@ -176,7 +201,7 @@ static NOINLINE int lzo1x_optimize(uint8_t *in, unsigned in_len,
 					/* remove short run */
 					*litp &= ~3;
 					/* copy over the 2 literals that replace the match */
-					copy2(ip-3+1,m_pos,pd(op,m_pos));
+					copy2(ip-3+1, m_pos, pd(op, m_pos));
 					/* move literals 1 byte ahead */
 					litp += 2;
 					if (lit > 0)
@@ -186,7 +211,8 @@ static NOINLINE int lzo1x_optimize(uint8_t *in, unsigned in_len,
 					*litp = (unsigned char)(lit - 3);
 
 					o_m1_b++;
-					*op++ = *m_pos++; *op++ = *m_pos++;
+					*op++ = *m_pos++;
+					*op++ = *m_pos++;
 					goto copy_literal_run;
 				}
  copy_m1:
@@ -215,7 +241,7 @@ static NOINLINE int lzo1x_optimize(uint8_t *in, unsigned in_len,
 					) {
 						t = *ip++;
 						/* copy over the 3 literals that replace the match */
-						copy3(ip-1-2,m_pos,pd(op,m_pos));
+						copy3(ip-1-2, m_pos, pd(op, m_pos));
 						/* set new length of previous literal run */
 						lit += 3 + t + 3;
 						*litp = (unsigned char)(lit - 3);
@@ -264,7 +290,7 @@ static NOINLINE int lzo1x_optimize(uint8_t *in, unsigned in_len,
 						lit += 3;
 						*litp = (unsigned char)((*litp & ~3) | lit);
 						/* copy over the 3 literals that replace the match */
-						copy3(ip-3,m_pos,pd(op,m_pos));
+						copy3(ip-3, m_pos, pd(op, m_pos));
 						o_m3_a++;
 					}
 					/* test if a literal run follows */
@@ -275,7 +301,7 @@ static NOINLINE int lzo1x_optimize(uint8_t *in, unsigned in_len,
 						/* remove short run */
 						*litp &= ~3;
 						/* copy over the 3 literals that replace the match */
-						copy3(ip-4+1,m_pos,pd(op,m_pos));
+						copy3(ip-4+1, m_pos, pd(op, m_pos));
 						/* move literals 1 byte ahead */
 						litp += 2;
 						if (lit > 0)
@@ -401,7 +427,7 @@ struct globals {
 #define INIT_G() do { } while (0)
 //#define G (*ptr_to_globals)
 //#define INIT_G() do {
-//        SET_PTR_TO_GLOBALS(xzalloc(sizeof(G)));
+//	SET_PTR_TO_GLOBALS(xzalloc(sizeof(G)));
 //} while (0)
 
 
@@ -1051,7 +1077,7 @@ static char* FAST_FUNC make_new_name_lzop(char *filename, const char *expected_e
 	return xasprintf("%s.lzo", filename);
 }
 
-static IF_DESKTOP(long long) int FAST_FUNC pack_lzop(unpack_info_t *info UNUSED_PARAM)
+static IF_DESKTOP(long long) int FAST_FUNC pack_lzop(transformer_aux_data_t *aux UNUSED_PARAM)
 {
 	if (option_mask32 & OPT_DECOMPRESS)
 		return do_lzo_decompress();

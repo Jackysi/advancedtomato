@@ -36,11 +36,13 @@
 
 #define JOBS ENABLE_ASH_JOB_CONTROL
 
-#include "busybox.h" /* for applet_names */
 #include <paths.h>
 #include <setjmp.h>
 #include <fnmatch.h>
 #include <sys/times.h>
+
+#include "busybox.h" /* for applet_names */
+#include "unicode.h"
 
 #include "shell_common.h"
 #if ENABLE_SH_MATH_SUPPORT
@@ -72,13 +74,6 @@
 # error "Do not even bother, ash will not run on NOMMU machine"
 #endif
 
-//applet:IF_ASH(APPLET(ash, _BB_DIR_BIN, _BB_SUID_DROP))
-//applet:IF_FEATURE_SH_IS_ASH(APPLET_ODDNAME(sh, ash, _BB_DIR_BIN, _BB_SUID_DROP, sh))
-//applet:IF_FEATURE_BASH_IS_ASH(APPLET_ODDNAME(bash, ash, _BB_DIR_BIN, _BB_SUID_DROP, bash))
-
-//kbuild:lib-$(CONFIG_ASH) += ash.o ash_ptr_hack.o shell_common.o
-//kbuild:lib-$(CONFIG_ASH_RANDOM_SUPPORT) += random.o
-
 //config:config ASH
 //config:	bool "ash"
 //config:	default y
@@ -97,6 +92,13 @@
 //config:	help
 //config:	  Enable bash-compatible extensions.
 //config:
+//config:config ASH_IDLE_TIMEOUT
+//config:	bool "Idle timeout variable"
+//config:	default n
+//config:	depends on ASH
+//config:	help
+//config:	  Enables bash-like auto-logout after $TMOUT seconds of idle time.
+//config:
 //config:config ASH_JOB_CONTROL
 //config:	bool "Job control"
 //config:	default y
@@ -105,7 +107,7 @@
 //config:	  Enable job control in the ash shell.
 //config:
 //config:config ASH_ALIAS
-//config:	bool "alias support"
+//config:	bool "Alias support"
 //config:	default y
 //config:	depends on ASH
 //config:	help
@@ -116,28 +118,28 @@
 //config:	default y
 //config:	depends on ASH
 //config:	help
-//config:	  Enable getopts builtin in the ash shell.
+//config:	  Enable support for getopts builtin in ash.
 //config:
 //config:config ASH_BUILTIN_ECHO
 //config:	bool "Builtin version of 'echo'"
 //config:	default y
 //config:	depends on ASH
 //config:	help
-//config:	  Enable support for echo, builtin to ash.
+//config:	  Enable support for echo builtin in ash.
 //config:
 //config:config ASH_BUILTIN_PRINTF
 //config:	bool "Builtin version of 'printf'"
 //config:	default y
 //config:	depends on ASH
 //config:	help
-//config:	  Enable support for printf, builtin to ash.
+//config:	  Enable support for printf builtin in ash.
 //config:
 //config:config ASH_BUILTIN_TEST
 //config:	bool "Builtin version of 'test'"
 //config:	default y
 //config:	depends on ASH
 //config:	help
-//config:	  Enable support for test, builtin to ash.
+//config:	  Enable support for test builtin in ash.
 //config:
 //config:config ASH_CMDCMD
 //config:	bool "'command' command to override shell builtins"
@@ -153,7 +155,7 @@
 //config:	default n
 //config:	depends on ASH
 //config:	help
-//config:	  Enable "check for new mail" in the ash shell.
+//config:	  Enable "check for new mail" function in the ash shell.
 //config:
 //config:config ASH_OPTIMIZE_FOR_SIZE
 //config:	bool "Optimize for size instead of speed"
@@ -183,12 +185,12 @@
 //config:	  variable each time it is displayed.
 //config:
 
-//usage:#define ash_trivial_usage NOUSAGE_STR
-//usage:#define ash_full_usage ""
-//usage:#define sh_trivial_usage NOUSAGE_STR
-//usage:#define sh_full_usage ""
-//usage:#define bash_trivial_usage NOUSAGE_STR
-//usage:#define bash_full_usage ""
+//applet:IF_ASH(APPLET(ash, BB_DIR_BIN, BB_SUID_DROP))
+//applet:IF_FEATURE_SH_IS_ASH(APPLET_ODDNAME(sh, ash, BB_DIR_BIN, BB_SUID_DROP, sh))
+//applet:IF_FEATURE_BASH_IS_ASH(APPLET_ODDNAME(bash, ash, BB_DIR_BIN, BB_SUID_DROP, bash))
+
+//kbuild:lib-$(CONFIG_ASH) += ash.o ash_ptr_hack.o shell_common.o
+//kbuild:lib-$(CONFIG_ASH_RANDOM_SUPPORT) += random.o
 
 
 /* ============ Hash table sizes. Configurable. */
@@ -400,6 +402,9 @@ static const char *var_end(const char *var)
 
 
 /* ============ Interrupts / exceptions */
+
+static void exitshell(void) NORETURN;
+
 /*
  * These macros allow the user to suspend the handling of interrupt signals
  * over a period of time.  This is similar to SIGHOLD or to sigblock, but
@@ -1880,7 +1885,9 @@ change_lc_ctype(const char *value)
 #endif
 #if ENABLE_ASH_MAIL
 static void chkmail(void);
-static void changemail(const char *) FAST_FUNC;
+static void changemail(const char *var_value) FAST_FUNC;
+#else
+# define chkmail()  ((void)0)
 #endif
 static void changepath(const char *) FAST_FUNC;
 #if ENABLE_ASH_RANDOM_SUPPORT
@@ -3484,13 +3491,18 @@ setsignal(int signo)
 	switch (new_act) {
 	case S_CATCH:
 		act.sa_handler = signal_handler;
-		act.sa_flags = 0; /* matters only if !DFL and !IGN */
-		sigfillset(&act.sa_mask); /* ditto */
 		break;
 	case S_IGN:
 		act.sa_handler = SIG_IGN;
 		break;
 	}
+
+	/* flags and mask matter only if !DFL and !IGN, but we do it
+	 * for all cases for more deterministic behavior:
+	 */
+	act.sa_flags = 0;
+	sigfillset(&act.sa_mask);
+
 	sigaction_set(signo, &act);
 
 	*t = new_act;
@@ -3527,12 +3539,12 @@ set_curjob(struct job *jp, unsigned mode)
 
 	/* first remove from list */
 	jpp = curp = &curjob;
-	do {
+	while (1) {
 		jp1 = *jpp;
 		if (jp1 == jp)
 			break;
 		jpp = &jp1->prev_job;
-	} while (1);
+	}
 	*jpp = jp1->prev_job;
 
 	/* Then re-insert in correct position */
@@ -3548,14 +3560,14 @@ set_curjob(struct job *jp, unsigned mode)
 	case CUR_RUNNING:
 		/* newly created job or backgrounded job,
 		   put after all stopped jobs. */
-		do {
+		while (1) {
 			jp1 = *jpp;
 #if JOBS
 			if (!jp1 || jp1->state != JOBSTOPPED)
 #endif
 				break;
 			jpp = &jp1->prev_job;
-		} while (1);
+		}
 		/* FALLTHROUGH */
 #if JOBS
 	case CUR_STOPPED:
@@ -3728,7 +3740,7 @@ setjobctl(int on)
 			goto out;
 		/* fd is a tty at this point */
 		close_on_exec_on(fd);
-		do { /* while we are in the background */
+		while (1) { /* while we are in the background */
 			pgrp = tcgetpgrp(fd);
 			if (pgrp < 0) {
  out:
@@ -3739,7 +3751,7 @@ setjobctl(int on)
 			if (pgrp == getpgrp())
 				break;
 			killpg(0, SIGTTIN);
-		} while (1);
+		}
 		initialpgrp = pgrp;
 
 		setsignal(SIGTSTP);
@@ -3771,18 +3783,51 @@ setjobctl(int on)
 static int FAST_FUNC
 killcmd(int argc, char **argv)
 {
-	int i = 1;
 	if (argv[1] && strcmp(argv[1], "-l") != 0) {
+		int i = 1;
 		do {
 			if (argv[i][0] == '%') {
-				struct job *jp = getjob(argv[i], 0);
-				unsigned pid = jp->ps[0].ps_pid;
-				/* Enough space for ' -NNN<nul>' */
-				argv[i] = alloca(sizeof(int)*3 + 3);
-				/* kill_main has matching code to expect
-				 * leading space. Needed to not confuse
-				 * negative pids with "kill -SIGNAL_NO" syntax */
-				sprintf(argv[i], " -%u", pid);
+				/*
+				 * "kill %N" - job kill
+				 * Converting to pgrp / pid kill
+				 */
+				struct job *jp;
+				char *dst;
+				int j, n;
+
+				jp = getjob(argv[i], 0);
+				/*
+				 * In jobs started under job control, we signal
+				 * entire process group by kill -PGRP_ID.
+				 * This happens, f.e., in interactive shell.
+				 *
+				 * Otherwise, we signal each child via
+				 * kill PID1 PID2 PID3.
+				 * Testcases:
+				 * sh -c 'sleep 1|sleep 1 & kill %1'
+				 * sh -c 'true|sleep 2 & sleep 1; kill %1'
+				 * sh -c 'true|sleep 1 & sleep 2; kill %1'
+				 */
+				n = jp->nprocs; /* can't be 0 (I hope) */
+				if (jp->jobctl)
+					n = 1;
+				dst = alloca(n * sizeof(int)*4);
+				argv[i] = dst;
+				for (j = 0; j < n; j++) {
+					struct procstat *ps = &jp->ps[j];
+					/* Skip non-running and not-stopped members
+					 * (i.e. dead members) of the job
+					 */
+					if (ps->ps_status != -1 && !WIFSTOPPED(ps->ps_status))
+						continue;
+					/*
+					 * kill_main has matching code to expect
+					 * leading space. Needed to not confuse
+					 * negative pids with "kill -SIGNAL_NO" syntax
+					 */
+					dst += sprintf(dst, jp->jobctl ? " -%u" : " %u", (int)ps->ps_pid);
+				}
+				*dst = '\0';
 			}
 		} while (argv[++i]);
 	}
@@ -3880,6 +3925,7 @@ sprint_status(char *s, int status, int sigonly)
 #endif
 		}
 		st &= 0x7f;
+//TODO: use bbox's get_signame? strsignal adds ~600 bytes to text+rodata
 		col = fmtstr(s, 32, strsignal(st));
 		if (WCOREDUMP(status)) {
 			col += fmtstr(s + col, 16, " (core dumped)");
@@ -4214,8 +4260,9 @@ waitcmd(int argc UNUSED_PARAM, char **argv)
 					break;
 				job = job->prev_job;
 			}
-		} else
+		} else {
 			job = getjob(*argv, 0);
+		}
 		/* loop until process terminated or stopped */
 		while (job->state == JOBRUNNING)
 			blocking_wait_with_raise_on_sig();
@@ -4711,7 +4758,7 @@ forkchild(struct job *jp, union node *n, int mode)
 #if JOBS
 	/* do job control only in root shell */
 	doing_jobctl = 0;
-	if (mode != FORK_NOJOB && jp->jobctl && !oldlvl) {
+	if (mode != FORK_NOJOB && jp->jobctl && oldlvl == 0) {
 		pid_t pgrp;
 
 		if (jp->nprocs == 0)
@@ -4737,7 +4784,7 @@ forkchild(struct job *jp, union node *n, int mode)
 				ash_msg_and_raise_error("can't open '%s'", bb_dev_null);
 		}
 	}
-	if (!oldlvl) {
+	if (oldlvl == 0) {
 		if (iflag) { /* why if iflag only? */
 			setsignal(SIGINT);
 			setsignal(SIGTERM);
@@ -4944,6 +4991,8 @@ stoppedjobs(void)
  * Code for dealing with input/output redirection.
  */
 
+#undef EMPTY
+#undef CLOSED
 #define EMPTY -2                /* marks an unused slot in redirtab */
 #define CLOSED -3               /* marks a slot of previously-closed fd */
 
@@ -5869,7 +5918,7 @@ expbackq(union node *cmd, int quoted, int quotes)
  read:
 		if (in.fd < 0)
 			break;
-		i = nonblock_safe_read(in.fd, buf, sizeof(buf));
+		i = nonblock_immune_read(in.fd, buf, sizeof(buf), /*loop_on_EINTR:*/ 1);
 		TRACE(("expbackq: read returns %d\n", i));
 		if (i <= 0)
 			break;
@@ -5921,7 +5970,7 @@ expari(int quotes)
 	p = expdest - 1;
 	*p = '\0';
 	p--;
-	do {
+	while (1) {
 		int esc;
 
 		while ((unsigned char)*p != CTLARI) {
@@ -5939,7 +5988,7 @@ expari(int quotes)
 		}
 
 		p -= esc + 1;
-	} while (1);
+	}
 
 	begoff = p - start;
 
@@ -6797,8 +6846,7 @@ evalvar(char *p, int flags, struct strlist *var_str_list)
 		patloc = expdest - (char *)stackblock();
 		if (NULL == subevalvar(p, /* varname: */ NULL, patloc, subtype,
 				startloc, varflags,
-//TODO: | EXP_REDIR too? All other such places do it too
-				/* quotes: */ flags & (EXP_FULL | EXP_CASE),
+				/* quotes: */ flags & (EXP_FULL | EXP_CASE | EXP_REDIR),
 				var_str_list)
 		) {
 			int amount = expdest - (
@@ -7404,9 +7452,7 @@ shellexec(char **argv, const char *path, int idx)
 	int e;
 	char **envp;
 	int exerrno;
-#if ENABLE_FEATURE_SH_STANDALONE
-	int applet_no = -1;
-#endif
+	int applet_no = -1; /* used only by FEATURE_SH_STANDALONE */
 
 	clearredir(/*drop:*/ 1);
 	envp = listvars(VEXPORT, VUNSET, /*end:*/ NULL);
@@ -7416,8 +7462,16 @@ shellexec(char **argv, const char *path, int idx)
 #endif
 	) {
 		tryexec(IF_FEATURE_SH_STANDALONE(applet_no,) argv[0], argv, envp);
+		if (applet_no >= 0) {
+			/* We tried execing ourself, but it didn't work.
+			 * Maybe /proc/self/exe doesn't exist?
+			 * Try $PATH search.
+			 */
+			goto try_PATH;
+		}
 		e = errno;
 	} else {
+ try_PATH:
 		e = ENOENT;
 		while ((cmdname = path_advance(&path, argv[0])) != NULL) {
 			if (--idx < 0 && pathopt == NULL) {
@@ -9556,12 +9610,28 @@ preadfd(void)
 #if ENABLE_FEATURE_EDITING
  retry:
 	if (!iflag || g_parsefile->pf_fd != STDIN_FILENO)
-		nr = nonblock_safe_read(g_parsefile->pf_fd, buf, IBUFSIZ - 1);
+		nr = nonblock_immune_read(g_parsefile->pf_fd, buf, IBUFSIZ - 1, /*loop_on_EINTR:*/ 1);
 	else {
-#if ENABLE_FEATURE_TAB_COMPLETION
+		int timeout = -1;
+# if ENABLE_ASH_IDLE_TIMEOUT
+		if (iflag) {
+			const char *tmout_var = lookupvar("TMOUT");
+			if (tmout_var) {
+				timeout = atoi(tmout_var) * 1000;
+				if (timeout <= 0)
+					timeout = -1;
+			}
+		}
+# endif
+# if ENABLE_FEATURE_TAB_COMPLETION
 		line_input_state->path_lookup = pathval();
-#endif
-		nr = read_line_input(cmdedit_prompt, buf, IBUFSIZ, line_input_state);
+# endif
+		/* Unicode support should be activated even if LANG is set
+		 * _during_ shell execution, not only if it was set when
+		 * shell was started. Therefore, re-check LANG every time:
+		 */
+		reinit_unicode(lookupvar("LANG"));
+		nr = read_line_input(line_input_state, cmdedit_prompt, buf, IBUFSIZ, timeout);
 		if (nr == 0) {
 			/* Ctrl+C pressed */
 			if (trap[SIGINT]) {
@@ -9572,17 +9642,24 @@ preadfd(void)
 			}
 			goto retry;
 		}
-		if (nr < 0 && errno == 0) {
-			/* Ctrl+D pressed */
-			nr = 0;
+		if (nr < 0) {
+			if (errno == 0) {
+				/* Ctrl+D pressed */
+				nr = 0;
+			}
+# if ENABLE_ASH_IDLE_TIMEOUT
+			else if (errno == EAGAIN && timeout > 0) {
+				printf("\007timed out waiting for input: auto-logout\n");
+				exitshell();
+			}
+# endif
 		}
 	}
 #else
-	nr = nonblock_safe_read(g_parsefile->pf_fd, buf, IBUFSIZ - 1);
+	nr = nonblock_immune_read(g_parsefile->pf_fd, buf, IBUFSIZ - 1, /*loop_on_EINTR:*/ 1);
 #endif
 
-#if 0
-/* nonblock_safe_read() handles this problem */
+#if 0 /* disabled: nonblock_immune_read() handles this problem */
 	if (nr < 0) {
 		if (parsefile->fd == 0 && errno == EWOULDBLOCK) {
 			int flags = fcntl(0, F_GETFL);
@@ -10101,7 +10178,7 @@ options(int cmdline)
 					else if (*argptr == NULL)
 						setparam(argptr);
 				}
-				break;    /* "-" or  "--" terminates options */
+				break;    /* "-" or "--" terminates options */
 			}
 		}
 		/* first char was + or - */
@@ -10203,10 +10280,10 @@ setcmd(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 
 	if (!argv[1])
 		return showvars(nullstr, 0, VUNSET);
+
 	INT_OFF;
-	retval = 1;
-	if (!options(0)) { /* if no parse error... */
-		retval = 0;
+	retval = options(/*cmdline:*/ 0);
+	if (retval == 0) { /* if no parse error... */
 		optschanged();
 		if (*argptr != NULL) {
 			setparam(argptr);
@@ -12067,9 +12144,7 @@ cmdloop(int top)
 		inter = 0;
 		if (iflag && top) {
 			inter++;
-#if ENABLE_ASH_MAIL
 			chkmail();
-#endif
 		}
 		n = parsecmd(inter);
 #if DEBUG
@@ -12810,13 +12885,16 @@ ulimitcmd(int argc UNUSED_PARAM, char **argv)
 /*
  * Called to exit the shell.
  */
-static void exitshell(void) NORETURN;
 static void
 exitshell(void)
 {
 	struct jmploc loc;
 	char *p;
 	int status;
+
+#if ENABLE_FEATURE_EDITING_SAVE_ON_EXIT
+	save_history(line_input_state);
+#endif
 
 	status = exitstatus;
 	TRACE(("pid %d, exitshell(%d)\n", getpid(), status));
@@ -12873,13 +12951,31 @@ init(void)
 		setvar("PPID", utoa(getppid()), 0);
 
 		p = lookupvar("PWD");
-		if (p)
+		if (p) {
 			if (*p != '/' || stat(p, &st1) || stat(".", &st2)
-			 || st1.st_dev != st2.st_dev || st1.st_ino != st2.st_ino)
+			 || st1.st_dev != st2.st_dev || st1.st_ino != st2.st_ino
+			) {
 				p = '\0';
+			}
+		}
 		setpwd(p, 0);
 	}
 }
+
+
+//usage:#define ash_trivial_usage
+//usage:	"[-/+OPTIONS] [-/+o OPT]... [-c 'SCRIPT' [ARG0 [ARGS]] / FILE [ARGS]]"
+//usage:#define ash_full_usage "\n\n"
+//usage:	"Unix shell interpreter"
+
+//usage:#if ENABLE_FEATURE_SH_IS_ASH
+//usage:# define sh_trivial_usage ash_trivial_usage
+//usage:# define sh_full_usage    ash_full_usage
+//usage:#endif
+//usage:#if ENABLE_FEATURE_BASH_IS_ASH
+//usage:# define bash_trivial_usage ash_trivial_usage
+//usage:# define bash_full_usage    ash_full_usage
+//usage:#endif
 
 /*
  * Process the shell command line arguments.
@@ -12898,7 +12994,7 @@ procargs(char **argv)
 	for (i = 0; i < NOPTS; i++)
 		optlist[i] = 2;
 	argptr = xargv;
-	if (options(1)) {
+	if (options(/*cmdline:*/ 1)) {
 		/* it already printed err message */
 		raise_exception(EXERROR);
 	}
@@ -13060,10 +13156,9 @@ int ash_main(int argc UNUSED_PARAM, char **argv)
 #if ENABLE_FEATURE_EDITING_SAVEHISTORY
 	if (iflag) {
 		const char *hp = lookupvar("HISTFILE");
-
-		if (hp == NULL) {
+		if (!hp) {
 			hp = lookupvar("HOME");
-			if (hp != NULL) {
+			if (hp) {
 				char *defhp = concat_path_file(hp, ".ash_history");
 				setvar("HISTFILE", defhp, 0);
 				free(defhp);
@@ -13071,7 +13166,7 @@ int ash_main(int argc UNUSED_PARAM, char **argv)
 		}
 	}
 #endif
-	if (/* argv[0] && */ argv[0][0] == '-')
+	if (argv[0] && argv[0][0] == '-')
 		isloginsh = 1;
 	if (isloginsh) {
 		state = 1;
@@ -13107,11 +13202,15 @@ int ash_main(int argc UNUSED_PARAM, char **argv)
 	}
 
 	if (sflag || minusc == NULL) {
-#if defined MAX_HISTORY && MAX_HISTORY > 0 && ENABLE_FEATURE_EDITING_SAVEHISTORY
+#if MAX_HISTORY > 0 && ENABLE_FEATURE_EDITING_SAVEHISTORY
 		if (iflag) {
 			const char *hp = lookupvar("HISTFILE");
 			if (hp)
 				line_input_state->hist_file = hp;
+# if ENABLE_FEATURE_SH_HISTFILESIZE
+			hp = lookupvar("HISTFILESIZE");
+			line_input_state->max_history = size_from_HISTFILESIZE(hp);
+# endif
 		}
 #endif
  state4: /* XXX ??? - why isn't this before the "if" statement */

@@ -154,6 +154,60 @@ dr-xr-x--- input_dir
 SKIP=
 }
 
+# Had a bug where on extract autodetect first "switched off" -z
+# and then failed to recognize .tgz extension
+optional FEATURE_TAR_CREATE FEATURE_SEAMLESS_GZ
+testing "tar extract tgz" "\
+dd count=1 bs=1M if=/dev/zero of=F0 2>/dev/null
+tar -czf F0.tgz F0
+rm F0
+tar -xzvf F0.tgz && echo Ok
+rm F0 || echo BAD
+" "\
+F0
+Ok
+" \
+"" ""
+SKIP=
+
+# Do we detect XZ-compressed data (even w/o .tar.xz or txz extension)?
+# (the uuencoded hello_world.txz contains one empty file named "hello_world")
+optional UUDECODE FEATURE_TAR_AUTODETECT FEATURE_SEAMLESS_XZ
+testing "tar extract txz" "\
+uudecode -o input && tar tf input && echo Ok
+" "\
+hello_world
+Ok
+" \
+"" "\
+begin-base64 644 hello_world.txz
+/Td6WFoAAATm1rRGAgAhARYAAAB0L+Wj4AX/AEldADQZSe6ODIZQ3rSQ8kAJ
+SnMPTX+XWGKW3Yu/Rwqg4Ik5wqgQKgVH97J8yA8IvZ4ahaCQogUNHRkXibr2
+Q615wcb2G7fJU49AhWAAAAAAUA8gu9DyXfAAAWWADAAAAB5FXGCxxGf7AgAA
+AAAEWVo=
+====
+"
+SKIP=
+
+# On extract, everything up to and including last ".." component is stripped
+optional FEATURE_TAR_CREATE
+testing "tar strips /../ on extract" "\
+rm -rf input_* test.tar 2>/dev/null
+mkdir input_dir
+echo Ok >input_dir/file
+tar cf test.tar ./../tar.tempdir/input_dir/../input_dir 2>&1
+rm -rf input_* 2>/dev/null
+tar -vxf test.tar 2>&1
+cat input_dir/file 2>&1
+" "\
+tar: removing leading './../tar.tempdir/input_dir/../' from member names
+input_dir/
+input_dir/file
+Ok
+" \
+"" ""
+SKIP=
+
 
 cd .. && rm -rf tar.tempdir || exit 1
 

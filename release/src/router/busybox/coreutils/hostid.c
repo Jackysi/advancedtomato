@@ -9,6 +9,22 @@
 
 /* BB_AUDIT SUSv3 N/A -- Matches GNU behavior. */
 
+//config:config HOSTID
+//config:	bool "hostid"
+//config:	default y
+//config:	help
+//config:	  hostid prints the numeric identifier (in hexadecimal) for
+//config:	  the current host.
+
+//applet:IF_HOSTID(APPLET_NOFORK(hostid, hostid, BB_DIR_USR_BIN, BB_SUID_DROP, hostid))
+
+//kbuild:lib-$(CONFIG_HOSTID) += hostid.o
+
+//usage:#define hostid_trivial_usage
+//usage:       ""
+//usage:#define hostid_full_usage "\n\n"
+//usage:       "Print out a unique 32-bit identifier for the machine"
+
 #include "libbb.h"
 
 /* This is a NOFORK applet. Be very careful! */
@@ -20,7 +36,7 @@ int hostid_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 		bb_show_usage();
 	}
 
-	printf("%lx\n", gethostid());
+	printf("%08lx\n", gethostid());
 
 	return fflush_all();
 }

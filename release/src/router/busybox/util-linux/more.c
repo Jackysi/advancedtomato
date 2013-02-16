@@ -14,6 +14,14 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
+//usage:#define more_trivial_usage
+//usage:       "[FILE]..."
+//usage:#define more_full_usage "\n\n"
+//usage:       "View FILE (or stdin) one screenful at a time"
+//usage:
+//usage:#define more_example_usage
+//usage:       "$ dmesg | more\n"
+
 #include "libbb.h"
 
 /* Support for FEATURE_USE_TERMIOS */
@@ -77,8 +85,7 @@ int more_main(int argc UNUSED_PARAM, char **argv)
 		cin_fileno = fileno(cin);
 		getTermSettings(cin_fileno, &initial_settings);
 		new_settings = initial_settings;
-		new_settings.c_lflag &= ~ICANON;
-		new_settings.c_lflag &= ~ECHO;
+		new_settings.c_lflag &= ~(ICANON | ECHO);
 		new_settings.c_cc[VMIN] = 1;
 		new_settings.c_cc[VTIME] = 0;
 		setTermSettings(cin_fileno, &new_settings);
@@ -194,6 +201,7 @@ int more_main(int argc UNUSED_PARAM, char **argv)
 			}
 			/* My small mind cannot fathom backspaces and UTF-8 */
 			putchar(c);
+			die_if_ferror_stdout(); /* if tty was destroyed (closed xterm, etc) */
 		}
 		fclose(file);
 		fflush_all();

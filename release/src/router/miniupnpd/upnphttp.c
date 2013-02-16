@@ -1,4 +1,4 @@
-/* $Id: upnphttp.c,v 1.81 2012/10/04 22:09:34 nanard Exp $ */
+/* $Id: upnphttp.c,v 1.86 2013/02/07 10:26:07 nanard Exp $ */
 /* Project :  miniupnp
  * Website :  http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
  * Author :   Thomas Bernard
@@ -71,7 +71,9 @@ Delete_upnphttp(struct upnphttp * h)
 	}
 }
 
-/* parse HttpHeaders of the REQUEST */
+/* parse HttpHeaders of the REQUEST
+ * This function is called after the \r\n\r\n character
+ * sequence has been found in h->req_buf */
 static void
 ParseHttpHeaders(struct upnphttp * h)
 {
@@ -79,11 +81,21 @@ ParseHttpHeaders(struct upnphttp * h)
 	char * colon;
 	char * p;
 	int n;
+	if((h->req_buf == NULL) || (h->req_contentoff <= 0))
+		return;
 	line = h->req_buf;
-	/* TODO : check if req_buf, contentoff are ok */
 	while(line < (h->req_buf + h->req_contentoff))
 	{
-		colon = strchr(line, ':');
+		colon = line;
+		while(*colon != ':')
+		{
+			if(*colon == '\r' || *colon == '\n')
+			{
+				colon = NULL;	/* no ':' character found on the line */
+				break;
+			}
+			colon++;
+		}
 		if(colon)
 		{
 			if(strncasecmp(line, "Content-Length", 14)==0)
@@ -92,6 +104,10 @@ ParseHttpHeaders(struct upnphttp * h)
 				while(*p < '0' || *p > '9')
 					p++;
 				h->req_contentlen = atoi(p);
+				if(h->req_contentlen < 0) {
+					syslog(LOG_WARNING, "ParseHttpHeaders() invalid Content-Length %d", h->req_contentlen);
+					h->req_contentlen = 0;
+				}
 				/*printf("*** Content-Lenght = %d ***\n", h->req_contentlen);
 				printf("    readbufflen=%d contentoff = %d\n",
 					h->req_buflen, h->req_contentoff);*/
@@ -103,9 +119,7 @@ ParseHttpHeaders(struct upnphttp * h)
 				while(*p == ':' || *p == ' ' || *p == '\t')
 					p++;
 				while(p[n]>=' ')
-				{
 					n++;
-				}
 				if((p[0] == '"' && p[n-1] == '"')
 				  || (p[0] == '\'' && p[n-1] == '\''))
 				{
@@ -199,6 +213,9 @@ intervening space) by either an integer or the keyword "infinite". */
 #endif
 #endif
 		}
+		/* the loop below won't run off the end of the buffer
+		 * because the buffer is guaranteed to contain the \r\n\r\n
+		 * character sequence */
 		while(!(line[0] == '\r' && line[1] == '\n'))
 			line++;
 		line += 2;
@@ -249,10 +266,13 @@ Send501(struct upnphttp * h)
 	SendRespAndClose_upnphttp(h);
 }
 
+/* findendheaders() find the \r\n\r\n character sequence and
+ * return a pointer to it.
+ * It returns NULL if not found */
 static const char *
 findendheaders(const char * s, int len)
 {
-	while(len-->0)
+	while(len-->3)
 	{
 		if(s[0]=='\r' && s[1]=='\n' && s[2]=='\r' && s[3]=='\n')
 			return s;
@@ -518,7 +538,9 @@ ProcessHTTPUnSubscribe_upnphttp(struct upnphttp * h, const char * path)
 #endif
 
 /* Parse and process Http Query
- * called once all the HTTP headers have been received. */
+ * called once all the HTTP headers have been received,
+ * so it is guaranteed that h->req_buf contains the \r\n\r\n
+ * character sequence */
 static void
 ProcessHttpQuery_upnphttp(struct upnphttp * h)
 {
@@ -551,6 +573,9 @@ ProcessHttpQuery_upnphttp(struct upnphttp * h)
 	p = h->req_buf;
 	if(!p)
 		return;
+	/* note : checking (*p != '\r') is enough to avoid runing off the
+	 * end of the buffer, because h->req_buf is guaranteed to contain
+	 * the \r\n\r\n character sequence */
 	for(i = 0; i<15 && *p != ' ' && *p != '\r'; i++)
 		HttpCommand[i] = *(p++);
 	HttpCommand[i] = '\0';
@@ -637,6 +662,7 @@ ProcessHttpQuery_upnphttp(struct upnphttp * h)
 void
 Process_upnphttp(struct upnphttp * h)
 {
+	char * h_tmp;
 	char buf[2048];
 	int n;
 	if(!h)
@@ -667,14 +693,25 @@ Process_upnphttp(struct upnphttp * h)
 			const char * endheaders;
 			/* if 1st arg of realloc() is null,
 			 * realloc behaves the same as malloc() */
-			h->req_buf = (char *)realloc(h->req_buf, n + h->req_buflen + 1);
-			memcpy(h->req_buf + h->req_buflen, buf, n);
-			h->req_buflen += n;
-			h->req_buf[h->req_buflen] = '\0';
+			h_tmp = (char *)realloc(h->req_buf, n + h->req_buflen + 1);
+			if (h_tmp == NULL)
+			{
+				syslog(LOG_WARNING, "Unable to allocate new memory for h->req_buf)");
+				h->state = EToDelete;
+			}
+			else
+			{
+				h->req_buf = h_tmp;
+				memcpy(h->req_buf + h->req_buflen, buf, n);
+				h->req_buflen += n;
+				h->req_buf[h->req_buflen] = '\0';
+			}
 			/* search for the string "\r\n\r\n" */
 			endheaders = findendheaders(h->req_buf, h->req_buflen);
 			if(endheaders)
 			{
+				/* at this point, the request buffer (h->req_buf)
+				 * is guaranteed to contain the \r\n\r\n character sequence */
 				h->req_contentoff = endheaders - h->req_buf + 4;
 				ProcessHttpQuery_upnphttp(h);
 			}
@@ -737,6 +774,7 @@ static const char httpresphead[] =
 	"Connection: close\r\n"
 	"Content-Length: %d\r\n"
 	"Server: " MINIUPNPD_SERVER_STRING "\r\n"
+	"Ext:\r\n"
 	;	/*"\r\n";*/
 /*
 		"<?xml version=\"1.0\"?>\n"

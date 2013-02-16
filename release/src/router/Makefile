@@ -852,17 +852,16 @@ libnfnetlink-install:
 
 miniupnpd-config:
 #ifeq ($(TCONFIG_IPV6),y)
-#	@cd miniupnpd && ./genconfig.sh --ipv6
+#	@cd miniupnpd && ./genconfig.sh --leasefile --ipv6
 #else
-	@cd miniupnpd && ./genconfig.sh
+	@cd miniupnpd && ./genconfig.sh --leasefile
 #endif
 
 miniupnpd: iptables miniupnpd-config libnfnetlink
 	@$(SEP)
-	$(MAKE) -C miniupnpd miniupnpd -f Makefile.linux \
-	TARGET_OPENWRT="not really" LD=mipsel-uclibc-ld CC=$(CC) \
-	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include -I$(TOP)/libnfnetlink/include" \
-	LDFLAGS="-L$(TOP)/iptables -liptc -L$(TOP)/libnfnetlink/src/.libs -lnfnetlink" LIBS=""
+	$(MAKE) -C miniupnpd miniupnpd -f Makefile.linux CC=$(CC) \
+		CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include -I$(TOP)/libnfnetlink/include" \
+		LDFLAGS="-L$(TOP)/iptables -liptc -L$(TOP)/libnfnetlink/src/.libs -lnfnetlink" LIBS=""
 
 miniupnpd-clean:
 	-@$(MAKE) -C miniupnpd -f Makefile.linux clean

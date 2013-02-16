@@ -9,7 +9,22 @@
 
 /* getopt not needed */
 
+//usage:#define free_trivial_usage
+//usage:       "" IF_DESKTOP("[-b/k/m/g]")
+//usage:#define free_full_usage "\n\n"
+//usage:       "Display the amount of free and used system memory"
+//usage:
+//usage:#define free_example_usage
+//usage:       "$ free\n"
+//usage:       "              total         used         free       shared      buffers\n"
+//usage:       "  Mem:       257628       248724         8904        59644        93124\n"
+//usage:       " Swap:       128516         8404       120112\n"
+//usage:       "Total:       386144       257128       129016\n"
+
 #include "libbb.h"
+#ifdef __linux__
+# include <sys/sysinfo.h>
+#endif
 
 struct globals {
 	unsigned mem_unit;
@@ -19,7 +34,7 @@ struct globals {
 #else
 # define G_unit_steps 10
 #endif
-};
+} FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
 #define INIT_G() do { } while (0)
 
