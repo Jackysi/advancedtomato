@@ -164,7 +164,7 @@ function init()
 	<script type='text/javascript'>nfsg.setup();</script>
 <br>
 	<ul>
-	<li>•You can find more information on proper NFS configuration at the following website: <a href="http://nfs.sourceforge.net/nfs-howto/" target="_blanc"><b>http://nfs.sourceforge.net</b></a>.
+	<li>You can find more information on proper NFS configuration at the following website: <a href="http://nfs.sourceforge.net/nfs-howto/" target="_blanc"><b>http://nfs.sourceforge.net</b></a>.
 	</ul>
 <br>
 </div>
@@ -175,7 +175,7 @@ function init()
 <div class='section'>
 <br>
 	<ul>
-	<li>•If you want to mount an NFS share from other NFS Server, you can use the mount.nfs tool via telnet/ssh.
+	<li>If you want to mount an NFS share from other NFS Server, you can use the mount.nfs tool via telnet/ssh.
 	</ul>
 </div>
 

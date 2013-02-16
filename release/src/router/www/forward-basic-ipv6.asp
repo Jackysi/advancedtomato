@@ -18,23 +18,23 @@
 
 <!-- / / / -->
 <style type='text/css'>
-#fo-grid .co1 {
+#fo-grid6 .co1 {
 	width: 25px;
 	text-align: center;
 }
-#fo-grid .co2 {
+#fo-grid6 .co2 {
 	width: 70px;
 }
-#fo-grid .co3 {
+#fo-grid6 .co3 {
 	width: 145px;
 }
-#fo-grid .co4 {
+#fo-grid6 .co4 {
 	width: 140px;
 }
-#fo-grid .co5 {
+#fo-grid6 .co5 {
 	width: 80px;
 }
-#fo-grid .co7 {
+#fo-grid6 .co7 {
 	width: 300px;
 }
 
@@ -107,7 +107,7 @@ fog.resetNewEditor = function() {
 }
 
 fog.setup = function() {
-	this.init('fo-grid', 'sort', 50, [
+	this.init('fo-grid6', 'sort', 50, [
 		{ type: 'checkbox' },
 		{ type: 'select', options: [[1, 'TCP'],[2, 'UDP'],[3,'Both']] },
 		{ type: 'text', maxlen: 140 },
@@ -179,7 +179,7 @@ function init()
 
 <div class='section-title'>IPv6 Port Forwarding</div>
 <div class='section'>
-	<table class='tomato-grid' cellspacing=1 id='fo-grid'></table>
+	<table class='tomato-grid' cellspacing=1 id='fo-grid6'></table>
 	<script type='text/javascript'>fog.setup();</script>
 </div>
 
