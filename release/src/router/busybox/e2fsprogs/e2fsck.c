@@ -47,12 +47,11 @@
 //usage:     "\n	-j journal	Set location of the external journal"
 //usage:     "\n	-l file		Add to badblocks list"
 //usage:     "\n	-L file		Set badblocks list"
+//usage:
+//applet:IF_E2FSCK(APPLET(e2fsck, BB_DIR_SBIN, BB_SUID_DROP))
+//applet:IF_E2FSCK(APPLET_ODDNAME(fsck.ext2, e2fsck, BB_DIR_SBIN, BB_SUID_DROP, e2fsck))
+//applet:IF_E2FSCK(APPLET_ODDNAME(fsck.ext3, e2fsck, BB_DIR_SBIN, BB_SUID_DROP, e2fsck))
 
-//usage:#define fsck_ext2_trivial_usage NOUSAGE_STR
-//usage:#define fsck_ext2_full_usage ""
-
-//usage:#define fsck_ext3_trivial_usage NOUSAGE_STR
-//usage:#define fsck_ext3_full_usage ""
 
 #include "e2fsck.h"	/*Put all of our defines here to clean things up*/
 
