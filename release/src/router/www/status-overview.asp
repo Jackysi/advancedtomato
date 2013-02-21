@@ -114,7 +114,7 @@ function ethstates()
 
 	var state, state1, state2;
 	var code = '<div class="section-title">Ethernet Ports State</div>';
-	code += '<table class="fields"><tr><td class="title indent1"><center><b>WAN</b></center></td><td colspan="4"><center><b>LAN</b></center></td><tr>';
+	code += '<table class="fields"><tr><td class="title indent1"><center><b>WAN</b></center></td><td><center><b>LAN 1</b></center></td><td><center><b>LAN 2</b></center></td><td><center><b>LAN 3</b></center></td><td><center><b>LAN 4</b></center></td><tr>';
 
 	if (port == "DOWN") {
 		state = '<img src="eth_off.png"><br>';
