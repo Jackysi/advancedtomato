@@ -1296,8 +1296,11 @@ init(int argc, char * * argv, struct runtime_vars * v)
 		return 1;
 	}
 
-	sa.sa_handler = SIG_IGN;
-	if(sigaction(SIGPIPE, &sa, NULL) < 0)
+	// zzz
+	sa.sa_handler = sigusr2;
+	sigaction(SIGUSR2, &sa, NULL);
+
+	if(signal(SIGPIPE, SIG_IGN) == SIG_ERR)
 	{
 		syslog(LOG_ERR, "Failed to ignore SIGPIPE signals");
 	}

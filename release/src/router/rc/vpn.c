@@ -530,7 +530,7 @@ void start_vpnserver(int serverNum)
 
 	if ( (pid = pidof(&buffer[0])) >= 0 )
 	{
-		vpnlog(VPN_LOG_NOTE, "VPN Server %d already running...", serverNum);
+		vpnlog(VPN_LOG_INFO, "VPN Server %d already running...", serverNum);
 		vpnlog(VPN_LOG_INFO,"PID: %d", pid);
 		return;
 	}

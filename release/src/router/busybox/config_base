@@ -168,7 +168,7 @@ CONFIG_FEATURE_TAR_GNU_EXTENSIONS=y
 # CONFIG_LZMA is not set
 # CONFIG_UNXZ is not set
 # CONFIG_XZ is not set
-# CONFIG_UNZIP is not set
+CONFIG_UNZIP=y
 
 #
 # Coreutils
