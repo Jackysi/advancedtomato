@@ -878,12 +878,16 @@ endif
 
 ## Mini - targeted for Netgear routers
 f:
-	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y B=F BUILD_DESC="Mini" USB=""
+	@$(MAKE) bin NO_JFFS=y NO_CIFS=y NO_ZEBRA=y B=F BUILD_DESC="Mini" USB=""
 
 ifeq ($(CONFIG_LINUX26),y)
 ## MiniIPv6 - for 4MB routers
 i:
 	@$(MAKE) bin NO_JFFS=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB=""
+
+## MiniVPN - for 4MB routers
+j:
+	@$(MAKE) bin NO_JFFS=y NO_CIFS=y NO_ZEBRA=y B=V BUILD_DESC="MiniVPN" USB="" PPTPD=y OPENVPN=y
 endif
 
 ## VPN with no USB support (IPv6 in K26 build)
@@ -942,6 +946,9 @@ r2f:
 
 r2i:
 	@$(MAKE) i MIPS32=r2
+
+r2j:
+	@$(MAKE) j MIPS32=r2
 
 r2v:
 	@$(MAKE) v MIPS32=r2
@@ -1131,6 +1138,7 @@ help:
 ifeq ($(CONFIG_LINUX26),y)
 	@echo "z            MIPS Release 15F AIO (for routers +8MB flash)"
 	@echo "i            MiniIPv6 - (IPv6 with no USB support minus CIFS and RIPv1/2)"
+	@echo "j            MiniVPN - (VPN with no USB support minus CIFS and RIPv1/2)"
 endif
 	@echo "f            Mini - (no USB support minus CIFS and RIPv1/2)"
 	@echo "v            VPN (no usb) - (VPN with no USB support)" / in K26 + IPv6 support
@@ -1148,6 +1156,7 @@ ifeq ($(CONFIG_LINUX26),y)
 	@echo "r2v          MIPS Release 2 VPN (no usb)"
 	@echo "r2m          MIPS Release 2 Max (no usb)"
 	@echo "r2i          MIPS Release 2 MiniIPv6 (for 4MB flash)"
+	@echo "r2j          MIPS Release 2 MiniVPN (for 4MB flash)"
 	@echo "r2f          MIPS Release 2 Mini (for netgear)"
 	@echo "       Linksys E-Series with 4MB Flash(E1000v2/v2.1/E1200v1)"
 	@echo "e1000v2f     Linksys E1000v2-v2.1/Cisco M10v2 Mini"

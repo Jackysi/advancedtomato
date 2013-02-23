@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2012 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2013 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -493,8 +493,9 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	      lease_set_interface(lease, int_index, now);
 	      
 	      clear_packet(mess, end);
+	      match_vendor_opts(NULL, daemon->dhcp_opts); /* clear flags */
 	      do_options(context, mess, end, NULL, hostname, get_domain(mess->yiaddr), 
-			 netid, subnet_addr, 0, 0, 0, NULL, 0, now);
+			 netid, subnet_addr, 0, 0, -1, NULL, 0, now);
 	    }
 	}
       
@@ -515,11 +516,22 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
       op += 3;
       pp = op;
       
-      /* Always force update, since the client has no way to do it itself. */
-      if (!option_bool(OPT_FQDN_UPDATE) && !(fqdn_flags & 0x01))
-	fqdn_flags |= 0x03;
-
-      fqdn_flags &= ~0x08;
+      /* NB, the following always sets at least one bit */
+      if (option_bool(OPT_FQDN_UPDATE))
+	{
+	  if (fqdn_flags & 0x01)
+	    {
+	      fqdn_flags |= 0x02; /* set O */
+	      fqdn_flags &= ~0x01; /* clear S */
+	    }
+	  fqdn_flags |= 0x08; /* set N */
+	}
+      else 
+	{
+	  if (!(fqdn_flags & 0x01))
+	    fqdn_flags |= 0x03; /* set S and O */
+	  fqdn_flags &= ~0x08; /* clear N */
+	}
       
       if (fqdn_flags & 0x04)
 	while (*op != 0 && ((op + (*op) + 1) - pp) < len)
@@ -1244,7 +1256,20 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 		  add_extradata_opt(lease, oui);
 		  add_extradata_opt(lease, serial);
 		  add_extradata_opt(lease, class);
-		  
+
+		  if ((opt = option_find(mess, sz, OPTION_AGENT_ID, 1)))
+		    {
+		      add_extradata_opt(lease, option_find1(option_ptr(opt, 0), option_ptr(opt, option_len(opt)), SUBOPT_CIRCUIT_ID, 1));
+		      add_extradata_opt(lease, option_find1(option_ptr(opt, 0), option_ptr(opt, option_len(opt)), SUBOPT_SUBSCR_ID, 1));
+		      add_extradata_opt(lease, option_find1(option_ptr(opt, 0), option_ptr(opt, option_len(opt)), SUBOPT_REMOTE_ID, 1));
+		    }
+		  else
+		    {
+		      add_extradata_opt(lease, NULL);
+		      add_extradata_opt(lease, NULL);
+		      add_extradata_opt(lease, NULL);
+		    }
+
 		  /* space-concat tag set */
 		  if (!tagif_netid)
 		    add_extradata_opt(lease, NULL);
@@ -1375,6 +1400,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
       
       if (lease)
 	{
+	  lease_set_interface(lease, int_index, now);
 	  if (override.s_addr != 0)
 	    lease->override = override;
 	  else
@@ -1385,16 +1411,6 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
       option_put(mess, end, OPTION_MESSAGE_TYPE, 1, DHCPACK);
       option_put(mess, end, OPTION_SERVER_IDENTIFIER, INADDRSZ, ntohl(server_id(context, override, fallback).s_addr));
       
-      if (lease)
-	{
-	  if (lease->expires == 0)
-	    time = 0xffffffff;
-	  else
-	    time = (unsigned int)difftime(lease->expires, now);
-	  option_put(mess, end, OPTION_LEASE_TIME, 4, time);
-	  lease_set_interface(lease, int_index, now);
-	}
-
       do_options(context, mess, end, req_options, hostname, get_domain(mess->ciaddr),
 		 netid, subnet_addr, fqdn_flags, borken_opt, pxearch, uuid, vendor_class_len, now);
       
@@ -1503,11 +1519,12 @@ static void log_packet(char *type, void *addr, unsigned char *ext_mac,
 		       int mac_len, char *interface, char *string, u32 xid)
 {
   struct in_addr a;
- 
-  /* option to reduce excessive logging for DHCP packets */
-  if (option_bool(OPT_QUIET_DHCP) && strncmp(type, "DHCP", 4) == 0)
-    return;
 
+#ifdef HAVE_TOMATO
+  if (option_bool(OPT_QUIET_DHCP) && strncmp(type, "DHCP", 4) == 0)
+	return;
+#endif //TOMATO
+ 
   /* addr may be misaligned */
   if (addr)
     memcpy(&a, addr, sizeof(a));
@@ -1740,7 +1757,7 @@ static unsigned char *free_space(struct dhcp_packet *mess, unsigned char *end, i
 	      if (overload[2] & 2)
 		{
 		  p = dhcp_skip_opts(mess->sname);
-		  if (p + len + 3 >= mess->sname + sizeof(mess->file))
+		  if (p + len + 3 >= mess->sname + sizeof(mess->sname))
 		    p = NULL;
 		}
 	    }
@@ -2235,7 +2252,8 @@ static void do_options(struct dhcp_context *context,
 	  !option_find2(OPTION_ROUTER))
 	option_put(mess, end, OPTION_ROUTER, INADDRSZ, ntohl(context->router.s_addr));
       
-      if (in_list(req_options, OPTION_DNSSERVER) &&
+      if (daemon->port == NAMESERVER_PORT &&
+	  in_list(req_options, OPTION_DNSSERVER) &&
 	  !option_find2(OPTION_DNSSERVER))
 	option_put(mess, end, OPTION_DNSSERVER, INADDRSZ, ntohl(context->local.s_addr));
     }
@@ -2265,7 +2283,7 @@ static void do_options(struct dhcp_context *context,
 	  
 	  if ((p = free_space(mess, end, OPTION_CLIENT_FQDN, len)))
 	    {
-	      *(p++) = fqdn_flags;
+	      *(p++) = fqdn_flags & 0x0f; /* MBZ bits to zero */ 
 	      *(p++) = 255;
 	      *(p++) = 255;
 
