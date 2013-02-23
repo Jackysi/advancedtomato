@@ -87,6 +87,8 @@ F7D4301 v1			BCM4718               0xd4cf       12345     0x1204
 F7D3301/F7D3302/F7D4302 v1	BCM4718               0xa4cf       12345     0x1102
 F5D8235-4 v3			BCM4718               0xa4cf       12345     0x1100
 
+CW-5358U			BCM5357               0x0550       1234      0x1100    0x710 //500MHz/8MB/32MB/2.4G/USB
+
 WL-550gE			BCM5352E              0x0467       45        0x10      0x0758      hardware_version=WL550gE-01-05-01-00 sdram_init=0x2000
 
 *WL-700gE			BCM4704_BCM5325F      0x042f       44        0x10      0x0110      hardware_version=WL700g-01-10-01-00 regulation_domain=0X30DE
@@ -171,7 +173,7 @@ int check_hw_type(void)
 		if (nvram_match("boardrev", "02")) return HW_BCM47186; //WNR3500Lv2
 	case 0xf53a:
 	case 0xf53b:
-	case 0x0550: //RT-N10U and RT-N53
+	case 0x0550: //RT-N10U and RT-N53 and CW-5358U
 	case 0x054d:
 		return HW_BCM5357;
 	case 0xf52a:
@@ -383,6 +385,12 @@ int get_model(void)
 			return MODEL_WRT320N;
 		}
 		break;
+	case 1234:
+		switch (hw) {
+		case HW_BCM5357:
+			//if (nvram_match("boardrev", "0x1100"))
+			return MODEL_CW5358U;
+		}
 	case 1:
 		switch (hw) {
 		case HW_BCM4716:

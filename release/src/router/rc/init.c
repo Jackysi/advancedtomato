@@ -422,6 +422,7 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan1ports", "4 5");
 		break;
 	case MODEL_RTN10U:
+	case MODEL_CW5358U:
 		dirty |= check_nv("vlan0ports", "1 2 3 4 5*");
 		dirty |= check_nv("vlan1ports", "0 5");
 		break;
@@ -967,6 +968,19 @@ static int init_nvram(void)
 		nvram_set("ag0", "0x0C");
 		break;
 #ifdef CONFIG_BCMWL5
+	case MODEL_CW5358U:
+		mfr = "Catchtech";
+		name = "CW-5358U";
+		features = SUP_SES | SUP_80211N;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan0 eth1");
+			nvram_set("wan_ifnameX", "vlan1");
+			nvram_set("wl_ifname", "eth1");
+		}
+		break;
 	case MODEL_RTN10:
 		mfr = "Asus";
 		name = "RT-N10";

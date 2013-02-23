@@ -110,6 +110,14 @@ switch(nvram['boardtype']) {
       COL_P4N = '0';
       break;
     }
+    if (nvram['boardrev'] == '0x1100') { //CW-5358U
+      COL_P0N = '1';
+      COL_P1N = '2';
+      COL_P2N = '3';
+      COL_P3N = '4';
+      COL_P4N = '0';
+      break;
+    }
     COL_P0N = '3';
     COL_P1N = '2';
     COL_P2N = '1';
