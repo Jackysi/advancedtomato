@@ -1551,6 +1551,9 @@ TomatoGrid.prototype = {
 					if (which == 'edit') s += ' value="' + escapeHTML('' + values[vi]) + '">';
 						else s += '>';
 					break;
+				case 'clear':
+					s += '';
+					break;
 				case 'select':
 					s += '<select' + common + attrib + '>';
 					for (var k = 0; k < f.options.length; ++k) {
@@ -2634,6 +2637,9 @@ function createFieldTable(flags, desc)
 				// drop
 			case 'text':
 				buf2.push('<input type="' + f.type + '"' + name + ' value="' + escapeHTML(UT(f.value)) + '" maxlength=' + f.maxlen + (f.size ? (' size=' + f.size) : '') + common + '>');
+				break;
+			case 'clear':
+				s += '';
 				break;
 			case 'select':
 				buf2.push('<select' + name + common + '>');

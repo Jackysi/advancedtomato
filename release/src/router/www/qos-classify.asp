@@ -13,7 +13,7 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] QoS: Classification</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<link rel='stylesheet' type='text/css' href='color.css'>
+<% css(); %
 <script type='text/javascript' src='tomato.js'></script>
 <script type='text/javascript' src='protocols.js'></script>
 
@@ -357,7 +357,8 @@ qosg.setup = function() {
 			{ type: 'text', prefix: '<div class="x5b"> - </div><div class="x5c">', suffix: '</div><div class="x5d">KB Transferred</div>' }
 		] },
 		{ type: 'select', options: class1, vtop: 1 },
-		{ type: 'text', maxlen: 32, vtop: 1 }
+		{ type: 'text', maxlen: 32, vtop: 1 },
+		{ type: 'clear', vtop: 1 }
 	]);
 
 	this.headerSet(['Match Rule', 'Class', 'Description', '#']);
