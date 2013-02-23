@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2012 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2013 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -33,7 +33,6 @@
 #define SMALLDNAME 40 /* most domain names are smaller than this */
 #define HOSTSFILE "/etc/hosts"
 #define ETHERSFILE "/etc/ethers"
-#define RUNFILE "/var/run/dnsmasq.pid"
 #define DEFLEASE 3600 /* default lease time, 1 hour */
 #define CHUSER "nobody"
 #define CHGRP "dip"
@@ -41,9 +40,14 @@
 #define LOG_MAX 5 /* log-queue length */
 #define RANDFILE "/dev/urandom"
 #define EDNS0_OPTION_MAC 5 /* dyndns.org temporary assignment */
-#define DNSMASQ_SERVICE "uk.org.thekelleys.dnsmasq" /* DBUS interface specifics */
+#define DNSMASQ_SERVICE "uk.org.thekelleys.dnsmasq" /* Default - may be overridden by config */
 #define DNSMASQ_PATH "/uk/org/thekelleys/dnsmasq"
-
+#define AUTH_TTL 600 /* default TTL for auth DNS */
+#define SOA_REFRESH 1200 /* SOA refresh default */
+#define SOA_RETRY 180 /* SOA retry default */
+#define SOA_EXPIRY 1209600 /* SOA expiry default */
+#define RA_INTERVAL 600 /* Send unsolicited RA's this often when not provoked. */
+ 
 /* compile-time options: uncomment below to enable or do eg.
    make COPTS=-DHAVE_BROKEN_RTC
 
@@ -93,12 +97,18 @@ HAVE_CONNTRACK
    a build-dependency on libnetfilter_conntrack, but the resulting binary will
    still run happily on a kernel without conntrack support.
 
+HAVE_AUTH
+   define this to include the facility to act as an authoritative DNS
+   server for one or more zones.
+
+
 NO_IPV6
 NO_TFTP
 NO_DHCP
 NO_DHCP6
 NO_SCRIPT
 NO_LARGEFILE
+NO_AUTH
    these are avilable to explictly disable compile time options which would 
    otherwise be enabled automatically (HAVE_IPV6, >2Gb file sizes) or 
    which are enabled  by default in the distributed source tree. Building dnsmasq
@@ -120,8 +130,9 @@ RESOLVFILE
 #define HAVE_DHCP6 
 #define HAVE_TFTP
 #define HAVE_SCRIPT
+#define HAVE_AUTH
 /* #define HAVE_LUASCRIPT */
-#define HAVE_BROKEN_RTC
+/* #define HAVE_BROKEN_RTC */
 /* #define HAVE_DBUS */
 /* #define HAVE_IDN */
 /* #define HAVE_CONNTRACK */
@@ -158,7 +169,13 @@ RESOLVFILE
 #   endif
 #endif
 
-
+#ifndef RUNFILE
+#   if defined(__ANDROID__)
+#      define RUNFILE "/data/dnsmasq.pid"
+#    else
+#      define RUNFILE "/var/run/dnsmasq.pid"
+#    endif
+#endif
 
 /* platform dependent options: these are determined automatically below
 
@@ -302,6 +319,9 @@ HAVE_SOCKADDR_SA_LEN
 #define HAVE_SCRIPT
 #endif
 
+#ifdef NO_AUTH
+#undef HAVE_AUTH
+#endif
 
 /* Define a string indicating which options are in use.
    DNSMASQP_COMPILE_OPTS is only defined in dnsmasq.c */
@@ -360,7 +380,14 @@ static char *compile_opts =
 #ifndef HAVE_CONNTRACK
 "no-"
 #endif
-"conntrack";
+"conntrack "
+#ifdef HAVE_TOMATO
+  "Tomato-helper "
+#endif
+#ifndef HAVE_AUTH
+"no-"
+#endif
+  "auth";
 
 #endif
 

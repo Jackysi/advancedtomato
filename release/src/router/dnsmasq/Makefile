@@ -1,4 +1,4 @@
-# dnsmasq is Copyright (c) 2000-2012 Simon Kelley
+# dnsmasq is Copyright (c) 2000-2013 Simon Kelley
 #
 #  This program is free software; you can redistribute it and/or modify
 #  it under the terms of the GNU General Public License as published by
@@ -65,7 +65,7 @@ version =     -DVERSION='\"`$(top)/bld/get-version $(top)`\"'
 objs = cache.o rfc1035.o util.o option.o forward.o network.o \
        dnsmasq.o dhcp.o lease.o rfc2131.o netlink.o dbus.o bpf.o \
        helper.o tftp.o log.o conntrack.o dhcp6.o rfc3315.o \
-       dhcp-common.o outpacket.o radv.o slaac.o
+       dhcp-common.o outpacket.o radv.o slaac.o auth.o
 
 hdrs = dnsmasq.h config.h dhcp-protocol.h dhcp6-protocol.h \
        dns-protocol.h radv-protocol.h
@@ -79,7 +79,8 @@ all : $(BUILDDIR)
 
 clean :
 	rm -f *~ $(BUILDDIR)/*.mo contrib/*/*~ */*~ $(BUILDDIR)/*.pot 
-	rm -f $(BUILDDIR)/*.o $(BUILDDIR)/dnsmasq.a $(BUILDDIR)/dnsmasq core */core
+	rm -f $(BUILDDIR)/.configured $(BUILDDIR)/*.o $(BUILDDIR)/dnsmasq.a $(BUILDDIR)/dnsmasq 
+	rm -rf core */core
 
 install : all install-common
 
@@ -113,7 +114,11 @@ $(BUILDDIR):
 	mkdir -p $(BUILDDIR)
 
 
-# rules below are targets in recusive makes with cwd=$(SRC)
+# rules below are targets in recusive makes with cwd=$(BUILDDIR)
+
+.configured: $(hdrs)
+	@rm -f *.o
+	@touch $@
 
 $(objs:.o=.c) $(hdrs):
 	ln -s $(top)/$(SRC)/$@ .
@@ -121,7 +126,7 @@ $(objs:.o=.c) $(hdrs):
 .c.o:
 	$(CC) $(CFLAGS) $(COPTS) $(i18n) $(build_cflags) $(RPM_OPT_FLAGS) -c $<	
 
-dnsmasq : $(hdrs) $(objs) 
+dnsmasq : .configured $(hdrs) $(objs) 
 	$(CC) $(LDFLAGS) -o $@ $(objs) $(build_libs) $(LIBS) 
 
 dnsmasq.pot : $(objs:.o=.c) $(hdrs)

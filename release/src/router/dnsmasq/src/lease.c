@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2012 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2013 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -227,8 +227,8 @@ void lease_update_file(time_t now)
 	    continue;
 #endif
 
-#if 1	// zzz
-	  ourprintf(&err, "%lu ", (unsigned long)lease->expires - now);
+#ifdef HAVE_TOMATO
+	ourprintf(&err, "%lu ", (unsigned long)lease->expires - now);
 #else
 #ifdef HAVE_BROKEN_RTC
 	  ourprintf(&err, "%u ", lease->length);
@@ -312,14 +312,21 @@ void lease_update_file(time_t now)
 
 #ifdef HAVE_DHCP6
   /* do timed RAs and determine when the next is, also pings to potential SLAAC addresses */
-  if (daemon->ra_contexts)
+  if (daemon->doing_ra)
     {
-      time_t ra_event = periodic_slaac(now, leases);
+      time_t event;
       
-      next_event = periodic_ra(now);
+      if ((event = periodic_slaac(now, leases)) != 0)
+	{
+	  if (next_event == 0 || difftime(next_event, event) > 0.0)
+	    next_event = event;
+	}
       
-      if (next_event == 0 || difftime(next_event, ra_event) > 0.0)
-	next_event = ra_event;
+      if ((event = periodic_ra(now)) != 0)
+	{
+	  if (next_event == 0 || difftime(next_event, event) > 0.0)
+	    next_event = event;
+	}
     }
 #endif
 
@@ -360,12 +367,15 @@ static int find_interface_v4(struct in_addr local, int if_index,
 
 #ifdef HAVE_DHCP6
 static int find_interface_v6(struct in6_addr *local,  int prefix,
-			     int scope, int if_index, int dad, void *vparam)
+			     int scope, int if_index, int flags, 
+			     int preferred, int valid, void *vparam)
 {
   struct dhcp_lease *lease;
   
   (void)scope;
-  (void)dad;
+  (void)flags;
+  (void)preferred;
+  (void)valid;
 
   for (lease = leases; lease; lease = lease->next)
     if ((lease->flags & (LEASE_TA | LEASE_NA)))
@@ -383,6 +393,18 @@ void lease_ping_reply(struct in6_addr *sender, unsigned char *packet, char *inte
     slaac_ping_reply(sender, packet, interface, leases);
 }
 
+void lease_update_slaac(time_t now)
+{
+  /* Called when we contruct a new RA-names context, to add putative
+     new SLAAC addresses to existing leases. */
+
+  struct dhcp_lease *lease;
+  
+  if (daemon->dhcp)
+    for (lease = leases; lease; lease = lease->next)
+      slaac_add_addrs(lease, now, 0);
+}
+
 #endif
 
 
@@ -392,10 +414,6 @@ void lease_ping_reply(struct in6_addr *sender, unsigned char *packet, char *inte
    start-time. */
 void lease_find_interfaces(time_t now)
 {
-#ifdef HAVE_DHCP6
-  build_subnet_map();
-#endif
-
   iface_enumerate(AF_INET, &now, find_interface_v4);
 #ifdef HAVE_DHCP6
   iface_enumerate(AF_INET6, &now, find_interface_v6);
@@ -417,6 +435,11 @@ void lease_update_dns(int force)
 
   if (daemon->port != 0 && (dns_dirty || force))
     {
+#ifndef HAVE_BROKEN_RTC
+      /* force transfer to authoritative secondaries */
+      daemon->soa_sn++;
+#endif
+      
       cache_unhash_dhcp();
 
       for (lease = leases; lease; lease = lease->next)
@@ -559,16 +582,29 @@ struct dhcp_lease *lease6_find(unsigned char *clid, int clid_len,
 	   memcmp(clid, lease->clid, clid_len) != 0))
 	continue;
       
-      if (clid || addr)
-	{
-	  lease->flags |= LEASE_USED;
-	  return lease;
-	}
-      else 
-	lease->flags &= ~LEASE_USED;
+      lease->flags |= LEASE_USED;
+      return lease;
     }
   
   return NULL;
+}
+
+void lease6_filter(int lease_type, int iaid, struct dhcp_context *context)
+{
+  struct dhcp_lease *lease;
+  
+  for (lease = leases; lease; lease = lease->next)
+    {
+      /* reset "USED flag */
+      lease->flags &= ~LEASE_USED;
+      
+      if (!(lease->flags & lease_type) || lease->hwaddr_type != iaid)
+	continue;
+      
+      /* leases on the wrong interface get filtered out here */
+      if (!is_addr_in_context6(context, (struct in6_addr *)&lease->hwaddr))
+	lease->flags |= LEASE_USED;
+    }
 }
 
 struct dhcp_lease *lease6_find_by_addr(struct in6_addr *net, int prefix, u64 addr)
@@ -1037,6 +1073,8 @@ void lease_add_extradata(struct dhcp_lease *lease, unsigned char *data, unsigned
 }
 #endif
 
+#ifdef HAVE_TOMATO
+
 void tomato_helper(time_t now)
 {
 	FILE *f;
@@ -1079,6 +1117,8 @@ void flush_lease_file(time_t now)
 	file_dirty = 1;
 	lease_update_file(now);
 }
+
+#endif //TOMATO
 
 #endif
 
