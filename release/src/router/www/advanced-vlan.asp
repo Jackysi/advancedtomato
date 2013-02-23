@@ -153,6 +153,7 @@ switch(nvram['boardtype']) {
   case '0x058e':  // E900
   case '0xf52a':  // E3200
   case '0xf52c':  // E4200v1
+  case '0x1202':  // HG320 - not sure, need test
     COL_P0N = '0';
     COL_P1N = '1';
     COL_P2N = '2';
