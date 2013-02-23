@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2012 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2013 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -95,26 +95,19 @@ int send_from(int fd, int nowild, char *packet, size_t len,
 #endif
     }
   
- retry:
-  if (sendmsg(fd, &msg, 0) == -1)
+  while (sendmsg(fd, &msg, 0) == -1)
     {
-      /* certain Linux kernels seem to object to setting the source address in the IPv6 stack
-	 by returning EINVAL from sendmsg. In that case, try again without setting the
-	 source address, since it will nearly alway be correct anyway.  IPv6 stinks. */
-      if (errno == EINVAL && msg.msg_controllen)
-	{
-	  msg.msg_controllen = 0;
-	  goto retry;
-	}
-      
       if (retry_send())
-	goto retry;
+	continue;
+      
+      /* If interface is still in DAD, EINVAL results - ignore that. */
+      if (errno == EINVAL)
+	break;
       
       my_syslog(LOG_ERR, _("failed to send packet: %s"), strerror(errno));
-      
       return 0;
     }
-
+  
   return 1;
 }
           
@@ -436,7 +429,7 @@ static int forward_query(int udpfd, union mysockaddr *udpaddr,
   if (udpfd != -1)
     {
       plen = setup_reply(header, plen, addrp, flags, daemon->local_ttl);
-      send_from(udpfd, option_bool(OPT_NOWILD), (char *)header, plen, udpaddr, dst_addr, dst_iface);
+      send_from(udpfd, option_bool(OPT_NOWILD) || option_bool(OPT_CLEVERBIND), (char *)header, plen, udpaddr, dst_addr, dst_iface);
     }
 
   return 0;
@@ -624,7 +617,7 @@ void reply_query(int fd, int family, time_t now)
 	{
 	  header->id = htons(forward->orig_id);
 	  header->hb4 |= HB4_RA; /* recursion if available */
-	  send_from(forward->fd, option_bool(OPT_NOWILD), daemon->packet, nn, 
+	  send_from(forward->fd, option_bool(OPT_NOWILD) || option_bool (OPT_CLEVERBIND), daemon->packet, nn, 
 		    &forward->source, &forward->dest, forward->iface);
 	}
       free_frec(forward); /* cancel */
@@ -642,6 +635,7 @@ void receive_query(struct listener *listen, time_t now)
   size_t m;
   ssize_t n;
   int if_index = 0;
+  int auth_dns = 0;
   struct iovec iov[1];
   struct msghdr msg;
   struct cmsghdr *cmptr;
@@ -664,17 +658,20 @@ void receive_query(struct listener *listen, time_t now)
   /* packet buffer overwritten */
   daemon->srv_save = NULL;
   
-  if (listen->iface && listen->family == AF_INET && option_bool(OPT_NOWILD))
+  dst_addr_4.s_addr = 0;
+  netmask.s_addr = 0;
+  
+  if (listen->iface && option_bool(OPT_NOWILD))
     {
-      dst_addr_4 = listen->iface->addr.in.sin_addr;
-      netmask = listen->iface->netmask;
+      auth_dns = listen->iface->dns_auth;
+     
+      if (listen->family == AF_INET)
+	{
+	  dst_addr_4 = listen->iface->addr.in.sin_addr;
+	  netmask = listen->iface->netmask;
+	}
     }
-  else
-    {
-      dst_addr_4.s_addr = 0;
-      netmask.s_addr = 0;
-    }
-
+  
   iov[0].iov_base = daemon->packet;
   iov[0].iov_len = daemon->edns_pktsz;
     
@@ -766,10 +763,17 @@ void receive_query(struct listener *listen, time_t now)
       
       /* enforce available interface configuration */
       
-      if (!indextoname(listen->fd, if_index, ifr.ifr_name) ||
-	  !iface_check(listen->family, &dst_addr, ifr.ifr_name))
+      if (!indextoname(listen->fd, if_index, ifr.ifr_name))
 	return;
       
+      if (!iface_check(listen->family, &dst_addr, ifr.ifr_name, &auth_dns))
+	{
+	   if (!option_bool(OPT_CLEVERBIND))
+	     enumerate_interfaces(); 
+	   if (!loopback_exception(listen->fd, listen->family, &dst_addr, ifr.ifr_name))
+	     return;
+	}
+
       if (listen->family == AF_INET && option_bool(OPT_LOCALISE))
 	{
 	  struct irec *iface;
@@ -783,7 +787,7 @@ void receive_query(struct listener *listen, time_t now)
 	      break;
 	  
 	  /* interface may be new */
-	  if (!iface)
+	  if (!iface && !option_bool(OPT_CLEVERBIND))
 	    enumerate_interfaces(); 
 	  
 	  for (iface = daemon->interfaces; iface; iface = iface->next)
@@ -803,7 +807,7 @@ void receive_query(struct listener *listen, time_t now)
     {
       char types[20];
 
-      querystr(types, type);
+      querystr(auth_dns ? "auth" : "query", types, type);
 
       if (listen->family == AF_INET) 
 	log_query(F_QUERY | F_IPV4 | F_FORWARD, daemon->namebuff, 
@@ -815,19 +819,32 @@ void receive_query(struct listener *listen, time_t now)
 #endif
     }
 
-  m = answer_request (header, ((char *) header) + PACKETSZ, (size_t)n, 
-		      dst_addr_4, netmask, now);
-  if (m >= 1)
+#ifdef HAVE_AUTH
+  if (auth_dns)
     {
-      send_from(listen->fd, option_bool(OPT_NOWILD), (char *)header, 
-		m, &source_addr, &dst_addr, if_index);
-      daemon->local_answer++;
+      m = answer_auth(header, ((char *) header) + PACKETSZ, (size_t)n, now, &source_addr);
+      if (m >= 1)
+	send_from(listen->fd, option_bool(OPT_NOWILD) || option_bool(OPT_CLEVERBIND),
+		  (char *)header, m, &source_addr, &dst_addr, if_index);
     }
-  else if (forward_query(listen->fd, &source_addr, &dst_addr, if_index,
-			 header, (size_t)n, now, NULL))
-    daemon->queries_forwarded++;
   else
-    daemon->local_answer++;
+#endif
+    {
+      m = answer_request(header, ((char *) header) + PACKETSZ, (size_t)n, 
+			 dst_addr_4, netmask, now);
+      
+      if (m >= 1)
+	{
+	  send_from(listen->fd, option_bool(OPT_NOWILD) || option_bool(OPT_CLEVERBIND),
+		    (char *)header, m, &source_addr, &dst_addr, if_index);
+	  daemon->local_answer++;
+	}
+      else if (forward_query(listen->fd, &source_addr, &dst_addr, if_index,
+			     header, (size_t)n, now, NULL))
+	daemon->queries_forwarded++;
+      else
+	daemon->local_answer++;
+    }
 }
 
 /* The daemon forks before calling this: it should deal with one connection,
@@ -835,13 +852,14 @@ void receive_query(struct listener *listen, time_t now)
    about resources for debug mode, when the fork is suppressed: that's
    done by the caller. */
 unsigned char *tcp_request(int confd, time_t now,
-			   union mysockaddr *local_addr, struct in_addr netmask)
+			   union mysockaddr *local_addr, struct in_addr netmask, int auth_dns)
 {
   size_t size = 0;
   int norebind = 0;
   int checking_disabled;
   size_t m;
-  unsigned short qtype, gotname;
+  unsigned short qtype;
+  unsigned int gotname;
   unsigned char c1, c2;
   /* Max TCP packet + slop */
   unsigned char *packet = whine_malloc(65536 + MAXDNAME + RRFIXEDSZ);
@@ -877,7 +895,7 @@ unsigned char *tcp_request(int confd, time_t now,
 	{
 	  char types[20];
 	  
-	  querystr(types, qtype);
+	  querystr(auth_dns ? "auth" : "query", types, qtype);
 	  
 	  if (peer_addr.sa.sa_family == AF_INET) 
 	    log_query(F_QUERY | F_IPV4 | F_FORWARD, daemon->namebuff, 
@@ -894,142 +912,150 @@ unsigned char *tcp_request(int confd, time_t now,
       else
 	dst_addr_4.s_addr = 0;
       
-      /* m > 0 if answered from cache */
-      m = answer_request(header, ((char *) header) + 65536, (unsigned int)size, 
-			 dst_addr_4, netmask, now);
-
-      /* Do this by steam now we're not in the select() loop */
-      check_log_writer(NULL); 
-      
-      if (m == 0)
+#ifdef HAVE_AUTH
+      if (auth_dns)
+	m = answer_auth(header, ((char *) header) + 65536, (size_t)size, now, &peer_addr);
+      else
+#endif
 	{
-	  unsigned int flags = 0;
-	  struct all_addr *addrp = NULL;
-	  int type = 0;
-	  char *domain = NULL;
-	   
-	  if (option_bool(OPT_ADD_MAC))
-	    size = add_mac(header, size, ((char *) header) + 65536, &peer_addr);
-	          
-	  if (gotname)
-	    flags = search_servers(now, &addrp, gotname, daemon->namebuff, &type, &domain, &norebind);
+	  /* m > 0 if answered from cache */
+	  m = answer_request(header, ((char *) header) + 65536, (size_t)size, 
+			     dst_addr_4, netmask, now);
 	  
-	  if (type != 0  || option_bool(OPT_ORDER) || !daemon->last_server)
-	    last_server = daemon->servers;
-	  else
-	    last_server = daemon->last_server;
-      
-	  if (!flags && last_server)
+	  /* Do this by steam now we're not in the select() loop */
+	  check_log_writer(NULL); 
+	  
+	  if (m == 0)
 	    {
-	      struct server *firstsendto = NULL;
-	      unsigned int crc = questions_crc(header, (unsigned int)size, daemon->namebuff);
-
-	      /* Loop round available servers until we succeed in connecting to one.
-	         Note that this code subtley ensures that consecutive queries on this connection
-	         which can go to the same server, do so. */
-	      while (1) 
- 		{
-		  if (!firstsendto)
-		    firstsendto = last_server;
-		  else
-		    {
-		      if (!(last_server = last_server->next))
-			last_server = daemon->servers;
-		      
-		      if (last_server == firstsendto)
-			break;
-		    }
+	      unsigned int flags = 0;
+	      struct all_addr *addrp = NULL;
+	      int type = 0;
+	      char *domain = NULL;
 	      
-		  /* server for wrong domain */
-		  if (type != (last_server->flags & SERV_TYPE) ||
-		      (type == SERV_HAS_DOMAIN && !hostname_isequal(domain, last_server->domain)))
-		    continue;
-
-		  if (last_server->tcpfd == -1)
+	      if (option_bool(OPT_ADD_MAC))
+		size = add_mac(header, size, ((char *) header) + 65536, &peer_addr);
+	      
+	      if (gotname)
+		flags = search_servers(now, &addrp, gotname, daemon->namebuff, &type, &domain, &norebind);
+	      
+	      if (type != 0  || option_bool(OPT_ORDER) || !daemon->last_server)
+		last_server = daemon->servers;
+	      else
+		last_server = daemon->last_server;
+	      
+	      if (!flags && last_server)
+		{
+		  struct server *firstsendto = NULL;
+		  unsigned int crc = questions_crc(header, (unsigned int)size, daemon->namebuff);
+		  
+		  /* Loop round available servers until we succeed in connecting to one.
+		     Note that this code subtley ensures that consecutive queries on this connection
+		     which can go to the same server, do so. */
+		  while (1) 
 		    {
-		      if ((last_server->tcpfd = socket(last_server->addr.sa.sa_family, SOCK_STREAM, 0)) == -1)
+		      if (!firstsendto)
+			firstsendto = last_server;
+		      else
+			{
+			  if (!(last_server = last_server->next))
+			    last_server = daemon->servers;
+			  
+			  if (last_server == firstsendto)
+			    break;
+			}
+		      
+		      /* server for wrong domain */
+		      if (type != (last_server->flags & SERV_TYPE) ||
+			  (type == SERV_HAS_DOMAIN && !hostname_isequal(domain, last_server->domain)))
 			continue;
 		      
-		      if ((!local_bind(last_server->tcpfd,  &last_server->source_addr, last_server->interface, 1) ||
-			   connect(last_server->tcpfd, &last_server->addr.sa, sa_len(&last_server->addr)) == -1))
+		      if (last_server->tcpfd == -1)
+			{
+			  if ((last_server->tcpfd = socket(last_server->addr.sa.sa_family, SOCK_STREAM, 0)) == -1)
+			    continue;
+			  
+			  if ((!local_bind(last_server->tcpfd,  &last_server->source_addr, last_server->interface, 1) ||
+			       connect(last_server->tcpfd, &last_server->addr.sa, sa_len(&last_server->addr)) == -1))
+			    {
+			      close(last_server->tcpfd);
+			      last_server->tcpfd = -1;
+			      continue;
+			    }
+			  
+#ifdef HAVE_CONNTRACK
+			  /* Copy connection mark of incoming query to outgoing connection. */
+			  if (option_bool(OPT_CONNTRACK))
+			    {
+			      unsigned int mark;
+			      struct all_addr local;
+#ifdef HAVE_IPV6		      
+			      if (local_addr->sa.sa_family == AF_INET6)
+				local.addr.addr6 = local_addr->in6.sin6_addr;
+			      else
+#endif
+				local.addr.addr4 = local_addr->in.sin_addr;
+			      
+			      if (get_incoming_mark(&peer_addr, &local, 1, &mark))
+				setsockopt(last_server->tcpfd, SOL_SOCKET, SO_MARK, &mark, sizeof(unsigned int));
+			    }
+#endif	
+			}
+		      
+		      c1 = size >> 8;
+		      c2 = size;
+		      
+		      if (!read_write(last_server->tcpfd, &c1, 1, 0) ||
+			  !read_write(last_server->tcpfd, &c2, 1, 0) ||
+			  !read_write(last_server->tcpfd, packet, size, 0) ||
+			  !read_write(last_server->tcpfd, &c1, 1, 1) ||
+			  !read_write(last_server->tcpfd, &c2, 1, 1))
 			{
 			  close(last_server->tcpfd);
 			  last_server->tcpfd = -1;
 			  continue;
-			}
-
-#ifdef HAVE_CONNTRACK
-		      /* Copy connection mark of incoming query to outgoing connection. */
-		      if (option_bool(OPT_CONNTRACK))
-			{
-			  unsigned int mark;
-			  struct all_addr local;
-#ifdef HAVE_IPV6		      
-			  if (local_addr->sa.sa_family == AF_INET6)
-			    local.addr.addr6 = local_addr->in6.sin6_addr;
-			  else
-#endif
-			    local.addr.addr4 = local_addr->in.sin_addr;
-			  
-			  if (get_incoming_mark(&peer_addr, &local, 1, &mark))
-			    setsockopt(last_server->tcpfd, SOL_SOCKET, SO_MARK, &mark, sizeof(unsigned int));
-			}
-#endif	
-		    }
-
-		  c1 = size >> 8;
-		  c2 = size;
-		  
-		  if (!read_write(last_server->tcpfd, &c1, 1, 0) ||
-		      !read_write(last_server->tcpfd, &c2, 1, 0) ||
-		      !read_write(last_server->tcpfd, packet, size, 0) ||
-		      !read_write(last_server->tcpfd, &c1, 1, 1) ||
-		      !read_write(last_server->tcpfd, &c2, 1, 1))
-		    {
-		      close(last_server->tcpfd);
-		      last_server->tcpfd = -1;
-		      continue;
-		    } 
-		  
-		  m = (c1 << 8) | c2;
-		  if (!read_write(last_server->tcpfd, packet, m, 1))
-		    return packet;
-		  
-		  if (!gotname)
-		    strcpy(daemon->namebuff, "query");
-		  if (last_server->addr.sa.sa_family == AF_INET)
-		    log_query(F_SERVER | F_IPV4 | F_FORWARD, daemon->namebuff, 
-			      (struct all_addr *)&last_server->addr.in.sin_addr, NULL); 
+			} 
+		      
+		      m = (c1 << 8) | c2;
+		      if (!read_write(last_server->tcpfd, packet, m, 1))
+			return packet;
+		      
+		      if (!gotname)
+			strcpy(daemon->namebuff, "query");
+		      if (last_server->addr.sa.sa_family == AF_INET)
+			log_query(F_SERVER | F_IPV4 | F_FORWARD, daemon->namebuff, 
+				  (struct all_addr *)&last_server->addr.in.sin_addr, NULL); 
 #ifdef HAVE_IPV6
-		  else
-		    log_query(F_SERVER | F_IPV6 | F_FORWARD, daemon->namebuff, 
-			      (struct all_addr *)&last_server->addr.in6.sin6_addr, NULL);
+		      else
+			log_query(F_SERVER | F_IPV6 | F_FORWARD, daemon->namebuff, 
+				  (struct all_addr *)&last_server->addr.in6.sin6_addr, NULL);
 #endif 
-		  
-		  /* There's no point in updating the cache, since this process will exit and
-		     lose the information after a few queries. We make this call for the alias and 
-		     bogus-nxdomain side-effects. */
-		  /* If the crc of the question section doesn't match the crc we sent, then
-		     someone might be attempting to insert bogus values into the cache by 
-		     sending replies containing questions and bogus answers. */
-		  if (crc == questions_crc(header, (unsigned int)m, daemon->namebuff))
-		    m = process_reply(header, now, last_server, (unsigned int)m, 
-				      option_bool(OPT_NO_REBIND) && !norebind, checking_disabled);
-		  
-		  break;
+		      
+		      /* There's no point in updating the cache, since this process will exit and
+			 lose the information after a few queries. We make this call for the alias and 
+			 bogus-nxdomain side-effects. */
+		      /* If the crc of the question section doesn't match the crc we sent, then
+			 someone might be attempting to insert bogus values into the cache by 
+			 sending replies containing questions and bogus answers. */
+		      if (crc == questions_crc(header, (unsigned int)m, daemon->namebuff))
+			m = process_reply(header, now, last_server, (unsigned int)m, 
+					  option_bool(OPT_NO_REBIND) && !norebind, checking_disabled);
+		      
+		      break;
+		    }
 		}
+	
+	      /* In case of local answer or no connections made. */
+	      if (m == 0)
+		m = setup_reply(header, (unsigned int)size, addrp, flags, daemon->local_ttl);
 	    }
-	  
-	  /* In case of local answer or no connections made. */
-	  if (m == 0)
-	    m = setup_reply(header, (unsigned int)size, addrp, flags, daemon->local_ttl);
 	}
-
+	  
       check_log_writer(NULL);
       
       c1 = m>>8;
       c2 = m;
-      if (!read_write(confd, &c1, 1, 0) ||
+      if (m == 0 ||
+	  !read_write(confd, &c1, 1, 0) ||
 	  !read_write(confd, &c2, 1, 0) || 
 	  !read_write(confd, packet, m, 0))
 	return packet;

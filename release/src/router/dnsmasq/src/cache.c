@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2012 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2013 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -235,6 +235,29 @@ char *cache_get_name(struct crec *crecp)
   return crecp->name.sname;
 }
 
+struct crec *cache_enumerate(int init)
+{
+  static int bucket;
+  static struct crec *cache;
+
+  if (init)
+    {
+      bucket = 0;
+      cache = NULL;
+    }
+  else if (cache && cache->hash_next)
+    cache = cache->hash_next;
+  else
+    {
+       cache = NULL; 
+       while (bucket < hash_size)
+	 if ((cache = hash_table[bucket++]))
+	   break;
+    }
+  
+  return cache;
+}
+
 static int is_outdated_cname_pointer(struct crec *crecp)
 {
   if (!(crecp->flags & F_CNAME))
@@ -243,7 +266,7 @@ static int is_outdated_cname_pointer(struct crec *crecp)
   /* NB. record may be reused as DS or DNSKEY, where uid is 
      overloaded for something completely different */
   if (crecp->addr.cname.cache && 
-      (crecp->addr.cname.cache->flags & (F_IPV4 | F_IPV6)) &&
+      (crecp->addr.cname.cache->flags & (F_IPV4 | F_IPV6 | F_CNAME)) &&
       crecp->addr.cname.uid == crecp->addr.cname.cache->uid)
     return 0;
   
@@ -370,6 +393,9 @@ struct crec *cache_insert(char *name, struct all_addr *addr,
   union bigname *big_name = NULL;
   int freed_all = flags & F_REVERSE;
   int free_avail = 0;
+
+  if (daemon->max_cache_ttl != 0 && daemon->max_cache_ttl < ttl)
+    ttl = daemon->max_cache_ttl;
 
   /* Don't log keys */
   if (flags & (F_IPV4 | F_IPV6))
@@ -645,13 +671,29 @@ struct crec *cache_find_by_addr(struct crec *crecp, struct all_addr *addr,
   return NULL;
 }
 
-
+static void add_hosts_cname(struct crec *target)
+{
+  struct crec *crec;
+  struct cname *a;
+  
+  for (a = daemon->cnames; a; a = a->next)
+    if (hostname_isequal(cache_get_name(target), a->target) &&
+	(crec = whine_malloc(sizeof(struct crec))))
+      {
+	crec->flags = F_FORWARD | F_IMMORTAL | F_NAMEP | F_HOSTS | F_CNAME;
+	crec->name.namep = a->alias;
+	crec->addr.cname.cache = target;
+	crec->addr.cname.uid = target->uid;
+	cache_hash(crec);
+	add_hosts_cname(crec); /* handle chains */
+      }
+}
+  
 static void add_hosts_entry(struct crec *cache, struct all_addr *addr, int addrlen, 
 			    int index, struct crec **rhash, int hashsz)
 {
   struct crec *lookup = cache_find_by_name(NULL, cache_get_name(cache), 0, cache->flags & (F_IPV4 | F_IPV6));
   int i, nameexists = 0;
-  struct cname *a;
   unsigned int j; 
 
   /* Remove duplicates in hosts files. */
@@ -702,16 +744,7 @@ static void add_hosts_entry(struct crec *cache, struct all_addr *addr, int addrl
   
   /* don't need to do alias stuff for second and subsequent addresses. */
   if (!nameexists)
-    for (a = daemon->cnames; a; a = a->next)
-      if (hostname_isequal(cache_get_name(cache), a->target) &&
-	  (lookup = whine_malloc(sizeof(struct crec))))
-	{
-	  lookup->flags = F_FORWARD | F_IMMORTAL | F_NAMEP | F_HOSTS | F_CNAME;
-	  lookup->name.namep = a->alias;
-	  lookup->addr.cname.cache = cache;
-	  lookup->addr.cname.uid = index;
-	  cache_hash(lookup);
-	}
+    add_hosts_cname(cache);
 }
 
 static int eatspace(FILE *f)
@@ -1003,13 +1036,41 @@ void cache_unhash_dhcp(void)
 	up = &cache->hash_next;
 }
 
+static void add_dhcp_cname(struct crec *target, time_t ttd)
+{
+  struct crec *aliasc;
+  struct cname *a;
+  
+  for (a = daemon->cnames; a; a = a->next)
+    if (hostname_isequal(cache_get_name(target), a->target))
+      {
+	if ((aliasc = dhcp_spare))
+	  dhcp_spare = dhcp_spare->next;
+	else /* need new one */
+	  aliasc = whine_malloc(sizeof(struct crec));
+	
+	if (aliasc)
+	  {
+	    aliasc->flags = F_FORWARD | F_NAMEP | F_DHCP | F_CNAME;
+	    if (ttd == 0)
+	      aliasc->flags |= F_IMMORTAL;
+	    else
+	      aliasc->ttd = ttd;
+	    aliasc->name.namep = a->alias;
+	    aliasc->addr.cname.cache = target;
+	    aliasc->addr.cname.uid = target->uid;
+	    cache_hash(aliasc);
+	    add_dhcp_cname(aliasc, ttd);
+	  }
+      }
+}
+
 void cache_add_dhcp_entry(char *host_name, int prot,
 			  struct all_addr *host_address, time_t ttd) 
 {
-  struct crec *crec = NULL, *aliasc;
+  struct crec *crec = NULL, *fail_crec = NULL;
   unsigned short flags = F_IPV4;
   int in_hosts = 0;
-  struct cname *a;
   size_t addrlen = sizeof(struct in_addr);
 
 #ifdef HAVE_IPV6
@@ -1020,29 +1081,21 @@ void cache_add_dhcp_entry(char *host_name, int prot,
     }
 #endif
   
+  inet_ntop(prot, host_address, daemon->addrbuff, ADDRSTRLEN);
+  
   while ((crec = cache_find_by_name(crec, host_name, 0, flags | F_CNAME)))
     {
       /* check all addresses associated with name */
       if (crec->flags & F_HOSTS)
 	{
-	  /* if in hosts, don't need DHCP record */
-	  in_hosts = 1;
-	  
-	  inet_ntop(prot, host_address, daemon->addrbuff, ADDRSTRLEN);
 	  if (crec->flags & F_CNAME)
-	    
 	    my_syslog(MS_DHCP | LOG_WARNING, 
 		      _("%s is a CNAME, not giving it to the DHCP lease of %s"),
 		      host_name, daemon->addrbuff);
-	  else if (memcmp(&crec->addr.addr, host_address, addrlen) != 0)
-	    {
-	      inet_ntop(prot, &crec->addr.addr, daemon->namebuff, MAXDNAME);
-	      my_syslog(MS_DHCP | LOG_WARNING, 
-			_("not giving name %s to the DHCP lease of %s because "
-			  "the name exists in %s with address %s"), 
-			host_name, daemon->addrbuff,
-			record_source(crec->uid), daemon->namebuff);
-	    }	  
+	  else if (memcmp(&crec->addr.addr, host_address, addrlen) == 0)
+	    in_hosts = 1;
+	  else
+	    fail_crec = crec;
 	}
       else if (!(crec->flags & F_DHCP))
 	{
@@ -1052,21 +1105,34 @@ void cache_add_dhcp_entry(char *host_name, int prot,
 	}
     }
   
-   if (in_hosts)
+  /* if in hosts, don't need DHCP record */
+  if (in_hosts)
     return;
-
-   if ((crec = cache_find_by_addr(NULL, (struct all_addr *)host_address, 0, flags)))
-     {
-       if (crec->flags & F_NEG)
-	 {
-	   flags |= F_REVERSE;
-	   cache_scan_free(NULL, (struct all_addr *)host_address, 0, flags);
-	 }
-     }
-   else
-      flags |= F_REVERSE;
-   
-   if ((crec = dhcp_spare))
+  
+  /* Name in hosts, address doesn't match */
+  if (fail_crec)
+    {
+      inet_ntop(prot, &fail_crec->addr.addr, daemon->namebuff, MAXDNAME);
+      my_syslog(MS_DHCP | LOG_WARNING, 
+		_("not giving name %s to the DHCP lease of %s because "
+		  "the name exists in %s with address %s"), 
+		host_name, daemon->addrbuff,
+		record_source(fail_crec->uid), daemon->namebuff);
+      return;
+    }	  
+  
+  if ((crec = cache_find_by_addr(NULL, (struct all_addr *)host_address, 0, flags)))
+    {
+      if (crec->flags & F_NEG)
+	{
+	  flags |= F_REVERSE;
+	  cache_scan_free(NULL, (struct all_addr *)host_address, 0, flags);
+	}
+    }
+  else
+    flags |= F_REVERSE;
+  
+  if ((crec = dhcp_spare))
     dhcp_spare = dhcp_spare->next;
   else /* need new one */
     crec = whine_malloc(sizeof(struct crec));
@@ -1083,27 +1149,7 @@ void cache_add_dhcp_entry(char *host_name, int prot,
       crec->uid = uid++;
       cache_hash(crec);
 
-      for (a = daemon->cnames; a; a = a->next)
-	if (hostname_isequal(host_name, a->target))
-	  {
-	    if ((aliasc = dhcp_spare))
-	      dhcp_spare = dhcp_spare->next;
-	    else /* need new one */
-	      aliasc = whine_malloc(sizeof(struct crec));
-	    
-	    if (aliasc)
-	      {
-		aliasc->flags = F_FORWARD | F_NAMEP | F_DHCP | F_CNAME;
-		if (ttd == 0)
-		  aliasc->flags |= F_IMMORTAL;
-		else
-		  aliasc->ttd = ttd;
-		aliasc->name.namep = a->alias;
-		aliasc->addr.cname.cache = crec;
-		aliasc->addr.cname.uid = crec->uid;
-		cache_hash(aliasc);
-	      }
-	  }
+      add_dhcp_cname(crec, ttd);
     }
 }
 #endif
@@ -1225,14 +1271,14 @@ char *record_source(int index)
   return "<unknown>";
 }
 
-void querystr(char *str, unsigned short type)
+void querystr(char *desc, char *str, unsigned short type)
 {
   unsigned int i;
   
-  sprintf(str, "query[type=%d]", type); 
+  sprintf(str, "%s[type=%d]", desc, type); 
   for (i = 0; i < (sizeof(typestr)/sizeof(typestr[0])); i++)
     if (typestr[i].type == type)
-      sprintf(str,"query[%s]", typestr[i].name);
+      sprintf(str,"%s[%s]", desc, typestr[i].name);
 }
 
 void log_query(unsigned int flags, char *name, struct all_addr *addr, char *arg)
@@ -1293,6 +1339,8 @@ void log_query(unsigned int flags, char *name, struct all_addr *addr, char *arg)
     source = arg;
   else if (flags & F_UPSTREAM)
     source = "reply";
+  else if (flags & F_AUTH)
+    source = "auth";
   else if (flags & F_SERVER)
     {
       source = "forwarded";

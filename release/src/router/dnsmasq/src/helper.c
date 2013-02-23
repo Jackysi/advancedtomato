@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2012 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2013 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -34,9 +34,14 @@ static void my_setenv(const char *name, const char *value, int *error);
 static unsigned char *grab_extradata(unsigned char *buf, unsigned char *end,  char *env, int *err);
 
 #ifdef HAVE_LUASCRIPT
+#define LUA_COMPAT_ALL
 #include <lua.h>  
 #include <lualib.h>  
 #include <lauxlib.h>  
+
+#ifndef lua_open
+#define lua_open()     luaL_newstate()
+#endif
 
 lua_State *lua;
 
@@ -392,6 +397,9 @@ int create_helper(int event_fd, int err_fd, uid_t uid, gid_t gid, long max_fd)
 		  buf = grab_extradata_lua(buf, end, "cpewan_oui");
 		  buf = grab_extradata_lua(buf, end, "cpewan_serial");   
 		  buf = grab_extradata_lua(buf, end, "cpewan_class");
+		  buf = grab_extradata_lua(buf, end, "circuit_id");
+		  buf = grab_extradata_lua(buf, end, "subscriber_id");
+		  buf = grab_extradata_lua(buf, end, "remote_id");
 		}
 	      
 	      buf = grab_extradata_lua(buf, end, "tags");
@@ -523,10 +531,13 @@ int create_helper(int event_fd, int err_fd, uid_t uid, gid_t gid, long max_fd)
 	      buf = grab_extradata(buf, end, "DNSMASQ_CPEWAN_OUI", &err);
 	      buf = grab_extradata(buf, end, "DNSMASQ_CPEWAN_SERIAL", &err);   
 	      buf = grab_extradata(buf, end, "DNSMASQ_CPEWAN_CLASS", &err);
+	      buf = grab_extradata(buf, end, "DNSMASQ_CIRCUIT_ID", &err);
+	      buf = grab_extradata(buf, end, "DNSMASQ_SUBSCRIBER_ID", &err);
+	      buf = grab_extradata(buf, end, "DNSMASQ_REMOTE_ID", &err);
 	    }
 	  
 	  buf = grab_extradata(buf, end, "DNSMASQ_TAGS", &err);
-	  
+
 	  if (is6)
 	    buf = grab_extradata(buf, end, "DNSMASQ_RELAY_ADDRESS", &err);
 	  else if (data.giaddr.s_addr != 0)
