@@ -4,7 +4,7 @@
  * Copyright (c) 2000-2006 Anton Altaparmakov
  * Copyright (c) 2002-2006 Szabolcs Szakacsits
  * Copyright (c) 2007      Yura Pakhuchiy
- * Copyright (c) 2011      Jean-Pierre Andre
+ * Copyright (c) 2011-2012 Jean-Pierre Andre
  *
  * This utility fixes some common NTFS problems, resets the NTFS journal file
  * and schedules an NTFS consistency check for the first boot into Windows.
@@ -358,16 +358,27 @@ static int clear_badclus(ntfs_volume *vol)
 	ni = ntfs_inode_open(vol, FILE_BadClus);
 	if (ni) {
 		na = ntfs_attr_open(ni, AT_DATA, badstream, 4);
-		if (na) {
-			if (na->initialized_size) {
+			/*
+			 * chkdsk does not adjust the data size when
+			 * moving clusters to $BadClus, so we have to
+			 * check the runlist.
+			 */
+		if (na && !ntfs_attr_map_whole_runlist(na)) {
+			if (na->rl
+			    && na->rl[0].length && na->rl[1].length) {
 			/*
 			 * Truncate the stream to free all its clusters,
-			 * then reallocate a sparse stream to full size
-			 * of volume.
+			 * (which requires setting the data size according
+			 * to allocation), then reallocate a sparse stream
+			 * to full size of volume and reset the data size.
 			 */
+				na->data_size = na->allocated_size;
+				na->initialized_size = na->allocated_size;
 				if (!ntfs_attr_truncate(na,0)
 				    && !ntfs_attr_truncate(na,vol->nr_clusters
 						<< vol->cluster_size_bits)) {
+					na->data_size = 0;
+					na->initialized_size = 0;
 					ni->flags |= FILE_ATTR_SPARSE_FILE;
 					NInoFileNameSetDirty(ni);
 					ok = TRUE;
@@ -1263,6 +1274,104 @@ static int try_alternate_boot(ntfs_volume *vol, char *full_bs,
 }
 
 /*
+ *		Check and fix the alternate boot sector
+ *
+ *	The alternate boot sector is usually in the last sector of a
+ *	partition, which should not be used by the file system
+ *	(the sector count in the boot sector should be less than
+ *	the total sector count in the partition).
+ *
+ *	chkdsk never changes the count in the boot sector.
+ *	- If this is less than the total count, chkdsk place the
+ *	  alternate boot sector into the sector,
+ *	- if the count is the same as the total count, chkdsk place
+ *	  the alternate boot sector into the middle sector (half
+ *	  the total count rounded upwards)
+ *	- if the count is greater than the total count, chkdsk
+ *	  declares the file system as raw, and refuses to fix anything.
+ *
+ *	Here, we check and fix the alternate boot sector, only in the
+ *	first situation where the file system does not overflow on the
+ *	last sector.
+ *
+ *	Note : when shrinking a partition, ntfsresize cannot determine
+ *	the future size of the partition. As a consequence the number of
+ *	sectors in the boot sectors may be less than the possible size.
+ *
+ *	Returns 0 if successful
+ */
+
+static int check_alternate_boot(ntfs_volume *vol)
+{
+	s64 got_sectors;
+	s64 actual_sectors;
+	s64 last_sector_off;
+	char *full_bs;
+	char *alt_bs;
+	NTFS_BOOT_SECTOR *bs;
+	s64 br;
+	s64 bw;
+	int res;
+
+	res = -1;
+	full_bs = (char*)malloc(vol->sector_size);
+	alt_bs = (char*)malloc(vol->sector_size);
+	if (!full_bs || !alt_bs) {
+		ntfs_log_info("Error : failed to allocate memory\n");
+		goto error_exit;
+	}
+	/* Now read both bootsectors. */
+	br = ntfs_pread(vol->dev, 0, vol->sector_size, full_bs);
+	if (br == vol->sector_size) {
+		bs = (NTFS_BOOT_SECTOR*)full_bs;
+		got_sectors = le64_to_cpu(bs->number_of_sectors);
+		actual_sectors = ntfs_device_size_get(vol->dev,
+						vol->sector_size);
+		if (actual_sectors > got_sectors) {
+			last_sector_off = (actual_sectors - 1)
+						<< vol->sector_size_bits;
+			ntfs_log_info("Checking the alternate boot sector... ");
+			br = ntfs_pread(vol->dev, last_sector_off,
+						vol->sector_size, alt_bs);
+		} else {
+			ntfs_log_info("Checking file system overflow... ");
+			br = -1;
+		}
+		/* accept getting no byte, needed for short image files */
+		if (br >= 0) {
+			if ((br != vol->sector_size)
+			    || memcmp(full_bs, alt_bs, vol->sector_size)) {
+				if (opt.no_action) {
+					ntfs_log_info("BAD\n");
+				} else {
+					bw = ntfs_pwrite(vol->dev,
+						last_sector_off,
+						vol->sector_size, full_bs);
+					if (bw == vol->sector_size) {
+						ntfs_log_info("FIXED\n");
+						res = 0;
+					} else {
+						ntfs_log_info(FAILED);
+					}
+				}
+			} else {
+				ntfs_log_info(OK);
+				res = 0;
+			}
+		} else {
+			ntfs_log_info(FAILED);
+		}
+	} else {
+		ntfs_log_info("Error : could not read the boot sector again\n");
+	}
+	free(full_bs);
+	free(alt_bs);
+
+error_exit :
+	return (res);
+}
+
+/*
  *		Try to fix problems which may arise in the start up sequence
  *
  *	This is a replay of the normal start up sequence with fixes when
@@ -1310,7 +1419,7 @@ static int fix_startup(struct ntfs_device *dev, unsigned long flags)
 	NVolSetShowSysFiles(vol);
 	NVolSetShowHidFiles(vol);
 	NVolClearHideDotFiles(vol);
-	if (flags & MS_RDONLY)
+	if (flags & NTFS_MNT_RDONLY)
 		NVolSetReadOnly(vol);
 	
 	/* ...->open needs bracketing to compile with glibc 2.7 */
@@ -1399,7 +1508,7 @@ static int fix_mount(void)
 		ntfs_log_perror("Failed to allocate device");
 		return -1;
 	}
-	flags = (opt.no_action ? MS_RDONLY : 0);
+	flags = (opt.no_action ? NTFS_MNT_RDONLY : 0);
 	vol = ntfs_volume_startup(dev, flags);
 	if (!vol) {
 		ntfs_log_info(FAILED);
@@ -1464,7 +1573,7 @@ int main(int argc, char **argv)
 		ntfs_log_perror("Failed to determine whether %s is mounted",
 				opt.volume);
 	/* Attempt a full mount first. */
-	flags = (opt.no_action ? MS_RDONLY : 0);
+	flags = (opt.no_action ? NTFS_MNT_RDONLY : 0);
 	ntfs_log_info("Mounting volume... ");
 	vol = ntfs_mount(opt.volume, flags);
 	if (vol) {
@@ -1483,6 +1592,10 @@ int main(int argc, char **argv)
 			ntfs_log_perror("Remount failed");
 			exit(1);
 		}
+	}
+	if (check_alternate_boot(vol)) {
+		ntfs_log_error("Error: Failed to fix the alternate boot sector\n");
+		exit(1);
 	}
 	/* So the unmount does not clear it again. */
 
