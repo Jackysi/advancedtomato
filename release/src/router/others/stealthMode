@@ -2,26 +2,31 @@
 
 # Turn off/on all led for routers RT-N16 and RT-N66U
 
+Version: 0.3
+
 N16=`nvram get t_model_name | grep RT-N16 | wc -l`
 N66U=`nvram get t_model_name | grep RT-N66U | wc -l`
 
 if [ "$N16" == "1" -o "$N66U" == "1" ]; then
     case "$1" in
         on)
+            /usr/sbin/stealthMode perm_on
+            echo "StealthMode Activated"
+            logger StealthMode Activated
+            cru a stealthmode "*/5 * * * * /usr/sbin/stealthMode perm_on"
+        perm_on)
             if [ "$N66U" == "1" ]; then
                 wl -i eth2 leddc 1
                 gpio enable 12 #power led
                 gpio enable 15 #usb led
             else
                 gpio enable 1 #power led
-                et robord 0x1 0x4 > /dev/null 2>&1 #unlock lan ports
+                et robord 0x1 0x4 > /dev/null 2>&1 #unlock lan ports by monter@techlog.pl
             fi
 
             et robowr 0x00 0x18 0x1e0
             et robowr 0x00 0x1a 0x1e0
             wl -i eth1 leddc 1
-
-            logger StealthMode Activated
         ;;
         off)
             if [ "$N66U" == "1" ]; then
@@ -37,7 +42,9 @@ if [ "$N16" == "1" -o "$N66U" == "1" ]; then
             et robowr 0x00 0x1a 0x1ff
             wl -i eth1 leddc 0
 
+            echo "StealthMode Disactivated"
             logger StealthMode Disactivated
+            cru d stealthmode
         ;;
         *)
             echo $"Usage: $0 {on|off}"
@@ -46,5 +53,5 @@ if [ "$N16" == "1" -o "$N66U" == "1" ]; then
     esac
 
 else
-    echo "Router does not supported by this script"
+    echo "Router does not supported by this feature"
 fi
