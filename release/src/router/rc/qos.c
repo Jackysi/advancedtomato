@@ -94,7 +94,7 @@ void ipt_qos(void)
 			numeric (0:63) - dscp value
 			afXX, csX, be, ef - dscp class
 		class_prio:
-			0-8
+			0-10				// Changed from 8 in pkt_sched.h - Toastman
 			-1 = disabled
 
 		*/

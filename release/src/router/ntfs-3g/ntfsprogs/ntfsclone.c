@@ -3,7 +3,7 @@
  *
  * Copyright (c) 2003-2006 Szabolcs Szakacsits
  * Copyright (c) 2004-2006 Anton Altaparmakov
- * Copyright (c) 2010-2011 Jean-Pierre Andre
+ * Copyright (c) 2010-2012 Jean-Pierre Andre
  * Special image format support copyright (c) 2004 Per Olofsson
  *
  * Clone NTFS data and/or metadata to a sparse file, image, device or stdout.
@@ -31,6 +31,9 @@
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
+#ifdef HAVE_TIME_H
+#include <time.h>
+#endif
 #ifdef HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
 #endif
@@ -54,6 +57,9 @@
 #endif
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
 #endif
 
 /*
@@ -97,9 +103,10 @@ static const char *EXEC_NAME = "ntfsclone";
 
 static const char *bad_sectors_warning_msg =
 "*************************************************************************\n"
-"* WARNING: The disk has bad sector. This means physical damage on the   *\n"
-"* disk surface caused by deterioration, manufacturing faults or other   *\n"
-"* reason. The reliability of the disk may stay stable or degrade fast.  *\n"
+"* WARNING: The disk has one or more bad sectors. This means that damage *\n"
+"* has occurred on the disk surface, possibly caused by deterioration of *\n"
+"* the physical media, manufacturing faults or other reasons. The        *\n"
+"* reliability of the disk may stay stable or degrade fast.              *\n"
 "* Use the --rescue option to efficiently save as much data as possible! *\n"
 "*************************************************************************\n";
 
@@ -119,6 +126,7 @@ static struct {
 	int ignore_fs_check;
 	int rescue;
 	int save_image;
+	int new_serial;
 	int metadata_image;
 	int preserve_timestamps;
 	int restore_image;
@@ -171,6 +179,7 @@ static unsigned int wiped_unused_mft      = 0;
 static unsigned int wiped_resident_data   = 0;
 static unsigned int wiped_timestamp_data  = 0;
 
+static le64 volume_serial_number; /* new random serial number */
 static u64 full_device_size; /* full size, including the backup boot sector */
 
 static BOOL image_is_host_endian = FALSE;
@@ -316,7 +325,10 @@ static void usage(void)
 		"        --rescue           Continue after disk read errors\n"
 		"    -m, --metadata         Clone *only* metadata (for NTFS experts)\n"
 		"        --ignore-fs-check  Ignore the filesystem check result\n"
+		"        --new-serial       Set a new serial number\n"
+		"        --new-half-serial  Set a partial new serial number\n"
 		"    -t, --preserve-timestamps Do not clear the timestamps\n"
+		"    -q, --quiet            Do not display any progress bars\n"
 		"    -f, --force            Force to progress (DANGEROUS)\n"
 		"    -h, --help             Display this help\n"
 #ifdef DEBUG
@@ -332,11 +344,12 @@ static void usage(void)
 
 static void parse_options(int argc, char **argv)
 {
-	static const char *sopt = "-dfhmo:O:rst";
+	static const char *sopt = "-dfhmo:O:qrst";
 	static const struct option lopt[] = {
 #ifdef DEBUG
 		{ "debug",	      no_argument,	 NULL, 'd' },
 #endif
+		{ "quiet",	      no_argument,	 NULL, 'q' },
 		{ "force",	      no_argument,	 NULL, 'f' },
 		{ "help",	      no_argument,	 NULL, 'h' },
 		{ "metadata",	      no_argument,	 NULL, 'm' },
@@ -345,6 +358,8 @@ static void parse_options(int argc, char **argv)
 		{ "restore-image",    no_argument,	 NULL, 'r' },
 		{ "ignore-fs-check",  no_argument,	 NULL, 'C' },
 		{ "rescue",           no_argument,	 NULL, 'R' },
+		{ "new-serial",       no_argument,	 NULL, 'I' },
+		{ "new-half-serial",  no_argument,	 NULL, 'i' },
 		{ "save-image",	      no_argument,	 NULL, 's' },
 		{ "preserve-timestamps",   no_argument,  NULL, 't' },
 		{ NULL, 0, NULL, 0 }
@@ -364,12 +379,21 @@ static void parse_options(int argc, char **argv)
 		case 'd':
 			opt.debug++;
 			break;
+		case 'q':
+			opt.quiet++;
+			break;
 		case 'f':
 			opt.force++;
 			break;
 		case 'h':
 		case '?':
 			usage();
+		case 'i':	/* not proposed as a short option */
+			opt.new_serial |= 1;
+			break;
+		case 'I':	/* not proposed as a short option */
+			opt.new_serial |= 2;
+			break;
 		case 'm':
 			opt.metadata++;
 			break;
@@ -486,6 +510,20 @@ static void parse_options(int argc, char **argv)
 	}
 }
 
+/*
+ * Initialize the random number generator with the current
+ * time, and generate a 64-bit random number for the serial
+ * number
+ */
+static void generate_serial_number(void) {
+	u64 sn;
+
+		/* different values for parallel processes */
+	srandom(time((time_t*)NULL) ^ (getpid() << 16));
+	sn = ((u64)random() << 32) | ((u64)random() & 0xffffffff);
+	volume_serial_number = cpu_to_le64(sn);
+}
+
 static void progress_init(struct progress_bar *p, u64 start, u64 stop, int res)
 {
 	p->start = start;
@@ -498,6 +536,9 @@ static void progress_init(struct progress_bar *p, u64 start, u64 stop, int res)
 static void progress_update(struct progress_bar *p, u64 current)
 {
 	float percent = p->unit * current;
+
+	if (opt.quiet)
+		return;
 
 	if (current != p->stop) {
 		if ((current - p->start) % p->resolution)
@@ -592,14 +633,42 @@ static void rescue_sector(void *fd, off_t pos, void *buff)
 	}
 }
 
+/*
+ *		Read a cluster, try to rescue if cannot read
+ */
+
+static void read_rescue(void *fd, char *buff, u32 csize, u64 rescue_lcn)
+{
+	off_t rescue_pos;
+
+	if (read_all(fd, buff, csize) == -1) {
+
+		if (errno != EIO)
+			perr_exit("read_all");
+		else if (opt.rescue){
+			u32 i;
+
+			rescue_pos = (off_t)(rescue_lcn * csize);
+			for (i = 0; i < csize; i += NTFS_SECTOR_SIZE)
+				rescue_sector(fd, rescue_pos + i, buff + i);
+		} else {
+			Printf("%s", bad_sectors_warning_msg);
+			err_exit("Disk is faulty, can't make full backup!");
+		}
+	}
+}
 
 static void copy_cluster(int rescue, u64 rescue_lcn, u64 lcn)
 {
 	char buff[NTFS_MAX_CLUSTER_SIZE]; /* overflow checked at mount time */
 	/* vol is NULL if opt.restore_image is set */
 	s32 csize = le32_to_cpu(image_hdr.cluster_size);
+	BOOL backup_bootsector;
 	void *fd = (void *)&fd_in;
 	off_t rescue_pos;
+	NTFS_BOOT_SECTOR *bs;
+	le64 mask;
+	static u16 bytes_per_sector;
 
 	if (!opt.restore_image) {
 		csize = vol->cluster_size;
@@ -609,13 +678,15 @@ static void copy_cluster(int rescue, u64 rescue_lcn, u64 lcn)
 	rescue_pos = (off_t)(rescue_lcn * csize);
 
 		/* possible partial cluster holding the backup boot sector */
-	if ((lcn + 1)*csize > full_device_size) {
+	backup_bootsector = (lcn + 1)*csize >= full_device_size;
+	if (backup_bootsector) {
 		csize = full_device_size - lcn*csize;
 		if (csize < 0) {
 			err_exit("Corrupted input, copy aborted");
 		}
 	}
 
+// need reading when not about to write ?
 	if (read_all(fd, buff, csize) == -1) {
 
 		if (errno != EIO)
@@ -630,13 +701,47 @@ static void copy_cluster(int rescue, u64 rescue_lcn, u64 lcn)
 		}
 	}
 
-	if (opt.save_image || (opt.metadata_image && !wipe)) {
+		/* Set the new serial number if requested */
+	if (opt.new_serial
+	    && !opt.save_image
+	    && (!lcn || backup_bootsector)) {
+			/*
+			 * For updating the backup boot sector, we need to
+			 * know the sector size, but this is not recorded
+			 * in the image header, so we collect it on the fly
+			 * while reading the first boot sector.
+			 */
+		if (!lcn) {
+			bs = (NTFS_BOOT_SECTOR*)buff;
+			bytes_per_sector = le16_to_cpu(bs->bpb.bytes_per_sector);
+			if ((bytes_per_sector > csize)
+			    || (bytes_per_sector < NTFS_SECTOR_SIZE))
+				bytes_per_sector = NTFS_SECTOR_SIZE;
+		} else
+			bs = (NTFS_BOOT_SECTOR*)(buff
+						+ csize - bytes_per_sector);
+		if (opt.new_serial & 2)
+			bs->volume_serial_number = volume_serial_number;
+		else {
+			mask = const_cpu_to_le64(~0x0ffffffffULL);
+			bs->volume_serial_number
+			    = (volume_serial_number & mask)
+				| (bs->volume_serial_number & ~mask);
+		}
+			/* Show the new full serial after merging */
+		if (!lcn)
+			Printf("New serial number      : 0x%llx\n",
+				(long long)le64_to_cpu(
+						bs->volume_serial_number));
+	}
+
+	if (opt.save_image || (opt.metadata_image && wipe)) {
 		char cmd = 1;
 		if (write_all(&fd_out, &cmd, sizeof(cmd)) == -1)
 			perr_exit("write_all");
 	}
 
-	if ((!opt.metadata_image || !wipe)
+	if ((!opt.metadata_image || wipe)
 	    && (write_all(&fd_out, buff, csize) == -1)) {
 #ifndef NO_STATFS
 		int err = errno;
@@ -698,29 +803,6 @@ static void image_skip_clusters(s64 count)
 	}
 }
 
-static void dump_clusters(ntfs_walk_clusters_ctx *image, runlist *rl)
-{
-	s64 i, len; /* number of clusters to copy */
-
-	if ((opt.std_out && !opt.metadata_image) || !opt.metadata)
-		return;
-
-	if (!(len = is_critical_metadata(image, rl)))
-		return;
-
-	lseek_to_cluster(rl->lcn);
-	if (opt.metadata_image && !wipe)
-		gap_to_cluster(rl->lcn - image->current_lcn);
-	if (!wipe) {
-		/* FIXME: this could give pretty suboptimal performance */
-		for (i = 0; i < len; i++)
-			copy_cluster(opt.rescue, rl->lcn + i, rl->lcn + i);
-		image->current_lcn = rl->lcn + len;
-	}
-	if (opt.metadata_image)
-		image->inuse += len;
-}
-
 static void write_image_hdr(void)
 {
 	char alignment[IMAGE_HDR_ALIGN];
@@ -749,6 +831,9 @@ static void clone_ntfs(u64 nr_clusters)
 		Printf("Saving NTFS to image ...\n");
 	else
 		Printf("Cloning NTFS ...\n");
+
+	if (opt.new_serial)
+		generate_serial_number();
 
 	buf = ntfs_calloc(csize);
 	if (!buf)
@@ -818,6 +903,9 @@ static void restore_image(void)
 		      sle64_to_cpu(image_hdr.nr_clusters) + 1 :
 		      sle64_to_cpu(image_hdr.inuse) + 1,
 		      100);
+
+	if (opt.new_serial)
+		generate_serial_number();
 
 		/* Restore up to the alternate boot sector */
 	while (pos <= sle64_to_cpu(image_hdr.nr_clusters)) {
@@ -1087,6 +1175,47 @@ static void wipe_resident_data(ntfs_walk_clusters_ctx *image)
 	wiped_resident_data += n;
 }
 
+static int wipe_data(char *p, int pos, int len)
+{
+	int wiped = 0;
+
+	for (p += pos; --len >= 0;) {
+		if (p[len]) {
+			p[len] = 0;
+			wiped++;
+		}
+	}
+
+	return wiped;
+}
+
+static void wipe_unused_mft_data(ntfs_inode *ni)
+{
+	int unused;
+	MFT_RECORD *m = ni->mrec;
+
+	/* FIXME: broken MFTMirr update was fixed in libntfs, check if OK now */
+	if (ni->mft_no <= LAST_METADATA_INODE)
+		return;
+
+	unused = le32_to_cpu(m->bytes_allocated) - le32_to_cpu(m->bytes_in_use);
+	wiped_unused_mft_data += wipe_data((char *)m,
+			le32_to_cpu(m->bytes_in_use), unused);
+}
+
+static void wipe_unused_mft(ntfs_inode *ni)
+{
+	int unused;
+	MFT_RECORD *m = ni->mrec;
+
+	/* FIXME: broken MFTMirr update was fixed in libntfs, check if OK now */
+	if (ni->mft_no <= LAST_METADATA_INODE)
+		return;
+
+	unused = le32_to_cpu(m->bytes_in_use) - sizeof(MFT_RECORD);
+	wiped_unused_mft += wipe_data((char *)m, sizeof(MFT_RECORD), unused);
+}
+
 static void clone_logfile_parts(ntfs_walk_clusters_ctx *image, runlist *rl)
 {
 	s64 offset = 0, lcn, vcn;
@@ -1100,12 +1229,12 @@ static void clone_logfile_parts(ntfs_walk_clusters_ctx *image, runlist *rl)
 
 		lseek_to_cluster(lcn);
 
-		if (opt.metadata_image && !wipe)
+		if (opt.metadata_image && wipe)
 			gap_to_cluster(lcn - image->current_lcn);
 
 		copy_cluster(opt.rescue, lcn, lcn);
 		image->current_lcn = lcn + 1;
-		if (opt.metadata_image)
+		if (opt.metadata_image && !wipe)
 			image->inuse++;
 
 		if (offset == 0)
@@ -1115,12 +1244,286 @@ static void clone_logfile_parts(ntfs_walk_clusters_ctx *image, runlist *rl)
 	}
 }
 
+/*
+ *		In-memory wiping of MFT record or MFTMirr record
+ *	(only for metadata images)
+ *
+ *	The resident data and (optionally) the timestamps are wiped.
+ */
+
+static void wipe_mft(char *mrec, u32 mrecsz, u64 mft_no)
+{
+	ntfs_walk_clusters_ctx image;
+	ntfs_attr_search_ctx *ctx;
+	ntfs_inode ni;
+
+	ni.mft_no = mft_no;
+	ni.mrec = (MFT_RECORD*)mrec;
+	ni.vol = vol; /* Hmm */
+	image.ni = &ni;
+	ntfs_mst_post_read_fixup_warn((NTFS_RECORD*)mrec,mrecsz,FALSE);
+	wipe_unused_mft_data(&ni);
+	if (!(((MFT_RECORD*)mrec)->flags & MFT_RECORD_IN_USE)) {
+		wipe_unused_mft(&ni);
+	} else {
+			/* ctx with no ntfs_inode prevents from searching external attrs */
+		if (!(ctx = ntfs_attr_get_search_ctx((ntfs_inode*)NULL, (MFT_RECORD*)mrec)))
+			perr_exit("ntfs_get_attr_search_ctx");
+
+		while (!ntfs_attr_lookup(AT_UNUSED, NULL, 0, CASE_SENSITIVE, 0,
+						NULL, 0, ctx)) {
+			if (ctx->attr->type == AT_END)
+				break;
+
+			image.ctx = ctx;
+			if (!ctx->attr->non_resident
+			    && (mft_no > LAST_METADATA_INODE))
+				wipe_resident_data(&image);
+			if (!opt.preserve_timestamps)
+				wipe_timestamps(&image);
+		}
+		ntfs_attr_put_search_ctx(ctx);
+	}
+	ntfs_mft_usn_dec((MFT_RECORD*)mrec);
+	ntfs_mst_pre_write_fixup((NTFS_RECORD*)mrec,mrecsz);
+}
+
+/*
+ *		In-memory wiping of a directory record (I30)
+ *	(only for metadata images)
+ *
+ *	The timestamps are (optionally) wiped
+ */
+
+static void wipe_indx(char *mrec, u32 mrecsz)
+{
+	INDEX_ENTRY *entry;
+	INDEX_ALLOCATION *indexa;
+
+	if (ntfs_mst_post_read_fixup((NTFS_RECORD *)mrec, mrecsz)) {
+		perr_printf("Damaged INDX record");
+		goto out_indexa;
+	}
+	indexa = (INDEX_ALLOCATION*)mrec;
+		/*
+		 * The index bitmap is not checked, obsoleted records are
+		 * wiped if they pass the safety checks
+		 */
+	if ((indexa->magic == magic_INDX)
+	    && (le32_to_cpu(indexa->index.entries_offset) >= sizeof(INDEX_HEADER))
+	    && (le32_to_cpu(indexa->index.allocated_size) <= mrecsz)) {
+		entry = (INDEX_ENTRY *)((u8 *)mrec + le32_to_cpu(
+				indexa->index.entries_offset) + 0x18);
+		wipe_index_entry_timestams(entry);
+	}
+
+	if (ntfs_mft_usn_dec((MFT_RECORD *)mrec))
+		perr_exit("ntfs_mft_usn_dec");
+
+	if (ntfs_mst_pre_write_fixup((NTFS_RECORD *)mrec, mrecsz)) {
+		perr_printf("INDX write fixup failed");
+		goto out_indexa;
+	}
+out_indexa : ;
+}
+
+/*
+ *		Output a set of related clusters (MFT record or index block)
+ */
+
+static void write_set(char *buff, u32 csize, s64 *current_lcn,
+			runlist_element *rl, u32 wi, u32 wj, u32 cnt)
+{
+	u32 k;
+	s64 target_lcn;
+	char cmd = 1;
+
+	for (k=0; k<cnt; k++) {
+		target_lcn = rl[wi].lcn + wj;
+		if (target_lcn != *current_lcn)
+			gap_to_cluster(target_lcn - *current_lcn);
+		if ((write_all(&fd_out, &cmd, sizeof(cmd)) == -1)
+		    || (write_all(&fd_out, &buff[k*csize], csize) == -1))
+			perr_exit("Failed to write_all");
+		*current_lcn = target_lcn + 1;
+			
+		if (++wj >= rl[wi].length) {
+			wj = 0;
+			wi++;
+		}
+	}
+}
+
+/*
+ *		Copy and wipe the full MFT or MFTMirr data.
+ *	(only for metadata images)
+ *
+ *	Data are read and written by full clusters, but the wiping is done
+ *	per MFT record.
+ */
+
+static void copy_wipe_mft(ntfs_walk_clusters_ctx *image, runlist *rl)
+{
+	char buff[NTFS_MAX_CLUSTER_SIZE]; /* overflow checked at mount time */
+	void *fd;
+	s64 mft_no;
+	u32 mft_record_size;
+	u32 csize;
+	u32 records_per_set;
+	u32 clusters_per_set;
+	u32 wi,wj; /* indexes for reading */
+	u32 ri,rj; /* indexes for writing */
+	u32 k; /* lcn within run */
+	u32 r; /* mft_record within set */
+	s64 current_lcn;
+
+	current_lcn = image->current_lcn;
+	mft_record_size = image->ni->vol->mft_record_size;
+	csize = image->ni->vol->cluster_size;
+	fd = image->ni->vol->dev;
+		/*
+		 * Depending on the sizes, there may be several records
+		 * per cluster, or several clusters per record.
+		 */
+	if (csize >= mft_record_size) {
+		records_per_set = csize/mft_record_size;
+		clusters_per_set = 1;
+	} else {
+		clusters_per_set = mft_record_size/csize;
+		records_per_set = 1;
+	}
+	mft_no = 0;
+	ri = rj = 0;
+	wi = wj = 0;
+	lseek_to_cluster(rl[ri].lcn);
+	while (rl[ri].length) {
+		for (k=0; (k<clusters_per_set) && rl[ri].length; k++) {
+			read_rescue(fd, &buff[k*csize], csize, rl[ri].lcn + rj);
+			if (++rj >= rl[ri].length) {
+				rj = 0;
+				if (rl[++ri].length)
+					lseek_to_cluster(rl[ri].lcn);
+			}
+		}
+		if (k == clusters_per_set) {
+			for (r=0; r<records_per_set; r++) {
+				if (!strncmp(&buff[r*mft_record_size],"FILE",4))
+					wipe_mft(&buff[r*mft_record_size],
+						mft_record_size, mft_no);
+				mft_no++;
+			}
+			write_set(buff, csize, &current_lcn,
+					rl, wi, wj, clusters_per_set);
+			wj += clusters_per_set;
+			while (rl[wi].length && (wj >= rl[wi].length))
+				wj -= rl[wi++].length;
+		} else {
+			err_exit("Short last MFT record\n");
+		}
+	}
+	image->current_lcn = current_lcn;
+}
+
+/*
+ *		Copy and wipe the non-resident part of a directory index
+ *	(only for metadata images)
+ *
+ *	Data are read and written by full clusters, but the wiping is done
+ *	per index record.
+ */
+
+static void copy_wipe_i30(ntfs_walk_clusters_ctx *image, runlist *rl)
+{
+	char buff[NTFS_MAX_CLUSTER_SIZE]; /* overflow checked at mount time */
+	void *fd;
+	u32 indx_record_size;
+	u32 csize;
+	u32 records_per_set;
+	u32 clusters_per_set;
+	u32 wi,wj; /* indexes for reading */
+	u32 ri,rj; /* indexes for writing */
+	u32 k; /* lcn within run */
+	u32 r; /* mft_record within set */
+	s64 current_lcn;
+
+	current_lcn = image->current_lcn;
+	csize = image->ni->vol->cluster_size;
+	fd = image->ni->vol->dev;
+		/*
+		 * Depending on the sizes, there may be several records
+		 * per cluster, or several clusters per record.
+		 */
+	indx_record_size = image->ni->vol->indx_record_size;
+	if (csize >= indx_record_size) {
+		records_per_set = csize/indx_record_size;
+		clusters_per_set = 1;
+	} else {
+		clusters_per_set = indx_record_size/csize;
+		records_per_set = 1;
+	}
+	ri = rj = 0;
+	wi = wj = 0;
+	lseek_to_cluster(rl[ri].lcn);
+	while (rl[ri].length) {
+		for (k=0; (k<clusters_per_set) && rl[ri].length; k++) {
+			read_rescue(fd, &buff[k*csize], csize, rl[ri].lcn + rj);
+			if (++rj >= rl[ri].length) {
+				rj = 0;
+				if (rl[++ri].length)
+					lseek_to_cluster(rl[ri].lcn);
+			}
+		}
+		if (k == clusters_per_set) {
+			/* wipe records_per_set records */
+			if (!opt.preserve_timestamps)
+				for (r=0; r<records_per_set; r++) {
+					if (!strncmp(&buff[r*indx_record_size],"INDX",4))
+						wipe_indx(&buff[r*indx_record_size],
+							indx_record_size);
+				}
+			write_set(buff, csize, &current_lcn,
+					rl, wi, wj, clusters_per_set);
+			wj += clusters_per_set;
+			while (rl[wi].length && (wj >= rl[wi].length))
+				wj -= rl[wi++].length;
+		} else {
+			err_exit("Short last directory index record\n");
+		}
+	}
+	image->current_lcn = current_lcn;
+}
+
+static void dump_clusters(ntfs_walk_clusters_ctx *image, runlist *rl)
+{
+	s64 i, len; /* number of clusters to copy */
+
+	if (opt.restore_image)
+		err_exit("Bug : invalid dump_clusters()\n");
+
+	if ((opt.std_out && !opt.metadata_image) || !opt.metadata)
+		return;
+	if (!(len = is_critical_metadata(image, rl)))
+		return;
+
+	lseek_to_cluster(rl->lcn);
+	if (opt.metadata_image && wipe)
+		gap_to_cluster(rl->lcn - image->current_lcn);
+	if (opt.metadata_image ? wipe : !wipe) {
+		/* FIXME: this could give pretty suboptimal performance */
+		for (i = 0; i < len; i++)
+			copy_cluster(opt.rescue, rl->lcn + i, rl->lcn + i);
+		image->current_lcn = rl->lcn + len;
+	}
+}
+
 static void walk_runs(struct ntfs_walk_cluster *walk)
 {
 	int i, j;
 	runlist *rl;
 	ATTR_RECORD *a;
 	ntfs_attr_search_ctx *ctx;
+	BOOL mft_data;
+	BOOL index_i30;
 
 	ctx = walk->image->ctx;
 	a = ctx->attr;
@@ -1142,6 +1545,15 @@ static void walk_runs(struct ntfs_walk_cluster *walk)
 	if (!(rl = ntfs_mapping_pairs_decompress(vol, a, NULL)))
 		perr_exit("ntfs_decompress_mapping_pairs");
 
+		/* special wipings for MFT records and directory indexes */
+	mft_data = ((walk->image->ni->mft_no == FILE_MFT)
+			|| (walk->image->ni->mft_no == FILE_MFTMirr))
+		    && (a->type == AT_DATA);
+	index_i30 = (walk->image->ctx->attr->type == AT_INDEX_ALLOCATION)
+		    && (a->name_length == 4)
+		    && !memcmp((char*)a + le16_to_cpu(a->name_offset),
+					NTFS_INDEX_I30,8);
+
 	for (i = 0; rl[i].length; i++) {
 		s64 lcn = rl[i].lcn;
 		s64 lcn_length = rl[i].length;
@@ -1157,23 +1569,48 @@ static void walk_runs(struct ntfs_walk_cluster *walk)
 				(unsigned int)le32_to_cpu(a->type),
 				(long long)lcn, (long long)lcn_length);
 
-		if (!wipe || opt.metadata_image)
+		if (opt.metadata_image ? wipe && !mft_data && !index_i30 : !wipe)
 			dump_clusters(walk->image, rl + i);
 
 		for (j = 0; j < lcn_length; j++) {
 			u64 k = (u64)lcn + j;
 			if (ntfs_bit_get_and_set(lcn_bitmap.bm, k, 1))
 				err_exit("Cluster %llu referenced twice!\n"
-					 "You didn't shutdown your Windows"
+					 "You didn't shutdown your Windows "
 					 "properly?\n", (unsigned long long)k);
 		}
 
 		if (!opt.metadata_image)
 			walk->image->inuse += lcn_length;
+			/*
+			 * For a metadata image, we have to compute the
+			 * number of metadata clusters for the percentages
+			 * to be displayed correctly while restoring.
+			 */
+		if (!wipe && opt.metadata_image) {
+			if ((walk->image->ni->mft_no == FILE_LogFile)
+			    && (walk->image->ctx->attr->type == AT_DATA)) {
+					/* 16 KiB of FILE_LogFile */
+				walk->image->inuse
+				   += is_critical_metadata(walk->image,rl);
+			} else {
+				if ((walk->image->ni->mft_no
+						<= LAST_METADATA_INODE)
+				   || (walk->image->ctx->attr->type != AT_DATA))
+					walk->image->inuse += lcn_length;
+			}
+		}
 	}
-	if (((!wipe && !opt.std_out) || opt.metadata_image) && opt.metadata &&
-	    walk->image->ni->mft_no == FILE_LogFile &&
-	    walk->image->ctx->attr->type == AT_DATA)
+	if (wipe && opt.metadata_image) {
+		if (mft_data)
+			copy_wipe_mft(walk->image,rl);
+		if (index_i30)
+			copy_wipe_i30(walk->image,rl);
+	}
+	if (opt.metadata
+	    && (opt.metadata_image || !wipe)
+	    && (walk->image->ni->mft_no == FILE_LogFile)
+	    && (walk->image->ctx->attr->type == AT_DATA))
 		clone_logfile_parts(walk->image, rl);
 
 	free(rl);
@@ -1269,47 +1706,6 @@ done:
 }
 
 
-static int wipe_data(char *p, int pos, int len)
-{
-	int wiped = 0;
-
-	for (p += pos; --len >= 0;) {
-		if (p[len]) {
-			p[len] = 0;
-			wiped++;
-		}
-	}
-
-	return wiped;
-}
-
-static void wipe_unused_mft_data(ntfs_inode *ni)
-{
-	int unused;
-	MFT_RECORD *m = ni->mrec;
-
-	/* FIXME: broken MFTMirr update was fixed in libntfs, check if OK now */
-	if (ni->mft_no <= LAST_METADATA_INODE)
-		return;
-
-	unused = le32_to_cpu(m->bytes_allocated) - le32_to_cpu(m->bytes_in_use);
-	wiped_unused_mft_data += wipe_data((char *)m,
-			le32_to_cpu(m->bytes_in_use), unused);
-}
-
-static void wipe_unused_mft(ntfs_inode *ni)
-{
-	int unused;
-	MFT_RECORD *m = ni->mrec;
-
-	/* FIXME: broken MFTMirr update was fixed in libntfs, check if OK now */
-	if (ni->mft_no <= LAST_METADATA_INODE)
-		return;
-
-	unused = le32_to_cpu(m->bytes_in_use) - sizeof(MFT_RECORD);
-	wiped_unused_mft += wipe_data((char *)m, sizeof(MFT_RECORD), unused);
-}
-
 static void mft_record_write_with_same_usn(ntfs_volume *volume, ntfs_inode *ni)
 {
 	if (ntfs_mft_usn_dec(ni->mrec))
@@ -1342,6 +1738,8 @@ static int walk_clusters(ntfs_volume *volume, struct ntfs_walk_cluster *walk)
 	ntfs_inode *ni;
 	struct progress_bar progress;
 
+	if (opt.restore_image || (!opt.metadata && wipe))
+		err_exit("Bug : invalid walk_clusters()\n");
 	Printf("Scanning volume ...\n");
 
 	last_mft_rec = (volume->mft_na->initialized_size >>
@@ -1373,7 +1771,7 @@ static int walk_clusters(ntfs_volume *volume, struct ntfs_walk_cluster *walk)
 
 		deleted_inode = !(ni->mrec->flags & MFT_RECORD_IN_USE);
 
-		if (deleted_inode) {
+		if (deleted_inode && !opt.metadata_image) {
 
 			ni->mft_no = MREF(mref);
 			if (wipe) {
@@ -1407,8 +1805,13 @@ static int walk_clusters(ntfs_volume *volume, struct ntfs_walk_cluster *walk)
 		walk->image->ni = ni;
 		walk_attributes(walk);
 out:
-		if (wipe) {
+		if (wipe && !opt.metadata_image) {
+			int i;
+
 			wipe_unused_mft_data(ni);
+			for (i = 0; i < ni->nr_extents; ++i) {
+				wipe_unused_mft_data(ni->extent_nis[i]);
+			}
 			mft_inode_write_with_same_usn(volume, ni);
 		}
 
@@ -1420,12 +1823,14 @@ out:
 				/* also get the backup bootsector */
 		nr_clusters = vol->nr_clusters;
 		lseek_to_cluster(nr_clusters);
-		if (opt.metadata_image && !wipe)
+		if (opt.metadata_image && wipe)
 			gap_to_cluster(nr_clusters - walk->image->current_lcn);
-		if (!wipe)
+		if (opt.metadata_image ? wipe : !wipe)
 			copy_cluster(opt.rescue, nr_clusters, nr_clusters);
 		walk->image->current_lcn = nr_clusters;
-		walk->image->inuse++;
+			/* Not counted, for compatibility with older versions */
+		if (!opt.metadata_image)
+			walk->image->inuse++;
 	}
 	return 0;
 }
@@ -1773,7 +2178,7 @@ static s64 open_volume(void)
 {
 	s64 device_size;
 
-	mount_volume(MS_RDONLY);
+	mount_volume(NTFS_MNT_RDONLY);
 
 	device_size = ntfs_device_size_get(vol->dev, 1);
 	if (device_size <= 0)
@@ -2006,8 +2411,6 @@ int main(int argc, char **argv)
 	memset(&image, 0, sizeof(image));
 	backup_clusters.image = &image;
 
-	if (opt.metadata_image)
-		wipe = 1;
 	walk_clusters(vol, &backup_clusters);
 	compare_bitmaps(&lcn_bitmap);
 	print_disk_usage("", vol->cluster_size, vol->nr_clusters, image.inuse);
@@ -2034,19 +2437,18 @@ int main(int argc, char **argv)
 		exit(0);
 	}
 
+	wipe = 1;
 	if (opt.metadata_image) {
-		wipe = 0;
 		initialise_image_hdr(device_size, image.inuse);
 		write_image_hdr();
 	} else {
-		wipe = 1;
 		fsync_clone(fd_out); /* sync copy before mounting */
 		opt.volume = opt.output;
 	/* 'force' again mount for dirty volumes (e.g. after resize).
 	   FIXME: use mount flags to avoid potential side-effects in future */
 		opt.force++;
 		ntfs_umount(vol,FALSE);
-		mount_volume(0 /*MS_NOATIME*/);
+		mount_volume(0 /*NTFS_MNT_NOATIME*/);
 	}
 
 	free(lcn_bitmap.bm);
