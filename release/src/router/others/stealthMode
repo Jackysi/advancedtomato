@@ -1,8 +1,9 @@
 #!/bin/sh
 
 # Turn off/on all led for routers RT-N16 and RT-N66U
-
-Version: 0.3
+#
+# Version: 0.4
+#
 
 N16=`nvram get t_model_name | grep RT-N16 | wc -l`
 N66U=`nvram get t_model_name | grep RT-N66U | wc -l`
@@ -14,6 +15,7 @@ if [ "$N16" == "1" -o "$N66U" == "1" ]; then
             echo "StealthMode Activated"
             logger StealthMode Activated
             cru a stealthmode "*/5 * * * * /usr/sbin/stealthMode perm_on"
+        ;;
         perm_on)
             if [ "$N66U" == "1" ]; then
                 wl -i eth2 leddc 1

@@ -13,7 +13,7 @@
 <meta name='robots' content='noindex,nofollow'>
 <title>[<% ident(); %>] QoS: Classification</title>
 <link rel='stylesheet' type='text/css' href='tomato.css'>
-<% css(); %
+<% css(); %>
 <script type='text/javascript' src='tomato.js'></script>
 <script type='text/javascript' src='protocols.js'></script>
 
