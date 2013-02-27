@@ -154,6 +154,14 @@ switch(nvram['boardtype']) {
   case '0xf52a':  // E3200
   case '0xf52c':  // E4200v1
   case '0x1202':  // HG320 - not sure, need test
+    if (nvram['boardrev'] == '0x1153') { //RG200E-CA type 0x058e same as E900
+      COL_P0N = '1';
+      COL_P1N = '2';
+      COL_P2N = '3';
+      COL_P3N = '4';
+      COL_P4N = '0';
+      break;
+    }
     COL_P0N = '0';
     COL_P1N = '1';
     COL_P2N = '2';

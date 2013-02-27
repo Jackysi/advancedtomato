@@ -88,8 +88,8 @@ F7D3301/F7D3302/F7D4302 v1	BCM4718               0xa4cf       12345     0x1102
 F5D8235-4 v3			BCM4718               0xa4cf       12345     0x1100
 
 CW-5358U			BCM5357               0x0550       1234      0x1100    0x710 //500MHz/8MB/32MB/2.4G/USB
-FiberHome HG320			BCM5358U              0x053d       0527      0x1202    0x710 //16MB/64MB/2.4G/USB
-ChinaNet RG-200E		BCM5358U              0x058e       1         0x1153    0x710 //16MB/64MB/2.4G/USB/FE
+FiberHome HG320			BCM5357               0x053d       0527      0x1202    0x710 //16MB/64MB/2.4G/USB
+ChinaNet RG-200E		BCM5357               0x058e       1         0x1153    0x710 //16MB/64MB/2.4G/USB/FE
 
 WL-550gE			BCM5352E              0x0467       45        0x10      0x0758      hardware_version=WL550gE-01-05-01-00 sdram_init=0x2000
 
@@ -177,17 +177,18 @@ int check_hw_type(void)
 	case 0xf53b:
 	case 0x0550: //RT-N10U and RT-N53 and CW-5358U
 	case 0x054d:
+	case 0x053d:
 		return HW_BCM5357;
 	case 0xf52a:
 		return HW_BCM47186;
 	case 0xf550:
 	case 0xc500:
 	case 0xc550:
-	case 0x053d:
 		return HW_BCM5358U;
 	case 0x058e:
-		if (nvram_match("boardrev", "0x1153")) return HW_BCM5358U; //RG100E-CA
+		if (nvram_match("boardrev", "0x1153")) return HW_BCM5357; //RG100E-CA
 		if (nvram_match("boardrev", "0x1155")) return HW_BCM53572; //E900
+
 #endif
 	}
 
@@ -395,12 +396,14 @@ int get_model(void)
 			//if (nvram_match("boardrev", "0x1100"))
 			return MODEL_CW5358U;
 		}
+		break;
 	case 0527:
 		switch (hw) {
-		case HW_BCM5358U:
+		case HW_BCM5357:
 			//if (nvram_match("boardrev", "0x1202"))
 			return MODEL_HG320;
 		}
+		break;
 	case 1:
 		switch (hw) {
 		case HW_BCM4716:
@@ -412,6 +415,7 @@ int get_model(void)
 			return MODEL_RG200E_CA;
 			break;
 		}
+		break;
 		/* fall through */
 	case 3500:
 		switch (hw) {
