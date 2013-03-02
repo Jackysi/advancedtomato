@@ -1576,7 +1576,7 @@ nocat-install:
 
 lzo/stamp-h1:
 	cd lzo && \
-	CFLAGS="-Os -Wall -fPIC $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static
+	CFLAGS="-O3 -Wall -fPIC $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static
 	touch lzo/stamp-h1
 
 lzo: lzo/stamp-h1
@@ -1594,7 +1594,7 @@ lzo-install: lzo
 openvpn: openvpn/.conf openssl lzo
 
 openvpn/.conf:
-	cd openvpn && CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	cd openvpn && CFLAGS="-O3 -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-L$(TOP)/openssl -L$(TOP)/lzo/src/.libs -ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	CPPFLAGS="-I$(TOP)/lzo/include -I$(TOP)/openssl/include" \
 	$(CONFIGURE) --prefix= \
@@ -1908,7 +1908,7 @@ dnscrypt-install: dnscrypt
 	$(STRIP) -s $(INSTALLDIR)/dnscrypt/usr/sbin/hostip
 
 dnscrypt-clean:
-	-@$(MAKE) -c dnscrypt clean
+	-@$(MAKE) -C dnscrypt clean
 	@rm -rf dnscrypt/stamp-h1 dnscrypt/src/dnscrypt-proxy/.deps dnscrypt/Makefile
 
 tor/stamp-h1: openssl zlib libevent
@@ -1926,7 +1926,7 @@ tor-install: tor
 	$(STRIP) -s $(INSTALLDIR)/tor/usr/sbin/tor
 
 tor-clean:
-	-@$(MAKE) -c tor clean
+	-@$(MAKE) -C tor clean
 	@rm -rf tor/stamp-h1 tor/Makefile
 
 mdadm:
@@ -1936,7 +1936,7 @@ mdadm-install: mdadm
 	$(STRIP) -s $(INSTALLDIR)/mdadm/usr/sbin/mdadm
 
 mdadm-clean:
-	-@$(MAKE) -c mdadm clean
+	-@$(MAKE) -C mdadm clean
 
 #
 # Generic rules

@@ -959,41 +959,33 @@ void start_upnp(void)
 					char *lanmask = nvram_safe_get(lanN_netmask);
 					char *lanlisten = nvram_safe_get(upnp_lanN);
 
-					// Count bits of lanmask - shibby
-					unsigned int i, bit_mask=0;
-					struct in_addr mask;
-
-					inet_aton (lanmask, &mask);
-					//
-
-					for (i=0; i<32; i++)
-						bit_mask += (mask.s_addr>>i)%2;
-
 					if((strcmp(lanlisten,"1")==0) && (strcmp(lanip,"")!=0) && (strcmp(lanip,"0.0.0.0")!=0)) {
 						fprintf(f,
-							"listening_ip=%s/%d\n",
-							lanip, bit_mask);
+							"listening_ip=%s/%s\n",
+							lanip, lanmask);
 						int ports[4];
 						if ((ports[0] = nvram_get_int("upnp_min_port_int")) > 0 &&
 							(ports[1] = nvram_get_int("upnp_max_port_int")) > 0 &&
 							(ports[2] = nvram_get_int("upnp_min_port_ext")) > 0 &&
 							(ports[3] = nvram_get_int("upnp_max_port_ext")) > 0) {
 							fprintf(f,
-								"allow %d-%d %s/%d %d-%d\n",
+								"allow %d-%d %s/%s %d-%d\n",
 								ports[0], ports[1],
-								lanip, bit_mask,
+								lanip, lanmask,
 								ports[2], ports[3]
 							);
 						}
 						else {
 							// by default allow only redirection of ports above 1024
-							fprintf(f, "allow 1024-65535 %s/%d 1024-65535\n", lanip, bit_mask);
+							fprintf(f, "allow 1024-65535 %s/%s 1024-65535\n", lanip, lanmask);
 						}
 					}
 				}
 
 				fappend(f, "/etc/upnp/config.custom");
+				fprintf(f, "%s\n", nvram_safe_get("upnp_custom"));
 				fprintf(f, "\ndeny 0-65535 0.0.0.0/0 0-65535\n");
+				
 				fclose(f);
 				
 				xstart("miniupnpd", "-f", "/etc/upnp/config");
@@ -1699,10 +1691,10 @@ static void start_ftpd(void)
 		/*
 		username<password<rights[<root_dir>]
 		rights:
-			Read/Write - Odczyt/Zapis
-			Read Only - Odczyt
-			View Only - Widok
-			Private - Prywatne
+			Read/Write
+			Read Only
+			View Only
+			Private
 		*/
 		p = buf;
 		while ((q = strsep(&p, ">")) != NULL) {
@@ -1715,7 +1707,7 @@ static void start_ftpd(void)
 			root_dir = nvram_safe_get("ftp_pubroot");
 
 			/* directory */
-			if (strncmp(rights, "Prywatne", 7) == 0)
+			if (strncmp(rights, "Private", 7) == 0)
 			{
 				sprintf(tmp, "%s/%s", nvram_storage_path("ftp_pvtroot"), user);
 				mkdir_if_none(tmp);
@@ -1733,9 +1725,9 @@ static void start_ftpd(void)
 				tmp[0] = 0;
 				if (nvram_invmatch("ftp_dirlist", "1"))
 					strcat(tmp, "dirlist_enable=yes\n");
-				if (strstr(rights, "Odczyt") || !strcmp(rights, "Prywatne"))
+				if (strstr(rights, "Read") || !strcmp(rights, "Private"))
 					strcat(tmp, "download_enable=yes\n");
-				if (strstr(rights, "Zapis") || !strncmp(rights, "Prywatne", 7))
+				if (strstr(rights, "Write") || !strncmp(rights, "Private", 7))
 					strcat(tmp, "write_enable=yes\n");
 					
 				fputs(tmp, f);

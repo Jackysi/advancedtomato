@@ -498,6 +498,7 @@ const defaults_t defaults[] = {
 	{ "upnp_port",			"0"				},
 	{ "upnp_ssdp_interval",		"60"				},	// SSDP interval
 	{ "upnp_mnp",			"0"				},
+	{ "upnp_custom",		""				},
 
 	{ "upnp_clean",			"1"				},	/* 0:Disable 1:Enable */
 	{ "upnp_clean_interval",	"600"				},	/* Cleaning interval in seconds */
