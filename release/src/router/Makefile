@@ -1476,7 +1476,7 @@ nocat-install:
 
 lzo/stamp-h1:
 	cd lzo && \
-	CFLAGS="-Os -Wall -fPIC $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static
+	CFLAGS="-O3 -Wall -fPIC $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static
 	touch lzo/stamp-h1
 
 lzo: lzo/stamp-h1
@@ -1494,7 +1494,7 @@ lzo-install: lzo
 openvpn: openvpn/.conf openssl lzo
 
 openvpn/.conf:
-	cd openvpn && CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	cd openvpn && CFLAGS="-O3 -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-L$(TOP)/openssl -L$(TOP)/lzo/src/.libs -ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	$(CONFIGURE) --prefix= \
 	--with-lzo-headers="$(TOP)/lzo/include" \
