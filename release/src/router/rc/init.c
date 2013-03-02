@@ -415,9 +415,12 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan1ports", "4 5");
 		break;
 	case MODEL_WNR2000v2:
-	case MODEL_RG200E_CA:
 		dirty |= check_nv("vlan1ports", "4 3 2 1 5*");
 		dirty |= check_nv("vlan2ports", "0 5");
+		break;
+	case MODEL_RG200E_CA:
+		dirty |= check_nv("vlan0ports", "4 3 2 1 5*");
+		dirty |= check_nv("vlan1ports", "0 5");
 		break;
 	case MODEL_RTN10:
 		dirty |= check_nv("vlan1ports", "4 5");
