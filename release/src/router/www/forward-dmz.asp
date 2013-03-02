@@ -43,11 +43,9 @@ function verifyFields(focused, quiet)
 	sip = E('_f_dmz_ra');
 	sip.disabled = off;
 
-/* VLAN-BEGIN */
 	var dif = E('_dmz_ifname');
 	dif.disabled = off;
 	if (dif.options[(dif.selectedIndex)].disabled) dif.selectedIndex = 0;
-/* VLAN-END */
 
 	if (off) {
 		ferror.clearAll(dip, sip);
@@ -85,7 +83,6 @@ function save()
 }
 
 function init() {
-/* VLAN-BEGIN */
 	var dif = E('_dmz_ifname');
 	if(nvram.lan_ifname.length < 1)
 		dif.options[0].disabled=true;
@@ -97,7 +94,6 @@ function init() {
 		dif.options[3].disabled=true;
 	if(nvram.dmz_enable == '1')
 		verifyFields(null,true);
-/* VLAN-END */
 }
 
 </script>
