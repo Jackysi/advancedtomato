@@ -1899,7 +1899,7 @@ dnscrypt-install: dnscrypt
 	$(STRIP) -s $(INSTALLDIR)/dnscrypt/usr/sbin/hostip
 
 dnscrypt-clean:
-	-@$(MAKE) -c dnscrypt clean
+	-@$(MAKE) -C dnscrypt clean
 	@rm -rf dnscrypt/stamp-h1 dnscrypt/src/dnscrypt-proxy/.deps dnscrypt/Makefile
 
 tor/stamp-h1: openssl zlib libevent
@@ -1917,7 +1917,7 @@ tor-install: tor
 	$(STRIP) -s $(INSTALLDIR)/tor/usr/sbin/tor
 
 tor-clean:
-	-@$(MAKE) -c tor clean
+	-@$(MAKE) -C tor clean
 	@rm -rf tor/stamp-h1 tor/Makefile
 
 mdadm:
@@ -1927,7 +1927,7 @@ mdadm-install: mdadm
 	$(STRIP) -s $(INSTALLDIR)/mdadm/usr/sbin/mdadm
 
 mdadm-clean:
-	-@$(MAKE) -c mdadm clean
+	-@$(MAKE) -C mdadm clean
 
 #
 # Generic rules
