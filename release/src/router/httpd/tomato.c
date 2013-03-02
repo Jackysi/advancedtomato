@@ -883,18 +883,18 @@ static const nvset_t nvset_list[] = {
 	{ "dmz_ipaddr",			V_LENGTH(0, 15)		},
 	{ "dmz_sip",			V_LENGTH(0, 512)	},
 #ifdef TCONFIG_VLAN
-	{ "dmz_ifname",			V_LENGTH(0, 5)			},
+	{ "dmz_ifname",			V_LENGTH(0, 5)		},
 #endif
 
 // forward-upnp
 	{ "upnp_enable",		V_NUM				},
 	{ "upnp_secure",		V_01				},
-	{ "upnp_port",			V_RANGE(0, 65535)		},
-	{ "upnp_ssdp_interval",		V_RANGE(10, 9999)		},
+	{ "upnp_port",			V_RANGE(0, 65535)	},
+	{ "upnp_ssdp_interval",	V_RANGE(10, 9999)	},
 	{ "upnp_mnp",			V_01				},
 	{ "upnp_clean",			V_01				},
-	{ "upnp_clean_interval",	V_RANGE(60, 65535)		},
-	{ "upnp_clean_threshold",	V_RANGE(0, 9999)		},
+	{ "upnp_clean_interval",	V_RANGE(60, 65535)	},
+	{ "upnp_clean_threshold",	V_RANGE(0, 9999)	},
 	{ "upnp_min_port_int",		V_PORT				},
 	{ "upnp_max_port_int",		V_PORT				},
 	{ "upnp_min_port_ext",		V_PORT				},
@@ -905,6 +905,7 @@ static const nvset_t nvset_list[] = {
 	{ "upnp_lan2",			V_01				},
 	{ "upnp_lan3",			V_01				},
 #endif
+	{ "upnp_custom",		V_TEXT(0, 2048)		},
 
 // forward-basic
 	{ "portforward",		V_LENGTH(0, 4096)	},

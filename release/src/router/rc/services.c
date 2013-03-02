@@ -845,7 +845,9 @@ void start_upnp(void)
 
 				fappend(f, "/jffs/upnpconfig.custom");
 				fappend(f, "/etc/upnp/config.custom");
+				fprintf(f, "%s\n", nvram_safe_get("upnp_custom"));
 				fprintf(f, "\ndeny 0-65535 0.0.0.0/0 0-65535\n");
+				
 				fclose(f);
 				
 				xstart("miniupnpd", "-f", "/etc/upnp/config");
