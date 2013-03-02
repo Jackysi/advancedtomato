@@ -99,7 +99,7 @@ read_permission_line(struct upnpperm * perm,
 			return -1;
 		q++;
 		p = q;
-		while(isdigit(*q) || (*q == '.'))
+		while(isdigit(*q))
 			q++;
 		if(*q == '.')
 		{

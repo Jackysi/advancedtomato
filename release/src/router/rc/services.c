@@ -959,35 +959,25 @@ void start_upnp(void)
 					char *lanmask = nvram_safe_get(lanN_netmask);
 					char *lanlisten = nvram_safe_get(upnp_lanN);
 
-					// Count bits of lanmask - shibby
-					unsigned int i, bit_mask=0;
-					struct in_addr mask;
-
-					inet_aton (lanmask, &mask);
-					//
-
-					for (i=0; i<32; i++)
-						bit_mask += (mask.s_addr>>i)%2;
-
 					if((strcmp(lanlisten,"1")==0) && (strcmp(lanip,"")!=0) && (strcmp(lanip,"0.0.0.0")!=0)) {
 						fprintf(f,
-							"listening_ip=%s/%d\n",
-							lanip, bit_mask);
+							"listening_ip=%s/%s\n",
+							lanip, lanmask);
 						int ports[4];
 						if ((ports[0] = nvram_get_int("upnp_min_port_int")) > 0 &&
 							(ports[1] = nvram_get_int("upnp_max_port_int")) > 0 &&
 							(ports[2] = nvram_get_int("upnp_min_port_ext")) > 0 &&
 							(ports[3] = nvram_get_int("upnp_max_port_ext")) > 0) {
 							fprintf(f,
-								"allow %d-%d %s/%d %d-%d\n",
+								"allow %d-%d %s/%s %d-%d\n",
 								ports[0], ports[1],
-								lanip, bit_mask,
+								lanip, lanmask,
 								ports[2], ports[3]
 							);
 						}
 						else {
 							// by default allow only redirection of ports above 1024
-							fprintf(f, "allow 1024-65535 %s/%d 1024-65535\n", lanip, bit_mask);
+							fprintf(f, "allow 1024-65535 %s/%s 1024-65535\n", lanip, lanmask);
 						}
 					}
 				}
