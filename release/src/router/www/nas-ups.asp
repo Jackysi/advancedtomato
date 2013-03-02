@@ -38,6 +38,8 @@ text-align: left;
 </style>
 <script type='text/javascript'>
 
+//      <% nvram(""); %>
+
 function init()
 {
 	clientSideInclude('ups-status', '/ext/cgi-bin/tomatoups.cgi');
