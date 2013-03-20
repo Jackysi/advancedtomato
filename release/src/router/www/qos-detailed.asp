@@ -138,7 +138,6 @@ grid.sortCompare = function(a, b) {
 	var r;
 
 	switch (col) {
-	case 0:		// Proto
 	case 2:		// S port
 	case 4:		// D port
 	case 6:		// Rule #
