@@ -539,16 +539,23 @@ const defaults_t defaults[] = {
 	{ "ne_vgamma",			"2"				},	// "
 
 // qos-bw-limiter
-	{ "qosl_enable",		"0"			},
-//	{ "qosl_obw",			""			},	//unused - used qos_obw
-//	{ "qosl_ibw",			""			},	//unused - used qos_obw
-	{ "qosl_rules",			"" 			},
+	{ "qosl_enable",		"0"				},
+	{ "qosl_rules",			""				},
+	{ "qosl_denable",		"0" 			},
+	{ "qosl_tcp",			"0" 			},//unlimited
+	{ "qosl_udp",			"0" 			},//unlimited
+	{ "qosl_dlc",			""				},
+	{ "qosl_ulc",			""				},
+	{ "qosl_dlr",			""				},
+	{ "qosl_ulr",			""				},
+//	{ "qosl_obw",			""				},	unused - used qos_obw
+//	{ "qosl_ibw",			""				},	unused - used qos_obw
 
 // access restrictions
 	{ "rruleN",				"0"				},
 	{ "rrule0",				"0|1320|300|31|||word text\n^begins-with.domain.\n.ends-with.net$\n^www.exact-domain.net$|0|example" },
 //*	{ "rrule##",			""				},
-	{ "rrulewp",			"80,8080"			},
+	{ "rrulewp",			"80,8080"		},
 
 #if TOMATO_SL
 // samba
@@ -560,7 +567,7 @@ const defaults_t defaults[] = {
 #endif
 
 // admin-access
-	{ "http_username",		""			},	// Username
+	{ "http_username",		""				},	// Username
 	{ "http_passwd",		"admin"			},	// Password
 	{ "remote_management",	"0"				},	// Remote Management [1|0]
 	{ "remote_mgt_https",	"0"				},	// Remote Management use https [1|0]

@@ -42,7 +42,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-// <% nvram("qosl_enable,qos_ibw,qos_obw,qosl_rules,lan_ipaddr,lan_netmask"); %>
+// <% nvram("qosl_enable,qos_ibw,qos_obw,qosl_rules,lan_ipaddr,lan_netmask,qosl_denable,qosl_dlr,qosl_dlc,qosl_ulr,qosl_ulc,qosl_udp,qosl_tcp"); %>
 
 var class_prio = [['0','Highest'],['1','High'],['2','Normal'],['3','Low'],['4','Lowest']];
 var class_tcp = [['0','nolimit']];
@@ -150,6 +150,14 @@ qosg.verifyFields = function(row, quiet)
 	var f = fields.getAll(row);
 	var s;
 
+/*
+	if (v_ip(f[0], quiet)) {
+		if(this.existIP(f[0].value)) {
+			ferror.set(f[0], 'duplicate IP address', quiet);
+			ok = 0;
+		}
+	}
+*/
 	if(v_macip(f[0], quiet, 0, nvram.lan_ipaddr, nvram.lan_netmask)) {
 		if(this.existIP(f[0].value)) {
 			ferror.set(f[0], 'duplicate IP or MAC address', quiet);
@@ -193,11 +201,21 @@ qosg.verifyFields = function(row, quiet)
 function verifyFields(focused, quiet)
 {
 	var a = !E('_f_qosl_enable').checked;
+	var b = !E('_f_qosl_denable').checked;
 
 	E('_qos_ibw').disabled = a;
 	E('_qos_obw').disabled = a;
+	E('_f_qosl_denable').disabled = a;
+
+	E('_qosl_dlr').disabled = b || a;
+	E('_qosl_dlc').disabled = b || a;
+	E('_qosl_ulr').disabled = b || a;
+	E('_qosl_ulc').disabled = b || a;
+	E('_qosl_tcp').disabled = b || a;
+	E('_qosl_udp').disabled = b || a;
 
 	elem.display(PR('_qos_ibw'), PR('_qos_obw'), !a);
+	elem.display(PR('_qosl_dlr'), PR('_qosl_dlc'), PR('_qosl_ulr'), PR('_qosl_ulc'), PR('_qosl_tcp'), PR('_qosl_udp'), !a && !b);
 
 	return 1;
 }
@@ -217,6 +235,7 @@ function save()
 
 	var fom = E('_fom');
 	fom.qosl_enable.value = E('_f_qosl_enable').checked ? 1 : 0;
+	fom.qosl_denable.value = E('_f_qosl_denable').checked ? 1 : 0;
 	fom.qosl_rules.value = qoslimitrules;
 	form.submit(fom, 1);
 }
@@ -246,6 +265,8 @@ function init()
 
 <input type='hidden' name='qosl_enable'>
 <input type='hidden' name='qosl_rules'>
+<input type='hidden' name='qosl_denable'>
+
 
 <div id='qoslimit'>
 
@@ -269,6 +290,50 @@ function init()
 			</ul>
 		</div>
 	</div>
+	
+
+	<div class='section-title'>Default Class rate/ceiling for unlisted IP's</div>
+	<div class='section'>
+		<script type='text/javascript'>
+			createFieldTable('', [
+				{ title: 'Enable', name: 'f_qosl_denable', type: 'checkbox', value: nvram.qosl_denable == '1'},
+				{ title: 'Download rate', name: 'qosl_dlr', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_dlr },
+				{ title: 'Download ceil', name: 'qosl_dlc', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_dlc },
+				{ title: 'Upload rate', name: 'qosl_ulr', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_ulr },
+				{ title: 'Upload ceil', name: 'qosl_ulc', type: 'text', maxlen: 6, size: 8, suffix: ' <small>kbit/s</small>', value: nvram.qosl_ulc },
+				{ title: 'TCP Limit', name: 'qosl_tcp', type: 'select', options:
+					[['0', 'no limit'],
+					['1', '1'],
+					['2', '2'],
+					['5', '5'],
+					['10', '10'],
+					['20', '20'],
+					['50', '50'],
+					['100', '100'],
+					['200', '200'],
+					['500', '500'],
+					['1000', '1000']], value: nvram.qosl_tcp },
+				{ title: 'UDP limit', name: 'qosl_udp', type: 'select', options:
+					[['0', 'no limit'],
+					['1', '1/s'],
+					['2', '2/s'],
+					['5', '5/s'],
+					['10', '10/s'],
+					['20', '20/s'],
+					['50', '50/s'],
+					['100', '100/s']], value: nvram.qosl_udp }
+			]);
+		</script>
+		<div>
+			<br>
+			<br>
+			<br>
+			<ul>
+				<li><b>Default Class</b> - All clients not included in the list will <b>share</b> the Default Rate/Ceiling setting.
+			</ul>
+		</div>
+	</div>
+</div>
 
 <!-- / / / -->
 
@@ -283,3 +348,4 @@ function init()
 <script type='text/javascript'>qosg.setup(); verifyFields(null, 1);</script>
 </body>
 </html>
+

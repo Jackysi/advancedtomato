@@ -1149,8 +1149,15 @@ static const nvset_t nvset_list[] = {
 	{ "ne_vgamma",			V_NUM				},
 
 // qos-bw-limiter
-	{ "qosl_enable",		V_01                   },
-	{ "qosl_rules",			V_LENGTH(0, 4096)      },
+	{ "qosl_enable",		V_01				},
+	{ "qosl_rules",			V_LENGTH(0, 4096)	},
+	{ "qosl_denable",       V_01                   },					
+	{ "qosl_ulr",          V_RANGE(0, 999999)     },
+	{ "qosl_ulc",          V_RANGE(0, 999999)     },
+	{ "qosl_dlr",          V_RANGE(0, 999999)     },
+	{ "qosl_dlc",          V_RANGE(0, 999999)     },	
+	{ "qosl_tcp",          V_RANGE(0, 1000)       },
+	{ "qosl_udp",          V_RANGE(0, 100)        },
 	/*qosl_ibw unused - qos_ibw shared*/
 	/*qosl_obw unused - qos_obw shared*/
 
