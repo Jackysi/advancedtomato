@@ -116,6 +116,7 @@ obj-$(TCONFIG_MEDIA_SERVER) += libvorbis
 obj-$(TCONFIG_MEDIA_SERVER) += minidlna
 MEDIA_SERVER_STATIC=y
 
+obj-y += libnfnetlink
 obj-y += miniupnpd
 #	obj-y += upnp
 #
@@ -766,15 +767,34 @@ rp-pppoe-install: rp-pppoe
 
 upnp: nvram shared iptables
 
-miniupnpd-config:
-	@cd miniupnpd && ./genconfig.sh
+libnfnetlink/stamp-h1:
+	cd $(TOP)/libnfnetlink && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
+		$(CONFIGURE) --prefix=/usr --enable-shared --enable-static
 
-miniupnpd: iptables miniupnpd-config
+libnfnetlink: libnfnetlink/stamp-h1
+
+libnfnetlink-install:
+	install -D libnfnetlink/src/.libs/libnfnetlink.so.0.2.0 $(INSTALLDIR)/libnfnetlink/usr/lib/libnfnetlink.so.0.2.0
+	$(STRIP) -s $(INSTALLDIR)/libnfnetlink/usr/lib/libnfnetlink.so.0.2.0
+	cd $(INSTALLDIR)/libnfnetlink/usr/lib/ && \
+		ln -sf libnfnetlink.so.0.2.0 libnfnetlink.so.0 && \
+		ln -sf libnfnetlink.so.0.2.0 libnfnetlink.so
+
+miniupnpd-config:
+#ifeq ($(TCONFIG_IPV6),y)
+#	@cd miniupnpd && ./genconfig.sh --ipv6
+#else
+	@cd miniupnpd && ./genconfig.sh
+#endif
+
+miniupnpd: iptables miniupnpd-config libnfnetlink
 	@$(SEP)
 	$(MAKE) -C miniupnpd miniupnpd -f Makefile.linux \
-	TARGET_OPENWRT="not really" CC=$(CC) \
-	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include -I$(TOP)/shared" \
-	LDFLAGS="-L$(TOP)/iptables -liptc" LIBS=""
+	TARGET_OPENWRT="not really" LD=mipsel-uclibc-ld CC=$(CC) \
+	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include -I$(TOP)/libnfnetlink/include" \
+	LDFLAGS="-L$(TOP)/iptables -liptc -L$(TOP)/libnfnetlink/src/.libs -lnfnetlink" LIBS=""
 
 miniupnpd-clean:
 	-@$(MAKE) -C miniupnpd -f Makefile.linux clean
