@@ -6,7 +6,7 @@
  */
 #include "libbb.h"
 
-//applet:IF_CTTYHACK(APPLET(cttyhack, _BB_DIR_BIN, _BB_SUID_DROP))
+//applet:IF_CTTYHACK(APPLET(cttyhack, BB_DIR_BIN, BB_SUID_DROP))
 
 //kbuild:lib-$(CONFIG_CTTYHACK) += cttyhack.o
 
@@ -14,18 +14,22 @@
 //config:	bool "cttyhack"
 //config:	default y
 //config:	help
-//config:	  One common problem reported on the mailing list is "can't access tty;
-//config:	  job control turned off" error message which typically appears when
-//config:	  one tries to use shell with stdin/stdout opened to /dev/console.
+//config:	  One common problem reported on the mailing list is the "can't
+//config:	  access tty; job control turned off" error message, which typically
+//config:	  appears when one tries to use a shell with stdin/stdout on
+//config:	  /dev/console.
 //config:	  This device is special - it cannot be a controlling tty.
 //config:
-//config:	  Proper solution is to use correct device instead of /dev/console.
+//config:	  The proper solution is to use the correct device instead of
+//config:	  /dev/console.
 //config:
-//config:	  cttyhack provides "quick and dirty" solution to this problem.
+//config:	  cttyhack provides a "quick and dirty" solution to this problem.
 //config:	  It analyzes stdin with various ioctls, trying to determine whether
 //config:	  it is a /dev/ttyN or /dev/ttySN (virtual terminal or serial line).
-//config:	  If it detects one, it closes stdin/out/err and reopens that device.
-//config:	  Then it executes given program. Opening the device will make
+//config:	  On Linux it also checks sysfs for a pointer to the active console.
+//config:	  If cttyhack is able to find the real console device, it closes
+//config:	  stdin/out/err and reopens that device.
+//config:	  Then it executes the given program. Opening the device will make
 //config:	  that device a controlling tty. This may require cttyhack
 //config:	  to be a session leader.
 //config:
@@ -46,9 +50,12 @@
 //config:
 //config:	  # exec setsid sh -c 'exec sh </dev/tty1 >/dev/tty1 2>&1'
 //config:
+//config:	  Starting getty on a controlling tty from a shell script:
+//config:
+//config:	  # getty 115200 $(cttyhack)
 
 //usage:#define cttyhack_trivial_usage
-//usage:       "PROG ARGS"
+//usage:       "[PROG ARGS]"
 //usage:#define cttyhack_full_usage "\n\n"
 //usage:       "Give PROG a controlling tty if possible."
 //usage:     "\nExample for /etc/inittab (for busybox init):"
@@ -104,44 +111,78 @@ int cttyhack_main(int argc UNUSED_PARAM, char **argv)
 		char paranoia[sizeof(struct serial_struct) * 3];
 	} u;
 
-	if (!*++argv) {
-		bb_show_usage();
-	}
-
 	strcpy(console, "/dev/tty");
 	fd = open(console, O_RDWR);
-	if (fd >= 0) {
-		/* We already have ctty, nothing to do */
-		close(fd);
-	} else {
+	if (fd < 0) {
 		/* We don't have ctty (or don't have "/dev/tty" node...) */
-		if (0) {}
-#ifdef TIOCGSERIAL
-		else if (ioctl(0, TIOCGSERIAL, &u.sr) == 0) {
-			/* this is a serial console */
-			sprintf(console + 8, "S%d", u.sr.line);
-		}
-#endif
+		do {
 #ifdef __linux__
-		else if (ioctl(0, VT_GETSTATE, &u.vt) == 0) {
-			/* this is linux virtual tty */
-			sprintf(console + 8, "S%d" + 1, u.vt.v_active);
-		}
-#endif
-		if (console[8]) {
-			fd = xopen(console, O_RDWR);
-			//bb_error_msg("switching to '%s'", console);
-			dup2(fd, 0);
-			dup2(fd, 1);
-			dup2(fd, 2);
-			while (fd > 2)
-				close(fd--);
-			/* Some other session may have it as ctty,
-			 * steal it from them:
+			/* Note that this method does not use _stdin_.
+			 * Thus, "cttyhack </dev/something" can't be used.
+			 * However, this method is more reliable than
+			 * TIOCGSERIAL check, which assumes that all
+			 * serial lines follow /dev/ttySn convention -
+			 * which is not always the case.
+			 * Therefore, we use this method first:
 			 */
-			ioctl(0, TIOCSCTTY, 1);
-		}
+			int s = open_read_close("/sys/class/tty/console/active",
+				console + 5, sizeof(console) - 5);
+			if (s > 0) {
+				char *last;
+				/* Found active console via sysfs (Linux 2.6.38+).
+				 * It looks like "[tty0 ]ttyS0\n" so zap the newline:
+				 */
+				console[4 + s] = '\0';
+				/* If there are multiple consoles,
+				 * take the last one:
+				 */
+				last = strrchr(console + 5, ' ');
+				if (last)
+					overlapping_strcpy(console + 5, last + 1);
+				break;
+			}
+
+			if (ioctl(0, VT_GETSTATE, &u.vt) == 0) {
+				/* this is linux virtual tty */
+				sprintf(console + 8, "S%u" + 1, (int)u.vt.v_active);
+				break;
+			}
+#endif
+#ifdef TIOCGSERIAL
+			if (ioctl(0, TIOCGSERIAL, &u.sr) == 0) {
+				/* this is a serial console; assuming it is named /dev/ttySn */
+				sprintf(console + 8, "S%u", (int)u.sr.line);
+				break;
+			}
+#endif
+			/* nope, could not find it */
+			console[0] = '\0';
+		} while (0);
 	}
 
+	argv++;
+	if (!argv[0]) {
+		if (!console[0])
+			return EXIT_FAILURE;
+		puts(console);
+		return EXIT_SUCCESS;
+	}
+
+	if (fd < 0) {
+		fd = open_or_warn(console, O_RDWR);
+		if (fd < 0)
+			goto ret;
+	}
+	//bb_error_msg("switching to '%s'", console);
+	dup2(fd, 0);
+	dup2(fd, 1);
+	dup2(fd, 2);
+	while (fd > 2)
+		close(fd--);
+	/* Some other session may have it as ctty,
+	 * try to steal it from them:
+	 */
+	ioctl(0, TIOCSCTTY, 1);
+ ret:
 	BB_EXECVP_or_die(argv);
 }

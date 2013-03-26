@@ -29,15 +29,14 @@ static char *find_block_device_in_dir(struct arena *ap)
 	char *retpath = NULL;
 	int len, rem;
 
-	len = strlen(ap->devpath);
-	rem = DEVNAME_MAX-2 - len;
-	if (rem <= 0)
-		return NULL;
-
 	dir = opendir(ap->devpath);
 	if (!dir)
 		return NULL;
 
+	len = strlen(ap->devpath);
+	rem = DEVNAME_MAX-2 - len;
+	if (rem <= 0)
+		return NULL;
 	ap->devpath[len++] = '/';
 
 	while ((entry = readdir(dir)) != NULL) {

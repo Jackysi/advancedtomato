@@ -21,6 +21,16 @@
 
    */
 
+//usage:#define stty_trivial_usage
+//usage:       "[-a|g] [-F DEVICE] [SETTING]..."
+//usage:#define stty_full_usage "\n\n"
+//usage:       "Without arguments, prints baud rate, line discipline,\n"
+//usage:       "and deviations from stty sane\n"
+//usage:     "\n	-F DEVICE	Open device instead of stdin"
+//usage:     "\n	-a		Print all current settings in human-readable form"
+//usage:     "\n	-g		Print in stty-readable form"
+//usage:     "\n	[SETTING]	See manpage"
+
 #include "libbb.h"
 
 #ifndef _POSIX_VDISABLE
@@ -58,6 +68,10 @@
 #endif
 #if defined(VEOL2) && !defined(CEOL2)
 # define CEOL2 _POSIX_VDISABLE
+#endif
+/* glibc-2.12.1 uses only VSWTC name */
+#if defined(VSWTC) && !defined(VSWTCH)
+# define VSWTCH VSWTC
 #endif
 /* ISC renamed swtch to susp for termios, but we'll accept either name */
 #if defined(VSUSP) && !defined(VSWTCH)
@@ -221,6 +235,9 @@
 #ifndef XCASE
 # define XCASE 0
 #endif
+#ifndef IUTF8
+# define IUTF8 0
+#endif
 
 /* Which speeds to set */
 enum speed_setting {
@@ -338,7 +355,7 @@ static const char mode_name[] =
 	MI_ENTRY("icrnl",    input,       SANE_SET   | REV,  ICRNL,      0 )
 	MI_ENTRY("ixon",     input,       REV,               IXON,       0 )
 	MI_ENTRY("ixoff",    input,       SANE_UNSET | REV,  IXOFF,      0 )
-	MI_ENTRY("tandem",   input,       REV        | OMIT, IXOFF,      0 )
+	MI_ENTRY("tandem",   input,       OMIT       | REV,  IXOFF,      0 )
 #if IUCLC
 	MI_ENTRY("iuclc",    input,       SANE_UNSET | REV,  IUCLC,      0 )
 #endif
@@ -347,6 +364,9 @@ static const char mode_name[] =
 #endif
 #if IMAXBEL
 	MI_ENTRY("imaxbel",  input,       SANE_SET   | REV,  IMAXBEL,    0 )
+#endif
+#if IUTF8
+	MI_ENTRY("iutf8",    input,       SANE_UNSET | REV,  IUTF8,      0 )
 #endif
 	MI_ENTRY("opost",    output,      SANE_SET   | REV,  OPOST,      0 )
 #if OLCUC
@@ -415,7 +435,7 @@ static const char mode_name[] =
 #endif
 	MI_ENTRY("echo",     local,       SANE_SET   | REV,  ECHO,       0 )
 	MI_ENTRY("echoe",    local,       SANE_SET   | REV,  ECHOE,      0 )
-	MI_ENTRY("crterase", local,       REV        | OMIT, ECHOE,      0 )
+	MI_ENTRY("crterase", local,       OMIT       | REV,  ECHOE,      0 )
 	MI_ENTRY("echok",    local,       SANE_SET   | REV,  ECHOK,      0 )
 	MI_ENTRY("echonl",   local,       SANE_UNSET | REV,  ECHONL,     0 )
 	MI_ENTRY("noflsh",   local,       SANE_UNSET | REV,  NOFLSH,     0 )
@@ -427,15 +447,15 @@ static const char mode_name[] =
 #endif
 #if ECHOPRT
 	MI_ENTRY("echoprt",  local,       SANE_UNSET | REV,  ECHOPRT,    0 )
-	MI_ENTRY("prterase", local,       REV | OMIT,        ECHOPRT,    0 )
+	MI_ENTRY("prterase", local,       OMIT       | REV,  ECHOPRT,    0 )
 #endif
 #if ECHOCTL
 	MI_ENTRY("echoctl",  local,       SANE_SET   | REV,  ECHOCTL,    0 )
-	MI_ENTRY("ctlecho",  local,       REV        | OMIT, ECHOCTL,    0 )
+	MI_ENTRY("ctlecho",  local,       OMIT       | REV,  ECHOCTL,    0 )
 #endif
 #if ECHOKE
 	MI_ENTRY("echoke",   local,       SANE_SET   | REV,  ECHOKE,     0 )
-	MI_ENTRY("crtkill",  local,       REV        | OMIT, ECHOKE,     0 )
+	MI_ENTRY("crtkill",  local,       OMIT       | REV,  ECHOKE,     0 )
 #endif
 	;
 
@@ -492,7 +512,7 @@ static const struct mode_info mode_info[] = {
 	MI_ENTRY("icrnl",    input,       SANE_SET   | REV,  ICRNL,      0 )
 	MI_ENTRY("ixon",     input,       REV,               IXON,       0 )
 	MI_ENTRY("ixoff",    input,       SANE_UNSET | REV,  IXOFF,      0 )
-	MI_ENTRY("tandem",   input,       REV        | OMIT, IXOFF,      0 )
+	MI_ENTRY("tandem",   input,       OMIT       | REV,  IXOFF,      0 )
 #if IUCLC
 	MI_ENTRY("iuclc",    input,       SANE_UNSET | REV,  IUCLC,      0 )
 #endif
@@ -501,6 +521,9 @@ static const struct mode_info mode_info[] = {
 #endif
 #if IMAXBEL
 	MI_ENTRY("imaxbel",  input,       SANE_SET   | REV,  IMAXBEL,    0 )
+#endif
+#if IUTF8
+	MI_ENTRY("iutf8",    input,       SANE_UNSET | REV,  IUTF8,      0 )
 #endif
 	MI_ENTRY("opost",    output,      SANE_SET   | REV,  OPOST,      0 )
 #if OLCUC
@@ -569,7 +592,7 @@ static const struct mode_info mode_info[] = {
 #endif
 	MI_ENTRY("echo",     local,       SANE_SET   | REV,  ECHO,       0 )
 	MI_ENTRY("echoe",    local,       SANE_SET   | REV,  ECHOE,      0 )
-	MI_ENTRY("crterase", local,       REV        | OMIT, ECHOE,      0 )
+	MI_ENTRY("crterase", local,       OMIT       | REV,  ECHOE,      0 )
 	MI_ENTRY("echok",    local,       SANE_SET   | REV,  ECHOK,      0 )
 	MI_ENTRY("echonl",   local,       SANE_UNSET | REV,  ECHONL,     0 )
 	MI_ENTRY("noflsh",   local,       SANE_UNSET | REV,  NOFLSH,     0 )
@@ -581,15 +604,15 @@ static const struct mode_info mode_info[] = {
 #endif
 #if ECHOPRT
 	MI_ENTRY("echoprt",  local,       SANE_UNSET | REV,  ECHOPRT,    0 )
-	MI_ENTRY("prterase", local,       REV | OMIT,        ECHOPRT,    0 )
+	MI_ENTRY("prterase", local,       OMIT       | REV,  ECHOPRT,    0 )
 #endif
 #if ECHOCTL
 	MI_ENTRY("echoctl",  local,       SANE_SET   | REV,  ECHOCTL,    0 )
-	MI_ENTRY("ctlecho",  local,       REV        | OMIT, ECHOCTL,    0 )
+	MI_ENTRY("ctlecho",  local,       OMIT       | REV,  ECHOCTL,    0 )
 #endif
 #if ECHOKE
 	MI_ENTRY("echoke",   local,       SANE_SET   | REV,  ECHOKE,     0 )
-	MI_ENTRY("crtkill",  local,       REV        | OMIT, ECHOKE,     0 )
+	MI_ENTRY("crtkill",  local,       OMIT       | REV,  ECHOKE,     0 )
 #endif
 };
 
@@ -991,8 +1014,9 @@ static void display_speed(const struct termios *mode, int fancy)
 	const char *fmt_str = "%lu %lu\n\0ispeed %lu baud; ospeed %lu baud;";
 	unsigned long ispeed, ospeed;
 
-	ospeed = ispeed = cfgetispeed(mode);
-	if (ispeed == 0 || ispeed == (ospeed = cfgetospeed(mode))) {
+	ispeed = cfgetispeed(mode);
+	ospeed = cfgetospeed(mode);
+	if (ispeed == 0 || ispeed == ospeed) {
 		ispeed = ospeed;                /* in case ispeed was 0 */
 		//________ 0123 4 5 6 7 8 9
 		fmt_str = "%lu\n\0\0\0\0\0speed %lu baud;";
@@ -1011,7 +1035,7 @@ static void do_display(const struct termios *mode, int all)
 	display_speed(mode, 1);
 	if (all)
 		display_window_size(1);
-#ifdef HAVE_C_LINE
+#ifdef __linux__
 	wrapf("line = %u;\n", mode->c_line);
 #else
 	newline();
@@ -1344,7 +1368,7 @@ int stty_main(int argc UNUSED_PARAM, char **argv)
 		}
 
 		switch (param) {
-#ifdef HAVE_C_LINE
+#ifdef __linux__
 		case param_line:
 # ifndef TIOCGWINSZ
 			xatoul_range_sfx(argnext, 1, INT_MAX, stty_suffixes);
@@ -1380,13 +1404,15 @@ int stty_main(int argc UNUSED_PARAM, char **argv)
 
 	/* Specifying both -a and -g is an error */
 	if ((stty_state & (STTY_verbose_output | STTY_recoverable_output)) ==
-		(STTY_verbose_output | STTY_recoverable_output))
-		bb_error_msg_and_die("verbose and stty-readable output styles are mutually exclusive");
-	/* Specifying -a or -g with non-options is an error */
-	if (!(stty_state & STTY_noargs)
-	 && (stty_state & (STTY_verbose_output | STTY_recoverable_output))
+		(STTY_verbose_output | STTY_recoverable_output)
 	) {
-		bb_error_msg_and_die("modes may not be set when specifying an output style");
+		bb_error_msg_and_die("-a and -g are mutually exclusive");
+	}
+	/* Specifying -a or -g with non-options is an error */
+	if ((stty_state & (STTY_verbose_output | STTY_recoverable_output))
+	 && !(stty_state & STTY_noargs)
+	) {
+		bb_error_msg_and_die("modes may not be set when -a or -g is used");
 	}
 
 	/* Now it is safe to start doing things */
@@ -1448,7 +1474,7 @@ int stty_main(int argc UNUSED_PARAM, char **argv)
 		}
 
 		switch (param) {
-#ifdef HAVE_C_LINE
+#ifdef __linux__
 		case param_line:
 			mode.c_line = xatoul_sfx(argnext, stty_suffixes);
 			stty_state |= STTY_require_set_attr;

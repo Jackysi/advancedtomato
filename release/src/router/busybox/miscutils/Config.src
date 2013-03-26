@@ -10,7 +10,7 @@ INSERT
 config ADJTIMEX
 	bool "adjtimex"
 	default y
-	depends on PLATFORM_LINUX
+	select PLATFORM_LINUX
 	help
 	  Adjtimex reads and optionally sets adjustment parameters for
 	  the Linux clock adjustment algorithm.
@@ -39,7 +39,7 @@ config FEATURE_COMPRESS_BBCONFIG
 config BEEP
 	bool "beep"
 	default y
-	depends on PLATFORM_LINUX
+	select PLATFORM_LINUX
 	help
 	  The beep applets beeps in a given freq/Hz.
 
@@ -194,7 +194,7 @@ config FEATURE_DC_LIBM
 config DEVFSD
 	bool "devfsd (obsolete)"
 	default n
-	depends on PLATFORM_LINUX
+	select PLATFORM_LINUX
 	select FEATURE_SYSLOG
 	help
 	  This is deprecated and should NOT be used anymore.
@@ -238,7 +238,7 @@ config DEVFSD_VERBOSE
 config FEATURE_DEVFS
 	bool "Use devfs names for all devices (obsolete)"
 	default n
-	depends on PLATFORM_LINUX
+	select PLATFORM_LINUX
 	help
 	  This is obsolete and should NOT be used anymore.
 	  Use linux >= 2.6 (optionally with hotplug) and mdev instead!
@@ -258,7 +258,7 @@ config DEVMEM
 config EJECT
 	bool "eject"
 	default y
-	depends on PLATFORM_LINUX
+	select PLATFORM_LINUX
 	help
 	  Used to eject cdroms. (defaults to /dev/cdrom)
 
@@ -273,7 +273,7 @@ config FEATURE_EJECT_SCSI
 config FBSPLASH
 	bool "fbsplash"
 	default y
-	depends on PLATFORM_LINUX
+	select PLATFORM_LINUX
 	help
 	  Shows splash image and progress bar on framebuffer device.
 	  Can be used during boot phase of an embedded device. ~2kb.
@@ -323,7 +323,7 @@ config FLASH_ERASEALL
 config IONICE
 	bool "ionice"
 	default y
-	depends on PLATFORM_LINUX
+	select PLATFORM_LINUX
 	help
 	  Set/set program io scheduling class and priority
 	  Requires kernel >= 2.6.13
@@ -360,76 +360,10 @@ config FEATURE_LAST_FANCY
 	  logged into the system (mimics sysvinit last). +900 bytes.
 endchoice
 
-config LESS
-	bool "less"
-	default y
-	help
-	  'less' is a pager, meaning that it displays text files. It possesses
-	  a wide array of features, and is an improvement over 'more'.
-
-config FEATURE_LESS_MAXLINES
-	int "Max number of input lines less will try to eat"
-	default 9999999
-	depends on LESS
-
-config FEATURE_LESS_BRACKETS
-	bool "Enable bracket searching"
-	default y
-	depends on LESS
-	help
-	  This option adds the capability to search for matching left and right
-	  brackets, facilitating programming.
-
-config FEATURE_LESS_FLAGS
-	bool "Enable extra flags"
-	default y
-	depends on LESS
-	help
-	  The extra flags provided do the following:
-
-	  The -M flag enables a more sophisticated status line.
-	  The -m flag enables a simpler status line with a percentage.
-
-config FEATURE_LESS_MARKS
-	bool "Enable marks"
-	default y
-	depends on LESS
-	help
-	  Marks enable positions in a file to be stored for easy reference.
-
-config FEATURE_LESS_REGEXP
-	bool "Enable regular expressions"
-	default y
-	depends on LESS
-	help
-	  Enable regular expressions, allowing complex file searches.
-
-config FEATURE_LESS_WINCH
-	bool "Enable automatic resizing on window size changes"
-	default y
-	depends on LESS
-	help
-	  Makes less track window size changes.
-
-config FEATURE_LESS_DASHCMD
-	bool "Enable flag changes ('-' command)"
-	default y
-	depends on LESS
-	help
-	  This enables the ability to change command-line flags within
-	  less itself ('-' keyboard command).
-
-config FEATURE_LESS_LINENUMS
-	bool "Enable dynamic switching of line numbers"
-	default y
-	depends on FEATURE_LESS_DASHCMD
-	help
-	  Enables "-N" command.
-
 config HDPARM
 	bool "hdparm"
 	default y
-	depends on PLATFORM_LINUX
+	select PLATFORM_LINUX
 	help
 	  Get/Set hard drive parameters. Primarily intended for ATA
 	  drives. Adds about 13k (or around 30k if you enable the
@@ -546,7 +480,7 @@ config MT
 config RAIDAUTORUN
 	bool "raidautorun"
 	default y
-	depends on PLATFORM_LINUX
+	select PLATFORM_LINUX
 	help
 	  raidautorun tells the kernel md driver to
 	  search and start RAID arrays.
@@ -554,7 +488,8 @@ config RAIDAUTORUN
 config READAHEAD
 	bool "readahead"
 	default y
-	depends on LFS && PLATFORM_LINUX
+	depends on LFS
+	select PLATFORM_LINUX
 	help
 	  Preload the files listed on the command line into RAM cache so that
 	  subsequent reads on these files will not block on disk I/O.
@@ -571,7 +506,7 @@ config READAHEAD
 config RFKILL
 	bool "rfkill"
 	default n  # doesn't build on Ubuntu 9.04
-	depends on PLATFORM_LINUX
+	select PLATFORM_LINUX
 	help
 	  Enable/disable wireless devices.
 
@@ -583,6 +518,7 @@ config RFKILL
 config RUNLEVEL
 	bool "runlevel"
 	default y
+	depends on FEATURE_UTMP
 	help
 	  find the current and previous system runlevel.
 
@@ -592,7 +528,7 @@ config RUNLEVEL
 config RX
 	bool "rx"
 	default y
-	depends on PLATFORM_LINUX
+	select PLATFORM_LINUX
 	help
 	  Receive files using the Xmodem protocol.
 
@@ -658,13 +594,14 @@ config VOLNAME
 config WALL
 	bool "wall"
 	default y
+	depends on FEATURE_UTMP
 	help
 	  Write a message to all users that are logged in.
 
 config WATCHDOG
 	bool "watchdog"
 	default y
-	depends on PLATFORM_LINUX
+	select PLATFORM_LINUX
 	help
 	  The watchdog utility is used with hardware or software watchdog
 	  device drivers. It opens the specified watchdog device special file

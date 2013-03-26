@@ -123,9 +123,9 @@ config FEATURE_SH_NOFORK
 	default n
 	depends on (HUSH || ASH) && FEATURE_PREFER_APPLETS
 	help
-	  This option causes busybox shells [currently only ash]
-	  to not execute typical fork/exec/wait sequence, but call <applet>_main
-	  directly, if possible. (Sometimes it is not possible: for example,
+	  This option causes busybox shells to not execute typical
+	  fork/exec/wait sequence, but call <applet>_main directly,
+	  if possible. (Sometimes it is not possible: for example,
 	  this is not possible in pipes).
 
 	  This will be done only for some applets (those which are marked
@@ -133,6 +133,17 @@ config FEATURE_SH_NOFORK
 
 	  This may significantly speed up some shell scripts.
 
-	  This feature is relatively new. Use with care.
+	  This feature is relatively new. Use with care. Report bugs
+	  to project mailing list.
+
+config FEATURE_SH_HISTFILESIZE
+	bool "Use $HISTFILESIZE"
+	default y
+	depends on HUSH || ASH
+	help
+	  This option makes busybox shells to use $HISTFILESIZE variable
+	  to set shell history size. Note that its max value is capped
+	  by "History size" setting in library tuning section.
+
 
 endmenu

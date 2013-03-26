@@ -25,6 +25,41 @@
 
 /* no getopt needed */
 
+//usage:#define expr_trivial_usage
+//usage:       "EXPRESSION"
+//usage:#define expr_full_usage "\n\n"
+//usage:       "Print the value of EXPRESSION to stdout\n"
+//usage:    "\n"
+//usage:       "EXPRESSION may be:\n"
+//usage:       "	ARG1 | ARG2	ARG1 if it is neither null nor 0, otherwise ARG2\n"
+//usage:       "	ARG1 & ARG2	ARG1 if neither argument is null or 0, otherwise 0\n"
+//usage:       "	ARG1 < ARG2	1 if ARG1 is less than ARG2, else 0. Similarly:\n"
+//usage:       "	ARG1 <= ARG2\n"
+//usage:       "	ARG1 = ARG2\n"
+//usage:       "	ARG1 != ARG2\n"
+//usage:       "	ARG1 >= ARG2\n"
+//usage:       "	ARG1 > ARG2\n"
+//usage:       "	ARG1 + ARG2	Sum of ARG1 and ARG2. Similarly:\n"
+//usage:       "	ARG1 - ARG2\n"
+//usage:       "	ARG1 * ARG2\n"
+//usage:       "	ARG1 / ARG2\n"
+//usage:       "	ARG1 % ARG2\n"
+//usage:       "	STRING : REGEXP		Anchored pattern match of REGEXP in STRING\n"
+//usage:       "	match STRING REGEXP	Same as STRING : REGEXP\n"
+//usage:       "	substr STRING POS LENGTH Substring of STRING, POS counted from 1\n"
+//usage:       "	index STRING CHARS	Index in STRING where any CHARS is found, or 0\n"
+//usage:       "	length STRING		Length of STRING\n"
+//usage:       "	quote TOKEN		Interpret TOKEN as a string, even if\n"
+//usage:       "				it is a keyword like 'match' or an\n"
+//usage:       "				operator like '/'\n"
+//usage:       "	(EXPRESSION)		Value of EXPRESSION\n"
+//usage:       "\n"
+//usage:       "Beware that many operators need to be escaped or quoted for shells.\n"
+//usage:       "Comparisons are arithmetic if both ARGs are numbers, else\n"
+//usage:       "lexicographical. Pattern matches return the string matched between\n"
+//usage:       "\\( and \\) or null; if \\( and \\) are not used, they return the number\n"
+//usage:       "of characters matched or 0."
+
 #include "libbb.h"
 #include "xregex.h"
 
@@ -65,6 +100,7 @@ struct globals {
 	char **args;
 } FIX_ALIASING;
 #define G (*(struct globals*)&bb_common_bufsiz1)
+#define INIT_G() do { } while (0)
 
 /* forward declarations */
 static VALUE *eval(void);
@@ -483,6 +519,8 @@ int expr_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int expr_main(int argc UNUSED_PARAM, char **argv)
 {
 	VALUE *v;
+
+	INIT_G();
 
 	xfunc_error_retval = 2; /* coreutils compat */
 	G.args = argv + 1;

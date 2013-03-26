@@ -7,6 +7,12 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 /* no options, no getopt */
+
+//usage:#define resize_trivial_usage
+//usage:       ""
+//usage:#define resize_full_usage "\n\n"
+//usage:       "Resize the screen"
+
 #include "libbb.h"
 
 #define ESC "\033"
@@ -53,6 +59,7 @@ int resize_main(int argc UNUSED_PARAM, char **argv UNUSED_PARAM)
 	 */
 	fprintf(stderr, ESC"7" ESC"[r" ESC"[999;999H" ESC"[6n");
 	alarm(3); /* Just in case terminal won't answer */
+//BUG: death by signal won't restore termios
 	scanf(ESC"[%hu;%huR", &w.ws_row, &w.ws_col);
 	fprintf(stderr, ESC"8");
 

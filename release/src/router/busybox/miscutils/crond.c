@@ -11,6 +11,19 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
+//usage:#define crond_trivial_usage
+//usage:       "-fbS -l N " IF_FEATURE_CROND_D("-d N ") "-L LOGFILE -c DIR"
+//usage:#define crond_full_usage "\n\n"
+//usage:       "	-f	Foreground"
+//usage:     "\n	-b	Background (default)"
+//usage:     "\n	-S	Log to syslog (default)"
+//usage:     "\n	-l	Set log level. 0 is the most verbose, default 8"
+//usage:	IF_FEATURE_CROND_D(
+//usage:     "\n	-d	Set log level, log to stderr"
+//usage:	)
+//usage:     "\n	-L	Log to file"
+//usage:     "\n	-c	Working dir"
+
 #include "libbb.h"
 #include <syslog.h>
 
@@ -848,7 +861,8 @@ int crond_main(int argc UNUSED_PARAM, char **argv)
 
 	/* "-b after -f is ignored", and so on for every pair a-b */
 	opt_complementary = "f-b:b-f:S-L:L-S" IF_FEATURE_CROND_D(":d-l")
-			":l+:d+"; /* -l and -d have numeric param */
+			/* -l and -d have numeric param */
+			":l+" IF_FEATURE_CROND_D(":d+");
 	opts = getopt32(argv, "l:L:fbSc:" IF_FEATURE_CROND_D("d:"),
 			&G.log_level, &G.log_filename, &G.crontab_dir_name
 			IF_FEATURE_CROND_D(,&G.log_level));
