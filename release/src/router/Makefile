@@ -1581,22 +1581,20 @@ lzo-install: lzo
 	$(STRIP) $(INSTALLDIR)/lzo/usr/lib/liblzo2.so.2
 	cd $(INSTALLDIR)/lzo/usr/lib && ln -sf liblzo2.so.2 liblzo2.so
 
-
-openvpn: openvpn/.conf openssl lzo
-
-openvpn/.conf:
+openvpn/.conf: openssl lzo
 	cd openvpn && CFLAGS="-O3 -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-L$(TOP)/openssl -L$(TOP)/lzo/src/.libs -ffunction-sections -fdata-sections -Wl,--gc-sections" \
 	CPPFLAGS="-I$(TOP)/lzo/include -I$(TOP)/openssl/include" \
 	$(CONFIGURE) --prefix= \
 	--with-crypto-library=openssl \
-	--with-iproute-path="/usr/sbin/ip" \
 	--disable-debug --disable-plugins --enable-management --enable-small \
 	--disable-selinux --disable-socks --enable-password-save \
 	OPENSSL_SSL_CFLAGS="-I$(TOP)/openssl/include" \
 	OPENSSL_SSL_LIBS="-L$(TOP)/openssl -lssl" \
 	ac_cv_lib_resolv_gethostbyname=no
 	touch openvpn/.conf
+
+openvpn: openvpn/.conf
 
 openvpn-clean:
 	-@$(MAKE) -C openvpn clean
