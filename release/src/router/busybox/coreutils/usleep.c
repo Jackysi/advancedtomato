@@ -9,6 +9,15 @@
 
 /* BB_AUDIT SUSv3 N/A -- Apparently a busybox extension. */
 
+//usage:#define usleep_trivial_usage
+//usage:       "N"
+//usage:#define usleep_full_usage "\n\n"
+//usage:       "Pause for N microseconds"
+//usage:
+//usage:#define usleep_example_usage
+//usage:       "$ usleep 1000000\n"
+//usage:       "[pauses for 1 second]\n"
+
 #include "libbb.h"
 
 /* This is a NOFORK applet. Be very careful! */
@@ -20,9 +29,7 @@ int usleep_main(int argc UNUSED_PARAM, char **argv)
 		bb_show_usage();
 	}
 
-	if (usleep(xatou(argv[1]))) {
-		bb_perror_nomsg_and_die();
-	}
+	usleep(xatou(argv[1]));
 
 	return EXIT_SUCCESS;
 }

@@ -4,7 +4,7 @@
  */
 
 #include "libbb.h"
-#include "archive.h"
+#include "bb_archive.h"
 
 enum {
 	//TAR_FILETYPE,
@@ -64,13 +64,13 @@ void FAST_FUNC data_extract_to_command(archive_handle_t *archive_handle)
 	file_header_t *file_header = archive_handle->file_header;
 
 #if 0 /* do we need this? ENABLE_FEATURE_TAR_SELINUX */
-	char *sctx = archive_handle->tar__next_file_sctx;
+	char *sctx = archive_handle->tar__sctx[PAX_NEXT_FILE];
 	if (!sctx)
-		sctx = archive_handle->tar__global_sctx;
+		sctx = archive_handle->tar__sctx[PAX_GLOBAL];
 	if (sctx) { /* setfscreatecon is 4 syscalls, avoid if possible */
 		setfscreatecon(sctx);
-		free(archive_handle->tar__next_file_sctx);
-		archive_handle->tar__next_file_sctx = NULL;
+		free(archive_handle->tar__sctx[PAX_NEXT_FILE]);
+		archive_handle->tar__sctx[PAX_NEXT_FILE] = NULL;
 	}
 #endif
 
@@ -99,8 +99,12 @@ void FAST_FUNC data_extract_to_command(archive_handle_t *archive_handle)
 			close(p[1]);
 			xdup2(p[0], STDIN_FILENO);
 			signal(SIGPIPE, SIG_DFL);
-			execl(DEFAULT_SHELL, DEFAULT_SHELL_SHORT_NAME, "-c", archive_handle->tar__to_command, NULL);
-			bb_perror_msg_and_die("can't execute '%s'", DEFAULT_SHELL);
+			execl(archive_handle->tar__to_command_shell,
+				archive_handle->tar__to_command_shell,
+				"-c",
+				archive_handle->tar__to_command,
+				NULL);
+			bb_perror_msg_and_die("can't execute '%s'", archive_handle->tar__to_command_shell);
 		}
 		close(p[0]);
 		/* Our caller is expected to do signal(SIGPIPE, SIG_IGN)

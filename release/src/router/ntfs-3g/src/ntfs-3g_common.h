@@ -100,7 +100,8 @@ enum {
 	FLGOPT_OCTAL = 4,
 	FLGOPT_DECIMAL = 8,
 	FLGOPT_APPEND = 16,
-	FLGOPT_NOSUPPORT = 32
+	FLGOPT_NOSUPPORT = 32,
+	FLGOPT_OPTIONAL = 64
 } ;
 
 typedef enum {
@@ -117,7 +118,7 @@ typedef struct {
 	unsigned int dmask;
 	ntfs_fuse_streams_interface streams;
 	ntfs_atime_t atime;
-	BOOL dmtime;
+	u64 dmtime;
 	BOOL ro;
 	BOOL show_sys_files;
 	BOOL hide_hid_files;
@@ -172,6 +173,7 @@ extern const char nf_ns_trusted_prefix[];
 extern const int nf_ns_trusted_prefix_len;
 
 int ntfs_strappend(char **dest, const char *append);
+int ntfs_strinsert(char **dest, const char *append);
 char *parse_mount_options(ntfs_fuse_context_t *ctx,
 			const struct ntfs_options *popts, BOOL low_fuse);
 int ntfs_parse_options(struct ntfs_options *popts, void (*usage)(void),

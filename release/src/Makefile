@@ -528,8 +528,10 @@ define BusyboxOptions
 			echo "CONFIG_FLOCK=y" >>$(1); \
 			sed -i "/CONFIG_FSYNC/d" $(1); \
 			echo "CONFIG_FSYNC=y" >>$(1); \
-			sed -i "/CONFIG_UNZIP/d" $(1); \
-			echo "CONFIG_UNZIP=y" >>$(1); \
+			sed -i "/CONFIG_TUNE2FS/d" $(1); \
+			echo "CONFIG_TUNE2FS=y" >>$(1); \
+			sed -i "/CONFIG_E2LABEL/d" $(1); \
+			echo "CONFIG_E2LABEL=y" >>$(1); \
 			if [ "$(CONFIG_LINUX26)" = "y" ]; then \
 				sed -i "/CONFIG_LSUSB/d" $(1); \
 				echo "CONFIG_LSUSB=y" >>$(1); \

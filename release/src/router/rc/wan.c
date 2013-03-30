@@ -845,7 +845,9 @@ void start_wan6_done(const char *wan_ifname)
 		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname, "metric", "2048");
 		break;
 	case IPV6_NATIVE_DHCP:
-		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname);
+//		eval("ip", "route", "add", "::/0", "dev", (char *)wan_ifname);  //removed by Toastman
+//      see discussion at http://www.linksysinfo.org/index.php?threads/ipv6-and-comcast.38006/
+//		post #24 refers. 
 		stop_dhcp6c();
 		start_dhcp6c();
 		break;

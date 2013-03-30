@@ -116,6 +116,7 @@ obj-$(TCONFIG_MEDIA_SERVER) += libvorbis
 obj-$(TCONFIG_MEDIA_SERVER) += minidlna
 MEDIA_SERVER_STATIC=y
 
+obj-y += libnfnetlink
 obj-y += miniupnpd
 #	obj-y += upnp
 #
@@ -625,9 +626,7 @@ cyassl-install:
 ifeq ($(FULL_OPENSSL),y)
 OPENSSL_CIPHERS:=enable-rc5
 else
-OPENSSL_CIPHERS:=no-dh no-idea no-rc2 no-rc5 no-aes no-aes192 no-cast no-des no-modes
-# no-tls1 no-tlsext
-# openssl 1.0.1 doesn't build when using "no-tlsext" or "no-tls1"
+OPENSSL_CIPHERS:=no-dh no-idea no-rc2 no-rc5 no-engine no-aes192 no-cast
 endif
 
 openssl/stamp-h1:
@@ -638,7 +637,7 @@ openssl/stamp-h1:
 	no-sha0 no-smime no-camellia no-krb5 no-rmd160 no-ripemd \
 	no-seed no-capieng no-cms no-gms no-gmp no-rfc3779 \
 	no-ec no-ecdh no-ecdsa no-err no-hw no-jpake no-threads \
-	no-zlib no-engine no-engines no-sse2 no-perlasm \
+	no-zlib no-engines no-sse2 \
 	no-dtls1 no-store no-psk no-md2 no-mdc2 no-ts
 
 	@$(MAKE) -C openssl clean
@@ -695,7 +694,7 @@ bridge-install:
 dnsmasq:
 	@$(SEP)
 	@$(MAKE) -C dnsmasq \
-	COPTS="$(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6) $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	COPTS="$(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6) -DHAVE_BROKEN_RTC -DHAVE_TOMATO $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC"
 
 dnsmasq-install:
@@ -766,15 +765,33 @@ rp-pppoe-install: rp-pppoe
 
 upnp: nvram shared iptables
 
-miniupnpd-config:
-	@cd miniupnpd && ./genconfig.sh
+libnfnetlink/stamp-h1:
+	cd $(TOP)/libnfnetlink && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
+		$(CONFIGURE) --prefix=/usr --enable-shared --enable-static
 
-miniupnpd: iptables miniupnpd-config
+libnfnetlink: libnfnetlink/stamp-h1
+
+libnfnetlink-install:
+	install -D libnfnetlink/src/.libs/libnfnetlink.so.0.2.0 $(INSTALLDIR)/libnfnetlink/usr/lib/libnfnetlink.so.0.2.0
+	$(STRIP) -s $(INSTALLDIR)/libnfnetlink/usr/lib/libnfnetlink.so.0.2.0
+	cd $(INSTALLDIR)/libnfnetlink/usr/lib/ && \
+		ln -sf libnfnetlink.so.0.2.0 libnfnetlink.so.0 && \
+		ln -sf libnfnetlink.so.0.2.0 libnfnetlink.so
+
+miniupnpd-config:
+#ifeq ($(TCONFIG_IPV6),y)
+#	@cd miniupnpd && ./genconfig.sh --leasefile --ipv6
+#else
+	@cd miniupnpd && ./genconfig.sh --leasefile
+#endif
+
+miniupnpd: iptables miniupnpd-config libnfnetlink
 	@$(SEP)
-	$(MAKE) -C miniupnpd miniupnpd -f Makefile.linux \
-	TARGET_OPENWRT="not really" CC=$(CC) \
-	CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include -I$(TOP)/shared" \
-	LDFLAGS="-L$(TOP)/iptables -liptc" LIBS=""
+	$(MAKE) -C miniupnpd miniupnpd -f Makefile.linux CC=$(CC) \
+		CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include -I$(TOP)/libnfnetlink/include" \
+		LDFLAGS="-L$(TOP)/iptables -liptc -L$(TOP)/libnfnetlink/src/.libs -lnfnetlink" LIBS=""
 
 miniupnpd-clean:
 	-@$(MAKE) -C miniupnpd -f Makefile.linux clean
@@ -1457,7 +1474,7 @@ nocat-install:
 
 lzo/stamp-h1:
 	cd lzo && \
-	CFLAGS="-Os -Wall -fPIC $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static
+	CFLAGS="-O3 -Wall -fPIC $(EXTRACFLAGS)" $(CONFIGURE) --enable-shared --enable-static
 	touch lzo/stamp-h1
 
 lzo: lzo/stamp-h1
@@ -1471,26 +1488,27 @@ lzo-install: lzo
 	$(STRIP) $(INSTALLDIR)/lzo/usr/lib/liblzo2.so.2
 	cd $(INSTALLDIR)/lzo/usr/lib && ln -sf liblzo2.so.2 liblzo2.so
 
-
-openvpn: openvpn/.conf openssl lzo
-
-openvpn/.conf:
-	cd openvpn && CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+openvpn/.conf: openssl lzo
+	cd openvpn && CFLAGS="-O3 -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-L$(TOP)/openssl -L$(TOP)/lzo/src/.libs -ffunction-sections -fdata-sections -Wl,--gc-sections" \
+	CPPFLAGS="-I$(TOP)/lzo/include -I$(TOP)/openssl/include" \
 	$(CONFIGURE) --prefix= \
-	--with-lzo-headers="$(TOP)/lzo/include" \
-	--with-ssl-headers="$(TOP)/openssl/include/" \
-	--with-iproute-path="/usr/sbin/ip" \
+	--with-crypto-library=openssl \
 	--disable-debug --disable-plugins --enable-management --enable-small \
-	--disable-selinux --disable-socks --enable-password-save
+	--disable-selinux --disable-socks --enable-password-save \
+	OPENSSL_SSL_CFLAGS="-I$(TOP)/openssl/include" \
+	OPENSSL_SSL_LIBS="-L$(TOP)/openssl -lssl" \
+	ac_cv_lib_resolv_gethostbyname=no
 	touch openvpn/.conf
+
+openvpn: openvpn/.conf
 
 openvpn-clean:
 	-@$(MAKE) -C openvpn clean
 	@rm -f openvpn/.conf
 
 openvpn-install: openvpn
-	install -D openvpn/openvpn $(INSTALLDIR)/openvpn/usr/sbin/openvpn
+	install -D openvpn/src/openvpn/.libs/openvpn $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	$(STRIP) -s $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	chmod 0500 $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 

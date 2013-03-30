@@ -813,6 +813,7 @@ void start_upnp(void)
 					char *lanip = nvram_safe_get(lanN_ipaddr);
 					char *lanmask = nvram_safe_get(lanN_netmask);
 					char *lanlisten = nvram_safe_get(upnp_lanN);
+
 					if((strcmp(lanlisten,"1")==0) && (strcmp(lanip,"")!=0) && (strcmp(lanip,"0.0.0.0")!=0)) {
 #else
 					char *lanip = nvram_safe_get("lan_ipaddr");
@@ -844,7 +845,9 @@ void start_upnp(void)
 
 				fappend(f, "/jffs/upnpconfig.custom");
 				fappend(f, "/etc/upnp/config.custom");
+				fprintf(f, "%s\n", nvram_safe_get("upnp_custom"));
 				fprintf(f, "\ndeny 0-65535 0.0.0.0/0 0-65535\n");
+				
 				fclose(f);
 				
 				xstart("miniupnpd", "-f", "/etc/upnp/config");
@@ -1571,10 +1574,10 @@ static void start_ftpd(void)
 		/*
 		username<password<rights[<root_dir]
 		rights:
-			Read/Write
-			Read Only
-			View Only
-			Private
+			Read/Write - Odczyt/Zapis
+			Read Only - Odczyt
+			View Only - Widok
+			Private - Prywatne
 		*/
 		p = buf;
 		while ((q = strsep(&p, ">")) != NULL) {
@@ -1586,7 +1589,7 @@ static void start_ftpd(void)
 				root_dir = nvram_safe_get("ftp_pubroot");
 
 			/* directory */
-			if (strncmp(rights, "Private", 7) == 0)
+			if (strncmp(rights, "Prywatne", 7) == 0)
 			{
 				sprintf(tmp, "%s/%s", nvram_storage_path("ftp_pvtroot"), user);
 				mkdir_if_none(tmp);
@@ -1604,9 +1607,9 @@ static void start_ftpd(void)
 				tmp[0] = 0;
 				if (nvram_invmatch("ftp_dirlist", "1"))
 					strcat(tmp, "dirlist_enable=yes\n");
-				if (strstr(rights, "Read") || !strcmp(rights, "Private"))
+				if (strstr(rights, "Odczyt") || !strcmp(rights, "Prywatne"))
 					strcat(tmp, "download_enable=yes\n");
-				if (strstr(rights, "Write") || !strncmp(rights, "Private", 7))
+				if (strstr(rights, "Zapis") || !strncmp(rights, "Prywatne", 7))
 					strcat(tmp, "write_enable=yes\n");
 					
 				fputs(tmp, f);

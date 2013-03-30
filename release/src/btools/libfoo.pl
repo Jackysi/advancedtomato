@@ -155,7 +155,10 @@ sub fixDyn
 	fixDynDep("pppd", "rp-pppoe.so");
 
 	fixDynDep("libcrypto.so.1.0.0", "libssl.so.1.0.0");
-	
+
+#shibby
+	fixDynDep("miniupnpd", "libnfnetlink.so.0.2.0");
+
 #	fixDynDep("libbcm.so", "libshared.so");
 #	fixDynDep("libbcm.so", "libc.so.0");
 
@@ -460,6 +463,9 @@ genSO("${root}/usr/lib/liblzo2.so.2", "${router}/lzo/src/.libs/liblzo2.a");
 #	genSO("${root}/usr/lib/libusb-0.1.so.4", "${router}/libusb/libusb/.libs/libusb.a", "", "-L${router}/libusb10/libusb/.libs");
 
 genSO("${root}/usr/lib/libbcmcrypto.so", "${router}/libbcmcrypto/libbcmcrypto.a");
+ 
+#shibby
+genSO("${root}/usr/lib/libnfnetlink.so.0.2.0", "${router}/libnfnetlink/src/.libs/libnfnetlink.a");
 
 print "\n";
 

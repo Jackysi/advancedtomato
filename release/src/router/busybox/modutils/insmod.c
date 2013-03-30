@@ -7,7 +7,7 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
-//applet:IF_INSMOD(APPLET(insmod, _BB_DIR_SBIN, _BB_SUID_DROP))
+//applet:IF_INSMOD(APPLET(insmod, BB_DIR_SBIN, BB_SUID_DROP))
 
 #include "libbb.h"
 #include "modutils.h"
@@ -24,7 +24,6 @@
 //usage:#define insmod_full_usage "\n\n"
 //usage:       "Load the specified kernel modules into the kernel"
 //usage:	IF_FEATURE_2_4_MODULES( "\n"
-//usage:     "\nOptions:"
 //usage:     "\n	-f	Force module to load into the wrong kernel version"
 //usage:     "\n	-k	Make module autoclean-able"
 //usage:     "\n	-v	Verbose"
@@ -119,7 +118,7 @@ int insmod_main(int argc UNUSED_PARAM, char **argv)
 	if (fp != NULL)
 		fclose(fp);
 
-	rc = bb_init_module(filename, parse_cmdline_module_options(argv));
+	rc = bb_init_module(filename, parse_cmdline_module_options(argv, /*quote_spaces:*/ 0));
 	if (rc)
 		bb_error_msg("can't insert '%s': %s", filename, moderror(rc));
 	

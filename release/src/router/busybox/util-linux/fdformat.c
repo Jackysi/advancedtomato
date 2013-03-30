@@ -5,6 +5,12 @@
  * Licensed under GPLv2, see file LICENSE in this source tree.
  */
 
+//usage:#define fdformat_trivial_usage
+//usage:       "[-n] DEVICE"
+//usage:#define fdformat_full_usage "\n\n"
+//usage:       "Format floppy disk\n"
+//usage:     "\n	-n	Don't verify after format"
+
 #include "libbb.h"
 
 

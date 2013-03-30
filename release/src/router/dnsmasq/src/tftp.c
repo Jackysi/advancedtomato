@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2012 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2013 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@
 
 #ifdef HAVE_TFTP
 
-static struct tftp_file *check_tftp_fileperm(ssize_t *len, char *prefix, int special);
+static struct tftp_file *check_tftp_fileperm(ssize_t *len, char *prefix);
 static void free_transfer(struct tftp_transfer *transfer);
 static ssize_t tftp_err(int err, char *packet, char *mess, char *file);
 static ssize_t tftp_err_oops(char *packet, char *file);
@@ -48,7 +48,7 @@ void tftp_request(struct listener *listen, time_t now)
   struct msghdr msg;
   struct iovec iov;
   struct ifreq ifr;
-  int is_err = 1, if_index = 0, mtu = 0, special = 0;
+  int is_err = 1, if_index = 0, mtu = 0;
 #ifdef HAVE_DHCP
   struct iname *tmp;
 #endif
@@ -61,7 +61,7 @@ void tftp_request(struct listener *listen, time_t now)
   char *name = NULL;
   char *prefix = daemon->tftp_prefix;
   struct tftp_prefix *pref;
-  struct interface_list *ir;
+  struct all_addr addra;
 
   union {
     struct cmsghdr align; /* this ensures alignment */
@@ -114,8 +114,6 @@ void tftp_request(struct listener *listen, time_t now)
   else
     {
       struct cmsghdr *cmptr;
-      int check;
-      struct interface_list *ir;
 
       if (msg.msg_controllen < sizeof(struct cmsghdr))
         return;
@@ -192,32 +190,29 @@ void tftp_request(struct listener *listen, time_t now)
 	return;
 
       name = namebuff;
+      
+      addra.addr.addr4 = addr.in.sin_addr;
 
 #ifdef HAVE_IPV6
       if (listen->family == AF_INET6)
-	check = iface_check(AF_INET6, (struct all_addr *)&addr.in6.sin6_addr, name);
-      else
+	addra.addr.addr6 = addr.in6.sin6_addr;
 #endif
-        check = iface_check(AF_INET, (struct all_addr *)&addr.in.sin_addr, name);
 
-      /* wierd TFTP service override */
-      for (ir = daemon->tftp_interfaces; ir; ir = ir->next)
-	if (strcmp(ir->interface, name) == 0)
-	  break;
-       
-      if (!ir)
+      if (!iface_check(listen->family, &addra, name, NULL))
 	{
-	  if (!daemon->tftp_unlimited || !check)
+	  if (!option_bool(OPT_CLEVERBIND))
+	    enumerate_interfaces(); 
+	  if (!loopback_exception(listen->tftpfd, listen->family, &addra, name))
 	    return;
-	  
-#ifdef HAVE_DHCP      
-	  /* allowed interfaces are the same as for DHCP */
-	  for (tmp = daemon->dhcp_except; tmp; tmp = tmp->next)
-	    if (tmp->name && (strcmp(tmp->name, name) == 0))
-	      return;
-#endif
 	}
-
+      
+#ifdef HAVE_DHCP      
+      /* allowed interfaces are the same as for DHCP */
+      for (tmp = daemon->dhcp_except; tmp; tmp = tmp->next)
+	if (tmp->name && (strcmp(tmp->name, name) == 0))
+	  return;
+#endif
+      
       strncpy(ifr.ifr_name, name, IF_NAMESIZE);
       if (ioctl(listen->tftpfd, SIOCGIFMTU, &ifr) != -1)
 	mtu = ifr.ifr_mtu;      
@@ -228,12 +223,7 @@ void tftp_request(struct listener *listen, time_t now)
       /* check for per-interface prefix */ 
       for (pref = daemon->if_prefix; pref; pref = pref->next)
 	if (strcmp(pref->interface, name) == 0)
-	  prefix = pref->prefix;
-      
-      /* wierd TFTP interfaces disable special options. */
-      for (ir = daemon->tftp_interfaces; ir; ir = ir->next)
-	if (strcmp(ir->interface, name) == 0)
-	  special = 1;
+	  prefix = pref->prefix;  
     }
 
   if (listen->family == AF_INET)
@@ -325,8 +315,7 @@ void tftp_request(struct listener *listen, time_t now)
 	{
 	  if (strcasecmp(opt, "blksize") == 0)
 	    {
-	      if ((opt = next(&p, end)) &&
-		  (special || !option_bool(OPT_TFTP_NOBLOCK)))
+	      if ((opt = next(&p, end)) && !option_bool(OPT_TFTP_NOBLOCK))
 		{
 		  transfer->blocksize = atoi(opt);
 		  if (transfer->blocksize < 1)
@@ -363,7 +352,7 @@ void tftp_request(struct listener *listen, time_t now)
 	  if (prefix[strlen(prefix)-1] != '/')
 	    strncat(daemon->namebuff, "/", (MAXDNAME-1) - strlen(daemon->namebuff));
 
-	  if (!special && option_bool(OPT_TFTP_APREF))
+	  if (option_bool(OPT_TFTP_APREF))
 	    {
 	      size_t oldlen = strlen(daemon->namebuff);
 	      struct stat statbuf;
@@ -390,7 +379,7 @@ void tftp_request(struct listener *listen, time_t now)
       strncat(daemon->namebuff, filename, (MAXDNAME-1) - strlen(daemon->namebuff));
 
       /* check permissions and open file */
-      if ((transfer->file = check_tftp_fileperm(&len, prefix, special)))
+      if ((transfer->file = check_tftp_fileperm(&len, prefix)))
 	{
 	  if ((len = get_block(packet, transfer)) == -1)
 	    len = tftp_err_oops(packet, daemon->namebuff);
@@ -411,7 +400,7 @@ void tftp_request(struct listener *listen, time_t now)
     }
 }
  
-static struct tftp_file *check_tftp_fileperm(ssize_t *len, char *prefix, int special)
+static struct tftp_file *check_tftp_fileperm(ssize_t *len, char *prefix)
 {
   char *packet = daemon->packet, *namebuff = daemon->namebuff;
   struct tftp_file *file;
@@ -448,7 +437,7 @@ static struct tftp_file *check_tftp_fileperm(ssize_t *len, char *prefix, int spe
 	goto perm;
     }
   /* in secure mode, must be owned by user running dnsmasq */
-  else if (!special && option_bool(OPT_TFTP_SECURE) && uid != statbuf.st_uid)
+  else if (option_bool(OPT_TFTP_SECURE) && uid != statbuf.st_uid)
     goto perm;
       
   /* If we're doing many tranfers from the same file, only 

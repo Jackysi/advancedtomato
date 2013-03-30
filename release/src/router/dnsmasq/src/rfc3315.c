@@ -1,4 +1,4 @@
-/* dnsmasq is Copyright (c) 2000-2012 Simon Kelley
+/* dnsmasq is Copyright (c) 2000-2013 Simon Kelley
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -82,18 +82,20 @@ static int dhcp6_maybe_relay(struct in6_addr *link_address, struct dhcp_netid **
 	{
 	  struct dhcp_context *c;
 	  context = NULL;
+	   
+	  if (!IN6_IS_ADDR_LOOPBACK(link_address) &&
+	      !IN6_IS_ADDR_LINKLOCAL(link_address) &&
+	      !IN6_IS_ADDR_MULTICAST(link_address))
+	    for (c = daemon->dhcp6; c; c = c->next)
+	      if ((c->flags & CONTEXT_DHCP) &&
+		  !(c->flags & CONTEXT_TEMPLATE) &&
+		  is_same_net6(link_address, &c->start6, c->prefix) &&
+		  is_same_net6(link_address, &c->end6, c->prefix))
+		{
+		  c->current = context;
+		  context = c;
+		}
 	  
-	  for (c = daemon->dhcp6; c; c = c->next)
-	    if (!IN6_IS_ADDR_LOOPBACK(link_address) &&
-		!IN6_IS_ADDR_LINKLOCAL(link_address) &&
-		!IN6_IS_ADDR_MULTICAST(link_address) &&
-		is_same_net6(link_address, &c->start6, c->prefix) &&
-		is_same_net6(link_address, &c->end6, c->prefix))
-	      {
-		c->current = context;
-		context = c;
-	      }
-
 	  if (!context)
 	    {
 	      inet_ntop(AF_INET6, link_address, daemon->addrbuff, ADDRSTRLEN); 
@@ -180,7 +182,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
   char *client_hostname= NULL, *hostname = NULL;
   char *domain = NULL, *send_domain = NULL;
   struct dhcp_config *config = NULL;
-  struct dhcp_netid known_id, iface_id;
+  struct dhcp_netid known_id, iface_id, v6_id;
   int done_dns = 0, hostname_auth = 0, do_encap = 0;
   unsigned char *outmsgtypep;
   struct dhcp_opt *opt_cfg;
@@ -193,6 +195,11 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
   iface_id.net = iface_name;
   iface_id.next = tags;
   tags = &iface_id; 
+
+  /* set tag "dhcpv6" */
+  v6_id.net = "dhcpv6";
+  v6_id.next = tags;
+  tags = &v6_id;
 
   /* copy over transaction-id, and save pointer to message type */
   outmsgtypep = put_opt6(inbuff, 4);
@@ -497,7 +504,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	    ia_option =  opt6_find(opt6_ptr(opt, ia_type == OPTION6_IA_NA ? 12 : 4), ia_end, OPTION6_IAADDR, 24);
 	    
 	    /* reset "USED" flags on leases */
-	    lease6_find(NULL, 0, ia_type == OPTION6_IA_NA ? LEASE_NA : LEASE_TA, iaid, NULL);
+	    lease6_filter(ia_type == OPTION6_IA_NA ? LEASE_NA : LEASE_TA, iaid, context);
 	    
 	    o = new_opt6(ia_type);
 	    put_opt6_long(iaid);
@@ -520,32 +527,38 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 		  {
 		    struct in6_addr *req_addr = opt6_ptr(ia_option, 0);
 		    requested_time = opt6_uint(ia_option, 16, 4);
-		    
-		    if (!address6_available(context, req_addr, tags) &&
-			(!have_config(config, CONFIG_ADDR6) || memcmp(&config->addr6, req_addr, IN6ADDRSZ) != 0))
+		    struct dhcp_context *dynamic;
+
+		    if ((dynamic = address6_available(context, req_addr, tags)) || address6_valid(context, req_addr, tags))
 		      {
-			if (msg_type == DHCP6REQUEST)
+			if (!dynamic && !(have_config(config, CONFIG_ADDR6) && memcmp(&config->addr6, req_addr, IN6ADDRSZ) == 0))
 			  {
-			    /* host has a lease, but it's not on the correct link */
+			    /* Static range, not configured. */
 			    o1 = new_opt6(OPTION6_STATUS_CODE);
-			    put_opt6_short(DHCP6NOTONLINK);
-			    put_opt6_string("Not on link");
+			    put_opt6_short(DHCP6UNSPEC);
+			    put_opt6_string("Address unavailable");
 			    end_opt6(o1);
 			  }
+			else if (lease6_find_by_addr(req_addr, 128, 0) &&
+				 !(lease = lease6_find(clid, clid_len, ia_type == OPTION6_IA_NA ? LEASE_NA : LEASE_TA, iaid, req_addr)))
+			  {
+			    /* Address leased to another DUID/IAID */
+			    o1 = new_opt6(OPTION6_STATUS_CODE);
+			    put_opt6_short(DHCP6UNSPEC);
+			    put_opt6_string("Address in use");
+			    end_opt6(o1);
+			  } 
+			else 
+			  addrp = req_addr;
 		      }
-		    else if ((lease = lease6_find(NULL, 0, ia_type == OPTION6_IA_NA ? LEASE_NA : LEASE_TA, 
-						  iaid, req_addr)) &&
-			     (clid_len != lease->clid_len ||
-			      memcmp(clid, lease->clid, clid_len) != 0))
+		    else if (msg_type == DHCP6REQUEST)
 		      {
-			/* Address leased to another DUID */
+			/* requested address not on the correct link */
 			o1 = new_opt6(OPTION6_STATUS_CODE);
-			put_opt6_short(DHCP6UNSPEC);
-			put_opt6_string("Address in use");
+			put_opt6_short(DHCP6NOTONLINK);
+			put_opt6_string("Not on link");
 			end_opt6(o1);
-		      } 
-		    else
-		      addrp = req_addr;
+		      }
 		  }
 		else
 		  {
@@ -562,22 +575,26 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 			inet_ntop(AF_INET6, &config->addr6, daemon->addrbuff, ADDRSTRLEN);
 			
 			if (ltmp && ltmp->clid && 
-			    (ltmp->clid_len != clid_len || memcmp(ltmp->clid, clid, clid_len) != 0))
-			  my_syslog(MS_DHCP | LOG_WARNING, _("not using configured address %s because it is leased to %s"),
-				    daemon->addrbuff, print_mac(daemon->namebuff, ltmp->clid, ltmp->clid_len));
+			    (ltmp->clid_len != clid_len || memcmp(ltmp->clid, clid, clid_len) != 0 || ltmp->hwaddr_type != iaid))
+			  my_syslog(MS_DHCP | LOG_WARNING, _("not using configured address %s because it is leased to %s#%d"),
+				    daemon->addrbuff, print_mac(daemon->namebuff, ltmp->clid, ltmp->clid_len), ltmp->hwaddr_type);
 			else if (have_config(config, CONFIG_DECLINED) &&
 				 difftime(now, config->decline_time) < (float)DECLINE_BACKOFF)
 			  my_syslog(MS_DHCP | LOG_WARNING, _("not using configured address %s because it was previously declined"), 
 				    daemon->addrbuff);
 			else
-			  addrp = &config->addr6;			 
+			  {
+			    addrp = &config->addr6;
+			    /* may have existing lease for this address */
+			    lease = lease6_find(clid, clid_len, 
+						ia_type == OPTION6_IA_NA ? LEASE_NA : LEASE_TA, iaid, addrp); 
+			  }
 		      }
 		    
 		    /* existing lease */
 		    if (!addrp &&
 			(lease = lease6_find(clid, clid_len, 
 					     ia_type == OPTION6_IA_NA ? LEASE_NA : LEASE_TA, iaid, NULL)) &&
-			address6_available(context, (struct in6_addr *)&lease->hwaddr, tags) &&
 			!config_find_by_address6(daemon->dhcp_conf, (struct in6_addr *)&lease->hwaddr, 128, 0))
 		      addrp = (struct in6_addr *)&lease->hwaddr;
 		    
@@ -616,10 +633,16 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 				  hostname = NULL;
 			      }
 			  }
+		       	
+			if (have_config(valid_config, CONFIG_TIME))
+			  lease_time = valid_config->lease_time;
+			else
+			  lease_time = this_context->lease_time;
 			
-			lease_time = have_config(valid_config, CONFIG_TIME) ? valid_config->lease_time : this_context->lease_time;
+			 if (this_context->valid < lease_time)
+			   lease_time = this_context->valid;
 			
-			if (ia_option)
+			 if (ia_option)
 			  {
 			    if (requested_time < 120u )
 			      requested_time = 120u; /* sanity */
@@ -731,7 +754,8 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 			    o1 =  new_opt6(OPTION6_IAADDR);
 			    put_opt6(addrp, sizeof(*addrp));
 			    /* preferred lifetime */
-			    put_opt6_long(this_context && (this_context->flags & CONTEXT_DEPRECATE) ? 0 : lease_time);
+			    put_opt6_long(this_context && (this_context->preferred < lease_time) ? 
+					  this_context->preferred : lease_time);
 			    put_opt6_long(lease_time); /* valid lifetime */
 			    end_opt6(o1);
 
@@ -832,7 +856,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	    iacntr = save_counter(-1); 
 	    
 	    /* reset "USED" flags on leases */
-	    lease6_find(NULL, 0, ia_type == OPTION6_IA_NA ? LEASE_NA : LEASE_TA, iaid, NULL);
+	    lease6_filter(ia_type == OPTION6_IA_NA ? LEASE_NA : LEASE_TA, iaid, context);
 	    
 	    ia_option = opt6_ptr(opt, ia_type == OPTION6_IA_NA ? 12 : 4);
 	    ia_end = opt6_ptr(opt, opt6_len(opt));
@@ -1001,10 +1025,17 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
       
     case DHCP6IREQ:
       {
+	/* We can't discriminate contexts based on address, as we don't know it.
+	   If there is only one possible context, we can use its tags */
+	if (context && context->netid.net && !context->current)
+	  {
+	    context->netid.next = NULL;
+	    context_tags =  &context->netid;
+	  }
+	log6_packet("DHCPINFORMATION-REQUEST", clid, clid_len, NULL, xid, iface_name, ignore ? "ignored" : hostname);
 	if (ignore)
 	  return 0;
 	*outmsgtypep = DHCP6REPLY;
-	log6_packet("DHCPINFORMATION-REQUEST", clid, clid_len, NULL, xid, iface_name, hostname);
 	break;
       }
       
@@ -1036,7 +1067,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	    ia_option = opt6_ptr(opt, ia_type == OPTION6_IA_NA ? 12 : 4);
 	    
 	    /* reset "USED" flags on leases */
-	    lease6_find(NULL, 0, ia_type == OPTION6_IA_NA ? LEASE_NA : LEASE_TA, iaid, NULL);
+	    lease6_filter(ia_type == OPTION6_IA_NA ? LEASE_NA : LEASE_TA, iaid, context);
 		
 	    for (ia_option = opt6_find(ia_option, ia_end, OPTION6_IAADDR, 24);
 		 ia_option;
@@ -1115,7 +1146,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	    ia_option = opt6_ptr(opt, ia_type == OPTION6_IA_NA ? 12 : 4);
 	    
 	    /* reset "USED" flags on leases */
-	    lease6_find(NULL, 0, ia_type == OPTION6_IA_NA ? LEASE_NA : LEASE_TA, iaid, NULL);
+	    lease6_filter(ia_type == OPTION6_IA_NA ? LEASE_NA : LEASE_TA, iaid, context);
 		
 	    for (ia_option = opt6_find(ia_option, ia_end, OPTION6_IAADDR, 24);
 		 ia_option;
@@ -1234,7 +1265,7 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
       end_opt6(o);
     }
   
-  if (!done_dns && 
+  if (daemon->port == NAMESERVER_PORT && !done_dns && 
       (!IN6_IS_ADDR_UNSPECIFIED(&context->local6) ||
        !IN6_IS_ADDR_UNSPECIFIED(fallback)))
     {

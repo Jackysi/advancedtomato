@@ -9,8 +9,8 @@
  * Licensed under GPLv2 or later, see file LICENSE in this source tree.
  */
 
-//applet:IF_INIT(APPLET(init, _BB_DIR_SBIN, _BB_SUID_DROP))
-//applet:IF_FEATURE_INITRD(APPLET_ODDNAME(linuxrc, init, _BB_DIR_ROOT, _BB_SUID_DROP, linuxrc))
+//applet:IF_INIT(APPLET(init, BB_DIR_SBIN, BB_SUID_DROP))
+//applet:IF_FEATURE_INITRD(APPLET_ODDNAME(linuxrc, init, BB_DIR_ROOT, BB_SUID_DROP, linuxrc))
 
 //kbuild:lib-$(CONFIG_INIT) += init.o
 
@@ -108,17 +108,26 @@
 //config:	  Note that on Linux, init attempts to detect serial terminal and
 //config:	  sets TERM to "vt102" if one is found.
 
+#define DEBUG_SEGV_HANDLER 0
+
 #include "libbb.h"
 #include <syslog.h>
 #include <paths.h>
 #include <sys/resource.h>
 #ifdef __linux__
-#include <linux/vt.h>
-#endif
-#if ENABLE_FEATURE_UTMP
-# include <utmp.h> /* DEAD_PROCESS */
+# include <linux/vt.h>
+# include <sys/sysinfo.h>
 #endif
 #include "reboot.h" /* reboot() constants */
+
+#if DEBUG_SEGV_HANDLER
+# undef _GNU_SOURCE
+# define _GNU_SOURCE 1
+# undef __USE_GNU
+# define __USE_GNU 1
+# include <execinfo.h>
+# include <sys/ucontext.h>
+#endif
 
 /* Used only for sanitizing purposes in set_sane_term() below. On systems where
  * the baud rate is stored in a separate field, we can safely disable them. */
@@ -401,20 +410,23 @@ static void init_exec(const char *command)
 	char buf[COMMAND_SIZE + 6];  /* COMMAND_SIZE+strlen("exec ")+1 */
 	int dash = (command[0] == '-' /* maybe? && command[1] == '/' */);
 
+	command += dash;
+
 	/* See if any special /bin/sh requiring characters are present */
 	if (strpbrk(command, "~`!$^&*()=|\\{}[];\"'<>?") != NULL) {
-		strcpy(buf, "exec ");
-		strcpy(buf + 5, command + dash); /* excluding "-" */
+		sprintf(buf, "exec %s", command); /* excluding "-" */
 		/* NB: LIBBB_DEFAULT_LOGIN_SHELL define has leading dash */
 		cmd[0] = (char*)(LIBBB_DEFAULT_LOGIN_SHELL + !dash);
 		cmd[1] = (char*)"-c";
 		cmd[2] = buf;
 		cmd[3] = NULL;
+		command = LIBBB_DEFAULT_LOGIN_SHELL + 1;
 	} else {
 		/* Convert command (char*) into cmd (char**, one word per string) */
 		char *word, *next;
 		int i = 0;
-		next = strcpy(buf, command); /* including "-" */
+		next = strcpy(buf, command - dash); /* command including "-" */
+		command = next + dash;
 		while ((word = strsep(&next, " \t")) != NULL) {
 			if (*word != '\0') { /* not two spaces/tabs together? */
 				cmd[i] = word;
@@ -425,14 +437,14 @@ static void init_exec(const char *command)
 	}
 	/* If we saw leading "-", it is interactive shell.
 	 * Try harder to give it a controlling tty.
-	 * And skip "-" in actual exec call. */
-	if (dash) {
+	 */
+	if (ENABLE_FEATURE_INIT_SCTTY && dash) {
 		/* _Attempt_ to make stdin a controlling tty. */
-		if (ENABLE_FEATURE_INIT_SCTTY)
-			ioctl(STDIN_FILENO, TIOCSCTTY, 0 /*only try, don't steal*/);
+		ioctl(STDIN_FILENO, TIOCSCTTY, 0 /*only try, don't steal*/);
 	}
-	BB_EXECVP(cmd[0] + dash, cmd);
-	message(L_LOG | L_CONSOLE, "can't run '%s': %s", cmd[0], strerror(errno));
+	/* Here command never contains the dash, cmd[0] might */
+	BB_EXECVP(command, cmd);
+	message(L_LOG | L_CONSOLE, "can't run '%s': %s", command, strerror(errno));
 	/* returns if execvp fails */
 }
 
@@ -522,15 +534,17 @@ static struct init_action *mark_terminated(pid_t pid)
 	struct init_action *a;
 
 	if (pid > 0) {
+		update_utmp(pid, DEAD_PROCESS,
+				/*tty_name:*/ NULL,
+				/*username:*/ NULL,
+				/*hostname:*/ NULL
+		);
 		for (a = init_action_list; a; a = a->next) {
 			if (a->pid == pid) {
 				a->pid = 0;
 				return a;
 			}
 		}
-		update_utmp(pid, DEAD_PROCESS, /*tty_name:*/ NULL,
-				/*username:*/ NULL,
-				/*hostname:*/ NULL);
 	}
 	return NULL;
 }
@@ -595,7 +609,7 @@ static void new_init_action(uint8_t action_type, const char *command, const char
 	 */
 	nextp = &init_action_list;
 	while ((a = *nextp) != NULL) {
-		/* Don't enter action if it's already in the list,
+		/* Don't enter action if it's already in the list.
 		 * This prevents losing running RESPAWNs.
 		 */
 		if (strcmp(a->command, command) == 0
@@ -607,14 +621,15 @@ static void new_init_action(uint8_t action_type, const char *command, const char
 			while (*nextp != NULL)
 				nextp = &(*nextp)->next;
 			a->next = NULL;
-			break;
+			goto append;
 		}
 		nextp = &a->next;
 	}
 
-	if (!a)
-		a = xzalloc(sizeof(*a));
+	a = xzalloc(sizeof(*a));
+
 	/* Append to the end of the list */
+ append:
 	*nextp = a;
 	a->action_type = action_type;
 	safe_strncpy(a->command, command, sizeof(a->command));
@@ -953,12 +968,52 @@ static int check_delayed_sigs(void)
 	}
 }
 
+#if DEBUG_SEGV_HANDLER
+static
+void handle_sigsegv(int sig, siginfo_t *info, void *ucontext)
+{
+	long ip;
+	ucontext_t *uc;
+
+	uc = ucontext;
+	ip = uc->uc_mcontext.gregs[REG_EIP];
+	fdprintf(2, "signal:%d address:0x%lx ip:0x%lx\n",
+			sig,
+			/* this is void*, but using %p would print "(null)"
+			 * even for ptrs which are not exactly 0, but, say, 0x123:
+			 */
+			(long)info->si_addr,
+			ip);
+	{
+		/* glibc extension */
+		void *array[50];
+		int size;
+		size = backtrace(array, 50);
+		backtrace_symbols_fd(array, size, 2);
+	}
+	for (;;) sleep(9999);
+}
+#endif
+
 int init_main(int argc, char **argv) MAIN_EXTERNALLY_VISIBLE;
 int init_main(int argc UNUSED_PARAM, char **argv)
 {
 	if (argv[1] && strcmp(argv[1], "-q") == 0) {
 		return kill(1, SIGHUP);
 	}
+
+#if DEBUG_SEGV_HANDLER
+	{
+		struct sigaction sa;
+		memset(&sa, 0, sizeof(sa));
+		sa.sa_sigaction = handle_sigsegv;
+		sa.sa_flags = SA_SIGINFO;
+		sigaction(SIGSEGV, &sa, NULL);
+		sigaction(SIGILL, &sa, NULL);
+		sigaction(SIGFPE, &sa, NULL);
+		sigaction(SIGBUS, &sa, NULL);
+	}
+#endif
 
 	if (!DEBUG_INIT) {
 		/* Expect to be invoked as init with PID=1 or be invoked as linuxrc */

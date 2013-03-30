@@ -28,6 +28,11 @@ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /* Busyboxed by Denys Vlasenko <vda.linux@googlemail.com> */
 /* TODO: depends on runit_lib.c - review and reduce/eliminate */
 
+//usage:#define runsv_trivial_usage
+//usage:       "DIR"
+//usage:#define runsv_full_usage "\n\n"
+//usage:       "Start and monitor a service and optionally an appendant log service"
+
 #include <sys/poll.h>
 #include <sys/file.h>
 #include "libbb.h"
@@ -139,16 +144,6 @@ static void s_term(int sig_no UNUSED_PARAM)
 	write(selfpipe.wr, "", 1); /* XXX */
 }
 
-/* libbb candidate */
-static char *bb_stpcpy(char *p, const char *to_add)
-{
-	while ((*p = *to_add) != '\0') {
-		p++;
-		to_add++;
-	}
-	return p;
-}
-
 static int open_trunc_or_warn(const char *name)
 {
 	/* Why O_NDELAY? */
@@ -192,26 +187,26 @@ static void update_status(struct svdir *s)
 		char *p = stat_buf;
 		switch (s->state) {
 		case S_DOWN:
-			p = bb_stpcpy(p, "down");
+			p = stpcpy(p, "down");
 			break;
 		case S_RUN:
-			p = bb_stpcpy(p, "run");
+			p = stpcpy(p, "run");
 			break;
 		case S_FINISH:
-			p = bb_stpcpy(p, "finish");
+			p = stpcpy(p, "finish");
 			break;
 		}
 		if (s->ctrl & C_PAUSE)
-			p = bb_stpcpy(p, ", paused");
+			p = stpcpy(p, ", paused");
 		if (s->ctrl & C_TERM)
-			p = bb_stpcpy(p, ", got TERM");
+			p = stpcpy(p, ", got TERM");
 		if (s->state != S_DOWN)
 			switch (s->sd_want) {
 			case W_DOWN:
-				p = bb_stpcpy(p, ", want down");
+				p = stpcpy(p, ", want down");
 				break;
 			case W_EXIT:
-				p = bb_stpcpy(p, ", want exit");
+				p = stpcpy(p, ", want exit");
 				break;
 			}
 		*p++ = '\n';
