@@ -257,7 +257,9 @@ void start_dnsmasq()
 		} else {
 			if (strcmp(nvram_safe_get(lanN_ifname),"")!=0) {
 				fprintf(f, "interface=%s\n", nvram_safe_get(lanN_ifname));
-				fprintf(f, "no-dhcp-interface=%s\n", nvram_safe_get(lanN_ifname));
+// if no dhcp range is set then no dhcp service will be offered so following
+// line is superflous.
+//				fprintf(f, "no-dhcp-interface=%s\n", nvram_safe_get(lanN_ifname));
 			}
 		}
 	}
