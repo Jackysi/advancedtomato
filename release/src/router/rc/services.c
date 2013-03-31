@@ -211,7 +211,7 @@ void start_dnsmasq()
 							sprintf(buf + strlen(buf), ",%s", inet_ntoa(dns->dns[n].addr));
 						}
 					}
-					fprintf(f, "dhcp-option=%s,6%s\n", nvram_safe_get(lanN_ifname), buf);
+					fprintf(f, "dhcp-option=tag:%s,6%s\n", nvram_safe_get(lanN_ifname), buf);
 				}
 			}
 
@@ -220,7 +220,7 @@ void start_dnsmasq()
 			sprintf(lanN_netmask, "lan%s_netmask", bridge);
 
 			if ((p = nvram_get(dhcpdN_startip)) && (*p) && (e = nvram_get(dhcpdN_endip)) && (*e)) {
-				fprintf(f, "dhcp-range=%s,%s,%s,%s,%dm\n", nvram_safe_get(lanN_ifname), p, e, nvram_safe_get(lanN_netmask), dhcp_lease);
+				fprintf(f, "dhcp-range=tag:%s,%s,%s,%s,%dm\n", nvram_safe_get(lanN_ifname), p, e, nvram_safe_get(lanN_netmask), dhcp_lease);
 			}
 			else {
 				// for compatibility
@@ -229,7 +229,7 @@ void start_dnsmasq()
 				sprintf(lanN_netmask, "lan%s_netmask", bridge);
 				dhcp_start = nvram_get_int(dhcpN_start);
 				dhcp_count = nvram_get_int(dhcpN_num);
-				fprintf(f, "dhcp-range=%s,%s%d,%s%d,%s,%dm\n",
+				fprintf(f, "dhcp-range=tag:%s,%s%d,%s%d,%s,%dm\n",
 					nvram_safe_get(lanN_ifname), lan, dhcp_start, lan, dhcp_start + dhcp_count - 1, nvram_safe_get(lanN_netmask), dhcp_lease);
 			}
 
@@ -240,7 +240,7 @@ void start_dnsmasq()
 			}
 #ifdef TCONFIG_VLAN
 			fprintf(f,
-				"dhcp-option=%s,3,%s\n",	// gateway
+				"dhcp-option=tag:%s,3,%s\n",	// gateway
 				nvram_safe_get(lanN_ifname), nv);
 #endif
 			if (((nv = nvram_get("wan_wins")) != NULL) && (*nv) && (strcmp(nv, "0.0.0.0") != 0)) {
