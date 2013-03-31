@@ -127,9 +127,13 @@ struct myoption {
 #define LOPT_AUTHSOA   316
 #define LOPT_AUTHSFS   317
 #define LOPT_AUTHPEER  318
+#define LOPT_IPSET     319
+#ifdef OPTION6_PREFIX_CLASS 
+#define LOPT_PREF_CLSS 320
+#endif
 
 #ifdef HAVE_TOMATO
-#define LOPT_QUIET_DHCP 319
+#define LOPT_QUIET_DHCP 321
 #endif //TOMATO
 
 #ifdef HAVE_GETOPT_LONG
@@ -266,6 +270,10 @@ static const struct myoption opts[] =
     { "auth-soa", 1, 0, LOPT_AUTHSOA },
     { "auth-sec-servers", 1, 0, LOPT_AUTHSFS },
     { "auth-peer", 1, 0, LOPT_AUTHPEER }, 
+    { "ipset", 1, 0, LOPT_IPSET },
+#ifdef OPTION6_PREFIX_CLASS 
+    { "dhcp-prefix-class", 1, 0, LOPT_PREF_CLSS },
+#endif
     { NULL, 0, 0, 0 }
   };
 
@@ -409,6 +417,10 @@ static struct {
   { LOPT_AUTHSOA, ARG_ONE, "<serial>[,...]", gettext_noop("Set authoritive zone information"), NULL },
   { LOPT_AUTHSFS, ARG_DUP, "<NS>[,<NS>...]", gettext_noop("Secondary authoritative nameservers for forward domains"), NULL },
   { LOPT_AUTHPEER, ARG_DUP, "<ipaddr>[,<ipaddr>...]", gettext_noop("Peers which are allowed to do zone transfer"), NULL },
+  { LOPT_IPSET, ARG_DUP, "/<domain>/<ipset>[,<ipset>...]", gettext_noop("Specify ipsets to which matching domains should be added"), NULL },
+#ifdef OPTION6_PREFIX_CLASS 
+  { LOPT_PREF_CLSS, ARG_DUP, "set:tag,<class>", gettext_noop("Specify DHCPv6 prefix class"), NULL },
+#endif
   { 0, 0, NULL, NULL, NULL }
 }; 
 
@@ -777,6 +789,8 @@ static int parse_dhcp_opt(char *errstr, char *arg, int flags)
 	  new->opt = lookup_dhcp_opt(AF_INET, arg+7);
 	  opt_len = lookup_dhcp_len(AF_INET, new->opt);
 	  /* option:<optname> must follow tag and vendor string. */
+	  if ((opt_len & OT_INTERNAL) && flags != DHOPT_MATCH)
+	    new->opt = 0;
 	  break;
 	}
 #ifdef HAVE_DHCP6
@@ -795,6 +809,8 @@ static int parse_dhcp_opt(char *errstr, char *arg, int flags)
 	    {
 	      new->opt = lookup_dhcp_opt(AF_INET6, arg+8);
 	      opt_len = lookup_dhcp_len(AF_INET6, new->opt);
+	      if ((opt_len & OT_INTERNAL) && flags != DHOPT_MATCH)
+		new->opt = 0;
 	    }
 	  /* option6:<opt>|<optname> must follow tag and vendor string. */
 	  is6 = 1;
@@ -2033,6 +2049,74 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	daemon->servers = newlist;
 	break;
       }
+
+    case LOPT_IPSET: /* --ipset */
+#ifndef HAVE_IPSET
+      ret_err(_("recompile with HAVE_IPSET defined to enable ipset directives"));
+      break;
+#else
+      {
+	 struct ipsets ipsets_head;
+	 struct ipsets *ipsets = &ipsets_head;
+	 int size;
+	 char *end;
+	 char **sets, **sets_pos;
+	 memset(ipsets, 0, sizeof(struct ipsets));
+	 unhide_metas(arg);
+	 if (arg && *arg == '/') 
+	   {
+	     arg++;
+	     while ((end = split_chr(arg, '/'))) 
+	       {
+		 char *domain = NULL;
+		 /* elide leading dots - they are implied in the search algorithm */
+		 while (*arg == '.')
+		   arg++;
+		 /* # matches everything and becomes a zero length domain string */
+		 if (strcmp(arg, "#") == 0 || !*arg)
+		   domain = "";
+		 else if (strlen(arg) != 0 && !(domain = canonicalise_opt(arg)))
+		   option = '?';
+		 ipsets->next = opt_malloc(sizeof(struct ipsets));
+		 ipsets = ipsets->next;
+		 memset(ipsets, 0, sizeof(struct ipsets));
+		 ipsets->domain = domain;
+		 arg = end;
+	       }
+	   } 
+	 else 
+	   {
+	     ipsets->next = opt_malloc(sizeof(struct ipsets));
+	     ipsets = ipsets->next;
+	     memset(ipsets, 0, sizeof(struct ipsets));
+	     ipsets->domain = "";
+	   }
+	 if (!arg || !*arg)
+	   {
+	     option = '?';
+	     break;
+	   }
+	 size = 2;
+	 for (end = arg; *end; ++end) 
+	   if (*end == ',')
+	       ++size;
+     
+	 sets = sets_pos = opt_malloc(sizeof(char *) * size);
+	 
+	 do {
+	   end = split(arg);
+	   *sets_pos++ = opt_string_alloc(arg);
+	   arg = end;
+	 } while (end);
+	 *sets_pos = 0;
+	 for (ipsets = &ipsets_head; ipsets->next; ipsets = ipsets->next)
+	   ipsets->next->sets = sets;
+	 ipsets->next = daemon->ipsets;
+	 daemon->ipsets = ipsets_head.next;
+	 
+	 break;
+      }
+#endif
       
     case 'c':  /* --cache-size */
       {
@@ -2303,11 +2387,6 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 		  new->flags |= CONTEXT_DHCP; 
 		else if (strstr(a[leasepos], "constructor:") == a[leasepos])
 		  {
-		    if (a[leasepos][strlen(a[leasepos])-1] == '*')
-		      {
-			a[leasepos][strlen(a[leasepos])-1] = 0;
-			new->flags |= CONTEXT_WILDCARD;
-		      }
 		    new->template_interface = opt_string_alloc(a[leasepos] + 12);
 		    new->flags |= CONTEXT_TEMPLATE;
 		  }
@@ -2880,7 +2959,25 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	  }
       }
       break;
-      
+
+#ifdef OPTION6_PREFIX_CLASS 
+    case LOPT_PREF_CLSS: /* --dhcp-prefix-class */
+      {
+	struct prefix_class *new = opt_malloc(sizeof(struct prefix_class));
+	
+	if (!(comma = split(arg)) ||
+	    !atoi_check16(comma, &new->class))
+	  ret_err(gen_err);
+	
+	new->tag.net = opt_string_alloc(set_prefix(arg));
+	new->next = daemon->prefix_classes;
+	daemon->prefix_classes = new;
+	
+	break;
+      }
+#endif
+			      
+
     case 'U':           /* --dhcp-vendorclass */
     case 'j':           /* --dhcp-userclass */
     case LOPT_CIRCUIT:  /* --dhcp-circuitid */

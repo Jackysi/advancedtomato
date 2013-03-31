@@ -120,11 +120,11 @@ void dhcp6_packet(time_t now)
     return;
     
   for (tmp = daemon->if_except; tmp; tmp = tmp->next)
-    if (tmp->name && (strcmp(tmp->name, ifr.ifr_name) == 0))
+    if (tmp->name && wildcard_match(tmp->name, ifr.ifr_name))
       return;
 
   for (tmp = daemon->dhcp_except; tmp; tmp = tmp->next)
-    if (tmp->name && (strcmp(tmp->name, ifr.ifr_name) == 0))
+    if (tmp->name && wildcard_match(tmp->name, ifr.ifr_name))
       return;
  
   parm.current = NULL;
@@ -153,7 +153,7 @@ void dhcp6_packet(time_t now)
     {
       
       for (tmp = daemon->if_names; tmp; tmp = tmp->next)
-	if (tmp->name && (strcmp(tmp->name, ifr.ifr_name) == 0))
+	if (tmp->name && wildcard_match(tmp->name, ifr.ifr_name))
 	  break;
 
       if (!tmp && !parm.addr_match)
@@ -265,8 +265,8 @@ struct dhcp_config *config_find_by_address6(struct dhcp_config *configs, struct 
   return NULL;
 }
 
-int address6_allocate(struct dhcp_context *context,  unsigned char *clid, int clid_len, 
-		      int serial, struct dhcp_netid *netids, struct in6_addr *ans)   
+struct dhcp_context *address6_allocate(struct dhcp_context *context,  unsigned char *clid, int clid_len, 
+				       int iaid, int serial, struct dhcp_netid *netids, int plain_range, struct in6_addr *ans)   
 {
   /* Find a free address: exclude anything in use and anything allocated to
      a particular hwaddr/clientid/hostname in our configuration.
@@ -283,12 +283,12 @@ int address6_allocate(struct dhcp_context *context,  unsigned char *clid, int cl
 
   /* hash hwaddr: use the SDBM hashing algorithm.  This works
      for MAC addresses, let's see how it manages with client-ids! */
-  for (j = 0, i = 0; i < clid_len; i++)
+  for (j = iaid, i = 0; i < clid_len; i++)
     j += clid[i] + (j << 6) + (j << 16) - j;
   
-  for (pass = 0; pass <= 1; pass++)
+  for (pass = 0; pass <= plain_range ? 1 : 0; pass++)
     for (c = context; c; c = c->current)
-      if (c->flags & (CONTEXT_DEPRECATE | CONTEXT_STATIC | CONTEXT_RA_STATELESS))
+      if (c->flags & (CONTEXT_DEPRECATE | CONTEXT_STATIC | CONTEXT_RA_STATELESS | CONTEXT_USED))
 	continue;
       else if (!match_netid(c->filter, netids, pass))
 	continue;
@@ -298,7 +298,7 @@ int address6_allocate(struct dhcp_context *context,  unsigned char *clid, int cl
 	    /* seed is largest extant lease addr in this context */
 	    start = lease_find_max_addr6(c) + serial;
 	  else
-	    start = addr6part(&c->start6) + ((j + c->addr_epoch + serial) % (1 + addr6part(&c->end6) - addr6part(&c->start6)));
+	    start = addr6part(&c->start6) + ((j + c->addr_epoch) % (1 + addr6part(&c->end6) - addr6part(&c->start6)));
 
 	  /* iterate until we find a free address. */
 	  addr = start;
@@ -315,7 +315,7 @@ int address6_allocate(struct dhcp_context *context,  unsigned char *clid, int cl
 	      {
 		*ans = c->start6;
 		setaddr6part (ans, addr);
-		return 1;
+		return c;
 	      }
 	
 	    addr++;
@@ -325,14 +325,15 @@ int address6_allocate(struct dhcp_context *context,  unsigned char *clid, int cl
 	    
 	  } while (addr != start);
 	}
-  
+	   
   return 0;
 }
 
 /* can dynamically allocate addr */
 struct dhcp_context *address6_available(struct dhcp_context *context, 
 					struct in6_addr *taddr,
-					struct dhcp_netid *netids)
+					struct dhcp_netid *netids,
+					int plain_range)
 {
   u64 start, end, addr = addr6part(taddr);
   struct dhcp_context *tmp;
@@ -347,7 +348,7 @@ struct dhcp_context *address6_available(struct dhcp_context *context,
 	  is_same_net6(&tmp->end6, taddr, tmp->prefix) &&
 	  addr >= start &&
           addr <= end &&
-          match_netid(tmp->filter, netids, 1))
+          match_netid(tmp->filter, netids, plain_range))
         return tmp;
     }
 
@@ -356,72 +357,52 @@ struct dhcp_context *address6_available(struct dhcp_context *context,
 
 /* address OK if configured */
 struct dhcp_context *address6_valid(struct dhcp_context *context, 
-					struct in6_addr *taddr,
-					struct dhcp_netid *netids)
+				    struct in6_addr *taddr,
+				    struct dhcp_netid *netids,
+				    int plain_range)
 {
   struct dhcp_context *tmp;
  
   for (tmp = context; tmp; tmp = tmp->current)
     if (is_same_net6(&tmp->start6, taddr, tmp->prefix) &&
-	match_netid(tmp->filter, netids, 1))
+	match_netid(tmp->filter, netids, plain_range))
       return tmp;
 
   return NULL;
 }
 
-struct dhcp_context *narrow_context6(struct dhcp_context *context, 
-				     struct in6_addr *taddr,
-				     struct dhcp_netid *netids)
+int config_valid(struct dhcp_config *config, struct dhcp_context *context, struct in6_addr *addr)
 {
-  /* We start of with a set of possible contexts, all on the current physical interface.
-     These are chained on ->current.
-     Here we have an address, and return the actual context correponding to that
-     address. Note that none may fit, if the address came a dhcp-host and is outside
-     any dhcp-range. In that case we return a static range if possible, or failing that,
-     any context on the correct subnet. (If there's more than one, this is a dodgy 
-     configuration: maybe there should be a warning.) */
-  
-  struct dhcp_context *tmp;
+  if (!config || !(config->flags & CONFIG_ADDR6))
+    return 0;
 
-  if (!(tmp = address6_available(context, taddr, netids)) &&
-      !(tmp = address6_valid(context, taddr, netids)))
-    for (tmp = context; tmp; tmp = tmp->current)
-      if (match_netid(tmp->filter, netids, 1) &&
-	  is_same_net6(taddr, &tmp->start6, tmp->prefix))
-	break;
+  if ((config->flags & CONFIG_WILDCARD) && context->prefix == 64)
+    {
+      *addr = context->start6;
+      setaddr6part(addr, addr6part(&config->addr6));
+      return 1;
+    }
   
-  /* Only one context allowed now */
-  if (tmp)
-    tmp->current = NULL;
+  if (is_same_net6(&context->start6, &config->addr6, context->prefix))
+    {
+      *addr = config->addr6;
+      return 1;
+    }
   
-  return tmp;
+  return 0;
 }
 
 static int is_config_in_context6(struct dhcp_context *context, struct dhcp_config *config)
 {
-  /* expand wildcard on contructed contexts */
-  if ((config->flags & CONFIG_WILDCARD) && 
-      (context->flags & CONTEXT_CONSTRUCTED))
-    {
-      u64 addrpart = addr6part(&config->addr6);
-      config->addr6 = context->start6;
-      setaddr6part(&config->addr6, addrpart);
-      return 1;
-    }
-  
-  if (!(config->flags & CONFIG_ADDR6) || is_addr_in_context6(context, &config->addr6))
+  if (!(config->flags & CONFIG_ADDR6) || 
+      (config->flags & CONFIG_WILDCARD))
+
     return 1;
-      
-  return 0;
-}
-
-
-int is_addr_in_context6(struct dhcp_context *context, struct in6_addr *addr)
-{
-  for (; context; context = context->current)
-    if (is_same_net6(addr, &context->start6, context->prefix))
-      return 1;
   
+  for (; context; context = context->current)
+    if (is_same_net6(&config->addr6, &context->start6, context->prefix))
+      return 1;
+      
   return 0;
 }
 
@@ -549,9 +530,7 @@ static int construct_worker(struct in6_addr *local, int prefix,
 	  }
 	
       }
-    else if (addr6part(local) == addr6part(&template->start6) &&
-	     strncmp(template->template_interface, ifrn_name, strlen(template->template_interface)) == 0 &&
-	     (strlen(template->template_interface) == strlen(ifrn_name) || (template->flags & CONTEXT_WILDCARD)))
+    else if (addr6part(local) == addr6part(&template->start6) && wildcard_match(template->template_interface, ifrn_name))
       {
 	start6 = *local;
 	setaddr6part(&start6, addr6part(&template->start6));

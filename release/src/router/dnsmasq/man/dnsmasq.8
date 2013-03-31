@@ -171,7 +171,12 @@ options. IP alias interfaces (eg "eth1:0") cannot be used with
 .B --interface
 or
 .B --except-interface
-options, use --listen-address instead. 
+options, use --listen-address instead. A simple wildcard, consisting
+of a trailing '*', can be used in 
+.B \--interface 
+and
+.B \--except-interface
+options. 
 .TP
 .B \-I, --except-interface=<interface name>
 Do not listen on the specified interface. Note that the order of
@@ -412,6 +417,12 @@ additional facility that /#/ matches any domain. Thus
 answered from /etc/hosts or DHCP and not sent to an upstream
 nameserver by a more specific --server directive.
 .TP
+.B --ipset=/<domain>/[domain/]<ipset>[,<ipset>]
+Places the resolved IP addresses of queries for the specified domains
+in the specified netfilter ip sets. Domains and subdomains are matched
+in the same way as --address. These ip sets must already exist. See
+ipset(8) for more details.
+.TP
 .B \-m, --mx-host=<mx name>[[,<hostname>],<preference>]
 Return an MX record named <mx name> pointing to the given hostname (if
 given), or
@@ -547,7 +558,8 @@ Define a DNS zone for which dnsmasq acts as authoritative server. Locally define
 will be served, except that A and AAAA records must be in one of the
 specified subnets, or in a subnet corresponding to a contructed DHCP
 range. The subnet(s) are also used to define in-addr.arpa and
-ipv6.arpa domains which are served for reverse-DNS queries.
+ipv6.arpa domains which are served for reverse-DNS queries. For IPv4
+subnets, the prefix length is limited to the values 8, 16 or 24.
 .TP
 .B --auth-soa=<serial>[,<hostmaster>[,<refresh>[,<retry>[,<expiry>]]]]
 Specify fields in the SOA record associated with authoritative
@@ -1747,7 +1759,7 @@ we have
 .fi
 
 .nf
-our.zone.com             A    192.0.43.10
+our.zone.com             A    1.2.3.4
 our.zone.com            NS    our.zone.com
 .fi
 
@@ -1760,11 +1772,23 @@ record. If the external address is static, this can be done with an
 .B /etc/hosts 
 entry or 
 .B --host-record.
-If the external address is dynamic,
-then it must be done using something like
 
 .nf
-.B --interface-name=our.zone.com,eth0
+.B auth-server=our.zone.com,eth0
+.B host-record=our.zone.com,1.2.3.4
+.B auth-zone=our.zone.com,1.2.3.0/24
+.fi
+
+If the external address is dynamic, the address
+associated with our.zone.com must be derived from the address of the
+relvant interface. This is done using 
+.B interface-name
+Something like:
+
+.nf
+.B auth-server=our.zone.com,eth0
+.B interface-name=our.zone.com,eth0
+.B auth-zone=our.zone.com,1.2.3.0/24
 .fi
 
 Our final configuration builds on that above, but also adds a

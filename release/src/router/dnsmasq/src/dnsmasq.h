@@ -437,6 +437,12 @@ struct server {
   struct server *next; 
 };
 
+struct ipsets {
+  char **sets;
+  char *domain;
+  struct ipsets *next;
+};
+
 struct irec {
   union mysockaddr addr;
   struct in_addr netmask; /* only valid for IPv4 */
@@ -682,6 +688,14 @@ struct cond_domain {
   struct cond_domain *next;
 }; 
 
+#ifdef OPTION6_PREFIX_CLASS 
+struct prefix_class {
+  int class;
+  struct dhcp_netid tag;
+  struct prefix_class *next;
+};
+#endif
+
 struct dhcp_context {
   unsigned int lease_time, addr_epoch;
   struct in_addr netmask, broadcast;
@@ -714,7 +728,8 @@ struct dhcp_context {
 #define CONTEXT_CONSTRUCTED 2048
 #define CONTEXT_GC          4096
 #define CONTEXT_RA          8192
-#define CONTEXT_WILDCARD   16384
+#define CONTEXT_CONF_USED  16384
+#define CONTEXT_USED       32768
 
 struct ping_result {
   struct in_addr addr;
@@ -786,6 +801,7 @@ extern struct daemon {
   struct iname *if_names, *if_addrs, *if_except, *dhcp_except, *auth_peers;
   struct bogus_addr *bogus_addr;
   struct server *servers;
+  struct ipsets *ipsets;
   int log_fac; /* log facility */
   char *log_file; /* optional log file */
   int max_logs;  /* queue limit */
@@ -820,6 +836,9 @@ extern struct daemon {
   unsigned char *duid_config;
   char *dbus_name;
   unsigned long soa_sn, soa_refresh, soa_retry, soa_expiry;
+#ifdef OPTION6_PREFIX_CLASS 
+  struct prefix_class *prefix_classes;
+#endif
 
   /* globally used stuff for DNS */
   char *packet; /* packet buffer */
@@ -910,7 +929,8 @@ size_t setup_reply(struct dns_header *header, size_t  qlen,
 		   struct all_addr *addrp, unsigned int flags,
 		   unsigned long local_ttl);
 int extract_addresses(struct dns_header *header, size_t qlen, char *namebuff, 
-		      time_t now, int is_sign, int checkrebind, int checking_disabled);
+		      time_t now, char **ipsets, int is_sign, int checkrebind,
+		      int checking_disabled);
 size_t answer_request(struct dns_header *header, char *limit, size_t qlen,  
 		   struct in_addr local_addr, struct in_addr local_netmask, time_t now);
 int check_for_bogus_wildcard(struct dns_header *header, size_t qlen, char *name, 
@@ -965,6 +985,8 @@ int expand_buf(struct iovec *iov, size_t size);
 char *print_mac(char *buff, unsigned char *mac, int len);
 void bump_maxfd(int fd, int *max);
 int read_write(int fd, unsigned char *packet, int size, int rw);
+
+int wildcard_match(const char* wildcard, const char* match);
 
 /* log.c */
 void die(char *message, char *arg1, int exit_code);
@@ -1054,7 +1076,8 @@ struct dhcp_lease *lease4_allocate(struct in_addr addr);
 struct dhcp_lease *lease6_allocate(struct in6_addr *addrp, int lease_type);
 struct dhcp_lease *lease6_find(unsigned char *clid, int clid_len, 
 			       int lease_type, int iaid, struct in6_addr *addr);
-void lease6_filter(int lease_type, int iaid, struct dhcp_context *context);
+void lease6_reset(void);
+struct dhcp_lease *lease6_find_by_client(struct dhcp_lease *first, int lease_type, unsigned char *clid, int clid_len, int iaid);
 struct dhcp_lease *lease6_find_by_addr(struct in6_addr *net, int prefix, u64 addr);
 u64 lease_find_max_addr6(struct dhcp_context *context);
 void lease_ping_reply(struct in6_addr *sender, unsigned char *packet, char *interface);
@@ -1124,6 +1147,12 @@ void emit_dbus_signal(int action, struct dhcp_lease *lease, char *hostname);
 #  endif
 #endif
 
+/* ipset.c */
+#ifdef HAVE_IPSET
+void ipset_init(void);
+int add_to_ipset(const char *setname, const struct all_addr *ipaddr, int flags, int remove);
+#endif
+
 /* helper.c */
 #if defined(HAVE_SCRIPT)
 int create_helper(int event_fd, int err_fd, uid_t uid, gid_t gid, long max_fd);
@@ -1153,18 +1182,17 @@ int get_incoming_mark(union mysockaddr *peer_addr, struct all_addr *local_addr,
 #ifdef HAVE_DHCP6
 void dhcp6_init(void);
 void dhcp6_packet(time_t now);
-int address6_allocate(struct dhcp_context *context,  unsigned char *clid, int clid_len, 
-		      int serial, struct dhcp_netid *netids, struct in6_addr *ans);
-int is_addr_in_context6(struct dhcp_context *context, struct in6_addr *addr);
+struct dhcp_context *address6_allocate(struct dhcp_context *context,  unsigned char *clid, int clid_len, 
+				       int iaid, int serial, struct dhcp_netid *netids, int plain_range, struct in6_addr *ans);
+int config_valid(struct dhcp_config *config, struct dhcp_context *context, struct in6_addr *addr);
 struct dhcp_context *address6_available(struct dhcp_context *context, 
 					struct in6_addr *taddr,
-					struct dhcp_netid *netids);
+					struct dhcp_netid *netids,
+					int plain_range);
 struct dhcp_context *address6_valid(struct dhcp_context *context, 
 				    struct in6_addr *taddr,
-				    struct dhcp_netid *netids);
-struct dhcp_context *narrow_context6(struct dhcp_context *context, 
-				     struct in6_addr *taddr,
-				     struct dhcp_netid *netids);
+				    struct dhcp_netid *netids,
+				    int plain_range);
 struct dhcp_config *find_config6(struct dhcp_config *configs,
 				 struct dhcp_context *context,
 				 unsigned char *duid, int duid_len,
