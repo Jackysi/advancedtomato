@@ -518,8 +518,7 @@ u16 lookup_dhcp_opt(int prot, char *name)
     t = opttab;
 
   for (i = 0; t[i].name; i++)
-    if (!(t[i].size & OT_INTERNAL) &&
-	strcasecmp(t[i].name, name) == 0)
+    if (strcasecmp(t[i].name, name) == 0)
       return t[i].val;
   
   return 0;
@@ -539,14 +538,9 @@ u16 lookup_dhcp_len(int prot, u16 val)
 
   for (i = 0; t[i].name; i++)
     if (val == t[i].val)
-      {
-	if (t[i].size & OT_INTERNAL)
-	  return 0;
-	
-	return t[i].size & ~OT_DEC;
-      }
- 
-  return 0;
+      return t[i].size & ~OT_DEC;
+
+   return 0;
 }
 
 char *option_string(int prot, unsigned int opt, unsigned char *val, int opt_len, char *buf, int buf_len)
@@ -720,8 +714,7 @@ void log_context(int family, struct dhcp_context *context)
       template = p;
       p += sprintf(p, ", ");
        
-      sprintf(p, "template for %s%s", context->template_interface, 
-	      (context->flags & CONTEXT_WILDCARD) ? "*" : "");  
+      sprintf(p, "template for %s", context->template_interface);  
     }
 #endif
      
