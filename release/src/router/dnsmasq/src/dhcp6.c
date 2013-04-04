@@ -48,16 +48,24 @@ void dhcp6_init(void)
       !set_ipv6pktinfo(fd))
     die (_("cannot create DHCPv6 socket: %s"), NULL, EC_BADNET);
   
-  /* When bind-interfaces is set, there might be more than one dnmsasq
+ /* When bind-interfaces is set, there might be more than one dnmsasq
      instance binding port 547. That's OK if they serve different networks.
-     Need to set REUSEADDR to make this posible, or REUSEPORT on *BSD. */
+     Need to set REUSEADDR|REUSEPORT to make this posible.
+     Handle the case that REUSEPORT is defined, but the kernel doesn't 
+     support it. This handles the introduction of REUSEPORT on Linux. */
   if (option_bool(OPT_NOWILD) || option_bool(OPT_CLEVERBIND))
     {
+      int rc = -1, porterr = 0;
+
 #ifdef SO_REUSEPORT
-      int rc = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &oneopt, sizeof(oneopt));
-#else
-      int rc = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &oneopt, sizeof(oneopt));
+      if ((rc = setsockopt(fd, SOL_SOCKET, SO_REUSEPORT, &oneopt, sizeof(oneopt))) == -1 &&
+	  errno != ENOPROTOOPT)
+	porterr = 1;
 #endif
+      
+      if (rc == -1 && !porterr)
+	rc = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &oneopt, sizeof(oneopt));
+      
       if (rc == -1)
 	die(_("failed to set SO_REUSE{ADDR|PORT} on DHCPv6 socket: %s"), NULL, EC_BADNET);
     }
@@ -326,7 +334,7 @@ struct dhcp_context *address6_allocate(struct dhcp_context *context,  unsigned c
 	  } while (addr != start);
 	}
 	   
-  return 0;
+  return NULL;
 }
 
 /* can dynamically allocate addr */
