@@ -2430,6 +2430,8 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	      }
 	  }
 #endif
+	else
+	  ret_err(_("bad dhcp-range"));
 	
 	if (leasepos < k)
 	  {
