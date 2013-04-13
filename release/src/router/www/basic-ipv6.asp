@@ -21,7 +21,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("ipv6_prefix,ipv6_prefix_length,ipv6_radvd,ipv6_accept_ra,ipv6_rtr_addr,ipv6_service,ipv6_dns,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_ifname,ipv6_tun_v4end,ipv6_relay,ipv6_tun_mtu,ipv6_tun_ttl"); %>
+//	<% nvram("ipv6_prefix,ipv6_prefix_length,ipv6_accept_ra,ipv6_rtr_addr,ipv6_service,ipv6_dns,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_ifname,ipv6_tun_v4end,ipv6_relay,ipv6_tun_mtu,ipv6_tun_ttl"); %>
 
 nvram.ipv6_accept_ra = fixInt(nvram.ipv6_accept_ra, 0, 3, 0);
 
@@ -42,7 +42,6 @@ function verifyFields(focused, quiet)
 		_f_ipv6_dns_1: 1,
 		_f_ipv6_dns_2: 1,
 		_f_ipv6_dns_3: 1,
-		_f_ipv6_radvd: 1,
 		_f_ipv6_accept_ra_wan: 1,
 		_f_ipv6_accept_ra_lan: 1,
 		_ipv6_tun_v4end: 1,
@@ -63,7 +62,6 @@ function verifyFields(focused, quiet)
 			vis._f_ipv6_dns_1 = 0;
 			vis._f_ipv6_dns_2 = 0;
 			vis._f_ipv6_dns_3 = 0;
-			vis._f_ipv6_radvd = 0;
 			vis._f_ipv6_accept_ra_wan = 0;
 			vis._f_ipv6_accept_ra_lan = 0;
 			// fall through
@@ -124,10 +122,6 @@ function verifyFields(focused, quiet)
 		vis._f_ipv6_rtr_addr = 2;
 	}
 
-	if (E('_f_ipv6_radvd').checked) {
-		if (vis._f_ipv6_accept_ra_lan) vis._f_ipv6_accept_ra_lan = 2;
-		E('_f_ipv6_accept_ra_lan').checked = false;
-	}
 
 	for (a in vis) {
 		b = E(a);
@@ -227,7 +221,6 @@ function save()
 	var fom = E('_fom');
 
 	fom.ipv6_dns.value = joinIPv6Addr([fom.f_ipv6_dns_1.value, fom.f_ipv6_dns_2.value, fom.f_ipv6_dns_3.value]);
-	fom.ipv6_radvd.value = fom.f_ipv6_radvd.checked ? 1 : 0;
 
 	fom.ipv6_accept_ra.value = 0;
 	if (fom.f_ipv6_accept_ra_wan.checked && !fom.f_ipv6_accept_ra_wan.disabled)
@@ -281,7 +274,6 @@ function save()
 <input type='hidden' name='_nextwait' value='10'>
 <input type='hidden' name='_service' value='*'>
 
-<input type='hidden' name='ipv6_radvd'>
 <input type='hidden' name='ipv6_dns'>
 <input type='hidden' name='ipv6_prefix'>
 <input type='hidden' name='ipv6_prefix_length'>
@@ -308,7 +300,6 @@ createFieldTable('', [
 	{ title: 'Static DNS', name: 'f_ipv6_dns_1', type: 'text', maxlen: 46, size: 48, value: dns[0] || '' },
 	{ title: '',           name: 'f_ipv6_dns_2', type: 'text', maxlen: 46, size: 48, value: dns[1] || '' },
 	{ title: '',           name: 'f_ipv6_dns_3', type: 'text', maxlen: 46, size: 48, value: dns[2] || '' },
-	{ title: 'Enable Router Advertisements', name: 'f_ipv6_radvd', type: 'checkbox', value: nvram.ipv6_radvd == '1' },
 	{ title: 'Accept RA from', multi: [
 		{ suffix: '&nbsp; WAN &nbsp;&nbsp;&nbsp;', name: 'f_ipv6_accept_ra_wan', type: 'checkbox', value: (nvram.ipv6_accept_ra & 1) },
 		{ suffix: '&nbsp; LAN &nbsp;',	name: 'f_ipv6_accept_ra_lan', type: 'checkbox', value: (nvram.ipv6_accept_ra & 2) }
