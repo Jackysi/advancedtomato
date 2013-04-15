@@ -65,6 +65,7 @@ function save()
 	fom.dns_intcpt.value = E('_f_dns_intcpt').checked ? 1 : 0;
 	fom.dhcpc_minpkt.value = E('_f_dhcpc_minpkt').checked ? 1 : 0;
 	fom.dhcpd_static_only.value = E('_f_dhcpd_static_only').checked ? '1' : '0';
+	fom.ipv6_radvd.value = E('_f_ipv6_radvd').checked ? '1' : '0';
 
 	if (fom.dhcpc_minpkt.value != nvram.dhcpc_minpkt ||
 	    fom.dhcpc_custom.value != nvram.dhcpc_custom) {
@@ -76,7 +77,6 @@ function save()
 		fom._service.value = 'dnsmasq-restart';
 	}
 
-	fom.ipv6_radvd.value = E('_f_ipv6_radvd.checked').checked ? '1' : '0';
 
 	if (fom.dns_intcpt.value != nvram.dns_intcpt) {
 		nvram.dns_intcpt = fom.dns_intcpt.value;
@@ -86,7 +86,7 @@ function save()
 /* IPV6-BEGIN */
 	if (fom.dhcpd_dmdns.value != nvram.dhcpd_dmdns) {
 		nvram.dhcpd_dmdns = fom.dhcpd_dmdns.value;
-		if (fom._service.value != '*') fom._service.value += ',radvd-restart';
+		if (fom._service.value != '*') fom._service.value += ',dnsmasq-restart';
 	}
 /* IPV6-END */
 
@@ -138,6 +138,7 @@ function init() {
 <input type='hidden' name='dns_intcpt'>
 <input type='hidden' name='dhcpc_minpkt'>
 <input type='hidden' name='dhcpd_static_only'>
+<input type='hidden' name='ipv6_radvd'>
 
 <div class='section-title'>DHCP / DNS Server (LAN)</div>
 <div class='section'>
