@@ -275,12 +275,16 @@ void lease_update_file(time_t now)
 	      if (!(lease->flags & (LEASE_TA | LEASE_NA)))
 		continue;
 
-#ifdef HAVE_BROKEN_RTC
-	      ourprintf(&err, "%u ", lease->length);
+#ifdef HAVE_TOMATO
+	ourprintf(&err, "%lu ", (unsigned long)lease->expires - now);
 #else
-	      ourprintf(&err, "%lu ", (unsigned long)lease->expires);
+#ifdef HAVE_BROKEN_RTC
+	  ourprintf(&err, "%u ", lease->length);
+#else
+	  ourprintf(&err, "%lu ", (unsigned long)lease->expires);
 #endif
-    
+#endif
+
 	      inet_ntop(AF_INET6, lease->hwaddr, daemon->addrbuff, ADDRSTRLEN);
 	 
 	      ourprintf(&err, "%s%u %s ", (lease->flags & LEASE_TA) ? "T" : "",
