@@ -369,6 +369,12 @@ void start_dnsmasq()
 	write_pptpd_dnsmasq_config(f);
 #endif
 
+#ifdef TCONFIG_IPV6
+	if (ipv6_enabled() && nvram_get_int("ipv6_radvd")) {
+		fprintf(f, "enable-ra\n");
+	}
+#endif
+
 	fprintf(f, "%s\n\n", nvram_safe_get("dnsmasq_custom"));
 
 	fappend(f, "/etc/dnsmasq.custom");
@@ -564,9 +570,9 @@ void start_ipv6_tunnel(void)
 	eval("ip", "addr", "add", ip, "dev", (char *)tun_dev);
 	eval("ip", "route", "add", "::/0", "dev", (char *)tun_dev);
 
-	// (re)start radvd
+	// (re)start radvd - now dnsmasq provided
 	if (service == IPV6_ANYCAST_6TO4)
-		start_radvd();
+		start_dnsmasq();
 }
 
 void stop_ipv6_tunnel(void)
@@ -577,112 +583,6 @@ void stop_ipv6_tunnel(void)
 		eval("ip", "-6", "addr", "flush", "dev", nvram_safe_get("lan_ifname"), "scope", "global");
 	}
 	modprobe_r("sit");
-}
-
-static pid_t pid_radvd = -1;
-
-void start_radvd(void)
-{
-	FILE *f;
-	char *prefix, *ip, *mtu;
-	int do_dns, do_6to4;
-	char *argv[] = { "radvd", NULL, NULL, NULL };
-	int pid, argc, service, cnt;
-
-	if (getpid() != 1) {
-		start_service("radvd");
-		return;
-	}
-
-	stop_radvd();
-
-	if (ipv6_enabled() && nvram_get_int("ipv6_radvd")) {
-		service = get_ipv6_service();
-		do_6to4 = (service == IPV6_ANYCAST_6TO4);
-		mtu = NULL;
-
-		switch (service) {
-		case IPV6_NATIVE_DHCP:
-			prefix = "::";
-			break;
-		case IPV6_ANYCAST_6TO4:
-		case IPV6_6IN4:
-			mtu = (nvram_get_int("ipv6_tun_mtu") > 0) ? nvram_safe_get("ipv6_tun_mtu") : "1480";
-			// fall through
-		default:
-			prefix = do_6to4 ? "0:0:0:1::" : nvram_safe_get("ipv6_prefix");
-			break;
-		}
-		if (!(*prefix)) prefix = "::";
-
-		// Create radvd.conf
-		if ((f = fopen("/etc/radvd.conf", "w")) == NULL) return;
-
-		ip = (char *)ipv6_router_address(NULL);
-		do_dns = (*ip) && nvram_match("dhcpd_dmdns", "1");
-
-		fprintf(f,
-			"interface %s\n"
-			"{\n"
-			" IgnoreIfMissing on;\n"
-			" AdvSendAdvert on;\n"
-			" MaxRtrAdvInterval 60;\n"
-			" AdvHomeAgentFlag off;\n"
-			" AdvManagedFlag off;\n"
-			"%s%s%s"
-			" prefix %s/64 \n"
-			" {\n"
-			"  AdvOnLink on;\n"
-			"  AdvAutonomous on;\n"
-			"%s"
-			"%s%s%s"
-			" };\n",
-			nvram_safe_get("lan_ifname"),
-			mtu ? " AdvLinkMTU " : "", mtu ? : "", mtu ? ";\n" : "",
-			prefix,
-			do_6to4 ? "  AdvValidLifetime 300;\n  AdvPreferredLifetime 120;\n" : "",
-		        do_6to4 ? "  Base6to4Interface " : "",
-		        do_6to4 ? get_wanface() : "",
-		        do_6to4 ? ";\n" : "");
-
-		if (do_dns) {
-			fprintf(f, " RDNSS %s {};\n", ip);
-		}
-		else {
-			cnt = write_ipv6_dns_servers(f, " RDNSS ", nvram_safe_get("ipv6_dns"), " ", 1);
-			if (cnt == 0 || nvram_get_int("dns_addget"))
-				cnt += write_ipv6_dns_servers(f, (cnt) ? "" : " RDNSS ", nvram_safe_get("ipv6_get_dns"), " ", 1);
-			if (cnt) fprintf(f, "{};\n");
-		}
-
-		fprintf(f,
-			"};\n");	// close "interface" section
-		fclose(f);
-
-		// Start radvd
-		argc = 1;
-		if (nvram_get_int("debug_ipv6")) {
-			argv[argc++] = "-d";
-			argv[argc++] = "10";
-		}
-		argv[argc] = NULL;
-		_eval(argv, NULL, 0, &pid);
-
-		if (!nvram_contains_word("debug_norestart", "radvd")) {
-			pid_radvd = -2;
-		}
-	}
-}
-
-void stop_radvd(void)
-{
-	if (getpid() != 1) {
-		stop_service("radvd");
-		return;
-	}
-
-	pid_radvd = -1;
-	killall_tk("radvd");
 }
 
 void start_ipv6(void)
@@ -2058,9 +1958,6 @@ void check_services(void)
 	_check(pid_dnsmasq, "dnsmasq", start_dnsmasq);
 	_check(pid_crond, "crond", start_cron);
 	_check(pid_igmp, "igmpproxy", start_igmp_proxy);
-#ifdef TCONFIG_IPV6
-	_check(pid_radvd, "radvd", start_radvd);
-#endif
 
 //	#ifdef TCONFIG_NOCAT
 //	if (nvram_get_int("NC_enable"))
@@ -2096,14 +1993,6 @@ void start_services(void)
 #ifdef TCONFIG_PPTPD
 	start_pptpd();
 #endif
-#ifdef TCONFIG_IPV6
-	/* note: starting radvd here might be too early in case of
-	 * DHCPv6 or 6to4 because we won't have received a prefix and
-	 * so it will disable advertisements. To restart them, we have
-	 * to send radvd a SIGHUP, or restart it.
-	 */
-	start_radvd();
-#endif
 	restart_nas_services(1, 1);	// !!TB - Samba, FTP and Media Server
 
 #ifdef TCONFIG_SNMP
@@ -2130,9 +2019,14 @@ void stop_services(void)
 	stop_snmp();
 #endif
 
-#ifdef TCONFIG_IPV6
-	stop_radvd();
+#ifdef TCONFIG_TOR
+	stop_tor();
 #endif
+
+#ifdef TCONFIG_NFS
+	stop_nfs();
+#endif
+	restart_nas_services(1, 0);	// stop Samba, FTP and Media Server
 #ifdef TCONFIG_PPTPD
 	stop_pptpd();
 #endif
@@ -2304,26 +2198,16 @@ TOP:
 #ifdef TCONFIG_IPV6
 	if (strcmp(service, "ipv6") == 0) {
 		if (action & A_STOP) {
-			stop_radvd();
+			stop_dnsmasq();
 			stop_ipv6();
 		}
 		if (action & A_START) {
 			start_ipv6();
-			start_radvd();
+			start_dnsmasq();
 		}
 		goto CLEAR;
 	}
 	
-	if (strcmp(service, "radvd") == 0) {
-		if (action & A_STOP) {
-			stop_radvd();
-		}
-		if (action & A_START) {
-			start_radvd();
-		}
-		goto CLEAR;
-	}
-
 	if (strncmp(service, "dhcp6", 5) == 0) {
 		if (action & A_STOP) {
 			stop_dhcp6c();
@@ -2506,9 +2390,6 @@ TOP:
 #ifdef TCONFIG_USB
 			stop_nas_services();
 #endif
-#ifdef TCONFIG_IPV6
-			stop_radvd();
-#endif
 			stop_httpd();
 			stop_dnsmasq();
 			stop_nas();
@@ -2525,9 +2406,6 @@ TOP:
 			start_nas();
 			start_dnsmasq();
 			start_httpd();
-#ifdef TCONFIG_IPV6
-			start_radvd();
-#endif
 			start_wl();
 #ifdef TCONFIG_USB
 			start_nas_services();

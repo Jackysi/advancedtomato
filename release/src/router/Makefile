@@ -101,7 +101,8 @@ obj-$(NEED_SAMBA2) += samba
 obj-$(NEED_SAMBA3) += samba3
 obj-$(TCONFIG_NTFS) += ntfs-3g
 obj-$(TCONFIG_EBTABLES) += ebtables
-obj-$(TCONFIG_IPV6) += radvd
+#obj-$(TCONFIG_IPV6) += libdaemon
+#obj-$(TCONFIG_IPV6) += radvd
 obj-$(TCONFIG_IPV6) += dhcpv6
 
 obj-$(TCONFIG_MEDIA_SERVER) += zlib
@@ -885,24 +886,6 @@ usbmodeswitch-install: usbmodeswitch usbmodeswitchdb-install
 	$(STRIP) -s $(INSTALLDIR)/usbmodeswitch/usr/sbin/usb_modeswitch
 	@mkdir -p $(TARGETDIR)/rom/etc
 	@sed 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < $(TOP)/usbmodeswitch/usb_modeswitch.conf > $(TARGETDIR)/rom/etc/usb_modeswitch.conf
-
-
-radvd/stamp-h1:
-	cd radvd && CFLAGS="-Os $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
-	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
-	$(CONFIGURE) --prefix=""
-	@$(MAKE) -C radvd clean
-	@touch radvd/stamp-h1
-
-radvd: radvd/stamp-h1
-
-radvd-clean:
-	-@$(MAKE) -C radvd distclean
-	@rm -f radvd/stamp-h1
-
-radvd-install: radvd
-	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd
-	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
 
 dhcpv6/stamp-h1:
 	@cd dhcpv6 && \
