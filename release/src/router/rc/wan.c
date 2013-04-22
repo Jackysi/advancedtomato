@@ -220,7 +220,7 @@ static int config_pppd(int wan_proto, int num)
 			"OK \"AT\"\n"
 			"OK 'AT+CGDCONT=1,\"IP\",\"%s\"'\n"
 			"OK \"ATDT%s\"\n"
-			"CONNECT \c\n",
+			"CONNECT \\c\n",
 			nvram_safe_get("modem_apn"),
 			nvram_safe_get("modem_init")
 			);

@@ -22,7 +22,10 @@ send any desired set of DHCP options, including vendor-encapsulated
 options. It includes a secure, read-only,
 TFTP server to allow net/PXE boot of DHCP hosts and also supports BOOTP. The PXE support is full featured, and includes a proxy mode which supplies PXE information to clients whilst DHCP address allocation is done by another server.
 .PP
-The dnsmasq DHCPv6 server provides the same set of features as the DHCPv4 server, and in addition, it includes router advertisements and a neat feature which allows nameing for clients which use DHCPv4 and RA only for IPv6 configuration. There is support for doing address allocation (both DHCPv6 and RA) from subnets which are dynamically delegated via DHCPv6 prefix delegation.
+The dnsmasq DHCPv6 server provides the same set of features as the
+DHCPv4 server, and in addition, it includes router advertisements and
+a neat feature which allows nameing for clients which use DHCPv4 and
+stateless autoconfiguration only for IPv6 configuration. There is support for doing address allocation (both DHCPv6 and RA) from subnets which are dynamically delegated via DHCPv6 prefix delegation.
 .PP
 Dnsmasq is coded with small embedded systems in mind. It aims for the smallest possible memory footprint compatible with the supported functions,  and allows uneeded functions to be omitted from the compiled binary.  
 .SH OPTIONS
@@ -189,7 +192,7 @@ options does not matter and that
 options always override the others.
 .TP
 .B --auth-server=<domain>,<interface>|<ip-address>
-Enable DNS authoritative mode for queries arriving at an interface or address. Note that the the interface or address
+Enable DNS authoritative mode for queries arriving at an interface or address. Note that the interface or address
 need not be mentioned in 
 .B --interface
 or 
@@ -569,12 +572,12 @@ zones. Note that this is optional, all the values are set to sane defaults.
 Specify any secondary servers for a zone for which dnsmasq is
 authoritative. These servers must be configured to get zone data from
 dnsmasq by zone transfer, and answer queries for the same
-authoritative zones and dnsmasq.
+authoritative zones as dnsmasq.
 .TP
 .B --auth-peer=<ip-address>[,<ip-address>[,<ip-address>...]]
 Specify the addresses of secondary servers which are allowed to
 initiate zone transfer (AXFR) requests for zones for which dnsmasq is
-authoritative. If this option is not given, then AXFR requests wil be
+authoritative. If this option is not given, then AXFR requests will be
 accepted from any secondary. 
 .TP 
 .B --conntrack
@@ -587,9 +590,9 @@ compiled in and the kernel must have conntrack support
 included and configured. This option cannot be combined with
 --query-port. 
 .TP
-.B \-F, --dhcp-range=[tag:<tag>[,tag:<tag>],][set:<tag],]<start-addr>[,<end-addr>][,<mode>][,<netmask>[,<broadcast>]][,<lease time>]
+.B \-F, --dhcp-range=[tag:<tag>[,tag:<tag>],][set:<tag>,]<start-addr>[,<end-addr>][,<mode>][,<netmask>[,<broadcast>]][,<lease time>]
 .TP
-.B \-F, --dhcp-range=[tag:<tag>[,tag:<tag>],][set:<tag],]<start-IPv6addr>[,<end-IPv6addr>|constuctor:<interface>][,<mode>][,<prefix-len>][,<lease time>]
+.B \-F, --dhcp-range=[tag:<tag>[,tag:<tag>],][set:<tag>,]<start-IPv6addr>[,<end-IPv6addr>|constructor:<interface>][,<mode>][,<prefix-len>][,<lease time>]
 
 Enable the DHCP server. Addresses will be given out from the range
 <start-addr> to <end-addr> and from statically defined addresses given
@@ -625,9 +628,9 @@ IPv6 (only) supports another type of range. In this, the start address and optio
 .B constructor:<interface>.
 This forms a template which describes how to create ranges, based on the addresses assigned to the interface. For instance
 
-.B --dhcp-range=::1,::4,constructor:eth0
+.B --dhcp-range=::1,::400,constructor:eth0
 
-will look for addreses of the form <network>::1 on eth0 and then create a range from <network>::1 to <network>::400. If the interface is assigned more than one network, then the corresponding ranges will be automatically created, and then deprecated and finally removed again as the address is deprecated and then deleted. The interface name may have a final "*" wildcard.
+will look for addresses of the form <network>::1 on eth0 and then create a range from <network>::1 to <network>::400. If the interface is assigned more than one network, then the corresponding ranges will be automatically created, and then deprecated and finally removed again as the address is deprecated and then deleted. The interface name may have a final "*" wildcard.
 
 The optional 
 .B set:<tag> 
@@ -731,7 +734,7 @@ may contain an IPv4 address or an IPv6 address, or both. IPv6 addresses must be 
 .B --dhcp-host=laptop,[1234::56]
 IPv6 addresses may contain only the host-identifier part:
 .B --dhcp-host=laptop,[::56]
-in which case thay act as wildcards in constructed dhcp ranges, with
+in which case they act as wildcards in constructed dhcp ranges, with
 the appropriate network part inserted. 
 Note that in IPv6 DHCP, the hardware address is not normally
 available, so a client must be identified by client-id (called client
@@ -1721,7 +1724,7 @@ Configuring dnsmasq to act as an authoritative DNS server is
 complicated by the fact that it involves configuration of external DNS
 servers to provide delegation. We will walk through three scenarios of
 increasing complexity. Prerequisites for all of these scenarios
-are a globally accesible IP address, an A or AAAA record pointing to that address,
+are a globally accessible IP address, an A or AAAA record pointing to that address,
 and an external DNS server capable of doing delegation of the zone in
 question. For the first part of this explanation, we will call the A (or AAAA) record
 for the globally accessible address server.example.com, and the zone
@@ -1781,7 +1784,7 @@ entry or
 
 If the external address is dynamic, the address
 associated with our.zone.com must be derived from the address of the
-relvant interface. This is done using 
+relevant interface. This is done using 
 .B interface-name
 Something like:
 

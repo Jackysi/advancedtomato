@@ -29,7 +29,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dhcpc_minpkt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax,dhcpc_custom,dns_norebind,dhcpd_static_only"); %>
+//	<% nvram("ipv6_radvd,dhcpd_dmdns,dns_addget,dhcpd_gwmode,dns_intcpt,dhcpd_slt,dhcpc_minpkt,dnsmasq_custom,dnsmasq_norw,dhcpd_lmax,dhcpc_custom,dns_norebind,dhcpd_static_only"); %>
 
 if ((isNaN(nvram.dhcpd_lmax)) || ((nvram.dhcpd_lmax *= 1) < 1)) nvram.dhcpd_lmax = 255;
 
@@ -65,6 +65,7 @@ function save()
 	fom.dns_intcpt.value = E('_f_dns_intcpt').checked ? 1 : 0;
 	fom.dhcpc_minpkt.value = E('_f_dhcpc_minpkt').checked ? 1 : 0;
 	fom.dhcpd_static_only.value = E('_f_dhcpd_static_only').checked ? '1' : '0';
+	fom.ipv6_radvd.value = E('_f_ipv6_radvd').checked ? '1' : '0';
 
 	if (fom.dhcpc_minpkt.value != nvram.dhcpc_minpkt ||
 	    fom.dhcpc_custom.value != nvram.dhcpc_custom) {
@@ -76,6 +77,7 @@ function save()
 		fom._service.value = 'dnsmasq-restart';
 	}
 
+
 	if (fom.dns_intcpt.value != nvram.dns_intcpt) {
 		nvram.dns_intcpt = fom.dns_intcpt.value;
 		if (fom._service.value != '*') fom._service.value += ',firewall-restart';
@@ -84,7 +86,7 @@ function save()
 /* IPV6-BEGIN */
 	if (fom.dhcpd_dmdns.value != nvram.dhcpd_dmdns) {
 		nvram.dhcpd_dmdns = fom.dhcpd_dmdns.value;
-		if (fom._service.value != '*') fom._service.value += ',radvd-restart';
+		if (fom._service.value != '*') fom._service.value += ',dnsmasq-restart';
 	}
 /* IPV6-END */
 
@@ -136,6 +138,7 @@ function init() {
 <input type='hidden' name='dns_intcpt'>
 <input type='hidden' name='dhcpc_minpkt'>
 <input type='hidden' name='dhcpd_static_only'>
+<input type='hidden' name='ipv6_radvd'>
 
 <div class='section-title'>DHCP / DNS Server (LAN)</div>
 <div class='section'>
@@ -153,6 +156,7 @@ createFieldTable('', [
 			value: (nvram.dhcpd_slt < 1) ? nvram.dhcpd_slt : 1 },
 		{ name: 'f_dhcpd_slt', type: 'text', maxlen: 5, size: 8, prefix: '<span id="_dhcpd_sltman"> ', suffix: ' <i>(minutes)</i></span>',
 			value: (nvram.dhcpd_slt >= 1) ? nvram.dhcpd_slt : 3600 } ] },
+	{ title: 'Enable IPv6 RA', name: 'f_ipv6_radvd', type: 'checkbox', value: nvram.ipv6_radvd == '1' },
 	{ title: '<a href="http://www.thekelleys.org.uk/" target="_new">Dnsmasq</a><br>Custom configuration', name: 'dnsmasq_custom', type: 'textarea', value: nvram.dnsmasq_custom }
 ]);
 </script>

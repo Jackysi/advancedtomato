@@ -440,8 +440,8 @@ int dhcp6c_state_main(int argc, char **argv)
 		start_dnsmasq();	// (re)start
 	}
 
-	// (re)start radvd and httpd
-	start_radvd();
+	// (re)start dnsmasq and httpd
+	start_dnsmasq();
 	start_httpd();
 
 	TRACE_PT("ipv6_get_dns=%s\n", nvram_safe_get("ipv6_get_dns"));
