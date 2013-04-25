@@ -371,7 +371,7 @@ void start_dnsmasq()
 
 #ifdef TCONFIG_IPV6
 	if (ipv6_enabled() && nvram_get_int("ipv6_radvd")) {
-		fprintf(f, "enable-ra\n");
+		fprintf(f, "enable-ra\ndhcp-range=tag:br0,::1,constructor:br0, ra-only\n");
 	}
 #endif
 
