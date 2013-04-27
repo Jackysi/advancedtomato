@@ -574,6 +574,7 @@ const defaults_t defaults[] = {
 	{ "sshd_pass",			"1"				},
 	{ "sshd_port",			"22"			},
 	{ "sshd_remote",		"0"				},
+	{ "sshd_motd",			"1"				},
 	{ "sshd_rport",			"22"			},
 	{ "sshd_authkeys",		""				},
 	{ "sshd_hostkey",		""				},

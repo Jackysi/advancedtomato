@@ -10,3 +10,5 @@ ldd() {
 
 [ -f /jffs/etc/profile ] && . /jffs/etc/profile
 [ -f /opt/etc/profile ] && . /opt/etc/profile
+
+/usr/sbin/mymotd
