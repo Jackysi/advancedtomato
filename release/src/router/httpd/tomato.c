@@ -950,6 +950,7 @@ static const nvset_t nvset_list[] = {
 	{ "sshd_pass",			V_01				},
 	{ "sshd_port",			V_PORT				},
 	{ "sshd_remote",		V_01				},
+	{ "sshd_motd",			V_01				},
 	{ "sshd_forwarding",		V_01				},
 	{ "sshd_rport", 		V_PORT				},
 	{ "sshd_authkeys",		V_TEXT(0, 4096)		},

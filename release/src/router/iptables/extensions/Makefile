@@ -18,6 +18,7 @@ PF_EXT_SLIB+=IMQ ipp2p
 ifeq ($(CONFIG_LINUX26),y)
 PF_EXT_SLIB+=policy
 PF_EXT_SLIB+=hashlimit NFQUEUE NOTRACK
+PF_EXT_SLIB+=set
 endif
 
 PF_EXT_SLIB+=account

@@ -2249,12 +2249,12 @@ function ellipsis(s, max) {
 
 function MIN(a, b)
 {
-	return a < b ? a : b;
+	return (a < b) ? a : b;
 }
 
 function MAX(a, b)
 {
-	return a > b ? a : b;
+	return (a > b) ? a : b;
 }
 
 function fixInt(n, min, max, def)

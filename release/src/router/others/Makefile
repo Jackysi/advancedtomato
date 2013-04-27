@@ -34,6 +34,9 @@ endif
 #stealthMode
 	install -m 0700 stealthMode $(INSTALLDIR)/usr/sbin
 
+#MOTD
+	install -m 0700 mymotd $(INSTALLDIR)/usr/sbin
+
 # cron helper
 	install -m 0700 cru $(INSTALLDIR)/usr/sbin
 

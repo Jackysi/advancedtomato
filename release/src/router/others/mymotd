@@ -1,0 +1,68 @@
+#!/bin/sh
+
+MOTD_ON=`nvram get sshd_motd`
+
+#only if enable
+if [ "$MOTD_ON" == "1" ]; then
+
+
+# Function calculates number of bit in a netmask
+#
+mask2cidr() {
+    nbits=0
+    IFS=.
+    for dec in $1 ; do
+        case $dec in
+            255) let nbits+=8;;
+            254) let nbits+=7;;
+            252) let nbits+=6;;
+            248) let nbits+=5;;
+            240) let nbits+=4;;
+            224) let nbits+=3;;
+            192) let nbits+=2;;
+            128) let nbits+=1;;
+            0);;
+            *) echo "Error: $dec is not recognised"; exit 1
+        esac
+    done
+    echo "$nbits"
+}
+
+LAN1=`nvram get lan1_ipaddr | wc -w`
+LAN2=`nvram get lan2_ipaddr | wc -w`
+LAN3=`nvram get lan3_ipaddr | wc -w`
+DUAL=`nvram get landevs | grep wl1 | wc -l`
+
+WAN_MASK=`nvram get wan_netmask`
+WAN_NUMBITS=$(mask2cidr $WAN_MASK)
+
+LAN_MASK=`nvram get lan_netmask`
+LAN_NUMBITS=$(mask2cidr $LAN_MASK)
+
+echo -e "\033[1;34m ======================================================== \033[0m"
+echo -e "\033[1;32m Welcome to the `nvram get t_model_name` [`nvram get router_name`]\033[0m"
+echo -e "\033[1;31m Uptime: `uptime | sed -e 's/,  load/\n Load/'`\033[0m"
+echo " WAN : `nvram get wan_ipaddr`/$WAN_NUMBITS @ `nvram get wan_hwaddr`"
+echo " LAN : `nvram get lan_ipaddr`/$LAN_NUMBITS @ DHCP: `nvram get dhcpd_startip` - `nvram get dhcpd_endip`"
+if [ "$LAN1" == "1" ]; then 
+    LAN1_MASK=`nvram get lan1_netmask`
+    LAN1_NUMBITS=$(mask2cidr $LAN1_MASK)
+    echo " LAN1: `nvram get lan1_ipaddr`/$LAN1_NUMBITS @ DHCP: `nvram get dhcpd1_startip` - `nvram get dhcpd1_endip`";
+fi
+if [ "$LAN2" == "1" ]; then 
+    LAN2_MASK=`nvram get lan2_netmask`
+    LAN2_NUMBITS=$(mask2cidr $LAN2_MASK)
+    echo " LAN2: `nvram get lan2_ipaddr`/$LAN2_NUMBITS @ DHCP: `nvram get dhcpd2_startip` - `nvram get dhcpd2_endip`";
+fi
+if [ "$LAN3" == "1" ]; then 
+    LAN3_MASK=`nvram get lan3_netmask`
+    LAN3_NUMBITS=$(mask2cidr $LAN3_MASK)
+    echo " LAN3: `nvram get lan3_ipaddr`/$LAN3_NUMBITS @ DHCP: `nvram get dhcpd3_startip` - `nvram get dhcpd3_endip`";
+fi
+echo " WL0 : `nvram get wl0_ssid` @ ch: `nvram get wl0_channel` @ `nvram get wl0_hwaddr`"
+if [ "$DUAL" == "1" ]; then echo " WL1 : `nvram get wl1_ssid` @ ch: `nvram get wl1_channel` @ `nvram get wl1_hwaddr`"; fi
+echo -e "\033[1;34m ======================================================== \033[0m"
+
+echo ""
+
+fi

@@ -1,3 +1,9 @@
+version 2.67
+	    Fix crash if upstream server returns SERVFAIL when
+	    --conntrack in use. Thanks to Giacomo Tazzari for finding
+	    this and supplying the patch. 
+	
+
 version 2.66
             Add the ability to act as an authoritative DNS
             server. Dnsmasq can now answer queries from the wider 'net
@@ -51,6 +57,19 @@ version 2.66
 	    
 	    Allow a trailing '*' wildcard in all interface-name
 	    configurations. Thanks to Christian Parpart for the patch.
+
+	    Handle the situation where libc headers define
+	    SO_REUSEPORT, but the kernel in use doesn't, to cope with
+	    the introduction of this option to Linux. Thanks to Rich
+	    Felker for the bug report.
+
+	    Update Polish translation. Thanks to Jan Psota.
+
+	    Fix crash if the configured DHCP lease limit is
+	    reached. Regression occurred in 2.61. Thanks to Tsachi for
+	    the bug report. 
+	    
+	    Update the French translation. Thanks to Gildas le Nadan.
 
   
 version 2.65

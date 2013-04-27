@@ -91,6 +91,7 @@ struct dhcp_netid *option_filter(struct dhcp_netid *tags, struct dhcp_netid *con
 {
   struct dhcp_netid *tagif = run_tag_if(tags);
   struct dhcp_opt *opt;
+  struct dhcp_opt *tmp;  
 
   /* flag options which are valid with the current tag set (sans context tags) */
   for (opt = opts; opt; opt = opt->next)
@@ -135,7 +136,6 @@ struct dhcp_netid *option_filter(struct dhcp_netid *tags, struct dhcp_netid *con
   for (opt = opts; opt; opt = opt->next)
     if (!(opt->flags & (DHOPT_ENCAPSULATE | DHOPT_VENDOR | DHOPT_RFC3925 | DHOPT_TAGOK)) && !opt->netid)
       {
-	struct dhcp_opt *tmp;  
 	for (tmp = opts; tmp; tmp = tmp->next) 
 	  if (tmp->opt == opt->opt && (tmp->flags & DHOPT_TAGOK))
 	    break;
@@ -145,6 +145,13 @@ struct dhcp_netid *option_filter(struct dhcp_netid *tags, struct dhcp_netid *con
 	  my_syslog(MS_DHCP | LOG_WARNING, _("Ignoring duplicate dhcp-option %d"), tmp->opt); 
       }
 
+  /* Finally, eliminate duplicate options later in the chain, and therefore earlier in the config file. */
+  for (opt = opts; opt; opt = opt->next)
+    if (opt->flags & DHOPT_TAGOK)
+      for (tmp = opt->next; tmp; tmp = tmp->next) 
+	if (tmp->opt == opt->opt)
+	  tmp->flags &= ~DHOPT_TAGOK;
+  
   return tagif;
 }
 	
@@ -505,7 +512,7 @@ void display_opts6(void)
 }
 #endif
 
-u16 lookup_dhcp_opt(int prot, char *name)
+int lookup_dhcp_opt(int prot, char *name)
 {
   const struct opttab_t *t;
   int i;
@@ -521,10 +528,10 @@ u16 lookup_dhcp_opt(int prot, char *name)
     if (strcasecmp(t[i].name, name) == 0)
       return t[i].val;
   
-  return 0;
+  return -1;
 }
 
-u16 lookup_dhcp_len(int prot, u16 val)
+int lookup_dhcp_len(int prot, int val)
 {
   const struct opttab_t *t;
   int i;

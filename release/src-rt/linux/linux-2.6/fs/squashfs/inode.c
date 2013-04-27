@@ -33,6 +33,7 @@
 #include <linux/fs.h>
 #include <linux/smp_lock.h>
 #include <linux/slab.h>
+#include <linux/exportfs.h>
 #include <linux/squashfs_fs_sb.h>
 #include <linux/squashfs_fs_i.h>
 #include <linux/buffer_head.h>

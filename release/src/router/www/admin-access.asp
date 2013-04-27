@@ -29,7 +29,7 @@ textarea {
 
 <script type='text/javascript'>
 
-//	<% nvram("http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_css,ttb_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,sshd_forwarding,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save,lan_ipaddr,ne_shlimit"); %>
+//	<% nvram("http_enable,https_enable,http_lanport,https_lanport,remote_management,remote_mgt_https,web_wl_filter,web_css,ttb_css,sshd_eas,sshd_pass,sshd_remote,telnetd_eas,http_wanport,sshd_authkeys,sshd_port,sshd_rport,sshd_forwarding,telnetd_port,rmgt_sip,https_crt_cn,https_crt_save,lan_ipaddr,ne_shlimit,sshd_motd"); %>
 
 changed = 0;
 tdup = parseInt('<% psup("telnetd"); %>');
@@ -219,6 +219,7 @@ function save()
 	fom.sshd_eas.value = E('_f_sshd_eas').checked ? 1 : 0;
 	fom.sshd_pass.value = E('_f_sshd_pass').checked ? 1 : 0;
 	fom.sshd_remote.value = E('_f_sshd_remote').checked ? 1 : 0;
+	fom.sshd_motd.value = E('_f_sshd_motd').checked ? 1 : 0;
 	fom.sshd_forwarding.value = E('_f_sshd_forwarding').checked ? 1 : 0;
 
 	fom.rmgt_sip.value = fom.f_rmgt_sip.value.split(/\s*,\s*/).join(',');
@@ -270,6 +271,7 @@ function init()
 <input type='hidden' name='sshd_eas'>
 <input type='hidden' name='sshd_pass'>
 <input type='hidden' name='sshd_remote'>
+<input type='hidden' name='sshd_motd'>
 <input type='hidden' name='ne_shlimit'>
 <input type='hidden' name='rmgt_sip'>
 <input type='hidden' name='sshd_forwarding'>
@@ -315,6 +317,7 @@ createFieldTable('', m);
 <script type='text/javascript'>
 createFieldTable('', [
 	{ title: 'Enable at Startup', name: 'f_sshd_eas', type: 'checkbox', value: nvram.sshd_eas == 1 },
+	{ title: 'Extended MOTD', name: 'f_sshd_motd', type: 'checkbox', value: nvram.sshd_motd == 1 },
 	{ title: 'Remote Access', name: 'f_sshd_remote', type: 'checkbox', value: nvram.sshd_remote == 1 },
 	{ title: 'Remote Port', indent: 2, name: 'sshd_rport', type: 'text', maxlen: 5, size: 7, value: nvram.sshd_rport },
 	{ title: 'Remote Forwarding', name: 'f_sshd_forwarding', type: 'checkbox', value: nvram.sshd_forwarding == 1 },

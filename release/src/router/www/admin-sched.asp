@@ -39,9 +39,12 @@ var dowLow = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 var scheds = []
 
 tm = [];
-for (i = 0; i < 1440; i += 15) {
+tm.push([0, timeString(0)]);
+tm.push([1, timeString(1)]);
+for (i = 15; i < 1440; i += 15) {
 	tm.push([i, timeString(i)]);
 }
+tm.push([1439, timeString(1439)]);
 
 tm.push(
 	[-1, 'Every minute'], [-3, 'Every 3 minutes'], [-5, 'Every 5 minutes'], [-15, 'Every 15 minutes'], [-30, 'Every 30 minutes'],

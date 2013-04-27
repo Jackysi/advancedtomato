@@ -115,7 +115,7 @@ void lease_init(time_t now)
 		s++;
 	      }
 	    
-	    hw_type = atoi(s);
+	    hw_type = strtoul(s, NULL, 10);
 	    
 	    if ((lease = lease6_allocate(&addr.addr.addr6, lease_type)))
 	      {
@@ -275,12 +275,16 @@ void lease_update_file(time_t now)
 	      if (!(lease->flags & (LEASE_TA | LEASE_NA)))
 		continue;
 
-#ifdef HAVE_BROKEN_RTC
-	      ourprintf(&err, "%u ", lease->length);
+#ifdef HAVE_TOMATO
+	ourprintf(&err, "%lu ", (unsigned long)lease->expires - now);
 #else
-	      ourprintf(&err, "%lu ", (unsigned long)lease->expires);
+#ifdef HAVE_BROKEN_RTC
+	  ourprintf(&err, "%u ", lease->length);
+#else
+	  ourprintf(&err, "%lu ", (unsigned long)lease->expires);
 #endif
-    
+#endif
+
 	      inet_ntop(AF_INET6, lease->hwaddr, daemon->addrbuff, ADDRSTRLEN);
 	 
 	      ourprintf(&err, "%s%u %s ", (lease->flags & LEASE_TA) ? "T" : "",
@@ -599,6 +603,8 @@ struct dhcp_lease *lease6_find_by_client(struct dhcp_lease *first, int lease_typ
 
   if (!first)
     first = leases;
+  else
+    first = first->next;
 
   for (lease = first; lease; lease = lease->next)
     {
@@ -705,8 +711,11 @@ static struct dhcp_lease *lease_allocate(void)
 struct dhcp_lease *lease4_allocate(struct in_addr addr)
 {
   struct dhcp_lease *lease = lease_allocate();
-  lease->addr = addr;
-  lease->hwaddr_len = 256; /* illegal value */
+  if (lease)
+    {
+      lease->addr = addr;
+      lease->hwaddr_len = 256; /* illegal value */
+    }
 
   return lease;
 }
@@ -715,8 +724,12 @@ struct dhcp_lease *lease4_allocate(struct in_addr addr)
 struct dhcp_lease *lease6_allocate(struct in6_addr *addrp, int lease_type)
 {
   struct dhcp_lease *lease = lease_allocate();
-  memcpy(lease->hwaddr, addrp, sizeof(*addrp)) ;
-  lease->flags |= lease_type;
+
+  if (lease)
+    {
+      memcpy(lease->hwaddr, addrp, sizeof(*addrp)) ;
+      lease->flags |= lease_type;
+    }
 
   return lease;
 }

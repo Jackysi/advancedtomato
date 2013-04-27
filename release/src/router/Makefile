@@ -14,6 +14,9 @@ include common.mak
 
 #TOMATO_EXPERIMENTAL=0
 
+#export PARALLEL_BUILD :=
+export PARALLEL_BUILD := -j`grep -c '^processor' /proc/cpuinfo`
+
 #
 #
 #
@@ -130,8 +133,8 @@ obj-$(NEED_SAMBA2) += samba
 obj-$(NEED_SAMBA3) += samba3
 obj-$(TCONFIG_NTFS) += ntfs-3g
 obj-$(TCONFIG_EBTABLES) += ebtables
-obj-$(TCONFIG_IPV6) += libdaemon
-obj-$(TCONFIG_IPV6) += radvd
+#obj-$(TCONFIG_IPV6) += libdaemon
+#obj-$(TCONFIG_IPV6) += radvd
 obj-$(TCONFIG_IPV6) += dhcpv6
 
 obj-$(TCONFIG_MEDIA_SERVER) += zlib
@@ -149,6 +152,7 @@ MEDIA_SERVER_STATIC=y
 obj-y += libnfnetlink
 obj-y += miniupnpd
 #	obj-y += upnp
+obj-$(CONFIG_LINUX26) += ipset
 
 
 #
@@ -213,25 +217,25 @@ kernel: $(LINUXDIR)/.config
 	@$(SEP)
 
 	@if ! grep -q "CONFIG_EMBEDDED_RAMDISK=y" $(LINUXDIR)/.config ; then \
-	    $(MAKE) -C $(LINUXDIR) zImage CC=$(KERNELCC); \
+	    $(MAKE) -C $(LINUXDIR) zImage CC=$(KERNELCC) $(PARALLEL_BUILD); \
 	fi
 	if grep -q "CONFIG_MODULES=y" $(LINUXDIR)/.config ; then \
-	    $(MAKE) -C $(LINUXDIR) modules CC=$(KERNELCC); \
+	    $(MAKE) -C $(LINUXDIR) modules CC=$(KERNELCC) $(PARALLEL_BUILD); \
 	fi
 ifeq ($(CONFIG_LINUX26),y)
-	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed srctree=$(LINUXDIR)
+	$(MAKE) -C $(LINUXDIR)/arch/mips/brcm-boards/bcm947xx/compressed srctree=$(LINUXDIR) $(PARALLEL_BUILD)
 endif
 
 
 lzma-loader:
-	$(MAKE) -C $(SRCBASE)/lzma-loader CROSS_COMPILE=$(CROSS_COMPILE) LD=$(LD)
+	$(MAKE) -C $(SRCBASE)/lzma-loader CROSS_COMPILE=$(CROSS_COMPILE) LD=$(LD) $(PARALLEL_BUILD)
 
 lzma-loader-install: lzma-loader
 	@$(SEP)
 
 
 kmod: dummy
-	$(MAKE) -C $(LINUXDIR) modules CC=$(KERNELCC)
+	$(MAKE) -C $(LINUXDIR) modules CC=$(KERNELCC) $(PARALLEL_BUILD)
 
 testfind:
 	cd $(TARGETDIR)/lib/modules/* && find -name "*.o" -exec mv -i {} . \; || true
@@ -388,6 +392,7 @@ endif
 	$(if $(TCONFIG_RAID),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/md/*.ko $(PLATFORMDIR)/extras/raid/ || true
 	$(if $(TCONFIG_RAID),@ls,@rm -rf) $(TARGETDIR)/lib/modules/*/kernel/drivers/md || true
 
+	@cp $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/netfilter/ip_set*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ifb.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/sched/sch_red.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ntfs.*o $(PLATFORMDIR)/extras/ || true
@@ -640,9 +645,7 @@ oldconfig oldconf: koldconf roldconf dependconf bboldconf
 #
 
 busybox: dummy
-	@$(MAKE) -C busybox EXTRA_CFLAGS="-fPIC $(EXTRACFLAGS)"
-
-# V=1
+	@$(MAKE) -C busybox EXTRA_CFLAGS="-fPIC $(EXTRACFLAGS)" $(PARALLEL_BUILD)
 
 busybox-install:
 	rm -rf $(INSTALLDIR)/busybox
@@ -762,8 +765,8 @@ bridge-install:
 
 dnsmasq:
 	@$(SEP)
-	@$(MAKE) -C dnsmasq \
-	COPTS="$(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6) -DHAVE_BROKEN_RTC -DHAVE_TOMATO $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+	@$(MAKE) -C dnsmasq $(PARALLEL_BUILD) \
+	COPTS="$(if $(TCONFIG_IPV6),-DUSE_IPV6,-DNO_IPV6) $(if $(CONFIG_LINUX26),-DUSE_IPSET,-DNO_IPSET) -DHAVE_BROKEN_RTC -DHAVE_TOMATO $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 	LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections -fPIC"
 
 dnsmasq-install:
@@ -805,7 +808,7 @@ iptables-clean:
 
 ppp:
 	@$(SEP)
-	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp $(if $(TCONFIG_IPV6),HAVE_INET6=y,)
+	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp $(if $(TCONFIG_IPV6),HAVE_INET6=y,) $(PARALLEL_BUILD)
 #	$(MAKE) -C ppp/pppoecd $* INSTALLDIR=$(INSTALLDIR)/ppp DFLAGS="-DDEBUG -DDEBUGALL"
 
 ppp-%:
@@ -818,7 +821,7 @@ rp-pppoe/src/stamp-h1: rp-pppoe/src/Makefile.in
 	@touch rp-pppoe/src/stamp-h1
 
 rp-pppoe: pppd rp-pppoe/src/stamp-h1
-	$(MAKE) -C rp-pppoe/src pppoe-relay rp-pppoe.so
+	$(MAKE) -C rp-pppoe/src pppoe-relay rp-pppoe.so $(PARALLEL_BUILD)
 
 rp-pppoe-clean:
 	-@$(MAKE) -C rp-pppoe/src clean
@@ -842,6 +845,8 @@ libnfnetlink/stamp-h1:
 	touch tor/stamp-h1
 
 libnfnetlink: libnfnetlink/stamp-h1
+	@$(SEP)
+	$(MAKE) -C libnfnetlink
 
 libnfnetlink-install:
 	install -D libnfnetlink/src/.libs/libnfnetlink.so.0.2.0 $(INSTALLDIR)/libnfnetlink/usr/lib/libnfnetlink.so.0.2.0
@@ -861,7 +866,7 @@ miniupnpd: iptables miniupnpd-config libnfnetlink
 	@$(SEP)
 	$(MAKE) -C miniupnpd miniupnpd -f Makefile.linux CC=$(CC) \
 		CFLAGS="-Wall -Os -D_GNU_SOURCE $(EXTRACFLAGS) -I$(TOP)/iptables/include -I$(TOP)/libnfnetlink/include" \
-		LDFLAGS="-L$(TOP)/iptables -liptc -L$(TOP)/libnfnetlink/src/.libs -lnfnetlink" LIBS=""
+		LDFLAGS="-L$(TOP)/iptables -liptc -L$(TOP)/libnfnetlink/src/.libs -lnfnetlink" LIBS="" $(PARALLEL_BUILD)
 
 miniupnpd-clean:
 	-@$(MAKE) -C miniupnpd -f Makefile.linux clean
@@ -876,7 +881,7 @@ shared: busybox
 
 vsftpd: $(if $(TCONFIG_FTP_SSL),openssl,)
 	@$(SEP)
-	$(MAKE) -C vsftpd
+	$(MAKE) -C vsftpd $(PARALLEL_BUILD)
 
 vsftpd-install: vsftpd
 	install -D vsftpd/vsftpd $(INSTALLDIR)/vsftpd/usr/sbin/vsftpd
@@ -892,7 +897,7 @@ ntfs-3g/Makefile:
 		--disable-posix-acls --disable-nfconv --disable-dependency-tracking
 
 ntfs-3g: ntfs-3g/Makefile
-	@$(MAKE) -C ntfs-3g 
+	@$(MAKE) -C ntfs-3g $(PARALLEL_BUILD)
 
 ntfs-3g-clean:
 	-@$(MAKE) -C ntfs-3g clean
@@ -957,41 +962,41 @@ usbmodeswitch-install: usbmodeswitch usbmodeswitchdb-install
 	@mkdir -p $(TARGETDIR)/rom/etc
 	@sed 's/#.*//g;s/[ \t]\+/ /g;s/^[ \t]*//;s/[ \t]*$$//;/^$$/d' < $(TOP)/usbmodeswitch/usb_modeswitch.conf > $(TARGETDIR)/rom/etc/usb_modeswitch.conf
 
-libdaemon: libdaemon/Makefile
-	$(MAKE) -C $@
+#libdaemon: libdaemon/Makefile
+	#$(MAKE) -C $@
 
-libdaemon/Makefile: libdaemon/Makefile.in
-	cd libdaemon && $(CONFIGURE) ac_cv_func_setpgrp_void=yes \
-		--disable-dependency-tracking
+#libdaemon/Makefile: libdaemon/Makefile.in
+#	cd libdaemon && $(CONFIGURE) ac_cv_func_setpgrp_void=yes \
+#		--disable-dependency-tracking
 
-libdaemon-install: libdaemon
-	install -D libdaemon/libdaemon/.libs/libdaemon.so.0.5.0 $(INSTALLDIR)/libdaemon/usr/lib/libdaemon.so.0.5.0
-	$(STRIP) $(INSTALLDIR)/libdaemon/usr/lib/*.so.*
-	cd $(INSTALLDIR)/libdaemon/usr/lib && \
-		ln -sf libdaemon.so.0.5.0 libdaemon.so && \
-		ln -sf libdaemon.so.0.5.0 libdaemon.so.0
+#libdaemon-install: libdaemon
+#	install -D libdaemon/libdaemon/.libs/libdaemon.so.0.5.0 $(INSTALLDIR)/libdaemon/usr/lib/libdaemon.so.0.5.0
+#	$(STRIP) $(INSTALLDIR)/libdaemon/usr/lib/*.so.*
+#	cd $(INSTALLDIR)/libdaemon/usr/lib && \
+#		ln -sf libdaemon.so.0.5.0 libdaemon.so && \
+#		ln -sf libdaemon.so.0.5.0 libdaemon.so.0
 
-libdaemon-clean:
-	-@$(MAKE) -C libdaemon distclean
+#libdaemon-clean:
+#	-@$(MAKE) -C libdaemon distclean
 
-radvd/stamp-h1:
-	cd radvd && CFLAGS="-Os $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
-		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
-	$(CONFIGURE) --prefix="" --disable-dependency-tracking \
-	DAEMON_CFLAGS="-I$(TOP)/libdaemon" \
-	DAEMON_LIBS="-ldaemon -L$(TOP)/libdaemon/libdaemon/.libs"
-	@$(MAKE) -C radvd clean
-	@touch radvd/stamp-h1
+#radvd/stamp-h1:
+#	cd radvd && CFLAGS="-Os $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
+#		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
+#	$(CONFIGURE) --prefix="" --disable-dependency-tracking \
+#	DAEMON_CFLAGS="-I$(TOP)/libdaemon" \
+#	DAEMON_LIBS="-ldaemon -L$(TOP)/libdaemon/libdaemon/.libs"
+#	@$(MAKE) -C radvd clean
+#	@touch radvd/stamp-h1
+##
+#radvd: libdaemon radvd/stamp-h1
 
-radvd: libdaemon radvd/stamp-h1
+#radvd-clean:
+#	-@$(MAKE) -C radvd distclean
+#	@rm -f radvd/stamp-h1
 
-radvd-clean:
-	-@$(MAKE) -C radvd distclean
-	@rm -f radvd/stamp-h1
-
-radvd-install: radvd
-	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd
-	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
+#radvd-install: radvd
+#	install -D radvd/radvd $(INSTALLDIR)/radvd/usr/sbin/radvd
+#	$(STRIP) $(INSTALLDIR)/radvd/usr/sbin/radvd
 
 dhcpv6/stamp-h1:
 	@cd dhcpv6 && \
@@ -1178,7 +1183,7 @@ ntpc: nvram shared
 
 dropbear: dropbear/config.h
 	@$(SEP)
-	@$(MAKE) -C dropbear PROGRAMS="dropbear dbclient dropbearkey scp" MULTI=1
+	@$(MAKE) -C dropbear PROGRAMS="dropbear dbclient dropbearkey scp" MULTI=1 $(PARALLEL_BUILD)
 
 dropbear-install:
 	install -D dropbear/dropbearmulti $(INSTALLDIR)/dropbear/usr/bin/dropbearmulti
@@ -1216,7 +1221,7 @@ sqlite/stamp-h1:
 	touch sqlite/stamp-h1
 
 sqlite: sqlite/stamp-h1
-	@$(MAKE) -C sqlite all
+	@$(MAKE) -C sqlite all $(PARALLEL_BUILD)
 
 sqlite-clean:
 	-@$(MAKE) -C sqlite clean
@@ -1262,7 +1267,7 @@ ffmpeg/stamp-h1: zlib
 	touch ffmpeg/stamp-h1
 
 ffmpeg: ffmpeg/stamp-h1 zlib
-	@$(MAKE) -C ffmpeg all
+	@$(MAKE) -C ffmpeg all $(PARALLEL_BUILD)
 
 ffmpeg-clean:
 	-@$(MAKE) -C ffmpeg clean
@@ -1287,7 +1292,7 @@ libogg/stamp-h1:
 	touch libogg/stamp-h1
 
 libogg: libogg/stamp-h1
-	@$(MAKE) -C libogg all
+	@$(MAKE) -C libogg all $(PARALLEL_BUILD)
 
 libogg-clean:
 	-@$(MAKE) -C libogg clean
@@ -1311,7 +1316,7 @@ flac/stamp-h1: libogg
 	touch flac/stamp-h1
 
 flac: flac/stamp-h1 libogg
-	@$(MAKE) -C flac/src/libFLAC all
+	@$(MAKE) -C flac/src/libFLAC all $(PARALLEL_BUILD)
 
 flac-clean:
 	-@$(MAKE) -C flac clean
@@ -1330,7 +1335,7 @@ jpeg/stamp-h1:
 	touch jpeg/stamp-h1
 
 jpeg: jpeg/stamp-h1
-	@$(MAKE) -C jpeg LIBTOOL="" O=o A=a CC=$(CC) AR2="touch" libjpeg.a libjpeg.so
+	@$(MAKE) -C jpeg LIBTOOL="" O=o A=a CC=$(CC) AR2="touch" libjpeg.a libjpeg.so $(PARALLEL_BUILD)
 
 jpeg-clean:
 	-@$(MAKE) -C jpeg clean
@@ -1371,7 +1376,7 @@ zlib/stamp-h1:
 	touch zlib/stamp-h1
 
 zlib: zlib/stamp-h1
-	@$(MAKE) -C zlib CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) all
+	@$(MAKE) -C zlib CC=$(CC) AR="ar rc" RANLIB=$(RANLIB) LD=$(LD) all $(PARALLEL_BUILD)
 
 zlib-clean:
 	-@$(MAKE) -C zlib clean
@@ -1404,7 +1409,7 @@ libid3tag/stamp-h1: zlib
 	touch libid3tag/stamp-h1
 
 libid3tag: libid3tag/stamp-h1 zlib
-	@$(MAKE) -C libid3tag all
+	@$(MAKE) -C libid3tag all $(PARALLEL_BUILD)
 
 libid3tag-clean:
 	-@$(MAKE) -C libid3tag clean
@@ -1428,7 +1433,7 @@ libvorbis/stamp-h1: libogg
 	touch libvorbis/stamp-h1
 
 libvorbis: libvorbis/stamp-h1
-	@$(MAKE) -C libvorbis/lib all
+	@$(MAKE) -C libvorbis/lib all $(PARALLEL_BUILD)
 
 libvorbis-clean:
 	-@$(MAKE) -C libvorbis clean
@@ -1443,7 +1448,7 @@ endif
 
 minidlna: zlib sqlite ffmpeg libogg flac jpeg libexif libid3tag libvorbis
 	@$(SEP)
-	@$(MAKE) -C minidlna CC=$(CC) $(if $(MEDIA_SERVER_STATIC),STATIC=1,) minidlna
+	@$(MAKE) -C minidlna CC=$(CC) $(if $(MEDIA_SERVER_STATIC),STATIC=1,) minidlna $(PARALLEL_BUILD)
 
 
 igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
@@ -1453,7 +1458,7 @@ igmpproxy/src/Makefile: igmpproxy/src/Makefile.in
 
 igmpproxy: igmpproxy/src/Makefile
 	@$(SEP)
-	@$(MAKE) -C igmpproxy/src
+	@$(MAKE) -C igmpproxy/src $(PARALLEL_BUILD)
 
 igmpproxy-install: igmpproxy
 	install -D igmpproxy/src/igmpproxy $(INSTALLDIR)/igmpproxy/usr/sbin/igmpproxy
@@ -1539,6 +1544,7 @@ glib/stamp-h1:
 	touch glib/stamp-h1
 
 glib: glib/stamp-h1
+	@$(MAKE) -C glib $(PARALLEL_BUILD)
 
 glib-clean:
 	-@$(MAKE) -C glib clean
@@ -1563,6 +1569,7 @@ nocat/stamp-h1: glib-install
 	touch nocat/stamp-h1
 
 nocat: nocat/stamp-h1
+	@$(MAKE) -C nocat $(PARALLEL_BUILD)
 
 nocat-clean:
 	-@$(MAKE) -C nocat clean
@@ -1580,6 +1587,7 @@ lzo/stamp-h1:
 	touch lzo/stamp-h1
 
 lzo: lzo/stamp-h1
+	@$(MAKE) -C lzo $(PARALLEL_BUILD)
 
 lzo-clean:
 	-@$(MAKE) -C lzo clean
@@ -1604,6 +1612,7 @@ openvpn/.conf: openssl lzo
 	touch openvpn/.conf
 
 openvpn: openvpn/.conf
+	@$(MAKE) -C openvpn $(PARALLEL_BUILD)
 
 openvpn-clean:
 	-@$(MAKE) -C openvpn clean
@@ -1633,7 +1642,7 @@ libcurl/stamp-h1: zlib openssl
 		touch libcurl/stamp-h1
 
 libcurl: libcurl/stamp-h1
-	@$(MAKE) -C libcurl
+	@$(MAKE) -C libcurl $(PARALLEL_BUILD)
 
 libcurl-clean:
 	-@$(MAKE) -C libcurl clean
@@ -1656,7 +1665,7 @@ libevent/stamp-h1:
 
 libevent: libevent/stamp-h1
 	@$(SEP)
-	$(MAKE) -C libevent
+	$(MAKE) -C libevent $(PARALLEL_BUILD)
 	$(MAKE) -C libevent DESTDIR=$(TOP)/libevent/staged install
 
 libevent-clean:
@@ -1678,7 +1687,7 @@ libiconv/stamp-h1:
 
 libiconv: libiconv/stamp-h1
 	@$(SEP)
-	$(MAKE) -C libiconv
+	$(MAKE) -C libiconv $(PARALLEL_BUILD)
 
 libiconv-clean:
 	-@$(MAKE) -C libiconv clean
@@ -1709,7 +1718,7 @@ transmission/stamp-h1: openssl libcurl libevent zlib
 
 transmission: transmission/stamp-h1
 	@$(SEP)
-	$(MAKE) -C transmission
+	$(MAKE) -C transmission $(PARALLEL_BUILD)
 
 transmission-clean:
 	-@$(MAKE) -C transmission clean
@@ -1746,7 +1755,7 @@ libnfsidmap/stamp-h1:
 
 libnfsidmap: libnfsidmap/stamp-h1
 	@$(SEP)
-	$(MAKE) -C libnfsidmap
+	$(MAKE) -C libnfsidmap $(PARALLEL_BUILD)
 
 libnfsidmap-clean:
 	-@$(MAKE) -C libnfsidmap clean
@@ -1765,7 +1774,7 @@ portmap/stamp-h1:
 
 portmap: portmap/stamp-h1
 	@$(SEP)
-	$(MAKE) -C portmap
+	$(MAKE) -C portmap $(PARALLEL_BUILD)
 
 portmap-clean:
 	-@$(MAKE) -C portmap clean
@@ -1784,7 +1793,7 @@ e2fsprogs/stamp-h1:
 
 e2fsprogs: e2fsprogs/stamp-h1
 	@$(SEP)
-	$(MAKE) -C e2fsprogs
+	$(MAKE) -C e2fsprogs $(PARALLEL_BUILD)
 
 e2fsprogs-clean:
 	-@$(MAKE) -C e2fsprogs clean
@@ -1806,6 +1815,8 @@ nfs-utils/stamp-h1: libevent-install e2fsprogs portmap libnfsidmap-install
 	touch nfs-utils/stamp-h1
 
 nfs-utils: nfs-utils/stamp-h1
+	@$(SEP)
+	$(MAKE) -C nfs-utils $(PARALLEL_BUILD)
 
 nfs-utils-clean:
 	-@$(MAKE) -C nfs-utils clean
@@ -1858,7 +1869,7 @@ snmp/stamp-h1:
 
 snmp: snmp/stamp-h1
 	@$(SEP)
-	$(MAKE) -C snmp
+	$(MAKE) -C snmp $(PARALLEL_BUILD)
 
 snmp-clean:
 	-@$(MAKE) -C snmp clean
@@ -1871,14 +1882,15 @@ snmp-install: snmp
 apcupsd/stamp-h1:
 	cd apcupsd && touch autoconf/variables.mak && CC=$(CC) STRIP='mipsel-uclibc-strip' \
 	$(MAKE) configure && \
+	CFLAGS="-Os -Wall $(EXTRACFLAGS)" \
 	LDFLAGS="-L$(TOOLCHAIN)/lib -ffunction-sections -fdata-sections" \
-	$(CONFIGURE) --prefix=/usr --without-x --enable-shared --enable-static --enable-usb --disable-pcnet --enable-cgi \
-		--disable-lgd --enable-net --enable-powerflute --sysconfdir=/usr/local/apcupsd --bindir=/bin \
-		--disable-dumb --disable-snmp --disable-net-snmp --with-cgi-bin=/www/apcupsd --with-serial-dev= \
+	$(CONFIGURE) --prefix=/usr --without-x --enable-usb --disable-pcnet --enable-cgi \
+		--disable-lgd --enable-net --sysconfdir=/usr/local/apcupsd --bindir=/bin \
+		--disable-dumb --disable-snmp --disable-net-snmp --with-cgi-bin=/www/apcupsd --with-serial-dev=
 	touch apcupsd/stamp-h1
 
 apcupsd: apcupsd/stamp-h1
-	$(MAKE) -C apcupsd
+	$(MAKE) -C apcupsd $(PARALLEL_BUILD)
 
 apcupsd-clean:
 	-@$(MAKE) -C apcupsd clean
@@ -1898,6 +1910,7 @@ dnscrypt/stamp-h1:
 	touch dnscrypt/stamp-h1
 
 dnscrypt: dnscrypt/stamp-h1
+	$(MAKE) -C dnscrypt $(PARALLEL_BUILD)
 
 dnscrypt-install: dnscrypt
 	install -D dnscrypt/src/proxy/dnscrypt-proxy $(INSTALLDIR)/dnscrypt/usr/sbin/dnscrypt-proxy
@@ -1918,6 +1931,7 @@ tor/stamp-h1: openssl zlib libevent
 	touch tor/stamp-h1
 
 tor: tor/stamp-h1
+	$(MAKE) -C tor $(PARALLEL_BUILD)
 
 tor-install: tor
 	install -D tor/src/or/tor $(INSTALLDIR)/tor/usr/sbin/tor
@@ -1928,6 +1942,7 @@ tor-clean:
 	@rm -rf tor/stamp-h1 tor/Makefile
 
 mdadm:
+	$(MAKE) -C mdadm $(PARALLEL_BUILD)
 
 mdadm-install: mdadm
 	install -D mdadm/mdadm $(INSTALLDIR)/mdadm/usr/sbin/mdadm
@@ -1935,6 +1950,19 @@ mdadm-install: mdadm
 
 mdadm-clean:
 	-@$(MAKE) -C mdadm clean
+
+ipset:
+	$(MAKE) -C ipset binaries
+
+ipset-install: ipset
+	install -D ipset/ipset $(INSTALLDIR)/ipset/usr/sbin/ipset
+	install -d $(INSTALLDIR)/ipset/usr/lib/
+	install ipset/*.so $(INSTALLDIR)/ipset/usr/lib/
+	$(STRIP) $(INSTALLDIR)/ipset/usr/lib/*.so
+	$(STRIP) $(INSTALLDIR)/ipset/usr/sbin/ipset
+
+ipset-clean:
+	-@$(MAKE) -C ipset clean
 
 #
 # Generic rules
