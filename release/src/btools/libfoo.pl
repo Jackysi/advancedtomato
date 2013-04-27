@@ -166,6 +166,19 @@ sub fixDyn
 	fixDynDep("radvd", "libdaemon.so.0.5.0");
 	fixDynDep("miniupnpd", "libnfnetlink.so.0.2.0");
 
+#ipset modules
+	fixDynDep("libipset_iphash.so", "ipset");
+	fixDynDep("libipset_iptree.so", "ipset");
+	fixDynDep("libipset_ipmap.so", "ipset");
+	fixDynDep("libipset_ipporthash.so", "ipset");
+	fixDynDep("libipset_ipportiphash.so", "ipset");
+	fixDynDep("libipset_ipportnethash.so", "ipset");
+	fixDynDep("libipset_iptreemap.so", "ipset");
+	fixDynDep("libipset_macipmap.so", "ipset");
+	fixDynDep("libipset_nethash.so", "ipset");
+	fixDynDep("libipset_portmap.so", "ipset");
+	fixDynDep("libipset_setlist.so", "ipset");
+
 	fixDynDep("tomatodata.cgi", "libc.so.0");
 	fixDynDep("tomatoups.cgi", "libc.so.0");
 	fixDynDep("apcupsd", "libc.so.0");

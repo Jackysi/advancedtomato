@@ -14,8 +14,8 @@ include common.mak
 
 #TOMATO_EXPERIMENTAL=0
 
-export PARALLEL_BUILD :=
-#export PARALLEL_BUILD := -j`grep -c '^processor' /proc/cpuinfo`
+#export PARALLEL_BUILD :=
+export PARALLEL_BUILD := -j`grep -c '^processor' /proc/cpuinfo`
 
 #
 #
@@ -149,6 +149,7 @@ MEDIA_SERVER_STATIC=y
 obj-y += libnfnetlink
 obj-y += miniupnpd
 #	obj-y += upnp
+obj-$(CONFIG_LINUX26) += ipset
 
 
 #
@@ -385,6 +386,7 @@ endif
 	$(if $(TCONFIG_RAID),@cp -f,@mv) $(TARGETDIR)/lib/modules/*/kernel/drivers/md/*.ko $(PLATFORMDIR)/extras/raid/ || true
 	$(if $(TCONFIG_RAID),@ls,@rm -rf) $(TARGETDIR)/lib/modules/*/kernel/drivers/md || true
 
+	@cp $(TARGETDIR)/lib/modules/*/kernel/net/ipv4/netfilter/ip_set*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/drivers/net/ifb.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/net/sched/sch_red.*o $(PLATFORMDIR)/extras/ || true
 	@mv $(TARGETDIR)/lib/modules/*/kernel/fs/ntfs.*o $(PLATFORMDIR)/extras/ || true
@@ -1939,6 +1941,19 @@ mdadm-install: mdadm
 
 mdadm-clean:
 	-@$(MAKE) -C mdadm clean
+
+ipset:
+	$(MAKE) -C ipset binaries
+
+ipset-install: ipset
+	install -D ipset/ipset $(INSTALLDIR)/ipset/usr/sbin/ipset
+	install -d $(INSTALLDIR)/ipset/usr/lib/
+	install ipset/*.so $(INSTALLDIR)/ipset/usr/lib/
+	$(STRIP) $(INSTALLDIR)/ipset/usr/lib/*.so
+	$(STRIP) $(INSTALLDIR)/ipset/usr/sbin/ipset
+
+ipset-clean:
+	-@$(MAKE) -C ipset clean
 
 #
 # Generic rules
