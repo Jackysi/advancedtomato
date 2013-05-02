@@ -680,7 +680,7 @@ struct dhcp_bridge {
 };
 
 struct cond_domain {
-  char *domain;
+  char *domain, *prefix;
   struct in_addr start, end;
 #ifdef HAVE_IPV6
   struct in6_addr start6, end6;
@@ -796,7 +796,7 @@ extern struct daemon {
   struct name_list *secondary_forward_server;
   int group_set, osport;
   char *domain_suffix;
-  struct cond_domain *cond_domain;
+  struct cond_domain *cond_domain, *synth_domains;
   char *runfile; 
   char *lease_change_command;
   struct iname *if_names, *if_addrs, *if_except, *dhcp_except, *auth_peers;
@@ -914,14 +914,18 @@ void cache_unhash_dhcp(void);
 void dump_cache(time_t now);
 char *cache_get_name(struct crec *crecp);
 struct crec *cache_enumerate(int init);
-char *get_domain(struct in_addr addr);
-#ifdef HAVE_IPV6
-char *get_domain6(struct in6_addr *addr);
-#endif
 #ifdef HAVE_DNSSEC
 struct keydata *keydata_alloc(char *data, size_t len);
 void keydata_free(struct keydata *blocks);
 #endif
+
+/* domain.c */
+char *get_domain(struct in_addr addr);
+#ifdef HAVE_IPV6
+char *get_domain6(struct in6_addr *addr);
+#endif
+int is_name_synthetic(int flags, char *name, struct all_addr *addr);
+int is_rev_synth(int flag, struct all_addr *addr, char *name);
 
 /* rfc1035.c */
 unsigned int extract_request(struct dns_header *header, size_t qlen, 
@@ -1117,6 +1121,10 @@ unsigned char *extended_hwaddr(int hwtype, int hwlen, unsigned char *hwaddr,
 int make_icmp_sock(void);
 int icmp_ping(struct in_addr addr);
 #endif
+#ifdef HAVE_TOMATO
+void tomato_helper(time_t now);
+void flush_lease_file(time_t now);
+#endif //TOMATO
 void send_alarm(time_t event, time_t now);
 void send_event(int fd, int event, int data, char *msg);
 void clear_cache_and_reload(time_t now);
