@@ -117,10 +117,10 @@ function ethstates()
 	code += '<table class="fields"><tr><td class="title indent1"><center><b>WAN</b></center></td><td><center><b>LAN 1</b></center></td><td><center><b>LAN 2</b></center></td><td><center><b>LAN 3</b></center></td><td><center><b>LAN 4</b></center></td><tr>';
 
 	if (port == "DOWN") {
-		state = '<img src="eth_off.png"><br>';
+		state = '<img src="eth_off.png" id="eth_off"><br>';
 		state2 = port.replace("DOWN","Down");
 	} else {
-		state = '<img src="eth_on.png"><br>';
+		state = '<img src="eth_on.png" id="eth_on"><br>';
 		state1 = port.replace("HD","M Half");
 		state2 = state1.replace("FD","M Full");
 	}
@@ -132,10 +132,10 @@ function ethstates()
 
 	port = etherstates.port1;
 	if (port == "DOWN") {
-		state = '<img src="eth_off.png"><br>';
+		state = '<img src="eth_off.png" id="eth_off"><br>';
 		state2 = port.replace("DOWN","Down");
 	} else {
-		state = '<img src="eth_on.png"><br>';
+		state = '<img src="eth_on.png" id="eth_on"><br>';
 		state1 = port.replace("HD","M Half");
 		state2 = state1.replace("FD","M Full");
 	}
@@ -147,10 +147,10 @@ function ethstates()
 
 	port = etherstates.port2;
 	if (port == "DOWN") {
-		state = '<img src="eth_off.png"><br>';
+		state = '<img src="eth_off.png" id="eth_off"><br>';
 		state2 = port.replace("DOWN","Down");
 	} else {
-		state = '<img src="eth_on.png"><br>';
+		state = '<img src="eth_on.png" id="eth_on"><br>';
 		state1 = port.replace("HD","M Half");
 		state2 = state1.replace("FD","M Full");
 	}
@@ -162,10 +162,10 @@ function ethstates()
 
 	port = etherstates.port3;
 	if (port == "DOWN") {
-		state = '<img src="eth_off.png"><br>';
+		state = '<img src="eth_off.png" id="eth_off"><br>';
 		state2 = port.replace("DOWN","Down");
 	} else {
-		state = '<img src="eth_on.png"><br>';
+		state = '<img src="eth_on.png" id="eth_on"><br>';
 		state1 = port.replace("HD","M Half");
 		state2 = state1.replace("FD","M Full");
 	}
@@ -177,10 +177,10 @@ function ethstates()
 
 	port = etherstates.port4;
 	if (port == "DOWN") {
-		state = '<img src="eth_off.png"><br>';
+		state = '<img src="eth_off.png" id="eth_off"><br>';
 		state2 = port.replace("DOWN","Down");
 	} else {
-		state = '<img src="eth_on.png"><br>';
+		state = '<img src="eth_on.png" id="eth_on"><br>';
 		state1 = port.replace("HD","M Half");
 		state2 = state1.replace("FD","M Full");
 	}
