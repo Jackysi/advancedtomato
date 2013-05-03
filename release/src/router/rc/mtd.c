@@ -506,7 +506,7 @@ int mtd_write_main(int argc, char *argv[])
 		}
 #else
 		ioctl(mf, MEMUNLOCK, &ei);
-		if (ioctl(mf, MEMERASE, &ei) != 0) {
+		if (ioctl(mf, MEMERASE, &ei) != 0 && model != MODEL_WNR3500LV2) {
 			error = "Error erasing MTD block";
 			break;
 		} 
