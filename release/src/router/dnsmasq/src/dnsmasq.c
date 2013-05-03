@@ -1157,16 +1157,25 @@ static void async_event(int pipe, time_t now)
 	break;
 
       case EVENT_REOPEN:
-#ifdef HAVE_TOMATO
-	tomato_helper(now);
-#endif //TOMATO
-
 	/* Note: this may leave TCP-handling processes with the old file still open.
 	   Since any such process will die in CHILD_LIFETIME or probably much sooner,
 	   we leave them logging to the old file. */
 
 	if (daemon->log_file != NULL)
 	  log_reopen(daemon->log_file);
+
+#ifdef HAVE_TOMATO
+	tomato_helper(now); //possibly delete & write out leases for tomato
+#endif //TOMATO
+/* following is Asus tweak.  Interestingly Asus read the dnsmasq leases db
+   directly.  They signal dnsmasq to update via SIGUSR2 and wait 1 second
+   assuming the file will be complete by the time they come to parse it.
+   Race conditions anyone?  What if dnsmasq happens to be updating the
+   file anyway? */
+#if defined(HAVE_DHCP) && defined(HAVE_LEASEFILE_EXPIRE) && !defined(HAVE_TOMATO)
+	if (daemon->dhcp || daemon->dhcp6)
+		flush_lease_file(now);
+#endif
 	break;
 	
       case EVENT_TERM:
@@ -1189,9 +1198,11 @@ static void async_event(int pipe, time_t now)
 	  }
 #endif
 
-#ifdef HAVE_TOMATO
-	flush_lease_file(now);
-#endif //TOMATO
+//Originally TOMATO tweak
+#if defined(HAVE_DHCP) && defined(HAVE_LEASEFILE_EXPIRE)
+	if (daemon->dhcp || daemon->dhcp6)
+		flush_lease_file(now);
+#endif
 	
 	if (daemon->lease_stream)
 	  fclose(daemon->lease_stream);
@@ -1248,9 +1259,11 @@ void poll_resolv(int force, int do_reload, time_t now)
 	      {
 		last_change = statbuf.st_mtime;
 		latest = res;
+/* This is now commented out
 #ifdef HAVE_TOMATO
 		break;
 #endif //TOMATO - Really don't understand what this break is trying to acheive/avoid
+*/
 	      }
 	  }
       }

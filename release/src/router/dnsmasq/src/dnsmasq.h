@@ -222,12 +222,12 @@ struct event_desc {
 #define OPT_CLEVERBIND     39
 #define OPT_TFTP           40
 
-#ifdef HAVE_TOMATO
-#define OPT_QUIET_DHCP     41
-#define OPT_LAST           42
-#else  //not TOMATO
-#define OPT_LAST	   41
-#endif //TOMATO
+#ifdef HAVE_QUIET_DHCP	//Originally a TOMATO option
+  #define OPT_QUIET_DHCP 41
+  #define OPT_LAST	42
+#else 
+  #define OPT_LAST	41
+#endif //HAVE_QUIET_DHCP
 
 
 /* extra flags for my_syslog, we use a couple of facilities since they are known 
@@ -1123,8 +1123,10 @@ int icmp_ping(struct in_addr addr);
 #endif
 #ifdef HAVE_TOMATO
 void tomato_helper(time_t now);
+#endif
+#ifdef HAVE_LEASEFILE_EXPIRE //originally TOMATO option
 void flush_lease_file(time_t now);
-#endif //TOMATO
+#endif
 void send_alarm(time_t event, time_t now);
 void send_event(int fd, int event, int data, char *msg);
 void clear_cache_and_reload(time_t now);

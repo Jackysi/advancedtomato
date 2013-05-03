@@ -1534,10 +1534,10 @@ static void log_packet(char *type, void *addr, unsigned char *ext_mac,
 {
   struct in_addr a;
 
-#ifdef HAVE_TOMATO
+#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
   if (option_bool(OPT_QUIET_DHCP) && strncmp(type, "DHCP", 4) == 0)
 	return;
-#endif //TOMATO
+#endif
  
   /* addr may be misaligned */
   if (addr)
