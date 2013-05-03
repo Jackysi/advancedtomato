@@ -65,6 +65,10 @@ HAVE_BROKEN_RTC
    NOTE: when enabling or disabling this, be sure to delete any old
    leases file, otherwise dnsmasq may get very confused.
 
+HAVE_LEASEFILE_EXPIRE
+
+HAVE_TOMATO
+
 HAVE_TFTP
    define this to get dnsmasq's built-in TFTP server.
 
@@ -329,6 +333,11 @@ HAVE_SOCKADDR_SA_LEN
 
 #if defined(NO_IPSET) || !defined(HAVE_LINUX_NETWORK)
 #undef HAVE_IPSET
+#endif
+
+#ifdef HAVE_TOMATO
+#define HAVE_LEASEFILE_EXPIRE
+#define HAVE_QUIET_DHCP
 #endif
 
 /* Define a string indicating which options are in use.
