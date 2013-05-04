@@ -86,6 +86,12 @@ void start_dnsmasq()
 	int do_dns;
 	int do_dhcpd_hosts;
 
+#ifdef TCONFIG_IPV6
+	char *prefix, *ipv6, *mtu;
+	int do_6to4, do_6rd;
+	int service;
+#endif
+
 	TRACE_PT("begin\n");
 
 	if (getpid() != 1) {
@@ -379,7 +385,36 @@ void start_dnsmasq()
 
 #ifdef TCONFIG_IPV6
 	if (ipv6_enabled() && nvram_get_int("ipv6_radvd")) {
-		fprintf(f, "enable-ra\ndhcp-range=tag:br0,::1,constructor:br0, ra-only\n");
+                service = get_ipv6_service();
+                do_6to4 = (service == IPV6_ANYCAST_6TO4);
+                do_6rd = (service == IPV6_6RD || service == IPV6_6RD_DHCP);
+                mtu = NULL;
+
+                switch (service) {
+                case IPV6_NATIVE_DHCP:
+                        prefix = "::";
+                        break;
+                case IPV6_ANYCAST_6TO4:
+                case IPV6_6IN4:
+                case IPV6_6RD:
+                case IPV6_6RD_DHCP:
+                        mtu = (nvram_get_int("ipv6_tun_mtu") > 0) ? nvram_safe_get("ipv6_tun_mtu") : "1480";
+                        // fall through
+                default:
+                        prefix = do_6to4 ? "0:0:0:1::" : nvram_safe_get("ipv6_prefix");
+                        break;
+                }
+                if (!(*prefix)) prefix = "::";
+                ipv6 = (char *)ipv6_router_address(NULL);
+
+		fprintf(f, "enable-ra\ndhcp-range=tag:br0,%s, slaac, ra-names\n", prefix);
+
+// KDB below is experimental and doesn't work probably my lack of C
+// the above slaac enabling line is the closest to the standard RADVD
+// functionality anyway.  Code for another day, let's get something that
+// works out there.
+		//prefix[strlen(prefix)-1] = 0;
+		//fprintf(f, "enable-ra\ndhcp-range=tag:br0,%s, %sFFFF:FFFF:FFFF, constructor:br0, ra-names, 12h\n", ipv6, prefix);
 	}
 #endif
 
