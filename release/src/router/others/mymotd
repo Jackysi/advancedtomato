@@ -5,6 +5,10 @@ MOTD_ON=`nvram get sshd_motd`
 #only if enable
 if [ "$MOTD_ON" == "1" ]; then
 
+PROFILE=$1
+if [ "$PROFILE" == "init" ]; then
+echo "/usr/sbin/mymotd" > /root/.profile
+else
 
 # Function calculates number of bit in a netmask
 #
@@ -65,4 +69,5 @@ echo -e "\033[1;34m ======================================================== \03
 
 echo ""
 
+fi
 fi
