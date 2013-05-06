@@ -1860,7 +1860,7 @@ snmp/stamp-h1:
 
 snmp: snmp/stamp-h1
 	@$(SEP)
-	$(MAKE) -C snmp $(PARALLEL_BUILD)
+	$(MAKE) -C snmp
 
 snmp-clean:
 	-@$(MAKE) -C snmp clean
