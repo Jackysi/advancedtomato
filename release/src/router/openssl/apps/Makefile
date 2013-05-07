@@ -52,8 +52,8 @@ RAND_SRC=app_rand.c
 
 #zzz
 
-E_OBJ= req.o rsa.o x509.o $(A_OBJ) $(RAND_OBJ) enc.o version.o speed.o
-E_SRC= req.c rsa.c x509.c $(A_SRC) $(RAND_SRC) enc.c version.c speed.c
+E_OBJ= req.o rsa.o x509.o $(A_OBJ) $(RAND_OBJ) enc.o version.o speed.o s_client.o $(S_OBJ)
+E_SRC= req.c rsa.c x509.c $(A_SRC) $(RAND_SRC) enc.c version.c speed.c s_client.c $(S_SRC)
 
 #E_OBJ=	verify.o asn1pars.o req.o dgst.o dh.o dhparam.o enc.o passwd.o gendh.o errstr.o \
 #	ca.o pkcs7.o crl2p7.o crl.o \

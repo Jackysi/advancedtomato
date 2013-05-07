@@ -194,6 +194,7 @@ Copyright (C) 2011 Augusto Bott<br>
 - Comprehensive QOS rule examples set by default<br>
 - TC-ATM overhead calculation - patch by tvlz<br>
 - GPT support for HDD by Yaniv Hamo<br>
+- Tools-System refresh timer<br>
 Copyright (C) 2011 Toastman<br>
 <a href='http://www.linksysinfo.org/index.php?threads/using-qos-tutorial-and-discussion.28349/' target='_new'>Using QoS - Tutorial and discussion</a><br>
 <br>

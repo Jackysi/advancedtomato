@@ -65,6 +65,10 @@ HAVE_BROKEN_RTC
    NOTE: when enabling or disabling this, be sure to delete any old
    leases file, otherwise dnsmasq may get very confused.
 
+HAVE_LEASEFILE_EXPIRE
+
+HAVE_TOMATO
+
 HAVE_TFTP
    define this to get dnsmasq's built-in TFTP server.
 
@@ -279,12 +283,12 @@ HAVE_SOCKADDR_SA_LEN
 #if defined(INET6_ADDRSTRLEN) && defined(IPV6_V6ONLY)
 #  define HAVE_IPV6
 #  define ADDRSTRLEN INET6_ADDRSTRLEN
-#elif defined(INET_ADDRSTRLEN)
+#else
+#  if !defined(INET_ADDRSTRLEN)
+#      define INET_ADDRSTRLEN 16 /* 4*3 + 3 dots + NULL */
+#  endif
 #  undef HAVE_IPV6
 #  define ADDRSTRLEN INET_ADDRSTRLEN
-#else
-#  undef HAVE_IPV6
-#  define ADDRSTRLEN 16 /* 4*3 + 3 dots + NULL */
 #endif
 
 
@@ -329,6 +333,11 @@ HAVE_SOCKADDR_SA_LEN
 
 #if defined(NO_IPSET) || !defined(HAVE_LINUX_NETWORK)
 #undef HAVE_IPSET
+#endif
+
+#ifdef HAVE_TOMATO
+#define HAVE_LEASEFILE_EXPIRE
+#define HAVE_QUIET_DHCP
 #endif
 
 /* Define a string indicating which options are in use.

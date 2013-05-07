@@ -98,6 +98,9 @@ FUNCTION functions[] = {
 	{FUNC_TYPE_GENERAL,"speed",speed_main},
 #endif
 	{FUNC_TYPE_GENERAL,"version",version_main},
+#if !defined(OPENSSL_NO_SOCK) && !(defined(OPENSSL_NO_SSL2) && defined(OPENSSL_NO_SSL3))
+	{FUNC_TYPE_GENERAL,"s_client",s_client_main},
+#endif
 
 #if 0
 
@@ -141,9 +144,6 @@ FUNCTION functions[] = {
 	{FUNC_TYPE_GENERAL,"genpkey",genpkey_main},
 #if !defined(OPENSSL_NO_SOCK) && !(defined(OPENSSL_NO_SSL2) && defined(OPENSSL_NO_SSL3))
 	{FUNC_TYPE_GENERAL,"s_server",s_server_main},
-#endif
-#if !defined(OPENSSL_NO_SOCK) && !(defined(OPENSSL_NO_SSL2) && defined(OPENSSL_NO_SSL3))
-	{FUNC_TYPE_GENERAL,"s_client",s_client_main},
 #endif
 #if !defined(OPENSSL_NO_SOCK) && !(defined(OPENSSL_NO_SSL2) && defined(OPENSSL_NO_SSL3))
 	{FUNC_TYPE_GENERAL,"s_time",s_time_main},

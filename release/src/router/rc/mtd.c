@@ -509,7 +509,7 @@ int mtd_write_main(int argc, char *argv[])
 		if (ioctl(mf, MEMERASE, &ei) != 0) {
 			error = "Error erasing MTD block";
 			break;
-		}
+		} 
 		if (write(mf, buf, n) != n) {
 			error = "Error writing to MTD device";
 			break;

@@ -1781,6 +1781,7 @@ int init_main(int argc, char *argv[])
 			fd = file_lock("usb");	// hold off automount processing
 			start_usb();
 
+			xstart("/usr/sbin/mymotd", "init");
 			run_nvscript("script_init", NULL, 2);
 
 			file_unlock(fd);	// allow to process usb hotplug events

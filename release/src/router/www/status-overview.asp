@@ -117,10 +117,14 @@ function ethstates()
 	code += '<table class="fields"><tr><td class="title indent1"><center><b>WAN</b></center></td><td><center><b>LAN 1</b></center></td><td><center><b>LAN 2</b></center></td><td><center><b>LAN 3</b></center></td><td><center><b>LAN 4</b></center></td><tr>';
 
 	if (port == "DOWN") {
-		state = '<img src="eth_off.png"><br>';
-		state2 = port.replace("DOWN","Down");
+		state = '<img id="eth_off" src="eth_off.png"><br>';
+		state2 = port.replace("DOWN","Unplugged");
+	} else if ((port == "1000FD") || (port == "1000HD")) {
+		state = '<img id="eth_1000" src="eth_1000.gif"><br>';
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
 	} else {
-		state = '<img src="eth_on.png"><br>';
+		state = '<img id="eth_100" src="eth_100.gif"><br>';
 		state1 = port.replace("HD","M Half");
 		state2 = state1.replace("FD","M Full");
 	}
@@ -132,10 +136,14 @@ function ethstates()
 
 	port = etherstates.port1;
 	if (port == "DOWN") {
-		state = '<img src="eth_off.png"><br>';
+		state = '<img id="eth_off" src="eth_off.png"><br>';
 		state2 = port.replace("DOWN","Down");
+	} else if ((port == "1000FD") || (port == "1000HD")) {
+		state = '<img id="eth_1000" src="eth_1000.gif"><br>';
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
 	} else {
-		state = '<img src="eth_on.png"><br>';
+		state = '<img id="eth_100" src="eth_100.gif"><br>';
 		state1 = port.replace("HD","M Half");
 		state2 = state1.replace("FD","M Full");
 	}
@@ -147,10 +155,14 @@ function ethstates()
 
 	port = etherstates.port2;
 	if (port == "DOWN") {
-		state = '<img src="eth_off.png"><br>';
-		state2 = port.replace("DOWN","Down");
+		state = '<img id="eth_off" src="eth_off.png"><br>';
+		state2 = port.replace("DOWN","Unplugged");
+	} else if ((port == "1000FD") || (port == "1000HD")) {
+		state = '<img id="eth_1000" src="eth_1000.gif"><br>';
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
 	} else {
-		state = '<img src="eth_on.png"><br>';
+		state = '<img id="eth_100" src="eth_100.gif"><br>';
 		state1 = port.replace("HD","M Half");
 		state2 = state1.replace("FD","M Full");
 	}
@@ -162,10 +174,14 @@ function ethstates()
 
 	port = etherstates.port3;
 	if (port == "DOWN") {
-		state = '<img src="eth_off.png"><br>';
-		state2 = port.replace("DOWN","Down");
+		state = '<img id="eth_off" src="eth_off.png"><br>';
+		state2 = port.replace("DOWN","Unplugged");
+	} else if ((port == "1000FD") || (port == "1000HD")) {
+		state = '<img id="eth_1000" src="eth_1000.gif"><br>';
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
 	} else {
-		state = '<img src="eth_on.png"><br>';
+		state = '<img id="eth_100" src="eth_100.gif"><br>';
 		state1 = port.replace("HD","M Half");
 		state2 = state1.replace("FD","M Full");
 	}
@@ -177,10 +193,14 @@ function ethstates()
 
 	port = etherstates.port4;
 	if (port == "DOWN") {
-		state = '<img src="eth_off.png"><br>';
-		state2 = port.replace("DOWN","Down");
+		state = '<img id="eth_off" src="eth_off.png"><br>';
+		state2 = port.replace("DOWN","Unplugged");
+	} else if ((port == "1000FD") || (port == "1000HD")) {
+		state = '<img id="eth_1000" src="eth_1000.gif"><br>';
+		state1 = port.replace("HD","M Half");
+		state2 = state1.replace("FD","M Full");
 	} else {
-		state = '<img src="eth_on.png"><br>';
+		state = '<img id="eth_100" src="eth_100.gif"><br>';
 		state1 = port.replace("HD","M Half");
 		state2 = state1.replace("FD","M Full");
 	}
