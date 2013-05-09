@@ -198,6 +198,12 @@ void start_usb(void)
 			xstart("service", "wireless", "restart");
 #endif
 
+// shibby
+// If we want restore backup of webmon from USB device,
+// we have to wait for mount USB devices by hotplug
+// and then reboot firewall service (webmon iptables rules) one more time.
+		if( nvram_match( "log_wm", "1" ) && nvram_match( "webmon_bkp", "1" ) )
+			xstart( "service", "firewall", "restart" );
 
 	}
 }

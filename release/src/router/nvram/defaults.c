@@ -652,8 +652,11 @@ const defaults_t defaults[] = {
 	{ "log_wm",			"0"				},
 	{ "log_wmtype",			"0"				},
 	{ "log_wmip",			""				},
-	{ "log_wmdmax",			"300"				},
-	{ "log_wmsmax",			"300"				},
+	{ "log_wmdmax",			"2000"				},
+	{ "log_wmsmax",			"2000"				},
+	{ "webmon_bkp",			"0"				},
+	{ "webmon_dir",			"/tmp"				},
+	{ "webmon_shrink",		"0"				},
 
 // admin-debugging
 	{ "debug_nocommit",		"0"				},

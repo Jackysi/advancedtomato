@@ -941,7 +941,7 @@ static const nvset_t nvset_list[] = {
 	{ "https_lanport",		V_PORT				},
 	{ "web_wl_filter",		V_01				},
 	{ "web_css",			V_LENGTH(1, 32)		},
-	{ "ttb_css",			V_LENGTH(1, 32)		},
+	{ "ttb_css",			V_LENGTH(0, 128)		},
 	{ "web_mx",				V_LENGTH(0, 128)	},
 	{ "http_wanport",		V_PORT				},
 	{ "telnetd_eas",		V_01				},
@@ -1039,6 +1039,10 @@ static const nvset_t nvset_list[] = {
 	{ "log_wmip",			V_LENGTH(0, 512)		},
 	{ "log_wmdmax",			V_RANGE(0, 9999)		},
 	{ "log_wmsmax",			V_RANGE(0, 9999)		},
+	{ "webmon_bkp",			V_01				},
+	{ "webmon_dir",			V_LENGTH(0, 256)		},
+	{ "webmon_shrink",		V_01				},
+
 
 // admin-cifs
 	{ "cifs1",				V_LENGTH(1, 1024)	},

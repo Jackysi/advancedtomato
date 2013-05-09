@@ -114,7 +114,7 @@ function ethstates()
 
 	var state, state1, state2;
 	var code = '<div class="section-title">Ethernet Ports State</div>';
-	code += '<table class="fields"><tr><td class="title indent1"><center><b>WAN</b></center></td><td><center><b>LAN 1</b></center></td><td><center><b>LAN 2</b></center></td><td><center><b>LAN 3</b></center></td><td><center><b>LAN 4</b></center></td><tr>';
+	code += '<table class="fields"><tr><td class="title indent2"><center><b>WAN</b></center></td><td class="title indent2"><!-- empty space --></td><td class="title indent2"><center><b>LAN 1</b></center></td><td class="title indent2"><center><b>LAN 2</b></center></td><td class="title indent2"><center><b>LAN 3</b></center></td><td class="title indent2"><center><b>LAN 4</b></center></td><tr>';
 
 	if (port == "DOWN") {
 		state = '<img id="eth_off" src="eth_off.png"><br>';
@@ -129,15 +129,17 @@ function ethstates()
 		state2 = state1.replace("FD","M Full");
 	}
 	if (stats.lan_desc == '1') {
-		code += '<td class="title indent1"><center>' + state + state2 + '</center></td>';
+		code += '<td class="title indent2"><center>' + state + state2 + '</center></td>';
 	} else {
-		code += '<td class="title indent1"><center>' + state + '</center></td>';
+		code += '<td class="title indent2"><center>' + state + '</center></td>';
 	}
+
+	code += '<td class="title indent2"><!-- empty space --></td>';
 
 	port = etherstates.port1;
 	if (port == "DOWN") {
 		state = '<img id="eth_off" src="eth_off.png"><br>';
-		state2 = port.replace("DOWN","Down");
+		state2 = port.replace("DOWN","Unplugged");
 	} else if ((port == "1000FD") || (port == "1000HD")) {
 		state = '<img id="eth_1000" src="eth_1000.gif"><br>';
 		state1 = port.replace("HD","M Half");
@@ -148,9 +150,9 @@ function ethstates()
 		state2 = state1.replace("FD","M Full");
 	}
 	if (stats.lan_desc == '1') {
-		code += '<td width="10%"><center>' + state + state2 + '</center></td>';
+		code += '<td class="title indent2"><center>' + state + state2 + '</center></td>';
 	} else {
-		code += '<td width="10%"><center>' + state + '</center></td>';
+		code += '<td class="title indent2"><center>' + state + '</center></td>';
 	}
 
 	port = etherstates.port2;
@@ -167,9 +169,9 @@ function ethstates()
 		state2 = state1.replace("FD","M Full");
 	}
 	if (stats.lan_desc == '1') {
-		code += '<td width="10%"><center>' + state + state2 + '</center></td>';
+		code += '<td class="title indent2"><center>' + state + state2 + '</center></td>';
 	} else {
-		code += '<td width="10%"><center>' + state + '</center></td>';
+		code += '<td class="title indent2"><center>' + state + '</center></td>';
 	}
 
 	port = etherstates.port3;
@@ -186,9 +188,9 @@ function ethstates()
 		state2 = state1.replace("FD","M Full");
 	}
 	if (stats.lan_desc == '1') {
-		code += '<td width="10%"><center>' + state + state2 + '</center></td>';
+		code += '<td class="title indent2"><center>' + state + state2 + '</center></td>';
 	} else {
-		code += '<td width="10%"><center>' + state + '</center></td>';
+		code += '<td class="title indent2"><center>' + state + '</center></td>';
 	}
 
 	port = etherstates.port4;
@@ -205,13 +207,13 @@ function ethstates()
 		state2 = state1.replace("FD","M Full");
 	}
 	if (stats.lan_desc == '1') {
-		code += '<td width="10%"><center>' + state + state2 + '</center></td>';
+		code += '<td class="title indent2"><center>' + state + state2 + '</center></td>';
 	} else {
-		code += '<td width="10%"><center>' + state + '</center></td>';
+		code += '<td class="title indent2"><center>' + state + '</center></td>';
 	}
 
 	code += '<td class="content"> </td></tr>';
-	code += '<tr><td class="title indent1" colspan="6" align="right">&raquo; <a href="basic-network.asp">Configure</a></td></tr></table></div>';
+	code += '<tr><td class="title indent1" colspan="7" align="right">&raquo; <a href="basic-network.asp">Configure</a></td></tr></table></div>';
 	E("ports").innerHTML = code;
 }
 

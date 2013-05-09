@@ -37,6 +37,9 @@ endif
 #MOTD
 	install -m 0700 mymotd $(INSTALLDIR)/usr/sbin
 
+#Web Monitor Backup Script
+	install -m 0700 webmon_bkp $(INSTALLDIR)/usr/sbin
+
 # cron helper
 	install -m 0700 cru $(INSTALLDIR)/usr/sbin
 

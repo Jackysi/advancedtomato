@@ -145,6 +145,7 @@ Copyright (C) 2010 Keith Moyer,<br>
 - TomatoThemeBase project integration and GUI<br>
 - Ethernet Ports State<br>
 - Extended MOTD (written by @Monter, modified by @Shibby)<br>
+- Webmon Backup Script<br>
 Copyright (C) 2011-2013 Michał Rupental<br>
 <a href='http://openlinksys.info' target='_new'>http://openlinksys.info</a><br>
 <br>

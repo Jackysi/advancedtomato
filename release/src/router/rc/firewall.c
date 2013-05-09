@@ -529,18 +529,36 @@ static void ipt_webmon()
 		} while (*p);
 	}
 
+	char webdomain[100];
+	char websearch[100];
+
+	if( nvram_match( "webmon_bkp", "1" ) ) {
+		xstart( "/usr/sbin/webmon_bkp", "add" ); // add jobs to cru
+
+		sprintf(webdomain, "--domain_load_file %s/webmon_recent_domains", nvram_safe_get("webmon_dir"));
+		sprintf(websearch, "--search_load_file %s/webmon_recent_searches", nvram_safe_get("webmon_dir"));
+	} else {
+		sprintf(webdomain, "--domain_load_file /var/webmon/domain");
+		sprintf(websearch, "--search_load_file /var/webmon/search");
+	}
+
 	ip46t_write(
 		"-A monitor -p tcp -m webmon "
 		"--max_domains %d --max_searches %d %s %s -j RETURN\n",
 		nvram_get_int("log_wmdmax") ? : 1, nvram_get_int("log_wmsmax") ? : 1,
-		(clear & 1) == 0 ? "--domain_load_file /var/webmon/domain" : "--clear_domain",
-		(clear & 2) == 0 ? "--search_load_file /var/webmon/search" : "--clear_search");
+		(clear & 1) == 0 ? webdomain : "--clear_domain",
+		(clear & 2) == 0 ? websearch : "--clear_search");
+
+	if( nvram_match( "webmon_bkp", "1" ) )
+		xstart( "/usr/sbin/webmon_bkp", "hourly" ); // make a copy immediately
+
 
 #ifdef LINUX26
 	modprobe("xt_webmon");
 #else
 	modprobe("ipt_webmon");
 #endif
+
 }
 
 

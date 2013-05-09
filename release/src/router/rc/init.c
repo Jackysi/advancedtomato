@@ -1749,6 +1749,9 @@ int init_main(int argc, char *argv[])
 			led(LED_DIAG, 1);
 			unlink("/var/notice/sysup");
 
+			if( nvram_match( "webmon_bkp", "1" ) )
+				xstart( "/usr/sbin/webmon_bkp", "hourly" ); // make a copy before halt/reboot router
+
 			run_nvscript("script_shut", NULL, 10);
 
 			stop_services();
