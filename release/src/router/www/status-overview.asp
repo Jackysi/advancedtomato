@@ -139,7 +139,7 @@ function ethstates()
 	port = etherstates.port1;
 	if (port == "DOWN") {
 		state = '<img id="eth_off" src="eth_off.png"><br>';
-		state2 = port.replace("DOWN","Down");
+		state2 = port.replace("DOWN","Unplugged");
 	} else if ((port == "1000FD") || (port == "1000HD")) {
 		state = '<img id="eth_1000" src="eth_1000.gif"><br>';
 		state1 = port.replace("HD","M Half");
