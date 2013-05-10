@@ -17,14 +17,12 @@ if [ `nvram get log_wm` == "1" -a `nvram get webmon_bkp` == "1" ]; then #only if
 
 
 	if [ "$ACTION" == "add" ]; then #create init job after webmon start
-		if [ ! `cru l | grep webmon | wc -l` == "0" ]; then #remove exists job first
-			cru d webmon_bkp
-			cru d webmon_tmp
+		if [ `cru l | grep webmon | wc -l` == "0" ];
+			cru a webmon_bkp "0 0 */1 * * /usr/sbin/webmon_bkp"
+			cru a webmon_tmp "59 * * * * /usr/sbin/webmon_bkp hourly"
 		fi
-		cru a webmon_bkp "0 0 */1 * * /usr/sbin/webmon_bkp"
-		cru a webmon_tmp "59 * * * * /usr/sbin/webmon_bkp hourly"
 
-		if [ -f "$BKP_DIR//webmon_recent_domains" -o -f "$BKP_DIR/webmon_recent_searches" ]; then
+		if [ -f "$BKP_DIR/webmon_recent_domains" -o -f "$BKP_DIR/webmon_recent_searches" ]; then
 			echo "" > /dev/null 2>&1
 		else
 			/usr/sbin/webmon_bkp hourly #make first copy
