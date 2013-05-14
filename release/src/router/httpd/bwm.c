@@ -196,7 +196,7 @@ void asp_netdev(int argc, char **argv)
 {
 	FILE *f;
 	char buf[256];
-	unsigned long rx, tx;
+	int64_t rx, tx;
 	char *p;
 	char *ifname;
 	char comma;
@@ -231,8 +231,8 @@ void asp_netdev(int argc, char **argv)
 			}
 
 			// <rx bytes, packets, errors, dropped, fifo errors, frame errors, compressed, multicast><tx ...>
-			if (sscanf(p + 1, "%lu%*u%*u%*u%*u%*u%*u%*u%lu", &rx, &tx) != 2) continue;
-			web_printf("%c'%s':{rx:0x%lx,tx:0x%lx}", comma, ifname, rx, tx);
+			if (sscanf(p + 1, "%llu%*u%*u%*u%*u%*u%*u%*u%llu", &rx, &tx) != 2) continue;
+			web_printf("%c'%s':{rx:0x%llx,tx:0x%llx}", comma, ifname, rx, tx);
 			comma = ',';
 		}
 
@@ -252,7 +252,7 @@ void asp_iptmon(int argc, char **argv) {
 
 	char ip[INET6_ADDRSTRLEN];
 
-	unsigned long tx, rx;
+	int64_t tx, rx;
 
 	exclude = nvram_safe_get("cstats_exclude");
 	include = nvram_safe_get("cstats_include");
@@ -282,7 +282,7 @@ void asp_iptmon(int argc, char **argv) {
 
 		while (fgets(sa, sizeof(sa), a)) {
 			if(sscanf(sa, 
-				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dst = %lu %*u %*u %*u %*u packets_dst = %*u %*u %*u %*u %*u time = %*u",
+				"ip = %s bytes_src = %llu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dst = %llu %*u %*u %*u %*u packets_dst = %*u %*u %*u %*u %*u time = %*u",
 				ip, &tx, &rx) != 3 ) continue;
 
 			if (find_word(exclude, ip)) {
@@ -294,7 +294,7 @@ void asp_iptmon(int argc, char **argv) {
 //			if ((find_word(include, ip)) || (wholenetstatsline == 1)) {
 //			if ((tx > 0) || (rx > 0) || (wholenetstatsline == 1)) {
 //			if ((tx > 0) || (rx > 0)) {
-				web_printf("%c'%s':{rx:0x%lx,tx:0x%lx}", comma, ip, rx, tx);
+				web_printf("%c'%s':{rx:0x%llx,tx:0x%llx}", comma, ip, rx, tx);
 				comma = ',';
 			}
 			wholenetstatsline = 0;
