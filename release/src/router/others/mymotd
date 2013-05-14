@@ -43,16 +43,23 @@ WAN_NUMBITS=$(mask2cidr $WAN_MASK)
 LAN_MASK=`nvram get lan_netmask`
 LAN_NUMBITS=$(mask2cidr $LAN_MASK)
 
-memusage=`top -bn1 | grep "Mem:" | grep -v grep`
-USEDMEM=`echo $memusage | cut -d" " -f2 | awk '{print substr($0,1,length($0)-1)}'`
-FREEMEM=`echo $memusage | cut -d" " -f4 | awk '{print substr($0,1,length($0)-1)}'`
-MAXMEM=`expr $USEDMEM + $FREEMEM`
-PERCENTAGE=$((USEDMEM*100/MAXMEM))%
-
 echo -e "\033[1;34m ======================================================== \033[0m"
 echo -e "\033[1;32m Welcome to the `nvram get t_model_name` [`nvram get router_name`]\033[0m"
 echo -e "\033[1;31m Uptime: `uptime | sed -e 's/,  load/\n Load/'`\033[0m"
-echo -e "\033[1;31m Mem usage: $PERCENTAGE (used `echo $USEDMEM | awk '{ printf "%0.2f", $1 / 1024 }'`MB of `echo $MAXMEM | awk '{ printf "%0.2f", $1 / 1024 }'`MB)\033[0m"
+awk '/MemTotal:/{total=$2} \
+    /MemFree:/{free=$2} \
+    END{ \
+    printf " Mem usage: %0.1f", ((total-free)*100/total); printf "%c", 37; \
+    printf " (used %0.2f", (total-free)/1024; printf " of %0.2f", total/1024; printf " MB)\n"; \
+}' /proc/meminfo
+if [ `cat /proc/meminfo | grep SwapTotal | awk '{ print $2 }'` -gt 0 ]; then
+    awk '/SwapTotal:/{total=$2} \
+        /SwapFree:/{free=$2} \
+        END{ \
+        printf " Swap usage: %0.1f", ((total-free)*100/total); printf "%c", 37; \
+        printf " (used %0.2f", (total-free)/1024; printf " of %0.2f", total/1024; printf " MB)\n"; \
+    }' /proc/meminfo
+fi
 echo " WAN : `nvram get wan_ipaddr`/$WAN_NUMBITS @ `nvram get wan_hwaddr`"
 echo " LAN : `nvram get lan_ipaddr`/$LAN_NUMBITS @ DHCP: `nvram get dhcpd_startip` - `nvram get dhcpd_endip`"
 if [ "$LAN1" == "1" ]; then 
