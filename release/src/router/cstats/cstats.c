@@ -246,7 +246,7 @@ static int load_history_to_tree(const char *fname) {
 					ptr->monthlyp = tmp.monthlyp;
 
 					ptr->utime = tmp.utime;
-					memcpy(ptr->speed, &tmp.speed, sizeof(unsigned long) * MAX_NSPEED * MAX_COUNTER);
+					memcpy(ptr->speed, &tmp.speed, sizeof(uint64_t) * MAX_NSPEED * MAX_COUNTER);
 					memcpy(ptr->last, &tmp.last, sizeof(uint64_t) * MAX_COUNTER);
 					ptr->tail = tmp.tail;
 //					ptr->sync = tmp.sync;
@@ -611,15 +611,15 @@ static void calc(void) {
 					tick = uptime - ptr->utime;
 					n = tick / INTERVAL;
 					if (n < 1) {
-						_dprintf("%s: %s is a little early... %lu < %d\n", __FUNCTION__, ipaddr, tick, INTERVAL);
+						_dprintf("%s: %s is a little early... %llu < %d\n", __FUNCTION__, ipaddr, tick, INTERVAL);
 					} else {
 						ptr->utime += (n * INTERVAL);
-						_dprintf("%s: %s n=%d tick=%lu utime=%lu ptr->utime=%lu\n", __FUNCTION__, ipaddr, n, tick, uptime, ptr->utime);
+						_dprintf("%s: %s n=%d tick=%lu utime=%llu ptr->utime=%lu\n", __FUNCTION__, ipaddr, n, tick, uptime, ptr->utime);
 						for (i = 0; i < MAX_COUNTER; ++i) {
 							c = counter[i];
 							sc = ptr->last[i];
 #ifdef DEBUG_CSTATS
-							_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu c=%llu sc=%llu\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc);
+							_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu c=%u sc=%u\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc);
 #endif
 							if (c < sc) {
 								diff = (0xFFFFFFFF - sc) + c;
@@ -630,7 +630,7 @@ static void calc(void) {
 							}
 							ptr->last[i] = c;
 							counter[i] = diff;
-							_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu c=%llu sc=%llu diff=%lu\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc, diff);
+							_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu c=%u sc=%u diff=%llu\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc, diff);
 						}
 						_dprintf("%s: ip=%s n=%d ptr->tail=%d\n", __FUNCTION__, ptr->ipaddr, n, ptr->tail);
 						for (j = 0; j < n; ++j) {
@@ -694,7 +694,7 @@ static void calc(void) {
 	if (uptime >= save_utime) {
 		save(0);
 		save_utime = uptime + get_stime();
-		_dprintf("%s: uptime = %lum, save_utime = %lum\n", __FUNCTION__, uptime / 60, save_utime / 60);
+		_dprintf("%s: uptime = %llum, save_utime = %llum\n", __FUNCTION__, uptime / 60, save_utime / 60);
 	}
 
 	_dprintf("%s: ====================================\n", __FUNCTION__);
