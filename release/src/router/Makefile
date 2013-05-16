@@ -144,7 +144,8 @@ else
   ifeq ($(TCONFIG_FTP_SSL),y)
     export FULL_OPENSSL := y
   else
-    FULL_OPENSSL :=
+    export FULL_OPENSSL := y
+#    FULL_OPENSSL :=
   endif
 endif
 
