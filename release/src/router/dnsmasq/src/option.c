@@ -128,13 +128,14 @@ struct myoption {
 #define LOPT_AUTHSFS   317
 #define LOPT_AUTHPEER  318
 #define LOPT_IPSET     319
+#define LOPT_SYNTH     320
 #ifdef OPTION6_PREFIX_CLASS 
-#define LOPT_PREF_CLSS 320
+#define LOPT_PREF_CLSS 321
 #endif
 
-#ifdef HAVE_TOMATO
-#define LOPT_QUIET_DHCP 321
-#endif //TOMATO
+#ifdef HAVE_QUIET_DHCP //Originally TOMATO option
+#define LOPT_QUIET_DHCP 322
+#endif
 
 #ifdef HAVE_GETOPT_LONG
 static const struct option opts[] =  
@@ -253,9 +254,6 @@ static const struct myoption opts[] =
     { "rebind-localhost-ok", 0, 0,  LOPT_LOC_REBND },
     { "add-mac", 0, 0, LOPT_ADD_MAC },
     { "proxy-dnssec", 0, 0, LOPT_DNSSEC },
-#ifdef HAVE_TOMATO
-    { "quiet-dhcp", 0, 0, LOPT_QUIET_DHCP },
-#endif //TOMATO
     { "dhcp-sequential-ip", 0, 0,  LOPT_INCR_ADDR },
     { "conntrack", 0, 0, LOPT_CONNTRACK },
     { "dhcp-client-update", 0, 0, LOPT_FQDN },
@@ -271,8 +269,12 @@ static const struct myoption opts[] =
     { "auth-sec-servers", 1, 0, LOPT_AUTHSFS },
     { "auth-peer", 1, 0, LOPT_AUTHPEER }, 
     { "ipset", 1, 0, LOPT_IPSET },
+    { "synth-domain", 1, 0, LOPT_SYNTH },
 #ifdef OPTION6_PREFIX_CLASS 
     { "dhcp-prefix-class", 1, 0, LOPT_PREF_CLSS },
+#endif
+#ifdef HAVE_QUIET_DHCP //Originally TOMATO option
+    { "quiet-dhcp", 0, 0, LOPT_QUIET_DHCP },
 #endif
     { NULL, 0, 0, 0 }
   };
@@ -398,11 +400,6 @@ static struct {
   { LOPT_TEST, 0, NULL, gettext_noop("Check configuration syntax."), NULL },
   { LOPT_ADD_MAC, OPT_ADD_MAC, NULL, gettext_noop("Add requestor's MAC address to forwarded DNS queries."), NULL },
   { LOPT_DNSSEC, OPT_DNSSEC, NULL, gettext_noop("Proxy DNSSEC validation results from upstream nameservers."), NULL },
-
-#ifdef HAVE_TOMATO
-  { LOPT_QUIET_DHCP, OPT_QUIET_DHCP, NULL, gettext_noop("Do not log DHCP packets."), NULL },
-#endif //TOMATO
-
   { LOPT_INCR_ADDR, OPT_CONSEC_ADDR, NULL, gettext_noop("Attempt to allocate sequential IP addresses to DHCP clients."), NULL },
   { LOPT_CONNTRACK, OPT_CONNTRACK, NULL, gettext_noop("Copy connection-track mark from queries to upstream connections."), NULL },
   { LOPT_FQDN, OPT_FQDN_UPDATE, NULL, gettext_noop("Allow DHCP clients to do their own DDNS updates."), NULL },
@@ -418,9 +415,13 @@ static struct {
   { LOPT_AUTHSFS, ARG_DUP, "<NS>[,<NS>...]", gettext_noop("Secondary authoritative nameservers for forward domains"), NULL },
   { LOPT_AUTHPEER, ARG_DUP, "<ipaddr>[,<ipaddr>...]", gettext_noop("Peers which are allowed to do zone transfer"), NULL },
   { LOPT_IPSET, ARG_DUP, "/<domain>/<ipset>[,<ipset>...]", gettext_noop("Specify ipsets to which matching domains should be added"), NULL },
+  { LOPT_SYNTH, ARG_DUP, "<domain>,<range>,[<prefix>]", gettext_noop("Specify a domain and address range for sythesised names"), NULL },
 #ifdef OPTION6_PREFIX_CLASS 
   { LOPT_PREF_CLSS, ARG_DUP, "set:tag,<class>", gettext_noop("Specify DHCPv6 prefix class"), NULL },
 #endif
+#ifdef HAVE_QUIET_DHCP //originally TOMATO option
+  { LOPT_QUIET_DHCP, OPT_QUIET_DHCP, NULL, gettext_noop("Do not log DHCP packets."), NULL },
+#endif 
   { 0, 0, NULL, NULL, NULL }
 }; 
 
@@ -669,7 +670,7 @@ char *parse_server(char *arg, union mysockaddr *addr, union mysockaddr *source_a
   scope_id = split_chr(arg, '%');
 #endif
   
-  if ((addr->in.sin_addr.s_addr = inet_addr(arg)) != (in_addr_t) -1)
+  if (inet_pton(AF_INET, arg, &addr->in.sin_addr) > 0)
     {
       addr->in.sin_port = htons(serv_port);	
       addr->sa.sa_family = source_addr->sa.sa_family = AF_INET;
@@ -684,7 +685,7 @@ char *parse_server(char *arg, union mysockaddr *addr, union mysockaddr *source_a
 	  if (flags)
 	    *flags |= SERV_HAS_SOURCE;
 	  source_addr->in.sin_port = htons(source_port);
-	  if ((source_addr->in.sin_addr.s_addr = inet_addr(source)) == (in_addr_t) -1)
+	  if (!(inet_pton(AF_INET, source, &source_addr->in.sin_addr) > 0))
 	    {
 #if defined(SO_BINDTODEVICE)
 	      source_addr->in.sin_addr.s_addr = INADDR_ANY;
@@ -1040,7 +1041,7 @@ static int parse_dhcp_opt(char *errstr, char *arg, int flags)
 	      cp = comma;
 	      comma = split(cp);
 	      slash = split_chr(cp, '/');
-	      in.s_addr = inet_addr(cp);
+	      inet_pton(AF_INET, cp, &in);
 	      if (!slash)
 		{
 		  memcpy(op, &in, INADDRSZ);
@@ -1585,7 +1586,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	comma = split(arg);
 	new->name = NULL;
 	unhide_metas(arg);
-	if ((new->addr.in.sin_addr.s_addr = inet_addr(arg)) != (in_addr_t)-1)
+	if (inet_pton(AF_INET, arg, &new->addr.in.sin_addr) > 0)
 	  new->addr.sa.sa_family = AF_INET;
 #ifdef HAVE_IPV6
 	else if (inet_pton(AF_INET6, arg, &new->addr.in6.sin6_addr) > 0)
@@ -1699,7 +1700,8 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 
       break;
 
-    case 's': /* --domain */
+    case 's':         /* --domain */
+    case LOPT_SYNTH:  /* --synth-domain */
       if (strcmp (arg, "#") == 0)
 	set_option_bool(OPT_RESOLV_DOMAIN);
       else
@@ -1714,6 +1716,8 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 		{
 		  struct cond_domain *new = opt_malloc(sizeof(struct cond_domain));
 		  char *netpart;
+		  
+		  new->prefix = NULL;
 
 		  unhide_metas(comma);
 		  if ((netpart = split_chr(comma, '/')))
@@ -1731,25 +1735,30 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 			  new->end.s_addr = new->start.s_addr | htonl(mask);
 			  if (arg)
 			    {
-			      /* generate the equivalent of
-				 local=/<domain>/
-				 local=/xxx.yyy.zzz.in-addr.arpa/ */
-
-			      if (strcmp(arg, "local") != 0 || 
-				  (msize != 8 && msize != 16 && msize != 24))
+			      if (option != 's')
+				{
+				  if (!(new->prefix = canonicalise_opt(arg)) ||
+				      strlen(new->prefix) > MAXLABEL - INET_ADDRSTRLEN)
+				    ret_err(_("bad prefix"));
+				}
+			      else if (strcmp(arg, "local") != 0 ||
+				       (msize != 8 && msize != 16 && msize != 24))
 				ret_err(gen_err);
 			      else
 				{
+				  /* generate the equivalent of
+				     local=/<domain>/
+				     local=/xxx.yyy.zzz.in-addr.arpa/ */
 				  struct server *serv = opt_malloc(sizeof(struct server));
 				  in_addr_t a = ntohl(new->start.s_addr) >> 8;
 				  char *p;
-
+				  
 				  memset(serv, 0, sizeof(struct server));
 				  serv->domain = d;
 				  serv->flags = SERV_HAS_DOMAIN | SERV_NO_ADDR;
 				  serv->next = daemon->servers;
 				  daemon->servers = serv;
-
+				  
 				  serv = opt_malloc(sizeof(struct server));
 				  memset(serv, 0, sizeof(struct server));
 				  p = serv->domain = opt_malloc(25); /* strlen("xxx.yyy.zzz.in-addr.arpa")+1 */
@@ -1761,7 +1770,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 				    p += sprintf(p, "%d.", a & 0xff);
 				  a = a >> 8;
 				  p += sprintf(p, "%d.in-addr.arpa", a & 0xff);
-
+				  
 				  serv->flags = SERV_HAS_DOMAIN | SERV_NO_ADDR;
 				  serv->next = daemon->servers;
 				  daemon->servers = serv;
@@ -1774,11 +1783,11 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 			  u64 mask = (1LLU << (128 - msize)) - 1LLU;
 			  u64 addrpart = addr6part(&new->start6);
 			  new->is6 = 1;
-
+			  
 			  /* prefix==64 overflows the mask calculation above */
 			  if (msize == 64)
 			    mask = (u64)-1LL;
-
+			  
 			  new->end6 = new->start6;
 			  setaddr6part(&new->start6, addrpart & ~mask);
 			  setaddr6part(&new->end6, addrpart | mask);
@@ -1787,14 +1796,19 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 			    ret_err(gen_err);
 			  else if (arg)
 			    {
-			      /* generate the equivalent of
-				 local=/<domain>/
-				 local=/xxx.yyy.zzz.ip6.arpa/ */
-
-			      if (strcmp(arg, "local") != 0 || ((msize & 4) != 0))
+			      if (option != 's')
+				{
+				  if (!(new->prefix = canonicalise_opt(arg)) ||
+				      strlen(new->prefix) > MAXLABEL - INET6_ADDRSTRLEN)
+				    ret_err(_("bad prefix"));
+				}	
+			      else if (strcmp(arg, "local") != 0 || ((msize & 4) != 0))
 				ret_err(gen_err);
 			      else 
 				{
+				  /* generate the equivalent of
+				     local=/<domain>/
+				     local=/xxx.yyy.zzz.ip6.arpa/ */
 				  struct server *serv = opt_malloc(sizeof(struct server));
 				  char *p;
 				  
@@ -1825,7 +1839,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 		      else
 			ret_err(gen_err);
 		    }
-		  else 
+		  else  
 		    {
 		      arg = split(comma);
 		      if (inet_pton(AF_INET, comma, &new->start))
@@ -1851,11 +1865,21 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 		    }
 
 		  new->domain = d;
-		  new->next = daemon->cond_domain;
-		  daemon->cond_domain = new;		     
+		  if (option  == 's')
+		    {
+		      new->next = daemon->cond_domain;
+		      daemon->cond_domain = new;
+		    }
+		  else
+		    {
+		      new->next = daemon->synth_domains;
+		      daemon->synth_domains = new;
+		    }
 		}
-	      else
+	      else if (option == 's')
 		daemon->domain_suffix = d;
+	      else 
+		ret_err(gen_err);
 	    }
 	}
       break;
@@ -1913,7 +1937,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
       {
 	struct in_addr addr;
 	unhide_metas(arg);
-	if (arg && (addr.s_addr = inet_addr(arg)) != (in_addr_t)-1)
+	if (arg && (inet_pton(AF_INET, arg, &addr) > 0))
 	  {
 	    struct bogus_addr *baddr = opt_malloc(sizeof(struct bogus_addr));
 	    baddr->next = daemon->bogus_addr;
@@ -1931,7 +1955,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	struct iname *new = opt_malloc(sizeof(struct iname));
 	comma = split(arg);
 	unhide_metas(arg);
-	if (arg && (new->addr.in.sin_addr.s_addr = inet_addr(arg)) != (in_addr_t)-1)
+	if (arg && (inet_pton(AF_INET, arg, &new->addr.in.sin_addr) > 0))
 	  {
 	    new->addr.sa.sa_family = AF_INET;
 	    new->addr.in.sin_port = 0;
@@ -2355,7 +2379,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	      }
 	    
 	    if (k >= 3 && strchr(a[2], '.') &&  
-		((new->netmask.s_addr = inet_addr(a[2])) != (in_addr_t)-1))
+		(inet_pton(AF_INET, a[2], &new->netmask) > 0))
 	      {
 		new->flags |= CONTEXT_NETMASK;
 		leasepos = 3;
@@ -2364,7 +2388,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	      }
 	    
 	    if (k >= 4 && strchr(a[3], '.') &&  
-		((new->broadcast.s_addr = inet_addr(a[3])) != (in_addr_t)-1))
+		(inet_pton(AF_INET, a[3], &new->broadcast) > 0))
 	      {
 		new->flags |= CONTEXT_BRDCAST;
 		leasepos = 4;
@@ -2594,7 +2618,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 		    }		    
 		}
 	    }
-	  else if (strchr(a[j], '.') && (in.s_addr = inet_addr(a[j])) != (in_addr_t)-1)
+	  else if (strchr(a[j], '.') && (inet_pton(AF_INET, a[j], &in) > 0))
 	    {
 	      struct dhcp_config *configs;
 	      
@@ -2791,17 +2815,17 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 		if (comma)
 		  {
 		    unhide_metas(comma);
-		    if ((dhcp_next_server.s_addr = inet_addr(comma)) == (in_addr_t)-1) {
-
-		      /*
-		       * The user may have specified the tftp hostname here.
-		       * save it so that it can be resolved/looked up during
-		       * actual dhcp_reply().
-		       */	
-
-		      tftp_sname = opt_string_alloc(comma);
-		      dhcp_next_server.s_addr = 0;
-		    }
+		    if (!(inet_pton(AF_INET, comma, &dhcp_next_server) > 0))
+		      {
+			/*
+			 * The user may have specified the tftp hostname here.
+			 * save it so that it can be resolved/looked up during
+			 * actual dhcp_reply().
+			 */	
+			
+			tftp_sname = opt_string_alloc(comma);
+			dhcp_next_server.s_addr = 0;
+		      }
 		  }
 	      }
 	    
@@ -2814,7 +2838,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	    new->next = daemon->boot_config;
 	    daemon->boot_config = new;
 	  }
-	
+      
 	break;
       }
 
@@ -3130,7 +3154,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
       while (arg) {
 	struct addr_list *new = opt_malloc(sizeof(struct addr_list));
 	comma = split(arg);
-	if ((new->addr.s_addr = inet_addr(arg)) == (in_addr_t)-1)
+	if (!(inet_pton(AF_INET, arg, &new->addr) > 0))
 	  ret_err(_("bad dhcp-proxy address"));
 	new->next = daemon->override_relays;
 	daemon->override_relays = new;
@@ -3173,15 +3197,15 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	dash = split_chr(a[0], '-');
 
 	if ((k < 2) || 
-	    ((new->in.s_addr = inet_addr(a[0])) == (in_addr_t)-1) ||
-	    ((new->out.s_addr = inet_addr(a[1])) == (in_addr_t)-1))
+	    (!(inet_pton(AF_INET, a[0], &new->in) > 0)) ||
+	    (!(inet_pton(AF_INET, a[1], &new->out) > 0)))
 	  option = '?';
 	
 	if (k == 3)
-	  new->mask.s_addr = inet_addr(a[2]);
+	  inet_pton(AF_INET, a[2], &new->mask);
 	
 	if (dash && 
-	    ((new->end.s_addr = inet_addr(dash)) == (in_addr_t)-1 ||
+	    (!(inet_pton(AF_INET, dash, &new->end) > 0) ||
 	     !is_same_net(new->in, new->end, new->mask) ||
 	     ntohl(new->in.s_addr) > ntohl(new->end.s_addr)))
 	  ret_err(_("invalid alias range"));

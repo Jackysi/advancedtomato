@@ -352,8 +352,31 @@ static void print_ipv6_addrs(void)
 				break;
 		}
 	}
-
 	freeifaddrs(ifap);
+}
+
+
+void asp_calc6rdlocalprefix(int argc, char **argv)
+{
+	struct in6_addr prefix_addr, local_prefix_addr;
+	int prefix_len = 0, relay_prefix_len = 0, local_prefix_len = 0;
+	struct in_addr wanip_addr;
+	char local_prefix[INET6_ADDRSTRLEN];
+	char s[128];
+
+	if (argc != 3) return;
+
+	inet_pton(AF_INET6, argv[0], &prefix_addr);
+	prefix_len = atoi(argv[1]);
+	relay_prefix_len = atoi(argv[2]);
+	inet_pton(AF_INET, get_wanip(), &wanip_addr);
+
+	if (calc_6rd_local_prefix(&prefix_addr, prefix_len, relay_prefix_len,
+	    &wanip_addr, &local_prefix_addr, &local_prefix_len) &&
+	    inet_ntop(AF_INET6, &local_prefix_addr, local_prefix, sizeof(local_prefix)) != NULL) {
+		sprintf(s, "\nlocal_prefix = '%s/%d';\n", local_prefix, local_prefix_len);
+		web_puts(s);
+	}
 }
 #endif
 

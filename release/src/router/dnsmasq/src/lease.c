@@ -132,15 +132,18 @@ void lease_init(time_t now)
 	if (!lease)
 	  die (_("too many stored leases"), NULL, EC_MISC);
        	
-#ifdef HAVE_BROKEN_RTC
+//Some ASUS & TOMATO tweaks
+#if defined(HAVE_BROKEN_RTC) || defined(HAVE_LEASEFILE_EXPIRE)
 	if (ei != 0)
 	  lease->expires = (time_t)ei + now;
 	else
 	  lease->expires = (time_t)0;
+#ifdef HAVE_BROKEN_RT
 	lease->length = ei;
+#endif
 #else
-	/* strictly time_t is opaque, but this hack should work on all sane systems,
-	   even when sizeof(time_t) == 8 */
+	/* strictly time_t is opaque, but this hack should work on all sane
+           systems, even when sizeof(time_t) == 8 */
 	lease->expires = (time_t)ei;
 #endif
 	
@@ -227,14 +230,19 @@ void lease_update_file(time_t now)
 	    continue;
 #endif
 
-#ifdef HAVE_TOMATO
-	ourprintf(&err, "%lu ", (unsigned long)lease->expires - now);
-#else
+//ASUS and TOMATO tweaks to output remaining leasetime
+#ifdef HAVE_LEASEFILE_EXPIRE
+	ourprintf(&err, "%u ",
 #ifdef HAVE_BROKEN_RTC
-	  ourprintf(&err, "%u ", lease->length);
+		(lease->length == 0) ? 0 :
 #else
-	  ourprintf(&err, "%lu ", (unsigned long)lease->expires);
+		(lease->expires == 0) ? 0 :
 #endif
+		(unsigned int)difftime(lease->expires, now));
+#elif defined(HAVE_BROKEN_RTC)
+	ourprintf(&err, "%u ", lease->length);
+else
+	ourprintf(&err, "%lu ", (unsigned long)lease->expires);
 #endif
 
 	  if (lease->hwaddr_type != ARPHRD_ETHER || lease->hwaddr_len == 0) 
@@ -275,14 +283,19 @@ void lease_update_file(time_t now)
 	      if (!(lease->flags & (LEASE_TA | LEASE_NA)))
 		continue;
 
-#ifdef HAVE_TOMATO
-	ourprintf(&err, "%lu ", (unsigned long)lease->expires - now);
-#else
+//ASUS and TOMATO tweaks to output remaining leasetime
+#ifdef HAVE_LEASEFILE_EXPIRE
+		ourprintf(&err, "%u ",
 #ifdef HAVE_BROKEN_RTC
-	  ourprintf(&err, "%u ", lease->length);
+			(lease->length == 0) ? 0 :
 #else
-	  ourprintf(&err, "%lu ", (unsigned long)lease->expires);
+			(lease->expires == 0) ? 0 :
 #endif
+			(unsigned int)difftime(lease->expires, now));
+#elif defined(HAVE_BROKEN_RTC)
+		ourprintf(&err, "%u ", lease->length);
+else
+		ourprintf(&err, "%lu ", (unsigned long)lease->expires);
 #endif
 
 	      inet_ntop(AF_INET6, lease->hwaddr, daemon->addrbuff, ADDRSTRLEN);
@@ -1135,14 +1148,23 @@ void tomato_helper(time_t now)
 		rename("/var/tmp/dhcp/leases.!", "/var/tmp/dhcp/leases");
 	}
 }
+#endif //HAVE_TOMATO
 
+#ifdef HAVE_LEASEFILE_EXPIRE
 void flush_lease_file(time_t now)
 {
-	file_dirty = 1;
-	lease_update_file(now);
-}
+	static time_t flush_time = (time_t)0;
 
-#endif //TOMATO
+	if(difftime(flush_time, now) < 0)
+		file_dirty = 1;
+
+	lease_prune(NULL, now);
+	lease_update_file(now);
+
+	if (file_dirty == 0)
+		flush_time = now;
+}
+#endif //HAVE_LEASEFILE_EXPIRE
 
 #endif
 

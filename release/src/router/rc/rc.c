@@ -23,6 +23,12 @@ static int rctest_main(int argc, char *argv[])
 		else if (strcmp(argv[1], "qos") == 0) {
 			start_qos();
 		}
+#ifdef TCONFIG_IPV6
+		if (strcmp(argv[1], "6rd") == 0) {
+			stop_6rd_tunnel();
+			start_6rd_tunnel();
+		}
+#endif
 #ifdef DEBUG_IPTFILE
 		else if (strcmp(argv[1], "iptfile") == 0) {
 			create_test_iptfile();

@@ -222,12 +222,12 @@ struct event_desc {
 #define OPT_CLEVERBIND     39
 #define OPT_TFTP           40
 
-#ifdef HAVE_TOMATO
-#define OPT_QUIET_DHCP     41
-#define OPT_LAST           42
-#else  //not TOMATO
-#define OPT_LAST	   41
-#endif //TOMATO
+#ifdef HAVE_QUIET_DHCP	//Originally a TOMATO option
+  #define OPT_QUIET_DHCP 41
+  #define OPT_LAST	42
+#else 
+  #define OPT_LAST	41
+#endif //HAVE_QUIET_DHCP
 
 
 /* extra flags for my_syslog, we use a couple of facilities since they are known 
@@ -680,7 +680,7 @@ struct dhcp_bridge {
 };
 
 struct cond_domain {
-  char *domain;
+  char *domain, *prefix;
   struct in_addr start, end;
 #ifdef HAVE_IPV6
   struct in6_addr start6, end6;
@@ -796,7 +796,7 @@ extern struct daemon {
   struct name_list *secondary_forward_server;
   int group_set, osport;
   char *domain_suffix;
-  struct cond_domain *cond_domain;
+  struct cond_domain *cond_domain, *synth_domains;
   char *runfile; 
   char *lease_change_command;
   struct iname *if_names, *if_addrs, *if_except, *dhcp_except, *auth_peers;
@@ -914,14 +914,18 @@ void cache_unhash_dhcp(void);
 void dump_cache(time_t now);
 char *cache_get_name(struct crec *crecp);
 struct crec *cache_enumerate(int init);
-char *get_domain(struct in_addr addr);
-#ifdef HAVE_IPV6
-char *get_domain6(struct in6_addr *addr);
-#endif
 #ifdef HAVE_DNSSEC
 struct keydata *keydata_alloc(char *data, size_t len);
 void keydata_free(struct keydata *blocks);
 #endif
+
+/* domain.c */
+char *get_domain(struct in_addr addr);
+#ifdef HAVE_IPV6
+char *get_domain6(struct in6_addr *addr);
+#endif
+int is_name_synthetic(int flags, char *name, struct all_addr *addr);
+int is_rev_synth(int flag, struct all_addr *addr, char *name);
 
 /* rfc1035.c */
 unsigned int extract_request(struct dns_header *header, size_t qlen, 
@@ -1116,6 +1120,12 @@ unsigned char *extended_hwaddr(int hwtype, int hwlen, unsigned char *hwaddr,
 #ifdef HAVE_DHCP
 int make_icmp_sock(void);
 int icmp_ping(struct in_addr addr);
+#endif
+#ifdef HAVE_TOMATO
+void tomato_helper(time_t now);
+#endif
+#ifdef HAVE_LEASEFILE_EXPIRE //originally TOMATO option
+void flush_lease_file(time_t now);
 #endif
 void send_alarm(time_t event, time_t now);
 void send_event(int fd, int event, int data, char *msg);

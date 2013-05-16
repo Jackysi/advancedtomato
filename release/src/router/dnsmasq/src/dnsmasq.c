@@ -13,6 +13,50 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+/* Jon Zarate AFAIK wrote the original Tomato specific code, primarily to
+   support extra info in the GUI. Following is a vague clue as to how it
+   hangs together.
+
+   device list status is handled by www/devlist.c - this sends a SIGUSR2
+   to dnsmasq which causes the 'tomato_helper' function to execute in
+   addition to the normal dnsmasq SIGUSR2 code (Switch logfile, but since
+   Tomato not using that it doesn't matter) devlist.c waits up to 5 secs
+   for file '/var/tmp/dhcp/leases.!' to disappear before continuing
+   (Must be a better way to do this IPC stuff)
+
+   tomato_helper(lease.c) does a couple of things:
+
+   It looks for /var/tmp/dhcp/delete and deletes any known leases by IP
+   address found therein.  It deletes /var/tmp/dhcp/delete when done.
+   This implements the 'delete lease' from GUI functionality.
+
+   It dumps the current dhcp leases into /var/tmp/dhcp/lease.! (tmp file)
+   subtracting the current time from the lease expiry time, thus producing
+   a 'lease remaining' time for the GUI.
+   The temp file is renamed to /var/tmp/dhcp/leases thus signalling devlist.c
+   that it may proceed.  Finally when devlist.c is finished
+   /var/tmp/dhcp/leases is removed.
+
+   rfc2131.c implements a 'Quiet DHCP' option (don't log DHCP stuff) first
+   implemented by 'Teddy Bear'.
+
+   dnsmasq.c also intercepts SIGHUP so that it may flush the lease file.
+   This is so lease expiry times survive a process restart since dnsmasq
+   reads the lease file at start-up.
+
+   Finally(?) lease_update_file (lease.c) writes out the remaining lease
+   duration for each dhcp lease rather than lease expiry time (with RTC) or
+   lease length (no RTC) for dnsmasq's internal lease database. 
+   asuswrt does a similar thing with lease durations though the code is
+   different.  Ideally the code would be merged in such a way that Tomato
+   and asuswrt-merlin can code share without even thinking...another project!
+
+   dhcp lease file is /var/lib/misc/dnsmasq.leases
+
+   Above description K Darbyshire-Bryant 02/05/13  Hope it helps someone
+*/
+
+  
 
 /* Declare static char *compiler_opts  in config.h */
 #define DNSMASQ_COMPILE_OPTS
@@ -31,13 +75,6 @@ static void async_event(int pipe, time_t now);
 static void fatal_event(struct event_desc *ev, char *msg);
 static int read_event(int fd, struct event_desc *evp, char **msg);
 
-
-#ifdef HAVE_TOMATO
-
-void tomato_helper(time_t now);
-void flush_lease_file(time_t now);
-
-#endif //TOMATO
 
 int main (int argc, char **argv)
 {
@@ -1120,16 +1157,25 @@ static void async_event(int pipe, time_t now)
 	break;
 
       case EVENT_REOPEN:
-#ifdef HAVE_TOMATO
-	tomato_helper(now);
-#endif //TOMATO
-
 	/* Note: this may leave TCP-handling processes with the old file still open.
 	   Since any such process will die in CHILD_LIFETIME or probably much sooner,
 	   we leave them logging to the old file. */
 
 	if (daemon->log_file != NULL)
 	  log_reopen(daemon->log_file);
+
+#ifdef HAVE_TOMATO
+	tomato_helper(now); //possibly delete & write out leases for tomato
+#endif //TOMATO
+/* following is Asus tweak.  Interestingly Asus read the dnsmasq leases db
+   directly.  They signal dnsmasq to update via SIGUSR2 and wait 1 second
+   assuming the file will be complete by the time they come to parse it.
+   Race conditions anyone?  What if dnsmasq happens to be updating the
+   file anyway? */
+#if defined(HAVE_DHCP) && defined(HAVE_LEASEFILE_EXPIRE) && !defined(HAVE_TOMATO)
+	if (daemon->dhcp || daemon->dhcp6)
+		flush_lease_file(now);
+#endif
 	break;
 	
       case EVENT_TERM:
@@ -1152,9 +1198,11 @@ static void async_event(int pipe, time_t now)
 	  }
 #endif
 
-#ifdef HAVE_TOMATO
-	flush_lease_file(now);
-#endif //TOMATO
+//Originally TOMATO tweak
+#if defined(HAVE_DHCP) && defined(HAVE_LEASEFILE_EXPIRE)
+	if (daemon->dhcp || daemon->dhcp6)
+		flush_lease_file(now);
+#endif
 	
 	if (daemon->lease_stream)
 	  fclose(daemon->lease_stream);
@@ -1211,9 +1259,11 @@ void poll_resolv(int force, int do_reload, time_t now)
 	      {
 		last_change = statbuf.st_mtime;
 		latest = res;
+/* This is now commented out
 #ifdef HAVE_TOMATO
 		break;
 #endif //TOMATO - Really don't understand what this break is trying to acheive/avoid
+*/
 	      }
 	  }
       }
