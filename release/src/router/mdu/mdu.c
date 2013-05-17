@@ -478,9 +478,15 @@ const char *get_address(int required)
 						error(M_ERROR_GET_IP);
 					}
 				}
+				else if (strcmp(c, "pairnic") == 0) {
+					if (wget(0, 1, "myip.pairnic.com", "/", NULL, 0, &body) != 200) {
+						// Current IP Address: 1.2.3.4
+						error(M_ERROR_GET_IP);
+					}
+				}
 
 				if ((p = strstr(body, "Address:")) != NULL) {
-					// dyndns, zoneedit, tzo
+					// dyndns, zoneedit, tzo, pairnic
 					p += 8;	// note: tzo doesn't have a space
 				}
 				else {
@@ -1817,6 +1823,14 @@ int main(int argc, char *argv[])
 	}
 	else if (strcmp(p, "heipv6tb") == 0) {
 		update_heipv6tb();
+	}
+	else if (strcmp(p, "pairnic") == 0) {
+		// pairNIC uses the same API as DynDNS
+		update_dua("pairnic", 0, "dynamic.pairnic.com", "/nic/update", 1);
+	}
+	else if (strcmp(p, "spairnic") == 0) {
+		// pairNIC uses the same API as DynDNS
+		update_dua("pairnic", 1, "dynamic.pairnic.com", "/nic/update", 1);
 	}
 	else if ((strcmp(p, "wget") == 0) || (strcmp(p, "custom") == 0)) {
 		// test ok 9/15 -- zzz
