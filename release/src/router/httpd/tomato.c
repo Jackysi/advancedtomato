@@ -560,6 +560,8 @@ static const nvset_t nvset_list[] = {
 	{ "wan_mtu",			V_RANGE(576, 1500)	},
 	{ "wan_islan",			V_01				},
 	{ "modem_ipaddr",		V_IP				},
+	{ "pppoe_lei",			V_RANGE(1, 60)			},
+	{ "pppoe_lef",			V_RANGE(1, 10)			},
 
 	// 3G MODEM
 	{ "modem_pin",			V_LENGTH(0,6)	},
