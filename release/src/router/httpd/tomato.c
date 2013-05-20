@@ -681,7 +681,7 @@ static const nvset_t nvset_list[] = {
 	{ "ipv6_ifname",		V_LENGTH(0, 8)		},
 	{ "ipv6_tun_v4end",		V_IP				},
 	{ "ipv6_relay",			V_RANGE(1, 254)		},
-	{ "ipv6_tun_mtu",		V_RANGE(1280, 1480)	},	// Tunnel MTU
+	{ "ipv6_tun_mtu",		V_NUM			},	// Tunnel MTU
 	{ "ipv6_tun_ttl",		V_NUM				},	// Tunnel TTL
 	{ "ipv6_dns",			V_LENGTH(0, 40*3)	},	// ip6 ip6 ip6
 	{ "ipv6_6rd_prefix",		V_IPV6(0)		},	// 6rd prefix
