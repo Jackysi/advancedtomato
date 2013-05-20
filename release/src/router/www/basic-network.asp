@@ -46,7 +46,7 @@
 <script type='text/javascript' src='interfaces.js'></script>
 <script type='text/javascript'>
 
-//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,wl_security_mode,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype,lan_ifname,lan_stp,lan1_ifname,lan1_ipaddr,lan1_netmask,lan1_proto,lan1_stp,dhcp1_start,dhcp1_num,dhcp1_lease,dhcpd1_startip,dhcpd1_endip,lan2_ifname,lan2_ipaddr,lan2_netmask,lan2_proto,lan2_stp,dhcp2_start,dhcp2_num,dhcp2_lease,dhcpd2_startip,dhcpd2_endip,lan3_ifname,lan3_ipaddr,lan3_netmask,lan3_proto,lan3_stp,dhcp3_start,dhcp3_num,dhcp3_lease,dhcpd3_startip,dhcpd3_endip,ppp_mlppp,modem_ipaddr,modem_pin,modem_dev,modem_init,modem_apn,cstats_enable"); %>
+//	<% nvram("dhcp_lease,dhcp_num,dhcp_start,dhcpd_startip,dhcpd_endip,l2tp_server_ip,lan_gateway,lan_ipaddr,lan_netmask,lan_proto,mtu_enable,ppp_demand,ppp_idletime,pppoe_lei,pppoe_lef,ppp_passwd,ppp_redialperiod,ppp_service,ppp_username,ppp_custom,pptp_server_ip,pptp_dhcp,wl_security_mode,wan_dns,wan_gateway,wan_ipaddr,wan_mtu,wan_netmask,wan_proto,wan_wins,wl_wds_enable,wl_channel,wl_closed,wl_crypto,wl_key,wl_key1,wl_key2,wl_key3,wl_key4,wl_lazywds,wl_mode,wl_net_mode,wl_passphrase,wl_radio,wl_radius_ipaddr,wl_radius_port,wl_ssid,wl_wds,wl_wep_bit,wl_wpa_gtk_rekey,wl_wpa_psk,wl_radius_key,wl_auth,wl_hwaddr,wan_islan,t_features,wl_nbw_cap,wl_nctrlsb,wl_nband,wl_phytype,lan_ifname,lan_stp,lan1_ifname,lan1_ipaddr,lan1_netmask,lan1_proto,lan1_stp,dhcp1_start,dhcp1_num,dhcp1_lease,dhcpd1_startip,dhcpd1_endip,lan2_ifname,lan2_ipaddr,lan2_netmask,lan2_proto,lan2_stp,dhcp2_start,dhcp2_num,dhcp2_lease,dhcpd2_startip,dhcpd2_endip,lan3_ifname,lan3_ipaddr,lan3_netmask,lan3_proto,lan3_stp,dhcp3_start,dhcp3_num,dhcp3_lease,dhcpd3_startip,dhcpd3_endip,ppp_mlppp,modem_ipaddr,modem_pin,modem_dev,modem_init,modem_apn,cstats_enable"); %>
 
 /* VLAN-BEGIN */
 var lg = new TomatoGrid();
@@ -719,6 +719,8 @@ function verifyFields(focused, quiet)
 		_ppp_demand: 1,
 		_ppp_idletime: 1,
 		_ppp_redialperiod: 1,
+		_pppoe_lei: 1,
+		_pppoe_lef: 1,
 		_mtu_enable: 1,
 		_f_wan_mtu: 1,
 		_f_wan_islan: 0,
@@ -827,9 +829,13 @@ function verifyFields(focused, quiet)
 		vis._modem_dev = 0;
 		vis._modem_init = 0;
 		vis._modem_apn = 0;
+		vis._pppoe_lei = 0;
+		vis._pppoe_lef = 0;
 		break;
 	case 'dhcp':
 		vis._l2tp_server_ip = 0;
+		vis._pppoe_lei = 0;
+		vis._pppoe_lef = 0;
 		vis._ppp_demand = 0;
 		vis._ppp_service = 0;
 		vis._ppp_username = 0;
@@ -864,6 +870,8 @@ function verifyFields(focused, quiet)
 		vis._modem_apn = 0;
 		break;
 	case 'ppp3g':
+		vis._pppoe_lei = 0;
+		vis._pppoe_lef = 0;
 		vis._ppp_service = 0;
 		vis._l2tp_server_ip = 0;
 		vis._pptp_server_ip = 0;
@@ -876,6 +884,8 @@ function verifyFields(focused, quiet)
 		vis._f_ppp_mlppp = 0;
 		break;
 	case 'static':
+		vis._pppoe_lei = 0;
+		vis._pppoe_lef = 0;
 		vis._l2tp_server_ip = 0;
 		vis._ppp_demand = 0;
 		vis._ppp_service = 0;
@@ -893,6 +903,8 @@ function verifyFields(focused, quiet)
 		vis._modem_apn = 0;
 		break;
 	case 'pptp':
+		vis._pppoe_lei = 0;
+		vis._pppoe_lef = 0;
 		vis._l2tp_server_ip = 0;
 		vis._ppp_service = 0;
 		vis._wan_gateway = (!E('_f_pptp_dhcp').checked);
@@ -906,6 +918,8 @@ function verifyFields(focused, quiet)
 		vis._modem_apn = 0;
 		break;
 	case 'l2tp':
+		vis._pppoe_lei = 0;
+		vis._pppoe_lef = 0;
 		vis._pptp_server_ip = 0;
 		vis._ppp_service = 0;
 		vis._wan_gateway = (!E('_f_pptp_dhcp').checked);
@@ -1216,10 +1230,11 @@ REMOVE-END */
 	// range
 /* NOVLAN-BEGIN */
 	a = [['_ppp_idletime', 3, 1440],['_ppp_redialperiod', 1, 86400],['_f_wan_mtu', 576, 1500],
-		 ['_dhcp_lease', 1, 10080]];
+		 ['_dhcp_lease', 1, 10080],['_pppoe_lei', 1, 60],['_pppoe_lef', 1, 10]];
 /* NOVLAN-END */
 /* VLAN-BEGIN */
-	a = [['_ppp_idletime', 3, 1440],['_ppp_redialperiod', 1, 86400],['_f_wan_mtu', 576, 1500]];
+	a = [['_ppp_idletime', 3, 1440],['_ppp_redialperiod', 1, 86400],['_f_wan_mtu', 576, 1500],
+		['_pppoe_lei', 1, 60],['_pppoe_lef', 1, 10]];
 /* VLAN-END */
 	for (i = a.length - 1; i >= 0; --i) {
 		v = a[i];
@@ -1657,6 +1672,10 @@ createFieldTable('', [
 		value: nvram.ppp_idletime },
 	{ title: 'Redial Interval', indent: 2, name: 'ppp_redialperiod', type: 'text', maxlen: 5, size: 7, suffix: ' <i>(seconds)</i>',
 		value: nvram.ppp_redialperiod },
+	{ title: 'LCP Echo Interval', indent: 2, name: 'pppoe_lei', type: 'text', maxlen: 5, size: 7, suffix: ' <i>(seconds)</i>',
+		value: nvram.pppoe_lei },
+	{ title: 'LCP Echo Link fail limit', indent: 2, name: 'pppoe_lef', type: 'text', maxlen: 5, size: 7 >',
+		value: nvram.pppoe_lef },
 	{ title: 'MTU', multi: [
 		{ name: 'mtu_enable', type: 'select', options: [['0', 'Default'],['1','Manual']], value: nvram.mtu_enable },
 		{ name: 'f_wan_mtu', type: 'text', maxlen: 4, size: 6, value: nvram.wan_mtu } ] },
