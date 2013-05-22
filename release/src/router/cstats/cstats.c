@@ -383,8 +383,7 @@ static void load(int new) {
 
 void Node_print_speedjs(Node *self, void *t) {
 	int j, k, p;
-	uint64_t total, tmax;
-	unsigned long n;
+	uint64_t total, tmax, n;
 	char c;
 
 	node_print_mode_t *info = (node_print_mode_t *)t;
@@ -397,7 +396,7 @@ void Node_print_speedjs(Node *self, void *t) {
 		for (k = 0; k < MAX_NSPEED; ++k) {
 			p = (p + 1) % MAX_NSPEED;
 			n = self->speed[p][j];
-			fprintf(info->stream, "%s%lu", k ? "," : "", n);
+			fprintf(info->stream, "%s%llu", k ? "," : "", n);
 			total += n;
 			if (n > tmax) tmax = n;
 		}
