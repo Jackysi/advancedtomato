@@ -383,8 +383,7 @@ static void load(int new) {
 
 void Node_print_speedjs(Node *self, void *t) {
 	int j, k, p;
-	uint64_t total, tmax;
-	unsigned long n;
+	uint64_t total, tmax, n;
 	char c;
 
 	node_print_mode_t *info = (node_print_mode_t *)t;
@@ -397,7 +396,7 @@ void Node_print_speedjs(Node *self, void *t) {
 		for (k = 0; k < MAX_NSPEED; ++k) {
 			p = (p + 1) % MAX_NSPEED;
 			n = self->speed[p][j];
-			fprintf(info->stream, "%s%lu", k ? "," : "", n);
+			fprintf(info->stream, "%s%llu", k ? "," : "", n);
 			total += n;
 			if (n > tmax) tmax = n;
 		}
@@ -620,7 +619,7 @@ static void calc(void) {
 							c = counter[i];
 							sc = ptr->last[i];
 #ifdef DEBUG_CSTATS
-							_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu c=%u sc=%u\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc);
+							_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu c=%llu sc=%llu\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc);
 #endif
 							if (c < sc) {
 								diff = (0xFFFFFFFF - sc) + c;
@@ -631,7 +630,7 @@ static void calc(void) {
 							}
 							ptr->last[i] = c;
 							counter[i] = diff;
-							_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu c=%u sc=%u diff=%llu\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc, diff);
+							_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu c=%llu sc=%llu diff=%llu\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc, diff);
 						}
 						_dprintf("%s: ip=%s n=%d ptr->tail=%d\n", __FUNCTION__, ptr->ipaddr, n, ptr->tail);
 						for (j = 0; j < n; ++j) {

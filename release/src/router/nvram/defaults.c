@@ -159,8 +159,8 @@ const defaults_t defaults[] = {
 	{ "ppp_custom",			""				},	// PPPD additional options
 	{ "ppp_mlppp",			"0"				},	// PPPoE single line MLPPP
 
-	{ "pppoe_lei",			""				},
-	{ "pppoe_lef",			""				},
+	{ "pppoe_lei",			"10"				},	// PPP LCP Echo interval
+	{ "pppoe_lef",			"5"				},	// PPP LCP echo link failure limit
 
 #ifdef TCONFIG_IPV6
 	// IPv6 parameters
