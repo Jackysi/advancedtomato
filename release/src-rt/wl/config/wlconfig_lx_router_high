@@ -1,6 +1,6 @@
 # Broadcom 802.11abg Networking Device Driver Configuration file
 #
-# Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+# Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
 # 
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -14,7 +14,7 @@
 # OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #
-# $Id: wlconfig_lx_router_high,v 1.12.2.11 2011-02-10 11:03:44 Exp $
+# $Id: wlconfig_lx_router_high,v 1.31 2011-02-10 11:01:24 $
 #
 # src/wl/linux driver config file
 
@@ -25,7 +25,6 @@ include $(WLCFGDIR)/wl_hnd
 # features
 include $(WLCFGDIR)/wlconfig_apdef
 include $(WLCFGDIR)/wlconfig_lx_wl_stadef
-include $(WLCFGDIR)/wlconfig_lx_router_apsta
 
 OSLLX=1
 
@@ -34,6 +33,7 @@ WL_HIGH=1
 WL_LOW=0
 BCMDBUS=1
 RPC_NOCOPY=1
+#DBUS_LINUX_RXDPC=1
 BCMDMA32=1
 BCM_RPC_TP_DBUS_NTXQ=80
 BCM_RPC_TP_DBUS_NRXQ=200
@@ -42,14 +42,16 @@ BCM_RPC_TP_DBUS_NRXQ=200
 RPC_RETURN_WAIT_TIMEOUT_MSEC=64000
 
 # Embed 43236 image
-EMBED_IMAGE_43236b1=1
+EMBED_IMAGE_43236b=1
 BCM_DNGL_EMBEDIMAGE=1
 DNGL_WD_KEEP_ALIVE=1
+RXCHAIN_PWRSAVE=1
+RADIO_PWRSAVE=1
 
-WLUSBAP=1
+USBAP=1
 WLLED=1
 WLPIO=0
-WLTUNEFILE=wltunable_rte_43236b1_usbap.h
+WLTUNEFILE=wltunable_rte_43236b_usbap.h
 WMF=1
 BTC2WIRE=0
 WL_AP_TPC=1
@@ -58,7 +60,7 @@ SMF_STATS=1
 PHYMON=1
 BCM_DCS=1
 WET=1
-BCMECICOEX=0
+PSTA=1
 
 # Overrides
 WLEXTLOG=0
