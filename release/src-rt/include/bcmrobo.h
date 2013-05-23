@@ -1,7 +1,7 @@
 /*
  * RoboSwitch setup functions
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmrobo.h,v 13.13 2009-08-14 02:45:34 Exp $
+ * $Id: bcmrobo.h 299850 2011-12-01 03:46:38Z $
  */
 
 #ifndef _bcm_robo_h_
@@ -82,11 +82,8 @@ struct robo_info_s {
 	uint32	pwrsave_mode_manual; 	/* bitmap of ports in manual power save */
 	uint32	pwrsave_mode_auto; 	/* bitmap of ports in auto power save mode */
 	uint8	pwrsave_phys; 		/* Phys that can be put into power save mode */
-	uint8	pwrsave_mode_phys[MAX_NO_PHYS];         /* Power save mode on the switch */   
-#ifdef PLC
-	/* PLC */
-	bool	plc_hw;			/* PLC chip */
-#endif /* PLC */
+	uint8	pwrsave_mode_phys[MAX_NO_PHYS];         /* Power save mode on the switch */
+	bool	eee_status;
 };
 
 /* Power Save mode related functions */
@@ -106,8 +103,7 @@ extern int bcm_robo_enable_switch(robo_info_t *robo);
 extern void robo_dump_regs(robo_info_t *robo, struct bcmstrbuf *b);
 #endif /* BCMDBG */
 
-#ifdef PLC
-extern void robo_plc_hw_init(robo_info_t *robo);
-#endif /* PLC */
+extern void robo_watchdog(robo_info_t *robo);
+extern void robo_eee_advertise_init(robo_info_t *robo);
 
 #endif /* _bcm_robo_h_ */
