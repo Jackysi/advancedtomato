@@ -384,8 +384,6 @@ void start_dnsmasq()
 
                 switch (service) {
                 case IPV6_NATIVE_DHCP:
-                        prefix = "::";
-                        break;
                 case IPV6_ANYCAST_6TO4:
                 case IPV6_6IN4:
                 case IPV6_6RD:
