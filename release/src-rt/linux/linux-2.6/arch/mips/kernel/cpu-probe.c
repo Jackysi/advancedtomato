@@ -30,6 +30,7 @@
  * the CPU very much.
  */
 void (*cpu_wait)(void) = NULL;
+int cpu_wait_enable = 0;
 
 static void r3081_wait(void)
 {
@@ -163,6 +164,11 @@ void __init check_wait(void)
 		break;
 
 	case CPU_74K:
+		if (cpu_wait_enable) {
+			cpu_wait = r4k_wait;
+			if ((c->processor_id & 0xff) >= PRID_REV_ENCODE_332(2, 1, 0))
+				cpu_wait = r4k_wait_irqoff;
+		}
 		break;
 
 	case CPU_TX49XX:

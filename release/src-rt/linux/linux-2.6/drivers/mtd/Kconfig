@@ -150,6 +150,11 @@ config MTD_AFS_PARTS
 	  for your particular device. It won't happen automatically. The
 	  'armflash' map driver (CONFIG_MTD_ARMFLASH) does this, for example.
 
+config MTD_BCMCONF_PARTS
+	bool "Add confmtd partition"
+	depends on MTD_PARTITIONS
+	default n
+
 comment "User Modules And Translation Layers"
 
 config MTD_CHAR
@@ -287,6 +292,8 @@ source "drivers/mtd/devices/Kconfig"
 source "drivers/mtd/nand/Kconfig"
 
 source "drivers/mtd/onenand/Kconfig"
+
+source "drivers/mtd/47xxnand/Kconfig"
 
 source "drivers/mtd/ubi/Kconfig"
 

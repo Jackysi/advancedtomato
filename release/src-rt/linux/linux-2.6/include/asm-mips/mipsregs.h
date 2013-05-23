@@ -7,7 +7,7 @@
  * Copyright (C) 2000 Silicon Graphics, Inc.
  * Modified for further R[236]000 support by Paul M. Antoine, 1996.
  * Kevin D. Kissell, kevink@mips.com and Carsten Langgaard, carstenl@mips.com
- * Copyright (C) 2000, 07 MIPS Technologies, Inc.
+ * Copyright (C) 2000 MIPS Technologies, Inc.  All rights reserved.
  * Copyright (C) 2003, 2004  Maciej W. Rozycki
  */
 #ifndef _ASM_MIPSREGS_H
@@ -719,8 +719,8 @@ do {									\
 			".set\tmips64\n\t"				\
 			"dmfc0\t%M0, " #source "\n\t"			\
 			"dsll\t%L0, %M0, 32\n\t"			\
-			"dsra\t%M0, %M0, 32\n\t"			\
-			"dsra\t%L0, %L0, 32\n\t"			\
+			"dsrl\t%M0, %M0, 32\n\t"			\
+			"dsrl\t%L0, %L0, 32\n\t"			\
 			".set\tmips0"					\
 			: "=r" (val));					\
 	else								\
@@ -728,8 +728,8 @@ do {									\
 			".set\tmips64\n\t"				\
 			"dmfc0\t%M0, " #source ", " #sel "\n\t"		\
 			"dsll\t%L0, %M0, 32\n\t"			\
-			"dsra\t%M0, %M0, 32\n\t"			\
-			"dsra\t%L0, %L0, 32\n\t"			\
+			"dsrl\t%M0, %M0, 32\n\t"			\
+			"dsrl\t%L0, %L0, 32\n\t"			\
 			".set\tmips0"					\
 			: "=r" (val));					\
 	local_irq_restore(flags);					\
@@ -912,6 +912,9 @@ do {									\
 #define read_c0_perfcontrol()	__read_32bit_c0_register($22, 0)
 #define write_c0_perfcontrol(val) __write_32bit_c0_register($22, 0, val)
 
+#define read_c0_perf(sel)       __read_32bit_c0_register($25, sel)
+#define write_c0_perf(sel, val) __write_32bit_c0_register($25, sel, val)
+
 #define read_c0_diag()		__read_32bit_c0_register($22, 0)
 #define write_c0_diag(val)	__write_32bit_c0_register($22, 0, val)
 
@@ -1041,28 +1044,6 @@ do {									\
 	: "r" (val), "i" (mask));					\
 } while (0)
 
-#if 0	/* Need DSP ASE capable assembler ... */
-#define mflo0() ({ long mflo0; __asm__("mflo %0, $ac0" : "=r" (mflo0)); mflo0;})
-#define mflo1() ({ long mflo1; __asm__("mflo %0, $ac1" : "=r" (mflo1)); mflo1;})
-#define mflo2() ({ long mflo2; __asm__("mflo %0, $ac2" : "=r" (mflo2)); mflo2;})
-#define mflo3() ({ long mflo3; __asm__("mflo %0, $ac3" : "=r" (mflo3)); mflo3;})
-
-#define mfhi0() ({ long mfhi0; __asm__("mfhi %0, $ac0" : "=r" (mfhi0)); mfhi0;})
-#define mfhi1() ({ long mfhi1; __asm__("mfhi %0, $ac1" : "=r" (mfhi1)); mfhi1;})
-#define mfhi2() ({ long mfhi2; __asm__("mfhi %0, $ac2" : "=r" (mfhi2)); mfhi2;})
-#define mfhi3() ({ long mfhi3; __asm__("mfhi %0, $ac3" : "=r" (mfhi3)); mfhi3;})
-
-#define mtlo0(x) __asm__("mtlo %0, $ac0" ::"r" (x))
-#define mtlo1(x) __asm__("mtlo %0, $ac1" ::"r" (x))
-#define mtlo2(x) __asm__("mtlo %0, $ac2" ::"r" (x))
-#define mtlo3(x) __asm__("mtlo %0, $ac3" ::"r" (x))
-
-#define mthi0(x) __asm__("mthi %0, $ac0" ::"r" (x))
-#define mthi1(x) __asm__("mthi %0, $ac1" ::"r" (x))
-#define mthi2(x) __asm__("mthi %0, $ac2" ::"r" (x))
-#define mthi3(x) __asm__("mthi %0, $ac3" ::"r" (x))
-
-#else
 
 #define mfhi0()								\
 ({									\
@@ -1288,8 +1269,6 @@ do {									\
 	: "r" (x));							\
 } while (0)
 
-#endif
-
 /*
  * TLB operations.
  *
@@ -1339,11 +1318,11 @@ static inline void tlb_write_random(void)
 static inline unsigned int					\
 set_c0_##name(unsigned int set)					\
 {								\
-	unsigned int res, new;					\
+	unsigned int res;					\
 								\
 	res = read_c0_##name();					\
-	new = res | set;					\
-	write_c0_##name(new);					\
+	res |= set;						\
+	write_c0_##name(res);					\
 								\
 	return res;						\
 }								\
@@ -1351,24 +1330,24 @@ set_c0_##name(unsigned int set)					\
 static inline unsigned int					\
 clear_c0_##name(unsigned int clear)				\
 {								\
-	unsigned int res, new;					\
+	unsigned int res;					\
 								\
 	res = read_c0_##name();					\
-	new = res & ~clear;					\
-	write_c0_##name(new);					\
+	res &= ~clear;						\
+	write_c0_##name(res);					\
 								\
 	return res;						\
 }								\
 								\
 static inline unsigned int					\
-change_c0_##name(unsigned int change, unsigned int val)		\
+change_c0_##name(unsigned int change, unsigned int new)		\
 {								\
-	unsigned int res, new;					\
+	unsigned int res;					\
 								\
 	res = read_c0_##name();					\
-	new = res & ~change;					\
-	new |= (val & change);					\
-	write_c0_##name(new);					\
+	res &= ~change;						\
+	res |= (new & change);					\
+	write_c0_##name(res);					\
 								\
 	return res;						\
 }
@@ -1432,15 +1411,14 @@ static inline unsigned int					\
 set_c0_##name(unsigned int set)					\
 {								\
 	unsigned int res;					\
-	unsigned int new;					\
 	unsigned int omt;					\
-	unsigned long flags;					\
+	unsigned int flags;					\
 								\
 	local_irq_save(flags);					\
 	omt = __dmt();						\
 	res = read_c0_##name();					\
-	new = res | set;					\
-	write_c0_##name(new);					\
+	res |= set;						\
+	write_c0_##name(res);					\
 	__emt(omt);						\
 	local_irq_restore(flags);				\
 								\
@@ -1451,15 +1429,14 @@ static inline unsigned int					\
 clear_c0_##name(unsigned int clear)				\
 {								\
 	unsigned int res;					\
-	unsigned int new;					\
 	unsigned int omt;					\
-	unsigned long flags;					\
+	unsigned int flags;					\
 								\
 	local_irq_save(flags);					\
 	omt = __dmt();						\
 	res = read_c0_##name();					\
-	new = res & ~clear;					\
-	write_c0_##name(new);					\
+	res &= ~clear;						\
+	write_c0_##name(res);					\
 	__emt(omt);						\
 	local_irq_restore(flags);				\
 								\
@@ -1467,20 +1444,19 @@ clear_c0_##name(unsigned int clear)				\
 }								\
 								\
 static inline unsigned int					\
-change_c0_##name(unsigned int change, unsigned int newbits)	\
+change_c0_##name(unsigned int change, unsigned int new)		\
 {								\
 	unsigned int res;					\
-	unsigned int new;					\
 	unsigned int omt;					\
-	unsigned long flags;					\
+	unsigned int flags;					\
 								\
 	local_irq_save(flags);					\
 								\
 	omt = __dmt();						\
 	res = read_c0_##name();					\
-	new = res & ~change;					\
-	new |= (newbits & change);				\
-	write_c0_##name(new);					\
+	res &= ~change;						\
+	res |= (new & change);					\
+	write_c0_##name(res);					\
 	__emt(omt);						\
 	local_irq_restore(flags);				\
 								\

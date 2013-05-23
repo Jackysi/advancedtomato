@@ -1,11 +1,9 @@
 #
 # Makefile for the linux squashfs routines.
 #
-
-LZMADIR = ../../../../lzma/C/Compress/Lzma
-EXTRA_CFLAGS += -I$(src)/$(LZMADIR)
-vpath %.c $(LZMADIR)
+CFLAGS += -I $(SRCBASE)/tools/misc/lzma_src/C -DBCMLZMA
 
 obj-$(CONFIG_SQUASHFS) += squashfs.o
-squashfs-objs := inode.o
-squashfs-objs += $(addprefix $(LZMADIR)/, LzmaDecode.o)
+squashfs-y += inode.o
+squashfs-y += squashfs2_0.o
+squashfs-y += sqlzma.o

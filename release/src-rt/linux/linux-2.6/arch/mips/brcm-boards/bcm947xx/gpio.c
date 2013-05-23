@@ -18,38 +18,25 @@
 #include <linux/miscdevice.h>
 #include <asm/uaccess.h>
 
-#ifdef CONFIG_DEVFS_FS
-#include <linux/devfs_fs_kernel.h>
-#endif
 
 #include <typedefs.h>
 #include <bcmutils.h>
 #include <siutils.h>
 #include <bcmdevs.h>
 
-#define GPIO_CHAR_MAJOR	127
 
 static si_t *gpio_sih;
-#ifndef CONFIG_DEVFS_FS
-static struct class *gpio_class;
-#endif
+static int gpio_major;
+static devfs_handle_t gpio_dir;
 
 static struct {
 	char *name;
-#ifdef CONFIG_DEVFS_FS
+	devfs_handle_t handle;
 } gpio_file[] = {
-	{ "in" },
-	{ "out" },
-	{ "outen" },
-	{ "control" }
-#else
-	struct class *handle;
-} gpio_file[] = {
-	{ "gpioin", NULL },
-	{ "gpioout", NULL },
-	{ "gpioouten", NULL },
-	{ "gpiocontrol", NULL }
-#endif
+	{ "in", NULL },
+	{ "out", NULL },
+	{ "outen", NULL },
+	{ "control", NULL }
 };
 
 static int
@@ -79,13 +66,13 @@ gpio_read(struct file *file, char *buf, size_t count, loff_t *ppos)
 		val = si_gpioin(gpio_sih);
 		break;
 	case 1:
-		val = si_gpioout(gpio_sih, 0, 0, GPIO_DRV_PRIORITY);
+		val = si_gpioout(gpio_sih, 0, 0);
 		break;
 	case 2:
-		val = si_gpioouten(gpio_sih, 0, 0, GPIO_DRV_PRIORITY);
+		val = si_gpioouten(gpio_sih, 0, 0);
 		break;
 	case 3:
-		val = si_gpiocontrol(gpio_sih, 0, 0, GPIO_DRV_PRIORITY);
+		val = si_gpiocontrol(gpio_sih, 0, 0);
 		break;
 	default:
 		return -ENODEV;
@@ -109,13 +96,13 @@ gpio_write(struct file *file, const char *buf, size_t count, loff_t *ppos)
 	case 0:
 		return -EACCES;
 	case 1:
-		si_gpioout(gpio_sih, ~0, val, GPIO_DRV_PRIORITY);
+		si_gpioout(gpio_sih, ~0, val);
 		break;
 	case 2:
-		si_gpioouten(gpio_sih, ~0, val, GPIO_DRV_PRIORITY);
+		si_gpioouten(gpio_sih, ~0, val);
 		break;
 	case 3:
-		si_gpiocontrol(gpio_sih, ~0, val, GPIO_DRV_PRIORITY);
+		si_gpiocontrol(gpio_sih, ~0, val);
 		break;
 	default:
 		return -ENODEV;
@@ -142,31 +129,17 @@ gpio_init(void)
 
 	si_gpiosetcore(gpio_sih);
 
-	if (register_chrdev(GPIO_CHAR_MAJOR, "gpio", &gpio_fops)) {
-		printk(KERN_NOTICE "Can't allocate major number %d for GPIO Devices.\n",
-		       GPIO_CHAR_MAJOR);
-		return -EAGAIN;
-	}
+	if ((gpio_major = devfs_register_chrdev(0, "gpio", &gpio_fops)) < 0)
+		return gpio_major;
 
-#ifdef CONFIG_DEVFS_FS
-	devfs_mk_dir("gpio");
-#else
-	gpio_class = class_create(THIS_MODULE, "gpio");
-	if (IS_ERR(gpio_class)) {
-		printk(KERN_ERR "Error creating gpio class.\n");
-		unregister_chrdev(GPIO_CHAR_MAJOR, "gpio");
-		return PTR_ERR(gpio_class);
-	}
-#endif
+	gpio_dir = devfs_mk_dir(NULL, "gpio", NULL);
 
 	for (i = 0; i < ARRAYSIZE(gpio_file); i++) {
-#ifdef CONFIG_DEVFS_FS
-		devfs_mk_cdev(MKDEV(GPIO_CHAR_MAJOR, i),
-			S_IFCHR | S_IRUGO | S_IWUGO, "gpio/%s", gpio_file[i].name);
-#else
-		class_device_create(gpio_class, NULL, MKDEV(GPIO_CHAR_MAJOR, i),
-			NULL, gpio_file[i].name);
-#endif
+		gpio_file[i].handle = devfs_register(gpio_dir,
+						     gpio_file[i].name,
+						     DEVFS_FL_DEFAULT, gpio_major, i,
+						     S_IFCHR | S_IRUGO | S_IWUGO,
+						     &gpio_fops, NULL);
 	}
 
 	return 0;
@@ -178,17 +151,9 @@ gpio_exit(void)
 	int i;
 
 	for (i = 0; i < ARRAYSIZE(gpio_file); i++)
-#ifdef CONFIG_DEVFS_FS
-		devfs_remove("gpio/%s", gpio_file[i].name);
-#else
-	{
-		if (gpio_file[i].handle != NULL)
-			class_device_destroy(gpio_class, MKDEV(GPIO_CHAR_MAJOR, i));
-		gpio_file[i].handle = NULL;
-	}
-	class_destroy(gpio_class);
-#endif
-	unregister_chrdev(GPIO_CHAR_MAJOR, "gpio");
+		devfs_unregister(gpio_file[i].handle);
+	devfs_unregister(gpio_dir);
+	devfs_unregister_chrdev(gpio_major, "gpio");
 	si_detach(gpio_sih);
 }
 

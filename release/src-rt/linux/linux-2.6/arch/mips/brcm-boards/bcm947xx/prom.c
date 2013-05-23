@@ -21,12 +21,18 @@
 #include <typedefs.h>
 #include <osl.h>
 #include <bcmutils.h>
+#include <bcmnvram.h>
+#include <bcmendian.h>
 #include <hndsoc.h>
 #include <siutils.h>
 #include <hndcpu.h>
 #include <mipsinc.h>
 #include <mips74k_core.h>
 
+/* Global SB handle */
+extern si_t *bcm947xx_sih;
+/* Convenience */
+#define sih bcm947xx_sih
 #define MB      << 20
 
 #ifdef  CONFIG_HIGHMEM
@@ -89,20 +95,26 @@ add_tmptlb_entry(unsigned long entrylo0, unsigned long entrylo1,
 }
 #endif  /* CONFIG_HIGHMEM */
 
+extern char ram_nvram_buf[];
 void __init
 prom_init(void)
 {
 	unsigned long mem, extmem = 0, off, data;
+	unsigned long off1, data1;
+	struct nvram_header *header;
 
 	mips_machgroup = MACH_GROUP_BRCM;
 	mips_machtype = MACH_BCM947XX;
 
 	off = (unsigned long)prom_init;
 	data = *(unsigned long *)prom_init;
+	off1 = off + 4;
+	data1 = *(unsigned long *)off1;
 
 	/* Figure out memory size by finding aliases */
 	for (mem = (1 MB); mem < (128 MB); mem <<= 1) {
-		if (*(unsigned long *)(off + mem) == data)
+		if ((*(unsigned long *)(off + mem) == data) &&
+			(*(unsigned long *)(off1 + mem) == data1))
 			break;
 	}
 
@@ -116,7 +128,32 @@ prom_init(void)
 #endif
 #ifdef  CONFIG_HIGHMEM
 	if (mem == 128 MB) {
+#if 0 // always false for BCM4706, needs CPU check
+		bool highmem_region = FALSE;
+		int idx;
 
+		sih = si_kattach(SI_OSH);
+		/* save current core index */
+		idx = si_coreidx(sih);
+		if ((si_setcore(sih, DMEMC_CORE_ID, 0) != NULL) ||
+			(si_setcore(sih, DMEMS_CORE_ID, 0) != NULL)) {
+			uint32 addr, size;
+			uint asidx = 0;
+			do {
+				si_coreaddrspaceX(sih, asidx, &addr, &size);
+				if (size == 0)
+					break;
+				if (addr == SI_SDRAM_R2) {
+					highmem_region = TRUE;
+					break;
+				}
+				asidx++;
+			} while (1);
+		}
+		/* switch back to previous core */
+		si_setcoreidx(sih, idx);
+		if (highmem_region) {
+#endif
 		early_tlb_init();
 		/* Add one temporary TLB entries to map SDRAM Region 2.
 		*      Physical        Virtual
@@ -137,6 +174,9 @@ prom_init(void)
 		/* Keep tlb entries back in consistent state */
 		early_tlb_init();
 	}
+#if 0
+	}
+#endif
 #endif  /* CONFIG_HIGHMEM */
 	/* Ignoring the last page when ddr size is 128M. Cached
 	 * accesses to last page is causing the processor to prefetch
@@ -145,6 +185,24 @@ prom_init(void)
 	 */
 	if (MIPS74K(current_cpu_data.processor_id) && (mem == (128 MB)))
 		mem -= 0x1000;
+	/* CFE could have loaded nvram during netboot
+	 * to top 32KB of RAM, Just check for nvram signature
+	 * and copy it to nvram space embedded in linux
+	 * image for later use by nvram driver.
+	 */
+	header = (struct nvram_header *)(KSEG0ADDR(mem - NVRAM_SPACE));
+	if (ltoh32(header->magic) == NVRAM_MAGIC) {
+		uint32 *src = (uint32 *)header;
+		uint32 *dst = (uint32 *)ram_nvram_buf;
+		uint32 i;
+		printk("Copying NVRAM bytes: %d from: 0x%p To: 0x%p\n", ltoh32(header->len),
+			src, dst);
+		for (i = 0; i < ltoh32(header->len) && i < NVRAM_SPACE; i += 4)
+			*dst++ = ltoh32(*src++);
+	}
+#ifdef CONFIG_BLK_DEV_RAM
+	init_ramdisk(mem);
+#endif
 	add_memory_region(SI_SDRAM_BASE, mem, BOOT_MEM_RAM);
 
 #ifdef  CONFIG_HIGHMEM
