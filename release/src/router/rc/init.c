@@ -1119,6 +1119,9 @@ static int init_nvram(void)
 			nvram_set("lan_ifnames", "vlan1 eth1 eth2");
 			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifnames", "eth1 eth2");
+			nvram_set("wl_ifname", "eth1");
+			nvram_set("wl0_ifname", "eth1");
+			nvram_set("wl1_ifname", "eth2");
 			nvram_set("landevs", "vlan1 wl0 wl1");
 			nvram_set("wandevs", "vlan2");
 
