@@ -906,6 +906,8 @@ CONFIG_NETDEVICES=y
 CONFIG_HND=y
 CONFIG_ET=m
 CONFIG_ET_47XX=y
+CONFIG_ET_ALL_PASSIVE_ON=y
+# CONFIG_ET_ALL_PASSIVE_RUNTIME is not set
 CONFIG_BCM_CTF=m
 # CONFIG_PLC is not set
 # CONFIG_WL_EMULATOR is not set
@@ -925,6 +927,9 @@ CONFIG_WL_STA="wlconfig_lx_router_sta"
 CONFIG_WL_AP_ONCHIP_G="wlconfig_lx_router_ap_1chipG"
 CONFIG_WL_STA_ONCHIP_G="wlconfig_lx_router_sta_1chipG"
 CONFIG_WL_HIGH="wlconfig_lx_router_high"
+CONFIG_WL_ALL_PASSIVE_ON=y
+# CONFIG_WL_ALL_PASSIVE_RUNTIME is not set
+# CONFIG_DPSTA is not set
 CONFIG_EMF=m
 CONFIG_IFB=m
 # CONFIG_DUMMY is not set
