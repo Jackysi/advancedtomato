@@ -50,6 +50,10 @@ ifeq ($(NVRAM_SIZE),)
 NVRAM_SIZE = 0
 endif
 
+ifeq ($(AC66U),)
+AC66U = 0
+endif
+
 ifeq ($(WNR3500LV2),)
 WNR3500LV2 = 0
 else
@@ -117,6 +121,18 @@ all: tomato_ver
 	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).trx
 	@rm -f image/tomato-$(ND)$(current_BUILD_USB)$(if $(filter $(NVRAM_SIZE),0),,-NVRAM$(NVRAM_SIZE)K)-$(current_TOMATO_VER).$(V1)$(mips_rev)$(beta)$(V2)-$(current_BUILD_DESC).bin
 
+ifeq ($(AC66U),1)
+	$(MAKE) -C ctools
+	# Create generic TRX image
+	ctools/objcopy -O binary -R .reginfo -R .note -R .comment -R .mdebug -S $(LINUXDIR)/vmlinux ctools/piggy
+	ctools/lzma_4k e ctools/piggy  ctools/vmlinuz-lzma
+	ctools/mksquashfs router/mipsel-uclibc/target ctools/target.squashfs -noappend -all-root
+	ctools/trx -o image/linux-lzma.trx ctools/vmlinuz-lzma ctools/target.squashfs
+	ctools/trx_asus -i image/linux-lzma.trx -r $(BUILD_NAME),$(KERNEL_VER).$(FS_VER),image/tomato-RT-AC66U_$(V1)$(V2)-$(current_BUILD_DESC).trx
+	@rm -f image/linux-lzma.trx
+	@echo ""
+endif
+
 ifeq ($(WNR3500LV2),1)
 	@echo "Creating Firmware for Netgear WNR3500L v2 .... "
 	mipsel-uclibc-objcopy -O binary -g $(LINUXDIR)/vmlinux image/vmlinux.bin
@@ -127,7 +143,7 @@ ifeq ($(WNR3500LV2),1)
 	cd image && $(WNRTOOL)/packet -k tomato-wnr3500lv2.trx -f rootfs -b $(BOARD_FILE) -ok kernel_image -oall kernel_rootfs_image -or rootfs_image -i $(fw_cfg_file) && rm -f rootfs && \
 	cp kernel_rootfs_image.chk tomato-Netgear-3500Lv2-$(ND)$(current_BUILD_USB)-$(current_TOMATO_VER).$(V1)$(V2)-$(current_BUILD_DESC).chk
 	@echo "Cleanup ...."
-	rm -f image/*image.chk image/*.trx
+#	rm -f image/*image.chk image/*.trx
 endif
 
 ifeq ($(WRT54),y)
@@ -659,9 +675,22 @@ define KernelConfig
 		echo "CONFIG_CPU_MIPS32_R2=y" >>$(1); \
 		sed -i "/CONFIG_CPU_MIPSR1/d" $(1); \
 		echo "CONFIG_CPU_MIPSR2=y" >>$(1); \
-		if [ "$(WNR3500LV2)" = "1" ]; then \
+		if [ "$(NAND)" = "y" ]; then \
 			sed -i "/CONFIG_MTD_NFLASH/d" $(1); \
 			echo "CONFIG_MTD_NFLASH=y" >>$(1); \
+			sed -i "/CONFIG_MTD_NAND/d" $(1); \
+			echo "CONFIG_MTD_NAND=y" >>$(1); \
+			echo "CONFIG_MTD_NAND_IDS=y" >>$(1); \
+			echo "# CONFIG_MTD_NAND_VERIFY_WRITE is not set" >>$(1); \
+			echo "# CONFIG_MTD_NAND_ECC_SMC is not set" >>$(1); \
+			echo "# CONFIG_MTD_NAND_MUSEUM_IDS is not set" >>$(1); \
+			echo "# CONFIG_MTD_NAND_DISKONCHIP is not set" >>$(1); \
+			echo "# CONFIG_MTD_NAND_CAFE is not set" >>$(1); \
+			echo "# CONFIG_MTD_NAND_NANDSIM is not set" >>$(1); \
+			echo "# CONFIG_MTD_NAND_PLATFORM is not set" >>$(1); \
+			echo "# CONFIG_MTD_NAND_ONENAND is not set" >>$(1); \
+			sed -i "/CONFIG_MTD_BRCMNAND/d" $(1); \
+			echo "CONFIG_MTD_BRCMNAND=y" >>$(1); \
 		fi; \
 	fi; \
 	if [ "$(UPS)" = "y" ]; then \
@@ -961,6 +990,9 @@ r2m:
 n60z:
 	@$(MAKE) r2z NVRAM_SIZE=60 LINKSYS_E=y
 
+n60e:
+	@$(MAKE) r2e NVRAM_SIZE=60 LINKSYS_E=y
+
 n60c:
 	@$(MAKE) r2c NVRAM_SIZE=60 LINKSYS_E=y
 
@@ -999,6 +1031,9 @@ n60m:
 n64z:
 	@$(MAKE) r2z NVRAM_SIZE=64 LINKSYS_E_64k=y
 
+n64e:
+	@$(MAKE) r2e NVRAM_SIZE=64 LINKSYS_E_64k=y
+
 n64c:
 	@$(MAKE) r2c NVRAM_SIZE=64 LINKSYS_E_64k=y
 
@@ -1030,10 +1065,10 @@ n64m:
 #Linksys E-Series with 4MB Flash
 
 e1000v2f:
-	@$(MAKE) r2f NVRAM_SIZE=32 LINKSYS_E1000v2=y NO_THEMES=y NO_JFFS=y
+	@$(MAKE) r2f NVRAM_SIZE=32 LINKSYS_E1000v2=y NO_JFFS=y
 
 e1200v1f:
-	@$(MAKE) r2f NVRAM_SIZE=64 LINKSYS_E1200v1=y NO_THEMES=y NO_JFFS=y
+	@$(MAKE) r2f NVRAM_SIZE=64 LINKSYS_E1200v1=y NO_JFFS=y
 
 
 #Builds for WNR3500L v2
@@ -1074,6 +1109,9 @@ e2500:
 
 e3200:
 	@$(MAKE) r2z USBAP=y NVRAM_SIZE=60 LINKSYS_E3200=y
+
+ac66e:
+	@$(MAKE) e MIPS32=r2 NVRAM_64K=y NAND=y AC66U=1 NO_JFFS=y
 endif
 
 setprofile:
