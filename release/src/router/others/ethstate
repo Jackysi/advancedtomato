@@ -1,0 +1,59 @@
+#!/bin/sh
+
+if [ -f /tmp/ethernet.state1 ]; then
+    rm /tmp/ethernet.state1
+fi
+if [ -f /tmp/ethernet.state2 ]; then
+    rm /tmp/ethernet.state2
+fi
+if [ -f /tmp/ethernet.state3 ]; then
+    rm /tmp/ethernet.state3
+fi
+
+VWAN=`nvram get wan_ifname`
+VPORT=`nvram get $VWAN'ports' | awk '{print $1}' | sed 's/[^0-9]*//g'`
+
+/usr/sbin/robocfg show | grep Port | awk '{print $1" "$2" "$3}' > /tmp/ethernet.state.tmp
+
+#Search WAN port
+SWAN=`cat /tmp/ethernet.state.tmp | grep "Port $VPORT" | awk '{print $3}'`
+echo "Port 0: $SWAN" > /tmp/ethernet.state
+sed -n -e "/Port $VPORT:/!p" /tmp/ethernet.state.tmp > /tmp/ethernet.state1
+sed -i '/Port 5/d' /tmp/ethernet.state1
+sed -i '/Port 8/d' /tmp/ethernet.state1
+
+NUM="1"
+REVERT=`nvram get lan_invert`
+if [ "$REVERT" == "1" ]; then
+    cat /tmp/ethernet.state1 | sort -r >> /tmp/ethernet.state2
+    exec 0< /tmp/ethernet.state2
+        while read line
+        test -n "$line"
+        do
+            STATE=`echo $line | awk '{print $3}'`
+            echo "Port $NUM: $STATE" >> /tmp/ethernet.state3
+            NUM=$((NUM+1))
+        done
+
+else
+    exec 0< /tmp/ethernet.state1
+        while read line
+        test -n "$line"
+        do
+            STATE=`echo $line | awk '{print $3}'`
+            echo "Port $NUM: $STATE" >> /tmp/ethernet.state3
+            NUM=$((NUM+1))
+        done
+fi
+
+cat /tmp/ethernet.state3 >> /tmp/ethernet.state
+
+if [ -f /tmp/ethernet.state1 ]; then
+    rm /tmp/ethernet.state1
+fi
+if [ -f /tmp/ethernet.state2 ]; then
+    rm /tmp/ethernet.state2
+fi
+if [ -f /tmp/ethernet.state3 ]; then
+    rm /tmp/ethernet.state3
+fi
