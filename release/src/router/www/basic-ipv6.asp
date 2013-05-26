@@ -286,7 +286,7 @@ function save()
 		default:
 			fom.ipv6_rtr_addr.disabled = fom.f_ipv6_rtr_addr_auto.disabled;
 			if (fom.f_ipv6_rtr_addr_auto.value == 1)
-				fom.ipv6_rtr_addr.value = fom.f_ipv6_rrelaytr_addr.value;
+				fom.ipv6_rtr_addr.value = fom.f_ipv6_rtr_addr.value;
 			else
 				fom.ipv6_rtr_addr.value = '';
 			break;
