@@ -152,7 +152,7 @@ const defaults_t defaults[] = {
 	{ "ppp_idletime",		"5"				},	// Dial on demand max idle time (mins)
 	{ "ppp_keepalive",		"0"				},	// Restore link automatically
 	{ "ppp_demand",			"0"				},	// Dial on demand
-	{ "ppp_redialperiod",		"10"			},	// Redial Period  (seconds)*/
+	{ "ppp_redialperiod",		"30"			},	// Redial Period  (seconds)*/
 	{ "ppp_mru",			"1500"			},	// Negotiate MRU to this value
 	{ "ppp_mtu",			"1500"			},	// Negotiate MTU to the smaller of this value or the peer MRU
 	{ "ppp_service",		""				},	// PPPoE service name
@@ -164,8 +164,8 @@ const defaults_t defaults[] = {
 	{ "ppp_custom",			""				},	// PPPD additional options
 	{ "ppp_mlppp",			"0"				},	// PPPoE single line MLPPP
 
-	{ "pppoe_lei",			""				},
-	{ "pppoe_lef",			""				},
+	{ "pppoe_lei",			"10"				},
+	{ "pppoe_lef",			"5"				},
 
 #ifdef TCONFIG_IPV6
 	// IPv6 parameters
