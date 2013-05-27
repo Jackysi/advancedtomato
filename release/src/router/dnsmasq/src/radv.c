@@ -464,8 +464,7 @@ static int add_prefixes(struct in6_addr *local,  int prefix,
 		  opt->prefix = *local;
 		  
 		  inet_ntop(AF_INET6, local, daemon->addrbuff, ADDRSTRLEN);
-		//  shibby
-		//  my_syslog(MS_DHCP | LOG_INFO, "RTR-ADVERT(%s) %s", param->if_name, daemon->addrbuff); 		    
+		  my_syslog(MS_DHCP | LOG_INFO, "RTR-ADVERT(%s) %s", param->if_name, daemon->addrbuff); 		    
 		}
 	    }
 	}
