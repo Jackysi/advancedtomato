@@ -215,7 +215,7 @@ static int load_history_to_tree(const char *fname) {
 	_dprintf("%s: fname=%s\n", __FUNCTION__, fname);
 	unlink(uncomp_fn);
 
-	n = 0;
+	n = -1;
 	sprintf(s, "gzip -dc %s > %s", fname, uncomp_fn);
 	if (system(s) == 0) {
 		if ((f = fopen(uncomp_fn, "rb")) != NULL) {
@@ -383,7 +383,8 @@ static void load(int new) {
 
 void Node_print_speedjs(Node *self, void *t) {
 	int j, k, p;
-	uint64_t total, tmax, n;
+	uint64_t total, tmax;
+	uint64_t n;
 	char c;
 
 	node_print_mode_t *info = (node_print_mode_t *)t;
@@ -610,11 +611,11 @@ static void calc(void) {
 					tick = uptime - ptr->utime;
 					n = tick / INTERVAL;
 					if (n < 1) {
-						_dprintf("%s: %s is a little early... %llu < %d\n", __FUNCTION__, ipaddr, tick, INTERVAL);
-            			continue;  // Don't update the tree this time 
+						_dprintf("%s: %s is a little early... %lu < %d\n", __FUNCTION__, ipaddr, tick, INTERVAL);
+						continue;
 					} else {
 						ptr->utime += (n * INTERVAL);
-						_dprintf("%s: %s n=%d tick=%lu utime=%llu ptr->utime=%lu\n", __FUNCTION__, ipaddr, n, tick, uptime, ptr->utime);
+						_dprintf("%s: %s n=%d tick=%lu utime=%lu ptr->utime=%lu\n", __FUNCTION__, ipaddr, n, tick, uptime, ptr->utime);
 						for (i = 0; i < MAX_COUNTER; ++i) {
 							c = counter[i];
 							sc = ptr->last[i];
