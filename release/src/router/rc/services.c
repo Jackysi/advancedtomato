@@ -392,8 +392,6 @@ void start_dnsmasq()
 
                 switch (service) {
                 case IPV6_NATIVE_DHCP:
-                        prefix = "::";
-                        break;
                 case IPV6_ANYCAST_6TO4:
                 case IPV6_6IN4:
                 case IPV6_6RD:
@@ -407,14 +405,8 @@ void start_dnsmasq()
                 if (!(*prefix)) prefix = "::";
                 ipv6 = (char *)ipv6_router_address(NULL);
 
-		fprintf(f, "enable-ra\ndhcp-range=tag:br0,%s, slaac, ra-names\n", prefix);
+		fprintf(f, "enable-ra\ndhcp-range=tag:br0,%s, slaac, ra-names, 64\n", prefix);
 
-// KDB below is experimental and doesn't work probably my lack of C
-// the above slaac enabling line is the closest to the standard RADVD
-// functionality anyway.  Code for another day, let's get something that
-// works out there.
-		//prefix[strlen(prefix)-1] = 0;
-		//fprintf(f, "enable-ra\ndhcp-range=tag:br0,%s, %sFFFF:FFFF:FFFF, constructor:br0, ra-names, 12h\n", ipv6, prefix);
 	}
 #endif
 
