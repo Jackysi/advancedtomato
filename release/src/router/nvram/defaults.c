@@ -184,6 +184,10 @@ const defaults_t defaults[] = {
 	{ "ipv6_tun_ttl",		"255"				},	// Tunnel TTL
 	{ "ipv6_dns",			""				},	// DNS server(s) IPs
 	{ "ipv6_get_dns",		""				},	// DNS IP address which get by dhcp6c
+	{ "ipv6_6rd_prefix",		"2602:100::"			},	// 6RD prefix (Charter)
+	{ "ipv6_6rd_prefix_length",	"32"				},	// 6RD prefix length (32-62) checkme
+	{ "ipv6_6rd_borderrelay",	"68.113.165.1"			},	// 6RD border relay address
+	{ "ipv6_6rd_ipv4masklen",	"0"				},	// 6RD IPv4 mask length (0-30) checkme
 #endif
 
 	// Wireless parameters
