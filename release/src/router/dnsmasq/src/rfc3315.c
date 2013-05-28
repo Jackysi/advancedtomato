@@ -553,6 +553,9 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	/* set reply message type */
 	*outmsgtypep = rapid_commit ? DHCP6REPLY : DHCP6ADVERTISE;
 
+#ifdef HAVE_QUIET_DHCP
+  if (!option_bool(OPT_QUIET_DHCP6))
+#endif
 	log6_packet(&state, "DHCPSOLICIT", NULL, ignore ? _("ignored") : NULL);
 	
 	if (ignore)
@@ -756,6 +759,9 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	    put_opt6_short(DHCP6NOADDRS);
 	    put_opt6_string(_("no addresses available"));
 	    end_opt6(o1);
+#ifdef HAVE_QUIET_DHCP
+  if (!option_bool(OPT_QUIET_DHCP6))
+#endif
 	    log6_packet(&state, "DHCPADVERTISE", NULL, _("no addresses available"));
 	  }
 
@@ -769,6 +775,9 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	/* set reply message type */
 	*outmsgtypep = DHCP6REPLY;
 
+#ifdef HAVE_QUIET_DHCP
+  if (!option_bool(OPT_QUIET_DHCP6))
+#endif
 	log6_packet(&state, "DHCPREQUEST", NULL, ignore ? _("ignored") : NULL);
 	
 	if (ignore)
@@ -862,6 +871,9 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	    put_opt6_short(DHCP6NOADDRS);
 	    put_opt6_string(_("no addresses available"));
 	    end_opt6(o1);
+#ifdef HAVE_QUIET_DHCP
+  if (!option_bool(OPT_QUIET_DHCP6))
+#endif
 	    log6_packet(&state, "DHCPREPLY", NULL, _("no addresses available"));
 	  }
 
@@ -875,6 +887,9 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	/* set reply message type */
 	*outmsgtypep = DHCP6REPLY;
 	
+#ifdef HAVE_QUIET_DHCP
+  if (!option_bool(OPT_QUIET_DHCP6))
+#endif
 	log6_packet(&state, "DHCPRENEW", NULL, NULL);
 
 	for (opt = state.packet_options; opt; opt = opt6_next(opt, state.end))
@@ -909,6 +924,9 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 		    save_counter(iacntr);
 		    t1cntr = 0;
 		    
+#ifdef HAVE_QUIET_DHCP
+  if (!option_bool(OPT_QUIET_DHCP6))
+#endif
 		    log6_packet(&state, "DHCPREPLY", req_addr, _("lease not found"));
 		    
 		    o1 = new_opt6(OPTION6_STATUS_CODE);
@@ -951,6 +969,9 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 		else
 		  message = _("address invalid");
 		
+#ifdef HAVE_QUIET_DHCP
+  if (!option_bool(OPT_QUIET_DHCP6))
+#endif
 		log6_packet(&state, "DHCPREPLY", req_addr, message);	
 		
 		o1 =  new_opt6(OPTION6_IAADDR);
@@ -974,6 +995,9 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	/* set reply message type */
 	*outmsgtypep = DHCP6REPLY;
 	
+#ifdef HAVE_QUIET_DHCP
+  if (!option_bool(OPT_QUIET_DHCP6))
+#endif
 	log6_packet(&state, "DHCPCONFIRM", NULL, NULL);
 	
 	for (opt = state.packet_options; opt; opt = opt6_next(opt, state.end))
@@ -995,6 +1019,9 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 		    return 1;
 		  }
 
+#ifdef HAVE_QUIET_DHCP
+  if (!option_bool(OPT_QUIET_DHCP6))
+#endif
 		log6_packet(&state, "DHCPREPLY", req_addr, state.hostname);
 	      }
 	  }	 
@@ -1015,6 +1042,9 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	    context->netid.next = NULL;
 	    state.context_tags =  &context->netid;
 	  }
+#ifdef HAVE_QUIET_DHCP
+  if (!option_bool(OPT_QUIET_DHCP6))
+#endif
 	log6_packet(&state, "DHCPINFORMATION-REQUEST", NULL, ignore ? _("ignored") : state.hostname);
 	if (ignore)
 	  return 0;
@@ -1029,6 +1059,9 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	/* set reply message type */
 	*outmsgtypep = DHCP6REPLY;
 
+#ifdef HAVE_QUIET_DHCP
+  if (!option_bool(OPT_QUIET_DHCP6))
+#endif
 	log6_packet(&state, "DHCPRELEASE", NULL, NULL);
 
 	for (opt = state.packet_options; opt; opt = opt6_next(opt, state.end))
@@ -1091,6 +1124,9 @@ static int dhcp6_no_relay(int msg_type, struct in6_addr *link_address, struct dh
 	/* set reply message type */
 	*outmsgtypep = DHCP6REPLY;
 	
+#ifdef HAVE_QUIET_DHCP
+  if (!option_bool(OPT_QUIET_DHCP6))
+#endif
 	log6_packet(&state, "DHCPDECLINE", NULL, NULL);
 
 	for (opt = state.packet_options; opt; opt = opt6_next(opt, state.end))
@@ -1511,6 +1547,9 @@ static void add_address(struct state *state, struct dhcp_context *context, unsig
 	}
     }
 
+#ifdef HAVE_QUIET_DHCP
+  if (!option_bool(OPT_QUIET_DHCP6))
+#endif
   log6_packet(state, do_update ? "DHCPREPLY" : "DHCPADVERTISE", addr, state->hostname);
 
 }
