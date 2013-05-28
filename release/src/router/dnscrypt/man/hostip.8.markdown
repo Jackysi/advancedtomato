@@ -19,8 +19,8 @@ dnscrypt-proxy(8) is started.
 
   * `-h`, `--help`: show usage.
 
-  * `-r`, `--resolver-address=<ip>`: the resolver IP address (default:
-208.67.222.222, OpenDNS).
+  * `-r`, `--resolver-address=<ip>[:port]`: the resolver IP address
+(default: 208.67.220.220, OpenDNS).
 
   * `-V`, `--version`: show version number.
 
@@ -39,9 +39,3 @@ The `hostip` utility exits 0 on success, and > 0 if an error occurs.
 ## SEE ALSO
 
 dnscrypt-proxy(8)
-
-## COPYRIGHT
-
-hostip is Copyright (C) 2012 OpenDNS, Inc.
-`http://www.opendns.com/`
-

@@ -47,5 +47,13 @@ provider dnscrypt_proxy {
   probe request__uncurve_error(void *);
   probe request__uncurve_done(void *, size_t);
 
+  probe request__plugins__pre__start(void *, size_t, size_t);
+  probe request__plugins__pre__error(void *, int);
+  probe request__plugins__pre__done(void *, size_t, size_t);
+
+  probe request__plugins__post__start(void *, size_t, size_t);
+  probe request__plugins__post__error(void *, int);
+  probe request__plugins__post__done(void *, size_t, size_t);
+
   probe status__requests__active(unsigned int, unsigned int);
 };

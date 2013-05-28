@@ -1,44 +1,38 @@
-DNSCrypt
-========
+[![Build Status](https://travis-ci.org/jedisct1/dnscrypt-proxy.png?branch=master)](https://travis-ci.org/jedisct1/dnscrypt-proxy?branch=master)
+
+[DNSCrypt](http://dnscrypt.org)
+===============================
 
 A tool for securing communications between a client and a DNS resolver.
 
 Description
 -----------
 
-DNSCrypt is a slight variation on [DNSCurve](http://www.dnscurve.org/).
+dnscrypt-proxy provides local service which can be used directly as
+your local resolver or as a DNS forwarder, encrypting and
+authenticating requests using the DNSCrypt protocol and passing them
+to an upstream server, by default OpenDNS who run this on their
+resolvers.
 
-DNSCurve improves the confidentiality and integrity of DNS requests using
-high-speed high-security elliptic-curve cryptography. Best of all,
-DNSCurve has very low overhead and adds virtually no latency to
-queries.
+The DNSCrypt protocol uses high-speed high-security elliptic-curve
+cryptography and is very similar to [DNSCurve](http://dnscurve.org/),
+but focuses on securing communications between a client and its first-level
+resolver.
 
-DNSCurve aims at securing the entire chain down to authoritative
-servers. However, it only works with authoritative servers that explicitly
-support the protocol. And unfortunately, DNSCurve hasn't received much
-adoption yet.
-
-The DNSCrypt protocol is very similar to DNSCurve, but focuses on
-securing communications between a client and its first-level resolver.
 While not providing end-to-end security, it protects the local
-network (which is often the weakest link in the chain) against
+network, which is often the weakest point of the chain, against
 man-in-the-middle attacks. It also provides some confidentiality to
 DNS queries.
-
-The DNSCrypt daemon acts as a DNS proxy between a regular client, like
-a DNS cache or an operating system stub resolver, and a DNSCrypt-aware
-resolver, like OpenDNS.
 
 Installation
 ------------
 
-The daemon is known to work on recent versions of OSX, OpenBSD, Bitrig,
-NetBSD, Dragonfly BSD, FreeBSD, Linux, iOS (requires a jailbroken
-device), and Windows (requires MingW).
+The daemon is known to work on recent versions of OSX, OpenBSD,
+Bitrig, NetBSD, Dragonfly BSD, FreeBSD, Linux, iOS (requires a
+jailbroken device), Android (requires a rooted device), Solaris
+(SmartOS) and Windows (requires MingW).
 
-Download the
-[latest version](https://github.com/opendns/dnscrypt-proxy/downloads)
-and extract it:
+Download the [latest version](http://dnscrypt.org) and extract it:
 
     $ bunzip2 -cd dnscrypt-proxy-*.tar.bz2 | tar xvf -
     $ cd dnscrypt-proxy-*
@@ -51,12 +45,46 @@ Compile and install it using the standard procedure:
 Replace `-j2` with whatever number of CPU cores you want to use for the
 compilation process.
 
-Running `make -j2 test` in the `src/libnacl` directory is also highly
+Running `make -j2 check` in the `src/libsodium` directory is also highly
 recommended.
 
 The proxy will be installed as `/usr/local/sbin/dnscrypt-proxy` by default.
 
 Command-line switches are documented in the `dnscrypt-proxy(8)` man page.
+
+*Note:* gcc 3.4.6 (and probably other similar versions) is known to
+produce broken code on Mips targets with the -Os optimization level.
+Use a different level (-O and -O2 are fine) or upgrade the compiler.
+Thanks to Adrian Kotelba for reporting this.
+
+GUIs for dnscrypt-proxy
+-----------------------
+
+If you need a simple graphical user interface in order to start/stop
+the proxy and change your DNS settings, check out the following
+projects:
+
+- [DNSCrypt OSX Client](http://opendns.github.io/dnscrypt-osx-client/):
+A tool to easily use DNSCrypt with OpenDNS, configure plugins and
+define resolvers for specific domains. It has been implemented as a
+collection of shell scripts with a user interface in Objective C.
+
+- [DNSCrypt WinClient](https://github.com/Noxwizard/dnscrypt-winclient):
+Easily enable/disable DNSCrypt on multiple adapters. Supports
+different ports and protocols, IPv6, parental controls and the proxy
+can act as a gateway service. Windows only, written in .NET.
+
+- [DNSCrypt Win Client](https://github.com/opendns/dnscrypt-win-client):
+Official GUI for Windows, by OpenDNS. Also known as "OpenDNSCrypt".
+
+- dnscrypt-proxy is also available on Cydia, and it can be easily
+enabled using [GuizmoDNS](http://modmyi.com/cydia/com.guizmo.dns).
+
+Server-side proxy
+-----------------
+
+[DNSCrypt-Wrapper](https://github.com/Cofyc/dnscrypt-wrapper) is a
+server-side dnscrypt proxy that works with any name resolver.
 
 Usage
 -----
@@ -88,6 +116,7 @@ address than 127.0.0.1
 * `--logfile=<file>` in order to write log data to a dedicated file. By
   default, logs are sent to stdout if the server is running in foreground,
   and to syslog if it is running in background.
+* `--loglevel=<level>` if you need less verbosity in log files.
 * `--max-active-requests=<count>` to set the maximum number of active
   requests. The default value is 250.
 * `--pid-file=<file>` in order to store the PID number to a file.
@@ -98,6 +127,22 @@ DNSCrypt comes pre-configured for OpenDNS, although the
 `--provider-name=<certificate provider FQDN>`
 and `--provider-key=<provider public key>` can be specified in
 order to change the default settings.
+
+Installation as a service (Windows only)
+----------------------------------------
+
+The proxy can be installed as a Windows service.
+
+Copy the `dnscrypt-proxy.exe` file to any location, then open a
+terminal and type (eventually with the full path to `dnscrypt-proxy.exe`):
+
+    dnscrypt-proxy.exe --install
+
+It will install a new service named `dnscrypt-proxy`.
+
+After being stopped, the service can be removed with:
+
+    dnscrypt-proxy.exe --uninstall
 
 Using DNSCrypt in combination with a DNS cache
 ----------------------------------------------
@@ -162,9 +207,9 @@ an incoming query is received, the daemon immediately replies with a
 The daemon then authenticates the query and forwards it over TCP
 to the resolver.
 
-TCP is slower than UDP, and this workaround should never be used
-except when bypassing a filter is actually required. Moreover,
-multiple queries over a single TCP connections aren't supported yet.
+`--tcp-only` is slower than UDP because multiple queries over a single
+TCP connections aren't supported yet, and this workaround should
+never be used except when bypassing a filter is actually required.
 
 EDNS payload size
 -----------------
@@ -184,7 +229,7 @@ Unix-like operating systems.
 
 `dnscrypt-proxy` can transparently rewrite outgoing packets before
 authenticating them, in order to add the EDNS0 mechanism. By
-default, a conservative payload size of 1280 bytes is advertised.
+default, a conservative payload size of 1252 bytes is advertised.
 
 This size can be made larger by starting the proxy with the
 `--edns-payload-size=<bytes>` command-line switch. Values up to 4096
@@ -203,27 +248,3 @@ This tool can be useful for starting some services before
 `dnscrypt-proxy`.
 
 Queries made by `hostip` are not authenticated.
-
-GUIs for dnscrypt-proxy
------------------------
-
-If you need a simple graphical user interface in order to start/stop
-the proxy and change your DNS settings, check out the following
-projects:
-
-- [DNSCrypt OSX Client](https://github.com/opendns/dnscrypt-osx-client):
-a preferences pane, a menu bar indicator and a service to change the
-DNS settings. OSX only, written in Objective C. 64-bit CPU required.
-Experimental.
-
-- [DNSCrypt WinClient](https://github.com/Noxwizard/dnscrypt-winclient):
-Easily enable/disable DNSCrypt on multiple adapters. Supports
-different ports and protocols, IPv6, parental controls and the proxy
-can act as a gateway service. Windows only, written in .NET.
-
-- [DNSCrypt Win Client](https://github.com/opendns/dnscrypt-win-client):
-Official GUI for Windows, by OpenDNS.
-
-- dnscrypt-proxy is also available on Cydia, and it can be easily
-enabled using [GuizmoDNS](http://modmyi.com/cydia/com.guizmo.dns).
-

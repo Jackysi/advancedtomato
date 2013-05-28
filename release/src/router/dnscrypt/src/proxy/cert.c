@@ -1,8 +1,15 @@
 
 #include <config.h>
 #include <sys/types.h>
+#ifdef _WIN32
+# include <winsock2.h>
+#else
+# include <sys/socket.h>
+# include <arpa/inet.h>
+#endif
 
 #include <assert.h>
+#include <inttypes.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,11 +20,10 @@
 
 #include "cert.h"
 #include "cert_p.h"
-#include "crypto_sign_ed25519.h"
 #include "dnscrypt_proxy.h"
 #include "logger.h"
 #include "probes.h"
-#include "salsa20_random.h"
+#include "sodium.h"
 #include "utils.h"
 
 static int cert_updater_update(ProxyContext * const proxy_context);
@@ -52,8 +58,8 @@ cert_parse_bincert(ProxyContext * const proxy_context,
     uint32_t serial;
     memcpy(&serial, bincert->serial, sizeof serial);
     serial = htonl(serial);
-    logger(proxy_context, LOG_INFO, "Server certificate #%lu received",
-           (unsigned long) serial);
+    logger(proxy_context, LOG_INFO,
+           "Server certificate #%" PRIu32 " received", serial);
 
     uint32_t ts_begin;
     memcpy(&ts_begin, bincert->ts_begin, sizeof ts_begin);
@@ -84,14 +90,14 @@ cert_parse_bincert(ProxyContext * const proxy_context,
     memcpy(&previous_serial, previous_bincert->serial, sizeof previous_serial);
     previous_serial = htonl(previous_serial);
     if (previous_serial > serial) {
-        logger(proxy_context, LOG_INFO,
-               "Certificate #%lu has been superseded by certificate #%lu",
-               (unsigned long) previous_serial, (unsigned long) serial);
+        logger(proxy_context, LOG_INFO, "Certificate #%" PRIu32 " "
+               "has been superseded by certificate #%" PRIu32,
+               previous_serial, serial);
         return -1;
     }
     logger(proxy_context, LOG_INFO,
-           "This certificates supersedes certificate #%lu",
-           (unsigned long) previous_serial);
+           "This certificate supersedes certificate #%" PRIu32,
+           previous_serial);
 
     return 0;
 }
@@ -212,7 +218,7 @@ cert_reschedule_query_after_success(ProxyContext * const proxy_context)
     }
     cert_reschedule_query(proxy_context, (time_t)
                           CERT_QUERY_RETRY_DELAY_AFTER_SUCCESS_MIN_DELAY
-                          + (time_t) salsa20_random_uniform
+                          + (time_t) randombytes_uniform
                           (CERT_QUERY_RETRY_DELAY_AFTER_SUCCESS_JITTER));
 }
 
@@ -237,7 +243,7 @@ cert_query_cb(int result, char type, int count, int ttl,
         DNSCRYPT_PROXY_CERTS_UPDATE_ERROR_COMMUNICATION();
         return;
     }
-    assert(count == 0 || count == 1);
+    assert(count >= 0);
     while (i < count) {
         cert_open_bincert(proxy_context,
                           (const SignedBincert *) txt_records[i].txt,
@@ -312,9 +318,7 @@ cert_updater_update(ProxyContext * const proxy_context)
                                            DNS_QUERY_NO_SEARCH) != 0) {
         return -1;
     }
-    if (proxy_context->tcp_only != 0 &&
-        strcmp(proxy_context->resolver_port,
-               DNS_DEFAULT_STANDARD_DNS_PORT) != 0) {
+    if (proxy_context->tcp_only != 0) {
         (void) evdns_base_nameserver_ip_add(cert_updater->evdns_base,
                                             proxy_context->resolver_ip);
     }
@@ -332,7 +336,7 @@ int
 cert_updater_start(ProxyContext * const proxy_context)
 {
     evdns_set_random_init_fn(NULL);
-    evdns_set_random_bytes_fn(salsa20_random_buf);
+    evdns_set_random_bytes_fn(randombytes_buf);
     cert_updater_update(proxy_context);
 
     return 0;

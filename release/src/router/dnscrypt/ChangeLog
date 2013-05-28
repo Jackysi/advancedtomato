@@ -1,3 +1,2007 @@
+Date:   2013-04-22
+
+    Sync sodium
+
+Date:   2013-04-22
+
+    Sodium update
+
+Date:   2013-04-19
+
+    Sync libsodium. Now with curve25519_donna_c64
+
+Date:   2013-04-19
+
+    sodium_shutdown() is gone
+
+Date:   2013-04-19
+
+    Add missing #include <stdint.h> for SIZE_MAX
+
+Date:   2013-04-18
+
+    sodium_init() doesn't accept options any more.
+
+Date:   2013-04-18
+
+    Sync libsodium
+
+Date:   2013-04-18
+
+    Remove a useless function call
+
+Date:   2013-04-18
+
+    Call sodium_init() / sodium_shutdown()
+
+Date:   2013-04-18
+
+    Just use randombytes_salsa20_implementation
+
+Date:   2013-04-18
+
+    Pass the entire ac_config_args content to other autoconf scripts
+
+Date:   2013-04-17
+
+    Use Android toolchain 4.6
+
+Date:   2013-04-17
+
+    Save a line
+
+Date:   2013-04-17
+
+    Add a new --loglevel option to change the log verbosity.
+
+Date:   2013-04-17
+
+    Update libsodium
+
+Date:   2013-04-17
+
+    Redefine log levels for Win32
+
+Date:   2013-04-12
+
+    github.com -> github.io
+
+Date:   2013-04-02
+
+    Sync libsodium
+
+Date:   2013-04-02
+
+    Pass a few extra autoconf options form the main autoconf script to libsodium's
+
+Date:   2013-03-31
+
+    Typo
+
+Date:   2013-03-25
+
+    Update ChangeLog
+
+Date:   2013-03-25
+
+    Yay for better performance
+
+Date:   2013-03-25
+
+    Sync libsodium, with the ref10 implementation of ed25519
+
+Date:   2013-03-18
+
+    sync libsodium
+
+Date:   2013-03-18
+
+    Farewell, dnscrypt_memzero(). Sodium provides sodium_memzero() to do that.
+
+Date:   2013-03-17
+
+    Add libsodium as a submodule
+
+Date:   2013-03-17
+
+    Remove libsodium copy
+
+Date:   2013-03-17
+
+    Sync libsodium
+
+Date:   2013-03-17
+
+    Add test-script.sh
+
+Date:   2013-03-17
+
+    Resurrect example-ldns-opendns-set-client-ip, it's very useful for support
+
+Date:   2013-03-11
+
+    Remove -fcatch-undefined-c99-behavior, will be replaced by -fsanitize=integer
+
+Date:   2013-03-08
+
+    Define HAVE_* and CROSS_COMPILING to 1 instead of just defining them.
+
+Date:   2013-03-01
+
+    Fix include path to libsodium
+
+Date:   2013-03-01
+
+    Bump fpm package version
+
+Date:   2013-02-19
+
+    libevent update to b618204216235d5998080c659c8ad53185fdf206
+
+Date:   2013-02-08
+
+    Back to a stable Xcode version
+
+Date:   2013-02-08
+
+    Update Android NDK to r8d
+
+Date:   2013-02-08
+
+    Update NEWS
+
+Date:   2013-02-08
+
+    Update .gitignore
+
+Date:   2013-02-08
+
+    Update ChangeLog
+
+Date:   2013-02-08
+
+    Rename libevent to libevent-modified to avoid confusion.
+    Our version of libevent ships with some changes required for dnscrypt-proxy to
+    work. These will eventually be submitted upstream after libevent 2.1 gets
+    released.
+
+Date:   2013-02-04
+
+    libsodium already provides crypto_box_MACBYTES
+
+Date:   2013-02-04
+
+    Next will be 1.3.0.
+
+Date:   2013-02-04
+
+    Switch to libsodium.
+
+Date:   2013-02-04
+
+    Paranoia
+
+Date:   2013-01-28
+
+    Update ChangeLog
+
+Date:   2013-01-28
+
+    autoconf 2.68 broke $(top_srcdir) for tests
+
+Date:   2013-01-28
+
+    AM_CONFIG_HEADER -> AC_CONFIG_HEADER
+
+Date:   2013-01-28
+
+    Update ChangeLog
+
+Date:   2013-01-28
+
+    Update iphone.sh
+
+Date:   2013-01-28
+
+    libevent c322c2077e2d16f64ed3a90f74ad714842600624
+
+Date:   2013-01-21
+
+    Add -Wsometimes-uninitialized
+
+Date:   2013-01-21
+
+    Check for HAVE_SECUREZEROMEMORY at compile-time.
+
+Date:   2013-01-21
+
+    Use SecureZeroMemory() on Windows
+
+Date:   2013-01-20
+
+    Update ChangeLog
+
+Date:   2013-01-20
+
+    Update URL. Github downloads are no more.
+
+Date:   2013-01-19
+
+    Remove cpp wrappers
+
+Date:   2013-01-19
+
+    Drop PROTOTYPES.cpp
+
+Date:   2013-01-06
+
+    Fix markdown link
+
+Date:   2013-01-06
+
+    Add a link to the home page
+
+Date:   2013-01-06
+
+    Mention dnscrypt-wrapper
+
+Date:   2013-01-06
+
+    Next version will be 1.2.1, I suppose.
+
+Date:   2013-01-06
+
+    Use size_t for TXT total size, remove extra parenthesis.
+
+Merge: 0b31df8 3dc4690
+Date:   2013-01-06
+
+    Support merging txt strings into one.
+    Some dns managers split long binary data into more than one strings
+    (e.g. linode.com)
+    Merge remote-tracking branch 'cofyc/merge_txts'
+    By Yecheng Fu
+
+Date:   2013-01-06
+
+    Update OSX client link.
+
+Date:   2013-01-02
+
+    levent: configure.in files have been deprecated for a while. Rename.
+
+Date:   2013-01-02
+
+    A global COPYING file is enough
+
+Date:   2013-01-01
+
+    2013
+
+Date:   2012-12-22
+
+    levent: Avoid double-close on getsockname error in evutil_ersatz_socketpair
+    Avoid leaking fds on evconnlistener with no callback set
+
+Date:   2012-12-07
+
+    levent - Fix compilation with WIN32_HAVE_CONDITION_VARIABLES enabled.
+
+Date:   2012-11-22
+
+    improve: support merging txt strings into one
+    some dns manager split long binary data into more than one strings (e.g. linode.com)
+
+Date:   2012-11-19
+
+    Update libevent to 2.0.21-stable-dev.
+
+Date:   2012-11-15
+
+    Sync libevent2 - fix OpenSSL renegotiation test with old OpenSSL version.
+
+Merge: c128bd9 ce9b890
+Date:   2012-11-13
+
+    Merge remote-tracking branch 'origin/master'
+    
+    * origin/master:
+      Added profile/repo_name so the packages/gentoo folder can be used as a portage overlay
+      Updated Gentoo ebuild for v1.2.0
+
+Merge: 20e9dd1 57e0296
+Date:   2012-11-13
+
+    Merge pull request #38 from Strayer/gentoo_ebuild_v1.2.0
+    
+    Bumped Gentoo ebuild to v1.2.0
+
+Date:   2012-11-13
+
+    Added profile/repo_name so the packages/gentoo folder can be used as a portage overlay
+
+Date:   2012-11-13
+
+    Updated Gentoo ebuild for v1.2.0
+    
+    - updated conf and init script according to parameter changes in v1.1.0
+
+Date:   2012-11-03
+
+    Add a build script for 32-bit versions of OSX binaries.
+
+Date:   2012-11-03
+
+    levent updates, so that 64-bit versions for Windows can be built.
+
+Merge: 23eaeeb 9f7c132
+Date:   2012-10-28
+
+    Merge remote-tracking branch 'marguerite/master'
+    
+    * marguerite/master:
+      fix a hang-on-boot bug in systemd. update opensuse license
+
+Date:   2012-10-28
+
+    libevent2 updates.
+
+Date:   2012-10-24
+
+    fix a hang-on-boot bug in systemd. update opensuse license
+
+Date:   2012-10-21
+
+    Add Marguerite Su to the THANKS file.
+
+Date:   2012-10-21
+
+    Take the systemd service definition off the root directory.
+
+Date:   2012-10-21
+
+    Minor tweaks to the OpenSuSE description.
+
+Merge: f0b3120 857f0cc
+Date:   2012-10-21
+
+    Merge pull request #36 from marguerite/master
+    
+    add opensuse package, and systemd service for dnscrypt
+
+Date:   2012-10-22
+
+    add opensuse pacages, systemd servce
+
+Date:   2012-10-19
+
+    The OSX GUI is mainly a collection of shell scripts, nowadays.
+
+Date:   2012-10-17
+
+    Insame => insane
+
+Date:   2012-10-13
+
+    Remove OpenBSD port, since it is now in the official ports tree.
+
+Date:   2012-10-12
+
+    Change the blurb to something closer to the awesome summary by sthen@
+
+Date:   2012-10-11
+
+    Update the Homebrew formula to 1.2.0
+
+Date:   2012-10-11
+
+    Update the OpenBSD package to 1.2.0
+
+Date:   2012-10-11
+
+    Mention that DCP_SYNC_FILTER_RESULT_DIRECT is only for a pre-filter.
+
+Date:   2012-10-11
+
+    Update ChangeLog
+
+Date:   2012-10-10
+
+    Set the RA flag in direct responses.
+
+Date:   2012-10-10
+
+    Set the QR bit when sending an empty AAAA reply.
+
+Date:   2012-10-10
+
+    Log short UDP replies
+
+Date:   2012-10-10
+
+    Group Windows changes together.
+
+Date:   2012-10-10
+
+    Whitespace.
+
+Date:   2012-10-10
+
+    Update link
+
+Date:   2012-10-10
+
+    1.2.0
+
+Date:   2012-10-10
+
+    Document that gcc 3.4.6 with a Mips target produces broken code with -Os
+
+Date:   2012-10-10
+
+    Add missing return statement in the ldns-blocking example.
+
+Date:   2012-10-10
+
+    Update NEWS/ChangeLog
+
+Date:   2012-10-10
+
+    The plugin API has changed, 1.1.1 sounds weird, so let's go 1.2.0.
+
+Date:   2012-10-10
+
+    Add a new plugin to return an empty response to AAAA queries.
+
+Date:   2012-10-09
+
+    Update ChangeLog
+
+Date:   2012-10-09
+
+    Document the new DIRECT return code for pre-filters.
+
+Date:   2012-10-09
+
+    Well, not all plugins have been removed.
+
+Date:   2012-10-09
+
+    Document the direct mode.
+
+Date:   2012-10-09
+
+    Implement direct mode for TCP.
+
+Date:   2012-10-09
+
+    Start sending direct replies.
+
+Date:   2012-10-09
+
+    Prepare proxy code for DCP_SYNC_FILTER_RESULT_DIRECT
+
+Date:   2012-10-09
+
+    Bump API version minor.
+
+Date:   2012-10-09
+
+    Prepare for DCP_SYNC_FILTER_RESULT_DIRECT.
+
+Date:   2012-10-09
+
+    Indent
+
+Date:   2012-10-09
+
+    Include Windows quirks in NaCl test, too.
+
+Date:   2012-10-09
+
+    Spaces, blah.
+
+Merge: de7bb89 854e2c9
+Date:   2012-10-09
+
+    Merge branch 'master' of https://github.com/jedisct1/dnscrypt-proxy
+    
+    * 'master' of https://github.com/jedisct1/dnscrypt-proxy:
+      Detect things like C:/x/y and C:\x\y as absolute paths to Windows plugins.
+
+Date:   2012-10-09
+
+    Resurect the deviceid plugin, as OpenDNS folks really need it.
+
+Date:   2012-10-09
+
+    Detect things like C:/x/y and C:\x\y as absolute paths to Windows plugins.
+
+Date:   2012-10-09
+
+    Revert "ldns requires socklen_t but Win32 doesn't have it."
+    This has been fixed in ldns 1.6.14.
+
+Date:   2012-10-08
+
+    Update URL
+
+Date:   2012-10-08
+
+    Missing "the".
+
+Date:   2012-10-08
+
+    Check ldns_resolver_new_frm_file() return code.
+
+Date:   2012-10-08
+
+    If a new release ever sees the light, it will be 1.1.1.
+
+Date:   2012-10-08
+
+    Update ChangeLog
+
+Date:   2012-10-08
+
+    Update NEWS
+
+Date:   2012-10-08
+
+    Update URL.
+
+Date:   2012-10-08
+
+    Off-topic, but document how to compile ldns on Windows.
+
+Date:   2012-10-08
+
+    ldns requires socklen_t but Win32 doesn't have it.
+    So, define it on Win32.
+
+Date:   2012-10-06
+
+    Remove OpenDNS-related plugins.
+
+Date:   2012-10-06
+
+    Remove some sample plugins.
+
+Date:   2012-10-05
+
+    Remove UDP_REQUEST_NO_RETRIES. Always support retries.
+
+Date:   2012-10-03
+
+    Enforce a 2 second timeout.
+
+Date:   2012-10-03
+
+    forward-after-nxdomain: allow 1 extra byte for the response if needed.
+
+Date:   2012-10-03
+
+    Initial forward-after-nxdomain plugin implementation.
+
+Date:   2012-10-02
+
+    Update ChangeLog
+
+Date:   2012-09-29
+
+    Thanks, RotBlitz
+
+Date:   2012-09-29
+
+    People are still running dnscrypt on old CPUs. Compile for Pentium 2 on Windows.
+
+Date:   2012-09-29
+
+    Trim down optimization flags for Windows
+
+Date:   2012-09-26
+
+    ChangeLog updates
+
+Date:   2012-09-25
+
+    Stick to PACKAGE_STRING for the version, it's easier to parse.
+
+Date:   2012-09-25
+
+    Remove the FreeBSD package.
+
+Date:   2012-09-25
+
+    Unfuck pkgsrc packages on Dragonfly BSD.
+
+Date:   2012-09-25
+
+    Update the NetBSD / Dragonfly BSD port. Plugin-less for now.
+
+Date:   2012-09-25
+
+    Factorize dependencies
+
+Date:   2012-09-25
+
+    PERMIT_PACKAGES => Yes
+
+Date:   2012-09-25
+
+    Major update to the OpenBSD package. Build plugins as a subpackage.
+
+Date:   2012-09-25
+
+    Improve the Homebrew formula after adamv@ review
+
+Date:   2012-09-25
+
+    Enable plugins in the Linux packages
+
+Date:   2012-09-25
+
+    Update fpm port
+
+Date:   2012-09-25
+
+    Switch from tar-pax to tar-ustar because OpenBSD's tar(1) is confused with
+    POSIX archives.
+
+Date:   2012-09-25
+
+    Update the OpenBSD port to 1.1.0
+
+Date:   2012-09-25
+
+    Lion -> Mountain Lion
+
+Date:   2012-09-24
+
+    Allow reading an OpenDNS device id from an environment variable named
+    OPENDNS_DEVICE_ID as an alternative to giving it as an argument to the
+    opendns_deviceid plugin. This information shouldn't be visible in the
+    process name.
+
+Date:   2012-09-24
+
+    Update the Homebrew package.
+
+Date:   2012-09-24
+
+    Use tar-pax because some plugins files names are > 99 chars long.
+
+Date:   2012-09-24
+
+    Don't use brackets in doxygen doc except for headers.
+
+Date:   2012-09-24
+
+    ChangeLog
+
+Date:   2012-09-24
+
+    Enable support for plugins in Windows builds.
+
+Date:   2012-09-24
+
+    Require plugins to mention DCPLUGIN_MAIN(__FILE__);
+
+Date:   2012-09-24
+
+    Update the ChangeLog, again.
+
+Date:   2012-09-24
+
+    Android and iPhone build scripts have been moved.
+
+Date:   2012-09-24
+
+    Update ChangeLog
+
+Date:   2012-09-24
+
+    Mention the example plugins.
+
+Date:   2012-09-24
+
+    Can you seriously expect Windows to implement putc_unlocked()? LOL.
+
+Date:   2012-09-24
+
+    Ensure that assertions are always turned on.
+
+Date:   2012-09-24
+
+    Add missing return statement.
+
+Date:   2012-09-24
+
+    Update the ChangeLog
+
+Date:   2012-09-24
+
+    Spaces vs tabs. Fu fu fu fu fuuuuuuuu
+
+Date:   2012-09-24
+
+    libevent: arc4random_buf() doesn't return a value. Fix ev_arc4random_buf().
+
+Date:   2012-09-23
+
+    logging plugin: display a dot for a query for dot (duh!).
+
+Date:   2012-09-23
+
+    Zap the final dot in a name before doing pattern matching on it.
+
+Date:   2012-09-23
+
+    Don't use ldns wildcard matching, match * everywhere instead.
+    People want to filter things like *xxx*, so let them do that.
+
+Date:   2012-09-23
+
+    Init the locale.
+
+Date:   2012-09-22
+
+    example-logging: bump the minimal required length up.
+
+Date:   2012-09-22
+
+    Update the ChangeLog
+
+Date:   2012-09-22
+
+    Add a new plugin that logs queries.
+
+Date:   2012-09-22
+
+    Add WARNING for plugins.
+
+Date:   2012-09-22
+
+    Don't include the full path to a plugin in examples.
+
+Date:   2012-09-22
+
+    Use strcasecmp() in order to caselessly compare IPv6 addresses.
+
+Date:   2012-09-22
+
+    Rewrite the ldns-blocking plugin, so that it can block any name and IP address.
+    This plugin can be very useful in order to block ads and buggy replies.
+
+Date:   2012-09-19
+
+    Move build scripts to a dist-build directory, add one for osx.
+
+Date:   2012-09-19
+
+    Update ChangeLog
+
+Date:   2012-09-19
+
+    Plugins can now be loaded from a default directory ($pkglibdir).
+    In addition, a new configure flag, --enable-plugins-root, disallows loading
+    plugins outside this directory.
+
+Date:   2012-09-18
+
+    README-WINDOWS: ...\dnscrypt-proxy\Parameters is confusing, as "parameters"
+    can be understood as a variable. So, add an example.
+    Explain how plugins should be specified by the way.
+
+Date:   2012-09-18
+
+    Indentatino :)
+
+Date:   2012-09-16
+
+    A new configure flag, --disable-pie, can disable position-independent executables.
+    A bad idea, but required by some OS.
+
+Date:   2012-09-13
+
+    Merge 1.1.0 changelog, since there will probably be no more RC.
+
+Date:   2012-09-13
+
+    Import example-ldns-blocking.c
+
+Date:   2012-09-13
+
+    Update ChangeLog
+
+Date:   2012-09-13
+
+    -fdata-sections -ffunction-sections doesn't seem very useful on Windows
+
+Date:   2012-09-13
+
+    Having new lines in flags is a bad idea.
+
+Date:   2012-09-13
+
+    Import a script to build the proxy on Win32
+
+Date:   2012-09-13
+
+    Silent MingW.
+
+Date:   2012-09-13
+
+    Update ChangeLog
+
+Date:   2012-09-13
+
+    Introduce --enable-relaxed-plugins-permissions
+
+Date:   2012-09-13
+
+    If the proxy is run as root, refuse to load a plugin not owned by root.
+    Yes, it's still totally racy, and not super useful, but better than nothing.
+
+Date:   2012-09-13
+
+    Xcode 4.5-GM is just called Xcode
+
+Date:   2012-09-13
+
+    Update ChangeLog
+
+Date:   2012-09-13
+
+    Use Xcode 4.5
+
+Date:   2012-09-13
+
+    Pick up the new name for the blocking plugin
+
+Date:   2012-09-13
+
+    Rename example-ldns example-ldns-blocking
+
+Date:   2012-09-13
+
+    1.1.0-RC1 also fixed lookups of multiple TXT records, and thus
+    handling of multiple certificates.
+
+Date:   2012-09-13
+
+    Finally, the plugin API has been kinda documented.
+
+Date:   2012-09-13
+
+    Add a link to the API documentation.
+
+Date:   2012-09-13
+
+    Quote
+
+Date:   2012-09-13
+
+    More doc on plugins
+
+Date:   2012-09-13
+
+    Return REFUSED instead of NXDOMAIN when we get a blacklisted IP in a record of a
+    response. It makes more sense, and OpenDNS can return the same IP for different
+    reasons, not only NXDOMAIN.
+
+Date:   2012-09-12
+
+    Start documenting plugins
+
+Date:   2012-09-12
+
+    Untab README-WINDOWS
+
+Date:   2012-09-12
+
+    Update NEWS
+
+Date:   2012-09-12
+
+    Update ChangeLog
+
+Merge: f568bce beac641
+Date:   2012-09-12
+
+    Merge branch 'master' of https://github.com/jedisct1/dnscrypt-proxy
+    
+    * 'master' of https://github.com/jedisct1/dnscrypt-proxy:
+      In sendto_with_retry(), free()ing the timer beforehand is a good idea but turning that in a different use-after-free is not.
+      Initialize dcps at the right place. I'm just totally unable to write a single line of code when I am at the office.
+      The sendto_retry timer should be free()d before the callback, or else we end up with a big bad use after free and an even bigger and badder double free.
+      Initialize dcps before using it, duh. It used to make virtually any plugin crash before it even had a chance to load on Linux, and on platforms it used to work on, it worked by accident. Reported by @transitorykris, confirmed by Valgrind.
+
+Date:   2012-09-12
+
+    Update ChangeLog
+
+Date:   2012-09-12
+
+    Sync libevent, fix two memory leaks in evdns.
+
+Date:   2012-09-12
+
+    In sendto_with_retry(), free()ing the timer beforehand is a good idea
+    but turning that in a different use-after-free is not.
+
+Date:   2012-09-12
+
+    Initialize dcps at the right place. I'm just totally unable to write a
+    single line of code when I am at the office.
+
+Date:   2012-09-12
+
+    The sendto_retry timer should be free()d before the callback, or else we
+    end up with a big bad use after free and an even bigger and badder
+    double free.
+
+Date:   2012-09-12
+
+    Initialize dcps before using it, duh.
+    It used to make virtually any plugin crash before it even had a chance
+    to load on Linux, and on platforms it used to work on, it worked by
+    accident.
+    Reported by @transitorykris, confirmed by Valgrind.
+
+Date:   2012-09-11
+
+    The set-client-ip plugin also allows applying network settings when using IPv6
+
+Date:   2012-09-11
+
+    set-client-ip: randomize the fodder
+
+Date:   2012-09-11
+
+    More data set-client-ip needs.
+
+Date:   2012-09-11
+
+    The set-client-ip plugin needs more data in order to properly apply the
+    network settings.
+
+Date:   2012-09-10
+
+    Improve documentation for the set-client-ip plugin.
+
+Date:   2012-09-10
+
+    Update ChangeLog.
+
+Date:   2012-09-10
+
+    More descriptions
+
+Date:   2012-09-10
+
+    More descriptions
+
+Date:   2012-09-10
+
+    Document example-ldns-opendns-deviceid
+
+Date:   2012-09-10
+
+    Add a simple example plugin to change the client IP when talking to OpenDNS resolvers.
+
+Date:   2012-09-09
+
+    Thank you, Black Roland!
+
+Date:   2012-09-09
+
+    Move the GUIs section up
+
+Date:   2012-09-09
+
+    Reorder the Android build script so that TARGET_TOOLCHAIN_VERSION is defined
+    before it is used :)
+
+Date:   2012-09-09
+
+    Add Android
+
+Date:   2012-09-09
+
+    That was --resolver-port
+
+Date:   2012-09-09
+
+    Mention that --local-port and --remote-port are gone for good.
+
+Date:   2012-09-09
+
+    Don't lie about why TCP is slow.
+
+Date:   2012-09-06
+
+    Dash
+
+Date:   2012-09-06
+
+    Update ChangeLog. It's 1.1.0-rc1 for now.
+
+Date:   2012-09-06
+
+    Bump revision to 1.1.0rc1
+
+Date:   2012-09-06
+
+    Don't cast uint32_t values to print them. That's retarded.
+
+Date:   2012-09-06
+
+    Grammar
+
+Date:   2012-09-06
+
+    Update ChangeLog/NEWS.
+
+Date:   2012-09-06
+
+    Rename the .plist file.
+
+Date:   2012-09-06
+
+    Use plugin_long_description() in the null plugin, too.
+
+Date:   2012-09-06
+
+    Add dcplugin_long_description()
+
+Date:   2012-09-06
+
+    Add basic probes for filters.
+
+Date:   2012-09-06
+
+    Retabify, try to match the initial code style.
+
+Date:   2012-09-06
+
+    Update ChangeLog
+
+Date:   2012-09-06
+
+    Check the RR length before any parsing, even if it's redundant.
+
+Date:   2012-09-05
+
+    evdns: store more than 1 TXT record.
+
+Date:   2012-09-05
+
+    Don't assume that only one TXT record will be received.
+
+Date:   2012-09-04
+
+    Add libltdl to SUBDIRS, if plugins are enabled.
+
+Date:   2012-09-03
+
+    80 cols
+
+Date:   2012-09-03
+
+    Windows nits
+
+Date:   2012-09-03
+
+    Add Plugins to the list of Windows registry keys, before I forget.
+
+Date:   2012-09-03
+
+    Parse the "Plugins" key if there is one in the Windows registry.
+
+Date:   2012-09-03
+
+    Windows: implement windows_service_registry_read_multi_sz()
+
+Date:   2012-09-03
+
+    Return NXDOMAIN for an IP that actually needs it.
+
+Date:   2012-09-03
+
+    Display the actual error when a plugin can't be loaded.
+
+Date:   2012-09-03
+
+    Remove example-ldns-opendns-bypass
+
+Date:   2012-09-03
+
+    Display the plugin description if we have one.
+
+Date:   2012-09-03
+
+    Check that a plugin either belongs to root, or would be writeable by whoever
+    runs the current process (or at least, by whoever can write to the fs).
+    It's not very useful, it's racy, but it's better than nothing.
+
+Date:   2012-09-03
+
+    Wipe the client nonce after uncurving a reply.
+    Useful for debugging.
+
+Date:   2012-09-03
+
+    Add tcp post-filters.
+
+Date:   2012-09-02
+
+    No more dns_packet_len, stay consistent between udp_ & tcp_request.c
+
+Date:   2012-09-02
+
+    Regen man pages.
+
+Date:   2012-09-02
+
+    Add prefilters for TCP.
+
+Date:   2012-09-02
+
+    Don't use max_packet_size. When using TCP, the packet size is not the data
+    size, so, use the 'packet' terminology to actually mean a packet size, and
+    something different to mean a DNS packet.
+    No change to the compiled code, but it will help to make things more
+    consistent between udp_request.c and tcp_request.c.
+
+Date:   2012-09-02
+
+    Don't use dns_packet*, use dns_(query|reply)* in udp_request.c just like in
+    tcp_request.c
+
+Date:   2012-09-02
+
+    The default resolver is 208.67.220.220, not .222.222
+
+Date:   2012-09-02
+
+    The OSX GUI probably works on 32-bit systems now, and the OpenDNS GUI for
+    Windows is apparently labeled "OpenDNSCrypt".
+
+Date:   2012-09-02
+
+    Upcase
+
+Date:   2012-08-29
+
+    Add an optional function for describing a plugin.
+
+Date:   2012-08-29
+
+    Rename sample plugins
+
+Date:   2012-08-27
+
+    Rename example-ldns-2 to example-ldns-opendns-deviceid and add the ability
+    to provide a device id on the command line.
+
+Date:   2012-08-27
+
+    Add two new OpenDNS-specific example plugins
+
+Date:   2012-08-26
+
+    Regen dnscrypt-proxy man page.
+
+Date:   2012-08-26
+
+    Update ChangeLog
+
+Date:   2012-08-24
+
+    Shrink the default max payload size to 1252 bytes.
+
+Date:   2012-08-24
+
+    Update libevent to 2.0.20
+
+Date:   2012-08-20
+
+    Include the port number in default IPs.
+    Restore support for specifying IP addresses without ports.
+
+Date:   2012-08-21
+
+    Update email.
+
+Date:   2012-08-17
+
+    Don't use backtrace on Bitrig
+
+Date:   2012-08-16
+
+    -P and -t are gone for good.
+
+Date:   2012-08-07
+
+    Typo
+
+Date:   2012-08-06
+
+    DP4
+
+Merge: 1128c06 357d1be
+Date:   2012-08-03
+
+    Merge branch '1.0.x'
+    
+    * 1.0.x:
+      livevent: Add explicit AC_PROG_SED to configure.in so all autoconfs will expose $(SED) + avoid unused variable declaration.
+      When running the proxy as a Windows service, options have to be specified using the registry.
+      Bump dnscrypt-proxy homebrew formula
+
+Date:   2012-08-03
+
+    livevent: Add explicit AC_PROG_SED to configure.in so all autoconfs will expose $(SED)
+    + avoid unused variable declaration.
+
+Date:   2012-08-01
+
+    When running the proxy as a Windows service, options have to be specified
+    using the registry.
+
+Date:   2012-07-31
+
+    Actually install LTDL
+
+Date:   2012-07-31
+
+    Bump dnscrypt-proxy homebrew formula
+
+Merge: 0016faf 18e9180
+Date:   2012-07-31
+
+    Merge branch '1.0.x'
+    
+    * 1.0.x:
+      Export droid-gcc variables
+      fpm -> 1.0.1
+      Update ChangeLog
+      If an evdns_getaddrinfo timeout happens while pending_cb is set, and a callback is about to run, but we get a call to evdns_getaddrinfo_gotresolve before it finishes. libevent dc3207767d4f06b31
+
+Date:   2012-07-31
+
+    Export droid-gcc variables
+
+Date:   2012-07-31
+
+    fpm -> 1.0.1
+
+Date:   2012-07-31
+
+    Update ChangeLog
+
+Date:   2012-07-31
+
+    If an evdns_getaddrinfo timeout happens while pending_cb is set, and a
+    callback is about to run, but we get a call to evdns_getaddrinfo_gotresolve
+    before it finishes.
+    libevent dc3207767d4f06b31
+
+Date:   2012-07-31
+
+    If an evdns_getaddrinfo timeout happens while pending_cb is set, and a
+    callback is about to run, but we get a call to evdns_getaddrinfo_gotresolve
+    before it finishes.
+    libevent dc3207767d4f06b31
+
+Date:   2012-07-30
+
+    Always install ltdl
+
+Date:   2012-07-30
+
+    Merge 1.1 to master.
+
+Merge: 0d07695 24e697c
+Date:   2012-07-30
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      Cut the crap. DNS using TCP can actually be faster than UDP. Provided that the resolver supports pipelining.
+      Bump NDK to r8b
+
+Date:   2012-07-29
+
+    Cut the crap. DNS using TCP can actually be faster than UDP.
+    Provided that the resolver supports pipelining.
+
+Date:   2012-07-29
+
+    Bump NDK to r8b
+
+Merge: c260e87 b12196d
+Date:   2012-07-29
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      Regen man pages
+      Mention that in hostip, --resolver-address can include a port number.
+      sort
+      The --resolver-ip command-line switch is gone. Pointed out by awfulhak@
+
+Date:   2012-07-29
+
+    Regen man pages
+
+Date:   2012-07-29
+
+    Mention that in hostip, --resolver-address can include a port number.
+
+Date:   2012-07-29
+
+    sort
+
+Date:   2012-07-29
+
+    The --resolver-ip command-line switch is gone. Pointed out by awfulhak@
+
+Merge: 51a5d57 2ac78d9
+Date:   2012-07-26
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      Bring libevent patches up to a0912e32068621eb776d678224e4108511d281e3
+
+Date:   2012-07-26
+
+    Bring libevent patches up to a0912e32068621eb776d678224e4108511d281e3
+    
+        Check more setsockopt return values when binding sockets. Found by coverity
+    
+        memset sockaddr_in before using it. Found by coverity.
+    
+        Move assignment outside tt_assert in ssl unit tests. Appeases coverity.
+    
+        Add checks to various return values in unit tests. Found by coverity
+    
+        Avoid possible needless call to writev. Found by coverity.
+    
+        Remove unused variable; spotted by coverity
+    
+        Avoid more crashes/bad calls in unit tests; found by coverity
+    
+        Add some missing null checks to unit tests; found by coverity
+    
+        Fix resource leaks in the unit tests; found by coverity
+    
+        Fix various check-after-dereference issues in unit tests: found by coverity
+    
+        Set umask before calling mkstemp in unit tests. Found by coverity
+    
+        Fix possible uninitialized read in dns regression tests. Found by coverity.
+    
+        Remove deadcode in http regression tests. Found by coverity.
+
+Merge: 5e7e8a5 82cd026
+Date:   2012-07-26
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      Update ChangeLog
+      Gentoo ebuild for dnscrypt-proxy 1.0.
+      Grammar
+      use --enable-nonblocking-random as suggested by Frank DENIS.
+      dnscrypt-proxy 0.9.4.
+
+Date:   2012-07-26
+
+    Update ChangeLog
+
+Date:   2012-07-26
+
+    Gentoo ebuild for dnscrypt-proxy 1.0.
+
+Merge: f3f8357 86d764e
+Date:   2012-07-26
+
+    Merge remote-tracking branch 'upstream/master' into lebel
+
+Date:   2012-07-26
+
+    Grammar
+
+Merge: 682ea2d fe1cc6a
+Date:   2012-07-26
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      More links and docs.
+      / => \
+      Add a README file for Windows.
+      Actually start the service.
+      Don't parse the command-line if the service is run as a... service.
+      Remove Logfile from the registry.
+      Support settings pretty much everything through the registry
+      Reorder variables
+      xor what we get from the system PRG with a HMAC of it. If the system PRG is truly random, it's a no-op. If a way to recover a state given a few CryptGenRandom() stream samples is found, leaked dnscrypt keys will still require breaking SHA2 in order take advantage of this.
+      Start reading the configuration from the registry
+      Don't bother registering the command-line, since we will use the registry.
+      Auto-start the service, and add what it takes to read the registry.
+      Read 952 bits (a full SHA256 block + a final one) from the system RNG
+      Add code for having a dynamic argv, so that we can use the registry to update it
+      Keep the command line switches
+      CreateService() dependencies should be an actual NULL string.
+      Document the new command-line switches for running the proxy as a service.
+      WINDOWS_SERVICE_NAME
+      Add --install, --reinstall and --uninstall switches to install as a service.
+
+Date:   2012-07-26
+
+    More links and docs.
+
+Date:   2012-07-26
+
+    / => \
+
+Date:   2012-07-26
+
+    Add a README file for Windows.
+
+Date:   2012-07-26
+
+    Actually start the service.
+
+Date:   2012-07-26
+
+    Don't parse the command-line if the service is run as a... service.
+
+Date:   2012-07-26
+
+    Remove Logfile from the registry.
+
+Date:   2012-07-26
+
+    Support settings pretty much everything through the registry
+
+Date:   2012-07-26
+
+    Reorder variables
+
+Date:   2012-07-25
+
+    xor what we get from the system PRG with a HMAC of it.
+    If the system PRG is truly random, it's a no-op.
+    If a way to recover a state given a few CryptGenRandom() stream samples is
+    found, leaked dnscrypt keys will still require breaking SHA2 in order take
+    advantage of this.
+
+Date:   2012-07-25
+
+    Start reading the configuration from the registry
+
+Date:   2012-07-25
+
+    Don't bother registering the command-line, since we will use the registry.
+
+Date:   2012-07-25
+
+    Auto-start the service, and add what it takes to read the registry.
+
+Date:   2012-07-25
+
+    Read 952 bits (a full SHA256 block + a final one) from the system RNG
+
+Date:   2012-07-25
+
+    Allow empty options.
+
+Date:   2012-07-25
+
+    Add code for having a dynamic argv, so that we can use the registry to update it
+
+Date:   2012-07-25
+
+    Keep the command line switches
+
+Date:   2012-07-24
+
+    CreateService() dependencies should be an actual NULL string.
+
+Date:   2012-07-24
+
+    Document the new command-line switches for running the proxy as a service.
+
+Date:   2012-07-24
+
+    WINDOWS_SERVICE_NAME
+
+Date:   2012-07-24
+
+    Add --install, --reinstall and --uninstall switches to install as a service.
+
+Merge: 1966e98 f3dd2c4
+Date:   2012-07-23
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      Head towards 1.0.1
+      gitignore libltdl
+      Update ChangeLog
+      Update NEWS
+      WINAPI
+      Make the service name overridable
+      Make dnscrypt-proxy work as a Windows service.
+      Add dnscrypt_proxy_loop_break()
+
+Date:   2012-07-23
+
+    Head towards 1.0.1
+
+Date:   2012-07-23
+
+    gitignore libltdl
+
+Date:   2012-07-23
+
+    Update ChangeLog
+
+Date:   2012-07-23
+
+    Update NEWS
+
+Date:   2012-07-23
+
+    WINAPI
+
+Date:   2012-07-23
+
+    Make the service name overridable
+
+Date:   2012-07-23
+
+    Make dnscrypt-proxy work as a Windows service.
+
+Date:   2012-07-23
+
+    Add dnscrypt_proxy_loop_break()
+
+Merge: b675340 4d62957
+Date:   2012-07-22
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      Add Solaris support.
+      Don't define _XPG4_2
+
+Date:   2012-07-22
+
+    Add Solaris support.
+
+Date:   2012-07-22
+
+    Don't define _XPG4_2
+
+Merge: ffa0fa2 d443b5d
+Date:   2012-07-21
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      Update NEWS / ChangeLog
+      Target Gingerbread.
+      Threads? We don't need threads any more.
+      Add a compilation script for Android
+      Bump to -j3 :)
+      Don't use dtrace when cross-compiling.
+      nacl: always include <stdlib.h> when rand*() is needed.
+      ensure that libnacl/do is always executable
+      Don't use a hardcoded "ranlib" command. It doesn't play well with cross-compilation.
+      arpa/inet.h is required for htonl() in cert.c
+
+Date:   2012-07-21
+
+    Update NEWS / ChangeLog
+
+Date:   2012-07-21
+
+    Target Gingerbread.
+
+Date:   2012-07-21
+
+    Threads? We don't need threads any more.
+
+Date:   2012-07-21
+
+    Add a compilation script for Android
+
+Date:   2012-07-21
+
+    Bump to -j3 :)
+
+Date:   2012-07-21
+
+    Don't use dtrace when cross-compiling.
+
+Date:   2012-07-21
+
+    nacl: always include <stdlib.h> when rand*() is needed.
+
+Date:   2012-07-21
+
+    ensure that libnacl/do is always executable
+
+Date:   2012-07-21
+
+    Don't use a hardcoded "ranlib" command. It doesn't play well with cross-compilation.
+
+Date:   2012-07-21
+
+    arpa/inet.h is required for htonl() in cert.c
+
+Merge: f1fa600 be57332
+Date:   2012-07-20
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      Update FreeBSD port
+      Update Dragonfly BSD / NetBSD pkg
+      Update Homebrew formula
+      Update OpenBSD package
+      Bump fpm package to 1.0
+      Version 1.0
+
+Date:   2012-07-20
+
+    Update FreeBSD port
+
+Date:   2012-07-20
+
+    Update Dragonfly BSD / NetBSD pkg
+
+Date:   2012-07-20
+
+    Update Homebrew formula
+
+Date:   2012-07-20
+
+    Update OpenBSD package
+
+Date:   2012-07-20
+
+    Bump fpm package to 1.0
+
+Date:   2012-07-20
+
+    Version 1.0
+
+Date:   2012-07-20
+
+    Add a second sample plugin
+
+Merge: 0a6a1d6 4747092
+Date:   2012-07-20
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      Update .gitignore to reflect the dnscrypt-proxy->proxy changes
+
+Date:   2012-07-20
+
+    Ignore Doxyfile for now
+
+Date:   2012-07-20
+
+    Update .gitignore to reflect the dnscrypt-proxy->proxy changes
+
+Date:   2012-07-20
+
+    Move plugin code in proxy/ as well.
+
+Merge: 124c97b 4a87920
+Date:   2012-07-20
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      Update autoconf again :)
+
+Date:   2012-07-20
+
+    Update autoconf again :)
+
+Merge: 486243a 165facb
+Date:   2012-07-20
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      Update autoconf
+
+Date:   2012-07-20
+
+    Update autoconf
+
+Date:   2012-07-20
+
+    Prepare another plugin
+
+Merge: b9d22cd 5761595
+Date:   2012-07-20
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      The "dnscrypt-proxy" dir just becomes "proxy" to reduce diff w/ dns-proxy.
+
+Date:   2012-07-20
+
+    The "dnscrypt-proxy" dir just becomes "proxy" to reduce diff w/ dns-proxy.
+
+Merge: d7be569 649fa34
+Date:   2012-07-20
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      Remove uv_alloc_buffer_size leftover from the libuv days.
+
+Date:   2012-07-20
+
+    Remove uv_alloc_buffer_size leftover from the libuv days.
+
+Date:   2012-07-20
+
+    Grammar
+
+Date:   2012-07-20
+
+    Add an example that uses ldns.
+
+Date:   2012-07-19
+
+    Make headers C++-friendly and add a macro for copying a raw packet.
+
+Date:   2012-07-19
+
+    KNF
+
+Date:   2012-07-19
+
+    Ignore unused arguments, in order to keep the example as small as possible.
+
+Date:   2012-07-19
+
+    Use dns_packet_len in TCP code, to reduce the diff with the UDP code.
+
+Date:   2012-07-19
+
+    Typoz
+
+Date:   2012-07-19
+
+    Doxygen the plugin API
+
+Date:   2012-07-19
+
+    UDP post filter
+
+Date:   2012-07-19
+
+    Export version.
+
+Date:   2012-07-19
+
+    Keep libtool up until the plugin context is released.
+
+Date:   2012-07-19
+
+    Add headers to get size_t defined.
+
+Date:   2012-07-19
+
+    Call the first pre-filter.
+
+Date:   2012-07-19
+
+    Looks like duplicate code, but if --tcp-only has been enabled, we don't
+    want to call pre-filters.
+
+Date:   2012-07-19
+
+    Prepare pre- and post- filters.
+
+Merge: 7337e74 cb06b13
+Date:   2012-07-18
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      Use CPPFLAGS, not AM_CFLAGS.
+
+Date:   2012-07-18
+
+    Use CPPFLAGS, not AM_CFLAGS.
+
+Date:   2012-07-18
+
+    dcps->argc should always be > 0 now.
+
+Date:   2012-07-18
+
+    Set argv[0] to the plugin path
+
+Date:   2012-07-18
+
+    Don't link ldns, that will only be for some specific plugins.
+
+Date:   2012-07-18
+
+    Disable static libraries for plugins
+
+Date:   2012-07-18
+
+    Log when parsing a --plugin switch fails.
+
+Date:   2012-07-18
+
+    Remove module version.
+
+Date:   2012-07-18
+
+    Fix plugin args
+
+Date:   2012-07-18
+
+    Fix dcplugin_init() prototype.
+
+Date:   2012-07-18
+
+    No need to check for LibLoaderApi.h and WinBase.h any more.
+
+Date:   2012-07-18
+
+    Check if libldns is available.
+
+Date:   2012-07-18
+
+    Add dcplugin_destroy()
+
+Date:   2012-07-18
+
+    Start actually calling plugins.
+
+Date:   2012-07-18
+
+    Start resolving symbols
+
+Date:   2012-07-18
+
+    Load dynamic libraries.
+
+Date:   2012-07-18
+
+    Link plugins with -module
+
+Date:   2012-07-18
+
+    Prepare for loading plugins.
+
+Date:   2012-07-18
+
+    plugin_name -> plugin_file
+
+Date:   2012-07-18
+
+    Store plugin-specific options.
+
+Date:   2012-07-18
+
+    Create and insert plugins.
+
+Date:   2012-07-18
+
+    Use DCPluginSupportContext to handle multiple DCPluginSupport objects.
+
+Date:   2012-07-18
+
+    More infrastructure for plugins.
+
+Date:   2012-07-18
+
+    Document PLUGIN_REVISION
+
+Date:   2012-07-18
+
+    Use CPPFLAGS, not AM_CFLAGS.
+
+Date:   2012-07-18
+
+    <dnscrypt/plugin.h> is what developers should include for writing plugins.
+
+Date:   2012-07-18
+
+    Install dnscrypt headers for plugin developers.
+
+Merge: b3e9707 9c1197d
+Date:   2012-07-17
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      tab
+
+Date:   2012-07-17
+
+    tab
+
+Merge: fb2a7f0 2799372
+Date:   2012-07-17
+
+    Merge branch 'master' into 1.1
+    
+    * master:
+      Add explicit dependencies.
+      Update autoconf script.
+
+Date:   2012-07-17
+
+    Prepare a simple plugin.
+
+Date:   2012-07-17
+
+    Only build and link ltdl if plugins are enabled.
+
+Date:   2012-07-17
+
+    Add explicit dependencies.
+
+Date:   2012-07-17
+
+    Add some explicit dependencies
+
+Date:   2012-07-17
+
+    Replace dl.[ch] with libltdl
+
+Date:   2012-07-17
+
+    Update autoconf script.
+
+Date:   2012-07-17
+
+    Add libltdl
+
+Date:   2012-07-17
+
+    Add a basic dynamic library loader.
+
+Date:   2012-07-17
+
+    Remove TRIM_PADDING_FROM_REPLIES. We always do.
+
+Date:   2012-07-17
+
+    Move to version 1.0
+
+Date:   2012-07-17
+
+    libevent: Fix a memory leak on error in evhttp_uriencode.
+    Not used in dnscrypt-proxy, but we should keep that up to date.
+
+Date:   2012-07-17
+
+    Update ChangeLog
+
 Date:   2012-07-17
 
     Reenable --enable-debug
@@ -432,6 +2436,11 @@ Date:   2012-06-21
 
     Update FreeBSD package.
 
+Merge: f04c9ed 7a99603
+Date:   2012-06-21
+
+    Merge remote branch 'upstream/master' into lebel
+
 Date:   2012-06-21
 
     Update Homebrew formula.
@@ -807,6 +2816,14 @@ Date:   2012-05-25
 Date:   2012-05-23
 
     Gentoo ebuiild for dnscrypt-proxy 0.9.4.
+
+Date:   2012-05-23
+
+    use --enable-nonblocking-random as suggested by Frank DENIS.
+
+Date:   2012-05-23
+
+    dnscrypt-proxy 0.9.4.
 
 Date:   2012-05-22
 

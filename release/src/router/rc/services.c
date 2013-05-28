@@ -149,7 +149,7 @@ void start_dnsmasq()
 
 #ifdef TCONFIG_DNSCRYPT
 	if (nvram_match("dnscrypt_proxy", "1")) {
-		fprintf(f, "server=127.0.0.1#40\n");
+		fprintf(f, "server=127.0.0.1#%s\n", nvram_safe_get("dnscrypt_port") );
 	}
 #endif
 
@@ -446,7 +446,10 @@ void start_dnsmasq()
 	//start dnscrypt-proxy
 	if (nvram_match("dnscrypt_proxy", "1")) {
 		eval("ntp2ip");
-		eval("dnscrypt-proxy", "-d", "-P", "40");
+
+		char dnscrypt_local[30];
+		sprintf(dnscrypt_local, "127.0.0.1:%s", nvram_safe_get("dnscrypt_port") );
+		eval("dnscrypt-proxy", "-d", "-a", dnscrypt_local, nvram_safe_get("dnscrypt_cmd") );
 	}
 #endif
 

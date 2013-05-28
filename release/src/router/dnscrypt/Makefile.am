@@ -4,13 +4,22 @@ AUTOMAKE_OPTIONS = gnu
 
 EXTRA_DIST = \
 	README.markdown \
+	README-PLUGINS.markdown \
+	README-WINDOWS.markdown \
 	TECHNOTES \
 	THANKS \
 	autogen.sh \
-	com.opendns.osx.DNSCryptProxy.plist \
-	iphone.sh
+	org.dnscrypt.osx.DNSCryptProxy.plist
 
 SUBDIRS = \
-	man \
+	dist-build \
+	man
+
+if PLUGINS
+SUBDIRS += \
+	libltdl
+endif
+
+SUBDIRS += \
 	src \
 	test

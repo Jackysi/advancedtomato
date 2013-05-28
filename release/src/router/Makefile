@@ -1895,7 +1895,12 @@ apcupsd-install: apcupsd
 	$(STRIP) $(INSTALLDIR)/apcupsd/sbin/*
 	$(STRIP) $(INSTALLDIR)/apcupsd/www/apcupsd/*
 
-dnscrypt/stamp-h1:
+libsodium/stamp-h1:
+	cd $(TOP)/libsodium && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	$(CONFIGURE) --prefix=/usr --disable-ssp
+	touch libsodium/stamp-h1
+
+dnscrypt/stamp-h1: libsodium/stamp-h1
 	cd $(TOP)/dnscrypt && CC=$(CC) STRIP='mipsel-uclibc-strip' \
 	$(CONFIGURE) --prefix=/usr --disable-ssp
 	touch dnscrypt/stamp-h1
@@ -1911,7 +1916,8 @@ dnscrypt-install: dnscrypt
 
 dnscrypt-clean:
 	-@$(MAKE) -C dnscrypt clean
-	@rm -rf dnscrypt/stamp-h1 dnscrypt/src/dnscrypt-proxy/.deps dnscrypt/Makefile
+	-@$(MAKE) -C libsodium clean
+	@rm -rf dnscrypt/stamp-h1 dnscrypt/src/dnscrypt-proxy/.deps dnscrypt/Makefile libsodium/stamp-h1
 
 tor/stamp-h1: openssl zlib libevent
 	cd $(TOP)/tor && CC=$(CC) STRIP='mipsel-uclibc-strip' \

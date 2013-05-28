@@ -576,6 +576,8 @@ static const nvset_t nvset_list[] = {
 	{ "wan_dns",			V_LENGTH(0, 50)		},	// ip ip ip
 #ifdef TCONFIG_DNSCRYPT
 	{ "dnscrypt_proxy",		V_01				},
+	{ "dnscrypt_port",		V_PORT				},
+	{ "dnscrypt_cmd",		V_LENGTH(0, 256)		},
 #endif
 	{ "lan_state",			V_01				},
 	{ "lan_desc",			V_01				},

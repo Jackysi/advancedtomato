@@ -5,7 +5,7 @@
 #include <sys/types.h>
 #include <stdint.h>
 
-#include "crypto_box.h"
+#include "sodium.h"
 
 #define DNSCRYPT_MAGIC_QUERY_LEN 8U
 #define DNSCRYPT_MAGIC_RESPONSE  "r6fnvWj8"
@@ -19,7 +19,6 @@
 #ifndef DNSCRYPT_MIN_PAD_LEN
 # define DNSCRYPT_MIN_PAD_LEN 8U
 #endif
-#define crypto_box_MACBYTES (crypto_box_ZEROBYTES - crypto_box_BOXZEROBYTES)
 #define crypto_box_HALF_NONCEBYTES (crypto_box_NONCEBYTES / 2U)
 
 size_t dnscrypt_response_header_size(void);

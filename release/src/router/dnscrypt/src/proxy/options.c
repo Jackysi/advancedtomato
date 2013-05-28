@@ -22,6 +22,10 @@
 #include "logger.h"
 #include "pid_file.h"
 #include "utils.h"
+#include "windows_service.h"
+#ifdef PLUGINS
+# include "plugin_options.h"
+#endif
 
 static struct option getopt_long_options[] = {
     { "local-address", 1, NULL, 'a' },
@@ -34,23 +38,28 @@ static struct option getopt_long_options[] = {
 #ifndef _WIN32
     { "logfile", 1, NULL, 'l' },
 #endif
+    { "loglevel", 1, NULL, 'm' },
     { "max-active-requests", 1, NULL, 'n' },
 #ifndef _WIN32
     { "pidfile", 1, NULL, 'p' },
 #endif
+    { "plugin", 1, NULL, 'X' },
     { "resolver-address", 1, NULL, 'r' },
-    { "resolver-port", 1, NULL, 't' },
     { "user", 1, NULL, 'u' },
     { "provider-name", 1, NULL, 'N' },
-    { "local-port", 1, NULL, 'P' },
     { "tcp-only", 0, NULL, 'T' },
     { "version", 0, NULL, 'V' },
+#ifdef _WIN32
+    { "install", 0, NULL, WIN_OPTION_INSTALL },
+    { "reinstall", 0, NULL, WIN_OPTION_REINSTALL },
+    { "uninstall", 0, NULL, WIN_OPTION_UNINSTALL },
+#endif
     { NULL, 0, NULL, 0 }
 };
 #ifndef _WIN32
-static const char   *getopt_options = "a:de:hk:l:n:p:r:t:u:N:P:TV";
+static const char *getopt_options = "a:de:hk:l:m:n:p:r:u:N:TVX";
 #else
-static const char   *getopt_options = "a:e:hk:n:r:t:u:N:P:TV";
+static const char *getopt_options = "a:e:hk:m:n:r:u:N:TVX";
 #endif
 
 #ifndef DEFAULT_CONNECTIONS_COUNT_MAX
@@ -66,14 +75,13 @@ static const char   *getopt_options = "a:e:hk:n:r:t:u:N:P:TV";
 # define DEFAULT_PROVIDER_NAME "2.dnscrypt-cert.opendns.com."
 #endif
 #ifndef DEFAULT_RESOLVER_IP
-# define DEFAULT_RESOLVER_IP "208.67.220.220"
+# define DEFAULT_RESOLVER_IP "208.67.220.220:443"
 #endif
 
 static void
 options_version(void)
 {
-    puts(PACKAGE_STRING "\n"
-         "Copyright (C) 2011-2012 OpenDNS, Inc.");
+    puts(PACKAGE_STRING);
 }
 
 static void
@@ -84,8 +92,13 @@ options_usage(void)
     options_version();
     puts("\nOptions:\n");
     do {
-        printf("  -%c\t--%s%s\n", options->val, options->name,
-               options->has_arg ? "=..." : "");
+        if (options->val < 256) {
+            printf("  -%c\t--%s%s\n", options->val, options->name,
+                   options->has_arg ? "=..." : "");
+        } else {
+            printf("    \t--%s%s\n", options->name,
+                   options->has_arg ? "=..." : "");
+        }
         options++;
     } while (options->name != NULL);
     puts("\nPlease consult the dnscrypt-proxy(8) man page for details.\n");
@@ -100,15 +113,13 @@ void options_init_with_default(AppContext * const app_context,
     proxy_context->connections_count = 0U;
     proxy_context->connections_count_max = DEFAULT_CONNECTIONS_COUNT_MAX;
     proxy_context->edns_payload_size = (size_t) DNS_DEFAULT_EDNS_PAYLOAD_SIZE;
-    proxy_context->local_ip = "127.0.0.1";
-    proxy_context->local_port = DNS_DEFAULT_LOCAL_PORT;
+    proxy_context->local_ip = "127.0.0.1:53";
     proxy_context->log_fd = -1;
     proxy_context->log_file = NULL;
     proxy_context->pid_file = NULL;
     proxy_context->provider_name = DEFAULT_PROVIDER_NAME;
     proxy_context->provider_publickey_s = DEFAULT_PROVIDER_PUBLICKEY;
     proxy_context->resolver_ip = DEFAULT_RESOLVER_IP;
-    proxy_context->resolver_port = DNS_DEFAULT_RESOLVER_PORT;
 #ifndef _WIN32
     proxy_context->user_id = (uid_t) 0;
     proxy_context->user_group = (uid_t) 0;
@@ -206,6 +217,18 @@ options_parse(AppContext * const app_context,
         case 'l':
             proxy_context->log_file = optarg;
             break;
+        case 'm': {
+            char *endptr;
+            const long max_log_level = strtol(optarg, &endptr, 10);
+
+            if (*optarg == 0 || *endptr != 0 || max_log_level < 0) {
+                logger(proxy_context, LOG_ERR,
+                       "Invalid max log level: [%s]", optarg);
+                exit(1);
+            }
+            proxy_context->max_log_level = max_log_level;
+            break;
+        }
         case 'n': {
             char *endptr;
             const unsigned long connections_count_max =
@@ -228,9 +251,6 @@ options_parse(AppContext * const app_context,
         case 'r':
             proxy_context->resolver_ip = optarg;
             break;
-        case 't':
-            proxy_context->resolver_port = optarg;
-            break;
 #ifdef HAVE_GETPWNAM
         case 'u': {
             const struct passwd * const pw = getpwnam(optarg);
@@ -247,22 +267,44 @@ options_parse(AppContext * const app_context,
         case 'N':
             proxy_context->provider_name = optarg;
             break;
-        case 'P':
-            proxy_context->local_port = optarg;
-            break;
         case 'T':
             proxy_context->tcp_only = 1;
             break;
         case 'V':
             options_version();
             exit(0);
+        case 'X':
+#ifndef PLUGINS
+            logger_noformat(proxy_context, LOG_ERR,
+                            "Support for plugins hasn't been compiled in");
+            exit(1);
+#else
+            if (plugin_options_parse_str
+                (proxy_context->app_context->dcps_context, optarg) != 0) {
+                logger_noformat(proxy_context, LOG_ERR,
+                                "Error while parsing plugin options");
+                exit(2);
+            }
+#endif
+            break;
+#ifdef _WIN32
+        case WIN_OPTION_INSTALL:
+        case WIN_OPTION_UNINSTALL:
+            if (windows_service_option(opt_flag, argc,
+                                       (const char **) argv) != 0) {
+                options_usage();
+                exit(1);
+            }
+            break;
+#endif
         default:
             options_usage();
             exit(1);
         }
     }
-    options_apply(proxy_context);
-
+    if (options_apply(proxy_context) != 0) {
+        return -1;
+    }
     return 0;
 }
 

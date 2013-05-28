@@ -91,6 +91,8 @@ const defaults_t defaults[] = {
 	{ "wan_dns",			""				},	// x.x.x.x x.x.x.x ...
 #ifdef TCONFIG_DNSCRYPT
 	{ "dnscrypt_proxy",		""				},
+	{ "dnscrypt_port",		"40"			}, // local port
+	{ "dnscrypt_cmd",		"-m 99"			}, // optional arguments
 #endif
 	{ "wan_wins",			""				},	// x.x.x.x x.x.x.x ...
 	{ "wan_lease",			"86400"			},	// WAN lease time in seconds

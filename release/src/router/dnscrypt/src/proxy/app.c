@@ -2,7 +2,9 @@
 #include <config.h>
 #include <sys/types.h>
 
+#include <assert.h>
 #include <errno.h>
+#include <locale.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,19 +18,23 @@
 #include "app.h"
 #include "dnscrypt_client.h"
 #include "dnscrypt_proxy.h"
-#include "salsa20_random.h"
 #include "logger.h"
 #include "options.h"
 #include "sandboxes.h"
+#include "sodium.h"
 #include "stack_trace.h"
 #include "tcp_request.h"
 #include "udp_request.h"
+#ifdef PLUGINS
+# include "plugin_support.h"
+#endif
 
 #ifndef INET6_ADDRSTRLEN
 # define INET6_ADDRSTRLEN 46U
 #endif
 
-static AppContext app_context;
+static AppContext            app_context;
+static volatile sig_atomic_t skip_dispatch;
 
 static int
 sockaddr_from_ip_and_port(struct sockaddr_storage * const sockaddr,
@@ -81,6 +87,8 @@ proxy_context_init(ProxyContext * const proxy_context, int argc, char *argv[])
 {
     memset(proxy_context, 0, sizeof *proxy_context);
     proxy_context->event_loop = NULL;
+    proxy_context->log_file = NULL;
+    proxy_context->max_log_level = LOG_INFO;
     proxy_context->tcp_accept_timer = NULL;
     proxy_context->tcp_conn_listener = NULL;
     proxy_context->udp_listener_event = NULL;
@@ -101,14 +109,14 @@ proxy_context_init(ProxyContext * const proxy_context, int argc, char *argv[])
     if (sockaddr_from_ip_and_port(&proxy_context->resolver_sockaddr,
                                   &proxy_context->resolver_sockaddr_len,
                                   proxy_context->resolver_ip,
-                                  proxy_context->resolver_port,
+                                  DNS_DEFAULT_RESOLVER_PORT,
                                   "Unsupported resolver address") != 0) {
         return -1;
     }
     if (sockaddr_from_ip_and_port(&proxy_context->local_sockaddr,
                                   &proxy_context->local_sockaddr_len,
                                   proxy_context->local_ip,
-                                  proxy_context->local_port,
+                                  DNS_DEFAULT_LOCAL_PORT,
                                   "Unsupported local address") != 0) {
         return -1;
     }
@@ -125,8 +133,17 @@ proxy_context_free(ProxyContext * const proxy_context)
     logger_close(proxy_context);
 }
 
-static
-int init_tz(void)
+static int
+init_locale(void)
+{
+    setlocale(LC_CTYPE, "C");
+    setlocale(LC_COLLATE, "C");
+
+    return 0;
+}
+
+static int
+init_tz(void)
 {
     static char  default_tz_for_putenv[] = "TZ=UTC+00:00";
     char         stbuf[10U];
@@ -152,10 +169,12 @@ static void
 revoke_privileges(ProxyContext * const proxy_context)
 {
     (void) proxy_context;
-#ifndef DEBUG
-    salsa20_random_stir();
+
+    init_locale();
     init_tz();
     (void) strerror(ENOENT);
+#ifndef DEBUG
+    randombytes_stir();
 # ifndef _WIN32
     if (proxy_context->user_dir != NULL) {
         if (chdir(proxy_context->user_dir) != 0 ||
@@ -212,16 +231,46 @@ dnscrypt_proxy_start_listeners(ProxyContext * const proxy_context)
 }
 
 int
-main(int argc, char *argv[])
+dnscrypt_proxy_loop_break(void)
+{
+    if (app_context.proxy_context != NULL &&
+        app_context.proxy_context->event_loop != NULL) {
+        event_base_loopbreak(app_context.proxy_context->event_loop);
+    } else {
+        skip_dispatch = 1;
+    }
+    return 0;
+}
+
+int
+dnscrypt_proxy_main(int argc, char *argv[])
 {
     ProxyContext proxy_context;
 
     setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
     stack_trace_on_crash();
+#ifdef PLUGINS
+    if ((app_context.dcps_context = plugin_support_context_new()) == NULL) {
+        logger_noformat(NULL, LOG_ERR, "Unable to setup plugin support");
+        exit(2);
+    }
+#endif
     if (proxy_context_init(&proxy_context, argc, argv) != 0) {
         logger_noformat(NULL, LOG_ERR, "Unable to start the proxy");
         exit(1);
     }
+    logger_noformat(&proxy_context, LOG_INFO,
+                    "Initializing libsodium for optimal performance");
+    if (sodium_init() != 0) {
+        exit(1);
+    }
+    randombytes_set_implementation(&randombytes_salsa20_implementation);
+#ifdef PLUGINS
+    if (plugin_support_context_load(app_context.dcps_context) != 0) {
+        logger_noformat(NULL, LOG_ERR, "Unable to load plugins");
+        exit(2);
+    }
+#endif
     app_context.proxy_context = &proxy_context;
     logger_noformat(&proxy_context, LOG_INFO, "Generating a new key pair");
     dnscrypt_client_init_with_new_key_pair(&proxy_context.dnscrypt_client);
@@ -240,16 +289,20 @@ main(int argc, char *argv[])
     if (cert_updater_start(&proxy_context) != 0) {
         exit(1);
     }
-    event_base_dispatch(proxy_context.event_loop);
-
+    if (skip_dispatch == 0) {
+        event_base_dispatch(proxy_context.event_loop);
+    }
     logger_noformat(&proxy_context, LOG_INFO, "Stopping proxy");
     cert_updater_free(&proxy_context);
     udp_listener_stop(&proxy_context);
     tcp_listener_stop(&proxy_context);
     event_base_free(proxy_context.event_loop);
+#ifdef PLUGINS
+    plugin_support_context_free(app_context.dcps_context);
+#endif
     proxy_context_free(&proxy_context);
     app_context.proxy_context = NULL;
-    salsa20_random_close();
+    randombytes_close();
 
     return 0;
 }
