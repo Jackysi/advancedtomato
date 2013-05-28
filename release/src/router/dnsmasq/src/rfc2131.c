@@ -911,6 +911,9 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
       if (!(opt = option_find(mess, sz, OPTION_REQUESTED_IP, INADDRSZ)))
 	return 0;
       
+#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
+  if (!option_bool(OPT_QUIET_DHCP))
+#endif
       log_packet("DHCPDECLINE", option_ptr(opt, 0), emac, emac_len, iface_name, daemon->dhcp_buff, mess->xid);
       
       if (lease && lease->addr.s_addr == option_addr(opt).s_addr)
@@ -943,6 +946,9 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
       else
 	message = _("unknown lease");
 
+#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
+  if (!option_bool(OPT_QUIET_DHCP))
+#endif
       log_packet("DHCPRELEASE", &mess->ciaddr, emac, emac_len, iface_name, message, mess->xid);
 	
       return 0;
@@ -1007,6 +1013,9 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	    message = _("no address available");      
 	}
       
+#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
+  if (!option_bool(OPT_QUIET_DHCP))
+#endif
       log_packet("DHCPDISCOVER", opt ? option_ptr(opt, 0) : NULL, emac, emac_len, iface_name, message, mess->xid); 
 
       if (message || !(context = narrow_context(context, mess->yiaddr, tagif_netid)))
@@ -1020,6 +1029,9 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 
       log_tags(tagif_netid, ntohl(mess->xid));
       
+#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
+  if (!option_bool(OPT_QUIET_DHCP))
+#endif
       log_packet("DHCPOFFER" , &mess->yiaddr, emac, emac_len, iface_name, NULL, mess->xid);
       
       time = calc_time(context, config, option_find(mess, sz, OPTION_LEASE_TIME, 4));
@@ -1072,7 +1084,7 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 			 Have to set override to make sure we echo back the correct server-id */
 		      struct irec *intr;
 		      
-		      enumerate_interfaces();
+		      enumerate_interfaces(0);
 
 		      for (intr = daemon->interfaces; intr; intr = intr->next)
 			if (intr->addr.sa.sa_family == AF_INET &&
@@ -1136,6 +1148,9 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	  mess->yiaddr = mess->ciaddr;
 	}
       
+#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
+  if (!option_bool(OPT_QUIET_DHCP))
+#endif
       log_packet("DHCPREQUEST", &mess->yiaddr, emac, emac_len, iface_name, NULL, mess->xid);
  
       if (!message)
@@ -1208,6 +1223,9 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 
       if (message)
 	{
+#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
+  if (!option_bool(OPT_QUIET_DHCP))
+#endif
 	  log_packet("DHCPNAK", &mess->yiaddr, emac, emac_len, iface_name, message, mess->xid);
 	  
 	  mess->yiaddr.s_addr = 0;
@@ -1347,6 +1365,9 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 	  else
 	    override = lease->override;
 
+#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
+  if (!option_bool(OPT_QUIET_DHCP))
+#endif
 	  log_packet("DHCPACK", &mess->yiaddr, emac, emac_len, iface_name, hostname, mess->xid);  
 	  
 	  clear_packet(mess, end);
@@ -1370,6 +1391,9 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
       if (ignore || have_config(config, CONFIG_DISABLE))
 	message = _("ignored");
       
+#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
+  if (!option_bool(OPT_QUIET_DHCP))
+#endif
       log_packet("DHCPINFORM", &mess->ciaddr, emac, emac_len, iface_name, message, mess->xid);
      
       if (message || mess->ciaddr.s_addr == 0)
@@ -1396,6 +1420,9 @@ size_t dhcp_reply(struct dhcp_context *context, char *iface_name, int int_index,
 
       log_tags(tagif_netid, ntohl(mess->xid));
       
+#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
+  if (!option_bool(OPT_QUIET_DHCP))
+#endif
       log_packet("DHCPACK", &mess->ciaddr, emac, emac_len, iface_name, hostname, mess->xid);
       
       if (lease)
@@ -1534,10 +1561,6 @@ static void log_packet(char *type, void *addr, unsigned char *ext_mac,
 {
   struct in_addr a;
 
-#ifdef HAVE_QUIET_DHCP //originally a TOMATO option
-  if (option_bool(OPT_QUIET_DHCP) && strncmp(type, "DHCP", 4) == 0)
-	return;
-#endif
  
   /* addr may be misaligned */
   if (addr)

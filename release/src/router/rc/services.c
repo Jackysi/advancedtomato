@@ -157,6 +157,18 @@ void start_dnsmasq()
 		fprintf(f, "dhcp-ignore=tag:!known\n");
 	}
 
+	if (nvram_get_int("dnsmasq_q4")) {
+		fprintf(f, "quiet-dhcp\n");
+	}
+
+	if (nvram_get_int("dnsmasq_q6")) {
+		fprintf(f, "quiet-dhcp6\n");
+	}
+
+	if (nvram_get_int("dnsmasq_qr")) {
+		fprintf(f, "quiet-ra\n");
+	}
+
 	// dhcp
 	do_dhcpd_hosts=0;
 	char lanN_proto[] = "lanXX_proto";
