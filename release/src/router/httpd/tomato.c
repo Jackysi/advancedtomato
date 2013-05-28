@@ -687,7 +687,7 @@ static const nvset_t nvset_list[] = {
 	{ "ipv6_tun_ttl",		V_NUM				},	// Tunnel TTL
 	{ "ipv6_dns",			V_LENGTH(0, 40*3)	},	// ip6 ip6 ip6
 	{ "ipv6_6rd_prefix",		V_IPV6(0)		},	// 6rd prefix
-	{ "ipv6_6rd_prefixlength",	V_RANGE(3, 127)	},	// 6rd prefix length
+	{ "ipv6_6rd_prefix_length",	V_RANGE(3, 127)	},	// 6rd prefix length
 	{ "ipv6_6rd_borderrelay",	V_IP			},	// 6rd ipv4 border relay addr
 	{ "ipv6_6rd_ipv4masklen",	V_RANGE(0, 255)	},	// 6rd ipv4 mask
 #endif
