@@ -562,7 +562,7 @@ static const nvset_t nvset_list[] = {
 	{ "ppp_demand",			V_01				},
 	{ "ppp_custom",			V_LENGTH(0, 256)		},
 	{ "ppp_idletime",		V_RANGE(0, 1440)	},
-	{ "ppp_redialperiod",	V_RANGE(1, 86400)	},
+	{ "ppp_redialperiod",		V_RANGE(1, 86400)	},
 	{ "ppp_mlppp",			V_01				},
 	{ "mtu_enable",			V_01				},
 	{ "wan_mtu",			V_RANGE(576, 1500)	},
