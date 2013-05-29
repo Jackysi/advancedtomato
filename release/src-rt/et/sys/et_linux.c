@@ -843,7 +843,7 @@ et_ethtool(et_info_t *et, struct ethtool_cmd *ecmd)
 		strcpy(info->version, EPI_VERSION_STR);
 		break;
 	default:
-		ret = -EINVAL;
+		ret = -EOPNOTSUPP;
 		break;
 	}
 
