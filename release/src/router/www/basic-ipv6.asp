@@ -101,14 +101,15 @@ function verifyFields(focused, quiet)
 			vis._f_ipv6_rtr_addr = 0;
 			vis._f_ipv6_prefix_length = 0;
                        break;
-		case '6rd-pd':
 		case 'native-pd':
+			_fom.f_ipv6_accept_ra_wan.checked = true;
+		case '6rd-pd':
 			vis._f_ipv6_prefix = 0;
 			vis._f_ipv6_rtr_addr_auto = 0;
 			vis._f_ipv6_rtr_addr = 0;
+			vis._f_ipv6_accept_ra_wan = 0;
 			if (c == '6rd-pd') {
 				vis._f_ipv6_prefix_length = 0;
-				vis._f_ipv6_accept_ra_wan = 0;
 				vis._f_ipv6_accept_ra_lan = 0;
 			}
 			// fall through
