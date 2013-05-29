@@ -715,7 +715,8 @@ endif
 iptables-install:
 	install -D iptables/iptables $(INSTALLDIR)/iptables/usr/sbin/iptables
 	cd $(INSTALLDIR)/iptables/usr/sbin && \
-		ln -sf iptables iptables-restore
+		ln -sf iptables iptables-restore && \
+		ln -sf iptables iptables-save
 
 	install -d $(INSTALLDIR)/iptables/usr/lib/iptables
 	install -D iptables/extensions/*.so $(INSTALLDIR)/iptables/usr/lib/iptables/
@@ -730,7 +731,8 @@ ifeq ($(TCONFIG_IPV6),y)
 	install iptables/ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables
 	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/ip6tables
 	cd $(INSTALLDIR)/iptables/usr/sbin && \
-		ln -sf ip6tables ip6tables-restore
+		ln -sf ip6tables ip6tables-restore && \
+		ln -sf ip6tables ip6tables-save
 endif
 
 iptables-clean:
