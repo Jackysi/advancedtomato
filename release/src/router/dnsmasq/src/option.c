@@ -1653,8 +1653,6 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	    
 	    if (inet_pton(AF_INET, arg, &subnet->addr4))
 	      {
-		if ((prefixlen & 0x07) != 0 || prefixlen > 24)
-		  ret_err(_("bad prefix"));
 		subnet->prefixlen = (prefixlen == 0) ? 24 : prefixlen;
 		subnet->is6 = 0;
 	      }
@@ -2526,7 +2524,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
     case 'G':  /* --dhcp-host */
       {
 	int j, k = 0;
-	char *a[6] = { NULL, NULL, NULL, NULL, NULL, NULL };
+	char *a[7] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL };
 	struct dhcp_config *new;
 	struct in_addr in;
 	
@@ -2538,7 +2536,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	new->netid = NULL;
 
 	if ((a[0] = arg))
-	  for (k = 1; k < 6; k++)
+	  for (k = 1; k < 7; k++)
 	    if (!(a[k] = split(a[k-1])))
 	      break;
 	
