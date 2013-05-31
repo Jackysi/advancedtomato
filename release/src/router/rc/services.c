@@ -858,7 +858,7 @@ void start_ipv6(void)
 	int service;
 
 	service = get_ipv6_service();
-	enable_ip_forward();
+	enable_ip6_forward();
 
 	// Check if turned on
 	switch (service) {
