@@ -141,13 +141,17 @@ void enable_ip_forward(void)
 	*/
 	f_write_string("/proc/sys/net/ipv4/ip_forward", "1", 0, 0);
 
+}
+
 #ifdef TCONFIG_IPV6
+void enable_ip6_forward(void)
+{
 	if (ipv6_enabled()) {
 		f_write_string("/proc/sys/net/ipv6/conf/default/forwarding", "1", 0, 0);
 		f_write_string("/proc/sys/net/ipv6/conf/all/forwarding", "1", 0, 0);
 	}
-#endif
 }
+#endif
 
 
 // -----------------------------------------------------------------------------
@@ -1812,6 +1816,9 @@ int start_firewall(void)
 	simple_unlock("restrictions");
 	sched_restrictions();
 	enable_ip_forward();
+#ifdef TCONFIG_IPV6
+	if (ipv6_enabled()) enable_ip6_forward();
+#endif
 
 	led(LED_DMZ, dmz_dst(NULL));
 
