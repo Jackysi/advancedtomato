@@ -435,9 +435,7 @@ const defaults_t defaults[] = {
 	{ "dns_norebind",		"1"				},
 	{ "dnsmasq_custom",		""				},
 	{ "dnsmasq_static_only",	"0"				},
-	{ "dnsmasq_q4",			"0"				}, 	//quiet-dhcp (ipv4)
-	{ "dnsmasq_q6",			"0"				}, 	//quiet-dhcp6
-	{ "dnsmasq_qr",			"0"				}, 	//quiet-ra
+	{ "dnsmasq_q",			"0"				}, 	//Bit0=quiet-dhcp, 1=dhcp6, 2=ra
 //	{ "dnsmasq_norw",		"0"				},
 
 // advanced-firewall
