@@ -689,8 +689,9 @@ void start_qos(void)
 			calc(incomingBandwidthInKilobitsPerSecond, ceil);
 
 		// burst rate (2% of the classes' rate) - don't know if we should use this
-		unsigned int burstRateInBitsPerSecond =
-			(rateInKilobitsPerSecond * 1000) / 50;
+//Commented out KDB 20130531 - produces compiler warning about being unused!
+//		unsigned int burstRateInBitsPerSecond =
+//			(rateInKilobitsPerSecond * 1000) / 50;
 
 		r2q = 10;
 		if ((incomingBandwidthInKilobitsPerSecond * 1000) / (8 * r2q) < mtu) 
