@@ -163,13 +163,11 @@ void start_dnsmasq()
 		fprintf(f, "dhcp-ignore=tag:!known\n");
 	}
 
-	n = nvram_get_int("dnsmasq_q");
-
-	if (n & 1) fprintf(f, "quiet-dhcp\n");
-
-	if (n & 2) fprintf(f, "quiet-dhcp6\n");
-
-	if (n & 4) fprintf(f, "quiet-ra\n");
+	if ((n = nvram_get_int("dnsmasq_q"))) { //process quiet flags
+		if (n & 1) fprintf(f, "quiet-dhcp\n");
+		if (n & 2) fprintf(f, "quiet-dhcp6\n");
+		if (n & 4) fprintf(f, "quiet-ra\n");
+	}
 
 	// dhcp
 	do_dhcpd_hosts=0;
