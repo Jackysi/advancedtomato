@@ -589,6 +589,7 @@ static int print_wlbands(int idx, int unit, int subunit, void *param)
 	    phytype[0] == 'l' ||
 	    phytype[0] == 's' ||
 	    phytype[0] == 'c' ||
+	    phytype[0] == 'v' ||
 	    phytype[0] == 'h') {
 		/* Get band list. Assume both the bands in case of error */
 		if (wl_ioctl(ifname, WLC_GET_BANDLIST, list, sizeof(list)) < 0) {

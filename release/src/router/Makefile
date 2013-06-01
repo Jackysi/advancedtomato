@@ -59,7 +59,7 @@ obj-$(TCONFIG_SDHC) += mmc
 # !!TB - updated Broadcom Wireless driver
 obj-y += et
 obj-y += libbcmcrypto
-#obj-y += wlconf
+obj-y += wlconf
 
 obj-y += cyassl
 obj-y += mssl

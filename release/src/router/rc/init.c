@@ -1132,11 +1132,11 @@ static int init_nvram(void)
 			inc_mac(s, +1);
 			nvram_set("wl1_hwaddr", s);
 
-			nvram_set("wl0_phytype", "h");
-			nvram_set("wl0_phytypes", "h");
-			nvram_set("wl1_phytype", "h"); // "h" for now. For 80Mhz should be "v"
-			nvram_set("wl1_phytypes", "h"); // "h" for now. For 80Mhz should be "v"
-			nvram_set("wl1_unit" ,"1");
+//			nvram_set("wl0_phytype", "h");
+//			nvram_set("wl0_phytypes", "h");
+//			nvram_set("wl1_phytype", "h"); // "h" for now. For 80Mhz should be "v"
+//			nvram_set("wl1_phytypes", "h"); // "h" for now. For 80Mhz should be "v"
+//			nvram_set("wl1_unit" ,"1");
 
 
 			// bcm4360ac_defaults

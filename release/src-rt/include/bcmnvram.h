@@ -65,6 +65,11 @@ extern void nvram_get_global_vars(char **varlst, uint *varsz);
 extern int nvram_reset(void *sih);
 
 /*
+ * Get default value for an NVRAM variable
+ */
+extern char *nvram_default_get(const char *name);
+
+/*
  * Disable NVRAM access. May be unnecessary or undefined on certain
  * platforms.
  */
