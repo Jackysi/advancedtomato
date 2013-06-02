@@ -101,6 +101,7 @@ function verifyFields(focused, quiet)
 			vis._f_ipv6_rtr_addr = 0;
 			vis._f_ipv6_prefix_length = 0;
 			break;
+
 		case '6rd-pd':
 		case 'native-pd':
 			vis._f_ipv6_prefix = 0;
