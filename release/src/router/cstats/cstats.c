@@ -276,7 +276,7 @@ static int load_history_to_tree(const char *fname) {
 	if (n == -1)
 		printf("%s: Failed to parse the data file!\n", __FUNCTION__);
 	else
-		printf("%s: Loaded %d records\n", __FUNCTION, n);
+		printf("%s: Loaded %d records\n", __FUNCTION__, n);
 
 	return n;
 }
@@ -363,8 +363,7 @@ static void load(int new) {
 				 * maybe it's corrupted (like 0 bytes long).
 				 * In these cases, try the backup files.
 				 */
-//				if (load_history(save_path)) {
-				if ((load_history(save_path) >= 0) || try_hardway(save_path) >= 0)) {
+				if ((load_history(save_path) >= 0) || (try_hardway(save_path) >= 0)) {
 					f_write_string(source_fn, save_path, 0, 0);
 					break;
 				}
