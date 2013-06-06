@@ -418,16 +418,17 @@ static int init_vlan_ports(void)
 		dirty |= check_nv("vlan1ports", "4 3 2 1 5*");
 		dirty |= check_nv("vlan2ports", "0 5");
 		break;
+	case MODEL_HG320:
+	case MODEL_H218N:
 	case MODEL_RG200E_CA:
-		dirty |= check_nv("vlan0ports", "4 3 2 1 5*");
-		dirty |= check_nv("vlan1ports", "0 5");
+		dirty |= check_nv("vlan1ports", "1 2 3 4 5*");
+		dirty |= check_nv("vlan2ports", "0 5");
 		break;
 	case MODEL_RTN10:
 		dirty |= check_nv("vlan1ports", "4 5");
 		break;
 	case MODEL_RTN10U:
 	case MODEL_CW5358U:
-	case MODEL_HG320:
 		dirty |= check_nv("vlan0ports", "1 2 3 4 5*");
 		dirty |= check_nv("vlan1ports", "0 5");
 		break;
@@ -577,6 +578,13 @@ static void check_bootnv(void)
 		/* fall through, same as RT-N16 */
 	case MODEL_RTN16:
 		dirty |= check_nv("vlan2hwname", "et0");
+		break;
+	case MODEL_HG320:
+	case MODEL_RG200E_CA:
+	case MODEL_H218N:
+		dirty |= check_nv("vlan1hwname", "et0");
+		dirty |= check_nv("vlan2hwname", "et0");
+		dirty |= check_nv("reset_gpio", "30");
 		break;
 	case MODEL_WRT610Nv2:
 		dirty |= check_nv("vlan2hwname", "et0");
@@ -994,8 +1002,10 @@ static int init_nvram(void)
 		nvram_set("usb_uhci", "-1");
 #endif
 		if (!nvram_match("t_fix1", (char *)name)) {
-			nvram_set("lan_ifnames", "vlan0 eth1");
-			nvram_set("wan_ifnameX", "vlan1");
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifname", "vlan2");
+			nvram_set("wan_ifnames", "vlan2");
+			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");
 		}
 		break;
@@ -1007,8 +1017,25 @@ static int init_nvram(void)
 		nvram_set("usb_uhci", "-1");
 #endif
 		if (!nvram_match("t_fix1", (char *)name)) {
-			nvram_set("lan_ifnames", "vlan0 eth1");
-			nvram_set("wan_ifnameX", "vlan1");
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifname", "vlan2");
+			nvram_set("wan_ifnames", "vlan2");
+			nvram_set("wan_ifnameX", "vlan2");
+			nvram_set("wl_ifname", "eth1");
+		}
+		break;
+	case MODEL_H218N:
+		mfr = "ZTE";
+		name = "H218N";
+		features = SUP_SES | SUP_80211N;
+#ifdef TCONFIG_USB
+		nvram_set("usb_uhci", "-1");
+#endif
+		if (!nvram_match("t_fix1", (char *)name)) {
+			nvram_set("lan_ifnames", "vlan1 eth1");
+			nvram_set("wan_ifname", "vlan2");
+			nvram_set("wan_ifnames", "vlan2");
+			nvram_set("wan_ifnameX", "vlan2");
 			nvram_set("wl_ifname", "eth1");
 		}
 		break;

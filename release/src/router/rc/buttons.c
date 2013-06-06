@@ -229,6 +229,17 @@ int buttons_main(int argc, char *argv[])
 		reset_mask = 1 << 6;
 		ses_mask = 1 << 8;
 		break;
+	// Added by BWQ
+	case MODEL_RG200E_CA:
+	case MODEL_H218N:
+		reset_mask = 1 << 30;
+		ses_mask = 1 << 28;
+		break;
+	case MODEL_HG320:
+		reset_mask = 1 << 30;
+		ses_mask = 1 << 29;
+		break;
+	// BWQ end.
 	default:
 		get_btn("btn_ses", &ses_mask, &ses_pushed);
 		if (!get_btn("btn_reset", &reset_mask, &reset_pushed)) {

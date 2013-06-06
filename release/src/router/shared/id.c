@@ -88,8 +88,9 @@ F7D3301/F7D3302/F7D4302 v1	BCM4718               0xa4cf       12345     0x1102
 F5D8235-4 v3			BCM4718               0xa4cf       12345     0x1100
 
 CW-5358U			BCM5357               0x0550       1234      0x1100    0x710 //500MHz/8MB/32MB/2.4G/USB
-FiberHome HG320			BCM5357               0x053d       0527      0x1202    0x710 //16MB/64MB/2.4G/USB
-ChinaNet RG-200E		BCM5357               0x058e       1         0x1153    0x710 //16MB/64MB/2.4G/USB/FE
+FiberHome HG320			BCM5357               0x053d       0527      0x1202    0x610 //16MB/64MB/2.4G/USB
+ChinaNet RG-200E		BCM5357               0x053d       0504      0x1202    0x610 //16MB/64MB/2.4G/USB/FE
+ZTE H218N			BCM5357               0x053d       1234      0x1202    0x710 //16MB/64MB/2.4G/USB
 
 WL-550gE			BCM5352E              0x0467       45        0x10      0x0758      hardware_version=WL550gE-01-05-01-00 sdram_init=0x2000
 
@@ -393,8 +394,8 @@ int get_model(void)
 	case 1234:
 		switch (hw) {
 		case HW_BCM5357:
-			//if (nvram_match("boardrev", "0x1100"))
-			return MODEL_CW5358U;
+			if (nvram_match("boardrev", "0x1100")) return MODEL_CW5358U;
+			if (nvram_match("boardrev", "0x1202")) return MODEL_H218N;
 		}
 		break;
 	case 0527:
@@ -404,19 +405,28 @@ int get_model(void)
 			return MODEL_HG320;
 		}
 		break;
+	case 0504: // This is the exact original CFE parameter. BWQ
+		switch (hw) {
+		case HW_BCM5357:
+			//if (nvram_match("boardrev", "0x1202"))
+			return MODEL_RG200E_CA;
+		}
+		break;
 	case 1:
 		switch (hw) {
 		case HW_BCM4716:
 			//if (nvram_match("boardrev", "0x1700"))
 			return MODEL_WNR2000v2;
 			break;
+		}
+		/* fall through */
+	case 0543:
+		switch (hw) {
 		case HW_BCM5357:
-			//if (nvram_match("boardrev", "0x1153"))
-			return MODEL_RG200E_CA;
-			break;
+			//if (nvram_match("boardrev", "0x1202"))
+			return MODEL_H218N;
 		}
 		break;
-		/* fall through */
 	case 3500:
 		switch (hw) {
 		case HW_BCM4718:
