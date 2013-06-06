@@ -150,6 +150,10 @@ void enable_ip6_forward(void)
 		f_write_string("/proc/sys/net/ipv6/conf/default/forwarding", "1", 0, 0);
 		f_write_string("/proc/sys/net/ipv6/conf/all/forwarding", "1", 0, 0);
 	}
+	else {
+		f_write_string("/proc/sys/net/ipv6/conf/default/forwarding", "0", 0, 0);
+		f_write_string("/proc/sys/net/ipv6/conf/all/forwarding", "0", 0, 0);
+	}
 }
 #endif
 

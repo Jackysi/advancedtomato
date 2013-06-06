@@ -738,7 +738,7 @@ void start_lan(void)
 #endif
 	check_afterburner();
 #ifdef TCONFIG_IPV6
-	enable_ipv6(ipv6_enabled());
+	enable_ipv6(ipv6_enabled());  //tell Kernel to disable/enable IPv6 for most interfaces
 #endif
 	vlan0tag = nvram_get_int("vlan0tag");
 
