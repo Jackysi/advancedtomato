@@ -1,12 +1,13 @@
-/* $Id: upnpsoap.c,v 1.114 2013/02/06 12:40:25 nanard Exp $ */
+/* $Id: upnpsoap.c,v 1.116 2013/05/16 10:41:57 nanard Exp $ */
 /* MiniUPnP project
  * http://miniupnp.free.fr/ or http://miniupnp.tuxfamily.org/
- * (c) 2006-2012 Thomas Bernard
+ * (c) 2006-2013 Thomas Bernard
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/socket.h>
@@ -191,7 +192,7 @@ GetCommonLinkProperties(struct upnphttp * h, const char * action)
 			if(upstream_bitrate == 0) upstream_bitrate = data.baudrate;
 		}
 	}
-	if(getifaddr(ext_if_name, ext_ip_addr, INET_ADDRSTRLEN) < 0) {
+	if(getifaddr(ext_if_name, ext_ip_addr, INET_ADDRSTRLEN, NULL, NULL) < 0) {
 		status = "Down";
 	}
 	bodylen = snprintf(body, sizeof(body), resp,
@@ -269,7 +270,7 @@ GetExternalIPAddress(struct upnphttp * h, const char * action)
 	{
 		strncpy(ext_ip_addr, use_ext_ip_addr, INET_ADDRSTRLEN);
 	}
-	else if(getifaddr(ext_if_name, ext_ip_addr, INET_ADDRSTRLEN) < 0)
+	else if(getifaddr(ext_if_name, ext_ip_addr, INET_ADDRSTRLEN, NULL, NULL) < 0)
 	{
 		syslog(LOG_ERR, "Failed to get ip address for interface %s",
 			ext_if_name);
@@ -794,9 +795,10 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 		"<NewLeaseDuration>%u</NewLeaseDuration>"
 		"</u:%sResponse>";
 
-	int index = 0;
+	long int index = 0;
 	unsigned short eport, iport;
 	const char * m_index;
+	char * endptr;
 	char protocol[4], iaddr[32];
 	char desc[64];
 	char rhost[40];
@@ -812,13 +814,27 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action)
 		SoapError(h, 402, "Invalid Args");
 		return;
 	}
+	errno = 0;	/* To distinguish success/failure after call */
+	index = strtol(m_index, &endptr, 10);
+	if((errno == ERANGE && (index == LONG_MAX || index == LONG_MIN))
+	   || (errno != 0 && index == 0) || (m_index == endptr))
+	{
+		/* should condition (*endptr != '\0') be also an error ? */
+		if(m_index == endptr)
+			syslog(LOG_WARNING, "%s: no digits were found in <%s>",
+			       "GetGenericPortMappingEntry", "NewPortMappingIndex");
+		else
+			syslog(LOG_WARNING, "%s: strtol('%s'): %m",
+			       "GetGenericPortMappingEntry", m_index);
+		ClearNameValueList(&data);
+		SoapError(h, 402, "Invalid Args");
+		return;
+	}
 
-	index = (int)atoi(m_index);
-
-	syslog(LOG_INFO, "%s: index=%d", action, index);
+	syslog(LOG_INFO, "%s: index=%d", action, (int)index);
 
 	rhost[0] = '\0';
-	r = upnp_get_redirection_infos_by_index(index, &eport, protocol, &iport,
+	r = upnp_get_redirection_infos_by_index((int)index, &eport, protocol, &iport,
                                             iaddr, sizeof(iaddr),
 	                                        desc, sizeof(desc),
 	                                        rhost, sizeof(rhost),
