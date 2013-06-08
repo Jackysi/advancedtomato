@@ -1588,7 +1588,8 @@ createFieldTable('', [
 		value: nvram.ppp_redialperiod },
 	{ title: 'LCP Echo Interval', indent: 2, name: 'pppoe_lei', type: 'text', maxlen: 5, size: 7, suffix: ' <i>seconds (range: 1 - 60; default: 10)</i>',
 		value: nvram.pppoe_lei },
-	{ title: 'LCP Echo Link fail limit', indent: 2, name: 'pppoe_lef', type: 'text', maxlen: 5, size: 7, value: nvram.pppoe_lef, suffix: ' <i>(range: 1 - 10; default: 5)</i>},
+	{ title: 'LCP Echo Link fail limit', indent: 2, name: 'pppoe_lef', type: 'text', maxlen: 5, size: 7, suffix: ' <i>(range: 1 - 10; default: 5)</i>',
+		value: nvram.pppoe_lef },
 	{ title: 'MTU', multi: [
 		{ name: 'mtu_enable', type: 'select', options: [['0', 'Default'],['1','Manual']], value: nvram.mtu_enable },
 		{ name: 'f_wan_mtu', type: 'text', maxlen: 4, size: 6, value: nvram.wan_mtu } ] },
