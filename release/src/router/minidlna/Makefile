@@ -1,4 +1,4 @@
-# $Id: Makefile,v 1.30 2011/02/17 23:17:24 jmaggard Exp $
+# $Id: Makefile,v 1.31.2.2 2012/11/05 07:01:21 jmaggard Exp $
 # MiniDLNA project
 # http://sourceforge.net/projects/minidlna/
 # (c) 2008-2009 Justin Maggard
@@ -156,7 +156,5 @@ log.o: log.h
 
 .c.o:
 	@echo Compiling $*.c
-	@$(CC) $(CFLAGS) -o $@ -c $< && exit 0;\
-		echo "The following command failed:" 1>&2;\
-		echo "$(CC) $(CFLAGS) -o $@ -c $<";\
-		$(CC) $(CFLAGS) -o $@ -c $< &>/dev/null
+	@$(CC) $(CFLAGS) -o $@ -c $< && exit 0; \
+		echo "The following command failed:  $(CC) $(CFLAGS) -o $@ -c $<" && false
