@@ -1,9 +1,6 @@
 ########################################################
 # Samsung U209
 
-DefaultVendor= 0x04e8
-DefaultProduct=0xf000
-
 TargetVendor=  0x04e8
 TargetProduct= 0x6601
 

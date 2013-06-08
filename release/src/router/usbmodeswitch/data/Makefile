@@ -1,5 +1,5 @@
 PROG        = usb-modeswitch-data
-VERS        = 20110805
+VERS        = 20130607
 RM          = /bin/rm -f
 PREFIX      = $(DESTDIR)/usr
 ETCDIR      = $(DESTDIR)/etc
@@ -8,29 +8,36 @@ RULESDIR    = $(DESTDIR)/lib/udev/rules.d
 
 .PHONY:     clean
 
-all:
+all: 40-usb_modeswitch.rules
 
 clean:
+	$(RM) 40-usb_modeswitch.rules
 
-install: files-install db-install rules-reload
+install: all files-install db-install rules-reload
 
 install-packed: files-install db-install-packed rules-reload
 
-files-install:
+files-install: 
 	install -d $(PREFIX)/share/usb_modeswitch
 	install -d $(ETCDIR)/usb_modeswitch.d
 	install -D --mode=644 40-usb_modeswitch.rules $(RULESDIR)/40-usb_modeswitch.rules
 
-db-install:
+40-usb_modeswitch.rules:
+	./gen-rules.tcl
+
+db-install: files-install
 	install --mode=644 -t $(PREFIX)/share/usb_modeswitch ./usb_modeswitch.d/*
 
 db-install-packed:
-	cd ./usb_modeswitch.d; tar -czf ../configPack.tar.gz *
+	@# Create a compressed tar without gzip timestamp, so tar.gz
+	@# differs only if content is different
+	cd ./usb_modeswitch.d; tar -cf ../configPack.tar *
+	gzip -f9n ./configPack.tar
 	install --mode=644 -t $(PREFIX)/share/usb_modeswitch ./configPack.tar.gz
 	rm -f ./configPack.tar.gz
 
 rules-reload:
-	if [ -f $(ETCDIR)/issue ]; then \
+	@if [ -f $(ETCDIR)/issue ]; then \
 		UDEVADM=`which udevadm 2>/dev/null`; \
 		if [ "x$$UDEVADM" != "x" ]; then \
 			UDEVADM_VER=`$$UDEVADM -V 2>/dev/null`; \

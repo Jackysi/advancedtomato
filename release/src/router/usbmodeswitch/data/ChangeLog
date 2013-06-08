@@ -1,3 +1,65 @@
+20130607:
+    Fixed wrong message content for Huawei U2800 (thanks to Peter Fedorow)
+20130602:
+    Added devices: Nokia CS-12, Alcatel-Lucent T930S, Axesstel MV241,
+    Pantech UML290, Huawei E3131 (Variant), Huawei U2800 Phone, Huawei GP02
+    (E587 Variant), KDDI (Huawei) HWD12 LTE, Novatel MC996D, Axesstel MU130,
+    ZTE MF656A, MF668A, MF669, Onda MT8205 LTE, ZTE MF680, ZTE MF196,
+    BandRich BandLuxe C508, Alcatel L100V, Explay Slim, Onda TM201 14.4
+    (TIM Italy), Onda WM301, D-Link DWM-156 (several new variants), D-Link
+    DWR-510, Mediatek MT6229, Changhong CH690, WeTelecom WM-D200; several
+    new target IDs for Sierra, Huawei and ZTE; fix for WeTelecom WM-D300;
+    included simple TCL script to regenerate rules file from configs
+20121109:
+    Added devices: Nokia CS-7M-01, LG LUU-2110TI, LG VL600, LG L-03D LTE/3G,
+    Option Beemo/Pantech P4200 LTE, Vodafone/Huawei K3772, Vodafone/Huawei
+    K3773, Huawei E171, Huawei E173s, Huawei E177, Huawei EC156, Huawei
+    E372u-8, Huawei E392u-12, Huawei ET8282, Huawei ET127, ZTE-T A356,
+    ZTE MF192+, ZTE MF190J, Vodafone/ZTE K3770-Z, T-Mobile/ZTE MF591,
+    Aircard 901, ETCOM E300, Archos G9 3G Key, Onda MW833UP, Onda MW836UP-K,
+    Onda MW875UP, Franklin Wireless U600 (Thanks for the contribution of most
+    new devices goes to Nicolas Carrier from the Parrot company);
+    Preparation for future MBIM devices: new "NoMBIMCheck" config parameter,
+    change in modem rules (match devices, not interfaces), best used with
+    usb_modeswitch 1.2.5 and up
+20120815:
+    Small target ID addition for Huawei E352
+20120812:
+    Added devices: ZTE MF60, Vodafone K5006Z, Alcatel OT-X220D,
+    Alcatel OT-X080C, TP-Link MA180, ZTE MF821D, Dymo LabelManager PnP,
+    Onda MDC655, Option GI0643, WeTelecom WM-D300, China TeleCom CBP7.0,
+    Linktop LW272/LW273, Nokia CS-11, ZTE MF190 (yet annother variant),
+    Huawei E535; updated config for C-motech D-50 (16d8:6803); changes
+    in "rules" file (interface number filters) to reflect recent reports;
+    fix config for Novatel MC545 (1410:5059)
+20120531:
+    Small but important fix for ZTE Blade phone
+20120529:
+    Added devices: Telenet 3G dongle (T&W WU160), Nokia CS-21M-02,
+    Telewell TW-3G HSPA+, ZTE MF637, TW-3G HSPA+, Samsung GT-B1110,
+    ZTE MF192 (yet annother variant), MediaTek MT6276M, Tata Photon+,
+    Option Globetrotter (Variant), Option iCon 711, Celot K-300,
+    Hisense E910 EVDO Phone, Yota Router (Quanta 1QDLZZZ0ST2),
+    K5005 Vodafone/Huawei, D-Link DWM-156 (Variant), Huawei E173
+    (Moviestar), Onda MSA 14.4 (TIM Brasil); some target product ID
+    additions; skip driver loading for some devices now supported by
+    dedicated drivers; minor fine tuning and corrections
+20120120:
+    Added devices: Air FlexiNet/StrongRising, BandLuxe C339, Celot CT-680,
+    Huawei E353, Haier CE682, LG L-02C LTE, LG SD711, LG L-08C, LG L-07A,
+    I-O Data WMX2-U, Option GI1515, ZTE A371B, ZTE MF652 (two Variants);
+    reduced redundancies in parameters, resulting in smaller files;
+    ATTENTION !! Needs program version >= 1.2.1 !!
+20111023:
+    Added devices: C-motech CDU-685a, Qisda H21 "Flying Beetle" (needs
+    program version >= 1.2.0)
+20111012:
+    Added devices: AnyDATA APE-540H, ZTE MF192 (new variant)
+20111007:
+    Added devices: Alcatel OT X220L, Nokia CS-19, Huawei ET302, 3GO 3GO11
+    HSUPA, Novatel MC545, ZTE AC682, ZTE MF820 4G LTE, Philips PicoPix 1020
+    (LED projector); added some ZTE target IDs; modded udev rules to include
+    "change" as trigger event
 20110805:
     Added devices: Vodafone/Huawei K4510 & K4511, Vodafone/ZTE K3770-Z,
     K3772-Z and K4510-Z (thanks to Andrew Bird); five Option HSO modems;

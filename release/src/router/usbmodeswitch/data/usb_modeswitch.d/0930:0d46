@@ -1,14 +1,8 @@
-########################################################
 # Toshiba G450
-
-DefaultVendor= 0x0930
-DefaultProduct=0x0d46
 
 TargetVendor=  0x0930
 TargetProduct= 0x0d45
 
 MessageContent="5553424312345678000000000000061b000000020000000000000000000000"
 NeedResponse=1
-
-CheckSuccess=20
 
