@@ -8,8 +8,9 @@
 
 N16=`nvram get t_model_name | grep RT-N16 | wc -l`
 N66U=`nvram get t_model_name | grep RT-N66U | wc -l`
+AC66U=`nvram get t_model_name | grep RT-AC66U | wc -l`
 
-if [ "$N16" == "1" -o "$N66U" == "1" ]; then
+if [ "$N16" == "1" -o "$N66U" == "1" -o "$AC66U" == 1 ]; then
     case "$1" in
         on)
             /usr/sbin/stealthMode perm_on
