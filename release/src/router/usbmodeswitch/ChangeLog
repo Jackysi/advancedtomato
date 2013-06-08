@@ -2,6 +2,53 @@
 History of USB_ModeSwitch
 =========================
 
+Version 1.2.6, 2013/06/02
+    Several changes to streamline compiling as part of larger projects
+    (thanks to Nicolas Carrier), mostly in Makefile; fix compiler warnings
+    appearing in certain build environments (N. Carrier); new Quanta
+    procedure (thanks to Andrey Tikhomirov) for Quanta 1K3 LTE; fix for
+    error with cascaded hubs in dispatcher script (hint from N. Carrier)
+Version 1.2.5, 2012/11/09
+    Initial support for MBIM devices, use with data package >= 20121109;
+    checking for these is the automatic default, new parameter NoMBIMCheck
+    prevents the check per device in case of problems; new global option
+    to set "delay_use" of usb-storage (as low values may prevent
+    mode-switching); fix for handling multi-configuration devices (thanks
+    to Bjørn Mork for advice)
+Version 1.2.4, 2012/08/12
+    Additional interface checks to prevent sending UFI commands to non-
+    storage interfaces (prompted by more ambiguous device IDs popping up);
+    change in SierraMode for handling newer devices which caused an error
+    abort before; Makefile fix for parallelized make runs
+Version 1.2.3, 2012/01/28
+    Fixed two bugs both causing the embedded-jimsh install variant of the
+    dispatcher crash (the "pure-script" install variant was NOT affected);
+    fixed some "regexp" incompatibilities with Debian's libjim
+Version 1.2.2, 2012/01/19
+    Fixed bad bug preventing mode switch for devices using TargetClass;
+    improved logging in case of negative success check
+Version 1.2.1, 2011/12/26
+    Fixed possible ambiguities when multiple identical modems are plugged
+    synchronously; this is achieved by adding -b and -g parameter (busnum
+    and devnum) for proper id'ing; some resulting workflow changes and
+    shortcuts in "system integration" mode (use sysfs/wrapper for success
+    control, reduce informative checks); improved hub usage robustness;
+    future data packages can be ridded of redundancies (default ID, success
+    check parameters), resulting in smaller files;
+    fixed bad bug which may prevent switching completely when logging is
+    not activated; fixed possible overflow in dispatcher C code (thanks to
+    Gilles Espinasse)
+Version 1.2.0, 2011/10/23
+    Added QisdaMode for Qisda H21 (thanks to Chi-Hang Long for the code);
+    dispatcher can now be installed with an embedded interpreter, so that
+    Tcl is no longer required; added command line options for binary program
+    to accept configuration data via stdin or as a long string parameter -
+    this fixes the bug with non-writable temporary file during boot;
+    reversed skipping of pre-switching delay, which has caused problems;
+    fixed potential buffer overflow (thanks to Rafael Silva for the find);
+    get first interface right even on some broken devices (thanks to
+    Alexander Gordeev for the patch); increased post-switch delay before
+    driver binding to avoid possible conflict with usb-storage
 Version 1.1.9, 2011/08/05
     Added CiscoMode for Valet device; additional checking for CDC ACM device
     to prevent erroneous driver loading after switching; no more post-switch

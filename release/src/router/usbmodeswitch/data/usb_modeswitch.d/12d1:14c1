@@ -1,12 +1,7 @@
-########################################################
 # Vodafone (Huawei) K4605
-
-DefaultVendor= 0x12d1
-DefaultProduct=0x14c1
 
 TargetVendor=  0x12d1
 TargetProduct= 0x14c6
 
-CheckSuccess=20
-
 MessageContent="55534243123456780000000000000011062000000100000000000000000000"
+

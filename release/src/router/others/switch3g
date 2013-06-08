@@ -58,28 +58,30 @@ else
     DEVICES=`lsusb | awk '{print $6}'`
 
     for SWITCH in $DEVICES; do
-    SEARCH=`ls /etc/usb_modeswitch.d/$SWITCH | wc -l`
+        SEARCH=`ls /etc/usb_modeswitch.d/$SWITCH | wc -l`
 
-    # vendor:product
+        # vendor:product
 
-    if [ "$SEARCH" == "1" ]; then
-        logger 3G MODEM FOUND - $SWITCH - Switching ...
-        /usr/sbin/usb_modeswitch -Q -c /etc/usb_modeswitch.d/$SWITCH
+        if [ "$SEARCH" == "1" ]; then
+            logger 3G MODEM FOUND - $SWITCH - Switching ...
+            DV=`echo $SWITCH | cut -d ":" -f1`
+            DP=`echo $SWITCH | cut -d ":" -f2`
+            /usr/sbin/usb_modeswitch -Q -c /etc/usb_modeswitch.d/$SWITCH -v $DV -p $DP
 
-        TEST1=`cat /etc/usb_modeswitch.d/$SWITCH | grep "TargetVendor" | cut -d "=" -f2 | wc -l`
-        if [ "$TEST1" == "1" ]; then
-            VENDOR=`cat /etc/usb_modeswitch.d/$SWITCH | grep "TargetVendor" | cut -d "=" -f2 | cut -d "x" -f2`
-        else
-            VENDOR=`echo $SWITCH | cut -d ":" -f1`
+            TEST1=`cat /etc/usb_modeswitch.d/$SWITCH | grep "TargetVendor" | cut -d "=" -f2 | wc -l`
+            if [ "$TEST1" == "1" ]; then
+                VENDOR=`cat /etc/usb_modeswitch.d/$SWITCH | grep "TargetVendor" | cut -d "=" -f2 | cut -d "x" -f2`
+            else
+                VENDOR=`echo $SWITCH | cut -d ":" -f1`
+            fi
+
+            TEST2=`lsusb | awk '{print $6}' | grep $VENDOR | wc -l`
+            if [ "$TEST2" == "1" ]; then
+                PRODUCT=`lsusb | awk '{print $6}' | grep $VENDOR | cut -d ":" -f2`
+                logger 3G MODEM ready - $VENDOR:$PRODUCT
+                echo "$VENDOR:$PRODUCT" > /tmp/3g.detect
+            fi
         fi
-
-        TEST2=`lsusb | awk '{print $6}' | grep $VENDOR | wc -l`
-        if [ "$TEST2" == "1" ]; then
-            PRODUCT=`lsusb | awk '{print $6}' | grep $VENDOR | cut -d ":" -f2`
-            logger 3G MODEM ready - $VENDOR:$PRODUCT
-            echo "$VENDOR:$PRODUCT" > /tmp/3g.detect
-        fi
-    fi
     done
 
     #trying option and sierra module first

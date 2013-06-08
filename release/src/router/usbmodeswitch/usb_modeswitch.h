@@ -2,8 +2,8 @@
   This file is part of usb_modeswitch, a mode switching tool for controlling
   flip flop (multiple device) USB gear
 
-  Version 1.1.9, 2011/08/05
-  Copyright (C) 2007 - 2011  Josua Dietze
+  Version 1.2.6, 2013/06/02
+  Copyright (C) 2007 - 2013  Josua Dietze
 
   Config file parsing stuff borrowed from Guillaume Dargaud
   (http://www.gdargaud.net/Hack/SourceCode.html)
@@ -35,6 +35,8 @@ void switchHuaweiMode();
 void switchSierraMode();
 void switchGCTMode();
 int switchKobilMode();
+int switchQisdaMode();
+void switchQuantaMode();
 int switchSequansMode();
 int switchActionMode();
 int switchSonyMode();
@@ -50,7 +52,7 @@ struct libusb_device* search_devices( int *numFound, int vendor, int product, ch
 int find_first_bulk_output_endpoint(struct libusb_device *dev);
 int find_first_bulk_input_endpoint(struct libusb_device *dev);
 int get_current_configuration(struct libusb_device_handle* devh);
-int get_interface0_class(struct libusb_device *dev, int devconfig);
+int get_interface_class(struct libusb_config_descriptor *cfg, int ifcNumber);
 char* ReadParseParam(const char* FileName, char *VariableName);
 int hex2num(char c);
 int hex2byte(const char *hex);
@@ -62,6 +64,8 @@ void deviceDescription();
 int deviceInquire();
 void resetUSB();
 void release_usb_device(int dummy);
+int findMBIMConfig(int vendor, int product, int mode);
+
 
 // Boolean
 #define  and     &&
