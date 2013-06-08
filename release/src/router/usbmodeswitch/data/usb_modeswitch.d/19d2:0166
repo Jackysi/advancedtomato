@@ -1,12 +1,7 @@
-#ZTE MF820 (aka MF821d)
+# ZTE MF820 4G LTE
 
-DefaultVendor=  0x19d2
-DefaultProduct= 0x0166
-TargetVendor=   0x19d2
-TargetProduct=  0x0167
+TargetVendor=  0x19d2
+TargetProduct= 0x0167
 
 MessageContent="55534243123456782400000080000685000000240000000000000000000000"
 
-NeedResponse=1
-
-CheckSuccess=20

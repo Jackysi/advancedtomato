@@ -1,12 +1,7 @@
-########################################################
-# Alcatel X200/X200L/X060S
-
-DefaultVendor= 0x1bbb
-DefaultProduct=0xf000
+# Alcatel X200/X200L/X060S, Archos G9 3G Key
 
 TargetVendor=  0x1bbb
-TargetProductList="0000,0017"
-
-CheckSuccess=20
+TargetProductList="0000,0017,00b7"
 
 MessageContent="55534243123456788000000080000606f50402527000000000000000000000"
+

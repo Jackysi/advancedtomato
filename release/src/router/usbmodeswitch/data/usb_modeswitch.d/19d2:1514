@@ -1,10 +1,7 @@
-# ZTE MF192 variant x (T-Mobile/EE UK) aka ZTE MF195
+# ZTE MF192 (yet annother variant)
 
-DefaultVendor= 0x19d2
-DefaultProduct= 0x1514
-
-TargetVendor= 0x19d2
+TargetVendor=  0x19d2
 TargetProduct= 0x1515
 
-MessageEndpoint = 0x01
 MessageContent="5553424348c4758600000000000010ff000000000000000000000000000000"
+
