@@ -15,7 +15,7 @@
 <link rel='stylesheet' type='text/css' href='color.css'>
 <script type='text/javascript' src='tomato.js'></script>
 <script type='text/javascript'>
-//	<% nvram("tomatoanon_enable,tomatoanon_answer,tomatoanon_cru,tomatoanon_id"); %>
+//	<% nvram("tomatoanon_enable,tomatoanon_answer,tomatoanon_cru,tomatoanon_id,tomatoanon_notify"); %>
 
 var anon_link = '&nbsp;&nbsp;<a href="http://tomato.groov.pl/tomatoanon.php?search=9&routerid=<% nv('tomatoanon_id'); %>" target="_blank"><i>[Checkout my router]</i></a>';
 
@@ -27,6 +27,8 @@ function verifyFields(focused, quiet)
 	var s = (E('_tomatoanon_enable').value == '1');
 	E('_tomatoanon_cru').disabled = !o || !s;
 
+	E('_f_tomatoanon_notify').disabled = !o || !s;
+
 	return 1;
 }
 
@@ -34,6 +36,8 @@ function save()
 {
 	if (verifyFields(null, 0)==0) return;
 	var fom = E('_fom');
+
+	fom.tomatoanon_notify.value = E('_f_tomatoanon_notify').checked ? 1 : 0;
 
 	fom._service.value = 'tomatoanon-restart';
 	form.submit('_fom', 1);
@@ -57,6 +61,7 @@ function init()
 <form id='_fom' method='post' action='tomato.cgi'>
 <input type='hidden' name='_nextpage' value='admin-tomatoanon.asp'>
 <input type='hidden' name='_service' value='tomatoanon-restart'>
+<input type='hidden' name='tomatoanon_notify'>
 <div class='section-title'>About TomatoAnon Project</div>
 <div class="fields"><div class="about">
 <b>Hello,</b><br>
@@ -79,8 +84,6 @@ The following data is sent by TomatoAnon:<br>
  - Model of router. Ex: Asus RT-N66U<br>
  - Installed version of Tomato. Ex: 102 K26 USB<br>
  - Builtype. Ex: Mega-VPN-64K<br>
- - Country. Ex: POLAND<br>
- - ISO Country code. Ex: PL<br>
  - Uptime of your router. Ex: 3 days<br>
 That`s it !!<br>
 <br>
@@ -99,6 +102,18 @@ createFieldTable('', [
 	{ title: 'Send every', indent: 2, name: 'tomatoanon_cru', type: 'text', maxlen: 5, size: 7, value: nvram.tomatoanon_cru, suffix: ' <small>hours (range: 1 - 12; default: 6)</small>' }
 ]);
 </script>
+</div>
+
+<div class='section-title'>Tomato Update Notification System</div>
+<div class='section'>
+<script type='text/javascript'>
+createFieldTable('', [
+{ title: 'Enable', name: 'f_tomatoanon_notify', type: 'checkbox', value: nvram.tomatoanon_notify == '1' }
+]);
+</script>
+<ul>
+	<li>When new tomato version will be available, you will be notified about this on status-overview page.
+</ul>
 </div>
 </form>
 </div>

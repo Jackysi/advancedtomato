@@ -689,6 +689,7 @@ const defaults_t defaults[] = {
 	{ "tomatoanon_answer",		"0"				},
 	{ "tomatoanon_cru",		"6"				},
 	{ "tomatoanon_id",		""				},
+	{ "tomatoanon_notify",		"1"				},
 
 #ifdef TCONFIG_USB
 // nas-usb - !!TB
