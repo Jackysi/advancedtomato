@@ -313,7 +313,8 @@ static void stop_ppp(void)
 
 static void run_pppd(void)
 {
-	eval("pppd", "file", ppp_optfile);
+
+	eval("pppd", "file", (char *)ppp_optfile);
 
 	if (nvram_get_int("ppp_demand")) {
 		// demand mode

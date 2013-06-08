@@ -11,10 +11,9 @@
 
 #include "app.h"
 #include "cert.h"
-#include "crypto_box.h"
-#include "crypto_sign_ed25519.h"
 #include "dnscrypt_client.h"
 #include "queue.h"
+#include "sodium.h"
 
 #ifndef DNS_QUERY_TIMEOUT
 # define DNS_QUERY_TIMEOUT 10
@@ -29,14 +28,14 @@
 # define DNS_MAX_PACKET_SIZE_UDP DNS_MAX_PACKET_SIZE_UDP_SEND
 #endif
 
+#ifndef DNS_DEFAULT_STANDARD_DNS_PORT
+# define DNS_DEFAULT_STANDARD_DNS_PORT "53"
+#endif
 #ifndef DNS_DEFAULT_LOCAL_PORT
-# define DNS_DEFAULT_LOCAL_PORT "53"
+# define DNS_DEFAULT_LOCAL_PORT DNS_DEFAULT_STANDARD_DNS_PORT
 #endif
 #ifndef DNS_DEFAULT_RESOLVER_PORT
 # define DNS_DEFAULT_RESOLVER_PORT "443"
-#endif
-#ifndef DNS_DEFAULT_STANDARD_DNS_PORT
-# define DNS_DEFAULT_STANDARD_DNS_PORT "53"
 #endif
 
 #define DNS_HEADER_SIZE  12U
@@ -59,7 +58,7 @@
 #define DNS_OFFSET_EDNS_TYPE         0U
 #define DNS_OFFSET_EDNS_PAYLOAD_SIZE 2U
 
-#define DNS_DEFAULT_EDNS_PAYLOAD_SIZE 1280U
+#define DNS_DEFAULT_EDNS_PAYLOAD_SIZE 1252U
 
 typedef TAILQ_HEAD(TCPRequestQueue_, TCPRequest_) TCPRequestQueue;
 typedef TAILQ_HEAD(UDPRequestQueue_, UDPRequest_) UDPRequestQueue;
@@ -77,13 +76,11 @@ typedef struct ProxyContext_ {
     AppContext              *app_context;
     struct event_base       *event_loop;
     const char              *local_ip;
-    const char              *local_port;
     const char              *log_file;
     const char              *pid_file;
     const char              *provider_name;
     const char              *provider_publickey_s;
     const char              *resolver_ip;
-    const char              *resolver_port;
     struct evconnlistener   *tcp_conn_listener;
     struct event            *tcp_accept_timer;
     struct event            *udp_listener_event;
@@ -92,8 +89,8 @@ typedef struct ProxyContext_ {
     ev_socklen_t             local_sockaddr_len;
     ev_socklen_t             resolver_sockaddr_len;
     size_t                   edns_payload_size;
-    evutil_socket_t          udp_proxy_resolver_handle;
     evutil_socket_t          udp_listener_handle;
+    evutil_socket_t          udp_proxy_resolver_handle;
 #ifndef _WIN32
     uid_t                    user_id;
     gid_t                    user_group;
@@ -101,6 +98,7 @@ typedef struct ProxyContext_ {
     unsigned int             connections_count;
     unsigned int             connections_count_max;
     int                      log_fd;
+    int                      max_log_level;
     _Bool                    daemonize;
     _Bool                    listeners_started;
     _Bool                    tcp_only;

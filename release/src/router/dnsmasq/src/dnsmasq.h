@@ -224,7 +224,9 @@ struct event_desc {
 
 #ifdef HAVE_QUIET_DHCP	//Originally a TOMATO option
   #define OPT_QUIET_DHCP 41
-  #define OPT_LAST	42
+  #define OPT_QUIET_DHCP6 42
+  #define OPT_QUIET_RA	 43
+  #define OPT_LAST	44
 #else 
   #define OPT_LAST	41
 #endif //HAVE_QUIET_DHCP
@@ -314,6 +316,13 @@ struct host_record {
 struct interface_name {
   char *name; /* domain name */
   char *intr; /* interface name */
+  struct addrlist {
+    struct all_addr addr;
+    struct addrlist *next;
+  } *addr4;
+#ifdef HAVE_IPV6
+  struct addrlist *addr6;
+#endif
   struct interface_name *next;
 };
 
@@ -731,6 +740,7 @@ struct dhcp_context {
 #define CONTEXT_RA          8192
 #define CONTEXT_CONF_USED  16384
 #define CONTEXT_USED       32768
+#define CONTEXT_NOAUTH     65536
 
 struct ping_result {
   struct in_addr addr;
@@ -1031,15 +1041,15 @@ int random_sock(int family);
 void pre_allocate_sfds(void);
 int reload_servers(char *fname);
 void check_servers(void);
-int enumerate_interfaces();
+int enumerate_interfaces(int reset);
 void create_wildcard_listeners(void);
 void create_bound_listeners(int die);
 int is_dad_listeners(void);
 int iface_check(int family, struct all_addr *addr, char *name, int *auth_dns);
 int loopback_exception(int fd, int family, struct all_addr *addr, char *name);
+int label_exception(int index, int family, struct all_addr *addr);
 int fix_fd(int fd);
 int tcp_interface(int fd, int af);
-struct in_addr get_ifaddr(char *intr);
 #ifdef HAVE_IPV6
 int set_ipv6pktinfo(int fd);
 #endif

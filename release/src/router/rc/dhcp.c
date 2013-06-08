@@ -454,7 +454,7 @@ int dhcp6c_state_main(int argc, char **argv)
 
 	if (env2nv("new_domain_name_servers", "ipv6_get_dns")) {
 		dns_to_resolv();
-		start_dnsmasq();	// (re)start
+//		start_dnsmasq();	// (re)start KDB don't do twice!
 	}
 
 	// (re)start dnsmasq and httpd

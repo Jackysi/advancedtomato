@@ -785,7 +785,8 @@ endif
 iptables-install:
 	install -D iptables/iptables $(INSTALLDIR)/iptables/usr/sbin/iptables
 	cd $(INSTALLDIR)/iptables/usr/sbin && \
-		ln -sf iptables iptables-restore
+		ln -sf iptables iptables-restore && \
+		ln -sf iptables iptables-save
 
 	install -d $(INSTALLDIR)/iptables/usr/lib/iptables
 	install -D iptables/extensions/*.so $(INSTALLDIR)/iptables/usr/lib/iptables/
@@ -800,7 +801,8 @@ ifeq ($(TCONFIG_IPV6),y)
 	install iptables/ip6tables $(INSTALLDIR)/iptables/usr/sbin/ip6tables
 	$(STRIP) $(INSTALLDIR)/iptables/usr/sbin/ip6tables
 	cd $(INSTALLDIR)/iptables/usr/sbin && \
-		ln -sf ip6tables ip6tables-restore
+		ln -sf ip6tables ip6tables-restore && \
+		ln -sf ip6tables ip6tables-save
 endif
 
 iptables-clean:
@@ -1904,7 +1906,12 @@ apcupsd-install: apcupsd
 	$(STRIP) $(INSTALLDIR)/apcupsd/sbin/*
 	$(STRIP) $(INSTALLDIR)/apcupsd/www/apcupsd/*
 
-dnscrypt/stamp-h1:
+libsodium/stamp-h1:
+	cd $(TOP)/libsodium && CC=$(CC) STRIP='mipsel-uclibc-strip' \
+	$(CONFIGURE) --prefix=/usr --disable-ssp
+	touch libsodium/stamp-h1
+
+dnscrypt/stamp-h1: libsodium/stamp-h1
 	cd $(TOP)/dnscrypt && CC=$(CC) STRIP='mipsel-uclibc-strip' \
 	$(CONFIGURE) --prefix=/usr --disable-ssp
 	touch dnscrypt/stamp-h1
@@ -1920,7 +1927,8 @@ dnscrypt-install: dnscrypt
 
 dnscrypt-clean:
 	-@$(MAKE) -C dnscrypt clean
-	@rm -rf dnscrypt/stamp-h1 dnscrypt/src/dnscrypt-proxy/.deps dnscrypt/Makefile
+	-@$(MAKE) -C libsodium clean
+	@rm -rf dnscrypt/stamp-h1 dnscrypt/src/dnscrypt-proxy/.deps dnscrypt/Makefile libsodium/stamp-h1
 
 tor/stamp-h1: openssl zlib libevent
 	cd $(TOP)/tor && CC=$(CC) STRIP='mipsel-uclibc-strip' \

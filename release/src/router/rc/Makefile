@@ -16,7 +16,6 @@ OBJS += listen.o redial.o led.o qos.o forward.o misc.o mtd.o
 OBJS += buttons.o restrict.o gpio.o sched.o
 OBJS += new_qoslimit.o arpbind.o
 OBJS += tomatoanon.o
-#	heartbeat.o
 
 ifeq ($(TCONFIG_USB),y)
 OBJS += usb.o
@@ -122,12 +121,6 @@ endif
 ifeq ($(TCONFIG_DDNS),y)
 	@cd $(INSTALLDIR)/sbin && ln -sf rc ddns-update
 endif
-
-#	ifeq ($(TCONFIG_HEARTBEAT),y)
-#		@cd $(INSTALLDIR)/sbin && ln -sf rc hb_connect
-#		@cd $(INSTALLDIR)/sbin && ln -sf rc hb_disconnect
-#		@cd $(INSTALLDIR)/sbin && ln -sf rc hb_idle
-#	endif
 
 ifeq ($(TCONFIG_CIFS),y)
 	@cd $(INSTALLDIR)/sbin && ln -sf rc mount-cifs

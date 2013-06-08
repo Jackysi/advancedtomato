@@ -193,7 +193,10 @@ int iface_enumerate(int family, void *parm, int (*callback)())
 	  {
 	    /* May be multicast arriving async */
 	    if (nl_async(h))
-	      newaddr = 1; 
+	      {
+		newaddr = 1; 
+		enumerate_interfaces(1); /* reset */
+	      }
 	  }
 	else if (h->nlmsg_type == NLMSG_DONE)
 	  {
@@ -215,7 +218,8 @@ int iface_enumerate(int family, void *parm, int (*callback)())
 		if (ifa->ifa_family == AF_INET)
 		  {
 		    struct in_addr netmask, addr, broadcast;
-		    
+		    char *label = NULL;
+
 		    netmask.s_addr = htonl(0xffffffff << (32 - ifa->ifa_prefixlen));
 		    addr.s_addr = 0;
 		    broadcast.s_addr = 0;
@@ -226,12 +230,14 @@ int iface_enumerate(int family, void *parm, int (*callback)())
 			  addr = *((struct in_addr *)(rta+1));
 			else if (rta->rta_type == IFA_BROADCAST)
 			  broadcast = *((struct in_addr *)(rta+1));
+			else if (rta->rta_type == IFA_LABEL)
+			  label = RTA_DATA(rta);
 			
 			rta = RTA_NEXT(rta, len1);
 		      }
 		    
 		    if (addr.s_addr && callback_ok)
-		      if (!((*callback)(addr, ifa->ifa_index, netmask, broadcast, parm)))
+		      if (!((*callback)(addr, ifa->ifa_index, label,  netmask, broadcast, parm)))
 			callback_ok = 0;
 		  }
 #ifdef HAVE_IPV6
@@ -394,7 +400,7 @@ static int nl_async(struct nlmsghdr *h)
 static void nl_newaddress(time_t now)
 {
   if (option_bool(OPT_CLEVERBIND) || daemon->doing_dhcp6 || daemon->doing_ra)
-    enumerate_interfaces();
+    enumerate_interfaces(0);
   
   if (option_bool(OPT_CLEVERBIND))
     create_bound_listeners(0);

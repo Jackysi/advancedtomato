@@ -1425,12 +1425,11 @@ SendResp_albumArt(struct upnphttp * h, char * object)
 {
 	char header[512];
 	char *path;
-	char *dash;
 	char date[30];
 	time_t curtime = time(NULL);
 	off_t size;
-	int fd;
-	int ret;
+	long long id;
+	int fd, ret;
 
 	if( h->reqflags & (FLAG_XFERSTREAMING|FLAG_RANGE) )
 	{
@@ -1439,18 +1438,16 @@ SendResp_albumArt(struct upnphttp * h, char * object)
 		return;
 	}
 
-	dash = strchr(object, '-');
-	if( dash )
-		*dash = '\0';
+	id = strtoll(object, NULL, 10);
 
-	path = sql_get_text_field(db, "SELECT PATH from ALBUM_ART where ID = '%s'", object);
+	path = sql_get_text_field(db, "SELECT PATH from ALBUM_ART where ID = '%lld'", id);
 	if( !path )
 	{
 		DPRINTF(E_WARN, L_HTTP, "ALBUM_ART ID %s not found, responding ERROR 404\n", object);
 		Send404(h);
 		return;
 	}
-	DPRINTF(E_INFO, L_HTTP, "Serving album art ID: %s [%s]\n", object, path);
+	DPRINTF(E_INFO, L_HTTP, "Serving album art ID: %lld [%s]\n", id, path);
 
 	fd = open(path, O_RDONLY);
 	if( fd < 0 ) {
@@ -1493,17 +1490,19 @@ SendResp_caption(struct upnphttp * h, char * object)
 	char date[30];
 	time_t curtime = time(NULL);
 	off_t size;
+	long long id;
 	int fd, ret;
 
-	strip_ext(object);
-	path = sql_get_text_field(db, "SELECT PATH from CAPTIONS where ID = %s", object);
+	id = strtoll(object, NULL, 10);
+
+	path = sql_get_text_field(db, "SELECT PATH from CAPTIONS where ID = %lld", id);
 	if( !path )
 	{
 		DPRINTF(E_WARN, L_HTTP, "CAPTION ID %s not found, responding ERROR 404\n", object);
 		Send404(h);
 		return;
 	}
-	DPRINTF(E_INFO, L_HTTP, "Serving caption ID: %s [%s]\n", object, path);
+	DPRINTF(E_INFO, L_HTTP, "Serving caption ID: %lld [%s]\n", id, path);
 
 	fd = open(path, O_RDONLY);
 	if( fd < 0 ) {
@@ -1542,6 +1541,7 @@ SendResp_thumbnail(struct upnphttp * h, char * object)
 	char *path;
 	char date[30];
 	time_t curtime = time(NULL);
+	long long id;
 	int ret;
 	ExifData *ed;
 	ExifLoader *l;
@@ -1553,15 +1553,15 @@ SendResp_thumbnail(struct upnphttp * h, char * object)
 		return;
 	}
 
-	strip_ext(object);
-	path = sql_get_text_field(db, "SELECT PATH from DETAILS where ID = '%s'", object);
+	id = strtoll(object, NULL, 10);
+	path = sql_get_text_field(db, "SELECT PATH from DETAILS where ID = '%lld'", id);
 	if( !path )
 	{
 		DPRINTF(E_WARN, L_HTTP, "DETAIL ID %s not found, responding ERROR 404\n", object);
 		Send404(h);
 		return;
 	}
-	DPRINTF(E_INFO, L_HTTP, "Serving thumbnail for ObjectId: %s [%s]\n", object, path);
+	DPRINTF(E_INFO, L_HTTP, "Serving thumbnail for ObjectId: %lld [%s]\n", id, path);
 
 	if( access(path, F_OK) != 0 )
 	{

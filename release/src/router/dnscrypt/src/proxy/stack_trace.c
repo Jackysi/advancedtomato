@@ -31,7 +31,7 @@
 
 #include "stack_trace.h"
 
-#ifdef __OpenBSD__
+#if defined(__OpenBSD__) || defined(__Bitrig__)
 # undef HAVE_BACKTRACE
 #endif
 

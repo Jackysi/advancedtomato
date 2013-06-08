@@ -411,6 +411,7 @@ const aspapi_t aspapi[] = {
 	{ "mmcid",			asp_mmcid	},	//MMC Support
 #endif
 	{ "etherstates",		asp_etherstates	},	//Ethernet States
+	{ "anonupdate",			asp_anonupdate	},	//Tomato update notification system
 #ifdef TCONFIG_IPV6
 	{ "calc6rdlocalprefix",		asp_calc6rdlocalprefix	},
 #endif
@@ -562,12 +563,14 @@ static const nvset_t nvset_list[] = {
 	{ "ppp_demand",			V_01				},
 	{ "ppp_custom",			V_LENGTH(0, 256)		},
 	{ "ppp_idletime",		V_RANGE(0, 1440)	},
-	{ "ppp_redialperiod",	V_RANGE(1, 86400)	},
+	{ "ppp_redialperiod",		V_RANGE(1, 86400)	},
 	{ "ppp_mlppp",			V_01				},
 	{ "mtu_enable",			V_01				},
 	{ "wan_mtu",			V_RANGE(576, 1500)	},
 	{ "wan_islan",			V_01				},
 	{ "modem_ipaddr",		V_IP				},
+	{ "pppoe_lei",			V_RANGE(1, 60)			},
+	{ "pppoe_lef",			V_RANGE(1, 10)			},
 
 	// LAN
 	{ "lan_ipaddr",			V_IP				},
@@ -576,6 +579,8 @@ static const nvset_t nvset_list[] = {
 	{ "wan_dns",			V_LENGTH(0, 50)		},	// ip ip ip
 #ifdef TCONFIG_DNSCRYPT
 	{ "dnscrypt_proxy",		V_01				},
+	{ "dnscrypt_port",		V_PORT				},
+	{ "dnscrypt_cmd",		V_LENGTH(0, 256)		},
 #endif
 	{ "lan_state",			V_01				},
 	{ "lan_desc",			V_01				},
@@ -697,9 +702,9 @@ static const nvset_t nvset_list[] = {
 	{ "ipv6_tun_ttl",		V_NUM				},	// Tunnel TTL
 	{ "ipv6_dns",			V_LENGTH(0, 40*3)		},	// ip6 ip6 ip6
 	{ "ipv6_6rd_prefix",		V_IPV6(0)			},
-	{ "ipv6_6rd_prefix_length",	V_RANGE(3, 127)			},
-	{ "ipv6_6rd_border_relay",	V_IP				},
-	{ "ipv6_6rd_ipv4masklen",	V_RANGE(0, 255)			},
+	{ "ipv6_6rd_prefix_length",	V_RANGE(32, 62)			},
+	{ "ipv6_6rd_borderrelay",	V_IP				},
+	{ "ipv6_6rd_ipv4masklen",	V_RANGE(0, 30)			},
 #endif
 
 // basic-wfilter
@@ -734,6 +739,7 @@ static const nvset_t nvset_list[] = {
 	{ "dhcpc_custom",		V_LENGTH(0, 80)			},
 	{ "dns_norebind",		V_01				},
 	{ "dnsmasq_custom",		V_TEXT(0, 2048)			},
+	{ "dnsmasq_q",			V_RANGE(0,7)			}, //bitfield quiet bit0=dhcp, 1=dhcp6, 2=ra
 //	{ "dnsmasq_norw",		V_01				},
 
 // advanced-firewall
@@ -1071,6 +1077,7 @@ static const nvset_t nvset_list[] = {
 	{ "tomatoanon_enable",		V_RANGE(-1, 1)			},
 	{ "tomatoanon_cru",		V_RANGE(1, 12)			},
 	{ "tomatoanon_id",		V_LENGTH(0, 32)			},
+	{ "tomatoanon_notify",		V_01				},
 
 // nas-usb - !!TB
 #ifdef TCONFIG_USB
@@ -1128,9 +1135,9 @@ static const nvset_t nvset_list[] = {
 	{ "snmp_port",			V_RANGE(1, 65535)		},
 	{ "snmp_remote",		V_RANGE(0, 1)			},
 	{ "snmp_remote_sip",		V_LENGTH(0, 512)		},
-	{ "snmp_location",		V_LENGTH(0, 20)			},
-	{ "snmp_contact",		V_LENGTH(0, 20)			},
-	{ "snmp_ro",			V_LENGTH(0, 20)			},
+	{ "snmp_location",		V_LENGTH(0, 40)			},
+	{ "snmp_contact",		V_LENGTH(0, 40)			},
+	{ "snmp_ro",			V_LENGTH(0, 40)			},
 #endif
 
 #ifdef TCONFIG_SAMBASRV

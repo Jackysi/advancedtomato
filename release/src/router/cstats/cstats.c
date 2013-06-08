@@ -215,10 +215,11 @@ static int load_history_to_tree(const char *fname) {
 	_dprintf("%s: fname=%s\n", __FUNCTION__, fname);
 	unlink(uncomp_fn);
 
-	n = 0;
+	n = -1;
 	sprintf(s, "gzip -dc %s > %s", fname, uncomp_fn);
 	if (system(s) == 0) {
 		if ((f = fopen(uncomp_fn, "rb")) != NULL) {
+			n = 0;
 			while (fread(&tmp, sizeof(Node), 1, f) > 0) {
 				if ((find_word(exclude, tmp.ipaddr))) {
 					_dprintf("%s: not loading excluded ip '%s'\n", __FUNCTION__, tmp.ipaddr);
@@ -246,8 +247,8 @@ static int load_history_to_tree(const char *fname) {
 					ptr->monthlyp = tmp.monthlyp;
 
 					ptr->utime = tmp.utime;
-					memcpy(ptr->speed, &tmp.speed, sizeof(unsigned long) * MAX_NSPEED * MAX_COUNTER);
-					memcpy(ptr->last, &tmp.last, sizeof(unsigned long) * MAX_COUNTER);
+					memcpy(ptr->speed, &tmp.speed, sizeof(uint64_t) * MAX_NSPEED * MAX_COUNTER);
+					memcpy(ptr->last, &tmp.last, sizeof(uint64_t) * MAX_COUNTER);
 					ptr->tail = tmp.tail;
 //					ptr->sync = tmp.sync;
 					ptr->sync = -1;
@@ -272,6 +273,10 @@ static int load_history_to_tree(const char *fname) {
 	unlink(uncomp_fn);
 
 	_dprintf("%s: loaded %d records\n", __FUNCTION__, n);
+	if (n == -1)
+		printf("%s: Failed to parse the data file!\n", __FUNCTION__);
+	else
+		printf("%s: Loaded %d records\n", __FUNCTION__, n);
 
 	return n;
 }
@@ -307,7 +312,7 @@ static void load_new(void) {
 	char hgz[256];
 
 	sprintf(hgz, "%s.gz.new", history_fn);
-	if (load_history(hgz)) save(0);
+	if (load_history(hgz) >= 0) save(0);
 	unlink(hgz);
 }
 
@@ -358,8 +363,7 @@ static void load(int new) {
 				 * maybe it's corrupted (like 0 bytes long).
 				 * In these cases, try the backup files.
 				 */
-//				if (load_history(save_path)) {
-				if (load_history(save_path) || try_hardway(save_path)) {
+				if ((load_history(save_path) >= 0) || (try_hardway(save_path) >= 0)) {
 					f_write_string(source_fn, save_path, 0, 0);
 					break;
 				}
@@ -384,7 +388,7 @@ static void load(int new) {
 void Node_print_speedjs(Node *self, void *t) {
 	int j, k, p;
 	uint64_t total, tmax;
-	unsigned long n;
+	uint64_t n;
 	char c;
 
 	node_print_mode_t *info = (node_print_mode_t *)t;
@@ -397,7 +401,7 @@ void Node_print_speedjs(Node *self, void *t) {
 		for (k = 0; k < MAX_NSPEED; ++k) {
 			p = (p + 1) % MAX_NSPEED;
 			n = self->speed[p][j];
-			fprintf(info->stream, "%s%lu", k ? "," : "", n);
+			fprintf(info->stream, "%s%llu", k ? "," : "", n);
 			total += n;
 			if (n > tmax) tmax = n;
 		}
@@ -477,7 +481,7 @@ static void save_histjs(void) {
 	}
 }
 
-static void bump(data_t *data, int *tail, int max, uint32_t xnow, unsigned long *counter) {
+static void bump(data_t *data, int *tail, int max, uint32_t xnow, uint64_t *counter) {
 	int t, i;
 
 	t = *tail;
@@ -513,14 +517,14 @@ static void calc(void) {
 	FILE *f;
 	char buf[512];
 	char *ipaddr = NULL;
-	unsigned long counter[MAX_COUNTER];
+	uint64_t counter[MAX_COUNTER];
 	int i, j;
 	time_t now;
 	time_t mon;
 	struct tm *tms;
-	uint32_t c;
-	uint32_t sc;
-	unsigned long diff;
+	uint64_t c;
+	uint64_t sc;
+	uint64_t diff;
 	long tick;
 	int n;
 	char *exclude = NULL;
@@ -538,8 +542,8 @@ static void calc(void) {
 	_dprintf("%s: cstats_include='%s'\n", __FUNCTION__, include);
 
 
-	unsigned long tx;
-	unsigned long rx;
+	uint64_t tx;
+	uint64_t rx;
 	char ip[INET_ADDRSTRLEN];
 	char br;
 
@@ -559,10 +563,10 @@ static void calc(void) {
 
 		while (fgets(buf, sizeof(buf), f)) {
 			if(sscanf(buf, 
-				"ip = %s bytes_src = %lu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dst = %lu %*u %*u %*u %*u packets_dst = %*u %*u %*u %*u %*u time = %*u",
+				"ip = %s bytes_src = %llu %*u %*u %*u %*u packets_src = %*u %*u %*u %*u %*u bytes_dst = %llu %*u %*u %*u %*u packets_dst = %*u %*u %*u %*u %*u time = %*u",
 				ip, &rx, &tx) != 3 ) continue;
 #ifdef DEBUG_CSTATS
-			_dprintf("%s: %s tx=%lu rx=%lu\n", __FUNCTION__, ip, tx, rx);
+			_dprintf("%s: %s tx=%llu rx=%llu\n", __FUNCTION__, ip, tx, rx);
 #endif
 
 			if (find_word(exclude, ip)) continue;
@@ -593,13 +597,13 @@ static void calc(void) {
 					ptr->sync = -1;
 #ifdef DEBUG_CSTATS
 					for (i = 0; i < MAX_COUNTER; ++i) {
-						_dprintf("%s: counter[%d]=%lu ptr->last[%d]=%lu\n", __FUNCTION__, i, counter[i], i, ptr->last[i]);
+						_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu\n", __FUNCTION__, i, counter[i], i, ptr->last[i]);
 					}
 #endif
 					memcpy(ptr->last, counter, sizeof(ptr->last));
 					memset(counter, 0, sizeof(counter));
 					for (i = 0; i < MAX_COUNTER; ++i) {
-						_dprintf("%s: counter[%d]=%lu ptr->last[%d]=%lu\n", __FUNCTION__, i, counter[i], i, ptr->last[i]);
+						_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu\n", __FUNCTION__, i, counter[i], i, ptr->last[i]);
 					}
 				}
 				else {
@@ -612,6 +616,7 @@ static void calc(void) {
 					n = tick / INTERVAL;
 					if (n < 1) {
 						_dprintf("%s: %s is a little early... %lu < %d\n", __FUNCTION__, ipaddr, tick, INTERVAL);
+						continue;
 					} else {
 						ptr->utime += (n * INTERVAL);
 						_dprintf("%s: %s n=%d tick=%lu utime=%lu ptr->utime=%lu\n", __FUNCTION__, ipaddr, n, tick, uptime, ptr->utime);
@@ -619,7 +624,7 @@ static void calc(void) {
 							c = counter[i];
 							sc = ptr->last[i];
 #ifdef DEBUG_CSTATS
-							_dprintf("%s: counter[%d]=%lu ptr->last[%d]=%lu c=%u sc=%u\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc);
+							_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu c=%llu sc=%llu\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc);
 #endif
 							if (c < sc) {
 								diff = (0xFFFFFFFF - sc) + c;
@@ -630,7 +635,7 @@ static void calc(void) {
 							}
 							ptr->last[i] = c;
 							counter[i] = diff;
-							_dprintf("%s: counter[%d]=%lu ptr->last[%d]=%lu c=%u sc=%u diff=%lu\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc, diff);
+							_dprintf("%s: counter[%d]=%llu ptr->last[%d]=%llu c=%llu sc=%llu diff=%llu\n", __FUNCTION__, i, counter[i], i, ptr->last[i], c, sc, diff);
 						}
 						_dprintf("%s: ip=%s n=%d ptr->tail=%d\n", __FUNCTION__, ptr->ipaddr, n, ptr->tail);
 						for (j = 0; j < n; ++j) {

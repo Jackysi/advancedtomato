@@ -1,22 +1,21 @@
 #!/bin/sh
 
 ###############################
-# Copyright (C) 2012 shibby
+# Copyright (C) 2012/2013 shibby
 #
 # This script send anonymous or incompleted information about model of router and installed tomato version.
 # Those information will be used ONLY for stats.
 # Any of private information will be NOT sended!
 # Results you can explore on http://tomato.groov.pl/tomatoanon.php page.
-# If you don`t agree to run this script you can set nvram variable tomatoanon to 0.
+# If you don`t agree to run this script you can disable it in GUI.
 #
 # Sended information:
 # - MD5SUM of WAN+LAN MAC addresses - this will identify a router. Ex: 1c1dbd4202d794251ec1acf1211bb2c8
 # - Model of router. Ex: Asus RT-N66U
-# - Version of installed tomato. Ex: 102 K26 USB
+# - Version of installed tomato. Ex: 110 K26 USB
 # - Builtype. Ex: Mega-VPN-64K
-# - Country. Ex: POLAND
-# - ISO Country code. Ex: PL
 # - Uptime of your router. Ex: 3 days
+# - Number of version for tomato update notification system. Ex: 110
 #
 # That`s all
 ###############################
@@ -64,20 +63,17 @@ if [ "$ANON_ANSWER" == "1" ]; then
             fi
         fi
 
-        #Get country name and code
-        wget -O /tmp/country http://api.easyjquery.com/test/demo-ip.php
-        ISO=`cat /tmp/country | grep Country] | awk '{ print $3 }'`
-        COUNTRY=`cat /tmp/country | grep CountryName | awk '{ print $3" "$4" "$5 }'`
-        rm /tmp/country
+        # Tomato Update Notification Script
+        CHECK_VER=`echo $VER | awk '{print $1}' | cut -d "." -f1 | sed 's/[^0-9]*//g`
 
         #Change all spaces to %20.
-        echo "http://tomato.groov.pl/tomatoanon.php?wanmac_md5=$WANMAC_MD5&model=$MODEL&version=$VER&buildtype=$BUILDTYPE&country=$COUNTRY&flag=$ISO&driver=$DRIVER&uptime=$UPTIME&mod=$MOD&anon=1" > /tmp/AnonLink
+        echo "http://tomato.groov.pl/tomatoanon.php?wanmac_md5=$WANMAC_MD5&model=$MODEL&version=$VER&buildtype=$BUILDTYPE&driver=$DRIVER&uptime=$UPTIME&mod=$MOD&v=$CHECK_VER&anon=1" > /tmp/AnonLink
         sed -i "s/ /%20/g" /tmp/AnonLink
         ANONSEND=`cat /tmp/AnonLink`
         rm /tmp/AnonLink
 
         #We have all we need well we can send datas to Anon database
-        wget -O /dev/null $ANONSEND
+        wget -O /tmp/anon.result $ANONSEND
 
         #Thanks
 

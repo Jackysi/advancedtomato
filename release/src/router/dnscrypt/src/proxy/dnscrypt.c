@@ -14,8 +14,7 @@
 #include <event2/util.h>
 
 #include "dnscrypt.h"
-#include "salsa20_random.h"
-#include "randombytes.h"
+#include "sodium.h"
 #include "utils.h"
 
 size_t
@@ -33,23 +32,6 @@ dnscrypt_query_header_size(void)
         + crypto_box_MACBYTES;
 }
 
-static int
-dnscrypt_memcmp(const void * const b1_, const void * const b2_,
-                const size_t size)
-{
-    const uint8_t *b1 = b1_;
-    const uint8_t *b2 = b2_;
-    size_t         i = (size_t) 0U;
-    uint8_t        d = (uint8_t) 0U;
-
-    assert(size > (size_t) 0U);
-    do {
-        d |= b1[i] ^ b2[i];
-    } while (++i < size);
-
-    return (int) d;
-}
-
 int
 dnscrypt_cmp_client_nonce(const uint8_t client_nonce[crypto_box_HALF_NONCEBYTES],
                           const uint8_t * const buf, const size_t len)
@@ -57,8 +39,8 @@ dnscrypt_cmp_client_nonce(const uint8_t client_nonce[crypto_box_HALF_NONCEBYTES]
     const size_t client_nonce_offset = sizeof DNSCRYPT_MAGIC_RESPONSE - 1U;
 
     if (len < client_nonce_offset + crypto_box_HALF_NONCEBYTES ||
-        dnscrypt_memcmp(client_nonce, buf + client_nonce_offset,
-                        crypto_box_HALF_NONCEBYTES) != 0) {
+        sodium_memcmp(client_nonce, buf + client_nonce_offset,
+                      crypto_box_HALF_NONCEBYTES) != 0) {
         return -1;
     }
     return 0;
@@ -73,7 +55,7 @@ dnscrypt_pad(uint8_t *buf, const size_t len, const size_t max_len)
     if (max_len < len + DNSCRYPT_MIN_PAD_LEN) {
         return len;
     }
-    padded_len = len + DNSCRYPT_MIN_PAD_LEN + salsa20_random_uniform
+    padded_len = len + DNSCRYPT_MIN_PAD_LEN + randombytes_uniform
         ((uint32_t) (max_len - len - DNSCRYPT_MIN_PAD_LEN + 1U));
     padded_len += DNSCRYPT_BLOCK_SIZE - padded_len % DNSCRYPT_BLOCK_SIZE;
     if (padded_len > max_len) {
@@ -86,13 +68,6 @@ dnscrypt_pad(uint8_t *buf, const size_t len, const size_t max_len)
     assert(max_len >= padded_len);
 
     return padded_len;
-}
-
-void
-randombytes(unsigned char * const buf, const unsigned long long buf_len)
-{
-    assert(buf_len <= SIZE_MAX);
-    salsa20_random_buf(buf, buf_len);
 }
 
 void

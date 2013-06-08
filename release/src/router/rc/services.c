@@ -149,7 +149,7 @@ void start_dnsmasq()
 
 #ifdef TCONFIG_DNSCRYPT
 	if (nvram_match("dnscrypt_proxy", "1")) {
-		fprintf(f, "server=127.0.0.1#40\n");
+		fprintf(f, "server=127.0.0.1#%s\n", nvram_safe_get("dnscrypt_port") );
 	}
 #endif
 
@@ -161,6 +161,12 @@ void start_dnsmasq()
 
 	if (nvram_get_int("dhcpd_static_only")) {
 		fprintf(f, "dhcp-ignore=tag:!known\n");
+	}
+
+	if ((n = nvram_get_int("dnsmasq_q"))) { //process quiet flags
+		if (n & 1) fprintf(f, "quiet-dhcp\n");
+		if (n & 2) fprintf(f, "quiet-dhcp6\n");
+		if (n & 4) fprintf(f, "quiet-ra\n");
 	}
 
 	// dhcp
@@ -392,8 +398,6 @@ void start_dnsmasq()
 
                 switch (service) {
                 case IPV6_NATIVE_DHCP:
-                        prefix = "::";
-                        break;
                 case IPV6_ANYCAST_6TO4:
                 case IPV6_6IN4:
                 case IPV6_6RD:
@@ -407,14 +411,8 @@ void start_dnsmasq()
                 if (!(*prefix)) prefix = "::";
                 ipv6 = (char *)ipv6_router_address(NULL);
 
-		fprintf(f, "enable-ra\ndhcp-range=tag:br0,%s, slaac, ra-names\n", prefix);
+		fprintf(f, "enable-ra\ndhcp-range=tag:br0,%s, slaac, ra-names, 64\n", prefix);
 
-// KDB below is experimental and doesn't work probably my lack of C
-// the above slaac enabling line is the closest to the standard RADVD
-// functionality anyway.  Code for another day, let's get something that
-// works out there.
-		//prefix[strlen(prefix)-1] = 0;
-		//fprintf(f, "enable-ra\ndhcp-range=tag:br0,%s, %sFFFF:FFFF:FFFF, constructor:br0, ra-names, 12h\n", ipv6, prefix);
 	}
 #endif
 
@@ -446,7 +444,10 @@ void start_dnsmasq()
 	//start dnscrypt-proxy
 	if (nvram_match("dnscrypt_proxy", "1")) {
 		eval("ntp2ip");
-		eval("dnscrypt-proxy", "-d", "-P", "40");
+
+		char dnscrypt_local[30];
+		sprintf(dnscrypt_local, "127.0.0.1:%s", nvram_safe_get("dnscrypt_port") );
+		eval("dnscrypt-proxy", "-d", "-a", dnscrypt_local, nvram_safe_get("dnscrypt_cmd") );
 	}
 #endif
 
@@ -769,7 +770,7 @@ void start_ipv6(void)
 	int service;
 
 	service = get_ipv6_service();
-	enable_ip_forward();
+	enable_ip6_forward();
 
 	// Check if turned on
 	switch (service) {

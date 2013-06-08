@@ -43,11 +43,17 @@ logger(struct ProxyContext_ * const context,
     size_t      len;
     int         log_fd;
 
+    if (context != NULL) {
+        if (crit > context->max_log_level) {
+            return 0;
+        }
+    } else {
 #ifndef DEBUG
-    if (crit == LOG_DEBUG) {
-        return 0;
-    }
+        if (crit > LOG_INFO) {
+            return 0;
+        }
 #endif
+    }
     switch (crit) {
     case LOG_INFO:
         urgency = "[INFO] ";

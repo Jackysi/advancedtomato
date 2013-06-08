@@ -135,6 +135,8 @@ struct myoption {
 
 #ifdef HAVE_QUIET_DHCP //Originally TOMATO option
 #define LOPT_QUIET_DHCP 322
+#define LOPT_QUIET_DHCP6 323
+#define LOPT_QUIET_RA 324
 #endif
 
 #ifdef HAVE_GETOPT_LONG
@@ -275,6 +277,8 @@ static const struct myoption opts[] =
 #endif
 #ifdef HAVE_QUIET_DHCP //Originally TOMATO option
     { "quiet-dhcp", 0, 0, LOPT_QUIET_DHCP },
+    { "quiet-dhcp6", 0, 0, LOPT_QUIET_DHCP6 },
+    { "quiet-ra", 0, 0, LOPT_QUIET_RA },
 #endif
     { NULL, 0, 0, 0 }
   };
@@ -421,6 +425,8 @@ static struct {
 #endif
 #ifdef HAVE_QUIET_DHCP //originally TOMATO option
   { LOPT_QUIET_DHCP, OPT_QUIET_DHCP, NULL, gettext_noop("Do not log DHCP packets."), NULL },
+  { LOPT_QUIET_DHCP6, OPT_QUIET_DHCP6, NULL, gettext_noop("Do not log DHCPv6 packets."), NULL },
+  { LOPT_QUIET_RA, OPT_QUIET_RA, NULL, gettext_noop("Do not log RA packets."), NULL },
 #endif 
   { 0, 0, NULL, NULL, NULL }
 }; 
@@ -1647,8 +1653,6 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	    
 	    if (inet_pton(AF_INET, arg, &subnet->addr4))
 	      {
-		if ((prefixlen & 0x07) != 0 || prefixlen > 24)
-		  ret_err(_("bad prefix"));
 		subnet->prefixlen = (prefixlen == 0) ? 24 : prefixlen;
 		subnet->is6 = 0;
 	      }
@@ -2421,6 +2425,11 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 		    new->template_interface = opt_string_alloc(a[leasepos] + 12);
 		    new->flags |= CONTEXT_TEMPLATE;
 		  }
+		else if (strstr(a[leasepos], "constructor-noauth:") == a[leasepos])
+		  {
+		    new->template_interface = opt_string_alloc(a[leasepos] + 19);
+		    new->flags |= CONTEXT_TEMPLATE | CONTEXT_NOAUTH;
+		  }
 		else  
 		  break;
 	      }
@@ -2520,7 +2529,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
     case 'G':  /* --dhcp-host */
       {
 	int j, k = 0;
-	char *a[6] = { NULL, NULL, NULL, NULL, NULL, NULL };
+	char *a[7] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL };
 	struct dhcp_config *new;
 	struct in_addr in;
 	
@@ -2532,7 +2541,7 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	new->netid = NULL;
 
 	if ((a[0] = arg))
-	  for (k = 1; k < 6; k++)
+	  for (k = 1; k < 7; k++)
 	    if (!(a[k] = split(a[k-1])))
 	      break;
 	
@@ -3225,6 +3234,10 @@ static int one_opt(int option, char *arg, char *errstr, char *gen_err, int comma
 	
 	new = opt_malloc(sizeof(struct interface_name));
 	new->next = NULL;
+	new->addr4 = NULL;
+#ifdef HAVE_IPV6
+	new->addr6 = NULL;
+#endif
 	/* Add to the end of the list, so that first name
 	   of an interface is used for PTR lookups. */
 	for (up = &daemon->int_names; *up; up = &((*up)->next));

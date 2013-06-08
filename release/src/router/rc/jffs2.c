@@ -51,7 +51,7 @@ void start_jffs2(void)
 
 	if (nvram_match("jffs2_format", "1")) {
 		nvram_set("jffs2_format", "0");
-
+		nvram_commit_x();
 		if (!mtd_erase("jffs2")) {
 			error("formatting");
 			return;

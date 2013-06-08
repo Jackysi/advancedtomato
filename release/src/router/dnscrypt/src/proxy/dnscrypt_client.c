@@ -18,7 +18,7 @@
 
 #include "dnscrypt.h"
 #include "dnscrypt_client.h"
-#include "salsa20_random.h"
+#include "sodium.h"
 #include "utils.h"
 
 static void
@@ -35,14 +35,14 @@ dnscrypt_make_client_nonce(DNSCryptClient * const client,
     }
     client->nonce_ts_last = ts;
 
-    tsn = (ts << 10) | (salsa20_random() & 0x3ff);
+    tsn = (ts << 10) | (randombytes_random() & 0x3ff);
 #ifdef WORDS_BIGENDIAN
     tsn = (((uint64_t) htonl((uint32_t) tsn)) << 32) |
         htonl((uint32_t) (tsn >> 32));
 #endif
     COMPILER_ASSERT(crypto_box_HALF_NONCEBYTES == 12U);
     memcpy(client_nonce, &tsn, 8U);
-    suffix = salsa20_random();
+    suffix = randombytes_random();
     memcpy(client_nonce + 8U, &suffix, 4U);
 }
 
@@ -125,9 +125,9 @@ dnscrypt_client_uncurve(const DNSCryptClient * const client,
          nonce, client->nmkey)) {
         return -1;
     }
-    dnscrypt_memzero(nonce, sizeof nonce);
+    sodium_memzero(nonce, sizeof nonce);
     assert(len >= DNSCRYPT_SERVER_BOX_OFFSET + crypto_box_BOXZEROBYTES);
-    while (buf[--len] == 0U) { }
+    while (len > 0U && buf[--len] == 0U) { }
     if (buf[len] != 0x80) {
         return -1;
     }
@@ -163,7 +163,7 @@ dnscrypt_client_init_nmkey(DNSCryptClient * const client,
 int
 dnscrypt_client_wipe_secretkey(DNSCryptClient * const client)
 {
-    salsa20_random_buf(client->secretkey, crypto_box_SECRETKEYBYTES);
+    randombytes_buf(client->secretkey, crypto_box_SECRETKEYBYTES);
 
     return 0;
 }
@@ -186,7 +186,7 @@ dnscrypt_client_create_key_pair(DNSCryptClient * const client,
 {
     (void) client;
     crypto_box_keypair(client_publickey, client_secretkey);
-    salsa20_random_stir();
+    randombytes_stir();
 
     return 0;
 }

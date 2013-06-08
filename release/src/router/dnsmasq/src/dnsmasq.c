@@ -270,7 +270,7 @@ int main (int argc, char **argv)
     die(_("cannot set --bind-interfaces and --bind-dynamic"), NULL, EC_BADCONF);
 #endif
 
-  if (!enumerate_interfaces())
+  if (!enumerate_interfaces(1) || !enumerate_interfaces(0))
     die(_("failed to find list of interfaces: %s"), NULL, EC_MISC);
   
   if (option_bool(OPT_NOWILD) || option_bool(OPT_CLEVERBIND)) 
@@ -293,7 +293,7 @@ int main (int argc, char **argv)
 #endif
 
 #if defined(HAVE_LINUX_NETWORK) && defined(HAVE_DHCP6)
-      if (daemon->dhcp6)
+      if (daemon->doing_dhcp6)
 	bindtodevice(daemon->dhcp6fd);
 #endif
     }
@@ -865,12 +865,15 @@ int main (int argc, char **argv)
       now = dnsmasq_time();
 
       check_log_writer(&wset);
-      
+
+      /* prime. */
+      enumerate_interfaces(1);
+
       /* Check the interfaces to see if any have exited DAD state
 	 and if so, bind the address. */
       if (is_dad_listeners())
 	{
-	  enumerate_interfaces();
+	  enumerate_interfaces(0);
 	  /* NB, is_dad_listeners() == 1 --> we're binding interfaces */
 	  create_bound_listeners(0);
 	}
@@ -1422,63 +1425,71 @@ static void check_dns_listeners(fd_set *set, time_t now)
 	  
 	  if (confd == -1)
 	    continue;
-
+	  
 	  if (getsockname(confd, (struct sockaddr *)&tcp_addr, &tcp_len) == -1)
 	    {
 	      close(confd);
 	      continue;
 	    }
+	  
+	  /* Make sure that the interface list is up-to-date.
+	     
+	     We do this here as we may need the results below, and
+	     the DNS code needs them for --interface-name stuff.
 
-	   if (option_bool(OPT_NOWILD))
-	    iface = listener->iface; /* May be NULL */
-	   else 
-	     {
-	       int if_index;
-	       char intr_name[IF_NAMESIZE];
+	     Multiple calls to enumerate_interfaces() per select loop are
+	     inhibited, so calls to it in the child process (which doesn't select())
+	     have no effect. This avoids two processes reading from the same
+	     netlink fd and screwing the pooch entirely.
+	  */
  
-	       /* In full wildcard mode, need to refresh interface list.
-		  This happens automagically in CLEVERBIND */
-	       if (!option_bool(OPT_CLEVERBIND))
-		 enumerate_interfaces();
-	       
-	       /* if we can find the arrival interface, check it's one that's allowed */
-	       if ((if_index = tcp_interface(confd, tcp_addr.sa.sa_family)) != 0 &&
-		   indextoname(listener->tcpfd, if_index, intr_name))
-		 {
-		   struct all_addr addr;
-		   addr.addr.addr4 = tcp_addr.in.sin_addr;
+	  enumerate_interfaces(0);
+	  
+	  if (option_bool(OPT_NOWILD))
+	    iface = listener->iface; /* May be NULL */
+	  else 
+	    {
+	      int if_index;
+	      char intr_name[IF_NAMESIZE];
+	      
+	      /* if we can find the arrival interface, check it's one that's allowed */
+	      if ((if_index = tcp_interface(confd, tcp_addr.sa.sa_family)) != 0 &&
+		  indextoname(listener->tcpfd, if_index, intr_name))
+		{
+		  struct all_addr addr;
+		  addr.addr.addr4 = tcp_addr.in.sin_addr;
 #ifdef HAVE_IPV6
-		   if (tcp_addr.sa.sa_family == AF_INET6)
-		     addr.addr.addr6 = tcp_addr.in6.sin6_addr;
+		  if (tcp_addr.sa.sa_family == AF_INET6)
+		    addr.addr.addr6 = tcp_addr.in6.sin6_addr;
 #endif
-		   
-		   for (iface = daemon->interfaces; iface; iface = iface->next)
-		     if (iface->index == if_index)
-		       break;
-		   
-		   if (!iface && !loopback_exception(listener->tcpfd, tcp_addr.sa.sa_family, &addr, intr_name))
-		     client_ok = 0;
-		 }
-	       
-	       if (option_bool(OPT_CLEVERBIND))
-		 iface = listener->iface; /* May be NULL */
-	       else
-		 {
-		    /* Check for allowed interfaces when binding the wildcard address:
-		       we do this by looking for an interface with the same address as 
-		       the local address of the TCP connection, then looking to see if that's
-		       an allowed interface. As a side effect, we get the netmask of the
-		      interface too, for localisation. */
-		   
-		   for (iface = daemon->interfaces; iface; iface = iface->next)
-		     if (sockaddr_isequal(&iface->addr, &tcp_addr))
-		       break;
-		   
-		   if (!iface)
-		     client_ok = 0;
-		 }
-	     }
-	  	  
+		  
+		  for (iface = daemon->interfaces; iface; iface = iface->next)
+		    if (iface->index == if_index)
+		      break;
+		  
+		  if (!iface && !loopback_exception(listener->tcpfd, tcp_addr.sa.sa_family, &addr, intr_name))
+		    client_ok = 0;
+		}
+	      
+	      if (option_bool(OPT_CLEVERBIND))
+		iface = listener->iface; /* May be NULL */
+	      else
+		{
+		  /* Check for allowed interfaces when binding the wildcard address:
+		     we do this by looking for an interface with the same address as 
+		     the local address of the TCP connection, then looking to see if that's
+		     an allowed interface. As a side effect, we get the netmask of the
+		     interface too, for localisation. */
+		  
+		  for (iface = daemon->interfaces; iface; iface = iface->next)
+		    if (sockaddr_isequal(&iface->addr, &tcp_addr))
+		      break;
+		  
+		  if (!iface)
+		    client_ok = 0;
+		}
+	    }
+	  
 	  if (!client_ok)
 	    {
 	      shutdown(confd, SHUT_RDWR);
