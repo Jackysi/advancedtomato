@@ -42,7 +42,7 @@ ports.
     pseudo-RR to outgoing queries in order to enable the EDNS0
     extension mechanism. The payload size is the size of the largest
     response we accept from the resolver before retrying over TCP.
-    This feature is enabled by default, with a payload size of 1280
+    This feature is enabled by default, with a payload size of 1252
     bytes. Any value below 512 disables it.
 
   * `-h`, `--help`: show usage.
@@ -51,6 +51,10 @@ ports.
 
   * `-l`, `--logfile=<file>`: log events to this file instead of the
     standard output.
+
+  * `-m`, `--loglevel=<level>`: don't log events with priority above
+    this level after the service has been started up. Default is the value
+    for `LOG_INFO`.
 
   * `-n`, `--max-active-requests=<count>`: set the maximum number of
     simultaneous active requests. The default value is 250.
@@ -81,13 +85,8 @@ string, with optional columns.
 
 ## ADVANCED USAGE EXAMPLE
 
-    $ dnscrypt-proxy --provider-key=B735:1140:206F:225D:3E2B:D822:D7FD:691E:A1C3:3CC8:D666:8D0C:BE04:BFAB:CA43:FB79 --provider-name=2.dnscrypt-cert.dnscrypt.org. --resolver-ip=208.67.220.220:53 --daemonize
+    $ dnscrypt-proxy --provider-key=B735:1140:206F:225D:3E2B:D822:D7FD:691E:A1C3:3CC8:D666:8D0C:BE04:BFAB:CA43:FB79 --provider-name=2.dnscrypt-cert.dnscrypt.org. --resolver-address=208.67.220.220:53 --daemonize
 
 ## SEE ALSO
 
 hostip(8)
-
-## COPYRIGHT
-
-dnscrypt-proxy is Copyright (C) 2011-2012 OpenDNS, Inc.
-`http://www.opendns.com/`

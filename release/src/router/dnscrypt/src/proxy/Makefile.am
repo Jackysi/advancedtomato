@@ -27,8 +27,6 @@ dnscrypt_proxy_SOURCES = \
 	probes_no_dtrace.h \
 	safe_rw.c \
 	safe_rw.h \
-	salsa20_random.c \
-	salsa20_random.h \
 	sandboxes.c \
 	sandboxes.h \
 	stack_trace.c \
@@ -40,31 +38,37 @@ dnscrypt_proxy_SOURCES = \
 	udp_request.h \
 	udp_request_p.h \
 	utils.c \
-	utils.h
+	utils.h \
+	windows_service.c \
+	windows_service.h
 
 AM_CFLAGS = @CWFLAGS@
 
 AM_CPPFLAGS = \
 	-I../ext \
-	-I../libevent/include \
-	-I../@NACL_PATH@/include/local
+	-I../libevent-modified/include
 
 dnscrypt_proxy_LDADD = \
-	../libevent/libevent_extra.la \
-	../libevent/libevent_core.la \
-	../@NACL_PATH@/lib/local/libnacl.a
+	../libevent-modified/libevent_extra.la \
+	../libevent-modified/libevent_core.la
 
 dnscrypt_proxy_DEPENDENCIES = \
-	../libevent/libevent_extra.la \
-	../libevent/libevent_core.la \
-	../libnacl/.done
+	../libevent-modified/libevent_extra.la \
+	../libevent-modified/libevent_core.la
+
+if USE_BUILTIN_LIBSODIUM
+AM_CPPFLAGS += \
+	-I../libsodium/src/libsodium/include
+
+dnscrypt_proxy_LDADD += \
+	../libsodium/src/libsodium/libsodium.la
+
+dnscrypt_proxy_DEPENDENCIES += \
+	../libsodium/src/libsodium/libsodium.la
+endif
 
 BUILT_SOURCES = \
-	../libnacl/.done \
 	probes.h
-
-../libnacl/.done:
-	cd ../libnacl && $(MAKE) $(AM_MAKEFLAGS)
 
 probes.h: @PROBES_SOURCE@
 	cat @PROBES_SOURCE@ > $@
@@ -75,3 +79,22 @@ probes_dnscrypt_proxy.h: probes_dnscrypt_proxy.d
 CLEANFILES = \
 	probes.h \
 	probes_dnscrypt_proxy.h
+
+if PLUGINS
+
+AM_CPPFLAGS += \
+	$(LTDLINCL) \
+	-I../include \
+	-DPLUGINS_ROOT=\"$(pkglibdir)/\"
+
+dnscrypt_proxy_LDADD += $(LIBLTDL)
+dnscrypt_proxy_DEPENDENCIES += $(LTDLDEPS)
+
+dnscrypt_proxy_SOURCES += \
+	plugin_options.c \
+	plugin_options.h \
+	plugin_support.c \
+	plugin_support.h \
+	plugin_support_p.h
+
+endif

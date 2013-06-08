@@ -788,8 +788,9 @@ void receive_query(struct listener *listen, time_t now)
       if (!iface_check(listen->family, &dst_addr, ifr.ifr_name, &auth_dns))
 	{
 	   if (!option_bool(OPT_CLEVERBIND))
-	     enumerate_interfaces(); 
-	   if (!loopback_exception(listen->fd, listen->family, &dst_addr, ifr.ifr_name))
+	     enumerate_interfaces(0); 
+	   if (!loopback_exception(listen->fd, listen->family, &dst_addr, ifr.ifr_name) &&
+	       !label_exception(if_index, listen->family, &dst_addr))
 	     return;
 	}
 
@@ -807,7 +808,7 @@ void receive_query(struct listener *listen, time_t now)
 	  
 	  /* interface may be new */
 	  if (!iface && !option_bool(OPT_CLEVERBIND))
-	    enumerate_interfaces(); 
+	    enumerate_interfaces(0); 
 	  
 	  for (iface = daemon->interfaces; iface; iface = iface->next)
 	    if (iface->addr.sa.sa_family == AF_INET &&
@@ -1204,8 +1205,17 @@ struct frec *get_new_frec(time_t now, int *wait)
   /* none available, calculate time 'till oldest record expires */
   if (count > daemon->ftabsize)
     {
+      static time_t last_log = 0;
+      
       if (oldest && wait)
 	*wait = oldest->time + (time_t)TIMEOUT - now;
+      
+      if ((int)difftime(now, last_log) > 5)
+	{
+	  last_log = now;
+	  my_syslog(LOG_WARNING, _("Maximum number of concurrent DNS queries reached (max: %d)"), daemon->ftabsize);
+	}
+
       return NULL;
     }
   

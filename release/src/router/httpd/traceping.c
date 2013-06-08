@@ -19,7 +19,7 @@ static int check_addr(const char *addr, int max)
 	p = addr;
 	while (*p) {
 		c = *p;
-		if ((!isalnum(c)) && (c != '.') && (c != '-')) return 0;
+		if ((!isalnum(c)) && (c != '.') && (c != '-') && (c != ':')) return 0;	//Give IPv6 address a chance
 		++p;
 	}
 	return((p - addr) <= max);

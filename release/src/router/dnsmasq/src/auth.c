@@ -54,6 +54,7 @@ static int filter_constructed_dhcp(struct auth_zone *zone, int flag, struct all_
   if (flag & F_IPV6)
     for (context = daemon->dhcp6; context; context = context->next)
       if ((context->flags & CONTEXT_CONSTRUCTED) &&
+	  !(context->flags & CONTEXT_NOAUTH) &&
 	  is_same_net6(&(addr_u->addr.addr6), &context->start6, context->prefix))
 	return 1;
 #endif
@@ -152,32 +153,55 @@ size_t answer_auth(struct dns_header *header, char *limit, size_t qlen, time_t n
 	      auth = 0;
 	      continue;
 	    }
- 	  
-	  if (flag == F_IPV4)
-	    {
-	      for (intr = daemon->int_names; intr; intr = intr->next)
-		{
-		  if (addr.addr.addr4.s_addr == get_ifaddr(intr->intr).s_addr)
-		    break;
-		  else
-		    while (intr->next && strcmp(intr->intr, intr->next->intr) == 0)
-		      intr = intr->next;
-		}
+	  
+	  intr = NULL;
 
-	      if (intr)
-		{
-		  if (in_zone(zone, intr->name, NULL))
-		    {	
-		      found = 1;
-		      log_query(F_IPV4 | F_REVERSE | F_CONFIG, intr->name, &addr, NULL);
-		      if (add_resource_record(header, limit, &trunc, nameoffset, &ansp, 
-					      daemon->auth_ttl, NULL,
-					      T_PTR, C_IN, "d", intr->name))
-			anscount++;
-		    }
+	  if (flag == F_IPV4)
+	    for (intr = daemon->int_names; intr; intr = intr->next)
+	      {
+		struct addrlist *addrlist;
+		
+		for (addrlist = intr->addr4; addrlist; addrlist = addrlist->next)
+		  if (addr.addr.addr4.s_addr == addrlist->addr.addr.addr4.s_addr)
+		    break;
+		
+		if (addrlist)
+		  break;
+		else
+		  while (intr->next && strcmp(intr->intr, intr->next->intr) == 0)
+		    intr = intr->next;
+	      }
+#ifdef HAVE_IPV6
+	  else if (flag == F_IPV6)
+	    for (intr = daemon->int_names; intr; intr = intr->next)
+	      {
+		struct addrlist *addrlist;
+		
+		for (addrlist = intr->addr6; addrlist; addrlist = addrlist->next)
+		  if (IN6_ARE_ADDR_EQUAL(&addr.addr.addr6, &addrlist->addr.addr.addr6))
+		    break;
+		
+		if (addrlist)
+		  break;
+		else
+		  while (intr->next && strcmp(intr->intr, intr->next->intr) == 0)
+		    intr = intr->next;
+	      }
+#endif
+	  
+	  if (intr)
+	    {
+	      if (in_zone(zone, intr->name, NULL))
+		{	
+		  found = 1;
+		  log_query(flag| F_REVERSE | F_CONFIG, intr->name, &addr, NULL);
+		  if (add_resource_record(header, limit, &trunc, nameoffset, &ansp, 
+					  daemon->auth_ttl, NULL,
+					  T_PTR, C_IN, "d", intr->name))
+		    anscount++;
 		}
 	    }
-
+	  
 	  if ((crecp = cache_find_by_addr(NULL, &addr, now, flag)))
 	    do { 
 	      strcpy(name, cache_get_name(crecp));
@@ -321,20 +345,37 @@ size_t answer_auth(struct dns_header *header, char *limit, size_t qlen, time_t n
 			  anscount++;
 	       }
 	   }
-
-
+    
+       if (qtype == T_A)
+	 flag = F_IPV4;
+       
+#ifdef HAVE_IPV6
+       if (qtype == T_AAAA)
+	 flag = F_IPV6;
+#endif
+       
        for (intr = daemon->int_names; intr; intr = intr->next)
 	 if (hostname_isequal(name, intr->name))
 	   {
+	     struct addrlist *addrlist;
+
+	     addrlist = intr->addr4;
+#ifdef HAVE_IPV6
+	     if (qtype == T_AAAA)
+	       addrlist = intr->addr6;
+#endif	
 	     nxdomain = 0;
-	     if (qtype == T_A && (addr.addr.addr4 = get_ifaddr(intr->intr)).s_addr != (in_addr_t) -1)
-	       {
-		 found = 1;
-		 log_query(F_FORWARD | F_CONFIG | F_IPV4, name, &addr, NULL);
-		 if (add_resource_record(header, limit, &trunc, nameoffset, &ansp, 
-					 daemon->auth_ttl, NULL, T_A, C_IN, "4", &addr))
-		   anscount++;
-	       }
+	
+	     for (; addrlist; addrlist = addrlist->next)  
+	       if (filter_constructed_dhcp(zone, flag, &addrlist->addr))
+		 {
+		   found = 1;
+		   log_query(F_FORWARD | F_CONFIG | flag, name, &addrlist->addr, NULL);
+		   if (add_resource_record(header, limit, &trunc, nameoffset, &ansp, 
+					   daemon->auth_ttl, NULL, qtype, C_IN, 
+					   qtype == T_A ? "4" : "6", &addrlist->addr))
+		     anscount++;
+		 }
 	   }
        
        for (a = daemon->cnames; a; a = a->next)
@@ -355,14 +396,6 @@ size_t answer_auth(struct dns_header *header, char *limit, size_t qlen, time_t n
 	     
 	     goto cname_restart;
 	   }
-
-      if (qtype == T_A)
-	flag = F_IPV4;
-
-#ifdef HAVE_IPV6
-      if (qtype == T_AAAA)
-	flag = F_IPV6;
-#endif
 
       if (!cut)
 	{
@@ -488,10 +521,10 @@ size_t answer_auth(struct dns_header *header, char *limit, size_t qlen, time_t n
 	      in_addr_t a = ntohl(subnet->addr4.s_addr) >> 8;
 	      char *p = name;
 	      
-	      if (subnet->prefixlen == 24)
+	      if (subnet->prefixlen >= 24)
 		p += sprintf(p, "%d.", a & 0xff);
 	      a = a >> 8;
-	      if (subnet->prefixlen != 8)
+	      if (subnet->prefixlen >= 16 )
 		p += sprintf(p, "%d.", a & 0xff);
 	      a = a >> 8;
 	      p += sprintf(p, "%d.in-addr.arpa", a & 0xff);
@@ -634,20 +667,32 @@ size_t answer_auth(struct dns_header *header, char *limit, size_t qlen, time_t n
 	      }
 	  
 	  for (intr = daemon->int_names; intr; intr = intr->next)
-	    if (in_zone(zone, intr->name, &cut) && (addr.addr.addr4 = get_ifaddr(intr->intr)).s_addr != (in_addr_t) -1)
+	    if (in_zone(zone, intr->name, &cut))
 	      {
+		struct addrlist *addrlist;
+		
 		if (cut)
 		  *cut = 0;
 		
-		if (add_resource_record(header, limit, &trunc, -axfroffset, &ansp, 
-					daemon->auth_ttl, NULL, T_A, C_IN, "4", cut ? intr->name : NULL, &addr))
-		  anscount++;
+		for (addrlist = intr->addr4; addrlist; addrlist = addrlist->next) 
+		  if (filter_constructed_dhcp(zone, F_IPV4,  &addrlist->addr) && 
+		      add_resource_record(header, limit, &trunc, -axfroffset, &ansp, 
+					  daemon->auth_ttl, NULL, T_A, C_IN, "4", cut ? intr->name : NULL, &addrlist->addr))
+		    anscount++;
+		
+#ifdef HAVE_IPV6
+		for (addrlist = intr->addr6; addrlist; addrlist = addrlist->next) 
+		  if (filter_constructed_dhcp(zone, F_IPV6,  &addrlist->addr) &&
+		      add_resource_record(header, limit, &trunc, -axfroffset, &ansp, 
+					  daemon->auth_ttl, NULL, T_AAAA, C_IN, "6", cut ? intr->name : NULL, &addrlist->addr))
+		    anscount++;
+#endif		    
 		
 		/* restore config data */
 		if (cut)
 		  *cut = '.'; 
 	      }
-	  
+             
 	  for (a = daemon->cnames; a; a = a->next)
 	    if (in_zone(zone, a->alias, &cut))
 	      {

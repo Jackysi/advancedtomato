@@ -1,11 +1,12 @@
 AC_PREREQ([2.61])
-AC_INIT([dnscrypt-proxy],[1.0],[https://github.com/opendns/dnscrypt-proxy/issues])
+AC_INIT([dnscrypt-proxy],[1.3.0],[http://dnscrypt.org])
 AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_AUX_DIR([libltdl/config])
 AC_CONFIG_SRCDIR([src/proxy/app.c])
 AC_CONFIG_HEADER([config.h])
-AC_CONFIG_SUBDIRS([src/libevent])
+AC_CONFIG_SUBDIRS([src/libevent-modified src/libsodium])
 AC_CANONICAL_HOST
-AM_INIT_AUTOMAKE([1.9 dist-bzip2])
+AM_INIT_AUTOMAKE([1.9 dist-bzip2 tar-ustar])
 AM_MAINTAINER_MODE
 AM_DEP_TRACK
 
@@ -16,30 +17,25 @@ AC_SUBST(ISODATE)
 LX_CFLAGS=${CFLAGS-NONE}
 AC_PROG_CC_C99
 AC_USE_SYSTEM_EXTENSIONS
-CPPFLAGS="$CPPFLAGS -D_XPG4_2=1 -D_GNU_SOURCE=1"
 CPPFLAGS="$CPPFLAGS -D_FORTIFY_SOURCE=2"
-
-AS_IF([test "$cross_compiling" != no],
-  AC_DEFINE(CROSS_COMPILING,,[define if you are cross-compiling])
-)
 
 AX_CHECK_COMPILE_FLAG([-fPIC], [
   AX_CHECK_LINK_FLAG([-fPIC],
     [CFLAGS="$CFLAGS -fPIC"]
   )
 ])
-AX_CHECK_COMPILE_FLAG([-fPIE], [
-  AX_CHECK_LINK_FLAG([-fPIE],
-    [AX_CHECK_LINK_FLAG([-pie],
-      [CFLAGS="$CFLAGS -fPIE"
-       LDFLAGS="$LDFLAGS -pie"])
+
+AS_IF([test "$enable_pie" != "no"],[
+  AX_CHECK_COMPILE_FLAG([-fPIE], [
+    AX_CHECK_LINK_FLAG([-fPIE],
+      [AX_CHECK_LINK_FLAG([-pie],
+        [CFLAGS="$CFLAGS -fPIE"
+         LDFLAGS="$LDFLAGS -pie"])
+    ])
   ])
 ])
 
-AX_CHECK_COMPILE_FLAG([-fcatch-undefined-c99-behavior],
-  [CFLAGS="$CFLAGS -fcatch-undefined-c99-behavior"],
-  [AX_CHECK_COMPILE_FLAG([-fwrapv], [CFLAGS="$CFLAGS -fwrapv"])]
-)
+AX_CHECK_COMPILE_FLAG([-fwrapv], [CFLAGS="$CFLAGS -fwrapv"])
 AX_CHECK_COMPILE_FLAG([-fno-strict-aliasing], [CFLAGS="$CFLAGS -fno-strict-aliasing"])
 AX_CHECK_COMPILE_FLAG([-fno-strict-overflow], [CFLAGS="$CFLAGS -fno-strict-overflow"])
 
@@ -47,11 +43,6 @@ case $host_os in
   cygwin* | mingw* | pw32* | cegcc*)
     AX_CHECK_LINK_FLAG([-Wl,--dynamicbase], [LDFLAGS="$LDFLAGS -Wl,--dynamicbase"])
     AX_CHECK_LINK_FLAG([-Wl,--nxcompat], [LDFLAGS="$LDFLAGS -Wl,--nxcompat"])
-    AX_CHECK_COMPILE_FLAG([-fstack-protector-all], [
-      AX_CHECK_LINK_FLAG([-fstack-protector-all],
-        [CFLAGS="$CFLAGS -fstack-protector-all"]
-      )
-    ])
   ;;
   dragonfly*)
     AX_CHECK_COMPILE_FLAG([-fstack-protector], [
@@ -69,10 +60,10 @@ case $host_os in
   ;;
 esac
 
-AX_CHECK_COMPILE_FLAG([-Wbounded], [CFLAGS="$CFLAGS -Wbounded"])
 AX_CHECK_COMPILE_FLAG([-Winit-self], [CFLAGS="$CFLAGS -Winit-self"])
 AX_CHECK_COMPILE_FLAG([-Wwrite-strings], [CFLAGS="$CFLAGS -Wwrite-strings"])
 AX_CHECK_COMPILE_FLAG([-Wdiv-by-zero], [CFLAGS="$CFLAGS -Wdiv-by-zero"])
+AX_CHECK_COMPILE_FLAG([-Wsometimes-uninitialized], [CFLAGS="$CFLAGS -Wsometimes-uninitialized"])
 
 AC_ARG_VAR([CWFLAGS], [define to compilation flags for generating extra warnings])
 
@@ -126,10 +117,16 @@ AC_PATH_PROG([SIXJACK], [sixjack], [#])
 AC_ARG_VAR([AR], [path to the ar utility])
 AC_CHECK_TOOL([AR], [ar], [ar])
 
-AS_IF([test `(uname -s) 2>/dev/null` = "Darwin"], [
-  AC_ARG_VAR([DTRACE], [path to dtrace if you have it])
-  AC_PATH_PROG([DTRACE], [dtrace])
-])
+case $host_os in
+  darwin*)
+    case $build_os in
+      darwin*)
+        AC_ARG_VAR([DTRACE], [path to dtrace if you have it])
+        AC_PATH_PROG([DTRACE], [dtrace])
+      ;;
+    esac
+  ;;
+esac
 AS_IF([test -n "$DTRACE"],[
   PROBES_SOURCE="probes_dnscrypt_proxy.h"
 ],[
@@ -151,8 +148,6 @@ AC_SYS_LARGEFILE
 AC_CHECK_HEADERS([sys/cdefs.h sys/feature_tests.h])
 AC_CHECK_HEADERS([execinfo.h paths.h pwd.h uuid/uuid.h])
 AC_CHECK_HEADERS([sandbox.h])
-
-AC_CHECK_FUNCS([getpwnam sandbox_init setrlimit])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 
@@ -186,7 +181,7 @@ do {
 } while(0)
 ]])],[
   AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_SIN_LEN,,[define if you have sin_len])
+  AC_DEFINE(HAVE_SIN_LEN,[1],[define if you have sin_len])
 ],[
   AC_MSG_RESULT(no)
 ])
@@ -206,7 +201,7 @@ do {
 } while(0)
 ]])],[
   AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE___SS_FAMILY,,[define if you have __ss_family])
+  AC_DEFINE(HAVE___SS_FAMILY,[1],[define if you have __ss_family])
 ],[
   AC_MSG_RESULT(no)
 ])
@@ -226,7 +221,7 @@ do {
 } while(0)
 ]])],[
   AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE_SS_LEN,,[define if you have ss_len])
+  AC_DEFINE(HAVE_SS_LEN,[1],[define if you have ss_len])
 ],[
   AC_MSG_RESULT(no)
 ])
@@ -246,7 +241,7 @@ do {
 } while(0)
 ]])],[
   AC_MSG_RESULT(yes)
-  AC_DEFINE(HAVE___SS_LEN,,[define if you have __ss_len])
+  AC_DEFINE(HAVE___SS_LEN,[1],[define if you have __ss_len])
 ],[
   AC_MSG_RESULT(no)
 ])
@@ -256,14 +251,30 @@ dnl Checks for library functions.
 AC_SEARCH_LIBS(pow, [m])
 AC_SEARCH_LIBS(dlopen, [dl])
 AC_SEARCH_LIBS(clock_gettime, [rt],
-  [AC_DEFINE(HAVE_CLOCK_GETTIME,,[define if you have clock_gettime()])])
+  [AC_DEFINE(HAVE_CLOCK_GETTIME,[1],[define if you have clock_gettime()])])
 
 AC_SEARCH_LIBS(backtrace, [execinfo],
-  [AC_DEFINE(HAVE_BACKTRACE,,[define if you have backtrace()])])
+  [AC_DEFINE(HAVE_BACKTRACE,[1],[define if you have backtrace()])])
 
 AC_SEARCH_LIBS(gethostbyname, [resolv nsl])
 AC_SEARCH_LIBS(recvfrom, [socket])
 AC_SEARCH_LIBS(kvm_open, [kvm])
+AC_SEARCH_LIBS(sodium_init, [sodium])
+
+AM_CONDITIONAL(USE_BUILTIN_LIBSODIUM, test x$ac_cv_search_sodium_init = xno)
+
+use_ldns=no
+AC_CHECK_HEADER([ldns/ldns.h], [
+  AC_CHECK_LIB(ldns, ldns_wire2pkt, [
+    AC_DEFINE(USE_LDNS,[1],[define to use the ldns library])
+    LDNS_LIBS=-lldns
+    use_ldns=yes
+  ])
+], [ ],
+[#include <stdlib.h>
+ #include <stdint.h>])
+AM_CONDITIONAL(USE_LDNS, test x$use_ldns = xyes)
+AC_SUBST([LDNS_LIBS])
 
 case $host_os in
   cygwin* | mingw* | pw32* | cegcc*)
@@ -276,13 +287,13 @@ esac
 AC_CHECK_HEADER([CoreServices/CoreServices.h],
   [LIBS="$LIBS -framework CoreFoundation -framework CoreServices"])
 
+AC_CHECK_FUNCS([getpwnam sandbox_init setrlimit putc_unlocked])
+
 dnl Switches.
 
-AC_HEADER_ASSERT
-
-AC_ARG_ENABLE(blocking-random,
-[AS_HELP_STRING(--enable-blocking-random,Use /dev/random instead of /dev/urandom)],
-[AC_DEFINE([USE_BLOCKING_RANDOM], [], [Use blocking random])])
+AC_ARG_ENABLE(pie,
+[AS_HELP_STRING(--enable-pie,Produce position independent executables @<:@default=yes@:>@)],
+ enable_pie=$enableval, enable_pie="maybe")
 
 AC_ARG_ENABLE(ssp,
 [AS_HELP_STRING(--disable-ssp,Don't compile with -fstack-protector)],
@@ -297,6 +308,31 @@ AC_ARG_ENABLE(ssp,
     CFLAGS="$nxflags"
   ])
 ])
+
+plugins=disabled
+AC_ARG_ENABLE(plugins,
+[AS_HELP_STRING(--enable-plugins,Enable support for plugins - experimental)],
+[CPPFLAGS="$CPPFLAGS -DPLUGINS=1"
+ plugins=enabled])
+AM_CONDITIONAL(PLUGINS, test x$plugins = xenabled)
+
+relaxed_plugins_permissions=disabled
+AC_ARG_ENABLE(relaxed-plugins-permissions,
+[AS_HELP_STRING(--enable-relaxed-plugins-permissions,Allow loading plugins owned by other users)],
+[CPPFLAGS="$CPPFLAGS -DRELAXED_PLUGINS_PERMISSIONS=1"
+ relaxed_plugins_permissions=enabled])
+AM_CONDITIONAL(RELAXED_PLUGINS_PERMISSIONS, test x$relaxed_plugins_permissions = xenabled)
+
+plugins_root=disabled
+AC_ARG_ENABLE(plugins-root,
+[AS_HELP_STRING(--enable-plugins-root,Only load plugins sitting in the default plugins directory)],
+[CPPFLAGS="$CPPFLAGS -DENABLE_PLUGINS_ROOT=1"
+ plugins_root=enabled])
+AM_CONDITIONAL(ENABLE_PLUGINS_ROOT, test x$plugins_root = xenabled)
+
+AC_ARG_ENABLE(blocking-random,
+[AS_HELP_STRING(--enable-blocking-random,Use /dev/random instead of /dev/urandom)],
+[AC_DEFINE([USE_BLOCKING_RANDOM], [1], [Use blocking random])])
 
 AC_ARG_ENABLE(debug,
 [AS_HELP_STRING(--enable-debug,For maintainers only - please do not use)],
@@ -326,28 +362,16 @@ AC_ARG_WITH(safecode,
   ])
 ])
 
-NACL_HOSTNAME="localhost"
-NACL_PATH=libnacl/build/${NACL_HOSTNAME}
-
 AC_SUBST([MAINT])
-AC_SUBST([NACL_PATH])
 AC_SUBST([PROBES_SOURCE])
 
 dnl Libtool.
 
-LT_INIT([disable-shared])
+LT_INIT([dlopen])
+LT_CONFIG_LTDL_DIR([libltdl])
+LTDL_INIT
 
 dnl Subconfig.
-
-nx_ac_configure_args=""
-for flag in $ac_configure_args; do
-  case "$flag" in
-    \'--build*) AS_VAR_APPEND([nx_ac_configure_args], [" $flag"]) ;;
-    \'--host*)  AS_VAR_APPEND([nx_ac_configure_args], [" $flag"]) ;;
-    *) ;;
-  esac
-done
-ac_configure_args="$nx_ac_configure_args"
 
 case $host_os in
   cygwin* | mingw* | pw32* | cegcc*) ;;
@@ -368,18 +392,28 @@ export LIBS
 
 dnl Output.
 
+AH_VERBATIM([NDEBUG], [/* Never ever ignore assertions */
+#ifdef NDEBUG
+#/**/undef/**/ NDEBUG
+#endif])
+
 AC_CONFIG_FILES([Makefile
+                 dist-build/Makefile
                  man/Makefile
                  src/Makefile
                  src/hostip/Makefile
                  src/proxy/Makefile
                  src/ext/Makefile
-                 src/libnacl/Makefile
-                 src/libnacl/tests/Makefile
-                 src/libnacl/okcompilers/c
-                 src/libnacl/okcompilers/do
+                 src/include/Makefile
+                 src/include/dnscrypt/version.h
+                 src/plugins/Makefile
+                 src/plugins/example/Makefile
+                 src/plugins/example-ldns-forward-after-nxdomain/Makefile
+                 src/plugins/example-logging/Makefile
+                 src/plugins/example-ldns-aaaa-blocking/Makefile
+                 src/plugins/example-ldns-blocking/Makefile
+                 src/plugins/example-ldns-opendns-deviceid/Makefile
+                 src/plugins/example-ldns-opendns-set-client-ip/Makefile
                  test/Makefile])
 
 AC_OUTPUT
-
-chmod +x src/libnacl/okcompilers/do

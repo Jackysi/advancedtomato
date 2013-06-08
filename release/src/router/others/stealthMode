@@ -14,27 +14,27 @@ if [ "$N16" == "1" -o "$N66U" == "1" ]; then
         on)
             /usr/sbin/stealthMode perm_on
             echo "StealthMode Activated"
-            logger StealthMode Activated
+            logger -t StealthMode Activated
             cru a stealthmode "*/5 * * * * /usr/sbin/stealthMode perm_on"
         ;;
         sun)
             if [ "$2" != "" -a "0$(echo $2|tr -d ' ')" -ge 0 ] ; then
                 echo "StealthMode Sunset Enabled"
-                logger StealthMode Sunset Enabled
+                logger -t StealthMode Sunset Enabled
                 cru a stealthsun_on "0 2 * * * /usr/sbin/stealthMode sun_on $2"
                 /usr/sbin/stealthMode sun_on $2
             else
                 echo "StealthMode Sunset error - the city code does not specified!"
-                logger StealthMode Sunset error - the city code does not specified!
+                logger -p3 -t StealthMode Sunset error - the city code does not specified!
                 /usr/sbin/stealthMode
                 exit 1
             fi
         ;;
         sun_on)
-            ping -q -w 1 -c 1 `ip r | grep default | cut -d ' ' -f 3` > /dev/null
+            ping -q -w 1 -c 1 weather.yahooapis.com > /dev/null
             if [ $? -ne 0 ] ; then
-                echo "StealthMode Sunset error - no active Internet connection!"
-                logger StealthMode Sunset error - no active Internet connection!
+                echo "StealthMode Sunset error - no active Internet connection or weather service unavailable!"
+                logger -p3 -t StealthMode Sunset error - no active Internet connection or weather service unavailable!
                 /usr/sbin/stealthMode
                 exit 1
             else
@@ -44,16 +44,16 @@ if [ "$N16" == "1" -o "$N66U" == "1" ]; then
                     sur=`l=$2;wget -q -O - http://weather.yahooapis.com/forecastrss?w=$l|grep astronomy| awk -F\" '{print $2}' | awk -F\" '{split($1, A, " ");split(A[1], B, ":");HR=B[1];MIN=B[2];if(A[2] == "pm") HR+=12;$1=sprintf("%d %d", MIN, HR);}1'`
                     if [ "$sur" = "" ] ; then echo "Weather sunrise error!"; logger Weather sunrise error!; exit 1; else cru a stealthsunrise $sur "* * * /usr/sbin/stealthMode off"; fi
                     echo "StealthMode Sunset city code: $2, sunset: $( echo $sun | awk '{ print $2":"$1 }' ), sunrise: $( echo $sur | awk '{ print $2":"$1 }' )"
-                    logger StealthMode Sunset city code: $2, sunset: $( echo $sun | awk '{ print $2":"$1 }' ), sunrise: $( echo $sur | awk '{ print $2":"$1 }' )
+                    logger -t StealthMode Sunset city code: $2, sunset: $( echo $sun | awk '{ print $2":"$1 }' ), sunrise: $( echo $sur | awk '{ print $2":"$1 }' )
                     HOUR=$(date +%k); SUNRUN=$( echo $sun | awk '{ print $2 }' ); SURRUN=$( echo $sur | awk '{ print $2 }' ); if [ "$HOUR" -ge "$SURRUN" -a "$HOUR" -le "$SUNRUN" ] ; then
                         echo "StealthMode will be activated at next sun set"
-                        logger StealthMode will be activated at next sun set
+                        logger -t StealthMode Service will be activated at next sun set
                     else
                         /usr/sbin/stealthMode on
                     fi
                 else
                     echo "StealthMode Sunset error - the city code does not specified!"
-                    logger StealthMode Sunset error - the city code does not specified!
+                    logger -p3 -t StealthMode Sunset error - the city code does not specified!
                     /usr/sbin/stealthMode
                     exit 1
                 fi
@@ -74,7 +74,7 @@ if [ "$N16" == "1" -o "$N66U" == "1" ]; then
         ;;
         sun_off)
             echo "StealthMode Sunset Disactivated"
-            logger StealthMode Sunset Disactivated
+            logger -t StealthMode Sunset Disactivated
             cru d stealthsun_on
             cru d stealthsunset
             cru d stealthsunrise
@@ -93,7 +93,7 @@ if [ "$N16" == "1" -o "$N66U" == "1" ]; then
             et robowr 0x00 0x1a 0x1ff
             wl -i eth1 leddc 0
             echo "StealthMode Disactivated"
-            logger StealthMode Disactivated
+            logger -t StealthMode Disactivated
             cru d stealthmode
         ;;
         *)
@@ -113,6 +113,6 @@ if [ "$N16" == "1" -o "$N66U" == "1" ]; then
             exit 1
     esac
 else
-    echo "Router does not supported by this feature"
-    logger Router does not supported by this feature
+    echo "Router is not supported by this feature"
+    logger -p1 -t StealthMode Router is not supported by this feature
 fi

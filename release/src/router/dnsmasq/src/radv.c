@@ -177,6 +177,9 @@ void icmp6_packet(time_t now)
 	  mac = daemon->namebuff;
 	}
          
+#ifdef HAVE_QUIET_DHCP
+  if (!option_bool(OPT_QUIET_RA))
+#endif
       my_syslog(MS_DHCP | LOG_INFO, "RTR-SOLICIT(%s) %s", interface, mac);
       /* source address may not be valid in solicit request. */
       send_ra(now, if_index, interface, !IN6_IS_ADDR_UNSPECIFIED(&from.sin6_addr) ? &from.sin6_addr : NULL);
@@ -464,8 +467,10 @@ static int add_prefixes(struct in6_addr *local,  int prefix,
 		  opt->prefix = *local;
 		  
 		  inet_ntop(AF_INET6, local, daemon->addrbuff, ADDRSTRLEN);
-		//  shibby
-		//  my_syslog(MS_DHCP | LOG_INFO, "RTR-ADVERT(%s) %s", param->if_name, daemon->addrbuff); 		    
+#ifdef HAVE_QUIET_DHCP
+  if (!option_bool(OPT_QUIET_RA))
+#endif
+		  my_syslog(MS_DHCP | LOG_INFO, "RTR-ADVERT(%s) %s", param->if_name, daemon->addrbuff); 		    
 		}
 	    }
 	}

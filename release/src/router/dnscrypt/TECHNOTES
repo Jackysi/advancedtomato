@@ -7,7 +7,8 @@ Cryptographic library
 
 - We didn't reinvent the wheel.
 
-- The crypto code is provided by NaCl: http://nacl.cr.yp.to/
+- The crypto code is provided by NaCl: http://nacl.cr.yp.to/ through
+  libsodium: https://github.com/jedisct1/libsodium
 
 - Why NaCl? Unbloated, blazing fast, and less error-prone that other libraries.
   See http://cr.yp.to/highspeed/coolnacl-20111201.pdf
@@ -41,7 +42,7 @@ The following information has to be provided to the proxy:
 
 - The provider name (defaults to 2.dnscrypt-cert.opendns.com.)
 - The provider public key (defaults to the current one for OpenDNS).
-- The resolver IP address (defaults to 208.67.222.222).
+- The resolver IP address (defaults to 208.67.220.220).
 
 At startup and every 60 minute, the proxy directly connects to the specified
 resolver IP address and issues a TXT query for the provider name. The
@@ -107,7 +108,7 @@ If you need extra monitoring/profiling, the proxy provides a bunch of
 DTrace probes on OSX, as the dnscrypt-proxy provider.
 See src/dnscrypt-proxy/probes_dnscrypt_proxy.d
 
-The proxy doesn't cache replies. Neither does it perform any DNSSec
+The proxy doesn't cache replies. Neither does it perform any DNSSEC
 validation yet.
 
 This is better handled by a separate process or by linking libunbound.
@@ -121,7 +122,7 @@ the --tcp-port switch has been turned on.
 an EDNS section was already present or unless --payload-size with a
 < 512 bytes size has been specified.
 
-OSX Lion, OpenBSD/amd64 and Dragonfly BSD/amd64 are the primary
+OSX Mountain Lion, OpenBSD/amd64 and Dragonfly BSD/amd64 are the primary
 development platforms, but the code has been designed to be as
 portable as possible, and patches to support other operating systems
 and architectures are more than welcome.
