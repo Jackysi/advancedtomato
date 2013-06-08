@@ -110,7 +110,7 @@ function c(id, htm)
 function ethstates()
 {
 	port = etherstates.port0;
-	if (port == "disable") { return 0; }
+	if (port == "disabled") { return 0; }
 
 	var state, state1, state2;
 	var code = '<div class="section-title">Ethernet Ports State</div>';
