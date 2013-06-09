@@ -686,8 +686,15 @@ void enable_ipv6(int enable)
 
 	if ((dir = opendir("/proc/sys/net/ipv6/conf")) != NULL) {
 		while ((dirent = readdir(dir)) != NULL) {
-			sprintf(s, "/proc/sys/net/ipv6/conf/%s/disable_ipv6", dirent->d_name);
-			f_write_string(s, enable ? "0" : "1", 0, 0);
+			if (strcmp("vlan1", dirent->d_name) &&
+	                    strcmp("eth0", dirent->d_name) &&
+	                    strcmp("all", dirent->d_name) &&
+			    strcmp("eth1", dirent->d_name))
+			{
+
+				sprintf(s, "/proc/sys/net/ipv6/conf/%s/disable_ipv6", dirent->d_name);
+				f_write_string(s, enable ? "0" : "1", 0, 0);
+			}
 		}
 		closedir(dir);
 	}
@@ -733,7 +740,7 @@ void start_lan(void)
 #endif
 	check_afterburner();
 #ifdef TCONFIG_IPV6
-	enable_ipv6(ipv6_enabled());
+	enable_ipv6(ipv6_enabled());  //tell Kernel to disable/enable IPv6 for most interfaces
 #endif
 	vlan0tag = nvram_get_int("vlan0tag");
 

@@ -366,11 +366,12 @@ else
 }
 
 
-static int find_interface_v4(struct in_addr local, int if_index, 
+static int find_interface_v4(struct in_addr local, int if_index, char *label,
 			     struct in_addr netmask, struct in_addr broadcast, void *vparam)
 {
   struct dhcp_lease *lease;
   
+  (void) label;
   (void) broadcast;
   (void) vparam;
 

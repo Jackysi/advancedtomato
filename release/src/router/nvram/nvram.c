@@ -513,7 +513,7 @@ static int export_main(int argc, char **argv)
 			case '$':
 			case '`':
 				if (mode != X_SET) putchar(*p);
-				else printf("\\$");
+				else printf("\\%c", *p);
 				break;
 			case '=':
 				if ((eq == 0) && (mode > X_QUOTE)) {

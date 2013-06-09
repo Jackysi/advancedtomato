@@ -157,6 +157,12 @@ void start_dnsmasq()
 		fprintf(f, "dhcp-ignore=tag:!known\n");
 	}
 
+	if ((n = nvram_get_int("dnsmasq_q"))) { //process quiet flags
+		if (n & 1) fprintf(f, "quiet-dhcp\n");
+		if (n & 2) fprintf(f, "quiet-dhcp6\n");
+		if (n & 4) fprintf(f, "quiet-ra\n");
+	}
+
 	// dhcp
 	do_dhcpd_hosts=0;
 	char lanN_proto[] = "lanXX_proto";
@@ -846,7 +852,7 @@ void start_ipv6(void)
 	int service;
 
 	service = get_ipv6_service();
-	enable_ip_forward();
+	enable_ip6_forward();
 
 	// Check if turned on
 	switch (service) {

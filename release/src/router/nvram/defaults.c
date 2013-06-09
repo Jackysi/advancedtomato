@@ -169,7 +169,7 @@ const defaults_t defaults[] = {
 	{ "ipv6_prefix_length",		"64"				},	// The bit length of the prefix. Used by dhcp6c. For radvd, /64 is always assumed.
 	{ "ipv6_rtr_addr",		""				},	// defaults to $ipv6_prefix::1
 	{ "ipv6_radvd",			"1"				},	// Enable Router Advertisement (radvd)
-	{ "ipv6_accept_ra",		"1"				},	// Accept RA on WAN and/or LAN interfaces
+	{ "ipv6_accept_ra",		"1"				},	// Accept RA on bit 0WAN and/or bit1LAN interfaces
 	{ "ipv6_ifname",		"six0"				},	// The interface facing the rest of the IPv6 world
 	{ "ipv6_tun_v4end",		"0.0.0.0"			},	// Foreign IPv4 endpoint of SIT tunnel
 	{ "ipv6_relay",			"1"				},	// Foreign IPv4 endpoint host of SIT tunnel 192.88.99.?
@@ -181,8 +181,8 @@ const defaults_t defaults[] = {
 	{ "ipv6_get_dns",		""				},	// DNS IP address which get by dhcp6c
 	{ "ipv6_6rd_prefix",		"2602:100::"			},	// 6RD prefix (Charter)
 	{ "ipv6_6rd_prefix_length",	"32"				},	// 6RD prefix length (32-62) checkme
-	{ "ipv6_6rd_borderrelay",	"68.114.165.1"			},	// 6RD border relay address
-	{ "ipv6_6rd_ipv4masklen",	"0"				},	// 6RD IPv4 mask length 0-30) checkme
+	{ "ipv6_6rd_borderrelay",	"68.113.165.1"			},	// 6RD border relay address
+	{ "ipv6_6rd_ipv4masklen",	"0"				},	// 6RD IPv4 mask length (0-30) checkme
 #endif
 
 	// Wireless parameters
@@ -432,6 +432,7 @@ const defaults_t defaults[] = {
 	{ "dns_norebind",		"1"				},
 	{ "dnsmasq_custom",		""				},
 	{ "dhcpd_static_only",	"0"				},
+	{ "dnsmasq_q",			"0"				}, 	//Bit0=quiet-dhcp, 1=dhcp6, 2=ra
 //	{ "dnsmasq_norw",		"0"				},
 
 // advanced-firewall

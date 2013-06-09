@@ -21,7 +21,7 @@
 <script type='text/javascript' src='debug.js'></script>
 
 <script type='text/javascript'>
-//	<% nvram("ipv6_prefix,ipv6_prefix_length,ipv6_accept_ra,ipv6_rtr_addr,ipv6_service,ipv6_dns,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_ifname,ipv6_tun_v4end,ipv6_relay,ipv6_tun_mtu,ipv6_tun_ttl,ipv6_6rd_ipv4masklen,ipv6_6rd_prefix_length,ipv6_6rd_prefix,ipv6_6rd_borderrelay"); %>
+//	<% nvram("ipv6_6rd_prefix_length,ipv6_prefix,ipv6_prefix_length,ipv6_accept_ra,ipv6_rtr_addr,ipv6_service,ipv6_dns,ipv6_tun_addr,ipv6_tun_addrlen,ipv6_ifname,ipv6_tun_v4end,ipv6_relay,ipv6_tun_mtu,ipv6_tun_ttl,ipv6_6rd_ipv4masklen,ipv6_6rd_prefix,ipv6_6rd_borderrelay"); %>
 
 nvram.ipv6_accept_ra = fixInt(nvram.ipv6_accept_ra, 0, 3, 0);
 
@@ -101,15 +101,16 @@ function verifyFields(focused, quiet)
 			vis._f_ipv6_rtr_addr = 0;
 			vis._f_ipv6_prefix_length = 0;
 			break;
-		case '6rd-pd':
 		case 'native-pd':
+			_fom.f_ipv6_accept_ra_wan.checked = true;
+		case '6rd-pd':
 			vis._f_ipv6_prefix = 0;
 			vis._f_ipv6_rtr_addr_auto = 0;
 			vis._f_ipv6_rtr_addr = 0;
 			if (c == '6rd-pd') {
 				vis._f_ipv6_prefix_length = 0;
-				vis._f_ipv6_accept_ra_wan = 0;
 				vis._f_ipv6_accept_ra_lan = 0;
+				vis._f_ipv6_accept_ra_wan = 0;
 			}
 			// fall through
 		case 'native':
