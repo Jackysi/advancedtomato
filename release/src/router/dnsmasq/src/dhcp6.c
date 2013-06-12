@@ -538,9 +538,20 @@ static int construct_worker(struct in6_addr *local, int prefix,
 	  }
 	
       }
-    else if ((addr6part(local) == addr6part(&template->start6) ||
-	      addr6part(local) == addr6part(&template->end6)) && 
-	     wildcard_match(template->template_interface, ifrn_name))
+    else
+
+//if ((not lax_contructor && (startmatch or endmatch) && wildcardmatch)
+//    || (lax_constructor && wildcardmatch)
+
+//	if ( (! lax_constructor &&  
+//		(  (addr6part(local) == addr6part(&template->start6) ||
+//		(addr6part(local) == addr6part(&template->end6)  )   &&
+//		(wildcard_match(template->template_interface, ifrn_name))  ||
+//	     (lax_constructor && wildcard_match(template->template_interface, ifrn_name)
+
+ //if ((addr6part(local) == addr6part(&template->start6) ||
+	 //     addr6part(local) == addr6part(&template->end6)) && 
+	 if (wildcard_match(template->template_interface, ifrn_name))
       {
 	start6 = *local;
 	setaddr6part(&start6, addr6part(&template->start6));

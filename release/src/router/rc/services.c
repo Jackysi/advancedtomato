@@ -391,6 +391,7 @@ void start_dnsmasq()
 
 #ifdef TCONFIG_IPV6
 	if (ipv6_enabled() && nvram_get_int("ipv6_radvd")) {
+/*
                 service = get_ipv6_service();
                 do_6to4 = (service == IPV6_ANYCAST_6TO4);
                 do_6rd = (service == IPV6_6RD || service == IPV6_6RD_DHCP);
@@ -412,6 +413,8 @@ void start_dnsmasq()
                 ipv6 = (char *)ipv6_router_address(NULL);
 
 		fprintf(f, "enable-ra\ndhcp-range=tag:br0,%s, slaac, ra-names, 64\n", prefix);
+*/
+		fprintf(f,"enable-ra\ndhcp-range=::1, ::FFFF:FFFF, constructor:br*, ra-names, 64, 12h\n");
 
 	}
 #endif
