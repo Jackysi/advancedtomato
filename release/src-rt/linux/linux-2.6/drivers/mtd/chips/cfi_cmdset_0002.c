@@ -162,6 +162,8 @@ static void fixup_use_write_buffers(struct mtd_info *mtd, void *param)
 {
 	struct map_info *map = mtd->priv;
 	struct cfi_private *cfi = map->fldrv_priv;
+	struct cfi_pri_amdstd *extp = cfi->cmdset_priv;
+	
 	if (cfi->cfiq->BufWriteTimeoutTyp) {
 		DEBUG(MTD_DEBUG_LEVEL1, "Using buffer write method\n" );
 		mtd->write = cfi_amdstd_write_buffers;
