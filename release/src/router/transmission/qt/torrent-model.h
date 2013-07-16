@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: torrent-model.h 11125 2010-08-05 15:01:40Z charles $
+ * $Id: torrent-model.h 13982 2013-02-07 21:07:16Z jordan $
  */
 
 #ifndef QTR_TORRENT_MODEL_H
@@ -25,7 +25,7 @@ class Prefs;
 
 extern "C"
 {
-    struct tr_benc;
+    struct tr_variant;
 };
 
 class TorrentModel: public QAbstractListModel
@@ -51,21 +51,23 @@ class TorrentModel: public QAbstractListModel
     public:
         Torrent* getTorrentFromId( int id );
         const Torrent* getTorrentFromId( int id ) const;
-        QSet<int> getIds( ) const;
 
     private:
         void addTorrent( Torrent * );
+        QSet<int> getIds( ) const;
 
     public:
-        Speed getUploadSpeed( ) const;
-        Speed getDownloadSpeed( ) const;
+        void getTransferSpeed (Speed   & uploadSpeed,
+                               size_t  & uploadPeerCount,
+                               Speed   & downloadSpeed,
+                               size_t  & downloadPeerCount);
 
     signals:
         void torrentsAdded( QSet<int> );
 
     public slots:
-        void updateTorrents( tr_benc * torrentList, bool isCompleteList );
-        void removeTorrents( tr_benc * torrentList );
+        void updateTorrents( tr_variant * torrentList, bool isCompleteList );
+        void removeTorrents( tr_variant * torrentList );
         void removeTorrent( int id );
 
     private slots:

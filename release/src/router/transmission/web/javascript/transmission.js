@@ -41,7 +41,6 @@ Transmission.prototype =
 		Prefs.getClutchPrefs(this);
 
 		// Set up user events
-		$(".numberinput").forceNumeric();
 		$('#toolbar-pause').click($.proxy(this.stopSelectedClicked,this));
 		$('#toolbar-start').click($.proxy(this.startSelectedClicked,this));
 		$('#toolbar-pause-all').click($.proxy(this.stopAllClicked,this));
@@ -222,6 +221,32 @@ Transmission.prototype =
 
 		$('#unlimited_download_rate').selectMenuItem();
 		$('#unlimited_upload_rate').selectMenuItem();
+	},
+
+	/****
+	*****
+	****/
+
+	updateFreeSpaceInAddDialog: function()
+	{
+		var formdir = $('input#add-dialog-folder-input').val();
+		this.remote.getFreeSpace (formdir, this.onFreeSpaceResponse, this);
+	},
+
+	onFreeSpaceResponse: function(dir, bytes)
+	{
+		var e, str, formdir;
+
+		formdir = $('input#add-dialog-folder-input').val();
+		if (formdir == dir)
+		{
+			e = $('label#add-dialog-folder-label');
+			if (bytes > 0)
+				str = '  <i>(' + Transmission.fmt.size(bytes) + ' Free)</i>';
+			else
+				str = '';
+			e.html ('Destination folder' + str + ':');
+		}
 	},
 
 
@@ -872,32 +897,77 @@ Transmission.prototype =
 
 	/*
 	 * Select a torrent file to upload
-	 * FIXME
 	 */
 	uploadTorrentFile: function(confirmed)
 	{
-		// Display the upload dialog
-		if (! confirmed) {
-			$('input#torrent_upload_file').attr('value', '');
-			$('input#torrent_upload_url').attr('value', '');
-			$('input#torrent_auto_start').attr('checked', this.shouldAddedTorrentsStart());
-			$('#upload_container').show();
-			$('#torrent_upload_url').focus();
+		var i, file,
+		    reader,
+		    fileInput   = $('input#torrent_upload_file'),
+		    folderInput = $('input#add-dialog-folder-input'),
+		    startInput  = $('input#torrent_auto_start'),
+		    urlInput    = $('input#torrent_upload_url');
 
-		// Submit the upload form
-		} else {
-			var args = {};
-			var remote = this.remote;
-			var paused = !$('#torrent_auto_start').is(':checked');
-			if ('' != $('#torrent_upload_url').val()) {
-				remote.addTorrentByUrl($('#torrent_upload_url').val(), { paused: paused });
-			} else {
-				args.url = '../upload?paused=' + paused;
-				args.type = 'POST';
-				args.data = { 'X-Transmission-Session-Id' : remote._token };
-				args.dataType = 'xml';
-				args.iframe = true;
-				$('#torrent_upload_form').ajaxSubmit(args);
+		if (!confirmed)
+		{
+			// update the upload dialog's fields
+			fileInput.attr('value', '');
+			urlInput.attr('value', '');
+			startInput.attr('checked', this.shouldAddedTorrentsStart());
+			folderInput.attr('value', $("#download-dir").val());
+			folderInput.change($.proxy(this.updateFreeSpaceInAddDialog,this));
+			this.updateFreeSpaceInAddDialog();
+
+			// show the dialog
+			$('#upload_container').show();
+			urlInput.focus();
+		}
+		else
+		{
+			var paused = !startInput.is(':checked'),
+			    destination = folderInput.val(),
+			    remote = this.remote;
+
+			jQuery.each (fileInput[0].files, function(i,file) {
+				var reader = new FileReader();
+				reader.onload = function(e) { 
+					var contents = e.target.result;
+					var key = "base64,"
+					var index = contents.indexOf (key);
+					if (index > -1) {
+						var metainfo = contents.substring (index + key.length);
+						var o = {
+							'method': 'torrent-add',
+							arguments: {
+								'paused': paused,
+								'download-dir': destination,
+								'metainfo': metainfo
+							}
+						};
+						remote.sendRequest (o, function(response) {
+							if (response.result != 'success')
+								alert ('Error adding "' + file.name + '": ' + response.result);
+						});
+					}
+				}
+				reader.readAsDataURL (file);
+			});
+
+			var url = $('#torrent_upload_url').val();
+			if (url != '') {
+				if (url.match(/^[0-9a-f]{40}$/i)) 
+					url = 'magnet:?xt=urn:btih:'+url;
+				var o = {
+					'method': 'torrent-add',
+					arguments: {
+						'paused': paused,
+						'download-dir': destination,
+						'filename': url
+					}
+				};
+				remote.sendRequest (o, function(response) {
+					if (response.result != 'success')
+						alert ('Error adding "' + file.name + '": ' + response.result);
+				});
 			}
 		}
 	},
@@ -1129,7 +1199,7 @@ Transmission.prototype =
 	updateStatusbar: function()
 	{
 		var u=0, d=0,
-		    i, row, text,
+		    i, row,
 		    fmt = Transmission.fmt,
 		    torrents = this.getAllTorrents();
 

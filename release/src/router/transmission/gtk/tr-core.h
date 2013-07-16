@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: tr-core.h 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: tr-core.h 13983 2013-02-08 01:34:59Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -28,7 +28,7 @@
 #include <gtk/gtk.h>
 
 #include <libtransmission/transmission.h>
-#include <libtransmission/bencode.h>
+#include <libtransmission/variant.h>
 
 G_BEGIN_DECLS
 
@@ -59,7 +59,7 @@ typedef struct _TrCoreClass
     void (* add_prompt)      (TrCore*, gpointer ctor);
     void (* blocklist_updated)(TrCore*, int ruleCount);
     void (* busy)            (TrCore*, gboolean is_busy);
-    void (* prefs_changed)   (TrCore*, const char* key);
+    void (* prefs_changed)   (TrCore*, const tr_quark key);
     void (* port_tested)     (TrCore*, gboolean is_open);
     void (* quit)            (TrCore*);
 }
@@ -69,7 +69,7 @@ GType          tr_core_get_type (void) G_GNUC_CONST;
 
 TrCore *       gtr_core_new (tr_session *);
 
-void           gtr_core_close (TrCore*);
+tr_session *   gtr_core_close (TrCore*);
 
 /* Return the model used without incrementing the reference count */
 GtkTreeModel * gtr_core_model (TrCore * self);
@@ -84,7 +84,7 @@ size_t         gtr_core_get_torrent_count (TrCore * self);
 
 tr_torrent *   gtr_core_find_torrent (TrCore * core, int id);
 
-void           gtr_core_pref_changed (TrCore * core, const char * key);
+void           gtr_core_pref_changed (TrCore * core, const tr_quark key);
 
 
 /******
@@ -140,10 +140,10 @@ void gtr_core_update (TrCore * self);
 ***  Set a preference value, save the prefs file, and emit the "prefs-changed" signal
 **/
 
-void gtr_core_set_pref     (TrCore * self, const char * key, const char * val);
-void gtr_core_set_pref_bool (TrCore * self, const char * key, gboolean val);
-void gtr_core_set_pref_int (TrCore * self, const char * key, int val);
-void gtr_core_set_pref_double (TrCore * self, const char * key, double val);
+void gtr_core_set_pref        (TrCore * self, const tr_quark key, const char * val);
+void gtr_core_set_pref_bool   (TrCore * self, const tr_quark key, gboolean val);
+void gtr_core_set_pref_int    (TrCore * self, const tr_quark key, int val);
+void gtr_core_set_pref_double (TrCore * self, const tr_quark key, double val);
 
 /**
 ***
@@ -153,7 +153,7 @@ void gtr_core_port_test (TrCore * core);
 
 void gtr_core_blocklist_update (TrCore * core);
 
-void gtr_core_exec (TrCore * core, const tr_benc * benc);
+void gtr_core_exec (TrCore * core, const tr_variant * benc);
 
 void gtr_core_exec_json (TrCore * core, const char * json);
 
@@ -173,6 +173,8 @@ enum
     MC_TORRENT_ID,
     MC_SPEED_UP,
     MC_SPEED_DOWN,
+    MC_ACTIVE_PEERS_UP,
+    MC_ACTIVE_PEERS_DOWN,
     MC_RECHECK_PROGRESS,
     MC_ACTIVE,
     MC_ACTIVITY,

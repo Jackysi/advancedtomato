@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: torrent-filter.h 11092 2010-08-01 20:36:13Z charles $
+ * $Id: torrent-filter.h 13720 2012-12-30 01:28:28Z jordan $
  */
 
 #ifndef QTR_TORRENT_FILTER_H
@@ -48,7 +48,7 @@ class TorrentFilter: public QSortFilterProxyModel
         bool trackerFilterAcceptsTorrent( const Torrent * tor, const QString& tracker ) const;
 
     public:
-        int count( const FilterMode& ) const;
+        void countTorrentsPerMode (int * setmeCounts) const;
 
     private:
         Prefs& myPrefs;

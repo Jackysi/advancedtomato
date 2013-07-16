@@ -19,7 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  *
- * $Id: tr-dht.c 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: tr-dht.c 13868 2013-01-25 23:34:20Z jordan $
  *
  */
 
@@ -50,8 +50,8 @@
 
 /* libT */
 #include "transmission.h"
-#include "bencode.h"
 #include "crypto.h"
+#include "log.h"
 #include "net.h"
 #include "peer-mgr.h" /* tr_peerMgrCompactToPex () */
 #include "platform.h" /* tr_threadNew () */
@@ -60,6 +60,7 @@
 #include "tr-dht.h"
 #include "trevent.h" /* tr_runInEventThread () */
 #include "utils.h"
+#include "variant.h"
 
 static struct event *dht_timer = NULL;
 static unsigned char myid[20];
@@ -122,7 +123,7 @@ bootstrap_from_name (const char *name, tr_port port, int af)
 
     rc = getaddrinfo (name, pp, &hints, &info);
     if (rc != 0) {
-        tr_nerr ("DHT", "%s:%s: %s", name, pp, gai_strerror (rc));
+        tr_logAddNamedError ("DHT", "%s:%s: %s", name, pp, gai_strerror (rc));
         return;
     }
 
@@ -150,10 +151,10 @@ dht_bootstrap (void *closure)
         return;
 
     if (cl->len > 0)
-        tr_ninf ("DHT", "Bootstrapping from %d IPv4 nodes", num);
+        tr_logAddNamedInfo ("DHT", "Bootstrapping from %d IPv4 nodes", num);
 
     if (cl->len6 > 0)
-        tr_ninf ("DHT", "Bootstrapping from %d IPv6 nodes", num6);
+        tr_logAddNamedInfo ("DHT", "Bootstrapping from %d IPv6 nodes", num6);
 
 
     for (i = 0; i < MAX (num, num6); i++) {
@@ -202,7 +203,7 @@ dht_bootstrap (void *closure)
         if (bootstrap_file)
             f = fopen (bootstrap_file, "rb");
         if (f != NULL) {
-            tr_ninf ("DHT", "Attempting manual bootstrap");
+            tr_logAddNamedInfo ("DHT", "Attempting manual bootstrap");
             for (;;) {
                 char buf[201];
                 char *p;
@@ -216,7 +217,7 @@ dht_bootstrap (void *closure)
                 if (p != NULL)
                     port = atoi (p + 1);
                 if (p == NULL || port <= 0 || port >= 0x10000) {
-                    tr_nerr ("DHT", "Couldn't parse %s", buf);
+                    tr_logAddNamedError ("DHT", "Couldn't parse %s", buf);
                     continue;
                 }
 
@@ -243,7 +244,7 @@ dht_bootstrap (void *closure)
             if (bootstrap_done (cl->session, 0))
                 break;
             if (i == 0)
-                tr_ninf ("DHT",
+                tr_logAddNamedInfo ("DHT",
                         "Attempting bootstrap from dht.transmissionbt.com");
             bootstrap_from_name ("dht.transmissionbt.com", 6881,
                                  bootstrap_af (session));
@@ -255,13 +256,13 @@ dht_bootstrap (void *closure)
     if (cl->nodes6)
         tr_free (cl->nodes6);
     tr_free (closure);
-    tr_ndbg ("DHT", "Finished bootstrapping");
+    tr_logAddNamedDbg ("DHT", "Finished bootstrapping");
 }
 
 int
 tr_dhtInit (tr_session *ss)
 {
-    tr_benc benc;
+    tr_variant benc;
     int rc;
     bool have_id = false;
     char * dat_file;
@@ -273,27 +274,27 @@ tr_dhtInit (tr_session *ss)
     if (session) /* already initialized */
         return -1;
 
-    tr_ndbg ("DHT", "Initializing DHT");
+    tr_logAddNamedDbg ("DHT", "Initializing DHT");
 
     if (getenv ("TR_DHT_VERBOSE") != NULL)
         dht_debug = stderr;
 
     dat_file = tr_buildPath (ss->configDir, "dht.dat", NULL);
-    rc = tr_bencLoadFile (&benc, TR_FMT_BENC, dat_file);
+    rc = tr_variantFromFile (&benc, TR_VARIANT_FMT_BENC, dat_file);
     tr_free (dat_file);
     if (rc == 0) {
-        have_id = tr_bencDictFindRaw (&benc, "id", &raw, &len);
+        have_id = tr_variantDictFindRaw (&benc, TR_KEY_id, &raw, &len);
         if (have_id && len==20)
             memcpy (myid, raw, len);
         if (ss->udp_socket >= 0 &&
-            tr_bencDictFindRaw (&benc, "nodes", &raw, &len) && ! (len%6)) {
+            tr_variantDictFindRaw (&benc, TR_KEY_nodes, &raw, &len) && ! (len%6)) {
                 nodes = tr_memdup (raw, len);
         }
         if (ss->udp6_socket > 0 &&
-            tr_bencDictFindRaw (&benc, "nodes6", &raw, &len6) && ! (len6%18)) {
+            tr_variantDictFindRaw (&benc, TR_KEY_nodes6, &raw, &len6) && ! (len6%18)) {
             nodes6 = tr_memdup (raw, len6);
         }
-        tr_bencFree (&benc);
+        tr_variantFree (&benc);
     }
 
     if (nodes == NULL)
@@ -302,11 +303,11 @@ tr_dhtInit (tr_session *ss)
         len6 = 0;
 
     if (have_id)
-        tr_ninf ("DHT", "Reusing old id");
+        tr_logAddNamedInfo ("DHT", "Reusing old id");
     else {
         /* Note that DHT ids need to be distributed uniformly,
          * so it should be something truly random. */
-        tr_ninf ("DHT", "Generating new id");
+        tr_logAddNamedInfo ("DHT", "Generating new id");
         tr_cryptoRandBuf (myid, 20);
     }
 
@@ -327,12 +328,12 @@ tr_dhtInit (tr_session *ss)
     dht_timer = evtimer_new (session->event_base, timer_callback, session);
     tr_timerAdd (dht_timer, 0, tr_cryptoWeakRandInt (1000000));
 
-    tr_ndbg ("DHT", "DHT initialized");
+    tr_logAddNamedDbg ("DHT", "DHT initialized");
 
     return 1;
 
  fail:
-    tr_ndbg ("DHT", "DHT initialization failed (errno = %d)", errno);
+    tr_logAddNamedDbg ("DHT", "DHT initialization failed (errno = %d)", errno);
     session = NULL;
     return -1;
 }
@@ -343,7 +344,7 @@ tr_dhtUninit (tr_session *ss)
     if (session != ss)
         return;
 
-    tr_ndbg ("DHT", "Uninitializing DHT");
+    tr_logAddNamedDbg ("DHT", "Uninitializing DHT");
 
     if (dht_timer != NULL) {
         event_free (dht_timer);
@@ -354,9 +355,9 @@ tr_dhtUninit (tr_session *ss)
        don't know enough nodes. */
     if ((tr_dhtStatus (ss, AF_INET, NULL) < TR_DHT_FIREWALLED) &&
       (tr_dhtStatus (ss, AF_INET6, NULL) < TR_DHT_FIREWALLED)) {
-        tr_ninf ("DHT", "Not saving nodes, DHT not ready");
+        tr_logAddNamedInfo ("DHT", "Not saving nodes, DHT not ready");
     } else {
-        tr_benc benc;
+        tr_variant benc;
         struct sockaddr_in sins[300];
         struct sockaddr_in6 sins6[300];
         char compact[300 * 6], compact6[300 * 18];
@@ -364,7 +365,7 @@ tr_dhtUninit (tr_session *ss)
         int i, j, num = 300, num6 = 300;
         int n = dht_get_nodes (sins, &num, sins6, &num6);
 
-        tr_ninf ("DHT", "Saving %d (%d + %d) nodes", n, num, num6);
+        tr_logAddNamedInfo ("DHT", "Saving %d (%d + %d) nodes", n, num, num6);
 
         j = 0;
         for (i=0; i<num; ++i) {
@@ -378,20 +379,20 @@ tr_dhtUninit (tr_session *ss)
             memcpy (compact6 + j + 16, &sins6[i].sin6_port, 2);
             j += 18;
         }
-        tr_bencInitDict (&benc, 3);
-        tr_bencDictAddRaw (&benc, "id", myid, 20);
+        tr_variantInitDict (&benc, 3);
+        tr_variantDictAddRaw (&benc, TR_KEY_id, myid, 20);
         if (num > 0)
-            tr_bencDictAddRaw (&benc, "nodes", compact, num * 6);
+            tr_variantDictAddRaw (&benc, TR_KEY_nodes, compact, num * 6);
         if (num6 > 0)
-            tr_bencDictAddRaw (&benc, "nodes6", compact6, num6 * 18);
+            tr_variantDictAddRaw (&benc, TR_KEY_nodes6, compact6, num6 * 18);
         dat_file = tr_buildPath (ss->configDir, "dht.dat", NULL);
-        tr_bencToFile (&benc, TR_FMT_BENC, dat_file);
-        tr_bencFree (&benc);
+        tr_variantToFile (&benc, TR_VARIANT_FMT_BENC, dat_file);
+        tr_variantFree (&benc);
         tr_free (dat_file);
     }
 
     dht_uninit ();
-    tr_ndbg ("DHT", "Done uninitializing DHT");
+    tr_logAddNamedDbg ("DHT", "Done uninitializing DHT");
 
     session = NULL;
 }
@@ -530,7 +531,7 @@ callback (void *ignore UNUSED, int event,
             for (i=0; i<n; ++i)
                 tr_peerMgrAddPex (tor, TR_PEER_FROM_DHT, pex+i, -1);
             tr_free (pex);
-            tr_tordbg (tor, "Learned %d %s peers from DHT",
+            tr_logAddTorDbg (tor, "Learned %d %s peers from DHT",
                     (int)n,
                       event == DHT_EVENT_VALUES6 ? "IPv6" : "IPv4");
         }
@@ -540,10 +541,10 @@ callback (void *ignore UNUSED, int event,
         tr_torrent * tor = tr_torrentFindFromHash (session, info_hash);
         if (tor) {
             if (event == DHT_EVENT_SEARCH_DONE) {
-                tr_torinf (tor, "IPv4 DHT announce done");
+                tr_logAddTorInfo (tor, "%s", "IPv4 DHT announce done");
                 tor->dhtAnnounceInProgress = 0;
             } else {
-                tr_torinf (tor, "IPv6 DHT announce done");
+                tr_logAddTorInfo (tor, "%s", "IPv6 DHT announce done");
                 tor->dhtAnnounce6InProgress = 0;
             }
         }
@@ -570,7 +571,7 @@ tr_dhtAnnounce (tr_torrent *tor, int af, bool announce)
                          announce ? tr_sessionGetPeerPort (session) : 0,
                          af, callback, NULL);
         if (rc >= 1) {
-            tr_torinf (tor, "Starting %s DHT announce (%s, %d nodes)",
+            tr_logAddTorInfo (tor, "Starting %s DHT announce (%s, %d nodes)",
                       af == AF_INET6 ? "IPv6" : "IPv4",
                       tr_dhtPrintableStatus (status), numnodes);
             if (af == AF_INET)
@@ -579,13 +580,13 @@ tr_dhtAnnounce (tr_torrent *tor, int af, bool announce)
                 tor->dhtAnnounce6InProgress = true;
             ret = 1;
         } else {
-            tr_torerr (tor, "%s DHT announce failed (%s, %d nodes): %s",
+            tr_logAddTorErr (tor, "%s DHT announce failed (%s, %d nodes): %s",
                       af == AF_INET6 ? "IPv6" : "IPv4",
                       tr_dhtPrintableStatus (status), numnodes,
                       tr_strerror (errno));
         }
     } else {
-        tr_tordbg (tor, "%s DHT not ready (%s, %d nodes)",
+        tr_logAddTorDbg (tor, "%s DHT not ready (%s, %d nodes)",
                   af == AF_INET6 ? "IPv6" : "IPv4",
                   tr_dhtPrintableStatus (status), numnodes);
     }
@@ -643,7 +644,7 @@ tr_dhtCallback (unsigned char *buf, int buflen,
         if (errno == EINTR) {
             tosleep = 0;
         } else {
-            tr_nerr ("DHT", "dht_periodic failed: %s", tr_strerror (errno));
+            tr_logAddNamedError ("DHT", "dht_periodic failed: %s", tr_strerror (errno));
             if (errno == EINVAL || errno == EFAULT)
                     abort ();
             tosleep = 1;

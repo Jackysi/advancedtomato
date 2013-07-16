@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: mainwin.h 13750 2013-01-04 00:00:55Z jordan $
+ * $Id: mainwin.h 14002 2013-02-09 23:11:17Z jordan $
  */
 
 #ifndef MAIN_WINDOW_H
@@ -26,13 +26,14 @@
 #include <QWidgetList>
 
 extern "C" {
-    struct tr_benc;
+    struct tr_variant;
 };
 
 #include "filters.h"
 #include "torrent-filter.h"
 #include "ui_mainwin.h"
 
+class AddData;
 class ActionDelegator;
 class Prefs;
 class Details;
@@ -49,155 +50,150 @@ class Filterbar;
 
 class TrMainWindow: public QMainWindow
 {
-        Q_OBJECT
+    Q_OBJECT
 
-    private:
-        virtual void hideEvent( QHideEvent * event );
-        virtual void showEvent( QShowEvent * event );
+  private:
+    virtual void hideEvent (QHideEvent * event);
+    virtual void showEvent (QShowEvent * event);
 
-    private:
-        time_t myLastFullUpdateTime;
-        QDialog * mySessionDialog;
-        QDialog * myPrefsDialog;
-        QDialog * myAboutDialog;
-        QDialog * myStatsDialog;
-        Details * myDetailsDialog;
-        QCheckBox * myFileDialogOptionsCheck;
-        QSystemTrayIcon myTrayIcon;
-        TorrentFilter myFilterModel;
-        TorrentDelegate * myTorrentDelegate;
-        TorrentDelegateMin * myTorrentDelegateMin;
-        Session& mySession;
-        Prefs& myPrefs;
-        TorrentModel& myModel;
-        Ui_MainWindow ui;
-        QIcon mySpeedModeOffIcon;
-        QIcon mySpeedModeOnIcon;
-        time_t myLastSendTime;
-        time_t myLastReadTime;
-        QTimer myNetworkTimer;
-        QTimer myRefreshTrayIconTimer;
-        QTimer myRefreshActionSensitivityTimer;
-        QAction * myDlimitOffAction;
-        QAction * myDlimitOnAction;
-        QAction * myUlimitOffAction;
-        QAction * myUlimitOnAction;
-        QAction * myRatioOffAction;
-        QAction * myRatioOnAction;
+  private:
+    time_t myLastFullUpdateTime;
+    QDialog * mySessionDialog;
+    QDialog * myPrefsDialog;
+    QDialog * myAboutDialog;
+    QDialog * myStatsDialog;
+    Details * myDetailsDialog;
+    QCheckBox * myFileDialogOptionsCheck;
+    QSystemTrayIcon myTrayIcon;
+    TorrentFilter myFilterModel;
+    TorrentDelegate * myTorrentDelegate;
+    TorrentDelegateMin * myTorrentDelegateMin;
+    Session& mySession;
+    Prefs& myPrefs;
+    TorrentModel& myModel;
+    Ui_MainWindow ui;
+    QIcon mySpeedModeOffIcon;
+    QIcon mySpeedModeOnIcon;
+    time_t myLastSendTime;
+    time_t myLastReadTime;
+    QTimer myNetworkTimer;
+    QTimer myRefreshTrayIconTimer;
+    QTimer myRefreshActionSensitivityTimer;
+    QAction * myDlimitOffAction;
+    QAction * myDlimitOnAction;
+    QAction * myUlimitOffAction;
+    QAction * myUlimitOnAction;
+    QAction * myRatioOffAction;
+    QAction * myRatioOnAction;
 
-    private:
-        QIcon getStockIcon( const QString&, int fallback=-1 );
+  private:
+    QIcon getStockIcon (const QString&, int fallback=-1);
 
-    private:
-        QSet<int> getSelectedTorrents( ) const;
-        void updateNetworkIcon( );
-        QWidgetList myHidden;
+  private:
+    QSet<int> getSelectedTorrents () const;
+    void updateNetworkIcon ();
+    QWidgetList myHidden;
 
-    public slots:
-        void openURL( QString );
+  private slots:
+    void onPrefsDestroyed ();
+    void openPreferences ();
+    void onDetailsDestroyed ();
+    void showTotalRatio ();
+    void showTotalTransfer ();
+    void showSessionRatio ();
+    void showSessionTransfer ();
+    void refreshTitle ();
+    void refreshStatusBar ();
+    void refreshTrayIcon ();
+    void refreshTrayIconSoon ();
+    void openTorrent ();
+    void openURL ();
+    void newTorrent ();
+    void trayActivated (QSystemTrayIcon::ActivationReason);
+    void refreshPref (int key);
+    void addTorrents (const QStringList& filenames);
+    void removeTorrents (const bool deleteFiles);
+    void openDonate ();
+    void openHelp ();
+    void openFolder ();
+    void copyMagnetLinkToClipboard ();
+    void setLocation ();
+    void openProperties ();
+    void toggleSpeedMode ();
+    void dataReadProgress ();
+    void dataSendProgress ();
+    void toggleWindows (bool doShow);
+    void onSetPrefs ();
+    void onSetPrefs (bool);
+    void onSessionSourceChanged ();
+    void onModelReset ();
 
-    private slots:
-        void onPrefsDestroyed( );
-        void openPreferences( );
-        void onDetailsDestroyed( );
-        void showTotalRatio( );
-        void showTotalTransfer( );
-        void showSessionRatio( );
-        void showSessionTransfer( );
-        void refreshVisibleCount( );
-        void refreshTitle( );
-        void refreshStatusBar( );
-        void refreshTrayIcon( );
-        void refreshTrayIconSoon( );
-        void openTorrent( );
-        void openURL( );
-        void newTorrent( );
-        void trayActivated( QSystemTrayIcon::ActivationReason );
-        void refreshPref( int key );
-        void addTorrents( const QStringList& filenames );
-        void removeTorrents( const bool deleteFiles );
-        void openDonate( );
-        void openHelp( );
-        void openFolder( );
-        void copyMagnetLinkToClipboard( );
-        void setLocation( );
-        void openProperties( );
-        void toggleSpeedMode( );
-        void dataReadProgress( );
-        void dataSendProgress( );
-        void toggleWindows( bool doShow );
-        void onSetPrefs( );
-        void onSetPrefs( bool );
-        void onSessionSourceChanged( );
-        void onModelReset( );
+  private slots:
+    void setSortPref (int);
+    void setSortAscendingPref (bool);
+    void onSortByActivityToggled (bool);
+    void onSortByAgeToggled (bool);
+    void onSortByETAToggled (bool);
+    void onSortByNameToggled (bool);
+    void onSortByProgressToggled (bool);
+    void onSortByQueueToggled (bool);
+    void onSortByRatioToggled (bool);
+    void onSortBySizeToggled (bool);
+    void onSortByStateToggled (bool);
 
-    private slots:
-        void setSortPref             ( int );
-        void setSortAscendingPref    ( bool );
-        void onSortByActivityToggled ( bool );
-        void onSortByAgeToggled      ( bool );
-        void onSortByETAToggled      ( bool );
-        void onSortByNameToggled     ( bool );
-        void onSortByProgressToggled ( bool );
-        void onSortByQueueToggled    ( bool );
-        void onSortByRatioToggled    ( bool );
-        void onSortBySizeToggled     ( bool );
-        void onSortByStateToggled    ( bool );
+  private:
+    QWidget * myFilterBar;
 
-    private:
-        QWidget * myFilterBar;
+  private:
+    QMenu * createOptionsMenu (void);
+    QWidget * createStatusBar (void);
+    QWidget * myStatusBar;
+    QPushButton * myAltSpeedButton;
+    QAction * myAltSpeedAction;
+    QPushButton * myOptionsButton;
+    QPushButton * myStatsModeButton;
+    QLabel * myStatsLabel;
+    QLabel * myDownloadSpeedLabel;
+    QLabel * myUploadSpeedLabel;
+    QLabel * myNetworkLabel;
 
-    private:
-        QMenu * createOptionsMenu( void );
-        QWidget * createStatusBar( void );
-        QWidget * myStatusBar;
-        QPushButton * myAltSpeedButton;
-        QAction * myAltSpeedAction;
-        QPushButton * myOptionsButton;
-        QLabel * myVisibleCountLabel;
-        QPushButton * myStatsModeButton;
-        QLabel * myStatsLabel;
-        QLabel * myDownloadSpeedLabel;
-        QLabel * myUploadSpeedLabel;
-        QLabel * myNetworkLabel;
+  public slots:
+    void startAll ();
+    void startSelected ();
+    void startSelectedNow ();
+    void pauseAll ();
+    void pauseSelected ();
+    void removeSelected ();
+    void deleteSelected ();
+    void verifySelected ();
+    void queueMoveTop ();
+    void queueMoveUp ();
+    void queueMoveDown ();
+    void queueMoveBottom ();
+    void reannounceSelected ();
+    void addTorrent (const AddData& addMe);
+    void onNetworkTimer ();
 
-    public slots:
-        void startAll( );
-        void startSelected( );
-        void startSelectedNow( );
-        void pauseAll( );
-        void pauseSelected( );
-        void removeSelected( );
-        void deleteSelected( );
-        void verifySelected( );
-        void queueMoveTop( );
-        void queueMoveUp( );
-        void queueMoveDown( );
-        void queueMoveBottom( );
-        void reannounceSelected( );
-        void addTorrent( const QString& filename );
-        void onNetworkTimer( );
+  private:
+    void clearSelection ();
 
-    private:
-        void clearSelection( );
+  public slots:
+    void setToolbarVisible (bool);
+    void setFilterbarVisible (bool);
+    void setStatusbarVisible (bool);
+    void setCompactView (bool);
+    void refreshActionSensitivity ();
+    void refreshActionSensitivitySoon ();
+    void wrongAuthentication ();
 
-    public slots:
-        void setToolbarVisible( bool );
-        void setFilterbarVisible( bool );
-        void setStatusbarVisible( bool );
-        void setCompactView( bool );
-        void refreshActionSensitivity( );
-        void refreshActionSensitivitySoon( );
-        void wrongAuthentication( );
+  public:
+    TrMainWindow (Session&, Prefs&, TorrentModel&, bool minized);
+    virtual ~TrMainWindow ();
 
-    public:
-        TrMainWindow( Session&, Prefs&, TorrentModel&, bool minized );
-        virtual ~TrMainWindow( );
-
-    protected:
-        virtual void contextMenuEvent( QContextMenuEvent * );
-        virtual void dragEnterEvent( QDragEnterEvent * );
-        virtual void dropEvent( QDropEvent * );
+  protected:
+    virtual void contextMenuEvent (QContextMenuEvent *);
+    virtual void dragEnterEvent (QDragEnterEvent *);
+    virtual void dropEvent (QDropEvent *);
 };
 
 #endif

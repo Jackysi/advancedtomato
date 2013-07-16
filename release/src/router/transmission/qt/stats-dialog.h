@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: stats-dialog.h 11092 2010-08-01 20:36:13Z charles $
+ * $Id: stats-dialog.h 13944 2013-02-03 19:40:20Z jordan $
  */
 
 #ifndef STATS_DIALOG_H
@@ -21,34 +21,34 @@ class QTimer;
 
 class StatsDialog: public QDialog
 {
-        Q_OBJECT
+    Q_OBJECT
 
-    signals:
-        void accepted( );
+  signals:
+    void accepted ();
 
-    public slots:
-        void updateStats( );
+  public slots:
+    void updateStats ();
 
-    private slots:
-        void onTimer( );
+  private slots:
+    void onTimer ();
 
-    public:
-        StatsDialog( Session&, QWidget * parent = 0 );
-        ~StatsDialog( );
-        virtual void setVisible( bool visible );
+  public:
+    StatsDialog (Session&, QWidget * parent = 0);
+    ~StatsDialog ();
+    virtual void setVisible (bool visible);
 
-    private:
-        Session & mySession;
-        QTimer * myTimer;
-        QLabel * myCurrentUp;
-        QLabel * myCurrentDown;
-        QLabel * myCurrentRatio;
-        QLabel * myCurrentDuration;
-        QLabel * myStartCount;
-        QLabel * myTotalUp;
-        QLabel * myTotalDown;
-        QLabel * myTotalRatio;
-        QLabel * myTotalDuration;
+  private:
+    Session & mySession;
+    QTimer * myTimer;
+    QLabel * myCurrentUp;
+    QLabel * myCurrentDown;
+    QLabel * myCurrentRatio;
+    QLabel * myCurrentDuration;
+    QLabel * myStartCount;
+    QLabel * myTotalUp;
+    QLabel * myTotalDown;
+    QLabel * myTotalRatio;
+    QLabel * myTotalDuration;
 };
 
 #endif

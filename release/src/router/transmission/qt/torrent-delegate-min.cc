@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: torrent-delegate-min.cc 13244 2012-03-04 13:15:43Z jordan $
+ * $Id: torrent-delegate-min.cc 14019 2013-02-14 23:32:37Z jordan $
  */
 
 #include <iostream>
@@ -21,7 +21,7 @@
 #include <QPainter>
 #include <QPixmap>
 #include <QPixmapCache>
-#include <QStyleOptionProgressBarV2>
+#include <QStyleOptionProgressBar>
 
 #include <libtransmission/transmission.h>
 #include <libtransmission/utils.h>
@@ -157,12 +157,17 @@ TorrentDelegateMin :: drawTorrent( QPainter * painter, const QStyleOptionViewIte
     if ( tor.isDownloading() ) {
         myProgressBarStyle->palette.setBrush( QPalette::Highlight, blueBrush );
         myProgressBarStyle->palette.setColor( QPalette::Base, blueBack );
-        myProgressBarStyle->palette.setColor( QPalette::Background, blueBack );
+        myProgressBarStyle->palette.setColor( QPalette::Window, blueBack );
     }
     else if ( tor.isSeeding() ) {
         myProgressBarStyle->palette.setBrush( QPalette::Highlight, greenBrush );
         myProgressBarStyle->palette.setColor( QPalette::Base, greenBack );
-        myProgressBarStyle->palette.setColor( QPalette::Background, greenBack );
+        myProgressBarStyle->palette.setColor( QPalette::Window, greenBack );
+    }
+    else {
+        myProgressBarStyle->palette.setBrush( QPalette::Highlight, silverBrush );
+        myProgressBarStyle->palette.setColor( QPalette::Base, silverBack );
+        myProgressBarStyle->palette.setColor( QPalette::Window, silverBack );
     }
     myProgressBarStyle->state = progressBarState;
     char buf[32];

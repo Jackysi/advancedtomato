@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- * $Id: net.c 13631 2012-12-07 01:53:31Z jordan $
+ * $Id: net.c 14069 2013-04-13 19:34:34Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -46,7 +46,8 @@
 #include "peer-io.h" /* tr_peerIoAddrStr () FIXME this should be moved to net.h */
 #include "session.h" /* tr_sessionGetPublicAddress () */
 #include "tr-utp.h" /* tr_utpSendTo () */
-#include "utils.h" /* tr_time (), tr_dbg () */
+#include "log.h"
+#include "utils.h" /* tr_time (), tr_logAddDebug () */
 
 #ifndef IN_MULTICAST
 #define IN_MULTICAST(a) (((a) & 0xf0000000) == 0xe0000000)
@@ -249,7 +250,7 @@ tr_netOpenPeerSocket (tr_session        * session,
     if (clientIsSeed) {
         int n = 8192;
         if (setsockopt (s, SOL_SOCKET, SO_RCVBUF, &n, sizeof (n)))
-            tr_inf ("Unable to set SO_RCVBUF on socket %d: %s", s, tr_strerror (sockerrno));
+            tr_logAddInfo ("Unable to set SO_RCVBUF on socket %d: %s", s, tr_strerror (sockerrno));
     }
 
     if (evutil_make_socket_nonblocking (s) < 0) {
@@ -265,8 +266,9 @@ tr_netOpenPeerSocket (tr_session        * session,
     sourcelen = setup_sockaddr (source_addr, 0, &source_sock);
     if (bind (s, (struct sockaddr *) &source_sock, sourcelen))
     {
-        tr_err (_("Couldn't set source address %s on %d: %s"),
+        tr_logAddError (_("Couldn't set source address %s on %d: %s"),
                 tr_address_to_string (source_addr), s, tr_strerror (errno));
+        tr_netClose (session, s);
         return -errno;
     }
 
@@ -281,15 +283,15 @@ tr_netOpenPeerSocket (tr_session        * session,
         tmperrno = sockerrno;
         if ((tmperrno != ENETUNREACH && tmperrno != EHOSTUNREACH)
                 || addr->type == TR_AF_INET)
-            tr_err (_("Couldn't connect socket %d to %s, port %d (errno %d - %s)"),
+            tr_logAddError (_("Couldn't connect socket %d to %s, port %d (errno %d - %s)"),
                     s, tr_address_to_string (addr), (int)ntohs (port), tmperrno,
                     tr_strerror (tmperrno));
         tr_netClose (session, s);
         s = -tmperrno;
     }
 
-    tr_deepLog (__FILE__, __LINE__, NULL, "New OUTGOING connection %d (%s)",
-               s, tr_peerIoAddrStr (addr, port));
+    tr_logAddDeep (__FILE__, __LINE__, NULL, "New OUTGOING connection %d (%s)",
+                   s, tr_peerIoAddrStr (addr, port));
 
     return s;
 }
@@ -366,7 +368,7 @@ tr_netBindTCPImpl (const tr_address * addr, tr_port port, bool suppressMsgs, int
             else
                 fmt = _("Couldn't bind port %d on %s: %s (%s)");
 
-            tr_err (fmt, port, tr_address_to_string (addr), tr_strerror (err), hint);
+            tr_logAddError (fmt, port, tr_address_to_string (addr), tr_strerror (err), hint);
         }
         tr_netCloseSocket (fd);
         *errOut = err;
@@ -374,7 +376,7 @@ tr_netBindTCPImpl (const tr_address * addr, tr_port port, bool suppressMsgs, int
     }
 
     if (!suppressMsgs)
-        tr_dbg ("Bound socket %d to port %d on %s", fd, port, tr_address_to_string (addr));
+        tr_logAddDebug ("Bound socket %d to port %d on %s", fd, port, tr_address_to_string (addr));
 
     if (listen (fd, 128) == -1) {
         *errOut = sockerrno;

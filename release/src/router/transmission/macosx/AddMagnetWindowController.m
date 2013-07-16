@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: AddMagnetWindowController.m 13660 2012-12-13 13:38:58Z livings124 $
+ * $Id: AddMagnetWindowController.m 13602 2012-10-30 00:22:10Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -97,7 +97,7 @@
     }
     
     #warning when 10.7-only, switch to auto layout
-    /*[fMagnetLinkLabel sizeToFit];
+    [fMagnetLinkLabel sizeToFit];
     
     const CGFloat downloadToLabelOldWidth = [fDownloadToLabel frame].size.width;
     [fDownloadToLabel sizeToFit];
@@ -151,7 +151,7 @@
     [fAddButton setFrame: addButtonFrame];
     [fCancelButton setFrame: cancelButtonFrame];
     
-    [fStartCheck sizeToFit];*/
+    [fStartCheck sizeToFit];
 }
 
 - (void) windowDidLoad

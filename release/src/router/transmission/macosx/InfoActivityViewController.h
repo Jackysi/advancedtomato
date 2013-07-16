@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoActivityViewController.h 13541 2012-09-27 00:17:43Z livings124 $
+ * $Id: InfoActivityViewController.h 14051 2013-03-12 03:08:59Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -56,7 +56,8 @@
 - (void) setInfoForTorrents: (NSArray *) torrents;
 - (void) updateInfo;
 
-- (void) setPiecesView: (id) sender;
+- (IBAction) setPiecesView: (id) sender;
+- (IBAction) updatePiecesView: (id) sender;
 - (void) clearView;
 
 @end

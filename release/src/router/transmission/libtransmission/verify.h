@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: verify.h 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: verify.h 13913 2013-01-31 21:58:25Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -22,10 +22,9 @@
  * @{
  */
 
-typedef void (*tr_verify_done_cb)(tr_torrent * tor);
-
-void tr_verifyAdd (tr_torrent *      tor,
-                   tr_verify_done_cb recheck_done_cb);
+void tr_verifyAdd (tr_torrent           * tor,
+                   tr_verify_done_func    callback_func,
+                   void                 * callback_user_data);
 
 void tr_verifyRemove (tr_torrent * tor);
 

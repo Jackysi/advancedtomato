@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: clients.h 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: clients.h 13954 2013-02-04 16:23:33Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -21,6 +21,6 @@
  * @brief parse a peer-id into a human-readable client name and version number
  * @ingroup utils
  */
-void tr_clientForId (char * buf, size_t buflen, const void * peer_id);
+char* tr_clientForId (char * buf, size_t buflen, const void * peer_id);
 
 #endif

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-io.h 13630 2012-12-06 15:04:52Z jordan $
+ * $Id: peer-io.h 13954 2013-02-04 16:23:33Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -57,17 +57,17 @@ tr_encryption_type;
 
 
 typedef ReadState (*tr_can_read_cb)(struct tr_peerIo * io,
-                                        void             * user_data,
-                                        size_t           * setme_piece_byte_count);
+                                    void             * user_data,
+                                    size_t           * setme_piece_byte_count);
 
-typedef void    (*tr_did_write_cb)(struct tr_peerIo * io,
-                                        size_t             bytesWritten,
-                                        int                wasPieceData,
-                                        void             * userData);
+typedef void (*tr_did_write_cb)(struct tr_peerIo * io,
+                                size_t             bytesWritten,
+                                bool               wasPieceData,
+                                void             * userData);
 
-typedef void    (*tr_net_error_cb)(struct tr_peerIo * io,
-                                        short              what,
-                                        void             * userData);
+typedef void (*tr_net_error_cb)(struct tr_peerIo * io,
+                                short              what,
+                                void             * userData);
 
 typedef struct tr_peerIo
 {
@@ -90,7 +90,7 @@ typedef struct tr_peerIo
 
     tr_port               port;
     int                   socket;
-    struct UTPSocket      *utp_socket;
+    struct UTPSocket    * utp_socket;
 
     int                   refCount;
 
@@ -138,13 +138,13 @@ tr_peerIo*  tr_peerIoNewIncoming (tr_session              * session,
                                   int                       socket,
                                   struct UTPSocket *        utp_socket);
 
-void tr_peerIoRefImpl         (const char              * file,
+void tr_peerIoRefImpl            (const char              * file,
                                   int                       line,
                                   tr_peerIo               * io);
 
 #define tr_peerIoRef(io) tr_peerIoRefImpl (__FILE__, __LINE__, (io));
 
-void tr_peerIoUnrefImpl       (const char              * file,
+void tr_peerIoUnrefImpl          (const char              * file,
                                   int                       line,
                                   tr_peerIo               * io);
 
@@ -257,26 +257,26 @@ static inline const uint8_t* tr_peerIoGetPeersId (const tr_peerIo * io)
 ***
 **/
 
-void    tr_peerIoSetIOFuncs    (tr_peerIo        * io,
-                                   tr_can_read_cb     readcb,
-                                   tr_did_write_cb    writecb,
-                                   tr_net_error_cb    errcb,
-                                   void             * user_data);
+void    tr_peerIoSetIOFuncs   (tr_peerIo        * io,
+                               tr_can_read_cb     readcb,
+                               tr_did_write_cb    writecb,
+                               tr_net_error_cb    errcb,
+                               void             * user_data);
 
-void    tr_peerIoClear         (tr_peerIo        * io);
+void    tr_peerIoClear        (tr_peerIo        * io);
 
 /**
 ***
 **/
 
 void    tr_peerIoWriteBytes   (tr_peerIo         * io,
-                                  const void        * writeme,
-                                  size_t              writemeLen,
-                                  bool                isPieceData);
+                               const void        * writeme,
+                               size_t              writemeLen,
+                               bool                isPieceData);
 
 void    tr_peerIoWriteBuf     (tr_peerIo         * io,
-                                  struct evbuffer   * buf,
-                                  bool                isPieceData);
+                               struct evbuffer   * buf,
+                               bool                isPieceData);
 
 /**
 ***

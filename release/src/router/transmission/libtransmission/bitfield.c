@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: bitfield.c 13637 2012-12-09 19:08:06Z jordan $
+ * $Id: bitfield.c 13655 2012-12-13 02:00:45Z jordan $
  */
 
 #include <assert.h>
@@ -128,6 +128,21 @@ tr_bitfieldCountRange (const tr_bitfield * b, size_t begin, size_t end)
     return 0;
 
   return countRange (b, begin, end);
+}
+
+bool
+tr_bitfieldHas (const tr_bitfield * b, size_t n)
+{
+  if (tr_bitfieldHasAll (b))
+    return true;
+
+  if (tr_bitfieldHasNone (b))
+    return false;
+
+  if (n>>3u >= b->alloc_count)
+    return false;
+
+  return (b->bits[n>>3u] << (n & 7u) & 0x80) != 0;
 }
 
 /***

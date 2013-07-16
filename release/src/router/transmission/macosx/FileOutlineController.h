@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FileOutlineController.h 13296 2012-05-14 00:00:19Z livings124 $
+ * $Id: FileOutlineController.h 13986 2013-02-08 13:02:16Z livings124 $
  *
  * Copyright (c) 2008-2012 Transmission authors and contributors
  *
@@ -52,5 +52,7 @@
 - (void) setPriority: (id) sender;
 
 - (void) revealFile: (id) sender;
+
+- (void) renameSelected: (id) sender;
 
 @end

@@ -3,10 +3,9 @@
  * "There is no problem for me, you can license my code
  * under whatever licence you wish :)"
  *
- * $Id: icons.c 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: icons.c 14018 2013-02-14 15:17:42Z jordan $
  */
 
-#include <string.h> /* strcmp */
 #include <glib.h>
 #include <gtk/gtk.h>
 #include <gio/gio.h>

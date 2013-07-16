@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: blocklist.h 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: blocklist.h 13824 2013-01-21 17:48:36Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -18,28 +18,29 @@
 #define TR_BLOCKLIST_H
 
 struct tr_address;
-typedef struct tr_blocklist tr_blocklist;
 
-tr_blocklist* _tr_blocklistNew       (const char              * filename,
-                                         bool                   isEnabled);
+typedef struct tr_blocklistFile tr_blocklistFile;
 
-int           _tr_blocklistExists    (const tr_blocklist      * b);
+tr_blocklistFile * tr_blocklistFileNew          (const char              * filename,
+                                                 bool                      isEnabled);
 
-const char*   _tr_blocklistGetFilename (const tr_blocklist      * b);
+int                tr_blocklistFileExists       (const tr_blocklistFile  * b);
 
-int           _tr_blocklistGetRuleCount (const tr_blocklist      * b);
+const char *       tr_blocklistFileGetFilename  (const tr_blocklistFile  * b);
 
-void          _tr_blocklistFree      (tr_blocklist *);
+int                tr_blocklistFileGetRuleCount (const tr_blocklistFile  * b);
 
-int           _tr_blocklistIsEnabled (tr_blocklist            * b);
+void               tr_blocklistFileFree         (tr_blocklistFile        * b);
 
-void          _tr_blocklistSetEnabled (tr_blocklist            * b,
-                                         bool                      isEnabled);
+int                tr_blocklistFileIsEnabled    (tr_blocklistFile        * b);
 
-int           _tr_blocklistHasAddress (tr_blocklist            * b,
-                                         const struct tr_address * addr);
+void               tr_blocklistFileSetEnabled   (tr_blocklistFile        * b,
+                                                 bool                      isEnabled);
 
-int           _tr_blocklistSetContent (tr_blocklist            * b,
-                                         const char              * filename);
+int                tr_blocklistFileHasAddress   (tr_blocklistFile        * b,
+                                                 const struct tr_address * addr);
+
+int                tr_blocklistFileSetContent   (tr_blocklistFile        * b,
+                                                 const char              * filename);
 
 #endif

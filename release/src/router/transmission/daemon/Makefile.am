@@ -4,11 +4,15 @@ AM_CFLAGS = \
     @LIBEVENT_CFLAGS@ \
     @OPENSSL_CFLAGS@ \
     @LIBCURL_CFLAGS@ \
+    @SYSTEMD_DAEMON_CFLAGS@ \
     @ZLIB_CFLAGS@ \
     @PTHREAD_CFLAGS@
 
 AM_LDFLAGS = \
     @ZLIB_LDFLAGS@
+
+EXTRA_DIST = \
+    transmission-daemon.service
 
 dist_man_MANS = \
     transmission-daemon.1 \
@@ -28,6 +32,7 @@ LDADD = \
     @LIBCURL_LIBS@ \
     @OPENSSL_LIBS@ \
     @INTLLIBS@ \
+    @SYSTEMD_DAEMON_LIBS@ \
     @ZLIB_LIBS@ \
     @PTHREAD_LIBS@
 

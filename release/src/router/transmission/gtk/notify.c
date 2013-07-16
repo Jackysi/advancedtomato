@@ -7,10 +7,8 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: notify.c 13626 2012-12-05 21:26:40Z jordan $
+ * $Id: notify.c 14018 2013-02-14 15:17:42Z jordan $
  */
-
-#include <string.h> /* strcmp () */
 
 #include <gio/gio.h>
 
@@ -67,7 +65,7 @@ get_capabilities_callback (GObject      * source,
   g_variant_get (result, "(^a&s)", &caps);
   for (i=0; caps[i]; i++)
     {
-      if (strcmp (caps[i], "actions") == 0)
+      if (g_strcmp0 (caps[i], "actions") == 0)
         {
           server_supports_actions = TRUE;
           break;
@@ -96,12 +94,12 @@ g_signal_callback (GDBusProxy * proxy UNUSED,
   if (n == NULL)
     return;
 
-  if (strcmp (signal_name, "NotificationClosed") == 0)
+  if (g_strcmp0 (signal_name, "NotificationClosed") == 0)
     {
       g_hash_table_remove (active_notifications,
                            GINT_TO_POINTER ((int *) &n->id));
     }
-  else if (strcmp (signal_name, "ActionInvoked") == 0 &&
+  else if (g_strcmp0 (signal_name, "ActionInvoked") == 0 &&
            g_variant_is_of_type (params, G_VARIANT_TYPE ("(us)")))
     {
       char * action;
@@ -112,11 +110,11 @@ g_signal_callback (GDBusProxy * proxy UNUSED,
         return;
 
       g_variant_get (params, "(u&s)", NULL, &action);
-      if (strcmp (action, "folder") == 0)
+      if (g_strcmp0 (action, "folder") == 0)
         {
           gtr_core_open_folder (n->core, n->torrent_id);
         }
-      else if (strcmp (action, "file") == 0)
+      else if (g_strcmp0 (action, "file") == 0)
         {
           const tr_info * inf = tr_torrentInfo (tor);
           const char * dir = tr_torrentGetDownloadDir (tor);
@@ -192,12 +190,12 @@ gtr_notify_torrent_completed (TrCore * core, int torrent_id)
   GVariantBuilder actions_builder;
   TrNotification * n;
   tr_torrent * tor;
-  const char * cmd = gtr_pref_string_get (PREF_KEY_TORRENT_COMPLETE_SOUND_COMMAND);
+  const char * cmd = gtr_pref_string_get (TR_KEY_torrent_complete_sound_command);
 
-  if (gtr_pref_flag_get (PREF_KEY_TORRENT_COMPLETE_SOUND_ENABLED))
+  if (gtr_pref_flag_get (TR_KEY_torrent_complete_sound_enabled))
     g_spawn_command_line_async (cmd, NULL);
 
-  if (!gtr_pref_flag_get (PREF_KEY_TORRENT_COMPLETE_NOTIFICATION_ENABLED))
+  if (!gtr_pref_flag_get (TR_KEY_torrent_complete_notification_enabled))
       return;
 
   g_return_if_fail (G_IS_DBUS_PROXY (proxy));
@@ -243,7 +241,7 @@ gtr_notify_torrent_added (const char * name)
 
   g_return_if_fail (G_IS_DBUS_PROXY (proxy));
 
-  if (!gtr_pref_flag_get (PREF_KEY_TORRENT_ADDED_NOTIFICATION_ENABLED))
+  if (!gtr_pref_flag_get (TR_KEY_torrent_added_notification_enabled))
     return;
 
   n = g_new0 (TrNotification, 1);
