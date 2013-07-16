@@ -19,6 +19,8 @@
 #ifndef _BYTESWAP_H
 #define _BYTESWAP_H	1
 
+#include <features.h>
+
 /* Get the machine specific, optimized definitions.  */
 #include <bits/byteswap.h>
 

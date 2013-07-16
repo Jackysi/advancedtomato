@@ -1008,8 +1008,8 @@ extern void		dev_mc_upload(struct net_device *dev);
 extern int 		dev_mc_delete(struct net_device *dev, void *addr, int alen, int all);
 extern int		dev_mc_add(struct net_device *dev, void *addr, int alen, int newonly);
 extern void		dev_mc_discard(struct net_device *dev);
-extern void		dev_set_promiscuity(struct net_device *dev, int inc);
-extern void		dev_set_allmulti(struct net_device *dev, int inc);
+extern int		dev_set_promiscuity(struct net_device *dev, int inc);
+extern int		dev_set_allmulti(struct net_device *dev, int inc);
 extern void		netdev_state_change(struct net_device *dev);
 extern void		netdev_features_change(struct net_device *dev);
 /* Load a device via the kmod */
