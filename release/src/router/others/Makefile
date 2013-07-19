@@ -40,19 +40,16 @@ endif
 #Web Monitor Backup Script
 	install -m 0700 webmon_bkp $(INSTALLDIR)/usr/sbin
 
+#optware install script
+	install -m 0700 optware-install.sh $(INSTALLDIR)/usr/sbin
+
 # cron helper
 	install -m 0700 cru $(INSTALLDIR)/usr/sbin
-
-# playing with ipkg / from OpenWrt svn
-#!!TB	install -m 0700 ipkg $(INSTALLDIR)/usr/sbin
 
 # system info
 	install -m 0700 sysinfo $(INSTALLDIR)/usr/sbin
 
 # nas starter # AB multiSSID
 	install -m 0700 nas.sh $(INSTALLDIR)/usr/sbin
-
-# keep winscp happy
-#	install -m 0700 groups $(INSTALLDIR)/usr/bin
 
 clean:
