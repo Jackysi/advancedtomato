@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: favicon.c 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: favicon.c 14070 2013-04-13 20:25:28Z jordan $
  */
 
 #include <glib/gstdio.h> /* g_remove () */
@@ -111,7 +111,7 @@ favicon_web_done_idle_cb (gpointer vfav)
             fav->contents = NULL;
             fav->len = 0;
 
-            tr_webRun (fav->session, url, NULL, NULL, favicon_web_done_cb, fav);
+            tr_webRun (fav->session, url, favicon_web_done_cb, fav);
             g_free (url);
         }
     }
@@ -167,7 +167,7 @@ gtr_get_favicon (tr_session  * session,
         data->host = g_strdup (host);
         data->type = 0;
 
-        tr_webRun (session, url, NULL, NULL, favicon_web_done_cb, data);
+        tr_webRun (session, url, favicon_web_done_cb, data);
         g_free (url);
     }
 }

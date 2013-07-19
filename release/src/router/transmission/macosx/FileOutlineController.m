@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FileOutlineController.m 13340 2012-06-10 02:35:58Z livings124 $
+ * $Id: FileOutlineController.m 13986 2013-02-08 13:02:16Z livings124 $
  *
  * Copyright (c) 2008-2012 Transmission authors and contributors
  *
@@ -24,9 +24,10 @@
 
 #import "FileOutlineController.h"
 #import "Torrent.h"
+#import "FileListNode.h"
 #import "FileOutlineView.h"
 #import "FilePriorityCell.h"
-#import "FileListNode.h"
+#import "FileRenameSheetController.h"
 #import "NSApplicationAdditions.h"
 #import "NSMutableArrayAdditions.h"
 #import "NSStringAdditions.h"
@@ -431,6 +432,33 @@ typedef enum
         [[NSWorkspace sharedWorkspace] activateFileViewerSelectingURLs: paths];
 }
 
+- (void) renameSelected: (id) sender
+{
+    NSIndexSet * indexes = [fOutline selectedRowIndexes];
+    NSAssert([indexes count] == 1, @"1 file needs to be selected to rename, but %ld are selected", [indexes count]);
+    
+    FileListNode * node = [fOutline itemAtRow: [indexes firstIndex]];
+    Torrent * torrent = [node torrent];
+    if (![torrent isFolder])
+    {
+        [FileRenameSheetController presentSheetForTorrent: torrent modalForWindow: [fOutline window] completionHandler: ^(BOOL didRename) {
+            if (didRename)
+            {
+                [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self];
+                [[NSNotificationCenter defaultCenter] postNotificationName: @"ResetInspector" object: self userInfo: @{ @"Torrent" : torrent }];
+            }
+        }];
+    }
+    else
+    {
+        [FileRenameSheetController presentSheetForFileListNode: node modalForWindow: [fOutline window] completionHandler: ^(BOOL didRename) {
+            #warning instead of calling reset inspector, just resort?
+            if (didRename)
+                [[NSNotificationCenter defaultCenter] postNotificationName: @"ResetInspector" object: self userInfo: @{ @"Torrent" : torrent }];
+        }];
+    }
+}
+
 #warning make real view controller (Leopard-only) so that Command-R will work
 - (BOOL) validateMenuItem: (NSMenuItem *) menuItem
 {
@@ -518,6 +546,11 @@ typedef enum
         return canChange;
     }
     
+    if (action == @selector(renameSelected:))
+    {
+        return [fOutline numberOfSelectedRows] == 1;
+    }
+    
     return YES;
 }
 
@@ -531,7 +564,7 @@ typedef enum
     
     //check and uncheck
     NSMenuItem * item = [[NSMenuItem alloc] initWithTitle: NSLocalizedString(@"Check Selected", "File Outline -> Menu")
-                            action: @selector(setCheck:) keyEquivalent: @""];
+            action: @selector(setCheck:) keyEquivalent: @""];
     [item setTarget: self];
     [item setTag: FILE_CHECK_TAG];
     [menu addItem: item];
@@ -590,7 +623,16 @@ typedef enum
     
     //reveal in finder
     item = [[NSMenuItem alloc] initWithTitle: NSLocalizedString(@"Show in Finder", "File Outline -> Menu")
-            action: @selector(revealFile:) keyEquivalent: @""];
+                                      action: @selector(revealFile:) keyEquivalent: @""];
+    [item setTarget: self];
+    [menu addItem: item];
+    [item release];
+    
+    [menu addItem: [NSMenuItem separatorItem]];
+    
+    //rename
+    item = [[NSMenuItem alloc] initWithTitle: [NSLocalizedString(@"Rename File", "File Outline -> Menu") stringByAppendingEllipsis]
+                                                   action: @selector(renameSelected:) keyEquivalent: @""];
     [item setTarget: self];
     [menu addItem: item];
     [item release];

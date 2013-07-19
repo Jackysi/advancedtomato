@@ -7,11 +7,12 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: announcer-udp.c 13631 2012-12-07 01:53:31Z jordan $
+ * $Id: announcer-udp.c 13965 2013-02-04 20:46:16Z jordan $
  */
 
 #define __LIBTRANSMISSION_ANNOUNCER_MODULE___
 
+#include <errno.h> /* errno, EAFNOSUPPORT */
 #include <string.h> /* memcpy (), memset () */
 
 #include <event2/buffer.h>
@@ -22,6 +23,7 @@
 #include "announcer.h"
 #include "announcer-common.h"
 #include "crypto.h" /* tr_cryptoRandBuf () */
+#include "log.h"
 #include "peer-io.h"
 #include "peer-mgr.h" /* tr_peerMgrCompactToPex () */
 #include "ptrarray.h"
@@ -29,9 +31,12 @@
 #include "utils.h"
 
 #define dbgmsg(name, ...) \
-if (tr_deepLoggingIsActive ()) do { \
-  tr_deepLog (__FILE__, __LINE__, name, __VA_ARGS__); \
-} while (0)
+  do \
+    { \
+      if (tr_logGetDeepEnabled ()) \
+        tr_logAddDeep (__FILE__, __LINE__, name, __VA_ARGS__); \
+    } \
+  while (0)
 
 /****
 *****

@@ -7,12 +7,14 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: rpc-server.h 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: rpc-server.h 13667 2012-12-14 04:34:42Z jordan $
  */
 
 #ifndef __TRANSMISSION__
-#error only libtransmission should #include this header.
+ #error only libtransmission should #include this header.
 #endif
+
+#include "variant.h"
 
 #ifndef TR_RPC_SERVER_H
 #define TR_RPC_SERVER_H
@@ -20,7 +22,7 @@
 typedef struct tr_rpc_server tr_rpc_server;
 
 tr_rpc_server * tr_rpcInit (tr_session  * session,
-                            tr_benc  * settings);
+                            tr_variant  * settings);
 
 void            tr_rpcClose (tr_rpc_server ** freeme);
 

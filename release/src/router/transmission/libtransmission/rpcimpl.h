@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: rpcimpl.h 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: rpcimpl.h 13814 2013-01-21 00:00:00Z jordan $
  */
 
 #ifndef TR_RPC_H
@@ -17,17 +17,18 @@
 extern "C" {
 #endif
 
+#include "transmission.h"
+#include "variant.h"
+
 /***
 ****  RPC processing
 ***/
 
-struct tr_benc;
 struct evbuffer;
 
-/* FIXME (libevent2): make "response" an evbuffer and remove response_len */
 typedef void (*tr_rpc_response_func)(tr_session      * session,
-                                       struct evbuffer * response,
-                                       void            * user_data);
+                                     struct evbuffer * response,
+                                     void            * user_data);
 /* http://www.json.org/ */
 void tr_rpc_request_exec_json (tr_session            * session,
                                const void            * request_json,
@@ -42,9 +43,9 @@ void tr_rpc_request_exec_uri (tr_session           * session,
                               tr_rpc_response_func   callback,
                               void                 * callback_user_data);
 
-void tr_rpc_parse_list_str (struct tr_benc * setme,
-                            const char     * list_str,
-                            int              list_str_len);
+void tr_rpc_parse_list_str (tr_variant  * setme,
+                            const char  * list_str,
+                            int           list_str_len);
 
 #ifdef __cplusplus
 }

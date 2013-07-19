@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: daemon.c 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: daemon.c 14084 2013-06-07 23:31:26Z jordan $
  */
 
 #include <errno.h>
@@ -24,18 +24,22 @@
 #include <event2/buffer.h>
 
 #include <libtransmission/transmission.h>
-#include <libtransmission/bencode.h>
 #include <libtransmission/tr-getopt.h>
+#include <libtransmission/log.h>
 #include <libtransmission/utils.h>
+#include <libtransmission/variant.h>
 #include <libtransmission/version.h>
+
+#ifdef USE_SYSTEMD_DAEMON
+ #include <systemd/sd-daemon.h>
+#else
+ static void sd_notify (int status UNUSED, const char * str UNUSED) { }
+ static void sd_notifyf (int status UNUSED, const char * fmt UNUSED, ...) { }
+#endif
 
 #include "watch.h"
 
 #define MY_NAME "transmission-daemon"
-
-#define PREF_KEY_DIR_WATCH          "watch-dir"
-#define PREF_KEY_DIR_WATCH_ENABLED  "watch-dir-enabled"
-#define PREF_KEY_PIDFILE            "pidfile"
 
 #define MEM_K 1024
 #define MEM_K_STR "KiB"
@@ -65,6 +69,7 @@ static bool seenHUP = false;
 static const char *logfileName = NULL;
 static FILE *logfile = NULL;
 static tr_session * mySession = NULL;
+static tr_quark key_pidfile = 0;
 
 /***
 ****  Config File
@@ -148,12 +153,12 @@ gotsig (int sig)
         {
             if (!mySession)
             {
-                tr_inf ("Deferring reload until session is fully started.");
+                tr_logAddInfo ("Deferring reload until session is fully started.");
                 seenHUP = true;
             }
             else
             {
-                tr_benc settings;
+                tr_variant settings;
                 const char * configDir;
 
                 /* reopen the logfile to allow for log rotation */
@@ -164,19 +169,19 @@ gotsig (int sig)
                 }
 
                 configDir = tr_sessionGetConfigDir (mySession);
-                tr_inf ("Reloading settings from \"%s\"", configDir);
-                tr_bencInitDict (&settings, 0);
-                tr_bencDictAddBool (&settings, TR_PREFS_KEY_RPC_ENABLED, true);
+                tr_logAddInfo ("Reloading settings from \"%s\"", configDir);
+                tr_variantInitDict (&settings, 0);
+                tr_variantDictAddBool (&settings, TR_KEY_rpc_enabled, true);
                 tr_sessionLoadSettings (&settings, configDir, MY_NAME);
                 tr_sessionSet (mySession, &settings);
-                tr_bencFree (&settings);
+                tr_variantFree (&settings);
                 tr_sessionReloadBlocklists (mySession);
             }
             break;
         }
 
         default:
-            tr_err ("Unexpected signal (%d) in daemon, closing.", sig);
+            tr_logAddError ("Unexpected signal (%d) in daemon, closing.", sig);
             /* no break */
 
         case SIGINT:
@@ -265,27 +270,27 @@ onFileAdded (tr_session * session, const char * dir, const char * file)
 
     if (!err)
     {
-        tr_torrentNew (ctor, &err);
+        tr_torrentNew (ctor, &err, NULL);
 
         if (err == TR_PARSE_ERR)
-            tr_err ("Error parsing .torrent file \"%s\"", file);
+            tr_logAddError ("Error parsing .torrent file \"%s\"", file);
         else
         {
             bool trash = false;
             int test = tr_ctorGetDeleteSource (ctor, &trash);
 
-            tr_inf ("Parsing .torrent file successful \"%s\"", file);
+            tr_logAddInfo ("Parsing .torrent file successful \"%s\"", file);
 
             if (!test && trash)
             {
-                tr_inf ("Deleting input .torrent file \"%s\"", file);
-                if (remove (filename))
-                    tr_err ("Error deleting .torrent file: %s", tr_strerror (errno));
+                tr_logAddInfo ("Deleting input .torrent file \"%s\"", file);
+                if (tr_remove (filename))
+                    tr_logAddError ("Error deleting .torrent file: %s", tr_strerror (errno));
             }
             else
             {
                 char * new_filename = tr_strdup_printf ("%s.added", filename);
-                rename (filename, new_filename);
+                tr_rename (filename, new_filename);
                 tr_free (new_filename);
             }
         }
@@ -301,7 +306,7 @@ printMessage (FILE * logfile, int level, const char * name, const char * message
     if (logfile != NULL)
     {
         char timestr[64];
-        tr_getLogTimeStr (timestr, sizeof (timestr));
+        tr_logGetTimeStr (timestr, sizeof (timestr));
         if (name)
             fprintf (logfile, "[%s] %s %s (%s:%d)\n", timestr, name, message, file, line);
         else
@@ -314,9 +319,9 @@ printMessage (FILE * logfile, int level, const char * name, const char * message
 
         /* figure out the syslog priority */
         switch (level) {
-            case TR_MSG_ERR: priority = LOG_ERR; break;
-            case TR_MSG_DBG: priority = LOG_DEBUG; break;
-            default: priority = LOG_INFO; break;
+            case TR_LOG_ERROR: priority = LOG_ERR; break;
+            case TR_LOG_DEBUG: priority = LOG_DEBUG; break;
+            default:           priority = LOG_INFO; break;
         }
 
         if (name)
@@ -330,8 +335,8 @@ printMessage (FILE * logfile, int level, const char * name, const char * message
 static void
 pumpLogMessages (FILE * logfile)
 {
-    const tr_msg_list * l;
-    tr_msg_list * list = tr_getQueuedMessages ();
+    const tr_log_message * l;
+    tr_log_message * list = tr_logGetQueue ();
 
     for (l=list; l!=NULL; l=l->next)
         printMessage (logfile, l->level, l->name, l->message, l->file, l->line);
@@ -339,7 +344,7 @@ pumpLogMessages (FILE * logfile)
     if (logfile != NULL)
         fflush (logfile);
 
-    tr_freeMessageList (list);
+    tr_logFreeQueue (list);
 }
 
 static tr_rpc_callback_status
@@ -358,7 +363,7 @@ main (int argc, char ** argv)
 {
     int c;
     const char * optarg;
-    tr_benc settings;
+    tr_variant settings;
     bool boolVal;
     bool loaded;
     bool foreground = false;
@@ -369,6 +374,8 @@ main (int argc, char ** argv)
     bool pidfile_created = false;
     tr_session * session = NULL;
 
+    key_pidfile = tr_quark_new ("pidfile",  7);
+
     signal (SIGINT, gotsig);
     signal (SIGTERM, gotsig);
 #ifndef WIN32
@@ -376,8 +383,8 @@ main (int argc, char ** argv)
 #endif
 
     /* load settings from defaults + config file */
-    tr_bencInitDict (&settings, 0);
-    tr_bencDictAddBool (&settings, TR_PREFS_KEY_RPC_ENABLED, true);
+    tr_variantInitDict (&settings, 0);
+    tr_variantDictAddBool (&settings, TR_KEY_rpc_enabled, true);
     configDir = getConfigDir (argc, (const char**)argv);
     loaded = tr_sessionLoadSettings (&settings, configDir, MY_NAME);
 
@@ -385,22 +392,22 @@ main (int argc, char ** argv)
     tr_optind = 1;
     while ((c = tr_getopt (getUsage (), argc, (const char**)argv, options, &optarg))) {
         switch (c) {
-            case 'a': tr_bencDictAddStr (&settings, TR_PREFS_KEY_RPC_WHITELIST, optarg);
-                      tr_bencDictAddBool (&settings, TR_PREFS_KEY_RPC_WHITELIST_ENABLED, true);
+            case 'a': tr_variantDictAddStr  (&settings, TR_KEY_rpc_whitelist, optarg);
+                      tr_variantDictAddBool (&settings, TR_KEY_rpc_whitelist_enabled, true);
                       break;
-            case 'b': tr_bencDictAddBool (&settings, TR_PREFS_KEY_BLOCKLIST_ENABLED, true);
+            case 'b': tr_variantDictAddBool (&settings, TR_KEY_blocklist_enabled, true);
                       break;
-            case 'B': tr_bencDictAddBool (&settings, TR_PREFS_KEY_BLOCKLIST_ENABLED, false);
+            case 'B': tr_variantDictAddBool (&settings, TR_KEY_blocklist_enabled, false);
                       break;
-            case 'c': tr_bencDictAddStr (&settings, PREF_KEY_DIR_WATCH, optarg);
-                      tr_bencDictAddBool (&settings, PREF_KEY_DIR_WATCH_ENABLED, true);
+            case 'c': tr_variantDictAddStr  (&settings, TR_KEY_watch_dir, optarg);
+                      tr_variantDictAddBool (&settings, TR_KEY_watch_dir_enabled, true);
                       break;
-            case 'C': tr_bencDictAddBool (&settings, PREF_KEY_DIR_WATCH_ENABLED, false);
+            case 'C': tr_variantDictAddBool (&settings, TR_KEY_watch_dir_enabled, false);
                       break;
-            case 941: tr_bencDictAddStr (&settings, TR_PREFS_KEY_INCOMPLETE_DIR, optarg);
-                      tr_bencDictAddBool (&settings, TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED, true);
+            case 941: tr_variantDictAddStr  (&settings, TR_KEY_incomplete_dir, optarg);
+                      tr_variantDictAddBool (&settings, TR_KEY_incomplete_dir_enabled, true);
                       break;
-            case 942: tr_bencDictAddBool (&settings, TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED, false);
+            case 942: tr_variantDictAddBool (&settings, TR_KEY_incomplete_dir_enabled, false);
                       break;
             case 'd': dumpSettings = true;
                       break;
@@ -417,66 +424,66 @@ main (int argc, char ** argv)
             case 'V': /* version */
                       fprintf (stderr, "%s %s\n", MY_NAME, LONG_VERSION_STRING);
                       exit (0);
-            case 'o': tr_bencDictAddBool (&settings, TR_PREFS_KEY_DHT_ENABLED, true);
+            case 'o': tr_variantDictAddBool (&settings, TR_KEY_dht_enabled, true);
                       break;
-            case 'O': tr_bencDictAddBool (&settings, TR_PREFS_KEY_DHT_ENABLED, false);
+            case 'O': tr_variantDictAddBool (&settings, TR_KEY_dht_enabled, false);
                       break;
-            case 'p': tr_bencDictAddInt (&settings, TR_PREFS_KEY_RPC_PORT, atoi (optarg));
+            case 'p': tr_variantDictAddInt (&settings, TR_KEY_rpc_port, atoi (optarg));
                       break;
-            case 't': tr_bencDictAddBool (&settings, TR_PREFS_KEY_RPC_AUTH_REQUIRED, true);
+            case 't': tr_variantDictAddBool (&settings, TR_KEY_rpc_authentication_required, true);
                       break;
-            case 'T': tr_bencDictAddBool (&settings, TR_PREFS_KEY_RPC_AUTH_REQUIRED, false);
+            case 'T': tr_variantDictAddBool (&settings, TR_KEY_rpc_authentication_required, false);
                       break;
-            case 'u': tr_bencDictAddStr (&settings, TR_PREFS_KEY_RPC_USERNAME, optarg);
+            case 'u': tr_variantDictAddStr (&settings, TR_KEY_rpc_username, optarg);
                       break;
-            case 'v': tr_bencDictAddStr (&settings, TR_PREFS_KEY_RPC_PASSWORD, optarg);
+            case 'v': tr_variantDictAddStr (&settings, TR_KEY_rpc_password, optarg);
                       break;
-            case 'w': tr_bencDictAddStr (&settings, TR_PREFS_KEY_DOWNLOAD_DIR, optarg);
+            case 'w': tr_variantDictAddStr (&settings, TR_KEY_download_dir, optarg);
                       break;
-            case 'P': tr_bencDictAddInt (&settings, TR_PREFS_KEY_PEER_PORT, atoi (optarg));
+            case 'P': tr_variantDictAddInt (&settings, TR_KEY_peer_port, atoi (optarg));
                       break;
-            case 'm': tr_bencDictAddBool (&settings, TR_PREFS_KEY_PORT_FORWARDING, true);
+            case 'm': tr_variantDictAddBool (&settings, TR_KEY_port_forwarding_enabled, true);
                       break;
-            case 'M': tr_bencDictAddBool (&settings, TR_PREFS_KEY_PORT_FORWARDING, false);
+            case 'M': tr_variantDictAddBool (&settings, TR_KEY_port_forwarding_enabled, false);
                       break;
-            case 'L': tr_bencDictAddInt (&settings, TR_PREFS_KEY_PEER_LIMIT_GLOBAL, atoi (optarg));
+            case 'L': tr_variantDictAddInt (&settings, TR_KEY_peer_limit_global, atoi (optarg));
                       break;
-            case 'l': tr_bencDictAddInt (&settings, TR_PREFS_KEY_PEER_LIMIT_TORRENT, atoi (optarg));
+            case 'l': tr_variantDictAddInt (&settings, TR_KEY_peer_limit_per_torrent, atoi (optarg));
                       break;
             case 800: paused = true;
                       break;
-            case 910: tr_bencDictAddInt (&settings, TR_PREFS_KEY_ENCRYPTION, TR_ENCRYPTION_REQUIRED);
+            case 910: tr_variantDictAddInt (&settings, TR_KEY_encryption, TR_ENCRYPTION_REQUIRED);
                       break;
-            case 911: tr_bencDictAddInt (&settings, TR_PREFS_KEY_ENCRYPTION, TR_ENCRYPTION_PREFERRED);
+            case 911: tr_variantDictAddInt (&settings, TR_KEY_encryption, TR_ENCRYPTION_PREFERRED);
                       break;
-            case 912: tr_bencDictAddInt (&settings, TR_PREFS_KEY_ENCRYPTION, TR_CLEAR_PREFERRED);
+            case 912: tr_variantDictAddInt (&settings, TR_KEY_encryption, TR_CLEAR_PREFERRED);
                       break;
-            case 'i': tr_bencDictAddStr (&settings, TR_PREFS_KEY_BIND_ADDRESS_IPV4, optarg);
+            case 'i': tr_variantDictAddStr (&settings, TR_KEY_bind_address_ipv4, optarg);
                       break;
-            case 'I': tr_bencDictAddStr (&settings, TR_PREFS_KEY_BIND_ADDRESS_IPV6, optarg);
+            case 'I': tr_variantDictAddStr (&settings, TR_KEY_bind_address_ipv6, optarg);
                       break;
-            case 'r': tr_bencDictAddStr (&settings, TR_PREFS_KEY_RPC_BIND_ADDRESS, optarg);
+            case 'r': tr_variantDictAddStr (&settings, TR_KEY_rpc_bind_address, optarg);
                       break;
-            case 953: tr_bencDictAddReal (&settings, TR_PREFS_KEY_RATIO, atof (optarg));
-                      tr_bencDictAddBool (&settings, TR_PREFS_KEY_RATIO_ENABLED, true);
+            case 953: tr_variantDictAddReal (&settings, TR_KEY_ratio_limit, atof (optarg));
+                      tr_variantDictAddBool (&settings, TR_KEY_ratio_limit_enabled, true);
                       break;
-            case 954: tr_bencDictAddBool (&settings, TR_PREFS_KEY_RATIO_ENABLED, false);
+            case 954: tr_variantDictAddBool (&settings, TR_KEY_ratio_limit_enabled, false);
                       break;
-            case 'x': tr_bencDictAddStr (&settings, PREF_KEY_PIDFILE, optarg);
+            case 'x': tr_variantDictAddStr (&settings, key_pidfile, optarg);
                       break;
-            case 'y': tr_bencDictAddBool (&settings, TR_PREFS_KEY_LPD_ENABLED, true);
+            case 'y': tr_variantDictAddBool (&settings, TR_KEY_lpd_enabled, true);
                       break;
-            case 'Y': tr_bencDictAddBool (&settings, TR_PREFS_KEY_LPD_ENABLED, false);
+            case 'Y': tr_variantDictAddBool (&settings, TR_KEY_lpd_enabled, false);
                       break;
-            case 810: tr_bencDictAddInt (&settings,  TR_PREFS_KEY_MSGLEVEL, TR_MSG_ERR);
+            case 810: tr_variantDictAddInt (&settings,  TR_KEY_message_level, TR_LOG_ERROR);
                       break;
-            case 811: tr_bencDictAddInt (&settings,  TR_PREFS_KEY_MSGLEVEL, TR_MSG_INF);
+            case 811: tr_variantDictAddInt (&settings,  TR_KEY_message_level, TR_LOG_INFO);
                       break;
-            case 812: tr_bencDictAddInt (&settings,  TR_PREFS_KEY_MSGLEVEL, TR_MSG_DBG);
+            case 812: tr_variantDictAddInt (&settings,  TR_KEY_message_level, TR_LOG_DEBUG);
                       break;
-            case 830: tr_bencDictAddBool (&settings, TR_PREFS_KEY_UTP_ENABLED, true);
+            case 830: tr_variantDictAddBool (&settings, TR_KEY_utp_enabled, true);
                       break;
-            case 831: tr_bencDictAddBool (&settings, TR_PREFS_KEY_UTP_ENABLED, false);
+            case 831: tr_variantDictAddBool (&settings, TR_KEY_utp_enabled, false);
                       break;
             default:  showUsage ();
                       break;
@@ -488,13 +495,13 @@ main (int argc, char ** argv)
 
     if (!loaded)
     {
-        printMessage (logfile, TR_MSG_ERR, MY_NAME, "Error loading config file -- exiting.", __FILE__, __LINE__);
+        printMessage (logfile, TR_LOG_ERROR, MY_NAME, "Error loading config file -- exiting.", __FILE__, __LINE__);
         return -1;
     }
 
     if (dumpSettings)
     {
-        char * str = tr_bencToStr (&settings, TR_FMT_JSON, NULL);
+        char * str = tr_variantToStr (&settings, TR_VARIANT_FMT_JSON, NULL);
         fprintf (stderr, "%s", str);
         tr_free (str);
         return 0;
@@ -504,9 +511,11 @@ main (int argc, char ** argv)
     {
         char buf[256];
         tr_snprintf (buf, sizeof (buf), "Failed to daemonize: %s", tr_strerror (errno));
-        printMessage (logfile, TR_MSG_ERR, MY_NAME, buf, __FILE__, __LINE__);
+        printMessage (logfile, TR_LOG_ERROR, MY_NAME, buf, __FILE__, __LINE__);
         exit (1);
     }
+
+    sd_notifyf (0, "MAINPID=%d\n", (int)getpid()); 
 
     /* start the session */
     tr_formatter_mem_init (MEM_K, MEM_K_STR, MEM_M_STR, MEM_G_STR, MEM_T_STR);
@@ -514,11 +523,11 @@ main (int argc, char ** argv)
     tr_formatter_speed_init (SPEED_K, SPEED_K_STR, SPEED_M_STR, SPEED_G_STR, SPEED_T_STR);
     session = tr_sessionInit ("daemon", configDir, true, &settings);
     tr_sessionSetRPCCallback (session, on_rpc_callback, NULL);
-    tr_ninf (NULL, "Using settings from \"%s\"", configDir);
+    tr_logAddNamedInfo (NULL, "Using settings from \"%s\"", configDir);
     tr_sessionSaveSettings (session, configDir, &settings);
 
     pid_filename = NULL;
-    tr_bencDictFindStr (&settings, PREF_KEY_PIDFILE, &pid_filename);
+    tr_variantDictFindStr (&settings, key_pidfile, &pid_filename, NULL);
     if (pid_filename && *pid_filename)
     {
         FILE * fp = fopen (pid_filename, "w+");
@@ -526,15 +535,15 @@ main (int argc, char ** argv)
         {
             fprintf (fp, "%d", (int)getpid ());
             fclose (fp);
-            tr_inf ("Saved pidfile \"%s\"", pid_filename);
+            tr_logAddInfo ("Saved pidfile \"%s\"", pid_filename);
             pidfile_created = true;
         }
         else
-            tr_err ("Unable to save pidfile \"%s\": %s", pid_filename, tr_strerror (errno));
+            tr_logAddError ("Unable to save pidfile \"%s\": %s", pid_filename, tr_strerror (errno));
     }
 
-    if (tr_bencDictFindBool (&settings, TR_PREFS_KEY_RPC_AUTH_REQUIRED, &boolVal) && boolVal)
-        tr_ninf (MY_NAME, "requiring authentication");
+    if (tr_variantDictFindBool (&settings, TR_KEY_rpc_authentication_required, &boolVal) && boolVal)
+        tr_logAddNamedInfo (MY_NAME, "requiring authentication");
 
     mySession = session;
 
@@ -546,13 +555,13 @@ main (int argc, char ** argv)
     {
         const char * dir;
 
-        if (tr_bencDictFindBool (&settings, PREF_KEY_DIR_WATCH_ENABLED, &boolVal)
+        if (tr_variantDictFindBool (&settings, TR_KEY_watch_dir_enabled, &boolVal)
             && boolVal
-            && tr_bencDictFindStr (&settings, PREF_KEY_DIR_WATCH, &dir)
+            && tr_variantDictFindStr (&settings, TR_KEY_watch_dir, &dir, NULL)
             && dir
             && *dir)
         {
-            tr_inf ("Watching \"%s\" for new .torrent files", dir);
+            tr_logAddInfo ("Watching \"%s\" for new .torrent files", dir);
             watchdir = dtr_watchdir_new (mySession, dir, onFileAdded);
         }
     }
@@ -573,12 +582,27 @@ main (int argc, char ** argv)
         openlog (MY_NAME, LOG_CONS|LOG_PID, LOG_DAEMON);
 #endif
 
-    while (!closing) {
-        tr_wait_msec (1000); /* sleep one second */
-        dtr_watchdir_update (watchdir);
-        pumpLogMessages (logfile);
-    }
+  sd_notify( 0, "READY=1\n" ); 
 
+  while (!closing)
+    { 
+      double up;
+      double dn;
+
+      tr_wait_msec (1000); /* sleep one second */ 
+
+      dtr_watchdir_update (watchdir); 
+      pumpLogMessages (logfile); 
+
+      up = tr_sessionGetRawSpeed_KBps (mySession, TR_UP);
+      dn = tr_sessionGetRawSpeed_KBps (mySession, TR_DOWN);
+      if (up>0 || dn>0)
+        sd_notifyf (0, "STATUS=Uploading %.2f KBps, Downloading %.2f KBps.\n", up, dn); 
+      else
+        sd_notify (0, "STATUS=Idle.\n"); 
+    } 
+
+    sd_notify( 0, "STATUS=Closing transmission session...\n" );
     printf ("Closing transmission session...");
     tr_sessionSaveSettings (mySession, configDir, &settings);
     dtr_watchdir_free (watchdir);
@@ -597,7 +621,8 @@ main (int argc, char ** argv)
 
     /* cleanup */
     if (pidfile_created)
-        remove (pid_filename);
-    tr_bencFree (&settings);
+        tr_remove (pid_filename);
+    tr_variantFree (&settings);
+    sd_notify (0, "STATUS=\n");
     return 0;
 }

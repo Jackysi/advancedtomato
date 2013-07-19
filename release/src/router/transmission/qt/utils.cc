@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: utils.cc 13749 2013-01-03 23:57:04Z jordan $
+ * $Id: utils.cc 13730 2012-12-31 22:43:29Z jordan $
  */
 
 #include <iostream>

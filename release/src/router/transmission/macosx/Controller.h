@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Controller.h 13414 2012-07-25 12:49:11Z livings124 $
+ * $Id: Controller.h 14042 2013-03-04 04:18:21Z livings124 $
  *
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *
@@ -26,6 +26,7 @@
 #import <transmission.h>
 #import <Quartz/Quartz.h>
 #import <Growl/Growl.h>
+#import "VDKQueue.h"
 
 @class AddMagnetWindowController;
 @class AddWindowController;
@@ -49,7 +50,7 @@ typedef enum
     ADD_CREATED
 } addType;
 
-@interface Controller : NSObject <GrowlApplicationBridgeDelegate, NSURLDownloadDelegate, NSUserNotificationCenterDelegate, NSPopoverDelegate, NSSoundDelegate, NSToolbarDelegate, NSWindowDelegate, QLPreviewPanelDataSource, QLPreviewPanelDelegate>
+@interface Controller : NSObject <GrowlApplicationBridgeDelegate, NSURLDownloadDelegate, NSUserNotificationCenterDelegate, NSPopoverDelegate, NSSoundDelegate, NSToolbarDelegate, NSWindowDelegate, QLPreviewPanelDataSource, QLPreviewPanelDelegate, VDKQueueDelegate>
 {
     tr_session                      * fLib;
     
@@ -69,6 +70,8 @@ typedef enum
 
     io_connect_t                    fRootPort;
     NSTimer                         * fTimer;
+    
+    VDKQueue                        * fFileWatcherQueue;
     
     IBOutlet NSMenuItem             * fOpenIgnoreDownloadFolder;
     IBOutlet NSButton               * fActionButton, * fSpeedLimitButton, * fClearCompletedButton;
@@ -170,6 +173,8 @@ typedef enum
 
 - (void) revealFile: (id) sender;
 
+- (IBAction) renameSelected: (id) sender;
+
 - (void) announceSelectedTorrents: (id) sender;
 
 - (void) verifySelectedTorrents: (id) sender;
@@ -233,6 +238,8 @@ typedef enum
 
 - (void) sleepCallback: (natural_t) messageType argument: (void *) messageArgument;
 
+@property (retain, readonly) VDKQueue * fileWatcherQueue;
+
 - (void) torrentTableViewSelectionDidChange: (NSNotification *) notification;
 
 - (void) toggleSmallView: (id) sender;
@@ -267,9 +274,8 @@ typedef enum
 - (void) linkDonate: (id) sender;
 
 - (void) rpcCallback: (tr_rpc_callback_type) type forTorrentStruct: (struct tr_torrent *) torrentStruct;
-- (void) rpcAddTorrentStruct: (NSValue *) torrentStructPtr;
-- (void) rpcRemoveTorrent: (Torrent *) torrent;
-- (void) rpcRemoveTorrentDeleteData: (Torrent *) torrent;
+- (void) rpcAddTorrentStruct: (struct tr_torrent *) torrentStruct;
+- (void) rpcRemoveTorrent: (Torrent *) torrent deleteData: (BOOL) deleteData;
 - (void) rpcStartedStoppedTorrent: (Torrent *) torrent;
 - (void) rpcChangedTorrent: (Torrent *) torrent;
 - (void) rpcMovedTorrent: (Torrent *) torrent;

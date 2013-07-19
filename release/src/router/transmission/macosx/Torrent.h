@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Torrent.h 13602 2012-10-30 00:22:10Z livings124 $
+ * $Id: Torrent.h 13828 2013-01-22 00:09:48Z livings124 $
  *
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -163,6 +163,9 @@ typedef enum {
 - (NSString *) torrentLocation;
 - (NSString *) dataLocation;
 - (NSString *) fileLocation: (FileListNode *) node;
+
+- (void) renameTorrent: (NSString *) newName completionHandler: (void (^)(BOOL didRename)) completionHandler;
+- (void) renameFileNode: (FileListNode *) node withName: (NSString *) newName completionHandler: (void (^)(BOOL didRename)) completionHandler;
 
 - (CGFloat) progress;
 - (CGFloat) progressDone;

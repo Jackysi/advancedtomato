@@ -135,13 +135,10 @@ static int __init iptable_filter_init(void)
 
 	/* Register hooks */
 	ret = nf_register_hooks(ipt_ops, ARRAY_SIZE(ipt_ops));
-	if (ret < 0)
-		goto cleanup_table;
-
-	return ret;
-
- cleanup_table:
-	ipt_unregister_table(&packet_filter);
+	if (ret < 0) {
+		ipt_unregister_table(&packet_filter);
+		}
+		
 	return ret;
 }
 

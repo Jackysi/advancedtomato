@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: actions.c 13745 2013-01-03 23:49:45Z jordan $
+ * $Id: actions.c 14011 2013-02-10 23:06:05Z jordan $
  */
 
 #include <string.h>
@@ -55,12 +55,12 @@ static GtkRadioActionEntry sort_radio_entries[] =
 
 static void
 sort_changed_cb (GtkAction            * action UNUSED,
-                 GtkRadioAction *              current,
-                 gpointer user_data            UNUSED)
+                 GtkRadioAction       * current,
+                 gpointer               user_data UNUSED)
 {
-    const char * key = PREF_KEY_SORT_MODE;
-    const int    i = gtk_radio_action_get_current_value (current);
-    const char * val = sort_radio_entries[i].name;
+  const tr_quark key = TR_KEY_sort_mode;
+  const int i = gtk_radio_action_get_current_value (current);
+  const char * val = sort_radio_entries[i].name;
 
     gtr_core_set_pref (myCore, key, val);
 }
@@ -78,7 +78,7 @@ toggle_pref_cb (GtkToggleAction *  action,
     const char *   key = gtk_action_get_name (GTK_ACTION (action));
     const gboolean val = gtk_toggle_action_get_active (action);
 
-    gtr_core_set_pref_bool (myCore, key, val);
+    gtr_core_set_pref_bool (myCore, tr_quark_new(key,-1), val);
 }
 
 static GtkToggleActionEntry  pref_toggle_entries[] =
@@ -154,39 +154,41 @@ static const BuiltinIconInfo my_fallback_icons[] =
 static void
 register_my_icons (void)
 {
-    int              i;
-    const int        n = G_N_ELEMENTS (my_fallback_icons);
-    GtkIconFactory * factory = gtk_icon_factory_new ();
-    GtkIconTheme *   theme = gtk_icon_theme_get_default ();
+  int i;
+  const int n = G_N_ELEMENTS (my_fallback_icons);
+  GtkIconTheme * theme = gtk_icon_theme_get_default ();
+  GtkIconFactory * factory = gtk_icon_factory_new ();
 
-    gtk_icon_factory_add_default (factory);
+  gtk_icon_factory_add_default (factory);
 
-    for (i = 0; i < n; ++i)
+  for (i=0; i<n; ++i)
     {
-        const char * name = my_fallback_icons[i].name;
+      const char * name = my_fallback_icons[i].name;
 
-        if (!gtk_icon_theme_has_icon (theme, name))
+      if (!gtk_icon_theme_has_icon (theme, name))
         {
-            GdkPixbuf *  p;
+          GdkPixbuf * p;
 
-            p = gdk_pixbuf_new_from_inline (-1, my_fallback_icons[i].raw, FALSE, NULL);
-            if (p != NULL)
+          p = gdk_pixbuf_new_from_inline (-1, my_fallback_icons[i].raw, FALSE, NULL);
+
+          if (p != NULL)
             {
-                int width;
-                GtkIconSet * icon_set;
+              int width;
+              GtkIconSet * icon_set;
 
-                width = gdk_pixbuf_get_width (p);
-                icon_set = gtk_icon_set_new_from_pixbuf (p);
-                gtk_icon_theme_add_builtin_icon (name, width, p);
-                gtk_icon_factory_add (factory, name, icon_set);
+              width = gdk_pixbuf_get_width (p);
+              icon_set = gtk_icon_set_new_from_pixbuf (p);
 
-                g_object_unref (p);
-                gtk_icon_set_unref (icon_set);
+              gtk_icon_theme_add_builtin_icon (name, width, p);
+              gtk_icon_factory_add (factory, name, icon_set);
+
+              g_object_unref (p);
+              gtk_icon_set_unref (icon_set);
             }
         }
     }
 
-    g_object_unref (G_OBJECT (factory));
+  g_object_unref (G_OBJECT (factory));
 }
 
 static GtkUIManager * myUIManager = NULL;
@@ -213,11 +215,9 @@ gtr_actions_init (GtkUIManager * ui_manager, gpointer callback_user_data)
     action_group = myGroup = gtk_action_group_new ("Actions");
     gtk_action_group_set_translation_domain (action_group, NULL);
 
-
-    match = gtr_pref_string_get (PREF_KEY_SORT_MODE);
-    for (i = 0, n = G_N_ELEMENTS (sort_radio_entries), active = -1;
-         active == -1 && i < n; ++i)
-        if (!strcmp (sort_radio_entries[i].name, match))
+    match = gtr_pref_string_get (TR_KEY_sort_mode);
+    for (i = 0, n = G_N_ELEMENTS (sort_radio_entries), active = -1; active == -1 && i < n; ++i)
+        if (!g_strcmp0 (sort_radio_entries[i].name, match))
             active = i;
 
     gtk_action_group_add_radio_actions (action_group,
@@ -234,7 +234,7 @@ gtr_actions_init (GtkUIManager * ui_manager, gpointer callback_user_data)
 
     for (i = 0, n = G_N_ELEMENTS (pref_toggle_entries); i < n; ++i)
         pref_toggle_entries[i].is_active =
-            gtr_pref_flag_get (pref_toggle_entries[i].name);
+            gtr_pref_flag_get (tr_quark_new (pref_toggle_entries[i].name, -1));
 
     gtk_action_group_add_toggle_actions (action_group,
                                          pref_toggle_entries,

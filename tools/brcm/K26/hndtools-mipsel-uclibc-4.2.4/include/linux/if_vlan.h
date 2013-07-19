@@ -160,17 +160,8 @@ static inline __u32 vlan_get_ingress_priority(struct net_device *dev,
 	return vip->ingress_priority_map[(vlan_tag >> 13) & 0x7];
 }
 
-/* VLAN tx hw acceleration helpers. */
-struct vlan_skb_tx_cookie {
-	u32	magic;
-	u32	vlan_tag;
-};
-
-#define VLAN_TX_COOKIE_MAGIC	0x564c414e	/* "VLAN" in ascii. */
-#define VLAN_TX_SKB_CB(__skb)	((struct vlan_skb_tx_cookie *)&((__skb)->cb[0]))
-#define vlan_tx_tag_present(__skb) \
-	(VLAN_TX_SKB_CB(__skb)->magic == VLAN_TX_COOKIE_MAGIC)
-#define vlan_tx_tag_get(__skb)	(VLAN_TX_SKB_CB(__skb)->vlan_tag)
+#define vlan_tx_tag_present(__skb)	((__skb)->vlan_tci)
+#define vlan_tx_tag_get(__skb)		((__skb)->vlan_tci)
 
 /* VLAN rx hw acceleration helper.  This acts like netif_{rx,receive_skb}(). */
 static inline int __vlan_hwaccel_rx(struct sk_buff *skb,
@@ -277,16 +268,11 @@ static inline struct sk_buff *__vlan_put_tag(struct sk_buff *skb, unsigned short
  * @skb: skbuff to tag
  * @tag: VLAN tag to insert
  *
- * Puts the VLAN tag in @skb->cb[] and lets the device do the rest
+ * Puts the VLAN TCI in @skb->vlan_tci and lets the device do the rest
  */
-static inline struct sk_buff *__vlan_hwaccel_put_tag(struct sk_buff *skb, unsigned short tag)
+static inline struct sk_buff *__vlan_hwaccel_put_tag(struct sk_buff *skb, u16 vlan_tci)
 {
-	struct vlan_skb_tx_cookie *cookie;
-
-	cookie = VLAN_TX_SKB_CB(skb);
-	cookie->magic = VLAN_TX_COOKIE_MAGIC;
-	cookie->vlan_tag = tag;
-
+	skb->vlan_tci = vlan_tci;
 	return skb;
 }
 
@@ -334,18 +320,15 @@ static inline int __vlan_get_tag(struct sk_buff *skb, unsigned short *tag)
  * @skb: skbuff to query
  * @tag: buffer to store vlaue
  * 
- * Returns error if @skb->cb[] is not set correctly
+ * Returns error if @skb->vlan_tci is not set correctly
  */
-static inline int __vlan_hwaccel_get_tag(struct sk_buff *skb, unsigned short *tag)
+static inline int __vlan_hwaccel_get_tag(struct sk_buff *skb, u16 *vlan_tci)
 {
-	struct vlan_skb_tx_cookie *cookie;
-
-	cookie = VLAN_TX_SKB_CB(skb);
-	if (cookie->magic == VLAN_TX_COOKIE_MAGIC) {
-		*tag = cookie->vlan_tag;
+	if (vlan_tx_tag_present(skb)) {
+		*vlan_tci = skb->vlan_tci;
 		return 0;
 	} else {
-		*tag = 0;
+		*vlan_tci = 0;
 		return -EINVAL;
 	}
 }

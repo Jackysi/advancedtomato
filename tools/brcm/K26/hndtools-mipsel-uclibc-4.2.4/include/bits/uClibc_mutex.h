@@ -22,6 +22,9 @@
 #define __UCLIBC_MUTEX_STATIC(M,I)			static pthread_mutex_t M = I
 #define __UCLIBC_MUTEX_EXTERN(M)			extern pthread_mutex_t M
 
+#define __UCLIBC_MUTEX_INIT_VAR(M)								\
+		((M) = (pthread_mutex_t) PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP)
+
 #define __UCLIBC_MUTEX_LOCK_CANCEL_UNSAFE(M)								\
 		__pthread_mutex_lock(&(M))
 
@@ -34,7 +37,8 @@
 #define __UCLIBC_MUTEX_CONDITIONAL_LOCK(M,C)								\
 	do {												\
 		struct _pthread_cleanup_buffer __infunc_pthread_cleanup_buffer;				\
-		if (C) {										\
+		int __infunc_need_locking = (C);							\
+		if (__infunc_need_locking) {								\
 			_pthread_cleanup_push_defer(&__infunc_pthread_cleanup_buffer,			\
 					   (void (*) (void *))__pthread_mutex_unlock,			\
 										&(M));			\
@@ -43,7 +47,7 @@
 		((void)0)
 
 #define __UCLIBC_MUTEX_CONDITIONAL_UNLOCK(M,C)								\
-		if (C) {										\
+		if (__infunc_need_locking) {								\
 			_pthread_cleanup_pop_restore(&__infunc_pthread_cleanup_buffer,1);		\
 		}											\
 	} while (0)
@@ -69,6 +73,7 @@
 #define __UCLIBC_MUTEX_STATIC(M,I)			extern void *__UCLIBC_MUTEX_DUMMY_ ## M
 #define __UCLIBC_MUTEX_EXTERN(M)			extern void *__UCLIBC_MUTEX_DUMMY_ ## M
 
+#define __UCLIBC_MUTEX_INIT_VAR(M)			((void)0)
 #define __UCLIBC_MUTEX_LOCK_CANCEL_UNSAFE(M)		((void)0)
 #define __UCLIBC_MUTEX_UNLOCK_CANCEL_UNSAFE(M)		((void)0)
 #define __UCLIBC_MUTEX_TRYLOCK_CANCEL_UNSAFE(M)		(0)	/* Always succeed? */

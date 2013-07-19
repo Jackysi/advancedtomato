@@ -7,12 +7,11 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: tr-prefs.c 13957 2013-02-04 18:36:40Z jordan $
+ * $Id: tr-prefs.c 14059 2013-04-10 02:12:19Z jordan $
  */
 
 #include <ctype.h> /* isspace */
 #include <limits.h> /* USHRT_MAX */
-#include <string.h> /* strcmp () */
 #include <unistd.h>
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
@@ -24,6 +23,23 @@
 #include "tr-core.h"
 #include "tr-prefs.h"
 #include "util.h"
+
+/**
+***
+**/
+
+struct prefs_dialog_data
+{
+  TrCore * core;
+  gulong core_prefs_tag;
+
+  GtkWidget * freespace_label;
+
+  GtkWidget * port_label;
+  GtkWidget * port_button;
+  GtkWidget * port_spin;
+};
+
 
 /**
 ***
@@ -51,21 +67,19 @@ static void
 toggled_cb (GtkToggleButton * w,
             gpointer          core)
 {
-    const char *   key = g_object_get_data (G_OBJECT (w), PREF_KEY);
+    const tr_quark key = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (w), PREF_KEY));
     const gboolean flag = gtk_toggle_button_get_active (w);
 
     gtr_core_set_pref_bool (TR_CORE (core), key, flag);
 }
 
 static GtkWidget*
-new_check_button (const char * mnemonic,
-                  const char * key,
-                  gpointer     core)
+new_check_button (const char      * mnemonic,
+                  const tr_quark    key,
+                  gpointer          core)
 {
     GtkWidget * w = gtk_check_button_new_with_mnemonic (mnemonic);
-
-    g_object_set_data_full (G_OBJECT (w), PREF_KEY, g_strdup (
-                                key), g_free);
+    g_object_set_data (G_OBJECT(w), PREF_KEY, GINT_TO_POINTER(key));
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (w),
                                  gtr_pref_flag_get (key));
     g_signal_connect (w, "toggled", G_CALLBACK (toggled_cb), core);
@@ -101,7 +115,7 @@ spun_cb_idle (gpointer spin)
     if (g_timer_elapsed (data->last_change, NULL) > 0.33f)
     {
         /* update the core */
-        const char * key = g_object_get_data (o, PREF_KEY);
+        const tr_quark key = GPOINTER_TO_INT (g_object_get_data (o, PREF_KEY));
 
         if (data->isDouble)
         {
@@ -157,14 +171,14 @@ spun_cb_double (GtkSpinButton * w, gpointer core)
 }
 
 static GtkWidget*
-new_spin_button (const char * key,
-                 gpointer     core,
-                 int          low,
-                 int          high,
-                 int          step)
+new_spin_button (const tr_quark  key,
+                 gpointer        core,
+                 int             low,
+                 int             high,
+                 int             step)
 {
     GtkWidget * w = gtk_spin_button_new_with_range (low, high, step);
-    g_object_set_data_full (G_OBJECT (w), PREF_KEY, g_strdup (key), g_free);
+    g_object_set_data (G_OBJECT(w), PREF_KEY, GINT_TO_POINTER(key));
     gtk_spin_button_set_digits (GTK_SPIN_BUTTON (w), 0);
     gtk_spin_button_set_value (GTK_SPIN_BUTTON (w), gtr_pref_int_get (key));
     g_signal_connect (w, "value-changed", G_CALLBACK (spun_cb_int), core);
@@ -172,14 +186,14 @@ new_spin_button (const char * key,
 }
 
 static GtkWidget*
-new_spin_button_double (const char * key,
-                       gpointer      core,
-                       double        low,
-                       double        high,
-                       double        step)
+new_spin_button_double (const tr_quark  key,
+                        gpointer        core,
+                        double          low,
+                        double          high,
+                        double          step)
 {
     GtkWidget * w = gtk_spin_button_new_with_range (low, high, step);
-    g_object_set_data_full (G_OBJECT (w), PREF_KEY, g_strdup (key), g_free);
+    g_object_set_data (G_OBJECT(w), PREF_KEY, GINT_TO_POINTER(key));
     gtk_spin_button_set_digits (GTK_SPIN_BUTTON (w), 2);
     gtk_spin_button_set_value (GTK_SPIN_BUTTON (w), gtr_pref_double_get (key));
     g_signal_connect (w, "value-changed", G_CALLBACK (spun_cb_double), core);
@@ -187,68 +201,68 @@ new_spin_button_double (const char * key,
 }
 
 static void
-entry_changed_cb (GtkEntry * w, gpointer   core)
+entry_changed_cb (GtkEntry * w, gpointer core)
 {
-    const char * key = g_object_get_data (G_OBJECT (w), PREF_KEY);
-    const char * value = gtk_entry_get_text (w);
+  const tr_quark key = GPOINTER_TO_INT (g_object_get_data (G_OBJECT(w), PREF_KEY));
+  const char * value = gtk_entry_get_text (w);
 
-    gtr_core_set_pref (TR_CORE (core), key, value);
+  gtr_core_set_pref (TR_CORE(core), key, value);
 }
 
 static GtkWidget*
-new_entry (const char * key,
-           gpointer     core)
+new_entry (const tr_quark  key,
+           gpointer        core)
 {
-    GtkWidget *  w = gtk_entry_new ();
-    const char * value = gtr_pref_string_get (key);
+  GtkWidget * w = gtk_entry_new ();
+  const char * value = gtr_pref_string_get (key);
 
-    if (value)
-        gtk_entry_set_text (GTK_ENTRY (w), value);
-    g_object_set_data_full (G_OBJECT (w), PREF_KEY, g_strdup (
-                                key), g_free);
-    g_signal_connect (w, "changed", G_CALLBACK (entry_changed_cb), core);
-    return w;
+  if (value)
+    gtk_entry_set_text (GTK_ENTRY (w), value);
+
+  g_object_set_data (G_OBJECT (w), PREF_KEY, GINT_TO_POINTER(key));
+  g_signal_connect (w, "changed", G_CALLBACK (entry_changed_cb), core);
+  return w;
 }
 
 static void
 chosen_cb (GtkFileChooser * w, gpointer core)
 {
-    const char * key = g_object_get_data (G_OBJECT (w), PREF_KEY);
-    char * value = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (w));
-    gtr_core_set_pref (TR_CORE (core), key, value);
-    g_free (value);
+  const tr_quark key = GPOINTER_TO_INT (g_object_get_data (G_OBJECT (w), PREF_KEY));
+  char * value = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (w));
+  gtr_core_set_pref (TR_CORE (core), key, value);
+  g_free (value);
 }
 
 static GtkWidget*
-new_path_chooser_button (const char * key, gpointer core)
+new_path_chooser_button (const tr_quark key, gpointer core)
 {
-    GtkWidget *  w = gtk_file_chooser_button_new (NULL, GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
-    const char * path = gtr_pref_string_get (key);
-    g_object_set_data_full (G_OBJECT (w), PREF_KEY, g_strdup (key), g_free);
-    g_signal_connect (w, "selection-changed", G_CALLBACK (chosen_cb), core);
-    if (path != NULL)
-        gtk_file_chooser_set_filename (GTK_FILE_CHOOSER (w), path);
-    return w;
+  GtkWidget *  w = gtk_file_chooser_button_new (NULL, GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
+  const char * path = gtr_pref_string_get (key);
+  g_object_set_data (G_OBJECT (w), PREF_KEY, GINT_TO_POINTER(key));
+  if (path != NULL)
+    gtk_file_chooser_set_filename (GTK_FILE_CHOOSER (w), path);
+  g_signal_connect (w, "selection-changed", G_CALLBACK (chosen_cb), core);
+  return w;
 }
 
 static GtkWidget*
-new_file_chooser_button (const char * key, gpointer core)
+new_file_chooser_button (const tr_quark key, gpointer core)
 {
-    GtkWidget *  w = gtk_file_chooser_button_new (NULL, GTK_FILE_CHOOSER_ACTION_OPEN);
-    const char * path = gtr_pref_string_get (key);
-    g_object_set_data_full (G_OBJECT (w), PREF_KEY, g_strdup (key), g_free);
-    if (path != NULL)
-        gtk_file_chooser_set_filename (GTK_FILE_CHOOSER (w), path);
-    g_signal_connect (w, "selection-changed", G_CALLBACK (chosen_cb), core);
-    return w;
+  GtkWidget *  w = gtk_file_chooser_button_new (NULL, GTK_FILE_CHOOSER_ACTION_OPEN);
+  const char * path = gtr_pref_string_get (key);
+  g_object_set_data (G_OBJECT(w), PREF_KEY, GINT_TO_POINTER(key));
+  if (path != NULL)
+    gtk_file_chooser_set_filename (GTK_FILE_CHOOSER (w), path);
+  g_signal_connect (w, "selection-changed", G_CALLBACK (chosen_cb), core);
+  return w;
 }
 
 static void
 target_cb (GtkWidget * tb, gpointer target)
 {
-    const gboolean b = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (tb));
+  const gboolean b = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (tb));
 
-    gtk_widget_set_sensitive (GTK_WIDGET (target), b);
+  gtk_widget_set_sensitive (GTK_WIDGET (target), b);
 }
 
 /****
@@ -256,54 +270,76 @@ target_cb (GtkWidget * tb, gpointer target)
 ****/
 
 static GtkWidget*
-downloadPage (GObject * core)
+downloadingPage (GObject * core, struct prefs_dialog_data * data)
 {
-    GtkWidget * t;
-    GtkWidget * w;
-    GtkWidget * l;
-    const char * s;
-    guint row = 0;
+  GtkWidget * t;
+  GtkWidget * w;
+  GtkWidget * l;
+  const char * s;
+  guint row = 0;
 
-    t = hig_workarea_create ();
+  t = hig_workarea_create ();
+  hig_workarea_add_section_title (t, &row, C_("Gerund", "Adding"));
 
-    hig_workarea_add_section_title (t, &row, _("Location"));
+    s = _("Automatically add .torrent files _from:");
+    l = new_check_button (s, TR_KEY_watch_dir_enabled, core);
+    w = new_path_chooser_button (TR_KEY_watch_dir, core);
+    gtk_widget_set_sensitive (GTK_WIDGET (w), gtr_pref_flag_get (TR_KEY_watch_dir_enabled));
+    g_signal_connect (l, "toggled", G_CALLBACK (target_cb), w);
+    hig_workarea_add_row_w (t, &row, l, w, NULL);
 
-    w = new_path_chooser_button (TR_PREFS_KEY_DOWNLOAD_DIR, core);
+    s = _("Show the Torrent Options _dialog");
+    w = new_check_button (s, TR_KEY_show_options_window, core);
+    hig_workarea_add_wide_control (t, &row, w);
+
+    s = _("_Start added torrents");
+    w = new_check_button (s, TR_KEY_start_added_torrents, core);
+    hig_workarea_add_wide_control (t, &row, w);
+
+    s = _("Mo_ve .torrent file to the trash");
+    w = new_check_button (s, TR_KEY_trash_original_torrent_files, core);
+    hig_workarea_add_wide_control (t, &row, w);
+
+    w = new_path_chooser_button (TR_KEY_download_dir, core);
     hig_workarea_add_row (t, &row, _("Save to _Location:"), w, NULL);
 
-    hig_workarea_add_section_divider (t, &row);
-    hig_workarea_add_section_title (t, &row, _("Queue"));
+    l = data->freespace_label = gtr_freespace_label_new (TR_CORE(core), NULL);
+    gtk_misc_set_alignment (GTK_MISC (l), 1.0f, 0.5f);
+    hig_workarea_add_wide_control (t, &row, l);
 
-    s = _("Maximum active _downloads:");
-    w = new_spin_button (TR_PREFS_KEY_DOWNLOAD_QUEUE_SIZE, core, 0, INT_MAX, 1);
+  hig_workarea_add_section_divider (t, &row);
+  hig_workarea_add_section_title (t, &row, _("Download Queue"));
+
+    s = _("Ma_ximum active downloads:");
+    w = new_spin_button (TR_KEY_download_queue_size, core, 0, INT_MAX, 1);
     hig_workarea_add_row (t, &row, s, w, NULL);
 
-    s = _("Downloads sharing data in the last N minutes are _active:");
-    w = new_spin_button (TR_PREFS_KEY_QUEUE_STALLED_MINUTES, core, 1, INT_MAX, 15);
+    s = _("Downloads sharing data in the last _N minutes are active:");
+    w = new_spin_button (TR_KEY_queue_stalled_minutes, core, 1, INT_MAX, 15);
     hig_workarea_add_row (t, &row, s, w, NULL);
 
-    hig_workarea_add_section_divider (t, &row);
-    hig_workarea_add_section_title (t, &row, _("Incomplete"));
+  hig_workarea_add_section_divider (t, &row);
+  hig_workarea_add_section_title (t, &row, _("Incomplete"));
 
     s = _("Append \"._part\" to incomplete files' names");
-    w = new_check_button (s, TR_PREFS_KEY_RENAME_PARTIAL_FILES, core);
+    w = new_check_button (s, TR_KEY_rename_partial_files, core);
     hig_workarea_add_wide_control (t, &row, w);
 
     s = _("Keep _incomplete torrents in:");
-    l = new_check_button (s, TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED, core);
-    w = new_path_chooser_button (TR_PREFS_KEY_INCOMPLETE_DIR, core);
-    gtk_widget_set_sensitive (GTK_WIDGET (w), gtr_pref_flag_get (TR_PREFS_KEY_INCOMPLETE_DIR_ENABLED));
+    l = new_check_button (s, TR_KEY_incomplete_dir_enabled, core);
+    w = new_path_chooser_button (TR_KEY_incomplete_dir, core);
+    gtk_widget_set_sensitive (GTK_WIDGET (w), gtr_pref_flag_get (TR_KEY_incomplete_dir_enabled));
     g_signal_connect (l, "toggled", G_CALLBACK (target_cb), w);
     hig_workarea_add_row_w (t, &row, l, w, NULL);
 
-    s = _("Call _script when torrent is completed:");
-    l = new_check_button (s, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED, core);
-    w = new_file_chooser_button (TR_PREFS_KEY_SCRIPT_TORRENT_DONE_FILENAME, core);
-    gtk_widget_set_sensitive (GTK_WIDGET (w), gtr_pref_flag_get (TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED));
+    s = _("Call scrip_t when torrent is completed:");
+    l = new_check_button (s, TR_KEY_script_torrent_done_enabled, core);
+    w = new_file_chooser_button (TR_KEY_script_torrent_done_filename, core);
+    gtk_widget_set_sensitive (GTK_WIDGET (w), gtr_pref_flag_get (TR_KEY_script_torrent_done_enabled));
     g_signal_connect (l, "toggled", G_CALLBACK (target_cb), w);
     hig_workarea_add_row_w (t, &row, l, w, NULL);
 
-    return t;
+  return t;
 }
 
 /****
@@ -311,55 +347,32 @@ downloadPage (GObject * core)
 ****/
 
 static GtkWidget*
-torrentPage (GObject * core)
+seedingPage (GObject * core)
 {
-    const char * s;
-    GtkWidget *  t;
-    GtkWidget *  w;
-    GtkWidget *  w2;
-    GtkWidget *  l;
-    guint row = 0;
+  GtkWidget * t;
+  GtkWidget * w;
+  GtkWidget * w2;
+  const char * s;
+  guint row = 0;
 
-    t = hig_workarea_create ();
-    hig_workarea_add_section_title (t, &row, C_("Gerund", "Adding"));
-
-    s = _("_Start when added");
-    w = new_check_button (s, TR_PREFS_KEY_START, core);
-    hig_workarea_add_wide_control (t, &row, w);
-
-    s = _("Show _options dialog");
-    w = new_check_button (s, PREF_KEY_OPTIONS_PROMPT, core);
-    hig_workarea_add_wide_control (t, &row, w);
-
-    s = _("Mo_ve .torrent file to the trash");
-    w = new_check_button (s, TR_PREFS_KEY_TRASH_ORIGINAL, core);
-    hig_workarea_add_wide_control (t, &row, w);
-
-    s = _("Automatically _add torrents from:");
-    l = new_check_button (s, PREF_KEY_DIR_WATCH_ENABLED, core);
-    w = new_path_chooser_button (PREF_KEY_DIR_WATCH, core);
-    gtk_widget_set_sensitive (GTK_WIDGET (w), gtr_pref_flag_get (PREF_KEY_DIR_WATCH_ENABLED));
-    g_signal_connect (l, "toggled", G_CALLBACK (target_cb), w);
-    hig_workarea_add_row_w (t, &row, l, w, NULL);
-
-    hig_workarea_add_section_divider (t, &row);
-    hig_workarea_add_section_title (t, &row, C_("Gerund", "Seeding"));
+  t = hig_workarea_create ();
+  hig_workarea_add_section_title (t, &row, _("Limits"));
 
     s = _("Stop seeding at _ratio:");
-    w = new_check_button (s, TR_PREFS_KEY_RATIO_ENABLED, core);
-    w2 = new_spin_button_double (TR_PREFS_KEY_RATIO, core, 0, 1000, .05);
-    gtk_widget_set_sensitive (GTK_WIDGET (w2), gtr_pref_flag_get (TR_PREFS_KEY_RATIO_ENABLED));
+    w = new_check_button (s, TR_KEY_ratio_limit_enabled, core);
+    w2 = new_spin_button_double (TR_KEY_ratio_limit, core, 0, 1000, .05);
+    gtk_widget_set_sensitive (GTK_WIDGET (w2), gtr_pref_flag_get (TR_KEY_ratio_limit_enabled));
     g_signal_connect (w, "toggled", G_CALLBACK (target_cb), w2);
     hig_workarea_add_row_w (t, &row, w, w2, NULL);
 
     s = _("Stop seeding if idle for _N minutes:");
-    w = new_check_button (s, TR_PREFS_KEY_IDLE_LIMIT_ENABLED, core);
-    w2 = new_spin_button (TR_PREFS_KEY_IDLE_LIMIT, core, 1, 9999, 5);
-    gtk_widget_set_sensitive (GTK_WIDGET (w2), gtr_pref_flag_get (TR_PREFS_KEY_IDLE_LIMIT_ENABLED));
+    w = new_check_button (s, TR_KEY_idle_seeding_limit_enabled, core);
+    w2 = new_spin_button (TR_KEY_idle_seeding_limit, core, 1, 9999, 5);
+    gtk_widget_set_sensitive (GTK_WIDGET (w2), gtr_pref_flag_get (TR_KEY_idle_seeding_limit_enabled));
     g_signal_connect (w, "toggled", G_CALLBACK (target_cb), w2);
     hig_workarea_add_row_w (t, &row, w, w2, NULL);
 
-    return t;
+  return t;
 }
 
 /****
@@ -378,26 +391,26 @@ desktopPage (GObject * core)
     hig_workarea_add_section_title (t, &row, _("Desktop"));
 
     s = _("_Inhibit hibernation when torrents are active");
-    w = new_check_button (s, PREF_KEY_INHIBIT_HIBERNATION, core);
+    w = new_check_button (s, TR_KEY_inhibit_desktop_hibernation, core);
     hig_workarea_add_wide_control (t, &row, w);
 
     s = _("Show Transmission icon in the _notification area");
-    w = new_check_button (s, PREF_KEY_SHOW_TRAY_ICON, core);
+    w = new_check_button (s, TR_KEY_show_notification_area_icon, core);
     hig_workarea_add_wide_control (t, &row, w);
 
     hig_workarea_add_section_divider (t, &row);
     hig_workarea_add_section_title (t, &row, _("Notification"));
 
     s = _("Show a notification when torrents are a_dded");
-    w = new_check_button (s, PREF_KEY_TORRENT_ADDED_NOTIFICATION_ENABLED, core);
+    w = new_check_button (s, TR_KEY_torrent_added_notification_enabled, core);
     hig_workarea_add_wide_control (t, &row, w);
 
     s = _("Show a notification when torrents _finish");
-    w = new_check_button (s, PREF_KEY_TORRENT_COMPLETE_NOTIFICATION_ENABLED, core);
+    w = new_check_button (s, TR_KEY_torrent_complete_notification_enabled, core);
     hig_workarea_add_wide_control (t, &row, w);
 
     s = _("Play a _sound when torrents finish");
-    w = new_check_button (s, PREF_KEY_TORRENT_COMPLETE_SOUND_ENABLED, core);
+    w = new_check_button (s, TR_KEY_torrent_complete_sound_enabled, core);
     hig_workarea_add_wide_control (t, &row, w);
 
     return t;
@@ -489,53 +502,60 @@ onBlocklistUpdate (GtkButton * w, gpointer gdata)
 static void
 on_blocklist_url_changed (GtkEditable * e, gpointer gbutton)
 {
-    gchar * url = gtk_editable_get_chars (e, 0, -1);
-    const gboolean err = tr_urlParse (url, -1, NULL, NULL, NULL, NULL);
-    gtk_widget_set_sensitive (GTK_WIDGET (gbutton), !err);
-    g_free (url);
+  gchar * url = gtk_editable_get_chars (e, 0, -1);
+  const gboolean err = tr_urlParse (url, -1, NULL, NULL, NULL, NULL);
+  gtk_widget_set_sensitive (GTK_WIDGET (gbutton), !err);
+  g_free (url);
 }
 
 static void
 onIntComboChanged (GtkComboBox * combo_box, gpointer core)
 {
-    const int val = gtr_combo_box_get_active_enum (combo_box);
-    const char * key = g_object_get_data (G_OBJECT (combo_box), PREF_KEY);
-    gtr_core_set_pref_int (TR_CORE (core), key, val);
+  const int val = gtr_combo_box_get_active_enum (combo_box);
+  const tr_quark key = GPOINTER_TO_INT (g_object_get_data (G_OBJECT(combo_box), PREF_KEY));
+  gtr_core_set_pref_int (TR_CORE (core), key, val);
 }
 
 static GtkWidget*
-new_encryption_combo (GObject * core, const char * key)
+new_encryption_combo (GObject * core, const tr_quark key)
 {
-    GtkWidget * w = gtr_combo_box_new_enum (_("Allow encryption"),   TR_CLEAR_PREFERRED,
-                                            _("Prefer encryption"),  TR_ENCRYPTION_PREFERRED,
-                                            _("Require encryption"), TR_ENCRYPTION_REQUIRED,
-                                            NULL);
-    gtr_combo_box_set_active_enum (GTK_COMBO_BOX (w), gtr_pref_int_get (key));
-    g_object_set_data_full (G_OBJECT (w), PREF_KEY, tr_strdup (key), g_free);
-    g_signal_connect (w, "changed", G_CALLBACK (onIntComboChanged), core);
-    return w;
+  GtkWidget * w = gtr_combo_box_new_enum (_("Allow encryption"),   TR_CLEAR_PREFERRED,
+                                          _("Prefer encryption"),  TR_ENCRYPTION_PREFERRED,
+                                          _("Require encryption"), TR_ENCRYPTION_REQUIRED,
+                                          NULL);
+  gtr_combo_box_set_active_enum (GTK_COMBO_BOX (w), gtr_pref_int_get (key));
+  g_object_set_data (G_OBJECT (w), PREF_KEY, GINT_TO_POINTER(key));
+  g_signal_connect (w, "changed", G_CALLBACK (onIntComboChanged), core);
+  return w;
 }
 
 static GtkWidget*
 privacyPage (GObject * core)
 {
-    const char * s;
-    GtkWidget * t;
-    GtkWidget * w;
-    GtkWidget * b;
-    GtkWidget * h;
-    GtkWidget * e;
-    struct blocklist_data * data;
-    guint row = 0;
+  const char * s;
+  GtkWidget * t;
+  GtkWidget * w;
+  GtkWidget * b;
+  GtkWidget * h;
+  GtkWidget * e;
+  struct blocklist_data * data;
+  guint row = 0;
 
-    data = g_new0 (struct blocklist_data, 1);
-    data->core = TR_CORE (core);
+  data = g_new0 (struct blocklist_data, 1);
+  data->core = TR_CORE (core);
 
-    t = hig_workarea_create ();
-    hig_workarea_add_section_title (t, &row, _("Blocklist"));
+  t = hig_workarea_create ();
+  hig_workarea_add_section_title (t, &row, _("Privacy"));
 
-    b = new_check_button (_("Enable _blocklist:"), TR_PREFS_KEY_BLOCKLIST_ENABLED, core);
-    e = new_entry (TR_PREFS_KEY_BLOCKLIST_URL, core);
+    s = _("_Encryption mode:");
+    w = new_encryption_combo (core, TR_KEY_encryption);
+    hig_workarea_add_row (t, &row, s, w, NULL);
+
+  hig_workarea_add_section_divider (t, &row);
+  hig_workarea_add_section_title (t, &row, _("Blocklist"));
+
+    b = new_check_button (_("Enable _blocklist:"), TR_KEY_blocklist_enabled, core);
+    e = new_entry (TR_KEY_blocklist_url, core);
     gtk_widget_set_size_request (e, 300, -1);
     hig_workarea_add_row_w (t, &row, b, e, NULL);
     data->check = b;
@@ -559,41 +579,16 @@ privacyPage (GObject * core)
     on_blocklist_url_changed (GTK_EDITABLE (e), data->updateBlocklistButton);
 
     s = _("Enable _automatic updates");
-    w = new_check_button (s, PREF_KEY_BLOCKLIST_UPDATES_ENABLED, core);
+    w = new_check_button (s, TR_KEY_blocklist_updates_enabled, core);
     hig_workarea_add_wide_control (t, &row, w);
     g_signal_connect (data->check, "toggled", G_CALLBACK (target_cb), w); target_cb (data->check, w);
 
-    hig_workarea_add_section_divider (t, &row);
-    hig_workarea_add_section_title (t, &row, _("Privacy"));
-
-    s = _("_Encryption mode:");
-    w = new_encryption_combo (core, "encryption");
-    hig_workarea_add_row (t, &row, s, w, NULL);
-
-    s = _("Use PE_X to find more peers");
-    w = new_check_button (s, TR_PREFS_KEY_PEX_ENABLED, core);
-    s = _("PEX is a tool for exchanging peer lists with the peers you're connected to.");
-    gtk_widget_set_tooltip_text (w, s);
-    hig_workarea_add_wide_control (t, &row, w);
-
-    s = _("Use _DHT to find more peers");
-    w = new_check_button (s, TR_PREFS_KEY_DHT_ENABLED, core);
-    s = _("DHT is a tool for finding peers without a tracker.");
-    gtk_widget_set_tooltip_text (w, s);
-    hig_workarea_add_wide_control (t, &row, w);
-
-    s = _("Use _Local Peer Discovery to find more peers");
-    w = new_check_button (s, TR_PREFS_KEY_LPD_ENABLED, core);
-    s = _("LPD is a tool for finding peers on your local network.");
-    gtk_widget_set_tooltip_text (w, s);
-    hig_workarea_add_wide_control (t, &row, w);
-
-    g_object_weak_ref (G_OBJECT (t), privacyPageDestroyed, data);
-    return t;
+  g_object_weak_ref (G_OBJECT (t), privacyPageDestroyed, data);
+  return t;
 }
 
 /****
-*****  Web Tab
+*****  Remote Tab
 ****/
 
 enum
@@ -659,7 +654,7 @@ refreshWhitelist (struct remote_page * page)
 
     g_string_truncate (gstr, gstr->len - 1); /* remove the trailing comma */
 
-    gtr_core_set_pref (page->core, TR_PREFS_KEY_RPC_WHITELIST, gstr->str);
+    gtr_core_set_pref (page->core, TR_KEY_rpc_whitelist, gstr->str);
 
     g_string_free (gstr, TRUE);
 }
@@ -767,11 +762,12 @@ onWhitelistSelectionChanged (GtkTreeSelection * sel UNUSED,
 static void
 onLaunchClutchCB (GtkButton * w UNUSED, gpointer data UNUSED)
 {
-    const int port = gtr_pref_int_get (TR_PREFS_KEY_RPC_PORT);
-    char * uri = g_strdup_printf ("http://localhost:%d/", port);
+  char * uri;
+  const int port = gtr_pref_int_get (TR_KEY_rpc_port);
 
-    gtr_open_uri (uri);
-    g_free (uri);
+  uri = g_strdup_printf ("http://localhost:%d/", port);
+  gtr_open_uri (uri);
+  g_free (uri);
 }
 
 static void
@@ -786,7 +782,7 @@ remotePageFree (gpointer gpage)
 }
 
 static GtkWidget*
-webPage (GObject * core)
+remotePage (GObject * core)
 {
     GtkWidget * t;
     GtkWidget * w;
@@ -800,11 +796,11 @@ webPage (GObject * core)
     t = hig_workarea_create ();
     g_object_set_data_full (G_OBJECT (t), "page", page, remotePageFree);
 
-    hig_workarea_add_section_title (t, &row, _("Web Client"));
+    hig_workarea_add_section_title (t, &row, _("Remote Control"));
 
     /* "enabled" checkbutton */
-    s = _("_Enable web client");
-    w = new_check_button (s, TR_PREFS_KEY_RPC_ENABLED, core);
+    s = _("Allow _remote access");
+    w = new_check_button (s, TR_KEY_rpc_enabled, core);
     page->rpc_tb = GTK_TOGGLE_BUTTON (w);
     g_signal_connect (w, "clicked", G_CALLBACK (onRPCToggled), page);
     h = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, GUI_PAD_BIG);
@@ -816,14 +812,14 @@ webPage (GObject * core)
     hig_workarea_add_wide_control (t, &row, h);
 
     /* port */
-    w = new_spin_button (TR_PREFS_KEY_RPC_PORT, core, 0, USHRT_MAX, 1);
+    w = new_spin_button (TR_KEY_rpc_port, core, 0, USHRT_MAX, 1);
     page->widgets = g_slist_prepend (page->widgets, w);
     w = hig_workarea_add_row (t, &row, _("HTTP _port:"), w, NULL);
     page->widgets = g_slist_prepend (page->widgets, w);
 
     /* require authentication */
     s = _("Use _authentication");
-    w = new_check_button (s, TR_PREFS_KEY_RPC_AUTH_REQUIRED, core);
+    w = new_check_button (s, TR_KEY_rpc_authentication_required, core);
     hig_workarea_add_wide_control (t, &row, w);
     page->auth_tb = GTK_TOGGLE_BUTTON (w);
     page->widgets = g_slist_prepend (page->widgets, w);
@@ -831,22 +827,22 @@ webPage (GObject * core)
 
     /* username */
     s = _("_Username:");
-    w = new_entry (TR_PREFS_KEY_RPC_USERNAME, core);
+    w = new_entry (TR_KEY_rpc_username, core);
     page->auth_widgets = g_slist_prepend (page->auth_widgets, w);
     w = hig_workarea_add_row (t, &row, s, w, NULL);
     page->auth_widgets = g_slist_prepend (page->auth_widgets, w);
 
     /* password */
     s = _("Pass_word:");
-    w = new_entry (TR_PREFS_KEY_RPC_PASSWORD, core);
+    w = new_entry (TR_KEY_rpc_password, core);
     gtk_entry_set_visibility (GTK_ENTRY (w), FALSE);
     page->auth_widgets = g_slist_prepend (page->auth_widgets, w);
     w = hig_workarea_add_row (t, &row, s, w, NULL);
     page->auth_widgets = g_slist_prepend (page->auth_widgets, w);
 
     /* require authentication */
-    s = _("Only allow these IP a_ddresses to connect:");
-    w = new_check_button (s, TR_PREFS_KEY_RPC_WHITELIST_ENABLED, core);
+    s = _("Only allow these IP a_ddresses:");
+    w = new_check_button (s, TR_KEY_rpc_whitelist_enabled, core);
     hig_workarea_add_wide_control (t, &row, w);
     page->whitelist_tb = GTK_TOGGLE_BUTTON (w);
     page->widgets = g_slist_prepend (page->widgets, w);
@@ -854,7 +850,7 @@ webPage (GObject * core)
 
     /* access control list */
     {
-        const char *        val = gtr_pref_string_get (TR_PREFS_KEY_RPC_WHITELIST);
+        const char *        val = gtr_pref_string_get (TR_KEY_rpc_whitelist);
         GtkTreeModel *      m = whitelist_tree_model_new (val);
         GtkTreeViewColumn * c;
         GtkCellRenderer *   r;
@@ -926,18 +922,18 @@ webPage (GObject * core)
 
 struct BandwidthPage
 {
-    TrCore *  core;
-    GSList *  sched_widgets;
+  TrCore *  core;
+  GSList *  sched_widgets;
 };
 
 static void
 refreshSchedSensitivity (struct BandwidthPage * p)
 {
-    GSList *       l;
-    const gboolean sched_enabled = gtr_pref_flag_get (TR_PREFS_KEY_ALT_SPEED_TIME_ENABLED);
+  GSList * l;
+  const gboolean sched_enabled = gtr_pref_flag_get (TR_KEY_alt_speed_time_enabled);
 
-    for (l = p->sched_widgets; l != NULL; l = l->next)
-        gtk_widget_set_sensitive (GTK_WIDGET (l->data), sched_enabled);
+  for (l=p->sched_widgets; l!=NULL; l=l->next)
+    gtk_widget_set_sensitive (GTK_WIDGET (l->data), sched_enabled);
 }
 
 static void
@@ -948,86 +944,81 @@ onSchedToggled (GtkToggleButton * tb UNUSED,
 }
 
 static void
-onTimeComboChanged (GtkComboBox * w,
-                    gpointer      core)
+onTimeComboChanged (GtkComboBox * w, gpointer core)
 {
-    GtkTreeIter iter;
+  GtkTreeIter iter;
 
-    if (gtk_combo_box_get_active_iter (w, &iter))
+  if (gtk_combo_box_get_active_iter (w, &iter))
     {
-        const char * key = g_object_get_data (G_OBJECT (w), PREF_KEY);
-        int          val = 0;
-        gtk_tree_model_get (gtk_combo_box_get_model (
-                                w), &iter, 0, &val, -1);
-        gtr_core_set_pref_int (TR_CORE (core), key, val);
+      int val = 0;
+      const tr_quark key = GPOINTER_TO_INT (g_object_get_data (G_OBJECT(w), PREF_KEY));
+      gtk_tree_model_get (gtk_combo_box_get_model(w), &iter, 0, &val, -1);
+      gtr_core_set_pref_int (TR_CORE(core), key, val);
     }
 }
 
 static GtkWidget*
-new_time_combo (GObject *    core,
-                const char * key)
+new_time_combo (GObject * core, const tr_quark key)
 {
-    int               val;
-    int               i;
-    GtkWidget *       w;
-    GtkCellRenderer * r;
-    GtkListStore *    store;
+  int val;
+  int i;
+  GtkWidget * w;
+  GtkCellRenderer * r;
+  GtkListStore * store;
 
-    /* build a store at 15 minute intervals */
-    store = gtk_list_store_new (2, G_TYPE_INT, G_TYPE_STRING);
-    for (i = 0; i < 60 * 24; i += 15)
+  /* build a store at 15 minute intervals */
+  store = gtk_list_store_new (2, G_TYPE_INT, G_TYPE_STRING);
+  for (i=0; i<60*24; i+=15)
     {
-        char        buf[128];
-        GtkTreeIter iter;
-        struct tm   tm;
-        tm.tm_hour = i / 60;
-        tm.tm_min = i % 60;
-        tm.tm_sec = 0;
-        strftime (buf, sizeof (buf), "%H:%M", &tm);
-        gtk_list_store_append (store, &iter);
-        gtk_list_store_set (store, &iter, 0, i, 1, buf, -1);
+      char buf[128];
+      GtkTreeIter iter;
+      struct tm   tm;
+      tm.tm_hour = i / 60;
+      tm.tm_min = i % 60;
+      tm.tm_sec = 0;
+      strftime (buf, sizeof (buf), "%H:%M", &tm);
+      gtk_list_store_append (store, &iter);
+      gtk_list_store_set (store, &iter, 0, i, 1, buf, -1);
     }
 
-    /* build the widget */
-    w = gtk_combo_box_new_with_model (GTK_TREE_MODEL (store));
-    gtk_combo_box_set_wrap_width (GTK_COMBO_BOX (w), 4);
-    r = gtk_cell_renderer_text_new ();
-    gtk_cell_layout_pack_start (GTK_CELL_LAYOUT (w), r, TRUE);
-    gtk_cell_layout_set_attributes (GTK_CELL_LAYOUT (
-                                        w), r, "text", 1, NULL);
-    g_object_set_data_full (G_OBJECT (w), PREF_KEY, tr_strdup (
-                                key), g_free);
-    val = gtr_pref_int_get (key);
-    gtk_combo_box_set_active (GTK_COMBO_BOX (w), val / (15));
-    g_signal_connect (w, "changed", G_CALLBACK (onTimeComboChanged), core);
+  /* build the widget */
+  w = gtk_combo_box_new_with_model (GTK_TREE_MODEL (store));
+  gtk_combo_box_set_wrap_width (GTK_COMBO_BOX (w), 4);
+  r = gtk_cell_renderer_text_new ();
+  gtk_cell_layout_pack_start (GTK_CELL_LAYOUT (w), r, TRUE);
+  gtk_cell_layout_set_attributes (GTK_CELL_LAYOUT (w), r, "text", 1, NULL);
+  g_object_set_data (G_OBJECT(w), PREF_KEY, GINT_TO_POINTER(key));
+  val = gtr_pref_int_get (key);
+  gtk_combo_box_set_active (GTK_COMBO_BOX (w), val / (15));
+  g_signal_connect (w, "changed", G_CALLBACK (onTimeComboChanged), core);
 
-    /* cleanup */
-    g_object_unref (G_OBJECT (store));
-    return w;
+  /* cleanup */
+  g_object_unref (G_OBJECT (store));
+  return w;
 }
 
 static GtkWidget*
-new_week_combo (GObject * core, const char * key)
+new_week_combo (GObject * core, const tr_quark key)
 {
-    GtkWidget * w = gtr_combo_box_new_enum (_("Every Day"), TR_SCHED_ALL,
-                                            _("Weekdays"),  TR_SCHED_WEEKDAY,
-                                            _("Weekends"),  TR_SCHED_WEEKEND,
-                                            _("Sunday"),    TR_SCHED_SUN,
-                                            _("Monday"),    TR_SCHED_MON,
-                                            _("Tuesday"),   TR_SCHED_TUES,
-                                            _("Wednesday"), TR_SCHED_WED,
-                                            _("Thursday"),  TR_SCHED_THURS,
-                                            _("Friday"),    TR_SCHED_FRI,
-                                            _("Saturday"),  TR_SCHED_SAT,
-                                            NULL);
-    gtr_combo_box_set_active_enum (GTK_COMBO_BOX (w), gtr_pref_int_get (key));
-    g_object_set_data_full (G_OBJECT (w), PREF_KEY, tr_strdup (key), g_free);
-    g_signal_connect (w, "changed", G_CALLBACK (onIntComboChanged), core);
-    return w;
+  GtkWidget * w = gtr_combo_box_new_enum (_("Every Day"), TR_SCHED_ALL,
+                                          _("Weekdays"),  TR_SCHED_WEEKDAY,
+                                          _("Weekends"),  TR_SCHED_WEEKEND,
+                                          _("Sunday"),    TR_SCHED_SUN,
+                                          _("Monday"),    TR_SCHED_MON,
+                                          _("Tuesday"),   TR_SCHED_TUES,
+                                          _("Wednesday"), TR_SCHED_WED,
+                                          _("Thursday"),  TR_SCHED_THURS,
+                                          _("Friday"),    TR_SCHED_FRI,
+                                          _("Saturday"),  TR_SCHED_SAT,
+                                          NULL);
+  gtr_combo_box_set_active_enum (GTK_COMBO_BOX (w), gtr_pref_int_get (key));
+  g_object_set_data (G_OBJECT(w), PREF_KEY, GINT_TO_POINTER(key));
+  g_signal_connect (w, "changed", G_CALLBACK (onIntComboChanged), core);
+  return w;
 }
 
 static void
-bandwidthPageFree (gpointer gpage)
+speedPageFree (gpointer gpage)
 {
     struct BandwidthPage * page = gpage;
 
@@ -1036,7 +1027,7 @@ bandwidthPageFree (gpointer gpage)
 }
 
 static GtkWidget*
-bandwidthPage (GObject * core)
+speedPage (GObject * core)
 {
     const char * s;
     GtkWidget * t;
@@ -1052,27 +1043,27 @@ bandwidthPage (GObject * core)
     hig_workarea_add_section_title (t, &row, _("Speed Limits"));
 
         g_snprintf (buf, sizeof (buf), _("_Upload (%s):"), _ (speed_K_str));
-        w = new_check_button (buf, TR_PREFS_KEY_USPEED_ENABLED, core);
-        w2 = new_spin_button (TR_PREFS_KEY_USPEED_KBps, core, 0, INT_MAX, 5);
-        gtk_widget_set_sensitive (GTK_WIDGET (w2), gtr_pref_flag_get (TR_PREFS_KEY_USPEED_ENABLED));
+        w = new_check_button (buf, TR_KEY_speed_limit_up_enabled, core);
+        w2 = new_spin_button (TR_KEY_speed_limit_up, core, 0, INT_MAX, 5);
+        gtk_widget_set_sensitive (GTK_WIDGET (w2), gtr_pref_flag_get (TR_KEY_speed_limit_up_enabled));
         g_signal_connect (w, "toggled", G_CALLBACK (target_cb), w2);
         hig_workarea_add_row_w (t, &row, w, w2, NULL);
 
         g_snprintf (buf, sizeof (buf), _("_Download (%s):"), _ (speed_K_str));
-        w = new_check_button (buf, TR_PREFS_KEY_DSPEED_ENABLED, core);
-        w2 = new_spin_button (TR_PREFS_KEY_DSPEED_KBps, core, 0, INT_MAX, 5);
-        gtk_widget_set_sensitive (GTK_WIDGET (w2), gtr_pref_flag_get (TR_PREFS_KEY_DSPEED_ENABLED));
+        w = new_check_button (buf, TR_KEY_speed_limit_down_enabled, core);
+        w2 = new_spin_button (TR_KEY_speed_limit_down, core, 0, INT_MAX, 5);
+        gtk_widget_set_sensitive (GTK_WIDGET (w2), gtr_pref_flag_get (TR_KEY_speed_limit_down_enabled));
         g_signal_connect (w, "toggled", G_CALLBACK (target_cb), w2);
         hig_workarea_add_row_w (t, &row, w, w2, NULL);
 
     hig_workarea_add_section_divider (t, &row);
     h = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, GUI_PAD);
-    w = gtk_image_new_from_stock ("alt-speed-on", -1);
-    gtk_box_pack_start (GTK_BOX (h), w, FALSE, FALSE, 0);
     g_snprintf (buf, sizeof (buf), "<b>%s</b>", _("Alternative Speed Limits"));
     w = gtk_label_new (buf);
     gtk_misc_set_alignment (GTK_MISC (w), 0.0f, 0.5f);
     gtk_label_set_use_markup (GTK_LABEL (w), TRUE);
+    gtk_box_pack_start (GTK_BOX (h), w, FALSE, FALSE, 0);
+    w = gtk_image_new_from_stock ("alt-speed-on", -1);
     gtk_box_pack_start (GTK_BOX (h), w, FALSE, FALSE, 0);
     hig_workarea_add_section_title_widget (t, &row, h);
 
@@ -1080,40 +1071,40 @@ bandwidthPage (GObject * core)
         g_snprintf (buf, sizeof (buf), "<small>%s</small>", s);
         w = gtk_label_new (buf);
         gtk_label_set_use_markup (GTK_LABEL (w), TRUE);
-        gtk_misc_set_alignment (GTK_MISC (w), 0.5f, 0.5f);
+        gtk_misc_set_alignment (GTK_MISC (w), 0.0f, 0.5f);
         hig_workarea_add_wide_control (t, &row, w);
 
         g_snprintf (buf, sizeof (buf), _("U_pload (%s):"), _ (speed_K_str));
-        w = new_spin_button (TR_PREFS_KEY_ALT_SPEED_UP_KBps, core, 0, INT_MAX, 5);
+        w = new_spin_button (TR_KEY_alt_speed_up, core, 0, INT_MAX, 5);
         hig_workarea_add_row (t, &row, buf, w, NULL);
 
         g_snprintf (buf, sizeof (buf), _("Do_wnload (%s):"), _ (speed_K_str));
-        w = new_spin_button (TR_PREFS_KEY_ALT_SPEED_DOWN_KBps, core, 0, INT_MAX, 5);
+        w = new_spin_button (TR_KEY_alt_speed_down, core, 0, INT_MAX, 5);
         hig_workarea_add_row (t, &row, buf, w, NULL);
 
         s = _("_Scheduled times:");
         h = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0);
-        w2 = new_time_combo (core, TR_PREFS_KEY_ALT_SPEED_TIME_BEGIN);
+        w2 = new_time_combo (core, TR_KEY_alt_speed_time_begin);
         page->sched_widgets = g_slist_prepend (page->sched_widgets, w2);
         gtk_box_pack_start (GTK_BOX (h), w2, TRUE, TRUE, 0);
         w2 = l = gtk_label_new_with_mnemonic (_(" _to "));
         page->sched_widgets = g_slist_prepend (page->sched_widgets, w2);
         gtk_box_pack_start (GTK_BOX (h), w2, FALSE, FALSE, 0);
-        w2 = new_time_combo (core, TR_PREFS_KEY_ALT_SPEED_TIME_END);
+        w2 = new_time_combo (core, TR_KEY_alt_speed_time_end);
         gtk_label_set_mnemonic_widget (GTK_LABEL (l), w2);
         page->sched_widgets = g_slist_prepend (page->sched_widgets, w2);
         gtk_box_pack_start (GTK_BOX (h), w2, TRUE, TRUE, 0);
-        w = new_check_button (s, TR_PREFS_KEY_ALT_SPEED_TIME_ENABLED, core);
+        w = new_check_button (s, TR_KEY_alt_speed_time_enabled, core);
         g_signal_connect (w, "toggled", G_CALLBACK (onSchedToggled), page);
         hig_workarea_add_row_w (t, &row, w, h, NULL);
 
         s = _("_On days:");
-        w = new_week_combo (core, TR_PREFS_KEY_ALT_SPEED_TIME_DAY);
+        w = new_week_combo (core, TR_KEY_alt_speed_time_day);
         page->sched_widgets = g_slist_prepend (page->sched_widgets, w);
         w = hig_workarea_add_row (t, &row, s, w, NULL);
         page->sched_widgets = g_slist_prepend (page->sched_widgets, w);
 
-    g_object_set_data_full (G_OBJECT (t), "page", page, bandwidthPageFree);
+    g_object_set_data_full (G_OBJECT (t), "page", page, speedPageFree);
 
     refreshSchedSensitivity (page);
     return t;
@@ -1134,16 +1125,14 @@ struct network_page_data
 };
 
 static void
-onCorePrefsChanged (TrCore * core UNUSED, const char *  key, gpointer gdata)
+onCorePrefsChanged (TrCore * core UNUSED, const tr_quark key, gpointer gdata)
 {
-  if (!strcmp (key, TR_PREFS_KEY_PEER_PORT))
+  if (key == TR_KEY_peer_port)
     {
       struct network_page_data * data = gdata;
-      gdk_threads_enter ();
       gtr_label_set_text (GTK_LABEL (data->portLabel), _("Status unknown"));
       gtk_widget_set_sensitive (data->portButton, TRUE);
       gtk_widget_set_sensitive (data->portSpin, TRUE);
-      gdk_threads_leave ();
     }
 }
 
@@ -1166,11 +1155,11 @@ onPortTested (TrCore * core UNUSED, gboolean isOpen, gpointer vdata)
   struct network_page_data * data = vdata;
   const char * markup = isOpen ? _("Port is <b>open</b>") : _("Port is <b>closed</b>");
 
-  gdk_threads_enter ();
+  //gdk_threads_enter ();
   gtk_label_set_markup (GTK_LABEL (data->portLabel), markup);
   gtk_widget_set_sensitive (data->portButton, TRUE);
   gtk_widget_set_sensitive (data->portSpin, TRUE);
-  gdk_threads_leave ();
+  //gdk_threads_leave ();
 }
 
 static void
@@ -1205,7 +1194,7 @@ networkPage (GObject * core)
   hig_workarea_add_section_title (t, &row, _("Listening Port"));
 
   s = _("_Port used for incoming connections:");
-  w = data->portSpin = new_spin_button (TR_PREFS_KEY_PEER_PORT, core, 1, USHRT_MAX, 1);
+  w = data->portSpin = new_spin_button (TR_KEY_peer_port, core, 1, USHRT_MAX, 1);
   hig_workarea_add_row (t, &row, s, w, NULL);
 
   h = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, GUI_PAD_BIG);
@@ -1220,19 +1209,19 @@ networkPage (GObject * core)
   g_object_weak_ref (G_OBJECT (t), networkPageDestroyed, data);
 
   s = _("Pick a _random port every time Transmission is started");
-  w = new_check_button (s, TR_PREFS_KEY_PEER_PORT_RANDOM_ON_START, core);
+  w = new_check_button (s, TR_KEY_peer_port_random_on_start, core);
   hig_workarea_add_wide_control (t, &row, w);
 
   s = _("Use UPnP or NAT-PMP port _forwarding from my router");
-  w = new_check_button (s, TR_PREFS_KEY_PORT_FORWARDING, core);
+  w = new_check_button (s, TR_KEY_port_forwarding_enabled, core);
   hig_workarea_add_wide_control (t, &row, w);
 
   hig_workarea_add_section_divider (t, &row);
   hig_workarea_add_section_title (t, &row, _("Peer Limits"));
 
-  w = new_spin_button (TR_PREFS_KEY_PEER_LIMIT_TORRENT, core, 1, FD_SETSIZE, 5);
+  w = new_spin_button (TR_KEY_peer_limit_per_torrent, core, 1, FD_SETSIZE, 5);
   hig_workarea_add_row (t, &row, _("Maximum peers per _torrent:"), w, NULL);
-  w = new_spin_button (TR_PREFS_KEY_PEER_LIMIT_GLOBAL, core, 1, FD_SETSIZE, 5);
+  w = new_spin_button (TR_KEY_peer_limit_global, core, 1, FD_SETSIZE, 5);
   hig_workarea_add_row (t, &row, _("Maximum peers _overall:"), w, NULL);
 
   hig_workarea_add_section_divider (t, &row);
@@ -1240,11 +1229,29 @@ networkPage (GObject * core)
 
 #ifdef WITH_UTP
   s = _("Enable _uTP for peer communication");
-  w = new_check_button (s, TR_PREFS_KEY_UTP_ENABLED, core);
+  w = new_check_button (s, TR_KEY_utp_enabled, core);
   s = _("uTP is a tool for reducing network congestion.");
   gtk_widget_set_tooltip_text (w, s);
   hig_workarea_add_wide_control (t, &row, w);
 #endif
+
+  s = _("Use PE_X to find more peers");
+  w = new_check_button (s, TR_KEY_pex_enabled, core);
+  s = _("PEX is a tool for exchanging peer lists with the peers you're connected to.");
+  gtk_widget_set_tooltip_text (w, s);
+  hig_workarea_add_wide_control (t, &row, w);
+
+  s = _("Use _DHT to find more peers");
+  w = new_check_button (s, TR_KEY_dht_enabled, core);
+  s = _("DHT is a tool for finding peers without a tracker.");
+  gtk_widget_set_tooltip_text (w, s);
+  hig_workarea_add_wide_control (t, &row, w);
+
+  s = _("Use _Local Peer Discovery to find more peers");
+  w = new_check_button (s, TR_KEY_lpd_enabled, core);
+  s = _("LPD is a tool for finding peers on your local network.");
+  gtk_widget_set_tooltip_text (w, s);
+  hig_workarea_add_wide_control (t, &row, w);
 
   return t;
 }
@@ -1253,11 +1260,49 @@ networkPage (GObject * core)
 *****
 ****/
 
+static void
+on_prefs_dialog_destroyed (gpointer gdata, GObject * dead_dialog G_GNUC_UNUSED)
+{
+  struct prefs_dialog_data * data = gdata;
+
+  if (data->core_prefs_tag > 0)
+    g_signal_handler_disconnect (data->core, data->core_prefs_tag);
+
+  g_free (data);
+}
+
+static void
+on_core_prefs_changed (TrCore * core, const tr_quark key, gpointer gdata)
+{
+  struct prefs_dialog_data * data = gdata;
+
+#if 0
+  if (key == TR_KEY_peer_port)
+    {
+      gtr_label_set_text (GTK_LABEL (data->port_label), _("Status unknown"));
+      gtk_widget_set_sensitive (data->port_button, TRUE);
+      gtk_widget_set_sensitive (data->port_spin, TRUE);
+    }
+#endif
+  if (key == TR_KEY_download_dir)
+    {
+      const char * downloadDir = tr_sessionGetDownloadDir (gtr_core_session (core));
+      gtr_freespace_label_set_dir (data->freespace_label, downloadDir);
+    }
+}
+
 GtkWidget *
 gtr_prefs_dialog_new (GtkWindow * parent, GObject * core)
 {
+  size_t i;
   GtkWidget * d;
   GtkWidget * n;
+  struct prefs_dialog_data * data;
+  const tr_quark prefs_quarks[] = { TR_KEY_peer_port, TR_KEY_download_dir };
+
+  data = g_new0 (struct prefs_dialog_data, 1);
+  data->core = TR_CORE (core);
+  data->core_prefs_tag = g_signal_connect (TR_CORE (core), "prefs-changed", G_CALLBACK (on_core_prefs_changed), data);
 
   d = gtk_dialog_new_with_buttons (_("Transmission Preferences"),
                                    parent,
@@ -1265,36 +1310,34 @@ gtr_prefs_dialog_new (GtkWindow * parent, GObject * core)
                                    GTK_STOCK_HELP, GTK_RESPONSE_HELP,
                                    GTK_STOCK_CLOSE, GTK_RESPONSE_CLOSE,
                                    NULL);
+  g_object_weak_ref (G_OBJECT(d), on_prefs_dialog_destroyed, data);
   gtk_window_set_role (GTK_WINDOW (d), "transmission-preferences-dialog");
   gtk_container_set_border_width (GTK_CONTAINER (d), GUI_PAD);
 
   n = gtk_notebook_new ();
   gtk_container_set_border_width (GTK_CONTAINER (n), GUI_PAD);
 
-  gtk_notebook_append_page (GTK_NOTEBOOK (n),
-                            torrentPage (core),
-                            gtk_label_new (_("Torrents")));
-  gtk_notebook_append_page (GTK_NOTEBOOK (n),
-                            downloadPage (core),
+  gtk_notebook_append_page (GTK_NOTEBOOK (n), speedPage (core),
+                            gtk_label_new (_("Speed")));
+  gtk_notebook_append_page (GTK_NOTEBOOK (n), downloadingPage (core, data),
                             gtk_label_new (C_("Gerund", "Downloading")));
-    gtk_notebook_append_page (GTK_NOTEBOOK (n),
-                              bandwidthPage (core),
-                              gtk_label_new (_("Speed")));
-    gtk_notebook_append_page (GTK_NOTEBOOK (n),
-                              privacyPage (core),
-                              gtk_label_new (_("Privacy")));
-    gtk_notebook_append_page (GTK_NOTEBOOK (n),
-                              networkPage (core),
-                              gtk_label_new (_("Network")));
-    gtk_notebook_append_page (GTK_NOTEBOOK (n),
-                              desktopPage (core),
-                              gtk_label_new (_("Desktop")));
-    gtk_notebook_append_page (GTK_NOTEBOOK (n),
-                              webPage (core),
-                              gtk_label_new (_("Web")));
+  gtk_notebook_append_page (GTK_NOTEBOOK (n), seedingPage (core),
+                            gtk_label_new (C_("Gerund", "Seeding")));
+  gtk_notebook_append_page (GTK_NOTEBOOK (n), privacyPage (core),
+                            gtk_label_new (_("Privacy")));
+  gtk_notebook_append_page (GTK_NOTEBOOK (n), networkPage (core),
+                            gtk_label_new (_("Network")));
+  gtk_notebook_append_page (GTK_NOTEBOOK (n), desktopPage (core),
+                            gtk_label_new (_("Desktop")));
+  gtk_notebook_append_page (GTK_NOTEBOOK (n), remotePage (core),
+                            gtk_label_new (_("Remote")));
 
-    g_signal_connect (d, "response", G_CALLBACK (response_cb), core);
-    gtr_dialog_set_content (GTK_DIALOG (d), n);
-    return d;
+  /* init from prefs keys */
+  for (i=0; i<sizeof(prefs_quarks)/sizeof(prefs_quarks[0]); ++i)
+    on_core_prefs_changed (TR_CORE(core), prefs_quarks[i], data);
+
+  g_signal_connect (d, "response", G_CALLBACK (response_cb), core);
+  gtr_dialog_set_content (GTK_DIALOG (d), n);
+  return d;
 }
 

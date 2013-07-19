@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: torrent-cell-renderer.c 13921 2013-02-01 18:57:00Z jordan $
+ * $Id: torrent-cell-renderer.c 13897 2013-01-30 00:22:52Z jordan $
  */
 
 #include <gtk/gtk.h>
@@ -152,37 +152,44 @@ getShortTransferString (const tr_torrent  * tor,
                         char              * buf,
                         size_t              buflen)
 {
-    char downStr[32], upStr[32];
-    const int haveMeta = tr_torrentHasMetadata (tor);
-    const int haveUp = haveMeta && st->peersGettingFromUs > 0;
-    const int haveDown = haveMeta && ((st->peersSendingToUs > 0) || (st->webseedsSendingToUs > 0));
+  const int haveMeta = tr_torrentHasMetadata (tor);
+  const int haveUp = haveMeta && st->peersGettingFromUs > 0;
+  const int haveDown = haveMeta && ((st->peersSendingToUs > 0) || (st->webseedsSendingToUs > 0));
 
-    if (haveDown)
-        tr_formatter_speed_KBps (downStr, downloadSpeed_KBps, sizeof (downStr));
-    if (haveUp)
-        tr_formatter_speed_KBps (upStr, uploadSpeed_KBps, sizeof (upStr));
 
-    if (haveDown && haveUp)
-        /* 1==down arrow, 2==down speed, 3==up arrow, 4==down speed */
-        g_snprintf (buf, buflen, _("%1$s %2$s, %3$s %4$s"),
-                    gtr_get_unicode_string (GTR_UNICODE_DOWN), downStr,
-                    gtr_get_unicode_string (GTR_UNICODE_UP), upStr);
-    else if (haveDown)
-        /* bandwidth speed + unicode arrow */
-        g_snprintf (buf, buflen, _("%1$s %2$s"),
-                    gtr_get_unicode_string (GTR_UNICODE_DOWN), downStr);
-    else if (haveUp)
-        /* bandwidth speed + unicode arrow */
-        g_snprintf (buf, buflen, _("%1$s %2$s"),
-                    gtr_get_unicode_string (GTR_UNICODE_UP), upStr);
-    else if (st->isStalled)
-        g_strlcpy (buf, _("Stalled"), buflen);
-    else if (haveMeta)
-        g_strlcpy (buf, _("Idle"), buflen);
-    else
-        *buf = '\0';
+  if (haveDown)
+    {
+      char dnStr[32], upStr[32];
+      tr_formatter_speed_KBps (dnStr, downloadSpeed_KBps, sizeof (dnStr));
+      tr_formatter_speed_KBps (upStr, uploadSpeed_KBps, sizeof (upStr));
 
-    return buf;
+      /* down speed, down symbol, up speed, up symbol */
+      g_snprintf (buf, buflen, _("%1$s %2$s  %3$s %4$s"),
+                  dnStr,
+                  gtr_get_unicode_string (GTR_UNICODE_DOWN),
+                  upStr,
+                  gtr_get_unicode_string (GTR_UNICODE_UP));
+    }
+  else if (haveUp)
+    {
+      char upStr[32];
+      tr_formatter_speed_KBps (upStr, uploadSpeed_KBps, sizeof (upStr));
+
+      /* up speed, up symbol */
+      g_snprintf (buf, buflen, _("%1$s  %2$s"),
+                  upStr,
+                  gtr_get_unicode_string (GTR_UNICODE_UP));
+    }
+  else if (st->isStalled)
+    {
+      g_strlcpy (buf, _("Stalled"), buflen);
+    }
+  else
+    {
+      *buf = '\0';
+    }
+
+  return buf;
 }
 
 static void
@@ -215,15 +222,12 @@ getShortStatusString (GString           * gstr,
         case TR_STATUS_DOWNLOAD:
         case TR_STATUS_SEED:
         {
-            char buf[512];
-            if (st->activity != TR_STATUS_DOWNLOAD)
-            {
-                tr_strlratio (buf, st->ratio, sizeof (buf));
-                g_string_append_printf (gstr, _("Ratio %s"), buf);
-                g_string_append (gstr, ", ");
-            }
-            getShortTransferString (tor, st, uploadSpeed_KBps, downloadSpeed_KBps, buf, sizeof (buf));
-            g_string_append (gstr, buf);
+            char speedStr[64];
+            char ratioStr[64];
+            tr_strlratio (ratioStr, st->ratio, sizeof (ratioStr));
+            getShortTransferString (tor, st, uploadSpeed_KBps, downloadSpeed_KBps, speedStr, sizeof (speedStr));
+            /* download/upload speed, ratio */
+            g_string_append_printf (gstr, "%1$s  Ratio: %2$s", speedStr, ratioStr);
             break;
         }
 
@@ -525,33 +529,34 @@ typedef GdkRGBA GtrColor;
 static void
 get_text_color (GtkWidget * w, const tr_stat * st, GtrColor * setme)
 {
-    static const GdkRGBA red = { 1.0, 0, 0, 0 };
-    if (st->error)
-        *setme = red;
-    else if (st->activity == TR_STATUS_STOPPED)
-        gtk_style_context_get_color (gtk_widget_get_style_context (w), GTK_STATE_FLAG_INSENSITIVE, setme);
-    else
-        gtk_style_context_get_color (gtk_widget_get_style_context (w), GTK_STATE_FLAG_NORMAL, setme);
+  static const GdkRGBA red = { 1.0, 0, 0, 0 };
+
+  if (st->error)
+    *setme = red;
+  else if (st->activity == TR_STATUS_STOPPED)
+    gtk_style_context_get_color (gtk_widget_get_style_context (w), GTK_STATE_FLAG_INSENSITIVE, setme);
+  else
+    gtk_style_context_get_color (gtk_widget_get_style_context (w), GTK_STATE_FLAG_NORMAL, setme);
 }
 
 
 static double
 get_percent_done (const tr_torrent * tor, const tr_stat * st, bool * seed)
 {
-    double d;
+  double d;
 
-    if ((st->activity == TR_STATUS_SEED) && tr_torrentGetSeedRatio (tor, &d))
+  if ((st->activity == TR_STATUS_SEED) && tr_torrentGetSeedRatio (tor, &d))
     {
-        *seed = true;
-        d = MAX (0.0, st->seedRatioPercentDone);
+      *seed = true;
+      d = MAX (0.0, st->seedRatioPercentDone);
     }
-    else
+  else
     {
-        *seed = false;
-        d = MAX (0.0, st->percentDone);
+      *seed = false;
+      d = MAX (0.0, st->percentDone);
     }
 
-    return d;
+  return d;
 }
 
 typedef cairo_t GtrDrawable;

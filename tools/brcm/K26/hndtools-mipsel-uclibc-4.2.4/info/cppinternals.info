@@ -1,5 +1,5 @@
-This is doc/cppinternals.info, produced by makeinfo version 4.11 from
-/home/fedork/tomato/toolchain/build_dir/toolchain-mipsel_gcc4.2.4/gcc-4.2.4/gcc/doc/cppinternals.texi.
+This is doc/cppinternals.info, produced by makeinfo version 4.13 from
+/home/shibby/openwrt/tomato.toolchain/t/build_dir/toolchain-mipsel_gcc4.2.4/gcc-4.2.4/gcc/doc/cppinternals.texi.
 
 INFO-DIR-SECTION Software development
 START-INFO-DIR-ENTRY
@@ -1019,17 +1019,17 @@ Concept Index
 
 
 Tag Table:
-Node: Top1012
-Node: Conventions2697
-Node: Lexer3639
-Ref: Invalid identifiers11552
-Ref: Lexing a line13501
-Node: Hash Nodes18274
-Node: Macro Expansion21153
-Node: Token Spacing30100
-Node: Line Numbering35960
-Node: Guard Macros40045
-Node: Files44836
-Node: Concept Index48302
+Node: Top1022
+Node: Conventions2707
+Node: Lexer3649
+Ref: Invalid identifiers11562
+Ref: Lexing a line13511
+Node: Hash Nodes18284
+Node: Macro Expansion21163
+Node: Token Spacing30110
+Node: Line Numbering35970
+Node: Guard Macros40055
+Node: Files44846
+Node: Concept Index48312
 
 End Tag Table

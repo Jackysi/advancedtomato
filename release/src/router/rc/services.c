@@ -443,11 +443,19 @@ void start_dnsmasq()
 #ifdef TCONFIG_DNSCRYPT
 	//start dnscrypt-proxy
 	if (nvram_match("dnscrypt_proxy", "1")) {
-		eval("ntp2ip");
-
 		char dnscrypt_local[30];
 		sprintf(dnscrypt_local, "127.0.0.1:%s", nvram_safe_get("dnscrypt_port") );
+
+		eval("ntp2ip");
 		eval("dnscrypt-proxy", "-d", "-a", dnscrypt_local, nvram_safe_get("dnscrypt_cmd") );
+
+#ifdef TCONFIG_IPV6
+		char dnscrypt_local_ipv6[30];
+		sprintf(dnscrypt_local_ipv6, "::1:%s", nvram_safe_get("dnscrypt_port") );
+
+		if (get_ipv6_service() != NULL) //if ipv6 enabled
+			eval("dnscrypt-proxy", "-d", "-a", dnscrypt_local_ipv6, nvram_safe_get("dnscrypt_cmd") );
+#endif
 	}
 #endif
 

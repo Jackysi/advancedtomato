@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoGeneralViewController.m 13660 2012-12-13 13:38:58Z livings124 $
+ * $Id: InfoGeneralViewController.m 14016 2013-02-11 01:39:44Z livings124 $
  *
  * Copyright (c) 2010-2012 Transmission authors and contributors
  *
@@ -50,7 +50,7 @@
     
     [super dealloc];
 }
-/*
+
 - (void) awakeFromNib
 {
     #warning remove when 10.7-only with auto layout
@@ -92,7 +92,7 @@
         [field setFrame: frame];
     }
 }
-*/
+
 - (void) setInfoForTorrents: (NSArray *) torrents
 {
     //don't check if it's the same in case the metadata changed
@@ -140,6 +140,7 @@
     {
         Torrent * torrent = [fTorrents objectAtIndex: 0];
         
+        #warning candidate for localizedStringWithFormat (although then we'll get two commas)
         NSString * piecesString = ![torrent isMagnet] ? [NSString stringWithFormat: @"%ld, %@", [torrent pieceCount],
                                         [NSString stringForFileSize: [torrent pieceSize]]] : @"";
         [fPiecesField setStringValue: piecesString];

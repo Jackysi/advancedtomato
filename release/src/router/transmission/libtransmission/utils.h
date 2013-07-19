@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: utils.h 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: utils.h 13991 2013-02-09 04:05:03Z jordan $
  */
 
 #ifndef TR_UTILS_H
@@ -101,96 +101,6 @@ const char * tr_strip_positional_args (const char * fmt);
 *****
 ****/
 
-#define TR_MAX_MSG_LOG 10000
-
-extern tr_msg_level __tr_message_level;
-
-static inline tr_msg_level tr_getMessageLevel (void)
-{
-    return __tr_message_level;
-}
-
-static inline bool tr_msgLoggingIsActive (tr_msg_level level)
-{
-    return tr_getMessageLevel () >= level;
-}
-
-void tr_msg (const char * file, int line,
-             tr_msg_level level,
-             const char * torrent,
-             const char * fmt, ...) TR_GNUC_PRINTF (5, 6);
-
-#define tr_nerr(n, ...) \
-    do { \
-        if (tr_msgLoggingIsActive (TR_MSG_ERR)) \
-            tr_msg (__FILE__, __LINE__, TR_MSG_ERR, n, __VA_ARGS__); \
-    } while (0)
-
-#define tr_ninf(n, ...) \
-    do { \
-        if (tr_msgLoggingIsActive (TR_MSG_INF)) \
-            tr_msg (__FILE__, __LINE__, TR_MSG_INF, n, __VA_ARGS__); \
-    } while (0)
-
-#define tr_ndbg(n, ...) \
-    do { \
-        if (tr_msgLoggingIsActive (TR_MSG_DBG)) \
-            tr_msg (__FILE__, __LINE__, TR_MSG_DBG, n, __VA_ARGS__); \
-    } while (0)
-
-#define tr_torerr(tor, ...) \
-    do { \
-        if (tr_msgLoggingIsActive (TR_MSG_ERR)) \
-            tr_msg (__FILE__, __LINE__, TR_MSG_ERR, tr_torrentName (tor), __VA_ARGS__); \
-    } while (0)
-
-#define tr_torinf(tor, ...) \
-    do { \
-        if (tr_msgLoggingIsActive (TR_MSG_INF)) \
-            tr_msg (__FILE__, __LINE__, TR_MSG_INF, tr_torrentName (tor), __VA_ARGS__); \
-    } while (0)
-
-#define tr_tordbg(tor, ...) \
-    do { \
-        if (tr_msgLoggingIsActive (TR_MSG_DBG)) \
-            tr_msg (__FILE__, __LINE__, TR_MSG_DBG, tr_torrentName (tor), __VA_ARGS__); \
-    } while (0)
-
-#define tr_err(...) \
-    do { \
-        if (tr_msgLoggingIsActive (TR_MSG_ERR)) \
-            tr_msg (__FILE__, __LINE__, TR_MSG_ERR, NULL, __VA_ARGS__); \
-    } while (0)
-
-#define tr_inf(...) \
-    do { \
-        if (tr_msgLoggingIsActive (TR_MSG_INF)) \
-            tr_msg (__FILE__, __LINE__, TR_MSG_INF, NULL, __VA_ARGS__); \
-    } while (0)
-
-#define tr_dbg(...) \
-    do { \
-        if (tr_msgLoggingIsActive (TR_MSG_DBG)) \
-            tr_msg (__FILE__, __LINE__, TR_MSG_DBG, NULL, __VA_ARGS__); \
-    } while (0)
-
-
-
-void* tr_getLog (void);
-
-/** @brief return true if deep logging has been enabled by the user; false otherwise */
-bool tr_deepLoggingIsActive (void);
-
-void           tr_deepLog (const char * file,
-                           int          line,
-                           const char * name,
-                           const char * fmt,
-                           ...) TR_GNUC_PRINTF (4, 5) TR_GNUC_NONNULL (1,4);
-
-/** @brief set the buffer with the current time formatted for deep logging. */
-char* tr_getLogTimeStr (char * buf, int buflen) TR_GNUC_NONNULL (1);
-
-
 /**
  * @brief Rich Salz's classic implementation of shell-style pattern matching for ?, \, [], and * characters.
  * @return 1 if the pattern matches, 0 if it doesn't, or -1 if an error occured
@@ -229,6 +139,12 @@ char* tr_buildPath (const char * first_element, ...) TR_GNUC_NULL_TERMINATED
                                                       TR_GNUC_MALLOC;
 
 bool tr_fileExists (const char * filename, time_t * mtime);
+
+/**
+ * @brief Get available disk space (in bytes) for the specified folder.
+ * @return zero or positive integer on success, -1 in case of error.
+ */
+int64_t tr_getDirFreeSpace (const char * path);
 
 
 struct event;
@@ -343,6 +259,9 @@ int tr_lowerBound (const void * key,
                    int     (* compar)(const void* key, const void* arrayMember),
                    bool       * exact_match) TR_GNUC_HOT TR_GNUC_NONNULL (1,5,6);
 
+/** @brief moves the best k items to the first slots in the array. O(n) */
+void tr_quickfindFirstK (void * base, size_t nmemb, size_t size,
+                         int (*compar)(const void *, const void *), size_t k);
 
 /**
  * @brief sprintf () a string into a newly-allocated buffer large enough to hold it
@@ -477,6 +396,12 @@ struct tm * tr_localtime_r (const time_t *_clock, struct tm *_result);
 int tr_moveFile (const char * oldpath, const char * newpath,
                  bool * renamed) TR_GNUC_NONNULL (1,2);
 
+/** @brief Portability wrapper for rename () */
+int tr_rename (const char * oldpath_utf8, const char * newpath_utf8);
+
+/** @brief Portability wrapper for remove () */
+int tr_remove (const char * pathname_utf8);
+
 /** @brief Test to see if the two filenames point to the same file. */
 bool tr_is_same_file (const char * filename1, const char * filename2);
 
@@ -561,7 +486,7 @@ static inline char* tr_formatter_mem_MB (char * buf, double MBps, size_t buflen)
 /* format a file size from bytes into a user-readable string. */
 char* tr_formatter_size_B (char * buf, int64_t bytes, size_t buflen);
 
-void tr_formatter_get_units (struct tr_benc * dict);
+void tr_formatter_get_units (void * dict);
 
 /***
 ****

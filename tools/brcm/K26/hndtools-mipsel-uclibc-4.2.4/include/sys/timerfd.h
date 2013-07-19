@@ -21,16 +21,13 @@
 
 #include <time.h>
 
+#ifndef _FCNTL_H
+# include <fcntl.h>
+#endif
 
 /* Bits to be set in the FLAGS parameter of `timerfd_create'.  */
-enum
-  {
-    TFD_CLOEXEC = 02000000,
-#define TFD_CLOEXEC TFD_CLOEXEC
-    TFD_NONBLOCK = 04000
-#define TFD_NONBLOCK TFD_NONBLOCK
-  };
-
+#define TFD_CLOEXEC	O_CLOEXEC
+#define TFD_NONBLOCK	O_NONBLOCK
 
 /* Bits to be set in the FLAGS parameter of `timerfd_settime'.  */
 enum

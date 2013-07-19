@@ -7,16 +7,16 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: torrent-ctor.c 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: torrent-ctor.c 13991 2013-02-09 04:05:03Z jordan $
  */
 
 #include <errno.h> /* EINVAL */
 #include "transmission.h"
-#include "bencode.h"
 #include "magnet.h"
 #include "session.h" /* tr_sessionFindTorrentFile () */
 #include "torrent.h" /* tr_ctorGetSave () */
 #include "utils.h" /* tr_new0 */
+#include "variant.h"
 
 struct optional_args
 {
@@ -40,7 +40,7 @@ struct tr_ctor
     tr_priority_t           bandwidthPriority;
     bool                    isSet_metainfo;
     bool                    isSet_delete;
-    tr_benc                 metainfo;
+    tr_variant                 metainfo;
     char *                  sourceFile;
 
     struct optional_args    optionalArgs[2];
@@ -78,7 +78,7 @@ clearMetainfo (tr_ctor * ctor)
     if (ctor->isSet_metainfo)
     {
         ctor->isSet_metainfo = 0;
-        tr_bencFree (&ctor->metainfo);
+        tr_variantFree (&ctor->metainfo);
     }
 
     setSourceFile (ctor, NULL);
@@ -92,7 +92,7 @@ tr_ctorSetMetainfo (tr_ctor *       ctor,
     int err;
 
     clearMetainfo (ctor);
-    err = tr_bencLoad (metainfo, len, &ctor->metainfo, NULL);
+    err = tr_variantFromBenc (&ctor->metainfo, metainfo, len);
     ctor->isSet_metainfo = !err;
     return err;
 }
@@ -113,15 +113,15 @@ tr_ctorSetMetainfoFromMagnetLink (tr_ctor * ctor, const char * magnet_link)
         err = -1;
     else {
         int len;
-        tr_benc tmp;
+        tr_variant tmp;
         char * str;
 
         tr_magnetCreateMetainfo (magnet_info, &tmp);
-        str = tr_bencToStr (&tmp, TR_FMT_BENC, &len);
+        str = tr_variantToStr (&tmp, TR_VARIANT_FMT_BENC, &len);
         err = tr_ctorSetMetainfo (ctor, (const uint8_t*)str, len);
 
         tr_free (str);
-        tr_bencFree (&tmp);
+        tr_variantFree (&tmp);
         tr_magnetFree (magnet_info);
     }
 
@@ -150,17 +150,17 @@ tr_ctorSetMetainfoFromFile (tr_ctor *    ctor,
     /* if no `name' field was set, then set it from the filename */
     if (ctor->isSet_metainfo)
     {
-        tr_benc * info;
-        if (tr_bencDictFindDict (&ctor->metainfo, "info", &info))
+        tr_variant * info;
+        if (tr_variantDictFindDict (&ctor->metainfo, TR_KEY_info, &info))
         {
             const char * name;
-            if (!tr_bencDictFindStr (info, "name.utf-8", &name))
-                if (!tr_bencDictFindStr (info, "name", &name))
+            if (!tr_variantDictFindStr (info, TR_KEY_name_utf_8, &name, NULL))
+                if (!tr_variantDictFindStr (info, TR_KEY_name, &name, NULL))
                     name = NULL;
             if (!name || !*name)
             {
                 char * base = tr_basename (filename);
-                tr_bencDictAddStr (info, "name", base);
+                tr_variantDictAddStr (info, TR_KEY_name, base);
                 tr_free (base);
             }
         }
@@ -395,7 +395,7 @@ tr_ctorGetIncompleteDir (const tr_ctor  * ctor,
 
 int
 tr_ctorGetMetainfo (const tr_ctor *  ctor,
-                    const tr_benc ** setme)
+                    const tr_variant ** setme)
 {
     int err = 0;
 
@@ -452,7 +452,7 @@ tr_ctorNew (const tr_session * session)
         tr_ctorSetDeleteSource (ctor, tr_sessionGetDeleteSource (session));
         tr_ctorSetPaused (ctor, TR_FALLBACK, tr_sessionGetPaused (session));
         tr_ctorSetPeerLimit (ctor, TR_FALLBACK, session->peerLimitPerTorrent);
-        tr_ctorSetDownloadDir (ctor, TR_FALLBACK, session->downloadDir);
+        tr_ctorSetDownloadDir (ctor, TR_FALLBACK, tr_sessionGetDownloadDir(session));
     }
     tr_ctorSetSave (ctor, true);
     return ctor;
