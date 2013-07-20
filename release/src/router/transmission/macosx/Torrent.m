@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: Torrent.m 14077 2013-05-22 20:35:38Z jordan $
+ * $Id: Torrent.m 14119 2013-07-14 14:35:57Z livings124 $
  *
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -49,7 +49,7 @@
 - (void) sortFileList: (NSMutableArray *) fileNodes;
 
 - (void) startQueue;
-- (void) completenessChange: (NSDictionary *) statusInfo;
+- (void) completenessChange: (tr_completeness) status wasRunning: (BOOL) wasRunning;
 - (void) ratioLimitHit;
 - (void) idleLimitHit;
 - (void) metadataRetrieved;
@@ -64,32 +64,37 @@
 
 void startQueueCallback(tr_torrent * torrent, void * torrentData)
 {
-    [(Torrent *)torrentData performSelectorOnMainThread: @selector(startQueue) withObject: nil waitUntilDone: NO];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [(Torrent *)torrentData startQueue];
+    });
 }
 
 void completenessChangeCallback(tr_torrent * torrent, tr_completeness status, bool wasRunning, void * torrentData)
 {
-    @autoreleasepool
-    {
-        NSDictionary * dict = [[NSDictionary alloc] initWithObjectsAndKeys: [NSNumber numberWithInt: status], @"Status",
-                               [NSNumber numberWithBool: wasRunning], @"WasRunning", nil];
-        [(Torrent *)torrentData performSelectorOnMainThread: @selector(completenessChange:) withObject: dict waitUntilDone: NO];
-    }
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [(Torrent *)torrentData completenessChange: status wasRunning: wasRunning];
+    });
 }
 
 void ratioLimitHitCallback(tr_torrent * torrent, void * torrentData)
 {
-    [(Torrent *)torrentData performSelectorOnMainThread: @selector(ratioLimitHit) withObject: nil waitUntilDone: NO];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [(Torrent *)torrentData ratioLimitHit];
+    });
 }
 
 void idleLimitHitCallback(tr_torrent * torrent, void * torrentData)
 {
-    [(Torrent *)torrentData performSelectorOnMainThread: @selector(idleLimitHit) withObject: nil waitUntilDone: NO];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [(Torrent *)torrentData idleLimitHit];
+    });
 }
 
 void metadataCallback(tr_torrent * torrent, void * torrentData)
 {
-    [(Torrent *)torrentData performSelectorOnMainThread: @selector(metadataRetrieved) withObject: nil waitUntilDone: NO];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [(Torrent *)torrentData metadataRetrieved];
+    });
 }
 
 void renameCallback(tr_torrent * torrent, const char * oldPathCharString, const char * newNameCharString, int error, void * contextInfo)
@@ -1819,15 +1824,17 @@ int trashDataFile(const char * filename)
 }
 
 //status has been retained
-- (void) completenessChange: (NSDictionary *) statusInfo
+- (void) completenessChange: (tr_completeness) status wasRunning: (BOOL) wasRunning
 {
     fStat = tr_torrentStat(fHandle); //don't call update yet to avoid auto-stop
     
-    switch ([[statusInfo objectForKey: @"Status"] intValue])
+    switch (status)
     {
         case TR_SEED:
         case TR_PARTIAL_SEED:
-            [[NSNotificationCenter defaultCenter] postNotificationName: @"TorrentFinishedDownloading" object: self userInfo: [[statusInfo retain] autorelease]];
+        {
+            NSDictionary * statusInfo = @{ @"Status" : @(status), @"WasRunning" : @(wasRunning) };
+            [[NSNotificationCenter defaultCenter] postNotificationName: @"TorrentFinishedDownloading" object: self userInfo: statusInfo];
             
             //quarantine the finished data
             NSString * dataLocation = [[self currentDirectory] stringByAppendingPathComponent: [self name]];
@@ -1842,12 +1849,11 @@ int trashDataFile(const char * filename)
                 NSLog(@"Could not find file to quarantine: %@", dataLocation);
             
             break;
-        
+        }
         case TR_LEECH:
             [[NSNotificationCenter defaultCenter] postNotificationName: @"TorrentRestartedDownloading" object: self];
             break;
     }
-    [statusInfo release];
     
     [self update];
     [self updateTimeMachineExclude];

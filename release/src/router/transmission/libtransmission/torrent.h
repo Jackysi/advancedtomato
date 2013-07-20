@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: torrent.h 14083 2013-05-27 21:04:48Z jordan $
+ * $Id: torrent.h 14108 2013-07-08 16:41:12Z jordan $
  */
 
 #ifndef __TRANSMISSION__

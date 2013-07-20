@@ -1711,7 +1711,7 @@ transmission/stamp-h1: openssl libcurl libevent zlib
 		$(CONFIGURE) --target=mipsel-linux --prefix=/usr --disable-nls \
 		--enable-lightweight --enable-largefile --enable-utp --without-gtk \
 		LIBCURL_CFLAGS="-I$(TOP)/libcurl/include" \
-		LIBCURL_LIBS="-L$(TOP)/libcurl/lib/.libs/ -lcurl" \
+		LIBCURL_LIBS="-L$(TOP)/libcurl/lib/.libs -lcurl" \
 		LIBEVENT_CFLAGS="-I$(TOP)/libevent/include" \
 		LIBEVENT_LIBS="-L$(TOP)/libevent/.libs -levent" \
 		OPENSSL_CFLAGS="-I$(TOP)/openssl/include" \

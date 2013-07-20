@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: platform.c 14080 2013-05-23 03:20:18Z jordan $
+ * $Id: platform.c 14110 2013-07-08 17:07:31Z jordan $
  */
 
 #define _XOPEN_SOURCE 600  /* needed for recursive locks. */

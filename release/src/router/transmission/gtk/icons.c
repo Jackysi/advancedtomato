@@ -3,7 +3,7 @@
  * "There is no problem for me, you can license my code
  * under whatever licence you wish :)"
  *
- * $Id: icons.c 14018 2013-02-14 15:17:42Z jordan $
+ * $Id: icons.c 14107 2013-07-08 16:25:18Z jordan $
  */
 
 #include <glib.h>
@@ -142,7 +142,11 @@ get_themed_icon_pixbuf (GThemedIcon   * icon,
         g_clear_error (&error);
     }
 
+#if GTK_CHECK_VERSION(3,8,0)
+    g_object_unref (icon_info);
+#else
     gtk_icon_info_free (icon_info);
+#endif
     g_strfreev (icon_names);
 
     return pixbuf;

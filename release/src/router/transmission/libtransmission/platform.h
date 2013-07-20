@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: platform.h 13991 2013-02-09 04:05:03Z jordan $
+ * $Id: platform.h 14110 2013-07-08 17:07:31Z jordan $
  */
 
 #ifndef __TRANSMISSION__
