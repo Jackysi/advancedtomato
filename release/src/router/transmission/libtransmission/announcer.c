@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: announcer.c 14068 2013-04-13 19:28:49Z jordan $
+ * $Id: announcer.c 14124 2013-07-16 00:13:30Z jordan $
  */
 
 #include <assert.h>
@@ -962,17 +962,15 @@ tr_announcerRemoveTorrent (tr_announcer * announcer, tr_torrent * tor)
 static int
 getRetryInterval (const tr_tracker * t)
 {
-    int minutes;
-    const unsigned int jitter_seconds = tr_cryptoWeakRandInt (60);
-    switch (t->consecutiveFailures) {
-        case 0:  minutes =   1; break;
-        case 1:  minutes =   5; break;
-        case 2:  minutes =  15; break;
-        case 3:  minutes =  30; break;
-        case 4:  minutes =  60; break;
-        default: minutes = 120; break;
+  switch (t->consecutiveFailures)
+    {
+      case 0:  return 20;
+      case 1:  return tr_cryptoWeakRandInt (60) + (60 * 5);
+      case 2:  return tr_cryptoWeakRandInt (60) + (60 * 15);
+      case 3:  return tr_cryptoWeakRandInt (60) + (60 * 30);
+      case 4:  return tr_cryptoWeakRandInt (60) + (60 * 60);
+      default: return tr_cryptoWeakRandInt (60) + (60 * 120);
     }
-    return (minutes * 60) + jitter_seconds;
 }
 
 struct announce_data

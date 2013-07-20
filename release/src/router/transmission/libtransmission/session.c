@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: session.c 14081 2013-05-23 05:43:12Z jordan $
+ * $Id: session.c 14114 2013-07-09 17:05:32Z jordan $
  */
 
 #include <assert.h>
@@ -941,7 +941,7 @@ sessionSetImpl (void * vdata)
 }
 
 void
-tr_sessionSet (tr_session * session, tr_variant  * settings)
+tr_sessionSet (tr_session * session, tr_variant * settings)
 {
   struct init_data data;
   data.done = false;

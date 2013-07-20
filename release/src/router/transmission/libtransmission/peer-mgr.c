@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-mgr.c 14089 2013-06-09 18:56:10Z jordan $
+ * $Id: peer-mgr.c 14114 2013-07-09 17:05:32Z jordan $
  */
 
 #include <assert.h>
@@ -1912,6 +1912,7 @@ createBitTorrentPeer (tr_torrent       * tor,
                       tr_quark           client)
 {
   tr_peer * peer;
+  tr_peerMsgs * msgs;
   tr_swarm * swarm;
 
   assert (atom != NULL);
@@ -1931,6 +1932,10 @@ createBitTorrentPeer (tr_torrent       * tor,
 
   assert (swarm->stats.peerCount == tr_ptrArraySize (&swarm->peers));
   assert (swarm->stats.peerFromCount[atom->fromFirst] <= swarm->stats.peerCount);
+
+  msgs = PEER_MSGS (peer);
+  tr_peerMsgsUpdateActive (msgs, TR_UP);
+  tr_peerMsgsUpdateActive (msgs, TR_DOWN);
 }
 
 
@@ -2610,14 +2615,20 @@ tr_peerMgrGetDesiredAvailable (const tr_torrent * tor)
   size_t i;
   size_t n;
   uint64_t desiredAvailable;
-  const tr_swarm * s = tor->swarm;
+  const tr_swarm * s;
+
+  assert (tr_isTorrent (tor));
 
   /* common shortcuts... */
 
-  if (tr_torrentIsSeed (s->tor))
+  if (tr_torrentIsSeed (tor))
     return 0;
 
   if (!tr_torrentHasMetadata (tor))
+    return 0;
+
+  s = tor->swarm;
+  if (s == NULL)
     return 0;
 
   n = tr_ptrArraySize (&s->peers);
@@ -2641,7 +2652,7 @@ tr_peerMgrGetDesiredAvailable (const tr_torrent * tor)
   desiredAvailable = 0;
   for (i=0, n=MIN (tor->info.pieceCount, s->pieceReplicationSize); i<n; ++i)
     if (!tor->info.pieces[i].dnd && (s->pieceReplication[i] > 0))
-      desiredAvailable += tr_cpMissingBytesInPiece (&s->tor->completion, i);
+      desiredAvailable += tr_cpMissingBytesInPiece (&tor->completion, i);
 
   assert (desiredAvailable <= tor->info.totalSize);
   return desiredAvailable;
@@ -3377,7 +3388,7 @@ struct peer_liveliness
   void * clientData;
   time_t pieceDataTime;
   time_t time;
-  int speed;
+  unsigned int speed;
   bool doPurge;
 };
 

@@ -122,15 +122,16 @@ am_libtransmission_a_OBJECTS = announcer.$(OBJEXT) \
 	makemeta.$(OBJEXT) metainfo.$(OBJEXT) natpmp.$(OBJEXT) \
 	net.$(OBJEXT) peer-io.$(OBJEXT) peer-mgr.$(OBJEXT) \
 	peer-msgs.$(OBJEXT) platform.$(OBJEXT) \
-	port-forwarding.$(OBJEXT) ptrarray.$(OBJEXT) quark.$(OBJEXT) \
-	resume.$(OBJEXT) rpcimpl.$(OBJEXT) rpc-server.$(OBJEXT) \
-	session.$(OBJEXT) stats.$(OBJEXT) torrent.$(OBJEXT) \
-	torrent-ctor.$(OBJEXT) torrent-magnet.$(OBJEXT) \
-	tr-dht.$(OBJEXT) tr-lpd.$(OBJEXT) tr-udp.$(OBJEXT) \
-	tr-utp.$(OBJEXT) tr-getopt.$(OBJEXT) trevent.$(OBJEXT) \
-	upnp.$(OBJEXT) utils.$(OBJEXT) variant.$(OBJEXT) \
-	variant-benc.$(OBJEXT) variant-json.$(OBJEXT) verify.$(OBJEXT) \
-	web.$(OBJEXT) webseed.$(OBJEXT) wildmat.$(OBJEXT)
+	platform-quota.$(OBJEXT) port-forwarding.$(OBJEXT) \
+	ptrarray.$(OBJEXT) quark.$(OBJEXT) resume.$(OBJEXT) \
+	rpcimpl.$(OBJEXT) rpc-server.$(OBJEXT) session.$(OBJEXT) \
+	stats.$(OBJEXT) torrent.$(OBJEXT) torrent-ctor.$(OBJEXT) \
+	torrent-magnet.$(OBJEXT) tr-dht.$(OBJEXT) tr-lpd.$(OBJEXT) \
+	tr-udp.$(OBJEXT) tr-utp.$(OBJEXT) tr-getopt.$(OBJEXT) \
+	trevent.$(OBJEXT) upnp.$(OBJEXT) utils.$(OBJEXT) \
+	variant.$(OBJEXT) variant-benc.$(OBJEXT) \
+	variant-json.$(OBJEXT) verify.$(OBJEXT) web.$(OBJEXT) \
+	webseed.$(OBJEXT) wildmat.$(OBJEXT)
 libtransmission_a_OBJECTS = $(am_libtransmission_a_OBJECTS)
 am__EXEEXT_1 = bitfield-test$(EXEEXT) blocklist-test$(EXEEXT) \
 	clients-test$(EXEEXT) history-test$(EXEEXT) json-test$(EXEEXT) \
@@ -761,6 +762,7 @@ libtransmission_a_SOURCES = \
   peer-mgr.c \
   peer-msgs.c \
   platform.c \
+  platform-quota.c \
   port-forwarding.c \
   ptrarray.c \
   quark.c \
@@ -818,6 +820,7 @@ noinst_HEADERS = \
   peer-mgr.h \
   peer-msgs.h \
   platform.h \
+  platform-quota.h \
   port-forwarding.h \
   ptrarray.h \
   quark.h \
@@ -1066,6 +1069,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/peer-mgr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/peer-msgs-test.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/peer-msgs.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/platform-quota.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/platform.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/port-forwarding.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ptrarray.Po@am__quote@

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-common.h 13954 2013-02-04 16:23:33Z jordan $
+ * $Id: peer-common.h 14108 2013-07-08 16:41:12Z jordan $
  */
 
 #ifndef __TRANSMISSION__

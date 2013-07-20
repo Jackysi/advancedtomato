@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: peer-msgs.c 14083 2013-05-27 21:04:48Z jordan $
+ * $Id: peer-msgs.c 14114 2013-07-09 17:05:32Z jordan $
  */
 
 #include <assert.h>
@@ -708,13 +708,17 @@ tr_peerMsgsCalculateActive (const tr_peerMsgs * msgs, tr_direction direction)
   else /* TR_PEER_TO_CLIENT */
     {
       if (!tr_torrentHasMetadata (msgs->torrent))
-        is_active = true;
+        {
+          is_active = true;
+        }
       else
-        is_active = tr_peerMsgsIsClientInterested (msgs)
-                && !tr_peerMsgsIsClientChoked (msgs);
+        {
+          is_active = tr_peerMsgsIsClientInterested (msgs)
+                  && !tr_peerMsgsIsClientChoked (msgs);
 
-      if (is_active)
-        assert (!tr_torrentIsSeed (msgs->torrent));
+          if (is_active)
+            assert (!tr_torrentIsSeed (msgs->torrent));
+        }
     }
 
   return is_active;
@@ -2509,7 +2513,7 @@ peermsgs_destruct (tr_peer * peer)
 static const struct tr_peer_virtual_funcs my_funcs =
 {
   .destruct = peermsgs_destruct,
-  .is_transferring_pieces = peermsgs_is_transferring_pieces,
+  .is_transferring_pieces = peermsgs_is_transferring_pieces
 };
 
 /***

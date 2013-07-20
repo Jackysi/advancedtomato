@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: tr-icon.c 13761 2013-01-04 19:45:39Z jordan $
+ * $Id: tr-icon.c 14115 2013-07-09 22:44:24Z jordan $
  */
 
 #include <glib/gi18n.h>
@@ -21,16 +21,7 @@
 #include "tr-icon.h"
 #include "util.h"
 
-static GQuark
-get_core_quark (void)
-{
-  static GQuark quark = 0;
-
-  if (!quark)
-    quark = g_quark_from_static_string ("tr-core");
-
-  return quark;
-}
+static G_DEFINE_QUARK (tr-core, core)
 
 #define ICON_NAME "transmission"
 
@@ -71,7 +62,7 @@ gtr_icon_refresh (gpointer vicon)
   char tip[1024];
   const char * idle = _("Idle");
   GtkStatusIcon * icon = GTK_STATUS_ICON (vicon);
-  tr_session * session = gtr_core_session (g_object_get_qdata (G_OBJECT (icon), get_core_quark ()));
+  tr_session * session = gtr_core_session (g_object_get_qdata (G_OBJECT (icon), core_quark ()));
 
   /* up */
   KBps = tr_sessionGetRawSpeed_KBps (session, TR_UP);
@@ -132,7 +123,11 @@ getIconName (void)
    {
      GtkIconInfo * icon_info = gtk_icon_theme_lookup_icon (theme, TRAY_ICON, 48, GTK_ICON_LOOKUP_USE_BUILTIN);
      const gboolean icon_is_builtin = gtk_icon_info_get_filename (icon_info) == NULL;
-     gtk_icon_info_free (icon_info);
+#if GTK_CHECK_VERSION(3,8,0)
+    g_object_unref (icon_info);
+#else
+    gtk_icon_info_free (icon_info);
+#endif
      icon_name = icon_is_builtin ? ICON_NAME : TRAY_ICON;
     }
 
@@ -150,14 +145,14 @@ gtr_icon_new (TrCore * core)
   w = gtr_action_get_widget ("/icon-popup");
   app_indicator_set_menu (indicator, GTK_MENU (w));
   app_indicator_set_title (indicator, g_get_application_name ());
-  g_object_set_qdata (G_OBJECT (indicator), get_core_quark (), core);
+  g_object_set_qdata (G_OBJECT (indicator), core_quark (), core);
   return indicator;
 #else
   const char * icon_name = getIconName ();
   GtkStatusIcon * icon = gtk_status_icon_new_from_icon_name (icon_name);
   g_signal_connect (icon, "activate", G_CALLBACK (activated), NULL);
   g_signal_connect (icon, "popup-menu", G_CALLBACK (popup), NULL);
-  g_object_set_qdata (G_OBJECT (icon), get_core_quark (), core);
+  g_object_set_qdata (G_OBJECT (icon), core_quark (), core);
   return icon;
 #endif
 }
