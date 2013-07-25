@@ -234,7 +234,8 @@ enum {
 	MODEL_TM2300,
 	MODEL_WZRG300N,
 	MODEL_WRT300N,
-	MODEL_WL330GE
+	MODEL_WL330GE,
+	MODEL_W1800R
 };
 
 /* NOTE: Do not insert new entries in the middle of this enum,

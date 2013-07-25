@@ -54,6 +54,10 @@ ifeq ($(AC66U),)
 AC66U = 0
 endif
 
+ifeq ($(W1800R),)
+W1800R = 0
+endif
+
 ifeq ($(WNR3500LV2),)
 WNR3500LV2 = 0
 else
@@ -129,6 +133,17 @@ ifeq ($(AC66U),1)
 	ctools/mksquashfs router/mipsel-uclibc/target ctools/target.squashfs -noappend -all-root
 	ctools/trx -o image/linux-lzma.trx ctools/vmlinuz-lzma ctools/target.squashfs
 	ctools/trx_asus -i image/linux-lzma.trx -r $(BUILD_NAME),$(KERNEL_VER).$(FS_VER),image/tomato-RT-AC66U_$(V1)$(V2)-$(current_BUILD_DESC).trx
+	@rm -f image/linux-lzma.trx
+	@echo ""
+endif
+
+ifeq ($(W1800R),1)
+	$(MAKE) -C ctools
+	ctools/objcopy -O binary -R .reginfo -R .note -R .comment -R .mdebug -S $(LINUXDIR)/vmlinux ctools/piggy
+	ctools/lzma_4k e ctools/piggy  ctools/vmlinuz-lzma
+	ctools/mksquashfs router/mipsel-uclibc/target ctools/target.squashfs -noappend -all-root
+	ctools/trx -o image/linux-lzma.trx ctools/vmlinuz-lzma ctools/target.squashfs
+	ctools/trx_asus -i image/linux-lzma.trx -r $(BUILD_NAME),$(KERNEL_VER).$(FS_VER),image/tomato-W1800R_$(V1)$(V2)-$(current_BUILD_DESC).trx
 	@rm -f image/linux-lzma.trx
 	@echo ""
 endif
@@ -1125,6 +1140,8 @@ e3200:
 
 ac66e:
 	@$(MAKE) e MIPS32=r2 NVRAM_64K=y NAND=y AC66U=1 NO_JFFS=y
+w1800rz:
+	@$(MAKE) z MIPS32=r2 NVRAM_64K=y NAND=y W1800R=1 NO_JFFS=y
 endif
 
 setprofile:

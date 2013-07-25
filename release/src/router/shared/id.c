@@ -169,6 +169,7 @@ int check_hw_type(void)
 	case 0xd4cf:
 	case 0xf52c:
 		return HW_BCM4718;
+	case 0x05d8:
 	case 0xf5b2:
 		return HW_BCM4706;
 	case 0x052b:
@@ -470,6 +471,8 @@ int get_model(void)
 	case 56:
 		if (hw == HW_BCM5350) return MODEL_WTR54GS;
 		break;
+	case 60:
+		if (hw == HW_BCM4706) return MODEL_W1800R;
 	}
 
 	return MODEL_UNKNOWN;
