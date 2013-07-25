@@ -166,6 +166,7 @@ obj-$(TCONFIG_ZEBRA) += zebra
 #	obj-$(TCONFIG_IPP2P) += ipp2p
 obj-$(TCONFIG_LZO) += lzo
 obj-$(TCONFIG_OPENVPN) += openvpn
+obj-$(TCONFIG_OPENVPN) += openvpn_plugin_auth_nvram
 obj-$(TCONFIG_EMF) += emf
 obj-$(TCONFIG_EMF) += igs
 
@@ -1604,7 +1605,7 @@ openvpn/.conf: openssl lzo
 	CPPFLAGS="-I$(TOP)/lzo/include -I$(TOP)/openssl/include" \
 	$(CONFIGURE) --prefix= \
 	--with-crypto-library=openssl \
-	--disable-debug --disable-plugins --enable-management --enable-small \
+	--disable-debug --disable-plugin-auth-pam --disable-plugin-down-root --with-plugindir=/lib --enable-management --enable-small \
 	--disable-selinux --disable-socks --enable-password-save \
 	OPENSSL_SSL_CFLAGS="-I$(TOP)/openssl/include" \
 	OPENSSL_SSL_LIBS="-L$(TOP)/openssl -lssl" \
@@ -1622,6 +1623,8 @@ openvpn-install: openvpn
 	install -D openvpn/src/openvpn/.libs/openvpn $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	$(STRIP) -s $(INSTALLDIR)/openvpn/usr/sbin/openvpn
 	chmod 0500 $(INSTALLDIR)/openvpn/usr/sbin/openvpn
+
+openvpn_plugin_auth_nvram:nvram
 
 #shibby
 libcurl/stamp-h1: zlib openssl

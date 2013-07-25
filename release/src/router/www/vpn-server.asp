@@ -20,18 +20,24 @@
 <script type='text/javascript' src='vpn.js'></script>
 <script type='text/javascript'>
 
-//	<% nvram("vpn_server_eas,vpn_server_dns,vpn_server1_poll,vpn_server1_if,vpn_server1_proto,vpn_server1_port,vpn_server1_firewall,vpn_server1_sn,vpn_server1_nm,vpn_server1_local,vpn_server1_remote,vpn_server1_dhcp,vpn_server1_r1,vpn_server1_r2,vpn_server1_crypt,vpn_server1_comp,vpn_server1_cipher,vpn_server1_reneg,vpn_server1_hmac,vpn_server1_plan,vpn_server1_ccd,vpn_server1_c2c,vpn_server1_ccd_excl,vpn_server1_ccd_val,vpn_server1_pdns,vpn_server1_rgw,vpn_server1_custom,vpn_server1_static,vpn_server1_ca,vpn_server1_crt,vpn_server1_key,vpn_server1_dh,vpn_server2_poll,vpn_server2_if,vpn_server2_proto,vpn_server2_port,vpn_server2_firewall,vpn_server2_sn,vpn_server2_nm,vpn_server2_local,vpn_server2_remote,vpn_server2_dhcp,vpn_server2_r1,vpn_server2_r2,vpn_server2_crypt,vpn_server2_comp,vpn_server2_cipher,vpn_server2_reneg,vpn_server2_hmac,vpn_server2_plan,vpn_server2_ccd,vpn_server2_c2c,vpn_server2_ccd_excl,vpn_server2_ccd_val,vpn_server2_pdns,vpn_server2_rgw,vpn_server2_custom,vpn_server2_static,vpn_server2_ca,vpn_server2_crt,vpn_server2_key,vpn_server2_dh"); %>
+//	<% nvram("vpn_server_eas,vpn_server_dns,vpn_server1_poll,vpn_server1_if,vpn_server1_proto,vpn_server1_port,vpn_server1_firewall,vpn_server1_sn,vpn_server1_nm,vpn_server1_local,vpn_server1_remote,vpn_server1_dhcp,vpn_server1_r1,vpn_server1_r2,vpn_server1_crypt,vpn_server1_comp,vpn_server1_cipher,vpn_server1_reneg,vpn_server1_hmac,vpn_server1_plan,vpn_server1_ccd,vpn_server1_c2c,vpn_server1_ccd_excl,vpn_server1_ccd_val,vpn_server1_pdns,vpn_server1_rgw,vpn_server1_userpass,vpn_server1_nocert,vpn_server1_users_val,vpn_server1_custom,vpn_server1_static,vpn_server1_ca,vpn_server1_crt,vpn_server1_key,vpn_server1_dh,vpn_server2_poll,vpn_server2_if,vpn_server2_proto,vpn_server2_port,vpn_server2_firewall,vpn_server2_sn,vpn_server2_nm,vpn_server2_local,vpn_server2_remote,vpn_server2_dhcp,vpn_server2_r1,vpn_server2_r2,vpn_server2_crypt,vpn_server2_comp,vpn_server2_cipher,vpn_server2_reneg,vpn_server2_hmac,vpn_server2_plan,vpn_server2_ccd,vpn_server2_c2c,vpn_server2_ccd_excl,vpn_server2_ccd_val,vpn_server2_pdns,vpn_server2_rgw,vpn_server2_userpass,vpn_server2_nocert,vpn_server2_users_val,vpn_server2_custom,vpn_server2_static,vpn_server2_ca,vpn_server2_crt,vpn_server2_key,vpn_server2_dh"); %>
 
 function CCDGrid() { return this; }
 CCDGrid.prototype = new TomatoGrid;
 
+function UsersGrid() {return this;}
+UsersGrid.prototype = new TomatoGrid;
+
 tabs = [['server1', 'Server 1'],['server2', 'Server 2']];
 sections = [['basic', 'Basic'],['advanced', 'Advanced'],['keys','Keys'],['status','Status']];
 ccdTables = [];
+usersTables = [];
 statusUpdaters = [];
 for (i = 0; i < tabs.length; ++i)
 {
 	ccdTables.push(new CCDGrid());
+	usersTables.push(new UsersGrid());
+	usersTables[i].servername = tabs[i][0];
 	statusUpdaters.push(new StatusUpdater());
 }
 ciphers = [['default','Use Default'],['none','None']];
@@ -166,6 +172,7 @@ function verifyFields(focused, quiet)
 		hmac = E('_vpn_'+t+'_hmac');
 		dhcp = E('_f_vpn_'+t+'_dhcp');
 		ccd = E('_f_vpn_'+t+'_ccd');
+		userpass = E('_f_vpn_'+t+'_userpass');
 		dns = E('_f_vpn_'+t+'_dns');
 
 		elem.display(PR('_vpn_'+t+'_ca'), PR('_vpn_'+t+'_crt'), PR('_vpn_'+t+'_dh'), PR('_vpn_'+t+'_key'),
@@ -177,6 +184,8 @@ function verifyFields(focused, quiet)
 		elem.display(E(t+'_range'), !dhcp.checked);
 		elem.display(PR('_vpn_'+t+'_local'), auth.value == "secret" && iface.value == "tun");
 		elem.display(PR('_f_vpn_'+t+'_ccd'), auth.value == "tls");
+		elem.display(PR('_f_vpn_'+t+'_userpass'), auth.value == "tls");
+		elem.display(PR('_f_vpn_'+t+'_nocert'),PR('table_'+t+'_users'), auth.value == "tls" && userpass.checked);
 		elem.display(PR('_f_vpn_'+t+'_c2c'),PR('_f_vpn_'+t+'_ccd_excl'),PR('table_'+t+'_ccd'), auth.value == "tls" && ccd.checked);
 		elem.display(PR('_f_vpn_'+t+'_pdns'), auth.value == "tls" && dns.checked );
 
@@ -278,6 +287,54 @@ CCDGrid.prototype.reDraw = function()
 	}
 }
 
+UsersGrid.prototype.verifyFields = function(row, quiet)
+{
+	var ret = 1;
+	var fom = E('_fom');
+	var servernum = 1;
+	for (i = 0; i < tabs.length; ++i)
+	{
+		if (usersTables[i] == this)
+		{
+			servernum = i+1;
+			if (eval('vpn'+(i+1)+'up') && fom._service.value.indexOf('server'+(i+1)) < 0)
+			{
+				if ( fom._service.value != "" )
+					fom._service.value += ",";
+				fom._service.value += 'vpnserver'+(i+1)+'-restart';
+			}
+		}
+	}
+	var f = fields.getAll(row);
+
+	// Verify fields in this row of the table
+	if (f[1].value == "") { ferror.set(f[1], "username is mandatory.", quiet); ret = 0; }
+	if (f[1].value.indexOf('>') >= 0 || f[1].value.indexOf('<') >= 0) { ferror.set(f[1], "user name cannot contain '<' or '>' characters.", quiet); ret = 0; }
+	if (f[2].value == "" ) { ferror.set(f[2], "password is mandatory.", quiet); ret = 0; }
+	if (f[2].value.indexOf('>') >= 0 || f[1].value.indexOf('<') >= 0) { ferror.set(f[2], "password cannot contain '<' or '>' characters.", quiet); ret = 0; }
+	return ret;
+}
+UsersGrid.prototype.fieldValuesToData = function(row)
+{
+	var f = fields.getAll(row);
+	return [f[0].checked?1:0, f[1].value, f[2].value];
+}
+UsersGrid.prototype.dataToView = function(data){
+	var temp = ['<input type=\'checkbox\' style="opacity:1" disabled'+(data[0]!=0?' checked':'')+'>',
+	            data[1],
+	            'secert'
+                ];
+
+	var v = [];
+	for (var i = 0; i < temp.length; ++i){
+		v.push(i==0?temp[i]:escapeHTML('' + temp[i]));
+    }
+	return v;
+}
+UsersGrid.prototype.dataToFieldValues = function(data)
+{
+	return [data[0] == 1, data[1], data[2]];
+}
 function save()
 {
 	if (!verifyFields(null, false)) return;
@@ -290,6 +347,7 @@ function save()
 	for (i = 0; i < tabs.length; ++i)
 	{
 		if (ccdTables[i].isEditing()) return;
+		if (usersTables[i].isEditing()) return;
 
 		t = tabs[i][0];
 
@@ -304,6 +362,10 @@ function save()
 
 		for (j = 0; j < data.length; ++j)
 			ccd += data[j].join('<') + '>';
+		var userdata = usersTables[i].getAllData();
+		var users = '';
+		for (j = 0; j < userdata.length; ++j)
+			users += userdata[j].join('<') + '>';
 
 		E('vpn_'+t+'_dhcp').value = E('_f_vpn_'+t+'_dhcp').checked ? 1 : 0;
 		E('vpn_'+t+'_plan').value = E('_f_vpn_'+t+'_plan').checked ? 1 : 0;
@@ -311,6 +373,9 @@ function save()
 		E('vpn_'+t+'_c2c').value = E('_f_vpn_'+t+'_c2c').checked ? 1 : 0;
 		E('vpn_'+t+'_ccd_excl').value = E('_f_vpn_'+t+'_ccd_excl').checked ? 1 : 0;
 		E('vpn_'+t+'_ccd_val').value = ccd;
+		E('vpn_'+t+'_userpass').value = E('_f_vpn_'+t+'_userpass').checked ? 1 : 0;
+		E('vpn_'+t+'_nocert').value = E('_f_vpn_'+t+'_nocert').checked ? 1 : 0;
+		E('vpn_'+t+'_users_val').value = users;
 		E('vpn_'+t+'_pdns').value = E('_f_vpn_'+t+'_pdns').checked ? 1 : 0;
 		E('vpn_'+t+'_rgw').value = E('_f_vpn_'+t+'_rgw').checked ? 1 : 0;
 	}
@@ -346,6 +411,22 @@ function init()
 		}
 		ccdTables[i].showNewEditor();
 		ccdTables[i].resetNewEditor();
+
+		usersTables[i].init('table_' + t + '_users','sort', 0, [{ type: 'checkbox' }, { type: 'text' }, { type: 'text', maxlen: 15 }]);
+		usersTables[i].headerSet(['Enable', 'username', 'password']);
+		var usersVal = eval('nvram.vpn_' + t + '_users_val');
+		if(usersVal.length) {
+			var s = usersVal.split('>');
+			for (var j = 0; j < s.length; ++j)
+			{
+				if (!s[j].length) continue;
+				var row = s[j].split('<');
+				if (row.length == 3)
+					usersTables[i].insertData(-1, row);
+			}
+		}
+		usersTables[i].showNewEditor();
+		usersTables[i].resetNewEditor();
 
 		statusUpdaters[i].init(t+'-status-clients-table',t+'-status-routing-table',t+'-status-stats-table',t+'-status-time',t+'-status-content',t+'-no-status',t+'-status-errors');
 		updateStatus(i);
@@ -413,6 +494,9 @@ for (i = 0; i < tabs.length; ++i)
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_c2c\' name=\'vpn_'+t+'_c2c\'>');
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_ccd_excl\' name=\'vpn_'+t+'_ccd_excl\'>');
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_ccd_val\' name=\'vpn_'+t+'_ccd_val\'>');
+	W('<input type=\'hidden\' id=\'vpn_'+t+'_userpass\' name=\'vpn_'+t+'_userpass\'>');
+	W('<input type=\'hidden\' id=\'vpn_'+t+'_nocert\' name=\'vpn_'+t+'_nocert\'>');
+	W('<input type=\'hidden\' id=\'vpn_'+t+'_users_val\' name=\'vpn_'+t+'_users_val\'>');
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_pdns\' name=\'vpn_'+t+'_pdns\'>');
 	W('<input type=\'hidden\' id=\'vpn_'+t+'_rgw\' name=\'vpn_'+t+'_rgw\'>');
 
@@ -460,6 +544,9 @@ for (i = 0; i < tabs.length; ++i)
 		{ title: 'Allow Client<->Client', name: 'f_vpn_'+t+'_c2c', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_c2c' ) != 0 },
 		{ title: 'Allow Only These Clients', name: 'f_vpn_'+t+'_ccd_excl', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_ccd_excl' ) != 0 },
 		{ title: '', suffix: '<table class=\'tomato-grid\' id=\'table_'+t+'_ccd\'></table>' },
+		{ title: 'Allow User/Pass Auth', name: 'f_vpn_'+t+'_userpass', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_userpass' ) != 0 },
+		{ title: 'Allow Only User/Pass(Without cert) Auth', name: 'f_vpn_'+t+'_nocert', type: 'checkbox', value: eval( 'nvram.vpn_'+t+'_nocert' ) != 0 },
+		{ title: '', suffix: '<table class=\'tomato-grid\' id=\'table_'+t+'_users\'></table>' },
 		{ title: 'Custom Configuration', name: 'vpn_'+t+'_custom', type: 'textarea', value: eval( 'nvram.vpn_'+t+'_custom' ) }
 	]);
 	W('</div>');

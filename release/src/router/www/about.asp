@@ -111,6 +111,8 @@ Copyright (C) 2010 Keith Moyer,<br>
 <a href='mailto:tomatovpn@keithmoyer.com'>tomatovpn@keithmoyer.com</a><br>
 <br>
 <!-- OPENVPN-END -->
+<b>"TomatoEgg" Features:</b><br>
+- Openvpn username/password verify feature and configure GUI.<br>
 
 <b>"Shibby" features:</b><br>
 <!-- BBT-BEGIN -->
