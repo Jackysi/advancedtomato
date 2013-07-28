@@ -1250,6 +1250,9 @@ static int init_nvram(void)
 			nvram_set("pci/2/1/ledbh2", "4");
 			nvram_set("pci/2/1/ledbh3", "11");
 			nvram_set("pci/2/1/ledbh10", "7");
+
+			//force EU country for eth2
+			nvram_set("pci/2/1/ccode", "EU");
 		}
 		break;
 	case MODEL_WNR3500L:
