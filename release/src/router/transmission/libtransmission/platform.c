@@ -7,8 +7,20 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: platform.c 13743 2013-01-03 23:46:35Z jordan $
+ * $Id: platform.c 14110 2013-07-08 17:07:31Z jordan $
  */
+
+#define _XOPEN_SOURCE 600  /* needed for recursive locks. */
+#ifndef __USE_UNIX98
+ #define __USE_UNIX98 /* some older Linuxes need it spelt out for them */
+#endif
+
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h> /* getuid(), close() */
+#include <sys/stat.h>
 
 #ifdef WIN32
  #include <w32api.h>
@@ -22,40 +34,18 @@
  #ifdef __HAIKU__
   #include <FindDirectory.h>
  #endif
- #define _XOPEN_SOURCE 600  /* needed for recursive locks. */
- #ifndef __USE_UNIX98
-  #define __USE_UNIX98 /* some older Linuxes need it spelt out for them */
- #endif
  #include <pthread.h>
 #endif
 
-#include <assert.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
-#ifdef SYS_DARWIN
- #define HAVE_SYS_STATVFS_H
- #define HAVE_STATVFS
-#endif
-
-#include <sys/stat.h>
-#include <sys/types.h>
-#ifdef HAVE_SYS_STATVFS_H
- #include <sys/statvfs.h>
-#endif
 #ifdef WIN32
-#include <libgen.h>
+#include <libgen.h> /* dirname() */
 #endif
-#include <dirent.h>
-#include <fcntl.h>
-#include <unistd.h> /* getuid getpid close */
 
 #include "transmission.h"
 #include "session.h"
 #include "list.h"
+#include "log.h"
 #include "platform.h"
-#include "utils.h"
 
 /***
 ****  THREADS
@@ -267,33 +257,6 @@ getHomeDir (void)
   return home;
 }
 
-static const char *
-getOldConfigDir (void)
-{
-  static char * path = NULL;
-
-  if (!path)
-    {
-#ifdef SYS_DARWIN
-      path = tr_buildPath (getHomeDir (), "Library",
-                           "Application Support",
-                           "Transmission", NULL);
-#elif defined (WIN32)
-      char appdata[MAX_PATH]; /* SHGetFolderPath () requires MAX_PATH */
-      SHGetFolderPath (NULL, CSIDL_APPDATA, NULL, 0, appdata);
-      path = tr_buildPath (appdata, "Transmission", NULL);
-#elif defined (__HAIKU__)
-      char buf[TR_PATH_MAX];
-      find_directory (B_USER_SETTINGS_DIRECTORY, -1, true, buf, sizeof (buf));
-      path = tr_buildPath (buf, "Transmission", NULL);
-#else
-      path = tr_buildPath (getHomeDir (), ".transmission", NULL);
-#endif
-    }
-
-  return path;
-}
-
 #if defined (SYS_DARWIN) || defined (WIN32)
  #define RESUME_SUBDIR  "Resume"
  #define TORRENT_SUBDIR "Torrents"
@@ -301,96 +264,6 @@ getOldConfigDir (void)
  #define RESUME_SUBDIR  "resume"
  #define TORRENT_SUBDIR "torrents"
 #endif
-
-static const char *
-getOldTorrentsDir (void)
-{
-  static char * path = NULL;
-
-  if (!path)
-    path = tr_buildPath (getOldConfigDir (), TORRENT_SUBDIR, NULL);
-
-  return path;
-}
-
-static const char *
-getOldCacheDir (void)
-{
-  static char * path = NULL;
-
-  if (!path)
-    {
-#if defined (WIN32)
-      path = tr_buildPath (getOldConfigDir (), "Cache", NULL);
-#elif defined (SYS_DARWIN)
-      path = tr_buildPath (getHomeDir (), "Library", "Caches", "Transmission", NULL);
-#else
-      path = tr_buildPath (getOldConfigDir (), "cache", NULL);
-#endif
-    }
-
-  return path;
-}
-
-static void
-moveFiles (const char * oldDir, const char * newDir)
-{
-  if (oldDir && newDir && strcmp (oldDir, newDir))
-    {
-      DIR * dirh = opendir (oldDir);
-      if (dirh)
-        {
-          int count = 0;
-          struct dirent * dirp;
-          while ((dirp = readdir (dirh)))
-            {
-              const char * name = dirp->d_name;
-              if (name && strcmp (name, ".") && strcmp (name, ".."))
-                {
-                  char * o = tr_buildPath (oldDir, name, NULL);
-                  char * n = tr_buildPath (newDir, name, NULL);
-                  rename (o, n);
-                  ++count;
-                  tr_free (n);
-                  tr_free (o);
-                }
-            }
-
-          if (count)
-            tr_inf (_("Migrated %1$d files from \"%2$s\" to \"%3$s\""), count, oldDir, newDir);
-
-          closedir (dirh);
-        }
-    }
-}
-
-/**
- * This function is for transmission-gtk users to migrate the config files
- * from $HOME/.transmission/ (where they were kept before Transmission 1.30)
- * to $HOME/.config/$appname as per the XDG directory spec.
- */
-static void
-migrateFiles (const tr_session * session)
-{
-  static int migrated = false;
-  const bool should_migrate = strstr (getOldConfigDir (), ".transmission") != NULL;
-
-  if (!migrated && should_migrate)
-    {
-      const char * oldDir;
-      const char * newDir;
-
-      migrated = true;
-
-      oldDir = getOldTorrentsDir ();
-      newDir = tr_getTorrentDir (session);
-      moveFiles (oldDir, newDir);
-
-      oldDir = getOldCacheDir ();
-      newDir = tr_getResumeDir (session);
-      moveFiles (oldDir, newDir);
-    }
-}
 
 void
 tr_setConfigDir (tr_session * session, const char * configDir)
@@ -406,8 +279,6 @@ tr_setConfigDir (tr_session * session, const char * configDir)
   path = tr_buildPath (configDir, TORRENT_SUBDIR, NULL);
   tr_mkdirp (path, 0777);
   session->torrentDir = path;
-
-  migrateFiles (session);
 }
 
 const char *
@@ -442,7 +313,7 @@ tr_getDefaultConfigDir (const char * appname)
         {
           s = tr_strdup (s);
         }
-        else
+      else
         {
 #ifdef SYS_DARWIN
           s = tr_buildPath (getHomeDir (), "Library", "Application Support", appname, NULL);
@@ -534,7 +405,7 @@ isWebClientDir (const char * path)
   struct stat sb;
   char * tmp = tr_buildPath (path, "index.html", NULL);
   const int ret = !stat (tmp, &sb);
-  tr_inf (_("Searching for web interface file \"%s\""), tmp);
+  tr_logAddInfo (_("Searching for web interface file \"%s\""), tmp);
   tr_free (tmp);
 
   return ret;
@@ -696,30 +567,6 @@ tr_getWebClientDir (const tr_session * session UNUSED)
   return s;
 }
 
-/***
-****
-***/
-
-int64_t
-tr_getFreeSpace (const char * path)
-{
-#ifdef WIN32
-  uint64_t freeBytesAvailable = 0;
-  return GetDiskFreeSpaceEx (path, &freeBytesAvailable, NULL, NULL)
-    ? (int64_t)freeBytesAvailable
-    : -1;
-#elif defined (HAVE_STATVFS)
-  struct statvfs buf;
-  return statvfs (path, &buf) ? -1 : (int64_t)buf.f_bavail * (int64_t)buf.f_frsize;
-#else
-  #warning FIXME: not implemented
-  return -1;
-#endif
-}
-
-/***
-****
-***/
 
 #ifdef WIN32
 

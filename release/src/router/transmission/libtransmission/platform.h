@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: platform.h 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: platform.h 14110 2013-07-08 17:07:31Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -41,10 +41,6 @@ const char * tr_getTorrentDir (const tr_session *);
 
 /** @brief return the directory where the Web Client's web ui files are kept */
 const char * tr_getWebClientDir (const tr_session *);
-
-/** @brief return the number of bytes available for use in the specified path, or -1 on error */
-int64_t tr_getFreeSpace (const char * path);
-
 
 /** @} */
 

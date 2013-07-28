@@ -7,13 +7,13 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: create.c 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: create.c 13868 2013-01-25 23:34:20Z jordan $
  */
 
 #include <errno.h>
-#include <stdio.h> /* fprintf () */
-#include <stdlib.h> /* EXIT_FAILURE */
-#include <unistd.h> /* getcwd () */
+#include <stdio.h> /* fprintf() */
+#include <stdlib.h> /* strtoul(), EXIT_FAILURE */
+#include <unistd.h> /* getcwd() */
 
 #include <libtransmission/transmission.h>
 #include <libtransmission/makemeta.h>
@@ -24,18 +24,21 @@
 #define MY_NAME "transmission-create"
 
 #define MAX_TRACKERS 128
+static const uint32_t KiB = 1024;
 static tr_tracker_info trackers[MAX_TRACKERS];
 static int trackerCount = 0;
 static bool isPrivate = false;
 static bool showVersion = false;
-const char * comment = NULL;
-const char * outfile = NULL;
-const char * infile = NULL;
+static const char * comment = NULL;
+static const char * outfile = NULL;
+static const char * infile = NULL;
+static uint32_t piecesize_kib = 0;
 
 static tr_option options[] =
 {
   { 'p', "private", "Allow this torrent to only be used with the specified tracker(s)", "p", 0, NULL },
   { 'o', "outfile", "Save the generated .torrent to this filename", "o", 1, "<file>" },
+  { 's', "piecesize", "Set how many KiB each piece should be, overriding the preferred default", "s", 1, "<size in KiB>" },
   { 'c', "comment", "Add a comment", "c", 1, "<comment>" },
   { 't', "tracker", "Add a tracker's announce URL", "t", 1, "<url>" },
   { 'V', "version", "Show version number and exit", "V", 0, NULL },
@@ -83,6 +86,16 @@ parseCommandLine (int argc, const char ** argv)
               }
             break;
 
+          case 's':
+            if (optarg) 
+              { 
+                char * endptr = NULL;
+                piecesize_kib = strtoul (optarg, &endptr, 10);
+                if (endptr && *endptr=='M')
+                  piecesize_kib *= KiB; 
+              }
+            break;
+
           case TR_OPT_UNK:
             infile = optarg;
             break;
@@ -122,7 +135,7 @@ main (int argc, char * argv[])
   char * out2 = NULL;
   tr_metainfo_builder * b = NULL;
 
-  tr_setMessageLevel (TR_MSG_ERR);
+  tr_logSetLevel (TR_LOG_ERROR);
 
   if (parseCommandLine (argc, (const char**)argv))
     return EXIT_FAILURE;
@@ -169,6 +182,10 @@ main (int argc, char * argv[])
   fflush (stdout);
 
   b = tr_metaInfoBuilderCreate (infile);
+
+  if (piecesize_kib != 0)
+    tr_metaInfoBuilderSetPieceSize (b, piecesize_kib * KiB);
+
   tr_makeMetaInfo (b, outfile, trackers, trackerCount, comment, isPrivate);
   while (!b->isDone)
     {

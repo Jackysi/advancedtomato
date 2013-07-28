@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: NSStringAdditions.h 13162 2012-01-14 17:12:04Z livings124 $
+ * $Id: NSStringAdditions.h 14045 2013-03-07 23:55:31Z livings124 $
  *
  * Copyright (c) 2005-2012 Transmission authors and contributors
  *
@@ -45,6 +45,6 @@
 
 - (NSComparisonResult) compareNumeric: (NSString *) string; //simple compare method for strings with numbers (works for IP addresses)
 
-- (NSArray *) betterComponentsSeparatedByCharactersInSet: (NSCharacterSet *) separator; //like betterComponentsSeparatedByCharactersInSet:, but excludes blank values
+- (NSArray *) betterComponentsSeparatedByCharactersInSet: (NSCharacterSet *) separators; //like componentsSeparatedByCharactersInSet:, but excludes blank values
 
 @end

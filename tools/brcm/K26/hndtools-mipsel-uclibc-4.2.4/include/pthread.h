@@ -179,6 +179,21 @@ extern void pthread_exit (void *__retval) __attribute__ ((__noreturn__));
    is not NULL.  */
 extern int pthread_join (pthread_t __th, void **__thread_return);
 
+#ifdef __USE_GNU
+/* Check whether thread TH has terminated.  If yes return the status of
+   the thread in *THREAD_RETURN, if THREAD_RETURN is not NULL.  */
+extern int pthread_tryjoin_np (pthread_t __th, void **__thread_return) __THROW;
+
+/* Make calling thread wait for termination of the thread TH, but only
+   until TIMEOUT.  The exit status of the thread is stored in
+   *THREAD_RETURN, if THREAD_RETURN is not NULL.
+
+   This function is a cancellation point and therefore not marked with
+   __THROW.  */
+extern int pthread_timedjoin_np (pthread_t __th, void **__thread_return,
+				 __const struct timespec *__abstime);
+#endif
+
 /* Indicate that the thread TH is never to be joined with PTHREAD_JOIN.
    The resources of TH will therefore be freed immediately when it
    terminates, instead of waiting for another thread to perform PTHREAD_JOIN

@@ -542,6 +542,10 @@ define BusyboxOptions
 		echo "CONFIG_MKNOD=y" >>$(1); \
 		sed -i "/CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE/d" $(1); \
 		echo "CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE=512" >>$(1); \
+	else \
+		sed -i "/CONFIG_UDHCPC=y/d" $(1); \
+		echo "CONFIG_UDHCPC_OLD=y" >>$(1); \
+		echo "# CONFIG_UDHCPC is not set" >>$(1); \
 	fi; \
 	if [ "$(NO_CIFS)" = "y" ]; then \
 		sed -i "/CONFIG_FEATURE_MOUNT_CIFS/d" $(1); \

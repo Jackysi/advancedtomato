@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: ptrarray.h 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: ptrarray.h 13826 2013-01-21 21:14:14Z jordan $
  */
 
 #ifndef __TRANSMISSION__
@@ -37,7 +37,11 @@ typedef struct tr_ptrArray
 }
 tr_ptrArray;
 
+typedef int (*PtrArrayCompareFunc)(const void * a, const void * b);
+
 typedef void (*PtrArrayForeachFunc)(void *);
+
+#define TR_PTR_ARRAY_INIT_STATIC { NULL, 0, 0 }
 
 extern const tr_ptrArray TR_PTR_ARRAY_INIT;
 

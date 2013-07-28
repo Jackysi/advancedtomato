@@ -71,6 +71,8 @@ var services = [
 	['tzo', 'TZO', 'http://www.tzo.com/', 'uh', 'Email Address', 'Password'],
 	['zoneedit', 'ZoneEdit', 'http://www.zoneedit.com/', 'uh'],
 	['szoneedit', 'ZoneEdit (https)', 'http://www.zoneedit.com/', 'uh'],
+        ['pairnic', 'pairNIC', 'http://www.pairnic.com/', 'uh'],
+        ['spairnic', 'pairNIC (https)', 'http://www.pairnic.com/', 'uh'],
 	['custom', 'Custom URL', '', 'c']];
 
 var opendns = ['208.67.222.222', '208.67.220.220'];

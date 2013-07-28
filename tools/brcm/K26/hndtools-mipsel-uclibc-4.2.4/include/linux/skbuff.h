@@ -142,6 +142,11 @@ struct skb_shared_info {
 	unsigned short  gso_type;
 	__be32          ip6_frag_id;
 	struct sk_buff	*frag_list;
+
+	/* Intermediate layers must ensure that destructor_arg
+	 * remains valid until skb destructor */
+	void *		destructor_arg;
+
 	/* must be last field, see pskb_expand_head() */
 	skb_frag_t	frags[MAX_SKB_FRAGS];
 };
@@ -237,6 +242,7 @@ typedef unsigned char *sk_buff_data_t;
  *	@dma_cookie: a cookie to one of several possible DMA operations
  *		done by skb DMA functions
  *	@secmark: security marking
+ *	@vlan_tci: vlan tag control information
  */
 
 struct sk_buff {
@@ -264,11 +270,11 @@ struct sk_buff {
 	unsigned int		len,
 				data_len;
 #ifdef HNDCTF
-	__u16			ctf_mac_len,	/* This field is used by Broadcom CTF driver! */
+	unsigned int		ctf_mac_len;	/* This field is used by Broadcom CTF driver! */
 #else
 	__u16			mac_len,
-#endif
 				hdr_len;
+#endif
 	union {
 		__wsum		csum;
 		struct {
@@ -306,19 +312,20 @@ struct sk_buff {
 	struct nf_conntrack	*nfct;
 	struct sk_buff		*nfct_reasm;
 	/* Cache info */
-	__u16			nfcache;
+	__u32			nfcache;
 #endif
 #ifdef HNDCTF
-	__u16			mac_len;
+	__u16			mac_len,
+				hdr_len;
 #endif
 #ifdef CONFIG_BRIDGE_NETFILTER
 	struct nf_bridge_info	*nf_bridge;
 #endif
 #ifdef CONFIG_NET_SCHED
 	__u16			tc_index;	/* traffic control index */
-//#ifdef CONFIG_NET_CLS_ACT
+#ifdef CONFIG_NET_CLS_ACT
 	__u16			tc_verd;	/* traffic control verdict */
-//#endif
+#endif
 #endif
 #ifdef CONFIG_NET_DMA
 	dma_cookie_t		dma_cookie;
@@ -326,8 +333,9 @@ struct sk_buff {
 #ifdef CONFIG_NETWORK_SECMARK
 	__u32			secmark;
 #endif
+	__u16			vlan_tci;
 #if defined(CONFIG_IMQ) || defined(CONFIG_IMQ_MODULE)
-	unsigned char		imq_flags;
+	__u8			imq_flags;
 	struct nf_info		*nf_info;
 #endif
 };
@@ -356,7 +364,7 @@ static inline struct sk_buff *alloc_skb_fclone(unsigned int size,
 	return __alloc_skb(size, priority, 1, -1);
 }
 
-extern void	       kfree_skbmem(struct sk_buff *skb);
+extern struct sk_buff *skb_morph(struct sk_buff *dst, struct sk_buff *src);
 extern struct sk_buff *skb_clone(struct sk_buff *skb,
 				 gfp_t priority);
 extern struct sk_buff *skb_copy(const struct sk_buff *skb,
@@ -1622,6 +1630,8 @@ extern int	       skb_copy_and_csum_datagram_iovec(struct sk_buff *skb,
 							int hlen,
 							struct iovec *iov);
 extern void	       skb_free_datagram(struct sock *sk, struct sk_buff *skb);
+extern void	       skb_free_datagram_locked(struct sock *sk,
+						struct sk_buff *skb);
 extern void	       skb_kill_datagram(struct sock *sk, struct sk_buff *skb,
 					 unsigned int flags);
 extern __wsum	       skb_checksum(const struct sk_buff *skb, int offset,

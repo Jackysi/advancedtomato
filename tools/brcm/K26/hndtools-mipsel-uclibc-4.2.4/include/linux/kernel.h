@@ -107,7 +107,7 @@ extern int cond_resched(void);
 extern struct atomic_notifier_head panic_notifier_list;
 extern long (*panic_blink)(long time);
 NORET_TYPE void panic(const char * fmt, ...)
-	__attribute__ ((NORET_AND format (printf, 1, 2)));
+	__attribute__ ((NORET_AND format (printf, 1, 2))) __cold;
 extern void oops_enter(void);
 extern void oops_exit(void);
 extern int oops_may_print(void);
@@ -157,6 +157,19 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	__attribute__ ((format (printf, 1, 0)));
 asmlinkage int printk(const char * fmt, ...)
 	__attribute__ ((format (printf, 1, 2)));
+
+/*
+ * Print a one-time message (analogous to WARN_ONCE() et al):
+ */
+#define printk_once(x...) ({			\
+	static bool __print_once;		\
+						\
+	if (!__print_once) {			\
+		__print_once = true;		\
+		printk(x);			\
+	}					\
+})
+
 #else
 static inline int vprintk(const char *s, va_list args)
 	__attribute__ ((format (printf, 1, 0)));
@@ -164,6 +177,10 @@ static inline int vprintk(const char *s, va_list args) { return 0; }
 static inline int printk(const char *s, ...)
 	__attribute__ ((format (printf, 1, 2)));
 static inline int printk(const char *s, ...) { return 0; }
+
+/* No effect, but we still get type checking even in the !PRINTK case: */
+#define printk_once(x...) printk(x)
+
 #endif
 
 unsigned long int_sqrt(unsigned long);
@@ -212,7 +229,7 @@ extern enum system_states {
 #define TAINT_BAD_PAGE			(1<<5)
 #define TAINT_USER			(1<<6)
 
-extern void dump_stack(void);
+extern void dump_stack(void) __cold;
 
 enum {
 	DUMP_PREFIX_NONE,
@@ -250,6 +267,18 @@ static inline int __attribute__ ((format (printf, 1, 2))) pr_debug(const char * 
 }
 #endif
 
+#define pr_emerg(fmt,arg...) \
+        printk(KERN_EMERG fmt, ##arg)
+#define pr_alert(fmt,arg...) \
+        printk(KERN_ALERT fmt, ##arg)
+#define pr_crit(fmt,arg...) \
+        printk(KERN_CRIT fmt, ##arg)
+#define pr_err(fmt,arg...) \
+        printk(KERN_ERR fmt, ##arg)
+#define pr_warning(fmt,arg...) \
+        printk(KERN_WARNING fmt, ##arg)
+#define pr_notice(fmt,arg...) \
+        printk(KERN_NOTICE fmt, ##arg)
 #define pr_info(fmt,arg...) \
 	printk(KERN_INFO fmt,##arg)
 

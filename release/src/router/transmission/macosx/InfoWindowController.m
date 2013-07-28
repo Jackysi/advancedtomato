@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: InfoWindowController.m 13434 2012-08-13 00:52:04Z livings124 $
+ * $Id: InfoWindowController.m 13873 2013-01-26 19:52:08Z livings124 $
  *
  * Copyright (c) 2006-2012 Transmission authors and contributors
  *
@@ -543,7 +543,8 @@ typedef enum
 
 - (void) resetInfoForTorrent: (NSNotification *) notification
 {
-    if (fTorrents && [fTorrents containsObject: [notification object]])
+    Torrent * torrent = [[notification userInfo] objectForKey: @"Torrent"];
+    if (fTorrents && (!torrent || [fTorrents containsObject: torrent]))
         [self resetInfo];
 }
 

@@ -3,8 +3,8 @@ dnl STATUS: "X" for prerelease beta builds,
 dnl         "Z" for unsupported trunk builds,
 dnl         "0" for stable, supported releases
 dnl these should be the only two lines you need to change
-m4_define([user_agent_prefix],[2.77])
-m4_define([peer_id_prefix],[-TR2770-])
+m4_define([user_agent_prefix],[2.81])
+m4_define([peer_id_prefix],[-TR2810-])
 
 AC_INIT([transmission],[user_agent_prefix],[http://trac.transmissionbt.com/newticket])
 AC_SUBST(USERAGENT_PREFIX,[user_agent_prefix])
@@ -16,7 +16,7 @@ AC_CONFIG_MACRO_DIR([m4])
 
 dnl AM_CONFIG_HEADER(config.h)
 AC_CONFIG_SRCDIR(libtransmission/transmission.h)
-AM_INIT_AUTOMAKE([1.9 tar-pax])
+AM_INIT_AUTOMAKE([1.9 tar-pax no-dist-gzip dist-xz])
 LT_INIT
 
 if test m4_substr(peer_id_prefix,6,1) = "0"; then
@@ -125,6 +125,7 @@ AC_PATH_ZLIB
 AC_SYS_LARGEFILE
 AC_CHECK_FUNCS([lseek64])
 
+AC_FUNC_GETMNTENT
 
 dnl ----------------------------------------------------------------------------
 dnl
@@ -173,6 +174,25 @@ fi
 
 AC_CHECK_HEADERS([sys/statvfs.h \
                   xfs/xfs.h])
+
+
+dnl ----------------------------------------------------------------------------
+dnl
+dnl file monitoring for the daemon
+
+# Check whether to enable systemd startup notification.
+# This requires libsystemd-daemon.
+AC_ARG_WITH([systemd-daemon], AS_HELP_STRING([--with-systemd-daemon],
+            [Add support for systemd startup notification (default is autodetected)])
+            [USE_SYSTEMD_DAEMON=$withval], [USE_SYSTEMD_DAEMON=auto])
+AS_IF([test "x$USE_SYSTEMD_DAEMON" != "xno"], [
+    PKG_CHECK_MODULES([SYSTEMD_DAEMON], [libsystemd-daemon],
+        [AC_DEFINE(USE_SYSTEMD_DAEMON,1,[Use systemd startup notification])],
+        [AS_IF([test "x$USE_SYSTEMD_DAEMON" = "xyes"],
+            [AC_MSG_ERROR([systemd startup notification support requested, but libsystemd-daemon not found.])]
+        )]
+    )
+])
 
 
 dnl ----------------------------------------------------------------------------
@@ -470,6 +490,7 @@ EOF
 fi
 if test "x$have_darwin" = "xyes"; then
     AC_DEFINE([HAVE_DARWIN], 1)
+    AC_DEFINE([SYS_DARWIN], 1)
 fi
 if test "x$have_msw" = "xyes"; then
     AC_DEFINE([HAVE_MSW], 1)

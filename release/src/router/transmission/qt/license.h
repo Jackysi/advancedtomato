@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: license.h 11092 2010-08-01 20:36:13Z charles $
+ * $Id: license.h 13944 2013-02-03 19:40:20Z jordan $
  */
 
 #ifndef LICENSE_DIALOG_H
@@ -17,12 +17,11 @@
 
 class LicenseDialog: public QDialog
 {
-        Q_OBJECT
+    Q_OBJECT
 
-    public:
-        LicenseDialog( QWidget * parent = 0 );
-        ~LicenseDialog( ) { }
-
+  public:
+    LicenseDialog (QWidget * parent = 0);
+    ~LicenseDialog () {}
 };
 
 #endif

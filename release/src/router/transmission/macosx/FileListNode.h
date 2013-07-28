@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: FileListNode.h 13251 2012-03-13 02:52:11Z livings124 $
+ * $Id: FileListNode.h 14036 2013-02-19 01:29:25Z livings124 $
  *
  * Copyright (c) 2008-2012 Transmission authors and contributors
  *
@@ -30,24 +30,26 @@
 {
     NSMutableIndexSet * fIndexes;
     
-    NSMutableArray * fChildren;
-    
     NSString * fName;
     NSString * fPath;
     Torrent * fTorrent;
     uint64_t fSize;
     NSImage * fIcon;
     BOOL fIsFolder;
+    NSMutableArray * fChildren;
 }
 
-@property (nonatomic, readonly) NSString * name;
-@property (nonatomic, readonly) NSString * path;
+@property (nonatomic, copy, readonly) NSString * name;
+@property (nonatomic, copy, readonly) NSString * path;
 
 @property (nonatomic, readonly) Torrent * torrent;
 
 @property (nonatomic, readonly) uint64_t size;
-@property (nonatomic, readonly) NSImage * icon;
+@property (nonatomic, retain, readonly) NSImage * icon;
 @property (nonatomic, readonly) BOOL isFolder;
+@property (nonatomic, retain, readonly) NSMutableArray * children;
+
+@property (nonatomic, retain, readonly) NSIndexSet * indexes;
 
 - (id) initWithFolderName: (NSString *) name path: (NSString *) path torrent: (Torrent *) torrent;
 - (id) initWithFileName: (NSString *) name path: (NSString *) path size: (uint64_t) size index: (NSUInteger) index torrent: (Torrent *) torrent;
@@ -57,8 +59,6 @@
 
 - (NSString *) description;
 
-- (NSIndexSet *) indexes;
-
-- (NSMutableArray *) children;
+- (BOOL) updateFromOldName: (NSString *) oldName toNewName: (NSString *) newName inPath: (NSString *) path;
 
 @end

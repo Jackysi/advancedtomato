@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: hig.c 13739 2013-01-03 23:41:02Z jordan $
+ * $Id: hig.c 13677 2012-12-16 22:51:29Z jordan $
  */
 
 #include <gtk/gtk.h>

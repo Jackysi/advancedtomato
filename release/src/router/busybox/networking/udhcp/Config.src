@@ -113,13 +113,6 @@ config FEATURE_UDHCP_RFC3397
 	  search lists via option 119, specified in RFC 3397,
 	  and SIP servers option 120, specified in RFC 3361.
 
-config FEATURE_UDHCP_RFC5969
-	bool "Support for RFC5969 IPv6 Rapid Deployment (6RD)"
-	default y
-	depends on FEATURE_IPV6 && UDHCPC
-	help
-	  None.
-
 config FEATURE_UDHCP_8021Q
 	bool "Support for 802.1Q VLAN parameters"
 	default y

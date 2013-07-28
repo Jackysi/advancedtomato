@@ -550,11 +550,10 @@ get_unique_tuple(struct nf_conntrack_tuple *tuple,
 	   This is only required for source (ie. NAT/masq) mappings.
 	   So far, we don't do local source mappings, so multiple
 	   manips not an issue.  */
-	if (maniptype == IP_NAT_MANIP_SRC) {
+	if (maniptype == IP_NAT_MANIP_SRC && !(range->flags & IP_NAT_RANGE_PROTO_RANDOM)) {
 		if (find_appropriate_src(orig_tuple, tuple, range)) {
 			DEBUGP("get_unique_tuple: Found current src map\n");
-			if (!(range->flags & IP_NAT_RANGE_PROTO_RANDOM))
-				if (!nf_nat_used_tuple(tuple, ct))
+		if (!nf_nat_used_tuple(tuple, ct))
 					return;
 		}
 	}

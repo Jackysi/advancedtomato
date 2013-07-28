@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: verify.c 13631 2012-12-07 01:53:31Z jordan $
+ * $Id: verify.c 13915 2013-02-01 00:21:30Z jordan $
  */
 
 #include <string.h> /* memcmp () */
@@ -24,6 +24,7 @@
 #include "completion.h"
 #include "fdlimit.h"
 #include "list.h"
+#include "log.h"
 #include "platform.h" /* tr_lock () */
 #include "torrent.h"
 #include "utils.h" /* tr_valloc (), tr_free () */
@@ -58,7 +59,7 @@ verifyTorrent (tr_torrent * tor, bool * stopFlag)
 
   SHA1_Init (&sha);
 
-  tr_tordbg (tor, "%s", "verifying torrent...");
+  tr_logAddTorDbg (tor, "%s", "verifying torrent...");
   tr_torrentSetChecked (tor, 0);
   while (!*stopFlag && (pieceIndex < tor->info.pieceCount))
     {
@@ -159,7 +160,7 @@ verifyTorrent (tr_torrent * tor, bool * stopFlag)
 
   /* stopwatch */
   end = tr_time ();
-  tr_tordbg (tor, "Verification is done. It took %d seconds to verify %"PRIu64" bytes (%"PRIu64" bytes per second)",
+  tr_logAddTorDbg (tor, "Verification is done. It took %d seconds to verify %"PRIu64" bytes (%"PRIu64" bytes per second)",
              (int)(end-begin), tor->info.totalSize,
              (uint64_t)(tor->info.totalSize/ (1+ (end-begin))));
 
@@ -172,19 +173,11 @@ verifyTorrent (tr_torrent * tor, bool * stopFlag)
 
 struct verify_node
 {
-  tr_torrent *         torrent;
-  tr_verify_done_cb    verify_done_cb;
-  uint64_t             current_size;
+  tr_torrent          * torrent;
+  tr_verify_done_func   callback_func;
+  void                * callback_data;
+  uint64_t              current_size;
 };
-
-static void
-fireCheckDone (tr_torrent * tor, tr_verify_done_cb verify_done_cb)
-{
-  assert (tr_isTorrent (tor));
-
-  if (verify_done_cb)
-    verify_done_cb (tor);
-}
 
 static struct verify_node currentNode;
 static tr_list * verifyList = NULL;
@@ -226,18 +219,17 @@ verifyThreadFunc (void * unused UNUSED)
       tr_free (node);
       tr_lockUnlock (getVerifyLock ());
 
-      tr_torinf (tor, "%s", _("Verifying torrent"));
+      tr_logAddTorInfo (tor, "%s", _("Verifying torrent"));
       tr_torrentSetVerifyState (tor, TR_VERIFY_NOW);
       changed = verifyTorrent (tor, &stopCurrent);
       tr_torrentSetVerifyState (tor, TR_VERIFY_NONE);
       assert (tr_isTorrent (tor));
 
-      if (!stopCurrent)
-        {
-          if (changed)
-            tr_torrentSetDirty (tor);
-          fireCheckDone (tor, currentNode.verify_done_cb);
-        }
+      if (!stopCurrent && changed)
+        tr_torrentSetDirty (tor);
+
+      if (currentNode.callback_func)
+        (*currentNode.callback_func)(tor, stopCurrent, currentNode.callback_data);
     }
 
   verifyThread = NULL;
@@ -265,16 +257,19 @@ compareVerifyByPriorityAndSize (const void * va, const void * vb)
 }
 
 void
-tr_verifyAdd (tr_torrent * tor, tr_verify_done_cb verify_done_cb)
+tr_verifyAdd (tr_torrent           * tor,
+              tr_verify_done_func    callback_func,
+              void                 * callback_data)
 {
   struct verify_node * node;
 
   assert (tr_isTorrent (tor));
-  tr_torinf (tor, "%s", _("Queued for verification"));
+  tr_logAddTorInfo (tor, "%s", _("Queued for verification"));
 
   node = tr_new (struct verify_node, 1);
   node->torrent = tor;
-  node->verify_done_cb = verify_done_cb;
+  node->callback_func = callback_func;
+  node->callback_data = callback_data;
   node->current_size = tr_torrentGetCurrentSizeOnDisk (tor);
 
   tr_lockLock (getVerifyLock ());
@@ -314,8 +309,17 @@ tr_verifyRemove (tr_torrent * tor)
     }
   else
     {
-      tr_free (tr_list_remove (&verifyList, tor, compareVerifyByTorrent));
+      struct verify_node * node = tr_list_remove (&verifyList, tor, compareVerifyByTorrent);
+
       tr_torrentSetVerifyState (tor, TR_VERIFY_NONE);
+
+      if (node != NULL)
+        {
+          if (node->callback_func != NULL)
+            (*node->callback_func)(tor, true, node->callback_data);
+
+          tr_free (node);
+        }
     }
 
   tr_lockUnlock (lock);

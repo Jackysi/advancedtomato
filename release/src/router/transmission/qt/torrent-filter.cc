@@ -7,9 +7,10 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: torrent-filter.cc 12653 2011-08-08 16:58:29Z jordan $
+ * $Id: torrent-filter.cc 13896 2013-01-30 00:20:51Z jordan $
  */
 
+#include <algorithm>
 #include <iostream>
 
 #include "filters.h"
@@ -99,12 +100,14 @@ TorrentFilter :: lessThan( const QModelIndex& left, const QModelIndex& right ) c
             break;
         case SortMode :: SORT_BY_ACTIVITY:
             if( !val ) val = compare( a->downloadSpeed() + a->uploadSpeed(), b->downloadSpeed() + b->uploadSpeed() );
-            if( !val ) val = compare( a->uploadedEver(), b->uploadedEver() );
+            if( !val ) val = compare( a->peersWeAreUploadingTo() + a->webseedsWeAreDownloadingFrom(),
+                                      b->peersWeAreUploadingTo() + b->webseedsWeAreDownloadingFrom());
             // fall through
         case SortMode :: SORT_BY_STATE:
-            if( !val ) val = compare( a->hasError(), b->hasError() );
+            if( !val ) val = -compare( a->isPaused(), b->isPaused() );
             if( !val ) val = compare( a->getActivity(), b->getActivity() );
             if( !val ) val = -compare( a->queuePosition(), b->queuePosition() );
+            if( !val ) val = compare( a->hasError(), b->hasError() );
             // fall through
         case SortMode :: SORT_BY_PROGRESS:
             if( !val ) val = compare( a->percentComplete(), b->percentComplete() );
@@ -205,19 +208,21 @@ TorrentFilter :: hiddenRowCount( ) const
     return sourceModel()->rowCount( ) - rowCount( );
 }
 
-int
-TorrentFilter :: count( const FilterMode& mode ) const
+void
+TorrentFilter :: countTorrentsPerMode (int * setmeCounts) const
 {
-    int count = 0;
+  std::fill_n (setmeCounts, FilterMode::NUM_MODES, 0);
 
-    for( int row=0; ; ++row ) {
-        QModelIndex index = sourceModel()->index( row, 0 );
-        if( !index.isValid( ) )
-            break;
-        const Torrent * tor = index.data( TorrentModel::TorrentRole ).value<const Torrent*>();
-        if( activityFilterAcceptsTorrent( tor, mode ) )
-            ++count;
+  for (int row(0); ; ++row)
+    { 
+      QModelIndex index (sourceModel()->index(row, 0));
+      if (!index.isValid())
+        break;
+
+      const Torrent * tor (index.data( TorrentModel::TorrentRole ).value<const Torrent*>());
+      for (int mode(0); mode<FilterMode::NUM_MODES; ++mode)
+        if (activityFilterAcceptsTorrent (tor, mode))
+          ++setmeCounts[mode];
     }
-
-    return count;
 }
+

@@ -7,7 +7,7 @@
  *
  * http://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  *
- * $Id: show.c 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: show.c 13868 2013-01-25 23:34:20Z jordan $
  */
 
 #include <stdio.h> /* fprintf () */
@@ -21,10 +21,10 @@
 #include <event2/buffer.h>
 
 #include <libtransmission/transmission.h>
-#include <libtransmission/bencode.h>
 #include <libtransmission/tr-getopt.h>
 #include <libtransmission/utils.h>
 #include <libtransmission/web.h> /* tr_webGetResponseStr () */
+#include <libtransmission/variant.h>
 #include <libtransmission/version.h>
 
 #define MY_NAME "transmission-show"
@@ -122,7 +122,7 @@ compare_files_by_name (const void * va, const void * vb)
 static void
 showInfo (const tr_info * inf)
 {
-  int i;
+  unsigned int i;
   char buf[128];
   tr_file ** files;
   int prevTier = -1;
@@ -185,10 +185,10 @@ showInfo (const tr_info * inf)
 
   printf ("\nFILES\n\n");
   files = tr_new (tr_file*, inf->fileCount);
-  for (i=0; i< (int)inf->fileCount; ++i)
+  for (i=0; i<inf->fileCount; ++i)
     files[i] = &inf->files[i];
   qsort (files, inf->fileCount, sizeof (tr_file*), compare_files_by_name);
-  for (i=0; i< (int)inf->fileCount; ++i)
+  for (i=0; i<inf->fileCount; ++i)
     printf ("  %s (%s)\n", files[i]->name, tr_formatter_size_B (buf, files[i]->length, sizeof (buf)));
   tr_free (files);
 }
@@ -217,7 +217,7 @@ tr_curl_easy_init (struct evbuffer * writebuf)
 static void
 doScrape (const tr_info * inf)
 {
-  int i;
+  unsigned int i;
 
   for (i=0; i<inf->trackerCount; ++i)
     {
@@ -262,35 +262,34 @@ doScrape (const tr_info * inf)
             }
           else /* HTTP OK */
             {
-              tr_benc top;
-              tr_benc * files;
+              tr_variant top;
+              tr_variant * files;
               bool matched = false;
               const char * begin = (const char*) evbuffer_pullup (buf, -1);
-              const char * end = begin + evbuffer_get_length (buf);
 
-              if (!tr_bencParse (begin, end, &top, NULL))
+              if (!tr_variantFromBenc (&top, begin, evbuffer_get_length(buf)))
                 {
-                  if (tr_bencDictFindDict (&top, "files", &files))
+                  if (tr_variantDictFindDict (&top, TR_KEY_files, &files))
                     {
                       int i = 0;
-                      tr_benc * val;
-                      const char * key;
+                      tr_quark key;
+                      tr_variant * val;
 
-                      while (tr_bencDictChild (files, i++, &key, &val))
+                      while (tr_variantDictChild (files, i++, &key, &val))
                         {
-                          if (!memcmp (inf->hash, key, SHA_DIGEST_LENGTH))
+                          if (!memcmp (inf->hash, tr_quark_get_string(key,NULL), SHA_DIGEST_LENGTH))
                             {
                               int64_t seeders = -1;
                               int64_t leechers = -1;
-                              tr_bencDictFindInt (val, "complete", &seeders);
-                              tr_bencDictFindInt (val, "incomplete", &leechers);
+                              tr_variantDictFindInt (val, TR_KEY_complete, &seeders);
+                              tr_variantDictFindInt (val, TR_KEY_incomplete, &leechers);
                               printf ("%d seeders, %d leechers\n", (int)seeders, (int)leechers);
                               matched = true;
                             }
                         }
                     }
 
-                  tr_bencFree (&top);
+                  tr_variantFree (&top);
                 }
 
               if (!matched)
@@ -311,7 +310,7 @@ main (int argc, char * argv[])
   tr_info inf;
   tr_ctor * ctor;
 
-  tr_setMessageLevel (TR_MSG_ERR);
+  tr_logSetLevel (TR_LOG_ERROR);
   tr_formatter_mem_init (MEM_K, MEM_K_STR, MEM_M_STR, MEM_G_STR, MEM_T_STR);
   tr_formatter_size_init (DISK_K, DISK_K_STR, DISK_M_STR, DISK_G_STR, DISK_T_STR);
   tr_formatter_speed_init (SPEED_K, SPEED_K_STR, SPEED_M_STR, SPEED_G_STR, SPEED_T_STR);

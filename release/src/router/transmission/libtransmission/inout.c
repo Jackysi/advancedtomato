@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: inout.c 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: inout.c 13868 2013-01-25 23:34:20Z jordan $
  */
 
 #include <assert.h>
@@ -21,6 +21,7 @@
 #include "cache.h" /* tr_cacheReadBlock () */
 #include "fdlimit.h"
 #include "inout.h"
+#include "log.h"
 #include "peer-common.h" /* MAX_BLOCK_SIZE */
 #include "stats.h" /* tr_statsFileCreated () */
 #include "torrent.h"
@@ -99,7 +100,7 @@ readOrWriteBytes (tr_session       * session,
                                         prealloc, file->length))) < 0)
             {
               err = errno;
-              tr_torerr (tor, "tr_fdFileCheckout failed for \"%s\": %s",
+              tr_logAddTorErr (tor, "tr_fdFileCheckout failed for \"%s\": %s",
                          filename, tr_strerror (err));
             }
           else if (doWrite)
@@ -126,7 +127,7 @@ readOrWriteBytes (tr_session       * session,
           if (rc < 0)
             {
               err = errno;
-              tr_torerr (tor, "read failed for \"%s\": %s", file->name, tr_strerror (err));
+              tr_logAddTorErr (tor, "read failed for \"%s\": %s", file->name, tr_strerror (err));
             }
         }
       else if (ioMode == TR_IO_WRITE)
@@ -135,7 +136,7 @@ readOrWriteBytes (tr_session       * session,
           if (rc < 0)
             {
               err = errno;
-              tr_torerr (tor, "write failed for \"%s\": %s", file->name, tr_strerror (err));
+              tr_logAddTorErr (tor, "write failed for \"%s\": %s", file->name, tr_strerror (err));
             }
         }
       else if (ioMode == TR_IO_PREFETCH)

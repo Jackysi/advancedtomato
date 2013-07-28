@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: cli.c 13794 2013-01-16 00:28:11Z jordan $
+ * $Id: cli.c 14077 2013-05-22 20:35:38Z jordan $
  *
  * Copyright (c) Transmission authors and contributors
  *
@@ -28,9 +28,9 @@
 #include <signal.h>
 
 #include <libtransmission/transmission.h>
-#include <libtransmission/bencode.h>
 #include <libtransmission/tr-getopt.h>
 #include <libtransmission/utils.h> /* tr_wait_msec */
+#include <libtransmission/variant.h>
 #include <libtransmission/version.h>
 #include <libtransmission/web.h> /* tr_webRun */
 
@@ -104,7 +104,7 @@ getUsage (void)
          "Usage: " MY_READABLE_NAME " [options] <file|url|magnet>";
 }
 
-static int parseCommandLine (tr_benc*, int argc, const char ** argv);
+static int parseCommandLine (tr_variant*, int argc, const char ** argv);
 
 static void sigHandler (int signal);
 
@@ -185,7 +185,7 @@ getStatusStr (const tr_stat * st,
       tr_strlratio (ratioStr, st->ratio, sizeof (ratioStr));
 
       tr_snprintf (buf, buflen,
-                   "Seeding, uploading to %d of %d peer (s), %s [%s]",
+                   "Seeding, uploading to %d of %d peer(s), %s [%s]",
                    st->peersGettingFromUs, st->peersConnected, upStr, ratioStr);
     }
   else
@@ -222,11 +222,10 @@ getConfigDir (int argc, const char ** argv)
 int
 main (int argc, char ** argv)
 {
-  int           error;
   tr_session  * h;
   tr_ctor     * ctor;
   tr_torrent  * tor = NULL;
-  tr_benc       settings;
+  tr_variant       settings;
   const char  * configDir;
   uint8_t     * fileContents;
   size_t        fileLength;
@@ -246,7 +245,7 @@ main (int argc, char ** argv)
     }
 
   /* load the defaults from config file + libtransmission defaults */
-  tr_bencInitDict (&settings, 0);
+  tr_variantInitDict (&settings, 0);
   configDir = getConfigDir (argc, (const char**)argv);
   tr_sessionLoadSettings (&settings, configDir, MY_CONFIG_NAME);
 
@@ -264,7 +263,7 @@ main (int argc, char ** argv)
       return EXIT_FAILURE;
     }
 
-  if (tr_bencDictFindStr (&settings, TR_PREFS_KEY_DOWNLOAD_DIR, &str))
+  if (tr_variantDictFindStr (&settings, TR_KEY_download_dir, &str, NULL))
     {
       if (!tr_fileExists (str, NULL))
         {
@@ -294,7 +293,7 @@ main (int argc, char ** argv)
     }
   else if (!memcmp (torrentPath, "http", 4))
     {
-      tr_webRun (h, torrentPath, NULL, NULL, onTorrentFileDownloaded, ctor);
+      tr_webRun (h, torrentPath, onTorrentFileDownloaded, ctor);
       waitingOnWeb = true;
       while (waitingOnWeb)
         tr_wait_msec (1000);
@@ -310,7 +309,7 @@ main (int argc, char ** argv)
 
   tr_free (fileContents);
 
-  tor = tr_torrentNew (ctor, &error);
+  tor = tr_torrentNew (ctor, NULL, NULL);
   tr_ctorFree (ctor);
   if (!tor)
     {
@@ -328,7 +327,7 @@ main (int argc, char ** argv)
   if (verify)
     {
       verify = false;
-      tr_torrentVerify (tor);
+      tr_torrentVerify (tor, NULL, NULL);
     }
 
   for (;;)
@@ -376,7 +375,7 @@ main (int argc, char ** argv)
   tr_sessionSaveSettings (h, configDir, &settings);
 
   printf ("\n");
-  tr_bencFree (&settings);
+  tr_variantFree (&settings);
   tr_sessionClose (h);
   return EXIT_SUCCESS;
 }
@@ -387,7 +386,7 @@ main (int argc, char ** argv)
 ***/
 
 static int
-parseCommandLine (tr_benc * d, int argc, const char ** argv)
+parseCommandLine (tr_variant * d, int argc, const char ** argv)
 {
   int c;
   const char * optarg;
@@ -397,51 +396,51 @@ parseCommandLine (tr_benc * d, int argc, const char ** argv)
       switch (c)
         {
           case 'b':
-            tr_bencDictAddBool (d, TR_PREFS_KEY_BLOCKLIST_ENABLED, true);
+            tr_variantDictAddBool (d, TR_KEY_blocklist_enabled, true);
             break;
 
-          case 'B': tr_bencDictAddBool (d, TR_PREFS_KEY_BLOCKLIST_ENABLED, false);
+          case 'B': tr_variantDictAddBool (d, TR_KEY_blocklist_enabled, false);
             break;
 
           case 'd':
-            tr_bencDictAddInt (d, TR_PREFS_KEY_DSPEED_KBps, atoi (optarg));
-            tr_bencDictAddBool (d, TR_PREFS_KEY_DSPEED_ENABLED, true);
+            tr_variantDictAddInt (d, TR_KEY_speed_limit_down, atoi (optarg));
+            tr_variantDictAddBool (d, TR_KEY_speed_limit_down_enabled, true);
             break;
 
-          case 'D': tr_bencDictAddBool (d, TR_PREFS_KEY_DSPEED_ENABLED, false);
+          case 'D': tr_variantDictAddBool (d, TR_KEY_speed_limit_down_enabled, false);
             break;
 
           case 'f':
-            tr_bencDictAddStr (d, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_FILENAME, optarg);
-            tr_bencDictAddBool (d, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED, true);
+            tr_variantDictAddStr (d, TR_KEY_script_torrent_done_filename, optarg);
+            tr_variantDictAddBool (d, TR_KEY_script_torrent_done_enabled, true);
             break;
 
           case 'g': /* handled above */
             break;
 
           case 'm':
-            tr_bencDictAddBool (d, TR_PREFS_KEY_PORT_FORWARDING, true);
+            tr_variantDictAddBool (d, TR_KEY_port_forwarding_enabled, true);
             break;
 
           case 'M':
-            tr_bencDictAddBool (d, TR_PREFS_KEY_PORT_FORWARDING, false);
+            tr_variantDictAddBool (d, TR_KEY_port_forwarding_enabled, false);
             break;
 
           case 'p':
-            tr_bencDictAddInt (d, TR_PREFS_KEY_PEER_PORT, atoi (optarg));
+            tr_variantDictAddInt (d, TR_KEY_peer_port, atoi (optarg));
             break;
 
           case 't':
-            tr_bencDictAddInt (d, TR_PREFS_KEY_PEER_SOCKET_TOS, atoi (optarg));
+            tr_variantDictAddInt (d, TR_KEY_peer_socket_tos, atoi (optarg));
             break;
 
           case 'u':
-            tr_bencDictAddInt (d, TR_PREFS_KEY_USPEED_KBps, atoi (optarg));
-            tr_bencDictAddBool (d, TR_PREFS_KEY_USPEED_ENABLED, true);
+            tr_variantDictAddInt (d, TR_KEY_speed_limit_up, atoi (optarg));
+            tr_variantDictAddBool (d, TR_KEY_speed_limit_up_enabled, true);
             break;
 
           case 'U':
-            tr_bencDictAddBool (d, TR_PREFS_KEY_USPEED_ENABLED, false);
+            tr_variantDictAddBool (d, TR_KEY_speed_limit_up_enabled, false);
             break;
 
           case 'v':
@@ -453,19 +452,19 @@ parseCommandLine (tr_benc * d, int argc, const char ** argv)
             break;
 
           case 'w':
-            tr_bencDictAddStr (d, TR_PREFS_KEY_DOWNLOAD_DIR, optarg);
+            tr_variantDictAddStr (d, TR_KEY_download_dir, optarg);
             break;
 
           case 910:
-            tr_bencDictAddInt (d, TR_PREFS_KEY_ENCRYPTION, TR_ENCRYPTION_REQUIRED);
+            tr_variantDictAddInt (d, TR_KEY_encryption, TR_ENCRYPTION_REQUIRED);
             break;
 
           case 911:
-            tr_bencDictAddInt (d, TR_PREFS_KEY_ENCRYPTION, TR_ENCRYPTION_PREFERRED);
+            tr_variantDictAddInt (d, TR_KEY_encryption, TR_ENCRYPTION_PREFERRED);
             break;
 
           case 912:
-            tr_bencDictAddInt (d, TR_PREFS_KEY_ENCRYPTION, TR_CLEAR_PREFERRED);
+            tr_variantDictAddInt (d, TR_KEY_encryption, TR_CLEAR_PREFERRED);
             break;
 
           case TR_OPT_UNK:

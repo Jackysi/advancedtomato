@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: util.h 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: util.h 14077 2013-05-22 20:35:38Z jordan $
  */
 
 #ifndef GTR_UTIL_H
@@ -109,12 +109,23 @@ void        gtr_combo_box_set_active_enum (GtkComboBox *, int value);
 ****
 ***/
 
+struct _TrCore;
+
+GtkWidget * gtr_freespace_label_new (struct _TrCore * core, const char * dir);
+
+void gtr_freespace_label_set_dir (GtkWidget * label, const char * dir);
+
+/***
+****
+***/
+
 void gtr_unrecognized_url_dialog (GtkWidget * parent, const char * url);
 
 void gtr_http_failure_dialog (GtkWidget * parent, const char * url, long response_code);
 
 void gtr_add_torrent_error_dialog (GtkWidget  * window_or_child,
                                    int          err,
+                                   tr_torrent * duplicate_torrent,
                                    const char * filename);
 
 /* pop up the context menu if a user right-clicks.

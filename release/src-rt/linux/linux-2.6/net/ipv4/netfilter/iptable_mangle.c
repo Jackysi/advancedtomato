@@ -176,13 +176,9 @@ static int __init iptable_mangle_init(void)
 
 	/* Register hooks */
 	ret = nf_register_hooks(ipt_ops, ARRAY_SIZE(ipt_ops));
-	if (ret < 0)
-		goto cleanup_table;
-
-	return ret;
-
- cleanup_table:
+	if (ret < 0) {
 	ipt_unregister_table(&packet_mangler);
+	}	
 	return ret;
 }
 

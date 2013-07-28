@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id: tr-getopt.c 13625 2012-12-05 17:29:46Z jordan $
+ * $Id: tr-getopt.c 14067 2013-04-13 18:29:56Z jordan $
  */
 
 #include <ctype.h> /* isspace () */
@@ -149,8 +149,10 @@ findOption (const tr_option * opts,
     {
         size_t len = o->longName ? strlen (o->longName) : 0;
 
-        if ((matchlen < len) && !memcmp (str, "--", 2)
-          && !memcmp (str + 2, o->longName, len)
+        if ((matchlen < len)
+          && (str[0] == '-')
+          && (str[1] == '-')
+          && !strncmp (str+2, o->longName, len)
           && (str[len + 2] == '\0' || (o->has_arg && str[len + 2] == '=')))
         {
             matchlen = len;
@@ -160,8 +162,9 @@ findOption (const tr_option * opts,
 
         len = o->shortName ? strlen (o->shortName) : 0;
 
-        if ((matchlen < len) && !memcmp (str, "-", 1)
-          && !memcmp (str + 1, o->shortName, len)
+        if ((matchlen < len)
+          && (str[0] == '-')
+          && !strncmp (str+1, o->shortName, len)
           && (str[len + 1] == '\0' || o->has_arg))
         {
             matchlen = len;
