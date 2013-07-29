@@ -170,6 +170,7 @@ lib-$(CONFIG_PING) += inet_cksum.o
 lib-$(CONFIG_TRACEROUTE) += inet_cksum.o
 lib-$(CONFIG_TRACEROUTE6) += inet_cksum.o
 lib-$(CONFIG_UDHCPC) += inet_cksum.o
+lib-$(CONFIG_UDHCPC_OLD) += inet_cksum.o
 lib-$(CONFIG_UDHCPC6) += inet_cksum.o
 lib-$(CONFIG_UDHCPD) += inet_cksum.o
 
