@@ -836,7 +836,7 @@ libnfnetlink/stamp-h1:
 		CFLAGS="-Os -Wall $(EXTRACFLAGS) -ffunction-sections -fdata-sections" \
 		LDFLAGS="-ffunction-sections -fdata-sections -Wl,--gc-sections" \
 		$(CONFIGURE) --prefix=/usr --enable-shared --enable-static
-	touch tor/stamp-h1
+	touch libnfnetlink/stamp-h1
 
 libnfnetlink: libnfnetlink/stamp-h1
 	@$(SEP)
