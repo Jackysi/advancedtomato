@@ -690,7 +690,7 @@ endif
 ## mini-USB - K24 only
 n:
 ifneq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin BBEXTRAS=y USBEXTRAS=y B=E BUILD_DESC="mini-USB" USB="USB" NO_LIBOPT=y
+	@$(MAKE) bin BBEXTRAS=y USBEXTRAS=y B=E BUILD_DESC="mini-USB" USB="USB"
 endif
 
 ## VPN
@@ -728,7 +728,7 @@ endif
 ## BT
 u:
 ifeq ($(CONFIG_LINUX26),y)
-	@$(MAKE) bin NTFS=y USBEXTRAS=y EBTABLES=y NO_LIBOPT=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="BT" USB="USB" BTCLIENT=y
+	@$(MAKE) bin NTFS=y USBEXTRAS=y EBTABLES=y MEDIASRV=y IPV6SUPP=y B=M BUILD_DESC="BT" USB="USB" BTCLIENT=y
 else
 	@$(MAKE) bin NTFS=y USBEXTRAS=y B=M BUILD_DESC="BT" USB="USB" BTCLIENT=y
 endif
@@ -767,11 +767,11 @@ ifeq ($(CONFIG_LINUX26),y)
 
 ## Mini - targeted for Netgear routers
 f:
-	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y B=F BUILD_DESC="Mini" USB="" NO_LIBOPT=y EBTABLES=y
+	@$(MAKE) bin JFFSv1=y NO_CIFS=y NO_ZEBRA=y B=F BUILD_DESC="Mini" USB=""
 
 ## MiniIPv6 - for 4MB routers
 i:
-	@$(MAKE) bin NO_JFFS=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB="" NO_LIBOPT=y
+	@$(MAKE) bin NO_JFFS=y NO_CIFS=y NO_ZEBRA=y IPV6SUPP=y B=I BUILD_DESC="MiniIPv6" USB=""
 
 ## MiniVPN - for 4MB routers
 j:
