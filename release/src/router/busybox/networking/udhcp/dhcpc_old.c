@@ -23,7 +23,7 @@
 #define WANT_PIDFILE 1
 #include "common_old.h"
 #include "dhcpd.h"
-#include "dhcpc.h"
+#include "dhcpc_old.h"
 
 #include <asm/types.h>
 #if (defined(__GLIBC__) && __GLIBC__ >= 2 && __GLIBC_MINOR__ >= 1) || defined(_NEWLIB_VERSION)

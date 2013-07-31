@@ -74,6 +74,17 @@ config UDHCPC
 	  The udhcp client negotiates a lease with the DHCP server and
 	  runs a script when a lease is obtained or lost.
 
+config UDHCPC_OLD
+	bool "udhcp client (udhcpc) - old version - for K24"
+	default n
+	select PLATFORM_LINUX
+	help
+	  udhcpc is a DHCP client geared primarily toward embedded systems,
+	  while striving to be fully functional and RFC compliant.
+
+	  The udhcp client negotiates a lease with the DHCP server and
+	  runs a script when a lease is obtained or lost.
+
 config FEATURE_UDHCPC_ARPING
 	bool "Verify that the offered address is free, using ARP ping"
 	default y
