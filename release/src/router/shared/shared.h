@@ -317,7 +317,8 @@ extern int f_wait_notexists(const char *name, int max);
 #define LED_BRIDGE			6
 #define LED_USB				7
 #define LED_MYSTERY			LED_USB	// (unmarked LED between wireless and bridge on WHR-G54S)
-#define LED_COUNT			8
+#define LED_5G				8
+#define LED_COUNT			9
 
 #define	LED_OFF				0
 #define	LED_ON				1

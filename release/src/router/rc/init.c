@@ -1273,6 +1273,7 @@ static int init_nvram(void)
 			nvram_set("wl_ifname", "eth1");
 			nvram_set("wl0_ifname", "eth2");
 			nvram_set("wl1_ifname", "eth1");
+			nvram_set("blink_5g_interface","eth1");
 			//nvram_set("landevs", "vlan1 wl0 wl1");
 			//nvram_set("wandevs", "vlan2");
 
@@ -1944,6 +1945,7 @@ static void sysinit(void)
 	set_tz();
 
 	eval("buttons");
+	eval("blink_5g");
 
 	if (!noconsole) xstart("console");
 
