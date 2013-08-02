@@ -528,6 +528,7 @@ define BusyboxOptions
 		echo "CONFIG_FEATURE_SYSLOGD_READ_BUFFER_SIZE=512" >>$(1); \
 	else \
 		sed -i "/CONFIG_UDHCPC=y/d" $(1); \
+		sed -i "/CONFIG_UDHCPC_OLD/d" $(1); \
 		echo "CONFIG_UDHCPC_OLD=y" >>$(1); \
 		echo "# CONFIG_UDHCPC is not set" >>$(1); \
 	fi; \
