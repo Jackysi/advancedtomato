@@ -390,7 +390,7 @@ static int print_wlstats(int idx, int unit, int subunit, void *param)
 	scan = 0;
 	interference = -1;
 
-	if (wl_phytype_n(phytype)) {
+	if (wl_phytype_n(phytype) || phytype == WLC_PHY_TYPE_AC) {
 		if (wl_iovar_getint(ifname, "chanspec", &chanspec) != 0) {
 			ctrlsb = nvram_safe_get(wl_nvname("nctrlsb", unit, 0));
 			nbw = nvram_get_int(wl_nvname("nbw", unit, 0));
@@ -399,8 +399,11 @@ static int print_wlstats(int idx, int unit, int subunit, void *param)
 			channel = CHSPEC_CHANNEL(chanspec);
 			if (CHSPEC_IS40(chanspec))
 				channel = channel + (CHSPEC_SB_LOWER(chanspec) ? -2 : 2);
-			ctrlsb = CHSPEC_SB_LOWER(chanspec) ? "lower" : (CHSPEC_SB_UPPER(chanspec) ? "upper" : "none");
-			nbw = CHSPEC_IS40(chanspec) ? 40 : 20;
+                	else if(CHSPEC_IS80(chanspec))
+				channel += (((chanspec & WL_CHANSPEC_CTL_SB_MASK) == WL_CHANSPEC_CTL_SB_LLU) ? -2 : -6 ); //upper is acturally LLU
+
+			ctrlsb =  (chanspec & WL_CHANSPEC_CTL_SB_MASK) == WL_CHANSPEC_CTL_SB_LOWER ? "lower" : ((chanspec & WL_CHANSPEC_CTL_SB_MASK) == WL_CHANSPEC_CTL_SB_LLU ? "upper" : "none");
+			nbw = CHSPEC_IS80(chanspec) ? 80 : (CHSPEC_IS40(chanspec) ? 40 : 20);
 		}
 	}
 	else {
@@ -468,7 +471,7 @@ static int _wlchanspecs(char *ifname, char *country, int band, int bw, int ctrls
 	buflen = strlen(buf) + 1;
 
 	c |= (band == WLC_BAND_5G) ? WL_CHANSPEC_BAND_5G : WL_CHANSPEC_BAND_2G;
-	c |= (bw == 20) ? WL_CHANSPEC_BW_20 : WL_CHANSPEC_BW_40;
+	c |= (bw == 20) ? WL_CHANSPEC_BW_20 : (bw == 40 ? WL_CHANSPEC_BW_40 : WL_CHANSPEC_BW_80);
 
 	chanspec = (chanspec_t *)(buf + buflen);
 	*chanspec = c;
@@ -491,12 +494,14 @@ static int _wlchanspecs(char *ifname, char *country, int band, int bw, int ctrls
 	for (i = 0; i < list->count; i++) {
 		c = (chanspec_t)list->element[i];
 		/* Skip upper.. (take only one of the lower or upper) */
-		if (bw == 40 && (CHSPEC_CTL_SB(c) != ctrlsb))
+		if (bw >= 40 && (CHSPEC_CTL_SB(c) != ctrlsb))
 			continue;
 		/* Create the actual control channel number from sideband */
 		int chan = CHSPEC_CHANNEL(c);
 		if (bw == 40)
 			chan += ((ctrlsb == WL_CHANSPEC_CTL_SB_UPPER) ? 2 : -2);
+		else if(bw == 80)
+			chan += ((ctrlsb == WL_CHANSPEC_CTL_SB_UPPER) ? -2 : -6 ); //upper is acturally LLU
 		web_print_wlchan(chan, band);
 		count++;
 	}
@@ -546,11 +551,11 @@ void asp_wlchannels(int argc, char **argv)
 		nphy = atoi(argv[1]);
 	else {
 		wl_ioctl(ifname, WLC_GET_PHYTYPE, &phytype, sizeof(phytype));
-		nphy = wl_phytype_n(phytype);
+		nphy = wl_phytype_n(phytype) || phytype == WLC_PHY_TYPE_AC;
 	}
 
 	bw = (argc > 2) ? atoi(argv[2]) : 0;
-	bw = bw ? : CHSPEC_IS40(chanspec) ? 40 : 20;
+	bw = bw ? : CHSPEC_IS80(chanspec) ? 80 : (CHSPEC_IS40(chanspec) ? 40 : 20);
 
 	if (argc > 3) band = atoi(argv[3]) ? : band;
 

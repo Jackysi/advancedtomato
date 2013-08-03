@@ -276,6 +276,7 @@ enum {
 #define SUP_NONVE		(1 << 5)
 #define SUP_80211N		(1 << 6)
 #define SUP_1000ET		(1 << 7)
+#define SUP_80211AC		(1 << 8)
 
 extern int check_hw_type(void);
 //	extern int get_hardware(void) __attribute__ ((weak, alias ("check_hw_type")));

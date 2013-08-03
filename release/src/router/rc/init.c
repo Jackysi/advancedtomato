@@ -1142,7 +1142,7 @@ static int init_nvram(void)
 	case MODEL_RTN66U:
 		mfr = "Asus";
 		name = "RT-AC66U"; //id, board, rev same as N66
-		features = SUP_SES | SUP_80211N | SUP_1000ET;
+		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
 #ifdef TCONFIG_USB
 		nvram_set("usb_uhci", "-1");
 #endif
@@ -1262,7 +1262,7 @@ static int init_nvram(void)
 	case MODEL_W1800R:
 		mfr = "Tenda";
 		name = "W1800R"; //id, board, rev same as N66
-		features = SUP_SES | SUP_80211N | SUP_1000ET;
+		features = SUP_SES | SUP_80211N | SUP_1000ET | SUP_80211AC;
 #ifdef TCONFIG_USB
 		nvram_set("usb_uhci", "-1");
 #endif

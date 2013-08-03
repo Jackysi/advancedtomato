@@ -680,7 +680,7 @@ static const nvset_t nvset_list[] = {
 	{ "wl_nmode",			V_NONE				},
 	{ "wl_nband",			V_RANGE(0, 2)			},	// 2 - 2.4GHz, 1 - 5GHz, 0 - Auto
 	{ "wl_nreqd",			V_NONE				},
-	{ "wl_nbw_cap",			V_RANGE(0, 2)			},	// 0 - 20MHz, 1 - 40MHz, 2 - Auto
+	{ "wl_nbw_cap",			V_RANGE(0, 3)			},	// 0 - 20MHz, 1 - 40MHz, 2 - Auto, 3 - 80M
 	{ "wl_nbw",			V_NONE				},
 	{ "wl_mimo_preamble",		V_WORD				},	// 802.11n Preamble: mm/gf/auto/gfbcm
 	{ "wl_nctrlsb",			V_NONE				},	// none, lower, upper
@@ -1587,6 +1587,47 @@ static int nv_wl_find(int idx, int unit, int subunit, void *param)
 	}
 }
 
+static int nv_wl_bwcap_chanspec(int idx, int unit, int subunit, void *param){
+	char		chan_spec[32];
+	char		*ch,*nbw_cap,*nctrlsb;
+	int 		write = *((int *)param);
+	ch	= webcgi_get(wl_nvname("channel",unit,0));
+	nbw_cap = webcgi_get(wl_nvname("nbw_cap",unit,0));
+	nctrlsb = webcgi_get(wl_nvname("nctrlsb",unit,0));
+	if(!ch && !nbw_cap && !nctrlsb)
+		return 0;
+	if(ch == NULL || !*ch)	ch = nvram_get(wl_nvname("channel",unit,0));
+	if(nbw_cap == NULL || !*nbw_cap)  nbw_cap = nvram_get(wl_nvname("nbw_cap",unit,0));
+	if(nctrlsb == NULL || !*nctrlsb)  nctrlsb = nvram_get(wl_nvname("nctrlsb",unit,0));
+
+	if(!ch || !nbw_cap || !nctrlsb || !*ch || !*nbw_cap || !*nctrlsb)
+		return 1;
+
+	memset(chan_spec,0,sizeof(chan_spec));
+	strncpy(chan_spec,ch,sizeof(chan_spec));
+	switch(atoi(nbw_cap)){
+		case 0:
+			if(write)
+				nvram_set(wl_nvname("bw_cap",unit,0), "1");
+			break;
+		case 1:
+			if(write)
+				nvram_set(wl_nvname("bw_cap",unit,0), "3");
+			if(*ch != '0')
+				*(chan_spec + strlen(chan_spec)) = *nctrlsb;
+			break;
+		case 3:
+			if(write)
+				nvram_set(wl_nvname("bw_cap",unit,0), "7");
+			if(*ch != '0')
+				strcpy(chan_spec + strlen(chan_spec),"/80");
+			break;
+	}
+	if(write)
+		nvram_set(wl_nvname("chanspec", unit, 0), chan_spec);
+	return 0;
+}
+
 static int save_variables(int write)
 {
 	const nvset_t *v;
@@ -1621,6 +1662,7 @@ static int save_variables(int write)
 	}
 
 	// special cases
+	foreach_wif(0, &write, nv_wl_bwcap_chanspec);
 
 	char *p1, *p2;
 	if (((p1 = webcgi_get("set_password_1")) != NULL) && (strcmp(p1, "**********") != 0)) {
