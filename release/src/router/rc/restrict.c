@@ -283,7 +283,7 @@ void ipt_restrictions(void)
 				}
 			}
 		// Only mess with DNS requests that are coming in on INPUT
-		ip46t_write("-I INPUT 1 -p udp --dport 53 -j restrict\n");
+		ip46t_write("-I INPUT 1 -i ! lo -p udp --dport 53 -j restrict\n");
 	}
 
 		sprintf(reschain, "rres%02d", nrule);
