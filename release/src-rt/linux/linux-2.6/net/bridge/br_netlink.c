@@ -167,8 +167,11 @@ static int br_rtm_setlink(struct sk_buff *skb,  struct nlmsghdr *nlh, void *arg)
 	if (p->br->stp_enabled == BR_KERNEL_STP)
 		return -EBUSY;
 
+	/* if device is not up, change is not allowed
+	 * if link is not present, only allowable state is disabled
+	 */
 	if (!netif_running(dev) ||
-	    (!netif_carrier_ok(dev) && new_state != BR_STATE_DISABLED))
+	    (!netif_oper_up(dev) && new_state != BR_STATE_DISABLED))
 		return -ENETDOWN;
 
 	p->state = new_state;

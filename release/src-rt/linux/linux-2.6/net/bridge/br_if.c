@@ -87,20 +87,21 @@ void br_port_carrier_check(struct net_bridge_port *p)
 	struct net_device *dev = p->dev;
 	struct net_bridge *br = p->br;
 
-	if (netif_carrier_ok(dev))
+	if (netif_running(dev) && netif_oper_up(dev))
 		p->path_cost = port_cost(dev);
 
-	if (netif_running(br->dev)) {
-		spin_lock_bh(&br->lock);
-		if (netif_carrier_ok(dev)) {
-			if (p->state == BR_STATE_DISABLED)
-				br_stp_enable_port(p);
-		} else {
-			if (p->state != BR_STATE_DISABLED)
-				br_stp_disable_port(p);
+	if (!netif_running(br->dev))
+		return;
+	
+	spin_lock_bh(&br->lock);
+	if (netif_running(dev) && netif_oper_up(dev)) {
+		if (p->state == BR_STATE_DISABLED)
+			br_stp_enable_port(p);
+	} else {
+		if (p->state != BR_STATE_DISABLED)
+			br_stp_disable_port(p);
 		}
-		spin_unlock_bh(&br->lock);
-	}
+	spin_unlock_bh(&br->lock);
 }
 
 static void release_nbp(struct kobject *kobj)
@@ -430,7 +431,7 @@ int br_add_if(struct net_bridge *br, struct net_device *dev)
 	br_stp_recalculate_bridge_id(br);
 	br_features_recompute(br);
 
-	if ((dev->flags & IFF_UP) && netif_carrier_ok(dev) &&
+	if (netif_running(dev) && netif_oper_up(dev) &&
 	    (br->dev->flags & IFF_UP))
 		br_stp_enable_port(p);
 	spin_unlock_bh(&br->lock);
