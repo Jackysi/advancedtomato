@@ -96,6 +96,9 @@ static const probe_fptr fs1[] = {
 #if ENABLE_FEATURE_VOLUMEID_MAC
 	volume_id_probe_mac_partition_map,
 #endif
+#if ENABLE_FEATURE_VOLUMEID_SQUASHFS
+	volume_id_probe_squashfs,
+#endif
 #if ENABLE_FEATURE_VOLUMEID_XFS
 	volume_id_probe_xfs,
 #endif
@@ -129,6 +132,9 @@ static const probe_fptr fs2[] = {
 #endif
 #if ENABLE_FEATURE_VOLUMEID_UFS
 	volume_id_probe_ufs,
+#endif
+#if ENABLE_FEATURE_VOLUMEID_NILFS
+	volume_id_probe_nilfs,
 #endif
 #if ENABLE_FEATURE_VOLUMEID_NTFS
 	volume_id_probe_ntfs,

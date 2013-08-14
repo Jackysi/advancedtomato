@@ -74,6 +74,17 @@ config UDHCPC
 	  The udhcp client negotiates a lease with the DHCP server and
 	  runs a script when a lease is obtained or lost.
 
+config UDHCPC_OLD
+	bool "udhcp client (udhcpc) - old version - for K24"
+	default n
+	select PLATFORM_LINUX
+	help
+	  udhcpc is a DHCP client geared primarily toward embedded systems,
+	  while striving to be fully functional and RFC compliant.
+
+	  The udhcp client negotiates a lease with the DHCP server and
+	  runs a script when a lease is obtained or lost.
+
 config FEATURE_UDHCPC_ARPING
 	bool "Verify that the offered address is free, using ARP ping"
 	default y
@@ -112,13 +123,6 @@ config FEATURE_UDHCP_RFC3397
 	  If selected, both client and server will support passing of domain
 	  search lists via option 119, specified in RFC 3397,
 	  and SIP servers option 120, specified in RFC 3361.
-
-config FEATURE_UDHCP_RFC5969
-	bool "Support for RFC5969 IPv6 Rapid Deployment (6RD)"
-	default y
-	depends on FEATURE_IPV6 && UDHCPC
-	help
-	  None.
 
 config FEATURE_UDHCP_8021Q
 	bool "Support for 802.1Q VLAN parameters"
