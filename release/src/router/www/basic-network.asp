@@ -1778,7 +1778,7 @@ if (wl_sunit(uidx)<0) {
 		{ title: 'Wireless Network Mode', name: 'wl'+u+'_net_mode', type: 'select',
 			value: (eval('nvram.wl'+u+'_net_mode') == 'disabled') ? 'mixed' : eval('nvram.wl'+u+'_net_mode'),
 			options: [], prefix: '<span id="__wl'+u+'_net_mode">', suffix: '</span>' },
-		{ title: 'SSID', name: 'wl'+u+'_ssid', type: 'text', maxlen: 32, size: 34, value: eval('nvram.wl'+u+'_ssid') },
+		{ title: 'SSID', name: 'wl'+u+'_ssid', type: 'text', maxlen: 32, size: 34, suffix: ' <i>(for full device compatibility use only ASCII characters!)</i>', value: eval('nvram.wl'+u+'_ssid') },
 		{ title: 'Broadcast', indent: 2, name: 'f_wl'+u+'_bcast', type: 'checkbox', value: (eval('nvram.wl'+u+'_closed') == '0') },
 		{ title: 'Channel', name: 'wl'+u+'_channel', type: 'select', options: ghz[uidx], prefix: '<span id="__wl'+u+'_channel">', suffix: '</span> <input type="button" id="_f_wl'+u+'_scan" value="Scan" onclick="scanButton('+u+')"> <img src="spin.gif" id="spin'+u+'">',
 			value: eval('nvram.wl'+u+'_channel') },
