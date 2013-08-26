@@ -1156,6 +1156,12 @@ static int init_nvram(void)
 			nvram_set("landevs", "vlan1 wl0 wl1");
 			nvram_set("wandevs", "vlan2");
 
+			nvram_set("wl1_bw_cap","7");
+			nvram_set("wl1_chanspec","36/80");
+			nvram_set("wl0_bw_cap","3");
+			nvram_set("wl0_chanspec","1l");
+			nvram_set("blink_5g_interface","eth2");
+
 			// fix WL mac`s
 			strcpy(s, nvram_safe_get("et0macaddr"));
 			inc_mac(s, +2);
