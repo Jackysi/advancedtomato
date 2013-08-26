@@ -473,6 +473,9 @@ int get_model(void)
 		break;
 	case 60:
 		if (hw == HW_BCM4706) return MODEL_W1800R;
+		break;
+	case 21:
+		if (hw == HW_BCM4706) return MODEL_W1800R; //european version?
 	}
 
 	return MODEL_UNKNOWN;
