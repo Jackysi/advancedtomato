@@ -1140,8 +1140,9 @@ e3200:
 
 ac66e:
 	@$(MAKE) e MIPS32=r2 NVRAM_64K=y NAND=y AC66U=1 NO_JFFS=y
+
 w1800rz:
-	@$(MAKE) z MIPS32=r2 NVRAM_64K=y NAND=y W1800R=1 NO_JFFS=y
+	@$(MAKE) z MIPS32=r2 NVRAM_64K=y W1800R=1 NO_JFFS=y
 endif
 
 setprofile:
