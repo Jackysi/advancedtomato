@@ -1,7 +1,7 @@
 /*
  * 802.11e protocol header file
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: 802.11e.h,v 1.6 2008-12-01 22:55:11 Exp $
+ * $Id: 802.11e.h 241182 2011-02-17 21:50:03Z $
  */
 
 #ifndef _802_11e_H_
@@ -29,7 +29,7 @@
 #include <packed_section_start.h>
 
 #ifdef BCMDBG
-extern const char *aci_names[];
+extern const char * const aci_names[];
 #endif /* BCMDBG */
 
 /* WME Traffic Specification (TSPEC) element */

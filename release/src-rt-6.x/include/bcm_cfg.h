@@ -1,8 +1,7 @@
 /*
  * BCM common config options
  *
- *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,12 +15,14 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcm_cfg.h,v 13.1.4.1 2010-08-03 18:41:06 Exp $
+ * $Id: bcm_cfg.h 294399 2011-11-07 03:31:22Z $
  */
 
-
+#ifndef _bcm_cfg_h_
+#define _bcm_cfg_h_
 #if defined(__NetBSD__) || defined(__FreeBSD__)
 #if defined(_KERNEL)
 #include <opt_bcm.h>
 #endif /* defined(_KERNEL) */
 #endif /* defined(__NetBSD__) || defined(__FreeBSD__) */
+#endif /* _bcm_cfg_h_ */

@@ -3,7 +3,11 @@
  * AES encrypt/decrypt wrapper functions used around Rijndael reference
  * implementation
  *
+<<<<<<< HEAD
  * Copyright (C) 2010, Broadcom Corporation
+=======
+ * Copyright (C) 2011, Broadcom Corporation
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -11,6 +15,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
+<<<<<<< HEAD
  * $Id: aes.c,v 1.34.10.1 2010-05-28 15:25:49 Exp $
  */
 
@@ -29,6 +34,19 @@ extern void bzero(void *b, size_t len);
 #define	bzero(b, len)		memset((b), 0, (len))
 #endif
 #endif	/* BCMDRIVER */
+=======
+ * $Id: aes.c 241182 2011-02-17 21:50:03Z $
+ */
+
+#include <typedefs.h>
+
+#ifdef BCMDRIVER
+#include <osl.h>
+#else
+#include <string.h>
+#endif	/* BCMDRIVER */
+
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 #include <bcmendian.h>
 #include <bcmutils.h>
 #include <proto/802.11.h>
@@ -147,8 +165,12 @@ BCMROMFN(aes_cbc_encrypt_pad)(uint32 *rk,
 	const unsigned char *plain_data = ptxt;
 	uint32 remaining = (uint32)data_len;
 
+<<<<<<< HEAD
 	while (remaining >= AES_BLOCK_SZ)
 	{
+=======
+	while (remaining >= AES_BLOCK_SZ) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 		xor_128bit_block(iv, plain_data, tmp);
 		aes_block_encrypt((int)AES_ROUNDS(key_len), rk, tmp, crypt_data);
 		remaining -= AES_BLOCK_SZ;
@@ -162,6 +184,7 @@ BCMROMFN(aes_cbc_encrypt_pad)(uint32 *rk,
 		return encrypt_len;
 
 	if (remaining) {
+<<<<<<< HEAD
 		for (j = 0; j < remaining; j++)
 		{
 			tmp[j] = plain_data[j] ^ iv[j];
@@ -169,6 +192,13 @@ BCMROMFN(aes_cbc_encrypt_pad)(uint32 *rk,
 	}
 	switch (padd_type)
 	{
+=======
+		for (j = 0; j < remaining; j++) {
+			tmp[j] = plain_data[j] ^ iv[j];
+		}
+	}
+	switch (padd_type) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	case PAD_LEN_PADDING:
 		for (j = remaining; j < AES_BLOCK_SZ; j++) {
 			tmp[j] = (AES_BLOCK_SZ - remaining) ^  iv[j];
@@ -200,8 +230,15 @@ BCMROMFN(aes_cbc_encrypt)(uint32 *rk,
                           const uint8 *ptxt,
                           uint8 *ctxt)
 {
+<<<<<<< HEAD
 	if (data_len % AES_BLOCK_SZ) return (-1);
 	if (data_len < AES_BLOCK_SZ) return (-1);
+=======
+	if (data_len % AES_BLOCK_SZ)
+		return (-1);
+	if (data_len < AES_BLOCK_SZ)
+		return (-1);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 	return aes_cbc_encrypt_pad(rk, key_len, nonce, data_len, ptxt, ctxt, NO_PADDING);
 }
@@ -229,11 +266,20 @@ BCMROMFN(aes_cbc_decrypt_pad)(uint32 *rk,
 	uint32 plaintext_len = 0;
 	unsigned char *plain_data = ptxt;
 
+<<<<<<< HEAD
 	if (data_len % AES_BLOCK_SZ) return (-1);
 	if (data_len < AES_BLOCK_SZ) return (-1);
 
 	while (remaining >= AES_BLOCK_SZ)
 	{
+=======
+	if (data_len % AES_BLOCK_SZ)
+		return (-1);
+	if (data_len < AES_BLOCK_SZ)
+		return (-1);
+
+	while (remaining >= AES_BLOCK_SZ) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 		aes_block_decrypt((int)AES_ROUNDS(key_len), rk, crypt_data, tmp);
 		xor_128bit_block(tmp, iv, plain_data);
 		remaining -= AES_BLOCK_SZ;
@@ -255,12 +301,18 @@ BCMROMFN(aes_cbc_decrypt)(uint32 *rk,
                           const uint8 *ctxt,
                           uint8 *ptxt)
 {
+<<<<<<< HEAD
 
 	return aes_cbc_decrypt_pad(rk, key_len, nonce, data_len, ctxt, ptxt, NO_PADDING);
 
 }
 
 
+=======
+	return aes_cbc_decrypt_pad(rk, key_len, nonce, data_len, ctxt, ptxt, NO_PADDING);
+}
+
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 /* AES-CTR mode encryption/decryption algorithm
  *	- max data_len is (AES_BLOCK_SZ * 2^16)
  *	- nonce must be AES_BLOCK_SZ bytes
@@ -282,7 +334,11 @@ BCMROMFN(aes_ctr_crypt)(unsigned int *rk,
 
 	if (data_len > (AES_BLOCK_SZ * AES_CTR_MAXBLOCKS)) return (-1);
 
+<<<<<<< HEAD
 	bcopy(nonce, ctr, AES_BLOCK_SZ);
+=======
+	memcpy(ctr, nonce, AES_BLOCK_SZ);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 	for (k = 0; k < (data_len / AES_BLOCK_SZ); k++) {
 		aes_block_encrypt((int)AES_ROUNDS(key_len), rk, ctr, tmp);
@@ -293,7 +349,11 @@ BCMROMFN(aes_ctr_crypt)(unsigned int *rk,
 		ctxt += AES_BLOCK_SZ;
 	}
 	/* handle partial block */
+<<<<<<< HEAD
 	if (data_len%AES_BLOCK_SZ) {
+=======
+	if (data_len % AES_BLOCK_SZ) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 		aes_block_encrypt((int)AES_ROUNDS(key_len), rk, ctr, tmp);
 		for (k = 0; k < (data_len % AES_BLOCK_SZ); k++)
 			ctxt[k] = ptxt[k] ^ tmp[k];
@@ -332,7 +392,11 @@ BCMROMFN(aes_ccm_mac)(unsigned int *rk,
 	B_0[0] = AES_CCM_AUTH_FLAGS;
 	if (aad_len)
 		B_0[0] |= AES_CCM_AUTH_AAD_FLAG;
+<<<<<<< HEAD
 	bcopy(nonce, &B_0[1], AES_CCM_NONCE_LEN);
+=======
+	memcpy(&B_0[1], nonce, AES_CCM_NONCE_LEN);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	B_0[AES_BLOCK_SZ - 2] = (uint8)(data_len >> 8) & 0xff;
 	B_0[AES_BLOCK_SZ - 1] = (uint8)(data_len & 0xff);
 
@@ -386,7 +450,11 @@ BCMROMFN(aes_ccm_mac)(unsigned int *rk,
 	}
 
 	/* T := first-M-bytes( X_n+1 ) */
+<<<<<<< HEAD
 	bcopy(X, mac, AES_CCM_AUTH_LEN);
+=======
+	memcpy(mac, X, AES_CCM_AUTH_LEN);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	pres("aes_ccm_mac: MAC:", AES_CCM_AUTH_LEN, mac);
 
 	return (0);
@@ -415,7 +483,11 @@ BCMROMFN(aes_ccm_encrypt)(unsigned int *rk,
 
 	/* initialize counter */
 	A[0] = AES_CCM_CRYPT_FLAGS;
+<<<<<<< HEAD
 	bcopy(nonce, &A[1], AES_CCM_NONCE_LEN);
+=======
+	memcpy(&A[1], nonce, AES_CCM_NONCE_LEN);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	A[AES_BLOCK_SZ-2] = 0;
 	A[AES_BLOCK_SZ-1] = 0;
 	pres("aes_ccm_encrypt: initial counter:", AES_BLOCK_SZ, A);
@@ -427,7 +499,11 @@ BCMROMFN(aes_ccm_encrypt)(unsigned int *rk,
 	if (aes_ctr_crypt(rk, key_len, A, AES_CCM_AUTH_LEN, X, X))
 		return (-1);
 	pres("aes_ccm_encrypt: encrypted MAC:", AES_CCM_AUTH_LEN, X);
+<<<<<<< HEAD
 	bcopy(X, mac, AES_CCM_AUTH_LEN);
+=======
+	memcpy(mac, X, AES_CCM_AUTH_LEN);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 	/* encrypt data */
 	A[AES_BLOCK_SZ - 1] = 1;
@@ -461,7 +537,11 @@ BCMROMFN(aes_ccm_decrypt)(unsigned int *rk,
 
 	/* initialize counter */
 	A[0] = AES_CCM_CRYPT_FLAGS;
+<<<<<<< HEAD
 	bcopy(nonce, &A[1], AES_CCM_NONCE_LEN);
+=======
+	memcpy(&A[1], nonce, AES_CCM_NONCE_LEN);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	A[AES_BLOCK_SZ - 2] = 0;
 	A[AES_BLOCK_SZ - 1] = 1;
 	pres("aes_ccm_decrypt: initial counter:", AES_BLOCK_SZ, A);
@@ -485,7 +565,11 @@ BCMROMFN(aes_ccm_decrypt)(unsigned int *rk,
 	                data_len - AES_CCM_AUTH_LEN, ptxt, X))
 		return (-1);
 	pres("aes_ccm_decrypt: MAC:", AES_CCM_AUTH_LEN, X);
+<<<<<<< HEAD
 	if (bcmp(X, ptxt + data_len - AES_CCM_AUTH_LEN, AES_CCM_AUTH_LEN) != 0)
+=======
+	if (memcmp(X, ptxt + data_len - AES_CCM_AUTH_LEN, AES_CCM_AUTH_LEN) != 0)
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 		return (-1);
 
 	return (0);
@@ -529,8 +613,15 @@ BCMROMFN(aes_ccmp_encrypt)(unsigned int *rk,
 	pres("aes_ccmp_encrypt: Encrypted packet with MAC:",
 	     data_len+AES_CCMP_AUTH_LEN, p);
 
+<<<<<<< HEAD
 	if (status) return (AES_CCMP_ENCRYPT_ERROR);
 	else return (AES_CCMP_ENCRYPT_SUCCESS);
+=======
+	if (status)
+		return (AES_CCMP_ENCRYPT_ERROR);
+	else
+		return (AES_CCMP_ENCRYPT_SUCCESS);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 }
 
 int
@@ -561,8 +652,15 @@ BCMROMFN(aes_ccmp_decrypt)(unsigned int *rk,
 
 	pres("aes_ccmp_decrypt: Decrypted packet with MAC:", data_len, p);
 
+<<<<<<< HEAD
 	if (status) return (AES_CCMP_DECRYPT_MIC_FAIL);
 	else return (AES_CCMP_DECRYPT_SUCCESS);
+=======
+	if (status)
+		return (AES_CCMP_DECRYPT_MIC_FAIL);
+	else
+		return (AES_CCMP_DECRYPT_SUCCESS);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 }
 
 void
@@ -575,8 +673,13 @@ BCMROMFN(aes_ccmp_cal_params)(struct dot11_header *h, bool legacy,
 	uint addlen = 0;
 	bool wds, qos;
 
+<<<<<<< HEAD
 	bzero(nonce, AES_CCMP_NONCE_LEN);
 	bzero(aad, AES_CCMP_AAD_MAX_LEN);
+=======
+	memset(nonce, 0, AES_CCMP_NONCE_LEN);
+	memset(aad, 0, AES_CCMP_AAD_MAX_LEN);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 	fc = ltoh16(h->fc);
 	subtype = (fc & FC_SUBTYPE_MASK) >> FC_SUBTYPE_SHIFT;
@@ -607,7 +710,11 @@ BCMROMFN(aes_ccmp_cal_params)(struct dot11_header *h, bool legacy,
 
 	*nonce++ = nonce_1st_byte;
 
+<<<<<<< HEAD
 	bcopy((uchar *)&h->a2, nonce, ETHER_ADDR_LEN);
+=======
+	memcpy(nonce, (uchar *)&h->a2, ETHER_ADDR_LEN);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	nonce += ETHER_ADDR_LEN;
 
 	/* PN[5] */
@@ -638,11 +745,19 @@ BCMROMFN(aes_ccmp_cal_params)(struct dot11_header *h, bool legacy,
 			fc &= AES_CCMP_FC_MASK;
 	} else {
 		/* 802.11i Draft 3 inconsistencies:
+<<<<<<< HEAD
 		 * Clause 8.3.4.4.3: "FC ­ MPDU Frame Control field, with Retry bit masked
 		 * to zero."  (8.3.4.4.3).
 		 * Figure 29: "FC ­ MPDU Frame Control field, with Retry, MoreData, CF-ACK,
 		 * CF-POLL bits masked to zero."
 		 * F.10.4.1: "FC ­ MPDU Frame Control field, with Retry, MoreData,
+=======
+		 * Clause 8.3.4.4.3: "FC - MPDU Frame Control field, with Retry bit masked
+		 * to zero."  (8.3.4.4.3).
+		 * Figure 29: "FC - MPDU Frame Control field, with Retry, MoreData, CF-ACK,
+		 * CF-POLL bits masked to zero."
+		 * F.10.4.1: "FC - MPDU Frame Control field, with Retry, MoreData,
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 		 * PwrMgmt bits masked to zero."
 		 */
 
@@ -652,7 +767,11 @@ BCMROMFN(aes_ccmp_cal_params)(struct dot11_header *h, bool legacy,
 	*aad++ = (uint8)(fc & 0xff);
 	*aad++ = (uint8)((fc >> 8) & 0xff);
 
+<<<<<<< HEAD
 	bcopy((uchar *)&h->a1, aad, 3*ETHER_ADDR_LEN);
+=======
+	memcpy(aad, (uchar *)&h->a1, 3*ETHER_ADDR_LEN);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	aad += 3*ETHER_ADDR_LEN;
 
 	seq = ltoh16(h->seq);
@@ -666,13 +785,21 @@ BCMROMFN(aes_ccmp_cal_params)(struct dot11_header *h, bool legacy,
 	*aad++ = (uint8)((seq >> 8) & 0xff);
 
 	if (wds) {
+<<<<<<< HEAD
 		bcopy((uchar *)&h->a4, aad, ETHER_ADDR_LEN);
+=======
+		memcpy(aad, (uchar *)&h->a4, ETHER_ADDR_LEN);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 		aad += ETHER_ADDR_LEN;
 	}
 	if (qos) {
 		if (!legacy) {
 			/* 802.11i Draft 7.0 inconsistencies:
+<<<<<<< HEAD
 			 * Clause 8.3.3.3.2: "QC ­ The Quality of Service Control, a
+=======
+			 * Clause 8.3.3.3.2: "QC - The Quality of Service Control, a
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			 * two-octet field that includes the MSDU priority, reserved
 			 * for future use."
 			 * I.7.4: TID portion of QoS
@@ -684,9 +811,15 @@ BCMROMFN(aes_ccmp_cal_params)(struct dot11_header *h, bool legacy,
 			*aad++ = (uint8)((qc >> 8) & 0xff);
 		} else {
 			/* 802.11i Draft 3.0 inconsistencies: */
+<<<<<<< HEAD
 			/* Clause 8.3.4.4.3: "QC ­ The QoS Control, if present." */
 			/* Figure 30: "QC ­ The QoS TC from QoS Control, if present." */
 			/* F.10.4.1: "QC ­ The QoS TC from QoS Control, if present." */
+=======
+			/* Clause 8.3.4.4.3: "QC - The QoS Control, if present." */
+			/* Figure 30: "QC - The QoS TC from QoS Control, if present." */
+			/* F.10.4.1: "QC - The QoS TC from QoS Control, if present." */
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 			/* Our implementation: Match clause 8.3.4.4.3 */
 			qc &= AES_CCMP_LEGACY_QOS_MASK;
@@ -696,15 +829,24 @@ BCMROMFN(aes_ccmp_cal_params)(struct dot11_header *h, bool legacy,
 	}
 }
 
+<<<<<<< HEAD
 #if defined(WLFBT)
 /* 128-bit long string of zeros */
 static uint8 Z128[] = {
+=======
+/* 128-bit long string of zeros */
+static const uint8 Z128[] = {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
 /* CMAC Subkey generation polynomial for 128-bit blocks */
+<<<<<<< HEAD
 static uint8 R128[] = {
+=======
+static const uint8 R128[] = {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x87
 };
@@ -725,25 +867,43 @@ aes_cmac_gen_subkeys(const size_t kl, const uint8 *K, uint8 *K1, uint8 *K2)
 	pres("CIPHK", AES_BLOCK_SZ, L);
 
 	/* If MSB1(L) = 0, then K1 = L << 1 */
+<<<<<<< HEAD
 	/* Else K1 = (L << 1) ⊕ Rb */
+=======
+	/* Else K1 = (L << 1) ^ Rb */
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	high = 0;
 	for (i = AES_BLOCK_SZ-1; i >= 0; i--) {
 		low = L[i] << 1;
 		K1[i] = low | high;
 		high = (L[i] & 0x80) >> 7;
 	}
+<<<<<<< HEAD
 	if ((L[0] & 0x80) != 0) xor_128bit_block(K1, R128, K1);
 	pres("K1", AES_BLOCK_SZ, K1);
 
 	/* If MSB1(K1) = 0, then K2 = K1 << 1 */
 	/* Else K2 = (K1 << 1) ⊕ Rb */
+=======
+	if ((L[0] & 0x80) != 0)
+		xor_128bit_block(K1, R128, K1);
+	pres("K1", AES_BLOCK_SZ, K1);
+
+	/* If MSB1(K1) = 0, then K2 = K1 << 1 */
+	/* Else K2 = (K1 << 1) ^ Rb */
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	high = 0;
 	for (i = AES_BLOCK_SZ-1; i >= 0; i--) {
 		low = K1[i] << 1;
 		K2[i] = low | high;
 		high = (K1[i] & 0x80) >> 7;
 	}
+<<<<<<< HEAD
 	if ((K1[0] & 0x80) != 0) xor_128bit_block(K2, R128, K2);
+=======
+	if ((K1[0] & 0x80) != 0)
+		xor_128bit_block(K2, R128, K2);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	pres("K2", AES_BLOCK_SZ, K2);
 
 	return;
@@ -765,16 +925,28 @@ aes_cmac(const size_t key_len, const uint8* K,
 	uint8 Mn[AES_BLOCK_SZ], tmp[AES_BLOCK_SZ], C[AES_BLOCK_SZ];
 	uint32 rk[4 * (AES_MAXROUNDS + 1)];
 
+<<<<<<< HEAD
 	/* If Mlen = 0, let n = 1; else, let n = ⎡Mlen/b⎤ */
 	if (data_len == 0)
 		n = 1;
 	else
 		n = (data_len + AES_BLOCK_SZ - 1)/AES_BLOCK_SZ;
+=======
+	/* If Mlen = 0, let n = 1; else, let n = Mlen/b */
+	if (data_len == 0)
+		n = 1;
+	else
+		n = ((uint)data_len + AES_BLOCK_SZ - 1)/AES_BLOCK_SZ;
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 	/* Let M1, M2, ... , Mn-1, Mn* denote the unique sequence of bit
 	   strings such that M = M1 || M2 || ... || Mn-1 || Mn*, where M1,
 	   M2,..., Mn-1 are complete blocks.  If Mn* is a complete block, let
+<<<<<<< HEAD
 	   Mn = K1 ⊕ Mn*; else, let Mn = K2 ⊕ (Mn*||10j), where j = nb-Mlen-1
+=======
+	   Mn = K1 ^ Mn*; else, let Mn = K2 ^ (Mn*||10j), where j = nb-Mlen-1
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	*/
 
 	if (data_len == (n * AES_BLOCK_SZ)) {
@@ -782,17 +954,32 @@ aes_cmac(const size_t key_len, const uint8* K,
 		xor_128bit_block(K1, &(ptxt[(n-1)*AES_BLOCK_SZ]), Mn);
 	} else {
 		/* Mn* is a partial block, pad with 0s and use K2 */
+<<<<<<< HEAD
 		pblen = data_len - ((n-1)*AES_BLOCK_SZ);
 		for (i = 0; i < pblen; i++) Mn[i] = ptxt[((n-1)*AES_BLOCK_SZ) + i];
 		Mn[pblen] = 0x80;
 		for (i = pblen+1; i < AES_BLOCK_SZ; i++) Mn[i] = 0;
+=======
+		pblen = (uint)data_len - ((n-1)*AES_BLOCK_SZ);
+		for (i = 0; i < pblen; i++)
+			Mn[i] = ptxt[((n-1)*AES_BLOCK_SZ) + i];
+		Mn[pblen] = 0x80;
+		for (i = pblen + 1; i < AES_BLOCK_SZ; i++)
+			Mn[i] = 0;
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 		xor_128bit_block(K2, Mn, Mn);
 	}
 
 	/* Let C0 = 0b */
+<<<<<<< HEAD
 	bzero(C, AES_BLOCK_SZ);
 
 	/* For i = 1 to n, let Ci = CIPHK(Ci-1 ⊕ Mi) */
+=======
+	memset(C, 0, AES_BLOCK_SZ);
+
+	/* For i = 1 to n, let Ci = CIPHK(Ci-1 ^ Mi) */
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	rijndaelKeySetupEnc(rk, K, (int)AES_KEY_BITLEN(key_len));
 	for (i = 1; i < n; i++) {
 		xor_128bit_block(C, &(ptxt[(i-1)*AES_BLOCK_SZ]), tmp);
@@ -802,12 +989,19 @@ aes_cmac(const size_t key_len, const uint8* K,
 	aes_block_encrypt((int)AES_ROUNDS(key_len), rk, tmp, C);
 
 	/* Let T = MSBTlen(Cn) */
+<<<<<<< HEAD
 	bcopy(C, mac, AES_CMAC_AUTH_LEN);
+=======
+	memcpy(mac, C, AES_CMAC_AUTH_LEN);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 	return;
 }
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 void
 aes_cmac_calc(const uint8 *data, const size_t data_length, const uint8 *mic_key,
 	const size_t key_len, uint8 *mic)
@@ -817,7 +1011,10 @@ aes_cmac_calc(const uint8 *data, const size_t data_length, const uint8 *mic_key,
 	aes_cmac_gen_subkeys(key_len, mic_key, K1, K2);
 	aes_cmac(key_len, mic_key, K1, K2, data_length, data, mic);
 }
+<<<<<<< HEAD
 #endif 
+=======
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 #ifdef BCMAES_GENTABLE
 /* AES table expansion for rijndael-alg-fst.c
@@ -914,7 +1111,12 @@ get_nonce_1st_byte(struct dot11_header *h)
 	return (uint8)(QOS_TID(qc) & 0x0f);
 }
 
+<<<<<<< HEAD
 int main(int argc, char **argv)
+=======
+int
+main(int argc, char **argv)
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 {
 	uint8 output[BUFSIZ], input2[BUFSIZ];
 	int retv, k, fail = 0;
@@ -944,7 +1146,11 @@ int main(int argc, char **argv)
 			dbg(("%s: aes_cbc_encrypt failed\n", *argv));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(output, aes_cbc_vec[k].ref, aes_cbc_vec[k].il) != 0) {
+=======
+		if (memcmp(output, aes_cbc_vec[k].ref, aes_cbc_vec[k].il) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			dbg(("%s: aes_cbc_encrypt failed\n", *argv));
 			fail++;
 		}
@@ -960,7 +1166,11 @@ int main(int argc, char **argv)
 			dbg(("%s: aes_cbc_decrypt failed\n", *argv));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(aes_cbc_vec[k].input, input2, aes_cbc_vec[k].il) != 0) {
+=======
+		if (memcmp(aes_cbc_vec[k].input, input2, aes_cbc_vec[k].il) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			dbg(("%s: aes_cbc_decrypt failed\n", *argv));
 			fail++;
 		}
@@ -980,7 +1190,11 @@ int main(int argc, char **argv)
 			dbg(("%s: aes_ctr_crypt failed\n", *argv));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(output, aes_ctr_vec[k].ref, aes_ctr_vec[k].il) != 0) {
+=======
+		if (memcmp(output, aes_ctr_vec[k].ref, aes_ctr_vec[k].il) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			dbg(("%s: aes_ctr_crypt encrypt failed\n", *argv));
 			fail++;
 		}
@@ -996,7 +1210,11 @@ int main(int argc, char **argv)
 			dbg(("%s: aes_ctr_crypt failed\n", *argv));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(aes_ctr_vec[k].input, input2, aes_ctr_vec[k].il) != 0) {
+=======
+		if (memcmp(aes_ctr_vec[k].input, input2, aes_ctr_vec[k].il) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			dbg(("%s: aes_ctr_crypt decrypt failed\n", *argv));
 			fail++;
 		}
@@ -1016,7 +1234,11 @@ int main(int argc, char **argv)
 			dbg(("%s: aes_ctr_crypt failed\n", *argv));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(output, aes_ctr_vec[k].ref, k + 1) != 0) {
+=======
+		if (memcmp(output, aes_ctr_vec[k].ref, k + 1) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			dbg(("%s: aes_ctr_crypt encrypt failed\n", *argv));
 			fail++;
 		}
@@ -1032,7 +1254,11 @@ int main(int argc, char **argv)
 			dbg(("%s: aes_ctr_crypt failed\n", *argv));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(aes_ctr_vec[k].input, input2, k + 1) != 0) {
+=======
+		if (memcmp(aes_ctr_vec[k].input, input2, k + 1) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			dbg(("%s: aes_ctr_crypt decrypt failed\n", *argv));
 			fail++;
 		}
@@ -1053,7 +1279,11 @@ int main(int argc, char **argv)
 			dbg(("%s: aes_ctr_crypt failed\n", *argv));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(output, aes_ctr_vec[k].ref, AES_BLOCK_SZ+NUM_CTR_VECTORS + k + 1) != 0) {
+=======
+		if (memcmp(output, aes_ctr_vec[k].ref, AES_BLOCK_SZ+NUM_CTR_VECTORS + k + 1) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			dbg(("%s: aes_ctr_crypt encrypt failed\n", *argv));
 			fail++;
 		}
@@ -1070,7 +1300,11 @@ int main(int argc, char **argv)
 			dbg(("%s: aes_ctr_crypt failed\n", *argv));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(aes_ctr_vec[k].input, input2,
+=======
+		if (memcmp(aes_ctr_vec[k].input, input2,
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 		         AES_BLOCK_SZ + NUM_CTR_VECTORS + k + 1) != 0) {
 			dbg(("%s: aes_ctr_crypt decrypt failed\n", *argv));
 			fail++;
@@ -1091,7 +1325,11 @@ int main(int argc, char **argv)
 			dbg(("%s: aes_ccm_mac failed\n", *argv));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(output, aes_ccm_vec[k].mac, AES_CCM_AUTH_LEN) != 0) {
+=======
+		if (memcmp(output, aes_ccm_vec[k].mac, AES_CCM_AUTH_LEN) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			dbg(("%s: aes_ccm_mac failed\n", *argv));
 			fail++;
 		}
@@ -1108,7 +1346,11 @@ int main(int argc, char **argv)
 			dbg(("%s: aes_ccm_encrypt failed\n", *argv));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(output, aes_ccm_vec[k].ref, aes_ccm_vec[k].il + AES_CCM_AUTH_LEN) != 0) {
+=======
+		if (memcmp(output, aes_ccm_vec[k].ref, aes_ccm_vec[k].il + AES_CCM_AUTH_LEN) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			dbg(("%s: aes_ccm_encrypt failed\n", *argv));
 			fail++;
 		}
@@ -1125,7 +1367,11 @@ int main(int argc, char **argv)
 			dbg(("%s: aes_ccm_decrypt failed\n", *argv));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(aes_ccm_vec[k].input, input2, aes_ccm_vec[k].il) != 0) {
+=======
+		if (memcmp(aes_ccm_vec[k].input, input2, aes_ccm_vec[k].il) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			dbg(("%s: aes_ccm_decrypt failed\n", *argv));
 			fail++;
 		}
@@ -1138,7 +1384,11 @@ int main(int argc, char **argv)
 		dbg(("%s: AES-CCMP vector %d\n", *argv, k));
 		rijndaelKeySetupEnc(rk, aes_ccmp_vec[k].key,
 		                    AES_KEY_BITLEN(aes_ccmp_vec[k].kl));
+<<<<<<< HEAD
 		bcopy(aes_ccmp_vec[k].input, output, aes_ccmp_vec[k].il);
+=======
+		memcpy(output, aes_ccmp_vec[k].input, aes_ccmp_vec[k].il);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 		nonce_1st_byte = get_nonce_1st_byte((struct dot11_header *)output);
 		retv = aes_ccmp_encrypt(rk, aes_ccmp_vec[k].kl,
 		                        aes_ccmp_vec[k].il, output,
@@ -1149,7 +1399,11 @@ int main(int argc, char **argv)
 			dbg(("%s: aes_ccmp_encrypt of vector %d returned error\n", *argv, k));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(output, aes_ccmp_vec[k].ref,
+=======
+		if (memcmp(output, aes_ccmp_vec[k].ref,
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			aes_ccmp_vec[k].il+AES_CCM_AUTH_LEN) != 0) {
 			dbg(("%s: aes_ccmp_encrypt of vector %d reference mismatch\n", *argv, k));
 			fail++;
@@ -1157,7 +1411,11 @@ int main(int argc, char **argv)
 
 		rijndaelKeySetupEnc(rk, aes_ccmp_vec[k].key,
 		                    AES_KEY_BITLEN(aes_ccmp_vec[k].kl));
+<<<<<<< HEAD
 		bcopy(aes_ccmp_vec[k].ref, output, aes_ccmp_vec[k].il+AES_CCM_AUTH_LEN);
+=======
+		memcpy(output, aes_ccmp_vec[k].ref, aes_ccmp_vec[k].il+AES_CCM_AUTH_LEN);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 		nonce_1st_byte = get_nonce_1st_byte((struct dot11_header *)output);
 		retv = aes_ccmp_decrypt(rk, aes_ccmp_vec[k].kl,
 			aes_ccmp_vec[k].il+AES_CCM_AUTH_LEN, output,
@@ -1169,7 +1427,11 @@ int main(int argc, char **argv)
 			     *argv, k, retv));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(output, aes_ccmp_vec[k].input, aes_ccmp_vec[k].il) != 0) {
+=======
+		if (memcmp(output, aes_ccmp_vec[k].input, aes_ccmp_vec[k].il) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			dbg(("%s: aes_ccmp_decrypt of vector %d reference mismatch\n", *argv, k));
 			fail++;
 		}

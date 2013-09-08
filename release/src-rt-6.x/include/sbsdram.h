@@ -1,7 +1,7 @@
 /*
  * BCM47XX Sonics SiliconBackplane SDRAM controller core hardware definitions.
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sbsdram.h,v 13.18 2006-03-29 02:14:24 Exp $
+ * $Id: sbsdram.h 241182 2011-02-17 21:50:03Z $
  */
 
 #ifndef	_SBSDRAM_H

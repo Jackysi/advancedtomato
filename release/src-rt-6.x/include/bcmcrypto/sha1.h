@@ -1,4 +1,4 @@
-/* $Id: sha1.h,v 1.10.108.1 2010-12-21 02:38:55 Exp $ */
+/* $Id: sha1.h 241182 2011-02-17 21:50:03Z $ */
 /*FILE-CSTYLED*/
 
 /* From rfc3174.txt */
@@ -56,6 +56,8 @@
 #if defined(_WIN32)
 typedef short int	int_least16_t;
 #elif defined(__ECOS)
+typedef short int	int_least16_t;
+#elif defined(TARGETOS_symbian)
 typedef short int	int_least16_t;
 #else
 #include <stdint.h>

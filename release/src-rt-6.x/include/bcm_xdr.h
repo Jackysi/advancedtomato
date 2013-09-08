@@ -1,7 +1,7 @@
 /*
  * Utilites for XDR encode and decode of data
  *
- * Copyright (C) 2010, Broadcom Corporation
+ * Copyright (C) 2011, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,11 +9,13 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: bcm_xdr.h,v 13.4 2008-11-07 20:27:02 Exp $
+ * $Id: bcm_xdr.h 318785 2012-03-05 19:15:48Z $
  */
 
 #ifndef _BCM_XDR_H
 #define _BCM_XDR_H
+
+#define XDR_PACK_OPAQUE_VAR_SZ(len) (sizeof(uint32) + ROUNDUP(len, sizeof(uint32)))
 
 /*
  * bcm_xdr_buf_t
@@ -38,10 +40,10 @@ int bcm_xdr_pack_int32(bcm_xdr_buf_t *b, int32 val);
 int bcm_xdr_unpack_int32(bcm_xdr_buf_t *b, int32 *pval);
 int bcm_xdr_pack_int8(bcm_xdr_buf_t *b, int8 val);
 int bcm_xdr_unpack_int8(bcm_xdr_buf_t *b, int8 *pval);
-int bcm_xdr_pack_opaque(bcm_xdr_buf_t *b, uint len, void *data);
+int bcm_xdr_pack_opaque(bcm_xdr_buf_t *b, uint len, const void *data);
 int bcm_xdr_unpack_opaque(bcm_xdr_buf_t *b, uint len, void **pdata);
 int bcm_xdr_unpack_opaque_cpy(bcm_xdr_buf_t *b, uint len, void *data);
-int bcm_xdr_pack_opaque_varlen(bcm_xdr_buf_t *b, uint len, void *data);
+int bcm_xdr_pack_opaque_varlen(bcm_xdr_buf_t *b, uint len, const void *data);
 int bcm_xdr_unpack_opaque_varlen(bcm_xdr_buf_t *b, uint *plen, void **pdata);
 int bcm_xdr_pack_string(bcm_xdr_buf_t *b, char *str);
 int bcm_xdr_unpack_string(bcm_xdr_buf_t *b, uint *plen, char **pstr);
@@ -55,5 +57,8 @@ int bcm_xdr_unpack_uint32_vec(bcm_xdr_buf_t *b, uint len, void *vec);
 
 int bcm_xdr_pack_opaque_raw(bcm_xdr_buf_t *b, uint len, void *data);
 int bcm_xdr_pack_opaque_pad(bcm_xdr_buf_t *b);
+
+int bcm_xdr_opaque_resrv(bcm_xdr_buf_t *b, uint len, void **pdata);
+int bcm_xdr_opaque_resrv_varlen(bcm_xdr_buf_t *b, uint len, void **pdata);
 
 #endif /* _BCM_XDR_H */

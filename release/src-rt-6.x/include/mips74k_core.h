@@ -1,7 +1,7 @@
 /*
  * MIPS 74k definitions
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: mips74k_core.h,v 13.2 2009-08-04 06:26:22 Exp $
+ * $Id: mips74k_core.h 241182 2011-02-17 21:50:03Z $
  */
 
 #ifndef	_mips74k_core_h_

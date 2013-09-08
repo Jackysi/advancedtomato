@@ -7,7 +7,7 @@
  *
  * Copyright (C) 2002 Broadcom Corporation
  *
- * $Id: eapol.h,v 9.23.96.5 2010-11-11 19:42:34 Exp $
+ * $Id: eapol.h 241182 2011-02-17 21:50:03Z $
  */
 
 #ifndef _eapol_h_
@@ -23,13 +23,13 @@
 #include <bcmcrypto/aeskeywrap.h>
 
 /* EAPOL for 802.3/Ethernet */
-typedef struct {
+typedef BWL_PRE_PACKED_STRUCT struct {
 	struct ether_header eth;	/* 802.3/Ethernet header */
 	unsigned char version;		/* EAPOL protocol version */
 	unsigned char type;		/* EAPOL type */
 	unsigned short length;		/* Length of body */
 	unsigned char body[1];		/* Body (optional) */
-} eapol_header_t;
+} BWL_POST_PACKED_STRUCT eapol_header_t;
 
 #define EAPOL_HEADER_LEN 18
 

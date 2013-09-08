@@ -2,7 +2,11 @@
  * Function: hmac_md5
  * From rfc2104.txt
  *
+<<<<<<< HEAD
  * $Id: hmac.c,v 1.16 2009-04-13 16:25:16 Exp $
+=======
+ * $Id: hmac.c 241182 2011-02-17 21:50:03Z $
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  */
 
 /*
@@ -32,7 +36,11 @@
  *   HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF
  *   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
  *
+<<<<<<< HEAD
  * Copyright (C) 2010, Broadcom Corporation
+=======
+ * Copyright (C) 2011, Broadcom Corporation
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -40,13 +48,18 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
+<<<<<<< HEAD
  * $Id: hmac.c,v 1.16 2009-04-13 16:25:16 Exp $
+=======
+ * $Id: hmac.c 241182 2011-02-17 21:50:03Z $
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  */
 
 
 #include <bcmcrypto/md5.h>
 
 #ifdef BCMDRIVER
+<<<<<<< HEAD
 #if !defined(BCMSUP_PSK)
 #error "BCMSUP_PSK or BCMCCX must be defined to compile hmac.c for driver!"
 #endif
@@ -61,6 +74,16 @@ extern void bzero(void *b, int len);
 #endif
 #endif	/* BCMDRIVER */
 
+=======
+#include <osl.h>
+#else
+#include <string.h>
+#endif	/* BCMDRIVER */
+
+#if defined(BCMDRIVER) && defined(HNDRTE) && !defined(BCMSUP_PSK)
+#error "BCMSUP_PSK or BCMCCX must be defined to compile hmac.c for driver!"
+#endif
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 extern void BCMROMFN(hmac_md5)(unsigned char *text, int text_len, unsigned char *key,
                                int key_len, unsigned char *digest);
@@ -83,9 +106,15 @@ BCMROMFN(hmac_md5)(unsigned char *text, int text_len, unsigned char *key,
 				      */
 	unsigned char tk[16];
 	int i;
+<<<<<<< HEAD
 	/* if key is longer than 64 bytes reset it to key=MD5(key) */
 	if (key_len > 64) {
 
+=======
+
+	/* if key is longer than 64 bytes reset it to key=MD5(key) */
+	if (key_len > 64) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 		MD5_CTX      tctx;
 
 		MD5Init(&tctx);
@@ -109,10 +138,17 @@ BCMROMFN(hmac_md5)(unsigned char *text, int text_len, unsigned char *key,
 	 */
 
 	/* start out by storing key in pads */
+<<<<<<< HEAD
 	bzero(k_ipad, sizeof(k_ipad));
 	bzero(k_opad, sizeof(k_opad));
 	bcopy(key, k_ipad, key_len);
 	bcopy(key, k_opad, key_len);
+=======
+	memset(k_ipad, 0, sizeof(k_ipad));
+	memset(k_opad, 0, sizeof(k_opad));
+	memcpy(k_ipad, key, key_len);
+	memcpy(k_opad, key, key_len);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 	/* XOR key with ipad and opad values */
 	for (i = 0; i < 64; i++) {

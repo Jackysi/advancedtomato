@@ -1,7 +1,7 @@
 /*
  * bcmevent read-only data shared by kernel or app layers
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2012, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -14,7 +14,7 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * $Id: bcmevent.c,v 1.10.2.2 2010-10-07 11:44:52 Exp $
+ * $Id: bcmevent.c 339265 2012-06-15 23:44:23Z $
  */
 
 #include <typedefs.h>
@@ -23,7 +23,7 @@
 #include <proto/bcmeth.h>
 #include <proto/bcmevent.h>
 
-#if WLC_E_LAST != 79
+#if WLC_E_LAST != 95
 #error "You need to add an entry to bcmevent_names[] for the new event"
 #endif
 
@@ -77,9 +77,6 @@ const bcmevent_name_t bcmevent_names[] = {
 	{ WLC_E_UNICAST_DECODE_ERROR, "UNICAST_DECODE_ERROR" },
 	{ WLC_E_MULTICAST_DECODE_ERROR, "MULTICAST_DECODE_ERROR" },
 	{ WLC_E_TRACE, "TRACE" },
-#ifdef WLBTAMP
-	{ WLC_E_BTA_HCI_EVENT, "BTA_HCI_EVENT" },
-#endif
 	{ WLC_E_IF, "IF" },
 #ifdef WLP2P
 	{ WLC_E_P2P_DISC_LISTEN_COMPLETE, "WLC_E_P2P_DISC_LISTEN_COMPLETE" },
@@ -92,7 +89,7 @@ const bcmevent_name_t bcmevent_names[] = {
 	{ WLC_E_ACTION_FRAME_RX, "ACTION_FRAME_RX" },
 	{ WLC_E_ACTION_FRAME_COMPLETE, "ACTION_FRAME_COMPLETE" },
 #endif
-#ifdef WIN7
+#if defined(NDIS) && (NDISVER >= 0x0620)
 	{ WLC_E_PRE_ASSOC_IND, "ASSOC_RECV" },
 	{ WLC_E_PRE_REASSOC_IND, "REASSOC_RECV" },
 	{ WLC_E_CHANNEL_ADOPTED, "CHANNEL_ADOPTED" },
@@ -101,18 +98,36 @@ const bcmevent_name_t bcmevent_names[] = {
 	{ WLC_E_DFS_AP_RESUME, "DFS_AP_RESUME" },
 	{ WLC_E_ASSOC_IND_NDIS, "ASSOC_IND_NDIS"},
 	{ WLC_E_REASSOC_IND_NDIS, "REASSOC_IND_NDIS"},
-#endif /* WIN7 */
+#endif /* NDIS && NDISVER >= 0x0620 */
 	{ WLC_E_ESCAN_RESULT, "WLC_E_ESCAN_RESULT" },
 	{ WLC_E_ACTION_FRAME_OFF_CHAN_COMPLETE, "WLC_E_AF_OFF_CHAN_COMPLETE" },
 #ifdef WLP2P
 	{ WLC_E_PROBRESP_MSG, "PROBE_RESP_MSG" },
-	{ WLC_E_P2P_PROBREQ_MSG, "P2P PROBE_REQ_MSG"},
+	{ WLC_E_P2P_PROBREQ_MSG, "P2P PROBE_REQ_MSG" },
 #endif
 #ifdef PROP_TXSTATUS
-	{WLC_E_FIFO_CREDIT_MAP, "FIFO_CREDIT_MAP"},
+	{ WLC_E_FIFO_CREDIT_MAP, "FIFO_CREDIT_MAP" },
 #endif
-	{ WLC_E_DCS_REQUEST, "DCS_REQUEST"},
-	{ WLC_E_CSA_COMPLETE_IND, "WLC_E_CSA_COMPLETE_IND"}
+	{ WLC_E_WAKE_EVENT, "WAKE_EVENT" },
+	{ WLC_E_DCS_REQUEST, "DCS_REQUEST" },
+	{ WLC_E_RM_COMPLETE, "RM_COMPLETE" },
+#ifdef WLMEDIA_HTSF
+	{ WLC_E_HTSFSYNC, "HTSF_SYNC_EVENT" },
+#endif
+	{ WLC_E_OVERLAY_REQ, "OVERLAY_REQ_EVENT" },
+	{ WLC_E_CSA_COMPLETE_IND, "WLC_E_CSA_COMPLETE_IND"},
+	{ WLC_E_EXCESS_PM_WAKE_EVENT, "EXCESS_PM_WAKE_EVENT" },
+	{ WLC_E_PFN_SCAN_NONE, "PFN_SCAN_NONE" },
+	{ WLC_E_PFN_SCAN_ALLGONE, "PFN_SCAN_ALLGONE" },
+#ifdef SOFTAP
+	{ WLC_E_GTK_PLUMBED, "GTK_PLUMBED" },
+#endif
+	{ WLC_E_ASSOC_REQ_IE, "ASSOC_REQ_IE" },
+	{ WLC_E_ASSOC_RESP_IE, "ASSOC_RESP_IE" },
+#ifdef WLTDLS
+	{ WLC_E_TDLS_PEER_EVENT, "TDLS_PEER_EVENT" },
+#endif /* WLTDLS */
+	{ WLC_E_NATIVE, "NATIVE" }
 };
 
 const int bcmevent_names_size = ARRAYSIZE(bcmevent_names);

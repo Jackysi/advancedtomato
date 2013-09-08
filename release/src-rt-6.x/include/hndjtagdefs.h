@@ -1,9 +1,9 @@
 /*
  * Definitiosn for Jtag taps in HND chips.
  *
- * $Id: hndjtagdefs.h,v 13.3 2009-07-02 20:33:03 Exp $
+ * $Id: hndjtagdefs.h 241182 2011-02-17 21:50:03Z $
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -37,7 +37,7 @@
 #define MIPS_DATA		0x09
 #define MIPS_CTRL		0x0a
 
-/* DMA related bits in the Control register */
+/* Bits in the Control register */
 #define DMA_SZ1			0x00000000
 #define DMA_SZ2			0x00000080
 #define DMA_SZ4			0x00000100
@@ -45,8 +45,10 @@
 #define DMA_READ		0x00000200
 #define DMA_ERROR		0x00000400
 #define DMA_START		0x00000800
-#define DMA_BREAK		0x00001000
+#define EJ_BREAK		0x00001000
+#define EJ_PREN			0x00008000
 #define DMA_ACC			0x00020000
+#define EJ_PRACC		0x00040000
 
 /* CC mode defines: */
 
@@ -103,6 +105,10 @@
 #define LV_CTRL			5
 #define LV_OTP_CTL		6
 #define LV_OTP_STAT		7
+#define LV_ATEWRITE		8
+#define LV_ATEREAD		9
+#define LV_ATEREADDATA		10
+#define LV_ATEWRITENEXT		11
 
 #define	LV_REG_IR(reg)		(LV_BASE | (((reg) << LV_REG_SHIFT) & LV_REG_MASK))
 #define	LV_REG_ROIR(reg)	(LV_BASE | LV_RO | (((reg) << LV_REG_SHIFT) & LV_REG_MASK))
@@ -120,6 +126,11 @@
 #define	IDC_PART_SHIFT		12
 #define	IDC_REV_MASK		0xf0000000
 #define	IDC_REV_SHIFT		28
+
+#define	ATE_BUSY		1
+#define	ATE_RERROR		2
+#define	ATE_REJECT		0x10
+#define	ATE_WERROR		0x20
 
 #define	JEDEC_BRCM		0x17f
 

@@ -1,7 +1,7 @@
 /*
  * Broadcom USB remote download definitions
  *
- * Copyright (C) 2010, Broadcom Corporation
+ * Copyright (C) 2011, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: usbrdl.h,v 13.22.14.2 2010-09-07 19:23:08 Exp $
+ * $Id: usbrdl.h 314495 2012-02-12 07:56:39Z $
  */
 
 #ifndef _USB_RDL_H
@@ -40,7 +40,12 @@
 #define	DL_RDHW16		0x11	/* Read 16 bits */
 #define	DL_RDHW8		0x12	/* Read an 8 bit byte */
 #define	DL_WRHW			0x14	/* Write a hardware address (Ctl-out) */
+#define DL_WRHW_BLK 	0x13	/* Block write to hardware access */
 
+#define DL_CMD_RDHW		1	/* read data from a backplane address */
+#define DL_CMD_WRHW		2	/* write data to a backplane address */
+
+#ifndef LINUX_POSTMOGRIFY_REMOVAL
 #define	DL_JTCONF		0x15	/* Get JTAG configuration (Ctl_in)
 					 *  Set JTAG configuration (Ctl-out)
 					 */
@@ -56,10 +61,33 @@
 #define	DL_RDJT16		0x1e	/* Read 16 bits (sz = 4 - low bits) */
 #define	DL_RDJT8		0x1f	/* Read 8 bits */
 
+#define	DL_MRDJT		0x20	/* Multiple read over JTAG (Ctl-out+Bulk-in) */
+#define	DL_MRDJT32		0x20	/* M-read 32 bits */
+#define	DL_MRDJT16		0x22	/* M-read 16 bits (sz = 4 - low bits) */
+#define	DL_MRDJT6		0x23	/* M-read 8 bits */
+#define	DL_MRDIJT		0x24	/* M-read over JTAG (Ctl-out+Bulk-in) with auto-increment */
+#define	DL_MRDIJT32		0x24	/* M-read 32 bits w/ai */
+#define	DL_MRDIJT16		0x26	/* M-read 16 bits w/ai (sz = 4 - low bits) */
+#define	DL_MRDIJT8		0x27	/* M-read 8 bits w/ai */
+#define	DL_MRDDJT		0x28	/* M-read over JTAG (Ctl-out+Bulk-in) with auto-decrement */
+#define	DL_MRDDJT32		0x28	/* M-read 32 bits w/ad */
+#define	DL_MRDDJT16		0x2a	/* M-read 16 bits w/ad (sz = 4 - low bits) */
+#define	DL_MRDDJT8		0x2b	/* M-read 8 bits w/ad */
+#define	DL_MWRJT		0x2c	/* Multiple write over JTAG (Bulk-out) */
+#define	DL_MWRIJT		0x2d	/*	With auto-increment */
+#define	DL_MWRDJT		0x2e	/*	With auto-decrement */
+#define	DL_VRDJT		0x2f	/* Vector read over JTAG (Bulk-out+Bulk-in) */
+#define	DL_VWRJT		0x30	/* Vector write over JTAG (Bulk-out+Bulk-in) */
+#define	DL_SCJT			0x31	/* Jtag scan (Bulk-out+Bulk-in) */
+
+#define	DL_CFRD			0x33	/* Reserved for dmamem use */
+#define	DL_CFWR			0x34	/* Reserved for dmamem use */
+#define DL_GET_NVRAM            0x35    /* Query nvram parameter */
+
 #define	DL_DBGTRIG		0xFF	/* Trigger bRequest type to aid debug */
 
 #define	DL_JTERROR		0x80000000
-
+#endif /* LINUX_POSTMOGRIFY_REMOVAL */
 
 /* states */
 #define DL_WAITING	0	/* waiting to rx first pkt that includes the hdr info */
@@ -87,14 +115,11 @@ typedef struct {
 typedef struct {
 	uint32	chip;		/* Chip id */
 	uint32	chiprev;	/* Chip rev */
+	uint32  ramsize;    /* Size of RAM */
+	uint32  remapbase;   /* Current remap base address */
+	uint32  boardtype;   /* Type of board */
+	uint32  boardrev;    /* Board revision */
 } bootrom_id_t;
-
-typedef struct {
-	uint32	chip;		/* Chip id */
-	uint32	chiprev;	/* Chip rev */
-	uint32	ccrev;		/* Chipcommon core rev */
-	uint32	siclock;	/* Backplane clock */
-} jtagd_id_t;
 
 /* struct for backplane & jtag accesses */
 typedef struct {
@@ -103,6 +128,22 @@ typedef struct {
 	uint32	len;		/* length of data: 1, 2, 4 bytes */
 	uint32	data;		/* data to write */
 } hwacc_t;
+
+/* struct for backplane */
+typedef struct {
+	uint32  cmd;            /* tag to identify the cmd */
+	uint32  addr;           /* backplane address for write */
+	uint32  len;            /* length of data: 1, 2, 4 bytes */
+	uint8   data[1];                /* data to write */
+} hwacc_blk_t;
+
+#ifndef LINUX_POSTMOGRIFY_REMOVAL
+typedef struct {
+	uint32  chip;           /* Chip id */
+	uint32  chiprev;        /* Chip rev */
+	uint32  ccrev;          /* Chipcommon core rev */
+	uint32  siclock;        /* Backplane clock */
+} jtagd_id_t;
 
 /* Jtag configuration structure */
 typedef struct {
@@ -118,12 +159,37 @@ typedef struct {
 
 	uint32	retries;	/* Number of retries for jtagm operations */
 	uint32	ctrl;		/* Jtag control reg copy */
+	uint32	ir_lvbase;	/* Bits to add to IR values in LV tap */
+	uint32	dretries;	/* Number of retries for dma operations */
 } jtagconf_t;
+
+/* struct for jtag scan */
+#define MAX_USB_IR_BITS	256
+#define MAX_USB_DR_BITS	3072
+#define USB_IR_WORDS	(MAX_USB_IR_BITS / 32)
+#define USB_DR_WORDS	(MAX_USB_DR_BITS / 32)
+typedef struct {
+	uint32	cmd;		/* tag to identify the cmd */
+	uint32	irsz;		/* IR size in bits */
+	uint32	drsz;		/* DR size in bits */
+	uint32	ts;		/* Terminal state (def, pause, rti) */
+	uint32	data[USB_IR_WORDS + USB_DR_WORDS];	/* IR & DR data */
+} scjt_t;
+#endif /* LINUX_POSTMOGRIFY_REMOVAL */
+
+/* struct for querying nvram params from bootloader */
+#define QUERY_STRING_MAX 32
+typedef struct {
+	uint32  cmd;                    /* tag to identify the cmd */
+	char    var[QUERY_STRING_MAX];  /* param name */
+} nvparam_t;
 
 typedef void (*exec_fn_t)(void *sih);
 
 #define USB_CTRL_IN (USB_TYPE_VENDOR | 0x80 | USB_RECIP_INTERFACE)
 #define USB_CTRL_OUT (USB_TYPE_VENDOR | 0 | USB_RECIP_INTERFACE)
+
+#define USB_CTRL_EP_TIMEOUT 500 /* Timeout used in USB control_msg transactions. */
 
 #define RDL_CHUNK	1500  /* size of each dl transfer */
 
@@ -131,6 +197,14 @@ typedef void (*exec_fn_t)(void *sih);
 #define TRX_OFFSETS_DLFWLEN_IDX	0	/* Size of the fw; used in uncompressed case */
 #define TRX_OFFSETS_JUMPTO_IDX	1	/* RAM address for jumpto after download */
 #define TRX_OFFSETS_NVM_LEN_IDX	2	/* Length of appended NVRAM data */
+#ifdef BCMTRXV2
+/* The NVRAM region part of trx will be digitally signed in SDR image,
+ * so is the need for new cfg region which could pass parameters
+ * which dones not need to be digitally signed
+ */
+#define TRX_OFFSETS_DSG_LEN_IDX	3	/* Length of digital signature for the first image */
+#define TRX_OFFSETS_CFG_LEN_IDX	4	/* Length of config region, which is not digitally signed */
+#endif /* BCMTRXV2 */
 
 #define TRX_OFFSETS_DLBASE_IDX  0       /* RAM start address for download */
 

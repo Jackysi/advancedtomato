@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, Broadcom Corporation
+ * Copyright (C) 2011, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  *
  * Fundamental constants relating to UDP Protocol
  *
- * $Id: bcmudp.h,v 9.7 2008-12-01 22:55:19 Exp $
+ * $Id: bcmudp.h 241182 2011-02-17 21:50:03Z $
  */
 
 #ifndef _bcmudp_h_

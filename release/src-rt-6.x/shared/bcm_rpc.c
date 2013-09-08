@@ -2,7 +2,7 @@
  * RPC layer. It links to bus layer with transport layer(bus dependent)
  * Broadcom 802.11abg Networking Device Driver
  *
- * Copyright (C) 2010, Broadcom Corporation
+ * Copyright (C) 2011, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,7 +10,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: bcm_rpc.c,v 1.80.2.30 2010-12-24 23:35:24 Exp $
+ * $Id: bcm_rpc.c 314581 2012-02-13 17:54:04Z $
  */
 
 #include <epivers.h>
@@ -33,17 +33,15 @@
 #endif
 
 /* RPC may use OS APIs directly to avoid overloading osl.h
- *  HIGH_ONLY supports NDIS, LINUX, and MACOSX so far. can be ported to other OS if needed
+ *  HIGH_ONLY supports NDIS and LINUX so far. can be ported to other OS if needed
  */
 #ifdef WLC_HIGH
-#if !defined(NDIS) && !defined(linux) && !defined(MACOSX)
-#error "RPC only supports NDIS, LINUX, MACOSX in HIGH driver"
+#if !defined(NDIS) && !defined(linux)
+#error "RPC only supports NDIS and LINUX in HIGH driver"
 #endif
 #endif /* WLC_HIGH */
 #ifdef WLC_LOW
-#if !defined(_HNDRTE_)
 #error "RPC only supports HNDRTE in LOW driver"
-#endif
 #endif /* WLC_LOW */
 
 /* use local flag BCMDBG_RPC so that it can be turned on without global BCMDBG */
@@ -53,7 +51,6 @@
 #endif
 #endif	/* BCMDBG */
 
-#define BCMDBG_RPC
 /* #define BCMDBG_RPC */
 
 static uint32 rpc_msg_level = RPC_ERROR_VAL;
@@ -96,17 +93,15 @@ static uint32 rpc_msg_level = RPC_ERROR_VAL;
 #endif	/* BCM_RPC_REORDER_LIMIT */
 
 /* OS specific files for locks */
-#define RPC_INIT_WAIT_TIMEOUT_MSEC		2000
+#define RPC_INIT_WAIT_TIMEOUT_MSEC	2000
 #ifndef RPC_RETURN_WAIT_TIMEOUT_MSEC
 #if defined(NDIS) && !defined(SDIO_BMAC)
 #define RPC_RETURN_WAIT_TIMEOUT_MSEC	800 /* NDIS OIDs timeout in 1 second.
 					     * This timeout needs to be smaller than that
 					     */
-#elif defined(linux) || defined(SDIO_BMAC)
+#else
 #define RPC_RETURN_WAIT_TIMEOUT_MSEC	3200
-#elif defined(MACOSX)
-#define RPC_RETURN_WAIT_TIMEOUT_MSEC	800  /* guess at a reasonable turnaround time */
-#endif /* NDIS */
+#endif
 #endif /* RPC_RETURN_WAIT_TIMEOUT_MSEC */
 
 /* RPC Frame formats */
@@ -237,12 +232,9 @@ static void bcm_rpc_dump_pktlog_low(uint32 arg, uint argc, char *argv[]);
 #ifdef NDIS
 #define RPC_RO_LOCK(ri)		NdisAcquireSpinLock(&(ri)->reorder_lock)
 #define RPC_RO_UNLOCK(ri)	NdisReleaseSpinLock(&(ri)->reorder_lock)
-#elif defined(linux)
+#else
 #define RPC_RO_LOCK(ri)		spin_lock_irqsave(&(ri)->reorder_lock, (ri)->reorder_flags);
 #define RPC_RO_UNLOCK(ri)	spin_unlock_irqrestore(&(ri)->reorder_lock, (ri)->reorder_flags);
-#elif defined(MACOSX)
-#define RPC_RO_LOCK(ri)		do { } while (0)
-#define RPC_RO_UNLOCK(ri)	do { } while (0)
 #endif /* NDIS */
 #else
 #define RPC_RO_LOCK(ri)		do { } while (0)
@@ -396,6 +388,7 @@ bcm_rpc_hdr_xaction_validate(struct rpc_info *rpci, rpc_header_t header, uint32 
 
 	type = RPC_HDR_TYPE(header);
 	*xaction = RPC_HDR_XACTION(header);
+
 	/* High driver does not check the return transaction to be in order */
 	if (type != RPC_TYPE_MGN &&
 #ifdef WLC_HIGH
@@ -653,6 +646,14 @@ bcm_rpc_tp_get(struct rpc_info *rpci)
 	return rpci->rpc_th;
 }
 
+/* get original os handle */
+osl_t*
+bcm_rpc_osh_get(struct rpc_info *rpci)
+{
+	return rpci->osh;
+}
+
+
 #ifdef BCM_RPC_TOC
 static void
 bcm_rpc_tp_tx_encap(struct rpc_info *rpci, rpc_buf_t *rpc_buf)
@@ -754,7 +755,6 @@ bcm_rpc_hello(struct rpc_info *rpci)
 #endif /* WLC_HIGH && NDIS */
 
 #ifdef WLC_HIGH
-
 static int
 bcm_rpc_up(struct rpc_info *rpci)
 {
@@ -984,6 +984,7 @@ void
 bcm_rpc_watchdog(struct rpc_info *rpci)
 {
 	static uint32 uptime = 0;
+
 #ifdef WLC_LOW
 /* rpc watchdog is called every 10 msec in the low driver */
 	static uint32 count = 0;
@@ -992,15 +993,14 @@ bcm_rpc_watchdog(struct rpc_info *rpci)
 		 count = 0;
 		 uptime++;
 		if (uptime % 60 == 0)
-			RPC_TRACE(("rpc uptime %d minutes\n", (uptime / 60)));
+			RPC_ERR(("rpc uptime %d minutes\n", (uptime / 60)));
 	}
 #else
 	uptime++;
 	if (uptime % 60 == 0) {
-		RPC_TRACE(("rpc uptime %d minutes\n", (uptime / 60)));
+		RPC_ERR(("rpc uptime %d minutes\n", (uptime / 60)));
 	}
 #endif
-
 	bcm_rpc_tp_watchdog(rpci->rpc_th);
 }
 
@@ -1015,11 +1015,13 @@ bcm_rpc_down(struct rpc_info *rpci)
 
 	RPC_OSL_LOCK(rpci->rpc_osh);
 	if (rpci->state != DISCONNECTED && rpci->state != ASLEEP) {
+		RPC_OSL_UNLOCK(rpci->rpc_osh);
 #ifdef WLC_HIGH
 		bcm_rpc_fatal_dump(rpci);
 #else
 		bcm_rpc_dump_state((uint32)rpci, 0, NULL);
 #endif
+		RPC_OSL_LOCK(rpci->rpc_osh);
 		rpci->state = DISCONNECTED;
 		RPC_OSL_UNLOCK(rpci->rpc_osh);
 		if (rpci->dncb)
@@ -1079,10 +1081,10 @@ bcm_rpc_call(struct rpc_info *rpci, rpc_buf_t *b)
 		err = -1;
 		RPC_OSL_UNLOCK(rpci->rpc_osh);
 #ifdef BCM_RPC_TOC
+
 		header = (rpc_header_t *)bcm_rpc_buf_push(rpci->rpc_th, b, RPC_HDR_LEN);
 		rpc_header_prep(rpci, header, RPC_TYPE_DATA, 0);
 		bcm_rpc_tp_tx_encap(rpci, b);
-
 		if (rpci->txdone_cb) {
 			/* !!must pull off the rpc/tp header after dbus is done for wl driver */
 			rpci->txdone_cb(rpci->ctx, b);
@@ -1184,14 +1186,14 @@ bcm_rpc_call_with_return(struct rpc_info *rpci, rpc_buf_t *b)
 	/* Prep the return packet BEFORE sending the buffer and also within spinlock
 	 * within raised IRQ
 	 */
-	ret = bcm_rpc_tp_recv_rtn(rpci->rpc_th);
-	if ((ret == BCME_RXFAIL) || (ret == BCME_NODEVICE)) {
+	if ((ret = bcm_rpc_tp_recv_rtn(rpci->rpc_th)) != BCME_OK) {
 		RPC_ERR(("%s: bcm_rpc_tp_recv_rtn() failed\n", __FUNCTION__));
 
 		RPC_OSL_LOCK(rpci->rpc_osh);
 		rpci->wait_return = FALSE;
 		RPC_OSL_UNLOCK(rpci->rpc_osh);
-		bcm_rpc_err_down(rpci);
+		if ((ret != BCME_NORESOURCE) && (ret != BCME_BUSY))
+			bcm_rpc_err_down(rpci);
 		return NULL;
 	}
 
@@ -1215,6 +1217,8 @@ bcm_rpc_call_with_return(struct rpc_info *rpci, rpc_buf_t *b)
 		return NULL;
 	}
 
+	bcm_rpc_tp_agg_set(rpci->rpc_th, BCM_RPC_TP_HOST_AGG_AMPDU, FALSE);
+
 	start_wait_time = OSL_SYSUPTIME();
 	ret = RPC_OSL_WAIT(rpci->rpc_osh, RPC_RETURN_WAIT_TIMEOUT_MSEC, &timedout);
 
@@ -1235,6 +1239,10 @@ bcm_rpc_call_with_return(struct rpc_info *rpci, rpc_buf_t *b)
 		rpci->wait_return = FALSE;
 		RPC_OSL_UNLOCK(rpci->rpc_osh);
 #ifdef BCMDBG_RPC
+		printf("Failed trans 0x%x len %d data 0x%x\n",
+		       cur.trans,
+		       cur.len,
+		       cur.data[0]);
 		bcm_rpc_dump_pktlog_high(rpci);
 #endif
 		bcm_rpc_err_down(rpci);
@@ -1493,7 +1501,7 @@ bcm_rpc_buf_recv_mgn_high(struct rpc_info *rpci, rpc_acn_t acn, rpc_buf_t *rpc_b
 	rpc_rc_t reason = RPC_RC_ACK;
 	uint32 version = 0;
 
-	RPC_TRACE(("%s: Recvd:%x Version: 0x%x\nState: %x Session:%d\n", __FUNCTION__,
+	RPC_ERR(("%s: Recvd:%x Version: 0x%x\nState: %x Session:%d\n", __FUNCTION__,
 	         acn, rpci->version, rpci->state, rpci->session));
 
 #ifndef NDIS
@@ -1551,16 +1559,7 @@ bcm_rpc_buf_recv_mgn_high(struct rpc_info *rpci, rpc_acn_t acn, rpc_buf_t *rpc_b
 
 	case RPC_DOWN:
 		RPC_OSL_UNLOCK(rpci->rpc_osh);
-#ifdef NDIS
-		if ((KeGetCurrentIrql() == DISPATCH_LEVEL) &&
-			(bcm_rpc_tp_tx_flowctl_get(rpci->rpc_th))) {
-			RPC_TRACE(("%s: unsafe to down rpc, delay\n", __FUNCTION__));
-			rpci->down_pending = TRUE;
-		} else
-#endif
-		{
-			bcm_rpc_down(rpci);
-		}
+		bcm_rpc_down(rpci);
 
 		RPC_OSL_LOCK(rpci->rpc_osh);
 		break;
@@ -1970,6 +1969,13 @@ static void
 bcm_rpc_fatal_dump(void *arg)
 #endif
 {
+#ifdef BCMDBG_RPC
+#ifndef WLC_LOW
+	struct bcmstrbuf b;
+	char *buf, *t, *p;
+	uint size = 1024*1024;
+#endif /* WLC_LOW */
+#endif /* BCMDBG_RPC */
 	rpc_info_t *rpci = (rpc_info_t *)(uintptr)arg;
 	printf("DONGLE rpc dump:\n");
 	printf("Version: 0x%x State: %x\n", rpci->version, rpci->state);
@@ -1982,9 +1988,33 @@ bcm_rpc_fatal_dump(void *arg)
 	       rpci->reorder_depth, bcm_rpc_reorder_next_xid(rpci), rpci->reorder_depth_max,
 	       BCM_RPC_REORDER_LIMIT);
 
+#ifdef BCMDBG_RPC
 #ifdef WLC_LOW
 	bcm_rpc_tp_dump(rpci->rpc_th);
-#endif
+#else
+	buf = (char *)MALLOC(rpci->osh, size);
+
+	if (buf != NULL) {
+		bzero(buf, size);
+		bcm_binit(&b, buf, size);
+		bcm_rpc_tp_dump(rpci->rpc_th, &b);
+		p = buf;
+		while (p != NULL) {
+			while ((((uintptr)p) < (((uintptr)buf) + size)) && (*p == '\0'))
+					p++;
+			if (((uintptr)p) >= (((uintptr)buf) + size))
+					break;
+			if ((t = strchr(p, '\n')) != NULL) {
+				*t++ = '\0';
+				printf("%s\n", p);
+			}
+
+			p = t;
+		}
+		MFREE(rpci->osh, buf, size);
+	}
+#endif /* WLC_LOW */
+#endif /* BCMDBG_RPC */
 }
 
 void

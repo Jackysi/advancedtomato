@@ -1,7 +1,7 @@
 /*
  * CFE boot loader OS Abstraction Layer.
  *
- * Copyright (C) 2010, Broadcom Corporation
+ * Copyright (C) 2012, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: cfe_osl.h,v 1.60.12.1 2010-05-23 18:14:46 Exp $
+ * $Id: cfe_osl.h 341899 2012-06-29 04:06:38Z $
  */
 
 #ifndef _cfe_osl_h_
@@ -31,13 +31,7 @@
 #include <bcmstdlib.h>
 
 /* assert and panic */
-#ifdef BCMDBG_ASSERT
-#define ASSERT(exp) \
-	do { if (!(exp)) osl_assert(#exp, __FILE__, __LINE__); } while (0)
-extern void osl_assert(char *exp, char *file, int line);
-#else /* BCMDBG_ASSERT */
 #define	ASSERT(exp)		do {} while (0)
-#endif /* BCMDBG_ASSERT */
 
 /* PCMCIA attribute space access macros */
 #define	OSL_PCMCIA_READ_ATTR(osh, offset, buf, size) \
@@ -130,10 +124,16 @@ extern void osl_detach(osl_t *osh);
 #define	OSL_UNCACHED(a)		((void *)UNCADDR(PHYSADDR((ulong)(a))))
 #define	OSL_CACHED(a)		((void *)KERNADDR(PHYSADDR((ulong)(a))))
 #else
-#define OSL_UNCACHED(a)		(a)
-#define OSL_CACHED(a)		(a)
+#define OSL_UNCACHED(a)		((void *)UNCADDR(PHYSADDR((ulong)(a))))
+#define OSL_CACHED(a)		((void *)KERNADDR(PHYSADDR((ulong)(a))))
+/* ARM NorthStar */
+#ifndef CFG_UNCACHED
+extern void _cfe_flushcache_rang(uint, uint);
+#define OSL_CACHE_FLUSH(va, len)	_cfe_flushcache_rang(va, len)
+#else
+#define OSL_CACHE_FLUSH(va, len)
 #endif
-
+#endif /* __mips__ */
 
 #ifdef __mips__
 #define OSL_PREF_RANGE_LD(va, sz) prefetch_range_PREF_LOAD_RETAINED(va, sz)
@@ -237,6 +237,7 @@ struct lbuf {
 #define PKTSETPOOL(osh, lb, x, y)	do {} while (0)
 #define PKTPOOL(osh, lb)		FALSE
 #define PKTLIST_DUMP(osh, buf)
+#define PKTSHRINK(osh, m)		(m)
 
 extern void osl_pkt_frmnative(iocb_buffer_t *buffer, struct lbuf *lb);
 extern void osl_pkt_tonative(struct lbuf* lb, iocb_buffer_t *buffer);

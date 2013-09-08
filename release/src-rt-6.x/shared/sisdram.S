@@ -3,7 +3,7 @@
  *
  * Used by both cfe and shared/boot.
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,7 +17,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sisdram.S,v 1.8 2008-12-04 01:08:42 Exp $
+ * $Id: sisdram.S,v 1.9 2010-08-06 00:03:55 $
  */
 
 #include "mipsinc.h"
@@ -26,30 +26,32 @@
 #include "bcmdevs.h"
 
 
-/* Debug macro - write a number to a chipc reg - use it with caution,
- *  it changes k0 and k1 registers.
+/* Debug macro - write a number to a pair of chipc regs - use it with caution,
+ *  the registers being used only exist in chip rev >= 22, meaning NOT in 5354
+ *  and previous chips. Also,  it changes k0 and k1 registers.
+ *  Value can be read from epidiag -j using "pci r 0x180000d0 4"
  */
 #ifdef	BCMDBG
 #if	defined(IL_BIGENDIAN) && defined(BCMHND74K)
-#define	FLADDR_OFF	0
-#define	FLDATA_OFF	12
+#define	BPADDR_OFF	4
+#define	BPDATA_OFF	12
 #else
-#define	FLADDR_OFF	4
-#define	FLDATA_OFF	8
+#define	BPADDR_OFF	0
+#define	BPDATA_OFF	8
 #endif
 
 #define TRACEINIT(x) \
-	li	k0,KSEG1ADDR(0x18000040); \
+	li	k0,KSEG1ADDR(0x180000d0); \
 	li	k1,x; \
-	sw	k1,FLADDR_OFF(k0)
+	sw	k1,BPADDR_OFF(k0)
 	
 #define TRACE(x) \
 	li	k1,x; \
-	sw	k1,FLADDR_OFF(k0)
+	sw	k1,BPADDR_OFF(k0)
 
 #define TRACE2(x) \
 	li	k1,x; \
-	sw	k1,FLDATA_OFF(k0)
+	sw	k1,BPDATA_OFF(k0)
 
 #else
 #define TRACEINIT(x)

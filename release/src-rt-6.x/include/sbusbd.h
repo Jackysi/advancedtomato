@@ -1,7 +1,7 @@
 /*
  * Broadcom SiliconBackplane USB device core support
  *
- * Copyright (C) 2010, Broadcom Corporation
+ * Copyright (C) 2011, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: sbusbd.h,v 13.15 2010-01-13 09:21:06 Exp $
+ * $Id: sbusbd.h 286759 2011-09-29 01:41:51Z $
  */
 
 #ifndef	_usbdev_sb_h_
@@ -59,7 +59,8 @@ typedef volatile struct {
 	/* USB control */
 	uint32 usbsetting;			/* USBSetting, 0x010, rev 2 */
 	uint32 usbframe;			/* USBFrame,   0x014, rev 2 */
-	uint32 PAD[2];
+	uint32 lpmcontrol;			/* LpmRegister, 0x18, rev 9 */
+	uint32 PAD[1];
 
 	/* 2nd level DMA int status/mask, IntStatus0-4, IntMask0-4 */
 	struct {
@@ -99,8 +100,11 @@ typedef volatile struct {
 	uint32 PAD[2];
 
 	uint32 hsicphyctrl1;		/* HSICPhyCtrl1 0x2e0, rev 10 */
-	uint32 PAD[15];
-
+	uint32 hsicphyctrl2;		/* HSICPhyCtrl2 0x2e4, rev 10 */
+	uint32 hsicphystat1;		/* HSICPhyStat1 0x2e8, rev 9 */
+	uint32 PAD[9];
+	uint32 utmi_ctl;		/* utmi PHY contorol 0x310 */
+	uint32 PAD[3];
 	uint32 mdio_ctl;		/* mdio_ctl, 0x320 */
 	uint32 mdio_data;		/* mdio_data, 0x324 */
 	uint32 phymiscctl;		/* PhyMiscCtl, 0x328, rev 4 */
@@ -116,7 +120,7 @@ typedef volatile struct {
 	uint32 epinfo[EP_MAX];
 	uint32 PAD[54];
 
-	/* 
+	/*
 	 * dma64 registers, including Setup Data DMA engine, for corerev >= 7
 	 * 0ffsets 0x500 to 0x674.
 	 */
@@ -132,7 +136,7 @@ typedef volatile struct {
 #define DC_RS			(1L << 0)	/* Device Reset */
 #define DC_PL			(1L << 1)	/* USB11D: PLL Reset, USB20D PLL Power Down */
 #define DC_US			(1L << 2)	/* USB Ready */
-#define DC_ST			(1L << 3)	/* Stall */
+#define DC_ST			(1L << 3)	/* Force a Stall on all endpoints */
 #define DC_RM			(1L << 4)	/* Resume */
 #define DC_SD			(1L << 5)	/* Set Descriptor */
 #define DC_SC			(1L << 6)	/* Sync Frame */
@@ -160,6 +164,7 @@ typedef volatile struct {
 #define DC_UR			(1L << 26)	/* UTMI Soft Reset */
 #define DC_UL			(1L << 27)	/* App ULPI Select */
 #define DC_ULD			(1L << 28)	/* App ULPI DDR Select */
+#define DC_LPM			(1L << 29)	/* LPM Enable */
 #define DC_SS(n)		(((uint32)(n) << DC_SS_SHIFT) & DC_SS_MASK)
 
 /* Device status bits */
@@ -177,6 +182,7 @@ typedef volatile struct {
 #define DS_PHYMODE_NORMAL	0		/* normal operation */
 #define DS_PHYMODE_NONDRIVING	1		/* nob-driving */
 #define DS_PHYMODE_NOSTUFF_NZI	2		/* disable bit stuffing and NZI */
+#define DS_RWF			(1L << 10)	/* LPM Device Remote Wakeup Feature rev 9 */
 
 /* USB setting bits */
 #define USB_CF_MASK		0x00f		/* Configuration */
@@ -188,6 +194,34 @@ typedef volatile struct {
 #define USB_AI_MASK		0xf00		/* Alternate Interface */
 #define USB_AI_SHIFT		8
 #define USB_AI(n)		(((uint32)(n) << USB_AI_SHIFT) & USB_AI_MASK)
+#define USB_LPM_DATA_MASK		0xffff0000		/* LPM data. rev 9 */
+#define USB_LPM_DATA_SHIFT		16
+#define USB_LPM_DATA_HANDSHAKE_MASK		0x60000000	/* LPM Handshake Sent. rev 9 */
+#define USB_LPM_DATA_HANDSHAKE_SHIFT	29
+#define USB_LPM_DATA_REMOTEWK_MASK     0x10000000 /* LPM Remote Wakeup Enabled, rev 9 */
+#define USB_LPM_DATA_REMOTEWK_SHIFT		28
+#define USB_LPM_DATA_HIRD_MASK			0xf000000	/* LPM HIRD. rev 9 */
+#define USB_LPM_DATA_HIRD_SHIFT			24
+#define USB_LPM_DATA_LS_MASK			0xf00000	/* LPM Link State. rev 9 */
+#define USB_LPM_DATA_LS_SHIFT			20
+#define USB_LPM_DATA_EP_MASK			0xf0000		/* USB endpoint. rev 9 */
+#define USB_LPM_DATA_EP_SHIFT			16
+
+/* LPM Handshake */
+#define USB_LPM_HANDSHAKE_ACK           0x2 /* ACK */
+#define USB_LPM_HANDSHAKE_NAK           0xa /* NAK */
+#define USB_LPM_HANDSHAKE_STALL         0xe /* STALL */
+#define USB_LPM_HANDSHAKE_NYET          0x6 /* NYET */
+
+/* LPM Link State */
+#define USB_LPM_L1_SLEEP					0x1	/* L1 Sleep */
+
+/* LPM Control bits */
+#define LC_INT_THRESH		0xf
+#define LC_DS_THRESH		0xf0
+#define LC_DS_THRESH_SHIFT	4
+#define LC_DS_ENAB			(1L << 8)
+#define LC_DOZE_ENAB		(1L << 9)
 
 /* DMA interrupt bits */
 #define	I_PC			(1L << 10)	/* descriptor error */
@@ -205,6 +239,7 @@ typedef volatile struct {
 #define I_SETUP_SHIFT		0
 #define I_SETUP(n)		(1L << ((n) + I_SETUP_SHIFT))
 #define I_DEV_REQ		(1L << 5)	/* SetupDataPresent on Setup DMA engine, rev 3 */
+#define I_LPM_SLEEP		(1L << 6)	/* LPM Sleep Event, rev 9 */
 #define I_DATAERR_MASK		0x0003fe00	/* Endpoint Data Error (17:9) */
 #define I_DATAERR_SHIFT		9
 #define I_DATAERR(n)		(1L << ((n) + I_DATAERR_SHIFT))
@@ -226,8 +261,15 @@ typedef volatile struct {
 #define IRL_FC(n)		(((uint32)(n) << IRL_FC_SHIFT) & IRL_FC_MASK)
 
 /* ClkCtlStatus bits defined in sbconfig.h */
+/* External Resource Requests */
+#define CCS_USBCLKREQ		0x00000100	/* USB Clock Request */
+
+/* External Resource Status */
+#define CCS_USB_CLK_AVAIL	0x01000000	/* RO: USB Phy clock avail */
 
 /* hsicphyctrl1 "PLL lock count" and "PLL reset count" bits */
+#define HSIC_PULLDISABLE_MASK	0x00020000	/* Pull disable/force_buskeeper_off */
+#define HSIC_PULLDISABLE_SHIFT	17
 #define PLL_LOCK_CT_MASK	0x0f000000
 #define PLL_LOCK_CT_SHIFT	24
 #define PLL_RESET_CT_MASK	0x30000000
@@ -238,12 +280,12 @@ typedef volatile struct {
 #define PMC_PLL_CAL_EN		(1 << 1)
 
 /* Endpoint status bits */
-#define EPS_STALL_MASK		0x0000001f	/* Stall on Status IN (4:0) */
-#define EPS_STALL_SHIFT		0
+#define EPS_ERROR_MASK		0x0000001f	/* Error direction: IN vs. OUT (4:0) */
+#define EPS_ERROR_SHIFT		0
+#define EPS_ERROR(n)		(1L << ((n) + EPS_ERROR_SHIFT))
+#define EPS_STALL_MASK		0x00003fe0	/* Stall on endpoint (13:5) */
+#define EPS_STALL_SHIFT		5
 #define EPS_STALL(n)		(1L << ((n) + EPS_STALL_SHIFT))
-#define EPS_HALT_MASK		0x00003fe0	/* Stall on Data IN (13:5) */
-#define EPS_HALT_SHIFT		5
-#define EPS_HALT(n)		(1L << ((n) + EPS_HALT_SHIFT))
 #define EPS_SETUP_LOST_MASK	0x0007c000	/* Setup Lost (18:14) */
 #define EPS_SETUP_LOST_SHIFT	14
 #define EPS_SETUP_LOST(n)	(1L << ((n) + EPS_SETUP_LOST_SHIFT))
@@ -276,6 +318,16 @@ typedef volatile struct {
 #define EP_MPS_SHIFT		19
 #define EP_MPS(n)		(((uint32)(n) << EP_MPS_SHIFT) & EP_MPS_MASK)
 
+/* AI chips-only: SFLAG originating from dmp regs DmpStatus/iostatus register */
+#define SFLAG_HSIC		0x00000001	/* set=USB operating in HSIC mode */
+
+/* AI chips-only: dmp regs DmpControl/ioctrl register bit definitions */
+#define DMPIOC_CPULESS	0x00000004	/* set=reset will put core into CPULess mode */
+
+/* CPULess mode direct backplane access Setup token bRequest field definitions */
+#define CPULESS_INCR_ADDR	0x00 /* autoincrement by 1 or 4 bytes, depending on access len */
+#define CPULESS_FIFO_ADDR	0xff /* fixed, FIFO-mode address access */
+
 /* rx header */
 typedef volatile struct {
 	uint16 len;
@@ -303,5 +355,50 @@ typedef volatile struct {
 	((direction == DMA_TX) ? \
 		(void*)(uintptr)&(ch->regs->dma64regs[fifonum].dmaxmt) : \
 		(void*)(uintptr)&(ch->regs->dma64regs[fifonum].dmarcv)))
+
+/*
+ * MDIO Phy Interface
+ */
+#define USB_MDIOCTL_SMSEL_SHIFT		0
+#define USB_MDIOCTL_SMSEL_CLKEN		1
+#define USB_MDIOCTL_ID_SHIFT		1
+#define USB_MDIOCTL_ID_MASK		0x0000003E
+
+#define USB_MDIOCTL_WR_SHIFT		6
+#define USB_MDIOCTL_WR_EN		0x40
+#define USB_MDIOCTL_RD_SHIFT		7
+#define USB_MDIOCTL_RD_EN		0x80
+#define USB_MDIOCTL_REGADDR_SHIFT	8
+#define USB_MDIOCTL_REGADDR_MASK	0x00001F00
+#define USB_MDIOCTL_WRDATA_SHIFT	13
+#define USB_MDIOCTL_WRDATA_MASK		0x1FFFE000
+
+#define USB_MDIODAT_RDDATA_SHIFT	0
+#define USB_MDIODAT_RDDATA_MASK		0x0000FFFF
+
+#define USB_MDIO_ADDR_MAX		32
+
+/* HSIC Phy Slave */
+#define HSIC_MDIO_SLAVE_ADDR		0x15
+#define HSIC_MDIO_REG_PHY_CFG0		0
+#define HSIC_MDIO_REG_PHY_CFG1		1
+#define HSIC_MDIO_REG_TST_CTL1		3
+#define HSIC_MDIO_REG_BERT_CNT		4
+#define HSIC_MDIO_REG_BERT_SZ		5
+#define HSIC_MDIO_REG_BERT_CFG0		6
+#define HSIC_MDIO_REG_BERT_CFG1		7
+#define HSIC_MDIO_REG_TST_CTL2		8
+#define HSIC_MDIO_REG_TST_CTL2_XWR_EN	0x40
+
+/* HSIC Phy Register Extensions */
+#define HSIC_MDIO_REGEX_UNUSED			0
+#define HSIC_MDIO_REGEX_CTL0			1
+#define HSIC_MDIO_REGEX_CTL0_RST		0
+#define HSIC_MDIO_REGEX_CTL0_DIS		0x1
+#define HSIC_MDIO_REGEX_CTL0_EN			0x3
+#define HSIC_MDIO_REGEX_DIV_R0			2
+#define HSIC_MDIO_REGEX_DIV_R0_FREQ_MASK	0x000F
+#define HSIC_MDIO_REGEX_DIV_R1			3
+#define HSIC_MDIO_REGEX_DIV_R1_FREQ_MASK	0xFFFF
 
 #endif	/* _usbdev_sb_h_ */

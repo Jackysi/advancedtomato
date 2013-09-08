@@ -4,7 +4,7 @@
  *
  * SDIO core support 1bit, 4 bit SDIO mode as well as SPI mode.
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,7 +18,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sbsdio.h,v 13.34 2009-03-11 20:27:16 Exp $
+ * $Id: sbsdio.h 241182 2011-02-17 21:50:03Z $
  */
 
 #ifndef	_SBSDIO_H
@@ -52,6 +52,15 @@
 
 #define SBSDIO_FUNC1_MISC_REG_START	0x10000 	/* f1 misc register start */
 #define SBSDIO_FUNC1_MISC_REG_LIMIT	0x1001C 	/* f1 misc register end */
+
+/* Sdio Core Rev 12 */
+#define SBSDIO_FUNC1_WAKEUPCTRL			0x1001E
+#define SBSDIO_FUNC1_SLEEPCSR			0x1001F
+#define SBSDIO_FUNC1_SLEEPCSR_KSO_MASK		0x1
+#define SBSDIO_FUNC1_SLEEPCSR_KSO_SHIFT		0
+#define SBSDIO_FUNC1_SLEEPCSR_KSO_EN		1
+#define SBSDIO_FUNC1_SLEEPCSR_DEVON_MASK	0x2
+#define SBSDIO_FUNC1_SLEEPCSR_DEVON_SHIFT	1
 
 /* SBSDIO_SPROM_CS */
 #define SBSDIO_SPROM_IDLE		0

@@ -3,7 +3,7 @@
  *
  * Code should be position-independent until it copies itself to SDRAM.
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,7 +17,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: boot.S,v 1.34 2009-04-21 23:38:36 Exp $
+ * $Id: boot.S,v 1.35 2010-08-06 00:03:55 $
  */
 
 #include "mipsinc.h"
@@ -29,32 +29,32 @@
 #include <nflash.h>
 #endif
 
-
-/* Debug macro - write a number to a chipc reg - use it with caution,
- *  it changes k0 and k1 registers.
- *  Value can be read from epidiag -j using "pci r 0x18000044 4"
+/* Debug macro - write a number to a pair of chipc regs - use it with caution,
+ *  the registers being used only exist in chip rev >= 22, meaning NOT in 5354
+ *  and previous chips. Also,  it changes k0 and k1 registers.
+ *  Value can be read from epidiag -j using "pci r 0x180000d0 4"
  */
 #ifdef	BCMDBG
 #if	defined(IL_BIGENDIAN) && defined(BCMHND74K)
-#define	FLADDR_OFF	0
-#define	FLDATA_OFF	12
+#define	BPADDR_OFF	4
+#define	BPDATA_OFF	12
 #else
-#define	FLADDR_OFF	4
-#define	FLDATA_OFF	8
+#define	BPADDR_OFF	0
+#define	BPDATA_OFF	8
 #endif
 
 #define TRACEINIT(x) \
-	li	k0,KSEG1ADDR(0x18000040); \
+	li	k0,KSEG1ADDR(0x180000d0); \
 	li	k1,x; \
-	sw	k1,FLADDR_OFF(k0)
+	sw	k1,BPADDR_OFF(k0)
 	
 #define TRACE(x) \
 	li	k1,x; \
-	sw	k1,FLADDR_OFF(k0)
+	sw	k1,BPADDR_OFF(k0)
 
 #define TRACE2(x) \
 	li	k1,x; \
-	sw	k1,FLDATA_OFF(k0)
+	sw	k1,BPDATA_OFF(k0)
 
 #else
 #define TRACEINIT(x)
@@ -65,6 +65,42 @@
 	.text
 	LEAF(startup)
 	.set	noreorder
+
+#ifdef	BCMDBG
+	.set	noat
+	li	$1,0x0badc0de
+	.set	at
+	li	$2,0x0badc0de
+	li	$3,0x0badc0de
+	li	$4,0x0badc0de
+	li	$5,0x0badc0de
+	li	$6,0x0badc0de
+	li	$7,0x0badc0de
+	li	$8,0x0badc0de
+	li	$9,0x0badc0de
+	li	$10,0x0badc0de
+	li	$11,0x0badc0de
+	li	$12,0x0badc0de
+	li	$13,0x0badc0de
+	li	$14,0x0badc0de
+	li	$15,0x0badc0de
+	li	$16,0x0badc0de
+	li	$17,0x0badc0de
+	li	$18,0x0badc0de
+	li	$19,0x0badc0de
+	li	$20,0x0badc0de
+	li	$21,0x0badc0de
+	li	$22,0x0badc0de
+	li	$23,0x0badc0de
+	li	$24,0x0badc0de
+	li	$25,0x0badc0de
+	li	$26,0x0badc0de
+	li	$27,0x0badc0de
+	li	$28,0x0badc0de
+	li	$29,0x0badc0de
+	li	$30,0x0badc0de
+	li	$31,0x0badc0de
+#endif	/* BCMDBG */
 
 	TRACEINIT(0x424f00)
 	# XXX: the following code snipet sets clk frequency to 200M
@@ -234,15 +270,7 @@ chkchiptype:
 	beq	t0,SFLASH_ST,switchkseg0	# ST sflash
 	nop
 
-chkcacheon:
-	TRACE(0x424f0b)
-	/* Check if the caches are already on */
-	mfc0	t0,C0_CONFIG
-	and	t0,CONF_CM_CMASK
-	beq	t0,CONF_CM_UNCACHED,initcaches
-	nop
-
-	b	switchkseg0
+	b	chkcacheon
 	nop
 
 	/* Black hole for traps with BEV on */
@@ -275,7 +303,14 @@ bevtrap:
 	.globl	embedded_nvram
 embedded_nvram:
 	.fill	0x400,4,~(0x48534c46)
-	
+
+chkcacheon:
+	TRACE(0x424f0b)
+	/* Check if the caches are already on */
+	mfc0	t0,C0_CONFIG
+	and	t0,CONF_CM_CMASK
+	bne	t0,CONF_CM_UNCACHED,switchkseg0
+	nop
 
 initcaches:
 	TRACE(0x424f0c)
@@ -508,14 +543,6 @@ checkalign:
 	move	a0,t3				# set block bus address, and
 	move	a1,t1				# set page size for nfl_check_badb
 
-	/* Wait until nflash controller interface ready */
-	li	t9,NIST_CTRL_READY
-	li	t8,NIST_FLASH_READY
-	or	t9,t9,t8
-1:	lw	t8,CC_NAND_INTFC_STATUS(s2)
-	and	t7,t8,t9
-	bne	t7,t9,1b
-	nop
 
 	la	t0,nfl_check_badb		# a0: block bus address, a1: page size
 	add	t0,t0,s5			# relocate address

@@ -1,7 +1,7 @@
 /*
  * Fundamental types and constants relating to WPA
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: wpa.h,v 1.19.24.2 2010-10-07 19:28:22 Exp $
+ * $Id: wpa.h 261155 2011-05-23 23:51:32Z $
  */
 
 #ifndef _proto_wpa_h_
@@ -110,6 +110,7 @@ typedef BWL_PRE_PACKED_STRUCT struct
 #define WPA_CIPHER_AES_CCM	4	/* AES (CCM) */
 #define WPA_CIPHER_WEP_104	5	/* WEP (104-bit) */
 #define WPA_CIPHER_BIP		6	/* WEP (104-bit) */
+#define WPA_CIPHER_TPK		7	/* Group addressed traffic not allowed */
 
 
 #define IS_WPA_CIPHER(cipher)	((cipher) == WPA_CIPHER_NONE || \
@@ -117,7 +118,9 @@ typedef BWL_PRE_PACKED_STRUCT struct
 				 (cipher) == WPA_CIPHER_WEP_104 || \
 				 (cipher) == WPA_CIPHER_TKIP || \
 				 (cipher) == WPA_CIPHER_AES_OCB || \
-				 (cipher) == WPA_CIPHER_AES_CCM)
+				 (cipher) == WPA_CIPHER_AES_CCM || \
+				 (cipher) == WPA_CIPHER_TPK)
+
 
 /* WPA TKIP countermeasures parameters */
 #define WPA_TKIP_CM_DETECT	60	/* multiple MIC failure window (seconds) */
@@ -148,8 +151,12 @@ typedef BWL_PRE_PACKED_STRUCT struct
 #define WPA_CAP_REPLAY_CNTR_SHIFT	RSN_CAP_PTK_REPLAY_CNTR_SHIFT
 #define WPA_CAP_REPLAY_CNTR_MASK	RSN_CAP_PTK_REPLAY_CNTR_MASK
 
+/* WPA capabilities defined in 802.11zD9.0 */
+#define WPA_CAP_PEER_KEY_ENABLE		(0x1 << 1)	/* bit 9 */
+
 /* WPA Specific defines */
 #define WPA_CAP_LEN	RSN_CAP_LEN	/* Length of RSN capabilities in RSN IE (2 octets) */
+#define WPA_PMKID_CNT_LEN	2 	/* Length of RSN PMKID count (2 octests) */
 
 #define	WPA_CAP_WPA2_PREAUTH		RSN_CAP_PREAUTH
 

@@ -4,7 +4,11 @@
  * and diddled with only enough to compile without warnings and link
  * with our driver.
  *
+<<<<<<< HEAD
  * Copyright (C) 2010, Broadcom Corporation
+=======
+ * Copyright (C) 2011, Broadcom Corporation
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -12,7 +16,11 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
+<<<<<<< HEAD
  * $Id: des.c,v 1.12 2009-10-21 23:12:36 Exp $
+=======
+ * $Id: des.c 241182 2011-02-17 21:50:03Z $
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  */
 
 /* Portable C code to create DES key schedules from user-provided keys
@@ -21,6 +29,7 @@
  */
 
 #include <typedefs.h>
+<<<<<<< HEAD
 #ifdef BCMDRIVER
 #include <osl.h>
 #else
@@ -34,6 +43,15 @@
 #define	bzero(b, len)		memset((b), 0, (len))
 #endif	/* __GNUC__ */
 #endif	/* BCMDRIVER */
+=======
+
+#ifdef BCMDRIVER
+#include <osl.h>
+#else
+#include <string.h>
+#endif	/* BCMDRIVER */
+
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 #include <bcmcrypto/des.h>
 
 const unsigned long BCMROMDATA(Spbox)[8][64] = {
@@ -250,7 +268,11 @@ BCMROMFN(deskey)(DES_KS k,		/* Key schedule array */
 		        ? 1 : 0;		/* and store 1-bit result */
 	}
 	for (i = 0; i < 16; i++) {		/* key chunk for each iteration */
+<<<<<<< HEAD
 		bzero(ks, sizeof(ks));		/* Clear key schedule */
+=======
+		memset(ks, 0, sizeof(ks));	/* Clear key schedule */
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 		for (j = 0; j < 56; j++)	/* rotate pc1 the right amount */
 			pcr[j] = pc1m[(l = j + totrot[decrypt ? 15 - i : i]) <
 			              (j < 28 ? 28 : 56) ? l : l - 28];
@@ -581,7 +603,11 @@ int
 checksample(unsigned long ks[16][2], unsigned char in[8], unsigned char expected_out[8])
 {
 	des(ks, in);
+<<<<<<< HEAD
 	return (bcmp(in, expected_out, 8) == 0);
+=======
+	return (memcmp(in, expected_out, 8) == 0);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 }
 
 unsigned long sample1_ks[16][2] = {

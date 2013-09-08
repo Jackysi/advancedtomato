@@ -23,7 +23,11 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+<<<<<<< HEAD
  * Copyright (C) 2010, Broadcom Corporation
+=======
+ * Copyright (C) 2011, Broadcom Corporation
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -31,7 +35,11 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
+<<<<<<< HEAD
  * $Id: rijndael-alg-fst.c,v 1.9 2009-10-28 00:28:59 Exp $
+=======
+ * $Id: rijndael-alg-fst.c 241182 2011-02-17 21:50:03Z $
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  */
 #include <bcmcrypto/rijndael-alg-fst.h>
 
@@ -723,7 +731,11 @@ static const uint32 rcon[] = {
 
 #define SWAP(x) (_lrotl(x, 8) & 0x00ff00ff | _lrotr(x, 8) & 0xff00ff00)
 
+<<<<<<< HEAD
 #if defined(_MSC_VER) && !defined(EFI)
+=======
+#if defined(_MSC_VER) && !defined(EFI) && !defined(UNDER_CE)
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 #define GETU32(p) SWAP(*((uint32 *)(p)))
 #define PUTU32(ct, st) { *((uint32 *)(ct)) = SWAP((st)); }
 #else

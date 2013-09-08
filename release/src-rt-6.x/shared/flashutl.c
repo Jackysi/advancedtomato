@@ -1,7 +1,7 @@
 /*
  * flashutl.c - Flash Read/write/Erase routines
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,9 +15,10 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: flashutl.c,v 1.52 2009-05-19 02:06:58 Exp $
+ * $Id: flashutl.c 300516 2011-12-04 17:39:44Z $
  */
 
+#include <bcm_cfg.h>
 #include <typedefs.h>
 #include <osl.h>
 

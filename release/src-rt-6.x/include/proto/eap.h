@@ -6,20 +6,23 @@
  *
  * Copyright (C) 2002 Broadcom Corporation
  *
- * $Id: eap.h,v 9.5 2005-09-14 02:12:43 Exp $
+ * $Id: eap.h 241182 2011-02-17 21:50:03Z $
  */
 
 #ifndef _eap_h_
 #define _eap_h_
 
+/* This marks the start of a packed structure section. */
+#include <packed_section_start.h>
+
 /* EAP packet format */
-typedef struct {
+typedef BWL_PRE_PACKED_STRUCT struct {
 	unsigned char code;	/* EAP code */
 	unsigned char id;	/* Current request ID */
 	unsigned short length;	/* Length including header */
 	unsigned char type;	/* EAP type (optional) */
 	unsigned char data[1];	/* Type data (optional) */
-} eap_header_t;
+} BWL_POST_PACKED_STRUCT eap_header_t;
 
 #define EAP_HEADER_LEN 4
 
@@ -41,5 +44,8 @@ typedef struct {
 #define BCM_EAP_SES		10
 #define BCM_EAP_EXP_LEN		12  /* EAP_LEN 5 + 3 bytes for SMI ID + 4 bytes for ven type */
 #define BCM_SMI_ID		0x113d
+
+/* This marks the end of a packed structure section. */
+#include <packed_section_end.h>
 
 #endif /* _eap_h_ */

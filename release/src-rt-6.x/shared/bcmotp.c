@@ -1,7 +1,7 @@
 /*
  * OTP support.
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2012, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,15 +15,15 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmotp.c,v 1.137.2.23 2011-02-01 06:16:34 Exp $
+ * $Id: bcmotp.c 350340 2012-08-13 10:22:57Z $
  */
 
+#include <bcm_cfg.h>
 #include <typedefs.h>
 #include <bcmdefs.h>
 #include <osl.h>
 #include <bcmdevs.h>
 #include <bcmutils.h>
-#include <bcmnvram.h>
 #include <siutils.h>
 #include <bcmendian.h>
 #include <hndsoc.h>
@@ -70,6 +70,8 @@ uint32 otp_msg_level = OTP_ERR_VAL;
 #endif
 
 #define OTPP_TRIES	10000000	/* # of tries for OTPP */
+#define OTP_FUSES_PER_BIT	2
+#define OTP_WRITE_RETRY		16
 
 #ifdef BCMIPXOTP
 #define MAXNUMRDES		9		/* Maximum OTP redundancy entries */
@@ -89,31 +91,28 @@ typedef int	(*otp_nvwrite_t)(void *oh, uint16 *data, uint wlen);
 typedef int	(*otp_dump_t)(void *oh, int arg, char *buf, uint size);
 typedef int	(*otp_write_word_t)(void *oh, uint wn, uint16 data);
 typedef int	(*otp_read_word_t)(void *oh, uint wn, uint16 *data);
+typedef int (*otp_write_bits_t)(void *oh, int bn, int bits, uint8* data);
 
 /* OTP function struct */
 typedef struct otp_fn_s {
 	otp_size_t		size;
 	otp_read_bit_t		read_bit;
+	otp_dump_t		dump;
+	otp_status_t		status;
 
 	otp_init_t		init;
 	otp_read_region_t	read_region;
 	otp_nvread_t		nvread;
-#ifdef BCMNVRAMW
 	otp_write_region_t	write_region;
 	otp_cis_append_region_t	cis_append_region;
 	otp_lock_t		lock;
 	otp_nvwrite_t		nvwrite;
-#endif /* BCMNVRAMW */
-
-#if defined(WLTEST)
-	otp_dump_t		dump;
-#endif	
-
-	otp_status_t		status;
-#ifdef BCMNVRAMW
 	otp_write_word_t	write_word;
-#endif /* BCMNVRAMW */
 	otp_read_word_t		read_word;
+
+#if defined(BCMNVRAMW)
+	otp_write_bits_t	write_bits;
+#endif 
 } otp_fn_t;
 
 typedef struct {
@@ -138,7 +137,8 @@ typedef struct {
 	uint16		flim;		/* fuse subregion boundary */
 	int		otpgu_base;	/* offset to General Use Region */
 	uint16		fusebits;	/* num of fusebits */
-#ifdef BCMNVRAMW
+	bool 		buotp; 		/* Uinified OTP flag */
+	uint 		usbmanfid_offset; /* Offset of the usb manfid inside the sdio CIS */
 	struct {
 		uint8 width;		/* entry width in bits */
 		uint8 val_shift;	/* value bit offset in the entry */
@@ -146,7 +146,7 @@ typedef struct {
 		uint8 stat_shift;	/* valid bit in otpstatus */
 		uint16 offset[MAXNUMRDES];	/* entry offset in OTP */
 	} rde_cb;			/* OTP redundancy control blocks */
-#endif /* BCMNVRAMW */
+	uint16		rde_idx;
 #endif /* BCMIPXOTP */
 
 #ifdef BCMHNDOTP
@@ -159,6 +159,15 @@ typedef struct {
 } otpinfo_t;
 
 static otpinfo_t otpinfo;
+
+/*
+ * ROM accessor to avoid struct in shdat
+ */
+static otpinfo_t *
+get_otpinfo(void)
+{
+	return (otpinfo_t *)&otpinfo;
+}
 
 /*
  * IPX OTP Code
@@ -183,16 +192,19 @@ static otpinfo_t otpinfo;
  *	_ipxotp_init()
  *	ipxotp_write_bit()
  *	ipxotp_otpwb16()
+ *	ipxotp_check_otp_pmu_res()
  *	ipxotp_write_rde()
  *	ipxotp_fix_word16()
  *	ipxotp_check_word16()
  *	ipxotp_max_rgnsz()
  *	ipxotp_otprb16()
+ *	ipxotp_uotp_usbmanfid_offset()
  *
  */
 
 #ifdef BCMIPXOTP
 
+#define	OTPWSIZE		16	/* word size */
 #define HWSW_RGN(rgn)		(((rgn) == OTP_HW_RGN) ? "h/w" : "s/w")
 
 /* OTP layout */
@@ -213,6 +225,7 @@ static otpinfo_t otpinfo;
 #define OTPGU_SROM_OFF		4
 
 /* Flag bit offsets in General Use region  */
+#define OTPGU_NEWCISFORMAT_OFF	59
 #define OTPGU_HWP_OFF		60
 #define OTPGU_SWP_OFF		61
 #define OTPGU_CIP_OFF		62
@@ -237,6 +250,33 @@ static otpinfo_t otpinfo;
 #define OTP4315_SWREG_SZ	178		/* 178 bytes */
 #define OTP_SZ_FU_144		(144/8)		/* 144 bits */
 #define OTP_SZ_FU_180		((ROUNDUP(180,8))/8)	/* 180 bits */
+
+/* OTP BT shared region (pre-allocated) */
+#define	OTP_BT_BASE_4330	(1760/OTPWSIZE)
+#define OTP_BT_END_4330		(1888/OTPWSIZE)
+#define OTP_BT_BASE_4324	(2384/OTPWSIZE)
+#define	OTP_BT_END_4324		(2640/OTPWSIZE)
+#define OTP_BT_BASE_4334	(2512/OTPWSIZE)
+#define	OTP_BT_END_4334		(2768/OTPWSIZE)
+#define OTP_BT_BASE_4314	(4192/OTPWSIZE)
+#define	OTP_BT_END_4314		(4960/OTPWSIZE)
+#define OTP_BT_BASE_4335	(4528/OTPWSIZE)
+#define	OTP_BT_END_4335		(5552/OTPWSIZE)
+
+/* OTP unification */
+#if defined(USBSDIOUNIFIEDOTP)
+/* Offset in OTP from upper GUR to HNBU_UMANFID tuple value in (16-bit) words */
+#define USB_MANIFID_OFFSET_4319		42
+#define USB_MANIFID_OFFSET_43143	45 /* See Confluence 43143 SW notebook #1 */
+#endif /* USBSDIOUNIFIEDOTP */
+
+#if defined(BCMNVRAMW)
+/* Local */
+static int ipxotp_check_otp_pmu_res(chipcregs_t *cc);
+static int ipxotp_write_bit(otpinfo_t *oi, chipcregs_t *cc, uint off);
+static int ipxotp40n_read2x(void *oh, chipcregs_t *cc, uint off);
+static int ipxotp_write_rde_nopc(void *oh, chipcregs_t *cc, int rde, uint bit, uint val);
+#endif
 
 static int
 ipxotp_status(void *oh)
@@ -267,17 +307,21 @@ ipxotp_otpr(void *oh, chipcregs_t *cc, uint wn)
 }
 
 static uint16
-ipxotp_read_bit(void *oh, chipcregs_t *cc, uint off)
+ipxotp_read_bit_common(void *oh, chipcregs_t *cc, uint off)
 {
 	otpinfo_t *oi = (otpinfo_t *)oh;
 	uint k, row, col;
 	uint32 otpp, st;
+	uint otpwt;
+
+	otpwt = (R_REG(oi->osh, &cc->otplayout) & OTPL_WRAP_TYPE_MASK) >> OTPL_WRAP_TYPE_SHIFT;
 
 	row = off / oi->cols;
 	col = off % oi->cols;
 
 	otpp = OTPP_START_BUSY |
-	        ((OTPPOC_READ << OTPP_OC_SHIFT) & OTPP_OC_MASK) |
+		((((otpwt == OTPL_WRAP_TYPE_40NM)? OTPPOC_READ_40NM :
+		OTPPOC_READ) << OTPP_OC_SHIFT) & OTPP_OC_MASK) |
 	        ((row << OTPP_ROW_SHIFT) & OTPP_ROW_MASK) |
 	        ((col << OTPP_COL_SHIFT) & OTPP_COL_MASK);
 	OTP_DBG(("%s: off = %d, row = %d, col = %d, otpp = 0x%x",
@@ -302,6 +346,51 @@ ipxotp_read_bit(void *oh, chipcregs_t *cc, uint off)
 	return (int)st;
 }
 
+static uint16
+ipxotp_read_bit(void *oh, chipcregs_t *cc, uint off)
+{
+	otpinfo_t *oi;
+
+	oi = (otpinfo_t *)oh;
+	W_REG(oi->osh, &cc->otpcontrol, 0);
+	W_REG(oi->osh, &cc->otpcontrol1, 0);
+
+	return ipxotp_read_bit_common(oh, cc, off);
+}
+
+/*
+ * OTP BT region size
+ */
+static void
+ipxotp_bt_region_get(otpinfo_t *oi, uint16 *start, uint16 *end)
+{
+	*start = *end = 0;
+	switch (CHIPID(oi->sih->chip)) {
+	case BCM4330_CHIP_ID:
+		*start = OTP_BT_BASE_4330;
+		*end = OTP_BT_END_4330;
+		break;
+	case BCM4324_CHIP_ID:
+	case BCM43242_CHIP_ID:
+	case BCM43243_CHIP_ID:
+		*start = OTP_BT_BASE_4324;
+		*end = OTP_BT_END_4324;
+		break;
+	case BCM4334_CHIP_ID:
+		*start = OTP_BT_BASE_4334;
+		*end = OTP_BT_END_4334;
+		break;
+	case BCM4314_CHIP_ID:
+	case BCM43142_CHIP_ID:
+		*start = OTP_BT_BASE_4314;
+		*end = OTP_BT_END_4314;
+		break;
+	case BCM4335_CHIP_ID:
+		*start = OTP_BT_BASE_4335;
+		*end = OTP_BT_END_4335;
+		break;
+	}
+}
 
 /* Calculate max HW/SW region byte size by substracting fuse region and checksum size,
  * osizew is oi->wsize (OTP size - GU size) in words
@@ -324,21 +413,25 @@ ipxotp_max_rgnsz(otpinfo_t *oi)
 	/* for new chips, fusebit is available from cc register */
 	if (oi->sih->ccrev >= 35) {
 		oi->fusebits = R_REG(oi->osh, &cc->otplayoutextension) & OTPLAYOUTEXT_FUSE_MASK;
+		oi->fusebits = ROUNDUP(oi->fusebits, 8);
+		oi->fusebits >>= 3; /* bytes */
 	}
 
 	si_setcoreidx(oi->sih, idx);
 
 	switch (CHIPID(oi->sih->chip)) {
 	case BCM4322_CHIP_ID:	case BCM43221_CHIP_ID:	case BCM43231_CHIP_ID:
+	case BCM43239_CHIP_ID:
 		oi->fusebits = OTP_SZ_FU_288;
 		break;
 	case BCM43222_CHIP_ID:	case BCM43111_CHIP_ID:	case BCM43112_CHIP_ID:
 	case BCM43224_CHIP_ID:	case BCM43225_CHIP_ID:	case BCM43421_CHIP_ID:
-	case BCM43226_CHIP_ID:  case BCM43420_CHIP_ID:
+	case BCM43226_CHIP_ID:
 		oi->fusebits = OTP_SZ_FU_72;
 		break;
 	case BCM43236_CHIP_ID:	case BCM43235_CHIP_ID:	case BCM43238_CHIP_ID:
-	case BCM43234_CHIP_ID:	case BCM43237_CHIP_ID:
+	case BCM43237_CHIP_ID:
+	case BCM43234_CHIP_ID:
 		oi->fusebits = OTP_SZ_FU_324;
 		break;
 	case BCM4325_CHIP_ID:
@@ -353,6 +446,9 @@ ipxotp_max_rgnsz(otpinfo_t *oi)
 		oi->fusebits = OTP_SZ_FU_72;
 		break;
 	case BCM4330_CHIP_ID:
+	case BCM4334_CHIP_ID:
+	case BCM4314_CHIP_ID:
+	case BCM43142_CHIP_ID:
 		oi->fusebits = OTP_SZ_FU_144;
 		break;
 	case BCM4319_CHIP_ID:
@@ -363,13 +459,15 @@ ipxotp_max_rgnsz(otpinfo_t *oi)
 		oi->fusebits = OTP_SZ_FU_72;
 		break;
 	case BCM43131_CHIP_ID:
+	case BCM43217_CHIP_ID:
 	case BCM43227_CHIP_ID:
 	case BCM43228_CHIP_ID:
 	case BCM43428_CHIP_ID:
 		oi->fusebits = OTP_SZ_FU_72;
 		break;
 	default:
-		ASSERT(0);	/* Don't konw about this chip */
+		if (oi->fusebits == 0)
+			ASSERT(0);	/* Don't konw about this chip */
 	}
 
 	ret = osizew*2 - oi->fusebits - checksum;
@@ -382,147 +480,14 @@ ipxotp_max_rgnsz(otpinfo_t *oi)
 	return ret;
 }
 
-static void
-BCMNMIATTACHFN(_ipxotp_init)(otpinfo_t *oi, chipcregs_t *cc)
+/*
+ * OTP sizes for 65nm and 130nm
+ */
+static int
+ipxotp_otpsize_set_65nm(otpinfo_t *oi, uint otpsz)
 {
-	uint	k;
-	uint32 otpp, st;
-
-	/* record word offset of General Use Region for various chipcommon revs */
-	if (oi->sih->ccrev == 21 || oi->sih->ccrev == 24 || oi->sih->ccrev == 27) {
-		oi->otpgu_base = REVA4_OTPGU_BASE;
-	} else if (oi->sih->ccrev == 36) {
-		/* OTP size greater than equal to 2KB (128 words), otpgu_base is similar to rev23 */
-		if (oi->wsize >= 128)
-			oi->otpgu_base = REVB8_OTPGU_BASE;
-		else
-			oi->otpgu_base = REV36_OTPGU_BASE;
-	} else if (oi->sih->ccrev == 23 || oi->sih->ccrev >= 25) {
-		oi->otpgu_base = REVB8_OTPGU_BASE;
-	} else {
-		OTP_ERR(("%s: chipc rev %d not supported\n", __FUNCTION__, oi->sih->ccrev));
-	}
-
-	/* First issue an init command so the status is up to date */
-	otpp = OTPP_START_BUSY | ((OTPPOC_INIT << OTPP_OC_SHIFT) & OTPP_OC_MASK);
-
-	OTP_DBG(("%s: otpp = 0x%x", __FUNCTION__, otpp));
-	W_REG(oi->osh, &cc->otpprog, otpp);
-	for (k = 0;
-	     ((st = R_REG(oi->osh, &cc->otpprog)) & OTPP_START_BUSY) && (k < OTPP_TRIES);
-	     k ++)
-		;
-	if (k >= OTPP_TRIES) {
-		OTP_ERR(("\n%s: BUSY stuck: st=0x%x, count=%d\n", __FUNCTION__, st, k));
-		return;
-	}
-
-	/* Read OTP lock bits and subregion programmed indication bits */
-	oi->status = R_REG(oi->osh, &cc->otpstatus);
-
-	if ((CHIPID(oi->sih->chip) == BCM43222_CHIP_ID) ||
-		(CHIPID(oi->sih->chip) == BCM43420_CHIP_ID) ||
-		(CHIPID(oi->sih->chip) == BCM43111_CHIP_ID) ||
-		(CHIPID(oi->sih->chip) == BCM43112_CHIP_ID) ||
-		(CHIPID(oi->sih->chip) == BCM43224_CHIP_ID) ||
-		(CHIPID(oi->sih->chip) == BCM43225_CHIP_ID) ||
-		(CHIPID(oi->sih->chip) == BCM43421_CHIP_ID) ||
-		(CHIPID(oi->sih->chip) == BCM43226_CHIP_ID) ||
-		(CHIPID(oi->sih->chip) == BCM43236_CHIP_ID) ||
-		(CHIPID(oi->sih->chip) == BCM43235_CHIP_ID) ||
-		(CHIPID(oi->sih->chip) == BCM43234_CHIP_ID) ||
-		(CHIPID(oi->sih->chip) == BCM43238_CHIP_ID) ||
-		(CHIPID(oi->sih->chip) == BCM43237_CHIP_ID) ||
-		(CHIPID(oi->sih->chip) == BCM4331_CHIP_ID) ||
-		(CHIPID(oi->sih->chip) == BCM43431_CHIP_ID) ||
-	0) {
-		if (nvram_match("boardtype", "0xa4cf") && nvram_match("boardrev", "0x1102")) {
-			// dd-wrt fix:
-			// skip this code on Belkin f7d4302 - crashes 2nd radio, reason unknown
-			printk(KERN_EMERG "Belkin f7d4302\n");
-		}
-		else {
-			uint32 p_bits;
-			p_bits = (ipxotp_otpr(oi, cc, oi->otpgu_base + OTPGU_P_OFF) & OTPGU_P_MSK)
-				>> OTPGU_P_SHIFT;
-			oi->status |= (p_bits << OTPS_GUP_SHIFT);
-		}
-	}
-	OTP_DBG(("%s: status 0x%x\n", __FUNCTION__, oi->status));
-
-	/*
-	 * h/w region base and fuse region limit are fixed to the top and
-	 * the bottom of the general use region. Everything else can be flexible.
-	 */
-	oi->hwbase = oi->otpgu_base + OTPGU_SROM_OFF;
-	oi->hwlim = oi->wsize;
-	if (oi->status & OTPS_GUP_HW) {
-		OTP_DBG(("%s: hw region programmed\n", __FUNCTION__));
-		oi->hwlim = ipxotp_otpr(oi, cc, oi->otpgu_base + OTPGU_HSB_OFF) / 16;
-		oi->swbase = oi->hwlim;
-	} else {
-		oi->hwlim = ipxotp_max_rgnsz(oi) / 2;
-		oi->swbase = oi->hwbase;
-	}
-
-	/* subtract fuse and checksum from beginning */
-	oi->swlim = ipxotp_max_rgnsz(oi) / 2;
-
-	if (oi->status & OTPS_GUP_SW) {
-		OTP_DBG(("%s: sw region programmed\n", __FUNCTION__));
-		oi->swlim = ipxotp_otpr(oi, cc, oi->otpgu_base + OTPGU_SFB_OFF) / 16;
-		oi->fbase = oi->swlim;
-	}
-	else
-		oi->fbase = oi->swbase;
-
-	oi->flim = oi->wsize;
-
-	OTP_DBG(("%s: OTP limits---\n"
-		"hwbase %d/%d hwlim %d/%d\n"
-		"swbase %d/%d swlim %d/%d\n"
-		"fbase %d/%d flim %d/%d\n", __FUNCTION__,
-		oi->hwbase, oi->hwbase * 16, oi->hwlim, oi->hwlim * 16,
-		oi->swbase, oi->swbase * 16, oi->swlim, oi->swlim * 16,
-		oi->fbase, oi->fbase * 16, oi->flim, oi->flim * 16));
-}
-
-static void *
-BCMNMIATTACHFN(ipxotp_init)(si_t *sih)
-{
-	uint idx;
-	chipcregs_t *cc;
-	otpinfo_t *oi;
-
-	OTP_MSG(("%s: Use IPX OTP controller\n", __FUNCTION__));
-
-	/* Make sure we're running IPX OTP */
-	ASSERT(OTPTYPE_IPX(sih->ccrev));
-	if (!OTPTYPE_IPX(sih->ccrev))
-		return NULL;
-
-	/* Make sure OTP is not disabled */
-	if (si_is_otp_disabled(sih)) {
-		OTP_MSG(("%s: OTP is disabled\n", __FUNCTION__));
-#if !defined(WLTEST)
-		return NULL;
-#endif
-	}
-
-	/* Make sure OTP is powered up */
-	if (!si_is_otp_powered(sih)) {
-		OTP_ERR(("%s: OTP is powered down\n", __FUNCTION__));
-		return NULL;
-	}
-
-	oi = &otpinfo;
-
 	/* Check for otp size */
-	switch ((sih->cccaps & CC_CAP_OTPSIZE) >> CC_CAP_OTPSIZE_SHIFT) {
-	case 0:
-		/* Nothing there */
-		OTP_ERR(("%s: no OTP\n", __FUNCTION__));
-		return NULL;
+	switch (otpsz) {
 	case 1:	/* 32x64 */
 		oi->rows = 32;
 		oi->cols = 64;
@@ -546,14 +511,300 @@ BCMNMIATTACHFN(ipxotp_init)(si_t *sih)
 	default:
 		/* Don't know the geometry */
 		OTP_ERR(("%s: unknown OTP geometry\n", __FUNCTION__));
+	}
+
+	return 0;
+}
+
+/*
+ * OTP sizes for 40nm
+ */
+static int
+ipxotp_otpsize_set_40nm(otpinfo_t *oi, uint otpsz)
+{
+	/* Check for otp size */
+	switch (otpsz) {
+	case 1:	/* 64x32: 2048 bits */
+		oi->rows = 64;
+		oi->cols = 32;
+		break;
+	case 2:	/* 96x32: 3072 bits */
+		oi->rows = 96;
+		oi->cols = 32;
+		break;
+	case 3:	/* 128x32: 4096 bits */
+		oi->rows = 128;
+		oi->cols = 32;
+		break;
+	case 4:	/* 160x32: 5120 bits */
+		oi->rows = 160;
+		oi->cols = 32;
+		break;
+	case 5:	/* 192x32: 6144 bits */
+		oi->rows = 192;
+		oi->cols = 32;
+		break;
+	case 7:	/* 256x32: 8192 bits */
+		oi->rows = 256;
+		oi->cols = 32;
+		break;
+	default:
+		/* Don't know the geometry */
+		OTP_ERR(("%s: unknown OTP geometry\n", __FUNCTION__));
+	}
+
+	oi->wsize = (oi->cols * oi->rows)/OTPWSIZE;
+	return 0;
+}
+
+/* OTP unification */
+#if defined(USBSDIOUNIFIEDOTP) && defined(BCMNVRAMW)
+static void
+ipxotp_uotp_usbmanfid_offset(otpinfo_t *oi)
+{
+	OTP_DBG(("%s: chip=0x%x\n", __FUNCTION__, CHIPID(oi->sih->chip)));
+	switch (CHIPID(oi->sih->chip)) {
+		/* Add cases for supporting chips */
+		case BCM4319_CHIP_ID:
+			oi->usbmanfid_offset = USB_MANIFID_OFFSET_4319;
+			oi->buotp = TRUE;
+			break;
+		case BCM43143_CHIP_ID:
+			oi->usbmanfid_offset = USB_MANIFID_OFFSET_43143;
+			oi->buotp = TRUE;
+			break;
+		default:
+			OTP_ERR(("chip=0x%x does not support Unified OTP.\n",
+				CHIPID(oi->sih->chip)));
+			break;
+	}
+}
+#endif /* USBSDIOUNIFIEDOTP && BCMNVRAMW */
+
+static void
+BCMNMIATTACHFN(_ipxotp_init)(otpinfo_t *oi, chipcregs_t *cc)
+{
+	uint	k;
+	uint32 otpp, st;
+	uint16 btsz, btbase = 0, btend = 0;
+	uint   otpwt;
+
+	/* record word offset of General Use Region for various chipcommon revs */
+	if (oi->sih->ccrev >= 40) {
+		/* FIX: Available in rev >= 23; Verify before applying to others */
+		oi->otpgu_base = (R_REG(oi->osh, &cc->otplayout) & OTPL_HWRGN_OFF_MASK)
+			>> OTPL_HWRGN_OFF_SHIFT;
+		ASSERT((oi->otpgu_base - (OTPGU_SROM_OFF * OTPWSIZE)) > 0);
+		oi->otpgu_base >>= 4; /* words */
+		oi->otpgu_base -= OTPGU_SROM_OFF;
+	} else if (oi->sih->ccrev == 21 || oi->sih->ccrev == 24 || oi->sih->ccrev == 27) {
+		oi->otpgu_base = REVA4_OTPGU_BASE;
+	} else if ((oi->sih->ccrev == 36) || (oi->sih->ccrev == 39)) {
+		/* OTP size greater than equal to 2KB (128 words), otpgu_base is similar to rev23 */
+		if (oi->wsize >= 128)
+			oi->otpgu_base = REVB8_OTPGU_BASE;
+		else
+			oi->otpgu_base = REV36_OTPGU_BASE;
+	} else if (oi->sih->ccrev == 23 || oi->sih->ccrev >= 25) {
+		oi->otpgu_base = REVB8_OTPGU_BASE;
+	} else {
+		OTP_ERR(("%s: chipc rev %d not supported\n", __FUNCTION__, oi->sih->ccrev));
+	}
+
+	otpwt = (R_REG(oi->osh, &cc->otplayout) & OTPL_WRAP_TYPE_MASK) >> OTPL_WRAP_TYPE_SHIFT;
+
+	if (otpwt != OTPL_WRAP_TYPE_40NM) {
+		/* First issue an init command so the status is up to date */
+		otpp = OTPP_START_BUSY | ((OTPPOC_INIT << OTPP_OC_SHIFT) & OTPP_OC_MASK);
+
+		OTP_DBG(("%s: otpp = 0x%x", __FUNCTION__, otpp));
+		W_REG(oi->osh, &cc->otpprog, otpp);
+		for (k = 0;
+			((st = R_REG(oi->osh, &cc->otpprog)) & OTPP_START_BUSY) && (k < OTPP_TRIES);
+			k ++)
+			;
+			if (k >= OTPP_TRIES) {
+			OTP_ERR(("\n%s: BUSY stuck: st=0x%x, count=%d\n", __FUNCTION__, st, k));
+			return;
+		}
+	}
+
+	/* Read OTP lock bits and subregion programmed indication bits */
+	oi->status = R_REG(oi->osh, &cc->otpstatus);
+
+	if ((CHIPID(oi->sih->chip) == BCM43222_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43111_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43112_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43224_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43225_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43421_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43226_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43236_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43235_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43234_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43238_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43237_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43239_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM4324_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43242_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43243_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43143_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM4331_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43431_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM4335_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM4360_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM4352_CHIP_ID) ||
+		(CHIPID(oi->sih->chip) == BCM43526_CHIP_ID) ||
+	0) {
+		uint32 p_bits;
+		p_bits = (ipxotp_otpr(oi, cc, oi->otpgu_base + OTPGU_P_OFF) & OTPGU_P_MSK)
+			>> OTPGU_P_SHIFT;
+		oi->status |= (p_bits << OTPS_GUP_SHIFT);
+	}
+	OTP_DBG(("%s: status 0x%x\n", __FUNCTION__, oi->status));
+
+	/* OTP unification */
+	oi->buotp = FALSE; /* Initialize it to false, until its explicitely set true. */
+	oi->usbmanfid_offset = 0;
+#if defined(USBSDIOUNIFIEDOTP) && defined(BCMNVRAMW)
+	ipxotp_uotp_usbmanfid_offset(oi);
+#endif /* USBSDIOUNIFIEDOTP && BCMNVRAMW */
+	if ((oi->status & (OTPS_GUP_HW | OTPS_GUP_SW)) == (OTPS_GUP_HW | OTPS_GUP_SW)) {
+		switch (CHIPID(oi->sih->chip)) {
+			/* Add cases for supporting chips */
+			case BCM4319_CHIP_ID:
+				oi->buotp = TRUE;
+				break;
+			case BCM43143_CHIP_ID:
+				oi->buotp = TRUE;
+				break;
+			default:
+				OTP_ERR(("chip=0x%x does not support Unified OTP.\n",
+					CHIPID(oi->sih->chip)));
+				break;
+		}
+	}
+
+	/*
+	 * h/w region base and fuse region limit are fixed to the top and
+	 * the bottom of the general use region. Everything else can be flexible.
+	 */
+	oi->hwbase = oi->otpgu_base + OTPGU_SROM_OFF;
+	oi->hwlim = oi->wsize;
+	oi->flim = oi->wsize;
+
+	ipxotp_bt_region_get(oi, &btbase, &btend);
+	btsz = btend - btbase;
+	if (btsz > 0) {
+		/* default to not exceed BT base */
+		oi->hwlim = btbase;
+
+		/* With BT shared region, swlim and fbase are fixed */
+		oi->swlim = btbase;
+		oi->fbase = btend;
+	}
+
+	/* Update hwlim and swbase */
+	if (oi->status & OTPS_GUP_HW) {
+		OTP_DBG(("%s: hw region programmed\n", __FUNCTION__));
+		oi->hwlim = ipxotp_otpr(oi, cc, oi->otpgu_base + OTPGU_HSB_OFF) / 16;
+		oi->swbase = oi->hwlim;
+	} else
+		oi->swbase = oi->hwbase;
+
+	/* Update swlim and fbase only if no BT region */
+	if (btsz == 0) {
+		/* subtract fuse and checksum from beginning */
+		oi->swlim = ipxotp_max_rgnsz(oi) / 2;
+
+		if (oi->status & OTPS_GUP_SW) {
+			OTP_DBG(("%s: sw region programmed\n", __FUNCTION__));
+			oi->swlim = ipxotp_otpr(oi, cc, oi->otpgu_base + OTPGU_SFB_OFF) / 16;
+			oi->fbase = oi->swlim;
+		}
+		else
+			oi->fbase = oi->swbase;
+	}
+
+	OTP_DBG(("%s: OTP limits---\n"
+		"hwbase %d/%d hwlim %d/%d\n"
+		"swbase %d/%d swlim %d/%d\n"
+		"fbase %d/%d flim %d/%d\n", __FUNCTION__,
+		oi->hwbase, oi->hwbase * 16, oi->hwlim, oi->hwlim * 16,
+		oi->swbase, oi->swbase * 16, oi->swlim, oi->swlim * 16,
+		oi->fbase, oi->fbase * 16, oi->flim, oi->flim * 16));
+}
+
+static void *
+BCMNMIATTACHFN(ipxotp_init)(si_t *sih)
+{
+	uint idx, otpsz, otpwt;
+	chipcregs_t *cc;
+	otpinfo_t *oi = NULL;
+
+	OTP_MSG(("%s: Use IPX OTP controller\n", __FUNCTION__));
+
+	/* Make sure we're running IPX OTP */
+	ASSERT(OTPTYPE_IPX(sih->ccrev));
+	if (!OTPTYPE_IPX(sih->ccrev))
 		return NULL;
+
+	/* Make sure OTP is not disabled */
+	if (si_is_otp_disabled(sih)) {
+		OTP_MSG(("%s: OTP is disabled\n", __FUNCTION__));
+#if !defined(WLTEST)
+		return NULL;
+#endif
+	}
+
+	/* Make sure OTP is powered up */
+	if (!si_is_otp_powered(sih)) {
+		OTP_ERR(("%s: OTP is powered down\n", __FUNCTION__));
+		return NULL;
+	}
+
+	/* Retrieve OTP region info */
+	idx = si_coreidx(sih);
+	cc = si_setcoreidx(sih, SI_CC_IDX);
+	ASSERT(cc != NULL);
+
+	otpsz = (sih->cccaps & CC_CAP_OTPSIZE) >> CC_CAP_OTPSIZE_SHIFT;
+	if (otpsz == 0) {
+		OTP_ERR(("%s: No OTP\n", __FUNCTION__));
+		goto exit;
+	}
+
+	oi = get_otpinfo();
+	otpwt = (R_REG(oi->osh, &cc->otplayout) & OTPL_WRAP_TYPE_MASK) >> OTPL_WRAP_TYPE_SHIFT;
+
+	if (otpwt == OTPL_WRAP_TYPE_40NM) {
+		ipxotp_otpsize_set_40nm(oi, otpsz);
+	} else if (otpwt == OTPL_WRAP_TYPE_65NM) {
+		ipxotp_otpsize_set_65nm(oi, otpsz);
+	} else {
+		OTP_ERR(("%s: Unknown wrap type: %d\n", __FUNCTION__, otpwt));
+		ASSERT(0);
 	}
 
 	OTP_MSG(("%s: rows %u cols %u wsize %u\n", __FUNCTION__, oi->rows, oi->cols, oi->wsize));
 
 #ifdef BCMNVRAMW
 	/* Initialize OTP redundancy control blocks */
-	if (sih->ccrev == 21 || sih->ccrev == 24) {
+	if (sih->ccrev >= 40) {
+		uint16 offset[] = {269, 286, 303, 333, 350, 367, 397, 414, 431};
+		bcopy(offset, &oi->rde_cb.offset, sizeof(offset));
+		oi->rde_cb.offsets = ARRAYSIZE(offset);
+		oi->rde_cb.width = 17;
+		oi->rde_cb.val_shift = 13;
+		oi->rde_cb.stat_shift = 16;
+	} else if (sih->ccrev == 36) {
+		uint16 offset[] = {141, 158, 175};
+		bcopy(offset, &oi->rde_cb.offset, sizeof(offset));
+		oi->rde_cb.offsets = ARRAYSIZE(offset);
+		oi->rde_cb.width = 15;
+		oi->rde_cb.val_shift = 13;
+		oi->rde_cb.stat_shift = 16;
+	} else if (sih->ccrev == 21 || sih->ccrev == 24) {
 		uint16 offset[] = {64, 79, 94, 109, 128, 143, 158, 173};
 		bcopy(offset, &oi->rde_cb.offset, sizeof(offset));
 		oi->rde_cb.offsets = ARRAYSIZE(offset);
@@ -578,15 +829,13 @@ BCMNMIATTACHFN(ipxotp_init)(si_t *sih)
 		oi->rde_cb.stat_shift = 16;
 	}
 	ASSERT(oi->rde_cb.offsets <= MAXNUMRDES);
+	/* Initialize global rde index */
+	oi->rde_idx = 0;
 #endif	/* BCMNVRAMW */
-
-	/* Retrieve OTP region info */
-	idx = si_coreidx(sih);
-	cc = si_setcoreidx(sih, SI_CC_IDX);
-	ASSERT(cc != NULL);
 
 	_ipxotp_init(oi, cc);
 
+exit:
 	si_setcoreidx(sih, idx);
 
 	return (void *)oi;
@@ -603,7 +852,11 @@ ipxotp_read_region(void *oh, int region, uint16 *data, uint *wlen)
 	/* Validate region selection */
 	switch (region) {
 	case OTP_HW_RGN:
-		sz = (uint)oi->hwlim - oi->hwbase;
+		/* OTP unification: For unified OTP sz=flim-hwbase */
+		if (oi->buotp)
+			sz = (uint)oi->flim - oi->hwbase;
+		else
+			sz = (uint)oi->hwlim - oi->hwbase;
 		if (!(oi->status & OTPS_GUP_HW)) {
 			OTP_ERR(("%s: h/w region not programmed\n", __FUNCTION__));
 			*wlen = sz;
@@ -618,7 +871,11 @@ ipxotp_read_region(void *oh, int region, uint16 *data, uint *wlen)
 		base = oi->hwbase;
 		break;
 	case OTP_SW_RGN:
-		sz = ((uint)oi->swlim - oi->swbase);
+		/* OTP unification: For unified OTP sz=flim-swbase */
+		if (oi->buotp)
+			sz = ((uint)oi->flim - oi->swbase);
+		else
+			sz = ((uint)oi->swlim - oi->swbase);
 		if (!(oi->status & OTPS_GUP_SW)) {
 			OTP_ERR(("%s: s/w region not programmed\n", __FUNCTION__));
 			*wlen = sz;
@@ -721,17 +978,125 @@ ipxotp_nvread(void *oh, char *data, uint *len)
 
 #ifdef BCMNVRAMW
 static int
-ipxotp_write_bit(otpinfo_t *oi, chipcregs_t *cc, uint off)
+ipxotp_writable(otpinfo_t *oi, chipcregs_t *cc)
+{
+	uint otpwt;
+
+	otpwt = (R_REG(oi->osh, &cc->otplayout) & OTPL_WRAP_TYPE_MASK) >> OTPL_WRAP_TYPE_SHIFT;
+
+	if (otpwt == OTPL_WRAP_TYPE_40NM) {
+		uint i, k, row, col;
+		uint32 otpp, st;
+		uint cols[4] = {15, 4, 8, 13};
+
+		row = 0;
+		for (i = 0; i < 4; i++) {
+			col = cols[i];
+
+			otpp = OTPP_START_BUSY |
+				((OTPPOC_PROG_ENABLE_40NM << OTPP_OC_SHIFT) & OTPP_OC_MASK) |
+				((row << OTPP_ROW_SHIFT) & OTPP_ROW_MASK) |
+				((col << OTPP_COL_SHIFT) & OTPP_COL_MASK);
+			OTP_DBG(("%s: row = %d, col = %d, otpp = 0x%x\n",
+				__FUNCTION__, row, col, otpp));
+
+			W_REG(oi->osh, &cc->otpprog, otpp);
+
+			for (k = 0;
+				((st = R_REG(oi->osh, &cc->otpprog)) & OTPP_START_BUSY) &&
+				(k < OTPP_TRIES); k ++)
+				;
+			if (k >= OTPP_TRIES) {
+				OTP_ERR(("\n%s: BUSY stuck: st=0x%x, count=%d\n",
+					__FUNCTION__, st, k));
+				return -1;
+			}
+		}
+
+		/* wait till OTP Program mode is unlocked */
+		for (k = 0;
+			(!((st = R_REG(oi->osh, &cc->otpstatus)) & OTPS_PROGOK)) &&
+			(k < OTPP_TRIES); k ++)
+			;
+		OTP_MSG(("\n%s: OTP Program status: %x\n", __FUNCTION__, st));
+
+		if (k >= OTPP_TRIES) {
+			OTP_ERR(("\n%s: OTP Program mode is still locked, OTP is unwritable\n",
+				__FUNCTION__));
+			return -1;
+		}
+	}
+
+	OR_REG(oi->osh, &cc->otpcontrol, OTPC_PROGEN);
+	return 0;
+}
+
+static int
+ipxotp_unwritable(otpinfo_t *oi, chipcregs_t *cc)
+{
+	uint otpwt;
+
+	otpwt = (R_REG(oi->osh, &cc->otplayout) & OTPL_WRAP_TYPE_MASK) >> OTPL_WRAP_TYPE_SHIFT;
+
+	if (otpwt == OTPL_WRAP_TYPE_40NM) {
+		uint k, row, col;
+		uint32 otpp, st;
+
+		row = 0;
+		col = 0;
+
+		otpp = OTPP_START_BUSY |
+			((OTPPOC_PROG_DISABLE_40NM << OTPP_OC_SHIFT) & OTPP_OC_MASK) |
+			((row << OTPP_ROW_SHIFT) & OTPP_ROW_MASK) |
+			((col << OTPP_COL_SHIFT) & OTPP_COL_MASK);
+		OTP_DBG(("%s: row = %d, col = %d, otpp = 0x%x\n",
+			__FUNCTION__, row, col, otpp));
+
+		W_REG(oi->osh, &cc->otpprog, otpp);
+
+		for (k = 0;
+			((st = R_REG(oi->osh, &cc->otpprog)) & OTPP_START_BUSY) && (k < OTPP_TRIES);
+			k ++)
+			;
+		if (k >= OTPP_TRIES) {
+			OTP_ERR(("\n%s: BUSY stuck: st=0x%x, count=%d\n", __FUNCTION__, st, k));
+			return -1;
+		}
+
+		/* wait till OTP Program mode is unlocked */
+		for (k = 0;
+			((st = R_REG(oi->osh, &cc->otpstatus)) & OTPS_PROGOK) && (k < OTPP_TRIES);
+			k ++)
+			;
+		OTP_MSG(("\n%s: OTP Program status: %x\n", __FUNCTION__, st));
+
+		if (k >= OTPP_TRIES) {
+			OTP_ERR(("\n%s: OTP Program mode is still unlocked, OTP is writable\n",
+				__FUNCTION__));
+			return -1;
+		}
+	}
+
+	AND_REG(oi->osh, &cc->otpcontrol, ~OTPC_PROGEN);
+	return 0;
+}
+
+static int
+ipxotp_write_bit_common(otpinfo_t *oi, chipcregs_t *cc, uint off)
 {
 	uint k, row, col;
 	uint32 otpp, st;
+	uint otpwt;
+
+	otpwt = (R_REG(oi->osh, &cc->otplayout) & OTPL_WRAP_TYPE_MASK) >> OTPL_WRAP_TYPE_SHIFT;
 
 	row = off / oi->cols;
 	col = off % oi->cols;
 
 	otpp = OTPP_START_BUSY |
 	        ((1 << OTPP_VALUE_SHIFT) & OTPP_VALUE_MASK) |
-	        ((OTPPOC_BIT_PROG << OTPP_OC_SHIFT) & OTPP_OC_MASK) |
+		((((otpwt == OTPL_WRAP_TYPE_40NM)? OTPPOC_BIT_PROG_40NM :
+		OTPPOC_BIT_PROG) << OTPP_OC_SHIFT) & OTPP_OC_MASK) |
 	        ((row << OTPP_ROW_SHIFT) & OTPP_ROW_MASK) |
 	        ((col << OTPP_COL_SHIFT) & OTPP_COL_MASK);
 	OTP_DBG(("%s: off = %d, row = %d, col = %d, otpp = 0x%x\n",
@@ -751,20 +1116,389 @@ ipxotp_write_bit(otpinfo_t *oi, chipcregs_t *cc, uint off)
 	return 0;
 }
 
+static int
+ipxotp40n_read2x(void *oh, chipcregs_t *cc, uint off)
+{
+	otpinfo_t *oi;
+
+	oi = (otpinfo_t *)oh;
+
+	W_REG(oi->osh, &cc->otpcontrol,
+		(OTPC_40NM_PCOUNT_V1X << OTPC_40NM_PCOUNT_SHIFT) |
+		(OTPC_40NM_REGCSEL_DEF << OTPC_40NM_REGCSEL_SHIFT) |
+		(1 << OTPC_40NM_PROGIN_SHIFT) |
+		(1 << OTPC_40NM_R2X_SHIFT) |
+		(1 << OTPC_40NM_ODM_SHIFT) |
+		(1 << OTPC_40NM_DF_SHIFT) |
+		(OTPC_40NM_VSEL_R1X << OTPC_40NM_VSEL_SHIFT) |
+		(1 << OTPC_40NM_COFAIL_SHIFT));
+
+	W_REG(oi->osh, &cc->otpcontrol1,
+		(OTPC1_CPCSEL_DEF << OTPC1_CPCSEL_SHIFT) |
+		(OTPC1_TM_R1X << OTPC1_TM_SHIFT));
+
+	return ipxotp_read_bit_common(oh, cc, off);
+}
+
+static int
+ipxotp40n_read1x(void *oh, chipcregs_t *cc, uint off, uint fuse)
+{
+	otpinfo_t *oi;
+
+	oi = (otpinfo_t *)oh;
+
+	W_REG(oi->osh, &cc->otpcontrol,
+		(fuse << OTPC_40NM_PROGSEL_SHIFT) |
+		(OTPC_40NM_PCOUNT_V1X << OTPC_40NM_PCOUNT_SHIFT) |
+		(OTPC_40NM_REGCSEL_DEF << OTPC_40NM_REGCSEL_SHIFT) |
+		(1 << OTPC_40NM_PROGIN_SHIFT) |
+		(0 << OTPC_40NM_R2X_SHIFT) |
+		(1 << OTPC_40NM_ODM_SHIFT) |
+		(1 << OTPC_40NM_DF_SHIFT) |
+		(OTPC_40NM_VSEL_R1X << OTPC_40NM_VSEL_SHIFT) |
+		(1 << OTPC_40NM_COFAIL_SHIFT));
+	W_REG(oi->osh, &cc->otpcontrol1,
+		(OTPC1_CPCSEL_DEF << OTPC1_CPCSEL_SHIFT) |
+		(OTPC1_TM_R1X << OTPC1_TM_SHIFT));
+
+	return ipxotp_read_bit_common(oh, cc, off);
+}
+
+static int
+ipxotp40n_verify1x(void *oh, chipcregs_t *cc, uint off, uint fuse)
+{
+	otpinfo_t *oi;
+
+	oi = (otpinfo_t *)oh;
+
+	W_REG(oi->osh, &cc->otpcontrol,
+		(fuse << OTPC_40NM_PROGSEL_SHIFT) |
+		(OTPC_40NM_PCOUNT_V1X << OTPC_40NM_PCOUNT_SHIFT) |
+		(OTPC_40NM_REGCSEL_DEF << OTPC_40NM_REGCSEL_SHIFT) |
+		(1 << OTPC_40NM_PROGIN_SHIFT) |
+		(0 << OTPC_40NM_R2X_SHIFT) |
+		(1 << OTPC_40NM_ODM_SHIFT) |
+		(1 << OTPC_40NM_DF_SHIFT) |
+		(OTPC_40NM_VSEL_V1X << OTPC_40NM_VSEL_SHIFT) |
+		(1 << OTPC_40NM_COFAIL_SHIFT));
+	W_REG(oi->osh, &cc->otpcontrol1,
+		(OTPC1_CPCSEL_DEF << OTPC1_CPCSEL_SHIFT) |
+		(OTPC1_TM_V1X << OTPC1_TM_SHIFT));
+
+	return ipxotp_read_bit_common(oh, cc, off);
+}
+
+static int
+ipxotp40n_write_fuse(otpinfo_t *oi, chipcregs_t *cc, uint off, uint fuse)
+{
+	W_REG(oi->osh, &cc->otpcontrol,
+		(fuse << OTPC_40NM_PROGSEL_SHIFT) |
+		(OTPC_40NM_PCOUNT_WR << OTPC_40NM_PCOUNT_SHIFT) |
+		(OTPC_40NM_REGCSEL_DEF << OTPC_40NM_REGCSEL_SHIFT) |
+		(1 << OTPC_40NM_PROGIN_SHIFT) |
+		(0 << OTPC_40NM_R2X_SHIFT) |
+		(1 << OTPC_40NM_ODM_SHIFT) |
+		(0 << OTPC_40NM_DF_SHIFT) |
+		(OTPC_40NM_VSEL_WR << OTPC_40NM_VSEL_SHIFT) |
+		(1 << OTPC_40NM_COFAIL_SHIFT) |
+		OTPC_PROGEN);
+
+	W_REG(oi->osh, &cc->otpcontrol1,
+		(OTPC1_CPCSEL_DEF << OTPC1_CPCSEL_SHIFT) |
+		(OTPC1_TM_WR << OTPC1_TM_SHIFT));
+
+	return ipxotp_write_bit_common(oi, cc, off);
+}
+
+static int
+ipxotp40n_write_bit(otpinfo_t *oi, chipcregs_t *cc, uint off)
+{
+	uint32 oc_orig, oc1_orig;
+	uint8 i, j, err = 0;
+	int verr0, verr1, rerr0, rerr1, retry, val;
+
+	oc_orig = R_REG(oi->osh, &cc->otpcontrol);
+	oc1_orig = R_REG(oi->osh, &cc->otpcontrol1);
+
+	for (i = 0; i < OTP_FUSES_PER_BIT; i++) {
+		retry = 0;
+		for (j = 0; j < OTP_WRITE_RETRY; j++) {
+			/* program fuse */
+			ipxotp40n_write_fuse(oi, cc, off, i);
+
+			/* verify fuse */
+			val = ipxotp40n_verify1x(oi, cc, off, i);
+			if (val == 1)
+				break;
+
+			retry++;
+		}
+
+		if ((val != 1) && (j == OTP_WRITE_RETRY)) {
+			OTP_ERR(("ERROR: New write failed max attempts fuse:%d @ off:%d\n",
+				i, off));
+		} else if (retry > 0)
+			OTP_MSG(("Verify1x multi retries:%d fuse:%d @ off:%d\n",
+				retry, i, off));
+	}
+
+	/* Post screen */
+	verr0 = (ipxotp40n_verify1x(oi, cc, off, 0) == 1) ? TRUE : FALSE;
+	verr1 = (ipxotp40n_verify1x(oi, cc, off, 1) == 1) ? TRUE : FALSE;
+	rerr0 = (ipxotp40n_read1x(oi, cc, off, 0) == 1) ? TRUE : FALSE;
+	rerr1 = (ipxotp40n_read1x(oi, cc, off, 1) == 1) ? TRUE : FALSE;
+
+	if (verr0 && verr1) {
+		OTP_MSG(("V0:%d and V1:%d ok off:%d\n", verr0, verr1, off));
+	} else if (verr0 && rerr1) {
+		OTP_MSG(("V0:%d and R1:%d ok off:%d\n", verr0, rerr1, off));
+	} else if (rerr0 && verr1) {
+		OTP_MSG(("R0:%d and V1:%d ok off:%d\n", rerr0, verr1, off));
+	} else {
+		OTP_ERR(("Bit failed post screen v0:%d v1:%d r0:%d r1:%d off:%d\n",
+			verr0, verr1, rerr0, rerr1, off));
+		err = -1;
+	}
+
+	W_REG(oi->osh, &cc->otpcontrol, oc_orig);
+	W_REG(oi->osh, &cc->otpcontrol1, oc1_orig);
+
+	return err;
+}
+
+#ifdef OTP_DEBUG
+int
+otp_read1x(void *oh, uint off, uint fuse)
+{
+	otpinfo_t *oi = (otpinfo_t *)oh;
+	chipcregs_t *cc;
+	uint idx, otpwt;
+	int val = 0;
+
+	idx = si_coreidx(oi->sih);
+	cc = si_setcoreidx(oi->sih, SI_CC_IDX);
+	ASSERT(cc != NULL);
+
+	otpwt = (R_REG(oi->osh, &cc->otplayout) & OTPL_WRAP_TYPE_MASK) >> OTPL_WRAP_TYPE_SHIFT;
+	if ((otpwt != OTPL_WRAP_TYPE_40NM) || (oi->sih->ccrev < 40))
+		goto exit;
+
+	val = ipxotp40n_read1x(oi, cc, off, fuse);
+
+exit:
+	si_setcoreidx(oi->sih, idx);
+	return val;
+}
+
+int
+otp_verify1x(void *oh, uint off, uint fuse)
+{
+	otpinfo_t *oi = (otpinfo_t *)oh;
+	int err = 0;
+	chipcregs_t *cc;
+	uint idx, otpwt;
+
+	idx = si_coreidx(oi->sih);
+	cc = si_setcoreidx(oi->sih, SI_CC_IDX);
+	ASSERT(cc != NULL);
+
+	otpwt = (R_REG(oi->osh, &cc->otplayout) & OTPL_WRAP_TYPE_MASK) >> OTPL_WRAP_TYPE_SHIFT;
+	if ((otpwt != OTPL_WRAP_TYPE_40NM) || (oi->sih->ccrev < 40))
+		goto exit;
+
+	err = ipxotp40n_verify1x(oi, cc, off, fuse);
+	if (err != 1)
+		OTP_ERR(("v1x failed fuse:%d @ off:%d\n", fuse, off));
+exit:
+	si_setcoreidx(oi->sih, idx);
+	return err;
+}
+
+/*
+ * Repair is to fix damaged bits; not intended to fix programming errors
+ * This is limited and for 4334 only nine repair entries available
+ */
+int
+otp_repair_bit(void *oh, uint off, uint val)
+{
+	otpinfo_t *oi = (otpinfo_t *)oh;
+
+	return ipxotp_write_rde(oi, -1, off, val);
+}
+
+int
+otp_write_ones_old(void *oh, uint off, uint bits)
+{
+	otpinfo_t *oi = (otpinfo_t *)oh;
+	uint idx;
+	chipcregs_t *cc;
+	uint32 i;
+
+	if (off < 0 || off + bits > oi->rows * oi->cols)
+		return BCME_RANGE;
+
+	idx = si_coreidx(oi->sih);
+	cc = si_setcoreidx(oi->sih, SI_CC_IDX);
+	ASSERT(cc != NULL);
+
+	W_REG(oi->osh, &cc->otpcontrol, 0);
+	W_REG(oi->osh, &cc->otpcontrol1, 0);
+
+	ipxotp_writable(oi, cc);
+	for (i = 0; i < bits; i++) {
+		ipxotp_write_bit_common(oi, cc, off++);
+	}
+	ipxotp_unwritable(oi, cc);
+
+	si_otp_power(oi->sih, FALSE);
+	si_otp_power(oi->sih, TRUE);
+	_ipxotp_init(oi, cc);
+
+	si_setcoreidx(oi->sih, idx);
+	return BCME_OK;
+}
+
+int
+otp_write_ones(void *oh, uint off, uint bits)
+{
+	otpinfo_t *oi = (otpinfo_t *)oh;
+	uint idx;
+	chipcregs_t *cc;
+	uint32 i;
+	int err;
+
+	if (off < 0 || off + bits > oi->rows * oi->cols)
+		return BCME_RANGE;
+
+	idx = si_coreidx(oi->sih);
+	cc = si_setcoreidx(oi->sih, SI_CC_IDX);
+	ASSERT(cc != NULL);
+
+	ipxotp_writable(oi, cc);
+	for (i = 0; i < bits; i++) {
+		err = ipxotp_write_bit(oi, cc, off);
+		if (err != 0) {
+			OTP_ERR(("%s: write bit failed: %d\n", __FUNCTION__, off));
+
+			err = ipxotp_write_rde_nopc(oi, cc,
+				ipxotp_check_otp_pmu_res(cc), off, 1);
+			if (err != 0)
+				OTP_ERR(("%s: repair bit failed: %d\n", __FUNCTION__, off));
+			else
+				OTP_ERR(("%s: repair bit ok: %d\n", __FUNCTION__, off));
+		}
+
+		off++;
+	}
+	ipxotp_unwritable(oi, cc);
+
+	si_otp_power(oi->sih, FALSE);
+	si_otp_power(oi->sih, TRUE);
+	_ipxotp_init(oi, cc);
+
+	si_setcoreidx(oi->sih, idx);
+	return BCME_OK;
+}
+
+#endif /* OTP_DEBUG */
+
+static int
+ipxotp_write_bit(otpinfo_t *oi, chipcregs_t *cc, uint off)
+{
+	uint otpwt;
+	int status = 0;
+
+	otpwt = (R_REG(oi->osh, &cc->otplayout) & OTPL_WRAP_TYPE_MASK) >> OTPL_WRAP_TYPE_SHIFT;
+
+	if (otpwt == OTPL_WRAP_TYPE_40NM) {
+		/* Can damage fuse in 40nm so safeguard against reprogramming */
+		if (ipxotp40n_read2x(oi, cc, off) != 1) {
+			status = ipxotp40n_write_bit(oi, cc, off);
+		} else {
+			OTP_MSG(("Bit already programmed: %d\n", off));
+		}
+	} else {
+		W_REG(oi->osh, &cc->otpcontrol, 0);
+		W_REG(oi->osh, &cc->otpcontrol1, 0);
+
+		status = ipxotp_write_bit_common(oi, cc, off);
+	}
+
+	return status;
+}
+
+static int
+ipxotp_write_bits(void *oh, int bn, int bits, uint8* data)
+{
+	otpinfo_t *oi = (otpinfo_t *)oh;
+	uint idx;
+	chipcregs_t *cc;
+	int i, j;
+	uint8 temp;
+	int err;
+
+	if (bn < 0 || bn + bits > oi->rows * oi->cols)
+		return BCME_RANGE;
+
+	idx = si_coreidx(oi->sih);
+	cc = si_setcoreidx(oi->sih, SI_CC_IDX);
+	ASSERT(cc != NULL);
+
+	ipxotp_writable(oi, cc);
+	for (i = 0; i < bits; ) {
+		temp = *data++;
+		for (j = 0; j < 8; j++, i++) {
+			if (i >= bits)
+				break;
+			if (temp & 0x01)
+			{
+				if (ipxotp_write_bit(oi, cc, (uint)(i + bn)) != 0) {
+					OTP_ERR(("%s: write bit failed: %d\n",
+						__FUNCTION__, i + bn));
+
+					err = ipxotp_write_rde_nopc(oi, cc,
+						ipxotp_check_otp_pmu_res(cc), i + bn, 1);
+					if (err != 0) {
+						OTP_ERR(("%s: repair bit failed: %d\n",
+							__FUNCTION__, i + bn));
+						AND_REG(oi->osh, &cc->otpcontrol, ~OTPC_PROGEN);
+						return -1;
+					} else
+						OTP_ERR(("%s: repair bit ok: %d\n",
+							__FUNCTION__, i + bn));
+				}
+			}
+			temp >>= 1;
+		}
+	}
+	ipxotp_unwritable(oi, cc);
+
+	si_otp_power(oi->sih, FALSE);
+	si_otp_power(oi->sih, TRUE);
+	_ipxotp_init(oi, cc);
+
+	si_setcoreidx(oi->sih, idx);
+	return BCME_OK;
+}
+
 
 static int
 ipxotp_write_lock_bit(otpinfo_t *oi, chipcregs_t *cc, uint off)
 {
 	uint k, row, col;
 	uint32 otpp, st;
+	uint otpwt;
+
+	otpwt = (R_REG(oi->osh, &cc->otplayout) & OTPL_WRAP_TYPE_MASK) >> OTPL_WRAP_TYPE_SHIFT;
 
 	row = off / oi->cols;
 	col = off % oi->cols;
 
 	otpp = OTPP_START_BUSY |
-	        ((OTPPOC_ROW_LOCK << OTPP_OC_SHIFT) & OTPP_OC_MASK) |
-	        ((row << OTPP_ROW_SHIFT) & OTPP_ROW_MASK) |
-	        ((col << OTPP_COL_SHIFT) & OTPP_COL_MASK);
+		((((otpwt == OTPL_WRAP_TYPE_40NM)? OTPPOC_ROW_LOCK_40NM :
+		OTPPOC_ROW_LOCK) << OTPP_OC_SHIFT) & OTPP_OC_MASK) |
+	    ((row << OTPP_ROW_SHIFT) & OTPP_ROW_MASK) |
+	    ((col << OTPP_COL_SHIFT) & OTPP_COL_MASK);
 	OTP_DBG(("%s: off = %d, row = %d, col = %d, otpp = 0x%x\n",
 	         __FUNCTION__, off, row, col, otpp));
 
@@ -791,8 +1525,19 @@ ipxotp_otpwb16(otpinfo_t *oi, chipcregs_t *cc, int wn, uint16 data)
 	base = wn * 16;
 	for (i = 0; i < 16; i++) {
 		if (data & (1 << i)) {
-			if ((rc = ipxotp_write_bit(oi, cc, base + i)))
-				break;
+			rc = ipxotp_write_bit(oi, cc, base + i);
+			if (rc != 0) {
+				OTP_ERR(("%s: write bit failed:%d\n", __FUNCTION__, base + i));
+
+				rc = ipxotp_write_rde_nopc(oi, cc,
+					ipxotp_check_otp_pmu_res(cc), base + i, 1);
+				if (rc != 0) {
+					OTP_ERR(("%s: repair bit failed:%d\n",
+						__FUNCTION__, base + i));
+					break;
+				} else
+					OTP_ERR(("%s: repair bit ok:%d\n", __FUNCTION__, base + i));
+			}
 		}
 	}
 
@@ -804,16 +1549,35 @@ ipxotp_otpwb16(otpinfo_t *oi, chipcregs_t *cc, int wn, uint16 data)
  *  bit - bit offset
  *  val - bit value
  */
-int
-ipxotp_write_rde(void *oh, int rde, uint bit, uint val)
+
+/* Check if for a particular chip OTP PMU resource is available */
+static int
+ipxotp_check_otp_pmu_res(chipcregs_t *cc)
+{
+	switch (cc->chipid & 0x0000ffff) {
+		case BCM43131_CHIP_ID:
+		case BCM43217_CHIP_ID:
+		case BCM43227_CHIP_ID:
+		case BCM43228_CHIP_ID:
+			/* OTP PMU resource not available, hence use global rde index */
+			return OTP_GLOBAL_RDE_IDX;
+		default:
+			/* OTP PMU resource available, hence calculate rde index */
+			return -1;
+	}
+	return -1;
+}
+
+/* Assumes already writable and bypasses power-cycling */
+static int
+ipxotp_write_rde_nopc(void *oh, chipcregs_t *cc, int rde, uint bit, uint val)
 {
 	otpinfo_t *oi = (otpinfo_t *)oh;
-	uint idx;
-	chipcregs_t *cc;
 	uint i, temp;
+	int err = BCME_OK;
 
-#ifdef BCMCBG
-	if ((rde >= oi->rde_cb.offsets) || (bit >= oi->rows * oi->cols) || (val > 1))
+#ifdef BCMDBG
+	if ((rde >= (int)oi->rde_cb.offsets) || (bit >= (uint)(oi->rows * oi->cols)) || (val > 1))
 		return BCME_RANGE;
 #endif
 
@@ -822,47 +1586,81 @@ ipxotp_write_rde(void *oh, int rde, uint bit, uint val)
 			if ((oi->status & (1 << (oi->rde_cb.stat_shift + rde))) == 0)
 				break;
 		}
-		OTP_MSG(("%s: Auto rde index %d\n", __FUNCTION__, rde));
+		OTP_ERR(("%s: Auto rde index %d\n", __FUNCTION__, rde));
+	}
+	else if (rde == OTP_GLOBAL_RDE_IDX) {
+		/* Chips which do not have a OTP PMU res, OTP can't be pwr cycled from the drv. */
+		/* Hence we need to have a count of the global rde, and populate accordingly. */
+
+		/* Find the next available rde location */
+		while (oi->status & (1 << (oi->rde_cb.stat_shift + oi->rde_idx))) {
+			OTP_MSG(("%s: rde %d already in use, status 0x%08x\n", __FUNCTION__,
+				rde, oi->status));
+			oi->rde_idx++;
+		}
+		rde = oi->rde_idx++;
+
+		if (rde >= MAXNUMRDES) {
+			OTP_MSG(("%s: No rde location available to fix.\n", __FUNCTION__));
+			return BCME_ERROR;
+		}
 	}
 
 	if (oi->status & (1 << (oi->rde_cb.stat_shift + rde))) {
-		OTP_MSG(("%s: rde %d already in use, status 0x%08x\n", __FUNCTION__,
+		OTP_ERR(("%s: rde %d already in use, status 0x%08x\n", __FUNCTION__,
 		         rde, oi->status));
 		return BCME_ERROR;
 	}
-
-	idx = si_coreidx(oi->sih);
-	cc = si_setcoreidx(oi->sih, SI_CC_IDX);
-	ASSERT(cc != NULL);
 
 	temp = ~(~0 << oi->rde_cb.width) &
 	        ((~0 << (oi->rde_cb.val_shift + 1)) | (val << oi->rde_cb.val_shift) | bit);
 
 	OTP_MSG(("%s: rde %d bit %d val %d bmp 0x%08x\n", __FUNCTION__, rde, bit, val, temp));
 
-	/* Enable Write */
-	OR_REG(oi->osh, &cc->otpcontrol, OTPC_PROGEN);
-
 	for (i = 0; i < oi->rde_cb.width; i ++) {
 		if (!(temp & (1 << i)))
 			continue;
-		ipxotp_write_bit(oi, cc, oi->rde_cb.offset[rde] + i);
+		if (ipxotp_write_bit(oi, cc, oi->rde_cb.offset[rde] + i) != 0)
+			err = BCME_ERROR;
 	}
 
+	/* no power-cyclying to just set status */
+	oi->status |= (1 << (oi->rde_cb.stat_shift + rde));
+
+	return err;
+}
+
+int
+ipxotp_write_rde(void *oh, int rde, uint bit, uint val)
+{
+	otpinfo_t *oi = (otpinfo_t *)oh;
+	uint idx;
+	chipcregs_t *cc;
+	int err;
+
+	idx = si_coreidx(oi->sih);
+	cc = si_setcoreidx(oi->sih, SI_CC_IDX);
+	ASSERT(cc != NULL);
+
+	/* Enable Write */
+	ipxotp_writable(oi, cc);
+
+	err = ipxotp_write_rde_nopc(oh, cc, rde, bit, val);
+
 	/* Disable Write */
-	AND_REG(oi->osh, &cc->otpcontrol, ~OTPC_PROGEN);
+	ipxotp_unwritable(oi, cc);
 
 	si_otp_power(oi->sih, FALSE);
 	si_otp_power(oi->sih, TRUE);
 	_ipxotp_init(oi, cc);
 
 	si_setcoreidx(oi->sih, idx);
-	return BCME_OK;
+	return err;
 }
 
 /* Set up redundancy entries for the specified bits */
 static int
-ipxotp_fix_word16(void *oh, uint wn, uint16 mask, uint16 val)
+ipxotp_fix_word16(void *oh, uint wn, uint16 mask, uint16 val, chipcregs_t *cc)
 {
 	otpinfo_t *oi;
 	uint bit;
@@ -875,7 +1673,7 @@ ipxotp_fix_word16(void *oh, uint wn, uint16 mask, uint16 val)
 
 	for (bit = wn * 16; mask; bit++, mask >>= 1, val >>= 1) {
 		if (mask & 1) {
-			if ((rc = ipxotp_write_rde(oi, -1, bit, val & 1)))
+			if ((rc = ipxotp_write_rde(oi, ipxotp_check_otp_pmu_res(cc), bit, val & 1)))
 				break;
 		}
 	}
@@ -893,7 +1691,8 @@ ipxotp_check_word16(void *oh, chipcregs_t *cc, uint wn, uint16 val)
 	if ((word ^= val)) {
 		OTP_MSG(("%s: word %d is 0x%04x, wanted 0x%04x, fixing...\n",
 			__FUNCTION__, wn, (word ^ val), val));
-		if ((rc = ipxotp_fix_word16(oi, wn, word, val))) {
+
+		if ((rc = ipxotp_fix_word16(oi, wn, word, val, cc))) {
 			OTP_ERR(("FAILED, ipxotp_fix_word16 returns %d\n", rc));
 			/* Fatal error, unfixable. MFGC will have to fail. Board
 			 * needs to be discarded!!
@@ -916,7 +1715,9 @@ ipxotp_write_region(void *oh, int region, uint16 *data, uint wlen)
 	int otpgu_bit_base;
 	bool rewrite = FALSE;
 	int rc = 0;
+#if defined(DONGLEBUILD)
 	uint16 *origdata = NULL;
+#endif /* DONGLEBUILD */
 
 	otpgu_bit_base = oi->otpgu_base * 16;
 
@@ -977,6 +1778,7 @@ ipxotp_write_region(void *oh, int region, uint16 *data, uint wlen)
 	cc = si_setcoreidx(oi->sih, SI_CC_IDX);
 	ASSERT(cc != NULL);
 
+#if defined(DONGLEBUILD)
 	/* Check for conflict; Since some bits might be programmed at ATE time, we need to
 	 * avoid redundancy by clearing already written bits, but copy original for verification.
 	 */
@@ -995,22 +1797,43 @@ ipxotp_write_region(void *oh, int region, uint16 *data, uint wlen)
 		}
 		data[i] ^= origdata[i];
 	}
+#endif /* DONGLEBUILD */
+
 	OTP_MSG(("%s: writing new bits in %s region\n", __FUNCTION__, HWSW_RGN(region)));
 
 	/* Enable Write */
-	OR_REG(oi->osh, &cc->otpcontrol, OTPC_PROGEN);
+	ipxotp_writable(oi, cc);
 
 	/* Write the data */
 	for (i = 0; i < wlen; i++) {
-		ipxotp_otpwb16(oi, cc, base + i, data[i]);
+		rc = ipxotp_otpwb16(oi, cc, base + i, data[i]);
+		if (rc != 0) {
+			OTP_ERR(("%s: otpwb16 failed: %d 0x%x\n", __FUNCTION__, base + i, data[i]));
+			ipxotp_unwritable(oi, cc);
+			goto exit;
+		}
 	}
 
 	/* One time set region flag: Update boundary/flag in memory and in OTP */
 	if (!rewrite) {
 		switch (region) {
 		case OTP_HW_RGN:
-			ipxotp_otpwb16(oi, cc, oi->otpgu_base + OTPGU_HSB_OFF, (base + i) * 16);
+			/* OTP unification */
+			if (oi->buotp) {
+				ipxotp_otpwb16(oi, cc, oi->otpgu_base + OTPGU_HSB_OFF,
+					((base + oi->usbmanfid_offset) * 16));
+				ipxotp_write_bit(oi, cc, otpgu_bit_base + OTPGU_SWP_OFF);
+			} else
+				ipxotp_otpwb16(oi, cc, oi->otpgu_base + OTPGU_HSB_OFF,
+				(base + i) * 16);
 			ipxotp_write_bit(oi, cc, otpgu_bit_base + OTPGU_HWP_OFF);
+			if (CHIPID(oi->sih->chip) == BCM4336_CHIP_ID ||
+				CHIPID(oi->sih->chip) == BCM43362_CHIP_ID ||
+				CHIPID(oi->sih->chip) == BCM43242_CHIP_ID ||
+				CHIPID(oi->sih->chip) == BCM43243_CHIP_ID ||
+				CHIPID(oi->sih->chip) == BCM43143_CHIP_ID ||
+				CHIPID(oi->sih->chip) == BCM4324_CHIP_ID)
+				ipxotp_write_bit(oi, cc, otpgu_bit_base + OTPGU_NEWCISFORMAT_OFF);
 			break;
 		case OTP_SW_RGN:
 			/* Write HW region limit as well */
@@ -1035,7 +1858,7 @@ ipxotp_write_region(void *oh, int region, uint16 *data, uint wlen)
 	}
 
 	/* Disable Write */
-	AND_REG(oi->osh, &cc->otpcontrol, ~OTPC_PROGEN);
+	ipxotp_unwritable(oi, cc);
 
 	/* Sync region info by retrieving them again (use PMU bit to power cycle OTP) */
 	si_otp_power(oi->sih, FALSE);
@@ -1050,7 +1873,11 @@ ipxotp_write_region(void *oh, int region, uint16 *data, uint wlen)
 		switch (region) {
 		case OTP_HW_RGN:
 			boundary_off = OTPGU_HSB_OFF;
-			boundary_val = (base + i) * 16;
+			/* OTP unification */
+			if (oi->buotp) {
+				boundary_val = ((base + oi->usbmanfid_offset) * 16);
+			} else
+				boundary_val = (base + i) * 16;
 			programmed_off = OTPGU_HWP_OFF;
 			break;
 		case OTP_SW_RGN:
@@ -1087,7 +1914,8 @@ ipxotp_write_region(void *oh, int region, uint16 *data, uint wlen)
 		} else if (bit == 0) {	/* error detected, fix it */
 			OTP_ERR(("\n%s: FAILED bit %d reads %d, fixing\n", __FUNCTION__,
 				otpgu_bit_base + programmed_off, bit));
-			if ((rc = ipxotp_write_rde(oi, -1, otpgu_bit_base + programmed_off, 1))) {
+			if ((rc = ipxotp_write_rde(oi, ipxotp_check_otp_pmu_res(cc),
+				otpgu_bit_base + programmed_off, 1))) {
 				OTP_ERR(("\n%s: cannot fix, ipxotp_write_rde returns %d\n",
 					__FUNCTION__, rc));
 				goto exit;
@@ -1098,20 +1926,23 @@ ipxotp_write_region(void *oh, int region, uint16 *data, uint wlen)
 	/* Update status, apply WAR */
 	_ipxotp_init(oi, cc);
 
+#if defined(DONGLEBUILD)
 	/* Recover original data... */
 	if (origdata)
 		bcopy(origdata, data, wlen * 2);
+#endif /* DONGLEBUILD */
 
-	/* ...so we can verify and fix where possible */
+	/* ...Check again so we can verify and fix where possible */
 	for (i = 0; i < wlen; i++) {
 		if ((rc = ipxotp_check_word16(oi, cc, base + i, data[i])))
 			goto exit;
 	}
 
 exit:
+#if defined(DONGLEBUILD)
 	if (origdata)
 		MFREE(oi->osh, origdata, wlen * 2);
-
+#endif /* DONGLEBUILD */
 	si_setcoreidx(oi->sih, idx);
 	return rc;
 }
@@ -1141,12 +1972,12 @@ ipxotp_write_word(void *oh, uint wn, uint16 data)
 	data ^= origdata;
 
 	/* Enable Write */
-	OR_REG(oi->osh, &cc->otpcontrol, OTPC_PROGEN);
+	ipxotp_writable(oi, cc);
 
 	rc = ipxotp_otpwb16(oi, cc, wn, data);
 
 	/* Disable Write */
-	AND_REG(oi->osh, &cc->otpcontrol, ~OTPC_PROGEN);
+	ipxotp_unwritable(oi, cc);
 
 	data = origdata;
 	if ((rc = ipxotp_check_word16(oi, cc, wn, data)))
@@ -1157,13 +1988,19 @@ exit:
 }
 
 static int
-ipxotp_cis_append_region(si_t *sih, int region, char *vars, int count)
+_ipxotp_cis_append_region(si_t *sih, int region, char *vars, int count)
 {
+#define TUPLE_MATCH(_s1, _s2, _s3, _v1, _v2, _v3) \
+	(((_s1) == 0x80) ? \
+		(((_s1) == (_v1)) && ((_s2) == (_v2)) && ((_s3) == (_v3))) \
+		: (((_s1) == (_v1)) && ((_s2) == (_v2))))
+
 	uint8 *cis;
 	osl_t *osh;
 	uint sz = OTP_SZ_MAX/2; /* size in words */
 	int rc = 0;
 	bool newchip = FALSE;
+	uint overwrite = 0;
 
 	ASSERT(region == OTP_HW_RGN || region == OTP_SW_RGN);
 
@@ -1216,22 +2053,58 @@ ipxotp_cis_append_region(si_t *sih, int region, char *vars, int count)
 			}
 		} else {
 			int end = 0;
-
+			if (region == OTP_SW_RGN) {
 			/* Walk through the leading zeros (could be 0 or 8 bytes for now) */
-			for (i = 0; i < (int)sz*2; i++)
-				if (cis[i] != 0)
-					break;
+				for (i = 0; i < (int)sz*2; i++)
+					if (cis[i] != 0)
+						break;
+			} else {
+				/* move pass the hardware header */
+				if (sih->ccrev >= 36) {
+					uint32 otp_layout;
+					otp_layout = si_corereg(sih, SI_CC_IDX,
+						OFFSETOF(chipcregs_t, otplayout), 0, 0);
+					if (otp_layout & OTP_CISFORMAT_NEW) {
+						i += 4; /* new sdio header format, 2 half words */
+					} else {
+						i += 8; /* old sdio header format */
+					}
+				} else {
+					return BCME_ERROR; /* old chip, not suppported */
+				}
+			}
 
 			/* Find the place to append */
 			for (; i < (int)sz*2; i++) {
 				if (cis[i] == 0)
 					break;
+
+				/* find the last tuple with same BMCM HNBU */
+				if (TUPLE_MATCH(cis[i], cis[i+1], cis[i+2],
+					vars[0], vars[1], vars[2])) {
+					overwrite = i;
+				}
 				i += ((int)cis[i+1] + 1);
 			}
-
 			for (end = i; end < (int)sz*2; end++) {
 				if (cis[end] != 0)
 					break;
+			}
+
+			/* If the tuple exist, check if it can be overwritten */
+			if (overwrite)
+			{
+				int j;
+
+				/* found, check if it is compiatable for fix */
+				for (j = 0; j < cis[overwrite+1] + 2; j++) {
+					if ((cis[overwrite+j] ^ vars[j]) & cis[overwrite+j]) {
+						break;
+					}
+				}
+				if (j == cis[overwrite+1] + 2) {
+					i = overwrite;
+				}
 			}
 
 			newlen = i + count;
@@ -1262,11 +2135,58 @@ ipxotp_cis_append_region(si_t *sih, int region, char *vars, int count)
 		OTP_MSG(("\n"));
 #endif /* BCMNVRAMW */
 	}
-
 	if (cis)
 		MFREE(osh, cis, OTP_SZ_MAX);
 
 	return (rc);
+}
+
+static int
+ipxotp_cis_append_region(si_t *sih, int region, char *vars, int count)
+{
+	int result;
+	char *tuple;
+	int tuplePos;
+	int tupleCount;
+	int remainingCount;
+
+	result = BCME_ERROR;
+
+	/* zero count for read, non-zero count for write */
+	if (count) {
+		if (count < (int)(*(vars + 1) + 2)) {
+			OTP_MSG(("vars (count): %d bytes; tuple len: %d bytes\n",
+				count, (int)(*(vars + 1))));
+			return BCME_ERROR;
+		}
+
+		/* get first tuple from vars. */
+		tuplePos = 0;
+		remainingCount = count;
+
+		/* seperate vars into tuples */
+		do {
+			tupleCount = (int)(*(vars + tuplePos + 1) + 2);
+			if (remainingCount < tupleCount) {
+				OTP_MSG(("vars (remainingCount): %d bytes; tuple len: %d bytes\n",
+					remainingCount, tupleCount));
+				return (result);
+			}
+			tuple = vars + tuplePos;
+
+			result = _ipxotp_cis_append_region(sih, region, tuple, tupleCount);
+			if (result != BCME_OK)
+				return (result);
+
+			/* get next tuple from vars. */
+			remainingCount -= tupleCount;
+			tuplePos += (((int)*(tuple + 1)) + 2);
+		} while (remainingCount > 0);
+	} else {
+		return (_ipxotp_cis_append_region(sih, region, vars, count));
+	}
+
+	return (result);
 }
 
 /* No need to lock for IPXOTP */
@@ -1283,7 +2203,7 @@ ipxotp_lock(void *oh)
 	ASSERT(cc != NULL);
 
 	/* Enable Write */
-	OR_REG(oi->osh, &cc->otpcontrol, OTPC_PROGEN);
+	ipxotp_writable(oi, cc);
 
 	err = ipxotp_write_lock_bit(oi, cc, OTP_LOCK_ROW1_LOC_OFF);
 	if (err) {
@@ -1307,7 +2227,7 @@ ipxotp_lock(void *oh)
 	}
 
 	/* Disable Write */
-	AND_REG(oi->osh, &cc->otpcontrol, ~OTPC_PROGEN);
+	ipxotp_unwritable(oi, cc);
 
 	/* Sync region info by retrieving them again (use PMU bit to power cycle OTP) */
 	si_otp_power(oi->sih, FALSE);
@@ -1315,6 +2235,9 @@ ipxotp_lock(void *oh)
 
 	/* Update status, apply WAR */
 	_ipxotp_init(oi, cc);
+
+	si_setcoreidx(oi->sih, idx);
+
 	return rc;
 }
 
@@ -1325,7 +2248,7 @@ ipxotp_nvwrite(void *oh, uint16 *data, uint wlen)
 }
 #endif /* BCMNVRAMW */
 
-#if defined(WLTEST)
+#if defined(WLTEST) && !defined(BCMROMBUILD)
 static uint16
 ipxotp_otprb16(void *oh, chipcregs_t *cc, uint wn)
 {
@@ -1383,6 +2306,8 @@ ipxotp_dump(void *oh, int arg, char *buf, uint size)
 static otp_fn_t ipxotp_fn = {
 	(otp_size_t)ipxotp_size,
 	(otp_read_bit_t)ipxotp_read_bit,
+	(otp_dump_t)NULL,		/* Assigned in otp_init */
+	(otp_status_t)ipxotp_status,
 
 	(otp_init_t)ipxotp_init,
 	(otp_read_region_t)ipxotp_read_region,
@@ -1392,17 +2317,18 @@ static otp_fn_t ipxotp_fn = {
 	(otp_cis_append_region_t)ipxotp_cis_append_region,
 	(otp_lock_t)ipxotp_lock,
 	(otp_nvwrite_t)ipxotp_nvwrite,
-#endif /* BCMNVRAMW */
-
-#if defined(WLTEST)
-	(otp_dump_t)ipxotp_dump,
-#endif	
-
-	(otp_status_t)ipxotp_status,
-#ifdef BCMNVRAMW
 	(otp_write_word_t)ipxotp_write_word,
+#else /* BCMNVRAMW */
+	(otp_write_region_t)NULL,
+	(otp_cis_append_region_t)NULL,
+	(otp_lock_t)NULL,
+	(otp_nvwrite_t)NULL,
+	(otp_write_word_t)NULL,
 #endif /* BCMNVRAMW */
 	(otp_read_word_t)ipxotp_read_word,
+#if defined(BCMNVRAMW)
+	(otp_write_bits_t)ipxotp_write_bits
+#endif 
 };
 
 #endif /* BCMIPXOTP */
@@ -1598,7 +2524,8 @@ BCMNMIATTACHFN(hndotp_init)(si_t *sih)
 	osl_t *osh;
 
 	OTP_MSG(("%s: Use HND OTP controller\n", __FUNCTION__));
-	oi = &otpinfo;
+
+	oi = get_otpinfo();
 
 	idx = si_coreidx(sih);
 	osh = si_osh(oi->sih);
@@ -1960,6 +2887,38 @@ hndotp_write_bit(void *oh, chipcregs_t *cc, int bn, bool bit, int no_retry)
 }
 
 static int
+hndotp_write_bits(void *oh, int bn, int bits, uint8* data)
+{
+	otpinfo_t *oi = (otpinfo_t *)oh;
+	uint idx;
+	chipcregs_t *cc;
+	int i, j;
+	uint8 temp;
+
+	if (bn < 0 || bn + bits >= oi->rows * oi->cols)
+		return BCME_RANGE;
+
+	idx = si_coreidx(oi->sih);
+	cc = si_setcoreidx(oi->sih, SI_CC_IDX);
+	ASSERT(cc != NULL);
+
+	for (i = 0; i < bits; ) {
+		temp = *data++;
+		for (j = 0; j < 8; j++, i++) {
+			if (i >= bits)
+				break;
+			if (hndotp_write_bit(oh, cc, i + bn, (temp & 0x01), 0) != 0) {
+				return -1;
+			}
+			temp >>= 1;
+		}
+	}
+
+	si_setcoreidx(oi->sih, idx);
+	return BCME_OK;
+}
+
+static int
 hndotp_write_word(void *oh, chipcregs_t *cc, int wn, uint16 data)
 {
 	uint base, i;
@@ -1996,6 +2955,7 @@ hndotp_valid_rce(void *oh, chipcregs_t *cc, int i)
 	osh = si_osh(oi->sih);
 	st = R_REG(osh, &cc->otpstatus);
 	hwv = (st & OTPS_RCEV_MSK) & (1 << (OTPS_RCEV_SHIFT + i));
+	BCM_REFERENCE(hwv);
 
 	if (i < 3) {
 		e = i;
@@ -2040,7 +3000,7 @@ hndotp_write_rce(void *oh, chipcregs_t *cc, int r, uint16* data)
 			continue; /* If row used, go for the next row */
 		}
 
-		/*  
+		/*
 		 * previously used bad rce entry maybe treaed as valid rce and used again, abort on
 		 * first bit error to avoid stress the charge pump
 		 */
@@ -2465,7 +3425,7 @@ out:
 }
 #endif /* BCMNVRAMW */
 
-#if defined(WLTEST)
+#if defined(WLTEST) && !defined(BCMROMBUILD)
 static uint16
 hndotp_otprb16(void *oh, chipcregs_t *cc, uint wn)
 {
@@ -2543,6 +3503,8 @@ hndotp_dump(void *oh, int arg, char *buf, uint size)
 static otp_fn_t hndotp_fn = {
 	(otp_size_t)hndotp_size,
 	(otp_read_bit_t)hndotp_read_bit,
+	(otp_dump_t)NULL,		/* Assigned in otp_init */
+	(otp_status_t)hndotp_status,
 
 	(otp_init_t)hndotp_init,
 	(otp_read_region_t)hndotp_read_region,
@@ -2552,17 +3514,18 @@ static otp_fn_t hndotp_fn = {
 	(otp_cis_append_region_t)hndotp_cis_append_region,
 	(otp_lock_t)hndotp_lock,
 	(otp_nvwrite_t)hndotp_nvwrite,
-#endif /* BCMNVRAMW */
-
-#if defined(WLTEST)
-	(otp_dump_t)hndotp_dump,
-#endif	
-
-	(otp_status_t)hndotp_status,
-#ifdef BCMNVRAMW
+	(otp_write_word_t)NULL,
+#else /* BCMNVRAMW */
+	(otp_write_region_t)NULL,
+	(otp_cis_append_region_t)NULL,
+	(otp_lock_t)NULL,
+	(otp_nvwrite_t)NULL,
 	(otp_write_word_t)NULL,
 #endif /* BCMNVRAMW */
 	(otp_read_word_t)hndotp_read_word,
+#if defined(BCMNVRAMW)
+	(otp_write_bits_t)hndotp_write_bits
+#endif 
 };
 
 #endif /* BCMHNDOTP */
@@ -2611,26 +3574,46 @@ otp_read_bit(void *oh, uint offset)
 	return readBit;
 }
 
+#if defined(BCMNVRAMW)
+int
+otp_write_bits(void *oh, uint offset, int bits, uint8* data)
+{
+	otpinfo_t *oi = (otpinfo_t *)oh;
+	return oi->fn->write_bits(oh, offset, bits, data);
+}
+#endif 
+
 void *
 BCMNMIATTACHFN(otp_init)(si_t *sih)
 {
 	otpinfo_t *oi;
 	void *ret = NULL;
+	bool wasup = FALSE;
 
-	oi = &otpinfo;
+	oi = get_otpinfo();
 	bzero(oi, sizeof(otpinfo_t));
 
 	oi->ccrev = sih->ccrev;
 
 #ifdef BCMIPXOTP
-	if (OTPTYPE_IPX(oi->ccrev))
-		oi->fn = &ipxotp_fn;
+	if (OTPTYPE_IPX(oi->ccrev)) {
+#if defined(WLTEST) && !defined(BCMROMBUILD)
+		/* Dump function is excluded from ROM */
+		ipxotp_fn.dump = ipxotp_dump;
 #endif
+		oi->fn = &ipxotp_fn;
+	}
+#endif /* BCMIPXOTP */
 
 #ifdef BCMHNDOTP
-	if (OTPTYPE_HND(oi->ccrev))
-		oi->fn = &hndotp_fn;
+	if (OTPTYPE_HND(oi->ccrev)) {
+#if defined(WLTEST) && !defined(BCMROMBUILD)
+		/* Dump function is excluded from ROM */
+		hndotp_fn.dump = hndotp_dump;
 #endif
+		oi->fn = &hndotp_fn;
+	}
+#endif /* BCMHNDOTP */
 
 	if (oi->fn == NULL) {
 		OTP_ERR(("otp_init: unsupported OTP type\n"));
@@ -2640,7 +3623,13 @@ BCMNMIATTACHFN(otp_init)(si_t *sih)
 	oi->sih = sih;
 	oi->osh = si_osh(oi->sih);
 
+	if (!(wasup = si_is_otp_powered(sih)))
+		si_otp_power(sih, TRUE);
+
 	ret = (oi->fn->init)(sih);
+
+	if (!wasup)
+		si_otp_power(sih, FALSE);
 
 	return ret;
 }
@@ -2844,7 +3833,10 @@ otp_dump(void *oh, int arg, char *buf, uint size)
 {
 	otpinfo_t *oi = (otpinfo_t *)oh;
 
-	return oi->fn->dump(oh, arg, buf, size);
+	if (oi->fn->dump == NULL)
+		return BCME_UNSUPPORTED;
+	else
+		return oi->fn->dump(oh, arg, buf, size);
 }
 
 int
@@ -2871,4 +3863,4 @@ otp_dumpstats(void *oh, int arg, char *buf, uint size)
 	return 200;	/* real buf length, pick one to cover above print */
 }
 
-#endif 
+#endif	

@@ -1,7 +1,7 @@
 /*
  * Broadcom Event  protocol definitions
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2012, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,7 +17,7 @@
  *
  * Dependencies: proto/bcmeth.h
  *
- * $Id: bcmevent.h,v 9.68.4.5 2010-10-07 11:44:10 Exp $
+ * $Id: bcmevent.h 339265 2012-06-15 23:44:23Z $
  *
  */
 
@@ -140,13 +140,8 @@ typedef BWL_PRE_PACKED_STRUCT struct bcm_event {
 #define WLC_E_UNICAST_DECODE_ERROR	50	/* Unsupported unicast encrypted frame */
 #define WLC_E_MULTICAST_DECODE_ERROR	51 /* Unsupported multicast encrypted frame */
 #define WLC_E_TRACE		52
-#ifdef WLBTAMP
-#define WLC_E_BTA_HCI_EVENT	53	/* BT-AMP HCI event */
-#endif
-#define WLC_E_IF		54	/* bsscfg change (for host notification) */
-#ifdef WLP2P
+#define WLC_E_IF		54	/* I/F change (for dongle host notification) */
 #define WLC_E_P2P_DISC_LISTEN_COMPLETE	55	/* listen state expires */
-#endif
 #define WLC_E_RSSI		56	/* indicate RSSI change based on configured levels */
 #define WLC_E_PFN_SCAN_COMPLETE	57	/* PFN completed scan of network list */
 #define WLC_E_EXTLOG_MSG	58
@@ -162,19 +157,36 @@ typedef BWL_PRE_PACKED_STRUCT struct bcm_event {
 #define WLC_E_WAI_MSG 		68	/* event encapsulating an WAI message */
 #define WLC_E_ESCAN_RESULT 	69	/* escan result event */
 #define WLC_E_ACTION_FRAME_OFF_CHAN_COMPLETE 	70	/* action frame off channel complete */
-#ifdef WLP2P
 #define WLC_E_PROBRESP_MSG	71	/* probe response received */
 #define WLC_E_P2P_PROBREQ_MSG	72	/* P2P Probe request received */
-#endif
 #define WLC_E_DCS_REQUEST	73
+
 #define WLC_E_FIFO_CREDIT_MAP	74	/* credits for D11 FIFOs. [AC0,AC1,AC2,AC3,BC_MC,ATIM] */
+
 #define WLC_E_ACTION_FRAME_RX	75	/* Received action frame event WITH
 					 * wl_event_rx_frame_data_t header
 					 */
-#define WLC_E_ASSOC_IND_NDIS		76	/* 802.11 ASSOC indication for NDIS only */
-#define WLC_E_REASSOC_IND_NDIS	77	/* 802.11 REASSOC indication for NDIS only */
-#define WLC_E_CSA_COMPLETE_IND		78	/* 802.11 CHANNEL SWITCH ACTION completed */
-#define WLC_E_LAST		79	/* highest val + 1 for range checking */
+#define WLC_E_WAKE_EVENT	76	/* Wake Event timer fired, used for wake WLAN test mode */
+#define WLC_E_RM_COMPLETE	77	/* Radio measurement complete */
+#define WLC_E_HTSFSYNC		78	/* Synchronize TSF with the host */
+#define WLC_E_OVERLAY_REQ	79	/* request an overlay IOCTL/iovar from the host */
+#define WLC_E_CSA_COMPLETE_IND		80	/* 802.11 CHANNEL SWITCH ACTION completed */
+#define WLC_E_EXCESS_PM_WAKE_EVENT	81	/* excess PM Wake Event to inform host  */
+#define WLC_E_PFN_SCAN_NONE		82	/* no PFN networks around */
+#define WLC_E_PFN_SCAN_ALLGONE		83	/* last found PFN network gets lost */
+#define WLC_E_GTK_PLUMBED 		84
+#define WLC_E_ASSOC_IND_NDIS		85	/* 802.11 ASSOC indication for NDIS only */
+#define WLC_E_REASSOC_IND_NDIS		86	/* 802.11 REASSOC indication for NDIS only */
+#define WLC_E_ASSOC_REQ_IE 		87
+#define WLC_E_ASSOC_RESP_IE 		88
+#define WLC_E_ASSOC_RECREATED	89	/* association recreated on resume */
+#define WLC_E_ACTION_FRAME_RX_NDIS	90	/* rx action frame event for NDIS only */
+#define WLC_E_AUTH_REQ		91	/* authentication request received */
+#define WLC_E_TDLS_PEER_EVENT 	92	/* discovered peer, connected or disconnected peer */
+#define WLC_E_SPEEDY_RECREATE_FAIL	93	/* fast assoc recreation failed */
+#define WLC_E_NATIVE			94	/* port-specific event and payload (e.g. NDIS) */
+#define WLC_E_LAST			95	/* highest val + 1 for range checking */
+
 
 /* Table of event name strings for UIs and debugging dumps */
 typedef struct {
@@ -253,6 +265,7 @@ extern const int		bcmevent_names_size;
 #define WLC_E_SUP_GTK_DECRYPT_FAIL	12	/* GTK decrypt failure */
 #define WLC_E_SUP_SEND_FAIL		13	/* message send failure */
 #define WLC_E_SUP_DEAUTH		14	/* received FC_DEAUTH */
+#define WLC_E_SUP_WPA_PSK_TMO		15	/* WPA PSK 4-way handshake timeout */
 
 /* Event data for events that include frames received over the air */
 /* WLC_E_PROBRESP_MSG
@@ -261,7 +274,7 @@ extern const int		bcmevent_names_size;
  */
 typedef BWL_PRE_PACKED_STRUCT struct wl_event_rx_frame_data {
 	uint16	version;
-	uint16	channel;	/* Matches chanspec_t format from bcmwifi.h */
+	uint16	channel;	/* Matches chanspec_t format from bcmwifi_channels.h */
 	int32	rssi;
 	uint32	mactime;
 	uint32	rate;
@@ -272,10 +285,10 @@ typedef BWL_PRE_PACKED_STRUCT struct wl_event_rx_frame_data {
 /* WLC_E_IF event data */
 typedef struct wl_event_data_if {
 	uint8 ifidx;		/* RTE virtual device index (for dongle) */
-	uint8 opcode;		/* see opcode */
+	uint8 opcode;		/* see I/F opcode */
 	uint8 reserved;
 	uint8 bssidx;		/* bsscfg index */
-	uint8 role;		/* see bsscfg role */
+	uint8 role;		/* see I/F role */
 } wl_event_data_if_t;
 
 /* opcode in WLC_E_IF event */
@@ -283,22 +296,27 @@ typedef struct wl_event_data_if {
 #define WLC_E_IF_DEL		2	/* bsscfg delete */
 #define WLC_E_IF_CHANGE		3	/* bsscfg role change */
 
-/* bsscfg role in WLC_E_IF event */
+/* I/F role code in WLC_E_IF event */
 #define WLC_E_IF_ROLE_STA		0	/* Infra STA */
 #define WLC_E_IF_ROLE_AP		1	/* Access Point */
 #define WLC_E_IF_ROLE_WDS		2	/* WDS link */
 #define WLC_E_IF_ROLE_P2P_GO		3	/* P2P Group Owner */
 #define WLC_E_IF_ROLE_P2P_CLIENT	4	/* P2P Client */
-#ifdef WLBTAMP
-#define WLC_E_IF_ROLE_BTA_CREATOR	5	/* BT-AMP Creator */
-#define WLC_E_IF_ROLE_BTA_ACCEPTOR	6	/* BT-AMP Acceptor */
-#endif
 
 /* Reason codes for LINK */
 #define WLC_E_LINK_BCN_LOSS	1	/* Link down because of beacon loss */
 #define WLC_E_LINK_DISASSOC	2	/* Link down because of disassoc */
 #define WLC_E_LINK_ASSOC_REC	3	/* Link down because assoc recreate failed */
 #define WLC_E_LINK_BSSCFG_DIS	4	/* Link down due to bsscfg down */
+
+/* reason codes for WLC_E_OVERLAY_REQ event */
+#define WLC_E_OVL_DOWNLOAD		0	/* overlay download request */
+#define WLC_E_OVL_UPDATE_IND	1	/* device indication of host overlay update */
+
+/* reason codes for WLC_E_TDLS_PEER_EVENT event */
+#define WLC_E_TDLS_PEER_DISCOVERED		0	/* peer is ready to establish TDLS */
+#define WLC_E_TDLS_PEER_CONNECTED		1
+#define WLC_E_TDLS_PEER_DISCONNECTED	2
 
 /* This marks the end of a packed structure section. */
 #include <packed_section_end.h>

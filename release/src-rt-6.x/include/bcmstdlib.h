@@ -1,6 +1,6 @@
 /*
  * prototypes for functions defined in bcmstdlib.c
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -13,7 +13,7 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * $Id: bcmstdlib.h,v 13.31 2009-06-26 22:48:10 Exp $:
+ * $Id: bcmstdlib.h 289936 2011-10-14 21:06:33Z $:
  */
 
 /*
@@ -79,10 +79,10 @@ extern unsigned long rand(void);
 #if !defined(_WIN32) || defined(EFI)
 /* string functions */
 #define PRINTF_BUFLEN	512
-extern int printf(const char *fmt, ...);
-extern int BCMROMFN(sprintf)(char *buf, const char *fmt, ...);
-
-extern char *BCMROMFN(index)(const char *s, int c);
+extern int printf(const char *fmt, ...)
+	__attribute__ ((format (__printf__, 1, 2)));
+extern int BCMROMFN(sprintf)(char *buf, const char *fmt, ...)
+	__attribute__ ((format (__printf__, 2, 3)));
 
 extern int BCMROMFN(strcmp)(const char *s1, const char *s2);
 extern size_t BCMROMFN(strlen)(const char *s);
@@ -114,7 +114,13 @@ extern int BCMROMFN(memcmp)(const void *s1, const void *s2, size_t n);
 #endif /* !_WIN32 || EFI */
 #endif   /* BWL_INTERNAL_STDLIB_SUPPORT */
 
+#if !defined(_WIN32) || defined(EFI)
+extern int BCMROMFN(snprintf)(char *str, size_t n, char const *fmt, ...)
+	__attribute__ ((format (__printf__, 3, 4)));
+#else
 extern int BCMROMFN(snprintf)(char *str, size_t n, char const *fmt, ...);
+#endif
+
 extern int BCMROMFN(vsnprintf)(char *buf, size_t size, const char *fmt, va_list ap);
 
 #endif 	/* _BCMSTDLIB_H */

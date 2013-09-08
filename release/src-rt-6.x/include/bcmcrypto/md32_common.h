@@ -167,83 +167,6 @@
 #define HASH_LONG_LOG2	2
 #endif
 
-/*
- * Engage compiler specific rotate intrinsic function if available.
- */
-#undef ROTATE
-#ifndef PEDANTIC
-# if defined(_MSC_VER) || defined(__ICC)
-#  define ROTATE(a,n)	_lrotl(a,n)
-# elif defined(__MWERKS__)
-#  if defined(__POWERPC__)
-#   define ROTATE(a,n)	__rlwinm(a,n,0,31)
-#  elif defined(__MC68K__)
-    /* Motorola specific tweak. <appro@fy.chalmers.se> */
-#   define ROTATE(a,n)	( n<24 ? __rol(a,n) : __ror(a,32-n) )
-#  else
-#   define ROTATE(a,n)	__rol(a,n)
-#  endif
-# elif defined(__GNUC__) && __GNUC__>=2 && !defined(OPENSSL_NO_ASM) && \
-	!defined(OPENSSL_NO_INLINE_ASM)
-  /*
-   * Some GNU C inline assembler templates. Note that these are
-   * rotates by *constant* number of bits! But that's exactly
-   * what we need here...
-   * 					<appro@fy.chalmers.se>
-   */
-#  if defined(__i386) || defined(__i386__) || defined(__x86_64) || defined(__x86_64__)
-#   define ROTATE(a,n)	({ register unsigned int ret;	\
-				asm (			\
-				"roll %1,%0"		\
-				: "=r"(ret)		\
-				: "I"(n), "0"(a)	\
-				: "cc");		\
-			   ret;				\
-			})
-#  elif defined(__powerpc) || defined(__ppc__) || defined(__powerpc64__)
-#   define ROTATE(a,n)	({ register unsigned int ret;	\
-				asm (			\
-				"rlwinm %0,%1,%2,0,31"	\
-				: "=r"(ret)		\
-				: "r"(a), "I"(n));	\
-			   ret;				\
-			})
-#  endif
-# endif
-#endif /* PEDANTIC */
-
-#if HASH_LONG_LOG2==2	    /* Engage only if sizeof(HASH_LONG)== 4 */
-/* A nice byte order reversal from Wei Dai <weidai@eskimo.com> */
-#ifdef ROTATE
-/* 5 instructions with rotate instruction, else 9 */
-#define REVERSE_FETCH32(a,l)	(					\
-		l =* (const HASH_LONG *)(a),				\
-		((ROTATE(l,8)&0x00FF00FF)|(ROTATE((l&0x00FF00FF),24)))	\
-				)
-#else
-/* 6 instructions with rotate instruction, else 8 */
-#define REVERSE_FETCH32(a,l)	(				\
-		l =* (const HASH_LONG *)(a),			\
-		l = (((l>>8)&0x00FF00FF)|((l&0x00FF00FF)<<8)),	\
-		ROTATE(l,16)					\
-				)
-/*
- * Originally the middle line started with l=(((l&0xFF00FF00)>>8)|...
- * It's rewritten as above for two reasons:
- *	- RISCs aren't good at long constants and have to explicitely
- *	  compose 'em with several (well, usually 2) instructions in a
- *	  register before performing the actual operation and (as you
- *	  already realized:-) having same constant should inspire the
- *	  compiler to permanently allocate the only register for it;
- *	- most modern CPUs have two ALUs, but usually only one has
- *	  circuitry for shifts:-( this minor tweak inspires compiler
- *	  to schedule shift instructions in a better way...
- *
- *				<appro@fy.chalmers.se>
- */
-#endif
-#endif
-
 #ifndef ROTATE
 #define ROTATE(a,n)     (((a)<<(n))|(((a)&0xffffffff)>>(32-(n))))
 #endif
@@ -405,7 +328,7 @@ int HASH_UPDATE (HASH_CTX *c, const void *data_, size_t len)
 	 * Wei Dai <weidai@eskimo.com> for pointing it out. */
 	if (l < c->Nl) /* overflow */
 		c->Nh++;
-	c->Nh+=(len>>29);	/* might cause compiler warning on 16-bit */
+	c->Nh+=(unsigned int)(len>>29);	/* might cause compiler warning on 16-bit */
 	c->Nl=l;
 
 	if (c->num != 0)
@@ -494,7 +417,7 @@ int HASH_UPDATE (HASH_CTX *c, const void *data_, size_t len)
 	if (len!=0)
 		{
 		p = c->data;
-		c->num = len;
+		c->num = (unsigned int)len;
 		ew=len>>2;	/* words to copy */
 		ec=len&0x03;
 		for (; ew; ew--,p++)

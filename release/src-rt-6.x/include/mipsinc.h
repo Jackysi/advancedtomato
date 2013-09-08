@@ -1,7 +1,7 @@
 /*
  * HND Run Time Environment for standalone MIPS programs.
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: mipsinc.h,v 13.27.10.1 2010-09-15 00:27:33 Exp $
+ * $Id: mipsinc.h 260898 2011-05-20 23:11:12Z $
  */
 
 #ifndef	_MISPINC_H
@@ -574,8 +574,5 @@ static INLINE void dcache_probe(uint32 config1, uint *size, uint *lsize)
 		  "i" (op));
 
 #endif /* !_LANGUAGE_ASSEMBLY */
-
-/* used to fill an overlay region with nop's */
-#define NOP_UINT32	0x00000000
 
 #endif	/* _MISPINC_H */

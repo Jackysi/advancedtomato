@@ -2,7 +2,11 @@
  * aeskeywrap.c
  * Perform RFC3394 AES-based key wrap and unwrap functions.
  *
+<<<<<<< HEAD
  * Copyright (C) 2010, Broadcom Corporation
+=======
+ * Copyright (C) 2011, Broadcom Corporation
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -10,7 +14,11 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
+<<<<<<< HEAD
  * $Id: aeskeywrap.c,v 1.31 2009-04-21 01:06:59 Exp $
+=======
+ * $Id: aeskeywrap.c 241182 2011-02-17 21:50:03Z $
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  */
 
 #include <typedefs.h>
@@ -18,6 +26,7 @@
 #ifdef BCMDRIVER
 #include <osl.h>
 #else
+<<<<<<< HEAD
 #if defined(__GNUC__)
 extern void bcopy(const void *src, void *dst, int len);
 extern int bcmp(const void *b1, const void *b2, int len);
@@ -27,6 +36,9 @@ extern int bcmp(const void *b1, const void *b2, int len);
 #define	bcmp(b1, b2, len)	memcmp((b1), (b2), (len))
 #endif	/* __GNUC__ */
 #include <stddef.h> /* for size_t */
+=======
+#include <string.h>
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 #endif	/* BCMDRIVER */
 
 #include <bcmcrypto/aes.h>
@@ -38,7 +50,12 @@ extern int bcmp(const void *b1, const void *b2, int len);
 
 #define	dbg(args)	printf args
 
+<<<<<<< HEAD
 void pinter(const char *label, const uint8 *A, const size_t il, const uint8 *R)
+=======
+void
+pinter(const char *label, const uint8 *A, const size_t il, const uint8 *R)
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 {
 	unsigned int k;
 	printf("%s", label);
@@ -53,7 +70,12 @@ void pinter(const char *label, const uint8 *A, const size_t il, const uint8 *R)
 	printf("\n");
 }
 
+<<<<<<< HEAD
 void pres(const char *label, const size_t len, const uint8 *data)
+=======
+void
+pres(const char *label, const size_t len, const uint8 *data)
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 {
 	unsigned int k;
 	printf("%lu %s", (unsigned long)len, label);
@@ -112,10 +134,17 @@ BCMROMFN(aes_wrap)(size_t kl, uint8 *key, size_t il, uint8 *input, uint8 *output
 	rijndaelKeySetupEnc(rk, key, (int)AES_KEY_BITLEN(kl));
 
 	/* Set A = IV */
+<<<<<<< HEAD
 	bcopy(aeskeywrapIV, A, AKW_BLOCK_LEN);
 	/* For i = 1 to n */
 	/*	R[i] = P[i] */
 	bcopy(input, R, il);
+=======
+	memcpy(A, aeskeywrapIV, AKW_BLOCK_LEN);
+	/* For i = 1 to n */
+	/*	R[i] = P[i] */
+	memcpy(R, input, il);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 	/* For j = 0 to 5 */
 	for (j = 0; j < 6; j++) {
@@ -124,6 +153,7 @@ BCMROMFN(aes_wrap)(size_t kl, uint8 *key, size_t il, uint8 *input, uint8 *output
 			dbg(("\n   %d\n", (n*j)+i+1));
 			pinter("   In   ", A, il, R);
 			/* B = AES(K, A | R[i]) */
+<<<<<<< HEAD
 			bcopy(&R[i*AKW_BLOCK_LEN], &A[AKW_BLOCK_LEN], AKW_BLOCK_LEN);
 			aes_block_encrypt((int)AES_ROUNDS(kl), rk, A, B);
 
@@ -132,16 +162,33 @@ BCMROMFN(aes_wrap)(size_t kl, uint8 *key, size_t il, uint8 *input, uint8 *output
 
 			/* A = MSB(64, B) ^ t where t = (n*j)+i */
 			bcopy(&B[0], &A[0], AKW_BLOCK_LEN);
+=======
+			memcpy(&A[AKW_BLOCK_LEN], &R[i*AKW_BLOCK_LEN], AKW_BLOCK_LEN);
+			aes_block_encrypt((int)AES_ROUNDS(kl), rk, A, B);
+
+			/* R[i] = LSB(64, B) */
+			memcpy(&R[i*AKW_BLOCK_LEN], &B[AKW_BLOCK_LEN], AKW_BLOCK_LEN);
+
+			/* A = MSB(64, B) ^ t where t = (n*j)+i */
+			memcpy(&A[0], &B[0], AKW_BLOCK_LEN);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			pinter("   Enc  ", A, il, R);
 			A[AKW_BLOCK_LEN-1] ^= ((n*j)+i+1);
 			pinter("   XorT ", A, il, R);
 		}
 	}
 	/* Set C[0] = A */
+<<<<<<< HEAD
 	bcopy(A, output, AKW_BLOCK_LEN);
 	/* For i = 1 to n */
 	/* 	C[i] = R[i] */
 	bcopy(R, &output[AKW_BLOCK_LEN], il);
+=======
+	memcpy(output, A, AKW_BLOCK_LEN);
+	/* For i = 1 to n */
+	/* 	C[i] = R[i] */
+	memcpy(&output[AKW_BLOCK_LEN], R, il);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 	return (0);
 }
@@ -188,11 +235,19 @@ BCMROMFN(aes_unwrap)(size_t kl, uint8 *key, size_t il, uint8 *input, uint8 *outp
 	rijndaelKeySetupDec(rk, key, (int)AES_KEY_BITLEN(kl));
 
 	/* Set A = C[0] */
+<<<<<<< HEAD
 	bcopy(input, A, AKW_BLOCK_LEN);
 
 	/* For i = 1 to n */
 	/*	R[i] = C[i] */
 	bcopy(&input[AKW_BLOCK_LEN], R, ol);
+=======
+	memcpy(A, input, AKW_BLOCK_LEN);
+
+	/* For i = 1 to n */
+	/*	R[i] = C[i] */
+	memcpy(R, &input[AKW_BLOCK_LEN], ol);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 	/* For j = 5 to 0 */
 	for (j = 5; j >= 0; j--) {
@@ -205,6 +260,7 @@ BCMROMFN(aes_unwrap)(size_t kl, uint8 *key, size_t il, uint8 *input, uint8 *outp
 			A[AKW_BLOCK_LEN - 1] ^= ((n*j)+i+1);
 			pinter("   XorT ", A, ol, R);
 
+<<<<<<< HEAD
 			bcopy(&R[i*AKW_BLOCK_LEN], &A[AKW_BLOCK_LEN], AKW_BLOCK_LEN);
 			aes_block_decrypt((int)AES_ROUNDS(kl), rk, A, B);
 
@@ -220,6 +276,23 @@ BCMROMFN(aes_unwrap)(size_t kl, uint8 *key, size_t il, uint8 *input, uint8 *outp
 		/* For i = 1 to n */
 		/*	P[i] = R[i] */
 		bcopy(R, &output[0], ol);
+=======
+			memcpy(&A[AKW_BLOCK_LEN], &R[i*AKW_BLOCK_LEN], AKW_BLOCK_LEN);
+			aes_block_decrypt((int)AES_ROUNDS(kl), rk, A, B);
+
+			/* A = MSB(64, B) */
+			memcpy(&A[0], &B[0], AKW_BLOCK_LEN);
+
+			/* R[i] = LSB(64, B) */
+			memcpy(&R[i*AKW_BLOCK_LEN], &B[AKW_BLOCK_LEN], AKW_BLOCK_LEN);
+			pinter("   Dec  ", A, ol, R);
+		}
+	}
+	if (!memcmp(A, aeskeywrapIV, AKW_BLOCK_LEN)) {
+		/* For i = 1 to n */
+		/*	P[i] = R[i] */
+		memcpy(&output[0], R, ol);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 		return 0;
 	} else {
 		dbg(("aes_unwrap: IV mismatch in unwrapped data\n"));
@@ -235,7 +308,12 @@ BCMROMFN(aes_unwrap)(size_t kl, uint8 *key, size_t il, uint8 *input, uint8 *outp
 #define NUM_UNWRAP_FAIL_VECTORS  \
 	(sizeof(akw_unwrap_fail_vec)/sizeof(akw_unwrap_fail_vec[0]))
 
+<<<<<<< HEAD
 int main(int argc, char **argv)
+=======
+int
+main(int argc, char **argv)
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 {
 	uint8 output[AKW_MAX_WRAP_LEN+AKW_BLOCK_LEN];
 	uint8 input2[AKW_MAX_WRAP_LEN];
@@ -250,7 +328,11 @@ int main(int argc, char **argv)
 			dbg(("%s: aes_wrap failed\n", *argv));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(output, akw_vec[k].ref, akw_vec[k].il+AKW_BLOCK_LEN) != 0) {
+=======
+		if (memcmp(output, akw_vec[k].ref, akw_vec[k].il+AKW_BLOCK_LEN) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			dbg(("%s: aes_wrap failed\n", *argv));
 			fail++;
 		}
@@ -263,7 +345,11 @@ int main(int argc, char **argv)
 			dbg(("%s: aes_unwrap failed\n", *argv));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(akw_vec[k].input, input2, akw_vec[k].il) != 0) {
+=======
+		if (memcmp(akw_vec[k].input, input2, akw_vec[k].il) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			dbg(("%s: aes_unwrap failed\n", *argv));
 			fail++;
 		}

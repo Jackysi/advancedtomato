@@ -10,7 +10,11 @@
  * duplicated in any form, in whole or in part, without the prior written
  * permission of Broadcom Corporation.
  *
+<<<<<<< HEAD
  * $Id: aes_vectors.h,v 1.6.218.1 2010-05-28 15:25:49 Exp $
+=======
+ * $Id: aes_vectors.h 241182 2011-02-17 21:50:03Z $
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  */
 
 #include <typedefs.h>

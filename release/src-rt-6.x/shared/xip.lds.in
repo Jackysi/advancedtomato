@@ -8,29 +8,37 @@ SECTIONS {
 		*(.text.startup)
 		*(.init)
 		*(.textini2.*)
+		*(.textini3.*)
 		*(.text)
 		*(.text.*)
 		*(.fini)
 		*(.glue_7)
 		*(.glue_7t)
-		*(.rdata)
-		*(.rdata.*)
-		*(.rodata)
-		*(.rodata.*)
-		. = ALIGN(4);
+		. = ALIGN(8);
 		_etext = .;
 		text_end = .;
 	}
 
+	.rodata : {
+		rodata_start = .;
+		*(.rdata)
+		*(.rdata.*)
+		*(.rodata)
+		*(.rodata.*)
+		. = ALIGN(8);
+		rodata_end = .;
+	}
+
 	. = DATA_START;
-	.data : AT(ADDR(.text)+SIZEOF(.text)) {
+	.data : AT(ADDR(.text)+SIZEOF(.text)+SIZEOF(.rodata)) {
 		_fdata = .;
 		data_start = .;
 		*(.data)
 		*(.dataini2.*)
+		*(.dataini3.*)
 		*(.data.*)
 		*(.sdata)
-		. = ALIGN(4);
+		. = ALIGN(8);
 		_edata = .;
 		data_end = .;
 	}

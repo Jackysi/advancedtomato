@@ -1,6 +1,6 @@
 /*******************************************************************************
- * $Id: crc.h,v 8.9 2003-10-16 21:55:54 Exp $
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.      
+ * $Id: crc.h 241182 2011-02-17 21:50:03Z $
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.      
  *       
  * Permission to use, copy, modify, and/or distribute this software for any      
  * purpose with or without fee is hereby granted, provided that the above      

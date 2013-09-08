@@ -1,7 +1,7 @@
 /*
  * Stubs for NVRAM functions for platforms without flash
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,9 +15,10 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: nvramstubs.c,v 1.14 2008-03-04 22:41:04 Exp $
+ * $Id: nvramstubs.c 300516 2011-12-04 17:39:44Z $
  */
 
+#include <bcm_cfg.h>
 #include <typedefs.h>
 #include <bcmutils.h>
 #undef strcmp

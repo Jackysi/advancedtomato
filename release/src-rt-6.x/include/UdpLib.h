@@ -1,5 +1,5 @@
 /* UdpLib helper header
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -12,12 +12,12 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * $Id: UdpLib.h,v 1.4 2007-11-19 02:27:38 Exp $
-*/
+ * $Id: UdpLib.h 241182 2011-02-17 21:50:03Z $
+ */
 #ifndef _UDPLIB_
 #define _UDPLIB_
 
-int udp_open();
+int udp_open(void);
 int udp_bind(int fd, int portno);
 void udp_close(int fd);
 int udp_write(int fd, char * buf, int len, struct sockaddr_in * to);

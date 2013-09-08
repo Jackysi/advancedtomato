@@ -1,7 +1,7 @@
 /*
  * Performance counters software interface.
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmperf.h,v 13.5 2007-09-14 22:00:59 Exp $
+ * $Id: bcmperf.h 241182 2011-02-17 21:50:03Z $
  */
 /* essai */
 #ifndef _BCMPERF_H_

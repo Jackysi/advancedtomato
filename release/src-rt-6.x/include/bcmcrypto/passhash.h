@@ -3,7 +3,7 @@
  * Perform password to key hash algorithm as defined in WPA and 802.11i
  * specifications.
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,7 +17,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: passhash.h,v 1.8.426.2 2010-12-01 23:31:03 Exp $
+ * $Id: passhash.h 241182 2011-02-17 21:50:03Z $
  */
 
 #ifndef _PASSHASH_H_

@@ -34,16 +34,16 @@
   1. Redistributions of source code must retain the above copyright
      notice, this list of conditions and the following disclaimer.
 
-  2. The origin of this software must not be misrepresented; you must 
-     not claim that you wrote the original software.  If you use this 
-     software in a product, an acknowledgment in the product 
+  2. The origin of this software must not be misrepresented; you must
+     not claim that you wrote the original software.  If you use this
+     software in a product, an acknowledgment in the product
      documentation would be appreciated but is not required.
 
   3. Altered source versions must be plainly marked as such, and must
      not be misrepresented as being the original software.
 
-  4. The name of the author may not be used to endorse or promote 
-     products derived from this software without specific prior written 
+  4. The name of the author may not be used to endorse or promote
+     products derived from this software without specific prior written
      permission.
 
   THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS
@@ -92,7 +92,7 @@ typedef unsigned short  UInt16;
 
 #ifndef __GNUC__
 #define __inline__  /* */
-#endif 
+#endif
 
 extern void bz_internal_error ( int errcode );
 __inline__ Int32 BZ2_indexIntoF ( Int32 indx, Int32 *cftab );
@@ -103,7 +103,7 @@ void BZ2_hbCreateDecodeTables ( Int32 *limit,
                                 Int32 minLen,
                                 Int32 maxLen,
                                 Int32 alphaSize );
-void BZ2_hbMakeCodeLengths ( UChar *len, 
+void BZ2_hbMakeCodeLengths ( UChar *len,
                              Int32 *freq,
                              Int32 alphaSize,
                              Int32 maxLen );
@@ -132,7 +132,7 @@ void BZ2_hbAssignCodes ( Int32 *code,
 #define BZ_HDR_Z 0x5a   /* 'Z' */
 #define BZ_HDR_h 0x68   /* 'h' */
 #define BZ_HDR_0 0x30   /* '0' */
-  
+
 /*-- Constants for the back end. --*/
 
 #define BZ_MAX_ALPHA_SIZE 258
@@ -264,7 +264,7 @@ void BZ2_hbAssignCodes ( Int32 *code,
 #define BZ_OUTBUFF_FULL      (-8)
 #define BZ_CONFIG_ERROR      (-9)
 
-typedef 
+typedef
    struct {
       char *next_in;
       unsigned int avail_in;
@@ -281,7 +281,7 @@ typedef
       void *(*bzalloc)(void *,int,int);
       void (*bzfree)(void *,void *);
       void *opaque;
-   } 
+   }
    bz_stream;
 
 #ifndef BZ_IMPORT
@@ -374,7 +374,7 @@ typedef
       Int32    save_N;
       Int32    save_curr;
       Int32    save_zt;
-      Int32    save_zn; 
+      Int32    save_zn;
       Int32    save_zvec;
       Int32    save_zj;
       Int32    save_gSel;
@@ -512,113 +512,113 @@ UInt32 BZ2_crc32Table[256] = {
 /*---                                           randtable.c ---*/
 /*-------------------------------------------------------------*/
 
-Int32 BZ2_rNums[512] = { 
-   619, 720, 127, 481, 931, 816, 813, 233, 566, 247, 
-   985, 724, 205, 454, 863, 491, 741, 242, 949, 214, 
-   733, 859, 335, 708, 621, 574, 73, 654, 730, 472, 
-   419, 436, 278, 496, 867, 210, 399, 680, 480, 51, 
-   878, 465, 811, 169, 869, 675, 611, 697, 867, 561, 
-   862, 687, 507, 283, 482, 129, 807, 591, 733, 623, 
-   150, 238, 59, 379, 684, 877, 625, 169, 643, 105, 
-   170, 607, 520, 932, 727, 476, 693, 425, 174, 647, 
-   73, 122, 335, 530, 442, 853, 695, 249, 445, 515, 
-   909, 545, 703, 919, 874, 474, 882, 500, 594, 612, 
-   641, 801, 220, 162, 819, 984, 589, 513, 495, 799, 
-   161, 604, 958, 533, 221, 400, 386, 867, 600, 782, 
-   382, 596, 414, 171, 516, 375, 682, 485, 911, 276, 
-   98, 553, 163, 354, 666, 933, 424, 341, 533, 870, 
-   227, 730, 475, 186, 263, 647, 537, 686, 600, 224, 
-   469, 68, 770, 919, 190, 373, 294, 822, 808, 206, 
-   184, 943, 795, 384, 383, 461, 404, 758, 839, 887, 
-   715, 67, 618, 276, 204, 918, 873, 777, 604, 560, 
-   951, 160, 578, 722, 79, 804, 96, 409, 713, 940, 
-   652, 934, 970, 447, 318, 353, 859, 672, 112, 785, 
-   645, 863, 803, 350, 139, 93, 354, 99, 820, 908, 
-   609, 772, 154, 274, 580, 184, 79, 626, 630, 742, 
-   653, 282, 762, 623, 680, 81, 927, 626, 789, 125, 
-   411, 521, 938, 300, 821, 78, 343, 175, 128, 250, 
-   170, 774, 972, 275, 999, 639, 495, 78, 352, 126, 
-   857, 956, 358, 619, 580, 124, 737, 594, 701, 612, 
-   669, 112, 134, 694, 363, 992, 809, 743, 168, 974, 
-   944, 375, 748, 52, 600, 747, 642, 182, 862, 81, 
-   344, 805, 988, 739, 511, 655, 814, 334, 249, 515, 
-   897, 955, 664, 981, 649, 113, 974, 459, 893, 228, 
-   433, 837, 553, 268, 926, 240, 102, 654, 459, 51, 
-   686, 754, 806, 760, 493, 403, 415, 394, 687, 700, 
-   946, 670, 656, 610, 738, 392, 760, 799, 887, 653, 
-   978, 321, 576, 617, 626, 502, 894, 679, 243, 440, 
-   680, 879, 194, 572, 640, 724, 926, 56, 204, 700, 
-   707, 151, 457, 449, 797, 195, 791, 558, 945, 679, 
-   297, 59, 87, 824, 713, 663, 412, 693, 342, 606, 
-   134, 108, 571, 364, 631, 212, 174, 643, 304, 329, 
-   343, 97, 430, 751, 497, 314, 983, 374, 822, 928, 
-   140, 206, 73, 263, 980, 736, 876, 478, 430, 305, 
-   170, 514, 364, 692, 829, 82, 855, 953, 676, 246, 
-   369, 970, 294, 750, 807, 827, 150, 790, 288, 923, 
-   804, 378, 215, 828, 592, 281, 565, 555, 710, 82, 
-   896, 831, 547, 261, 524, 462, 293, 465, 502, 56, 
-   661, 821, 976, 991, 658, 869, 905, 758, 745, 193, 
-   768, 550, 608, 933, 378, 286, 215, 979, 792, 961, 
-   61, 688, 793, 644, 986, 403, 106, 366, 905, 644, 
-   372, 567, 466, 434, 645, 210, 389, 550, 919, 135, 
-   780, 773, 635, 389, 707, 100, 626, 958, 165, 504, 
-   920, 176, 193, 713, 857, 265, 203, 50, 668, 108, 
-   645, 990, 626, 197, 510, 357, 358, 850, 858, 364, 
+Int32 BZ2_rNums[512] = {
+   619, 720, 127, 481, 931, 816, 813, 233, 566, 247,
+   985, 724, 205, 454, 863, 491, 741, 242, 949, 214,
+   733, 859, 335, 708, 621, 574, 73, 654, 730, 472,
+   419, 436, 278, 496, 867, 210, 399, 680, 480, 51,
+   878, 465, 811, 169, 869, 675, 611, 697, 867, 561,
+   862, 687, 507, 283, 482, 129, 807, 591, 733, 623,
+   150, 238, 59, 379, 684, 877, 625, 169, 643, 105,
+   170, 607, 520, 932, 727, 476, 693, 425, 174, 647,
+   73, 122, 335, 530, 442, 853, 695, 249, 445, 515,
+   909, 545, 703, 919, 874, 474, 882, 500, 594, 612,
+   641, 801, 220, 162, 819, 984, 589, 513, 495, 799,
+   161, 604, 958, 533, 221, 400, 386, 867, 600, 782,
+   382, 596, 414, 171, 516, 375, 682, 485, 911, 276,
+   98, 553, 163, 354, 666, 933, 424, 341, 533, 870,
+   227, 730, 475, 186, 263, 647, 537, 686, 600, 224,
+   469, 68, 770, 919, 190, 373, 294, 822, 808, 206,
+   184, 943, 795, 384, 383, 461, 404, 758, 839, 887,
+   715, 67, 618, 276, 204, 918, 873, 777, 604, 560,
+   951, 160, 578, 722, 79, 804, 96, 409, 713, 940,
+   652, 934, 970, 447, 318, 353, 859, 672, 112, 785,
+   645, 863, 803, 350, 139, 93, 354, 99, 820, 908,
+   609, 772, 154, 274, 580, 184, 79, 626, 630, 742,
+   653, 282, 762, 623, 680, 81, 927, 626, 789, 125,
+   411, 521, 938, 300, 821, 78, 343, 175, 128, 250,
+   170, 774, 972, 275, 999, 639, 495, 78, 352, 126,
+   857, 956, 358, 619, 580, 124, 737, 594, 701, 612,
+   669, 112, 134, 694, 363, 992, 809, 743, 168, 974,
+   944, 375, 748, 52, 600, 747, 642, 182, 862, 81,
+   344, 805, 988, 739, 511, 655, 814, 334, 249, 515,
+   897, 955, 664, 981, 649, 113, 974, 459, 893, 228,
+   433, 837, 553, 268, 926, 240, 102, 654, 459, 51,
+   686, 754, 806, 760, 493, 403, 415, 394, 687, 700,
+   946, 670, 656, 610, 738, 392, 760, 799, 887, 653,
+   978, 321, 576, 617, 626, 502, 894, 679, 243, 440,
+   680, 879, 194, 572, 640, 724, 926, 56, 204, 700,
+   707, 151, 457, 449, 797, 195, 791, 558, 945, 679,
+   297, 59, 87, 824, 713, 663, 412, 693, 342, 606,
+   134, 108, 571, 364, 631, 212, 174, 643, 304, 329,
+   343, 97, 430, 751, 497, 314, 983, 374, 822, 928,
+   140, 206, 73, 263, 980, 736, 876, 478, 430, 305,
+   170, 514, 364, 692, 829, 82, 855, 953, 676, 246,
+   369, 970, 294, 750, 807, 827, 150, 790, 288, 923,
+   804, 378, 215, 828, 592, 281, 565, 555, 710, 82,
+   896, 831, 547, 261, 524, 462, 293, 465, 502, 56,
+   661, 821, 976, 991, 658, 869, 905, 758, 745, 193,
+   768, 550, 608, 933, 378, 286, 215, 979, 792, 961,
+   61, 688, 793, 644, 986, 403, 106, 366, 905, 644,
+   372, 567, 466, 434, 645, 210, 389, 550, 919, 135,
+   780, 773, 635, 389, 707, 100, 626, 958, 165, 504,
+   920, 176, 193, 713, 857, 265, 203, 50, 668, 108,
+   645, 990, 626, 197, 510, 357, 358, 850, 858, 364,
    936, 638
 };
 
 
 /*-- Core (low-level) library functions --*/
 
-BZ_EXTERN int BZ_API(BZ2_bzCompressInit) ( 
-      bz_stream* strm, 
-      int        blockSize100k, 
-      int        verbosity, 
-      int        workFactor 
+BZ_EXTERN int BZ_API(BZ2_bzCompressInit) (
+      bz_stream* strm,
+      int        blockSize100k,
+      int        verbosity,
+      int        workFactor
    );
 
-BZ_EXTERN int BZ_API(BZ2_bzCompress) ( 
-      bz_stream* strm, 
-      int action 
+BZ_EXTERN int BZ_API(BZ2_bzCompress) (
+      bz_stream* strm,
+      int action
    );
 
-BZ_EXTERN int BZ_API(BZ2_bzCompressEnd) ( 
-      bz_stream* strm 
+BZ_EXTERN int BZ_API(BZ2_bzCompressEnd) (
+      bz_stream* strm
    );
 
-BZ_EXTERN int BZ_API(BZ2_bzDecompressInit) ( 
-      bz_stream *strm, 
-      int       verbosity, 
+BZ_EXTERN int BZ_API(BZ2_bzDecompressInit) (
+      bz_stream *strm,
+      int       verbosity,
       int       small
    );
 
-BZ_EXTERN int BZ_API(BZ2_bzDecompress) ( 
-      bz_stream* strm 
+BZ_EXTERN int BZ_API(BZ2_bzDecompress) (
+      bz_stream* strm
    );
 
-BZ_EXTERN int BZ_API(BZ2_bzDecompressEnd) ( 
-      bz_stream *strm 
+BZ_EXTERN int BZ_API(BZ2_bzDecompressEnd) (
+      bz_stream *strm
    );
 
 /*-- Utility functions --*/
 
-BZ_EXTERN int BZ_API(BZ2_bzBuffToBuffCompress) ( 
-      char*         dest, 
+BZ_EXTERN int BZ_API(BZ2_bzBuffToBuffCompress) (
+      char*         dest,
       unsigned int* destLen,
-      char*         source, 
+      char*         source,
       unsigned int  sourceLen,
-      int           blockSize100k, 
-      int           verbosity, 
-      int           workFactor 
+      int           blockSize100k,
+      int           verbosity,
+      int           workFactor
    );
 
-BZ_EXTERN int BZ_API(BZ2_bzBuffToBuffDecompress) ( 
-      char*         dest, 
+BZ_EXTERN int BZ_API(BZ2_bzBuffToBuffDecompress) (
+      char*         dest,
       unsigned int* destLen,
-      char*         source, 
+      char*         source,
       unsigned int  sourceLen,
-      int           small, 
-      int           verbosity 
+      int           small,
+      int           verbosity
    );
 
 
@@ -664,8 +664,8 @@ void default_bzfree ( void* opaque, void* addr )
 }
 
 /*---------------------------------------------------*/
-int BZ_API(BZ2_bzDecompressInit) 
-                     ( bz_stream* strm, 
+int BZ_API(BZ2_bzDecompressInit)
+                     ( bz_stream* strm,
                        int        verbosity,
                        int        small )
 {
@@ -724,34 +724,34 @@ void unRLE_obuf_to_output_FAST ( DState* s )
             s->strm->total_out_lo32++;
             if (s->strm->total_out_lo32 == 0) s->strm->total_out_hi32++;
          }
-   
+
          /* can a new run be started? */
          if (s->nblock_used == s->save_nblock+1) return;
-               
-   
+
+
          s->state_out_len = 1;
          s->state_out_ch = s->k0;
-         BZ_GET_FAST(k1); BZ_RAND_UPD_MASK; 
+         BZ_GET_FAST(k1); BZ_RAND_UPD_MASK;
          k1 ^= BZ_RAND_MASK; s->nblock_used++;
          if (s->nblock_used == s->save_nblock+1) continue;
          if (k1 != s->k0) { s->k0 = k1; continue; };
-   
+
          s->state_out_len = 2;
-         BZ_GET_FAST(k1); BZ_RAND_UPD_MASK; 
+         BZ_GET_FAST(k1); BZ_RAND_UPD_MASK;
          k1 ^= BZ_RAND_MASK; s->nblock_used++;
          if (s->nblock_used == s->save_nblock+1) continue;
          if (k1 != s->k0) { s->k0 = k1; continue; };
-   
+
          s->state_out_len = 3;
-         BZ_GET_FAST(k1); BZ_RAND_UPD_MASK; 
+         BZ_GET_FAST(k1); BZ_RAND_UPD_MASK;
          k1 ^= BZ_RAND_MASK; s->nblock_used++;
          if (s->nblock_used == s->save_nblock+1) continue;
          if (k1 != s->k0) { s->k0 = k1; continue; };
-   
-         BZ_GET_FAST(k1); BZ_RAND_UPD_MASK; 
+
+         BZ_GET_FAST(k1); BZ_RAND_UPD_MASK;
          k1 ^= BZ_RAND_MASK; s->nblock_used++;
          s->state_out_len = ((Int32)k1) + 4;
-         BZ_GET_FAST(s->k0); BZ_RAND_UPD_MASK; 
+         BZ_GET_FAST(s->k0); BZ_RAND_UPD_MASK;
          s->k0 ^= BZ_RAND_MASK; s->nblock_used++;
       }
 
@@ -788,7 +788,7 @@ void unRLE_obuf_to_output_FAST ( DState* s )
             }
             s_state_out_len_eq_one:
             {
-               if (cs_avail_out == 0) { 
+               if (cs_avail_out == 0) {
                   c_state_out_len = 1; goto return_notr;
                };
                *( (UChar*)(cs_next_out) ) = c_state_out_ch;
@@ -796,29 +796,29 @@ void unRLE_obuf_to_output_FAST ( DState* s )
                cs_next_out++;
                cs_avail_out--;
             }
-         }   
+         }
          /* can a new run be started? */
          if (c_nblock_used == s_save_nblockPP) {
             c_state_out_len = 0; goto return_notr;
-         };   
+         };
          c_state_out_ch = c_k0;
          BZ_GET_FAST_C(k1); c_nblock_used++;
-         if (k1 != c_k0) { 
-            c_k0 = k1; goto s_state_out_len_eq_one; 
+         if (k1 != c_k0) {
+            c_k0 = k1; goto s_state_out_len_eq_one;
          };
-         if (c_nblock_used == s_save_nblockPP) 
+         if (c_nblock_used == s_save_nblockPP)
             goto s_state_out_len_eq_one;
-   
+
          c_state_out_len = 2;
          BZ_GET_FAST_C(k1); c_nblock_used++;
          if (c_nblock_used == s_save_nblockPP) continue;
          if (k1 != c_k0) { c_k0 = k1; continue; };
-   
+
          c_state_out_len = 3;
          BZ_GET_FAST_C(k1); c_nblock_used++;
          if (c_nblock_used == s_save_nblockPP) continue;
          if (k1 != c_k0) { c_k0 = k1; continue; };
-   
+
          BZ_GET_FAST_C(k1); c_nblock_used++;
          c_state_out_len = ((Int32)k1) + 4;
          BZ_GET_FAST_C(c_k0); c_nblock_used++;
@@ -879,34 +879,34 @@ void unRLE_obuf_to_output_SMALL ( DState* s )
             s->strm->total_out_lo32++;
             if (s->strm->total_out_lo32 == 0) s->strm->total_out_hi32++;
          }
-   
+
          /* can a new run be started? */
          if (s->nblock_used == s->save_nblock+1) return;
-               
-   
+
+
          s->state_out_len = 1;
          s->state_out_ch = s->k0;
-         BZ_GET_SMALL(k1); BZ_RAND_UPD_MASK; 
+         BZ_GET_SMALL(k1); BZ_RAND_UPD_MASK;
          k1 ^= BZ_RAND_MASK; s->nblock_used++;
          if (s->nblock_used == s->save_nblock+1) continue;
          if (k1 != s->k0) { s->k0 = k1; continue; };
-   
+
          s->state_out_len = 2;
-         BZ_GET_SMALL(k1); BZ_RAND_UPD_MASK; 
+         BZ_GET_SMALL(k1); BZ_RAND_UPD_MASK;
          k1 ^= BZ_RAND_MASK; s->nblock_used++;
          if (s->nblock_used == s->save_nblock+1) continue;
          if (k1 != s->k0) { s->k0 = k1; continue; };
-   
+
          s->state_out_len = 3;
-         BZ_GET_SMALL(k1); BZ_RAND_UPD_MASK; 
+         BZ_GET_SMALL(k1); BZ_RAND_UPD_MASK;
          k1 ^= BZ_RAND_MASK; s->nblock_used++;
          if (s->nblock_used == s->save_nblock+1) continue;
          if (k1 != s->k0) { s->k0 = k1; continue; };
-   
-         BZ_GET_SMALL(k1); BZ_RAND_UPD_MASK; 
+
+         BZ_GET_SMALL(k1); BZ_RAND_UPD_MASK;
          k1 ^= BZ_RAND_MASK; s->nblock_used++;
          s->state_out_len = ((Int32)k1) + 4;
-         BZ_GET_SMALL(s->k0); BZ_RAND_UPD_MASK; 
+         BZ_GET_SMALL(s->k0); BZ_RAND_UPD_MASK;
          s->k0 ^= BZ_RAND_MASK; s->nblock_used++;
       }
 
@@ -925,26 +925,26 @@ void unRLE_obuf_to_output_SMALL ( DState* s )
             s->strm->total_out_lo32++;
             if (s->strm->total_out_lo32 == 0) s->strm->total_out_hi32++;
          }
-   
+
          /* can a new run be started? */
          if (s->nblock_used == s->save_nblock+1) return;
-   
+
          s->state_out_len = 1;
          s->state_out_ch = s->k0;
          BZ_GET_SMALL(k1); s->nblock_used++;
          if (s->nblock_used == s->save_nblock+1) continue;
          if (k1 != s->k0) { s->k0 = k1; continue; };
-   
+
          s->state_out_len = 2;
          BZ_GET_SMALL(k1); s->nblock_used++;
          if (s->nblock_used == s->save_nblock+1) continue;
          if (k1 != s->k0) { s->k0 = k1; continue; };
-   
+
          s->state_out_len = 3;
          BZ_GET_SMALL(k1); s->nblock_used++;
          if (s->nblock_used == s->save_nblock+1) continue;
          if (k1 != s->k0) { s->k0 = k1; continue; };
-   
+
          BZ_GET_SMALL(k1); s->nblock_used++;
          s->state_out_len = ((Int32)k1) + 4;
          BZ_GET_SMALL(s->k0); s->nblock_used++;
@@ -972,14 +972,14 @@ int BZ_API(BZ2_bzDecompress) ( bz_stream *strm )
             unRLE_obuf_to_output_FAST  ( s );
          if (s->nblock_used == s->save_nblock+1 && s->state_out_len == 0) {
             BZ_FINALISE_CRC ( s->calculatedBlockCRC );
-            if (s->verbosity >= 3) 
-               VPrintf2 ( " {0x%x, 0x%x}", s->storedBlockCRC, 
+            if (s->verbosity >= 3)
+               VPrintf2 ( " {0x%x, 0x%x}", s->storedBlockCRC,
                           s->calculatedBlockCRC );
             if (s->verbosity >= 2) VPrintf0 ( "]" );
             if (s->calculatedBlockCRC != s->storedBlockCRC)
                return BZ_DATA_ERROR;
-            s->calculatedCombinedCRC 
-               = (s->calculatedCombinedCRC << 1) | 
+            s->calculatedCombinedCRC
+               = (s->calculatedCombinedCRC << 1) |
                     (s->calculatedCombinedCRC >> 31);
             s->calculatedCombinedCRC ^= s->calculatedBlockCRC;
             s->state = BZ_X_BLKHDR_1;
@@ -991,7 +991,7 @@ int BZ_API(BZ2_bzDecompress) ( bz_stream *strm )
          Int32 r = BZ2_decompress ( s );
          if (r == BZ_STREAM_END) {
             if (s->verbosity >= 3)
-               VPrintf2 ( "\n    combined CRCs: stored = 0x%x, computed = 0x%x", 
+               VPrintf2 ( "\n    combined CRCs: stored = 0x%x, computed = 0x%x",
                           s->storedCombinedCRC, s->calculatedCombinedCRC );
             if (s->calculatedCombinedCRC != s->storedCombinedCRC)
                return BZ_DATA_ERROR;
@@ -1026,10 +1026,10 @@ int BZ_API(BZ2_bzDecompressEnd)  ( bz_stream *strm )
 }
 
 /*---------------------------------------------------*/
-int BZ_API(BZ2_bzBuffToBuffDecompress) 
-                           ( char*         dest, 
+int BZ_API(BZ2_bzBuffToBuffDecompress)
+                           ( char*         dest,
                              unsigned int* destLen,
-                             char*         source, 
+                             char*         source,
                              unsigned int  sourceLen,
                              int           small,
                              int           verbosity )
@@ -1037,10 +1037,10 @@ int BZ_API(BZ2_bzBuffToBuffDecompress)
    bz_stream strm;
    int ret;
 
-   if (dest == NULL || destLen == NULL || 
+   if (dest == NULL || destLen == NULL ||
        source == NULL ||
        (small != 0 && small != 1) ||
-       verbosity < 0 || verbosity > 4) 
+       verbosity < 0 || verbosity > 4)
           return BZ_PARAM_ERROR;
 
    strm.bzalloc = NULL;
@@ -1070,11 +1070,11 @@ int BZ_API(BZ2_bzBuffToBuffDecompress)
    } else {
       BZ2_bzDecompressEnd ( &strm );
       return BZ_OUTBUFF_FULL;
-   };      
+   };
 
    errhandler:
    BZ2_bzDecompressEnd ( &strm );
-   return ret; 
+   return ret;
 }
 
 /*---------------------------------------------------*/
@@ -1214,7 +1214,7 @@ Int32 BZ2_decompress ( DState* s )
    Int32  N;
    Int32  curr;
    Int32  zt;
-   Int32  zn; 
+   Int32  zn;
    Int32  zvec;
    Int32  zj;
    Int32  gSel;
@@ -1268,7 +1268,7 @@ Int32 BZ2_decompress ( DState* s )
    N           = s->save_N;
    curr        = s->save_curr;
    zt          = s->save_zt;
-   zn          = s->save_zn; 
+   zn          = s->save_zn;
    zvec        = s->save_zvec;
    zj          = s->save_zj;
    gSel        = s->save_gSel;
@@ -1291,14 +1291,14 @@ Int32 BZ2_decompress ( DState* s )
       if (uc != BZ_HDR_h) RETURN(BZ_DATA_ERROR_MAGIC);
 
       GET_BITS(BZ_X_MAGIC_4, s->blockSize100k, 8)
-      if (s->blockSize100k < (BZ_HDR_0 + 1) || 
+      if (s->blockSize100k < (BZ_HDR_0 + 1) ||
           s->blockSize100k > (BZ_HDR_0 + 9)) RETURN(BZ_DATA_ERROR_MAGIC);
       s->blockSize100k -= BZ_HDR_0;
 
       if (s->smallDecompress) {
          s->ll16 = BZALLOC( s->blockSize100k * 100000 * sizeof(UInt16) );
-         s->ll4  = BZALLOC( 
-                      ((1 + s->blockSize100k * 100000) >> 1) * sizeof(UChar) 
+         s->ll4  = BZALLOC(
+                      ((1 + s->blockSize100k * 100000) >> 1) * sizeof(UChar)
                    );
          if (s->ll16 == NULL || s->ll4 == NULL) RETURN(BZ_MEM_ERROR);
       } else {
@@ -1324,7 +1324,7 @@ Int32 BZ2_decompress ( DState* s )
       s->currBlockNo++;
       if (s->verbosity >= 2)
          VPrintf1 ( "\n    [%d: huff+mtf ", s->currBlockNo );
- 
+
       s->storedBlockCRC = 0;
       GET_UCHAR(BZ_X_BCRC_1, uc);
       s->storedBlockCRC = (s->storedBlockCRC << 8) | ((UInt32)uc);
@@ -1347,14 +1347,14 @@ Int32 BZ2_decompress ( DState* s )
 
       if (s->origPtr < 0)
          RETURN(BZ_DATA_ERROR);
-      if (s->origPtr > 10 + 100000*s->blockSize100k) 
+      if (s->origPtr > 10 + 100000*s->blockSize100k)
          RETURN(BZ_DATA_ERROR);
 
       /*--- Receive the mapping table ---*/
       for (i = 0; i < 16; i++) {
          GET_BIT(BZ_X_MAPPING_1, uc);
-         if (uc == 1) 
-            s->inUse16[i] = True; else 
+         if (uc == 1)
+            s->inUse16[i] = True; else
             s->inUse16[i] = False;
       }
 
@@ -1390,7 +1390,7 @@ Int32 BZ2_decompress ( DState* s )
       {
          UChar pos[BZ_N_GROUPS], tmp, v;
          for (v = 0; v < nGroups; v++) pos[v] = v;
-   
+
          for (i = 0; i < nSelectors; i++) {
             v = s->selectorMtf[i];
             tmp = pos[v];
@@ -1423,10 +1423,10 @@ Int32 BZ2_decompress ( DState* s )
             if (s->len[t][i] > maxLen) maxLen = s->len[t][i];
             if (s->len[t][i] < minLen) minLen = s->len[t][i];
          }
-         BZ2_hbCreateDecodeTables ( 
-            &(s->limit[t][0]), 
-            &(s->base[t][0]), 
-            &(s->perm[t][0]), 
+         BZ2_hbCreateDecodeTables (
+            &(s->limit[t][0]),
+            &(s->base[t][0]),
+            &(s->perm[t][0]),
             &(s->len[t][0]),
             minLen, maxLen, alphaSize
          );
@@ -1518,23 +1518,23 @@ Int32 BZ2_decompress ( DState* s )
                      s->mtfa[(z)-3] = s->mtfa[(z)-4];
                      nn -= 4;
                   }
-                  while (nn > 0) { 
-                     s->mtfa[(pp+nn)] = s->mtfa[(pp+nn)-1]; nn--; 
+                  while (nn > 0) {
+                     s->mtfa[(pp+nn)] = s->mtfa[(pp+nn)-1]; nn--;
                   };
                   s->mtfa[pp] = uc;
-               } else { 
+               } else {
                   /* general case */
                   lno = nn / MTFL_SIZE;
                   off = nn % MTFL_SIZE;
                   pp = s->mtfbase[lno] + off;
                   uc = s->mtfa[pp];
-                  while (pp > s->mtfbase[lno]) { 
-                     s->mtfa[pp] = s->mtfa[pp-1]; pp--; 
+                  while (pp > s->mtfbase[lno]) {
+                     s->mtfa[pp] = s->mtfa[pp-1]; pp--;
                   };
                   s->mtfbase[lno]++;
                   while (lno > 0) {
                      s->mtfbase[lno]--;
-                     s->mtfa[s->mtfbase[lno]] 
+                     s->mtfa[s->mtfbase[lno]]
                         = s->mtfa[s->mtfbase[lno-1] + MTFL_SIZE - 1];
                      lno--;
                   }
@@ -1610,7 +1610,7 @@ Int32 BZ2_decompress ( DState* s )
          if (s->blockRandomised) {
             BZ_RAND_INIT_MASK;
             BZ_GET_SMALL(s->k0); s->nblock_used++;
-            BZ_RAND_UPD_MASK; s->k0 ^= BZ_RAND_MASK; 
+            BZ_RAND_UPD_MASK; s->k0 ^= BZ_RAND_MASK;
          } else {
             BZ_GET_SMALL(s->k0); s->nblock_used++;
          }
@@ -1629,7 +1629,7 @@ Int32 BZ2_decompress ( DState* s )
          if (s->blockRandomised) {
             BZ_RAND_INIT_MASK;
             BZ_GET_FAST(s->k0); s->nblock_used++;
-            BZ_RAND_UPD_MASK; s->k0 ^= BZ_RAND_MASK; 
+            BZ_RAND_UPD_MASK; s->k0 ^= BZ_RAND_MASK;
          } else {
             BZ_GET_FAST(s->k0); s->nblock_used++;
          }
@@ -1666,7 +1666,7 @@ Int32 BZ2_decompress ( DState* s )
       s->state = BZ_X_IDLE;
       RETURN(BZ_STREAM_END);
 
-      default: AssertH ( False, 4001 );   } 
+      default: AssertH ( False, 4001 );   }
    AssertH ( False, 4002 );
 
    save_state_and_return:
@@ -1696,7 +1696,7 @@ Int32 BZ2_decompress ( DState* s )
    s->save_gBase       = gBase;
    s->save_gPerm       = gPerm;
 
-   return retVal;   
+   return retVal;
 }
 
 /*---------------------------------------------------*/
@@ -1737,7 +1737,7 @@ Int32 BZ2_decompress ( DState* s )
 }
 
 /*---------------------------------------------------*/
-void BZ2_hbMakeCodeLengths ( UChar *len, 
+void BZ2_hbMakeCodeLengths ( UChar *len,
                              Int32 *freq,
                              Int32 alphaSize,
                              Int32 maxLen )
@@ -1751,7 +1751,7 @@ void BZ2_hbMakeCodeLengths ( UChar *len,
 
    Int32 heap   [ BZ_MAX_ALPHA_SIZE + 2 ];
    Int32 weight [ BZ_MAX_ALPHA_SIZE * 2 ];
-   Int32 parent [ BZ_MAX_ALPHA_SIZE * 2 ]; 
+   Int32 parent [ BZ_MAX_ALPHA_SIZE * 2 ];
 
    for (i = 0; i < alphaSize; i++)
       weight[i+1] = (freq[i] == 0 ? 1 : freq[i]) << 8;
@@ -1773,7 +1773,7 @@ void BZ2_hbMakeCodeLengths ( UChar *len,
       }
 
       AssertH( nHeap < (BZ_MAX_ALPHA_SIZE+2), 2001 );
-   
+
       while (nHeap > 1) {
          n1 = heap[1]; heap[1] = heap[nHeap]; nHeap--; DOWNHEAP(1);
          n2 = heap[1]; heap[1] = heap[nHeap]; nHeap--; DOWNHEAP(1);
@@ -1796,7 +1796,7 @@ void BZ2_hbMakeCodeLengths ( UChar *len,
          len[i-1] = j;
          if (j > maxLen) tooLong = True;
       }
-      
+
       if (! tooLong) break;
 
       for (i = 1; i < alphaSize; i++) {

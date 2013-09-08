@@ -1,7 +1,7 @@
 /*
  * Broadcom Ethernettype  protocol definitions
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmeth.h,v 9.12 2009-12-29 19:57:18 Exp $
+ * $Id: bcmeth.h 294352 2011-11-06 19:23:00Z $
  */
 
 /*
@@ -32,7 +32,6 @@
 /* This marks the start of a packed structure section. */
 #include <packed_section_start.h>
 
-#ifndef LINUX_POSTMOGRIFY_REMOVAL
 /* ETHER_TYPE_BRCM is defined in ethernet.h */
 
 /*
@@ -59,7 +58,7 @@
  * 65535 reserved
  */
 
-/* 
+/*
  * While adding the subtypes and their specific processing code make sure
  * bcmeth_bcm_hdr_t is the first data structure in the user specific data structure definition
  */
@@ -88,7 +87,6 @@
 
 #define BCMILCP_BCM_SUBTYPEHDR_MINLENGTH	8
 #define BCMILCP_BCM_SUBTYPEHDR_VERSION		0
-#endif /* LINUX_POSTMOGRIFY_REMOVAL */
 
 /* These fields are stored in network order */
 typedef BWL_PRE_PACKED_STRUCT struct bcmeth_hdr

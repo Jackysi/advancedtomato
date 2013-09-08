@@ -3,7 +3,11 @@
  * Perform password to key hash algorithm as defined in WPA and 802.11i
  * specifications
  *
+<<<<<<< HEAD
  * Copyright (C) 2010, Broadcom Corporation
+=======
+ * Copyright (C) 2011, Broadcom Corporation
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -11,7 +15,11 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
+<<<<<<< HEAD
  * $Id: passhash.c,v 1.18.230.2 2010-12-01 23:33:28 Exp $
+=======
+ * $Id: passhash.c 241182 2011-02-17 21:50:03Z $
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  */
 
 #include <bcmcrypto/passhash.h>
@@ -21,6 +29,7 @@
 #ifdef BCMDRIVER
 #include <osl.h>
 #else
+<<<<<<< HEAD
 #if defined(__GNUC__)
 extern void bcopy(const void *src, void *dst, size_t len);
 extern int bcmp(const void *b1, const void *b2, size_t len);
@@ -39,6 +48,11 @@ void prhash(char *password, int passlen, unsigned char *ssid, int ssidlen, unsig
 #define	dbg(args)	printf args
 #endif /* BCMPASSHASH_TEST */
 
+=======
+#include <string.h>
+#endif	/* BCMDRIVER */
+
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 /* F(P, S, c, i) = U1 xor U2 xor ... Uc
  * U1 = PRF(P, S || Int(i)
  * U2 = PRF(P, U1)
@@ -54,7 +68,11 @@ F(char *password, int passlen, unsigned char *ssid, int ssidlength, int iteratio
 	/* U1 = PRF(P, S || int(i)) */
 	if (ssidlength > 32)
 		ssidlength = 32;
+<<<<<<< HEAD
 	bcopy(ssid, digest, ssidlength);
+=======
+	memcpy(digest, ssid, ssidlength);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	digest[ssidlength]   = (unsigned char)((count>>24) & 0xff);
 	digest[ssidlength+1] = (unsigned char)((count>>16) & 0xff);
 	digest[ssidlength+2] = (unsigned char)((count>>8) & 0xff);
@@ -62,12 +80,20 @@ F(char *password, int passlen, unsigned char *ssid, int ssidlength, int iteratio
 	hmac_sha1(digest, ssidlength+4, (unsigned char *)password, passlen, digest1);
 
 	/* output = U1 */
+<<<<<<< HEAD
 	bcopy(digest1, output, SHA1HashSize);
+=======
+	memcpy(output, digest1, SHA1HashSize);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 	for (i = 1; i < iterations; i++) {
 		/* Un = PRF(P, Un-1) */
 		hmac_sha1(digest1, SHA1HashSize, (unsigned char *)password, passlen, digest);
+<<<<<<< HEAD
 		bcopy(digest, digest1, SHA1HashSize);
+=======
+		memcpy(digest1, digest, SHA1HashSize);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 		/* output = output xor Un */
 		for (j = 0; j < SHA1HashSize; j++) {
@@ -105,7 +131,11 @@ init_F(char *password, int passlen, unsigned char *ssid, int ssidlength,
 	/* output = U0 */
 	if (ssidlength > 32)
 		ssidlength = 32;
+<<<<<<< HEAD
 	bcopy(ssid, digest, ssidlength);
+=======
+	memcpy(digest, ssid, ssidlength);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	digest[ssidlength]   = (unsigned char)((count>>24) & 0xff);
 	digest[ssidlength+1] = (unsigned char)((count>>16) & 0xff);
 	digest[ssidlength+2] = (unsigned char)((count>>8) & 0xff);
@@ -113,7 +143,11 @@ init_F(char *password, int passlen, unsigned char *ssid, int ssidlength,
 	hmac_sha1(digest, ssidlength+4, (unsigned char *)password, passlen, output);
 
 	/* Save U0 for next PRF() */
+<<<<<<< HEAD
 	bcopy(output, lastdigest, SHA1HashSize);
+=======
+	memcpy(lastdigest, output, SHA1HashSize);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 }
 
 static void
@@ -130,7 +164,11 @@ do_F(char *password, int passlen, int iterations, unsigned char *lastdigest, uns
 			output[j] ^= digest[j];
 
 		/* Save Un for next PRF() */
+<<<<<<< HEAD
 		bcopy(digest, lastdigest, SHA1HashSize);
+=======
+		memcpy(lastdigest, digest, SHA1HashSize);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	}
 }
 
@@ -150,7 +188,11 @@ init_passhash(passhash_t *ph,
 	if (strlen(password) < 8 || strlen(password) > 63)
 		return -1;
 
+<<<<<<< HEAD
 	bzero(ph, sizeof(*ph));
+=======
+	memset(ph, 0, sizeof(*ph));
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 	ph->count = 1;
 	ph->password = password;
 	ph->passlen = passlen;
@@ -191,13 +233,25 @@ int
 get_passhash(passhash_t *ph, unsigned char *output, int outlen)
 {
 	if (ph->count > 2 && outlen <= (int)sizeof(ph->output)) {
+<<<<<<< HEAD
 		bcopy(ph->output, output, outlen);
+=======
+		memcpy(output, ph->output, outlen);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 		return 0;
 	}
 	return -1;
 }
 
 #ifdef BCMPASSHASH_TEST
+<<<<<<< HEAD
+=======
+
+#include <stdio.h>
+
+#define	dbg(args)	printf args
+
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 void
 prhash(char *password, int passlen, unsigned char *ssid, int ssidlen, unsigned char *output)
 {
@@ -217,7 +271,12 @@ prhash(char *password, int passlen, unsigned char *ssid, int ssidlen, unsigned c
 
 #include "passhash_vectors.h"
 
+<<<<<<< HEAD
 int main(int argc, char **argv)
+=======
+int
+main(int argc, char **argv)
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 {
 	unsigned char output[2*SHA1HashSize];
 	int retv, k, fail = 0, fail1 = 0;
@@ -227,7 +286,11 @@ int main(int argc, char **argv)
 
 	for (k = 0; k < NUM_PASSHASH_VECTORS; k++) {
 		printf("Passhash test %d:\n", k);
+<<<<<<< HEAD
 		bzero(output, sizeof(output));
+=======
+		memset(output, 0, sizeof(output));
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 		retv = passhash(passhash_vec[k].pass, passhash_vec[k].pl,
 			passhash_vec[k].salt, passhash_vec[k].sl, output);
 		prhash(passhash_vec[k].pass, passhash_vec[k].pl,
@@ -237,7 +300,11 @@ int main(int argc, char **argv)
 			dbg(("%s: passhash() test %d returned error\n", *argv, k));
 			fail++;
 		}
+<<<<<<< HEAD
 		if (bcmp(output, passhash_vec[k].ref, 2*SHA1HashSize) != 0) {
+=======
+		if (memcmp(output, passhash_vec[k].ref, 2*SHA1HashSize) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			dbg(("%s: passhash test %d reference mismatch\n", *argv, k));
 			fail++;
 		}
@@ -262,7 +329,11 @@ int main(int argc, char **argv)
 			dbg(("%s: passhash() test %d returned error\n", *argv, k));
 			fail1++;
 		}
+<<<<<<< HEAD
 		if (bcmp(output, passhash_vec[k].ref, 2*SHA1HashSize) != 0) {
+=======
+		if (memcmp(output, passhash_vec[k].ref, 2*SHA1HashSize) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			dbg(("%s: passhash test %d reference mismatch\n", *argv, k));
 			fail1++;
 		}
@@ -271,4 +342,8 @@ int main(int argc, char **argv)
 	dbg(("%s: %s\n", *argv, fail1?"FAILED":"PASSED"));
 	return (fail+fail1);
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 #endif	/* BCMPASSHASH_TEST */

@@ -3,7 +3,7 @@
  * Contents are wifi-specific, used by any kernel or app-level
  * software that might want wifi things as it grows.
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,7 +16,7 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- * $Id: bcm_app_utils.c,v 1.5 2009-12-03 23:24:26 Exp $
+ * $Id: bcm_app_utils.c 315348 2012-02-16 07:32:51Z $
  */
 
 #include <typedefs.h>
@@ -34,7 +34,7 @@
 #define ASSERT(exp)
 #endif
 #endif /* BCMDRIVER */
-#include <bcmwifi.h>
+#include <bcmwifi_channels.h>
 
 #if defined(WIN32) && (defined(BCMDLL) || defined(WLMDLL))
 #include <bcmstdlib.h> 	/* For wl/exe/GNUmakefile.brcm_wlu and GNUmakefile.wlm_dll */
@@ -110,15 +110,32 @@ cca_info(uint8 *bitmap, int num_bits, int *left, int *bit_pos)
 static uint8
 spec_to_chan(chanspec_t chspec)
 {
-	switch (CHSPEC_CTL_SB(chspec)) {
-		case WL_CHANSPEC_CTL_SB_NONE:
-			return CHSPEC_CHANNEL(chspec);
-		case WL_CHANSPEC_CTL_SB_UPPER:
-			return UPPER_20_SB(CHSPEC_CHANNEL(chspec));
-		case WL_CHANSPEC_CTL_SB_LOWER:
-			return LOWER_20_SB(CHSPEC_CHANNEL(chspec));
-		default:
-			return 0;
+	uint8 center_ch, edge, primary, sb;
+
+	center_ch = CHSPEC_CHANNEL(chspec);
+
+	if (CHSPEC_IS20(chspec)) {
+		return center_ch;
+	} else {
+		/* the lower edge of the wide channel is half the bw from
+		 * the center channel.
+		 */
+		if (CHSPEC_IS40(chspec)) {
+			edge = center_ch - CH_20MHZ_APART;
+		} else {
+			/* must be 80MHz (until we support more) */
+			ASSERT(CHSPEC_IS80(chspec));
+			edge = center_ch - CH_40MHZ_APART;
+		}
+
+		/* find the channel number of the lowest 20MHz primary channel */
+		primary = edge + CH_10MHZ_APART;
+
+		/* select the actual subband */
+		sb = (chspec & WL_CHANSPEC_CTL_SB_MASK) >> WL_CHANSPEC_CTL_SB_SHIFT;
+		primary = primary + sb * CH_20MHZ_APART;
+
+		return primary;
 	}
 }
 

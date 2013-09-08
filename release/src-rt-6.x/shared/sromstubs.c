@@ -3,7 +3,7 @@
  *
  * Should be called bcmsromstubs.c .
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2012, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -17,7 +17,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: sromstubs.c,v 1.19 2008-12-17 13:32:15 Exp $
+ * $Id: sromstubs.c 334434 2012-05-22 08:23:02Z $
  */
 
 #include <typedefs.h>
@@ -47,10 +47,13 @@ srom_write(si_t *sih, uint bus, void *curmap, osl_t *osh, uint byteoff, uint nby
 	return 0;
 }
 
-#if defined(WLTEST) || defined(BCMDBG)
+void
+srom_var_deinit(si_t *sih)
+{
+}
+
 int
 srom_otp_write_region_crc(si_t *sih, uint nbytes, uint16* buf16, bool write)
 {
 	return 0;
 }
-#endif 

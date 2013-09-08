@@ -3,7 +3,11 @@
  * Trimmed version of reference code from "Simple Security Network (SSN) for
  * IEEE 802.11", v0.20, plus test routine.
  *
+<<<<<<< HEAD
  * Copyright (C) 2010, Broadcom Corporation
+=======
+ * Copyright (C) 2011, Broadcom Corporation
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -11,7 +15,11 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
+<<<<<<< HEAD
  * $Id: tkhash.c,v 1.11 2009-10-21 19:17:20 Exp $
+=======
+ * $Id: tkhash.c 241182 2011-02-17 21:50:03Z $
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  */
 
 /* Reference code from:
@@ -259,10 +267,14 @@ BCMROMFN(tkhash_phase2)(uint8 *RC4KEY, const uint8 *TK, const uint16 *P1K, uint1
 
 #ifdef BCMTKHASH_TEST
 #include <stdio.h>
+<<<<<<< HEAD
 
 #if defined(__GNUC__)
 #include <strings.h>
 #endif
+=======
+#include <string.h>
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 
 #include "tkhash_vectors.h"
 #define NUM_VECTORS  (sizeof(tkhash_vec)/sizeof(tkhash_vec[0]))
@@ -276,7 +288,11 @@ int main(int argc, char **argv)
 		tkhash_phase1(p1k, tkhash_vec[k].tk, tkhash_vec[k].ta,
 		              *(tkhash_vec[k].iv32));
 
+<<<<<<< HEAD
 		if (bcmp(p1k, tkhash_vec[k].p1k, TKHASH_P1_KEY_SIZE) != 0) {
+=======
+		if (memcmp(p1k, tkhash_vec[k].p1k, TKHASH_P1_KEY_SIZE) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			printf("%s: TKHash Phase1 %d failed\n", *argv, k);
 			fail++;
 		} else {
@@ -286,7 +302,11 @@ int main(int argc, char **argv)
 		tkhash_phase2(rc4key, tkhash_vec[k].tk, p1k,
 			*(tkhash_vec[k].iv16));
 
+<<<<<<< HEAD
 		if (bcmp(rc4key, tkhash_vec[k].rc4key, TKHASH_P2_KEY_SIZE) != 0) {
+=======
+		if (memcmp(rc4key, tkhash_vec[k].rc4key, TKHASH_P2_KEY_SIZE) != 0) {
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 			printf("%s: TKHash Phase2 %d failed\n", *argv, k);
 			fail++;
 		} else {

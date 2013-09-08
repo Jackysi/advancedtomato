@@ -1,5 +1,7 @@
+include ../../common.mak
+
 #
-# $Id: Makefile 241182 2011-02-17 21:50:03Z gmo $
+# $Id: Makefile 241182 2011-02-17 21:50:03Z $
 #
 
 CROSS =
@@ -9,11 +11,11 @@ STRIP = $(CROSS)strip
 
 ALL_OBJS = emfu.o emfu_linux.o
 
-CCFLAGS = -Os -Wall -I$(SRCBASE)/include -I$(TOP)/shared -I$(SRCBASE)/include/emf/emf $(EXTRACFLAGS)
+CCFLAGS = -Os -Wall -I$(SRCBASE)/include -I../../shared -I$(SRCBASE)/include/emf/emf
 
-ifneq ($(wildcard ./prebuilt),)
+ifeq ($(wildcard ./*.c),)
 all:
-	-cp prebuilt/emf emf
+	-cp prebuild/emf emf
 else
 all: emf
 endif

@@ -4,7 +4,7 @@
  *
  * Definitions subject to change without notice.
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,7 +18,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmcdc.h,v 13.25 2009-09-23 22:40:26 Exp $
+ * $Id: bcmcdc.h 291086 2011-10-21 01:17:24Z $
  */
 #ifndef _bcmcdc_h_
 #define	_bcmcdc_h_
@@ -44,6 +44,11 @@ typedef struct cdc_ioctl {
 /* CDC flag definitions */
 #define CDCF_IOC_ERROR		0x01	/* 0=success, 1=ioctl cmd failed */
 #define CDCF_IOC_SET		0x02	/* 0=get, 1=set cmd */
+#define CDCF_IOC_OVL_IDX_MASK	0x3c	/* overlay region index mask */
+#define CDCF_IOC_OVL_RSV	0x40	/* 1=reserve this overlay region */
+#define CDCF_IOC_OVL		0x80	/* 1=this ioctl corresponds to an overlay */
+#define CDCF_IOC_ACTION_MASK	0xfe	/* SET/GET, OVL_IDX, OVL_RSV, OVL mask */
+#define CDCF_IOC_ACTION_SHIFT	1	/* SET/GET, OVL_IDX, OVL_RSV, OVL shift */
 #define CDCF_IOC_IF_MASK	0xF000	/* I/F index */
 #define CDCF_IOC_IF_SHIFT	12
 #define CDCF_IOC_ID_MASK	0xFFFF0000	/* used to uniquely id an ioctl req/resp pairing */
@@ -65,6 +70,7 @@ typedef struct cdc_ioctl {
 
 #define	BDC_HEADER_LEN		4
 
+#define BDC_PROTO_VER_1		1	/* Old Protocol version */
 #define BDC_PROTO_VER		2	/* Protocol version */
 
 #define BDC_FLAG_VER_MASK	0xf0	/* Protocol version mask */
@@ -76,8 +82,26 @@ typedef struct cdc_ioctl {
 
 #define BDC_PRIORITY_MASK	0x7
 
+#define BDC_FLAG2_FC_FLAG	0x10	/* flag to indicate if pkt contains */
+									/* FLOW CONTROL info only */
+#define BDC_PRIORITY_FC_SHIFT	4		/* flow control info shift */
+
 #define BDC_FLAG2_IF_MASK	0x0f	/* APSTA: interface on which the packet was received */
 #define BDC_FLAG2_IF_SHIFT	0
+#define BDC_FLAG2_PAD_MASK		0xf0
+#define BDC_FLAG_PAD_MASK		0x03
+#define BDC_FLAG2_PAD_SHIFT		2
+#define BDC_FLAG_PAD_SHIFT		0
+#define BDC_FLAG2_PAD_IDX		0x3c
+#define BDC_FLAG_PAD_IDX		0x03
+#define BDC_GET_PAD_LEN(hdr) \
+	((int)(((((hdr)->flags2) & BDC_FLAG2_PAD_MASK) >> BDC_FLAG2_PAD_SHIFT) | \
+	((((hdr)->flags) & BDC_FLAG_PAD_MASK) >> BDC_FLAG_PAD_SHIFT)))
+#define BDC_SET_PAD_LEN(hdr, idx) \
+	((hdr)->flags2 = (((hdr)->flags2 & ~BDC_FLAG2_PAD_MASK) | \
+	(((idx) & BDC_FLAG2_PAD_IDX) << BDC_FLAG2_PAD_SHIFT))); \
+	((hdr)->flags = (((hdr)->flags & ~BDC_FLAG_PAD_MASK) | \
+	(((idx) & BDC_FLAG_PAD_IDX) << BDC_FLAG_PAD_SHIFT)))
 
 #define BDC_GET_IF_IDX(hdr) \
 	((int)((((hdr)->flags2) & BDC_FLAG2_IF_MASK) >> BDC_FLAG2_IF_SHIFT))
@@ -86,7 +110,7 @@ typedef struct cdc_ioctl {
 
 struct bdc_header {
 	uint8	flags;			/* Flags */
-	uint8	priority;		/* 802.1d Priority (low 3 bits) */
+	uint8	priority;		/* 802.1d Priority 0:2 bits, 4:7 USB flow control info */
 	uint8	flags2;
 	uint8	dataOffset;		/* Offset from end of BDC header to packet data, in
 					 * 4-byte words.  Leaves room for optional headers.

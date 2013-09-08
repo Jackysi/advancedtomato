@@ -1,7 +1,7 @@
 /*
  * Fundamental constants relating to TCP Protocol
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2012, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmtcp.h,v 1.4 2009-10-15 22:53:38 Exp $
+ * $Id: bcmtcp.h 327600 2012-04-14 17:50:36Z $
  */
 
 #ifndef _bcmtcp_h_
@@ -31,11 +31,16 @@
 
 #define TCP_SRC_PORT_OFFSET	0	/* TCP source port offset */
 #define TCP_DEST_PORT_OFFSET	2	/* TCP dest port offset */
+#define TCP_HLEN_OFFSET		12	/* HLEN and reserved bits offset */
+#define TCP_FLAGS_OFFSET	13	/* FLAGS and reserved bits offset */
 #define TCP_CHKSUM_OFFSET	16	/* TCP body checksum offset */
 
-#define	TCP_FLAG_RST		0x0004
-#define	TCP_FLAG_SYN		0x0002
-#define	TCP_FLAG_FIN		0x0001
+#define TCP_FLAG_URG            0x0020
+#define TCP_FLAG_ACK            0x0010
+#define TCP_FLAG_PSH            0x0008
+#define TCP_FLAG_RST            0x0004
+#define TCP_FLAG_SYN            0x0002
+#define TCP_FLAG_FIN            0x0001
 
 /* These fields are stored in network order */
 BWL_PRE_PACKED_STRUCT struct bcmtcp_hdr
@@ -49,6 +54,15 @@ BWL_PRE_PACKED_STRUCT struct bcmtcp_hdr
 	uint16	chksum;		/* Segment checksum with pseudoheader */
 	uint16	urg_ptr;	/* Points to seq-num of byte following urg data */
 } BWL_POST_PACKED_STRUCT;
+
+#define TCP_MIN_HEADER_LEN 20
+
+#define TCP_HDRLEN_MASK 0xf0
+#define TCP_HDRLEN_SHIFT 4
+#define TCP_HDRLEN(hdrlen) (((hdrlen) & TCP_HDRLEN_MASK) >> TCP_HDRLEN_SHIFT)
+
+#define TCP_FLAGS_MASK  0x1f
+#define TCP_FLAGS(hdrlen) ((hdrlen) & TCP_FLAGS_MASK)
 
 /* This marks the end of a packed structure section. */
 #include <packed_section_end.h>

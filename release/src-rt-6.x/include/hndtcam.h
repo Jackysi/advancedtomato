@@ -1,7 +1,7 @@
 /*
  * HND SOCRAM TCAM software interface.
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: hndtcam.h,v 1.3 2008-12-17 13:09:49 Exp $
+ * $Id: hndtcam.h 317281 2012-02-27 11:23:27Z $
  */
 #ifndef _hndtcam_h_
 #define _hndtcam_h_
@@ -36,8 +36,36 @@
 #define SRPC_PATCHCOUNT PATCHCOUNT
 #endif
 
+#if defined(__ARM_ARCH_7R__)
+#ifndef PATCHCOUNT
+#define PATCHCOUNT 1
+#endif
+#define	ARMCR4_TCAMPATCHCOUNT	PATCHCOUNT
+#define ARMCR4_TCAMADDR_MASK (~((1 << (ARMCR4_TCAMPATCHCOUNT + 2))-1))
+#define ARMCR4_PATCHNLOC (1 << ARMCR4_TCAMPATCHCOUNT)
+#endif	/* defined(__ARM_ARCH_7R__) */
+
 /* N Consecutive location to patch */
 #define SRPC_PATCHNLOC (1 << (SRPC_PATCHCOUNT))
+
+#define PATCHHDR(_p)		__attribute__ ((__section__ (".patchhdr."#_p))) _p
+#define PATCHENTRY(_p)		__attribute__ ((__section__ (".patchentry."#_p))) _p
+
+#if defined(__ARM_ARCH_7R__)
+typedef struct {
+	uint32	data[ARMCR4_PATCHNLOC];
+} patch_entry_t;
+#else
+typedef struct {
+	uint32	data[SRPC_PATCHNLOC];
+} patch_entry_t;
+#endif
+
+typedef struct {
+	void		*addr;		/* patch address */
+	uint32		len;		/* bytes to patch in entry */
+	patch_entry_t	*entry;		/* patch entry data */
+} patch_hdr_t;
 
 /* patch values and address structure */
 typedef struct patchaddrvalue {
@@ -45,10 +73,15 @@ typedef struct patchaddrvalue {
 	uint32	value;
 } patchaddrvalue_t;
 
+extern void *socram_regs;
+extern uint32 socram_rev;
+
+extern void *arm_regs;
+
 extern void hnd_patch_init(void *srp);
-extern void hnd_tcam_write(void *srp, uint16 index, uint32 data);
-extern void hnd_tcam_read(void *srp, uint16 index, uint32 *content);
-void * hnd_tcam_init(void *srp, uint no_addrs);
+extern void hnd_tcam_write(void *srp, uint16 idx, uint32 data);
+extern void hnd_tcam_read(void *srp, uint16 idx, uint32 *content);
+void * hnd_tcam_init(void *srp, int no_addrs);
 extern void hnd_tcam_disablepatch(void *srp);
 extern void hnd_tcam_enablepatch(void *srp);
 #ifdef CONFIG_XIP
@@ -56,5 +89,7 @@ extern void hnd_tcam_bootloader_load(void *srp, char *pvars);
 #else
 extern void hnd_tcam_load(void *srp, const  patchaddrvalue_t *patchtbl);
 #endif /* CONFIG_XIP */
+extern void BCMATTACHFN(hnd_tcam_load_default)(void);
+extern void hnd_tcam_reclaim(void);
 
 #endif /* _hndtcam_h_ */

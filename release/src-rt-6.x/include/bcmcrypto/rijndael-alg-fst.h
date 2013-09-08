@@ -1,4 +1,4 @@
-/* $Id: rijndael-alg-fst.h,v 1.6 2006-06-14 21:10:12 Exp $ */
+/* $Id: rijndael-alg-fst.h 241182 2011-02-17 21:50:03Z $ */
 
 /**
  * rijndael-alg-fst.h
@@ -25,7 +25,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -39,7 +39,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: rijndael-alg-fst.h,v 1.6 2006-06-14 21:10:12 Exp $
+ * $Id: rijndael-alg-fst.h 241182 2011-02-17 21:50:03Z $
  */
 
 #ifndef __RIJNDAEL_ALG_FST_H

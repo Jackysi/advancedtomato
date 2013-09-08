@@ -1,6 +1,10 @@
 /*
  * random.c
+<<<<<<< HEAD
  * Copyright (C) 2010, Broadcom Corporation
+=======
+ * Copyright (C) 2011, Broadcom Corporation
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -8,7 +12,11 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
+<<<<<<< HEAD
  * $Id: random.c,v 1.13 2009-06-11 02:38:23 Exp $
+=======
+ * $Id: random.c 241182 2011-02-17 21:50:03Z $
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
  */
 #include <stdio.h>
 #if defined(__linux__)
@@ -42,6 +50,11 @@ void linux_random(uint8 *rand, int len);
 void windows_random(uint8 *rand, int len);
 #elif (defined(__ECOS) || defined(TARGETOS_nucleus))
 void generic_random(uint8* rand, int len);
+<<<<<<< HEAD
+=======
+#elif defined(TARGETOS_symbian)
+void generic_random(uint8* rand, int len);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 #endif /* __linux__ */
 
 void RAND_bytes(unsigned char *buf, int num)
@@ -52,6 +65,11 @@ void RAND_bytes(unsigned char *buf, int num)
 	windows_random(buf, num);
 #elif (defined(__ECOS) || defined(TARGETOS_nucleus))
 	generic_random(buf, num);
+<<<<<<< HEAD
+=======
+#elif defined(TARGETOS_symbian)
+	generic_random(buf, num);
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 #endif /* __linux__ */
 }
 
@@ -95,6 +113,10 @@ void RAND_ecos_init()
 {
 	BN_register_RAND(generic_random);
 }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 #elif WIN32
 void RAND_windows_init()
 {
@@ -164,9 +186,20 @@ void RAND_generic_init()
 {
 	BN_register_RAND(generic_random);
 }
+<<<<<<< HEAD
 #endif /* __linux__ */
 
 #if (defined(__ECOS) || defined(TARGETOS_nucleus))
+=======
+#elif TARGETOS_symbian
+void RAND_generic_init()
+{
+	BN_register_RAND(generic_random);
+}
+#endif /* __linux__ */
+
+#if (defined(__ECOS) || defined(TARGETOS_nucleus) || defined(TARGETOS_symbian))
+>>>>>>> 055422e... import shared dir, include, emf, bcm57xx and bcmcrypto
 void
 generic_random(uint8 * random, int len)
 {

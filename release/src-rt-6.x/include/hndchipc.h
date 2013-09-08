@@ -1,7 +1,7 @@
 /*
  * HND SiliconBackplane chipcommon support.
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: hndchipc.h,v 13.7 2008-11-13 23:38:15 Exp $
+ * $Id: hndchipc.h 241182 2011-02-17 21:50:03Z $
  */
 
 #ifndef _hndchipc_h_

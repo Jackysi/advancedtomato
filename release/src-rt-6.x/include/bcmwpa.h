@@ -1,7 +1,7 @@
 /*
  * bcmwpa.h - interface definitions of shared WPA-related functions
  *
- * Copyright (C) 2010, Broadcom Corporation
+ * Copyright (C) 2012, Broadcom Corporation
  * All Rights Reserved.
  * 
  * This is UNPUBLISHED PROPRIETARY SOURCE CODE of Broadcom Corporation;
@@ -9,7 +9,7 @@
  * or duplicated in any form, in whole or in part, without the prior
  * written permission of Broadcom Corporation.
  *
- * $Id: bcmwpa.h,v 13.44.12.7 2010-11-30 06:26:15 Exp $
+ * $Id: bcmwpa.h 350375 2012-08-13 17:31:20Z $
  */
 
 #ifndef _BCMWPA_H_
@@ -24,6 +24,7 @@
 #include <proto/p2p.h>
 #endif
 #include <bcmcrypto/rc4.h>
+#include <bcmutils.h>
 #include <wlioctl.h>
 
 /* Field sizes for WPA key hierarchy */
@@ -34,14 +35,6 @@
 #define WPA_TEMP_RX_KEY_LEN	8
 
 #define PMK_LEN			32
-#if defined(BCMEXTCCX)
-#define	WEP128_PTK_LEN		48
-#define	WEP128_TK_LEN		13
-#define	WEP1_PTK_LEN		48
-#define	WEP1_TK_LEN		5
-#define CKIP_PTK_LEN		48
-#define CKIP_TK_LEN		16
-#endif 
 #define TKIP_PTK_LEN		64
 #define TKIP_TK_LEN		32
 #define AES_PTK_LEN		48
@@ -58,34 +51,13 @@
 	((bsscfg)->wsec & WSEC_SWFLAG)))
 
 
-#define WSEC_WEP_ENABLED(wsec)	((wsec) & WEP_ENABLED)
-#define WSEC_TKIP_ENABLED(wsec)	((wsec) & TKIP_ENABLED)
-#define WSEC_AES_ENABLED(wsec)	((wsec) & AES_ENABLED)
-#ifdef BCMWAPI_WPI
-#define WSEC_ENABLED(wsec)	((wsec) & (WEP_ENABLED | TKIP_ENABLED | AES_ENABLED | SMS4_ENABLED))
-#else /* BCMWAPI_WPI */
-#define WSEC_ENABLED(wsec)	((wsec) & (WEP_ENABLED | TKIP_ENABLED | AES_ENABLED))
-#endif /* BCMWAPI_WPI */
-#define WSEC_SES_OW_ENABLED(wsec)	((wsec) & SES_OW_ENABLED)
+
 #define IS_WPA_AUTH(auth)	((auth) == WPA_AUTH_NONE || \
 				 (auth) == WPA_AUTH_UNSPECIFIED || \
 				 (auth) == WPA_AUTH_PSK)
 #define INCLUDES_WPA_AUTH(auth)	\
 			((auth) & (WPA_AUTH_NONE | WPA_AUTH_UNSPECIFIED | WPA_AUTH_PSK))
 
-#if defined(BCMEXTCCX)
-#define IS_WPA2_AUTH(auth)	((auth) == WPA2_AUTH_UNSPECIFIED || \
-				 (auth) == WPA2_AUTH_PSK || \
-				 (auth) == WPA2_AUTH_CCKM || \
-				 (auth) == BRCM_AUTH_PSK || \
-				 (auth) == BRCM_AUTH_DPT)
-#define INCLUDES_WPA2_AUTH(auth) \
-			((auth) & (WPA2_AUTH_UNSPECIFIED | \
-				   WPA2_AUTH_PSK | \
-				   WPA2_AUTH_CCKM | \
-				   BRCM_AUTH_PSK | \
-				   BRCM_AUTH_DPT))
-#else
 #define IS_WPA2_AUTH(auth)	((auth) == WPA2_AUTH_UNSPECIFIED || \
 				 (auth) == WPA2_AUTH_PSK || \
 				 (auth) == BRCM_AUTH_PSK || \
@@ -95,13 +67,8 @@
 				   WPA2_AUTH_PSK | \
 				   BRCM_AUTH_PSK | \
 				   BRCM_AUTH_DPT))
-#endif 
 
 
-#if defined(BCMEXTCCX)
-#define IS_CCKM_AUTH(auth) ((auth) == WPA_AUTH_CCKM || (auth) == WPA2_AUTH_CCKM)
-#define INCLUDES_CCKM_AUTH(auth) ((auth) & (WPA_AUTH_CCKM | WPA2_AUTH_CCKM))
-#endif 
 
 #define IS_WPA_AKM(akm)	((akm) == RSN_AKM_NONE || \
 				 (akm) == RSN_AKM_UNSPECIFIED || \
@@ -112,6 +79,7 @@
 				 (akm) == RSN_AKM_FBT_PSK)
 #define IS_MFP_AKM(akm)	((akm) == RSN_AKM_MFP_1X || \
 				 (akm) == RSN_AKM_MFP_PSK)
+#define IS_TDLS_AKM(akm)        ((akm) == RSN_AKM_TPK)
 
 /* Broadcom(OUI) authenticated key managment suite */
 #define BRCM_AKM_NONE           0
@@ -133,6 +101,23 @@
 #define WPS_ATID_SEL_REGISTRAR		0x1041
 
 #define WPS_IE_FIXED_LEN	6
+
+/* GTK indices we use - 0-3 valid per IEEE/802.11 2012 */
+#define GTK_INDEX_1       1
+#define GTK_INDEX_2       2
+
+/* IGTK indices we use - 4-5 are valid per IEEE 802.11 2012 */
+#define IGTK_INDEX_1      4
+#define IGTK_INDEX_2      5
+
+#define IS_IGTK_INDEX(x) ((x) == IGTK_INDEX_1 || (x) == IGTK_INDEX_2)
+
+/* special reserved wsec index wsec key table for IGTK */
+#define IGTK_ID_TO_WSEC_INDEX(x) (-(int)(x))
+#define IS_IGTK_WSEC_INDEX_1(x) (x == IGTK_ID_TO_WSEC_INDEX(IGTK_INDEX_1))
+#define IS_IGTK_WSEC_INDEX_2(x) (x == IGTK_ID_TO_WSEC_INDEX(IGTK_INDEX_2))
+#define IS_IGTK_WSEC_INDEX(x) (IS_IGTK_WSEC_INDEX_1(x) || \
+	IS_IGTK_WSEC_INDEX_2(x))
 
 /* WiFi WPS Attribute fixed portion */
 typedef struct wps_at_fixed {
@@ -158,7 +143,11 @@ extern bool BCMROMFN(wpa_cipher)(wpa_suite_t *suite, ushort *cipher, bool wep_ok
 
 /* Look for a WPA IE; return it's address if found, NULL otherwise */
 extern wpa_ie_fixed_t *BCMROMFN(bcm_find_wpaie)(uint8 *parse, uint len);
+#if defined(NDIS) && (NDISVER >= 0x0630) && 0
 extern wme_ie_t *bcm_find_wmeie(uint8 *parse, uint len, uint8 subtype, uint8 subtype_len);
+#else
+extern bcm_tlv_t *bcm_find_wmeie(uint8 *parse, uint len, uint8 subtype, uint8 subtype_len);
+#endif
 /* Look for a WPS IE; return it's address if found, NULL otherwise */
 extern wps_ie_fixed_t *bcm_find_wpsie(uint8 *parse, uint len);
 extern wps_at_fixed_t *bcm_wps_find_at(wps_at_fixed_t *at, int len, uint16 id);
@@ -252,7 +241,7 @@ extern bool BCMROMFN(bcmwpa_akm2WPAauth)(uint8 *akm, uint32 *auth, bool sta_iswp
 
 extern bool BCMROMFN(bcmwpa_cipher2wsec)(uint8 *cipher, uint32 *wsec);
 
-#if defined(MFP) || defined(WLFBT)
+#ifdef MFP
 /* Calculate PMKID */
 extern void kdf_calc_pmkid(struct ether_addr *auth_ea, struct ether_addr *sta_ea,
 	uint8 *pmk, uint pmk_len, uint8 *pmkid, uint8 *data, uint8 *digest);
@@ -261,4 +250,9 @@ extern void kdf_calc_ptk(struct ether_addr *auth_ea, struct ether_addr *sta_ea,
                                    uint8 *ptk, uint ptk_len);
 #endif
 
+#ifdef WLTDLS
+/* Calculate TPK for TDLS association */
+extern void wpa_calc_tpk(struct ether_addr *init_ea, struct ether_addr *resp_ea,
+struct ether_addr *bssid, uint8 *anonce, uint8* snonce, uint8 *tpk, uint tpk_len);
+#endif
 #endif	/* _BCMWPA_H_ */

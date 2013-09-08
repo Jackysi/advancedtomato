@@ -1,7 +1,7 @@
 /*
  * BCM47XX support code for some chipcommon facilities (uart, jtagm)
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,9 +15,10 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: hndchipc.c,v 1.26 2010-01-05 19:11:24 Exp $
+ * $Id: hndchipc.c 300516 2011-12-04 17:39:44Z $
  */
 
+#include <bcm_cfg.h>
 #include <typedefs.h>
 #include <bcmdefs.h>
 #include <osl.h>
@@ -64,6 +65,15 @@ static cc_isr_info_t cc_isr_desc[MAX_CC_INT_SOURCE];
 static uint32 cc_intmask = 0;
 
 /*
+ * ROM accessor to avoid struct in shdat
+ */
+static cc_isr_info_t *
+get_cc_isr_desc(void)
+{
+	return cc_isr_desc;
+}
+
+/*
  * Initializes UART access. The callback function will be called once
  * per found UART.
  */
@@ -82,9 +92,6 @@ BCMATTACHFN(si_serial_init)(si_t *sih, si_serial_init_fn add)
 	cc = (chipcregs_t *)si_setcoreidx(sih, SI_CC_IDX);
 	ASSERT(cc);
 
-	/* Default value */
-	div = 48;
-
 	/* Determine core revision and capabilities */
 	rev = sih->ccrev;
 	cap = sih->cccaps;
@@ -100,14 +107,8 @@ BCMATTACHFN(si_serial_init)(si_t *sih, si_serial_init_fn add)
 		                          R_REG(osh, &cc->clockcontrol_m2));
 		div = 1;
 	} else {
-		/* 5354 chip common uart uses a constant clock
-		 * frequency of 25MHz */
-		if (rev == 20) {
-			/* Set the override bit so we don't divide it */
-			W_REG(osh, &cc->corecontrol, CC_UARTCLKO);
-			baud_base = 25000000;
-		} else if (rev >= 11 && rev != 15) {
 		/* Fixed ALP clock */
+		if (rev >= 11 && rev != 15) {
 			baud_base = si_alp_clock(sih);
 			div = 1;
 			/* Turn off UART clock before switching clock source */
@@ -333,7 +334,7 @@ BCMATTACHFN(si_cc_register_isr)(si_t *sih, cc_isr_fn isr, uint32 ccintmask, void
 	return done;
 }
 
-/* 
+/*
  * chipc primary interrupt handler
  *
  */
@@ -344,6 +345,7 @@ si_cc_isr(si_t *sih, chipcregs_t *regs)
 	uint32 ccintstatus;
 	uint32 intstatus;
 	uint32 i;
+	cc_isr_info_t *desc;
 
 	/* prior to rev 21 chipc interrupt means uart and gpio */
 	if (sih->ccrev >= 21)
@@ -351,10 +353,12 @@ si_cc_isr(si_t *sih, chipcregs_t *regs)
 	else
 		ccintstatus = (CI_UART | CI_GPIO);
 
-	for (i = 0; i < MAX_CC_INT_SOURCE; i ++) {
-		if ((cc_isr_desc[i].isr != NULL) &&
-		    (intstatus = (cc_isr_desc[i].intmask & ccintstatus))) {
-			(cc_isr_desc[i].isr)(cc_isr_desc[i].cbdata, intstatus);
+	desc = get_cc_isr_desc();
+	ASSERT(desc);
+	for (i = 0; i < MAX_CC_INT_SOURCE; i++, desc++) {
+		if ((desc->isr != NULL) &&
+		    (intstatus = (desc->intmask & ccintstatus))) {
+			(desc->isr)(desc->cbdata, intstatus);
 		}
 	}
 }

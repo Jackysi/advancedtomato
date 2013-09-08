@@ -12,12 +12,17 @@ SECTIONS {
 		*(.fini)
 		*(.glue_7t)
 		*(.glue_7)
+		_etext = .;
+		text_end = .;
+	}
+
+	.rodata : {
+		rodata_start = .;
 		*(.rdata)
 		*(.rdata.*)
 		*(.rodata)
 		*(.rodata.*)
-		_etext = .;
-		text_end = .;
+		rodata_end = .;
 	}
 
 	.data : {
@@ -48,7 +53,6 @@ SECTIONS {
 		. = ALIGN(16);
 		_retext1 = .;
 	}
-
 	.datarc1 : {
 		*(.dataini1.*)
 		. = ALIGN(4);
@@ -62,11 +66,25 @@ SECTIONS {
 		. = ALIGN(16);
 		_retext2 = .;
 	}
-
 	.datarc2 : {
 		*(.dataini2.*)
 		. = ALIGN(4);
+		_clmincstart = .;
+		*(.clmdataini2.*)
+		_clmincend = .;
+		. = ALIGN(4);
 		_rend2 = .;
 	}
+
+	/* Reclaim region 3 for BCMPREATTACHDATA/BCMPREATTACHFN */
+	.textrc3 : {
+		_rstart3 = .;
+		*(.textini3.*)
+	}
+	.datarc3 : {
+		*(.dataini3.*)
+		_rend3 = .;
+	}
+
 	_end = .;
 }

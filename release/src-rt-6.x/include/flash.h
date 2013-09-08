@@ -1,7 +1,7 @@
 /*
  * flash.h: Common definitions for flash access.
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: flash.h,v 13.25.110.1 2010-10-13 04:00:31 Exp $
+ * $Id: flash.h 281527 2011-09-02 17:12:53Z $
  */
 
 /* FILE-CSTYLED Cannot figure out how to make the initialization continuation lines acceptable */
@@ -260,9 +260,9 @@ flash_desc_t flashes[] = {
 	  "EON 29LV320CB 2Mx16 BotB" },
 	{ 0x00C2, 0x22c4, 0x0200000, 2,	AMD, 0x10000, 32,  0, 30,  4, amd4112,
 	  "MX 29LV160CT 1Mx16 TopB" },
-	{ 0x00C2, 0x2249, 0x0200000, 2,	AMD, 0x10000, 32,  1, 31,  4, amd2114, 
+	{ 0x00C2, 0x2249, 0x0200000, 2,	AMD, 0x10000, 32,  1, 31,  4, amd2114,
 	  "MX 29LV160CB 1Mx16 BotB" },
-	{ 0x00C2, 0x22a8, 0x0400000, 2,	AMD, 0x10000, 64,  1, 63,  8, blk8x8k, 
+	{ 0x00C2, 0x22a8, 0x0400000, 2,	AMD, 0x10000, 64,  1, 63,  8, blk8x8k,
 	  "MX 29LV320CB 2Mx16 BotB" },
 	{ 0x00C2, 0x00A7, 0x0400000, 2,	AMD, 0x10000, 64,  0, 62,  4, amd4112,
 	  "MX29LV320T 2Mx16 TopB" },

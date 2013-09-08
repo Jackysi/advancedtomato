@@ -1,7 +1,7 @@
 /*
  * Misc system wide definitions
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2012, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: bcmdefs.h,v 13.69.10.2 2010-10-05 00:46:12 Exp $
+ * $Id: bcmdefs.h 346153 2012-07-20 07:39:53Z $
  */
 
 #ifndef	_bcmdefs_h_
@@ -29,7 +29,17 @@
 /* Use BCM_REFERENCE to suppress warnings about intentionally-unused function
  * arguments or local variables.
  */
-#define BCM_REFERENCE(data)	((void)data)
+#define BCM_REFERENCE(data)	((void)(data))
+
+/* Compile-time assert can be used in place of ASSERT if the expression evaluates
+ * to a constant at compile time.
+ */
+#define STATIC_ASSERT(expr) { \
+	/* Make sure the expression is constant. */ \
+	typedef enum { _STATIC_ASSERT_NOT_CONSTANT = (expr) } _static_assert_e; \
+	/* Make sure the expression is true. */ \
+	typedef char STATIC_ASSERT_FAIL[(expr) ? 1 : -1]; \
+}
 
 /* Reclaiming text and data :
  * The following macros specify special linker sections that can be reclaimed
@@ -40,12 +50,18 @@
 #ifdef DONGLEBUILD
 
 extern bool bcmreclaimed;
+extern bool attach_part_reclaimed;
 
 #define BCMATTACHDATA(_data)	__attribute__ ((__section__ (".dataini2." #_data))) _data
 #define BCMATTACHFN(_fn)	__attribute__ ((__section__ (".textini2." #_fn), noinline)) _fn
 
+#ifndef PREATTACH_NORECLAIM
+#define BCMPREATTACHDATA(_data)	__attribute__ ((__section__ (".dataini3." #_data))) _data
+#define BCMPREATTACHFN(_fn)	__attribute__ ((__section__ (".textini3." #_fn), noinline)) _fn
+#else
 #define BCMPREATTACHDATA(_data)	__attribute__ ((__section__ (".dataini2." #_data))) _data
 #define BCMPREATTACHFN(_fn)	__attribute__ ((__section__ (".textini2." #_fn), noinline)) _fn
+#endif
 
 #if defined(BCMRECLAIM)
 #define BCMINITDATA(_data)	__attribute__ ((__section__ (".dataini1." #_data))) _data
@@ -69,21 +85,6 @@ extern bool bcmreclaimed;
 #define BCMUNINITFN(_fn)	_fn
 
 #define BCMFASTPATH
-
-#ifdef DONGLEOVERLAYS
-#define BCMOVERLAY0DATA(_sym)	__attribute__ ((__section__ (".r0overlay." #_sym))) _sym
-#define BCMOVERLAY0FN(_fn)	__attribute__ ((__section__ (".r0overlay." #_fn))) _fn
-#define BCMOVERLAY1DATA(_sym)	__attribute__ ((__section__ (".r1overlay." #_sym))) _sym
-#define BCMOVERLAY1FN(_fn)	__attribute__ ((__section__ (".r1overlay." #_fn))) _fn
-#define BCMOVERLAYERRFN(_fn)	__attribute__ ((__section__ (".overlayerr." #_fn))) _fn
-#else
-#define BCMOVERLAY0DATA(_sym)	_sym
-#define BCMOVERLAY0FN(_fn)	_fn
-#define BCMOVERLAY1DATA(_sym)	_sym
-#define BCMOVERLAY1FN(_fn)	_fn
-#define BCMOVERLAYERRFN(_fn)	_fn
-#endif /* DONGLEOVERLAYS */
-
 #else /* DONGLEBUILD */
 
 #define bcmreclaimed 		0
@@ -96,17 +97,16 @@ extern bool bcmreclaimed;
 #define BCMUNINITFN(_fn)	_fn
 #define	BCMNMIATTACHFN(_fn)	_fn
 #define	BCMNMIATTACHDATA(_data)	_data
-#define BCMOVERLAY0DATA(_sym)	_sym
-#define BCMOVERLAY0FN(_fn)	_fn
-#define BCMOVERLAY1DATA(_sym)	_sym
-#define BCMOVERLAY1FN(_fn)	_fn
-#define BCMOVERLAYERRFN(_fn)	_fn
 #define CONST	const
-#ifdef mips
-#define BCMFASTPATH		__attribute__ ((__section__(".text.fastpath")))
+#ifndef BCMFASTPATH
+#if defined(mips) || defined(__ARM_ARCH_7A__)
+#define BCMFASTPATH		__attribute__ ((__section__ (".text.fastpath")))
+#define BCMFASTPATH_HOST	__attribute__ ((__section__ (".text.fastpath_host")))
 #else
 #define BCMFASTPATH
+#define BCMFASTPATH_HOST
 #endif
+#endif /* BCMFASTPATH */
 
 #endif /* DONGLEBUILD */
 
@@ -119,7 +119,7 @@ typedef struct {
 #endif
 
 /* Put some library data/code into ROM to reduce RAM requirements */
-#if defined(BCMROMBUILD)
+#if defined(BCMROMBUILD) && !defined(BCMROMSYMGEN_BUILD) && !defined(BCMJMPTBL_TCAM)
 #include <bcmjmptbl.h>
 #define STATIC	static
 #else /* !BCMROMBUILD */
@@ -133,58 +133,6 @@ typedef struct {
 #define BCMROMDAT_APATCH(data)
 #define BCMROMDAT_SPATCH(data)
 #endif /* !BCMROMBUILD */
-
-/* overlay function tagging */
-#ifdef DONGLEBUILD
-#ifdef DONGLEOVERLAYS
-/* force a func to be inline if it's only accessed by overlays and ATTACH code */
-#define OVERLAY_INLINE	__attribute__ ((always_inline))
-#define OSTATIC
-#define BCMOVERLAYDATA(_ovly, _sym) \
-	__attribute__ ((aligned(4), __section__ (".r" #_ovly "overlay." #_sym))) _sym
-#define BCMOVERLAYFN(_ovly, _fn) \
-	__attribute__ ((__section__ (".r" #_ovly "overlay." #_fn))) _fn
-#define BCMOVERLAYERRFN(_fn) \
-	__attribute__ ((__section__ (".overlayerr." #_fn))) _fn
-#define BCMROMOVERLAYDATA(_ovly, _sym)		BCMOVERLAYDATA(_ovly, _sym)
-#define BCMROMOVERLAYFN(_ovly, _fn)			BCMOVERLAYFN(_ovly, _fn)
-#define BCMATTACHOVERLAYDATA(_ovly, _sym)	BCMOVERLAYDATA(_ovly, _sym)
-#define BCMATTACHOVERLAYFN(_ovly, _fn)		BCMOVERLAYFN(_ovly, _fn)
-#define BCMINITOVERLAYDATA(_ovly, _sym)		BCMOVERLAYDATA(_ovly, _sym)
-#define BCMINITOVERLAYFN(_ovly, _fn)		BCMOVERLAYFN(_ovly, _fn)
-#define BCMUNINITOVERLAYFN(_ovly, _fn)		BCMOVERLAYFN(_ovly, _fn)
-#else
-#define OVERLAY_INLINE
-#define OSTATIC			static
-#define BCMOVERLAYDATA(_ovly, _sym)	_sym
-#define BCMOVERLAYFN(_ovly, _fn)	_fn
-#define BCMOVERLAYERRFN(_fn)	_fn
-/* revert to standard definitions for BCMATTACH* and BCMINIT* if not overlay build */
-#define BCMROMOVERLAYDATA(_ovly, _data)	BCMROMDATA(_data)
-#define BCMROMOVERLAYFN(_ovly, _fn)		BCMROMFN(_fn)
-#define BCMATTACHOVERLAYDATA(_ovly, _sym)	BCMATTACHDATA(_sym)
-#define BCMATTACHOVERLAYFN(_ovly, _fn)		BCMATTACHFN(_fn)
-#define BCMINITOVERLAYDATA(_ovly, _sym)		BCMINITDATA(_sym)
-#define BCMINITOVERLAYFN(_ovly, _fn)		BCMINITFN(_fn)
-#define BCMUNINITOVERLAYFN(_ovly, _fn)		BCMUNINITFN(_fn)
-#endif /* DONGLEOVERLAYS */
-
-#else
-
-#define OVERLAY_INLINE
-#define OSTATIC			static
-#define BCMOVERLAYDATA(_ovly, _sym)	_sym
-#define BCMOVERLAYFN(_ovly, _fn)	_fn
-#define BCMOVERLAYERRFN(_fn)	_fn
-#define BCMROMOVERLAYDATA(_ovly, _data)	BCMROMDATA(_data)
-#define BCMROMOVERLAYFN(_ovly, _fn)		BCMROMFN(_fn)
-#define BCMATTACHOVERLAYDATA(_ovly, _sym)	BCMATTACHDATA(_sym)
-#define BCMATTACHOVERLAYFN(_ovly, _fn)		BCMATTACHFN(_fn)
-#define BCMINITOVERLAYDATA(_ovly, _sym)		BCMINITDATA(_sym)
-#define BCMINITOVERLAYFN(_ovly, _fn)		BCMINITFN(_fn)
-#define BCMUNINITOVERLAYFN(_ovly, _fn)		BCMUNINITFN(_fn)
-
-#endif /* DONGLEBUILD */
 
 /* Bus types */
 #define	SI_BUS			0	/* SOC Interconnect */
@@ -284,6 +232,9 @@ typedef struct  {
  */
 #define MAX_DMA_SEGS 8
 #elif defined(__NetBSD__)
+/* In NetBSD we also want more segments because the lower level mbuf mapping api might
+ * allocate a large number of segments
+ */
 #define MAX_DMA_SEGS 16
 #else
 #define MAX_DMA_SEGS 4
@@ -309,9 +260,9 @@ typedef struct {
 #define BCMEXTRAHDROOM 220
 #else /* BCM_RPC_NOCOPY || BCM_RPC_TXNOCOPY */
 #ifdef CTFMAP
-#define BCMEXTRAHDROOM 176
+#define BCMEXTRAHDROOM 208
 #else /* CTFMAP */
-#define BCMEXTRAHDROOM 172
+#define BCMEXTRAHDROOM 204
 #endif /* CTFMAP */
 #endif /* BCM_RPC_NOCOPY || BCM_RPC_TXNOCOPY */
 
@@ -338,15 +289,10 @@ typedef struct {
 #define BCMDBG_ERR
 #endif /* BCMDBG_ERR */
 
-#ifndef BCMDBG_ASSERT
 #define BCMDBG_ASSERT
-#endif /* BCMDBG_ASSERT */
 
 #endif /* BCMDBG */
 
-#if defined(BCMDBG_ASSERT)
-#define BCMASSERT_SUPPORT
-#endif 
 
 /* Macros for doing definition and get/set of bitfields
  * Usage example, e.g. a three-bit field (bits 4-6):
@@ -378,6 +324,8 @@ typedef struct {
 /* Max. nvram variable table size */
 #define	MAXSZ_NVRAM_VARS	4096
 
-#define LOCATOR_EXTERN static
+#ifdef EFI
+#define __attribute__(x)	/* CSTYLED */
+#endif
 
 #endif /* _bcmdefs_h_ */

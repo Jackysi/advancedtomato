@@ -1,7 +1,7 @@
 /*
  * BCM47XX Denali DDR1/DDR2 and SDR/DDR1 memory controlers.
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: dmemc_core.h,v 13.8.24.1 2010-11-19 04:15:25 Exp $
+ * $Id: dmemc_core.h 241182 2011-02-17 21:50:03Z $
  */
 
 #ifndef	_DMEMC_H

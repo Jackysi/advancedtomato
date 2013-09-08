@@ -1,7 +1,7 @@
 /*
  * CFE OS Independent Layer
  *
- * Copyright (C) 2010, Broadcom Corporation. All Rights Reserved.
+ * Copyright (C) 2011, Broadcom Corporation. All Rights Reserved.
  * 
  * Permission to use, copy, modify, and/or distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,7 +15,7 @@
  * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
- * $Id: cfe_osl.c,v 1.22 2009-07-10 22:43:40 Exp $
+ * $Id: cfe_osl.c 300516 2011-12-04 17:39:44Z $
  */
 
 #include <typedefs.h>
@@ -154,14 +154,6 @@ osl_dma_free_consistent(void *va)
 	KFREE((void *) KERNADDR(PHYSADDR((ulong) va)));
 }
 
-#ifdef BCMDBG_ASSERT
-void
-osl_assert(char *exp, char *file, int line)
-{
-	printf("assertion \"%s\" failed: file \"%s\", line %d\n", exp, file, line);
-	*((int *) 0) = 0;
-}
-#endif /* BCMDBG_ASSERT */
 
 int
 osl_busprobe(uint32 *val, uint32 addr)
